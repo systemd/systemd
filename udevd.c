@@ -35,6 +35,7 @@
 #include <fcntl.h>
 #include "klibc_fixups.h"
 #include <sys/sysinfo.h>
+#include <sys/stat.h>
 
 #include "list.h"
 #include "udev.h"
@@ -457,7 +458,7 @@ int main(int argc, char *argv[])
 
 	
 	/* set signal handlers */
-	act.sa_handler = sig_handler;
+	act.sa_handler = (void (*) (int))sig_handler;
 	sigemptyset(&act.sa_mask);
 	act.sa_flags = SA_RESTART;
 	sigaction(SIGINT, &act, NULL);
