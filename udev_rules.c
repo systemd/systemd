@@ -415,11 +415,13 @@ static int execute_program(struct udevice *udev, const char *path, char *value, 
 		dup2(fds[1], STDOUT_FILENO);
 		retval = execv(arg, argv);
 
-		info(KEY_PROGRAM " execution of '%s' failed", path);
-		exit(1);
+		err(KEY_PROGRAM " execution of '%s' failed", path);
+		retval = -1;
+		break;
 	case -1:
 		err("fork of '%s' failed", path);
-		return -1;
+		retval = -1;
+		break;
 	default:
 		/* parent reads from fds[0] */
 		close(fds[1]);
