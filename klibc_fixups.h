@@ -3,12 +3,6 @@
 #ifndef KLIBC_FIXUPS_H
 #define KLIBC_FIXUPS_H 
 
-
-#define WTERMSIG(status)	((status) & 0x7f)
-#define WEXITSTATUS(status)	(((status) & 0xff00) >> 8)
-#define WIFEXITED(status)	(WTERMSIG(status) == 0)
-
-
 struct group {
 	char	*gr_name;	/* group name */
 	char	*gr_passwd;	/* group password */
