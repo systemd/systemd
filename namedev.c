@@ -564,7 +564,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 			if (tmpattr)
 				goto label_found;
 
-			/* look in the class device device directory if present */
+			/* look in the class device directory if present */
 			if (class_dev->sysdevice) {
 				tmpattr = sysfs_get_classdev_attr(class_dev, dev->sysfs_file);
 				if (tmpattr)
@@ -597,7 +597,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 					if (tmpattr) 
 						goto label_found;
 
-					/* look in the class device device directory if present */
+					/* look in the class device directory if present */
 					if (class_dev_parent->sysdevice) {
 						tmpattr = sysfs_get_classdev_attr(class_dev_parent, dev->sysfs_file);
 						if (tmpattr) 
