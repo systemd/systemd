@@ -78,12 +78,11 @@ static void udev_exec(const char *path, const char* subsystem)
 	}
 }
 
-static int udev_scan(void)
+static void udev_scan(void)
 {
 	char *devpath;
 	DIR *dir;
 	struct dirent *dent;
-	int retval = -EINVAL;
 
 	devpath = "block";
 	dir = opendir(SYSBLOCK);
@@ -179,11 +178,6 @@ static int udev_scan(void)
 			}
 		}
 	}
-
-	if (retval > 0)
-		retval = 0;
-
-	return -retval;
 }
 
 
@@ -191,5 +185,7 @@ int main(int argc, char *argv[], char *envp[])
 {
 	init_logging("udevstart");
 
-	return udev_scan();
+	udev_scan();
+
+	return 0;
 }
