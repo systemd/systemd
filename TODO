@@ -29,3 +29,8 @@ greg@kroah.com
   etc.)
 - add hooks to call D-BUS when new node is created or removed
 - lots of other stuff...
+- actually use the BUS= value to determine where the LABEL rule should look
+  (right now it's ignored, and we only look in the current sysfs directory.)
+  This is needed, for example, to look at the usb device's serial number of a
+  usb-storage device, instead of the scsi device's sysfs directory for the
+  serial number.
