@@ -34,7 +34,7 @@
 
 /* Debugging */
 #ifdef DEBUG
-#include <syslog.h>
+#include "../logging.h" 
 #define dprintf(format, arg...)								\
 	do {										\
 		log_message (LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
@@ -42,9 +42,5 @@
 #else
 #define dprintf(format, arg...) do { } while (0)
 #endif
-
-extern int log_message (int level, const char *format, ...)
-	__attribute__ ((format (printf, 2, 3)));
-
 
 #endif /* _SYSFS_H_ */

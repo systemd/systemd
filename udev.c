@@ -38,6 +38,7 @@
 /* global variables */
 char **main_argv;
 char **main_envp;
+unsigned char logname[42];
 
 static void sig_handler(int signum)
 {
@@ -174,6 +175,7 @@ int main(int argc, char **argv, char **envp)
 	main_argv = argv;
 	main_envp = envp;
 
+	init_logging("udev");
 	dbg("version %s", UDEV_VERSION);
 
 	return udev_hotplug(argc, argv);

@@ -40,6 +40,7 @@
 #include "udevd.h"
 #include "logging.h"
 
+unsigned char logname[42];
 
 static inline char *get_action(void)
 {
@@ -125,6 +126,8 @@ int main(int argc, char* argv[])
 	struct timespec tspec;
 	int sock;
 	struct sockaddr_un saddr;
+
+	init_logging("udevsend");
 
 	subsystem = argv[1];
 	if (subsystem == NULL) {

@@ -42,6 +42,7 @@
 #include "logging.h"
 
 
+unsigned char logname[42];
 static pthread_mutex_t  msg_lock;
 static pthread_mutex_t  msg_active_lock;
 static pthread_cond_t msg_active;
@@ -353,6 +354,8 @@ int main(int argc, char *argv[])
 	pthread_t mgr_msg_tid;
 	pthread_t mgr_exec_tid;
 	int retval;
+
+	init_logging("udevd");
 
 	/* only let one version of the daemon run at any one time */
 	if (one_and_only() != 0)

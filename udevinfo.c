@@ -38,6 +38,7 @@
 
 char **main_argv;
 int main_argc;
+unsigned char logname[42];
 
 static int print_all_attributes(const char *path)
 {
@@ -411,6 +412,8 @@ int main(int argc, char *argv[], char *envp[])
 
 	main_argv = argv;
 	main_argc = argc;
+
+	init_logging("udevinfo");
 
 	/* initialize our configuration */
 	udev_init_config();

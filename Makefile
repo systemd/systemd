@@ -195,7 +195,6 @@ OBJS =	udev_config.o	\
 	udev-add.o	\
 	udev-remove.o	\
 	udevdb.o	\
-	logging.o	\
 	namedev.o	\
 	namedev_parse.o	\
 	$(SYSFS)	\
@@ -254,15 +253,15 @@ $(ROOT): udev.o $(OBJS) $(HEADERS) $(GEN_HEADERS)
 	$(STRIPCMD) $@
 
 $(HELPER): udevinfo.o $(OBJS) $(HEADERS)
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o logging.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(DAEMON): udevd.h udevd.o udevd.o logging.o
-	$(LD) $(LDFLAGS) -lpthread -o $@ $(CRT0) udevd.o logging.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
+$(DAEMON): udevd.h udevd.o
+	$(LD) $(LDFLAGS) -lpthread -o $@ $(CRT0) udevd.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(SENDER): udevd.h udevsend.o udevd.o logging.o
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o logging.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
+$(SENDER): udevd.h udevsend.o
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
 clean:

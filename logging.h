@@ -1,9 +1,9 @@
 /*
  * logging.h
  *
- * Userspace devfs
+ * Simple logging functions that can be compiled away into nothing.
  *
- * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
+ * Copyright (C) 2003,2004 Greg Kroah-Hartman <greg@kroah.com>
  * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
@@ -29,6 +29,7 @@
 #define dbg_parse(format, arg...)	do { } while (0)
 
 #ifdef LOG
+#include <stdarg.h>
 #include <syslog.h>
 
 #undef info
@@ -54,9 +55,26 @@
 	} while (0)
 #endif
 
-#endif	/* LOG */
-
-extern int log_message (int level, const char *format, ...)
+static void log_message (int level, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
+static inline void log_message (int level, const char *format, ...)
+{
+	va_list	args;
+
+	va_start(args, format);
+	vsyslog(level, format, args);
+	va_end(args);
+}
+
+/* each program must declare this variable somewhere */
+extern unsigned char logname[42];
+
+static inline void init_logging(char *program_name)
+{
+	snprintf(logname, 42,"%s[%d]", program_name, getpid());
+	openlog(logname, 0, LOG_DAEMON);
+}
+
+#endif	/* LOG */
 
 #endif
