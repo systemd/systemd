@@ -33,7 +33,7 @@ USE_DBUS = false
 ROOT =		udev
 DAEMON =	udevd
 SENDER =	udevsend
-HELPERS =	udevinfo
+HELPER =	udevinfo
 VERSION =	014_bk
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
@@ -165,7 +165,7 @@ endif
 
 CFLAGS += -I$(PWD)/libsysfs
 
-all: $(ROOT) $(UDEVD) $(HELPERS)
+all: $(ROOT) $(UDEVD) $(HELPER)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
@@ -248,7 +248,7 @@ $(ROOT): udev.o $(OBJS) $(HEADERS) $(GEN_HEADERS)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(HELPERS): udevinfo.o $(OBJS) $(HEADERS)
+$(HELPER): udevinfo.o $(OBJS) $(HEADERS)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o logging.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
@@ -336,6 +336,7 @@ install: install-config install-dbus-policy all
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
 	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
+	$(INSTALL_PROGRAM) -D $(HELPER) $(DESTDIR)$(sbindir)/$(HELPER)
 	@if [ "x$(USE_LSB)" = "xtrue" ]; then \
 		$(INSTALL_PROGRAM) -D etc/init.d/udev.init.LSB $(DESTDIR)$(initdir)/udev; \
 		ln -s $(DESTDIR)$(initdir)/udev $(sbin_dir)/rcudev; \
@@ -359,6 +360,7 @@ uninstall: uninstall-dbus-policy
 	- rm $(initdir)/udev
 	- rm $(mandir)/man8/udev.8
 	- rm $(sbindir)/$(ROOT)
+	- rm $(sbindir)/$(HELPER)
 	- rmdir $(hotplugdir)
 	- rmdir $(configdir)
 	- rmdir $(udevdir)
