@@ -183,21 +183,43 @@ static int create_node(char *name, char type, int major, int minor, int mode)
 	return retval;
 }
 
-static int remove_node(char *name)
+static int add_node(char *device, char type)
 {
-	return 0;
+	char *name;
+	int major;
+	int minor;
+	int mode;
+	int retval = -EINVAL;
+
+	retval = get_major_minor(device, &major, &minor);
+	if (retval) {
+		dbg ("get_major_minor failed");
+		goto exit;
+	}
+
+	name = get_name(device, major, minor);
+	if (name == NULL) {
+		dbg ("get_name failed");
+		retval = -ENODEV;
+		goto exit;
+	}
+
+	mode = get_mode(name, device, major, minor);
+	if (mode < 0) {
+		dbg ("get_mode failed");
+		retval = -EINVAL;
+		goto exit;
+	}
+
+	return create_node(name, type, major, minor, mode);
+
+exit:
+	return retval;
 }
 
-static int do_it(char *action, char *name, char type, int major, int minor, int mode)
+static int remove_node(char *device)
 {
-	if (strcmp(action, "add") == 0)
-		return create_node(name, type, major, minor, mode);
-
-	if (strcmp(action, "remove") == 0)
-		return remove_node(name);
-
-	dbg("Unknown action: %s", action);
-	return -EINVAL;
+	return 0;
 }
 
 int main(int argc, char *argv[])
@@ -205,11 +227,7 @@ int main(int argc, char *argv[])
 	char *subsystem;
 	char *action;
 	char *device;
-	char *name;
 	char type;
-	int major;
-	int minor;
-	int mode;
 	int retval = -EINVAL;
 	
 	if (argc != 2) {
@@ -237,31 +255,14 @@ int main(int argc, char *argv[])
 	}
 	dbg("looking at %s", device);
 
-	retval = get_major_minor(device, &major, &minor);
-	if (retval) {
-		dbg ("get_major_minor failed");
-		goto exit;
-	}
+	if (strcmp(action, "add") == 0)
+		return add_node(device, type);
 
-	name = get_name(device, major, minor);
-	if (name == NULL) {
-		dbg ("get_name failed");
-		retval = -ENODEV;
-		goto exit;
-	}
+	if (strcmp(action, "remove") == 0)
+		return remove_node(device);
 
-	mode = get_mode(name, device, major, minor);
-	if (mode < 0) {
-		dbg ("get_mode failed");
-		retval = -EINVAL;
-		goto exit;
-	}
-
-	retval = do_it(action, name, type, major, minor, mode);
-	if (retval) {
-		dbg ("do_it failed");
-		goto exit;
-	}
+	dbg("Unknown action: %s", action);
+	return -EINVAL;
 
 	retval = 0;
 exit:	
