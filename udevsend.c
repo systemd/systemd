@@ -29,6 +29,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
@@ -124,6 +125,7 @@ int main(int argc, char* argv[])
 	struct timespec tspec;
 	int sock;
 	struct sockaddr_un saddr;
+	socklen_t addrlen;
 
 #ifdef DEBUG
 	init_logging("udevsend");
@@ -163,9 +165,10 @@ int main(int argc, char* argv[])
 	saddr.sun_family = AF_LOCAL;
 	/* use abstract namespace for socket path */
 	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
+	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 
 	/* try to connect, if it fails start daemon */
-	retval = connect(sock, (struct sockaddr *) &saddr, sizeof(saddr));
+	retval = connect(sock, (struct sockaddr *) &saddr, addrlen);
 	if (retval != -1) {
 		goto send;
 	} else {

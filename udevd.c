@@ -360,6 +360,7 @@ int main(int argc, char *argv[])
 	int csock;
 	struct sockaddr_un saddr;
 	struct sockaddr_un caddr;
+	socklen_t addrlen;
 	socklen_t clen;
 	pthread_t cli_tid;
 	pthread_t mgr_msg_tid;
@@ -379,6 +380,7 @@ int main(int argc, char *argv[])
 	saddr.sun_family = AF_LOCAL;
 	/* use abstract namespace for socket path */
 	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
+	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 
 	ssock = socket(AF_LOCAL, SOCK_STREAM, 0);
 	if (ssock == -1) {
@@ -386,7 +388,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	retval = bind(ssock, &saddr, sizeof(saddr));
+	retval = bind(ssock, &saddr, addrlen);
 	if (retval < 0) {
 		dbg("bind failed\n");
 		goto exit;
