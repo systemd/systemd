@@ -13,16 +13,15 @@ use strict;
 
 my $PWD = $ENV{PWD};
 my $sysfs     = "sys/";
-my $udev_bin  = "../udev";
+my $udevstart_bin  = "../udevstart";
 my $udev_root = "udev-root/"; # !!! directory will be removed !!!
 my $udev_db   = ".udevdb";
-my $main_conf = "udev-test.conf";
-my $conf_tmp  = "udev-test.rules";
+my $udev_conf = "udev-test.conf";
+my $udev_rules  = "udev-test.rules";
 
 # set env
-$ENV{UDEV_TEST} = "yes";
 $ENV{SYSFS_PATH} = $sysfs;
-$ENV{UDEV_CONFIG_FILE} = $main_conf;
+$ENV{UDEV_CONFIG_FILE} = $udev_conf;
 $ENV{UDEV_NO_DEVD} = "yes";
 $ENV{UDEV_NO_HOTPLUGD} = "yes";
 
@@ -36,23 +35,29 @@ if (!($<==0)) {
 system("rm -rf $udev_root");
 mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
 
-# create initial config file
-open CONF, ">$main_conf" || die "unable to create config file: $main_conf";
+# create config file
+open CONF, ">$udev_conf" || die "unable to create config file: $udev_conf";
 print CONF "udev_root=\"$udev_root\"\n";
 print CONF "udev_db=\"$udev_db\"\n";
-print CONF "udev_rules=\"$conf_tmp\"\n";
+print CONF "udev_rules=\"$udev_rules\"\n";
 close CONF;
 
-system("$udev_bin udevstart");
-my $block = int( `find $udev_root -type b -print | wc -l`);
-my $char  = int( `find $udev_root -type c -print | wc -l`);
+# create rules file
+open RULES, ">$udev_rules" || die "unable to create rules file: $udev_rules";
+print RULES "\n";
+close RULES;
+
+system("$udevstart_bin");
+my $block = int(`find $udev_root -type b -print | wc -l`);
+my $char  = int(`find $udev_root -type c -print | wc -l`);
 
 print "block devices: $block/10\n";
 print "char devices: $char/91\n";
+print "\n";
 
 # cleanup
 system("rm -rf $udev_db");
 system("rm -rf $udev_root");
-unlink($conf_tmp);
-unlink($main_conf);
+unlink($udev_rules);
+unlink($udev_conf);
 

@@ -219,24 +219,14 @@ static int parse_config_file(void)
 
 void udev_init_config(void)
 {
+	const char *config;
 
 	init_variables();
 	sysfs_get_mnt_path(sysfs_path, sizeof(sysfs_path));
 
-	/* see if we should try to override any of the default values */
-	if (getenv("UDEV_TEST") != NULL) {
-		char *temp;
-
-		temp = getenv("SYSFS_PATH");
-		if (temp != NULL) {
-			strlcpy(sysfs_path, temp, sizeof(sysfs_path));
-			no_trailing_slash(sysfs_path);
-		}
-
-		temp = getenv("UDEV_CONFIG_FILE");
-		if (temp != NULL)
-			strlcpy(udev_config_filename, temp, sizeof(udev_config_filename));
-	}
+	config = getenv("UDEV_CONFIG_FILE");
+	if (config != NULL)
+		strlcpy(udev_config_filename, config, sizeof(udev_config_filename));
 
 	parse_config_file();
 	dbg("sysfs_path='%s'", sysfs_path);

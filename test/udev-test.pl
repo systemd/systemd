@@ -9,7 +9,7 @@
 # Every test is driven by its own temporary config file.
 # This program prepares the environment, creates the config and calls udev.
 #
-# udev reads the config, looks at the provided sysfs and
+# udev parses the rules, looks at the provided sysfs and
 # first creates and then removes the device node.
 # After creation and removal the result is checked against the
 # expected value and the result is printed.
@@ -20,13 +20,13 @@
 use warnings;
 use strict;
 
-my $PWD = $ENV{PWD};
-my $sysfs     = "sys/";
-my $udev_bin  = "../udev";
-my $udev_root = "udev-root/"; # !!! directory will be removed !!!
-my $udev_db   = ".udevdb";
-my $main_conf = "udev-test.conf";
-my $conf_tmp  = "udev-test.rules";
+my $PWD		= $ENV{PWD};
+my $sysfs	= "sys/";
+my $udev_bin	= "../udev";
+my $udev_root	= "udev-root/"; # !!! directory will be removed !!!
+my $udev_db	= ".udevdb";
+my $udev_conf	= "udev-test.conf";
+my $udev_rules	= "udev-test.rules";
 
 # uncomment following line to run udev with valgrind.
 # Should make this a runtime option to the script someday...
@@ -38,7 +38,7 @@ my @tests = (
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "boot_disk" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", SYSFS{vendor}=="IBM-ESXS", NAME="boot_disk%n"
 KERNEL=="ttyUSB0", NAME="visor"
 EOF
@@ -48,7 +48,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "boot_disk1" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", SYSFS{vendor}=="IBM-ESXS", NAME="boot_disk%n"
 EOF
 	},
@@ -57,7 +57,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "boot_disk1" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", SYSFS{vendor}=="?IBM-ESXS", NAME="boot_disk%n-1"
 BUS=="scsi", SYSFS{vendor}=="IBM-ESXS?", NAME="boot_disk%n-2"
 BUS=="scsi", SYSFS{vendor}=="IBM-ES??", NAME="boot_disk%n"
@@ -69,7 +69,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "boot_disk1" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", SYSFS{vendor}=="IBM-ESXS", SYSFS{model}=="ST336605LW   !#", NAME="boot_diskX%n"
 BUS=="scsi", SYSFS{vendor}=="IBM-ESXS", SYSFS{model}=="ST336605LW    !#", NAME="boot_disk%n"
 EOF
@@ -79,7 +79,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "boot_disk1" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", SYSFS{vendor}=="IBM-ESXS", SYSFS{model}=="ST336605LW    !#", SYSFS{scsi_level}=="4", SYSFS{rev}=="B245", SYSFS{type}=="2", SYSFS{queue_depth}=="32", NAME="boot_diskXX%n"
 BUS=="scsi", SYSFS{vendor}=="IBM-ESXS", SYSFS{model}=="ST336605LW    !#", SYSFS{scsi_level}=="4", SYSFS{rev}=="B245", SYSFS{type}=="0", NAME="boot_disk%n"
 EOF
@@ -89,7 +89,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "visor/0" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB*", NAME="visor/%n"
 EOF
 	},
@@ -98,7 +98,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "visor/0" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="*USB1", NAME="bad"
 KERNEL=="*USB0", NAME="visor/%n"
 EOF
@@ -108,7 +108,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "visor/0" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB??*", NAME="visor/%n-1"
 KERNEL=="ttyUSB??", NAME="visor/%n-2"
 KERNEL=="ttyUSB?", NAME="visor/%n"
@@ -119,7 +119,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "visor/0" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[A-Z]*", NAME="visor/%n-1"
 KERNEL=="ttyUSB?[0-9]", NAME="visor/%n-2"
 KERNEL=="ttyUSB[0-9]*", NAME="visor/%n"
@@ -130,7 +130,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "visor" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB0", NAME="visor"
 EOF
 	},
@@ -139,7 +139,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "visor" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 # this is a comment
 KERNEL=="ttyUSB0", NAME="visor"
 
@@ -150,7 +150,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "visor" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
  # this is a comment with whitespace before the comment 
 KERNEL=="ttyUSB0", NAME="visor"
 
@@ -161,7 +161,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "whitespace" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 
  
 
@@ -177,7 +177,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "visor" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 
 KERNEL=="ttyUSB0", NAME="visor"
 
@@ -188,7 +188,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "visor" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB0", \\
 NAME="visor"
 
@@ -199,7 +199,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "aaa",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB0", PROGRAM=="/bin/echo -e \\101", RESULT=="A", NAME="aaa"
 EOF
 	},
@@ -208,7 +208,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "visor" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 
 #
 \\
@@ -227,7 +227,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "sub/direct/ory/visor" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB0", NAME="sub/direct/ory/visor"
 EOF
 	},
@@ -236,7 +236,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "first_disk3" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", ID=="0:0:0:0", NAME="first_disk%n"
 EOF
 	},
@@ -245,7 +245,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "Major:8:minor:3:kernelnumber:3:bus:0:0:0:0" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", ID=="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:bus:%b"
 EOF
 	},
@@ -254,7 +254,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "M8-m3-n3-b0:0-sIBM" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", ID=="0:0:0:0", NAME="M%M-m%m-n%n-b%3b-s%3s{vendor}"
 EOF
 	},
@@ -263,7 +263,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "disk-IBM-ESXS-sda" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", SYSFS{vendor}=="IBM-ESXS", NAME="disk-%s{vendor}-%k"
 KERNEL=="ttyUSB0", NAME="visor"
 EOF
@@ -273,7 +273,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "special-device-3" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", PROGRAM=="/bin/echo -n special-device", RESULT=="-special-*", NAME="%c-1-%n"
 BUS=="scsi", PROGRAM=="/bin/echo -n special-device", RESULT=="special--*", NAME="%c-2-%n"
 BUS=="scsi", PROGRAM=="/bin/echo -n special-device", RESULT=="special-device-", NAME="%c-3-%n"
@@ -286,7 +286,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "subsys_block" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", PROGRAM=="/bin/echo", RESULT=="block", NAME="subsys_block"
 EOF
 	},
@@ -295,7 +295,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "newline_removed" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", PROGRAM=="/bin/echo test", RESULT=="test", NAME="newline_removed"
 EOF
 	},
@@ -304,7 +304,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "test-0:0:0:0" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", PROGRAM=="/bin/echo -n test-%b", RESULT=="test-0:0*", NAME="%c"
 EOF
 	},
@@ -313,7 +313,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "escape-3" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", PROGRAM=="/bin/echo -n escape-%%n", KERNEL=="sda3", NAME="%c"
 EOF
 	},
@@ -322,7 +322,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "foo9" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", PROGRAM=="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda3", NAME="%c{7}"
 EOF
 	},
@@ -331,7 +331,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "bar9" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", PROGRAM=="/bin/sh -c 'echo foo3 foo4 foo5 foo6 foo7 foo8 foo9 | sed  s/foo9/bar9/'", KERNEL=="sda3", NAME="%c{7}"
 EOF
 	},
@@ -340,7 +340,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "foo7" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", PROGRAM=="/bin/echo -n 'foo3 foo4'   'foo5   foo6   foo7 foo8'", KERNEL=="sda3", NAME="%c{5}"
 EOF
 	},
@@ -349,7 +349,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "my-foo9" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", PROGRAM=="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda3", NAME="my-%c{7}"
 EOF
 	},
@@ -358,7 +358,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "my-foo8" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", PROGRAM=="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda3", NAME="my-%c{6}"
 EOF
 	},
@@ -367,7 +367,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/console",
 		exp_name	=> "TTY" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", PROGRAM=="/bin/echo -n foo", RESULT=="foo", NAME="foo"
 KERNEL=="console", NAME="TTY"
 EOF
@@ -377,7 +377,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/console",
 		exp_name	=> "foo" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 PROGRAM=="/bin/echo -n foo", RESULT=="foo", NAME="foo"
 KERNEL=="console", NAME="TTY"
 EOF
@@ -387,7 +387,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/console",
 		exp_name	=> "TTY" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="foo", SYSFS{dev}=="5:1", NAME="foo"
 KERNEL=="console", NAME="TTY"
 EOF
@@ -397,7 +397,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/console",
 		exp_name	=> "foo" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 SYSFS{dev}=="5:1", NAME="foo"
 KERNEL=="console", NAME="TTY"
 EOF
@@ -407,7 +407,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "scsi-0:0:0:0" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="usb", PROGRAM=="/bin/echo -n usb-%b", NAME="%c"
 BUS=="scsi", PROGRAM=="/bin/echo -n scsi-%b", NAME="%c"
 BUS=="foo", PROGRAM=="/bin/echo -n foo-%b", NAME="%c"
@@ -418,7 +418,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "boot_disk15" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", SYSFS{vendor}=="IBM-ESXS", NAME{all_partitions}="boot_disk"
 EOF
 	},
@@ -427,7 +427,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "visor" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 SYSFS{idProduct}=="2008", NAME="visor"
 EOF
 	},
@@ -436,7 +436,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/rd!c0d0",
 		exp_name	=> "rd/c0d0" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", NAME="%k"
 KERNEL=="ttyUSB0", NAME="visor"
 EOF
@@ -446,7 +446,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/rd!c0d0",
 		exp_name	=> "rd/c0d0" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB0", NAME="visor"
 EOF
 	},
@@ -455,7 +455,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/cciss!c0d0/cciss!c0d0p1",
 		exp_name	=> "cciss/c0d0p1" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", NAME="%k"
 KERNEL=="ttyUSB0", NAME="visor"
 EOF
@@ -465,7 +465,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "scsi-0:0:0:0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="usb", ID=="0:0:0:0", NAME="not-scsi"
 BUS=="scsi", ID=="0:0:0:1", NAME="no-match"
 BUS=="scsi", ID==":0", NAME="short-id"
@@ -478,7 +478,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "scsi-0:0:0:0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", ID=="*:1", NAME="no-match"
 BUS=="scsi", ID=="*:0:1", NAME="no-match"
 BUS=="scsi", ID=="*:0:0:1", NAME="no-match"
@@ -491,7 +491,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "scsi-0:0:0:0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", ID=="*:0", NAME="scsi-0:0:0:0"
 BUS=="scsi", ID=="0:0:0:0", NAME="bad"
 EOF
@@ -501,7 +501,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "scsi-0:0:0:0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", ID=="*:0:0:0", NAME="scsi-0:0:0:0"
 BUS=="scsi", ID=="0:0:0:0", NAME="bad"
 EOF
@@ -511,7 +511,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "ignored",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", SYSFS{whitespace_test}=="WHITE  SPACE", NAME="ignored"
 EOF
 	},
@@ -520,7 +520,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "matched-with-space",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", SYSFS{whitespace_test}=="WHITE  SPACE ", NAME="wrong-to-ignore"
 BUS=="scsi", SYSFS{whitespace_test}=="WHITE  SPACE   ", NAME="matched-with-space"
 EOF
@@ -531,7 +531,7 @@ EOF
 		devpath		=> "/class/tty/tty33",
 		exp_name	=> "tty33",
 		exp_perms	=> "0:0:0660",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="tty33", NAME="tty33", OWNER="bad", GROUP="name"
 EOF
 	},
@@ -541,7 +541,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
 		exp_perms	=> "5000::0660",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="node", OWNER="5000"
 EOF
 	},
@@ -551,7 +551,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
 		exp_perms	=> ":100:0660",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="node", GROUP="100"
 EOF
 	},
@@ -561,7 +561,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
 		exp_perms	=> "nobody::0660",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="node", OWNER="nobody"
 EOF
 	},
@@ -571,7 +571,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
 		exp_perms	=> ":daemon:0660",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="node", GROUP="daemon"
 EOF
 	},
@@ -581,7 +581,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
 		exp_perms	=> "root:mail:0660",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="node", OWNER="root", GROUP="mail"
 EOF
 	},
@@ -591,7 +591,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
 		exp_perms	=> "::0777",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="node", MODE="0777"
 EOF
 	},
@@ -601,7 +601,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
 		exp_perms	=> "5000:100:0777",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="node", OWNER="5000", GROUP="100", MODE="0777"
 EOF
 	},
@@ -611,7 +611,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "ttyUSB0",
 		exp_perms	=> "5000::",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", OWNER="5000"
 EOF
 	},
@@ -621,7 +621,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "ttyUSB0",
 		exp_perms	=> ":100:0660",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", GROUP="100"
 EOF
 	},
@@ -631,7 +631,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "ttyUSB0",
 		exp_perms	=> "::0060",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", MODE="0060"
 EOF
 	},
@@ -641,7 +641,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "ttyUSB0",
 		exp_perms	=> "5000:100:0777",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", OWNER="5000", GROUP="100", MODE="0777"
 EOF
 	},
@@ -651,7 +651,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "ttyUSB0",
 		exp_perms	=> "5000:100:0777",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", OWNER="5000", GROUP="100", MODE="0777"
 KERNEL=="ttyUSX[0-9]*", OWNER="5001", GROUP="101", MODE="0444"
 KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n"
@@ -663,7 +663,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "ttyUSB0",
 		exp_perms	=> "3000:4000:0777",
-		conf		=> <<EOF
+		rules		=> <<EOF
 SUBSYSTEM=="tty", OWNER="3000"
 SUBSYSTEM=="tty", GROUP="4000"
 SUBSYSTEM=="tty", MODE="0777"
@@ -677,7 +677,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "ttyUSB0",
 		exp_perms	=> "3000:8000:0777",
-		conf		=> <<EOF
+		rules		=> <<EOF
 SUBSYSTEM=="tty", OWNER="3000"
 SUBSYSTEM=="tty", GROUP="4000"
 SUBSYSTEM=="tty", MODE="0777"
@@ -691,7 +691,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
 		exp_majorminor	=> "8:0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="node"
 EOF
 	},
@@ -701,7 +701,7 @@ EOF
 		devpath		=> "/class/i2c-dev/i2c-300",
 		exp_name	=> "node",
 		exp_majorminor	=> "89:300",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="i2c-300", NAME="node"
 EOF
 	},
@@ -711,7 +711,7 @@ EOF
 		devpath		=> "/class/i2c-dev/i2c-fake1",
 		exp_name	=> "node",
 		exp_majorminor	=> "4095:1",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="i2c-fake1", NAME="node"
 EOF
 	},
@@ -721,7 +721,7 @@ EOF
 		devpath		=> "/class/i2c-dev/i2c-fake2",
 		exp_name	=> "node",
 		exp_majorminor	=> "4094:89999",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="i2c-fake2", NAME="node"
 EOF
 	},
@@ -731,7 +731,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "symlink2-ttyUSB0",
 		exp_target	=> "ttyUSB0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="symlink1-%n symlink2-%k symlink3-%b"
 EOF
 	},
@@ -741,7 +741,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "visor0",
 		exp_target	=> "ttyUSB0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="visor%n"
 EOF
 	},
@@ -751,7 +751,7 @@ EOF
 		devpath		=> "/block/sda/sda2",
 		exp_name	=> "1/2/symlink" ,
 		exp_target	=> "a/b/node",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", SYSFS{vendor}=="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/symlink"
 EOF
 	},
@@ -761,7 +761,7 @@ EOF
 		devpath		=> "/block/sda/sda2",
 		exp_name	=> "1/2/c/d/symlink" ,
 		exp_target	=> "../../a/b/node",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", SYSFS{vendor}=="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/c/d/symlink"
 EOF
 	},
@@ -771,7 +771,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "second-0" ,
 		exp_target	=> "visor" ,
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB0", NAME="visor", SYMLINK="first-%n second-%n third-%n"
 EOF
 	},
@@ -781,7 +781,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "symlink-only2",
 		exp_target	=> "link",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", SYMLINK="symlink-only1"
 BUS=="scsi", KERNEL=="sda", SYMLINK="symlink-only2"
 BUS=="scsi", KERNEL=="sda", NAME="link", SYMLINK="symlink0"
@@ -795,7 +795,7 @@ EOF
 		exp_target	=> "link",
 		exp_add_error	=> "yes",
 		exp_rem_error	=> "yes",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="link", SYMLINK="."
 EOF
 	},
@@ -807,7 +807,7 @@ EOF
 		exp_target	=> "link",
 		exp_rem_error	=> "yes",
 		option		=> "clear",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="tty0", NAME="link", SYMLINK="link"
 EOF
 	},
@@ -817,7 +817,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "symlink0",
 		exp_target	=> "ttyUSB0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="symlink%n"
 EOF
 	},
@@ -827,7 +827,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "symlink-ttyUSB0",
 		exp_target	=> "ttyUSB0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="symlink-%k"
 EOF
 	},
@@ -837,7 +837,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "major-188:0",
 		exp_target	=> "ttyUSB0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="major-%M:%m"
 EOF
 	},
@@ -847,7 +847,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "symlink-0:0:0:0",
 		exp_target	=> "node",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="node", SYMLINK="symlink-%b"
 EOF
 	},
@@ -857,7 +857,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "test",
 		exp_target	=> "ttyUSB0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", PROGRAM=="/bin/echo test" NAME="ttyUSB%n", SYMLINK="%c"
 EOF
 	},
@@ -867,7 +867,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "test",
 		exp_target	=> "ttyUSB0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", PROGRAM=="/bin/echo symlink test this" NAME="ttyUSB%n", SYMLINK="%c{2}"
 EOF
 	},
@@ -877,7 +877,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "this",
 		exp_target	=> "ttyUSB0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", PROGRAM=="/bin/echo symlink test this" NAME="ttyUSB%n", SYMLINK="%c{2+}"
 EOF
 	},
@@ -887,7 +887,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "test",
 		exp_target	=> "link",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", PROGRAM=="/bin/echo link test this" SYMLINK="%c{2+}"
 BUS=="scsi", KERNEL=="sda", NAME="link", SYMLINK="symlink0"
 EOF
@@ -898,7 +898,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "188:0",
 		exp_target	=> "ttyUSB0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="%s{dev}"
 EOF
 	},
@@ -908,7 +908,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "188",
 		exp_target	=> "ttyUSB0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="%3s{dev}"
 EOF
 	},
@@ -918,7 +918,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "percent%sign",
 		exp_target	=> "ttyUSB0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="percent%%sign"
 EOF
 	},
@@ -928,7 +928,7 @@ EOF
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "%ttyUSB0_name",
 		exp_target	=> "ttyUSB0",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="%%%k_name"
 EOF
 	},
@@ -938,7 +938,7 @@ EOF
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "link1",
 		exp_target	=> "node",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", PROGRAM=="/bin/echo -n node link1 link2", RESULT=="node *", NAME="%c{1}", SYMLINK="%c{2} %c{3}"
 EOF
 	},
@@ -948,7 +948,7 @@ EOF
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "link4",
 		exp_target	=> "node",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", PROGRAM=="/bin/echo -n node link1 link2 link3 link4", RESULT=="node *", NAME="%c{1}", SYMLINK="%c{2+}"
 EOF
 	},
@@ -957,7 +957,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "cdrom",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="sda", NAME="cdrom%e"
 EOF
 	},
@@ -967,7 +967,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "cdrom",
 		option		=> "keep",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="sda", NAME="cdrom%e"
 EOF
 	},
@@ -977,7 +977,7 @@ EOF
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "enum",
 		option		=> "keep",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="sda1", NAME="enum%e"
 EOF
 	},
@@ -987,7 +987,7 @@ EOF
 		devpath		=> "/block/sda/sda2",
 		exp_name	=> "cdrom1",
 		option		=> "keep",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="sda2", NAME="cdrom%e"
 EOF
 	},
@@ -997,7 +997,7 @@ EOF
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "enum1",
 		option		=> "keep",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="sda3", NAME="enum%e"
 EOF
 	},
@@ -1007,7 +1007,7 @@ EOF
 		devpath		=> "/block/sda/sda4",
 		exp_name	=> "cdrom2",
 		option		=> "clear",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="sda4", NAME="cdrom%e"
 EOF
 	},
@@ -1016,7 +1016,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "cdrom",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="sda", NAME="cdrom%e"
 EOF
 	},
@@ -1026,7 +1026,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
 		exp_add_error	=> "yes",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="node", OPTIONS="ignore"
 EOF
 	},
@@ -1035,7 +1035,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node6",
-		conf		=> <<EOF
+		rules		=> <<EOF
 SUBSYSTEM=="block", OPTIONS="all_partitions"
 BUS=="scsi", KERNEL=="sda", NAME="node"
 EOF
@@ -1046,7 +1046,7 @@ EOF
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "node6",
 		exp_add_error	=> "yes",
-		conf		=> <<EOF
+		rules		=> <<EOF
 SUBSYSTEM=="block", OPTIONS="all_partitions"
 BUS=="scsi", KERNEL=="sda", NAME="node"
 EOF
@@ -1057,7 +1057,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
 		exp_rem_error	=> "yes",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="node", OPTIONS="ignore_remove"
 EOF
 	},
@@ -1068,7 +1068,7 @@ EOF
 		exp_name	=> "node14",
 		exp_rem_error	=> "yes",
 		option		=> "clear",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="node", OPTIONS="ignore_remove, all_partitions"
 EOF
 	},
@@ -1077,7 +1077,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="should_not_match", SUBSYSTEM=="vc"
 BUS=="scsi", KERNEL=="sda", NAME="node", SUBSYSTEM=="block"
 BUS=="scsi", KERNEL=="sda", NAME="should_not_match2", SUBSYSTEM=="vc"
@@ -1088,7 +1088,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="should_not_match", DRIVER=="sd-wrong"
 BUS=="scsi", KERNEL=="sda", NAME="node", DRIVER=="sd"
 EOF
@@ -1098,7 +1098,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", PROGRAM=="/usr/bin/test -b %N" NAME="node"
 EOF
 	},
@@ -1107,7 +1107,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "sda",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", PROGRAM=="/bin/echo %p", RESULT=="/block/sda" NAME="%k"
 EOF
 	},
@@ -1117,7 +1117,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "main_device",
 		option		=> "keep",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="main_device"
 EOF
 	},
@@ -1127,7 +1127,7 @@ EOF
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "main_device-part-1",
 		option		=> "clean",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda1", NAME="%P-part-1"
 EOF
 	},
@@ -1136,7 +1136,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "start-udev-root-end",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda1", NAME="start-%r-end"
 EOF
 	},
@@ -1145,7 +1145,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "last",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda1", SYMLINK="last", OPTIONS="last_rule"
 BUS=="scsi", KERNEL=="sda1", NAME="very-last"
 EOF
@@ -1155,7 +1155,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "match",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", KERNEL!="sda1", NAME="matches-but-is-negated"
 BUS=="scsi", KERNEL!="xsda1", NAME="match"
 BUS=="scsi", KERNEL=="sda1", NAME="wrong"
@@ -1166,7 +1166,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "not-anything",
-		conf		=> <<EOF
+		rules		=> <<EOF
 BUS=="scsi", SUBSYSTEM=="block", KERNEL!="sda1", NAME="matches-but-is-negated"
 BUS=="scsi", SUBSYSTEM!="anything", NAME="not-anything"
 BUS=="scsi", KERNEL=="sda1", NAME="wrong"
@@ -1177,7 +1177,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "nonzero-program",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL=="sda1", PROGRAM!="/bin/false", NAME="nonzero-program"
 BUS=="scsi", KERNEL=="sda1", NAME="wrong"
 EOF
@@ -1187,7 +1187,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "true",
-		conf		=> <<EOF
+		rules		=> <<EOF
 KERNEL   ==   "sda1"     ,    NAME   =    "true"
 BUS=="scsi", KERNEL=="sda1", NAME="wrong"
 EOF
@@ -1197,10 +1197,10 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "true",
-		conf		=> <<EOF
-BUS=="scsi", KERNEL=="sda1", ENV{UDEV_TEST}=="go", NAME="wrong"
-BUS=="scsi", KERNEL=="sda1", ENV{UDEV_TEST}=="yes", NAME="true"
-BUS=="scsi", KERNEL=="sda1", ENV{UDEV_TEST}=="bad", NAME="bad"
+		rules		=> <<EOF
+BUS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="go", NAME="wrong"
+BUS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="test", NAME="true"
+BUS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="bad", NAME="bad"
 EOF
 	},
 	{
@@ -1208,31 +1208,31 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "true",
-		conf		=> <<EOF
-BUS=="scsi", KERNEL=="sda1", ENV{UDEV_TEST}=="go", NAME="wrong"
-BUS=="scsi", KERNEL=="sda1", ENV{UDEV_TEST}=="yes", ENV{ACTION}=="add", ENV{DEVPATH}=="/block/sda/sdax1", NAME="no"
-BUS=="scsi", KERNEL=="sda1", ENV{UDEV_TEST}=="yes", ENV{ACTION}=="add", ENV{DEVPATH}=="/block/sda/sda1", NAME="true"
-BUS=="scsi", KERNEL=="sda1", ENV{UDEV_TEST}=="bad", NAME="bad"
+		rules		=> <<EOF
+BUS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="go", NAME="wrong"
+BUS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="yes", ENV{ACTION}=="add", ENV{DEVPATH}=="/block/sda/sdax1", NAME="no"
+BUS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="test", ENV{ACTION}=="add", ENV{DEVPATH}=="/block/sda/sda1", NAME="true"
+BUS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="bad", NAME="bad"
 EOF
 	},
 );
 
 # set env
-$ENV{UDEV_TEST} = "yes";
+$ENV{ENV_KEY_TEST} = "test";
 $ENV{SYSFS_PATH} = $sysfs;
-$ENV{UDEV_CONFIG_FILE} = $main_conf;
+$ENV{UDEV_CONFIG_FILE} = $udev_conf;
 $ENV{UDEV_NO_DEVD} = "yes";
 $ENV{UDEV_NO_HOTPLUGD} = "yes";
 
 
 sub udev {
-	my ($action, $subsys, $devpath, $config) = @_;
+	my ($action, $subsys, $devpath, $rules) = @_;
 
 	$ENV{DEVPATH} = $devpath;
 
-	# create temporary config
-	open CONF, ">$conf_tmp" || die "unable to create config file: $conf_tmp";
-	print CONF $$config;
+	# create temporary rules
+	open CONF, ">$udev_rules" || die "unable to create rules file: $udev_rules";
+	print CONF $$rules;
 	close CONF;
 
 	$ENV{ACTION} = $action;
@@ -1242,13 +1242,13 @@ sub udev {
 my $error = 0;
 
 sub permissions_test {
-	my($config, $uid, $gid, $mode) = @_;
+	my($rules, $uid, $gid, $mode) = @_;
 
 	my $wrong = 0;
 	my $userid;
 	my $groupid;
 
-	$config->{exp_perms} =~ m/^(.*):(.*):(.*)$/;
+	$rules->{exp_perms} =~ m/^(.*):(.*):(.*)$/;
 	if ($1 ne "") {
 		if (defined(getpwnam($1))) {
 			$userid = int(getpwnam($1));
@@ -1279,13 +1279,13 @@ sub permissions_test {
 }
 
 sub major_minor_test {
-	my($config, $rdev) = @_;
+	my($rules, $rdev) = @_;
 
 	my $major = ($rdev >> 8) & 0xfff;
 	my $minor = ($rdev & 0xff) | (($rdev >> 12) & 0xfff00);
 	my $wrong = 0;
 
-	$config->{exp_majorminor} =~ m/^(.*):(.*)$/;
+	$rules->{exp_majorminor} =~ m/^(.*):(.*)$/;
 	if ($1 ne "") {
 		if ($major != $1) { $wrong = 1; };
 	}
@@ -1303,18 +1303,18 @@ sub major_minor_test {
 }
 
 sub symlink_test {
-	my ($config) = @_;
+	my ($rules) = @_;
 
-	my $output = `ls -l $PWD/$udev_root$config->{exp_name}`;
+	my $output = `ls -l $PWD/$udev_root$rules->{exp_name}`;
 
 	if ($output =~ m/(.*)-> (.*)/) {
-		if ($2 eq $config->{exp_target}) {
+		if ($2 eq $rules->{exp_target}) {
 			print "symlink:     ok\n";
 		} else {
-			print "  expected symlink from: \'$config->{exp_name}\' to \'$config->{exp_target}\'\n";
-			print "  created symlink from: \'$config->{exp_name}\' to \'$2\'\n";
+			print "  expected symlink from: \'$rules->{exp_name}\' to \'$rules->{exp_target}\'\n";
+			print "  created symlink from: \'$rules->{exp_name}\' to \'$2\'\n";
 			print "symlink: error";
-			if ($config->{exp_add_error}) {
+			if ($rules->{exp_add_error}) {
 				print " as expected\n";
 			} else {
 				print "\n";
@@ -1322,9 +1322,9 @@ sub symlink_test {
 			}
 		}
 	} else {
-		print "  expected symlink from: \'$config->{exp_name}\' to \'$config->{exp_target}\'\n";
+		print "  expected symlink from: \'$rules->{exp_name}\' to \'$rules->{exp_target}\'\n";
 		print "symlink:     not created";
-		if ($config->{exp_add_error}) {
+		if ($rules->{exp_add_error}) {
 			print " as expected\n";
 		} else {
 			print "\n";
@@ -1334,37 +1334,37 @@ sub symlink_test {
 }
 
 sub run_test {
-	my ($config, $number) = @_;
+	my ($rules, $number) = @_;
 
-	print "TEST $number: $config->{desc}\n";
+	print "TEST $number: $rules->{desc}\n";
 
-	if ($config->{exp_target}) {
-		print "device \'$config->{devpath}\' expecting symlink '$config->{exp_name}' to node \'$config->{exp_target}\'\n";
+	if ($rules->{exp_target}) {
+		print "device \'$rules->{devpath}\' expecting symlink '$rules->{exp_name}' to node \'$rules->{exp_target}\'\n";
 	} else {
-		print "device \'$config->{devpath}\' expecting node \'$config->{exp_name}\'\n";
+		print "device \'$rules->{devpath}\' expecting node \'$rules->{exp_name}\'\n";
 	}
 
 
-	udev("add", $config->{subsys}, $config->{devpath}, \$config->{conf});
-	if ((-e "$PWD/$udev_root$config->{exp_name}") ||
-	    (-l "$PWD/$udev_root$config->{exp_name}")) {
+	udev("add", $rules->{subsys}, $rules->{devpath}, \$rules->{rules});
+	if ((-e "$PWD/$udev_root$rules->{exp_name}") ||
+	    (-l "$PWD/$udev_root$rules->{exp_name}")) {
 
 		my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
-		    $atime, $mtime, $ctime, $blksize, $blocks) = stat("$PWD/$udev_root$config->{exp_name}");
+		    $atime, $mtime, $ctime, $blksize, $blocks) = stat("$PWD/$udev_root$rules->{exp_name}");
 
-		if (defined($config->{exp_perms})) {
-			permissions_test($config, $uid, $gid, $mode);
+		if (defined($rules->{exp_perms})) {
+			permissions_test($rules, $uid, $gid, $mode);
 		}
-		if (defined($config->{exp_majorminor})) {
-			major_minor_test($config, $rdev);
+		if (defined($rules->{exp_majorminor})) {
+			major_minor_test($rules, $rdev);
 		}
-		if (defined($config->{exp_target})) {
-			symlink_test($config);
+		if (defined($rules->{exp_target})) {
+			symlink_test($rules);
 		}
 		print "add:         ok\n";
 	} else {
 		print "add:         error";
-		if ($config->{exp_add_error}) {
+		if ($rules->{exp_add_error}) {
 			print " as expected\n";
 		} else {
 			print "\n";
@@ -1374,16 +1374,16 @@ sub run_test {
 		}
 	}
 
-	if (defined($config->{option}) && $config->{option} eq "keep") {
+	if (defined($rules->{option}) && $rules->{option} eq "keep") {
 		print "\n\n";
 		return;
 	}
 
-	udev("remove", $config->{subsys}, $config->{devpath}, \$config->{conf});
-	if ((-e "$PWD/$udev_root$config->{exp_name}") ||
-	    (-l "$PWD/$udev_root$config->{exp_name}")) {
+	udev("remove", $rules->{subsys}, $rules->{devpath}, \$rules->{rules});
+	if ((-e "$PWD/$udev_root$rules->{exp_name}") ||
+	    (-l "$PWD/$udev_root$rules->{exp_name}")) {
 		print "remove:      error";
-		if ($config->{exp_rem_error}) {
+		if ($rules->{exp_rem_error}) {
 			print " as expected\n";
 		} else {
 			print "\n";
@@ -1397,7 +1397,7 @@ sub run_test {
 
 	print "\n";
 
-	if (defined($config->{option}) && $config->{option} eq "clear") {
+	if (defined($rules->{option}) && $rules->{option} eq "clear") {
 		system("rm -rf $udev_db");
 		system("rm -rf $udev_root");
 		mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
@@ -1416,11 +1416,11 @@ if (!($<==0)) {
 system("rm -rf $udev_root");
 mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
 
-# create initial config file
-open CONF, ">$main_conf" || die "unable to create config file: $main_conf";
+# create config file
+open CONF, ">$udev_conf" || die "unable to create config file: $udev_conf";
 print CONF "udev_root=\"$udev_root\"\n";
 print CONF "udev_db=\"$udev_db\"\n";
-print CONF "udev_rules=\"$conf_tmp\"\n";
+print CONF "udev_rules=\"$udev_rules\"\n";
 close CONF;
 
 my $test_num = 1;
@@ -1439,8 +1439,8 @@ if ($ARGV[0]) {
 	# test all
 	print "\nudev-test will run ".($#tests + 1)." tests:\n\n";
 
-	foreach my $config (@tests) {
-		run_test($config, $test_num);
+	foreach my $rules (@tests) {
+		run_test($rules, $test_num);
 		$test_num++;
 	}
 }
@@ -1450,6 +1450,6 @@ print "$error errors occured\n\n";
 # cleanup
 system("rm -rf $udev_db");
 system("rm -rf $udev_root");
-unlink($conf_tmp);
-unlink($main_conf);
+unlink($udev_rules);
+unlink($udev_conf);
 

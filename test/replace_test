@@ -3,7 +3,6 @@
 RULES=replace_test.rules
 CONFIG=replace_test.conf
 
-export UDEV_TEST=yes
 export SYSFS_PATH=$PWD/sys/
 export UDEV_CONFIG_FILE=$PWD/$CONFIG
 

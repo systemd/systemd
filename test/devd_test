@@ -3,7 +3,6 @@
 RULES=label_test.rules
 CONFIG=label_test.conf
 
-export UDEV_TEST=yes
 export SYSFS_PATH=$PWD/sys/
 export UDEV_CONFIG_FILE=$PWD/$CONFIG
 
