@@ -55,19 +55,23 @@ int main(int argc, char *argv[], char *envp[])
 	char *devpath;
 	char path[SYSFS_PATH_MAX];
 	char temp[NAME_SIZE];
-	char *subsystem = "";
 	struct udevice udev;
+	char *subsystem = NULL;
 
 	info("version %s", UDEV_VERSION);
 
-	if (argv[1] == NULL) {
-		info("udevinfo expects the DEVPATH of the sysfs device as a argument");
+	if (argc < 2 || argc > 3) {
+		info("Usage: udevtest <devpath> [subsystem]");
 		return 1;
 	}
 
+	/* initialize our configuration */
+	udev_init_config();
+
 	/* remove sysfs_path if given */
-	if (strncmp(argv[1], sysfs_path, strlen(sysfs_path)) == 0)
-		devpath = argv[1] + strlen(sysfs_path);
+	if (strncmp(argv[1], sysfs_path, strlen(sysfs_path)) == 0) {
+		devpath = &argv[1][strlen(sysfs_path)] ;
+	}
 	else
 		if (argv[1][0] != '/') {
 			/* prepend '/' if missing */
@@ -86,13 +90,10 @@ int main(int argc, char *argv[], char *envp[])
 		return 2;
 	}
 
-	/* initialize our configuration */
-	udev_init_config();
-
 	/* initialize the naming deamon */
 	namedev_init();
 
-	if (argv[2] != NULL)
+	if (argc == 3)
 		subsystem = argv[2];
 
 	/* fill in values and test_run flag*/

@@ -439,7 +439,7 @@ exit:
 	}
 
 help:
-	printf("Usage: [-anpqrdVh]\n"
+	printf("Usage: udevinfo [-anpqrdVh]\n"
 	       "  -q TYPE  query database for the specified value:\n"
 	       "             'name'    name of device node\n"
 	       "             'symlink' pointing to node\n"

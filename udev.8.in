@@ -4,22 +4,24 @@ udev \- Linux configurable dynamic device naming support
 .SH SYNOPSIS
 .BI udev " hotplug-subsystem"
 .P
-The environment must provide the following variables:
+The following variables are read from the environment:
 .TP
 .B ACTION
 .IR add " or " remove
-signifies the connection or disconnection of a device.
-.TP
+signifies the addition or the removal of a device.
+.P
 .B DEVPATH
 The sysfs devpath of the device without the mountpoint but a leading slash.
 .P
-Additional optional environment variables:
-.TP
+.B SUBSYSTEM
+The subsystem the device belongs to. Alternatively the subsystem may
+be passed as the first argument.
+.P
 .B UDEV_CONFIG_FILE
 Overrides the default location of the
 .B udev
 config file.
-.TP
+.P
 .B UDEV_NO_DEVD
 The default behavior of
 .B udev
@@ -34,7 +36,6 @@ provides a dynamic device directory containing only the files for actually
 present devices. It creates or removes device node files usually located in
 the /dev directory, or it renames network interfaces.
 .br
-
 .P
 As part of the
 .B hotplug
@@ -373,9 +374,12 @@ The name of a program must end with
 suffix, to be recognized.
 .br
 In addition to the hotplug environment variables,
+.B UDEV_LOG
+is set if udev is configured to use the syslog facility. Executed programs may
+want to follow that setting.
 .B DEVNAME
 is exported to make the name of the created node, or the name the network
-device is renamed to, available to the executed program. The programs in every
+device is renamed to, available to the executed program.  The programs in every
 directory are sorted in lexical order, while the directories are searched in
 the following order:
 .sp
