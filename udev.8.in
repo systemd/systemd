@@ -84,38 +84,36 @@ The name and location of the udev database. The default value is
 .IR @udevdir@/.udev.tdb .
 .TP
 .B udev_rules
-This is the location of the udev rules file. The default value for this is
+The name of the udev rules file or directory to look for files with the suffix
+.IR .rules .
+All rule files are read in lexical order. The default value is
 .IR /etc/udev/udev.rules .
-If a directory is specified, the whole directory is
-scanned for files ending with
-.I .rules
-and all rule files are read in lexical order.
 .TP
 .B udev_permissions
-This is the location of the udev permission file. The default value for this is
+The name of the udev permission file or directory to look for files with the
+suffix
+.IR .permissions .
+All permission files are read in lexical order. The default value is
 .IR /etc/udev/udev.permissions .
-If a directory is specified, the whole directory is scanned for files ending with
-.I .permissions
-and all permission files are read in lexical order.
 .TP
 .B udev_log
-If you want udev to log some information to the syslog for every device handled.
+The switch, if udev logs some information for every device handled.
 The default value is
 .IR yes .
 .TP
 .B default_mode
-This is the default mode for all nodes not explicitely matching in the
-permissions file. The default value is
+The default mode for all nodes not explicitely matching in the permissions
+file. The default value is
 .IR 0666 .
 .TP
 .B default_owner
-This is the default owner for all nodes not explicitely matching in the
-permissions file. The default value is
+The default owner for all nodes not explicitely matching in the permissions
+file. The default value is
 .IR root .
 .TP
 .B default_group
-This is the default group for all nodes not explicitely matching in the
-permissions file. The default value is
+The default group for all nodes not explicitely matching in the permissions
+file. The default value is
 .IR root .
 .br
 .P
@@ -128,11 +126,12 @@ udev_root="@udevdir@"
 # udev_db - The name and location of the udev database
 udev_db="@udevdir@/.udev.tdb"
 
-# udev_rules - The location of the directory where to look for files
-               which names ending with .rules
-udev_rules="/etc/udev/"
+# udev_rules - The name of the udev rules file or directory to look
+               for files with the suffix .rules
+udev_rules="/etc/udev/rules.d/"
 
-# udev_permissions - The name and location of the udev permission file
+# udev_permissions - The name of the udev permission file or directry to look
+                     for files with the suffix .permissions
 udev_permissions="/etc/udev/udev.permissions"
 
 # udev_log - set to "yes" if you want logging, else "no"
