@@ -261,7 +261,7 @@ $(DAEMON).o: $(GEN_HEADERS)
 $(SENDER).o: $(GEN_HEADERS)
 $(STARTER).o: $(GEN_HEADERS)
 
-$(ROOT): $(ROOT).o $(OBJS) $(HEADERS) $(LIBC)
+$(ROOT): $(ROOT).o $(OBJS) $(HEADERS) $(LIBC) $(GEN_MANPAGES)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
@@ -368,7 +368,7 @@ uninstall-dev.d:
 	- rmdir $(dev_ddir)default
 	- rmdir $(dev_ddir)
 
-install-man: $(GEN_MANPAGES)
+install-man:
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
 	$(INSTALL_DATA) -D udevinfo.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
 	$(INSTALL_DATA) -D udevtest.8 $(DESTDIR)$(mandir)/man8/udevtest.8
