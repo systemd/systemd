@@ -165,8 +165,11 @@ int main(int argc, char *argv[], char *envp[])
 		/* name, create node, store in db */
 		retval = udev_add_device(&udev, class_dev);
 
-		/* run scripts */
-		dev_d_execute(&udev);
+		/* run dev.d/ scripts if we created a node or changed a netif name */
+		if (udev.devname[0] != '\0') {
+			setenv("DEVNAME", udev.devname, 1);
+			dev_d_execute(&udev, DEVD_DIR, DEVD_SUFFIX);
+		}
 
 		sysfs_close_class_device(class_dev);
 		break;
@@ -177,7 +180,7 @@ int main(int argc, char *argv[], char *envp[])
 		retval = udev_remove_device(&udev);
 
 		/* run scripts */
-		dev_d_execute(&udev);
+		dev_d_execute(&udev, DEVD_DIR, DEVD_SUFFIX);
 	}
 
 exit:

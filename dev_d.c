@@ -32,9 +32,6 @@
 #include "udevdb.h"
 #include "logging.h"
 
-#define DEVD_DIR			"/etc/dev.d/"
-#define DEVD_SUFFIX			".dev"
-
 static int run_program(const char *filename, void *data)
 {
 	pid_t pid;
@@ -75,7 +72,7 @@ static int run_program(const char *filename, void *data)
  * 	subsystem/
  * 	default/
  */
-void dev_d_execute(struct udevice *udev)
+void dev_d_execute(struct udevice *udev, const char *basedir, const char *suffix)
 {
 	char dirname[PATH_MAX];
 	char devname[NAME_SIZE];
@@ -85,37 +82,30 @@ void dev_d_execute(struct udevice *udev)
 	if (udev_dev_d == 0)
 		return;
 
-	/* skip if udev did nothing, like unchanged netif or no "dev" file */
-	if (udev->devname[0] == '\0')
-		return;
-
-	/* add the node name or the netif name to the environment */
-	setenv("DEVNAME", udev->devname, 1);
-	dbg("DEVNAME='%s'", udev->devname);
-
 	strfieldcpy(devname, udev->name);
 
-	/* Chop the device name up into pieces based on '/' */
+	/* chop the device name up into pieces based on '/' */
 	temp = strchr(devname, '/');
 	while (temp != NULL) {
 		temp[0] = '\0';
-		strcpy(dirname, DEVD_DIR);
-		strfieldcat(dirname, devname);
-		call_foreach_file(run_program, dirname, DEVD_SUFFIX, udev);
+		snprintf(dirname, PATH_MAX, "%s/%s", basedir, devname);
+		dirname[PATH_MAX-1] = '\0';
+		call_foreach_file(run_program, dirname, suffix, udev);
 
 		temp[0] = '/';
 		++temp;
 		temp = strchr(temp, '/');
 	}
 
-	strcpy(dirname, DEVD_DIR);
-	strfieldcat(dirname, udev->name);
-	call_foreach_file(run_program, dirname, DEVD_SUFFIX, udev);
+	snprintf(dirname, PATH_MAX, "%s/%s", basedir, udev->name);
+	dirname[PATH_MAX-1] = '\0';
+	call_foreach_file(run_program, dirname, suffix, udev);
 
-	strcpy(dirname, DEVD_DIR);
-	strfieldcat(dirname, udev->subsystem);
-	call_foreach_file(run_program, dirname, DEVD_SUFFIX, udev);
+	snprintf(dirname, PATH_MAX, "%s/%s", basedir, udev->subsystem);
+	dirname[PATH_MAX-1] = '\0';
+	call_foreach_file(run_program, dirname, suffix, udev);
 
-	strcpy(dirname, DEVD_DIR "default");
-	call_foreach_file(run_program, dirname, DEVD_SUFFIX, udev);
+	snprintf(dirname, PATH_MAX, "%s/default", basedir);
+	dirname[PATH_MAX-1] = '\0';
+	call_foreach_file(run_program, dirname, suffix, udev);
 }

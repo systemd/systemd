@@ -51,7 +51,7 @@ static int get_db_filename(struct udevice *udev, char *filename, int len)
 		pos[0] = PATH_TO_NAME_CHAR;
 		pos = strchr(&pos[1], '/');
 	}
-	snprintf(filename, len-1, "%s%s", udev_db_path, devpath);
+	snprintf(filename, len, "%s%s", udev_db_path, devpath);
 	filename[len-1] = '\0';
 
 	return 0;
@@ -175,7 +175,7 @@ int udevdb_get_dev_byname(struct udevice *udev, const char *name)
 		if (ent->d_name[0] == '.')
 			continue;
 
-		snprintf(filename, NAME_SIZE-1, "%s/%s", udev_db_path, ent->d_name);
+		snprintf(filename, NAME_SIZE, "%s/%s", udev_db_path, ent->d_name);
 		filename[NAME_SIZE-1] = '\0';
 
 		memset(&db_udev, 0x00, sizeof(struct udevice));

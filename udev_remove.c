@@ -112,7 +112,7 @@ static int delete_node(struct udevice *udev)
 	int len;
 	int num;
 
-	snprintf(filename, NAME_SIZE-1, "%s/%s", udev_root, udev->name);
+	snprintf(filename, NAME_SIZE, "%s/%s", udev_root, udev->name);
 	filename[NAME_SIZE-1] = '\0';
 
 	info("removing device node '%s'", filename);
@@ -143,7 +143,7 @@ static int delete_node(struct udevice *udev)
 		char linkname[NAME_SIZE];
 
 		strfieldcpymax(linkname, pos, len+1);
-		snprintf(filename, NAME_SIZE-1, "%s/%s", udev_root, linkname);
+		snprintf(filename, NAME_SIZE, "%s/%s", udev_root, linkname);
 		filename[NAME_SIZE-1] = '\0';
 
 		dbg("unlinking symlink '%s'", filename);
@@ -189,7 +189,7 @@ int udev_remove_device(struct udevice *udev)
 	udevdb_delete_dev(udev);
 
 	/* use full path to the environment */
-	snprintf(udev->devname, NAME_SIZE-1, "%s/%s", udev_root, udev->name);
+	snprintf(udev->devname, NAME_SIZE, "%s/%s", udev_root, udev->name);
 
 	return delete_node(udev);
 }

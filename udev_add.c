@@ -129,7 +129,7 @@ static int create_node(struct udevice *udev)
 	char *pos;
 	int len;
 
-	snprintf(filename, NAME_SIZE-1, "%s/%s", udev_root, udev->name);
+	snprintf(filename, NAME_SIZE, "%s/%s", udev_root, udev->name);
 	filename[NAME_SIZE-1] = '\0';
 
 	switch (udev->type) {
@@ -210,7 +210,7 @@ static int create_node(struct udevice *udev)
 		char linktarget[NAME_SIZE];
 
 		strfieldcpymax(linkname, pos, len+1);
-		snprintf(filename, NAME_SIZE-1, "%s/%s", udev_root, linkname);
+		snprintf(filename, NAME_SIZE, "%s/%s", udev_root, linkname);
 		filename[NAME_SIZE-1] = '\0';
 
 		dbg("symlink '%s' to node '%s' requested", filename, udev->name);
@@ -308,7 +308,7 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 			    "remove might not work for custom names");
 
 		/* use full path to the environment */
-		snprintf(udev->devname, NAME_SIZE-1, "%s/%s", udev_root, udev->name);
+		snprintf(udev->devname, NAME_SIZE, "%s/%s", udev_root, udev->name);
 		udev->devname[NAME_SIZE-1] = '\0';
 
 	} else if (udev->type == 'n') {

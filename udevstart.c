@@ -97,7 +97,8 @@ static int add_device(char *devpath, char *subsystem)
 	setenv("DEVPATH", devpath, 1);
 	setenv("SUBSYSTEM", subsystem, 1);
 
-	snprintf(path, SYSFS_PATH_MAX-1, "%s%s", sysfs_path, devpath);
+	snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, devpath);
+	path[SYSFS_PATH_MAX-1] = '\0';
 	class_dev = sysfs_open_class_device_path(path);
 	if (class_dev == NULL) {
 		dbg ("sysfs_open_class_device_path failed");
@@ -107,8 +108,11 @@ static int add_device(char *devpath, char *subsystem)
 	udev_set_values(&udev, devpath, subsystem, "add");
 	udev_add_device(&udev, class_dev);
 
-	/* run scripts */
-	dev_d_execute(&udev);
+	/* run dev.d/ scripts if we created a node or changed a netif name */
+	if (udev.devname[0] != '\0') {
+		setenv("DEVNAME", udev.devname, 1);
+		dev_d_execute(&udev, DEVD_DIR, DEVD_SUFFIX);
+	}
 
 	sysfs_close_class_device(class_dev);
 

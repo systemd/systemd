@@ -96,7 +96,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	if ((strncmp(devpath, "/block/", 7) == 0) || (strncmp(devpath, "/class/", 7) == 0)) {
-		snprintf(filename, SYSFS_PATH_MAX-1, "%s%s", sysfs_mnt_path, devpath);
+		snprintf(filename, SYSFS_PATH_MAX, "%s%s", sysfs_mnt_path, devpath);
 		filename[SYSFS_PATH_MAX-1] = '\0';
 
 		/* skip bad events where we get no device for the class */
@@ -128,7 +128,7 @@ int main(int argc, char *argv[], char *envp[])
 		sysfs_close_class_device(class_dev);
 
 	} else if ((strncmp(devpath, "/devices/", 9) == 0)) {
-		snprintf(filename, SYSFS_PATH_MAX-1, "%s%s", sysfs_mnt_path, devpath);
+		snprintf(filename, SYSFS_PATH_MAX, "%s%s", sysfs_mnt_path, devpath);
 		filename[SYSFS_PATH_MAX-1] = '\0';
 
 		/* open the path we are called for */

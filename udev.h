@@ -41,6 +41,9 @@
 
 #define LINE_SIZE			256
 
+#define DEVD_DIR			"/etc/dev.d"
+#define DEVD_SUFFIX			".dev"
+
 struct udevice {
 	char devpath[DEVPATH_SIZE];
 	char subsystem[SUBSYSTEM_SIZE];
@@ -71,7 +74,7 @@ extern int udev_remove_device(struct udevice *udev);
 extern void udev_init_config(void);
 extern int udev_start(void);
 extern int parse_get_pair(char **orig_string, char **left, char **right);
-extern void dev_d_execute(struct udevice *udev);
+extern void dev_d_execute(struct udevice *udev, const char *basedir, const char *suffix);
 
 extern char sysfs_path[SYSFS_PATH_MAX];
 extern char udev_root[PATH_MAX];

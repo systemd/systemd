@@ -219,7 +219,7 @@ int call_foreach_file(file_fnct_t fnct, const char *dirname,
 	list_for_each_entry_safe(loop_file, tmp_file, &file_list, list) {
 		char filename[NAME_SIZE];
 
-		snprintf(filename, NAME_SIZE-1, "%s/%s", dirname, loop_file->name);
+		snprintf(filename, NAME_SIZE, "%s/%s", dirname, loop_file->name);
 		filename[NAME_SIZE-1] = '\0';
 
 		fnct(filename, data);

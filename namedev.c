@@ -204,7 +204,7 @@ static int find_free_number(struct udevice *udev, const char *name)
 			info("find_free_number gone crazy (num=%d), aborted", num);
 			return -1;
 		}
-		snprintf(filename, NAME_SIZE-1, "%s%d", name, num);
+		snprintf(filename, NAME_SIZE, "%s%d", name, num);
 		filename[NAME_SIZE-1] = '\0';
 	}
 }
