@@ -556,6 +556,26 @@ BUS=="scsi", KERNEL=="sda", NAME="node", GROUP="100"
 EOF
 	},
 	{
+		desc		=> "textual user id",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "node",
+		exp_perms	=> "adm::0660",
+		conf		=> <<EOF
+BUS=="scsi", KERNEL=="sda", NAME="node", OWNER="adm"
+EOF
+	},
+	{
+		desc		=> "textual group id",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "node",
+		exp_perms	=> ":daemon:0660",
+		conf		=> <<EOF
+BUS=="scsi", KERNEL=="sda", NAME="node", GROUP="daemon"
+EOF
+	},
+	{
 		desc		=> "permissions MODE=0777",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
@@ -1215,21 +1235,35 @@ sub permissions_test {
 	my($config, $uid, $gid, $mode) = @_;
 
 	my $wrong = 0;
+	my $userid;
+	my $groupid;
+
 	$config->{exp_perms} =~ m/^(.*):(.*):(.*)$/;
 	if ($1 ne "") {
-		if ($uid != $1) { $wrong = 1; };
+		if (defined(getpwnam($1))) {
+			$userid = int(getpwnam($1));
+		} else {
+			$userid = $1;
+		}
+		if ($uid != $userid) { $wrong = 1; }
 	}
 	if ($2 ne "") {
-		if ($gid != $2) { $wrong = 1; };
+		if (defined(getgrnam($2))) {
+			$groupid = int(getgrnam($2));
+		} else {
+			$groupid = $2;
+		}
+		if ($gid != $groupid) { $wrong = 1; }
 	}
 	if ($3 ne "") {
 		if (($mode & 07777) != oct($3)) { $wrong = 1; };
 	}
 	if ($wrong == 0) {
-		print "permissions: ok    ";
+		print "permissions: ok\n";
 	} else {
-		printf "expected permissions are: %i:%i:%#o\n", $1, $2, oct($3);
-		printf "created permissions are : %i:%i:%#o\n", $uid, $gid, $mode & 07777;
+		printf "  expected permissions are: %s:%s:%#o\n", $1, $2, oct($3);
+		printf "  created permissions are : %i:%i:%#o\n", $uid, $gid, $mode & 07777;
+		print "permissions: error\n";
 		$error++;
 	}
 }
@@ -1249,11 +1283,11 @@ sub major_minor_test {
 		if ($minor != $2) { $wrong = 1; };
 	}
 	if ($wrong == 0) {
-		print "major:minor: ok    ";
+		print "major:minor: ok\n";
 	} else {
-		printf "expected major:minor is: %i:%i\n", $1, $2;
-		printf "created major:minor is : %i:%i\n", $major, $minor;
-		print "major:minor: error    ";
+		printf "  expected major:minor is: %i:%i\n", $1, $2;
+		printf "  created major:minor is : %i:%i\n", $major, $minor;
+		print "major:minor: error\n";
 		$error++;
 	}
 }
@@ -1265,22 +1299,25 @@ sub symlink_test {
 
 	if ($output =~ m/(.*)-> (.*)/) {
 		if ($2 eq $config->{exp_target}) {
-			print "symlink: ok    ";
+			print "symlink:     ok\n";
 		} else {
-			print "expected symlink from: \'$config->{exp_name}\' to \'$config->{exp_target}\'\n";
-			print "created symlink from: \'$config->{exp_name}\' to \'$2\'\n";
+			print "  expected symlink from: \'$config->{exp_name}\' to \'$config->{exp_target}\'\n";
+			print "  created symlink from: \'$config->{exp_name}\' to \'$2\'\n";
+			print "symlink: error";
 			if ($config->{exp_add_error}) {
-				print "as expected    ";
+				print " as expected\n";
 			} else {
+				print "\n";
 				$error++;
 			}
 		}
 	} else {
-		print "expected symlink from: \'$config->{exp_name}\' to \'$config->{exp_target}\'\n";
-		print "symlink: not created ";
+		print "  expected symlink from: \'$config->{exp_name}\' to \'$config->{exp_target}\'\n";
+		print "symlink:     not created";
 		if ($config->{exp_add_error}) {
-			print "as expected    ";
+			print " as expected\n";
 		} else {
+			print "\n";
 			$error++;
 		}
 	}
@@ -1314,13 +1351,13 @@ sub run_test {
 		if (defined($config->{exp_target})) {
 			symlink_test($config);
 		}
-		print "add: ok    ";
+		print "add:         ok\n";
 	} else {
-		print "add: error ";
+		print "add:         error";
 		if ($config->{exp_add_error}) {
-			print "as expected    ";
+			print " as expected\n";
 		} else {
-			print "\n\n";
+			print "\n";
 			system("tree $udev_root");
 			print "\n";
 			$error++;
@@ -1335,18 +1372,20 @@ sub run_test {
 	udev("remove", $config->{subsys}, $config->{devpath}, \$config->{conf});
 	if ((-e "$PWD/$udev_root$config->{exp_name}") ||
 	    (-l "$PWD/$udev_root$config->{exp_name}")) {
-		print "remove: error ";
+		print "remove:      error";
 		if ($config->{exp_rem_error}) {
-			print "as expected\n\n";
+			print " as expected\n";
 		} else {
-			print "\n\n";
+			print "\n";
 			system("tree $udev_root");
 			print "\n";
 			$error++;
 		}
 	} else {
-		print "remove: ok\n\n";
+		print "remove:      ok\n";
 	}
+
+	print "\n";
 
 	if (defined($config->{option}) && $config->{option} eq "clear") {
 		system("rm -rf $udev_db");
