@@ -463,3 +463,6 @@ uninstall: uninstall-man uninstall-dev.d
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
 			-C $$target $@ ; \
 	done ; \
+
+test: all
+	@ cd test && sudo ./udev-test.pl
