@@ -18,6 +18,8 @@ udev_rules="$PWD/$RULES"
 udev_permissions="$PWD/udev.permissions"
 EOF
 
+mkdir udev
+
 export DEVPATH=class/tty/ttyUSB0
 export ACTION=add
 
@@ -30,3 +32,4 @@ ls -l udev
 
 rm $RULES
 rm $CONFIG
+rm -rf udev

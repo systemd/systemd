@@ -18,6 +18,8 @@ udev_rules="$PWD/$RULES"
 udev_permissions="$PWD/udev.permissions"
 EOF
 
+mkdir udev
+
 export ACTION=add
 export DEVPATH=block/sda
 
@@ -43,3 +45,4 @@ ls -l udev
 
 rm $RULES
 rm $CONFIG
+rm -rf udev
