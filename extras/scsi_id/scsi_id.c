@@ -713,7 +713,8 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 
 #define ALIGN   512
 	unaligned_buf = malloc(MAX_SERIAL_LEN + ALIGN);
-	serial = (char*) (((int) unaligned_buf + (ALIGN - 1)) & ~(ALIGN - 1));
+	serial = (char*) (((unsigned long) unaligned_buf + (ALIGN - 1))
+			  & ~(ALIGN - 1));
 	dprintf("buffer unaligned 0x%p; aligned 0x%p\n", unaligned_buf, serial);
 #undef ALIGN
 

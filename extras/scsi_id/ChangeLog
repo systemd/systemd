@@ -1,3 +1,9 @@
+2004-oct-15:
+	* Makefile: Add $(QUIET) to sync with the udev version.
+
+2004-oct-06:
+	* scsi_id.c: fix alignment for use with 64 bit pointers
+
 2004-jul-30:
 	* scsi_id.c, scsi_serial.c: Align the buffer passed to scsi_serial,
 	  don't bother aligning and memcpy-ing the result in scsi_inquiry.

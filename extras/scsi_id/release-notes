@@ -1,6 +1,6 @@
-Version 0.6 of scsi_id is available at:
+Version 0.7 of scsi_id is available at:
 
-http://www-124.ibm.com/storageio/scsi_id/scsi_id-0.6.tar.gz
+http://www-124.ibm.com/storageio/scsi_id/scsi_id-0.7.tar.gz
 
 scsi_id is a program to generate a unique identifier for a given SCSI
 device.
@@ -14,13 +14,10 @@ Requires:
 - Linux kernel 2.6
 - libsysfs 0.4.0
 
-Major changes since the last release:
+Changes since the last release:
 	
-	- add -u option, patch from Christoph Varoqui, to substitute white
-	  space with underscores so it is easier to use the output as a
-	  device name.
+	- Fix a bug introduced in version 0.6 so that buffer alignement
+	  works on 64 bit systems. Without this fix, it crashes on 64 bit
+	  systems.
 
-	- Use 254 bytes for SCSI INQUIRY commands, patch from Hannes
-	  Reinecke.
-
-See ChangeLog for more details.
+	- Add $(QUIET) to sync up with the udev Makefile
