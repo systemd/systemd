@@ -318,15 +318,16 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 			if (retval != 0)
 				goto exit;
 
-			/* we've changed the name, now fake the devpath,
-			 * cause original kernel name sleeps with the fishes
-			 * and we don't get any event from the kernel now
+			/* we've changed the name, now fake the devpath, cause the
+			 * original kernel name sleeps with the fishes and we don't
+			 * get an event from the kernel with the new name
 			 */
 			pos = strrchr(udev->devpath, '/');
 			if (pos != NULL) {
 				pos[1] = '\0';
 				strfieldcat(udev->devpath, udev->name);
 				setenv("DEVPATH", udev->devpath, 1);
+				setenv("INTERFACE", udev->name, 1);
 			}
 
 			/* use netif name for the environment */

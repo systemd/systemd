@@ -54,31 +54,32 @@ void log_message(int level, const char *format, ...)
 }
 #endif
 
-/* (for now) true if udevsend is the helper */
+/* decide if we should manage the whole hotplug event
+ * for now look if the kernel calls udevsend instead of /sbin/hotplug
+ */
 static int manage_hotplug_event(void) {
 	char helper[256];
 	int fd;
 	int len;
 
-	/* false, if we are called directly */
-	if (!getenv("MANAGED_EVENT"))
-		goto exit;
+	/* don't handle hotplug.d if we are called directly */
+	if (!getenv("UDEVD_EVENT"))
+		return 0;
 
 	fd = open("/proc/sys/kernel/hotplug", O_RDONLY);
 	if (fd < 0)
-		goto exit;
+		return 0;
 
 	len = read(fd, helper, 256);
 	close(fd);
 
 	if (len < 0)
-		goto exit;
+		return 0;
 	helper[len] = '\0';
 
 	if (strstr(helper, "udevsend"))
 		return 1;
 
-exit:
 	return 0;
 }
 
@@ -104,6 +105,7 @@ int main(int argc, char *argv[], char *envp[])
 	const char *action;
 	const char *devpath;
 	const char *subsystem;
+	int managed_event;
 	int retval = -EINVAL;
 
 	if (argc == 2 && strcmp(argv[1], "-V") == 0) {
@@ -138,6 +140,11 @@ int main(int argc, char *argv[], char *envp[])
 		retval = udev_start();
 		goto exit;
 	}
+
+	/* let the executed programs know if we handle the whole hotplug event */
+	managed_event = manage_hotplug_event();
+	if (managed_event)
+		setenv("MANAGED_EVENT", "1", 1);
 
 	action = getenv("ACTION");
 	devpath = getenv("DEVPATH");
@@ -238,7 +245,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 hotplug:
-	if (udev_hotplug_d && manage_hotplug_event())
+	if (udev_hotplug_d && managed_event)
 		udev_multiplex_directory(&udev, HOTPLUGD_DIR, HOTPLUG_SUFFIX);
 
 exit:

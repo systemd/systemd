@@ -154,7 +154,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		/* prevent loops in the scripts we execute */
-		if (strncmp(key, "MANAGED_EVENT=", 14) == 0) {
+		if (strncmp(key, "UDEVD_EVENT=", 12) == 0) {
 			dbg("seems that the event source is not the kernel, just exit");
 			goto exit;
 		}

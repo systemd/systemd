@@ -335,7 +335,7 @@ static void handle_udevsend_msg(int sock)
 		if (strncmp(key, "PHYSDEVPATH=", 12) == 0)
 			msg->physdevpath = &key[12];
 	}
-	msg->envp[i++] = "MANAGED_EVENT=1";
+	msg->envp[i++] = "UDEVD_EVENT=1";
 	msg->envp[i] = NULL;
 
 	/* if no seqnum is given, we move straight to exec queue */
