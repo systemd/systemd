@@ -2,7 +2,8 @@ This is a short list of things that needs to be done.  They are in no specific
 order.  I will gladly accept patches for any of these items, or any other stuff
 people offer up.
 
-	Greg Kroah-Hartman <greg@kroah.com>
+greg k-h
+greg@kroah.com
 
 
 - more documentation (can never have too much.)
@@ -24,6 +25,7 @@ people offer up.
 - better permission handling
 - create kernel name to devfs name config file so that all of the devfs users
   will have an upgrade path.
-- make program work like design says it should (three parts, not 1)
+- do early boot logic (putting udev into initramfs, handle pivot-root,
+  etc.)
 - add hooks to call D-BUS when new node is created or removed
 - lots of other stuff...
