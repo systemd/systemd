@@ -8,7 +8,6 @@ greg@kroah.com
 
 - fix kernel name logic to handle devices like sdaj and such.
 - more documentation (can never have too much.)
-- add symlink generation and removal support
 - better partition support (it's a hack right now, maybe new libsysfs changes
   can help out a lot here.)
 - allow database to be queried by other programs

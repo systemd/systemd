@@ -94,7 +94,7 @@ file.
 Every line in the rules file define the mapping between device attributes and
 the device file name. It starts with a keyword defining the method used to
 match, followed by one ore more keys to compare and the filename for the
-device. Optional the name for a symlink targeting the node may specified.
+device. One ore more optional symlinks targeting the node may be specified.
 .br
 If no matching configuration is found, the default kernel device name
 is used.
@@ -175,11 +175,11 @@ NUMBER, BUS="pci", ID="00:0b.0", NAME="dsp"
 # USB mouse at third port of the second hub to be called mouse1
 TOPOLOGY, BUS="usb", PLACE="2.3", NAME="mouse1"
 
-# ttyUSB1 should always be called pda
-REPLACE, KERNEL="ttyUSB1", NAME="pda"
+# ttyUSB1 should always be called pda with two additional symlinks
+REPLACE, KERNEL="ttyUSB1", NAME="pda", SYMLINK="palmtop handheld"
 
-# USB webcams with symlinks to be called webcam0, webcam1, ...
-LABEL, BUS="usb", model="WebCam Version 3", NAME="video%n", SYMLINK="webcam%n"
+# multiple USB webcams with symlinks to be called webcam0, webcam1, ...
+LABEL, BUS="usb", model="WebCam V3", NAME="video%n", SYMLINK="webcam%n"
 .fi
 .P
 Permissions and ownership for the created device files may specified at
