@@ -79,7 +79,7 @@ static struct sysfs_driver *alloc_driver(void)
  * @path: path to driver directory
  * returns struct sysfs_driver with success and NULL with error
  */
-struct sysfs_driver *sysfs_open_driver_path(const unsigned char *path)
+struct sysfs_driver *sysfs_open_driver_path(const char *path)
 {
 	struct sysfs_driver *driver = NULL;
 
@@ -102,7 +102,7 @@ struct sysfs_driver *sysfs_open_driver_path(const unsigned char *path)
 		free(driver);
 		return NULL;
 	}
-	strcpy(driver->path, path);
+	safestrcpy(driver->path, path);
 	if ((sysfs_remove_trailing_slash(driver->path)) != 0) {
 		dprintf("Invalid path to driver %s\n", driver->path);
 		sysfs_close_driver(driver);
@@ -168,7 +168,7 @@ struct dlist *sysfs_refresh_driver_attributes(struct sysfs_driver *driver)
  * returns sysfs_attribute reference on success or NULL with error
  */ 
 struct sysfs_attribute *sysfs_get_driver_attr(struct sysfs_driver *drv,
-					const unsigned char *name)
+					const char *name)
 {
 	struct dlist *attrlist = NULL;
 
@@ -178,11 +178,10 @@ struct sysfs_attribute *sysfs_get_driver_attr(struct sysfs_driver *drv,
         }
 	
 	attrlist = sysfs_get_driver_attributes(drv);
-	if (attrlist != NULL) 
+	if (attrlist == NULL) 
 		return NULL;
 
-	return sysfs_get_directory_attribute(drv->directory,
-						(unsigned char *)name);
+	return sysfs_get_directory_attribute(drv->directory, (char *)name);
 }
 
 /**
@@ -197,12 +196,15 @@ struct dlist *sysfs_get_driver_links(struct sysfs_driver *driver)
 		errno = EINVAL;
 		return NULL;
 	}
-	if (driver->directory == NULL) {
+
+	if (driver->directory == NULL) 
 		if ((open_driver_dir(driver)) == 1)
 			return NULL;
+	
+	if (driver->directory->links == NULL)
 		if ((sysfs_read_dir_links(driver->directory)) != 0) 
 			return NULL;
-	}
+		
 	return(driver->directory->links);
 }
 
@@ -224,12 +226,11 @@ struct dlist *sysfs_get_driver_devices(struct sysfs_driver *driver)
 	if (driver->devices != NULL)
 		return (driver->devices);
 
-	if (driver->directory == NULL) {
-		if ((open_driver_dir(driver)) == 1) 
-			return NULL;
-		if ((sysfs_read_dir_links(driver->directory)) != 0) 
-			return NULL;
+	if (driver->directory == NULL || driver->directory->links == NULL) {
+		struct dlist *list = NULL;
+		list = sysfs_get_driver_links(driver);
 	}
+	
 	if (driver->directory->links != NULL) {
 		dlist_for_each_data(driver->directory->links, curlink, 
 						struct sysfs_link) {
@@ -239,12 +240,12 @@ struct dlist *sysfs_get_driver_devices(struct sysfs_driver *driver)
 						curlink->target);
 				return NULL;
 			}
-			strcpy(device->driver_name, driver->name);
 			if (driver->devices == NULL) 
 				driver->devices = dlist_new_with_delete
 						(sizeof(struct sysfs_device),
 						 sysfs_close_driver_device);
-			dlist_unshift(driver->devices, device);
+			dlist_unshift_sorted(driver->devices, device, 
+								sort_list);
 		}
 	}
 	return (driver->devices);
@@ -290,7 +291,7 @@ struct dlist *sysfs_refresh_driver_devices(struct sysfs_driver *driver)
  * Returns a sysfs_device if found, NULL otherwise
  */
 struct sysfs_device *sysfs_get_driver_device(struct sysfs_driver *driver,
-				const unsigned char *name)
+				const char *name)
 {
 	struct sysfs_device *device = NULL;
 	struct dlist *devlist = NULL;
@@ -323,10 +324,10 @@ struct sysfs_device *sysfs_get_driver_device(struct sysfs_driver *driver,
  * @psize: size of "path"
  * Returns 0 on success and -1 on error
  */
-static int get_driver_path(const unsigned char *bus, 
-		const unsigned char *drv, unsigned char *path, size_t psize)
+static int get_driver_path(const char *bus, const char *drv, 
+			char *path, size_t psize)
 {
-	if (bus == NULL || drv == NULL || path == NULL) {
+	if (bus == NULL || drv == NULL || path == NULL || psize == 0) {
 		errno = EINVAL;
 		return -1;
 	}
@@ -334,14 +335,14 @@ static int get_driver_path(const unsigned char *bus,
 		dprintf("Error getting sysfs mount path\n");
 		return -1;
 	}
-	strcat(path, "/");
-	strcat(path, SYSFS_BUS_NAME);
-	strcat(path, "/");
-	strcat(path, bus);
-	strcat(path, "/");
-	strcat(path, SYSFS_DRIVERS_NAME);
-	strcat(path, "/");
-	strcat(path, drv);
+	safestrncat(path, "/", psize);
+	safestrncat(path, SYSFS_BUS_NAME, psize);
+	safestrncat(path, "/", psize);
+	safestrncat(path, bus, psize);
+	safestrncat(path, "/", psize);
+	safestrncat(path, SYSFS_DRIVERS_NAME, psize);
+	safestrncat(path, "/", psize);
+	safestrncat(path, drv, psize);
 	return 0;
 }
 
@@ -356,11 +357,11 @@ static int get_driver_path(const unsigned char *bus,
  * 	A call to sysfs_close_attribute() is required to close the
  * 	attribute returned and to free memory
  */ 
-struct sysfs_attribute *sysfs_open_driver_attr(const unsigned char *bus, 
-		const unsigned char *drv, const unsigned char *attrib)
+struct sysfs_attribute *sysfs_open_driver_attr(const char *bus, 
+		const char *drv, const char *attrib)
 {
 	struct sysfs_attribute *attribute = NULL;
-	unsigned char path[SYSFS_PATH_MAX];
+	char path[SYSFS_PATH_MAX];
 
 	if (bus == NULL || drv == NULL || attrib == NULL) {
 		errno = EINVAL;
@@ -372,8 +373,8 @@ struct sysfs_attribute *sysfs_open_driver_attr(const unsigned char *bus,
 		dprintf("Error getting to driver %s\n", drv);
 		return NULL;
 	}
-	strcat(path, "/");
-	strcat(path, attrib);
+	safestrcat(path, "/");
+	safestrcat(path, attrib);
 	attribute = sysfs_open_attribute(path);
         if (attribute == NULL) {
 		dprintf("Error opening attribute %s for driver %s\n",
@@ -391,14 +392,14 @@ struct sysfs_attribute *sysfs_open_driver_attr(const unsigned char *bus,
 
 /**
  * sysfs_open_driver: open driver by name, given its bus
- * @drv_name: Name of the driver
  * @bus_name: Name of the bus
+ * @drv_name: Name of the driver
  * Returns the sysfs_driver reference on success and NULL on failure
  */
-struct sysfs_driver *sysfs_open_driver(const unsigned char *drv_name,
-				const unsigned char *bus_name)
+struct sysfs_driver *sysfs_open_driver(const char *bus_name, 
+			const char *drv_name)
 {
-	unsigned char path[SYSFS_PATH_MAX];
+	char path[SYSFS_PATH_MAX];
 	struct sysfs_driver *driver = NULL;
 
 	if (drv_name == NULL || bus_name == NULL) {

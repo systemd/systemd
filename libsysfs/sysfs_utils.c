@@ -26,14 +26,20 @@
 #include <mntent.h>
 #endif
 
+static int sort_char(void *new_elem, void *old_elem)
+{
+	return ((strncmp((char *)new_elem, (char *)old_elem, 
+			strlen((char *)new_elem))) < 0 ? 1 : 0);
+}
+
 /**
  * sysfs_remove_trailing_slash: Removes any trailing '/' in the given path
  * @path: Path to look for the trailing '/'
  * Returns 0 on success 1 on error
  */ 
-int sysfs_remove_trailing_slash(unsigned char *path)
+int sysfs_remove_trailing_slash(char *path)
 {
-	unsigned char *c = NULL;
+	char *c = NULL;
 
 	if (path == NULL) {
 		errno = EINVAL;
@@ -51,17 +57,17 @@ int sysfs_remove_trailing_slash(unsigned char *path)
 }
 
 /**
- * sysfs_get_mnt_path: Gets the mount point for specified filesystem.
+ * sysfs_get_fs_mnt_path: Gets the mount point for specified filesystem.
  * @fs_type: filesystem type to retrieve mount point
  * @mnt_path: place to put the retrieved mount path
  * @len: size of mnt_path
  * returns 0 with success and -1 with error.
  */
-static int sysfs_get_fs_mnt_path(const unsigned char *fs_type, 
-				unsigned char *mnt_path, size_t len)
+static int sysfs_get_fs_mnt_path(const char *fs_type, 
+				char *mnt_path, size_t len)
 {
 #ifdef __KLIBC__
-	strcpy(mnt_path, "/sys");
+	safestrncpy(mnt_path, "/sys", len);
 	return 0;
 #else
 	FILE *mnt;
@@ -70,7 +76,7 @@ static int sysfs_get_fs_mnt_path(const unsigned char *fs_type,
 	size_t dirlen = 0;
 
 	/* check arg */
-	if (fs_type == NULL || mnt_path == NULL) {
+	if (fs_type == NULL || mnt_path == NULL || len == 0) {
 		errno = EINVAL;
 		return -1;
 	}
@@ -83,7 +89,7 @@ static int sysfs_get_fs_mnt_path(const unsigned char *fs_type,
 		if (strcmp(mntent->mnt_type, fs_type) == 0) {
 			dirlen = strlen(mntent->mnt_dir);
 			if (dirlen <= (len - 1)) {
-				strcpy(mnt_path, mntent->mnt_dir);
+				safestrncpy(mnt_path, mntent->mnt_dir, len);
 			} else {
 				dprintf("Error - mount path too long\n");
 				ret = -1;
@@ -109,18 +115,18 @@ static int sysfs_get_fs_mnt_path(const unsigned char *fs_type,
  * @len: size of mnt_path
  * returns 0 with success and -1 with error.
  */
-int sysfs_get_mnt_path(unsigned char *mnt_path, size_t len)
+int sysfs_get_mnt_path(char *mnt_path, size_t len)
 {
 	char *sysfs_path = NULL;
 	int ret = 0;
 
-	if (mnt_path == NULL) {
+	if (mnt_path == NULL || len == 0) {
 		errno = EINVAL;
 		return -1;
 	}
 	sysfs_path = getenv(SYSFS_PATH_ENV);
 	if (sysfs_path != NULL) {
-		strncpy(mnt_path, sysfs_path, len);
+		safestrncpy(mnt_path, sysfs_path, len);
 		if ((sysfs_remove_trailing_slash(mnt_path)) != 0)
 			return 1;
 	} else
@@ -135,18 +141,17 @@ int sysfs_get_mnt_path(unsigned char *mnt_path, size_t len)
  * @name: where to put name
  * @len: size of name
  */
-int sysfs_get_name_from_path(const unsigned char *path, unsigned char *name, 
-								size_t len)
+int sysfs_get_name_from_path(const char *path, char *name, size_t len)
 {
-	unsigned char tmp[SYSFS_PATH_MAX];
-	unsigned char *n = NULL;
+	char tmp[SYSFS_PATH_MAX];
+	char *n = NULL;
                                                                                 
-	if (path == NULL || name == NULL) {
+	if (path == NULL || name == NULL || len == 0) {
 		errno = EINVAL;
 		return -1;
 	}
 	memset(tmp, 0, SYSFS_PATH_MAX);
-	strcpy(tmp, path);
+	safestrcpy(tmp, path);
 	n = strrchr(tmp, '/');
 	if (n == NULL) {
 		errno = EINVAL;
@@ -161,7 +166,7 @@ int sysfs_get_name_from_path(const unsigned char *path, unsigned char *name,
 		}
 	}
 	n++;
-	strncpy(name, n, len);
+	safestrncpy(name, n, len);
 	return 0;
 }
 	
@@ -171,21 +176,23 @@ int sysfs_get_name_from_path(const unsigned char *path, unsigned char *name,
  * @target: where to put name
  * @len: size of name
  */
-int sysfs_get_link(const unsigned char *path, unsigned char *target, size_t len)
+int sysfs_get_link(const char *path, char *target, size_t len)
 {
-	unsigned char devdir[SYSFS_PATH_MAX];
-	unsigned char linkpath[SYSFS_PATH_MAX];
-	unsigned char *d = NULL, *s = NULL;
+	char devdir[SYSFS_PATH_MAX];
+	char linkpath[SYSFS_PATH_MAX];
+	char temp_path[SYSFS_PATH_MAX];
+	char *d = NULL, *s = NULL;
 	int slashes = 0, count = 0;
 
-	if (path == NULL || target == NULL) {
+	if (path == NULL || target == NULL || len == 0) {
 		errno = EINVAL;
 		return -1;
 	}
 
 	memset(devdir, 0, SYSFS_PATH_MAX);
 	memset(linkpath, 0, SYSFS_PATH_MAX);
-	strncpy(devdir, path, SYSFS_PATH_MAX);
+	memset(temp_path, 0, SYSFS_PATH_MAX);
+	safestrcpy(devdir, path);
 
 	if ((readlink(path, linkpath, SYSFS_PATH_MAX)) < 0) {
 		return -1;
@@ -202,18 +209,19 @@ int sysfs_get_link(const unsigned char *path, unsigned char *target, size_t len)
 			/* 
 			 * handle the case where link is of type ./abcd/xxx
 			 */
-			strncpy(target, devdir, len);
+			safestrcpy(temp_path, devdir);
 			if (*(d+1) == '/')
 				d += 2;
 			else if (*(d+1) == '.')
 				goto parse_path;
-			s = strrchr(target, '/');
+			s = strrchr(temp_path, '/');
 			if (s != NULL) {
 				*(s+1) = '\0';
-				strcat(target, d);
+				safestrcat(temp_path, d);
 			} else {
-				strcpy(target, d);
+				safestrcpy(temp_path, d);
 			}
+			safestrncpy(target, temp_path, len);
 			break;
 			/* 
 			 * relative path  
@@ -232,23 +240,24 @@ parse_path:
 				if (*s == '/')
 					count++;
 			}
-			strncpy(s, d, (SYSFS_PATH_MAX-strlen(devdir)));
-			strncpy(target, devdir, len);
+			safestrncpy(s, d, (SYSFS_PATH_MAX-strlen(devdir)));
+			safestrncpy(target, devdir, len);
 			break;
 		case '/':
 			/* absolute path - copy as is */
-			strncpy(target, linkpath, len);
+			safestrncpy(target, linkpath, len);
 			break;
 		default:
 			/* relative path from this directory */
-			strncpy(target, devdir, len);
-			s = strrchr(target, '/');
+			safestrcpy(temp_path, devdir);
+			s = strrchr(temp_path, '/');
 			if (s != NULL) {
 				*(s+1) = '\0';
-				strcat(target, linkpath);
+				safestrcat(temp_path, linkpath);
 			} else {
-				strcpy(target, linkpath);
-			}			
+				safestrcpy(temp_path, linkpath);
+			}
+			safestrncpy(target, temp_path, len);
 	}
 	return 0;
 }
@@ -280,10 +289,10 @@ void sysfs_close_list(struct dlist *list)
  * @name: name of the subsystem, eg., "bus", "class", "devices"
  * Returns a dlist of supported names or NULL if subsystem not supported
  */ 
-struct dlist *sysfs_open_subsystem_list(unsigned char *name)
+struct dlist *sysfs_open_subsystem_list(char *name)
 {
-	unsigned char sysfs_path[SYSFS_PATH_MAX], *subsys_name = NULL;
-	unsigned char *c = NULL;
+	char sysfs_path[SYSFS_PATH_MAX], *subsys_name = NULL;
+	char *c = NULL;
 	struct sysfs_directory *dir = NULL, *cur = NULL;
 	struct dlist *list = NULL;
 	
@@ -295,8 +304,8 @@ struct dlist *sysfs_open_subsystem_list(unsigned char *name)
 		return NULL;
 	}
 
-	strcat(sysfs_path, "/");
-	strcat(sysfs_path, name);
+	safestrcat(sysfs_path, "/");
+	safestrcat(sysfs_path, name);
 	dir = sysfs_open_directory(sysfs_path);
 	if (dir == NULL) {
 		dprintf("Error opening sysfs_directory at %s\n", sysfs_path);
@@ -321,8 +330,8 @@ struct dlist *sysfs_open_subsystem_list(unsigned char *name)
 		dlist_for_each_data(dir->subdirs, cur,
 				struct sysfs_directory) {
 			subsys_name = (char *)calloc(1, SYSFS_NAME_LEN);
-			strcpy(subsys_name, cur->name);
-			dlist_unshift(list, subsys_name);
+			safestrncpy(subsys_name, cur->name, SYSFS_NAME_LEN);
+			dlist_unshift_sorted(list, subsys_name, sort_char);
 		}
 	}
 	sysfs_close_directory(dir);
@@ -335,11 +344,14 @@ struct dlist *sysfs_open_subsystem_list(unsigned char *name)
 		c = strstr(sysfs_path, SYSFS_CLASS_NAME);
 		if (c == NULL)
 			goto out;
-		strcpy(c, SYSFS_BLOCK_NAME);
+		*c = '\0';
+		safestrncpy(c, SYSFS_BLOCK_NAME, 
+				sizeof(sysfs_path) - strlen(sysfs_path));
 		if ((sysfs_path_is_dir(sysfs_path)) == 0) {
 			subsys_name = (char *)calloc(1, SYSFS_NAME_LEN);
-			strcpy(subsys_name, SYSFS_BLOCK_NAME);
-			dlist_unshift(list, subsys_name);
+			safestrncpy(subsys_name, SYSFS_BLOCK_NAME, 
+					SYSFS_NAME_LEN);
+			dlist_unshift_sorted(list, subsys_name, sort_char);
 		}
 	}
 out:
@@ -352,9 +364,9 @@ out:
  * @name: name of the subsystem, eg., "pci", "scsi", "usb"
  * Returns a dlist of supported names or NULL if subsystem not supported
  */ 
-struct dlist *sysfs_open_bus_devices_list(unsigned char *name)
+struct dlist *sysfs_open_bus_devices_list(char *name)
 {
-	unsigned char sysfs_path[SYSFS_PATH_MAX], *device_name = NULL;
+	char sysfs_path[SYSFS_PATH_MAX], *device_name = NULL;
 	struct sysfs_directory *dir = NULL;
 	struct sysfs_link *cur = NULL;
 	struct dlist *list = NULL;
@@ -367,12 +379,12 @@ struct dlist *sysfs_open_bus_devices_list(unsigned char *name)
 		return NULL;
 	}
 
-	strcat(sysfs_path, "/");
-	strcat(sysfs_path, SYSFS_BUS_NAME);
-	strcat(sysfs_path, "/");
-	strcat(sysfs_path, name);
-	strcat(sysfs_path, "/");
-	strcat(sysfs_path, SYSFS_DEVICES_NAME);
+	safestrcat(sysfs_path, "/");
+	safestrcat(sysfs_path, SYSFS_BUS_NAME);
+	safestrcat(sysfs_path, "/");
+	safestrcat(sysfs_path, name);
+	safestrcat(sysfs_path, "/");
+	safestrcat(sysfs_path, SYSFS_DEVICES_NAME);
 	dir = sysfs_open_directory(sysfs_path);
 	if (dir == NULL) {
 		dprintf("Error opening sysfs_directory at %s\n", sysfs_path);
@@ -397,8 +409,8 @@ struct dlist *sysfs_open_bus_devices_list(unsigned char *name)
 		dlist_for_each_data(dir->links, cur,
 				struct sysfs_link) {
 			device_name = (char *)calloc(1, SYSFS_NAME_LEN);
-			strcpy(device_name, cur->name);
-			dlist_unshift(list, device_name);
+			safestrncpy(device_name, cur->name, SYSFS_NAME_LEN);
+			dlist_unshift_sorted(list, device_name, sort_char);
 		}
 	}
 	sysfs_close_directory(dir);
@@ -410,7 +422,7 @@ struct dlist *sysfs_open_bus_devices_list(unsigned char *name)
  * @path: path to validate
  * Returns 0 if path points to dir, 1 otherwise
  */
-int sysfs_path_is_dir(const unsigned char *path)
+int sysfs_path_is_dir(const char *path)
 {
 	struct stat astats;
 
@@ -433,7 +445,7 @@ int sysfs_path_is_dir(const unsigned char *path)
  * @path: path to validate
  * Returns 0 if path points to link, 1 otherwise
  */
-int sysfs_path_is_link(const unsigned char *path)
+int sysfs_path_is_link(const char *path)
 {
 	struct stat astats;
 
@@ -456,7 +468,7 @@ int sysfs_path_is_link(const unsigned char *path)
  * @path: path to validate
  * Returns 0 if path points to file, 1 otherwise
  */
-int sysfs_path_is_file(const unsigned char *path)
+int sysfs_path_is_file(const char *path)
 {
 	struct stat astats;
 

@@ -44,7 +44,7 @@ static int bus_device_id_equal(void *a, void *b)
 	if (a == NULL || b == NULL)
 		return 0;
 
-	if (strcmp(((unsigned char *)a), ((struct sysfs_device *)b)->bus_id) 
+	if (strcmp(((char *)a), ((struct sysfs_device *)b)->bus_id) 
 	    == 0)
 		return 1;
 	return 0;
@@ -61,7 +61,7 @@ static int bus_driver_name_equal(void *a, void *b)
 	if (a == NULL || b == NULL)
 		return 0;
 
-	if (strcmp(((unsigned char *)a), ((struct sysfs_driver *)b)->name) == 0)
+	if (strcmp(((char *)a), ((struct sysfs_driver *)b)->name) == 0)
 		return 1;
 	return 0;
 }
@@ -102,16 +102,16 @@ struct dlist *sysfs_get_bus_devices(struct sysfs_bus *bus)
 	struct sysfs_device *bdev = NULL;
 	struct sysfs_directory *devdir = NULL;
 	struct sysfs_link *curl = NULL;
-	unsigned char path[SYSFS_PATH_MAX];
+	char path[SYSFS_PATH_MAX];
 
 	if (bus == NULL) {
 		errno = EINVAL;
 		return NULL;
 	}
 	memset(path, 0, SYSFS_PATH_MAX);
-	strcpy(path, bus->path);
-	strcat(path, "/");
-	strcat(path, SYSFS_DEVICES_NAME);
+	safestrcpy(path, bus->path);
+	safestrcat(path, "/");
+	safestrcat(path, SYSFS_DEVICES_NAME);
 	devdir = sysfs_open_directory(path);
 	if (devdir == NULL) 
 		return NULL;
@@ -121,7 +121,7 @@ struct dlist *sysfs_get_bus_devices(struct sysfs_bus *bus)
 		return NULL;
 	}
 
-	if (devdir->links != 0) {
+	if (devdir->links != NULL) {
 		dlist_for_each_data(devdir->links, curl, struct sysfs_link) {
 			bdev = sysfs_open_device_path(curl->target);
 			if (bdev == NULL) {
@@ -133,7 +133,7 @@ struct dlist *sysfs_get_bus_devices(struct sysfs_bus *bus)
 				bus->devices = dlist_new_with_delete
 					(sizeof(struct sysfs_device), 
 					 		sysfs_close_dev);
-			dlist_unshift(bus->devices, bdev);
+			dlist_unshift_sorted(bus->devices, bdev, sort_list);
 		}
 	}
 	sysfs_close_directory(devdir);
@@ -151,16 +151,16 @@ struct dlist *sysfs_get_bus_drivers(struct sysfs_bus *bus)
 	struct sysfs_driver *driver = NULL;
 	struct sysfs_directory *drvdir = NULL;
 	struct sysfs_directory *cursub = NULL;
-	unsigned char path[SYSFS_PATH_MAX];
+	char path[SYSFS_PATH_MAX];
 
 	if (bus == NULL) {
 		errno = EINVAL;
 		return NULL;
 	}
 	memset(path, 0, SYSFS_PATH_MAX);
-	strcpy(path, bus->path);
-	strcat(path, "/");
-	strcat(path, SYSFS_DRIVERS_NAME);
+	safestrcpy(path, bus->path);
+	safestrcat(path, "/");
+	safestrcat(path, SYSFS_DRIVERS_NAME);
 	drvdir = sysfs_open_directory(path);
 	if (drvdir == NULL) 
 		return NULL;
@@ -182,7 +182,7 @@ struct dlist *sysfs_get_bus_drivers(struct sysfs_bus *bus)
 				bus->drivers = dlist_new_with_delete
 					(sizeof(struct sysfs_driver), 
 					 		sysfs_close_drv);
-			dlist_unshift(bus->drivers, driver);
+			dlist_unshift_sorted(bus->drivers, driver, sort_list);
 		}
 	}
 	sysfs_close_directory(drvdir);
@@ -193,10 +193,10 @@ struct dlist *sysfs_get_bus_drivers(struct sysfs_bus *bus)
  * sysfs_open_bus: opens specific bus and all its devices on system
  * returns sysfs_bus structure with success or NULL with error.
  */
-struct sysfs_bus *sysfs_open_bus(const unsigned char *name)
+struct sysfs_bus *sysfs_open_bus(const char *name)
 {
 	struct sysfs_bus *bus = NULL;
-	unsigned char buspath[SYSFS_PATH_MAX];
+	char buspath[SYSFS_PATH_MAX];
 
 	if (name == NULL) {
 		errno = EINVAL;
@@ -209,10 +209,10 @@ struct sysfs_bus *sysfs_open_bus(const unsigned char *name)
 		return NULL;
 	}
 
-	strcat(buspath, "/");
-	strcat(buspath, SYSFS_BUS_NAME);
-	strcat(buspath, "/");
-	strcat(buspath, name);
+	safestrcat(buspath, "/");
+	safestrcat(buspath, SYSFS_BUS_NAME);
+	safestrcat(buspath, "/");
+	safestrcat(buspath, name);
 	if ((sysfs_path_is_dir(buspath)) != 0) {
 		dprintf("Invalid path to bus: %s\n", buspath);
 		return NULL;
@@ -222,8 +222,8 @@ struct sysfs_bus *sysfs_open_bus(const unsigned char *name)
 		dprintf("calloc failed\n");
 		return NULL;
 	}
-	strcpy(bus->name, name);	
-	strcpy(bus->path, buspath);
+	safestrcpy(bus->name, name);	
+	safestrcpy(bus->path, buspath);
 	if ((sysfs_remove_trailing_slash(bus->path)) != 0) {
 		dprintf("Incorrect path to bus %s\n", bus->path);
 		sysfs_close_bus(bus);
@@ -239,8 +239,7 @@ struct sysfs_bus *sysfs_open_bus(const unsigned char *name)
  * @id: bus_id for device
  * returns struct sysfs_device reference or NULL if not found.
  */
-struct sysfs_device *sysfs_get_bus_device(struct sysfs_bus *bus, 
-							unsigned char *id)
+struct sysfs_device *sysfs_get_bus_device(struct sysfs_bus *bus, char *id)
 {
 	if (bus == NULL || id == NULL) {
 		errno = EINVAL;
@@ -264,7 +263,7 @@ struct sysfs_device *sysfs_get_bus_device(struct sysfs_bus *bus,
  * returns struct sysfs_driver reference or NULL if not found.
  */
 struct sysfs_driver *sysfs_get_bus_driver(struct sysfs_bus *bus, 
-							unsigned char *drvname)
+							char *drvname)
 {
 	if (bus == NULL || drvname == NULL) {
 		errno = EINVAL;
@@ -338,7 +337,7 @@ struct dlist *sysfs_refresh_bus_attributes(struct sysfs_bus *bus)
  * returns reference to sysfs_attribute if found or NULL if not found
  */
 struct sysfs_attribute *sysfs_get_bus_attribute(struct sysfs_bus *bus,
-						unsigned char *attrname)
+						char *attrname)
 {
 	struct dlist *attrlist = NULL;
 	
@@ -354,59 +353,15 @@ struct sysfs_attribute *sysfs_get_bus_attribute(struct sysfs_bus *bus,
 }
 
 /**
- * sysfs_open_bus_device: locates a device on a bus and returns it. Device
- * 	must be closed using sysfs_close_device.
- * @busname: Name of bus to search
- * @dev_id: Id of device on bus.
- * returns sysfs_device if found or NULL if not.
- */
-struct sysfs_device *sysfs_open_bus_device(unsigned char *busname, 
-							unsigned char *dev_id)
-{
-	struct sysfs_device *rdev = NULL;
-	char path[SYSFS_PATH_MAX];
-
-	if (busname == NULL || dev_id == NULL) {
-		errno = EINVAL;
-		return NULL;
-	}
-
-	memset(path, 0, SYSFS_PATH_MAX);
-	if (sysfs_get_mnt_path(path, SYSFS_PATH_MAX) != 0) {
-		dprintf("Error getting sysfs mount point\n");
-		return NULL;
-	}
-
-	strcat(path, "/");
-	strcat(path, SYSFS_BUS_NAME);
-	strcat(path, "/");
-	strcat(path, busname);
-	strcat(path, "/");
-	strcat(path, SYSFS_DEVICES_NAME);
-	strcat(path, "/");
-	strcat(path, dev_id);
-
-	rdev = sysfs_open_device_path(path);
-	if (rdev == NULL) {
-		dprintf("Error getting device %s on bus %s\n",
-				dev_id, busname);
-		return NULL;
-	}
-	
-	return rdev;
-}
-
-/**
  * sysfs_find_driver_bus: locates the bus the driver is on.
  * @driver: name of the driver to locate
  * @busname: buffer to copy name to
  * @bsize: buffer size
  * returns 0 with success, -1 with error
  */
-int sysfs_find_driver_bus(const unsigned char *driver, unsigned char *busname,
-							size_t bsize)
+int sysfs_find_driver_bus(const char *driver, char *busname, size_t bsize)
 {
-	unsigned char subsys[SYSFS_PATH_MAX], *bus = NULL, *curdrv = NULL;
+	char subsys[SYSFS_PATH_MAX], *bus = NULL, *curdrv = NULL;
 	struct dlist *buslist = NULL, *drivers = NULL;
 
 	if (driver == NULL || busname == NULL) {
@@ -415,23 +370,22 @@ int sysfs_find_driver_bus(const unsigned char *driver, unsigned char *busname,
 	}
 
 	memset(subsys, 0, SYSFS_PATH_MAX);
-	strcat(subsys, "/");
-	strcpy(subsys, SYSFS_BUS_NAME);
+	safestrcpy(subsys, SYSFS_BUS_NAME);
 	buslist = sysfs_open_subsystem_list(subsys);
 	if (buslist != NULL) {
 		dlist_for_each_data(buslist, bus, char) {
 			memset(subsys, 0, SYSFS_PATH_MAX);
-			strcat(subsys, "/");
-			strcpy(subsys, SYSFS_BUS_NAME);
-			strcat(subsys, "/");
-			strcat(subsys, bus);
-			strcat(subsys, "/");
-			strcat(subsys, SYSFS_DRIVERS_NAME);
+			safestrcpy(subsys, SYSFS_BUS_NAME);
+			safestrcat(subsys, "/");
+			safestrcat(subsys, bus);
+			safestrcat(subsys, "/");
+			safestrcat(subsys, SYSFS_DRIVERS_NAME);
 			drivers = sysfs_open_subsystem_list(subsys);
 			if (drivers != NULL) {
 				dlist_for_each_data(drivers, curdrv, char) {
 					if (strcmp(driver, curdrv) == 0) {
-						strncpy(busname, bus, bsize);
+						safestrncpy(busname, 
+								bus, bsize);
 						sysfs_close_list(drivers);
 						sysfs_close_list(buslist);
 						return 0;
