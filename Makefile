@@ -151,9 +151,12 @@ OBJS =	udev.o		\
 	udevdb.o	\
 	logging.o	\
 	namedev.o	\
-	klibc_fixups.o	\
 	$(SYSFS)	\
 	$(TDB)
+
+ifeq ($(strip $(KLIBC)),true)
+	OBJS += klibc_fixups.o
+endif
 
 # header files automatically generated
 GEN_HEADERS =	udev_version.h
