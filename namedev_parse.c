@@ -441,7 +441,7 @@ exit:
 	return retval;
 }
 
-int namedev_init_rules()
+int namedev_init_rules(void)
 {
 	struct stat stats;
 
@@ -453,7 +453,7 @@ int namedev_init_rules()
 					 udev_rules_filename, RULEFILE_SUFFIX);
 }
 
-int namedev_init_permissions()
+int namedev_init_permissions(void)
 {
 	struct stat stats;
 

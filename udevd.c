@@ -177,7 +177,7 @@ static struct hotplug_msg *running_with_devpath(struct hotplug_msg *msg)
 }
 
 /* exec queue management routine executes the events and delays events for the same devpath */
-static void exec_queue_manager()
+static void exec_queue_manager(void)
 {
 	struct hotplug_msg *loop_msg;
 	struct hotplug_msg *tmp_msg;
@@ -207,7 +207,7 @@ static void msg_move_exec(struct hotplug_msg *msg)
 }
 
 /* msg queue management routine handles the timeouts and dispatches the events */
-static void msg_queue_manager()
+static void msg_queue_manager(void)
 {
 	struct hotplug_msg *loop_msg;
 	struct hotplug_msg *tmp_msg;
@@ -241,7 +241,7 @@ recheck:
 	if (list_empty(&msg_list) == 0) {
 		struct itimerval itv = {{0, 0}, {EVENT_TIMEOUT_SEC - msg_age, 0}};
 		dbg("next event expires in %li seconds", EVENT_TIMEOUT_SEC - msg_age);
-		setitimer(ITIMER_REAL, &itv, 0);
+		setitimer(ITIMER_REAL, &itv, NULL);
 	}
 }
 
@@ -366,11 +366,11 @@ static void udev_done(int pid)
 	}
 }
 
-static void reap_kids()
+static void reap_kids(void)
 {
 	/* reap all dead children */
 	while(1) {
-		int pid = waitpid(-1, 0, WNOHANG);
+		int pid = waitpid(-1, NULL, WNOHANG);
 		if ((pid == -1) || (pid == 0))
 			break;
 		udev_done(pid);
@@ -380,7 +380,7 @@ static void reap_kids()
 /* just read everything from the pipe and clear the flag,
  * the useful flags were set in the signal handler
  */
-static void user_sighandler()
+static void user_sighandler(void)
 {
 	int sig;
 	while(1) {

@@ -28,6 +28,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <signal.h>
+#include <unistd.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
