@@ -8,10 +8,10 @@
 #
 # return devfs-names for scsi-devices
 # Usage in udev.rules:
-# BUS="scsi", KERNEL="sd*", PROGRAM="/etc/udev/scsi-devfs.sh sd %b %n", NAME="%c{1}", SYMLINK="%c{2} %k %c{3} %c{4}"
-# BUS="scsi", KERNEL="sr*", PROGRAM="/etc/udev/scsi-devfs.sh sr %b %n", NAME="%c{1}", SYMLINK="%c{2} %k %c{3} %c{4}"
-# BUS="scsi", KERNEL="st*", PROGRAM="/etc/udev/scsi-devfs.sh st %b %n", NAME="%c{1}", SYMLINK="%c{2} %k %c{3} %c{4}"
-# BUS="scsi", KERNEL="sg*", PROGRAM="/etc/udev/scsi-devfs.sh sg %b %n", NAME="%c{1}", SYMLINK="%c{2} %k %c{3} %c{4}"
+# BUS="scsi", KERNEL="sd*", PROGRAM="/etc/udev/scripts/scsi-devfs.sh sd %b %n", NAME="%c{1}", SYMLINK="%c{2} %k %c{3} %c{4}"
+# BUS="scsi", KERNEL="sr*", PROGRAM="/etc/udev/scripts/scsi-devfs.sh sr %b %n", NAME="%c{1}", SYMLINK="%c{2} %k %c{3} %c{4}"
+# BUS="scsi", KERNEL="st*", PROGRAM="/etc/udev/scripts/scsi-devfs.sh st %b %n", NAME="%c{1}", SYMLINK="%c{2} %k %c{3} %c{4}"
+# BUS="scsi", KERNEL="sg*", PROGRAM="/etc/udev/scripts/scsi-devfs.sh sg %b %n", NAME="%c{1}", SYMLINK="%c{2} %k %c{3} %c{4}"
 
 # Find out where sysfs is mounted. Exit if not available
 sysfs=`grep -F sysfs /proc/mounts | awk '{print $2}'`
