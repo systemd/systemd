@@ -100,65 +100,89 @@ sprint_wwid(char * buff, const char * str)
 	buff[WWID_SIZE - 1] = '\0';
 }
 
-static int
-get_lun_strings(int fd, struct path * mypath)
+static void
+basename(char * str1, char * str2)
 {
-	char buff[36];
+	char *p = str1 + (strlen(str1) - 1);
 
-	if (0 == do_inq(fd, 0, 0, 0, buff, 36, 1)) {
+	while (*--p != '/')
+		continue;
+	strcpy(str2, ++p);
+}
+
+static int
+get_lun_strings(struct env * conf, struct path * mypath)
+{
+	int fd;
+	char buff[36];
+	char attr_path[FILE_NAME_SIZE];
+	char basedev[FILE_NAME_SIZE];
+
+	if(conf->with_sysfs) {
+		/* sysfs style */
+		basename(mypath->sg_dev, basedev);
+
+		sprintf(attr_path, "%s/block/%s/device/vendor",
+                        conf->sysfs_path, basedev);
+                if (0 > sysfs_read_attribute_value(attr_path,
+		    mypath->vendor_id, 8)) return 0;
+
+		sprintf(attr_path, "%s/block/%s/device/model",
+                        conf->sysfs_path, basedev);
+                if (0 > sysfs_read_attribute_value(attr_path,
+		    mypath->product_id, 16)) return 0;
+
+		sprintf(attr_path, "%s/block/%s/device/rev",
+                        conf->sysfs_path, basedev);
+                if (0 > sysfs_read_attribute_value(attr_path,
+		    mypath->rev, 4)) return 0;
+	} else {
+		/* ioctl style */
+		if ((fd = open(mypath->sg_dev, O_RDONLY)) < 0)
+			return 0;
+		if (0 != do_inq(fd, 0, 0, 0, buff, 36, 1))
+			return 0;
 		memcpy(mypath->vendor_id, &buff[8], 8);
 		memcpy(mypath->product_id, &buff[16], 16);
 		memcpy(mypath->rev, &buff[32], 4);
+		close(fd);
 		return 1;
 	}
 	return 0;
 }
-
-/*
-static int
-get_serial (int fd, char * str)
-{
-	char buff[MX_ALLOC_LEN + 1];
-	int len;
-
-	if (0 == do_inq(fd, 0, 1, 0x80, buff, MX_ALLOC_LEN, 0)) {
-		len = buff[3];
-		if (len > 0) {
-			memcpy(str, buff + 4, len);
-			buff[len] = '\0';
-		}
-		return 1;
-	}
-	return 0;
-}
-*/
 
 /* hardware vendor specifics : add support for new models below */
 
 /* this one get EVPD page 0x83 off 8 */
 /* tested ok with StorageWorks */
 static int
-get_evpd_wwid(int fd, char *str)
+get_evpd_wwid(struct path * mypath)
 {
+	int fd;
 	char buff[64];
 
+	if ((fd = open(mypath->sg_dev, O_RDONLY)) < 0)
+                        return 0;
+
 	if (0 == do_inq(fd, 0, 1, 0x83, buff, sizeof (buff), 1)) {
-		sprint_wwid(str, &buff[8]);
-		return 1;
+		sprint_wwid(mypath->wwid, &buff[8]);
+		close(fd);
+		return 1; /* success */
 	}
-	return 0;
+	close(fd);
+	return 0; /* not good */
 }
 
 /* White list switch */
 static int
-get_unique_id(int fd, struct path * mypath)
+get_unique_id(struct path * mypath)
 {
 	int i;
 	static struct {
 		char * vendor;
 		char * product;
 		int iopolicy;
-		int (*getuid) (int fd, char * wwid);
+		int (*getuid) (struct path *);
 	} wlist[] = {
 		{"COMPAQ  ", "HSV110 (C)COMPAQ", MULTIBUS, &get_evpd_wwid},
 		{"COMPAQ  ", "MSA1000         ", MULTIBUS, &get_evpd_wwid},
@@ -183,22 +207,12 @@ get_unique_id(int fd, struct path * mypath)
 	for (i = 0; wlist[i].vendor; i++) {
 		if (strncmp(mypath->vendor_id, wlist[i].vendor, 8) == 0 &&
 		    strncmp(mypath->product_id, wlist[i].product, 16) == 0) {
-			wlist[i].getuid(fd, mypath->wwid);
 			mypath->iopolicy = wlist[i].iopolicy;
-			return 0;
+			if (!wlist[i].getuid(mypath))
+				return 0;
 		}
 	}
 	return 1;
-}
-
-static void
-basename(char * str1, char * str2)
-{
-	char *p = str1 + (strlen(str1) - 1);
-
-	while (*--p != '/')
-		continue;
-	strcpy(str2, ++p);
 }
 
 static int
@@ -230,7 +244,6 @@ static int
 get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 {
 	int k=0;
-	int sg_fd;
 	struct sysfs_directory * sdir;
 	struct sysfs_directory * devp;
 	struct sysfs_link * linkp;
@@ -252,11 +265,9 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 		basename(conf->hotplugdev, buff);
 		sprintf(curpath.sg_dev, "/dev/%s", buff);
 
-		if ((sg_fd = open(curpath.sg_dev, O_RDONLY)) < 0)
-			exit(1);
-
-		get_lun_strings(sg_fd, &curpath);
-		get_unique_id(sg_fd, &curpath);
+		get_lun_strings(conf, &curpath);
+		if (!get_unique_id(&curpath))
+			return 0;
 		strcpy(refwwid, curpath.wwid);
 		memset(&curpath, 0, sizeof(path));
 	}
@@ -286,15 +297,11 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 		basename(devp->path, buff);
 		sprintf(curpath.sg_dev, "/dev/%s", buff);
 
-		if ((sg_fd = open(curpath.sg_dev, O_RDONLY)) < 0) {
-			if (conf->verbose)
-				fprintf(stderr, "can't open %s\n",
-					curpath.sg_dev); 
+		get_lun_strings(conf, &curpath);
+		if(!get_unique_id(&curpath)) {
+			memset(&curpath, 0, sizeof(path));
 			continue;
 		}
-
-		get_lun_strings(sg_fd, &curpath);
-		get_unique_id(sg_fd, &curpath);
 
 		if (memcmp(empty_buff, refwwid, WWID_SIZE) != 0 && 
 		    strncmp(curpath.wwid, refwwid, WWID_SIZE) != 0) {
@@ -312,7 +319,6 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 		/* done with curpath, zero for reuse */
 		memset(&curpath, 0, sizeof(path));
 
-		close(sg_fd);
 		basename(linkp->target, buff);
 		sscanf(buff, "%i:%i:%i:%i",
 			&all_paths[k].sg_id.host_no,
@@ -329,7 +335,7 @@ static int
 get_all_paths_nosysfs(struct env * conf, struct path * all_paths,
 		      struct scsi_dev * all_scsi_ids)
 {
-	int k, i, sg_fd;
+	int k, i, fd;
 	char buff[FILE_NAME_SIZE];
 	char file_name[FILE_NAME_SIZE];
 
@@ -338,19 +344,19 @@ get_all_paths_nosysfs(struct env * conf, struct path * all_paths,
 		sprintf(buff, "%d", k);
 		strncat(file_name, buff, FILE_NAME_SIZE);
 		strcpy(all_paths[k].sg_dev, file_name);
-		if ((sg_fd = open(file_name, O_RDONLY)) < 0) {
-			if (conf->verbose)
-				fprintf(stderr, "can't open %s. mknod ?",
-					file_name); 
+
+		get_lun_strings(conf, &all_paths[k]);
+		if (!get_unique_id(&all_paths[k]))
 			continue;
-		}
-		get_lun_strings(sg_fd, &all_paths[k]);
-		get_unique_id(sg_fd, &all_paths[k]);
-		if (0 > ioctl(sg_fd, SG_GET_SCSI_ID, &(all_paths[k].sg_id)))
+
+		if ((fd = open(all_paths[k].sg_dev, O_RDONLY)) < 0)
+			return 0;
+
+		if (0 > ioctl(fd, SG_GET_SCSI_ID, &(all_paths[k].sg_id)))
 			printf("device %s failed on sg ioctl, skip\n",
 			       file_name);
 
-		close(sg_fd);
+		close(fd);
 
 		for (i = 0; i < conf->max_devs; i++) {
 			if ((all_paths[k].sg_id.host_no ==
@@ -701,6 +707,7 @@ setup_map(struct env * conf, struct path * all_paths,
 		dm_simplecmd(DM_DEVICE_RESUME, mp[index].wwid);
 
 	make_dm_node(mp[index].wwid);
+	return 1;
 }
 
 static int

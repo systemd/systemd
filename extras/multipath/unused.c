@@ -1,4 +1,21 @@
 static int
+get_serial (int fd, char * str)
+{
+        char buff[MX_ALLOC_LEN + 1];
+        int len;
+
+        if (0 == do_inq(fd, 0, 1, 0x80, buff, MX_ALLOC_LEN, 0)) {
+                len = buff[3];
+                if (len > 0) {
+                        memcpy(str, buff + 4, len);
+                        buff[len] = '\0';
+                }
+                return 1;
+        }
+        return 0;
+}
+
+static int
 do_tur(int fd)
 {
         unsigned char turCmdBlk[TUR_CMD_LEN] = { 0x00, 0, 0, 0, 0, 0 };

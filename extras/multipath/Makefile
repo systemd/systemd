@@ -4,9 +4,9 @@
 
 EXEC = multipath
 
-prefix      = /usr/local
+prefix      = 
 exec_prefix = ${prefix}
-bindir      = ${exec_prefix}/bin
+bindir      = ${exec_prefix}/sbin
 udevdir	    = ../..
 klibcdir    = $(udevdir)/klibc
 sysfsdir    = $(udevdir)/libsysfs
@@ -52,6 +52,8 @@ clean:
 install:
 	install -d $(bindir)
 	install -m 755 $(EXEC) $(bindir)/
+	install -d /etc/hotplug.d/scsi/
+	install -m 755 multipath.hotplug /etc/hotplug.d/scsi/
 
 # Code dependencies
 main.o: main.c main.h sg_include.h

@@ -1,4 +1,12 @@
 2003-12-22 multipath-010
+	* tweak the install target in Makefile
+	* stop passing fds as argument : this change enable a strict
+	  segregation of ugly 2.4 code
+	* sysfs version of get_lun_strings()
+	* be careful about the return of get_unique_id() since errors 
+	  formerly caught up by if(open()) in the caller fn are now returned
+	  by get_unique_id()
+	* send get_serial() in unused.c
 	* introduce dm-simplecmd for RESUME & SUSPEND requests
 	* split add_map() in setup_map() & dm-addmap()
 	* setup_map() correctly submits "SUSPEND-RELOAD-RESUME or CREATE"
