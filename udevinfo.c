@@ -26,12 +26,12 @@
 #include <stdarg.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sysfs/libsysfs.h>
 
 #include "udev.h"
 #include "udev_version.h"
 #include "logging.h"
 #include "udevdb.h"
-#include "libsysfs/libsysfs.h"
 
 
 # define SYSFS_VALUE_MAX 200

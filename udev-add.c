@@ -33,6 +33,7 @@
 #ifndef __KLIBC__
 #include <pwd.h>
 #endif
+#include <sysfs/libsysfs.h>
 
 #include "udev.h"
 #include "udev_version.h"
@@ -40,7 +41,6 @@
 #include "logging.h"
 #include "namedev.h"
 #include "udevdb.h"
-#include "libsysfs/libsysfs.h"
 #include "klibc_fixups.h"
 
 /* 

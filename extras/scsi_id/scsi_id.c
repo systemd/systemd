@@ -32,14 +32,8 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <sys/stat.h>
-#ifdef __KLIBC__
-/*
- * Assume built under udev with KLIBC
- */
-#include <libsysfs.h>
-#else
 #include <sysfs/libsysfs.h>
-#endif
+
 #include "scsi_id_version.h"
 #include "scsi_id.h"
 

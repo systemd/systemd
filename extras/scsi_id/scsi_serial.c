@@ -31,14 +31,8 @@
 #include <unistd.h>
 #include <syslog.h>
 #include <scsi/sg.h>
-#ifdef __KLIBC__
-/*
- * Assume built under udev with KLIBC
- */
-#include <libsysfs.h>
-#else
 #include <sysfs/libsysfs.h>
-#endif
+
 #include "scsi_id.h"
 #include "scsi.h"
 

@@ -20,7 +20,7 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
-#include "libsysfs.h"
+#include "sysfs/libsysfs.h"
 #include "sysfs.h"
 #ifndef __KLIBC__
 #include <mntent.h>

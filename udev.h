@@ -23,7 +23,7 @@
 #ifndef UDEV_H
 #define UDEV_H
 
-#include "libsysfs/libsysfs.h"
+#include <sysfs/libsysfs.h>
 #include <stddef.h>
 #include <sys/param.h>
 

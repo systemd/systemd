@@ -32,13 +32,13 @@
 #include <time.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <sysfs/libsysfs.h>
 
 #include "list.h"
 #include "udev.h"
 #include "udev_version.h"
 #include "logging.h"
 #include "namedev.h"
-#include "libsysfs/libsysfs.h"
 #include "klibc_fixups.h"
 
 static struct sysfs_attribute *find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, char *attr);

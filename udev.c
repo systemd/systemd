@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <signal.h>
+#include <sysfs/libsysfs.h>
 
 #include "udev.h"
 #include "udev_version.h"
@@ -33,7 +34,6 @@
 #include "logging.h"
 #include "namedev.h"
 #include "udevdb.h"
-#include "libsysfs/libsysfs.h"
 
 /* global variables */
 char **main_argv;

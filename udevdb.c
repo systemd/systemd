@@ -32,6 +32,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <signal.h>
+#include <sysfs/libsysfs.h>
 
 #include "udev_version.h"
 #include "udev.h"
@@ -39,7 +40,6 @@
 #include "namedev.h"
 #include "udevdb.h"
 #include "tdb/tdb.h"
-#include "libsysfs/libsysfs.h"
 
 static TDB_CONTEXT *udevdb;
 
