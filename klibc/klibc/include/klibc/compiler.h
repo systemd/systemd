@@ -58,4 +58,11 @@
 # define __unlikely(x) (x)
 #endif
 
+/* Possibly unused function */
+#ifdef __GNUC__
+# define __unusedfunc	__attribute__((unused))
+#else
+# define __unusedfunc
+#endif
+
 #endif

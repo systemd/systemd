@@ -19,7 +19,7 @@
  * Prefer mmap2() over mmap(), except on the architectures listed
  */
 
-#if defined(__NR_mmap2) && !defined(__sparc__) && !defined(__ia64__)
+#if defined(__NR_mmap2) && !defined(__sparc__) && !defined(__ia64__) && !defined(__powerpc64__)
 
 /* This architecture uses mmap2() */
 

@@ -8,7 +8,7 @@ int main(void)
     int i;
     int r;
 
-    for(i = 0; i < sizeof(t1); i++)
+    for(i = 0; i < (int)sizeof(t1); i++)
 	t1[i] = t2[i] = (unsigned char)i;
 
     r = memcmp(t1, t2, sizeof(t1));
@@ -19,7 +19,7 @@ int main(void)
     r = memcmp(t1, t2, sizeof(t1));
     printf("memcmp r = %d\n", r);
 
-    for (i = 0; i < sizeof(t1); i++)
+    for (i = 0; i < (int)sizeof(t1); i++)
 	t1[i] = 0xaa;
     memset(t2, 0xaa, sizeof(t2));
     r = memcmp(t1, t2, sizeof(t1));

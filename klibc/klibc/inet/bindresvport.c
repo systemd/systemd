@@ -37,7 +37,7 @@ int bindresvport(int sd, struct sockaddr_in *sin)
 	
 	for (i = 0; i < NUM_PORTS; i++, port++) {
 		sin->sin_port = htons(port);
-		if ((ret = bind(sd, sin, sizeof(*sin))) != -1)
+		if ((ret = bind(sd, (struct sockaddr *)&sin, sizeof(*sin))) != -1)
 			break;
 		if (port == END_PORT)
 			port = START_PORT;

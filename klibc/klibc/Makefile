@@ -57,6 +57,12 @@ tests: $(TESTS)
 tests/%.o : tests/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+# This particular file uses a bunch of formats gcc don't know of, in order
+# to test the full range of our vsnprintf() function.  This outputs a bunch
+# of useless warnings unless we tell it not to.
+tests/testvsnp.o : tests/testvsnp.c
+	$(CC) $(CFLAGS) -Wno-format -c -o $@ $<
+
 tests/% : tests/%.o $(LIB) $(CRT0)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) $< $(LIB) $(LIBGCC)
 	cp $@ $@.stripped
@@ -130,6 +136,9 @@ clean: archclean
 spotless: clean
 	find . \( -name \*~ -o -name '.*.d' \) -not -type d -print0 | \
 		xargs -0rt rm -f
+
+bitsize:
+	@echo $(BITSIZE)
 
 ifneq ($(wildcard $(DIR)/.*.d),)
 include $(wildcard $(DIR)/.*.d)

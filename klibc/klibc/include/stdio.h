@@ -78,12 +78,13 @@ __extern size_t _fread(void *, size_t, FILE *);
 __extern size_t _fwrite(const void *, size_t, FILE *);
 
 #ifndef __NO_FREAD_FWRITE_INLINES
-static __inline__ size_t
+extern __inline__ size_t
 fread(void *__p, size_t __s, size_t __n, FILE *__f)
 {
   return _fread(__p, __s*__n, __f)/__s;
 }
-static  __inline__ size_t
+
+extern __inline__ size_t
 fwrite(void *__p, size_t __s, size_t __n, FILE *__f)
 {
   return _fwrite(__p, __s*__n, __f)/__s;

@@ -11,7 +11,7 @@ int strncmp(const char *s1, const char *s2, size_t n)
   int d = 0;
 
   while ( n-- ) {
-    d = (int)*c2++ - (int)(ch = *c1++);
+    d = (int)(ch = *c1++) - (int)*c2++;
     if ( d || !ch )
       break;
   }

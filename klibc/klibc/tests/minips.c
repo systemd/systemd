@@ -396,6 +396,7 @@ static void print_proc(void){
     );
     break;
   default:
+    break;
   }
   if(show_args) printf(" [%s]\n", P_cmd);
   else          printf(" %s\n", P_cmd);

@@ -23,16 +23,10 @@ _start:
 	.globl	._start
 	.type	._start,@function
 ._start:
-	ld	3,0(1)
-	ld	4,8(1)
-	ld	5,16(1)
-	li	0,0
-	stdu	0,-64(1)
-	ld	9,.LC0@toc(2)
-	std	5,0(9)
-	bl	.main
-	nop
-	bl	.exit
+	stdu    %r1,-32(%r1)
+	addi    %r3,%r1,32
+	mr      %r4,%r7     /* fini */
+	b 	.__libc_init
 	nop
 
 	.size _start,.-_start

@@ -15,7 +15,6 @@
 #include <sys/dirent.h>
 #include <sys/klog.h>
 #include <sys/mman.h>
-#include <sys/module.h>
 #include <sys/resource.h>
 #include <sys/select.h>
 #include <sys/stat.h>

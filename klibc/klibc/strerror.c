@@ -10,7 +10,6 @@ char *strerror(int errnum)
 
   char numbuf[32];
   char *p;
-  int len;
 
   p = numbuf+sizeof numbuf;
   *--p = '\0';

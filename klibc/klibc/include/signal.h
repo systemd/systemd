@@ -13,6 +13,12 @@
 
 #include <klibc/archsignal.h>
 
+/* glibc seems to use sig_atomic_t as "int" pretty much on all architectures.
+   Do the same, but allow the architecture to override. */
+#ifdef _KLIBC_HAS_ARCH_SIG_ATOMIC_T
+typedef int sig_atomic_t;
+#endif
+
 /* Some architectures don't define these */
 #ifndef SA_RESETHAND
 # define SA_RESETHAND SA_ONESHOT

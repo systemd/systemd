@@ -8,7 +8,13 @@
 #
 
 ARCHOBJS = \
-	arch/$(ARCH)/setjmp.o
+	arch/$(ARCH)/setjmp.o \
+	libgcc/__divdi3.o \
+	libgcc/__moddi3.o \
+	libgcc/__udivdi3.o \
+	libgcc/__umoddi3.o \
+	libgcc/__udivmoddi4.o
+
 
 ARCHSOOBJS = $(patsubst %.o,%.lo,$(ARCHOBJS))
 
