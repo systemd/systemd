@@ -1,5 +1,5 @@
 /*
- * udevdb.c
+ * udev_db.c
  *
  * Userspace devfs
  *
@@ -35,7 +35,7 @@
 #include "udev.h"
 #include "udev_lib.h"
 #include "logging.h"
-#include "udevdb.h"
+#include "udev_db.h"
 
 #define PATH_TO_NAME_CHAR		'@'
 
@@ -57,7 +57,7 @@ static int get_db_filename(struct udevice *udev, char *filename, int len)
 	return 0;
 }
 
-int udevdb_add_dev(struct udevice *udev)
+int udev_db_add_device(struct udevice *udev)
 {
 	char filename[SYSFS_PATH_MAX];
 	FILE *f;
@@ -135,7 +135,7 @@ static int parse_db_file(struct udevice *udev, const char *filename)
 	return 0;
 }
 
-int udevdb_get_dev(struct udevice *udev)
+int udev_db_get_device(struct udevice *udev)
 {
 	char filename[SYSFS_PATH_MAX];
 
@@ -144,7 +144,7 @@ int udevdb_get_dev(struct udevice *udev)
 	return parse_db_file(udev, filename);
 }
 
-int udevdb_delete_dev(struct udevice *udev)
+int udev_db_delete_device(struct udevice *udev)
 {
 	char filename[SYSFS_PATH_MAX];
 
@@ -154,7 +154,7 @@ int udevdb_delete_dev(struct udevice *udev)
 	return 0;
 }
 
-int udevdb_get_dev_byname(struct udevice *udev, const char *name)
+int udev_db_get_device_byname(struct udevice *udev, const char *name)
 {
 	struct dirent *ent;
 	DIR *dir;

@@ -40,7 +40,7 @@
 #include "udev_version.h"
 #include "logging.h"
 #include "namedev.h"
-#include "udevdb.h"
+#include "udev_db.h"
 
 static struct sysfs_attribute *find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, char *attr);
 
@@ -194,7 +194,7 @@ static int find_free_number(struct udevice *udev, const char *name)
 	while (1) {
 		dbg("look for existing node '%s'", filename);
 		memset(&db_udev, 0x00, sizeof(struct udevice));
-		if (udevdb_get_dev_byname(&db_udev, filename) != 0) {
+		if (udev_db_get_device_byname(&db_udev, filename) != 0) {
 			dbg("free num=%d", num);
 			return num;
 		}

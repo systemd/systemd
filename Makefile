@@ -210,7 +210,7 @@ OBJS =	udev_lib.o	\
 	udev_add.o	\
 	udev_remove.o	\
 	udev_sysfs.o	\
-	udevdb.o	\
+	udev_db.o	\
 	namedev.o	\
 	namedev_parse.o	\
 	dev_d.o		\
@@ -220,7 +220,7 @@ HEADERS =	udev.h		\
 		udev_lib.h	\
 		namedev.h	\
 		udev_version.h	\
-		udevdb.h	\
+		udev_db.h	\
 		udev_sysfs.h	\
 		logging.h	\
 		selinux.h	\
@@ -292,7 +292,7 @@ $(TESTER): $(LIBC) $(TESTER).o $(OBJS) $(HEADERS)
 	$(QUIET) $(STRIPCMD) $@
 
 $(INFO): $(LIBC) $(INFO).o $(OBJS) $(HEADERS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o udev_lib.o udev_config.o udevdb.o $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o udev_lib.o udev_config.o udev_db.o $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
 $(DAEMON): $(LIBC) $(DAEMON).o $(OBJS) udevd.h

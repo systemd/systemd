@@ -32,8 +32,8 @@
 #include "udev.h"
 #include "udev_lib.h"
 #include "udev_version.h"
+#include "udev_db.h"
 #include "logging.h"
-#include "udevdb.h"
 
 
 #define SYSFS_VALUE_SIZE		256
@@ -355,7 +355,7 @@ static int process_options(int argc, char *argv[])
 			}
 			memset(&udev, 0x00, sizeof(struct udevice));
 			strfieldcpy(udev.devpath, pos);
-			retval = udevdb_get_dev(&udev);
+			retval = udev_db_get_device(&udev);
 			if (retval != 0) {
 				printf("device not found in database\n");
 				goto exit;
@@ -374,7 +374,7 @@ static int process_options(int argc, char *argv[])
 
 			memset(&udev, 0x00, sizeof(struct udevice));
 			strfieldcpy(udev.name, pos);
-			retval = udevdb_get_dev_byname(&udev, pos);
+			retval = udev_db_get_device_byname(&udev, pos);
 			if (retval != 0) {
 				printf("device not found in database\n");
 				goto exit;

@@ -33,9 +33,9 @@
 #include "udev.h"
 #include "udev_lib.h"
 #include "udev_version.h"
-#include "logging.h"
 #include "namedev.h"
-#include "udevdb.h"
+#include "udev_db.h"
+#include "logging.h"
 
 static int delete_path(const char *path)
 {
@@ -175,7 +175,7 @@ int udev_remove_device(struct udevice *udev)
 	if (udev->type != 'b' && udev->type != 'c')
 		return 0;
 
-	retval = udevdb_get_dev(udev);
+	retval = udev_db_get_device(udev);
 	if (retval) {
 		/* fall back to kernel name */
 		temp = strrchr(udev->devpath, '/');
@@ -186,7 +186,7 @@ int udev_remove_device(struct udevice *udev)
 	}
 
 	dbg("remove name='%s'", udev->name);
-	udevdb_delete_dev(udev);
+	udev_db_delete_device(udev);
 
 	/* use full path to the environment */
 	snprintf(udev->devname, NAME_SIZE, "%s/%s", udev_root, udev->name);

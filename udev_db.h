@@ -1,5 +1,5 @@
 /*
- * udevdb.h
+ * udev_db.h
  *
  * Userspace devfs
  *
@@ -21,14 +21,14 @@
  *
  */
 
-#ifndef _UDEVDB_H_
-#define _UDEVDB_H_
+#ifndef _UDEV_DB_H_
+#define _UDEV_DB_H_
 
 
-extern int udevdb_add_dev(struct udevice *dev);
-extern int udevdb_get_dev(struct udevice *dev);
-extern int udevdb_delete_dev(struct udevice *dev);
+extern int udev_db_add_device(struct udevice *dev);
+extern int udev_db_get_device(struct udevice *dev);
+extern int udev_db_delete_device(struct udevice *dev);
 
-extern int udevdb_get_dev_byname(struct udevice *udev, const char *name);
+extern int udev_db_get_device_byname(struct udevice *udev, const char *name);
 
-#endif /* _UDEVDB_H_ */
+#endif /* _UDEV_DB_H_ */

@@ -42,7 +42,7 @@
 #include "udev_version.h"
 #include "logging.h"
 #include "namedev.h"
-#include "udevdb.h"
+#include "udev_db.h"
 
 #include "selinux.h"
 
@@ -303,8 +303,8 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 		if (retval != 0)
 			goto exit;
 
-		if (udevdb_add_dev(udev) != 0)
-			dbg("udevdb_add_dev failed, but we create the node anyway, "
+		if (udev_db_add_device(udev) != 0)
+			dbg("udev_db_add_dev failed, but we create the node anyway, "
 			    "remove might not work for custom names");
 
 		/* use full path to the environment */

@@ -29,7 +29,6 @@
 
 #include "udev.h"
 #include "udev_lib.h"
-#include "udevdb.h"
 #include "logging.h"
 
 static int run_program(const char *filename, void *data)

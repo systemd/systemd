@@ -34,9 +34,8 @@
 #include "udev_lib.h"
 #include "udev_sysfs.h"
 #include "udev_version.h"
-#include "logging.h"
 #include "namedev.h"
-#include "udevdb.h"
+#include "logging.h"
 
 
 #ifdef LOG
