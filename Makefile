@@ -108,8 +108,12 @@ GCC_LIB := $(shell $(CC) -print-libgcc-file-name )
 OPTIMIZATION := ${shell if $(CC) -Os -S -o /dev/null -xc /dev/null >/dev/null 2>&1; \
 		then echo "-Os"; else echo "-O2" ; fi}
 
-# add -Wredundant-decls when libsysfs gets cleaned up
-WARNINGS := -Wall 
+# check if compiler option is supported
+cc-supports = ${shell if $(CC) ${1} -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "$(1)"; fi;}
+
+WARNINGS := -Wall -fno-builtin -Wchar-subscripts -Wpointer-arith -Wstrict-prototypes -Wsign-compare
+WARNINGS += $(call cc-supports,-Wno-pointer-sign)
+WARNINGS += $(call cc-supports,-Wdeclaration-after-statement)
 
 CFLAGS := -pipe
 
