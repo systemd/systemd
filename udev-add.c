@@ -34,8 +34,6 @@
 #include "libsysfs/libsysfs.h"
 
 
-static char sysfs_path[SYSFS_PATH_MAX];
-
 /* 
  * Right now the major/minor of a device is stored in a file called
  * "dev" in sysfs.
@@ -103,8 +101,18 @@ static int create_node(char *name, char type, int major, int minor, int mode)
 
 struct sysfs_class_device *get_class_dev(char *device_name)
 {
+	char sysfs_path[SYSFS_PATH_MAX];
 	char dev_path[SYSFS_PATH_MAX];
-	struct sysfs_class_device *class_dev;
+	int retval;
+	struct sysfs_class_device *class_dev = NULL;
+
+
+	retval = sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX);
+	dbg("sysfs_path = %s", sysfs_path);
+	if (retval) {
+		dbg("sysfs_get_mnt_path failed");
+		goto exit;
+	}
 
 	strcpy(dev_path, sysfs_path);
 	strcat(dev_path, device_name);
@@ -115,45 +123,33 @@ struct sysfs_class_device *get_class_dev(char *device_name)
 	class_dev = sysfs_open_class_device(dev_path);
 	if (class_dev == NULL) {
 		dbg ("sysfs_open_class_device failed");
-		return NULL;
+		goto exit;
 	}
 	dbg("class_dev->name = %s", class_dev->name);
 
+exit:
 	return class_dev;
-}
-
-static int udev_init(void)
-{
-	int retval;
-
-	retval = sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX);
-	dbg("sysfs_path = %s", sysfs_path);
-	return retval;
 }
 
 int udev_add_device(char *device, char *subsystem)
 {
 	struct sysfs_class_device *class_dev;
 	struct device_attr attr;
-	//char *name;
 	int major;
 	int minor;
 	char type;
-	//int mode;
 	int retval = -EINVAL;
-
-	/* sleep for a second or two to give the kernel a chance to
-	 * create the dev file
-	 */
-	sleep(1);
-
-	udev_init();
 
 	/* for now, the block layer is the only place where block devices are */
 	if (strcmp(subsystem, "block") == 0)
 		type = 'b';
 	else
 		type = 'c';
+
+	/* sleep for a second or two to give the kernel a chance to
+	 * create the dev file
+	 */
+	sleep(1);
 
 	class_dev = get_class_dev(device);
 	if (class_dev == NULL)
