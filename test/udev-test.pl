@@ -1255,9 +1255,6 @@ open CONF, ">$main_conf" || die "unable to create config file: $main_conf";
 print CONF "udev_root=\"$udev_root\"\n";
 print CONF "udev_db=\"$udev_db\"\n";
 print CONF "udev_rules=\"$conf_tmp\"\n";
-print CONF "default_mode=\"0660\"\n";
-print CONF "default_owner=\"root\"\n";
-print CONF "default_group=\"root\"\n";
 close CONF;
 
 my $test_num = 1;

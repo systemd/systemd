@@ -59,22 +59,6 @@ All rule files are read in lexical order. The default value is
 The switch to enable/disable logging of udev information
 The default value is
 .IR yes .
-.TP
-.B default_mode
-The default mode for all nodes where no explicit value is given by a rule.
-The default value is
-.IR 0660 .
-.TP
-.B default_owner
-The default owner for all nodes where no explicit value is given by a rule.
-The default value is
-.IR root .
-.TP
-.B default_group
-The default group for all nodes where no explicitly value is given by a rule.
-The default value is
-.IR root .
-.br
 .P
 .RI "A sample " udev.conf " file might look like this:
 .sp
@@ -91,18 +75,6 @@ udev_rules="/etc/udev/rules.d/"
 
 # udev_log - set to "yes" if you want logging, else "no"
 udev_log="yes"
-
-# default_mode - set the default mode for all nodes that have no
-#                permissions specified
-default_mode="0660"
-
-# default_owner - set the default owner for all nodes that have no
-#                 permissions specified
-default_owner="root"
-
-# default_group - set the default group for all nodes that have no
-#                 permissions specified
-default_group="root"
 .fi
 .P
 The rules for device naming are read from the files located in the

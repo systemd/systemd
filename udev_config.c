@@ -45,9 +45,6 @@ char udev_root[PATH_MAX];
 char udev_db_path[PATH_MAX+NAME_MAX];
 char udev_rules_filename[PATH_MAX+NAME_MAX];
 char udev_config_filename[PATH_MAX+NAME_MAX];
-mode_t default_mode;
-char default_owner[USER_SIZE];
-char default_group[USER_SIZE];
 int udev_log;
 int udev_dev_d;
 int udev_hotplug_d;
@@ -73,10 +70,6 @@ static void init_variables(void)
 	strcpy(udev_db_path, UDEV_DB);
 	strcpy(udev_config_filename, UDEV_CONFIG_FILE);
 	strcpy(udev_rules_filename, UDEV_RULES_FILE);
-
-	strcpy(default_owner, "root");
-	strcpy(default_group, "root");
-	default_mode = 0660;
 
 	udev_log = string_is_true(UDEV_LOG_DEFAULT);
 
@@ -166,21 +159,6 @@ static int parse_config_file(void)
 		if (strcasecmp(variable, "udev_rules") == 0) {
 			strfieldcpy(udev_rules_filename, value);
 			no_trailing_slash(udev_rules_filename);
-			continue;
-		}
-
-		if (strcasecmp(variable, "default_mode") == 0) {
-			default_mode = strtol(value, NULL, 8);
-			continue;
-		}
-
-		if (strcasecmp(variable, "default_owner") == 0) {
-			strfieldcpy(default_owner, value);
-			continue;
-		}
-
-		if (strcasecmp(variable, "default_group") == 0) {
-			strfieldcpy(default_group, value);
 			continue;
 		}
 
