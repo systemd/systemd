@@ -1,3 +1,41 @@
+Summary of changes from v014 to v015
+============================================
+
+<mbuesch:freenet.de>:
+  o LFS init script update
+
+Greg Kroah-Hartman:
+  o update klibc to version 0.98
+  o clean up udevinfo on 'make clean'
+  o add udevinfo man page to spec file
+  o remove command line documentation from udev man page
+  o create initial version of udevinfo man page
+  o added URL to spec file
+  o add udevinfo to udev.spec file
+  o add udevinfo to install target of Makefile
+  o rip out command line code from udev, now that we have udevinfo
+  o udevinfo doesn't need to declare main_envp
+  o move get_pair to udev_config.c because udevinfo doesn't need all of namedev.o
+  o more makefile cleanups
+  o move udevinfo into the main build and clean up the main Makefile a bit
+  o clean up compiler warnings if building using klibc
+  o make udevd only have one instance running at a time
+  o new testd.block script for debugging
+  o udevsnd : clean up message creation logic a bit
+  o make bk ignore udevd and udevsend binaries
+  o whitespace cleanups
+  o remove TODO item about BUS value, as it is now done
+  o add support for figuring out which device on the sysfs "chain" the rule applies to
+
+Kay Sievers:
+  o udevinfo - now a real program :)
+  o udevd - cleanup and better timeout handling
+  o udev - next round of udev event order daemon
+  o fix udevd exec
+  o udev - udevinfo with device chain walk
+  o spilt udev into pieces
+
+
 Summary of changes from v013 to v014
 ============================================
 
