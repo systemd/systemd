@@ -18,6 +18,6 @@ fi
 INTERFACE=$DEVNAME
 export INTERFACE
 if [ -f /etc/hotplug.d/default/default.hotplug ]; then
-	/etc/hotplug.d/default/default.hotplug net
+	exec /etc/hotplug.d/default/default.hotplug net
 fi
 
