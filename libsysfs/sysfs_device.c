@@ -24,7 +24,9 @@
 #include "sysfs.h"
 
 /**
- * get_dev_driver: fills in the dev->driver_name field 
+ * get_dev_driver: fills in the dev->driver_name field, but searches by
+ *	opening subsystem. Only to be used if no driver link exists in
+ *	device directory.
  *
  * Returns 0 on SUCCESS and 1 on error
  */
@@ -72,6 +74,32 @@ static int get_dev_driver(struct sysfs_device *dev)
 		sysfs_close_list(drvlist);
 	}
 	return 1;
+}
+
+/*
+ * get_device_driver_name: gets device's driver name, searches for driver
+ *	link first before going the brute force route.
+ * @dev: device to retrieve driver
+ * returns 0 with success and 1 with error
+ */
+static int get_device_driver_name(struct sysfs_device *dev)
+{
+	char devpath[SYSFS_PATH_MAX], drvpath[SYSFS_PATH_MAX];
+
+	if (dev == NULL) {
+		errno = EINVAL;
+		return 1;
+	}
+	memset(devpath, 0, SYSFS_PATH_MAX);
+	memset(drvpath, 0, SYSFS_PATH_MAX);
+	safestrcpy(devpath, dev->path);
+	safestrcat(devpath, "/driver");
+
+	if ((sysfs_get_link(devpath, drvpath, SYSFS_PATH_MAX)) != 0) 
+		return(get_dev_driver(dev));
+
+	return (sysfs_get_name_from_path(drvpath, dev->driver_name, 
+		SYSFS_NAME_LEN));
 }
 	
 /**
@@ -262,7 +290,7 @@ struct sysfs_device *sysfs_open_device_path(const char *path)
 	if (sysfs_get_device_bus(dev) != 0)
 		dprintf("Could not get device bus\n");
 	
-	if (get_dev_driver(dev) != 0) {
+	if (get_device_driver_name(dev) != 0) {
 		dprintf("Could not get device %s's driver\n", dev->bus_id);
 		safestrcpy(dev->driver_name, SYSFS_UNKNOWN);
 	}

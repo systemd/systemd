@@ -640,6 +640,9 @@ struct sysfs_attribute *sysfs_get_classdev_attr
 			return cur;
 	}
 
+	if (clsdev->directory == NULL)
+		return NULL;
+
 	if (clsdev->directory->subdirs == NULL) 
 		if ((sysfs_read_dir_subdirs(clsdev->directory)) != 0 ||
 		    clsdev->directory->subdirs == NULL) 
