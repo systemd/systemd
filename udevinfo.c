@@ -266,7 +266,7 @@ static int process_options(void)
 	int root = 0;
 	int attributes = 0;
 	enum query_type query = NONE;
-	char result[NAME_SIZE] = "";
+	char result[1024] = "";
 	char path[NAME_SIZE] = "";
 	char name[NAME_SIZE] = "";
 	char temp[NAME_SIZE];
@@ -401,7 +401,20 @@ print:
 			break;
 
 		case SYMLINK:
-			strfieldcpy(result, udev.symlink);
+			if (root) {
+				int slen;
+				char *spos;
+				char slink[NAME_SIZE];
+
+				pos = result;
+				foreach_strpart(udev.symlink, " \n\r", spos, slen) {
+					strncpy(slink, spos, slen);
+					slink[slen] = '\0';
+					pos += sprintf(pos, "%s/%s ", udev_root, slink);
+				}
+			} else {
+				strfieldcpy(result, udev.symlink);
+			}
 			break;
 
 		case PATH:
