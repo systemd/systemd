@@ -619,8 +619,8 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 	 * possibly have a whitelist for these devices here...
 	 */
 	class_dev_parent = sysfs_get_classdev_parent(class_dev);
-	if (class_dev_parent) 
-		dbg("Really a partition");
+	if (class_dev_parent != NULL) 
+		dbg("given class device has a parent, use this instead");
 
 	tspec.tv_sec = 0;
 	tspec.tv_nsec = 10000000;  /* sleep 10 millisec */
@@ -628,24 +628,21 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 	while (loop--) {
 		if (udev_sleep)
 			nanosleep(&tspec, NULL);
+
 		if (class_dev_parent)
 			sysfs_device = sysfs_get_classdev_device(class_dev_parent);
 		else
 			sysfs_device = sysfs_get_classdev_device(class_dev);
-
 		if (sysfs_device != NULL)
 			goto device_found;
 	}
 	dbg("timed out waiting for device symlink, continuing on anyway...");
-	
+
 device_found:
         /* We have another issue with just the wait above - the sysfs part of
 	 * the kernel may not be quick enough to have created the link to the
 	 * device under the "bus" subsystem. Due to this, the sysfs_device->bus
 	 * will not contain the actual bus name :(
-	 *
-	 * Libsysfs now provides a new API sysfs_get_device_bus(), so use it
-	 * if needed
 	 */
         if (sysfs_device) {
 		if (sysfs_device->bus[0] != '\0')
@@ -828,6 +825,11 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 			}
 
 			if (dev->name[0] != '\0') {
+				/* apply all_partitions flag only at a main block device */
+				if (dev->partitions > 0 &&
+				    (udev->type != 'b' || udev->kernel_number[0] != '\0'))
+					continue;
+
 				info("configured rule in '%s' at line %i applied, '%s' becomes '%s'",
 				     dev->config_file, dev->config_line, udev->kernel_name, dev->name);
 				strfieldcpy(udev->name, dev->name);
