@@ -244,6 +244,15 @@ BUS="scsi", PROGRAM="/bin/echo -n escape-%%n", KERNEL="sda3", NAME="%c"
 EOF
 	},
 	{
+		desc     => "program with lots of arguments",
+		subsys   => "block",
+		devpath  => "block/sda/sda3",
+		expected => "foo9" ,
+		conf     => <<EOF
+BUS="scsi", PROGRAM="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL="sda3", NAME="%c{7}"
+EOF
+	},
+	{
 		desc     => "program result substitution (numbered part of)",
 		subsys   => "block",
 		devpath  => "block/sda/sda3",

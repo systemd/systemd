@@ -421,7 +421,13 @@ static int execute_program(char *path, char *value, int len)
 	case 0:
 		/* child */
 		close(STDOUT_FILENO);
-		dup(fds[1]);	/* dup write side of pipe to STDOUT */
+
+		/* dup write side of pipe to STDOUT */
+		dup(fds[1]);
+
+		/* copy off our path to use incase we have too many args */
+		strnfieldcpy(buffer, path, sizeof(buffer));
+
 		if (strchr(path, ' ')) {
 			/* exec with arguments */
 			pos = path;
@@ -431,14 +437,16 @@ static int execute_program(char *path, char *value, int len)
 					break;
 			}
 			if (args[i]) {
-				dbg("too many args - %d", i);
-				args[i] = NULL;
+				dbg("too many args - %d, using subshell instead '%s'", i, buffer);
+				retval = execl("/bin/sh", "sh", "-c", buffer, NULL);
+			} else {
+				dbg("execute program '%s'", path);
+				retval = execv(args[0], args);
 			}
-			retval = execv(args[0], args);
 		} else {
 			retval = execv(path, main_argv);
 		}
-		dbg("child execve failed");
+		info(FIELD_PROGRAM " execution of '%s' failed", path);
 		exit(1);
 	case -1:
 		dbg("fork failed");
