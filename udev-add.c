@@ -44,7 +44,7 @@
  * 		mm is the minor
  * 		The value is in decimal.
  */
-static int get_major_minor(struct sysfs_class_device *class_dev, int *major, int *minor)
+static int get_major_minor(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
 	int retval = -ENODEV;
 
@@ -56,10 +56,10 @@ static int get_major_minor(struct sysfs_class_device *class_dev, int *major, int
 
 	dbg("dev = %s", dev);
 
-	if (sscanf(dev, "%u:%u", major, minor) != 2)
+	if (sscanf(dev, "%u:%u", &udev->major, &udev->minor) != 2)
 		goto exit;
 
-	dbg("found major = %d, minor = %d", *major, *minor);
+	dbg("found major = %d, minor = %d", udev->major, udev->minor);
 
 	retval = 0;
 exit:
@@ -219,7 +219,7 @@ exit:
 
 int udev_add_device(char *path, char *subsystem)
 {
-	struct sysfs_class_device *class_dev;
+	struct sysfs_class_device *class_dev = NULL;
 	struct udevice dev;
 	int retval = -EINVAL;
 
@@ -237,32 +237,28 @@ int udev_add_device(char *path, char *subsystem)
 	if (class_dev == NULL)
 		goto exit;
 
-	retval = namedev_name_device(class_dev, &dev);
-	if (retval)
-		return retval;
-
-	retval = get_major_minor(class_dev, &dev.major, &dev.minor);
+	retval = get_major_minor(class_dev, &dev);
 	if (retval) {
 		dbg("get_major_minor failed");
 		goto exit;
 	}
 
-//	strcpy(dev.name, attr.name);
-//	strcpy(dev.owner, attr.owner);
-//	strcpy(dev.group, attr.group);
-//	dev.mode = attr.mode;
-	
+	retval = namedev_name_device(class_dev, &dev);
+	if (retval)
+		goto exit;
+
 	retval = udevdb_add_dev(path, &dev);
 	if (retval != 0)
 		dbg("udevdb_add_dev failed, but we are going to try to create the node anyway. "
 		    "But remove might not work properly for this device.");
 
-	sysfs_close_class_device(class_dev);
-
 	dbg("name = %s", dev.name);
 	retval = create_node(&dev);
 
 exit:
+	if (class_dev)
+		sysfs_close_class_device(class_dev);
+
 	return retval;
 }
 
