@@ -21,16 +21,22 @@
  */
 
 #include <stdarg.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <syslog.h>
 #include "udev.h"
 
 #ifdef DEBUG
 
 static int logging_init = 0;
+static unsigned char udev_logname[42];
 
 static void init_logging (void)
 {
-	openlog ("udev", 0, LOG_DAEMON);
+	snprintf(udev_logname,42,"udev[%d]", getpid());
+
+	openlog (udev_logname, 0, LOG_DAEMON);
 	logging_init = 1;
 }
 
