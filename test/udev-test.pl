@@ -195,6 +195,15 @@ NAME="visor"
 EOF
 	},
 	{
+		desc		=> "preserve backslashes, if they are not for a newline",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "aaa",
+		conf		=> <<EOF
+KERNEL="ttyUSB0", PROGRAM="/bin/echo -e \\101", RESULT="A", NAME="aaa"
+EOF
+	},
+	{
 		desc		=> "Handle stupid backslashed multi lines in config file (and replace kernel name)",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",

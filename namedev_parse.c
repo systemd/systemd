@@ -153,7 +153,7 @@ static int namedev_parse(const char *filename, void *data)
 
 		/* skip backslash and newline from multi line rules */
 		for (i = j = 0; i < count; i++) {
-			if (bufline[i] == '\\' || bufline[i] == '\n')
+			if (bufline[i] == '\\' && bufline[i+1] == '\n')
 				continue;
 
 			line[j++] = bufline[i];
