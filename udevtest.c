@@ -108,10 +108,12 @@ int main(int argc, char *argv[], char *envp[])
 	/* open the device */
 	snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, udev.devpath);
 	class_dev = sysfs_open_class_device_path(path);
-	if (class_dev == NULL)
-		dbg ("sysfs_open_class_device_path failed");
-	else
-		dbg("opened class_dev->name='%s'", class_dev->name);
+	if (class_dev == NULL) {
+		info("sysfs_open_class_device_path failed");
+		return 1;
+	}
+
+	dbg("opened class_dev->name='%s'", class_dev->name);
 
 	/* simulate node creation with test flag */
 	udev.test_run = 1;
