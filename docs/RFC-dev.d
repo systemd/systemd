@@ -12,16 +12,17 @@ the system due to a device being removed.
 The directory tree under /etc/dev.d/ dictate which program is run first,
 and when some programs will be run or not.  The device naming program
 calls the programs in the following order:
-	/etc/dev.d/DEVNODE/*.dev
+	/etc/dev.d/DEVNAME/*.dev
 	/etc/dev.d/SUBSYSTEM/*.dev
 	/etc/dev.d/default/*.dev
 
 The .dev extension is needed to allow automatic package managers to
 deposit backup files in these directories safely.
 
-The DEVNODE name is the name of the /dev file that has been created.
-This value, including the /dev path, will also be exported to userspace
-in the DEVNODE environment variable.
+The DEVNAME name is the name of the /dev file that has been created, or
+for network devices, the name of the newly named network device.  This
+value, including the /dev path, will also be exported to userspace in
+the DEVNAME environment variable.
 
 The SUBSYSTEM name is the name of the sysfs subsystem that originally
 generated the hotplug event that caused the device naming program to
@@ -40,8 +41,8 @@ description of this
 An equivalent shell script that would do this same kind of action would
 be:
 	DIR="/etc/dev.d"
-	export DEVNODE="whatever_dev_name_udev_just_gave"
-	for I in "${DIR}/$DEVNODE/"*.dev "${DIR}/$1/"*.dev "${DIR}/default/"*.dev ; do
+	export DEVNAME="whatever_dev_name_udev_just_gave"
+	for I in "${DIR}/$DEVNAME/"*.dev "${DIR}/$1/"*.dev "${DIR}/default/"*.dev ; do
 		if [ -f $I ]; then $I $1 ; fi
 	done
 	exit 1;
