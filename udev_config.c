@@ -31,8 +31,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <ctype.h>
-#include <sysfs/libsysfs.h>
 
+#include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
 #include "udev_version.h"
 #include "logging.h"

@@ -33,8 +33,8 @@
 #ifndef __KLIBC__
 #include <pwd.h>
 #endif
-#include <sysfs/libsysfs.h>
 
+#include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
 #include "udev_version.h"
 #include "udev_dbus.h"

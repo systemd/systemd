@@ -32,8 +32,8 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <signal.h>
-#include <sysfs/libsysfs.h>
 
+#include "libsysfs/sysfs/libsysfs.h"
 #include "udev_version.h"
 #include "udev.h"
 #include "logging.h"

@@ -32,8 +32,8 @@
 #include <time.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
-#include <sysfs/libsysfs.h>
 
+#include "libsysfs/sysfs/libsysfs.h"
 #include "list.h"
 #include "udev.h"
 #include "udev_version.h"
