@@ -21,6 +21,8 @@
  *
  */
 
+#undef DEBUG
+
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -530,7 +532,7 @@ label_found:
 			} else {
 				*temp = 0x00;
 				temp = strrchr(path, '/');
-				dbg("TOPOLOGY temp = '%s' id = '%s'", temp, dev->id);
+				dbg("NUMBERY temp = '%s' id = '%s'", temp, dev->id);
 				if (strstr(temp, dev->id) != NULL)
 					found = 1;
 			}
