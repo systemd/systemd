@@ -594,15 +594,16 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 			for (i = 0; i < rule->sysfs_pair_count; i++) {
 				struct key_pair *pair;
 				char value[VALUE_SIZE];
+				size_t len;
 
 				pair = &rule->sysfs_pair[i];
 				if (find_sysfs_attribute(class_dev, parent_device, pair->name, value, sizeof(value)) != 0)
 					goto try_parent;
 
 				/* strip trailing whitespace of value, if not asked to match for it */
-				if (!isspace(pair->value[strlen(pair->value)-1])) {
-					size_t len = strlen(value);
-
+				len = strlen(pair->value);
+				if (len && !isspace(pair->value[len-1])) {
+					len = strlen(value);
 					while (len > 0 && isspace(value[len-1]))
 						value[--len] = '\0';
 					dbg("removed %i trailing whitespace chars from '%s'", strlen(value)-len, value);
