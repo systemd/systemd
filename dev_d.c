@@ -64,20 +64,41 @@ static int run_program(char *name)
 void dev_d_send(struct udevice *dev, char *subsystem, char *devpath)
 {
 	char dirname[256];
-	char devname[NAME_SIZE];
+	char env_devname[NAME_SIZE];
+	char *devname;
+	char *temp;
 
 	if (udev_dev_d == 0)
 		return;
 
 	if (dev->type == 'b' || dev->type == 'c') {
-		strfieldcpy(devname, udev_root);
-		strfieldcat(devname, dev->name);
+		strfieldcpy(env_devname, udev_root);
+		strfieldcat(env_devname, dev->name);
 	} else if (dev->type == 'n') {
-		strfieldcpy(devname, dev->name);
+		strfieldcpy(env_devname, dev->name);
 		setenv("DEVPATH", devpath, 1);
 	}
-	setenv("DEVNAME", devname, 1);
-	dbg("DEVNAME='%s'", devname);
+	setenv("DEVNAME", env_devname, 1);
+	dbg("DEVNAME='%s'", env_devname);
+
+	devname = strdup(dev->name);
+	if (!devname) {
+		dbg("out of memory");
+		return;
+	}
+
+	/* Chop the device name up into pieces based on '/' */
+	temp = strchr(devname, '/');
+	while (temp != NULL) {
+		*temp = 0x00;
+		strcpy(dirname, DEVD_DIR);
+		strfieldcat(dirname, devname);
+		call_foreach_file(run_program, dirname, DEVD_SUFFIX);
+
+		*temp = '/';
+		++temp;
+		temp = strchr(temp, '/');
+	}
 
 	strcpy(dirname, DEVD_DIR);
 	strfieldcat(dirname, dev->name);
