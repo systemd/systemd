@@ -48,7 +48,10 @@ make CC="gcc $RPM_OPT_FLAGS"	\
 %endif
 
 %install
-make DESTDIR=$RPM_BUILD_ROOT install
+make DESTDIR=$RPM_BUILD_ROOT install \
+%if %{dbus}
+	USE_DBUS=true
+%endif
 
 %post
 /sbin/chkconfig --add udev
@@ -70,6 +73,9 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.conf
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.rules
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.permissions
+%if %{dbus}
+	%config(noreplace) %attr(0644,root,root) /etc/dbus-1/system.d/udev_sysbus_policy.conf
+%endif
 %attr(-,root,root) /etc/hotplug.d/default/udev.hotplug
 %attr(755,root,root) /etc/init.d/udev
 %attr(0644,root,root) %{_mandir}/man8/udev.8*
