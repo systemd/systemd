@@ -246,6 +246,12 @@ GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
 $(LOCAL_CFG_DIR)/udev.conf:
 	sed -e "s:@udevdir@:$(udevdir):" < $(LOCAL_CFG_DIR)/udev.conf.in > $@
 
+GEN_MANPAGES   = udev.8    udevd.8    udevinfo.8    udevstart.8    udevtest.8
+GEN_MANPAGESIN = udev.8.in udevd.8.in udevinfo.8.in udevstart.8.in udevtest.8.in
+# Rules on how to create the man pages
+$(GEN_MANPAGES): $(GEN_MANPAGESIN)
+	sed -e "s:@udevdir@:$(udevdir):" < $@.in > $@
+
 
 $(OBJS): $(GEN_HEADERS)
 $(ROOT).o: $(GEN_HEADERS)
@@ -286,7 +292,7 @@ $(RULER): $(RULER).o $(OBJS) $(HEADERS) $(LIBC)
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
-	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(INFO) $(DAEMON) $(SENDER) $(TESTER) $(STARTER) $(RULER)
+	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) $(SENDER) $(TESTER) $(STARTER) $(RULER)
 	$(MAKE) -C klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
@@ -362,7 +368,23 @@ uninstall-dev.d:
 	- rmdir $(dev_ddir)default
 	- rmdir $(dev_ddir)
 
-install: install-initscript install-config install-dev.d all
+install-man: $(GEN_MANPAGES)
+	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
+	$(INSTALL_DATA) -D udevinfo.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
+	$(INSTALL_DATA) -D udevtest.8 $(DESTDIR)$(mandir)/man8/udevtest.8
+	$(INSTALL_DATA) -D udevstart.8 $(DESTDIR)$(mandir)/man8/udevstart.8
+	$(INSTALL_DATA) -D udevd.8 $(DESTDIR)$(mandir)/man8/udevd.8
+	- ln -f -s udevd.8 $(DESTDIR)$(mandir)/man8/udevsend.8
+
+uninstall-man:
+	- rm $(mandir)/man8/udev.8
+	- rm $(mandir)/man8/udevinfo.8
+	- rm $(mandir)/man8/udevtest.8
+	- rm $(mandir)/man8/udevstart.8
+	- rm $(mandir)/man8/udevd.8
+	- rm $(mandir)/man8/udevsend.8
+
+install: install-initscript install-config install-man install-dev.d all
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
 	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
@@ -371,12 +393,6 @@ install: install-initscript install-config install-dev.d all
 	$(INSTALL_PROGRAM) -D $(INFO) $(DESTDIR)$(usrbindir)/$(INFO)
 	$(INSTALL_PROGRAM) -D $(TESTER) $(DESTDIR)$(usrbindir)/$(TESTER)
 	$(INSTALL_PROGRAM) -D $(STARTER) $(DESTDIR)$(sbindir)/$(STARTER)
-	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
-	$(INSTALL_DATA) -D udevinfo.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
-	$(INSTALL_DATA) -D udevtest.8 $(DESTDIR)$(mandir)/man8/udevtest.8
-	$(INSTALL_DATA) -D udevstart.8 $(DESTDIR)$(mandir)/man8/udevstart.8
-	$(INSTALL_DATA) -D udevd.8 $(DESTDIR)$(mandir)/man8/udevd.8
-	- ln -f -s udevd.8 $(DESTDIR)$(mandir)/man8/udevsend.8
 	- ln -f -s $(sbindir)/$(SENDER) $(DESTDIR)$(hotplugdir)/$(ROOT).hotplug
 ifndef DESTDIR
 	- killall udevd
@@ -388,18 +404,12 @@ endif
 			-C $$target $@ ; \
 	done ; \
 
-uninstall: uninstall-dev.d
+uninstall: uninstall-man uninstall-dev.d
 	- rm $(hotplugdir)/udev.hotplug
 	- rm $(configdir)/udev.permissions
 	- rm $(configdir)/udev.rules
 	- rm $(configdir)/udev.conf
 	- rm $(initdir)/udev
-	- rm $(mandir)/man8/udev.8
-	- rm $(mandir)/man8/udevinfo.8
-	- rm $(mandir)/man8/udevtest.8
-	- rm $(mandir)/man8/udevstart.8
-	- rm $(mandir)/man8/udevd.8
-	- rm $(mandir)/man8/udevsend.8
 	- rm $(sbindir)/$(ROOT)
 	- rm $(sbindir)/$(DAEMON)
 	- rm $(sbindir)/$(SENDER)
