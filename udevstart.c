@@ -130,10 +130,13 @@ static void udev_scan(void)
 								udev_exec(filename, "block");
 							}
 						}
+						closedir(dir3);
 					}
 				}
+				closedir(dir2);
 			}
 		}
+		closedir(dir);
 	}
 
 	devpath = "class";
@@ -176,10 +179,13 @@ static void udev_scan(void)
 								udev_exec(filename, dent->d_name);
 							}
 						}
+						closedir(dir3);
 					}
 				}
+				closedir(dir2);
 			}
 		}
+		closedir(dir);
 	}
 }
 
