@@ -80,13 +80,51 @@ struct config_device {
 
 static LIST_HEAD(config_device_list);
 
+static void dump_dev(struct config_device *dev)
+{
+	switch (dev->type) {
+	case KERNEL_NAME:
+		dbg("KERNEL name ='%s'"
+			" owner = '%s', group = '%s', mode = '%d'", 
+			dev->name, 
+			dev->owner, dev->group, dev->mode);
+		break;
+	case LABEL:
+		dbg("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'"
+			" owner = '%s', group = '%s', mode = '%d'",
+			dev->name, dev->bus, dev->sysfs_file, dev->sysfs_value,
+			dev->owner, dev->group, dev->mode);
+		break;
+	case NUMBER:
+		dbg("NUMBER name = '%s', bus = '%s', id = '%s'"
+			" owner = '%s', group = '%s', mode = '%d'",
+			dev->name, dev->bus, dev->id,
+			dev->owner, dev->group, dev->mode);
+		break;
+	case TOPOLOGY:
+		dbg("TOPOLOGY name = '%s', bus = '%s', place = '%s'"
+			" owner = '%s', group = '%s', mode = '%d'",
+			dev->name, dev->bus, dev->place,
+			dev->owner, dev->group, dev->mode);
+		break;
+	case REPLACE:
+		dbg("REPLACE name = %s, kernel_name = %s"
+			" owner = '%s', group = '%s', mode = '%d'",
+			dev->name, dev->kernel_name,
+			dev->owner, dev->group, dev->mode);
+		break;
+	default:
+		dbg("Unknown type of device!");
+	}
+}
+
 #define copy_var(a, b, var)		\
 	if (b->var)			\
-		b->var = a->var;
+		a->var = b->var;
 
 #define copy_string(a, b, var)		\
 	if (strlen(b->var))		\
-		strcpy(b->var, a->var);
+		strcpy(a->var, b->var);
 
 static int add_dev(struct config_device *new_dev)
 {
@@ -99,16 +137,16 @@ static int add_dev(struct config_device *new_dev)
 		struct config_device *dev = list_entry(tmp, struct config_device, node);
 		if (strcmp(dev->name, new_dev->name) == 0) {
 			/* the same, copy the new info into this structure */
-			copy_var(new_dev, dev, type);
-			copy_var(new_dev, dev, mode);
-			copy_string(new_dev, dev, bus);
-			copy_string(new_dev, dev, sysfs_file);
-			copy_string(new_dev, dev, sysfs_value);
-			copy_string(new_dev, dev, id);
-			copy_string(new_dev, dev, place);
-			copy_string(new_dev, dev, kernel_name);
-			copy_string(new_dev, dev, owner);
-			copy_string(new_dev, dev, group);
+			copy_var(dev, new_dev, type);
+			copy_var(dev, new_dev, mode);
+			copy_string(dev, new_dev, bus);
+			copy_string(dev, new_dev, sysfs_file);
+			copy_string(dev, new_dev, sysfs_value);
+			copy_string(dev, new_dev, id);
+			copy_string(dev, new_dev, place);
+			copy_string(dev, new_dev, kernel_name);
+			copy_string(dev, new_dev, owner);
+			copy_string(dev, new_dev, group);
 			return 0;
 		}
 	}
@@ -119,7 +157,18 @@ static int add_dev(struct config_device *new_dev)
 		return -ENOMEM;
 	memcpy(tmp_dev, new_dev, sizeof(*tmp_dev));
 	list_add(&tmp_dev->node, &config_device_list);
+	//dump_dev(tmp_dev);
 	return 0;
+}
+
+static void dump_dev_list(void)
+{
+	struct list_head *tmp;
+
+	list_for_each(tmp, &config_device_list) {
+		struct config_device *dev = list_entry(tmp, struct config_device, node);
+		dump_dev(dev);
+	}
 }
 
 static int get_value(const char *left, char **orig_string, char **ret_string)
@@ -147,6 +196,30 @@ static int get_value(const char *left, char **orig_string, char **ret_string)
 	return -ENODEV;
 }
 	
+static int get_pair(char **orig_string, char **left, char **right)
+{
+	char *temp;
+	char *string = *orig_string;
+
+	/* eat any whitespace */
+	while (isspace(*string))
+		++string;
+
+	/* split based on '=' */
+	temp = strsep(&string, "=");
+	*left = temp;
+
+	/* take the right side and strip off the '"' */
+	while (isspace(*string))
+		++string;
+	if (*string == '"')
+		++string;
+	temp = strsep(&string, "\"");
+	*right = temp;
+	*orig_string = string;
+	
+	return 0;
+}
 
 static int namedev_init_config(void)
 {
@@ -188,7 +261,7 @@ static int namedev_init_config(void)
 		if (*temp == COMMENT_CHARACTER)
 			continue;
 
-		memset(&dev, 0x00, sizeof(dev));
+		memset(&dev, 0x00, sizeof(struct config_device));
 
 		/* parse the line */
 		temp2 = strsep(&temp, ",");
@@ -201,7 +274,23 @@ static int namedev_init_config(void)
 			if (retval)
 				continue;
 			strcpy(dev.bus, temp3);
-			dbg("LABEL name = %s, bus = %s", dev.name, dev.bus);
+
+			/* file="value" */
+			temp2 = strsep(&temp, ",");
+			retval = get_pair(&temp, &temp2, &temp3);
+			if (retval)
+				continue;
+			strcpy(dev.sysfs_file, temp2);
+			strcpy(dev.sysfs_value, temp3);
+
+			/* NAME="new_name" */
+			temp2 = strsep(&temp, ",");
+			retval = get_value("NAME", &temp, &temp3);
+			if (retval)
+				continue;
+			strcpy(dev.name, temp3);
+
+			dbg("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'", dev.name, dev.bus, dev.sysfs_file, dev.sysfs_value);
 		}
 
 		if (strcasecmp(temp2, TYPE_NUMBER) == 0) {
@@ -213,7 +302,22 @@ static int namedev_init_config(void)
 			if (retval)
 				continue;
 			strcpy(dev.bus, temp3);
-			dbg("NUMBER name = %s, bus = %s", dev.name, dev.bus);
+
+			/* ID="id" */
+			temp2 = strsep(&temp, ",");
+			retval = get_value("id", &temp, &temp3);
+			if (retval)
+				continue;
+			strcpy(dev.id, temp3);
+
+			/* NAME="new_name" */
+			temp2 = strsep(&temp, ",");
+			retval = get_value("NAME", &temp, &temp3);
+			if (retval)
+				continue;
+			strcpy(dev.name, temp3);
+
+			dbg("NUMBER name = '%s', bus = '%s', id = '%s'", dev.name, dev.bus, dev.id);
 		}
 
 		if (strcasecmp(temp2, TYPE_TOPOLOGY) == 0) {
@@ -225,7 +329,22 @@ static int namedev_init_config(void)
 			if (retval)
 				continue;
 			strcpy(dev.bus, temp3);
-			dbg("TOPOLOGY name = %s, bus = %s", dev.name, dev.bus);
+
+			/* PLACE="place" */
+			temp2 = strsep(&temp, ",");
+			retval = get_value("place", &temp, &temp3);
+			if (retval)
+				continue;
+			strcpy(dev.place, temp3);
+
+			/* NAME="new_name" */
+			temp2 = strsep(&temp, ",");
+			retval = get_value("NAME", &temp, &temp3);
+			if (retval)
+				continue;
+			strcpy(dev.name, temp3);
+
+			dbg("TOPOLOGY name = '%s', bus = '%s', place = '%s'", dev.name, dev.bus, dev.place);
 		}
 
 		if (strcasecmp(temp2, TYPE_REPLACE) == 0) {
@@ -340,6 +459,7 @@ int namedev_init(void)
 	if (retval)
 		return retval;
 
+	dump_dev_list();
 	return retval;
 }
 
