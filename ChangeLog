@@ -1,3 +1,17 @@
+Summary of changes from v020 to v021
+============================================
+
+Kay Sievers:
+  o install udevinfo in /usr/bin
+  o blacklist pcmcia_socket
+
+Greg Kroah-Hartman:
+  o fix udev.spec to find udevinfo now that it has moved to /usr/bin
+  o Fix another problem with Makefile installing initscript
+  o fix the Makefile to install the init script into the proper directory
+  o make spec file turn off selinux support by default
+
+
 Summary of changes from v019 to v020
 ============================================
 
