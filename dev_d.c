@@ -62,7 +62,7 @@ static int run_program(char *name)
 
 		execv(name, argv);
 		dbg("exec of child failed");
-		exit(1);
+		_exit(1);
 	case -1:
 		dbg("fork of child failed");
 		break;
@@ -80,42 +80,35 @@ static int run_program(char *name)
  * 	subsystem/
  * 	default/
  */
-void dev_d_send(struct udevice *udev)
+void dev_d_execute(struct udevice *udev)
 {
-	char dirname[256];
-	char env_devname[NAME_SIZE];
-	char *devname;
+	char dirname[PATH_MAX];
+	char devname[NAME_SIZE];
 	char *temp;
 
+	/* skip if UDEV_NO_DEVD is set */
 	if (udev_dev_d == 0)
 		return;
 
-	memset(env_devname, 0x00, sizeof(env_devname));
-	if (udev->type == 'b' || udev->type == 'c') {
-		strfieldcpy(env_devname, udev_root);
-		strfieldcat(env_devname, udev->name);
-	} else if (udev->type == 'n') {
-		strfieldcpy(env_devname, udev->name);
-		setenv("DEVPATH", udev->devpath, 1);
-	}
-	setenv("DEVNAME", env_devname, 1);
-	dbg("DEVNAME='%s'", env_devname);
-
-	devname = strdup(udev->name);
-	if (!devname) {
-		dbg("out of memory");
+	/* skip if udev did nothing, like unchanged netif or no "dev" file */
+	if (udev->devname[0] == '\0')
 		return;
-	}
+
+	/* add the node name or the netif name to the environment */
+	setenv("DEVNAME", udev->devname, 1);
+	dbg("DEVNAME='%s'", udev->devname);
+
+	strfieldcpy(devname, udev->name);
 
 	/* Chop the device name up into pieces based on '/' */
 	temp = strchr(devname, '/');
 	while (temp != NULL) {
-		*temp = 0x00;
+		temp[0] = '\0';
 		strcpy(dirname, DEVD_DIR);
 		strfieldcat(dirname, devname);
 		call_foreach_file(run_program, dirname, DEVD_SUFFIX);
 
-		*temp = '/';
+		temp[0] = '/';
 		++temp;
 		temp = strchr(temp, '/');
 	}

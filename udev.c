@@ -210,10 +210,20 @@ int main(int argc, char *argv[], char *envp[])
 
 		/* name, create node, store in db */
 		retval = udev_add_device(&udev, class_dev);
+
+		/* run scripts */
+		dev_d_execute(&udev);
+
+		sysfs_close_class_device(class_dev);
 		break;
 	case REMOVE:
 		dbg("udev remove");
+
+		/* get node from db, delete it*/
 		retval = udev_remove_device(&udev);
+
+		/* run scripts */
+		dev_d_execute(&udev);
 	}
 
 	udevdb_exit();

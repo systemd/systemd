@@ -36,7 +36,7 @@
 #include "namedev.h"
 #include "udevdb.h"
 
-static int delete_path(char *path)
+static int delete_path(const char *path)
 {
 	char *pos;
 	int retval;
@@ -168,14 +168,15 @@ static int delete_node(struct udevice *dev)
 int udev_remove_device(struct udevice *udev)
 {
 	struct udevice db_dev;
-	char *temp;
+	const char *temp;
 	int retval;
 
-	memset(&db_dev, 0x00, sizeof(struct udevice));
+	if (udev->type != 'b' && udev->type != 'c')
+		return 0;
 
 	retval = udevdb_get_dev(udev->devpath, &db_dev);
 	if (retval == 0) {
-		/* get stored values in our device */
+		/* copy over the stored values to our device */
 		memcpy(udev, &db_dev, UDEVICE_DB_LEN);
 	} else {
 		/* fall back to kernel name */
@@ -185,15 +186,12 @@ int udev_remove_device(struct udevice *udev)
 		strfieldcpy(udev->name, &temp[1]);
 		dbg("'%s' not found in database, falling back on default name", udev->name);
 	}
-	dbg("remove name='%s'", udev->name);
 
-	dev_d_send(udev);
+	dbg("remove name='%s'", udev->name);
 	udevdb_delete_dev(udev->devpath);
 
-	if (udev->type == 'b' || udev->type == 'c')
-		retval = delete_node(udev);
-	else
-		retval = 0;
+	/* use full path to the environment */
+	snprintf(udev->devname, NAME_SIZE-1, "%s%s", udev_root, udev->name);
 
-	return retval;
+	return delete_node(udev);
 }

@@ -103,7 +103,7 @@ static int add_device(char *devpath, char *subsystem)
 	setenv("DEVPATH", devpath, 1);
 	setenv("ACTION", "add", 1);
 
-	snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, devpath);
+	snprintf(path, SYSFS_PATH_MAX-1, "%s%s", sysfs_path, devpath);
 	class_dev = sysfs_open_class_device_path(path);
 	if (class_dev == NULL) {
 		dbg ("sysfs_open_class_device_path failed");
@@ -111,8 +111,14 @@ static int add_device(char *devpath, char *subsystem)
 	}
 
 	udev_set_values(&udev, devpath, subsystem);
+	udev_add_device(&udev, class_dev);
 
-	return udev_add_device(&udev, class_dev);
+	/* run scripts */
+	dev_d_execute(&udev);
+
+	sysfs_close_class_device(class_dev);
+
+	return 0;
 }
 
 static void exec_list(struct list_head *device_list)

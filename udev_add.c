@@ -355,7 +355,7 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 		retval = get_major_minor(class_dev, udev);
 		if (retval != 0) {
 			dbg("no dev-file found, do nothing");
-			goto close;
+			return 0;
 		}
 	}
 
@@ -365,45 +365,44 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 	dbg("adding name='%s'", udev->name);
 
 	selinux_init();
-	switch (udev->type) {
-	case 'b':
-	case 'c':
+
+	if (udev->type == 'b' || udev->type == 'c') {
 		retval = create_node(udev);
 		if (retval != 0)
 			goto exit;
-		if ((!udev->test_run) && (udevdb_add_dev(udev) != 0))
-			dbg("udevdb_add_dev failed, but we are going to try "
-			    "to create the node anyway. But remove might not "
-			    "work properly for this device.");
 
-		dev_d_send(udev);
-		break;
+		if (udevdb_add_dev(udev) != 0)
+			dbg("udevdb_add_dev failed, but we create the node anyway, "
+			    "remove might not work for custom names");
 
-	case 'n':
+		/* use full path to the environment */
+		snprintf(udev->devname, NAME_SIZE-1, "%s%s", udev_root, udev->name);
+
+	} else if (udev->type == 'n') {
+		/* look if we want to change the name of the netif */
 		if (strcmp(udev->name, udev->kernel_name) != 0) {
 			retval = rename_net_if(udev);
 			if (retval != 0)
 				goto exit;
-			/* netif's are keyed with the configured name, cause
-			 * the original kernel name sleeps with the fishes
+
+			/* we've changed the name, now fake the devpath,
+			 * cause original kernel name sleeps with the fishes
+			 * and we don't get any event from the kernel now
 			 */
 			pos = strrchr(udev->devpath, '/');
 			if (pos != NULL) {
 				pos[1] = '\0';
 				strfieldcat(udev->devpath, udev->name);
+				setenv("DEVPATH", udev->devpath, 1);
 			}
-		}
-		if ((!udev->test_run) && (udevdb_add_dev(udev) != 0))
-			dbg("udevdb_add_dev failed");
 
-		dev_d_send(udev);
-		break;
+			/* use netif name for the environment */
+			strfieldcpy(udev->devname, udev->name);
+		}
 	}
 
 exit:
 	selinux_restore();
-close:
-	sysfs_close_class_device(class_dev);
 
 	return retval;
 }

@@ -49,6 +49,9 @@ int udevdb_add_dev(struct udevice *udev)
 	TDB_DATA key, data;
 	char keystr[SYSFS_PATH_MAX];
 
+	if (udev->test_run)
+		return 0;
+
 	if (udevdb == NULL)
 		return -1;
 

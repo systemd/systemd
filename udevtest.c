@@ -69,11 +69,8 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (argv[1] == NULL) {
 		info("udevinfo expects the DEVPATH of the sysfs device as a argument");
-		goto exit;
+		return 1;
 	}
-
-	/* initialize our configuration */
-	udev_init_config();
 
 	/* remove sysfs_path if given */
 	if (strncmp(argv[1], sysfs_path, strlen(sysfs_path)) == 0)
@@ -93,8 +90,11 @@ int main(int argc, char *argv[], char *envp[])
 	/* we only care about class devices and block stuff */
 	if (!strstr(devpath, "class") && !strstr(devpath, "block")) {
 		dbg("not a block or class device");
-		goto exit;
+		return 2;
 	}
+
+	/* initialize our configuration */
+	udev_init_config();
 
 	/* initialize the naming deamon */
 	namedev_init();
@@ -104,7 +104,6 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* fill in values and test_run flag*/
 	udev_set_values(&udev, devpath, subsystem);
-	udev.test_run = 1;
 
 	/* open the device */
 	snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, udev.devpath);
@@ -114,9 +113,11 @@ int main(int argc, char *argv[], char *envp[])
 	else
 		dbg("opened class_dev->name='%s'", class_dev->name);
 
-	/* simulate node creation with fake flag */
+	/* simulate node creation with test flag */
+	udev.test_run = 1;
 	udev_add_device(&udev, class_dev);
 
-exit:
+	sysfs_close_class_device(class_dev);
+
 	return 0;
 }

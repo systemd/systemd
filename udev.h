@@ -66,6 +66,7 @@ struct udevice {
 	char program_result[NAME_SIZE];
 	char kernel_number[NAME_SIZE];
 	char kernel_name[NAME_SIZE];
+	char devname[NAME_SIZE];
 	int test_run;
 };
 
@@ -74,7 +75,7 @@ extern int udev_remove_device(struct udevice *udev);
 extern void udev_init_config(void);
 extern int udev_start(void);
 extern int parse_get_pair(char **orig_string, char **left, char **right);
-extern void dev_d_send(struct udevice *udev);
+extern void dev_d_execute(struct udevice *udev);
 
 extern char **main_argv;
 extern char **main_envp;
