@@ -166,9 +166,6 @@ static int parse_config_file(void)
 			udev_log = string_is_true(value);
 			continue;
 		}
-
-		info("%s:%d:%Zd: unknown key '%s'",
-		     udev_config_filename, lineno, temp-line, temp);
 	}
 
 	file_unmap(buf, bufsize);
