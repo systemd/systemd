@@ -39,8 +39,8 @@ char **main_argv;
 char **main_envp;
 
 char sysfs_path[SYSFS_PATH_MAX];
-char *udev_config_dir;
-char *udev_root;
+char *udev_config_dir = UDEV_CONFIG_DIR;
+char *udev_root = UDEV_ROOT;
 char udev_db_filename[PATH_MAX+NAME_MAX];
 char udev_config_permission_filename[PATH_MAX+NAME_MAX];
 char udev_config_filename[PATH_MAX+NAME_MAX];
@@ -72,36 +72,49 @@ static inline char *get_seqnum(void)
 
 static void get_dirs(void)
 {
-	char *udev_test;
 	char *temp;
+	char *udev_db = UDEV_DB;
+	char *udev_config = NAMEDEV_CONFIG_FILE;
+	char *udev_permission = NAMEDEV_CONFIG_PERMISSION_FILE;
 	int retval;
 
-	udev_test = getenv("UDEV_TEST");
-	if (udev_test == NULL) {
-		/* normal operation, use the compiled in defaults */
-		udev_config_dir = UDEV_CONFIG_DIR;
-		udev_root = UDEV_ROOT;
-		retval = sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX);
-		dbg("sysfs_path = %s", sysfs_path);
-		if (retval)
-			dbg("sysfs_get_mnt_path failed");
+	retval = sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX);
+	if (retval)
+		dbg("sysfs_get_mnt_path failed");
 
-	} else {
-		/* hm testing is happening, use the specified values */
+	/* see if we should try to override any of the default values */
+	temp = getenv("UDEV_TEST");
+	if (temp != NULL) {
+		/* hm testing is happening, use the specified values, if they are present */
 		temp = getenv("UDEV_SYSFS_PATH");
-		strncpy(sysfs_path, temp, sizeof(sysfs_path));
-		udev_config_dir = getenv("UDEV_CONFIG_DIR");
-		udev_root = getenv("UDEV_ROOT");
+		if (temp)
+			strncpy(sysfs_path, temp, sizeof(sysfs_path));
+		temp = getenv("UDEV_CONFIG_DIR");
+		if (temp)
+			udev_config_dir = temp;
+		temp = getenv("UDEV_ROOT");
+		if (temp)
+			udev_root = temp;
+		temp = getenv("UDEV_DB");
+		if (temp)
+			udev_db = temp;
+		temp = getenv("UDEV_CONFIG_FILE");
+		if (temp)
+			udev_config = temp;
+		temp = getenv("UDEV_PERMISSION_FILE");
+		if (temp)
+			udev_permission = temp;
 	}
+	dbg("sysfs_path = %s", sysfs_path);
 
 	strncpy(udev_db_filename, udev_config_dir, sizeof(udev_db_filename));
-	strncat(udev_db_filename, UDEV_DB, sizeof(udev_db_filename));
+	strncat(udev_db_filename, udev_db, sizeof(udev_db_filename));
 
 	strncpy(udev_config_filename, udev_config_dir, sizeof(udev_config_filename));
-	strncat(udev_config_filename, NAMEDEV_CONFIG_FILE, sizeof(udev_config_filename));
+	strncat(udev_config_filename, udev_config, sizeof(udev_config_filename));
 	
 	strncpy(udev_config_permission_filename, udev_config_dir, sizeof(udev_config_permission_filename));
-	strncat(udev_config_permission_filename, NAMEDEV_CONFIG_PERMISSION_FILE, sizeof(udev_config_permission_filename));
+	strncat(udev_config_permission_filename, udev_permission, sizeof(udev_config_permission_filename));
 }
 
 int main(int argc, char **argv, char **envp)
