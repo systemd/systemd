@@ -211,7 +211,7 @@ static void udev_scan_class(void)
 			dir2 = opendir(dirname);
 			if (dir2 != NULL) {
 				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
-					char dirname2[MAX_PATHLEN-1];
+					char dirname2[MAX_PATHLEN];
 					DIR *dir3;
 					struct dirent *dent3;
 
