@@ -80,15 +80,33 @@ static char *last_list[] = {
 	NULL,
 };
 
+/* list of devices that we should run first due to any one of a number of reasons */
+static char *first_list[] = {
+	"/class/mem",	/* people tend to like their memory devices around first... */
+	NULL,
+};
+
 static void exec_list(struct list_head *device_list)
 {
 	struct device *loop_device;
 	struct device *tmp_device;
+	int i;
+
+	/* handle the "first" type devices first */
+	list_for_each_entry_safe(loop_device, tmp_device, device_list, list) {
+		for (i=0; first_list[i] != NULL; i++) {
+			if (strncmp(loop_device->path, first_list[i], strlen(first_list[i])) == 0) {
+				udev_add_device(loop_device->path, loop_device->subsys, NOFAKE);
+				list_del(&loop_device->list);
+				free(loop_device);
+				break;
+			}
+		}
+	}
 
 	/* handle the devices we are allowed to, excluding the "last" type devices */
 	list_for_each_entry_safe(loop_device, tmp_device, device_list, list) {
 		int found = 0;
-		int i;
 		for (i=0; last_list[i] != NULL; i++) {
 			if (strncmp(loop_device->path, last_list[i], strlen(last_list[i])) == 0) {
 				found = 1;
