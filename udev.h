@@ -63,7 +63,6 @@ struct udevice {
 	int ignore_remove;
 	int config_line;
 	char config_file[NAME_SIZE];
-	long config_uptime;
 	char bus_id[SYSFS_NAME_LEN];
 	char program_result[NAME_SIZE];
 	char kernel_number[NAME_SIZE];

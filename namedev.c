@@ -31,7 +31,6 @@
 #include <errno.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
-#include <sys/sysinfo.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "list.h"
@@ -697,7 +696,6 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 	struct sysfs_device *sysfs_device = NULL;
 	struct config_device *dev;
 	struct perm_device *perm;
-	struct sysinfo info;
 	char *pos;
 
 	udev->mode = 0;
@@ -774,7 +772,7 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 				udev->ignore_remove = dev->ignore_remove;
 
 				if (udev->type == 'n')
-					goto done;
+					goto exit;
 
 				udev->partitions = dev->partitions;
 				udev->mode = dev->mode;
@@ -790,7 +788,7 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 	strfieldcpy(udev->name, udev->kernel_name);
 
 	if (udev->type == 'n')
-		goto done;
+		goto exit;
 
 perms:
 	/* apply permissions from permissions file to empty fields */
@@ -815,11 +813,7 @@ perms:
 	dbg("name, '%s' is going to have owner='%s', group='%s', mode = %#o",
 	    udev->name, udev->owner, udev->group, udev->mode);
 
-done:
-	/* store time of action */
-	sysinfo(&info);
-	udev->config_uptime = info.uptime;
-
+exit:
 	return 0;
 }
 
