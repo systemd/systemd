@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 #
 
 # Check for missing binaries (stale symlinks should not happen)
@@ -25,13 +25,17 @@ run_udev () {
 	done
 	# all other device classes
 	for i in ${SYSFS_DIR}/class/*; do
-		for j in $i/*; do
-#			if [ -f $j/dev ]; then
-				export DEVPATH=${j#${SYSFS_DIR}}
-				CLASS=`echo ${i#${SYSFS_DIR}} | \
-					cut --delimiter='/' --fields=3-`
-				$UDEV_BIN $CLASS
-#			fi
+		# try adding empty classes, just to test stuff...
+		export DEVPATH=${i#${SYSFS_DIR}}
+		CLASS=`echo ${i#${SYSFS_DIR}} | cut --delimiter='/' --fields=3-`
+		$UDEV_BIN $CLASS
+
+		for j in `ls $i/`; do
+			x=$i/$j
+			export DEVPATH=${x#${SYSFS_DIR}}
+			CLASS=`echo ${i#${SYSFS_DIR}} | \
+				cut --delimiter='/' --fields=3-`
+			$UDEV_BIN $CLASS
 		done
 	done
 }
