@@ -1,0 +1,28 @@
+                                     README.txt
+                                     ~~~~~~~~~~
+Chassis_id is a callout program which is used to give geographic names to devices.  It uses
+another callout program scsi_id to determine the serial number of a device and then looks up
+the provisioning table based on this key. It retrieves  geographic information 
+( chassis#, slot# and host# ) about the device and prints it to stdout. These fields are
+used by udev to create the device entry.
+
+Using Udev:
+~~~~~~~~~~
+Chassis_id gets invoked by udev using the udev as below:
+
+BUS="scsi", PROGRAM="/usr/local/bin/chassis_id", NAME="/chassis%c{1}/slot%c{2}/host%c{3}/disk-%c{4}
+
+The provisioning table ( file provision.tbl ) has to be put in /usr/local/bin and as of now has
+to be populated manually. This is the only place where the geographic map of devices is kept
+in the system.
+
+
+Usage Model:
+~~~~~~~~~~~~
+On ATCA based blade architecture systems, blade insertion/removal is common. We create names
+in a 3 level deep tree which represent the geographic map of the devices.
+
+
+CONTACT:
+~~~~~~~~
+Please feel free to contact atul.sabharwal@intel.com with questions, comments, suggestions.
