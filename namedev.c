@@ -439,12 +439,24 @@ static int namedev_init_permissions(void)
 
 		/* parse the line */
 		temp2 = strsep(&temp, ":");
+		if (!temp2) {
+			dbg("cannot parse line: %s", line);
+			continue;
+		}
 		strncpy(dev.name, temp2, sizeof(dev.name));
 
 		temp2 = strsep(&temp, ":");
+		if (!temp2) {
+			dbg("cannot parse line: %s", line);
+			continue;
+		}
 		strncpy(dev.owner, temp2, sizeof(dev.owner));
 
 		temp2 = strsep(&temp, ":");
+		if (!temp2) {
+			dbg("cannot parse line: %s", line);
+			continue;
+		}
 		strncpy(dev.group, temp2, sizeof(dev.owner));
 
 		dev.mode = strtol(temp, NULL, 8);
