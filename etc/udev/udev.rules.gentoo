@@ -21,32 +21,41 @@ BUS="scsi", KERNEL="scd[a-z]", PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYM
 #  /dev/ide/.../{disc,cd} and /dev/{cdroms,discs}/* type names
 BUS="ide", KERNEL="hd*", PROGRAM="/etc/udev/scripts/ide-devfs.sh %k %b %n", NAME="%k", SYMLINK="%c{1} %c{2}"
 
-# DRI devices
-KERNEL="card*", NAME="dri/card%n"
+# dri devices
+KERNEL="card*",		NAME="dri/card%n"
 
 # alsa devices
 KERNEL="controlC[0-9]*", NAME="snd/%k"
-KERNEL="hw[CD0-9]*",     NAME="snd/%k"
-KERNEL="pcm[CD0-9cp]*",  NAME="snd/%k"
-KERNEL="midiC[D0-9]*",   NAME="snd/%k"
-KERNEL="timer",          NAME="snd/%k"
-KERNEL="seq",            NAME="snd/%k"
+KERNEL="hw[CD0-9]*",	 NAME="snd/%k"
+KERNEL="pcm[CD0-9cp]*",	 NAME="snd/%k"
+KERNEL="midiC[D0-9]*",	 NAME="snd/%k"
+KERNEL="timer",		 NAME="snd/%k"
+KERNEL="seq",		 NAME="snd/%k"
+
+# capi devices
+KERNEL="capi",		NAME="capi20", SYMLINK="isdn/capi20"
+KERNEL="capi*",		NAME="capi/%n"
+
+# cpu devices
+KERNEL="cpu[0-9]*",	NAME="cpu/%n/cpuid"
+KERNEL="msr[0-9]*",	NAME="cpu/%n/msr"
+KERNEL="microcode",	NAME="cpu/microcode"
 
 # dm devices (ignore them)
-KERNEL="dm-[0-9]*",     NAME=""
+KERNEL="dm-[0-9]*",	NAME=""
 # create a symlink named after the device map name
 # note devmap_name comes with extras/multipath
-#KERNEL="dm-[0-9]*",     PROGRAM="/sbin/devmap_name %M %m", NAME="%k", SYMLINK="%c"
-KERNEL="device-mapper", NAME="mapper/control"
+#KERNEL="dm-[0-9]*",	PROGRAM="/sbin/devmap_name %M %m", NAME="%k", SYMLINK="%c"
+KERNEL="device-mapper",	NAME="mapper/control"
 
 # fb devices
-KERNEL="fb[0-9]*", NAME="fb/%n", SYMLINK="%k"
+KERNEL="fb[0-9]*",	NAME="fb/%n", SYMLINK="%k"
 
 # floppy devices
-KERNEL="fd[0-9]*", NAME="floppy/%n", SYMLINK="%k"
+KERNEL="fd[0-9]*",	NAME="floppy/%n", SYMLINK="%k"
 
 # i2c devices
-KERNEL="i2c-[0-9]*", NAME="i2c/%n", SYMLINK="%k"
+KERNEL="i2c-[0-9]*",	NAME="i2c/%n", SYMLINK="%k"
 
 # input devices
 KERNEL="mice",		NAME="input/%k"
@@ -56,61 +65,17 @@ KERNEL="js*",		NAME="input/%k"
 KERNEL="ts*",		NAME="input/%k"
 
 # loop devices
-KERNEL="loop[0-9]*", NAME="loop/%n", SYMLINK="%k"
+KERNEL="loop[0-9]*",	NAME="loop/%n", SYMLINK="%k"
 
 # md block devices
-KERNEL="md[0-9]*", NAME="md/%n", SYMLINK="%k"
+KERNEL="md[0-9]*",	NAME="md/%n", SYMLINK="%k"
 
 # misc devices
-KERNEL="agpgart",   NAME="misc/%k", SYMLINK="%k"
-KERNEL="microcode", NAME="misc/%k", SYMLINK="%k"
-KERNEL="psaux",     NAME="misc/%k", SYMLINK="%k"
-KERNEL="rtc",       NAME="misc/%k", SYMLINK="%k"
-KERNEL="uinput",    NAME="misc/%k", SYMLINK="%k"
-KERNEL="inotify",   NAME="misc/%k", SYMLINK="%k"
-
-# pty devices
-KERNEL="pty[p-za-e][0-9a-f]*", NAME="pty/m%n", SYMLINK="%k"
-KERNEL="tty[p-za-e][0-9a-f]*", NAME="tty/s%n", SYMLINK="%k"
-
-# ramdisk devices
-KERNEL="ram[0-9]*", NAME="rd/%n", SYMLINK="%k"
-
-# sound devices
-KERNEL="adsp",            NAME="sound/%k", SYMLINK="%k"
-KERNEL="adsp[0-9]*",      NAME="sound/%k", SYMLINK="%k"
-KERNEL="audio",           NAME="sound/%k", SYMLINK="%k"
-KERNEL="audio[0-9]*",     NAME="sound/%k", SYMLINK="%k"
-KERNEL="dsp",             NAME="sound/%k", SYMLINK="%k"
-KERNEL="dsp[0-9]*",       NAME="sound/%k", SYMLINK="%k"
-KERNEL="mixer",           NAME="sound/%k", SYMLINK="%k"
-KERNEL="mixer[0-9]*",     NAME="sound/%k", SYMLINK="%k"
-KERNEL="sequencer",       NAME="sound/%k", SYMLINK="%k"
-KERNEL="sequencer[0-9]*", NAME="sound/%k", SYMLINK="%k"
-
-# tty devices
-KERNEL="tty[0-9]*",    NAME="vc/%n",  SYMLINK="%k"
-KERNEL="ttyS[0-9]*",   NAME="tts/%n", SYMLINK="%k"
-KERNEL="ttyUSB[0-9]*", NAME="tts/USB%n"
-
-# vc devices
-KERNEL="vcs",        NAME="vcc/0",   SYMLINK="%k"
-KERNEL="vcs[0-9]*",  NAME="vcc/%n",  SYMLINK="%k"
-KERNEL="vcsa",       NAME="vcc/a0",  SYMLINK="%k"
-KERNEL="vcsa[0-9]*", NAME="vcc/a%n", SYMLINK="%k"
-
-# v4l devices
-KERNEL="video[0-9]*", NAME="v4l/video%n", SYMLINK="video%n"
-KERNEL="radio[0-9]*", NAME="v4l/radio%n"
-KERNEL="vbi[0-9]*",   NAME="v4l/vbi%n",   SYMLINK="vbi%n"
-KERNEL="vtx[0-9]*",   NAME="v4l/vtx%n"
-
-# USB devices
-KERNEL="hiddev*",	NAME="usb/%k"
-KERNEL="auer*",		NAME="usb/%k"
-KERNEL="legousbtower*",	NAME="usb/%k"
-KERNEL="dabusb*",	NAME="usb/%k"
-BUS="usb", KERNEL="lp[0-9]*",	NAME="usb/%k"
+KERNEL="agpgart",	NAME="misc/%k", SYMLINK="%k"
+KERNEL="psaux",		NAME="misc/%k", SYMLINK="%k"
+KERNEL="rtc",		NAME="misc/%k", SYMLINK="%k"
+KERNEL="uinput",	NAME="misc/%k", SYMLINK="%k"
+KERNEL="inotify",	NAME="misc/%k", SYMLINK="%k"
 
 # netlink devices
 KERNEL="route",		NAME="netlink/%k"
@@ -126,17 +91,52 @@ KERNEL="ip6_fw",	NAME="netlink/%k"
 KERNEL="dnrtmsg",	NAME="netlink/%k"
 KERNEL="tap*",		NAME="netlink/%k"
 
-# CAPI devices
-KERNEL="capi",		NAME="capi20", SYMLINK="isdn/capi20"
-KERNEL="capi*",		NAME="capi/%n"
-
-# Network devices
+# network devices
 KERNEL="tun",		NAME="net/%k"
 
-# raw devices
-KERNEL="raw[0-9]*",     NAME="raw/%k"
+# pty devices
+KERNEL="pty[p-za-e][0-9a-f]*", NAME="pty/m%n", SYMLINK="%k"
+KERNEL="tty[p-za-e][0-9a-f]*", NAME="pty/s%n", SYMLINK="%k"
 
-# cpu devices
-KERNEL="cpu[0-9]*",	NAME="cpu/%n/cpuid"
-KERNEL="msr[0-9]*",	NAME="cpu/%n/msr"
-KERNEL="microcode",	NAME="cpu/microcode"
+# ramdisk devices
+KERNEL="ram[0-9]*",	NAME="rd/%n", SYMLINK="%k"
+
+# raw devices
+KERNEL="raw[0-9]*",	NAME="raw/%k"
+
+# sound devices
+KERNEL="adsp",		  NAME="sound/%k", SYMLINK="%k"
+KERNEL="adsp[0-9]*",	  NAME="sound/%k", SYMLINK="%k"
+KERNEL="audio",		  NAME="sound/%k", SYMLINK="%k"
+KERNEL="audio[0-9]*",	  NAME="sound/%k", SYMLINK="%k"
+KERNEL="dsp",		  NAME="sound/%k", SYMLINK="%k"
+KERNEL="dsp[0-9]*",	  NAME="sound/%k", SYMLINK="%k"
+KERNEL="mixer",		  NAME="sound/%k", SYMLINK="%k"
+KERNEL="mixer[0-9]*",	  NAME="sound/%k", SYMLINK="%k"
+KERNEL="sequencer",	  NAME="sound/%k", SYMLINK="%k"
+KERNEL="sequencer[0-9]*", NAME="sound/%k", SYMLINK="%k"
+
+# tty devices
+KERNEL="tty[0-9]*",	NAME="vc/%n",  SYMLINK="%k"
+KERNEL="ttyS[0-9]*",	NAME="tts/%n", SYMLINK="%k"
+KERNEL="ttyUSB[0-9]*",	NAME="tts/USB%n"
+
+# usb devices
+KERNEL="hiddev*",		NAME="usb/%k"
+KERNEL="auer*",			NAME="usb/%k"
+KERNEL="legousbtower*",		NAME="usb/%k"
+KERNEL="dabusb*",		NAME="usb/%k"
+BUS="usb", KERNEL="lp[0-9]*",	NAME="usb/%k"
+
+# vc devices
+KERNEL="vcs",		NAME="vcc/0",	SYMLINK="%k"
+KERNEL="vcs[0-9]*",	NAME="vcc/%n",	SYMLINK="%k"
+KERNEL="vcsa",		NAME="vcc/a0",	SYMLINK="%k"
+KERNEL="vcsa[0-9]*",	NAME="vcc/a%n",	SYMLINK="%k"
+
+# v4l devices
+KERNEL="video[0-9]*",	NAME="v4l/video%n",	SYMLINK="video%n"
+KERNEL="radio[0-9]*",	NAME="v4l/radio%n"
+KERNEL="vbi[0-9]*",	NAME="v4l/vbi%n",	SYMLINK="vbi%n"
+KERNEL="vtx[0-9]*",	NAME="v4l/vtx%n"
+
