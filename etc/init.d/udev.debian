@@ -72,24 +72,24 @@ case "$1" in
 	run_udev 
 
 	# hack to create stdin node
-	cd /udev && ln -s /proc/self/fd fd
-	cd /udev && ln -s fd/0 stdin
-	cd /udev && ln -s fd/1 stdout
-	cd /udev && ln -s fd/2 stderr
-	cd /udev && ln -s /proc/kcore core
-	cd /udev && ln -s /proc/asound/oss/sndstat sndstat
+	cd $udev_dir && ln -s /proc/self/fd fd
+	cd $udev_dir && ln -s fd/0 stdin
+	cd $udev_dir && ln -s fd/1 stdout
+	cd $udev_dir && ln -s fd/2 stderr
+	cd $udev_dir && ln -s /proc/kcore core
+	cd $udev_dir && ln -s /proc/asound/oss/sndstat sndstat
 	;;
   stop)
   	# be careful
 	action "Removing udev device nodes: " /bin/true
 	export ACTION=remove
 	run_udev 
-	rm -f /udev/sndstat
-	rm -f /udev/core
-	rm -f /udev/stderr
-	rm -f /udev/stdout
-	rm -f /udev/stdin
-	rm -f /udev/fd
+	rm -f $udev_dir/sndstat
+	rm -f $udev_dir/core
+	rm -f $udev_dir/stderr
+	rm -f $udev_dir/stdout
+	rm -f $udev_dir/stdin
+	rm -f $udev_dir/fd
 	;;
   status)
   	if [ -d $udev_dir ]; then
