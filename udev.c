@@ -107,8 +107,14 @@ int main(int argc, char *argv[], char *envp[])
 	const char *devpath = getenv("DEVPATH");
 	const char *subsystem = argv[1];
 
-	dbg("version %s", UDEV_VERSION);
+	if (argc == 2 && strcmp(argv[1], "-V") == 0) {
+		printf("%s\n", UDEV_VERSION);
+		exit(0);
+	}
+
 	logging_init("udev");
+	dbg("version %s", UDEV_VERSION);
+
 	udev_init_config();
 
 	/* set signal handlers */
