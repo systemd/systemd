@@ -183,7 +183,7 @@ all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(GEN_CONFIGS)
 			LD="$(LD)" \
 			SYSFS="$(SYSFS)" \
 			KERNEL_DIR="$(KERNEL_DIR)" \
-			QUIET="@$(PWD)/ccdv" \
+			QUIET="$(QUIET)" \
 			-C $$target $@ ; \
 	done ; \
 
@@ -231,6 +231,8 @@ OBJS = \
 	libsysfs/sysfs.a	\
 	udev.a
 
+SYSFS = $(PWD)/libsysfs/sysfs.a
+
 ifeq ($(strip $(USE_KLIBC)),true)
 	HEADERS	+= \
 		klibc_fixups/klibc_fixups.h	\
@@ -244,7 +246,7 @@ ifeq ($(strip $(USE_KLIBC)),true)
 endif
 
 ifeq ($(strip $(V)),false)
-	QUIET=@./ccdv
+	QUIET=@$(PWD)/ccdv
 	HOST_PROGS=ccdv
 else
 	QUIET=
