@@ -109,9 +109,15 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 	}
 
 	/* sort message by sequence number into list */
-	list_for_each_entry_reverse(loop_msg, &msg_list, list)
+	list_for_each_entry_reverse(loop_msg, &msg_list, list) {
 		if (loop_msg->seqnum < msg->seqnum)
 			break;
+
+		if (loop_msg->seqnum == msg->seqnum) {
+			dbg("ignoring duplicate message seq %llu", msg->seqnum);
+			return;
+		}
+	}
 
 	/* store timestamp of queuing */
 	sysinfo(&info);
@@ -123,7 +129,7 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 	/* run msg queue manager */
 	run_msg_q = 1;
 
-	return ;
+	return;
 }
 
 /* forks event and removes event from run queue when finished */
@@ -453,14 +459,45 @@ static void user_sighandler(void)
 	}
 }
 
+static int init_udevsend_socket(void)
+{
+	struct sockaddr_un saddr;
+	socklen_t addrlen;
+	const int feature_on = 1;
+	int retval;
+
+	memset(&saddr, 0x00, sizeof(saddr));
+	saddr.sun_family = AF_LOCAL;
+	/* use abstract namespace for socket path */
+	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
+	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
+
+	udevsendsock = socket(AF_LOCAL, SOCK_DGRAM, 0);
+	if (udevsendsock == -1) {
+		dbg("error getting socket, %s", strerror(errno));
+		return -1;
+	}
+
+	/* the bind takes care of ensuring only one copy running */
+	retval = bind(udevsendsock, (struct sockaddr *) &saddr, addrlen);
+	if (retval < 0) {
+		dbg("bind failed, %s", strerror(errno));
+		close(udevsendsock);
+		return -1;
+	}
+
+	/* enable receiving of the sender credentials */
+	setsockopt(udevsendsock, SOL_SOCKET, SO_PASSCRED, &feature_on, sizeof(feature_on));
+
+	return 0;
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	struct sysinfo info;
 	int maxsockplus;
-	struct sockaddr_un saddr;
-	socklen_t addrlen;
-	int retval, fd;
-	const int feature_on = 1;
+	int retval;
+	int fd;
 	struct sigaction act;
 	fd_set readfds;
 
@@ -547,28 +584,14 @@ int main(int argc, char *argv[], char *envp[])
 	sigaction(SIGALRM, &act, NULL);
 	sigaction(SIGCHLD, &act, NULL);
 
-	memset(&saddr, 0x00, sizeof(saddr));
-	saddr.sun_family = AF_LOCAL;
-	/* use abstract namespace for socket path */
-	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
-	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
+	if (init_udevsend_socket() < 0) {
+		if (errno == EADDRINUSE)
+			dbg("another udevd is running, exit");
+		else
+			dbg("error initialising udevsend socket: %s", strerror(errno));
 
-	udevsendsock = socket(AF_LOCAL, SOCK_DGRAM, 0);
-	if (udevsendsock == -1) {
-		dbg("error getting socket, exit");
 		goto exit;
 	}
-
-	/* the bind takes care of ensuring only one copy running */
-	retval = bind(udevsendsock, (struct sockaddr *) &saddr, addrlen);
-	if (retval < 0) {
-		dbg("bind failed, exit");
-		close(udevsendsock);
-		goto exit;
-	}
-
-	/* enable receiving of the sender credentials */
-	setsockopt(udevsendsock, SOL_SOCKET, SO_PASSCRED, &feature_on, sizeof(feature_on));
 
 	/* possible override of udev binary, used for testing */
 	udev_bin = getenv("UDEV_BIN");
