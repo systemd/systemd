@@ -61,7 +61,8 @@ case "$1" in
 	if [ ! -d $udev_dir ]; then
 		mkdir $udev_dir
 	fi
-	if [ ! -d $sysfs_dir ]; then
+	# don't use udev if sysfs is not mounted
+	if [ ! -d $sysfs_dir/block ]; then
 		exit 1
 	fi
 	# propogate /udev from /sys - we only need this while we do not
