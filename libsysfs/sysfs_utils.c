@@ -23,12 +23,6 @@
 #include "libsysfs.h"
 #include "sysfs.h"
 
-static int sort_char(void *new, void *old)
-{
-	return ((strncmp((char *)new, (char *)old, 
-			strlen((char *)new))) < 0 ? 1 : 0);
-}
-
 /**
  * sysfs_remove_trailing_slash: Removes any trailing '/' in the given path
  * @path: Path to look for the trailing '/'
@@ -38,7 +32,7 @@ int sysfs_remove_trailing_slash(char *path)
 {
 	char *c = NULL;
 
-	if (path == NULL) {
+	if (!path) {
 		errno = EINVAL;
 		return 1;
 	}
@@ -53,54 +47,6 @@ int sysfs_remove_trailing_slash(char *path)
 	return 0;
 }
 
-/**
- * sysfs_get_fs_mnt_path: Gets the mount point for specified filesystem.
- * @fs_type: filesystem type to retrieve mount point
- * @mnt_path: place to put the retrieved mount path
- * @len: size of mnt_path
- * returns 0 with success and -1 with error.
- */
-static int sysfs_get_fs_mnt_path(const char *fs_type, 
-				char *mnt_path, size_t len)
-{
-	FILE *mnt;
-	struct mntent *mntent;
-	int ret = 0;
-	size_t dirlen = 0;
-
-	/* check arg */
-	if (fs_type == NULL || mnt_path == NULL || len == 0) {
-		errno = EINVAL;
-		return -1;
-	}
-
-	if ((mnt = setmntent(SYSFS_PROC_MNTS, "r")) == NULL) {
-		dprintf("Error getting mount information\n");
-		return -1;
-	}
-	while (ret == 0 && dirlen == 0 && (mntent = getmntent(mnt)) != NULL) {
-		if (strcmp(mntent->mnt_type, fs_type) == 0) {
-			dirlen = strlen(mntent->mnt_dir);
-			if (dirlen <= (len - 1)) {
-				safestrcpymax(mnt_path, mntent->mnt_dir, len);
-			} else {
-				dprintf("Error - mount path too long\n");
-				ret = -1;
-			}
-		}
-	}
-	endmntent(mnt);
-	if (dirlen == 0 && ret == 0) {
-		dprintf("Filesystem %s not found!\n", fs_type);
-		errno = EINVAL;
-		ret = -1;
-	}
-	if ((sysfs_remove_trailing_slash(mnt_path)) != 0)
-		ret = -1;
-	
-	return ret;
-}
-
 /*
  * sysfs_get_mnt_path: Gets the sysfs mount point.
  * @mnt_path: place to put "sysfs" mount point
@@ -109,22 +55,21 @@ static int sysfs_get_fs_mnt_path(const char *fs_type,
  */
 int sysfs_get_mnt_path(char *mnt_path, size_t len)
 {
-	char *sysfs_path = NULL;
-	int ret = 0;
+	static char sysfs_path[SYSFS_PATH_MAX] = "";
+	const char *sysfs_path_env;
 
-	if (mnt_path == NULL || len == 0) {
-		errno = EINVAL;
-		return -1;
+	/* evaluate only at the first call */
+	if (sysfs_path[0] == '\0') {
+		/* possible overrride of real mount path */
+		sysfs_path_env = getenv(SYSFS_PATH_ENV);
+		if (sysfs_path_env != NULL) {
+			safestrcpymax(mnt_path, sysfs_path_env, len);
+			return 0;
+		}
+		safestrcpymax(mnt_path, SYSFS_MNT_PATH, len);
 	}
-	sysfs_path = getenv(SYSFS_PATH_ENV);
-	if (sysfs_path != NULL) {
-		safestrcpymax(mnt_path, sysfs_path, len);
-		if ((sysfs_remove_trailing_slash(mnt_path)) != 0)
-			return 1;
-	} else
-		ret = sysfs_get_fs_mnt_path(SYSFS_FSTYPE_NAME, mnt_path, len);
 
-	return ret;
+	return 0;
 }
 
 /**
@@ -137,8 +82,8 @@ int sysfs_get_name_from_path(const char *path, char *name, size_t len)
 {
 	char tmp[SYSFS_PATH_MAX];
 	char *n = NULL;
-                                                                                
-	if (path == NULL || name == NULL || len == 0) {
+
+	if (!path || !name || len == 0) {
 		errno = EINVAL;
 		return -1;
 	}
@@ -161,7 +106,7 @@ int sysfs_get_name_from_path(const char *path, char *name, size_t len)
 	safestrcpymax(name, n, len);
 	return 0;
 }
-	
+
 /**
  * sysfs_get_link: returns link source
  * @path: symbolic link's path
@@ -176,7 +121,7 @@ int sysfs_get_link(const char *path, char *target, size_t len)
 	char *d = NULL, *s = NULL;
 	int slashes = 0, count = 0;
 
-	if (path == NULL || target == NULL || len == 0) {
+	if (!path || !target || len == 0) {
 		errno = EINVAL;
 		return -1;
 	}
@@ -190,15 +135,15 @@ int sysfs_get_link(const char *path, char *target, size_t len)
 		return -1;
 	}
 	d = linkpath;
-	/* 
+	/*
 	 * Three cases here:
 	 * 1. relative path => format ../..
 	 * 2. absolute path => format /abcd/efgh
 	 * 3. relative path _from_ this dir => format abcd/efgh
-	 */ 
+	 */
 	switch (*d) {
 		case '.': 
-			/* 
+			/*
 			 * handle the case where link is of type ./abcd/xxx
 			 */
 			safestrcpy(temp_path, devdir);
@@ -215,9 +160,8 @@ int sysfs_get_link(const char *path, char *target, size_t len)
 			}
 			safestrcpymax(target, temp_path, len);
 			break;
-			/* 
-			 * relative path  
-			 * getting rid of leading "../.." 
+			/*
+			 * relative path, getting rid of leading "../.."
 			 */
 parse_path:
 			while (*d == '/' || *d == '.') {
@@ -255,158 +199,28 @@ parse_path:
 }
 
 /**
- * sysfs_del_name: free function for sysfs_open_subsystem_list
- * @name: memory area to be freed
- */ 
-static void sysfs_del_name(void *name)
-{
-	free(name);
-}
-
-
-/**
  * sysfs_close_list: generic list free routine
  * @list: dlist to free
  * Returns nothing
  */
 void sysfs_close_list(struct dlist *list)
 {
-	if (list != NULL)
+	if (list)
 		dlist_destroy(list);
 }
 
 /**
- * sysfs_open_subsystem_list: gets a list of all supported "name" subsystem
- * 	details from the system
- * @name: name of the subsystem, eg., "bus", "class", "devices"
- * Returns a dlist of supported names or NULL if subsystem not supported
- */ 
-struct dlist *sysfs_open_subsystem_list(char *name)
+ * sysfs_open_directory_list: gets a list of all directories under "path"
+ * @path: path to read
+ * Returns a dlist of supported names or NULL no directories (errno is set
+ * 	in case of error
+ */
+struct dlist *sysfs_open_directory_list(const char *path)
 {
-	char sysfs_path[SYSFS_PATH_MAX], *subsys_name = NULL;
-	char *c = NULL;
-	struct sysfs_directory *dir = NULL, *cur = NULL;
-	struct dlist *list = NULL;
-	
-	if (name == NULL)
+	if (!path)
 		return NULL;
 
-	if (sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX) != 0) {
-		dprintf("Error getting sysfs mount point\n");
-		return NULL;
-	}
-
-	safestrcat(sysfs_path, "/");
-	safestrcat(sysfs_path, name);
-	dir = sysfs_open_directory(sysfs_path);
-	if (dir == NULL) {
-		dprintf("Error opening sysfs_directory at %s\n", sysfs_path);
-		return NULL;
-	}
-
-	if ((sysfs_read_dir_subdirs(dir)) != 0) {
-		dprintf("Error reading sysfs_directory at %s\n", sysfs_path);
-		sysfs_close_directory(dir);
-		return NULL;
-	}
-
-	if (dir->subdirs != NULL) {
-		list = dlist_new_with_delete(SYSFS_NAME_LEN,
-				sysfs_del_name);
-		if (list == NULL) {
-			dprintf("Error creating list\n");
-			sysfs_close_directory(dir);
-			return NULL;
-		}
-
-		dlist_for_each_data(dir->subdirs, cur,
-				struct sysfs_directory) {
-			subsys_name = (char *)calloc(1, SYSFS_NAME_LEN);
-			safestrcpymax(subsys_name, cur->name, SYSFS_NAME_LEN);
-			dlist_unshift_sorted(list, subsys_name, sort_char);
-		}
-	}
-	sysfs_close_directory(dir);
-	/*
-	 * We are now considering "block" as a "class". Hence, if the subsys
-	 * name requested here is "class", verify if "block" is supported on
-	 * this system and return the same.
-	 */ 
-	if (strcmp(name, SYSFS_CLASS_NAME) == 0) {
-		c = strstr(sysfs_path, SYSFS_CLASS_NAME);
-		if (c == NULL)
-			goto out;
-		*c = '\0';
-		safestrcpymax(c, SYSFS_BLOCK_NAME, 
-				sizeof(sysfs_path) - strlen(sysfs_path));
-		if ((sysfs_path_is_dir(sysfs_path)) == 0) {
-			subsys_name = (char *)calloc(1, SYSFS_NAME_LEN);
-			safestrcpymax(subsys_name, SYSFS_BLOCK_NAME, 
-					SYSFS_NAME_LEN);
-			dlist_unshift_sorted(list, subsys_name, sort_char);
-		}
-	}
-out:
-	return list;
-}
-
-
-/**
- * sysfs_open_bus_devices_list: gets a list of all devices on "name" bus
- * @name: name of the subsystem, eg., "pci", "scsi", "usb"
- * Returns a dlist of supported names or NULL if subsystem not supported
- */ 
-struct dlist *sysfs_open_bus_devices_list(char *name)
-{
-	char sysfs_path[SYSFS_PATH_MAX], *device_name = NULL;
-	struct sysfs_directory *dir = NULL;
-	struct sysfs_link *cur = NULL;
-	struct dlist *list = NULL;
-	
-	if (name == NULL)
-		return NULL;
-
-	if (sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX) != 0) {
-		dprintf("Error getting sysfs mount point\n");
-		return NULL;
-	}
-
-	safestrcat(sysfs_path, "/");
-	safestrcat(sysfs_path, SYSFS_BUS_NAME);
-	safestrcat(sysfs_path, "/");
-	safestrcat(sysfs_path, name);
-	safestrcat(sysfs_path, "/");
-	safestrcat(sysfs_path, SYSFS_DEVICES_NAME);
-	dir = sysfs_open_directory(sysfs_path);
-	if (dir == NULL) {
-		dprintf("Error opening sysfs_directory at %s\n", sysfs_path);
-		return NULL;
-	}
-
-	if ((sysfs_read_dir_links(dir)) != 0) {
-		dprintf("Error reading sysfs_directory at %s\n", sysfs_path);
-		sysfs_close_directory(dir);
-		return NULL;
-	}
-
-	if (dir->links != NULL) {
-		list = dlist_new_with_delete(SYSFS_NAME_LEN,
-				sysfs_del_name);
-		if (list == NULL) {
-			dprintf("Error creating list\n");
-			sysfs_close_directory(dir);
-			return NULL;
-		}
-
-		dlist_for_each_data(dir->links, cur,
-				struct sysfs_link) {
-			device_name = (char *)calloc(1, SYSFS_NAME_LEN);
-			safestrcpymax(device_name, cur->name, SYSFS_NAME_LEN);
-			dlist_unshift_sorted(list, device_name, sort_char);
-		}
-	}
-	sysfs_close_directory(dir);
-	return list;
+	return (read_dir_subdirs(path));
 }
 
 /**
@@ -418,7 +232,7 @@ int sysfs_path_is_dir(const char *path)
 {
 	struct stat astats;
 
-	if (path == NULL) {
+	if (!path) {
 		errno = EINVAL;
 		return 1;
 	}
@@ -428,7 +242,7 @@ int sysfs_path_is_dir(const char *path)
 	}
 	if (S_ISDIR(astats.st_mode))
 		return 0;
-		
+
 	return 1;
 }
 
@@ -441,7 +255,7 @@ int sysfs_path_is_link(const char *path)
 {
 	struct stat astats;
 
-	if (path == NULL) {
+	if (!path) {
 		errno = EINVAL;
 		return 1;
 	}
@@ -451,7 +265,7 @@ int sysfs_path_is_link(const char *path)
 	}
 	if (S_ISLNK(astats.st_mode))
 		return 0;
-		
+
 	return 1;
 }
 
@@ -464,7 +278,7 @@ int sysfs_path_is_file(const char *path)
 {
 	struct stat astats;
 
-	if (path == NULL) {
+	if (!path) {
 		errno = EINVAL;
 		return 1;
 	}
@@ -474,6 +288,6 @@ int sysfs_path_is_file(const char *path)
 	}
 	if (S_ISREG(astats.st_mode))
 		return 0;
-		
+
 	return 1;
 }

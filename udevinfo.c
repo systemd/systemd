@@ -49,26 +49,13 @@ void log_message (int level, const char *format, ...)
 }
 #endif
 
-static int print_all_attributes(const char *path)
+static void print_all_attributes(struct dlist *attr_list)
 {
-	struct dlist *attributes;
 	struct sysfs_attribute *attr;
-	struct sysfs_directory *sysfs_dir;
 	char value[SYSFS_VALUE_SIZE];
 	int len;
-	int retval = 0;
 
-	sysfs_dir = sysfs_open_directory(path);
-	if (sysfs_dir == NULL)
-		return -1;
-
-	attributes = sysfs_get_dir_attributes(sysfs_dir);
-	if (attributes == NULL) {
-		retval = -1;
-		goto exit;
-	}
-
-	dlist_for_each_data(attributes, attr, struct sysfs_attribute) {
+	dlist_for_each_data(attr_list, attr, struct sysfs_attribute) {
 		if (attr->value != NULL) {
 			strfieldcpy(value, attr->value);
 			len = strlen(value);
@@ -92,11 +79,6 @@ static int print_all_attributes(const char *path)
 		}
 	}
 	printf("\n");
-
-exit:
-	sysfs_close_directory(sysfs_dir);
-
-	return retval;
 }
 
 static int print_record(struct udevice *udev)
@@ -123,6 +105,7 @@ static int print_device_chain(const char *path)
 	struct sysfs_attribute *attr;
 	struct sysfs_device *sysfs_dev;
 	struct sysfs_device *sysfs_dev_parent;
+	struct dlist *attr_list;
 	int retval = 0;
 
 	/*  get the class dev */
@@ -147,11 +130,14 @@ static int print_device_chain(const char *path)
 	/* open sysfs class device directory and print all attributes */
 	printf("  looking at class device '%s':\n", class_dev->path);
 	printf("    SUBSYSTEM=\"%s\"\n", class_dev->classname);
-	if (print_all_attributes(class_dev->path) != 0) {
+
+	attr_list = sysfs_get_classdev_attributes(class_dev);
+	if (attr_list == NULL) {
 		printf("couldn't open class device directory\n");
 		retval = -1;
 		goto exit;
 	}
+	print_all_attributes(attr_list);
 
 	/* get the device link (if parent exists look here) */
 	class_dev_parent = sysfs_get_classdev_parent(class_dev);
@@ -165,13 +151,20 @@ static int print_device_chain(const char *path)
 
 	/* look the device chain upwards */
 	while (sysfs_dev != NULL) {
+		attr_list = sysfs_get_device_attributes(sysfs_dev);
+		if (attr_list == NULL) {
+			printf("couldn't open device directory\n");
+			retval = -1;
+			goto exit;
+		}
+
 		printf("  looking at the device chain at '%s':\n", sysfs_dev->path);
 		printf("    BUS=\"%s\"\n", sysfs_dev->bus);
 		printf("    ID=\"%s\"\n", sysfs_dev->bus_id);
 		printf("    DRIVER=\"%s\"\n", sysfs_dev->driver_name);
 
 		/* open sysfs device directory and print all attributes */
-		print_all_attributes(sysfs_dev->path);
+		print_all_attributes(attr_list);
 
 		sysfs_dev_parent = sysfs_get_device_parent(sysfs_dev);
 		if (sysfs_dev_parent == NULL)
@@ -185,65 +178,9 @@ exit:
 	return retval;
 }
 
-/* print all class/main block devices with major/minor, physical device, driver and bus */
-static int print_sysfs_devices(void)
-{
-	struct dlist *subsyslist;
-	char *class;
-
-	subsyslist = sysfs_open_subsystem_list("class");
-	if (!subsyslist)
-		return -1;
-
-	dlist_for_each_data(subsyslist, class, char) {
-		struct sysfs_class *cls;
-		struct dlist *class_devices;
-		struct sysfs_class_device *class_dev;
-		struct sysfs_device *phys_dev;
-		unsigned int major, minor;
-
-		cls = sysfs_open_class(class);
-		if (!cls)
-			continue;
-
-		class_devices = sysfs_get_class_devices(cls);
-		if (!class_devices)
-			continue;
-
-		dlist_for_each_data(class_devices, class_dev, struct sysfs_class_device) {
-			struct sysfs_attribute *attr;
-
-			printf("\n");
-			printf("DEVPATH        '%s'\n", class_dev->path);
-			printf("SUBSYSTEM      '%s'\n", class_dev->classname);
-
-			attr = sysfs_get_classdev_attr(class_dev, "dev");
-			if (attr) {
-				sscanf(attr->value, "%u:%u", &major, &minor);
-				printf("MAJOR          %u\n", major);
-				printf("MINOR          %u\n", minor);
-			}
-
-			phys_dev = sysfs_get_classdev_device(class_dev);
-			if (phys_dev) {
-				printf("PHYSDEVPATH    '%s'\n", phys_dev->path);
-				if (phys_dev->bus[0] != '\0')
-					printf("PHYSDEVBUS     '%s'\n", phys_dev->bus);
-
-				if (phys_dev->driver_name[0] != '\0')
-					printf("PHYSDEVDRIVER  '%s'\n", phys_dev->driver_name);
-			}
-		}
-		sysfs_close_class(cls);
-	}
-	sysfs_close_list(subsyslist);
-
-	return 0;
-}
-
 static int process_options(int argc, char *argv[])
 {
-	static const char short_options[] = "an:p:q:rsVh";
+	static const char short_options[] = "an:p:q:rVh";
 	int option;
 	int retval = 1;
 	struct udevice udev;
@@ -303,10 +240,6 @@ static int process_options(int argc, char *argv[])
 		case 'r':
 			root = 1;
 			break;
-
-		case 's':
-			print_sysfs_devices();
-			exit(0);
 
 		case 'a':
 			attributes = 1;

@@ -129,7 +129,6 @@ HEADERS = \
 	list.h
 
 SYSFS_OBJS = \
-	libsysfs/sysfs_bus.o	\
 	libsysfs/sysfs_class.o	\
 	libsysfs/sysfs_device.o	\
 	libsysfs/sysfs_dir.o	\
