@@ -264,7 +264,7 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 	pid_t pid;
 	int value_set = 0;
 	char buffer[256];
-	char *arg;
+	char *pos;
 	char *args[CALLOUT_MAXARG];
 	int i;
 
@@ -286,9 +286,9 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 		dup(fds[1]);	/* dup write side of pipe to STDOUT */
 		if (strchr(dev->exec_program, ' ')) {
 			/* callout with arguments */
-			arg = dev->exec_program;
+			pos = dev->exec_program;
 			for (i=0; i < CALLOUT_MAXARG-1; i++) {
-				args[i] = strsep(&arg, " ");
+				args[i] = strsep(&pos, " ");
 				if (args[i] == NULL)
 					break;
 			}
@@ -324,9 +324,12 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 			} else {
 				value_set = 1;
 				strncpy(value, buffer, len);
+				pos = value + strlen(value)-1;
+				if (pos[0] == '\n')
+				pos[0] = '\0';
+				dbg("callout returned '%s'", value);
 			}
 		}
-		dbg("callout returned '%s'", value);
 		close(fds[0]);
 		res = wait(&status);
 		if (res < 0) {
