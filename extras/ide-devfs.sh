@@ -39,6 +39,8 @@ if [ -z "$3" -a -f /proc/ide/${1}/media ]; then
 	MEDIA=`cat /proc/ide/${1}/media`
 	if [ "${MEDIA}" = "cdrom" ]; then
 		echo ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/cd cdroms/cdrom`get_dev_number $1 cdrom`
+	elif [ "${MEDIA}" = "floppy" ]; then
+		echo ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/disc floppies/floppy`get_dev_number $1 floppy`/disc
 	elif [ "${MEDIA}" = "disk" ]; then
 		echo ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/disc discs/disc`get_dev_number $1 disk`/disc
 	fi
