@@ -576,6 +576,16 @@ BUS=="scsi", KERNEL=="sda", NAME="node", GROUP="daemon"
 EOF
 	},
 	{
+		desc		=> "textual user/group id",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "node",
+		exp_perms	=> "root:wheel:0660",
+		conf		=> <<EOF
+BUS=="scsi", KERNEL=="sda", NAME="node", OWNER="root", GROUP="wheel"
+EOF
+	},
+	{
 		desc		=> "permissions MODE=0777",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
