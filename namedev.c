@@ -198,7 +198,7 @@ static int get_format_len(char **str)
 
 	if (isdigit(*str[0])) {
 		num = (int) strtoul(*str, &tail, 10);
-		if (tail != NULL) {
+		if (num > 0) {
 			*str = tail;
 			dbg("format length=%i", num);
 			return num;

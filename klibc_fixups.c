@@ -74,7 +74,7 @@ static unsigned long get_id_by_name(const char *uname, const char *dbfile)
 
 		if (strcmp(uname, name) == 0) {
 			id = strtoul(idstr, &tail, 10);
-			if (tail == NULL)
+			if (tail[0] != '\0')
 				id = -1;
 			else
 				dbg("id for '%s' is '%li'", name, id);
