@@ -332,12 +332,8 @@ static int execute_program(char *path, char *value, int len)
 		return -1;
 	}
 	pid = fork();
-	if (pid == -1) {
-		dbg("fork failed");
-		return -1;
-	}
-
-	if (pid == 0) {
+	switch(pid) {
+	case 0:
 		/* child */
 		close(STDOUT_FILENO);
 		dup(fds[1]);	/* dup write side of pipe to STDOUT */
@@ -353,16 +349,16 @@ static int execute_program(char *path, char *value, int len)
 				dbg("too many args - %d", i);
 				args[i] = NULL;
 			}
-			retval = execve(args[0], args, main_envp);
+			retval = execv(args[0], args);
 		} else {
-			retval = execve(path, main_argv, main_envp);
+			retval = execv(path, main_argv);
 		}
-		if (retval != 0) {
-			dbg("child execve failed");
-			exit(1);
-		}
-		return -1; /* avoid compiler warning */
-	} else {
+		dbg("child execve failed");
+		exit(1);
+	case -1:
+		dbg("fork failed");
+		return -1;
+	default:
 		/* parent reads from fds[0] */
 		close(fds[1]);
 		retval = 0;

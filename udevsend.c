@@ -87,6 +87,7 @@ static int start_daemon(void)
 		case 0:
 			/* daemon */
 			setsid();
+			chdir("/");
 			execl(UDEVD_EXEC, "udevd", NULL);
 			dbg("exec of daemon failed");
 			exit(1);

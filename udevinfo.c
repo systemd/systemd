@@ -397,7 +397,7 @@ help:
 	       "  -n NAME  node name used for query\n"
 	       "\n"
 	       "  -r       print udev root\n"
-	       "  -a       print all attributes along the chain of the device\n"
+	       "  -a       print all SYSFS_attributes along the device chain\n"
 	       "  -d       dump whole database\n"
 	       "  -V       print udev version\n"
 	       "  -h       print this help text\n"
