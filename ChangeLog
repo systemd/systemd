@@ -1,3 +1,46 @@
+Summary of changes from v032 to v033
+============================================
+
+<harald:redhat.com>:
+  o udev close on exec
+  o some cleanups and security fixes
+  o some cleanups and security fixes
+  o selinux for udev
+  o cleanup PATCH for extras/chassis_id/Makefile
+
+<kpfleming:backtobasicsmgmt.com>:
+  o respect prefix= setting in built udev.conf (updated)
+
+Greg Kroah-Hartman:
+  o add support for usb interfaces to wait_for_sysfs to keep it quiet
+  o enable native tdb spinlocks on i386 platforms
+  o delete extras/multipath-tools as per the author's request
+  o be paranoid in dev_d.c
+  o add USE_SELINUX to README documentation so people have a chance to see what is going on
+  o update the selinux.h file to start to look sane
+  o update bk ignore list for the wait_for_sysfs binary
+  o kdetv wants to see device nodes in /dev
+  o update comments in scsi-devfs.sh
+  o fix up Makefiles to get the klibc build working properly
+  o update bk ignore list for new klibc generated files
+  o oops forgot to add the new klibc/include directory
+  o update klibc to version 0.181
+
+Kay Sievers:
+  o fix problems with dev.d and udevstart
+  o wait_for_sysfs debug cleanup
+  o fix problems using scsi_id with udevstart
+  o update volume_id
+  o finally solve the bad sysfs-timing for all of us
+  o volume-id build fix and update
+  o switch udev's seqnum to u64
+  o add enum tests
+  o fix udev segfaults with bad permissions file
+
+Patrick Mansfield:
+  o update udev to include scsi_id 0.6
+
+
 Summary of changes from v031 to v032
 ============================================
 
