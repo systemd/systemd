@@ -231,6 +231,27 @@ EOF
 		expected => "foo" ,
 		conf     => <<EOF
 CALLOUT, PROGRAM="/bin/echo -n foo", ID="foo", NAME="foo"
+REPLACE, KERNEL="console", NAME="TTY"
+EOF
+	},
+	{
+		desc     => "invalid label for device with no bus",
+		subsys   => "tty",
+		devpath  => "class/tty/console",
+		expected => "TTY" ,
+		conf     => <<EOF
+LABEL, BUS="foo", SYSFS_dev="5:1", NAME="foo"
+REPLACE, KERNEL="console", NAME="TTY"
+EOF
+	},
+	{
+		desc     => "valid label for device with no bus",
+		subsys   => "tty",
+		devpath  => "class/tty/console",
+		expected => "foo" ,
+		conf     => <<EOF
+LABEL, SYSFS_dev="5:1", NAME="foo"
+REPLACE, KERNEL="console", NAME="TTY"
 EOF
 	},
 	{
