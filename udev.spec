@@ -114,7 +114,9 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%doc COPYING README TODO ChangeLog HOWTO* etc/udev/udev.rules.examples docs/*
+%doc COPYING README TODO ChangeLog HOWTO* docs/*
+%doc etc/udev/udev.rules.{examples,gentoo,redhat}
+%doc etc/udev/udev.permissions.{gentoo,redhat}
 %attr(755,root,root) /sbin/udev
 %attr(755,root,root) /usr/bin/udevinfo
 %attr(755,root,root) /sbin/udevsend
