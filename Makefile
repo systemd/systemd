@@ -321,7 +321,8 @@ $(STARTER): $(LIBC) $(STARTER).o $(OBJS)
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
-	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) $(SENDER) $(TESTER)
+	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) \
+	 $(SENDER) $(TESTER) $(STARTER)
 	-rm -f ccdv
 	$(MAKE) -C klibc SUBDIRS=klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
