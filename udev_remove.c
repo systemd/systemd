@@ -78,13 +78,33 @@ static int delete_node(struct udevice *udev)
 	int i;
 	int num;
 
+	list_for_each_entry(name_loop, &udev->symlink_list, node) {
+		snprintf(filename, sizeof(filename), "%s/%s", udev_root, name_loop->name);
+		filename[sizeof(filename)-1] = '\0';
+
+		if (stat(filename, &stats) != 0) {
+			dbg("symlink '%s' not found", filename);
+			continue;
+		}
+		if (udev->devt && stats.st_rdev != udev->devt) {
+			info("symlink '%s' points to a different device, skip removal", filename);
+			continue;;
+		}
+
+		dbg("removing symlink '%s'", filename);
+		unlink(filename);
+
+		if (strchr(filename, '/'))
+			delete_path(filename);
+	}
+
 	snprintf(filename, sizeof(filename), "%s/%s", udev_root, udev->name);
 	filename[sizeof(filename)-1] = '\0';
 
-	dbg("checking major/minor of device node '%s'", filename);
-	if (stat(filename, &stats) != 0)
+	if (stat(filename, &stats) != 0) {
+		dbg("device node '%s' not found", filename);
 		return -1;
-
+	}
 	if (udev->devt && stats.st_rdev != udev->devt) {
 		info("device node '%s' points to a different device, skip removal", filename);
 		return -1;
@@ -95,7 +115,6 @@ static int delete_node(struct udevice *udev)
 	if (retval)
 		return retval;
 
-	/* remove all_partitions nodes */
 	num = udev->partitions;
 	if (num > 0) {
 		info("removing all_partitions '%s[1-%i]'", filename, num);
@@ -110,27 +129,8 @@ static int delete_node(struct udevice *udev)
 		}
 	}
 
-	/* remove subdirectories */
 	if (strchr(udev->name, '/'))
 		delete_path(filename);
-
-	list_for_each_entry(name_loop, &udev->symlink_list, node) {
-		snprintf(filename, sizeof(filename), "%s/%s", udev_root, name_loop->name);
-		filename[sizeof(filename)-1] = '\0';
-
-		dbg("unlinking symlink '%s'", filename);
-		retval = unlink(filename);
-		if (errno == ENOENT)
-			retval = 0;
-		if (retval) {
-			dbg("unlink(%s) failed with error '%s'",
-				filename, strerror(errno));
-			return retval;
-		}
-		if (strchr(filename, '/')) {
-			delete_path(filename);
-		}
-	}
 
 	return retval;
 }
