@@ -83,9 +83,9 @@ static void dump_dev(struct config_device *dev)
 			  dev->owner, dev->group, dev->mode);
 		break;
 	case CALLOUT:
-		dbg_parse("CALLOUT name='%s', program='%s', bus='%s', id='%s', "
+		dbg_parse("CALLOUT name='%s', bus='%s', program='%s', id='%s', "
 			  "owner='%s', group='%s', mode=%#o",
-			  dev->name, dev->exec_program, dev->bus, dev->id,
+			  dev->name, dev->bus, dev->exec_program, dev->id,
 			  dev->owner, dev->group, dev->mode);
 		break;
 	default:
@@ -271,8 +271,8 @@ static int namedev_init_config(void)
 			strfieldcpy(dev.name, temp3);
 
 			dbg_parse("LABEL name='%s', bus='%s', "
-				  "sysfs_file='%s', sysfs_value='%s'", 
-				  dev.name, dev.bus, dev.sysfs_file, 
+				  "sysfs_file='%s', sysfs_value='%s'",
+				  dev.name, dev.bus, dev.sysfs_file,
 				  dev.sysfs_value);
 		}
 
@@ -417,7 +417,6 @@ static int namedev_init_permissions(void)
 
 	/* loop through the whole file */
 	while (1) {
-		/* get a line */
 		temp = fgets(line, sizeof(line), fd);
 		if (temp == NULL)
 			break;
@@ -522,7 +521,7 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 					break;
 			}
 			if (args[i]) {
-				dbg("to many args - %d", i);
+				dbg("too many args - %d", i);
 				args[i] = NULL;
 			}
 			retval = execve(args[0], args, main_envp);
@@ -882,6 +881,7 @@ found:
 		char *pos = strchr(udev->name, '%');
 		char *dig;
 		char name[NAME_SIZE];
+
 		if (pos) {
 			strfieldcpy(name, pos+2);
 			*pos = 0x00;
@@ -890,8 +890,7 @@ found:
 				if (!sysfs_device)
 					break;
 				strcat(udev->name, sysfs_device->bus_id);
-				dbg("bus_id inserted: %s", 
-						sysfs_device->bus_id);
+				dbg("substitute bus_id '%s'", sysfs_device->bus_id);
 				break;
 			case 'n':
 				dig = class_dev->name + strlen(class_dev->name);
@@ -957,5 +956,3 @@ int namedev_init(void)
 	dump_dev_list();
 	return retval;
 }
-
-
