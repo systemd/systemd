@@ -35,7 +35,7 @@ KERNEL="ttyUSB0", NAME="pl2303"
 #KERNEL="tty*", NAME="vc/%n"
 
 # if this is a ide cdrom, name it the default name, and create a symlink to cdrom
-BUS="ide", PROGRAM="/bin/cat /proc/ide/%k/media", RESULT="cdrom", NAME="%k", SYMLINK="cdrom" 
+BUS="ide", KERNEL="*[!0-9]", PROGRAM="/bin/cat /proc/ide/%k/media", RESULT="cdrom", NAME="%k", SYMLINK="cdrom"
 
 # device mapper creates its own device nodes so ignore these
 KERNEL="dm-[0-9]*", NAME=""
