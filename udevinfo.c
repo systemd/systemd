@@ -218,8 +218,8 @@ static int print_sysfs_devices(void)
 			attr = sysfs_get_classdev_attr(class_dev, "dev");
 			if (attr) {
 				sscanf(attr->value, "%u:%u", &major, &minor);
-				printf("MAJOR          %u\n", minor);
-				printf("MINOR          %u\n", major);
+				printf("MAJOR          %u\n", major);
+				printf("MINOR          %u\n", minor);
 			}
 
 			phys_dev = sysfs_get_classdev_device(class_dev);
