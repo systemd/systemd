@@ -714,7 +714,6 @@ exit:
 int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
 	struct sysfs_device *sysfs_device = NULL;
-	struct sysfs_class_device *class_dev_parent = NULL;
 	int retval = 0;
 	struct perm_device *perm;
 	char *pos;
