@@ -277,7 +277,7 @@ $(DAEMON): $(DAEMON).o $(OBJS) udevd.h $(LIBC)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevd.o udev_lib.o $(KLIBC_FIXUP) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(SENDER): $(SENDER).o udevd.h $(LIBC)
+$(SENDER): $(SENDER).o $(OBJS) udevd.h $(LIBC)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o udev_lib.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
