@@ -92,7 +92,7 @@ ARCH := ${shell $(CC) -dumpmachine | sed -e s'/-.*//' -e 's/i.86/i386/' -e 's/sp
 	-e 's/arm.*/arm/g' -e 's/m68k.*/m68k/' -e 's/powerpc/ppc/g'}
 
 # code taken from uClibc to determine the gcc include dir
-GCCINCDIR := ${shell $(CC) -print-search-dirs | sed -ne "s/install: \(.*\)/\1include/gp"}
+GCCINCDIR := ${shell LC_ALL=C $(CC) -print-search-dirs | sed -ne "s/install: \(.*\)/\1include/gp"}
 
 # code taken from uClibc to determine the libgcc.a filename
 GCC_LIB := $(shell $(CC) -print-libgcc-file-name )
