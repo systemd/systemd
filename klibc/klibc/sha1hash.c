@@ -263,7 +263,7 @@ unsigned char finalcount[8];
 char *mybase64(uint8_t digest[20])
 {
   static const char charz[] =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+_";
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
   uint8_t input[21];
   static char output[28];
   int i, j;

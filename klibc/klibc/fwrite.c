@@ -15,9 +15,10 @@ size_t _fwrite(const void *buf, size_t count, FILE *f)
   while ( count ) {
     rv = write(fileno(f), p, count);
     if ( rv == -1 ) {
-      if ( errno == EINTR )
-	continue;
-      else
+      if ( errno == EINTR ) {
+	errno = 0;
+	continue; 
+      } else
 	break;
     } else if ( rv == 0 ) {
       break;

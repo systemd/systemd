@@ -12,14 +12,12 @@ char *strncat(char *dst, const char *src, size_t n)
   char ch;
   size_t nn = q-dst;
 
-  if ( __likely(nn <= n) )
-    n -= nn;
-
   while (n--) {
     *q++ = ch = *p++;
     if ( !ch )
-      break;
+      return dst;
   }
+  *q = '\0';
 
   return dst;
 }

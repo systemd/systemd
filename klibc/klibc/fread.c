@@ -15,9 +15,10 @@ size_t _fread(void *buf, size_t count, FILE *f)
   while ( count ) {
     rv = read(fileno(f), p, count);
     if ( rv == -1 ) {
-      if ( errno == EINTR )
+      if ( errno == EINTR ) {
+	errno = 0;
 	continue;
-      else
+      } else
 	break;
     } else if ( rv == 0 ) {
       break;
