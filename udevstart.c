@@ -87,6 +87,60 @@ static void udev_scan(void)
 	DIR *dir;
 	struct dirent *dent;
 
+	/* 
+	 * We want to scan the class tree first as lvm and dm needs to be able
+	 * to have access to the char control device when probing the block
+	 * devices.
+	 */
+	devpath = "class";
+	dir = opendir(SYSCLASS);
+	if (dir != NULL) {
+		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+			char dirname[MAX_PATHLEN];
+			DIR *dir2;
+			struct dirent *dent2;
+
+			if ((strcmp(dent->d_name, ".") == 0) ||
+			    (strcmp(dent->d_name, "..") == 0))
+				continue;
+
+			snprintf(dirname, MAX_PATHLEN, "%s/%s", SYSCLASS, dent->d_name);
+			dirname[MAX_PATHLEN] = '\0';
+			dir2 = opendir(dirname);
+			if (dir2 != NULL) {
+				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
+					char dirname2[MAX_PATHLEN-1];
+					DIR *dir3;
+					struct dirent *dent3;
+
+					if ((strcmp(dent2->d_name, ".") == 0) ||
+					    (strcmp(dent2->d_name, "..") == 0))
+						continue;
+
+					snprintf(dirname2, MAX_PATHLEN, "%s/%s", dirname, dent2->d_name);
+					dirname2[MAX_PATHLEN-1] = '\0';
+
+					dir3 = opendir(dirname2);
+					if (dir3 != NULL) {
+						for (dent3 = readdir(dir3); dent3 != NULL; dent3 = readdir(dir3)) {
+							char filename[MAX_PATHLEN];
+
+							if (strcmp(dent3->d_name, "dev") == 0) {
+								snprintf(filename, MAX_PATHLEN, "/class/%s/%s",
+									 dent->d_name, dent2->d_name);
+								filename[MAX_PATHLEN-1] = '\0';
+								udev_exec(filename, dent->d_name);
+							}
+						}
+						closedir(dir3);
+					}
+				}
+				closedir(dir2);
+			}
+		}
+		closedir(dir);
+	}
+
 	devpath = "block";
 	dir = opendir(SYSBLOCK);
 	if (dir != NULL) {
@@ -138,57 +192,7 @@ static void udev_scan(void)
 		}
 		closedir(dir);
 	}
-
-	devpath = "class";
-	dir = opendir(SYSCLASS);
-	if (dir != NULL) {
-		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-			char dirname[MAX_PATHLEN];
-			DIR *dir2;
-			struct dirent *dent2;
-
-			if ((strcmp(dent->d_name, ".") == 0) ||
-			    (strcmp(dent->d_name, "..") == 0))
-				continue;
-
-			snprintf(dirname, MAX_PATHLEN, "%s/%s", SYSCLASS, dent->d_name);
-			dirname[MAX_PATHLEN] = '\0';
-			dir2 = opendir(dirname);
-			if (dir2 != NULL) {
-				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
-					char dirname2[MAX_PATHLEN-1];
-					DIR *dir3;
-					struct dirent *dent3;
-
-					if ((strcmp(dent2->d_name, ".") == 0) ||
-					    (strcmp(dent2->d_name, "..") == 0))
-						continue;
-
-					snprintf(dirname2, MAX_PATHLEN, "%s/%s", dirname, dent2->d_name);
-					dirname2[MAX_PATHLEN-1] = '\0';
-
-					dir3 = opendir(dirname2);
-					if (dir3 != NULL) {
-						for (dent3 = readdir(dir3); dent3 != NULL; dent3 = readdir(dir3)) {
-							char filename[MAX_PATHLEN];
-
-							if (strcmp(dent3->d_name, "dev") == 0) {
-								snprintf(filename, MAX_PATHLEN, "/class/%s/%s",
-									 dent->d_name, dent2->d_name);
-								filename[MAX_PATHLEN-1] = '\0';
-								udev_exec(filename, dent->d_name);
-							}
-						}
-						closedir(dir3);
-					}
-				}
-				closedir(dir2);
-			}
-		}
-		closedir(dir);
-	}
 }
-
 
 int main(int argc, char *argv[], char *envp[])
 {
