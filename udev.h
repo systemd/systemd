@@ -70,6 +70,12 @@ struct udevice {
 	mode_t mode;
 };
 
+#define strfieldcpy(to, from) \
+do { \
+	to[sizeof(to)-1] = '\0'; \
+	strncpy(to, from, sizeof(to)-1); \
+} while (0)
+
 extern int udev_add_device(char *path, char *subsystem);
 extern int udev_remove_device(char *path, char *subsystem);
 

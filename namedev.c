@@ -144,36 +144,14 @@ static void dump_dev_list(void)
 		dump_dev(dev);
 	}
 }
-
-static int get_value(const char *left, char **orig_string, char **ret_string)
-{
-	char *temp;
-	char *string = *orig_string;
-
-	/* eat any whitespace */
-	while (isspace(*string))
-		++string;
-
-	/* split based on '=' */
-	temp = strsep(&string, "=");
-	if (strcasecmp(temp, left) == 0) {
-		/* got it, now strip off the '"' */
-		while (isspace(*string))
-			++string;
-		if (*string == '"')
-			++string;
-		temp = strsep(&string, "\"");
-		*ret_string = temp;
-		*orig_string = string;
-		return 0;
-	}
-	return -ENODEV;
-}
 	
 static int get_pair(char **orig_string, char **left, char **right)
 {
 	char *temp;
 	char *string = *orig_string;
+
+	if (!string)
+		return -ENODEV;
 
 	/* eat any whitespace */
 	while (isspace(*string))
@@ -182,22 +160,43 @@ static int get_pair(char **orig_string, char **left, char **right)
 	/* split based on '=' */
 	temp = strsep(&string, "=");
 	*left = temp;
+	if (!string)
+		return -ENODEV;
 
 	/* take the right side and strip off the '"' */
 	while (isspace(*string))
 		++string;
 	if (*string == '"')
 		++string;
+	else
+		return -ENODEV;
+
 	temp = strsep(&string, "\"");
+	if (!string || *temp == '\0')
+		return -ENODEV;
 	*right = temp;
 	*orig_string = string;
 	
 	return 0;
 }
 
+static int get_value(const char *left, char **orig_string, char **ret_string)
+{
+	int retval;
+	char *left_string;
+
+	retval = get_pair(orig_string, &left_string, ret_string);
+	if (retval)
+		return retval;
+	if (strcasecmp(left_string, left) != 0)
+		return -ENODEV;
+	return 0;
+}
+
 static int namedev_init_config(void)
 {
 	char line[255];
+	int lineno;
 	char *temp;
 	char *temp2;
 	char *temp3;
@@ -213,11 +212,13 @@ static int namedev_init_config(void)
 	}
 
 	/* loop through the whole file */
+	lineno = 0;
 	while (1) {
 		/* get a line */
 		temp = fgets(line, sizeof(line), fd);
 		if (temp == NULL)
-			break;
+			goto exit;
+		lineno++;
 
 		dbg_parse("read %s", temp);
 
@@ -244,23 +245,23 @@ static int namedev_init_config(void)
 			/* BUS="bus" */
 			retval = get_value("BUS", &temp, &temp3);
 			if (retval)
-				continue;
-			strcpy(dev.bus, temp3);
+				break;
+			strfieldcpy(dev.bus, temp3);
 
 			/* file="value" */
 			temp2 = strsep(&temp, ",");
 			retval = get_pair(&temp, &temp2, &temp3);
 			if (retval)
-				continue;
-			strcpy(dev.sysfs_file, temp2);
-			strcpy(dev.sysfs_value, temp3);
+				break;
+			strfieldcpy(dev.sysfs_file, temp2);
+			strfieldcpy(dev.sysfs_value, temp3);
 
 			/* NAME="new_name" */
 			temp2 = strsep(&temp, ",");
 			retval = get_value("NAME", &temp, &temp3);
 			if (retval)
-				continue;
-			strcpy(dev.name, temp3);
+				break;
+			strfieldcpy(dev.name, temp3);
 
 			dbg_parse("LABEL name = '%s', bus = '%s', "
 				"sysfs_file = '%s', sysfs_value = '%s'", 
@@ -275,22 +276,22 @@ static int namedev_init_config(void)
 			/* BUS="bus" */
 			retval = get_value("BUS", &temp, &temp3);
 			if (retval)
-				continue;
-			strcpy(dev.bus, temp3);
+				break;
+			strfieldcpy(dev.bus, temp3);
 
 			/* ID="id" */
 			temp2 = strsep(&temp, ",");
 			retval = get_value("id", &temp, &temp3);
 			if (retval)
-				continue;
-			strcpy(dev.id, temp3);
+				break;
+			strfieldcpy(dev.id, temp3);
 
 			/* NAME="new_name" */
 			temp2 = strsep(&temp, ",");
 			retval = get_value("NAME", &temp, &temp3);
 			if (retval)
-				continue;
-			strcpy(dev.name, temp3);
+				break;
+			strfieldcpy(dev.name, temp3);
 
 			dbg_parse("NUMBER name = '%s', bus = '%s', id = '%s'",
 					dev.name, dev.bus, dev.id);
@@ -303,22 +304,22 @@ static int namedev_init_config(void)
 			/* BUS="bus" */
 			retval = get_value("BUS", &temp, &temp3);
 			if (retval)
-				continue;
-			strcpy(dev.bus, temp3);
+				break;
+			strfieldcpy(dev.bus, temp3);
 
 			/* PLACE="place" */
 			temp2 = strsep(&temp, ",");
 			retval = get_value("place", &temp, &temp3);
 			if (retval)
-				continue;
-			strcpy(dev.place, temp3);
+				break;
+			strfieldcpy(dev.place, temp3);
 
 			/* NAME="new_name" */
 			temp2 = strsep(&temp, ",");
 			retval = get_value("NAME", &temp, &temp3);
 			if (retval)
-				continue;
-			strcpy(dev.name, temp3);
+				break;
+			strfieldcpy(dev.name, temp3);
 
 			dbg_parse("TOPOLOGY name = '%s', bus = '%s', place = '%s'",
 					dev.name, dev.bus, dev.place);
@@ -331,15 +332,15 @@ static int namedev_init_config(void)
 			/* KERNEL="kernel_name" */
 			retval = get_value("KERNEL", &temp, &temp3);
 			if (retval)
-				continue;
-			strcpy(dev.kernel_name, temp3);
+				break;
+			strfieldcpy(dev.kernel_name, temp3);
 
 			/* NAME="new_name" */
 			temp2 = strsep(&temp, ",");
 			retval = get_value("NAME", &temp, &temp3);
 			if (retval)
-				continue;
-			strcpy(dev.name, temp3);
+				break;
+			strfieldcpy(dev.name, temp3);
 			dbg_parse("REPLACE name = %s, kernel_name = %s",
 					dev.name, dev.kernel_name);
 		}
@@ -350,29 +351,29 @@ static int namedev_init_config(void)
 			/* PROGRAM="executable" */
 			retval = get_value("PROGRAM", &temp, &temp3);
 			if (retval)
-				continue;
-			strcpy(dev.exec_program, temp3);
+				break;
+			strfieldcpy(dev.exec_program, temp3);
 
 			/* BUS="bus" */
 			temp2 = strsep(&temp, ",");
 			retval = get_value("BUS", &temp, &temp3);
 			if (retval)
-				continue;
-			strcpy(dev.bus, temp3);
+				break;
+			strfieldcpy(dev.bus, temp3);
 
 			/* ID="id" */
 			temp2 = strsep(&temp, ",");
 			retval = get_value("ID", &temp, &temp3);
 			if (retval)
-				continue;
-			strcpy(dev.id, temp3);
+				break;
+			strfieldcpy(dev.id, temp3);
 
 			/* NAME="new_name" */
 			temp2 = strsep(&temp, ",");
 			retval = get_value("NAME", &temp, &temp3);
 			if (retval)
-				continue;
-			strcpy(dev.name, temp3);
+				break;
+			strfieldcpy(dev.name, temp3);
 			dbg_parse("CALLOUT name = %s, program = %s",
 					dev.name, dev.exec_program);
 		}
@@ -383,7 +384,8 @@ static int namedev_init_config(void)
 			goto exit;
 		}
 	}
-
+	dbg_parse("%s:%d:%Zd: error parsing ``%s''", udev_config_filename,
+		  lineno, temp - line, temp);
 exit:
 	fclose(fd);
 	return retval;
@@ -552,11 +554,11 @@ static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev
 			continue;
 		if (strncmp(value, dev->id, sizeof(value)) != 0)
 			continue;
-		strcpy(udev->name, dev->name);
+		strfieldcpy(udev->name, dev->name);
 		if (dev->mode != 0) {
 			udev->mode = dev->mode;
-			strcpy(udev->owner, dev->owner);
-			strcpy(udev->group, dev->group);
+			strfieldcpy(udev->owner, dev->owner);
+			strfieldcpy(udev->group, dev->group);
 		}
 		dbg_parse("device callout '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 			dev->id, udev->name, 
@@ -571,7 +573,6 @@ static int do_label(struct sysfs_class_device *class_dev, struct udevice *udev, 
 	struct sysfs_attribute *tmpattr = NULL;
 	struct config_device *dev;
 	struct list_head *tmp;
-	char *temp = NULL;
 
 	list_for_each(tmp, &config_device_list) {
 		dev = list_entry(tmp, struct config_device, node);
@@ -600,11 +601,11 @@ label_found:
 		if (strcmp(dev->sysfs_value, tmpattr->value) != 0)
 			continue;
 
-		strcpy(udev->name, dev->name);
+		strfieldcpy(udev->name, dev->name);
 		if (dev->mode != 0) {
 			udev->mode = dev->mode;
-			strcpy(udev->owner, dev->owner);
-			strcpy(udev->group, dev->group);
+			strfieldcpy(udev->owner, dev->owner);
+			strfieldcpy(udev->group, dev->group);
 		}
 		dbg_parse("file '%s' with value '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 			dev->sysfs_file, dev->sysfs_value, udev->name, 
@@ -633,7 +634,7 @@ static int do_number(struct sysfs_class_device *class_dev, struct udevice *udev,
 			continue;
 
 		found = 0;
-		strcpy(path, sysfs_device->path);
+		strfieldcpy(path, sysfs_device->path);
 		temp = strrchr(path, '/');
 		dbg_parse("NUMBER path = '%s'", path);
 		dbg_parse("NUMBER temp = '%s' id = '%s'", temp, dev->id);
@@ -648,11 +649,11 @@ static int do_number(struct sysfs_class_device *class_dev, struct udevice *udev,
 		}
 		if (!found)
 			continue;
-		strcpy(udev->name, dev->name);
+		strfieldcpy(udev->name, dev->name);
 		if (dev->mode != 0) {
 			udev->mode = dev->mode;
-			strcpy(udev->owner, dev->owner);
-			strcpy(udev->group, dev->group);
+			strfieldcpy(udev->owner, dev->owner);
+			strfieldcpy(udev->group, dev->group);
 		}
 		dbg_parse("device id '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 			dev->id, udev->name, 
@@ -681,7 +682,7 @@ static int do_topology(struct sysfs_class_device *class_dev, struct udevice *ude
 			continue;
 
 		found = 0;
-		strcpy(path, sysfs_device->path);
+		strfieldcpy(path, sysfs_device->path);
 		temp = strrchr(path, '/');
 		dbg_parse("TOPOLOGY path = '%s'", path);
 		dbg_parse("TOPOLOGY temp = '%s' place = '%s'", temp, dev->place);
@@ -697,11 +698,11 @@ static int do_topology(struct sysfs_class_device *class_dev, struct udevice *ude
 		if (!found)
 			continue;
 
-		strcpy(udev->name, dev->name);
+		strfieldcpy(udev->name, dev->name);
 		if (dev->mode != 0) {
 			udev->mode = dev->mode;
-			strcpy(udev->owner, dev->owner);
-			strcpy(udev->group, dev->group);
+			strfieldcpy(udev->owner, dev->owner);
+			strfieldcpy(udev->group, dev->group);
 		}
 		dbg_parse("device at '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 			dev->place, udev->name, 
@@ -727,11 +728,11 @@ static int do_replace(struct sysfs_class_device *class_dev, struct udevice *udev
 		if (strcmp(dev->kernel_name, class_dev->name) != 0)
 			continue;
 
-		strcpy(udev->name, dev->name);
+		strfieldcpy(udev->name, dev->name);
 		if (dev->mode != 0) {
 			udev->mode = dev->mode;
-			strcpy(udev->owner, dev->owner);
-			strcpy(udev->group, dev->group);
+			strfieldcpy(udev->owner, dev->owner);
+			strfieldcpy(udev->group, dev->group);
 		}
 		dbg_parse("'%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 			dev->kernel_name, udev->name, 
@@ -766,7 +767,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 				char path[SYSFS_PATH_MAX];
 
 				dbg_parse("really is a partition...");
-				strcpy(path, class_dev->path);
+				strfieldcpy(path, class_dev->path);
 				temp = strrchr(path, '/');
 				*temp = 0x00;
 				dbg_parse("looking for a class device at '%s'", path);
@@ -810,7 +811,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 	if (retval == 0)
 		goto done;
 
-	strcpy(udev->name, class_dev->name);
+	strfieldcpy(udev->name, class_dev->name);
 
 done:
 	/* substitute placeholder in NAME  */
@@ -819,7 +820,7 @@ done:
 		char *dig;
 		char name[NAME_SIZE];
 		if (pos) {
-			strcpy(name, pos+2);
+			strfieldcpy(name, pos+2);
 			*pos = 0x00;
 			switch (pos[1]) {
 			case 'b':
