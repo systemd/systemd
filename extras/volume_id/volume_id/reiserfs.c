@@ -2,6 +2,7 @@
  * volume_id - reads filesystem label and uuid
  *
  * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005 Tobias Klauser <tklauser@access.unizh.ch>
  *
  *	This library is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU Lesser General Public
@@ -55,26 +56,45 @@ struct reiserfs_super_block {
 	__u8	label[16];
 } __attribute__((__packed__));
 
+struct reiser4_super_block {
+	__u8	magic[16];
+	__u16	dummy[2];
+	__u8	uuid[16];
+	__u8	label[16];
+	__u64	dummy2;
+} __attribute__((__packed__));
+
 #define REISERFS1_SUPERBLOCK_OFFSET		0x2000
 #define REISERFS_SUPERBLOCK_OFFSET		0x10000
 
 int volume_id_probe_reiserfs(struct volume_id *id, __u64 off)
 {
 	struct reiserfs_super_block *rs;
+	struct reiser4_super_block *rs4;
+	__u8 *buf;
 
 	dbg("probing at offset %llu", off);
 
-	rs = (struct reiserfs_super_block *) volume_id_get_buffer(id, off + REISERFS_SUPERBLOCK_OFFSET, 0x200);
-	if (rs == NULL)
+	buf = volume_id_get_buffer(id, off + REISERFS_SUPERBLOCK_OFFSET, 0x200);
+	if (buf == NULL)
 		return -1;
 
+	rs = (struct reiserfs_super_block *) buf;;
 	if (memcmp(rs->magic, "ReIsEr2Fs", 9) == 0) {
 		strcpy(id->type_version, "3.6");
-		goto found;
+		goto found_v3;
 	}
-
 	if (memcmp(rs->magic, "ReIsEr3Fs", 9) == 0) {
 		strcpy(id->type_version, "JR");
+		goto found_v3;
+	}
+
+	rs4 = (struct reiser4_super_block *) buf;
+	if (memcmp(rs4->magic, "ReIsEr4", 7) == 0) {
+		strcpy(id->type_version, "4");
+		volume_id_set_label_raw(id, rs4->label, 16);
+		volume_id_set_label_string(id, rs4->label, 16);
+		volume_id_set_uuid(id, rs4->uuid, UUID_DCE);
 		goto found;
 	}
 
@@ -84,16 +104,17 @@ int volume_id_probe_reiserfs(struct volume_id *id, __u64 off)
 
 	if (memcmp(rs->magic, "ReIsErFs", 8) == 0) {
 		strcpy(id->type_version, "3.5");
-		goto found;
+		goto found_v3;
 	}
 
 	return -1;
 
-found:
+found_v3:
 	volume_id_set_label_raw(id, rs->label, 16);
 	volume_id_set_label_string(id, rs->label, 16);
 	volume_id_set_uuid(id, rs->uuid, UUID_DCE);
 
+found:
 	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
 	id->type = "reiserfs";
 
