@@ -601,10 +601,6 @@ label_found:
 			continue;
 
 		strcpy(udev->name, dev->name);
-		if (isdigit(class_dev->path[strlen(class_dev->path)-1])) {
-			temp = &class_dev->path[strlen(class_dev->path)-1];
-			strcat(udev->name, temp);
-		}
 		if (dev->mode != 0) {
 			udev->mode = dev->mode;
 			strcpy(udev->owner, dev->owner);
@@ -819,7 +815,9 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 done:
 	/* substitute placeholder in NAME  */
 	while (1) {
-		pos = strchr(udev->name, '%');
+		char *pos = strchr(udev->name, '%');
+		char *dig;
+		char name[NAME_SIZE];
 		if (pos) {
 			strcpy(name, pos+2);
 			*pos = 0x00;
