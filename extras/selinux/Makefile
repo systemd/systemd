@@ -26,7 +26,9 @@ exec_prefix =	${prefix}
 etcdir =	${prefix}/etc
 sbindir =	${exec_prefix}/sbin
 usrbindir =	${exec_prefix}/usr/bin
+usrsbindir =	${exec_prefix}/usr/sbin
 mandir =	${prefix}/usr/share/man
+devddir =	${etcdir}/dev.d/default
 hotplugdir =	${etcdir}/hotplug.d/default
 configdir =	${etcdir}/udev/
 initdir = 	${etcdir}/init.d/
@@ -52,8 +54,11 @@ clean:
 
 spotless: clean
 
-
 install: all
+	$(INSTALL_PROGRAM) $(PROG) $(DESTDIR)$(sbindir)/$(PROG)
+	- ln -s -f $(DESTDIR)$(sbindir)/$(PROG) $(DESTDIR)$(devddir)/$(PROG).dev
 
-uninstall: 
+uninstall:
+	- rm $(DESTDIR)$(devddir)/$(PROG).dev
+	- rm $(DESTDIR)$(sbindir)/$(PROG)
 

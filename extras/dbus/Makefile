@@ -53,16 +53,16 @@ spotless: clean
 
 install-dbus-policy:
 	$(INSTALL) -d $(DESTDIR)$(dbusdir)
+
+uninstall-dbus-policy:
+	- rm $(DESTDIR)$(dbusdir)/udev_sysbus_policy.conf
+
+install: install-dbus-policy all
 	$(INSTALL_DATA) etc/dbus-1/system.d/udev_sysbus_policy.conf $(DESTDIR)$(dbusdir)
 	$(INSTALL_PROGRAM) $(PROG) $(DESTDIR)$(usrsbindir)/$(PROG)
 	- ln -s -f $(DESTDIR)$(usrsbindir)/$(PROG) $(DESTDIR)$(devddir)/$(PROG).dev
 
-uninstall-dbus-policy:
-	- rm $(DESTDIR)$(dbusdir)/udev_sysbus_policy.conf
+uninstall: uninstall-dbus-policy
 	- rm $(DESTDIR)$(devddir)/$(PROG).dev
 	- rm $(DESTDIR)$(usrsbindir)/$(PROG)
-
-install: install-dbus-policy all
-
-uninstall: uninstall-dbus-policy
 
