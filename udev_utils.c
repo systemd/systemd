@@ -43,52 +43,49 @@ int udev_init_device(struct udevice *udev, const char* devpath, const char *subs
 
 	memset(udev, 0x00, sizeof(struct udevice));
 
-	if (devpath) {
-		strfieldcpy(udev->devpath, devpath);
-		no_trailing_slash(udev->devpath);
-	}
 	if (subsystem)
 		strfieldcpy(udev->subsystem, subsystem);
 
-	if (strcmp(udev->subsystem, "block") == 0)
-		udev->type = BLOCK;
-	else if (strcmp(udev->subsystem, "net") == 0)
-		udev->type = NET;
-	else if (strncmp(udev->devpath, "/block/", 7) == 0)
-		udev->type = BLOCK;
-	else if (strncmp(udev->devpath, "/class/net/", 11) == 0)
-		udev->type = NET;
-	else if (strncmp(udev->devpath, "/class/", 7) == 0)
-		udev->type = CLASS;
-	else if (strncmp(udev->devpath, "/devices/", 9) == 0)
-		udev->type = PHYSDEV;
+	if (devpath) {
+		strfieldcpy(udev->devpath, devpath);
+		no_trailing_slash(udev->devpath);
+
+		if (strncmp(udev->devpath, "/block/", 7) == 0)
+			udev->type = BLOCK;
+		else if (strncmp(udev->devpath, "/class/net/", 11) == 0)
+			udev->type = NET;
+		else if (strncmp(udev->devpath, "/class/", 7) == 0)
+			udev->type = CLASS;
+		else if (strncmp(udev->devpath, "/devices/", 9) == 0)
+			udev->type = PHYSDEV;
+
+		/* get kernel name */
+		pos = strrchr(udev->devpath, '/');
+		if (pos) {
+			strfieldcpy(udev->kernel_name, &pos[1]);
+			dbg("kernel_name='%s'", udev->kernel_name);
+
+			/* Some block devices have '!' in their name, change that to '/' */
+			pos = udev->kernel_name;
+			while (pos[0] != '\0') {
+				if (pos[0] == '!')
+					pos[0] = '/';
+				pos++;
+			}
+
+			/* get kernel number */
+			pos = &udev->kernel_name[strlen(udev->kernel_name)];
+			while (isdigit(pos[-1]))
+				pos--;
+			strfieldcpy(udev->kernel_number, pos);
+			dbg("kernel_number='%s'", udev->kernel_number);
+		}
+	}
 
 	udev->mode = 0660;
 	strcpy(udev->owner, "root");
 	strcpy(udev->group, "root");
 
-	/* get kernel name */
-	pos = strrchr(udev->devpath, '/');
-	if (pos == NULL)
-		return -1;
-	strfieldcpy(udev->kernel_name, &pos[1]);
-
-	/* get kernel number */
-	pos = &udev->kernel_name[strlen(udev->kernel_name)];
-	while (isdigit(pos[-1]))
-		pos--;
-	strfieldcpy(udev->kernel_number, pos);
-	dbg("kernel_number='%s'", udev->kernel_number);
-
-	/* Some block devices have '!' in their name, change that to '/' */
-	pos = udev->kernel_name;
-	while (pos[0] != '\0') {
-		if (pos[0] == '!')
-			pos[0] = '/';
-		pos++;
-	}
-
-	dbg("kernel_name='%s'", udev->kernel_name);
 	return 0;
 }
 

@@ -96,7 +96,6 @@ static void asmlinkage sig_handler(int signum)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	struct sigaction act;
 	struct sysfs_class_device *class_dev;
 	struct sysfs_device *devices_dev;
 	struct udevice udev;
@@ -106,6 +105,7 @@ int main(int argc, char *argv[], char *envp[])
 	const char *devpath;
 	const char *subsystem;
 	int managed_event;
+	struct sigaction act;
 	int retval = -EINVAL;
 
 	if (argc == 2 && strcmp(argv[1], "-V") == 0) {
@@ -153,24 +153,16 @@ int main(int argc, char *argv[], char *envp[])
 	if (!subsystem && argc == 2)
 		subsystem = argv[1];
 
-	if (!action) {
-		dbg("no action");
-		goto hotplug;
-	}
-	if (!subsystem) {
-		dbg("no subsystem");
-		goto hotplug;
-	}
-	if (!devpath) {
-		dbg("no devpath");
+	udev_init_device(&udev, devpath, subsystem);
+
+	if (!action || !subsystem || !devpath) {
+		dbg("action, subsystem or devpath missing");
 		goto hotplug;
 	}
 
 	/* export logging flag, as called scripts may want to do the same as udev */
 	if (udev_log)
 		setenv("UDEV_LOG", "1", 1);
-
-	udev_init_device(&udev, devpath, subsystem);
 
 	if (udev.type == BLOCK || udev.type == CLASS || udev.type == NET) {
 		if (strcmp(action, "add") == 0) {

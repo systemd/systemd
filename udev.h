@@ -31,6 +31,7 @@
 #define ALARM_TIMEOUT			120
 #define COMMENT_CHARACTER		'#'
 
+#define LINE_SIZE			512
 #define NAME_SIZE			256
 #define USER_SIZE			32
 
@@ -38,8 +39,6 @@
 #define DEVPATH_SIZE			256
 #define SUBSYSTEM_SIZE			32
 #define SEQNUM_SIZE			32
-
-#define LINE_SIZE			512
 
 #define DEVD_DIR			"/etc/dev.d"
 #define DEVD_SUFFIX			".dev"
@@ -62,6 +61,7 @@ struct udevice {
 	char subsystem[SUBSYSTEM_SIZE];
 
 	char name[NAME_SIZE];
+	char devname[NAME_SIZE];
 	char symlink[NAME_SIZE];
 	char owner[USER_SIZE];
 	char group[USER_SIZE];
@@ -69,7 +69,6 @@ struct udevice {
 	char type;
 	dev_t devt;
 
-	char devname[NAME_SIZE];
 	char tmp_node[NAME_SIZE];
 	int partitions;
 	int ignore_remove;
