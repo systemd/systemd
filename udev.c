@@ -245,6 +245,8 @@ static char *subsystem_blacklist[] = {
 	"net",
 	"scsi_host",
 	"scsi_device",
+	"usb_host",
+	"pci_bus",
 	"",
 };
 
