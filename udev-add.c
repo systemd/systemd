@@ -242,9 +242,9 @@ static struct sysfs_class_device *get_class_dev(char *device_name)
 	dbg("looking at '%s'", dev_path);
 
 	/* open up the sysfs class device for this thing... */
-	class_dev = sysfs_open_class_device(dev_path);
+	class_dev = sysfs_open_class_device_path(dev_path);
 	if (class_dev == NULL) {
-		dbg ("sysfs_open_class_device failed");
+		dbg ("sysfs_open_class_device_path failed");
 		goto exit;
 	}
 	dbg("class_dev->name='%s'", class_dev->name);

@@ -121,16 +121,20 @@ struct dlist *sysfs_get_bus_devices(struct sysfs_bus *bus)
 		return NULL;
 	}
 
-	dlist_for_each_data(devdir->links, curl, struct sysfs_link) {
-		bdev = sysfs_open_device(curl->target);
-		if (bdev == NULL) {
-			dprintf("Error opening device at %s\n",	curl->target);
-			continue;
+	if (devdir->links != 0) {
+		dlist_for_each_data(devdir->links, curl, struct sysfs_link) {
+			bdev = sysfs_open_device_path(curl->target);
+			if (bdev == NULL) {
+				dprintf("Error opening device at %s\n",	
+								curl->target);
+				continue;
+			}
+			if (bus->devices == NULL)
+				bus->devices = dlist_new_with_delete
+					(sizeof(struct sysfs_device), 
+					 		sysfs_close_dev);
+			dlist_unshift(bus->devices, bdev);
 		}
-		if (bus->devices == NULL)
-			bus->devices = dlist_new_with_delete
-				(sizeof(struct sysfs_device), sysfs_close_dev);
-		dlist_unshift(bus->devices, bdev);
 	}
 	sysfs_close_directory(devdir);
 
@@ -165,16 +169,21 @@ struct dlist *sysfs_get_bus_drivers(struct sysfs_bus *bus)
 		sysfs_close_directory(drvdir);
 		return NULL;
 	}
-	dlist_for_each_data(drvdir->subdirs, cursub, struct sysfs_directory) {
-		driver = sysfs_open_driver(cursub->path);
-		if (driver == NULL) {
-			dprintf("Error opening driver at %s\n",	cursub->path);
-			continue;
+	if (drvdir->subdirs != NULL) {
+		dlist_for_each_data(drvdir->subdirs, cursub, 
+						struct sysfs_directory) {
+			driver = sysfs_open_driver_path(cursub->path);
+			if (driver == NULL) {
+				dprintf("Error opening driver at %s\n",	
+								cursub->path);
+				continue;
+			}
+			if (bus->drivers == NULL)
+				bus->drivers = dlist_new_with_delete
+					(sizeof(struct sysfs_driver), 
+					 		sysfs_close_drv);
+			dlist_unshift(bus->drivers, driver);
 		}
-		if (bus->drivers == NULL)
-			bus->drivers = dlist_new_with_delete
-				(sizeof(struct sysfs_driver), sysfs_close_drv);
-		dlist_unshift(bus->drivers, driver);
 	}
 	sysfs_close_directory(drvdir);
 	return (bus->drivers);
@@ -347,10 +356,9 @@ struct sysfs_device *sysfs_open_bus_device(unsigned char *busname,
 		dprintf("Error getting sysfs mount point\n");
 		return NULL;
 	}
-	
+
 	if (sysfs_trailing_slash(path) == 0)
 		strcat(path, "/");
-
 	strcat(path, SYSFS_BUS_NAME);
 	strcat(path, "/");
 	strcat(path, busname);
@@ -359,7 +367,7 @@ struct sysfs_device *sysfs_open_bus_device(unsigned char *busname,
 	strcat(path, "/");
 	strcat(path, dev_id);
 
-	rdev = sysfs_open_device(path);
+	rdev = sysfs_open_device_path(path);
 	if (rdev == NULL) {
 		dprintf("Error getting device %s on bus %s\n",
 				dev_id, busname);

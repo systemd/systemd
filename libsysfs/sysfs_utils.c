@@ -1,5 +1,5 @@
 /*
- * syfs_utils.c
+ * sysfs_utils.c
  *
  * System utility functions for libsysfs
  *
@@ -135,17 +135,21 @@ int sysfs_get_name_from_path(const unsigned char *path, unsigned char *name,
 	}
 	memset(tmp, 0, SYSFS_PATH_MAX);
 	strcpy(tmp, path);
-	n = &tmp[strlen(tmp)-1];
-	if (strncmp(n, "/", 1) == 0)
-		*n = '\0';	
 	n = strrchr(tmp, '/');
 	if (n == NULL) {
 		errno = EINVAL;
 		return -1;
 	}
+	if (*(n+1) == '\0') {
+		*n = '\0';
+		n = strrchr(tmp, '/');
+		if (n == NULL) {
+			errno = EINVAL;
+			return -1;
+		}
+	}
 	n++;
 	strncpy(name, n, len);
-
 	return 0;
 }
 
@@ -233,7 +237,6 @@ struct dlist *sysfs_open_subsystem_list(unsigned char *name)
 	unsigned char *c = NULL;
 	struct sysfs_directory *dir = NULL, *cur = NULL;
 	struct dlist *list = NULL;
-	struct stat astats;
 	
 	if (name == NULL)
 		return NULL;
@@ -242,7 +245,6 @@ struct dlist *sysfs_open_subsystem_list(unsigned char *name)
 		dprintf("Error getting sysfs mount point\n");
 		return NULL;
 	}
-
 	if (sysfs_trailing_slash(sysfs_path) == 0)
 		strcat(sysfs_path, "/");
 	strcat(sysfs_path, name);
@@ -252,7 +254,7 @@ struct dlist *sysfs_open_subsystem_list(unsigned char *name)
 		return NULL;
 	}
 
-	if (sysfs_read_directory(dir) != 0) {
+	if ((sysfs_read_dir_subdirs(dir)) != 0) {
 		dprintf("Error reading sysfs_directory at %s\n", sysfs_path);
 		sysfs_close_directory(dir);
 		return NULL;
@@ -285,11 +287,7 @@ struct dlist *sysfs_open_subsystem_list(unsigned char *name)
 		if (c == NULL)
 			goto out;
 		strcpy(c, SYSFS_BLOCK_NAME);
-		if ((lstat(sysfs_path, &astats)) != 0) {
-			dprintf("stat() failed\n");
-			goto out;
-		}
-		if (S_ISDIR(astats.st_mode)) {
+		if ((sysfs_path_is_dir(sysfs_path)) == 0) {
 			subsys_name = (char *)calloc(1, SYSFS_NAME_LEN);
 			strcpy(subsys_name, SYSFS_BLOCK_NAME);
 			dlist_unshift(list, subsys_name);
@@ -333,7 +331,7 @@ struct dlist *sysfs_open_bus_devices_list(unsigned char *name)
 		return NULL;
 	}
 
-	if (sysfs_read_directory(dir) != 0) {
+	if ((sysfs_read_dir_links(dir)) != 0) {
 		dprintf("Error reading sysfs_directory at %s\n", sysfs_path);
 		sysfs_close_directory(dir);
 		return NULL;

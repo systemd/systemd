@@ -158,7 +158,7 @@ static int get_major_minor(const char *devpath, int *major, int *minor)
 	char *dev;
 
 	dprintf("%s\n", devpath);
-	class_dev = sysfs_open_class_device(devpath);
+	class_dev = sysfs_open_class_device_path(devpath);
 	if (!class_dev) {
 		log_message(LOG_WARNING, "open class %s failed: %s\n", devpath,
 			    strerror(errno));
@@ -708,7 +708,7 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 		return 1;
 	}
 
-	scsi_dev = sysfs_open_class_device(full_dev_path);
+	scsi_dev = sysfs_open_class_device_path(full_dev_path);
 	if (!scsi_dev) {
 		log_message(LOG_WARNING, "open class %s failed: %s\n",
 			    full_dev_path, strerror(errno));

@@ -1,5 +1,5 @@
 /*
- * syfs_dir.c
+ * sysfs_dir.c
  *
  * Directory utility functions for libsysfs
  *
@@ -147,7 +147,7 @@ struct sysfs_attribute *sysfs_open_attribute(const unsigned char *path)
 		sysfs_close_attribute(sysattr);
 		return NULL;
 	}
-	strncpy(sysattr->path, path, sizeof(sysattr->path));
+	strncpy(sysattr->path, path, SYSFS_PATH_MAX);
 	if ((stat(sysattr->path, &fileinfo)) != 0) {
 		dprintf("Stat failed: No such attribute?\n");
 		sysattr->method = 0;
@@ -260,7 +260,7 @@ int sysfs_read_attribute(struct sysfs_attribute *sysattr)
 {
 	unsigned char *fbuf = NULL;
 	unsigned char *vbuf = NULL;
-	size_t length = 0;
+	ssize_t length = 0;
 	long pgsize = 0;
 	int fd;
 
@@ -441,13 +441,15 @@ int sysfs_read_all_subdirs(struct sysfs_directory *sysdir)
 		return -1;
 	}
 	if (sysdir->subdirs == NULL) 
-		if ((sysfs_read_dir_subdirs(sysdir) != 0) 
-		    || sysdir->subdirs == NULL)
+		if ((sysfs_read_dir_subdirs(sysdir)) != 0) 
 			return 0;
-	dlist_for_each_data(sysdir->subdirs, cursub, struct sysfs_directory) {
-		if ((sysfs_read_directory(cursub)) != 0) 
-			dprintf ("Error reading subdirectory %s\n",
-				cursub->name);
+	if (sysdir->subdirs != NULL) {
+		dlist_for_each_data(sysdir->subdirs, cursub, 
+						struct sysfs_directory) {
+			if ((sysfs_read_dir_subdirs(cursub)) != 0) 
+				dprintf ("Error reading subdirectory %s\n",
+						cursub->name);
+		}
 	}
 	return 0;
 }
@@ -476,7 +478,7 @@ struct sysfs_directory *sysfs_open_directory(const unsigned char *path)
 		sysfs_close_directory(sdir);
 		return NULL;
 	}
-	strncpy(sdir->path, path, sizeof(sdir->path));
+	strncpy(sdir->path, path, SYSFS_PATH_MAX);
 
 	return sdir;
 }
@@ -527,7 +529,8 @@ int sysfs_refresh_attributes(struct dlist *attrlist)
 	dlist_for_each_data(attrlist, attr, struct sysfs_attribute) {
 		if (attr->method & SYSFS_METHOD_SHOW) {
 			if ((sysfs_read_attribute(attr)) != 0) {
-				dprintf("Error reading attribute %s\n", attr->path);
+				dprintf("Error reading attribute %s\n", 
+								attr->path);
 				if ((sysfs_path_is_file(attr->path)) != 0) {
 					dprintf("Attr %s no longer exists\n", 
 								attr->name);
@@ -539,12 +542,6 @@ int sysfs_refresh_attributes(struct dlist *attrlist)
 								attr->name);
 			}
 		}
-	}
-	if (attrlist->count == 0) {
-		dprintf("No attributes in the list, destroying list now\n");
-		dlist_destroy(attrlist);
-		attrlist = NULL;
-		return 1;
 	}
 	return 0;
 }
@@ -655,9 +652,9 @@ int sysfs_read_dir_attributes(struct sysfs_directory *sysdir)
 		if (0 == strcmp(dirent->d_name, ".."))
 			continue;
 		memset(file_path, 0, SYSFS_PATH_MAX);
-		strncpy(file_path, sysdir->path, sizeof(file_path));
-		strncat(file_path, "/", sizeof(file_path));
-		strncat(file_path, dirent->d_name, sizeof(file_path));
+		strncpy(file_path, sysdir->path, SYSFS_PATH_MAX);
+		strcat(file_path, "/");
+		strcat(file_path, dirent->d_name);
 		if ((lstat(file_path, &astats)) != 0) {
 			dprintf("stat failed\n");
 			continue;
@@ -697,9 +694,9 @@ int sysfs_read_dir_links(struct sysfs_directory *sysdir)
 		if (0 == strcmp(dirent->d_name, ".."))
 			continue;
 		memset(file_path, 0, SYSFS_PATH_MAX);
-		strncpy(file_path, sysdir->path, sizeof(file_path));
-		strncat(file_path, "/", sizeof(file_path));
-		strncat(file_path, dirent->d_name, sizeof(file_path));
+		strncpy(file_path, sysdir->path, SYSFS_PATH_MAX);
+		strcat(file_path, "/");
+		strcat(file_path, dirent->d_name);
 		if ((lstat(file_path, &astats)) != 0) {
 			dprintf("stat failed\n");
 			continue;
@@ -742,9 +739,9 @@ int sysfs_read_dir_subdirs(struct sysfs_directory *sysdir)
 		if (0 == strcmp(dirent->d_name, ".."))
 			continue;
 		memset(file_path, 0, SYSFS_PATH_MAX);
-		strncpy(file_path, sysdir->path, sizeof(file_path));
-		strncat(file_path, "/", sizeof(file_path));
-		strncat(file_path, dirent->d_name, sizeof(file_path));
+		strncpy(file_path, sysdir->path, SYSFS_PATH_MAX);
+		strcat(file_path, "/");
+		strcat(file_path, dirent->d_name);
 		if ((lstat(file_path, &astats)) != 0) {
 			dprintf("stat failed\n");
 			continue;
@@ -784,9 +781,9 @@ int sysfs_read_directory(struct sysfs_directory *sysdir)
 		if (0 == strcmp(dirent->d_name, ".."))
 			continue;
 		memset(file_path, 0, SYSFS_PATH_MAX);
-		strncpy(file_path, sysdir->path, sizeof(file_path));
-		strncat(file_path, "/", sizeof(file_path));
-		strncat(file_path, dirent->d_name, sizeof(file_path));
+		strncpy(file_path, sysdir->path, SYSFS_PATH_MAX);
+		strcat(file_path, "/");
+		strcat(file_path, dirent->d_name);
 		if ((lstat(file_path, &astats)) != 0) {
 			dprintf("stat failed\n");
 			continue;
@@ -829,26 +826,20 @@ struct sysfs_attribute *sysfs_get_directory_attribute
 
 	attr = (struct sysfs_attribute *)dlist_find_custom
 			(dir->attributes, attrname, dir_attribute_name_equal);
-	if (attr != NULL) {
-		/*
-		 * don't read here since we would have read the attribute in 
-		 * in the routine that called this routine
-		 */ 
-		return attr;
-	} else {
+	if (attr == NULL) {
 		memset(new_path, 0, SYSFS_PATH_MAX);
 		strcpy(new_path, dir->path);
 		strcat(new_path, "/");
 		strcat(new_path, attrname);
 		if ((sysfs_path_is_file(new_path)) == 0) {
 		 	if ((add_attribute(dir, new_path)) == 0) {
-				attr = (struct sysfs_attribute *)dlist_find_custom
-					(dir->attributes, attrname, dir_attribute_name_equal);
+				attr = (struct sysfs_attribute *)
+					dlist_find_custom(dir->attributes, 
+					attrname, dir_attribute_name_equal);
 			}
-			return attr;
 		}
 	}
-	return NULL;
+	return attr;
 }
 
 /**

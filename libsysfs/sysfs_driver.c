@@ -66,29 +66,6 @@ static int open_driver_dir(struct sysfs_driver *driver)
 }
 
 /**
- * read_driver_dir: Read driver directory's subdirs and links
- * @driver: Driver to read
- * Returns 0 on success and 1 on failure
- */
-static int read_driver_dir(struct sysfs_driver *driver)
-{
-	if (driver == NULL) {
-		errno = EINVAL;
-		return 1;
-	}
-	if (driver->directory == NULL) {
-		if ((open_driver_dir(driver)) == 1)
-			return 1;
-	}
-	if ((sysfs_read_directory(driver->directory)) != 0) {
-		dprintf("Error reading driver directory at %s\n", 
-				driver->path);
-		return 1;
-	}
-	return 0;
-}
-
-/**
  * alloc_driver: allocates and initializes driver
  * returns struct sysfs_driver with success and NULL with error.
  */
@@ -98,11 +75,11 @@ static struct sysfs_driver *alloc_driver(void)
 }
 
 /**
- * sysfs_open_driver: opens and initializes driver structure
+ * sysfs_open_driver_path: opens and initializes driver structure
  * @path: path to driver directory
  * returns struct sysfs_driver with success and NULL with error
  */
-struct sysfs_driver *sysfs_open_driver(const unsigned char *path)
+struct sysfs_driver *sysfs_open_driver_path(const unsigned char *path)
 {
 	struct sysfs_driver *driver = NULL;
 
@@ -185,13 +162,10 @@ struct sysfs_attribute *sysfs_get_driver_attr(struct sysfs_driver *drv,
         }
 	
 	attrlist = sysfs_get_driver_attributes(drv);
-	if (attrlist != NULL) {
+	if (attrlist != NULL) 
 		cur = sysfs_get_directory_attribute(drv->directory,
 						(unsigned char *)name);
-	        if (cur != NULL)
-        	        return cur;
-	}
-        return NULL;
+        return cur;
 }
 
 /**
@@ -209,7 +183,7 @@ struct dlist *sysfs_get_driver_links(struct sysfs_driver *driver)
 	if (driver->directory == NULL) {
 		if ((open_driver_dir(driver)) == 1)
 			return NULL;
-		if ((read_driver_dir(driver)) != 0) 
+		if ((sysfs_read_dir_links(driver->directory)) != 0) 
 			return NULL;
 	}
 	return(driver->directory->links);
@@ -236,13 +210,13 @@ struct dlist *sysfs_get_driver_devices(struct sysfs_driver *driver)
 	if (driver->directory == NULL) {
 		if ((open_driver_dir(driver)) == 1) 
 			return NULL;
-		if ((read_driver_dir(driver)) != 0) 
+		if ((sysfs_read_dir_links(driver->directory)) != 0) 
 			return NULL;
 	}
 	if (driver->directory->links != NULL) {
 		dlist_for_each_data(driver->directory->links, curlink, 
 						struct sysfs_link) {
-			device = sysfs_open_device(curlink->target);
+			device = sysfs_open_device_path(curlink->target);
 			if (device == NULL) {
 				dprintf("Error opening device at %s\n", 
 						curlink->target);
@@ -345,7 +319,7 @@ struct sysfs_attribute *sysfs_open_driver_attr(const unsigned char *bus,
 		return NULL;
 	}
 
-	memset(path, 0, SYSFS_NAME_LEN);
+	memset(path, 0, SYSFS_PATH_MAX);
 	if ((get_driver_path(bus, drv, path, SYSFS_PATH_MAX)) != 0) {
 		dprintf("Error getting to driver %s\n", drv);
 		return NULL;
@@ -365,5 +339,35 @@ struct sysfs_attribute *sysfs_open_driver_attr(const unsigned char *bus,
 		return NULL;
 	}
 	return attribute;
+}
+
+/**
+ * sysfs_open_driver: open driver by name, given its bus
+ * @drv_name: Name of the driver
+ * @bus_name: Name of the bus
+ * Returns the sysfs_driver reference on success and NULL on failure
+ */
+struct sysfs_driver *sysfs_open_driver(const unsigned char *drv_name,
+				const unsigned char *bus_name)
+{
+	unsigned char path[SYSFS_PATH_MAX];
+	struct sysfs_driver *driver = NULL;
+
+	if (drv_name == NULL || bus_name == NULL) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	memset(path, 0, SYSFS_PATH_MAX);
+	if ((get_driver_path(bus_name, drv_name, path, SYSFS_PATH_MAX)) != 0) {
+		dprintf("Error getting to driver %s\n", drv_name);
+		return NULL;
+	}
+	driver = sysfs_open_driver_path(path);
+	if (driver == NULL) {
+		dprintf("Error opening driver at %s\n", path);
+		return NULL;
+	}
+	return driver;
 }
 
