@@ -324,7 +324,7 @@ int namedev_init_permissions(void)
 			dbg("cannot parse line '%s'", line);
 			continue;
 		}
-		strncpy(dev.group, temp2, sizeof(dev.owner));
+		strncpy(dev.group, temp2, sizeof(dev.group));
 
 		if (!temp) {
 			dbg("cannot parse line: %s", line);
