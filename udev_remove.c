@@ -71,6 +71,7 @@ static int delete_node(struct udevice *udev)
 {
 	char filename[NAME_SIZE];
 	char partitionname[NAME_SIZE];
+	struct stat stats;
 	int retval;
 	int i;
 	char *pos;
@@ -79,6 +80,15 @@ static int delete_node(struct udevice *udev)
 
 	snprintf(filename, NAME_SIZE, "%s/%s", udev_root, udev->name);
 	filename[NAME_SIZE-1] = '\0';
+
+	dbg("checking major/minor of device node '%s'", filename);
+	if (stat(filename, &stats) != 0)
+		return -1;
+
+	if (udev->major && stats.st_rdev != makedev(udev->major, udev->minor)) {
+		info("device node '%s' points to a different device, skip removal", filename);
+		return -1;
+	}
 
 	info("removing device node '%s'", filename);
 	retval = unlink_secure(filename);

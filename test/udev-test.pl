@@ -758,23 +758,13 @@ BUS="scsi", KERNEL="sda", NAME="link", SYMLINK="symlink0"
 EOF
 	},
 	{
-		desc		=> "symlink name empty",
-		subsys		=> "block",
-		devpath		=> "/block/sda",
-		exp_name	=> "",
-		exp_target	=> "link",
-		exp_error	=> "yes",
-		conf		=> <<EOF
-BUS="scsi", KERNEL="sda", NAME="link", SYMLINK=""
-EOF
-	},
-	{
 		desc		=> "symlink name '.'",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> ".",
 		exp_target	=> "link",
-		exp_error	=> "yes",
+		exp_add_error	=> "yes",
+		exp_rem_error	=> "yes",
 		conf		=> <<EOF
 BUS="scsi", KERNEL="sda", NAME="link", SYMLINK="."
 EOF
@@ -785,7 +775,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "symlink",
 		exp_target	=> "",
-		exp_error	=> "yes",
+		exp_add_error	=> "yes",
 		conf		=> <<EOF
 BUS="scsi", KERNEL="sda", NAME="", SYMLINK="symlink"
 EOF
@@ -796,7 +786,8 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "",
 		exp_target	=> "",
-		exp_error	=> "yes",
+		exp_add_error	=> "yes",
+		exp_rem_error	=> "yes",
 		conf		=> <<EOF
 BUS="scsi", KERNEL="sda", NAME="", SYMLINK=""
 EOF
@@ -807,6 +798,8 @@ EOF
 		devpath		=> "/class/tty/tty0",
 		exp_name	=> "link",
 		exp_target	=> "link",
+		exp_rem_error	=> "yes",
+		option		=> "clear",
 		conf		=> <<EOF
 KERNEL="tty0", NAME="link", SYMLINK="link"
 EOF
@@ -1025,7 +1018,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
-		exp_error	=> "yes",
+		exp_add_error	=> "yes",
 		conf		=> <<EOF
 BUS="scsi", KERNEL="sda", NAME="node", OPTIONS="ignore"
 EOF
@@ -1045,7 +1038,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "node6",
-		exp_error	=> "yes",
+		exp_add_error	=> "yes",
 		conf		=> <<EOF
 SUBSYSTEM="block", OPTIONS="all_partitions"
 BUS="scsi", KERNEL="sda", NAME="node"
@@ -1056,7 +1049,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
-		exp_error	=> "yes",
+		exp_rem_error	=> "yes",
 		conf		=> <<EOF
 BUS="scsi", KERNEL="sda", NAME="node", OPTIONS="ignore_remove"
 EOF
@@ -1066,7 +1059,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node14",
-		exp_error	=> "yes",
+		exp_rem_error	=> "yes",
 		option		=> "clear",
 		conf		=> <<EOF
 BUS="scsi", KERNEL="sda", NAME="node", OPTIONS="ignore_remove, all_partitions"
@@ -1225,7 +1218,7 @@ sub symlink_test {
 		} else {
 			print "expected symlink from: \'$config->{exp_name}\' to \'$config->{exp_target}\'\n";
 			print "created symlink from: \'$config->{exp_name}\' to \'$2\'\n";
-			if ($config->{exp_error}) {
+			if ($config->{exp_add_error}) {
 				print "as expected    ";
 			} else {
 				$error++;
@@ -1234,7 +1227,7 @@ sub symlink_test {
 	} else {
 		print "expected symlink from: \'$config->{exp_name}\' to \'$config->{exp_target}\'\n";
 		print "symlink: not created ";
-		if ($config->{exp_error}) {
+		if ($config->{exp_add_error}) {
 			print "as expected    ";
 		} else {
 			$error++;
@@ -1273,7 +1266,7 @@ sub run_test {
 		print "add: ok    ";
 	} else {
 		print "add: error ";
-		if ($config->{exp_error}) {
+		if ($config->{exp_add_error}) {
 			print "as expected    ";
 		} else {
 			print "\n\n";
@@ -1292,7 +1285,7 @@ sub run_test {
 	if ((-e "$PWD/$udev_root$config->{exp_name}") ||
 	    (-l "$PWD/$udev_root$config->{exp_name}")) {
 		print "remove: error ";
-		if ($config->{exp_error}) {
+		if ($config->{exp_rem_error}) {
 			print "as expected\n\n";
 		} else {
 			print "\n\n";

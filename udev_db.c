@@ -79,6 +79,7 @@ int udev_db_add_device(struct udevice *udev)
 	fprintf(f, "P:%s\n", udev->devpath);
 	fprintf(f, "N:%s\n", udev->name);
 	fprintf(f, "S:%s\n", udev->symlink);
+	fprintf(f, "M:%u:%u\n", udev->major, udev->minor);
 	fprintf(f, "A:%u\n", udev->partitions);
 	fprintf(f, "R:%u\n", udev->ignore_remove);
 
@@ -90,6 +91,7 @@ int udev_db_add_device(struct udevice *udev)
 static int parse_db_file(struct udevice *udev, const char *filename)
 {
 	char line[NAME_SIZE];
+	char temp[NAME_SIZE];
 	char *bufline;
 	char *buf;
 	size_t bufsize;
@@ -119,6 +121,13 @@ static int parse_db_file(struct udevice *udev, const char *filename)
 				count = NAME_SIZE-1;
 			strncpy(udev->name, &bufline[2], count-2);
 			udev->name[count-2] = '\0';
+			break;
+		case 'M':
+			if (count > NAME_SIZE)
+				count = NAME_SIZE-1;
+			strncpy(temp, &bufline[2], count-2);
+			temp[count-2] = '\0';
+			sscanf(temp, "%u:%u", &udev->major, &udev->minor);
 			break;
 		case 'S':
 			if (count > NAME_SIZE)
