@@ -86,17 +86,28 @@ char *get_subsystem(char *subsystem)
 	return subsystem;
 }
 
+#define BLOCK_PATH		"/block/"
+#define CLASS_PATH		"/class/"
+#define NET_PATH		"/class/net/"
+
 char get_device_type(const char *path, const char *subsystem)
 {
-	if (strcmp(subsystem, "block") == 0 ||
-	    strstr(path, "/block/") != NULL)
+	if (strcmp(subsystem, "block") == 0)
 		return 'b';
 
-	if (strcmp(subsystem, "net") == 0 ||
-	    strstr(path, "/class/net/") != NULL)
+	if (strcmp(subsystem, "net") == 0)
 		return 'n';
 
-	if (strstr(path, "/class/") != NULL)
+	if (strncmp(path, BLOCK_PATH, strlen(BLOCK_PATH)) == 0 &&
+	    strlen(path) > strlen(BLOCK_PATH))
+		return 'b';
+
+	if (strncmp(path, NET_PATH, strlen(NET_PATH)) == 0 &&
+	    strlen(path) > strlen(NET_PATH))
+		return 'n';
+
+	if (strncmp(path, CLASS_PATH, strlen(CLASS_PATH)) == 0 &&
+	    strlen(path) > strlen(CLASS_PATH))
 		return 'c';
 
 	return '\0';
