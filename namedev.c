@@ -199,22 +199,20 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 	struct sysfs_attribute *tmpattr;
 
 	pos = string;
-
 	while (1) {
-		pos = strchr(string, '%');
-		if (pos != NULL) {
-			pos[0] = '\0';
-			tail = pos+1;
-			len = get_format_len(&tail);
-			c = tail[0];
-			strfieldcpy(temp, tail+1);
-			tail = temp;
-		} else {
+		pos = strchr(pos, '%');
+		if (pos == NULL)
 			break;
-		}
-		dbg("format=%c, string='%s', tail='%s'",c , string, tail);
 
+		pos[0] = '\0';
+		tail = pos+1;
+		len = get_format_len(&tail);
+		c = tail[0];
+		strfieldcpy(temp, tail+1);
+		tail = temp;
+		dbg("format=%c, string='%s', tail='%s'",c , string, tail);
 		attr = get_format_attribute(&tail);
+
 
 		switch (c) {
 		case 'b':
@@ -286,6 +284,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			break;
 		case '%':
 			strfieldcatmax(string, "%", maxsize);
+			pos++;
 			break;
 		default:
 			dbg("unknown substitution type '%%%c'", c);
