@@ -3,8 +3,7 @@
  *
  * Userspace devfs
  *
- * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
- *
+ * Copyright (C) 2003,2004 Greg Kroah-Hartman <greg@kroah.com>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -24,12 +23,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <errno.h>
 #include <ctype.h>
 #include <signal.h>
-#include <stdarg.h>
 
 #include "udev.h"
 #include "udev_version.h"
@@ -83,201 +79,6 @@ static inline char *get_seqnum(void)
 	return seqnum;
 }
 
-/* callback for database dump */
-static int print_record(char *path, struct udevice *dev)
-{
-	printf("P: %s\n", path);
-	printf("N: %s\n", dev->name);
-	printf("S: %s\n", dev->symlink);
-	printf("O: %s\n", dev->owner);
-	printf("G: %s\n", dev->group);
-	printf("\n");
-	return 0;
-}
-
-enum query_type {
-	NONE,
-	NAME,
-	PATH,
-	SYMLINK,
-	OWNER,
-	GROUP
-};
-
-static inline int udev_user(int argc, char **argv)
-{
-	static const char short_options[] = "dn:p:q:rVh";
-	int option;
-	int retval = -EINVAL;
-	struct udevice dev;
-	int root = 0;
-	enum query_type query = NONE;
-	char result[NAME_SIZE] = "";
-	char path[NAME_SIZE] = "";
-	char name[NAME_SIZE] = "";
-
-	/* get command line options */
-	while (1) {
-		option = getopt(argc, argv, short_options);
-		if (option == -1)
-			break;
-
-		dbg("option '%c'", option);
-		switch (option) {
-		case 'n':
-			dbg("udev name: %s\n", optarg);
-			strfieldcpy(name, optarg);
-			break;
-
-		case 'p':
-			dbg("udev path: %s\n", optarg);
-			strfieldcpy(path, optarg);
-			break;
-
-		case 'q':
-			dbg("udev query: %s\n", optarg);
-
-			if (strcmp(optarg, "name") == 0) {
-				query = NAME;
-				break;
-			}
-
-			if (strcmp(optarg, "symlink") == 0) {
-				query = SYMLINK;
-				break;
-			}
-
-			if (strcmp(optarg, "owner") == 0) {
-				query = OWNER;
-				break;
-			}
-
-			if (strcmp(optarg, "group") == 0) {
-				query = GROUP;
-				break;
-			}
-
-			if (strcmp(optarg, "path") == 0) {
-				query = PATH;
-				break;
-			}
-
-			printf("unknown query type\n");
-			return -EINVAL;
-
-		case 'r':
-			root = 1;
-			break;
-
-		case 'd':
-			retval = udevdb_open_ro();
-			if (retval != 0) {
-				printf("unable to open udev database\n");
-				return -EACCES;
-			}
-			retval = udevdb_call_foreach(print_record);
-			udevdb_exit();
-			return retval;
-
-		case 'V':
-			printf("udev, version %s\n", UDEV_VERSION);
-			return 0;
-
-		case 'h':
-			retval = 0;
-		case '?':
-		default:
-			goto help;
-		}
-	}
-
-	/* process options */
-	if (query != NONE) {
-		retval = udevdb_open_ro();
-		if (retval != 0) {
-			printf("unable to open udev database\n");
-			return -EACCES;
-		}
-
-		if (path[0] != '\0') {
-			retval = udevdb_get_dev(path, &dev);
-			if (retval != 0) {
-				printf("device not found in database\n");
-				goto exit;
-			}
-			goto print;
-		}
-
-		if (name[0] != '\0') {
-			retval = udevdb_get_dev_byname(name, path, &dev);
-			if (retval != 0) {
-				printf("device not found in database\n");
-				goto exit;
-			}
-			goto print;
-		}
-
-		printf("query needs device path(-p) or node name(-n) specified\n");
-		goto exit;
-
-print:
-		switch(query) {
-		case NAME:
-			if (root)
-				strfieldcpy(result, udev_root);
-			strncat(result, dev.name, sizeof(result));
-			break;
-
-		case SYMLINK:
-			strfieldcpy(result, dev.symlink);
-			break;
-
-		case GROUP:
-			strfieldcpy(result, dev.group);
-			break;
-
-		case OWNER:
-			strfieldcpy(result, dev.owner);
-			break;
-
-		case PATH:
-			strfieldcpy(result, path);
-			break;
-
-		default:
-			goto exit;
-		}
-		printf("%s\n", result);
-
-exit:
-		udevdb_exit();
-		return retval;
-	}
-
-	if (root) {
-		printf("%s\n", udev_root);
-		return 0;
-	}
-
-help:
-	printf("Usage: [-npqrdVh]\n"
-	       "  -q TYPE  query database for the specified value:\n"
-	       "             'name'    name of device node\n"
-	       "             'symlink' pointing to node\n"
-	       "             'owner'   of node\n"
-	       "             'group'   of node\n"
-	       "             'path'    sysfs device path\n"
-	       "  -p PATH  sysfs device path used for query\n"
-	       "  -n NAME  node name used for query\n"
-	       "\n"
-	       "  -r       print udev root\n"
-	       "  -d       dump whole database\n"
-	       "  -V       print udev version\n"
-	       "  -h       print this help text\n"
-	       "\n");
-	return retval;
-}
-
 static char *subsystem_blacklist[] = {
 	"net",
 	"scsi_host",
@@ -287,7 +88,7 @@ static char *subsystem_blacklist[] = {
 	"",
 };
 
-static inline int udev_hotplug(int argc, char **argv)
+static int udev_hotplug(int argc, char **argv)
 {
 	char *action;
 	char *devpath;
@@ -295,7 +96,11 @@ static inline int udev_hotplug(int argc, char **argv)
 	int retval = -EINVAL;
 	int i;
 
-	subsystem = argv[1];
+	action = get_action();
+	if (!action) {
+		dbg ("no action?");
+		goto exit;
+	}
 
 	devpath = get_devpath();
 	if (!devpath) {
@@ -312,6 +117,7 @@ static inline int udev_hotplug(int argc, char **argv)
 	}
 
 	/* skip blacklisted subsystems */
+	subsystem = argv[1];
 	i = 0;
 	while (subsystem_blacklist[i][0] != '\0') {
 		if (strcmp(subsystem, subsystem_blacklist[i]) == 0) {
@@ -321,14 +127,11 @@ static inline int udev_hotplug(int argc, char **argv)
 		i++;
 	}
 
-	action = get_action();
-	if (!action) {
-		dbg ("no action?");
-		goto exit;
-	}
-
 	/* connect to the system message bus */
 	sysbus_connect();
+
+	/* initialize our configuration */
+	udev_init_config();
 
 	/* initialize udev database */
 	retval = udevdb_init(UDEVDB_DEFAULT);
@@ -370,24 +173,12 @@ exit:
 
 int main(int argc, char **argv, char **envp)
 {
-	int retval;
 	main_argv = argv;
 	main_envp = envp;
 
 	dbg("version %s", UDEV_VERSION);
 
-	/* initialize our configuration */
-	udev_init_config();
-
-	if (argc == 2 && argv[1][0] != '-') {
-		dbg("called by hotplug");
-		retval = udev_hotplug(argc, argv);
-	} else {
-		dbg("called by user");
-		retval = udev_user(argc, argv);
-	}
-
-	return retval;
+	return udev_hotplug(argc, argv);
 }
 
 
