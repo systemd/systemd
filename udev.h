@@ -90,5 +90,6 @@ extern char udev_db_filename[PATH_MAX+NAME_MAX];
 extern char udev_permissions_filename[PATH_MAX+NAME_MAX];
 extern char udev_config_filename[PATH_MAX+NAME_MAX];
 extern char udev_rules_filename[PATH_MAX+NAME_MAX];
+extern char default_mode_str[NAME_MAX];
 
 #endif
