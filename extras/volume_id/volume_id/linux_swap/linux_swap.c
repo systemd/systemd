@@ -61,12 +61,12 @@ int volume_id_probe_linux_swap(struct volume_id *id, __u64 off)
 			if (buf == NULL)
 				return -1;
 
-			if (strncmp(buf, "SWAP-SPACE", 10) == 0) {
+			if (memcmp(buf, "SWAP-SPACE", 10) == 0) {
 				strcpy(id->type_version, "1");
 				goto found;
 			}
 
-			if (strncmp(buf, "SWAPSPACE2", 10) == 0) {
+			if (memcmp(buf, "SWAPSPACE2", 10) == 0) {
 				sw = (struct swap_header_v1_2 *) volume_id_get_buffer(id, off, sizeof(struct swap_header_v1_2));
 				if (sw == NULL)
 					return -1;

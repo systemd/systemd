@@ -87,19 +87,19 @@ int volume_id_probe_udf(struct volume_id *id, __u64 off)
 	if (vsd == NULL)
 		return -1;
 
-	if (strncmp(vsd->id, "NSR02", 5) == 0)
+	if (memcmp(vsd->id, "NSR02", 5) == 0)
 		goto blocksize;
-	if (strncmp(vsd->id, "NSR03", 5) == 0)
+	if (memcmp(vsd->id, "NSR03", 5) == 0)
 		goto blocksize;
-	if (strncmp(vsd->id, "BEA01", 5) == 0)
+	if (memcmp(vsd->id, "BEA01", 5) == 0)
 		goto blocksize;
-	if (strncmp(vsd->id, "BOOT2", 5) == 0)
+	if (memcmp(vsd->id, "BOOT2", 5) == 0)
 		goto blocksize;
-	if (strncmp(vsd->id, "CD001", 5) == 0)
+	if (memcmp(vsd->id, "CD001", 5) == 0)
 		goto blocksize;
-	if (strncmp(vsd->id, "CDW02", 5) == 0)
+	if (memcmp(vsd->id, "CDW02", 5) == 0)
 		goto blocksize;
-	if (strncmp(vsd->id, "TEA03", 5) == 0)
+	if (memcmp(vsd->id, "TEA03", 5) == 0)
 		goto blocksize;
 	return -1;
 
@@ -127,9 +127,9 @@ nsr:
 
 		if (vsd->id[0] == '\0')
 			return -1;
-		if (strncmp(vsd->id, "NSR02", 5) == 0)
+		if (memcmp(vsd->id, "NSR02", 5) == 0)
 			goto anchor;
-		if (strncmp(vsd->id, "NSR03", 5) == 0)
+		if (memcmp(vsd->id, "NSR03", 5) == 0)
 			goto anchor;
 	}
 	return -1;

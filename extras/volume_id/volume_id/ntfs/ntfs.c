@@ -122,7 +122,7 @@ int volume_id_probe_ntfs(struct volume_id *id, __u64 off)
 	if (ns == NULL)
 		return -1;
 
-	if (strncmp(ns->oem_id, "NTFS", 4) != 0)
+	if (memcmp(ns->oem_id, "NTFS", 4) != 0)
 		return -1;
 
 	volume_id_set_uuid(id, ns->volume_serial, UUID_NTFS);
@@ -153,7 +153,7 @@ int volume_id_probe_ntfs(struct volume_id *id, __u64 off)
 	mftr = (struct master_file_table_record*) buf;
 
 	dbg("mftr->magic '%c%c%c%c'", mftr->magic[0], mftr->magic[1], mftr->magic[2], mftr->magic[3]);
-	if (strncmp(mftr->magic, "FILE", 4) != 0)
+	if (memcmp(mftr->magic, "FILE", 4) != 0)
 		goto found;
 
 	attr_off = le16_to_cpu(mftr->attrs_offset);

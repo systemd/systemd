@@ -60,7 +60,7 @@ int volume_id_probe_jfs(struct volume_id *id, __u64 off)
 	if (js == NULL)
 		return -1;
 
-	if (strncmp(js->magic, "JFS1", 4) != 0)
+	if (memcmp(js->magic, "JFS1", 4) != 0)
 		return -1;
 
 	volume_id_set_label_raw(id, js->label, 16);

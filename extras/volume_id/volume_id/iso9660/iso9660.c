@@ -70,7 +70,7 @@ int volume_id_probe_iso9660(struct volume_id *id, __u64 off)
 	if (is == NULL)
 		return -1;
 
-	if (strncmp(is->iso.id, "CD001", 5) == 0) {
+	if (memcmp(is->iso.id, "CD001", 5) == 0) {
 		char root_label[VOLUME_ID_LABEL_SIZE+1];
 		int vd_offset;
 		int i;
@@ -96,14 +96,14 @@ int volume_id_probe_iso9660(struct volume_id *id, __u64 off)
 		}
 
 		if (!found_svd ||
-		    (found_svd && !strncmp(root_label, id->label, 16)))
+		    (found_svd && !memcmp(root_label, id->label, 16)))
 		{
 			volume_id_set_label_raw(id, root_label, 32);
 			volume_id_set_label_string(id, root_label, 32);
 		}
 		goto found;
 	}
-	if (strncmp(is->hs.id, "CDROM", 5) == 0)
+	if (memcmp(is->hs.id, "CDROM", 5) == 0)
 		goto found;
 	return -1;
 

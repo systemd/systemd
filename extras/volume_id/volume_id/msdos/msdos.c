@@ -84,7 +84,7 @@ int volume_id_probe_msdos_part_table(struct volume_id *id, __u64 off)
 	if (buf == NULL)
 		return -1;
 
-	if (strncmp(&buf[MSDOS_SIG_OFF], MSDOS_MAGIC, 2) != 0)
+	if (memcmp(&buf[MSDOS_SIG_OFF], MSDOS_MAGIC, 2) != 0)
 		return -1;
 
 	/* check flags on all entries for a valid partition table */
@@ -158,7 +158,7 @@ int volume_id_probe_msdos_part_table(struct volume_id *id, __u64 off)
 
 		part = (struct msdos_partition_entry*) &buf[MSDOS_PARTTABLE_OFFSET];
 
-		if (strncmp(&buf[MSDOS_SIG_OFF], MSDOS_MAGIC, 2) != 0)
+		if (memcmp(&buf[MSDOS_SIG_OFF], MSDOS_MAGIC, 2) != 0)
 			break;
 
 		next = 0;

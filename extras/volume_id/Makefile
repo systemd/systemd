@@ -47,6 +47,7 @@ VOLUME_ID_OBJS=					\
 	volume_id/udf/udf.o			\
 	volume_id/ufs/ufs.o			\
 	volume_id/xfs/xfs.o			\
+	volume_id/cramfs/cramfs.o		\
 	volume_id/dasd/dasd.o			\
 	volume_id/volume_id.o			\
 	volume_id/util.o
@@ -68,6 +69,7 @@ VOLUME_ID_HEADERS=				\
 	volume_id/udf/udf.h			\
 	volume_id/ufs/ufs.h			\
 	volume_id/xfs/xfs.h			\
+	volume_id/cramfs/cramfs.h		\
 	volume_id/dasd/dasd.h			\
 	volume_id/volume_id.h			\
 	volume_id/util.h

@@ -178,11 +178,11 @@ int volume_id_probe_hfs_hfsplus(struct volume_id *id, __u64 off)
                 return -1;
 
 	hfs = (struct hfs_mdb *) buf;
-	if (strncmp(hfs->signature, "BD", 2) != 0)
+	if (memcmp(hfs->signature, "BD", 2) != 0)
 		goto checkplus;
 
 	/* it may be just a hfs wrapper for hfs+ */
-	if (strncmp(hfs->embed_sig, "H+", 2) == 0) {
+	if (memcmp(hfs->embed_sig, "H+", 2) == 0) {
 		alloc_block_size = be32_to_cpu(hfs->al_blk_size);
 		dbg("alloc_block_size 0x%x", alloc_block_size);
 
@@ -216,9 +216,9 @@ int volume_id_probe_hfs_hfsplus(struct volume_id *id, __u64 off)
 
 checkplus:
 	hfsplus = (struct hfsplus_vol_header *) buf;
-	if (strncmp(hfsplus->signature, "H+", 2) == 0)
+	if (memcmp(hfsplus->signature, "H+", 2) == 0)
 		goto hfsplus;
-	if (strncmp(hfsplus->signature, "HX", 2) == 0)
+	if (memcmp(hfsplus->signature, "HX", 2) == 0)
 		goto hfsplus;
 	return -1;
 

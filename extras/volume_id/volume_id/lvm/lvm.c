@@ -56,7 +56,7 @@ int volume_id_probe_lvm1(struct volume_id *id, __u64 off)
 
 	lvm = (struct lvm2_super_block *) buf;
 
-	if (strncmp(lvm->id, LVM1_MAGIC, 2) != 0)
+	if (memcmp(lvm->id, LVM1_MAGIC, 2) != 0)
 		return -1;
 
 	volume_id_set_usage(id, VOLUME_ID_RAID);
@@ -89,7 +89,7 @@ int volume_id_probe_lvm2(struct volume_id *id, __u64 off)
 	for (soff = 0; soff < LVM2LABEL_SCAN_SECTORS * 0x200; soff += 0x200) {
 		lvm = (struct lvm2_super_block *) &buf[soff];
 
-		if (strncmp(lvm->id, LVM2_LABEL_ID, 8) == 0)
+		if (memcmp(lvm->id, LVM2_LABEL_ID, 8) == 0)
 			goto found;
 	}
 

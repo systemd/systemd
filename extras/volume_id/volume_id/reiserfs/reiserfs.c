@@ -64,12 +64,12 @@ int volume_id_probe_reiserfs(struct volume_id *id, __u64 off)
 	if (rs == NULL)
 		return -1;
 
-	if (strncmp(rs->magic, "ReIsEr2Fs", 9) == 0) {
+	if (memcmp(rs->magic, "ReIsEr2Fs", 9) == 0) {
 		strcpy(id->type_version, "3.6");
 		goto found;
 	}
 
-	if (strncmp(rs->magic, "ReIsEr3Fs", 9) == 0) {
+	if (memcmp(rs->magic, "ReIsEr3Fs", 9) == 0) {
 		strcpy(id->type_version, "JR");
 		goto found;
 	}
@@ -78,7 +78,7 @@ int volume_id_probe_reiserfs(struct volume_id *id, __u64 off)
 	if (rs == NULL)
 		return -1;
 
-	if (strncmp(rs->magic, "ReIsErFs", 8) == 0) {
+	if (memcmp(rs->magic, "ReIsErFs", 8) == 0) {
 		strcpy(id->type_version, "3.5");
 		goto found;
 	}

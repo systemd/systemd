@@ -55,6 +55,7 @@
 #include "linux_swap/linux_swap.h"
 #include "linux_raid/linux_raid.h"
 #include "lvm/lvm.h"
+#include "cramfs/cramfs.h"
 #include "mac/mac.h"
 #include "msdos/msdos.h"
 
@@ -114,6 +115,9 @@ int volume_id_probe_all(struct volume_id *id, unsigned long long off, unsigned l
 		goto exit;
 
 	if (volume_id_probe_ntfs(id, off)  == 0)
+		goto exit;
+
+	if (volume_id_probe_cramfs(id, off) == 0)
 		goto exit;
 
 	return -1;
