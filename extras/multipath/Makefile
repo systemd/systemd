@@ -13,17 +13,35 @@ CFLAGS = -pipe -g -O2 -Wall -Wunused -Wstrict-prototypes -nostdinc -I../../klibc
 LDFLAGS = -lsysfs -ldevmapper -ldlist
 
 OBJS = main.o
+CRT0 = ../../klibc/klibc/crt0.o
+LIB = ../../klibc/klibc/libc.a
+LIBGCC = /usr/lib/gcc-lib/i586-mandrake-linux-gnu/3.3.1/libgcc.a
+DMOBJS = libdevmapper/libdm-common.o libdevmapper/ioctl/libdevmapper.o
+SYSFSOBJS = ../../libsysfs/dlist.o ../../libsysfs/sysfs_bus.o \
+	    ../../libsysfs/sysfs_class.o ../../libsysfs/sysfs_device.o \
+	    ../../libsysfs/sysfs_dir.o ../../libsysfs/sysfs_driver.o \
+	    ../../libsysfs/sysfs_utils.o
 
-all:	$(EXEC)
-	strip $(EXEC)
+SUBDIRS = libdevmapper
+
+recurse:
+	@for dir in $(SUBDIRS); do\
+	$(MAKE) -C $$dir ; \
+	done
+	$(MAKE) $(EXEC)
+
+all:	recurse
 	@echo ""
 	@echo "Make complete"
 
+
 $(EXEC): $(OBJS)
-	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS) $(CFLAGS)
+	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(SYSFSOBJS) $(DMOBJS) $(LIB) $(LIBGCC)
+	strip $(EXEC)
 
 clean:
 	rm -f core *.o $(EXEC)
+	$(MAKE) -C libdevmapper clean
 
 install:
 	install -d $(bindir)

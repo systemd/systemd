@@ -46,7 +46,7 @@
 #define TUR_CMD_LEN	6
 #define MX_ALLOC_LEN	255
 #define BLKGETSIZE      _IO(0x12,96)
-#define DM_TARGET	"multipath"
+#define DM_TARGET	"striped"
 
 #define PINDEX(x,y)	mp[(x)].pindex[(y)]
 
@@ -105,8 +105,8 @@ struct env {
 /* Build version */
 #define PROG    "multipath"
 
-#define VERSION_CODE 0x000006
-#define DATE_CODE    0x271103
+#define VERSION_CODE 0x000009
+#define DATE_CODE    0x0C0503
 
 #define MULTIPATH_VERSION(version)	\
 	(version >> 16) & 0xFF,		\

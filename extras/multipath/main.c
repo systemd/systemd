@@ -26,7 +26,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <libsysfs.h>
-#include <libdevmapper.h>
+#include "libdevmapper/libdevmapper.h"
 #include "main.h"
 
 static int
@@ -458,9 +458,7 @@ static int
 make_dm_node(char * str)
 {
 	int r = 0;
-	dev_t dev;
 	char buff[FILE_NAME_SIZE];
-	int major, minor;
 	struct dm_names * names;
         unsigned next = 0;
 	struct dm_task *dmt;
@@ -486,14 +484,9 @@ make_dm_node(char * str)
                 names = (void *) names + next;
         } while (next);
 
-	major = (int) MAJOR(names->dev);
-	minor = (int) MINOR(names->dev);
-
-	dev = major << sizeof(dev_t);
-	dev = dev | minor;
 	sprintf(buff, "/dev/mapper/%s", str);
 	unlink(buff);
-	mknod(buff, 0600 | S_IFBLK, dev);
+	mknod(buff, 0600 | S_IFBLK, names->dev);
 
 	out:
 	dm_task_destroy(dmt);
@@ -729,9 +722,10 @@ main(int argc, char *argv[])
 
 	if (conf.verbose) {
 		print_all_path(&conf, all_paths);
-		printf("\n");
+		fprintf(stdout, "\n");
 		print_all_mp(all_paths, mp, nmp);
-		printf("\n");
+		fprintf(stdout, "\n");
+		//printf("\n");
 	}
 
 	if (conf.dry_run)
