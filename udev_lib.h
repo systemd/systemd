@@ -76,7 +76,6 @@ do { \
 # define asmlinkage	/* nothing */
 #endif
 
-extern char get_device_type(const char *path, const char *subsystem);
 extern void udev_set_values(struct udevice *udev, const char* devpath,
 			    const char *subsystem, const char* action);
 extern int kernel_release_satisfactory(int version, int patchlevel, int sublevel);

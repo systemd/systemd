@@ -36,41 +36,31 @@
 #include "list.h"
 
 
-#define BLOCK_PATH		"/block/"
-#define CLASS_PATH		"/class/"
-#define NET_PATH		"/class/net/"
-
-char get_device_type(const char *path, const char *subsystem)
-{
-	if (strcmp(subsystem, "block") == 0)
-		return 'b';
-
-	if (strcmp(subsystem, "net") == 0)
-		return 'n';
-
-	if (strncmp(path, BLOCK_PATH, strlen(BLOCK_PATH)) == 0 &&
-	    strlen(path) > strlen(BLOCK_PATH))
-		return 'b';
-
-	if (strncmp(path, NET_PATH, strlen(NET_PATH)) == 0 &&
-	    strlen(path) > strlen(NET_PATH))
-		return 'n';
-
-	if (strncmp(path, CLASS_PATH, strlen(CLASS_PATH)) == 0 &&
-	    strlen(path) > strlen(CLASS_PATH))
-		return 'c';
-
-	return '\0';
-}
-
 void udev_set_values(struct udevice *udev, const char* devpath,
 		     const char *subsystem, const char* action)
 {
 	memset(udev, 0x00, sizeof(struct udevice));
-	strfieldcpy(udev->devpath, devpath);
-	strfieldcpy(udev->subsystem, subsystem);
-	strfieldcpy(udev->action, action);
-	udev->type = get_device_type(devpath, subsystem);
+	if (devpath)
+		strfieldcpy(udev->devpath, devpath);
+	if (subsystem)
+		strfieldcpy(udev->subsystem, subsystem);
+	if (action)
+		strfieldcpy(udev->action, action);
+
+	if (strcmp(udev->subsystem, "block") == 0)
+		udev->type = 'b';
+
+	if (strcmp(udev->subsystem, "net") == 0)
+		udev->type = 'n';
+
+	if (strncmp(udev->devpath, "/block/", 7) == 0)
+		udev->type = 'b';
+
+	if (strncmp(udev->devpath, "/class/net/", 11) == 0)
+		udev->type = 'n';
+
+	if (strncmp(udev->devpath, "/class/", 7) == 0)
+		udev->type = 'c';
 }
 
 int kernel_release_satisfactory(int version, int patchlevel, int sublevel)
