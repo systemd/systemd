@@ -55,6 +55,30 @@ void log_message(int level, const char *format, ...)
 }
 #endif
 
+/* (for now) true if udevsend is the helper */
+static int manage_hotplug_event(void) {
+	char helper[256];
+	int fd;
+	int len;
+
+	fd = open("/proc/sys/kernel/hotplug", O_RDONLY);
+	if (fd < 0)
+		goto exit;
+
+	len = read(fd, helper, 256);
+	close(fd);
+
+	if (len < 0)
+		goto exit;
+	helper[len] = '\0';
+
+	if (strstr(helper, "udevsend"))
+		return 1;
+
+exit:
+	return 0;
+}
+
 static void asmlinkage sig_handler(int signum)
 {
 	switch (signum) {
@@ -110,20 +134,20 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (!action) {
 		dbg("no action");
-		goto exit;
+		goto hotplug;
 	}
 
 	if (!subsystem) {
 		dbg("no subsystem");
-		goto exit;
+		goto hotplug;
 	}
 
 	if (!devpath) {
 		dbg("no devpath");
-		goto exit;
+		goto hotplug;
 	}
 
-	/* export logging flag, called scripts may want to do the same as udev */
+	/* export logging flag, as called scripts may want to do the same as udev */
 	if (udev_log)
 		setenv("UDEV_LOG", "1", 1);
 
@@ -135,14 +159,14 @@ int main(int argc, char *argv[], char *envp[])
 			/* skip blacklisted subsystems */
 			if (udev.type != 'n' && subsystem_expect_no_dev(udev.subsystem)) {
 				dbg("don't care about '%s' devices", udev.subsystem);
-				goto exit;
+				goto hotplug;
 			};
 
 			snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, udev.devpath);
 			class_dev = wait_class_device_open(path);
 			if (class_dev == NULL) {
 				dbg ("open class device failed");
-				goto exit;
+				goto hotplug;
 			}
 			dbg("opened class_dev->name='%s'", class_dev->name);
 
@@ -165,7 +189,7 @@ int main(int argc, char *argv[], char *envp[])
 			/* possibly remove a node */
 			dbg("udev remove");
 
-			/* get node from db, delete it */
+			/* get node from db, remove db-entry, delete created node */
 			retval = udev_remove_device(&udev);
 
 			/* run dev.d/ scripts if we're not instructed to ignore the event */
@@ -184,7 +208,7 @@ int main(int argc, char *argv[], char *envp[])
 			devices_dev = wait_devices_device_open(path);
 			if (!devices_dev) {
 				dbg("devices device unavailable (probably remove has beaten us)");
-				goto exit;
+				goto hotplug;
 			}
 			dbg("devices device opened '%s'", path);
 
@@ -197,6 +221,10 @@ int main(int argc, char *argv[], char *envp[])
 	} else {
 		dbg("unhandled");
 	}
+
+hotplug:
+	if (manage_hotplug_event())
+		dev_d_execute(&udev, HOTPLUGD_DIR, HOTPLUG_SUFFIX);
 
 exit:
 	logging_close();

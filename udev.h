@@ -44,6 +44,9 @@
 #define DEVD_DIR			"/etc/dev.d"
 #define DEVD_SUFFIX			".dev"
 
+#define HOTPLUGD_DIR			"/etc/hotplug.d"
+#define HOTPLUG_SUFFIX			".hotplug"
+
 struct udevice {
 	char devpath[DEVPATH_SIZE];
 	char subsystem[SUBSYSTEM_SIZE];
