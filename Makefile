@@ -263,17 +263,16 @@ udev_version.h:
 	@echo \#define UDEVD_BIN		\"$(DESTDIR)$(sbindir)/udevd\" >> $@
 
 # Rules on how to create the generated config files
-$(LOCAL_CFG_DIR)/udev.conf:
+$(LOCAL_CFG_DIR)/udev.conf: $(HOST_PROGS)
 	$(QUIET) sed -e "s:@udevdir@:$(udevdir):" -e "s:@configdir@:$(configdir):" < $(LOCAL_CFG_DIR)/udev.conf.in > $@
 
 GEN_MANPAGES   = udev.8
 GEN_MANPAGESIN = udev.8.in
 # Rules on how to create the man pages
-$(GEN_MANPAGES): $(GEN_MANPAGESIN)
+$(GEN_MANPAGES): $(GEN_MANPAGESIN) $(HOST_PROGS)
 	$(QUIET) sed -e "s:@udevdir@:$(udevdir):" < $@.in > $@
 
-
-$(OBJS): $(GEN_HEADERS)
+$(OBJS): $(GEN_HEADERS) $(HOST_PROGS)
 $(ROOT).o: $(GEN_HEADERS) $(HOST_PROGS)
 $(TESTER).o: $(GEN_HEADERS) $(HOST_PROGS)
 $(INFO).o: $(GEN_HEADERS) $(HOST_PROGS)
