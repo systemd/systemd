@@ -13,7 +13,7 @@ run_udev () {
 	for i in ${SYSFS_DIR}/block/*; do
 		# add each drive
 		export DEVPATH=${i#${SYSFS_DIR}}
-		$UDEV_BIN block &
+		$UDEV_BIN block
 
 		# add each partition, on each device
 		for j in $i/*; do
