@@ -4,10 +4,21 @@
 #
 # script to initialize /dev by using udev.
 #
+# Copyright (C) 2004 Greg Kroah-Hartman <greg@kroah.com>
+#
+# Released under the GPL v2 only.
+#
 # This needs to be run at the earliest possible point in the boot 
 # process.
 #
 # Based on the udev init.d script
+#
+# Thanks go out to the Gentoo developers for proving 
+# that this is possible to do.
+#
+# Yes, it's very verbose, feel free to turn off all of the echo calls,
+# they were there to make me feel better that everything was working
+# properly during development...
 #
 
 . /etc/udev/udev.conf

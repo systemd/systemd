@@ -38,6 +38,10 @@ NOTE NOTE NOTE NOTE NOTE NOTE NOTE
    I did this with the latest Fedora startup scripts with the patch at
    the end of this file.
 
+ - make sure the /etc/udev/udev.conf file lists the udev_root as /dev.
+   It should contain the following line in order to work properly.
+	udev_root="/dev/"
+
  - reboot into a 2.6 kernel and watch udev create all of the initial
    device nodes in /dev
 
