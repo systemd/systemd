@@ -10,8 +10,6 @@ greg@kroah.com
 - install the proper init.d script based on the distro we are running on.
 - persuade the distro packagers to submit their changes (or just steal them
   if we can find them...)
-- keep track of current permissions on devices when daemon shuts down.
-- better permission handling
 - create kernel name to devfs name config file so that all of the devfs users
   will have an upgrade path.
 - do early boot logic (putting udev into initramfs, handle pivot-root,
