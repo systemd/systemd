@@ -328,6 +328,7 @@ int main(int argc, char *argv[])
 	struct sigaction act;
 
 	init_logging("udevd");
+	dbg("version %s", UDEV_VERSION);
 
 	if (getuid() != 0) {
 		dbg("need to be root, exit");
