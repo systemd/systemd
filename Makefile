@@ -188,7 +188,7 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	CRT0 = $(KLIBC_DIR)/crt0.o
 	LIBC = $(ARCH_LIB_OBJS) $(LIB_OBJS) $(CRT0)
 	CFLAGS += $(WARNINGS) -nostdinc				\
-		$(OPTFLAGS)					\
+		$(OPTFLAGS) $(REQFLAGS)				\
 		-D__KLIBC__ -fno-builtin-printf			\
 		-I$(KLIBC_FIXUPS_DIR)				\
 		-include $(KLIBC_FIXUPS_DIR)/klibc_fixups.h	\
