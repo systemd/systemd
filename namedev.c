@@ -145,25 +145,25 @@ static mode_t get_default_mode(void)
 {
 	mode_t mode = 0600;	/* default to owner rw only */
 
-	if (strlen(default_mode_str) != 0) {
+	if (strlen(default_mode_str) != 0)
 		mode = strtol(default_mode_str, NULL, 8);
-	}
+
 	return mode;
 }
 
-static char * get_default_owner(void)
+static char *get_default_owner(void)
 {
-	if (strlen(default_owner_str) == 0) {
+	if (strlen(default_owner_str) == 0)
 		strncpy(default_owner_str, "root", OWNER_SIZE);
-	}
+
 	return default_owner_str;
 }
 
-static char * get_default_group(void)
+static char *get_default_group(void)
 {
-	if (strlen(default_group_str) == 0) {
+	if (strlen(default_group_str) == 0)
 		strncpy(default_group_str, "root", GROUP_SIZE);
-	}
+
 	return default_group_str;
 }
 
@@ -563,10 +563,9 @@ device_found:
 	 * if needed
 	 */
         if (sysfs_device) {
-		
 		if (sysfs_device->bus[0] != '\0')
 			goto bus_found;
-		
+
 		loop = 10;
 		tspec.tv_nsec = 10000000;
 		while (loop--) {

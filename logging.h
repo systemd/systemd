@@ -34,7 +34,7 @@
 #undef info
 #define info(format, arg...)								\
 	do {										\
-		log_message (LOG_INFO , format , ## arg);	\
+		log_message (LOG_INFO , format , ## arg);				\
 	} while (0)
 
 #ifdef DEBUG

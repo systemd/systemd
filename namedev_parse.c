@@ -120,7 +120,6 @@ void dump_perm_dev_list(void)
 		dump_perm_dev(dev);
 }
 
-
 int namedev_init_rules(void)
 {
 	char line[255];
@@ -345,6 +344,5 @@ int namedev_init_permissions(void)
 exit:
 	fclose(fd);
 	return retval;
-}	
-
+}
 
