@@ -338,7 +338,7 @@ static int namedev_parse(struct udevice *udev, const char *filename)
 			continue;
 error:
 			info("parse error %s, line %d:%d, rule skipped",
-			     filename, lineno, temp - line);
+			     filename, lineno, (int) (temp - line));
 		}
 	}
 

@@ -68,7 +68,7 @@ int volume_id_probe_iso9660(struct volume_id *id, __u64 off)
 {
 	union iso_super_block *is;
 
-	dbg("probing at offset %llu", off);
+	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
 	is = (union iso_super_block *) volume_id_get_buffer(id, off + ISO_SUPERBLOCK_OFFSET, 0x200);
 	if (is == NULL)
@@ -90,7 +90,7 @@ int volume_id_probe_iso9660(struct volume_id *id, __u64 off)
 			if (is == NULL || is->iso.type == ISO_VD_END)
 				break;
 			if (is->iso.type == ISO_VD_SUPPLEMENTARY) {
-				dbg("found ISO supplementary VD at offset 0x%llx", off + vd_offset);
+				dbg("found ISO supplementary VD at offset 0x%llx", (unsigned long long) (off + vd_offset));
 				volume_id_set_label_raw(id, is->iso.volume_id, 32);
 				volume_id_set_label_unicode16(id, is->iso.volume_id, BE, 32);
 				found_svd = 1;

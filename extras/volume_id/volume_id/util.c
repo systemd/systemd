@@ -188,7 +188,7 @@ __u8 *volume_id_get_buffer(struct volume_id *id, __u64 off, unsigned int len)
 {
 	unsigned int buf_len;
 
-	dbg("get buffer off 0x%llx(%llu), len 0x%x", off, off, len);
+	dbg("get buffer off 0x%llx(%llu), len 0x%x", (unsigned long long) off, (unsigned long long) off, len);
 	/* check if requested area fits in superblock buffer */
 	if (off + len <= SB_BUFFER_SIZE) {
 		if (id->sbbuf == NULL) {
@@ -199,7 +199,7 @@ __u8 *volume_id_get_buffer(struct volume_id *id, __u64 off, unsigned int len)
 
 		/* check if we need to read */
 		if ((off + len) > id->sbbuf_len) {
-			dbg("read sbbuf len:0x%llx", off + len);
+			dbg("read sbbuf len:0x%llx", (unsigned long long) (off + len));
 			lseek(id->fd, 0, SEEK_SET);
 			buf_len = read(id->fd, id->sbbuf, off + len);
 			dbg("got 0x%x (%i) bytes", buf_len, buf_len);
@@ -224,7 +224,7 @@ __u8 *volume_id_get_buffer(struct volume_id *id, __u64 off, unsigned int len)
 
 		/* check if we need to read */
 		if ((off < id->seekbuf_off) || ((off + len) > (id->seekbuf_off + id->seekbuf_len))) {
-			dbg("read seekbuf off:0x%llx len:0x%x", off, len);
+			dbg("read seekbuf off:0x%llx len:0x%x", (unsigned long long) off, len);
 			if (lseek(id->fd, off, SEEK_SET) == -1)
 				return NULL;
 			buf_len = read(id->fd, id->seekbuf, len);

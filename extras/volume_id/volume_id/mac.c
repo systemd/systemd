@@ -61,7 +61,7 @@ int volume_id_probe_mac_partition_map(struct volume_id *id, __u64 off)
 	struct mac_driver_desc *driver;
 	struct mac_partition *part;
 
-	dbg("probing at offset %llu", off);
+	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
 	buf = volume_id_get_buffer(id, off, 0x200);
 	if (buf == NULL)
@@ -122,7 +122,7 @@ int volume_id_probe_mac_partition_map(struct volume_id *id, __u64 off)
 			poff = be32_to_cpu(part->start_block) * bsize;
 			plen = be32_to_cpu(part->block_count) * bsize;
 			dbg("found '%s' partition entry at 0x%llx, len 0x%llx",
-			    part->type, poff, plen);
+			    part->type, (unsigned long long) poff, (unsigned long long) plen);
 
 			id->partitions[i].off = poff;
 			id->partitions[i].len = plen;

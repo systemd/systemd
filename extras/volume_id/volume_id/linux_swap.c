@@ -55,7 +55,7 @@ int volume_id_probe_linux_swap(struct volume_id *id, __u64 off)
 	const __u8 *buf;
 	unsigned int page;
 
-	dbg("probing at offset %llu", off);
+	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
 	/* the swap signature is at the end of the PAGE_SIZE */
 	for (page = 0x1000; page <= LARGEST_PAGESIZE; page <<= 1) {

@@ -67,7 +67,7 @@ int volume_id_probe_linux_raid(struct volume_id *id, __u64 off, __u64 size)
 	__u64 sboff;
 	__u8 uuid[16];
 
-	dbg("probing at offset %llu", off);
+	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
 	if (size < 0x10000)
 		return -1;

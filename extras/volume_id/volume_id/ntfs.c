@@ -118,7 +118,7 @@ int volume_id_probe_ntfs(struct volume_id *id, __u64 off)
 	const __u8 *buf;
 	const __u8 *val;
 
-	dbg("probing at offset %llu", off);
+	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
 	ns = (struct ntfs_super_block *) volume_id_get_buffer(id, off, 0x200);
 	if (ns == NULL)
@@ -142,8 +142,8 @@ int volume_id_probe_ntfs(struct volume_id *id, __u64 off)
 
 	dbg("sectorsize  0x%x", sector_size);
 	dbg("clustersize 0x%x", cluster_size);
-	dbg("mftcluster  %lli", mft_cluster);
-	dbg("mftoffset  0x%llx", mft_off);
+	dbg("mftcluster  %llu", (unsigned long long) mft_cluster);
+	dbg("mftoffset  0x%llx", (unsigned long long) mft_off);
 	dbg("cluster per mft_record  %i", ns->cluster_per_mft_record);
 	dbg("mft record size  %i", mft_record_size);
 

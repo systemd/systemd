@@ -173,7 +173,7 @@ int volume_id_probe_hfs_hfsplus(struct volume_id *id, __u64 off)
 	struct hfsplus_extent extents[HFSPLUS_EXTENT_COUNT];
 	const __u8 *buf;
 
-	dbg("probing at offset %llu", off);
+	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
 	buf = volume_id_get_buffer(id, off + HFS_SUPERBLOCK_OFFSET, 0x200);
 	if (buf == NULL)
@@ -196,7 +196,7 @@ int volume_id_probe_hfs_hfsplus(struct volume_id *id, __u64 off)
 
 		off += (alloc_first_block * 512) +
 		       (embed_first_block * alloc_block_size);
-		dbg("hfs wrapped hfs+ found at offset 0x%llx", off);
+		dbg("hfs wrapped hfs+ found at offset 0x%llx", (unsigned long long) off);
 
 		buf = volume_id_get_buffer(id, off + HFS_SUPERBLOCK_OFFSET, 0x200);
 		if (buf == NULL)

@@ -108,7 +108,7 @@ int volume_id_probe_sysv(struct volume_id *id, __u64 off)
 	struct xenix_super *xs;
 	unsigned int boff;
 
-	dbg("probing at offset %llu", off);
+	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
 	for (boff = 0x200; boff <= SYSV_MAX_BLOCKSIZE; boff <<= 1) {
 		vs = (struct sysv_super *)

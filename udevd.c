@@ -21,7 +21,6 @@
  */
 
 #include <stddef.h>
-#include <sys/wait.h>
 #include <signal.h>
 #include <unistd.h>
 #include <errno.h>
@@ -31,6 +30,8 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <sys/select.h>
+#include <sys/wait.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>

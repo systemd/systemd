@@ -73,7 +73,7 @@ int volume_id_probe_reiserfs(struct volume_id *id, __u64 off)
 	struct reiser4_super_block *rs4;
 	__u8 *buf;
 
-	dbg("probing at offset %llu", off);
+	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
 	buf = volume_id_get_buffer(id, off + REISERFS_SUPERBLOCK_OFFSET, 0x200);
 	if (buf == NULL)

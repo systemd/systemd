@@ -22,14 +22,24 @@
 #ifndef _UDEV_LIBC_WRAPPER_H_
 #define _UDEV_LIBC_WRAPPER_H_
 
-#ifdef asmlinkage
-# undef asmlinkage
-#endif
+#undef asmlinkage
 #ifdef __i386__
-# define asmlinkage	__attribute__((regparm(0)))
+#define asmlinkage	__attribute__((regparm(0)))
+#else
+#define asmlinkage
 #endif
-#ifndef asmlinkage
-# define asmlinkage
+
+#ifndef __FD_SET
+#define __FD_SET(d, set) ((set)->fds_bits[__FDELT(d)] |= __FDMASK(d))
+#endif
+#ifndef __FD_CLR
+#define __FD_CLR(d, set) ((set)->fds_bits[__FDELT(d)] &= ~__FDMASK(d))
+#endif
+#ifndef __FD_ISSET
+#define __FD_ISSET(d, set) (((set)->fds_bits[__FDELT(d)] & __FDMASK(d)) != 0)
+#endif
+#ifndef __FD_ZERO
+#define __FD_ZERO(set) ((void) memset ((void*) (set), 0, sizeof (fd_set)))
 #endif
 
 #include <string.h>

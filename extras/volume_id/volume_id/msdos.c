@@ -81,7 +81,7 @@ int volume_id_probe_msdos_part_table(struct volume_id *id, __u64 off)
 	struct msdos_partition_entry *part;
 	struct volume_id_partition *p;
 
-	dbg("probing at offset %llu", off);
+	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
 	buf = volume_id_get_buffer(id, off, 0x200);
 	if (buf == NULL)
@@ -124,14 +124,14 @@ int volume_id_probe_msdos_part_table(struct volume_id *id, __u64 off)
 		p->partition_type_raw = part[i].sys_ind;
 
 		if (is_extended(part[i].sys_ind)) {
-			dbg("found extended partition at 0x%llx", poff);
+			dbg("found extended partition at 0x%llx", (unsigned long long) poff);
 			volume_id_set_usage_part(p, VOLUME_ID_PARTITIONTABLE);
 			p->type = "msdos_extended_partition";
 			if (extended == 0)
 				extended = off + poff;
 		} else {
 			dbg("found 0x%x data partition at 0x%llx, len 0x%llx",
-			    part[i].sys_ind, poff, plen);
+			    part[i].sys_ind, (unsigned long long) poff, (unsigned long long) plen);
 
 			if (is_raid(part[i].sys_ind))
 				volume_id_set_usage_part(p, VOLUME_ID_RAID);
@@ -174,12 +174,12 @@ int volume_id_probe_msdos_part_table(struct volume_id *id, __u64 off)
 				continue;
 
 			if (is_extended(part[i].sys_ind)) {
-				dbg("found extended partition at 0x%llx", poff);
+				dbg("found extended partition at 0x%llx", (unsigned long long) poff);
 				if (next == 0)
 					next = extended + poff;
 			} else {
 				dbg("found 0x%x data partition at 0x%llx, len 0x%llx",
-					part[i].sys_ind, poff, plen);
+					part[i].sys_ind, (unsigned long long) poff, (unsigned long long) plen);
 
 				/* we always start at the 5th entry */
 				while (id->partition_count < 4)

@@ -54,7 +54,7 @@ int volume_id_probe_highpoint_ataraid(struct volume_id *id, __u64 off)
 {
 	const __u8 *buf;
 
-	dbg("probing at offset %llu", off);
+	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
 	buf = volume_id_get_buffer(id, off + HPT37X_CONFIG_OFF, 0x200);
 	if (buf == NULL)
