@@ -85,6 +85,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %doc COPYING README TODO ChangeLog
 %attr(755,root,root) /sbin/udev
+%attr(755,root,root) /sbin/udevinfo
 %attr(755,root,root) /udev/
 %attr(755,root,root) /etc/udev/
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.conf
@@ -98,6 +99,9 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0644,root,root) %{_mandir}/man8/udev.8*
 
 %changelog
+* Mon Jan 26 2004 Greg Kroah-Hartman <greg@kroah.com>
+- add udevinfo to rpm
+
 * Mon Jan 05 2004 Rolf Eike Beer <eike-hotplug@sf-tec.de>
 - add defines to choose the init script (Redhat or LSB)
 
