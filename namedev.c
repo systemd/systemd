@@ -168,8 +168,7 @@ static int find_free_number(struct udevice *udev, const char *name)
 }
 
 static void apply_format(struct udevice *udev, char *string, size_t maxsize,
-			 struct sysfs_class_device *class_dev,
-			 struct sysfs_device *sysfs_device)
+			 struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
 	char temp[NAME_SIZE];
 	char temp2[NAME_SIZE];
@@ -203,26 +202,18 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 
 		switch (c) {
 		case 'p':
-			if (strlen(udev->devpath) == 0)
-				break;
 			strfieldcatmax(string, udev->devpath, maxsize);
 			dbg("substitute kernel name '%s'", udev->kernel_name);
 			break;
 		case 'b':
-			if (strlen(udev->bus_id) == 0)
-				break;
 			strfieldcatmax(string, udev->bus_id, maxsize);
 			dbg("substitute bus_id '%s'", udev->bus_id);
 			break;
 		case 'k':
-			if (strlen(udev->kernel_name) == 0)
-				break;
 			strfieldcatmax(string, udev->kernel_name, maxsize);
 			dbg("substitute kernel name '%s'", udev->kernel_name);
 			break;
 		case 'n':
-			if (strlen(udev->kernel_number) == 0)
-				break;
 			strfieldcatmax(string, udev->kernel_number, maxsize);
 			dbg("substitute kernel number '%s'", udev->kernel_number);
 				break;
@@ -235,7 +226,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			dbg("substitute major number '%u'", major(udev->devt));
 			break;
 		case 'c':
-			if (strlen(udev->program_result) == 0)
+			if (udev->program_result[0] == '\0')
 				break;
 			/* get part part of the result string */
 			i = 0;
@@ -730,7 +721,7 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 				return -1;
 			}
 			if (dev->ignore_remove) {
-				udev->ignore_remove = dev->ignore_remove;
+				udev->ignore_remove = 1;
 				dbg_parse("remove event should be ignored");
 			}
 			/* apply all_partitions option only at a main block device */
@@ -782,16 +773,17 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 					dbg("name, '%s' is going to have owner='%s', group='%s', mode=%#o partitions=%i",
 					    udev->name, udev->owner, udev->group, udev->mode, udev->partitions);
 
-				goto exit;
+				break;
 			}
 		}
 	}
 
-	/* no rule matched, so we use the kernel name */
-	strfieldcpy(udev->name, udev->kernel_name);
-	dbg("no rule found, use kernel name '%s'", udev->name);
+	if (udev->name[0] == '\0') {
+		/* no rule matched, so we use the kernel name */
+		strfieldcpy(udev->name, udev->kernel_name);
+		dbg("no rule found, use kernel name '%s'", udev->name);
+	}
 
-exit:
 	if (udev->tmp_node[0] != '\0') {
 		dbg("removing temporary device node");
 		unlink_secure(udev->tmp_node);
