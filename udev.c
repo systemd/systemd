@@ -187,8 +187,11 @@ int main(int argc, char *argv[], char *envp[])
 		/* get node from db, delete it*/
 		retval = udev_remove_device(&udev);
 
-		/* run scripts */
-		dev_d_execute(&udev, DEVD_DIR, DEVD_SUFFIX);
+		/* run dev.d/ scripts if we're not instructed to ignore the event */
+		if (udev.devname[0] != '\0') {
+			setenv("DEVNAME", udev.devname, 1);
+			dev_d_execute(&udev, DEVD_DIR, DEVD_SUFFIX);
+		}
 	}
 
 exit:
