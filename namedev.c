@@ -141,7 +141,7 @@ static struct perm_device *find_perm(char *name)
 	return NULL;
 }
 
-static mode_t get_default_mode(struct sysfs_class_device *class_dev)
+static mode_t get_default_mode(void)
 {
 	mode_t mode = 0600;	/* default to owner rw only */
 
@@ -735,7 +735,7 @@ done:
 		strfieldcpy(udev->group, perm->group);
 	} else {
 		/* no matching perms found :( */
-		udev->mode = get_default_mode(class_dev);
+		udev->mode = get_default_mode();
 		strncpy(udev->owner, get_default_owner(), OWNER_SIZE);
 		strncpy(udev->group, get_default_group(), GROUP_SIZE);
 	}

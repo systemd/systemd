@@ -45,7 +45,7 @@ char udev_db_filename[PATH_MAX+NAME_MAX];
 char udev_permissions_filename[PATH_MAX+NAME_MAX];
 char udev_rules_filename[PATH_MAX+NAME_MAX];
 char udev_config_filename[PATH_MAX+NAME_MAX];
-char default_mode_str[NAME_MAX];
+char default_mode_str[MODE_SIZE];
 char default_owner_str[OWNER_SIZE];
 char default_group_str[GROUP_SIZE];
 

@@ -31,6 +31,7 @@
 #define NAME_SIZE	100
 #define OWNER_SIZE	30
 #define GROUP_SIZE	30
+#define MODE_SIZE	8
 
 struct udevice {
 	char name[NAME_SIZE];
@@ -67,7 +68,7 @@ extern char udev_db_filename[PATH_MAX+NAME_MAX];
 extern char udev_permissions_filename[PATH_MAX+NAME_MAX];
 extern char udev_config_filename[PATH_MAX+NAME_MAX];
 extern char udev_rules_filename[PATH_MAX+NAME_MAX];
-extern char default_mode_str[NAME_MAX];
+extern char default_mode_str[MODE_SIZE];
 extern char default_owner_str[OWNER_SIZE];
 extern char default_group_str[GROUP_SIZE];
 

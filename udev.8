@@ -98,6 +98,16 @@ This is the location of the udev permission file.  The default value for this is
 This is the default mode for all nodes that have no explicit match in the
 permissions file.  The default value for this is
 .I 0666
+.TP
+.B default_owner
+This is the default owner for all nodes that have no explicit match in the
+permissions file.  The default value for this is
+.I root
+.TP
+.B default_group
+This is the default group for all nodes that have no explicit match in the
+permissions file.  The default value for this is
+.I root
 .br
 .P
 .RI "A sample " udev.conf " might look like this:
@@ -118,6 +128,14 @@ udev_permissions="/etc/udev/udev.permissions"
 # default_mode - set the default mode for all nodes that have no
 #                explicit match in the permissions file
 default_mode="0666"
+
+# default_owner - set the default owner for all nodes that have no
+#                 explicit match in the permissions file
+default_owner="root"
+
+# default_group - set the default group for all nodes that have no
+#                 explicit match in the permissions file
+default_group="root"
 .fi
 .P
 The rules for udev to use when naming devices may specified at

@@ -155,29 +155,29 @@ static int create_node(struct udevice *dev)
 		dbg("chmod(%s, %#o) failed with error '%s'",
 		    filename, dev->mode, strerror(errno));
 
-	if (*dev->owner) {
+	if (dev->owner[0]) {
 		char *endptr;
 		unsigned long id = strtoul(dev->owner, &endptr, 10);
-		if (*endptr == 0x00)
+		if (endptr[0] == '\0')
 			uid = (uid_t) id;
 		else {
 			struct passwd *pw = getpwnam(dev->owner);
-			if (!pw)
-				dbg("user unknown '%s'", dev->owner);
+			if (pw == NULL)
+				dbg("specified user unknown '%s'", dev->owner);
 			else
 				uid = pw->pw_uid;
 		}
 	}
 
-	if (*dev->group) {
+	if (dev->group[0]) {
 		char *endptr;
 		unsigned long id = strtoul(dev->group, &endptr, 10);
-		if (*endptr == 0x00)
+		if (endptr[0] == '\0')
 			gid = (gid_t) id;
 		else {
 			struct group *gr = getgrnam(dev->group);
-			if (!gr)
-				dbg("group unknown '%s'", dev->group);
+			if (gr == NULL)
+				dbg("specified group unknown '%s'", dev->group);
 			else
 				gid = gr->gr_gid;
 		}
@@ -192,7 +192,7 @@ static int create_node(struct udevice *dev)
 	}
 
 	/* create symlink if requested */
-	if (*dev->symlink) {
+	if (dev->symlink[0]) {
 		symlinks = dev->symlink;
 		while (1) {
 			linkname = strsep(&symlinks, " ");
