@@ -506,7 +506,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/tty33",
 		exp_name	=> "tty33",
-		exp_perms	=> "0:0:0600",
+		exp_perms	=> "0:0:0660",
 		conf		=> <<EOF
 KERNEL="tty33", NAME="tty33", OWNER="bad", GROUP="name"
 EOF
@@ -516,7 +516,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
-		exp_perms	=> "5000::0600",
+		exp_perms	=> "5000::0660",
 		conf		=> <<EOF
 BUS="scsi", KERNEL="sda", NAME="node", OWNER="5000"
 EOF
@@ -526,7 +526,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
-		exp_perms	=> ":100:0600",
+		exp_perms	=> ":100:0660",
 		conf		=> <<EOF
 BUS="scsi", KERNEL="sda", NAME="node", GROUP="100"
 EOF
@@ -566,7 +566,7 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "ttyUSB0",
-		exp_perms	=> ":100:0600",
+		exp_perms	=> ":100:0660",
 		conf		=> <<EOF
 KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", GROUP="100"
 EOF
@@ -1185,7 +1185,7 @@ open CONF, ">$main_conf" || die "unable to create config file: $main_conf";
 print CONF "udev_root=\"$udev_root\"\n";
 print CONF "udev_db=\"$udev_db\"\n";
 print CONF "udev_rules=\"$conf_tmp\"\n";
-print CONF "default_mode=\"0600\"\n";
+print CONF "default_mode=\"0660\"\n";
 print CONF "default_owner=\"root\"\n";
 print CONF "default_group=\"root\"\n";
 close CONF;

@@ -76,7 +76,7 @@ static void init_variables(void)
 
 	strcpy(default_owner, "root");
 	strcpy(default_group, "root");
-	default_mode = 0600;
+	default_mode = 0660;
 
 	udev_log = string_is_true(UDEV_LOG_DEFAULT);
 

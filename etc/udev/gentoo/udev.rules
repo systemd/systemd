@@ -19,17 +19,17 @@ BUS="scsi", KERNEL="scd[a-z]", PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYM
 
 # devfs-names for ide-devices (uncomment only one)
 #  /dev/ide/.../{disc,cd} and /dev/{cdroms,discs}/* type names
-BUS="ide", KERNEL="hd*", PROGRAM="/etc/udev/scripts/ide-devfs.sh %k %b %n", NAME="%k", SYMLINK="%c{1} %c{2}", GROUP="%c{3}", MODE="0660"
+BUS="ide", KERNEL="hd*", PROGRAM="/etc/udev/scripts/ide-devfs.sh %k %b %n", NAME="%k", SYMLINK="%c{1} %c{2}", GROUP="%c{3}"
 
 # disk devices
-KERNEL="sd*",		NAME="%k", GROUP="disk", MODE="0660"
-KERNEL="dasd*",		NAME="%k", GROUP="disk", MODE="0660"
-KERNEL="ataraid*",	NAME="%k", GROUP="disk", MODE="0660"
+KERNEL="sd*",		NAME="%k", GROUP="disk"
+KERNEL="dasd*",		NAME="%k", GROUP="disk"
+KERNEL="ataraid*",	NAME="%k", GROUP="disk"
 
 # dri devices
-KERNEL="card*",		NAME="dri/card%n", GROUP="video", MODE="0660"
-KERNEL="nvidia*",	NAME="%k", GROUP="video", MODE="0660"
-KERNEL="3dfx*",		NAME="%k", GROUP="video", MODE="0660"
+KERNEL="card*",		NAME="dri/card%n", GROUP="video"
+KERNEL="nvidia*",	NAME="%k", GROUP="video"
+KERNEL="3dfx*",		NAME="%k", GROUP="video"
 
 # alsa devices
 KERNEL="controlC[0-9]*",	NAME="snd/%k"
@@ -59,7 +59,7 @@ KERNEL="device-mapper",	NAME="mapper/control"
 KERNEL="fb[0-9]*",	NAME="fb/%n", SYMLINK="%k"
 
 # floppy devices
-KERNEL="fd[0-9]*",	NAME="floppy/%n", SYMLINK="%k", GROUP="floppy", MODE="0660"
+KERNEL="fd[0-9]*",	NAME="floppy/%n", SYMLINK="%k", GROUP="floppy"
 
 # i2c devices
 KERNEL="i2c-[0-9]*",	NAME="i2c/%n", SYMLINK="%k"
@@ -72,10 +72,10 @@ KERNEL="js*",		NAME="input/%k", MODE="664"
 KERNEL="ts*",		NAME="input/%k", MODE="0600"
 
 # loop devices
-KERNEL="loop[0-9]*",	NAME="loop/%n", SYMLINK="%k", GROUP="disk", MODE="0660"
+KERNEL="loop[0-9]*",	NAME="loop/%n", SYMLINK="%k", GROUP="disk"
 
 # md block devices
-KERNEL="md[0-9]*",	NAME="md/%n", SYMLINK="%k", GROUP="disk", MODE="0660"
+KERNEL="md[0-9]*",	NAME="md/%n", SYMLINK="%k", GROUP="disk"
 
 # misc devices
 KERNEL="agpgart",	NAME="misc/%k", SYMLINK="%k"
@@ -105,42 +105,42 @@ KERNEL="tun",		NAME="net/%k"
 KERNEL="ram[0-9]*",	NAME="rd/%n", SYMLINK="%k"
 
 # raw devices
-KERNEL="raw[0-9]*",	NAME="raw/%k", GROUP="disk", MODE="0660"
-KERNEL="ram*",		NAME="%k", GROUP="disk", MODE="0660"
+KERNEL="raw[0-9]*",	NAME="raw/%k", GROUP="disk"
+KERNEL="ram*",		NAME="%k", GROUP="disk"
 
 # sound devices
-KERNEL="adsp",			NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="adsp[0-9]*",		NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="audio",			NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="audio[0-9]*",		NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="dsp",			NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="dsp[0-9]*",		NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="mixer",			NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="mixer[0-9]*",		NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="sequencer",		NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="sequencer[0-9]*",	NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
+KERNEL="adsp",			NAME="sound/%k", SYMLINK="%k", GROUP="audio"
+KERNEL="adsp[0-9]*",		NAME="sound/%k", SYMLINK="%k", GROUP="audio"
+KERNEL="audio",			NAME="sound/%k", SYMLINK="%k", GROUP="audio"
+KERNEL="audio[0-9]*",		NAME="sound/%k", SYMLINK="%k", GROUP="audio"
+KERNEL="dsp",			NAME="sound/%k", SYMLINK="%k", GROUP="audio"
+KERNEL="dsp[0-9]*",		NAME="sound/%k", SYMLINK="%k", GROUP="audio"
+KERNEL="mixer",			NAME="sound/%k", SYMLINK="%k", GROUP="audio"
+KERNEL="mixer[0-9]*",		NAME="sound/%k", SYMLINK="%k", GROUP="audio"
+KERNEL="sequencer",		NAME="sound/%k", SYMLINK="%k", GROUP="audio"
+KERNEL="sequencer[0-9]*",	NAME="sound/%k", SYMLINK="%k", GROUP="audio"
 
 # tty devices
 KERNEL="console",	NAME="%k", GROUP="tty", MODE="0600"
 KERNEL="tty",		NAME="%k", GROUP="tty", MODE="0666"
-KERNEL="tty[0-9]*",	NAME="vc/%n",  SYMLINK="%k", GROUP="tty", MODE="0660"
-KERNEL="ttyS[0-9]*",	NAME="tts/%n", SYMLINK="%k", GROUP="tty", MODE="0660"
+KERNEL="tty[0-9]*",	NAME="vc/%n",  SYMLINK="%k", GROUP="tty"
+KERNEL="ttyS[0-9]*",	NAME="tts/%n", SYMLINK="%k", GROUP="tty"
 KERNEL="ttyUSB[0-9]*",	NAME="tts/USB%n", GROUP="tty", MODE="0600"
-KERNEL="ippp0",		NAME="%k", GROUP="tty", MODE="0660"
-KERNEL="isdn*",		NAME="%k", GROUP="tty", MODE="0660"
-KERNEL="dcbri*",	NAME="%k", GROUP="tty", MODE="0660"
-KERNEL="ircomm*",	NAME="%k", GROUP="tty", MODE="0660"
+KERNEL="ippp0",		NAME="%k", GROUP="tty"
+KERNEL="isdn*",		NAME="%k", GROUP="tty"
+KERNEL="dcbri*",	NAME="%k", GROUP="tty"
+KERNEL="ircomm*",	NAME="%k", GROUP="tty"
 
 # pty devices
 KERNEL="ptmx",			NAME="%k", GROUP="tty", MODE="0666"
-KERNEL="pty[p-za-e][0-9a-f]*",	NAME="pty/m%n", SYMLINK="%k", GROUP="tty", MODE="0660"
-KERNEL="tty[p-za-e][0-9a-f]*",	NAME="pty/s%n", SYMLINK="%k", GROUP="tty", MODE="0660"
+KERNEL="pty[p-za-e][0-9a-f]*",	NAME="pty/m%n", SYMLINK="%k", GROUP="tty"
+KERNEL="tty[p-za-e][0-9a-f]*",	NAME="pty/s%n", SYMLINK="%k", GROUP="tty"
 
 # vc devices
-KERNEL="vcs",		NAME="vcc/0",	SYMLINK="%k", GROUP="tty", MODE="0660"
-KERNEL="vcs[0-9]*",	NAME="vcc/%n",	SYMLINK="%k", GROUP="tty", MODE="0660"
-KERNEL="vcsa",		NAME="vcc/a0",	SYMLINK="%k", GROUP="tty", MODE="0660"
-KERNEL="vcsa[0-9]*",	NAME="vcc/a%n",	SYMLINK="%k", GROUP="tty", MODE="0660"
+KERNEL="vcs",		NAME="vcc/0",	SYMLINK="%k", GROUP="tty"
+KERNEL="vcs[0-9]*",	NAME="vcc/%n",	SYMLINK="%k", GROUP="tty"
+KERNEL="vcsa",		NAME="vcc/a0",	SYMLINK="%k", GROUP="tty"
+KERNEL="vcsa[0-9]*",	NAME="vcc/a%n",	SYMLINK="%k", GROUP="tty"
 
 # memory devices
 KERNEL="random",	NAME="%k", MODE="0666"
@@ -155,15 +155,15 @@ KERNEL="zero",		NAME="%k", MODE="0666"
 # usb devices
 KERNEL="hiddev*",		NAME="usb/%k"
 KERNEL="auer*",			NAME="usb/%k"
-KERNEL="legousbtower*",		NAME="usb/%k", GROUP="usb", MODE="0660"
+KERNEL="legousbtower*",		NAME="usb/%k", GROUP="usb"
 KERNEL="dabusb*",		NAME="usb/%k"
-BUS="usb", KERNEL="lp[0-9]*",	NAME="usb/%k", GROUP="lp", MODE="0660"
+BUS="usb", KERNEL="lp[0-9]*",	NAME="usb/%k", GROUP="lp"
 
 # v4l devices
-KERNEL="video[0-9]*",	NAME="v4l/video%n", SYMLINK="video%n", GROUP="video", MODE="0660"
-KERNEL="radio[0-9]*",	NAME="v4l/radio%n", GROUP="video", MODE="0660"
-KERNEL="vbi[0-9]*",	NAME="v4l/vbi%n", SYMLINK="vbi%n", GROUP="video", MODE="0660"
-KERNEL="vtx[0-9]*",	NAME="v4l/vtx%n", GROUP="video", MODE="0660"
+KERNEL="video[0-9]*",	NAME="v4l/video%n", SYMLINK="video%n", GROUP="video"
+KERNEL="radio[0-9]*",	NAME="v4l/radio%n", GROUP="video"
+KERNEL="vbi[0-9]*",	NAME="v4l/vbi%n", SYMLINK="vbi%n", GROUP="video"
+KERNEL="vtx[0-9]*",	NAME="v4l/vtx%n", GROUP="video"
 
 # Asterix Zaptel devices
 KERNEL="zapctl",	NAME="zap/ctl"
@@ -173,37 +173,37 @@ KERNEL="zappseudo",	NAME="zap/pseudo"
 KERNEL="zap[0-9]*",	NAME="zap/%n"
 
 # pilot/palm devices
-KERNEL="pilot",		NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL="pilot",		NAME="%k", GROUP="uucp"
 
 # jaz devices
-KERNEL="jaz*",		NAME="%k", GROUP="disk", MODE="0660"
+KERNEL="jaz*",		NAME="%k", GROUP="disk"
 
 # zip devices
-KERNEL="pocketzip*",	NAME="%k", GROUP="disk", MODE="0660"
-KERNEL="zip*",		NAME="%k", GROUP="disk", MODE="0660"
+KERNEL="pocketzip*",	NAME="%k", GROUP="disk"
+KERNEL="zip*",		NAME="%k", GROUP="disk"
 
 # ls120 devices
-KERNEL="ls120",		NAME="%k", GROUP="disk", MODE="0660"
+KERNEL="ls120",		NAME="%k", GROUP="disk"
 
 # lp devices
-KERNEL="lp*",		NAME="%k", GROUP="lp", MODE="0660"
-KERNEL="irlpt",		NAME="%k", GROUP="lp", MODE="0660"
-KERNEL="usblp",		NAME="%k", GROUP="lp", MODE="0660"
-KERNEL="lp*",		NAME="%k", GROUP="lp", MODE="0660"
+KERNEL="lp*",		NAME="%k", GROUP="lp"
+KERNEL="irlpt",		NAME="%k", GROUP="lp"
+KERNEL="usblp",		NAME="%k", GROUP="lp"
+KERNEL="lp*",		NAME="%k", GROUP="lp"
 
 # tape devices
-KERNEL="ht*",		NAME="%k", GROUP="tape", MODE="0660"
-KERNEL="nht*",		NAME="%k", GROUP="tape", MODE="0660"
-KERNEL="pt*",		NAME="%k", GROUP="tape", MODE="0660"
-KERNEL="npt*",		NAME="%k", GROUP="tape", MODE="0660"
-KERNEL="st*",		NAME="%k", GROUP="tape", MODE="0660"
-KERNEL="nst*",		NAME="%k", GROUP="tape", MODE="0660"
+KERNEL="ht*",		NAME="%k", GROUP="tape"
+KERNEL="nht*",		NAME="%k", GROUP="tape"
+KERNEL="pt*",		NAME="%k", GROUP="tape"
+KERNEL="npt*",		NAME="%k", GROUP="tape"
+KERNEL="st*",		NAME="%k", GROUP="tape"
+KERNEL="nst*",		NAME="%k", GROUP="tape"
 
 # diskonkey devices
-KERNEL="diskonkey*",	NAME="%k", GROUP="disk", MODE="0660"
+KERNEL="diskonkey*",	NAME="%k", GROUP="disk"
 
 # rem_ide devices
-KERNEL="microdrive*",	NAME="%k", GROUP="disk", MODE="0660"
+KERNEL="microdrive*",	NAME="%k", GROUP="disk"
 
 # kbd devices
 KERNEL="kbd",		NAME="%k", MODE="0664"

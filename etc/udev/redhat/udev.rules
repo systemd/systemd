@@ -10,18 +10,18 @@
 
 KERNEL="console",	NAME="%k", GROUP="tty", MODE="0600"
 KERNEL="tty",		NAME="%k", GROUP="tty", MODE="0666"
-KERNEL="tty[0-9]*",	NAME="%k", GROUP="tty", MODE="0660
+KERNEL="tty[0-9]*",	NAME="%k", GROUP="tty"
 
 KERNEL="ptmx",		NAME="%k", GROUP="tty", MODE="0666"
-KERNEL="pty[p-za-e][0-9a-f]*",	NAME="%k", GROUP="tty", MODE="0660"
-KERNEL="tty[p-za-e][0-9a-f]*",	NAME="%k", GROUP="tty", MODE="0660"
+KERNEL="pty[p-za-e][0-9a-f]*",	NAME="%k", GROUP="tty"
+KERNEL="tty[p-za-e][0-9a-f]*",	NAME="%k", GROUP="tty"
 
-KERNEL="ttyS[0-9]*",	NAME="%k", GROUP="uucp", MODE="0660"
-KERNEL="ttyUSB[0-9]*",	NAME="%k", GROUP="uucp", MODE="0600"
-KERNEL="ippp0",		NAME="%k", MODE="0660"
-KERNEL="isdn*",		NAME="%k", MODE="0660"
-KERNEL="dcbri*",	NAME="%k", MODE="0660"
-KERNEL="ircomm*",	NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL="ttyS[0-9]*",	NAME="%k", GROUP="uucp"
+KERNEL="ttyUSB[0-9]*",	NAME="%k", GROUP="uucp"
+KERNEL="ippp0",		NAME="%k"
+KERNEL="isdn*",		NAME="%k"
+KERNEL="dcbri*",	NAME="%k"
+KERNEL="ircomm*",	NAME="%k", GROUP="uucp"
 
 KERNEL="vcs",		NAME="%k", OWNER="vcsa", GROUP="tty", MODE="0600"
 KERNEL="vcsa[0-9]*",	NAME="%k", OWNER="vcsa", GROUP="tty", MODE="0600

@@ -63,7 +63,7 @@ The default value is
 .B default_mode
 The default mode for all nodes where no explicit value is given by a rule.
 The default value is
-.IR 0600 .
+.IR 0660 .
 .TP
 .B default_owner
 The default owner for all nodes where no explicit value is given by a rule.
@@ -94,7 +94,7 @@ udev_log="yes"
 
 # default_mode - set the default mode for all nodes that have no
 #                permissions specified
-default_mode="0666"
+default_mode="0660"
 
 # default_owner - set the default owner for all nodes that have no
 #                 permissions specified

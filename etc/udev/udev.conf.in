@@ -16,7 +16,7 @@ udev_rules="@configdir@/rules.d"
 
 # default_mode - set the default mode for all nodes that have no
 #                permissions specified
-default_mode="0600"
+default_mode="0660"
 
 # default_owner - set the default owner for all nodes that have no
  #                permissions specified
