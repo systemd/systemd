@@ -27,11 +27,23 @@ INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
 
 # override this to make udev look in a different location for it's config files
-PREFIX =
-CONFIG_DIR = $(PREFIX)/etc/udev/
+prefix =
+exec_prefix =	${prefix}
+etcdir =	${prefix}/etc
+sbindir =	${exec_prefix}/sbin
+mandir =	${prefix}/usr/share/man
+hotplugdir =	${etcdir}/hotplug.d/default
+configdir =	${etcdir}/udev/
+srcdir = .
+
+INSTALL = /usr/bin/install -c
+INSTALL_PROGRAM = ${INSTALL}
+INSTALL_DATA  = ${INSTALL} -m 644
+INSTALL_SCRIPT = ${INSTALL_PROGRAM}
+
 
 # place to put our device nodes
-UDEV_DIR = /udev/
+udevdir = ${prefix}/udev/
 
 # Comment out this line to build with something other 
 # than the local version of klibc
@@ -142,8 +154,8 @@ GEN_HEADERS =	udev_version.h
 # Rules on how to create the generated header files
 udev_version.h:
 	@echo \#define UDEV_VERSION	\"$(VERSION)\" > $@
-	@echo \#define UDEV_CONFIG_DIR	\"$(CONFIG_DIR)\" >> $@
-	@echo \#define UDEV_ROOT	\"$(UDEV_DIR)\" >> $@
+	@echo \#define UDEV_CONFIG_DIR	\"$(configdir)\" >> $@
+	@echo \#define UDEV_ROOT	\"$(udevdir)\" >> $@
 
 
 $(ROOT): $(GEN_HEADERS) $(OBJS) $(LIBSYSFS) $(TDB)
@@ -159,7 +171,7 @@ clean:
 	$(MAKE) -C libsysfs clean
 	$(MAKE) -C tdb clean
 
-DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v CVS | grep -v "\.tar\.gz" | grep -v "\/\." | grep -v releases | grep -v BitKeeper | grep -v SCCS | grep -v ".tdb" )
+DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v CVS | grep -v "\.tar\.gz" | grep -v "\/\." | grep -v releases | grep -v BitKeeper | grep -v SCCS | grep -v ".tdb" | sort )
 DISTDIR := $(RELEASE_NAME)
 srcdir = .
 release: $(DISTFILES) clean
@@ -177,3 +189,14 @@ release: $(DISTFILES) clean
 	@tar -c $(DISTDIR) | gzip -9 > $(RELEASE_NAME).tar.gz
 	@rm -rf $(DISTDIR)
 	@echo "Built $(RELEASE_NAME).tar.gz"
+
+
+install: all
+	$(INSTALL) -d $(udevdir)
+	$(INSTALL) -d $(configdir)
+	$(INSTALL) -d $(hotplugdir)
+	$(INSTALL_PROGRAM) -D $(ROOT) $(sbindir)/$(ROOT)
+	$(INSTALL_DATA) -D udev.8 $(mandir)/man8/udev.8
+	$(INSTALL_DATA) namedev.config $(configdir)
+	$(INSTALL_DATA) namedev.permissions $(configdir)
+	- ln -s $(sbindir)/$(ROOT) $(hotplugdir)/udev.hotplug
