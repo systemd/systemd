@@ -1,15 +1,15 @@
 # Makefile for libsysfs.a
 # Copyright (c) International Business Machines Corp., 2003
 
-H_INCLUDE=../include
+H_INCLUDE=.
 LIB_INCLUDE=.
 OBJS=sysfs_bus.o sysfs_class.o sysfs_device.o sysfs_dir.o sysfs_driver.o \
-	sysfs_utils.o
+	sysfs_utils.o dlist.o
 
 # Install directory
 
 # Options
-CFLAGS=-O2 -Wall -ansi -g
+CFLAGS=-O2 -Wall -g
 
 # sysfs library
 LIBSYSFS=libsysfs.a
@@ -37,6 +37,9 @@ sysfs_driver.o: sysfs_driver.c
 
 sysfs_utils.o: sysfs_utils.c
 	$(CC) -I$(H_INCLUDE) -I$(LIB_INCLUDE) $(CFLAGS) -c sysfs_utils.c
+
+dlist.o: dlist.c
+	$(CC) -I$(H_INCLUDE) -I$(LIB_INCLUDE) $(CFLAGS) -c dlist.c
 
 clean:
 	$(RM) *.o *~ core $(LIBSYSFS)

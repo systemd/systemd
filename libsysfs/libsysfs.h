@@ -3,7 +3,7 @@
  *
  * Header Definitions for libsysfs
  *
- * Copyright (C) 2003 International Business Machines, Inc.
+ * Copyright (C) IBM Corp. 2003
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -24,6 +24,7 @@
 #define _LIBSYSFS_H_
 
 #include <sys/types.h>
+#include "dlist.h"
 
 /*
  * Generic #defines go here..
@@ -32,11 +33,17 @@
 #define SYSFS_PROC_MNTS		"/proc/mounts"
 #define SYSFS_BUS_DIR		"/bus"
 #define SYSFS_CLASS_DIR		"/class"
+#define SYSFS_BLOCK_DIR		"/block"
 #define SYSFS_DEVICES_DIR	"/devices"
 #define SYSFS_DEVICES_NAME	"devices"
 #define SYSFS_DRIVERS_DIR	"/drivers"
 #define SYSFS_DRIVERS_NAME	"drivers"
 #define SYSFS_NAME_ATTRIBUTE	"name"
+#define SYSFS_UNKNOWN		"unknown"
+
+/* Some "block" subsystem specific #defines */
+#define SYSFS_QUEUE_NAME	"queue"
+#define SYSFS_IOSCHED_NAME	"iosched"
 
 #define SYSFS_PATH_MAX		255
 #define	SYSFS_NAME_LEN		50
@@ -46,65 +53,84 @@
 #define SYSFS_METHOD_STORE	0x02	/* attr can be changed by user */
 
 struct sysfs_attribute {
-	struct sysfs_attribute *next;
-	char path[SYSFS_PATH_MAX];
-	char *value;
+	unsigned char *value;
 	unsigned short len;		/* value length */
 	unsigned short method;		/* show and store */
+	unsigned char name[SYSFS_NAME_LEN];
+	unsigned char path[SYSFS_PATH_MAX];
 };
 
-struct sysfs_dlink {
-	struct sysfs_dlink *next;
-	char name[SYSFS_NAME_LEN];
-	struct sysfs_directory *target;
+struct sysfs_link {
+	unsigned char name[SYSFS_NAME_LEN];
+	unsigned char path[SYSFS_PATH_MAX];
+	unsigned char target[SYSFS_PATH_MAX];
 };
 
 struct sysfs_directory {
-	struct sysfs_directory *next;
-	char path[SYSFS_PATH_MAX];
-	struct sysfs_directory *subdirs;
-	struct sysfs_dlink *links;
-	struct sysfs_attribute *attributes;
+	struct dlist *subdirs;	
+	struct dlist *links;		
+	struct dlist *attributes;
+	unsigned char name[SYSFS_NAME_LEN];
+	unsigned char path[SYSFS_PATH_MAX];
 };
 
 struct sysfs_driver {
-	struct sysfs_driver *next;
-	char name[SYSFS_NAME_LEN];
-	struct sysfs_directory *directory;
-	struct sysfs_device *device;
+	struct dlist *devices;
+	unsigned char name[SYSFS_NAME_LEN];
+	unsigned char path[SYSFS_PATH_MAX];
+
+	/* for internal use only */
+	struct sysfs_directory *directory;	
 };
 
 struct sysfs_device {
-	struct sysfs_device *next;
-	char name[SYSFS_NAME_LEN];
-	char bus_id[SYSFS_NAME_LEN];
-	struct sysfs_driver *driver;
+	struct sysfs_device *parent;		
+	struct dlist *children;	
+	unsigned char name[SYSFS_NAME_LEN];
+	unsigned char bus_id[SYSFS_NAME_LEN];
+	unsigned char path[SYSFS_PATH_MAX];
+	unsigned char driver_name[SYSFS_NAME_LEN];
+
+	/* for internal use only */
+	struct sysfs_directory *directory;	
+};
+
+struct sysfs_root_device {
+	struct dlist *devices;
+	unsigned char name[SYSFS_NAME_LEN];
+	unsigned char path[SYSFS_PATH_MAX];
+
+	/* for internal use only */
 	struct sysfs_directory *directory;
-	struct sysfs_device *parent;
-	struct sysfs_device *children;
 };
 
 struct sysfs_bus {
-	struct sysfs_bus *next;
-	char name[SYSFS_NAME_LEN];
-	struct sysfs_directory *directory;
-	struct sysfs_driver *drivers;
-	struct sysfs_device *devices;
+	struct dlist *drivers;
+	struct dlist *devices;
+	unsigned char name[SYSFS_NAME_LEN];
+	unsigned char path[SYSFS_PATH_MAX];
+
+	/* internal use only */
+	struct sysfs_directory *directory;	
 };
 
 struct sysfs_class_device {
-	struct sysfs_class_device *next;
-	char name[SYSFS_NAME_LEN];
-	struct sysfs_directory *directory;
 	struct sysfs_device *sysdevice;		/* NULL if virtual */
 	struct sysfs_driver *driver;		/* NULL if not implemented */
+	unsigned char name[SYSFS_NAME_LEN];
+	unsigned char path[SYSFS_PATH_MAX];
+
+	/* for internal use only */
+	struct sysfs_directory *directory;	
 };
 
 struct sysfs_class {
-	struct sysfs_class *next;
-	char name[SYSFS_NAME_LEN];
-	struct sysfs_directory *directory;
-	struct sysfs_class_device *devices;
+	struct dlist *devices;
+	unsigned char name[SYSFS_NAME_LEN];
+	unsigned char path[SYSFS_PATH_MAX];
+
+	/* for internal use only */
+	struct sysfs_directory *directory;	
 };
 
 #ifdef __cplusplus
@@ -114,46 +140,108 @@ extern "C" {
 /*
  * Function Prototypes
  */
-extern int sysfs_get_mnt_path(char *mnt_path, size_t len);
-extern int sysfs_get_name_from_path(const char *path, char *name, size_t len);
-extern int sysfs_get_link(const char *path, char *target, size_t len);
+extern int sysfs_get_mnt_path(unsigned char *mnt_path, size_t len);
+extern int sysfs_get_name_from_path(const unsigned char *path, 
+					unsigned char *name, size_t len);
+extern int sysfs_get_link(const unsigned char *path, unsigned char *target, 
+								size_t len);
+extern struct dlist *sysfs_open_subsystem_list(unsigned char *name);
+extern struct dlist *sysfs_open_bus_devices_list(unsigned char *name);
+extern void sysfs_close_list(struct dlist *list);
 
 /* sysfs directory and file access */
 extern void sysfs_close_attribute(struct sysfs_attribute *sysattr);
-extern struct sysfs_attribute *sysfs_open_attribute(const char *path);
+extern struct sysfs_attribute *sysfs_open_attribute(const unsigned char *path);
 extern int sysfs_read_attribute(struct sysfs_attribute *sysattr);
-extern int sysfs_read_attribute_value(const char *attrpath, char *value, 
-								size_t vsize);
-extern char *sysfs_get_value_from_attributes(struct sysfs_attribute *attr, 
-							const char * name);
+extern int sysfs_read_attribute_value(const unsigned char *attrpath, 
+				unsigned char *value, size_t vsize);
+extern int sysfs_write_attribute(struct sysfs_attribute *sysattr,
+		const unsigned char *new_value, size_t len);
+extern unsigned char *sysfs_get_value_from_attributes(struct dlist *attr, 
+						const unsigned char * name);
 extern void sysfs_close_directory(struct sysfs_directory *sysdir);
-extern struct sysfs_directory *sysfs_open_directory(const char *path);
+extern struct sysfs_directory *sysfs_open_directory(const unsigned char *path);
 extern int sysfs_read_directory(struct sysfs_directory *sysdir);
-extern void sysfs_close_dlink(struct sysfs_dlink *dlink);
-extern struct sysfs_dlink *sysfs_open_dlink(const char *linkpath);
-extern int sysfs_read_dlinks(struct sysfs_dlink *dlink);
+extern int sysfs_read_all_subdirs(struct sysfs_directory *sysdir);
+extern struct sysfs_directory *sysfs_get_subdirectory
+			(struct sysfs_directory *dir, unsigned char *subname);
+extern void sysfs_close_link(struct sysfs_link *ln);
+extern struct sysfs_link *sysfs_open_link(const unsigned char *lnpath);
+extern struct sysfs_link *sysfs_get_directory_link(struct sysfs_directory *dir,
+						unsigned char *linkname);
+extern struct sysfs_link *sysfs_get_subdirectory_link
+			(struct sysfs_directory *dir, unsigned char *linkname);
+extern struct sysfs_attribute *sysfs_get_directory_attribute
+			(struct sysfs_directory *dir, unsigned char *attrname);
 
 /* sysfs driver access */
 extern void sysfs_close_driver(struct sysfs_driver *driver);
-extern struct sysfs_driver *sysfs_open_driver(const char *path);
+extern struct sysfs_driver *sysfs_open_driver(const unsigned char *path);
+extern struct sysfs_attribute *sysfs_get_driver_attr
+		(struct sysfs_driver *drv, const unsigned char *name);
+extern struct dlist *sysfs_get_driver_attributes(struct sysfs_driver *driver);
+extern struct dlist *sysfs_get_driver_links(struct sysfs_driver *driver);
+extern void sysfs_close_driver_by_name(struct sysfs_driver *driver);
+extern struct sysfs_driver *sysfs_open_driver_by_name
+	(const unsigned char *drv_name, const unsigned char *bus, size_t bsize);
+extern int sysfs_write_driver_attr(unsigned char *drv, unsigned char *attrib,
+				unsigned char *value, size_t len);
+extern int sysfs_read_driver_attr(unsigned char *drv, unsigned char *attrib,
+				unsigned char *value, size_t len);
 
 /* generic sysfs device access */
+extern void sysfs_close_root_device(struct sysfs_root_device *root);
+extern struct sysfs_root_device *sysfs_open_root_device
+						(const unsigned char *name);
 extern void sysfs_close_device(struct sysfs_device *dev);
-extern void sysfs_close_device_tree(struct sysfs_device *dev);
-extern struct sysfs_device *sysfs_open_device(const char *path);
-extern struct sysfs_device *sysfs_open_device_tree(const char *path);
+extern struct sysfs_device *sysfs_open_device(const unsigned char *path);
 extern struct sysfs_attribute *sysfs_get_device_attr
-				(struct sysfs_device *dev, const char *name);
+			(struct sysfs_device *dev, const unsigned char *name);
+extern struct dlist *sysfs_get_device_attributes(struct sysfs_device *device);
+extern struct sysfs_device *sysfs_open_device_by_id
+	(const unsigned char *bus_id, const unsigned char *bus, size_t bsize);
+extern int sysfs_write_device_attr(unsigned char *dev, unsigned char *attrib,
+				unsigned char *value, size_t len);
+extern int sysfs_read_device_attr(unsigned char *dev, unsigned char *attrib,
+				unsigned char *value, size_t len);
 
 /* generic sysfs bus access */
 extern void sysfs_close_bus(struct sysfs_bus *bus);
-extern struct sysfs_bus *sysfs_open_bus(const char *name);
+extern struct sysfs_bus *sysfs_open_bus(const unsigned char *name);
+extern struct sysfs_device *sysfs_get_bus_device(struct sysfs_bus *bus,
+						unsigned char *id);
+extern struct sysfs_driver *sysfs_get_bus_driver(struct sysfs_bus *bus,
+						unsigned char *drvname);
+extern struct dlist *sysfs_get_bus_attributes(struct sysfs_bus *bus);
+extern struct sysfs_attribute *sysfs_get_bus_attribute(struct sysfs_bus *bus,
+						unsigned char *attrname);
+extern struct sysfs_device *sysfs_open_bus_device(unsigned char *busname, 
+							unsigned char *dev_id);
+extern int sysfs_find_device_bus(const unsigned char *dev_id, 
+					unsigned char *busname,	size_t bsize);
+extern int sysfs_find_driver_bus(const unsigned char *driver, 
+					unsigned char *busname,	size_t bsize);
 
 /* generic sysfs class access */
 extern void sysfs_close_class_device(struct sysfs_class_device *dev);
-extern struct sysfs_class_device *sysfs_open_class_device(const char *path);
+extern struct sysfs_class_device *sysfs_open_class_device
+					(const unsigned char *path);
 extern void sysfs_close_class(struct sysfs_class *cls);
-extern struct sysfs_class *sysfs_open_class(const char *name);
+extern struct sysfs_class *sysfs_open_class(const unsigned char *name);
+extern struct sysfs_class_device *sysfs_get_class_device
+	(struct sysfs_class *class, unsigned char *name);
+extern struct sysfs_class_device *sysfs_open_class_device_by_name
+	(const unsigned char *class, unsigned char *name);
+extern struct dlist *sysfs_get_classdev_attributes
+	(struct sysfs_class_device *cdev);
+extern int sysfs_find_device_class(const unsigned char *bus_id, 
+		unsigned char *classname, size_t bsize);
+extern struct sysfs_attribute *sysfs_get_classdev_attr
+	(struct sysfs_class_device *clsdev, const unsigned char *name);
+extern int sysfs_write_classdev_attr(unsigned char *dev, unsigned char *attrib, 
+		unsigned char *value, size_t len);
+extern int sysfs_read_classdev_attr(unsigned char *dev, unsigned char *attrib, 
+		unsigned char *value, size_t len);
 
 #ifdef __cplusplus
 }
