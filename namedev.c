@@ -260,12 +260,17 @@ static void apply_format(struct udevice *udev, unsigned char *string)
 	}
 }
 
+/* 
+ * Note, we can have multiple files for different busses in here due
+ * to the mess that USB has for its device tree...
+ */
 static struct bus_file {
 	char *bus;
 	char *file;
 } bus_files[] = {
 	{ .bus = "scsi",	.file = "vendor" },
 	{ .bus = "usb",		.file = "idVendor" },
+	{ .bus = "usb",		.file = "iInterface" },
 	{ .bus = "usb-serial",	.file = "detach_state" },
 	{ .bus = "ide",		.file = "detach_state" },
 	{ .bus = "pci",		.file = "vendor" },
@@ -285,30 +290,35 @@ static void wait_for_device_to_initialize(struct sysfs_device *sysfs_device)
 	 */
 	struct bus_file *b = &bus_files[0];
 	struct sysfs_attribute *tmpattr;
-	int loop;
+	int found = 0;
+	int loop = SECONDS_TO_WAIT_FOR_FILE;
 
 	while (1) {
-		if (b->bus == NULL)
-			break;
-		if (strcmp(sysfs_device->bus, b->bus) == 0) {
-			tmpattr = NULL;
-			loop = SECONDS_TO_WAIT_FOR_FILE;
-			while (loop--) {
-				dbg("looking for file '%s' on bus '%s'", b->file, b->bus);
-				tmpattr = sysfs_get_device_attr(sysfs_device, b->file);
-				if (tmpattr) {
-					/* found it! */
-					goto exit;
-				}
-				/* sleep to give the kernel a chance to create the file */
-				sleep(1);
-			}
-			dbg("timed out waiting for '%s' file, continuing on anyway...", b->file);
-			goto exit;
+		if (b->bus == NULL) {
+			if (!found)
+				break;
+			/* sleep to give the kernel a chance to create the file */
+			sleep(1);
+			--loop;
+			if (loop == 0)
+				break;
+			b = &bus_files[0];
 		}
-		b++;
+		if (strcmp(sysfs_device->bus, b->bus) == 0) {
+			found = 1;
+			dbg("looking for file '%s' on bus '%s'", b->file, b->bus);
+			tmpattr = sysfs_get_device_attr(sysfs_device, b->file);
+			if (tmpattr) {
+				/* found it! */
+				goto exit;
+			}
+			dbg("can't find '%s' file", b->file);
+		}
+		++b;
 	}
-	dbg("did not find bus type '%s' on list of bus_id_files, contact greg@kroah.com", sysfs_device->bus);
+	if (!found)
+		dbg("did not find bus type '%s' on list of bus_id_files, "
+		    "contact greg@kroah.com", sysfs_device->bus);
 exit:
 	return; /* here to prevent compiler warning... */
 }
