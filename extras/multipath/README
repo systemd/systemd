@@ -4,8 +4,10 @@ Dependancies :
 o libdevmapper : comes with device-mapper-XXXX.tar.gz
   See www.sistina.com
   This lib has been dropped in the multipath tree
-o libsysfs : comes with sysutils
+o libsysfs : comes with sysutils or udev
   See ftp.kernel.org/pub/linux/utils/kernel/hotplug/
+o Linux kernel 2.6.0 with udm5 patchset
+  http://people.sistina.com/~thornber/dm/
 
 How it works :
 ==============

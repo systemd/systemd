@@ -1,3 +1,5 @@
+2004-01-19 multipath-013
+	* update the DM target synthax to the 2.6.0-udm5 style
 2003-12-29 multipath-012
 	* check hotplug event refers to a block device; if not exit early
 	* refresh doc

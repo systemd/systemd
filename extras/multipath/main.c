@@ -665,7 +665,7 @@ setup_map(struct env * conf, struct path * all_paths,
 
 	if (all_paths[PINDEX(index,0)].iopolicy == MULTIBUS &&
 	    !conf->forcedfailover ) {
-		params_p += sprintf(params_p, " %i %s %i %i",
+		params_p += sprintf(params_p, " 1 %i %s %i %i",
 				    dm_pg_prio, dm_ps_name, np, dm_ps_nr_args);
 		
 		for (i=0; i<=mp[index].npaths; i++) {
@@ -678,6 +678,7 @@ setup_map(struct env * conf, struct path * all_paths,
 
 	if (all_paths[PINDEX(index,0)].iopolicy == FAILOVER ||
 	    conf->forcedfailover) {
+		params_p += sprintf(params_p, " %i", mp[index].npaths + 1);
 		for (i=0; i<=mp[index].npaths; i++) {
 			if (0 != all_paths[PINDEX(index,i)].sg_id.scsi_type)
 				continue;
