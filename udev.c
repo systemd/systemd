@@ -122,7 +122,7 @@ int main(int argc, char *argv[], char *envp[])
 		dbg("looking at '%s'", devpath);
 
 		/* we only care about class devices and block stuff */
-		if (strstr(devpath, "class") && strstr(devpath, "block")) {
+		if (!strstr(devpath, "class") && !strstr(devpath, "block")) {
 			dbg("not a block or class device");
 			goto exit;
 		}
