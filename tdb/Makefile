@@ -3,7 +3,6 @@
 #
 
 CFLAGS = -DSTANDALONE -DTDB_DEBUG -g -DHAVE_MMAP=1
-CC = gcc
 
 PROGS = tdbtest tdbtool tdbtorture
 TDB_OBJ = tdb.o spinlock.o
