@@ -25,6 +25,27 @@ To use:
 - Build the project:
 	make
 
+  Note:
+      There are a number of different flags that you can use when building
+      udev.  They are as follows:
+	prefix - set this to the default root that you want udev to be
+		installed into.  This works just like the 'configure --prefix'
+		script does.  Default value is ''.  Only override this if you
+		really know what you are doing.
+	KLIBC - if set to 'true', udev is built and linked against the included
+		version of klibc.  Default value is 'false'.
+	DEBUG - if set to 'true', debugging messages will be sent to the syslog
+		as udev is run.  Default value is 'false'.
+	DBUS -  if set to 'true', DBUS messages will be sent everytime udev
+		creates or removes a device node.  This requires that DBUS
+		development headers and libraries be present on your system to
+		build properly.  Default value is 'false'.
+
+      So, if you want to build udev using klibc with debugging messages, you
+      would do:
+	make KLIBC=true DEBUG=true
+
+
 - Install the project:
 	make install
 
