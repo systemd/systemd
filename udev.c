@@ -154,13 +154,13 @@ int main(int argc, char *argv[], char *envp[])
 	if (udev_log)
 		setenv("UDEV_LOG", "1", 1);
 
-	if (udev.type == BLOCK || udev.type == CLASS || udev.type == NET) {
+	if (udev.type == DEV_BLOCK || udev.type == DEV_CLASS || udev.type == DEV_NET) {
 		if (strcmp(action, "add") == 0) {
 			/* wait for sysfs and possibly add node */
 			dbg("udev add");
 
 			/* skip subsystems without "dev", but handle net devices */
-			if (udev.type != NET && subsystem_expect_no_dev(udev.subsystem)) {
+			if (udev.type != DEV_NET && subsystem_expect_no_dev(udev.subsystem)) {
 				dbg("don't care about '%s' devices", udev.subsystem);
 				goto hotplug;
 			}
@@ -203,7 +203,7 @@ int main(int argc, char *argv[], char *envp[])
 			if (udev_dev_d)
 				udev_multiplex_directory(&udev, DEVD_DIR, DEVD_SUFFIX);
 		}
-	} else if (udev.type == PHYSDEV) {
+	} else if (udev.type == DEV_DEVICE) {
 		if (strcmp(action, "add") == 0) {
 			/* wait for sysfs */
 			dbg("devices add");

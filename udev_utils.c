@@ -53,13 +53,13 @@ int udev_init_device(struct udevice *udev, const char* devpath, const char *subs
 		no_trailing_slash(udev->devpath);
 
 		if (strncmp(udev->devpath, "/block/", 7) == 0)
-			udev->type = BLOCK;
+			udev->type = DEV_BLOCK;
 		else if (strncmp(udev->devpath, "/class/net/", 11) == 0)
-			udev->type = NET;
+			udev->type = DEV_NET;
 		else if (strncmp(udev->devpath, "/class/", 7) == 0)
-			udev->type = CLASS;
+			udev->type = DEV_CLASS;
 		else if (strncmp(udev->devpath, "/devices/", 9) == 0)
-			udev->type = PHYSDEV;
+			udev->type = DEV_DEVICE;
 
 		/* get kernel name */
 		pos = strrchr(udev->devpath, '/');

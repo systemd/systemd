@@ -143,7 +143,7 @@ int udev_remove_device(struct udevice *udev)
 {
 	const char *temp;
 
-	if (udev->type != BLOCK && udev->type != CLASS)
+	if (udev->type != DEV_BLOCK && udev->type != DEV_CLASS)
 		return 0;
 
 	if (udev_db_get_device(udev, udev->devpath) == 0) {

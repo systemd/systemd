@@ -48,24 +48,24 @@
 #define DEFAULT_PARTITIONS_COUNT	15
 
 enum device_type {
-	UNKNOWN,
-	CLASS,
-	BLOCK,
-	NET,
-	PHYSDEV,
+	DEV_UNKNOWN,
+	DEV_CLASS,
+	DEV_BLOCK,
+	DEV_NET,
+	DEV_DEVICE,
 };
 
 struct udevice {
 	char devpath[PATH_SIZE];
 	char subsystem[NAME_SIZE];
 
+	enum device_type type;
 	char name[PATH_SIZE];
 	char devname[PATH_SIZE];
 	struct list_head symlink_list;
 	char owner[USER_SIZE];
 	char group[USER_SIZE];
 	mode_t mode;
-	char type;
 	dev_t devt;
 
 	char tmp_node[PATH_SIZE];
