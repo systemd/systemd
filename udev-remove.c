@@ -40,15 +40,20 @@
  * something different from the kernel name.  If we have, us it.  If not, use
  * the default kernel name for lack of anything else to know to do.
  */
-static char *get_name(char *dev, int major, int minor)
+static char *get_name(char *path, int major, int minor)
 {
 	static char name[100];
+	struct udevice *dev;
 	char *temp;
 
-	if (udevdb_get_dev(dev, &name[0], sizeof(name)) == 0)
+	dev = udevdb_get_dev(path);
+	if (dev != NULL) {
+		strcpy(name, dev->name);
 		goto exit;
+	}
 
-	temp = strrchr(dev, '/');
+	dbg("%s not found in database, falling back on default name", path);
+	temp = strrchr(path, '/');
 	if (temp == NULL)
 		return NULL;
 	strncpy(name, &temp[1], sizeof(name));
@@ -84,7 +89,6 @@ int udev_remove_device(char *device, char *subsystem)
 		goto exit;
 	}
 
-	udevdb_delete_udevice(name);
 	udevdb_delete_dev(device);
 
 	return delete_node(name);

@@ -23,6 +23,7 @@
 #ifndef UDEV_H
 #define UDEV_H
 
+#include "libsysfs/libsysfs.h"
 
 #ifdef DEBUG
 #include <syslog.h>
@@ -62,8 +63,18 @@ struct device_attr {
 	mode_t mode;
 };
 
-extern int udev_add_device(char *device, char *subsystem);
-extern int udev_remove_device(char *device, char *subsystem);
+struct udevice {
+	char name[NAME_SIZE];
+	char owner[OWNER_SIZE];
+	char group[GROUP_SIZE];
+	char type;
+	int major;
+	int minor;
+	mode_t mode;
+};
+
+extern int udev_add_device(char *path, char *subsystem);
+extern int udev_remove_device(char *path, char *subsystem);
 
 extern char **main_argv;
 extern char **main_envp;

@@ -70,33 +70,37 @@ exit:
 /*
  * We also want to add some permissions here, and possibly some symlinks
  */
-static int create_node(char *name, char type, int major, int minor, mode_t mode)
+static int create_node(struct udevice *dev)
 {
 	char filename[255];
 	int retval = 0;
+
 	strncpy(filename, UDEV_ROOT, sizeof(filename));
-	strncat(filename, name, sizeof(filename));
-	switch (type) {
+	strncat(filename, dev->name, sizeof(filename));
+
+	switch (dev->type) {
 	case 'b':
-		mode |= S_IFBLK;
+		dev->mode |= S_IFBLK;
 		break;
 	case 'c':
 	case 'u':
-		mode |= S_IFCHR;
+		dev->mode |= S_IFCHR;
 		break;
 	case 'p':
-		mode |= S_IFIFO;
+		dev->mode |= S_IFIFO;
 		break;
 	default:
-		dbg("unknown node type %c\n", type);
+		dbg("unknown node type %c\n", dev->type);
 		return -EINVAL;
 	}
 
-	dbg("mknod(%s, %#o, %u, %u)", filename, mode, major, minor);
-	retval = mknod(filename, mode, makedev(major, minor));
+	dbg("mknod(%s, %#o, %u, %u)", filename, dev->mode, dev->major, dev->minor);
+	retval = mknod(filename, dev->mode, makedev(dev->major, dev->minor));
 	if (retval)
 		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
-		    filename, mode, major, minor, strerror(errno));
+		    filename, dev->mode, dev->major, dev->minor, strerror(errno));
+
+	// FIXME set the ownership of the node
 	return retval;
 }
 
@@ -126,7 +130,7 @@ exit:
  * If it doesn't happen in about 10 seconds, give up.
  */
 #define SECONDS_TO_WAIT_FOR_DEV		10
-int sleep_for_dev(char *device)
+int sleep_for_dev(char *path)
 {
 	char filename[SYSFS_PATH_MAX + 6];
 	struct stat buf;
@@ -134,7 +138,7 @@ int sleep_for_dev(char *device)
 	int retval = -ENODEV;
 
 	strcpy(filename, sysfs_path);
-	strcat(filename, device);
+	strcat(filename, path);
 	strcat(filename, "/dev");
 
 	while (loop < SECONDS_TO_WAIT_FOR_DEV) {
@@ -154,20 +158,18 @@ exit:
 	return retval;
 }
 
-int udev_add_device(char *device, char *subsystem)
+int udev_add_device(char *path, char *subsystem)
 {
 	struct sysfs_class_device *class_dev;
+	struct udevice dev;
 	struct device_attr attr;
-	int major;
-	int minor;
-	char type;
 	int retval = -EINVAL;
 
 	/* for now, the block layer is the only place where block devices are */
 	if (strcmp(subsystem, "block") == 0)
-		type = 'b';
+		dev.type = 'b';
 	else
-		type = 'c';
+		dev.type = 'c';
 
 	retval = sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX);
 	dbg("sysfs_path = %s", sysfs_path);
@@ -176,11 +178,11 @@ int udev_add_device(char *device, char *subsystem)
 		goto exit;
 	}
 
-	retval = sleep_for_dev(device);
+	retval = sleep_for_dev(path);
 	if (retval)
 		goto exit;
 
-	class_dev = get_class_dev(device);
+	class_dev = get_class_dev(path);
 	if (class_dev == NULL)
 		goto exit;
 
@@ -188,21 +190,26 @@ int udev_add_device(char *device, char *subsystem)
 	if (retval)
 		return retval;
 
-	retval = get_major_minor(class_dev, &major, &minor);
+	retval = get_major_minor(class_dev, &dev.major, &dev.minor);
 	if (retval) {
 		dbg("get_major_minor failed");
 		goto exit;
 	}
 
-	retval = udevdb_add_device(device, class_dev, attr.name, type, major, minor, attr.mode);
-
+	strcpy(dev.name, attr.name);
+	strcpy(dev.owner, attr.owner);
+	strcpy(dev.group, attr.group);
+	dev.mode = attr.mode;
+	
+	retval = udevdb_add_dev(path, &dev);
 	if (retval != 0)
-		dbg("udevdb_add_device failed, but we are going to try to create the node anyway. "
+		dbg("udevdb_add_dev failed, but we are going to try to create the node anyway. "
 		    "But remove might not work properly for this device.");
 
 	sysfs_close_class_device(class_dev);
 
-	return create_node(attr.name, type, major, minor, attr.mode);
+	dbg("name = %s", dev.name);
+	retval = create_node(&dev);
 
 exit:
 	return retval;
