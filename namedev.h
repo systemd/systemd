@@ -45,6 +45,12 @@ enum config_type {
 #define ID_SIZE		50
 #define PLACE_SIZE	50
 
+#define TYPE_LABEL	"LABEL"
+#define TYPE_NUMBER	"NUMBER"
+#define TYPE_TOPOLOGY	"TOPOLOGY"
+#define TYPE_REPLACE	"REPLACE"
+#define TYPE_CALLOUT	"CALLOUT"
+#define CALLOUT_MAXARG	8
 
 struct config_device {
 	struct list_head node;
@@ -65,8 +71,15 @@ struct config_device {
 	mode_t mode;
 };
 
+extern struct list_head config_device_list;
 
 extern int namedev_init(void);
 extern int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *dev);
+extern int namedev_init_permissions(void);
+extern int namedev_init_config(void);
+
+extern int add_config_dev(struct config_device *new_dev);
+extern void dump_config_dev(struct config_device *dev);
+extern void dump_config_dev_list(void);
 
 #endif

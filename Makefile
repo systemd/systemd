@@ -159,6 +159,7 @@ OBJS =	udev.o		\
 	udevdb.o	\
 	logging.o	\
 	namedev.o	\
+	namedev_parse.o	\
 	$(SYSFS)	\
 	$(TDB)
 
