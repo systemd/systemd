@@ -16,6 +16,11 @@
 # 1 - DBUS support
 %define dbus 0
 
+# if we want to build SELinux support in or not.
+# 0 - no SELinux support
+# 1 - SELinux support
+%define selinux 1 
+
 # if we want to enable debugging support in udev.  If it is enabled, lots of 
 # stuff will get sent to the debug syslog.
 # 0 - debugging disabled
@@ -67,6 +72,11 @@ make CC="gcc $RPM_OPT_FLAGS"	\
 %else
 	USE_DBUS=false		\
 %endif
+%if %{selinux}
+	USE_SELINUX=true	\
+%else
+	USE_SELINUX=false	\
+%endif
 %if %{debug}
 	DEBUG=true		\
 %else
@@ -84,6 +94,11 @@ make DESTDIR=$RPM_BUILD_ROOT install \
 	USE_DBUS=true		\
 %else
 	USE_DBUS=false		\
+%endif
+%if %{selinux}
+	USE_SELINUX=true	\
+%else
+	USE_SELINUX=false	\
 %endif
 %if %{lsb}
 	USE_LSB=true		\
