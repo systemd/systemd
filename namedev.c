@@ -749,15 +749,6 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 		dbg("process rule");
 		if (match_rule(udev, dev, class_dev, sysfs_device) == 0) {
 
-			/* FIXME: remove old style ignore rule and make OPTION="ignore" mandatory */
-			if (dev->name[0] == '\0' && dev->symlink[0] == '\0' &&
-			    dev->mode == 0000 && dev->owner[0] == '\0' && dev->group[0] == '\0' &&
-			    !dev->ignore_device && !dev->partitions && !dev->ignore_remove) {
-				info("configured rule in '%s[%i]' applied, '%s' is ignored",
-				     dev->config_file, dev->config_line, udev->kernel_name);
-				return -1;
-			}
-
 			/* apply options */
 			if (dev->ignore_device) {
 				info("configured rule in '%s[%i]' applied, '%s' is ignored",

@@ -259,7 +259,10 @@ static int namedev_parse(const char *filename, void *data)
 						dev.ignore_remove = 1;
 					}
 				}
-				strfieldcpy(dev.name, temp3);
+				if (temp3[0] != '\0')
+					strfieldcpy(dev.name, temp3);
+				else
+					dev.ignore_device = 1;
 				valid = 1;
 				continue;
 			}
