@@ -104,7 +104,7 @@ int main(int argc, char *argv[])
 			    "       -d disk label from main device\n"
 			    "\n";
 	static const char short_options[] = "htlud";
-	char sysfs_path[SYSFS_PATH_MAX];
+	char sysfs_mnt_path[SYSFS_PATH_MAX];
 	char dev_path[SYSFS_PATH_MAX];
 	struct sysfs_class_device *class_dev = NULL;
 	struct sysfs_class_device *class_dev_parent = NULL;
@@ -117,6 +117,8 @@ int main(int argc, char *argv[])
 	int len, i, j;
 	unsigned long long size;
 	int rc = 1;
+
+	logging_init("udev_volume_id");
 
 	while (1) {
 		int option;
@@ -152,12 +154,12 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	if (sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX) != 0) {
+	if (sysfs_get_mnt_path(sysfs_mnt_path, SYSFS_PATH_MAX) != 0) {
 		printf("error getting sysfs mount path\n");
 		goto exit;
 	}
 
-	strfieldcpy(dev_path, sysfs_path);
+	strfieldcpy(dev_path, sysfs_mnt_path);
 	strfieldcat(dev_path, devpath);
 
 	class_dev = sysfs_open_class_device_path(dev_path);
@@ -260,6 +262,8 @@ exit:
 		sysfs_close_class_device(class_dev);
 	if (vid != NULL)
 		volume_id_close(vid);
+
+	logging_close();
 
 	exit(rc);
 }

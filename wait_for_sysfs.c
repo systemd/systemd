@@ -387,7 +387,7 @@ int main(int argc, char *argv[], char *envp[])
 	const char *devpath = "";
 	const char *action;
 	const char *subsystem;
-	char sysfs_path[SYSFS_PATH_MAX];
+	char sysfs_mnt_path[SYSFS_PATH_MAX];
 	char filename[SYSFS_PATH_MAX];
 	struct sysfs_class_device *class_dev;
 	struct sysfs_device *devices_dev;
@@ -422,14 +422,14 @@ int main(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 
-	if (sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX) != 0) {
+	if (sysfs_get_mnt_path(sysfs_mnt_path, SYSFS_PATH_MAX) != 0) {
 		dbg("error: no sysfs path");
 		rc = 2;
 		goto exit;
 	}
 
 	if ((strncmp(devpath, "/block/", 7) == 0) || (strncmp(devpath, "/class/", 7) == 0)) {
-		snprintf(filename, SYSFS_PATH_MAX-1, "%s%s", sysfs_path, devpath);
+		snprintf(filename, SYSFS_PATH_MAX-1, "%s%s", sysfs_mnt_path, devpath);
 		filename[SYSFS_PATH_MAX-1] = '\0';
 
 		/* open the class device we are called for */
@@ -446,7 +446,7 @@ int main(int argc, char *argv[], char *envp[])
 		sysfs_close_class_device(class_dev);
 
 	} else if ((strncmp(devpath, "/devices/", 9) == 0)) {
-		snprintf(filename, SYSFS_PATH_MAX-1, "%s%s", sysfs_path, devpath);
+		snprintf(filename, SYSFS_PATH_MAX-1, "%s%s", sysfs_mnt_path, devpath);
 		filename[SYSFS_PATH_MAX-1] = '\0';
 
 		/* open the path we are called for */
