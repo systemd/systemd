@@ -25,14 +25,23 @@ will be prepended.
 .TP
 .BI -q " query_type"
 Query the database for specified value of a created device node.
+.RB Needs " -p " or " -n " specified.
+.br
 Valid types are:
-.BR name ", " symlink ", " owner " , " group " or " path.
+.BR name ", " symlink ", " mode " ," owner " , " group " or " path.
 .TP
 .BI -p " sysfs_path"
 Specify the sysfs path of the device to query.
 .TP
 .BI -n " name"
 Specify the name of the node for the device to query.
+.TP
+.B -a
+Print all
+.BI SYSFS_ filename
+attributes along the device chain. Useful for for finding
+unique attributes to compose a rule.
+.RB Needs " -p " specified.
 .TP
 .B -d
 Dump the whole database.
