@@ -25,7 +25,7 @@ my $PWD = $ENV{PWD};
 my $sysfs     = "sys/";
 my $udev_bin  = "../udev";
 my $udev_root = "udev-root/"; # !!! directory will be removed !!!
-my $udev_db   = "udev.tdb";
+my $udev_db   = ".udev.tdb";
 my $perm      = "udev.permissions";
 my $conf_tmp  = "udev-test.config";
 
@@ -108,6 +108,24 @@ EOF
 CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n test-%b", ID="test-*", NAME="%c"
 EOF
 	},
+	{
+		desc     => "devfs disk naming substitution",
+		subsys   => "block",
+		devpath  => "block/sda",
+		expected => "lun0/disk" ,
+		conf     => <<EOF
+LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="lun0/%D"
+EOF
+	},
+	{
+		desc     => "devfs disk naming substitution",
+		subsys   => "block",
+		devpath  => "block/sda/sda2",
+		expected => "lun0/part2" ,
+		conf     => <<EOF
+LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="lun0/%D"
+EOF
+	},
 );
 
 # set env
@@ -173,7 +191,7 @@ foreach my $config (@tests) {
 print "$error errors occured\n\n";
 
 # cleanup
+unlink($udev_db);
 system("rm -rf $udev_root");
 unlink($conf_tmp);
-unlink($udev_db);
 
