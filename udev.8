@@ -178,7 +178,7 @@ TOPOLOGY, BUS="usb", PLACE="2.3", NAME="mouse1"
 REPLACE, KERNEL="ttyUSB1", NAME="pda", SYMLINK="palmtop handheld"
 
 # multiple USB webcams with symlinks to be called webcam0, webcam1, ...
-LABEL, BUS="usb", model="WebCam V3", NAME="video%n", SYMLINK="webcam%n"
+LABEL, BUS="usb", SYSFS_model="WebCam V3", NAME="video%n", SYMLINK="webcam%n"
 .fi
 .P
 Permissions and ownership for the created device files may specified at
