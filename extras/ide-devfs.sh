@@ -8,7 +8,7 @@ HOST="${2%\.[0-9]}"
 TARGET="${2#[0-9]\.}"
 
 if [ -z "${HOST#[13579]}" ]; then
-	HOST=`expr ${HOST} - 1`
+	HOST=$((${HOST} - 1))
 	BUS="1"
 else
 	BUS="0"
@@ -24,7 +24,7 @@ get_dev_number() {
 		if [ -e "${x}" ]; then
 			MEDIA=`cat ${x}`
 			if [ "${MEDIA}" = "$2" ]; then
-				num=`expr ${num} + 1`
+				num=$((${num} + 1))
 			fi
 			if [ "${x}" = "/proc/ide/${DRIVE}/media" ]; then
 				break
@@ -32,7 +32,7 @@ get_dev_number() {
 		fi
 	done
 	
-	echo `expr ${num} - 1`
+	echo $((${num} - 1))
 }
 
 if [ -z "$3" ]; then
