@@ -113,7 +113,7 @@ int create_path(const char *path)
 }
 
 /* Reset permissions on the device node, before unlinking it to make sure,
- * that permisions of possible hard links will be removed to.
+ * that permisions of possible hard links will be removed too.
  */
 int unlink_secure(const char *filename)
 {

@@ -142,7 +142,7 @@ typedef struct dasd_information_t {
 	unsigned int confdata_size;
 	char characteristics[64];	/* from read_device_characteristics */
 	char configuration_data[256];	/* from read_configuration_data */
-} __attribute__((__packed__)) dasd_information_t;
+} dasd_information_t;
 
 #define _IOC_NRBITS		8
 #define _IOC_TYPEBITS		8
@@ -161,7 +161,7 @@ typedef struct dasd_information_t {
 #define BIODASDINFO _IOR(DASD_IOCTL_LETTER,1,dasd_information_t)
 #define BLKSSZGET _IO(0x12,104)
 
-int volume_id_probe_dasd_partition(struct volume_id *id)
+int volume_id_probe_dasd(struct volume_id *id)
 {
 	int blocksize;
 	dasd_information_t info;

@@ -166,7 +166,7 @@ int main(int argc, char *argv[])
 		if (vid == NULL)
 			goto exit;
 
-		if (volume_id_probe_dasd_partition(vid) == 0)
+		if (volume_id_probe_dasd(vid) == 0)
 			goto print;
 	}
 
