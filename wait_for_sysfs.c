@@ -116,6 +116,15 @@ int main(int argc, char *argv[], char *envp[])
 		/* wait for the class device with possible physical device and bus */
 		wait_for_class_device(class_dev, &error);
 
+		/*
+		 * we got too many unfixable class/net errors, kernel later than 2.6.10-rc1 will
+		 * solve this by exporting the needed information with the hotplug event
+		 * until we use this just don't print any error for net devices, but still
+		 * wait for it.
+		 */
+		if (strncmp(devpath, "/class/net/", 11) == 0)
+			error = NULL;
+
 		sysfs_close_class_device(class_dev);
 
 	} else if ((strncmp(devpath, "/devices/", 9) == 0)) {
