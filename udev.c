@@ -32,7 +32,6 @@
 #include "udev.h"
 #include "udev_lib.h"
 #include "udev_version.h"
-#include "udev_dbus.h"
 #include "logging.h"
 #include "namedev.h"
 #include "udevdb.h"
@@ -61,7 +60,6 @@ static void sig_handler(int signum)
 	switch (signum) {
 		case SIGINT:
 		case SIGTERM:
-			sysbus_disconnect();
 			udevdb_exit();
 			exit(20 + signum);
 		default:
@@ -123,14 +121,11 @@ static int udev_hotplug(void)
 		i++;
 	}
 
-	/* connect to the system message bus */
-	sysbus_connect();
-
 	/* initialize udev database */
 	retval = udevdb_init(UDEVDB_DEFAULT);
 	if (retval != 0) {
 		dbg("unable to initialize database");
-		goto exit_sysbus;
+		goto exit;
 	}
 
 	/* set up a default signal handler for now */
@@ -153,10 +148,6 @@ static int udev_hotplug(void)
 	}
 
 	udevdb_exit();
-
-exit_sysbus:
-	/* disconnect from the system message bus */
-	sysbus_disconnect();
 
 exit:
 	if (retval > 0)
