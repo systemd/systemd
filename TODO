@@ -25,8 +25,3 @@ greg@kroah.com
 - do early boot logic (putting udev into initramfs, handle pivot-root,
   etc.)
 - lots of other stuff...
-- actually use the BUS= value to determine where the LABEL rule should look
-  (right now it's ignored, and we only look in the current sysfs directory.)
-  This is needed, for example, to look at the usb device's serial number of a
-  usb-storage device, instead of the scsi device's sysfs directory for the
-  serial number.
