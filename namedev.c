@@ -514,7 +514,7 @@ static void apply_format(struct udevice *udev, unsigned char *string)
 			case 'b':
 				if (strlen(udev->bus_id) == 0)
 					break;
-				strcat(string, udev->bus_id);
+				strcat(pos, udev->bus_id);
 				dbg("substitute bus_id '%s'", udev->bus_id);
 				break;
 			case 'n':
