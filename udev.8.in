@@ -92,11 +92,11 @@ the name is used to name the device file or the network interface.
 .br
 If no matching rule is found, the default kernel device name is used.
 .P
-Every rule consists of a list of comma separated fields:
+Every rule consists of a list of comma separated key value fields:
 .sp
-.IR "key " ,[ "key " ,...] " name " [, " symlink" ]
-.sp
-where fields are:
+.IR "key " ,[ "key " ,...]
+.P
+The following key names can be used to match against device properties:
 .TP
 .B BUS
 Match the bus type of the device.
@@ -126,18 +126,20 @@ the key doesn't have any trailing whitespace characters by itself.
 Call external program. This key is valid if the program returns successful.
 The environment variables of
 .B udev
-are also available for the program.
+are also available to the program.
 .br
 The string returned by the program may be additionally matched with the
 .B RESULT
-key.
+key in the same or any later rule.
 .TP
 .B RESULT
 Match the returned string of the last
 .B PROGRAM
-call. This key may be used in any following rule after a
+call. This key can be used in the same or in any later rule after a
 .B PROGRAM
 call.
+.P
+The following keys can get values assigned:
 .TP
 .B NAME
 The name of the node to be created, or the name, the network interface
@@ -161,6 +163,10 @@ distribution provided rules file.
 The permissions for the device node. Every specified value overwrites the
 compiled-in default value.
 .TP
+.B OPTIONS
+.B last_rule
+will be the last rule applied. No later rules will have any effect.
+.sp
 .B OPTIONS
 .B ignore_device
 will ignore this device. No node will be created.
@@ -240,31 +246,31 @@ the first three characters of the sysfs attribute.
 .sp
 .nf
 # if /sbin/scsi_id returns "OEM 0815", the device will be called disk1
-BUS="scsi", PROGRAM="/sbin/scsi_id", RESULT="OEM 0815", NAME="disk1"
+BUS=="scsi", PROGRAM=="/sbin/scsi_id", RESULT=="OEM 0815", NAME="disk1"
 
 # USB printer to be called lp_color
-BUS="usb", SYSFS{serial}="W09090207101241330", NAME="lp_color"
+BUS=="usb", SYSFS{serial}=="W09090207101241330", NAME="lp_color"
 
 # SCSI disk with a specific vendor and model number will be called boot
-BUS="scsi", SYSFS{vendor}="IBM", SYSFS{model}="ST336", NAME="boot%n"
+BUS=="scsi", SYSFS{vendor}=="IBM", SYSFS{model}=="ST336", NAME="boot%n"
 
 # sound card with PCI bus id 00:0b.0 to be called dsp
-BUS="pci", ID="00:0b.0", NAME="dsp"
+BUS=="pci", ID=="00:0b.0", NAME="dsp"
 
 # USB mouse at third port of the second hub to be called mouse1
-BUS="usb", ID="2.3", NAME="mouse1"
+BUS=="usb", ID=="2.3", NAME="mouse1"
 
 # ttyUSB1 should always be called pda with two additional symlinks
-KERNEL="ttyUSB1", NAME="pda", SYMLINK="palmtop handheld"
+KERNEL=="ttyUSB1", NAME="pda", SYMLINK="palmtop handheld"
 
 # multiple USB webcams with symlinks to be called webcam0, webcam1, ...
-BUS="usb", SYSFS{model}="XV3", NAME="video%n", SYMLINK="webcam%n"
+BUS=="usb", SYSFS{model}=="XV3", NAME=="video%n", SYMLINK="webcam%n"
 
 # grouping of optical drives from multiple kernel subsystems
-KERNEL="sr*", NAME="%k", SYMLINK="cdrom%e"
-KERNEL="scd*", NAME="%k", SYMLINK="cdrom%e"
-KERNEL="pcd*", NAME="%k", SYMLINK="cdrom%e"
-KERNEL="hd[a-z]", PROGRAM="/bin/cat /proc/ide/%k/media", RESULT="cdrom",
+KERNEL=="sr*", NAME="%k", SYMLINK="cdrom%e"
+KERNEL=="scd*", NAME="%k", SYMLINK="cdrom%e"
+KERNEL=="pcd*", NAME="%k", SYMLINK="cdrom%e"
+KERNEL=="hd[a-z]", PROGRAM=="/bin/cat /proc/ide/%k/media", RESULT=="cdrom",
   NAME="%k", SYMLINK="cdrom%e"
 .fi
 .P

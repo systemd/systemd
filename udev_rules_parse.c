@@ -73,6 +73,90 @@ void udev_rule_list_dump(void)
 		udev_rule_dump(rule);
 }
 
+static int get_key(char **line, char **key, enum key_operation *operation, char **value)
+{
+	char *linepos;
+	char *temp;
+
+	linepos = *line;
+	if (!linepos)
+		return -1;
+
+	/* skip whitespace */
+	while (isspace(linepos[0]) || linepos[0] == ',')
+		linepos++;
+
+	/* get the key */
+	*key = linepos;
+	while (1) {
+		linepos++;
+		if (linepos[0] == '\0')
+			return -1;
+		if (isspace(linepos[0]))
+			break;
+		if (linepos[0] == '=')
+			break;
+		if (linepos[0] == '+')
+			break;
+		if (linepos[0] == '!')
+			break;
+	}
+
+	/* remember end of key */
+	temp = linepos;
+
+	/* skip whitespace after key */
+	while (isspace(linepos[0]))
+		linepos++;
+
+	/* get operation type */
+	if (linepos[0] == '=' && linepos[1] == '=') {
+		*operation = KEY_OP_MATCH;
+		linepos += 2;
+		dbg("operator=match");
+	} else if (linepos[0] == '!' && linepos[1] == '=') {
+		*operation = KEY_OP_NOMATCH;
+		linepos += 2;
+		dbg("operator=nomatch");
+	} else if (linepos[0] == '+' && linepos[1] == '=') {
+		*operation = KEY_OP_ADD;
+		linepos += 2;
+		dbg("operator=add");
+	} else if (linepos[0] == '=') {
+		*operation = KEY_OP_ASSIGN;
+		linepos++;
+		dbg("operator=assign");
+	} else
+		return -1;
+
+	/* terminate key */
+	temp[0] = '\0';
+	dbg("key='%s'", *key);
+
+	/* skip whitespace after operator */
+	while (isspace(linepos[0]))
+		linepos++;
+
+	/* get the value*/
+	if (linepos[0] == '"')
+		linepos++;
+	else
+		return -1;
+	*value = linepos;
+
+	temp = strchr(linepos, '"');
+	if (!temp)
+		return -1;
+	temp[0] = '\0';
+	temp++;
+	dbg("value='%s'", *value);
+
+	/* move line to next key */
+	*line = temp;
+
+	return 0;
+}
+
 /* extract possible KEY{attr} */
 static char *get_key_attribute(char *str)
 {
@@ -100,9 +184,7 @@ static int rules_parse(struct udevice *udev, const char *filename)
 	char line[LINE_SIZE];
 	char *bufline;
 	int lineno;
-	char *temp;
-	char *temp2;
-	char *temp3;
+	char *linepos;
 	char *attr;
 	char *buf;
 	size_t bufsize;
@@ -113,12 +195,11 @@ static int rules_parse(struct udevice *udev, const char *filename)
 	int retval = 0;
 	struct udev_rule rule;
 
-	if (file_map(filename, &buf, &bufsize) == 0) {
-		dbg("reading '%s' as rules file", filename);
-	} else {
+	if (file_map(filename, &buf, &bufsize) != 0) {
 		dbg("can't open '%s' as rules file", filename);
 		return -1;
 	}
+	dbg("reading '%s' as rules file", filename);
 
 	/* loop through the whole file */
 	cur = 0;
@@ -160,39 +241,47 @@ static int rules_parse(struct udevice *udev, const char *filename)
 
 		/* get all known keys */
 		memset(&rule, 0x00, sizeof(struct udev_rule));
-		temp = line;
+		linepos = line;
 		valid = 0;
 
 		while (1) {
-			retval = parse_get_pair(&temp, &temp2, &temp3);
+			char *key;
+			char *value;
+			enum key_operation operation = KEY_OP_UNKNOWN;
+
+			retval = get_key(&linepos, &key, &operation, &value);
 			if (retval)
 				break;
 
-			if (strcasecmp(temp2, FIELD_KERNEL) == 0) {
-				strlcpy(rule.kernel, temp3, sizeof(rule.kernel));
+			if (strcasecmp(key, KEY_KERNEL) == 0) {
+				strlcpy(rule.kernel, value, sizeof(rule.kernel));
+				rule.kernel_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(temp2, FIELD_SUBSYSTEM) == 0) {
-				strlcpy(rule.subsystem, temp3, sizeof(rule.subsystem));
+			if (strcasecmp(key, KEY_SUBSYSTEM) == 0) {
+				strlcpy(rule.subsystem, value, sizeof(rule.subsystem));
+				rule.subsystem_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(temp2, FIELD_BUS) == 0) {
-				strlcpy(rule.bus, temp3, sizeof(rule.bus));
+			if (strcasecmp(key, KEY_BUS) == 0) {
+				strlcpy(rule.bus, value, sizeof(rule.bus));
+				rule.bus_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(temp2, FIELD_ID) == 0) {
-				strlcpy(rule.id, temp3, sizeof(rule.id));
+			if (strcasecmp(key, KEY_ID) == 0) {
+				strlcpy(rule.id, value, sizeof(rule.id));
+				rule.id_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strncasecmp(temp2, FIELD_SYSFS, sizeof(FIELD_SYSFS)-1) == 0) {
+			if (strncasecmp(key, KEY_SYSFS, sizeof(KEY_SYSFS)-1) == 0) {
 				struct sysfs_pair *pair = &rule.sysfs_pair[0];
 				int sysfs_pair_num = 0;
 
@@ -206,39 +295,43 @@ static int rules_parse(struct udevice *udev, const char *filename)
 					++pair;
 				}
 				if (pair) {
-					attr = get_key_attribute(temp2 + sizeof(FIELD_SYSFS)-1);
+					attr = get_key_attribute(key + sizeof(KEY_SYSFS)-1);
 					if (attr == NULL) {
-						dbg("error parsing " FIELD_SYSFS " attribute");
+						dbg("error parsing " KEY_SYSFS " attribute");
 						continue;
 					}
 					strlcpy(pair->file, attr, sizeof(pair->file));
-					strlcpy(pair->value, temp3, sizeof(pair->value));
+					strlcpy(pair->value, value, sizeof(pair->value));
+					pair->operation = operation;
 					valid = 1;
 				}
 				continue;
 			}
 
-			if (strcasecmp(temp2, FIELD_DRIVER) == 0) {
-				strlcpy(rule.driver, temp3, sizeof(rule.driver));
+			if (strcasecmp(key, KEY_DRIVER) == 0) {
+				strlcpy(rule.driver, value, sizeof(rule.driver));
+				rule.driver_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(temp2, FIELD_PROGRAM) == 0) {
+			if (strcasecmp(key, KEY_RESULT) == 0) {
+				strlcpy(rule.result, value, sizeof(rule.result));
+				rule.result_operation = operation;
+				valid = 1;
+				continue;
+			}
+
+			if (strcasecmp(key, KEY_PROGRAM) == 0) {
+				strlcpy(rule.program, value, sizeof(rule.program));
+				rule.program_operation = operation;
 				program_given = 1;
-				strlcpy(rule.program, temp3, sizeof(rule.program));
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(temp2, FIELD_RESULT) == 0) {
-				strlcpy(rule.result, temp3, sizeof(rule.result));
-				valid = 1;
-				continue;
-			}
-
-			if (strncasecmp(temp2, FIELD_NAME, sizeof(FIELD_NAME)-1) == 0) {
-				attr = get_key_attribute(temp2 + sizeof(FIELD_NAME)-1);
+			if (strncasecmp(key, KEY_NAME, sizeof(KEY_NAME)-1) == 0) {
+				attr = get_key_attribute(key + sizeof(KEY_NAME)-1);
 				/* FIXME: remove old style options and make OPTIONS= mandatory */
 				if (attr != NULL) {
 					if (strstr(attr, OPTION_PARTITIONS) != NULL) {
@@ -250,52 +343,52 @@ static int rules_parse(struct udevice *udev, const char *filename)
 						rule.ignore_remove = 1;
 					}
 				}
-				if (temp3[0] != '\0')
-					strlcpy(rule.name, temp3, sizeof(rule.name));
+				if (value[0] != '\0')
+					strlcpy(rule.name, value, sizeof(rule.name));
 				else
 					rule.ignore_device = 1;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(temp2, FIELD_SYMLINK) == 0) {
-				strlcpy(rule.symlink, temp3, sizeof(rule.symlink));
+			if (strcasecmp(key, KEY_SYMLINK) == 0) {
+				strlcpy(rule.symlink, value, sizeof(rule.symlink));
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(temp2, FIELD_OWNER) == 0) {
-				strlcpy(rule.owner, temp3, sizeof(rule.owner));
+			if (strcasecmp(key, KEY_OWNER) == 0) {
+				strlcpy(rule.owner, value, sizeof(rule.owner));
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(temp2, FIELD_GROUP) == 0) {
-				strlcpy(rule.group, temp3, sizeof(rule.group));
+			if (strcasecmp(key, KEY_GROUP) == 0) {
+				strlcpy(rule.group, value, sizeof(rule.group));
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(temp2, FIELD_MODE) == 0) {
-				rule.mode = strtol(temp3, NULL, 8);
+			if (strcasecmp(key, KEY_MODE) == 0) {
+				rule.mode = strtol(value, NULL, 8);
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(temp2, FIELD_OPTIONS) == 0) {
-				if (strstr(temp3, OPTION_LAST_RULE) != NULL) {
+			if (strcasecmp(key, KEY_OPTIONS) == 0) {
+				if (strstr(value, OPTION_LAST_RULE) != NULL) {
 					dbg("last rule to be applied");
 					rule.last_rule = 1;
 				}
-				if (strstr(temp3, OPTION_IGNORE_DEVICE) != NULL) {
+				if (strstr(value, OPTION_IGNORE_DEVICE) != NULL) {
 					dbg("device should be ignored");
 					rule.ignore_device = 1;
 				}
-				if (strstr(temp3, OPTION_IGNORE_REMOVE) != NULL) {
+				if (strstr(value, OPTION_IGNORE_REMOVE) != NULL) {
 					dbg("remove event should be ignored");
 					rule.ignore_remove = 1;
 				}
-				if (strstr(temp3, OPTION_PARTITIONS) != NULL) {
+				if (strstr(value, OPTION_PARTITIONS) != NULL) {
 					dbg("creation of partition nodes requested");
 					rule.partitions = DEFAULT_PARTITIONS_COUNT;
 				}
@@ -303,7 +396,7 @@ static int rules_parse(struct udevice *udev, const char *filename)
 				continue;
 			}
 
-			dbg("unknown type of field '%s'", temp2);
+			dbg("unknown key '%s'", key);
 			goto error;
 		}
 
@@ -314,13 +407,13 @@ static int rules_parse(struct udevice *udev, const char *filename)
 		/* simple plausibility checks for given keys */
 		if ((rule.sysfs_pair[0].file[0] == '\0') ^
 		    (rule.sysfs_pair[0].value[0] == '\0')) {
-			info("inconsistency in " FIELD_SYSFS " key");
+			info("inconsistency in " KEY_SYSFS " key");
 			goto error;
 		}
 
 		if ((rule.result[0] != '\0') && (program_given == 0)) {
-			info(FIELD_RESULT " is only useful when "
-			     FIELD_PROGRAM " is called in any rule before");
+			info(KEY_RESULT " is only useful when "
+			     KEY_PROGRAM " is called in any rule before");
 			goto error;
 		}
 
@@ -332,7 +425,7 @@ static int rules_parse(struct udevice *udev, const char *filename)
 			continue;
 error:
 			info("parse error %s, line %d:%d, rule skipped",
-			     filename, lineno, (int) (temp - line));
+			     filename, lineno, (int) (linepos - line));
 		}
 	}
 

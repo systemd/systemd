@@ -390,7 +390,7 @@ static int execute_program(struct udevice *udev, const char *path, char *value, 
 		dup2(fds[1], STDOUT_FILENO);
 		retval = execv(arg, argv);
 
-		info(FIELD_PROGRAM " execution of '%s' failed", path);
+		info(KEY_PROGRAM " execution of '%s' failed", path);
 		exit(1);
 	case -1:
 		dbg("fork failed");
@@ -508,8 +508,13 @@ static int match_sysfs_pairs(struct udev_rule *rule, struct sysfs_class_device *
 		if ((pair->file[0] == '\0') || (pair->value[0] == '\0'))
 			break;
 		if (compare_sysfs_attribute(class_dev, sysfs_device, pair) != 0) {
-			dbg("sysfs attribute doesn't match");
-			return -ENODEV;
+			dbg("sysfs pair #%u does not match", i);
+			if (pair->operation != KEY_OP_NOMATCH)
+				return -1;
+		} else {
+			dbg("sysfs pair #%u matches", i);
+			if (pair->operation == KEY_OP_NOMATCH)
+				return -1;
 		}
 	}
 
@@ -535,23 +540,33 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		      struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
 	if (rule->kernel[0] != '\0') {
-		dbg("check for " FIELD_KERNEL " rule->kernel='%s' class_dev->name='%s'",
+		dbg("check for " KEY_KERNEL " rule->kernel='%s' class_dev->name='%s'",
 		    rule->kernel, class_dev->name);
 		if (strcmp_pattern(rule->kernel, class_dev->name) != 0) {
-			dbg(FIELD_KERNEL " is not matching");
-			goto exit;
+			dbg(KEY_KERNEL " is not matching");
+			if (rule->kernel_operation != KEY_OP_NOMATCH)
+				goto exit;
+		} else {
+			dbg(KEY_KERNEL " matches");
+			if (rule->kernel_operation == KEY_OP_NOMATCH)
+				goto exit;
 		}
-		dbg(FIELD_KERNEL " matches");
+		dbg(KEY_KERNEL " key is true");
 	}
 
 	if (rule->subsystem[0] != '\0') {
-		dbg("check for " FIELD_SUBSYSTEM " rule->subsystem='%s' class_dev->name='%s'",
+		dbg("check for " KEY_SUBSYSTEM " rule->subsystem='%s' class_dev->name='%s'",
 		    rule->subsystem, class_dev->name);
 		if (strcmp_pattern(rule->subsystem, udev->subsystem) != 0) {
-			dbg(FIELD_SUBSYSTEM " is not matching");
-			goto exit;
+			dbg(KEY_SUBSYSTEM " is not matching");
+			if (rule->subsystem_operation != KEY_OP_NOMATCH)
+				goto exit;
+		} else {
+			dbg(KEY_SUBSYSTEM " matches");
+			if (rule->subsystem_operation == KEY_OP_NOMATCH)
+				goto exit;
 		}
-		dbg(FIELD_SUBSYSTEM " matches");
+		dbg(KEY_SUBSYSTEM " key is true");
 	}
 
 	/* walk up the chain of physical devices and find a match */
@@ -562,13 +577,18 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 				dbg("device has no sysfs_device");
 				goto try_parent;
 			}
-			dbg("check for " FIELD_DRIVER " rule->driver='%s' sysfs_device->driver_name='%s'",
+			dbg("check for " KEY_DRIVER " rule->driver='%s' sysfs_device->driver_name='%s'",
 			    rule->driver, sysfs_device->driver_name);
 			if (strcmp_pattern(rule->driver, sysfs_device->driver_name) != 0) {
-				dbg(FIELD_DRIVER " is not matching");
-				goto try_parent;
+				dbg(KEY_DRIVER " is not matching");
+				if (rule->driver_operation != KEY_OP_NOMATCH)
+					goto try_parent;
+			} else {
+				dbg(KEY_DRIVER " matches");
+				if (rule->driver_operation == KEY_OP_NOMATCH)
+					goto try_parent;
 			}
-			dbg(FIELD_DRIVER " matches");
+			dbg(KEY_DRIVER " key is true");
 		}
 
 		/* check for matching bus value */
@@ -577,13 +597,18 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 				dbg("device has no sysfs_device");
 				goto try_parent;
 			}
-			dbg("check for " FIELD_BUS " rule->bus='%s' sysfs_device->bus='%s'",
+			dbg("check for " KEY_BUS " rule->bus='%s' sysfs_device->bus='%s'",
 			    rule->bus, sysfs_device->bus);
 			if (strcmp_pattern(rule->bus, sysfs_device->bus) != 0) {
-				dbg(FIELD_BUS " is not matching");
-				goto try_parent;
+				dbg(KEY_BUS " is not matching");
+				if (rule->bus_operation != KEY_OP_NOMATCH)
+					goto try_parent;
+			} else {
+				dbg(KEY_BUS " matches");
+				if (rule->bus_operation == KEY_OP_NOMATCH)
+					goto try_parent;
 			}
-			dbg(FIELD_BUS " matches");
+			dbg(KEY_BUS " key is true");
 		}
 
 		/* check for matching bus id */
@@ -592,22 +617,27 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 				dbg("device has no sysfs_device");
 				goto try_parent;
 			}
-			dbg("check " FIELD_ID);
+			dbg("check " KEY_ID);
 			if (match_id(rule, sysfs_device) != 0) {
-				dbg(FIELD_ID " is not matching");
-				goto try_parent;
+				dbg(KEY_ID " is not matching");
+				if (rule->id_operation != KEY_OP_NOMATCH)
+					goto try_parent;
+			} else {
+				dbg(KEY_ID " matches");
+				if (rule->id_operation == KEY_OP_NOMATCH)
+					goto try_parent;
 			}
-			dbg(FIELD_ID " matches");
+			dbg(KEY_ID " key is true");
 		}
 
 		/* check for matching sysfs pairs */
 		if (rule->sysfs_pair[0].file[0] != '\0') {
-			dbg("check " FIELD_SYSFS " pairs");
+			dbg("check " KEY_SYSFS " pairs");
 			if (match_sysfs_pairs(rule, class_dev, sysfs_device) != 0) {
-				dbg(FIELD_SYSFS " is not matching");
+				dbg(KEY_SYSFS " is not matching");
 				goto try_parent;
 			}
-			dbg(FIELD_SYSFS " matches");
+			dbg(KEY_SYSFS " keys are true");
 		}
 
 		/* found matching physical device  */
@@ -625,25 +655,35 @@ try_parent:
 	if (rule->program[0] != '\0') {
 		char program[PATH_SIZE];
 
-		dbg("check " FIELD_PROGRAM);
+		dbg("check " KEY_PROGRAM);
 		strlcpy(program, rule->program, sizeof(program));
 		apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
 		if (execute_program(udev, program, udev->program_result, sizeof(udev->program_result)) != 0) {
-			dbg(FIELD_PROGRAM " returned nonzero");
-			goto try_parent;
+			dbg(KEY_PROGRAM " returned nonzero");
+			if (rule->program_operation != KEY_OP_NOMATCH)
+				goto exit;
+		} else {
+			dbg(KEY_PROGRAM " returned successful");
+			if (rule->program_operation == KEY_OP_NOMATCH)
+				goto exit;
 		}
-		dbg(FIELD_PROGRAM " returned successful");
+		dbg(KEY_PROGRAM " key is true");
 	}
 
 	/* check for matching result of external program */
 	if (rule->result[0] != '\0') {
-		dbg("check for " FIELD_RESULT "rule->result='%s', udev->program_result='%s'",
+		dbg("check for " KEY_RESULT " rule->result='%s', udev->program_result='%s'",
 		   rule->result, udev->program_result);
 		if (strcmp_pattern(rule->result, udev->program_result) != 0) {
-			dbg(FIELD_RESULT " is not matching");
-			goto try_parent;
+			dbg(KEY_RESULT " is not matching");
+			if (rule->result_operation != KEY_OP_NOMATCH)
+				goto exit;
+		} else {
+			dbg(KEY_RESULT " matches");
+			if (rule->result_operation == KEY_OP_NOMATCH)
+				goto exit;
 		}
-		dbg(FIELD_RESULT " matches");
+		dbg(KEY_RESULT " key is true");
 	}
 
 	/* rule matches */

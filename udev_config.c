@@ -59,6 +59,54 @@ static int string_is_true(const char *str)
 	return 0;
 }
 
+static int get_key(char **line, char **key, char **value)
+{
+	char *linepos;
+	char *temp;
+
+	linepos = *line;
+	if (!linepos)
+		return -1;
+
+	/* skip whitespace */
+	while (isspace(linepos[0]))
+		linepos++;
+
+	/* get the key */
+	*key = linepos;
+	while (1) {
+		linepos++;
+		if (linepos[0] == '\0')
+			return -1;
+		if (isspace(linepos[0]))
+			break;
+		if (linepos[0] == '=')
+			break;
+	}
+
+	/* terminate key */
+	linepos[0] = '\0';
+	linepos++;
+
+	/* skip whitespace */
+	while (isspace(linepos[0]))
+		linepos++;
+
+	/* get the value*/
+	if (linepos[0] == '"')
+		linepos++;
+	else
+		return -1;
+	*value = linepos;
+
+	temp = strchr(linepos, '"');
+	if (!temp)
+		return -1;
+	temp[0] = '\0';
+
+	return 0;
+}
+
 static void init_variables(void)
 {
 	const char *env;
@@ -86,7 +134,7 @@ static int parse_config_file(void)
 {
 	char line[LINE_SIZE];
 	char *bufline;
-	char *temp;
+	char *linepos;
 	char *variable;
 	char *value;
 	char *buf;
@@ -130,13 +178,14 @@ static int parse_config_file(void)
 			continue;
 
 		strlcpy(line, bufline, count);
-		temp = line;
-		dbg("read '%s'", temp);
+		dbg("read '%s'", line);
 
-		retval = parse_get_pair(&temp, &variable, &value);
-		if (retval != 0)
-			info("%s:%d:%Zd: error parsing '%s'",
-			     udev_config_filename, lineno, temp-line, temp);
+		linepos = line;
+		retval = get_key(&linepos, &variable, &value);
+		if (retval != 0) {
+			info("error parsing %s, line %d:%d", udev_config_filename, lineno, (int) (linepos-line));
+			continue;
+		}
 
 		dbg("variable='%s', value='%s'", variable, value);
 
@@ -168,17 +217,16 @@ static int parse_config_file(void)
 	return retval;
 }
 
-static void get_dirs(void)
+void udev_init_config(void)
 {
-	char *temp;
-	int retval;
 
-	retval = sysfs_get_mnt_path(sysfs_path, sizeof(sysfs_path));
-	if (retval)
-		dbg("sysfs_get_mnt_path failed");
+	init_variables();
+	sysfs_get_mnt_path(sysfs_path, sizeof(sysfs_path));
 
 	/* see if we should try to override any of the default values */
 	if (getenv("UDEV_TEST") != NULL) {
+		char *temp;
+
 		temp = getenv("SYSFS_PATH");
 		if (temp != NULL) {
 			strlcpy(sysfs_path, temp, sizeof(sysfs_path));
@@ -197,10 +245,4 @@ static void get_dirs(void)
 	dbg("udev_db_path='%s'", udev_db_path);
 	dbg("udev_rules_filename='%s'", udev_rules_filename);
 	dbg("udev_log=%d", udev_log);
-}
-
-void udev_init_config(void)
-{
-	init_variables();
-	get_dirs();
 }

@@ -28,20 +28,20 @@
 #include "list.h"
 
 
-#define FIELD_KERNEL		"KERNEL"
-#define FIELD_SUBSYSTEM		"SUBSYSTEM"
-#define FIELD_BUS		"BUS"
-#define FIELD_SYSFS		"SYSFS"
-#define FIELD_ID		"ID"
-#define FIELD_PROGRAM		"PROGRAM"
-#define FIELD_RESULT		"RESULT"
-#define FIELD_DRIVER		"DRIVER"
-#define FIELD_NAME		"NAME"
-#define FIELD_SYMLINK		"SYMLINK"
-#define FIELD_OWNER		"OWNER"
-#define FIELD_GROUP		"GROUP"
-#define FIELD_MODE		"MODE"
-#define FIELD_OPTIONS		"OPTIONS"
+#define KEY_KERNEL		"KERNEL"
+#define KEY_SUBSYSTEM		"SUBSYSTEM"
+#define KEY_BUS			"BUS"
+#define KEY_SYSFS		"SYSFS"
+#define KEY_ID			"ID"
+#define KEY_PROGRAM		"PROGRAM"
+#define KEY_RESULT		"RESULT"
+#define KEY_DRIVER		"DRIVER"
+#define KEY_NAME		"NAME"
+#define KEY_SYMLINK		"SYMLINK"
+#define KEY_OWNER		"OWNER"
+#define KEY_GROUP		"GROUP"
+#define KEY_MODE		"MODE"
+#define KEY_OPTIONS		"OPTIONS"
 
 #define OPTION_LAST_RULE	"last_rule"
 #define OPTION_IGNORE_DEVICE	"ignore_device"
@@ -52,25 +52,41 @@
 
 #define RULEFILE_SUFFIX		".rules"
 
+enum key_operation {
+	KEY_OP_UNKNOWN,
+	KEY_OP_MATCH,
+	KEY_OP_NOMATCH,
+	KEY_OP_ADD,
+	KEY_OP_ASSIGN,
+};
+
 struct sysfs_pair {
 	char file[PATH_SIZE];
 	char value[VALUE_SIZE];
+	enum key_operation operation;
 };
 
 struct udev_rule {
 	struct list_head node;
 
 	char kernel[NAME_SIZE];
+	enum key_operation kernel_operation;
 	char subsystem[NAME_SIZE];
+	enum key_operation subsystem_operation;
 	char bus[NAME_SIZE];
+	enum key_operation bus_operation;
 	char id[NAME_SIZE];
-	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];
-	char program[PATH_SIZE];
-	char result[PATH_SIZE];
+	enum key_operation id_operation;
 	char driver[NAME_SIZE];
+	enum key_operation driver_operation;
+	char program[PATH_SIZE];
+	enum key_operation program_operation;
+	char result[PATH_SIZE];
+	enum key_operation result_operation;
+	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];
+
 	char name[PATH_SIZE];
 	char symlink[PATH_SIZE];
-
 	char owner[USER_SIZE];
 	char group[USER_SIZE];
 	mode_t mode;

@@ -177,41 +177,6 @@ int unlink_secure(const char *filename)
 	return retval;
 }
 
-int parse_get_pair(char **orig_string, char **left, char **right)
-{
-	char *temp;
-	char *string = *orig_string;
-
-	if (!string)
-		return -ENODEV;
-
-	/* eat any whitespace */
-	while (isspace(*string) || *string == ',')
-		++string;
-
-	/* split based on '=' */
-	temp = strsep(&string, "=");
-	*left = temp;
-	if (!string)
-		return -ENODEV;
-
-	/* take the right side and strip off the '"' */
-	while (isspace(string[0]))
-		++string;
-	if (string[0] == '"')
-		++string;
-	else
-		return -ENODEV;
-
-	temp = strsep(&string, "\"");
-	if (!string || temp[0] == '\0')
-		return -ENODEV;
-	*right = temp;
-	*orig_string = string;
-
-	return 0;
-}
-
 int file_map(const char *filename, char **buf, size_t *bufsize)
 {
 	struct stat stats;
