@@ -65,6 +65,41 @@ static int delete_path(char *path)
 	return 0;
 }
 
+/** Remove all permissions on the device node, before
+  * unlinking it. This fixes a security issue.
+  * If the user created a hard-link to the device node,
+  * he can't use it any longer, because he lost permission
+  * to do so.
+  */
+static int secure_unlink(const char *filename)
+{
+	int retval;
+
+	retval = chown(filename, 0, 0);
+	if (retval) {
+		dbg("chown(%s, 0, 0) failed with error '%s'",
+		    filename, strerror(errno));
+		/* We continue nevertheless.
+		 * I think it's very unlikely for chown
+		 * to fail here, if the file exists.
+		 */
+	}
+	retval = chmod(filename, 0000);
+	if (retval) {
+		dbg("chmod(%s, 0000) failed with error '%s'",
+		    filename, strerror(errno));
+		/* We continue nevertheless. */
+	}
+	retval = unlink(filename);
+	if (errno == ENOENT)
+		retval = 0;
+	if (retval) {
+		dbg("unlink(%s) failed with error '%s'",
+			filename, strerror(errno));
+	}
+	return retval;
+}
+
 static int delete_node(struct udevice *dev)
 {
 	char filename[NAME_SIZE];
@@ -79,14 +114,9 @@ static int delete_node(struct udevice *dev)
 	strfieldcat(filename, dev->name);
 
 	info("removing device node '%s'", filename);
-	retval = unlink(filename);
-	if (errno == ENOENT)
-		retval = 0;
-	if (retval) {
-		dbg("unlink(%s) failed with error '%s'",
-			filename, strerror(errno));
+	retval = secure_unlink(filename);
+	if (retval)
 		return retval;
-	}
 
 	/* remove partition nodes */
 	if (dev->partitions > 0) {
@@ -94,7 +124,7 @@ static int delete_node(struct udevice *dev)
 		for (i = 1; i <= dev->partitions; i++) {
 			strfieldcpy(partitionname, filename);
 			strintcat(partitionname, i);
-			unlink(partitionname);
+			secure_unlink(partitionname);
 		}
 	}
 
