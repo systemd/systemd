@@ -297,6 +297,17 @@ video*:root:video:0660
 dsp1:::0666
 .fi
 .P
+The value
+.I $local
+can be substituted for a specific username.  In that case, udev will determine
+the current local user at the time of device node creation and substitute
+that username as the owner of the new device node.  This is useful, for
+example, to let hot-plugged devices, such as cameras, be owned by the user at
+the current console.  Note that if no user is currently logged in, or if udev
+otherwise fails to determine a current user, the
+.I default_owner
+value is used in lieu.
+.P
 A number of different fields in the above configuration files support a simple
 form of shell style pattern matching. It supports the following pattern characters:
 .TP
