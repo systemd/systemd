@@ -1,8 +1,6 @@
 # Makefile for libsysfs.a
 # Copyright (c) International Business Machines Corp., 2003
 
-CC=gcc
-
 H_INCLUDE=../include
 LIB_INCLUDE=.
 OBJS=sysfs_bus.o sysfs_class.o sysfs_device.o sysfs_dir.o sysfs_driver.o \
@@ -19,8 +17,8 @@ LIBSYSFS=libsysfs.a
 RM=rm -f
 
 libsysfs.a: $(OBJS)
-	ar cru $(LIBSYSFS) $(OBJS)
-	ranlib $(LIBSYSFS)
+	$(AR) cru $(LIBSYSFS) $(OBJS)
+	$(RANLIB) $(LIBSYSFS)
 
 sysfs_bus.o: sysfs_bus.c
 	$(CC) -I$(H_INCLUDE) -I$(LIB_INCLUDE) $(CFLAGS) -c sysfs_bus.c

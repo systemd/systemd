@@ -38,7 +38,9 @@ CROSS = #/usr/i386-linux-uclibc/usr/bin/i386-uclibc-
 CC = $(CROSS)gcc
 AR = $(CROSS)ar
 STRIP = $(CROSS)strip
+RANLIB = $(CROSS)ranlib
 
+export CROSS CC AR STRIP RANLIB
 
 # code taken from uClibc to determine the current arch
 ARCH := ${shell $(CC) -dumpmachine | sed -e s'/-.*//' -e 's/i.86/i386/' -e 's/sparc.*/sparc/' \
