@@ -96,7 +96,7 @@ KERNEL="vcsa[0-9]*", NAME="vcc/a%n", SYMLINK="%k"
 # v4l devices
 KERNEL="video[0-9]*", NAME="v4l/video%n", SYMLINK="video%n"
 KERNEL="radio[0-9]*", NAME="v4l/radio%n"
-KERNEL="vbi[0-9]*",   NAME="v4l/vbi%n"
+KERNEL="vbi[0-9]*",   NAME="v4l/vbi%n",   SYMLINK="vbi%n"
 KERNEL="vtx[0-9]*",   NAME="v4l/vtx%n"
 
 # USB devices
