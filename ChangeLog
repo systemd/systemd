@@ -1,3 +1,10 @@
+Summary of changes from v029 to v030
+============================================
+
+Greg Kroah-Hartman:
+  o fix stupid off-by-one bug that caused udevstart to die on x86-64 boxes
+
+
 Summary of changes from v028 to v029
 ============================================
 
