@@ -150,7 +150,7 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 		if (endptr[0] == '\0')
 			gid = (gid_t) id;
 		else
-			gid = lookup_user(udev->group);
+			gid = lookup_group(udev->group);
 	}
 
 	if (!udev->test_run) {

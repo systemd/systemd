@@ -140,7 +140,7 @@ static unsigned long get_id_by_name(const char *uname, const char *dbfile)
 		dbg("can't open '%s' as db file", dbfile);
 		return 0;
 	}
-	dbg("reading '%s' as db file", dbfile);
+	dbg("search '%s' in '%s'", uname, dbfile);
 
 	/* loop through the whole file */
 	cur = 0;
