@@ -125,38 +125,4 @@ struct group *getgrnam(const char *name)
 		return &gr;
 }
 
-
-int ufd = -1;
-
-void setutent()
-{
-	if (ufd < 0)
-		ufd = open(UTMP_FILE, O_RDONLY);
-	fcntl(ufd, F_SETFD, FD_CLOEXEC);
-	lseek(ufd, 0, SEEK_SET);
-}
-
-void endutent() {
-	if (ufd < 0)
-		return;
-	close(ufd);
-	ufd = -1;
-}
-
-struct utmp *getutent(void)
-{
-	static struct utmp utmp;
-	int retval;
-
-	if (ufd < 0) {
-		setutent();
-		if (ufd < 0)
-			return NULL;
-	}
-	retval = read(ufd, &utmp, sizeof(struct utmp));
-	if (retval < 1)
-		return NULL;
-	return &utmp;
-}
-
 #endif

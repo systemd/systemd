@@ -48,8 +48,6 @@
 #include "udevdb.h"
 #include "klibc_fixups.h"
 
-#define LOCAL_USER "$local"
-
 #include "selinux.h"
 
 /*
@@ -155,37 +153,6 @@ exit:
 	return retval;
 }
 
-/* get the local logged in user */
-static void set_to_local_user(char *user)
-{
-	struct utmp *u;
-	time_t recent = 0;
-
-	strfieldcpymax(user, default_owner_str, OWNER_SIZE);
-	setutent();
-	while (1) {
-		u = getutent();
-		if (u == NULL)
-			break;
-
-		/* is this a user login ? */
-		if (u->ut_type != USER_PROCESS)
-			continue;
-
-		/* is this a local login ? */
-		if (strcmp(u->ut_host, ""))
-			continue;
-
-		if (u->ut_time > recent) {
-			recent = u->ut_time;
-			strfieldcpymax(user, u->ut_user, OWNER_SIZE);
-			dbg("local user is '%s'", user);
-			break;
-		}
-	}
-	endutent();
-}
-
 static int create_node(struct udevice *udev)
 {
 	char filename[NAME_SIZE];
@@ -229,8 +196,6 @@ static int create_node(struct udevice *udev)
 			uid = (uid_t) id;
 		else {
 			struct passwd *pw;
-			if (strncmp(udev->owner, LOCAL_USER, sizeof(LOCAL_USER)) == 0)
-				set_to_local_user(udev->owner);
 
 			pw = getpwnam(udev->owner);
 			if (pw == NULL)

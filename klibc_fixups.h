@@ -62,10 +62,5 @@ struct utmp
 	char __unused[20];		/* reserved for future use */
 };
 
-struct utmp *getutent(void);
-void setutent(void);
-void endutent(void);
-
-
 #endif /* KLIBC_FIXUPS_H */
 #endif /* __KLIBC__ */
