@@ -36,8 +36,7 @@
 #include "list.h"
 
 
-void udev_set_values(struct udevice *udev, const char* devpath,
-		     const char *subsystem, const char* action)
+void udev_init_device(struct udevice *udev, const char* devpath, const char *subsystem)
 {
 	memset(udev, 0x00, sizeof(struct udevice));
 
@@ -45,8 +44,6 @@ void udev_set_values(struct udevice *udev, const char* devpath,
 		strfieldcpy(udev->devpath, devpath);
 	if (subsystem)
 		strfieldcpy(udev->subsystem, subsystem);
-	if (action)
-		strfieldcpy(udev->action, action);
 
 	if (strcmp(udev->subsystem, "block") == 0)
 		udev->type = 'b';

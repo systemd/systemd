@@ -708,7 +708,6 @@ try_parent:
 			return -ENODEV;
 		dbg("sysfs_device->path='%s'", sysfs_device->path);
 		dbg("sysfs_device->bus_id='%s'", sysfs_device->bus_id);
-		dbg("sysfs_device->bus='%s'", sysfs_device->bus);
 	}
 
 }
@@ -742,7 +741,6 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 		dbg("found devices device: path='%s', bus_id='%s', bus='%s'",
 		    sysfs_device->path, sysfs_device->bus_id, sysfs_device->bus);
 		strfieldcpy(udev->bus_id, sysfs_device->bus_id);
-		strfieldcpy(udev->bus, sysfs_device->bus);
 	}
 
 	strfieldcpy(udev->kernel_name, class_dev->name);

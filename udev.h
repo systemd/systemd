@@ -50,7 +50,6 @@
 struct udevice {
 	char devpath[DEVPATH_SIZE];
 	char subsystem[SUBSYSTEM_SIZE];
-	char action[ACTION_SIZE];
 	char name[NAME_SIZE];
 	char owner[OWNER_SIZE];
 	char group[GROUP_SIZE];
@@ -65,7 +64,6 @@ struct udevice {
 	char config_file[NAME_SIZE];
 	long config_uptime;
 	char bus_id[SYSFS_NAME_LEN];
-	char bus[SYSFS_NAME_LEN];
 	char program_result[NAME_SIZE];
 	char kernel_number[NAME_SIZE];
 	char kernel_name[NAME_SIZE];

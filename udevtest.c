@@ -97,7 +97,7 @@ int main(int argc, char *argv[], char *envp[])
 		subsystem = argv[2];
 
 	/* fill in values and test_run flag*/
-	udev_set_values(&udev, devpath, subsystem, "add");
+	udev_init_device(&udev, devpath, subsystem);
 
 	/* open the device */
 	snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, udev.devpath);

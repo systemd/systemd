@@ -119,7 +119,7 @@ int main(int argc, char *argv[], char *envp[])
 	/* trigger timeout to interrupt blocking syscalls */
 	alarm(ALARM_TIMEOUT);
 
-	udev_set_values(&udev, devpath, subsystem, action);
+	udev_init_device(&udev, devpath, subsystem);
 
 	if (strstr(argv[0], "udevstart") || (argv[1] != NULL && strstr(argv[1], "udevstart"))) {
 		dbg("udevstart");

@@ -76,8 +76,7 @@ do { \
 # define asmlinkage	/* nothing */
 #endif
 
-extern void udev_set_values(struct udevice *udev, const char* devpath,
-			    const char *subsystem, const char* action);
+extern void udev_init_device(struct udevice *udev, const char* devpath, const char *subsystem);
 extern int kernel_release_satisfactory(int version, int patchlevel, int sublevel);
 extern int create_path(const char *path);
 extern int file_map(const char *filename, char **buf, size_t *bufsize);

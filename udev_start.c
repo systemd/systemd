@@ -105,7 +105,7 @@ static int add_device(char *devpath, char *subsystem)
 		return -ENODEV;
 	}
 
-	udev_set_values(&udev, devpath, subsystem, "add");
+	udev_init_device(&udev, devpath, subsystem);
 	udev_add_device(&udev, class_dev);
 
 	/* run dev.d/ scripts if we created a node or changed a netif name */
