@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <fcntl.h>
 #include <sys/types.h>
 
 #include "klibc_fixups.h"
@@ -32,6 +33,8 @@
 
 #define PW_FILE		"/etc/passwd"
 #define GR_FILE		"/etc/group"
+#define UTMP_FILE	"/var/run/utmp"
+
 
 /* return the id of a passwd style line, selected by the users name */
 static unsigned long get_id_by_name(const char *uname, const char *dbfile)
@@ -105,6 +108,40 @@ struct group *getgrnam(const char *name)
 		return NULL;
 	else
 		return &gr;
+}
+
+
+int ufd = -1;
+
+void setutent()
+{
+	if (ufd < 0)
+		ufd = open(UTMP_FILE, O_RDONLY);
+	fcntl(ufd, F_SETFD, FD_CLOEXEC);
+	lseek(ufd, 0, SEEK_SET);
+}
+
+void endutent() {
+	if (ufd < 0)
+		return;
+	close(ufd);
+	ufd = -1;
+}
+
+struct utmp *getutent(void)
+{
+	static struct utmp utmp;
+	int retval;
+
+	if (ufd < 0) {
+		setutent();
+		if (ufd < 0)
+			return NULL;
+	}
+	retval = read(ufd, &utmp, sizeof(struct utmp));
+	if (retval < 1)
+		return NULL;
+	return &utmp;
 }
 
 #endif

@@ -32,6 +32,7 @@
 #include <grp.h>
 #ifndef __KLIBC__
 #include <pwd.h>
+#include <utmp.h>
 #endif
 
 #include "libsysfs/sysfs/libsysfs.h"
@@ -43,6 +44,8 @@
 #include "namedev.h"
 #include "udevdb.h"
 #include "klibc_fixups.h"
+
+#define LOCAL_USER "$local"
 
 /* 
  * Right now the major/minor of a device is stored in a file called
@@ -132,6 +135,37 @@ static int make_node(char *filename, int major, int minor, unsigned int mode, ui
 	return 0;
 }
 
+/* get the local logged in user */
+static void set_to_local_user(char *user)
+{
+	struct utmp *u;
+	time_t recent = 0;
+
+	strnfieldcpy(user, default_owner_str, OWNER_SIZE);
+	setutent();
+	while (1) {
+		u = getutent();
+		if (u == NULL)
+			break;
+
+		/* is this a user login ? */
+		if (u->ut_type != USER_PROCESS)
+			continue;
+
+		/* is this a local login ? */
+		if (strcmp(u->ut_host, ""))
+			continue;
+
+		if (u->ut_time > recent) {
+			recent = u->ut_time;
+			strfieldcpy(user, u->ut_user);
+			dbg("local user is '%s'", user);
+			break;
+		}
+	}
+	endutent();
+}
+
 static int create_node(struct udevice *dev, int fake)
 {
 	struct stat stats;
@@ -175,6 +209,9 @@ static int create_node(struct udevice *dev, int fake)
 		if (endptr[0] == '\0')
 			uid = (uid_t) id;
 		else {
+			if (strncmp(dev->owner, LOCAL_USER, sizeof(LOCAL_USER)) == 0)
+				set_to_local_user(dev->owner);
+
 			struct passwd *pw = getpwnam(dev->owner);
 			if (pw == NULL)
 				dbg("specified user unknown '%s'", dev->owner);
