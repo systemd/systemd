@@ -252,14 +252,17 @@ else
 endif
 
 udev.a: $(UDEV_OBJS)
+	rm -f $@
 	$(QUIET) $(AR) cq $@ $(UDEV_OBJS)
 	$(QUIET) $(RANLIB) $@
 
 libsysfs/sysfs.a: $(SYSFS_OBJS)
+	rm -f $@
 	$(QUIET) $(AR) cq $@ $(SYSFS_OBJS)
 	$(QUIET) $(RANLIB) $@
 
 klibc_fixups/klibc_fixups.a: $(KLIBC_FIXUP_OBJS)
+	rm -f $@
 	$(QUIET) $(AR) cq $@ $(KLIBC_FIXUP_OBJS)
 	$(QUIET) $(RANLIB) $@
 
