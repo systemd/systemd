@@ -45,7 +45,7 @@ int get_pair(char **orig_string, char **left, char **right)
 		return -ENODEV;
 
 	/* eat any whitespace */
-	while (isspace(*string))
+	while (isspace(*string) || *string == ',')
 		++string;
 
 	/* split based on '=' */
@@ -68,19 +68,6 @@ int get_pair(char **orig_string, char **left, char **right)
 	*right = temp;
 	*orig_string = string;
 	
-	return 0;
-}
-
-static int get_value(const char *left, char **orig_string, char **ret_string)
-{
-	int retval;
-	char *left_string;
-
-	retval = get_pair(orig_string, &left_string, ret_string);
-	if (retval)
-		return retval;
-	if (strcasecmp(left_string, left) != 0)
-		return -ENODEV;
 	return 0;
 }
 
@@ -169,12 +156,7 @@ int namedev_init_rules(void)
 		if (temp == NULL)
 			goto exit;
 		lineno++;
-
 		dbg_parse("read '%s'", temp);
-
-		/* eat the whitespace at the beginning of the line */
-		while (isspace(*temp))
-			++temp;
 
 		/* empty line? */
 		if (*temp == 0x00)
@@ -184,199 +166,160 @@ int namedev_init_rules(void)
 		if (*temp == COMMENT_CHARACTER)
 			continue;
 
+		/* eat the whitespace */
+		while (isspace(*temp))
+			++temp;
+
 		memset(&dev, 0x00, sizeof(struct config_device));
 
-		/* parse the line */
+		/* get the method */
 		temp2 = strsep(&temp, ",");
+
 		if (strcasecmp(temp2, TYPE_LABEL) == 0) {
-			/* label type */
 			dev.type = LABEL;
+			goto keys;
+		}
 
-			/* BUS="bus" */
-			retval = get_value("BUS", &temp, &temp3);
-			if (retval)
-				break;
-			strfieldcpy(dev.bus, temp3);
+		if (strcasecmp(temp2, TYPE_NUMBER) == 0) {
+			dev.type = NUMBER;
+			goto keys;
+		}
 
-			/* file="value" */
-			temp2 = strsep(&temp, ",");
+		if (strcasecmp(temp2, TYPE_TOPOLOGY) == 0) {
+			dev.type = TOPOLOGY;
+			goto keys;
+		}
+
+		if (strcasecmp(temp2, TYPE_REPLACE) == 0) {
+			dev.type = REPLACE;
+			goto keys;
+		}
+
+		if (strcasecmp(temp2, TYPE_CALLOUT) == 0) {
+			dev.type = CALLOUT;
+			goto keys;
+		}
+
+		dbg_parse("unknown type of method '%s'", temp2);
+		goto error;
+keys:
+		/* get all known keys */
+		while (1) {
 			retval = get_pair(&temp, &temp2, &temp3);
 			if (retval)
 				break;
-			strfieldcpy(dev.sysfs_file, temp2);
-			strfieldcpy(dev.sysfs_value, temp3);
 
-			/* NAME="new_name" */
-			temp2 = strsep(&temp, ",");
-			retval = get_value("NAME", &temp, &temp3);
-			if (retval)
-				break;
-			strfieldcpy(dev.name, temp3);
+			if (strcasecmp(temp2, FIELD_BUS) == 0) {
+				strfieldcpy(dev.bus, temp3);
+				continue;
+			}
 
-			/* SYMLINK="name" */
-			temp2 = strsep(&temp, ",");
-			retval = get_value("SYMLINK", &temp, &temp3);
-			if (retval == 0)
+			if (strcasecmp(temp2, FIELD_ID) == 0) {
+				strfieldcpy(dev.id, temp3);
+				continue;
+			}
+
+			if (strcasecmp(temp2, FIELD_PLACE) == 0) {
+				strfieldcpy(dev.place, temp3);
+				continue;
+			}
+
+			if (strncasecmp(temp2, FIELD_SYSFS, sizeof(FIELD_SYSFS)-1) == 0) {
+				/* remove prepended 'SYSFS_' */
+				strfieldcpy(dev.sysfs_file, temp2 + sizeof(FIELD_SYSFS)-1);
+				strfieldcpy(dev.sysfs_value, temp3);
+				continue;
+			}
+
+			if (strcasecmp(temp2, FIELD_KERNEL) == 0) {
+				strfieldcpy(dev.kernel_name, temp3);
+				continue;
+			}
+
+			if (strcasecmp(temp2, FIELD_PROGRAM) == 0) {
+				strfieldcpy(dev.exec_program, temp3);
+				continue;
+			}
+
+			if (strcasecmp(temp2, FIELD_NAME) == 0) {
+				strfieldcpy(dev.name, temp3);
+				continue;
+			}
+
+			if (strcasecmp(temp2, FIELD_SYMLINK) == 0) {
 				strfieldcpy(dev.symlink, temp3);
+				continue;
+			}
 
+			dbg_parse("unknown type of field '%s'", temp2);
+		}
+
+		/* check presence of keys according to method type */
+		switch (dev.type) {
+		case LABEL:
 			dbg_parse("LABEL name='%s', bus='%s', "
 				  "sysfs_file='%s', sysfs_value='%s', symlink='%s'",
 				  dev.name, dev.bus, dev.sysfs_file,
 				  dev.sysfs_value, dev.symlink);
-		}
-
-		if (strcasecmp(temp2, TYPE_NUMBER) == 0) {
-			/* number type */
-			dev.type = NUMBER;
-
-			/* BUS="bus" */
-			retval = get_value("BUS", &temp, &temp3);
-			if (retval)
-				break;
-			strfieldcpy(dev.bus, temp3);
-
-			/* ID="id" */
-			temp2 = strsep(&temp, ",");
-			retval = get_value("ID", &temp, &temp3);
-			if (retval)
-				break;
-			strfieldcpy(dev.id, temp3);
-
-			/* NAME="new_name" */
-			temp2 = strsep(&temp, ",");
-			retval = get_value("NAME", &temp, &temp3);
-			if (retval)
-				break;
-			strfieldcpy(dev.name, temp3);
-
-			/* SYMLINK="name" */
-			temp2 = strsep(&temp, ",");
-			retval = get_value("SYMLINK", &temp, &temp3);
-			if (retval == 0)
-				strfieldcpy(dev.symlink, temp3);
-
+			if ((*dev.name == '\0') ||
+			    (*dev.bus == '\0') ||
+			    (*dev.sysfs_file == '\0') ||
+			    (*dev.sysfs_value == '\0'))
+				goto error;
+			break;
+		case NUMBER:
 			dbg_parse("NUMBER name='%s', bus='%s', id='%s', symlink='%s'",
 				  dev.name, dev.bus, dev.id, dev.symlink);
-		}
-
-		if (strcasecmp(temp2, TYPE_TOPOLOGY) == 0) {
-			/* number type */
-			dev.type = TOPOLOGY;
-
-			/* BUS="bus" */
-			retval = get_value("BUS", &temp, &temp3);
-			if (retval)
-				break;
-			strfieldcpy(dev.bus, temp3);
-
-			/* PLACE="place" */
-			temp2 = strsep(&temp, ",");
-			retval = get_value("PLACE", &temp, &temp3);
-			if (retval)
-				break;
-			strfieldcpy(dev.place, temp3);
-
-			/* NAME="new_name" */
-			temp2 = strsep(&temp, ",");
-			retval = get_value("NAME", &temp, &temp3);
-			if (retval)
-				break;
-			strfieldcpy(dev.name, temp3);
-
-			/* SYMLINK="name" */
-			temp2 = strsep(&temp, ",");
-			retval = get_value("SYMLINK", &temp, &temp3);
-			if (retval == 0)
-				strfieldcpy(dev.symlink, temp3);
-
+			if ((*dev.name == '\0') ||
+			    (*dev.bus == '\0') ||
+			    (*dev.id == '\0'))
+				goto error;
+			break;
+		case TOPOLOGY:
 			dbg_parse("TOPOLOGY name='%s', bus='%s', "
 				  "place='%s', symlink='%s'",
 				  dev.name, dev.bus, dev.place, dev.symlink);
-		}
-
-		if (strcasecmp(temp2, TYPE_REPLACE) == 0) {
-			/* number type */
-			dev.type = REPLACE;
-
-			/* KERNEL="kernel_name" */
-			retval = get_value("KERNEL", &temp, &temp3);
-			if (retval)
-				break;
-			strfieldcpy(dev.kernel_name, temp3);
-
-			/* NAME="new_name" */
-			temp2 = strsep(&temp, ",");
-			retval = get_value("NAME", &temp, &temp3);
-			if (retval)
-				break;
-			strfieldcpy(dev.name, temp3);
-
-			/* SYMLINK="name" */
-			temp2 = strsep(&temp, ",");
-			retval = get_value("SYMLINK", &temp, &temp3);
-			if (retval == 0)
-				strfieldcpy(dev.symlink, temp3);
-
+			if ((*dev.name == '\0') ||
+			    (*dev.bus == '\0') ||
+			    (*dev.place == '\0'))
+				goto error;
+			break;
+		case REPLACE:
 			dbg_parse("REPLACE name='%s', kernel_name='%s', symlink='%s'",
 				  dev.name, dev.kernel_name, dev.symlink);
-		}
-
-		if (strcasecmp(temp2, TYPE_CALLOUT) == 0) {
-			/* number type */
-			dev.type = CALLOUT;
-
-			/* BUS="bus" */
-			retval = get_value("BUS", &temp, &temp3);
-			if (retval)
-				break;
-			strfieldcpy(dev.bus, temp3);
-
-			/* PROGRAM="executable" */
-			temp2 = strsep(&temp, ",");
-			retval = get_value("PROGRAM", &temp, &temp3);
-			if (retval)
-				break;
-			strfieldcpy(dev.exec_program, temp3);
-
-			/* ID="id" */
-			temp2 = strsep(&temp, ",");
-			retval = get_value("ID", &temp, &temp3);
-			if (retval)
-				break;
-			strfieldcpy(dev.id, temp3);
-
-			/* NAME="new_name" */
-			temp2 = strsep(&temp, ",");
-			retval = get_value("NAME", &temp, &temp3);
-			if (retval)
-				break;
-			strfieldcpy(dev.name, temp3);
-
-			/* SYMLINK="name" */
-			temp2 = strsep(&temp, ",");
-			retval = get_value("SYMLINK", &temp, &temp3);
-			if (retval == 0)
-				strfieldcpy(dev.symlink, temp3);
-
+			if ((*dev.name == '\0') ||
+			    (*dev.kernel_name == '\0'))
+				goto error;
+			break;
+		case CALLOUT:
 			dbg_parse("CALLOUT name='%s', bus='%s', program='%s', "
 				  "id='%s', symlink='%s'",
 				  dev.name, dev.bus, dev.exec_program,
 				  dev.id, dev.symlink);
+			if ((*dev.name == '\0') ||
+			    (*dev.bus == '\0') ||
+			    (*dev.id == '\0') ||
+			    (*dev.exec_program == '\0'))
+				goto error;
+			break;
+		default:
+			dbg_parse("xxx default method");
+			goto error;
 		}
 
 		retval = add_config_dev(&dev);
 		if (retval) {
 			dbg("add_config_dev returned with error %d", retval);
-			goto exit;
+			continue;
 		}
 	}
-	dbg_parse("%s:%d:%Zd: error parsing '%s'", udev_rules_filename,
-		  lineno, temp - line, temp);
+error:
+	dbg_parse("%s:%d:%Zd: field missing or parse error", udev_rules_filename,
+		  lineno, temp - line);
 exit:
 	fclose(fd);
 	return retval;
-}	
-
+}
 
 int namedev_init_permissions(void)
 {

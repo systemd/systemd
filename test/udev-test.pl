@@ -38,7 +38,7 @@ my @tests = (
 		devpath  => "block/sda",
 		expected => "boot_disk" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="boot_disk%n"
+LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="boot_disk%n"
 REPLACE, KERNEL="ttyUSB0", NAME="visor"
 EOF
 	},
@@ -48,7 +48,7 @@ EOF
 		devpath  => "block/sda/sda1",
 		expected => "boot_disk1" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="boot_disk%n"
+LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="boot_disk%n"
 EOF
 	},
 	{
@@ -57,10 +57,10 @@ EOF
 		devpath  => "block/sda/sda1",
 		expected => "boot_disk1" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", vendor="?IBM-ESXS", NAME="boot_disk%n-1"
-LABEL, BUS="scsi", vendor="IBM-ESXS?", NAME="boot_disk%n-2"
-LABEL, BUS="scsi", vendor="IBM-ES??", NAME="boot_disk%n"
-LABEL, BUS="scsi", vendor="IBM-ESXSS", NAME="boot_disk%n-3"
+LABEL, BUS="scsi", SYSFS_vendor="?IBM-ESXS", NAME="boot_disk%n-1"
+LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS?", NAME="boot_disk%n-2"
+LABEL, BUS="scsi", SYSFS_vendor="IBM-ES??", NAME="boot_disk%n"
+LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXSS", NAME="boot_disk%n-3"
 EOF
 	},
 	{
@@ -167,7 +167,7 @@ EOF
 		devpath  => "block/sda",
 		expected => "lun0/disc" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="lun0/%D"
+LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="lun0/%D"
 EOF
 	},
 	{
@@ -176,7 +176,7 @@ EOF
 		devpath  => "block/sda/sda2",
 		expected => "lun0/part2" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="lun0/%D"
+LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="lun0/%D"
 EOF
 	},
 	{
@@ -205,7 +205,7 @@ EOF
 		devpath  => "block/sda/sda2",
 		expected => "1/2/a/b/symlink" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="1/2/node", SYMLINK="1/2/a/b/symlink"
+LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="1/2/node", SYMLINK="1/2/a/b/symlink"
 EOF
 	},
 	{
@@ -214,7 +214,7 @@ EOF
 		devpath  => "block/sda/sda2",
 		expected => "1/2/symlink" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/symlink"
+LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/symlink"
 EOF
 	},
 	{
@@ -223,7 +223,7 @@ EOF
 		devpath  => "block/sda/sda2",
 		expected => "1/2/c/d/symlink" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/c/d/symlink"
+LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/c/d/symlink"
 EOF
 	},
 	{

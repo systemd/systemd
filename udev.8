@@ -18,7 +18,7 @@ On device creation,
 .B udev
 reads the sysfs directory of the given device to collect device attributes
 like label, serial number or bus device number.
-These attributes are treated as a key 
+These attributes are treated as a key
 to determine a unique name for device file creation.
 .B udev
 maintains a database for devices present on the system.
@@ -87,7 +87,7 @@ The rules for udev to use when naming devices may specified at
 .I /etc/udev/udev.rules
 or specified by the
 .I udev_rules
-value in the 
+value in the
 .I /etc/udev/udev.conf
 file.
 .P
@@ -114,8 +114,7 @@ calling external program, that returns a string to match
 device label or serial number, like USB serial number, SCSI UUID or
 file system label
 .br
-.RB "keys: " BUS ", "
-.I sysfs_attribute
+.RB "keys: " BUS ", " SYSFS_
 .TP
 .B NUMBER
 device number on the bus, like PCI bus id
@@ -130,7 +129,7 @@ device position on bus, like physical port of USB device
 .B REPLACE
 string replacement of the kernel device name
 .br
-.RB "key: " KERNEL_NAME
+.RB "key: " KERNEL
 .P
 The methods are applied in the following order:
 .BR CALLOUT ", " LABEL ", " NUMBER ", " TOPOLOGY ", " REPLACE "."
@@ -167,7 +166,7 @@ If this is not a partition, it will result in 'disc'.
 CALLOUT, BUS="scsi", PROGRAM="/sbin/scsi_id", ID="OEM 0815", NAME="disk1"
 
 # USB printer to be called lp_color
-LABEL, BUS="usb", serial="W09090207101241330", NAME="lp_color"
+LABEL, BUS="usb", SYSFS_serial="W09090207101241330", NAME="lp_color"
 
 # sound card with PCI bus id 00:0b.0 to be called dsp
 NUMBER, BUS="pci", ID="00:0b.0", NAME="dsp"

@@ -49,6 +49,16 @@ enum config_type {
 #define TYPE_TOPOLOGY	"TOPOLOGY"
 #define TYPE_REPLACE	"REPLACE"
 #define TYPE_CALLOUT	"CALLOUT"
+
+#define FIELD_BUS	"BUS"
+#define FIELD_ID	"ID"
+#define FIELD_SYSFS	"SYSFS_"
+#define FIELD_PLACE	"PLACE"
+#define FIELD_PROGRAM	"PROGRAM"
+#define FIELD_KERNEL	"KERNEL"
+#define FIELD_NAME	"NAME"
+#define FIELD_SYMLINK	"SYMLINK"
+
 #define CALLOUT_MAXARG	8
 
 struct config_device {
