@@ -101,11 +101,11 @@ int main(int argc, char *argv[], char *envp[])
 	struct sysfs_device *devices_dev;
 	struct udevice udev;
 	char path[SYSFS_PATH_MAX];
-	int retval = -EINVAL;
 	const char *error;
-	const char *action = getenv("ACTION");
-	const char *devpath = getenv("DEVPATH");
-	const char *subsystem = argv[1];
+	const char *action;
+	const char *devpath;
+	const char *subsystem;
+	int retval = -EINVAL;
 
 	if (argc == 2 && strcmp(argv[1], "-V") == 0) {
 		printf("%s\n", UDEV_VERSION);
