@@ -108,7 +108,9 @@ Nice, 7 out of 7 for udev.  Makes you think the problems and constraints
 were picked by a udev developer, right?  No, the problems and
 constraints are ones I've seen over the years and so udev, along with
 the kernel driver model and sysfs, were created to solve these real
-problems.
+problems.  I also have had the luxury to see the problems that the
+current devfs implementation has, and have taken the time to work out
+something that does not have those same problems.
 
 So by just looking at the above descriptions, everyone should instantly
 realize that udev is far better than devfs and start helping out udev
