@@ -313,6 +313,19 @@ exit:
 	return; /* here to prevent compiler warning... */
 }
 
+static void fix_kernel_name(struct udevice *udev)
+{
+	char *temp = udev->kernel_name;
+
+	while (*temp != 0x00) {
+		/* Some block devices have a ! in their name, 
+		 * we need to change that to / */
+		if (*temp == '!')
+			*temp = '/';
+		++temp;
+	}
+}
+
 static int execute_program(char *path, char *value, int len)
 {
 	int retval;
@@ -701,11 +714,12 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 		dbg("sysfs_device->bus='%s'", sysfs_device->bus);
 		strfieldcpy(udev->bus_id, sysfs_device->bus_id);
 		wait_for_device_to_initialize(sysfs_device);
-	} else {
-		dbg("class_dev->name = '%s'", class_dev->name);
 	}
+	dbg("class_dev->name = '%s'", class_dev->name);
 
 	strfieldcpy(udev->kernel_name, class_dev->name);
+	fix_kernel_name(udev);
+	dbg("udev->kernel_name = '%s'", udev->kernel_name);
 
 	/* get kernel number */
 	pos = class_dev->name + strlen(class_dev->name);
