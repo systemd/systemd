@@ -64,15 +64,15 @@ int main(int argc, char *argv[], char *envp[])
 
 	info("version %s", UDEV_VERSION);
 
-	if (argc != 3) {
-		info("Usage: udevtest <devpath> <subsystem>");
-		return 1;
-	}
-
 	/* initialize our configuration */
 	udev_init_config();
 	if (udev_log_priority < LOG_INFO)
 		udev_log_priority = LOG_INFO;
+
+	if (argc != 3) {
+		info("Usage: udevtest <devpath> <subsystem>");
+		return 1;
+	}
 
 	/* remove sysfs_path if given */
 	if (strncmp(argv[1], sysfs_path, strlen(sysfs_path)) == 0)
