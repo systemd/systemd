@@ -60,7 +60,7 @@ KERNEL="dm-[0-9]*",	NAME=""
 KERNEL="device-mapper",	NAME="mapper/control"
 
 # fb devices
-KERNEL="fb[0-9]*",	NAME="fb/%n", SYMLINK="%k", GROUP="video", MODE="0600"
+KERNEL="fb[0-9]*",	NAME="fb/%n", SYMLINK="%k", GROUP="video"
 
 # floppy devices
 KERNEL="fd[0-9]*",	NAME="floppy/%n", SYMLINK="%k", GROUP="floppy"
