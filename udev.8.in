@@ -15,18 +15,23 @@ As part of the
 subsystem,
 .B udev
 is executed if a kernel device is added or removed from the system.
-On device creation,
+A list of rules is used to match against specific device attributes.
+.br
+On device addition,
 .B udev
-reads the sysfs directory of the given device to collect device attributes
-like label, serial number or bus device number.
-These attributes may be used as keys to determine a
-unique name for the device.
+matches its configured rules against the available device attributes to
+uniquely name the device.
 .B udev
-maintains a database for devices present on the system.
+maintains its own database for devices present on the system. This database
+can be queried for the relationship of the kernel device path and the
+name of the device file.
 .br
 On device removal,
 .B udev
 queries its database for the name of the device file to be deleted.
+.br
+After the device node handling, a list of collected programs specific to this
+device is executed.
 .SH "CONFIGURATION"
 All
 .B udev
@@ -156,18 +161,10 @@ The name of the node to be created, or the name, the network interface
 should be renamed to.
 .TP
 .B SYMLINK
-The name of a symlink targeting the node. Multiple symlinks may be
-specified by separating the names by the space character.
-.br
-If both the name and the symlink fields are omitted or its
-values are empty, the device will be ignored and no node will be created.
-.br
-If only the symlink field is given and the name field is omitted,
-the rule will not be applied immediately, but the symlink field is added
-to the symlink list of the rule which will create the node.
-This makes it possible to specify additional symlinks in a possibly
-separate rules file, while the device nodes are maintained by the
-distribution provided rules file.
+The name of a symlink targeting the node. Every matching rule can add
+this value to the list of symlinks to be created along with the device node.
+Multiple symlinks may be specified by separating the names by the space
+character.
 .TP
 .B OWNER, GROUP, MODE
 The permissions for the device node. Every specified value overwrites the
@@ -178,10 +175,10 @@ Add a program to the list of programs to be executed for a specific device.
 .TP
 .B OPTIONS
 .B last_rule
-will be the last rule applied. No later rules will have any effect.
+stops further rules application. No later rules will have any effect.
 .sp
 .B ignore_device
-will ignore this device. No node will be created.
+will ignore this device. No node will be created or program executed.
 .sp
 .B ignore_remove
 will ignore any later remove event for this device.
@@ -261,7 +258,7 @@ where device can come and go at any time is not recomended.
 .B %%
 The '%' character itself.
 .P
-The count of charcters to insert may be limited by specifying
+The count of characters to insert may be limited by specifying
 the format length value. For example, '%3s{file}' will only insert
 the first three characters of the sysfs attribute.
 .P
