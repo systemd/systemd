@@ -1,3 +1,33 @@
+Summary of changes from v025 to v026
+============================================
+
+Arnd Bergmann:
+  o udev rpm fix
+
+Greg Kroah-Hartman:
+  o add test for ! in partition name
+  o 025_bk mark
+  o Update to version 117 of klibc (from version 108)
+  o add volume_id ignore rule for bk
+  o add volume_id support to the udev.spec file
+  o remove dbus and selinux stuff from the udev.spec file
+  o delete udev_selinux as it doesn't work properly and is the wrong way to do it
+  o Deleted the udev_dbus extra as it didn't really work properly and HAL has a real solution now
+  o add udev.permissions.slackware file
+  o udevstart: close open directories
+
+Kay Sievers:
+  o fix udevd zombies
+  o catchup with recent klibc
+  o Re: udevsend fallback
+  o udev_volume_id update
+  o udev callout for reading filesystem labels
+  o udev callout for reading filesystem labels
+  o udev default config layout changes
+
+Leann Ogasawara:
+  o evaluate getenv() return value for udev_config.c
+
 Summary of changes from v024 to v025
 ============================================
 
