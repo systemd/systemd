@@ -4,7 +4,7 @@ export ACTION=add
 
 export DEVPATH=/block/hda
 export DEVPATH=/block/sda/sda1
-export DEVPATH=/block/sda
+#export DEVPATH=/block/sda
 
 
 ./udev block
