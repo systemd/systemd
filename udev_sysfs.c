@@ -93,10 +93,8 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 		return 0;
 	}
 
-	strcpy(filename, class_dev->path);
-	strcat(filename, "/");
-	strcat(filename, file);
-	dbg("looking at class '%s' for specific file '%s' with full name %s", class_dev->classname, file, filename);
+	snprintf(filename, SYSFS_PATH_MAX-1, "%s/%s", class_dev->path, file);
+	dbg("looking at class '%s' for specific file '%s'", class_dev->classname, filename);
 
 	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
 	while (--loop) {
@@ -167,6 +165,7 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 		{ .subsystem = "net",		.device = "dummy" },
 		{ .subsystem = "net",		.device = "irda" },
 		{ .subsystem = "net",		.device = "ppp" },
+		{ .subsystem = "net",		.device = "tun" },
 		{ .subsystem = "ppp",		.device = NULL },
 		{ .subsystem = "sound",		.device = NULL },
 		{ .subsystem = "printer",	.device = "lp" },
@@ -247,7 +246,10 @@ int wait_for_bus_device(struct sysfs_device *devices_dev,
 		{ .bus = "pci",		.file = "vendor" },
 		{ .bus = "platform",	.file = "detach_state" },
 		{ .bus = "i2c",		.file = "detach_state" },
-		{ NULL }
+		{ .bus = "ieee1394",	.file = "node_count" },
+		{ .bus = "ieee1394",	.file = "nodeid" },
+		{ .bus = "ieee1394",	.file = "address" },
+		{ NULL, NULL }
 	};
 	struct bus_file *busfile;
 	int loop;
@@ -271,19 +273,24 @@ int wait_for_bus_device(struct sysfs_device *devices_dev,
 	/* wait for a bus specific file to show up */
 	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
 	while (--loop) {
-		int found = 0;
+		int found_bus_type = 0;
 
 		for (busfile = bus_files; busfile->bus != NULL; busfile++) {
 			if (strcmp(devices_dev->bus, busfile->bus) == 0) {
-				found = 1;
-				dbg("looking at bus '%s' for specific file '%s'", devices_dev->bus, busfile->file);
-				if (sysfs_get_device_attr(devices_dev, busfile->file) != NULL) {
+				char filename[SYSFS_PATH_MAX];
+				struct stat stats;
+
+				found_bus_type = 1;
+				snprintf(filename, SYSFS_PATH_MAX-1, "%s/%s", devices_dev->path, busfile->file);
+				dbg("looking at bus '%s' for specific file '%s'", devices_dev->bus, filename);
+
+				if (stat(filename, &stats) == 0) {
 					dbg("bus '%s' specific file '%s' found", devices_dev->bus, busfile->file);
 					return 0;
 				}
 			}
 		}
-		if (found == 0) {
+		if (found_bus_type == 0) {
 			if (error)
 				*error = "unknown bus";
 			info("error: unknown bus, please report to "
