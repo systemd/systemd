@@ -25,7 +25,7 @@
 #include "list.h"
 
 #define UDEV_MAGIC			"udevd_" UDEV_VERSION
-#define EVENT_TIMEOUT_SEC		5
+#define EVENT_TIMEOUT_SEC		10
 #define UDEVSEND_CONNECT_RETRY		20 /* x 100 millisec */
 #define UDEVD_SOCK_PATH			"udevd"
 
