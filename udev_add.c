@@ -185,8 +185,8 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 			for (i = 1; i <= udev->partitions; i++) {
 				dev_t part_devt;
 
-				strfieldcpy(partitionname, filename);
-				strintcat(partitionname, i);
+				snprintf(partitionname, NAME_SIZE, "%s%d", filename, i);
+				partitionname[NAME_SIZE-1] = '\0';
 				part_devt = makedev(major(udev->devt), minor(udev->devt)+1);
 				udev_make_node(udev, partitionname, part_devt, udev->mode, uid, gid);
 			}

@@ -48,24 +48,6 @@ do { \
 	strncat(to, from, maxsize - strlen(to)-1); \
 } while (0)
 
-#define strintcat(to, i) \
-do { \
-	to[sizeof(to)-1] = '\0'; \
-	snprintf((to) + strlen(to), sizeof(to) - strlen(to)-1, "%u", i); \
-} while (0)
-
-#define strintcatmax(to, i, maxsize) \
-do { \
-	to[maxsize-1] = '\0'; \
-	snprintf((to) + strlen(to), maxsize - strlen(to)-1, "%u", i); \
-} while (0)
-
-#define foreach_strpart(str, separator, pos, len) \
-	for(pos = str, len = 0; \
-	    (pos) < ((str) + strlen(str)); \
-	    pos = pos + len + strspn(pos, separator), len = strcspn(pos, separator)) \
-		if (len > 0)
-
 #ifdef asmlinkage
 # undef asmlinkage
 #endif
@@ -73,7 +55,7 @@ do { \
 # define asmlinkage	__attribute__((regparm(0)))
 #endif
 #ifndef asmlinkage
-# define asmlinkage	/* nothing */
+# define asmlinkage
 #endif
 
 struct name_entry {

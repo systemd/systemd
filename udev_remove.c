@@ -103,8 +103,8 @@ static int delete_node(struct udevice *udev)
 			return -1;
 		}
 		for (i = 1; i <= num; i++) {
-			strfieldcpy(partitionname, filename);
-			strintcat(partitionname, i);
+			snprintf(partitionname, NAME_SIZE, "%s%d", filename, i);
+			partitionname[NAME_SIZE-1] = '\0';
 			unlink_secure(partitionname);
 		}
 	}

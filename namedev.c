@@ -171,15 +171,10 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 {
 	char temp[NAME_SIZE];
 	char temp2[NAME_SIZE];
-	char *tail;
-	char *pos;
-	char *attr;
+	char *tail, *pos, *cpos, *attr, *rest;
 	int len;
 	int i;
 	char c;
-	char *spos;
-	char *rest;
-	int slen;
 	struct sysfs_attribute *tmpattr;
 	unsigned int next_free_number;
 	struct sysfs_class_device *class_dev_parent;
@@ -217,12 +212,14 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			dbg("substitute kernel number '%s'", udev->kernel_number);
 				break;
 		case 'm':
-			strintcatmax(string, minor(udev->devt), maxsize);
-			dbg("substitute minor number '%u'", minor(udev->devt));
+			sprintf(temp2, "%d", minor(udev->devt));
+			strfieldcatmax(string, temp2, maxsize);
+			dbg("substitute minor number '%s'", temp2);
 			break;
 		case 'M':
-			strintcatmax(string, major(udev->devt), maxsize);
-			dbg("substitute major number '%u'", major(udev->devt));
+			sprintf(temp2, "%d", major(udev->devt));
+			strfieldcatmax(string, temp2, maxsize);
+			dbg("substitute major number '%s'", temp2);
 			break;
 		case 'c':
 			if (udev->program_result[0] == '\0')
@@ -232,19 +229,25 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			if (attr != NULL)
 				i = strtoul(attr, &rest, 10);
 			if (i > 0) {
-				foreach_strpart(udev->program_result, " \n\r", spos, slen) {
-					i--;
-					if (i == 0)
-						break;
+				dbg("request part #%d of result string", i);
+				cpos = udev->program_result;
+				while (--i) {
+					while (cpos[0] != '\0' && !isspace(cpos[0]))
+						cpos++;
+					while (isspace(cpos[0]))
+						cpos++;
 				}
 				if (i > 0) {
 					dbg("requested part of result string not found");
 					break;
 				}
-				if (rest[0] == '+')
-					strfieldcpy(temp2, spos);
-				else
-					strfieldcpymax(temp2, spos, slen+1);
+				strfieldcpy(temp2, cpos);
+				/* %{2+}c copies the whole string from the second part on */
+				if (rest[0] != '+') {
+					cpos = strchr(temp2, ' ');
+					if (cpos)
+						cpos[0] = '\0';
+				}
 				strfieldcatmax(string, temp2, maxsize);
 				dbg("substitute part of result string '%s'", temp2);
 			} else {
