@@ -1,5 +1,5 @@
 # /etc/udev/udev.permissions:  permission/ownership map for udev
-# $Header: /home/cvsroot/gentoo-x86/sys-fs/udev/files/udev.permissions,v 1.2 2003/12/26 23:32:44 azarah Exp $
+# $Header: /home/cvsroot/gentoo-x86/sys-fs/udev/files/udev.permissions,v 1.3 2004/01/01 03:41:24 azarah Exp $
 
 # console devices
 console:root:tty:0600
@@ -33,6 +33,20 @@ vcs[0-9]*:root:root:0600
 vcsa:root:root:0600
 vcsa[0-9]*:root:root:0600
 vcc/*:root:root:0600
+
+# memory devices
+random:root:root:0666
+urandom:root:root:0444
+mem:root:kmem:0640
+kmem:root:kmem:0640
+port:root:kmem:0640
+full:root:root:0666
+null:root:root:0666
+zero:root:root:0666
+
+# misc devices
+nvram:root:root:0660
+rtc:root:root:0660
 
 # floppy devices
 fd[01]*:root:floppy:0660
@@ -117,6 +131,9 @@ npt*:root:tape:0660
 st*:root:tape:0660
 nst*:root:tape:0660
 
+# dm devices
+dm-*:root:root:0640
+
 # memstick devices
 memstick*:root:root:0600
 
@@ -135,10 +152,11 @@ fb[0-9]*:root:root:0600
 fb/*:root:root:0600
 
 # kbd devices
-kbd:root:root:0600
+kbd:root:root:0644
 
 # joystick devices
-js[0-9]*:root:root:0600
+js[0-9]*:root:root:0644
+djs[0-9]*:root:root:0644
 
 # v4l devices
 video*:root:video:0660
