@@ -124,7 +124,7 @@ system("rm -rf $udev_root");
 mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
 
 # test
-my $error;
+my $error = 0;
 print "\nudev-test will run ".($#tests + 1)." tests:\n\n";
 
 foreach my $config (@tests) {
