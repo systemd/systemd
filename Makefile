@@ -262,7 +262,7 @@ $(HELPER): $(HEADERS) udevinfo.o $(OBJS)
 	$(STRIPCMD) $@
 
 $(DAEMON): udevd.h $(GEN_HEADERS) udevd.o
-	$(LD) $(LDFLAGS) -lpthread -o $@ $(CRT0) udevd.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevd.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
 $(SENDER): udevd.h $(GEN_HEADERS) udevsend.o

@@ -33,6 +33,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <linux/stddef.h>
 
 #include "udev.h"
 #include "udev_version.h"
@@ -119,13 +120,14 @@ int main(int argc, char* argv[])
 	char *subsystem;
 	char *seqnum;
 	int seq;
-	int retval = -EINVAL;
+	int retval = 1;
 	int size;
 	int loop;
 	struct timespec tspec;
 	int sock;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
+	int started_daemon = 0;
 
 #ifdef DEBUG
 	init_logging("udevsend");
@@ -151,11 +153,11 @@ int main(int argc, char* argv[])
 
 	seqnum = get_seqnum();
 	if (seqnum == NULL)
-		seq = 0;
+		seq = -1;
 	else
 		seq = atoi(seqnum);
 
-	sock = socket(AF_LOCAL, SOCK_STREAM, 0);
+	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (sock == -1) {
 		dbg("error getting socket");
 		goto exit;
@@ -167,48 +169,42 @@ int main(int argc, char* argv[])
 	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
 	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 
-	/* try to connect, if it fails start daemon */
-	retval = connect(sock, (struct sockaddr *) &saddr, addrlen);
-	if (retval != -1) {
-		goto send;
-	} else {
-		dbg("connect failed, try starting daemon...");
-		retval = start_daemon();
-		if (retval == 0) {
-			dbg("daemon started");
-		} else {
-			dbg("error starting daemon");
-			goto exit;
-		}
-	}
-
-	/* try to connect while daemon to starts */
-	tspec.tv_sec = 0;
-	tspec.tv_nsec = 100000000;  /* 100 millisec */
+	size = build_hotplugmsg(&message, action, devpath, subsystem, seq);
+	
+	/* If we can't send, try to start daemon and resend message */
 	loop = UDEVSEND_CONNECT_RETRY;
 	while (loop--) {
-		retval = connect(sock, (struct sockaddr *) &saddr, sizeof(saddr));
-		if (retval != -1)
-			goto send;
-		else
-			dbg("retry to connect %d",
-			    UDEVSEND_CONNECT_RETRY - loop);
-		nanosleep(&tspec, NULL);
+		retval = sendto(sock, &message, size, 0, (struct sockaddr*)&saddr, addrlen);
+		if (retval != -1) {
+			retval = 0;
+			goto close_and_exit;
+		}
+		
+		if (errno != ECONNREFUSED) {
+			dbg("error sending message");
+			goto close_and_exit;
+		}
+		
+		if (!started_daemon) {
+			dbg("connect failed, try starting daemon...");
+			retval = start_daemon();
+			if (retval) {
+				dbg("error starting daemon");
+				goto exit;
+			}
+			
+			dbg("daemon started");
+			started_daemon = 1;
+		} else {
+			dbg("retry to connect %d", UDEVSEND_CONNECT_RETRY - loop);
+			tspec.tv_sec = 0;
+			tspec.tv_nsec = 100000000;  /* 100 millisec */
+			nanosleep(&tspec, NULL);
+		}
 	}
-	dbg("error connecting to daemon, start daemon failed");
-	goto exit;
-
-send:
-	size = build_hotplugmsg(&message, action, devpath, subsystem, seq);
-	retval = send(sock, &message, size, 0);
-	if (retval == -1) {
-		dbg("error sending message");
-		close (sock);
-		goto exit;
-	}
-	close (sock);
-	return 0;
-
+	
+close_and_exit:
+	close(sock);
 exit:
-	return 1;
+	return retval;
 }
