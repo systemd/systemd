@@ -9,7 +9,7 @@
 #      the PROGRAM field for the obvious reason.)
 # %D - use the devfs style disk name for this device.
 #      For partitions, this will result in 'part%n'
-#      If this is not a partition, it will result in 'disk'
+#      If this is not a partition, it will result in 'disc'
 #
 
 # Looking for scsi bus id 42:0:0:1

@@ -156,7 +156,7 @@ EOF
 		desc     => "devfs disk naming substitution",
 		subsys   => "block",
 		devpath  => "block/sda",
-		expected => "lun0/disk" ,
+		expected => "lun0/disc" ,
 		conf     => <<EOF
 LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="lun0/%D"
 EOF

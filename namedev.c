@@ -223,7 +223,7 @@ static void apply_format(struct udevice *udev, unsigned char *string)
 				break;
 			case 'D':
 				if (strlen(udev->kernel_number) == 0) {
-					strcat(pos, "disk");
+					strcat(pos, "disc");
 					break;
 				}
 				strcat(pos, "part");
