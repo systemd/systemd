@@ -604,7 +604,7 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 			}
 		}
 
-		/* check for matching kernel name*/
+		/* check for matching kernel name */
 		if (dev->kernel[0] != '\0') {
 			dbg("check for " FIELD_KERNEL " dev->kernel='%s' class_dev->name='%s'", dev->kernel, class_dev->name);
 			if (strcmp_pattern(dev->kernel, class_dev->name) != 0) {
@@ -612,6 +612,17 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 				goto try_parent;
 			} else {
 				dbg(FIELD_KERNEL " matches");
+			}
+		}
+
+		/* check for matching subsystem */
+		if (dev->subsystem[0] != '\0') {
+			dbg("check for " FIELD_SUBSYSTEM " dev->subsystem='%s' class_dev->name='%s'", dev->subsystem, class_dev->name);
+			if (strcmp_pattern(dev->subsystem, udev->subsystem) != 0) {
+				dbg(FIELD_SUBSYSTEM " is not matching");
+				goto try_parent;
+			} else {
+				dbg(FIELD_SUBSYSTEM " matches");
 			}
 		}
 

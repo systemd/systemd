@@ -258,6 +258,12 @@ static int namedev_parse_rules(const char *filename, void *data)
 				continue;
 			}
 
+			if (strcasecmp(temp2, FIELD_SUBSYSTEM) == 0) {
+				strfieldcpy(dev.subsystem, temp3);
+				valid = 1;
+				continue;
+			}
+
 			if (strcasecmp(temp2, FIELD_PROGRAM) == 0) {
 				program_given = 1;
 				strfieldcpy(dev.program, temp3);

@@ -42,6 +42,7 @@ struct sysfs_class_device;
 #define FIELD_PROGRAM		"PROGRAM"
 #define FIELD_RESULT		"RESULT"
 #define FIELD_KERNEL		"KERNEL"
+#define FIELD_SUBSYSTEM		"SUBSYSTEM"
 #define FIELD_NAME		"NAME"
 #define FIELD_SYMLINK		"SYMLINK"
 #define FIELD_OWNER		"OWNER"
@@ -78,6 +79,7 @@ struct config_device {
 	char kernel[NAME_SIZE];
 	char program[PROGRAM_SIZE];
 	char result[PROGRAM_SIZE];
+	char subsystem[SUBSYSTEM_SIZE];
 	char name[NAME_SIZE];
 	char symlink[NAME_SIZE];
 	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];

@@ -171,6 +171,10 @@ Match the bus type of the device.
 .B KERNEL
 Match the kernel device name.
 .TP
+.B SUBSYSTEM
+Match the kernel's subsystem name.
+.TP
+.TP
 .B ID
 Match the device number on the bus, like PCI bus id.
 .TP
