@@ -136,6 +136,10 @@ int tdb_chainunlock(TDB_CONTEXT *tdb, TDB_DATA key);
 void tdb_dump_all(TDB_CONTEXT *tdb);
 int tdb_printfreelist(TDB_CONTEXT *tdb);
 
+/* used only in tdbutil.c */
+int tdb_chainlock_read(TDB_CONTEXT *tdb, TDB_DATA key);
+int tdb_chainunlock_read(TDB_CONTEXT *tdb, TDB_DATA key);
+
 extern TDB_DATA tdb_null;
 
 #ifdef  __cplusplus
