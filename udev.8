@@ -20,13 +20,15 @@ reads the sysfs directory of the given device to collect device attributes
 like label, serial number or bus device number.
 These attributes are treated as a key 
 to determine a unique name for device file creation.
-udev maintains a database for devices present on the system.
+.B udev
+maintains a database for devices present on the system.
 .br
 On device removal,
 .B udev
 queries the internal database for the name of the device file to be deleted.
 .SH "CONFIGURATION"
-udev expects its configuration at
+.B udev
+expects its configuration at
 .I /etc/udev/udev.config.
 The file consists of a set of lines. All empty lines and
 lines beginning with a '#' will be ignored.
@@ -85,8 +87,8 @@ TOPOLOGY, BUS="usb", PLACE="2.3", NAME="mouse1"
 # ttyUSB1 should always be called pda
 REPLACE, KERNEL="ttyUSB1", NAME="pda"
 
-# if /sbin/dev_id returns "V0815" device will be called dev0815
-CALLOUT, PROGRAM="/sbin/dev_id", BUS="pci", ID="V0815", NAME="dev0815"
+# if /sbin/scsi_id returns "OEM 0815" device will be called disk1
+CALLOUT, PROGRAM="/sbin/scsi_id" BUS="scsi", ID="OEM 0815" NAME="disk1"
 .fi
 .P
 Permissions and ownership for the created device files may specified at
@@ -120,5 +122,6 @@ The
 .I http://linux-hotplug.sourceforge.net/
 web site.
 .SH AUTHORS
-udev was developed by Greg Kroah-Hartman <greg@kroah.com> with much help from
+.B udev
+was developed by Greg Kroah-Hartman <greg@kroah.com> with much help from
 Dan Stekloff <dsteklof@us.ibm.com> and many others.
