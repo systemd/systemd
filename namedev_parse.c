@@ -79,12 +79,19 @@ static int add_perm_dev(struct perm_device *new_dev)
 	struct perm_device *dev;
 	struct perm_device *tmp_dev;
 
-	/* update the values if we already have the device */
+	/* if we already have that entry, just update the values */
 	list_for_each_entry(dev, &perm_device_list, node) {
 		if (strcmp(new_dev->name, dev->name) != 0)
 			continue;
 
-		set_empty_perms(dev, new_dev->mode, new_dev->owner, new_dev->group);
+		/* don't overwrite values from earlier entries */
+		if (dev->mode == 0000)
+			dev->mode = new_dev->mode;
+		if (dev->owner[0] == '\0')
+			strfieldcpy(dev->owner, new_dev->owner);
+		if (dev->owner[0] == '\0')
+			strfieldcpy(dev->group, new_dev->group);
+
 		return 0;
 	}
 
@@ -95,7 +102,8 @@ static int add_perm_dev(struct perm_device *new_dev)
 
 	memcpy(tmp_dev, new_dev, sizeof(*tmp_dev));
 	list_add_tail(&tmp_dev->node, &perm_device_list);
-	//dump_perm_dev(tmp_dev);
+	/* dump_perm_dev(tmp_dev); */
+
 	return 0;
 }
 

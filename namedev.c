@@ -101,7 +101,7 @@ static int strcmp_pattern(const char *p, const char *s)
 	return 1;
 }
 
-static struct perm_device *find_perm(char *name)
+static struct perm_device *find_perm_entry(const char *name)
 {
 	struct perm_device *perm;
 
@@ -111,32 +111,6 @@ static struct perm_device *find_perm(char *name)
 		return perm;
 	}
 	return NULL;
-}
-
-static mode_t get_default_mode(void)
-{
-	mode_t mode = 0600;	/* default to owner rw only */
-
-	if (strlen(default_mode_str) != 0)
-		mode = strtol(default_mode_str, NULL, 8);
-
-	return mode;
-}
-
-static char *get_default_owner(void)
-{
-	if (strlen(default_owner_str) == 0)
-		strfieldcpy(default_owner_str, "root");
-
-	return default_owner_str;
-}
-
-static char *get_default_group(void)
-{
-	if (strlen(default_group_str) == 0)
-		strfieldcpy(default_group_str, "root");
-
-	return default_group_str;
 }
 
 /* extract possible {attr} and move str behind it */
@@ -586,7 +560,8 @@ static int match_place(struct config_device *dev, struct sysfs_class_device *cla
 	return 0;
 }
 
-static int match_rule(struct config_device *dev, struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
+static int match_rule(struct udevice *udev, struct config_device *dev,
+		      struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
 	while (1) {
 		/* check for matching bus value */
@@ -595,7 +570,8 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 				dbg("device has no bus");
 				goto try_parent;
 			}
-			dbg("check for " FIELD_BUS " dev->bus='%s' sysfs_device->bus='%s'", dev->bus, sysfs_device->bus);
+			dbg("check for " FIELD_BUS " dev->bus='%s' sysfs_device->bus='%s'",
+			    dev->bus, sysfs_device->bus);
 			if (strcmp_pattern(dev->bus, sysfs_device->bus) != 0) {
 				dbg(FIELD_BUS " is not matching");
 				goto try_parent;
@@ -606,7 +582,8 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 
 		/* check for matching kernel name */
 		if (dev->kernel[0] != '\0') {
-			dbg("check for " FIELD_KERNEL " dev->kernel='%s' class_dev->name='%s'", dev->kernel, class_dev->name);
+			dbg("check for " FIELD_KERNEL " dev->kernel='%s' class_dev->name='%s'",
+			    dev->kernel, class_dev->name);
 			if (strcmp_pattern(dev->kernel, class_dev->name) != 0) {
 				dbg(FIELD_KERNEL " is not matching");
 				goto try_parent;
@@ -617,7 +594,8 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 
 		/* check for matching subsystem */
 		if (dev->subsystem[0] != '\0') {
-			dbg("check for " FIELD_SUBSYSTEM " dev->subsystem='%s' class_dev->name='%s'", dev->subsystem, class_dev->name);
+			dbg("check for " FIELD_SUBSYSTEM " dev->subsystem='%s' class_dev->name='%s'",
+			    dev->subsystem, class_dev->name);
 			if (strcmp_pattern(dev->subsystem, udev->subsystem) != 0) {
 				dbg(FIELD_SUBSYSTEM " is not matching");
 				goto try_parent;
@@ -628,7 +606,8 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 
 		/* check for matching driver */
 		if (dev->driver[0] != '\0') {
-			dbg("check for " FIELD_DRIVER " dev->driver='%s' sysfs_device->driver_name='%s'", dev->driver, sysfs_device->driver_name);
+			dbg("check for " FIELD_DRIVER " dev->driver='%s' sysfs_device->driver_name='%s'",
+			    dev->driver, sysfs_device->driver_name);
 			if (strcmp_pattern(dev->driver, sysfs_device->driver_name) != 0) {
 				dbg(FIELD_DRIVER " is not matching");
 				goto try_parent;
@@ -757,13 +736,15 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 	/* look for a matching rule to apply */
 	list_for_each_entry(dev, &config_device_list, node) {
 		dbg("process rule");
-		if (match_rule(dev, class_dev, udev, sysfs_device) == 0) {
+		if (match_rule(udev, dev, class_dev, sysfs_device) == 0) {
+			/* empty name and symlink will not create any node */
 			if (dev->name[0] == '\0' && dev->symlink[0] == '\0') {
 				info("configured rule in '%s' at line %i applied, '%s' is ignored",
 				     dev->config_file, dev->config_line, udev->kernel_name);
 				return -1;
 			}
 
+			/* collect symlinks for the final matching rule */
 			if (dev->symlink[0] != '\0') {
 				char temp[NAME_SIZE];
 
@@ -776,6 +757,7 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 				strfieldcat(udev->symlink, temp);
 			}
 
+			/* rule matches */
 			if (dev->name[0] != '\0') {
 				/* apply all_partitions flag only at a main block device */
 				if (dev->partitions > 0 &&
@@ -784,45 +766,51 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 
 				info("configured rule in '%s' at line %i applied, '%s' becomes '%s'",
 				     dev->config_file, dev->config_line, udev->kernel_name, dev->name);
+
 				strfieldcpy(udev->name, dev->name);
-				goto found;
+				apply_format(udev, udev->name, sizeof(udev->name), class_dev, sysfs_device);
+				strfieldcpy(udev->config_file, dev->config_file);
+				udev->config_line = dev->config_line;
+				udev->ignore_remove = dev->ignore_remove;
+
+				if (udev->type == 'n')
+					goto done;
+
+				udev->partitions = dev->partitions;
+				udev->mode = dev->mode;
+				strfieldcpy(udev->owner, dev->owner);
+				strfieldcpy(udev->group, dev->group);
+
+				goto perms;
 			}
 		}
 	}
-	/* no rule was found so we use the kernel name */
+
+	/* no rule matched, so we use the kernel name */
 	strfieldcpy(udev->name, udev->kernel_name);
-	if (udev->type == 'n')
-		goto done;
-	else
-		goto perms;
-
-found:
-	apply_format(udev, udev->name, sizeof(udev->name), class_dev, sysfs_device);
-	strfieldcpy(udev->config_file, dev->config_file);
-	udev->config_line = dev->config_line;
 
 	if (udev->type == 'n')
 		goto done;
-
-	udev->partitions = dev->partitions;
-	udev->ignore_remove = dev->ignore_remove;
-
-	/* get permissions given in rule */
-	set_empty_perms(udev, dev->mode,
-			      dev->owner,
-			      dev->group);
 
 perms:
-	/* get permissions given in config file or set defaults */
-	perm = find_perm(udev->name);
+	/* apply permissions from permissions file to empty fields */
+	perm = find_perm_entry(udev->name);
 	if (perm != NULL) {
-		set_empty_perms(udev, perm->mode,
-				      perm->owner,
-				      perm->group);
+		if (udev->mode == 0000)
+			udev->mode = perm->mode;
+		if (udev->owner[0] == '\0')
+			strfieldcpy(udev->owner, perm->owner);
+		if (udev->group[0] == '\0')
+			strfieldcpy(udev->group, perm->group);
 	}
-	set_empty_perms(udev, get_default_mode(),
-			      get_default_owner(),
-			      get_default_group());
+
+	/* apply permissions from config to empty fields */
+	if (udev->mode == 0000)
+		udev->mode = default_mode;
+	if (udev->owner[0] == '\0')
+		strfieldcpy(udev->owner, default_owner);
+	if (udev->group[0] == '\0')
+		strfieldcpy(udev->group, default_group);
 
 	dbg("name, '%s' is going to have owner='%s', group='%s', mode = %#o",
 	    udev->name, udev->owner, udev->group, udev->mode);

@@ -30,9 +30,7 @@
 #define COMMENT_CHARACTER		'#'
 
 #define NAME_SIZE			256
-#define OWNER_SIZE			32
-#define GROUP_SIZE			32
-#define MODE_SIZE			8
+#define USER_SIZE			32
 
 #define ACTION_SIZE			32
 #define DEVPATH_SIZE			256
@@ -53,8 +51,8 @@ struct udevice {
 
 	char name[NAME_SIZE];
 	char symlink[NAME_SIZE];
-	char owner[OWNER_SIZE];
-	char group[GROUP_SIZE];
+	char owner[USER_SIZE];
+	char group[USER_SIZE];
 	mode_t mode;
 	char type;
 	int major;
@@ -86,9 +84,9 @@ extern char udev_db_path[PATH_MAX+NAME_MAX];
 extern char udev_permissions_filename[PATH_MAX+NAME_MAX];
 extern char udev_config_filename[PATH_MAX+NAME_MAX];
 extern char udev_rules_filename[PATH_MAX+NAME_MAX];
-extern char default_mode_str[MODE_SIZE];
-extern char default_owner_str[OWNER_SIZE];
-extern char default_group_str[GROUP_SIZE];
+extern mode_t default_mode;
+extern char default_owner[USER_SIZE];
+extern char default_group[USER_SIZE];
 extern int udev_log;
 extern int udev_dev_d;
 extern int udev_hotplug_d;

@@ -60,14 +60,6 @@ struct sysfs_class_device;
 #define RULEFILE_SUFFIX		".rules"
 #define PERMFILE_SUFFIX		".permissions"
 
-#define set_empty_perms(dev, m, o, g)		\
-	if (dev->mode == 0)			\
-		dev->mode = m;			\
-	if (dev->owner[0] == '\0')		\
-		strfieldcpy(dev->owner, o);	\
-	if (dev->group[0] == '\0')		\
-		strfieldcpy(dev->group, g);
-
 struct sysfs_pair {
 	char file[FILE_SIZE];
 	char value[VALUE_SIZE];
@@ -87,9 +79,9 @@ struct config_device {
 	char name[NAME_SIZE];
 	char symlink[NAME_SIZE];
 	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];
-	char owner[OWNER_SIZE];
-	char group[GROUP_SIZE];
-	unsigned int mode;
+	char owner[USER_SIZE];
+	char group[USER_SIZE];
+	mode_t mode;
 	int partitions;
 	int ignore_remove;
 	char config_file[NAME_SIZE];
@@ -100,8 +92,8 @@ struct perm_device {
 	struct list_head node;
 
 	char name[NAME_SIZE];
-	char owner[OWNER_SIZE];
-	char group[GROUP_SIZE];
+	char owner[USER_SIZE];
+	char group[USER_SIZE];
 	unsigned int mode;
 };
 

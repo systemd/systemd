@@ -46,15 +46,15 @@ char udev_db_path[PATH_MAX+NAME_MAX];
 char udev_permissions_filename[PATH_MAX+NAME_MAX];
 char udev_rules_filename[PATH_MAX+NAME_MAX];
 char udev_config_filename[PATH_MAX+NAME_MAX];
-char default_mode_str[MODE_SIZE];
-char default_owner_str[OWNER_SIZE];
-char default_group_str[GROUP_SIZE];
+mode_t default_mode;
+char default_owner[USER_SIZE];
+char default_group[USER_SIZE];
 int udev_log;
 int udev_dev_d;
 int udev_hotplug_d;
 
 
-static int string_is_true(char *str)
+static int string_is_true(const char *str)
 {
 	if (strcasecmp(str, "true") == 0)
 		return 1;
@@ -67,16 +67,19 @@ static int string_is_true(char *str)
 
 static void init_variables(void)
 {
-	char *env;
+	const char *env;
 
-	/* fill up the defaults.
-	 * If any config values are specified, they will
-	 * override these values. */
-	strfieldcpy(udev_root, UDEV_ROOT);
-	strfieldcpy(udev_db_path, UDEV_DB);
-	strfieldcpy(udev_config_filename, UDEV_CONFIG_FILE);
-	strfieldcpy(udev_rules_filename, UDEV_RULES_FILE);
-	strfieldcpy(udev_permissions_filename, UDEV_PERMISSION_FILE);
+	/* If any config values are specified, they will override these values. */
+	strcpy(udev_root, UDEV_ROOT);
+	strcpy(udev_db_path, UDEV_DB);
+	strcpy(udev_config_filename, UDEV_CONFIG_FILE);
+	strcpy(udev_rules_filename, UDEV_RULES_FILE);
+	strcpy(udev_permissions_filename, UDEV_PERMISSION_FILE);
+
+	strcpy(default_owner, "root");
+	strcpy(default_group, "root");
+	default_mode = 0600;
+
 	udev_log = string_is_true(UDEV_LOG_DEFAULT);
 
 	udev_dev_d = 1;
@@ -210,17 +213,17 @@ static int parse_config_file(void)
 		}
 
 		if (strcasecmp(variable, "default_mode") == 0) {
-			strfieldcpy(default_mode_str, value);
+			default_mode = strtol(value, NULL, 8);
 			continue;
 		}
 
 		if (strcasecmp(variable, "default_owner") == 0) {
-			strfieldcpy(default_owner_str, value);
+			strfieldcpy(default_owner, value);
 			continue;
 		}
 
 		if (strcasecmp(variable, "default_group") == 0) {
-			strfieldcpy(default_group_str, value);
+			strfieldcpy(default_group, value);
 			continue;
 		}
 
@@ -274,7 +277,7 @@ static void get_dirs(void)
 	dbg("udev_db_path = %s", udev_db_path);
 	dbg("udev_rules_filename = %s", udev_rules_filename);
 	dbg("udev_permissions_filename = %s", udev_permissions_filename);
-	dbg("udev_log_str = %d", udev_log);
+	dbg("udev_log = %d", udev_log);
 }
 
 void udev_init_config(void)
