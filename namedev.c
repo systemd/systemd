@@ -41,6 +41,8 @@
 #include "libsysfs/libsysfs.h"
 #include "klibc_fixups.h"
 
+static struct sysfs_attribute *find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, char *attr);
+
 LIST_HEAD(config_device_list);
 LIST_HEAD(perm_device_list);
 
@@ -168,7 +170,46 @@ static char *get_default_group(void)
 	return default_group_str;
 }
 
-static void apply_format(struct udevice *udev, unsigned char *string)
+/* extract possible {attr} and move str behind it */
+static char *get_format_attribute(char **str)
+{
+	char *pos;
+	char *attr = NULL;
+
+	if (*str[0] == '{') {
+		pos = strchr(*str, '}');
+		if (pos == NULL) {
+			dbg("missing closing brace for format");
+			return NULL;
+		}
+		pos[0] = '\0';
+		attr = *str+1;
+		*str = pos+1;
+		dbg("attribute='%s', str='%s'", attr, *str);
+	}
+	return attr;
+}
+
+/* extract possible format length and move str behind it*/
+static int get_format_len(char **str)
+{
+	int num;
+	char *tail;
+
+	if (isdigit(*str[0])) {
+		num = (int) strtoul(*str, &tail, 10);
+		if (tail != NULL) {
+			*str = tail;
+			dbg("format length=%i", num);
+			return num;
+		} else {
+			dbg("format parsing error '%s'", *str);
+		}
+	}
+	return -1;
+}
+
+static void apply_format(struct udevice *udev, unsigned char *string, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
 	char temp[NAME_SIZE];
 	char temp1[NAME_SIZE];
@@ -176,87 +217,100 @@ static void apply_format(struct udevice *udev, unsigned char *string)
 	char *pos;
 	char *pos2;
 	char *pos3;
+	char *attr;
 	int num;
+	char c;
+	struct sysfs_attribute *tmpattr;
 
 	pos = string;
-	while (1) {
-		num = 0;
-		pos = strchr(pos, '%');
 
-		if (pos) {
+	while (1) {
+		pos = strchr(pos, '%');
+		if (pos != NULL) {
 			pos[0] = '\0';
 			tail = pos+1;
-			if (isdigit(tail[0])) {
-				num = (int) strtoul(&pos[1], &tail, 10);
-				if (tail == NULL) {
-					dbg("format parsing error '%s'", pos+1);
-					break;
-				}
-			}
+			num = get_format_len(&tail);
+			c = tail[0];
 			strfieldcpy(temp, tail+1);
-
-			switch (tail[0]) {
-			case 'b':
-				if (strlen(udev->bus_id) == 0)
-					break;
-				strcat(pos, udev->bus_id);
-				dbg("substitute bus_id '%s'", udev->bus_id);
-				break;
-			case 'k':
-				if (strlen(udev->kernel_name) == 0)
-					break;
-				strcat(pos, udev->kernel_name);
-				dbg("substitute kernel name '%s'", udev->kernel_name);
-				break;
-			case 'n':
-				if (strlen(udev->kernel_number) == 0)
-					break;
-				strcat(pos, udev->kernel_number);
-				dbg("substitute kernel number '%s'", udev->kernel_number);
-				break;
-			case 'm':
-				sprintf(pos, "%u", udev->minor);
-				dbg("substitute minor number '%u'", udev->minor);
-				break;
-			case 'M':
-				sprintf(pos, "%u", udev->major);
-				dbg("substitute major number '%u'", udev->major);
-				break;
-			case 'c':
-				if (strlen(udev->program_result) == 0)
-					break;
-				if (num) {
-					/* get part of return string */
-					strncpy(temp1, udev->program_result, sizeof(temp1));
-					pos2 = temp1;
-					while (num) {
-						num--;
-						pos3 = strsep(&pos2, " ");
-						if (pos3 == NULL) {
-							dbg("requested part of result string not found");
-							break;
-						}
-					}
-					if (pos3) {
-						strcat(pos, pos3);
-						dbg("substitute part of result string '%s'", pos3);
-					}
-				} else {
-					strcat(pos, udev->program_result);
-					dbg("substitute result string '%s'", udev->program_result);
-				}
-				break;
-			case '%':
-				strcat(pos, "%");
-				pos++;
-				break;
-			default:
-				dbg("unknown substitution type '%%%c'", pos[1]);
-				break;
-			}
-			strcat(string, temp);
-		} else
+			tail = temp;
+		} else {
 			break;
+		}
+		dbg("format=%c, string='%s', tail='%s'",c , string, tail);
+
+		attr = get_format_attribute(&tail);
+
+		switch (c) {
+		case 'b':
+			if (strlen(udev->bus_id) == 0)
+				break;
+			strcat(pos, udev->bus_id);
+			dbg("substitute bus_id '%s'", udev->bus_id);
+			break;
+		case 'k':
+			if (strlen(udev->kernel_name) == 0)
+				break;
+			strcat(pos, udev->kernel_name);
+			dbg("substitute kernel name '%s'", udev->kernel_name);
+			break;
+		case 'n':
+			if (strlen(udev->kernel_number) == 0)
+				break;
+			strcat(pos, udev->kernel_number);
+			dbg("substitute kernel number '%s'", udev->kernel_number);
+				break;
+		case 'm':
+			sprintf(pos, "%u", udev->minor);
+			dbg("substitute minor number '%u'", udev->minor);
+			break;
+			case 'M':
+			sprintf(pos, "%u", udev->major);
+			dbg("substitute major number '%u'", udev->major);
+			break;
+		case 'c':
+			if (strlen(udev->program_result) == 0)
+				break;
+			if (num > 0) {
+				strncpy(temp1, udev->program_result, sizeof(temp1));
+				pos2 = temp1;
+				while (num) {
+					num--;
+					pos3 = strsep(&pos2, " ");
+					if (pos3 == NULL) {
+						dbg("requested part of result string not found");
+						break;
+					}
+				}
+				if (pos3) {
+					strcat(pos, pos3);
+					dbg("substitute part of result string '%s'", pos3);
+				}
+			} else {
+				strcat(pos, udev->program_result);
+				dbg("substitute result string '%s'", udev->program_result);
+			}
+			break;
+		case 's':
+			if (attr != NULL) {
+				tmpattr = find_sysfs_attribute(class_dev, sysfs_device, attr);
+				if (tmpattr == NULL) {
+					dbg("sysfa attribute '%s' not found", attr);
+					break;
+				}
+				strcpy(pos, tmpattr->value);
+				dbg("substitute sysfs value '%s'", tmpattr->value);
+			} else {
+				dbg("missing attribute");
+			}
+			break;
+		case '%':
+			strcat(pos, "%");
+			break;
+		default:
+			dbg("unknown substitution type '%%%c'", c);
+			break;
+		}
+		strcat(pos, tail);
 	}
 }
 
@@ -422,32 +476,46 @@ static int execute_program(char *path, char *value, int len)
 	return retval;
 }
 
-static int compare_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, struct sysfs_pair *pair)
+static struct sysfs_attribute *find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, char *attr)
 {
 	struct sysfs_attribute *tmpattr = NULL;
 	char *c;
 
-	if ((pair == NULL) || (pair->file[0] == '\0') || (pair->value == '\0'))
-		return -ENODEV;
-
-	dbg("look for device attribute '%s'", pair->file);
+	dbg("look for device attribute '%s'", attr);
 	/* try to find the attribute in the class device directory */
-	tmpattr = sysfs_get_classdev_attr(class_dev, pair->file);
+	tmpattr = sysfs_get_classdev_attr(class_dev, attr);
 	if (tmpattr)
-		goto label_found;
+		goto attr_found;
 
 	/* look in the class device directory if present */
 	if (sysfs_device) {
-		tmpattr = sysfs_get_device_attr(sysfs_device, pair->file);
+		tmpattr = sysfs_get_device_attr(sysfs_device, attr);
 		if (tmpattr)
-			goto label_found;
+			goto attr_found;
 	}
-	return -ENODEV;
 
-label_found:
-	c = tmpattr->value + strlen(tmpattr->value)-1;
-	if (*c == '\n')
-		*c = 0x00;
+	return NULL;
+
+attr_found:
+	c = strchr(tmpattr->value, '\n');
+	if (c != NULL)
+		c[0] = '\0';
+
+	dbg("found attribute '%s'", tmpattr->path);
+	return tmpattr;
+}
+
+static int compare_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, struct sysfs_pair *pair)
+{
+	struct sysfs_attribute *tmpattr;
+
+	if ((pair == NULL) || (pair->file[0] == '\0') || (pair->value == '\0'))
+		return -ENODEV;
+
+	tmpattr = find_sysfs_attribute(class_dev, sysfs_device, pair->file);
+	if (tmpattr == NULL)
+		return -ENODEV;
+
 	dbg("compare attribute '%s' value '%s' with '%s'",
 		  pair->file, tmpattr->value, pair->value);
 	if (strcmp_pattern(pair->value, tmpattr->value) != 0)
@@ -658,7 +726,7 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 		/* execute external program */
 		if (dev->program[0] != '\0') {
 			dbg("check " FIELD_PROGRAM);
-			apply_format(udev, dev->program);
+			apply_format(udev, dev->program, class_dev, sysfs_device);
 			if (execute_program(dev->program, udev->program_result, NAME_SIZE) != 0) {
 				dbg(FIELD_PROGRAM " returned nozero");
 				goto try_parent;
@@ -750,8 +818,8 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 
 found:
 	/* substitute placeholder */
-	apply_format(udev, udev->name);
-	apply_format(udev, udev->symlink);
+	apply_format(udev, udev->name, class_dev, sysfs_device);
+	apply_format(udev, udev->symlink, class_dev, sysfs_device);
 
 done:
 	perm = find_perm(udev->name);

@@ -194,6 +194,16 @@ BUS="scsi", PLACE="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:bus:%b"
 EOF
 	},
 	{
+		desc     => "sustitution of sysfs value (%s{file})",
+		subsys   => "block",
+		devpath  => "block/sda",
+		expected => "disk-IBM-ESXS-sda" ,
+		conf     => <<EOF
+BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="disk-%s{vendor}-%k"
+KERNEL="ttyUSB0", NAME="visor"
+EOF
+	},
+	{
 		desc     => "program result substitution",
 		subsys   => "block",
 		devpath  => "block/sda/sda3",
