@@ -2128,7 +2128,7 @@ struct volume_id *volume_id_open_node(const char *path)
 	struct volume_id *id;
 	int fd;
 
-	fd = open(path, O_RDONLY | O_NONBLOCK);
+	fd = open(path, O_RDONLY);
 	if (fd < 0) {
 		dbg("unable to open '%s'", path);
 		return NULL;
