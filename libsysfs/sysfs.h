@@ -32,12 +32,6 @@
 #include <fcntl.h>
 #include <errno.h>
 
-/* external library functions */
-extern int lstat(const char *file_name, struct stat *buf);
-extern int readlink(const char *path, char *buf, size_t bufsize);
-extern int getpagesize(void);
-extern int isascii(int c);
-
 /* Debugging */
 #ifdef DEBUG
 #include <syslog.h>
