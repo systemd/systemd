@@ -30,31 +30,40 @@ static inline int selinux_get_media(char *path, int mode, char **media)
 	FILE *fp;
 	char buf[PATH_MAX];
 	char mediabuf[PATH_MAX];
+	int ret = -1;
 
 	*media = NULL;
 	if (!(mode && S_IFBLK)) {
 		return -1;
 	}
-	snprintf(buf,sizeof(buf), "/proc/ide/%s/media", basename(path));
+
+	snprintf(buf, sizeof(buf), "/proc/ide/%s/media", basename(path));
+
 	fp=fopen(buf,"r");
-	if (fp) {
-		if (fgets(mediabuf,sizeof(mediabuf), fp)) {
-			int size = strlen(mediabuf);
-			while (size-- > 0) {
-				if (isspace(mediabuf[size])) {
-					mediabuf[size]='\0';
-				} else {
-					break;
-				}
-			}
-			*media = strdup(mediabuf);
-			info("selinux_get_media(%s)->%s \n", path, *media);
+	if (!fp)
+		goto out;
+	
+	mediabuf[0] = '\0';
+
+	if (fgets(mediabuf, sizeof(mediabuf), fp) == NULL)
+		goto close_out;
+
+	int size = strlen(mediabuf);
+	while (size-- > 0) {
+		if (isspace(mediabuf[size])) {
+			mediabuf[size]='\0';
+		} else {
+			break;
 		}
-		fclose(fp);
-		return 0;
-	} else {
-		return -1;
 	}
+	*media = strdup(mediabuf);
+	info("selinux_get_media(%s)->%s \n", path, *media);
+	ret = 0;
+
+close_out:
+	fclose(fp);
+out:
+	return ret;
 }
 
 static inline void selinux_setfilecon(char *file, unsigned int mode)
