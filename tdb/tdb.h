@@ -25,6 +25,7 @@
 extern "C" {
 #endif
 
+#define _KLIBC_HAS_ARCH_SIG_ATOMIC_T
 #include <signal.h>
 
 /* flags to tdb_store() */

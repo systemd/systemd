@@ -28,6 +28,7 @@
 #endif
 
 #ifdef STANDALONE
+#define _KLIBC_HAS_ARCH_SIG_ATOMIC_T
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
