@@ -554,6 +554,26 @@ EOF
 KERNEL="i2c-300", NAME="node"
 EOF
 	},
+	{
+		desc		=> "big major number test",
+		subsys		=> "i2c-dev",
+		devpath		=> "class/i2c-dev/i2c-fake1",
+		exp_name	=> "node",
+		exp_majorminor	=> "4095:1",
+		conf		=> <<EOF
+KERNEL="i2c-fake1", NAME="node"
+EOF
+	},
+	{
+		desc		=> "big major and big minor number test",
+		subsys		=> "i2c-dev",
+		devpath		=> "class/i2c-dev/i2c-fake2",
+		exp_name	=> "node",
+		exp_majorminor	=> "4094:89999",
+		conf		=> <<EOF
+KERNEL="i2c-fake2", NAME="node"
+EOF
+	},
 );
 
 # set env
