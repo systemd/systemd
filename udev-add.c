@@ -196,17 +196,24 @@ static int create_node(struct udevice *dev, int fake)
 		}
 	}
 
-	if (!fake)
+	if (!fake) {
 		info("creating device node '%s'", filename);
 		make_node(filename, dev->major, dev->minor, dev->mode, uid, gid);
+	} else {
+		info("creating device node '%s', major = '%d', minor = '%d', "
+		     "mode = '%#o', uid = '%d', gid = '%d'", filename,
+		     dev->major, dev->minor, (mode_t)dev->mode, uid, gid);
+	}
 
 	/* create partitions if requested */
 	if (dev->partitions > 0) {
 		info("creating device partition nodes '%s[1-%i]'", filename, dev->partitions);
-		for (i = 1; i <= dev->partitions; i++) {
-			sprintf(partitionname, "%s%i", filename, i);
-			make_node(partitionname, dev->major, dev->minor + i,
-				    dev->mode, uid, gid);
+		if (!fake) {
+			for (i = 1; i <= dev->partitions; i++) {
+				sprintf(partitionname, "%s%i", filename, i);
+				make_node(partitionname, dev->major,
+					  dev->minor + i, dev->mode, uid, gid);
+			}
 		}
 	}
 
