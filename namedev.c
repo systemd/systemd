@@ -449,7 +449,7 @@ static int match_id(struct config_device *dev, struct sysfs_class_device *class_
 	int found;
 	char *temp = NULL;
 
-	/* we have to have a sysfs device for NUMBER to work */
+	/* we have to have a sysfs device for ID to work */
 	if (!sysfs_device)
 		return -ENODEV;
 
@@ -480,7 +480,7 @@ static int match_place(struct config_device *dev, struct sysfs_class_device *cla
 	int found;
 	char *temp = NULL;
 
-	/* we have to have a sysfs device for NUMBER to work */
+	/* we have to have a sysfs device for PLACE to work */
 	if (!sysfs_device)
 		return -ENODEV;
 
