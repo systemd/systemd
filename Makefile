@@ -125,15 +125,21 @@ else
 	LDFLAGS = --static 
 endif
 
-LIB=libsysfs
-
 all: $(LIBC) $(ROOT)
 
 $(ARCH_LIB_OBJS) :
 	$(MAKE) -C klibc
 
-LIBSYSFS = libsysfs/libsysfs.a
-TDB = tdb/tdb.o tdb/spinlock.o
+TDB =	tdb/tdb.o	\
+	tdb/spinlock.o
+
+SYSFS =	libsysfs/sysfs_bus.o	\
+	libsysfs/sysfs_class.o	\
+	libsysfs/sysfs_device.o	\
+	libsysfs/sysfs_dir.o	\
+	libsysfs/sysfs_driver.o	\
+	libsysfs/sysfs_utils.o	\
+	libsysfs/dlist.o
 
 OBJS =	udev.o		\
 	udev-add.o	\
@@ -141,13 +147,8 @@ OBJS =	udev.o		\
 	udevdb.o	\
 	logging.o	\
 	namedev.o	\
+	$(SYSFS)	\
 	$(TDB)
-
-libsysfs/libsysfs.a:
-	$(MAKE) -C libsysfs
-
-tdb/tdb.o:
-	$(MAKE) -C tdb
 
 # header files automatically generated
 GEN_HEADERS =	udev_version.h
@@ -159,9 +160,8 @@ udev_version.h:
 	@echo \#define UDEV_ROOT	\"$(udevdir)\" >> $@
 
 
-$(ROOT): $(GEN_HEADERS) $(OBJS) $(LIBSYSFS) $(TDB)
-	$(MAKE) -C libsysfs
-	$(CC) $(LDFLAGS) -o $(ROOT) $(OBJS) -lsysfs $(LIB_OBJS) -L$(LIB) $(ARCH_LIB_OBJS)
+$(ROOT): $(GEN_HEADERS) $(OBJS)
+	$(CC) $(LDFLAGS) -o $(ROOT) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $(ROOT)
 
 clean:
@@ -169,8 +169,6 @@ clean:
 	 | xargs rm -f 
 	-rm -f core $(ROOT) $(GEN_HEADERS)
 	$(MAKE) -C klibc clean
-	$(MAKE) -C libsysfs clean
-	$(MAKE) -C tdb clean
 
 DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v CVS | grep -v "\.tar\.gz" | grep -v "\/\." | grep -v releases | grep -v BitKeeper | grep -v SCCS | grep -v "\.tdb" | grep -v "test\/sys" | sort )
 DISTDIR := $(RELEASE_NAME)
