@@ -193,7 +193,7 @@ $(CRT0):
 	@if [ ! -r klibc/linux ]; then \
 		ln -f -s $(KERNEL_DIR) klibc/linux; \
 	fi
-	$(MAKE) -C klibc SUBDIRS=klibc
+	$(MAKE) -C klibc SUBDIRS=klibc TESTS=
 
 HEADERS = \
 	udev.h		\
@@ -339,7 +339,7 @@ clean:
 	 | xargs rm -f 
 	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) $(SENDER) $(TESTER)
 	-rm -f ccdv
-	$(MAKE) -C klibc clean
+	$(MAKE) -C klibc SUBDIRS=klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
@@ -347,7 +347,7 @@ clean:
 	done ; \
 
 spotless: clean
-	$(MAKE) -C klibc spotless
+	$(MAKE) -C klibc SUBDIRS=klibc spotless
 	-rm -f klibc/linux
 
 DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v -e CVS -e "\.tar\.gz" -e "\/\." -e releases -e BitKeeper -e SCCS -e test/sys | sort )
