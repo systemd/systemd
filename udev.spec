@@ -39,7 +39,7 @@
 
 Summary: A userspace implementation of devfs
 Name: udev
-Version: 018_bk
+Version: 019
 Release: 1
 License: GPL
 Group: Utilities/System
@@ -150,6 +150,9 @@ rm -rf $RPM_BUILD_ROOT
 %endif
 
 %changelog
+* Fri Feb 27 2004 Greg Kroah-Hartman <greg@kroah.com>
+- added ability to build with SELinux support
+
 * Thu Feb 19 2004 Greg Kroah-Hartman <greg@kroah.com>
 - add some more files to the documentation directory
 - add ability to build scsi_id and make it the default

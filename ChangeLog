@@ -1,3 +1,35 @@
+Summary of changes from v018 to v019
+============================================
+
+Kay Sievers:
+  o TODO update
+  o udev - correct relative symlink
+  o udev - safer string handling - part four
+  o udev - safer string handling - part three
+  o udev - safer string handling - part two
+  o udev - man page update
+  o udev - safer string handling all over the place
+  o manpage update
+  o udev - allow all files in a directory as the config
+  o udev - simple klibc textual uid/gid handling
+
+Andrey Borzenkov:
+  o do not remove real .udev.tdb during RPM build
+
+Greg Kroah-Hartman:
+  o add new TODO item about local user permissions
+  o Add initial SELinux support for udev
+  o fix build for very old versions of make
+  o remove limit of the number of args passed to PROGRAM
+  o force udev to include the internal version of libsysfs and never the external one
+  o fix up libsysfs header file usage to fix bug reports from users that have sysfsutils installed already
+  o remove udevtest on 'make clean'
+  o remove udevd priority TODO item, as it's not needed at all
+
+Patrick Mansfield:
+  o update udev scsi_id to scsi_id 0.4
+
+
 Summary of changes from v017 to v018
 ============================================
 
