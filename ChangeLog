@@ -1,3 +1,82 @@
+Summary of changes from v054 to v055
+============================================
+
+<jkluebs:luebsphoto.com>:
+  o This patch causes the remove handler to check that each symlink actually points to the correct devnode and skip it if it does not.
+
+<pebenito:gentoo.org>:
+  o udev selinux fix
+
+<tklauser:access.unizh.ch>:
+  o The following patch fixes some warnings when compiling volume_id from udev with the -Wall compiler flag. Define _GNU_SOURCE for strnlen() and correct the path to logging.h
+  o The following patch fixes a warning when compiling chassis_id from udev with the -Wall compiler flag. There are too much conversions in the format string of sscanf(). One %d can be dropped.
+
+Greg Kroah-Hartman:
+  o fix raid rules
+  o added frugalware udev ruleset
+  o merge selinux and Kay's symlink fixes together
+
+Hannes Reinecke:
+  o volume_id: Fix label/uuid reading for reiserfs
+
+Kay Sievers:
+  o add udevstart to the RELEASE-NOTES
+  o volume_id: version 43
+  o clarify the shortcomings of %e
+  o correct rule match for devices without a physical device
+  o remove unneeded code, libsysfs does this for us
+  o add final release note
+  o add ENV{} key to match agains environment variables
+  o simplify sysfs_pair handling
+  o add a test and simplify debug statement
+  o support =, ==, !=, += for the key match and assignment
+  o add OPTION="last_rule" to skip any later rule
+  o rename namedev_dev to udev_rule
+  o correct enum device_type
+  o remove udevstart on make clean
+  o volume_id: version 42
+  o volume_id: version 41
+  o remove unneeded include
+  o The path to dlist.h is not correct
+  o udevinfo -d: use '=' as separator, cause ':' may be a part of the devpath
+  o klibc: version 1.0.3
+  o add RELEASE-NOTES file
+  o test suite: move "driver" link to physical device
+  o remove PLACE key match
+  o don't lookup "root" in the userdb
+  o fix ia64 compile
+  o fix segfaulting udev while DRIVER matching
+  o cleanup list.h
+  o klibc: version 0.214
+  o rename device_list->list to device_list->node
+  o replace strncpy()/strncat() by strlcpy()/strlcat()
+  o split udev and udevstart
+  o udev_volume_id: version 39
+  o rename LOG to USE_LOG in all places
+  o remove Makefile magic for klibc integration
+  o klibc_fixups: remove no longer needed stuff
+  o udev_volume_id: volume_id v38
+  o use numeric owner/group as default values to avoid parsing userdb
+  o fix up segfaulting binaries with new klibc
+  o udevinfo -d: speed-up device dump
+  o klibc: version 0.211
+  o klibc_fixups: remove unneeded stuff
+  o replace weird defines by real code
+  o udev-test.pl: remove useless tests
+  o allow unlimitied count of symlinks
+  o unmap db-file after use
+  o remove typedef for call_foreach_file() handler function
+  o correct udev_init_device
+  o rename attributes to options
+  o kill stupid gcc4 warning
+  o trivial clenaup of namedev code
+  o klibc: check for gcc4
+  o klibc: update v0.205
+
+Thierry Vignaud:
+  o gentoo rule update for raid devices
+
+
 Summary of changes from v053 to v054
 ============================================
 
