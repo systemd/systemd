@@ -26,7 +26,10 @@
 
 #ifdef DEBUG
 #include <syslog.h>
-	#define dbg(format, arg...) do { log_message (LOG_DEBUG, __FUNCTION__ ": " format, ## arg); } while (0)
+#define dbg(format, arg...)								\
+	do {										\
+		log_message (LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
+	} while (0)
 #else
 	#define dbg(format, arg...) do { } while (0)
 #endif
@@ -35,6 +38,9 @@
 /* Lots of constants that should be in a config file sometime */
 #define SYSFS_ROOT	"/sys"
 #define MKNOD		"/bin/mknod"
+
+
+extern int log_message (int level, const char *format, ...);
 
 
 #endif
