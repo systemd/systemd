@@ -817,6 +817,37 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 	strcpy(udev->name, class_dev->name);
 
 done:
+	/* substitute placeholder in NAME  */
+	while (1) {
+		pos = strchr(udev->name, '%');
+		if (pos) {
+			strcpy(name, pos+2);
+			*pos = 0x00;
+			switch (pos[1]) {
+			case 'n':
+				dig = class_dev->name + strlen(class_dev->name);
+				while (isdigit(*(dig-1)))
+					dig--;
+				strcat(udev->name, dig);
+				dbg_parse("kernel number appended: %s", dig);
+				break;
+			case 'm':
+				sprintf(pos, "%u", udev->minor);
+				dbg_parse("minor number appended: %u", udev->minor);
+				break;
+			case 'M':
+				sprintf(pos, "%u", udev->major);
+				dbg_parse("major number appended: %u", udev->major);
+				break;
+			default:
+				dbg_parse("unknown substitution type: %%%c", pos[1]);
+				break;
+			}
+			strcat(udev->name, name);
+		} else
+			break;
+	}
+
 	/* mode was never set above */
 	if (!udev->mode) {
 		udev->mode = get_default_mode(class_dev);
