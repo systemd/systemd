@@ -1,0 +1,75 @@
+Frequently Asked Questions about udev
+
+
+Q: What's this udev thing, and what is it trying to do?
+A: Read the OLS 2003 paper about udev, available in the docs/ directory,
+   and at:
+	<http://www.kroah.com/linux/talks/ols_2003_udev_paper/Reprint-Kroah-Hartman-OLS2003.pdf>
+   There is also a udev presentation given at OLS 2003 available at:
+	<http://www.kroah.com/linux/talks/ols_2003_udev_talk/>
+
+Q: How is udev related to devfs?
+A: udev works entirely in userspace, using /sbin/hotplug calls that the
+   kernel makes whenever a device is added or removed from the kernel.  All
+   naming policy, and permission control is done in userspace.  devfs
+   operated from within the kernel.
+
+Q: Why was devfs marked OBSOLETE if udev is not finished yet?
+A: To quote Al Viro (Linux VFS kernel maintainer):
+	- it was determined that the same thing could be done in userspace
+	- devfs had been shoved into the tree in hope that its quality will
+	  catch up
+	- devfs was found to have fixable and unfixable bugs
+	- the former had stayed around for many months with maintainer
+	  claiming that everything works fine
+	- the latter had stayed, period.
+	- the devfs maintainer/author disappeared and stoped maintaining
+	  the code.
+
+Q: But udev will not automatically load a driver if a /dev node is opened
+   when it is not present like devfs will do.
+A: If you really require this functionality, then use devfs.  It is still
+   present in the kernel.
+
+Q: But I really like the devfs naming scheme, will udev do that?
+A: Yes, udev can create /dev nodes using the devfs naming policy.  A
+   configuration file needs to be created to map the kernel default names
+   to the devfs names.  Such a configuration file would be gladly added to
+   the udev package if it is provided by anyone who can create such a
+   mapping.
+
+Q: What kinds of devices does udev create nodes for?
+A: All devices that are shown in sysfs will work with udev.  If more
+   support is added for devices to the kernel, udev will automatically
+   start working for them.  All block devices are currently supported, and
+   almost all major char devices are supported.  Kernel developers are
+   working on adding support for all char devices at this time.  See the
+   linux-kernel mailing list for patches and status of these patches.
+
+Q: Will udev remove the limit on the number of anonymous devices?
+A: udev is entirely in userspace.  If the kernel supports a greater number
+   of anonymous devices, udev will support it.
+
+Q: Will udev support symlinks?
+A: Yes, patches are gladly accepted to add this functionality.
+
+Q: How will udev support changes to device permissions?
+A: On shutdown, udev will save the state of existing device permissions to
+   its database, and then used the on the next boot time.
+
+Q: How will udev handle the /dev filesystem?
+A: /dev can be a ramfs, or a backing filesystem.  udev does not care what
+   kind of filesystem it runs on.
+
+Q: How will udev handle devices found before init runs?
+A: udev will be placed in initramfs and run for every device that is found.
+   Work to get this implemented is still underway.
+
+Q: I have other questions about udev, where do I ask them?
+A: The linux-hotplug-devel mailing list is the proper place for it.  The
+   address for it is linux-hotplug-devel@lists.sourceforge.net
+   Information on joining can be found at
+	<https://lists.sourceforge.net/lists/listinfo/linux-hotplug-devel>
+   Archives of the mailing list can be found at:
+	<http://marc.theaimsgroup.com/?l=linux-hotplug-devel>
+
