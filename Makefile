@@ -284,7 +284,6 @@ udev_version.h:
 	@echo \#define UDEV_CONFIG_DIR		\"$(configdir)\" >> $@
 	@echo \#define UDEV_CONFIG_FILE		\"$(configdir)/udev.conf\" >> $@
 	@echo \#define UDEV_RULES_FILE		\"$(configdir)/rules.d\" >> $@
-	@echo \#define UDEV_PERMISSION_FILE	\"$(configdir)/permissions.d\" >> $@
 	@echo \#define UDEV_LOG_DEFAULT 	\"yes\" >> $@
 	@echo \#define UDEV_BIN			\"$(DESTDIR)$(sbindir)/udev\" >> $@
 	@echo \#define UDEVD_BIN		\"$(DESTDIR)$(sbindir)/udevd\" >> $@
@@ -381,7 +380,6 @@ small_release: $(DISTFILES) spotless
 
 install-config:
 	$(INSTALL) -d $(DESTDIR)$(configdir)/rules.d
-	$(INSTALL) -d $(DESTDIR)$(configdir)/permissions.d
 	@if [ ! -r $(DESTDIR)$(configdir)/udev.conf ]; then \
 		echo $(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.conf $(DESTDIR)$(configdir); \
 		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.conf $(DESTDIR)$(configdir); \
@@ -389,10 +387,6 @@ install-config:
 	@if [ ! -r $(DESTDIR)$(configdir)/rules.d/50-udev.rules ]; then \
 		echo $(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.rules $(DESTDIR)$(configdir)/rules.d/50-udev.rules; \
 		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.rules $(DESTDIR)$(configdir)/rules.d/50-udev.rules; \
-	fi
-	@if [ ! -r $(DESTDIR)$(configdir)/permissions.d/50-udev.permissions ]; then \
-		echo $(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.permissions $(DESTDIR)$(configdir)/permissions.d/50-udev.permissions; \
-		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.permissions $(DESTDIR)$(configdir)/permissions.d/50-udev.permissions; \
 	fi
 
 install-dev.d:
@@ -444,10 +438,8 @@ endif
 uninstall: uninstall-man uninstall-dev.d
 	- rm $(hotplugdir)/10-udev.hotplug
 	- rm $(configdir)/rules.d/50-udev.rules
-	- rm $(configdir)/permissions.d/50-udev.permissions
 	- rm $(configdir)/udev.conf
 	- rmdir $(configdir)/rules.d
-	- rmdir $(configdir)/permissions.d
 	- rmdir $(configdir)
 	- rm $(sbindir)/$(ROOT)
 	- rm $(sbindir)/$(DAEMON)

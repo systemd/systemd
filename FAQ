@@ -72,10 +72,6 @@ A: udev is entirely in userspace.  If the kernel supports a greater number
 Q: Will udev support symlinks?
 A: Yes, It now does.  Multiple symlinks per device node too.
 
-Q: How will udev support changes to device permissions?
-A: On shutdown, udev will save the state of existing device permissions to
-   its database, and then used the on the next boot time.
-
 Q: How will udev handle the /dev filesystem?
 A: /dev can be a ramfs, or a backing filesystem.  udev does not care what
    kind of filesystem it runs on.

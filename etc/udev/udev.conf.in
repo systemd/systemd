@@ -14,19 +14,16 @@ udev_db="@udevdir@/.udevdb"
 # udev_rules - The name and location of the udev rules file
 udev_rules="@configdir@/rules.d"
 
-# udev_permissions - The name and location of the udev permission file
-udev_permissions="@configdir@/permissions.d"
-
 # default_mode - set the default mode for all nodes that have no
-#                explicit match in the permissions file
+#                permissions specified
 default_mode="0600"
 
 # default_owner - set the default owner for all nodes that have no
-#                 explicit match in the permissions file
+ #                permissions specified
 default_owner="root"
 
 # default_group - set the default group for all nodes that have no
-#                 explicit match in the permissions file
+ #                permissions specified
 default_group="root"
 
 # udev_log - set to "yes" if you want logging, else "no"

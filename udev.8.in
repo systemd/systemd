@@ -55,13 +55,6 @@ The name of the udev rules file or directory to look for files with the suffix
 All rule files are read in lexical order. The default value is
 .IR /etc/udev/rules.d/ .
 .TP
-.B udev_permissions
-The name of the udev permission file or directory to look for files with the
-suffix
-.IR .permissions .
-All permission files are read in lexical order. The default value is
-.IR /etc/udev/permissions.d/ .
-.TP
 .B udev_log
 The switch to enable/disable logging of udev information
 The default value is
@@ -95,10 +88,6 @@ udev_db="/udev/.udevdb"
 # udev_rules - The name of the udev rules file or directory to look
                for files with the suffix .rules
 udev_rules="/etc/udev/rules.d/"
-
-# udev_permissions - The name of the udev permission file or directory
-                     to look for files with the suffix .permissions
-udev_permissions="/etc/udev/udev.permissions"
 
 # udev_log - set to "yes" if you want logging, else "no"
 udev_log="yes"
@@ -214,8 +203,8 @@ separate rules file, while the device nodes are maintained by the
 distribution provided rules file.
 .TP
 .B OWNER, GROUP, MODE
-The permissions for this device. Every specified value overwrites the value
-given in the permissions file.
+The permissions for this device. Every specified value overwrites the default
+value specified in the config file.
 .P
 .RB "The " NAME " ," SYMLINK " and " PROGRAM
 fields support simple printf-like string substitutions:
@@ -297,29 +286,6 @@ KERNEL="scd*", NAME="%k", SYMLINK="cdrom%e"
 KERNEL="pcd*", NAME="%k", SYMLINK="cdrom%e"
 KERNEL="hd[a-z]", PROGRAM="/bin/cat /proc/ide/%k/media", RESULT="cdrom",
   NAME="%k", SYMLINK="cdrom%e"
-.fi
-.P
-The permissions and ownership of the created device file are read from
-the files located in the
-.I /etc/udev/permissions.d/
-directory, or at the location specified by the
-.I udev_permission
-value in the
-.I /etc/udev/udev.conf
-file.
-.br
-Every line lists a device name followed by owner, group and permission
-mode. All values are separated by colons. The name field may contain a
-pattern to apply the values to a whole class of devices.
-.sp
-.RI "A sample " udev.permissions " file might look like this:"
-.sp
-.nf
-#name:user:group:mode
-input/*:root:root:644
-ttyUSB1:0:8:0660
-video*:root:video:0660
-dsp1:::0666
 .fi
 .P
 A number of different fields in the above configuration files support a simple

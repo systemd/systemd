@@ -40,6 +40,7 @@
 #include "logging.h"
 #include "namedev.h"
 
+LIST_HEAD(config_device_list);
 
 static int add_config_dev(struct config_device *new_dev)
 {
@@ -74,53 +75,6 @@ void dump_config_dev_list(void)
 		dump_config_dev(dev);
 }
 
-static int add_perm_dev(struct perm_device *new_dev)
-{
-	struct perm_device *dev;
-	struct perm_device *tmp_dev;
-
-	/* if we already have that entry, just update the values */
-	list_for_each_entry(dev, &perm_device_list, node) {
-		if (strcmp(new_dev->name, dev->name) != 0)
-			continue;
-
-		/* don't overwrite values from earlier entries */
-		if (dev->mode == 0000)
-			dev->mode = new_dev->mode;
-		if (dev->owner[0] == '\0')
-			strfieldcpy(dev->owner, new_dev->owner);
-		if (dev->owner[0] == '\0')
-			strfieldcpy(dev->group, new_dev->group);
-
-		return 0;
-	}
-
-	/* not found, add new structure to the perm list */
-	tmp_dev = malloc(sizeof(*tmp_dev));
-	if (!tmp_dev)
-		return -ENOMEM;
-
-	memcpy(tmp_dev, new_dev, sizeof(*tmp_dev));
-	list_add_tail(&tmp_dev->node, &perm_device_list);
-	/* dump_perm_dev(tmp_dev); */
-
-	return 0;
-}
-
-void dump_perm_dev(struct perm_device *dev)
-{
-	dbg_parse("name='%s', owner='%s', group='%s', mode=%#o",
-		  dev->name, dev->owner, dev->group, dev->mode);
-}
-
-void dump_perm_dev_list(void)
-{
-	struct perm_device *dev;
-
-	list_for_each_entry(dev, &perm_device_list, node)
-		dump_perm_dev(dev);
-}
-
 /* extract possible KEY{attr} */
 static char *get_key_attribute(char *str)
 {
@@ -143,7 +97,7 @@ static char *get_key_attribute(char *str)
 	return NULL;
 }
 
-static int namedev_parse_rules(const char *filename, void *data)
+static int namedev_parse(const char *filename, void *data)
 {
 	char line[LINE_SIZE];
 	char *bufline;
@@ -362,124 +316,18 @@ error:
 	return retval;
 }
 
-static int namedev_parse_permissions(const char *filename, void *data)
+int namedev_init(void)
 {
-	char line[LINE_SIZE];
-	char *bufline;
-	char *temp;
-	char *temp2;
-	char *buf;
-	size_t bufsize;
-	size_t cur;
-	size_t count;
-	int retval = 0;
-	struct perm_device dev;
-	int lineno;
+	struct stat stats;
+	int retval;
 
-	if (file_map(filename, &buf, &bufsize) == 0) {
-		dbg("reading '%s' as permissions file", filename);
-	} else {
-		dbg("can't open '%s' as permissions file", filename);
+	if (stat(udev_rules_filename, &stats) != 0)
 		return -1;
-	}
 
-	/* loop through the whole file */
-	cur = 0;
-	lineno = 0;
-	while (cur < bufsize) {
-		count = buf_get_line(buf, bufsize, cur);
-		bufline = &buf[cur];
-		cur += count+1;
-		lineno++;
+	if ((stats.st_mode & S_IFMT) != S_IFDIR)
+		retval = namedev_parse(udev_rules_filename, NULL);
+	else
+		retval = call_foreach_file(namedev_parse, udev_rules_filename, RULEFILE_SUFFIX, NULL);
 
-		if (count >= LINE_SIZE) {
-			info("line too long, rule skipped %s, line %d",
-			     filename, lineno);
-			continue;
-		}
-
-		/* eat the whitespace */
-		while ((count > 0) && isspace(bufline[0])) {
-			bufline++;
-			count--;
-		}
-		if (count == 0)
-			continue;
-
-		/* see if this is a comment */
-		if (bufline[0] == COMMENT_CHARACTER)
-			continue;
-
-		strncpy(line, bufline, count);
-		line[count] = '\0';
-		dbg_parse("read '%s'", line);
-
-		/* parse the line */
-		memset(&dev, 0x00, sizeof(struct perm_device));
-		temp = line;
-
-		temp2 = strsep(&temp, ":");
-		if (!temp2) {
-			dbg("cannot parse line '%s'", line);
-			continue;
-		}
-		strfieldcpy(dev.name, temp2);
-
-		temp2 = strsep(&temp, ":");
-		if (!temp2) {
-			dbg("cannot parse line '%s'", line);
-			continue;
-		}
-		strfieldcpy(dev.owner, temp2);
-
-		temp2 = strsep(&temp, ":");
-		if (!temp2) {
-			dbg("cannot parse line '%s'", line);
-			continue;
-		}
-		strfieldcpy(dev.group, temp2);
-
-		if (!temp) {
-			dbg("cannot parse line '%s'", line);
-			continue;
-		}
-		dev.mode = strtol(temp, NULL, 8);
-
-		dbg_parse("name='%s', owner='%s', group='%s', mode=%#o",
-			  dev.name, dev.owner, dev.group, dev.mode);
-
-		retval = add_perm_dev(&dev);
-		if (retval) {
-			dbg("add_perm_dev returned with error %d", retval);
-			goto exit;
-		}
-	}
-
-exit:
-	file_unmap(buf, bufsize);
 	return retval;
-}
-
-int namedev_init_rules(void)
-{
-	struct stat stats;
-
-	stat(udev_rules_filename, &stats);
-	if ((stats.st_mode & S_IFMT) != S_IFDIR)
-		return namedev_parse_rules(udev_rules_filename, NULL);
-	else
-		return call_foreach_file(namedev_parse_rules, udev_rules_filename,
-					 RULEFILE_SUFFIX, NULL);
-}
-
-int namedev_init_permissions(void)
-{
-	struct stat stats;
-
-	stat(udev_permissions_filename, &stats);
-	if ((stats.st_mode & S_IFMT) != S_IFDIR)
-		return namedev_parse_permissions(udev_permissions_filename, NULL);
-	else
-		return call_foreach_file(namedev_parse_permissions, udev_permissions_filename,
-					 PERMFILE_SUFFIX, NULL);
 }

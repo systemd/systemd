@@ -43,7 +43,6 @@
 char sysfs_path[SYSFS_PATH_MAX];
 char udev_root[PATH_MAX];
 char udev_db_path[PATH_MAX+NAME_MAX];
-char udev_permissions_filename[PATH_MAX+NAME_MAX];
 char udev_rules_filename[PATH_MAX+NAME_MAX];
 char udev_config_filename[PATH_MAX+NAME_MAX];
 mode_t default_mode;
@@ -74,7 +73,6 @@ static void init_variables(void)
 	strcpy(udev_db_path, UDEV_DB);
 	strcpy(udev_config_filename, UDEV_CONFIG_FILE);
 	strcpy(udev_rules_filename, UDEV_RULES_FILE);
-	strcpy(udev_permissions_filename, UDEV_PERMISSION_FILE);
 
 	strcpy(default_owner, "root");
 	strcpy(default_group, "root");
@@ -206,12 +204,6 @@ static int parse_config_file(void)
 			continue;
 		}
 
-		if (strcasecmp(variable, "udev_permissions") == 0) {
-			strfieldcpy(udev_permissions_filename, value);
-			no_trailing_slash(udev_permissions_filename);
-			continue;
-		}
-
 		if (strcasecmp(variable, "default_mode") == 0) {
 			default_mode = strtol(value, NULL, 8);
 			continue;
@@ -267,7 +259,6 @@ static void get_dirs(void)
 	dbg_parse("udev_config_filename = %s", udev_config_filename);
 	dbg_parse("udev_db_path = %s", udev_db_path);
 	dbg_parse("udev_rules_filename = %s", udev_rules_filename);
-	dbg_parse("udev_permissions_filename = %s", udev_permissions_filename);
 	dbg_parse("udev_log = %d", udev_log);
 
 	parse_config_file();
@@ -276,7 +267,6 @@ static void get_dirs(void)
 	dbg("udev_config_filename = %s", udev_config_filename);
 	dbg("udev_db_path = %s", udev_db_path);
 	dbg("udev_rules_filename = %s", udev_rules_filename);
-	dbg("udev_permissions_filename = %s", udev_permissions_filename);
 	dbg("udev_log = %d", udev_log);
 }
 

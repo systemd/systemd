@@ -187,7 +187,7 @@ int main(int argc, char *argv[], char *envp[])
 
 			wait_for_class_device(class_dev, &error);
 
-			/* init rules, permissions */
+			/* init rules */
 			namedev_init();
 
 			/* name, create node, store in db */

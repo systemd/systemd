@@ -31,7 +31,6 @@ my $sysfs     = "sys/";
 my $udev_bin  = "../udev";
 my $udev_root = "udev-root/"; # !!! directory will be removed !!!
 my $udev_db   = ".udevdb";
-my $perm      = "udev.permissions";
 my $main_conf = "udev-test.conf";
 my $conf_tmp  = "udev-test.rules";
 
@@ -503,167 +502,17 @@ BUS="scsi", SYSFS{whitespace_test}="WHITE  SPACE   ", NAME="matched-with-space"
 EOF
 	},
 	{
-		desc		=> "permissions test",
-		subsys		=> "block",
-		devpath		=> "/block/sda",
-		exp_name	=> "node",
-		exp_perms	=> "5000::0444",
-		conf		=> <<EOF
-BUS="scsi", KERNEL="sda", NAME="node", OWNER="5000", MODE="0444"
-EOF
-	},
-	{
-		desc		=> "permissions ttyUSB0:root:uucp:0660",
-		subsys		=> "tty",
-		devpath		=> "/class/tty/ttyUSB0",
-		exp_name	=> "ttyUSB0",
-		exp_perms	=> "0:14:0660",
-		conf		=> <<EOF
-KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n"
-EOF
-	},
-	{
-		desc		=> "permissions tty0::root:0444",
-		subsys		=> "tty",
-		devpath		=> "/class/tty/tty0",
-		exp_name	=> "tty0",
-		exp_perms	=> "0:0:0444",
-		conf		=> <<EOF
-KERNEL="tty0", NAME="tty0"
-EOF
-	},
-	{
-		desc		=> "permissions tty1:root::0555",
-		subsys		=> "tty",
-		devpath		=> "/class/tty/tty1",
-		exp_name	=> "tty1",
-		exp_perms	=> "0:0:0555",
-		conf		=> <<EOF
-KERNEL="tty1", NAME="tty1"
-EOF
-	},
-	{
-		desc		=> "permissions tty2:::0777",
-		subsys		=> "tty",
-		devpath		=> "/class/tty/tty2",
-		exp_name	=> "tty2",
-		exp_perms	=> "0:0:0777",
-		conf		=> <<EOF
-KERNEL="tty2", NAME="tty2"
-EOF
-	},
-	{
-		desc		=> "permissions tty3::: (default mode applied)",
-		subsys		=> "tty",
-		devpath		=> "/class/tty/tty3",
-		exp_name	=> "tty3",
-		exp_perms	=> "0:0:600",
-		conf		=> <<EOF
-KERNEL="tty3", NAME="tty3"
-EOF
-	},
-	{
-		desc		=> "permissions i2c-300:root:sys:0744",
-		subsys		=> "i2c-dev",
-		devpath		=> "/class/i2c-dev/i2c-300",
-		exp_name	=> "i2c-300",
-		exp_perms	=> "0:3:0744",
-		conf		=> <<EOF
-KERNEL="i2c-300", NAME="i2c-300"
-EOF
-	},
-	{
-		desc		=> "permissions i2c-fake1:root:7:0007",
-		subsys		=> "i2c-dev",
-		devpath		=> "/class/i2c-dev/i2c-fake1",
-		exp_name	=> "i2c-fake1",
-		exp_perms	=> "0:7:0007",
-		conf		=> <<EOF
-KERNEL="i2c-fake1", NAME="i2c-fake1"
-EOF
-	},
-	{
-		desc		=> "permissions ttyS[01]:0:5:0700",
-		subsys		=> "tty",
-		devpath		=> "/class/tty/ttyS1",
-		exp_name	=> "ttyS1",
-		exp_perms	=> "0:5:0700",
-		conf		=> <<EOF
-KERNEL="ttyS1", NAME="ttyS1"
-EOF
-	},
-	{
-		desc		=> "permissions ttyS[4-9]:tty:5:0060",
-		subsys		=> "tty",
-		devpath		=> "/class/tty/ttyS7",
-		exp_name	=> "ttyS7",
-		exp_perms	=> "0:5:0060",
-		conf		=> <<EOF
-KERNEL="ttyS7", NAME="ttyS7"
-EOF
-	},
-	{
-		desc		=> "permissions tty4:0:5:0707",
-		subsys		=> "ttyS4",
-		devpath		=> "/class/tty/tty4",
-		exp_name	=> "tty4",
-		exp_perms	=> "0:5:0707",
-		conf		=> <<EOF
-KERNEL="tty4", NAME="tty4"
-EOF
-	},
-	{
-		desc		=> "permissions tty4?:0:5:0007",
-		subsys		=> "tty",
-		devpath		=> "/class/tty/tty44",
-		exp_name	=> "tty44",
-		exp_perms	=> "0:5:0007",
-		conf		=> <<EOF
-KERNEL="tty44", NAME="tty44"
-EOF
-	},
-	{
-		desc		=> "permissions tty3[!3]:::0467",
-		subsys		=> "tty",
-		devpath		=> "/class/tty/tty35",
-		exp_name	=> "tty35",
-		exp_perms	=> "0:0:0467",
-		conf		=> <<EOF
-KERNEL="tty35", NAME="tty35"
-EOF
-	},
-	{
-		desc		=> "permissions tty33:bad:name:0500",
+		desc		=> "permissions USER=bad GROUP=name",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/tty33",
 		exp_name	=> "tty33",
-		exp_perms	=> "0:0:0500",
+		exp_perms	=> "0:0:0600",
 		conf		=> <<EOF
-KERNEL="tty33", NAME="tty33"
+KERNEL="tty33", NAME="tty33", OWNER="bad", GROUP="name"
 EOF
 	},
 	{
-		desc		=> "permissions rtc:0:users:0600",
-		subsys		=> "misc",
-		devpath		=> "/class/misc/rtc",
-		exp_name	=> "misc/rtc",
-		exp_perms	=> "0:100:0600",
-		conf		=> <<EOF
-KERNEL="rtc", NAME="misc/rtc"
-EOF
-	},
-	{
-		desc		=> "permissions misc:0:users:0600",
-		subsys		=> "misc",
-		devpath		=> "/class/misc/psaux",
-		exp_name	=> "misc/psaux",
-		exp_perms	=> "0:100:0600",
-		conf		=> <<EOF
-KERNEL="psaux", NAME="misc/psaux"
-EOF
-	},
-	{
-		desc		=> "permissions set OWNER=5000",
+		desc		=> "permissions OWNER=5000",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
@@ -673,7 +522,7 @@ BUS="scsi", KERNEL="sda", NAME="node", OWNER="5000"
 EOF
 	},
 	{
-		desc		=> "permissions set GROUP=100",
+		desc		=> "permissions GROUP=100",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
@@ -683,7 +532,7 @@ BUS="scsi", KERNEL="sda", NAME="node", GROUP="100"
 EOF
 	},
 	{
-		desc		=> "permissions set mode=0777",
+		desc		=> "permissions MODE=0777",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
@@ -693,7 +542,7 @@ BUS="scsi", KERNEL="sda", NAME="node", MODE="0777"
 EOF
 	},
 	{
-		desc		=> "permissions set OWNER=5000 GROUP=100 MODE=0777",
+		desc		=> "permissions OWNER=5000 GROUP=100 MODE=0777",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
@@ -703,37 +552,37 @@ BUS="scsi", KERNEL="sda", NAME="node", OWNER="5000", GROUP="100", MODE="0777"
 EOF
 	},
 	{
-		desc		=> "permissions override OWNER to 5000",
+		desc		=> "permissions OWNER to 5000",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "ttyUSB0",
-		exp_perms	=> "5000:14:0660",
+		exp_perms	=> "5000::",
 		conf		=> <<EOF
 KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", OWNER="5000"
 EOF
 	},
 	{
-		desc		=> "permissions override GROUP to 100",
+		desc		=> "permissions GROUP to 100",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "ttyUSB0",
-		exp_perms	=> ":100:0660",
+		exp_perms	=> ":100:0600",
 		conf		=> <<EOF
 KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", GROUP="100"
 EOF
 	},
 	{
-		desc		=> "permissions override MODE to 0060",
+		desc		=> "permissions MODE to 0060",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "ttyUSB0",
-		exp_perms	=> ":14:0060",
+		exp_perms	=> "::0060",
 		conf		=> <<EOF
 KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", MODE="0060"
 EOF
 	},
 	{
-		desc		=> "permissions override OWNER, GROUP, MODE",
+		desc		=> "permissions OWNER, GROUP, MODE",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
 		exp_name	=> "ttyUSB0",
@@ -1336,7 +1185,9 @@ open CONF, ">$main_conf" || die "unable to create config file: $main_conf";
 print CONF "udev_root=\"$udev_root\"\n";
 print CONF "udev_db=\"$udev_db\"\n";
 print CONF "udev_rules=\"$conf_tmp\"\n";
-print CONF "udev_permissions=\"$perm\"\n";
+print CONF "default_mode=\"0600\"\n";
+print CONF "default_owner=\"root\"\n";
+print CONF "default_group=\"root\"\n";
 close CONF;
 
 my $test_num = 1;

@@ -43,10 +43,6 @@
 
 static struct sysfs_attribute *find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, char *attr);
 
-LIST_HEAD(config_device_list);
-LIST_HEAD(perm_device_list);
-
-
 /* compare string with pattern (supports * ? [0-9] [!A-Z]) */
 static int strcmp_pattern(const char *p, const char *s)
 {
@@ -98,18 +94,6 @@ static int strcmp_pattern(const char *p, const char *s)
 		break;
 	}
 	return 1;
-}
-
-static struct perm_device *find_perm_entry(const char *name)
-{
-	struct perm_device *perm;
-
-	list_for_each_entry(perm, &perm_device_list, node) {
-		if (strcmp_pattern(perm->name, name))
-			continue;
-		return perm;
-	}
-	return NULL;
 }
 
 /* extract possible {attr} and move str behind it */
@@ -694,7 +678,6 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 	struct sysfs_class_device *class_dev_parent;
 	struct sysfs_device *sysfs_device = NULL;
 	struct config_device *dev;
-	struct perm_device *perm;
 	char *pos;
 
 	udev->mode = 0;
@@ -792,18 +775,7 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 		goto exit;
 
 perms:
-	/* apply permissions from permissions file to empty fields */
-	perm = find_perm_entry(udev->name);
-	if (perm != NULL) {
-		if (udev->mode == 0000)
-			udev->mode = perm->mode;
-		if (udev->owner[0] == '\0')
-			strfieldcpy(udev->owner, perm->owner);
-		if (udev->group[0] == '\0')
-			strfieldcpy(udev->group, perm->group);
-	}
-
-	/* apply permissions from config to empty fields */
+	/* apply default permissions to empty fields */
 	if (udev->mode == 0000)
 		udev->mode = default_mode;
 	if (udev->owner[0] == '\0')
@@ -816,21 +788,4 @@ perms:
 
 exit:
 	return 0;
-}
-
-int namedev_init(void)
-{
-	int retval;
-
-	retval = namedev_init_rules();
-	if (retval)
-		return retval;
-
-	retval = namedev_init_permissions();
-	if (retval)
-		return retval;
-
-	dump_config_dev_list();
-	dump_perm_dev_list();
-	return retval;
 }

@@ -80,7 +80,6 @@ extern void udev_multiplex_directory(struct udevice *udev, const char *basedir, 
 extern char sysfs_path[SYSFS_PATH_MAX];
 extern char udev_root[PATH_MAX];
 extern char udev_db_path[PATH_MAX+NAME_MAX];
-extern char udev_permissions_filename[PATH_MAX+NAME_MAX];
 extern char udev_config_filename[PATH_MAX+NAME_MAX];
 extern char udev_rules_filename[PATH_MAX+NAME_MAX];
 extern mode_t default_mode;

@@ -98,7 +98,6 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %doc COPYING README TODO ChangeLog HOWTO* docs/*
 %doc etc/udev/udev.rules.{examples,gentoo,redhat}
-%doc etc/udev/udev.permissions.{gentoo,redhat}
 %attr(755,root,root) /sbin/udev
 %attr(755,root,root) /usr/bin/udevinfo
 %attr(755,root,root) /sbin/udevsend
@@ -109,9 +108,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %dir /etc/udev/
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.conf
 %attr(755,root,root) %dir /etc/udev/rules.d/
-%attr(755,root,root) %dir /etc/udev/permissions.d/
 %config(noreplace) %attr(0644,root,root) /etc/udev/rules.d/50-udev.rules
-%config(noreplace) %attr(0644,root,root) /etc/udev/permissions.d/50-udev.permissions
 %attr(-,root,root) /etc/hotplug.d/default/udev.hotplug
 %attr(755,root,root) /etc/init.d/udev
 %attr(0644,root,root) %{_mandir}/man8/udev*.8*

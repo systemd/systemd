@@ -12,19 +12,13 @@ Q.  I login as my normal self from the login screen and RH just hangs on an
     empty blue screen.  What's wrong?
 
 A.  You have some wrong permissions.  I'm guessing you can probably log in as root
-    but not as your normal user.  Basically you need to edit the
-    /etc/udev/udev.permissions file to set the correct permissions to the nodes
-    in /dev.  I added the following:
-
-    null:root:users:0666
-    urandom:root:users:0644
-
-    setting the correct permissions to null and urandom allowed me to login
-    as myself and not at root.
+    but not as your normal user.  Basically you need to set the right
+    permissions with a rule. Setting the correct permissions to null and urandom
+    allowed me to login as myself and not at root.
 
     While you are there you might want to set the permissions to ptmx as well
-    or you may have trouble getting a bash prompt in an xterm.  i.e.
-    ptmx:root:users:0666  Also refer to the next question.
+    or you may have trouble getting a bash prompt in an xterm. Also refer to the
+    next question.
 
 Q.  I'm having trouble getting a bash prompt from my xterm.  i.e. I bring up a
     terminal and all I have is a blank screen with a blinking cursor.

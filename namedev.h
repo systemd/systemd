@@ -58,7 +58,6 @@ struct sysfs_class_device;
 #define MAX_SYSFS_PAIRS		5
 
 #define RULEFILE_SUFFIX		".rules"
-#define PERMFILE_SUFFIX		".permissions"
 
 struct sysfs_pair {
 	char file[FILE_SIZE];
@@ -88,26 +87,12 @@ struct config_device {
 	int config_line;
 };
 
-struct perm_device {
-	struct list_head node;
-
-	char name[NAME_SIZE];
-	char owner[USER_SIZE];
-	char group[USER_SIZE];
-	unsigned int mode;
-};
-
 extern struct list_head config_device_list;
-extern struct list_head perm_device_list;
 
 extern int namedev_init(void);
 extern int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_dev);
-extern int namedev_init_permissions(void);
-extern int namedev_init_rules(void);
 
 extern void dump_config_dev(struct config_device *dev);
 extern void dump_config_dev_list(void);
-extern void dump_perm_dev(struct perm_device *dev);
-extern void dump_perm_dev_list(void);
 
 #endif
