@@ -332,7 +332,7 @@ spotless: clean
 DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v -e CVS -e "\.tar\.gz" -e "\/\." -e releases -e BitKeeper -e SCCS -e test/sys | sort )
 DISTDIR := $(RELEASE_NAME)
 srcdir = .
-release: clean
+release: spotless
 	-rm -rf $(DISTDIR)
 	mkdir $(DISTDIR)
 	chmod 777 $(DISTDIR)
@@ -342,7 +342,7 @@ release: clean
 	@echo "$(RELEASE_NAME).tar.gz created"
 
 
-small_release: $(DISTFILES) clean
+small_release: $(DISTFILES) spotless
 #	@echo $(DISTFILES)
 	@-rm -rf $(DISTDIR)
 	@mkdir $(DISTDIR)
