@@ -24,8 +24,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include <ctype.h>
-#include <linux/fs.h>
 #include <sys/ioctl.h>
 
 #include "../../libsysfs/sysfs/libsysfs.h"
@@ -33,6 +33,8 @@
 #include "../../logging.h"
 #include "volume_id.h"
 #include "dasdlabel.h"
+
+#define BLKGETSIZE64 _IOR(0x12,114,size_t)
 
 #ifdef LOG
 unsigned char logname[LOGNAME_SIZE];
@@ -71,16 +73,6 @@ static struct volume_id *open_classdev(struct sysfs_class_device *class_dev)
 	}
 
 	return vid;
-}
-
-static unsigned long long get_size(struct volume_id *vid)
-{
-	unsigned long long size;
-
-	if (ioctl(vid->fd, BLKGETSIZE64, &size) != 0)
-		size = 0;
-
-	return size;
 }
 
 static char *usage_id_name(enum volume_id_usage usage)
@@ -181,7 +173,8 @@ int main(int argc, char *argv[])
 		if (vid == NULL)
 			goto exit;
 
-		size = get_size(vid);
+		if (ioctl(vid->fd, BLKGETSIZE64, &size) != 0)
+			size = 0;
 
 		if (volume_id_probe(vid, VOLUME_ID_ALL, 0, size) == 0)
 			goto print;

@@ -24,17 +24,17 @@
  */
 
 #ifndef _GNU_SOURCE
-#define _GNU_SOURCE
+#define _GNU_SOURCE 1
 #endif
 
 #ifdef HAVE_CONFIG_H
 #  include <config.h>
 #endif
 
-#include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include <errno.h>
 #include <ctype.h>
 #include <fcntl.h>
@@ -42,32 +42,24 @@
 #include <asm/types.h>
 
 #include "volume_id.h"
-
-#ifdef DEBUG
-#define dbg(format, arg...)						\
-	do {								\
-		printf("%s: " format "\n", __FUNCTION__ , ## arg);	\
-	} while (0)
-#else
-#define dbg(format, arg...)	do {} while (0)
-#endif /* DEBUG */
+#include "volume_id_logging.h"
 
 #define bswap16(x) (__u16)((((__u16)(x) & 0x00ffu) << 8) | \
-			   (((__u32)(x) & 0xff00u) >> 8))
+			   (((__u16)(x) & 0xff00u) >> 8))
 
 #define bswap32(x) (__u32)((((__u32)(x) & 0xff000000u) >> 24) | \
 			   (((__u32)(x) & 0x00ff0000u) >>  8) | \
 			   (((__u32)(x) & 0x0000ff00u) <<  8) | \
 			   (((__u32)(x) & 0x000000ffu) << 24))
 
-#define bswap64(x) (__u64)((((__u64)(x) & 0xff00000000000000u) >> 56) | \
-			   (((__u64)(x) & 0x00ff000000000000u) >> 40) | \
-			   (((__u64)(x) & 0x0000ff0000000000u) >> 24) | \
-			   (((__u64)(x) & 0x000000ff00000000u) >>  8) | \
-			   (((__u64)(x) & 0x00000000ff000000u) <<  8) | \
-			   (((__u64)(x) & 0x0000000000ff0000u) << 24) | \
-			   (((__u64)(x) & 0x000000000000ff00u) << 40) | \
-			   (((__u64)(x) & 0x00000000000000ffu) << 56))
+#define bswap64(x) (__u64)((((__u64)(x) & 0xff00000000000000ull) >> 56) | \
+			   (((__u64)(x) & 0x00ff000000000000ull) >> 40) | \
+			   (((__u64)(x) & 0x0000ff0000000000ull) >> 24) | \
+			   (((__u64)(x) & 0x000000ff00000000ull) >>  8) | \
+			   (((__u64)(x) & 0x00000000ff000000ull) <<  8) | \
+			   (((__u64)(x) & 0x0000000000ff0000ull) << 24) | \
+			   (((__u64)(x) & 0x000000000000ff00ull) << 40) | \
+			   (((__u64)(x) & 0x00000000000000ffull) << 56))
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
 #define le16_to_cpu(x) (x)
@@ -144,34 +136,56 @@ static void set_label_unicode16(struct volume_id *id,
 	}
 }
 
-static void set_uuid(struct volume_id *id,
-		     const __u8 *buf, unsigned int count)
+enum uuid_format {
+	UUID_DCE,
+	UUID_DOS,
+	UUID_NTFS,
+	UUID_HFS,
+};
+
+static void set_uuid(struct volume_id *id, const __u8 *buf, enum uuid_format format)
 {
 	unsigned int i;
+	unsigned int count = 0;
 
+	switch(format) {
+	case UUID_DOS:
+		count = 4;
+		break;
+	case UUID_NTFS:
+	case UUID_HFS:
+		count = 8;
+		break;
+	case UUID_DCE:
+		count = 16;
+	}
 	memcpy(id->uuid_raw, buf, count);
 
-	/* create string if uuid is set */
+	/* if set, create string in the same format, the native platform uses */
 	for (i = 0; i < count; i++)
 		if (buf[i] != 0)
 			goto set;
 	return;
 
 set:
-	switch(count) {
-	case 4:
+	switch(format) {
+	case UUID_DOS:
 		sprintf(id->uuid, "%02X%02X-%02X%02X",
 			buf[3], buf[2], buf[1], buf[0]);
 		break;
-	case 8:
-		sprintf(id->uuid,"%02X%02X-%02X%02X-%02X%02X-%02X%02X",
+	case UUID_NTFS:
+		sprintf(id->uuid,"%02X%02X%02X%02X%02X%02X%02X%02X",
 			buf[7], buf[6], buf[5], buf[4],
 			buf[3], buf[2], buf[1], buf[0]);
 		break;
-	case 16:
+	case UUID_HFS:
+		sprintf(id->uuid,"%02X%02X%02X%02X%02X%02X%02X%02X",
+			buf[0], buf[1], buf[2], buf[3],
+			buf[4], buf[5], buf[6], buf[7]);
+		break;
+	case UUID_DCE:
 		sprintf(id->uuid,
-			"%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-"
-			"%02x%02x%02x%02x%02x%02x",
+			"%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
 			buf[0], buf[1], buf[2], buf[3],
 			buf[4], buf[5],
 			buf[6], buf[7],
@@ -337,12 +351,13 @@ static int probe_linux_raid(struct volume_id *id, __u64 off, __u64 size)
 	} __attribute__((packed)) *mdp;
 
 	const __u8 *buf;
-	__u64 sboff = (size & ~(MD_RESERVED_BYTES - 1)) - MD_RESERVED_BYTES;
+	__u64 sboff;
 	__u8 uuid[16];
 
 	if (size < 0x10000)
 		return -1;
 
+	sboff = (size & ~(MD_RESERVED_BYTES - 1)) - MD_RESERVED_BYTES;
 	buf = get_buffer(id, off + sboff, 0x800);
 	if (buf == NULL)
 		return -1;
@@ -354,7 +369,7 @@ static int probe_linux_raid(struct volume_id *id, __u64 off, __u64 size)
 
 	memcpy(uuid, &mdp->set_uuid0, 4);
 	memcpy(&uuid[4], &mdp->set_uuid1, 12);
-	set_uuid(id, uuid, 16);
+	set_uuid(id, uuid, UUID_DCE);
 
 	snprintf(id->type_version, VOLUME_ID_FORMAT_SIZE-1, "%u.%u.%u",
 		 le32_to_cpu(mdp->major_version),
@@ -572,7 +587,7 @@ static int probe_ext(struct volume_id *id, __u64 off)
 
 	set_label_raw(id, es->volume_name, 16);
 	set_label_string(id, es->volume_name, 16);
-	set_uuid(id, es->uuid, 16);
+	set_uuid(id, es->uuid, UUID_DCE);
 
 	if ((le32_to_cpu(es->feature_compat) &
 	     EXT3_FEATURE_COMPAT_HAS_JOURNAL) != 0) {
@@ -638,7 +653,7 @@ static int probe_reiserfs(struct volume_id *id, __u64 off)
 found:
 	set_label_raw(id, rs->label, 16);
 	set_label_string(id, rs->label, 16);
-	set_uuid(id, rs->uuid, 16);
+	set_uuid(id, rs->uuid, UUID_DCE);
 
 	id->usage_id = VOLUME_ID_FILESYSTEM;
 	id->type_id = VOLUME_ID_REISERFS;
@@ -673,7 +688,7 @@ static int probe_xfs(struct volume_id *id, __u64 off)
 
 	set_label_raw(id, xs->fname, 12);
 	set_label_string(id, xs->fname, 12);
-	set_uuid(id, xs->uuid, 16);
+	set_uuid(id, xs->uuid, UUID_DCE);
 
 	id->usage_id = VOLUME_ID_FILESYSTEM;
 	id->type_id = VOLUME_ID_XFS;
@@ -708,7 +723,7 @@ static int probe_jfs(struct volume_id *id, __u64 off)
 
 	set_label_raw(id, js->label, 16);
 	set_label_string(id, js->label, 16);
-	set_uuid(id, js->uuid, 16);
+	set_uuid(id, js->uuid, UUID_DCE);
 
 	id->usage_id = VOLUME_ID_FILESYSTEM;
 	id->type_id = VOLUME_ID_JFS;
@@ -720,52 +735,6 @@ static int probe_jfs(struct volume_id *id, __u64 off)
 #define FAT12_MAX			0xff5
 #define FAT16_MAX			0xfff5
 #define FAT_ATTR_VOLUME			0x08
-struct vfat_dir_entry {
-	__u8	name[11];
-	__u8	attr;
-	__u16	time_creat;
-	__u16	date_creat;
-	__u16	time_acc;
-	__u16	date_acc;
-	__u16	cluster_high;
-	__u16	time_write;
-	__u16	date_write;
-	__u16	cluster_low;
-	__u32	size;
-} __attribute__((__packed__));
-
-static  char *vfat_search_label_in_dir(const __u8 *buf, __u16 size)
-{
-	struct vfat_dir_entry *dir;
-	int i;
-	__u16 count;
-
-	dir = (struct vfat_dir_entry*) buf;
-	count = size / sizeof(struct vfat_dir_entry);
-	dbg("expected entries 0x%x", count);
-
-	for (i = 0; i <= count; i++) {
-		/* end marker */
-		if (dir[i].attr == 0x00) {
-			dbg("end of dir");
-			return NULL;
-		}
-
-		/* empty entry */
-		if (dir[i].attr == 0xe5)
-			continue;
-
-		if (dir[i].attr == FAT_ATTR_VOLUME) {
-			dbg("found ATTR_VOLUME id in root dir");
-			return dir[i].name;
-		}
-
-		dbg("skip dir entry");
-	}
-
-	return NULL;
-}
-
 static int probe_vfat(struct volume_id *id, __u64 off)
 {
 	struct vfat_super_block {
@@ -810,6 +779,20 @@ static int probe_vfat(struct volume_id *id, __u64 off)
 		} __attribute__((__packed__)) type;
 	} __attribute__((__packed__)) *vs;
 
+	struct vfat_dir_entry {
+		__u8	name[11];
+		__u8	attr;
+		__u16	time_creat;
+		__u16	date_creat;
+		__u16	time_acc;
+		__u16	date_acc;
+		__u16	cluster_high;
+		__u16	time_write;
+		__u16	date_write;
+		__u16	cluster_low;
+		__u32	size;
+	} __attribute__((__packed__)) *dir;
+
 	__u16 sector_size;
 	__u16 dir_entries;
 	__u32 sect_count;
@@ -826,6 +809,8 @@ static int probe_vfat(struct volume_id *id, __u64 off)
 	__u32 buf_size;
 	__u8 *label = NULL;
 	__u32 next;
+	int maxloop;
+	int i;
 
 	vs = (struct vfat_super_block *) get_buffer(id, off, 0x200);
 	if (vs == NULL)
@@ -892,7 +877,7 @@ valid:
 
 	sect_count = le16_to_cpu(vs->sectors);
 	if (sect_count == 0)
-		sect_count = vs->total_sect;
+		sect_count = le32_to_cpu(vs->total_sect);
 	dbg("sect_count 0x%x", sect_count);
 
 	fat_length = le16_to_cpu(vs->fat_length);
@@ -920,15 +905,35 @@ valid:
 
 	/* the label may be an attribute in the root directory */
 	root_start = (reserved + fat_size) * sector_size;
+	dbg("root dir start 0x%llx", root_start);
 	root_dir_entries = le16_to_cpu(vs->dir_entries);
-	dbg("root dir start 0x%x", root_start);
+	dbg("expected entries 0x%x", root_dir_entries);
 
 	buf_size = root_dir_entries * sizeof(struct vfat_dir_entry);
 	buf = get_buffer(id, off + root_start, buf_size);
 	if (buf == NULL)
 		goto found;
 
-	label = vfat_search_label_in_dir(buf, buf_size);
+	dir = (struct vfat_dir_entry*) buf;
+
+	for (i = 0; i <= root_dir_entries; i++) {
+		/* end marker */
+		if (dir[i].attr == 0x00) {
+			dbg("end of dir");
+			break;
+		}
+
+		/* empty entry */
+		if (dir[i].attr == 0xe5)
+			continue;
+
+		if (dir[i].attr == FAT_ATTR_VOLUME) {
+			dbg("found ATTR_VOLUME id in root dir");
+			label = dir[i].name;
+		}
+
+		dbg("skip dir entry");
+	}
 
 	if (label != NULL && strncmp(label, "NO NAME    ", 11) != 0) {
 		set_label_raw(id, label, 11);
@@ -937,7 +942,7 @@ valid:
 		set_label_raw(id, vs->type.fat.label, 11);
 		set_label_string(id, vs->type.fat.label, 11);
 	}
-	set_uuid(id, vs->type.fat.serno, 4);
+	set_uuid(id, vs->type.fat.serno, UUID_DOS);
 	goto found;
 
 fat32:
@@ -948,24 +953,46 @@ fat32:
 	start_data_sect = reserved + fat_size;
 
 	next = root_cluster;
-	while (1) {
+	maxloop = 100;
+	while (--maxloop) {
 		__u32 next_sect_off;
 		__u64 next_off;
 		__u64 fat_entry_off;
+		int count;
 
 		dbg("next cluster %u", next);
 		next_sect_off = (next - 2) * vs->sectors_per_cluster;
 		next_off = (start_data_sect + next_sect_off) * sector_size;
-		dbg("cluster offset 0x%x", next_off);
+		dbg("cluster offset 0x%llx", next_off);
 
 		/* get cluster */
 		buf = get_buffer(id, off + next_off, buf_size);
 		if (buf == NULL)
 			goto found;
 
-		label = vfat_search_label_in_dir(buf, buf_size);
-		if (label != NULL)
-			break;
+		dir = (struct vfat_dir_entry*) buf;
+		count = buf_size / sizeof(struct vfat_dir_entry);
+		dbg("expected entries 0x%x", count);
+
+		for (i = 0; i <= count; i++) {
+			/* end marker */
+			if (dir[i].attr == 0x00) {
+				dbg("end of dir");
+				goto fat32_label;
+			}
+
+			/* empty entry */
+			if (dir[i].attr == 0xe5)
+				continue;
+
+			if (dir[i].attr == FAT_ATTR_VOLUME) {
+				dbg("found ATTR_VOLUME id in root dir");
+				label = dir[i].name;
+				goto fat32_label;
+			}
+
+			dbg("skip dir entry");
+		}
 
 		/* get FAT entry */
 		fat_entry_off = (reserved * sector_size) + (next * sizeof(__u32));
@@ -978,7 +1005,10 @@ fat32:
 		if (next == 0)
 			break;
 	}
+	if (maxloop == 0)
+		dbg("reached maximum follow count of root cluster chain, give up");
 
+fat32_label:
 	if (label != NULL && strncmp(label, "NO NAME    ", 11) != 0) {
 		set_label_raw(id, label, 11);
 		set_label_string(id, label, 11);
@@ -986,7 +1016,7 @@ fat32:
 		set_label_raw(id, vs->type.fat32.label, 11);
 		set_label_string(id, vs->type.fat32.label, 11);
 	}
-	set_uuid(id, vs->type.fat32.serno, 4);
+	set_uuid(id, vs->type.fat32.serno, UUID_DCE);
 
 found:
 	id->usage_id = VOLUME_ID_FILESYSTEM;
@@ -1479,9 +1509,10 @@ static int probe_mac_partition_map(struct volume_id *id, __u64 off)
 #define HFS_SUPERBLOCK_OFFSET		0x400
 #define HFS_NODE_LEAF			0xff
 #define HFSPLUS_POR_CNID		1
+#define HFSPLUS_EXTENT_COUNT		8
 static int probe_hfs_hfsplus(struct volume_id *id, __u64 off)
 {
-	struct finder_info {
+	struct hfs_finder_info{
 		__u32	boot_folder;
 		__u32	start_app;
 		__u32	open_folder;
@@ -1515,7 +1546,7 @@ static int probe_hfs_hfsplus(struct volume_id *id, __u64 off)
 		__u16	num_root_dirs;
 		__u32	file_count;
 		__u32	dir_count;
-		struct finder_info finfo;
+		struct hfs_finder_info finder_info;
 		__u8	embed_sig[2];
 		__u16	embed_startblock;
 		__u16	embed_blockcount;
@@ -1555,7 +1586,7 @@ static int probe_hfs_hfsplus(struct volume_id *id, __u64 off)
 		__u64 total_size;
         	__u32 clump_size;
 		__u32 total_blocks;
-		struct hfsplus_extent extents[8];
+		struct hfsplus_extent extents[HFSPLUS_EXTENT_COUNT];
 	} __attribute__((__packed__));
 
 	struct hfsplus_vol_header {
@@ -1579,7 +1610,7 @@ static int probe_hfs_hfsplus(struct volume_id *id, __u64 off)
 		__u32	next_cnid;
 		__u32	write_count;
 		__u64	encodings_bmp;
-		struct finder_info finfo;
+		struct hfs_finder_info finder_info;
 		struct hfsplus_fork alloc_file;
 		struct hfsplus_fork ext_file;
 		struct hfsplus_fork cat_file;
@@ -1589,18 +1620,23 @@ static int probe_hfs_hfsplus(struct volume_id *id, __u64 off)
 
 	unsigned int blocksize;
 	unsigned int cat_block;
-	unsigned int cat_block_count;
-	unsigned int cat_off;
-	unsigned int cat_len;
+	unsigned int ext_block_start;
+	unsigned int ext_block_count;
+	int ext;
 	unsigned int leaf_node_head;
+	unsigned int leaf_node_count;
 	unsigned int leaf_node_size;
+	unsigned int leaf_block;
+	__u64 leaf_off;
 	unsigned int alloc_block_size;
 	unsigned int alloc_first_block;
 	unsigned int embed_first_block;
+	unsigned int record_count;
 	struct hfsplus_bnode_descriptor *descr;
 	struct hfsplus_bheader_record *bnode;
 	struct hfsplus_catalog_key *key;
 	unsigned int	label_len;
+	struct hfsplus_extent extents[HFSPLUS_EXTENT_COUNT];
 	const __u8 *buf;
 
 	buf = get_buffer(id, off + HFS_SUPERBLOCK_OFFSET, 0x200);
@@ -1637,6 +1673,8 @@ static int probe_hfs_hfsplus(struct volume_id *id, __u64 off)
 		set_label_string(id, hfs->label, hfs->label_len) ;
 	}
 
+	set_uuid(id, hfs->finder_info.id, UUID_HFS);
+
 	id->usage_id = VOLUME_ID_FILESYSTEM;
 	id->type_id = VOLUME_ID_HFS;
 	id->type = "hfs";
@@ -1652,14 +1690,16 @@ checkplus:
 	return -1;
 
 hfsplus:
-	blocksize = be32_to_cpu(hfsplus->blocksize);
-	cat_block = be32_to_cpu(hfsplus->cat_file.extents[0].start_block);
-	cat_block_count = be32_to_cpu(hfsplus->cat_file.extents[0].block_count);
-	cat_off = (cat_block * blocksize);
-	cat_len = cat_block_count * blocksize;
-	dbg("catalog start 0x%llx, len 0x%x", off + cat_off, cat_len);
+	set_uuid(id, hfsplus->finder_info.id, UUID_HFS);
 
-	buf = get_buffer(id, off + cat_off, 0x2000);
+	blocksize = be32_to_cpu(hfsplus->blocksize);
+	dbg("blocksize %u", blocksize);
+
+	memcpy(extents, hfsplus->cat_file.extents, sizeof(extents));
+	cat_block = be32_to_cpu(extents[0].start_block);
+	dbg("catalog start block 0x%x", cat_block);
+
+	buf = get_buffer(id, off + (cat_block * blocksize), 0x2000);
 	if (buf == NULL)
 		goto found;
 
@@ -1667,18 +1707,51 @@ hfsplus:
 		&buf[sizeof(struct hfsplus_bnode_descriptor)];
 
 	leaf_node_head = be32_to_cpu(bnode->leaf_head);
+	dbg("catalog leaf node 0x%x", leaf_node_head);
+
 	leaf_node_size = be16_to_cpu(bnode->node_size);
+	dbg("leaf node size 0x%x", leaf_node_size);
 
-	dbg("catalog leaf node 0x%x, size 0x%x",
-	    leaf_node_head, leaf_node_size);
+	leaf_node_count = be32_to_cpu(bnode->leaf_count);
+	dbg("leaf node count 0x%x", leaf_node_count);
+	if (leaf_node_count == 0)
+		goto found;
 
-	buf = get_buffer(id, off + cat_off + (leaf_node_head * leaf_node_size),
-			 leaf_node_size);
+	leaf_block = (leaf_node_head * leaf_node_size) / blocksize;
+
+	/* get physical location */
+	for (ext = 0; ext < HFSPLUS_EXTENT_COUNT; ext++) {
+		ext_block_start = be32_to_cpu(extents[ext].start_block);
+		ext_block_count = be32_to_cpu(extents[ext].block_count);
+		dbg("extent start block 0x%x, count 0x%x", ext_block_start, ext_block_count);
+
+		if (ext_block_count == 0)
+			goto found;
+
+		/* this is our extent */
+		if (leaf_block < ext_block_count)
+			break;
+
+		leaf_block -= ext_block_count;
+	}
+	if (ext == HFSPLUS_EXTENT_COUNT)
+		goto found;
+	dbg("found block in extent %i", ext);
+
+	leaf_off = (ext_block_start + leaf_block) * blocksize;
+
+	buf = get_buffer(id, off + leaf_off, leaf_node_size);
 	if (buf == NULL)
 		goto found;
 
 	descr = (struct hfsplus_bnode_descriptor *) buf;
 	dbg("descriptor type 0x%x", descr->type);
+
+	record_count = be16_to_cpu(descr->num_recs);
+	dbg("number of records %u", record_count);
+	if (record_count == 0)
+		goto found;
+
 	if (descr->type != HFS_NODE_LEAF)
 		goto found;
 
@@ -1787,7 +1860,7 @@ static int probe_ntfs(struct volume_id *id, __u64 off)
 	if (strncmp(ns->oem_id, "NTFS", 4) != 0)
 		return -1;
 
-	set_uuid(id, ns->volume_serial, 8);
+	set_uuid(id, ns->volume_serial, UUID_NTFS);
 
 	sector_size = le16_to_cpu(ns->bytes_per_sector);
 	cluster_size = ns->sectors_per_cluster * sector_size;
