@@ -51,10 +51,13 @@ extern int log_message (int level, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
 
 
-/* filenames for the config and database files */
+/* default filenames for the config and database files */
+#define UDEV_CONFIG_FILE		"udev.conf"
 #define UDEV_DB				".udev.tdb"
-#define UDEV_CONFIG_PERMISSION_FILE	"udev.permissions"
-#define UDEV_CONFIG_FILE		"udev.config"
+#define UDEV_RULES_FILE			"udev.rules"
+#define UDEV_PERMISSION_FILE		"udev.permissions"
+
+#define COMMENT_CHARACTER		'#'
 
 #define NAME_SIZE	100
 #define OWNER_SIZE	30
@@ -84,14 +87,16 @@ do { \
 
 extern int udev_add_device(char *path, char *subsystem);
 extern int udev_remove_device(char *path, char *subsystem);
+extern void udev_init_config(void);
 
 extern char **main_argv;
 extern char **main_envp;
 extern char sysfs_path[SYSFS_PATH_MAX];
-extern char *udev_config_dir;
-extern char *udev_root;
+extern char udev_config_dir[PATH_MAX];
+extern char udev_root[PATH_MAX];
 extern char udev_db_filename[PATH_MAX+NAME_MAX];
-extern char udev_config_permission_filename[PATH_MAX+NAME_MAX];
+extern char udev_permission_filename[PATH_MAX+NAME_MAX];
 extern char udev_config_filename[PATH_MAX+NAME_MAX];
+extern char udev_rules_filename[PATH_MAX+NAME_MAX];
 
 #endif

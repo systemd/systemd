@@ -606,7 +606,7 @@ int namedev_init(void)
 {
 	int retval;
 	
-	retval = namedev_init_config();
+	retval = namedev_init_rules();
 	if (retval)
 		return retval;
 

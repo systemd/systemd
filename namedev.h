@@ -28,7 +28,6 @@
 
 struct sysfs_class_device;
 
-#define COMMENT_CHARACTER		'#'
 
 enum config_type {
 	KERNEL_NAME	= 0,	/* must be 0 to let memset() default to this value */
@@ -76,10 +75,12 @@ extern struct list_head config_device_list;
 extern int namedev_init(void);
 extern int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *dev);
 extern int namedev_init_permissions(void);
-extern int namedev_init_config(void);
+extern int namedev_init_rules(void);
 
 extern int add_config_dev(struct config_device *new_dev);
 extern void dump_config_dev(struct config_device *dev);
 extern void dump_config_dev_list(void);
+
+extern int get_pair(char **orig_string, char **left, char **right);
 
 #endif

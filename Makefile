@@ -154,6 +154,7 @@ SYSFS =	libsysfs/sysfs_bus.o	\
 	libsysfs/dlist.o
 
 OBJS =	udev.o		\
+	udev_config.o	\
 	udev-add.o	\
 	udev-remove.o	\
 	udevdb.o	\
@@ -226,7 +227,8 @@ install: all
 	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
-	$(INSTALL_DATA) udev.config $(DESTDIR)$(configdir)
+	$(INSTALL_DATA) udev.conf $(DESTDIR)$(configdir)
+	$(INSTALL_DATA) udev.rules $(DESTDIR)$(configdir)
 	$(INSTALL_DATA) udev.permissions $(DESTDIR)$(configdir)
 	- rm -f $(DESTDIR)$(hotplugdir)/udev.hotplug
 	- ln -s $(sbindir)/$(ROOT) $(DESTDIR)$(hotplugdir)/udev.hotplug
@@ -234,7 +236,8 @@ install: all
 uninstall:
 	- rm $(hotplugdir)/udev.hotplug
 	- rm $(configdir)/udev.permissions
-	- rm $(configdir)/udev.config
+	- rm $(configdir)/udev.rules
+	- rm $(configdir)/udev.conf
 	- rm $(mandir)/man8/udev.8
 	- rm $(sbindir)/$(ROOT)
 	- rmdir $(hotplugdir)

@@ -36,7 +36,7 @@
 #include "udev.h"
 #include "namedev.h"
 
-static int get_pair(char **orig_string, char **left, char **right)
+int get_pair(char **orig_string, char **left, char **right)
 {
 	char *temp;
 	char *string = *orig_string;
@@ -137,7 +137,7 @@ void dump_config_dev_list(void)
 	}
 }
 	
-int namedev_init_config(void)
+int namedev_init_rules(void)
 {
 	char line[255];
 	int lineno;
@@ -148,10 +148,11 @@ int namedev_init_config(void)
 	int retval = 0;
 	struct config_device dev;
 
-	dbg("opening '%s' to read as config", udev_config_filename);
-	fd = fopen(udev_config_filename, "r");
-	if (fd == NULL) {
-		dbg("can't open '%s'", udev_config_filename);
+	fd = fopen(udev_rules_filename, "r");
+	if (fd != NULL) {
+		dbg("reading '%s' as rules file", udev_rules_filename);
+	} else {
+		dbg("can't open '%s' as a rules file", udev_rules_filename);
 		return -ENODEV;
 	}
 
@@ -328,7 +329,7 @@ int namedev_init_config(void)
 			goto exit;
 		}
 	}
-	dbg_parse("%s:%d:%Zd: error parsing '%s'", udev_config_filename,
+	dbg_parse("%s:%d:%Zd: error parsing '%s'", udev_rules_filename,
 		  lineno, temp - line, temp);
 exit:
 	fclose(fd);
@@ -345,10 +346,11 @@ int namedev_init_permissions(void)
 	int retval = 0;
 	struct config_device dev;
 
-	dbg("opening '%s' to read as permissions config", udev_config_permission_filename);
-	fd = fopen(udev_config_permission_filename, "r");
-	if (fd == NULL) {
-		dbg("can't open '%s'", udev_config_permission_filename);
+	fd = fopen(udev_permission_filename, "r");
+	if (fd != NULL) {
+		dbg("reading '%s' as permissions file", udev_permission_filename);
+	} else {
+		dbg("can't open '%s' as permissions file", udev_permission_filename);
 		return -ENODEV;
 	}
 
