@@ -186,7 +186,7 @@ int main(int argc, char *argv[])
 		if (class_dev_parent != NULL)
 			vid = open_classdev(class_dev_parent);
 		else
-			vid = open_classdev(class_dev_parent);
+			vid = open_classdev(class_dev);
 		if (vid == NULL)
 			goto exit;
 
