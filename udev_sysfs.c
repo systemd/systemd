@@ -235,6 +235,7 @@ static int class_device_expect_no_bus(struct sysfs_class_device *class_dev)
 	static char *devices_without_bus[] = {
 		"scsi_host",
 		"i2c-adapter",
+		"i2c-dev",
 		NULL
 	};
 	char **device;
