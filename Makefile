@@ -34,7 +34,6 @@ SENDER =	udevsend
 INFO =		udevinfo
 TESTER =	udevtest
 STARTER =	udevstart
-WAIT =		wait_for_sysfs
 VERSION =	046
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
@@ -178,7 +177,7 @@ CFLAGS += 	-I$(PWD)/libsysfs/sysfs \
 # config files automatically generated
 GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
 
-all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(WAIT) $(GEN_CONFIGS)
+all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(GEN_CONFIGS)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) \
@@ -282,7 +281,6 @@ $(INFO).o: $(GEN_HEADERS) $(HOST_PROGS)
 $(DAEMON).o: $(GEN_HEADERS) $(HOST_PROGS)
 $(SENDER).o: $(GEN_HEADERS) $(HOST_PROGS)
 $(STARTER).o: $(GEN_HEADERS) $(HOST_PROGS)
-$(WAIT).o: $(GEN_HEADERS) $(HOST_PROGS)
 
 $(ROOT): $(LIBC) $(ROOT).o $(OBJS) $(HEADERS) $(GEN_MANPAGES)
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
@@ -304,10 +302,6 @@ $(SENDER): $(LIBC) $(SENDER).o $(OBJS) udevd.h
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
-$(WAIT): $(WAIT).o $(OBJS) $(HEADERS) $(LIBC)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(WAIT).o udev_sysfs.o udev_lib.o udev_config.o $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
-	$(QUIET) $(STRIPCMD) $@
-
 #.c.o:
 #	$(CC) $(CFLAGS) $(DEFS) $(CPPFLAGS) -c -o $@ $<
 .c.o:
@@ -317,7 +311,7 @@ $(WAIT): $(WAIT).o $(OBJS) $(HEADERS) $(LIBC)
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
-	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) $(SENDER) $(TESTER) $(WAIT)
+	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) $(SENDER) $(TESTER)
 	-rm -f ccdv
 	$(MAKE) -C klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
@@ -417,10 +411,8 @@ install: install-initscript install-config install-man install-dev.d all
 	$(INSTALL_PROGRAM) -D $(SENDER) $(DESTDIR)$(sbindir)/$(SENDER)
 	$(INSTALL_PROGRAM) -D $(INFO) $(DESTDIR)$(usrbindir)/$(INFO)
 	$(INSTALL_PROGRAM) -D $(TESTER) $(DESTDIR)$(usrbindir)/$(TESTER)
-	$(INSTALL_PROGRAM) -D $(WAIT) $(DESTDIR)$(sbindir)/$(WAIT)
 	- ln -f -s $(sbindir)/udev $(DESTDIR)$(sbindir)/$(STARTER)
 	- ln -f -s $(sbindir)/$(SENDER) $(DESTDIR)$(hotplugdir)/10-udev.hotplug
-	- ln -f -s $(sbindir)/$(WAIT) $(DESTDIR)$(hotplugdir)/05-wait_for_sysfs.hotplug
 ifndef DESTDIR
 	- killall $(DAEMON)
 	- rm -rf $(udevdb)
@@ -433,7 +425,6 @@ endif
 
 uninstall: uninstall-man uninstall-dev.d
 	- rm $(hotplugdir)/10-udev.hotplug
-	- rm $(hotplugdir)/05-wait_for_sysfs.hotplug
 	- rm $(configdir)/rules.d/50-udev.rules
 	- rm $(configdir)/permissions.d/50-udev.permissions
 	- rm $(configdir)/udev.conf
@@ -447,7 +438,6 @@ uninstall: uninstall-man uninstall-dev.d
 	- rm $(sbindir)/$(STARTER)
 	- rm $(usrbindir)/$(INFO)
 	- rm $(usrbindir)/$(TESTER)
-	- rm $(usrbindir)/$(WAIT)
 	- rmdir $(hotplugdir)
 	- rm -rf $(udevdb)
 	- rmdir $(udevdir)

@@ -4,6 +4,7 @@
  * Userspace devfs
  *
  * Copyright (C) 2003,2004 Greg Kroah-Hartman <greg@kroah.com>
+ * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -24,6 +25,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
 #include <ctype.h>
 #include <errno.h>
 #include <signal.h>
@@ -68,69 +70,18 @@ int main(int argc, char *argv[], char *envp[])
 {
 	struct sigaction act;
 	struct sysfs_class_device *class_dev;
+	struct sysfs_device *devices_dev;
 	struct udevice udev;
 	char path[SYSFS_PATH_MAX];
 	int retval = -EINVAL;
-	enum {
-		ADD,
-		REMOVE,
-		UDEVSTART,
-	} act_type;
+	const char *error;
+	const char *action = getenv("ACTION");
+	const char *devpath = getenv("DEVPATH");
+	const char *subsystem = argv[1];
 
 	dbg("version %s", UDEV_VERSION);
 	logging_init("udev");
 	udev_init_config();
-
-	/* export logging flag, callouts may want to do the same as udev */
-	if (udev_log)
-		setenv("UDEV_LOG", "1", 1);
-
-	if (strstr(argv[0], "udevstart") || (argv[1] != NULL && strstr(argv[1], "udevstart"))) {
-		act_type = UDEVSTART;
-	} else {
-		const char *action = getenv("ACTION");
-		const char *devpath = getenv("DEVPATH");
-		const char *subsystem = argv[1];
-
-		if (!action) {
-			dbg("no action?");
-			goto exit;
-		}
-		if (strcmp(action, "add") == 0) {
-			act_type = ADD;
-		} else if (strcmp(action, "remove") == 0) {
-			act_type = REMOVE;
-		} else {
-			dbg("no action '%s' for us", action);
-			goto exit;
-		}
-
-		if (!devpath) {
-			dbg("no devpath?");
-			goto exit;
-		}
-		dbg("looking at '%s'", devpath);
-
-		/* we only care about class devices and block stuff */
-		if (!strstr(devpath, "class") && !strstr(devpath, "block")) {
-			dbg("not a block or class device");
-			goto exit;
-		}
-
-		if (!subsystem) {
-			dbg("no subsystem");
-			goto exit;
-		}
-
-		udev_set_values(&udev, devpath, subsystem, action);
-
-		/* skip blacklisted subsystems */
-		if (udev.type != 'n' && subsystem_expect_no_dev(subsystem)) {
-			dbg("don't care about '%s' devices", subsystem);
-			goto exit;
-		};
-
-	}
 
 	/* set signal handlers */
 	act.sa_handler = (void (*) (int))sig_handler;
@@ -141,57 +92,110 @@ int main(int argc, char *argv[], char *envp[])
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGTERM, &act, NULL);
 
-	/* trigger timout to interrupt blocking syscalls */
+	/* trigger timeout to interrupt blocking syscalls */
 	alarm(ALARM_TIMEOUT);
 
-	switch(act_type) {
-	case UDEVSTART:
+	udev_set_values(&udev, devpath, subsystem, action);
+
+	if (strstr(argv[0], "udevstart") || (argv[1] != NULL && strstr(argv[1], "udevstart"))) {
 		dbg("udevstart");
 
-		/* disable all logging as it's much too slow on some facilities */
+		/* disable all logging, as it's much too slow on some facilities */
 		udev_log = 0;
-		unsetenv("UDEV_LOG");
 
 		namedev_init();
 		retval = udev_start();
-		break;
-	case ADD:
-		dbg("udev add");
+		goto exit;
+	}
 
-		/* open the device */
-		snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, udev.devpath);
-		class_dev = sysfs_open_class_device_path(path);
-		if (class_dev == NULL) {
-			dbg ("sysfs_open_class_device_path failed");
-			goto exit;
+	if (!action) {
+		dbg("no action");
+		goto exit;
+	}
+
+	if (!subsystem) {
+		dbg("no subsystem");
+		goto exit;
+	}
+
+	if (!devpath) {
+		dbg("no devpath");
+		goto exit;
+	}
+
+	/* export logging flag, called scripts may want to do the same as udev */
+	if (udev_log)
+		setenv("UDEV_LOG", "1", 1);
+
+	if ((strncmp(devpath, "/block/", 7) == 0) || (strncmp(devpath, "/class/", 7) == 0)) {
+		if (strcmp(action, "add") == 0) {
+			/* wait for sysfs and possibly add node */
+			dbg("udev add");
+
+			/* skip blacklisted subsystems */
+			if (udev.type != 'n' && subsystem_expect_no_dev(udev.subsystem)) {
+				dbg("don't care about '%s' devices", udev.subsystem);
+				goto exit;
+			};
+
+			snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, udev.devpath);
+			class_dev = wait_class_device_open(path);
+			if (class_dev == NULL) {
+				dbg ("open class device failed");
+				goto exit;
+			}
+			dbg("opened class_dev->name='%s'", class_dev->name);
+
+			wait_for_class_device(class_dev, &error);
+
+			/* init rules, permissions */
+			namedev_init();
+
+			/* name, create node, store in db */
+			retval = udev_add_device(&udev, class_dev);
+
+			/* run dev.d/ scripts if we created a node or changed a netif name */
+			if (udev.devname[0] != '\0') {
+				setenv("DEVNAME", udev.devname, 1);
+				dev_d_execute(&udev, DEVD_DIR, DEVD_SUFFIX);
+			}
+
+			sysfs_close_class_device(class_dev);
+		} else if (strcmp(action, "remove") == 0) {
+			/* possibly remove a node */
+			dbg("udev remove");
+
+			/* get node from db, delete it */
+			retval = udev_remove_device(&udev);
+
+			/* run dev.d/ scripts if we're not instructed to ignore the event */
+			if (udev.devname[0] != '\0') {
+				setenv("DEVNAME", udev.devname, 1);
+				dev_d_execute(&udev, DEVD_DIR, DEVD_SUFFIX);
+			}
+
 		}
-		dbg("opened class_dev->name='%s'", class_dev->name);
+	} else if ((strncmp(devpath, "/devices/", 9) == 0)) {
+		if (strcmp(action, "add") == 0) {
+			/* wait for sysfs */
+			dbg("devices add");
 
-		/* init rules */
-		namedev_init();
+			snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, devpath);
+			devices_dev = wait_devices_device_open(path);
+			if (!devices_dev) {
+				dbg("devices device unavailable (probably remove has beaten us)");
+				goto exit;
+			}
+			dbg("devices device opened '%s'", path);
 
-		/* name, create node, store in db */
-		retval = udev_add_device(&udev, class_dev);
+			wait_for_devices_device(devices_dev, &error);
 
-		/* run dev.d/ scripts if we created a node or changed a netif name */
-		if (udev.devname[0] != '\0') {
-			setenv("DEVNAME", udev.devname, 1);
-			dev_d_execute(&udev, DEVD_DIR, DEVD_SUFFIX);
+			sysfs_close_device(devices_dev);
+		} else if (strcmp(action, "remove") == 0) {
+			dbg("devices remove");
 		}
-
-		sysfs_close_class_device(class_dev);
-		break;
-	case REMOVE:
-		dbg("udev remove");
-
-		/* get node from db, delete it*/
-		retval = udev_remove_device(&udev);
-
-		/* run dev.d/ scripts if we're not instructed to ignore the event */
-		if (udev.devname[0] != '\0') {
-			setenv("DEVNAME", udev.devname, 1);
-			dev_d_execute(&udev, DEVD_DIR, DEVD_SUFFIX);
-		}
+	} else {
+		dbg("unhandled");
 	}
 
 exit:
