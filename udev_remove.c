@@ -31,7 +31,7 @@
 #include <sys/stat.h>
 
 #include "udev.h"
-#include "udev_lib.h"
+#include "udev_utils.h"
 #include "udev_version.h"
 #include "namedev.h"
 #include "udev_db.h"

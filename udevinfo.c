@@ -30,7 +30,7 @@
 #include "libsysfs/sysfs/libsysfs.h"
 #include "libsysfs/dlist.h"
 #include "udev.h"
-#include "udev_lib.h"
+#include "udev_utils.h"
 #include "udev_version.h"
 #include "udev_db.h"
 #include "logging.h"

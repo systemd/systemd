@@ -1,5 +1,5 @@
 /*
- * dev_d.c - dev.d/ multiplexer
+ * udev_multiplex.c directory multiplexer
  * 
  * Copyright (C) 2004 Greg Kroah-Hartman <greg@kroah.com>
  *
@@ -28,7 +28,7 @@
 #include <fcntl.h>
 
 #include "udev.h"
-#include "udev_lib.h"
+#include "udev_utils.h"
 #include "logging.h"
 
 static int run_program(const char *filename, void *data)
@@ -71,7 +71,7 @@ static int run_program(const char *filename, void *data)
  * 	subsystem/
  * 	default/
  */
-void dev_d_execute(struct udevice *udev, const char *basedir, const char *suffix)
+void udev_multiplex_directory(struct udevice *udev, const char *basedir, const char *suffix)
 {
 	char dirname[PATH_MAX];
 	char devname[NAME_SIZE];

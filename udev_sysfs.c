@@ -31,7 +31,7 @@
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev_version.h"
 #include "udev_sysfs.h"
-#include "udev_lib.h"
+#include "udev_utils.h"
 #include "logging.h"
 
 /* list of subsystem specific files, NULL if there is no file to wait for */

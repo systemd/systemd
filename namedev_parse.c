@@ -36,7 +36,7 @@
 #include <errno.h>
 
 #include "udev.h"
-#include "udev_lib.h"
+#include "udev_utils.h"
 #include "logging.h"
 #include "namedev.h"
 

@@ -78,7 +78,7 @@ extern int udev_remove_device(struct udevice *udev);
 extern void udev_init_config(void);
 extern int udev_start(void);
 extern int parse_get_pair(char **orig_string, char **left, char **right);
-extern void dev_d_execute(struct udevice *udev, const char *basedir, const char *suffix);
+extern void udev_multiplex_directory(struct udevice *udev, const char *basedir, const char *suffix);
 
 extern char sysfs_path[SYSFS_PATH_MAX];
 extern char udev_root[PATH_MAX];

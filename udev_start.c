@@ -35,7 +35,7 @@
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "logging.h"
-#include "udev_lib.h"
+#include "udev_utils.h"
 #include "list.h"
 #include "udev.h"
 
@@ -111,7 +111,7 @@ static int add_device(char *devpath, char *subsystem)
 	/* run dev.d/ scripts if we created a node or changed a netif name */
 	if (udev.devname[0] != '\0') {
 		setenv("DEVNAME", udev.devname, 1);
-		dev_d_execute(&udev, DEVD_DIR, DEVD_SUFFIX);
+		udev_multiplex_directory(&udev, DEVD_DIR, DEVD_SUFFIX);
 	}
 
 	sysfs_close_class_device(class_dev);

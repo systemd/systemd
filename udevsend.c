@@ -36,7 +36,6 @@
 #include <linux/stddef.h>
 
 #include "udev.h"
-#include "udev_lib.h"
 #include "udev_version.h"
 #include "udevd.h"
 #include "logging.h"

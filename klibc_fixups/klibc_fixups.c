@@ -30,7 +30,7 @@
 
 #include "pwd.h"
 #include "../udev.h"
-#include "../udev_lib.h"
+#include "../udev_utils.h"
 #include "../logging.h"
 
 #define PW_FILE		"/etc/passwd"

@@ -33,7 +33,7 @@
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
-#include "udev_lib.h"
+#include "udev_utils.h"
 #include "udev_sysfs.h"
 #include "udev_version.h"
 #include "namedev.h"
@@ -182,7 +182,7 @@ int main(int argc, char *argv[], char *envp[])
 			/* run dev.d/ scripts if we created a node or changed a netif name */
 			if (udev.devname[0] != '\0') {
 				setenv("DEVNAME", udev.devname, 1);
-				dev_d_execute(&udev, DEVD_DIR, DEVD_SUFFIX);
+				udev_multiplex_directory(&udev, DEVD_DIR, DEVD_SUFFIX);
 			}
 
 			sysfs_close_class_device(class_dev);
@@ -200,7 +200,7 @@ int main(int argc, char *argv[], char *envp[])
 			/* run dev.d/ scripts if we're not instructed to ignore the event */
 			if (udev.devname[0] != '\0') {
 				setenv("DEVNAME", udev.devname, 1);
-				dev_d_execute(&udev, DEVD_DIR, DEVD_SUFFIX);
+				udev_multiplex_directory(&udev, DEVD_DIR, DEVD_SUFFIX);
 			}
 
 		}
@@ -229,7 +229,7 @@ int main(int argc, char *argv[], char *envp[])
 
 hotplug:
 	if (manage_hotplug_event())
-		dev_d_execute(&udev, HOTPLUGD_DIR, HOTPLUG_SUFFIX);
+		udev_multiplex_directory(&udev, HOTPLUGD_DIR, HOTPLUG_SUFFIX);
 
 exit:
 	logging_close();
