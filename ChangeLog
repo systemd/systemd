@@ -1,3 +1,65 @@
+Summary of changes from v023 to v024
+============================================
+
+<atul.sabharwal:intel.com>:
+  o Add README for chassis_id
+  o Add chassis_id program to extras directory
+
+<chris_friesen:sympatico.ca>:
+  o udevd race conditions and performance,  assorted cleanups
+
+<hare:suse.de>:
+  o fix SEGV in libsysfs/dlist.c
+
+<maryedie:osdl.org>:
+  o add OSDL documentation for persistent naming
+
+<md:linux.it>:
+  o small ide-devfs.sh fix
+
+Greg Kroah-Hartman:
+  o remove compiler warning from udevd.c
+  o only generate udev.8 on the fly, not all other man pages
+  o update bk ignore list some more
+  o update bk ignore list
+  o switch to generate the man pages during the normal build, not during the install
+  o convert udev.8.in to use @udevdir@ macro for make install
+  o first step of making man pages dynamically generated
+  o add install and uninstall the etc/dev.d/net/hotplug.dev file to the Makefile
+  o tweak net_test a bit
+  o fix some segfaults when running udevtest for network devices
+  o make a net_test test script using udevtest
+  o handle the subsytem if provided in udevtest
+  o add hotplug.dev script to handle renamed network devices
+  o add a bunch of network class devices to the test sysfs tree
+  o add udevruler to the bk ignore list
+  o update RFC-dev.d docs due to DEVNODE to DEVNAME change
+  o clean up chassis_id coding style
+  o clean up the OSDL document formatting a bit
+  o add netlink rules to devfs and gentoo rules files
+  o added USB device rules to rules files
+  o clean up the gentoo rules file a bit more, adding dri rules
+  o fix up udev.rules to handle oss rules better
+  o 023_bk mark
+  o fix udev.spec file for where udevtest should be placed
+
+Kay Sievers:
+  o tweak node unlink handling
+  o switch udevd's msg_dump() to #define
+  o handle netdev in udevruler
+  o man page cleanup
+  o put config info in db for netdev
+  o increase udevd event timeout
+  o udevstart fix
+  o put netdev handling and dev.d/ in manpages
+  o DEVPATH for netdev
+  o netdev - udevdb+dev.d changes
+  o udevd race conditions and performance,  assorted cleanups - take 2
+  o udevinfo patch
+  o dev_d.c file sorting and cleanup
+  o apply all_partitions rule to main block device only
+
+
 Summary of changes from v022 to v023
 ============================================
 
