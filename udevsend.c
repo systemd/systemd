@@ -195,10 +195,10 @@ int main(int argc, char *argv[], char *envp[])
 			dbg("try to start udevd daemon");
 			retval = start_daemon();
 			if (retval) {
-				info("error starting daemon");
+				dbg("error starting daemon");
 				goto fallback;
 			}
-			info("udevd daemon started");
+			dbg("udevd daemon started");
 			started_daemon = 1;
 		} else {
 			dbg("retry to connect %d", SEND_WAIT_MAX_SECONDS * SEND_WAIT_LOOP_PER_SECOND - loop);
