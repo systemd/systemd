@@ -27,16 +27,73 @@ On device removal,
 .B udev
 queries the internal database for the name of the device file to be deleted.
 .SH "CONFIGURATION"
+All udev configuration files consist of a set of lines of text.  All empty
+lines, and lines beginning with a '#' will be ignored.
+.P
+
 .B udev
-expects its configuration at
-.I /etc/udev/udev.config.
-The file consists of a set of lines. All empty lines and
-lines beginning with a '#' will be ignored.
+expects its main configuration file at
+.I /etc/udev/udev.conf.
+The file consists of a set of variables and values that allow the user to
+override default udev values.  The current set of variables that can be
+overridden in this file is:
+.TP
+.B udev_root
+This is the where in the filesystem to place the device nodes.  The default
+value for this is
+.I /udev/
+.TP
+.B udev_db
+The name and location of the udev database.  The default value for this is
+.I /udev/.udev.tdb
+.TP
+.B udev_rules
+This is the location of the udev rules file.  The default value for this is
+.I /etc/udev/udev.rules
+.TP
+.B udev_permissions
+This is the location of the udev permission file.  The default value for this is
+.I /etc/udev/udev.permissions
+.TP
+.B default_mode
+This is the default mode for all nodes that have no explicit match in the
+permissions file.  The default value for this is
+.I 0666
 .br
-Every line defines the mapping between device attributes and the device file
-name. It starts with a keyword defining the method used to match, followed by
-one ore more keys to compare and the filename for the device. If no matching
-configuration is found, the default kernel device name is used.
+.P
+A sample \fIudev.conf\fP might look like this:
+.sp
+.nf
+# udev_root - where in the filesystem to place the device nodes
+udev_root="/udev/"
+
+# udev_db - The name and location of the udev database.
+udev_db="/udev/.udev.tdb"
+
+# udev_rules - The name and location of the udev rules file
+udev_rules="/etc/udev/udev.rules"
+
+# udev_permissions - The name and location of the udev permission file
+udev_permissions="/etc/udev/udev.permissions"
+
+# default_mode - set the default mode for all nodes that have no 
+#                explicit match in the permissions file
+default_mode="0666"
+.fi
+.P
+The rules for udev to use when naming devices may specified at
+.I /etc/udev/udev.rules
+or specified by the 
+.I udev_rules
+value in the 
+.I /etc/udev/udev.conf
+file.
+.P
+Every line in the rules file define the mapping between device attributes and
+the device file name. It starts with a keyword defining the method used to
+match, followed by one ore more keys to compare and the filename for the
+device. If no matching configuration is found, the default kernel device name
+is used.
 .P
 The line format is:
 .RS
@@ -113,7 +170,7 @@ For partitions, this will result in 'part%n'
 If this is not a partition, it will result in 'disk'
 .RE
 .P
-A sample \fIudev.conf\fP might look like this:
+A sample \fIudev.rules\fP might look like this:
 .sp
 .nf
 # if /sbin/scsi_id returns "OEM 0815" device will be called disk1
@@ -136,7 +193,12 @@ LABEL, BUS="usb", model="WebCam Version 3", NAME="webcam%n"
 .fi
 .P
 Permissions and ownership for the created device files may specified at
-.I /etc/udev/udev.permissions.
+.I /etc/udev/udev.permissions
+or specified by the 
+.I udev_permission
+value in the 
+.I /etc/udev/udev.conf
+file.
 The file consists of a set of lines. All empty lines and
 lines beginning with a '#' will be ignored.
 .br
@@ -164,7 +226,7 @@ dsp1:::0666
 .ft B
 .ft
 /sbin/udev                           udev program
-/etc/udev/*                          udev config and database files
+/etc/udev/*                          udev config files
 /etc/hotplug.d/default/udev.hotplug  hotplug symlink to udev program
 .fi
 .LP
