@@ -209,6 +209,7 @@ OBJS =	udev_lib.o	\
 	udev_config.o	\
 	udev_add.o	\
 	udev_remove.o	\
+	udev_start.o	\
 	udev_sysfs.o	\
 	udev_db.o	\
 	namedev.o	\
@@ -283,8 +284,8 @@ $(SENDER).o: $(GEN_HEADERS) $(HOST_PROGS)
 $(STARTER).o: $(GEN_HEADERS) $(HOST_PROGS)
 $(WAIT).o: $(GEN_HEADERS) $(HOST_PROGS)
 
-$(ROOT): $(LIBC) $(ROOT).o udev_start.o $(OBJS) $(HEADERS) $(GEN_MANPAGES)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o udev_start.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+$(ROOT): $(LIBC) $(ROOT).o $(OBJS) $(HEADERS) $(GEN_MANPAGES)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
 $(TESTER): $(LIBC) $(TESTER).o $(OBJS) $(HEADERS)
