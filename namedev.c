@@ -214,6 +214,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			 struct sysfs_device *sysfs_device)
 {
 	char temp[NAME_SIZE];
+	char temp2[NAME_SIZE];
 	char *tail;
 	char *pos;
 	char *attr;
@@ -277,6 +278,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 				i = atoi(attr);
 			if (i > 0) {
 				foreach_strpart(udev->program_result, " \n\r", spos, slen) {
+					strnfieldcpy(temp2, udev->program_result + spos, slen+1);
 					i--;
 					if (i == 0)
 						break;
@@ -285,8 +287,8 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 					dbg("requested part of result string not found");
 					break;
 				}
-				strnfieldcat(string, udev->program_result + spos, slen+1);
-				dbg("substitute part of result string '%s'", pos);
+				strnfieldcat(string, temp2, maxsize);
+				dbg("substitute part of result string '%s'", temp2);
 			} else {
 				strnfieldcat(string, udev->program_result, maxsize);
 				dbg("substitute result string '%s'", udev->program_result);
