@@ -62,6 +62,7 @@ KERNEL="microcode", NAME="misc/%k", SYMLINK="%k"
 KERNEL="psaux",     NAME="misc/%k", SYMLINK="%k"
 KERNEL="rtc",       NAME="misc/%k", SYMLINK="%k"
 KERNEL="uinput",    NAME="misc/%k", SYMLINK="%k"
+KERNEL="inotify",   NAME="misc/%k", SYMLINK="%k"
 
 # pty devices
 KERNEL="pty[p-za-e][0-9a-f]*", NAME="pty/m%n", SYMLINK="%k"
