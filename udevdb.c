@@ -12,9 +12,7 @@
 #include "udevdb.h"
 #include "tdb/tdb.h"
 
-static TDB_CONTEXT *busdb;
-static TDB_CONTEXT *classdb;
-static TDB_CONTEXT *namedb;
+static TDB_CONTEXT *udevdb;
 
 /**
  * busdb_record - bus and id are keys to look up name of device
@@ -48,67 +46,25 @@ struct namedb_record {
 };
 
 /**
- * busdb_close: close busdb database
+ * udevdb_close: close udev database
  */
-static void busdb_close(void)
+static void udevdb_close(void)
 {
-	if (busdb != NULL) {
-		tdb_close(busdb);
-		busdb = NULL;
+	if (udevdb != NULL) {
+		tdb_close(udevdb);
+		udevdb = NULL;
 	}
 }
 
 /**
- * classdb_close: close classdb database
+ * udevdb_open: opens udev's database
+ * @method: database can either be in memory - UDEVDB_INTERNAL - or
+ * 	written to a file with UDEVDB_DEFAULT.
  */
-static void classdb_close(void)
+static int udevdb_open(int method)
 {
-	if (classdb != NULL) {
-		tdb_close(classdb);
-		classdb = NULL;
-	}
-}
-
-/**
- * namedb_close: close name database
- */
-static void namedb_close(void)
-{
-	if (namedb != NULL) {
-		tdb_close(namedb);
-		namedb = NULL;
-	}
-}
-
-/**
- * busdb_open: open busdb's database
- */
-static int busdb_open(void)
-{
-	busdb = tdb_open(BUS_DB, 0, 0, O_RDWR | O_CREAT, 0644);
-	if (busdb == NULL)
-		return -1;
-	return 0;
-}
-
-/**
- * classdb_open: open classdb's database
- */
-static int classdb_open(void)
-{
-	classdb = tdb_open(CLASS_DB, 0, 0, O_RDWR | O_CREAT, 0644);
-	if (classdb == NULL)
-		return -1;
-	return 0;
-}
-
-/**
- * namedb_open: open name database
- */
-static int namedb_open(void)
-{
-	namedb = tdb_open(NAME_DB, 0, 0, O_RDWR | O_CREAT, 0644);
-	if (namedb == NULL)
+	udevdb = tdb_open(UDEVDB, 0, method, O_RDWR | O_CREAT, 0644);
+	if (udevdb == NULL)
 		return -1;
 	return 0;
 }
@@ -127,9 +83,6 @@ static struct busdb_record *busdb_fetch(const char *bus, const char *id)
 	if (strlen(bus) >= BUS_SIZE || strlen(id) >= ID_SIZE)
 		return NULL;
 
-	if ((busdb_open()) != 0)
-		return NULL;
-
 	memset(keystr, 0, (BUS_SIZE+ID_SIZE+2));
 	strcpy(keystr, bus);
 	strcat(keystr, UDEVDB_DEL);
@@ -138,8 +91,7 @@ static struct busdb_record *busdb_fetch(const char *bus, const char *id)
 	key.dptr = (void *)keystr;
 	key.dsize = strlen(keystr) + 1;
 
-	data = tdb_fetch(busdb, key);
-	busdb_close();
+	data = tdb_fetch(udevdb, key);
 	if (data.dptr == NULL || data.dsize == 0)
 		return NULL;
 	
@@ -170,9 +122,6 @@ static struct classdb_record *classdb_fetch(const char *cls,
 	if (strlen(cls) >= NAME_SIZE || strlen(cls_dev) >= NAME_SIZE)
 		return NULL;
 
-	if ((classdb_open()) != 0)
-		return NULL;
-
 	memset(keystr, 0, (NAME_SIZE+NAME_SIZE+2));
 	strcpy(keystr, cls);
 	strcat(keystr, UDEVDB_DEL);
@@ -181,8 +130,7 @@ static struct classdb_record *classdb_fetch(const char *cls,
 	key.dptr = (void *)keystr;
 	key.dsize = strlen(keystr) + 1;
 
-	data = tdb_fetch(classdb, key);
-	classdb_close();
+	data = tdb_fetch(udevdb, key);
 	if (data.dptr == NULL || data.dsize == 0)
 		return NULL;
 	
@@ -212,18 +160,13 @@ static struct namedb_record *namedb_fetch(const char *name)
 	if (strlen(name) >= NAME_SIZE)
 		return NULL;
 
-	if ((namedb_open()) != 0)
-		return NULL;
-
 	memset(nm_keystr, 0, NAME_SIZE);
 	strcpy(nm_keystr, name);
 
 	key.dptr = (void *)nm_keystr;
 	key.dsize = strlen(nm_keystr) + 1;
 
-	data = tdb_fetch(namedb, key);
-	namedb_close();
-
+	data = tdb_fetch(udevdb, key);
 	if (data.dptr == NULL || data.dsize == 0)
 		return NULL;
 
@@ -252,9 +195,6 @@ static int busdb_store(const struct udevice *dev)
 	if (dev == NULL)
 		return -1;
 
-	if ((retval = busdb_open()) != 0)
-		return -1;
-
 	memset(keystr, 0, (BUS_SIZE+ID_SIZE+2));
 	strcpy(keystr, dev->bus_name);
 	strcat(keystr, UDEVDB_DEL);
@@ -268,9 +208,7 @@ static int busdb_store(const struct udevice *dev)
 	data.dptr = (void *) &rec;
 	data.dsize = sizeof(rec);
 	
-	retval = tdb_store(busdb, key, data, TDB_REPLACE); 
-
-	busdb_close();
+	retval = tdb_store(udevdb, key, data, TDB_REPLACE); 
 	return retval;
 }
 
@@ -287,9 +225,6 @@ static int classdb_store(const struct udevice *dev)
 	if (dev == NULL)
 		return -1;
 
-	if ((retval = classdb_open()) != 0)
-		return -1;
-
 	memset(keystr, 0, (NAME_SIZE+NAME_SIZE+2));
 	strcpy(keystr, dev->class_name);
 	strcat(keystr, UDEVDB_DEL);
@@ -303,9 +238,7 @@ static int classdb_store(const struct udevice *dev)
 	data.dptr = (void *) &rec;
 	data.dsize = sizeof(rec);
 	
-	retval = tdb_store(classdb, key, data, TDB_REPLACE); 
-
-	classdb_close();
+	retval = tdb_store(udevdb, key, data, TDB_REPLACE); 
 	return retval;
 }
 
@@ -320,9 +253,6 @@ static int namedb_store(const struct udevice *dev)
 	int retval = 0;
 
 	if (dev == NULL)
-		return -1;
-
-	if ((retval = namedb_open()) != 0)
 		return -1;
 
 	memset(keystr, 0, NAME_SIZE);
@@ -345,9 +275,7 @@ static int namedb_store(const struct udevice *dev)
 	data.dptr = (void *) &rec;
 	data.dsize = sizeof(rec);
 	
-	retval = tdb_store(namedb, key, data, TDB_REPLACE); 
-
-	namedb_close();
+	retval = tdb_store(udevdb, key, data, TDB_REPLACE); 
 	return retval;
 }
 
@@ -365,9 +293,6 @@ static int busdb_delete(const char *bus, const char *id)
 	if (strlen(bus) >= BUS_SIZE || strlen(id) >= ID_SIZE)
 		return -1;
 
-	if ((busdb_open()) != 0)
-		return -1;
-
 	memset(keystr, 0, (BUS_SIZE+ID_SIZE+2));
 	strcpy(keystr, bus);
 	strcat(keystr, UDEVDB_DEL);
@@ -376,9 +301,7 @@ static int busdb_delete(const char *bus, const char *id)
 	key.dptr = (void *)keystr;
 	key.dsize = strlen(keystr) + 1;
 
-	retval = tdb_delete(busdb, key);
-	busdb_close();
-	
+	retval = tdb_delete(udevdb, key);
 	return retval;
 }
 
@@ -396,9 +319,6 @@ static int classdb_delete(const char *cls, const char *cls_dev)
 	if (strlen(cls) >= NAME_SIZE || strlen(cls_dev) >= NAME_SIZE)
 		return -1;
 
-	if ((classdb_open()) != 0)
-		return -1;
-
 	memset(keystr, 0, (NAME_SIZE+NAME_SIZE+2));
 	strcpy(keystr, cls);
 	strcat(keystr, UDEVDB_DEL);
@@ -407,9 +327,7 @@ static int classdb_delete(const char *cls, const char *cls_dev)
 	key.dptr = (void *)keystr;
 	key.dsize = strlen(keystr) + 1;
 
-	retval = tdb_delete(classdb, key);
-	classdb_close();
-	
+	retval = tdb_delete(udevdb, key);
 	return retval;
 }
 
@@ -427,47 +345,13 @@ static int namedb_delete(const char *name)
 	if (strlen(name) >= NAME_SIZE)
 		return -1;
 
-	if ((namedb_open()) != 0)
-		return -1;
-
 	memset(keystr, 0, NAME_SIZE);
 	strcpy(keystr, name);
 
 	key.dptr = (void *)keystr;
 	key.dsize = strlen(keystr) + 1;
 
-	retval = tdb_delete(namedb, key);
-	namedb_close();
-
-	return retval;
-}
-
-/**
- * namedb_exists
- */
-static int namedb_exists(const char *name)
-{
-	TDB_DATA key;
-	char keystr[NAME_SIZE]; 
-	int retval = 0;
-
-	if (name == NULL)
-		return retval; 
-	if (strlen(name) >= NAME_SIZE)
-		return retval;
-
-	if ((namedb_open()) != 0)
-		return retval;
-
-	memset(keystr, 0, NAME_SIZE);
-	strcpy(keystr, name);
-
-	key.dptr = (void *)keystr;
-	key.dsize = strlen(keystr) + 1;
-
-	retval = tdb_exists(namedb, key);
-	namedb_close();
-
+	retval = tdb_delete(udevdb, key);
 	return retval;
 }
 
@@ -589,4 +473,23 @@ struct udevice *udevdb_get_udevice_by_class(const char *cls,
 	free(crec);
 
 	return dev;
+}
+
+/**
+ * udevdb_exit: closes database
+ */
+void udevdb_exit(void)
+{
+	udevdb_close();
+}
+
+/**
+ * udevdb_init: initializes database
+ */
+int udevdb_init(int init_flag)
+{
+	if (init_flag != UDEVDB_DEFAULT && init_flag != UDEVDB_INTERNAL)
+		return -1;
+
+	return udevdb_open(init_flag);
 }

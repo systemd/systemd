@@ -31,6 +31,7 @@
 #include "udev.h"
 #include "udev_version.h"
 #include "namedev.h"
+#include "udevdb.h"
 #include "libsysfs/libsysfs.h"
 
 
@@ -91,17 +92,27 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
+	/* initialize udev database */
+	retval = udevdb_init(UDEVDB_DEFAULT);
+	if (retval != 0) {
+		dbg("Unable to initialize database.");
+		goto exit;
+	}
+
 	/* initialize the naming deamon */
 	namedev_init();
 
 	if (strcmp(action, "add") == 0)
-		return udev_add_device(device, argv[1]);
+		retval = udev_add_device(device, argv[1]);
 
-	if (strcmp(action, "remove") == 0)
-		return udev_remove_device(device, argv[1]);
+	else if (strcmp(action, "remove") == 0)
+		retval = udev_remove_device(device, argv[1]);
 
-	dbg("Unknown action: %s", action);
-	retval = -EINVAL;
+	else {
+		dbg("Unknown action: %s", action);
+		retval = -EINVAL;
+	}
+	udevdb_exit();
 
 exit:	
 	return retval;

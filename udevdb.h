@@ -7,13 +7,15 @@
 #include "namedev.h"
 #include "udev.h"
 
-#define BUS_DB		"/home/greg/src/udev/busdb.tdb"
-#define CLASS_DB	"/home/greg/src/udev/classdb.tdb"
-#define NAME_DB		"/home/greg/src/udev/namedb.tdb"
+#define UDEVDB		"/home/greg/src/udev/udevdb.tdb" 
 
 #define PATH_SIZE	256
 
 #define UDEVDB_DEL	"#"
+
+/* Udevdb initialization flags */
+#define UDEVDB_DEFAULT	0	/* Defaults database to use file */
+#define UDEVDB_INTERNAL	1	/* Don't store db on disk, use in memory */
 
 struct udevice {
 	char name[NAME_SIZE];
@@ -30,6 +32,8 @@ struct udevice {
 };
 
 /* Function Prototypes */
+extern void udevdb_exit(void);
+extern int udevdb_init(int init_flag);
 extern int udevdb_delete_udevice(const char *name);
 extern int udevdb_add_udevice(const struct udevice *dev);
 extern struct udevice *udevdb_get_udevice(const char *name);
