@@ -60,6 +60,8 @@ int udev_init_device(struct udevice *udev, const char* devpath, const char *subs
 		udev->type = NET;
 	else if (strncmp(udev->devpath, "/class/", 7) == 0)
 		udev->type = CLASS;
+	else if (strncmp(udev->devpath, "/devices/", 9) == 0)
+		udev->type = PHYSDEV;
 
 	udev->mode = 0660;
 	strcpy(udev->owner, "root");
@@ -293,8 +295,7 @@ static int name_list_add(struct list_head *name_list, const char *name, int sort
 }
 
 /* calls function for every file found in specified directory */
-int call_foreach_file(file_fnct_t fnct, const char *dirname,
-		      const char *suffix, void *data)
+int call_foreach_file(file_fnct_t fnct, const char *dirname, const char *suffix, void *data)
 {
 	struct dirent *ent;
 	DIR *dir;

@@ -201,7 +201,6 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 		dbg("format=%c, string='%s', tail='%s'",c , string, tail);
 		attr = get_format_attribute(&tail);
 
-
 		switch (c) {
 		case 'p':
 			if (strlen(udev->devpath) == 0)

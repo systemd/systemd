@@ -152,18 +152,15 @@ int main(int argc, char *argv[], char *envp[])
 	/* older kernels passed the SUBSYSTEM only as argument */
 	if (!subsystem && argc == 2)
 		subsystem = argv[1];
-	udev_init_device(&udev, devpath, subsystem);
 
 	if (!action) {
 		dbg("no action");
 		goto hotplug;
 	}
-
 	if (!subsystem) {
 		dbg("no subsystem");
 		goto hotplug;
 	}
-
 	if (!devpath) {
 		dbg("no devpath");
 		goto hotplug;
@@ -173,7 +170,9 @@ int main(int argc, char *argv[], char *envp[])
 	if (udev_log)
 		setenv("UDEV_LOG", "1", 1);
 
-	if ((strncmp(devpath, "/block/", 7) == 0) || (strncmp(devpath, "/class/", 7) == 0)) {
+	udev_init_device(&udev, devpath, subsystem);
+
+	if (udev.type == BLOCK || udev.type == CLASS || udev.type == NET) {
 		if (strcmp(action, "add") == 0) {
 			/* wait for sysfs and possibly add node */
 			dbg("udev add");
@@ -221,7 +220,7 @@ int main(int argc, char *argv[], char *envp[])
 			if (udev_dev_d)
 				udev_multiplex_directory(&udev, DEVD_DIR, DEVD_SUFFIX);
 		}
-	} else if ((strncmp(devpath, "/devices/", 9) == 0)) {
+	} else if (udev.type == PHYSDEV) {
 		if (strcmp(action, "add") == 0) {
 			/* wait for sysfs */
 			dbg("devices add");
