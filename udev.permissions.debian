@@ -107,3 +107,5 @@ pt*:root:tape:0660
 npt*:root:tape:0660
 st*:root:tape:0660
 nst*:root:tape:0660
+
+dm-*:root:root:0640
