@@ -103,7 +103,7 @@ static int delete_node(struct udevice *dev)
 		delete_path(filename);
 
 	foreach_strpart(dev->symlink, " ", pos, len) {
-		strnfieldcpy(linkname, pos, len+1);
+		strfieldcpymax(linkname, pos, len+1);
 		strfieldcpy(filename, udev_root);
 		strfieldcat(filename, linkname);
 

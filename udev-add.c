@@ -141,7 +141,7 @@ static void set_to_local_user(char *user)
 	struct utmp *u;
 	time_t recent = 0;
 
-	strnfieldcpy(user, default_owner_str, OWNER_SIZE);
+	strfieldcpymax(user, default_owner_str, OWNER_SIZE);
 	setutent();
 	while (1) {
 		u = getutent();
@@ -158,7 +158,7 @@ static void set_to_local_user(char *user)
 
 		if (u->ut_time > recent) {
 			recent = u->ut_time;
-			strnfieldcpy(user, u->ut_user, OWNER_SIZE);
+			strfieldcpymax(user, u->ut_user, OWNER_SIZE);
 			dbg("local user is '%s'", user);
 			break;
 		}
@@ -282,7 +282,7 @@ static int create_node(struct udevice *dev, int fake)
 
 	/* create symlink if requested */
 	foreach_strpart(dev->symlink, " ", pos, len) {
-		strnfieldcpy(linkname, pos, len+1);
+		strfieldcpymax(linkname, pos, len+1);
 		strfieldcpy(filename, udev_root);
 		strfieldcat(filename, linkname);
 		dbg("symlink '%s' to node '%s' requested", filename, dev->name);

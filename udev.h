@@ -73,13 +73,13 @@ do { \
 	strncat(to, from, sizeof(to) - strlen(to)-1); \
 } while (0)
 
-#define strnfieldcpy(to, from, maxsize) \
+#define strfieldcpymax(to, from, maxsize) \
 do { \
 	to[maxsize-1] = '\0'; \
 	strncpy(to, from, maxsize-1); \
 } while (0)
 
-#define strnfieldcat(to, from, maxsize) \
+#define strfieldcatmax(to, from, maxsize) \
 do { \
 	to[maxsize-1] = '\0'; \
 	strncat(to, from, maxsize - strlen(to)-1); \
@@ -91,7 +91,7 @@ do { \
 	snprintf((to) + strlen(to), sizeof(to) - strlen(to)-1, "%u", i); \
 } while (0)
 
-#define strnintcat(to, i, maxsize) \
+#define strintcatmax(to, i, maxsize) \
 do { \
 	to[maxsize-1] = '\0'; \
 	snprintf((to) + strlen(to), maxsize - strlen(to)-1, "%u", i); \

@@ -247,27 +247,27 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 		case 'b':
 			if (strlen(udev->bus_id) == 0)
 				break;
-			strnfieldcat(string, udev->bus_id, maxsize);
+			strfieldcatmax(string, udev->bus_id, maxsize);
 			dbg("substitute bus_id '%s'", udev->bus_id);
 			break;
 		case 'k':
 			if (strlen(udev->kernel_name) == 0)
 				break;
-			strnfieldcat(string, udev->kernel_name, maxsize);
+			strfieldcatmax(string, udev->kernel_name, maxsize);
 			dbg("substitute kernel name '%s'", udev->kernel_name);
 			break;
 		case 'n':
 			if (strlen(udev->kernel_number) == 0)
 				break;
-			strnfieldcat(string, udev->kernel_number, maxsize);
+			strfieldcatmax(string, udev->kernel_number, maxsize);
 			dbg("substitute kernel number '%s'", udev->kernel_number);
 				break;
 		case 'm':
-			strnintcat(string, udev->minor, maxsize);
+			strintcatmax(string, udev->minor, maxsize);
 			dbg("substitute minor number '%u'", udev->minor);
 			break;
 		case 'M':
-			strnintcat(string, udev->major, maxsize);
+			strintcatmax(string, udev->major, maxsize);
 			dbg("substitute major number '%u'", udev->major);
 			break;
 		case 'c':
@@ -287,11 +287,11 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 					dbg("requested part of result string not found");
 					break;
 				}
-				strnfieldcpy(temp2, spos, slen+1);
-				strnfieldcat(string, temp2, maxsize);
+				strfieldcpymax(temp2, spos, slen+1);
+				strfieldcatmax(string, temp2, maxsize);
 				dbg("substitute part of result string '%s'", temp2);
 			} else {
-				strnfieldcat(string, udev->program_result, maxsize);
+				strfieldcatmax(string, udev->program_result, maxsize);
 				dbg("substitute result string '%s'", udev->program_result);
 			}
 			break;
@@ -302,14 +302,14 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 					dbg("sysfa attribute '%s' not found", attr);
 					break;
 				}
-				strnfieldcat(string, tmpattr->value, maxsize);
+				strfieldcatmax(string, tmpattr->value, maxsize);
 				dbg("substitute sysfs value '%s'", tmpattr->value);
 			} else {
 				dbg("missing attribute");
 			}
 			break;
 		case '%':
-			strnfieldcat(string, "%", maxsize);
+			strfieldcatmax(string, "%", maxsize);
 			break;
 		default:
 			dbg("unknown substitution type '%%%c'", c);
@@ -319,7 +319,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 		if (len > 0)
 			pos[len] = '\0';
 
-		strnfieldcat(string, tail, maxsize);
+		strfieldcatmax(string, tail, maxsize);
 	}
 }
 
@@ -428,7 +428,7 @@ static int execute_program(char *path, char *value, int len)
 		dup(fds[1]);
 
 		/* copy off our path to use incase we have too many args */
-		strnfieldcpy(buffer, path, sizeof(buffer));
+		strfieldcpymax(buffer, path, sizeof(buffer));
 
 		if (strchr(path, ' ')) {
 			/* exec with arguments */

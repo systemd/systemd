@@ -184,7 +184,7 @@ static int find_device_by_name(char *path, struct udevice *dev)
 
 	if (strncmp(dev->name, find_name, sizeof(dev->name)) == 0) {
 		memcpy(find_dev, dev, sizeof(struct udevice));
-		strnfieldcpy(find_path, path, NAME_SIZE);
+		strfieldcpymax(find_path, path, NAME_SIZE);
 		find_found = 1;
 		/* stop search */
 		return 1;
@@ -198,7 +198,7 @@ static int find_device_by_name(char *path, struct udevice *dev)
 			continue;
 
 		memcpy(find_dev, dev, sizeof(struct udevice));
-		strnfieldcpy(find_path, path, NAME_SIZE);
+		strfieldcpymax(find_path, path, NAME_SIZE);
 		find_found = 1;
 		return 1;
 	}
