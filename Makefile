@@ -215,6 +215,7 @@ install: all
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
 	$(INSTALL_DATA) udev.config $(DESTDIR)$(configdir)
 	$(INSTALL_DATA) udev.permissions $(DESTDIR)$(configdir)
+	- rm $(DESTDIR)$(hotplugdir)/udev.hotplug
 	- ln -s $(sbindir)/$(ROOT) $(DESTDIR)$(hotplugdir)/udev.hotplug
 
 uninstall:
