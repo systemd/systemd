@@ -51,3 +51,7 @@ CALLOUT, BUS="ide", PROGRAM="/bin/cat /proc/ide/%k/media", ID="cdrom", NAME="%k"
 
 # device mapper creates its own device nodes
 IGNORE, KERNEL="dm-[0-9]*"
+
+# DRI devices always go into a subdirectory (as per the LSB spec)
+REPLACE, KERNEL="card*", NAME="dri/card%n"
+
