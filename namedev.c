@@ -602,6 +602,43 @@ static int match_place(struct config_device *dev, struct sysfs_class_device *cla
 	return 0;
 }
 
+static int whitelist_search(struct sysfs_class_device *class_dev)
+{
+  	int i;
+  	int list_size = 17;
+	int sysblock = 10;
+
+  	static char *list[] = {
+  		"nb",
+  		"ram",
+  		"loop",
+		"fd",
+  		"md",
+		"dos_cd",
+		"double",
+  		"flash",
+		"msd",
+		"rflash",
+  		"rom",
+		"rrom",
+  		"sbpcd",
+  		"pcd",
+  		"pf",
+  		"scd",
+  		"ubd",
+  	};
+
+	if (!strncmp(class_dev->path, "/sys/block", sysblock)) {
+		for (i=0; i < list_size; i++) {
+			if (!strncmp(class_dev->name, list[i], strlen(list[i]))) {
+				return 1;
+			}
+		}
+	}
+
+	return 0;
+}
+
 static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_dev)
 {
 	struct sysfs_device *sysfs_device;
@@ -615,8 +652,8 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 	 * all partitions have the symlink in its parent directory.
 	 * But we need to watch out for block devices that do not have parents, yet
 	 * look like a partition (fd0, loop0, etc.)  They all do not have a device
-	 * symlink yet.  We do sit and spin on waiting for them right now, we should
-	 * possibly have a whitelist for these devices here...
+	 * symlink yet.  We do sit and spin on waiting for them right now unless
+	 * they happen to be in the whitelist in which case we exit.
 	 */
 	class_dev_parent = sysfs_get_classdev_parent(class_dev);
 	if (class_dev_parent != NULL) 
@@ -626,8 +663,13 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 	tspec.tv_nsec = 10000000;  /* sleep 10 millisec */
 	loop = 10;
 	while (loop--) {
-		if (udev_sleep)
+		if (udev_sleep) {
+			if (whitelist_search(class_dev)) {
+				sysfs_device = NULL;
+				goto exit;
+			}
 			nanosleep(&tspec, NULL);
+		}
 
 		if (class_dev_parent)
 			sysfs_device = sysfs_get_classdev_device(class_dev_parent);
