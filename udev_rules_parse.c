@@ -157,7 +157,7 @@ static char *get_key_attribute(char *str)
 		attr++;
 		pos = strchr(attr, '}');
 		if (pos == NULL) {
-			dbg("missing closing brace for format");
+			err("missing closing brace for format");
 			return NULL;
 		}
 		pos[0] = '\0';
@@ -185,7 +185,7 @@ static int rules_parse(const char *filename)
 	struct udev_rule rule;
 
 	if (file_map(filename, &buf, &bufsize) != 0) {
-		dbg("can't open '%s' as rules file", filename);
+		err("can't open '%s' as rules file", filename);
 		return -1;
 	}
 	dbg("reading '%s' as rules file", filename);
@@ -274,13 +274,13 @@ static int rules_parse(const char *filename)
 				struct key_pair *pair;
 
 				if (rule.sysfs_pair_count >= KEY_SYSFS_PAIRS_MAX) {
-					dbg("skip rule, to many " KEY_SYSFS " keys in a single rule");
+					err("skip rule, to many " KEY_SYSFS " keys in a single rule");
 					goto error;
 				}
 				pair = &rule.sysfs_pair[rule.sysfs_pair_count];
 				attr = get_key_attribute(key + sizeof(KEY_SYSFS)-1);
 				if (attr == NULL) {
-					dbg("error parsing " KEY_SYSFS " attribute");
+					err("error parsing " KEY_SYSFS " attribute");
 					goto error;
 				}
 				strlcpy(pair->name, attr, sizeof(pair->name));
@@ -295,13 +295,13 @@ static int rules_parse(const char *filename)
 				struct key_pair *pair;
 
 				if (rule.env_pair_count >= KEY_ENV_PAIRS_MAX) {
-					dbg("skip rule, to many " KEY_ENV " keys in a single rule");
+					err("skip rule, to many " KEY_ENV " keys in a single rule");
 					goto error;
 				}
 				pair = &rule.env_pair[rule.env_pair_count];
 				attr = get_key_attribute(key + sizeof(KEY_ENV)-1);
 				if (attr == NULL) {
-					dbg("error parsing " KEY_ENV " attribute");
+					err("error parsing " KEY_ENV " attribute");
 					continue;
 				}
 				strlcpy(pair->name, attr, sizeof(pair->name));
@@ -400,7 +400,7 @@ static int rules_parse(const char *filename)
 				continue;
 			}
 
-			dbg("unknown key '%s'", key);
+			err("unknown key '%s'", key);
 			goto error;
 		}
 
@@ -411,13 +411,12 @@ static int rules_parse(const char *filename)
 		/* simple plausibility checks for given keys */
 		if ((rule.sysfs_pair[0].name[0] == '\0') ^
 		    (rule.sysfs_pair[0].value[0] == '\0')) {
-			info("inconsistency in " KEY_SYSFS " key");
+			err("inconsistency in " KEY_SYSFS " key");
 			goto error;
 		}
 
 		if ((rule.result[0] != '\0') && (program_given == 0)) {
-			info(KEY_RESULT " is only useful when "
-			     KEY_PROGRAM " is called in any rule before");
+			info(KEY_RESULT " is only useful when " KEY_PROGRAM " is called in any rule before");
 			goto error;
 		}
 
@@ -428,7 +427,7 @@ static int rules_parse(const char *filename)
 			dbg("add_config_dev returned with error %d", retval);
 			continue;
 error:
-			info("parse error %s, line %d:%d, rule skipped",
+			err("parse error %s, line %d:%d, rule skipped",
 			     filename, lineno, (int) (linepos - line));
 		}
 	}

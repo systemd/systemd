@@ -158,7 +158,7 @@ int udev_remove_device(struct udevice *udev)
 		if (temp == NULL)
 			return -ENODEV;
 		strlcpy(udev->name, &temp[1], sizeof(udev->name));
-		dbg("'%s' not found in database, falling back on default name", udev->name);
+		info("'%s' not found in database, falling back on default name", udev->name);
 	}
 
 	/* use full path to the environment */

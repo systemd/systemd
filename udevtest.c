@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <signal.h>
+#include <syslog.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
@@ -37,9 +38,12 @@
 
 
 #ifdef USE_LOG
-void log_message (int level, const char *format, ...)
+void log_message (int priority, const char *format, ...)
 {
 	va_list args;
+
+	if (priority > udev_log_priority)
+		return;
 
 	va_start(args, format);
 	vprintf(format, args);
@@ -60,13 +64,15 @@ int main(int argc, char *argv[], char *envp[])
 
 	info("version %s", UDEV_VERSION);
 
-	if (argc < 2 || argc > 3) {
-		info("Usage: udevtest <devpath> [subsystem]");
+	if (argc != 3) {
+		info("Usage: udevtest <devpath> <subsystem>");
 		return 1;
 	}
 
 	/* initialize our configuration */
 	udev_init_config();
+	if (udev_log_priority < LOG_INFO)
+		udev_log_priority = LOG_INFO;
 
 	/* remove sysfs_path if given */
 	if (strncmp(argv[1], sysfs_path, strlen(sysfs_path)) == 0)

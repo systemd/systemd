@@ -1,3 +1,14 @@
+udev 057
+========
+We support log priority levels now. The value udev_log in udev.conf is used
+to determine what is printed to syslog. This makes it possible to
+run a version with compiled-in debug messages in a production environment
+which is sometimes needed to find a bug.
+It is still possible to supress the inclusion of _any_ syslog usage with
+USE_LOG=false to create the smallest possible binaries if needed.
+The configured udev_log value can be overridden with the environment variable
+UDEV_LOG.
+
 udev 056
 ========
 Possible use of a system-wide klibc:

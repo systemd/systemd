@@ -38,14 +38,23 @@
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev_libc_wrapper.h"
 #include "udev.h"
+#include "udev_version.h"
 #include "logging.h"
 #include "udev_rules.h"
 #include "udev_utils.h"
 #include "list.h"
 
 #ifdef USE_LOG
-void log_message(int level, const char *format, ...)
+void log_message(int priority, const char *format, ...)
 {
+	va_list args;
+
+	if (priority > udev_log_priority)
+		return;
+
+	va_start(args, format);
+	vsyslog(priority, format, args);
+	va_end(args);
 }
 #endif
 
@@ -299,7 +308,12 @@ int main(int argc, char *argv[], char *envp[])
 {
 	struct sigaction act;
 
+	logging_init("udev");
 	udev_init_config();
+	/* disable all logging if not explicitely requested */
+	if (getenv("UDEV_LOG") == NULL)
+		udev_log_priority = 0;
+	dbg("version %s", UDEV_VERSION);
 
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(act));
@@ -322,5 +336,6 @@ int main(int argc, char *argv[], char *envp[])
 	udev_scan_block();
 	udev_scan_class();
 
+	logging_close();
 	return 0;
 }

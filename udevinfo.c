@@ -36,12 +36,15 @@
 
 
 #ifdef USE_LOG
-void log_message (int level, const char *format, ...)
+void log_message (int priority, const char *format, ...)
 {
 	va_list	args;
 
+	if (priority > udev_log_priority)
+		return;
+
 	va_start(args, format);
-	vsyslog(level, format, args);
+	vsyslog(priority, format, args);
 	va_end(args);
 }
 #endif

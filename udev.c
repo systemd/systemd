@@ -40,17 +40,16 @@
 #include "udev_rules.h"
 #include "logging.h"
 
-
 #ifdef USE_LOG
-void log_message(int level, const char *format, ...)
+void log_message(int priority, const char *format, ...)
 {
 	va_list args;
 
-	if (!udev_log)
+	if (priority > udev_log_priority)
 		return;
 
 	va_start(args, format);
-	vsyslog(level, format, args);
+	vsyslog(priority, format, args);
 	va_end(args);
 }
 #endif
@@ -115,13 +114,12 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	logging_init("udev");
-	dbg("version %s", UDEV_VERSION);
-
 	udev_init_config();
+	dbg("version %s", UDEV_VERSION);
 
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(act));
-	act.sa_handler = (void (*) (int))sig_handler;
+	act.sa_handler = (void (*)(int)) sig_handler;
 	sigemptyset (&act.sa_mask);
 	act.sa_flags = 0;
 	sigaction(SIGALRM, &act, NULL);
@@ -146,13 +144,17 @@ int main(int argc, char *argv[], char *envp[])
 	udev_init_device(&udev, devpath, subsystem);
 
 	if (!action || !subsystem || !devpath) {
-		dbg("action, subsystem or devpath missing");
+		err("action, subsystem or devpath missing");
 		goto hotplug;
 	}
 
 	/* export logging flag, as called scripts may want to do the same as udev */
-	if (udev_log)
-		setenv("UDEV_LOG", "1", 1);
+	if (udev_log_priority) {
+		char priority[32];
+
+		sprintf(priority, "%i", udev_log_priority);
+		setenv("UDEV_LOG", priority, 1);
+	}
 
 	if (udev.type == DEV_BLOCK || udev.type == DEV_CLASS || udev.type == DEV_NET) {
 		if (strcmp(action, "add") == 0) {
@@ -169,7 +171,7 @@ int main(int argc, char *argv[], char *envp[])
 			path[sizeof(path)-1] = '\0';
 			class_dev = wait_class_device_open(path);
 			if (class_dev == NULL) {
-				dbg ("open class device failed");
+				dbg("open class device failed");
 				goto hotplug;
 			}
 			dbg("opened class_dev->name='%s'", class_dev->name);

@@ -107,7 +107,7 @@ static char *get_format_attribute(char **str)
 	if (*str[0] == '{') {
 		pos = strchr(*str, '}');
 		if (pos == NULL) {
-			dbg("missing closing brace for format");
+			err("missing closing brace for format");
 			return NULL;
 		}
 		pos[0] = '\0';
@@ -131,7 +131,7 @@ static int get_format_len(char **str)
 			dbg("format length=%i", num);
 			return num;
 		} else {
-			dbg("format parsing error '%s'", *str);
+			err("format parsing error '%s'", *str);
 		}
 	}
 	return -1;
@@ -239,7 +239,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 						cpos++;
 				}
 				if (i > 0) {
-					dbg("requested part of result string not found");
+					err("requested part of result string not found");
 					break;
 				}
 				strlcpy(temp2, cpos, sizeof(temp2));
@@ -265,7 +265,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			}
 			tmpattr = find_sysfs_attribute(class_dev, sysfs_device, attr);
 			if (tmpattr == NULL) {
-				dbg("sysfa attribute '%s' not found", attr);
+				dbg("sysfs attribute '%s' not found", attr);
 				break;
 			}
 			/* strip trailing whitespace of matching value */
@@ -327,7 +327,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			dbg("substitute udev_root '%s'", udev_root);
 			break;
 		default:
-			dbg("unknown substitution type '%%%c'", c);
+			err("unknown substitution type '%%%c'", c);
 			break;
 		}
 		/* truncate to specified length */
@@ -378,7 +378,7 @@ static int execute_program(struct udevice *udev, const char *path, char *value, 
 
 	retval = pipe(fds);
 	if (retval != 0) {
-		dbg("pipe failed");
+		err("pipe failed");
 		return -1;
 	}
 
@@ -393,7 +393,7 @@ static int execute_program(struct udevice *udev, const char *path, char *value, 
 		info(KEY_PROGRAM " execution of '%s' failed", path);
 		exit(1);
 	case -1:
-		dbg("fork failed");
+		err("fork of '%s' failed", path);
 		return -1;
 	default:
 		/* parent reads from fds[0] */
@@ -407,14 +407,14 @@ static int execute_program(struct udevice *udev, const char *path, char *value, 
 
 			i += count;
 			if (i >= len-1) {
-				dbg("result len %d too short", len);
+				err("result len %d too short", len);
 				retval = -1;
 				break;
 			}
 		}
 
 		if (count < 0) {
-			dbg("read failed with '%s'", strerror(errno));
+			err("read failed with '%s'", strerror(errno));
 			retval = -1;
 		}
 
@@ -775,12 +775,12 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 				next = strchr(temp, ' ');
 				while (next) {
 					next[0] = '\0';
-					dbg("add symlink '%s'", pos);
+					info("add symlink '%s'", pos);
 					name_list_add(&udev->symlink_list, pos, 0);
 					pos = &next[1];
 					next = strchr(pos, ' ');
 				}
-				dbg("add symlink '%s'", pos);
+				info("add symlink '%s'", pos);
 				name_list_add(&udev->symlink_list, pos, 0);
 			}
 
@@ -812,7 +812,7 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 	if (udev->name[0] == '\0') {
 		/* no rule matched, so we use the kernel name */
 		strlcpy(udev->name, udev->kernel_name, sizeof(udev->name));
-		dbg("no rule found, use kernel name '%s'", udev->name);
+		info("no rule found, use kernel name '%s'", udev->name);
 	}
 
 	if (udev->tmp_node[0] != '\0') {

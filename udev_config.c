@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <ctype.h>
+#include <syslog.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev_libc_wrapper.h"
@@ -35,18 +36,16 @@
 #include "udev_utils.h"
 #include "udev_version.h"
 #include "logging.h"
-#include "udev_rules.h"
 
 /* global variables */
 char sysfs_path[PATH_SIZE];
 char udev_root[PATH_SIZE];
 char udev_db_path[PATH_SIZE];
-char udev_rules_filename[PATH_SIZE];
 char udev_config_filename[PATH_SIZE];
-int udev_log;
+char udev_rules_filename[PATH_SIZE];
+int udev_log_priority;
 int udev_dev_d;
 int udev_hotplug_d;
-
 
 static int string_is_true(const char *str)
 {
@@ -56,6 +55,26 @@ static int string_is_true(const char *str)
 		return 1;
 	if (strcasecmp(str, "1") == 0)
 		return 1;
+	return 0;
+}
+
+static int log_priority(const char *priority)
+{
+	char *endptr;
+	int prio;
+
+	prio = strtol(priority, &endptr, 10);
+	if (endptr[0] == '\0')
+		return prio;
+	if (strncasecmp(priority, "err", 3) == 0)
+		return LOG_ERR;
+	if (strcasecmp(priority, "info") == 0)
+		return LOG_INFO;
+	if (strcasecmp(priority, "debug") == 0)
+		return LOG_DEBUG;
+	if (string_is_true(priority))
+		return LOG_ERR;
+
 	return 0;
 }
 
@@ -107,29 +126,6 @@ static int get_key(char **line, char **key, char **value)
 	return 0;
 }
 
-static void init_variables(void)
-{
-	const char *env;
-
-	/* If any config values are specified, they will override these values. */
-	strcpy(udev_root, UDEV_ROOT);
-	strcpy(udev_db_path, UDEV_DB);
-	strcpy(udev_config_filename, UDEV_CONFIG_FILE);
-	strcpy(udev_rules_filename, UDEV_RULES_FILE);
-
-	udev_log = string_is_true(UDEV_LOG_DEFAULT);
-
-	udev_dev_d = 1;
-	env = getenv("UDEV_NO_DEVD");
-	if (env && string_is_true(env))
-		udev_dev_d = 0;
-
-	udev_hotplug_d = 1;
-	env = getenv("UDEV_NO_HOTPLUGD");
-	if (env && string_is_true(env))
-		udev_hotplug_d = 0;
-}
-
 static int parse_config_file(void)
 {
 	char line[LINE_SIZE];
@@ -145,10 +141,9 @@ static int parse_config_file(void)
 	int retval = 0;
 
 	if (file_map(udev_config_filename, &buf, &bufsize) != 0) {
-		dbg("can't open '%s' as config file", udev_config_filename);
+		err("can't open '%s' as config file", udev_config_filename);
 		return -ENODEV;
 	}
-	dbg("reading '%s' as config file", udev_config_filename);
 
 	/* loop through the whole file */
 	lineno = 0;
@@ -160,8 +155,7 @@ static int parse_config_file(void)
 		lineno++;
 
 		if (count >= sizeof(line)) {
-			info("line too long, conf line skipped %s, line %d",
-					udev_config_filename, lineno);
+			err("line too long, conf line skipped %s, line %d", udev_config_filename, lineno);
 			continue;
 		}
 
@@ -178,16 +172,13 @@ static int parse_config_file(void)
 			continue;
 
 		strlcpy(line, bufline, count);
-		dbg("read '%s'", line);
 
 		linepos = line;
 		retval = get_key(&linepos, &variable, &value);
 		if (retval != 0) {
-			info("error parsing %s, line %d:%d", udev_config_filename, lineno, (int) (linepos-line));
+			err("error parsing %s, line %d:%d", udev_config_filename, lineno, (int) (linepos-line));
 			continue;
 		}
-
-		dbg("variable='%s', value='%s'", variable, value);
 
 		if (strcasecmp(variable, "udev_root") == 0) {
 			strlcpy(udev_root, value, sizeof(udev_root));
@@ -208,7 +199,7 @@ static int parse_config_file(void)
 		}
 
 		if (strcasecmp(variable, "udev_log") == 0) {
-			udev_log = string_is_true(value);
+			udev_log_priority = log_priority(value);
 			continue;
 		}
 	}
@@ -219,20 +210,41 @@ static int parse_config_file(void)
 
 void udev_init_config(void)
 {
-	const char *config;
+	const char *env;
 
-	init_variables();
+	strcpy(udev_root, UDEV_ROOT);
+	strcpy(udev_db_path, UDEV_DB);
+	strcpy(udev_config_filename, UDEV_CONFIG_FILE);
+	strcpy(udev_rules_filename, UDEV_RULES_FILE);
+	udev_log_priority = LOG_ERR;
+	udev_dev_d = 1;
+	udev_hotplug_d = 1;
 	sysfs_get_mnt_path(sysfs_path, sizeof(sysfs_path));
 
-	config = getenv("UDEV_CONFIG_FILE");
-	if (config != NULL)
-		strlcpy(udev_config_filename, config, sizeof(udev_config_filename));
+	env = getenv("UDEV_NO_DEVD");
+	if (env && string_is_true(env))
+		udev_dev_d = 0;
+
+	env = getenv("UDEV_NO_HOTPLUGD");
+	if (env && string_is_true(env))
+		udev_hotplug_d = 0;
+
+	env = getenv("UDEV_CONFIG_FILE");
+	if (env) {
+		strlcpy(udev_config_filename, env, sizeof(udev_config_filename));
+		no_trailing_slash(udev_config_filename);
+	}
 
 	parse_config_file();
+
+	env = getenv("UDEV_LOG");
+	if (env)
+		udev_log_priority = log_priority(env);
+
 	dbg("sysfs_path='%s'", sysfs_path);
+	dbg("UDEV_CONFIG_FILE='%s'", udev_config_filename);
 	dbg("udev_root='%s'", udev_root);
-	dbg("udev_config_filename='%s'", udev_config_filename);
-	dbg("udev_db_path='%s'", udev_db_path);
-	dbg("udev_rules_filename='%s'", udev_rules_filename);
-	dbg("udev_log=%d", udev_log);
+	dbg("udev_db='%s'", udev_db_path);
+	dbg("udev_rules='%s'", udev_rules_filename);
+	dbg("udev_log=%d", udev_log_priority);
 }

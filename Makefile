@@ -17,16 +17,18 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
-# Set this to make use of syslog
+# Set this to make use of syslog.
 USE_LOG = true
 
-# Set this to ad development debug messages
+# Set this to compile-in development debug messages. Pass UDEV_LOG="debug"
+# to the executed binary or set the value in the udev configuration file to
+# let udev print the debug messages to syslog.
 DEBUG = false
 
 # Set this to include Security-Enhanced Linux support.
 USE_SELINUX = false
 
-# Set this to comile with the local version of klibc instead of glibc.
+# Set this to comile with klibc instead of glibc.
 USE_KLIBC = false
 
 # Set this to create statically linked binaries.
@@ -249,7 +251,6 @@ udev_version.h:
 	@echo \#define UDEV_CONFIG_DIR		\"$(configdir)\" >> $@
 	@echo \#define UDEV_CONFIG_FILE		\"$(configdir)/udev.conf\" >> $@
 	@echo \#define UDEV_RULES_FILE		\"$(configdir)/rules.d\" >> $@
-	@echo \#define UDEV_LOG_DEFAULT 	\"yes\" >> $@
 	@echo \#define UDEV_BIN			\"$(DESTDIR)$(sbindir)/udev\" >> $@
 	@echo \#define UDEVD_BIN		\"$(DESTDIR)$(sbindir)/udevd\" >> $@
 

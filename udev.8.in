@@ -2,7 +2,7 @@
 .SH NAME
 udev \- Linux configurable dynamic device naming support
 .SH SYNOPSIS
-.BI udev " hotplug-subsystem"
+.BI udev
 .SH "DESCRIPTION"
 .B udev
 provides a dynamic device directory containing only the files for actually
@@ -56,25 +56,28 @@ All rule files are read in lexical order. The default value is
 .IR /etc/udev/rules.d/ .
 .TP
 .B udev_log
-The switch to enable/disable logging of udev information
+The logging priority which can be set to
+.IR "err " , "info "
+or the corresponding numerical
+.BR syslog (3)
+value.
 The default value is
-.IR yes .
+.IR err .
 .P
 .RI "A sample " udev.conf " file might look like this:
 .sp
 .nf
-# udev_root - where to place the device nodes in the filesystem
-udev_root="/udev"
+# Where in the filesystem to place the device nodes
+udev_root="@udevdir@"
 
-# udev_db - The name and location of the udev database
-udev_db="/udev/.udevdb"
+# The name and location of the udev database.
+udev_db="@udevdir@/.udevdb"
 
-# udev_rules - The name of the udev rules file or directory to look
-               for files with the suffix .rules
-udev_rules="/etc/udev/rules.d/"
+# The name and location of the udev rules file(s).
+udev_rules="@configdir@/rules.d"
 
-# udev_log - set to "yes" if you want logging, else "no"
-udev_log="yes"
+# The syslog(3) priority: "err", "info", or the numerical value.
+udev_log="err"
 .fi
 .P
 The rules for device naming are read from the files located in the
@@ -171,7 +174,6 @@ compiled-in default value.
 .B last_rule
 will be the last rule applied. No later rules will have any effect.
 .sp
-.B OPTIONS
 .B ignore_device
 will ignore this device. No node will be created.
 .sp
@@ -277,13 +279,6 @@ KERNEL=="ttyUSB1", NAME="pda", SYMLINK="palmtop handheld"
 
 # multiple USB webcams with symlinks to be called webcam0, webcam1, ...
 BUS=="usb", SYSFS{model}=="XV3", NAME=="video%n", SYMLINK="webcam%n"
-
-# grouping of optical drives from multiple kernel subsystems
-KERNEL=="sr*", NAME="%k", SYMLINK="cdrom%e"
-KERNEL=="scd*", NAME="%k", SYMLINK="cdrom%e"
-KERNEL=="pcd*", NAME="%k", SYMLINK="cdrom%e"
-KERNEL=="hd[a-z]", PROGRAM=="/bin/cat /proc/ide/%k/media", RESULT=="cdrom",
-  NAME="%k", SYMLINK="cdrom%e"
 .fi
 .P
 A number of different fields in the above configuration files support a simple
@@ -312,8 +307,9 @@ to be recognized.
 .br
 In addition to the hotplug environment variables,
 .B UDEV_LOG
-is set if udev is configured to use the syslog facility. Executed programs may
-want to follow that setting.
+is set and contains the numerical priority value, if udev is configured to use
+.BR syslog (3).
+Executed programs may want to follow that setting.
 .B DEVNAME
 is exported to make the name of the created node, or the name the network
 device is renamed to, available to the executed program. The programs in every
@@ -345,6 +341,9 @@ Overrides the default location of the
 .B udev
 config file.
 .TP
+.B UDEV_LOG
+Overrides the log priority specified in the config file.
+.TP
 .B UDEV_NO_DEVD
 The default behavior of
 .B udev
@@ -367,8 +366,8 @@ will skip this step.
 .PP
 .B Web resources:
 .nf
-.I http://linux\-hotplug.sourceforge.net/
 .I http://www.kernel.org/pub/linux/utils/kernel/hotplug/udev.html
+.I http://linux\-hotplug.sourceforge.net/
 .fi
 .SH AUTHORS
 .B udev

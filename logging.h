@@ -24,6 +24,7 @@
 #ifndef LOGGING_H
 #define LOGGING_H
 
+#define err(format, arg...)		do { } while (0)
 #define info(format, arg...)		do { } while (0)
 #define dbg(format, arg...)		do { } while (0)
 #define logging_init(foo)		do { } while (0)
@@ -34,21 +35,27 @@
 #include <unistd.h>
 #include <syslog.h>
 
+#undef err
+#define err(format, arg...)							\
+	do {									\
+		log_message(LOG_INFO ,"%s: " format ,__FILE__ ,## arg);		\
+	} while (0)
+
 #undef info
 #define info(format, arg...)							\
 	do {									\
-		log_message(LOG_INFO , format , ## arg);			\
+		log_message(LOG_INFO ,"%s: " format ,__FILE__ ,## arg);		\
 	} while (0)
 
 #ifdef DEBUG
 #undef dbg
 #define dbg(format, arg...)							\
 	do {									\
-		log_message(LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
+		log_message(LOG_DEBUG ,"%s: " format ,__FUNCTION__ ,## arg);	\
 	} while (0)
 #endif
 
-extern void log_message(int level, const char *format, ...)
+extern void log_message(int priority, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
 
 #undef logging_init

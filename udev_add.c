@@ -58,7 +58,7 @@ int udev_make_node(struct udevice *udev, const char *file, dev_t devt, mode_t mo
 	/* preserve node with already correct numbers, to not change the inode number */
 	if (((stats.st_mode & S_IFMT) == S_IFBLK || (stats.st_mode & S_IFMT) == S_IFCHR) &&
 	    (stats.st_rdev == devt)) {
-		dbg("preserve file '%s', cause it has correct dev_t", file);
+		info("preserve file '%s', cause it has correct dev_t", file);
 		selinux_setfilecon(file, udev->kernel_name, stats.st_mode);
 		goto perms;
 	}
@@ -85,7 +85,7 @@ create:
 	retval = mknod(file, mode, devt);
 	selinux_resetfscreatecon();
 	if (retval != 0) {
-		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
+		err("mknod(%s, %#o, %u, %u) failed with error '%s'",
 		    file, mode, major(devt), minor(devt), strerror(errno));
 		goto exit;
 	}
@@ -241,7 +241,7 @@ static int rename_net_if(struct udevice *udev)
 	struct ifreq ifr;
 	int retval;
 
-	dbg("changing net interface name from '%s' to '%s'", udev->kernel_name, udev->name);
+	info("changing net interface name from '%s' to '%s'", udev->kernel_name, udev->name);
 	if (udev->test_run)
 		return 0;
 

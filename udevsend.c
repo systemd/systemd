@@ -44,12 +44,15 @@
 static int sock = -1;
 
 #ifdef USE_LOG
-void log_message (int level, const char *format, ...)
+void log_message (int priority, const char *format, ...)
 {
-	va_list	args;
+	va_list args;
+
+	if (priority > udev_log_priority)
+		return;
 
 	va_start(args, format);
-	vsyslog(level, format, args);
+	vsyslog(priority, format, args);
 	va_end(args);
 }
 #endif
@@ -71,17 +74,17 @@ static int start_daemon(void)
 			/* daemon with empty environment */
 			close(sock);
 			execve(UDEVD_BIN, argv, envp);
-			dbg("exec of daemon failed");
+			err("exec of daemon failed");
 			_exit(1);
 		case -1:
-			dbg("fork of daemon failed");
+			err("fork of daemon failed");
 			return -1;
 		default:
 			exit(0);
 		}
 		break;
 	case -1:
-		dbg("fork of helper failed");
+		err("fork of helper failed");
 		return -1;
 	default:
 		waitpid(pid, NULL, 0);
@@ -99,11 +102,11 @@ static void run_udev(const char *subsystem)
 	case 0:
 		/* child */
 		execv(UDEV_BIN, argv);
-		dbg("exec of child failed");
+		err("exec of udev child failed");
 		_exit(1);
 		break;
 	case -1:
-		dbg("fork of child failed");
+		err("fork of udev child failed");
 		break;
 	default:
 		waitpid(pid, NULL, 0);
@@ -124,11 +127,14 @@ int main(int argc, char *argv[], char *envp[])
 	const char *subsystem = NULL;
 
 	logging_init("udevsend");
+#ifdef USE_LOG
+	udev_init_config();
+#endif
 	dbg("version %s", UDEV_VERSION);
 
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (sock == -1) {
-		dbg("error getting socket");
+		err("error getting socket");
 		goto fallback;
 	}
 
@@ -156,7 +162,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		if (bufpos + keylen >= HOTPLUG_BUFFER_SIZE-1) {
-			dbg("environment buffer too small, probably not called by the kernel");
+			err("environment buffer too small, probably not called by the kernel");
 			continue;
 		}
 
@@ -187,12 +193,12 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		if (errno != ECONNREFUSED) {
-			dbg("error sending message (%s)", strerror(errno));
+			err("error sending message (%s)", strerror(errno));
 			goto fallback;
 		}
 
 		if (!started_daemon) {
-			dbg("try to start udevd daemon");
+			info("try to start udevd daemon");
 			retval = start_daemon();
 			if (retval) {
 				dbg("error starting daemon");
@@ -207,7 +213,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 fallback:
-	info("unable to connect to event daemon, try to call udev directly");
+	err("unable to connect to event daemon, try to call udev directly");
 	run_udev(subsystem);
 
 exit:

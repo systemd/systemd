@@ -70,19 +70,18 @@ static void reap_sigchilds(void);
 char *udev_bin;
 
 #ifdef USE_LOG
-void log_message (int level, const char *format, ...)
+void log_message (int priority, const char *format, ...)
 {
-	va_list	args;
+	va_list args;
+
+	if (priority > udev_log_priority)
+		return;
 
 	va_start(args, format);
-	vsyslog(level, format, args);
+	vsyslog(priority, format, args);
 	va_end(args);
 }
 #endif
-
-#define msg_dump(msg) \
-	dbg("msg_dump: sequence %llu, '%s', '%s', '%s'", \
-	msg->seqnum, msg->action, msg->devpath, msg->subsystem);
 
 static void msg_dump_queue(void)
 {
@@ -127,7 +126,7 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 			break;
 
 		if (loop_msg->seqnum == msg->seqnum) {
-			dbg("ignoring duplicate message seq %llu", msg->seqnum);
+			info("ignoring duplicate message seq %llu", msg->seqnum);
 			return;
 		}
 	}
@@ -160,11 +159,11 @@ static void udev_run(struct hotplug_msg *msg)
 
 		setpriority(PRIO_PROCESS, 0, UDEV_PRIORITY);
 		execve(udev_bin, argv, msg->envp);
-		dbg("exec of child failed");
+		err("exec of child failed");
 		_exit(1);
 		break;
 	case -1:
-		dbg("fork of child failed");
+		err("fork of child failed");
 		run_queue_delete(msg);
 		break;
 	default:
@@ -452,17 +451,17 @@ static struct hotplug_msg *get_udevsend_msg(void)
 	cred = (struct ucred *) CMSG_DATA(cmsg);
 
 	if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
-		dbg("no sender credentials received, message ignored");
+		info("no sender credentials received, message ignored");
 		return NULL;
 	}
 
 	if (cred->uid != 0) {
-		dbg("sender uid=%i, message ignored", cred->uid);
+		info("sender uid=%i, message ignored", cred->uid);
 		return NULL;
 	}
 
 	if (strncmp(usend_msg.magic, UDEV_MAGIC, sizeof(UDEV_MAGIC)) != 0 ) {
-		dbg("message magic '%s' doesn't match, ignore it", usend_msg.magic);
+		info("message magic '%s' doesn't match, ignore it", usend_msg.magic);
 		return NULL;
 	}
 
@@ -605,14 +604,14 @@ static int init_udevsend_socket(void)
 
 	udevsendsock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (udevsendsock == -1) {
-		dbg("error getting socket, %s", strerror(errno));
+		err("error getting socket, %s", strerror(errno));
 		return -1;
 	}
 
 	/* the bind takes care of ensuring only one copy running */
 	retval = bind(udevsendsock, (struct sockaddr *) &saddr, addrlen);
 	if (retval < 0) {
-		dbg("bind failed, %s", strerror(errno));
+		err("bind failed, %s", strerror(errno));
 		close(udevsendsock);
 		return -1;
 	}
@@ -634,10 +633,11 @@ int main(int argc, char *argv[], char *envp[])
 	const char *udevd_expected_seqnum;
 
 	logging_init("udevd");
+	udev_init_config();
 	dbg("version %s", UDEV_VERSION);
 
 	if (getuid() != 0) {
-		dbg("need to be root, exit");
+		err("need to be root, exit");
 		goto exit;
 	}
 
@@ -651,7 +651,7 @@ int main(int argc, char *argv[], char *envp[])
 			dbg("damonized fork running");
 			break;
 		case -1:
-			dbg("fork of daemon failed");
+			err("fork of daemon failed");
 			goto exit;
 		default:
 			logging_close();
@@ -679,36 +679,36 @@ int main(int argc, char *argv[], char *envp[])
 		if (fd > 2)
 			close(fd);
 	} else
-		dbg("error opening /dev/null %s", strerror(errno));
+		err("error opening /dev/null %s", strerror(errno));
 
 	/* setup signal handler pipe */
 	retval = pipe(pipefds);
 	if (retval < 0) {
-		dbg("error getting pipes: %s", strerror(errno));
+		err("error getting pipes: %s", strerror(errno));
 		goto exit;
 	}
 
 	retval = fcntl(pipefds[0], F_SETFL, O_NONBLOCK);
 	if (retval < 0) {
-		dbg("error fcntl on read pipe: %s", strerror(errno));
+		err("error fcntl on read pipe: %s", strerror(errno));
 		goto exit;
 	}
 	retval = fcntl(pipefds[0], F_SETFD, FD_CLOEXEC);
 	if (retval < 0)
-		dbg("error fcntl on read pipe: %s", strerror(errno));
+		err("error fcntl on read pipe: %s", strerror(errno));
 
 	retval = fcntl(pipefds[1], F_SETFL, O_NONBLOCK);
 	if (retval < 0) {
-		dbg("error fcntl on write pipe: %s", strerror(errno));
+		err("error fcntl on write pipe: %s", strerror(errno));
 		goto exit;
 	}
 	retval = fcntl(pipefds[1], F_SETFD, FD_CLOEXEC);
 	if (retval < 0)
-		dbg("error fcntl on write pipe: %s", strerror(errno));
+		err("error fcntl on write pipe: %s", strerror(errno));
 
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(struct sigaction));
-	act.sa_handler = (void (*) (int))sig_handler;
+	act.sa_handler = (void (*)(int)) sig_handler;
 	sigemptyset(&act.sa_mask);
 	act.sa_flags = SA_RESTART;
 	sigaction(SIGINT, &act, NULL);
@@ -728,7 +728,7 @@ int main(int argc, char *argv[], char *envp[])
 	/* possible override of udev binary, used for testing */
 	udev_bin = getenv("UDEV_BIN");
 	if (udev_bin != NULL)
-		dbg("udev binary is set to '%s'", udev_bin);
+		info("udev binary is set to '%s'", udev_bin);
 	else
 		udev_bin = UDEV_BIN;
 
@@ -736,7 +736,7 @@ int main(int argc, char *argv[], char *envp[])
 	udevd_expected_seqnum = getenv("UDEVD_EXPECTED_SEQNUM");
 	if (udevd_expected_seqnum != NULL) {
 		expected_seqnum = strtoull(udevd_expected_seqnum, NULL, 10);
-		dbg("initialize expected_seqnum to %llu", expected_seqnum);
+		info("initialize expected_seqnum to %llu", expected_seqnum);
 	}
 
 	/* get current time to provide shorter timeout on startup */
