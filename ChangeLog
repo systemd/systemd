@@ -1,3 +1,18 @@
+Summary of changes from v049 to v050
+============================================
+
+<harald:redhat.com>:
+  o selinux patch
+
+<tklauser:access.unizh.ch>:
+  o I made some more changes to the manpage of udev including
+
+Kay Sievers:
+  o update libsysfs to CVS version and fix segfaulting attribute reading
+  o klibc supports LOG_PID now, so remove our own implementation
+  o avoid building klibc test programs and pass SUBDIRS= to klibc clean
+
+
 Summary of changes from v048 to v049
 ============================================
 
