@@ -1,6 +1,6 @@
 Summary: A userspace implementation of devfs
 Name: udev
-Version: 003_bk
+Version: 004
 Release: 1
 License: GPL
 Group: Utilities/System
