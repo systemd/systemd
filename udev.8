@@ -27,7 +27,9 @@ On device removal,
 .B udev
 queries the internal database for the name of the device file to be deleted.
 .SH "CONFIGURATION"
-All udev configuration files consist of a set of lines of text.  All empty
+All
+.B udev
+configuration files consist of a set of lines of text.  All empty
 lines, and lines beginning with a '#' will be ignored.
 .P
 
@@ -96,11 +98,9 @@ device. If no matching configuration is found, the default kernel device name
 is used.
 .P
 The line format is:
-.RS
 .sp
 .I method, key,[key,...] name
 .sp
-.RE
 where valid methods with corresponding keys are:
 .TP
 .B CALLOUT
@@ -130,22 +130,13 @@ string replacement of the kernel device name
 key: \fBKERNEL_NAME\fP
 .P
 The methods are applied in the following order:
-.B CALLOUT
-,
-.B LABEL
-,
-.B NUMBER
-,
-.B TOPOLOGY
-,
-.B REPLACE
+.BR CALLOUT ", " LABEL ", " NUMBER ",  " TOPOLOGY ", " REPLACE "."
 .P
 The 
 .B NAME 
 and 
 .B PROGRAM 
-fields support simple printf-like string subtitution:
-.RS
+fields support simple printf-like string substitution:
 .TP
 .B %n
 the "kernel number" of the device
@@ -168,7 +159,6 @@ the CALLOUT program returned string
 Use the devfs style disk name for this device.
 For partitions, this will result in 'part%n'
 If this is not a partition, it will result in 'disk'
-.RE
 .P
 A sample \fIudev.rules\fP might look like this:
 .sp
@@ -202,7 +192,7 @@ file.
 .br
 Every line lists a device name followed by owner, group and permission
 mode. All values are separated by colons. The name field may contain a
-wildcard to apply the values to a whole class of devices.
+pattern to apply the values to a whole class of devices.
 .br
 If
 .B udev
@@ -221,9 +211,7 @@ dsp1:::0666
 .fi
 .P
 A number of different fields in the above configuration files support a simple
-form of wildcard matching.  This form is based on the fnmatch(3) style, and
-supports the following fields:
-.RS
+form of shell style pattern matching. It supports the following pattern characters:
 .TP
 .B *
 Matches zero, one, or more characters.
@@ -235,8 +223,8 @@ Matches any single character, but does not match zero characters.
 Matches any single character specified within the brackets. For example, the
 pattern string "tty[SR]" would match either "ttyS" or "ttyR".  Ranges are also
 supported within this match with the '-' character.  For example, to match on
-the range of all digits, the pattern [0-9] would be used.
-.RE
+the range of all digits, the pattern [0-9] would be used. If the first character
+following the '[' is a '!' then any character not enclosed is matched.
 .SH "FILES"
 .nf
 .ft B
