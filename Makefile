@@ -349,11 +349,11 @@ endif
 
 install-initscript: etc/init.d/udev etc/init.d/udev.debian etc/init.d/udev.init.LSB
 	@if [ -f /etc/redhat-release ]; then \
-		$(INSTALL_DATA) etc/init.d/udev $(etcdir)/init.d/udev; \
+		$(INSTALL_DATA) etc/init.d/udev $(DESTDIR)$(initdir)/udev; \
 	elif [ -f /etc/SuSE-release ]; then \
-		$(INSTALL_DATA) etc/init.d/udev.init.LSB $(etcdir)/init.d/udev; \
+		$(INSTALL_DATA) etc/init.d/udev.init.LSB $(DESTDIR)$(initdir)/udev; \
 	elif [ -f /etc/debian_version ]; then \
-		$(INSTALL_DATA) etc/init.d/udev.debian $(etcdir)/init.d/udev; \
+		$(INSTALL_DATA) etc/init.d/udev.debian $(DESTDIR)$(initdir)/udev; \
 	fi
 
 install-config: $(GEN_CONFIGS)
