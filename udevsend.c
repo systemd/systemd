@@ -148,15 +148,16 @@ int main(int argc, char *argv[], char *envp[])
 
 		key = envp[i];
 		keylen = strlen(key);
-		if (bufpos + keylen >= HOTPLUG_BUFFER_SIZE-1) {
-			dbg("environment buffer too small, probably not called by the kernel");
-			continue;
-		}
 
 		/* prevent loops in the scripts we execute */
 		if (strncmp(key, "UDEVD_EVENT=", 12) == 0) {
 			dbg("seems that the event source is not the kernel, just exit");
 			goto exit;
+		}
+
+		if (bufpos + keylen >= HOTPLUG_BUFFER_SIZE-1) {
+			dbg("environment buffer too small, probably not called by the kernel");
+			continue;
 		}
 
 		/* remember the SUBSYSTEM */
