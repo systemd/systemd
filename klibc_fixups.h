@@ -4,10 +4,6 @@
 #define KLIBC_FIXUPS_H 
 
 
-extern char *strerror(int errnum);
-
-extern int strcasecmp(const char *s1, const char *s2);
-
 struct group {
 	char	*gr_name;	/* group name */
 	char	*gr_passwd;	/* group password */
