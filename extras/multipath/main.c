@@ -660,9 +660,19 @@ usage(char * progname)
 	exit(1);
 }
 
+static int
+running(char * run) {
+	struct stat buf;
+
+	if(!stat(run, &buf))
+		return 1;
+	return 0;
+}
+
 int
 main(int argc, char *argv[])
 {
+	char * run = "/var/run/multipath.run";
 	struct multipath * mp;
 	struct path * all_paths;
 	struct scsi_dev * all_scsi_ids;
@@ -705,12 +715,26 @@ main(int argc, char *argv[])
 
 	}
 
+	if (running(run)) {
+		if (conf.verbose) {
+			fprintf(stderr, "Already running.\n");
+			fprintf(stderr, "If you know what you do, please ");
+			fprintf(stderr, "remove %s\n", run);
+		}
+		return 1;
+	}
+
+	if(!open(run, O_CREAT))
+		exit(1);
+
 	/* dynamic allocations */
 	mp = malloc(conf.max_devs * sizeof(struct multipath));
 	all_paths = malloc(conf.max_devs * sizeof(struct path));
 	all_scsi_ids = malloc(conf.max_devs * sizeof(struct scsi_dev));
-	if (mp == NULL || all_paths == NULL || all_scsi_ids == NULL)
+	if (mp == NULL || all_paths == NULL || all_scsi_ids == NULL) {
+		unlink(run);
 		exit(1);
+	}
 
 	if (!conf.with_sysfs) {
 		get_all_scsi_ids(&conf, all_scsi_ids);
@@ -725,11 +749,12 @@ main(int argc, char *argv[])
 		fprintf(stdout, "\n");
 		print_all_mp(all_paths, mp, nmp);
 		fprintf(stdout, "\n");
-		//printf("\n");
 	}
 
-	if (conf.dry_run)
+	if (conf.dry_run) {
+		unlink(run);
 		exit(0);
+	}
 
 	for (k=0; k<=nmp; k++) {
 		if (map_present(mp[k].wwid)) {
@@ -738,5 +763,6 @@ main(int argc, char *argv[])
 			add_map(&conf, all_paths, mp, k, DM_DEVICE_CREATE);
 		}
 	}
+	unlink(run);
 	exit(0);
 }
