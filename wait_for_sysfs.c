@@ -62,6 +62,7 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 		{ .subsystem = "pcmcia_socket",	.file = "card_type" },
 		{ .subsystem = "usb_host",	.file = NULL },
 		{ .subsystem = "bluetooth",	.file = "address" },
+		{ .subsystem = "i2c-adapter",	.file = NULL },
 		{ NULL, NULL }
 	};
 	struct class_file *classfile;
@@ -151,6 +152,7 @@ static int class_device_expect_no_bus(struct sysfs_class_device *class_dev)
 {
 	static char *devices_without_bus[] = {
 		"scsi_host",
+		"i2c-adapter",
 		NULL
 	};
 	char **device;
