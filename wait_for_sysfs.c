@@ -56,7 +56,8 @@ void log_message(int level, const char *format, ...)
 #define WAIT_LOOP_PER_SECOND		20
 
 /* wait for specific file to show up, normally the "dev"-file */
-static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev)
+static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev,
+					    const char **error)
 {
 	static struct class_file {
 		char *subsystem;
@@ -77,7 +78,7 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 		{ NULL, NULL }
 	};
 	struct class_file *classfile;
-	const char *file = "dev";
+	char *file = "dev";
 	char filename[FILENAME_MAX];
 	int loop;
 
@@ -103,11 +104,11 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 		struct stat stats;
 
 		if (stat(class_dev->path, &stats) == -1) {
-			dbg("oops, the directory '%s' just disappeared.", class_dev->path);
+			dbg("'%s' now disappeared (probably remove has beaten us)", class_dev->path);
 			return -ENODEV;
 		}
 
-		if (stat(filename, &stats) == 0) {	
+		if (stat(filename, &stats) == 0) {
 			dbg("class '%s' specific file '%s' found", class_dev->classname, file);
 			return 0;
 		}
@@ -116,6 +117,7 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 	}
 
 	dbg("error: getting class '%s' specific file '%s'", class_dev->classname, file);
+	*error = "class specific file unavailable";
 	return -ENOENT;
 }
 
@@ -226,7 +228,8 @@ static int class_device_expect_no_bus(struct sysfs_class_device *class_dev)
 }
 
 /* wait for the bus and for a bus specific file to show up */
-static int wait_for_bus_device(struct sysfs_device *device_dev)
+static int wait_for_bus_device(struct sysfs_device *devices_dev,
+			       const char **error)
 {
 	static struct bus_file {
 		char *bus;
@@ -246,19 +249,20 @@ static int wait_for_bus_device(struct sysfs_device *device_dev)
 	struct bus_file *busfile;
 	int loop;
 
-	/* wait for the /bus-device link to the /device-device */
+	/* wait for the bus device link to the devices device */
 	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
 	while (--loop) {
-		if (sysfs_get_device_bus(device_dev) == 0)
+		if (sysfs_get_device_bus(devices_dev) == 0)
 			break;
 
 		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
 	}
 	if (loop == 0) {
-		dbg("error: getting /bus-device link");
+		dbg("error: getting bus device link");
+		*error = "no bus device link";
 		return -1;
 	}
-	dbg("/bus-device link found for bus '%s'", device_dev->bus);
+	dbg("bus device link found for bus '%s'", devices_dev->bus);
 
 	/* wait for a bus specific file to show up */
 	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
@@ -266,25 +270,113 @@ static int wait_for_bus_device(struct sysfs_device *device_dev)
 		int found = 0;
 
 		for (busfile = bus_files; busfile->bus != NULL; busfile++) {
-			if (strcmp(device_dev->bus, busfile->bus) == 0) {
+			if (strcmp(devices_dev->bus, busfile->bus) == 0) {
 				found = 1;
-				dbg("looking at bus '%s' for specific file '%s'", device_dev->bus, busfile->file);
-				if (sysfs_get_device_attr(device_dev, busfile->file) != NULL) {
-					dbg("bus '%s' specific file '%s' found", device_dev->bus, busfile->file);
+				dbg("looking at bus '%s' for specific file '%s'", devices_dev->bus, busfile->file);
+				if (sysfs_get_device_attr(devices_dev, busfile->file) != NULL) {
+					dbg("bus '%s' specific file '%s' found", devices_dev->bus, busfile->file);
 					return 0;
 				}
 			}
 		}
 		if (found == 0) {
+			*error = "unknown bus";
 			info("error: unknown bus, please report to "
-			     "<linux-hotplug-devel@lists.sourceforge.net> '%s'", device_dev->bus);
+			     "<linux-hotplug-devel@lists.sourceforge.net> '%s'", devices_dev->bus);
 			return -1;
 		}
 		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
 	}
 
-	dbg("error: getting bus '%s' specific file '%s'", device_dev->bus, busfile->file);
+	dbg("error: getting bus '%s' specific file '%s'", devices_dev->bus, busfile->file);
+	*error = "bus specific file unavailable";
 	return -1;
+}
+
+
+static struct sysfs_class_device *open_class_device(const char *path)
+{
+	struct sysfs_class_device *class_dev;
+	int loop;
+
+	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
+	while (--loop) {
+		class_dev = sysfs_open_class_device_path(path);
+		if (class_dev)
+			break;
+
+		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
+	}
+
+	return (class_dev);
+}
+
+static int wait_for_class_device(struct sysfs_class_device *class_dev,
+				 const char **error)
+{
+	struct sysfs_class_device *class_dev_parent;
+	struct sysfs_device *devices_dev = NULL;
+	int loop;
+
+	if (wait_for_class_device_attributes(class_dev, error) != 0)
+		return -ENOENT;
+
+	/* skip devices without devices-link */
+	if (class_device_expect_no_device_link(class_dev)) {
+		dbg("no device symlink expected for '%s', ", class_dev->name);
+		return -ENODEV;
+	}
+
+	/* the symlink may be on the parent device */
+	class_dev_parent = sysfs_get_classdev_parent(class_dev);
+	if (class_dev_parent)
+		dbg("looking at parent device for device link '%s'", class_dev_parent->path);
+
+	/* wait for the symlink to the devices device */
+	dbg("waiting for symlink to devices device");
+	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
+	while (--loop) {
+		if (class_dev_parent)
+			devices_dev = sysfs_get_classdev_device(class_dev_parent);
+		else
+			devices_dev = sysfs_get_classdev_device(class_dev);
+
+		if (devices_dev)
+			break;
+
+		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
+	}
+	if (!devices_dev) {
+		dbg(" error: no devices device symlink found");
+		*error = "no device symlink";
+		return -ENODEV;
+	}
+	dbg("device symlink found pointing to '%s'", devices_dev->path);
+
+	/* wait for the bus value */
+	if (class_device_expect_no_bus(class_dev)) {
+		dbg("no bus device expected for '%s', ", class_dev->classname);
+		return 0;
+	} else {
+		return wait_for_bus_device(devices_dev, error);
+	}
+}
+
+static struct sysfs_device *open_devices_device(const char *path)
+{
+	struct sysfs_device *devices_dev;
+	int loop;
+
+	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
+	while (--loop) {
+		devices_dev = sysfs_open_device_path(path);
+		if (devices_dev)
+			break;
+
+		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
+	}
+
+	return(devices_dev);
 }
 
 int main(int argc, char *argv[], char *envp[])
@@ -295,11 +387,9 @@ int main(int argc, char *argv[], char *envp[])
 	char sysfs_path[SYSFS_PATH_MAX];
 	char filename[SYSFS_PATH_MAX];
 	struct sysfs_class_device *class_dev;
-	struct sysfs_class_device *class_dev_parent;
-	struct sysfs_device *device_dev = NULL;
-	int loop;
-	int retval;
+	struct sysfs_device *devices_dev;
 	int rc = 0;
+	const char *error = NULL;
 
 	init_logging("wait_for_sysfs");
 
@@ -312,133 +402,77 @@ int main(int argc, char *argv[], char *envp[])
 	devpath = getenv ("DEVPATH");
 	if (!devpath) {
 		dbg("error: no DEVPATH");
-		return 1;
+		rc = 1;
+		goto exit;
 	}
 
 	action = getenv ("ACTION");
 	if (!action) {
 		dbg("error: no ACTION");
-		return 1;
+		rc = 1;
+		goto exit;
 	}
 
 	/* we only wait on an add event */
-	if (strcmp(action, "add") != 0)
-		return 0;
+	if (strcmp(action, "add") != 0) {
+		dbg("no add ACTION");
+		goto exit;
+	}
 
 	if (sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX) != 0) {
 		dbg("error: no sysfs path");
-		return 2;
+		rc = 2;
+		goto exit;
 	}
 
 	if ((strncmp(devpath, "/block/", 7) == 0) || (strncmp(devpath, "/class/", 7) == 0)) {
-		/* open the class device we are called for */
 		snprintf(filename, SYSFS_PATH_MAX-1, "%s%s", sysfs_path, devpath);
 		filename[SYSFS_PATH_MAX-1] = '\0';
 
-		loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
-		while (--loop) {
-			class_dev = sysfs_open_class_device_path(filename);
-			if (class_dev)
-				break;
-
-			usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
-		}
-		if (class_dev == NULL) {
-			dbg("error: getting class_device");
-			rc = 3;
+		/* open the class device we are called for */
+		class_dev = open_class_device(filename);
+		if (!class_dev) {
+			dbg("error: class device unavailable (probably remove has beaten us)");
 			goto exit;
 		}
-		dbg("class_device opened '%s'", filename);
+		dbg("class device opened '%s'", filename);
 
-		retval = wait_for_class_device_attributes(class_dev);
-		if (retval == -ENODEV)
-			goto exit_class;
-		if (retval != 0) {
-			rc = 4;
-			goto exit_class;
-		}
+		/* wait for the class device with possible physical device and bus */
+		wait_for_class_device(class_dev, &error);
 
-		/* skip devices without /device-link */
-		if (class_device_expect_no_device_link(class_dev)) {
-			dbg("no device symlink expected for '%s', ", class_dev->name);
-			goto exit_class;
-		}
-
-		/* the symlink may be on the parent device */
-		class_dev_parent = sysfs_get_classdev_parent(class_dev);
-		if (class_dev_parent)
-			dbg("looking at parent device for device link '%s'", class_dev_parent->path);
-
-		/* wait for the symlink to the /device-device */
-		dbg("waiting for symlink to /device-device");
-		loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
-		while (--loop) {
-			if (class_dev_parent)
-				device_dev = sysfs_get_classdev_device(class_dev_parent);
-			else
-				device_dev = sysfs_get_classdev_device(class_dev);
-
-			if (device_dev)
-				break;
-
-			usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
-		}
-		if (device_dev == NULL) {
-			dbg("error: getting /device-device");
-			rc = 5;
-			goto exit_class;
-		}
-		dbg("device symlink found pointing to '%s'", device_dev->path);
-
-		/* wait for the bus value */
-		if (class_device_expect_no_bus(class_dev)) {
-			dbg("no bus device expected for '%s', ", class_dev->classname);
-		} else {
-			if (wait_for_bus_device(device_dev) != 0)
-				rc = 6;
-		}
-
-exit_class:
 		sysfs_close_class_device(class_dev);
 
 	} else if ((strncmp(devpath, "/devices/", 9) == 0)) {
-		/* open the path we are called for */
 		snprintf(filename, SYSFS_PATH_MAX-1, "%s%s", sysfs_path, devpath);
 		filename[SYSFS_PATH_MAX-1] = '\0';
 
-		loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
-		while (--loop) {
-			device_dev = sysfs_open_device_path(filename);
-			if (device_dev)
-				break;
-
-			usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
-		}
-		if (device_dev == NULL) {
-			dbg("error: getting /device-device");
-			rc = 7;
+		/* open the path we are called for */
+		devices_dev = open_devices_device(filename);
+		if (!devices_dev) {
+			dbg("error: devices device unavailable (probably remove has beaten us)");
 			goto exit;
 		}
-		dbg("device_device opened '%s'", filename);
+		dbg("devices device opened '%s'", filename);
 
 		/* wait for the bus value */
-		if (wait_for_bus_device(device_dev) != 0)
-			rc = 8;
+		wait_for_bus_device(devices_dev, &error);
 
-		sysfs_close_device(device_dev);
+		sysfs_close_device(devices_dev);
 
 	} else {
 		dbg("unhandled sysfs path, no need to wait");
 	}
 
 exit:
-	if (rc == 0)
-		dbg("result: waiting for sysfs successful '%s'", devpath);
-	else
+	if (error) {
 		info("either wait_for_sysfs (udev %s) needs an update to handle the device '%s' "
-		     "properly (%d) or the sysfs-support of your device's driver needs to be fixed, "
+		     "properly (%s) or the sysfs-support of your device's driver needs to be fixed, "
 		     "please report to <linux-hotplug-devel@lists.sourceforge.net>",
-		     UDEV_VERSION, devpath, rc);
+		     UDEV_VERSION, devpath, error);
+		rc =3;
+	} else {
+		dbg("result: waiting for sysfs successful '%s'", devpath);
+	}
 
-	return rc;
+	exit(rc);
 }
