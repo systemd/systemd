@@ -75,7 +75,7 @@ static void print_all_attributes(struct dlist *attr_list)
 				len--;
 			}
 			if (len == 0)
-				printf("    SYSFS{%s}=\"%s\"\n", attr->name, value);
+				printf("    SYSFS{%s}==\"%s\"\n", attr->name, value);
 		}
 	}
 	printf("\n");
@@ -114,7 +114,7 @@ static int print_device_chain(const char *path)
 	/*  get the class dev */
 	class_dev = sysfs_open_class_device_path(path);
 	if (class_dev == NULL) {
-		printf("couldn't get the class device\n");
+		fprintf(stderr, "couldn't get the class device\n");
 		return -1;
 	}
 
@@ -132,11 +132,11 @@ static int print_device_chain(const char *path)
 
 	/* open sysfs class device directory and print all attributes */
 	printf("  looking at class device '%s':\n", class_dev->path);
-	printf("    SUBSYSTEM=\"%s\"\n", class_dev->classname);
+	printf("    SUBSYSTEM==\"%s\"\n", class_dev->classname);
 
 	attr_list = sysfs_get_classdev_attributes(class_dev);
 	if (attr_list == NULL) {
-		printf("couldn't open class device directory\n");
+		fprintf(stderr, "couldn't open class device directory\n");
 		retval = -1;
 		goto exit;
 	}
@@ -156,15 +156,15 @@ static int print_device_chain(const char *path)
 	while (sysfs_dev != NULL) {
 		attr_list = sysfs_get_device_attributes(sysfs_dev);
 		if (attr_list == NULL) {
-			printf("couldn't open device directory\n");
+			fprintf(stderr, "couldn't open device directory\n");
 			retval = -1;
 			goto exit;
 		}
 
 		printf("  looking at the device chain at '%s':\n", sysfs_dev->path);
-		printf("    BUS=\"%s\"\n", sysfs_dev->bus);
-		printf("    ID=\"%s\"\n", sysfs_dev->bus_id);
-		printf("    DRIVER=\"%s\"\n", sysfs_dev->driver_name);
+		printf("    BUS==\"%s\"\n", sysfs_dev->bus);
+		printf("    ID==\"%s\"\n", sysfs_dev->bus_id);
+		printf("    DRIVER==\"%s\"\n", sysfs_dev->driver_name);
 
 		/* open sysfs device directory and print all attributes */
 		print_all_attributes(attr_list);
@@ -247,7 +247,7 @@ int main(int argc, char *argv[], char *envp[])
 				break;
 			}
 
-			printf("unknown query type\n");
+			fprintf(stderr, "unknown query type\n");
 			retval = 1;
 			goto exit;
 
@@ -293,7 +293,7 @@ int main(int argc, char *argv[], char *envp[])
 			}
 			retval = udev_db_get_device(&udev, pos);
 			if (retval != 0) {
-				printf("device not found in database\n");
+				fprintf(stderr, "device not found in database\n");
 				goto exit;
 			}
 			goto print;
@@ -312,14 +312,14 @@ int main(int argc, char *argv[], char *envp[])
 
 			retval = udev_db_search_name(devpath, sizeof(devpath), pos);
 			if (retval != 0) {
-				printf("device not found in database\n");
+				fprintf(stderr, "device not found in database\n");
 				goto exit;
 			}
 			udev_db_get_device(&udev, devpath);
 			goto print;
 		}
 
-		printf("query needs device path(-p) or node name(-n) specified\n");
+		fprintf(stderr, "query needs device path(-p) or node name(-n) specified\n");
 		retval = 3;
 		goto exit;
 
@@ -355,7 +355,7 @@ print:
 
 	if (attributes) {
 		if (path[0] == '\0') {
-			printf("attribute walk on device chain needs path(-p) specified\n");
+			fprintf(stderr, "attribute walk on device chain needs path(-p) specified\n");
 			retval = 4;
 			goto exit;
 		} else {
@@ -376,7 +376,7 @@ print:
 	}
 
 help:
-	printf("Usage: udevinfo [-anpqrVh]\n"
+	fprintf(stderr, "Usage: udevinfo [-anpqrVh]\n"
 	       "  -q TYPE  query database for the specified value:\n"
 	       "             'name'    name of device node\n"
 	       "             'symlink' pointing to node\n"
