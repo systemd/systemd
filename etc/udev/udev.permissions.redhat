@@ -9,6 +9,7 @@ vc/[0-9]*:root:tty:0660
 #  Set this to 0660 if you only want users belonging to tty group
 #  to be able to allocate PTYs
 ptmx:root:tty:0666
+tty:root:tty:0666
 pty[p-za-e][0-9a-f]*:root:tty:0660
 tty[p-za-e][0-9a-f]*:root:tty:0660
 pty/m*:root:tty:0660
