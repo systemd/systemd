@@ -2,28 +2,30 @@
 .SH NAME
 udev \- Linux configurable dynamic device naming support
 .SH SYNOPSIS
-.B udev
+.BI udev " hotplug-subsystem"
 .SH "DESCRIPTION"
 .B udev
 creates or removes device node files usually located in the /dev directory.
+Its goal is to provide a dynamic device directory that contains only the files
+for devices that are actually present.
+.P
 As part of the
 .B hotplug
 subsystem,
 .B udev
-is exectuted if a kernel device is added or removed from the system.
-.P
+is executed if a kernel device is added or removed from the system.
 On device creation,
 .B udev
-reads the sysfs directory of the given device, to collect device attributes
+reads the sysfs directory of the given device to collect device attributes
 like label, serial number or bus device number.
 These attributes are passed as a key to the namedev subsystem
 to receive a unique name for device file creation.
 namedev maintains a database for devices present on the system.
-.P
+.br
 On device removal,
 .B udev
-queries the namedev database for the name of the device file to delete.
-.P
+queries the namedev database for the name of the device file to be deleted.
+.SH "CONFIGURATION"
 namedev expects its configuration at
 .I /etc/udev/namedev.config.
 The file consists of a set of lines. All empty lines and
@@ -31,11 +33,16 @@ lines beginning with a '#' will be ignored.
 .br
 Every line defines the mapping between device attributes and the device file
 name. It starts with a keyword defining the method used to match, followed by
-one ore more keys to compare, optional ownwership and permission settings and
-the filename for the device. If no matching configuration is found,
-the default kernel device name is used.
+one ore more keys to compare and the filename for the device. If no matching
+configuration is found, the default kernel device name is used.
 .P
-.I method, key,[key,...] [owner,] [group,] [mode,] name
+The line format is:
+.RS
+.sp
+.I method, key,[key,...] name
+.sp
+.RE
+where valid methods with corresponding keys are:
 .TP
 .B LABEL
 device label or serial number, like USB serial number, SCSI UUID or
@@ -62,7 +69,9 @@ key: \fBKERNEL_NAME\fP
 calling external program, that returns a string to match
 .br
 keys: \fBBUS\fP, \fBPROGRAM\fP, \fBID\fP
-.SH "EXAMPLE"
+.P
+A sample \fInamedev.conf\fP might look like this:
+.sp
 .nf
 # USB printer to be called lp_color
 LABEL, BUS="usb", serial="W09090207101241330", NAME="lp_color"
@@ -79,6 +88,22 @@ REPLACE, KERNEL="ttyUSB1", NAME="pda"
 # if /sbin/dev_id returns "V0815" device will be called dev0815
 CALLOUT, PROGRAM="/sbin/dev_id", BUS="pci", ID="V0815", NAME="dev0815"
 .fi
+.P
+Permissions and ownership for the created device files may specified at
+.I /etc/udev/namedev.permissions.
+The file consists of a set of lines. All empty lines and
+lines beginning with a '#' will be ignored.
+.br
+Every line lists a device name followed by owner, group and permission mode. All values are separated by colons.
+.sp
+A sample \fInamedev.permissions\fP might look like this:
+.sp
+.nf
+#name:user:group:mode
+ttyUSB1:root:uucp:0666
+dsp1:::0666
+.fi
+
 .SH "FILES"
 .nf
 .ft B
@@ -89,7 +114,7 @@ CALLOUT, PROGRAM="/sbin/dev_id", BUS="pci", ID="V0815", NAME="dev0815"
 .fi
 .LP
 .SH "SEE ALSO"
-.B hotplug (8)
+.BR hotplug (8)
 .PP
 The
 .I http://linux-hotplug.sourceforge.net/
