@@ -159,7 +159,7 @@ output () {
 	COUNT=$(($COUNT+1))
       done
       # If the target dev ($1) is the current dev ($i), we output its name.
-      if test $(($NUMBERED_LINKS)) -ne 0 || test "$COUNT" -eq 0; then
+      if test $(($NUMBERED_LINKS)) -ne 0 || test "$COUNT" = ''; then
 	test "$i" = "$1" && echo -n " $2$COUNT"
       fi
       # If the link isn't in our "existing links" list, add it and increment
