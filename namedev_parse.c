@@ -294,7 +294,7 @@ keys:
 				goto error;
 			break;
 		case NUMBER:
-			dbg_parse(TYPE_NUMBER "name='%s', bus='%s', id='%s', symlink='%s'",
+			dbg_parse(TYPE_NUMBER " name='%s', bus='%s', id='%s', symlink='%s'",
 				  dev.name, dev.bus, dev.id, dev.symlink);
 			if ((*dev.name == '\0') ||
 			    (*dev.bus == '\0') ||
@@ -302,7 +302,7 @@ keys:
 				goto error;
 			break;
 		case TOPOLOGY:
-			dbg_parse(TYPE_TOPOLOGY "name='%s', bus='%s', "
+			dbg_parse(TYPE_TOPOLOGY " name='%s', bus='%s', "
 				  "place='%s', symlink='%s'",
 				  dev.name, dev.bus, dev.place, dev.symlink);
 			if ((*dev.name == '\0') ||
@@ -311,14 +311,14 @@ keys:
 				goto error;
 			break;
 		case REPLACE:
-			dbg_parse(TYPE_REPLACE "name='%s', kernel_name='%s', symlink='%s'",
+			dbg_parse(TYPE_REPLACE " name='%s', kernel_name='%s', symlink='%s'",
 				  dev.name, dev.kernel_name, dev.symlink);
 			if ((*dev.name == '\0') ||
 			    (*dev.kernel_name == '\0'))
 				goto error;
 			break;
 		case CALLOUT:
-			dbg_parse(TYPE_CALLOUT "name='%s', bus='%s', program='%s', "
+			dbg_parse(TYPE_CALLOUT " name='%s', bus='%s', program='%s', "
 				  "id='%s', symlink='%s'",
 				  dev.name, dev.bus, dev.exec_program,
 				  dev.id, dev.symlink);
