@@ -1,3 +1,57 @@
+Summary of changes from v016 to v017
+============================================
+
+<azarah:nosferatu.za.org>:
+  o make logging a config option
+
+<christophe.varoqui:free.fr>:
+  o more udev-016/extras/multipath
+  o more udev-016/extras/multipath
+  o update extras/multipath
+
+Kay Sievers:
+  o udev - keep private data out of the database?
+  o better credential patch
+  o udevd - client access authorization
+  o compile udevd with klibc
+  o udev - fix "ignore method"
+  o udev - fix cdrom symlink rule
+  o convert udevsend/udevd to DGRAM and single-threaded
+  o udevd - kill the lockfile
+  o udevd - fix socket path length
+  o udevd - switch socket path to abstract namespace
+  o udevd - allow to bypass sequence number
+  o include used function
+
+Greg Kroah-Hartman:
+  o add udev_log to the documentation
+  o fix offsetof() define in klibc
+  o add some .spec file changes from Red Hat
+  o update the init.d udev script based on a patch from Red Hat
+  o remove the .udev.tdb when installing or uninstalling to be safe
+  o remove the database at startup
+  o fix bug in permission handling
+  o update klibc to version .107
+  o update the bitkeeper ignore file list
+  o add udevtest program to build
+  o fix problem where usb devices can be either the main device or the interface
+  o more logging.h cleanups to be a bit more flexible
+  o stop using mode_t as different libcs define it in different ways :(
+  o remove some more KLIBC fixups that are no longer needed
+  o let udev-test.pl run an individual test if you ask it to
+  o Handle the '!' character that some block devices have
+  o add a block device with a ! in the name, and a test for this
+  o fix up 'make release' to use bk to build the export tree
+  o fix log option code so that it actually works for all udev programs
+  o finish syncing up with klibc
+  o sync with latest version of klibc (0.107)
+  o fix up Makefile dependancies for udev_version.h
+
+Patrick Mansfield:
+  o udev add wild card compare for ID
+  o udev kill extra bus_id compares in match_id
+
+
 Summary of changes from v015 to v016
 ============================================
 
