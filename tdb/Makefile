@@ -28,3 +28,5 @@ tdbbackup: tdbbackup.o $(TDB_OBJ)
 
 clean:
 	rm -f $(PROGS) *.o *~ *% core test.db test.tdb test.gdbm
+
+spotless: clean

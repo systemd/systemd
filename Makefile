@@ -305,6 +305,8 @@ clean:
 			-C $$target $@ ; \
 	done ; \
 
+spotless: clean
+
 DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v -e CVS -e "\.tar\.gz$" -e "\/\." -e releases -e BitKeeper -e SCCS -e "\.tdb$" -e test/sys | sort )
 DISTDIR := $(RELEASE_NAME)
 srcdir = .

@@ -32,6 +32,8 @@ clean:	recurse_clean
 	@echo ""
 	@echo "Make complete"
 
+spotless: clean
+
 install:	recurse_install
 	@echo ""
 	@echo "Make complete"

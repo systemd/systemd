@@ -23,6 +23,8 @@ all:	$(OBJS)
 clean:
 	rm -f core *.o ioctl/*.o ioctl/*.so
 
+spotless: clean
+
 install:
 
 uninstall:

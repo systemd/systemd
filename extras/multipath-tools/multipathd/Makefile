@@ -29,3 +29,4 @@ uninstall:
 clean:
 	rm -f core *.o $(EXEC) *.gz
 
+spotless: clean

@@ -70,5 +70,6 @@ $(OBJS): scsi_id.h scsi.h scsi_id_version.h
 clean:
 	rm -f $(PROG) $(OBJS) $(GEN_HEADER)
 
+spotless: clean
 $(PROG):	$(OBJS)
 	$(LD) $(LDFLAGS) -o $(PROG) $(CRT0) $(OBJS) $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)

@@ -43,6 +43,8 @@ $(EXEC): $(OBJS)
 clean:
 	rm -f core *.o $(EXEC) *.gz
 
+spotless: clean
+
 install:
 	install -d $(DESTDIR)$(bindir)
 	install -m 755 $(EXEC) $(DESTDIR)$(bindir)/
