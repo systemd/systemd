@@ -498,21 +498,6 @@ static int compare_sysfs_attribute(struct sysfs_class_device *class_dev, struct 
 	return 0;
 }
 
-static int match_id(struct udev_rule *rule, struct sysfs_device *sysfs_device)
-{
-	char path[PATH_SIZE];
-	char *temp;
-
-	strlcpy(path, sysfs_device->path, sizeof(path));
-	temp = strrchr(path, '/');
-	temp++;
-	dbg("search '%s' in '%s', path='%s'", rule->id, temp, path);
-	if (strcmp_pattern(rule->id, temp) != 0)
-		return -ENODEV;
-
-	return 0;
-}
-
 static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		      struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
@@ -622,7 +607,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 				goto try_parent;
 			}
 			dbg("check " KEY_ID);
-			if (match_id(rule, sysfs_device) != 0) {
+			if (strcmp_pattern(rule->id, sysfs_device->bus_id) != 0) {
 				dbg(KEY_ID " is not matching");
 				if (rule->id_operation != KEY_OP_NOMATCH)
 					goto try_parent;
