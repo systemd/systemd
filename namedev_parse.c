@@ -126,14 +126,15 @@ static int namedev_parse(const char *filename, void *data)
 	cur = 0;
 	lineno = 0;
 	while (cur < bufsize) {
+		int i, j;
+
 		count = buf_get_line(buf, bufsize, cur);
 		bufline = &buf[cur];
 		cur += count+1;
 		lineno++;
 
 		if (count >= LINE_SIZE) {
-			info("line too long, rule skipped %s, line %d",
-			     filename, lineno);
+			info("line too long, rule skipped %s, line %d", filename, lineno);
 			continue;
 		}
 
@@ -149,8 +150,14 @@ static int namedev_parse(const char *filename, void *data)
 		if (bufline[0] == COMMENT_CHARACTER)
 			continue;
 
-		strncpy(line, bufline, count);
-		line[count] = '\0';
+		/* skip backslash and newline from multi line rules */
+		for (i = j = 0; i < count; i++) {
+			if (bufline[i] == '\\' || bufline[i] == '\n')
+				continue;
+
+			line[j++] = bufline[i];
+		}
+		line[j] = '\0';
 		dbg_parse("read '%s'", line);
 
 		/* get all known keys */

@@ -203,10 +203,10 @@ separate rules file, while the device nodes are maintained by the
 distribution provided rules file.
 .TP
 .B OWNER, GROUP, MODE
-The permissions for this device. Every specified value overwrites the default
-value specified in the config file.
+The permissions for the device node. Every specified value overwrites the
+default value specified in the config file.
 .P
-.RB "The " NAME " ," SYMLINK " and " PROGRAM
+.RB "The " NAME ", " SYMLINK ", " PROGRAM ", " OWNER " and " GROUP
 fields support simple printf-like string substitutions:
 .TP
 .B %n

@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <ctype.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -111,6 +112,41 @@ int create_path(const char *path)
 	return mkdir(p, 0755);
 }
 
+int parse_get_pair(char **orig_string, char **left, char **right)
+{
+	char *temp;
+	char *string = *orig_string;
+
+	if (!string)
+		return -ENODEV;
+
+	/* eat any whitespace */
+	while (isspace(*string) || *string == ',')
+		++string;
+
+	/* split based on '=' */
+	temp = strsep(&string, "=");
+	*left = temp;
+	if (!string)
+		return -ENODEV;
+
+	/* take the right side and strip off the '"' */
+	while (isspace(*string))
+		++string;
+	if (*string == '"')
+		++string;
+	else
+		return -ENODEV;
+
+	temp = strsep(&string, "\"");
+	if (!string || *temp == '\0')
+		return -ENODEV;
+	*right = temp;
+	*orig_string = string;
+	
+	return 0;
+}
+
 int file_map(const char *filename, char **buf, size_t *bufsize)
 {
 	struct stat stats;
@@ -143,11 +179,21 @@ void file_unmap(char *buf, size_t bufsize)
 	munmap(buf, bufsize);
 }
 
-size_t buf_get_line(char *buf, size_t buflen, size_t cur)
+/* return number of chars until the next newline, skip escaped newline */
+size_t buf_get_line(const char *buf, size_t buflen, size_t cur)
 {
-	size_t count = 0;
+	int escape = 0;
+	size_t count;
 
-	for (count = cur; count < buflen && buf[count] != '\n'; count++);
+	for (count = cur; count < buflen; count++) {
+		if (!escape && buf[count] == '\n')
+			break;
+
+		if (buf[count] == '\\')
+			escape = 1;
+		else
+			escape = 0;
+	}
 
 	return count - cur;
 }

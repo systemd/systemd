@@ -190,6 +190,36 @@ KERNEL="ttyUSB0", NAME="visor"
 EOF
 	},
 	{
+		desc		=> "Handle backslashed multi lines in config file (and replace kernel name)",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "visor" ,
+		conf		=> <<EOF
+KERNEL="ttyUSB0", \\
+NAME="visor"
+
+EOF
+	},
+	{
+		desc		=> "Handle stupid backslashed multi lines in config file (and replace kernel name)",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "visor" ,
+		conf		=> <<EOF
+
+#
+\\
+
+\\\\
+
+#\\
+
+KERNEL="ttyUSB0", \\
+NAME="visor"
+
+EOF
+	},
+	{
 		desc		=> "subdirectory handling",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",

@@ -91,41 +91,6 @@ static void init_variables(void)
 		udev_hotplug_d = 0;
 }
 
-int parse_get_pair(char **orig_string, char **left, char **right)
-{
-	char *temp;
-	char *string = *orig_string;
-
-	if (!string)
-		return -ENODEV;
-
-	/* eat any whitespace */
-	while (isspace(*string) || *string == ',')
-		++string;
-
-	/* split based on '=' */
-	temp = strsep(&string, "=");
-	*left = temp;
-	if (!string)
-		return -ENODEV;
-
-	/* take the right side and strip off the '"' */
-	while (isspace(*string))
-		++string;
-	if (*string == '"')
-		++string;
-	else
-		return -ENODEV;
-
-	temp = strsep(&string, "\"");
-	if (!string || *temp == '\0')
-		return -ENODEV;
-	*right = temp;
-	*orig_string = string;
-	
-	return 0;
-}
-
 static int parse_config_file(void)
 {
 	char line[LINE_SIZE];
@@ -254,20 +219,13 @@ static void get_dirs(void)
 			strfieldcpy(udev_config_filename, temp);
 	}
 
-	dbg("sysfs_path='%s'", sysfs_path);
-	dbg_parse("udev_root = %s", udev_root);
-	dbg_parse("udev_config_filename = %s", udev_config_filename);
-	dbg_parse("udev_db_path = %s", udev_db_path);
-	dbg_parse("udev_rules_filename = %s", udev_rules_filename);
-	dbg_parse("udev_log = %d", udev_log);
-
 	parse_config_file();
-
-	dbg("udev_root = %s", udev_root);
-	dbg("udev_config_filename = %s", udev_config_filename);
-	dbg("udev_db_path = %s", udev_db_path);
-	dbg("udev_rules_filename = %s", udev_rules_filename);
-	dbg("udev_log = %d", udev_log);
+	dbg("sysfs_path='%s'", sysfs_path);
+	dbg("udev_root='%s'", udev_root);
+	dbg("udev_config_filename='%s'", udev_config_filename);
+	dbg("udev_db_path='%s'", udev_db_path);
+	dbg("udev_rules_filename='%s'", udev_rules_filename);
+	dbg("udev_log=%d", udev_log);
 }
 
 void udev_init_config(void)
