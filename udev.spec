@@ -35,7 +35,7 @@ fi
 rm -rf $RPM_BUILD_ROOT
 
 %files
-%defattr(0644,root,root)
+%defattr(-,root,root)
 %doc COPYING README TODO ChangeLog
 %attr(755,root,root) /sbin/udev
 %attr(755,root,root) /udev/
