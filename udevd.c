@@ -450,6 +450,7 @@ static void reap_sigchilds(void)
 static void user_sighandler(void)
 {
 	int sig;
+
 	while(1) {
 		int rc = read(pipefds[0], &sig, sizeof(sig));
 		if (rc < 0)
@@ -533,15 +534,14 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* Set fds to dev/null */
 	fd = open( "/dev/null", O_RDWR );
-	if ( fd < 0 ) {
+	if (fd >= 0)  {
+		dup2(fd, 0);
+		dup2(fd, 1);
+		dup2(fd, 2);
+		if (fd > 2)
+			close(fd);
+	} else
 		dbg("error opening /dev/null %s", strerror(errno));
-		goto exit;
-	}
-	dup2(fd, 0);
-	dup2(fd, 1);
-	dup2(fd, 2);
-	if (fd > 2) 
-		close(fd);
 
 	/* become session leader */
 	setsid();
@@ -559,10 +559,8 @@ int main(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 	retval = fcntl(pipefds[0], F_SETFD, FD_CLOEXEC);
-	if (retval < 0) {
+	if (retval < 0)
 		dbg("error fcntl on read pipe: %s", strerror(errno));
-		goto exit;
-	}
 
 	retval = fcntl(pipefds[1], F_SETFL, O_NONBLOCK);
 	if (retval < 0) {
@@ -570,10 +568,8 @@ int main(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 	retval = fcntl(pipefds[1], F_SETFD, FD_CLOEXEC);
-	if (retval < 0) {
+	if (retval < 0)
 		dbg("error fcntl on write pipe: %s", strerror(errno));
-		goto exit;
-	}
 
 	/* set signal handlers */
 	act.sa_handler = (void (*) (int))sig_handler;
@@ -586,7 +582,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (init_udevsend_socket() < 0) {
 		if (errno == EADDRINUSE)
-			dbg("another udevd is running, exit");
+			dbg("another udevd running, exit");
 		else
 			dbg("error initialising udevsend socket: %s", strerror(errno));
 
