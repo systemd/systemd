@@ -51,7 +51,6 @@ struct sysfs_class_device;
 #define ATTR_PARTITIONS		"all_partitions"
 #define PARTITIONS_COUNT	15
 
-#define PROGRAM_MAXARG		10
 #define MAX_SYSFS_PAIRS		5
 
 #define RULEFILE_EXT		".rules"

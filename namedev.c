@@ -370,22 +370,41 @@ static void fix_kernel_name(struct udevice *udev)
 static int execute_program(char *path, char *value, int len)
 {
 	int retval;
-	int res;
+	int count;
 	int status;
 	int fds[2];
 	pid_t pid;
-	int value_set = 0;
-	char buffer[255];
 	char *pos;
-	char *args[PROGRAM_MAXARG];
+	char arg[PROGRAM_SIZE];
+	char *argv[sizeof(arg) / 2];
 	int i;
 
-	dbg("executing '%s'", path);
+	i = 0;
+	if (strchr(path, ' ')) {
+		strfieldcpy(arg, path);
+		pos = arg;
+		while (pos != NULL) {
+			if (pos[0] == '\'') {
+				/* don't separate if in apostrophes */
+				pos++;
+				argv[i] = strsep(&pos, "\'");
+				while (pos[0] == ' ')
+					pos++;
+		} else {
+				argv[i] = strsep(&pos, " ");
+			}
+			dbg("arg[%i] '%s'", i, argv[i]);
+			i++;
+		}
+	}
+	argv[i] =  NULL;
+
 	retval = pipe(fds);
 	if (retval != 0) {
 		dbg("pipe failed");
 		return -1;
 	}
+
 	pid = fork();
 	switch(pid) {
 	case 0:
@@ -394,28 +413,14 @@ static int execute_program(char *path, char *value, int len)
 
 		/* dup write side of pipe to STDOUT */
 		dup(fds[1]);
-
-		/* copy off our path to use incase we have too many args */
-		strfieldcpymax(buffer, path, sizeof(buffer));
-
-		if (strchr(path, ' ')) {
-			/* exec with arguments */
-			pos = path;
-			for (i=0; i < PROGRAM_MAXARG-1; i++) {
-				args[i] = strsep(&pos, " ");
-				if (args[i] == NULL)
-					break;
-			}
-			if (args[i]) {
-				dbg("too many args - %d, using subshell instead '%s'", i, buffer);
-				retval = execl("/bin/sh", "sh", "-c", buffer, NULL);
-			} else {
-				dbg("execute program '%s'", path);
-				retval = execv(args[0], args);
-			}
+		if (argv[0] !=  NULL) {
+			dbg("execute '%s' with given arguments", argv[0]);
+			retval = execv(argv[0], argv);
 		} else {
+			dbg("execute '%s' with main argument", path);
 			retval = execv(path, main_argv);
 		}
+
 		info(FIELD_PROGRAM " execution of '%s' failed", path);
 		exit(1);
 	case -1:
@@ -425,33 +430,32 @@ static int execute_program(char *path, char *value, int len)
 		/* parent reads from fds[0] */
 		close(fds[1]);
 		retval = 0;
+		i = 0;
 		while (1) {
-			res = read(fds[0], buffer, sizeof(buffer) - 1);
-			if (res <= 0)
+			count = read(fds[0], value + i, len - i-1);
+			if (count <= 0)
 				break;
-			buffer[res] = '\0';
-			if (res > len) {
+
+			i += count;
+			if (i >= len-1) {
 				dbg("result len %d too short", len);
 				retval = -1;
-			}
-			if (value_set) {
-				dbg("result value already set");
-				retval = -1;
-			} else {
-				value_set = 1;
-				strncpy(value, buffer, len);
-				pos = value + strlen(value)-1;
-				if (pos[0] == '\n')
-					pos[0] = '\0';
-				dbg("result is '%s'", value);
+				break;
 			}
 		}
-		close(fds[0]);
-		res = wait(&status);
-		if (res < 0) {
-			dbg("wait failed result %d", res);
+
+		if (count < 0) {
+			dbg("read failed with '%s'", strerror(errno));
 			retval = -1;
 		}
+
+		if (i > 0 && value[i] == '\n')
+			i--;
+		value[i] = '\0';
+		dbg("result is '%s'", value);
+
+		close(fds[0]);
+		wait(&status);
 
 		if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
 			dbg("exec program status 0x%x", status);
@@ -730,7 +734,7 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 			apply_format(udev, dev->program, sizeof(dev->program),
 				     class_dev, sysfs_device);
 			if (execute_program(dev->program, udev->program_result, NAME_SIZE) != 0) {
-				dbg(FIELD_PROGRAM " returned nozero");
+				dbg(FIELD_PROGRAM " returned nonzero");
 				goto try_parent;
 			} else {
 				dbg(FIELD_PROGRAM " returned successful");

@@ -262,6 +262,24 @@ BUS="scsi", PROGRAM="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL="s
 EOF
 	},
 	{
+		desc     => "program with subshell",
+		subsys   => "block",
+		devpath  => "block/sda/sda3",
+		expected => "bar9" ,
+		conf     => <<EOF
+BUS="scsi", PROGRAM="/bin/sh -c 'echo foo3 foo4 foo5 foo6 foo7 foo8 foo9 | sed  s/foo9/bar9/'", KERNEL="sda3", NAME="%c{7}"
+EOF
+	},
+	{
+		desc     => "program arguments combined with apostrophes",
+		subsys   => "block",
+		devpath  => "block/sda/sda3",
+		expected => "foo7" ,
+		conf     => <<EOF
+BUS="scsi", PROGRAM="/bin/echo -n 'foo3 foo4'   'foo5   foo6   foo7 foo8'", KERNEL="sda3", NAME="%c{5}"
+EOF
+	},
+	{
 		desc     => "characters before the %c{N} substitution",
 		subsys   => "block",
 		devpath  => "block/sda/sda3",
