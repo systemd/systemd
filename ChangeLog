@@ -1,3 +1,57 @@
+Summary of changes from v012 to v013
+============================================
+
+<eike-hotplug:sf-tec.de>:
+  o LSB init script and other stuff
+
+<elkropac:students.zcu.cz>:
+  o fix udev directory for Debian init script
+
+<tiggi:infa.abo.fi>:
+  o udev 012 old gcc fixup
+
+Christophe Saout:
+  o add IGNORE rule type
+  o small cleanup
+
+Greg Kroah-Hartman:
+  o update TODO with some new, small items
+  o Cset exclude: greg@kroah.com|ChangeSet|20040113010256|48515
+  o update the README in a few places
+  o fix -d typo in the manpage update
+  o Fix stupid gcc "optimization" of 1 character printk() calls.... Ick
+  o oops, forgot to fix up the PROGRAM result from ID to RESULT in the config files
+  o Add alsa device rules and a few other devfs rules
+  o fix a few stale comments in namedev.c
+  o convert the default rules files to the new format
+  o convert the test shell scripts to the config file format
+  o add bus test for usb-serial bus
+  o Add some helpful messages if the user uses the older config file format
+  o added dri rule to the default config file
+  o added init.d udev script for debian
+  o add a script that tests the IGNORE rule
+  o add silly script that names cdrom drives based on the cd in them
+  o add cdrom rule for ide cdrom
+  o replace list_for_each with list_for_each_entry, saving a few lines of code
+  o add a blacklist of class devices we do not want to look at
+
+Kay Sievers:
+  o fix klibc with printf() and gcc
+  o udev - small script optimization
+  o udev - introduce format escape char
+  o udev - more CALLOUT is PROGRAM now
+  o udev - CALLOUT is PROGRAM now
+  o update documentation for new config file format
+  o more advanced user query options
+  o udev - simple debug tweak
+  o udev - drop all methods :)
+  o udev - advanced user query options
+  o udev - Makefile error
+  o udev - make exec_callout() reusable
+  o udev - exec status fix for klibc
+  o fix Silly udev script
+
+
 Summary of changes from v011 to v012
 ============================================
 
