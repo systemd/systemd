@@ -690,6 +690,7 @@ int main(int argc, char *argv[], char *envp[])
 		dbg("error fcntl on write pipe: %s", strerror(errno));
 
 	/* set signal handlers */
+	memset(&act, 0x00, sizeof(struct sigaction));
 	act.sa_handler = (void (*) (int))sig_handler;
 	sigemptyset(&act.sa_mask);
 	act.sa_flags = SA_RESTART;
