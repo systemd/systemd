@@ -27,6 +27,7 @@
 #define _KLIBC_HAS_ARCH_SIG_ATOMIC_T
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <fcntl.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -178,13 +179,29 @@ static int find_found;
 
 static int find_device_by_name(char *path, struct udevice *dev)
 {
+	int l, i, j;
 	if (strncmp(dev->name, find_name, sizeof(dev->name)) == 0) {
-		memcpy(find_dev, dev, sizeof(*find_dev));
-		strfieldcpy(find_path, path);
+		memcpy(find_dev, dev, sizeof(struct udevice));
+		strnfieldcpy(find_path, path, NAME_SIZE);
 		find_found = 1;
 		/* stop search */
 		return 1;
 	}
+	/* look for matching symlink*/
+	l = strlen(dev->symlink);
+	if (!l)
+		return 0;
+	i = j = 0;
+	do {
+		j = strcspn(&dev->symlink[i], " ");
+		if (j && strncmp(&dev->symlink[i], find_name, j) == 0) {
+			memcpy(find_dev, dev, sizeof(struct udevice));
+			strnfieldcpy(find_path, path, NAME_SIZE);
+			find_found = 1;
+			return 1;
+		}
+		i = i + j + 1;
+	} while (i < l);
 	return 0;
 }
 

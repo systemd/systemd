@@ -122,7 +122,8 @@ enum query_type {
 	SYMLINK,
 	MODE,
 	OWNER,
-	GROUP
+	GROUP,
+	ALL
 };
 
 static int print_device_chain(const char *path)
@@ -258,6 +259,11 @@ static int process_options(void)
 				break;
 			}
 
+			if (strcmp(optarg, "all") == 0) {
+				query = ALL;
+				break;
+			}
+
 			printf("unknown query type\n");
 			exit(1);
 
@@ -366,6 +372,10 @@ print:
 			strfieldcpy(result, path);
 			break;
 
+		case ALL:
+			print_record(path, &dev);
+			goto exit;
+
 		default:
 			goto exit;
 		}
@@ -406,8 +416,10 @@ help:
 	       "             'owner'   of node\n"
 	       "             'group'   of node\n"
 	       "             'path'    sysfs device path\n"
+	       "             'all'     all values\n"
+	       "\n"
 	       "  -p PATH  sysfs device path used for query or chain\n"
-	       "  -n NAME  node name used for query\n"
+	       "  -n NAME  node/symlink name used for query\n"
 	       "\n"
 	       "  -r       print udev root\n"
 	       "  -a       print all SYSFS_attributes along the device chain\n"
