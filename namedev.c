@@ -306,6 +306,17 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 					dbg("sysfa attribute '%s' not found", attr);
 					break;
 				}
+				/* strip trailing whitespace of matching value */
+				if (isspace(tmpattr->value[strlen(tmpattr->value)-1])) {
+					i = len = strlen(tmpattr->value);
+					while (i > 0 &&  isspace(tmpattr->value[i-1]))
+						i--;
+					if (i < len) {
+						tmpattr->value[i] = '\0';
+						dbg("remove %i trailing whitespace chars from '%s'",
+							 len - i, tmpattr->value);
+					}
+				}
 				strfieldcatmax(string, tmpattr->value, maxsize);
 				dbg("substitute sysfs value '%s'", tmpattr->value);
 			} else {
