@@ -38,35 +38,11 @@ use strict;
 my $udev_exe_time = 5;
 my $log_file  = "/tmp/udev_log.txt";
 
-# global variables
-my $devpath;
-my $action;
-my $subsystem;
-
-# common functions
-sub getDate {
-	# Get current date/time
-	# If we want GTM time, simply pass GMT as first argument to this function.
-
-	my $format = @_;
-	my $date;
-
-	if( $format =~ /GMT/i ) {
-		$date = gmtime() . " GMT";
-	} else {
-		$date = localtime();
-	}
-	return $date;
-}
-
-# main program
 if ($ARGV[0]) {
-	$subsystem = $ARGV[0];
-	$devpath = $ENV{DEVPATH};
-	$action = $ENV{ACTION};
-
-	# Get current system date
-	my $time = getDate();
+	my $subsystem = $ARGV[0];
+	my $devpath = $ENV{DEVPATH};
+	my $action = $ENV{ACTION};
+	my $time = time();
 
 	# Logging
 	if (open(LOGF, ">>$log_file")) {

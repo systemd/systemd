@@ -85,62 +85,6 @@ sub udevsend {
 	return system("$udevsend_bin $subsystem");
 }
 
-sub getDate {
-	# Get current date function
-	# If we want GTM time, simply pass GMT as first argument to this function.
-
-	my $format = @_;
-	my $date;
-
-	if( $format =~ /GMT/i ) {
-		$date = gmtime() . " GMT";
-	} else {
-		$date = localtime();
-	}
-
-	return $date;
-}
-
-sub cmpDate {
-	# This function should return a difference betweent date1 and date2
-
-	my ($date1, $date2) = @_;
-	my @monList = ( "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
-			  "Aug", "Sep", "Oct", "Nov", "Dec" );
-	my ( $m1, $m2, $tmp );
-
-	$date1 =~ s/([\D]*)$//g;
-	$date2 =~ s/([\D]*)$//g;
-
-	return if( (not $date1) or (not $date2) );
-
-	my $mon = 0;
-
-	my ( @T1 ) =
-	 ( $date1 =~ /([\d]+)[\s]+([\d]+):([\d]+):([\d]+)[\s]+([\d]+)/g );
-	my ( @T2 ) = 
-	 ( $date2 =~ /([\d]+)[\s]+([\d]+):([\d]+):([\d]+)[\s]+([\d]+)/g );
-
-	foreach $tmp (@monList) {
-		$m1 = sprintf("%2.2d",$mon) if( $date1 =~ /$tmp/i );
-		$m2 = sprintf("%2.2d",$mon) if( $date2 =~ /$tmp/i );
-		$mon++;
-	}
-
-	my $dt1 = sprintf("%4.4d%s%2.2d%2.2d%2.2d%2.2d", $T1[4], $m1, $T1[0],
-					$T1[1], $T1[2], $T1[3]);
-	my $dt2 = sprintf("%4.4d%s%2.2d%2.2d%2.2d%2.2d", $T2[4], $m2, $T2[0],
-					$T2[1], $T2[2], $T2[3]);
-
-	my $ret = $dt1 - $dt2;
-
-	if ( $ret > 40 ) {
-		$ret = abs($ret-40);
-	}
-
-	return $ret;
-}
-
 sub check_count_and_time { 
 	my $event_recv_time;
 	my $udev_fork_time;
@@ -160,7 +104,7 @@ sub check_count_and_time {
 		@line_items = split(/,/,$line);
 		print "   device: $line_items[0], action: $line_items[1] \n";
 		print "   forking udev time:     $line_items[-1]";
-		$diff = cmpDate($line_items[-1], $event_recv_time);
+		$diff = $line_items[-1] - $event_recv_time;
 		print "   the delay time is:     $diff s \n\n";
 		if ( $diff > $time_out+10 ) {
 			print "   the delay time is: $diff \n";
@@ -205,7 +149,7 @@ sub show_result {
 		@line_items = split(/,/,$line);
 		print "   device: $line_items[0], action: $line_items[1] \n";
 		print "   forking udev time:     $line_items[-1]";
-		$diff = cmpDate($line_items[-1], $event_recv_time);
+		$diff = $line_items[-1] - $event_recv_time;
 		print "   the delay time is:     $diff s \n\n";
 	}
 	close(LOGF);
@@ -229,7 +173,7 @@ sub show_result_tm_out {
 		@line_items = split(/,/,$line);
 		print "   device: $line_items[0], action: $line_items[1] \n";
 		print "   forking udev time:     $line_items[-1]";
-		$diff = cmpDate($line_items[-1], $event_recv_time);
+		$diff = $line_items[-1] - $event_recv_time;
 		print "   the delay time is:     $diff s \n\n";
 		if ( $diff < $time_out ) {
 			print "   the delay time is:     $diff \n";
@@ -258,7 +202,7 @@ sub show_result_immediate {
 		@line_items = split(/,/,$line);
 		print "   device: $line_items[0], action: $line_items[1] \n";
 		print "   forking udev time:     $line_items[-1]";
-		$diff = cmpDate($line_items[-1], $event_recv_time);
+		$diff = $line_items[-1] - $event_recv_time;
 		print "   the delay time is:     $diff s \n\n";
 		if ( $diff > $time_out ) {
 			print "   the delay time is:     $diff \n";
@@ -285,7 +229,7 @@ sub check_exe_time {
 		$exe_time[$i] = $line_items[-1];
 		$i++;
 	}
-	$diff = cmpDate($exe_time[1], $exe_time[0]);
+	$diff = $exe_time[1] - $exe_time[0];
 	if ( $diff < $udev_exe_time ) {
 		print "   there are more than one udev instance for a single device at the same time. \n";
 		exit 1;
@@ -313,7 +257,7 @@ sub run_no_seq_test {
 	check_sysfs_device_exist("$sysfs/block/sda");
 
 	# log current system date/time
-	$time = getDate();
+	$time = time();
 
 	udevsend(-1, "/block/sda", "add", "block");
 
@@ -328,7 +272,7 @@ sub run_no_seq_test {
 	system("rm -f $log_file");
 
 	# log current system date/time
-	$time = getDate();
+	$time = time();
 
 	udevsend(-1, "/block/sda", "remove", "block");
 
@@ -358,7 +302,7 @@ sub run_normal_seq_test {
 	@file_list = glob "$sysfs/class/tty/*";
 
 	# log current system date/time for device add events
-	$time = getDate();
+	$time = time();
 
 	#
 	# add devices event test
@@ -388,7 +332,7 @@ sub run_normal_seq_test {
 	}
 
 	# log current system date/time for device remove events
-	$time = getDate();
+	$time = time();
 
 	#
 	# remove devices event test
@@ -443,7 +387,7 @@ sub run_random_seq_test {
 	restart_daemon();
 
 	# log current system date/time for device remove events
-	$time = getDate();
+	$time = time();
 
 	# parameters: 1 sequence number, 2 device, 3 action, 4 subsystem
 	udevsend(3, "/class/tty/tty2", "add", "tty");
@@ -460,7 +404,7 @@ sub run_random_seq_test {
 	restart_daemon();
 
 	# log current system date/time for device remove events
-	$time = getDate();
+	$time = time();
 
 	udevsend(3, "/class/tty/tty2", "remove", "tty");
 	udevsend(2, "/class/tty/tty1", "remove", "tty");
@@ -503,7 +447,7 @@ sub run_expected_seq_test {
 	system("rm -f $log_file");
 
 	# log current system date/time for device remove events
-	$time = getDate();
+	$time = time();
 
 	# show results
 	udevsend(7, "/class/tty/tty2", "add", "tty");
@@ -535,7 +479,7 @@ sub run_single_instance_test {
 	check_sysfs_device_exist("$sysfs/block/sda");
 
 	# log current system date/time
-	$time = getDate();
+	$time = time();
 
 	udevsend(-1, "/block/sda", "add", "block");
 	udevsend(-1, "/block/sda", "remove", "block");
@@ -568,7 +512,7 @@ sub run_same_events_test {
 
 	# log current system date/time
 	sleep 1;
-	$time = getDate();
+	$time = time();
 	system("rm -f $log_file");
 
 	udevsend(1, "/block/sda", "remove", "block");
@@ -600,7 +544,7 @@ sub run_missing_seq_test {
 	sleep 1;
 
 	# log current system date/time
-	$time = getDate();
+	$time = time();
 	system("rm -f $log_file");
 
 	udevsend(3, "/block/sda", "add", "block");
