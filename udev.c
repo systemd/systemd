@@ -209,9 +209,10 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		/* run dev.d/ scripts if we created/deleted a node or changed a netif name */
-		if (udev_dev_d && udev.devname[0] != '\0') {
+		if (udev.devname[0] != '\0') {
 			setenv("DEVNAME", udev.devname, 1);
-			udev_multiplex_directory(&udev, DEVD_DIR, DEVD_SUFFIX);
+			if (udev_dev_d)
+				udev_multiplex_directory(&udev, DEVD_DIR, DEVD_SUFFIX);
 		}
 	} else if ((strncmp(devpath, "/devices/", 9) == 0)) {
 		if (strcmp(action, "add") == 0) {
