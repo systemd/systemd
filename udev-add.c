@@ -28,12 +28,18 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <grp.h>
+#ifndef __KLIBC__
+#include <pwd.h>
+#endif
 
 #include "udev.h"
 #include "udev_version.h"
 #include "namedev.h"
 #include "udevdb.h"
 #include "libsysfs/libsysfs.h"
+#include "klibc_fixups.h"
 
 /* 
  * Right now the major/minor of a device is stored in a file called
@@ -146,8 +152,13 @@ static int create_node(struct udevice *dev)
 		unsigned long id = strtoul(dev->owner, &endptr, 10);
 		if (*endptr == 0x00)
 			uid = (uid_t) id;
-		else
-			dbg("only numeric owner id supported: %s", dev->owner);
+		else {
+			struct passwd *pw = getpwnam(dev->owner);
+			if (!pw)
+				dbg("user unknown: %s", dev->owner);
+			else
+				uid = pw->pw_uid;
+		}
 	}
 
 	if (*dev->group) {
@@ -155,8 +166,13 @@ static int create_node(struct udevice *dev)
 		unsigned long id = strtoul(dev->group, &endptr, 10);
 		if (*endptr == 0x00)
 			gid = (gid_t) id;
-		else
-			dbg("only numeric group id supported: %s", dev->group);
+		else {
+			struct group *gr = getgrnam(dev->group);
+			if (!gr)
+				dbg("group unknown: %s", dev->group);
+			else
+				gid = gr->gr_gid;
+		}
 	}
 
 	if (uid || gid) {
