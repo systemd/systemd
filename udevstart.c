@@ -70,16 +70,8 @@ static int device_list_insert(char *path, char *subsystem, struct list_head *dev
 	strfieldcpy(new_device->path, path);
 	strfieldcpy(new_device->subsys, subsystem);
 	list_add_tail(&new_device->list, &loop_device->list);
+	dbg("add '%s' from subsys '%s'", new_device->path, new_device->subsys);
 	return 0;
-}
-
-static void udev_exec(const char *path, const char* subsystem)
-{
-	/* Now call __udev_hotplug(). */
-	if (__udev_hotplug("add", path, subsystem)) {
-		dbg("Calling of udev_hotplug failed");
-		exit(1);
-	}
 }
 
 /* list of devices that we should run last due to any one of a number of reasons */
@@ -106,14 +98,14 @@ static void exec_list(struct list_head *device_list)
 		if (found)
 			continue;
 
-		udev_exec(loop_device->path, loop_device->subsys);
+		udev_add_device(loop_device->path, loop_device->subsys, NOFAKE);
 		list_del(&loop_device->list);
 		free(loop_device);
 	}
 
 	/* handle the rest of the devices left over, if any */
 	list_for_each_entry_safe(loop_device, tmp_device, device_list, list) {
-		udev_exec(loop_device->path, loop_device->subsys);
+		udev_add_device(loop_device->path, loop_device->subsys, NOFAKE);
 		list_del(&loop_device->list);
 		free(loop_device);
 	}
@@ -209,19 +201,27 @@ static void udev_scan_class(void)
 					    (strcmp(dent2->d_name, "..") == 0))
 						continue;
 
+					/* pass the net class as it is */
+					if (strcmp(dent->d_name, "net") == 0) {
+						snprintf(dirname2, MAX_PATHLEN, "/class/net/%s", dent2->d_name);
+						device_list_insert(dirname2, "net", &device_list);
+						continue;
+					}
+
 					snprintf(dirname2, MAX_PATHLEN, "%s/%s", dirname, dent2->d_name);
 					dirname2[MAX_PATHLEN-1] = '\0';
-
 					dir3 = opendir(dirname2);
 					if (dir3 != NULL) {
 						for (dent3 = readdir(dir3); dent3 != NULL; dent3 = readdir(dir3)) {
 							char filename[MAX_PATHLEN];
 
+							/* pass devices with a "dev" file */
 							if (strcmp(dent3->d_name, "dev") == 0) {
 								snprintf(filename, MAX_PATHLEN, "/class/%s/%s",
 									 dent->d_name, dent2->d_name);
 								filename[MAX_PATHLEN-1] = '\0';
 								device_list_insert(filename, dent->d_name, &device_list);
+								break;
 							}
 						}
 						closedir(dir3);

@@ -40,9 +40,6 @@
 char **main_argv;
 char **main_envp;
 
-/* local variables */
-static int is_udevstart;
-
 #ifdef LOG
 unsigned char logname[LOGNAME_SIZE];
 void log_message(int level, const char *format, ...)
@@ -79,36 +76,72 @@ static char *subsystem_blacklist[] = {
 	""
 };
 
-int __udev_hotplug(char *action, const char *devpath, const char *subsystem)
+int main(int argc, char *argv[], char *envp[])
 {
-	int retval = -EINVAL;
-	int i;
+	main_argv = argv;
+	main_envp = envp;
 	struct sigaction act;
-	const int nofake = 0;
+	char *action;
+	char *devpath = "";
+	char *subsystem = "";
+	int i;
+	int retval = -EINVAL;
+	enum {
+		ADD,
+		REMOVE,
+		UDEVSTART,
+	} act_type;
 
-	dbg("looking at '%s'", devpath);
+	dbg("version %s", UDEV_VERSION);
 
-	/* we only care about class devices and block stuff */
-	if (!strstr(devpath, "class") &&
-	    !strstr(devpath, "block")) {
-		dbg("not a block or class device");
-		goto exit;
-	}
+	/* initialize our configuration */
+	udev_init_config();
 
-	i = 0;
-	while (subsystem_blacklist[i][0] != '\0') {
-		if (strcmp(subsystem, subsystem_blacklist[i]) == 0) {
-			dbg("don't care about '%s' devices", subsystem);
+	if (strstr(argv[0], "udevstart")) {
+		act_type = UDEVSTART;
+	} else {
+		action = get_action();
+		if (!action) {
+			dbg("no action?");
 			goto exit;
 		}
-		i++;
-	}
+		if (strcmp(action, "add") == 0) {
+			act_type = ADD;
+		} else if (strcmp(action, "remove") == 0) {
+			act_type = REMOVE;
+		} else {
+			dbg("unknown action '%s'", action);
+			goto exit;
+		}
 
-	/* initialize udev database */
-	retval = udevdb_init(UDEVDB_DEFAULT);
-	if (retval != 0) {
-		dbg("unable to initialize database");
-		goto exit;
+		devpath = get_devpath();
+		if (!devpath) {
+			dbg("no devpath?");
+			goto exit;
+		}
+		dbg("looking at '%s'", devpath);
+
+		/* we only care about class devices and block stuff */
+		if (strstr(devpath, "class") && strstr(devpath, "block")) {
+			dbg("not a block or class device");
+			goto exit;
+		}
+
+		subsystem = get_subsystem(main_argv[1]);
+		if (!subsystem) {
+			dbg("no subsystem?");
+			goto exit;
+		}
+
+		/* skip blacklisted subsystems */
+		i = 0;
+		while (subsystem_blacklist[i][0] != '\0') {
+			if (strcmp(subsystem, subsystem_blacklist[i]) == 0) {
+				dbg("don't care about '%s' devices", subsystem);
+				goto exit;
+			}
+			i++;
+		}
 	}
 
 	/* set signal handlers */
@@ -118,76 +151,31 @@ int __udev_hotplug(char *action, const char *devpath, const char *subsystem)
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGTERM, &act, NULL);
 
-	if (strcmp(action, "add") == 0) {
-		/* Already done. */
-		if (!is_udevstart)
-			namedev_init();
-		retval = udev_add_device(devpath, subsystem, nofake);
-		goto action_done;
+	/* initialize udev database */
+	if (udevdb_init(UDEVDB_DEFAULT) != 0) {
+		dbg("unable to initialize database");
+		goto exit;
 	}
 
-	if (strcmp(action, "remove") == 0) {
+	switch(act_type) {
+	case UDEVSTART:
+		dbg("udevstart");
+		namedev_init();
+		udev_sleep = 0;
+		retval = udev_start();
+		break;
+	case ADD:
+		dbg("udev add");
+		namedev_init();
+		retval = udev_add_device(devpath, subsystem, NOFAKE);
+		break;
+	case REMOVE:
+		dbg("udev remove");
 		retval = udev_remove_device(devpath, subsystem);
-		goto action_done;
 	}
 
-	dbg("unknown action '%s'", action);
-	retval = -EINVAL;
-
-action_done:
 	udevdb_exit();
 
 exit:
 	return retval;
-}
-
-static int udev_hotplug(void)
-{
-	char *action;
-	char *devpath;
-	char *subsystem;
-
-	action = get_action();
-	if (!action) {
-		dbg("no action?");
-		return -EINVAL;
-	}
-
-	devpath = get_devpath();
-	if (!devpath) {
-		dbg("no devpath?");
-		return -EINVAL;
-	}
-
-	/* skip blacklisted subsystems */
-	subsystem = get_subsystem(main_argv[1]);
-	if (!subsystem) {
-		dbg("no subsystem?");
-		return -EINVAL;
-	}
-
-	return __udev_hotplug(action, devpath, subsystem);
-}
-
-int main(int argc, char *argv[], char *envp[])
-{
-	main_argv = argv;
-	main_envp = envp;
-
-	if (strstr(argv[0], "udevstart")) {
-		/* Setup env variables. */
-		setenv("UDEV_NO_SLEEP", "1", 1);
-		is_udevstart = 1;
-	}
-
-	/* initialize our configuration */
-	udev_init_config();
-
-	dbg("version %s", UDEV_VERSION);
-
-	if (is_udevstart) {
-		namedev_init();
-		return udev_start();
-	} else
-		return udev_hotplug();
 }

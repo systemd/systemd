@@ -40,6 +40,9 @@
 
 #define LINE_SIZE			256
 
+#define FAKE				1
+#define NOFAKE				0
+
 /* length of public data */
 #define UDEVICE_LEN (offsetof(struct udevice, bus_id))
 

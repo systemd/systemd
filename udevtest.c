@@ -102,7 +102,7 @@ int main(int argc, char *argv[], char *envp[])
 		subsystem = argv[2];
 
 	/* simulate node creation with fake flag */
-	udev_add_device(devpath, subsystem, fake);
+	udev_add_device(devpath, subsystem, FAKE);
 
 exit:
 	return 0;
