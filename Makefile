@@ -184,7 +184,6 @@ all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(WAIT) $(GEN_CONFIGS)
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) \
 			LD="$(LD)" \
-			SYSFS="$(SYSFS)" \
 			KERNEL_DIR="$(KERNEL_DIR)" \
 			-C $$target $@ ; \
 	done ; \

@@ -31,8 +31,14 @@ INSTALL_DATA  = ${INSTALL} -m 644
 override CFLAGS+=-Wall -fno-builtin
 
 PROG=scsi_id
-SYSFS=-lsysfs
 
+SYSFS =	../../libsysfs/sysfs_bus.o	\
+	../../libsysfs/sysfs_class.o	\
+	../../libsysfs/sysfs_device.o	\
+	../../libsysfs/sysfs_dir.o	\
+	../../libsysfs/sysfs_driver.o	\
+	../../libsysfs/sysfs_utils.o	\
+	../../libsysfs/dlist.o
 #
 # Built static and stripped when built with udev.
 #
