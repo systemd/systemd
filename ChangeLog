@@ -1,3 +1,20 @@
+Summary of changes from v055 to v056
+============================================
+
+<tklauser:access.unizh.ch>:
+  o fix header paths in udev_libc_wrapper.c
+
+Kay Sievers:
+  o udev-test.pl: use more common user/group names
+  o klibc: remove SCCS directories from the temporary klibc install
+  o udev-test.pl: add a test where the group cannot be found in /etc/passwd
+  o udev-test.pl: add check for textual uid/gid
+  o fix bad typo that prevents the GROUP to be applied
+  o udevd: don't delay events with TIMEOUT in the environment
+  o klibc: use klcc wrapper instead of our own Makefile
+  o change call_foreach_file to return a list
+
+
 Summary of changes from v054 to v055
 ============================================
 
