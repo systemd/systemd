@@ -36,6 +36,7 @@ Group: Utilities/System
 Source: ftp://ftp.kernel.org/pub/linux/utils/kernel/hotplug/%{name}-%{version}.tar.gz
 ExclusiveOS: Linux
 Vendor: Greg Kroah-Hartman <greg@kroah.com>
+URL : kernel.org/pub/linux/utils/kernel/hotplug/
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Prereq: /bin/sh, fileutils, hotplug
 
@@ -101,6 +102,7 @@ rm -rf $RPM_BUILD_ROOT
 %changelog
 * Mon Jan 26 2004 Greg Kroah-Hartman <greg@kroah.com>
 - add udevinfo to rpm
+- added URL to spec file
 
 * Mon Jan 05 2004 Rolf Eike Beer <eike-hotplug@sf-tec.de>
 - add defines to choose the init script (Redhat or LSB)
