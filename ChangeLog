@@ -1,3 +1,54 @@
+Summary of changes from v009 to v010
+============================================
+
+<ananth:in.ibm.com>:
+  o change pgsize
+
+<christophe.varoqui:free.fr>:
+  o extras multipath update
+  o extras multipath update
+  o extras multipath update
+  o extras multipath update
+
+Kay Sievers:
+  o fix udev-test.pl
+  o small cleanup udev-remove.c
+  o experimental CALLOUT script for devfs ide node creation with cd, disc, part
+  o add any valid device
+  o introduce format char 'k' for kernel-name
+  o trivial make fixes
+  o don't overwrite old config on install
+  o udev-remove.c cleanups
+  o bug in udev-remove.c
+  o trivial cleanup parser changes
+
+<roman.kagan:itep.ru>:
+  o fix comment and whitespace handling in config files
+
+Adam Kropelin:
+  o Allow build with empty EXTRAS
+
+Daniel E. F. Stekloff:
+  o libsysfs 0.4.0 patch
+  o fix scsi_id segfault with udev-009
+  o add libsysfs docs
+
+David T. Hollis:
+  o mark config files as such in the rpm spec file
+
+Greg Kroah-Hartman:
+  o fix complier warning in namedev.c
+  o add documentation for the new '%k' modifier (kernel name replacement)
+  o add documentation about the multiple sysfs values that are now allowed for the LABEL rule
+  o add tests for multi-file LABEL rules
+  o add ability to have up to 5 SYSFS_ file/value pairs for the LABEL rule
+  o Just live with a sleep(1) in namedev for now until libsysfs is fixed up
+  o try to wait until the proper device file shows up in sysfs
+  o remove unneeded TODO and FIXME entry
+  o clean up the stand-alone tests to work properly on other people's machines
+  o add tests to catch whitespace and comment config file parsing errors
+
+
 Summary of changes from v008 to v009
 ============================================
 
