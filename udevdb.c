@@ -41,21 +41,6 @@
 
 static TDB_CONTEXT *udevdb;
 
-/**
- * busdb_record - bus and id are keys to look up name of device
- */
-struct busdb_record {
-	char name[NAME_SIZE];
-};
-
-/**
- * classdb_record - class name and class device name used as keys to find
- *	device name.
- */
-struct classdb_record {
-	char name[NAME_SIZE];
-};
-
 struct sysfsdb_record {
 	char name[PATH_SIZE];
 };
@@ -67,9 +52,7 @@ struct namedb_record {
 	char sysfs_dev_path[PATH_SIZE];
 	char class_dev_name[NAME_SIZE];
 	char class_name[NAME_SIZE];
-	char bus[BUS_SIZE];
 	char id[ID_SIZE];
-	char driver[NAME_SIZE];
 	char type;
 	int major;
 	int minor;
@@ -103,83 +86,6 @@ static int udevdb_open(int method)
 		return -EINVAL;
 	}
 	return 0;
-}
-
-/**
- * busdb_fetch
- */
-static struct busdb_record *busdb_fetch(const char *bus, const char *id)
-{
-	TDB_DATA key, data;
-	char keystr[BUS_SIZE+ID_SIZE+2]; 
-	struct busdb_record *rec = NULL;
-
-	if (bus == NULL || id == NULL)
-		return NULL; 
-	if (strlen(bus) >= BUS_SIZE || strlen(id) >= ID_SIZE)
-		return NULL;
-
-	memset(keystr, 0, (BUS_SIZE+ID_SIZE+2));
-	strcpy(keystr, bus);
-	strcat(keystr, UDEVDB_DEL);
-	strcat(keystr, id);
-
-	key.dptr = (void *)keystr;
-	key.dsize = strlen(keystr) + 1;
-
-	data = tdb_fetch(udevdb, key);
-	if (data.dptr == NULL || data.dsize == 0)
-		return NULL;
-
-	rec = (struct busdb_record *)malloc(sizeof(struct busdb_record));
-	if (rec == NULL) {
-		free(data.dptr);
-		return NULL;
-	}
-
-	memcpy(rec, data.dptr, sizeof(struct busdb_record));
-	free(data.dptr);
-
-	return rec;
-}
-
-/**
- * classdb_fetch
- */
-static struct classdb_record *classdb_fetch(const char *cls, 
-						const char *cls_dev)
-{
-	TDB_DATA key, data;
-	char keystr[NAME_SIZE+NAME_SIZE+2]; 
-	struct classdb_record *rec = NULL;
-
-	if (cls == NULL || cls_dev == NULL)
-		return NULL; 
-	if (strlen(cls) >= NAME_SIZE || strlen(cls_dev) >= NAME_SIZE)
-		return NULL;
-
-	memset(keystr, 0, (NAME_SIZE+NAME_SIZE+2));
-	strcpy(keystr, cls);
-	strcat(keystr, UDEVDB_DEL);
-	strcat(keystr, cls_dev);
-
-	key.dptr = (void *)keystr;
-	key.dsize = strlen(keystr) + 1;
-
-	data = tdb_fetch(udevdb, key);
-	if (data.dptr == NULL || data.dsize == 0)
-		return NULL;
-	
-	rec = (struct classdb_record *)malloc(sizeof(struct classdb_record));
-	if (rec == NULL) {
-		free(data.dptr);
-		return NULL;
-	}
-	
-	memcpy(rec, data.dptr, sizeof(struct classdb_record));
-	free(data.dptr);
-
-	return rec;
 }
 
 static struct sysfsdb_record *sysfsdb_fetch(const char *path)
@@ -253,66 +159,6 @@ static struct namedb_record *namedb_fetch(const char *name)
 	return nrec;
 }
 
-/**
- * busdb_store
- */
-static int busdb_store(const struct udevice *dev)
-{
-	TDB_DATA key, data;
-	char keystr[BUS_SIZE+ID_SIZE+2];
-	struct busdb_record rec;
-	int retval = 0;
-
-	if (dev == NULL)
-		return -1;
-
-	memset(keystr, 0, (BUS_SIZE+ID_SIZE+2));
-	strcpy(keystr, dev->bus_name);
-	strcat(keystr, UDEVDB_DEL);
-	strcat(keystr, dev->bus_id);
-
-	key.dptr = (void *)keystr;
-	key.dsize = strlen(keystr) + 1;
-	
-	strcpy(rec.name, dev->name);
-
-	data.dptr = (void *) &rec;
-	data.dsize = sizeof(rec);
-	
-	retval = tdb_store(udevdb, key, data, TDB_REPLACE); 
-	return retval;
-}
-
-/**
- * classdb_store
- */
-static int classdb_store(const struct udevice *dev)
-{
-	TDB_DATA key, data;
-	char keystr[NAME_SIZE+NAME_SIZE+2];
-	struct classdb_record rec;
-	int retval = 0;
-
-	if (dev == NULL)
-		return -1;
-
-	memset(keystr, 0, (NAME_SIZE+NAME_SIZE+2));
-	strcpy(keystr, dev->class_name);
-	strcat(keystr, UDEVDB_DEL);
-	strcat(keystr, dev->class_dev_name);
-
-	key.dptr = (void *)keystr;
-	key.dsize = strlen(keystr) + 1;
-	
-	strcpy(rec.name, dev->name);
-
-	data.dptr = (void *) &rec;
-	data.dsize = sizeof(rec);
-	
-	retval = tdb_store(udevdb, key, data, TDB_REPLACE); 
-	return retval;
-}
-
 static int sysfs_store(const char *path, const struct udevice *dev)
 {
 	TDB_DATA key, data;
@@ -325,7 +171,6 @@ static int sysfs_store(const char *path, const struct udevice *dev)
 
 	memset(keystr, 0, sizeof(keystr));
 	strcpy(keystr, path);
-	dbg("keystr = %s", keystr);
 
 	key.dptr = (void *)keystr;
 	key.dsize = strlen(keystr) + 1;
@@ -359,11 +204,9 @@ static int namedb_store(const struct udevice *dev)
 	key.dsize = strlen(keystr) + 1;
 	
 	strcpy(rec.sysfs_dev_path, dev->sysfs_dev_path);
-	strcpy(rec.bus, dev->bus_name);
 	strcpy(rec.id, dev->bus_id);
 	strcpy(rec.class_dev_name, dev->class_dev_name);
 	strcpy(rec.class_name, dev->class_name);
-	strcpy(rec.driver, dev->driver);
 	rec.type = dev->type;
 	rec.major = dev->major;
 	rec.minor = dev->minor;
@@ -373,58 +216,6 @@ static int namedb_store(const struct udevice *dev)
 	data.dsize = sizeof(rec);
 	
 	retval = tdb_store(udevdb, key, data, TDB_REPLACE); 
-	return retval;
-}
-
-/**
- * busdb_delete
- */
-static int busdb_delete(const char *bus, const char *id)
-{
-	TDB_DATA key;
-	char keystr[BUS_SIZE+ID_SIZE+2]; 
-	int retval = 0;
-
-	if (bus == NULL || id == NULL)
-		return -1; 
-	if (strlen(bus) >= BUS_SIZE || strlen(id) >= ID_SIZE)
-		return -1;
-
-	memset(keystr, 0, (BUS_SIZE+ID_SIZE+2));
-	strcpy(keystr, bus);
-	strcat(keystr, UDEVDB_DEL);
-	strcat(keystr, id);
-
-	key.dptr = (void *)keystr;
-	key.dsize = strlen(keystr) + 1;
-
-	retval = tdb_delete(udevdb, key);
-	return retval;
-}
-
-/**
- * classdb_delete
- */
-static int classdb_delete(const char *cls, const char *cls_dev)
-{
-	TDB_DATA key;
-	char keystr[NAME_SIZE+NAME_SIZE+2]; 
-	int retval = 0;
-
-	if (cls == NULL || cls_dev == NULL)
-		return -1; 
-	if (strlen(cls) >= NAME_SIZE || strlen(cls_dev) >= NAME_SIZE)
-		return -1;
-
-	memset(keystr, 0, (NAME_SIZE+NAME_SIZE+2));
-	strcpy(keystr, cls);
-	strcat(keystr, UDEVDB_DEL);
-	strcat(keystr, cls_dev);
-
-	key.dptr = (void *)keystr;
-	key.dsize = strlen(keystr) + 1;
-
-	retval = tdb_delete(udevdb, key);
 	return retval;
 }
 
@@ -452,6 +243,20 @@ static int namedb_delete(const char *name)
 	return retval;
 }
 
+static int sysfs_delete(const char *path)
+{
+	TDB_DATA key;
+	char keystr[PATH_SIZE];
+
+	memset(keystr, 0, sizeof(keystr));
+	strcpy(keystr, path);
+
+	key.dptr = keystr;
+	key.dsize = strlen(keystr) + 1;
+	
+	return tdb_delete(udevdb, key);
+}
+
 /**
  * udevdb_delete_udevice
  */
@@ -466,8 +271,6 @@ int udevdb_delete_udevice(const char *name)
 	if (nrec == NULL)
 		return -1;
 
-	busdb_delete(nrec->bus, nrec->id);
-	classdb_delete(nrec->class_name, nrec->class_dev_name);
 	namedb_delete(name);
 	free(nrec);
 
@@ -493,24 +296,15 @@ int udevdb_add_device(const char *device, const struct sysfs_class_device *class
 	strncpy(dbdev.class_dev_name, class_dev->name, NAME_SIZE);
 //	if ((sysfs_get_name_from_path(subsystem, dbdev.class_name, NAME_SIZE)) != 0)
 //		strcpy(dbdev.class_name, "unknown");
-	strcpy(dbdev.bus_name, "unknown");
-	if (class_dev->driver != NULL)
-		strncpy(dbdev.driver, class_dev->driver->name, NAME_SIZE);
-	else
-		strcpy(dbdev.driver, "unknown");
 	dbdev.type = type;
 	dbdev.major = major;
 	dbdev.minor = minor;
 	dbdev.mode = mode;
 	
-	if ((busdb_store(&dbdev)) != 0)
-		return -1;
-	if ((classdb_store(&dbdev)) != 0)
-		return -1;
 	if ((sysfs_store(device, &dbdev)) != 0)
 		return -1;
-	if ((namedb_store(&dbdev)) != 0)
-		return -1;
+//	if ((namedb_store(&dbdev)) != 0)
+//		return -1;
 
 	return 0;
 }
@@ -540,7 +334,6 @@ struct udevice *udevdb_get_udevice(const char *name)
 	strcpy(dev->sysfs_dev_path, nrec->sysfs_dev_path);
 	strcpy(dev->class_dev_name, nrec->class_dev_name);
 	strcpy(dev->class_name, nrec->class_name);
-	strcpy(dev->bus_name, nrec->bus);
 	strcpy(dev->bus_id, nrec->id);
 	dev->type = nrec->type;
 	dev->major = nrec->major;
@@ -552,68 +345,30 @@ struct udevice *udevdb_get_udevice(const char *name)
 	return dev;
 }
 
-/**
- * udevdb_get_device_by_bus
- */
-struct udevice *udevdb_get_udevice_by_bus(const char *bus, const char *id)
+int udevdb_get_dev(const char *path, char *name, size_t name_size)
 {
-	struct busdb_record *brec = NULL;
-	struct udevice *dev = NULL;
+	struct sysfsdb_record *rec = NULL;
 
-	if (bus == NULL || id == NULL)
-		return NULL;
+	if ((path == NULL) || (name == NULL) || (name_size < 1))
+		return -EINVAL;
 
-	brec = busdb_fetch(bus, id);
-	if (brec == NULL)
-		return NULL;
+	rec = sysfsdb_fetch(path);
+	if (rec == NULL)
+		return -ENODEV;
 
-	dev = udevdb_get_udevice(brec->name);
-	free(brec);
+	if (strlen(rec->name) >= name_size)
+		return -EINVAL;
 
-	return dev;
+	strncpy(name, rec->name, name_size);
+	return 0;
 }
 
-/**
- * udevdb_get_udevice_by_class
- */
-struct udevice *udevdb_get_udevice_by_class(const char *cls, 
-						const char *cls_dev)
+int udevdb_delete_dev(const char *path)
 {
-	struct classdb_record *crec = NULL;
-	struct udevice *dev = NULL;
-
-	if (cls == NULL || cls_dev == NULL)
-		return NULL;
-
-	crec = classdb_fetch(cls, cls_dev);
-	if (crec == NULL)
-		return NULL;
-
-	dev = udevdb_get_udevice(crec->name);
-	free(crec);
-
-	return dev;
-}
-
-
-char *udevdb_get_udevice_by_sysfs(const char *path)
-{
-	struct sysfsdb_record *crec = NULL;
-//	struct udevice *dev = NULL;
-
 	if (path == NULL)
-		return NULL;
+		return -EINVAL;
 
-	crec = sysfsdb_fetch(path);
-	if (crec == NULL)
-		return NULL;
-
-	// FIXME leak!!!
-	return crec->name;
-//	dev = udevdb_get_udevice(crec->name);
-//	free(crec);
-//
-//	return dev;
+	return sysfs_delete(path);
 }
 
 /**

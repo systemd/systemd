@@ -21,7 +21,6 @@ struct udevice {
 	char class_name[NAME_SIZE];
 	char bus_id[NAME_SIZE];
 	char bus_name[NAME_SIZE];
-	char driver[NAME_SIZE];
 	char type;
 	int major;
 	int minor;
@@ -34,10 +33,8 @@ extern int udevdb_init(int init_flag);
 extern int udevdb_delete_udevice(const char *name);
 extern int udevdb_add_device(const char *device, const struct sysfs_class_device *class_dev, const char *name, char type, int major, int minor, int mode);
 extern struct udevice *udevdb_get_udevice(const char *name);
-extern struct udevice *udevdb_get_udevice_by_bus(const char *bus, 
-							const char *id);
-extern struct udevice *udevdb_get_udevice_by_class(const char *cls,
-							const char *cls_dev);
 extern char *udevdb_get_udevice_by_sysfs(const char *path);
+extern int udevdb_get_dev(const char *path, char *name, size_t name_size);
+extern int udevdb_delete_dev(const char *path);
 
 #endif /* _UDEVDB_H_ */

@@ -36,27 +36,25 @@
 
 
 /*
- * Here would go a call to the naming deamon, to get the name we want to have
- * for this device.  But for now, let's just default to whatever the kernel is
- * calling the device as that will keep the "old-style" naming policy
+ * Look up the sysfs path in the database to see if we have named this device
+ * something different from the kernel name.  If we have, us it.  If not, use
+ * the default kernel name for lack of anything else to know to do.
  */
 static char *get_name(char *dev, int major, int minor)
 {
 	static char name[100];
 	char *temp;
 
-	temp = udevdb_get_udevice_by_sysfs(dev);
-	dbg("udevdb_get_udevice_by_sysfs returned %s", temp);
-	if (temp != NULL)
-		return temp;
-	
+	if (udevdb_get_dev(dev, &name[0], sizeof(name)) == 0)
+		goto exit;
+
 	temp = strrchr(dev, '/');
 	if (temp == NULL)
 		return NULL;
 	strncpy(name, &temp[1], sizeof(name));
 
+exit:
 	dbg("name is %s", name);
-
 	return &name[0];
 }
 
@@ -87,6 +85,7 @@ int udev_remove_device(char *device, char *subsystem)
 	}
 
 	udevdb_delete_udevice(name);
+	udevdb_delete_dev(device);
 
 	return delete_node(name);
 
