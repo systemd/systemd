@@ -27,7 +27,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <ctype.h>
-#include <signal.h>
 #include <dirent.h>
 #include <sys/wait.h>
 
@@ -47,133 +46,86 @@ void log_message(int level, const char *format, ...)
 #endif
 
 
-#define MAX_PATHLEN	1024
-#define SYSBLOCK	"/sys/block"
-#define SYSCLASS	"/sys/class"
+#define MAX_PATHLEN		1024
+#define SYSBLOCK		"/sys/block"
+#define SYSCLASS		"/sys/class"
+#define UDEV_BIN		"/sbin/udev"
 
-static int execute_udev(char *path, char *value, int len)
+static void udev_exec(const char *path, const char* subsystem)
 {
-	int retval;
-	int res;
-	int status;
-	int fds[2];
 	pid_t pid;
-	int value_set = 0;
-	char buffer[255];
-	char *pos;
+	char action[] = "ACTION=add";
+	char devpath[MAX_PATHLEN];
+	char nosleep[] = "UDEV_NO_SLEEP=1";
+	char *env[] = { action, devpath, nosleep, NULL };
 
-	retval = pipe(fds);
-	if (retval != 0) {
-		dbg("pipe failed");
-		return -1;
-	}
+	snprintf(devpath, MAX_PATHLEN, "DEVPATH=%s", path);
+	devpath[MAX_PATHLEN-1] = '\0';
+
 	pid = fork();
-	switch(pid) {
+	switch (pid) {
 	case 0:
 		/* child */
-		close(STDOUT_FILENO);
-
-		/* dup write side of pipe to STDOUT */
-		dup(fds[1]);
-
-		dbg("executing /sbin/udev '%s'", path);
-		retval = execl("/sbin/udev", "/sbin/udev", path, NULL);
-
-		info("execution of '%s' failed", path);
+		execle(UDEV_BIN, "udev", subsystem, NULL, env);
+		dbg("exec of child failed");
 		exit(1);
+		break;
 	case -1:
-		dbg("fork failed");
-		return -1;
+		dbg("fork of child failed");
+		break;
 	default:
-		/* parent reads from fds[0] */
-		close(fds[1]);
-		retval = 0;
-		while (1) {
-			res = read(fds[0], buffer, sizeof(buffer) - 1);
-			if (res <= 0)
-				break;
-			buffer[res] = '\0';
-			if (res > len) {
-				dbg("result len %d too short", len);
-				retval = -1;
-			}
-			if (value_set) {
-				dbg("result value already set");
-				retval = -1;
-			} else {
-				value_set = 1;
-				strncpy(value, buffer, len);
-				pos = value + strlen(value)-1;
-				if (pos[0] == '\n')
-					pos[0] = '\0';
-				dbg("result is '%s'", value);
-			}
-		}
-		close(fds[0]);
-		res = wait(&status);
-		if (res < 0) {
-			dbg("wait failed result %d", res);
-			retval = -1;
-		}
-
-		if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
-			dbg("exec program status 0x%x", status);
-			retval = -1;
-		}
+		wait(NULL);
 	}
-	return retval;
 }
 
 static int udev_scan(void)
 {
-	char           *devpath;
-	DIR            *dir;
-	struct dirent  *dent;
-	int             retval = -EINVAL;
-	char scratch[200];
+	char *devpath;
+	DIR *dir;
+	struct dirent *dent;
+	int retval = -EINVAL;
 
 	devpath = "block";
 	dir = opendir(SYSBLOCK);
-	if (dir) {
-		for (dent = readdir(dir); dent; dent = readdir(dir)) {
-			char            dirname[MAX_PATHLEN];
-			DIR            *dir2;
-			struct dirent  *dent2;
-			if ((strcmp(dent->d_name, ".") == 0)
-			    || (strcmp(dent->d_name, "..") == 0))
+	if (dir != NULL) {
+		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+			char dirname[MAX_PATHLEN];
+			DIR *dir2;
+			struct dirent *dent2;
+
+			if ((strcmp(dent->d_name, ".") == 0) ||
+			    (strcmp(dent->d_name, "..") == 0))
 				continue;
 
 			snprintf(dirname, MAX_PATHLEN, "/block/%s", dent->d_name);
-
-			setenv("DEVPATH", dirname, 1);
-			dbg("udev block, 'DEVPATH' = '%s'", dirname);
-			execute_udev("block", scratch, sizeof(scratch));
+			dirname[MAX_PATHLEN-1] = '\0';
+			udev_exec(dirname, "block");
 
 			snprintf(dirname, MAX_PATHLEN, "%s/%s", SYSBLOCK, dent->d_name);
-
 			dir2 = opendir(dirname);
-			if (dir2) {
-				for (dent2 = readdir(dir2); dent2; dent2 = readdir(dir2)) {
-					char            dirname2[MAX_PATHLEN];
-					DIR            *dir3;
-					struct dirent  *dent3;
+			if (dir2 != NULL) {
+				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
+					char dirname2[MAX_PATHLEN];
+					DIR *dir3;
+					struct dirent *dent3;
 
 					if ((strcmp(dent2->d_name, ".") == 0) ||
 					    (strcmp(dent2->d_name, "..") == 0))
 						continue;
 
 					snprintf(dirname2, MAX_PATHLEN, "%s/%s", dirname, dent2->d_name);
+					dirname2[MAX_PATHLEN-1] = '\0';
 
 					dir3 = opendir(dirname2);
-					if (dir3) {
-						for (dent3 = readdir(dir3); dent3; dent3 = readdir(dir3)) {
+					if (dir3 != NULL) {
+						for (dent3 = readdir(dir3); dent3 != NULL; dent3 = readdir(dir3)) {
 							char filename[MAX_PATHLEN];
 
 							if (strcmp(dent3->d_name, "dev") == 0) {
-								snprintf(filename, MAX_PATHLEN, "/block/%s/%s", dent->d_name, dent2->d_name);
-								setenv("DEVPATH", filename, 1);
-								dbg("udev block, 'DEVPATH' = '%s'", filename);
-								execute_udev("block", scratch, sizeof(scratch));
+								snprintf(filename, MAX_PATHLEN, "/block/%s/%s",
+									 dent->d_name, dent2->d_name);
+								filename[MAX_PATHLEN-1] = '\0';
+								udev_exec(filename, "block");
 							}
 						}
 					}
@@ -184,43 +136,42 @@ static int udev_scan(void)
 
 	devpath = "class";
 	dir = opendir(SYSCLASS);
-	if (dir) {
-		for (dent = readdir(dir); dent; dent = readdir(dir)) {
-			char            dirname[MAX_PATHLEN];
-			DIR            *dir2;
-			struct dirent  *dent2;
-			if ((strcmp(dent->d_name, ".") == 0)
-			    || (strcmp(dent->d_name, "..") == 0))
+	if (dir != NULL) {
+		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+			char dirname[MAX_PATHLEN];
+			DIR *dir2;
+			struct dirent *dent2;
+
+			if ((strcmp(dent->d_name, ".") == 0) ||
+			    (strcmp(dent->d_name, "..") == 0))
 				continue;
 
 			snprintf(dirname, MAX_PATHLEN, "%s/%s", SYSCLASS, dent->d_name);
-
+			dirname[MAX_PATHLEN] = '\0';
 			dir2 = opendir(dirname);
-			if (dir2) {
-				for (dent2 = readdir(dir2); dent2; dent2 = readdir(dir2)) {
-					char            dirname2[MAX_PATHLEN];
-					DIR            *dir3;
-					struct dirent  *dent3;
+			if (dir2 != NULL) {
+				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
+					char dirname2[MAX_PATHLEN-1];
+					DIR *dir3;
+					struct dirent *dent3;
 
-					if ((strcmp(dent2->d_name, ".") == 0) || (strcmp(dent2->d_name, "..") == 0))
+					if ((strcmp(dent2->d_name, ".") == 0) ||
+					    (strcmp(dent2->d_name, "..") == 0))
 						continue;
 
 					snprintf(dirname2, MAX_PATHLEN, "%s/%s", dirname, dent2->d_name);
+					dirname2[MAX_PATHLEN-1] = '\0';
 
 					dir3 = opendir(dirname2);
-					if (dir3) {
-						for (dent3 = readdir(dir3); dent3; dent3 = readdir(dir3)) {
-							char
-							                filename[MAX_PATHLEN];
+					if (dir3 != NULL) {
+						for (dent3 = readdir(dir3); dent3 != NULL; dent3 = readdir(dir3)) {
+							char filename[MAX_PATHLEN];
 
 							if (strcmp(dent3->d_name, "dev") == 0) {
-								snprintf
-								    (filename,
-								     MAX_PATHLEN,
-								     "/class/%s/%s", dent->d_name, dent2->d_name);
-								setenv("DEVPATH", filename, 1);
-								dbg("udev '%s', 'DEVPATH' = '%s'", dent->d_name, filename);
-								execute_udev(dent->d_name, scratch, sizeof(scratch));
+								snprintf(filename, MAX_PATHLEN, "/class/%s/%s",
+									 dent->d_name, dent2->d_name);
+								filename[MAX_PATHLEN-1] = '\0';
+								udev_exec(filename, dent->d_name);
 							}
 						}
 					}
@@ -239,9 +190,6 @@ static int udev_scan(void)
 int main(int argc, char **argv, char **envp)
 {
 	init_logging("udevstart");
-
-	setenv("ACTION", "add", 1);
-	setenv("UDEV_NO_SLEEP", "1", 1);
 
 	return udev_scan();
 }
