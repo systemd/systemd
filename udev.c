@@ -58,7 +58,7 @@ void log_message(int level, const char *format, ...)
 }
 #endif
 
-asmlinkage static void sig_handler(int signum)
+static void asmlinkage sig_handler(int signum)
 {
 	switch (signum) {
 		case SIGALRM:

@@ -112,7 +112,7 @@ OPTIMIZATION := ${shell if $(CC) -Os -S -o /dev/null -xc /dev/null >/dev/null 2>
 # add -Wredundant-decls when libsysfs gets cleaned up
 WARNINGS := -Wall 
 
-CFLAGS := -pipe -Dasmlinkage=
+CFLAGS := -pipe
 
 # set up the proper tdb spinlock code if we can
 ifeq ($(strip $(ARCH)),i386)

@@ -65,6 +65,15 @@ do { \
 	    pos = pos + len + strspn(pos, separator), len = strcspn(pos, separator)) \
 		if (len > 0)
 
+#ifdef asmlinkage
+# undef asmlinkage
+#endif
+#ifdef __i386__
+# define asmlinkage	__attribute__((regparm(0)))
+#endif
+#ifndef asmlinkage
+# define asmlinkage	/* nothing */
+#endif
 
 extern char *get_action(void);
 extern char *get_devpath(void);

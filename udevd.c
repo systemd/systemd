@@ -309,7 +309,7 @@ skip:
 	return;
 }
 
-asmlinkage static void sig_handler(int signum)
+static void asmlinkage sig_handler(int signum)
 {
 	int rc;
 
