@@ -111,7 +111,7 @@ static void set_classdev_classname(struct sysfs_class_device *cdev)
 	if (c == NULL) {
 		c = strstr(cdev->path, SYSFS_BLOCK_NAME);
 	} else {
-		c = strstr(c, "/");
+		c = strchr(c, '/');
 	}
 
 	if (c == NULL)
