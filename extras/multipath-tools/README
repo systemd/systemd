@@ -1,0 +1,90 @@
+Dependancies :
+==============
+
+o libdevmapper : comes with device-mapper-XXXX.tar.gz
+  See www.sistina.com
+  This lib has been dropped in the multipath tree
+o libsysfs : comes with sysutils or udev
+  See ftp.kernel.org/pub/linux/utils/kernel/hotplug/
+o Linux kernel 2.6.0 with udm5 patchset
+  http://people.sistina.com/~thornber/dm/
+o udev
+  See ftp.kernel.org/pub/linux/utils/kernel/hotplug/
+
+How it works :
+==============
+
+Fill the all_paths array. Each path store this info :
+
+struct path {
+        char dev[FILE_NAME_SIZE];
+        char sg_dev[FILE_NAME_SIZE];
+        struct scsi_idlun scsi_id;
+        struct sg_id sg_id;
+        int state;
+        char wwid[WWID_SIZE];
+};
+
+scsi_id, sg_dev and sg_id are only really useful for 2.4 
+kernels, for which SG cmnds must go through sg devs.
+In 2.5+ we have the nice opportunity to send SG cmnds
+through SCSI bdevs.
+
+For 2.4 compat, we pivot on idlun tupple to map sg devs
+to SCSI bdevs.
+
+2.4 does not do device enumeration, so we must scan a
+defined number of sg devs and scsi bdevs. Good enough.
+In 2.5+, we rely on libsysfs (sysutils) to access to
+sysfs device enums.
+
+the wwid is retrieved by a switch fonction. Only White
+Listed HW can filled this field. For now every FC array 
+HW listed in kernel's devinfo.c is White Listed, assuming
+the WWID is stored is the SCSI-3 standard 0x83 EVPD page.
+
+When all_paths is filled, we coalesce the paths and store
+the result in mp array. Each mp is a struct like this :
+
+struct multipath {
+        char wwid[WWID_SIZE];
+        int npaths;
+        int pindex[MAX_MP_PATHS];
+};
+
+When mp is filled, the device maps are fed to the kernel
+through libdevmapper.
+
+The naming of the corresponding block device is handeld 
+by udev with the help of the devmap_name proggy. It is 
+called by the following rule in /etc/udev/udev.rules :
+KERNEL="dm-[0-9]*", PROGRAM="/sbin/devmap_name %M %m", \
+NAME="%k", SYMLINK="%c"
+
+Notes :
+=======
+
+o On 2.4, make sure you have enough /dev/sg* nodes
+  (/dev/MAKEDEV if necesary). Same goes for /dev/sd*
+
+o path coalescing relies on a path unique id being found.
+  This unique id, lacking a standard method, is vendor
+  specific. A switch function (get_unique_id) is present
+  and an example function is provided for storageworks
+  arrays (get_evpd_wwid). Feel free to enrich
+  with hardware you have at hand :)
+
+o The kernel does NOT manage properly ghosts paths
+  with StorageWorks HW. Seems nobody cares after a load
+  of posts to linux-scsi.
+
+o 2.4.21 version of DM does not like even segment size.
+  if you enconter pbs with this, upgrade DM.
+
+Credits :
+=========
+
+o Heavy cut'n paste from sg_utils. Thanks goes to D. 
+  Gilbert.
+o Light cut'n paste from dmsetup. Thanks Joe Thornber.
+o Greg KH for the nice sysfs API.

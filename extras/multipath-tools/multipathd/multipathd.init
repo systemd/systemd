@@ -1,0 +1,42 @@
+#!/bin/sh
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+DAEMON=/usr/bin/multipathd
+PIDFILE=/var/run/multipathd.pid
+
+test -x $DAEMON || exit 0
+
+case "$1" in
+  start)
+	echo -n "Starting multipath daemon: multipathd"
+        if start-stop-daemon --quiet --stop --signal 0 --pidfile $PIDFILE --name multipathd
+	then
+		echo " already running."
+		exit
+	fi
+	/sbin/start-stop-daemon --start --quiet --exec $DAEMON
+	echo "."
+	;;
+  stop)
+	echo -n "Stopping multipath daemon: multipathd"
+	if start-stop-daemon --quiet --stop --signal 0 --pidfile $PIDFILE --name multipathd
+	then
+		PID=`cat $PIDFILE`
+		start-stop-daemon --quiet --stop --exec $DAEMON --pidfile $PIDFILE --name multipathd
+		# Now we wait for it to die
+		while kill -0 $PID 2>/dev/null; do sleep 1; done
+		echo "."
+	else
+		echo " not running.";
+	fi
+	;;
+  force-reload|restart)
+	$0 stop
+	$0 start
+	;;
+  *)
+	echo "Usage: /etc/init.d/multipathd {start|stop|restart|force-reload}"
+	exit 1
+esac
+
+exit 0
