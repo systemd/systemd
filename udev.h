@@ -24,7 +24,7 @@
 #define UDEV_H
 
 #include "libsysfs/libsysfs.h"
-#include <limits.h>
+#include <sys/param.h>
 
 #ifdef DEBUG
 #include <syslog.h>
