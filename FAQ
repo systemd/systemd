@@ -23,7 +23,7 @@ A: To quote Al Viro (Linux VFS kernel maintainer):
 	- the former had stayed around for many months with maintainer
 	  claiming that everything works fine
 	- the latter had stayed, period.
-	- the devfs maintainer/author disappeared and stoped maintaining
+	- the devfs maintainer/author disappeared and stopped maintaining
 	  the code.
 
 Q: But udev will not automatically load a driver if a /dev node is opened
@@ -98,6 +98,19 @@ A: Technically, yes, but udev is not intended for this. Projects that do
    And don't have to be root but will get full permissions on /pendrive.
    This works even without udev if /udev/pendrive is replaced by /dev/sda1
 
+Q: Are there any security issues that I should be aware of?
+A: When using dynamic device numbers, a given pair of major/minor numbers may
+   point to different hardware over time. If a user has permission to access a
+   specific device node directly and is able to create hard links to this node,
+   he or she can do so to create a copy of the device node. When the device is
+   unplugged and udev removes the device node, the user's copy remains.
+   If the device node is later recreated with different permissions the hard 
+   link can still be used to access the device using the old permissions.
+   (The same problem exists when using PAM to change permissions on login.)
+    
+   The simplest solution is to prevent the creation of hard links by putting
+   /dev in a separate filesystem (tmpfs, ramfs, ...).
+    
 Q: I have other questions about udev, where do I ask them?
 A: The linux-hotplug-devel mailing list is the proper place for it.  The
    address for it is linux-hotplug-devel@lists.sourceforge.net
