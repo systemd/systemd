@@ -3,33 +3,6 @@
 udev \- Linux configurable dynamic device naming support
 .SH SYNOPSIS
 .BI udev " hotplug-subsystem"
-.P
-The following variables are read from the environment:
-.TP
-.B ACTION
-.IR add " or " remove
-signifies the addition or the removal of a device.
-.P
-.B DEVPATH
-The sysfs devpath of the device without the mountpoint but a leading slash.
-.P
-.B SUBSYSTEM
-The subsystem the device belongs to. Alternatively the subsystem may
-be passed as the first argument.
-.P
-.B UDEV_CONFIG_FILE
-Overrides the default location of the
-.B udev
-config file.
-.P
-.B UDEV_NO_DEVD
-The default behavior of
-.B udev
-is to execute programs in the
-.I /etc/dev.d/
-directory after device handling. If set,
-.B udev
-will skip this step.
 .SH "DESCRIPTION"
 .B udev
 provides a dynamic device directory containing only the files for actually
@@ -57,10 +30,9 @@ queries its database for the name of the device file to be deleted.
 .SH "CONFIGURATION"
 All
 .B udev
-configuration files consist of a set of lines of text.  All empty
+configuration files consist of a set of lines of text. All empty
 lines or lines beginning with '#' will be ignored.
 .P
-
 .B udev
 expects its main configuration file at
 .IR /etc/udev/udev.conf .
@@ -111,7 +83,7 @@ file. The default value is
 .IR root .
 .br
 .P
-.RI "A sample " udev.conf " might look like this:
+.RI "A sample " udev.conf " file might look like this:
 .sp
 .nf
 # udev_root - where to place the device nodes in the filesystem
@@ -186,7 +158,7 @@ Match the topological position on bus, like physical port of USB device
 .TP
 .BI SYSFS{ filename }
 Match sysfs device attribute like label, vendor, USB serial number, SCSI UUID
-or file system label.  Up to 5 different sysfs files can be checked, with
+or file system label. Up to 5 different sysfs files can be checked, with
 all of the values being required to match the rule.
 .br
 Trailing whitespace characters in the sysfs attribute value are ignored, if
@@ -215,12 +187,14 @@ should be renamed to.
 .br
 If given with the attribute
 .BR NAME{ all_partitions }
-it will  create all 15 partitions of a blockdevice.
+.B udev
+will create device nodes for all 15 partitions of a blockdevice.
 This may be useful for removable media devices.
 .br
 If given with the attribute
 .BR NAME{ ignore_remove }
-it will will ignore any later remove event for this device.
+.B udev
+will ignore any later remove event for this device.
 This may be useful as a workaround for broken device drivers.
 .sp
 Multiple attributes may be separated by comma.
@@ -293,7 +267,7 @@ The count of charcters to insert may be limited by specifying
 the format length value. For example, '%3s{file}' will only insert
 the first three characters of the sysfs attribute.
 .P
-.RI "A sample " udev.rules " might look like this:"
+.RI "A sample " udev.rules " file might look like this:"
 .sp
 .nf
 # if /sbin/scsi_id returns "OEM 0815", the device will be called disk1
@@ -323,7 +297,6 @@ KERNEL="scd*", NAME="%k", SYMLINK="cdrom%e"
 KERNEL="pcd*", NAME="%k", SYMLINK="cdrom%e"
 KERNEL="hd[a-z]", PROGRAM="/bin/cat /proc/ide/%k/media", RESULT="cdrom",
   NAME="%k", SYMLINK="cdrom%e"
-
 .fi
 .P
 The permissions and ownership of the created device file are read from
@@ -339,7 +312,7 @@ Every line lists a device name followed by owner, group and permission
 mode. All values are separated by colons. The name field may contain a
 pattern to apply the values to a whole class of devices.
 .sp
-.RI "A sample " udev.permissions " might look like this:"
+.RI "A sample " udev.permissions " file might look like this:"
 .sp
 .nf
 #name:user:group:mode
@@ -360,14 +333,14 @@ Matches any single character, but does not match zero characters.
 .TP
 .B [ ]
 Matches any single character specified within the brackets. For example, the
-pattern string "tty[SR]" would match either "ttyS" or "ttyR".  Ranges are also
-supported within this match with the '\-' character.  For example, to match on
+pattern string "tty[SR]" would match either "ttyS" or "ttyR". Ranges are also
+supported within this match with the '\-' character. For example, to match on
 the range of all digits, the pattern [0\-9] would be used. If the first character
 following the '[' is a '!', any characters not enclosed are matched.
 .P
 After device node creation, removal, or network device renaming,
 .B udev
-executes the programs in the directory tree under
+executes the programs located in the directory tree under
 .IR /etc/dev.d/ .
 The name of a program must have the suffix
 .I .dev
@@ -379,7 +352,7 @@ is set if udev is configured to use the syslog facility. Executed programs may
 want to follow that setting.
 .B DEVNAME
 is exported to make the name of the created node, or the name the network
-device is renamed to, available to the executed program.  The programs in every
+device is renamed to, available to the executed program. The programs in every
 directory are sorted in lexical order, while the directories are searched in
 the following order:
 .sp
@@ -388,6 +361,34 @@ the following order:
 /etc/dev.d/$(SUBSYSTEM)/*.dev
 /etc/dev.d/default/*.dev
 .fi
+.SH "ENVIRONMENT"
+.P
+The following variables are read from the environment:
+.TP
+.B ACTION
+.IR add " or " remove
+signifies the addition or the removal of a device.
+.TP
+.B DEVPATH
+The sysfs devpath of the device without the mountpoint but a leading slash.
+.TP
+.B SUBSYSTEM
+The subsystem the device belongs to. Alternatively the subsystem may
+be passed as the first argument.
+.TP
+.B UDEV_CONFIG_FILE
+Overrides the default location of the
+.B udev
+config file.
+.TP
+.B UDEV_NO_DEVD
+The default behavior of
+.B udev
+is to execute programs in the
+.I /etc/dev.d/
+directory after device handling. If set,
+.B udev
+will skip this step.
 .SH "FILES"
 .nf
 /sbin/udev                           udev program
@@ -395,15 +396,16 @@ the following order:
 /etc/hotplug.d/default/udev.hotplug  hotplug symlink to udev program
 /etc/dev.d/*                         programs invoked by udev
 .fi
-.LP
 .SH "SEE ALSO"
 .BR udevinfo (8),
 .BR udevd (8),
 .BR hotplug (8)
 .PP
-The
+.B Web resources:
+.nf
 .I http://linux\-hotplug.sourceforge.net/
-web site.
+.I http://www.kernel.org/pub/linux/utils/kernel/hotplug/udev.html
+.fi
 .SH AUTHORS
 .B udev
 was developed by Greg Kroah-Hartman <greg@kroah.com> with much help from
