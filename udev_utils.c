@@ -47,15 +47,15 @@ void udev_init_device(struct udevice *udev, const char* devpath, const char *sub
 		strfieldcpy(udev->subsystem, subsystem);
 
 	if (strcmp(udev->subsystem, "block") == 0)
-		udev->type = 'b';
+		udev->type = BLOCK;
 	else if (strcmp(udev->subsystem, "net") == 0)
-		udev->type = 'n';
+		udev->type = NET;
 	else if (strncmp(udev->devpath, "/block/", 7) == 0)
-		udev->type = 'b';
+		udev->type = BLOCK;
 	else if (strncmp(udev->devpath, "/class/net/", 11) == 0)
-		udev->type = 'n';
+		udev->type = NET;
 	else if (strncmp(udev->devpath, "/class/", 7) == 0)
-		udev->type = 'c';
+		udev->type = CLASS;
 
 	udev->mode = 0660;
 	strcpy(udev->owner, "root");

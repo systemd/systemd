@@ -70,15 +70,11 @@ int udev_make_node(struct udevice *udev, const char *file, dev_t devt, mode_t mo
 
 create:
 	switch (udev->type) {
-	case 'b':
+	case BLOCK:
 		mode |= S_IFBLK;
 		break;
-	case 'c':
-	case 'u':
+	case CLASS:
 		mode |= S_IFCHR;
-		break;
-	case 'p':
-		mode |= S_IFIFO;
 		break;
 	default:
 		dbg("unknown node type %c\n", udev->type);
@@ -277,7 +273,7 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 	char *pos;
 	int retval = 0;
 
-	if (udev->type == 'b' || udev->type == 'c') {
+	if (udev->type == BLOCK || udev->type == CLASS) {
 		udev->devt = get_devt(class_dev);
 		if (!udev->devt) {
 			dbg("no dev-file found, do nothing");
@@ -292,7 +288,7 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 
 	selinux_init();
 
-	if (udev->type == 'b' || udev->type == 'c') {
+	if (udev->type == BLOCK || udev->type == CLASS) {
 		retval = create_node(udev, class_dev);
 		if (retval != 0)
 			goto exit;
@@ -305,7 +301,7 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 		snprintf(udev->devname, NAME_SIZE, "%s/%s", udev_root, udev->name);
 		udev->devname[NAME_SIZE-1] = '\0';
 
-	} else if (udev->type == 'n') {
+	} else if (udev->type == NET) {
 		/* look if we want to change the name of the netif */
 		if (strcmp(udev->name, udev->kernel_name) != 0) {
 			retval = rename_net_if(udev);

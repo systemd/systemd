@@ -179,7 +179,7 @@ int main(int argc, char *argv[], char *envp[])
 			dbg("udev add");
 
 			/* skip subsystems without "dev", but handle net devices */
-			if (udev.type != 'n' && subsystem_expect_no_dev(udev.subsystem)) {
+			if (udev.type != NET && subsystem_expect_no_dev(udev.subsystem)) {
 				dbg("don't care about '%s' devices", udev.subsystem);
 				goto hotplug;
 			}

@@ -771,7 +771,7 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 				dbg_parse("remove event should be ignored");
 			}
 			/* apply all_partitions option only at a main block device */
-			if (dev->partitions && udev->type == 'b' && udev->kernel_number[0] == '\0') {
+			if (dev->partitions && udev->type == BLOCK && udev->kernel_number[0] == '\0') {
 				udev->partitions = dev->partitions;
 				dbg("creation of partition nodes requested");
 			}
@@ -815,7 +815,7 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 				strfieldcpy(udev->config_file, dev->config_file);
 				udev->config_line = dev->config_line;
 
-				if (udev->type != 'n')
+				if (udev->type != NET)
 					dbg("name, '%s' is going to have owner='%s', group='%s', mode=%#o partitions=%i",
 					    udev->name, udev->owner, udev->group, udev->mode, udev->partitions);
 

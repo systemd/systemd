@@ -48,6 +48,14 @@
 
 #define DEFAULT_PARTITIONS_COUNT	15
 
+enum device_type {
+	UNKNOWN,
+	CLASS,
+	BLOCK,
+	NET,
+	PHYSDEV,
+};
+
 struct udevice {
 	char devpath[DEVPATH_SIZE];
 	char subsystem[SUBSYSTEM_SIZE];

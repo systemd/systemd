@@ -94,7 +94,7 @@ int main(int argc, char *argv[], char *envp[])
 	udev_init_device(&udev, devpath, subsystem);
 
 	/* skip subsystems without "dev", but handle net devices */
-	if (udev.type != 'n' && subsystem_expect_no_dev(udev.subsystem)) {
+	if (udev.type != NET && subsystem_expect_no_dev(udev.subsystem)) {
 		info("don't care about '%s' devices", udev.subsystem);
 		return 2;
 	}
