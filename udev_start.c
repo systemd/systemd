@@ -291,7 +291,7 @@ int udev_start(void)
 {
 	/* set environment for callouts and dev.d/ */
 	setenv("ACTION", "add", 1);
-	setenv("UDEVSTART", "1", 1);
+	setenv("UDEV_START", "1", 1);
 
 	udev_scan_class();
 	udev_scan_block();

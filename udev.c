@@ -81,6 +81,10 @@ int main(int argc, char *argv[], char *envp[])
 	logging_init("udev");
 	udev_init_config();
 
+	/* export logging flag, callouts may want to do the same as udev */
+	if (udev_log)
+		setenv("UDEV_LOG", "1", 1);
+
 	if (strstr(argv[0], "udevstart") || (argv[1] != NULL && strstr(argv[1], "udevstart"))) {
 		act_type = UDEVSTART;
 	} else {
@@ -143,7 +147,11 @@ int main(int argc, char *argv[], char *envp[])
 	switch(act_type) {
 	case UDEVSTART:
 		dbg("udevstart");
+
+		/* disable all logging as it's much too slow on some facilities */
 		udev_log = 0;
+		unsetenv("UDEV_LOG");
+
 		namedev_init();
 		retval = udev_start();
 		break;
@@ -155,7 +163,7 @@ int main(int argc, char *argv[], char *envp[])
 		class_dev = sysfs_open_class_device_path(path);
 		if (class_dev == NULL) {
 			dbg ("sysfs_open_class_device_path failed");
-			break;
+			goto exit;
 		}
 		dbg("opened class_dev->name='%s'", class_dev->name);
 
