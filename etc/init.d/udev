@@ -49,6 +49,12 @@ case "$1" in
 	if [ ! -d $udev_root ]; then
 		mkdir $udev_root
 	fi
+
+	# remove the database if it is there as we always want to start fresh
+	if [ -f $udev_root/.udevdb ]; then
+		rm -f $udev_root/.udevdb
+	fi
+
 	# propogate /udev from /sys - we only need this while we do not
 	# have initramfs and an early user-space with which to do early
 	# device bring up
