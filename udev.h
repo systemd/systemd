@@ -34,14 +34,22 @@
 	#define dbg(format, arg...) do { } while (0)
 #endif
 
+/* Parser needs it's own debugging statement, we usually don't care about this at all */
+#ifdef DEBUG_PARSER
+#define dbg_parse(format, arg...)							\
+	do {										\
+		log_message (LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
+	} while (0)
+#else
+	#define dbg_parse(format, arg...) do { } while (0)
+#endif
 
-/* Lots of constants that should be in a config file sometime */
-
-/* Where udev should create its device nodes, trailing / needed */
-#define UDEV_ROOT	"/udev/"
 
 extern int log_message (int level, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
+
+
+/* Lots of constants that should be in a config file sometime */
 
 #define NAME_SIZE	100
 #define OWNER_SIZE	30

@@ -22,10 +22,16 @@ DEBUG = true
 
 
 ROOT =		udev
-VERSION =	0.2
+VERSION =	003
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
 
+# override this to make udev look in a different location for it's config files
+PREFIX =
+CONFIG_DIR = $(PREFIX)/etc/udev/
+
+# place to put our device nodes
+UDEV_DIR = /udev/
 
 # Comment out this line to build with something other 
 # than the local version of klibc
@@ -135,7 +141,9 @@ GEN_HEADERS =	udev_version.h
 
 # Rules on how to create the generated header files
 udev_version.h:
-	@echo \#define UDEV_VERSION \"$(VERSION)\" > $@
+	@echo \#define UDEV_VERSION	\"$(VERSION)\" > $@
+	@echo \#define UDEV_CONFIG_DIR	\"$(CONFIG_DIR)\" >> $@
+	@echo \#define UDEV_ROOT	\"$(UDEV_DIR)\" >> $@
 
 
 $(ROOT): $(GEN_HEADERS) $(OBJS) $(LIBSYSFS) $(TDB)
@@ -151,7 +159,7 @@ clean:
 	$(MAKE) -C libsysfs clean
 	$(MAKE) -C tdb clean
 
-DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v CVS | grep -v "\.tar\.gz" | grep -v "\/\." | grep -v releases | grep -v BitKeeper | grep -v SCCS )
+DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v CVS | grep -v "\.tar\.gz" | grep -v "\/\." | grep -v releases | grep -v BitKeeper | grep -v SCCS | grep -v ".tdb" )
 DISTDIR := $(RELEASE_NAME)
 srcdir = .
 release: $(DISTFILES) clean

@@ -4,10 +4,7 @@
 #ifndef _UDEVDB_H_
 #define _UDEVDB_H_
 
-#include "namedev.h"
-#include "udev.h"
-
-#define UDEVDB		"/home/greg/src/udev/udevdb.tdb" 
+#define UDEV_DB		"udevdb.tdb" 
 
 #define PATH_SIZE	256
 

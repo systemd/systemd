@@ -9,6 +9,9 @@
 #include <errno.h>
 #include <signal.h>
 
+#include "udev_version.h"
+#include "udev.h"
+#include "namedev.h"
 #include "udevdb.h"
 #include "tdb/tdb.h"
 
@@ -63,9 +66,14 @@ static void udevdb_close(void)
  */
 static int udevdb_open(int method)
 {
-	udevdb = tdb_open(UDEVDB, 0, method, O_RDWR | O_CREAT, 0644);
-	if (udevdb == NULL)
-		return -1;
+	udevdb = tdb_open(UDEV_CONFIG_DIR UDEV_DB, 0, method, O_RDWR | O_CREAT, 0644);
+	if (udevdb == NULL) {
+		if (method == UDEVDB_INTERNAL)
+			dbg("Unable to initialize in-memory database");
+		else
+			dbg("Unable to initialize database at %s", UDEV_CONFIG_DIR UDEV_DB);
+		return -EINVAL;
+	}
 	return 0;
 }
 

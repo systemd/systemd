@@ -30,7 +30,6 @@ struct sysfs_class_device;
 
 /* namedev config files */
 #define COMMENT_CHARACTER		'#'
-#define NAMEDEV_CONFIG_ROOT		"/home/greg/src/udev/"
 #define NAMEDEV_CONFIG_PERMISSION_FILE	"namedev.permissions"
 #define NAMEDEV_CONFIG_FILE		"namedev.config"
 
