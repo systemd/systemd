@@ -344,6 +344,7 @@ install: install-config install-dbus-policy all
 		$(INSTALL_PROGRAM) -D etc/init.d/udev $(DESTDIR)$(initdir)/udev; \
 	fi
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
+	$(INSTALL_DATA) -D udevinfo.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
 	- rm -f $(DESTDIR)$(hotplugdir)/udev.hotplug
 	- ln -f -s $(sbindir)/$(ROOT) $(DESTDIR)$(hotplugdir)/udev.hotplug
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
@@ -359,6 +360,7 @@ uninstall: uninstall-dbus-policy
 	- rm $(configdir)/udev.conf
 	- rm $(initdir)/udev
 	- rm $(mandir)/man8/udev.8
+	- rm $(mandir)/man8/udevinfo.8
 	- rm $(sbindir)/$(ROOT)
 	- rm $(sbindir)/$(HELPER)
 	- rmdir $(hotplugdir)

@@ -1,0 +1,52 @@
+.TH UDEVINFO 8 "October 2003" "" "Linux Administrator's Manual"
+.SH NAME
+udevinfo \- retrieve information from udev
+.SH SYNOPSIS
+.B udevinfo
+.RI "[-q " query_type " -p " sysfs_path "] [-drVh]"
+.SH "DESCRIPTION"
+.B udevinfo
+allows users to query the udev database for information on any of the devices
+currently present in the system.  It also provides a way to query any device
+in the sysfs tree to help in creating
+.B udev
+rule files.
+.SH "OPTIONS"
+.TP
+.B -V
+Print the version information.
+.TP
+.B -r
+Print the the
+.B udev_root
+directory. When used in conjunction with a query for the node name, the
+.B udev_root
+will be prepended.
+.TP
+.BI -q " query_type"
+Query the database for specified value of a created device node.
+Valid types are:
+.BR name ", " symlink ", " owner " , " group " or " path.
+.TP
+.BI -p " sysfs_path"
+Specify the sysfs path of the device to query.
+.TP
+.BI -n " name"
+Specify the name of the node for the device to query.
+.TP
+.B -d
+Dump the whole database.
+.TP
+.B -h
+Print help text.
+.SH "FILES"
+.nf
+/etc/udev/*  udev config files
+.fi
+.LP
+.SH "SEE ALSO"
+.BR udev (8)
+.SH AUTHORS
+.B udevinfo
+was developed primarily by Kay Sievers <kay.sievers@vrfy.org>, with help
+from others.
