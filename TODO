@@ -1,8 +1,29 @@
-- use mknod(2) and not execute mknod(1)
+This is a short list of things that needs to be done.  They are in no specific
+order.  I will gladly accept patches for any of these items, or any other stuff
+people offer up.
+
+	Greg Kroah-Hartman <greg@kroah.com>
+
+
+- more documentation (can never have too much.)
+- document the config file format (it will change over time...)
+- add proper man page
 - add klibc to the build process (or make it easier to do) to get
   smaller binary
-- document the config file format (it will change over time...)
-- persistant naming database backend
+- import latest libsysfs and convert udev to use it.
+- On remove, look up the device in the database (now that we have one) and
+  delete what was created, not what the kernel is calling the device.
+- add symlink generation and removal support
+- better partition support (it's a hack right now, maybe new libsysfs changes
+  can help out a lot here.)
+- allow database to be queried by other programs
+- split program into two pieces (daemon and helper that sends events to it).
+  This will allow us to keep track of sequences, and lots of other needed
+  stuff.
+- keep track of current permissions on devices when daemon shuts down.
+- better permission handling
+- create kernel name to devfs name config file so that all of the devfs users
+  will have an upgrade path.
 - make program work like design says it should (three parts, not 1)
 - add hooks to call D-BUS when new node is created or removed
 - lots of other stuff...
