@@ -5,3 +5,6 @@ pl2303:500:500:0666
 visor:root:uucp:0666
 dsp1:::0666
 camera*:500:500:0666
+sgi_fetchop:root:root:666
+iseries/vcd*:root:disk:660
+iseries/vd*:root:disk:660
