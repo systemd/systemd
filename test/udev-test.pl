@@ -215,7 +215,7 @@ EOF
 #\\
 
 KERNEL="ttyUSB0", \\
-NAME="visor"
+	NAME="visor"
 
 EOF
 	},

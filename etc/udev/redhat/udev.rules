@@ -104,7 +104,7 @@ KERNEL="sr[0-9]*", BUS="scsi", PROGRAM="/etc/udev/scripts/check-cdrom.sh %k DVD-
 KERNEL="sr[0-9]*", BUS="scsi", NAME="scd%n", GROUP="disk", MODE="0640"
 KERNEL="hd[a-z]*", BUS="ide", SYSFS{removable}="1", NAME{ignore_remove}="%k", GROUP="disk", MODE="0640"
 
-KERNEL="hd[a-z]*", NAME="%k", GROUP="disk", MODE="0640"
-KERNEL="sd[a-z]*", NAME="%k", GROUP="disk", MODE="0640"
+# all block devices
+SUBSYSTEM="block",	NAME="%k", GROUP="disk", MODE="0640"
 
 KERNEL="dvb*", PROGRAM="/etc/udev/scripts/dvb.sh %k", NAME="%c"

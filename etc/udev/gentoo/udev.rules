@@ -207,6 +207,9 @@ KERNEL="diskonkey*",	NAME="%k", GROUP="disk"
 # rem_ide devices
 KERNEL="microdrive*",	NAME="%k", GROUP="disk"
 
+# all block devices
+SUBSYSTEM="block",	NAME="%k", GROUP="disk"
+
 # kbd devices
 KERNEL="kbd",		NAME="%k", MODE="0664"
 
