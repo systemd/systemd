@@ -32,6 +32,8 @@
 #define OWNER_SIZE	30
 #define GROUP_SIZE	30
 #define MODE_SIZE	8
+#define BOOL_SIZE	5	/* 'yes', 'no' and possibly 'true' or 'false'
+				   in future */
 
 struct udevice {
 	char name[NAME_SIZE];
@@ -72,5 +74,6 @@ extern char udev_rules_filename[PATH_MAX+NAME_MAX];
 extern char default_mode_str[MODE_SIZE];
 extern char default_owner_str[OWNER_SIZE];
 extern char default_group_str[GROUP_SIZE];
+extern char udev_log_str[BOOL_SIZE];
 
 #endif

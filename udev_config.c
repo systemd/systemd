@@ -48,6 +48,7 @@ char udev_config_filename[PATH_MAX+NAME_MAX];
 char default_mode_str[MODE_SIZE];
 char default_owner_str[OWNER_SIZE];
 char default_group_str[GROUP_SIZE];
+char udev_log_str[BOOL_SIZE];
 
 
 static void init_variables(void)
@@ -60,6 +61,7 @@ static void init_variables(void)
 	strfieldcpy(udev_config_filename, UDEV_CONFIG_FILE);
 	strfieldcpy(udev_rules_filename, UDEV_RULES_FILE);
 	strfieldcpy(udev_permissions_filename, UDEV_PERMISSION_FILE);
+	strfieldcpy(udev_log_str, UDEV_LOG_DEFAULT);
 }
 
 #define set_var(_name, _var)				\
@@ -156,6 +158,7 @@ static int parse_config_file(void)
 		set_var("default_mode", default_mode_str);
 		set_var("default_owner", default_owner_str);
 		set_var("default_group", default_group_str);
+		set_var("udev_log", udev_log_str);
 	}
 	dbg_parse("%s:%d:%Zd: error parsing '%s'", udev_config_filename,
 		  lineno, temp - line, temp);
@@ -191,6 +194,7 @@ static void get_dirs(void)
 	dbg_parse("udev_db_filename = %s", udev_db_filename);
 	dbg_parse("udev_rules_filename = %s", udev_rules_filename);
 	dbg_parse("udev_permissions_filename = %s", udev_permissions_filename);
+	dbg_parse("udev_log_str = %s", udev_log_str);
 	parse_config_file();
 
 	dbg_parse("udev_root = %s", udev_root);
@@ -198,6 +202,7 @@ static void get_dirs(void)
 	dbg_parse("udev_db_filename = %s", udev_db_filename);
 	dbg_parse("udev_rules_filename = %s", udev_rules_filename);
 	dbg_parse("udev_permissions_filename = %s", udev_permissions_filename);
+	dbg_parse("udev_log_str = %s", udev_log_str);
 }
 
 void udev_init_config(void)

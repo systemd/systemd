@@ -34,6 +34,9 @@
 #include <unistd.h>
 #include <syslog.h>
 
+#include "udev.h"
+#include "udev_version.h"
+
 #undef info
 #define info(format, arg...)								\
 	do {										\
@@ -62,6 +65,9 @@ static void log_message (int level, const char *format, ...)
 static inline void log_message (int level, const char *format, ...)
 {
 	va_list	args;
+
+	if (0 != strncmp(udev_log_str, UDEV_LOG_DEFAULT, BOOL_SIZE))
+		return;
 
 	va_start(args, format);
 	vsyslog(level, format, args);

@@ -29,3 +29,6 @@ default_owner="root"
 #                 explicit match in the permissions file
 default_group="root"
 
+# udev_log - set to "yes" if you want logging, else "no"
+udev_log="yes"
+

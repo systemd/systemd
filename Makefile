@@ -239,6 +239,7 @@ udev_version.h:
 	@echo \#define UDEV_CONFIG_FILE	\"$(configdir)\udev.conf\" >> $@
 	@echo \#define UDEV_RULES_FILE	\"$(configdir)\udev.rules\" >> $@
 	@echo \#define UDEV_PERMISSION_FILE	\"$(configdir)\udev.permissions\" >> $@
+	@echo \#define UDEV_LOG_DEFAULT \"yes\" >> $@
 	@echo \#define UDEV_BIN		\"$(DESTDIR)$(sbindir)/udev\" >> $@
 	@echo \#define UDEVD_BIN	\"$(DESTDIR)$(sbindir)/udevd\" >> $@
 
