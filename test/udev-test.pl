@@ -400,6 +400,16 @@ KERNEL="ttyUSB0", NAME="visor"
 EOF
 	},
 	{
+		desc		=> "name test with ! in the name for a partition",
+		subsys		=> "block",
+		devpath		=> "/block/cciss!c0d0/cciss!c0d0p1",
+		exp_name	=> "cciss/c0d0p1" ,
+		conf		=> <<EOF
+BUS="scsi", NAME="%k"
+KERNEL="ttyUSB0", NAME="visor"
+EOF
+	},
+	{
 		desc		=> "ID rule",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
