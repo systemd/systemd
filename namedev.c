@@ -209,7 +209,9 @@ static int get_format_len(char **str)
 	return -1;
 }
 
-static void apply_format(struct udevice *udev, unsigned char *string, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
+static void apply_format(struct udevice *udev, char *string, size_t maxsize,
+			 struct sysfs_class_device *class_dev,
+			 struct sysfs_device *sysfs_device)
 {
 	char temp[NAME_SIZE];
 	char temp1[NAME_SIZE];
@@ -245,19 +247,19 @@ static void apply_format(struct udevice *udev, unsigned char *string, struct sys
 		case 'b':
 			if (strlen(udev->bus_id) == 0)
 				break;
-			strcat(pos, udev->bus_id);
+			strnfieldcat(pos, udev->bus_id, maxsize);
 			dbg("substitute bus_id '%s'", udev->bus_id);
 			break;
 		case 'k':
 			if (strlen(udev->kernel_name) == 0)
 				break;
-			strcat(pos, udev->kernel_name);
+			strnfieldcat(pos, udev->kernel_name, maxsize);
 			dbg("substitute kernel name '%s'", udev->kernel_name);
 			break;
 		case 'n':
 			if (strlen(udev->kernel_number) == 0)
 				break;
-			strcat(pos, udev->kernel_number);
+			strnfieldcat(pos, udev->kernel_number, maxsize);
 			dbg("substitute kernel number '%s'", udev->kernel_number);
 				break;
 		case 'm':
@@ -287,11 +289,11 @@ static void apply_format(struct udevice *udev, unsigned char *string, struct sys
 					}
 				}
 				if (pos3) {
-					strcat(pos, pos3);
+					strnfieldcat(pos, pos3, maxsize);
 					dbg("substitute part of result string '%s'", pos3);
 				}
 			} else {
-				strcat(pos, udev->program_result);
+				strnfieldcat(pos, udev->program_result, maxsize);
 				dbg("substitute result string '%s'", udev->program_result);
 			}
 			break;
@@ -302,20 +304,20 @@ static void apply_format(struct udevice *udev, unsigned char *string, struct sys
 					dbg("sysfa attribute '%s' not found", attr);
 					break;
 				}
-				strcpy(pos, tmpattr->value);
+				strnfieldcpy(pos, tmpattr->value, maxsize);
 				dbg("substitute sysfs value '%s'", tmpattr->value);
 			} else {
 				dbg("missing attribute");
 			}
 			break;
 		case '%':
-			strcat(pos, "%");
+			strnfieldcat(pos, "%", maxsize);
 			break;
 		default:
 			dbg("unknown substitution type '%%%c'", c);
 			break;
 		}
-		strcat(pos, tail);
+		strnfieldcat(pos, tail, maxsize);
 	}
 }
 
@@ -462,7 +464,7 @@ static int execute_program(char *path, char *value, int len)
 				strncpy(value, buffer, len);
 				pos = value + strlen(value)-1;
 				if (pos[0] == '\n')
-				pos[0] = '\0';
+					pos[0] = '\0';
 				dbg("result is '%s'", value);
 			}
 		}
@@ -733,7 +735,8 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 		/* execute external program */
 		if (dev->program[0] != '\0') {
 			dbg("check " FIELD_PROGRAM);
-			apply_format(udev, dev->program, class_dev, sysfs_device);
+			apply_format(udev, dev->program, sizeof(dev->program),
+				     class_dev, sysfs_device);
 			if (execute_program(dev->program, udev->program_result, NAME_SIZE) != 0) {
 				dbg(FIELD_PROGRAM " returned nozero");
 				goto try_parent;
@@ -825,8 +828,10 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 
 found:
 	/* substitute placeholder */
-	apply_format(udev, udev->name, class_dev, sysfs_device);
-	apply_format(udev, udev->symlink, class_dev, sysfs_device);
+	apply_format(udev, udev->name, sizeof(udev->name),
+		     class_dev, sysfs_device);
+	apply_format(udev, udev->symlink, sizeof(udev->symlink),
+		     class_dev, sysfs_device);
 	udev->partitions = dev->partitions;
 done:
 	perm = find_perm(udev->name);

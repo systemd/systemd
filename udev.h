@@ -64,7 +64,19 @@ do { \
 #define strfieldcat(to, from) \
 do { \
 	to[sizeof(to)-1] = '\0'; \
-	strncat(to, from, sizeof(to) - strlen(to) -1); \
+	strncat(to, from, sizeof(to) - strlen(to)-1); \
+} while (0)
+
+#define strnfieldcpy(to, from, maxsize) \
+do { \
+	to[maxsize-1] = '\0'; \
+	strncpy(to, from, maxsize-1); \
+} while (0)
+
+#define strnfieldcat(to, from, maxsize) \
+do { \
+	to[maxsize-1] = '\0'; \
+	strncat(to, from, maxsize - strlen(to)-1); \
 } while (0)
 
 extern int udev_add_device(char *path, char *subsystem, int fake);

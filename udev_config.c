@@ -81,7 +81,7 @@ static void init_variables(void)
 #define set_var(_name, _var)				\
 	if (strcasecmp(variable, _name) == 0) {		\
 		dbg_parse("%s = '%s'", _name, value);	\
-		strncpy(_var, value, sizeof(_var));	\
+		strnfieldcpy(_var, value, sizeof(_var));\
 	}
 
 #define set_bool(_name, _var)				\
