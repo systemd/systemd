@@ -415,9 +415,8 @@ static int execute_program(struct udevice *udev, const char *path, char *value, 
 		dup2(fds[1], STDOUT_FILENO);
 		retval = execv(arg, argv);
 
-		err(KEY_PROGRAM " execution of '%s' failed", path);
-		retval = -1;
-		break;
+		err("exec of program failed");
+		_exit(1);
 	case -1:
 		err("fork of '%s' failed", path);
 		retval = -1;
