@@ -608,6 +608,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 	udev->mode = 0;
 
 	/* find the sysfs_device for this class device */
+	/* Wouldn't it really be nice if libsysfs could do this for us? */
 	if (class_dev->sysdevice) {
 		sysfs_device = class_dev->sysdevice;
 	} else {
@@ -691,12 +692,11 @@ label_found:
 		case NUMBER:
 			{
 			char path[SYSFS_PATH_MAX];
-			char *temp;
 
 			found = 0;
-			if (!class_dev->sysdevice)
+			if (!sysfs_device)
 				continue;
-			strcpy(path, class_dev->sysdevice->path);
+			strcpy(path, sysfs_device->path);
 			temp = strrchr(path, '/');
 			dbg_parse("NUMBER path = '%s'", path);
 			dbg_parse("NUMBER temp = '%s' id = '%s'", temp, dev->id);
@@ -727,12 +727,11 @@ label_found:
 		case TOPOLOGY:
 			{
 			char path[SYSFS_PATH_MAX];
-			char *temp;
 
-			if (!class_dev->sysdevice)
+			if (!sysfs_device)
 				continue;
 			found = 0;	
-			strcpy(path, class_dev->sysdevice->path);
+			strcpy(path, sysfs_device->path);
 			temp = strrchr(path, '/');
 			dbg_parse("TOPOLOGY path = '%s'", path);
 			dbg_parse("TOPOLOGY temp = '%s' place = '%s'", temp, dev->place);
