@@ -209,7 +209,7 @@ static int print_sysfs_devices(void)
 		struct dlist *class_devices;
 		struct sysfs_class_device *class_dev;
 		struct sysfs_device *phys_dev;
-		struct sysfs_driver *driver;
+		unsigned int major, minor;
 
 		cls = sysfs_open_class(class);
 		if (!cls)
@@ -228,23 +228,19 @@ static int print_sysfs_devices(void)
 
 			attr = sysfs_get_classdev_attr(class_dev, "dev");
 			if (attr) {
-				char *pos = &(attr->value[strlen(attr->value)-1]);
-
-				if  (pos[0] == '\n')
-					pos[0] = '\0';
-
-				printf("DEVMAJORMINOR  '%s'\n", attr->value);
+				sscanf(attr->value, "%u:%u", &major, &minor);
+				printf("MAJOR          %u\n", minor);
+				printf("MINOR          %u\n", major);
 			}
-
-			driver = sysfs_get_classdev_driver(class_dev);
-			if (driver)
-				printf("DEVDRIVER      '%s'\n", driver->name);
 
 			phys_dev = sysfs_get_classdev_device(class_dev);
 			if (phys_dev) {
 				printf("PHYSDEVPATH    '%s'\n", phys_dev->path);
 				if (phys_dev->bus[0] != '\0')
 					printf("PHYSDEVBUS     '%s'\n", phys_dev->bus);
+
+				if (phys_dev->driver_name[0] != '\0')
+					printf("PHYSDEVDRIVER  '%s'\n", phys_dev->driver_name);
 			}
 		}
 		sysfs_close_class(cls);
