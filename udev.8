@@ -116,7 +116,10 @@ detemined by a "device" symlink.
 .B LABEL
 device label or serial number, like USB serial number, SCSI UUID or
 file system label.  Up to 5 different sysfs files can be checked, with
-all of the values being required in order to match the rule.
+all of the values being required in order to match the rule.  The 
+.BR BUS 
+key is optional, but if specified, the sysfs device bus must be able to be
+detemined by a "device" symlink.
 .br
 .RB "keys: " BUS ", " SYSFS_
 .TP
