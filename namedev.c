@@ -264,28 +264,30 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			}
 			break;
 		case 's':
-			if (attr != NULL) {
-				tmpattr = find_sysfs_attribute(class_dev, sysfs_device, attr);
-				if (tmpattr == NULL) {
-					dbg("sysfa attribute '%s' not found", attr);
-					break;
-				}
-				/* strip trailing whitespace of matching value */
-				if (isspace(tmpattr->value[strlen(tmpattr->value)-1])) {
-					i = len = strlen(tmpattr->value);
-					while (i > 0 &&  isspace(tmpattr->value[i-1]))
-						i--;
-					if (i < len) {
-						tmpattr->value[i] = '\0';
-						dbg("remove %i trailing whitespace chars from '%s'",
-							 len - i, tmpattr->value);
-					}
-				}
-				strfieldcatmax(string, tmpattr->value, maxsize);
-				dbg("substitute sysfs value '%s'", tmpattr->value);
-			} else {
+			if (!class_dev)
+				break;
+			if (attr == NULL) {
 				dbg("missing attribute");
+				break;
 			}
+			tmpattr = find_sysfs_attribute(class_dev, sysfs_device, attr);
+			if (tmpattr == NULL) {
+				dbg("sysfa attribute '%s' not found", attr);
+				break;
+			}
+			/* strip trailing whitespace of matching value */
+			if (isspace(tmpattr->value[strlen(tmpattr->value)-1])) {
+				i = len = strlen(tmpattr->value);
+				while (i > 0 &&  isspace(tmpattr->value[i-1]))
+					i--;
+				if (i < len) {
+					tmpattr->value[i] = '\0';
+					dbg("remove %i trailing whitespace chars from '%s'",
+						 len - i, tmpattr->value);
+				}
+			}
+			strfieldcatmax(string, tmpattr->value, maxsize);
+			dbg("substitute sysfs value '%s'", tmpattr->value);
 			break;
 		case '%':
 			strfieldcatmax(string, "%", maxsize);
@@ -535,7 +537,7 @@ static int match_sysfs_pairs(struct config_device *dev, struct sysfs_class_devic
 static int match_id(struct config_device *dev, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
 	char path[SYSFS_PATH_MAX];
-	char *temp = NULL;
+	char *temp;
 
 	/* we have to have a sysfs device for ID to work */
 	if (!sysfs_device)

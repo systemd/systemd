@@ -68,17 +68,17 @@ struct sysfs_pair {
 struct config_device {
 	struct list_head node;
 
+	char kernel[NAME_SIZE];
+	char subsystem[SUBSYSTEM_SIZE];
 	char bus[BUS_SIZE];
 	char id[ID_SIZE];
 	char place[PLACE_SIZE];
-	char kernel[NAME_SIZE];
+	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];
 	char program[PROGRAM_SIZE];
 	char result[PROGRAM_SIZE];
-	char subsystem[SUBSYSTEM_SIZE];
 	char driver[DRIVER_SIZE];
 	char name[NAME_SIZE];
 	char symlink[NAME_SIZE];
-	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];
 
 	char owner[USER_SIZE];
 	char group[USER_SIZE];

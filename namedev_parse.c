@@ -171,6 +171,18 @@ static int namedev_parse(const char *filename, void *data)
 			if (retval)
 				break;
 
+			if (strcasecmp(temp2, FIELD_KERNEL) == 0) {
+				strfieldcpy(dev.kernel, temp3);
+				valid = 1;
+				continue;
+			}
+
+			if (strcasecmp(temp2, FIELD_SUBSYSTEM) == 0) {
+				strfieldcpy(dev.subsystem, temp3);
+				valid = 1;
+				continue;
+			}
+
 			if (strcasecmp(temp2, FIELD_BUS) == 0) {
 				strfieldcpy(dev.bus, temp3);
 				valid = 1;
@@ -212,18 +224,6 @@ static int namedev_parse(const char *filename, void *data)
 					strfieldcpy(pair->value, temp3);
 					valid = 1;
 				}
-				continue;
-			}
-
-			if (strcasecmp(temp2, FIELD_KERNEL) == 0) {
-				strfieldcpy(dev.kernel, temp3);
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(temp2, FIELD_SUBSYSTEM) == 0) {
-				strfieldcpy(dev.subsystem, temp3);
-				valid = 1;
 				continue;
 			}
 
