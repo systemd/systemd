@@ -421,6 +421,8 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 	int retval = 0;
 	int found;
 
+	dbg("class_dev->sysdevice->directory->path = '%s'", class_dev->sysdevice->directory->path);
+	dbg("class_dev->sysdevice->bus_id = '%s'", class_dev->sysdevice->bus_id);
 	list_for_each(tmp, &config_device_list) {
 		struct config_device *dev = list_entry(tmp, struct config_device, node);
 		switch (dev->type) {
@@ -437,11 +439,37 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
 			break;
 		case TOPOLOGY:
-			dbg("TOPOLOGY name = '%s', bus = '%s', place = '%s'"
-				" owner = '%s', group = '%s', mode = '%#o'",
-				dev->attr.name, dev->bus, dev->place,
+			{
+			char path[SYSFS_PATH_MAX];
+			char *temp;
+
+			found = 0;	
+			strcpy(path, class_dev->sysdevice->directory->path);
+			temp = strrchr(path, '/');
+			dbg("TOPOLOGY path = '%s'", path);
+			dbg("TOPOLOGY temp = '%s' place = '%s'", temp, dev->place);
+			if (strstr(temp, dev->place) != NULL) {
+				found = 1;
+			} else {
+				*temp = 0x00;
+				temp = strrchr(path, '/');
+				dbg("TOPOLOGY temp = '%s' place = '%s'", temp, dev->place);
+				if (strstr(temp, dev->place) != NULL)
+					found = 1;
+			}
+			if (!found)
+				continue;
+
+			strcpy(attr->name, dev->attr.name);
+			attr->mode = dev->attr.mode;
+			strcpy(attr->owner, dev->attr.owner);
+			strcpy(attr->group, dev->attr.group);
+			dbg("device at '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
+				dev->place, attr->name, 
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
+			return retval;
 			break;
+			}
 		case REPLACE:
 			if (strcmp(dev->kernel_name, class_dev->name) != 0)
 				continue;
@@ -463,7 +491,6 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 	attr->owner[0] = 0x00;
 	attr->group[0] = 0x00;
 	strcpy(attr->name, class_dev->name);
-exit:
 	return retval;
 }
 
