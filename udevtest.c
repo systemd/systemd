@@ -58,7 +58,6 @@ int main(int argc, char *argv[], char *envp[])
 	char *devpath;
 	char temp[NAME_SIZE];
 	char *subsystem = "";
-	const int fake = 1;
 
 	main_argv = argv;
 	main_envp = envp;
