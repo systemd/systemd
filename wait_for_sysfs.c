@@ -182,6 +182,7 @@ static int wait_for_bus_device(struct sysfs_device *device_dev)
 		{ .bus = "ide",		.file = "detach_state" },
 		{ .bus = "pci",		.file = "vendor" },
 		{ .bus = "platform",	.file = "detach_state" },
+		{ .bus = "i2c",		.file = "detach_state" },
 		{ NULL }
 	};
 	struct bus_file *busfile;
