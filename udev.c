@@ -111,17 +111,22 @@ int main(int argc, char *argv[], char *envp[])
 	act.sa_handler = (void (*) (int))sig_handler;
 	sigemptyset (&act.sa_mask);
 	act.sa_flags = 0;
-	/* alarm must not restart syscalls*/
 	sigaction(SIGALRM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGTERM, &act, NULL);
 
-	/* trigger timeout to interrupt blocking syscalls */
+	/* trigger timeout to prevent hanging processes */
 	alarm(ALARM_TIMEOUT);
 
+	action = getenv("ACTION");
+	devpath = getenv("DEVPATH");
+	subsystem = getenv("SUBSYSTEM");
+	/* older kernels passed the SUBSYSTEM only as argument */
+	if (!subsystem && argc == 2)
+		subsystem = argv[1];
 	udev_init_device(&udev, devpath, subsystem);
 
-	if (strstr(argv[0], "udevstart") || (argv[1] != NULL && strstr(argv[1], "udevstart"))) {
+	if (strstr(argv[0], "udevstart") || (argc == 2 && strstr(argv[1], "udevstart"))) {
 		dbg("udevstart");
 
 		/* disable all logging, as it's much too slow on some facilities */

@@ -50,14 +50,17 @@
 struct udevice {
 	char devpath[DEVPATH_SIZE];
 	char subsystem[SUBSYSTEM_SIZE];
+
 	char name[NAME_SIZE];
+	char symlink[NAME_SIZE];
 	char owner[OWNER_SIZE];
 	char group[GROUP_SIZE];
+	mode_t mode;
 	char type;
 	int major;
 	int minor;
-	mode_t mode;
-	char symlink[NAME_SIZE];
+
+	char devname[NAME_SIZE];
 	int partitions;
 	int ignore_remove;
 	int config_line;
@@ -67,7 +70,6 @@ struct udevice {
 	char program_result[NAME_SIZE];
 	char kernel_number[NAME_SIZE];
 	char kernel_name[NAME_SIZE];
-	char devname[NAME_SIZE];
 	int test_run;
 };
 
