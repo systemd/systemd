@@ -124,11 +124,13 @@ int file_map(const char *filename, char **buf, size_t *bufsize)
 	}
 
 	if (fstat(fd, &stats) < 0) {
+		close(fd);
 		return -1;
 	}
 
 	*buf = mmap(NULL, stats.st_size, PROT_READ, MAP_SHARED, fd, 0);
 	if (*buf == MAP_FAILED) {
+		close(fd);
 		return -1;
 	}
 	*bufsize = stats.st_size;
