@@ -1,0 +1,39 @@
+
+udev - a userspace implementation of devfs
+
+For more information on the design, and structure of this project, see the
+files in the docs/ directory.
+
+To use:
+
+- Edit the udev.h file and replace the following variables with values
+  that make sense for your system:
+	#define SYSFS_ROOT      "/sys"
+	#define UDEV_ROOT       "/home/greg/linux/udev/"
+	#define DEV_FILE        "/dev"
+	#define MKNOD           "/bin/mknod"
+  The only value most people will have to change is the UDEV_ROOT
+  variable, as I doubt you really want device nodes to be created in my
+  home directory :)
+
+- Run make to build the project.
+
+- Make sure sysfs is mounted.
+
+- Point /proc/sys/kernel/hotplug at the location of the udev binary that
+  is created.  Then plug some block devices in, or other types of
+  devices that create dev files in sysfs.  An easy way to do this,
+  without any hardware is to use the scsi_debug module to create virtual
+  scsi devices.
+
+- Watch as the nodes get created and removed.
+
+
+Yes this is a really rough first cut, I know.  It's mostly a proof of
+concept that this can actually work.  See the TODO file for a list of
+things left to be done.
+
+Any comment/questions/concerns please let me know.
+
+greg k-h
+greg@kroah.com

@@ -22,7 +22,7 @@ DEBUG = true
 
 
 ROOT =		udev
-VERSION =	0.01
+VERSION =	0.1
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
 
