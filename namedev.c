@@ -604,9 +604,8 @@ static int match_place(struct config_device *dev, struct sysfs_class_device *cla
 
 static int whitelist_search(struct sysfs_class_device *class_dev)
 {
+	char *sysblock = "/sys/block";
   	int i;
-  	int list_size = 17;
-	int sysblock = 10;
 
   	static char *list[] = {
   		"nb",
@@ -626,15 +625,15 @@ static int whitelist_search(struct sysfs_class_device *class_dev)
   		"pf",
   		"scd",
   		"ubd",
+		NULL,
   	};
 
-	if (!strncmp(class_dev->path, "/sys/block", sysblock)) {
-		for (i=0; i < list_size; i++) {
-			if (!strncmp(class_dev->name, list[i], strlen(list[i]))) {
-				return 1;
-			}
-		}
-	}
+	if (strncmp(class_dev->path, sysblock, strlen(sysblock)))
+		return 0;
+
+	for (i=0; list[i] != NULL; i++)
+		if (!strncmp(class_dev->name, list[i], strlen(list[i])))
+			return 1;
 
 	return 0;
 }
