@@ -37,8 +37,9 @@ KERNEL="ttyUSB0", NAME="pl2303"
 # if this is a ide cdrom, name it the default name, and create a symlink to cdrom
 BUS="ide", KERNEL="*[!0-9]", PROGRAM="/bin/cat /proc/ide/%k/media", RESULT="cdrom", NAME="%k", SYMLINK="cdrom"
 
-# device mapper creates its own device nodes so ignore these
-KERNEL="dm-[0-9]*", NAME=""
+# create a symlink named after the device map name
+# note devmap_name comes with extras/multipath
+KERNEL="dm-[0-9]*", PROGRAM="/sbin/devmap_name %M %m", NAME="%k", SYMLINK="%c"
 
 # DRI devices always go into a subdirectory (as per the LSB spec)
 KERNEL="card*", NAME="dri/card%n"
