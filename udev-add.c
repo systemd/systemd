@@ -100,6 +100,7 @@ static int create_path(char *file)
 
 static int create_node(struct udevice *dev)
 {
+	struct stat stats;
 	char filename[255];
 	char linktarget[255];
 	char *linkname;
@@ -220,6 +221,16 @@ static int create_node(struct udevice *dev)
 			if (*linktarget == '\0')
 				strcpy(linktarget, "./");
 			strcat(linktarget, &dev->name[tail]);
+
+			/* unlink existing non-directories to ensure that our symlink
+			 * is created */
+			if (lstat(filename, &stats) == 0) {
+				if ((stats.st_mode & S_IFMT) != S_IFDIR) {
+					if (unlink(filename))
+						dbg("unlink(%s) failed with error '%s'",
+						    filename, strerror(errno));
+				}
+			}
 
 			dbg("symlink(%s, %s)", linktarget, filename);
 			retval = symlink(linktarget, filename);
