@@ -670,7 +670,6 @@ try_parent:
 		dbg("sysfs_device->path='%s'", sysfs_device->path);
 		dbg("sysfs_device->bus_id='%s'", sysfs_device->bus_id);
 	}
-
 }
 
 int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_dev)
@@ -716,32 +715,32 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 	list_for_each_entry(dev, &config_device_list, node) {
 		dbg("process rule");
 		if (match_rule(udev, dev, class_dev, sysfs_device) == 0) {
-			if (dev->name[0] == '\0' && dev->symlink[0] == '\0') {
-				/* empty name, symlink, perms will not create any node */
-				if (dev->mode == 0000 && dev->owner[0] == '\0' && dev->group[0] == '\0') {
-					info("configured rule in '%s[%i]' applied, '%s' is ignored",
-					     dev->config_file, dev->config_line, udev->kernel_name);
-					return -1;
-				}
 
-				/* apply permissions only rule values */
-				if (dev->mode != 0000) {
-					udev->mode = dev->mode;
-					dbg("applied mode=%#o to '%s'", udev->mode, udev->kernel_name);
-				}
-				if (dev->owner[0] != '\0') {
-					strfieldcpy(udev->owner, dev->owner);
-					apply_format(udev, udev->owner, sizeof(udev->owner), class_dev, sysfs_device);
-					dbg("applied owner='%s' to '%s'", udev->owner, udev->kernel_name);
-				}
-				if (dev->group[0] != '\0') {
-					strfieldcpy(udev->group, dev->group);
-					apply_format(udev, udev->group, sizeof(udev->group), class_dev, sysfs_device);
-					dbg("applied group='%s' to '%s'", udev->group, udev->kernel_name);
-				}
+			/* empty name, symlink and perms will not create any node */
+			if (dev->name[0] == '\0' && dev->symlink[0] == '\0' &&
+			    dev->mode == 0000 && dev->owner[0] == '\0' && dev->group[0] == '\0') {
+				info("configured rule in '%s[%i]' applied, '%s' is ignored",
+				     dev->config_file, dev->config_line, udev->kernel_name);
+				return -1;
 			}
 
-			/* collect symlinks for the final matching rule */
+			/* apply permissions */
+			if (dev->mode != 0000) {
+				udev->mode = dev->mode;
+				dbg("applied mode=%#o to '%s'", udev->mode, udev->kernel_name);
+			}
+			if (dev->owner[0] != '\0') {
+				strfieldcpy(udev->owner, dev->owner);
+				apply_format(udev, udev->owner, sizeof(udev->owner), class_dev, sysfs_device);
+				dbg("applied owner='%s' to '%s'", udev->owner, udev->kernel_name);
+			}
+			if (dev->group[0] != '\0') {
+				strfieldcpy(udev->group, dev->group);
+				apply_format(udev, udev->group, sizeof(udev->group), class_dev, sysfs_device);
+				dbg("applied group='%s' to '%s'", udev->group, udev->kernel_name);
+			}
+
+			/* collect symlinks for this or the final matching rule */
 			if (dev->symlink[0] != '\0') {
 				char temp[NAME_SIZE];
 
@@ -774,19 +773,9 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 					goto exit;
 
 				udev->partitions = dev->partitions;
-				if (dev->mode != 0000)
-					udev->mode = dev->mode;
-				if (dev->owner[0] != '\0') {
-					strfieldcpy(udev->owner, dev->owner);
-					apply_format(udev, udev->owner, sizeof(udev->owner), class_dev, sysfs_device);
-				}
-				if (dev->group[0] != '\0') {
-					strfieldcpy(udev->group, dev->group);
-					apply_format(udev, udev->group, sizeof(udev->group), class_dev, sysfs_device);
-				}
 
-				dbg("name, '%s' is going to have owner='%s', group='%s', mode = %#o",
-				    udev->name, udev->owner, udev->group, udev->mode);
+				dbg("name, '%s' is going to have owner='%s', group='%s', mode=%#o partitions=%i",
+				    udev->name, udev->owner, udev->group, udev->mode, udev->partitions);
 
 				goto exit;
 			}
