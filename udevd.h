@@ -25,10 +25,12 @@
 #include "list.h"
 
 #define UDEV_MAGIC			"udevd_" UDEV_VERSION
-#define EVENT_TIMEOUT_SEC		10
 #define UDEVD_SOCK_PATH			"udevd"
 #define SEND_WAIT_MAX_SECONDS		3
 #define SEND_WAIT_LOOP_PER_SECOND	10
+#define INIT_TIME_SEC			5
+#define EVENT_INIT_TIMEOUT_SEC		2
+#define EVENT_TIMEOUT_SEC		10
 
 /* environment buffer, should match the kernel's size in lib/kobject_uevent.h */
 #define HOTPLUG_BUFFER_SIZE		1024

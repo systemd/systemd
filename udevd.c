@@ -47,6 +47,7 @@
 static int udevsendsock;
 
 static int pipefds[2];
+static long startup_time;
 static unsigned long long expected_seqnum = 0;
 static volatile int sigchilds_waiting;
 static volatile int run_msg_q;
@@ -220,6 +221,8 @@ static void msg_queue_manager(void)
 	struct hotplug_msg *tmp_msg;
 	struct sysinfo info;
 	long msg_age = 0;
+	static int timeout = EVENT_INIT_TIMEOUT_SEC;
+	static int init = 1;
 
 	dbg("msg queue manager, next expected is %llu", expected_seqnum);
 recheck:
@@ -230,11 +233,18 @@ recheck:
 			continue;
 		}
 
+		/* see if we are in the initialization phase and wait for the very first events */
+		if (init && (info.uptime - startup_time >= INIT_TIME_SEC)) {
+			init = 0;
+			timeout = EVENT_TIMEOUT_SEC;
+			dbg("initialization phase passed, set timeout to %i seconds", EVENT_TIMEOUT_SEC);
+		}
+
 		/* move event with expired timeout to the exec list */
 		sysinfo(&info);
 		msg_age = info.uptime - loop_msg->queue_time;
 		dbg("seq %llu is %li seconds old", loop_msg->seqnum, msg_age);
-		if (msg_age > EVENT_TIMEOUT_SEC-1) {
+		if (msg_age >= timeout) {
 			msg_move_exec(loop_msg);
 			goto recheck;
 		} else {
@@ -246,8 +256,8 @@ recheck:
 
 	/* set timeout for remaining queued events */
 	if (list_empty(&msg_list) == 0) {
-		struct itimerval itv = {{0, 0}, {EVENT_TIMEOUT_SEC - msg_age, 0}};
-		dbg("next event expires in %li seconds", EVENT_TIMEOUT_SEC - msg_age);
+		struct itimerval itv = {{0, 0}, {timeout - msg_age, 0}};
+		dbg("next event expires in %li seconds", timeout - msg_age);
 		setitimer(ITIMER_REAL, &itv, NULL);
 	}
 }
@@ -429,6 +439,7 @@ static void user_sighandler(void)
 
 int main(int argc, char *argv[], char *envp[])
 {
+	struct sysinfo info;
 	int maxsockplus;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
@@ -531,6 +542,10 @@ int main(int argc, char *argv[], char *envp[])
 		dbg("udev binary is set to '%s'", udev_bin);
 	else
 		udev_bin = UDEV_BIN;
+
+	/* handle special startup timeout*/
+	sysinfo(&info);
+	startup_time = info.uptime;
 
 	FD_ZERO(&readfds);
 	FD_SET(udevsendsock, &readfds);
