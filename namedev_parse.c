@@ -324,7 +324,6 @@ keys:
 				  dev.name, dev.bus, dev.exec_program,
 				  dev.id, dev.symlink);
 			if ((*dev.name == '\0') ||
-			    (*dev.bus == '\0') ||
 			    (*dev.id == '\0') ||
 			    (*dev.exec_program == '\0'))
 				goto error;
