@@ -151,16 +151,15 @@ file.
 Every line in the rules file defines the mapping between device attributes
 and the device file name. One ore more keys are specified to match a rule
 with the current device. If all keys are matching, the rule will be applied
-and the name is used for the device node. One or more optional symlinks
-targeting the node may be specified.
+and the name is used for the device node.
 .br
 If no matching rule is found, the default kernel device name is used.
 .P
-The line format is:
+Every rule consists of a list a comma separated fields:
 .sp
-.I key,[key,...] name [, symlink]
+.IR "key " ,[ "key " ,...] " name " [, " symlink" ]
 .sp
-where keys are:
+where possible fields are:
 .TP
 .B BUS
 Match the bus type of the device.
@@ -196,13 +195,19 @@ Match the returned string of the last
 call. This key may used in any following rule after a
 .B PROGRAM
 call.
-.P
-The
+.TP
 .B NAME
-field given with the attribute
+The name of the node to be created. If the name field is omitted or its
+value is empty, the device will be ignored and no node will be created.
+.br
+If given with the attribute
 .BR NAME{ all_partitions }
-will  create all 15 partitions of a blockdevice.
+it will  create all 15 partitions of a blockdevice.
 This may be useful for removable media devices.
+.TP
+.B SYMLINK
+The name of a symlink targeting the node. Multiple symlinks may be
+specified by separating the names by the space character.
 .P
 .RB "The " NAME " ," SYMLINK " and " PROGRAM
 fields support simple printf-like string substitution:

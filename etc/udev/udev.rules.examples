@@ -51,6 +51,10 @@ KERNEL="dm-[0-9]*", PROGRAM="/sbin/devmap_name %M %m", NAME="%k", SYMLINK="%c"
 # DRI devices always go into a subdirectory (as per the LSB spec)
 KERNEL="card*", NAME="dri/card%n"
 
+# create all 15 partitions of a USB flash card reader
+# note the trailing spaces in the attribute, use udevinfo(8) to examine your device
+BUS="scsi", SYSFS{model}="CF/MD           ", NAME{all_partitions}="compactflash"
+
 # alsa devices
 KERNEL="controlC[0-9]*", NAME="snd/%k"
 KERNEL="hw[CD0-9]*",     NAME="snd/%k"
