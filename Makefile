@@ -42,6 +42,9 @@ INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 
+# To build any of the extras programs, run with:
+# 	make EXTRAS="extras/a extras/b" 
+EXTRAS=
 
 # place to put our device nodes
 udevdir = ${prefix}/udev/
@@ -60,7 +63,7 @@ AR = $(CROSS)ar
 STRIP = $(CROSS)strip
 RANLIB = $(CROSS)ranlib
 
-export CROSS CC AR STRIP RANLIB
+export CROSS CC AR STRIP RANLIB CFLAGS LDFLAGS LIB_OBJS ARCH_LIB_OBJS CRT0
 
 # code taken from uClibc to determine the current arch
 ARCH := ${shell $(CC) -dumpmachine | sed -e s'/-.*//' -e 's/i.86/i386/' -e 's/sparc.*/sparc/' \
@@ -108,20 +111,20 @@ endif
 # If we are using our version of klibc, then we need to build and link it.
 # Otherwise, use glibc and link statically.
 ifeq ($(strip $(KLIBC)),true)
-	KLIBC_DIR	= klibc/klibc
+	KLIBC_BASE	= $(PWD)/klibc
+	KLIBC_DIR	= $(KLIBC_BASE)/klibc
 	INCLUDE_DIR	:= $(KLIBC_DIR)/include
+	LINUX_INCLUDE_DIR	:= $(KLIBC_BASE)/linux/include
 	include $(KLIBC_DIR)/arch/$(ARCH)/MCONFIG
 	# arch specific objects
-	LIBGCC		= $(shell $(CC) --print-libgcc)
 	ARCH_LIB_OBJS =	\
-			$(KLIBC_DIR)/libc.a	\
-			$(LIBGCC)
+			$(KLIBC_DIR)/libc.a
 
 
 	CRT0 = $(KLIBC_DIR)/crt0.o
 	LIBC =	$(ARCH_LIB_OBJS) $(LIB_OBJS) $(CRT0)
 	CFLAGS += -nostdinc -I$(INCLUDE_DIR) -I$(KLIBC_DIR)/arch/$(ARCH)/include \
-		-I$(INCLUDE_DIR)/bits$(BITSIZE) -I$(GCCINCDIR) -Iklibc/linux/include \
+		-I$(INCLUDE_DIR)/bits$(BITSIZE) -I$(GCCINCDIR) -I$(LINUX_INCLUDE_DIR) \
 		-D__KLIBC__
 	LIB_OBJS =
 	LDFLAGS = --static --nostdlib -nostartfiles -nodefaultlibs
@@ -133,7 +136,14 @@ else
 	LDFLAGS = --static 
 endif
 
+CFLAGS += -I$(PWD)/libsysfs
+
 all: $(ROOT)
+	@for target in $(EXTRAS) ; do \
+		echo $$target ; \
+		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
+			-C $$target $@ ; \
+	done ; \
 
 $(ROOT): $(LIBC)
 
@@ -145,13 +155,13 @@ $(CRT0):
 TDB =	tdb/tdb.o	\
 	tdb/spinlock.o
 
-SYSFS =	libsysfs/sysfs_bus.o	\
-	libsysfs/sysfs_class.o	\
-	libsysfs/sysfs_device.o	\
-	libsysfs/sysfs_dir.o	\
-	libsysfs/sysfs_driver.o	\
-	libsysfs/sysfs_utils.o	\
-	libsysfs/dlist.o
+SYSFS =	$(PWD)/libsysfs/sysfs_bus.o	\
+	$(PWD)/libsysfs/sysfs_class.o	\
+	$(PWD)/libsysfs/sysfs_device.o	\
+	$(PWD)/libsysfs/sysfs_dir.o	\
+	$(PWD)/libsysfs/sysfs_driver.o	\
+	$(PWD)/libsysfs/sysfs_utils.o	\
+	$(PWD)/libsysfs/dlist.o
 
 OBJS =	udev.o		\
 	udev_config.o	\
@@ -192,6 +202,11 @@ clean:
 	 | xargs rm -f 
 	-rm -f core $(ROOT) $(GEN_HEADERS)
 	$(MAKE) -C klibc clean
+	@for target in $(EXTRAS) ; do \
+		echo $$target ; \
+		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
+			-C $$target $@ ; \
+	done ; \
 
 DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v CVS | grep -v "\.tar\.gz" | grep -v "\/\." | grep -v releases | grep -v BitKeeper | grep -v SCCS | grep -v "\.tdb" | grep -v "test\/sys" | sort )
 DISTDIR := $(RELEASE_NAME)
@@ -236,6 +251,11 @@ install: all
 	$(INSTALL_DATA) udev.permissions $(DESTDIR)$(configdir)
 	- rm -f $(DESTDIR)$(hotplugdir)/udev.hotplug
 	- ln -s $(sbindir)/$(ROOT) $(DESTDIR)$(hotplugdir)/udev.hotplug
+	@for target in $(EXTRAS) ; do \
+		echo $$target ; \
+		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
+			-C $$target $@ ; \
+	done ; \
 
 uninstall:
 	- rm $(hotplugdir)/udev.hotplug
@@ -247,5 +267,10 @@ uninstall:
 	- rmdir $(hotplugdir)
 	- rmdir $(configdir)
 	- rmdir $(udevdir)
+	@for target in $(EXTRAS) ; do \
+		echo $$target ; \
+		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
+			-C $$target $@ ; \
+	done ; \
 
 
