@@ -34,6 +34,8 @@
 #include <unistd.h>
 #include <syslog.h>
 
+#define LOGNAME_SIZE			42
+
 #undef info
 #define info(format, arg...)								\
 	do {										\
@@ -61,12 +63,12 @@ extern void log_message(int level, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
 
 /* each program that uses syslog must declare this variable somewhere */
-extern unsigned char logname[42];
+extern unsigned char logname[LOGNAME_SIZE];
 
 #undef init_logging
 static inline void init_logging(char *program_name)
 {
-	snprintf(logname, 42,"%s[%d]", program_name, getpid());
+	snprintf(logname, LOGNAME_SIZE,"%s[%d]", program_name, getpid());
 	openlog(logname, 0, LOG_DAEMON);
 }
 

@@ -41,7 +41,7 @@
 #include "logging.h"
 
 #ifdef LOG
-unsigned char logname[42];
+unsigned char logname[LOGNAME_SIZE];
 void log_message (int level, const char *format, ...)
 {
 	va_list	args;

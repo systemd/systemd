@@ -58,7 +58,6 @@ static int add_config_dev(struct config_device *new_dev)
 
 void dump_config_dev(struct config_device *dev)
 {
-	/*FIXME dump all sysfs's */
 	dbg_parse("name='%s', symlink='%s', bus='%s', place='%s', id='%s', "
 		  "sysfs_file[0]='%s', sysfs_value[0]='%s', "
 		  "kernel='%s', program='%s', result='%s'",

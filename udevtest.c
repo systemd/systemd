@@ -38,15 +38,11 @@ char **main_argv;
 char **main_envp;
 
 #ifdef LOG
-unsigned char logname[42];
+unsigned char logname[LOGNAME_SIZE];
 void log_message (int level, const char *format, ...)
 {
-	va_list	args;
+	va_list args;
 
-//	if (!udev_log)
-//		return;
-
-	/* FIXME use level... */
 	va_start(args, format);
 	vprintf(format, args);
 	va_end(args);
@@ -55,35 +51,24 @@ void log_message (int level, const char *format, ...)
 }
 #endif
 
-static void sig_handler(int signum)
-{
-	switch (signum) {
-		case SIGINT:
-		case SIGTERM:
-			exit(20 + signum);
-		default:
-			dbg("unhandled signal");
-	}
-}
-
 static char *subsystem_blacklist[] = {
 	"net",
 	"scsi_host",
 	"scsi_device",
 	"usb_host",
 	"pci_bus",
-	"",
+	"pcmcia_socket",
+	""
 };
 
-static int udev_hotplug(int argc, char **argv)
+static int udev_hotplug(void)
 {
 	char *devpath;
 	char *subsystem;
 	int retval = -EINVAL;
 	int i;
-	struct sigaction act;
 
-	devpath = argv[1];
+	devpath = main_argv[1];
 	if (!devpath) {
 		dbg("no devpath?");
 		goto exit;
@@ -98,7 +83,7 @@ static int udev_hotplug(int argc, char **argv)
 	}
 
 	/* skip blacklisted subsystems */
-	subsystem = argv[1];
+	subsystem = main_argv[1];
 	i = 0;
 	while (subsystem_blacklist[i][0] != '\0') {
 		if (strcmp(subsystem, subsystem_blacklist[i]) == 0) {
@@ -111,16 +96,10 @@ static int udev_hotplug(int argc, char **argv)
 	/* initialize our configuration */
 	udev_init_config();
 
-	/* set up a default signal handler for now */
-	act.sa_handler = sig_handler;
-	sigemptyset (&act.sa_mask);
-	act.sa_flags = SA_RESTART;
-	sigaction(SIGINT, &act, NULL);
-	sigaction(SIGTERM, &act, NULL);
-
 	/* initialize the naming deamon */
 	namedev_init();
 
+	/* simulate node creation with fake flag */
 	retval = udev_add_device(devpath, subsystem, 1);
 
 exit:
@@ -130,14 +109,14 @@ exit:
 	return -retval;
 }
 
-int main(int argc, char **argv, char **envp)
+int main(int argc, char *argv[], char *envp[])
 {
 	main_argv = argv;
 	main_envp = envp;
 
 	dbg("version %s", UDEV_VERSION);
 
-	return udev_hotplug(argc, argv);
+	return udev_hotplug();
 }
 
 

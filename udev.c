@@ -40,7 +40,7 @@ char **main_argv;
 char **main_envp;
 
 #ifdef LOG
-unsigned char logname[42];
+unsigned char logname[LOGNAME_SIZE];
 void log_message(int level, const char *format, ...)
 {
 	va_list args;
@@ -74,7 +74,7 @@ static char *subsystem_blacklist[] = {
 	"usb_host",
 	"pci_bus",
 	"pcmcia_socket",
-	"",
+	""
 };
 
 static int udev_hotplug(void)
@@ -164,7 +164,7 @@ exit:
 	return -retval;
 }
 
-int main(int argc, char **argv, char **envp)
+int main(int argc, char *argv[], char *envp[])
 {
 	main_argv = argv;
 	main_envp = envp;
