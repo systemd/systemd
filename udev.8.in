@@ -314,7 +314,7 @@ The name of a program must have the suffix
 .I .dev
 to be recognized.
 .br
-In addition to the hotplug environment variables,
+In addition to the kernel provided hotplug environment variables,
 .B UDEV_LOG
 is set and contains the numerical priority value, if udev is configured to use
 .BR syslog (3).

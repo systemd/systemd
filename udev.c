@@ -204,6 +204,9 @@ int main(int argc, char *argv[], char *envp[])
 			retval = udev_remove_device(&udev);
 		}
 
+		if (udev.devname[0] != '\0')
+			setenv("DEVNAME", udev.devname, 1);
+
 		if (udev_run && !list_empty(&udev.run_list)) {
 			struct name_entry *name_loop;
 
@@ -213,11 +216,9 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		/* run dev.d/ scripts if we created/deleted a node or changed a netif name */
-		if (udev.devname[0] != '\0') {
-			setenv("DEVNAME", udev.devname, 1);
-			if (udev_dev_d)
-				udev_multiplex_directory(&udev, DEVD_DIR, DEVD_SUFFIX);
-		}
+		if (udev_dev_d && udev.devname[0] != '\0')
+			udev_multiplex_directory(&udev, DEVD_DIR, DEVD_SUFFIX);
+
 	} else if (udev.type == DEV_DEVICE) {
 		if (strcmp(action, "add") == 0) {
 			/* wait for sysfs */
