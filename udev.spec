@@ -26,6 +26,11 @@ make DESTDIR=$RPM_BUILD_ROOT install
 %post
 /sbin/chkconfig --add udev
 
+%postun
+if [ $1 = 0 ]; then
+	/sbin/chkconfig --del udev
+fi
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
