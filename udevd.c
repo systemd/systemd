@@ -19,6 +19,7 @@
  *
  */
 
+#include <pthread.h>
 #include <stddef.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -33,7 +34,6 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <pthread.h>
 
 #include "list.h"
 #include "udev.h"
@@ -71,7 +71,6 @@ static void msg_dump(struct hotplug_msg *msg)
 	    msg->seqnum, msg->action, msg->devpath, msg->subsystem);
 }
 
-/* allocates a new message */
 static struct hotplug_msg *msg_create(void)
 {
 	struct hotplug_msg *new_msg;
@@ -81,8 +80,13 @@ static struct hotplug_msg *msg_create(void)
 		dbg("error malloc");
 		return NULL;
 	}
-	memset(new_msg, 0x00, sizeof(struct hotplug_msg));
 	return new_msg;
+}
+
+static void msg_delete(struct hotplug_msg *msg)
+{
+	if (msg != NULL)
+		free(msg);
 }
 
 /* orders the message in the queue by sequence number */
@@ -143,7 +147,7 @@ exit:
 	list_del_init(&msg->list);
 	pthread_mutex_unlock(&running_lock);
 
-	free(msg);
+	msg_delete(msg);
 
 	/* signal queue activity to exec manager */
 	pthread_mutex_lock(&exec_active_lock);
@@ -289,6 +293,7 @@ static void *client_threads(void * parm)
 
 	if (strncmp(msg->magic, UDEV_MAGIC, sizeof(UDEV_MAGIC)) != 0 ) {
 		dbg("message magic '%s' doesn't match, ignore it", msg->magic);
+		msg_delete(msg);
 		goto exit;
 	}
 
@@ -307,7 +312,7 @@ static void sig_handler(int signum)
 		case SIGINT:
 		case SIGTERM:
 			unlink(UDEVD_LOCK);
-			unlink(UDEVD_SOCKET);
+			unlink(UDEVD_SOCK);
 			exit(20 + signum);
 			break;
 		default:
@@ -320,7 +325,6 @@ static int one_and_only(void)
 	char string[50];
 	int lock_file;
 
-	/* see if we can open */
 	lock_file = open(UDEVD_LOCK, O_RDWR | O_CREAT, 0x640);
 	if (lock_file < 0)
 		return -1;
@@ -359,9 +363,9 @@ int main(int argc, char *argv[])
 
 	memset(&saddr, 0x00, sizeof(saddr));
 	saddr.sun_family = AF_LOCAL;
-	strcpy(saddr.sun_path, UDEVD_SOCKET);
+	strcpy(saddr.sun_path, UDEVD_SOCK);
 
-	unlink(UDEVD_SOCKET);
+	unlink(UDEVD_SOCK);
 	ssock = socket(AF_LOCAL, SOCK_STREAM, 0);
 	if (ssock == -1) {
 		dbg("error getting socket");
@@ -389,6 +393,7 @@ int main(int argc, char *argv[])
 	/* set default attributes for created threads */
 	pthread_attr_init(&thr_attr);
 	pthread_attr_setdetachstate(&thr_attr, PTHREAD_CREATE_DETACHED);
+	pthread_attr_setstacksize(&thr_attr, 16 * 1024);
 
 	/* init queue management */
 	pthread_create(&mgr_msg_tid, &thr_attr, msg_queue_manager, NULL);
@@ -399,14 +404,13 @@ int main(int argc, char *argv[])
 	while (1) {
 		csock = accept(ssock, &caddr, &clen);
 		if (csock < 0) {
-			if (errno == EINTR)
-				continue;
 			dbg("client accept failed\n");
+			continue;
 		}
 		pthread_create(&cli_tid, &thr_attr, client_threads, (void *) csock);
 	}
 exit:
 	close(ssock);
-	unlink(UDEVD_SOCKET);
+	unlink(UDEVD_SOCK);
 	exit(1);
 }

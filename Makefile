@@ -38,6 +38,7 @@ VERSION =	015_bk
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
 LOCAL_CFG_DIR =	etc/udev
+HOTPLUG_EXEC =	$(ROOT)
 
 DESTDIR =
 # override this to make udev look in a different location for it's config files
@@ -232,8 +233,10 @@ udev_version.h:
 	@echo \#define UDEV_CONFIG_FILE	\"$(configdir)\udev.conf\" >> $@
 	@echo \#define UDEV_RULES_FILE	\"$(configdir)\udev.rules\" >> $@
 	@echo \#define UDEV_PERMISSION_FILE	\"$(configdir)\udev.permissions\" >> $@
-	@echo \#define UDEV_BIN		\"$(PWD)/udev\" >> $@
-	@echo \#define UDEVD_BIN	\"$(PWD)/udevd\" >> $@
+	@echo \#define UDEV_BIN		\"$(DESTDIR)$(sbindir)/udev\" >> $@
+	@echo \#define UDEVD_BIN	\"$(DESTDIR)$(sbindir)/udevd\" >> $@
+	@echo \#define UDEVD_SOCK	\"$(udevdir)/\.udevd.sock\" >> $@
+	@echo \#define UDEVD_LOCK	\"$(udevdir)/\.udevd.lock\" >> $@
 
 # config files automatically generated
 GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
@@ -338,6 +341,8 @@ install: install-config install-dbus-policy all
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
 	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
+	$(INSTALL_PROGRAM) -D $(DAEMON) $(DESTDIR)$(sbindir)/$(DAEMON)
+	$(INSTALL_PROGRAM) -D $(SENDER) $(DESTDIR)$(sbindir)/$(SENDER)
 	$(INSTALL_PROGRAM) -D $(HELPER) $(DESTDIR)$(sbindir)/$(HELPER)
 	@if [ "x$(USE_LSB)" = "xtrue" ]; then \
 		$(INSTALL_PROGRAM) -D etc/init.d/udev.init.LSB $(DESTDIR)$(initdir)/udev; \
@@ -347,8 +352,8 @@ install: install-config install-dbus-policy all
 	fi
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
 	$(INSTALL_DATA) -D udevinfo.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
-	- rm -f $(DESTDIR)$(hotplugdir)/udev.hotplug
-	- ln -f -s $(sbindir)/$(ROOT) $(DESTDIR)$(hotplugdir)/udev.hotplug
+	- rm -f $(DESTDIR)$(hotplugdir)/$(HOTPLUG_EXEC).hotplug
+	- ln -f -s $(sbindir)/$(HOTPLUG_EXEC) $(DESTDIR)$(hotplugdir)/udev.hotplug
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
@@ -364,6 +369,8 @@ uninstall: uninstall-dbus-policy
 	- rm $(mandir)/man8/udev.8
 	- rm $(mandir)/man8/udevinfo.8
 	- rm $(sbindir)/$(ROOT)
+	- rm $(sbindir)/$(DAEMON)
+	- rm $(sbindir)/$(SENDER)
 	- rm $(sbindir)/$(HELPER)
 	- rmdir $(hotplugdir)
 	- rmdir $(configdir)

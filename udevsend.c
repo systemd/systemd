@@ -159,7 +159,7 @@ int main(int argc, char* argv[])
 
 	memset(&saddr, 0x00, sizeof(saddr));
 	saddr.sun_family = AF_LOCAL;
-	strcpy(saddr.sun_path, UDEVD_SOCKET);
+	strcpy(saddr.sun_path, UDEVD_SOCK);
 
 	/* try to connect, if it fails start daemon */
 	retval = connect(sock, &saddr, sizeof(saddr));

@@ -24,18 +24,9 @@
 
 #include "list.h"
 
-/*
- * FIXME: udev_root is post compile configurable and may also be
- * mounted over at any time and /var/run/ and /tmp/ is unusable,
- * cause it's cleaned at system startup, long _after_ udevd is
- * already running. Should we use udev_init_config()?
- */
-
-#define UDEV_MAGIC			"udev_" UDEV_VERSION
+#define UDEV_MAGIC			"udevd_" UDEV_VERSION
 #define EVENT_TIMEOUT_SEC		5
 #define UDEVSEND_CONNECT_RETRY		20 /* x 100 millisec */
-#define UDEVD_SOCKET			UDEV_ROOT ".udevd.socket"
-#define UDEVD_LOCK			UDEV_ROOT ".udevd.pid"
 
 struct hotplug_msg {
 	char magic[20];
