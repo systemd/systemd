@@ -93,6 +93,7 @@ static int create_node(char *name, char type, int major, int minor, int mode)
 		return -EINVAL;
 	}
 
+	dbg("mknod(%s, %#o, %u, %u)", filename, mode, major, minor);
 	retval = mknod(filename,mode,makedev(major,minor));
 	if (retval)
 		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
