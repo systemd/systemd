@@ -28,13 +28,13 @@ case "$1" in
 	for i in ${sysfs_dir}/block/*; do
 		# add each drive
 		export DEVPATH=${i#${sysfs_dir}}
-		$bin block
+		$bin block &
 
 		# add each partition, on each device
 		for j in $i/*; do
 			if [ -f $j/dev ]; then
 				export DEVPATH=${j#${sysfs_dir}}
-				$bin block
+				$bin block &
 			fi
 		done
 	done
@@ -45,13 +45,14 @@ case "$1" in
 				export DEVPATH=${j#${sysfs_dir}}
 				CLASS=`echo ${i#${sysfs_dir}} | \
 					cut --delimiter='/' --fields=3-`
-				$bin $CLASS
+				$bin $CLASS &
 			fi
 		done
 	done
 	;;
   stop)
   	# be careful
+	action "Removing udev device nodes: " /bin/true
 	if [ $udev_dir -a "$udev_dir" != "/" ]; then
 	  	# clear out /udev
   		rm -rf ${udev_dir}/*
