@@ -22,7 +22,7 @@ DEBUG = false
 
 # Set the following to `true' to make udev emit a D-BUS signal when a
 # new node is created.
-USE_DBUS = true
+DBUS = false
 
 
 ROOT =		udev
@@ -143,13 +143,6 @@ endif
 
 CFLAGS += -I$(PWD)/libsysfs
 
-ifeq ($(USE_DBUS), true)
-	CFLAGS += -DUSE_DBUS
-	CFLAGS += $(shell pkg-config --cflags dbus-1)
-	LIB_OBJS += $(shell pkg-config --libs-only-l dbus-1)
-endif
-
-
 all: $(ROOT)
 	@for target in $(EXTRAS) ; do \
 		echo $$target ; \
@@ -188,6 +181,13 @@ OBJS =	udev.o		\
 
 ifeq ($(strip $(KLIBC)),true)
 	OBJS += klibc_fixups.o
+endif
+
+ifeq ($(DBUS), true)
+	CFLAGS += -DUSE_DBUS
+	CFLAGS += $(shell pkg-config --cflags dbus-1)
+	LIB_OBJS += $(shell pkg-config --libs-only-l dbus-1)
+	OBJS += udev_dbus.o
 endif
 
 # header files automatically generated
@@ -252,7 +252,7 @@ small_release: $(DISTFILES) clean
 	@echo "Built $(RELEASE_NAME).tar.gz"
 
 
-ifeq ($(USE_DBUS), true)
+ifeq ($(DBUS), true)
 install-dbus-policy:
 	$(INSTALL) -d $(DESTDIR)$(dbusdir)
 	$(INSTALL_DATA) udev_sysbus_policy.conf $(DESTDIR)$(dbusdir)
