@@ -1,3 +1,24 @@
+Summary of changes from v052 to v053
+============================================
+
+Greg Kroah-Hartman:
+  o fix gentoo fb permission issue
+  o allow simple-build-check.sh to go faster if MAKEOPTS is set
+  o make the release tarballs have writable files in them
+  o remove gentoo permission file as it's not valid anymore
+
+Kay Sievers:
+  o fix special file mode mask for temporary device node
+  o udevstart: simplify "dev" file searching
+  o udev_volume_id: remove temporary node creation and parent handling
+  o add %P modifier to query the node name of the parent device
+  o udev_volume_id: remove __packed__ from dasd structure as it does not work
+  o create /block/*/range count of partitons for all_partitions
+
+Patrick Mansfield:
+  o scsi_id changes for use with udev %N and %p
+
+
 Summary of changes from v051 to v052
 ============================================
 
