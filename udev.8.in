@@ -238,6 +238,14 @@ decimal integer N is substituted such that the resulting name doesn't
 match an existing device node. Otherwise nothing is substituted. This
 can be used to create compatibility symlinks and enumerate devices of
 the same type originating from different kernel subsystems.
+.sp
+Note: The use of the enumeration facility is unreliable outside of
+udevstart where the node creation is serialized and predictable.
+The returned numbers rely on the order devices are probed on the
+system. If more than one device requests an enumeration for the same
+name at the same time, it may be possible that both requests receive the
+same name back from the database. The use of enumerations in todays setups
+where device can come and go at any time is not recomended.
 .TP
 .B %%
 The '%' character itself.
