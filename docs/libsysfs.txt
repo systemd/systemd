@@ -131,7 +131,7 @@ and devices, here's some examples:
 #define SYSFS_BUS_DIR           "/bus"
 #define SYSFS_BUS_NAME          "bus"
 #define SYSFS_CLASS_DIR         "/class"
-#define SYSFS_CLASS_DIR         "/class"
+#define SYSFS_CLASS_NAME        "class"
 #define SYSFS_BLOCK_DIR         "/block"
 #define SYSFS_BLOCK_NAME        "block"
 #define SYSFS_DEVICES_DIR       "/devices"
