@@ -733,6 +733,8 @@ label_found:
 			break;
 			}
 		case REPLACE:
+			dbg_parse("REPLACE: replace name '%s' with '%s'",
+				  dev->kernel_name, dev->name);
 			if (strcmp(dev->kernel_name, class_dev->name) != 0)
 				continue;
 			strcpy(udev->name, dev->name);
