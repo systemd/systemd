@@ -54,12 +54,18 @@ make CC="gcc $RPM_OPT_FLAGS"	\
 %endif
 %if %{log}
 	USE_LOG=true		\
+%else
+	USE_LOG=false		\
 %endif
 %if %{dbus}
 	USE_DBUS=true		\
+%else
+	USE_DBUS=false		\
 %endif
 %if %{debug}
 	DEBUG=true		\
+%else
+	DEBUG=false		\
 %endif
 
 # now build udevd on it's own, as it can't handle being built with klibc
@@ -94,6 +100,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) /sbin/udevd
 %attr(755,root,root) /udev/
 %attr(755,root,root) /etc/udev/
+%attr(755,root,root) %dir
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.conf
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.rules
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.permissions
@@ -105,6 +112,9 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0644,root,root) %{_mandir}/man8/udev*.8*
 
 %changelog
+* Thu Feb 12 2004 Greg Kroah-Hartman <greg@kroah.com>
+- add some changes from the latest Fedora udev release.
+
 * Mon Feb 2 2004 Greg Kroah-Hartman <greg@kroah.com>
 - add udevsend, and udevd to the files
 - add ability to build udevd with glibc after the rest is build with klibc
