@@ -339,7 +339,7 @@ install: install-config install-dbus-policy all
 	$(INSTALL_PROGRAM) -D $(HELPER) $(DESTDIR)$(sbindir)/$(HELPER)
 	@if [ "x$(USE_LSB)" = "xtrue" ]; then \
 		$(INSTALL_PROGRAM) -D etc/init.d/udev.init.LSB $(DESTDIR)$(initdir)/udev; \
-		ln -s $(DESTDIR)$(initdir)/udev $(sbin_dir)/rcudev; \
+		ln -s $(DESTDIR)$(initdir)/udev $(sbindir)/rcudev; \
 	else \
 		$(INSTALL_PROGRAM) -D etc/init.d/udev $(DESTDIR)$(initdir)/udev; \
 	fi
