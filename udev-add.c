@@ -100,6 +100,42 @@ static int create_path(char *file)
 	return 0;
 }
 
+#ifdef USE_DBUS
+/** Send out a signal that a device node is created
+ *
+ *  @param  dev                 udevice object
+ *  @param  path                Sysfs path of device
+ */
+static void sysbus_send_create(struct udevice *dev, const char *path)
+{
+        char filename[255];
+        DBusMessage* message;
+        DBusMessageIter iter;
+
+        if (sysbus_connection == NULL)
+                return;
+
+        strncpy(filename, udev_root, sizeof(filename));
+        strncat(filename, dev->name, sizeof(filename));
+
+        /* object, interface, member */
+        message = dbus_message_new_signal("/org/kernel/udev/NodeMonitor", 
+                                          "org.kernel.udev.NodeMonitor",
+                                          "NodeCreated");
+        
+        dbus_message_iter_init(message, &iter);
+        dbus_message_iter_append_string(&iter, filename);
+        dbus_message_iter_append_string(&iter, path);
+
+        if ( !dbus_connection_send(sysbus_connection, message, NULL) )
+                dbg("error sending d-bus signal");
+
+        dbus_message_unref(message);
+        
+        dbus_connection_flush(sysbus_connection);
+}
+#endif /* USE_DBUS */
+
 /*
  * we possibly want to add some symlinks here
  * only numeric owner/group id's are supported
@@ -322,6 +358,12 @@ int udev_add_device(char *path, char *subsystem)
 
 	dbg("name='%s'", dev.name);
 	retval = create_node(&dev);
+
+#ifdef USE_DBUS
+        if (retval == 0) {
+                sysbus_send_create(&dev, path);
+        }
+#endif /* USE_DBUS */
 
 exit:
 	if (class_dev)

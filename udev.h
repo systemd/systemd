@@ -93,4 +93,13 @@ extern char udev_config_filename[PATH_MAX+NAME_MAX];
 extern char udev_rules_filename[PATH_MAX+NAME_MAX];
 extern char default_mode_str[NAME_MAX];
 
+#ifdef USE_DBUS
+
+#define DBUS_API_SUBJECT_TO_CHANGE
+#include <dbus/dbus.h>
+
+extern DBusConnection* sysbus_connection;
+
+#endif /* USE_DBUS */
+
 #endif

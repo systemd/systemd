@@ -21,7 +21,6 @@ greg@kroah.com
   will have an upgrade path.
 - do early boot logic (putting udev into initramfs, handle pivot-root,
   etc.)
-- add hooks to call D-BUS when new node is created or removed
 - lots of other stuff...
 - actually use the BUS= value to determine where the LABEL rule should look
   (right now it's ignored, and we only look in the current sysfs directory.)

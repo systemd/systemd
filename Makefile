@@ -20,6 +20,10 @@
 # Leave this set to `false' for production use.
 DEBUG = false
 
+# Set the following to `true' to make udev emit a D-BUS signal when a
+# new node is created.
+USE_DBUS = true
+
 
 ROOT =		udev
 VERSION =	008_bk
@@ -34,6 +38,7 @@ etcdir =	${prefix}/etc
 sbindir =	${exec_prefix}/sbin
 mandir =	${prefix}/usr/share/man
 hotplugdir =	${etcdir}/hotplug.d/default
+dbusdir =	${etcdir}/dbus-1/system.d
 configdir =	${etcdir}/udev/
 srcdir = .
 
@@ -138,6 +143,13 @@ endif
 
 CFLAGS += -I$(PWD)/libsysfs
 
+ifeq ($(USE_DBUS), true)
+	CFLAGS += -DUSE_DBUS
+	CFLAGS += $(shell pkg-config --cflags dbus-1)
+	LIB_OBJS += $(shell pkg-config --libs-only-l dbus-1)
+endif
+
+
 all: $(ROOT)
 	@for target in $(EXTRAS) ; do \
 		echo $$target ; \
@@ -240,7 +252,20 @@ small_release: $(DISTFILES) clean
 	@echo "Built $(RELEASE_NAME).tar.gz"
 
 
-install: all
+ifeq ($(USE_DBUS), true)
+install-dbus-policy:
+	$(INSTALL) -d $(DESTDIR)$(dbusdir)
+	$(INSTALL_DATA) udev_sysbus_policy.conf $(DESTDIR)$(dbusdir)
+uninstall-dbus-policy:
+	- rm $(DESTDIR)$(dbusdir)/udev_sysbus_policy.conf
+else
+install-dbus-policy:
+	-
+uninstall-dbus-policy:
+	-
+endif
+
+install: install-dbus-policy all
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
 	$(INSTALL) -d $(DESTDIR)$(configdir)
 	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
@@ -257,7 +282,7 @@ install: all
 			-C $$target $@ ; \
 	done ; \
 
-uninstall:
+uninstall: uninstall-dbus-policy
 	- rm $(hotplugdir)/udev.hotplug
 	- rm $(configdir)/udev.permissions
 	- rm $(configdir)/udev.rules
