@@ -745,7 +745,7 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 	}
 
 	/* no rule was found so we use the kernel name */
-	strfieldcpy(udev->name, class_dev->name);
+	strfieldcpy(udev->name, udev->kernel_name);
 	goto done;
 
 found:
