@@ -32,9 +32,7 @@
 #include <time.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
-#ifndef __KLIBC__
 #include <sys/sysinfo.h>
-#endif
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "list.h"

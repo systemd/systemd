@@ -37,8 +37,6 @@
 #define GR_FILE		"/etc/group"
 #define UTMP_FILE	"/var/run/utmp"
 
-_syscall1(int, sysinfo, struct sysinfo *, info);
-
 /* return the id of a passwd style line, selected by the users name */
 static unsigned long get_id_by_name(const char *uname, const char *dbfile)
 {

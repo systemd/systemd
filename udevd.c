@@ -34,9 +34,7 @@
 #include <sys/un.h>
 #include <fcntl.h>
 #include "klibc_fixups.h"
-#ifndef __KLIBC__
 #include <sys/sysinfo.h>
-#endif
 
 #include "list.h"
 #include "udev.h"
