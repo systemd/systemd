@@ -34,7 +34,6 @@ SENDER =	udevsend
 INFO =		udevinfo
 TESTER =	udevtest
 STARTER =	udevstart
-RULER =		udevruler
 WAIT =		wait_for_sysfs
 VERSION =	038
 INSTALL_DIR =	/usr/local/bin
@@ -301,10 +300,6 @@ $(SENDER): $(LIBC) $(SENDER).o $(OBJS) udevd.h
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o udev_lib.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
-$(RULER): $(LIBC) $(RULER).o $(OBJS) $(HEADERS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevruler.o udev_lib.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS) -lnewt
-	$(QUIET) $(STRIPCMD) $@
-
 $(WAIT): $(WAIT).o $(OBJS) $(HEADERS) $(LIBC)
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(WAIT).o $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
@@ -318,7 +313,7 @@ $(WAIT): $(WAIT).o $(OBJS) $(HEADERS) $(LIBC)
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
-	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) $(SENDER) $(TESTER) $(RULER) $(WAIT)
+	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) $(SENDER) $(TESTER) $(WAIT)
 	-rm -f ccdv
 	$(MAKE) -C klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
