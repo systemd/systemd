@@ -23,7 +23,7 @@
 ###########################################################
 
 # Looking for scsi bus id 42:0:0:1
-BUS="scsi", PROGRAM="/bin/echo -n test-%b", ID="test-42:0:0:1", NAME="%c"
+BUS="scsi", PROGRAM="/bin/echo -n test-%b", RESULT="test-42:0:0:1", NAME="%c"
 
 # A usb camera.
 BUS="usb", SYSFS_vendor="FUJIFILM", SYSFS_model="M100", NAME="camera%n"
@@ -60,7 +60,7 @@ KERNEL="ttyUSB0", NAME="pl2303"
 
 # devfs-names for ide-devices (uncomment only one)
 #  /dev/ide/.../{disc,cd} and /dev/{cdroms,discs}/* type names
-BUS="ide", PROGRAM="/etc/udev/scripts/ide-devfs.sh %k %b %n", ID="hd*", NAME="%1c", SYMLINK="%2c %3c"
+BUS="ide", PROGRAM="/etc/udev/scripts/ide-devfs.sh %k %b %n", RESULT="hd*", NAME="%1c", SYMLINK="%2c %3c"
  
 # fb devices
 KERNEL="fb[0-9]*", NAME="fb/%n", SYMLINK="%k"
