@@ -50,7 +50,8 @@ static char *get_device(void)
 	temp = getenv("DEVPATH");
 	if (temp == NULL)
 		return NULL;
-	strcpy(device, SYSFS_ROOT);
+	strcpy(device, "");
+//	strcpy(device, SYSFS_ROOT);
 	strcat(device, temp);
 
 	return device;
@@ -198,14 +199,14 @@ static int delete_node(char *name)
 	return unlink(filename);
 }
 
-static int add_device(char *device, char type)
+static int add_device(char *device, char type, struct device_attr *attr)
 {
 	char *name;
 	int major;
 	int minor;
 	int mode;
 	int retval = -EINVAL;
-
+#if 0
 	retval = get_major_minor(device, &major, &minor);
 	if (retval) {
 		dbg ("get_major_minor failed");
@@ -225,8 +226,8 @@ static int add_device(char *device, char type)
 		retval = -EINVAL;
 		goto exit;
 	}
-
-	return create_node(name, type, major, minor, mode);
+#endif
+	return create_node(attr->name, type, attr->major, attr->minor, attr->mode);
 
 exit:
 	return retval;
@@ -252,6 +253,7 @@ exit:
 
 int main(int argc, char *argv[])
 {
+	struct device_attr attr;
 	char *subsystem;
 	char *action;
 	char *device;
@@ -290,8 +292,12 @@ int main(int argc, char *argv[])
 	}
 	dbg("looking at %s", device);
 
+	retval = namedev_name_device(device, &attr);
+	if (retval)
+		return retval;
+
 	if (strcmp(action, "add") == 0)
-		return add_device(device, type);
+		return add_device(device, type, &attr);
 
 	if (strcmp(action, "remove") == 0)
 		return remove_device(device);

@@ -30,5 +30,6 @@
 #define NAMEDEV_CONFIG_FILE		"namedev.config"
 
 extern int namedev_init(void);
+extern int namedev_name_device(char *device_name, struct device_attr *attr);
 
 #endif

@@ -34,6 +34,7 @@
 #include "udev.h"
 #include "udev_version.h"
 #include "namedev.h"
+#include "libsysfs/libsysfs.h"
 
 #define TYPE_LABEL	"LABEL"
 #define TYPE_NUMBER	"NUMBER"
@@ -53,9 +54,6 @@ enum config_type {
 #define VALUE_SIZE	100
 #define ID_SIZE		50
 #define PLACE_SIZE	50
-#define NAME_SIZE	100
-#define OWNER_SIZE	30
-#define GROUP_SIZE	30
 
 
 struct config_device {
@@ -80,36 +78,38 @@ struct config_device {
 
 static LIST_HEAD(config_device_list);
 
+static char sysfs_path[SYSFS_PATH_MAX];
+
 static void dump_dev(struct config_device *dev)
 {
 	switch (dev->type) {
 	case KERNEL_NAME:
 		dbg("KERNEL name ='%s'"
-			" owner = '%s', group = '%s', mode = '%d'", 
+			" owner = '%s', group = '%s', mode = '%#o'",
 			dev->name, 
 			dev->owner, dev->group, dev->mode);
 		break;
 	case LABEL:
 		dbg("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'"
-			" owner = '%s', group = '%s', mode = '%d'",
+			" owner = '%s', group = '%s', mode = '%#o'",
 			dev->name, dev->bus, dev->sysfs_file, dev->sysfs_value,
 			dev->owner, dev->group, dev->mode);
 		break;
 	case NUMBER:
 		dbg("NUMBER name = '%s', bus = '%s', id = '%s'"
-			" owner = '%s', group = '%s', mode = '%d'",
+			" owner = '%s', group = '%s', mode = '%#o'",
 			dev->name, dev->bus, dev->id,
 			dev->owner, dev->group, dev->mode);
 		break;
 	case TOPOLOGY:
 		dbg("TOPOLOGY name = '%s', bus = '%s', place = '%s'"
-			" owner = '%s', group = '%s', mode = '%d'",
+			" owner = '%s', group = '%s', mode = '%#o'",
 			dev->name, dev->bus, dev->place,
 			dev->owner, dev->group, dev->mode);
 		break;
 	case REPLACE:
 		dbg("REPLACE name = %s, kernel_name = %s"
-			" owner = '%s', group = '%s', mode = '%d'",
+			" owner = '%s', group = '%s', mode = '%#o'",
 			dev->name, dev->kernel_name,
 			dev->owner, dev->group, dev->mode);
 		break;
@@ -432,7 +432,7 @@ static int namedev_init_permissions(void)
 
 		dev.mode = strtol(temp, NULL, 8);
 
-		dbg("name = %s, owner = %s, group = %s, mode = %x", dev.name, dev.owner, dev.group, dev.mode);
+		dbg("name = %s, owner = %s, group = %s, mode = %#o", dev.name, dev.owner, dev.group, dev.mode);
 		retval = add_dev(&dev);
 		if (retval) {
 			dbg("add_dev returned with error %d", retval);
@@ -446,10 +446,103 @@ exit:
 }	
 
 
+static int get_major_minor(struct sysfs_class_device *class_dev, int *major, int *minor)
+{
+	char temp[3];
+	int retval = 0;
+
+	char *dev;
+
+	dev = sysfs_get_value_from_attributes(class_dev->directory->attributes, "dev");
+	if (dev == NULL)
+		return -ENODEV;
+
+	dbg("dev = %s", dev);
+
+	temp[0] = dev[0];
+	temp[1] = dev[1];
+	temp[2] = 0x00;
+	*major = (int)strtol(&temp[0], NULL, 16);
+
+	temp[0] = dev[2];
+	temp[1] = dev[3];
+	temp[2] = 0x00;
+	*minor = (int)strtol(&temp[0], NULL, 16);
+
+	dbg("found major = %d, minor = %d", *major, *minor);
+
+	retval = 0;
+	return retval;
+}
+
+static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *attr)
+{
+	struct list_head *tmp;
+	int retval = 0;
+
+	retval = get_major_minor(class_dev, &attr->major, &attr->minor);
+	if (retval) {
+		dbg ("get_major_minor failed");
+		goto exit;
+	}
+
+	list_for_each(tmp, &config_device_list) {
+		struct config_device *dev = list_entry(tmp, struct config_device, node);
+		if (strcmp(dev->name, class_dev->name) == 0) {
+			attr->mode = dev->mode;
+			strcpy(attr->owner, dev->owner);
+			strcpy(attr->group, dev->group);
+			/* FIXME  put the proper name here!!! */
+			strcpy(attr->name, dev->name);
+			dbg("%s - owner = %s, group = %s, mode = %#o", dev->name, dev->owner, dev->group, dev->mode);
+			goto exit;
+		}
+	}
+	attr->mode = 0666;
+	attr->owner[0] = 0x00;
+	attr->group[0] = 0x00;
+	strcpy(attr->name, class_dev->name);
+exit:
+	return retval;
+}
+
+int namedev_name_device(char *device_name, struct device_attr *attr)
+{
+	char dev_path[SYSFS_PATH_MAX];
+	struct sysfs_class_device *class_dev;
+	int retval;
+
+	strcpy(dev_path, sysfs_path);
+	strcat(dev_path, device_name);
+
+	dbg("looking at %s", dev_path);
+
+	/* open up the sysfs class device for this thing... */
+	class_dev = sysfs_open_class_device(dev_path);
+	if (class_dev == NULL) {
+		dbg ("sysfs_open_class_device failed");
+		return -ENODEV;
+	}
+	dbg("class_dev->name = %s", class_dev->name);
+	
+	retval = get_attr(class_dev, attr);
+	if (retval) {
+		dbg ("get_attr failed");
+		goto exit;
+	}
+exit:
+	sysfs_close_class_device(class_dev);
+	return retval;
+}
 
 int namedev_init(void)
 {
 	int retval;
+	
+	retval = sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX);
+	if (retval)
+		return retval;
+	dbg("sysfs_path = %s", sysfs_path);
 
 	retval = namedev_init_config();
 	if (retval)
@@ -462,4 +555,5 @@ int namedev_init(void)
 	dump_dev_list();
 	return retval;
 }
+
 

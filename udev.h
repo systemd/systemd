@@ -52,6 +52,19 @@
 extern int log_message (int level, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
 
+#define NAME_SIZE	100
+#define OWNER_SIZE	30
+#define GROUP_SIZE	30
+
+struct device_attr {
+	int major;
+	int minor;
+	int mode;
+	char name[NAME_SIZE];
+	char owner[OWNER_SIZE];
+	char group[GROUP_SIZE];
+};
+
 
 #endif
 
