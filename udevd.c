@@ -119,8 +119,8 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 static void udev_run(struct hotplug_msg *msg)
 {
 	pid_t pid;
-	char action[32];
-	char devpath[256];
+	char action[ACTION_SIZE];
+	char devpath[DEVPATH_SIZE];
 	char *env[] = { action, devpath, NULL };
 
 	snprintf(action, sizeof(action), "ACTION=%s", msg->action);

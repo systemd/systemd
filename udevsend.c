@@ -52,30 +52,6 @@ void log_message (int level, const char *format, ...)
 }
 #endif
 
-static inline char *get_action(void)
-{
-	char *action;
-
-	action = getenv("ACTION");
-	return action;
-}
-
-static inline char *get_devpath(void)
-{
-	char *devpath;
-
-	devpath = getenv("DEVPATH");
-	return devpath;
-}
-
-static inline char *get_seqnum(void)
-{
-	char *seqnum;
-
-	seqnum = getenv("SEQNUM");
-	return seqnum;
-}
-
 static int build_hotplugmsg(struct hotplug_msg *msg, char *action,
 			    char *devpath, char *subsystem, int seqnum)
 {
@@ -144,7 +120,7 @@ int main(int argc, char* argv[])
 #endif
 	dbg("version %s", UDEV_VERSION);
 
-	subsystem = argv[1];
+	subsystem = get_subsystem(argv[1]);
 	if (subsystem == NULL) {
 		dbg("no subsystem");
 		goto exit;

@@ -66,30 +66,6 @@ static void sig_handler(int signum)
 	}
 }
 
-static inline char *get_action(void)
-{
-	char *action;
-
-	action = getenv("ACTION");
-	return action;
-}
-
-static inline char *get_devpath(void)
-{
-	char *devpath;
-
-	devpath = getenv("DEVPATH");
-	return devpath;
-}
-
-static inline char *get_seqnum(void)
-{
-	char *seqnum;
-
-	seqnum = getenv("SEQNUM");
-	return seqnum;
-}
-
 static char *subsystem_blacklist[] = {
 	"net",
 	"scsi_host",

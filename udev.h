@@ -23,6 +23,8 @@
 #ifndef UDEV_H
 #define UDEV_H
 
+#include <stdlib.h>
+#include <string.h>
 #include <sysfs/libsysfs.h>
 #include <stddef.h>
 #include <sys/param.h>
@@ -33,6 +35,10 @@
 #define OWNER_SIZE	30
 #define GROUP_SIZE	30
 #define MODE_SIZE	8
+
+#define ACTION_SIZE	30
+#define DEVPATH_SIZE	255
+#define SUBSYSTEM_SIZE	30
 
 /* length of public data */
 #define UDEVICE_LEN (offsetof(struct udevice, bus_id))
@@ -78,6 +84,45 @@ do { \
 	to[maxsize-1] = '\0'; \
 	strncat(to, from, maxsize - strlen(to)-1); \
 } while (0)
+
+static inline char *get_action(void)
+{
+	char *action;
+
+	action = getenv("ACTION");
+	if (strlen(action) > ACTION_SIZE)
+		action[ACTION_SIZE-1] = '\0';
+
+	return action;
+}
+
+static inline char *get_devpath(void)
+{
+	char *devpath;
+
+	devpath = getenv("DEVPATH");
+	if (strlen(devpath) > DEVPATH_SIZE)
+		devpath[DEVPATH_SIZE-1] = '\0';
+
+	return devpath;
+}
+
+static inline char *get_seqnum(void)
+{
+	char *seqnum;
+
+	seqnum = getenv("SEQNUM");
+
+	return seqnum;
+}
+
+static inline char *get_subsystem(char *subsystem)
+{
+	if (strlen(subsystem) > SUBSYSTEM_SIZE)
+		subsystem[SUBSYSTEM_SIZE-1] = '\0';
+
+	return subsystem;
+}
 
 extern int udev_add_device(char *path, char *subsystem, int fake);
 extern int udev_remove_device(char *path, char *subsystem);

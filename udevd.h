@@ -35,7 +35,7 @@ struct hotplug_msg {
 	pid_t pid;
 	int seqnum;
 	time_t queue_time;
-	char action[8];
-	char devpath[128];
-	char subsystem[16];
+	char action[ACTION_SIZE];
+	char devpath[DEVPATH_SIZE];
+	char subsystem[SUBSYSTEM_SIZE];
 };

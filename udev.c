@@ -43,7 +43,7 @@ char **main_envp;
 unsigned char logname[42];
 void log_message (int level, const char *format, ...)
 {
-	va_list	args;
+	va_list args;
 
 	if (!udev_log)
 		return;
@@ -65,30 +65,6 @@ static void sig_handler(int signum)
 		default:
 			dbg("unhandled signal");
 	}
-}
-
-static inline char *get_action(void)
-{
-	char *action;
-
-	action = getenv("ACTION");
-	return action;
-}
-
-static inline char *get_devpath(void)
-{
-	char *devpath;
-
-	devpath = getenv("DEVPATH");
-	return devpath;
-}
-
-static inline char *get_seqnum(void)
-{
-	char *seqnum;
-
-	seqnum = getenv("SEQNUM");
-	return seqnum;
 }
 
 static char *subsystem_blacklist[] = {
@@ -130,7 +106,7 @@ static int udev_hotplug(int argc, char **argv)
 	}
 
 	/* skip blacklisted subsystems */
-	subsystem = argv[1];
+	subsystem = get_subsystem(argv[1]);
 	if (!subsystem) {
 		dbg("no subsystem?");
 		goto exit;
@@ -200,5 +176,3 @@ int main(int argc, char **argv, char **envp)
 
 	return udev_hotplug(argc, argv);
 }
-
-

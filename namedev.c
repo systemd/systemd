@@ -405,7 +405,7 @@ static int execute_program(char *path, char *value, int len)
 	int fds[2];
 	pid_t pid;
 	int value_set = 0;
-	char buffer[256];
+	char buffer[255];
 	char *pos;
 	char *args[PROGRAM_MAXARG];
 	int i;
