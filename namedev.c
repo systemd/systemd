@@ -450,11 +450,6 @@ static int execute_program(const char *path, char *value, int len)
 		dbg("execute '%s' with subsystem '%s' argument", arg, argv[1]);
 	}
 
-	/* set basename() only */
-	pos = strrchr(argv[0], '/');
-	if (pos != NULL)
-		argv[0] = &pos[1];
-
 	retval = pipe(fds);
 	if (retval != 0) {
 		dbg("pipe failed");

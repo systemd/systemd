@@ -39,6 +39,7 @@ static int run_program(char *name)
 {
 	pid_t pid;
 	int fd;
+	char *argv[3];
 
 	dbg("running %s", name);
 
@@ -54,7 +55,12 @@ static int run_program(char *name)
 			dup2(fd, STDERR_FILENO);
 		}
 		close(fd);
-		execv(name, main_argv);
+
+		argv[0] = name;
+		argv[1] = main_argv[1];
+		argv[2] = NULL;
+
+		execv(name, argv);
 		dbg("exec of child failed");
 		exit(1);
 	case -1:
