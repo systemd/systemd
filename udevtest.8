@@ -1,0 +1,17 @@
+.TH UDEVTEST 8 "March 2004" "" "Linux Administrator's Manual"
+.SH NAME
+udevtest \- simulates a udev run to test the configured rules
+.SH SYNOPSIS
+.BI udevtest " sysfs_device_path"
+.SH "DESCRIPTION"
+.B udevtest
+simulates a
+.B udev
+run for the given device, and prints out the node names
+for the given device, the real udev would have created.
+.SH "SEE ALSO"
+.BR udev (8)
+.SH AUTHORS
+.B udevtest
+was developed by Greg Kroah-Hartman <greg@kroah.com> with much help
+from others.

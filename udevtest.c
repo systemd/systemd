@@ -37,6 +37,7 @@
 char **main_argv;
 char **main_envp;
 
+
 #ifdef LOG
 unsigned char logname[LOGNAME_SIZE];
 void log_message (int level, const char *format, ...)
@@ -51,72 +52,54 @@ void log_message (int level, const char *format, ...)
 }
 #endif
 
-static char *subsystem_blacklist[] = {
-	"net",
-	"scsi_host",
-	"scsi_device",
-	"usb_host",
-	"pci_bus",
-	"pcmcia_socket",
-	""
-};
-
-static int udev_hotplug(void)
+int main(int argc, char *argv[], char *envp[])
 {
 	char *devpath;
-	char *subsystem;
-	int retval = -EINVAL;
-	int i;
+	char temp[NAME_SIZE];
+	char subsystem[] = "";
+	const int fake = 1;
 
-	devpath = main_argv[1];
-	if (!devpath) {
-		dbg("no devpath?");
+	main_argv = argv;
+	main_envp = envp;
+
+	info("version %s", UDEV_VERSION);
+
+	if (argv[1] == NULL) {
+		info("udevinfo expects the DEVPATH of the sysfs device as a argument");
 		goto exit;
-	}
-	dbg("looking at '%s'", devpath);
-
-	/* we only care about class devices and block stuff */
-	if (!strstr(devpath, "class") &&
-	    !strstr(devpath, "block")) {
-		dbg("not a block or class device");
-		goto exit;
-	}
-
-	/* skip blacklisted subsystems */
-	subsystem = main_argv[1];
-	i = 0;
-	while (subsystem_blacklist[i][0] != '\0') {
-		if (strcmp(subsystem, subsystem_blacklist[i]) == 0) {
-			dbg("don't care about '%s' devices", subsystem);
-			goto exit;
-		}
-		i++;
 	}
 
 	/* initialize our configuration */
 	udev_init_config();
 
+	/* remove sysfs_path if given */
+	if (strncmp(argv[1], sysfs_path, strlen(sysfs_path)) == 0)
+		devpath = argv[1] + strlen(sysfs_path);
+	else
+		if (argv[1][0] != '/') {
+			/* prepend '/' if missing */
+			strfieldcpy(temp, "/");
+			strfieldcat(temp, argv[1]);
+			devpath = temp;
+		} else {
+			devpath = argv[1];
+		}
+
+	info("looking at '%s'", devpath);
+
+	/* we only care about class devices and block stuff */
+	if (!strstr(devpath, "class") &&
+	    !strstr(devpath, "block")) {
+		info("not a block or class device");
+		goto exit;
+	}
+
 	/* initialize the naming deamon */
 	namedev_init();
 
 	/* simulate node creation with fake flag */
-	retval = udev_add_device(devpath, subsystem, 1);
+	udev_add_device(devpath, subsystem, fake);
 
 exit:
-	if (retval > 0)
-		retval = 0;
-
-	return -retval;
+	return 0;
 }
-
-int main(int argc, char *argv[], char *envp[])
-{
-	main_argv = argv;
-	main_envp = envp;
-
-	dbg("version %s", UDEV_VERSION);
-
-	return udev_hotplug();
-}
-
-
