@@ -65,6 +65,8 @@ int main(int argc, char **argv, char **envp)
 	main_argv = argv;
 	main_envp = envp;
 
+	dbg("version %s", UDEV_VERSION);
+
 	if (argc != 2) {
 		dbg ("unknown number of arguments");
 		goto exit;
