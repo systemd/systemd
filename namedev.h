@@ -60,20 +60,25 @@ enum config_type {
 #define FIELD_SYMLINK	"SYMLINK"
 
 #define CALLOUT_MAXARG	8
+#define MAX_SYSFS_PAIRS	5
+
+struct sysfs_pair {
+	char file[FILE_SIZE];
+	char value[VALUE_SIZE];
+};
 
 struct config_device {
 	struct list_head node;
 
 	enum config_type type;
 	char bus[BUS_SIZE];
-	char sysfs_file[FILE_SIZE];
-	char sysfs_value[VALUE_SIZE];
 	char id[ID_SIZE];
 	char place[PLACE_SIZE];
 	char kernel_name[NAME_SIZE];
 	char exec_program[FILE_SIZE];
 	char name[NAME_SIZE];
 	char symlink[NAME_SIZE];
+	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];
 };
 
 struct perm_device {
@@ -93,7 +98,6 @@ extern int namedev_name_device(struct sysfs_class_device *class_dev, struct udev
 extern int namedev_init_permissions(void);
 extern int namedev_init_rules(void);
 
-extern int add_config_dev(struct config_device *new_dev);
 extern int add_perm_dev(struct perm_device *new_dev);
 extern void dump_config_dev(struct config_device *dev);
 extern void dump_config_dev_list(void);

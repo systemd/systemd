@@ -102,19 +102,6 @@ static int strcmp_pattern(const char *p, const char *s)
 	if (strlen(b->var))		\
 		strcpy(a->var, b->var);
 
-int add_config_dev(struct config_device *new_dev)
-{
-	struct config_device *tmp_dev;
-
-	tmp_dev = malloc(sizeof(*tmp_dev));
-	if (tmp_dev == NULL)
-		return -ENOMEM;
-	memcpy(tmp_dev, new_dev, sizeof(*tmp_dev));
-	list_add_tail(&tmp_dev->node, &config_device_list);
-	//dump_config_dev(tmp_dev);
-	return 0;
-}
-
 int add_perm_dev(struct perm_device *new_dev)
 {
 	struct list_head *tmp;
@@ -432,12 +419,50 @@ static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev
 	return -ENODEV;
 }
 
-static int do_label(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
+static int match_pair(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, struct sysfs_pair *pair)
 {
 	struct sysfs_attribute *tmpattr = NULL;
+	char *c;
+
+	if ((pair == NULL) || (pair->file[0] == '\0') || (pair->value == '\0'))
+		return -ENODEV;
+
+	dbg("look for device attribute '%s'", pair->file);
+	/* try to find the attribute in the class device directory */
+	tmpattr = sysfs_get_classdev_attr(class_dev, pair->file);
+	if (tmpattr)
+		goto label_found;
+
+	/* look in the class device directory if present */
+	if (sysfs_device) {
+		tmpattr = sysfs_get_device_attr(sysfs_device, pair->file);
+		if (tmpattr)
+			goto label_found;
+	}
+
+	return -ENODEV;
+
+label_found:
+	c = tmpattr->value + strlen(tmpattr->value)-1;
+	if (*c == '\n')
+		*c = 0x00;
+	dbg("compare attribute '%s' value '%s' with '%s'",
+		  pair->file, tmpattr->value, pair->value);
+	if (strcmp_pattern(pair->value, tmpattr->value) != 0)
+		return -ENODEV;
+
+	dbg("found matching attribute '%s' with value '%s'",
+	    pair->file, pair->value);
+	return 0;
+}
+
+static int do_label(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
+{
+	struct sysfs_pair *pair;
 	struct config_device *dev;
 	struct list_head *tmp;
-	char *c;
+	int i;
+	int match;
 
 	list_for_each(tmp, &config_device_list) {
 		dev = list_entry(tmp, struct config_device, node);
@@ -450,34 +475,24 @@ static int do_label(struct sysfs_class_device *class_dev, struct udevice *udev, 
 				continue;
 		}
 
-		dbg("look for device attribute '%s'", dev->sysfs_file);
-		/* try to find the attribute in the class device directory */
-		tmpattr = sysfs_get_classdev_attr(class_dev, dev->sysfs_file);
-		if (tmpattr)
-			goto label_found;
-
-		/* look in the class device directory if present */
-		if (sysfs_device) {
-			tmpattr = sysfs_get_device_attr(sysfs_device, dev->sysfs_file);
-			if (tmpattr)
-				goto label_found;
+		match = 1;
+		for (i = 0; i < MAX_SYSFS_PAIRS; ++i) {
+			pair = &dev->sysfs_pair[i];
+			if ((pair->file[0] == '\0') || (pair->value[0] == '\0'))
+				break;
+			if (match_pair(class_dev, sysfs_device, pair) != 0) {
+				match = 0;
+				break;
+			}
 		}
-
-		continue;
-
-label_found:
-		c = tmpattr->value + strlen(tmpattr->value)-1;
-		if (*c == '\n')
-			*c = 0x00;
-		dbg("compare attribute '%s' value '%s' with '%s'",
-			  dev->sysfs_file, tmpattr->value, dev->sysfs_value);
-		if (strcmp_pattern(dev->sysfs_value, tmpattr->value) != 0)
+		if (match == 0)
 			continue;
 
+		/* found match */
 		strfieldcpy(udev->name, dev->name);
 		strfieldcpy(udev->symlink, dev->symlink);
-		dbg("found matching attribute '%s', '%s' becomes '%s' ",
-		    dev->sysfs_file, class_dev->name, udev->name);
+		dbg("found matching attribute, '%s' becomes '%s' ",
+		    class_dev->name, udev->name);
 
 		return 0;
 	}

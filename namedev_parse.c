@@ -36,6 +36,19 @@
 #include "udev.h"
 #include "namedev.h"
 
+static int add_config_dev(struct config_device *new_dev)
+{
+	struct config_device *tmp_dev;
+
+	tmp_dev = malloc(sizeof(*tmp_dev));
+	if (tmp_dev == NULL)
+		return -ENOMEM;
+	memcpy(tmp_dev, new_dev, sizeof(*tmp_dev));
+	list_add_tail(&tmp_dev->node, &config_device_list);
+	//dump_config_dev(tmp_dev);
+	return 0;
+}
+
 int get_pair(char **orig_string, char **left, char **right)
 {
 	char *temp;
@@ -78,8 +91,8 @@ void dump_config_dev(struct config_device *dev)
 		dbg_parse("KERNEL name='%s'", dev->name);
 		break;
 	case LABEL:
-		dbg_parse("LABEL name='%s', bus='%s', sysfs_file='%s', sysfs_value='%s'",
-			  dev->name, dev->bus, dev->sysfs_file, dev->sysfs_value);
+		dbg_parse("LABEL name='%s', bus='%s', sysfs_file[0]='%s', sysfs_value[0]='%s'",
+			  dev->name, dev->bus, dev->sysfs_pair[0].file, dev->sysfs_pair[0].value);
 		break;
 	case NUMBER:
 		dbg_parse("NUMBER name='%s', bus='%s', id='%s'",
@@ -225,9 +238,23 @@ keys:
 			}
 
 			if (strncasecmp(temp2, FIELD_SYSFS, sizeof(FIELD_SYSFS)-1) == 0) {
-				/* remove prepended 'SYSFS_' */
-				strfieldcpy(dev.sysfs_file, temp2 + sizeof(FIELD_SYSFS)-1);
-				strfieldcpy(dev.sysfs_value, temp3);
+				struct sysfs_pair *pair = &dev.sysfs_pair[0];
+				int sysfs_pair_num = 0;
+
+				/* find first unused pair */
+				while (pair->file[0] != '\0') {
+					++sysfs_pair_num;
+					if (sysfs_pair_num >= MAX_SYSFS_PAIRS) {
+						pair = NULL;
+						break;
+					}
+					++pair;
+				}
+				if (pair) {
+					/* remove prepended 'SYSFS_' */
+					strfieldcpy(pair->file, temp2 + sizeof(FIELD_SYSFS)-1);
+					strfieldcpy(pair->value, temp3);
+				}
 				continue;
 			}
 
@@ -258,13 +285,13 @@ keys:
 		switch (dev.type) {
 		case LABEL:
 			dbg_parse(TYPE_LABEL " name='%s', bus='%s', "
-				  "sysfs_file='%s', sysfs_value='%s', symlink='%s'",
-				  dev.name, dev.bus, dev.sysfs_file,
-				  dev.sysfs_value, dev.symlink);
+				  "sysfs_file[0]='%s', sysfs_value[0]='%s', symlink='%s'",
+				  dev.name, dev.bus, dev.sysfs_pair[0].file,
+				  dev.sysfs_pair[0].value, dev.symlink);
 			if ((*dev.name == '\0') ||
 			    (*dev.bus == '\0') ||
-			    (*dev.sysfs_file == '\0') ||
-			    (*dev.sysfs_value == '\0'))
+			    (*dev.sysfs_pair[0].file == '\0') ||
+			    (*dev.sysfs_pair[0].value == '\0'))
 				goto error;
 			break;
 		case NUMBER:
