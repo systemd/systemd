@@ -61,6 +61,7 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 		{ .subsystem = "scsi_device",	.file = NULL },
 		{ .subsystem = "pcmcia_socket",	.file = "card_type" },
 		{ .subsystem = "usb_host",	.file = NULL },
+		{ .subsystem = "bluetooth",	.file = "address" },
 		{ NULL, NULL }
 	};
 	struct class_file *classfile;
