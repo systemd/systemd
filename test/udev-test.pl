@@ -104,6 +104,39 @@ REPLACE, KERNEL="ttyUSB0", NAME="visor"
 EOF
 	},
 	{
+		desc     => "Handle comment lines in config file (and replace kernel name)",
+		subsys   => "tty",
+		devpath  => "class/tty/ttyUSB0",
+		expected => "visor" ,
+		conf     => <<EOF
+# this is a comment
+REPLACE, KERNEL="ttyUSB0", NAME="visor"
+
+EOF
+	},
+	{
+		desc     => "Handle comment lines in config file with whitespace (and replace kernel name)",
+		subsys   => "tty",
+		devpath  => "class/tty/ttyUSB0",
+		expected => "visor" ,
+		conf     => <<EOF
+ # this is a comment with whitespace before the comment 
+REPLACE, KERNEL="ttyUSB0", NAME="visor"
+
+EOF
+	},
+	{
+		desc     => "Handle empty lines in config file (and replace kernel name)",
+		subsys   => "tty",
+		devpath  => "class/tty/ttyUSB0",
+		expected => "visor" ,
+		conf     => <<EOF
+
+REPLACE, KERNEL="ttyUSB0", NAME="visor"
+
+EOF
+	},
+	{
 		desc     => "subdirectory handling",
 		subsys   => "tty",
 		devpath  => "class/tty/ttyUSB0",
