@@ -1,6 +1,6 @@
 <html>
 <head>
-<title>Writing udev rules [reactivated.net]</title>
+<title>Writing udev rules</title>
 <META name="resource-type" content="document">
 </head>
 
@@ -8,7 +8,7 @@
 
 <h1>Writing udev rules</h1>
 by Daniel Drake (dsd)<br />
-Version 0.51<br /><br />
+Version 0.53<br /><br />
 
 The most recent version of this document can always be found at: <br />
 <a href="http://www.reactivated.net/udevrules.php">http://www.reactivated.net/udevrules.php</a>
@@ -23,7 +23,7 @@ The most recent version of this document can always be found at: <br />
 <li><a href="#why">Why? (The purpose of this document)</a></li>
 <li><a href="#basics">The basics of writing rules</a></li>
 <li><a href="#operators">Additional automated customisation for NAME and SYMLINK parameters</a></li>
-<li><a href="#regexp">Using regular expressions and wildcards in keys</a></li>
+<li><a href="#regexp">Using shell-style pattern matching in keys</a></li>
 <li><a href="#keys">Key-writing basics</a></li>
 <li><a href="#identify-keys">Identifying devices through basic keys</a></li>
 <li><a href="#identify-sysfs">Identifying devices through SYSFS files</a></li>
@@ -51,8 +51,9 @@ This document assumes that you have udev/hotplug installed and running OK with d
 
 <h2>History</h2>
 
+April 15th 2004: Minor corrections. Added info about NAME{all_partitions}. Added info about other udevinfo tricks.<br /><br />
+April 14th 2004: Reverted to suggesting using "udev.rules" until the udev defaults allow for other files. Minor work.<br /><br />
 April 6th 2004: I now write suggest users to use their own "local.rules" file rather than prepending "udev.rules".<br /><br />
-
 April 3rd 2004: Minor cleanups and preparations for possible inclusion in the udev distribution.<br /><br />
 February 15th 2004: Initial publication.<br /><br />
 February 18th 2004: Fixed a small omission in an example. Updated section on identifying mass-storage devices. Updated section  on nvidia.<br /><br />
@@ -96,11 +97,13 @@ For external mass-storage devices (e.g. usb hard disks), persistant naming is ve
 <a name="basics"></a>
 <h2>The basics of writing rules</h2>
 
-When populating <i>/dev</i>, udev decides which nodes to include, and how to name them, by reading a rules file. The default rules file includes some examples, and defaults to giving a devfs-style layout. The examples may safely be removed, but it is generally sensible to keep the devfs rules and simply make your own amendments and modifications.<br /><br />
+When populating <i>/dev</i>, udev decides which nodes to include, and how to name them, by reading a rules file. This rules file is processed from top to bottom, and udev will stop processing rules for a device once it finds one that matches.<br /><br />
 
-Default udev rules are stored in <i>/etc/udev/udev.rules</i>. You may find it interesting to look over this file - it includes a few examples, and then some default rules proving a devfs-style /dev layout. However, you should not write rules into this file directly, to reduce hassle while updating your udev installation in the future.<br /><br />
+Default udev rules are stored in <i>/etc/udev/udev.rules</i>. The default file includes some examples, and defaults to giving a devfs-style layout. The examples may safely be removed, but it is generally sensible to keep the devfs rules and simply make your own amendments and modifications. You should write your rules in this file, <b>above</b> the examples and default devfs-style rules.<br /><br />
 
-Files in <i>/etc/udev</i> are parsed in <b>lexical</b> order. udev will stop processing rules as soon as it finds a matching rule in a file for the new item of hardware that has been detected. It is important that your own rules get processed before the udev defaults, otherwise your own naming schemes will not take effect! I suggest that you keep your own rules in a file at <i>/etc/udev/local.rules</i> (this doesn't exist by default - create it). As L comes before U, you know that your rules will be looked at first.<br /><br />
+<!-- Default udev rules are stored in <i>/etc/udev/udev.rules</i>. You may find it interesting to look over this file - it includes a few examples, and then some default rules proving a devfs-style /dev layout. However, you should not write rules into this file directly, to reduce hassle while updating your udev installation in the future.<br /><br />
+
+Files in <i>/etc/udev</i> are parsed in <b>lexical</b> order. udev will stop processing rules as soon as it finds a matching rule in a file for the new item of hardware that has been detected. It is important that your own rules get processed before the udev defaults, otherwise your own naming schemes will not take effect! I suggest that you keep your own rules in a file at <i>/etc/udev/local.rules</i> (this doesn't exist by default - create it). As L comes before U, you know that your rules will be looked at first.<br /><br /> -->
 
 As your own rules will effectively mask out the udev defaults which create the base /dev layout, it is recommended that you also specify devfs-style names/symlinks for the rules you write, so that you get the sensible defaults plus your own names.<br /><br />
 
@@ -141,9 +144,9 @@ Another common operator is <i>%k</i>. This represents what the kernel would name
 <font size="2">A full list of operators, with explanations, can be found in the udev man page.</font><br /><br />
 
 <a name="regexp"></a>
-<h2>Using regular expressions and wildcards in keys</h2>
+<h2>Using shell-style pattern matching in keys</h2>
 
-You can use wildcards and basic regular-expression style matching to provide even more flexibility when writing keys. Taking a default udev rule:
+You can use shell style pattern matching to provide even more flexibility when writing keys. Taking a default udev rule:
 
 <blockquote><pre>KERNEL="ts*", NAME="input/%k"</pre></blockquote>
 
@@ -164,7 +167,7 @@ This rule says:<br />
 
 <blockquote>Match a device identified by a KERNEL name starting with the letters "fd", followed by any single digit, optionally followed by anything at all. Name the device with the kernel number of the device (%n) under the floppy directory.</blockquote>
 
-You can use these wildcards/regular-expression matches in any type of key, including both basic keys and sysfs-based identification (see below for explanations of these key types).<br /><br />
+You can use these wildcards/pattern matches in any type of key, including both basic keys and sysfs-based identification (see below for explanations of these key types).<br /><br />
 
 <font size="2">I have purposely left out some information on this topic (particularly the flexibility of using [ ] operators) that is out of the scope of basic rule-writing documentation. More information on this topic can be found in the udev man page.</font><br /><br />
 
@@ -209,7 +212,18 @@ The first thing you need to do is find a directory somewhere in /sys that corres
 Once you have found a directory of this type, you can use the following command to assist you in the creation of writing keys for udev rules:
 <blockquote><pre># udevinfo -a -p /sys/path/to/hardware/info</pre></blockquote>
 
-Some snipped output of the results of my "udevinfo -a -p /sys/block/sda" command is shown below, with colour added.<br />
+You may find that finding the correct place in <i>/sys</i> to run udevinfo on is not obvious. Chances are the device you just plugged in has already careted a device node (e.g. <i>/dev/sda</i>), in which case, udevinfo can be helpful! Taking the example of my <i>/dev/sda</i> node, running the following command will point you to the appropriate area of sysfs:
+<blockquote><pre>
+# udevinfo -q path -n /dev/sda
+
+/block/sda
+</pre></blockquote>
+
+The output of the command (shown above) is telling me that the sysfs path to start at is <i>/sys/block/sda</i>. I would now run "udevinfo -a -p /sys/block/sda". These two commands can be stringed together, like so:
+
+<blockquote><pre># udevinfo -a -p `udevinfo -q path -n /dev/sda`</pre></blockquote>
+
+Moving on to rule-writing, some snipped output of the results of my "udevinfo -a -p /sys/block/sda" command is shown below, with colour added.<br />
 
 <pre><font color="#003300">
 follow the class device's "device"
@@ -262,14 +276,10 @@ I will show three examples of this <i>rule writing based on udevinfo output</i> 
 <a name="example-printer"></a>
 <h2>Example: Writing a rule for my USB printer</h2>
 
-After plugging in my printer, I started looking around some /sys directories for a relevant place to start. I didn't get anywhere, but I noticed that my printer had been given device node <i>/dev/lp0</i>. I used this command sequence to find an answer:
+After plugging in my printer, I started looking around some /sys directories for a relevant place to start. I didn't get anywhere, but I noticed that my printer had been given device node <i>/dev/lp0</i>. udevinfo was able to provide me with a useful path:
 <blockquote><pre>
-# cd /sys
-# find | grep lp0
-./class/usb/lp0
-./class/usb/lp0/dev
-./class/usb/lp0/driver
-./class/usb/lp0/device
+# udevinfo -q path -n /dev/lp0
+/class/usb/lp0
 </pre></blockquote>
 
 Running "udevinfo -a -p /sys/class/usb/lp0" provided me with a heap of info, as usual. I picked out the relevant bits for unique device identification:
@@ -326,13 +336,22 @@ Carl's rule is:
 
 This rule creates symlinks such as:
 <ul>
-<li><i>/dev/usbhdd</i> - The fdiskable node</li>
-<li><i>/dev/usbhdd1</i> - The first partition (mountable)</li>
-<li><i>/dev/usbhdd2</i> - The second partition (mountable)</li>
+<li><i>/dev/usbhd</i> - The fdiskable node</li>
+<li><i>/dev/usbhd1</i> - The first partition (mountable)</li>
+<li><i>/dev/usbhd2</i> - The second partition (mountable)</li>
 
 </ul>
 
 We agreed that depending on the situation and device in question, there are reasons for both wanting and not wanting the non-mountable <i>/dev/sda</i> node. Use whichever setup suits you best.<br /><br />
+
+Another difficult situation is having a multiple-slot USB-storage card reader. These types of device generally do not inform the host when new cards are plugged in or out, so plugging a card into an unused slot while the reader is plugged in will not create the extra device node needed for mounting!<br />
+This problem also applies to other USB disks - e.g. if you create a new partition, the new partition node will not appear until you re-plug the device.<br /><br />
+
+udev provides a solution here - it is able to create nodes for all partitions of a block device. For every rule that you specify, the block device will have all 16 partition nodes created. To achieve this, you can simply modify the NAME key, as shown below:<br />
+
+<blockquote><pre>BUS="usb", SYSFS{product}="USB 2.0 Storage Device", NAME{all_partitions}="usbhd%n"</pre></blockquote>
+
+You will now have nodes named: usbhd, usbhd1, usbhd2, usbhd3, ..., usbhd15.<br /><br />
 
 <a name="example-cdrom"></a>
 <h2>Example: Writing convenience rules for my CD drives</h2>
@@ -346,13 +365,14 @@ BUS="ide", KERNEL="hdc", NAME="%k", SYMLINK="dvd cdroms/cdrom%n"
 BUS="ide", KERNEL="hdd", NAME="%k", SYMLINK="cdrw cdroms/cdrom%n"
 </pre></blockquote>
 
-<font size="2">You may have noticed that the default udev.rules file contains a rule which runs a script to produces names for block devices. Do not be confused by this - as usual, because your own rules in <i>local.rules</i> are processed <b>before</b> the default rules, the default rules will not be used when naming the hardware you have written rules for.</font><br /><br />
+<font size="2">You may have noticed that the default udev.rules file contains a rule which runs a script to produces names for block devices. Do not be confused by this - as usual, because your own rules are located at the top of the rules file, they are processed <b>before</b> the default rules, so the default rules will not be used when naming the hardware you have written rules for.</font><br /><br />
 
 <a name="tips"></a>
 <h2>Tips for finding the appropriate places in SYSFS</h2>
 <font size=2>I'm looking for some more device specific tips here. Please <a href="#author">contact me</a> with any you can provide.</font>
 
 <ul>
+<li>If the device you are looking to write rules for has created a device node under /dev, then you are in luck! Run the following command to get an appropriate /sys path: <i>udevinfo -q path -n /dev/yournode</i></li>
 <li>Always use udevinfo to assist the rule-writing process. Always use udevinfo to look under /sys/block or /sys/class (it will not start reading a chain from anywhere else).</li>
 <li>If you get totally stuck, use the following command to find all "dev" files under /sys (udevinfo can work on directories containing this file): find /sys -iname dev</li>
 <li>If your device is a flash-card reader, usb flash-drive, or digital camera that acts as usb-storage, that is created as /dev/sdX, then start looking in /sys/block/sdX.</li>
@@ -394,8 +414,11 @@ Additional thanks to:
 <li>Carl Streeter (usb-storage info)</li>
 <li>Decibels</li>
 <li>Frank Pieczynski</li>
+<li>Feth Arezki</li>
 <li>Jim (KDE info)</li>
+<li>Kay Sievers</li>
 <li>Patrick Dreker</li>
+<li>Todd Musall</li>
 <li>Tuna</li>
 <li>Ueli Schläpfer</li>
 <li>...and anyone else who provided information or feedback</li>
