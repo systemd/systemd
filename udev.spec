@@ -27,6 +27,11 @@
 # 1 - use LSB: etc/init.d/udev.init.LSB
 %define lsb 0
 
+# if we want to build the scsi_id "extra" package or not
+# 0 - do not build the package
+# 1 - build it
+%define scsi_id 1
+
 Summary: A userspace implementation of devfs
 Name: udev
 Version: 017_bk
@@ -67,7 +72,11 @@ make CC="gcc $RPM_OPT_FLAGS"	\
 %else
 	DEBUG=false		\
 %endif
-
+	EXTRAS="	\
+%if %{scsi_id}
+	extras/scsi_id	\
+%endif
+"
 
 %install
 make DESTDIR=$RPM_BUILD_ROOT install \
@@ -81,6 +90,11 @@ make DESTDIR=$RPM_BUILD_ROOT install \
 %else
 	USE_LSB=false		\
 %endif
+	EXTRAS="	\
+%if %{scsi_id}
+	extras/scsi_id	\
+%endif
+"
 
 %post
 /sbin/chkconfig --add udev
@@ -95,7 +109,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root)
-%doc COPYING README TODO ChangeLog
+%doc COPYING README TODO ChangeLog HOWTO* etc/udev/udev.rules.examples docs/*
 %attr(755,root,root) /sbin/udev
 %attr(755,root,root) /sbin/udevinfo
 %attr(755,root,root) /sbin/udevsend
@@ -106,14 +120,25 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.conf
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.rules
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.permissions
-%if %{dbus}
-	%config(noreplace) %attr(0644,root,root) /etc/dbus-1/system.d/udev_sysbus_policy.conf
-%endif
 %attr(-,root,root) /etc/hotplug.d/default/udev.hotplug
 %attr(755,root,root) /etc/init.d/udev
 %attr(0644,root,root) %{_mandir}/man8/udev*.8*
 
+%if %{dbus}
+	%config(noreplace) %attr(0644,root,root) /etc/dbus-1/system.d/udev_sysbus_policy.conf
+%endif
+
+%if %{scsi_id}
+	%attr(755,root,root) /sbin/scsi_id
+	%config(noreplace) %attr(0644,root,root) /etc/scsi_id.config
+	%attr(0644,root,root) %{_mandir}/man8/scsi_id*.8*
+%endif
+
 %changelog
+* Thu Feb 19 2004 Greg Kroah-Hartman <greg@kroah.com>
+- add some more files to the documentation directory
+- add ability to build scsi_id and make it the default
+
 * Mon Feb 16 2004 Greg Kroah-Hartman <greg@kroah.com>
 - fix up udevd build, as it's no longer needed to be build seperatly
 - add udevtest to list of files
