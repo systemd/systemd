@@ -161,7 +161,8 @@ int main(int argc, char* argv[])
 
 	memset(&saddr, 0x00, sizeof(saddr));
 	saddr.sun_family = AF_LOCAL;
-	strcpy(saddr.sun_path, UDEVD_SOCK);
+	/* use abstract namespace for socket path */
+	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
 
 	/* try to connect, if it fails start daemon */
 	retval = connect(sock, (struct sockaddr *) &saddr, sizeof(saddr));

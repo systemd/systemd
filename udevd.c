@@ -325,7 +325,6 @@ static void sig_handler(int signum)
 		case SIGINT:
 		case SIGTERM:
 			unlink(UDEVD_LOCK);
-			unlink(UDEVD_SOCK);
 			exit(20 + signum);
 			break;
 		default:
@@ -378,9 +377,9 @@ int main(int argc, char *argv[])
 
 	memset(&saddr, 0x00, sizeof(saddr));
 	saddr.sun_family = AF_LOCAL;
-	strcpy(saddr.sun_path, UDEVD_SOCK);
+	/* use abstract namespace for socket path */
+	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
 
-	unlink(UDEVD_SOCK);
 	ssock = socket(AF_LOCAL, SOCK_STREAM, 0);
 	if (ssock == -1) {
 		dbg("error getting socket");
@@ -426,6 +425,5 @@ int main(int argc, char *argv[])
 	}
 exit:
 	close(ssock);
-	unlink(UDEVD_SOCK);
 	exit(1);
 }
