@@ -860,8 +860,8 @@ static int do_replace(struct sysfs_class_device *class_dev, struct udevice *udev
 			continue;
 
 		dbg_parse("compare name '%s' with '%s'",
-			  dev->kernel_name, dev->name);
-		if (strcmp(dev->kernel_name, class_dev->name) != 0)
+			  dev->kernel_name, class_dev->name);
+		if (strncmp_wildcard(class_dev->name, dev->kernel_name, NAME_SIZE) != 0)
 			continue;
 
 		strfieldcpy(udev->name, dev->name);

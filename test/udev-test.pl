@@ -51,6 +51,15 @@ LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="boot_disk%n"
 EOF
 	},
 	{
+		desc     => "catch device by wildcard",
+		subsys   => "tty",
+		devpath  => "class/tty/ttyUSB0",
+		expected => "visor/0" ,
+		conf     => <<EOF
+REPLACE, KERNEL="ttyUSB*", NAME="visor/%n"
+EOF
+	},
+	{
 		desc     => "replace kernel name",
 		subsys   => "tty",
 		devpath  => "class/tty/ttyUSB0",
