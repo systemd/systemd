@@ -1,3 +1,61 @@
+Summary of changes from v021 to v022
+============================================
+
+<ananth:in.ibm.com>:
+  o more Libsysfs updates
+  o Libsysfs updates
+
+<async:cc.gatech.edu>:
+  o fix HOWTO-udev_for_dev for udevdir
+
+<kay.sievers:vrfy.org>:
+  o udev-test.pl cleanup
+  o add dev node test to udev-test.pl
+  o add permission tests
+  o "symlink only" test
+  o callout part selector tweak
+  o cleanup callout fork
+  o allow to specify node permissions in the rule
+  o man page beauty
+  o put symlink only rules to the man page
+  o rename strn*() macros to strmax
+  o conditional remove of trailing sysfs whitespace
+  o clarify udevinfo text
+  o better fix for NAME="foo-%c{N}" gets a truncated name
+  o overall trivial trivial cleanup
+  o fix NAME="foo-%c{N}" gets a truncated name
+  o cleanup mult field string handling
+
+<ken:cgi101.com>:
+  o fix a type in docs/libsysfs.txt
+  o Added line to udev.permissions.redhat
+  o Include more examples in the docs area for gentoo and redhat
+
+<md:linux.it>:
+  o udevstart fixes
+
+Greg Kroah-Hartman:
+  o add big major tests to udev-test.pl
+  o add a test for a minor over 255
+  o udev-test.pl: print out major:minor and perm test "ok" if is ok
+  o make perm and major:minor test errors be reported properly
+  o remove extra ; in namedev_parse.c
+  o Added multipath-tools 0.1.1 release
+  o deleted current extras/multipath directory
+  o 021_bk mark
+  o fix the build for older versions of gcc
+  o 021 release TAG: v021
+
+Hanna V. Linder:
+  o Small fix to remove extra "will" in man page
+
+Olaf Hering:
+  o make spotless
+  o udev* segfaults with new klibc
+
+Patrick Mansfield:
+  o add tests for NAME="foo-%c{N}"
+
 Summary of changes from v020 to v021
 ============================================
 
