@@ -1,0 +1,64 @@
+2003-dec-05:
+	* Makefile, scsi_id.8: Add a man page.
+
+2003-dec-04:
+	* Makefile: Set and use variables that might be passed down when
+	  built under udev (with or without klibc), don't set LDFLAGS or
+	  STRIP.
+
+2003-dec-04:
+	* scsi_id.c, scsi_id.h: Fix a bad bug - when parsing file options,
+	  no space was allocated for the creation of the new argv[]
+	  strings.
+
+2003-dec-04:
+	* scsi_id.c: Catch too long a line in the config file.
+
+2003-dec-02:
+	* scsi_id.h: Add u8 typedef to avoid ummm scsi.h kernel header
+	  problem when built with klibc.
+
+2003-dec-02:
+	* scsi_id.h: Add define of makedev() if built with klibc.
+
+2003-dec-02:
+	* scsi_id.c: reset optind to 1 since klibc does not work if it is
+	  reset to zero.
+
+2003-dec-02:
+	* scsi_id.c: remove fflush() as it is not needed, and is not
+	  supported by klibc.
+
+2003-dec-02:
+	* scsi_serial.c: Make the functions do_scsi_page0_inquiry and
+	  do_scsi_page80_inquiry static.
+
+2003-dec-01:
+	* scsi_id.c: Don't use syslog LOG_PID, as it is not supported by
+	  klibc.
+
+2003-dec-01:
+	* scsi_id.c, scsi_serial.c: Hack - change include path to libsysfs
+	  if built under klibc.
+
+2003-dec-01:
+	* Makefile: Use "override" for CFLAGS so we can pass CFLAGS values
+	  down when built with udev
+
+2003-dec-01:
+	* scsi_id.c, Makefile: Use SCSI_ID_VERSION instead of VERSION.
+
+2003-nov-25:
+	* scsi_id.c: Remove getopt_long (long option names), as there
+	  is no support for that in klibc.
+
+2003-nov-17:
+	* scsi_id.c: Patch from Brian King: check result of setting model,
+	  not vendor in per_dev_options.
+
+2003-nov-03:
+	* scsi_id.c, scsi_serial.c: Use new and correct path to libsysfs.h.
+
+2003-nov-03:
+	* scsi_id.h: Fix scsi_id.h so var args in marcros works ok with
+	  older gcc.

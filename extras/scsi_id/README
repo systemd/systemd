@@ -5,9 +5,9 @@ used by a multi-path configuration tool that requires SCSI id's.
 
 Requires:
 
-- Linux kernel 2.6
+	- Linux kernel 2.6
 
-- libsysfs 
+	- libsysfs
 
 No man page yet.
 

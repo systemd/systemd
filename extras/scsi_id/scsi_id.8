@@ -1,0 +1,118 @@
+.TH SCSI_ID 8 "December 2003" "" "Linux Administrator's Manual"
+.SH NAME
+scsi_id \- retrieve and generate a unique SCSI identifier
+.SH SYNOPSIS
+.BI scsi_id 
+[\fIoptions\fP]
+.SH "DESCRIPTION"
+.B scsi_id
+queries a SCSI device via the SCSI INQUIRY vital product data (VPD) page 0x80 or
+0x83 and uses the resulting data to generate a value that is unique across
+all SCSI devices that properly support page 0x80 or page 0x83. 
+
+If a result is generated it is sent to standard output, and the program
+exits with a zero value. If no identifier is output, the program exits
+with a non-zero value.
+
+\fBscsi_id\fP is primarily for use by other utilities such as \fBudev\fP
+that require a unique SCSI identifier.
+
+By default all devices are assume black listed, the \fB-g\fP option must
+be specified on the command line or in the config file for any useful
+behaviour.
+
+SCSI commands are sent directly to the device via the SG_IO ioctl
+interface.
+
+In order to generate unique values for either page 0x80 or page 0x83, the
+serial numbers or world wide names are prefixed as follows.
+
+Identifiers based on page 0x80 are prefixed by the character 'S', the SCSI
+vendor, the SCSI product (model) and then the the serial number returned
+by page 0x80. For example:
+
+.sp
+.nf
+# scsi_id -p 0x80 -s /block/sdg
+SIBM     3542           1T05078453
+.fi
+.P
+
+Identifiers based on page 0x83 are prefixed by the identifier type
+followed by the page 0x83 identifier. For example, a device with a NAA
+(Name Address Authority) type of 3 (also in this case the page 0x83
+identifier starts with the NAA value of 6):
+
+.sp
+.nf
+# /sbin/scsi_id -p 0x83 -s /block/sdg
+3600a0b80000b174b000000d63efc5c8c
+.fi
+.P
+
+
+.SH OPTIONS
+.TP
+.BI \-b
+The default behaviour - treat the device as black listed, and do nothing
+unless a white listed device is found in the scsi_id config-file.
+.TP
+.BI \-d "\| device\^"
+Instead
+of determining and creating a device node based on a sysfs dev
+entry as done for the \fB-s\fP, send SG_IO commands to 
+\fBdevice\fP, such as \fB/dev/sdc\fP.
+.TP
+.BI \-e
+Send all output to standard error even if
+.B scsi_id 
+is running in hotplug mode.
+.TP
+.BI \-f "\| config-file"
+Read configuration and black/white list entries from
+.B config-file 
+rather than the default
+.B /etc/scsi_id.config
+file.
+.TP
+.BI \-g
+Treat the device as white listed. The \fB\-g\fP option must be specified
+on the command line or in the scsi_id configuration file for 
+.B scsi_id
+to generate any output.
+.TP
+.BI \-i
+Prefix the identification string with the  driver model (sysfs) bus id of
+the SCSI device.
+.TP
+.BI \-p "\| 0x80 | 0x83"
+Use SCSI INQUIRY VPD page code 0x80 or 0x83. The default behaviour is to
+query the available VPD pages, and use page 0x83 if found, else page 0x80
+if found, else nothing.
+.TP
+.BI \-s "\|sysfs-device"
+Generate an id for the
+.B sysfs-device.
+The sysfs mount point must not be included. For example, use /block/sd,
+not /sys/block/sd.
+.TP
+.BI \-v
+Generate verbose debugging output.
+.TP
+.BI \-V
+Display version number and exit.
+.RE
+.SH "FILES"
+.nf
+.ft B
+.ft
+/etc/scsi_id.config                  configuration and black/white list entries
+.fi
+.LP
+.SH "SEE ALSO"
+.BR udev (8)
+, especially the CALLOUT method.
+.SH AUTHORS
+Developed by Patrick Mansfield <patmans@us.ibm.com> based on SCSI ID
+source included in earlier linux 2.5 kernels, sg_utils source, and SCSI
+specifications.

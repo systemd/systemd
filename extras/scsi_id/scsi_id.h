@@ -22,10 +22,22 @@
  */
 
 #define dprintf(format, arg...) \
-	log_message(LOG_DEBUG, "%s: " format, __FUNCTION__, ## arg)
+	log_message(LOG_DEBUG, "%s: " format, __FUNCTION__ , ## arg)
 
 #define	MAX_NAME_LEN	72
 #define OFFSET (2 * sizeof(unsigned int))
+
+/*
+ * MAX_SERIAL_LEN: the maximum length of the serial number, including
+ * added prefixes such as vendor and product (model) strings.
+ */
+#define	MAX_SERIAL_LEN	128
+
+/*
+ * MAX_BUFFER_LEN: maximum buffer size and line length used while reading
+ * the config file.
+ */
+#define MAX_BUFFER_LEN	256
 
 static inline char *sysfs_get_attr(struct sysfs_class_device *dev,
 				    const char *attr)
@@ -40,3 +52,10 @@ extern int scsi_get_serial (struct sysfs_class_device *scsi_dev,
 extern void log_message (int level, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
 
+#ifdef __KLIBC__
+#define makedev(major, minor)  ((major) << 8) | (minor)
+#endif
+
+#ifndef u8
+typedef unsigned char u8;
+#endif

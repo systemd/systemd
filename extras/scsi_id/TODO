@@ -1,16 +1,11 @@
-- Investigate shrinking build size: use klibc or uClibc, or copy whatever
-  udev does
+- add information abou the config file to the man page
 
-- write a man page
+- change so non-KLIBC builds under udev don't use /usr/include/sysfs,
+  but instead use the sysfs included with udev (needs udev change and/or
+  sysfsutils changes).
 
-- send in kernel patch for REQ_BLOCK_PC, to always set sd and sr set
-  retries (scmd->allowed) to <= 1
+- do something with callout code - remove or change to a tag?
 
-- Pull SG_IO code into one .c file.
- 
-- implement callout to device specific serial id code.  The "-c prog" is
-  not implemented.
-
-  This needs an implementation of a device specific callout before it can
-  be completed. Someone with hardware requiring this needs to send in a
-  patch.
+  This needs an implementation of a device specific callout or device
+  specific code (called via some special  "tag" or such) before it can be
+  completed. Someone with such hardware to send in a patch.

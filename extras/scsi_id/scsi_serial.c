@@ -31,7 +31,14 @@
 #include <unistd.h>
 #include <syslog.h>
 #include <scsi/sg.h>
-#include <sys/libsysfs.h>
+#ifdef __KLIBC__
+/*
+ * Assume built under udev with KLIBC
+ */
+#include <libsysfs.h>
+#else
+#include <sysfs/libsysfs.h>
+#endif
 #include "scsi_id.h"
 #include "scsi.h"
 
@@ -348,6 +355,11 @@ resend:
 			retval = scsi_dump(scsi_dev, &io_hdr);
 	}
 
+	/*
+	 * XXX where is the length checked? That is, was our request
+	 * buffer long enough?
+	 */
+
 	if (!retval) {
 		retval = buflen;
 		memcpy(buf, buffer, retval);
@@ -369,8 +381,8 @@ resend:
  * Ending here.
  */
 
-int do_scsi_page0_inquiry(struct sysfs_class_device *scsi_dev, int fd,
-			  char *buffer, int len)
+static int do_scsi_page0_inquiry(struct sysfs_class_device *scsi_dev, int fd,
+				 char *buffer, int len)
 {
 	int retval;
 	char *vendor;
@@ -527,8 +539,10 @@ static int check_fill_0x83_id(struct sysfs_class_device *scsi_dev,
 	serial[0] = hex_str[id_search->id_type];
 
 	/*
-	 * Prepend the vendor and model before the id since if it is not
-	 * unique across all vendors and models.
+	 * For SCSI_ID_VENDOR_SPECIFIC prepend the vendor and model before
+	 * the id since it is not unique across all vendors and models,
+	 * this differs from SCSI_ID_T10_VENDOR, where the vendor is
+	 * included in the identifier.
 	 */
 	if (id_search->id_type == SCSI_ID_VENDOR_SPECIFIC)
 		if (prepend_vendor_model(scsi_dev, &serial[1]) < 0) {
@@ -575,6 +589,12 @@ static int do_scsi_page83_inquiry(struct sysfs_class_device *scsi_dev, int fd,
 			    scsi_dev->name);
 		return 1;
 	}
+	
+	/*
+	 * XXX Some devices (IBM 3542) return all spaces for an identifier if
+	 * the LUN is not actually configured. This leads to identifers of
+	 * the form: "1            ".
+	 */
 
 	/*
 	 * Search for a match in the prioritized id_search_list.
@@ -609,8 +629,8 @@ static int do_scsi_page83_inquiry(struct sysfs_class_device *scsi_dev, int fd,
 	return 1;
 }
 
-int do_scsi_page80_inquiry(struct sysfs_class_device *scsi_dev, int fd,
-			   char *serial, int max_len)
+static int do_scsi_page80_inquiry(struct sysfs_class_device *scsi_dev, int fd,
+				  char *serial, int max_len)
 {
 	int retval;
 	int ser_ind;

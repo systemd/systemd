@@ -23,7 +23,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <getopt.h>
 #include <unistd.h>
 #include <signal.h>
 #include <fcntl.h>
@@ -33,12 +32,19 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <sys/stat.h>
-#include <sys/libsysfs.h>
+#ifdef __KLIBC__
+/*
+ * Assume built under udev with KLIBC
+ */
+#include <libsysfs.h>
+#else
+#include <sysfs/libsysfs.h>
+#endif
 #include "scsi_id.h"
 
-#ifndef VERSION
+#ifndef SCSI_ID_VERSION
 #warning No version
-#define VERSION	"unknown"
+#define SCSI_ID_VERSION	"unknown"
 #endif
 
 /*
@@ -49,36 +55,11 @@
 
 #define CONFIG_FILE "/etc/scsi_id.config"
 
-#define	MAX_NAME_LEN	72
-
-#define	MAX_SERIAL_LEN	128
-
 static const char short_options[] = "bc:d:ef:gip:s:vV";
-static const struct option long_options[] = {
-	{"broken",	no_argument,		NULL,	'b'}, /* also per dev */
-	{"callout",	required_argument,	NULL,	'c'}, /* also per dev */
-	{"device",	required_argument,	NULL,	'd'},
-	{"stderr",	no_argument,		NULL,	'e'},
-	{"file",	required_argument,	NULL,	'f'},
-	{"good",	no_argument,		NULL,	'g'}, /* also per dev */
-	{"busid",	no_argument,		NULL,	'i'}, /* also per dev */
-	{"page",	required_argument,	NULL,	'p'}, /* also per dev */
-	{"devpath",	required_argument,	NULL,	's'},
-	{"verbose",	no_argument,		NULL,	'v'},
-	{"version",	no_argument,		NULL,	'V'},
-	{0, 0, 0, 0}
-};
 /*
  * Just duplicate per dev options.
  */
 static const char dev_short_options[] = "bc:gp:";
-static const struct option dev_long_options[] = {
-	{"broken",	no_argument,		NULL,	'b'}, /* also per dev */
-	{"callout",	required_argument,	NULL,	'c'}, /* also per dev */
-	{"good",	no_argument,		NULL,	'g'}, /* also per dev */
-	{"page",	required_argument,	NULL,	'p'}, /* also per dev */
-	{0, 0, 0, 0}
-};
 
 char sysfs_mnt_path[SYSFS_PATH_MAX];
 
@@ -105,8 +86,13 @@ void log_message (int level, const char *format, ...)
 		vfprintf(stderr, format, args);
 	} else {
 		static int logging_init = 0;
+		static unsigned char logname[32];
 		if (!logging_init) {
-			openlog ("scsi_id", LOG_PID, LOG_DAEMON);
+			/*
+			 * klibc does not have LOG_PID.
+			 */
+			snprintf(logname, 32, "scsi_id[%d]", getpid());
+			openlog (logname, 0, LOG_DAEMON);
 			logging_init = 1;
 		}
 
@@ -295,7 +281,7 @@ static int argc_count(char *opts)
 static int get_file_options(char *vendor, char *model, int *argc,
 			    char ***newargv)
 {
-	char buffer[256];
+	char *buffer;
 	FILE *fd;
 	char *buf;
 	char *str1;
@@ -303,7 +289,6 @@ static int get_file_options(char *vendor, char *model, int *argc,
 	int lineno;
 	int c;
 	int retval = 0;
-	static char *prog_string = "arg0";
 
 	dprintf("vendor='%s'; model='%s'\n", vendor, model);
 	fd = fopen(config_file, "r");
@@ -318,16 +303,31 @@ static int get_file_options(char *vendor, char *model, int *argc,
 		}
 	}
 
+	/*
+	 * Allocate a buffer rather than put it on the stack so we can
+	 * keep it around to parse any options (any allocated newargv
+	 * points into this buffer for its strings).
+	 */
+	buffer = malloc(MAX_BUFFER_LEN);
+	if (!buffer) {
+		log_message(LOG_WARNING, "Can't allocate memory.\n");
+		return -1;
+	}
+
 	*newargv = NULL;
 	lineno = 0;
-
 	while (1) {
 		vendor_in = model_in = options_in = NULL;
 
-		buf = fgets(buffer, sizeof(buffer), fd);
+		buf = fgets(buffer, MAX_BUFFER_LEN, fd);
 		if (buf == NULL)
 			break;
 		lineno++;
+		if (buf[strlen(buffer) - 1] != '\n') {
+			log_message(LOG_WARNING,
+				    "Config file line %d too long.\n", lineno);
+			break;
+		}
 
 		while (isspace(*buf))
 			buf++;
@@ -419,18 +419,24 @@ static int get_file_options(char *vendor, char *model, int *argc,
 			 * Something matched. Allocate newargv, and store
 			 * values found in options_in.
 			 */
-			c = argc_count(options_in) + 2;
+			strcpy(buffer, options_in);
+			c = argc_count(buffer) + 2;
 			*newargv = calloc(c, sizeof(**newargv));
 			if (!*newargv) {
 				log_message(LOG_WARNING,
-					    "Can't allocate memory\n");
+					    "Can't allocate memory.\n");
 				retval = -1;
 			} else {
 				*argc = c;
 				c = 0;
-				(*newargv)[c] = prog_string; /* nothing */
+				/*
+				 * argv[0] at 0 is skipped by getopt, but
+				 * store the buffer address there for
+				 * alter freeing.
+				 */
+				(*newargv)[c] = buffer;
 				for (c = 1; c < *argc; c++)
-					(*newargv)[c] = strsep(&options_in, " ");
+					(*newargv)[c] = strsep(&buffer, " ");
 			}
 		} else {
 			/*
@@ -439,26 +445,26 @@ static int get_file_options(char *vendor, char *model, int *argc,
 			retval = 1;
 		}
 	}
+	if (retval != 0)
+		free(buffer);
 	fclose(fd);
 	return retval;
 }
 
 static int set_options(int argc, char **argv, const char *short_opts,
-		       const struct option *long_opts, char *target,
-		       char *maj_min_dev)
+		       char *target, char *maj_min_dev)
 {
 	int option;
-	int option_ind;
 
 	/*
-	 * optind is a global extern used by getopt_long. Since we can
-	 * call set_options twice (once for command line, and once for
-	 * config file) we have to reset this back to 0.
+	 * optind is a global extern used by getopt. Since we can call
+	 * set_options twice (once for command line, and once for config
+	 * file) we have to reset this back to 1. [Note glibc handles
+	 * setting this to 0, but klibc does not.]
 	 */
-	optind = 0;
+	optind = 1;
 	while (1) {
-		option = getopt_long(argc, argv, short_options, long_options,
-				     &option_ind);
+		option = getopt(argc, argv, short_options);
 		if (option == -1)
 			break;
 
@@ -521,7 +527,7 @@ static int set_options(int argc, char **argv, const char *short_opts,
 
 		case 'V':
 			log_message(LOG_WARNING, "scsi_id version: %s\n",
-				    VERSION);
+				    SCSI_ID_VERSION);
 			exit(0);
 			break;
 
@@ -544,8 +550,6 @@ static int per_dev_options(struct sysfs_class_device *scsi_dev, int *good_bad,
 	char *vendor;
 	char *model;
 	int option;
-	int option_ind;
-
 
 	*good_bad = all_good;
 	*page_code = default_page_code;
@@ -562,7 +566,7 @@ static int per_dev_options(struct sysfs_class_device *scsi_dev, int *good_bad,
 	}
 
 	model = sysfs_get_attr(scsi_dev, "model");
-	if (!vendor) {
+	if (!model) {
 		log_message(LOG_WARNING, "%s: no model attribute\n",
 			    scsi_dev->name);
 		return -1;
@@ -570,10 +574,9 @@ static int per_dev_options(struct sysfs_class_device *scsi_dev, int *good_bad,
 
 	retval = get_file_options(vendor, model, &newargc, &newargv);
 
-	optind = 0; /* global extern, reset to 0 */
+	optind = 1; /* reset this global extern */
 	while (retval == 0) {
-		option = getopt_long(newargc, newargv, dev_short_options,
-				     dev_long_options, &option_ind);
+		option = getopt(newargc, newargv, dev_short_options);
 		if (option == -1)
 			break;
 
@@ -616,8 +619,10 @@ static int per_dev_options(struct sysfs_class_device *scsi_dev, int *good_bad,
 		}
 	}
 
-	if (newargv)
+	if (newargv) {
+		free(newargv[0]);
 		free(newargv);
+	}
 	return retval;
 }
 
@@ -747,7 +752,6 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 		dprintf("%s\n", serial);
 		retval = 0;
 	}
-	fflush(stdout);
 	sysfs_close_class_device(scsi_dev);
 
 	if (!dev_specified)
@@ -797,8 +801,8 @@ int main(int argc, char **argv)
 		strncpy(target_path, sysfs_mnt_path, MAX_NAME_LEN);
 		strncat(target_path, devpath, MAX_NAME_LEN);
 	} else {
-		if (set_options(argc, argv, short_options, long_options,
-				target_path, maj_min_dev) < 0)
+		if (set_options(argc, argv, short_options, target_path,
+				maj_min_dev) < 0)
 			exit(1);
 	}
 
@@ -811,8 +815,8 @@ int main(int argc, char **argv)
 	if (retval < 0) {
 		exit(1);
 	} else if (newargv && (retval == 0)) {
-		if (set_options(newargc, newargv, short_options, long_options,
-				target_path, maj_min_dev) < 0)
+		if (set_options(newargc, newargv, short_options, target_path,
+				maj_min_dev) < 0)
 			exit(1);
 		free(newargv);
 	}
