@@ -716,7 +716,7 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 		}
 
 		/* Yup, this rule belongs to us! */
-		dbg("found matching rule, '%s' becomes '%s'", dev->kernel, udev->name);
+		dbg("found matching rule, '%s' becomes '%s'", dev->kernel, dev->name);
 		strfieldcpy(udev->name, dev->name);
 		strfieldcpy(udev->symlink, dev->symlink);
 		goto found;
