@@ -113,7 +113,7 @@ void dump_perm_dev_list(void)
 		dump_perm_dev(dev);
 }
 
-/* extract possible KEY{attr} or KEY_attr */
+/* extract possible KEY{attr} */
 static char *get_key_attribute(char *str)
 {
 	char *pos;
@@ -128,13 +128,6 @@ static char *get_key_attribute(char *str)
 			return NULL;
 		}
 		pos[0] = '\0';
-		dbg("attribute='%s'", attr);
-		return attr;
-	}
-
-	attr = strchr(str, '_');
-	if (attr != NULL) {
-		attr++;
 		dbg("attribute='%s'", attr);
 		return attr;
 	}
