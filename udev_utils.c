@@ -62,11 +62,11 @@ void udev_init_device(struct udevice *udev, const char* devpath, const char *sub
 	strcpy(udev->group, "root");
 }
 
-int kernel_release_satisfactory(int version, int patchlevel, int sublevel)
+int kernel_release_satisfactory(unsigned int version, unsigned int patchlevel, unsigned int sublevel)
 {
-	static int kversion = 0;
-	static int kpatchlevel;
-	static int ksublevel;
+	static unsigned int kversion = 0;
+	static unsigned int kpatchlevel;
+	static unsigned int ksublevel;
 
 	if (kversion == 0) {
 		struct utsname uts;
