@@ -1831,8 +1831,8 @@ TDB_CONTEXT *tdb_open_ex(const char *name, int hash_size, int tdb_flags,
 	/* Is it already in the open list?  If so, fail. */
 	if (tdb_already_open(st.st_dev, st.st_ino)) {
 		TDB_LOG((tdb, 2, "tdb_open_ex: "
-			 "%s (%d:%d,%ld) is already open in this process\n",
-			 name, major(st.st_dev), minor(st.st_dev), st.st_ino));
+			 "%s (%d:%d,%lld) is already open in this process\n",
+			 name, major(st.st_dev), minor(st.st_dev), (unsigned long long)st.st_ino));
 		errno = EBUSY;
 		goto fail;
 	}
