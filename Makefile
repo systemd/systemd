@@ -283,8 +283,8 @@ $(SENDER).o: $(GEN_HEADERS) $(HOST_PROGS)
 $(STARTER).o: $(GEN_HEADERS) $(HOST_PROGS)
 $(WAIT).o: $(GEN_HEADERS) $(HOST_PROGS)
 
-$(ROOT): $(LIBC) $(ROOT).o $(STARTER).o $(OBJS) $(HEADERS) $(GEN_MANPAGES)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o udevstart.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+$(ROOT): $(LIBC) $(ROOT).o udev_start.o $(OBJS) $(HEADERS) $(GEN_MANPAGES)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o udev_start.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
 $(TESTER): $(LIBC) $(TESTER).o $(OBJS) $(HEADERS)

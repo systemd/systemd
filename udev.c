@@ -143,6 +143,7 @@ int main(int argc, char *argv[], char *envp[])
 	switch(act_type) {
 	case UDEVSTART:
 		dbg("udevstart");
+		udev_log = 0;
 		namedev_init();
 		retval = udev_start();
 		break;
