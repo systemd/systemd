@@ -408,8 +408,8 @@ exit:
 		dbg("result: waiting for sysfs successful '%s'", devpath);
 	else
 		info("error: wait_for_sysfs needs an update to handle the device '%s' "
-		     "properly, please report to <linux-hotplug-devel@lists.sourceforge.net>",
-		     devpath);
+		     "properly (%d), please report to <linux-hotplug-devel@lists.sourceforge.net>",
+		     devpath, rc);
 
 	return rc;
 }
