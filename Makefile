@@ -137,6 +137,7 @@ endif
 # link udev against it statically.
 # Otherwise, use glibc and link dynamically.
 ifeq ($(strip $(USE_KLIBC)),true)
+	KLIBC_FIXUPS_DIR= $(PWD)/klibc_fixups
 	KLIBC_BASE	= $(PWD)/klibc
 	KLIBC_DIR	= $(KLIBC_BASE)/klibc
 	INCLUDE_DIR	:= $(KLIBC_BASE)/include
@@ -149,13 +150,15 @@ ifeq ($(strip $(USE_KLIBC)),true)
 
 	CRT0 = $(KLIBC_DIR)/crt0.o
 	LIBC = $(ARCH_LIB_OBJS) $(LIB_OBJS) $(CRT0)
-	CFLAGS += $(WARNINGS) -nostdinc			\
-		$(OPTFLAGS)				\
-		-D__KLIBC__ -fno-builtin-printf		\
-		-I$(INCLUDE_DIR)			\
-		-I$(INCLUDE_DIR)/arch/$(ARCH)		\
-		-I$(INCLUDE_DIR)/bits$(BITSIZE)		\
-		-I$(GCCINCDIR)				\
+	CFLAGS += $(WARNINGS) -nostdinc				\
+		$(OPTFLAGS)					\
+		-D__KLIBC__ -fno-builtin-printf			\
+		-I$(KLIBC_FIXUPS_DIR)				\
+		-include $(KLIBC_FIXUPS_DIR)/klibc_fixups.h	\
+		-I$(INCLUDE_DIR)				\
+		-I$(INCLUDE_DIR)/arch/$(ARCH)			\
+		-I$(INCLUDE_DIR)/bits$(BITSIZE)			\
+		-I$(GCCINCDIR)					\
 		-I$(LINUX_INCLUDE_DIR)
 	LIB_OBJS =
 	LDFLAGS = --static --nostdlib -nostartfiles -nodefaultlibs
@@ -226,14 +229,14 @@ HEADERS =	udev.h		\
 		udev_version.h	\
 		udevdb.h	\
 		udev_sysfs.h	\
-		klibc_fixups.h	\
 		logging.h	\
 		selinux.h	\
-		list.h
+		list.h		\
+		klibc_fixups/klibc_fixups.h
 
 ifeq ($(strip $(USE_KLIBC)),true)
-	OBJS += klibc_fixups.o
-	KLIBC_FIXUP = klibc_fixups.o
+	OBJS += klibc_fixups/klibc_fixups.o
+	KLIBC_FIXUP = klibc_fixups/klibc_fixups.o
 endif
 
 ifeq ($(strip $(V)),false)

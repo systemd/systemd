@@ -33,7 +33,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <fcntl.h>
-#include "klibc_fixups.h"
 #include <sys/sysinfo.h>
 #include <sys/stat.h>
 

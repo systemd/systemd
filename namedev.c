@@ -40,7 +40,6 @@
 #include "udev_version.h"
 #include "logging.h"
 #include "namedev.h"
-#include "klibc_fixups.h"
 #include "udevdb.h"
 
 static struct sysfs_attribute *find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, char *attr);

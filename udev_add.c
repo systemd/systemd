@@ -34,10 +34,7 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <linux/sockios.h>
-#ifndef __KLIBC__
 #include <pwd.h>
-#include <utmp.h>
-#endif
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
@@ -46,7 +43,6 @@
 #include "logging.h"
 #include "namedev.h"
 #include "udevdb.h"
-#include "klibc_fixups.h"
 
 #include "selinux.h"
 
