@@ -47,7 +47,7 @@ void log_message(int level, const char *format, ...)
 }
 #endif
 
-#define WAIT_MAX_SECONDS		10
+#define WAIT_MAX_SECONDS		5
 #define WAIT_LOOP_PER_SECOND		20
 
 /* wait for specific file to show up, normally the "dev"-file */
@@ -60,7 +60,7 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 		{ .subsystem = "net",		.file = "ifindex" },
 		{ .subsystem = "scsi_host",	.file = "unique_id" },
 		{ .subsystem = "scsi_device",	.file = NULL },
-		{ .subsystem = "pcmcia_socket",	.file = NULL }, /* all files are unreadable in empty slot :( */
+		{ .subsystem = "pcmcia_socket",	.file = "card_type" },
 		{ .subsystem = "usb_host",	.file = NULL },
 		{ .subsystem = "bluetooth",	.file = "address" },
 		{ .subsystem = "firmware",	.file = "data" },
@@ -86,11 +86,14 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 			break;
 		}
 	}
-	dbg("looking at class '%s' for specific file '%s'", class_dev->classname, file);
+
+	dbg("looking at class '%s' for specific file '%s'", class_dev->classname, class_dev->path);
 
 	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
 	while (--loop) {
-		if (sysfs_get_classdev_attr(class_dev, file) != NULL) {
+		struct stat stats;
+
+		if (stat(class_dev->path, &stats) == 0) {
 			dbg("class '%s' specific file '%s' found", class_dev->classname, file);
 			return 0;
 		}
