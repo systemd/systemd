@@ -37,6 +37,7 @@
 #include "udev.h"
 #include "udev_version.h"
 #include "udev_dbus.h"
+#include "logging.h"
 #include "namedev.h"
 #include "udevdb.h"
 #include "libsysfs/libsysfs.h"
@@ -141,6 +142,7 @@ static int create_node(struct udevice *dev)
 	if (strrchr(dev->name, '/'))
 		create_path(filename);
 
+	info("creating device node '%s'", filename);
 	dbg("mknod(%s, %#o, %u, %u)", filename, dev->mode, dev->major, dev->minor);
 	retval = mknod(filename, dev->mode, res);
 	if (retval)

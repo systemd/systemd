@@ -31,6 +31,7 @@
 #include "udev.h"
 #include "udev_version.h"
 #include "udev_dbus.h"
+#include "logging.h"
 #include "namedev.h"
 #include "udevdb.h"
 #include "libsysfs/libsysfs.h"
@@ -73,7 +74,7 @@ static int delete_node(struct udevice *dev)
 	strncpy(filename, udev_root, sizeof(filename));
 	strncat(filename, dev->name, sizeof(filename));
 
-	dbg("unlinking node '%s'", filename);
+	info("removing device node '%s'", filename);
 	retval = unlink(filename);
 	if (retval) {
 		dbg("unlink(%s) failed with error '%s'",

@@ -36,6 +36,7 @@
 #include <errno.h>
 
 #include "udev.h"
+#include "logging.h"
 #include "namedev.h"
 
 static int add_config_dev(struct config_device *new_dev)
@@ -249,6 +250,7 @@ int namedev_init_rules(void)
 			goto error;
 		}
 
+		dev.config_line = lineno;
 		retval = add_config_dev(&dev);
 		if (retval) {
 			dbg("add_config_dev returned with error %d", retval);

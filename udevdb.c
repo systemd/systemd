@@ -35,6 +35,7 @@
 
 #include "udev_version.h"
 #include "udev.h"
+#include "logging.h"
 #include "namedev.h"
 #include "udevdb.h"
 #include "tdb/tdb.h"

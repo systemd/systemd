@@ -36,6 +36,7 @@
 #include "list.h"
 #include "udev.h"
 #include "udev_version.h"
+#include "logging.h"
 #include "namedev.h"
 #include "libsysfs/libsysfs.h"
 #include "klibc_fixups.h"
@@ -285,12 +286,12 @@ static void wait_for_device_to_initialize(struct sysfs_device *sysfs_device)
 				/* sleep to give the kernel a chance to create the file */
 				sleep(1);
 			}
-			dbg("Timed out waiting for '%s' file, continuing on anyway...", b->file);
+			dbg("timed out waiting for '%s' file, continuing on anyway...", b->file);
 			goto exit;
 		}
 		b++;
 	}
-	dbg("Did not find bus type '%s' on list of bus_id_files, contact greg@kroah.com", sysfs_device->bus);
+	dbg("did not find bus type '%s' on list of bus_id_files, contact greg@kroah.com", sysfs_device->bus);
 exit:
 	return; /* here to prevent compiler warning... */
 }
@@ -534,7 +535,7 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 		if (sysfs_device != NULL)
 			goto device_found;
 	}
-	dbg("Timed out waiting for device symlink, continuing on anyway...");
+	dbg("timed out waiting for device symlink, continuing on anyway...");
 	
 device_found:
         /* We have another issue with just the wait above - the sysfs part of
@@ -559,10 +560,10 @@ device_found:
 			if (sysfs_device->bus[0] != '\0')
 				goto bus_found;
 		}
-		dbg("Timed out waiting to find the device bus, continuing on anyway\n");
+		dbg("timed out waiting to find the device bus, continuing on anyway");
 		goto exit;
 bus_found:
-		dbg("Device %s is registered with bus %s\n",
+		dbg("device %s is registered with bus '%s'",
 				sysfs_device->name, sysfs_device->bus);
 	}
 exit:
@@ -694,7 +695,8 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 		}
 
 		/* Yup, this rule belongs to us! */
-		dbg("found matching rule, '%s' becomes '%s'", dev->kernel, dev->name);
+		info("configured rule in '%s' at line %i applied, '%s' becomes '%s'",
+		    udev_rules_filename, dev->config_line, udev->kernel_name, dev->name);
 		strfieldcpy(udev->name, dev->name);
 		strfieldcpy(udev->symlink, dev->symlink);
 		goto found;

@@ -34,6 +34,7 @@
 #include "udev.h"
 #include "udev_version.h"
 #include "udev_dbus.h"
+#include "logging.h"
 #include "namedev.h"
 #include "udevdb.h"
 #include "libsysfs/libsysfs.h"

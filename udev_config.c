@@ -34,6 +34,7 @@
 
 #include "udev.h"
 #include "udev_version.h"
+#include "logging.h"
 #include "namedev.h"
 #include "libsysfs/libsysfs.h"
 

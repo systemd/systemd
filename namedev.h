@@ -65,6 +65,7 @@ struct config_device {
 	char name[NAME_SIZE];
 	char symlink[NAME_SIZE];
 	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];
+	int config_line;
 };
 
 struct perm_device {

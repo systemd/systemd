@@ -26,30 +26,6 @@
 #include "libsysfs/libsysfs.h"
 #include <sys/param.h>
 
-#ifdef DEBUG
-#include <syslog.h>
-#define dbg(format, arg...)								\
-	do {										\
-		log_message (LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
-	} while (0)
-#else
-	#define dbg(format, arg...) do { } while (0)
-#endif
-
-/* Parser needs it's own debugging statement, we usually don't care about this at all */
-#ifdef DEBUG_PARSER
-#define dbg_parse(format, arg...)							\
-	do {										\
-		log_message (LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
-	} while (0)
-#else
-	#define dbg_parse(format, arg...) do { } while (0)
-#endif
-
-
-extern int log_message (int level, const char *format, ...)
-	__attribute__ ((format (printf, 2, 3)));
-
 #define COMMENT_CHARACTER		'#'
 
 #define NAME_SIZE	100
@@ -71,7 +47,6 @@ struct udevice {
 	unsigned char program_result[NAME_SIZE];
 	unsigned char kernel_number[NAME_SIZE];
 	unsigned char kernel_name[NAME_SIZE];
-
 };
 
 #define strfieldcpy(to, from) \

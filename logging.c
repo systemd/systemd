@@ -25,9 +25,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <syslog.h>
-#include "udev.h"
 
-#ifdef DEBUG
+#include "logging.h"
+
 
 static int logging_init = 0;
 static unsigned char udev_logname[42];
@@ -54,5 +54,3 @@ int log_message(int level, const char *format, ...)
 	va_end(args);
 	return 1;
 }
-
-#endif

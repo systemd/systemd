@@ -16,7 +16,12 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
-# Set the following to `true' to make a debuggable build.
+# Set the following to control the use of syslog
+# Set it to `false' to remove all logging
+LOG = true
+
+# Set the following to `true' to log the debug
+# and make a unstripped, unoptimized  binary.
 # Leave this set to `false' for production use.
 DEBUG = false
 
@@ -102,6 +107,10 @@ ifeq ($(strip $(TARGET_ARCH)),i386)
 	CFLAGS+=-pipe
 else
 	CFLAGS+=-pipe
+endif
+
+ifeq ($(strip $(LOG)),true)
+	CFLAGS  += -DLOG
 endif
 
 # if DEBUG is enabled, then we do not strip or optimize
@@ -216,7 +225,7 @@ $(LOCAL_CFG_DIR)/udev.conf:
 
 $(OBJS): $(GEN_HEADERS)
 
-$(ROOT): $(OBJS) udev.h namedev.h udev_version.h udev_dbus.h udevdb.h klibc_fixups.h list.h
+$(ROOT): $(OBJS) udev.h namedev.h udev_version.h udev_dbus.h udevdb.h klibc_fixups.h logging.h list.h
 	$(LD) $(LDFLAGS) -o $(ROOT) $(CRT0) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $(ROOT)
 
