@@ -1,0 +1,10 @@
+udev 055
+========
+We support an unlimited count of symlinks now.
+
+If USE_STATIC=true is passed to a glibc build, we link statically and use
+a built-in userdb parser to resolve user and group names.
+
+THE PLACE= key is gone. It can be replaced by an ID= for a long time, cause
+we walk up the chain of physical devices to find a match.
+
