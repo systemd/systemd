@@ -421,6 +421,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 	int retval = 0;
 	int found;
 
+	attr->mode = -1;
 	if (class_dev->sysdevice) {
 		dbg("class_dev->sysdevice->directory->path = '%s'", class_dev->sysdevice->directory->path);
 		dbg("class_dev->sysdevice->bus_id = '%s'", class_dev->sysdevice->bus_id);
@@ -488,24 +489,28 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 				}
 			}
 			continue;
-						
+
 label_found:
-			dbg("file '%s' found with value '%s'", dev->sysfs_file, temp);
+			temp[strlen(temp)-1] = 0x00;
+			dbg("file '%s' found with value '%s' compare with '%s'", dev->sysfs_file, temp, dev->sysfs_value);
 			if (strcmp(dev->sysfs_value, temp) != 0)
 				continue;
 
 			strcpy(attr->name, dev->attr.name);
-			attr->mode = dev->attr.mode;
-			strcpy(attr->owner, dev->attr.owner);
-			strcpy(attr->group, dev->attr.group);
+			if (isdigit(class_dev->directory->path[strlen(class_dev->directory->path)-1])) {
+				temp[0] = class_dev->directory->path[strlen(class_dev->directory->path)-1];
+				temp[1] = 0x00;
+				strcat(attr->name, temp);
+			}
+			if (dev->attr.mode != 0) {
+				attr->mode = dev->attr.mode;
+				strcpy(attr->owner, dev->attr.owner);
+				strcpy(attr->group, dev->attr.group);
+			}
 			dbg("file '%s' with value '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 				dev->sysfs_file, dev->sysfs_value, attr->name, 
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
-			return retval;
-dbg("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'"
-				" owner = '%s', group = '%s', mode = '%#o'",
-				dev->attr.name, dev->bus, dev->sysfs_file, dev->sysfs_value,
-				dev->attr.owner, dev->attr.group, dev->attr.mode);
+			goto done;
 			break;
 			}
 		case NUMBER:
@@ -533,13 +538,15 @@ dbg("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'"
 				continue;
 
 			strcpy(attr->name, dev->attr.name);
-			attr->mode = dev->attr.mode;
-			strcpy(attr->owner, dev->attr.owner);
-			strcpy(attr->group, dev->attr.group);
+			if (dev->attr.mode != 0) {
+				attr->mode = dev->attr.mode;
+				strcpy(attr->owner, dev->attr.owner);
+				strcpy(attr->group, dev->attr.group);
+			}
 			dbg("device id '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 				dev->id, attr->name, 
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
-			return retval;
+			goto done;
 			break;
 			}
 		case TOPOLOGY:
@@ -567,26 +574,30 @@ dbg("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'"
 				continue;
 
 			strcpy(attr->name, dev->attr.name);
-			attr->mode = dev->attr.mode;
-			strcpy(attr->owner, dev->attr.owner);
-			strcpy(attr->group, dev->attr.group);
+			if (dev->attr.mode != 0) {
+				attr->mode = dev->attr.mode;
+				strcpy(attr->owner, dev->attr.owner);
+				strcpy(attr->group, dev->attr.group);
+			}
 			dbg("device at '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 				dev->place, attr->name, 
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
-			return retval;
+			goto done;
 			break;
 			}
 		case REPLACE:
 			if (strcmp(dev->kernel_name, class_dev->name) != 0)
 				continue;
 			strcpy(attr->name, dev->attr.name);
-			attr->mode = dev->attr.mode;
-			strcpy(attr->owner, dev->attr.owner);
-			strcpy(attr->group, dev->attr.group);
+			if (dev->attr.mode != 0) {
+				attr->mode = dev->attr.mode;
+				strcpy(attr->owner, dev->attr.owner);
+				strcpy(attr->group, dev->attr.group);
+			}
 			dbg("'%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 				dev->kernel_name, attr->name, 
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
-			return retval;
+			goto done;
 			break;
 		case KERNEL_NAME:
 			break;
@@ -595,10 +606,14 @@ dbg("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'"
 			break;
 		}	
 	}
-	attr->mode = get_default_mode(class_dev);
-	attr->owner[0] = 0x00;
-	attr->group[0] = 0x00;
 	strcpy(attr->name, class_dev->name);
+	
+done:
+	if (attr->mode == -1) {	
+		attr->mode = get_default_mode(class_dev);
+		attr->owner[0] = 0x00;
+		attr->group[0] = 0x00;
+	}
 	return retval;
 }
 
