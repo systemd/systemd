@@ -88,7 +88,12 @@ mount -n -t ramfs none $udev_root
 export ACTION=add
 export UDEV_NO_SLEEP=1
 echo "Creating initial udev device nodes:"
-run_udev
+
+# You can use the shell scripts above by calling run_udev or execute udevstart
+# which does the same thing, but much faster by not using shell.  
+#  only comment out one of the following lines.
+#run_udev
+/sbin/udevstart
 
 echo "making extra nodes"
 make_extra_nodes
