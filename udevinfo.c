@@ -146,6 +146,7 @@ static int print_device_chain(const char *path)
 
 	/* open sysfs class device directory and print all attributes */
 	printf("  looking at class device '%s':\n", class_dev->path);
+	printf("    SUBSYSTEM=\"%s\"\n", class_dev->classname);
 	if (print_all_attributes(class_dev->path) != 0) {
 		printf("couldn't open class device directory\n");
 		retval = -1;
@@ -167,6 +168,7 @@ static int print_device_chain(const char *path)
 		printf("  looking at the device chain at '%s':\n", sysfs_dev->path);
 		printf("    BUS=\"%s\"\n", sysfs_dev->bus);
 		printf("    ID=\"%s\"\n", sysfs_dev->bus_id);
+		printf("    DRIVER=\"%s\"\n", sysfs_dev->driver_name);
 
 		/* open sysfs device directory and print all attributes */
 		print_all_attributes(sysfs_dev->path);
