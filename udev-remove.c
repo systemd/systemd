@@ -34,7 +34,6 @@
 #include "logging.h"
 #include "namedev.h"
 #include "udevdb.h"
-#include "libsysfs/libsysfs.h"
 
 static int delete_path(char *path)
 {

@@ -21,7 +21,6 @@
 
 #include <pthread.h>
 #include <stddef.h>
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
 #include <unistd.h>
@@ -30,7 +29,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -324,34 +322,11 @@ static void sig_handler(int signum)
 	switch (signum) {
 		case SIGINT:
 		case SIGTERM:
-			unlink(UDEVD_LOCK);
 			exit(20 + signum);
 			break;
 		default:
 			dbg("unhandled signal");
 	}
-}
-
-static int one_and_only(void)
-{
-	char string[50];
-	int lock_file;
-
-	lock_file = open(UDEVD_LOCK, O_RDWR | O_CREAT, 0x640);
-	if (lock_file < 0)
-		return -1;
-
-	/* see if we can lock */
-	if (lockf(lock_file, F_TLOCK, 0) < 0) {
-		dbg("file is already locked, exit");
-		close(lock_file);
-		return -1;
-	}
-
-	snprintf(string, sizeof(string), "%d\n", getpid());
-	write(lock_file, string, strlen(string));
-
-	return 0;
 }
 
 int main(int argc, char *argv[])
@@ -368,10 +343,6 @@ int main(int argc, char *argv[])
 	int retval;
 
 	init_logging("udevd");
-
-	/* only let one version of the daemon run at any one time */
-	if (one_and_only() != 0)
-		exit(0);
 
 	signal(SIGINT, sig_handler);
 	signal(SIGTERM, sig_handler);

@@ -241,7 +241,6 @@ udev_version.h:
 	@echo \#define UDEV_PERMISSION_FILE	\"$(configdir)\udev.permissions\" >> $@
 	@echo \#define UDEV_BIN		\"$(DESTDIR)$(sbindir)/udev\" >> $@
 	@echo \#define UDEVD_BIN	\"$(DESTDIR)$(sbindir)/udevd\" >> $@
-	@echo \#define UDEVD_LOCK	\"$(udevdir)/\.udevd.lock\" >> $@
 
 # config files automatically generated
 GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
