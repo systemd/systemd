@@ -219,6 +219,7 @@ static void apply_format(struct udevice *udev, unsigned char *string, struct sys
 	char *pos3;
 	char *attr;
 	int num;
+	int i;
 	char c;
 	struct sysfs_attribute *tmpattr;
 
@@ -270,11 +271,15 @@ static void apply_format(struct udevice *udev, unsigned char *string, struct sys
 		case 'c':
 			if (strlen(udev->program_result) == 0)
 				break;
-			if (num > 0) {
+			/* get part part of the result string */
+			i = num; /* num syntax is deprecated and will be removed  */
+			if (attr != NULL)
+				i = atoi(attr);
+			if (i > 0) {
 				strncpy(temp1, udev->program_result, sizeof(temp1));
 				pos2 = temp1;
-				while (num) {
-					num--;
+				while (i) {
+					i--;
 					pos3 = strsep(&pos2, " ");
 					if (pos3 == NULL) {
 						dbg("requested part of result string not found");

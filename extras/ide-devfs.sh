@@ -2,7 +2,7 @@
 
 # udev external PROGRAM script
 # return devfs-names for ide-devices
-# BUS="ide", KERNEL="hd*", PROGRAM="/etc/udev/ide-devfs.sh %k %b %n", NAME="%k", SYMLINK="%1c %2c"
+# BUS="ide", KERNEL="hd*", PROGRAM="/etc/udev/ide-devfs.sh %k %b %n", NAME="%k", SYMLINK="%c{1} %c{2}"
 
 HOST="${2%\.[0-9]}"
 TARGET="${2#[0-9]\.}"

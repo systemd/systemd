@@ -2,7 +2,7 @@
 
 # a horribly funny script that shows how flexible udev can really be
 # This is to be executed by udev with the following rules:
-# KERNEL="[hs]d[a-z]", PROGRAM="name_cdrom.pl %M %m", NAME="%1c", SYMLINK="cdrom"
+# KERNEL="[hs]d[a-z]", PROGRAM="name_cdrom.pl %M %m", NAME="%c{1}", SYMLINK="cdrom"
 
 use strict;
 use warnings;

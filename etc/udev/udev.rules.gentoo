@@ -57,7 +57,7 @@ KERNEL="ttyUSB0", NAME="pl2303"
 
 # devfs-names for ide-devices (uncomment only one)
 #  /dev/ide/.../{disc,cd} and /dev/{cdroms,discs}/* type names
-BUS="ide", PROGRAM="/etc/udev/scripts/ide-devfs.sh %k %b %n", RESULT="hd*", NAME="%1c", SYMLINK="%2c %3c"
+BUS="ide", PROGRAM="/etc/udev/scripts/ide-devfs.sh %k %b %n", RESULT="hd*", NAME="%c{1}", SYMLINK="%c{2} %c{3}"
  
 # fb devices
 KERNEL="fb[0-9]*", NAME="fb/%n", SYMLINK="%k"
