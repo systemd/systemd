@@ -5,11 +5,10 @@
 # Copyright (C) Intel Corp, 2004
 #
 # Author: Yin Hu <hu.yin@intel.com> 
-#	  Kay Sievers <kay.sievers@vrfy.org>
 #
 # Provides automated testing of the udevd binary.This test script is self-contained.
 # Before you run this script please modify $sysfs to locate your sysfs filesystem, 
-# modify $udevd_bin to locate your udevsend binary,
+# modify $udevsend_bin to locate your udevsend binary,
 # modify $udev_bin to locate dummy udev script,
 # modify $udev_bin2 to locate another dummy udev script ( amplify the execution time for test),
 # modify $log_file to locate where udev script have placed the log file,
@@ -38,42 +37,52 @@ use warnings;
 use strict;
 
 # modifiable settings
-my $sysfs     = "../sys";
-my $udevd_bin = "../../udevsend";
-my $udev_bin  = "$ENV{PWD}/udev-log-script.pl";
-my $udev_bin2 = "$ENV{PWD}/udev-log-amplify.pl";
-my $log_file  = "/tmp/udev_log.txt";
-my $time_out  = 10;
-my $udev_exe_time = 5;
+my $sysfs     =		"../sys";
+my $udevd_bin =	"../../udevd";
+my $udevsend_bin =	"../../udevsend";
+my $udev_bin  =		"$ENV{'PWD'}/udev-log-script.pl";
+my $udev_bin2 =		"$ENV{'PWD'}/udev-log-amplify.pl";
+my $log_file  =		"/tmp/udev_log.txt";
+my $time_out  =		10;
+my $udev_exe_time =	5;
 
 # global variables
 my $test_case = 0;
 
 # common functions
 
-sub kill_daemon {
+sub restart_daemon {
+	my ($udev_binary) = @_;
+
 	system("killall udevd");
 	system("rm -f $log_file");
 	sleep 1;
+
+	if (!defined($udev_binary)) {
+		$udev_binary = $udev_bin;
+	}
+
+	$ENV{'UDEV_BIN'} = $udev_binary;
+	system("/bin/sh -c $udevd_bin&");
+	sleep(1);
 }
 
 sub udevsend {
 	# This function prepares corresponding environment variables
-	# and then call $udevd_bin to send event.
+	# and then call $udevsend_bin to send event.
 
-	my ($seqnum, $devpath, $action, $subsystem, $udev_bin_tmp) = @_;
+	my ($seqnum, $devpath, $action, $subsystem, $script) = @_;
 
-	$ENV{DEVPATH} = $devpath;
-	$ENV{ACTION} = $action;
-	$udev_bin_tmp = $udev_bin if ( not $udev_bin_tmp );
-	$ENV{UDEV_BIN} = $udev_bin_tmp;
+	%ENV = ();
+	$ENV{'DEVPATH'} = $devpath;
+	$ENV{'ACTION'} = $action;
+	$ENV{'SUBSYSTEM'} = $subsystem;
+
 	if ( $seqnum != -1) {
 		$ENV{SEQNUM} = $seqnum;
-	} else {
-		delete $ENV{SEQNUM};
 	}
 
-	return system("$udevd_bin $subsystem");
+	return system("$udevsend_bin $subsystem");
 }
 
 sub getDate {
@@ -153,7 +162,7 @@ sub check_count_and_time {
 		print "   forking udev time:     $line_items[-1]";
 		$diff = cmpDate($line_items[-1], $event_recv_time);
 		print "   the delay time is:     $diff s \n\n";
-		if ( $diff > $time_out ) {
+		if ( $diff > $time_out+10 ) {
 			print "   the delay time is: $diff \n";
 			print "   udevd doesn't act properly. \n";
 			exit 1;
@@ -293,13 +302,12 @@ sub run_no_seq_test {
 	print "   the delay time between event receiving and forking udev for udevd should be negligible, \n";
 	print "   that is, udev should be forked at once. please notice the following time...\n\n";
 
-	# local variables
 	my $time;
 
 	#
 	# add devices event test
 	#
-	kill_daemon();
+	restart_daemon();
 
 	# check if devices /block/sda exist
 	check_sysfs_device_exist("$sysfs/block/sda");
@@ -307,7 +315,6 @@ sub run_no_seq_test {
 	# log current system date/time
 	$time = getDate();
 
-	# fork udevd
 	udevsend(-1, "/block/sda", "add", "block");
 
 	# check if execution is successful in time
@@ -323,7 +330,6 @@ sub run_no_seq_test {
 	# log current system date/time
 	$time = getDate();
 
-	# fork udevd
 	udevsend(-1, "/block/sda", "remove", "block");
 
 	# check if execution is successful in time
@@ -342,15 +348,13 @@ sub run_normal_seq_test {
 	print "   event to udev for each device. \n";
 	print "   We can see the delay time for each device should be negligible. \n\n";
 
-	# local variables
 	my @file_list;
 	my $file;
 	my $seq = 0;
 	my $time;
 	my $ret_seq;
 
-	# prepare
-	kill_daemon();
+	restart_daemon();
 	@file_list = glob "$sysfs/class/tty/*";
 
 	# log current system date/time for device add events
@@ -373,7 +377,7 @@ sub run_normal_seq_test {
 
 	# we'd better wait the udev to create all the device for a few seconds
 	print "   wait for udevd processing about $time_out s... \n\n";
-	sleep $time_out;
+	sleep $time_out + 5;
 
 	$ret_seq = check_count_and_time($time);
 	if ( $ret_seq != $seq ) {
@@ -390,7 +394,7 @@ sub run_normal_seq_test {
 	# remove devices event test
 	#
 	print "remove device events test: \n";
-	kill_daemon();
+	restart_daemon();
 	@file_list = glob "$sysfs/class/tty/*"; 
 	$seq = 0;
 	foreach $file (@file_list) {
@@ -406,7 +410,7 @@ sub run_normal_seq_test {
 
 	# we'd better wait the udev to create all the device for a few seconds
 	print "   waiting for udev removing devices (about $time_out s)...\n";
-	sleep $time_out;
+	sleep $time_out + 5;
 
 	# show results
 	$ret_seq = check_count_and_time($time);
@@ -427,7 +431,6 @@ sub run_random_seq_test {
 	print "   We have disordered the events sent to udevd, if udevd can order them correctly, the devices' \n";
 	print "   add/remove sequence should be tty0, tty1, tty2. \n\n";
 
-	# local variables
 	my $time;
 
 	# check if devices /class/tty/tty0, tty1, tty2 exist
@@ -437,7 +440,7 @@ sub run_random_seq_test {
 	# add device events test
 	#
 	print "add device events test: \n";
-	kill_daemon();
+	restart_daemon();
 
 	# log current system date/time for device remove events
 	$time = getDate();
@@ -454,12 +457,11 @@ sub run_random_seq_test {
 	# remove device events test
 	#
 	print "\nremove device events test: \n";
-	kill_daemon();
+	restart_daemon();
 
 	# log current system date/time for device remove events
 	$time = getDate();
 
-	# fork udevd
 	udevsend(3, "/class/tty/tty2", "remove", "tty");
 	udevsend(2, "/class/tty/tty1", "remove", "tty");
 	udevsend(1, "/class/tty/tty0", "remove", "tty");
@@ -481,14 +483,12 @@ sub run_expected_seq_test {
 	print "   should fork udev immediately, the delay time should be negligible. \n";
 	print "   where: event 7 is (add device /class/tty/tty2) \n\n";
 
-	# local variables
 	my $time;
 
 	# check if devices /class/tty0, tty1, tty2 exist
 	check_sysfs_device_exist("$sysfs/class/tty/tty0", "$sysfs/class/tty/tty1", "$sysfs/class/tty/tty2");
 
-	# prepare
-	kill_daemon();
+	restart_daemon();
 
 	# parameters: 1 sequence number, 2 device, 3 action, 4 subsystem
 	udevsend(3, "/class/tty/tty2", "add", "tty");
@@ -499,7 +499,7 @@ sub run_expected_seq_test {
 	udevsend(6, "/class/tty/tty2", "remove", "tty");
 
 	print "   wait for udevd timing out for disorder events (about $time_out s) \n\n";
-	sleep $time_out+1;
+	sleep $udev_exe_time + $time_out+1;
 	system("rm -f $log_file");
 
 	# log current system date/time for device remove events
@@ -527,11 +527,9 @@ sub run_single_instance_test {
 	print "   we send a add event for device /block/sda, and then we send a remove event, so the \n";
 	print "   execution of remove event should be delayed until add is finished. \n\n";
 
-	# local variables
 	my $time;
 
-	# prepare
-	kill_daemon();
+	restart_daemon($udev_bin2);
 
 	# check if device exists
 	check_sysfs_device_exist("$sysfs/block/sda");
@@ -539,9 +537,8 @@ sub run_single_instance_test {
 	# log current system date/time
 	$time = getDate();
 
-	# fork udved
-	udevsend(-1, "/block/sda", "add", "block", $udev_bin2);
-	udevsend(-1, "/block/sda", "remove", "block", $udev_bin2);
+	udevsend(-1, "/block/sda", "add", "block");
+	udevsend(-1, "/block/sda", "remove", "block");
 
 	# show results
 	print "   wait for udevd processing about $udev_exe_time s... \n\n";
@@ -560,16 +557,13 @@ sub run_same_events_test {
 	print "   event ( add device /class/tty/tty1 ) should be delayed for $time_out s than its previous \n";
 	print "   event ( remove device /block/sda ) \n\n";
 
-	# local variables
 	my $time;
 
-	# prepare
-	kill_daemon();
+	restart_daemon();
 
 	# check if device exist
 	check_sysfs_device_exist("$sysfs/block/sda", "$sysfs/class/tty/tty1");
 
-	# fork udevd
 	udevsend(0, "/block/sda", "add", "block");
 
 	# log current system date/time
@@ -577,7 +571,6 @@ sub run_same_events_test {
 	$time = getDate();
 	system("rm -f $log_file");
 
-	# fork udevd
 	udevsend(1, "/block/sda", "remove", "block");
 	udevsend(1, "/class/tty/tty1", "add", "tty");
 
@@ -595,16 +588,13 @@ sub run_missing_seq_test {
 	print "Test expected visible results:\n";
 	print "   the delay time for event(add device /block/sda) should be about $time_out s.\n\n";
 
-	# local variables
 	my $time;
 
-	# prepare
-	kill_daemon();
+	restart_daemon();
 
 	# check if device exist
 	check_sysfs_device_exist("$sysfs/block/sda", "$sysfs/class/tty/tty1");
 
-	# fork udevd
 	udevsend(0, "/class/tty/tty1", "add", "tty");
 	udevsend(1, "/class/tty/tty1", "remove", "tty");
 	sleep 1;
@@ -613,7 +603,6 @@ sub run_missing_seq_test {
 	$time = getDate();
 	system("rm -f $log_file");
 
-	# fork udevd
 	udevsend(3, "/block/sda", "add", "block");
 
 	# show results
