@@ -133,7 +133,7 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	LIBC =	$(ARCH_LIB_OBJS) $(LIB_OBJS) $(CRT0)
 	CFLAGS += -nostdinc -I$(INCLUDE_DIR) -I$(KLIBC_DIR)/arch/$(ARCH)/include \
 		-I$(INCLUDE_DIR)/bits$(BITSIZE) -I$(GCCINCDIR) -I$(LINUX_INCLUDE_DIR) \
-		-D__KLIBC__
+		-D__KLIBC__ -fno-builtin-printf
 	LIB_OBJS =
 	LDFLAGS = --static --nostdlib -nostartfiles -nodefaultlibs
 else
