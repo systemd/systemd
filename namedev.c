@@ -104,31 +104,10 @@ static int strcmp_pattern(const char *p, const char *s)
 
 int add_config_dev(struct config_device *new_dev)
 {
-	struct list_head *tmp;
 	struct config_device *tmp_dev;
 
-	/* update the values if we already have the device */
-	list_for_each(tmp, &config_device_list) {
-		struct config_device *dev = list_entry(tmp, struct config_device, node);
-		if (strcmp_pattern(new_dev->name, dev->name))
-			continue;
-		if (strncmp(dev->bus, new_dev->bus, sizeof(dev->name)))
-			continue;
-		copy_var(dev, new_dev, type);
-		copy_string(dev, new_dev, bus);
-		copy_string(dev, new_dev, sysfs_file);
-		copy_string(dev, new_dev, sysfs_value);
-		copy_string(dev, new_dev, id);
-		copy_string(dev, new_dev, place);
-		copy_string(dev, new_dev, kernel_name);
-		copy_string(dev, new_dev, exec_program);
-		copy_string(dev, new_dev, symlink);
-		return 0;
-	}
-
-	/* not found, add new structure to the device list */
 	tmp_dev = malloc(sizeof(*tmp_dev));
-	if (!tmp_dev)
+	if (tmp_dev == NULL)
 		return -ENOMEM;
 	memcpy(tmp_dev, new_dev, sizeof(*tmp_dev));
 	list_add_tail(&tmp_dev->node, &config_device_list);
