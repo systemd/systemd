@@ -1,3 +1,11 @@
+Summary of changes from v047 to v048
+============================================
+
+Greg Kroah-Hartman:
+  o fix udev_volume_id so it will now build properly
+  o fix scsi_id build errors due to changes in the main udev makefile
+
+
 Summary of changes from v046 to v047
 ============================================
 
