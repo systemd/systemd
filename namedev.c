@@ -527,10 +527,12 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 			retval = -1;
 		}
 
+#ifndef __KLIBC__
 		if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
 			dbg("callout program status 0x%x", status);
 			retval = -1;
 		}
+#endif
 	}
 	return retval;
 }

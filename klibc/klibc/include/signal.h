@@ -22,6 +22,8 @@
 # define NSIG _NSIG
 #endif
 
+typedef int sig_atomic_t;
+
 __extern const char * const sys_siglist[];
 
 /* This assumes sigset_t is either an unsigned long or an array of such,

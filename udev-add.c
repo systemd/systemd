@@ -73,9 +73,16 @@ static int create_node(struct udevice *dev)
 {
 	char filename[255];
 	int retval = 0;
+	dev_t res;
 
 	strncpy(filename, udev_root, sizeof(filename));
 	strncat(filename, dev->name, sizeof(filename));
+
+#ifdef __KLIBC__
+	res = (dev->major << 8) | (dev->minor);
+#else
+	res = makedev(dev->major, dev->minor);
+#endif
 
 	switch (dev->type) {
 	case 'b':
@@ -94,7 +101,7 @@ static int create_node(struct udevice *dev)
 	}
 
 	dbg("mknod(%s, %#o, %u, %u)", filename, dev->mode, dev->major, dev->minor);
-	retval = mknod(filename, dev->mode, makedev(dev->major, dev->minor));
+	retval = mknod(filename, dev->mode, res);
 	if (retval)
 		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
 		    filename, dev->mode, dev->major, dev->minor, strerror(errno));

@@ -106,7 +106,7 @@ endif
 # If we are using our version of klibc, then we need to build and link it.
 # Otherwise, use glibc and link statically.
 ifeq ($(strip $(KLIBC)),true)
-	KLIBC_DIR	= /home/greg/src/klibc/klibc/klibc
+	KLIBC_DIR	= klibc/klibc
 	INCLUDE_DIR	:= $(KLIBC_DIR)/include
 	# arch specific objects
 	LIBGCC		= $(shell $(CC) --print-libgcc)
@@ -120,7 +120,7 @@ ifeq ($(strip $(KLIBC)),true)
 #	LIB_OBJS =	$(GCC_LIB)
 
 	LIBC =	$(ARCH_LIB_OBJS) $(LIB_OBJS)
-	CFLAGS += -nostdinc -I$(INCLUDE_DIR) -I$(INCLUDE_DIR)/bits32 -I/home/greg/linux/linux-2.5/include -I$(GCCINCDIR)
+	CFLAGS += -nostdinc -I$(INCLUDE_DIR) -I$(INCLUDE_DIR)/bits32 -I/home/greg/linux/linux-2.5/include -I$(GCCINCDIR) -D__KLIBC__
 	LDFLAGS =
 #	LDFLAGS = --static --nostdlib -nostartfiles
 else
@@ -130,15 +130,21 @@ else
 	LDFLAGS = --static 
 endif
 
-LIB=libsysfs
-
 all: $(LIBC) $(ROOT)
 
 $(ARCH_LIB_OBJS) :
 	$(MAKE) -C klibc
 
-LIBSYSFS = libsysfs/libsysfs.a
-TDB = tdb/tdb.o tdb/spinlock.o
+TDB =	tdb/tdb.o	\
+	tdb/spinlock.o
+
+SYSFS =	libsysfs/sysfs_bus.o	\
+	libsysfs/sysfs_class.o	\
+	libsysfs/sysfs_device.o	\
+	libsysfs/sysfs_dir.o	\
+	libsysfs/sysfs_driver.o	\
+	libsysfs/sysfs_utils.o	\
+	libsysfs/dlist.o
 
 OBJS =	udev.o		\
 	udev-add.o	\
@@ -146,13 +152,9 @@ OBJS =	udev.o		\
 	udevdb.o	\
 	logging.o	\
 	namedev.o	\
+	klibc.o		\
+	$(SYSFS)	\
 	$(TDB)
-
-libsysfs/libsysfs.a:
-	$(MAKE) -C libsysfs
-
-tdb/tdb.o:
-	$(MAKE) -C tdb
 
 # header files automatically generated
 GEN_HEADERS =	udev_version.h
@@ -165,7 +167,7 @@ udev_version.h:
 
 
 $(ROOT): $(GEN_HEADERS) $(OBJS)
-#	$(CC) $(LDFLAGS) -o $(ROOT) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(CC) $(LDFLAGS) -o $(ROOT) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(LD) $(LDFLAGS) -o $(ROOT) $(KLIBC_DIR)/crt0.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $(ROOT)
 
@@ -174,24 +176,4 @@ clean:
 	 | xargs rm -f 
 	-rm -f core $(ROOT) $(GEN_HEADERS)
 	$(MAKE) -C klibc clean
-	$(MAKE) -C libsysfs clean
-	$(MAKE) -C tdb clean
 
-DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v CVS | grep -v "\.tar\.gz" | grep -v "\/\." | grep -v releases | grep -v BitKeeper | grep -v SCCS | grep -v "\.tdb" | grep -v "test\/sys" | sort )
-DISTDIR := $(RELEASE_NAME)
-srcdir = .
-release: $(DISTFILES) clean
-#	@echo $(DISTFILES)
-	@-rm -rf $(DISTDIR)
-	@mkdir $(DISTDIR)
-	@-chmod 777 $(DISTDIR)
-	@for file in $(DISTFILES); do			\
-		if test -d $$file; then			\
-		  	mkdir $(DISTDIR)/$$file;	\
-		else					\
-			cp -p $$file $(DISTDIR)/$$file;	\
-		fi;					\
-	done
-	@tar -c $(DISTDIR) | gzip -9 > $(RELEASE_NAME).tar.gz
-	@rm -rf $(DISTDIR)
-	@echo "Built $(RELEASE_NAME).tar.gz"

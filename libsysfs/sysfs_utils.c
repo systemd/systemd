@@ -22,6 +22,9 @@
  */
 #include "libsysfs.h"
 #include "sysfs.h"
+#ifndef __KLIBC__
+#include <mntent.h>
+#endif
 
 /**
  * sysfs_get_mnt_path: Gets the mount point for specified filesystem.
@@ -33,6 +36,10 @@
 static int sysfs_get_fs_mnt_path(const unsigned char *fs_type, 
 				unsigned char *mnt_path, size_t len)
 {
+#ifdef __KLIBC__
+	strcpy(mnt_path, "/sys");
+	return 0;
+#else
 	FILE *mnt;
 	struct mntent *mntent;
 	int ret = 0;
@@ -66,6 +73,7 @@ static int sysfs_get_fs_mnt_path(const unsigned char *fs_type,
 		ret = -1;
 	}
 	return ret;
+#endif
 }
 
 /*

@@ -266,7 +266,11 @@ int sysfs_read_attribute(struct sysfs_attribute *sysattr)
 			sysattr->path);
 		return -1;
 	}
+#ifdef __KLIBC__
+	pgsize = 0x4000;
+#else
 	pgsize = getpagesize();
+#endif
 	fbuf = (unsigned char *)calloc(1, pgsize+1);
 	if (fbuf == NULL) {
 		dprintf("calloc failed\n");
