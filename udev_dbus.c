@@ -10,8 +10,7 @@
 #include <dbus/dbus.h>
 
 #include "udev.h"
-#include "udev_version.h"
-#include "udev_dbus.h"
+#include "udev_lib.h"
 #include "logging.h"
 
 #ifdef LOG
@@ -145,7 +144,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	sysbus_connect();
 	if (sysbus_connection == NULL)
-		return;
+		return 0;
 
 	action = get_action();
 	if (!action) {
