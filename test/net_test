@@ -29,7 +29,7 @@ ls -l udev
 export ACTION=remove
 export DEVPATH=class/net/eth1
 
-../udevtest net
+../udevtest class/net/eth1 net
 ls -l udev
 
 rm $RULES
