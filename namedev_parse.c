@@ -158,6 +158,10 @@ int namedev_init_rules(void)
 		lineno++;
 		dbg_parse("read '%s'", temp);
 
+		/* eat the whitespace */
+		while (isspace(*temp))
+			++temp;
+
 		/* empty line? */
 		if (*temp == 0x00)
 			continue;
@@ -165,10 +169,6 @@ int namedev_init_rules(void)
 		/* see if this is a comment */
 		if (*temp == COMMENT_CHARACTER)
 			continue;
-
-		/* eat the whitespace */
-		while (isspace(*temp))
-			++temp;
 
 		memset(&dev, 0x00, sizeof(struct config_device));
 
