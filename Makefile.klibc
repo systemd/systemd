@@ -18,7 +18,7 @@
 
 # Set the following to `true' to make a debuggable build.
 # Leave this set to `false' for production use.
-DEBUG = false
+DEBUG = true
 
 
 ROOT =		udev
@@ -112,18 +112,18 @@ ifeq ($(strip $(KLIBC)),true)
 	LIBGCC		= $(shell $(CC) --print-libgcc)
 	ARCH_LIB_OBJS =	\
 			$(KLIBC_DIR)/libc.a	\
-#			$(KLIBC_DIR)/crt0.o	\
-#			$(LIBGCC)
-#			$(KLIBC_DIR)/bin-$(ARCH)/start.o	\
-#			$(KLIBC_DIR)/bin-$(ARCH)/klibc.a
+			$(LIBGCC)
 
-#	LIB_OBJS =	$(GCC_LIB)
 
+	CRT0 = $(KLIBC_DIR)/crt0.o
 	LIBC =	$(ARCH_LIB_OBJS) $(LIB_OBJS)
 	CFLAGS += -nostdinc -I$(INCLUDE_DIR) -I$(INCLUDE_DIR)/bits32 -I$(GCCINCDIR) -Iklibc/linux/include -D__KLIBC__
-	LDFLAGS =
-#	LDFLAGS = --static --nostdlib -nostartfiles
+	LIB_OBJS =
+	LDFLAGS = --static --nostdlib -nostartfiles
 else
+#	ARCH_LIB_OBJS = /usr/lib/libc.a
+	LIBGCC = $(shell $(CC) --print-libgcc)
+	CRT0 = /usr/lib/crt1.o /usr/lib/crti.o
 	LIBC = 
 	CFLAGS += -I$(GCCINCDIR)
 	LIB_OBJS = -lc
@@ -167,8 +167,7 @@ udev_version.h:
 
 
 $(ROOT): $(GEN_HEADERS) $(OBJS)
-	$(CC) $(LDFLAGS) -o $(ROOT) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
-	$(LD) $(LDFLAGS) -o $(ROOT) $(KLIBC_DIR)/crt0.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(LD) $(LDFLAGS) -o $(ROOT) $(CRT0) $(OBJS) $(LIB_OBJS) $(LIBGCC) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $(ROOT)
 
 clean:
@@ -176,4 +175,45 @@ clean:
 	 | xargs rm -f 
 	-rm -f core $(ROOT) $(GEN_HEADERS)
 	$(MAKE) -C klibc clean
+
+DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v CVS | grep -v "\.tar\.gz" | grep -v "\/\." | grep -v releases | grep -v BitKeeper | grep -v SCCS | grep -v "\.tdb" | grep -v "test\/sys" | sort )
+DISTDIR := $(RELEASE_NAME)
+srcdir = .
+release: $(DISTFILES) clean
+#	@echo $(DISTFILES)
+	@-rm -rf $(DISTDIR)
+	@mkdir $(DISTDIR)
+	@-chmod 777 $(DISTDIR)
+	@for file in $(DISTFILES); do			\
+		if test -d $$file; then			\
+		  	mkdir $(DISTDIR)/$$file;	\
+		else					\
+			cp -p $$file $(DISTDIR)/$$file;	\
+		fi;					\
+	done
+	@tar -c $(DISTDIR) | gzip -9 > $(RELEASE_NAME).tar.gz
+	@rm -rf $(DISTDIR)
+	@echo "Built $(RELEASE_NAME).tar.gz"
+
+
+install: all
+	$(INSTALL) -d $(udevdir)
+	$(INSTALL) -d $(configdir)
+	$(INSTALL) -d $(hotplugdir)
+	$(INSTALL_PROGRAM) -D $(ROOT) $(sbindir)/$(ROOT)
+	$(INSTALL_DATA) -D udev.8 $(mandir)/man8/udev.8
+	$(INSTALL_DATA) udev.config $(configdir)
+	$(INSTALL_DATA) udev.permissions $(configdir)
+	- ln -s $(sbindir)/$(ROOT) $(hotplugdir)/udev.hotplug
+
+uninstall:
+	- rm $(hotplugdir)/udev.hotplug
+	- rm $(configdir)/udev.permissions
+	- rm $(configdir)/udev.config
+	- rm $(mandir)/man8/udev.8
+	- rm $(sbindir)/$(ROOT)
+	- rmdir $(hotplugdir)
+	- rmdir $(configdir)
+	- rmdir $(udevdir)
+
 
