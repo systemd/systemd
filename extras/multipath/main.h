@@ -46,12 +46,7 @@
 #define TUR_CMD_LEN	6
 #define MX_ALLOC_LEN	255
 #define BLKGETSIZE      _IO(0x12,96)
-#define DM_TARGET	"striped"
-/*
 #define DM_TARGET	"multipath"
-#define DM_POLL_INTERVAL	10
-#define DM_PATH_SELECTOR	"latency"
-*/
 
 #define PINDEX(x,y)	mp[(x)].pindex[(y)]
 

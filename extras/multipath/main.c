@@ -214,7 +214,7 @@ blacklist (char * dev) {
 	};
 
 	for (i = 0; blist[i].lengh; i++) {
-		if (strncmp(dev, blist[i].headstr, blist[i].lengh))
+		if (strncmp(dev, blist[i].headstr, blist[i].lengh) == 0)
 			return 1;
 	}
 	return 0;
@@ -562,6 +562,17 @@ add_map(struct env * conf, struct path * all_paths,
 	int i, np;
 	long size = -1;
 
+	/* defaults for multipath target */
+	int dm_nr_path_args         = 2;
+	int dm_path_test_int        = 10;
+	char * dm_ps_name           = "round-robin";
+	int dm_ps_nr_args           = 2;
+	int dm_path_failback_int    = 10;
+	int dm_path_nr_fail         = 2;
+	int dm_ps_prio              = 1;
+	int dm_ps_min_io            = 2;
+
+
 	if (!(dmt = dm_task_create(op)))
 		return 0;
 
@@ -577,7 +588,14 @@ add_map(struct env * conf, struct path * all_paths,
 	}
 	if (np == 0)
 		goto addout;
-	params_p += sprintf(params_p, "%i 32", np);
+	/* temporarily disable creation of single path maps */
+	/* Sistina should modify the target limits */
+	if (np < 2)
+		goto addout;
+
+	params_p += sprintf(params_p, "%i %i %i %s %i",
+			    np, dm_nr_path_args, dm_path_test_int,
+			    dm_ps_name, dm_ps_nr_args);
 	
 	for (i=0; i<=mp[index].npaths; i++) {
 		if (( 0 == all_paths[PINDEX(index,i)].state) ||
@@ -585,8 +603,10 @@ add_map(struct env * conf, struct path * all_paths,
 			continue;
 		if (size < 0)
 			size = get_disk_size(conf, all_paths[PINDEX(index,0)].dev);
-		params_p += sprintf(params_p, " %s %i",
-			all_paths[PINDEX(index,i)].dev, 0);
+		params_p += sprintf(params_p, " %s %i %i %i %i",
+				    all_paths[PINDEX(index,i)].dev,
+				    dm_path_failback_int, dm_path_nr_fail,
+				    dm_ps_prio, dm_ps_min_io);
 	}
 
 	if (size < 0)
