@@ -16,7 +16,12 @@
 #
 # happy testing,
 # Kay Sievers <kay.sievers@vrfy.org>, 2003
-
+#
+# Modified April 9, 2004 by Leann Ogasawara <ogasawara@osdl.org>
+#  - expanded @tests array to add more symlinks and permissions tests
+#  - some of the symlinks tests also test lack of node creation
+#  - added symlink_test() function
+#  - moved permissions and major_minor tests into their own functions
 
 use warnings;
 use strict;
@@ -307,24 +312,6 @@ BUS="scsi", PROGRAM="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL="s
 EOF
 	},
 	{
-		desc		=> "program result substitution (numbered part of)",
-		subsys		=> "block",
-		devpath		=> "/block/sda/sda3",
-		exp_name	=> "link1" ,
-		conf		=> <<EOF
-BUS="scsi", PROGRAM="/bin/echo -n node link1 link2", RESULT="node *", NAME="%c{1}", SYMLINK="%c{2} %c{3}"
-EOF
-	},
-	{
-		desc		=> "program result substitution (numbered part of+)",
-		subsys		=> "block",
-		devpath		=> "/block/sda/sda3",
-		exp_name	=> "link3" ,
-		conf		=> <<EOF
-BUS="scsi", PROGRAM="/bin/echo -n node link1 link2 link3 link4", RESULT="node *", NAME="%c{1}", SYMLINK="%c{2+}"
-EOF
-	},
-	{
 		desc		=> "invalid program for device with no bus",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/console",
@@ -373,51 +360,6 @@ EOF
 BUS="usb", PROGRAM="/bin/echo -n usb-%b", NAME="%c"
 BUS="scsi", PROGRAM="/bin/echo -n scsi-%b", NAME="%c"
 BUS="foo", PROGRAM="/bin/echo -n foo-%b", NAME="%c"
-EOF
-	},
-	{
-		desc		=> "symlink creation (same directory)",
-		subsys		=> "tty",
-		devpath		=> "/class/tty/ttyUSB0",
-		exp_name	=> "visor0" ,
-		conf		=> <<EOF
-KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="visor%n"
-EOF
-	},
-	{
-		desc		=> "symlink creation (relative link back)",
-		subsys		=> "block",
-		devpath		=> "/block/sda/sda2",
-		exp_name	=> "1/2/a/b/symlink" ,
-		conf		=> <<EOF
-BUS="scsi", SYSFS{vendor}="IBM-ESXS", NAME="1/2/node", SYMLINK="1/2/a/b/symlink"
-EOF
-	},
-	{
-		desc		=> "symlink creation (relative link forward)",
-		subsys		=> "block",
-		devpath		=> "/block/sda/sda2",
-		exp_name	=> "1/2/symlink" ,
-		conf		=> <<EOF
-BUS="scsi", SYSFS{vendor}="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/symlink"
-EOF
-	},
-	{
-		desc		=> "symlink creation (relative link back and forward)",
-		subsys		=> "block",
-		devpath		=> "/block/sda/sda2",
-		exp_name	=> "1/2/c/d/symlink" ,
-		conf		=> <<EOF
-BUS="scsi", SYSFS{vendor}="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/c/d/symlink"
-EOF
-	},
-	{
-		desc		=> "multiple symlinks",
-		subsys		=> "tty",
-		devpath		=> "/class/tty/ttyUSB0",
-		exp_name	=> "second-0" ,
-		conf		=> <<EOF
-KERNEL="ttyUSB0", NAME="visor", SYMLINK="first-%n second-%n third-%n"
 EOF
 	},
 	{
@@ -523,17 +465,6 @@ BUS="scsi", SYSFS{whitespace_test}="WHITE  SPACE   ", NAME="matched-with-space"
 EOF
 	},
 	{
-		desc		=> "SYMLINK only rule",
-		subsys		=> "block",
-		devpath		=> "/block/sda",
-		exp_name	=> "symlink-only2",
-		conf		=> <<EOF
-BUS="scsi", KERNEL="sda", SYMLINK="symlink-only1"
-BUS="scsi", KERNEL="sda", SYMLINK="symlink-only2"
-BUS="scsi", KERNEL="sda", NAME="link", SYMLINK="symlink0"
-EOF
-	},
-	{
 		desc		=> "permissions test",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
@@ -541,6 +472,236 @@ EOF
 		exp_perms	=> "5000::0444",
 		conf		=> <<EOF
 BUS="scsi", KERNEL="sda", NAME="node", OWNER="5000", MODE="0444"
+EOF
+	},
+	{
+		desc		=> "permissions ttyUSB0:root:uucp:0660",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "ttyUSB0",
+		exp_perms	=> "0:14:0660",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n"
+EOF
+	},
+	{
+		desc		=> "permissions tty0::root:0444",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/tty0",
+		exp_name	=> "tty0",
+		exp_perms	=> "0:0:0444",
+		conf		=> <<EOF
+KERNEL="tty0", NAME="tty0"
+EOF
+	},
+	{
+		desc		=> "permissions tty1:root::0555",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/tty1",
+		exp_name	=> "tty1",
+		exp_perms	=> "0:0:0555",
+		conf		=> <<EOF
+KERNEL="tty1", NAME="tty1"
+EOF
+	},
+	{
+		desc		=> "permissions tty2:::0777",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/tty2",
+		exp_name	=> "tty2",
+		exp_perms	=> "0:0:0777",
+		conf		=> <<EOF
+KERNEL="tty2", NAME="tty2"
+EOF
+	},
+	{
+		desc		=> "permissions tty3:::",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/tty3",
+		exp_name	=> "tty3",
+		exp_perms	=> "0:0:0",
+		conf		=> <<EOF
+KERNEL="tty3", NAME="tty3"
+EOF
+	},
+	{
+		desc		=> "permissions i2c-300:root:sys:0744",
+		subsys		=> "i2c-dev",
+		devpath		=> "/class/i2c-dev/i2c-300",
+		exp_name	=> "i2c-300",
+		exp_perms	=> "0:3:0744",
+		conf		=> <<EOF
+KERNEL="i2c-300", NAME="i2c-300"
+EOF
+	},
+	{
+		desc		=> "permissions i2c-fake1:root:7:0007",
+		subsys		=> "i2c-dev",
+		devpath		=> "/class/i2c-dev/i2c-fake1",
+		exp_name	=> "i2c-fake1",
+		exp_perms	=> "0:7:0007",
+		conf		=> <<EOF
+KERNEL="i2c-fake1", NAME="i2c-fake1"
+EOF
+	},
+	{
+		desc		=> "permissions ttyS[01]:0:5:0700",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyS1",
+		exp_name	=> "ttyS1",
+		exp_perms	=> "0:5:0700",
+		conf		=> <<EOF
+KERNEL="ttyS1", NAME="ttyS1"
+EOF
+	},
+	{
+		desc		=> "permissions ttyS[4-9]:tty:5:0060",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyS7",
+		exp_name	=> "ttyS7",
+		exp_perms	=> "0:5:0060",
+		conf		=> <<EOF
+KERNEL="ttyS7", NAME="ttyS7"
+EOF
+	},
+	{
+		desc		=> "permissions tty4:0:5:0707",
+		subsys		=> "ttyS4",
+		devpath		=> "/class/tty/tty4",
+		exp_name	=> "tty4",
+		exp_perms	=> "0:5:0707",
+		conf		=> <<EOF
+KERNEL="tty4", NAME="tty4"
+EOF
+	},
+	{
+		desc		=> "permissions tty4?:0:5:0007",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/tty44",
+		exp_name	=> "tty44",
+		exp_perms	=> "0:5:0007",
+		conf		=> <<EOF
+KERNEL="tty44", NAME="tty44"
+EOF
+	},
+	{
+		desc		=> "permissions tty3[!3]:::0467",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/tty35",
+		exp_name	=> "tty35",
+		exp_perms	=> "0:0:0467",
+		conf		=> <<EOF
+KERNEL="tty35", NAME="tty35"
+EOF
+	},
+	{
+		desc		=> "permissions tty33:bad:name:0500",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/tty33",
+		exp_name	=> "tty33",
+		exp_perms	=> "0:0:0500",
+		conf		=> <<EOF
+KERNEL="tty33", NAME="tty33"
+EOF
+	},
+	{
+		desc		=> "permissions rtc:0:users:0600",
+		subsys		=> "misc",
+		devpath		=> "/class/misc/rtc",
+		exp_name	=> "misc/rtc",
+		exp_perms	=> "0:100:0600",
+		conf		=> <<EOF
+KERNEL="rtc", NAME="misc/rtc"
+EOF
+	},
+	{
+		desc		=> "permissions misc:0:users:0600",
+		subsys		=> "misc",
+		devpath		=> "/class/misc/psaux",
+		exp_name	=> "misc/psaux",
+		exp_perms	=> "0:100:0600",
+		conf		=> <<EOF
+KERNEL="psaux", NAME="misc/psaux"
+EOF
+	},
+	{
+		desc		=> "permissions set OWNER=5000",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "node",
+		exp_perms	=> "5000::0600",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", NAME="node", OWNER="5000"
+EOF
+	},
+	{
+		desc		=> "permissions set GROUP=100",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "node",
+		exp_perms	=> ":100:0600",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", NAME="node", GROUP="100"
+EOF
+	},
+	{
+		desc		=> "permissions set mode=0777",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "node",
+		exp_perms	=> "::0777",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", NAME="node", MODE="0777"
+EOF
+	},
+	{
+		desc		=> "permissions set OWNER=5000 GROUP=100 MODE=0777",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "node",
+		exp_perms	=> "5000:100:0777",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", NAME="node", OWNER="5000", GROUP="100", MODE="0777"
+EOF
+	},
+	{
+		desc		=> "permissions override OWNER to 5000",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "ttyUSB0",
+		exp_perms	=> "5000:14:0660",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", OWNER="5000"
+EOF
+	},
+	{
+		desc		=> "permissions override GROUP to 100",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "ttyUSB0",
+		exp_perms	=> ":100:0660",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", GROUP="100"
+EOF
+	},
+	{
+		desc		=> "permissions override MODE to 0060",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "ttyUSB0",
+		exp_perms	=> ":14:0060",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", MODE="0060"
+EOF
+	},
+	{
+		desc		=> "permissions override OWNER, GROUP, MODE",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "ttyUSB0",
+		exp_perms	=> "5000:100:0777",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", OWNER="5000", GROUP="100", MODE="0777"
 EOF
 	},
 	{
@@ -583,6 +744,253 @@ EOF
 KERNEL="i2c-fake2", NAME="node"
 EOF
 	},
+	{
+		desc		=> "symlink creation (same directory)",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "visor0",
+		exp_target	=> "ttyUSB0",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="visor%n"
+EOF
+	},
+	{
+		desc		=> "symlink creation (relative link forward)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda2",
+		exp_name	=> "1/2/symlink" ,
+		exp_target	=> "a/b/node",
+		conf		=> <<EOF
+BUS="scsi", SYSFS{vendor}="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/symlink"
+EOF
+	},
+	{
+		desc		=> "symlink creation (relative link back and forward)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda2",
+		exp_name	=> "1/2/c/d/symlink" ,
+		exp_target	=> "../../a/b/node",
+		conf		=> <<EOF
+BUS="scsi", SYSFS{vendor}="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/c/d/symlink"
+EOF
+	},
+	{
+		desc		=> "multiple symlinks",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "second-0" ,
+		exp_target	=> "visor" ,
+		conf		=> <<EOF
+KERNEL="ttyUSB0", NAME="visor", SYMLINK="first-%n second-%n third-%n"
+EOF
+	},
+	{
+		desc		=> "symlink only rule",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "symlink-only2",
+		exp_target	=> "link",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", SYMLINK="symlink-only1"
+BUS="scsi", KERNEL="sda", SYMLINK="symlink-only2"
+BUS="scsi", KERNEL="sda", NAME="link", SYMLINK="symlink0"
+EOF
+	},
+	{
+		desc		=> "symlink name empty",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "",
+		exp_target	=> "link",
+		exp_error	=> "yes",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", NAME="link", SYMLINK=""
+EOF
+	},
+	{
+		desc		=> "symlink name '.'",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> ".",
+		exp_target	=> "link",
+		exp_error	=> "yes",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", NAME="link", SYMLINK="."
+EOF
+	},
+	{
+		desc		=> "symlink to empty name",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "symlink",
+		exp_target	=> "",
+		exp_error	=> "yes",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", NAME="", SYMLINK="symlink"
+EOF
+	},
+	{
+		desc		=> "symlink and name empty",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "",
+		exp_target	=> "",
+		exp_error	=> "yes",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", NAME="", SYMLINK=""
+EOF
+	},
+	{
+		desc		=> "symlink node to itself",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/tty0",
+		exp_name	=> "link",
+		exp_target	=> "link",
+		conf		=> <<EOF
+KERNEL="tty0", NAME="link", SYMLINK="link"
+EOF
+	},
+	{
+		desc		=> "symlink %n substitution",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "symlink0",
+		exp_target	=> "ttyUSB0",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="symlink%n"
+EOF
+	},
+	{
+		desc		=> "symlink %k substitution",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "symlink-ttyUSB0",
+		exp_target	=> "ttyUSB0",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="symlink-%k"
+EOF
+	},
+	{
+		desc		=> "symlink %M:%m substitution",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "major-188:0",
+		exp_target	=> "ttyUSB0",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="major-%M:%m"
+EOF
+	},
+	{
+		desc		=> "symlink %b substitution",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "symlink-0:0:0:0",
+		exp_target	=> "node",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", NAME="node", SYMLINK="symlink-%b"
+EOF
+	},
+	{
+		desc		=> "symlink %c substitution",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "test",
+		exp_target	=> "ttyUSB0",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", PROGRAM="/bin/echo test" NAME="ttyUSB%n", SYMLINK="%c"
+EOF
+	},
+	{
+		desc		=> "symlink %c{N} substitution",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "test",
+		exp_target	=> "ttyUSB0",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", PROGRAM="/bin/echo symlink test this" NAME="ttyUSB%n", SYMLINK="%c{2}"
+EOF
+	},
+	{
+		desc		=> "symlink %c{N+} substitution",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "this",
+		exp_target	=> "ttyUSB0",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", PROGRAM="/bin/echo symlink test this" NAME="ttyUSB%n", SYMLINK="%c{2+}"
+EOF
+	},
+	{
+		desc		=> "symlink only rule with %c{N+}",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "test",
+		exp_target	=> "link",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", PROGRAM="/bin/echo link test this" SYMLINK="%c{2+}"
+BUS="scsi", KERNEL="sda", NAME="link", SYMLINK="symlink0"
+EOF
+	},
+	{
+		desc		=> "symlink %s{filename} substitution",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "188:0",
+		exp_target	=> "ttyUSB0",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="%s{dev}"
+EOF
+	},
+	{
+		desc		=> "symlink %Ns{filename} substitution",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "188",
+		exp_target	=> "ttyUSB0",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="%3s{dev}"
+EOF
+	},
+	{
+		desc		=> "symlink with '%' in name",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "percent%sign",
+		exp_target	=> "ttyUSB0",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="percent%%sign"
+EOF
+	},
+	{
+		desc		=> "symlink with '%' in name",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "%ttyUSB0_name",
+		exp_target	=> "ttyUSB0",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="%%%k_name"
+EOF
+	},
+	{
+		desc		=> "program result substitution (numbered part of)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda3",
+		exp_name	=> "link1",
+		exp_target	=> "node",
+		conf		=> <<EOF
+BUS="scsi", PROGRAM="/bin/echo -n node link1 link2", RESULT="node *", NAME="%c{1}", SYMLINK="%c{2} %c{3}"
+EOF
+	},
+	{
+		desc		=> "program result substitution (numbered part of+)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda3",
+		exp_name	=> "link4",
+		exp_target	=> "node",
+		conf		=> <<EOF
+BUS="scsi", PROGRAM="/bin/echo -n node link1 link2 link3 link4", RESULT="node *", NAME="%c{1}", SYMLINK="%c{2+}"
+EOF
+	},
 );
 
 # set env
@@ -609,74 +1017,135 @@ sub udev {
 
 my $error = 0;
 
+sub permissions_test {
+	my($config, $uid, $gid, $mode) = @_;
+
+	my $wrong = 0;
+	$config->{exp_perms} =~ m/^(.*):(.*):(.*)$/;
+	if ($1 ne "") {
+		if ($uid != $1) { $wrong = 1; };
+	}
+	if ($2 ne "") {
+		if ($gid != $2) { $wrong = 1; };
+	}
+	if ($3 ne "") {
+		if (($mode & 07777) != oct($3)) { $wrong = 1; };
+	}
+	if ($wrong == 0) {
+		print "permissions: ok    ";
+	} else {
+		printf "expected permissions are: %i:%i:%#o\n", $1, $2, oct($3);
+		printf "created permissions are : %i:%i:%#o\n", $uid, $gid, $mode & 07777;
+		$error++;
+	}
+}
+
+sub major_minor_test {
+	my($config, $rdev) = @_;
+
+	my $major = ($rdev >> 8) & 0xfff;
+	my $minor = ($rdev & 0xff) | (($rdev >> 12) & 0xfff00);
+	my $wrong = 0;
+
+	$config->{exp_majorminor} =~ m/^(.*):(.*)$/;
+	if ($1 ne "") {
+		if ($major != $1) { $wrong = 1; };
+	}
+	if ($2 ne "") {
+		if ($minor != $2) { $wrong = 1; };
+	}
+	if ($wrong == 0) {
+		print "major:minor: ok    ";
+	} else {
+		printf "expected major:minor is: %i:%i\n", $1, $2;
+		printf "created major:minor is : %i:%i\n", $major, $minor;
+		print "major:minor: error    ";
+		$error++;
+	}
+}
+
+sub symlink_test {
+	my ($config) = @_;
+
+	my $output = `ls -l $PWD/$udev_root$config->{exp_name}`;
+
+	if ($output =~ m/(.*)-> (.*)/) {
+		if ($2 eq $config->{exp_target}) {
+			print "symlink: ok    ";
+		} else {
+			print "expected symlink from: \'$config->{exp_name}\' to \'$config->{exp_target}\'\n";
+			print "created symlink from: \'$config->{exp_name}\' to \'$2\'\n";
+			if ($config->{exp_error}) {
+				print "as expected    ";
+			} else {
+				$error++;
+			}
+		}
+	} else {
+		print "expected symlink from: \'$config->{exp_name}\' to \'$config->{exp_target}\'\n";
+		print "symlink: not created ";
+		if ($config->{exp_error}) {
+			print "as expected    ";
+		} else {
+			$error++;
+		}
+	}
+}
+
 sub run_test {
 	my ($config, $number) = @_;
 
 	print "TEST $number: $config->{desc}\n";
-	print "device \'$config->{devpath}\' expecting node \'$config->{exp_name}\'\n";
+
+	if ($config->{exp_target}) {
+		print "device \'$config->{devpath}\' expecting symlink '$config->{exp_name}' to node \'$config->{exp_target}\'\n";
+	} else {
+		print "device \'$config->{devpath}\' expecting node \'$config->{exp_name}\'\n";
+	}
+
 
 	udev("add", $config->{subsys}, $config->{devpath}, \$config->{conf});
-	if (-e "$PWD/$udev_root$config->{exp_name}") {
+
+	if ((-e "$PWD/$udev_root$config->{exp_name}") ||
+	    (-l "$PWD/$udev_root$config->{exp_name}")) {
 
 		my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
 		    $atime, $mtime, $ctime, $blksize, $blocks) = stat("$PWD/$udev_root$config->{exp_name}");
 
 		if (defined($config->{exp_perms})) {
-			my $wrong = 0;
-			$config->{exp_perms} =~ m/^(.*):(.*):(.*)$/;
-			if ($1 ne "") {
-				if ($uid != $1) { $wrong = 1; };
-			}
-			if ($2 ne "") {
-				if ($gid != $2) { $wrong = 1; };
-			}
-			if ($3 ne "") {
-				if (($mode & 07777) != oct($3)) { $wrong = 1; };
-			}
-			if ($wrong == 0) {
-				print "permissions: ok    ";
-			} else {
-				printf "expected permissions are: %i:%i:%#o\n", $1, $2, oct($3);
-				printf "created permissions are : %i:%i:%#o\n", $uid, $gid, $mode & 07777;
-				$error++;
-			}
+			permissions_test($config, $uid, $gid, $mode);
 		}
-
 		if (defined($config->{exp_majorminor})) {
-			my $major = ($rdev >> 8) & 0xfff;
-			my $minor = ($rdev & 0xff) | (($rdev >> 12) & 0xfff00);
-
-			my $wrong = 0;
-			$config->{exp_majorminor} =~ m/^(.*):(.*)$/;
-			if ($1 ne "") {
-				if ($major != $1) { $wrong = 1; };
-			}
-			if ($2 ne "") {
-				if ($minor != $2) { $wrong = 1; };
-			}
-			if ($wrong == 0) {
-				print "major:minor: ok    ";
-			} else {
-				printf "expected major:minor is: %i:%i\n", $1, $2;
-				printf "created major:minor is : %i:%i\n", $major, $minor;
-				$error++;
-			}
+			major_minor_test($config, $rdev);
 		}
-
+		if (defined($config->{exp_target})) {
+			symlink_test($config);
+		}
 		print "add: ok    ";
 	} else {
-		print "add: error\n";
-		system("tree $udev_root");
-		print "\n";
-		$error++;
+		print "add: error ";
+		if ($config->{exp_error}) {
+			print "as expected    ";
+		} else {
+			print "\n\n";
+			system("tree $udev_root");
+			print "\n";
+			$error++;
+		}
 	}
 
 	udev("remove", $config->{subsys}, $config->{devpath}, \$config->{conf});
 	if ((-e "$PWD/$udev_root$config->{exp_name}") ||
 	    (-l "$PWD/$udev_root$config->{exp_name}")) {
-		print "remove: error\n\n";
-		system("tree $udev_root");
-		$error++;
+		print "remove: error ";
+		if ($config->{exp_error}) {
+			print "as expected\n\n";
+		} else {
+			print "\n\n";
+			system("tree $udev_root");
+			print "\n";
+			$error++;
+		}
 	} else {
 		print "remove: ok\n\n";
 	}
