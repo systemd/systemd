@@ -35,7 +35,7 @@ lines, and lines beginning with a '#' will be ignored.
 
 .B udev
 expects its main configuration file at
-.I /etc/udev/udev.conf.
+.IR /etc/udev/udev.conf .
 The file consists of a set of variables and values that allow the user to
 override default udev values.  The current set of variables that can be
 overridden in this file is:
@@ -43,39 +43,46 @@ overridden in this file is:
 .B udev_root
 This is the where in the filesystem to place the device nodes.  The default
 value for this is
-.I /udev/
+.IR /udev/ .
 .TP
 .B udev_db
 The name and location of the udev database.  The default value for this is
-.I /udev/.udev.tdb
+.IR /udev/.udev.tdb .
 .TP
 .B udev_rules
 This is the location of the udev rules file.  The default value for this is
-.I /etc/udev/udev.rules
+.IR /etc/udev/udev.rules .
+If a directory is specified, the whole directory is
+scanned for files ending with
+.I .rules
+and all rule files are read in lexical order.
 .TP
 .B udev_permissions
-This is the location of the udev permission file.  The default value for this is
-.I /etc/udev/udev.permissions
+This is the location of the udev permission file. The default value for this is
+.IR /etc/udev/udev.permissions .
+If a directory is specified, the whole directory is scanned for files ending with
+.I .permissions
+and all permission files are read in lexical order.
 .TP
 .B udev_log
 If you want udev to log some information to the syslog for every node created or
 removed. The default value for this is
-.I yes
+.IR yes .
 .TP
 .B default_mode
 This is the default mode for all nodes that have no explicit match in the
 permissions file.  The default value for this is
-.I 0666
+.IR 0666 .
 .TP
 .B default_owner
 This is the default owner for all nodes that have no explicit match in the
 permissions file.  The default value for this is
-.I root
+.IR root .
 .TP
 .B default_group
 This is the default group for all nodes that have no explicit match in the
 permissions file.  The default value for this is
-.I root
+.IR root .
 .br
 .P
 .RI "A sample " udev.conf " might look like this:
@@ -87,8 +94,9 @@ udev_root="/udev/"
 # udev_db - The name and location of the udev database.
 udev_db="/udev/.udev.tdb"
 
-# udev_rules - The name and location of the udev rules file
-udev_rules="/etc/udev/udev.rules"
+# udev_rules - The location of the directory where to look for files
+               which names ending with .rules
+udev_rules="/etc/udev/"
 
 # udev_permissions - The name and location of the udev permission file
 udev_permissions="/etc/udev/udev.permissions"
@@ -242,11 +250,6 @@ file.
 Every line lists a device name followed by owner, group and permission
 mode. All values are separated by colons. The name field may contain a
 pattern to apply the values to a whole class of devices.
-.br
-If
-.B udev
-was built using klibc or is used before the user database is accessible (e.g.
-.BR initrd "(4)), only numeric owner and group values may be used."
 .sp
 .RI "A sample " udev.permissions " might look like this:"
 .sp
