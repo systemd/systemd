@@ -183,6 +183,7 @@ all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(WAIT) $(GEN_CONFIGS)
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) \
 			LD="$(LD)" \
+			SYSFS="$(SYSFS)" \
 			KERNEL_DIR="$(KERNEL_DIR)" \
 			-C $$target $@ ; \
 	done ; \
@@ -198,13 +199,13 @@ $(CRT0):
 TDB =	tdb/tdb.o	\
 	tdb/spinlock.o
 
-SYSFS =	libsysfs/sysfs_bus.o	\
-	libsysfs/sysfs_class.o	\
-	libsysfs/sysfs_device.o	\
-	libsysfs/sysfs_dir.o	\
-	libsysfs/sysfs_driver.o	\
-	libsysfs/sysfs_utils.o	\
-	libsysfs/dlist.o
+SYSFS =	$(PWD)/libsysfs/sysfs_bus.o	\
+	$(PWD)/libsysfs/sysfs_class.o	\
+	$(PWD)/libsysfs/sysfs_device.o	\
+	$(PWD)/libsysfs/sysfs_dir.o	\
+	$(PWD)/libsysfs/sysfs_driver.o	\
+	$(PWD)/libsysfs/sysfs_utils.o	\
+	$(PWD)/libsysfs/dlist.o
 
 OBJS =	udev_lib.o	\
 	udev_config.o	\
