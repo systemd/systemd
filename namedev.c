@@ -32,6 +32,9 @@
 #include <time.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#ifndef __KLIBC__
+#include <sys/sysinfo.h>
+#endif
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "list.h"
@@ -454,7 +457,7 @@ static int execute_program(char *path, char *value, int len)
 			retval = -1;
 		}
 
-		if (i > 0 && value[i] == '\n')
+		if (i > 0 && value[i-1] == '\n')
 			i--;
 		value[i] = '\0';
 		dbg("result is '%s'", value);
@@ -776,6 +779,7 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 	struct sysfs_device *sysfs_device = NULL;
 	struct config_device *dev;
 	struct perm_device *perm;
+	struct sysinfo info;
 	char *pos;
 
 	udev->mode = 0;
@@ -837,22 +841,18 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 			}
 		}
 	}
-
-	/* no rule was found for the net device */
-	if (udev->type == 'n') {
-		dbg("no name for net device '%s' configured", udev->kernel_name);
-		return -1;
-	}
-
 	/* no rule was found so we use the kernel name */
 	strfieldcpy(udev->name, udev->kernel_name);
-	goto done;
+	if (udev->type == 'n')
+		goto done;
+	else
+		goto perms;
 
 found:
 	apply_format(udev, udev->name, sizeof(udev->name), class_dev, sysfs_device);
 
 	if (udev->type == 'n')
-		return 0;
+		goto done;
 
 	udev->partitions = dev->partitions;
 	strfieldcpy(udev->config_file, dev->config_file);
@@ -863,7 +863,7 @@ found:
 			      dev->owner,
 			      dev->group);
 
-done:
+perms:
 	/* get permissions given in config file or set defaults */
 	perm = find_perm(udev->name);
 	if (perm != NULL) {
@@ -879,8 +879,10 @@ done:
 	dbg("name, '%s' is going to have owner='%s', group='%s', mode = %#o",
 	    udev->name, udev->owner, udev->group, udev->mode);
 
+done:
 	/* store time of action */
-	udev->config_time = time(NULL);
+	sysinfo(&info);
+	udev->config_uptime = info.uptime;
 
 	return 0;
 }

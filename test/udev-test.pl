@@ -235,6 +235,15 @@ BUS="scsi", PROGRAM="/bin/echo -n special-device", RESULT="special-*", NAME="%c-
 EOF
 	},
 	{
+		desc		=> "program result substitution (newline removal)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda3",
+		exp_name	=> "newline_removed" ,
+		conf		=> <<EOF
+BUS="scsi", PROGRAM="/bin/echo test", RESULT="test", NAME="newline_removed"
+EOF
+	},
+	{
 		desc		=> "program result substitution",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
@@ -580,6 +589,8 @@ EOF
 $ENV{UDEV_TEST} = "yes";
 $ENV{SYSFS_PATH} = $sysfs;
 $ENV{UDEV_CONFIG_FILE} = $main_conf;
+$ENV{UDEV_NO_SLEEP} = "yes";
+$ENV{UDEV_NO_DEVD} = "yes";
 
 
 sub udev {

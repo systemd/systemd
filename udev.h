@@ -52,7 +52,7 @@ struct udevice {
 	int partitions;
 	int config_line;
 	char config_file[NAME_SIZE];
-	time_t config_time;
+	long config_uptime;
 
 	/* private data that help us in building strings */
 	char bus_id[SYSFS_NAME_LEN];
@@ -80,5 +80,6 @@ extern char default_owner_str[OWNER_SIZE];
 extern char default_group_str[GROUP_SIZE];
 extern int udev_log;
 extern int udev_sleep;
+extern int udev_dev_d;
 
 #endif

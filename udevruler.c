@@ -77,7 +77,7 @@ struct device {
 	char devpath[DEVPATH_SIZE];
 	int config_line;
 	char config_file[NAME_SIZE];
-	time_t config_time;
+	long config_uptime;
 	int added;
 };
 
@@ -106,7 +106,7 @@ static int add_record(char *path, struct udevice *udev)
 	strfieldcpy(dev->devpath, path);
 	dev->config_line = udev->config_line;
 	strfieldcpy(dev->config_file, udev->config_file);
-	dev->config_time = udev->config_time;
+	dev->config_uptime = udev->config_uptime;
 	dev->added = 0;
 
 	/* sort in lexical order */
@@ -308,7 +308,7 @@ int main(int argc, char *argv[]) {
 	char roottext[81];
 	char path[NAME_SIZE];
 	struct device *dev;
-	time_t time_last;
+	long time_last;
 	int count_last;
 
 	newtInit();
@@ -332,13 +332,13 @@ int main(int argc, char *argv[]) {
 	/* look for last discovered device */
 	time_last = 0;
 	list_for_each_entry(dev, &device_list, list)
-		if (dev->config_time > time_last)
-			time_last = dev->config_time;
+		if (dev->config_uptime > time_last)
+			time_last = dev->config_uptime;
 
 	/* skip if more than 16 recent devices */
 	count_last = 0;
 	list_for_each_entry(dev, &device_list, list) {
-		if (dev->config_time < time_last - 10)
+		if (dev->config_uptime < time_last - 10)
 			continue;
 		count_last++;
 	}
@@ -347,7 +347,7 @@ int main(int argc, char *argv[]) {
 	if (count_last < 16) {
 		newtListboxAppendEntry(lbox, "--- last dicovered ---", NULL);
 		list_for_each_entry(dev, &device_list, list) {
-			if (dev->config_time < time_last - 10)
+			if (dev->config_uptime < time_last - 10)
 				continue;
 
 			dbg("%s %i", dev->name, dev->config_line);

@@ -61,21 +61,20 @@
  */
 static int get_major_minor(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
-	int retval = -ENODEV;
 	struct sysfs_attribute *attr = NULL;
 
 	attr = sysfs_get_classdev_attr(class_dev, "dev");
 	if (attr == NULL)
-		goto exit;
+		goto error;
 	dbg("dev='%s'", attr->value);
 
 	if (sscanf(attr->value, "%u:%u", &udev->major, &udev->minor) != 2)
-		goto exit;
+		goto error;
 	dbg("found major=%d, minor=%d", udev->major, udev->minor);
 
-	retval = 0;
-exit:
-	return retval;
+	return 0;
+error:
+	return -1;
 }
 
 static int create_path(char *file)
@@ -114,28 +113,27 @@ static int make_node(char *filename, int major, int minor, unsigned int mode, ui
 	if (retval != 0) {
 		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
 		    filename, mode, major, minor, strerror(errno));
-		return retval;
+		goto exit;
 	}
 
 	dbg("chmod(%s, %#o)", filename, mode);
-	retval = chmod(filename, mode);
-	if (retval != 0) {
+	if (chmod(filename, mode) != 0) {
 		dbg("chmod(%s, %#o) failed with error '%s'",
 		    filename, mode, strerror(errno));
-		return retval;
+		goto exit;
 	}
 
 	if (uid != 0 || gid != 0) {
 		dbg("chown(%s, %u, %u)", filename, uid, gid);
-		retval = chown(filename, uid, gid);
-		if (retval != 0) {
+		if (chown(filename, uid, gid) != 0) {
 			dbg("chown(%s, %u, %u) failed with error '%s'",
 			    filename, uid, gid, strerror(errno));
-			return retval;
+			goto exit;
 		}
 	}
 
-	return 0;
+exit:
+	return retval;
 }
 
 /* get the local logged in user */
@@ -169,7 +167,6 @@ static void set_to_local_user(char *user)
 	endutent();
 }
 
-/* Used to unlink existing files to ensure that our new file/symlink is created */
 static int unlink_entry(char *filename)
 {
 	struct stat stats;
@@ -193,7 +190,6 @@ static int create_node(struct udevice *dev, int fake)
 	char linkname[NAME_SIZE];
 	char linktarget[NAME_SIZE];
 	char partitionname[NAME_SIZE];
-	int retval = 0;
 	uid_t uid = 0;
 	gid_t gid = 0;
 	int i;
@@ -259,14 +255,15 @@ static int create_node(struct udevice *dev, int fake)
 	if (!fake) {
 		unlink_entry(filename);
 		info("creating device node '%s'", filename);
-		make_node(filename, dev->major, dev->minor, dev->mode, uid, gid);
+		if (make_node(filename, dev->major, dev->minor, dev->mode, uid, gid) != 0)
+			goto error;
 	} else {
 		info("creating device node '%s', major = '%d', minor = '%d', "
 		     "mode = '%#o', uid = '%d', gid = '%d'", filename,
 		     dev->major, dev->minor, (mode_t)dev->mode, uid, gid);
 	}
 
-	/* create partitions if requested */
+	/* create all_partitions if requested */
 	if (dev->partitions > 0) {
 		info("creating device partition nodes '%s[1-%i]'", filename, dev->partitions);
 		if (!fake) {
@@ -280,7 +277,7 @@ static int create_node(struct udevice *dev, int fake)
 		}
 	}
 
-	/* create symlink if requested */
+	/* create symlink(s) if requested */
 	foreach_strpart(dev->symlink, " ", pos, len) {
 		strfieldcpymax(linkname, pos, len+1);
 		strfieldcpy(filename, udev_root);
@@ -312,14 +309,15 @@ static int create_node(struct udevice *dev, int fake)
 
 		dbg("symlink(%s, %s)", linktarget, filename);
 		if (!fake) {
-			retval = symlink(linktarget, filename);
-			if (retval != 0)
+			if (symlink(linktarget, filename) != 0)
 				dbg("symlink(%s, %s) failed with error '%s'",
 				    linktarget, filename, strerror(errno));
 		}
 	}
 
-	return retval;
+	return 0;
+error:
+	return -1;
 }
 
 static struct sysfs_class_device *get_class_dev(char *device_name)
@@ -373,11 +371,15 @@ exit:
 	return retval;
 }
 
-static int rename_net_if(struct udevice *dev)
+static int rename_net_if(struct udevice *dev, int fake)
 {
 	int sk;
 	struct ifreq ifr;
 	int retval;
+
+	dbg("changing net interface name from '%s' to '%s'", dev->kernel_name, dev->name);
+	if (fake)
+		return 0;
 
 	sk = socket(PF_INET, SOCK_DGRAM, 0);
 	if (sk < 0) {
@@ -389,7 +391,6 @@ static int rename_net_if(struct udevice *dev)
 	strfieldcpy(ifr.ifr_name, dev->kernel_name);
 	strfieldcpy(ifr.ifr_newname, dev->name);
 
-	dbg("changing net interface name from '%s' to '%s'", dev->kernel_name, dev->name);
 	retval = ioctl(sk, SIOCSIFNAME, &ifr);
 	if (retval != 0)
 		dbg("error changing net interface name");
@@ -400,16 +401,15 @@ static int rename_net_if(struct udevice *dev)
 
 int udev_add_device(char *path, char *subsystem, int fake)
 {
-	struct sysfs_class_device *class_dev = NULL;
+	struct sysfs_class_device *class_dev;
 	struct udevice dev;
-	int retval = -EINVAL;
+	char key[DEVPATH_SIZE];
+	char *pos;
+	int retval;
 
 	memset(&dev, 0x00, sizeof(dev));
 
-	/* for now, the block layer is the only place where block devices are */
-
 	dev.type = get_device_type(path, subsystem);
-
 	switch (dev.type) {
 	case 'b':
 	case 'c':
@@ -422,12 +422,12 @@ int udev_add_device(char *path, char *subsystem, int fake)
 
 	default:
 		dbg("unknown device type '%c'", dev.type);
-		retval = -EINVAL;
+		return -1;
 	}
 
 	class_dev = get_class_dev(path);
 	if (class_dev == NULL)
-		goto exit;
+		return -1;
 
 	if (dev.type == 'b' || dev.type == 'c') {
 		retval = get_major_minor(class_dev, &dev);
@@ -437,37 +437,48 @@ int udev_add_device(char *path, char *subsystem, int fake)
 		}
 	}
 
-	retval = namedev_name_device(class_dev, &dev);
-	if (retval != 0)
+	if (namedev_name_device(class_dev, &dev) != 0)
 		goto exit;
 
-	if (!fake && (dev.type == 'b' || dev.type == 'c')) {
-		retval = udevdb_add_dev(path, &dev);
-		if (retval != 0)
-			dbg("udevdb_add_dev failed, but we are going to try "
-			    "to create the node anyway. But remove might not "
-			    "work properly for this device.");
-	}
-
 	dbg("name='%s'", dev.name);
+
 	switch (dev.type) {
 	case 'b':
 	case 'c':
 		retval = create_node(&dev, fake);
-		if ((retval == 0) && (!fake))
-			dev_d_send(&dev, subsystem);
+		if (fake || retval != 0)
+			goto exit;
+		if (udevdb_add_dev(path, &dev) != 0)
+			dbg("udevdb_add_dev failed, but we are going to try "
+			    "to create the node anyway. But remove might not "
+			    "work properly for this device.");
 		break;
 
 	case 'n':
-		retval = rename_net_if(&dev);
-		if (retval != 0)
-			dbg("net device naming failed");
+		strfieldcpy(key, path);
+		if (strcmp(dev.name, dev.kernel_name) != 0) {
+			retval = rename_net_if(&dev, fake);
+			if (fake || retval != 0)
+				goto exit;
+			/* netif's are keyed with the configured name, cause
+			 * the original kernel name sleeps with the fishes
+			 */
+			pos = strrchr(key, '/');
+			if (pos != NULL) {
+				pos[1] = '\0';
+				strfieldcat(key, dev.name);
+			}
+		}
+		if (udevdb_add_dev(key, &dev) != 0)
+			dbg("udevdb_add_dev failed");
 		break;
 	}
 
+	/* execute programs in dev.d/ with the name in the environment */
+	dev_d_send(&dev, subsystem);
+
 exit:
-	if (class_dev)
-		sysfs_close_class_device(class_dev);
+	sysfs_close_class_device(class_dev);
 
 	return retval;
 }

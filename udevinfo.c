@@ -108,13 +108,14 @@ static int print_record(char *path, struct udevice *dev)
 {
 	printf("P: %s\n", path);
 	printf("N: %s\n", dev->name);
+	printf("T: %c\n", dev->type);
 	printf("M: %#o\n", dev->mode);
 	printf("S: %s\n", dev->symlink);
 	printf("O: %s\n", dev->owner);
 	printf("G: %s\n", dev->group);
 	printf("F: %s\n", dev->config_file);
 	printf("L: %i\n", dev->config_line);
-	printf("T: %li\n", dev->config_time);
+	printf("U: %li\n", dev->config_uptime);
 	printf("\n");
 	return 0;
 }

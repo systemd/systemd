@@ -59,6 +59,7 @@ int udevdb_add_dev(const char *path, const struct udevice *dev)
 
 	data.dptr = (void *)dev;
 	data.dsize = UDEVICE_LEN;
+	dbg("store key '%s' for device '%s'", path, dev->name);
 
 	return tdb_store(udevdb, key, data, TDB_REPLACE); 
 }

@@ -51,6 +51,7 @@ char default_owner_str[OWNER_SIZE];
 char default_group_str[GROUP_SIZE];
 int udev_log;
 int udev_sleep;
+int udev_dev_d;
 
 
 static int string_is_true(char *str)
@@ -77,6 +78,10 @@ static void init_variables(void)
 	udev_sleep = 1;
 	if (getenv("UDEV_NO_SLEEP") != NULL)
 		udev_sleep = 0;
+
+	udev_dev_d = 1;
+	if (getenv("UDEV_NO_DEVD") != NULL)
+		udev_dev_d = 0;
 }
 
 #define set_var(_name, _var)				\

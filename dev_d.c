@@ -64,11 +64,20 @@ static int run_program(char *name)
 void dev_d_send(struct udevice *dev, char *subsystem)
 {
 	char dirname[256];
-	char devnode[NAME_SIZE];
+	char devname[NAME_SIZE];
 
-	strfieldcpy(devnode, udev_root);
-	strfieldcat(devnode, dev->name);
-	setenv("DEVNODE", devnode, 1);
+	if (udev_dev_d == 0)
+		return;
+
+	if (dev->type == 'b' || dev->type == 'c') {
+		strfieldcpy(devname, udev_root);
+		strfieldcat(devname, dev->name);
+	} else if (dev->type == 'n') {
+		strfieldcpy(devname, dev->name);
+	}
+	setenv("DEVNODE", devname, 1); /* FIXME: bad name for netif */
+	setenv("DEVNAME", devname, 1);
+	dbg("DEVNAME='%s'", devname);
 
 	strcpy(dirname, DEVD_DIR);
 	strfieldcat(dirname, dev->name);
@@ -81,4 +90,3 @@ void dev_d_send(struct udevice *dev, char *subsystem)
 	strcpy(dirname, DEVD_DIR "default");
 	call_foreach_file(run_program, dirname, DEVD_SUFFIX);
 }
-
