@@ -30,6 +30,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <syslog.h>
+#include <linux/compiler.h> /* need __user when built via klibc */
 #include <scsi/sg.h>
 #include <sysfs/libsysfs.h>
 #include "scsi_id.h"
@@ -312,6 +313,8 @@ static int scsi_inquiry(struct sysfs_device *scsi_dev, int fd, unsigned
 	buffer = inq + OFFSET;
 
 resend:
+	dprintf("%s evpd %d, page 0x%x\n", scsi_dev->name, evpd, page);
+
 	memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
 	io_hdr.interface_id = 'S';
 	io_hdr.cmd_len = sizeof(inq_cmd);
@@ -351,6 +354,11 @@ resend:
 		}
 		retval = -1;
 	}
+
+	if (retval < 0)
+		log_message(LOG_WARNING,
+			    "%s: Unable to get INQUIRY vpd %d page 0x%x.\n",
+			    scsi_dev->name, evpd, page);
 
 	free(inq);
 	return retval;

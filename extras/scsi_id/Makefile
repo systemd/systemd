@@ -14,7 +14,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
-SCSI_ID_VERSION=0.4
+SCSI_ID_VERSION=0.5
 
 prefix =
 etcdir =        ${prefix}/etc
@@ -71,5 +71,6 @@ clean:
 	rm -f $(PROG) $(OBJS) $(GEN_HEADER)
 
 spotless: clean
+
 $(PROG):	$(OBJS)
 	$(LD) $(LDFLAGS) -o $(PROG) $(CRT0) $(OBJS) $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)

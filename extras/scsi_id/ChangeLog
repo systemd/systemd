@@ -1,3 +1,42 @@
+2004-jun-23:
+	* scsi_id.h: increase MAX_SERIAL_LEN from 128 to 256, as some
+	  devices (maybe broken ones) are giving really long id's.
+
+2004-jun-17:
+	* Makefile: Olaf Hering add spotless target (already in udev).
+
+2004-jun-17:
+	* scsi_serial.c: Include linux/compiler.h so we can build with
+	  klibc using kernel headers.
+
+2004-may-24:
+	* scsi_id.c: Rename major and minor to maj min to avoid compiler
+	  warnings when compiled with -D_GNU_SOURCE.
+
+2004-mar-30:
+	* scsi_id.config: Minor wording changes
+
+2004-mar-30:
+	* scsi_id.h: Don't supply a makedev() when built under klibc.
+
+2004-mar-30:
+	* scsi_id.c: Ken Brush <ken@cgi101.com> Have the command line
+	  options override generic options.
+
+2004-mar-05:
+	* scsi_serial.c: Log INQUIRY failure, including the
+	  failing page code and vpd values. And add a dprintf() to
+	  the scsi_inquiry function.
+
+2004-mar-02:
+	* gen_scsi_id_udev_rules.sh: Per bug report from Atul Sabharwal
+	  <atul.sabharwal@intel.com> change to not require that sysfs be
+	  in the mount tab (and default to "/sys"), and fix so scsi_id
+	  results containing spaces work correctly.
+
+2004-mar-02:
+	* scsi_id.8: Escape '-' with '\-'.
+
 2004-feb-25:
 	* scsi_id.8: Add verbage about usage with udev, and running via
 	  hotplug.

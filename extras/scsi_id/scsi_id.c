@@ -111,7 +111,7 @@ int sysfs_get_attr(const char *devpath, const char *attr, char *value,
 	return sysfs_read_attribute_value(attr_path, value, SYSFS_NAME_LEN);
 }
 
-static int get_major_minor(const char *devpath, int *major, int *minor)
+static int get_major_minor(const char *devpath, int *maj, int *min)
 {
 	char dev_value[MAX_ATTR_LEN];
 
@@ -129,7 +129,7 @@ static int get_major_minor(const char *devpath, int *major, int *minor)
 	}
 
 	dprintf("dev value %s", dev_value); /* dev_value has a trailing \n */
-	if (sscanf(dev_value, "%u:%u", major, minor) != 2) {
+	if (sscanf(dev_value, "%u:%u", maj, min) != 2) {
 		log_message(LOG_WARNING, "%s: invalid dev major/minor\n",
 			    devpath);
 		return -1;
@@ -140,18 +140,18 @@ static int get_major_minor(const char *devpath, int *major, int *minor)
 
 static int create_tmp_dev(const char *devpath, char *tmpdev, int dev_type)
 {
-	int major, minor;
+	int maj, min;
 
 	dprintf("(%s)\n", devpath);
 
-	if (get_major_minor(devpath, &major, &minor))
+	if (get_major_minor(devpath, &maj, &min))
 		return -1;
 	snprintf(tmpdev, MAX_NAME_LEN, "%s/%s-maj%d-min%d-%u",
-		 TMP_DIR, TMP_PREFIX, major, minor, getpid());
+		 TMP_DIR, TMP_PREFIX, maj, min, getpid());
 
 	dprintf("tmpdev '%s'\n", tmpdev);
 
-	if (mknod(tmpdev, 0600 | dev_type, makedev(major, minor))) {
+	if (mknod(tmpdev, 0600 | dev_type, makedev(maj, min))) {
 		log_message(LOG_WARNING, "mknod failed: %s\n", strerror(errno));
 		return -1;
 	}
@@ -759,10 +759,6 @@ int main(int argc, char **argv)
 
 		strncpy(target_path, sysfs_mnt_path, MAX_NAME_LEN);
 		strncat(target_path, devpath, MAX_NAME_LEN);
-	} else {
-		if (set_options(argc, argv, short_options, target_path,
-				maj_min_dev) < 0)
-			exit(1);
 	}
 
 	/*
@@ -778,6 +774,11 @@ int main(int argc, char **argv)
 				maj_min_dev) < 0)
 			exit(1);
 		free(newargv);
+	}
+	if (!hotplug_mode) {
+		if (set_options(argc, argv, short_options, target_path,
+				maj_min_dev) < 0)
+		exit(1);
 	}
 
 	if (!sys_specified) {

@@ -1,49 +1,42 @@
-Version 0.4 of scsi_id is available at:
+Version 0.5 of scsi_id is available at:
 
-http://www-124.ibm.com/storageio/scsi_id/scsi_id-0.4.tar.gz
+http://www-124.ibm.com/storageio/scsi_id/scsi_id-0.5.tar.gz
 
 scsi_id is a program to generate a unique identifier for a given SCSI
 device.
 
-It is primarily for use with the udev callout key. It could also be used
-for automatic multi-path configuration or device mapper configuration.
+It is primarily for use with the udev program key, or hotplug scripts that
+want persistent naming of scsi devices. It could also be used for
+automatic multi-path configuration or device mapper configuration.
 
-Version 0.4 requires:
+Version 0.5 requires:
 
 - Linux kernel 2.6
 - libsysfs 0.4.0
 
 Major changes since the last release:
 
-	- Support block device partitions
+	- Ken Brush <ken@cgi101.com> have the command line options
+	  override generic options.
 
-	- Added a script to auto-generate udev rules. The script is not
-	  installed but is part of the tarball.
+	- Fix the gen_scsi_id_udev_rules.sh to handle spaces in the id.
 
-Detailed changes:
+	- Don't supply a makedev() when built with klibc. Also, the
+	  scsi_id supplied makedev() was using the old major/minor method.
 
-	- Add man page verbage about usage with udev, and running via
-	  hotplug
+	- Include compiler.h so we can build against klibc, as recent sg.h
+	  changes need a define for __user.
 
-	- Disable support for -e (all output to stderr) as it cannot be
-	  used in any useful way, and the -c (device specific callout) as
-	  the code is incomplete and has no users.
+Other changes:
 
-	- Don't print errno for NULL return from sysfs_get_classdev_device.
+	- Increase the MAX_SERIAL_LEN from 128 to 256, as some (possibly
+	  broken devics) are returning very long id's
 
-	- Get rid of dead/leftover code that checked if we are on a scsi
-	  bus.
+	- Add spotless target (via Olaf Hering's udev patch)
 
-	- ":" consistently in output messages.
+	- minor wording changes in scsi_id.config
 
-	- Add missing new lines for some error messages.
+	- Log INQUIRY failure, including the failing page code and vpd
+	  values
 
-	- open O_NONBLOCK so we handle tape drives without tapes loaded.
-
-	- Remove hacks based on KLIBC define to get around problems when
-	  building with udev (udev libsysfs files were rearranged).
-
-	- As done in udev code, support partitions via looking for a
-	  parent of the target path. Uses libsysfs functions to do most of
-	  the work, and includes changing a lot of variables to be struct
-	  sysfs_device instead of sysfs_class_device.
+	- Escape '-' with '\-' in the man page.

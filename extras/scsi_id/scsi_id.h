@@ -37,7 +37,7 @@
  * MAX_SERIAL_LEN: the maximum length of the serial number, including
  * added prefixes such as vendor and product (model) strings.
  */
-#define	MAX_SERIAL_LEN	128
+#define	MAX_SERIAL_LEN	256
 
 /*
  * MAX_BUFFER_LEN: maximum buffer size and line length used while reading
@@ -52,10 +52,6 @@ extern int scsi_get_serial (struct sysfs_device *scsi_dev, const char
 			    len);
 extern void log_message (int level, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
-
-#ifdef __KLIBC__
-#define makedev(major, minor)  ((major) << 8) | (minor)
-#endif
 
 #ifndef u8
 typedef unsigned char u8;

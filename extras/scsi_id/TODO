@@ -1,6 +1,9 @@
-- Document that config file options override command line options, or fix
-  the code. This means a '-b' in the config file disables any -g on the
-  command line.
+- Add an option to replace blanks with spaces, so the generated id can be
+  more easily used as a /dev name.
+
+- Add a bus white/black list option. So for example, all scsi devices
+  under USB could easily be blacklisted. This should allow multiple busses
+  to be listed.
 
 - Add code to check that  SCSI commands get back enough data for their
   intended usage, mainly callers of scsi_inquiry().
