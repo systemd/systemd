@@ -70,6 +70,7 @@ struct udevice {
 	unsigned char bus_id[SYSFS_NAME_LEN];
 	unsigned char callout_value[NAME_SIZE];
 	unsigned char kernel_number[NAME_SIZE];
+	unsigned char kernel_name[NAME_SIZE];
 
 };
 

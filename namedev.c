@@ -186,17 +186,6 @@ static mode_t get_default_mode(struct sysfs_class_device *class_dev)
 	return mode;
 }
 
-static void build_kernel_number(struct sysfs_class_device *class_dev, struct udevice *udev)
-{
-	char *dig;
-
-	dig = class_dev->name + strlen(class_dev->name);
-	while (isdigit(*(dig-1)))
-		dig--;
-	strfieldcpy(udev->kernel_number, dig);
-	dbg("kernel_number='%s'", udev->kernel_number);
-}
-
 static void apply_format(struct udevice *udev, unsigned char *string)
 {
 	char name[NAME_SIZE];
@@ -229,6 +218,12 @@ static void apply_format(struct udevice *udev, unsigned char *string)
 					break;
 				strcat(pos, udev->bus_id);
 				dbg("substitute bus_id '%s'", udev->bus_id);
+				break;
+			case 'k':
+				if (strlen(udev->kernel_name) == 0)
+					break;
+				strcat(pos, udev->kernel_name);
+				dbg("substitute kernel name '%s'", udev->kernel_name);
 				break;
 			case 'n':
 				if (strlen(udev->kernel_number) == 0)
@@ -728,6 +723,7 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 	struct sysfs_class_device *class_dev_parent = NULL;
 	int retval = 0;
 	struct perm_device *perm;
+	char *pos;
 
 	udev->mode = 0;
 
@@ -743,7 +739,14 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 		dbg("class_dev->name = '%s'", class_dev->name);
 	}
 
-	build_kernel_number(class_dev, udev);
+	strfieldcpy(udev->kernel_name, class_dev->name);
+
+	/* get kernel number */
+	pos = class_dev->name + strlen(class_dev->name);
+	while (isdigit(*(pos-1)))
+		pos--;
+	strfieldcpy(udev->kernel_number, pos);
+	dbg("kernel_number='%s'", udev->kernel_number);
 
 	/* rules are looked at in priority order */
 	retval = do_callout(class_dev, udev, sysfs_device);
