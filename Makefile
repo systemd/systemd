@@ -36,6 +36,7 @@ SENDER =	udevsend
 INFO =		udevinfo
 TESTER =	udevtest
 STARTER =	udevstart
+RULER =		udevruler
 VERSION =	022
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
@@ -296,10 +297,14 @@ $(STARTER): $(STARTER).o $(HEADERS) $(LIBC)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevstart.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
+$(RULER): $(RULER).o $(OBJS) $(HEADERS) $(LIBC)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevruler.o udev_lib.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS) -lnewt
+	$(STRIPCMD) $@
+
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
-	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(INFO) $(DAEMON) $(SENDER) $(TESTER) $(STARTER)
+	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(INFO) $(DAEMON) $(SENDER) $(TESTER) $(STARTER) $(RULER)
 	$(MAKE) -C klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \

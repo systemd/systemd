@@ -840,6 +840,8 @@ found:
 	apply_format(udev, udev->name, sizeof(udev->name), class_dev, sysfs_device);
 	apply_format(udev, udev->symlink, sizeof(udev->symlink), class_dev, sysfs_device);
 	udev->partitions = dev->partitions;
+	strfieldcpy(udev->config_file, dev->config_file);
+	udev->config_line = dev->config_line;
 
 done:
 	/* get permissions given in rule */
@@ -861,6 +863,9 @@ done:
 
 	dbg("name, '%s' is going to have owner='%s', group='%s', mode = %#o",
 	    udev->name, udev->owner, udev->group, udev->mode);
+
+	/* store time of action */
+	udev->config_time = time(NULL);
 
 	return 0;
 }

@@ -112,6 +112,9 @@ static int print_record(char *path, struct udevice *dev)
 	printf("S: %s\n", dev->symlink);
 	printf("O: %s\n", dev->owner);
 	printf("G: %s\n", dev->group);
+	printf("F: %s\n", dev->config_file);
+	printf("L: %i\n", dev->config_line);
+	printf("T: %li\n", dev->config_time);
 	printf("\n");
 	return 0;
 }

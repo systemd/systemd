@@ -50,6 +50,9 @@ struct udevice {
 	unsigned int mode;	/* not mode_t due to conflicting definitions in different libcs */
 	char symlink[NAME_SIZE];
 	int partitions;
+	int config_line;
+	char config_file[NAME_SIZE];
+	time_t config_time;
 
 	/* private data that help us in building strings */
 	char bus_id[SYSFS_NAME_LEN];
