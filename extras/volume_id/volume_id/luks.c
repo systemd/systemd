@@ -26,7 +26,6 @@
 #  include <config.h>
 #endif
 
-#include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -40,58 +39,47 @@
 #include "logging.h"
 #include "luks.h"
 
-/* from cryptsetup-luks internal.h */
-#define SECTOR_SHIFT            9
-#define SECTOR_SIZE             (1 << SECTOR_SHIFT)
+#define SECTOR_SHIFT			9
+#define SECTOR_SIZE			(1 << SECTOR_SHIFT)
 
-/* from cryptsetup-luks luks.h */
-#define LUKS_CIPHERNAME_L 32
-#define LUKS_CIPHERMODE_L 32
-#define LUKS_HASHSPEC_L 32
-#define LUKS_DIGESTSIZE 20 /* since SHA1 */
-#define LUKS_SALTSIZE 32
-#define LUKS_NUMKEYS 8
+#define LUKS_CIPHERNAME_L		32
+#define LUKS_CIPHERMODE_L		32
+#define LUKS_HASHSPEC_L			32
+#define LUKS_DIGESTSIZE			20
+#define LUKS_SALTSIZE			32
+#define LUKS_NUMKEYS			8
 
-/* from cryptsetup-luks luks.h */
-const unsigned char LUKS_MAGIC[] = {'L','U','K','S', 0xba, 0xbe};
+const __u8 LUKS_MAGIC[] = {'L','U','K','S', 0xba, 0xbe};
 #define LUKS_MAGIC_L 6
-
-/* from cryptsetup-luks luks.h */
 #define LUKS_PHDR_SIZE (sizeof(struct luks_phdr)/SECTOR_SIZE+1)
-
-/* from cryptsetup-luks luks.h */
 #define UUID_STRING_L 40
+
+struct luks_phdr {
+	__u8		magic[LUKS_MAGIC_L];
+	__u16		version;
+	__u8		cipherName[LUKS_CIPHERNAME_L];
+	__u8		cipherMode[LUKS_CIPHERMODE_L];
+	__u8		hashSpec[LUKS_HASHSPEC_L];
+	__u32		payloadOffset;
+	__u32		keyBytes;
+	__u8		mkDigest[LUKS_DIGESTSIZE];
+	__u8		mkDigestSalt[LUKS_SALTSIZE];
+	__u32		mkDigestIterations;
+	__u8		uuid[UUID_STRING_L];
+	struct {
+		__u32	active;
+		__u32	passwordIterations;
+		__u8		passwordSalt[LUKS_SALTSIZE];
+		__u32	keyMaterialOffset;
+		__u32	stripes;
+	} keyblock[LUKS_NUMKEYS];
+};
 
 int volume_id_probe_luks(struct volume_id *id, __u64 off)
 {
-	/* from cryptsetup-luks luks.h */
-	struct luks_phdr {
-		char            magic[LUKS_MAGIC_L];
-		uint16_t        version;
-		char            cipherName[LUKS_CIPHERNAME_L];
-		char            cipherMode[LUKS_CIPHERMODE_L];
-		char            hashSpec[LUKS_HASHSPEC_L];
-		uint32_t        payloadOffset;
-		uint32_t        keyBytes;
-		char            mkDigest[LUKS_DIGESTSIZE];
-		char            mkDigestSalt[LUKS_SALTSIZE];
-		uint32_t        mkDigestIterations;
-		char            uuid[UUID_STRING_L];
-		struct {
-			uint32_t active;
-
-			/* parameters used for password processing */
-			uint32_t passwordIterations;
-			char     passwordSalt[LUKS_SALTSIZE];
-
-			/* parameters used for AF store/load */
-			uint32_t keyMaterialOffset;
-			uint32_t stripes;
-		} keyblock[LUKS_NUMKEYS];
-	} *header;
+	struct luks_phdr *header;
 
 	header = (struct luks_phdr*) volume_id_get_buffer(id, off, LUKS_PHDR_SIZE);
-
 	if (header == NULL)
 		return -1;
 
@@ -99,7 +87,8 @@ int volume_id_probe_luks(struct volume_id *id, __u64 off)
 		return -1;
 
 	volume_id_set_usage(id, VOLUME_ID_CRYPTO);
-	volume_id_set_uuid(id, header->uuid, UUID_DCE);
+	volume_id_set_uuid(id, header->uuid, UUID_DCE_STRING);
+
 	id->type = "crypto_LUKS";
 
 	return 0;

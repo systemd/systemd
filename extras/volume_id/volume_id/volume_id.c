@@ -51,8 +51,8 @@
 #include "ntfs.h"
 #include "iso9660.h"
 #include "udf.h"
-#include "luks.h"
 #include "highpoint.h"
+#include "luks.h"
 #include "linux_swap.h"
 #include "linux_raid.h"
 #include "lvm.h"
@@ -60,7 +60,6 @@
 #include "hpfs.h"
 #include "romfs.h"
 #include "sysv.h"
-#include "luks.h"
 #include "mac.h"
 #include "msdos.h"
 

@@ -71,6 +71,7 @@
 #endif
 
 enum uuid_format {
+	UUID_DCE_STRING,
 	UUID_DCE,
 	UUID_DOS,
 	UUID_NTFS,

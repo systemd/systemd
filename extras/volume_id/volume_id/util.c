@@ -138,8 +138,13 @@ void volume_id_set_uuid(struct volume_id *id, const __u8 *buf, enum uuid_format 
 		break;
 	case UUID_DCE:
 		count = 16;
+		break;
+	case UUID_DCE_STRING:
+		count = 36;
+		break;
 	}
 	memcpy(id->uuid_raw, buf, count);
+	id->uuid_raw_len = count;
 
 	/* if set, create string in the same format, the native platform uses */
 	for (i = 0; i < count; i++)
@@ -171,6 +176,10 @@ set:
 			buf[6], buf[7],
 			buf[8], buf[9],
 			buf[10], buf[11], buf[12], buf[13], buf[14],buf[15]);
+		break;
+	case UUID_DCE_STRING:
+		memcpy(id->uuid, buf, count);
+		id->uuid[count] = '\0';
 		break;
 	}
 }

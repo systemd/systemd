@@ -21,11 +21,10 @@
 #ifndef _VOLUME_ID_H_
 #define _VOLUME_ID_H_
 
-#define VOLUME_ID_VERSION		36
+#define VOLUME_ID_VERSION		38
 
 #define VOLUME_ID_LABEL_SIZE		64
-#define VOLUME_ID_UUID_SIZE		16
-#define VOLUME_ID_UUID_STRING_SIZE	37
+#define VOLUME_ID_UUID_SIZE		36
 #define VOLUME_ID_FORMAT_SIZE		32
 #define VOLUME_ID_PATH_MAX		256
 #define VOLUME_ID_PARTITIONS_MAX	256
@@ -55,7 +54,8 @@ struct volume_id {
 	unsigned int	label_raw_len;
 	char		label[VOLUME_ID_LABEL_SIZE+1];
 	unsigned char	uuid_raw[VOLUME_ID_UUID_SIZE];
-	char		uuid[VOLUME_ID_UUID_STRING_SIZE];
+	unsigned int	uuid_raw_len;
+	char		uuid[VOLUME_ID_UUID_SIZE+1];
 	enum		volume_id_usage usage_id;
 	char		*usage;
 	char		*type;
