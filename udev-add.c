@@ -34,6 +34,7 @@
 #include "udevdb.h"
 #include "libsysfs/libsysfs.h"
 
+static char sysfs_path[SYSFS_PATH_MAX];
 
 /* 
  * Right now the major/minor of a device is stored in a file called
@@ -101,18 +102,8 @@ static int create_node(char *name, char type, int major, int minor, mode_t mode)
 
 static struct sysfs_class_device *get_class_dev(char *device_name)
 {
-	char sysfs_path[SYSFS_PATH_MAX];
 	char dev_path[SYSFS_PATH_MAX];
-	int retval;
 	struct sysfs_class_device *class_dev = NULL;
-
-
-	retval = sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX);
-	dbg("sysfs_path = %s", sysfs_path);
-	if (retval) {
-		dbg("sysfs_get_mnt_path failed");
-		goto exit;
-	}
 
 	strcpy(dev_path, sysfs_path);
 	strcat(dev_path, device_name);
@@ -131,6 +122,38 @@ exit:
 	return class_dev;
 }
 
+/* wait for the "dev" file to show up in the directory in sysfs.
+ * If it doesn't happen in about 10 seconds, give up.
+ */
+#define SECONDS_TO_WAIT_FOR_DEV		10
+int sleep_for_dev(char *device)
+{
+	char filename[SYSFS_PATH_MAX + 6];
+	struct stat buf;
+	int loop = 0;
+	int retval = -ENODEV;
+
+	strcpy(filename, sysfs_path);
+	strcat(filename, device);
+	strcat(filename, "/dev");
+
+	while (loop < SECONDS_TO_WAIT_FOR_DEV) {
+		dbg("looking for %s", filename);
+		retval = stat(filename, &buf);
+		if (retval == 0) {
+			retval = 0;
+			goto exit;
+		}
+
+		/* sleep for a second or two to give the kernel a chance to
+		 * create the dev file */
+		sleep(1);
+	}
+	retval = -ENODEV;
+exit:
+	return retval;
+}
+
 int udev_add_device(char *device, char *subsystem)
 {
 	struct sysfs_class_device *class_dev;
@@ -146,10 +169,16 @@ int udev_add_device(char *device, char *subsystem)
 	else
 		type = 'c';
 
-	/* sleep for a second or two to give the kernel a chance to
-	 * create the dev file
-	 */
-	sleep(1);
+	retval = sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX);
+	dbg("sysfs_path = %s", sysfs_path);
+	if (retval) {
+		dbg("sysfs_get_mnt_path failed");
+		goto exit;
+	}
+
+	retval = sleep_for_dev(device);
+	if (retval)
+		goto exit;
 
 	class_dev = get_class_dev(device);
 	if (class_dev == NULL)
