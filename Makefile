@@ -212,6 +212,7 @@ OBJS =	udev_lib.o	\
 	udev_config.o	\
 	udev_add.o	\
 	udev_remove.o	\
+	udev_sysfs.o	\
 	udevdb.o	\
 	namedev.o	\
 	namedev_parse.o	\
@@ -224,6 +225,7 @@ HEADERS =	udev.h		\
 		namedev.h	\
 		udev_version.h	\
 		udevdb.h	\
+		udev_sysfs.h	\
 		klibc_fixups.h	\
 		logging.h	\
 		selinux.h	\
@@ -303,7 +305,7 @@ $(SENDER): $(LIBC) $(SENDER).o $(OBJS) udevd.h
 	$(QUIET) $(STRIPCMD) $@
 
 $(WAIT): $(WAIT).o $(OBJS) $(HEADERS) $(LIBC)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(WAIT).o $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(WAIT).o udev_sysfs.o udev_lib.o udev_config.o $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
 #.c.o:

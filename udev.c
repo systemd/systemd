@@ -33,6 +33,7 @@
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
 #include "udev_lib.h"
+#include "udev_sysfs.h"
 #include "udev_version.h"
 #include "logging.h"
 #include "namedev.h"
@@ -74,35 +75,6 @@ static void asmlinkage sig_handler(int signum)
 		default:
 			dbg("unhandled signal %d", signum);
 	}
-}
-
-/* list of subsystems we don't care about. not listing such systems here
- * is not critical, but it makes it faster as we don't look for the "dev" file
- */
-static int subsystem_without_dev(const char *subsystem)
-{
-	char *subsystem_blacklist[] = {
-		"scsi_host",
-		"scsi_device",
-		"usb_host",
-		"pci_bus",
-		"pcmcia_socket",
-		"bluetooth",
-		"i2c-adapter",
-		"pci_bus",
-		"ieee1394",
-		"ieee1394_host",
-		"ieee1394_node",
-		NULL
-	};
-	char **subsys;
-
-	for (subsys = subsystem_blacklist; *subsys != NULL; subsys++) {
-		if (strcmp(subsystem, *subsys) == 0)
-			return 1;
-	}
-
-	return 0;
 }
 
 int main(int argc, char *argv[], char *envp[])
@@ -151,7 +123,7 @@ int main(int argc, char *argv[], char *envp[])
 			dbg("no devpath?");
 			goto exit;
 		}
-		dbg("looking at '%s'", udev.devpath);
+		dbg("looking at '%s'", devpath);
 
 		/* we only care about class devices and block stuff */
 		if (!strstr(devpath, "class") && !strstr(devpath, "block")) {
@@ -164,13 +136,14 @@ int main(int argc, char *argv[], char *envp[])
 			goto exit;
 		}
 
+		udev_set_values(&udev, devpath, subsystem);
+
 		/* skip blacklisted subsystems */
-		if (subsystem_without_dev(subsystem)) {
+		if (udev.type != 'n' && subsystem_expect_no_dev(subsystem)) {
 			dbg("don't care about '%s' devices", subsystem);
 			goto exit;
 		};
 
-		udev_set_values(&udev, devpath, subsystem);
 	}
 
 	/* set signal handlers */
@@ -197,9 +170,6 @@ int main(int argc, char *argv[], char *envp[])
 	case ADD:
 		dbg("udev add");
 
-		/* init rules */
-		namedev_init();
-
 		/* open the device */
 		snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, udev.devpath);
 		class_dev = sysfs_open_class_device_path(path);
@@ -208,6 +178,9 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		}
 		dbg("opened class_dev->name='%s'", class_dev->name);
+
+		/* init rules */
+		namedev_init();
 
 		/* name, create node, store in db */
 		retval = udev_add_device(&udev, class_dev);
