@@ -62,8 +62,8 @@ static void udev_exec(const char *path, const char* subsystem)
 	char nosleep[] = "UDEV_NO_SLEEP=1";
 	char *env[] = { action, devpath, nosleep, NULL };
 
-	strcpy(action, "DEVPATH=%s");
-	strfieldcat(action, path);
+	strcpy(devpath, "DEVPATH=");
+	strfieldcat(devpath, path);
 
 	pid = fork();
 	switch (pid) {
