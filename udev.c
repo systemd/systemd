@@ -111,13 +111,13 @@ static int udev_hotplug(int argc, char **argv)
 
 	action = get_action();
 	if (!action) {
-		dbg ("no action?");
+		dbg("no action?");
 		goto exit;
 	}
 
 	devpath = get_devpath();
 	if (!devpath) {
-		dbg ("no devpath?");
+		dbg("no devpath?");
 		goto exit;
 	}
 	dbg("looking at '%s'", devpath);
@@ -131,6 +131,10 @@ static int udev_hotplug(int argc, char **argv)
 
 	/* skip blacklisted subsystems */
 	subsystem = argv[1];
+	if (!subsystem) {
+		dbg("no subsystem?");
+		goto exit;
+	}
 	i = 0;
 	while (subsystem_blacklist[i][0] != '\0') {
 		if (strcmp(subsystem, subsystem_blacklist[i]) == 0) {
