@@ -465,4 +465,4 @@ uninstall: uninstall-man uninstall-dev.d
 	done ; \
 
 test: all
-	@ cd test && sudo ./udev-test.pl
+	@ cd test && ./udev-test.pl
