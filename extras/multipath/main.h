@@ -102,7 +102,6 @@ struct env {
 	int dry_run;
 	int iopolicy;
 	int with_sysfs;
-	int dm_path_test_int;
 	char sysfs_path[FILE_NAME_SIZE];
 	char hotplugdev[FILE_NAME_SIZE];
 };
@@ -110,8 +109,8 @@ struct env {
 /* Build version */
 #define PROG    "multipath"
 
-#define VERSION_CODE 0x000010
-#define DATE_CODE    0x0C1503
+#define VERSION_CODE 0x000012
+#define DATE_CODE    0x021504
 
 #define MULTIPATH_VERSION(version)	\
 	(version >> 16) & 0xFF,		\

@@ -10,8 +10,11 @@ bindir      = ${exec_prefix}/sbin
 udevdir	    = ../..
 klibcdir    = $(udevdir)/klibc
 sysfsdir    = $(udevdir)/libsysfs
+mandir      = /usr/share/man/man8
 
 CC = gcc
+GZIP = /bin/gzip -c
+
 GCCINCDIR := ${shell $(CC) -print-search-dirs | sed -ne "s/install: \(.*\)/\1include/gp"}
 KERNEL_DIR = /lib/modules/${shell uname -r}/build
 CFLAGS = -pipe -g -O2 -Wall -Wunused -Wstrict-prototypes -nostdinc \
@@ -45,26 +48,33 @@ all:	recurse
 $(EXEC): $(OBJS)
 	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(SYSFSOBJS) $(DMOBJS) $(LIB) $(LIBGCC)
 	strip $(EXEC)
+	$(GZIP) $(EXEC).8 > $(EXEC).8.gz
 
 devmap_name: devmap_name.o
 	$(LD) -o devmap_name $(CRT0) devmap_name.o $(DMOBJS) $(LIB) $(LIBGCC)
 	strip devmap_name
+	$(GZIP) devmap_name.8 > devmap_name.8.gz
 
 clean:
-	rm -f core *.o $(EXEC) devmap_name
+	rm -f core *.o $(EXEC) devmap_name *.gz
 	$(MAKE) -C libdevmapper clean
 
 install:
-	install -d $(bindir)
-	install -m 755 $(EXEC) $(bindir)/
-	install -m 755 devmap_name $(bindir)/
-	install -d /etc/hotplug.d/scsi/
-	install -m 755 multipath.hotplug /etc/hotplug.d/scsi/
+	install -d $(DESTDIR)$(bindir)
+	install -m 755 $(EXEC) $(DESTDIR)$(bindir)/
+	install -m 755 devmap_name $(DESTDIR)$(bindir)/
+	install -d $(DESTDIR)/etc/hotplug.d/scsi/
+	install -m 755 multipath.hotplug $(DESTDIR)/etc/hotplug.d/scsi/
+	install -d $(DESTDIR)$(mandir)
+	install -m 644 devmap_name.8.gz $(DESTDIR)$(mandir)
+	install -m 644 multipath.8.gz $(DESTDIR)$(mandir)
 
 uninstall:
-	rm /etc/hotplug.d/scsi/multipath.hotplug
-	rm $(bindir)/$(EXEC)
-	rm $(bindir)/devmap_name
+	rm $(DESTDIR)/etc/hotplug.d/scsi/multipath.hotplug
+	rm $(DESTDIR)$(bindir)/$(EXEC)
+	rm $(DESTDIR)$(bindir)/devmap_name
+	rm $(DESTDIR)$(mandir)/devmap_name.8.gz
+	rm $(DESTDIR)$(mandir)/multipath.8.gz
 
 # Code dependencies
 main.o: main.c main.h sg_include.h devinfo.h

@@ -25,7 +25,7 @@
 #include <linux/kdev_t.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include <libsysfs.h>
+#include <sysfs/libsysfs.h>
 #include "libdevmapper/libdevmapper.h"
 #include "main.h"
 #include "devinfo.h"
@@ -110,7 +110,7 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 	char path[FILE_NAME_SIZE];
 	struct path curpath;
 
-	/* if called from hotplug, only consider the paths that relate to */
+	/* if called from hotplug, only consider the paths that relate */
 	/* to the device pointed by conf.hotplugdev */
 	memset(empty_buff, 0, WWID_SIZE);
 	memset(refwwid, 0, WWID_SIZE);
@@ -442,6 +442,7 @@ group_by_serial(struct multipath * mp, struct path * all_paths, char * str) {
 				     path_count, path_buff);
 	}
 	sprintf(str, " %i%s", pg_count, pg_buff);
+	free(bitmap);
 }
 
 static int
@@ -506,8 +507,6 @@ setup_map(struct env * conf, struct path * all_paths,
 
 	if (np < 1)
 		return 0;
-
-	params_p += sprintf(params_p, "%i", conf->dm_path_test_int);
 
 	if ((all_paths[PINDEX(index,0)].iopolicy == MULTIBUS &&
 	    conf->iopolicy == -1) || conf->iopolicy == MULTIBUS) {
@@ -602,18 +601,19 @@ static void
 usage(char * progname)
 {
 	fprintf(stderr, VERSION_STRING);
-	fprintf(stderr, "Usage: %s [-v|-q] [-d] [-i int] [-m max_devs] ",
+	fprintf(stderr, "Usage: %s [-v|-q] [-d] [-m max_devs]",
 		progname);
-	fprintf(stderr,	"[-p failover|multibus|group_by_serial]\n");
+	fprintf(stderr,	"[-p failover|multibus|group_by_serial] [device]\n");
 	fprintf(stderr, "\t-v\t\tverbose, print all paths and multipaths\n");
 	fprintf(stderr, "\t-q\t\tquiet, no output at all\n");
 	fprintf(stderr, "\t-d\t\tdry run, do not create or update devmaps\n");
-	fprintf(stderr, "\t-i\t\tmultipath target param : polling interval\n");
 	fprintf(stderr, "\t-m max_devs\tscan {max_devs} devices at most\n");
 	fprintf(stderr, "\t-p policy\tforce maps to specified policy :\n");
-	fprintf(stderr, "\t\t\tfailover\t1 path per priority group\n");
-	fprintf(stderr, "\t\t\tmultibus\tall paths in 1 priority group\n");
-	fprintf(stderr, "\t\t\tgroup_by_serial\t1 priority group per serial\n");
+	fprintf(stderr, "\t   failover\t\t- 1 path per priority group\n");
+	fprintf(stderr, "\t   multibus\t\t- all paths in 1 priority group\n");
+	fprintf(stderr, "\t   group_by_serial\t- 1 priority group per serial\n");
+	fprintf(stderr, "\tdevice\t\tlimit scope to the device's multipath\n");
+	fprintf(stderr, "\t\t\t(hotplug-style $DEVPATH reference)\n");
 	exit(1);
 }
 
@@ -632,7 +632,6 @@ main(int argc, char *argv[])
 	conf.verbose = 0;	/* 1 == Print all_paths and mp */
 	conf.quiet = 0;		/* 1 == Do not even print devmaps */
 	conf.iopolicy = -1;	/* Apply the defaults in get_unique_id() */
-	conf.dm_path_test_int = 10;
 
 	for (i = 1; i < argc; ++i) {
 		if (0 == strcmp("-v", argv[i])) {
@@ -649,25 +648,19 @@ main(int argc, char *argv[])
 			conf.quiet = 1;
 		} else if (0 == strcmp("-d", argv[i]))
 			conf.dry_run = 1;
-		else if (0 == strcmp("-i", argv[i]))
-			conf.dm_path_test_int = atoi(argv[++i]);
-		else if (0 == strcmp("-p", argv[i++])) {
+		else if (0 == strcmp("-p", argv[i])) {
+			i++;
 			if (!strcmp(argv[i], "failover"))
 				conf.iopolicy = FAILOVER;
 			if (!strcmp(argv[i], "multibus"))
 				conf.iopolicy = MULTIBUS;
 			if (!strcmp(argv[i], "group_by_serial"))
 				conf.iopolicy = GROUP_BY_SERIAL;
-		} else if (0 == strcmp("scsi", argv[i]))
-			strcpy(conf.hotplugdev, argv[++i]);
-		else if (*argv[i] == '-') {
+		} else if (*argv[i] == '-') {
 			fprintf(stderr, "Unknown switch: %s\n", argv[i]);
 			usage(argv[0]);
-		} else if (*argv[i] != '-') {
-			fprintf(stderr, "Unknown argument\n");
-			usage(argv[0]);
-		}
-
+		} else
+			strncpy(conf.hotplugdev, argv[i], FILE_NAME_SIZE);
 	}
 
 	/* dynamic allocations */

@@ -1,3 +1,13 @@
+2004-02-21 multipath-018
+	* From the Debian SID inclusion review (Philipp Matthias Hahn)
+		* use DESTDIR install prefix in the Makefile
+		* add man pages for devmap_name & multipath
+		* correct libsysfs.h includes
+		* fork the hotplug script in its own shell
+	* Sync with the kernel device mapper code as of 2.6.3-udm3
+	  ie. Remove the test interval parameter and its uses
+	* Remove superfluous scsi parameter passed from hotplug
+	* Add the man pages to the [un]install targets
 2004-02-17 multipath-017
 	* remove the restrictive -f flag.
 	  Introduce a more generic "-m iopolicy" one.

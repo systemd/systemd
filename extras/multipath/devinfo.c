@@ -3,7 +3,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <libsysfs.h>
+#include <sysfs/libsysfs.h>
 #include "devinfo.h"
 #include "sg_include.h"
 
