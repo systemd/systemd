@@ -53,30 +53,29 @@ static void print_all_attributes(struct dlist *attr_list)
 {
 	struct sysfs_attribute *attr;
 	char value[VALUE_SIZE];
-	int len;
+	size_t len;
 
 	dlist_for_each_data(attr_list, attr, struct sysfs_attribute) {
-		if (attr->value != NULL) {
-			strlcpy(value, attr->value, sizeof(value));
-			len = strlen(value);
-			if (len == 0)
-				continue;
-
-			/* remove trailing newline */
-			if (value[len-1] == '\n') {
-				value[len-1] = '\0';
-				len--;
-			}
-
-			/* skip nonprintable values */
-			while (len) {
-				if (isprint(value[len-1]) == 0)
-					break;
-				len--;
-			}
-			if (len == 0)
-				printf("    SYSFS{%s}==\"%s\"\n", attr->name, value);
+		if (attr->value == NULL)
+			continue;
+		len = strlcpy(value, attr->value, sizeof(value));
+		if (len >= sizeof(value)) {
+			dbg("attribute value of '%s' too long, skip", attr->name);
+			continue;
 		}
+
+		/* remove trailing newlines */
+		while (len && value[len-1] == '\n')
+			value[--len] = '\0';
+		/* skip nonprintable attributes */
+		while (len && isprint(value[len-1]))
+			len--;
+		if (len) {
+			dbg("attribute value of '%s' non-printable, skip", attr->name);
+			continue;
+		}
+		replace_untrusted_chars(value);
+		printf("    SYSFS{%s}==\"%s\"\n", attr->name, value);
 	}
 	printf("\n");
 }
@@ -107,7 +106,6 @@ static int print_device_chain(const char *path)
 	struct sysfs_class_device *class_dev_parent;
 	struct sysfs_attribute *attr;
 	struct sysfs_device *sysfs_dev;
-	struct sysfs_device *sysfs_dev_parent;
 	struct dlist *attr_list;
 	int retval = 0;
 
@@ -144,13 +142,13 @@ static int print_device_chain(const char *path)
 
 	/* get the device link (if parent exists look here) */
 	class_dev_parent = sysfs_get_classdev_parent(class_dev);
-	if (class_dev_parent != NULL) 
+	if (class_dev_parent != NULL)
 		sysfs_dev = sysfs_get_classdev_device(class_dev_parent);
 	else 
 		sysfs_dev = sysfs_get_classdev_device(class_dev);
 	
 	if (sysfs_dev != NULL)
-		printf("follow the class device's \"device\"\n");
+		printf("follow the \"device\"-link to the physical device:\n");
 
 	/* look the device chain upwards */
 	while (sysfs_dev != NULL) {
@@ -166,14 +164,11 @@ static int print_device_chain(const char *path)
 		printf("    ID==\"%s\"\n", sysfs_dev->bus_id);
 		printf("    DRIVER==\"%s\"\n", sysfs_dev->driver_name);
 
-		/* open sysfs device directory and print all attributes */
 		print_all_attributes(attr_list);
 
-		sysfs_dev_parent = sysfs_get_device_parent(sysfs_dev);
-		if (sysfs_dev_parent == NULL)
+		sysfs_dev = sysfs_get_device_parent(sysfs_dev);
+		if (sysfs_dev == NULL)
 			break;
-
-		sysfs_dev = sysfs_dev_parent;
 	}
 
 exit:
