@@ -49,8 +49,11 @@ HEADERS = volume_id.h dasdlabel.h
 
 $(OBJS): $(HEADERS)
 
+.c.o:
+	$(QUIET) $(CC) $(CFLAGS) -c -o $@ $<
+
 $(PROG): $(OBJS) $(HEADERS)
-	$(LD) $(LDFLAGS) -o $(PROG) $(CRT0) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $(PROG) $(CRT0) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 
 clean:
 	rm -f $(PROG) $(OBJS)

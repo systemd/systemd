@@ -72,5 +72,8 @@ clean:
 
 spotless: clean
 
+.c.o:
+	$(QUIET) $(CC) $(CFLAGS) -c -o $@ $<
+
 $(PROG):	$(OBJS)
-	$(LD) $(LDFLAGS) -o $(PROG) $(CRT0) $(OBJS) $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $(PROG) $(CRT0) $(OBJS) $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)

@@ -185,6 +185,7 @@ all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(WAIT) $(GEN_CONFIGS)
 			LD="$(LD)" \
 			SYSFS="$(SYSFS)" \
 			KERNEL_DIR="$(KERNEL_DIR)" \
+			QUIET="@$(PWD)/ccdv" \
 			-C $$target $@ ; \
 	done ; \
 
