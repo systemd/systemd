@@ -45,6 +45,7 @@
 #define TYPE_TOPOLOGY	"TOPOLOGY"
 #define TYPE_REPLACE	"REPLACE"
 #define TYPE_CALLOUT	"CALLOUT"
+#define CALLOUT_MAXARG	8
 
 static LIST_HEAD(config_device_list);
 
@@ -479,6 +480,9 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 	pid_t pid;
 	int value_set = 0;
 	char buffer[256];
+	char *arg;
+	char *args[CALLOUT_MAXARG];
+	int i;
 
 	dbg("callout to '%s'", dev->exec_program);
 	retval = pipe(fds);
@@ -496,7 +500,22 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 		/* child */
 		close(STDOUT_FILENO);
 		dup(fds[1]);	/* dup write side of pipe to STDOUT */
-		retval = execve(dev->exec_program, main_argv, main_envp);
+		if (strchr(dev->exec_program, ' ')) {
+			/* callout with arguments */
+			arg = dev->exec_program;
+			for (i=0; i < CALLOUT_MAXARG-1; i++) {
+				args[i] = strsep(&arg, " ");
+				if (args[i] == NULL)
+					break;
+			}
+			if (args[i]) {
+				dbg("to many args - %d", i);
+				args[i] = NULL;
+			}
+			retval = execve(args[0], args, main_envp);
+		} else {
+			retval = execve(dev->exec_program, main_argv, main_envp);
+		}
 		if (retval != 0) {
 			dbg("child execve failed");
 			exit(1);
@@ -523,6 +542,7 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 				strncpy(value, buffer, len);
 			}
 		}
+		dbg("callout returned '%s'", value);
 		close(fds[0]);
 		res = wait(&status);
 		if (res < 0) {
