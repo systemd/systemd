@@ -36,6 +36,7 @@
 #include "logging.h"
 
 #define HOTPLUGDIR	"/etc/dev.d"
+#define SUFFIX		".dev" 
 #define COMMENT_PREFIX	'#'
 
 static void run_program(char *name)
@@ -64,7 +65,8 @@ static void execute_dir (char *dirname)
 {
 	DIR *directory;
 	struct dirent *entry;
-	char filename[256];
+	char filename[NAME_SIZE];
+	int name_len;
 
 	dbg("opening %s", dirname);
 	directory = opendir(dirname);
@@ -78,6 +80,13 @@ static void execute_dir (char *dirname)
 		 * or files that start with a '#' */
 		if ((entry->d_name[0] == '.') ||
 		    (entry->d_name[0] == COMMENT_PREFIX))
+			continue;
+
+		/* Nor do we run files that do not end in ".dev" */
+		name_len = strlen(entry->d_name);
+		if (name_len < strlen(SUFFIX))
+			continue;
+		if (strcmp(&entry->d_name[name_len - sizeof (SUFFIX) + 1], SUFFIX) != 0)
 			continue;
 
 		/* FIXME - need to use file_list_insert() here to run these in sorted order... */
