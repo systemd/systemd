@@ -61,6 +61,10 @@ static int manage_hotplug_event(void) {
 	int fd;
 	int len;
 
+	/* false, if we are called directly */
+	if (!getenv("MANAGED_EVENT"))
+		goto exit;
+
 	fd = open("/proc/sys/kernel/hotplug", O_RDONLY);
 	if (fd < 0)
 		goto exit;
