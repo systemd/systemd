@@ -599,13 +599,47 @@ static int do_replace(struct sysfs_class_device *class_dev, struct udevice *udev
 static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
 	struct list_head *tmp;
+	struct sysfs_device *sysfs_device = NULL;
+	struct sysfs_class_device *class_dev_parent = NULL;
 	int retval = 0;
 	int found;
+	char *temp = NULL;
 
 	udev->mode = 0;
+
+	/* find the sysfs_device for this class device */
 	if (class_dev->sysdevice) {
-		dbg_parse("class_dev->sysdevice->path = '%s'", class_dev->sysdevice->path);
-		dbg_parse("class_dev->sysdevice->bus_id = '%s'", class_dev->sysdevice->bus_id);
+		sysfs_device = class_dev->sysdevice;
+	} else {
+		/* bah, let's go backwards up a level to see if the device is there,
+		 * as block partitions don't point to the physical device.  Need to fix that
+		 * up in the kernel...
+		 */
+		if (strstr(class_dev->path, "block")) {
+			dbg_parse("looking at block device...");
+			if (isdigit(class_dev->path[strlen(class_dev->path)-1])) {
+				char path[SYSFS_PATH_MAX];
+
+				dbg_parse("really is a partition...");
+				strcpy(path, class_dev->path);
+				temp = strrchr(path, '/');
+				*temp = 0x00;
+				dbg_parse("looking for a class device at '%s'", path);
+				class_dev_parent = sysfs_open_class_device(path);
+				if (class_dev_parent == NULL) {
+					dbg("sysfs_open_class_device at '%s' failed", path);
+				} else {
+					dbg_parse("class_dev_parent->name = %s", class_dev_parent->name);
+					if (class_dev_parent->sysdevice)
+						sysfs_device = class_dev_parent->sysdevice;
+				}
+			}
+		}
+	}
+		
+	if (sysfs_device) {
+		dbg_parse("sysfs_device->path = '%s'", sysfs_device->path);
+		dbg_parse("sysfs_device->bus_id = '%s'", sysfs_device->bus_id);
 	} else {
 		dbg_parse("class_dev->name = '%s'", class_dev->name);
 	}
@@ -615,8 +649,6 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 		case LABEL:
 			{
 			struct sysfs_attribute *tmpattr = NULL;
-			struct sysfs_class_device *class_dev_parent = NULL;
-			char *temp = NULL;
 
 			dbg_parse("LABEL: match file '%s' with value '%s'",
 					dev->sysfs_file, dev->sysfs_value);
@@ -626,60 +658,19 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 				goto label_found;
 
 			/* look in the class device directory if present */
-			if (class_dev->sysdevice) {
-				tmpattr = sysfs_get_device_attr(class_dev->sysdevice, dev->sysfs_file);
+			if (sysfs_device) {
+				tmpattr = sysfs_get_device_attr(sysfs_device, dev->sysfs_file);
 				if (tmpattr)
 					goto label_found;
 			}
-
-			/* bah, let's go backwards up a level to see if the device is there,
-			 * as block partitions don't point to the physical device.  Need to fix that
-			 * up in the kernel...
-			 */
-			if (strstr(class_dev->path, "block")) {
-				dbg_parse("looking at block device...");
-				if (isdigit(class_dev->path[strlen(class_dev->path)-1])) {
-					char path[SYSFS_PATH_MAX];
-
-					dbg_parse("really is a partition...");
-					strcpy(path, class_dev->path);
-					temp = strrchr(path, '/');
-					*temp = 0x00;
-					dbg_parse("looking for a class device at '%s'", path);
-					class_dev_parent = sysfs_open_class_device(path);
-					if (class_dev_parent == NULL) {
-						dbg("sysfs_open_class_device at '%s' failed", path);
-						continue;
-					}
-					dbg_parse("class_dev_parent->name = %s", class_dev_parent->name);
-
-					/* try to find the attribute in the class device directory */
-					tmpattr = sysfs_get_classdev_attr(class_dev_parent, dev->sysfs_file);
-					if (tmpattr) 
-						goto label_found;
-
-					/* look in the class device directory if present */
-					if (class_dev_parent->sysdevice) {
-						tmpattr = sysfs_get_device_attr(class_dev_parent->sysdevice, dev->sysfs_file);
-						if (tmpattr) 
-							goto label_found;
-					}
-					
-				}
-			}
-			if (class_dev_parent)
-				sysfs_close_class_device(class_dev_parent);
 
 			continue;
 
 label_found:
 			tmpattr->value[strlen(tmpattr->value)-1] = 0x00;
 			dbg_parse("file '%s' found with value '%s' compare with '%s'", dev->sysfs_file, tmpattr->value, dev->sysfs_value);
-			if (strcmp(dev->sysfs_value, tmpattr->value) != 0) {
-				if (class_dev_parent) 
-					sysfs_close_class_device(class_dev_parent);
+			if (strcmp(dev->sysfs_value, tmpattr->value) != 0)
 				continue;
-			}
 
 			strcpy(udev->name, dev->name);
 			if (isdigit(class_dev->path[strlen(class_dev->path)-1])) {
@@ -694,8 +685,6 @@ label_found:
 			dbg_parse("file '%s' with value '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 				dev->sysfs_file, dev->sysfs_value, udev->name, 
 				dev->owner, dev->group, dev->mode);
-			if (class_dev_parent)
-				sysfs_close_class_device(class_dev_parent);
 			goto done;
 			break;
 			}
@@ -796,6 +785,10 @@ done:
 		udev->owner[0] = 0x00;
 		udev->group[0] = 0x00;
 	}
+
+	if (class_dev_parent)
+		sysfs_close_class_device(class_dev_parent);
+
 	return 0;
 }
 
