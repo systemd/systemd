@@ -161,7 +161,6 @@ int udev_add_device(char *path, char *subsystem)
 {
 	struct sysfs_class_device *class_dev;
 	struct udevice dev;
-	struct device_attr attr;
 	int retval = -EINVAL;
 
 	/* for now, the block layer is the only place where block devices are */
@@ -178,7 +177,7 @@ int udev_add_device(char *path, char *subsystem)
 	if (class_dev == NULL)
 		goto exit;
 
-	retval = namedev_name_device(class_dev, &attr);
+	retval = namedev_name_device(class_dev, &dev);
 	if (retval)
 		return retval;
 
@@ -188,10 +187,10 @@ int udev_add_device(char *path, char *subsystem)
 		goto exit;
 	}
 
-	strcpy(dev.name, attr.name);
-	strcpy(dev.owner, attr.owner);
-	strcpy(dev.group, attr.group);
-	dev.mode = attr.mode;
+//	strcpy(dev.name, attr.name);
+//	strcpy(dev.owner, attr.owner);
+//	strcpy(dev.group, attr.group);
+//	dev.mode = attr.mode;
 	
 	retval = udevdb_add_dev(path, &dev);
 	if (retval != 0)

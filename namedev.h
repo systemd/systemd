@@ -60,11 +60,14 @@ struct config_device {
 	char exec_program[FILE_SIZE];
 	
 	/* what to set the device to */
-	struct device_attr attr;
+	char name[NAME_SIZE];
+	char owner[OWNER_SIZE];
+	char group[GROUP_SIZE];
+	mode_t mode;
 };
 
 
 extern int namedev_init(void);
-extern int namedev_name_device(struct sysfs_class_device *class_dev, struct device_attr *attr);
+extern int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *dev);
 
 #endif

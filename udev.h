@@ -60,13 +60,6 @@ extern int log_message (int level, const char *format, ...)
 #define OWNER_SIZE	30
 #define GROUP_SIZE	30
 
-struct device_attr {
-	char name[NAME_SIZE];
-	char owner[OWNER_SIZE];
-	char group[GROUP_SIZE];
-	mode_t mode;
-};
-
 struct udevice {
 	char name[NAME_SIZE];
 	char owner[OWNER_SIZE];
