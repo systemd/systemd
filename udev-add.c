@@ -135,6 +135,12 @@ static int create_node(struct udevice *dev)
 		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
 		    filename, dev->mode, dev->major, dev->minor, strerror(errno));
 
+	dbg("chmod(%s, %#o)", filename, dev->mode);
+	retval = chmod(filename, dev->mode);
+	if (retval)
+		dbg("chmod(%s, %#o) failed with error '%s'",
+		    filename, dev->mode, strerror(errno));
+
 	if (*dev->owner) {
 		char *endptr;
 		unsigned long id = strtoul(dev->owner, &endptr, 10);
