@@ -28,7 +28,7 @@
 
 #define COMMENT_CHARACTER		'#'
 
-#define NAME_SIZE			100
+#define NAME_SIZE			256
 #define OWNER_SIZE			30
 #define GROUP_SIZE			30
 #define MODE_SIZE			8
