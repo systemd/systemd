@@ -59,7 +59,7 @@ int table_init(void)
 	i = 0;
 	while (!feof(fp)) {
 		fgets(ptr, 80, fp);	
-		sscanf(ptr, "%d %d %d %d %d %s %s", &ptable[i].id,
+		sscanf(ptr, "%d %d %d %d %s %s", &ptable[i].id,
 			&ptable[i].num_disks, 
 			&ptable[i].chassis_num, &ptable[i].slot_num,
 			ptable[i].serial_num, ptable[i].name);
