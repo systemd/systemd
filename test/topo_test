@@ -1,0 +1,20 @@
+#!/bin/bash
+
+export UDEV_TEST=yes
+export SYSFS_PATH=$PWD/sys/
+export UDEV_CONFIG_DIR=$PWD/
+export UDEV_ROOT=$PWD/udev/
+export UDEV_DB=udev.tdb
+export UDEV_CONFIG_FILE=topo_test.config
+export UDEV_PERMISSION_FILE=udev.permissions
+
+export ACTION=add
+export DEVPATH=block/sda
+
+../udev block
+
+export DEVPATH=block/sda/sda3
+
+../udev block
+
+
