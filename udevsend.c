@@ -148,11 +148,10 @@ int main(int argc, char* argv[])
 	}
 
 	seqnum = get_seqnum();
-	if (seqnum == NULL) {
-		dbg("no seqnum");
-		goto exit;
-	}
-	seq = atoi(seqnum);
+	if (seqnum == NULL)
+		seq = 0;
+	else
+		seq = atoi(seqnum);
 
 	sock = socket(AF_LOCAL, SOCK_STREAM, 0);
 	if (sock == -1) {

@@ -205,14 +205,18 @@ static void *exec_queue_manager(void * parm)
 	}
 }
 
+static void exec_queue_activate(void)
+{
+	pthread_mutex_lock(&exec_active_lock);
+	pthread_cond_signal(&exec_active);
+	pthread_mutex_unlock(&exec_active_lock);
+}
+
 /* move message from incoming to exec queue */
 static void msg_move_exec(struct list_head *head)
 {
 	list_move_tail(head, &exec_list);
-	/* signal queue activity to manager */
-	pthread_mutex_lock(&exec_active_lock);
-	pthread_cond_signal(&exec_active);
-	pthread_mutex_unlock(&exec_active_lock);
+	exec_queue_activate();
 }
 
 /* queue management thread handles the timeouts and dispatches the events */
@@ -298,9 +302,17 @@ static void *client_threads(void * parm)
 		goto exit;
 	}
 
-	pthread_mutex_lock(&msg_lock);
-	msg_queue_insert(msg);
-	pthread_mutex_unlock(&msg_lock);
+	/* if no seqnum is given, we move straight to exec queue */
+	if (msg->seqnum == 0) {
+		pthread_mutex_lock(&exec_lock);
+		list_add(&msg->list, &exec_list);
+		exec_queue_activate();
+		pthread_mutex_unlock(&exec_lock);
+	} else {
+		pthread_mutex_lock(&msg_lock);
+		msg_queue_insert(msg);
+		pthread_mutex_unlock(&msg_lock);
+	}
 
 exit:
 	close(sock);
