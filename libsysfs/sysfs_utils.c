@@ -454,7 +454,7 @@ int sysfs_path_is_link(const char *path)
 		return 1;
 	}
 	if ((lstat(path, &astats)) != 0) {
-		dprintf("stat() failed\n");
+		dprintf("stat() failed");
 		return 1;
 	}
 	if (S_ISLNK(astats.st_mode))
@@ -477,7 +477,7 @@ int sysfs_path_is_file(const char *path)
 		return 1;
 	}
 	if ((lstat(path, &astats)) != 0) {
-		dprintf("stat() failed\n");
+		dprintf("stat() failed");
 		return 1;
 	}
 	if (S_ISREG(astats.st_mode))
