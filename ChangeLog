@@ -1,3 +1,33 @@
+Summary of changes from v006 to v007
+============================================
+
+<md:linux.it>:
+  o fix segfault in parsing bad udev.permissions file
+
+Greg Kroah-Hartman:
+  o update default config file with a CALLOUT rule, and more documentation
+  o updated the man page with the latest format specifier changes
+  o added ability to put format specifiers in the CALLOUT program string
+  o tweak udev-test.pl to report '0' errors if that's what happened
+  o only build klibc_fixups.c if we are actually using klibc
+  o add support for string group and string user names in udev.permissions
+  o add getgrnam and getpwnam to klibc_fixups files
+  o remove Makefile.klibc
+  o add udev-test perl script from Kay Sievers <kay.sievers@vrfy.org> which blows away my puny shell scripts
+  o added debian's version of udev.permissions
+  o change to 006_bk version
+
+Kay Sievers:
+  o format char for CALLOUT output
+  o more namedev whitespace cleanups
+  o support arguments in callout exec
+  o namedev.c - change order of fields in CALLOUT
+  o namedev.c whitespace + debug text cleanup
+  o man page with udev.permissions wildcard
+
+Olaf Hering:
+  o static klibc udev does not link against crt0.o
+
 Summary of changes from v005 to v006
 ============================================
 
