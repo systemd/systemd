@@ -17,16 +17,6 @@
 # 1 - debugging enabled
 %define debug 0
 
-# if we want to build the DBUS "extra" package or not
-# 0 - no DBUS support
-# 1 - DBUS support
-%define dbus 0
-
-# if we want to build the SELinux "extra" package or not
-# 0 - no SELinux support
-# 1 - SELinux support
-%define selinux 0
-
 # if we want to build the scsi_id "extra" package or not
 # 0 - do not build the package
 # 1 - build it
@@ -71,12 +61,6 @@ make CC="gcc $RPM_OPT_FLAGS"	\
 %if %{scsi_id}
 	extras/scsi_id	\
 %endif
-%if %{dbus}
-	extras/dbus	\
-%endif
-%if %{selinux}
-	extras/selinux	\
-%endif
 "
 
 %install
@@ -84,12 +68,6 @@ make DESTDIR=$RPM_BUILD_ROOT install \
 	EXTRAS="	\
 %if %{scsi_id}
 	extras/scsi_id	\
-%endif
-%if %{dbus}
-	extras/dbus	\
-%endif
-%if %{selinux}
-	extras/selinux	\
 %endif
 "
 
@@ -123,10 +101,6 @@ rm -rf $RPM_BUILD_ROOT
 %attr(-,root,root) /etc/hotplug.d/default/udev.hotplug
 %attr(755,root,root) /etc/init.d/udev
 %attr(0644,root,root) %{_mandir}/man8/udev*.8*
-
-%if %{dbus}
-	%config(noreplace) %attr(0644,root,root) /etc/dbus-1/system.d/udev_sysbus_policy.conf
-%endif
 
 %if %{scsi_id}
 	%attr(755,root,root) /sbin/scsi_id
