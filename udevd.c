@@ -87,14 +87,14 @@ static void msg_dump_queue(void)
 #ifdef DEBUG
 	struct hotplug_msg *msg;
 
-	list_for_each_entry(msg, &msg_list, list)
+	list_for_each_entry(msg, &msg_list, node)
 		dbg("sequence %llu in queue", msg->seqnum);
 #endif
 }
 
 static void run_queue_delete(struct hotplug_msg *msg)
 {
-	list_del(&msg->list);
+	list_del(&msg->node);
 	free(msg);
 }
 
@@ -106,13 +106,13 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 
 	if (msg->seqnum == 0) {
 		dbg("no SEQNUM, move straight to the exec queue");
-		list_add(&msg->list, &exec_list);
+		list_add(&msg->node, &exec_list);
 		run_exec_q = 1;
 		return;
 	}
 
 	/* sort message by sequence number into list */
-	list_for_each_entry_reverse(loop_msg, &msg_list, list) {
+	list_for_each_entry_reverse(loop_msg, &msg_list, node) {
 		if (loop_msg->seqnum < msg->seqnum)
 			break;
 
@@ -126,7 +126,7 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 	sysinfo(&info);
 	msg->queue_time = info.uptime;
 
-	list_add(&msg->list, &loop_msg->list);
+	list_add(&msg->node, &loop_msg->node);
 	dbg("queued message seq %llu", msg->seqnum);
 
 	/* run msg queue manager */
@@ -291,7 +291,7 @@ static struct hotplug_msg *running_with_devpath(struct hotplug_msg *msg)
 	if (msg->devpath == NULL)
 		return NULL;
 
-	list_for_each_entry(loop_msg, &running_list, list) {
+	list_for_each_entry(loop_msg, &running_list, node) {
 		if (loop_msg->devpath == NULL)
 			continue;
 
@@ -321,7 +321,7 @@ static void exec_queue_manager(void)
 	if (running < 0)
 		running = THROTTLE_MAX_RUNNING_CHILDS;
 
-	list_for_each_entry_safe(loop_msg, tmp_msg, &exec_list, list) {
+	list_for_each_entry_safe(loop_msg, tmp_msg, &exec_list, node) {
 		/* check running processes in our session and possibly throttle */
 		if (running >= THROTTLE_MAX_RUNNING_CHILDS) {
 			running = running_processes_in_session(sid, THROTTLE_MAX_RUNNING_CHILDS+10);
@@ -335,7 +335,7 @@ static void exec_queue_manager(void)
 		msg = running_with_devpath(loop_msg);
 		if (!msg) {
 			/* move event to run list */
-			list_move_tail(&loop_msg->list, &running_list);
+			list_move_tail(&loop_msg->node, &running_list);
 			udev_run(loop_msg);
 			running++;
 			dbg("moved seq %llu to running list", loop_msg->seqnum);
@@ -348,7 +348,7 @@ static void exec_queue_manager(void)
 
 static void msg_move_exec(struct hotplug_msg *msg)
 {
-	list_move_tail(&msg->list, &exec_list);
+	list_move_tail(&msg->node, &exec_list);
 	run_exec_q = 1;
 	expected_seqnum = msg->seqnum+1;
 	dbg("moved seq %llu to exec, next expected is %llu",
@@ -367,7 +367,7 @@ static void msg_queue_manager(void)
 
 	dbg("msg queue manager, next expected is %llu", expected_seqnum);
 recheck:
-	list_for_each_entry_safe(loop_msg, tmp_msg, &msg_list, list) {
+	list_for_each_entry_safe(loop_msg, tmp_msg, &msg_list, node) {
 		/* move event with expected sequence to the exec list */
 		if (loop_msg->seqnum == expected_seqnum) {
 			msg_move_exec(loop_msg);
@@ -532,7 +532,7 @@ static void udev_done(int pid)
 	/* find msg associated with pid and delete it */
 	struct hotplug_msg *msg;
 
-	list_for_each_entry(msg, &running_list, list) {
+	list_for_each_entry(msg, &running_list, node) {
 		if (msg->pid == pid) {
 			dbg("<== exec seq %llu came back", msg->seqnum);
 			run_queue_delete(msg);

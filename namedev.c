@@ -152,7 +152,7 @@ static int find_free_number(struct udevice *udev, const char *name)
 	while (1) {
 		dbg("look for existing node '%s'", filename);
 		memset(&db_udev, 0x00, sizeof(struct udevice));
-		if (udev_db_get_device_byname(&db_udev, filename) != 0) {
+		if (udev_db_get_device_by_name(&db_udev, filename) != 0) {
 			dbg("free num=%d", num);
 			return num;
 		}

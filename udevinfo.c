@@ -293,7 +293,7 @@ static int process_options(int argc, char *argv[])
 
 			memset(&udev, 0x00, sizeof(struct udevice));
 			strfieldcpy(udev.name, pos);
-			retval = udev_db_get_device_byname(&udev, pos);
+			retval = udev_db_get_device_by_name(&udev, pos);
 			if (retval != 0) {
 				printf("device not found in database\n");
 				goto exit;

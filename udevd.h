@@ -52,7 +52,7 @@ struct udevsend_msg {
 };
 
 struct hotplug_msg {
-	struct list_head list;
+	struct list_head node;
 	pid_t pid;
 	long queue_time;
 	char *action;

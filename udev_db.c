@@ -179,7 +179,7 @@ int udev_db_get_device_by_devpath(struct udevice *udev, const char *devpath)
 	return parse_db_file(udev, filename);
 }
 
-int udev_db_get_device_byname(struct udevice *udev, const char *name)
+int udev_db_get_device_by_name(struct udevice *udev, const char *name)
 {
 	struct dirent *ent;
 	DIR *dir;
