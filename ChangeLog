@@ -1,3 +1,73 @@
+Summary of changes from v007 to v008
+============================================
+
+<azarah:nosferatu.za.org>:
+  o more config file parsing robustness
+
+<christophe.varoqui:free.fr>:
+  o udev-007/extras/multipath update
+
+Arnd Bergmann:
+  o Build failure - missing linux/limits.h include?
+  o Add format modifier for devfs like naming
+  o klibc makefile fixes
+
+Daniel E. F. Stekloff:
+  o another patch for path problem
+  o quick fix for libsysfs bus
+  o libsysfs changes for sysfsutils 0.3.0
+
+Greg Kroah-Hartman:
+  o fix up some duplicated function compiler warnings in libsysfs
+  o fix some compiler warnings in the tdb code
+  o Added Kay's name to the man page
+  o update the wildcard documentation in the man page to show the new styles supported
+  o fix permission handling logic
+  o enable default_mode ability to actually build
+  o add support for the default_mode variable, as it is documented
+  o show permissions and groups in the label_test
+  o remove some items off of the TODO list, as they are now done
+  o fix up the tests to work without all of the environ variables
+  o get rid of the majority of the debug environment variables
+  o Update the man page to show the new config file, it's format, and how to use it
+  o fix up the tests to support the rules file name change
+  o add support for a main udev config file, udev.conf
+  o turn debugging messages off by default
+  o split out the namedev config parsing logic to namedev_parse.c
+  o rename namedev's get_attr() to be main namedev_name_device() as that's what it really is
+  o add devfs like tty rules as an example in the default config file
+  o operate on the rules in the order they are in the config file (within the rule type) instead of operating on them backwards.
+  o Cset exclude: dsteklof@us.ibm.com|ChangeSet|20031126173159|56255
+  o add test for checking the BUS value
+  o fix problem where we were not looking at the BUS value
+  o add scsi and pci bus links in the test sysfs tree
+  o add test and documentation for new %D devfs format modifier
+  o changed the default location of the database to /udev/.udev.tdb to be LSB compliant
+  o get rid of functions in klibc_fixups that are now in klibc
+  o sync up with the 0.84 version of klibc
+  o fix udev init.d script to handle all class devices in sysfs
+  o fix the test.block and test.tty scripts due to their moveing.  Also add a test.all script
+  o 007_bk version change to Makefile
+
+Kay Sievers:
+  o pattern matching for namedev
+  o catch replace device by wildcard
+  o udev.8 tweak numeric id text
+  o udev-test.pl add subdir test
+  o namedev.c strcat tweak
+  o overall whitespace + debug text conditioning
+  o udev-test.pl - tweaks
+
+Martin Hicks:
+  o Add -nodefaultlibs while compiling against klibc
+
+Olaf Hering:
+  o ARCH detection for ppc
+
+Patrick Mansfield:
+  o fix udev parallel builds with klibc
+
+
 Summary of changes from v006 to v007
 ============================================
 
