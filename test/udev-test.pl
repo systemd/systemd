@@ -262,6 +262,24 @@ BUS="scsi", PROGRAM="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL="s
 EOF
 	},
 	{
+		desc     => "characters before the %c{N} substitution",
+		subsys   => "block",
+		devpath  => "block/sda/sda3",
+		expected => "my-foo9" ,
+		conf     => <<EOF
+BUS="scsi", PROGRAM="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL="sda3", NAME="my-%c{7}"
+EOF
+	},
+	{
+		desc     => "substitute the second to last argument",
+		subsys   => "block",
+		devpath  => "block/sda/sda3",
+		expected => "my-foo8" ,
+		conf     => <<EOF
+BUS="scsi", PROGRAM="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL="sda3", NAME="my-%c{6}"
+EOF
+	},
+	{
 		desc     => "program result substitution (numbered part of)",
 		subsys   => "block",
 		devpath  => "block/sda/sda3",
