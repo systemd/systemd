@@ -8,10 +8,23 @@
 #include <selinux/selinux.h>
 
 #include "udev.h"
-#include "udev_version.h"
-#include "udev_selinux.h"
+#include "udev_lib.h"
 #include "logging.h"
 
+#ifdef LOG
+unsigned char logname[LOGNAME_SIZE];
+void log_message(int level, const char *format, ...)
+{
+	va_list args;
+
+	if (!udev_log)
+		return;
+
+	va_start(args, format);
+	vsyslog(level, format, args);
+	va_end(args);
+}
+#endif
 
 void selinux_add_node(char *filename)
 {
@@ -32,3 +45,29 @@ void selinux_add_node(char *filename)
 	}
 }
 
+int main(int argc, char *argv[], char *envp[])
+{
+	char *action;
+	char *devpath;
+	char *devnode;
+	int retval = 0;
+
+	init_logging("udev_selinux");
+
+	action = get_action();
+	if (!action) {
+		dbg("no action?");
+		goto exit;
+	}
+	devnode = get_devnode();
+	if (!devnode) {
+		dbg("no devnode?");
+		goto exit;
+	}
+
+	if (strcmp(action, "add") == 0)
+		selinux_add_node(devnode);
+
+exit:
+	return retval;
+}
