@@ -1,3 +1,12 @@
+Summary of changes from v037 to v038
+============================================
+
+<andrew.patterson:hp.com>:
+  o Re: Problem parsing %s in udev rules
+
+Greg Kroah-Hartman:
+  o fix up error in building extras and libsysfs
+
 Summary of changes from v036 to v037
 ============================================
 
@@ -18,7 +27,6 @@ Greg Kroah-Hartman:
   o add support for class/raw/ to wait_for_sysfs
   o fix up Makefile for wait_for_sysfs udev_version.h dependancy
   o remove the debian specific file, as they don't want to share with the rest of the world :(
-  o 036 release TAG: v036
 
 Kay Sievers:
   o prevent deadlocks on an corrupt udev database
@@ -134,7 +142,6 @@ Greg Kroah-Hartman:
   o Fix old-style pty breakage in rules file for tty device
   o add rules for i386 cpu devices
   o add permission for legotower usb devices
-  o 030 release TAG: v030
 
 Kay Sievers:
   o Fix naming ethernet devices in udevstart
@@ -273,7 +280,6 @@ Greg Kroah-Hartman:
   o added rule to put USB printers in their proper places
   o added rules for CAPI devices
   o added a dev.d alsa script to help people out
-  o v024 release TAG: v024
 
 Kay Sievers:
   o fix test regressions
@@ -388,7 +394,6 @@ Greg Kroah-Hartman:
   o mark scsi-devfs.sh as executable
   o Increase the name size as requested by Richard Gooch <rgooch@ras.ucalgary.ca>
   o fix udevtest to build properly after the big udev_lib change
-  o 022 release TAG: v022
 
 Olaf Hering:
   o uninitialized variable for mknod and friend
@@ -446,7 +451,6 @@ Greg Kroah-Hartman:
   o deleted current extras/multipath directory
   o 021_bk mark
   o fix the build for older versions of gcc
-  o 021 release TAG: v021
 
 Hanna V. Linder:
   o Small fix to remove extra "will" in man page
@@ -594,7 +598,6 @@ Greg Kroah-Hartman:
   o 017_bk mark
   o Add another test to udev-test.pl and fix a bug when only running 1 test
   o Fix bug where we did not use the "converted" kernel name if we had no rule
-  o v017 release TAG: v017
 
 Patrick Mansfield:
   o udev use new libsysfs header file location
@@ -757,7 +760,6 @@ Greg Kroah-Hartman:
   o add usb_host and pci_bus to the class blacklist
   o added input device rules to udev.rules and udev.rules.devfs
   o 013_bk mark
-  o v013 release TAG: v013
 
 Hanna V. Linder:
   o set default owner/group in db
@@ -1227,7 +1229,6 @@ Greg Kroah-Hartman:
   o Fix bug causing udev to sleep forever waiting for dev file to show up
   o change version to 004_bk
   o make config files, sysfs root, and udev root configurable from config variables
-  o 004 changelog entrys TAG: v004
 
 Robert Love:
   o udev: sleep_for_dev() bits
@@ -1254,7 +1255,6 @@ Greg Kroah-Hartman:
   o change the version to 003-bk to keep things sane with people using the bk tree
   o got "remove of named devices" working
   o fix segfaults when dealing with partitions
-  o update changelog for 003 release TAG: v003
 
 Kay Sievers:
   o man file update
