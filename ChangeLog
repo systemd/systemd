@@ -1,3 +1,13 @@
+Summary of changes from v026 to v027
+============================================
+
+<fork0:users.sf.net>:
+  o fix handle leak in udev_lib.c
+
+Greg Kroah-Hartman:
+  o tweak the gentoo default permission rules as they are wrong for tty and misc devices
+
+
 Summary of changes from v025 to v026
 ============================================
 
