@@ -464,6 +464,10 @@ static int namedev_init_permissions(void)
 		}
 		strncpy(dev.group, temp2, sizeof(dev.owner));
 
+		if (!temp) {
+			dbg("cannot parse line: %s", line);
+			continue;
+		}
 		dev.mode = strtol(temp, NULL, 8);
 
 		dbg_parse("name='%s', owner='%s', group='%s', mode=%#o",
