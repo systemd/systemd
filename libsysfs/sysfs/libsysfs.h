@@ -24,7 +24,6 @@
 #define _LIBSYSFS_H_
 
 #include <sys/types.h>
-#include "dlist.h"
 
 /*
  * Generic #defines go here..
@@ -46,6 +45,8 @@
 
 #define SYSFS_METHOD_SHOW	0x01	/* attr can be read by user */
 #define SYSFS_METHOD_STORE	0x02	/* attr can be changed by user */
+
+struct dlist;
 
 struct sysfs_attribute {
 	unsigned char *value;
