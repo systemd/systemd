@@ -151,10 +151,10 @@ static int print_device_chain(const char *path)
 	}
 
 	printf("\nudevinfo starts with the device the node belongs to and then walks up the\n"
-	       "device chain to print for every device found all possibly useful attributes\n"
+	       "device chain, to print for every device found, all possibly useful attributes\n"
 	       "in the udev key format.\n"
-	       "Only attributes within one device section may be used in a rule to match the\n"
-	       "device for which the node will be created.\n"
+	       "Only attributes within one device section may be used together in one rule,\n"
+	       "to match the device for which the node will be created.\n"
 	       "\n");
 	printf("device '%s' has major:minor %s", class_dev->path, attr->value);
 	sysfs_close_attribute(attr);
