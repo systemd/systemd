@@ -566,7 +566,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 
 			/* look in the class device directory if present */
 			if (class_dev->sysdevice) {
-				tmpattr = sysfs_get_classdev_attr(class_dev, dev->sysfs_file);
+				tmpattr = sysfs_get_device_attr(class_dev->sysdevice, dev->sysfs_file);
 				if (tmpattr)
 					goto label_found;
 			}
@@ -599,7 +599,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 
 					/* look in the class device directory if present */
 					if (class_dev_parent->sysdevice) {
-						tmpattr = sysfs_get_classdev_attr(class_dev_parent, dev->sysfs_file);
+						tmpattr = sysfs_get_device_attr(class_dev_parent->sysdevice, dev->sysfs_file);
 						if (tmpattr) 
 							goto label_found;
 					}
