@@ -8,7 +8,13 @@ export UDEV_DB=udev.tdb
 export UDEV_CONFIG_FILE=label_test.config
 export UDEV_PERMISSION_FILE=udev.permissions
 
-export DEVPATH=block/sda
 export ACTION=add
+export DEVPATH=block/sda
 
 ../udev block
+
+export DEVPATH=block/sda/sda3
+
+../udev block
+
+
