@@ -186,7 +186,7 @@ endif
 ifeq ($(DBUS), true)
 	CFLAGS += -DUSE_DBUS
 	CFLAGS += $(shell pkg-config --cflags dbus-1)
-	LIB_OBJS += $(shell pkg-config --libs-only-l dbus-1)
+	LDFLAGS += $(shell pkg-config --libs dbus-1)
 	OBJS += udev_dbus.o
 endif
 
