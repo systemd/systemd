@@ -114,14 +114,18 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 static void udev_run(struct hotplug_msg *msg)
 {
 	pid_t pid;
-	setenv("ACTION", msg->action, 1);
-	setenv("DEVPATH", msg->devpath, 1);
+	char action[32];
+	char devpath[256];
+	char *env[] = { action, devpath, NULL };
+
+	snprintf(action, sizeof(action), "ACTION=%s", msg->action);
+	snprintf(devpath, sizeof(devpath), "DEVPATH=%s", msg->devpath);
 
 	pid = fork();
 	switch (pid) {
 	case 0:
 		/* child */
-		execl(UDEV_BIN, "udev", msg->subsystem, NULL);
+		execle(UDEV_BIN, "udev", msg->subsystem, NULL, env);
 		dbg("exec of child failed");
 		exit(1);
 		break;
@@ -285,17 +289,21 @@ int main(int argc, char *argv[])
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
 	int retval;
+	struct sigaction act;
 
 	init_logging("udevd");
 
-	signal(SIGINT, sig_handler);
-	signal(SIGTERM, sig_handler);
-	signal(SIGALRM, sig_handler);
-	signal(SIGCHLD, sig_handler);
+	/* set signal handler */
+	act.sa_handler = sig_handler;
+	sigemptyset (&act.sa_mask);
+	act.sa_flags = SA_RESTART;
+	sigaction(SIGINT, &act, NULL);
+	sigaction(SIGTERM, &act, NULL);
 
 	/* we want these two to interrupt system calls */
-	siginterrupt(SIGALRM, 1);
-	siginterrupt(SIGCHLD, 1);
+	act.sa_flags = 0;
+	sigaction(SIGALRM, &act, NULL);
+	sigaction(SIGCHLD, &act, NULL);
 
 	memset(&saddr, 0x00, sizeof(saddr));
 	saddr.sun_family = AF_LOCAL;
@@ -310,7 +318,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* the bind takes care of ensuring only one copy running */
-	retval = bind(ssock, &saddr, addrlen);
+	retval = bind(ssock, (struct sockaddr *) &saddr, addrlen);
 	if (retval < 0) {
 		dbg("bind failed\n");
 		goto exit;

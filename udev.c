@@ -47,14 +47,12 @@ int log_ok(void)
 
 static void sig_handler(int signum)
 {
-	dbg("caught signal %d", signum);
 	switch (signum) {
 		case SIGINT:
 		case SIGTERM:
 			sysbus_disconnect();
 			udevdb_exit();
 			exit(20 + signum);
-			break;
 		default:
 			dbg("unhandled signal");
 	}
@@ -100,6 +98,7 @@ static int udev_hotplug(int argc, char **argv)
 	char *subsystem;
 	int retval = -EINVAL;
 	int i;
+	struct sigaction act;
 
 	action = get_action();
 	if (!action) {
@@ -146,8 +145,11 @@ static int udev_hotplug(int argc, char **argv)
 	}
 
 	/* set up a default signal handler for now */
-	signal(SIGINT, sig_handler);
-	signal(SIGTERM, sig_handler);
+	act.sa_handler = sig_handler;
+	sigemptyset (&act.sa_mask);
+	act.sa_flags = SA_RESTART;
+	sigaction(SIGINT, &act, NULL);
+	sigaction(SIGTERM, &act, NULL);
 
 	/* initialize the naming deamon */
 	namedev_init();

@@ -179,7 +179,7 @@ int main(int argc, char* argv[])
 	/* If we can't send, try to start daemon and resend message */
 	loop = UDEVSEND_CONNECT_RETRY;
 	while (loop--) {
-		retval = sendto(sock, &message, size, 0, (struct sockaddr*)&saddr, addrlen);
+		retval = sendto(sock, &message, size, 0, (struct sockaddr *)&saddr, addrlen);
 		if (retval != -1) {
 			retval = 0;
 			goto close_and_exit;

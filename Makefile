@@ -157,7 +157,6 @@ ifeq ($(strip $(USE_KLIBC)),true)
 		-I$(LINUX_INCLUDE_DIR)
 	LIB_OBJS =
 	LDFLAGS = --static --nostdlib -nostartfiles -nodefaultlibs
-	UDEVD =
 else
 	WARNINGS += -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
 	CRT0 =
@@ -165,12 +164,11 @@ else
 	CFLAGS += $(WARNINGS) -I$(GCCINCDIR)
 	LIB_OBJS = -lc
 	LDFLAGS =
-	UDEVD = $(DAEMON)
 endif
 
 CFLAGS += -I$(PWD)/libsysfs
 
-all: $(ROOT) $(SENDER) $(UDEVD) $(HELPER)
+all: $(ROOT) $(SENDER) $(DAEMON) $(HELPER)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) \
