@@ -174,8 +174,11 @@ int main(int argc, char *argv[], char *envp[])
 	main_argv = argv;
 	main_envp = envp;
 
-	if (strstr(argv[0], "udevstart"))
+	if (strstr(argv[0], "udevstart")) {
+		/* Setup env variables. */
+		setenv("UDEV_NO_SLEEP", "1", 1);
 		is_udevstart = 1;
+	}
 
 	/* initialize our configuration */
 	udev_init_config();

@@ -75,9 +75,6 @@ static int device_list_insert(char *path, char *subsystem, struct list_head *dev
 
 static void udev_exec(const char *path, const char* subsystem)
 {
-	/* Setup env variables. */
-	setenv("UDEV_NO_SLEEP", "1", 1);
-
 	/* Now call __udev_hotplug(). */
 	if (__udev_hotplug("add", path, subsystem)) {
 		dbg("Calling of udev_hotplug failed");
