@@ -2,6 +2,8 @@
 
 # console devices
 console:root:root:0600
+tty:root:root:0666
+tty[0-9]:root:tty:0660
 tty[0-9][0-9]*:root:tty:0660
 vc/[0-9]*:root:tty:0660
 
@@ -9,7 +11,6 @@ vc/[0-9]*:root:tty:0660
 #  Set this to 0660 if you only want users belonging to tty group
 #  to be able to allocate PTYs
 ptmx:root:tty:0666
-tty:root:tty:0666
 pty[p-za-e][0-9a-f]*:root:tty:0660
 tty[p-za-e][0-9a-f]*:root:tty:0660
 pty/m*:root:tty:0660
@@ -46,7 +47,7 @@ zero:root:root:0666
 
 # misc devices
 nvram:root:root:0660
-rtc:root:root:0660
+rtc:root:root:0644
 
 # floppy devices
 fd[01]*:root:floppy:0660
@@ -69,8 +70,8 @@ dmmidi*:root:root:0660
 sndstat:root:root:0660
 
 # optical devices
-sr*:root:disk:660
-scd*:root:disk:660
+sr*:root:disk:0660
+scd*:root:disk:0660
 pcd*:root:disk:0660
 disk*:root:disk:0660
 dvd:root:disk:0660
@@ -108,20 +109,20 @@ usb/dc2xx*:root:root:0600
 usb/mdc800*:root:root:0600
 
 # raw devices
-ram*:root:disk:660
-raw/*:root:disk:660
+ram*:root:disk:0660
+raw/*:root:disk:0660
 
 # disk devices
-hd*:root:disk:660
-sd*:root:disk:660
-dasd*:root:disk:660
-ataraid*:root:disk:660
-loop*:root:disk:660
-md*:root:disk:660
-ide/*/*/*/*/*:root:disk:660
-discs/*/*:root:disk:660
-loop/*:root:disk:660
-md/*:root:disk:660
+hd*:root:disk:0660
+sd*:root:disk:0660
+dasd*:root:disk:0660
+ataraid*:root:disk:0660
+loop*:root:disk:0660
+md*:root:disk:0660
+ide/*/*/*/*/*:root:disk:0660
+discs/*/*:root:disk:0660
+loop/*:root:disk:0660
+md/*:root:disk:0660
 
 # tape devices
 ht*:root:disk:0660
@@ -169,7 +170,7 @@ vttuner:root:root:0660
 v4l/*:root:root:0660
 
 # input devices
-input/*:root:root:644
+input/*:root:root:0644
 
 # gpm devices
 gpmctl:root:root:0700
@@ -191,4 +192,7 @@ cdwriter:root:disk:0660
 usb/dabusb*:root:usb:0660
 usb/mdc800*:root:usb:0660
 usb/rio500:root:usb:0660
+
+# s390 devices
+z90crypt:root:root:0666
 
