@@ -1,3 +1,23 @@
+/*
+ * udev_dbus.c
+ *
+ * Copyright (C) 2003 David Zeuthen <david@fubar.dk>
+ *
+ *	This program is free software; you can redistribute it and/or modify it
+ *	under the terms of the GNU General Public License as published by the
+ *	Free Software Foundation version 2 of the License.
+ * 
+ *	This program is distributed in the hope that it will be useful, but
+ *	WITHOUT ANY WARRANTY; without even the implied warranty of
+ *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *	General Public License for more details.
+ * 
+ *	You should have received a copy of the GNU General Public License along
+ *	with this program; if not, write to the Free Software Foundation, Inc.,
+ *	675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ */
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -18,21 +38,18 @@ void log_message(int level, const char *format, ...)
 {
 	va_list args;
 
-	if (!udev_log)
-		return;
-
 	va_start(args, format);
 	vsyslog(level, format, args);
 	va_end(args);
 }
 #endif
 
-/** variable for the connection the to system message bus or #NULL
+/*  Variable for the connection the to system message bus or NULL
  *  if we cannot connect or acquire the org.kernel.udev service
  */
 static DBusConnection* sysbus_connection;
 
-/** Disconnect from the system message bus */
+/* Disconnect from the system message bus */
 static void sysbus_disconnect(void)
 {
 	if (sysbus_connection == NULL)
@@ -42,7 +59,7 @@ static void sysbus_disconnect(void)
 	sysbus_connection = NULL;
 }
 
-/** Connect to the system message bus */
+/* Connect to the system message bus */
 static void sysbus_connect(void)
 {
 	DBusError error;
@@ -70,18 +87,18 @@ static void sysbus_connect(void)
 	dbus_bus_acquire_service(sysbus_connection, "org.kernel.udev", 0, 
 				 &error);
 	if (dbus_error_is_set(&error)) {
-		printf("cannot acquire org.kernel.udev service, error %s: %s'",
-		       error.name, error.message);
+		dbg("cannot acquire org.kernel.udev service, error %s: %s'",
+		    error.name, error.message);
 		sysbus_disconnect();
 		return;
 	}
 }
 
 
-/** Send out a signal that a device node is created
+/*  Send out a signal that a device node is created
  *
- *  @param  devname             name of the device node, e.g. /dev/sda1
- *  @param  path                Sysfs path of device
+ *  @param  devname		Name of the device node, e.g. /dev/sda1
+ *  @param  path		Sysfs path of device
  */
 static void sysbus_send_create(const char *devname, const char *path)
 {
@@ -105,10 +122,10 @@ static void sysbus_send_create(const char *devname, const char *path)
 	dbus_connection_flush(sysbus_connection);
 }
 
-/** Send out a signal that a device node is deleted
+/*  Send out a signal that a device node is deleted
  *
- *  @param  devname             Name of the device node, e.g. /udev/sda1
- *  @param  path                Sysfs path of device
+ *  @param  devname		Name of the device node, e.g. /udev/sda1
+ *  @param  path		Sysfs path of device
  */
 static void sysbus_send_remove(const char *devname, const char *path)
 {
