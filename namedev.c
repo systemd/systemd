@@ -319,7 +319,7 @@ static int do_ignore(struct sysfs_class_device *class_dev, struct udevice *udev,
 	return -ENODEV;
 }
 
-static int exec_callout(struct config_device *dev, char *value, int len)
+static int exec_program(char *path, char *value, int len)
 {
 	int retval;
 	int res;
@@ -332,7 +332,7 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 	char *args[CALLOUT_MAXARG];
 	int i;
 
-	dbg("callout to '%s'", dev->exec_program);
+	dbg("callout to '%s'", path);
 	retval = pipe(fds);
 	if (retval != 0) {
 		dbg("pipe failed");
@@ -348,9 +348,9 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 		/* child */
 		close(STDOUT_FILENO);
 		dup(fds[1]);	/* dup write side of pipe to STDOUT */
-		if (strchr(dev->exec_program, ' ')) {
+		if (strchr(path, ' ')) {
 			/* callout with arguments */
-			pos = dev->exec_program;
+			pos = path;
 			for (i=0; i < CALLOUT_MAXARG-1; i++) {
 				args[i] = strsep(&pos, " ");
 				if (args[i] == NULL)
@@ -362,7 +362,7 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 			}
 			retval = execve(args[0], args, main_envp);
 		} else {
-			retval = execve(dev->exec_program, main_argv, main_envp);
+			retval = execve(path, main_argv, main_envp);
 		}
 		if (retval != 0) {
 			dbg("child execve failed");
@@ -428,7 +428,7 @@ static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev
 
 		/* substitute anything that needs to be in the program name */
 		apply_format(udev, dev->exec_program);
-		if (exec_callout(dev, udev->callout_value, NAME_SIZE))
+		if (exec_program(dev->exec_program, udev->callout_value, NAME_SIZE))
 			continue;
 		if (strcmp_pattern(dev->id, udev->callout_value) != 0)
 			continue;
