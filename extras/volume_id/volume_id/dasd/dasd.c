@@ -160,7 +160,7 @@ typedef struct dasd_information_t {
 #define BIODASDINFO _IOR(DASD_IOCTL_LETTER,1,dasd_information_t)
 #define BLKSSZGET _IO(0x12,104)
 
-int probe_ibm_partition(struct volume_id *id)
+int volume_id_probe_dasd_partition(struct volume_id *id)
 {
 	int blocksize;
 	dasd_information_t info;

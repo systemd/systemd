@@ -21,6 +21,6 @@
 #ifndef _VOLUME_ID_DASDLABEL_
 #define _VOLUME_ID_DASDLABEL_
 
-extern int probe_ibm_partition(struct volume_id *id);
+extern int volume_id_probe_dasd_partition(struct volume_id *id);
 
 #endif

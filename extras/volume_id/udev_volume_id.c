@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 	struct sysfs_class_device *class_dev_parent = NULL;
 	struct volume_id *vid = NULL;
 	char *devpath;
-	char probe = 'p';
+	char probe_main_device = 0;
 	char print = 'a';
 	static char name[VOLUME_ID_LABEL_SIZE];
 	int len, i, j;
@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
 			print = 'u';
 			continue;
 		case 'd':
-			probe = 'd';
+			probe_main_device = 1;
 			continue;
 		case 'h':
 		case '?':
@@ -146,8 +146,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	switch(probe) {
-	case 'p' :
+	if (probe_main_device == 0) {
 		/* open block device */
 		vid = open_classdev(class_dev);
 		if (vid == NULL)
@@ -158,8 +157,7 @@ int main(int argc, char *argv[])
 
 		if (volume_id_probe_all(vid, 0, size) == 0)
 			goto print;
-		break;
-	case 'd' :
+	} else {
 		/* if we are on a partition, open main block device instead */
 		class_dev_parent = sysfs_get_classdev_parent(class_dev);
 		if (class_dev_parent != NULL)
@@ -169,9 +167,8 @@ int main(int argc, char *argv[])
 		if (vid == NULL)
 			goto exit;
 
-		if (probe_ibm_partition(vid) == 0)
+		if (volume_id_probe_dasd_partition(vid) == 0)
 			goto print;
-		break;
 	}
 
 	printf("unknown volume type\n");
