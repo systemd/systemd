@@ -120,6 +120,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) /sbin/udevsend
 %attr(755,root,root) /sbin/udevd
 %attr(755,root,root) /sbin/udevtest
+%attr(755,root,root) /sbin/udevstart
 %attr(755,root,root) %dir /udev/
 %attr(755,root,root) %dir /etc/udev/
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.conf
@@ -140,6 +141,9 @@ rm -rf $RPM_BUILD_ROOT
 %endif
 
 %changelog
+* Tue Mar 2 2004 Greg Kroah-Hartman <greg@kroah.com>
+- added udevstart to the list of files installed
+
 * Fri Feb 27 2004 Greg Kroah-Hartman <greg@kroah.com>
 - added ability to build with SELinux support
 
