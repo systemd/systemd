@@ -1,3 +1,0 @@
-# REPLACE test
-REPLACE, KERNEL="ttyUSB0", NAME="visor"
-

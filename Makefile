@@ -174,8 +174,12 @@ GEN_HEADERS =	udev_version.h
 # Rules on how to create the generated header files
 udev_version.h:
 	@echo \#define UDEV_VERSION	\"$(VERSION)\" > $@
-	@echo \#define UDEV_CONFIG_DIR	\"$(configdir)\" >> $@
 	@echo \#define UDEV_ROOT	\"$(udevdir)\" >> $@
+	@echo \#define UDEV_DB		\"$(udevdir)\.udev.tdb\" >> $@
+	@echo \#define UDEV_CONFIG_DIR	\"$(configdir)\" >> $@
+	@echo \#define UDEV_CONFIG_FILE	\"$(configdir)\udev.conf\" >> $@
+	@echo \#define UDEV_RULES_FILE	\"$(configdir)\udev.rules\" >> $@
+	@echo \#define UDEV_PERMISSION_FILE	\"$(configdir)\udev.permissions\" >> $@
 
 $(OBJS): $(GEN_HEADERS)
 

@@ -1,3 +1,0 @@
-# TOPO test
-TOPOLOGY, BUS="scsi", place="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:bus:%b"
-

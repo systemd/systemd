@@ -1,3 +1,0 @@
-# TOPO test
-TOPOLOGY, BUS="scsi", place="0:0:0:0", NAME="first_disk%n"
-

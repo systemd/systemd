@@ -346,11 +346,11 @@ int namedev_init_permissions(void)
 	int retval = 0;
 	struct config_device dev;
 
-	fd = fopen(udev_permission_filename, "r");
+	fd = fopen(udev_permissions_filename, "r");
 	if (fd != NULL) {
-		dbg("reading '%s' as permissions file", udev_permission_filename);
+		dbg("reading '%s' as permissions file", udev_permissions_filename);
 	} else {
-		dbg("can't open '%s' as permissions file", udev_permission_filename);
+		dbg("can't open '%s' as permissions file", udev_permissions_filename);
 		return -ENODEV;
 	}
 

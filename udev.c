@@ -39,16 +39,6 @@
 char **main_argv;
 char **main_envp;
 
-char sysfs_path[SYSFS_PATH_MAX];
-char udev_config_dir[PATH_MAX];
-char udev_root[PATH_MAX];
-char udev_db_filename[PATH_MAX+NAME_MAX];
-char udev_permission_filename[PATH_MAX+NAME_MAX];
-char udev_rules_filename[PATH_MAX+NAME_MAX];
-char udev_config_filename[PATH_MAX+NAME_MAX];
-char default_mode_str[NAME_MAX];
-
-
 static inline char *get_action(void)
 {
 	char *action;
