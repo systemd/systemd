@@ -39,7 +39,6 @@
 #include "udev.h"
 #include "udev_lib.h"
 #include "udev_version.h"
-#include "udev_selinux.h"
 #include "logging.h"
 #include "namedev.h"
 #include "udevdb.h"
@@ -276,9 +275,6 @@ static int create_node(struct udevice *dev, int fake)
 			}
 		}
 	}
-
-	if (!fake)
-		selinux_add_node(filename);
 
 	/* create symlink if requested */
 	foreach_strpart(dev->symlink, " ", pos, len) {
