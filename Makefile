@@ -22,10 +22,9 @@ DEBUG = true
 
 
 ROOT =		udev
-#PREFIX =	diet
 VERSION =	0.01
 INSTALL_DIR =	/usr/local/bin
-RELEASE_NAME =	$(PREFIX)$(ROOT)-$(VERSION)
+RELEASE_NAME =	$(ROOT)-$(VERSION)
 
 
 # Comment out this line to build with something other 
