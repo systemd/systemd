@@ -566,6 +566,55 @@ static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev
 	return -ENODEV;
 }
 
+static int do_topology(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
+{
+	struct config_device *dev;
+	struct list_head *tmp;
+	char path[SYSFS_PATH_MAX];
+	int found;
+	char *temp = NULL;
+
+	/* we have to have a sysfs device for TOPOLOGY to work */
+	if (!sysfs_device)
+		return -ENODEV;
+
+	list_for_each(tmp, &config_device_list) {
+		dev = list_entry(tmp, struct config_device, node);
+		if (dev->type != TOPOLOGY)
+			continue;
+
+		found = 0;	
+		strcpy(path, sysfs_device->path);
+		temp = strrchr(path, '/');
+		dbg_parse("TOPOLOGY path = '%s'", path);
+		dbg_parse("TOPOLOGY temp = '%s' place = '%s'", temp, dev->place);
+		if (strstr(temp, dev->place) != NULL) {
+			found = 1;
+		} else {
+			*temp = 0x00;
+			temp = strrchr(path, '/');
+			dbg_parse("TOPOLOGY temp = '%s' place = '%s'", temp, dev->place);
+			if (strstr(temp, dev->place) != NULL)
+				found = 1;
+		}
+		if (!found)
+			continue;
+
+		strcpy(udev->name, dev->name);
+		if (dev->mode != 0) {
+			udev->mode = dev->mode;
+			strcpy(udev->owner, dev->owner);
+			strcpy(udev->group, dev->group);
+		}
+		dbg_parse("device at '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
+			dev->place, udev->name, 
+			dev->owner, dev->group, dev->mode);
+		
+		return 0;
+	}
+	return -ENODEV;
+}
+
 static int do_replace(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
 	struct config_device *dev;
@@ -696,7 +745,8 @@ label_found:
 			found = 0;
 			if (!sysfs_device)
 				continue;
-			strcpy(path, sysfs_device->path);
+			s
+				rcpy(path, sysfs_device->path);
 			temp = strrchr(path, '/');
 			dbg_parse("NUMBER path = '%s'", path);
 			dbg_parse("NUMBER temp = '%s' id = '%s'", temp, dev->id);
@@ -724,41 +774,6 @@ label_found:
 			goto done;
 			break;
 			}
-		case TOPOLOGY:
-			{
-			char path[SYSFS_PATH_MAX];
-
-			if (!sysfs_device)
-				continue;
-			found = 0;	
-			strcpy(path, sysfs_device->path);
-			temp = strrchr(path, '/');
-			dbg_parse("TOPOLOGY path = '%s'", path);
-			dbg_parse("TOPOLOGY temp = '%s' place = '%s'", temp, dev->place);
-			if (strstr(temp, dev->place) != NULL) {
-				found = 1;
-			} else {
-				*temp = 0x00;
-				temp = strrchr(path, '/');
-				dbg_parse("TOPOLOGY temp = '%s' place = '%s'", temp, dev->place);
-				if (strstr(temp, dev->place) != NULL)
-					found = 1;
-			}
-			if (!found)
-				continue;
-
-			strcpy(udev->name, dev->name);
-			if (dev->mode != 0) {
-				udev->mode = dev->mode;
-				strcpy(udev->owner, dev->owner);
-				strcpy(udev->group, dev->group);
-			}
-			dbg_parse("device at '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
-				dev->place, udev->name, 
-				dev->owner, dev->group, dev->mode);
-			goto done;
-			break;
-			}
 		case KERNEL_NAME:
 		default:
 			break;
@@ -768,6 +783,10 @@ label_found:
 	/* rules are looked at in priority order */
 
 	retval = do_callout(class_dev, udev);
+	if (retval == 0)
+		goto done;
+
+	retval = do_topology(class_dev, udev, sysfs_device);
 	if (retval == 0)
 		goto done;
 
