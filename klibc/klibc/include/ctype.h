@@ -88,7 +88,7 @@ __ctype_inline int ispunct(int __c)
 
 __ctype_inline int isspace(int __c)
 {
-  return __ctypes[__c] & __ctype_space;
+  return __ctypes[__c+1] & __ctype_space;
 }
 
 __ctype_inline int isupper(int __c)
@@ -101,8 +101,9 @@ __ctype_inline int isxdigit(int __c)
   return __ctypes[__c+1] & __ctype_xdigit;
 }
 
-#define _toupper(__c) ((__c) & ~0x20)
-#define _tolower(__c) ((__c) | 0x20)
+/* Note: this is decimal, not hex, to avoid accidental promotion to unsigned */
+#define _toupper(__c) ((__c) & ~32)
+#define _tolower(__c) ((__c) | 32)
 
 __ctype_inline int toupper(int __c)
 {

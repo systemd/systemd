@@ -34,11 +34,11 @@ b) If you're cross-compiling, change ARCH in the main MCONFIG file to
 
    The following is the last known status of various architectures:
 
-   Known to work:	       alpha arm i386 s390 s390x sparc sparc64 x86_64*
+   Known to work:	       alpha arm ia64 i386 s390 s390x sparc
+			       sparc64 x86_64*
    Works static, not shared:   mips* arm-thumb sh*
-   Need crt0.S updates:	       ppc 
-   Missing setjmp:	       ppc64
-   Need porting work:	       cris ia64 m68k mips64 parisc
+   Might work:		       ppc ppc64
+   Need porting work:	       cris m68k mips64 parisc
 
    x86_64:   requires a kernel header patch (to be created)
    mips, sh: linker problem; might work with fixed linker

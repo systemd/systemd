@@ -9,6 +9,8 @@
 
 const unsigned char __ctypes[257] = {
   0,				/* EOF */
+
+  0,				/* control character */
   0,				/* control character */
   0,				/* control character */
   0,				/* control character */
@@ -23,6 +25,7 @@ const unsigned char __ctypes[257] = {
   __ctype_space,		/* FF */
   __ctype_space,		/* CR */
   0,				/* control character */
+
   0,				/* control character */
   0,				/* control character */
   0,				/* control character */

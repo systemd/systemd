@@ -11,7 +11,7 @@
 #
 # Process-related syscalls
 #
-<!mips,mips64,sparc> pid_t vfork()
+<!mips,mips64,sparc,ia64> pid_t vfork()
 <sparc> pid_t vfork@forkish()
 <!alpha> pid_t getpid()
 <alpha> pid_t getxpid@dual0::getpid()
@@ -140,8 +140,8 @@ int uname(struct utsname *)
 int setdomainname(const char *, size_t)
 int sethostname(const char *, size_t)
 int init_module(const char *, struct module *)
-void * create_module(const char *, size_t)
+<!ia64> void * create_module(const char *, size_t)
 int delete_module(const char *)
-int query_module(const char *, int, void *, size_t, size_t)
+<!ia64> int query_module(const char *, int, void *, size_t, size_t)
 int reboot::__reboot(int, int, int, void *)
 int syslog::klogctl(int, char *, int)

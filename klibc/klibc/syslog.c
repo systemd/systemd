@@ -60,7 +60,7 @@ void vsyslog(int prio, const char *format, va_list ap)
 
   if ( *id )
     len += sprintf(buf+3, "%s: ", id);
-  
+
   rv = vsnprintf(buf+len, BUFLEN-len, format, ap);
 
   len += rv;
