@@ -64,6 +64,9 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 		{ .subsystem = "bluetooth",	.file = "address" },
 		{ .subsystem = "i2c-adapter",	.file = NULL },
 		{ .subsystem = "pci_bus",	.file = NULL },
+		{ .subsystem = "ieee1394",	.file = NULL },
+		{ .subsystem = "ieee1394_host",	.file = NULL },
+		{ .subsystem = "ieee1394_node",	.file = NULL },
 		{ NULL, NULL }
 	};
 	struct class_file *classfile;
@@ -144,6 +147,9 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 		{ .subsystem = "firmware",	.device = NULL },
 		{ .subsystem = "drm",		.device = NULL },
 		{ .subsystem = "pci_bus",	.device = NULL },
+		{ .subsystem = "ieee1394",	.device = NULL },
+		{ .subsystem = "ieee1394_host",	.device = NULL },
+		{ .subsystem = "ieee1394_node",	.device = NULL },
 		{ NULL, NULL }
 	};
 	struct class_device *classdevice;
