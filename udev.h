@@ -30,8 +30,8 @@
 #define COMMENT_CHARACTER		'#'
 
 #define NAME_SIZE			256
-#define OWNER_SIZE			30
-#define GROUP_SIZE			30
+#define OWNER_SIZE			32
+#define GROUP_SIZE			32
 #define MODE_SIZE			8
 
 #define ACTION_SIZE			32
@@ -44,6 +44,7 @@
 struct udevice {
 	char devpath[DEVPATH_SIZE];
 	char subsystem[SUBSYSTEM_SIZE];
+	char action[ACTION_SIZE];
 	char name[NAME_SIZE];
 	char owner[OWNER_SIZE];
 	char group[GROUP_SIZE];

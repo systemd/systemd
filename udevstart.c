@@ -110,7 +110,7 @@ static int add_device(char *devpath, char *subsystem)
 		return -ENODEV;
 	}
 
-	udev_set_values(&udev, devpath, subsystem);
+	udev_set_values(&udev, devpath, subsystem, "add");
 	udev_add_device(&udev, class_dev);
 
 	/* run scripts */

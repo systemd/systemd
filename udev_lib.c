@@ -35,56 +35,6 @@
 #include "list.h"
 
 
-char *get_action(void)
-{
-	char *action;
-
-	action = getenv("ACTION");
-	if (action != NULL && strlen(action) > ACTION_SIZE)
-		action[ACTION_SIZE-1] = '\0';
-
-	return action;
-}
-
-char *get_devpath(void)
-{
-	char *devpath;
-
-	devpath = getenv("DEVPATH");
-	if (devpath != NULL && strlen(devpath) > DEVPATH_SIZE)
-		devpath[DEVPATH_SIZE-1] = '\0';
-
-	return devpath;
-}
-
-char *get_devname(void)
-{
-	char *devname;
-
-	devname = getenv("DEVNAME");
-	if (devname != NULL && strlen(devname) > NAME_SIZE)
-		devname[NAME_SIZE-1] = '\0';
-
-	return devname;
-}
-
-char *get_seqnum(void)
-{
-	char *seqnum;
-
-	seqnum = getenv("SEQNUM");
-
-	return seqnum;
-}
-
-char *get_subsystem(char *subsystem)
-{
-	if (subsystem != NULL && strlen(subsystem) > SUBSYSTEM_SIZE)
-		subsystem[SUBSYSTEM_SIZE-1] = '\0';
-
-	return subsystem;
-}
-
 #define BLOCK_PATH		"/block/"
 #define CLASS_PATH		"/class/"
 #define NET_PATH		"/class/net/"
@@ -112,11 +62,13 @@ char get_device_type(const char *path, const char *subsystem)
 	return '\0';
 }
 
-void udev_set_values(struct udevice *udev, const char* devpath, const char *subsystem)
+void udev_set_values(struct udevice *udev, const char* devpath,
+		     const char *subsystem, const char* action)
 {
 	memset(udev, 0x00, sizeof(struct udevice));
 	strfieldcpy(udev->devpath, devpath);
 	strfieldcpy(udev->subsystem, subsystem);
+	strfieldcpy(udev->action, action);
 	udev->type = get_device_type(devpath, subsystem);
 }
 

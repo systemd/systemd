@@ -76,13 +76,9 @@ do { \
 # define asmlinkage	/* nothing */
 #endif
 
-extern char *get_action(void);
-extern char *get_devpath(void);
-extern char *get_devname(void);
-extern char *get_seqnum(void);
-extern char *get_subsystem(char *subsystem);
 extern char get_device_type(const char *path, const char *subsystem);
-extern void udev_set_values(struct udevice *udev, const char* devpath, const char *subsystem);
+extern void udev_set_values(struct udevice *udev, const char* devpath,
+			    const char *subsystem, const char* action);
 extern int create_path(const char *path);
 extern int file_map(const char *filename, char **buf, size_t *bufsize);
 extern void file_unmap(char *buf, size_t bufsize);

@@ -94,9 +94,9 @@ int main(int argc, char *argv[], char *envp[])
 	if (strstr(argv[0], "udevstart") || (argv[1] != NULL && strstr(argv[1], "udevstart"))) {
 		act_type = UDEVSTART;
 	} else {
-		const char *action = get_action();
-		const char *devpath = get_devpath();
-		const char *subsystem = get_subsystem(main_argv[1]);
+		const char *action = getenv("ACTION");
+		const char *devpath = getenv("DEVPATH");
+		const char *subsystem = argv[1];
 
 		if (!action) {
 			dbg("no action?");
@@ -128,7 +128,7 @@ int main(int argc, char *argv[], char *envp[])
 			goto exit;
 		}
 
-		udev_set_values(&udev, devpath, subsystem);
+		udev_set_values(&udev, devpath, subsystem, action);
 
 		/* skip blacklisted subsystems */
 		if (udev.type != 'n' && subsystem_expect_no_dev(subsystem)) {
