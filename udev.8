@@ -116,13 +116,16 @@ Permissions and ownership for the created device files may specified at
 The file consists of a set of lines. All empty lines and
 lines beginning with a '#' will be ignored.
 .br
-Every line lists a device name followed by owner, group and permission mode. All values are separated by colons.
+Every line lists a device name followed by numeric owner, group and permission
+mode. All values are separated by colons. The name field may end with a
+wildcard to apply the values to a whole class of devices.
 .sp
 A sample \fIudev.permissions\fP might look like this:
 .sp
 .nf
 #name:user:group:mode
-ttyUSB1:root:uucp:0666
+ttyUSB1:0:8:0660
+video*:500:500:0660
 dsp1:::0666
 .fi
 
