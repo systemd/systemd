@@ -189,7 +189,6 @@ static void build_kernel_number(struct sysfs_class_device *class_dev, struct ude
 {
 	char *dig;
 
-	/* FIXME, figure out how to handle stuff like sdaj which will not work right now. */
 	dig = class_dev->name + strlen(class_dev->name);
 	while (isdigit(*(dig-1)))
 		dig--;
