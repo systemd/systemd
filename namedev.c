@@ -40,17 +40,56 @@
 
 LIST_HEAD(config_device_list);
 
-/* s2 may end with '*' to match everything */
-static int strncmp_wildcard(char *s1, char *s2, int max)
+/* compare string with pattern (supports * ? [0-9] [!A-Z]) */
+static int strcmp_pattern(const char *p, const char *s)
 {
-	int len = strlen(s2);
-	if (len > max)
-		len = max;
-	if (s2[len-1] == '*')
-		len--;
-	else
-		len = max;
-	return strncmp(s1, s2, len);
+	if (*s == '\0') {
+		while (*p == '*')
+			p++;
+		return (*p != '\0');
+	}
+	switch (*p) {
+	case '[':
+		{
+			int not = 0;
+			p++;
+			if (*p == '!') {
+				not = 1;
+				p++;
+			}
+			while (*p && (*p != ']')) {
+				int match = 0;
+				if (p[1] == '-') {
+					if ((*s >= *p) && (*s <= p[2]))
+						match = 1;
+					p += 3;
+				} else {
+					match = (*p == *s);
+					p++;
+				}
+				if (match ^ not) {
+					while (*p && (*p != ']'))
+						p++;
+					return strcmp_pattern(p+1, s+1);
+				}
+			}
+		}
+		break;
+	case '*':
+		if (strcmp_pattern(p, s+1))
+			return strcmp_pattern(p+1, s);
+		return 0;
+	case '\0':
+		if (*s == '\0') {
+			return 0;
+		}
+		break;
+	default:
+		if ((*p == *s) || (*p == '?'))
+			return strcmp_pattern(p+1, s+1);
+		break;
+	}
+	return 1;
 }
 
 #define copy_var(a, b, var)		\
@@ -69,7 +108,7 @@ int add_config_dev(struct config_device *new_dev)
 	/* update the values if we already have the device */
 	list_for_each(tmp, &config_device_list) {
 		struct config_device *dev = list_entry(tmp, struct config_device, node);
-		if (strncmp_wildcard(dev->name, new_dev->name, sizeof(dev->name)))
+		if (strcmp_pattern(new_dev->name, dev->name))
 			continue;
 		if (strncmp(dev->bus, new_dev->bus, sizeof(dev->name)))
 			continue;
@@ -282,7 +321,7 @@ static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev
 		apply_format(udev, dev->exec_program);
 		if (exec_callout(dev, udev->callout_value, NAME_SIZE))
 			continue;
-		if (strncmp_wildcard(udev->callout_value, dev->id, NAME_SIZE) != 0)
+		if (strcmp_pattern(dev->id, udev->callout_value) != 0)
 			continue;
 		strfieldcpy(udev->name, dev->name);
 		if (dev->mode != 0) {
@@ -468,7 +507,7 @@ static int do_replace(struct sysfs_class_device *class_dev, struct udevice *udev
 			continue;
 
 		dbg("compare name '%s' with '%s'", dev->kernel_name, class_dev->name);
-		if (strncmp_wildcard(class_dev->name, dev->kernel_name, NAME_SIZE) != 0)
+		if (strcmp_pattern(dev->kernel_name, class_dev->name) != 0)
 			continue;
 
 		strfieldcpy(udev->name, dev->name);
@@ -498,7 +537,7 @@ static void do_kernelname(struct sysfs_class_device *class_dev, struct udevice *
 	list_for_each(tmp, &config_device_list) {
 		dev = list_entry(tmp, struct config_device, node);
 		len = strlen(dev->name);
-		if (strncmp_wildcard(class_dev->name, dev->name, sizeof(dev->name)))
+		if (strcmp_pattern(dev->name, class_dev->name))
 			continue;
 		if (dev->mode != 0) {
 			dbg("found permissions for '%s'", class_dev->name);

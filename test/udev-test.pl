@@ -51,12 +51,34 @@ LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="boot_disk%n"
 EOF
 	},
 	{
-		desc     => "catch device by wildcard",
+		desc     => "catch device by *",
 		subsys   => "tty",
 		devpath  => "class/tty/ttyUSB0",
 		expected => "visor/0" ,
 		conf     => <<EOF
 REPLACE, KERNEL="ttyUSB*", NAME="visor/%n"
+EOF
+	},
+	{
+		desc     => "catch device by ?",
+		subsys   => "tty",
+		devpath  => "class/tty/ttyUSB0",
+		expected => "visor/0" ,
+		conf     => <<EOF
+REPLACE, KERNEL="ttyUSB??*", NAME="visor/%n-1"
+REPLACE, KERNEL="ttyUSB??", NAME="visor/%n-2"
+REPLACE, KERNEL="ttyUSB?", NAME="visor/%n"
+EOF
+	},
+	{
+		desc     => "catch device by character class",
+		subsys   => "tty",
+		devpath  => "class/tty/ttyUSB0",
+		expected => "visor/0" ,
+		conf     => <<EOF
+REPLACE, KERNEL="ttyUSB[A-Z]*", NAME="visor/%n-1"
+REPLACE, KERNEL="ttyUSB?[0-9]", NAME="visor/%n-2"
+REPLACE, KERNEL="ttyUSB[0-9]*", NAME="visor/%n"
 EOF
 	},
 	{
@@ -96,7 +118,7 @@ TOPOLOGY, BUS="scsi", PLACE="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:b
 EOF
 	},
 	{
-		desc     => "callout result substitution, only last should match",
+		desc     => "callout result substitution",
 		subsys   => "block",
 		devpath  => "block/sda/sda3",
 		expected => "special-device-3" ,
