@@ -12,10 +12,10 @@ export DEVPATH=class/tty/ttyUSB0
 export ACTION=add
 
 ../udev tty
-ls udev
+ls -l udev
 
 export ACTION=remove
 ../udev tty
-ls udev
+ls -l udev
 
 
