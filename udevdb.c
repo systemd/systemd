@@ -124,7 +124,7 @@ int udevdb_init(int init_flag)
 			dbg("unable to initialize in-memory database");
 		else
 			dbg("unable to initialize database at '%s'", udev_db_filename);
-		return -EINVAL;
+		return -EACCES;
 	}
 	return 0;
 }
@@ -137,7 +137,30 @@ int udevdb_open_ro(void)
 	udevdb = tdb_open(udev_db_filename, 0, 0, O_RDONLY, 0);
 	if (udevdb == NULL) {
 		dbg("unable to open database at '%s'", udev_db_filename);
+		return -EACCES;
+	}
+	return 0;
+}
+
+void (*user_record_callback) (char *path, struct udevice *dev);
+
+static int traverse_callback(TDB_CONTEXT *tdb, TDB_DATA key, TDB_DATA dbuf, void *state)
+{
+	user_record_callback((char*) key.dptr, (struct udevice*) dbuf.dptr);
+	return 0;
+}
+
+/**
+ * udevdb_dump: dumps whole database by passing record data to user function
+ * @user_record_handler: user function called for every record in the database
+ */
+int udevdb_dump(void (*user_record_handler) (char *path, struct udevice *dev))
+{
+	if (user_record_handler == NULL) {
+		dbg("invalid user record handling function");
 		return -EINVAL;
 	}
+	user_record_callback = user_record_handler;
+	tdb_traverse(udevdb, traverse_callback, NULL);
 	return 0;
 }

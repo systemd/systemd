@@ -82,6 +82,16 @@ static inline char *get_seqnum(void)
 	return seqnum;
 }
 
+static void print_record(char *path, struct udevice *dev)
+{
+	printf("P: %s\n", path);
+	printf("N: %s\n", dev->name);
+	printf("S: %s\n", dev->symlink);
+	printf("O: %s\n", dev->owner);
+	printf("G: %s\n", dev->group);
+	printf("\n");
+}
+
 enum query_type {
 	NONE,
 	NAME,
@@ -92,7 +102,7 @@ enum query_type {
 
 static inline int udev_user(int argc, char **argv)
 {
-	static const char short_options[] = "p:q:rVh";
+	static const char short_options[] = "dp:q:rVh";
 	int option;
 	int retval = -EINVAL;
 	struct udevice dev;
@@ -143,6 +153,16 @@ static inline int udev_user(int argc, char **argv)
 		case 'r':
 			root = 1;
 			break;
+
+		case 'd':
+			retval = udevdb_open_ro();
+			if (retval != 0) {
+				printf("unable to open udev database\n");
+				return -EACCES;
+			}
+			retval = udevdb_dump(print_record);
+			udevdb_exit();
+			return retval;
 
 		case 'V':
 			printf("udev, version %s\n", UDEV_VERSION);
@@ -206,12 +226,17 @@ static inline int udev_user(int argc, char **argv)
 	}
 
 help:
-	printf("Usage: [-qrVh]\n"
-	       "  -q <name>  query database for the specified value\n"
-	       "  -p <path>  device path used for query\n"
-	       "  -r         print udev root\n"
-	       "  -V         print udev version\n"
-	       "  -h         print this help text\n"
+	printf("Usage: [-pqrdVh]\n"
+	       "  -q TYPE  query database for the specified value:\n"
+	       "             'name'    name of device node\n"
+	       "             'symlink' pointing to node\n"
+	       "             'owner'   of node\n"
+	       "             'group'   of node\n"
+	       "  -p PATH  sysfs device path used for query\n"
+	       "  -r       print udev root\n"
+	       "  -d       dump whole database\n"
+	       "  -V       print udev version\n"
+	       "  -h       print this help text\n"
 	       "\n");
 	return retval;
 }
