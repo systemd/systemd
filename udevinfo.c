@@ -161,7 +161,6 @@ static int print_device_chain(const char *path)
 	       "to match the device for which the node will be created.\n"
 	       "\n");
 	printf("device '%s' has major:minor %s", class_dev->path, attr->value);
-	sysfs_close_attribute(attr);
 
 	/* open sysfs class device directory and print all attributes */
 	printf("  looking at class device '%s':\n", class_dev->path);
@@ -173,11 +172,11 @@ static int print_device_chain(const char *path)
 
 	/* get the device link (if parent exists look here) */
 	class_dev_parent = sysfs_get_classdev_parent(class_dev);
-	if (class_dev_parent != NULL) {
-		//sysfs_close_class_device(class_dev);
-		class_dev = class_dev_parent;
-	}
-	sysfs_dev = sysfs_get_classdev_device(class_dev);
+	if (class_dev_parent != NULL) 
+		sysfs_dev = sysfs_get_classdev_device(class_dev_parent);
+	else 
+		sysfs_dev = sysfs_get_classdev_device(class_dev);
+	
 	if (sysfs_dev != NULL)
 		printf("follow the class device's \"device\"\n");
 
@@ -194,13 +193,11 @@ static int print_device_chain(const char *path)
 		if (sysfs_dev_parent == NULL)
 			break;
 
-		//sysfs_close_device(sysfs_dev);
 		sysfs_dev = sysfs_dev_parent;
 	}
-	sysfs_close_device(sysfs_dev);
 
 exit:
-	//sysfs_close_class_device(class_dev);
+	sysfs_close_class_device(class_dev);
 	return retval;
 }
 
