@@ -1,3 +1,31 @@
+Summary of changes from v038 to v039
+============================================
+
+Greg Kroah-Hartman:
+  o Hopefully fix the vcs issue in wait_for_sysfs
+  o take out & from wait_for_sysfs_test that I previously missed
+  o add very nice cdsymlinks scripts
+  o add some helper scripts for dvb and input devices
+  o add debian config files
+  o let the extras/ programs build "pretty" also
+  o tweak the ccdv program to handle files in subdirectories being built
+  o crap, I messed up the 'sed' instances pretty badly, this fixes the config and man page mess
+  o fix broken 'make -j5' functionality
+
+Kay Sievers:
+  o swich attribute open() to simple stat()
+  o wait_for_sysfs update for /class/firmware and /class/net/irda devices
+  o fix unusual sysfs behavior for pcmcia_socket
+  o remove sleeps from udev as it is external now
+  o delete udevruler?
+  o Makefile fix
+
+Patrick Mansfield:
+  o update udev to scsi_id 0.7
+  o pass SYSFS setting down for extras builds
+  o move assignments past local variables
+
+
 Summary of changes from v037 to v038
 ============================================
 
