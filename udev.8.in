@@ -58,7 +58,7 @@ queries its database for the name of the device file to be deleted.
 All
 .B udev
 configuration files consist of a set of lines of text.  All empty
-lines and lines beginning with a '#' will be ignored.
+lines or lines beginning with '#' will be ignored.
 .P
 
 .B udev
@@ -91,22 +91,22 @@ All permission files are read in lexical order. The default value is
 .IR /etc/udev/permissions.d/ .
 .TP
 .B udev_log
-The switch, if udev logs some information for every device handled.
+The switch to enable/disable logging of udev information
 The default value is
 .IR yes .
 .TP
 .B default_mode
-The default mode for all nodes not explicitely matching in the permissions
+The default mode for all nodes not explicitly matching in the permissions
 file. The default value is
 .IR 0666 .
 .TP
 .B default_owner
-The default owner for all nodes not explicitely matching in the permissions
+The default owner for all nodes not explicitly matching in the permissions
 file. The default value is
 .IR root .
 .TP
 .B default_group
-The default group for all nodes not explicitely matching in the permissions
+The default group for all nodes not explicitly matching in the permissions
 file. The default value is
 .IR root .
 .br
@@ -132,19 +132,19 @@ udev_permissions="/etc/udev/udev.permissions"
 udev_log="yes"
 
 # default_mode - set the default mode for all nodes not
-#                explicitely matching in the permissions file
+#                explicitly matching in the permissions file
 default_mode="0666"
 
 # default_owner - set the default owner for all nodes not
-#                 explicitely matching in the permissions file
+#                 explicitly matching in the permissions file
 default_owner="root"
 
 # default_group - set the default group for all nodes not
-#                 explicitely matching in the permissions file
+#                 explicitly matching in the permissions file
 default_group="root"
 .fi
 .P
-The rules for device naming, are read from the files located in the
+The rules for device naming are read from the files located in the
 .I /etc/udev/rules.d/
 directory, or at the location specified by the
 .I udev_rules
@@ -230,10 +230,10 @@ The name of a symlink targeting the node. Multiple symlinks may be
 specified by separating the names by the space character.
 .br
 If both the name and the symlink fields are omitted or its
-values empty, the device will be ignored and no node will be created.
+values are empty, the device will be ignored and no node will be created.
 .br
 If only the symlink field is given and the name field is omitted,
-the rule will not be applied immediatly, but the symlink field is added
+the rule will not be applied immediately, but the symlink field is added
 to the symlink list of the rule which will create the node.
 This makes it possible to specify additional symlinks in a possibly
 separate rules file, while the device nodes are maintained by the
@@ -244,7 +244,7 @@ The permissions for this device. Every specified value overwrites the value
 given in the permissions file.
 .P
 .RB "The " NAME " ," SYMLINK " and " PROGRAM
-fields support simple printf-like string substitution:
+fields support simple printf-like string substitutions:
 .TP
 .B %n
 The "kernel number" of the device.
@@ -263,7 +263,7 @@ The kernel minor number for the device.
 The bus id for the device.
 .TP
 .B %c
-The string returned from the execution of
+The string returned by the external program, specified in
 .B PROGRAM
 (This does not work within the
 .B PROGRAM
@@ -296,7 +296,7 @@ the first three characters of the sysfs attribute.
 .RI "A sample " udev.rules " might look like this:"
 .sp
 .nf
-# if /sbin/scsi_id returns "OEM 0815" device will be called disk1
+# if /sbin/scsi_id returns "OEM 0815", the device will be called disk1
 BUS="scsi", PROGRAM="/sbin/scsi_id", RESULT="OEM 0815", NAME="disk1"
 
 # USB printer to be called lp_color
@@ -326,7 +326,7 @@ KERNEL="hd[a-z]", PROGRAM="/bin/cat /proc/ide/%k/media", RESULT="cdrom",
 
 .fi
 .P
-The permissions and ownership of the created device file is read from
+The permissions and ownership of the created device file are read from
 the files located in the
 .I /etc/udev/permissions.d/
 directory, or at the location specified by the
@@ -363,15 +363,15 @@ Matches any single character specified within the brackets. For example, the
 pattern string "tty[SR]" would match either "ttyS" or "ttyR".  Ranges are also
 supported within this match with the '\-' character.  For example, to match on
 the range of all digits, the pattern [0\-9] would be used. If the first character
-following the '[' is a '!', any character not enclosed is matched.
+following the '[' is a '!', any characters not enclosed are matched.
 .P
 After device node creation, removal, or network device renaming,
 .B udev
 executes the programs in the directory tree under
 .IR /etc/dev.d/ .
-The name of a program must end with
+The name of a program must have the suffix
 .I .dev
-suffix, to be recognized.
+to be recognized.
 .br
 In addition to the hotplug environment variables,
 .B UDEV_LOG
