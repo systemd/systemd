@@ -257,7 +257,7 @@ keys:
 		/* check presence of keys according to method type */
 		switch (dev.type) {
 		case LABEL:
-			dbg_parse("LABEL name='%s', bus='%s', "
+			dbg_parse(TYPE_LABEL " name='%s', bus='%s', "
 				  "sysfs_file='%s', sysfs_value='%s', symlink='%s'",
 				  dev.name, dev.bus, dev.sysfs_file,
 				  dev.sysfs_value, dev.symlink);
@@ -268,7 +268,7 @@ keys:
 				goto error;
 			break;
 		case NUMBER:
-			dbg_parse("NUMBER name='%s', bus='%s', id='%s', symlink='%s'",
+			dbg_parse(TYPE_NUMBER "name='%s', bus='%s', id='%s', symlink='%s'",
 				  dev.name, dev.bus, dev.id, dev.symlink);
 			if ((*dev.name == '\0') ||
 			    (*dev.bus == '\0') ||
@@ -276,7 +276,7 @@ keys:
 				goto error;
 			break;
 		case TOPOLOGY:
-			dbg_parse("TOPOLOGY name='%s', bus='%s', "
+			dbg_parse(TYPE_TOPOLOGY "name='%s', bus='%s', "
 				  "place='%s', symlink='%s'",
 				  dev.name, dev.bus, dev.place, dev.symlink);
 			if ((*dev.name == '\0') ||
@@ -285,14 +285,14 @@ keys:
 				goto error;
 			break;
 		case REPLACE:
-			dbg_parse("REPLACE name='%s', kernel_name='%s', symlink='%s'",
+			dbg_parse(TYPE_REPLACE "name='%s', kernel_name='%s', symlink='%s'",
 				  dev.name, dev.kernel_name, dev.symlink);
 			if ((*dev.name == '\0') ||
 			    (*dev.kernel_name == '\0'))
 				goto error;
 			break;
 		case CALLOUT:
-			dbg_parse("CALLOUT name='%s', bus='%s', program='%s', "
+			dbg_parse(TYPE_CALLOUT "name='%s', bus='%s', program='%s', "
 				  "id='%s', symlink='%s'",
 				  dev.name, dev.bus, dev.exec_program,
 				  dev.id, dev.symlink);
@@ -303,7 +303,7 @@ keys:
 				goto error;
 			break;
 		default:
-			dbg_parse("xxx default method");
+			dbg_parse("unknown type of method");
 			goto error;
 		}
 
