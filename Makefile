@@ -73,6 +73,9 @@ udevdir = ${prefix}/udev
 # than the local version of klibc
 #USE_KLIBC = true
 
+# set up PWD so that older versions of make will work with our build.
+PWD = $(shell pwd)
+
 # If you are running a cross compiler, you may want to set this
 # to something more interesting, like "arm-linux-".  If you want
 # to compile vs uClibc, that can be done here as well.
