@@ -330,7 +330,7 @@ int wait_for_devices_device(struct sysfs_device *devices_dev,
 		{ .bus = "iucv",	.file = "detach_state" },
 		{ NULL, NULL }
 	};
-	const struct device_file *devicefile;
+	const struct device_file *devicefile = NULL;
 	int loop;
 
 	/* the kernel may tell us what to wait for */
