@@ -75,6 +75,7 @@ extern char get_device_type(const char *path, const char *subsystem);
 extern int file_map(const char *filename, char **buf, size_t *bufsize);
 extern void file_unmap(char *buf, size_t bufsize);
 extern size_t buf_get_line(char *buf, size_t buflen, size_t cur);
+extern int  call_foreach_file(int fnct(char *f) , char *filename, char *extension);
 
 
 #endif

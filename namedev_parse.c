@@ -33,15 +33,12 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <sys/stat.h>
-#include <dirent.h>
 #include <errno.h>
 
 #include "udev.h"
 #include "udev_lib.h"
 #include "logging.h"
 #include "namedev.h"
-
-LIST_HEAD(file_list);
 
 
 static int add_config_dev(struct config_device *new_dev)
@@ -416,88 +413,26 @@ exit:
 	return retval;
 }
 
-struct files {
-	struct list_head list;
-	char name[NAME_SIZE];
-};
-
-/* sort files in lexical order */
-static int file_list_insert(char *filename)
-{
-	struct files *loop_file;
-	struct files *new_file;
-
-	list_for_each_entry(loop_file, &file_list, list) {
-		if (strcmp(loop_file->name, filename) > 0) {
-			break;
-		}
-	}
-
-	new_file = malloc(sizeof(struct files));
-	if (new_file == NULL) {
-		dbg("error malloc");
-		return -ENOMEM;
-	}
-
-	strfieldcpy(new_file->name, filename);
-	list_add_tail(&new_file->list, &loop_file->list);
-	return 0;
-}
-
-/* calls function for file or every file found in directory */
-static int call_foreach_file(int parser (char *f) , char *filename, char *extension)
-{
-	struct dirent *ent;
-	DIR *dir;
-	char *ext;
-	char file[NAME_SIZE];
-	struct stat stats;
-	struct files *loop_file;
-	struct files *tmp_file;
-
-	/* look if we have a plain file or a directory to scan */
-	stat(filename, &stats);
-	if ((stats.st_mode & S_IFMT) != S_IFDIR)
-		return parser(filename);
-
-	/* sort matching filename into list */
-	dbg("open config as directory '%s'", filename);
-	dir = opendir(filename);
-	while (1) {
-		ent = readdir(dir);
-		if (ent == NULL || ent->d_name[0] == '\0')
-			break;
-
-		dbg("found file '%s'", ent->d_name);
-		ext = strrchr(ent->d_name, '.');
-		if (ext == NULL)
-			continue;
-
-		if (strcmp(ext, extension) == 0) {
-			dbg("put file in list '%s'", ent->d_name);
-			file_list_insert(ent->d_name);
-		}
-	}
-
-	/* parse every file in the list */
-	list_for_each_entry_safe(loop_file, tmp_file, &file_list, list) {
-		strfieldcpy(file, filename);
-		strfieldcat(file, loop_file->name);
-		parser(file);
-		list_del(&loop_file->list);
-		free(loop_file);
-	}
-
-	closedir(dir);
-	return 0;
-}
-
 int namedev_init_rules()
 {
-	return call_foreach_file(namedev_parse_rules, udev_rules_filename, RULEFILE_EXT);
+	struct stat stats;
+
+	stat(udev_rules_filename, &stats);
+	if ((stats.st_mode & S_IFMT) != S_IFDIR)
+		return namedev_parse_rules(udev_rules_filename);
+	else
+		return call_foreach_file(namedev_parse_rules,
+					 udev_rules_filename, RULEFILE_SUFFIX);
 }
 
 int namedev_init_permissions()
 {
-	return call_foreach_file(namedev_parse_permissions, udev_permissions_filename, PERMFILE_EXT);
+	struct stat stats;
+
+	stat(udev_permissions_filename, &stats);
+	if ((stats.st_mode & S_IFMT) != S_IFDIR)
+		return namedev_parse_permissions(udev_permissions_filename);
+	else
+		return call_foreach_file(namedev_parse_permissions,
+					 udev_permissions_filename, PERMFILE_SUFFIX);
 }

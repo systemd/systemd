@@ -21,14 +21,19 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <dirent.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
+#include "logging.h"
 #include "udev_lib.h"
+#include "list.h"
 
 
 char *get_action(void)
@@ -136,3 +141,84 @@ size_t buf_get_line(char *buf, size_t buflen, size_t cur)
 	return count - cur;
 }
 
+struct files {
+	struct list_head list;
+	char name[NAME_SIZE];
+};
+
+/* sort files in lexical order */
+static int file_list_insert(char *filename, struct list_head *file_list)
+{
+	struct files *loop_file;
+	struct files *new_file;
+
+	list_for_each_entry(loop_file, file_list, list) {
+		if (strcmp(loop_file->name, filename) > 0) {
+			break;
+		}
+	}
+
+	new_file = malloc(sizeof(struct files));
+	if (new_file == NULL) {
+		dbg("error malloc");
+		return -ENOMEM;
+	}
+
+	strfieldcpy(new_file->name, filename);
+	list_add_tail(&new_file->list, &loop_file->list);
+	return 0;
+}
+
+/* calls function for file or every file found in directory */
+int call_foreach_file(int fnct(char *f) , char *dirname, char *suffix)
+{
+	struct dirent *ent;
+	DIR *dir;
+	char *ext;
+	char file[NAME_SIZE];
+	struct files *loop_file;
+	struct files *tmp_file;
+	LIST_HEAD(file_list);
+
+	dbg("open directory '%s'", dirname);
+	dir = opendir(dirname);
+	if (dir == NULL) {
+		dbg("unable to open '%s'", dirname);
+		return -1;
+	}
+
+	while (1) {
+		ent = readdir(dir);
+		if (ent == NULL || ent->d_name[0] == '\0')
+			break;
+
+		if ((ent->d_name[0] == '.') || (ent->d_name[0] == COMMENT_CHARACTER))
+			continue;
+
+		/* look for file with specified suffix */
+		ext = strrchr(ent->d_name, '.');
+		if (ext == NULL)
+			continue;
+
+		if (strcmp(ext, suffix) != 0)
+			continue;
+
+		dbg("put file '%s/%s' in list", dirname, ent->d_name);
+		file_list_insert(ent->d_name, &file_list);
+	}
+
+	/* call function for every file in the list */
+	list_for_each_entry_safe(loop_file, tmp_file, &file_list, list) {
+		strfieldcpy(file, dirname);
+		strfieldcat(file, "/");
+		strfieldcat(file, loop_file->name);
+
+		fnct(file);
+
+		list_del(&loop_file->list);
+		free(loop_file);
+	}
+
+	closedir(dir);
+	return 0;
+}

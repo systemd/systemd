@@ -45,9 +45,9 @@ static int expected_seqnum = 0;
 volatile static int children_waiting;
 volatile static int msg_q_timeout;
 
-LIST_HEAD(msg_list);
-LIST_HEAD(exec_list);
-LIST_HEAD(running_list);
+static LIST_HEAD(msg_list);
+static LIST_HEAD(exec_list);
+static LIST_HEAD(running_list);
 
 static void exec_queue_manager(void);
 static void msg_queue_manager(void);

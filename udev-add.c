@@ -393,6 +393,7 @@ static int rename_net_if(struct udevice *dev)
 	retval = ioctl(sk, SIOCSIFNAME, &ifr);
 	if (retval != 0)
 		dbg("error changing net interface name");
+	close(sk);
 
 	return retval;
 }
@@ -453,6 +454,8 @@ int udev_add_device(char *path, char *subsystem, int fake)
 	case 'b':
 	case 'c':
 		retval = create_node(&dev, fake);
+		if ((retval == 0) && (!fake))
+			dev_d_send(&dev, subsystem);
 		break;
 
 	case 'n':
@@ -461,9 +464,6 @@ int udev_add_device(char *path, char *subsystem, int fake)
 			dbg("net device naming failed");
 		break;
 	}
-
-	if ((retval == 0) && (!fake))
-		dev_d_send(&dev, subsystem);
 
 exit:
 	if (class_dev)

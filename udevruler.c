@@ -81,8 +81,8 @@ struct device {
 	int added;
 };
 
-LIST_HEAD(device_list);
-int device_count;
+static LIST_HEAD(device_list);
+static int device_count;
 
 /* callback for database dump */
 static int add_record(char *path, struct udevice *udev)
@@ -149,8 +149,8 @@ struct attribute {
 	char key[NAME_SIZE];
 };
 
-LIST_HEAD(attribute_list);
-int attribute_count;
+static LIST_HEAD(attribute_list);
+static int attribute_count;
 
 static int add_attribute(const char *key, int level)
 {

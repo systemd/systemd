@@ -53,8 +53,8 @@ struct sysfs_class_device;
 
 #define MAX_SYSFS_PAIRS		5
 
-#define RULEFILE_EXT		".rules"
-#define PERMFILE_EXT		".permissions"
+#define RULEFILE_SUFFIX		".rules"
+#define PERMFILE_SUFFIX		".permissions"
 
 #define set_empty_perms(dev, m, o, g)		\
 	if (dev->mode == 0)			\
