@@ -11,7 +11,7 @@ if [ $# = "0" ] ; then
 fi
 
 SYSFSDIR=/sys		# change this for a nonstand sysfs mount point
-BIN=./udev		# location of your udev binary
+BIN=../udev		# location of your udev binary
 export ACTION=$1	# 'add' or 'remove'
 
 for i in ${SYSFSDIR}/class/tty/*; do

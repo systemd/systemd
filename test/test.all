@@ -14,6 +14,7 @@ SYSFSDIR=/sys		# change this for a nonstand sysfs mount point
 BIN=../udev		# location of your udev binary
 export ACTION=$1	# 'add' or 'remove'
 
+# do the block devices first
 for i in ${SYSFSDIR}/block/*; do
 	# add each drive
 	export DEVPATH=${i#${SYSFSDIR}}
@@ -24,6 +25,17 @@ for i in ${SYSFSDIR}/block/*; do
 		if [ -f $j/dev ]; then
 			export DEVPATH=${j#${SYSFSDIR}}
 			$BIN block
+		fi
+	done
+done
+
+# now all the devices in the class directories
+for i in ${SYSFSDIR}/class/*; do
+	for j in $i/*; do
+		if [ -f $j/dev ]; then
+			export DEVPATH=${j#${SYSFSDIR}}
+			CLASS=`echo ${i#${SYSFSDIR}} | cut --delimiter='/' --fields=3-`
+			$BIN $CLASS
 		fi
 	done
 done
