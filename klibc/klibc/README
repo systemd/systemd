@@ -9,12 +9,12 @@ this:
 
 a) In the source root directory (the directory above the one in which
    this file is found) create a symlink called "linux" pointing to a
-   reasonably recent Linux kernel tree (2.4 or 2.5 should be OK.)
+   reasonably recent Linux kernel tree (2.4 or 2.6 should be OK.)
    This tree must have the include/asm symlink set up for the
    architecture you're compiling for, and include/linux/autoconf.h
    must exist.  The easiest way to make sure of all of these is to do
    a "make config" or any of its variants on the kernel tree is
-   question, followed by a "make dep".
+   question, followed by a "make dep" (2.4) or "make prepare" (2.6).
 
 b) If you're cross-compiling, change ARCH in the main MCONFIG file to
    the appropriate architecture, and set CROSS to your toolchain
@@ -34,16 +34,17 @@ b) If you're cross-compiling, change ARCH in the main MCONFIG file to
 
    The following is the last known status of various architectures:
 
-   Known to work:	       alpha arm ia64 i386 s390 s390x sparc
+   Known to work:	       alpha arm ia64 i386 ppc s390 s390x sparc
 			       sparc64 x86_64*
    Works static, not shared:   mips* arm-thumb sh*
-   Might work:		       ppc ppc64
+   Might work:		       ppc64
    Need porting work:	       cris m68k mips64 parisc
 
    x86_64:   requires a kernel header patch (to be created)
    mips, sh: linker problem; might work with fixed linker
 
-   Shared library support for sparc/sparc64 requires binutils 2.13.90.0.4.
+   Shared library support requires binutils 2.13.90.0.4 or later on
+   many architectures.
 
    Note that even the "known to work" ones likely have bugs.  Please
    report them if you run into them.
@@ -52,6 +53,10 @@ c) Type "make" and pray...
 
 d) Try the test programs in the tests/ directory.  They should run...
 
-Contact me at <hpa@zytor.com> for more info.
+Contact the klibc mailing list:
+
+	http://www.zytor.com/mailman/listinfo/klibc
+
+... for more info.
 
 	-hpa

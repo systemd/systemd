@@ -5,45 +5,9 @@
 
 SRCROOT = ..
 include ../MCONFIG
+include ../MRULES
 
 WARNFLAGS = -W -Wall -Wpointer-arith -Wwrite-strings -Wstrict-prototypes -Winline
 CFLAGS  = -Wp,-MD,$(dir $*).$(notdir $*).d $(OPTFLAGS) $(REQFLAGS) $(WARNFLAGS)
 
 SOFLAGS = -fPIC
-
-.SUFFIXES: .c .o .a .so .lo .i .S .s .ls .ss .lss
-
-.c.o:
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-.c.i:
-	$(CC) $(CFLAGS) -E -o $@ $<
-
-.c.s:
-	$(CC) $(CFLAGS) -S -o $@ $<
-
-.S.o:
-	$(CC) $(CFLAGS) -D__ASSEMBLY__ -c -o $@ $<
-
-.S.s:
-	$(CC) $(CFLAGS) -D__ASSEMBLY__ -E -o $@ $<
-
-.S.lo:
-	$(CC) $(CFLAGS) $(SOFLAGS) -D__ASSEMBLY__ -c -o $@ $<
-
-.S.ls:
-	$(CC) $(CFLAGS) $(SOFLAGS) -D__ASSEMBLY__ -E -o $@ $<
-
-.s.o:
-	$(CC) $(CFLAGS) -x assembler -c -o $@ $<
-
-.ls.lo:
-	$(CC) $(CFLAGS) $(SOFLAGS) -x assembler -c -o $@ $<
-
-.c.lo:
-	$(CC) $(CFLAGS) $(SOFLAGS) -c -o $@ $<
-
-.c.ls:
-	$(CC) $(CFLAGS) $(SOFLAGS) -S -o $@ $<
-
-

@@ -49,6 +49,12 @@ __extern int setresgid(gid_t, gid_t, gid_t);
 __extern int getfsuid(uid_t);
 __extern int setfsuid(uid_t);
 
+/* Macros for access() */
+#define R_OK	4		/* Read */
+#define W_OK	2		/* Write */
+#define X_OK	1		/* Execute */
+#define F_OK	0		/* Existence */
+
 __extern int access(const char *, int);
 __extern int link(const char *, const char *);
 __extern int unlink(const char *);

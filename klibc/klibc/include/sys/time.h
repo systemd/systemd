@@ -6,6 +6,7 @@
 #define _SYS_TIME_H
 
 #include <klibc/extern.h>
+#include <sys/types.h>
 #include <linux/time.h>
 
 __extern int gettimeofday(struct timeval *, struct timezone *);

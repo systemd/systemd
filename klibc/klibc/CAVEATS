@@ -49,3 +49,13 @@ theading:
 klibc is not thread-safe.  Consequently, clone() or any of the
 pthreads functions are not included.
 
+
+bsd_signal vs sysv_signal:
+--------------------------
+
+There is no signal() call, because you never know if you want
+Linux/SysV semantics (SA_RESETHAND) or GNU/BSD semantics (SA_RESTART).
+The best, in *any* circumstances, is to never use signal() and instead
+use sigaction(), but in order to simplify porting you can use either
+sysv_signal() or bsd_signal(), depending on what you actually want.
+

@@ -17,10 +17,8 @@ int main(int argc, char *argv[], char *envp[])
   }
 
   /* Test environ */
-  printf("PATH = %s\n", getenv("PATH"));
-  printf("HOME = %s\n", getenv("HOME"));
-  printf("TERM = %s\n", getenv("TERM"));
-  printf("USER = %s\n", getenv("USER"));
+  for ( i = 0 ; envp[i] ; i++ )
+    printf("%s\n", envp[i]);
 
   return 0;
 }

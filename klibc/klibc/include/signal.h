@@ -64,7 +64,7 @@ static __inline__ int sigismember(sigset_t *__set, int __signum)
 }
 
 __extern __sighandler_t __signal(int, __sighandler_t, int);
-__extern __sighandler_t signal(int, __sighandler_t);
+__extern __sighandler_t sysv_signal(int, __sighandler_t);
 __extern __sighandler_t bsd_signal(int, __sighandler_t);
 __extern int sigaction(int, const struct sigaction *, struct sigaction *);
 __extern int sigprocmask(int, const sigset_t *, sigset_t *);

@@ -1,8 +1,5 @@
 /*
  * sys/types.h
- *
- * This is a bastardized version of linux/types.h, since that file
- * is broken w.r.t. <stdint.h> definitions.
  */
 
 #ifndef _SYS_TYPES_H
@@ -25,7 +22,7 @@ typedef uint32_t		dev_t;
 typedef __kernel_ino_t		ino_t;
 typedef __kernel_mode_t		mode_t;
 typedef __kernel_nlink_t	nlink_t;
-typedef __kernel_off_t		off_t;
+typedef __kernel_off_t		off_t; /* Should become __kernel_loff_t... */
 typedef __kernel_pid_t		pid_t;
 typedef __kernel_daddr_t	daddr_t;
 typedef __kernel_key_t		key_t;
@@ -83,15 +80,11 @@ typedef unsigned short		ushort;
 typedef unsigned int		uint;
 typedef unsigned long		ulong;
 
-#ifndef __BIT_TYPES_DEFINED__
-#define __BIT_TYPES_DEFINED__
-
-typedef		__u8		u_int8_t;
-typedef		__u16		u_int16_t;
-typedef		__u32		u_int32_t;
-typedef		__u64		u_int64_t;
-
-#endif /* !(__BIT_TYPES_DEFINED__) */
+/* Linux-specific? */
+typedef uint8_t			u_int8_t;
+typedef uint16_t		u_int16_t;
+typedef uint32_t 		u_int32_t;
+typedef uint64_t		u_int64_t;
 
 /*
  * transition to 64-bit sector_t, possibly making it an option...
@@ -123,5 +116,10 @@ struct ustat {
 	char			f_fname[6];
 	char			f_fpack[6];
 };
+
+/*
+ * Some apps want this in <sys/types.h>
+ */
+#include <sys/sysmacros.h>
 
 #endif

@@ -110,4 +110,7 @@ typedef uint64_t uintmax_t;
 
 #endif
 
+/* Keep the kernel from trying to define these types... */
+#define __BIT_TYPES_DEFINED__
+
 #endif /* _STDINT_H */

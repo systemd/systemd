@@ -22,7 +22,7 @@ LIBOBJS = vsnprintf.o snprintf.o vsprintf.o sprintf.o \
 	  fopen.o fread.o fread2.o fgetc.o fgets.o \
 	  fwrite.o fwrite2.o fputc.o fputs.o puts.o \
 	  sleep.o usleep.o raise.o abort.o assert.o alarm.o pause.o \
-	  __signal.o signal.o bsd_signal.o siglist.o siglongjmp.o \
+	  __signal.o sysv_signal.o bsd_signal.o siglist.o siglongjmp.o \
 	  sigaction.o sigpending.o sigprocmask.o sigsuspend.o \
 	  brk.o sbrk.o malloc.o realloc.o calloc.o mmap.o getpagesize.o \
 	  memcpy.o memcmp.o memset.o memccpy.o memmem.o memswap.o \
@@ -33,7 +33,8 @@ LIBOBJS = vsnprintf.o snprintf.o vsprintf.o sprintf.o \
 	  strsep.o strtok.o \
 	  gethostname.o getdomainname.o getcwd.o \
 	  seteuid.o setegid.o setresuid.o setresgid.o \
-	  getenv.o setenv.o unsetenv.o getopt.o readdir.o \
+	  getenv.o setenv.o putenv.o __put_env.o unsetenv.o \
+	  getopt.o readdir.o \
 	  syslog.o closelog.o pty.o isatty.o reboot.o \
 	  time.o utime.o fdatasync.o llseek.o select.o nice.o getpriority.o \
 	  qsort.o lrand48.o srand48.o seed48.o \

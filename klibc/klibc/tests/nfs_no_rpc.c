@@ -282,7 +282,7 @@ static int do_call(struct sockaddr_in *sin, u_int32_t msg[], u_int32_t rmsg[],
 	int n;
 	int fd;
 
-	signal(SIGALRM, timeout);
+	sysv_signal(SIGALRM, timeout);
 	fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	if (fd < 0)
 		goto Esocket;
