@@ -7,9 +7,8 @@
 #include <ctype.h>
 #include <selinux/selinux.h>
 
-#include "udev.h"
-#include "udev_lib.h"
-#include "logging.h"
+#include "../../udev_lib.h"
+#include "../../logging.h"
 
 #ifdef LOG
 unsigned char logname[LOGNAME_SIZE];
