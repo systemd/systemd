@@ -724,6 +724,7 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 					return -1;
 				}
 
+				/* apply permissions only rule values */
 				if (dev->mode != 0000) {
 					udev->mode = dev->mode;
 					dbg("applied mode=%#o to '%s'", udev->mode, udev->kernel_name);
@@ -744,7 +745,7 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 			if (dev->symlink[0] != '\0') {
 				char temp[NAME_SIZE];
 
-				info("configured symlink-only rule in '%s[%i]' applied, added symlink '%s'",
+				info("configured rule in '%s[%i]' applied, added symlink '%s'",
 				     dev->config_file, dev->config_line, dev->symlink);
 				strfieldcpy(temp, dev->symlink);
 				apply_format(udev, temp, sizeof(temp), class_dev, sysfs_device);

@@ -176,7 +176,7 @@ distribution provided rules file.
 .TP
 .B OWNER, GROUP, MODE
 The permissions for the device node. Every specified value overwrites the
-default value specified in the config file.
+compiled-in default value.
 .P
 .RB "The " NAME ", " SYMLINK ", " PROGRAM ", " OWNER " and " GROUP
 fields support simple printf-like string substitutions:
