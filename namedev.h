@@ -62,8 +62,12 @@ struct config_device {
 	char place[PLACE_SIZE];
 	char kernel_name[NAME_SIZE];
 	char exec_program[FILE_SIZE];
+	char name[NAME_SIZE];
+};
 
-	/* what to set the device to */
+struct perm_device {
+	struct list_head node;
+
 	char name[NAME_SIZE];
 	char owner[OWNER_SIZE];
 	char group[GROUP_SIZE];
@@ -71,6 +75,7 @@ struct config_device {
 };
 
 extern struct list_head config_device_list;
+extern struct list_head perm_device_list;
 
 extern int namedev_init(void);
 extern int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *dev);
@@ -78,8 +83,11 @@ extern int namedev_init_permissions(void);
 extern int namedev_init_rules(void);
 
 extern int add_config_dev(struct config_device *new_dev);
+extern int add_perm_dev(struct perm_device *new_dev);
 extern void dump_config_dev(struct config_device *dev);
 extern void dump_config_dev_list(void);
+extern void dump_perm_dev(struct perm_device *dev);
+extern void dump_perm_dev_list(void);
 
 extern int get_pair(char **orig_string, char **left, char **right);
 

@@ -39,6 +39,7 @@
 #include "klibc_fixups.h"
 
 LIST_HEAD(config_device_list);
+LIST_HEAD(perm_device_list);
 
 /* compare string with pattern (supports * ? [0-9] [!A-Z]) */
 static int strcmp_pattern(const char *p, const char *s)
@@ -113,7 +114,6 @@ int add_config_dev(struct config_device *new_dev)
 		if (strncmp(dev->bus, new_dev->bus, sizeof(dev->name)))
 			continue;
 		copy_var(dev, new_dev, type);
-		copy_var(dev, new_dev, mode);
 		copy_string(dev, new_dev, bus);
 		copy_string(dev, new_dev, sysfs_file);
 		copy_string(dev, new_dev, sysfs_value);
@@ -121,8 +121,6 @@ int add_config_dev(struct config_device *new_dev)
 		copy_string(dev, new_dev, place);
 		copy_string(dev, new_dev, kernel_name);
 		copy_string(dev, new_dev, exec_program);
-		copy_string(dev, new_dev, owner);
-		copy_string(dev, new_dev, group);
 		return 0;
 	}
 
@@ -134,6 +132,46 @@ int add_config_dev(struct config_device *new_dev)
 	list_add_tail(&tmp_dev->node, &config_device_list);
 	//dump_config_dev(tmp_dev);
 	return 0;
+}
+
+int add_perm_dev(struct perm_device *new_dev)
+{
+	struct list_head *tmp;
+	struct perm_device *tmp_dev;
+
+	/* update the values if we already have the device */
+	list_for_each(tmp, &perm_device_list) {
+		struct perm_device *dev = list_entry(tmp, struct perm_device, node);
+		if (strcmp_pattern(new_dev->name, dev->name))
+			continue;
+		copy_var(dev, new_dev, mode);
+		copy_string(dev, new_dev, owner);
+		copy_string(dev, new_dev, group);
+		return 0;
+	}
+
+	/* not found, add new structure to the perm list */
+	tmp_dev = malloc(sizeof(*tmp_dev));
+	if (!tmp_dev)
+		return -ENOMEM;
+	memcpy(tmp_dev, new_dev, sizeof(*tmp_dev));
+	list_add_tail(&tmp_dev->node, &perm_device_list);
+	//dump_perm_dev(tmp_dev);
+	return 0;
+}
+
+static struct perm_device *find_perm(char *name)
+{
+	struct list_head *tmp;
+	struct perm_device *perm = NULL;
+
+	list_for_each(tmp, &perm_device_list) {
+		perm = list_entry(tmp, struct perm_device, node);
+		if (strcmp_pattern(perm->name, name))
+			continue;
+		return perm;
+	}
+	return NULL;
 }
 
 static mode_t get_default_mode(struct sysfs_class_device *class_dev)
@@ -328,15 +366,8 @@ static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev
 		if (strcmp_pattern(dev->id, udev->callout_value) != 0)
 			continue;
 		strfieldcpy(udev->name, dev->name);
-		if (dev->mode != 0) {
-			udev->mode = dev->mode;
-			strfieldcpy(udev->owner, dev->owner);
-			strfieldcpy(udev->group, dev->group);
-		}
-		dbg("callout returned matching value '%s', '%s' becomes '%s'"
-		    " - owner='%s', group='%s', mode=%#o",
-		    dev->id, class_dev->name, udev->name,
-		    dev->owner, dev->group, dev->mode);
+		dbg("callout returned matching value '%s', '%s' becomes '%s'",
+		    dev->id, class_dev->name, udev->name);
 		return 0;
 	}
 	return -ENODEV;
@@ -382,15 +413,8 @@ label_found:
 			continue;
 
 		strfieldcpy(udev->name, dev->name);
-		if (dev->mode != 0) {
-			udev->mode = dev->mode;
-			strfieldcpy(udev->owner, dev->owner);
-			strfieldcpy(udev->group, dev->group);
-		}
-		dbg("found matching attribute '%s', '%s' becomes '%s' "
-			  "- owner='%s', group='%s', mode=%#o",
-			  dev->sysfs_file, class_dev->name, udev->name,
-			  dev->owner, dev->group, dev->mode);
+		dbg("found matching attribute '%s', '%s' becomes '%s' ",
+		    dev->sysfs_file, class_dev->name, udev->name);
 
 		return 0;
 	}
@@ -434,15 +458,8 @@ static int do_number(struct sysfs_class_device *class_dev, struct udevice *udev,
 		if (!found)
 			continue;
 		strfieldcpy(udev->name, dev->name);
-		if (dev->mode != 0) {
-			udev->mode = dev->mode;
-			strfieldcpy(udev->owner, dev->owner);
-			strfieldcpy(udev->group, dev->group);
-		}
-		dbg("found matching id '%s', '%s' becomes '%s'"
-		    " - owner='%s', group ='%s', mode=%#o",
-		    dev->id, class_dev->name, udev->name,
-		    dev->owner, dev->group, dev->mode);
+		dbg("found matching id '%s', '%s' becomes '%s'",
+		    dev->id, class_dev->name, udev->name);
 		return 0;
 	}
 	return -ENODEV;
@@ -486,15 +503,8 @@ static int do_topology(struct sysfs_class_device *class_dev, struct udevice *ude
 			continue;
 
 		strfieldcpy(udev->name, dev->name);
-		if (dev->mode != 0) {
-			udev->mode = dev->mode;
-			strfieldcpy(udev->owner, dev->owner);
-			strfieldcpy(udev->group, dev->group);
-		}
-		dbg("found matching place '%s', '%s' becomes '%s'"
-		    " - owner='%s', group ='%s', mode=%#o",
-		    dev->place, class_dev->name, udev->name,
-		    dev->owner, dev->group, dev->mode);
+		dbg("found matching place '%s', '%s' becomes '%s'",
+		    dev->place, class_dev->name, udev->name);
 		return 0;
 	}
 	return -ENODEV;
@@ -515,15 +525,7 @@ static int do_replace(struct sysfs_class_device *class_dev, struct udevice *udev
 			continue;
 
 		strfieldcpy(udev->name, dev->name);
-		if (dev->mode != 0) {
-			udev->mode = dev->mode;
-			strfieldcpy(udev->owner, dev->owner);
-			strfieldcpy(udev->group, dev->group);
-		}
-		dbg("found name, '%s' becomes '%s'"
-		    " - owner='%s', group='%s', mode = %#o",
-		    dev->kernel_name, udev->name,
-		    dev->owner, dev->group, dev->mode);
+		dbg("found name, '%s' becomes '%s'", dev->kernel_name, udev->name);
 		
 		return 0;
 	}
@@ -532,24 +534,8 @@ static int do_replace(struct sysfs_class_device *class_dev, struct udevice *udev
 
 static void do_kernelname(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
-	struct config_device *dev;
-	struct list_head *tmp;
-	int len;
-
+	/* heh, this is pretty simple... */
 	strfieldcpy(udev->name, class_dev->name);
-	/* look for permissions */
-	list_for_each(tmp, &config_device_list) {
-		dev = list_entry(tmp, struct config_device, node);
-		len = strlen(dev->name);
-		if (strcmp_pattern(dev->name, class_dev->name))
-			continue;
-		if (dev->mode != 0) {
-			dbg("found permissions for '%s'", class_dev->name);
-			udev->mode = dev->mode;
-			strfieldcpy(udev->owner, dev->owner);
-			strfieldcpy(udev->group, dev->group);
-		}
-	}
 }
 
 int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *udev)
@@ -558,6 +544,7 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 	struct sysfs_class_device *class_dev_parent = NULL;
 	int retval = 0;
 	char *temp = NULL;
+	struct perm_device *perm;
 
 	udev->mode = 0;
 
@@ -632,12 +619,19 @@ found:
 	apply_format(udev, udev->name);
 
 done:
-	/* mode was never set above */
-	if (!udev->mode) {
+	perm = find_perm(udev->name);
+	if (perm) {
+		udev->mode = perm->mode;
+		strfieldcpy(udev->owner, perm->owner);
+		strfieldcpy(udev->group, perm->group);
+	} else {
+		/* no matching perms found :( */
 		udev->mode = get_default_mode(class_dev);
 		udev->owner[0] = 0x00;
 		udev->group[0] = 0x00;
 	}
+	dbg("name, '%s' is going to have owner='%s', group='%s', mode = %#o",
+	    udev->name, udev->owner, udev->group, udev->mode);
 
 	if (class_dev_parent)
 		sysfs_close_class_device(class_dev_parent);
@@ -658,5 +652,6 @@ int namedev_init(void)
 		return retval;
 
 	dump_config_dev_list();
+	dump_perm_dev_list();
 	return retval;
 }

@@ -88,39 +88,27 @@ void dump_config_dev(struct config_device *dev)
 {
 	switch (dev->type) {
 	case KERNEL_NAME:
-		dbg_parse("KERNEL name='%s' ,"
-			  "owner='%s', group='%s', mode=%#o",
-			  dev->name, dev->owner, dev->group, dev->mode);
+		dbg_parse("KERNEL name='%s'", dev->name);
 		break;
 	case LABEL:
-		dbg_parse("LABEL name='%s', bus='%s', sysfs_file='%s', sysfs_value='%s', "
-			  "owner='%s', group='%s', mode=%#o",
-			  dev->name, dev->bus, dev->sysfs_file, dev->sysfs_value,
-			  dev->owner, dev->group, dev->mode);
+		dbg_parse("LABEL name='%s', bus='%s', sysfs_file='%s', sysfs_value='%s'",
+			  dev->name, dev->bus, dev->sysfs_file, dev->sysfs_value);
 		break;
 	case NUMBER:
-		dbg_parse("NUMBER name='%s', bus='%s', id='%s', "
-			  "owner='%s', group='%s', mode=%#o",
-			  dev->name, dev->bus, dev->id,
-			  dev->owner, dev->group, dev->mode);
+		dbg_parse("NUMBER name='%s', bus='%s', id='%s'",
+			  dev->name, dev->bus, dev->id);
 		break;
 	case TOPOLOGY:
-		dbg_parse("TOPOLOGY name='%s', bus='%s', place='%s', "
-			  "owner='%s', group='%s', mode=%#o",
-			  dev->name, dev->bus, dev->place,
-			  dev->owner, dev->group, dev->mode);
+		dbg_parse("TOPOLOGY name='%s', bus='%s', place='%s'",
+			  dev->name, dev->bus, dev->place);
 		break;
 	case REPLACE:
-		dbg_parse("REPLACE name=%s, kernel_name=%s, "
-			  "owner='%s', group='%s', mode=%#o",
-			  dev->name, dev->kernel_name,
-			  dev->owner, dev->group, dev->mode);
+		dbg_parse("REPLACE name=%s, kernel_name=%s",
+			  dev->name, dev->kernel_name);
 		break;
 	case CALLOUT:
-		dbg_parse("CALLOUT name='%s', bus='%s', program='%s', id='%s', "
-			  "owner='%s', group='%s', mode=%#o",
-			  dev->name, dev->bus, dev->exec_program, dev->id,
-			  dev->owner, dev->group, dev->mode);
+		dbg_parse("CALLOUT name='%s', bus='%s', program='%s', id='%s'",
+			  dev->name, dev->bus, dev->exec_program, dev->id);
 		break;
 	default:
 		dbg_parse("unknown type of method");
@@ -136,7 +124,24 @@ void dump_config_dev_list(void)
 		dump_config_dev(dev);
 	}
 }
-	
+
+void dump_perm_dev(struct perm_device *dev)
+{
+	dbg_parse("name='%s', owner='%s', group='%s', mode=%#o",
+		  dev->name, dev->owner, dev->group, dev->mode);
+}
+
+void dump_perm_dev_list(void)
+{
+	struct list_head *tmp;
+
+	list_for_each(tmp, &perm_device_list) {
+		struct perm_device *dev = list_entry(tmp, struct perm_device, node);
+		dump_perm_dev(dev);
+	}
+}
+
+
 int namedev_init_rules(void)
 {
 	char line[255];
@@ -344,7 +349,7 @@ int namedev_init_permissions(void)
 	char *temp2;
 	FILE *fd;
 	int retval = 0;
-	struct config_device dev;
+	struct perm_device dev;
 
 	fd = fopen(udev_permissions_filename, "r");
 	if (fd != NULL) {
@@ -407,7 +412,7 @@ int namedev_init_permissions(void)
 		dbg_parse("name='%s', owner='%s', group='%s', mode=%#o",
 			  dev.name, dev.owner, dev.group,
 			  dev.mode);
-		retval = add_config_dev(&dev);
+		retval = add_perm_dev(&dev);
 		if (retval) {
 			dbg("add_config_dev returned with error %d", retval);
 			goto exit;
