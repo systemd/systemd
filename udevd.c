@@ -318,7 +318,6 @@ static int one_and_only(void)
 	/* see if we can lock */
 	if (lockf(lock_file, F_TLOCK, 0) < 0) {
 		close(lock_file);
-		unlink(lock_filename);
 		return -1;
 	}
 
