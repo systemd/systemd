@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include "libsysfs.h"
 
@@ -54,9 +55,23 @@ static int print_all_attributes(char *path)
 		if (attr->value != NULL) {
 			strncpy(value, attr->value, VALUE_SIZE);
 			len = strlen(value);
-			if (value[len-1] == '\n')
+			if (len == 0)
+				continue;
+
+			/* remove trailing newline */
+			if (value[len-1] == '\n') {
 				value[len-1] = '\0';
-			printf("  SYSFS_%s=\"%s\"\n", attr->name, value);
+				len--;
+			}
+
+			/* skip nonprintable values */
+			while (len) {
+				if (isprint(value[len-1]) == 0)
+					break;
+				len--;
+			}
+			if (len == 0)
+				printf("    SYSFS_%s=\"%s\"\n", attr->name, value);
 		}
 	}
 	printf("\n");
@@ -74,7 +89,8 @@ int main(int argc, char **argv, char **envp)
 	struct sysfs_class_device *class_dev;
 	struct sysfs_class_device *class_dev_parent;
 	struct sysfs_attribute *attr;
-	struct sysfs_device *sysfs_device;
+	struct sysfs_device *sysfs_dev;
+	struct sysfs_device *sysfs_dev_parent;
 	char *path;
 	int retval = 0;
 
@@ -98,33 +114,44 @@ int main(int argc, char **argv, char **envp)
 		retval = -1;
 		goto exit;
 	}
-	printf("\ndevice '%s' has major:minor %s\n", class_dev->path, attr->value);
+	printf("\ndevice '%s' has major:minor %s", class_dev->path, attr->value);
 	sysfs_close_attribute(attr);
 
 	/* open sysfs class device directory and print all attributes */
-	printf("looking at class device '%s':\n", class_dev->path);
+	printf("  looking at class device '%s':\n", class_dev->path);
 	if (print_all_attributes(class_dev->path) != 0) {
 		printf("couldn't open class device directory\n");
 		retval = -1;
 		goto exit;
 	}
 
-	/* get the device (if parent exists use it instead) */
+	/* get the device link (if parent exists look here) */
 	class_dev_parent = sysfs_get_classdev_parent(class_dev);
 	if (class_dev_parent != NULL) {
 		//sysfs_close_class_device(class_dev);
 		class_dev = class_dev_parent;
 	}
-	sysfs_device = sysfs_get_classdev_device(class_dev);
-	if (sysfs_device != NULL) {
-		printf("follow class device's \"device\" link '%s':\n", class_dev->path);
-		printf("  BUS=\"%s\"\n", sysfs_device->bus);
-		printf("  ID=\"%s\"\n", sysfs_device->bus_id);
+	sysfs_dev = sysfs_get_classdev_device(class_dev);
+	if (sysfs_dev != NULL)
+		printf("follow the class device's \"device\"\n");
+
+	/* look the device chain upwards */
+	while (sysfs_dev != NULL) {
+		printf("  looking at the device chain at '%s':\n", sysfs_dev->path);
+		printf("    BUS=\"%s\"\n", sysfs_dev->bus);
+		printf("    ID=\"%s\"\n", sysfs_dev->bus_id);
 
 		/* open sysfs device directory and print all attributes */
-		print_all_attributes(sysfs_device->path);
-		sysfs_close_device(sysfs_device);
+		print_all_attributes(sysfs_dev->path);
+
+		sysfs_dev_parent = sysfs_get_device_parent(sysfs_dev);
+		if (sysfs_dev_parent == NULL)
+			break;
+
+		//sysfs_close_device(sysfs_dev);
+		sysfs_dev = sysfs_dev_parent;
 	}
+	sysfs_close_device(sysfs_dev);
 
 exit:
 	//sysfs_close_class_device(class_dev);
