@@ -43,7 +43,7 @@
 #define FAKE				1
 #define NOFAKE				0
 
-/* length of public data */
+/* length of public data to store in udevdb */
 #define UDEVICE_LEN (offsetof(struct udevice, bus_id))
 
 struct udevice {
@@ -71,8 +71,6 @@ extern int udev_add_device(const char *path, const char *subsystem, int fake);
 extern int udev_remove_device(const char *path, const char *subsystem);
 extern void udev_init_config(void);
 extern int udev_start(void);
-extern int __udev_hotplug(char *action, const char *devpath,
-	const char *subsystem);
 extern int parse_get_pair(char **orig_string, char **left, char **right);
 extern void dev_d_send(struct udevice *dev, const char *subsystem,
 	const char *devpath);

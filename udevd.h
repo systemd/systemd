@@ -33,7 +33,7 @@ struct hotplug_msg {
 	char magic[20];
 	struct list_head list;
 	pid_t pid;
-	long seqnum;
+	unsigned long long seqnum;
 	long queue_time;
 	char action[ACTION_SIZE];
 	char devpath[DEVPATH_SIZE];

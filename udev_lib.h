@@ -59,12 +59,6 @@ do { \
 	snprintf((to) + strlen(to), maxsize - strlen(to)-1, "%u", i); \
 } while (0)
 
-#define strlongcat(to, i) \
-do { \
-	to[sizeof(to)-1] = '\0'; \
-	snprintf((to) + strlen(to), sizeof(to) - strlen(to)-1, "%li", i); \
-} while (0)
-
 #define foreach_strpart(str, separator, pos, len) \
 	for(pos = str, len = 0; \
 	    (pos) < ((str) + strlen(str)); \

@@ -44,7 +44,7 @@
 #include "logging.h"
 
 static int pipefds[2];
-static long expected_seqnum = 0;
+static unsigned long long expected_seqnum = 0;
 volatile static int children_waiting;
 volatile static int run_msg_q;
 volatile static int sig_flag;
@@ -73,7 +73,7 @@ void log_message (int level, const char *format, ...)
 #endif
 
 #define msg_dump(msg) \
-	dbg("msg_dump: sequence %d, '%s', '%s', '%s'", \
+	dbg("msg_dump: sequence %llu, '%s', '%s', '%s'", \
 	msg->seqnum, msg->action, msg->devpath, msg->subsystem);
 
 static void msg_dump_queue(void)
@@ -82,7 +82,7 @@ static void msg_dump_queue(void)
 	struct hotplug_msg *msg;
 
 	list_for_each_entry(msg, &msg_list, list)
-		dbg("sequence %li in queue", msg->seqnum);
+		dbg("sequence %llu in queue", msg->seqnum);
 #endif
 }
 
@@ -120,7 +120,7 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 	msg->queue_time = info.uptime;
 
 	list_add(&msg->list, &loop_msg->list);
-	dbg("queued message seq %li", msg->seqnum);
+	dbg("queued message seq %llu", msg->seqnum);
 
 	/* run msg queue manager */
 	run_msg_q = 1;
@@ -137,12 +137,11 @@ static void udev_run(struct hotplug_msg *msg)
 	char seqnum[SEQNUM_SIZE];
 	char *env[] = { action, devpath, seqnum, NULL };
 
-	strcpy(action, "ACTION=");
-	strfieldcat(action, msg->action);
-	strcpy(devpath, "DEVPATH=");
-	strfieldcat(devpath, msg->devpath);
-	strcpy(seqnum, "SEQNUM=");
-	strlongcat(seqnum, msg->seqnum);
+	snprintf(action, ACTION_SIZE-1, "ACTION=%s", msg->action);
+	action[ACTION_SIZE-1] = '\0';
+	snprintf(devpath, DEVPATH_SIZE-1, "DEVPATH=%s", msg->devpath);
+	devpath[DEVPATH_SIZE-1] = '\0';
+	sprintf(seqnum, "SEQNUM=%llu", msg->seqnum);
 
 	pid = fork();
 	switch (pid) {
@@ -161,7 +160,7 @@ static void udev_run(struct hotplug_msg *msg)
 		break;
 	default:
 		/* get SIGCHLD in main loop */
-		dbg("==> exec seq %li [%d] working at '%s'", msg->seqnum, pid, msg->devpath);
+		dbg("==> exec seq %llu [%d] working at '%s'", msg->seqnum, pid, msg->devpath);
 		msg->pid = pid;
 	}
 }
@@ -189,9 +188,9 @@ static void exec_queue_manager()
 			/* move event to run list */
 			list_move_tail(&loop_msg->list, &running_list);
 			udev_run(loop_msg);
-			dbg("moved seq %li to running list", loop_msg->seqnum);
+			dbg("moved seq %llu to running list", loop_msg->seqnum);
 		} else {
-			dbg("delay seq %li, cause seq %li already working on '%s'",
+			dbg("delay seq %llu, cause seq %llu already working on '%s'",
 				loop_msg->seqnum, msg->seqnum, msg->devpath);
 		}
 	}
@@ -202,7 +201,7 @@ static void msg_move_exec(struct hotplug_msg *msg)
 	list_move_tail(&msg->list, &exec_list);
 	run_exec_q = 1;
 	expected_seqnum = msg->seqnum+1;
-	dbg("moved seq %li to exec, next expected is %li",
+	dbg("moved seq %llu to exec, next expected is %llu",
 		msg->seqnum, expected_seqnum);
 }
 
@@ -214,7 +213,7 @@ static void msg_queue_manager()
 	struct sysinfo info;
 	long msg_age = 0;
 
-	dbg("msg queue manager, next expected is %li", expected_seqnum);
+	dbg("msg queue manager, next expected is %llu", expected_seqnum);
 recheck:
 	list_for_each_entry_safe(loop_msg, tmp_msg, &msg_list, list) {
 		/* move event with expected sequence to the exec list */
@@ -226,7 +225,7 @@ recheck:
 		/* move event with expired timeout to the exec list */
 		sysinfo(&info);
 		msg_age = info.uptime - loop_msg->queue_time;
-		dbg("seq %li is %li seconds old", loop_msg->seqnum, msg_age);
+		dbg("seq %llu is %li seconds old", loop_msg->seqnum, msg_age);
 		if (msg_age > EVENT_TIMEOUT_SEC-1) {
 			msg_move_exec(loop_msg);
 			goto recheck;
@@ -296,7 +295,7 @@ static void handle_msg(int sock)
 	}
 
 	/* if no seqnum is given, we move straight to exec queue */
-	if (msg->seqnum == -1) {
+	if (msg->seqnum == 0) {
 		list_add(&msg->list, &exec_list);
 		run_exec_q = 1;
 	} else {
@@ -353,7 +352,7 @@ static void udev_done(int pid)
 
 	list_for_each_entry(msg, &running_list, list) {
 		if (msg->pid == pid) {
-			dbg("<== exec seq %li came back", msg->seqnum);
+			dbg("<== exec seq %llu came back", msg->seqnum);
 			run_queue_delete(msg);
 
 			/* we want to run the exec queue manager since there may

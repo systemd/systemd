@@ -53,17 +53,6 @@ void log_message (int level, const char *format, ...)
 }
 #endif
 
-static void build_hotplugmsg(struct hotplug_msg *msg, char *action,
-			     char *devpath, char *subsystem, int seqnum)
-{
-	memset(msg, 0x00, sizeof(struct hotplug_msg));
-	strfieldcpy(msg->magic, UDEV_MAGIC);
-	msg->seqnum = seqnum;
-	strfieldcpy(msg->action, action);
-	strfieldcpy(msg->devpath, devpath);
-	strfieldcpy(msg->subsystem, subsystem);
-}
-
 static int start_daemon(void)
 {
 	pid_t pid;
@@ -125,7 +114,7 @@ int main(int argc, char* argv[])
 	char *devpath;
 	char *subsystem;
 	char *seqnum;
-	int seq;
+	unsigned long long seq;
 	int retval = 1;
 	int loop;
 	struct timespec tspec;
@@ -160,10 +149,10 @@ int main(int argc, char* argv[])
 
 	seqnum = get_seqnum();
 	if (seqnum == NULL)
-		seq = -1;
+		seq = 0;
 	else
-		seq = atoi(seqnum);
-	dbg("SEQNUM = '%d'", seq);
+		seq = strtoull(seqnum, NULL, 10);
+	dbg("SEQNUM = '%llu'", seq);
 
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (sock == -1) {
@@ -177,7 +166,12 @@ int main(int argc, char* argv[])
 	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
 	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 
-	build_hotplugmsg(&msg, action, devpath, subsystem, seq);
+	memset(&msg, 0x00, sizeof(struct hotplug_msg));
+	strcpy(msg.magic, UDEV_MAGIC);
+	msg.seqnum = seq;
+	strfieldcpy(msg.action, action);
+	strfieldcpy(msg.devpath, devpath);
+	strfieldcpy(msg.subsystem, subsystem);
 
 	/* If we can't send, try to start daemon and resend message */
 	loop = UDEVSEND_CONNECT_RETRY;
