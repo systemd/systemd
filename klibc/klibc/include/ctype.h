@@ -88,7 +88,7 @@ __ctype_inline int ispunct(int __c)
 
 __ctype_inline int isspace(int __c)
 {
-  return __ctypes[__c+1] & __ctype_space;
+  return __ctypes[__c] & __ctype_space;
 }
 
 __ctype_inline int isupper(int __c)
