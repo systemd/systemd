@@ -624,57 +624,51 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 	struct sysfs_device *sysfs_device;
 	struct sysfs_class_device *class_dev_parent;
 	int loop;
+	char filename[SYSFS_PATH_MAX + 6];
+	int retval;
+	char *temp;
+	int partition = 0;
 
-	/* FIXME!!! */
-	/* This is needed here as we can easily out-race the placement of the
-	 * device symlink by the kernel.  The call to sleep(1); will be removed
-	 * once libsysfs can be queried for sysfs_get_classdev_device()
-	 * multiple times and have it return the proper information when the
-	 * class device really shows up.  For now, we live with the time
-	 * delay...
+	/* Figure out where the device symlink is at.  For char devices this will
+	 * always be in the class_dev->path.  But for block devices, it's different.
+	 * The main block device will have the device symlink in it's path, but
+	 * all partitions have the symlink in its parent directory.
+	 * But we need to watch out for block devices that do not have parents, yet
+	 * look like a partition (fd0, loop0, etc.)  They all do not have a device
+	 * symlink yet.  We do sit and spin on waiting for them right now, we should
+	 * possibly have a whitelist for these devices here...
 	 */
-	sleep(1);
+	strcpy(filename, class_dev->path);
+	dbg("filename = %s", filename);
+	if (strcmp(class_dev->classname, SYSFS_BLOCK_NAME) == 0) {
+		if (isdigit(class_dev->path[strlen(class_dev->path)-1])) {
+			temp = strrchr(filename, '/');
+			if (temp) {
+				partition = 1;
+				*temp = 0x00;
+				char *temp2 = strrchr(filename, '/');
+				dbg("temp2 = %s", temp2);
+				if (temp2 && (strcmp(temp2, "/block") == 0)) {
+					/* oops, we have no parent block device, so go back to original directory */
+					strcpy(filename, class_dev->path);
+					partition = 0;
+				}
+			}
+		}
+	}
+	strcat(filename, "/device");
 
-#if 0	/* FIXME
-	   Something like this could also work, but for some reason doesn't,
-	   I also tried just stat() on the device symlink, but that still
-	   has nasty races, I'm probably doing something stupid... :( */
-	loop = 10;
+	loop = 2;
 	while (loop--) {
 		struct stat buf;
-		int retval;
-		char filename[SYSFS_PATH_MAX + 6];
-
-		strcpy(filename, class_dev->path);
-		strcat(filename, "/device");
 		dbg("looking for '%s'", filename);
 		retval = stat(filename, &buf);
 		if (!retval)
 			break;
-
-		/* bah, let's go backwards up a level to see if the device is there,
-		 * as block partitions don't point to the physical device.  Need to fix that
-		 * up in the kernel...
-		 */
-		if (strcmp(class_dev->classname, SYSFS_BLOCK_NAME) == 0) {
-			if (isdigit(class_dev->path[strlen(class_dev->path)-1])) {
-				class_dev_parent = sysfs_get_classdev_parent(class_dev);
-				if (class_dev_parent == NULL) {
-					dbg("sysfs_get_classdev_parent for class device '%s' failed", class_dev->name);
-				} else {
-					strcpy(filename, class_dev_parent->path);
-					strcat(filename, "/device");
-					dbg("looking for '%s'", filename);
-					retval = stat(filename, &buf);
-					if (!retval)
-						break;
-				}
-			}
-		}
 		/* sleep to give the kernel a chance to create the device file */
 		sleep(1);
 	}
-#endif
+
 	loop = 1;	/* FIXME put a real value in here for when everything is fixed... */
 	while (loop--) {
 		/* find the sysfs_device for this class device */
@@ -683,28 +677,28 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 		if (sysfs_device != NULL)
 			goto exit;
 
-		/* bah, let's go backwards up a level to see if the device is there,
-		 * as block partitions don't point to the physical device.  Need to fix that
-		 * up in the kernel...
-		 */
-		if (strcmp(class_dev->classname, SYSFS_BLOCK_NAME) == 0) {
-			dbg("looking at block device");
-			if (isdigit(class_dev->path[strlen(class_dev->path)-1])) {
-				dbg("really is a partition");
-				class_dev_parent = sysfs_get_classdev_parent(class_dev);
-				if (class_dev_parent == NULL) {
-					dbg("sysfs_get_classdev_parent for class device '%s' failed", class_dev->name);
-				} else {
-					dbg("class_dev_parent->name='%s'", class_dev_parent->name);
-					sysfs_device = sysfs_get_classdev_device(class_dev_parent);
-					if (sysfs_device != NULL)
-						goto exit;
-				}
+		/* if it's a partition, we need to get the parent device */
+		if (partition) {
+			/* FIXME  HACK HACK HACK HACK
+			 * for some reason partitions need this extra sleep here, in order
+			 * to wait for the device properly.  Once the libsysfs code is
+			 * fixed properly, this sleep should go away, and we can just loop above.
+			 */
+			sleep(1);
+			dbg("really is a partition");
+			class_dev_parent = sysfs_get_classdev_parent(class_dev);
+			if (class_dev_parent == NULL) {
+				dbg("sysfs_get_classdev_parent for class device '%s' failed", class_dev->name);
+			} else {
+				dbg("class_dev_parent->name='%s'", class_dev_parent->name);
+				sysfs_device = sysfs_get_classdev_device(class_dev_parent);
+				if (sysfs_device != NULL)
+					goto exit;
 			}
 		}
 		/* sleep to give the kernel a chance to create the link */
-		sleep(1);
-
+		/* FIXME remove comment...
+		sleep(1); */
 	}
 	dbg("Timed out waiting for device symlink, continuing on anyway...");
 exit:
