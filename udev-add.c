@@ -139,26 +139,24 @@ exit:
 static int sleep_for_dev(char *path)
 {
 	char filename[SYSFS_PATH_MAX + 6];
-	struct stat buf;
-	int loop = 0;
-	int retval = -ENODEV;
+	int loop = SECONDS_TO_WAIT_FOR_DEV;
+	int retval;
 
 	strcpy(filename, sysfs_path);
 	strcat(filename, path);
 	strcat(filename, "/dev");
 
-	while (loop < SECONDS_TO_WAIT_FOR_DEV) {
+	while (loop--) {
+		struct stat buf;
+
 		dbg("looking for %s", filename);
 		retval = stat(filename, &buf);
-		if (retval == 0) {
-			retval = 0;
+		if (!retval)
 			goto exit;
-		}
 
 		/* sleep for a second or two to give the kernel a chance to
 		 * create the dev file */
 		sleep(1);
-		++loop;
 	}
 	retval = -ENODEV;
 exit:
