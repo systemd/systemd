@@ -45,6 +45,11 @@ static char *get_name(char *dev, int major, int minor)
 	static char name[100];
 	char *temp;
 
+	temp = udevdb_get_udevice_by_sysfs(dev);
+	dbg("udevdb_get_udevice_by_sysfs returned %s", temp);
+	if (temp != NULL)
+		return temp;
+	
 	temp = strrchr(dev, '/');
 	if (temp == NULL)
 		return NULL;

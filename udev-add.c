@@ -137,7 +137,6 @@ int udev_add_device(char *device, char *subsystem)
 {
 	struct sysfs_class_device *class_dev;
 	struct device_attr attr;
-	struct udevice dbdev;
 	int major;
 	int minor;
 	char type;
@@ -164,33 +163,17 @@ int udev_add_device(char *device, char *subsystem)
 
 	retval = get_major_minor(class_dev, &major, &minor);
 	if (retval) {
-		dbg ("get_major_minor failed");
+		dbg("get_major_minor failed");
 		goto exit;
 	}
-	memset(&dbdev, 0, sizeof(dbdev));
-	strncpy(dbdev.name, attr.name, NAME_SIZE);
-	if (class_dev->sysdevice) {
-		strncpy(dbdev.sysfs_path, class_dev->sysdevice->directory->path, PATH_SIZE);
-		strncpy(dbdev.bus_id, class_dev->sysdevice->bus_id, ID_SIZE);
-	}
-	strncpy(dbdev.class_dev_name, class_dev->name, NAME_SIZE);
-	if ((sysfs_get_name_from_path(subsystem, dbdev.class_name, NAME_SIZE)) != 0)
-		strcpy(dbdev.class_name, "unkown");
-	strcpy(dbdev.bus_name, "unknown");
-	if (class_dev->driver != NULL)
-		strncpy(dbdev.driver, class_dev->driver->name, NAME_SIZE);
-	else
-		strcpy(dbdev.driver, "unkown");
-	dbdev.type = type;
-	dbdev.major = major;
-	dbdev.minor = minor;
-	dbdev.mode = attr.mode;
+
+	retval = udevdb_add_device(device, class_dev, attr.name, type, major, minor, attr.mode);
+
+	if (retval != 0)
+		dbg("udevdb_add_device failed, but we are going to try to create the node anyway. "
+		    "But remove might not work properly for this device.");
 
 	sysfs_close_class_device(class_dev);
-
-	retval = udevdb_add_udevice(&dbdev);
-	if (retval != 0)
-		goto exit;
 
 	return create_node(attr.name, type, major, minor, attr.mode);
 
