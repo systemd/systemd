@@ -1,3 +1,19 @@
+Summary of changes from v033 to v034
+============================================
+
+Kay Sievers:
+  o wait_for_sysfs bluetooth class update
+
+Greg Kroah-Hartman:
+  o add comment in wait_for_sysfs to explain the structure better
+  o Revert previous dev_d.c change, it's not what is causing HAL problems
+  o hm, somethings odd with DEVPATH, see if this fixes it
+  o 33_bk mark for the makefile
+  o wait_for_sysfs: clean up the logic for the list of devices that we do not expect device symlinks for
+  o get rid of annoying extra lines in the syslog for some libsysfs debug messages
+  o added support for i2c devices in wait_for_sysfs.c
+  o add support for i2c-adapter devices to wait_for_sysfs.c
+
 Summary of changes from v032 to v033
 ============================================
 
