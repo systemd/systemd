@@ -41,41 +41,6 @@
 #define TYPE_TOPOLOGY	"TOPOLOGY"
 #define TYPE_REPLACE	"REPLACE"
 
-enum config_type {
-	KERNEL_NAME	= 0,	/* must be 0 to let memset() default to this value */
-	LABEL		= 1,
-	NUMBER		= 2,
-	TOPOLOGY	= 3,
-	REPLACE		= 4,
-};
-
-#define BUS_SIZE	30
-#define FILE_SIZE	50
-#define VALUE_SIZE	100
-#define ID_SIZE		50
-#define PLACE_SIZE	50
-
-
-struct config_device {
-	struct list_head node;
-
-	enum config_type type;
-
-	char bus[BUS_SIZE];
-	char sysfs_file[FILE_SIZE];
-	char sysfs_value[VALUE_SIZE];
-	char id[ID_SIZE];
-	char place[PLACE_SIZE];
-	char kernel_name[NAME_SIZE];
-	
-	/* what to set the device to */
-	int mode;
-	char name[NAME_SIZE];
-	char owner[OWNER_SIZE];
-	char group[GROUP_SIZE];
-};
-
-
 static LIST_HEAD(config_device_list);
 
 static void dump_dev(struct config_device *dev)
@@ -84,32 +49,32 @@ static void dump_dev(struct config_device *dev)
 	case KERNEL_NAME:
 		dbg("KERNEL name ='%s'"
 			" owner = '%s', group = '%s', mode = '%#o'",
-			dev->name, 
-			dev->owner, dev->group, dev->mode);
+			dev->attr.name, 
+			dev->attr.owner, dev->attr.group, dev->attr.mode);
 		break;
 	case LABEL:
 		dbg("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'"
 			" owner = '%s', group = '%s', mode = '%#o'",
-			dev->name, dev->bus, dev->sysfs_file, dev->sysfs_value,
-			dev->owner, dev->group, dev->mode);
+			dev->attr.name, dev->bus, dev->sysfs_file, dev->sysfs_value,
+			dev->attr.owner, dev->attr.group, dev->attr.mode);
 		break;
 	case NUMBER:
 		dbg("NUMBER name = '%s', bus = '%s', id = '%s'"
 			" owner = '%s', group = '%s', mode = '%#o'",
-			dev->name, dev->bus, dev->id,
-			dev->owner, dev->group, dev->mode);
+			dev->attr.name, dev->bus, dev->id,
+			dev->attr.owner, dev->attr.group, dev->attr.mode);
 		break;
 	case TOPOLOGY:
 		dbg("TOPOLOGY name = '%s', bus = '%s', place = '%s'"
 			" owner = '%s', group = '%s', mode = '%#o'",
-			dev->name, dev->bus, dev->place,
-			dev->owner, dev->group, dev->mode);
+			dev->attr.name, dev->bus, dev->place,
+			dev->attr.owner, dev->attr.group, dev->attr.mode);
 		break;
 	case REPLACE:
 		dbg("REPLACE name = %s, kernel_name = %s"
 			" owner = '%s', group = '%s', mode = '%#o'",
-			dev->name, dev->kernel_name,
-			dev->owner, dev->group, dev->mode);
+			dev->attr.name, dev->kernel_name,
+			dev->attr.owner, dev->attr.group, dev->attr.mode);
 		break;
 	default:
 		dbg("Unknown type of device!");
@@ -133,18 +98,18 @@ static int add_dev(struct config_device *new_dev)
 	 * this one... */
 	list_for_each(tmp, &config_device_list) {
 		struct config_device *dev = list_entry(tmp, struct config_device, node);
-		if (strcmp(dev->name, new_dev->name) == 0) {
+		if (strcmp(dev->attr.name, new_dev->attr.name) == 0) {
 			/* the same, copy the new info into this structure */
 			copy_var(dev, new_dev, type);
-			copy_var(dev, new_dev, mode);
+			copy_var(dev, new_dev, attr.mode);
 			copy_string(dev, new_dev, bus);
 			copy_string(dev, new_dev, sysfs_file);
 			copy_string(dev, new_dev, sysfs_value);
 			copy_string(dev, new_dev, id);
 			copy_string(dev, new_dev, place);
 			copy_string(dev, new_dev, kernel_name);
-			copy_string(dev, new_dev, owner);
-			copy_string(dev, new_dev, group);
+			copy_string(dev, new_dev, attr.owner);
+			copy_string(dev, new_dev, attr.group);
 			return 0;
 		}
 	}
@@ -286,9 +251,9 @@ static int namedev_init_config(void)
 			retval = get_value("NAME", &temp, &temp3);
 			if (retval)
 				continue;
-			strcpy(dev.name, temp3);
+			strcpy(dev.attr.name, temp3);
 
-			dbg("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'", dev.name, dev.bus, dev.sysfs_file, dev.sysfs_value);
+			dbg("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'", dev.attr.name, dev.bus, dev.sysfs_file, dev.sysfs_value);
 		}
 
 		if (strcasecmp(temp2, TYPE_NUMBER) == 0) {
@@ -313,9 +278,9 @@ static int namedev_init_config(void)
 			retval = get_value("NAME", &temp, &temp3);
 			if (retval)
 				continue;
-			strcpy(dev.name, temp3);
+			strcpy(dev.attr.name, temp3);
 
-			dbg("NUMBER name = '%s', bus = '%s', id = '%s'", dev.name, dev.bus, dev.id);
+			dbg("NUMBER name = '%s', bus = '%s', id = '%s'", dev.attr.name, dev.bus, dev.id);
 		}
 
 		if (strcasecmp(temp2, TYPE_TOPOLOGY) == 0) {
@@ -340,9 +305,9 @@ static int namedev_init_config(void)
 			retval = get_value("NAME", &temp, &temp3);
 			if (retval)
 				continue;
-			strcpy(dev.name, temp3);
+			strcpy(dev.attr.name, temp3);
 
-			dbg("TOPOLOGY name = '%s', bus = '%s', place = '%s'", dev.name, dev.bus, dev.place);
+			dbg("TOPOLOGY name = '%s', bus = '%s', place = '%s'", dev.attr.name, dev.bus, dev.place);
 		}
 
 		if (strcasecmp(temp2, TYPE_REPLACE) == 0) {
@@ -360,8 +325,8 @@ static int namedev_init_config(void)
 			retval = get_value("NAME", &temp, &temp3);
 			if (retval)
 				continue;
-			strcpy(dev.name, temp3);
-			dbg("REPLACE name = %s, kernel_name = %s", dev.name, dev.kernel_name);
+			strcpy(dev.attr.name, temp3);
+			dbg("REPLACE name = %s, kernel_name = %s", dev.attr.name, dev.kernel_name);
 		}
 
 		retval = add_dev(&dev);
@@ -420,17 +385,17 @@ static int namedev_init_permissions(void)
 
 		/* parse the line */
 		temp2 = strsep(&temp, ":");
-		strncpy(dev.name, temp2, sizeof(dev.name));
+		strncpy(dev.attr.name, temp2, sizeof(dev.attr.name));
 
 		temp2 = strsep(&temp, ":");
-		strncpy(dev.owner, temp2, sizeof(dev.owner));
+		strncpy(dev.attr.owner, temp2, sizeof(dev.attr.owner));
 
 		temp2 = strsep(&temp, ":");
-		strncpy(dev.group, temp2, sizeof(dev.owner));
+		strncpy(dev.attr.group, temp2, sizeof(dev.attr.owner));
 
-		dev.mode = strtol(temp, NULL, 8);
+		dev.attr.mode = strtol(temp, NULL, 8);
 
-		dbg("name = %s, owner = %s, group = %s, mode = %#o", dev.name, dev.owner, dev.group, dev.mode);
+		dbg("name = %s, owner = %s, group = %s, mode = %#o", dev.attr.name, dev.attr.owner, dev.attr.group, dev.attr.mode);
 		retval = add_dev(&dev);
 		if (retval) {
 			dbg("add_dev returned with error %d", retval);
@@ -457,13 +422,13 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 
 	list_for_each(tmp, &config_device_list) {
 		struct config_device *dev = list_entry(tmp, struct config_device, node);
-		if (strcmp(dev->name, class_dev->name) == 0) {
-			attr->mode = dev->mode;
-			strcpy(attr->owner, dev->owner);
-			strcpy(attr->group, dev->group);
+		if (strcmp(dev->attr.name, class_dev->name) == 0) {
+			attr->mode = dev->attr.mode;
+			strcpy(attr->owner, dev->attr.owner);
+			strcpy(attr->group, dev->attr.group);
 			/* FIXME  put the proper name here!!! */
-			strcpy(attr->name, dev->name);
-			dbg("%s - owner = %s, group = %s, mode = %#o", dev->name, dev->owner, dev->group, dev->mode);
+			strcpy(attr->name, dev->attr.name);
+			dbg("%s - owner = %s, group = %s, mode = %#o", dev->attr.name, dev->attr.owner, dev->attr.group, dev->attr.mode);
 			goto exit;
 		}
 	}

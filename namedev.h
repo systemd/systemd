@@ -23,6 +23,8 @@
 #ifndef NAMEDEV_H
 #define NAMEDEV_H
 
+#include "list.h"
+
 struct sysfs_class_device;
 
 /* namedev config files */
@@ -30,6 +32,38 @@ struct sysfs_class_device;
 #define NAMEDEV_CONFIG_ROOT		"/home/greg/src/udev/"
 #define NAMEDEV_CONFIG_PERMISSION_FILE	"namedev.permissions"
 #define NAMEDEV_CONFIG_FILE		"namedev.config"
+
+enum config_type {
+	KERNEL_NAME	= 0,	/* must be 0 to let memset() default to this value */
+	LABEL		= 1,
+	NUMBER		= 2,
+	TOPOLOGY	= 3,
+	REPLACE		= 4,
+};
+
+#define BUS_SIZE	30
+#define FILE_SIZE	50
+#define VALUE_SIZE	100
+#define ID_SIZE		50
+#define PLACE_SIZE	50
+
+
+struct config_device {
+	struct list_head node;
+
+	enum config_type type;
+
+	char bus[BUS_SIZE];
+	char sysfs_file[FILE_SIZE];
+	char sysfs_value[VALUE_SIZE];
+	char id[ID_SIZE];
+	char place[PLACE_SIZE];
+	char kernel_name[NAME_SIZE];
+	
+	/* what to set the device to */
+	struct device_attr attr;
+};
+
 
 extern int namedev_init(void);
 extern int namedev_name_device(struct sysfs_class_device *class_dev, struct device_attr *attr);
