@@ -153,6 +153,7 @@ static int parse_db_file(struct udevice *udev, const char *filename)
 			break;
 		}
 	}
+	file_unmap(buf, bufsize);
 
 	if (udev->name[0] == '\0')
 		return -1;
