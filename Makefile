@@ -26,7 +26,7 @@ USE_DBUS = false
 
 
 ROOT =		udev
-VERSION =	008_bk
+VERSION =	009
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
 

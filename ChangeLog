@@ -1,3 +1,68 @@
+Summary of changes from v008 to v009
+============================================
+
+<christophe.varoqui:free.fr>:
+  o more extras/multipath changes
+  o and more extras/multipath updates
+  o more extras/multipath updates
+  o yet more extras/multipath
+  o more extras/multipath updates
+  o extras/multipath update
+
+<david:fubar.dk>:
+  o D-BUS patch for udev-008
+
+<eike-hotplug:sf-tec.de>:
+  o add init.d/udev to "make install"
+  o add init.d/udev to the spec file
+
+Kay Sievers:
+  o don't rely on field order in namedev_parse
+  o get part of callout return string
+  o remove '\n' from end of callout return
+  o man-page mention multiple symlinks
+  o allow multiple symlinks
+  o cleanup man & remove symlink comment
+  o experimental (very simple) SYMLINK creation
+  o man page beauty
+  o pattern match for label method
+  o a bug in linefeed removal
+
+<rml:ximian.com>:
+  o remove udev from runlevels on uninstall
+  o install initscript in udev rpm
+
+Daniel E. F. Stekloff:
+  o pre-libsysfs-0.4.0 patch
+
+Greg Kroah-Hartman:
+  o signal fixes due to klibc update
+  o sync klibc with release 0.95
+  o add mol permissions to the debian permissions file
+  o update the FAQ with info about bad modprobe events from the devfs scheme
+  o some cleanups due to the need for LABEL rules to use "SYSFS_" now
+  o Add restart target to the etc/init.d/udev script
+  o tweak the config file generation portion of the Makefile a bit
+  o change devfs disk name rule from 'disk' to 'disc'
+  o add vc support to udev.rules.devfs
+  o added a devfs udev config file from Marco d'Itri <md@Linux.IT>
+  o set default mode to 0600 to be safer
+  o Makefile tweaks for the DBUS build
+  o update the FAQ due to the latest devfs mess on lkml and also due to symlinks now working
+  o document the different Makefile config options that we have
+  o change USE_DBUS to DBUS in Makefile, and disable it by default as it's still to hard to build on all systems
+  o fix formatting of udev_dbus.c to use tabs.  Also get it to build properly now
+  o move all of the DBUS logic into one file and remove all of the #ifdef crud from the main code
+
+Olaf Hering:
+  o dump latest klibc into the udev build tree
+  o use udevdir in udev.conf
+
+Patrick Mansfield:
+  o better allow builds of extras programs under udev
+  o update udev extras/scsi_id to version 0.2
+
+
 Summary of changes from v007 to v008
 ============================================
 
