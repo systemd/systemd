@@ -59,7 +59,7 @@ LIB     = libc.a
 
 INTERP_O = interp.o
 
-all: tests $(CRT0) $(LIB) $(SOLIB) klibc.so
+all: $(CRT0) $(LIB) $(SOLIB) klibc.so
 
 # Add any architecture-specific rules
 include arch/$(ARCH)/Makefile.inc

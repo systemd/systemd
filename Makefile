@@ -1,6 +1,6 @@
 # Makefile for udev
 #
-# Copyright (C) 2003  Greg Kroah-Hartman <greg@kroah.com>
+# Copyright (C) 2003,2004 Greg Kroah-Hartman <greg@kroah.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@ INFO =		udevinfo
 TESTER =	udevtest
 STARTER =	udevstart
 RULER =		udevruler
-VERSION =	032
+VERSION =	032_bk
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
 LOCAL_CFG_DIR =	etc/udev
@@ -140,9 +140,8 @@ endif
 ifeq ($(strip $(USE_KLIBC)),true)
 	KLIBC_BASE	= $(PWD)/klibc
 	KLIBC_DIR	= $(KLIBC_BASE)/klibc
-	INCLUDE_DIR	:= $(KLIBC_DIR)/include
+	INCLUDE_DIR	:= $(KLIBC_BASE)/include
 	LINUX_INCLUDE_DIR	:= $(KERNEL_DIR)/include
-#	LINUX_INCLUDE_DIR	:= $(KLIBC_BASE)/linux/include
 	include $(KLIBC_DIR)/arch/$(ARCH)/MCONFIG
 	# arch specific objects
 	ARCH_LIB_OBJS =	\
@@ -150,12 +149,12 @@ ifeq ($(strip $(USE_KLIBC)),true)
 
 
 	CRT0 = $(KLIBC_DIR)/crt0.o
-	LIBC =	$(ARCH_LIB_OBJS) $(LIB_OBJS) $(CRT0)
+	LIBC = $(ARCH_LIB_OBJS) $(LIB_OBJS) $(CRT0)
 	CFLAGS += $(WARNINGS) -nostdinc			\
 		$(OPTFLAGS)				\
 		-D__KLIBC__ -fno-builtin-printf		\
 		-I$(INCLUDE_DIR)			\
-		-I$(KLIBC_DIR)/arch/$(ARCH)/include	\
+		-I$(INCLUDE_DIR)/arch/$(ARCH)		\
 		-I$(INCLUDE_DIR)/bits$(BITSIZE)		\
 		-I$(GCCINCDIR)				\
 		-I$(LINUX_INCLUDE_DIR)
@@ -164,7 +163,7 @@ ifeq ($(strip $(USE_KLIBC)),true)
 else
 	WARNINGS += -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
 	CRT0 =
-	LIBC = 
+	LIBC =
 	CFLAGS += $(WARNINGS) -I$(GCCINCDIR)
 	LIB_OBJS = -lc
 	LDFLAGS =
@@ -185,7 +184,10 @@ all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER)
 $(ARCH_LIB_OBJS) : $(CRT0)
 
 $(CRT0):
-	$(MAKE) -C klibc KERNEL_DIR=$(KERNEL_DIR)
+	@if [ ! -r klibc/linux ]; then \
+		ln -f -s $(KERNEL_DIR) klibc/linux; \
+	fi
+	$(MAKE) -C klibc SUBDIRS=klibc
 
 TDB =	tdb/tdb.o	\
 	tdb/spinlock.o
@@ -261,27 +263,27 @@ $(DAEMON).o: $(GEN_HEADERS)
 $(SENDER).o: $(GEN_HEADERS)
 $(STARTER).o: $(GEN_HEADERS)
 
-$(ROOT): $(ROOT).o $(STARTER).o $(OBJS) $(HEADERS) $(LIBC) $(GEN_MANPAGES)
+$(ROOT): $(LIBC) $(ROOT).o $(STARTER).o $(OBJS) $(HEADERS) $(GEN_MANPAGES)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o udevstart.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(TESTER): $(TESTER).o $(OBJS) $(HEADERS) $(LIBC)
+$(TESTER): $(LIBC) $(TESTER).o $(OBJS) $(HEADERS)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevtest.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(INFO): $(INFO).o $(OBJS) $(HEADERS) $(LIBC)
+$(INFO): $(LIBC) $(INFO).o $(OBJS) $(HEADERS)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o udev_lib.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(DAEMON): $(DAEMON).o $(OBJS) udevd.h $(LIBC)
+$(DAEMON): $(LIBC) $(DAEMON).o $(OBJS) udevd.h
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevd.o udev_lib.o $(KLIBC_FIXUP) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(SENDER): $(SENDER).o $(OBJS) udevd.h $(LIBC)
+$(SENDER): $(LIBC) $(SENDER).o $(OBJS) udevd.h
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o udev_lib.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(RULER): $(RULER).o $(OBJS) $(HEADERS) $(LIBC)
+$(RULER): $(LIBC) $(RULER).o $(OBJS) $(HEADERS)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevruler.o udev_lib.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS) -lnewt
 	$(STRIPCMD) $@
 
@@ -298,6 +300,7 @@ clean:
 
 spotless: clean
 	$(MAKE) -C klibc spotless
+	-rm -f klibc/linux
 
 DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v -e CVS -e "\.tar\.gz$" -e "\/\." -e releases -e BitKeeper -e SCCS -e "\.tdb$" -e test/sys | sort )
 DISTDIR := $(RELEASE_NAME)
