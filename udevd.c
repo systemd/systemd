@@ -306,9 +306,10 @@ skip:
 	return;
 }
 
-static void sig_handler(int signum)
+__attribute__((regparm(0))) static void sig_handler(int signum)
 {
 	int rc;
+
 	switch (signum) {
 		case SIGINT:
 		case SIGTERM:
@@ -325,7 +326,7 @@ static void sig_handler(int signum)
 			goto do_write;
 			break;
 		default:
-			dbg("unhandled signal");
+			dbg("unhandled signal %d", signum);
 			return;
 	}
 	

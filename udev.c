@@ -55,7 +55,7 @@ void log_message(int level, const char *format, ...)
 }
 #endif
 
-static void sig_handler(int signum)
+__attribute__((regparm(0))) static void sig_handler(int signum)
 {
 	switch (signum) {
 		case SIGINT:
@@ -63,7 +63,7 @@ static void sig_handler(int signum)
 			udevdb_exit();
 			exit(20 + signum);
 		default:
-			dbg("unhandled signal");
+			dbg("unhandled signal %d", signum);
 	}
 }
 
@@ -128,7 +128,7 @@ static int udev_hotplug(void)
 		goto exit;
 	}
 
-	/* set up a default signal handler for now */
+	/* set signal handlers */
 	act.sa_handler = sig_handler;
 	sigemptyset (&act.sa_mask);
 	act.sa_flags = SA_RESTART;
