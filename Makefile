@@ -251,6 +251,7 @@ ccdv:
 
 # Rules on how to create the generated header files
 udev_version.h:
+	@echo "Creating udev_version.h"
 	@echo \#define UDEV_VERSION		\"$(VERSION)\" > $@
 	@echo \#define UDEV_ROOT		\"$(udevdir)/\" >> $@
 	@echo \#define UDEV_DB			\"$(udevdir)/.udev.tdb\" >> $@
@@ -264,23 +265,23 @@ udev_version.h:
 
 # Rules on how to create the generated config files
 $(LOCAL_CFG_DIR)/udev.conf:
-	@./ccdv sed -e "s:@udevdir@:$(udevdir):" -e "s:@configdir@:$(configdir):" < $(LOCAL_CFG_DIR)/udev.conf.in > $@
+	$(QUIET) sed -e "s:@udevdir@:$(udevdir):" -e "s:@configdir@:$(configdir):" < $(LOCAL_CFG_DIR)/udev.conf.in > $@
 
 GEN_MANPAGES   = udev.8
 GEN_MANPAGESIN = udev.8.in
 # Rules on how to create the man pages
 $(GEN_MANPAGES): $(GEN_MANPAGESIN)
-	@./ccdv sed -e "s:@udevdir@:$(udevdir):" < $@.in > $@
+	$(QUIET) sed -e "s:@udevdir@:$(udevdir):" < $@.in > $@
 
 
 $(OBJS): $(GEN_HEADERS)
 $(ROOT).o: $(GEN_HEADERS) $(HOST_PROGS)
-$(TESTER).o: $(GEN_HEADERS)
-$(INFO).o: $(GEN_HEADERS)
-$(DAEMON).o: $(GEN_HEADERS)
-$(SENDER).o: $(GEN_HEADERS)
-$(STARTER).o: $(GEN_HEADERS)
-$(WAIT).o: $(GEN_HEADERS)
+$(TESTER).o: $(GEN_HEADERS) $(HOST_PROGS)
+$(INFO).o: $(GEN_HEADERS) $(HOST_PROGS)
+$(DAEMON).o: $(GEN_HEADERS) $(HOST_PROGS)
+$(SENDER).o: $(GEN_HEADERS) $(HOST_PROGS)
+$(STARTER).o: $(GEN_HEADERS) $(HOST_PROGS)
+$(WAIT).o: $(GEN_HEADERS) $(HOST_PROGS)
 
 $(ROOT): $(LIBC) $(ROOT).o $(STARTER).o $(OBJS) $(HEADERS) $(GEN_MANPAGES)
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o udevstart.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
@@ -320,7 +321,7 @@ clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
 	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) $(SENDER) $(TESTER) $(RULER) $(WAIT)
-	- rm -f ccdv
+	-rm -f ccdv
 	$(MAKE) -C klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
