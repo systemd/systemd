@@ -1,3 +1,27 @@
+Summary of changes from v048 to v049
+============================================
+
+Greg Kroah-Hartman:
+  o fix 'make clean' error in klibc
+
+Kay Sievers:
+  o update klibc to 0.194
+  o export DEVNAME regardless of the state of udev_dev_d
+  o add class specific files for class/spi_transport and class/spi_host
+  o udevd-test.pl: remove wrong date calculation
+  o check earlier if we should run as udevstart
+  o remove double initialization
+  o include missing header to udevtest.c
+  o add -V option to udev to print the version number
+  o prevent udev node creatinon for "class" registration
+  o udevd: serialization of the event sequence of a chain of devices
+  o add a class/fc_host file to the list of what to wait for
+  o udev_volume_id: links sysfs.a instead of all objects
+
+Martin Schlemmer:
+  o remove leftover from udevinfo's -d option
+
+
 Summary of changes from v047 to v048
 ============================================
 
