@@ -40,6 +40,7 @@ void udev_set_values(struct udevice *udev, const char* devpath,
 		     const char *subsystem, const char* action)
 {
 	memset(udev, 0x00, sizeof(struct udevice));
+
 	if (devpath)
 		strfieldcpy(udev->devpath, devpath);
 	if (subsystem)
@@ -49,17 +50,13 @@ void udev_set_values(struct udevice *udev, const char* devpath,
 
 	if (strcmp(udev->subsystem, "block") == 0)
 		udev->type = 'b';
-
-	if (strcmp(udev->subsystem, "net") == 0)
+	else if (strcmp(udev->subsystem, "net") == 0)
 		udev->type = 'n';
-
-	if (strncmp(udev->devpath, "/block/", 7) == 0)
+	else if (strncmp(udev->devpath, "/block/", 7) == 0)
 		udev->type = 'b';
-
-	if (strncmp(udev->devpath, "/class/net/", 11) == 0)
+	else if (strncmp(udev->devpath, "/class/net/", 11) == 0)
 		udev->type = 'n';
-
-	if (strncmp(udev->devpath, "/class/", 7) == 0)
+	else if (strncmp(udev->devpath, "/class/", 7) == 0)
 		udev->type = 'c';
 }
 
