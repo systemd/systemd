@@ -128,14 +128,6 @@ int main(int argc, char *argv[], char *envp[])
 	/* trigger timeout to prevent hanging processes */
 	alarm(ALARM_TIMEOUT);
 
-	action = getenv("ACTION");
-	devpath = getenv("DEVPATH");
-	subsystem = getenv("SUBSYSTEM");
-	/* older kernels passed the SUBSYSTEM only as argument */
-	if (!subsystem && argc == 2)
-		subsystem = argv[1];
-	udev_init_device(&udev, devpath, subsystem);
-
 	if (strstr(argv[0], "udevstart") || (argc == 2 && strstr(argv[1], "udevstart"))) {
 		dbg("udevstart");
 
@@ -146,6 +138,14 @@ int main(int argc, char *argv[], char *envp[])
 		retval = udev_start();
 		goto exit;
 	}
+
+	action = getenv("ACTION");
+	devpath = getenv("DEVPATH");
+	subsystem = getenv("SUBSYSTEM");
+	/* older kernels passed the SUBSYSTEM only as argument */
+	if (!subsystem && argc == 2)
+		subsystem = argv[1];
+	udev_init_device(&udev, devpath, subsystem);
 
 	if (!action) {
 		dbg("no action");
