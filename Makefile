@@ -29,6 +29,7 @@ ROOT =		udev
 VERSION =	011_bk
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
+LOCAL_CFG_DIR =	etc/udev
 
 DESTDIR =
 # override this to make udev look in a different location for it's config files
@@ -206,11 +207,11 @@ udev_version.h:
 	@echo \#define UDEV_PERMISSION_FILE	\"$(configdir)\udev.permissions\" >> $@
 
 # config files automatically generated
-GEN_CONFIGS =	udev.conf
+GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
 
 # Rules on how to create the generated config files
-udev.conf:
-	sed -e "s:@udevdir@:$(udevdir):" < udev.conf.in > $@
+$(LOCAL_CFG_DIR)/udev.conf:
+	sed -e "s:@udevdir@:$(udevdir):" < $(LOCAL_CFG_DIR)/udev.conf.in > $@
 
 
 $(OBJS): $(GEN_HEADERS)
@@ -278,16 +279,16 @@ endif
 install-config: $(GEN_CONFIGS)
 	$(INSTALL) -d $(DESTDIR)$(configdir)
 	@if [ ! -r $(DESTDIR)$(configdir)udev.conf ]; then \
-		echo $(INSTALL_DATA) udev.conf $(DESTDIR)$(configdir); \
-		$(INSTALL_DATA) udev.conf $(DESTDIR)$(configdir); \
+		echo $(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.conf $(DESTDIR)$(configdir); \
+		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.conf $(DESTDIR)$(configdir); \
 	fi
 	@if [ ! -r $(DESTDIR)$(configdir)udev.rules ]; then \
-		echo $(INSTALL_DATA) udev.rules $(DESTDIR)$(configdir); \
-		$(INSTALL_DATA) udev.rules $(DESTDIR)$(configdir); \
+		echo $(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.rules $(DESTDIR)$(configdir); \
+		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.rules $(DESTDIR)$(configdir); \
 	fi
 	@if [ ! -r $(DESTDIR)$(configdir)udev.permissions ]; then \
-		echo $(INSTALL_DATA) udev.permissions $(DESTDIR)$(configdir); \
-		$(INSTALL_DATA) udev.permissions $(DESTDIR)$(configdir); \
+		echo $(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.permissions $(DESTDIR)$(configdir); \
+		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.permissions $(DESTDIR)$(configdir); \
 	fi
 
 
