@@ -297,6 +297,7 @@ uninstall: uninstall-dbus-policy
 	- rm $(configdir)/udev.permissions
 	- rm $(configdir)/udev.rules
 	- rm $(configdir)/udev.conf
+	- rm $(initdir)/udev
 	- rm $(mandir)/man8/udev.8
 	- rm $(sbindir)/$(ROOT)
 	- rmdir $(hotplugdir)

@@ -23,6 +23,9 @@ make CC="gcc $RPM_OPT_FLAGS"
 %install
 make DESTDIR=$RPM_BUILD_ROOT install
 
+%post
+/sbin/chkconfig --add udev
+
 %clean
 rm -rf $RPM_BUILD_ROOT
 
@@ -40,6 +43,9 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0644,root,root) %{_mandir}/man8/udev.8*
 
 %changelog
+* Tue Dec 16 2003 Robert Love <rml@ximian.com>
+- install the initscript and run chkconfig on it
+
 * Tue Nov 2 2003 Greg Kroah-Hartman <greg@kroah.com>
 - changes due to config file name changes
 
