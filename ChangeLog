@@ -1,3 +1,68 @@
+Summary of changes from v046 to v047
+============================================
+
+<klauser:access.unizh.ch>:
+  o Various typos and other litte errors in udev.8.in
+
+<sjoerd:spring.luon.net>:
+  o DEVNAME on device removal
+
+<sschweizer:gmail.com>:
+  o Allow GROUP to have modifiers in it
+
+Greg Kroah-Hartman:
+  o add more debian rules files
+  o move distro specific config files into their own directories
+  o update debian rules files
+  o added asterix rules to the gentoo file
+  o use udevstart for udev.init.* files
+  o delete a bunch of files no longer needed
+  o fix gentoo scsi cdrom rule
+  o Fix the multithreaded build again
+  o merge
+  o comment out ability to run udev-test.pl with valgrind
+  o fix spurious valgrind warning in udev
+  o fix udevinfo '-q path' option as it was not working
+  o merge
+  o fix parallel build error
+
+Kay Sievers:
+  o update Fedora dev.d/ example and remove unused conf.d/ directory
+  o don't install distribution specific init script on "make install"
+  o restore OWNER/GROUP assignment in rule coming from RESULT
+  o make gcov compile scripts working with recent gcc
+  o fix udev-test/udev-test.pl to work with again
+  o add net/atml and class/ppdev to the wait_for_sysfs exception list
+  o add net/nlv* devices to the exception list
+  o add "pcmcia" and "fc_transport" to the wait_for_sysfs lists
+  o remove unused timestamp field
+  o simplify permission handling
+  o handle /etc/hotplug.d/ only if the event comes from udevd
+  o trivial cleanups and change some comments
+  o remove unused variables
+  o udevsend/udevd handle events without a subsystem
+  o use blacklist on device "remove" and remove dev.d/ call code duplication
+  o update the man pages and correct Usage: hints
+  o don't call the hotplug scripts with a test run
+  o don't call dev.d/ scripts twice, if directory = subsystem
+  o remove archive file if we changed something
+  o link archive insted of objects
+  o rename udev_lib to udev_utils and dev_d to udev_multiplex
+  o handle whole hotplug event with udevd/udev
+  o integrate wait_for_sysfs in udev
+  o make the searched multiplex directories conditionally
+  o add MANAGED_EVENT to the forked udev environment
+  o export DEVNAME on remove event
+  o export udev_log flag to the environment
+  o remove my test code
+  o add support for /devices-devices without any file to wait for
+  o Patch from Alex Riesen <raa.lkml@gmail.com>
+  o add a bunch of busses to the list of what to wait for
+  o close connection to syslog in forked udevd child
+  o udevd exit path cleanup
+  o fix network device naming bug
+
+
 Summary of changes from v045 to v046
 ============================================
 
