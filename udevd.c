@@ -153,9 +153,14 @@ static void udev_run(struct hotplug_msg *msg)
 static struct hotplug_msg *running_with_devpath(struct hotplug_msg *msg)
 {
 	struct hotplug_msg *loop_msg;
-	list_for_each_entry(loop_msg, &running_list, list)
-		if (strncmp(loop_msg->devpath, msg->devpath, sizeof(loop_msg->devpath)) == 0)
+	list_for_each_entry(loop_msg, &running_list, list) {
+		if (loop_msg->devpath == NULL || msg->devpath == NULL)
+			continue;
+
+		if (strcmp(loop_msg->devpath, msg->devpath) == 0)
 			return loop_msg;
+	}
+
 	return NULL;
 }
 
