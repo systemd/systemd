@@ -5,7 +5,7 @@
 # Build configuration for this architecture
 #
 
-OPTFLAGS = -Os -fomit-frame-pointer
+OPTFLAGS = -Os
 BITSIZE  = 64
 
 # Extra linkflags when building the shared version of the library

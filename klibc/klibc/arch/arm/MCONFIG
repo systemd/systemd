@@ -11,7 +11,7 @@ THUMB    = n
 CPU_ARCH := armv4
 CPU_TUNE := strongarm
 
-OPTFLAGS = -Os -fomit-frame-pointer -march=$(CPU_ARCH) -mtune=$(CPU_TUNE)
+OPTFLAGS = -Os -march=$(CPU_ARCH) -mtune=$(CPU_TUNE)
 BITSIZE  = 32
 
 ifeq ($(THUMB),y)

@@ -7,5 +7,5 @@
 # accordingly.
 #
 
-OPTFLAGS = -Os -fomit-frame-pointer
+OPTFLAGS = -Os
 BITSIZE  = 64

@@ -10,7 +10,6 @@ char *strncat(char *dst, const char *src, size_t n)
   char *q = strchr(dst, '\0');
   const char *p = src;
   char ch;
-  size_t nn = q-dst;
 
   while (n--) {
     *q++ = ch = *p++;

@@ -16,7 +16,6 @@ sub make_sysstub($$$$@) {
     print OUT "\t.import __syscall_common, code\n";
     print OUT "\t.global ${fname}\n";
     print OUT "\t.export ${fname}, code\n";
-    print OUT "\t.type   ${fname}, @function\n";
     print OUT "\t.proc\n";
     print OUT "\.callinfo\n";
     print OUT "${fname}:\n";

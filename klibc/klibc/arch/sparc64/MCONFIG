@@ -8,7 +8,7 @@
 #
 
 ARCHREQFLAGS = -m64 -mptr64
-OPTFLAGS     = -Os -fomit-frame-pointer
+OPTFLAGS     = -Os
 BITSIZE      = 64
 
 LDFLAGS      = -m elf64_sparc

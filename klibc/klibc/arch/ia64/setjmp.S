@@ -61,6 +61,7 @@
 //
 	.align 32
 	.global setjmp
+	.proc setjmp
 setjmp:
     //
     //  Make sure buffer is aligned at 16byte boundary
@@ -190,6 +191,7 @@ setjmp:
 	
 	.align 32
 	.global longjmp
+	.proc longjmp
 longjmp:
     //
     //  Make sure buffer is aligned at 16byte boundary

@@ -27,7 +27,7 @@ setjmp:
         stw     %r17,60(%r26)
         stw     %r18,64(%r26)
         stw     %r19,68(%r26)
-        stw     %dp,72(%r26)
+        stw     %r27,72(%r26)
         stw     %r30,76(%r26)
         stw     %rp,80(%r26)
         ldo     88(%r26),%r19

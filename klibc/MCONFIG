@@ -62,5 +62,10 @@ ERRLIST = 1
 #
 include $(KLIBSRC)/arch/$(ARCH)/MCONFIG
 
+ifeq ($(DEBUG),y)
+STRIP     = /bin/true -Since_we_are_debugging
+OPTFLAGS += -O1 -g
+endif
+
 # How to tell the linker main() is the entrypoint
 EMAIN ?= -e main

@@ -8,7 +8,7 @@
 #
 
 ARCHREQFLAGS = -fno-pic -mno-abicalls -G 0
-OPTFLAGS     = -Os -fomit-frame-pointer
+OPTFLAGS     = -Os
 BITSIZE      = 32
 
 # Extra linkflags when building the shared version of the library
