@@ -93,6 +93,16 @@ KERNEL="ttyUSB*", NAME="visor/%n"
 EOF
 	},
 	{
+		desc     => "catch device by * - take 2",
+		subsys   => "tty",
+		devpath  => "class/tty/ttyUSB0",
+		expected => "visor/0" ,
+		conf     => <<EOF
+KERNEL="*USB1", NAME="bad"
+KERNEL="*USB0", NAME="visor/%n"
+EOF
+	},
+	{
 		desc     => "catch device by ?",
 		subsys   => "tty",
 		devpath  => "class/tty/ttyUSB0",
@@ -360,25 +370,12 @@ sub udev {
 	system("$udev_bin $subsys");
 }
 
-
-# prepare
-system("rm -rf $udev_root");
-mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
-
-# test
 my $error = 0;
-print "\nudev-test will run ".($#tests + 1)." tests:\n\n";
 
-# create initial config file
-open CONF, ">$main_conf" || die "unable to create config file: $main_conf";
-print CONF "udev_root=\"$udev_root\"\n";
-print CONF "udev_db=\"$udev_db\"\n";
-print CONF "udev_rules=\"$conf_tmp\"\n";
-print CONF "udev_permissions=\"$perm\"\n";
-close CONF;
-
-foreach my $config (@tests) {
-	print "TEST: $config->{desc}\n";
+sub run_test {
+	my ($config, $number) = @_;
+	
+	print "TEST $number: $config->{desc}\n";
 	print "device \'$config->{devpath}\' expecting node \'$config->{expected}\'\n";
 
 	udev("add", $config->{subsys}, $config->{devpath}, \$config->{conf});
@@ -399,6 +396,37 @@ foreach my $config (@tests) {
 		$error++;
 	} else {
 		print "remove: ok\n\n";
+	}
+}
+
+# prepare
+system("rm -rf $udev_root");
+mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
+
+# create initial config file
+open CONF, ">$main_conf" || die "unable to create config file: $main_conf";
+print CONF "udev_root=\"$udev_root\"\n";
+print CONF "udev_db=\"$udev_db\"\n";
+print CONF "udev_rules=\"$conf_tmp\"\n";
+print CONF "udev_permissions=\"$perm\"\n";
+close CONF;
+
+my $test_num = 1;
+
+if ($ARGV[0]) {
+	# only run one test
+	$test_num = $ARGV[0];
+	print "udev-test will run test number $test_num only\n";
+
+	run_test($tests[$test_num], $test_num);
+} else {
+	# test all
+	print "\nudev-test will run ".($#tests + 1)." tests:\n\n";
+
+	foreach my $config (@tests) {
+		run_test($config, $test_num);
+		$test_num++;
+
 	}
 }
 
