@@ -283,15 +283,13 @@ DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v -e CVS -e "\.ta
 DISTDIR := $(RELEASE_NAME)
 srcdir = .
 release: clean
-	@echo "--------------------------cut here------------------------"
-	@echo "cd .."
-	@echo "rm -rf $(DISTDIR)"
-	@echo "mkdir $(DISTDIR)"
-	@echo "chmod 777 $(DISTDIR)"
-	@echo "cp -avr udev/* $(DISTDIR)"
-	@echo "tar -c $(DISTDIR) | gzip -9 > $(RELEASE_NAME).tar.gz"
-	@echo "rm -rf $(DISTDIR)"
-	@echo "--------------------------cut here------------------------"
+	-rm -rf $(DISTDIR)
+	mkdir $(DISTDIR)
+	chmod 777 $(DISTDIR)
+	bk export $(DISTDIR)
+	tar -c $(DISTDIR) | gzip -9 > $(RELEASE_NAME).tar.gz
+	rm -rf $(DISTDIR)
+	@echo "$(RELEASE_NAME).tar.gz created"
 
 
 small_release: $(DISTFILES) clean
