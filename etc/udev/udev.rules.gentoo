@@ -140,3 +140,10 @@ KERNEL="radio[0-9]*",	NAME="v4l/radio%n"
 KERNEL="vbi[0-9]*",	NAME="v4l/vbi%n",	SYMLINK="vbi%n"
 KERNEL="vtx[0-9]*",	NAME="v4l/vtx%n"
 
+# Asterix Zaptel devices
+KERNEL="zapctl",	NAME="zap/ctl"
+KERNEL="zaptimer",	NAME="zap/timer"
+KERNEL="zapchannel",	NAME="zap/channel"
+KERNEL="zappseudo",	NAME="zap/pseudo"
+KERNEL="zap[0-9]*",	NAME="zap/%n"
+
