@@ -8,7 +8,7 @@ export SYSFS_PATH=$PWD/sys/
 export UDEV_CONFIG_FILE=$PWD/$CONFIG
 
 cat > $RULES << EOF
-TOPOLOGY, BUS="scsi", place="0:0:0:0", NAME="first_disk%n"
+BUS="scsi", place="0:0:0:0", NAME="first_disk%n"
 EOF
 
 cat > $CONFIG << EOF
