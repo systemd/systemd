@@ -84,8 +84,8 @@ int udev_init_device(struct udevice *udev, const char* devpath, const char *subs
 	}
 
 	udev->mode = 0660;
-	strcpy(udev->owner, "root");
-	strcpy(udev->group, "root");
+	strcpy(udev->owner, "0");
+	strcpy(udev->group, "0");
 
 	return 0;
 }
