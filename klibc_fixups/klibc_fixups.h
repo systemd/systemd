@@ -3,6 +3,7 @@
 #ifndef _KLIBC_FIXUPS_H
 #define _KLIBC_FIXUPS_H
 
+#define _KLIBC_HAS_ARCH_SIG_ATOMIC_T
 #include <unistd.h>
 
 #define _SC_PAGESIZE		0x66
