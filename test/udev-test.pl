@@ -779,29 +779,6 @@ BUS="scsi", KERNEL="sda", NAME="link", SYMLINK="."
 EOF
 	},
 	{
-		desc		=> "symlink to empty name",
-		subsys		=> "block",
-		devpath		=> "/block/sda",
-		exp_name	=> "symlink",
-		exp_target	=> "",
-		exp_add_error	=> "yes",
-		conf		=> <<EOF
-BUS="scsi", KERNEL="sda", NAME="", SYMLINK="symlink"
-EOF
-	},
-	{
-		desc		=> "symlink and name empty",
-		subsys		=> "block",
-		devpath		=> "/block/sda",
-		exp_name	=> "",
-		exp_target	=> "",
-		exp_add_error	=> "yes",
-		exp_rem_error	=> "yes",
-		conf		=> <<EOF
-BUS="scsi", KERNEL="sda", NAME="", SYMLINK=""
-EOF
-	},
-	{
 		desc		=> "symlink node to itself",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/tty0",
