@@ -20,7 +20,7 @@
 # * Authors: Atul Sabharwal
 # *          
 # *
-CFLAGS = -g 
+
 TARGET = chassis_id
 
 exec_prefix =   ${prefix}
@@ -28,14 +28,24 @@ sbindir =       ${exec_prefix}/sbin
 INSTALL = /usr/bin/install -c
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA  = ${INSTALL} -m 644
-all:	chassis_id  
+all:	chassis_id
 
+ifneq ($(strip $(USE_KLIBC)),true)
 chassis_id:	chassis_id.c table.c
-	gcc -o $(TARGET) $(CFLAGS) chassis_id.c table.c
-
-clean:	
-	rm -rf core a.out $(TARGET)
+	$(QUIET) $(CC) -o $(TARGET) $(CFLAGS) chassis_id.c table.c
 
 install: all
 	$(INSTALL_PROGRAM) $(TARGET) $(DESTDIR)$(sbindir)/$(TARGET)
- 
+else
+chassis_id:
+	@echo
+	@echo "!!! chassis_id is incompatible with klibc !!!"
+	@echo
+	@exit 0
+
+install: all
+endif
+
+clean:
+	rm -rf core a.out $(TARGET)
+

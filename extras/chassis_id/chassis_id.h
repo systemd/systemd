@@ -18,7 +18,7 @@
  * Boston, MA 021110-1307, USA.
  *
  * Authors: Atul Sabharwal
- *          
+ *
  */
 
 #ifndef _CHASSIS_ID_H
@@ -35,6 +35,8 @@
 #define ERROR_BAD_SCAN		8
 #define NO_ERROR		0
 
-extern int table_init();
+extern int table_init(void);
+extern int table_find_disk(const char *serialnumber , int *chassis_num, int *slot_num);
+extern int table_select_disk(int diskindex);
 
 #endif

@@ -18,10 +18,13 @@
  * Boston, MA 021110-1307, USA.
  *
  * Authors: Atul Sabharwal
- *          
+ *
  */
 
 #include <stdio.h>
+#include <string.h>
+
+#include "chassis_id.h"
 
 #define TABLE_SIZE 100
 #define PROVISION_DB  "/usr/local/bin/provision.tbl"
@@ -40,7 +43,7 @@ int ptable_size;
 
 /* Initialize the provisioning table by reading the data from special file provision.tbl *
    Return error if something does not work appropriately.                                */
-int table_init()
+int table_init(void)
 {
 	FILE *fp;
 	char ptr[255];
@@ -70,7 +73,7 @@ int table_init()
 
 
 /* return -1 when no disk found. Otherwise return index of disk */
-int table_find_disk( char * serialnumber , int * host_num, int * chassis_num, int *slot_num)
+int table_find_disk(const char *serialnumber , int *chassis_num, int *slot_num)
 {
 	int i;
 
@@ -92,10 +95,12 @@ int table_find_disk( char * serialnumber , int * host_num, int * chassis_num, in
  * so that it can create descriptive GDN for it. So, for that we need to output
  * this data to stdout.
  */
-int table_select_disk( int diskindex )
+int table_select_disk(int diskindex)
 {
 	printf("%d ", ptable[diskindex].chassis_num);
 	printf("%d ", ptable[diskindex].slot_num);
 	printf("%s ", ptable[diskindex].name);
+
+	return 0;
 }
 

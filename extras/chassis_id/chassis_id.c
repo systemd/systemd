@@ -18,7 +18,7 @@
  * Boston, MA 021110-1307, USA.
  *
  * Authors: Atul Sabharwal
- *          
+ *
  */
 
 #include <stdio.h>
@@ -29,7 +29,33 @@
 
 //#define DEBUG              1
 
-int main(int argc, char **argv, char ** envp)
+/* Run SCSI id to find serial number of the device */
+static int getserial_number(char * devpath, char * snumber)
+{
+	FILE *fp;
+	char vendor[255], model[255], cmd[255];
+	int retval;
+
+	sprintf(cmd, "/sbin/scsi_id -s %s -p 0x80", devpath);
+
+	fp = popen(cmd, "r");
+
+	if (fp == NULL)
+		return -ERROR_BAD_SNUMBER;
+
+	fscanf(fp, "%s %s %s", vendor, model, snumber);
+	#ifdef DEBUG
+	syslog(LOG_PID| LOG_DAEMON| LOG_ERR, "\n%s", snumber );
+	#endif
+
+	retval = pclose(fp);
+	if (retval == -1)
+		return -ERROR_BAD_SNUMBER;
+	else
+		return NO_ERROR;
+}
+
+int main(int argc, char **argv, char **envp)
 {
 	int chassis_num, slot_num, retval;
 	char disk_snum[255], devpath[255];
@@ -63,31 +89,3 @@ int main(int argc, char **argv, char ** envp)
 	}
 	return 0;
 }
-
-
-/* Run SCSI id to find serial number of the device */
-int getserial_number( char * devpath, char * snumber )
-{
-	FILE *fp;
-	char vendor[255], model[255], cmd[255];
-	int retval;
-
-	sprintf(cmd, "/sbin/scsi_id -s %s -p 0x80", devpath);
-
-	fp = popen(cmd, "r");
-
-	if (fp == NULL)
-		return -ERROR_BAD_SNUMBER;
-
-	fscanf(fp, "%s %s %s", vendor, model, snumber);
-	#ifdef DEBUG
-	syslog(LOG_PID| LOG_DAEMON| LOG_ERR, "\n%s", snumber );
-	#endif
-
-	retval = pclose(fp);
-	if (retval == -1)
-		return -ERROR_BAD_SNUMBER;
-	else
-		return NO_ERROR;
-}
-
