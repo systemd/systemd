@@ -1,7 +1,11 @@
 # name:user:group:mode
 
-# character devices
+# CHARACTER DEVICES
 
+# tty devices
+tty:root:tty:0660
+console:root:tty:0600
+ptmx:root:tty:0666
 ttyACM*:root:dialout:0660
 ttyUSB*:root:dialout:0660
 ttyI*:root:dialout:0660
@@ -27,6 +31,20 @@ isdnctrl*:root:dialout:0660
 capi*:root:dialout:0660
 dcbri*:root:dialout:0660
 ircomm*:root:dialout:0660
+
+# Memory devices
+random:root:root:0666
+urandom:root:root:0444
+mem:root:kmem:0640
+kmem:root:kmem:0640
+port:root:kmem:0640             
+full:root:root:0666
+null:root:root:0666     
+zero:root:root:0666
+
+# Misc devices
+nvram:root:root:0660    
+rtc:root:root:0660
 
 admmidi*:root:audio:660
 adsp*:root:audio:660
@@ -55,7 +73,7 @@ input/*:root:root:644
 
 dri/card*:root:root:666
 
-fb/*:root:video:0620
+fb*:root:video:0620
 agpgart:root:video:0660
 video*:root:video:0660
 radio*:root:video:0660
@@ -63,7 +81,8 @@ vbi*:root:video:0660
 vtx*:root:video:0660
 mol:root:root:0600
 
-# block devices
+
+# BLOCK DEVICES
 
 floppy*:root:floppy:660
 floppy/*:root:floppy:660
