@@ -99,49 +99,70 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 /* skip waiting for physical device */
 static int class_device_expect_no_device_link(struct sysfs_class_device *class_dev)
 {
-	static char *devices_without_link[] = {
-		"nb",
-		"ram",
-		"loop",
-		"fd",
-		"md",
-		"dos_cd",
-		"double",
-		"flash",
-		"msd",
-		"rflash",
-		"rom",
-		"rrom",
-		"sbpcd",
-		"pcd",
-		"pf",
-		"scd",
-		"sit",
-		"lp",
-		"ubd",
-		"vcs",
-		"vcsa",
-		"console",
-		"tty",
-		"ttyS",
-		NULL
+	/* List of devices without a "device" symlink */
+	static struct class_device {
+		char *subsystem;
+		char *device;
+	} class_device[] = {
+		{ .subsystem = "block",		.device = "double" },
+		{ .subsystem = "block",		.device = "nb" },
+		{ .subsystem = "block",		.device = "ram" },
+		{ .subsystem = "block",		.device = "loop" },
+		{ .subsystem = "block",		.device = "fd" },
+		{ .subsystem = "block",		.device = "md" },
+		{ .subsystem = "block",		.device = "dos_cd" },
+		{ .subsystem = "block",		.device = "rflash" },
+		{ .subsystem = "block",		.device = "rom" },
+		{ .subsystem = "block",		.device = "rrom" },
+		{ .subsystem = "block",		.device = "flash" },
+		{ .subsystem = "block",		.device = "msd" },
+		{ .subsystem = "block",		.device = "sbpcd" },
+		{ .subsystem = "block",		.device = "pcd" },
+		{ .subsystem = "block",		.device = "pf" },
+		{ .subsystem = "block",		.device = "scd" },
+		{ .subsystem = "block",		.device = "ubd" },
+		{ .subsystem = "input",		.device = "event" },
+		{ .subsystem = "input",		.device = "mice" },
+		{ .subsystem = "input",		.device = "mouse" },
+		{ .subsystem = "input",		.device = "ts" },
+		{ .subsystem = "vc",		.device = "vcs" },
+		{ .subsystem = "vc",		.device = "vcsa" },
+		{ .subsystem = "tty",		.device = NULL },
+		{ .subsystem = "cpuid",		.device = "cpu" },
+		{ .subsystem = "graphics",	.device = "fb" },
+		{ .subsystem = "mem",		.device = NULL },
+		{ .subsystem = "misc",		.device = NULL },
+		{ .subsystem = "msr",		.device = NULL },
+		{ .subsystem = "netlink",	.device = NULL },
+		{ .subsystem = "sound",		.device = NULL },
+		{ .subsystem = "snd",		.device = NULL },
+		{ .subsystem = "printer",	.device = "lp" },
+		{ NULL, NULL }
 	};
-	char **device;
+	struct class_device *classdevice;
+	int len;
 
-	for (device = devices_without_link; *device != NULL; device++) {
-		int len = strlen(*device);
+	/* look if we want to look for another file instead of "dev" */
+	for (classdevice = class_device; classdevice->subsystem != NULL; classdevice++) {
+		if (strcmp(class_dev->classname, classdevice->subsystem) == 0) {
+			/* if device is NULL, all devices in this class are ok */
+			if (classdevice->device == NULL)
+				return 1;
 
-		/* look if name matches */
-		if (strncmp(class_dev->name, *device, len) != 0)
-			continue;
+			len = strlen(classdevice->device);
 
-		/* exact match */
-		if (strlen(class_dev->name) == len)
-			return 1;
+			/* see if device name matches */
+			if (strncmp(class_dev->name, classdevice->device, len) != 0)
+				continue;
 
-		/* instance numbers are matching too */
-		if (isdigit(class_dev->name[len]))
-			return 1;
+			/* exact match */
+			if (strlen(class_dev->name) == len)
+				return 1;
+
+			/* instance numbers are matching too */
+			if (isdigit(class_dev->name[len]))
+				return 1;
+		}
 	}
 
 	return 0;
