@@ -292,7 +292,7 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 	}
 
 	if (namedev_name_device(udev, class_dev) != 0)
-		goto exit;
+		return 0;
 
 	dbg("adding name='%s'", udev->name);
 
