@@ -132,6 +132,12 @@ int main(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 
+	/* prevent loops in the scripts we execute */
+	if (getenv("MANAGED_EVENT") != NULL) {
+		dbg("seems that the event source is not the kernel, just exit");
+		goto exit;
+	}
+
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (sock == -1) {
 		dbg("error getting socket");

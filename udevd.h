@@ -36,7 +36,7 @@
 
 struct udevsend_msg {
 	char magic[20];
-	char envbuf[HOTPLUG_BUFFER_SIZE];
+	char envbuf[HOTPLUG_BUFFER_SIZE+256];
 };
 
 struct hotplug_msg {
@@ -47,6 +47,6 @@ struct hotplug_msg {
 	char *devpath;
 	char *subsystem;
 	unsigned long long seqnum;
-	char *envp[HOTPLUG_NUM_ENVP];
+	char *envp[HOTPLUG_NUM_ENVP+1];
 	char envbuf[];
 };

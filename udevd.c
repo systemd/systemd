@@ -291,7 +291,7 @@ static void handle_udevsend_msg(int sock)
 	/* copy environment buffer and reconstruct envp */
 	memcpy(msg->envbuf, usend_msg.envbuf, envbuf_size);
 	bufpos = 0;
-	for (i = 0; (bufpos < envbuf_size) && (i < HOTPLUG_NUM_ENVP-1); i++) {
+	for (i = 0; (bufpos < envbuf_size) && (i < HOTPLUG_NUM_ENVP-2); i++) {
 		int keylen;
 		char *key;
 
@@ -314,6 +314,7 @@ static void handle_udevsend_msg(int sock)
 		if (strncmp(key, "SEQNUM=", 7) == 0)
 			msg->seqnum = strtoull(&key[7], NULL, 10);
 	}
+	msg->envp[i++] = "MANAGED_EVENT=1";
 	msg->envp[i] = NULL;
 
 	/* if no seqnum is given, we move straight to exec queue */
