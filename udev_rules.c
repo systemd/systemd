@@ -498,30 +498,6 @@ static int compare_sysfs_attribute(struct sysfs_class_device *class_dev, struct 
 	return 0;
 }
 
-static int match_sysfs_pairs(struct udev_rule *rule, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
-{
-	int i;
-
-	for (i = 0; i < rule->sysfs_pair_count; i++) {
-		struct key_pair *pair;
-
-		pair = &rule->sysfs_pair[i];
-		if ((pair->name[0] == '\0') || (pair->value[0] == '\0'))
-			break;
-		if (compare_sysfs_attribute(class_dev, sysfs_device, pair) != 0) {
-			dbg("sysfs pair #%u does not match", i);
-			if (pair->operation != KEY_OP_NOMATCH)
-				return -1;
-		} else {
-			dbg("sysfs pair #%u matches", i);
-			if (pair->operation == KEY_OP_NOMATCH)
-				return -1;
-		}
-	}
-
-	return 0;
-}
-
 static int match_id(struct udev_rule *rule, struct sysfs_device *sysfs_device)
 {
 	char path[PATH_SIZE];
@@ -568,6 +544,33 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 				goto exit;
 		}
 		dbg(KEY_SUBSYSTEM " key is true");
+	}
+
+	if (rule->env_pair_count) {
+		int i;
+
+		dbg("check for " KEY_ENV " pairs");
+		for (i = 0; i < rule->env_pair_count; i++) {
+			struct key_pair *pair;
+			const char *value;
+
+			pair = &rule->env_pair[i];
+			value = getenv(pair->name);
+			if (!value) {
+				dbg(KEY_ENV "{'%s'} is not found", pair->name);
+				goto exit;
+			}
+			if (strcmp_pattern(pair->value, value) != 0) {
+				dbg(KEY_ENV "{'%s'} is not matching", pair->name);
+				if (pair->operation != KEY_OP_NOMATCH)
+					goto exit;
+			} else {
+				dbg(KEY_ENV "{'%s'} matches", pair->name);
+				if (pair->operation == KEY_OP_NOMATCH)
+					goto exit;
+			}
+		}
+		dbg(KEY_ENV " key is true");
 	}
 
 	/* walk up the chain of physical devices and find a match */
@@ -632,11 +635,23 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		}
 
 		/* check for matching sysfs pairs */
-		if (rule->sysfs_pair[0].name[0] != '\0') {
+		if (rule->sysfs_pair_count) {
+			int i;
+
 			dbg("check " KEY_SYSFS " pairs");
-			if (match_sysfs_pairs(rule, class_dev, sysfs_device) != 0) {
-				dbg(KEY_SYSFS " is not matching");
-				goto try_parent;
+			for (i = 0; i < rule->sysfs_pair_count; i++) {
+				struct key_pair *pair;
+
+				pair = &rule->sysfs_pair[i];
+				if (compare_sysfs_attribute(class_dev, sysfs_device, pair) != 0) {
+					dbg(KEY_SYSFS "{'%s'} is not matching", pair->name);
+					if (pair->operation != KEY_OP_NOMATCH)
+						goto try_parent;
+				} else {
+					dbg(KEY_SYSFS "{'%s'} matches", pair->name);
+					if (pair->operation == KEY_OP_NOMATCH)
+						goto try_parent;
+				}
 			}
 			dbg(KEY_SYSFS " keys are true");
 		}

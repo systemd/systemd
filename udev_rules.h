@@ -31,11 +31,12 @@
 #define KEY_KERNEL		"KERNEL"
 #define KEY_SUBSYSTEM		"SUBSYSTEM"
 #define KEY_BUS			"BUS"
-#define KEY_SYSFS		"SYSFS"
 #define KEY_ID			"ID"
 #define KEY_PROGRAM		"PROGRAM"
 #define KEY_RESULT		"RESULT"
 #define KEY_DRIVER		"DRIVER"
+#define KEY_SYSFS		"SYSFS"
+#define KEY_ENV			"ENV"
 #define KEY_NAME		"NAME"
 #define KEY_SYMLINK		"SYMLINK"
 #define KEY_OWNER		"OWNER"
@@ -49,6 +50,7 @@
 #define OPTION_PARTITIONS	"all_partitions"
 
 #define KEY_SYSFS_PAIRS_MAX	5
+#define KEY_ENV_PAIRS_MAX	5
 
 #define RULEFILE_SUFFIX		".rules"
 
@@ -85,6 +87,8 @@ struct udev_rule {
 	enum key_operation result_operation;
 	struct key_pair sysfs_pair[KEY_SYSFS_PAIRS_MAX];
 	int sysfs_pair_count;
+	struct key_pair env_pair[KEY_ENV_PAIRS_MAX];
+	int env_pair_count;
 
 	char name[PATH_SIZE];
 	char symlink[PATH_SIZE];

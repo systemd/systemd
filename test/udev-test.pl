@@ -259,15 +259,6 @@ BUS=="scsi", ID=="0:0:0:0", NAME="M%M-m%m-n%n-b%3b-s%3s{vendor}"
 EOF
 	},
 	{
-		desc		=> "old style SYSFS_ attribute",
-		subsys		=> "block",
-		devpath		=> "/block/sda",
-		exp_name	=> "good" ,
-		conf		=> <<EOF
-BUS=="scsi", SYSFS_vendor=="IBM-ESXS", NAME="good"
-EOF
-	},
-	{
 		desc		=> "sustitution of sysfs value (%s{file})",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
@@ -1169,6 +1160,29 @@ EOF
 		conf		=> <<EOF
 KERNEL   ==   "sda1"     ,    NAME   =    "true"
 BUS=="scsi", KERNEL=="sda1", NAME="wrong"
+EOF
+	},
+	{
+		desc		=> "ENV{} test",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "true",
+		conf		=> <<EOF
+BUS=="scsi", KERNEL=="sda1", ENV{UDEV_TEST}=="go", NAME="wrong"
+BUS=="scsi", KERNEL=="sda1", ENV{UDEV_TEST}=="yes", NAME="true"
+BUS=="scsi", KERNEL=="sda1", ENV{UDEV_TEST}=="bad", NAME="bad"
+EOF
+	},
+	{
+		desc		=> "ENV{} test",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "true",
+		conf		=> <<EOF
+BUS=="scsi", KERNEL=="sda1", ENV{UDEV_TEST}=="go", NAME="wrong"
+BUS=="scsi", KERNEL=="sda1", ENV{UDEV_TEST}=="yes", ENV{ACTION}=="add", ENV{DEVPATH}=="/block/sda/sdax1", NAME="no"
+BUS=="scsi", KERNEL=="sda1", ENV{UDEV_TEST}=="yes", ENV{ACTION}=="add", ENV{DEVPATH}=="/block/sda/sda1", NAME="true"
+BUS=="scsi", KERNEL=="sda1", ENV{UDEV_TEST}=="bad", NAME="bad"
 EOF
 	},
 );

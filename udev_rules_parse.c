@@ -278,16 +278,36 @@ static int rules_parse(struct udevice *udev, const char *filename)
 					goto error;
 				}
 				pair = &rule.sysfs_pair[rule.sysfs_pair_count];
-				rule.sysfs_pair_count++;
-
 				attr = get_key_attribute(key + sizeof(KEY_SYSFS)-1);
 				if (attr == NULL) {
 					dbg("error parsing " KEY_SYSFS " attribute");
+					goto error;
+				}
+				strlcpy(pair->name, attr, sizeof(pair->name));
+				strlcpy(pair->value, value, sizeof(pair->value));
+				pair->operation = operation;
+				rule.sysfs_pair_count++;
+				valid = 1;
+				continue;
+			}
+
+			if (strncasecmp(key, KEY_ENV, sizeof(KEY_ENV)-1) == 0) {
+				struct key_pair *pair;
+
+				if (rule.env_pair_count >= KEY_ENV_PAIRS_MAX) {
+					dbg("skip rule, to many " KEY_ENV " keys in a single rule");
+					goto error;
+				}
+				pair = &rule.env_pair[rule.env_pair_count];
+				attr = get_key_attribute(key + sizeof(KEY_ENV)-1);
+				if (attr == NULL) {
+					dbg("error parsing " KEY_ENV " attribute");
 					continue;
 				}
 				strlcpy(pair->name, attr, sizeof(pair->name));
 				strlcpy(pair->value, value, sizeof(pair->value));
 				pair->operation = operation;
+				rule.env_pair_count++;
 				valid = 1;
 				continue;
 			}

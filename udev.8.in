@@ -115,12 +115,16 @@ Match the kernel driver name.
 Match the device number on the bus, like PCI bus id.
 .TP
 .BI SYSFS{ filename }
-Match sysfs device attribute like label, vendor, USB serial number, SCSI UUID
-or file system label. Up to 5 different sysfs files can be checked, with
-all of the values being required to match the rule.
+Match sysfs device attribute like vendor and product id's, USB serial number
+or the SCSI disk model number. Up to 5 different sysfs files can be checked,
+with all of the values being required to match the rule.
 .br
 Trailing whitespace characters in the sysfs attribute value are ignored, if
 the key doesn't have any trailing whitespace characters by itself.
+.TP
+.BI ENV{ variable }
+Match an environment variable. Up to 5 different environment variables can be
+checked, with all of the values being required to match the rule.
 .TP
 .B PROGRAM
 Call external program. This key is valid if the program returns successful.
