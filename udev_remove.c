@@ -150,7 +150,7 @@ int udev_remove_device(struct udevice *udev)
 	if (udev->type != BLOCK && udev->type != CLASS)
 		return 0;
 
-	retval = udev_db_get_device(udev);
+	retval = udev_db_get_device_by_devpath(udev, udev->devpath);
 	if (retval) {
 		/* fall back to kernel name */
 		temp = strrchr(udev->devpath, '/');

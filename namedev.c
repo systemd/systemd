@@ -299,6 +299,8 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			}
 			break;
 		case 'P':
+			if (!class_dev)
+				break;
 			class_dev_parent = sysfs_get_classdev_parent(class_dev);
 			if (class_dev_parent != NULL) {
 				struct udevice udev_parent;
@@ -306,8 +308,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 				dbg("found parent '%s', get the node name", class_dev_parent->path);
 				memset(&udev_parent, 0x00, sizeof(struct udevice));
 				/* lookup the name in the udev_db with the DEVPATH of the parent */
-				strfieldcpy(udev_parent.devpath, &class_dev_parent->path[strlen(sysfs_path)]);
-				if (udev_db_get_device(&udev_parent) == 0) {
+				if (udev_db_get_device_by_devpath(&udev_parent, &class_dev_parent->path[strlen(sysfs_path)]) == 0) {
 					strfieldcatmax(string, udev_parent.name, maxsize);
 					dbg("substitute parent node name'%s'", udev_parent.name);
 				} else

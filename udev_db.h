@@ -26,9 +26,9 @@
 
 
 extern int udev_db_add_device(struct udevice *dev);
-extern int udev_db_get_device(struct udevice *dev);
 extern int udev_db_delete_device(struct udevice *dev);
 
+extern int udev_db_get_device_by_devpath(struct udevice *dev, const char *devpath);
 extern int udev_db_get_device_byname(struct udevice *udev, const char *name);
 
 #endif /* _UDEV_DB_H_ */

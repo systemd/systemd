@@ -4,7 +4,7 @@
  * Userspace devfs
  *
  * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
- * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2004-2005 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -39,19 +39,19 @@
 
 #define PATH_TO_NAME_CHAR		'@'
 
-static int get_db_filename(struct udevice *udev, char *filename, int len)
+static int get_db_filename(const char *devpath, char *filename, int len)
 {
-	char devpath[SYSFS_PATH_MAX];
+	char temp[SYSFS_PATH_MAX];
 	char *pos;
 
 	/* replace '/' to transform path into a filename */
-	strfieldcpy(devpath, udev->devpath);
-	pos = strchr(&devpath[1], '/');
+	strfieldcpy(temp, devpath);
+	pos = strchr(&temp[1], '/');
 	while (pos) {
 		pos[0] = PATH_TO_NAME_CHAR;
 		pos = strchr(&pos[1], '/');
 	}
-	snprintf(filename, len, "%s%s", udev_db_path, devpath);
+	snprintf(filename, len, "%s%s", udev_db_path, temp);
 	filename[len-1] = '\0';
 
 	return 0;
@@ -65,7 +65,7 @@ int udev_db_add_device(struct udevice *udev)
 	if (udev->test_run)
 		return 0;
 
-	get_db_filename(udev, filename, SYSFS_PATH_MAX);
+	get_db_filename(udev->devpath, filename, SYSFS_PATH_MAX);
 
 	create_path(filename);
 
@@ -160,23 +160,23 @@ static int parse_db_file(struct udevice *udev, const char *filename)
 	return 0;
 }
 
-int udev_db_get_device(struct udevice *udev)
-{
-	char filename[SYSFS_PATH_MAX];
-
-	get_db_filename(udev, filename, SYSFS_PATH_MAX);
-
-	return parse_db_file(udev, filename);
-}
-
 int udev_db_delete_device(struct udevice *udev)
 {
 	char filename[SYSFS_PATH_MAX];
 
-	get_db_filename(udev, filename, SYSFS_PATH_MAX);
+	get_db_filename(udev->devpath, filename, SYSFS_PATH_MAX);
 	unlink(filename);
 
 	return 0;
+}
+
+int udev_db_get_device_by_devpath(struct udevice *udev, const char *devpath)
+{
+	char filename[SYSFS_PATH_MAX];
+
+	get_db_filename(devpath, filename, SYSFS_PATH_MAX);
+
+	return parse_db_file(udev, filename);
 }
 
 int udev_db_get_device_byname(struct udevice *udev, const char *name)
@@ -234,6 +234,8 @@ found:
 	strfieldcpy(udev->name, db_udev.name);
 	strfieldcpy(udev->symlink, db_udev.symlink);
 	udev->partitions = db_udev.partitions;
+	udev->ignore_remove = db_udev.ignore_remove;
+	udev->devt = db_udev.devt;
 
 	return 0;
 }
