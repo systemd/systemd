@@ -142,7 +142,7 @@ static int print_device_chain(const char *path)
 
 	/* look for the 'dev' file */
 	attr = sysfs_get_classdev_attr(class_dev, "dev");
-	if (attr == NULL)
+	if (attr != NULL)
 		printf("device '%s' has major:minor %s", class_dev->path, attr->value);
 
 	/* open sysfs class device directory and print all attributes */
