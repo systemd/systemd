@@ -1,3 +1,21 @@
+Summary of changes from v040 to v042
+============================================
+
+Greg Kroah-Hartman:
+  o add inotify to the rules for gentoo
+
+Kay Sievers:
+  o skip waiting for device if we get a bad event for class creation and not for a device underneath it
+  o add net/pan and net/bnep handling
+  o switch wait for bus_file to stat() instead of open() add net/tun device handling add ieee1394 device handling
+  o Remove the last klibc specific line from the main udev code Move _KLIBC_HAS_ARCH_SIG_ATOMIC_T to the fixup file which is automatically included by the Makefile is we build with klibc
+  o ignore *.rej files from failed patches
+  o update to libsysfs 1.2.0 and add some stuff klib_fixup Now we have only the sysfs.h file different from the upstream version to map our dbg() macro.
+  o improve klibc fixup integration
+  o cleanup udevd/udevstart
+  o expose sysfs functions for sharing it
+
+
 Summary of changes from v039 to v040
 ============================================
 
