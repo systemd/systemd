@@ -114,9 +114,9 @@ ifeq ($(strip $(TARGET_ARCH)),i386)
 		/dev/null >/dev/null 2>&1; then echo "-mpreferred-stack-boundary=2"; fi}
 	OPTIMIZATION += ${shell if $(CC) -malign-functions=0 -malign-jumps=0 -S -o /dev/null -xc \
 		/dev/null >/dev/null 2>&1; then echo "-malign-functions=0 -malign-jumps=0"; fi}
-	CFLAGS+=-pipe
+	CFLAGS+=-pipe -Dasmlinkage=__attribute__((regparm(0)))
 else
-	CFLAGS+=-pipe
+	CFLAGS+=-pipe -Dasmlinkage=
 endif
 
 ifeq ($(strip $(USE_LOG)),true)

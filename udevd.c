@@ -306,7 +306,7 @@ skip:
 	return;
 }
 
-__attribute__((regparm(0))) static void sig_handler(int signum)
+asmlinkage static void sig_handler(int signum)
 {
 	int rc;
 
