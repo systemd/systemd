@@ -74,7 +74,8 @@ GCC_LIB := $(shell $(CC) -print-libgcc-file-name )
 OPTIMIZATION := ${shell if $(CC) -Os -S -o /dev/null -xc /dev/null >/dev/null 2>&1; \
 		then echo "-Os"; else echo "-O2" ; fi}
 
-WARNINGS := -Wall -Wshadow -Wstrict-prototypes 
+# add -Wredundant-decls when libsysfs gets cleaned up
+WARNINGS := -Wall -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
 
 # Some nice architecture specific optimizations
 ifeq ($(strip $(TARGET_ARCH)),arm)
