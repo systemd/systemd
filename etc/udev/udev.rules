@@ -14,44 +14,44 @@
 #
 
 # Looking for scsi bus id 42:0:0:1
-CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n test-%b", ID="test-42:0:0:1", NAME="%c"
+BUS="scsi", PROGRAM="/bin/echo -n test-%b", ID="test-42:0:0:1", NAME="%c"
 
 # A usb camera.
-LABEL, BUS="usb", SYSFS_vendor="FUJIFILM", SYSFS_model="M100", NAME="camera%n"
+BUS="usb", SYSFS_vendor="FUJIFILM", SYSFS_model="M100", NAME="camera%n"
 
 # USB Epson printer to be called lp_epson
-LABEL, BUS="usb", SYSFS_serial="HXOLL0012202323480", NAME="lp_epson"
+BUS="usb", SYSFS_serial="HXOLL0012202323480", NAME="lp_epson"
 
 # USB HP printer to be called lp_hp
-LABEL, BUS="usb", SYSFS_serial="W09090207101241330", NAME="lp_hp"
+BUS="usb", SYSFS_serial="W09090207101241330", NAME="lp_hp"
 
 # sound card with PCI bus id 00:0b.0 to be the first sound card
-NUMBER, BUS="pci", ID="00:0b.0", NAME="dsp"
+BUS="pci", ID="00:0b.0", NAME="dsp"
 
 # sound card with PCI bus id 00:07.1 to be the second sound card
-NUMBER, BUS="pci", ID="00:07.1", NAME="dsp1" 
+BUS="pci", ID="00:07.1", NAME="dsp1" 
 
 # USB mouse plugged into the third port of the first hub to be called mouse0
-TOPOLOGY, BUS="usb", PLACE="1.3", NAME="mouse0"
+BUS="usb", PLACE="1.3", NAME="mouse0"
 
 # USB tablet plugged into the third port of the second hub to be called mouse1
-TOPOLOGY, BUS="usb", PLACE="2.3", NAME="mouse1"
-TOPOLOGY, BUS="usb", PLACE="2.4", NAME="mouse2"
+BUS="usb", PLACE="2.3", NAME="mouse1"
+BUS="usb", PLACE="2.4", NAME="mouse2"
 
 # ttyUSB1 should always be called visor
-REPLACE, KERNEL="ttyUSB1", NAME="visor"
-REPLACE, KERNEL="ttyUSB0", NAME="pl2303"
+KERNEL="ttyUSB1", NAME="visor"
+KERNEL="ttyUSB0", NAME="pl2303"
 
 # a devfs like way to name some tty devices
-#REPLACE, KERNEL="ttyS*", NAME="tts/%n"
-#REPLACE, KERNEL="tty*", NAME="vc/%n"
+#KERNEL="ttyS*", NAME="tts/%n"
+#KERNEL="tty*", NAME="vc/%n"
 
 # if this is a ide cdrom, name it the default name, and create a symlink to cdrom
-CALLOUT, BUS="ide", PROGRAM="/bin/cat /proc/ide/%k/media", ID="cdrom", NAME="%k", SYMLINK="cdrom" 
+BUS="ide", PROGRAM="/bin/cat /proc/ide/%k/media", ID="cdrom", NAME="%k", SYMLINK="cdrom" 
 
-# device mapper creates its own device nodes
-IGNORE, KERNEL="dm-[0-9]*"
+# device mapper creates its own device nodes so ignore these
+KERNEL="dm-[0-9]*", NAME=""
 
 # DRI devices always go into a subdirectory (as per the LSB spec)
-REPLACE, KERNEL="card*", NAME="dri/card%n"
+KERNEL="card*", NAME="dri/card%n"
 
