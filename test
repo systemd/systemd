@@ -3,6 +3,8 @@ export ACTION=add
 #export ACTION=remove
 export DEVPATH=/devices/pci0/00:09.0/usb1/1-1/1-1.1/ttyUSB7
 export DEVPATH=/class/tty/ttyUSB0
+export DEVPATH=/block/hda
 
 
-./udev tty
+./udev block
+#./udev tty
