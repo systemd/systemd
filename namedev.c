@@ -42,6 +42,7 @@
 #include "logging.h"
 #include "namedev.h"
 #include "klibc_fixups.h"
+#include "udevdb.h"
 
 static struct sysfs_attribute *find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, char *attr);
 
@@ -179,6 +180,37 @@ static int get_format_len(char **str)
 	return -1;
 }
 
+/** Finds the lowest positive N such that <name>N isn't present in 
+ *  $(udevroot) either as a file or a symlink.
+ *
+ *  @param  name                Name to check for
+ *  @return                     0 if <name> didn't exist and N otherwise.
+ */
+static unsigned int find_free_number (struct udevice *udev, char *name)
+{
+	char temp[NAME_SIZE];
+	char path[NAME_SIZE];
+	struct udevice dev;
+	int result;
+
+	/* have to sweep the database for each lookup */
+	result = 0;
+	strncpy(temp, name, sizeof (temp));
+	while (1) {
+		if (udevdb_get_dev_byname(temp, path, &dev) != 0)
+			goto found;
+		/* symlink might be stale if $(udevroot) isn't cleaned; check
+		 * on major/minor to see if it's the same device
+		 */
+		if (dev.major == udev->major && dev.minor == udev->minor)
+			goto found;
+		snprintf (temp, sizeof(temp), "%s%d", name, ++result);
+	}
+
+found:
+	return result;
+}
+
 static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			 struct sysfs_class_device *class_dev,
 			 struct sysfs_device *sysfs_device)
@@ -195,6 +227,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 	char *rest;
 	int slen;
 	struct sysfs_attribute *tmpattr;
+	unsigned int next_free_number;
 
 	pos = string;
 	while (1) {
@@ -283,6 +316,13 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 		case '%':
 			strfieldcatmax(string, "%", maxsize);
 			pos++;
+			break;
+		case 'e':
+			next_free_number = find_free_number(udev, string);
+			if (next_free_number > 0) {
+				snprintf(temp2, sizeof(temp2), "%d", next_free_number);
+				strfieldcatmax(string, temp2, maxsize);
+			}
 			break;
 		default:
 			dbg("unknown substitution type '%%%c'", c);

@@ -272,6 +272,13 @@ all remaining parts of the result string are substituted:
 .BI %s{ filename }
 The content of a sysfs attribute.
 .TP
+.B %e
+If a device node already exists with the name, the smallest positive
+decimal integer N is substituted such that the resulting name doesn't
+match an existing device node. Otherwise nothing is substituted. This
+can be used to create compatibility symlinks and enumerate devices of
+the same type originating from different kernel subsystems.
+.TP
 .B %%
 The '%' character itself.
 .P
@@ -302,6 +309,14 @@ KERNEL="ttyUSB1", NAME="pda", SYMLINK="palmtop handheld"
 
 # multiple USB webcams with symlinks to be called webcam0, webcam1, ...
 BUS="usb", SYSFS{model}="XV3", NAME="video%n", SYMLINK="webcam%n"
+
+# grouping of optical drives from multiple kernel subsystems
+KERNEL="sr*", NAME="%k", SYMLINK="cdrom%e"
+KERNEL="scd*", NAME="%k", SYMLINK="cdrom%e"
+KERNEL="pcd*", NAME="%k", SYMLINK="cdrom%e"
+KERNEL="hd[a-z]", PROGRAM="/bin/cat /proc/ide/%k/media", RESULT="cdrom",
+  NAME="%k", SYMLINK="cdrom%e"
+
 .fi
 .P
 The permissions and ownership of the created device file is read from
