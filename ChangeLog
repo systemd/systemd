@@ -1,9 +1,106 @@
-0.2 -	added namedev
-	now used a snapshot of libsysfs.
-	Can now handle the 5 different naming schemes.
-	Was released based on my OLS 2003 presentation.
-	Lots still left to do, but it kinda works better...
+Summary of changes from v0.2 to v003
+============================================
 
-0.1 -	Added a bit of documentation to the README and TODO files.
+Daniel E. F. Stekloff:
+  o udevdb patch
+  o udevdb prototype
 
-0.01 -	initial release
+Greg Kroah-Hartman:
+  o update the spec file for the new version and install process
+  o fix makefile release rule to not drop tdb.h file
+  o Add FAQ for udev
+  o removed AUTHORS and INSTALL files as they were pretty pointless
+  o copyright updates
+  o Add AUTHORS and INSTALL files
+  o TODO updates
+  o Updatd the README
+  o updated the TODO list
+  o add udev man page (basically just a place holder for now.)
+  o added uninstall support
+  o added install target for makefile so people don't have to do it by hand anymore
+  o add version to debug log on startup
+  o tell the user what mknod() we are trying to do
+  o add dbg_parse() to cut down on parse file debugging statements
+  o put config files and database in /etc/udev by default
+  o add ols 2003 udev paper to docs/
+  o clean up some debugging stuff in namedev.c
+  o do not build the tdb binary programs, only the objects
+  o merge tdb into the build process
+  o Added tdb code from latest cvs version in the samba tree
+  o added my name to the .spec file
+  o minor cleanups
+  o cleanup the mknod code a bit
+  o remove mknod callout
+  o handle new major:minor format of dev files that showed up in 2.6.0-test2-bk3 or so
+  o oops, everything was getting created as 000 mode, try to fix this up, but fail...
+  o more test stuff
+
+Olaf Hering:
+  o print udev pid
+
+Patrick Mansfield:
+  o add callout config type to udev
+
+Paul Mundt:
+  o Fix TDB cross compilation
+  o udev spec file
+  o udev/libsysfs cross compile fixes
+
+
+Summary of changes from v0.1 to v0.2
+============================================
+
+Greg Kroah-Hartman:
+  o more test stuff
+  o removed unneeded stuff from udev.h
+  o added 0.2 change log info
+  o start working on label support, and fix some segfaults for block devices
+  o test config file changes
+  o add NUMBER support (basically same logic as TOPOLOGY, perhaps we should
+    merge this...)
+  o added topology support
+  o got REPLACE to work properly
+  o make struct config_device contain a struct device_attr instead of
+    duplicating the mess
+  o block test
+  o split the tests up into different files
+  o split udev main logic into udev-add and udev-remove
+  o Clean up the namedev interface a bit, making the code smaller
+  o bk: update ignore list
+  o update the tests to handle block devices too
+  o add initial libsysfs support
+  o added libsysfs to the build
+  o added libsysfs code from sysutils-0.1.1-071803 release
+  o namedev config files are fully parsed
+  o more permission tests
+  o make log_message spit out warnings so I don't have to spend forever
+    chasing down stupid bugs that aren't there...
+  o added klibc makefile
+  o Initial namedev parsing of config files
+  o sleep for 2 seconds to give the kernel a chance to actually create the
+    files we need
+  o pick a better default UDEV_ROOT
+  o fix up the test to actually work
+  o added more documentation in README and TODO files
+
+
+Summary of changes up to v0.1
+============================================
+
+Greg Kroah-Hartman:
+  o added more documentation in README and TODO files
+  o updated the documentation
+  o cleaned up the makefile a bit
+  o remove now works!
+  o restructure code to be able to actually get remove_node() to work
+  o Creating nodes actually works
+  o added stupid test script for debugging
+  o added initial documentation and gpl license
+  o enabled debugging
+  o updated ignore list
+  o added initial files
+  o fixed up config
+  o Initial repository create
+  o BitKeeper file /home/greg/src/udev/udev/ChangeSet
+
+
