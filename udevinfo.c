@@ -178,9 +178,14 @@ exit:
 	return retval;
 }
 
+static int print_dump(struct udevice *udev) {
+	printf("%s:%s/%s\n", udev->devpath, udev_root, udev->name);
+	return 0;
+}
+
 static int process_options(int argc, char *argv[])
 {
-	static const char short_options[] = "an:p:q:rVh";
+	static const char short_options[] = "adn:p:q:rVh";
 	int option;
 	int retval = 1;
 	struct udevice udev;
@@ -244,6 +249,10 @@ static int process_options(int argc, char *argv[])
 		case 'a':
 			attributes = 1;
 			break;
+
+		case 'd':
+			udev_db_call_foreach(print_dump);
+			exit(0);
 
 		case 'V':
 			printf("udevinfo, version %s\n", UDEV_VERSION);
@@ -384,7 +393,8 @@ help:
 	       "\n"
 	       "  -r       print udev root\n"
 	       "  -a       print all SYSFS_attributes along the device chain\n"
-	       "  -s       print all sysfs devices with major/minor, physical device and bus\n"
+	       "  -d       print the relationship of devpath and the node name for all\n"
+	       "           devices available in the database\n"
 	       "  -V       print udev version\n"
 	       "  -h       print this help text\n"
 	       "\n");

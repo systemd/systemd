@@ -239,3 +239,38 @@ found:
 
 	return 0;
 }
+
+int udev_db_call_foreach(int (*handler_function)(struct udevice *udev))
+{
+	struct dirent *ent;
+	DIR *dir;
+	char filename[NAME_SIZE];
+	struct udevice db_udev;
+
+	dir = opendir(udev_db_path);
+	if (dir == NULL) {
+		dbg("unable to udev db '%s'", udev_db_path);
+		return -1;
+	}
+
+	while (1) {
+		ent = readdir(dir);
+		if (ent == NULL || ent->d_name[0] == '\0')
+			break;
+
+		if (ent->d_name[0] == '.')
+			continue;
+
+		snprintf(filename, NAME_SIZE, "%s/%s", udev_db_path, ent->d_name);
+		filename[NAME_SIZE-1] = '\0';
+
+		memset(&db_udev, 0x00, sizeof(struct udevice));
+		if (parse_db_file(&db_udev, filename) == 0) {
+			if (handler_function(&db_udev) != 0)
+				break;
+		}
+	}
+
+	closedir(dir);
+	return 0;
+}
