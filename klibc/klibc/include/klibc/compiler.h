@@ -8,12 +8,16 @@
 #define _KLIBC_COMPILER_H
 
 /* Specific calling conventions */
+/* __cdecl is used when we want varadic and non-varadic functions to have
+   the same binary calling convention. */
 #ifdef __i386__
 # ifdef __GNUC__
 #  define __cdecl __attribute__((cdecl,regparm(0)))
 # else
   /* Most other C compilers have __cdecl as a keyword */
 # endif
+#else
+# define __cdecl		/* Meaningless on non-i386 */
 #endif
 
 /* How to declare a function that *must* be inlined */

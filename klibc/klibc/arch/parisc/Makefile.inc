@@ -7,4 +7,9 @@
 # accordingly.
 #
 
+ARCHOBJS = \
+	arch/$(ARCH)/setjmp.o
+
+ARCHOOBJS = $(patsubst %o,%.lo,%(ARCHOBJS))
+
 archclean:

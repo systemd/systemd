@@ -26,7 +26,6 @@ _start:
 #endif
 	call __libc_init
 	# If __libc_init returns, problem...	
-	ud2
 	hlt
 	
 	.size _start, .-_start

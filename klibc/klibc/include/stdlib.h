@@ -83,12 +83,14 @@ static __inline__ void srandom(unsigned int __s)
 
 /* Basic PTY functions.  These only work if devpts is mounted! */
 
+__extern int unlockpt(int);
+__extern char *ptsname(int);
+__extern int getpt(void);
+
 static __inline__ int grantpt(int __fd)
 {
   (void)__fd;
   return 0;			/* devpts does this all for us! */
 }
-__extern int unlockpt(int);
-__extern char *ptsname(int);
 
 #endif /* _STDLIB_H */

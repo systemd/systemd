@@ -17,7 +17,8 @@ LIBOBJS = vsnprintf.o snprintf.o vsprintf.o sprintf.o \
 	  strtoimax.o strtoumax.o \
 	  globals.o exitc.o atexit.o onexit.o \
 	  execl.o execle.o execv.o execvpe.o execvp.o execlp.o execlpe.o \
-	  fork.o wait.o wait3.o waitpid.o system.o setpgrp.o \
+	  fork.o wait.o wait3.o waitpid.o system.o setpgrp.o getpgrp.o \
+	  open.o \
 	  printf.o vprintf.o fprintf.o vfprintf.o perror.o \
 	  fopen.o fread.o fread2.o fgetc.o fgets.o \
 	  fwrite.o fwrite2.o fputc.o fputs.o puts.o \
@@ -35,7 +36,7 @@ LIBOBJS = vsnprintf.o snprintf.o vsprintf.o sprintf.o \
 	  seteuid.o setegid.o setresuid.o setresgid.o \
 	  getenv.o setenv.o putenv.o __put_env.o unsetenv.o \
 	  getopt.o readdir.o \
-	  syslog.o closelog.o pty.o isatty.o reboot.o \
+	  syslog.o closelog.o pty.o getpt.o isatty.o reboot.o \
 	  time.o utime.o fdatasync.o llseek.o select.o nice.o getpriority.o \
 	  qsort.o lrand48.o srand48.o seed48.o \
 	  inet/inet_ntoa.o inet/inet_aton.o inet/inet_addr.o \

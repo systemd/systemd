@@ -5,6 +5,10 @@
 
 .SUFFIXES: .c .o .a .so .lo .i .S .s .ls .ss .lss
 
+% : %.c	# Cancel default rule
+
+% : %.S
+
 .c.o:
 	$(CC) $(CFLAGS) -c -o $@ $<
 

@@ -7,17 +7,16 @@
 # accordingly.
 #
 
-# Comment this out to compile with register parameter passing
-# This doesn't work right now because gcc 3.2 (at least) calls
-# libgcc with the default calling convention instead of forcing
-# them to be cdecl
-# REGPARM = -mregparm=3 -DREGPARM
+# Enable this to compile with register parameters; only safe for
+# gcc > 3
+REGPARM_OPT := -mregparm=3 -DREGPARM
 
 gcc_major := $(shell $(CC) -v 2>&1 | awk '/gcc version/{print int($$3)}')
 
 OPTFLAGS = $(REGPARM) -march=i386 -Os
 
 ifeq ($(gcc_major),3)
+REGPARM  := $(REGPARM_OPT)
 OPTFLAGS += -falign-functions=0 -falign-jumps=0 -falign-loops=0
 else
 OPTFLAGS += -malign-functions=0 -malign-jumps=0 -malign-loops=0

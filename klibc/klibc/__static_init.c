@@ -36,5 +36,3 @@ __noreturn __libc_init(uintptr_t *elfdata, void (*onexit)(void))
   environ = envp;
   exit(main(argc, argv, envp));
 }
-
-  

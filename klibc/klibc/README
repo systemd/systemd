@@ -36,9 +36,9 @@ b) If you're cross-compiling, change ARCH in the main MCONFIG file to
 
    Known to work:	       alpha arm ia64 i386 ppc s390 s390x sparc
 			       sparc64 x86_64*
-   Works static, not shared:   mips* arm-thumb sh*
+   Works static, not shared:   mips* arm-thumb sh* parisc
    Might work:		       ppc64
-   Need porting work:	       cris m68k mips64 parisc
+   Need porting work:	       cris m68k mips64 v850
 
    x86_64:   requires a kernel header patch (to be created)
    mips, sh: linker problem; might work with fixed linker

@@ -25,9 +25,14 @@ HOST_CFLAGS  = -g -O
 HOST_LDFLAGS = 
 HOST_LIBS    =
 
-CRT0    = $(KLIBSRC)/crt0.o
-KLIBC   = $(KLIBSRC)/libc.a
-LIBGCC  = $(shell $(CC) --print-libgcc)
+# Static library paths
+CRT0      = $(KLIBSRC)/crt0.o
+KLIBC     = $(KLIBSRC)/libc.a
+LIBGCC    = $(shell $(CC) --print-libgcc)
+
+# Shared library paths
+CRTSHARED = $(KLIBSRC)/interp.o
+LIBSHARED = $(KLIBSRC)/libc.so
 
 #
 # This indicates the location of the final version of the shared library.
