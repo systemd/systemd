@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <ctype.h>
+#include <signal.h>
 
 #include "udev.h"
 #include "udev_version.h"
@@ -39,6 +40,22 @@
 /* global variables */
 char **main_argv;
 char **main_envp;
+
+static void sig_handler(int signum)
+{
+	dbg("caught signal %d", signum);
+	switch (signum) {
+		case SIGINT:
+		case SIGTERM:
+		case SIGKILL:
+			sysbus_disconnect();
+			udevdb_exit();
+			exit(20 + signum);
+			break;
+		default:
+			dbg("unhandled signal");
+	}
+}
 
 static inline char *get_action(void)
 {
@@ -70,7 +87,11 @@ int main(int argc, char **argv, char **envp)
 	char *devpath;
 	char *subsystem;
 	int retval = -EINVAL;
-	
+
+	signal(SIGINT, sig_handler);
+	signal(SIGTERM, sig_handler);
+	signal(SIGKILL, sig_handler);
+
 	main_argv = argv;
 	main_envp = envp;
 
