@@ -29,7 +29,7 @@
 #include <sys/ioctl.h>
 
 #include "../../libsysfs/sysfs/libsysfs.h"
-#include "../../udev_lib.h"
+#include "../../udev_utils.h"
 #include "../../logging.h"
 #include "volume_id.h"
 #include "dasdlabel.h"
