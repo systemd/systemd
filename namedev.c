@@ -220,7 +220,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 	char *pos2;
 	char *pos3;
 	char *attr;
-	int num;
+	int len;
 	int i;
 	char c;
 	struct sysfs_attribute *tmpattr;
@@ -232,7 +232,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 		if (pos != NULL) {
 			pos[0] = '\0';
 			tail = pos+1;
-			num = get_format_len(&tail);
+			len = get_format_len(&tail);
 			c = tail[0];
 			strfieldcpy(temp, tail+1);
 			tail = temp;
@@ -274,7 +274,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			if (strlen(udev->program_result) == 0)
 				break;
 			/* get part part of the result string */
-			i = num; /* num syntax is deprecated and will be removed  */
+			i = 0;
 			if (attr != NULL)
 				i = atoi(attr);
 			if (i > 0) {
@@ -317,6 +317,10 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			dbg("unknown substitution type '%%%c'", c);
 			break;
 		}
+		/* truncate to specified length */
+		if (len > 0)
+			pos[len] = '\0';
+
 		strnfieldcat(string, tail, maxsize);
 	}
 }

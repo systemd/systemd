@@ -209,7 +209,7 @@ fields support simple printf-like string substitution:
 .TP
 .B %n
 The "kernel number" of the device.
-for example, 'sda3' has a "kernel number" of '3'
+For example, 'sda3' has a "kernel number" of '3'.
 .TP
 .B %k
 The "kernel name" for the device.
@@ -239,7 +239,11 @@ my be selected by specifying the part number as a attribute:
 The content of a sysfs attribute.
 .TP
 .B %%
-The '%' char itself.
+The '%' character itself.
+.P
+The count of charcters to insert may be limited by specifying
+the format length value. For example, '%3s{file}' will only insert
+the first three characters of the sysfs attribute.
 .P
 .RI "A sample " udev.rules " might look like this:"
 .sp

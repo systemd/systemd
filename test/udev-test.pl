@@ -194,6 +194,15 @@ BUS="scsi", PLACE="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:bus:%b"
 EOF
 	},
 	{
+		desc     => "test NAME substitution chars (with length limit)",
+		subsys   => "block",
+		devpath  => "block/sda/sda3",
+		expected => "M8-m3-n3-b0:0-sIBM" ,
+		conf     => <<EOF
+BUS="scsi", PLACE="0:0:0:0", NAME="M%M-m%m-n%n-b%3b-s%3s{vendor}"
+EOF
+	},
+	{
 		desc     => "old style SYSFS_ attribute",
 		subsys   => "block",
 		devpath  => "block/sda",
