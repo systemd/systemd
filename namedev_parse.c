@@ -176,7 +176,7 @@ int namedev_init_rules(void)
 			++temp;
 
 		/* empty line? */
-		if (*temp == 0x00)
+		if ((*temp == 0x00) || (*temp == 0x0a))
 			continue;
 
 		/* see if this is a comment */
@@ -378,7 +378,7 @@ int namedev_init_permissions(void)
 			++temp;
 
 		/* empty line? */
-		if (*temp == 0x00)
+		if ((*temp == 0x00) || (*temp == 0x0a))
 			continue;
 
 		/* see if this is a comment */
