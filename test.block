@@ -3,6 +3,8 @@ export ACTION=add
 #export ACTION=remove
 
 export DEVPATH=/block/hda
+export DEVPATH=/block/sda/sda1
+export DEVPATH=/block/sda
 
 
 ./udev block
