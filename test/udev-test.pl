@@ -634,6 +634,34 @@ KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n"
 EOF
 	},
 	{
+		desc		=> "multiple permissions only rule",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "ttyUSB0",
+		exp_perms	=> "3000:4000:0777",
+		conf		=> <<EOF
+SUBSYSTEM="tty", OWNER="3000"
+SUBSYSTEM="tty", GROUP="4000"
+SUBSYSTEM="tty", MODE="0777"
+KERNEL="ttyUSX[0-9]*", OWNER="5001", GROUP="101", MODE="0444"
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n"
+EOF
+	},
+	{
+		desc		=> "permissions only rule with override at NAME rule",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "ttyUSB0",
+		exp_perms	=> "3000:8000:0777",
+		conf		=> <<EOF
+SUBSYSTEM="tty", OWNER="3000"
+SUBSYSTEM="tty", GROUP="4000"
+SUBSYSTEM="tty", MODE="0777"
+KERNEL="ttyUSX[0-9]*", OWNER="5001", GROUP="101", MODE="0444"
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", GROUP="8000"
+EOF
+	},
+	{
 		desc		=> "major/minor number test",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
