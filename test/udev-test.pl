@@ -126,6 +126,17 @@ EOF
 LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="lun0/%D"
 EOF
 	},
+	{
+		desc     => "callout bus type",
+		subsys   => "block",
+		devpath  => "block/sda",
+		expected => "scsi-0:0:0:0" ,
+		conf     => <<EOF
+CALLOUT, BUS="usb", PROGRAM="/bin/echo -n usb-%b", ID="*", NAME="%c"
+CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n scsi-%b", ID="*", NAME="%c"
+CALLOUT, BUS="foo", PROGRAM="/bin/echo -n foo-%b", ID="*", NAME="%c"
+EOF
+	},
 );
 
 # set env
