@@ -1,19 +1,22 @@
 udev 057
 ========
 All rules are applied now, but only the first matching rule with a NAME-key
-will be applied. All later rules with NAME-key are ignored. This way system
-supplied symlinks or permissions gets applied to user-defined naming rules.
+will be applied. All later rules with NAME-key are completely ignored. This
+way system supplied symlinks or permissions gets applied to user-defined
+naming rules.
+
 Note:
 Please check your rules setup, if you may need to add OPTIONS="last_rule"
 to some rules, to keep the old behavior.
 
 The rules are read on "remove"-events too. That makes is possible to match
 with keys that are available on remove (KERNEL, SUBSYSTEM, ID, ENV, ...) to
-instruct udev to ignore a event (OPTIONS="ignore_device").
-The new ACTION-key may be used to match a rule only at a "remove"-event.
+instruct udev to ignore an event (OPTIONS="ignore_device").
+The new ACTION-key may be used to let a rule act only at a "remove"-event.
 
 The new RUN-key supports rule-based execution of programs after device-node
-handling. This can replace the dev.d/-rules to make them more efficient.
+handling. This is meant as a general replacement for the dev.d/-directories
+to give fine grained control over the execution of programs.
 
 The %s{}-sysfs format char replacement values are searched at any of the
 devices in the device chain now, not only at the class-device.
@@ -30,7 +33,7 @@ UDEV_LOG.
 udev 056
 ========
 Possible use of a system-wide klibc:
-  make USE_KLIB=true KLCC=/usr/bin/klcc all
+  make USE_KLIBC=true KLCC=/usr/bin/klcc all
 will link against an external klibc and our own version will be ignored.
 
 udev 055
