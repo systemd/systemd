@@ -1,0 +1,213 @@
+Using UDEV to do Persistent storage device naming 
+for large numbers of storage devices
+3/16/2004
+
+Here are some lessons we learned at OSDL recently on how to use
+UDEV (version 021) to do persistent device naming for lots of storage
+devices.  We used what was available in udev for scsi devices.  Here is
+an outline of this report:
+
+Background information - a list of resources we needed to get
+started.
+Setup - what we needed to create the right enviroment (kernel,
+patches, drivers)
+How udev works to assign persistent storage device names -
+what the documentation didn't tell us.
+Performance - A sanity test we ran to compare with and without
+persistent naming.
+
+
+BACKGROUND INFORMATION
+To get started, here are some references.  Review the overview
+articles so that the rest of the information makes sense.
+
+Download the latest udev stuff from:
+http://www.kernel.org/pub/linux/utils/kernel/hotplug/
+
+mailing list:
+linux-hotplug-devel@lists.sourceforge.net
+
+Here is a nice overview article to get started (warning, this is from
+summer 2003 so many items indicated as "todo" have been done and
+configuration file name references have sometime changed):
+http://www.kroah.com/linux/talks/ols_2003_udev_paper/Reprint-Kroah-Hartman-OLS2003.pdf
+(also included when you download udev)
+
+More general info (also included in the udev package):
+http://kernel.org/pub/linux/utils/kernel/hotplug/udev-FAQ
+UDEV version 021 Announcement:
+http://marc.theaimsgroup.com/?l=linux-hotplug-devel&m=107827264803336&w=2
+
+"Managing Dynamic Naming" 
+http://lwn.net/Articles/28897/
+
+If you are a fan of devfs, whatever you do, don't complain until you
+read everything you possibly can about udev.  This for example:
+http://kernel.org/pub/linux/utils/kernel/hotplug/udev_vs_devfs
+
+You will need to create udev.rules to supply consistent names.  (See
+etc/udev/udev.rules in the download).  This article gives you some
+background about udev.rules, but avoids describing the "PROGRAM"
+key which is needed for our work.  Read it for background:
+writing udev rules (current as of udev 018) 
+http://www.reactivated.net/udevrules.php
+
+bitkeeper tree:
+bk://kernel.bkbits.net/gregkh/udev
+
+Libsysfs  (used to get sysfs information):
+http://www-124.ibm.com/linux/papers/libsysfs/libsysfs-linuxconfau2004.pdf
+
+UDEV works using the way hotplug events are handled by the kernel.
+Several overview articles about hotplug include:
+Hotplug events
+http://lwn.net/Articles/52621/
+Overview of Hotplug
+http://linux-hotplug.sourceforge.net/
+
+Gentoo centric install info:
+http://webpages.charter.net/decibelshelp/LinuxHelp_UDEVPrimer.html
+
+rpms built against Red Hat FC2-test1 may be available at:
+http://kernel.org/pub/linux/utils/kernel/hotplug/udev-021-1.i386.rpm
+
+with the source rpm at:
+http://kernel.org/pub/linux/utils/kernel/hotplug/udev-021-1.src.rpm
+
+
+
+SETUP
+
+Here is a brief checklist of what you need on your system for this to
+work:
+
+Kernel must be a 2.6 kernel
+
+Must use CONFIG_HOTPLUG kernel config option, since the solution
+is based on hotplug capabilities.
+
+To test more than 256 scsi devices you need a patch to the scsi driver
+to support that many (available from IBM or SuSE).  To see the patch
+we used, see this link:
+http://developer.osdl.org/maryedie/DCL/PSDN/lotsofdisks.patch
+
+Your storage device must support (via the driver) a unique identifier for
+persistent device naming.  (Adaptec RAID device does not, for
+example.)
+
+Your device driver must support sysfs (new in 2.6 kernel).  This is
+already done for scsi devices and most if not all block devices.
+
+A program (scsi_id) exists in the udev download
+( extras/scsi_id/scsi_id.c) for scsi devices. It can read the identifier and
+is needed for persistent naming.   
+
+
+HOW UDEV WORKS  TO ASSIGN PERSISTENT NAMES:
+
+There are three places where device information is stored that udev
+uses:
+(1) /sys maintained by sysfs 
+(2) /etc/udev/udev.rules - where you can store the identifier to NAME
+mapping information.
+(3) The tdb (udev-021/tdb/tdb.c),  trivial data base,  that is held in
+memory and holds the valid system configuration.  It is not saved
+between one boot to the next.  It is constructed at boot time and
+updated with configuration changes.
+
+The persistent names are kept (at least this is one way to do it) in
+udev.rules (uuid and NAME), one entry per device.  If you want to
+initially give your 1000 disk devices a default name and then make
+sure those names are preserved, here is how :
+
+Start with no special entry in udev.rules when do you an initial boot of
+your system with disks in place.   Udev will assign default names (there
+are ways to control what you want for default too).  
+
+Once the names are assigned, use a script supplied for scsi devices -
+udev-021/extras/scsi_id/gen_scsi_id_udev_rules.sh
+to generate the lines needed for udev.rules, one per device.  Each line
+indicates the identifier and the NAME it was assigned.  You could
+optionally create this manually if you prefer other names .
+
+[example entries in udev.rules for scsi disks]
+BUS="scsi", PROGRAM="scsi_id", RESULT="<uuid1>",NAME="<name1>"
+BUS="scsi", RESULT="<uuid2>",NAME="<name2>"
+...
+BUS="scsi",  RESULT="<uuid1000>",NAME="<name1000>"
+
+(The actual file we used is the file udev.rules_1000_scsi_debug  in this
+directory )
+
+Upon reboot, for each device a hotplug event occurs.  The udev.rules
+file is scanned looking for the device type (BUS) in this case for "scsi". 
+The first entry generated by the above program references a
+PROGRAM in the key field (scsi_id) which is called to probe the device
+and determine the unique identifier.    sysfs is used to determine the
+major/minor number for the device.  The result of the program
+execution (the uuid)  is compared with the RESULT entry in the same
+udev.rules line.  
+
+-If it matches, then the NAME entered on this line is used.  The uuid
+and major/minor number is saved in tdb (newly recreated upon boot).
+That device is created in /udev (the target directory name is
+configurable) with the assigned NAME.    
+
+-If it doesn't match, the RESULT (uuid) is preserved for use on the next
+udev.rules line as long as the bus type (scsi) is the same.  So the result
+(the uuid) is compared on the next line, and the next until a match
+occurs.  
+
+-If no match occurs, the device will be assigned a default name.  
+
+-Tdb is updated with the resulting name assignment.
+
+
+Thus if the uuid and names are enumerated, they will be found,
+assigned, and are therefore permanent.
+
+If the device is removed from a live system, a hotplug event occurs,
+and it is removed from tdb and the /udev entry disappears.
+
+If it is re-inserted at a new location, the udev.rules file is scanned as
+above.  The new major/minor number goes in tdb with the uuid , the
+name in udev.rules is found again,  and the /udev name re-appears.
+
+
+
+PERFORMANCE 
+
+Now the question becomes, how much longer does it take to scan the
+udev.rules table once there are 1000 entries?
+
+To test this, we  created 1000 "scsi " devices using the scsi debug
+device driver supplied in the kernel. When this device driver is loaded
+you can specify how many fake scsi devices to create.  There is no
+real I/O involved but it does respond to some scsi commands.  It
+simulates the uuid by using the device number assigned when the
+device is created.  
+
+Then we auto-generated entries into udev.rules with
+gen_scsi_id_udev_rules.sh.  We then removed the devices and
+reassigned them to simulate a reboot.  The delta between assigning
+defaults and assigning the names enumerated in the udev.rules file
+was 7 seconds (that's for 1000 drives).  
+
+Scripts utilized the feature (described above) that saves the "RESULT"
+key after one scsi-id program call for later reference with other
+udev.rules entries (so only have one PROGRAM key is the moral of
+the story).  If you repeated the PROGRAM key, you would
+unnecessarily call the program up to 999 times!  
+
+The script that creates udev.rules did not work for 1000 drives (the
+input line is too long).  We determined that a patch for this already
+existed but had not yet been checked in.  
+
+
+
+
+
+
+
+
+
