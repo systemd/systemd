@@ -16,7 +16,7 @@
 
 /* glibc seems to use sig_atomic_t as "int" pretty much on all architectures.
    Do the same, but allow the architecture to override. */
-#ifdef _KLIBC_HAS_ARCH_SIG_ATOMIC_T
+#ifndef _KLIBC_HAS_ARCH_SIG_ATOMIC_T
 typedef int sig_atomic_t;
 #endif
 
