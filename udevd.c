@@ -24,6 +24,7 @@
 
 #include <sys/types.h>
 #include <sys/ipc.h>
+#include <sys/wait.h>
 #include <sys/msg.h>
 #include <signal.h>
 #include <unistd.h>
@@ -48,6 +49,7 @@ static int timeout_value = TIMEOUT_SECONDS;
 static int timeout = 0;
 static struct hotplug_msg *head = NULL;
 static char exec_program[100];
+
 
 static void sig_handler(int signum)
 {
@@ -104,13 +106,40 @@ static void dump_msg(struct hotplug_msg *pmsg)
 	    pmsg->seqnum, pmsg->action, pmsg->devpath, pmsg->subsystem);
 }
 
-static void dispatch_msg(struct hotplug_msg *pmsg)
+static int dispatch_msg(struct hotplug_msg *pmsg)
 {
+	pid_t pid;
+	char *argv[3];
+	int retval;
+	extern char **environ;
+
 	dump_msg(pmsg);
 	dbg("exec '%s'", exec_program);
+
 	setenv("ACTION", pmsg->action, 1);
 	setenv("DEVPATH", pmsg->devpath, 1);
-	execl(exec_program, pmsg->subsystem);
+
+	argv[0] = exec_program;
+	argv[1] = pmsg->subsystem;
+	argv[2] = NULL;
+
+	pid = fork();
+	switch (pid) {
+	case 0:
+		retval = execve(argv[0], argv, environ);
+		if (retval != 0) {
+			dbg("child execve failed");
+			exit(1);
+		}
+		break;
+	case -1:
+		dbg("fork failed");
+		return -1;
+	default:
+		wait(0);
+		break;
+	}
+	return 0;
 }
 
 static void reset_timer(void)

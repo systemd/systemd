@@ -117,15 +117,16 @@ int main(int argc, char* argv[])
 	}
 	seq = atoi(seqnum);
 
+	/* create ipc message queue or get id of our existing one */
 	key = ftok(DEFAULT_EXEC_PROGRAM, IPC_KEY_ID);
 	size =  build_hotplugmsg( (struct hotplug_msg**) &pmsg, action, devpath, subsystem, seq);
 	msgid = msgget(key, IPC_CREAT);
 	if (msgid == -1) {
-		dbg("open ipc queue error");
+		dbg("error open ipc queue");
 		goto exit;
 	}
 
-	/* get state of queue */
+	/* get state of ipc queue */
 	retval = msgctl(msgid, IPC_STAT, &msg_queue);
 	if (retval == -1) {
 		dbg("error getting info on ipc queue");
@@ -134,10 +135,11 @@ int main(int argc, char* argv[])
 	if (msg_queue.msg_qnum > 0)
 		dbg("%li messages already in the ipc queue", msg_queue.msg_qnum);
 
+	/* send ipc message to the daemon */
 	retval = msgsnd(msgid, pmsg, size, 0);
 	free_hotplugmsg( (struct hotplug_msg*) pmsg);
 	if (retval == -1) {
-		dbg("send ipc message error");
+		dbg("error sending ipc message");
 		goto exit;
 	}
 	return 0;
