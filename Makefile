@@ -209,7 +209,7 @@ GEN_CONFIGS =	udev.conf
 
 # Rules on how to create the generated config files
 udev.conf:
-	sed -e "s-@udevdir@-$(udevdir)-" < udev.conf.in > $@
+	sed -e "s:@udevdir@:$(udevdir):" < udev.conf.in > $@
 
 
 $(OBJS): $(GEN_HEADERS)
