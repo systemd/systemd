@@ -34,9 +34,9 @@
 #include <ctype.h>
 #include <asm/types.h>
 
-#include "../volume_id.h"
-#include "../logging.h"
-#include "../util.h"
+#include "volume_id.h"
+#include "logging.h"
+#include "util.h"
 #include "fat.h"
 
 #define FAT12_MAX			0xff5

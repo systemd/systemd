@@ -34,40 +34,39 @@
 #include <ctype.h>
 #include <asm/types.h>
 
-#include "../volume_id.h"
-#include "../logging.h"
-#include "../util.h"
-#include "romfs.h"
+#include "volume_id.h"
+#include "logging.h"
+#include "util.h"
+#include "highpoint.h"
 
-struct romfs_super {
-	__u8 magic[8];
-	__u32 size;
-	__u32 checksum;
-	__u8 name[0];
-} __attribute__((__packed__));
+struct hpt37x {
+	__u8	filler1[32];
+	__u32	magic;
+	__u32	magic_0;
+	__u32	magic_1;
+} __attribute__((packed)) *hpt;
 
-int volume_id_probe_romfs(struct volume_id *id, __u64 off)
+#define HPT37X_CONFIG_OFF		0x1200
+#define HPT37X_MAGIC_OK			0x5a7816f0
+#define HPT37X_MAGIC_BAD		0x5a7816fd
+
+int volume_id_probe_highpoint_ataraid(struct volume_id *id, __u64 off)
 {
-	struct romfs_super *rfs;
+	const __u8 *buf;
 
 	dbg("probing at offset %llu", off);
 
-	rfs = (struct romfs_super *) volume_id_get_buffer(id, off, 0x200);
-	if (rfs == NULL)
+	buf = volume_id_get_buffer(id, off + HPT37X_CONFIG_OFF, 0x200);
+	if (buf == NULL)
 		return -1;
 
-	if (memcmp(rfs->magic, "-rom1fs-", 4) == 0) {
-		size_t len = strlen(rfs->name);
+	hpt = (struct hpt37x *) buf;
 
-		if (len) {
-			volume_id_set_label_raw(id, rfs->name, len);
-			volume_id_set_label_string(id, rfs->name, len);
-		}
+	if (hpt->magic != HPT37X_MAGIC_OK && hpt->magic != HPT37X_MAGIC_BAD)
+		return -1;
 
-		volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
-		id->type = "romfs";
-		return 0;
-	}
+	volume_id_set_usage(id, VOLUME_ID_RAID);
+	id->type = "hpt_ataraid_member";
 
-	return -1;
+	return 0;
 }

@@ -41,25 +41,28 @@
 #include "logging.h"
 #include "util.h"
 
-#include "ext/ext.h"
-#include "reiserfs/reiserfs.h"
-#include "fat/fat.h"
-#include "hfs/hfs.h"
-#include "jfs/jfs.h"
-#include "xfs/xfs.h"
-#include "ufs/ufs.h"
-#include "ntfs/ntfs.h"
-#include "iso9660/iso9660.h"
-#include "udf/udf.h"
-#include "highpoint/highpoint.h"
-#include "linux_swap/linux_swap.h"
-#include "linux_raid/linux_raid.h"
-#include "lvm/lvm.h"
-#include "cramfs/cramfs.h"
-#include "hpfs/hpfs.h"
-#include "romfs/romfs.h"
-#include "mac/mac.h"
-#include "msdos/msdos.h"
+#include "ext.h"
+#include "reiserfs.h"
+#include "fat.h"
+#include "hfs.h"
+#include "jfs.h"
+#include "xfs.h"
+#include "ufs.h"
+#include "ntfs.h"
+#include "iso9660.h"
+#include "udf.h"
+#include "luks.h"
+#include "highpoint.h"
+#include "linux_swap.h"
+#include "linux_raid.h"
+#include "lvm.h"
+#include "cramfs.h"
+#include "hpfs.h"
+#include "romfs.h"
+#include "sysv.h"
+#include "luks.h"
+#include "mac.h"
+#include "msdos.h"
 
 int volume_id_probe_all(struct volume_id *id, unsigned long long off, unsigned long long size)
 {
@@ -77,6 +80,9 @@ int volume_id_probe_all(struct volume_id *id, unsigned long long off, unsigned l
 		goto exit;
 
 	if (volume_id_probe_highpoint_ataraid(id, off) == 0)
+		goto exit;
+
+	if (volume_id_probe_luks(id, off) == 0)
 		goto exit;
 
 	/* signature in the first block, only small buffer needed */
@@ -126,6 +132,9 @@ int volume_id_probe_all(struct volume_id *id, unsigned long long off, unsigned l
 		goto exit;
 
 	if (volume_id_probe_hpfs(id, off) == 0)
+		goto exit;
+
+	if (volume_id_probe_sysv(id, off) == 0)
 		goto exit;
 
 	return -1;

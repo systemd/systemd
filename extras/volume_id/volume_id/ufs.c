@@ -34,9 +34,9 @@
 #include <ctype.h>
 #include <asm/types.h>
 
-#include "../volume_id.h"
-#include "../logging.h"
-#include "../util.h"
+#include "volume_id.h"
+#include "logging.h"
+#include "util.h"
 #include "ufs.h"
 
 struct ufs_super_block {

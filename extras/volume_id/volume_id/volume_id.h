@@ -21,7 +21,7 @@
 #ifndef _VOLUME_ID_H_
 #define _VOLUME_ID_H_
 
-#define VOLUME_ID_VERSION		34
+#define VOLUME_ID_VERSION		35
 
 #define VOLUME_ID_LABEL_SIZE		64
 #define VOLUME_ID_UUID_SIZE		16
@@ -38,6 +38,7 @@ enum volume_id_usage {
 	VOLUME_ID_PARTITIONTABLE,
 	VOLUME_ID_RAID,
 	VOLUME_ID_DISKLABEL,
+	VOLUME_ID_CRYPTO,
 };
 
 struct volume_id_partition {

@@ -34,9 +34,9 @@
 #include <ctype.h>
 #include <asm/types.h>
 
-#include "../volume_id.h"
-#include "../logging.h"
-#include "../util.h"
+#include "volume_id.h"
+#include "logging.h"
+#include "util.h"
 #include "hfs.h"
 
 struct hfs_finder_info{
