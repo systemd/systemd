@@ -1,10 +1,10 @@
 /*
  * udev_volume_id - udev callout to read filesystem label and uuid
  *
- * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	sample udev rule for creation of a symlink with the filsystem uuid:
- *	KERNEL="sd*", PROGRAM="/sbin/udev_volume_id -u", SYMLINK="%c"
+ *	KERNEL="sd*", PROGRAM="/sbin/udev_volume_id -u %N", SYMLINK="%c"
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -28,7 +28,6 @@
 #include <ctype.h>
 #include <sys/ioctl.h>
 
-#include "../../libsysfs/sysfs/libsysfs.h"
 #include "../../udev_utils.h"
 #include "../../logging.h"
 #include "volume_id/volume_id.h"
@@ -47,49 +46,18 @@ void log_message(int level, const char *format, ...)
 }
 #endif
 
-static struct volume_id *open_classdev(struct sysfs_class_device *class_dev)
-{
-	struct volume_id *vid;
-	struct sysfs_attribute *attr;
-	int major, minor;
-
-	attr = sysfs_get_classdev_attr(class_dev, "dev");
-
-	if (attr == NULL) {
-		printf("error reading 'dev' attribute\n");
-		return NULL;
-	}
-
-	if (sscanf(attr->value, "%u:%u", &major, &minor) != 2) {
-		printf("error getting major/minor number\n");
-		return NULL;
-	}
-
-	vid = volume_id_open_dev_t(makedev(major, minor));
-	if (vid == NULL) {
-		printf("error open volume\n");
-		return NULL;
-	}
-
-	return vid;
-}
+extern int optind;
 
 int main(int argc, char *argv[])
 {
-	const char help[] = "usage: udev_volume_id [-t|-l|-u|-d]\n"
+	const char help[] = "usage: udev_volume_id [-t|-l|-u] <device>\n"
 			    "       -t filesystem type\n"
 			    "       -l filesystem label\n"
 			    "       -u filesystem uuid\n"
-			    "       -d disk label from main device\n"
 			    "\n";
-	static const char short_options[] = "htlud";
-	char sysfs_mnt_path[SYSFS_PATH_MAX];
-	char dev_path[SYSFS_PATH_MAX];
-	struct sysfs_class_device *class_dev = NULL;
-	struct sysfs_class_device *class_dev_parent = NULL;
+	static const char short_options[] = "htlu";
 	struct volume_id *vid = NULL;
-	char *devpath;
-	char probe_disk_label = 0;
+	const char *device;
 	char print = 'a';
 	static char name[VOLUME_ID_LABEL_SIZE];
 	int len, i, j;
@@ -115,9 +83,6 @@ int main(int argc, char *argv[])
 		case 'u':
 			print = 'u';
 			continue;
-		case 'd':
-			probe_disk_label = 1;
-			continue;
 		case 'h':
 		case '?':
 		default:
@@ -126,49 +91,26 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	devpath = getenv("DEVPATH");
-	if (devpath == NULL) {
-		printf("error DEVPATH empty\n");
+	device = argv[optind];
+	if (device == NULL) {
+		printf(help);
+		exit(1);
+	}
+
+	vid = volume_id_open_node(device);
+	if (vid == NULL) {
+		printf("error open volume\n");
 		goto exit;
 	}
 
-	if (sysfs_get_mnt_path(sysfs_mnt_path, SYSFS_PATH_MAX) != 0) {
-		printf("error getting sysfs mount path\n");
-		goto exit;
-	}
+	if (ioctl(vid->fd, BLKGETSIZE64, &size) != 0)
+		size = 0;
 
-	strfieldcpy(dev_path, sysfs_mnt_path);
-	strfieldcat(dev_path, devpath);
+	if (volume_id_probe_all(vid, 0, size) == 0)
+		goto print;
 
-	class_dev = sysfs_open_class_device_path(dev_path);
-	if (class_dev == NULL) {
-		printf("error getting class device\n");
-		goto exit;
-	}
-
-	if (probe_disk_label == 0) {
-		vid = open_classdev(class_dev);
-		if (vid == NULL)
-			goto exit;
-
-		if (ioctl(vid->fd, BLKGETSIZE64, &size) != 0)
-			size = 0;
-
-		if (volume_id_probe_all(vid, 0, size) == 0)
-			goto print;
-	} else {
-		/* if we are on a partition, open main block device instead */
-		class_dev_parent = sysfs_get_classdev_parent(class_dev);
-		if (class_dev_parent != NULL)
-			vid = open_classdev(class_dev_parent);
-		else
-			vid = open_classdev(class_dev);
-		if (vid == NULL)
-			goto exit;
-
-		if (volume_id_probe_dasd(vid) == 0)
-			goto print;
-	}
+	if (volume_id_probe_dasd(vid) == 0)
+		goto print;
 
 	printf("unknown volume type\n");
 	goto exit;
@@ -229,8 +171,6 @@ print:
 	rc = 0;
 
 exit:
-	if (class_dev != NULL)
-		sysfs_close_class_device(class_dev);
 	if (vid != NULL)
 		volume_id_close(vid);
 

@@ -3,43 +3,37 @@ udev_volume_id - partition, filesystem, disklabel reader
 
 This program is normally called from a udev rule, to provide udev with the
 name, uuid or the filesystem type of a partition to name a device node.
-udev_volume_id opens the blockdevice specified by the environment variable
-DEVPATH and searches for a filesystem superblock to read the label. The
-following commandline switches are supported to specify what udev_volume_id
+udev_volume_id opens the blockdevice node specified at the commandline.
+The following commandline switches are supported to specify what udev_volume_id
 should print to stdout:
 
        no option prints all values
   -h   prints help text
   -l   prints the label of the partition
   -u   prints the uuid of the partition
-  -d   read disk instead of partition
-
-If -d is specified udev_volume_id tries to read the label from the main
-block device where the partition belongs to. For now this is only useful
-for s390 dasd labels.
 
 udev_volume_id will only return successful if the string asked for, is not
 empty. All trailing whitespace will be removed, spaces replaced by underscore
 and slashes ignored.
 
 The following rule will create a symlink named with the label string:
-  KERNEL="[hs]d*", PROGRAM="/sbin/udev_volume_id -l", SYMLINK="%c"
+  KERNEL="[hs]d*", PROGRAM="/sbin/udev_volume_id -l %N", SYMLINK="%c"
 
 If no label is found udev_volume_id exits with nonzero and the rule will be
 ignored.
 
 To give it a try, you may call it on the commandline:
 
-  [root@pim udev.kay]# DEVPATH=/block/hda/hda3 extras/volume_id/udev_volume_id
+  [root@pim udev.kay]# extras/volume_id/udev_volume_id /dev/hda3
   T:ext3
   L:Music Store
   N:Music_Store
   U:d2da42b5-bbd9-44eb-a72c-cc4542fcb71e
 
-  [root@pim udev.kay]# DEVPATH=/block/hda/hda3 extras/volume_id/udev_volume_id -l
+  [root@pim udev.kay]# extras/volume_id/udev_volume_id -l /dev/hda3
   Music_Store
 
-  [root@pim udev.kay]# DEVPATH=/block/hda/hda1 extras/volume_id/udev_volume_id -t
+  [root@pim udev.kay]# extras/volume_id/udev_volume_id -t /dev/hda3
   swap
 
 
