@@ -95,9 +95,9 @@ static void run_udev(const char *subsystem)
 	switch (pid) {
 	case 0:
 		/* child */
-		execl(UDEV_BIN, "udev", subsystem, NULL);
+		execl(UDEV_BIN, UDEV_BIN, subsystem, NULL);
 		dbg("exec of child failed");
-		exit(1);
+		_exit(1);
 		break;
 	case -1:
 		dbg("fork of child failed");
@@ -117,7 +117,6 @@ int main(int argc, char* argv[])
 	unsigned long long seq;
 	int retval = 1;
 	int loop;
-	struct timespec tspec;
 	int sock = -1;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
@@ -176,8 +175,8 @@ int main(int argc, char* argv[])
 	strfieldcpy(msg.subsystem, subsystem);
 
 	/* If we can't send, try to start daemon and resend message */
-	loop = UDEVSEND_CONNECT_RETRY;
-	while (loop--) {
+	loop = SEND_WAIT_MAX_SECONDS * SEND_WAIT_LOOP_PER_SECOND;
+	while (--loop) {
 		retval = sendto(sock, &msg, sizeof(struct hotplug_msg), 0,
 				(struct sockaddr *)&saddr, addrlen);
 		if (retval != -1) {
@@ -200,10 +199,8 @@ int main(int argc, char* argv[])
 			dbg("daemon started");
 			started_daemon = 1;
 		} else {
-			dbg("retry to connect %d", UDEVSEND_CONNECT_RETRY - loop);
-			tspec.tv_sec = 0;
-			tspec.tv_nsec = 100000000;  /* 100 millisec */
-			nanosleep(&tspec, NULL);
+			dbg("retry to connect %d", SEND_WAIT_MAX_SECONDS * SEND_WAIT_LOOP_PER_SECOND - loop);
+			usleep(1000 * 1000 / SEND_WAIT_LOOP_PER_SECOND);
 		}
 	}
 

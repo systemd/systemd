@@ -46,7 +46,7 @@
 
 static int pipefds[2];
 static unsigned long long expected_seqnum = 0;
-static volatile int children_waiting;
+static volatile int sigchilds_waiting;
 static volatile int run_msg_q;
 static volatile int sig_flag;
 static int run_exec_q;
@@ -58,7 +58,7 @@ static LIST_HEAD(running_list);
 static void exec_queue_manager(void);
 static void msg_queue_manager(void);
 static void user_sighandler(void);
-static void reap_kids(void);
+static void reap_sigchilds(void);
 char *udev_bin;
 
 #ifdef LOG
@@ -325,7 +325,7 @@ static void asmlinkage sig_handler(int signum)
 			break;
 		case SIGCHLD:
 			/* set flag, then write to pipe if needed */
-			children_waiting = 1;
+			sigchilds_waiting = 1;
 			goto do_write;
 			break;
 		default:
@@ -366,9 +366,8 @@ static void udev_done(int pid)
 	}
 }
 
-static void reap_kids(void)
+static void reap_sigchilds(void)
 {
-	/* reap all dead children */
 	while(1) {
 		int pid = waitpid(-1, NULL, WNOHANG);
 		if ((pid == -1) || (pid == 0))
@@ -378,13 +377,13 @@ static void reap_kids(void)
 }
 
 /* just read everything from the pipe and clear the flag,
- * the useful flags were set in the signal handler
+ * the flags was set in the signal handler
  */
 static void user_sighandler(void)
 {
 	int sig;
 	while(1) {
-		int rc = read(pipefds[0],&sig,sizeof(sig));
+		int rc = read(pipefds[0], &sig, sizeof(sig));
 		if (rc < 0)
 			break;
 
@@ -392,14 +391,13 @@ static void user_sighandler(void)
 	}
 }
 
-
-int main(int argc, char *argv[])
+int main(int argc, char *argv[], char *envp[])
 {
 	int ssock, maxsockplus;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
 	int retval, fd;
-	const int on = 1;
+	const int feature_on = 1;
 	struct sigaction act;
 	fd_set readfds;
 
@@ -408,11 +406,13 @@ int main(int argc, char *argv[])
 
 	if (getuid() != 0) {
 		dbg("need to be root, exit");
-		exit(1);
+		_exit(1);
 	}
-	/* make sure we are at top of dir */
+
+	/* make sure we don't lock any path */
 	chdir("/");
-	umask( umask( 077 ) | 022 );
+	umask(umask(077) | 022);
+
 	/* Set fds to dev/null */
 	fd = open( "/dev/null", O_RDWR );
 	if ( fd < 0 ) {
@@ -424,7 +424,8 @@ int main(int argc, char *argv[])
 	dup2(fd, 2);
 	if (fd > 2) 
 		close(fd);
-	/* Get new session id so stray signals don't come our way. */
+
+	/* become session leader */
 	setsid();
 
 	/* setup signal handler pipe */
@@ -456,7 +457,6 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	
 	/* set signal handlers */
 	act.sa_handler = (void (*) (int))sig_handler;
 	sigemptyset(&act.sa_mask);
@@ -493,7 +493,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* enable receiving of the sender credentials */
-	setsockopt(ssock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+	setsockopt(ssock, SOL_SOCKET, SO_PASSCRED, &feature_on, sizeof(feature_on));
 
 	/* possible override of udev binary, used for testing */
 	udev_bin = getenv("UDEV_BIN");
@@ -522,9 +522,9 @@ int main(int argc, char *argv[])
 		if (FD_ISSET(pipefds[0], &workreadfds))
 			user_sighandler();
 
-		if (children_waiting) {
-			children_waiting = 0;
-			reap_kids();
+		if (sigchilds_waiting) {
+			sigchilds_waiting = 0;
+			reap_sigchilds();
 		}
 
 		if (run_msg_q) {
@@ -533,14 +533,10 @@ int main(int argc, char *argv[])
 		}
 
 		if (run_exec_q) {
-			/* this is tricky.  exec_queue_manager() loops over exec_list, and
-			 * calls running_with_devpath(), which loops over running_list. This gives
-			 * O(N*M), which can get *nasty*.  Clean up running_list before
-			 * calling exec_queue_manager().
-			 */
-			if (children_waiting) {
-				children_waiting = 0;
-				reap_kids();
+			 /* clean up running_list before calling exec_queue_manager() */
+			if (sigchilds_waiting) {
+				sigchilds_waiting = 0;
+				reap_sigchilds();
 			}
 
 			run_exec_q = 0;
@@ -550,5 +546,5 @@ int main(int argc, char *argv[])
 exit:
 	close(ssock);
 	logging_close();
-	exit(1);
+	return 1;
 }
