@@ -60,7 +60,8 @@ void vsyslog(int prio, const char *format, va_list ap)
   len += vsnprintf(buf+len, BUFLEN-len, format, ap);
 
   if ( len > BUFLEN-1 ) len = BUFLEN-1;
-  buf[len++] = '\n';
+  if (buf[len-1] != '\n')
+    buf[len++] = '\n';
 
   fd = __syslog_fd;
   if ( fd == -1 )
