@@ -36,7 +36,7 @@ struct sysfs_class_device;
 #define PROGRAM_SIZE	100
 
 #define FIELD_BUS	"BUS"
-#define FIELD_SYSFS	"SYSFS_"
+#define FIELD_SYSFS	"SYSFS"
 #define FIELD_ID	"ID"
 #define FIELD_PLACE	"PLACE"
 #define FIELD_PROGRAM	"PROGRAM"

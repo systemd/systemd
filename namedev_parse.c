@@ -85,6 +85,35 @@ void dump_perm_dev_list(void)
 		dump_perm_dev(dev);
 }
 
+/* extract possible KEY{attr} or KEY_attr */
+static char *get_key_attribute(char *str)
+{
+	char *pos;
+	char *attr;
+
+	attr = strchr(str, '_');
+	if (attr != NULL) {
+		attr++;
+		dbg("attribute='%s'", attr);
+		return attr;
+	}
+
+	attr = strchr(str, '{');
+	if (attr != NULL) {
+		attr++;
+		pos = strchr(attr, '}');
+		if (pos == NULL) {
+			dbg("missing closing brace for format");
+			return NULL;
+		}
+		pos[0] = '\0';
+		dbg("attribute='%s'", attr);
+		return attr;
+	}
+
+	return NULL;
+}
+
 int namedev_init_rules(void)
 {
 	char line[255];
@@ -92,6 +121,7 @@ int namedev_init_rules(void)
 	char *temp;
 	char *temp2;
 	char *temp3;
+	char *attr;
 	FILE *fd;
 	int program_given = 0;
 	int retval = 0;
@@ -164,8 +194,12 @@ int namedev_init_rules(void)
 					++pair;
 				}
 				if (pair) {
-					/* remove prepended 'SYSFS_' */
-					strfieldcpy(pair->file, temp2 + sizeof(FIELD_SYSFS)-1);
+					attr = get_key_attribute(temp2 + sizeof(FIELD_SYSFS)-1);
+					if (attr == NULL) {
+						dbg("error parsing " FIELD_SYSFS " attribute");
+						continue;
+					}
+					strfieldcpy(pair->file, attr);
 					strfieldcpy(pair->value, temp3);
 				}
 				continue;
@@ -205,12 +239,13 @@ int namedev_init_rules(void)
 		/* simple plausibility check for given keys */
 		if ((dev.sysfs_pair[0].file[0] == '\0') ^
 		    (dev.sysfs_pair[0].value[0] == '\0')) {
-			dbg("inconsistency in SYSFS_ key");
+			dbg("inconsistency in " FIELD_SYSFS " key");
 			goto error;
 		}
 
 		if ((dev.result[0] != '\0') && (program_given == 0)) {
-			dbg("RESULT is only useful when PROGRAM called in any rule before");
+			dbg(FIELD_RESULT " is only useful when "
+			    FIELD_PROGRAM " is called in any rule before");
 			goto error;
 		}
 
