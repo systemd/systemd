@@ -24,35 +24,37 @@
 #ifndef LOGGING_H
 #define LOGGING_H
 
+#define info(format, arg...)		do { } while (0)
+#define dbg(format, arg...)		do { } while (0)
+#define dbg_parse(format, arg...)	do { } while (0)
+
 #ifdef LOG
 #include <syslog.h>
+
+#undef info
 #define info(format, arg...)								\
 	do {										\
 		log_message (LOG_INFO , format , ## arg);	\
 	} while (0)
-#else
-	#define info(format, arg...) do { } while (0)
-#endif
 
 #ifdef DEBUG
+#undef dbg
 #define dbg(format, arg...)								\
 	do {										\
 		log_message (LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
 	} while (0)
-#else
-	#define dbg(format, arg...) do { } while (0)
 #endif
 
 /* Parser needs it's own debugging statement, we usually don't care about this at all */
 #ifdef DEBUG_PARSER
+#undef dbg_parse
 #define dbg_parse(format, arg...)							\
 	do {										\
 		log_message (LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
 	} while (0)
-#else
-	#define dbg_parse(format, arg...) do { } while (0)
 #endif
 
+#endif	/* LOG */
 
 extern int log_message (int level, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
