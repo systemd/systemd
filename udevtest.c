@@ -29,6 +29,7 @@
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
+#include "udev_sysfs.h"
 #include "udev_utils.h"
 #include "udev_version.h"
 #include "namedev.h"
