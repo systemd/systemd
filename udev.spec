@@ -23,13 +23,13 @@
 %define debug 0
 
 # if we want to use the LSB version of the init script or the Redhat one
-# 0 - use Redhat version: etc/init.d/udev
-# 1 - use LSB version: etc/init.d/udev.init.LSB
+# 0 - use Redhat: etc/init.d/udev
+# 1 - use LSB: etc/init.d/udev.init.LSB
 %define lsb 0
 
 Summary: A userspace implementation of devfs
 Name: udev
-Version: 017
+Version: 017_bk
 Release: 1
 License: GPL
 Group: Utilities/System
@@ -68,18 +68,20 @@ make CC="gcc $RPM_OPT_FLAGS"	\
 	DEBUG=false		\
 %endif
 
-# now build udevd on it's own, as it can't handle being built with klibc
-make CC="gcc $RPM_OPT_FLAGS" udevd
-
 
 %install
 make DESTDIR=$RPM_BUILD_ROOT install \
 %if %{dbus}
-	USE_DBUS=true
+	USE_DBUS=true		\
+%else
+	USE_DBUS=false		\
 %endif
 %if %{lsb}
-	USE_LSB=true
+	USE_LSB=true		\
+%else
+	USE_LSB=false		\
 %endif
+
 %post
 /sbin/chkconfig --add udev
 
@@ -98,9 +100,9 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) /sbin/udevinfo
 %attr(755,root,root) /sbin/udevsend
 %attr(755,root,root) /sbin/udevd
-%attr(755,root,root) /udev/
-%attr(755,root,root) /etc/udev/
-%attr(755,root,root) %dir
+%attr(755,root,root) /sbin/udevtest
+%attr(755,root,root) %dir /udev/
+%attr(755,root,root) %dir /etc/udev/
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.conf
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.rules
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.permissions
@@ -112,6 +114,11 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0644,root,root) %{_mandir}/man8/udev*.8*
 
 %changelog
+* Mon Feb 16 2004 Greg Kroah-Hartman <greg@kroah.com>
+- fix up udevd build, as it's no longer needed to be build seperatly
+- add udevtest to list of files
+- more Red Hat sync ups.
+
 * Thu Feb 12 2004 Greg Kroah-Hartman <greg@kroah.com>
 - add some changes from the latest Fedora udev release.
 
