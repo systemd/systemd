@@ -261,7 +261,11 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 		sprintf(buff, "%s%s/block",
 			conf->sysfs_path, conf->hotplugdev);
 		memset(conf->hotplugdev, 0, FILE_NAME_SIZE);
-		readlink(buff, conf->hotplugdev, FILE_NAME_SIZE);
+
+		/* if called from hotplug but with no block, leave */
+		if (0 > readlink(buff, conf->hotplugdev, FILE_NAME_SIZE))
+			return 0;
+
 		basename(conf->hotplugdev, buff);
 		sprintf(curpath.sg_dev, "/dev/%s", buff);
 

@@ -1,3 +1,6 @@
 . /etc/hotplug/hotplug.functions
+
+# wait for sysfs
 sleep 1
+
 mesg `/sbin/multipath scsi $DEVPATH`

@@ -1,4 +1,5 @@
 2003-12-29 multipath-012
+	* check hotplug event refers to a block device; if not exit early
 	* refresh doc
 	* add the uninstall target in Makefile
 2003-12-22 multipath-010
