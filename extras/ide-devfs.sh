@@ -2,7 +2,7 @@
 
 # udev external PROGRAM script
 # return devfs-names for ide-devices
-# BUS="ide", PROGRAM="/etc/udev/ide-devfs.sh %k %b %n", RESULT="hd*", NAME="%1c", SYMLINK="%2c %3c"
+# BUS="ide", KERNEL="hd*", PROGRAM="/etc/udev/ide-devfs.sh %k %b %n", NAME="%k", SYMLINK="%1c %2c"
 
 HOST="${2%\.[0-9]}"
 TARGET="${2#[0-9]\.}"
@@ -38,10 +38,10 @@ get_dev_number() {
 if [ -z "$3" ]; then
 	MEDIA=`cat /proc/ide/${1}/media`
 	if [ "${MEDIA}" = "cdrom" ]; then
-		echo $1 ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/cd cdroms/cdrom`get_dev_number $1 cdrom`
+		echo ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/cd cdroms/cdrom`get_dev_number $1 cdrom`
 	elif [ "${MEDIA}" = "disk" ]; then
-		echo $1 ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/disc discs/disc`get_dev_number $1 disk`/disc
+		echo ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/disc discs/disc`get_dev_number $1 disk`/disc
 	fi
 else
-	echo $1 ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/part$3 discs/disc`get_dev_number $1 disk`/part$3
+	echo ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/part$3 discs/disc`get_dev_number $1 disk`/part$3
 fi
