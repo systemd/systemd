@@ -103,6 +103,7 @@ int poll(struct pollfd *, nfds_t, long)
 int fsync(int)
 int readv(int, const struct iovec *, int)
 int writev(int, const struct iovec *, int)
+int ftruncate(int, off_t)
 
 #
 # Signal operations
