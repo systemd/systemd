@@ -54,6 +54,8 @@ static const struct subsystem_file {
 	{ .subsystem = "ieee1394_node",	.file = NULL },
 	{ .subsystem = "fc_transport",	.file = "port_id" },
 	{ .subsystem = "fc_host",	.file = "port_id" },
+	{ .subsystem = "spi_transport",	.file = "width" },
+	{ .subsystem = "spi_host",	.file = "width" },
 	{ NULL, NULL }
 };
 
