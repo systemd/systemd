@@ -156,11 +156,11 @@ int main(int argc, char *argv[], char *envp[])
 			/* wait for sysfs and possibly add node */
 			dbg("udev add");
 
-			/* skip blacklisted subsystems */
+			/* skip subsystems without "dev", but handle net devices */
 			if (udev.type != 'n' && subsystem_expect_no_dev(udev.subsystem)) {
 				dbg("don't care about '%s' devices", udev.subsystem);
 				goto hotplug;
-			};
+			}
 
 			snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, udev.devpath);
 			class_dev = wait_class_device_open(path);
@@ -178,26 +178,25 @@ int main(int argc, char *argv[], char *envp[])
 			/* name, create node, store in db */
 			retval = udev_add_device(&udev, class_dev);
 
-			/* run dev.d/ scripts if we created a node or changed a netif name */
-			if (udev_dev_d && udev.devname[0] != '\0') {
-				setenv("DEVNAME", udev.devname, 1);
-				udev_multiplex_directory(&udev, DEVD_DIR, DEVD_SUFFIX);
-			}
-
 			sysfs_close_class_device(class_dev);
 		} else if (strcmp(action, "remove") == 0) {
 			/* possibly remove a node */
 			dbg("udev remove");
 
-			/* get node from db, remove db-entry, delete created node */
-			retval = udev_remove_device(&udev);
-
-			/* run dev.d/ scripts if we're not instructed to ignore the event */
-			if (udev_dev_d && udev.devname[0] != '\0') {
-				setenv("DEVNAME", udev.devname, 1);
-				udev_multiplex_directory(&udev, DEVD_DIR, DEVD_SUFFIX);
+			/* skip subsystems without "dev" */
+			if (subsystem_expect_no_dev(udev.subsystem)) {
+				dbg("don't care about '%s' devices", udev.subsystem);
+				goto hotplug;
 			}
 
+			/* get node from db, remove db-entry, delete created node */
+			retval = udev_remove_device(&udev);
+		}
+
+		/* run dev.d/ scripts if we created/deleted a node or changed a netif name */
+		if (udev_dev_d && udev.devname[0] != '\0') {
+			setenv("DEVNAME", udev.devname, 1);
+			udev_multiplex_directory(&udev, DEVD_DIR, DEVD_SUFFIX);
 		}
 	} else if ((strncmp(devpath, "/devices/", 9) == 0)) {
 		if (strcmp(action, "add") == 0) {
