@@ -469,32 +469,19 @@ static int match_sysfs_pairs(struct config_device *dev, struct sysfs_class_devic
 static int match_id(struct config_device *dev, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
 	char path[SYSFS_PATH_MAX];
-	int found;
 	char *temp = NULL;
 
 	/* we have to have a sysfs device for ID to work */
 	if (!sysfs_device)
 		return -ENODEV;
 
-	found = 0;
 	strfieldcpy(path, sysfs_device->path);
 	temp = strrchr(path, '/');
 	dbg("search '%s' in '%s', path='%s'", dev->id, temp, path);
-	if (strstr(temp, dev->id) != NULL) {
-		found = 1;
-	} else {
-		*temp = 0x00;
-		temp = strrchr(path, '/');
-		dbg("search '%s' in '%s', path='%s'", dev->id, temp, path);
-		if (strstr(temp, dev->id) != NULL)
-			found = 1;
-	}
-	if (!found) {
-		dbg("id doesn't match");
+	if (strstr(temp, dev->id) == NULL)
 		return -ENODEV;
-	}
-
-	return 0;
+	else
+		return 0;
 }
 
 static int match_place(struct config_device *dev, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
