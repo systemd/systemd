@@ -265,15 +265,12 @@ int name_list_add(struct list_head *name_list, const char *name, int sort)
 }
 
 /* calls function for every file found in specified directory */
-int call_foreach_file(int (*handler_function)(struct udevice *udev, const char *string),
-		      struct udevice *udev, const char *dirname, const char *suffix)
+int add_matching_files(struct list_head *name_list, const char *dirname, const char *suffix)
 {
 	struct dirent *ent;
 	DIR *dir;
 	char *ext;
-	struct name_entry *loop_file;
-	struct name_entry *tmp_file;
-	LIST_HEAD(file_list);
+	char filename[PATH_SIZE];
 
 	dbg("open directory '%s'", dirname);
 	dir = opendir(dirname);
@@ -290,7 +287,7 @@ int call_foreach_file(int (*handler_function)(struct udevice *udev, const char *
 		if ((ent->d_name[0] == '.') || (ent->d_name[0] == COMMENT_CHARACTER))
 			continue;
 
-		/* look for file with specified suffix */
+		/* look for file matching with specified suffix */
 		ext = strrchr(ent->d_name, '.');
 		if (ext == NULL)
 			continue;
@@ -299,20 +296,10 @@ int call_foreach_file(int (*handler_function)(struct udevice *udev, const char *
 			continue;
 
 		dbg("put file '%s/%s' in list", dirname, ent->d_name);
-		name_list_add(&file_list, ent->d_name, 1);
-	}
 
-	/* call function for every file in the list */
-	list_for_each_entry_safe(loop_file, tmp_file, &file_list, node) {
-		char filename[PATH_SIZE];
-
-		snprintf(filename, sizeof(filename), "%s/%s", dirname, loop_file->name);
+		snprintf(filename, sizeof(filename), "%s/%s", dirname, ent->d_name);
 		filename[sizeof(filename)-1] = '\0';
-
-		handler_function(udev, filename);
-
-		list_del(&loop_file->node);
-		free(loop_file);
+		name_list_add(name_list, filename, 1);
 	}
 
 	closedir(dir);

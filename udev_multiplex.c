@@ -74,6 +74,8 @@ static int run_program(struct udevice *udev, const char *filename)
 void udev_multiplex_directory(struct udevice *udev, const char *basedir, const char *suffix)
 {
 	char dirname[PATH_SIZE];
+	struct name_entry *name_loop, *name_tmp;
+	LIST_HEAD(name_list);
 
 	/* chop the device name up into pieces based on '/' */
 	if (udev->name[0] != '\0') {
@@ -89,7 +91,7 @@ void udev_multiplex_directory(struct udevice *udev, const char *basedir, const c
 			if (strcmp(devname, udev->subsystem) != 0) {
 				snprintf(dirname, sizeof(dirname), "%s/%s", basedir, devname);
 				dirname[sizeof(dirname)-1] = '\0';
-				call_foreach_file(run_program, udev, dirname, suffix);
+				add_matching_files(&name_list, dirname, suffix);
 			}
 
 			temp[0] = '/';
@@ -101,16 +103,22 @@ void udev_multiplex_directory(struct udevice *udev, const char *basedir, const c
 	if (udev->name[0] != '\0') {
 		snprintf(dirname, sizeof(dirname), "%s/%s", basedir, udev->name);
 		dirname[sizeof(dirname)-1] = '\0';
-		call_foreach_file(run_program, udev, dirname, suffix);
+		add_matching_files(&name_list, dirname, suffix);
 	}
 
 	if (udev->subsystem[0] != '\0') {
 		snprintf(dirname, sizeof(dirname), "%s/%s", basedir, udev->subsystem);
 		dirname[sizeof(dirname)-1] = '\0';
-		call_foreach_file(run_program, udev, dirname, suffix);
+		add_matching_files(&name_list, dirname, suffix);
 	}
 
 	snprintf(dirname, sizeof(dirname), "%s/default", basedir);
 	dirname[sizeof(dirname)-1] = '\0';
-	call_foreach_file(run_program, udev, dirname, suffix);
+	add_matching_files(&name_list, dirname, suffix);
+
+	list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
+		run_program(udev, name_loop->name);
+		list_del(&name_loop->node);
+	}
+
 }

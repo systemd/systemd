@@ -168,7 +168,7 @@ static char *get_key_attribute(char *str)
 	return NULL;
 }
 
-static int rules_parse(struct udevice *udev, const char *filename)
+static int rules_parse(const char *filename)
 {
 	char line[LINE_SIZE];
 	char *bufline;
@@ -446,9 +446,18 @@ int udev_rules_init(void)
 		return -1;
 
 	if ((stats.st_mode & S_IFMT) != S_IFDIR)
-		retval = rules_parse(NULL, udev_rules_filename);
-	else
-		retval = call_foreach_file(rules_parse, NULL, udev_rules_filename, RULEFILE_SUFFIX);
+		retval = rules_parse(udev_rules_filename);
+	else {
+		struct name_entry *name_loop, *name_tmp;
+		LIST_HEAD(name_list);
+
+		retval = add_matching_files(&name_list, udev_rules_filename, RULEFILE_SUFFIX);
+
+		list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
+			rules_parse(name_loop->name);
+			list_del(&name_loop->node);
+		}
+	}
 
 	return retval;
 }
