@@ -119,7 +119,7 @@ int main(int argc, char **argv, char **envp)
 	retval = udevdb_init(UDEVDB_DEFAULT);
 	if (retval != 0) {
 		dbg("unable to initialize database");
-		goto exit;
+		goto exit_sysbus;
 	}
 
 	/* initialize the naming deamon */
@@ -137,6 +137,7 @@ int main(int argc, char **argv, char **envp)
 	}
 	udevdb_exit();
 
+exit_sysbus:
 	/* disconnect from the system message bus */
 	sysbus_disconnect();
 
