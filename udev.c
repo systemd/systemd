@@ -229,9 +229,9 @@ exit:
 
 int main(int argc, char **argv, char **envp)
 {
+	int retval;
 	main_argv = argv;
 	main_envp = envp;
-	int retval;
 
 	dbg("version %s", UDEV_VERSION);
 
