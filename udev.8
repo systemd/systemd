@@ -5,7 +5,7 @@ udev \- Linux configurable dynamic device naming support
 .BI udev " hotplug-subsystem"
 .br
 .B udev
-.RI "[-q " sysfs_path "] [-rVh]"
+.RI "[-q " query_type " -p " sysfs_path "] [-drVh]"
 .SH "DESCRIPTION"
 .B udev
 creates or removes device node files usually located in the /dev directory.
@@ -21,14 +21,14 @@ On device creation,
 .B udev
 reads the sysfs directory of the given device to collect device attributes
 like label, serial number or bus device number.
-These attributes are treated as a key
-to determine a unique name for device file creation.
+These attributes may used as keys to determine a
+unique name for device file creation.
 .B udev
 maintains a database for devices present on the system.
 .br
 On device removal,
 .B udev
-queries the internal database for the name of the device file to be deleted.
+queries its database for the name of the device file to be deleted.
 .SH "OPTIONS"
 .B udev
 normally is called by
@@ -42,11 +42,21 @@ Print the version information.
 .TP
 .B -r
 Print the the
-.B udev
-root directory.
+.B udev_root
+directory. When used in conjunction with a query for the node name, the
+.B udev_root
+will be prepended.
 .TP
-.BI -q " sysfs_path"
-Query with the sysfs path as argument for the name of the created device node.
+.BI -q " query_type"
+Query the database for specified value of a created device node.
+Valid types are:
+.BR name ", " symlink ", " owner " or " group .
+.TP
+.BI -p " sysfs_path"
+Specify the sysfs path needed for the query.
+.TP
+.B -q
+Dump the whole database.
 .TP
 .B -h
 Print help text.
@@ -115,61 +125,50 @@ value in the
 .I /etc/udev/udev.conf
 file.
 .P
-Every line in the rules file define the mapping between device attributes and
-the device file name. It starts with a keyword defining the method used to
-match, followed by one ore more keys to compare and the filename for the
-device. One ore more optional symlinks targeting the node may be specified.
+Every line in the rules file defines the mapping between device attributes
+and the device file name. One ore more keys are specified to match a rule
+with the current device. If all keys are matching, the rule will be applied
+and the name is used for the device node. One or more optional symlinks
+targeting the node may be specified.
 .br
-If no matching configuration is found, the default kernel device name
-is used.
+If no matching rule is found, the default kernel device name is used.
 .P
 The line format is:
 .sp
-.I method, key,[key,...] name [, symlink]
+.I key,[key,...] name [, symlink]
 .sp
-where valid methods with corresponding keys are:
+where keys are:
 .TP
-.B CALLOUT
-calling external program, that returns a string to match.  The
 .B BUS
-key is optional, but if specified, the sysfs device bus must be able to be
-determined by a "device" symlink.
-.br
-.RB "keys: " BUS ", " PROGRAM ", " ID
+Match the bus type of the device.
+(The sysfs device bus must be able to be determined by a "device" symlink.)
 .TP
-.B LABEL
-device label or serial number, like USB serial number, SCSI UUID or
-file system label.  Up to 5 different sysfs files can be checked, with
-all of the values being required in order to match the rule.  The
-.B BUS
-key is optional, but if specified, the sysfs device bus must be able to be
-detemined by a "device" symlink.
-.br
-.RB "keys: " BUS ", " SYSFS_
+.B KERNEL
+Match the kernel device name.
 .TP
-.B NUMBER
-device number on the bus, like PCI bus id
-.br
-.RB "keys: " BUS ", " ID
+.B ID
+Match the device number on the bus, like PCI bus id.
 .TP
-.B TOPOLOGY
-device position on bus, like physical port of USB device
-.br
-.RB "keys: " BUS ", " PLACE
+.B PLACE
+Match the topological position on bus, like physical port of USB device
 .TP
-.B REPLACE
-string replacement of the kernel device name
-.br
-.RB "key: " KERNEL
+.BI SYSFS_ filename
+Match sysfs device attribute like label, vendor, USB serial number, SCSI UUID
+or file system label.  Up to 5 different sysfs files can be checked, with
+all of the values being required in order to match the rule.
 .TP
-.B IGNORE
-tell udev to not care about creation of this device, e.g. because the
-device is already handled by another program
-.br
-.RB "key: " KERNEL
-.P
-The methods are applied in the following order:
-.BR IGNORE ", " CALLOUT ", " LABEL ", " NUMBER ", " TOPOLOGY ", " REPLACE "."
+.B PROGRAM
+Call external program. This key is valid if the program returns successful.
+The string returned by the program may additionally matched with the
+.B RESULT
+key.
+.TP
+.B RESULT
+Match the returned string of the last
+.B PROGRAM
+call. This key may used in any following rule after a
+.B PROGRAM
+call.
 .P
 .RB "The " NAME " ," SYMLINK " and " PROGRAM
 fields support simple printf-like string substitution:
@@ -203,25 +202,25 @@ If this is not a partition, it will result in 'disc'.
 .sp
 .nf
 # if /sbin/scsi_id returns "OEM 0815" device will be called disk1
-CALLOUT, BUS="scsi", PROGRAM="/sbin/scsi_id", ID="OEM 0815", NAME="disk1"
+BUS="scsi", PROGRAM="/sbin/scsi_id", RESULT="OEM 0815", NAME="disk1"
 
 # USB printer to be called lp_color
-LABEL, BUS="usb", SYSFS_serial="W09090207101241330", NAME="lp_color"
+BUS="usb", SYSFS_serial="W09090207101241330", NAME="lp_color"
 
 # SCSI disk with a specific vendor and model number is to be called boot
-LABEL, BUS="scsi", SYSFS_vendor="IBM", SYSFS_model="ST336", NAME="boot%n"
+BUS="scsi", SYSFS_vendor="IBM", SYSFS_model="ST336", NAME="boot%n"
 
 # sound card with PCI bus id 00:0b.0 to be called dsp
-NUMBER, BUS="pci", ID="00:0b.0", NAME="dsp"
+BUS="pci", ID="00:0b.0", NAME="dsp"
 
 # USB mouse at third port of the second hub to be called mouse1
-TOPOLOGY, BUS="usb", PLACE="2.3", NAME="mouse1"
+BUS="usb", PLACE="2.3", NAME="mouse1"
 
 # ttyUSB1 should always be called pda with two additional symlinks
-REPLACE, KERNEL="ttyUSB1", NAME="pda", SYMLINK="palmtop handheld"
+KERNEL="ttyUSB1", NAME="pda", SYMLINK="palmtop handheld"
 
 # multiple USB webcams with symlinks to be called webcam0, webcam1, ...
-LABEL, BUS="usb", SYSFS_model="XV3", NAME="video%n", SYMLINK="webcam%n"
+BUS="usb", SYSFS_model="XV3", NAME="video%n", SYMLINK="webcam%n"
 .fi
 .P
 Permissions and ownership for the created device files may specified at
