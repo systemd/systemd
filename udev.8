@@ -78,7 +78,7 @@ udev_rules="/etc/udev/udev.rules"
 # udev_permissions - The name and location of the udev permission file
 udev_permissions="/etc/udev/udev.permissions"
 
-# default_mode - set the default mode for all nodes that have no 
+# default_mode - set the default mode for all nodes that have no
 #                explicit match in the permissions file
 default_mode="0666"
 .fi
@@ -106,18 +106,18 @@ The line format is:
 where valid methods with corresponding keys are:
 .TP
 .B CALLOUT
-calling external program, that returns a string to match.  The 
-.BR BUS 
+calling external program, that returns a string to match.  The
+.B BUS
 key is optional, but if specified, the sysfs device bus must be able to be
-detemined by a "device" symlink.
+determined by a "device" symlink.
 .br
 .RB "keys: " BUS ", " PROGRAM ", " ID
 .TP
 .B LABEL
 device label or serial number, like USB serial number, SCSI UUID or
 file system label.  Up to 5 different sysfs files can be checked, with
-all of the values being required in order to match the rule.  The 
-.BR BUS 
+all of the values being required in order to match the rule.  The
+.B BUS
 key is optional, but if specified, the sysfs device bus must be able to be
 detemined by a "device" symlink.
 .br
