@@ -14,6 +14,20 @@
 #include "udev_dbus.h"
 #include "logging.h"
 
+#ifdef LOG
+unsigned char logname[LOGNAME_SIZE];
+void log_message(int level, const char *format, ...)
+{
+	va_list args;
+
+	if (!udev_log)
+		return;
+
+	va_start(args, format);
+	vsyslog(level, format, args);
+	va_end(args);
+}
+#endif
 
 /** variable for the connection the to system message bus or #NULL
  *  if we cannot connect or acquire the org.kernel.udev service
@@ -21,7 +35,7 @@
 static DBusConnection* sysbus_connection;
 
 /** Disconnect from the system message bus */
-void sysbus_disconnect(void)
+static void sysbus_disconnect(void)
 {
 	if (sysbus_connection == NULL)
 		return;
@@ -31,7 +45,7 @@ void sysbus_disconnect(void)
 }
 
 /** Connect to the system message bus */
-void sysbus_connect(void)
+static void sysbus_connect(void)
 {
 	DBusError error;
 
@@ -68,20 +82,13 @@ void sysbus_connect(void)
 
 /** Send out a signal that a device node is created
  *
- *  @param  dev                 udevice object
+ *  @param  devnode             name of the device node, e.g. /dev/sda1
  *  @param  path                Sysfs path of device
  */
-void sysbus_send_create(struct udevice *dev, const char *path)
+static void sysbus_send_create(const char *devnode, const char *path)
 {
-	char filename[255];
 	DBusMessage* message;
 	DBusMessageIter iter;
-
-	if (sysbus_connection == NULL)
-		return;
-
-	strfieldcpy(filename, udev_root);
-	strfieldcat(filename, dev->name);
 
 	/* object, interface, member */
 	message = dbus_message_new_signal("/org/kernel/udev/NodeMonitor", 
@@ -89,7 +96,7 @@ void sysbus_send_create(struct udevice *dev, const char *path)
 					  "NodeCreated");
 
 	dbus_message_iter_init(message, &iter);
-	dbus_message_iter_append_string(&iter, filename);
+	dbus_message_iter_append_string(&iter, devnode);
 	dbus_message_iter_append_string(&iter, path);
 
 	if ( !dbus_connection_send(sysbus_connection, message, NULL) )
@@ -102,20 +109,13 @@ void sysbus_send_create(struct udevice *dev, const char *path)
 
 /** Send out a signal that a device node is deleted
  *
- *  @param  name                Name of the device node, e.g. /udev/sda1
+ *  @param  devnode             Name of the device node, e.g. /udev/sda1
  *  @param  path                Sysfs path of device
  */
-void sysbus_send_remove(const char* name, const char *path)
+static void sysbus_send_remove(const char *devnode, const char *path)
 {
-	char filename[255];
 	DBusMessage* message;
 	DBusMessageIter iter;
-
-	if (sysbus_connection == NULL)
-		return;
-
-	strfieldcpy(filename, udev_root);
-	strfieldcat(filename, name);
 
 	/* object, interface, member */
 	message = dbus_message_new_signal("/org/kernel/udev/NodeMonitor", 
@@ -123,7 +123,7 @@ void sysbus_send_remove(const char* name, const char *path)
 					  "NodeDeleted");
 
 	dbus_message_iter_init(message, &iter);
-	dbus_message_iter_append_string(&iter, filename);
+	dbus_message_iter_append_string(&iter, devnode);
 	dbus_message_iter_append_string(&iter, path);
 
 	if ( !dbus_connection_send(sysbus_connection, message, NULL) )
@@ -132,4 +132,49 @@ void sysbus_send_remove(const char* name, const char *path)
 	dbus_message_unref(message);
 
 	dbus_connection_flush(sysbus_connection);
+}
+
+int main(int argc, char *argv[], char *envp[])
+{
+	char *action;
+	char *devpath;
+	char *devnode;
+	int retval = 0;
+
+	init_logging("udev_dbus");
+
+	sysbus_connect();
+	if (sysbus_connection == NULL)
+		return;
+
+	action = get_action();
+	if (!action) {
+		dbg("no action?");
+		goto exit;
+	}
+	devpath = get_devpath();
+	if (!devpath) {
+		dbg("no devpath?");
+		goto exit;
+	}
+	devnode = get_devnode();
+	if (!devnode) {
+		dbg("no devnode?");
+		goto exit;
+	}
+
+	if (strcmp(action, "add") == 0) {
+		sysbus_send_create(devnode, devpath);
+	} else {
+		if (strcmp(action, "remove") == 0) {
+			sysbus_send_remove(devnode, devpath);
+		} else {
+			dbg("unknown action '%s'", action);
+			retval = -EINVAL;
+		}
+	}
+
+exit:
+	sysbus_disconnect();
+	return retval;
 }
