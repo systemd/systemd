@@ -153,6 +153,15 @@ CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n test-%b", ID="test-*", NAME="%c"
 EOF
 	},
 	{
+		desc     => "callout program substitution (numbered part of)",
+		subsys   => "block",
+		devpath  => "block/sda/sda3",
+		expected => "link1" ,
+		conf     => <<EOF
+CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n node link1 link2", ID="node *", NAME="%1c", SYMLINK="%2c %3c"
+EOF
+	},
+	{
 		desc     => "devfs disk naming substitution",
 		subsys   => "block",
 		devpath  => "block/sda",

@@ -200,15 +200,30 @@ static void build_kernel_number(struct sysfs_class_device *class_dev, struct ude
 static void apply_format(struct udevice *udev, unsigned char *string)
 {
 	char name[NAME_SIZE];
+	char temp[NAME_SIZE];
+	char *tail;
 	char *pos;
+	char *pos2;
+	char *pos3;
+	int num;
 
 	while (1) {
+		num = 0;
 		pos = strchr(string, '%');
 
 		if (pos) {
-			strfieldcpy(name, pos+2);
-			*pos = 0x00;
-			switch (pos[1]) {
+			*pos = '\0';
+			tail = pos+1;
+			if (isdigit(tail[0])) {
+				num = (int) strtoul(&pos[1], &tail, 10);
+				if (tail == NULL) {
+					dbg("format parsing error '%s'", pos+1);
+					break;
+				}
+			}
+			strfieldcpy(name, tail+1);
+
+			switch (tail[0]) {
 			case 'b':
 				if (strlen(udev->bus_id) == 0)
 					break;
@@ -241,8 +256,24 @@ static void apply_format(struct udevice *udev, unsigned char *string)
 			case 'c':
 				if (strlen(udev->callout_value) == 0)
 					break;
-				strcat(pos, udev->callout_value);
-				dbg("substitute callout output '%s'", udev->callout_value);
+				if (num) {
+					/* get part of return string */
+					strncpy(temp, udev->callout_value, sizeof(temp));
+					pos2 = temp;
+					while (num) {
+						num--;
+						pos3 = strsep(&pos2, " ");
+						if (pos3 == NULL) {
+							dbg("requested part of callout string not found");
+							break;
+						}
+					}
+					strcat(pos, pos3);
+					dbg("substitute partial callout output '%s'", pos3);
+				} else {
+					strcat(pos, udev->callout_value);
+					dbg("substitute callout output '%s'", udev->callout_value);
+				}
 				break;
 			default:
 				dbg("unknown substitution type '%%%c'", pos[1]);
