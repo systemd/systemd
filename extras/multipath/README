@@ -8,6 +8,8 @@ o libsysfs : comes with sysutils or udev
   See ftp.kernel.org/pub/linux/utils/kernel/hotplug/
 o Linux kernel 2.6.0 with udm5 patchset
   http://people.sistina.com/~thornber/dm/
+o udev
+  See ftp.kernel.org/pub/linux/utils/kernel/hotplug/
 
 How it works :
 ==============
@@ -52,6 +54,12 @@ struct multipath {
 
 When mp is filled, the device maps are fed to the kernel
 through libdevmapper.
+
+The naming of the corresponding block device is handeld 
+by udev with the help of the devmap_name proggy. It is 
+called by the following rule in /etc/udev/udev.rules :
+KERNEL="dm-[0-9]*", PROGRAM="/sbin/devmap_name %M %m", \
+NAME="%k", SYMLINK="%c"
 
 Notes :
 =======

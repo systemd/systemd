@@ -36,29 +36,35 @@ recurse:
 	$(MAKE) KERNEL_DIR=$(KERNEL_DIR) -C $$dir ; \
 	done
 	$(MAKE) $(EXEC)
+	$(MAKE) devmap_name
 
 all:	recurse
 	@echo ""
 	@echo "Make complete"
 
-
 $(EXEC): $(OBJS)
 	$(LD) -o $(EXEC) $(CRT0) $(OBJS) $(SYSFSOBJS) $(DMOBJS) $(LIB) $(LIBGCC)
 	strip $(EXEC)
 
+devmap_name: devmap_name.o
+	$(LD) -o devmap_name $(CRT0) devmap_name.o $(DMOBJS) $(LIB) $(LIBGCC)
+	strip devmap_name
+
 clean:
-	rm -f core *.o $(EXEC)
+	rm -f core *.o $(EXEC) devmap_name
 	$(MAKE) -C libdevmapper clean
 
 install:
 	install -d $(bindir)
 	install -m 755 $(EXEC) $(bindir)/
+	install -m 755 devmap_name $(bindir)/
 	install -d /etc/hotplug.d/scsi/
 	install -m 755 multipath.hotplug /etc/hotplug.d/scsi/
 
 uninstall:
 	rm /etc/hotplug.d/scsi/multipath.hotplug
 	rm $(bindir)/$(EXEC)
+	rm $(bindir)/devmap_name
 
 # Code dependencies
 main.o: main.c main.h sg_include.h

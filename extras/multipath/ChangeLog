@@ -1,4 +1,8 @@
 2004-02-04 multipath-016
+	* add devmap_name proggy for udev to name devmaps as per their
+	  internal DM name and not only by their sysfs enum name (dm-*)
+	  The corresponding udev.rules line is :
+	  KERNEL="dm-[0-9]*", PROGRAM="/sbin/devmap_name %M %m", NAME="%k", SYMLINK="%c"
 	* remove make_dm_node fn & call. Rely on udev for this.
 	* don't rely on the linux symlink in the udev/klibc dir since
 	  udev build doesn't use it anymore. This corrects build breakage
