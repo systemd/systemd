@@ -10,20 +10,27 @@ use FileHandle;
 %errors  = ();
 %errmsg  = ();
 $maxerr  = -1;
-$rootdir = '../linux/include/';	# Must have trailing /
+@includelist = ();		# Include directories
 
 sub parse_file($) {
     my($file) = @_;
     my($fh) = new FileHandle;
     my($line, $error, $msg);
     my($kernelonly) = 0;
-
-    $file = $rootdir.$file;
+    my($root);
 
     print STDERR "opening $file\n" unless ( $quiet );
 
-    if ( !($fh->open("< ".$file)) ) {
-	die "$0: cannot open $file\n";
+    $ok = 0;
+    foreach $root ( @includelist ) {
+	if ( $fh->open($root.'//'.$file, '<') ) {
+	    $ok = 1;
+	    last;
+	}
+    }
+
+    if ( ! $ok ) {
+	die "$0: Cannot find file $file\n";
     }
 
     while ( defined($line = <$fh>) ) {
@@ -61,8 +68,10 @@ foreach $arg ( @ARGV ) {
 	$quiet = 1;
     } elsif ( $arg =~ /^-(errlist|errnos|maxerr)$/ ) {
 	$type = $arg;
+    } elsif ( $arg =~ '^\-I' ) {
+	push(@includelist, "$'");
     } else {
-	die "$0: Unknown option: $arg\n";
+ 	die "$0: Unknown option: $arg\n";
     }
 }
 

@@ -47,6 +47,15 @@
 #define LOG_FACMASK	01770
 #define LOG_FAC(x)	(((x) >> 3) & (LOG_FACMASK >> 3))
 
+/* openlog() flags; only LOG_PID and LOG_PERROR supported */
+#define        LOG_PID         0x01    /* include pid with message */
+#define        LOG_CONS        0x02    /* write to console on logger error */
+#define        LOG_ODELAY      0x04    /* delay connection until syslog() */
+#define        LOG_NDELAY      0x08    /* open connection immediately */
+#define        LOG_NOWAIT      0x10    /* wait for child processes (unused on linux) */
+#define        LOG_PERROR      0x20    /* additional logging to stderr */
+
+
 __extern void openlog(const char *, int, int);
 __extern void syslog(int, const char *, ...);
 __extern void vsyslog(int, const char *, va_list);

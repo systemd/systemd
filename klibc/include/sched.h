@@ -25,7 +25,9 @@ __extern int sched_yield(void);
 __extern pid_t __clone2(int, void *, void *);
 static __inline__ pid_t __clone(int _f, void *_sp)
 {
-  return __clone2(_f, _sp, 0);
+  /* If this is used with _sp != 0 it will have the effect of the sp
+     and rsp growing away from a single point in opposite directions. */
+  return __clone2(_f, _sp, _sp);
 }  
 #else
 __extern pid_t __clone(int, void *);

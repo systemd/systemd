@@ -8,10 +8,9 @@
 #include <sys/syscall.h>
 #include <signal.h>
 #include <unistd.h>
+#include <sched.h>
 
 #ifndef __NR_fork
-
-extern pid_t __clone(unsigned long flags, void * newsp);
 
 pid_t fork(void)
 {

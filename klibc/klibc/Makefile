@@ -34,8 +34,8 @@ LIBOBJS = vsnprintf.o snprintf.o vsprintf.o sprintf.o \
 	  strcasecmp.o strncasecmp.o strndup.o strerror.o \
 	  strcat.o strchr.o strcmp.o strcpy.o strdup.o strlen.o strnlen.o \
 	  strncat.o strlcpy.o strlcat.o \
-	  strstr.o strncmp.o strncpy.o strrchr.o strspn.o \
-	  strsep.o strtok.o \
+	  strstr.o strncmp.o strncpy.o strrchr.o \
+	  strxspn.o strspn.o strcspn.o strpbrk.o strsep.o strtok.o \
 	  gethostname.o getdomainname.o getcwd.o \
 	  seteuid.o setegid.o \
 	  getenv.o setenv.o putenv.o __put_env.o unsetenv.o \
@@ -59,7 +59,7 @@ LIB     = libc.a
 
 INTERP_O = interp.o
 
-all: $(CRT0) $(LIB) $(SOLIB) klibc.so
+all: tests $(CRT0) $(LIB) $(SOLIB) klibc.so
 
 # Add any architecture-specific rules
 include arch/$(ARCH)/Makefile.inc
@@ -120,14 +120,14 @@ crt0.o: arch/$(ARCH)/crt0.o
 	cp arch/$(ARCH)/crt0.o .
 
 errlist.c:
-	$(PERL) makeerrlist.pl -errlist > $@ || rm -f $@
+	$(PERL) makeerrlist.pl -q $(INCLUDE) -errlist > $@ || rm -f $@
 
 # We pass -ansi to keep cpp from define e.g. "i386" as well as "__i386__"
 SYSCALLS.i: SYSCALLS.def
 	$(CC) $(CFLAGS) -D__ASSEMBLY__ -ansi -x assembler-with-cpp -E -o $@ $<
 
-syscalls.nrs: ../include/sys/syscall.h ../include/arch/$(ARCH)/klibc/archsys.h ../linux/include/asm/unistd.h
-	$(CC) $(CFLAGS) -Wp,-dM -x c -E -o $@ ../include/sys/syscall.h
+syscalls.nrs: ../include/sys/syscall.h
+	$(CC) $(CFLAGS) -Wp,-dM -x c -E -o $@ $<
 
 syscalls.dir: SYSCALLS.i syscalls.pl arch/$(ARCH)/sysstub.ph syscommon.h syscalls.nrs
 	rm -rf syscalls

@@ -2,7 +2,7 @@
  * pipe.c
  */
 
-#include "syscommon.h"
+#include <sys/syscall.h>
 #include <klibc/archsys.h>
 
 #define ASM_CLOBBERS ,"out2", "out3", "out4", "out5", "out6", "out7",    \

@@ -38,10 +38,11 @@ b) If you're cross-compiling, change ARCH in the main MCONFIG file to
    arm-thumb:	 Untested
    arm26:	 Not yet ported
    arm:		 Working
-   cris:	 Untested
+   cris:	 Working
    h8300:	 Not yet ported
    i386:	 Working
    ia64:	 Working
+   m32r:	 Untested
    m68k:	 Not yet ported
    mips64:	 Not yet ported
    mips:	 Working
@@ -51,7 +52,7 @@ b) If you're cross-compiling, change ARCH in the main MCONFIG file to
    s390:	 Working static, shared untested
    s390x:	 Working
    sh:		 Untested
-   sparc64:	 sigaction() fails in ash for unknown reason
+   sparc64:	 Untested
    sparc:	 Working
    v850:	 Not yet ported
    x86-64:	 Working

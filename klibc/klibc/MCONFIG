@@ -13,6 +13,6 @@ ifeq ($(ERRLIST),1)
 REQFLAGS += -DWITH_ERRLIST
 endif
 
-CFLAGS  = -Wp,-MD,$(dir $*).$(notdir $*).d $(OPTFLAGS) $(REQFLAGS) $(WARNFLAGS)
+CFLAGS  = -Wp,-MT,$@,-MD,$(dir $@).$(notdir $@).d $(OPTFLAGS) $(REQFLAGS) $(WARNFLAGS)
 
 SOFLAGS = -fPIC

@@ -37,5 +37,5 @@ void *sbrk(ptrdiff_t increment)
   }
 
   __current_brk = new_brk;
-  return end;
+  return start;
 }

@@ -19,7 +19,7 @@ interp.o: interp1.o klibc.got
 	$(LD) $(LDFLAGS) -r -o $@ interp1.o klibc.got
 
 klibc.got: $(SOHASH)
-	$(OBJCOPY) -j.got $< $@
+	$(OBJCOPY) -j .got $< $@
 
 archclean:
 	rm -f klibc.got

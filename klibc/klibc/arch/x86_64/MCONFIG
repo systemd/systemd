@@ -20,3 +20,9 @@ OPTFLAGS     = -Os -fno-asynchronous-unwind-tables -fomit-frame-pointer \
 BITSIZE      = 64
 LDFLAGS      = -m elf_x86_64
 
+# Extra linkflags when building the shared version of the library
+# This address needs to be reachable using normal inter-module
+# calls, and work on the memory models for this architecture
+# 2 MB - normal binaries start at 4 MB
+SHAREDFLAGS     = -Ttext 0x00200200
+

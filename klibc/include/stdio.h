@@ -90,7 +90,7 @@ fread(void *__p, size_t __s, size_t __n, FILE *__f)
 }
 
 extern __inline__ size_t
-fwrite(void *__p, size_t __s, size_t __n, FILE *__f)
+fwrite(const void *__p, size_t __s, size_t __n, FILE *__f)
 {
   return _fwrite(__p, __s*__n, __f)/__s;
 }
@@ -104,6 +104,8 @@ __extern int sprintf(char *, const char *, ...);
 __extern int vsprintf(char *, const char *, va_list);
 __extern int snprintf(char *, size_t n, const char *, ...);
 __extern int vsnprintf(char *, size_t n, const char *, va_list);
+__extern int asprintf(char **, const char *, ...);
+__extern int vasprintf(char **, const char *, va_list);
 
 /* No buffering, so no flushing needed */
 extern __inline__ int

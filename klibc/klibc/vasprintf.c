@@ -14,10 +14,10 @@ int vasprintf(char **bufp, const char *format, va_list ap)
 
   va_copy(ap1, ap);
 
-  bytes = vsnprintf(NULL, 0, format, ap1);
+  bytes = vsnprintf(NULL, 0, format, ap1) + 1;
   va_end(ap1);
 
-  *bufp = p = malloc(bytes+1);
+  *bufp = p = malloc(bytes);
   if ( !p )
     return -1;
   

@@ -1,5 +1,5 @@
 VERSION := $(shell cat version)
-SUBDIRS = klibc
+SUBDIRS = klibc ash ipconfig nfsmount utils kinit gzip
 
 all:
 
