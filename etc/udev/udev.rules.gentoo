@@ -128,4 +128,9 @@ KERNEL="capi*",		NAME="capi/%n"
 KERNEL="tun",		NAME="net/%k"
 
 # raw devices
-KERNEL="raw[0-9]*",     NAME="raw/%k" 
+KERNEL="raw[0-9]*",     NAME="raw/%k"
+
+# cpu devices
+KERNEL="cpu[0-9]*",	NAME="cpu/%n/cpuid"
+KERNEL="msr[0-9]*",	NAME="cpu/%n/cpuid"
+KERNEL="microcode",	NAME="cpu/microcode"
