@@ -3,6 +3,9 @@
 udev \- Linux configurable dynamic device naming support
 .SH SYNOPSIS
 .BI udev " hotplug-subsystem"
+.br
+.B udev
+.RI "[-q " sysfs_path "] [-rVh]"
 .SH "DESCRIPTION"
 .B udev
 creates or removes device node files usually located in the /dev directory.
@@ -26,6 +29,27 @@ maintains a database for devices present on the system.
 On device removal,
 .B udev
 queries the internal database for the name of the device file to be deleted.
+.SH "OPTIONS"
+.B udev
+normally is called by
+.B hotplug
+with the subsystem as argument and various environment variables set.
+.br
+It may also called with the following options:
+.TP
+.B -V
+Print the version information.
+.TP
+.B -r
+Print the the
+.B udev
+root directory.
+.TP
+.BI -q " sysfs_path"
+Query with the sysfs path as argument for the name of the created device node.
+.TP
+.B -h
+Print help text.
 .SH "CONFIGURATION"
 All
 .B udev

@@ -130,7 +130,7 @@ int udevdb_init(int init_flag)
 }
 
 /**
- * udevdb_init: open database for reading
+ * udevdb_open_ro: open database for reading
  */
 int udevdb_open_ro(void)
 {

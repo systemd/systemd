@@ -130,7 +130,7 @@ static inline int udev_user(int argc, char **argv)
 
 help:
 	printf("Usage: [-qrVh]\n"
-	       "  -q arg     query database \n"
+	       "  -q <path>  query database for the name of the created node\n"
 	       "  -r         print udev root\n"
 	       "  -V         print udev version\n"
 	       "  -h         print this help text\n"
