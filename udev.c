@@ -45,7 +45,6 @@ static void sig_handler(int signum)
 	switch (signum) {
 		case SIGINT:
 		case SIGTERM:
-		case SIGKILL:
 			sysbus_disconnect();
 			udevdb_exit();
 			exit(20 + signum);
@@ -143,7 +142,6 @@ static int udev_hotplug(int argc, char **argv)
 	/* set up a default signal handler for now */
 	signal(SIGINT, sig_handler);
 	signal(SIGTERM, sig_handler);
-	signal(SIGKILL, sig_handler);
 
 	/* initialize the naming deamon */
 	namedev_init();

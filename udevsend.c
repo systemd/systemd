@@ -34,6 +34,7 @@
 #include <wait.h>
 
 #include "udev.h"
+#include "udev_version.h"
 #include "udevd.h"
 #include "logging.h"
 
@@ -64,7 +65,7 @@ static inline char *get_seqnum(void)
 static int build_hotplugmsg(struct hotplug_msg *msg, char *action,
 			    char *devpath, char *subsystem, int seqnum)
 {
-	memset(msg, 0x00, sizeof(msg));
+	memset(msg, 0x00, sizeof(*msg));
 	msg->mtype = HOTPLUGMSGTYPE;
 	msg->seqnum = seqnum;
 	strncpy(msg->action, action, 8);
@@ -88,7 +89,7 @@ static int start_daemon(void)
 			/* daemon */
 			setsid();
 			chdir("/");
-			execl(UDEVD_EXEC, "udevd", NULL);
+			execl(UDEVD_BIN, "udevd", NULL);
 			dbg("exec of daemon failed");
 			exit(1);
 		case -1:
@@ -150,7 +151,8 @@ int main(int argc, char* argv[])
 	seq = atoi(seqnum);
 
 	/* create ipc message queue or get id of our existing one */
-	key = ftok(UDEVD_EXEC, IPC_KEY_ID);
+	key = ftok(UDEVD_BIN, IPC_KEY_ID);
+	dbg("using ipc queue 0x%0x", key);
 	size =  build_hotplugmsg(&message, action, devpath, subsystem, seq);
 	msgid = msgget(key, IPC_CREAT);
 	if (msgid == -1) {
@@ -168,7 +170,7 @@ int main(int argc, char* argv[])
 	/* get state of ipc queue */
 	tspec.tv_sec = 0;
 	tspec.tv_nsec = 10000000;  /* 10 millisec */
-	loop = 30;
+	loop = UDEVSEND_RETRY_COUNT;
 	while (loop--) {
 		retval = msgctl(msgid, IPC_STAT, &msg_queue);
 		if (retval == -1) {

@@ -232,6 +232,8 @@ udev_version.h:
 	@echo \#define UDEV_CONFIG_FILE	\"$(configdir)\udev.conf\" >> $@
 	@echo \#define UDEV_RULES_FILE	\"$(configdir)\udev.rules\" >> $@
 	@echo \#define UDEV_PERMISSION_FILE	\"$(configdir)\udev.permissions\" >> $@
+	@echo \#define UDEV_BIN		\"$(PWD)/udev\" >> $@
+	@echo \#define UDEVD_BIN	\"$(PWD)/udevd\" >> $@
 
 # config files automatically generated
 GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf

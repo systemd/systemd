@@ -23,18 +23,18 @@
 
 #include "list.h"
 
-#define UDEV_EXEC			"./udev"
-#define UDEVD_EXEC			"./udevd"
-#define UDEVD_TIMEOUT_SECONDS		60
-#define EVENT_TIMEOUT_SECONDS		5
+#define FIRST_EVENT_TIMEOUT_SEC		1
+#define EVENT_TIMEOUT_SEC		5
+#define UDEVSEND_RETRY_COUNT		50 /* x 10 millisec */
 
-#define IPC_KEY_ID			0
+#define IPC_KEY_ID			1
 #define HOTPLUGMSGTYPE			44
 
 
 struct hotplug_msg {
 	long mtype;
 	struct list_head list;
+	pid_t pid;
 	int seqnum;
 	time_t queue_time;
 	char action[8];
