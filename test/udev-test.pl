@@ -386,6 +386,52 @@ EOF
 KERNEL="ttyUSB0", NAME="visor"
 EOF
 	},
+	{
+		desc     => "ID rule",
+		subsys   => "block",
+		devpath  => "block/sda",
+		expected => "scsi-0:0:0:0",
+		conf     => <<EOF
+BUS="usb", ID="0:0:0:0", NAME="not-scsi"
+BUS="scsi", ID="0:0:0:1", NAME="no-match"
+BUS="scsi", ID=":0", NAME="short-id"
+BUS="scsi", ID="/0:0:0:0", NAME="no-match"
+BUS="scsi", ID="0:0:0:0", NAME="scsi-0:0:0:0"
+EOF
+	},
+	{
+		desc     => "ID wildcard all",
+		subsys   => "block",
+		devpath  => "block/sda",
+		expected => "scsi-0:0:0:0",
+		conf     => <<EOF
+BUS="scsi", ID="*:1", NAME="no-match"
+BUS="scsi", ID="*:0:1", NAME="no-match"
+BUS="scsi", ID="*:0:0:1", NAME="no-match"
+BUS="scsi", ID="*", NAME="scsi-0:0:0:0"
+BUS="scsi", ID="0:0:0:0", NAME="bad"
+EOF
+	},
+	{
+		desc     => "ID wildcard partial",
+		subsys   => "block",
+		devpath  => "block/sda",
+		expected => "scsi-0:0:0:0",
+		conf     => <<EOF
+BUS="scsi", ID="*:0", NAME="scsi-0:0:0:0"
+BUS="scsi", ID="0:0:0:0", NAME="bad"
+EOF
+	},
+	{
+		desc     => "ID wildcard partial 2",
+		subsys   => "block",
+		devpath  => "block/sda",
+		expected => "scsi-0:0:0:0",
+		conf     => <<EOF
+BUS="scsi", ID="*:0:0:0", NAME="scsi-0:0:0:0"
+BUS="scsi", ID="0:0:0:0", NAME="bad"
+EOF
+	},
 );
 
 # set env
