@@ -582,29 +582,29 @@ static int match_place(struct config_device *dev, struct sysfs_class_device *cla
 static int match_rule(struct udevice *udev, struct config_device *dev,
 		      struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
+	/* check for matching kernel name */
+	if (dev->kernel[0] != '\0') {
+		dbg("check for " FIELD_KERNEL " dev->kernel='%s' class_dev->name='%s'",
+		    dev->kernel, class_dev->name);
+		if (strcmp_pattern(dev->kernel, class_dev->name) != 0) {
+			dbg(FIELD_KERNEL " is not matching");
+			goto exit;
+		}
+		dbg(FIELD_KERNEL " matches");
+	}
+
+	/* check for matching subsystem */
+	if (dev->subsystem[0] != '\0') {
+		dbg("check for " FIELD_SUBSYSTEM " dev->subsystem='%s' class_dev->name='%s'",
+		    dev->subsystem, class_dev->name);
+		if (strcmp_pattern(dev->subsystem, udev->subsystem) != 0) {
+			dbg(FIELD_SUBSYSTEM " is not matching");
+			goto exit;
+		}
+		dbg(FIELD_SUBSYSTEM " matches");
+	}
+
 	while (1) {
-		/* check for matching kernel name */
-		if (dev->kernel[0] != '\0') {
-			dbg("check for " FIELD_KERNEL " dev->kernel='%s' class_dev->name='%s'",
-			    dev->kernel, class_dev->name);
-			if (strcmp_pattern(dev->kernel, class_dev->name) != 0) {
-				dbg(FIELD_KERNEL " is not matching");
-				goto exit;
-			}
-			dbg(FIELD_KERNEL " matches");
-		}
-
-		/* check for matching subsystem */
-		if (dev->subsystem[0] != '\0') {
-			dbg("check for " FIELD_SUBSYSTEM " dev->subsystem='%s' class_dev->name='%s'",
-			    dev->subsystem, class_dev->name);
-			if (strcmp_pattern(dev->subsystem, udev->subsystem) != 0) {
-				dbg(FIELD_SUBSYSTEM " is not matching");
-				goto exit;
-			}
-			dbg(FIELD_SUBSYSTEM " matches");
-		}
-
 		/* check for matching driver */
 		if (dev->driver[0] != '\0') {
 			dbg("check for " FIELD_DRIVER " dev->driver='%s' sysfs_device->driver_name='%s'",
