@@ -107,19 +107,11 @@ OPTIMIZATION := ${shell if $(CC) -Os -S -o /dev/null -xc /dev/null >/dev/null 2>
 # add -Wredundant-decls when libsysfs gets cleaned up
 WARNINGS := -Wall 
 
-# Some nice architecture specific optimizations
-ifeq ($(strip $(TARGET_ARCH)),arm)
-	OPTIMIZATION+=-fstrict-aliasing
-endif
-ifeq ($(strip $(TARGET_ARCH)),i386)
-	OPTIMIZATION+=-march=i386
-	OPTIMIZATION += ${shell if $(CC) -mpreferred-stack-boundary=2 -S -o /dev/null -xc \
-		/dev/null >/dev/null 2>&1; then echo "-mpreferred-stack-boundary=2"; fi}
-	OPTIMIZATION += ${shell if $(CC) -malign-functions=0 -malign-jumps=0 -S -o /dev/null -xc \
-		/dev/null >/dev/null 2>&1; then echo "-malign-functions=0 -malign-jumps=0"; fi}
-	CFLAGS+=-pipe -Dasmlinkage=__attribute__((regparm(0)))
-else
-	CFLAGS+=-pipe -Dasmlinkage=
+CFLAGS := -pipe -Dasmlinkage=
+
+# set up the proper tdb spinlock code if we can
+ifeq ($(strip $(ARCH)),i386)
+	CFLAGS += -DUSE_SPINLOCKS -DINTEL_SPINLOCKS
 endif
 
 ifeq ($(strip $(USE_LOG)),true)

@@ -21,7 +21,6 @@
 #define STANDALONE
 #define TDB_DEBUG
 #define HAVE_MMAP	1
-#include "../udev.h"
 
 #if HAVE_CONFIG_H
 #include <config.h>
@@ -40,6 +39,8 @@
 #include <signal.h>
 #include "tdb.h"
 #include "spinlock.h"
+#include "../udev.h"
+#include "../logging.h"
 
 #else
 #include "includes.h"
