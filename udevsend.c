@@ -125,7 +125,9 @@ int main(int argc, char* argv[])
 	int sock;
 	struct sockaddr_un saddr;
 
+#ifdef DEBUG
 	init_logging("udevsend");
+#endif
 
 	subsystem = argv[1];
 	if (subsystem == NULL) {
