@@ -1066,9 +1066,9 @@ EOF
 		desc		=> "temporary node creation test",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
-		exp_name	=> "sda",
+		exp_name	=> "node",
 		conf		=> <<EOF
-BUS="scsi", KERNEL="sda", PROGRAM="/usr/bin/test ! -b %N" NAME="%N"
+BUS="scsi", KERNEL="sda", PROGRAM="/usr/bin/test -b %N" NAME="node"
 EOF
 	},
 	{
