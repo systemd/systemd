@@ -87,7 +87,7 @@ KERNEL="pcd[0-9]*",	SYMLINK="cdrom%e"
 KERNEL="fd[0-9]*",	SYMLINK="floppy%e"
 KERNEL="nst[0-9]*",	SYMLINK="tape%e"
 
-KERNEL="hd[a-z]", BUS="ide", SYSFS{removable}="1", PROGRAM="/etc/udev/scripts/ide-media.sh %k", RESULT="floppy", SYMLINK="floppy%e, NAME{ignore_remove, all_partitions}="%k"
+KERNEL="hd[a-z]", BUS="ide", SYSFS{removable}="1", PROGRAM="/etc/udev/scripts/ide-media.sh %k", RESULT="floppy", SYMLINK="floppy%e, NAME{ignore_remove, all_partitions}="%k", GROUP="floppy"
 
 KERNEL="hd[a-z]", BUS="ide", SYSFS{removable}="1", RESULT="cdrom", SYMLINK="cdrom%e"
 
@@ -101,7 +101,10 @@ KERNEL="hd[a-z]", BUS="ide", SYSFS{removable}="1", PROGRAM="/etc/udev/scripts/ch
 KERNEL="sr[0-9]*", BUS="scsi", PROGRAM="/etc/udev/scripts/check-cdrom.sh %k DVD-R", SYMLINK="dvdwriter%e"
 
 # rename sr* to scd*
-KERNEL="sr[0-9]*", BUS="scsi", NAME="scd%n"
-KERNEL="hd[a-z]*", BUS="ide", SYSFS{removable}="1", NAME{ignore_remove}="%k"
+KERNEL="sr[0-9]*", BUS="scsi", NAME="scd%n", GROUP="disk", MODE="0640"
+KERNEL="hd[a-z]*", BUS="ide", SYSFS{removable}="1", NAME{ignore_remove}="%k", GROUP="disk", MODE="0640"
+
+KERNEL="hd[a-z]*", NAME="%k", GROUP="disk", MODE="0640"
+KERNEL="sd[a-z]*", NAME="%k", GROUP="disk", MODE="0640"
 
 KERNEL="dvb*", PROGRAM="/etc/udev/scripts/dvb.sh %k", NAME="%c"

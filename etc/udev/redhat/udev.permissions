@@ -70,27 +70,27 @@ dmmidi*:root:root:0660
 sndstat:root:root:0660
 
 # optical devices
-sr*:root:disk:0660
-scd*:root:disk:0660
-pcd*:root:disk:0660
-disk*:root:disk:0660
-dvd:root:disk:0660
-rdvd:root:disk:0660
-cdroms/*:root:disk:0660
+sr*:root:disk:0640
+scd*:root:disk:0640
+pcd*:root:disk:0640
+disk*:root:disk:0640
+dvd:root:disk:0640
+rdvd:root:disk:0640
+cdroms/*:root:disk:0640
 
 # pilot/palm devices
 pilot:root:uucp:0660
 
 # jaz devices
-jaz*:root:disk:0660
+jaz*:root:disk:0640
 
 # zip devices
-pocketzip*:root:disk:0660
-zip*:root:disk:0660
+pocketzip*:root:disk:0640
+zip*:root:disk:0640
 
 # ls120 devices
-ls120:root:disk:0660
-ls120*:root:disk:0660
+ls120:root:disk:0640
+ls120*:root:disk:0640
 
 # lp devices
 lp*:root:lp:0660
@@ -109,28 +109,28 @@ usb/dc2xx*:root:root:0600
 usb/mdc800*:root:root:0600
 
 # raw devices
-ram*:root:disk:0660
-raw/*:root:disk:0660
+ram*:root:disk:0640
+raw/*:root:disk:0640
 
 # disk devices
-hd*:root:disk:0660
-sd*:root:disk:0660
-dasd*:root:disk:0660
-ataraid*:root:disk:0660
-loop*:root:disk:0660
-md*:root:disk:0660
-ide/*/*/*/*/*:root:disk:0660
-discs/*/*:root:disk:0660
-loop/*:root:disk:0660
-md/*:root:disk:0660
+hd*:root:disk:0640
+sd*:root:disk:0640
+dasd*:root:disk:0640
+ataraid*:root:disk:0640
+loop*:root:disk:0640
+md*:root:disk:0640
+ide/*/*/*/*/*:root:disk:0640
+discs/*/*:root:disk:0640
+loop/*:root:disk:0640
+md/*:root:disk:0640
 
 # tape devices
-ht*:root:disk:0660
-nht*:root:disk:0660
-pt[0-9]*:root:disk:0660
-npt*:root:disk:0660
-st*:root:disk:0660
-nst*:root:disk:0660
+ht*:root:disk:0640
+nht*:root:disk:0640
+pt[0-9]*:root:disk:0640
+npt*:root:disk:0640
+st*:root:disk:0640
+nst*:root:disk:0640
 
 # dm devices
 dm-*:root:root:0640
@@ -142,10 +142,10 @@ memstick*:root:root:0600
 flash*:root:root:0600
 
 # diskonkey devices
-diskonkey*:root:disk:0660
+diskonkey*:root:disk:0640
 
 # rem_ide devices
-microdrive*:root:disk:0660
+microdrive*:root:disk:0640
 
 # fb devices
 fb:root:root:0600
@@ -184,9 +184,9 @@ dri/*:root:root:0660
 apm_bios:root:root:0600
 
 # scsi devices
-sg*:root:disk:0660
-pg*:root:disk:0660
-cdwriter:root:disk:0660
+sg*:root:disk:0640
+pg*:root:disk:0640
+cdwriter:root:disk:0640
 
 # usb devices
 usb/dabusb*:root:usb:0660
@@ -196,3 +196,7 @@ usb/rio500:root:usb:0660
 # s390 devices
 z90crypt:root:root:0666
 
+# DVB
+dvb/*:root:root:0660
+dvb:root:root:0660
+dvb/adapter*:root:root:0660
