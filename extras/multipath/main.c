@@ -82,32 +82,6 @@ do_inq(int sg_fd, int cmddt, int evpd, unsigned int pg_op,
 	return -1;
 }
 
-static int
-do_tur(int fd)
-{
-	unsigned char turCmdBlk[TUR_CMD_LEN] = { 0x00, 0, 0, 0, 0, 0 };
-	struct sg_io_hdr io_hdr;
-	unsigned char sense_buffer[32];
-
-	memset(&io_hdr, 0, sizeof (struct sg_io_hdr));
-	io_hdr.interface_id = 'S';
-	io_hdr.cmd_len = sizeof (turCmdBlk);
-	io_hdr.mx_sb_len = sizeof (sense_buffer);
-	io_hdr.dxfer_direction = SG_DXFER_NONE;
-	io_hdr.cmdp = turCmdBlk;
-	io_hdr.sbp = sense_buffer;
-	io_hdr.timeout = 20000;
-	io_hdr.pack_id = 0;
-	if (ioctl(fd, SG_IO, &io_hdr) < 0) {
-		close(fd);
-		return 0;
-	}
-	if (io_hdr.info & SG_INFO_OK_MASK) {
-		return 0;
-	}
-	return 1;
-}
-
 static void
 sprint_wwid(char * buff, const char * str)
 {
@@ -183,32 +157,34 @@ get_unique_id(int fd, struct path * mypath)
 	static struct {
 		char * vendor;
 		char * product;
+		int iopolicy;
 		int (*getuid) (int fd, char * wwid);
 	} wlist[] = {
-		{"COMPAQ  ", "HSV110 (C)COMPAQ", &get_evpd_wwid},
-		{"COMPAQ  ", "MSA1000         ", &get_evpd_wwid},
-		{"COMPAQ  ", "MSA1000 VOLUME  ", &get_evpd_wwid},
-		{"DEC     ", "HSG80           ", &get_evpd_wwid},
-		{"HP      ", "HSV100          ", &get_evpd_wwid},
-		{"HP      ", "A6189A          ", &get_evpd_wwid},
-		{"HP      ", "OPEN-           ", &get_evpd_wwid},
-		{"DDN     ", "SAN DataDirector", &get_evpd_wwid},
-		{"FSC     ", "CentricStor     ", &get_evpd_wwid},
-		{"HITACHI ", "DF400           ", &get_evpd_wwid},
-		{"HITACHI ", "DF500           ", &get_evpd_wwid},
-		{"HITACHI ", "DF600           ", &get_evpd_wwid},
-		{"IBM     ", "ProFibre 4000R  ", &get_evpd_wwid},
-		{"SGI     ", "TP9100          ", &get_evpd_wwid},
-		{"SGI     ", "TP9300          ", &get_evpd_wwid},
-		{"SGI     ", "TP9400          ", &get_evpd_wwid},
-		{"SGI     ", "TP9500          ", &get_evpd_wwid},
-		{NULL, NULL, NULL},
+		{"COMPAQ  ", "HSV110 (C)COMPAQ", MULTIBUS, &get_evpd_wwid},
+		{"COMPAQ  ", "MSA1000         ", MULTIBUS, &get_evpd_wwid},
+		{"COMPAQ  ", "MSA1000 VOLUME  ", MULTIBUS, &get_evpd_wwid},
+		{"DEC     ", "HSG80           ", MULTIBUS, &get_evpd_wwid},
+		{"HP      ", "HSV100          ", MULTIBUS, &get_evpd_wwid},
+		{"HP      ", "A6189A          ", MULTIBUS, &get_evpd_wwid},
+		{"HP      ", "OPEN-           ", MULTIBUS, &get_evpd_wwid},
+		{"DDN     ", "SAN DataDirector", MULTIBUS, &get_evpd_wwid},
+		{"FSC     ", "CentricStor     ", MULTIBUS, &get_evpd_wwid},
+		{"HITACHI ", "DF400           ", MULTIBUS, &get_evpd_wwid},
+		{"HITACHI ", "DF500           ", MULTIBUS, &get_evpd_wwid},
+		{"HITACHI ", "DF600           ", MULTIBUS, &get_evpd_wwid},
+		{"IBM     ", "ProFibre 4000R  ", MULTIBUS, &get_evpd_wwid},
+		{"SGI     ", "TP9100          ", MULTIBUS, &get_evpd_wwid},
+		{"SGI     ", "TP9300          ", MULTIBUS, &get_evpd_wwid},
+		{"SGI     ", "TP9400          ", MULTIBUS, &get_evpd_wwid},
+		{"SGI     ", "TP9500          ", MULTIBUS, &get_evpd_wwid},
+		{NULL, NULL, 0, NULL},
 	};
 
 	for (i = 0; wlist[i].vendor; i++) {
 		if (strncmp(mypath->vendor_id, wlist[i].vendor, 8) == 0 &&
 		    strncmp(mypath->product_id, wlist[i].product, 16) == 0) {
 			wlist[i].getuid(fd, mypath->wwid);
+			mypath->iopolicy = wlist[i].iopolicy;
 			return 0;
 		}
 	}
@@ -264,7 +240,7 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 	char path[FILE_NAME_SIZE];
 	struct path curpath;
 
-	/* if called from udev, only consider the paths that relate to */
+	/* if called from hotplug, only consider the paths that relate to */
 	/* to the device pointed by conf.hotplugdev */
 	memset(empty_buff, 0, WWID_SIZE);
 	memset(refwwid, 0, WWID_SIZE);
@@ -331,8 +307,11 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 		strcpy(all_paths[k].wwid, curpath.wwid);
 		strcpy(all_paths[k].vendor_id, curpath.vendor_id);
 		strcpy(all_paths[k].product_id, curpath.product_id);
+		all_paths[k].iopolicy = curpath.iopolicy;
+
+		/* done with curpath, zero for reuse */
 		memset(&curpath, 0, sizeof(path));
-		all_paths[k].state = do_tur(sg_fd);
+
 		close(sg_fd);
 		basename(linkp->target, buff);
 		sscanf(buff, "%i:%i:%i:%i",
@@ -367,7 +346,6 @@ get_all_paths_nosysfs(struct env * conf, struct path * all_paths,
 		}
 		get_lun_strings(sg_fd, &all_paths[k]);
 		get_unique_id(sg_fd, &all_paths[k]);
-		all_paths[k].state = do_tur(sg_fd);
 		if (0 > ioctl(sg_fd, SG_GET_SCSI_ID, &(all_paths[k].sg_id)))
 			printf("device %s failed on sg ioctl, skip\n",
 			       file_name);
@@ -406,7 +384,8 @@ get_all_scsi_ids(struct env * conf, struct scsi_dev * all_scsi_ids)
 			buff[0] = 'a' + (char) k;
 			buff[1] = '\0';
 			strcat(fname, buff);
-		} else if (k <= 255) {	/* assumes sequence goes x,y,z,aa,ab,ac etc */
+		} else if (k <= 255) {
+			/* assumes sequence goes x,y,z,aa,ab,ac etc */
 			big = k / 26;
 			little = k - (26 * big);
 			big = big - 1;
@@ -463,8 +442,8 @@ print_path(struct path * all_paths, int k, int style)
 	       all_paths[k].sg_id.host_no,
 	       all_paths[k].sg_id.channel,
 	       all_paths[k].sg_id.scsi_id, all_paths[k].sg_id.lun);
-	printf("%s ", all_paths[k].sg_dev);
-	printf("op:%i ", all_paths[k].state);
+	if(0 != strcmp(all_paths[k].sg_dev, all_paths[k].dev))
+		printf("%s ", all_paths[k].sg_dev);
 	printf("%s ", all_paths[k].dev);
 	printf("[%.16s]\n", all_paths[k].product_id);
 }
@@ -495,48 +474,6 @@ print_all_mp(struct path * all_paths, struct multipath * mp, int nmp)
 	}
 }
 
-static int
-coalesce_paths(struct env * conf, struct multipath * mp,
-	       struct path * all_paths)
-{
-	int k, i, nmp, np, already_done;
-	char empty_buff[WWID_SIZE];
-
-	nmp = -1;
-	already_done = 0;
-	memset(empty_buff, 0, WWID_SIZE);
-
-	for (k = 0; k < conf->max_devs - 1; k++) {
-		/* skip this path if no unique id has been found */
-		if (memcmp(empty_buff, all_paths[k].wwid, WWID_SIZE) == 0)
-			continue;
-		np = 0;
-
-		for (i = 0; i <= nmp; i++) {
-			if (0 == strcmp(mp[i].wwid, all_paths[k].wwid))
-				already_done = 1;
-		}
-
-		if (already_done) {
-			already_done = 0;
-			continue;
-		}
-
-		nmp++;
-		strcpy(mp[nmp].wwid, all_paths[k].wwid);
-		PINDEX(nmp,np) = k;
-
-		for (i = k + 1; i < conf->max_devs; i++) {
-			if (0 == strcmp(all_paths[k].wwid, all_paths[i].wwid)) {
-				np++;
-				PINDEX(nmp,np) = i;
-				mp[nmp].npaths = np;
-			}
-		}
-	}
-	return nmp;
-}
-
 static long
 get_disk_size (struct env * conf, char * dev) {
 	long size;
@@ -561,6 +498,54 @@ get_disk_size (struct env * conf, char * dev) {
 			return size;
 	}
 	return -1;
+}
+
+static int
+coalesce_paths(struct env * conf, struct multipath * mp,
+	       struct path * all_paths)
+{
+	int k, i, nmp, np, already_done;
+	char empty_buff[WWID_SIZE];
+
+	nmp = -1;
+	already_done = 0;
+	memset(empty_buff, 0, WWID_SIZE);
+
+	for (k = 0; k < conf->max_devs - 1; k++) {
+		/* skip this path for some reason */
+
+		/* 1. if path has no unique id */
+		if (memcmp(empty_buff, all_paths[k].wwid, WWID_SIZE) == 0)
+			continue;
+
+		/* 2. mp with this uid already instanciated */
+		for (i = 0; i <= nmp; i++) {
+			if (0 == strcmp(mp[i].wwid, all_paths[k].wwid))
+				already_done = 1;
+		}
+		if (already_done) {
+			already_done = 0;
+			continue;
+		}
+
+		/* at this point, we know we really got a new mp */
+		np = 0;
+		nmp++;
+		strcpy(mp[nmp].wwid, all_paths[k].wwid);
+		PINDEX(nmp,np) = k;
+
+		if (mp[nmp].size == 0)
+			mp[nmp].size = get_disk_size(conf, all_paths[k].dev);
+
+		for (i = k + 1; i < conf->max_devs; i++) {
+			if (0 == strcmp(all_paths[k].wwid, all_paths[i].wwid)) {
+				np++;
+				PINDEX(nmp,np) = i;
+				mp[nmp].npaths = np;
+			}
+		}
+	}
+	return nmp;
 }
 
 static int
@@ -611,7 +596,6 @@ add_map(struct env * conf, struct path * all_paths,
 	char * params_p;
 	struct dm_task *dmt;
 	int i, np;
-	long size = -1;
 
 	/* defaults for multipath target */
 	int dm_pg_prio              = 1;
@@ -627,8 +611,7 @@ add_map(struct env * conf, struct path * all_paths,
 
 	np = 0;
 	for (i=0; i<=mp[index].npaths; i++) {
-		if ((1 == all_paths[PINDEX(index,i)].state) &&
-			(0 == all_paths[PINDEX(index,i)].sg_id.scsi_type))
+		if (0 == all_paths[PINDEX(index,i)].sg_id.scsi_type)
 			np++;
 	}
 	if (np == 0)
@@ -637,33 +620,48 @@ add_map(struct env * conf, struct path * all_paths,
 	if (np < 1)
 		goto addout;
 
-	params_p += sprintf(params_p, "%i %i %s %i %i",
-			    conf->dm_path_test_int, dm_pg_prio, 
-			    dm_ps_name, np, dm_ps_nr_args);
-	
-	for (i=0; i<=mp[index].npaths; i++) {
-		if (( 0 == all_paths[PINDEX(index,i)].state) ||
-			(0 != all_paths[PINDEX(index,i)].sg_id.scsi_type))
-			continue;
-		if (size < 0)
-			size = get_disk_size(conf, all_paths[PINDEX(index,0)].dev);
-		params_p += sprintf(params_p, " %s",
-				    all_paths[PINDEX(index,i)].dev);
+	params_p += sprintf(params_p, "%i", conf->dm_path_test_int);
+
+	if (all_paths[PINDEX(index,0)].iopolicy == MULTIBUS &&
+	    !conf->forcedfailover ) {
+		params_p += sprintf(params_p, " %i %s %i %i",
+				    dm_pg_prio, dm_ps_name, np, dm_ps_nr_args);
+		
+		for (i=0; i<=mp[index].npaths; i++) {
+			if (0 != all_paths[PINDEX(index,i)].sg_id.scsi_type)
+				continue;
+			params_p += sprintf(params_p, " %s",
+					    all_paths[PINDEX(index,i)].dev);
+		}
 	}
 
-	if (size < 0)
+	if (all_paths[PINDEX(index,0)].iopolicy == FAILOVER ||
+	    conf->forcedfailover) {
+		for (i=0; i<=mp[index].npaths; i++) {
+			if (0 != all_paths[PINDEX(index,i)].sg_id.scsi_type)
+				continue;
+			params_p += sprintf(params_p, " %i %s ",
+					    dm_pg_prio, dm_ps_name);
+			params_p += sprintf(params_p, "1 %i",
+					    dm_ps_nr_args);
+			params_p += sprintf(params_p, " %s",
+					    all_paths[PINDEX(index,i)].dev);
+		}
+	}
+
+	if (mp[index].size < 0)
 		goto addout;
 
 	if (!conf->quiet) {
 		if (op == DM_DEVICE_RELOAD)
-			printf("U|");
+			printf("U:");
 		if (op == DM_DEVICE_CREATE)
-			printf("N|");
-		printf("%s : 0 %li %s %s\n",
-			mp[index].wwid, size, DM_TARGET, params);
+			printf("N:");
+		printf("%s:0 %li %s %s\n",
+			mp[index].wwid, mp[index].size, DM_TARGET, params);
 	}
 
-	if (!dm_task_add_target(dmt, 0, size, DM_TARGET, params))
+	if (!dm_task_add_target(dmt, 0, mp[index].size, DM_TARGET, params))
 		goto addout;
 
 	if (!dm_task_run(dmt))
@@ -714,8 +712,10 @@ static void
 usage(char * progname)
 {
 	fprintf(stderr, VERSION_STRING);
-	fprintf(stderr, "Usage: %s [-v|-q] [-d] [-i int] [-m max_devs]\n", progname);
+	fprintf(stderr, "Usage: %s [-v|-q] [-d] [-i int] [-m max_devs]\n",
+		progname);
 	fprintf(stderr, "\t-d\t\tdry run, do not create or update devmaps\n");
+	fprintf(stderr, "\t-f\t\tforce maps to failover mode (1 path/pg)\n");
 	fprintf(stderr, "\t-i\t\tmultipath target param : polling interval\n");
 	fprintf(stderr, "\t-m max_devs\tscan {max_devs} devices at most\n");
 	fprintf(stderr, "\t-q\t\tquiet, no output at all\n");
@@ -759,6 +759,8 @@ main(int argc, char *argv[])
 			conf.quiet = 1;
 		} else if (0 == strcmp("-d", argv[i]))
 			conf.dry_run = 1;
+		else if (0 == strcmp("-f", argv[i]))
+			conf.forcedfailover = 1;
 		else if (0 == strcmp("-i", argv[i]))
 			conf.dm_path_test_int = atoi(argv[++i]);
 		else if (0 == strcmp("scsi", argv[i]))

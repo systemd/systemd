@@ -1,3 +1,17 @@
+2003-12-22 multipath-010
+	* don't print .sg_dev if equal to .dev (2.6) in print_path()
+	* since the kernel code handles defective paths, remove all
+	  code to cope with them :
+		* move do_tur() to unused.c
+		* remove .state from path struct
+		* remove .state settings & conditionals
+	* add a cmdline switch to force maps to failover mode,
+	  ie 1 path per priority group
+	* add default policies to the whitelist array (spread io ==
+	  MULTIBUS / io forced to 1 path == FAILOVER)
+	* move get_disk_size() call out of add_map() to coalesce()
+	* comment tricky coalesce() fn
+	* bogus unsused.c file renamed to unused.c
 2003-12-20 multipath-010
 	* big ChangeLog update
 	* start to give a little control over target params :

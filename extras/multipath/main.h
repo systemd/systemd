@@ -48,6 +48,10 @@
 #define BLKGETSIZE      _IO(0x12,96)
 #define DM_TARGET	"multipath"
 
+/* Storage controlers cpabilities */
+#define FAILOVER	0
+#define MULTIBUS	1
+
 #define PINDEX(x,y)	mp[(x)].pindex[(y)]
 
 /* global types */
@@ -80,16 +84,17 @@ struct path {
 	char sg_dev[FILE_NAME_SIZE];
 	struct scsi_idlun scsi_id;
 	struct sg_id sg_id;
-	int state;
 	char wwid[WWID_SIZE];
 	char vendor_id[8];
 	char product_id[16];
 	char rev[4];
+	int iopolicy;
 };
 
 struct multipath {
 	char wwid[WWID_SIZE];
 	int npaths;
+	long size;
 	int pindex[MAX_MP_PATHS];
 };
 
@@ -98,6 +103,7 @@ struct env {
 	int verbose;
 	int quiet;
 	int dry_run;
+	int forcedfailover;
 	int with_sysfs;
 	int dm_path_test_int;
 	char sysfs_path[FILE_NAME_SIZE];
