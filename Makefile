@@ -40,6 +40,7 @@ mandir =	${prefix}/usr/share/man
 hotplugdir =	${etcdir}/hotplug.d/default
 dbusdir =	${etcdir}/dbus-1/system.d
 configdir =	${etcdir}/udev/
+initdir = 	${etcdir}/init.d/
 srcdir = .
 
 INSTALL = /usr/bin/install -c
@@ -278,6 +279,7 @@ install: install-dbus-policy all $(GEN_CONFIGS)
 	$(INSTALL) -d $(DESTDIR)$(configdir)
 	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
+	$(INSTALL_PROGRAM) -D etc/init.d/udev $(DESTDIR)$(initdir)/udev
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
 	$(INSTALL_DATA) udev.conf $(DESTDIR)$(configdir)
 	$(INSTALL_DATA) udev.rules $(DESTDIR)$(configdir)
