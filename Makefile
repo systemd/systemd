@@ -354,6 +354,13 @@ install-config: $(GEN_CONFIGS)
 install-dev.d:
 	$(INSTALL) -d $(DESTDIR)$(dev_ddir)
 	$(INSTALL) -d $(DESTDIR)$(dev_ddir)default/
+	$(INSTALL_PROGRAM) -D etc/dev.d/net/hotplug.dev $(DESTDIR)$(dev_ddir)net/hotplug.dev
+
+uninstall-dev.d:
+	- rm $(dev_ddir)net/hotplug.dev
+	- rmdir $(dev_ddir)net
+	- rmdir $(dev_ddir)default
+	- rmdir $(dev_ddir)
 
 install: install-initscript install-config install-dev.d all
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
@@ -381,7 +388,7 @@ endif
 			-C $$target $@ ; \
 	done ; \
 
-uninstall: 
+uninstall: uninstall-dev.d
 	- rm $(hotplugdir)/udev.hotplug
 	- rm $(configdir)/udev.permissions
 	- rm $(configdir)/udev.rules
@@ -399,8 +406,6 @@ uninstall:
 	- rm $(usrbindir)/$(INFO)
 	- rmdir $(hotplugdir)
 	- rmdir $(configdir)
-	- rmdir $(dev_ddir)default
-	- rmdir $(dev_ddir)
 	- rm $(udevdir)/.udev.tdb
 	- rmdir $(udevdir)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
