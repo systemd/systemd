@@ -28,14 +28,13 @@
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "libsysfs/dlist.h"
+#include "udev_libc_wrapper.h"
 #include "udev.h"
 #include "udev_utils.h"
 #include "udev_version.h"
 #include "udev_db.h"
 #include "logging.h"
 
-
-#define SYSFS_VALUE_SIZE		256
 
 #ifdef USE_LOG
 void log_message (int level, const char *format, ...)
@@ -51,12 +50,12 @@ void log_message (int level, const char *format, ...)
 static void print_all_attributes(struct dlist *attr_list)
 {
 	struct sysfs_attribute *attr;
-	char value[SYSFS_VALUE_SIZE];
+	char value[VALUE_SIZE];
 	int len;
 
 	dlist_for_each_data(attr_list, attr, struct sysfs_attribute) {
 		if (attr->value != NULL) {
-			strfieldcpy(value, attr->value);
+			strlcpy(value, attr->value, sizeof(value));
 			len = strlen(value);
 			if (len == 0)
 				continue;
@@ -193,9 +192,9 @@ int main(int argc, char *argv[], char *envp[])
 	int root = 0;
 	int attributes = 0;
 	enum query_type query = NONE;
-	char path[NAME_SIZE] = "";
-	char name[NAME_SIZE] = "";
-	char temp[NAME_SIZE];
+	char path[PATH_SIZE] = "";
+	char name[PATH_SIZE] = "";
+	char temp[PATH_SIZE];
 	struct name_entry *name_loop;
 	char *pos;
 	int retval = 0;
@@ -215,12 +214,12 @@ int main(int argc, char *argv[], char *envp[])
 		switch (option) {
 		case 'n':
 			dbg("udev name: %s\n", optarg);
-			strfieldcpy(name, optarg);
+			strlcpy(name, optarg, sizeof(name));
 			break;
 
 		case 'p':
 			dbg("udev path: %s\n", optarg);
-			strfieldcpy(path, optarg);
+			strlcpy(path, optarg, sizeof(path));
 			break;
 
 		case 'q':
@@ -284,7 +283,7 @@ int main(int argc, char *argv[], char *envp[])
 				if (path[0] != '/') {
 					/* prepend '/' if missing */
 					strcpy(temp, "/");
-					strfieldcat(temp, path);
+					strlcpy(temp, path, sizeof(temp));
 					pos = temp;
 				} else {
 					pos = path;
@@ -299,7 +298,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		if (name[0] != '\0') {
-			char devpath[NAME_SIZE];
+			char devpath[PATH_SIZE];
 			int len;
 
 			/* remove udev_root if given */
@@ -309,7 +308,7 @@ int main(int argc, char *argv[], char *envp[])
 			} else
 				pos = name;
 
-			retval = udev_db_search_name(devpath, DEVPATH_SIZE, pos);
+			retval = udev_db_search_name(devpath, sizeof(devpath), pos);
 			if (retval != 0) {
 				printf("device not found in database\n");
 				goto exit;
@@ -360,9 +359,9 @@ print:
 		} else {
 			if (strncmp(path, sysfs_path, strlen(sysfs_path)) != 0) {
 				/* prepend sysfs mountpoint if not given */
-				strfieldcpy(temp, path);
-				strfieldcpy(path, sysfs_path);
-				strfieldcat(path, temp);
+				snprintf(temp, sizeof(temp), "%s%s", sysfs_path, path);
+				temp[sizeof(temp)-1] = '\0';
+				strlcpy(path, temp, sizeof(temp));
 			}
 			print_device_chain(path);
 			goto exit;

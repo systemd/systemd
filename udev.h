@@ -33,13 +33,11 @@
 #define COMMENT_CHARACTER		'#'
 
 #define LINE_SIZE			512
-#define NAME_SIZE			256
+#define NAME_SIZE			128
+#define PATH_SIZE			256
 #define USER_SIZE			32
-
-#define ACTION_SIZE			32
-#define DEVPATH_SIZE			256
-#define SUBSYSTEM_SIZE			32
 #define SEQNUM_SIZE			32
+#define VALUE_SIZE			128
 
 #define DEVD_DIR			"/etc/dev.d"
 #define DEVD_SUFFIX			".dev"
@@ -58,11 +56,11 @@ enum device_type {
 };
 
 struct udevice {
-	char devpath[DEVPATH_SIZE];
-	char subsystem[SUBSYSTEM_SIZE];
+	char devpath[PATH_SIZE];
+	char subsystem[NAME_SIZE];
 
-	char name[NAME_SIZE];
-	char devname[NAME_SIZE];
+	char name[PATH_SIZE];
+	char devname[PATH_SIZE];
 	struct list_head symlink_list;
 	char owner[USER_SIZE];
 	char group[USER_SIZE];
@@ -70,13 +68,13 @@ struct udevice {
 	char type;
 	dev_t devt;
 
-	char tmp_node[NAME_SIZE];
+	char tmp_node[PATH_SIZE];
 	int partitions;
 	int ignore_remove;
 	int config_line;
-	char config_file[NAME_SIZE];
-	char bus_id[SYSFS_NAME_LEN];
-	char program_result[NAME_SIZE];
+	char config_file[PATH_SIZE];
+	char bus_id[NAME_SIZE];
+	char program_result[PATH_SIZE];
 	char kernel_number[NAME_SIZE];
 	char kernel_name[NAME_SIZE];
 	int test_run;
@@ -89,11 +87,11 @@ extern int udev_start(void);
 extern void udev_multiplex_directory(struct udevice *udev, const char *basedir, const char *suffix);
 extern int udev_make_node(struct udevice *udev, const char *file, dev_t devt, mode_t mode, uid_t uid, gid_t gid);
 
-extern char sysfs_path[SYSFS_PATH_MAX];
-extern char udev_root[PATH_MAX];
-extern char udev_db_path[PATH_MAX+NAME_MAX];
-extern char udev_config_filename[PATH_MAX+NAME_MAX];
-extern char udev_rules_filename[PATH_MAX+NAME_MAX];
+extern char sysfs_path[PATH_SIZE];
+extern char udev_root[PATH_SIZE];
+extern char udev_db_path[PATH_SIZE];
+extern char udev_config_filename[PATH_SIZE];
+extern char udev_rules_filename[PATH_SIZE];
 extern int udev_log;
 extern int udev_dev_d;
 extern int udev_hotplug_d;

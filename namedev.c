@@ -35,6 +35,7 @@
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "list.h"
+#include "udev_libc_wrapper.h"
 #include "udev.h"
 #include "udev_utils.h"
 #include "udev_version.h"
@@ -144,14 +145,14 @@ static int get_format_len(char **str)
  */
 static int find_free_number(struct udevice *udev, const char *name)
 {
-	char devpath[NAME_SIZE];
-	char filename[NAME_SIZE];
+	char devpath[PATH_SIZE];
+	char filename[PATH_SIZE];
 	int num = 0;
 
-	strfieldcpy(filename, name);
+	strlcpy(filename, name, sizeof(filename));
 	while (1) {
 		dbg("look for existing node '%s'", filename);
-		if (udev_db_search_name(devpath, DEVPATH_SIZE, filename) != 0) {
+		if (udev_db_search_name(devpath, sizeof(devpath), filename) != 0) {
 			dbg("free num=%d", num);
 			return num;
 		}
@@ -161,16 +162,16 @@ static int find_free_number(struct udevice *udev, const char *name)
 			info("find_free_number gone crazy (num=%d), aborted", num);
 			return -1;
 		}
-		snprintf(filename, NAME_SIZE, "%s%d", name, num);
-		filename[NAME_SIZE-1] = '\0';
+		snprintf(filename, sizeof(filename), "%s%d", name, num);
+		filename[sizeof(filename)-1] = '\0';
 	}
 }
 
 static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			 struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
-	char temp[NAME_SIZE];
-	char temp2[NAME_SIZE];
+	char temp[PATH_SIZE];
+	char temp2[PATH_SIZE];
 	char *tail, *pos, *cpos, *attr, *rest;
 	int len;
 	int i;
@@ -189,36 +190,36 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 		tail = pos+1;
 		len = get_format_len(&tail);
 		c = tail[0];
-		strfieldcpy(temp, tail+1);
+		strlcpy(temp, tail+1, sizeof(temp));
 		tail = temp;
 		dbg("format=%c, string='%s', tail='%s'",c , string, tail);
 		attr = get_format_attribute(&tail);
 
 		switch (c) {
 		case 'p':
-			strfieldcatmax(string, udev->devpath, maxsize);
+			strlcat(string, udev->devpath, maxsize);
 			dbg("substitute kernel name '%s'", udev->kernel_name);
 			break;
 		case 'b':
-			strfieldcatmax(string, udev->bus_id, maxsize);
+			strlcat(string, udev->bus_id, maxsize);
 			dbg("substitute bus_id '%s'", udev->bus_id);
 			break;
 		case 'k':
-			strfieldcatmax(string, udev->kernel_name, maxsize);
+			strlcat(string, udev->kernel_name, maxsize);
 			dbg("substitute kernel name '%s'", udev->kernel_name);
 			break;
 		case 'n':
-			strfieldcatmax(string, udev->kernel_number, maxsize);
+			strlcat(string, udev->kernel_number, maxsize);
 			dbg("substitute kernel number '%s'", udev->kernel_number);
 				break;
 		case 'm':
 			sprintf(temp2, "%d", minor(udev->devt));
-			strfieldcatmax(string, temp2, maxsize);
+			strlcat(string, temp2, maxsize);
 			dbg("substitute minor number '%s'", temp2);
 			break;
 		case 'M':
 			sprintf(temp2, "%d", major(udev->devt));
-			strfieldcatmax(string, temp2, maxsize);
+			strlcat(string, temp2, maxsize);
 			dbg("substitute major number '%s'", temp2);
 			break;
 		case 'c':
@@ -241,17 +242,17 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 					dbg("requested part of result string not found");
 					break;
 				}
-				strfieldcpy(temp2, cpos);
+				strlcpy(temp2, cpos, sizeof(temp2));
 				/* %{2+}c copies the whole string from the second part on */
 				if (rest[0] != '+') {
 					cpos = strchr(temp2, ' ');
 					if (cpos)
 						cpos[0] = '\0';
 				}
-				strfieldcatmax(string, temp2, maxsize);
+				strlcat(string, temp2, maxsize);
 				dbg("substitute part of result string '%s'", temp2);
 			} else {
-				strfieldcatmax(string, udev->program_result, maxsize);
+				strlcat(string, udev->program_result, maxsize);
 				dbg("substitute result string '%s'", udev->program_result);
 			}
 			break;
@@ -278,18 +279,18 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 						 len - i, tmpattr->value);
 				}
 			}
-			strfieldcatmax(string, tmpattr->value, maxsize);
+			strlcat(string, tmpattr->value, maxsize);
 			dbg("substitute sysfs value '%s'", tmpattr->value);
 			break;
 		case '%':
-			strfieldcatmax(string, "%", maxsize);
+			strlcat(string, "%", maxsize);
 			pos++;
 			break;
 		case 'e':
 			next_free_number = find_free_number(udev, string);
 			if (next_free_number > 0) {
 				sprintf(temp2, "%d", next_free_number);
-				strfieldcatmax(string, temp2, maxsize);
+				strlcat(string, temp2, maxsize);
 			}
 			break;
 		case 'P':
@@ -303,7 +304,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 				udev_init_device(&udev_parent, NULL, NULL);
 				/* lookup the name in the udev_db with the DEVPATH of the parent */
 				if (udev_db_get_device(&udev_parent, &class_dev_parent->path[strlen(sysfs_path)]) == 0) {
-					strfieldcatmax(string, udev_parent.name, maxsize);
+					strlcat(string, udev_parent.name, maxsize);
 					dbg("substitute parent node name'%s'", udev_parent.name);
 				} else
 					dbg("parent not found in database");
@@ -313,15 +314,16 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 		case 'N':
 			if (udev->tmp_node[0] == '\0') {
 				dbg("create temporary device node for callout");
-				snprintf(udev->tmp_node, NAME_SIZE, "%s/.tmp-%u-%u", udev_root, major(udev->devt), minor(udev->devt));
-				udev->tmp_node[NAME_SIZE] = '\0';
+				snprintf(udev->tmp_node, sizeof(udev->tmp_node), "%s/.tmp-%u-%u",
+					 udev_root, major(udev->devt), minor(udev->devt));
+				udev->tmp_node[sizeof(udev->tmp_node)-1] = '\0';
 				udev_make_node(udev, udev->tmp_node, udev->devt, 0600, 0, 0);
 			}
-			strfieldcatmax(string, udev->tmp_node, maxsize);
+			strlcat(string, udev->tmp_node, maxsize);
 			dbg("substitute temporary device node name '%s'", udev->tmp_node);
 			break;
 		case 'r':
-			strfieldcatmax(string, udev_root, maxsize);
+			strlcat(string, udev_root, maxsize);
 			dbg("substitute udev_root '%s'", udev_root);
 			break;
 		default:
@@ -332,7 +334,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 		if (len > 0)
 			pos[len] = '\0';
 
-		strfieldcatmax(string, tail, maxsize);
+		strlcat(string, tail, maxsize);
 	}
 }
 
@@ -344,11 +346,11 @@ static int execute_program(struct udevice *udev, const char *path, char *value, 
 	int fds[2];
 	pid_t pid;
 	char *pos;
-	char arg[PROGRAM_SIZE];
-	char *argv[(PROGRAM_SIZE / 2) + 1];
+	char arg[PATH_SIZE];
+	char *argv[(sizeof(arg) / 2) + 1];
 	int i;
 
-	strfieldcpy(arg, path);
+	strlcpy(arg, path, sizeof(arg));
 	i = 0;
 	if (strchr(path, ' ')) {
 		pos = arg;
@@ -516,14 +518,14 @@ static int match_sysfs_pairs(struct config_device *dev, struct sysfs_class_devic
 
 static int match_id(struct config_device *dev, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
-	char path[SYSFS_PATH_MAX];
+	char path[PATH_SIZE];
 	char *temp;
 
 	/* we have to have a sysfs device for ID to work */
 	if (!sysfs_device)
 		return -ENODEV;
 
-	strfieldcpy(path, sysfs_device->path);
+	strlcpy(path, sysfs_device->path, sizeof(path));
 	temp = strrchr(path, '/');
 	temp++;
 	dbg("search '%s' in '%s', path='%s'", dev->id, temp, path);
@@ -535,14 +537,14 @@ static int match_id(struct config_device *dev, struct sysfs_class_device *class_
 
 static int match_place(struct config_device *dev, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
-	char path[SYSFS_PATH_MAX];
+	char path[PATH_SIZE];
 	char *temp;
 
 	/* we have to have a sysfs device for PLACE to work */
 	if (!sysfs_device)
 		return -ENODEV;
 
-	strfieldcpy(path, sysfs_device->path);
+	strlcpy(path, sysfs_device->path, sizeof(path));
 	temp = strrchr(path, '/');
 	dbg("search '%s' in '%s', path='%s'", dev->place, temp, path);
 	if (strstr(temp, dev->place) != NULL)
@@ -653,12 +655,12 @@ try_parent:
 
 	/* execute external program */
 	if (dev->program[0] != '\0') {
-		char program[PROGRAM_SIZE];
+		char program[PATH_SIZE];
 
 		dbg("check " FIELD_PROGRAM);
-		strfieldcpy(program, dev->program);
+		strlcpy(program, dev->program, sizeof(program));
 		apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
-		if (execute_program(udev, program, udev->program_result, NAME_SIZE) != 0) {
+		if (execute_program(udev, program, udev->program_result, sizeof(udev->program_result)) != 0) {
 			dbg(FIELD_PROGRAM " returned nonzero");
 			goto try_parent;
 		}
@@ -707,7 +709,7 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 	if (sysfs_device) {
 		dbg("found devices device: path='%s', bus_id='%s', bus='%s'",
 		    sysfs_device->path, sysfs_device->bus_id, sysfs_device->bus);
-		strfieldcpy(udev->bus_id, sysfs_device->bus_id);
+		strlcpy(udev->bus_id, sysfs_device->bus_id, sizeof(udev->bus_id));
 	}
 
 	dbg("udev->kernel_name='%s'", udev->kernel_name);
@@ -739,24 +741,24 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 				dbg("applied mode=%#o to '%s'", udev->mode, udev->kernel_name);
 			}
 			if (dev->owner[0] != '\0') {
-				strfieldcpy(udev->owner, dev->owner);
+				strlcpy(udev->owner, dev->owner, sizeof(udev->owner));
 				apply_format(udev, udev->owner, sizeof(udev->owner), class_dev, sysfs_device);
 				dbg("applied owner='%s' to '%s'", udev->owner, udev->kernel_name);
 			}
 			if (dev->group[0] != '\0') {
-				strfieldcpy(udev->group, dev->group);
+				strlcpy(udev->group, dev->group, sizeof(udev->group));
 				apply_format(udev, udev->group, sizeof(udev->group), class_dev, sysfs_device);
 				dbg("applied group='%s' to '%s'", udev->group, udev->kernel_name);
 			}
 
 			/* collect symlinks */
 			if (dev->symlink[0] != '\0') {
-				char temp[NAME_SIZE];
+				char temp[PATH_SIZE];
 				char *pos, *next;
 
 				info("configured rule in '%s[%i]' applied, added symlink '%s'",
 				     dev->config_file, dev->config_line, dev->symlink);
-				strfieldcpy(temp, dev->symlink);
+				strlcpy(temp, dev->symlink, sizeof(temp));
 				apply_format(udev, temp, sizeof(temp), class_dev, sysfs_device);
 
 				/* add multiple symlinks separated by spaces */
@@ -778,9 +780,9 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 				info("configured rule in '%s[%i]' applied, '%s' becomes '%s'",
 				     dev->config_file, dev->config_line, udev->kernel_name, dev->name);
 
-				strfieldcpy(udev->name, dev->name);
+				strlcpy(udev->name, dev->name, sizeof(udev->name));
 				apply_format(udev, udev->name, sizeof(udev->name), class_dev, sysfs_device);
-				strfieldcpy(udev->config_file, dev->config_file);
+				strlcpy(udev->config_file, dev->config_file, sizeof(udev->config_file));
 				udev->config_line = dev->config_line;
 
 				if (udev->type != NET)
@@ -794,7 +796,7 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 
 	if (udev->name[0] == '\0') {
 		/* no rule matched, so we use the kernel name */
-		strfieldcpy(udev->name, udev->kernel_name);
+		strlcpy(udev->name, udev->kernel_name, sizeof(udev->name));
 		dbg("no rule found, use kernel name '%s'", udev->name);
 	}
 

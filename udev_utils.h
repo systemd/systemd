@@ -24,43 +24,9 @@
 
 #include "udev.h"
 
-#define strfieldcpy(to, from) \
-do { \
-	to[sizeof(to)-1] = '\0'; \
-	strncpy(to, from, sizeof(to)-1); \
-} while (0)
-
-#define strfieldcat(to, from) \
-do { \
-	to[sizeof(to)-1] = '\0'; \
-	strncat(to, from, sizeof(to) - strlen(to)-1); \
-} while (0)
-
-#define strfieldcpymax(to, from, maxsize) \
-do { \
-	to[maxsize-1] = '\0'; \
-	strncpy(to, from, maxsize-1); \
-} while (0)
-
-#define strfieldcatmax(to, from, maxsize) \
-do { \
-	to[maxsize-1] = '\0'; \
-	strncat(to, from, maxsize - strlen(to)-1); \
-} while (0)
-
-#ifdef asmlinkage
-# undef asmlinkage
-#endif
-#ifdef __i386__
-# define asmlinkage	__attribute__((regparm(0)))
-#endif
-#ifndef asmlinkage
-# define asmlinkage
-#endif
-
 struct name_entry {
 	struct list_head node;
-	char name[NAME_SIZE];
+	char name[PATH_SIZE];
 };
 
 extern int udev_init_device(struct udevice *udev, const char* devpath, const char *subsystem);

@@ -1,5 +1,5 @@
 /*
- * udev.c
+ * udevtest.c
  *
  * Userspace devfs
  *
@@ -53,8 +53,8 @@ int main(int argc, char *argv[], char *envp[])
 {
 	struct sysfs_class_device *class_dev;
 	char *devpath;
-	char path[SYSFS_PATH_MAX];
-	char temp[NAME_SIZE];
+	char path[PATH_SIZE];
+	char temp[PATH_SIZE];
 	struct udevice udev;
 	char *subsystem = NULL;
 
@@ -69,18 +69,16 @@ int main(int argc, char *argv[], char *envp[])
 	udev_init_config();
 
 	/* remove sysfs_path if given */
-	if (strncmp(argv[1], sysfs_path, strlen(sysfs_path)) == 0) {
+	if (strncmp(argv[1], sysfs_path, strlen(sysfs_path)) == 0)
 		devpath = &argv[1][strlen(sysfs_path)] ;
-	}
 	else
 		if (argv[1][0] != '/') {
 			/* prepend '/' if missing */
-			strfieldcpy(temp, "/");
-			strfieldcat(temp, argv[1]);
+			snprintf(temp, sizeof(temp), "/%s", argv[1]);
+			temp[sizeof(temp)-1] = '\0';
 			devpath = temp;
-		} else {
+		} else
 			devpath = argv[1];
-		}
 
 	info("looking at '%s'", devpath);
 
@@ -100,7 +98,8 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	/* open the device */
-	snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, udev.devpath);
+	snprintf(path, sizeof(path), "%s%s", sysfs_path, udev.devpath);
+	path[sizeof(path)-1] = '\0';
 	class_dev = sysfs_open_class_device_path(path);
 	if (class_dev == NULL) {
 		info("sysfs_open_class_device_path failed");

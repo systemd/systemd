@@ -28,6 +28,7 @@
 #include <fcntl.h>
 
 #include "udev.h"
+#include "udev_libc_wrapper.h"
 #include "udev_utils.h"
 #include "logging.h"
 
@@ -72,22 +73,22 @@ static int run_program(struct udevice *udev, const char *filename)
  */
 void udev_multiplex_directory(struct udevice *udev, const char *basedir, const char *suffix)
 {
-	char dirname[PATH_MAX];
+	char dirname[PATH_SIZE];
 
 	/* chop the device name up into pieces based on '/' */
 	if (udev->name[0] != '\0') {
-		char devname[NAME_SIZE];
+		char devname[PATH_SIZE];
 		char *temp;
 
-		strfieldcpy(devname, udev->name);
+		strlcpy(devname, udev->name, sizeof(devname));
 		temp = strchr(devname, '/');
 		while (temp != NULL) {
 			temp[0] = '\0';
 
 			/* don't call the subsystem directory here */
 			if (strcmp(devname, udev->subsystem) != 0) {
-				snprintf(dirname, PATH_MAX, "%s/%s", basedir, devname);
-				dirname[PATH_MAX-1] = '\0';
+				snprintf(dirname, sizeof(dirname), "%s/%s", basedir, devname);
+				dirname[sizeof(dirname)-1] = '\0';
 				call_foreach_file(run_program, udev, dirname, suffix);
 			}
 
@@ -98,18 +99,18 @@ void udev_multiplex_directory(struct udevice *udev, const char *basedir, const c
 	}
 
 	if (udev->name[0] != '\0') {
-		snprintf(dirname, PATH_MAX, "%s/%s", basedir, udev->name);
-		dirname[PATH_MAX-1] = '\0';
+		snprintf(dirname, sizeof(dirname), "%s/%s", basedir, udev->name);
+		dirname[sizeof(dirname)-1] = '\0';
 		call_foreach_file(run_program, udev, dirname, suffix);
 	}
 
 	if (udev->subsystem[0] != '\0') {
-		snprintf(dirname, PATH_MAX, "%s/%s", basedir, udev->subsystem);
-		dirname[PATH_MAX-1] = '\0';
+		snprintf(dirname, sizeof(dirname), "%s/%s", basedir, udev->subsystem);
+		dirname[sizeof(dirname)-1] = '\0';
 		call_foreach_file(run_program, udev, dirname, suffix);
 	}
 
-	snprintf(dirname, PATH_MAX, "%s/default", basedir);
-	dirname[PATH_MAX-1] = '\0';
+	snprintf(dirname, sizeof(dirname), "%s/default", basedir);
+	dirname[sizeof(dirname)-1] = '\0';
 	call_foreach_file(run_program, udev, dirname, suffix);
 }

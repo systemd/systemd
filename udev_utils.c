@@ -31,6 +31,7 @@
 #include <sys/mman.h>
 #include <sys/utsname.h>
 
+#include "udev_libc_wrapper.h"
 #include "udev.h"
 #include "logging.h"
 #include "udev_utils.h"
@@ -45,10 +46,10 @@ int udev_init_device(struct udevice *udev, const char* devpath, const char *subs
 	INIT_LIST_HEAD(&udev->symlink_list);
 
 	if (subsystem)
-		strfieldcpy(udev->subsystem, subsystem);
+		strlcpy(udev->subsystem, subsystem, sizeof(udev->subsystem));
 
 	if (devpath) {
-		strfieldcpy(udev->devpath, devpath);
+		strlcpy(udev->devpath, devpath, sizeof(udev->devpath));
 		no_trailing_slash(udev->devpath);
 
 		if (strncmp(udev->devpath, "/block/", 7) == 0)
@@ -63,7 +64,7 @@ int udev_init_device(struct udevice *udev, const char* devpath, const char *subs
 		/* get kernel name */
 		pos = strrchr(udev->devpath, '/');
 		if (pos) {
-			strfieldcpy(udev->kernel_name, &pos[1]);
+			strlcpy(udev->kernel_name, &pos[1], sizeof(udev->kernel_name));
 			dbg("kernel_name='%s'", udev->kernel_name);
 
 			/* Some block devices have '!' in their name, change that to '/' */
@@ -78,7 +79,7 @@ int udev_init_device(struct udevice *udev, const char* devpath, const char *subs
 			pos = &udev->kernel_name[strlen(udev->kernel_name)];
 			while (isdigit(pos[-1]))
 				pos--;
-			strfieldcpy(udev->kernel_number, pos);
+			strlcpy(udev->kernel_number, pos, sizeof(udev->kernel_number));
 			dbg("kernel_number='%s'", udev->kernel_number);
 		}
 	}
@@ -126,7 +127,7 @@ int kernel_release_satisfactory(unsigned int version, unsigned int patchlevel, u
 
 int create_path(const char *path)
 {
-	char p[NAME_SIZE];
+	char p[PATH_SIZE];
 	char *pos;
 	struct stat stats;
 
@@ -195,19 +196,19 @@ int parse_get_pair(char **orig_string, char **left, char **right)
 		return -ENODEV;
 
 	/* take the right side and strip off the '"' */
-	while (isspace(*string))
+	while (isspace(string[0]))
 		++string;
-	if (*string == '"')
+	if (string[0] == '"')
 		++string;
 	else
 		return -ENODEV;
 
 	temp = strsep(&string, "\"");
-	if (!string || *temp == '\0')
+	if (!string || temp[0] == '\0')
 		return -ENODEV;
 	*right = temp;
 	*orig_string = string;
-	
+
 	return 0;
 }
 
@@ -292,7 +293,7 @@ int name_list_add(struct list_head *name_list, const char *name, int sort)
 		return -ENOMEM;
 	}
 
-	strfieldcpy(new_name->name, name);
+	strlcpy(new_name->name, name, sizeof(new_name->name));
 	list_add_tail(&new_name->node, &loop_name->node);
 
 	return 0;
@@ -338,10 +339,10 @@ int call_foreach_file(int (*handler_function)(struct udevice *udev, const char *
 
 	/* call function for every file in the list */
 	list_for_each_entry_safe(loop_file, tmp_file, &file_list, node) {
-		char filename[NAME_SIZE];
+		char filename[PATH_SIZE];
 
-		snprintf(filename, NAME_SIZE, "%s/%s", dirname, loop_file->name);
-		filename[NAME_SIZE-1] = '\0';
+		snprintf(filename, sizeof(filename), "%s/%s", dirname, loop_file->name);
+		filename[sizeof(filename)-1] = '\0';
 
 		handler_function(udev, filename);
 

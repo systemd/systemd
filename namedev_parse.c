@@ -36,6 +36,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 
+#include "udev_libc_wrapper.h"
 #include "udev.h"
 #include "udev_utils.h"
 #include "logging.h"
@@ -134,7 +135,7 @@ static int namedev_parse(struct udevice *udev, const char *filename)
 		cur += count+1;
 		lineno++;
 
-		if (count >= LINE_SIZE) {
+		if (count >= sizeof(line)) {
 			info("line too long, rule skipped %s, line %d", filename, lineno);
 			continue;
 		}
@@ -172,31 +173,31 @@ static int namedev_parse(struct udevice *udev, const char *filename)
 				break;
 
 			if (strcasecmp(temp2, FIELD_KERNEL) == 0) {
-				strfieldcpy(dev.kernel, temp3);
+				strlcpy(dev.kernel, temp3, sizeof(dev.kernel));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_SUBSYSTEM) == 0) {
-				strfieldcpy(dev.subsystem, temp3);
+				strlcpy(dev.subsystem, temp3, sizeof(dev.subsystem));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_BUS) == 0) {
-				strfieldcpy(dev.bus, temp3);
+				strlcpy(dev.bus, temp3, sizeof(dev.bus));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_ID) == 0) {
-				strfieldcpy(dev.id, temp3);
+				strlcpy(dev.id, temp3, sizeof(dev.id));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_PLACE) == 0) {
-				strfieldcpy(dev.place, temp3);
+				strlcpy(dev.place, temp3, sizeof(dev.place));
 				valid = 1;
 				continue;
 			}
@@ -220,28 +221,28 @@ static int namedev_parse(struct udevice *udev, const char *filename)
 						dbg("error parsing " FIELD_SYSFS " attribute");
 						continue;
 					}
-					strfieldcpy(pair->file, attr);
-					strfieldcpy(pair->value, temp3);
+					strlcpy(pair->file, attr, sizeof(pair->file));
+					strlcpy(pair->value, temp3, sizeof(pair->value));
 					valid = 1;
 				}
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_DRIVER) == 0) {
-				strfieldcpy(dev.driver, temp3);
+				strlcpy(dev.driver, temp3, sizeof(dev.driver));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_PROGRAM) == 0) {
 				program_given = 1;
-				strfieldcpy(dev.program, temp3);
+				strlcpy(dev.program, temp3, sizeof(dev.program));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_RESULT) == 0) {
-				strfieldcpy(dev.result, temp3);
+				strlcpy(dev.result, temp3, sizeof(dev.result));
 				valid = 1;
 				continue;
 			}
@@ -260,7 +261,7 @@ static int namedev_parse(struct udevice *udev, const char *filename)
 					}
 				}
 				if (temp3[0] != '\0')
-					strfieldcpy(dev.name, temp3);
+					strlcpy(dev.name, temp3, sizeof(dev.name));
 				else
 					dev.ignore_device = 1;
 				valid = 1;
@@ -268,19 +269,19 @@ static int namedev_parse(struct udevice *udev, const char *filename)
 			}
 
 			if (strcasecmp(temp2, FIELD_SYMLINK) == 0) {
-				strfieldcpy(dev.symlink, temp3);
+				strlcpy(dev.symlink, temp3, sizeof(dev.symlink));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_OWNER) == 0) {
-				strfieldcpy(dev.owner, temp3);
+				strlcpy(dev.owner, temp3, sizeof(dev.owner));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_GROUP) == 0) {
-				strfieldcpy(dev.group, temp3);
+				strlcpy(dev.group, temp3, sizeof(dev.group));
 				valid = 1;
 				continue;
 			}
@@ -330,7 +331,7 @@ static int namedev_parse(struct udevice *udev, const char *filename)
 		}
 
 		dev.config_line = lineno;
-		strfieldcpy(dev.config_file, filename);
+		strlcpy(dev.config_file, filename, sizeof(dev.config_file));
 		retval = add_config_dev(&dev);
 		if (retval) {
 			dbg("add_config_dev returned with error %d", retval);

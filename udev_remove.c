@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 
+#include "udev_libc_wrapper.h"
 #include "udev.h"
 #include "udev_utils.h"
 #include "udev_version.h"
@@ -69,16 +70,16 @@ static int delete_path(const char *path)
 
 static int delete_node(struct udevice *udev)
 {
-	char filename[NAME_SIZE];
-	char partitionname[NAME_SIZE];
+	char filename[PATH_SIZE];
+	char partitionname[PATH_SIZE];
 	struct name_entry *name_loop;
 	struct stat stats;
 	int retval;
 	int i;
 	int num;
 
-	snprintf(filename, NAME_SIZE, "%s/%s", udev_root, udev->name);
-	filename[NAME_SIZE-1] = '\0';
+	snprintf(filename, sizeof(filename), "%s/%s", udev_root, udev->name);
+	filename[sizeof(filename)-1] = '\0';
 
 	dbg("checking major/minor of device node '%s'", filename);
 	if (stat(filename, &stats) != 0)
@@ -103,8 +104,8 @@ static int delete_node(struct udevice *udev)
 			return -1;
 		}
 		for (i = 1; i <= num; i++) {
-			snprintf(partitionname, NAME_SIZE, "%s%d", filename, i);
-			partitionname[NAME_SIZE-1] = '\0';
+			snprintf(partitionname, sizeof(partitionname), "%s%d", filename, i);
+			partitionname[sizeof(partitionname)-1] = '\0';
 			unlink_secure(partitionname);
 		}
 	}
@@ -114,8 +115,8 @@ static int delete_node(struct udevice *udev)
 		delete_path(filename);
 
 	list_for_each_entry(name_loop, &udev->symlink_list, node) {
-		snprintf(filename, NAME_SIZE, "%s/%s", udev_root, name_loop->name);
-		filename[NAME_SIZE-1] = '\0';
+		snprintf(filename, sizeof(filename), "%s/%s", udev_root, name_loop->name);
+		filename[sizeof(filename)-1] = '\0';
 
 		dbg("unlinking symlink '%s'", filename);
 		retval = unlink(filename);
@@ -157,12 +158,13 @@ int udev_remove_device(struct udevice *udev)
 		temp = strrchr(udev->devpath, '/');
 		if (temp == NULL)
 			return -ENODEV;
-		strfieldcpy(udev->name, &temp[1]);
+		strlcpy(udev->name, &temp[1], sizeof(udev->name));
 		dbg("'%s' not found in database, falling back on default name", udev->name);
 	}
 
 	/* use full path to the environment */
-	snprintf(udev->devname, NAME_SIZE, "%s/%s", udev_root, udev->name);
+	snprintf(udev->devname, sizeof(udev->devname), "%s/%s", udev_root, udev->name);
+	udev->devname[sizeof(udev->devname)-1] = '\0';
 
 	return delete_node(udev);
 }

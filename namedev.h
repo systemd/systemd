@@ -28,14 +28,6 @@
 
 struct sysfs_class_device;
 
-#define BUS_SIZE		32
-#define FILE_SIZE		64
-#define VALUE_SIZE		128
-#define ID_SIZE			64
-#define PLACE_SIZE		64
-#define DRIVER_SIZE		64
-#define PROGRAM_SIZE		128
-
 #define FIELD_KERNEL		"KERNEL"
 #define FIELD_SUBSYSTEM		"SUBSYSTEM"
 #define FIELD_BUS		"BUS"
@@ -61,7 +53,7 @@ struct sysfs_class_device;
 #define RULEFILE_SUFFIX		".rules"
 
 struct sysfs_pair {
-	char file[FILE_SIZE];
+	char file[PATH_SIZE];
 	char value[VALUE_SIZE];
 };
 
@@ -69,16 +61,16 @@ struct config_device {
 	struct list_head node;
 
 	char kernel[NAME_SIZE];
-	char subsystem[SUBSYSTEM_SIZE];
-	char bus[BUS_SIZE];
-	char id[ID_SIZE];
-	char place[PLACE_SIZE];
+	char subsystem[NAME_SIZE];
+	char bus[NAME_SIZE];
+	char id[NAME_SIZE];
+	char place[NAME_SIZE];
 	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];
-	char program[PROGRAM_SIZE];
-	char result[PROGRAM_SIZE];
-	char driver[DRIVER_SIZE];
-	char name[NAME_SIZE];
-	char symlink[NAME_SIZE];
+	char program[PATH_SIZE];
+	char result[PATH_SIZE];
+	char driver[NAME_SIZE];
+	char name[PATH_SIZE];
+	char symlink[PATH_SIZE];
 
 	char owner[USER_SIZE];
 	char group[USER_SIZE];
@@ -88,7 +80,7 @@ struct config_device {
 	int ignore_device;
 	int ignore_remove;
 
-	char config_file[NAME_SIZE];
+	char config_file[PATH_SIZE];
 	int config_line;
 };
 

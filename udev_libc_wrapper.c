@@ -32,16 +32,58 @@
 #include "../udev_utils.h"
 #include "../logging.h"
 
-
 #ifdef __KLIBC__
 #define __OWN_USERDB_PARSER__
 #endif
+
 #ifdef USE_STATIC
 #define __OWN_USERDB_PARSER__
 #endif
 
-#ifndef __OWN_USERDB_PARSER__
+#ifndef strlcpy
+size_t strlcpy(char *dst, const char *src, size_t size)
+{
+	size_t bytes = 0;
+	char *q = dst;
+	const char *p = src;
+	char ch;
 
+	while ((ch = *p++)) {
+		if (bytes < size)
+			*q++ = ch;
+		bytes++;
+	}
+
+	*q = '\0';
+	return bytes;
+}
+#endif
+
+#ifndef strlcat
+size_t strlcat(char *dst, const char *src, size_t size)
+{
+	size_t bytes = 0;
+	char *q = dst;
+	const char *p = src;
+	char ch;
+
+	while (bytes < size && *q) {
+		q++;
+		bytes++;
+	}
+
+	while ((ch = *p++)) {
+		if (bytes < size)
+		*q++ = ch;
+		bytes++;
+	}
+
+	*q = '\0';
+	return bytes;
+}
+#endif
+
+#ifndef __OWN_USERDB_PARSER__
 #include <sys/types.h>
 #include <pwd.h>
 #include <grp.h>
@@ -107,11 +149,10 @@ static unsigned long get_id_by_name(const char *uname, const char *dbfile)
 		bufline = &buf[cur];
 		cur += count+1;
 
-		if (count >= LINE_SIZE)
+		if (count >= sizeof(line))
 			continue;
 
-		strncpy(line, bufline, count);
-		line[count] = '\0';
+		strlcpy(line, bufline, count);
 		pos = line;
 
 		/* get name */
@@ -158,5 +199,4 @@ gid_t lookup_group(const char *group)
 	id = get_id_by_name(group, GROUP_FILE);
 	return (gid_t) id;
 }
-
 #endif /* __OWN_USERDB_PARSER__ */

@@ -39,6 +39,7 @@
 #include <sys/stat.h>
 
 #include "list.h"
+#include "udev_libc_wrapper.h"
 #include "udev.h"
 #include "udev_version.h"
 #include "udev_utils.h"
@@ -262,7 +263,7 @@ static int compare_devpath(const char *running, const char *waiting)
 {
 	int i;
 
-	for (i = 0; i < DEVPATH_SIZE; i++) {
+	for (i = 0; i < PATH_SIZE; i++) {
 		/* identical device event found */
 		if (running[i] == '\0' && waiting[i] == '\0')
 			return 1;

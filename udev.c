@@ -32,6 +32,7 @@
 #include <unistd.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
+#include "udev_libc_wrapper.h"
 #include "udev.h"
 #include "udev_utils.h"
 #include "udev_sysfs.h"
@@ -99,7 +100,7 @@ int main(int argc, char *argv[], char *envp[])
 	struct sysfs_class_device *class_dev;
 	struct sysfs_device *devices_dev;
 	struct udevice udev;
-	char path[SYSFS_PATH_MAX];
+	char path[PATH_SIZE];
 	const char *error;
 	const char *action;
 	const char *devpath;
@@ -164,7 +165,8 @@ int main(int argc, char *argv[], char *envp[])
 				goto hotplug;
 			}
 
-			snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, udev.devpath);
+			snprintf(path, sizeof(path), "%s%s", sysfs_path, udev.devpath);
+			path[sizeof(path)-1] = '\0';
 			class_dev = wait_class_device_open(path);
 			if (class_dev == NULL) {
 				dbg ("open class device failed");
@@ -206,7 +208,8 @@ int main(int argc, char *argv[], char *envp[])
 			/* wait for sysfs */
 			dbg("devices add");
 
-			snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, devpath);
+			snprintf(path, sizeof(path), "%s%s", sysfs_path, devpath);
+			path[sizeof(path)-1] = '\0';
 			devices_dev = wait_devices_device_open(path);
 			if (!devices_dev) {
 				dbg("devices device unavailable (probably remove has beaten us)");

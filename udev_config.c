@@ -33,6 +33,7 @@
 #include <ctype.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
+#include "udev_libc_wrapper.h"
 #include "udev.h"
 #include "udev_utils.h"
 #include "udev_version.h"
@@ -40,11 +41,11 @@
 #include "namedev.h"
 
 /* global variables */
-char sysfs_path[SYSFS_PATH_MAX];
-char udev_root[PATH_MAX];
-char udev_db_path[PATH_MAX+NAME_MAX];
-char udev_rules_filename[PATH_MAX+NAME_MAX];
-char udev_config_filename[PATH_MAX+NAME_MAX];
+char sysfs_path[PATH_SIZE];
+char udev_root[PATH_SIZE];
+char udev_db_path[PATH_SIZE];
+char udev_rules_filename[PATH_SIZE];
+char udev_config_filename[PATH_SIZE];
 int udev_log;
 int udev_dev_d;
 int udev_hotplug_d;
@@ -98,12 +99,11 @@ static int parse_config_file(void)
 	int lineno;
 	int retval = 0;
 
-	if (file_map(udev_config_filename, &buf, &bufsize) == 0) {
-		dbg("reading '%s' as config file", udev_config_filename);
-	} else {
+	if (file_map(udev_config_filename, &buf, &bufsize) != 0) {
 		dbg("can't open '%s' as config file", udev_config_filename);
 		return -ENODEV;
 	}
+	dbg("reading '%s' as config file", udev_config_filename);
 
 	/* loop through the whole file */
 	lineno = 0;
@@ -114,7 +114,7 @@ static int parse_config_file(void)
 		cur += count+1;
 		lineno++;
 
-		if (count >= LINE_SIZE) {
+		if (count >= sizeof(line)) {
 			info("line too long, conf line skipped %s, line %d",
 					udev_config_filename, lineno);
 			continue;
@@ -132,8 +132,7 @@ static int parse_config_file(void)
 		if (bufline[0] == COMMENT_CHARACTER)
 			continue;
 
-		strncpy(line, bufline, count);
-		line[count] = '\0';
+		strlcpy(line, bufline, count);
 		temp = line;
 		dbg_parse("read '%s'", temp);
 
@@ -145,19 +144,19 @@ static int parse_config_file(void)
 		dbg_parse("variable='%s', value='%s'", variable, value);
 
 		if (strcasecmp(variable, "udev_root") == 0) {
-			strfieldcpy(udev_root, value);
+			strlcpy(udev_root, value, sizeof(udev_root));
 			no_trailing_slash(udev_root);
 			continue;
 		}
 
 		if (strcasecmp(variable, "udev_db") == 0) {
-			strfieldcpy(udev_db_path, value);
+			strlcpy(udev_db_path, value, sizeof(udev_db_path));
 			no_trailing_slash(udev_db_path);
 			continue;
 		}
 
 		if (strcasecmp(variable, "udev_rules") == 0) {
-			strfieldcpy(udev_rules_filename, value);
+			strlcpy(udev_rules_filename, value, sizeof(udev_rules_filename));
 			no_trailing_slash(udev_rules_filename);
 			continue;
 		}
@@ -177,7 +176,7 @@ static void get_dirs(void)
 	char *temp;
 	int retval;
 
-	retval = sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX);
+	retval = sysfs_get_mnt_path(sysfs_path, sizeof(sysfs_path));
 	if (retval)
 		dbg("sysfs_get_mnt_path failed");
 
@@ -185,13 +184,13 @@ static void get_dirs(void)
 	if (getenv("UDEV_TEST") != NULL) {
 		temp = getenv("SYSFS_PATH");
 		if (temp != NULL) {
-			strfieldcpy(sysfs_path, temp);
+			strlcpy(sysfs_path, temp, sizeof(sysfs_path));
 			no_trailing_slash(sysfs_path);
 		}
 
 		temp = getenv("UDEV_CONFIG_FILE");
 		if (temp != NULL)
-			strfieldcpy(udev_config_filename, temp);
+			strlcpy(udev_config_filename, temp, sizeof(udev_config_filename));
 	}
 
 	parse_config_file();

@@ -33,6 +33,7 @@
 #include <dirent.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
+#include "udev_libc_wrapper.h"
 #include "udev.h"
 #include "udev_utils.h"
 #include "logging.h"
@@ -42,11 +43,11 @@
 
 static int get_db_filename(const char *devpath, char *filename, int len)
 {
-	char temp[SYSFS_PATH_MAX];
+	char temp[PATH_SIZE];
 	char *pos;
 
 	/* replace '/' to transform path into a filename */
-	strfieldcpy(temp, devpath);
+	strlcpy(temp, devpath, sizeof(temp));
 	pos = strchr(&temp[1], '/');
 	while (pos) {
 		pos[0] = PATH_TO_NAME_CHAR;
@@ -60,14 +61,14 @@ static int get_db_filename(const char *devpath, char *filename, int len)
 
 int udev_db_add_device(struct udevice *udev)
 {
-	char filename[SYSFS_PATH_MAX];
+	char filename[PATH_SIZE];
 	struct name_entry *name_loop;
 	FILE *f;
 
 	if (udev->test_run)
 		return 0;
 
-	get_db_filename(udev->devpath, filename, SYSFS_PATH_MAX);
+	get_db_filename(udev->devpath, filename, sizeof(filename));
 
 	create_path(filename);
 
@@ -93,8 +94,7 @@ int udev_db_add_device(struct udevice *udev)
 
 static int parse_db_file(struct udevice *udev, const char *filename)
 {
-	char line[NAME_SIZE];
-	char temp[NAME_SIZE];
+	char line[PATH_SIZE];
 	unsigned int major, minor;
 	char *bufline;
 	char *buf;
@@ -115,44 +115,38 @@ static int parse_db_file(struct udevice *udev, const char *filename)
 
 		switch(bufline[0]) {
 		case 'P':
-			if (count > DEVPATH_SIZE)
-				count = DEVPATH_SIZE-1;
-			strncpy(udev->devpath, &bufline[2], count-2);
-			udev->devpath[count-2] = '\0';
+			if (count > sizeof(udev->devpath))
+				count = sizeof(udev->devpath)-1;
+			strlcpy(udev->devpath, &bufline[2], count-2);
 			break;
 		case 'N':
-			if (count > NAME_SIZE)
-				count = NAME_SIZE-1;
-			strncpy(udev->name, &bufline[2], count-2);
-			udev->name[count-2] = '\0';
+			if (count > sizeof(udev->name))
+				count = sizeof(udev->name)-1;
+			strlcpy(udev->name, &bufline[2], count-2);
 			break;
 		case 'M':
-			if (count > NAME_SIZE)
-				count = NAME_SIZE-1;
-			strncpy(temp, &bufline[2], count-2);
-			temp[count-2] = '\0';
-			sscanf(temp, "%u:%u", &major, &minor);
+			if (count > sizeof(line))
+				count = sizeof(line)-1;
+			strlcpy(line, &bufline[2], count-2);
+			sscanf(line, "%u:%u", &major, &minor);
 			udev->devt = makedev(major, minor);
 			break;
 		case 'S':
-			if (count > NAME_SIZE)
-				count = NAME_SIZE-1;
-			strncpy(temp, &bufline[2], count-2);
-			temp[count-2] = '\0';
-			name_list_add(&udev->symlink_list, temp, 0);
+			if (count >  sizeof(line))
+				count =  sizeof(line)-1;
+			strlcpy(line, &bufline[2], count-2);
+			name_list_add(&udev->symlink_list, line, 0);
 			break;
 		case 'A':
-			if (count > NAME_SIZE)
-				count = NAME_SIZE-1;
-			strncpy(line, &bufline[2], count-2);
-			line[count-2] = '\0';
+			if (count >  sizeof(line))
+				count =  sizeof(line)-1;
+			strlcpy(line, &bufline[2], count-2);
 			udev->partitions = atoi(line);
 			break;
 		case 'R':
-			if (count > NAME_SIZE)
-				count = NAME_SIZE-1;
-			strncpy(line, &bufline[2], count-2);
-			line[count-2] = '\0';
+			if (count >  sizeof(line))
+				count =  sizeof(line)-1;
+			strlcpy(line, &bufline[2], count-2);
 			udev->ignore_remove = atoi(line);
 			break;
 		}
@@ -167,9 +161,9 @@ static int parse_db_file(struct udevice *udev, const char *filename)
 
 int udev_db_delete_device(struct udevice *udev)
 {
-	char filename[SYSFS_PATH_MAX];
+	char filename[PATH_SIZE];
 
-	get_db_filename(udev->devpath, filename, SYSFS_PATH_MAX);
+	get_db_filename(udev->devpath, filename, sizeof(filename));
 	unlink(filename);
 
 	return 0;
@@ -177,9 +171,9 @@ int udev_db_delete_device(struct udevice *udev)
 
 int udev_db_get_device(struct udevice *udev, const char *devpath)
 {
-	char filename[SYSFS_PATH_MAX];
+	char filename[PATH_SIZE];
 
-	get_db_filename(devpath, filename, SYSFS_PATH_MAX);
+	get_db_filename(devpath, filename, sizeof(filename));
 
 	if (parse_db_file(udev, filename) != 0)
 		return -1;
@@ -199,9 +193,9 @@ int udev_db_search_name(char *devpath, size_t len, const char *name)
 
 	while (1) {
 		struct dirent *ent;
-		char filename[NAME_SIZE];
-		char path[DEVPATH_SIZE];
-		char nodename[NAME_SIZE];
+		char filename[PATH_SIZE];
+		char path[PATH_SIZE];
+		char nodename[PATH_SIZE];
 		char *bufline;
 		char *buf;
 		size_t bufsize;
@@ -215,8 +209,8 @@ int udev_db_search_name(char *devpath, size_t len, const char *name)
 		if (ent->d_name[0] == '.')
 			continue;
 
-		snprintf(filename, NAME_SIZE, "%s/%s", udev_db_path, ent->d_name);
-		filename[NAME_SIZE-1] = '\0';
+		snprintf(filename, sizeof(filename), "%s/%s", udev_db_path, ent->d_name);
+		filename[sizeof(filename)-1] = '\0';
 		dbg("looking at '%s'", filename);
 
 		if (file_map(filename, &buf, &bufsize) != 0) {
@@ -232,21 +226,18 @@ int udev_db_search_name(char *devpath, size_t len, const char *name)
 
 			switch(bufline[0]) {
 			case 'P':
-				if (count > DEVPATH_SIZE)
-					count = DEVPATH_SIZE-1;
-				strncpy(path, &bufline[2], count-2);
-				path[count-2] = '\0';
+				if (count > sizeof(path))
+					count = sizeof(path)-1;
+				strlcpy(path, &bufline[2], count-2);
 				break;
 			case 'N':
 			case 'S':
-				if (count > NAME_SIZE)
-				count = NAME_SIZE-1;
-				strncpy(nodename, &bufline[2], count-2);
-				nodename[count-2] = '\0';
+				if (count > sizeof(nodename))
+					count = sizeof(nodename)-1;
+				strlcpy(nodename, &bufline[2], count-2);
 				dbg("compare '%s' '%s'", nodename, name);
 				if (strcmp(nodename, name) == 0) {
-					strncpy(devpath, path, len);
-					devpath[len] = '\0';
+					strlcpy(devpath, path, len);
 					file_unmap(buf, bufsize);
 					closedir(dir);
 					return 0;
@@ -275,9 +266,9 @@ int udev_db_dump_names(int (*handler_function)(const char *path, const char *nam
 
 	while (1) {
 		struct dirent *ent;
-		char filename[NAME_SIZE];
-		char path[DEVPATH_SIZE];
-		char nodename[NAME_SIZE];
+		char filename[PATH_SIZE];
+		char path[PATH_SIZE];
+		char nodename[PATH_SIZE];
 		char *bufline;
 		char *buf;
 		size_t bufsize;
@@ -291,8 +282,8 @@ int udev_db_dump_names(int (*handler_function)(const char *path, const char *nam
 		if (ent->d_name[0] == '.')
 			continue;
 
-		snprintf(filename, NAME_SIZE, "%s/%s", udev_db_path, ent->d_name);
-		filename[NAME_SIZE-1] = '\0';
+		snprintf(filename, sizeof(filename), "%s/%s", udev_db_path, ent->d_name);
+		filename[sizeof(filename)-1] = '\0';
 		dbg("looking at '%s'", filename);
 
 		if (file_map(filename, &buf, &bufsize) != 0) {
@@ -310,16 +301,14 @@ int udev_db_dump_names(int (*handler_function)(const char *path, const char *nam
 
 			switch(bufline[0]) {
 			case 'P':
-				if (count > DEVPATH_SIZE)
-					count = DEVPATH_SIZE-1;
-				strncpy(path, &bufline[2], count-2);
-				path[count-2] = '\0';
+				if (count > sizeof(path))
+					count = sizeof(path)-1;
+				strlcpy(path, &bufline[2], count-2);
 				break;
 			case 'N':
-				if (count > NAME_SIZE)
-				count = NAME_SIZE-1;
-				strncpy(nodename, &bufline[2], count-2);
-				nodename[count-2] = '\0';
+				if (count > sizeof(nodename))
+				count = sizeof(nodename)-1;
+				strlcpy(nodename, &bufline[2], count-2);
 				break;
 			default:
 				continue;

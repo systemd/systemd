@@ -36,11 +36,12 @@
 #include <sys/types.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
+#include "udev_libc_wrapper.h"
+#include "udev.h"
 #include "logging.h"
 #include "namedev.h"
 #include "udev_utils.h"
 #include "list.h"
-#include "udev.h"
 
 #ifdef USE_LOG
 void log_message(int level, const char *format, ...)
@@ -50,8 +51,8 @@ void log_message(int level, const char *format, ...)
 
 struct device {
 	struct list_head list;
-	char path[DEVPATH_SIZE];
-	char subsys[SUBSYSTEM_SIZE];
+	char path[PATH_SIZE];
+	char subsys[NAME_SIZE];
 };
 
 /* sort files in lexical order */
@@ -74,8 +75,8 @@ static int device_list_insert(const char *path, char *subsystem, struct list_hea
 		return -ENOMEM;
 	}
 
-	strfieldcpy(new_device->path, path);
-	strfieldcpy(new_device->subsys, subsystem);
+	strlcpy(new_device->path, path, sizeof(new_device->path));
+	strlcpy(new_device->subsys, subsystem, sizeof(new_device->subsys));
 	list_add_tail(&new_device->list, &loop_device->list);
 	dbg("add '%s' from subsys '%s'", new_device->path, new_device->subsys);
 	return 0;
@@ -173,11 +174,11 @@ static void exec_list(struct list_head *device_list)
 
 static int has_devt(const char *directory)
 {
-	char filename[NAME_SIZE];
+	char filename[PATH_SIZE];
 	struct stat statbuf;
 
-	snprintf(filename, NAME_SIZE, "%s/dev", directory);
-	filename[NAME_SIZE-1] = '\0';
+	snprintf(filename, sizeof(filename), "%s/dev", directory);
+	filename[sizeof(filename)-1] = '\0';
 
 	if (stat(filename, &statbuf) == 0)
 		return 1;
@@ -187,26 +188,26 @@ static int has_devt(const char *directory)
 
 static void udev_scan_block(void)
 {
-	char base[NAME_SIZE];
+	char base[PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
 	LIST_HEAD(device_list);
 
-	snprintf(base, DEVPATH_SIZE, "%s/block", sysfs_path);
-	base[DEVPATH_SIZE-1] = '\0';
+	snprintf(base, sizeof(base), "%s/block", sysfs_path);
+	base[sizeof(base)-1] = '\0';
 
 	dir = opendir(base);
 	if (dir != NULL) {
 		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-			char dirname[DEVPATH_SIZE];
+			char dirname[PATH_SIZE];
 			DIR *dir2;
 			struct dirent *dent2;
 
 			if (dent->d_name[0] == '.')
 				continue;
 
-			snprintf(dirname, NAME_SIZE, "%s/%s", base, dent->d_name);
-			dirname[NAME_SIZE-1] = '\0';
+			snprintf(dirname, sizeof(dirname), "%s/%s", base, dent->d_name);
+			dirname[sizeof(dirname)-1] = '\0';
 			if (has_devt(dirname))
 				device_list_insert(dirname, "block", &device_list);
 			else
@@ -216,13 +217,13 @@ static void udev_scan_block(void)
 			dir2 = opendir(dirname);
 			if (dir2 != NULL) {
 				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
-					char dirname2[DEVPATH_SIZE];
+					char dirname2[PATH_SIZE];
 
 					if (dent2->d_name[0] == '.')
 						continue;
 
-					snprintf(dirname2, DEVPATH_SIZE, "%s/%s", dirname, dent2->d_name);
-					dirname2[DEVPATH_SIZE-1] = '\0';
+					snprintf(dirname2, sizeof(dirname2), "%s/%s", dirname, dent2->d_name);
+					dirname2[sizeof(dirname2)-1] = '\0';
 
 					if (has_devt(dirname2))
 						device_list_insert(dirname2, "block", &device_list);
@@ -237,37 +238,37 @@ static void udev_scan_block(void)
 
 static void udev_scan_class(void)
 {
-	char base[DEVPATH_SIZE];
+	char base[PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
 	LIST_HEAD(device_list);
 
-	snprintf(base, DEVPATH_SIZE, "%s/class", sysfs_path);
-	base[DEVPATH_SIZE-1] = '\0';
+	snprintf(base, sizeof(base), "%s/class", sysfs_path);
+	base[sizeof(base)-1] = '\0';
 
 	dir = opendir(base);
 	if (dir != NULL) {
 		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-			char dirname[DEVPATH_SIZE];
+			char dirname[PATH_SIZE];
 			DIR *dir2;
 			struct dirent *dent2;
 
 			if (dent->d_name[0] == '.')
 				continue;
 
-			snprintf(dirname, DEVPATH_SIZE, "%s/%s", base, dent->d_name);
-			dirname[DEVPATH_SIZE-1] = '\0';
+			snprintf(dirname, sizeof(dirname), "%s/%s", base, dent->d_name);
+			dirname[sizeof(dirname)-1] = '\0';
 
 			dir2 = opendir(dirname);
 			if (dir2 != NULL) {
 				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
-					char dirname2[DEVPATH_SIZE];
+					char dirname2[PATH_SIZE];
 
 					if (dent2->d_name[0] == '.')
 						continue;
 
-					snprintf(dirname2, DEVPATH_SIZE, "%s/%s", dirname, dent2->d_name);
-					dirname2[DEVPATH_SIZE-1] = '\0';
+					snprintf(dirname2, sizeof(dirname2), "%s/%s", dirname, dent2->d_name);
+					dirname2[sizeof(dirname2)-1] = '\0';
 
 					/* pass the net class as it is */
 					if (strcmp(dent->d_name, "net") == 0)

@@ -105,7 +105,7 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 					    const char **error)
 {
 	const char *file;
-	char filename[SYSFS_PATH_MAX];
+	char filename[PATH_SIZE];
 	int loop;
 
 	file = get_subsystem_specific_file(class_dev->classname);
@@ -114,7 +114,8 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 		return 0;
 	}
 
-	snprintf(filename, SYSFS_PATH_MAX-1, "%s/%s", class_dev->path, file);
+	snprintf(filename, sizeof(filename), "%s/%s", class_dev->path, file);
+	filename[sizeof(filename)-1] = '\0';
 	dbg("looking at class '%s' for specific file '%s'", class_dev->classname, filename);
 
 	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
@@ -363,7 +364,7 @@ int wait_for_devices_device(struct sysfs_device *devices_dev,
 
 		for (devicefile = device_files; devicefile->bus != NULL; devicefile++) {
 			if (strcmp(devices_dev->bus, devicefile->bus) == 0) {
-				char filename[SYSFS_PATH_MAX];
+				char filename[PATH_SIZE];
 				struct stat stats;
 
 				if (devicefile->file == NULL) {
@@ -372,7 +373,8 @@ int wait_for_devices_device(struct sysfs_device *devices_dev,
 				}
 
 				found_bus_type = 1;
-				snprintf(filename, SYSFS_PATH_MAX-1, "%s/%s", devices_dev->path, devicefile->file);
+				snprintf(filename, sizeof(filename), "%s/%s", devices_dev->path, devicefile->file);
+				filename[sizeof(filename)-1] = '\0';
 				dbg("looking at bus '%s' device for specific file '%s'", devices_dev->bus, filename);
 
 				if (stat(filename, &stats) == 0) {
