@@ -66,7 +66,7 @@ KERNEL="inotify",   NAME="misc/%k", SYMLINK="%k"
 
 # pty devices
 KERNEL="pty[p-za-e][0-9a-f]*", NAME="pty/m%n", SYMLINK="%k"
-KERNEL="tty[p-za-e][0-9a-f]*", NAME="pty/s%n", SYMLINK="%k"
+KERNEL="tty[p-za-e][0-9a-f]*", NAME="tty/s%n", SYMLINK="%k"
 
 # ramdisk devices
 KERNEL="ram[0-9]*", NAME="rd/%n", SYMLINK="%k"
