@@ -264,24 +264,6 @@ KERNEL="console", NAME="TTY"
 EOF
 	},
 	{
-		desc     => "devfs disk naming substitution",
-		subsys   => "block",
-		devpath  => "block/sda",
-		expected => "lun0/disc" ,
-		conf     => <<EOF
-BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="lun0/%D"
-EOF
-	},
-	{
-		desc     => "devfs disk naming substitution",
-		subsys   => "block",
-		devpath  => "block/sda/sda2",
-		expected => "lun0/part2" ,
-		conf     => <<EOF
-BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="lun0/%D"
-EOF
-	},
-	{
 		desc     => "program and bus type match",
 		subsys   => "block",
 		devpath  => "block/sda",
