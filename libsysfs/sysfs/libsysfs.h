@@ -43,13 +43,13 @@
 #define	SYSFS_NAME_LEN		64
 #define SYSFS_BUS_ID_SIZE	32
 
+/* mount path for sysfs, can be overridden by exporting SYSFS_PATH */
+#define SYSFS_MNT_PATH		"/sys"
+
 enum sysfs_attribute_method {
 	SYSFS_METHOD_SHOW =	0x01,	/* attr can be read by user */
 	SYSFS_METHOD_STORE =	0x02,	/* attr can be changed by user */
 };
-
-/* NOTE: statically define mnt path for sysfs */
-#define SYSFS_MNT_PATH		"/sys"
 
 /*
  * NOTE: 

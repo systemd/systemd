@@ -30,20 +30,16 @@
  */ 
 int sysfs_remove_trailing_slash(char *path)
 {
-	char *c = NULL;
+	size_t len;
 
 	if (!path) {
 		errno = EINVAL;
 		return 1;
 	}
-	c = strrchr(path, '/');
-	if (c == NULL) {
-		dprintf("Invalid path %s\n", path);
-		errno = EINVAL;
-		return 1;
-	}
-	if (*(c+1) == '\0') 
-		*c = '\0';
+
+	len = strlen(path);
+	while (len > 0 && path[len-1] == '/')
+		path[--len] = '\0';
 	return 0;
 }
 
@@ -64,6 +60,7 @@ int sysfs_get_mnt_path(char *mnt_path, size_t len)
 		sysfs_path_env = getenv(SYSFS_PATH_ENV);
 		if (sysfs_path_env != NULL) {
 			safestrcpymax(mnt_path, sysfs_path_env, len);
+			sysfs_remove_trailing_slash(mnt_path);
 			return 0;
 		}
 		safestrcpymax(mnt_path, SYSFS_MNT_PATH, len);
