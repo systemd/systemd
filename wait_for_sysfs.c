@@ -6,6 +6,7 @@
  *		       directories and then just exit.
  *
  * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2004 Greg Kroah-Hartman <greg@kroah.com>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -34,6 +35,10 @@
 #include "logging.h"
 #include "udev_version.h"
 #include "libsysfs/sysfs/libsysfs.h"
+
+#ifndef FILENAME_MAX
+#define FILENAME_MAX	4096
+#endif
 
 #ifdef LOG
 unsigned char logname[LOGNAME_SIZE];
@@ -73,6 +78,7 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 	};
 	struct class_file *classfile;
 	const char *file = "dev";
+	char filename[FILENAME_MAX];
 	int loop;
 
 	/* look if we want to look for another file instead of "dev" */
@@ -87,13 +93,21 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 		}
 	}
 
-	dbg("looking at class '%s' for specific file '%s'", class_dev->classname, class_dev->path);
+	strcpy(filename, class_dev->path);
+	strcat(filename, "/");
+	strcat(filename, file);
+	dbg("looking at class '%s' for specific file '%s' with full name %s", class_dev->classname, class_dev->path, filename);
 
 	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
 	while (--loop) {
 		struct stat stats;
 
-		if (stat(class_dev->path, &stats) == 0) {
+		if (stat(class_dev->path, &stats) == -1) {
+			dbg("oops, the directory '%s' just disappeared.", class_dev->path);
+			return -ENODEV;
+		}
+
+		if (stat(filename, &stats) == 0) {	
 			dbg("class '%s' specific file '%s' found", class_dev->classname, file);
 			return 0;
 		}
@@ -102,7 +116,7 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 	}
 
 	dbg("error: getting class '%s' specific file '%s'", class_dev->classname, file);
-	return -1;
+	return -ENOENT;
 }
 
 /* check if we need to wait for a physical device */
@@ -284,6 +298,7 @@ int main(int argc, char *argv[], char *envp[])
 	struct sysfs_class_device *class_dev_parent;
 	struct sysfs_device *device_dev = NULL;
 	int loop;
+	int retval;
 	int rc = 0;
 
 	init_logging("wait_for_sysfs");
@@ -335,7 +350,10 @@ int main(int argc, char *argv[], char *envp[])
 		}
 		dbg("class_device opened '%s'", filename);
 
-		if (wait_for_class_device_attributes(class_dev) != 0) {
+		retval = wait_for_class_device_attributes(class_dev);
+		if (retval == -ENODEV)
+			goto exit_class;
+		if (retval != 0) {
 			rc = 4;
 			goto exit_class;
 		}
