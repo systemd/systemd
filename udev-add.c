@@ -176,7 +176,7 @@ static int unlink_entry(char *filename)
 		if ((stats.st_mode & S_IFMT) != S_IFDIR) {
 			retval = unlink(filename);
 			if (retval) {
-				dbg("unlink(%s) failed with error '%s', "
+				dbg("unlink(%s) failed with error '%s'",
 				    filename, strerror(errno));
 			}
 		}
