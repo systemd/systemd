@@ -68,6 +68,7 @@ do { \
 
 extern char *get_action(void);
 extern char *get_devpath(void);
+extern char *get_devnode(void);
 extern char *get_seqnum(void);
 extern char *get_subsystem(char *subsystem);
 extern int file_map(const char *filename, char **buf, size_t *bufsize);

@@ -53,6 +53,17 @@ char *get_devpath(void)
 	return devpath;
 }
 
+char *get_devnode(void)
+{
+	char *devnode;
+
+	devnode = getenv("DEVNODE");
+	if (devnode != NULL && strlen(devnode) > NAME_SIZE)
+		devnode[NAME_SIZE-1] = '\0';
+
+	return devnode;
+}
+
 char *get_seqnum(void)
 {
 	char *seqnum;
