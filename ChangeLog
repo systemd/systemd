@@ -1,3 +1,42 @@
+Summary of changes from v013 to v014
+============================================
+
+<ananthmg:rediffmail.com>:
+  o libsysfs update for refresh + namedev.c changes
+
+<christophe.varoqui:free.fr>:
+  o udev-013/extras/multipath update
+
+<flamingice:sourmilk.net>:
+  o minor patch for devfs rules
+
+Kay Sievers:
+  o udev - program to query all device attributes to build a rule
+  o set default owner/group in db - update
+  o udev - reverse user query options
+  o udev - kill %D from udev-test.pl
+  o add udev logging to info log
+  o udev - mention format string escape char in man page
+
+Greg Kroah-Hartman:
+  o misc code cleanups
+  o fixup logging.h to handle different logging options properly
+  o clean up the logging patch a bit to make the option more like the other options
+  o remove the %D modifier as it is not longer needed
+  o remove unneeded keyboard rule
+  o add usb_host and pci_bus to the class blacklist
+  o added input device rules to udev.rules and udev.rules.devfs
+  o 013_bk mark
+  o v013 release TAG: v013
+
+Hanna V. Linder:
+  o set default owner/group in db
+  o small cut n paste error fix
+
+Patrick Mansfield:
+  o update udev scsi_id to scsi_id 0.3
+
+
 Summary of changes from v012 to v013
 ============================================
 
