@@ -40,12 +40,17 @@
 #include "udevd.h"
 #include "logging.h"
 
+#ifdef LOG
 unsigned char logname[42];
-
-int log_ok(void)
+void log_message (int level, const char *format, ...)
 {
-	return 1;
+	va_list	args;
+
+	va_start(args, format);
+	vsyslog(level, format, args);
+	va_end(args);
 }
+#endif
 
 static inline char *get_action(void)
 {

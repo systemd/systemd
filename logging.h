@@ -57,23 +57,11 @@
 	} while (0)
 #endif
 
-/* each program must declare this variable and function somewhere */
-extern unsigned char logname[42];
-extern int log_ok(void);
-
-static void log_message (int level, const char *format, ...)
+extern void log_message (int level, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
-static inline void log_message (int level, const char *format, ...)
-{
-	va_list	args;
 
-	if (!log_ok())
-		return;
-
-	va_start(args, format);
-	vsyslog(level, format, args);
-	va_end(args);
-}
+/* each program that uses syslog must declare this variable somewhere */
+extern unsigned char logname[42];
 
 #undef init_logging
 static inline void init_logging(char *program_name)

@@ -51,12 +51,17 @@ LIST_HEAD(running_list);
 static void exec_queue_manager(void);
 static void msg_queue_manager(void);
 
+#ifdef LOG
 unsigned char logname[42];
-
-int log_ok(void)
+void log_message (int level, const char *format, ...)
 {
-	return 1;
+	va_list	args;
+
+	va_start(args, format);
+	vsyslog(level, format, args);
+	va_end(args);
 }
+#endif
 
 static void msg_dump_queue(void)
 {

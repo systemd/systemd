@@ -38,12 +38,18 @@
 
 char **main_argv;
 int main_argc;
-unsigned char logname[42];
 
-int log_ok(void)
+#ifdef LOG
+unsigned char logname[42];
+void log_message (int level, const char *format, ...)
 {
-	return 1;
+	va_list	args;
+
+	va_start(args, format);
+	vsyslog(level, format, args);
+	va_end(args);
 }
+#endif
 
 static int print_all_attributes(const char *path)
 {

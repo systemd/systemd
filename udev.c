@@ -38,12 +38,21 @@
 /* global variables */
 char **main_argv;
 char **main_envp;
-unsigned char logname[42];
 
-int log_ok(void)
+#ifdef LOG
+unsigned char logname[42];
+void log_message (int level, const char *format, ...)
 {
-	return udev_log;
+	va_list	args;
+
+	if (!udev_log)
+		return;
+
+	va_start(args, format);
+	vsyslog(level, format, args);
+	va_end(args);
 }
+#endif
 
 static void sig_handler(int signum)
 {
