@@ -345,7 +345,7 @@ fat32:
 	volume_id_set_uuid(id, vs->type.fat32.serno, UUID_DOS);
 
 found:
-	volume_id_set_usage(id, VOLUME_ID_DISKLABEL);
+	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
 	id->type = "vfat";
 
 	return 0;
