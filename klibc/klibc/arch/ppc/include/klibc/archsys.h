@@ -36,18 +36,24 @@ type name (type1 arg1,type2 arg2,type3 arg3,type4 arg4,type5 arg5,type6 arg6) \
                 __asm__ __volatile__                                    \
                         ("sc           \n\t"                            \
                          "mfcr %1      "                                \
-                        : "=&r" (__sc_3), "=&r" (__sc_0)                \
-                        : "0"   (__sc_3), "1"   (__sc_0),               \
-                          "r"   (__sc_4),                               \
-                          "r"   (__sc_5),                               \
-                          "r"   (__sc_6),                               \
-                          "r"   (__sc_7),                               \
-                          "r"   (__sc_8)                                \
-                        : __syscall_clobbers);                          \
+                        : "+r"   (__sc_3),				\
+			  "+r"   (__sc_0),             			\
+                          "+r"   (__sc_4),                              \
+                          "+r"   (__sc_5),                              \
+                          "+r"   (__sc_6),                              \
+                          "+r"   (__sc_7),                              \
+                          "+r"   (__sc_8)                               \
+                        : : "cr0", "ctr", "memory",                     \
+                            "r9", "r10", "r11", "r12");		        \
                 __sc_ret = __sc_3;                                      \
                 __sc_err = __sc_0;                                      \
         }                                                               \
-        __syscall_return (type);                                        \
+        if (__sc_err & 0x10000000)                                      \
+        {                                                               \
+                errno = (int)__sc_ret;                                  \
+                __sc_ret = -1;                                          \
+        }                                                               \
+        return (type)__sc_ret;                                          \
 }
 
 #endif /* _syscall6() missing */

@@ -24,7 +24,7 @@ LIBOBJS = vsnprintf.o snprintf.o vsprintf.o sprintf.o \
 	  sleep.o usleep.o raise.o abort.o assert.o alarm.o pause.o \
 	  __signal.o signal.o bsd_signal.o siglist.o siglongjmp.o \
 	  sigaction.o sigpending.o sigprocmask.o sigsuspend.o \
-	  brk.o sbrk.o malloc.o realloc.o calloc.o mmap.o \
+	  brk.o sbrk.o malloc.o realloc.o calloc.o mmap.o getpagesize.o \
 	  memcpy.o memcmp.o memset.o memccpy.o memmem.o memswap.o \
 	  memmove.o \
 	  strcasecmp.o strncasecmp.o strndup.o strerror.o \
@@ -118,12 +118,12 @@ socketcalls.dir: SOCKETCALLS socketcalls.pl socketcommon.h
 	touch $@
 
 %/static.obj: %.dir
-	$(MAKE) objects-$(basename $(notdir $@)) DIR=$*
+	$(MAKE) objects-$(basename $(notdir $@)) DIR=$*/
 
-STATIC = $(addsuffix .o,$(basename $(wildcard $(DIR)/*.[cS])))
+STATIC = $(addsuffix .o,$(basename $(wildcard $(DIR)*.[cS])))
 
 objects-static: $(STATIC)
-	touch $(DIR)/static.obj
+	touch $(DIR)static.obj
 
 clean: archclean
 	find . -type f -a \( -name \*.[isoa] -o -name \*.l[iso] \) -print0 | xargs -0rt rm -f
@@ -140,6 +140,6 @@ spotless: clean
 bitsize:
 	@echo $(BITSIZE)
 
-ifneq ($(wildcard $(DIR)/.*.d),)
-include $(wildcard $(DIR)/.*.d)
+ifneq ($(wildcard $(DIR).*.d),)
+include $(wildcard $(DIR).*.d)
 endif

@@ -15,10 +15,6 @@
 struct _IO_file;
 typedef struct _IO_file FILE;
 
-#define stdin  ((FILE *)0)
-#define stdout ((FILE *)1)
-#define stderr ((FILE *)2)
-
 #ifndef EOF
 # define EOF (-1)
 #endif
@@ -44,10 +40,12 @@ static __inline__ int fileno(FILE *__f)
   return (int)(size_t)__f - 1;
 }
 
-static __inline__ FILE * __create_file(int __fd)
-{
-  return (FILE *)(size_t)(__fd + 1);
-}
+/* This is a macro so it can be used as initializer */
+#define __create_file(__fd) ((FILE *)(size_t)((__fd) + 1))
+
+#define stdin  __create_file(0)
+#define stdout __create_file(1)
+#define stderr __create_file(2)
 
 __extern FILE *fopen(const char *, const char *);
 
