@@ -60,6 +60,15 @@ REPLACE, KERNEL="ttyUSB0", NAME="visor"
 EOF
 	},
 	{
+		desc     => "subdirectory handling",
+		subsys   => "tty",
+		devpath  => "class/tty/ttyUSB0",
+		expected => "sub/direct/ory/visor" ,
+		conf     => <<EOF
+REPLACE, KERNEL="ttyUSB0", NAME="sub/direct/ory/visor"
+EOF
+	},
+	{
 		desc     => "place on bus of scsi partition",
 		subsys   => "block",
 		devpath  => "block/sda/sda3",
