@@ -3,6 +3,11 @@
 #ifndef KLIBC_FIXUPS_H
 #define KLIBC_FIXUPS_H
 
+#include <linux/kernel.h>
+#include <linux/unistd.h>
+
+int sysinfo(struct sysinfo *info);
+
 struct passwd {
 	char	*pw_name;	/* user name */
 	char	*pw_passwd;	/* user password */

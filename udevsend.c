@@ -26,13 +26,13 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <sys/un.h>
+#include <time.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
-#include <time.h>
 #include <linux/stddef.h>
 
 #include "udev.h"
@@ -53,16 +53,15 @@ void log_message (int level, const char *format, ...)
 }
 #endif
 
-static int build_hotplugmsg(struct hotplug_msg *msg, char *action,
-			    char *devpath, char *subsystem, int seqnum)
+static void build_hotplugmsg(struct hotplug_msg *msg, char *action,
+			     char *devpath, char *subsystem, int seqnum)
 {
-	memset(msg, 0x00, sizeof(*msg));
+	memset(msg, 0x00, sizeof(struct hotplug_msg));
 	strfieldcpy(msg->magic, UDEV_MAGIC);
 	msg->seqnum = seqnum;
 	strfieldcpy(msg->action, action);
 	strfieldcpy(msg->devpath, devpath);
 	strfieldcpy(msg->subsystem, subsystem);
-	return sizeof(struct hotplug_msg);
 }
 
 static int start_daemon(void)
@@ -108,7 +107,6 @@ int main(int argc, char* argv[])
 	char *seqnum;
 	int seq;
 	int retval = 1;
-	int size;
 	int loop;
 	struct timespec tspec;
 	int sock;
@@ -155,18 +153,19 @@ int main(int argc, char* argv[])
 		goto exit;
 	}
 
-	memset(&saddr, 0x00, sizeof(saddr));
+	memset(&saddr, 0x00, sizeof(struct sockaddr_un));
 	saddr.sun_family = AF_LOCAL;
 	/* use abstract namespace for socket path */
 	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
 	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 
-	size = build_hotplugmsg(&msg, action, devpath, subsystem, seq);
+	build_hotplugmsg(&msg, action, devpath, subsystem, seq);
 
 	/* If we can't send, try to start daemon and resend message */
 	loop = UDEVSEND_CONNECT_RETRY;
 	while (loop--) {
-		retval = sendto(sock, &msg, size, 0, (struct sockaddr *)&saddr, addrlen);
+		retval = sendto(sock, &msg, sizeof(struct hotplug_msg), 0,
+				(struct sockaddr *)&saddr, addrlen);
 		if (retval != -1) {
 			retval = 0;
 			goto close_and_exit;

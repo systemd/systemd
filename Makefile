@@ -220,6 +220,7 @@ HEADERS =	udev.h		\
 
 ifeq ($(strip $(USE_KLIBC)),true)
 	OBJS += klibc_fixups.o
+	KLIBC_FIXUP = klibc_fixups.o
 endif
 
 # header files automatically generated
@@ -266,8 +267,8 @@ $(INFO): $(INFO).o $(OBJS) $(HEADERS) $(LIBC)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o udev_lib.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(DAEMON): $(DAEMON).o udevd.h $(LIBC)
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevd.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
+$(DAEMON): $(DAEMON).o $(OBJS) udevd.h $(LIBC)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevd.o udev_lib.o $(KLIBC_FIXUP) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
 $(SENDER): $(SENDER).o udevd.h $(LIBC)

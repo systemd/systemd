@@ -28,12 +28,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <sys/time.h>
 #include <fcntl.h>
+#include "klibc_fixups.h"
+#ifndef __KLIBC__
+#include <sys/sysinfo.h>
+#endif
 
 #include "list.h"
 #include "udev.h"
@@ -106,6 +109,7 @@ static void run_queue_delete(struct hotplug_msg *msg)
 static void msg_queue_insert(struct hotplug_msg *msg)
 {
 	struct hotplug_msg *loop_msg;
+	struct sysinfo info;
 
 	/* sort message by sequence number into list. events
 	 * will tend to come in order, so scan the list backwards
@@ -113,11 +117,13 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 	list_for_each_entry_reverse(loop_msg, &msg_list, list)
 		if (loop_msg->seqnum < msg->seqnum)
 			break;
-	list_add(&msg->list, &loop_msg->list);
-	dbg("queued message seq %d", msg->seqnum);
 
 	/* store timestamp of queuing */
-	msg->queue_time = time(NULL);
+	sysinfo(&info);
+	msg->queue_time = info.uptime;
+
+	list_add(&msg->list, &loop_msg->list);
+	dbg("queued message seq %d", msg->seqnum);
 
 	/* run msg queue manager */
 	run_msg_q = 1;
@@ -203,7 +209,8 @@ static void msg_queue_manager()
 {
 	struct hotplug_msg *loop_msg;
 	struct hotplug_msg *tmp_msg;
-	time_t msg_age = 0;
+	struct sysinfo info;
+	long msg_age = 0;
 
 	dbg("msg queue manager, next expected is %d", expected_seqnum);
 recheck:
@@ -215,7 +222,9 @@ recheck:
 		}
 
 		/* move event with expired timeout to the exec list */
-		msg_age = time(NULL) - loop_msg->queue_time;
+		sysinfo(&info);
+		msg_age = info.uptime - loop_msg->queue_time;
+		dbg("seq %d is %li seconds old", loop_msg->seqnum, msg_age);
 		if (msg_age > EVENT_TIMEOUT_SEC-1) {
 			msg_move_exec(loop_msg);
 			goto recheck;
@@ -226,11 +235,10 @@ recheck:
 
 	msg_dump_queue();
 
+	/* set timeout for remaining queued events */
 	if (list_empty(&msg_list) == 0) {
-		/* set timeout for remaining queued events */
 		struct itimerval itv = {{0, 0}, {EVENT_TIMEOUT_SEC - msg_age, 0}};
-		dbg("next event expires in %li seconds",
-		    EVENT_TIMEOUT_SEC - msg_age);
+		dbg("next event expires in %li seconds", EVENT_TIMEOUT_SEC - msg_age);
 		setitimer(ITIMER_REAL, &itv, 0);
 	}
 }
@@ -399,25 +407,25 @@ int main(int argc, char *argv[])
 		dbg("need to be root, exit");
 		exit(1);
 	}
-	
+
 	/* setup signal handler pipe */
-   retval = pipe(pipefds);
-   if (retval < 0) {
-      dbg("error getting pipes: %s", strerror(errno));
-      exit(1);
-   }
-	
-   retval = fcntl(pipefds[0], F_SETFL, O_NONBLOCK);
-   if (retval < 0) {
-      dbg("fcntl on read pipe: %s", strerror(errno));
-      exit(1);
-   }
-   
-   retval = fcntl(pipefds[1], F_SETFL, O_NONBLOCK);
-   if (retval < 0) {
-      dbg("fcntl on write pipe: %s", strerror(errno));
-      exit(1);
-   }
+	retval = pipe(pipefds);
+	if (retval < 0) {
+		dbg("error getting pipes: %s", strerror(errno));
+		exit(1);
+	}
+
+	retval = fcntl(pipefds[0], F_SETFL, O_NONBLOCK);
+		if (retval < 0) {
+		dbg("error fcntl on read pipe: %s", strerror(errno));
+		exit(1);
+	}
+
+	retval = fcntl(pipefds[1], F_SETFL, O_NONBLOCK);
+	if (retval < 0) {
+		dbg("error fcntl on write pipe: %s", strerror(errno));
+		exit(1);
+	}
 
 	/* set signal handlers */
 	act.sa_handler = sig_handler;
@@ -450,43 +458,42 @@ int main(int argc, char *argv[])
 	/* enable receiving of the sender credentials */
 	setsockopt(ssock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 
-   FD_ZERO(&readfds);
-   FD_SET(ssock, &readfds);
-   FD_SET(pipefds[0], &readfds);
+	FD_ZERO(&readfds);
+	FD_SET(ssock, &readfds);
+	FD_SET(pipefds[0], &readfds);
 	maxsockplus = ssock+1;
 	while (1) {
 		fd_set workreadfds = readfds;
 		retval = select(maxsockplus, &workreadfds, NULL, NULL, NULL);
-		
+
 		if (retval < 0) {
-			dbg("error in select: %s", strerror(errno));
+			if (errno != EINTR)
+				dbg("error in select: %s", strerror(errno));
 			continue;
 		}
-		
+
 		if (FD_ISSET(ssock, &workreadfds))
 			handle_msg(ssock);
-		
+
 		if (FD_ISSET(pipefds[0], &workreadfds))
 			user_sighandler();
-		
+
 		if (children_waiting) {
 			children_waiting = 0;
 			reap_kids();
 		}
-		
+
 		if (run_msg_q) {
 			run_msg_q = 0;
 			msg_queue_manager();
 		}
-		
+
 		if (run_exec_q) {
-			
 			/* this is tricky.  exec_queue_manager() loops over exec_list, and
 			 * calls running_with_devpath(), which loops over running_list. This gives
 			 * O(N*M), which can get *nasty*.  Clean up running_list before
 			 * calling exec_queue_manager().
 			 */
-			
 			if (children_waiting) {
 				children_waiting = 0;
 				reap_kids();
