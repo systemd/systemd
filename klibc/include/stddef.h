@@ -6,7 +6,7 @@
 #define _STDDEF_H
 
 #ifndef __KLIBC__
-# define __KLIBC__ 1
+# error "__KLIBC__ not defined, compiler invocation error!"
 #endif
 
 #include <bitsize/stddef.h>

@@ -1,19 +1,22 @@
 # -*- perl -*-
 
 # Standard includes
-@includes = ("-I${INSTALLDIR}/${KCROSS}include/arch/${ARCH}",
-	     "-I${INSTALLDIR}/${KCROSS}include/bits${BITSIZE}",
-	     "-I${INSTALLDIR}/${KCROSS}include");
+@includes = ("-I${prefix}/${KCROSS}include/arch/${ARCH}",
+	     "-I${prefix}/${KCROSS}include/bits${BITSIZE}",
+	     "-I${prefix}/${KCROSS}include");
 
 # Default optimization options (for compiles without -g)
 @optopt =  @OPTFLAGS;
 @goptopt = ('-O');
 
+# Standard library directories
+@stdlibpath = ("-L${prefix}/${KCROSS}lib");
+
 # Options and libraries to pass to ld; shared versus static
-@staticopt = ("$INSTALLDIR/${KCROSS}lib/crt0.o");
-@staticlib = ("$INSTALLDIR/${KCROSS}lib/libc.a");
-@sharedopt = (@EMAIN, "$INSTALLDIR/${KCROSS}lib/interp.o");
-@sharedlib = ('-R', "$INSTALLDIR/${KCROSS}lib/libc.so");
+@staticopt = ("${prefix}/${KCROSS}lib/crt0.o");
+@staticlib = ("${prefix}/${KCROSS}lib/libc.a");
+@sharedopt = (@EMAIN, "${prefix}/${KCROSS}lib/interp.o");
+@sharedlib = ('-R', "${prefix}/${KCROSS}lib/libc.so");
 
 # Returns the language (-x option string) for a specific extension.
 sub filename2lang($) {
@@ -51,13 +54,15 @@ sub files_with_lang($$) {
 
     foreach $f ( @{$files} ) {
 	$need = ${$flang}{$f};
-	$need = 'none' if ( $need eq 'obj' );
-	unless ( $xopt eq $need ||
-		 ($xopt eq 'none' && filename2lang($f) eq $need) ) {
-	    push(@as, '-x', $need);
-	    $xopt = $need;
+
+	# Skip object files
+	if ( $need ne 'obj' ) {
+	    unless ( $xopt eq $need ) {
+		push(@as, '-x', $need);
+		$xopt = $need;
+	    }
+	    push(@as, $f);
 	}
-	push(@as, $f);
     }
 
     return @as;
@@ -88,6 +93,7 @@ open(NULL, '+<', '/dev/null') or die "$0: cannot open /dev/null\n";
 
 @ccopt = ();
 @ldopt = ();
+@libs  = ();
 
 @files = ();			# List of files
 %flang = ();			# Languages for files
@@ -111,13 +117,26 @@ while ( defined($a = shift(@ARGV)) ) {
 	# Not an option.  Must be a filename then.
 	push(@files, $a);
 	$flang{$a} = $lang || filename2lang($a);
+    } elsif ( $a =~ /^-print-klibc-(.*)$/ ) {
+	# This test must precede -print
+	if ( defined($conf{$1}) ) {
+	    print ${$conf{$1}}, "\n";
+	    exit 0;
+	} else {
+	    die "$0: unknown option: $a\n";
+	}
+    } elsif ( $a =~ /^(-print|-dump|--help|--version)/ ) {
+	# These share prefixes with some other options, so put this test early!
+	# Pseudo-operations; just pass to gcc and don't do anything else
+	push(@ccopt, $a);
+	$operation = 'c' if ( $operation eq '' );
     } elsif ( $a =~ /^-Wl,(.*)$/ ) {
 	# -Wl used to pass options to the linker
 	push(@ldopt, split(/,/, $1));
-    } elsif ( $a =~ /^-([fmwWQdO]|std=|ansi|pedantic)/ ) {
+    } elsif ( $a =~ /^-([fmwWQdO]|std=|ansi|pedantic|M[GPD]|MMD)/ ) {
 	# Options to gcc
 	push(@ccopt, $a);
-    } elsif ( $a =~ /^-([DUI])(.*)$/ ) {
+    } elsif ( $a =~ /^-([DUI]|M[FQT])(.*)$/ ) {
 	# Options to gcc, which can take either a conjoined argument
 	# (-DFOO) or a disjoint argument (-D FOO)
 	push(@ccopt, $a);
@@ -125,10 +144,13 @@ while ( defined($a = shift(@ARGV)) ) {
     } elsif ( $a eq '-include' ) {
 	# Options to gcc which always take a disjoint argument
 	push(@ccopt, $a, shift(@ARGV));
-    } elsif ( $a =~ /^-[gp]/ ) {
-	# Debugging options to gcc *and* ld
+    } elsif ( $a eq '-M' || $a eq '-MM' ) {
+	# gcc options, that force preprocessing mode
 	push(@ccopt, $a);
-	push(@ldopt, $a);
+	$operation = 'E';
+    } elsif ( $a =~ /^-[gp]/ || $a eq '-p' ) {
+	# Debugging options to gcc
+	push(@ccopt, $a);
 	$debugging = 1;
     } elsif ( $a eq '-v' ) {
 	push(@ccopt, $a);
@@ -147,13 +169,15 @@ while ( defined($a = shift(@ARGV)) ) {
 	$strip = 1;
     } elsif ( $a eq '-o' ) {
 	$output = shift(@ARGV);
+    } elsif ( $a eq '-x' ) {
+	$lang = shift(@ARGV);
     } elsif ( $a eq '-nostdinc' ) {
 	push(@ccopt, $a);
 	@includes = ();
-    } elsif ( $a =~ /^(-print|--help)/ ) {
-	# Pseudo-operations; just pass to gcc and don't do anything else
-	push(@ccopt, $a);
-	$operation = 'c' if ( $operation eq '' );
+    } elsif ( $a =~ /^-([lL])(.*)$/ ) {
+	# Libraries
+	push(@libs, $a);
+	push(@libs, shift(@ARGV)) if ( $2 eq '' );
     } else {
 	die "$0: unknown option: $a\n";
     }
@@ -170,6 +194,10 @@ if ( $operation ne '' ) {
     @outopt = ('-o', $output) if ( defined($output) );
     $rv = mysystem($CC, @ccopt, @outopt, files_with_lang(\@files, \%flang));
 } else {
+    if ( scalar(@files) == 0 ) {
+	die "$0: No input files!\n";
+    }
+
     @outopt = ('-o', $output || 'a.out');
 
     @objs = ();
@@ -204,9 +232,9 @@ if ( $operation ne '' ) {
     close(LIBGCC);
 
     if ( $shared ) {
-	$rv = mysystem($LD, @LDFLAGS, @sharedopt, @ldopt, @outopt, @objs, @sharedlib, $libgcc);
+	$rv = mysystem($LD, @LDFLAGS, @sharedopt, @ldopt, @outopt, @objs, @libs, @stdlibpath, @sharedlib, $libgcc);
     } else {
-	$rv = mysystem($LD, @LDFLAGS, @staticopt, @ldopt, @outopt, @objs, @staticlib, $libgcc);
+	$rv = mysystem($LD, @LDFLAGS, @staticopt, @ldopt, @outopt, @objs, @libs, @stdlibpath, @staticlib, $libgcc);
     }
 
     unlink(@rmobjs);

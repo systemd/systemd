@@ -27,7 +27,10 @@ $(CROSS)klibc.config: Makefile
 	echo 'STRIPFLAGS=$(STRIPFLAGS)' >> $@
 	echo 'EMAIN=$(EMAIN)' >> $@
 	echo 'BITSIZE=$(BITSIZE)' >> $@
-	echo 'INSTALLDIR=$(INSTALLDIR)' >> $@
+	echo 'prefix=$(INSTALLDIR)' >> $@
+	echo 'bindir=$(INSTALLDIR)/$(KCROSS)bin' >> $@
+	echo 'libdir=$(INSTALLDIR)/$(KCROSS)lib' >> $@
+	echo 'includedir=$(INSTALLDIR)/$(KCROSS)include' >> $@
 
 $(CROSS)klcc: klcc.in $(CROSS)klibc.config makeklcc.pl
 	$(PERL) makeklcc.pl klcc.in $(CROSS)klibc.config \
