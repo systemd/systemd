@@ -23,6 +23,7 @@
 #ifndef NAMEDEV_H
 #define NAMEDEV_H
 
+#include "udev.h"
 #include "list.h"
 
 struct sysfs_class_device;

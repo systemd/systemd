@@ -31,6 +31,7 @@
 #include "udev.h"
 #include "udev_version.h"
 #include "namedev.h"
+#include "udevdb.h"
 #include "libsysfs/libsysfs.h"
 
 
@@ -164,8 +165,30 @@ int udev_add_device(char *device, char *subsystem)
 		dbg ("get_major_minor failed");
 		goto exit;
 	}
+	memset(&dbdev, 0, sizeof(dbdev));
+	strncpy(dbdev.name, attr.name, NAME_SIZE);
+	strncpy(dbdev.sysfs_path, class_dev->sysdevice->directory->path,
+		PATH_SIZE);
+	strncpy(dbdev.class_dev_name, class_dev->name, NAME_SIZE);
+	if ((sysfs_get_name_from_path(subsystem, dbdev.class_name, NAME_SIZE))
+	    != 0)
+		strcpy(dbdev.class_name, "unkown");
+	strncpy(dbdev.bus_id, class_dev->sysdevice->bus_id, ID_SIZE);
+	strcpy(dbdev.bus_name, "unknown");
+	if (class_dev->driver != NULL)
+		strncpy(dbdev.driver, class_dev->driver->name, NAME_SIZE);
+	else
+		strcpy(dbdev.driver, "unkown");
+	dbdev.type = type;
+	dbdev.major = major;
+	dbdev.minor = minor;
+	dbdev.mode = attr.mode;
 
 	sysfs_close_class_device(class_dev);
+
+	retval = udevdb_add_udevice(&dbdev);
+	if (retval != 0)
+		goto exit;
 
 	return create_node(attr.name, type, major, minor, attr.mode);
 

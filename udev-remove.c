@@ -31,6 +31,7 @@
 #include "udev.h"
 #include "udev_version.h"
 #include "namedev.h"
+#include "udevdb.h"
 #include "libsysfs/libsysfs.h"
 
 
@@ -80,9 +81,10 @@ int udev_remove_device(char *device, char *subsystem)
 		goto exit;
 	}
 
+	udevdb_delete_udevice(name);
+
 	return delete_node(name);
 
 exit:
 	return retval;
 }
-
