@@ -55,7 +55,7 @@ static int add_config_dev(struct udev_rule *rule)
 	    "owner='%s', group='%s', mode=%#o, "
 	    "all_partions=%u, ignore_remove=%u, ignore_device=%u, last_rule=%u",
 	    rule->name, rule->symlink, rule->bus, rule->id,
-	    rule->sysfs_pair[0].file, rule->sysfs_pair[0].value,
+	    rule->sysfs_pair[0].name, rule->sysfs_pair[0].value,
 	    rule->kernel, rule->program, rule->result, rule->owner, rule->group, rule->mode,
 	    rule->partitions, rule->ignore_remove, rule->ignore_device, rule->last_rule);
 
@@ -271,29 +271,24 @@ static int rules_parse(struct udevice *udev, const char *filename)
 			}
 
 			if (strncasecmp(key, KEY_SYSFS, sizeof(KEY_SYSFS)-1) == 0) {
-				struct sysfs_pair *pair = &rule.sysfs_pair[0];
-				int sysfs_pair_num = 0;
+				struct key_pair *pair;
 
-				/* find first unused pair */
-				while (pair->file[0] != '\0') {
-					++sysfs_pair_num;
-					if (sysfs_pair_num >= MAX_SYSFS_PAIRS) {
-						pair = NULL;
-						break;
-					}
-					++pair;
+				if (rule.sysfs_pair_count >= KEY_SYSFS_PAIRS_MAX) {
+					dbg("skip rule, to many " KEY_SYSFS " keys in a single rule");
+					goto error;
 				}
-				if (pair) {
-					attr = get_key_attribute(key + sizeof(KEY_SYSFS)-1);
-					if (attr == NULL) {
-						dbg("error parsing " KEY_SYSFS " attribute");
-						continue;
-					}
-					strlcpy(pair->file, attr, sizeof(pair->file));
-					strlcpy(pair->value, value, sizeof(pair->value));
-					pair->operation = operation;
-					valid = 1;
+				pair = &rule.sysfs_pair[rule.sysfs_pair_count];
+				rule.sysfs_pair_count++;
+
+				attr = get_key_attribute(key + sizeof(KEY_SYSFS)-1);
+				if (attr == NULL) {
+					dbg("error parsing " KEY_SYSFS " attribute");
+					continue;
 				}
+				strlcpy(pair->name, attr, sizeof(pair->name));
+				strlcpy(pair->value, value, sizeof(pair->value));
+				pair->operation = operation;
+				valid = 1;
 				continue;
 			}
 
@@ -394,7 +389,7 @@ static int rules_parse(struct udevice *udev, const char *filename)
 			goto error;
 
 		/* simple plausibility checks for given keys */
-		if ((rule.sysfs_pair[0].file[0] == '\0') ^
+		if ((rule.sysfs_pair[0].name[0] == '\0') ^
 		    (rule.sysfs_pair[0].value[0] == '\0')) {
 			info("inconsistency in " KEY_SYSFS " key");
 			goto error;

@@ -48,7 +48,7 @@
 #define OPTION_IGNORE_REMOVE	"ignore_remove"
 #define OPTION_PARTITIONS	"all_partitions"
 
-#define MAX_SYSFS_PAIRS		5
+#define KEY_SYSFS_PAIRS_MAX	5
 
 #define RULEFILE_SUFFIX		".rules"
 
@@ -60,8 +60,8 @@ enum key_operation {
 	KEY_OP_ASSIGN,
 };
 
-struct sysfs_pair {
-	char file[PATH_SIZE];
+struct key_pair {
+	char name[NAME_SIZE];
 	char value[VALUE_SIZE];
 	enum key_operation operation;
 };
@@ -83,7 +83,8 @@ struct udev_rule {
 	enum key_operation program_operation;
 	char result[PATH_SIZE];
 	enum key_operation result_operation;
-	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];
+	struct key_pair sysfs_pair[KEY_SYSFS_PAIRS_MAX];
+	int sysfs_pair_count;
 
 	char name[PATH_SIZE];
 	char symlink[PATH_SIZE];

@@ -463,16 +463,16 @@ attr_found:
 	return tmpattr;
 }
 
-static int compare_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, struct sysfs_pair *pair)
+static int compare_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, struct key_pair *pair)
 {
 	struct sysfs_attribute *tmpattr;
 	int i;
 	int len;
 
-	if ((pair == NULL) || (pair->file[0] == '\0') || (pair->value == '\0'))
+	if ((pair == NULL) || (pair->name[0] == '\0') || (pair->value == '\0'))
 		return -ENODEV;
 
-	tmpattr = find_sysfs_attribute(class_dev, sysfs_device, pair->file);
+	tmpattr = find_sysfs_attribute(class_dev, sysfs_device, pair->name);
 	if (tmpattr == NULL)
 		return -ENODEV;
 
@@ -489,23 +489,24 @@ static int compare_sysfs_attribute(struct sysfs_class_device *class_dev, struct 
 	}
 
 	dbg("compare attribute '%s' value '%s' with '%s'",
-		  pair->file, tmpattr->value, pair->value);
+		  pair->name, tmpattr->value, pair->value);
 	if (strcmp_pattern(pair->value, tmpattr->value) != 0)
 		return -ENODEV;
 
 	dbg("found matching attribute '%s' with value '%s'",
-	    pair->file, pair->value);
+	    pair->name, pair->value);
 	return 0;
 }
 
 static int match_sysfs_pairs(struct udev_rule *rule, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
-	struct sysfs_pair *pair;
 	int i;
 
-	for (i = 0; i < MAX_SYSFS_PAIRS; ++i) {
+	for (i = 0; i < rule->sysfs_pair_count; i++) {
+		struct key_pair *pair;
+
 		pair = &rule->sysfs_pair[i];
-		if ((pair->file[0] == '\0') || (pair->value[0] == '\0'))
+		if ((pair->name[0] == '\0') || (pair->value[0] == '\0'))
 			break;
 		if (compare_sysfs_attribute(class_dev, sysfs_device, pair) != 0) {
 			dbg("sysfs pair #%u does not match", i);
@@ -631,7 +632,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		}
 
 		/* check for matching sysfs pairs */
-		if (rule->sysfs_pair[0].file[0] != '\0') {
+		if (rule->sysfs_pair[0].name[0] != '\0') {
 			dbg("check " KEY_SYSFS " pairs");
 			if (match_sysfs_pairs(rule, class_dev, sysfs_device) != 0) {
 				dbg(KEY_SYSFS " is not matching");
