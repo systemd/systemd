@@ -560,9 +560,9 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
-		exp_perms	=> "adm::0660",
+		exp_perms	=> "nobody::0660",
 		conf		=> <<EOF
-BUS=="scsi", KERNEL=="sda", NAME="node", OWNER="adm"
+BUS=="scsi", KERNEL=="sda", NAME="node", OWNER="nobody"
 EOF
 	},
 	{
@@ -580,9 +580,9 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
-		exp_perms	=> "root:wheel:0660",
+		exp_perms	=> "root:mail:0660",
 		conf		=> <<EOF
-BUS=="scsi", KERNEL=="sda", NAME="node", OWNER="root", GROUP="wheel"
+BUS=="scsi", KERNEL=="sda", NAME="node", OWNER="root", GROUP="mail"
 EOF
 	},
 	{
