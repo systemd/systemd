@@ -358,7 +358,7 @@ release: spotless
 	-rm -rf $(DISTDIR)
 	mkdir $(DISTDIR)
 	chmod 777 $(DISTDIR)
-	bk export $(DISTDIR)
+	bk export -w $(DISTDIR)
 	tar -c $(DISTDIR) | gzip -9 > $(RELEASE_NAME).tar.gz
 	rm -rf $(DISTDIR)
 	@echo "$(RELEASE_NAME).tar.gz created"
