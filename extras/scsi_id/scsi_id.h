@@ -25,7 +25,6 @@
 	log_message(LOG_DEBUG, "%s: " format, __FUNCTION__ , ## arg)
 
 #define	MAX_NAME_LEN	72
-#define OFFSET (2 * sizeof(unsigned int))
 
 /*
  * MAX_ATTR_LEN: maximum length of the result of reading a sysfs

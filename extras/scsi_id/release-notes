@@ -1,6 +1,6 @@
-Version 0.5 of scsi_id is available at:
+Version 0.6 of scsi_id is available at:
 
-http://www-124.ibm.com/storageio/scsi_id/scsi_id-0.5.tar.gz
+http://www-124.ibm.com/storageio/scsi_id/scsi_id-0.6.tar.gz
 
 scsi_id is a program to generate a unique identifier for a given SCSI
 device.
@@ -9,34 +9,18 @@ It is primarily for use with the udev program key, or hotplug scripts that
 want persistent naming of scsi devices. It could also be used for
 automatic multi-path configuration or device mapper configuration.
 
-Version 0.5 requires:
+Requires:
 
 - Linux kernel 2.6
 - libsysfs 0.4.0
 
 Major changes since the last release:
+	
+	- add -u option, patch from Christoph Varoqui, to substitute white
+	  space with underscores so it is easier to use the output as a
+	  device name.
 
-	- Ken Brush <ken@cgi101.com> have the command line options
-	  override generic options.
+	- Use 254 bytes for SCSI INQUIRY commands, patch from Hannes
+	  Reinecke.
 
-	- Fix the gen_scsi_id_udev_rules.sh to handle spaces in the id.
-
-	- Don't supply a makedev() when built with klibc. Also, the
-	  scsi_id supplied makedev() was using the old major/minor method.
-
-	- Include compiler.h so we can build against klibc, as recent sg.h
-	  changes need a define for __user.
-
-Other changes:
-
-	- Increase the MAX_SERIAL_LEN from 128 to 256, as some (possibly
-	  broken devics) are returning very long id's
-
-	- Add spotless target (via Olaf Hering's udev patch)
-
-	- minor wording changes in scsi_id.config
-
-	- Log INQUIRY failure, including the failing page code and vpd
-	  values
-
-	- Escape '-' with '\-' in the man page.
+See ChangeLog for more details.

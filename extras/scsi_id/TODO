@@ -1,6 +1,3 @@
-- Add an option to replace blanks with spaces, so the generated id can be
-  more easily used as a /dev name.
-
 - Add a bus white/black list option. So for example, all scsi devices
   under USB could easily be blacklisted. This should allow multiple busses
   to be listed.

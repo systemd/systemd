@@ -52,7 +52,7 @@
  * options are not supported, but other code is still left in place for
  * now.
  */
-static const char short_options[] = "bd:f:gip:s:vV";
+static const char short_options[] = "bd:f:gip:s:uvV";
 /*
  * Just duplicate per dev options.
  */
@@ -70,6 +70,7 @@ static int default_page_code;
 static int use_stderr;
 static int debug;
 static int hotplug_mode;
+static int reformat_serial;
 
 void log_message (int level, const char *format, ...)
 {
@@ -469,6 +470,10 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			strncat(target, optarg, MAX_NAME_LEN);
 			break;
 
+		case 'u':
+			reformat_serial = 1;
+			break;
+
 		case 'v':
 			debug++;
 			break;
@@ -573,6 +578,23 @@ static int per_dev_options(struct sysfs_device *scsi_dev, int *good_bad,
 }
 
 /*
+ * format_serial: replace to whitespaces by underscores for calling
+ * programs that use the serial for device naming (multipath, Suse
+ * naming, etc...)
+ */
+static void format_serial(char *serial)
+{
+	char *p = serial;
+
+	while (*p != '\0') {
+		if (isspace(*p))
+			*p = '_';
+		p++;
+	}
+	return;
+}
+
+/*
  * scsi_id: try to get an id, if one is found, printf it to stdout.
  * returns a value passed to exit() - 0 if printed an id, else 1. This
  * could be expanded, for example, if we want to report a failure like no
@@ -583,7 +605,7 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 {
 	int retval;
 	int dev_type = 0;
-	char serial[MAX_SERIAL_LEN];
+	char *serial, *unaligned_buf;
 	struct sysfs_class_device *class_dev; /* of target_path */
 	struct sysfs_class_device *class_dev_parent; /* for partitions */
 	struct sysfs_device *scsi_dev; /* the scsi_device */
@@ -689,6 +711,12 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 	dprintf("per dev options: good %d; page code 0x%x; callout '%s'\n",
 		good_dev, page_code, callout);
 
+#define ALIGN   512
+	unaligned_buf = malloc(MAX_SERIAL_LEN + ALIGN);
+	serial = (char*) (((int) unaligned_buf + (ALIGN - 1)) & ~(ALIGN - 1));
+	dprintf("buffer unaligned 0x%p; aligned 0x%p\n", unaligned_buf, serial);
+#undef ALIGN
+
 	if (!good_dev) {
 		retval = 1;
 	} else if (callout[0] != '\0') {
@@ -703,6 +731,8 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 		retval = 0;
 	}
 	if (!retval) {
+		if (reformat_serial)
+			format_serial(serial);
 		if (display_bus_id)
 			printf("%s: ", scsi_dev->name);
 		printf("%s", serial);

@@ -38,6 +38,13 @@ struct scsi_ioctl_command {
 #define SENSE_BUFF_LEN	32
 
 /*
+ * The request buffer size passed to the SCSI INQUIRY commands, use 254,
+ * as this is a nice value for some devices, especially some of the usb
+ * mass storage devices.
+ */
+#define	SCSI_INQ_BUFF_LEN	254
+
+/*
  * SCSI INQUIRY vendor and model (really product) lengths.
  */
 #define VENDOR_LENGTH	8

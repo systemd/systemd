@@ -1,3 +1,26 @@
+2004-jul-30:
+	* scsi_id.c, scsi_serial.c: Align the buffer passed to scsi_serial,
+	  don't bother aligning and memcpy-ing the result in scsi_inquiry.
+	  Aligning to 512 probably does not help, since the IO length of
+	  254 is not a multiple of 512.
+
+2004-jul-30:
+	* scsi.h, scsi_serial.c: Use a define for the SCSI INQUIRY buffer
+	  length.
+
+2004-jul-30:
+	* scsi_id.c: Patch from <christophe.varoqui@free.fr> add a -u flag
+	 to substitute white space with underscores so it is easier to use
+	 the output as a device name.
+
+2004-jul-30:
+	* scsi_serial.c: Patch from Hannes Reinecke <hare@suse.de> use 254
+	  bytes for SCSI INQUIRY commands.
+
+2004-jul-28:
+	* scsi_id.h, scsi_serial.c: get rid of dumb/dead code, and use a
+	  512 byte aligned buffer.
+
 2004-jun-23:
 	* scsi_id.h: increase MAX_SERIAL_LEN from 128 to 256, as some
 	  devices (maybe broken ones) are giving really long id's.

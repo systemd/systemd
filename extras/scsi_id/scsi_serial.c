@@ -300,17 +300,12 @@ static int scsi_inquiry(struct sysfs_device *scsi_dev, int fd, unsigned
 	unsigned char sense[SENSE_BUFF_LEN];
 	struct sg_io_hdr io_hdr;
 	int retval;
-	unsigned char *inq;
-	unsigned char *buffer;
 	int retry = 3; /* rather random */
 
-	if (buflen > 255) {
+	if (buflen > SCSI_INQ_BUFF_LEN) {
 		log_message(LOG_WARNING, "buflen %d too long\n", buflen);
 		return -1;
 	}
-	inq = malloc(OFFSET + sizeof (inq_cmd) + 512);
-	memset(inq, 0, OFFSET + sizeof (inq_cmd) + 512);
-	buffer = inq + OFFSET;
 
 resend:
 	dprintf("%s evpd %d, page 0x%x\n", scsi_dev->name, evpd, page);
@@ -321,7 +316,7 @@ resend:
 	io_hdr.mx_sb_len = sizeof(sense);
 	io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
 	io_hdr.dxfer_len = buflen;
-	io_hdr.dxferp = buffer;
+	io_hdr.dxferp = buf;
 	io_hdr.cmdp = inq_cmd;
 	io_hdr.sbp = sense;
 	io_hdr.timeout = DEF_TIMEOUT;
@@ -329,7 +324,8 @@ resend:
 	if (ioctl(fd, SG_IO, &io_hdr) < 0) {
 		log_message(LOG_WARNING, "%s: ioctl failed: %s\n",
 			    scsi_dev->name, strerror(errno));
-		return -1;
+		retval = -1;
+		goto error;
 	}
 
 	retval = sg_err_category3(&io_hdr);
@@ -346,7 +342,6 @@ resend:
 
 	if (!retval) {
 		retval = buflen;
-		memcpy(buf, buffer, retval);
 	} else if (retval > 0) {
 		if (--retry > 0) {
 			dprintf("%s: Retrying ...\n", scsi_dev->name);
@@ -355,15 +350,16 @@ resend:
 		retval = -1;
 	}
 
+error:
 	if (retval < 0)
 		log_message(LOG_WARNING,
 			    "%s: Unable to get INQUIRY vpd %d page 0x%x.\n",
 			    scsi_dev->name, evpd, page);
 
-	free(inq);
 	return retval;
 }
 
+/* Get list of supported EVPD pages */
 static int do_scsi_page0_inquiry(struct sysfs_device *scsi_dev, int fd,
 				 char *buffer, int len)
 {
@@ -552,15 +548,17 @@ static int check_fill_0x83_id(struct sysfs_device *scsi_dev, char
 	return 0;
 }
 
+/* Get device identification VPD page */
 static int do_scsi_page83_inquiry(struct sysfs_device *scsi_dev, int fd,
 				  char *serial, int len)
 {
 	int retval;
 	int id_ind, j;
-	unsigned char page_83[256];
+	unsigned char page_83[SCSI_INQ_BUFF_LEN];
 
-	memset(page_83, 0, 256);
-	retval = scsi_inquiry(scsi_dev, fd, 1, 0x83, page_83, 255);
+	memset(page_83, 0, SCSI_INQ_BUFF_LEN);
+	retval = scsi_inquiry(scsi_dev, fd, 1, 0x83, page_83,
+			      SCSI_INQ_BUFF_LEN);
 	if (retval < 0)
 		return 1;
 
@@ -609,6 +607,7 @@ static int do_scsi_page83_inquiry(struct sysfs_device *scsi_dev, int fd,
 	return 1;
 }
 
+/* Get unit serial number VPD page */
 static int do_scsi_page80_inquiry(struct sysfs_device *scsi_dev, int fd,
 				  char *serial, int max_len)
 {
@@ -616,10 +615,10 @@ static int do_scsi_page80_inquiry(struct sysfs_device *scsi_dev, int fd,
 	int ser_ind;
 	int i;
 	int len;
-	unsigned char buf[256];
+	unsigned char buf[SCSI_INQ_BUFF_LEN];
 
-	memset(buf, 0, 256);
-	retval = scsi_inquiry(scsi_dev, fd, 1, 0x80, buf, 255);
+	memset(buf, 0, SCSI_INQ_BUFF_LEN);
+	retval = scsi_inquiry(scsi_dev, fd, 1, 0x80, buf, SCSI_INQ_BUFF_LEN);
 	if (retval < 0)
 		return retval;
 
@@ -652,13 +651,11 @@ static int do_scsi_page80_inquiry(struct sysfs_device *scsi_dev, int fd,
 int scsi_get_serial (struct sysfs_device *scsi_dev, const char *devname,
 		     int page_code, char *serial, int len)
 {
-	unsigned char page0[256];
+	unsigned char page0[SCSI_INQ_BUFF_LEN];
 	int fd;
 	int ind;
 	int retval;
 
-	if (len > 255) {
-	}
 	memset(serial, 0, len);
 	dprintf("opening %s\n", devname);
 	fd = open(devname, O_RDONLY | O_NONBLOCK);
@@ -694,7 +691,7 @@ int scsi_get_serial (struct sysfs_device *scsi_dev, const char *devname,
 	 * Get page 0, the page of the pages. By default, try from best to
 	 * worst of supported pages: 0x83 then 0x80.
 	 */
-	if (do_scsi_page0_inquiry(scsi_dev, fd, page0, 255)) {
+	if (do_scsi_page0_inquiry(scsi_dev, fd, page0, SCSI_INQ_BUFF_LEN)) {
 		/*
 		 * Don't try anything else. Black list if a specific page
 		 * should be used for this vendor+model, or maybe have an
