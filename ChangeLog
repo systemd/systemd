@@ -1,3 +1,26 @@
+Summary of changes from v027 to v028
+============================================
+
+<atul.sabharwal:intel.com>:
+  o Patch for chassis_id exras module
+
+Daniel Drake:
+  o Writing udev rules doc update
+
+Greg Kroah-Hartman:
+  o clean up block whitelist search logic a bit
+  o reverse order of scanning of udevstart to look at class before block
+
+Kay Sievers:
+  o update udev_volume_id
+
+Leann Ogasawara:
+  o udevstart performance increase
+
+Patrick Mansfield:
+  o update udev scsi_id to scsi_id 0.5
+
+
 Summary of changes from v026 to v027
 ============================================
 
