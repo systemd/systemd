@@ -472,6 +472,24 @@ int main(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 
+	/* daemonize on request */
+	if (argc == 2 && strcmp(argv[1], "-d") == 0) {
+		pid_t pid;
+
+		pid = fork();
+		switch (pid) {
+		case 0:
+			dbg("damonized fork running");
+			break;
+		case -1:
+			dbg("fork of daemon failed");
+			goto exit;
+		default:
+			logging_close();
+			exit(0);
+		}
+	}
+
 	/* make sure we don't lock any path */
 	chdir("/");
 	umask(umask(077) | 022);
