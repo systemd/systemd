@@ -55,6 +55,10 @@ void udev_init_device(struct udevice *udev, const char* devpath, const char *sub
 		udev->type = 'n';
 	else if (strncmp(udev->devpath, "/class/", 7) == 0)
 		udev->type = 'c';
+
+	udev->mode = default_mode;
+	strfieldcpy(udev->owner, default_owner);
+	strfieldcpy(udev->group, default_group);
 }
 
 int kernel_release_satisfactory(int version, int patchlevel, int sublevel)

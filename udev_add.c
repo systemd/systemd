@@ -189,7 +189,7 @@ static int create_node(struct udevice *udev)
 	} else {
 		info("creating device node '%s', major = '%d', minor = '%d', "
 		     "mode = '%#o', uid = '%d', gid = '%d'", filename,
-		     udev->major, udev->minor, (mode_t)udev->mode, uid, gid);
+		     udev->major, udev->minor, udev->mode, uid, gid);
 	}
 
 	/* create all_partitions if requested */

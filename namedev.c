@@ -680,7 +680,6 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 	struct config_device *dev;
 	char *pos;
 
-	udev->mode = 0;
 	dbg("class_dev->name='%s'", class_dev->name);
 
 	/* Figure out where the "device"-symlink is at.  For char devices this will
@@ -757,34 +756,28 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 					goto exit;
 
 				udev->partitions = dev->partitions;
-				udev->mode = dev->mode;
-				strfieldcpy(udev->owner, dev->owner);
-				apply_format(udev, udev->owner, sizeof(udev->owner), class_dev, sysfs_device);
-				strfieldcpy(udev->group, dev->group);
-				apply_format(udev, udev->group, sizeof(udev->group), class_dev, sysfs_device);
+				if (dev->mode != 0000)
+					udev->mode = dev->mode;
+				if (dev->owner[0] != '\0') {
+					strfieldcpy(udev->owner, dev->owner);
+					apply_format(udev, udev->owner, sizeof(udev->owner), class_dev, sysfs_device);
+				}
+				if (dev->group[0] != '\0') {
+					strfieldcpy(udev->group, dev->group);
+					apply_format(udev, udev->group, sizeof(udev->group), class_dev, sysfs_device);
+				}
 
-				goto perms;
+				dbg("name, '%s' is going to have owner='%s', group='%s', mode = %#o",
+				    udev->name, udev->owner, udev->group, udev->mode);
+
+				goto exit;
 			}
 		}
 	}
 
 	/* no rule matched, so we use the kernel name */
 	strfieldcpy(udev->name, udev->kernel_name);
-
-	if (udev->type == 'n')
-		goto exit;
-
-perms:
-	/* apply default permissions to empty fields */
-	if (udev->mode == 0000)
-		udev->mode = default_mode;
-	if (udev->owner[0] == '\0')
-		strfieldcpy(udev->owner, default_owner);
-	if (udev->group[0] == '\0')
-		strfieldcpy(udev->group, default_group);
-
-	dbg("name, '%s' is going to have owner='%s', group='%s', mode = %#o",
-	    udev->name, udev->owner, udev->group, udev->mode);
+	dbg("no rule found, use kernel name '%s'", udev->name);
 
 exit:
 	return 0;
