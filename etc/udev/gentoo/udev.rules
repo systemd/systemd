@@ -13,8 +13,8 @@
 ###########################################################
 
 # cdrom symlinks and other good cdrom naming
-BUS="ide",  KERNEL="hd[a-z]",  PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYMLINK="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
-BUS="scsi", KERNEL="sr[0-9]*",  PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYMLINK="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
+BUS="ide",  KERNEL="hd[a-z]", PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYMLINK="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
+BUS="scsi", KERNEL="sr[0-9]*", PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYMLINK="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
 BUS="scsi", KERNEL="scd[a-z]", PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYMLINK="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
 
 # devfs-names for ide-devices (uncomment only one)
@@ -32,12 +32,12 @@ KERNEL="nvidia*",	NAME="%k", GROUP="video", MODE="0660"
 KERNEL="3dfx*",		NAME="%k", GROUP="video", MODE="0660"
 
 # alsa devices
-KERNEL="controlC[0-9]*", NAME="snd/%k"
-KERNEL="hw[CD0-9]*",	 NAME="snd/%k"
-KERNEL="pcm[CD0-9cp]*",	 NAME="snd/%k"
-KERNEL="midiC[D0-9]*",	 NAME="snd/%k"
-KERNEL="timer",		 NAME="snd/%k"
-KERNEL="seq",		 NAME="snd/%k"
+KERNEL="controlC[0-9]*",	NAME="snd/%k"
+KERNEL="hw[CD0-9]*",		NAME="snd/%k"
+KERNEL="pcm[CD0-9cp]*",		NAME="snd/%k"
+KERNEL="midiC[D0-9]*",		NAME="snd/%k"
+KERNEL="timer",			NAME="snd/%k"
+KERNEL="seq",			NAME="snd/%k"
 
 # capi devices
 KERNEL="capi",		NAME="capi20", SYMLINK="isdn/capi20"
@@ -109,16 +109,16 @@ KERNEL="raw[0-9]*",	NAME="raw/%k", GROUP="disk", MODE="0660"
 KERNEL="ram*",		NAME="%k", GROUP="disk", MODE="0660"
 
 # sound devices
-KERNEL="adsp",		  NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="adsp[0-9]*",	  NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="audio",		  NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="audio[0-9]*",	  NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="dsp",		  NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="dsp[0-9]*",	  NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="mixer",		  NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="mixer[0-9]*",	  NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="sequencer",	  NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
-KERNEL="sequencer[0-9]*", NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
+KERNEL="adsp",			NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
+KERNEL="adsp[0-9]*",		NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
+KERNEL="audio",			NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
+KERNEL="audio[0-9]*",		NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
+KERNEL="dsp",			NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
+KERNEL="dsp[0-9]*",		NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
+KERNEL="mixer",			NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
+KERNEL="mixer[0-9]*",		NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
+KERNEL="sequencer",		NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
+KERNEL="sequencer[0-9]*",	NAME="sound/%k", SYMLINK="%k", GROUP="audio", MODE="0660"
 
 # tty devices
 KERNEL="console",	NAME="%k", GROUP="tty", MODE="0600"
@@ -126,10 +126,10 @@ KERNEL="tty",		NAME="%k", GROUP="tty", MODE="0666"
 KERNEL="tty[0-9]*",	NAME="vc/%n",  SYMLINK="%k", GROUP="tty", MODE="0660"
 KERNEL="ttyS[0-9]*",	NAME="tts/%n", SYMLINK="%k", GROUP="tty", MODE="0660"
 KERNEL="ttyUSB[0-9]*",	NAME="tts/USB%n", GROUP="tty", MODE="0600"
-KERNEL="ippp0", NAME="", GROUP="tty", MODE="0660"
-KERNEL="isdn*", NAME="", GROUP="tty", MODE="0660"
-KERNEL="dcbri*", NAME="", GROUP="tty", MODE="0660"
-KERNEL="ircomm*", NAME="", GROUP="tty", MODE="0660"
+KERNEL="ippp0",		NAME="%k", GROUP="tty", MODE="0660"
+KERNEL="isdn*",		NAME="%k", GROUP="tty", MODE="0660"
+KERNEL="dcbri*",	NAME="%k", GROUP="tty", MODE="0660"
+KERNEL="ircomm*",	NAME="%k", GROUP="tty", MODE="0660"
 
 # pty devices
 KERNEL="ptmx",			NAME="%k", GROUP="tty", MODE="0666"
@@ -142,15 +142,15 @@ KERNEL="vcs[0-9]*",	NAME="vcc/%n",	SYMLINK="%k", GROUP="tty", MODE="0660"
 KERNEL="vcsa",		NAME="vcc/a0",	SYMLINK="%k", GROUP="tty", MODE="0660"
 KERNEL="vcsa[0-9]*",	NAME="vcc/a%n",	SYMLINK="%k", GROUP="tty", MODE="0660"
 
-# memory devices¶
-KERNEL="random", NAME="%k", MODE="0666"
-KERNEL="urandom", NAME="%k", MODE="0444"
-KERNEL="mem", NAME="%k", MODE="0640"
-KERNEL="kmem", NAME="%k", MODE="0640"
-KERNEL="port", NAME="%k", MODE="0640"
-KERNEL="full", NAME="%k", MODE="0666"
-KERNEL="null", NAME="%k", MODE="0666"
-KERNEL="zero", NAME="%k", MODE="0666"
+# memory devices
+KERNEL="random",	NAME="%k", MODE="0666"
+KERNEL="urandom",	NAME="%k", MODE="0444"
+KERNEL="mem",		NAME="%k", MODE="0640"
+KERNEL="kmem",		NAME="%k", MODE="0640"
+KERNEL="port",		NAME="%k", MODE="0640"
+KERNEL="full",		NAME="%k", MODE="0666"
+KERNEL="null",		NAME="%k", MODE="0666"
+KERNEL="zero",		NAME="%k", MODE="0666"
 
 # usb devices
 KERNEL="hiddev*",		NAME="usb/%k"
@@ -160,9 +160,9 @@ KERNEL="dabusb*",		NAME="usb/%k"
 BUS="usb", KERNEL="lp[0-9]*",	NAME="usb/%k", GROUP="lp", MODE="0660"
 
 # v4l devices
-KERNEL="video[0-9]*",	NAME="v4l/video%n",	SYMLINK="video%n", GROUP="video", MODE="0660"
+KERNEL="video[0-9]*",	NAME="v4l/video%n", SYMLINK="video%n", GROUP="video", MODE="0660"
 KERNEL="radio[0-9]*",	NAME="v4l/radio%n", GROUP="video", MODE="0660"
-KERNEL="vbi[0-9]*",	NAME="v4l/vbi%n",	SYMLINK="vbi%n", GROUP="video", MODE="0660"
+KERNEL="vbi[0-9]*",	NAME="v4l/vbi%n", SYMLINK="vbi%n", GROUP="video", MODE="0660"
 KERNEL="vtx[0-9]*",	NAME="v4l/vtx%n", GROUP="video", MODE="0660"
 
 # Asterix Zaptel devices
@@ -174,10 +174,10 @@ KERNEL="zap[0-9]*",	NAME="zap/%n"
 
 # pilot/palm devices
 KERNEL="pilot",		NAME="%k", GROUP="uucp", MODE="0660"
-¶
+
 # jaz devices
 KERNEL="jaz*",		NAME="%k", GROUP="disk", MODE="0660"
-¶
+
 # zip devices
 KERNEL="pocketzip*",	NAME="%k", GROUP="disk", MODE="0660"
 KERNEL="zip*",		NAME="%k", GROUP="disk", MODE="0660"
