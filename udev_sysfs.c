@@ -172,6 +172,7 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 		{ .subsystem = "input",		.device = "mice" },
 		{ .subsystem = "input",		.device = "mouse" },
 		{ .subsystem = "input",		.device = "ts" },
+		{ .subsystem = "input",		.device = "js" },
 		{ .subsystem = "vc",		.device = NULL },
 		{ .subsystem = "tty",		.device = NULL },
 		{ .subsystem = "cpuid",		.device = "cpu" },
