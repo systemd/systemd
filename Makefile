@@ -166,7 +166,7 @@ udev_version.h:
 
 
 $(ROOT): $(GEN_HEADERS) $(OBJS)
-	$(CC) $(LDFLAGS) -o $(ROOT) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(CC) $(LDFLAGS) -o $(ROOT) $(CRT0) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $(ROOT)
 
 clean:
@@ -215,7 +215,7 @@ install: all
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
 	$(INSTALL_DATA) udev.config $(DESTDIR)$(configdir)
 	$(INSTALL_DATA) udev.permissions $(DESTDIR)$(configdir)
-	- rm $(DESTDIR)$(hotplugdir)/udev.hotplug
+	- rm -f $(DESTDIR)$(hotplugdir)/udev.hotplug
 	- ln -s $(sbindir)/$(ROOT) $(DESTDIR)$(hotplugdir)/udev.hotplug
 
 uninstall:
