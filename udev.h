@@ -56,7 +56,7 @@ do { \
 	strncpy(to, from, sizeof(to)-1); \
 } while (0)
 
-extern int udev_add_device(char *path, char *subsystem);
+extern int udev_add_device(char *path, char *subsystem, int fake);
 extern int udev_remove_device(char *path, char *subsystem);
 extern void udev_init_config(void);
 extern int parse_get_pair(char **orig_string, char **left, char **right);

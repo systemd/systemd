@@ -29,10 +29,8 @@
 
 #include "udev.h"
 #include "udev_version.h"
-#include "udev_dbus.h"
 #include "logging.h"
 #include "namedev.h"
-#include "udevdb.h"
 #include "libsysfs/libsysfs.h"
 
 /* global variables */
@@ -45,12 +43,15 @@ void log_message (int level, const char *format, ...)
 {
 	va_list	args;
 
-	if (!udev_log)
-		return;
+//	if (!udev_log)
+//		return;
 
+	/* FIXME use level... */
 	va_start(args, format);
-	vsyslog(level, format, args);
+	vprintf(format, args);
 	va_end(args);
+	if (format[strlen(format)-1] != '\n')
+		printf("\n");
 }
 #endif
 
@@ -59,8 +60,6 @@ static void sig_handler(int signum)
 	switch (signum) {
 		case SIGINT:
 		case SIGTERM:
-			sysbus_disconnect();
-			udevdb_exit();
 			exit(20 + signum);
 		default:
 			dbg("unhandled signal");
@@ -102,22 +101,15 @@ static char *subsystem_blacklist[] = {
 
 static int udev_hotplug(int argc, char **argv)
 {
-	char *action;
 	char *devpath;
 	char *subsystem;
 	int retval = -EINVAL;
 	int i;
 	struct sigaction act;
 
-	action = get_action();
-	if (!action) {
-		dbg ("no action?");
-		goto exit;
-	}
-
-	devpath = get_devpath();
+	devpath = argv[1];
 	if (!devpath) {
-		dbg ("no devpath?");
+		dbg("no devpath?");
 		goto exit;
 	}
 	dbg("looking at '%s'", devpath);
@@ -140,18 +132,8 @@ static int udev_hotplug(int argc, char **argv)
 		i++;
 	}
 
-	/* connect to the system message bus */
-	sysbus_connect();
-
 	/* initialize our configuration */
 	udev_init_config();
-
-	/* initialize udev database */
-	retval = udevdb_init(UDEVDB_DEFAULT);
-	if (retval != 0) {
-		dbg("unable to initialize database");
-		goto exit_sysbus;
-	}
 
 	/* set up a default signal handler for now */
 	act.sa_handler = sig_handler;
@@ -163,21 +145,7 @@ static int udev_hotplug(int argc, char **argv)
 	/* initialize the naming deamon */
 	namedev_init();
 
-	if (strcmp(action, "add") == 0)
-		retval = udev_add_device(devpath, subsystem);
-
-	else if (strcmp(action, "remove") == 0)
-		retval = udev_remove_device(devpath, subsystem);
-
-	else {
-		dbg("unknown action '%s'", action);
-		retval = -EINVAL;
-	}
-	udevdb_exit();
-
-exit_sysbus:
-	/* disconnect from the system message bus */
-	sysbus_disconnect();
+	retval = udev_add_device(devpath, subsystem, 1);
 
 exit:
 	if (retval > 0)
@@ -191,7 +159,6 @@ int main(int argc, char **argv, char **envp)
 	main_argv = argv;
 	main_envp = envp;
 
-	init_logging("udev");
 	dbg("version %s", UDEV_VERSION);
 
 	return udev_hotplug(argc, argv);

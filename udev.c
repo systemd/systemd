@@ -164,7 +164,7 @@ static int udev_hotplug(int argc, char **argv)
 	namedev_init();
 
 	if (strcmp(action, "add") == 0)
-		retval = udev_add_device(devpath, subsystem);
+		retval = udev_add_device(devpath, subsystem, 0);
 
 	else if (strcmp(action, "remove") == 0)
 		retval = udev_remove_device(devpath, subsystem);

@@ -34,6 +34,7 @@ ROOT =		udev
 DAEMON =	udevd
 SENDER =	udevsend
 HELPER =	udevinfo
+TESTER =	udevtest
 VERSION =	016_bk
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
@@ -168,7 +169,7 @@ endif
 
 CFLAGS += -I$(PWD)/libsysfs
 
-all: $(ROOT) $(SENDER) $(DAEMON) $(HELPER)
+all: $(ROOT) $(SENDER) $(DAEMON) $(HELPER) $(TESTER)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) \
@@ -177,8 +178,6 @@ all: $(ROOT) $(SENDER) $(DAEMON) $(HELPER)
 			KERNEL_DIR="$(KERNEL_DIR)" \
 			-C $$target $@ ; \
 	done ; \
-
-$(ROOT): $(LIBC)
 
 $(ARCH_LIB_OBJS) : $(CRT0)
 
@@ -250,21 +249,29 @@ $(LOCAL_CFG_DIR)/udev.conf:
 
 
 $(OBJS): $(GEN_HEADERS)
-udev.o: $(GEN_HEADERS)
+$(ROOT).o: $(GEN_HEADERS)
+$(TESTER).o: $(GEN_HEADERS)
+$(HELPER).o: $(GEN_HEADERS)
+$(DAEMON).o: $(GEN_HEADERS)
+$(SENDER).o: $(GEN_HEADERS)
 
-$(ROOT): udev.o $(OBJS) $(HEADERS) $(GEN_HEADERS)
+$(ROOT): $(ROOT).o $(OBJS) $(HEADERS) $(LIBC)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(HELPER): $(HEADERS) udevinfo.o $(OBJS)
+$(TESTER): $(TESTER).o $(OBJS) $(HEADERS) $(LIBC)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevtest.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(STRIPCMD) $@
+
+$(HELPER): $(HELPER).o $(OBJS) $(HEADERS) $(LIBC)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(DAEMON): udevd.h $(GEN_HEADERS) udevd.o
+$(DAEMON): $(DAEMON).o udevd.h $(LIBC)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevd.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(SENDER): udevd.h $(GEN_HEADERS) udevsend.o
+$(SENDER): $(SENDER).o udevd.h $(LIBC)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 

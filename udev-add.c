@@ -99,7 +99,7 @@ static int create_path(char *file)
 	return 0;
 }
 
-static int create_node(struct udevice *dev)
+static int create_node(struct udevice *dev, int fake)
 {
 	struct stat stats;
 	char filename[255];
@@ -137,16 +137,20 @@ static int create_node(struct udevice *dev)
 
 	info("creating device node '%s'", filename);
 	dbg("mknod(%s, %#o, %u, %u)", filename, dev->mode, dev->major, dev->minor);
-	retval = mknod(filename, dev->mode, makedev(dev->major, dev->minor));
-	if (retval != 0)
-		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
-		    filename, dev->mode, dev->major, dev->minor, strerror(errno));
+	if (!fake) {
+		retval = mknod(filename, dev->mode, makedev(dev->major, dev->minor));
+		if (retval != 0)
+			dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
+			    filename, dev->mode, dev->major, dev->minor, strerror(errno));
+	}
 
 	dbg("chmod(%s, %#o)", filename, dev->mode);
-	retval = chmod(filename, dev->mode);
-	if (retval != 0)
-		dbg("chmod(%s, %#o) failed with error '%s'",
-		    filename, dev->mode, strerror(errno));
+	if (!fake) {
+		retval = chmod(filename, dev->mode);
+		if (retval != 0)
+			dbg("chmod(%s, %#o) failed with error '%s'",
+			    filename, dev->mode, strerror(errno));
+	}
 
 	if (dev->owner[0] != '\0') {
 		char *endptr;
@@ -195,8 +199,9 @@ static int create_node(struct udevice *dev)
 			strncpy(filename, udev_root, sizeof(filename));
 			strncat(filename, linkname, sizeof(filename));
 			dbg("symlink '%s' to node '%s' requested", filename, dev->name);
-			if (strrchr(linkname, '/'))
-				create_path(filename);
+			if (!fake)
+				if (strrchr(linkname, '/'))
+					create_path(filename);
 
 			/* optimize relative link */
 			linktarget[0] = '\0';
@@ -219,7 +224,7 @@ static int create_node(struct udevice *dev)
 
 			/* unlink existing non-directories to ensure that our symlink
 			 * is created */
-			if (lstat(filename, &stats) == 0) {
+			if (!fake && (lstat(filename, &stats) == 0)) {
 				if ((stats.st_mode & S_IFMT) != S_IFDIR) {
 					if (unlink(filename))
 						dbg("unlink(%s) failed with error '%s'",
@@ -228,10 +233,12 @@ static int create_node(struct udevice *dev)
 			}
 
 			dbg("symlink(%s, %s)", linktarget, filename);
-			retval = symlink(linktarget, filename);
-			if (retval != 0)
-				dbg("symlink(%s, %s) failed with error '%s'",
-				    linktarget, filename, strerror(errno));
+			if (!fake) {
+				retval = symlink(linktarget, filename);
+				if (retval != 0)
+					dbg("symlink(%s, %s) failed with error '%s'",
+					    linktarget, filename, strerror(errno));
+			}
 		}
 	}
 
@@ -289,7 +296,7 @@ exit:
 	return retval;
 }
 
-int udev_add_device(char *path, char *subsystem)
+int udev_add_device(char *path, char *subsystem, int fake)
 {
 	struct sysfs_class_device *class_dev = NULL;
 	struct udevice dev;
@@ -321,15 +328,18 @@ int udev_add_device(char *path, char *subsystem)
 	if (retval != 0)
 		goto exit;
 
-	retval = udevdb_add_dev(path, &dev);
-	if (retval != 0)
-		dbg("udevdb_add_dev failed, but we are going to try to create the node anyway. "
-		    "But remove might not work properly for this device.");
+	if (!fake) {
+		retval = udevdb_add_dev(path, &dev);
+		if (retval != 0)
+			dbg("udevdb_add_dev failed, but we are going to try "
+			    "to create the node anyway. But remove might not "
+			    "work properly for this device.");
 
+	}
 	dbg("name='%s'", dev.name);
-	retval = create_node(&dev);
+	retval = create_node(&dev, fake);
 
-	if (retval == 0)
+	if ((retval == 0) && (!fake))
 		sysbus_send_create(&dev, path);
 
 exit:
