@@ -1,3 +1,38 @@
+Summary of changes from v015 to v016
+============================================
+
+<elkropac:students.zcu.cz>:
+  o get_dev_number() in extras/ide-devfs.sh
+
+<rrm3:rrm3.org>:
+  o FAQ udev.rules.devfs
+
+Greg Kroah-Hartman:
+  o add udevd and udevsend to the spec file
+  o make /etc/hotplug.d/default/udev.hotplug symlink point to udevsend now
+  o add KERNEL_DIR option so that the distros will be happy
+  o make udevsend binary even smaller
+  o udevsend now almost compiles with klibc, struct sockaddr_un is only problem now
+  o fix up logging code so that it can be built without it being enabled
+  o rework the logging code so that each program logs with the proper name in the syslog
+  o remove logging.c as it's no longer needed
+  o kill the last examples that contained the %D option
+  o remove a __KLIBC__ tests in libsysfs, as klibc now supports getpagesize()
+  o udevd - remove stupid locking error I wrote
+  o update to klibc version 0.101, fixing the stdin bug
+  o fix Makefile typo for USE_LSB install
+  o allow dbus code to actually build again
+
+Kay Sievers:
+  o let udevsend build with klibc
+  o udevd - config cleanup
+  o udevd - cleanup and better timeout handling
+  o fix possible buffer overflow
+  o udevd - next round of fixes
+  o udevinfo - missing options for man page
+  o udev - trivial style cleanup
+
+
 Summary of changes from v014 to v015
 ============================================
 
