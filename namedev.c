@@ -183,6 +183,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 	int slen;
 	struct sysfs_attribute *tmpattr;
 	unsigned int next_free_number;
+	struct sysfs_class_device *class_dev_parent;
 
 	pos = string;
 	while (1) {
@@ -296,6 +297,22 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 				strfieldcatmax(string, temp2, maxsize);
 			}
 			break;
+		case 'P':
+			class_dev_parent = sysfs_get_classdev_parent(class_dev);
+			if (class_dev_parent != NULL) {
+				struct udevice udev_parent;
+
+				dbg("found parent '%s', get the node name", class_dev_parent->path);
+				memset(&udev_parent, 0x00, sizeof(struct udevice));
+				/* lookup the name in the udev_db with the DEVPATH of the parent */
+				strfieldcpy(udev_parent.devpath, &class_dev_parent->path[strlen(sysfs_path)]);
+				if (udev_db_get_device(&udev_parent) == 0) {
+					strfieldcatmax(string, udev_parent.name, maxsize);
+					dbg("substitute parent node name'%s'", udev_parent.name);
+				} else
+					dbg("parent not found in database");
+			}
+			break;
 		case 'N':
 			if (udev->tmp_node[0] == '\0') {
 				dbg("create temporary device node for callout");
@@ -304,6 +321,10 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			}
 			strfieldcatmax(string, udev->tmp_node, maxsize);
 			dbg("substitute temporary device node name '%s'", udev->tmp_node);
+			break;
+		case 'r':
+			strfieldcatmax(string, udev_root, maxsize);
+			dbg("substitute udev_root '%s'", udev_root);
 			break;
 		default:
 			dbg("unknown substitution type '%%%c'", c);

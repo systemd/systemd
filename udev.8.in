@@ -218,6 +218,9 @@ all remaining parts of the result string are substituted:
 The name of a created temporary device node to provide access to the
 device from a external program.
 .TP
+.B %P
+The node name of the parent device.
+.TP
 .BI %s{ filename }
 The content of a sysfs attribute.
 .TP

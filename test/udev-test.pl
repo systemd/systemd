@@ -968,7 +968,7 @@ KERNEL="sda", NAME="cdrom%e"
 EOF
 	},
 	{
-		desc		=> "enumeration char test sequence (1/5 keep)",
+		desc		=> "enumeration char test sequence 1/5 (keep)",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "cdrom",
@@ -1084,6 +1084,36 @@ EOF
 		exp_name	=> "sda",
 		conf		=> <<EOF
 BUS="scsi", KERNEL="sda", PROGRAM="/bin/echo %p", RESULT="/block/sda" NAME="%k"
+EOF
+	},
+	{
+		desc		=> "parent node name substitution test sequence 1/2 (keep)",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "main_device",
+		option		=> "keep",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", NAME="main_device"
+EOF
+	},
+	{
+		desc		=> "parent node name substitution test sequence 2/2 (clean)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "main_device-part-1",
+		option		=> "clean",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda1", NAME="%P-part-1"
+EOF
+	},
+	{
+		desc		=> "udev_root substitution",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "start-udev-root-end",
+		option		=> "clean",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda1", NAME="start-%r-end"
 EOF
 	},
 );
