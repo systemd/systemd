@@ -83,7 +83,8 @@ static inline char *get_seqnum(void)
 	return seqnum;
 }
 
-static void print_record(char *path, struct udevice *dev)
+/* callback for database dump */
+static int print_record(char *path, struct udevice *dev)
 {
 	printf("P: %s\n", path);
 	printf("N: %s\n", dev->name);
@@ -91,11 +92,13 @@ static void print_record(char *path, struct udevice *dev)
 	printf("O: %s\n", dev->owner);
 	printf("G: %s\n", dev->group);
 	printf("\n");
+	return 0;
 }
 
 enum query_type {
 	NONE,
 	NAME,
+	PATH,
 	SYMLINK,
 	OWNER,
 	GROUP
@@ -103,7 +106,7 @@ enum query_type {
 
 static inline int udev_user(int argc, char **argv)
 {
-	static const char short_options[] = "dp:q:rVh";
+	static const char short_options[] = "dn:p:q:rVh";
 	int option;
 	int retval = -EINVAL;
 	struct udevice dev;
@@ -111,6 +114,7 @@ static inline int udev_user(int argc, char **argv)
 	enum query_type query = NONE;
 	char result[NAME_SIZE] = "";
 	char path[NAME_SIZE] = "";
+	char name[NAME_SIZE] = "";
 
 	/* get command line options */
 	while (1) {
@@ -120,6 +124,11 @@ static inline int udev_user(int argc, char **argv)
 
 		dbg("option '%c'", option);
 		switch (option) {
+		case 'n':
+			dbg("udev name: %s\n", optarg);
+			strfieldcpy(name, optarg);
+			break;
+
 		case 'p':
 			dbg("udev path: %s\n", optarg);
 			strfieldcpy(path, optarg);
@@ -148,6 +157,11 @@ static inline int udev_user(int argc, char **argv)
 				break;
 			}
 
+			if (strcmp(optarg, "path") == 0) {
+				query = PATH;
+				break;
+			}
+
 			printf("unknown query type\n");
 			return -EINVAL;
 
@@ -161,7 +175,7 @@ static inline int udev_user(int argc, char **argv)
 				printf("unable to open udev database\n");
 				return -EACCES;
 			}
-			retval = udevdb_dump(print_record);
+			retval = udevdb_call_foreach(print_record);
 			udevdb_exit();
 			return retval;
 
@@ -179,44 +193,63 @@ static inline int udev_user(int argc, char **argv)
 
 	/* process options */
 	if (query != NONE) {
-		if (path[0] == '\0') {
-			printf("query needs device path specified\n");
-			return -EINVAL;
-		}
-
 		retval = udevdb_open_ro();
 		if (retval != 0) {
 			printf("unable to open udev database\n");
 			return -EACCES;
 		}
-		retval = udevdb_get_dev(path, &dev);
-		if (retval == 0) {
-			switch(query) {
-			case NAME:
-				if (root)
-				strfieldcpy(result, udev_root);
-				strncat(result, dev.name, sizeof(result));
-				break;
 
-			case SYMLINK:
-				strfieldcpy(result, dev.symlink);
-				break;
-
-			case GROUP:
-				strfieldcpy(result, dev.group);
-				break;
-
-			case OWNER:
-				strfieldcpy(result, dev.owner);
-				break;
-
-			default:
-				break;
+		if (path[0] != '\0') {
+			retval = udevdb_get_dev(path, &dev);
+			if (retval != 0) {
+				printf("device not found in database\n");
+				goto exit;
 			}
-			printf("%s\n", result);
-		} else {
-			printf("device not found in udev database\n");
+			goto print;
 		}
+
+		if (name[0] != '\0') {
+			retval = udevdb_get_dev_byname(name, path, &dev);
+			if (retval != 0) {
+				printf("device not found in database\n");
+				goto exit;
+			}
+			goto print;
+		}
+
+		printf("query needs device path(-p) or node name(-n) specified\n");
+		goto exit;
+
+print:
+		switch(query) {
+		case NAME:
+			if (root)
+				strfieldcpy(result, udev_root);
+			strncat(result, dev.name, sizeof(result));
+			break;
+
+		case SYMLINK:
+			strfieldcpy(result, dev.symlink);
+			break;
+
+		case GROUP:
+			strfieldcpy(result, dev.group);
+			break;
+
+		case OWNER:
+			strfieldcpy(result, dev.owner);
+			break;
+
+		case PATH:
+			strfieldcpy(result, path);
+			break;
+
+		default:
+			goto exit;
+		}
+		printf("%s\n", result);
+
+exit:
 		udevdb_exit();
 		return retval;
 	}
@@ -227,13 +260,16 @@ static inline int udev_user(int argc, char **argv)
 	}
 
 help:
-	printf("Usage: [-pqrdVh]\n"
+	printf("Usage: [-npqrdVh]\n"
 	       "  -q TYPE  query database for the specified value:\n"
 	       "             'name'    name of device node\n"
 	       "             'symlink' pointing to node\n"
 	       "             'owner'   of node\n"
 	       "             'group'   of node\n"
+	       "             'path'    sysfs device path\n"
 	       "  -p PATH  sysfs device path used for query\n"
+	       "  -n NAME  node name used for query\n"
+	       "\n"
 	       "  -r       print udev root\n"
 	       "  -d       dump whole database\n"
 	       "  -V       print udev version\n"

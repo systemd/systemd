@@ -143,25 +143,62 @@ int udevdb_open_ro(void)
 	return 0;
 }
 
-void (*user_record_callback) (char *path, struct udevice *dev);
+static int (*user_record_callback) (char *path, struct udevice *dev);
 
 static int traverse_callback(TDB_CONTEXT *tdb, TDB_DATA key, TDB_DATA dbuf, void *state)
 {
-	user_record_callback((char*) key.dptr, (struct udevice*) dbuf.dptr);
-	return 0;
+	return user_record_callback((char*) key.dptr, (struct udevice*) dbuf.dptr);
 }
 
 /**
- * udevdb_dump: dumps whole database by passing record data to user function
+ * udevdb_call_foreach: dumps whole database by passing record data to user function
  * @user_record_handler: user function called for every record in the database
  */
-int udevdb_dump(void (*user_record_handler) (char *path, struct udevice *dev))
+int udevdb_call_foreach(int (*user_record_handler) (char *path, struct udevice *dev))
 {
+	int retval = 0;
+
 	if (user_record_handler == NULL) {
 		dbg("invalid user record handling function");
 		return -EINVAL;
 	}
 	user_record_callback = user_record_handler;
-	tdb_traverse(udevdb, traverse_callback, NULL);
+	retval = tdb_traverse(udevdb, traverse_callback, NULL);
+	if (retval < 0)
+		return -ENODEV;
+	else
+		return 0;
+}
+
+static struct udevice *find_dev;
+static char *find_path;
+static const char *find_name;
+static int find_found;
+
+static int find_device_by_name(char *path, struct udevice *dev)
+{
+	if (strncmp(dev->name, find_name, sizeof(dev->name)) == 0) {
+		memcpy(find_dev, dev, sizeof(*find_dev));
+		strncpy(find_path, path, NAME_SIZE);
+		find_found = 1;
+		/* stop search */
+		return 1;
+	}
 	return 0;
+}
+
+/**
+ * udevdb_get_dev_byname: search device with given name by traversing the whole database
+ */
+int udevdb_get_dev_byname(const char *name, char *path, struct udevice *dev)
+{
+	find_found = 0;
+	find_path = path;
+	find_dev = dev;
+	find_name = name;
+	udevdb_call_foreach(find_device_by_name);
+	if (find_found == 1)
+		return 0;
+	else
+		return -1;
 }

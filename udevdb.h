@@ -12,10 +12,11 @@
 extern void udevdb_exit(void);
 extern int udevdb_init(int init_flag);
 extern int udevdb_open_ro(void);
-extern int udevdb_dump(void (*user_record_handler) (char *path, struct udevice *dev));
+extern int udevdb_call_foreach(int (*user_record_handler) (char *path, struct udevice *dev));
 
 extern int udevdb_add_dev(const char *path, const struct udevice *dev);
 extern int udevdb_get_dev(const char *path, struct udevice *dev);
 extern int udevdb_delete_dev(const char *path);
+extern int udevdb_get_dev_byname(const char *name, char *path, struct udevice *dev);
 
 #endif /* _UDEVDB_H_ */
