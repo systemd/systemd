@@ -348,11 +348,10 @@ exit:
 /* wait for the "dev" file to show up in the directory in sysfs.
  * If it doesn't happen in about 10 seconds, give up.
  */
-#define SECONDS_TO_WAIT_FOR_FILE	10
 static int sleep_for_file(const char *path, char* file)
 {
 	char filename[SYSFS_PATH_MAX + 6];
-	int loop = SECONDS_TO_WAIT_FOR_FILE;
+	int loop = WAIT_FOR_FILE_SECONDS * WAIT_FOR_FILE_RETRY_FREQ;
 	int retval;
 
 	strfieldcpy(filename, sysfs_path);
@@ -368,7 +367,7 @@ static int sleep_for_file(const char *path, char* file)
 			goto exit;
 
 		/* sleep to give the kernel a chance to create the dev file */
-		sleep(1);
+		usleep(1000 * 1000 / WAIT_FOR_FILE_RETRY_FREQ);
 	}
 	retval = -ENODEV;
 exit:

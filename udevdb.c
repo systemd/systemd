@@ -42,12 +42,15 @@
 #include "tdb/tdb.h"
 
 static TDB_CONTEXT *udevdb;
-
+sig_atomic_t gotalarm;
 
 int udevdb_add_dev(const char *path, const struct udevice *dev)
 {
 	TDB_DATA key, data;
 	char keystr[SYSFS_PATH_MAX];
+
+	if (udevdb == NULL)
+		return -1;
 
 	if ((path == NULL) || (dev == NULL))
 		return -ENODEV;
@@ -68,6 +71,9 @@ int udevdb_get_dev(const char *path, struct udevice *dev)
 {
 	TDB_DATA key, data;
 
+	if (udevdb == NULL)
+		return -1;
+
 	if (path == NULL)
 		return -ENODEV;
 
@@ -87,6 +93,9 @@ int udevdb_delete_dev(const char *path)
 {
 	TDB_DATA key;
 	char keystr[SYSFS_PATH_MAX];
+
+	if (udevdb == NULL)
+		return -1;
 
 	if (path == NULL)
 		return -EINVAL;
@@ -120,6 +129,8 @@ int udevdb_init(int init_flag)
 {
 	if (init_flag != UDEVDB_DEFAULT && init_flag != UDEVDB_INTERNAL)
 		return -EINVAL;
+
+	tdb_set_lock_alarm(&gotalarm);
 
 	udevdb = tdb_open(udev_db_filename, 0, init_flag, O_RDWR | O_CREAT, 0644);
 	if (udevdb == NULL) {
@@ -159,6 +170,9 @@ static int traverse_callback(TDB_CONTEXT *tdb, TDB_DATA key, TDB_DATA dbuf, void
 int udevdb_call_foreach(int (*user_record_handler) (char *path, struct udevice *dev))
 {
 	int retval = 0;
+
+	if (udevdb == NULL)
+		return -1;
 
 	if (user_record_handler == NULL) {
 		dbg("invalid user record handling function");

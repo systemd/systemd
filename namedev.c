@@ -29,7 +29,6 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
-#include <time.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/sysinfo.h>
@@ -353,7 +352,6 @@ static struct bus_file {
 	{}
 };
 
-#define SECONDS_TO_WAIT_FOR_FILE	10
 static void wait_for_device_to_initialize(struct sysfs_device *sysfs_device)
 {
 	/* sleep until we see the file for this specific bus type show up this
@@ -367,14 +365,14 @@ static void wait_for_device_to_initialize(struct sysfs_device *sysfs_device)
 	struct bus_file *b = &bus_files[0];
 	struct sysfs_attribute *tmpattr;
 	int found = 0;
-	int loop = SECONDS_TO_WAIT_FOR_FILE;
+	int loop = WAIT_FOR_FILE_SECONDS * WAIT_FOR_FILE_RETRY_FREQ;
 
 	while (1) {
 		if (b->bus == NULL) {
 			if (!found)
 				break;
-			/* sleep to give the kernel a chance to create the file */
-			sleep(1);
+			/* give the kernel a chance to create the file */
+			usleep(1000 * 1000 / WAIT_FOR_FILE_RETRY_FREQ);
 			--loop;
 			if (loop == 0)
 				break;
@@ -394,7 +392,8 @@ static void wait_for_device_to_initialize(struct sysfs_device *sysfs_device)
 	}
 	if (!found)
 		dbg("did not find bus type '%s' on list of bus_id_files, "
-		    "contact greg@kroah.com", sysfs_device->bus);
+		    "please report to <linux-hotplug-devel@lists.sourceforge.net>",
+		    sysfs_device->bus);
 exit:
 	return; /* here to prevent compiler warning... */
 }
@@ -680,7 +679,6 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 {
 	struct sysfs_device *sysfs_device;
 	struct sysfs_class_device *class_dev_parent;
-	struct timespec tspec;
 	int loop;
 
 	/* Figure out where the device symlink is at.  For char devices this will
@@ -696,16 +694,14 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 	if (class_dev_parent != NULL) 
 		dbg("given class device has a parent, use this instead");
 
-	tspec.tv_sec = 0;
-	tspec.tv_nsec = 10000000;  /* sleep 10 millisec */
-	loop = 10;
+	loop = WAIT_FOR_FILE_SECONDS * WAIT_FOR_FILE_RETRY_FREQ;
 	while (loop--) {
 		if (udev_sleep) {
 			if (whitelist_search(class_dev)) {
 				sysfs_device = NULL;
 				goto exit;
 			}
-			nanosleep(&tspec, NULL);
+			usleep(1000 * 1000 / WAIT_FOR_FILE_RETRY_FREQ);
 		}
 
 		if (class_dev_parent)
@@ -727,11 +723,9 @@ device_found:
 		if (sysfs_device->bus[0] != '\0')
 			goto bus_found;
 
-		loop = 10;
-		tspec.tv_nsec = 10000000;
 		while (loop--) {
 			if (udev_sleep)
-				nanosleep(&tspec, NULL);
+				usleep(1000 * 1000 / WAIT_FOR_FILE_RETRY_FREQ);
 			sysfs_get_device_bus(sysfs_device);
 			
 			if (sysfs_device->bus[0] != '\0')

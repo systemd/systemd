@@ -36,6 +36,9 @@
 #include "namedev.h"
 #include "udevdb.h"
 
+/* timeout flag for udevdb */
+extern sig_atomic_t gotalarm;
+
 /* global variables */
 char **main_argv;
 char **main_envp;
@@ -58,6 +61,10 @@ void log_message(int level, const char *format, ...)
 asmlinkage static void sig_handler(int signum)
 {
 	switch (signum) {
+		case SIGALRM:
+			gotalarm = 1;
+			info("error: timeout reached, event probably not handled correctly");
+			break;
 		case SIGINT:
 		case SIGTERM:
 			udevdb_exit();
@@ -94,7 +101,8 @@ int main(int argc, char *argv[], char *envp[])
 
 	dbg("version %s", UDEV_VERSION);
 
-	/* initialize our configuration */
+	init_logging("udev");
+
 	udev_init_config();
 
 	if (strstr(argv[0], "udevstart")) {
@@ -146,16 +154,19 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* set signal handlers */
 	act.sa_handler = sig_handler;
+
 	sigemptyset (&act.sa_mask);
-	act.sa_flags = SA_RESTART;
+	/* alarm must interrupt syscalls*/
+	sigaction(SIGALRM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGTERM, &act, NULL);
 
+	/* trigger timout to interrupt blocking syscalls */
+	alarm(ALARM_TIMEOUT);
+
 	/* initialize udev database */
-	if (udevdb_init(UDEVDB_DEFAULT) != 0) {
-		dbg("unable to initialize database");
-		goto exit;
-	}
+	if (udevdb_init(UDEVDB_DEFAULT) != 0)
+		info("error: unable to initialize database, continuing without database");
 
 	switch(act_type) {
 	case UDEVSTART:

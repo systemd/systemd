@@ -26,6 +26,9 @@
 #include <sys/param.h>
 #include "libsysfs/sysfs/libsysfs.h"
 
+#define ALARM_TIMEOUT			30
+#define WAIT_FOR_FILE_SECONDS		10
+#define WAIT_FOR_FILE_RETRY_FREQ	10
 #define COMMENT_CHARACTER		'#'
 
 #define NAME_SIZE			256

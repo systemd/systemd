@@ -101,11 +101,11 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 	return -1;
 }
 
-/* skip waiting for physical device */
+/* check if we need to wait for a physical device */
 static int class_device_expect_no_device_link(struct sysfs_class_device *class_dev)
 {
-	/* List of devices without a "device" symlink
-	 * set .device to NULL to accept all devices in that subsystem */
+	/* list of devices without a "device" symlink to the physical device
+	 * if device is set to NULL, no devices in that subsystem has a link */
 	static struct class_device {
 		char *subsystem;
 		char *device;
@@ -160,10 +160,9 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 	struct class_device *classdevice;
 	int len;
 
-	/* look if we want to look for another file instead of "dev" */
 	for (classdevice = class_device; classdevice->subsystem != NULL; classdevice++) {
 		if (strcmp(class_dev->classname, classdevice->subsystem) == 0) {
-			/* if device is NULL, all devices in this class are ok */
+			/* see if no device in this class is expected to have a device-link */
 			if (classdevice->device == NULL)
 				return 1;
 
@@ -173,11 +172,11 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 			if (strncmp(class_dev->name, classdevice->device, len) != 0)
 				continue;
 
-			/* exact match */
+			/* exact name match */
 			if (strlen(class_dev->name) == len)
 				return 1;
 
-			/* instance numbers are matching too */
+			/* name match with instance number */
 			if (isdigit(class_dev->name[len]))
 				return 1;
 		}

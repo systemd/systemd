@@ -45,7 +45,12 @@
 #define STANDALONE
 #define TDB_DEBUG
 #define HAVE_MMAP	1
-
+/* this should prevent deadlocks loops on corrupt databases
+ * we've discovered. Most deadlocks happend by iterating over the
+ * list of entries with the same hash value. */
+#define LOOP_MAX	100000
+#define TDB_LOG(x) TDB_LOG_UDEV x
+#define TDB_LOG_UDEV(tdb, level, format, arg...) info(format, ##arg)
 
 #ifdef STANDALONE
 #if HAVE_CONFIG_H
@@ -66,6 +71,7 @@
 #include "tdb.h"
 #include "spinlock.h"
 #include "../udev_lib.h"
+#include "../logging.h"
 #else
 #include "includes.h"
 #endif
@@ -89,7 +95,9 @@
 /* NB assumes there is a local variable called "tdb" that is the
  * current context, also takes doubly-parenthesized print-style
  * argument. */
+#ifndef TDB_LOG
 #define TDB_LOG(x) (tdb->log_fn?((tdb->log_fn x),0) : 0)
+#endif
 
 /* lock offsets */
 #define GLOBAL_LOCK 0
@@ -268,7 +276,7 @@ static int tdb_lock(TDB_CONTEXT *tdb, int list, int ltype)
 	if (tdb->locked[list+1].count == 0) {
 		if (!tdb->read_only && tdb->header.rwlocks) {
 			if (tdb_spinlock(tdb, list, ltype)) {
-				TDB_LOG((tdb, 0, "tdb_lock spinlock failed on list ltype=%d\n", 
+				TDB_LOG((tdb, 0, "tdb_lock spinlock failed on list %d ltype=%d\n", 
 					   list, ltype));
 				return -1;
 			}
@@ -481,7 +489,7 @@ static int rec_free_read(TDB_CONTEXT *tdb, tdb_off off, struct list_struct *rec)
 	if (rec->magic == TDB_MAGIC) {
 		/* this happens when a app is showdown while deleting a record - we should
 		   not completely fail when this happens */
-		TDB_LOG((tdb, 0,"rec_free_read non-free magic at offset=%d - fixing\n", 
+		TDB_LOG((tdb, 0,"rec_free_read non-free magic 0x%x at offset=%d - fixing\n", 
 			 rec->magic, off));
 		rec->magic = TDB_FREE_MAGIC;
 		if (tdb_write(tdb, off, rec, sizeof(*rec)) == -1)
@@ -617,8 +625,10 @@ int tdb_printfreelist(TDB_CONTEXT *tdb)
 static int remove_from_freelist(TDB_CONTEXT *tdb, tdb_off off, tdb_off next)
 {
 	tdb_off last_ptr, i;
+	int maxloop;
 
 	/* read in the freelist top */
+	maxloop = LOOP_MAX;
 	last_ptr = FREELIST_TOP;
 	while (ofs_read(tdb, last_ptr, &i) != -1 && i != 0) {
 		if (i == off) {
@@ -627,6 +637,12 @@ static int remove_from_freelist(TDB_CONTEXT *tdb, tdb_off off, tdb_off next)
 		}
 		/* Follow chain (next offset is at start of record) */
 		last_ptr = i;
+
+		maxloop--;
+		if (maxloop == 0) {
+			TDB_LOG((tdb, 0, "remove_from_freelist: maxloop reached; corrupt database!\n"));
+			return TDB_ERRCODE(TDB_ERR_CORRUPT, -1);
+		}
 	}
 	TDB_LOG((tdb, 0,"remove_from_freelist: not on list at off=%d\n", off));
 	return TDB_ERRCODE(TDB_ERR_CORRUPT, -1);
@@ -853,6 +869,7 @@ static tdb_off tdb_allocate(TDB_CONTEXT *tdb, tdb_len length,
 {
 	tdb_off rec_ptr, last_ptr, newrec_ptr;
 	struct list_struct newrec;
+	int maxloop;
 
 	if (tdb_lock(tdb, -1, F_WRLCK) == -1)
 		return 0;
@@ -868,6 +885,7 @@ static tdb_off tdb_allocate(TDB_CONTEXT *tdb, tdb_len length,
 		goto fail;
 
 	/* keep looking until we find a freelist record big enough */
+	maxloop = LOOP_MAX;
 	while (rec_ptr) {
 		if (rec_free_read(tdb, rec_ptr, rec) == -1)
 			goto fail;
@@ -919,6 +937,12 @@ static tdb_off tdb_allocate(TDB_CONTEXT *tdb, tdb_len length,
 		/* move to the next record */
 		last_ptr = rec_ptr;
 		rec_ptr = rec->next;
+
+		maxloop--;
+		if (maxloop == 0) {
+			TDB_LOG((tdb, 0, "tdb_allocate: maxloop reached; corrupt database!\n"));
+			return TDB_ERRCODE(TDB_ERR_CORRUPT, 0);
+		}
 	}
 	/* we didn't find enough space. See if we can expand the
 	   database and if we can then try again */
@@ -981,12 +1005,14 @@ static tdb_off tdb_find(TDB_CONTEXT *tdb, TDB_DATA key, u32 hash,
 			struct list_struct *r)
 {
 	tdb_off rec_ptr;
-	
+	int maxloop;
+
 	/* read in the hash top */
 	if (ofs_read(tdb, TDB_HASH_TOP(hash), &rec_ptr) == -1)
 		return 0;
 
 	/* keep looking until we find the right record */
+	maxloop = LOOP_MAX;
 	while (rec_ptr) {
 		if (rec_read(tdb, rec_ptr, r) == -1)
 			return 0;
@@ -1006,6 +1032,12 @@ static tdb_off tdb_find(TDB_CONTEXT *tdb, TDB_DATA key, u32 hash,
 			SAFE_FREE(k);
 		}
 		rec_ptr = r->next;
+
+		maxloop--;
+		if (maxloop == 0) {
+			TDB_LOG((tdb, 0, "tdb_find maxloop reached; corrupt database!\n"));
+			return TDB_ERRCODE(TDB_ERR_CORRUPT, 0);
+		}
 	}
 	return TDB_ERRCODE(TDB_ERR_NOEXIST, 0);
 }
@@ -1188,6 +1220,7 @@ static int do_delete(TDB_CONTEXT *tdb, tdb_off rec_ptr, struct list_struct*rec)
 {
 	tdb_off last_ptr, i;
 	struct list_struct lastrec;
+	int maxloop;
 
 	if (tdb->read_only) return -1;
 
@@ -1202,9 +1235,18 @@ static int do_delete(TDB_CONTEXT *tdb, tdb_off rec_ptr, struct list_struct*rec)
 	/* find previous record in hash chain */
 	if (ofs_read(tdb, TDB_HASH_TOP(rec->full_hash), &i) == -1)
 		return -1;
-	for (last_ptr = 0; i != rec_ptr; last_ptr = i, i = lastrec.next)
+
+	maxloop = LOOP_MAX;
+	for (last_ptr = 0; i != rec_ptr; last_ptr = i, i = lastrec.next) {
 		if (rec_read(tdb, i, &lastrec) == -1)
 			return -1;
+
+		maxloop--;
+		if (maxloop == 0) {
+			TDB_LOG((tdb, 0, "(tdb)do_delete: maxloop reached; corrupt database!\n"));
+			return TDB_ERRCODE(TDB_ERR_CORRUPT, -1);
+		}
+	}
 
 	/* unlink it: next ptr is at start of record. */
 	if (last_ptr == 0)
@@ -1789,8 +1831,8 @@ TDB_CONTEXT *tdb_open_ex(const char *name, int hash_size, int tdb_flags,
 	/* Is it already in the open list?  If so, fail. */
 	if (tdb_already_open(st.st_dev, st.st_ino)) {
 		TDB_LOG((tdb, 2, "tdb_open_ex: "
-			 "%s (%d,%d) is already open in this process\n",
-			 name, st.st_dev, st.st_ino));
+			 "%s (%d:%d,%ld) is already open in this process\n",
+			 name, major(st.st_dev), minor(st.st_dev), st.st_ino));
 		errno = EBUSY;
 		goto fail;
 	}

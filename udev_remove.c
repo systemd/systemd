@@ -109,6 +109,7 @@ static int delete_node(struct udevice *dev)
 	int i;
 	char *pos;
 	int len;
+	int num;
 
 	strfieldcpy(filename, udev_root);
 	strfieldcat(filename, dev->name);
@@ -118,10 +119,15 @@ static int delete_node(struct udevice *dev)
 	if (retval)
 		return retval;
 
-	/* remove partition nodes */
-	if (dev->partitions > 0) {
-		info("removing partitions '%s[1-%i]'", filename, dev->partitions);
-		for (i = 1; i <= dev->partitions; i++) {
+	/* remove all_partitions nodes */
+	num = dev->partitions;
+	if (num > 0) {
+		info("removing all_partitions '%s[1-%i]'", filename, num);
+		if (num > PARTITIONS_COUNT) {
+			info("garbage from udev database, skip all_partitions removal");
+			return -1;
+		}
+		for (i = 1; i <= num; i++) {
 			strfieldcpy(partitionname, filename);
 			strintcat(partitionname, i);
 			secure_unlink(partitionname);
