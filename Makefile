@@ -200,8 +200,7 @@ OBJS =	udev_config.o	\
 	$(SYSFS)	\
 	$(TDB)
 
-HEADERS = $(GEN_HEADERS)	\
-		udev.h		\
+HEADERS =	udev.h		\
 		namedev.h	\
 		udev_version.h	\
 		udev_dbus.h	\
@@ -243,13 +242,14 @@ $(LOCAL_CFG_DIR)/udev.conf:
 
 
 $(OBJS): $(GEN_HEADERS)
+udev.o: $(GEN_HEADERS)
 
-$(ROOT): udev.o $(OBJS) $(HEADERS)
+$(ROOT): udev.o $(OBJS) $(HEADERS) $(GEN_HEADERS)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
 $(HELPERS): udevinfo.o $(OBJS) $(HEADERS)
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o logging.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
 $(DAEMON): udevd.h udevd.o udevd.o logging.o
