@@ -1,3 +1,63 @@
+Summary of changes from v050 to v051
+============================================
+
+<roland:digitalvampire.org>:
+  o This fixes a silly mistake in how udevinfo prints the major and minor numbers (right now it prints the minor next to "MAJOR" and the major next to "MINOR" ;)
+
+<tklauser:access.unizh.chbk>:
+  o I tried to compile udev 050plus with the GCC 4.0 snapshot 200412119 and got two errors about possibly uninitialized structs, so I fixed this. 
+
+Christian Bornträger:
+  o udev_volume_id: fix -d option
+
+Greg Kroah-Hartman:
+  o gentoo fb permission fix
+  o fix gcc 2.96 issue in libsysfs
+  o remove the lfs startup script on request of the author
+  o clean up the aoe char device rules, and delete the block one as it's not needed
+  o add aoe block and char device rules to the gentoo rule file
+  o fix udev_volume_id build error
+
+Hannes Reinecke:
+  o rearrange link order in Makefile
+
+Kay Sievers:
+  o udev_volume_id: new version of volume_id
+  o klibc: update to version 0.198
+  o udev_volume_id: fix FAT label reading
+  o klibc: update to version 0.196
+  o udevd: throttle the forking of processes
+  o udevd: add possible initialization of expected_seqnum
+  o udevd: it's obviously not the brightest idea to exit a device node manager if it doesn't find /dev/null
+  o udevd: separate socket handling to prepare for other event sources
+  o udevd: support -d switch to become a daemon
+  o udev_volume_id: version 27
+  o udevd: split up message receiving an queueing
+  o remove useless warning if udev.conf contains keys not read by udev itself
+  o improve event sequence serialization
+  o remove udevsend syslog noise on udevd startup
+  o limit the initial timeout of the udevd event handling
+  o correct detection of hotplug.d/ udevsend loop
+  o correct log statement
+  o remove default_* permissions from udev.conf file
+  o update Fedora config files and add some more tests
+  o allow permissions only rules
+  o add SUBSYSTEM rule to catch all block devices and apply the disk permissions
+  o update Fedora config files
+  o handle renamed network interfaces properly if we manage hotplug.d/
+  o allow multiline rules by backslash at the end of the line
+  o add OnStream tape drive rules
+  o simplify rules file by setting default mode to 0660
+  o simplify permission application
+  o I broke the extras/ again. Add simple build test script now
+  o Merge vrfy.org:/home/kay/src/udev into vrfy.org:/home/kay/src/udev.kay
+  o initial merge of fedora udev.permissions into udev.rules
+  o remove permissions file mentioning from the udev man page
+  o fix some typos in gentoo's udev.rules introduced by the merge
+
+Michael Buesch:
+  o The attached patch fixes the code path if namedev_name_device() fails
+
 Summary of changes from v049 to v050
 ============================================
 
