@@ -59,6 +59,8 @@ static int start_daemon(void)
 {
 	pid_t pid;
 	pid_t child_pid;
+	char *const argv[] = { "udevd", NULL };
+	char *const envp[] = { NULL };
 
 	pid = fork();
 	switch (pid) {
@@ -67,9 +69,9 @@ static int start_daemon(void)
 		child_pid = fork();
 		switch (child_pid) {
 		case 0:
-			/* daemon */
+			/* daemon with empty environment */
 			close(sock);
-			execl(UDEVD_BIN, "udevd", NULL);
+			execve(UDEVD_BIN, argv, envp);
 			dbg("exec of daemon failed");
 			_exit(1);
 		case -1:
@@ -90,13 +92,14 @@ static int start_daemon(void)
 
 static void run_udev(const char *subsystem)
 {
+	char *const argv[] = { "udev", (char *)subsystem, NULL };
 	pid_t pid;
 
 	pid = fork();
 	switch (pid) {
 	case 0:
 		/* child */
-		execl(UDEV_BIN, "udev", subsystem, NULL);
+		execv(UDEV_BIN, argv);
 		dbg("exec of child failed");
 		_exit(1);
 		break;
@@ -116,26 +119,13 @@ int main(int argc, char *argv[], char *envp[])
 	int loop;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
-	const char *subsystem_argv;
-	int subsystem_env = 0;
 	int bufpos = 0;
 	int retval = 1;
 	int started_daemon = 0;
+	const char *subsystem = NULL;
 
 	logging_init("udevsend");
 	dbg("version %s", UDEV_VERSION);
-
-	subsystem_argv = argv[1];
-	if (subsystem_argv == NULL) {
-		dbg("no subsystem");
-		goto exit;
-	}
-
-	/* prevent loops in the scripts we execute */
-	if (getenv("MANAGED_EVENT") != NULL) {
-		dbg("seems that the event source is not the kernel, just exit");
-		goto exit;
-	}
 
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (sock == -1) {
@@ -150,7 +140,6 @@ int main(int argc, char *argv[], char *envp[])
 	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 
 	memset(&usend_msg, 0x00, sizeof(struct udevsend_msg));
-
 	strcpy(usend_msg.magic, UDEV_MAGIC);
 
 	/* copy all keys to send buffer */
@@ -165,17 +154,24 @@ int main(int argc, char *argv[], char *envp[])
 			continue;
 		}
 
-		/* older kernels do not have the SUBSYSTEM in the environment */
+		/* prevent loops in the scripts we execute */
+		if (strncmp(key, "MANAGED_EVENT=", 14) == 0) {
+			dbg("seems that the event source is not the kernel, just exit");
+			goto exit;
+		}
+
+		/* remember the SUBSYSTEM */
 		if (strncmp(key, "SUBSYSTEM=", 10) == 0)
-			subsystem_env = 1;
+			subsystem = &key[10];
 
 		dbg("add '%s' to env[%i] buffer", key, i);
 		strcpy(&usend_msg.envbuf[bufpos], key);
 		bufpos += keylen + 1;
 	}
-	if (!subsystem_env) {
-		bufpos += sprintf(&usend_msg.envbuf[bufpos], "SUBSYSTEM=%s", subsystem_argv) + 1;
-		dbg("add 'SUBSYSTEM=%s' to env[%i] buffer from argv", subsystem_argv, i);
+	/* older kernels passed the SUBSYSTEM only as the first argument */
+	if (!subsystem && argc == 2) {
+		bufpos += sprintf(&usend_msg.envbuf[bufpos], "SUBSYSTEM=%s", argv[1]) + 1;
+		dbg("add 'SUBSYSTEM=%s' to env[%i] buffer from argv", argv[1], i);
 	}
 
 	usend_msg_len = offsetof(struct udevsend_msg, envbuf) + bufpos;
@@ -212,7 +208,7 @@ int main(int argc, char *argv[], char *envp[])
 
 fallback:
 	info("unable to connect to event daemon, try to call udev directly");
-	run_udev(subsystem_argv);
+	run_udev(subsystem);
 
 exit:
 	if (sock != -1)

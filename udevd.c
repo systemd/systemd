@@ -124,6 +124,7 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 /* forks event and removes event from run queue when finished */
 static void udev_run(struct hotplug_msg *msg)
 {
+	char *const argv[] = { "udev", msg->subsystem, NULL };
 	pid_t pid;
 
 	pid = fork();
@@ -132,7 +133,7 @@ static void udev_run(struct hotplug_msg *msg)
 		/* child */
 		close(udevsendsock);
 		logging_close();
-		execle(udev_bin, "udev", msg->subsystem, NULL, msg->envp);
+		execve(udev_bin, argv, msg->envp);
 		dbg("exec of child failed");
 		_exit(1);
 		break;
