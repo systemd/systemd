@@ -87,7 +87,7 @@ static int create_path(char *file)
 		*pos = 0x00;
 		if (stat(p, &stats)) {
 			retval = mkdir(p, 0755);
-			if (retval) {
+			if (retval != 0) {
 				dbg("mkdir(%s) failed with error '%s'",
 				    p, strerror(errno));
 				return retval;
@@ -145,17 +145,17 @@ static int create_node(struct udevice *dev)
 	info("creating device node '%s'", filename);
 	dbg("mknod(%s, %#o, %u, %u)", filename, dev->mode, dev->major, dev->minor);
 	retval = mknod(filename, dev->mode, res);
-	if (retval)
+	if (retval != 0)
 		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
 		    filename, dev->mode, dev->major, dev->minor, strerror(errno));
 
 	dbg("chmod(%s, %#o)", filename, dev->mode);
 	retval = chmod(filename, dev->mode);
-	if (retval)
+	if (retval != 0)
 		dbg("chmod(%s, %#o) failed with error '%s'",
 		    filename, dev->mode, strerror(errno));
 
-	if (dev->owner[0]) {
+	if (dev->owner[0] != '\0') {
 		char *endptr;
 		unsigned long id = strtoul(dev->owner, &endptr, 10);
 		if (endptr[0] == '\0')
@@ -169,7 +169,7 @@ static int create_node(struct udevice *dev)
 		}
 	}
 
-	if (dev->group[0]) {
+	if (dev->group[0] != '\0') {
 		char *endptr;
 		unsigned long id = strtoul(dev->group, &endptr, 10);
 		if (endptr[0] == '\0')
@@ -183,16 +183,16 @@ static int create_node(struct udevice *dev)
 		}
 	}
 
-	if (uid || gid) {
+	if (uid != 0 || gid != 0) {
 		dbg("chown(%s, %u, %u)", filename, uid, gid);
 		retval = chown(filename, uid, gid);
-		if (retval)
+		if (retval != 0)
 			dbg("chown(%s, %u, %u) failed with error '%s'",
 			    filename, uid, gid, strerror(errno));
 	}
 
 	/* create symlink if requested */
-	if (dev->symlink[0]) {
+	if (dev->symlink[0] != '\0') {
 		symlinks = dev->symlink;
 		while (1) {
 			linkname = strsep(&symlinks, " ");
@@ -214,13 +214,13 @@ static int create_node(struct udevice *dev)
 					tail = i+1;
 				i++;
 			}
-			while (linkname[i]) {
+			while (linkname[i] != '\0') {
 				if (linkname[i] == '/')
 					strcat(linktarget, "../");
 				i++;
 			}
 
-			if (*linktarget == '\0')
+			if (linktarget[0] == '\0')
 				strcpy(linktarget, "./");
 			strcat(linktarget, &dev->name[tail]);
 
@@ -236,7 +236,7 @@ static int create_node(struct udevice *dev)
 
 			dbg("symlink(%s, %s)", linktarget, filename);
 			retval = symlink(linktarget, filename);
-			if (retval)
+			if (retval != 0)
 				dbg("symlink(%s, %s) failed with error '%s'",
 				    linktarget, filename, strerror(errno));
 		}
@@ -285,7 +285,7 @@ static int sleep_for_dev(char *path)
 
 		dbg("looking for '%s'", filename);
 		retval = stat(filename, &buf);
-		if (!retval)
+		if (retval == 0)
 			goto exit;
 
 		/* sleep to give the kernel a chance to create the dev file */
@@ -311,7 +311,7 @@ int udev_add_device(char *path, char *subsystem)
 		dev.type = 'c';
 
 	retval = sleep_for_dev(path);
-	if (retval)
+	if (retval != 0)
 		goto exit;
 
 	class_dev = get_class_dev(path);
@@ -319,13 +319,13 @@ int udev_add_device(char *path, char *subsystem)
 		goto exit;
 
 	retval = get_major_minor(class_dev, &dev);
-	if (retval) {
+	if (retval != 0) {
 		dbg("get_major_minor failed");
 		goto exit;
 	}
 
 	retval = namedev_name_device(class_dev, &dev);
-	if (retval)
+	if (retval != 0)
 		goto exit;
 
 	retval = udevdb_add_dev(path, &dev);

@@ -589,12 +589,12 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 		if (dev->bus[0] != '\0') {
 			if (sysfs_device == NULL) {
 				dbg("device has no bus");
-				goto no_good;
+				goto try_parent;
 			}
 			dbg("check for " FIELD_BUS " dev->bus='%s' sysfs_device->bus='%s'", dev->bus, sysfs_device->bus);
 			if (strcmp_pattern(dev->bus, sysfs_device->bus) != 0) {
 				dbg(FIELD_BUS " is not matching");
-				goto no_good;
+				goto try_parent;
 			} else {
 				dbg(FIELD_BUS " matches");
 			}
@@ -605,7 +605,7 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 			dbg("check for " FIELD_KERNEL " dev->kernel='%s' class_dev->name='%s'", dev->kernel, class_dev->name);
 			if (strcmp_pattern(dev->kernel, class_dev->name) != 0) {
 				dbg(FIELD_KERNEL " is not matching");
-				goto no_good;
+				goto try_parent;
 			} else {
 				dbg(FIELD_KERNEL " matches");
 			}
@@ -616,7 +616,7 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 			dbg("check " FIELD_ID);
 			if (match_id(dev, class_dev, sysfs_device) != 0) {
 				dbg(FIELD_ID " is not matching");
-				goto no_good;
+				goto try_parent;
 			} else {
 				dbg(FIELD_ID " matches");
 			}
@@ -627,7 +627,7 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 			dbg("check " FIELD_PLACE);
 			if (match_place(dev, class_dev, sysfs_device) != 0) {
 				dbg(FIELD_PLACE " is not matching");
-				goto no_good;
+				goto try_parent;
 			} else {
 				dbg(FIELD_PLACE " matches");
 			}
@@ -638,7 +638,7 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 			dbg("check " FIELD_SYSFS " pairs");
 			if (match_sysfs_pairs(dev, class_dev, sysfs_device) != 0) {
 				dbg(FIELD_SYSFS " is not matching");
-				goto no_good;
+				goto try_parent;
 			} else {
 				dbg(FIELD_SYSFS " matches");
 			}
@@ -650,7 +650,7 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 			apply_format(udev, dev->program);
 			if (execute_program(dev->program, udev->program_result, NAME_SIZE) != 0) {
 				dbg(FIELD_PROGRAM " returned nozero");
-				goto no_good;
+				goto try_parent;
 			} else {
 				dbg(FIELD_PROGRAM " returned successful");
 			}
@@ -663,22 +663,17 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 			    dev->result, udev->program_result);
 			if (strcmp_pattern(dev->result, udev->program_result) != 0) {
 				dbg(FIELD_RESULT " is not matching");
-				goto no_good;
+				goto try_parent;
 			} else {
 				dbg(FIELD_RESULT " matches");
 			}
 		}
 
-		/* check if we are instructed to ignore this device */
-		if (dev->name[0] == '\0') {
-			dbg("instructed to ignore this device");
-			return -1;
-		}
-
 		/* Yeah, we matched! */
 		return 0;
 
-no_good:
+try_parent:
+		dbg("try parent sysfs device");
 		sysfs_device = sysfs_get_device_parent(sysfs_device);
 		if (sysfs_device == NULL)
 			return -ENODEV;
@@ -722,11 +717,15 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 	/* look for a matching rule to apply */
 	list_for_each_entry(dev, &config_device_list, node) {
 		dbg("process rule");
-
 		if (match_rule(dev, class_dev, udev, sysfs_device) == 0) {
-			/* Yup, this rule belongs to us! */
+			if (dev->name[0] == '\0') {
+				info("configured rule in '%s' at line %i applied, '%s' is ignored",
+				     udev_rules_filename, dev->config_line, udev->kernel_name);
+				return -1;
+			}
+
 			info("configured rule in '%s' at line %i applied, '%s' becomes '%s'",
-			    udev_rules_filename, dev->config_line, udev->kernel_name, dev->name);
+			     udev_rules_filename, dev->config_line, udev->kernel_name, dev->name);
 			strfieldcpy(udev->name, dev->name);
 			strfieldcpy(udev->symlink, dev->symlink);
 			goto found;
