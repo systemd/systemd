@@ -9,9 +9,8 @@
 #define DBUS_API_SUBJECT_TO_CHANGE
 #include <dbus/dbus.h>
 
-#include "udev.h"
-#include "udev_lib.h"
-#include "logging.h"
+#include "../../udev_lib.h"
+#include "../../logging.h"
 
 #ifdef LOG
 unsigned char logname[LOGNAME_SIZE];
