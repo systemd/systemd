@@ -30,14 +30,23 @@
 #define SEND_WAIT_MAX_SECONDS		3
 #define SEND_WAIT_LOOP_PER_SECOND	10
 
+/* environment buffer, should match the kernel's size in lib/kobject_uevent.h */
+#define HOTPLUG_BUFFER_SIZE		1024
+#define HOTPLUG_NUM_ENVP		32
+
+struct udevsend_msg {
+	char magic[20];
+	char envbuf[HOTPLUG_BUFFER_SIZE];
+};
 
 struct hotplug_msg {
-	char magic[20];
 	struct list_head list;
 	pid_t pid;
-	unsigned long long seqnum;
 	long queue_time;
-	char action[ACTION_SIZE];
-	char devpath[DEVPATH_SIZE];
-	char subsystem[SUBSYSTEM_SIZE];
+	char *action;
+	char *devpath;
+	char *subsystem;
+	unsigned long long seqnum;
+	char *envp[HOTPLUG_NUM_ENVP];
+	char envbuf[];
 };

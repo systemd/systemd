@@ -86,16 +86,6 @@ static void msg_dump_queue(void)
 #endif
 }
 
-static struct hotplug_msg *msg_create(void)
-{
-	struct hotplug_msg *new_msg;
-
-	new_msg = malloc(sizeof(struct hotplug_msg));
-	if (new_msg == NULL)
-		dbg("error malloc");
-	return new_msg;
-}
-
 static void run_queue_delete(struct hotplug_msg *msg)
 {
 	list_del(&msg->list);
@@ -132,22 +122,12 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 static void udev_run(struct hotplug_msg *msg)
 {
 	pid_t pid;
-	char action[ACTION_SIZE];
-	char devpath[DEVPATH_SIZE];
-	char seqnum[SEQNUM_SIZE];
-	char *env[] = { action, devpath, seqnum, NULL };
-
-	snprintf(action, ACTION_SIZE-1, "ACTION=%s", msg->action);
-	action[ACTION_SIZE-1] = '\0';
-	snprintf(devpath, DEVPATH_SIZE-1, "DEVPATH=%s", msg->devpath);
-	devpath[DEVPATH_SIZE-1] = '\0';
-	sprintf(seqnum, "SEQNUM=%llu", msg->seqnum);
 
 	pid = fork();
 	switch (pid) {
 	case 0:
 		/* child */
-		execle(udev_bin, "udev", msg->subsystem, NULL, env);
+		execle(udev_bin, "udev", msg->subsystem, NULL, msg->envp);
 		dbg("exec of child failed");
 		_exit(1);
 		break;
@@ -245,24 +225,23 @@ recheck:
 }
 
 /* receive the msg, do some basic sanity checks, and queue it */
-static void handle_msg(int sock)
+static void handle_udevsend_msg(int sock)
 {
+	static struct udevsend_msg usend_msg;
 	struct hotplug_msg *msg;
-	int retval;
+	int bufpos;
+	int i;
+	ssize_t size;
 	struct msghdr smsg;
 	struct cmsghdr *cmsg;
 	struct iovec iov;
 	struct ucred *cred;
 	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
+	int envbuf_size;
 
-	msg = msg_create();
-	if (msg == NULL) {
-		dbg("unable to store message");
-		return;
-	}
-
-	iov.iov_base = msg;
-	iov.iov_len = sizeof(struct hotplug_msg);
+	memset(&usend_msg, 0x00, sizeof(struct udevsend_msg));
+	iov.iov_base = &usend_msg;
+	iov.iov_len = sizeof(struct udevsend_msg);
 
 	memset(&smsg, 0x00, sizeof(struct msghdr));
 	smsg.msg_iov = &iov;
@@ -270,8 +249,8 @@ static void handle_msg(int sock)
 	smsg.msg_control = cred_msg;
 	smsg.msg_controllen = sizeof(cred_msg);
 
-	retval = recvmsg(sock, &smsg, 0);
-	if (retval <  0) {
+	size = recvmsg(sock, &smsg, 0);
+	if (size <  0) {
 		if (errno != EINTR)
 			dbg("unable to receive message");
 		return;
@@ -281,18 +260,51 @@ static void handle_msg(int sock)
 
 	if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
 		dbg("no sender credentials received, message ignored");
-		goto skip;
+		goto exit;
 	}
 
 	if (cred->uid != 0) {
 		dbg("sender uid=%i, message ignored", cred->uid);
-		goto skip;
+		goto exit;
 	}
 
-	if (strncmp(msg->magic, UDEV_MAGIC, sizeof(UDEV_MAGIC)) != 0 ) {
-		dbg("message magic '%s' doesn't match, ignore it", msg->magic);
-		goto skip;
+	if (strncmp(usend_msg.magic, UDEV_MAGIC, sizeof(UDEV_MAGIC)) != 0 ) {
+		dbg("message magic '%s' doesn't match, ignore it", usend_msg.magic);
+		goto exit;
 	}
+
+	envbuf_size = size - offsetof(struct udevsend_msg, envbuf);
+	dbg("envbuf_size=%i", envbuf_size);
+	msg = malloc(sizeof(struct hotplug_msg) + envbuf_size);
+	memset(msg, 0x00, sizeof(struct hotplug_msg) + envbuf_size);
+
+	/* copy environment buffer and reconstruct envp */
+	memcpy(msg->envbuf, usend_msg.envbuf, envbuf_size);
+	bufpos = 0;
+	for (i = 0; (bufpos < envbuf_size) && (i < HOTPLUG_NUM_ENVP-1); i++) {
+		int keylen;
+		char *key;
+
+		key = &msg->envbuf[bufpos];
+		keylen = strlen(key);
+		msg->envp[i] = key;
+		bufpos += keylen + 1;
+		dbg("add '%s' to msg.envp[%i]", msg->envp[i], i);
+
+		/* remember some keys for further processing */
+		if (strncmp(key, "ACTION=", 7) == 0)
+			msg->action = &key[7];
+
+		if (strncmp(key, "DEVPATH=", 8) == 0)
+			msg->devpath = &key[8];
+
+		if (strncmp(key, "SUBSYSTEM=", 10) == 0)
+			msg->subsystem = &key[10];
+
+		if (strncmp(key, "SEQNUM=", 7) == 0)
+			msg->seqnum = strtoull(&key[7], NULL, 10);
+	}
+	msg->envp[i] = NULL;
 
 	/* if no seqnum is given, we move straight to exec queue */
 	if (msg->seqnum == 0) {
@@ -301,10 +313,8 @@ static void handle_msg(int sock)
 	} else {
 		msg_queue_insert(msg);
 	}
-	return;
 
-skip:
-	free(msg);
+exit:
 	return;
 }
 
@@ -511,7 +521,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		if (FD_ISSET(ssock, &workreadfds))
-			handle_msg(ssock);
+			handle_udevsend_msg(ssock);
 
 		if (FD_ISSET(pipefds[0], &workreadfds))
 			user_sighandler();

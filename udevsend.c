@@ -70,7 +70,7 @@ static int start_daemon(void)
 			chdir("/");
 			execl(UDEVD_BIN, "udevd", NULL);
 			dbg("exec of daemon failed");
-			exit(1);
+			_exit(1);
 		case -1:
 			dbg("fork of daemon failed");
 			return -1;
@@ -107,51 +107,29 @@ static void run_udev(const char *subsystem)
 	}
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[], char *envp[])
 {
-	struct hotplug_msg msg;
-	char *action;
-	char *devpath;
-	char *subsystem;
-	char *seqnum;
-	unsigned long long seq;
-	int retval = 1;
+	static struct udevsend_msg usend_msg;
+	int usend_msg_len;
+	int i;
 	int loop;
-	int sock = -1;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
+	const char *subsystem_argv;
+	int subsystem_env = 0;
+	int bufpos = 0;
+	int retval = 1;
+	int sock = -1;
 	int started_daemon = 0;
 
 	logging_init("udevsend");
 	dbg("version %s", UDEV_VERSION);
 
-	subsystem = get_subsystem(argv[1]);
-	if (subsystem == NULL) {
+	subsystem_argv = argv[1];
+	if (subsystem_argv == NULL) {
 		dbg("no subsystem");
 		goto exit;
 	}
-	dbg("subsystem = '%s'", subsystem);
-
-	devpath = get_devpath();
-	if (devpath == NULL) {
-		dbg("no devpath");
-		goto exit;
-	}
-	dbg("DEVPATH = '%s'", devpath);
-
-	action = get_action();
-	if (action == NULL) {
-		dbg("no action");
-		goto exit;
-	}
-	dbg("ACTION = '%s'", action);
-
-	seqnum = get_seqnum();
-	if (seqnum == NULL)
-		seq = 0;
-	else
-		seq = strtoull(seqnum, NULL, 10);
-	dbg("SEQNUM = '%llu'", seq);
 
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (sock == -1) {
@@ -167,25 +145,49 @@ int main(int argc, char* argv[])
 	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
 	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 
-	memset(&msg, 0x00, sizeof(struct hotplug_msg));
-	strcpy(msg.magic, UDEV_MAGIC);
-	msg.seqnum = seq;
-	strfieldcpy(msg.action, action);
-	strfieldcpy(msg.devpath, devpath);
-	strfieldcpy(msg.subsystem, subsystem);
+	memset(&usend_msg, 0x00, sizeof(struct udevsend_msg));
+
+	strcpy(usend_msg.magic, UDEV_MAGIC);
+
+	/* copy all keys to send buffer */
+	for (i = 0; envp[i]; i++) {
+		const char *key;
+		int keylen;
+
+		key = envp[i];
+		keylen = strlen(key);
+		if (bufpos + keylen >= HOTPLUG_BUFFER_SIZE-1) {
+			dbg("environment buffer too small, probably not called by the kernel");
+			continue;
+		}
+
+		/* older kernels do not have the SUBSYSTEM in the environment */
+		if (strncmp(key, "SUBSYSTEM=", 10) == 0)
+			subsystem_env = 1;
+
+		dbg("add '%s' to env[%i] buffer", key, i);
+		strcpy(&usend_msg.envbuf[bufpos], key);
+		bufpos += keylen + 1;
+	}
+	if (!subsystem_env) {
+		bufpos += sprintf(&usend_msg.envbuf[bufpos], "SUBSYSTEM=%s", subsystem_argv) + 1;
+		dbg("add 'SUBSYSTEM=%s' to env[%i] buffer from argv", subsystem_argv, i);
+	}
+
+	usend_msg_len = offsetof(struct udevsend_msg, envbuf) + bufpos;
+	dbg("usend_msg_len=%i", usend_msg_len);
 
 	/* If we can't send, try to start daemon and resend message */
 	loop = SEND_WAIT_MAX_SECONDS * SEND_WAIT_LOOP_PER_SECOND;
 	while (--loop) {
-		retval = sendto(sock, &msg, sizeof(struct hotplug_msg), 0,
-				(struct sockaddr *)&saddr, addrlen);
+		retval = sendto(sock, &usend_msg, usend_msg_len, 0, (struct sockaddr *)&saddr, addrlen);
 		if (retval != -1) {
 			retval = 0;
 			goto exit;
 		}
 
 		if (errno != ECONNREFUSED) {
-			dbg("error sending message");
+			dbg("error sending message (%s)", strerror(errno));
 			goto fallback;
 		}
 
@@ -206,7 +208,7 @@ int main(int argc, char* argv[])
 
 fallback:
 	info("unable to connect to event daemon, try to call udev directly");
-	run_udev(subsystem);
+	run_udev(subsystem_argv);
 
 exit:
 	if (sock != -1)
