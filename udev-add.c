@@ -105,29 +105,46 @@ static int create_path(char *file)
 	return 0;
 }
 
-static int make_node(char *filename, int major, int minor, unsigned int mode, uid_t uid, gid_t gid)
+static int make_node(char *file, int major, int minor, unsigned int mode, uid_t uid, gid_t gid)
 {
-	int retval;
+	struct stat stats;
+	int retval = 0;
 
-	retval = mknod(filename, mode, makedev(major, minor));
+	if (stat(file, &stats) != 0)
+		goto create;
+
+	/* preserve node with already correct numbers, to not change the inode number */
+	if (((stats.st_mode & S_IFMT) == S_IFBLK || (stats.st_mode & S_IFMT) == S_IFCHR) &&
+	    (stats.st_rdev == makedev(major, minor))) {
+		dbg("preserve file '%s', cause it has correct dev_t", file);
+		goto perms;
+	}
+
+	if (unlink(file) != 0)
+		dbg("unlink(%s) failed with error '%s'", file, strerror(errno));
+	else
+		dbg("already present file '%s' unlinked", file);
+
+create:
+	retval = mknod(file, mode, makedev(major, minor));
 	if (retval != 0) {
 		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
-		    filename, mode, major, minor, strerror(errno));
+		    file, mode, major, minor, strerror(errno));
 		goto exit;
 	}
 
-	dbg("chmod(%s, %#o)", filename, mode);
-	if (chmod(filename, mode) != 0) {
-		dbg("chmod(%s, %#o) failed with error '%s'",
-		    filename, mode, strerror(errno));
+perms:
+	dbg("chmod(%s, %#o)", file, mode);
+	if (chmod(file, mode) != 0) {
+		dbg("chmod(%s, %#o) failed with error '%s'", file, mode, strerror(errno));
 		goto exit;
 	}
 
 	if (uid != 0 || gid != 0) {
-		dbg("chown(%s, %u, %u)", filename, uid, gid);
-		if (chown(filename, uid, gid) != 0) {
+		dbg("chown(%s, %u, %u)", file, uid, gid);
+		if (chown(file, uid, gid) != 0) {
 			dbg("chown(%s, %u, %u) failed with error '%s'",
-			    filename, uid, gid, strerror(errno));
+			    file, uid, gid, strerror(errno));
 			goto exit;
 		}
 	}
@@ -165,23 +182,6 @@ static void set_to_local_user(char *user)
 		}
 	}
 	endutent();
-}
-
-static int unlink_entry(char *filename)
-{
-	struct stat stats;
-	int retval = 0;
-	
-	if (lstat(filename, &stats) == 0) {
-		if ((stats.st_mode & S_IFMT) != S_IFDIR) {
-			retval = unlink(filename);
-			if (retval) {
-				dbg("unlink(%s) failed with error '%s'",
-				    filename, strerror(errno));
-			}
-		}
-	}
-	return retval;
 }
 
 static int create_node(struct udevice *dev, int fake)
@@ -253,7 +253,6 @@ static int create_node(struct udevice *dev, int fake)
 	}
 
 	if (!fake) {
-		unlink_entry(filename);
 		info("creating device node '%s'", filename);
 		if (make_node(filename, dev->major, dev->minor, dev->mode, uid, gid) != 0)
 			goto error;
@@ -270,7 +269,6 @@ static int create_node(struct udevice *dev, int fake)
 			for (i = 1; i <= dev->partitions; i++) {
 				strfieldcpy(partitionname, filename);
 				strintcat(partitionname, i);
-				unlink_entry(partitionname);
 				make_node(partitionname, dev->major,
 					  dev->minor + i, dev->mode, uid, gid);
 			}
@@ -304,11 +302,9 @@ static int create_node(struct udevice *dev, int fake)
 
 		strfieldcat(linktarget, &dev->name[tail]);
 
-		if (!fake)
-			unlink_entry(filename);
-
 		dbg("symlink(%s, %s)", linktarget, filename);
 		if (!fake) {
+			unlink(filename);
 			if (symlink(linktarget, filename) != 0)
 				dbg("symlink(%s, %s) failed with error '%s'",
 				    linktarget, filename, strerror(errno));
