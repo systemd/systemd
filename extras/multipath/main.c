@@ -196,6 +196,31 @@ basename(char * str1, char * str2)
 }
 
 static int
+blacklist (char * dev) {
+	int i;
+	static struct {
+		char * headstr;
+		int lengh;
+	} blist[] = {
+		{"cciss", 5},
+		{"hd", 2},
+		{"md", 2},
+		{"dm", 2},
+		{"sr", 2},
+		{"scd", 3},
+		{"ram", 3},
+		{"raw", 3},
+		{NULL, 0},
+	};
+
+	for (i = 0; blist[i].lengh; i++) {
+		if (strncmp(dev, blist[i].headstr, blist[i].lengh))
+			return 1;
+	}
+	return 0;
+}
+
+static int
 get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 {
 	int k=0;
@@ -211,6 +236,8 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 	sdir = sysfs_open_directory(block_path);
 	sysfs_read_directory(sdir);
 	dlist_for_each_data(sdir->subdirs, devp, struct sysfs_directory) {
+		if (blacklist(devp->name))
+			continue;
 		sysfs_read_directory(devp);
 		if(devp->links == NULL)
 			continue;
@@ -661,7 +688,7 @@ usage(char * progname)
 }
 
 static int
-running(char * run) {
+filepresent(char * run) {
 	struct stat buf;
 
 	if(!stat(run, &buf))
@@ -673,6 +700,7 @@ int
 main(int argc, char *argv[])
 {
 	char * run = "/var/run/multipath.run";
+	char * resched = "/var/run/multipath.reschedule";
 	struct multipath * mp;
 	struct path * all_paths;
 	struct scsi_dev * all_scsi_ids;
@@ -715,17 +743,16 @@ main(int argc, char *argv[])
 
 	}
 
-	if (running(run)) {
+	if (filepresent(run)) {
 		if (conf.verbose) {
 			fprintf(stderr, "Already running.\n");
 			fprintf(stderr, "If you know what you do, please ");
 			fprintf(stderr, "remove %s\n", run);
 		}
+		/* leave a trace that we were called while already running */
+		open(resched, O_CREAT);
 		return 1;
 	}
-
-	if(!open(run, O_CREAT))
-		exit(1);
 
 	/* dynamic allocations */
 	mp = malloc(conf.max_devs * sizeof(struct multipath));
@@ -735,6 +762,9 @@ main(int argc, char *argv[])
 		unlink(run);
 		exit(1);
 	}
+start:
+	if(!open(run, O_CREAT))
+		exit(1);
 
 	if (!conf.with_sysfs) {
 		get_all_scsi_ids(&conf, all_scsi_ids);
@@ -764,5 +794,12 @@ main(int argc, char *argv[])
 		}
 	}
 	unlink(run);
+
+	/* start again if we were ask to during this process run */
+	/* ie. do not loose an event-asked run */
+	if (filepresent(resched)) {
+		unlink(resched);
+		goto start;
+	}
 	exit(0);
 }
