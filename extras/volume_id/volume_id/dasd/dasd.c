@@ -18,6 +18,13 @@
  *
  */
 
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
+
+#ifdef HAVE_CONFIG_H
+#  include <config.h>
+#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -25,8 +32,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <asm/types.h>
 
-#include "dasdlabel.h"
+#include "../volume_id.h"
+#include "../util.h"
+#include "dasd.h"
 
 static unsigned char EBCtoASC[256] =
 {
@@ -100,7 +110,7 @@ static unsigned char EBCtoASC[256] =
 	0x38, 0x39, 0x07, 0x07, 0x9A, 0x07, 0x07, 0x07
 };
 
-static void vtoc_ebcdic_dec (unsigned char *source, unsigned char *target, int l) 
+static void vtoc_ebcdic_dec (const unsigned char *source, unsigned char *target, int l) 
 {
 	int i;
 
@@ -150,29 +160,35 @@ typedef struct dasd_information_t {
 #define BIODASDINFO _IOR(DASD_IOCTL_LETTER,1,dasd_information_t)
 #define BLKSSZGET _IO(0x12,104)
 
-int probe_ibm_partition(int fd, char *out)
+int probe_ibm_partition(struct volume_id *id)
 {
 	int blocksize;
 	dasd_information_t info;
-	char name[7] = {0,};
-	unsigned char data[16];
+	__u8 *data;
+	__u8 *label_raw;
+	unsigned char name[7];
 
-	if (ioctl(fd, BIODASDINFO, (unsigned long)&info) != 0)
+	if (ioctl(id->fd, BIODASDINFO, &info) != 0)
 		return -1;
 
-	if (ioctl(fd, BLKSSZGET, (unsigned long)&blocksize))
+	if (ioctl(id->fd, BLKSSZGET, &blocksize) != 0)
 		return -1;
 
-	lseek(fd, info.label_block * blocksize, SEEK_SET);
-	if (read(fd, &data, 16) != 16)
+	data = volume_id_get_buffer(id, info.label_block * blocksize, 16);
+	if (data == NULL)
 		return -1;
 
 	if ((!info.FBA_layout) && (!strcmp(info.type, "ECKD")))
-		strncpy(name, data + 8, 6);
+		label_raw = &data[8];
 	else
-		strncpy(name, data + 4, 6);
+		label_raw = &data[4];
 
-	vtoc_ebcdic_dec(name, out, 6);
+	name[6] = '\0';
+	volume_id_set_usage(id, VOLUME_ID_DISKLABEL);
+	id->type = "dasd";
+	volume_id_set_label_raw(id, label_raw, 6);
+	vtoc_ebcdic_dec(label_raw, name, 6);
+	volume_id_set_label_string(id, name, 6);
 
 	return 0;
 }

@@ -31,8 +31,8 @@
 #include "../../libsysfs/sysfs/libsysfs.h"
 #include "../../udev_utils.h"
 #include "../../logging.h"
-#include "volume_id.h"
-#include "dasdlabel.h"
+#include "volume_id/volume_id.h"
+#include "volume_id/dasd/dasd.h"
 
 #define BLKGETSIZE64 _IOR(0x12,114,size_t)
 
@@ -74,26 +74,6 @@ static struct volume_id *open_classdev(struct sysfs_class_device *class_dev)
 	return vid;
 }
 
-static char *usage_id_name(enum volume_id_usage usage)
-{
-	switch(usage) {
-	case VOLUME_ID_UNUSED:
-		return "unused";
-	case VOLUME_ID_UNPROBED:
-		return "unprobed";
-	case VOLUME_ID_OTHER:
-		return "other";
-	case VOLUME_ID_PARTITIONTABLE:
-		return "partitiontable";
-	case VOLUME_ID_FILESYSTEM:
-		return "filesystem";
-	case VOLUME_ID_RAID:
-		return "raid";
-	default:
-		return "unknown type_id";
-	}
-}
-
 int main(int argc, char *argv[])
 {
 	const char help[] = "usage: udev_volume_id [-t|-l|-u|-d]\n"
@@ -111,7 +91,6 @@ int main(int argc, char *argv[])
 	char *devpath;
 	char probe = 'p';
 	char print = 'a';
-	char dasd_label[7];
 	static char name[VOLUME_ID_LABEL_SIZE];
 	int len, i, j;
 	unsigned long long size;
@@ -177,7 +156,7 @@ int main(int argc, char *argv[])
 		if (ioctl(vid->fd, BLKGETSIZE64, &size) != 0)
 			size = 0;
 
-		if (volume_id_probe(vid, VOLUME_ID_ALL, 0, size) == 0)
+		if (volume_id_probe_all(vid, 0, size) == 0)
 			goto print;
 		break;
 	case 'd' :
@@ -190,12 +169,8 @@ int main(int argc, char *argv[])
 		if (vid == NULL)
 			goto exit;
 
-		if (probe_ibm_partition(vid->fd, dasd_label) == 0) {
-			vid->type = "dasd";
-			strncpy(vid->label, dasd_label, 6);
-			vid->label[6] = '\0';
+		if (probe_ibm_partition(vid) == 0)
 			goto print;
-		}
 		break;
 	}
 
@@ -247,7 +222,7 @@ print:
 		printf("%s\n", vid->uuid);
 		break;
 	case 'a':
-		printf("F:%s\n", usage_id_name(vid->usage_id));
+		printf("F:%s\n", vid->usage);
 		printf("T:%s\n", vid->type);
 		printf("V:%s\n", vid->type_version);
 		printf("L:%s\n", vid->label);

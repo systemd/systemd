@@ -33,8 +33,50 @@ override CFLAGS+=-Wall -fno-builtin -Wchar-subscripts \
 
 override CFLAGS+=-D_FILE_OFFSET_BITS=64
 
-OBJS = volume_id.o udev_volume_id.o dasdlabel.o $(SYSFS)
-HEADERS = volume_id.h dasdlabel.h
+VOLUME_ID_OBJS=					\
+	volume_id/ext/ext.o			\
+	volume_id/fat/fat.o			\
+	volume_id/hfs/hfs.o			\
+	volume_id/highpoint/highpoint.o		\
+	volume_id/iso9660/iso9660.o		\
+	volume_id/jfs/jfs.o			\
+	volume_id/linux_raid/linux_raid.o	\
+	volume_id/linux_swap/linux_swap.o	\
+	volume_id/lvm/lvm.o			\
+	volume_id/mac/mac.o			\
+	volume_id/msdos/msdos.o			\
+	volume_id/ntfs/ntfs.o			\
+	volume_id/reiserfs/reiserfs.o		\
+	volume_id/udf/udf.o			\
+	volume_id/ufs/ufs.o			\
+	volume_id/xfs/xfs.o			\
+	volume_id/dasd/dasd.o			\
+	volume_id/volume_id.o			\
+	volume_id/util.o
+
+VOLUME_ID_HEADERS=				\
+	volume_id/ext/ext.h			\
+	volume_id/fat/fat.h			\
+	volume_id/hfs/hfs.h			\
+	volume_id/highpoint/highpoint.h		\
+	volume_id/iso9660/iso9660.h		\
+	volume_id/jfs/jfs.h			\
+	volume_id/linux_raid/linux_raid.h	\
+	volume_id/linux_swap/linux_swap.h	\
+	volume_id/lvm/lvm.h			\
+	volume_id/mac/mac.h			\
+	volume_id/msdos/msdos.h			\
+	volume_id/ntfs/ntfs.h			\
+	volume_id/reiserfs/reiserfs.h		\
+	volume_id/udf/udf.h			\
+	volume_id/ufs/ufs.h			\
+	volume_id/xfs/xfs.h			\
+	volume_id/dasd/dasd.h			\
+	volume_id/volume_id.h			\
+	volume_id/util.h
+
+OBJS = udev_volume_id.o $(VOLUME_ID_OBJS) $(SYSFS)
+HEADERS = $(VOLUME_ID_HEADERS)
 
 $(OBJS): $(HEADERS)
 
@@ -54,4 +96,3 @@ install: all
 
 uninstall:
 	- rm $(DESTDIR)$(sbindir)/$(PROG)
-

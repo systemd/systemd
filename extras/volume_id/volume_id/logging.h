@@ -1,6 +1,6 @@
 /*
  * volume_id_logging - this file is used to map the dbg() function
- *                     to the host logging facility
+ *                     to the user's logging facility
  *
  */
 
@@ -15,7 +15,7 @@
 #include <config.h>
 #endif
 
-/* just use the udev version*/
+/* just use the udev version */
 #include "../../logging.h"
 
 #endif /* _VOLUME_ID_LOGGING_H_ */
