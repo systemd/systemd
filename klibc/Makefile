@@ -1,3 +1,6 @@
+SUBDIRS = klibc
 
-clean:
-	@echo "all clean"
+all:
+
+%:
+	@set -e; for d in $(SUBDIRS); do $(MAKE) -C $$d $@; done

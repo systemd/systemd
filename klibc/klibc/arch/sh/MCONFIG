@@ -1,0 +1,19 @@
+# -*- makefile -*-
+#
+# arch/sh/MCONFIG
+#
+# Special rules for this architecture.  Note that this is actually
+# included from the main Makefile, and that pathnames should be
+# accordingly.
+#
+
+ARCHREGFLAGS = -m4 -mno-implicit-fp
+OPTFLAGS     = -Os -fomit-frame-pointer
+BITSIZE      = 32
+
+# Extra linkflags when building the shared version of the library
+# This address needs to be reachable using normal inter-module
+# calls, and work on the memory models for this architecture
+# 2 MB -- the normal starting point for text is 4 MB.
+SHAREDFLAGS	= -Ttext 0x00200200
+

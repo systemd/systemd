@@ -1,0 +1,26 @@
+# -*- makefile -*-
+#
+# arch/arm/MCONFIG
+#
+# Special rules for this architecture.  Note that this is actually
+# included from the main Makefile, and that pathnames should be
+# accordingly.
+#
+
+THUMB    = n
+CPU_ARCH := armv4
+CPU_TUNE := strongarm
+
+OPTFLAGS = -Os -fomit-frame-pointer -march=$(CPU_ARCH) -mtune=$(CPU_TUNE)
+BITSIZE  = 32
+
+ifeq ($(THUMB),y)
+CPU_ARCH := $(CPU_ARCH)t
+OPTFLAGS += -mthumb
+LDFLAGS  += --thumb-entry _start
+endif
+
+# Extra linkflags when building the shared version of the library
+# This address needs to be reachable using normal inter-module
+# calls, and work on the memory models for this architecture
+SHAREDFLAGS = -Ttext 0x01000200

@@ -1,0 +1,32 @@
+# -*- makefile -*-
+#
+# arch/i386/MCONFIG
+#
+# Special rules for this architecture.  Note that this is actually
+# included from the main Makefile, and that pathnames should be
+# accordingly.
+#
+
+# Comment this out to compile with register parameter passing
+# This doesn't work right now because gcc 3.2 (at least) calls
+# libgcc with the default calling convention instead of forcing
+# them to be cdecl
+# REGPARM = -mregparm=3 -DREGPARM
+
+gcc_major := $(shell $(CC) -v 2>&1 | awk '/gcc version/{print int($$3)}')
+
+OPTFLAGS = $(REGPARM) -march=i386 -Os
+
+ifeq ($(gcc_major),3)
+OPTFLAGS += -falign-functions=0 -falign-jumps=0 -falign-loops=0
+else
+OPTFLAGS += -malign-functions=0 -malign-jumps=0 -malign-loops=0
+endif
+
+BITSIZE  = 32
+
+# Extra linkflags when building the shared version of the library
+# This address needs to be reachable using normal inter-module
+# calls, and work on the memory models for this architecture
+# 96 MB - normal binaries start at 128 MB
+SHAREDFLAGS	= -Ttext 0x06000200

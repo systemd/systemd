@@ -1,0 +1,67 @@
+To port klibc to a new architecture, you need:
+
+a) A directory structure
+
+Each archtecture has an arch/ directory, which should include an
+MCONFIG and a Makefile.inc file.
+
+b) Startup code (arch/*/crt0.S)
+
+The crt0.S assembly routine typically corresponds to the following
+pseudo-C code.  In addition, each architecture needs any support
+routines that gcc-generated code expects to find in the system library
+-- Alpha, for example, needs divide subroutines.
+
+The "getenvtest" test program is a very good test for proper crt0.S
+functionality.
+
+
+extern __noreturn __libc_init(void *, void *);
+
+__noreturn _start(void)
+{
+  void *elf_data   = get_elf_data_address(); /* Usually the stack address */
+  void *atexit_ptr = get_atexit_ptr();       /* Usually in a register */ 
+
+  /* Some architectures need this for debugging to work */
+  setup_null_stack_frame_if_necessary();
+
+  __libc_init(elf_data, atexit_ptr);
+}
+
+
+c) A setenv implementation (arch/*/setjmp.S, arch/*/include/klibc/archsetjmp.h)
+
+On most (but not all!) architectures, this entails creating a setjmp
+buffer big enough to hold all callee-saved registers, plus the stack
+pointer and the return address.  In setjmp.S you have:
+
+* A "setjmp" function that writes out the callee-saved registers, the
+  stack pointer and the return address to the buffer pointed to by the
+  first argument, and then returns zero normally.
+
+  On some architectures you need to take some kind of action to make
+  sure the contents of the stack is actually manifest in memory and
+  not cached in the CPU.  In some cases (e.g. on SPARC) this will
+  automatically spill the registers onto the stack; then they don't
+  need to be spilled into the jmp_buf.
+
+* A "longjmp" function that read back these same registers from the
+  jmp_buf pointed to by the first argument, and returns the second
+  argument *to the address specified in the jmp_buf*.
+
+  On some architectures you need to take some kind of action to flush
+  any cached stack data or return stack.
+
+
+d) Any support functions needed by gcc, *unless* they are in libgcc
+  *and* libgcc is usable for klibc on your particular platform.  If
+  libgcc isn't usable for klibc (on MIPS, for example, libgcc is
+  compiled in a way that is not compatible with klibc) there are
+  reasonably good clones of most of the libgcc functions in the libgcc
+  directory.  To use them, add them to ARCHOBJS in
+  arch/*/Makefile.inc.
+
+
+e) A link location for the shared klibc.  This should be specified in
+  SHAREDFLAGS in arch/*/MCONFIG.

@@ -1,0 +1,16 @@
+Please see klibc/README for how to set up the tree before building.
+
+klibc is archived at:
+
+	ftp://ftp.zytor.com/pub/linux/libs/klibc/
+
+There is a mailing list for klibc and early-userspace issues at:
+
+	http://www.zytor.com/mailman/listinfo/klibc/
+
+There is also a cvsweb repository at:
+
+	http://www.zytor.com/cvsweb.cgi/klibc/
+
+There is no direct public CVS access yet, however.
+

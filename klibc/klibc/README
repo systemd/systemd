@@ -1,0 +1,57 @@
+This is klibc, what is intended to be a minimalistic libc subset for
+use with initramfs.  It is deliberately written for small size,
+minimal entaglement and portability, not speed.  It is definitely a
+work in progress, and a lot of things are still missing.
+
+
+The build procedure is not very polished yet, but it should work like
+this:
+
+a) In the source root directory (the directory above the one in which
+   this file is found) create a symlink called "linux" pointing to a
+   reasonably recent Linux kernel tree (2.4 or 2.5 should be OK.)
+   This tree must have the include/asm symlink set up for the
+   architecture you're compiling for, and include/linux/autoconf.h
+   must exist.  The easiest way to make sure of all of these is to do
+   a "make config" or any of its variants on the kernel tree is
+   question, followed by a "make dep".
+
+b) If you're cross-compiling, change ARCH in the main MCONFIG file to
+   the appropriate architecture, and set CROSS to your toolchain
+   prefix.
+
+   IMPORTANT: if you're on a 64-bit machine with a 32-bit userland
+   (ia64, mips64, ppc64 sparc64, s390x or x86_64), and you want to
+   build the 32-bit version: you need to set ARCH to the 32-bit
+   architecture as well as set up the linux/include/asm symlink to
+   point to the 32-bit architecture.  Building the 32-bit architecture
+   usually (but not always) produces smaller binaries, and is likely
+   to be better tested.
+
+   If you are on ARM, and want to build a thumb version of the library
+   (this is supported), change OPTFLAGS in arch/arm/MCONFIG to build
+   thumb code.
+
+   The following is the last known status of various architectures:
+
+   Known to work:	       alpha arm i386 s390 s390x sparc sparc64 x86_64*
+   Works static, not shared:   mips* arm-thumb sh*
+   Need crt0.S updates:	       ppc 
+   Missing setjmp:	       ppc64
+   Need porting work:	       cris ia64 m68k mips64 parisc
+
+   x86_64:   requires a kernel header patch (to be created)
+   mips, sh: linker problem; might work with fixed linker
+
+   Shared library support for sparc/sparc64 requires binutils 2.13.90.0.4.
+
+   Note that even the "known to work" ones likely have bugs.  Please
+   report them if you run into them.
+
+c) Type "make" and pray...
+
+d) Try the test programs in the tests/ directory.  They should run...
+
+Contact me at <hpa@zytor.com> for more info.
+
+	-hpa

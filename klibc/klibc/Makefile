@@ -1,0 +1,135 @@
+#
+# Makefile
+#
+# Main makefile
+#
+
+# Include configuration rules
+include MCONFIG
+
+TESTS   = $(patsubst %.c,%,$(wildcard tests/*.c)) \
+	  $(patsubst %.c,%.shared,$(wildcard tests/*.c))
+LIBOBJS = vsnprintf.o snprintf.o vsprintf.o sprintf.o \
+	  vsscanf.o sscanf.o ctypes.o \
+	  strntoumax.o strntoimax.o \
+	  atoi.o atol.o atoll.o \
+	  strtol.o strtoll.o strtoul.o strtoull.o \
+	  strtoimax.o strtoumax.o \
+	  globals.o exitc.o atexit.o onexit.o \
+	  execl.o execle.o execv.o execvpe.o execvp.o execlp.o execlpe.o \
+	  fork.o wait.o wait3.o waitpid.o system.o setpgrp.o \
+	  printf.o vprintf.o fprintf.o vfprintf.o perror.o \
+	  fopen.o fread.o fread2.o fgetc.o fgets.o \
+	  fwrite.o fwrite2.o fputc.o fputs.o puts.o \
+	  sleep.o usleep.o raise.o abort.o assert.o alarm.o pause.o \
+	  __signal.o signal.o bsd_signal.o siglist.o siglongjmp.o \
+	  sigaction.o sigpending.o sigprocmask.o sigsuspend.o \
+	  brk.o sbrk.o malloc.o realloc.o calloc.o mmap.o \
+	  memcpy.o memcmp.o memset.o memccpy.o memmem.o memswap.o \
+	  memmove.o \
+	  strcat.o strchr.o strcmp.o strcpy.o strdup.o strlen.o \
+	  strncat.o strstr.o strncmp.o strncpy.o strrchr.o strspn.o \
+	  strsep.o strtok.o \
+	  gethostname.o getdomainname.o getcwd.o \
+	  seteuid.o setegid.o setresuid.o setresgid.o \
+	  getenv.o setenv.o unsetenv.o getopt.o readdir.o \
+	  syslog.o closelog.o pty.o isatty.o reboot.o \
+	  time.o utime.o fdatasync.o llseek.o select.o nice.o getpriority.o \
+	  qsort.o lrand48.o srand48.o seed48.o \
+	  inet/inet_ntoa.o inet/inet_aton.o inet/inet_addr.o \
+	  inet/inet_ntop.o inet/inet_pton.o inet/bindresvport.o \
+	  send.o recv.o
+SOLIB   = libc.so
+SOHASH  = klibc.so
+
+CRT0    = crt0.o
+LIB     = libc.a
+
+#all: tests $(CRT0) $(LIB) $(SOLIB) klibc.so
+all:  $(CRT0) $(LIB) $(SOLIB) klibc.so
+
+# Add any architecture-specific rules
+include arch/$(ARCH)/Makefile.inc
+
+tests: $(TESTS)
+
+tests/%.o : tests/%.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+tests/% : tests/%.o $(LIB) $(CRT0)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) $< $(LIB) $(LIBGCC)
+	cp $@ $@.stripped
+	$(STRIP) $@.stripped
+
+tests/%.shared : tests/%.o interp.o $(SOLIB)
+	$(LD) $(LDFLAGS) -o $@ -e main interp.o tests/$*.o -R $(SOLIB) $(LIBGCC)
+	cp $@ $@.stripped
+	$(STRIP) $@.stripped
+
+$(LIB): __static_init.o $(LIBOBJS) $(ARCHOBJS) syscalls/static.obj socketcalls/static.obj
+	rm -f $(LIB)
+	$(AR) cq $(LIB) __static_init.o $(LIBOBJS) $(ARCHOBJS) syscalls/*.o socketcalls/*.o
+	$(RANLIB) $(LIB)
+
+$(SOLIB): $(CRT0) __shared_init.o $(LIBOBJS) $(ARCHOBJS) syscalls/static.obj socketcalls/static.obj
+	$(LD) $(LDFLAGS) $(SHAREDFLAGS) -o $@ \
+		$(CRT0) __shared_init.o $(LIBOBJS) $(ARCHOBJS) \
+	        syscalls/*.o socketcalls/*.o \
+		$(LIBGCC)
+
+sha1hash: sha1hash.c
+	$(HOST_CC) $(HOST_CFLAGS) $(HOST_LDFLAGS) -o $@ $<
+
+$(SOLIB).hash: $(SOLIB) sha1hash
+	$(NM) $(SOLIB) | \
+		egrep '^[0-9a-fA-F]+ [ADRTW] ' | sort | ./sha1hash > $@
+
+$(SOHASH): $(SOLIB) $(SOLIB).hash
+	cp -f $(SOLIB) $@
+	$(STRIP) $@
+	rm -f klibc-??????????????????????.so
+	ln -f $@ klibc-`cat $(SOLIB).hash`.so
+
+interp.o: interp.S $(SOLIB).hash
+	$(CC) $(CFLAGS) -D__ASSEMBLY__ -DLIBDIR=\"$(SHLIBDIR)\" \
+		-DSOHASH=\"`cat $(SOLIB).hash`\" \
+		-c -o $@ $<
+
+crt0.o: arch/$(ARCH)/crt0.o
+	cp arch/$(ARCH)/crt0.o .
+
+syscalls.dir: SYSCALLS syscalls.pl syscommon.h
+	rm -rf syscalls
+	mkdir syscalls
+	$(PERL) syscalls.pl $(ARCH) SYSCALLS
+	touch $@
+
+socketcalls.dir: SOCKETCALLS socketcalls.pl socketcommon.h
+	rm -rf socketcalls
+	mkdir socketcalls
+	$(PERL) socketcalls.pl $(ARCH) SOCKETCALLS
+	touch $@
+
+%/static.obj: %.dir
+	$(MAKE) objects-$(basename $(notdir $@)) DIR=$*
+
+STATIC = $(addsuffix .o,$(basename $(wildcard $(DIR)/*.[cS])))
+
+objects-static: $(STATIC)
+	touch $(DIR)/static.obj
+
+clean: archclean
+	find . -type f -a \( -name \*.[isoa] -o -name \*.l[iso] \) -print0 | xargs -0rt rm -f
+	rm -f *.a *.so *.hash *.syms *.stripped
+	rm -f $(TESTS) tests/*.stripped
+	rm -rf syscalls syscalls.dir
+	rm -rf socketcalls socketcalls.dir
+	rm -f sha1hash
+
+spotless: clean
+	find . \( -name \*~ -o -name '.*.d' \) -not -type d -print0 | \
+		xargs -0rt rm -f
+
+ifneq ($(wildcard $(DIR)/.*.d),)
+include $(wildcard $(DIR)/.*.d)
+endif
