@@ -30,7 +30,7 @@ LIBOBJS = vsnprintf.o snprintf.o vsprintf.o sprintf.o \
 	  sigaction.o sigpending.o sigprocmask.o sigsuspend.o \
 	  brk.o sbrk.o malloc.o realloc.o calloc.o mmap.o \
 	  memcpy.o memcmp.o memset.o memccpy.o memmem.o memswap.o \
-	  memmove.o memchr.o \
+	  memmove.o memchr.o memrchr.o \
 	  strcasecmp.o strncasecmp.o strndup.o strerror.o \
 	  strcat.o strchr.o strcmp.o strcpy.o strdup.o strlen.o strnlen.o \
 	  strncat.o strlcpy.o strlcat.o \

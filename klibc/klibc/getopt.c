@@ -51,6 +51,7 @@ int getopt(int argc, char * const *argv, const char *optstring)
 	  optind += 2;
 	} else {
 	  /* Missing argument */
+	  optind++;
 	  return (optstring[0] == ':') ? ':' : '?';
 	}
       }
