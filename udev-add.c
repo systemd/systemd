@@ -453,6 +453,7 @@ int udev_add_device(char *path, char *subsystem, int fake)
 		break;
 
 	case 'n':
+		strfieldcpy(devpath, path);
 		if (strcmp(dev.name, dev.kernel_name) != 0) {
 			retval = rename_net_if(&dev, fake);
 			if (retval != 0)
@@ -460,7 +461,6 @@ int udev_add_device(char *path, char *subsystem, int fake)
 			/* netif's are keyed with the configured name, cause
 			 * the original kernel name sleeps with the fishes
 			 */
-			strfieldcpy(devpath, path);
 			pos = strrchr(devpath, '/');
 			if (pos != NULL) {
 				pos[1] = '\0';
