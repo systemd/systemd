@@ -9,6 +9,7 @@
 
 . /etc/udev/udev.conf
 
+prog=udev
 sysfs_dir=/sys
 bin=/sbin/udev
 
@@ -38,8 +39,8 @@ run_udev () {
 			fi
 		done
 	done
+	return 0
 }
-
 
 case "$1" in
   start)
@@ -58,22 +59,29 @@ case "$1" in
 	# propogate /udev from /sys - we only need this while we do not
 	# have initramfs and an early user-space with which to do early
 	# device bring up
-	action "Creating initial udev device nodes: " /bin/true
 	export ACTION=add
+	echo -n $"Creating initial udev device nodes:"
 	run_udev 
+	success /bin/true
+	echo
+	touch /var/lock/subsys/udev
 	;;
   stop)
   	# be careful
-	action "Removing udev device nodes: " /bin/true
+	echo -n $"Removing udev device nodes: "
 	export ACTION=remove
 	run_udev 
+	success /bin/true
+	echo
+	rm -f /var/lock/subsys/udev
 	;;
   status)
-  	if [ -d $udev_root ]; then
-		echo "the udev device node directory exists"
-	else
-		echo "the udev device node directory does not exist"
+	if [ -f /var/lock/subsys/udev ]; then
+		echo $"$prog has run"
+		exit 0
 	fi
+	echo $"$prog is stopped"
+	exit 3
 	;;
   restart)
 	$0 stop
