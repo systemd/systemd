@@ -105,7 +105,7 @@ TOPOLOGY, BUS="usb", PLACE="2.3", NAME="mouse1"
 REPLACE, KERNEL="ttyUSB1", NAME="pda"
 
 # if /sbin/scsi_id returns "OEM 0815" device will be called disk1
-CALLOUT, PROGRAM="/sbin/scsi_id" BUS="scsi", ID="OEM 0815" NAME="disk1"
+CALLOUT, BUS="scsi", PROGRAM="/sbin/scsi_id", ID="OEM 0815", NAME="disk1"
 
 # USB webcams to be called webcam0, webcam1, ...
 LABEL, BUS="usb", model="WebCam Version 3", NAME="webcam%n"

@@ -286,7 +286,7 @@ static int namedev_init_config(void)
 
 			/* ID="id" */
 			temp2 = strsep(&temp, ",");
-			retval = get_value("id", &temp, &temp3);
+			retval = get_value("ID", &temp, &temp3);
 			if (retval)
 				break;
 			strfieldcpy(dev.id, temp3);
@@ -314,7 +314,7 @@ static int namedev_init_config(void)
 
 			/* PLACE="place" */
 			temp2 = strsep(&temp, ",");
-			retval = get_value("place", &temp, &temp3);
+			retval = get_value("PLACE", &temp, &temp3);
 			if (retval)
 				break;
 			strfieldcpy(dev.place, temp3);
@@ -353,18 +353,18 @@ static int namedev_init_config(void)
 			/* number type */
 			dev.type = CALLOUT;
 
-			/* PROGRAM="executable" */
-			retval = get_value("PROGRAM", &temp, &temp3);
-			if (retval)
-				break;
-			strfieldcpy(dev.exec_program, temp3);
-
 			/* BUS="bus" */
-			temp2 = strsep(&temp, ",");
 			retval = get_value("BUS", &temp, &temp3);
 			if (retval)
 				break;
 			strfieldcpy(dev.bus, temp3);
+
+			/* PROGRAM="executable" */
+			temp2 = strsep(&temp, ",");
+			retval = get_value("PROGRAM", &temp, &temp3);
+			if (retval)
+				break;
+			strfieldcpy(dev.exec_program, temp3);
 
 			/* ID="id" */
 			temp2 = strsep(&temp, ",");
