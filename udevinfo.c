@@ -27,7 +27,6 @@
 #include <errno.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
-#include "libsysfs/dlist.h"
 #include "udev_libc_wrapper.h"
 #include "udev.h"
 #include "udev_utils.h"
