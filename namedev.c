@@ -121,6 +121,7 @@ int add_config_dev(struct config_device *new_dev)
 		copy_string(dev, new_dev, place);
 		copy_string(dev, new_dev, kernel_name);
 		copy_string(dev, new_dev, exec_program);
+		copy_string(dev, new_dev, symlink);
 		return 0;
 	}
 
@@ -366,6 +367,7 @@ static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev
 		if (strcmp_pattern(dev->id, udev->callout_value) != 0)
 			continue;
 		strfieldcpy(udev->name, dev->name);
+		strfieldcpy(udev->symlink, dev->symlink);
 		dbg("callout returned matching value '%s', '%s' becomes '%s'",
 		    dev->id, class_dev->name, udev->name);
 		return 0;
@@ -416,6 +418,7 @@ label_found:
 			continue;
 
 		strfieldcpy(udev->name, dev->name);
+		strfieldcpy(udev->symlink, dev->symlink);
 		dbg("found matching attribute '%s', '%s' becomes '%s' ",
 		    dev->sysfs_file, class_dev->name, udev->name);
 
@@ -461,6 +464,7 @@ static int do_number(struct sysfs_class_device *class_dev, struct udevice *udev,
 		if (!found)
 			continue;
 		strfieldcpy(udev->name, dev->name);
+		strfieldcpy(udev->symlink, dev->symlink);
 		dbg("found matching id '%s', '%s' becomes '%s'",
 		    dev->id, class_dev->name, udev->name);
 		return 0;
@@ -506,6 +510,7 @@ static int do_topology(struct sysfs_class_device *class_dev, struct udevice *ude
 			continue;
 
 		strfieldcpy(udev->name, dev->name);
+		strfieldcpy(udev->symlink, dev->symlink);
 		dbg("found matching place '%s', '%s' becomes '%s'",
 		    dev->place, class_dev->name, udev->name);
 		return 0;
@@ -528,6 +533,7 @@ static int do_replace(struct sysfs_class_device *class_dev, struct udevice *udev
 			continue;
 
 		strfieldcpy(udev->name, dev->name);
+		strfieldcpy(udev->symlink, dev->symlink);
 		dbg("found name, '%s' becomes '%s'", dev->kernel_name, udev->name);
 		
 		return 0;
@@ -618,8 +624,9 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 	goto done;
 
 found:
-	/* substitute placeholder in NAME  */
+	/* substitute placeholder */
 	apply_format(udev, udev->name);
+	apply_format(udev, udev->symlink);
 
 done:
 	perm = find_perm(udev->name);

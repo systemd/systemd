@@ -39,7 +39,7 @@ my @tests = (
 		expected => "boot_disk" ,
 		conf     => <<EOF
 LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="boot_disk%n"
-REPLACE, KERNEL="ttyUSB0", NAME="visor""
+REPLACE, KERNEL="ttyUSB0", NAME="visor"
 EOF
 	},
 	{
@@ -181,6 +181,42 @@ CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n scsi-%b", ID="*", NAME="%c"
 CALLOUT, BUS="foo", PROGRAM="/bin/echo -n foo-%b", ID="*", NAME="%c"
 EOF
 	},
+	{
+		desc     => "symlink creation (same directory)",
+		subsys   => "tty",
+		devpath  => "class/tty/ttyUSB0",
+		expected => "visor0" ,
+		conf     => <<EOF
+REPLACE, KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="visor%n"
+EOF
+	},
+	{
+		desc     => "symlink creation (relative link back)",
+		subsys   => "block",
+		devpath  => "block/sda/sda2",
+		expected => "1/2/a/b/symlink" ,
+		conf     => <<EOF
+LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="1/2/node", SYMLINK="1/2/a/b/symlink"
+EOF
+	},
+	{
+		desc     => "symlink creation (relative link forward)",
+		subsys   => "block",
+		devpath  => "block/sda/sda2",
+		expected => "1/2/symlink" ,
+		conf     => <<EOF
+LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/symlink"
+EOF
+	},
+	{
+		desc     => "symlink creation (relative link back and forward)",
+		subsys   => "block",
+		devpath  => "block/sda/sda2",
+		expected => "1/2/c/d/symlink" ,
+		conf     => <<EOF
+LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/c/d/symlink"
+EOF
+	},
 );
 
 # set env
@@ -238,7 +274,8 @@ foreach my $config (@tests) {
 	}
 
 	udev("remove", $config->{subsys}, $config->{devpath}, \$config->{conf});
-	if (-e "$PWD/$udev_root$config->{expected}") {
+	if ((-e "$PWD/$udev_root$config->{expected}") ||
+	    (-l "$PWD/$udev_root$config->{expected}")) {
 		print "remove: error\n\n";
 		system("tree $udev_root");
 		$error++;

@@ -63,6 +63,7 @@ struct config_device {
 	char kernel_name[NAME_SIZE];
 	char exec_program[FILE_SIZE];
 	char name[NAME_SIZE];
+	char symlink[NAME_SIZE];
 };
 
 struct perm_device {

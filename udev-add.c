@@ -72,6 +72,34 @@ exit:
 	return retval;
 }
 
+static int create_path(char *file)
+{
+	char p[NAME_SIZE];
+	char *pos;
+	int retval;
+	struct stat stats;
+	
+	strncpy(p, file, sizeof(p));
+	pos = strchr(p+1, '/');
+	while (1) {
+		pos = strchr(pos+1, '/');
+		if (pos == NULL)
+			break;
+		*pos = 0x00;
+		if (stat(p, &stats)) {
+			retval = mkdir(p, 0755);
+			if (retval) {
+				dbg("mkdir(%s) failed with error '%s'",
+				    p, strerror(errno));
+				return retval;
+			}
+			dbg("created '%s'", p);
+		}
+		*pos = '/';
+	}
+	return 0;
+}
+
 /*
  * we possibly want to add some symlinks here
  * only numeric owner/group id's are supported
@@ -79,10 +107,14 @@ exit:
 static int create_node(struct udevice *dev)
 {
 	char filename[255];
+	char linktarget[255];
 	int retval = 0;
 	uid_t uid = 0;
 	gid_t gid = 0;
 	dev_t res;
+	int i;
+	int tail;
+
 
 	strncpy(filename, udev_root, sizeof(filename));
 	strncat(filename, dev->name, sizeof(filename));
@@ -109,31 +141,9 @@ static int create_node(struct udevice *dev)
 		return -EINVAL;
 	}
 
-	/* create subdirectories if requested */
-	if (strchr(dev->name, '/')) {
-		char path[255];
-		char *pos;
-		struct stat stats;
-
-		strncpy(path, filename, sizeof(path));
-		pos = strchr(path+1, '/');
-		while (1) {
-			pos = strchr(pos+1, '/');
-			if (pos == NULL)
-				break;
-			*pos = 0x00;
-			if (stat(path, &stats)) {
-				retval = mkdir(path, 0755);
-				if (retval) {
-					dbg("mkdir(%s) failed with error '%s'",
-					    path, strerror(errno));
-					return retval;
-				}
-				dbg("created '%s'", path);
-			}
-			*pos = '/';
-		}
-	}
+	/* create parent directories if needed */
+	if (strrchr(dev->name, '/'))
+		create_path(filename);
 
 	dbg("mknod(%s, %#o, %u, %u)", filename, dev->mode, dev->major, dev->minor);
 	retval = mknod(filename, dev->mode, res);
@@ -179,8 +189,43 @@ static int create_node(struct udevice *dev)
 		dbg("chown(%s, %u, %u)", filename, uid, gid);
 		retval = chown(filename, uid, gid);
 		if (retval)
-			dbg("chown(%s, %u, %u) failed with error '%s'", filename,
-			    uid, gid, strerror(errno));
+			dbg("chown(%s, %u, %u) failed with error '%s'",
+			    filename, uid, gid, strerror(errno));
+	}
+
+
+	/* create symlink if requested */
+	if (*dev->symlink) {
+		strncpy(filename, udev_root, sizeof(filename));
+		strncat(filename, dev->symlink, sizeof(filename));
+		dbg("symlink '%s' to node '%s' requested", filename, dev->name);
+		if (strrchr(dev->symlink, '/'))
+			create_path(filename);
+
+		/* optimize relative link */
+		linktarget[0] = '\0';
+		i = 0;
+		tail = 0;
+		while ((dev->name[i] == dev->symlink[i]) && dev->name[i]) {
+			if (dev->name[i] == '/')
+				tail = i+1;
+			i++;
+		}
+		while (dev->symlink[i]) {
+			if (dev->symlink[i] == '/')
+				strcat(linktarget, "../");
+			i++;
+		}
+
+		if (*linktarget == '\0')
+			strcpy(linktarget, "./");
+		strcat(linktarget, &dev->name[tail]);
+
+		dbg("symlink(%s, %s)", linktarget, filename);
+		retval = symlink(linktarget, filename);
+		if (retval)
+			dbg("symlink(%s, %s) failed with error '%s'",
+			    linktarget, filename, strerror(errno));
 	}
 
 	return retval;

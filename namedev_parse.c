@@ -213,10 +213,16 @@ int namedev_init_rules(void)
 				break;
 			strfieldcpy(dev.name, temp3);
 
+			/* SYMLINK="name" */
+			temp2 = strsep(&temp, ",");
+			retval = get_value("SYMLINK", &temp, &temp3);
+			if (retval == 0)
+				strfieldcpy(dev.symlink, temp3);
+
 			dbg_parse("LABEL name='%s', bus='%s', "
-				  "sysfs_file='%s', sysfs_value='%s'",
+				  "sysfs_file='%s', sysfs_value='%s', symlink='%s'",
 				  dev.name, dev.bus, dev.sysfs_file,
-				  dev.sysfs_value);
+				  dev.sysfs_value, dev.symlink);
 		}
 
 		if (strcasecmp(temp2, TYPE_NUMBER) == 0) {
@@ -243,8 +249,14 @@ int namedev_init_rules(void)
 				break;
 			strfieldcpy(dev.name, temp3);
 
-			dbg_parse("NUMBER name='%s', bus='%s', id='%s'",
-				  dev.name, dev.bus, dev.id);
+			/* SYMLINK="name" */
+			temp2 = strsep(&temp, ",");
+			retval = get_value("SYMLINK", &temp, &temp3);
+			if (retval == 0)
+				strfieldcpy(dev.symlink, temp3);
+
+			dbg_parse("NUMBER name='%s', bus='%s', id='%s', symlink='%s'",
+				  dev.name, dev.bus, dev.id, dev.symlink);
 		}
 
 		if (strcasecmp(temp2, TYPE_TOPOLOGY) == 0) {
@@ -271,8 +283,15 @@ int namedev_init_rules(void)
 				break;
 			strfieldcpy(dev.name, temp3);
 
-			dbg_parse("TOPOLOGY name='%s', bus='%s', place='%s'",
-				  dev.name, dev.bus, dev.place);
+			/* SYMLINK="name" */
+			temp2 = strsep(&temp, ",");
+			retval = get_value("SYMLINK", &temp, &temp3);
+			if (retval == 0)
+				strfieldcpy(dev.symlink, temp3);
+
+			dbg_parse("TOPOLOGY name='%s', bus='%s', "
+				  "place='%s', symlink='%s'",
+				  dev.name, dev.bus, dev.place, dev.symlink);
 		}
 
 		if (strcasecmp(temp2, TYPE_REPLACE) == 0) {
@@ -291,9 +310,17 @@ int namedev_init_rules(void)
 			if (retval)
 				break;
 			strfieldcpy(dev.name, temp3);
-			dbg_parse("REPLACE name='%s', kernel_name='%s'",
-				  dev.name, dev.kernel_name);
+
+			/* SYMLINK="name" */
+			temp2 = strsep(&temp, ",");
+			retval = get_value("SYMLINK", &temp, &temp3);
+			if (retval == 0)
+				strfieldcpy(dev.symlink, temp3);
+
+			dbg_parse("REPLACE name='%s', kernel_name='%s', symlink='%s'",
+				  dev.name, dev.kernel_name, dev.symlink);
 		}
+
 		if (strcasecmp(temp2, TYPE_CALLOUT) == 0) {
 			/* number type */
 			dev.type = CALLOUT;
@@ -324,8 +351,17 @@ int namedev_init_rules(void)
 			if (retval)
 				break;
 			strfieldcpy(dev.name, temp3);
-			dbg_parse("CALLOUT name='%s', program='%s'",
-				  dev.name, dev.exec_program);
+
+			/* SYMLINK="name" */
+			temp2 = strsep(&temp, ",");
+			retval = get_value("SYMLINK", &temp, &temp3);
+			if (retval == 0)
+				strfieldcpy(dev.symlink, temp3);
+
+			dbg_parse("CALLOUT name='%s', bus='%s', program='%s', "
+				  "id='%s', symlink='%s'",
+				  dev.name, dev.bus, dev.exec_program,
+				  dev.id, dev.symlink);
 		}
 
 		retval = add_config_dev(&dev);
@@ -414,7 +450,7 @@ int namedev_init_permissions(void)
 			  dev.mode);
 		retval = add_perm_dev(&dev);
 		if (retval) {
-			dbg("add_config_dev returned with error %d", retval);
+			dbg("add_perm_dev returned with error %d", retval);
 			goto exit;
 		}
 	}

@@ -64,6 +64,7 @@ struct udevice {
 	int major;
 	int minor;
 	mode_t mode;
+	char symlink[NAME_SIZE];
 
 	/* fields that help us in building strings */
 	unsigned char bus_id[SYSFS_NAME_LEN];

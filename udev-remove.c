@@ -34,47 +34,43 @@
 #include "udevdb.h"
 #include "libsysfs/libsysfs.h"
 
-
-/*
- * Look up the sysfs path in the database to see if we have named this device
- * something different from the kernel name.  If we have, us it.  If not, use
- * the default kernel name for lack of anything else to know to do.
- */
-static char *get_name(char *path, int major, int minor)
+static int delete_path(char *path)
 {
-	static char name[100];
-	struct udevice *dev;
-	char *temp;
+	char *pos;
+	int retval;
 
-	dev = udevdb_get_dev(path);
-	if (dev != NULL) {
-		strcpy(name, dev->name);
-		goto exit;
+	pos = strrchr(path, '/');
+	while (1) {
+		*pos = '\0';
+		pos = strrchr(path, '/');
+
+		/* don't remove the last one */
+		if ((pos == path) || (pos == NULL))
+			break;
+
+		/* remove if empty */
+		retval = rmdir(path);
+		if (retval) {
+			if (errno == ENOTEMPTY)
+				return 0;
+			dbg("rmdir(%s) failed with error '%s'",
+			    path, strerror(errno));
+			break;
+		}
+		dbg("removed '%s'", path);
 	}
-
-	dbg("'%s' not found in database, falling back on default name", path);
-	temp = strrchr(path, '/');
-	if (temp == NULL)
-		return NULL;
-	strncpy(name, &temp[1], sizeof(name));
-
-exit:
-	dbg("name is '%s'", name);
-	return &name[0];
+	return 0;
 }
 
-/*
- * We also want to clean up any symlinks that were created in create_node()
- */
-static int delete_node(char *name)
+static int delete_node(struct udevice *dev)
 {
 	char filename[255];
 	int retval;
 
 	strncpy(filename, udev_root, sizeof(filename));
-	strncat(filename, name, sizeof(filename));
+	strncat(filename, dev->name, sizeof(filename));
 
-	dbg("unlinking '%s'", filename);
+	dbg("unlinking node '%s'", filename);
 	retval = unlink(filename);
 	if (retval) {
 		dbg("unlink(%s) failed with error '%s'",
@@ -83,49 +79,48 @@ static int delete_node(char *name)
 	}
 
 	/* remove subdirectories */
-	if (strchr(name, '/')) {
-		char *pos;
+	if (strchr(dev->name, '/'))
+		delete_path(filename);
 
-		pos = strrchr(filename, '/');
-		while (1) {
-			*pos = 0x00;
-			pos = strrchr(filename, '/');
-
-			/* don't remove the last one */
-			if ((pos == filename) || (pos == NULL))
-				break;
-
-			/* remove if empty */
-			retval = rmdir(filename);
-			if (retval) {
-				if (errno == ENOTEMPTY)
-					return 0;
-				dbg("rmdir(%s) failed with error '%s'",
-				    filename, strerror(errno));
-				break;
-			}
-			dbg("removed '%s'", filename);
+	if (*dev->symlink) {
+		strncpy(filename, udev_root, sizeof(filename));
+		strncat(filename, dev->symlink, sizeof(filename));
+		dbg("unlinking symlink '%s'", filename);
+		retval = unlink(filename);
+		if (retval) {
+			dbg("unlink(%s) failed with error '%s'",
+				filename, strerror(errno));
+			return retval;
+		}
+		if (strchr(dev->symlink, '/')) {
+			delete_path(filename);
 		}
 	}
+
 	return retval;
 }
 
-int udev_remove_device(char *device, char *subsystem)
+/*
+ * Look up the sysfs path in the database to see if we have named this device
+ * something different from the kernel name.  If we have, us it.  If not, use
+ * the default kernel name for lack of anything else to know to do.
+ */
+int udev_remove_device(char *path, char *subsystem)
 {
-	char *name;
-	int retval = 0;
+	char name[100];
+	struct udevice *dev;
+	char *temp;
 
-	name = get_name(device, 0, 0);
-	if (name == NULL) {
-		dbg ("get_name failed");
-		retval = -ENODEV;
-		goto exit;
+	dev = udevdb_get_dev(path);
+	if (dev == NULL) {
+		dbg("'%s' not found in database, falling back on default name", path);
+		temp = strrchr(path, '/');
+		if (temp == NULL)
+			return -ENODEV;
+		strncpy(name, &temp[1], sizeof(name));
 	}
 
-	udevdb_delete_dev(device);
-
-	return delete_node(name);
-
-exit:
-	return retval;
+	dbg("name is '%s'", dev->name);
+	udevdb_delete_dev(path);
+	return delete_node(dev);
 }
