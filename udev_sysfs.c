@@ -267,7 +267,6 @@ int wait_for_devices_device(struct sysfs_device *devices_dev,
 		const char *file;
 	} device_files[] = {
 		{ .bus = "scsi",	.file = "vendor" },
-		{ .bus = "usb",		.file = NULL },
 		{ .bus = "usb",		.file = "idVendor" },
 		{ .bus = "usb",		.file = "iInterface" },
 		{ .bus = "usb",		.file = "bNumEndpoints" },
