@@ -52,7 +52,7 @@ int udevdb_add_dev(const char *path, const struct udevice *dev)
 	if ((path == NULL) || (dev == NULL))
 		return -ENODEV;
 
-	memset(keystr, 0, NAME_SIZE);
+	memset(keystr, 0, SYSFS_PATH_MAX);
 	strfieldcpy(keystr, path);
 	key.dptr = keystr;
 	key.dsize = strlen(keystr) + 1;
