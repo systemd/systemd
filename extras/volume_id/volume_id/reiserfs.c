@@ -86,11 +86,11 @@ int volume_id_probe_reiserfs(struct volume_id *id, __u64 off)
 	}
 	if (memcmp(rs->magic, "ReIsEr2Fs", 9) == 0) {
 		strcpy(id->type_version, "3.6");
-		goto found_v3;
+		goto found_label;
 	}
 	if (memcmp(rs->magic, "ReIsEr3Fs", 9) == 0) {
 		strcpy(id->type_version, "JR");
-		goto found_v3;
+		goto found_label;
 	}
 
 	rs4 = (struct reiser4_super_block *) buf;
@@ -113,7 +113,7 @@ int volume_id_probe_reiserfs(struct volume_id *id, __u64 off)
 
 	return -1;
 
-found_v3:
+found_label:
 	volume_id_set_label_raw(id, rs->label, 16);
 	volume_id_set_label_string(id, rs->label, 16);
 	volume_id_set_uuid(id, rs->uuid, UUID_DCE);
