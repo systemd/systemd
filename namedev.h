@@ -52,9 +52,9 @@ struct sysfs_class_device;
 #define FIELD_MODE		"MODE"
 #define FIELD_OPTIONS		"OPTIONS"
 
-#define ATTR_IGNORE_DEVICE	"ignore_device"
-#define ATTR_IGNORE_REMOVE	"ignore_remove"
-#define ATTR_PARTITIONS		"all_partitions"
+#define OPTION_IGNORE_DEVICE	"ignore_device"
+#define OPTION_IGNORE_REMOVE	"ignore_remove"
+#define OPTION_PARTITIONS	"all_partitions"
 
 #define MAX_SYSFS_PAIRS		5
 
