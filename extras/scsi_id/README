@@ -1,0 +1,19 @@
+scsi_id - generate a SCSI unique identifier for a given SCSI device
+
+Primarily for use with udev callout config entries. This could also be
+used by a multi-path configuration tool that requires SCSI id's.
+
+Requires:
+
+- Linux kernel 2.6
+
+- libsysfs 
+
+No man page yet.
+
+libsysfs 0_2_0 was not installing libsysfs.h or dlist.h, manually copy
+those files to /usr/include/sys before compiling.
+
+Build via make and make install.
+
+Please send questions, comments or patches to patmans@us.ibm.com.
