@@ -1,0 +1,68 @@
+#! /bin/bash
+#
+# random	init script to setup /udev
+#
+# chkconfig: 2345 20 80
+# description: manage user-space device nodes in /udev
+
+. /etc/rc.d/init.d/functions
+
+udev_dir=/udev
+sysfs_dir=/sys
+bin=/sbin/udev
+
+case "$1" in
+  start)
+	if [ ! -d $udev_dir ]; then
+		mkdir $udev_dir
+	fi
+	if [ ! -d $sysfs_dir ]; then
+		exit 1
+	fi
+	# propogate /udev from /sys - we only need this while we do not
+	# have initramfs and an early user-space with which to do early
+	# device bring up
+	action "Creating initial udev device nodes: " /bin/true
+	export ACTION=add
+	# add tty devices
+	for i in ${sysfs_dir}/class/tty/*; do
+		export DEVPATH="/"`echo $i | cut --delimiter='/' --fields=3-`
+		$bin tty
+	done
+	# add block devices and their partitions
+	for i in ${sysfs_dir}/block/*; do
+		export DEVPATH="/"`echo $i | cut --delimiter='/' --fields=3-`
+		$bin block
+		for j in $i/*; do
+			if [ -f $j/dev ]; then
+				export DEVPATH="/"`echo $j |  \
+					cut --delimiter='/' --fields=3-`
+				$bin block
+			fi
+		done
+	done
+	# TODO: add other device classes
+	;;
+  stop)
+  	# be careful
+	if [ $udev_dir -a "$udev_dir" != "/" ]; then
+	  	# clear out /udev
+  		rm -rf ${udev_dir}/*
+	fi
+	;;
+  status)
+  	if [ -d $udev_dir ]; then
+		echo "the udev device node directory exists"
+	else
+		echo "the udev device node directory does not exist"
+	fi
+	;;
+  restart|reload)
+  	# nothing to do here
+	;;
+  *)
+  	echo "Usage: $0 {start|stop|status}"
+	exit 1
+esac
+
+exit 0
