@@ -226,10 +226,11 @@ static int create_node(struct udevice *dev, int fake)
 		if (endptr[0] == '\0')
 			uid = (uid_t) id;
 		else {
+			struct passwd *pw;
 			if (strncmp(dev->owner, LOCAL_USER, sizeof(LOCAL_USER)) == 0)
 				set_to_local_user(dev->owner);
 
-			struct passwd *pw = getpwnam(dev->owner);
+			pw = getpwnam(dev->owner);
 			if (pw == NULL)
 				dbg("specified user unknown '%s'", dev->owner);
 			else
