@@ -1,3 +1,36 @@
+2004-jan-15:
+	* Makefile: Version 0.3
+
+2004-jan-13:
+	* scsi_id.c, Makefile: Fix prefix usage with scsi_id.config.
+
+2004-jan-13:
+	* scsi_id.config: Clean up some comment entries.
+
+2004-jan-13:
+	* Makefile: Install the sample scsi_id.config file.
+
+2004-jan-13:
+	* Makefile: Use DESTDIR in all install/uninstall rules, per
+	  problem reported by Svetoslav Slavtchev.
+
+2004-jan-12:
+	* scsi_id.h, scsi_id.c, scsi_serial.c: Fix to work with current
+	  sysfs 0.4, based on patch from Dan Stekloff, but uses
+	  sysfs_read_attribute_value instead of
+	  sysfs_get_value_from_attributes.
+
+2004-jan-08:
+	* scsi_id.c: SYSFS_BUS_DIR was replaced with SYSFS_BUS_NAME.
+
+2004-jan-08:
+	* scsi_id.c: Must now use sysfs_open_class_device_path instead of the
+	  previous sysfs_open_class_device.
+
+2003-dec-07:
+	* Makefile: patch from Olaf Hering <olh@suse.de> remove DEBUG and
+	  add --fno-builtin
+
 2003-dec-05:
 	* Makefile, scsi_id.8: Add a man page.
 
@@ -53,12 +86,12 @@
 	  is no support for that in klibc.
 
 2003-nov-17:
-	* scsi_id.c: Patch from Brian King: check result of setting model,
-	  not vendor in per_dev_options.
+	* scsi_id.c: Patch from Brian King <brking@us.ibm.com>: check
+	  result of setting model, not vendor in per_dev_options.
 
 2003-nov-03:
 	* scsi_id.c, scsi_serial.c: Use new and correct path to libsysfs.h.
 
 2003-nov-03:
-	* scsi_id.h: Fix scsi_id.h so var args in marcros works ok with
+	* scsi_id.h: Fix scsi_id.h so var args in macros works ok with
 	  older gcc.

@@ -40,6 +40,7 @@
 #else
 #include <sysfs/libsysfs.h>
 #endif
+#include "scsi_id_version.h"
 #include "scsi_id.h"
 
 #ifndef SCSI_ID_VERSION
@@ -53,8 +54,6 @@
 #define TMP_DIR	"/tmp"
 #define TMP_PREFIX "scsi"
 
-#define CONFIG_FILE "/etc/scsi_id.config"
-
 static const char short_options[] = "bc:d:ef:gip:s:vV";
 /*
  * Just duplicate per dev options.
@@ -67,7 +66,7 @@ static int all_good;
 static char *default_callout;
 static int dev_specified;
 static int sys_specified;
-static char config_file[MAX_NAME_LEN] = CONFIG_FILE;
+static char config_file[MAX_NAME_LEN] = SCSI_ID_CONFIG_FILE;
 static int display_bus_id;
 static int default_page_code;
 static int use_stderr;
@@ -100,6 +99,18 @@ void log_message (int level, const char *format, ...)
 	}
 	va_end (args);
 	return;
+}
+
+int sysfs_get_attr(const char *devpath, const char *attr, char *value,
+		   size_t bufsize)
+{
+	char attr_path[SYSFS_PATH_MAX];
+
+	strncpy(attr_path, devpath, SYSFS_PATH_MAX);
+	strncat(attr_path, "/", SYSFS_PATH_MAX);
+	strncat(attr_path, attr,  SYSFS_PATH_MAX);
+	dprintf("%s\n", attr_path);
+	return sysfs_read_attribute_value(attr_path, value, SYSFS_NAME_LEN);
 }
 
 static int sysfs_get_actual_dev(const char *sysfs_path, char *dev, int len)
@@ -153,34 +164,22 @@ static int sysfs_is_bus(const char *sysfs_path, const char *bus)
 
 static int get_major_minor(const char *devpath, int *major, int *minor)
 {
-	struct sysfs_class_device *class_dev;
-	char dev_value[SYSFS_NAME_LEN];
-	char *dev;
+	char dev_value[MAX_ATTR_LEN];
 
-	dprintf("%s\n", devpath);
-	class_dev = sysfs_open_class_device_path(devpath);
-	if (!class_dev) {
-		log_message(LOG_WARNING, "open class %s failed: %s\n", devpath,
-			    strerror(errno));
-		return -1;
-	}
-
-	dev = sysfs_get_attr(class_dev, "dev");
-	if (dev)
-		strncpy(dev_value, dev, SYSFS_NAME_LEN);
-	sysfs_close_class_device(class_dev);
-	if (!dev) {
+	if (sysfs_get_attr(devpath, "dev", dev_value, MAX_ATTR_LEN)) {
 		/*
 		 * XXX This happens a lot, since sg has no dev attr.
-		 * Someday change this back to a LOG_WARNING.
+		 * And now sysfsutils does not set a meaningful errno
+		 * value. Someday change this back to a LOG_WARNING.
+		 * And if sysfsutils changes, check for ENOENT and handle
+		 * it separately.
 		 */
 		log_message(LOG_DEBUG, "%s could not get dev attribute: %s\n",
 			devpath, strerror(errno));
 		return -1;
 	}
-	dev = NULL;
 
-	dprintf("dev %s", dev_value); /* dev_value has a trailing \n */
+	dprintf("dev value %s", dev_value); /* dev_value has a trailing \n */
 	if (sscanf(dev_value, "%u:%u", major, minor) != 2) {
 		log_message(LOG_WARNING, "%s: invalid dev major/minor\n",
 			    devpath);
@@ -547,8 +546,8 @@ static int per_dev_options(struct sysfs_class_device *scsi_dev, int *good_bad,
 	int retval;
 	int newargc;
 	char **newargv = NULL;
-	char *vendor;
-	char *model;
+	char vendor[MAX_ATTR_LEN];
+	char model[MAX_ATTR_LEN];
 	int option;
 
 	*good_bad = all_good;
@@ -558,16 +557,14 @@ static int per_dev_options(struct sysfs_class_device *scsi_dev, int *good_bad,
 	else
 		callout[0] = '\0';
 
-	vendor = sysfs_get_attr(scsi_dev, "vendor");
-	if (!vendor) {
-		log_message(LOG_WARNING, "%s: no vendor attribute\n",
+	if (sysfs_get_attr(scsi_dev->path, "vendor", vendor, MAX_ATTR_LEN)) {
+		log_message(LOG_WARNING, "%s: cannot get vendor attribute\n",
 			    scsi_dev->name);
 		return -1;
 	}
 
-	model = sysfs_get_attr(scsi_dev, "model");
-	if (!model) {
-		log_message(LOG_WARNING, "%s: no model attribute\n",
+	if (sysfs_get_attr(scsi_dev->path, "model", model, MAX_ATTR_LEN)) {
+		log_message(LOG_WARNING, "%s: cannot get model attribute\n",
 			    scsi_dev->name);
 		return -1;
 	}

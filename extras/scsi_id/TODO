@@ -1,4 +1,4 @@
-- add information abou the config file to the man page
+- add information about the config file to the man page
 
 - change so non-KLIBC builds under udev don't use /usr/include/sysfs,
   but instead use the sysfs included with udev (needs udev change and/or

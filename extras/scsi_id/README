@@ -7,12 +7,7 @@ Requires:
 
 	- Linux kernel 2.6
 
-	- libsysfs
-
-No man page yet.
-
-libsysfs 0_2_0 was not installing libsysfs.h or dlist.h, manually copy
-those files to /usr/include/sys before compiling.
+	- sysfsutils 0.4
 
 Build via make and make install.
 

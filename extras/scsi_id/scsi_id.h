@@ -28,6 +28,12 @@
 #define OFFSET (2 * sizeof(unsigned int))
 
 /*
+ * MAX_ATTR_LEN: maximum length of the result of reading a sysfs
+ * attribute.
+ */
+#define	MAX_ATTR_LEN	256
+
+/*
  * MAX_SERIAL_LEN: the maximum length of the serial number, including
  * added prefixes such as vendor and product (model) strings.
  */
@@ -39,19 +45,8 @@
  */
 #define MAX_BUFFER_LEN	256
 
-static inline char *sysfs_get_attr(struct sysfs_class_device *dev,
-				    const char *attr)
-{
-	struct dlist *attributes = NULL;
-
-	attributes = sysfs_get_classdev_attributes(dev);
-
-	if (attributes == NULL)
-		return NULL;
-
-	return sysfs_get_value_from_attributes(attributes, attr);
-}
-
+extern int sysfs_get_attr(const char *devpath, const char *attr, char *value,
+			  size_t bufsize);
 extern int scsi_get_serial (struct sysfs_class_device *scsi_dev,
 			    const char *devname, int page_code, char *serial,
 			    int len);

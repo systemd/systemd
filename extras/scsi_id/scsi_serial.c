@@ -385,7 +385,7 @@ static int do_scsi_page0_inquiry(struct sysfs_class_device *scsi_dev, int fd,
 				 char *buffer, int len)
 {
 	int retval;
-	char *vendor;
+	char vendor[MAX_ATTR_LEN];
 
 	memset(buffer, 0, len);
 	retval = scsi_inquiry(scsi_dev, fd, 1, 0x0, buffer, len);
@@ -415,9 +415,10 @@ static int do_scsi_page0_inquiry(struct sysfs_class_device *scsi_dev, int fd,
 		 * If the vendor id appears in the page assume the page is
 		 * invalid.
 		 */
-		vendor = sysfs_get_attr(scsi_dev, "vendor");
-		if (!vendor) {
-			log_message(LOG_WARNING, "%s: no vendor attribute\n",
+		if (sysfs_get_attr(scsi_dev->path, "vendor", vendor,
+				   MAX_ATTR_LEN)) {
+			log_message(LOG_WARNING,
+				    "%s: cannot get model attribute\n",
 				    scsi_dev->name);
 			return 1;
 		}
@@ -437,12 +438,11 @@ static int do_scsi_page0_inquiry(struct sysfs_class_device *scsi_dev, int fd,
 static int prepend_vendor_model(struct sysfs_class_device *scsi_dev,
 				char *serial)
 {
-	char *attr;
+	char attr[MAX_ATTR_LEN];
 	int ind;
 
-	attr = sysfs_get_attr(scsi_dev, "vendor");
-	if (!attr) {
-		log_message(LOG_WARNING, "%s: no vendor attribute\n",
+	if (sysfs_get_attr(scsi_dev->path, "vendor", attr, MAX_ATTR_LEN)) {
+		log_message(LOG_WARNING, "%s: cannot get vendor attribute\n",
 			    scsi_dev->name);
 		return 1;
 	}
@@ -454,9 +454,8 @@ static int prepend_vendor_model(struct sysfs_class_device *scsi_dev,
 	if (serial[ind] == '\n')
 		serial[ind] = '\0';
 
-	attr = sysfs_get_attr(scsi_dev, "model");
-	if (!attr) {
-		log_message(LOG_WARNING, "%s: no model attribute\n",
+	if (sysfs_get_attr(scsi_dev->path, "model", attr, MAX_ATTR_LEN)) {
+		log_message(LOG_WARNING, "%s: cannot get model attribute\n",
 			    scsi_dev->name);
 		return 1;
 	}
