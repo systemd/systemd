@@ -98,7 +98,7 @@ static char *get_key_attribute(char *str)
 	return NULL;
 }
 
-static int namedev_parse(const char *filename, void *data)
+static int namedev_parse(struct udevice *udev, const char *filename)
 {
 	char line[LINE_SIZE];
 	char *bufline;
@@ -354,9 +354,9 @@ int namedev_init(void)
 		return -1;
 
 	if ((stats.st_mode & S_IFMT) != S_IFDIR)
-		retval = namedev_parse(udev_rules_filename, NULL);
+		retval = namedev_parse(NULL, udev_rules_filename);
 	else
-		retval = call_foreach_file(namedev_parse, udev_rules_filename, RULEFILE_SUFFIX, NULL);
+		retval = call_foreach_file(namedev_parse, NULL, udev_rules_filename, RULEFILE_SUFFIX);
 
 	return retval;
 }
@@ -364,8 +364,9 @@ int namedev_init(void)
 void namedev_close(void)
 {
 	struct config_device *dev;
+	struct config_device *temp_dev;
 
-	list_for_each_entry(dev, &config_device_list, node) {
+	list_for_each_entry_safe(dev, temp_dev, &config_device_list, node) {
 		list_del(&dev->node);
 		free(dev);
 	}

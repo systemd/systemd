@@ -76,6 +76,11 @@ do { \
 # define asmlinkage	/* nothing */
 #endif
 
+struct name_entry {
+	struct list_head node;
+	char name[NAME_SIZE];
+};
+
 extern int udev_init_device(struct udevice *udev, const char* devpath, const char *subsystem);
 extern int kernel_release_satisfactory(unsigned int version, unsigned int patchlevel, unsigned int sublevel);
 extern int create_path(const char *path);
@@ -85,8 +90,7 @@ extern int file_map(const char *filename, char **buf, size_t *bufsize);
 extern void file_unmap(char *buf, size_t bufsize);
 extern size_t buf_get_line(const char *buf, size_t buflen, size_t cur);
 extern void no_trailing_slash(char *path);
-typedef int (*file_fnct_t)(const char *filename, void *data);
-extern int  call_foreach_file(file_fnct_t fnct, const char *dirname,
-			      const char *suffix, void *data);
-
+extern int name_list_add(struct list_head *name_list, const char *name, int sort);
+extern int call_foreach_file(int (*handler_function)(struct udevice *udev, const char *string),
+			     struct udevice *udev, const char *dirname, const char *suffix);
 #endif

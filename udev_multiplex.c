@@ -31,11 +31,10 @@
 #include "udev_utils.h"
 #include "logging.h"
 
-static int run_program(const char *filename, void *data)
+static int run_program(struct udevice *udev, const char *filename)
 {
 	pid_t pid;
 	int fd;
-	struct udevice *udev = data;
 
 	dbg("running %s", filename);
 
@@ -89,7 +88,7 @@ void udev_multiplex_directory(struct udevice *udev, const char *basedir, const c
 			if (strcmp(devname, udev->subsystem) != 0) {
 				snprintf(dirname, PATH_MAX, "%s/%s", basedir, devname);
 				dirname[PATH_MAX-1] = '\0';
-				call_foreach_file(run_program, dirname, suffix, udev);
+				call_foreach_file(run_program, udev, dirname, suffix);
 			}
 
 			temp[0] = '/';
@@ -101,16 +100,16 @@ void udev_multiplex_directory(struct udevice *udev, const char *basedir, const c
 	if (udev->name[0] != '\0') {
 		snprintf(dirname, PATH_MAX, "%s/%s", basedir, udev->name);
 		dirname[PATH_MAX-1] = '\0';
-		call_foreach_file(run_program, dirname, suffix, udev);
+		call_foreach_file(run_program, udev, dirname, suffix);
 	}
 
 	if (udev->subsystem[0] != '\0') {
 		snprintf(dirname, PATH_MAX, "%s/%s", basedir, udev->subsystem);
 		dirname[PATH_MAX-1] = '\0';
-		call_foreach_file(run_program, dirname, suffix, udev);
+		call_foreach_file(run_program, udev, dirname, suffix);
 	}
 
 	snprintf(dirname, PATH_MAX, "%s/default", basedir);
 	dirname[PATH_MAX-1] = '\0';
-	call_foreach_file(run_program, dirname, suffix, udev);
+	call_foreach_file(run_program, udev, dirname, suffix);
 }

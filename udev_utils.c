@@ -259,13 +259,7 @@ void no_trailing_slash(char *path)
 		path[--len] = '\0';
 }
 
-struct name_entry {
-	struct list_head node;
-	char name[NAME_SIZE];
-};
-
-/* sort files in lexical order */
-static int name_list_add(struct list_head *name_list, const char *name, int sort)
+int name_list_add(struct list_head *name_list, const char *name, int sort)
 {
 	struct name_entry *loop_name;
 	struct name_entry *new_name;
@@ -288,11 +282,13 @@ static int name_list_add(struct list_head *name_list, const char *name, int sort
 
 	strfieldcpy(new_name->name, name);
 	list_add_tail(&new_name->node, &loop_name->node);
+
 	return 0;
 }
 
 /* calls function for every file found in specified directory */
-int call_foreach_file(file_fnct_t fnct, const char *dirname, const char *suffix, void *data)
+int call_foreach_file(int (*handler_function)(struct udevice *udev, const char *string),
+		      struct udevice *udev, const char *dirname, const char *suffix)
 {
 	struct dirent *ent;
 	DIR *dir;
@@ -335,7 +331,7 @@ int call_foreach_file(file_fnct_t fnct, const char *dirname, const char *suffix,
 		snprintf(filename, NAME_SIZE, "%s/%s", dirname, loop_file->name);
 		filename[NAME_SIZE-1] = '\0';
 
-		fnct(filename, data);
+		handler_function(udev, filename);
 
 		list_del(&loop_file->node);
 		free(loop_file);
