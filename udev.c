@@ -221,7 +221,7 @@ exit_sysbus:
 	sysbus_disconnect();
 
 exit:
-	return retval;
+	return -retval;
 }
 
 int main(int argc, char **argv, char **envp)

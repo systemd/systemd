@@ -103,7 +103,7 @@ void dump_config_dev(struct config_device *dev)
 			  dev->name, dev->bus, dev->place);
 		break;
 	case REPLACE:
-		dbg_parse("REPLACE name=%s, kernel_name=%s",
+		dbg_parse("REPLACE name='%s', kernel_name='%s'",
 			  dev->name, dev->kernel_name);
 		break;
 	case CALLOUT:
