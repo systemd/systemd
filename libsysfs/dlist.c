@@ -546,11 +546,14 @@ int _dlist_merge(struct dlist *listsource, struct dlist *listdest, unsigned int 
 void dlist_sort_custom(struct dlist *list, int (*compare)(void *, void *))
 {
 
-  dlist_start(list);
   struct dlist *listsource, *listdest, *swap;
-  struct dlist *templist = dlist_new(list->data_size);
+  struct dlist *templist;
   unsigned int passcount = 1;
   unsigned int mergecount = 1;
+
+  dlist_start(list);
+  templist = dlist_new(list->data_size);
+
   // do nothing if there isn't anything to sort
   listsource = list;
   listdest = templist;
