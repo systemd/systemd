@@ -1,7 +1,7 @@
 /*
  * volume_id - reads filesystem label and uuid
  *
- * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This library is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU Lesser General Public
@@ -18,10 +18,9 @@
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
-#ifndef _VOLUME_ID_HIGHPOINT_
-#define _VOLUME_ID_HIGHPOINT_
+#ifndef _VOLUME_ID_ISW_RAID_
+#define _VOLUME_ID_ISW_RAID_
 
-extern int volume_id_probe_highpoint_37x_raid(struct volume_id *id, __u64 off);
-extern int volume_id_probe_highpoint_45x_raid(struct volume_id *id, __u64 off, __u64 size);
+extern int volume_id_probe_intel_software_raid(struct volume_id *id, __u64 off, __u64 size);
 
 #endif

@@ -39,20 +39,28 @@
 #include "util.h"
 #include "highpoint.h"
 
-struct hpt37x {
+struct hpt37x_meta {
 	__u8	filler1[32];
 	__u32	magic;
-	__u32	magic_0;
-	__u32	magic_1;
-} __attribute__((packed)) *hpt;
+} __attribute__((packed));
+
+struct hpt45x_meta {
+	__u32	magic;
+} __attribute__((packed));
 
 #define HPT37X_CONFIG_OFF		0x1200
 #define HPT37X_MAGIC_OK			0x5a7816f0
 #define HPT37X_MAGIC_BAD		0x5a7816fd
 
-int volume_id_probe_highpoint_ataraid(struct volume_id *id, __u64 off)
+#define HPT45X_MAGIC_OK			0x5a7816f3
+#define HPT45X_MAGIC_BAD		0x5a7816fd
+
+
+int volume_id_probe_highpoint_37x_raid(struct volume_id *id, __u64 off)
 {
 	const __u8 *buf;
+	struct hpt37x_meta *hpt;
+	__u32 magic;
 
 	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
@@ -60,13 +68,42 @@ int volume_id_probe_highpoint_ataraid(struct volume_id *id, __u64 off)
 	if (buf == NULL)
 		return -1;
 
-	hpt = (struct hpt37x *) buf;
-
-	if (hpt->magic != HPT37X_MAGIC_OK && hpt->magic != HPT37X_MAGIC_BAD)
+	hpt = (struct hpt37x_meta *) buf;
+	magic = le32_to_cpu(hpt->magic);
+	if (magic != HPT37X_MAGIC_OK && magic != HPT37X_MAGIC_BAD)
 		return -1;
 
 	volume_id_set_usage(id, VOLUME_ID_RAID);
-	id->type = "hpt_ataraid_member";
+	id->type = "highpoint_raid_member";
+
+	return 0;
+}
+
+int volume_id_probe_highpoint_45x_raid(struct volume_id *id, __u64 off, __u64 size)
+{
+	const __u8 *buf;
+	struct hpt45x_meta *hpt;
+	__u64 meta_off;
+	__u32 magic;
+
+	dbg("probing at offset 0x%llx, size 0x%llx",
+	    (unsigned long long) off, (unsigned long long) size);
+
+	if (size < 0x10000)
+		return -1;
+
+	meta_off = ((size / 0x200)-11) * 0x200;
+	buf = volume_id_get_buffer(id, off + meta_off, 0x200);
+	if (buf == NULL)
+		return -1;
+
+	hpt = (struct hpt45x_meta *) buf;
+	magic = le32_to_cpu(hpt->magic);
+	if (magic != HPT45X_MAGIC_OK && magic != HPT45X_MAGIC_BAD)
+		return -1;
+
+	volume_id_set_usage(id, VOLUME_ID_RAID);
+	id->type = "highpoint_raid_member";
 
 	return 0;
 }

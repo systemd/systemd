@@ -3,6 +3,12 @@ VOLUME_ID_OBJS=					\
 	$(VOLUME_ID_BASE)/fat.o			\
 	$(VOLUME_ID_BASE)/hfs.o			\
 	$(VOLUME_ID_BASE)/highpoint.o		\
+	$(VOLUME_ID_BASE)/isw_raid.o		\
+	$(VOLUME_ID_BASE)/lsi_raid.o		\
+	$(VOLUME_ID_BASE)/via_raid.o		\
+	$(VOLUME_ID_BASE)/silicon_raid.o	\
+	$(VOLUME_ID_BASE)/nvidia_raid.o		\
+	$(VOLUME_ID_BASE)/promise_raid.o	\
 	$(VOLUME_ID_BASE)/iso9660.o		\
 	$(VOLUME_ID_BASE)/jfs.o			\
 	$(VOLUME_ID_BASE)/linux_raid.o		\
@@ -30,6 +36,12 @@ VOLUME_ID_HEADERS=				\
 	$(VOLUME_ID_BASE)/fat.h			\
 	$(VOLUME_ID_BASE)/hfs.h			\
 	$(VOLUME_ID_BASE)/highpoint.h		\
+	$(VOLUME_ID_BASE)/isw_raid.h		\
+	$(VOLUME_ID_BASE)/lsi_raid.h		\
+	$(VOLUME_ID_BASE)/via_raid.h		\
+	$(VOLUME_ID_BASE)/silicon_raid.h	\
+	$(VOLUME_ID_BASE)/nvidia_raid.h		\
+	$(VOLUME_ID_BASE)/promise_raid.h	\
 	$(VOLUME_ID_BASE)/iso9660.h		\
 	$(VOLUME_ID_BASE)/jfs.h			\
 	$(VOLUME_ID_BASE)/linux_raid.h		\

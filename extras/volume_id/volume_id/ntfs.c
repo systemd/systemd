@@ -184,7 +184,7 @@ int volume_id_probe_ntfs(struct volume_id *id, __u64 off)
 		if (attr_type == MFT_RECORD_ATTR_VOLUME_INFO) {
 			dbg("found info, len %i", val_len);
 			info = (struct volume_info*) (((__u8 *) attr) + val_off);
-			snprintf(id->type_version, VOLUME_ID_FORMAT_SIZE-1,
+			snprintf(id->type_version, sizeof(id->type_version)-1,
 				 "%u.%u", info->major_ver, info->minor_ver);
 		}
 

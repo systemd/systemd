@@ -52,6 +52,12 @@
 #include "iso9660.h"
 #include "udf.h"
 #include "highpoint.h"
+#include "isw_raid.h"
+#include "lsi_raid.h"
+#include "via_raid.h"
+#include "silicon_raid.h"
+#include "nvidia_raid.h"
+#include "promise_raid.h"
 #include "luks.h"
 #include "linux_swap.h"
 #include "linux_raid.h"
@@ -70,8 +76,31 @@ int volume_id_probe_all(struct volume_id *id, unsigned long long off, unsigned l
 		return -EINVAL;
 
 	/* probe for raid first, cause fs probes may be successful on raid members */
-	if (volume_id_probe_linux_raid(id, off, size) == 0)
-		goto exit;
+	if (size) {
+		if (volume_id_probe_linux_raid(id, off, size) == 0)
+			goto exit;
+
+		if (volume_id_probe_intel_software_raid(id, off, size) == 0)
+			goto exit;
+
+		if (volume_id_probe_lsi_mega_raid(id, off, size) == 0)
+			goto exit;
+
+		if (volume_id_probe_via_raid(id, off, size) == 0)
+			goto exit;
+
+		if (volume_id_probe_silicon_medley_raid(id, off, size) == 0)
+			goto exit;
+
+		if (volume_id_probe_nvidia_raid(id, off, size) == 0)
+			goto exit;
+
+		if (volume_id_probe_promise_fasttrack_raid(id, off, size) == 0)
+			goto exit;
+
+		if (volume_id_probe_highpoint_45x_raid(id, off, size) == 0)
+			goto exit;
+	}
 
 	if (volume_id_probe_lvm1(id, off) == 0)
 		goto exit;
@@ -79,7 +108,7 @@ int volume_id_probe_all(struct volume_id *id, unsigned long long off, unsigned l
 	if (volume_id_probe_lvm2(id, off) == 0)
 		goto exit;
 
-	if (volume_id_probe_highpoint_ataraid(id, off) == 0)
+	if (volume_id_probe_highpoint_37x_raid(id, off) == 0)
 		goto exit;
 
 	if (volume_id_probe_luks(id, off) == 0)

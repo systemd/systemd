@@ -1,7 +1,7 @@
 /*
  * volume_id - reads filesystem label and uuid
  *
- * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This library is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU Lesser General Public
@@ -37,35 +37,29 @@
 #include "volume_id.h"
 #include "logging.h"
 #include "util.h"
-#include "linux_raid.h"
+#include "via_raid.h"
 
-struct mdp_super_block {
-	__u32	md_magic;
-	__u32	major_version;
-	__u32	minor_version;
-	__u32	patch_version;
-	__u32	gvalid_words;
-	__u32	set_uuid0;
-	__u32	ctime;
-	__u32	level;
-	__u32	size;
-	__u32	nr_disks;
-	__u32	raid_disks;
-	__u32	md_minor;
-	__u32	not_persistent;
-	__u32	set_uuid1;
-	__u32	set_uuid2;
-	__u32	set_uuid3;
-} __attribute__((packed)) *mdp;
+struct via_meta {
+	__u16	signature;
+	__u8	version_number;
+	struct via_array {
+		__u16	disk_bits;
+		__u8	disk_array_ex;
+		__u32	capacity_low;
+		__u32	capacity_high;
+		__u32	serial_checksum;
+	} __attribute((packed)) array;
+	__u32	serial_checksum[8];
+	__u8	checksum;
+} __attribute__((packed));
 
-#define MD_RESERVED_BYTES		0x10000
-#define MD_MAGIC			0xa92b4efc
+#define VIA_SIGNATURE		0xAA55
 
-int volume_id_probe_linux_raid(struct volume_id *id, __u64 off, __u64 size)
+int volume_id_probe_via_raid(struct volume_id *id, __u64 off, __u64 size)
 {
 	const __u8 *buf;
-	__u64 sboff;
-	__u8 uuid[16];
+	__u64 meta_off;
+	struct via_meta *via;
 
 	dbg("probing at offset 0x%llx, size 0x%llx",
 	    (unsigned long long) off, (unsigned long long) size);
@@ -73,28 +67,22 @@ int volume_id_probe_linux_raid(struct volume_id *id, __u64 off, __u64 size)
 	if (size < 0x10000)
 		return -1;
 
-	sboff = (size & ~(MD_RESERVED_BYTES - 1)) - MD_RESERVED_BYTES;
-	buf = volume_id_get_buffer(id, off + sboff, 0x800);
+	meta_off = ((size / 0x200)-1) * 0x200;
+
+	buf = volume_id_get_buffer(id, off + meta_off, 0x200);
 	if (buf == NULL)
 		return -1;
 
-	mdp = (struct mdp_super_block *) buf;
-
-	if (le32_to_cpu(mdp->md_magic) != MD_MAGIC)
+	via = (struct via_meta *) buf;
+	if (le16_to_cpu(via->signature) !=  VIA_SIGNATURE)
 		return -1;
 
-	memcpy(uuid, &mdp->set_uuid0, 4);
-	memcpy(&uuid[4], &mdp->set_uuid1, 12);
-	volume_id_set_uuid(id, uuid, UUID_DCE);
+	if (via->version_number > 1)
+		return -1;
 
-	snprintf(id->type_version, sizeof(id->type_version)-1, "%u.%u.%u",
-		 le32_to_cpu(mdp->major_version),
-		 le32_to_cpu(mdp->minor_version),
-		 le32_to_cpu(mdp->patch_version));
-
-	dbg("found raid signature");
 	volume_id_set_usage(id, VOLUME_ID_RAID);
-	id->type = "linux_raid_member";
+	snprintf(id->type_version, sizeof(id->type_version)-1, "%u", via->version_number);
+	id->type = "via_raid_member";
 
 	return 0;
 }

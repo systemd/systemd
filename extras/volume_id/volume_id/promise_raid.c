@@ -1,7 +1,7 @@
 /*
  * volume_id - reads filesystem label and uuid
  *
- * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This library is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU Lesser General Public
@@ -37,64 +37,47 @@
 #include "volume_id.h"
 #include "logging.h"
 #include "util.h"
-#include "linux_raid.h"
+#include "promise_raid.h"
 
-struct mdp_super_block {
-	__u32	md_magic;
-	__u32	major_version;
-	__u32	minor_version;
-	__u32	patch_version;
-	__u32	gvalid_words;
-	__u32	set_uuid0;
-	__u32	ctime;
-	__u32	level;
-	__u32	size;
-	__u32	nr_disks;
-	__u32	raid_disks;
-	__u32	md_minor;
-	__u32	not_persistent;
-	__u32	set_uuid1;
-	__u32	set_uuid2;
-	__u32	set_uuid3;
-} __attribute__((packed)) *mdp;
+struct promise_meta {
+	__u8	sig[24];
+} __attribute__((packed));
 
-#define MD_RESERVED_BYTES		0x10000
-#define MD_MAGIC			0xa92b4efc
+#define PDC_CONFIG_OFF		0x1200
+#define PDC_SIGNATURE		"Promise Technology, Inc."
 
-int volume_id_probe_linux_raid(struct volume_id *id, __u64 off, __u64 size)
+int volume_id_probe_promise_fasttrack_raid(struct volume_id *id, __u64 off, __u64 size)
 {
 	const __u8 *buf;
-	__u64 sboff;
-	__u8 uuid[16];
+	struct promise_meta *pdc;
+	unsigned int i;
+	static unsigned int sectors[] = {
+		63, 255, 256, 16, 399, 0
+	};
 
 	dbg("probing at offset 0x%llx, size 0x%llx",
 	    (unsigned long long) off, (unsigned long long) size);
 
-	if (size < 0x10000)
+	if (size < 0x40000)
 		return -1;
 
-	sboff = (size & ~(MD_RESERVED_BYTES - 1)) - MD_RESERVED_BYTES;
-	buf = volume_id_get_buffer(id, off + sboff, 0x800);
-	if (buf == NULL)
-		return -1;
+	for (i = 0; sectors[i] != 0; i++) {
+		__u64 meta_off;
 
-	mdp = (struct mdp_super_block *) buf;
+		meta_off = ((size / 0x200) - sectors[i]) * 0x200;
+		buf = volume_id_get_buffer(id, off + meta_off, 0x200);
+		if (buf == NULL)
+			return -1;
 
-	if (le32_to_cpu(mdp->md_magic) != MD_MAGIC)
-		return -1;
+		pdc = (struct promise_meta *) buf;
+		if (memcmp(pdc->sig, PDC_SIGNATURE, sizeof(PDC_SIGNATURE)-1) == 0)
+			goto found;
+	}
+	return -1;
 
-	memcpy(uuid, &mdp->set_uuid0, 4);
-	memcpy(&uuid[4], &mdp->set_uuid1, 12);
-	volume_id_set_uuid(id, uuid, UUID_DCE);
-
-	snprintf(id->type_version, sizeof(id->type_version)-1, "%u.%u.%u",
-		 le32_to_cpu(mdp->major_version),
-		 le32_to_cpu(mdp->minor_version),
-		 le32_to_cpu(mdp->patch_version));
-
-	dbg("found raid signature");
+found:
 	volume_id_set_usage(id, VOLUME_ID_RAID);
-	id->type = "linux_raid_member";
+	id->type = "promise_fasttrack_raid_member";
 
 	return 0;
 }
