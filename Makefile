@@ -33,6 +33,7 @@ USE_DBUS = false
 ROOT =		udev
 DAEMON =	udevd
 SENDER =	udevsend
+HELPERS =	udevinfo
 VERSION =	014_bk
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
@@ -164,7 +165,7 @@ endif
 
 CFLAGS += -I$(PWD)/libsysfs
 
-all: $(ROOT) $(UDEVD)
+all: $(ROOT) $(UDEVD) $(HELPERS)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
@@ -189,8 +190,7 @@ SYSFS =	$(PWD)/libsysfs/sysfs_bus.o	\
 	$(PWD)/libsysfs/sysfs_utils.o	\
 	$(PWD)/libsysfs/dlist.o
 
-OBJS =	udev.o		\
-	udev_config.o	\
+OBJS =	udev_config.o	\
 	udev-add.o	\
 	udev-remove.o	\
 	udevdb.o	\
@@ -199,6 +199,16 @@ OBJS =	udev.o		\
 	namedev_parse.o	\
 	$(SYSFS)	\
 	$(TDB)
+
+HEADERS = $(GEN_HEADERS)	\
+		udev.h		\
+		namedev.h	\
+		udev_version.h	\
+		udev_dbus.h	\
+		udevdb.h	\
+		klibc_fixups.h	\
+		logging.h	\
+		list.h
 
 ifeq ($(strip $(USE_KLIBC)),true)
 	OBJS += klibc_fixups.o
@@ -234,17 +244,21 @@ $(LOCAL_CFG_DIR)/udev.conf:
 
 $(OBJS): $(GEN_HEADERS)
 
-$(ROOT): $(OBJS) udev.h namedev.h udev_version.h udev_dbus.h udevdb.h klibc_fixups.h logging.h list.h
-	$(LD) $(LDFLAGS) -o $(ROOT) $(CRT0) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
-	$(STRIPCMD) $(ROOT)
+$(ROOT): udev.o $(OBJS) $(HEADERS)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(STRIPCMD) $@
+
+$(HELPERS): udevinfo.o $(OBJS) $(HEADERS)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(STRIPCMD) $@
 
 $(DAEMON): udevd.h udevd.o udevd.o logging.o
-	$(LD) $(LDFLAGS) -o $(DAEMON) $(CRT0) udevd.o logging.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
-	$(STRIPCMD) $(ROOT)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevd.o logging.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(STRIPCMD) $@
 
 $(SENDER): udevd.h udevsend.o udevd.o logging.o
-	$(LD) $(LDFLAGS) -o $(SENDER) $(CRT0) udevsend.o logging.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
-	$(STRIPCMD) $(ROOT)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o logging.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(STRIPCMD) $@
 
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \

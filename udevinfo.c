@@ -27,11 +27,11 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "../../udev.h"
-#include "../../udev_version.h"
-#include "../../logging.h"
-#include "../../udevdb.h"
-#include "../../libsysfs/libsysfs.h"
+#include "udev.h"
+#include "udev_version.h"
+#include "logging.h"
+#include "udevdb.h"
+#include "libsysfs/libsysfs.h"
 
 
 # define SYSFS_VALUE_MAX 200
@@ -268,7 +268,7 @@ static int process_options(void)
 			exit(0);
 
 		case 'V':
-			printf("udev, version %s\n", UDEV_VERSION);
+			printf("udevinfo, version %s\n", UDEV_VERSION);
 			exit(0);
 
 		case 'h':
