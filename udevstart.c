@@ -92,16 +92,10 @@ static int add_device(char *devpath, char *subsystem)
 	struct udevice udev;
 	char path[SYSFS_PATH_MAX];
 	struct sysfs_class_device *class_dev;
-	char *argv[3];
 
-	/* fake argument vector and environment for callouts and dev.d/ */
-	argv[0] = "udev";
-	argv[1] = subsystem;
-	argv[2] = NULL;
-
-	main_argv = argv;
+	/* set environment for callouts and dev.d/ */
 	setenv("DEVPATH", devpath, 1);
-	setenv("ACTION", "add", 1);
+	setenv("SUBSYSTEM", subsystem, 1);
 
 	snprintf(path, SYSFS_PATH_MAX-1, "%s%s", sysfs_path, devpath);
 	class_dev = sysfs_open_class_device_path(path);
@@ -291,7 +285,12 @@ static void udev_scan_class(void)
 
 int udev_start(void)
 {
+	/* set environment for callouts and dev.d/ */
+	setenv("ACTION", "add", 1);
+	setenv("UDEVSTART", "1", 1);
+
 	udev_scan_class();
 	udev_scan_block();
+
 	return 0;
 }

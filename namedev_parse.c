@@ -142,7 +142,7 @@ static char *get_key_attribute(char *str)
 	return NULL;
 }
 
-static int namedev_parse_rules(char *filename)
+static int namedev_parse_rules(const char *filename, void *data)
 {
 	char line[LINE_SIZE];
 	char *bufline;
@@ -343,7 +343,7 @@ error:
 	return retval;
 }
 
-static int namedev_parse_permissions(char *filename)
+static int namedev_parse_permissions(const char *filename, void *data)
 {
 	char line[LINE_SIZE];
 	char *bufline;
@@ -447,10 +447,10 @@ int namedev_init_rules(void)
 
 	stat(udev_rules_filename, &stats);
 	if ((stats.st_mode & S_IFMT) != S_IFDIR)
-		return namedev_parse_rules(udev_rules_filename);
+		return namedev_parse_rules(udev_rules_filename, NULL);
 	else
-		return call_foreach_file(namedev_parse_rules,
-					 udev_rules_filename, RULEFILE_SUFFIX);
+		return call_foreach_file(namedev_parse_rules, udev_rules_filename,
+					 RULEFILE_SUFFIX, NULL);
 }
 
 int namedev_init_permissions(void)
@@ -459,8 +459,8 @@ int namedev_init_permissions(void)
 
 	stat(udev_permissions_filename, &stats);
 	if ((stats.st_mode & S_IFMT) != S_IFDIR)
-		return namedev_parse_permissions(udev_permissions_filename);
+		return namedev_parse_permissions(udev_permissions_filename, NULL);
 	else
-		return call_foreach_file(namedev_parse_permissions,
-					 udev_permissions_filename, PERMFILE_SUFFIX);
+		return call_foreach_file(namedev_parse_permissions, udev_permissions_filename,
+					 PERMFILE_SUFFIX, NULL);
 }

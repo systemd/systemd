@@ -35,13 +35,13 @@
 #define DEVD_DIR			"/etc/dev.d/"
 #define DEVD_SUFFIX			".dev"
 
-static int run_program(char *name)
+static int run_program(const char *filename, void *data)
 {
 	pid_t pid;
 	int fd;
-	char *argv[3];
+	struct udevice *udev = data;
 
-	dbg("running %s", name);
+	dbg("running %s", filename);
 
 	pid = fork();
 	switch (pid) {
@@ -55,11 +55,7 @@ static int run_program(char *name)
 		}
 		close(fd);
 
-		argv[0] = name;
-		argv[1] = main_argv[1];
-		argv[2] = NULL;
-
-		execv(name, argv);
+		execl(filename, filename, udev->subsystem, NULL);
 		dbg("exec of child failed");
 		_exit(1);
 	case -1:
@@ -105,7 +101,7 @@ void dev_d_execute(struct udevice *udev)
 		temp[0] = '\0';
 		strcpy(dirname, DEVD_DIR);
 		strfieldcat(dirname, devname);
-		call_foreach_file(run_program, dirname, DEVD_SUFFIX);
+		call_foreach_file(run_program, dirname, DEVD_SUFFIX, udev);
 
 		temp[0] = '/';
 		++temp;
@@ -114,12 +110,12 @@ void dev_d_execute(struct udevice *udev)
 
 	strcpy(dirname, DEVD_DIR);
 	strfieldcat(dirname, udev->name);
-	call_foreach_file(run_program, dirname, DEVD_SUFFIX);
+	call_foreach_file(run_program, dirname, DEVD_SUFFIX, udev);
 
 	strcpy(dirname, DEVD_DIR);
 	strfieldcat(dirname, udev->subsystem);
-	call_foreach_file(run_program, dirname, DEVD_SUFFIX);
+	call_foreach_file(run_program, dirname, DEVD_SUFFIX, udev);
 
 	strcpy(dirname, DEVD_DIR "default");
-	call_foreach_file(run_program, dirname, DEVD_SUFFIX);
+	call_foreach_file(run_program, dirname, DEVD_SUFFIX, udev);
 }

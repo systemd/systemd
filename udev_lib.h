@@ -84,6 +84,9 @@ extern int file_map(const char *filename, char **buf, size_t *bufsize);
 extern void file_unmap(char *buf, size_t bufsize);
 extern size_t buf_get_line(char *buf, size_t buflen, size_t cur);
 extern void no_trailing_slash(char *path);
-extern int  call_foreach_file(int fnct(char *f) , char *filename, char *extension);
+
+typedef int (*file_fnct_t)(const char *filename, void *data);
+extern int  call_foreach_file(file_fnct_t fnct, const char *dirname,
+			      const char *suffix, void *data);
 
 #endif

@@ -39,10 +39,6 @@
 #include "udevdb.h"
 
 
-/* global variables */
-char **main_argv;
-char **main_envp;
-
 #ifdef LOG
 unsigned char logname[LOGNAME_SIZE];
 void log_message(int level, const char *format, ...)
@@ -83,12 +79,7 @@ int main(int argc, char *argv[], char *envp[])
 	} act_type;
 
 	dbg("version %s", UDEV_VERSION);
-
-	main_argv = argv;
-	main_envp = envp;
-
 	logging_init("udev");
-
 	udev_init_config();
 
 	if (strstr(argv[0], "udevstart") || (argv[1] != NULL && strstr(argv[1], "udevstart"))) {

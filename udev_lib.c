@@ -178,12 +178,12 @@ static int file_list_insert(char *filename, struct list_head *file_list)
 }
 
 /* calls function for every file found in specified directory */
-int call_foreach_file(int fnct(char *f) , char *dirname, char *suffix)
+int call_foreach_file(file_fnct_t fnct, const char *dirname,
+		      const char *suffix, void *data)
 {
 	struct dirent *ent;
 	DIR *dir;
 	char *ext;
-	char file[NAME_SIZE];
 	struct files *loop_file;
 	struct files *tmp_file;
 	LIST_HEAD(file_list);
@@ -217,10 +217,12 @@ int call_foreach_file(int fnct(char *f) , char *dirname, char *suffix)
 
 	/* call function for every file in the list */
 	list_for_each_entry_safe(loop_file, tmp_file, &file_list, list) {
-		snprintf(file, NAME_SIZE-1, "%s/%s", dirname, loop_file->name);
-		file[NAME_SIZE-1] = '\0';
+		char filename[NAME_SIZE];
 
-		fnct(file);
+		snprintf(filename, NAME_SIZE-1, "%s/%s", dirname, loop_file->name);
+		filename[NAME_SIZE-1] = '\0';
+
+		fnct(filename, data);
 
 		list_del(&loop_file->list);
 		free(loop_file);

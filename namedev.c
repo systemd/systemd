@@ -358,7 +358,7 @@ static void fix_kernel_name(struct udevice *udev)
 	}
 }
 
-static int execute_program(const char *path, char *value, int len)
+static int execute_program(struct udevice *udev, const char *path, char *value, int len)
 {
 	int retval;
 	int count;
@@ -391,7 +391,7 @@ static int execute_program(const char *path, char *value, int len)
 		dbg("execute '%s' with parsed arguments", arg);
 	} else {
 		argv[0] = arg;
-		argv[1] = main_argv[1];
+		argv[1] = udev->subsystem;
 		argv[2] = NULL;
 		dbg("execute '%s' with subsystem '%s' argument", arg, argv[1]);
 	}
@@ -655,7 +655,7 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 			dbg("check " FIELD_PROGRAM);
 			strfieldcpy(program, dev->program);
 			apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
-			if (execute_program(program, udev->program_result, NAME_SIZE) != 0) {
+			if (execute_program(udev, program, udev->program_result, NAME_SIZE) != 0) {
 				dbg(FIELD_PROGRAM " returned nonzero");
 				goto try_parent;
 			} else {

@@ -34,10 +34,6 @@
 #include "logging.h"
 #include "namedev.h"
 
-/* global variables */
-char **main_argv;
-char **main_envp;
-
 
 #ifdef LOG
 unsigned char logname[LOGNAME_SIZE];
@@ -61,9 +57,6 @@ int main(int argc, char *argv[], char *envp[])
 	char temp[NAME_SIZE];
 	char *subsystem = "";
 	struct udevice udev;
-
-	main_argv = argv;
-	main_envp = envp;
 
 	info("version %s", UDEV_VERSION);
 

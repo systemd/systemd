@@ -73,8 +73,6 @@ extern int udev_start(void);
 extern int parse_get_pair(char **orig_string, char **left, char **right);
 extern void dev_d_execute(struct udevice *udev);
 
-extern char **main_argv;
-extern char **main_envp;
 extern char sysfs_path[SYSFS_PATH_MAX];
 extern char udev_root[PATH_MAX];
 extern char udev_db_path[PATH_MAX+NAME_MAX];

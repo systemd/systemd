@@ -36,10 +36,7 @@
 #include "udevdb.h"
 
 
-# define SYSFS_VALUE_MAX 200
-
-char **main_argv;
-int main_argc;
+#define SYSFS_VALUE_SIZE		256
 
 #ifdef LOG
 unsigned char logname[LOGNAME_SIZE];
@@ -58,7 +55,7 @@ static int print_all_attributes(const char *path)
 	struct dlist *attributes;
 	struct sysfs_attribute *attr;
 	struct sysfs_directory *sysfs_dir;
-	char value[SYSFS_VALUE_MAX];
+	char value[SYSFS_VALUE_SIZE];
 	int len;
 	int retval = 0;
 
@@ -257,7 +254,7 @@ static int print_sysfs_devices(void)
 	return 0;
 }
 
-static int process_options(void)
+static int process_options(int argc, char *argv[])
 {
 	static const char short_options[] = "adn:p:q:rsVh";
 	int option;
@@ -274,7 +271,7 @@ static int process_options(void)
 
 	/* get command line options */
 	while (1) {
-		option = getopt(main_argc, main_argv, short_options);
+		option = getopt(argc, argv, short_options);
 		if (option == -1)
 			break;
 
@@ -479,15 +476,12 @@ int main(int argc, char *argv[], char *envp[])
 {
 	int rc = 0;
 
-	main_argv = argv;
-	main_argc = argc;
-
 	logging_init("udevinfo");
 
 	/* initialize our configuration */
 	udev_init_config();
 
-	rc = process_options();
+	rc = process_options(argc, argv);
 
 	logging_close();
 	exit(rc);
