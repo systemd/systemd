@@ -140,19 +140,18 @@ static int udev_hotplug(void)
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGTERM, &act, NULL);
 
-	/* initialize the naming deamon */
-	namedev_init();
-
-	if (strcmp(action, "add") == 0)
+	if (strcmp(action, "add") == 0) {
+		namedev_init();
 		retval = udev_add_device(devpath, subsystem, 0);
-
-	else if (strcmp(action, "remove") == 0)
-		retval = udev_remove_device(devpath, subsystem);
-
-	else {
-		dbg("unknown action '%s'", action);
-		retval = -EINVAL;
+	} else {
+		if (strcmp(action, "remove") == 0) {
+			retval = udev_remove_device(devpath, subsystem);
+		} else {
+			dbg("unknown action '%s'", action);
+			retval = -EINVAL;
+		}
 	}
+
 	udevdb_exit();
 
 exit_sysbus:
