@@ -54,18 +54,15 @@
 static int get_major_minor(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
 	int retval = -ENODEV;
-
 	char *dev;
 
 	dev = sysfs_get_value_from_attributes(class_dev->directory->attributes, "dev");
 	if (dev == NULL)
 		goto exit;
-
 	dbg("dev='%s'", dev);
 
 	if (sscanf(dev, "%u:%u", &udev->major, &udev->minor) != 2)
 		goto exit;
-
 	dbg("found major=%d, minor=%d", udev->major, udev->minor);
 
 	retval = 0;
@@ -101,10 +98,6 @@ static int create_path(char *file)
 	return 0;
 }
 
-/*
- * we possibly want to add some symlinks here
- * only numeric owner/group id's are supported
- */
 static int create_node(struct udevice *dev)
 {
 	char filename[255];
@@ -115,7 +108,6 @@ static int create_node(struct udevice *dev)
 	dev_t res;
 	int i;
 	int tail;
-
 
 	strncpy(filename, udev_root, sizeof(filename));
 	strncat(filename, dev->name, sizeof(filename));
@@ -239,7 +231,6 @@ static struct sysfs_class_device *get_class_dev(char *device_name)
 
 	strcpy(dev_path, sysfs_path);
 	strcat(dev_path, device_name);
-
 	dbg("looking at '%s'", dev_path);
 
 	/* open up the sysfs class device for this thing... */
