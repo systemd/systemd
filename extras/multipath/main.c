@@ -589,12 +589,50 @@ make_dm_node(char * str)
 }
 
 static int
-add_map(struct env * conf, struct path * all_paths,
+dm_simplecmd(int task, const char *name) {
+	int r = 0;
+	struct dm_task *dmt;
+
+	if (!(dmt = dm_task_create(task)))
+		return 0;
+
+	if (!dm_task_set_name(dmt, name))
+		goto out;
+
+	r = dm_task_run(dmt);
+
+	out:
+		dm_task_destroy(dmt);
+		return r;
+}
+
+static int
+dm_addmap(int task, const char *name, const char *params, long size) {
+	struct dm_task *dmt;
+
+	if (!(dmt = dm_task_create(task)))
+		return 0;
+
+	if (!dm_task_set_name(dmt, name))
+		goto addout;
+
+	if (!dm_task_add_target(dmt, 0, size, DM_TARGET, params))
+		goto addout;
+
+	if (!dm_task_run(dmt))
+		goto addout;
+
+	addout:
+	dm_task_destroy(dmt);
+	return 1;
+}
+
+static int
+setup_map(struct env * conf, struct path * all_paths,
 	struct multipath * mp, int index, int op)
 {
 	char params[255];
 	char * params_p;
-	struct dm_task *dmt;
 	int i, np;
 
 	/* defaults for multipath target */
@@ -602,11 +640,6 @@ add_map(struct env * conf, struct path * all_paths,
 	char * dm_ps_name           = "round-robin";
 	int dm_ps_nr_args           = 0;
 
-	if (!(dmt = dm_task_create(op)))
-		return 0;
-
-	if (!dm_task_set_name(dmt, mp[index].wwid))
-		goto addout;
 	params_p = &params[0];
 
 	np = 0;
@@ -614,11 +647,9 @@ add_map(struct env * conf, struct path * all_paths,
 		if (0 == all_paths[PINDEX(index,i)].sg_id.scsi_type)
 			np++;
 	}
-	if (np == 0)
-		goto addout;
 
 	if (np < 1)
-		goto addout;
+		return 0;
 
 	params_p += sprintf(params_p, "%i", conf->dm_path_test_int);
 
@@ -650,7 +681,7 @@ add_map(struct env * conf, struct path * all_paths,
 	}
 
 	if (mp[index].size < 0)
-		goto addout;
+		return 0;
 
 	if (!conf->quiet) {
 		if (op == DM_DEVICE_RELOAD)
@@ -661,18 +692,15 @@ add_map(struct env * conf, struct path * all_paths,
 			mp[index].wwid, mp[index].size, DM_TARGET, params);
 	}
 
-	if (!dm_task_add_target(dmt, 0, mp[index].size, DM_TARGET, params))
-		goto addout;
+	if (op == DM_DEVICE_RELOAD)
+		dm_simplecmd(DM_DEVICE_SUSPEND, mp[index].wwid);
 
-	if (!dm_task_run(dmt))
-		goto addout;
+	dm_addmap(op, mp[index].wwid, params, mp[index].size);
 
+	if (op == DM_DEVICE_RELOAD)
+		dm_simplecmd(DM_DEVICE_RESUME, mp[index].wwid);
 
 	make_dm_node(mp[index].wwid);
-
-	addout:
-	dm_task_destroy(dmt);
-	return 1;
 }
 
 static int
@@ -802,9 +830,9 @@ main(int argc, char *argv[])
 
 	for (k=0; k<=nmp; k++) {
 		if (map_present(mp[k].wwid)) {
-			add_map(&conf, all_paths, mp, k, DM_DEVICE_RELOAD);
+			setup_map(&conf, all_paths, mp, k, DM_DEVICE_RELOAD);
 		} else {
-			add_map(&conf, all_paths, mp, k, DM_DEVICE_CREATE);
+			setup_map(&conf, all_paths, mp, k, DM_DEVICE_CREATE);
 		}
 	}
 

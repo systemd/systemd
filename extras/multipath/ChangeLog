@@ -1,4 +1,8 @@
 2003-12-22 multipath-010
+	* introduce dm-simplecmd for RESUME & SUSPEND requests
+	* split add_map() in setup_map() & dm-addmap()
+	* setup_map() correctly submits "SUSPEND-RELOAD-RESUME or CREATE"
+	  sequences instead of the bogus "RELOAD or CREATE"
 	* don't print .sg_dev if equal to .dev (2.6) in print_path()
 	* since the kernel code handles defective paths, remove all
 	  code to cope with them :
