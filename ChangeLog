@@ -1,3 +1,10 @@
+Summary of changes from v034 to v035
+============================================
+
+Greg Kroah-Hartman:
+  o added ieee1394 support to wait_for_sysfs
+  o update wait_for_sysfs with a bunch more devices thanks to user reports
+
 Summary of changes from v033 to v034
 ============================================
 
