@@ -6,6 +6,12 @@ greg k-h
 greg@kroah.com
 
 
+- add modifiers and more documentation about the config file to the man
+  page.
+- add ability to capture CALLOUT result and use it in a device name.
+- fix kernel name logic to handle devices like sdaj and such.
+- make real test harness and have the tests be automated (instead of
+  relying on me knowing what the proper files should be created.)
 - more documentation (can never have too much.)
 - document the config file format (it will change over time...)
 - add symlink generation and removal support
