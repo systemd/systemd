@@ -753,11 +753,12 @@ static void do_kernelname(struct sysfs_class_device *class_dev, struct udevice *
 {
 	struct config_device *dev;
 	struct list_head *tmp;
+	int len;
 
 	strfieldcpy(udev->name, class_dev->name);
 	list_for_each(tmp, &config_device_list) {
 		dev = list_entry(tmp, struct config_device, node);
-		int len = strlen(dev->name);
+		len = strlen(dev->name);
 		if (dev->name[len-1] == '*') {
 			len--;
 			if (strncmp(dev->name, class_dev->name, len))
