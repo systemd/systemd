@@ -43,6 +43,9 @@
 #include "udevd.h"
 #include "logging.h"
 
+/* global variables*/
+static int udevsendsock;
+
 static int pipefds[2];
 static unsigned long long expected_seqnum = 0;
 static volatile int sigchilds_waiting;
@@ -127,6 +130,7 @@ static void udev_run(struct hotplug_msg *msg)
 	switch (pid) {
 	case 0:
 		/* child */
+		close(udevsendsock);
 		execle(udev_bin, "udev", msg->subsystem, NULL, msg->envp);
 		dbg("exec of child failed");
 		_exit(1);
@@ -397,7 +401,7 @@ static void user_sighandler(void)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	int ssock, maxsockplus;
+	int maxsockplus;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
 	int retval, fd;
@@ -476,28 +480,21 @@ int main(int argc, char *argv[], char *envp[])
 	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
 	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 
-	ssock = socket(AF_LOCAL, SOCK_DGRAM, 0);
-	if (ssock == -1) {
+	udevsendsock = socket(AF_LOCAL, SOCK_DGRAM, 0);
+	if (udevsendsock == -1) {
 		dbg("error getting socket, exit");
 		exit(1);
 	}
 
-	set_cloexec_flag(ssock, 1);
-
 	/* the bind takes care of ensuring only one copy running */
-	retval = bind(ssock, (struct sockaddr *) &saddr, addrlen);
+	retval = bind(udevsendsock, (struct sockaddr *) &saddr, addrlen);
 	if (retval < 0) {
 		dbg("bind failed, exit");
 		goto exit;
 	}
-	retval = fcntl(ssock, F_SETFD, FD_CLOEXEC);
-	if (retval < 0) {
-		dbg("error fcntl on ssock: %s", strerror(errno));
-		exit(1);
-	}
 
 	/* enable receiving of the sender credentials */
-	setsockopt(ssock, SOL_SOCKET, SO_PASSCRED, &feature_on, sizeof(feature_on));
+	setsockopt(udevsendsock, SOL_SOCKET, SO_PASSCRED, &feature_on, sizeof(feature_on));
 
 	/* possible override of udev binary, used for testing */
 	udev_bin = getenv("UDEV_BIN");
@@ -507,9 +504,9 @@ int main(int argc, char *argv[], char *envp[])
 		udev_bin = UDEV_BIN;
 
 	FD_ZERO(&readfds);
-	FD_SET(ssock, &readfds);
+	FD_SET(udevsendsock, &readfds);
 	FD_SET(pipefds[0], &readfds);
-	maxsockplus = ssock+1;
+	maxsockplus = udevsendsock+1;
 	while (1) {
 		fd_set workreadfds = readfds;
 		retval = select(maxsockplus, &workreadfds, NULL, NULL, NULL);
@@ -520,8 +517,8 @@ int main(int argc, char *argv[], char *envp[])
 			continue;
 		}
 
-		if (FD_ISSET(ssock, &workreadfds))
-			handle_udevsend_msg(ssock);
+		if (FD_ISSET(udevsendsock, &workreadfds))
+			handle_udevsend_msg(udevsendsock);
 
 		if (FD_ISSET(pipefds[0], &workreadfds))
 			user_sighandler();
@@ -548,7 +545,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}
 exit:
-	close(ssock);
+	close(udevsendsock);
 	logging_close();
 	return 1;
 }

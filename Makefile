@@ -300,7 +300,7 @@ $(DAEMON): $(LIBC) $(DAEMON).o $(OBJS) udevd.h
 	$(QUIET) $(STRIPCMD) $@
 
 $(SENDER): $(LIBC) $(SENDER).o $(OBJS) udevd.h
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o udev_lib.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
 $(WAIT): $(WAIT).o $(OBJS) $(HEADERS) $(LIBC)

@@ -41,6 +41,9 @@
 #include "udevd.h"
 #include "logging.h"
 
+/* global variables */
+static int sock = -1;
+
 #ifdef LOG
 unsigned char logname[LOGNAME_SIZE];
 void log_message (int level, const char *format, ...)
@@ -66,8 +69,7 @@ static int start_daemon(void)
 		switch (child_pid) {
 		case 0:
 			/* daemon */
-			setsid();
-			chdir("/");
+			close(sock);
 			execl(UDEVD_BIN, "udevd", NULL);
 			dbg("exec of daemon failed");
 			_exit(1);
@@ -119,7 +121,6 @@ int main(int argc, char *argv[], char *envp[])
 	int subsystem_env = 0;
 	int bufpos = 0;
 	int retval = 1;
-	int sock = -1;
 	int started_daemon = 0;
 
 	logging_init("udevsend");
@@ -136,8 +137,6 @@ int main(int argc, char *argv[], char *envp[])
 		dbg("error getting socket");
 		goto fallback;
 	}
-
-	set_cloexec_flag(sock, 1);
 
 	memset(&saddr, 0x00, sizeof(struct sockaddr_un));
 	saddr.sun_family = AF_LOCAL;
