@@ -1,6 +1,6 @@
 #! /bin/bash
 #
-# random	init script to setup /udev
+# udev	init script to setup /udev
 #
 # chkconfig: 2345 20 80
 # description: manage user-space device nodes in /udev
@@ -12,6 +12,7 @@
 prog=udev
 sysfs_dir=/sys
 bin=/sbin/udev
+udev_root=/udev
 
 run_udev () {
 	# handle block devices and their partitions
@@ -42,9 +43,34 @@ run_udev () {
 	return 0
 }
 
+make_extra_nodes () {
+	# there are a few things that sysfs does not export for us.
+	# these things go here (and remember to remove them in 
+	# remove_extra_nodes()
+	#
+	# Thanks to Gentoo for the initial list of these.
+	ln -snf /proc/self/fd $udev_root/fd
+	ln -snf /proc/self/fd/0 $udev_root/stdin
+	ln -snf /proc/self/fd/1 $udev_root/stdout
+	ln -snf /proc/self/fd/2 $udev_root/stderr
+	ln -snf /proc/kcore $udev_root/core
+	#ln -snf /proc/asound/oss/sndstat $udev_root/sndstat
+}
+
+remove_extra_nodes () {
+	# get rid of the extra nodes created in make_extra_nodes()
+	rm $udev_root/fd
+	rm $udev_root/stdin
+	rm $udev_root/stdout
+	rm $udev_root/stderr
+	rm $udev_root/core
+	#rm $udev_root/sndstat
+}
+
 case "$1" in
   start)
-	if [ ! -d $sysfs_dir ]; then
+	# don't use udev if sysfs is not mounted.
+	if [ ! -d $sysfs_dir/block ]; then
 		exit 1
 	fi
 	if [ ! -d $udev_root ]; then
@@ -61,7 +87,8 @@ case "$1" in
 	# device bring up
 	export ACTION=add
 	echo -n $"Creating initial udev device nodes:"
-	run_udev 
+	run_udev
+	make_extra_nodes
 	success /bin/true
 	echo
 	touch /var/lock/subsys/udev
@@ -71,6 +98,7 @@ case "$1" in
 	echo -n $"Removing udev device nodes: "
 	export ACTION=remove
 	run_udev 
+	remove_extra_nodes
 	success /bin/true
 	echo
 	rm -f /var/lock/subsys/udev
