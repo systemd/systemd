@@ -37,12 +37,16 @@
 #include "list.h"
 
 
-void udev_init_device(struct udevice *udev, const char* devpath, const char *subsystem)
+int udev_init_device(struct udevice *udev, const char* devpath, const char *subsystem)
 {
+	char *pos;
+
 	memset(udev, 0x00, sizeof(struct udevice));
 
-	if (devpath)
+	if (devpath) {
 		strfieldcpy(udev->devpath, devpath);
+		no_trailing_slash(udev->devpath);
+	}
 	if (subsystem)
 		strfieldcpy(udev->subsystem, subsystem);
 
@@ -60,6 +64,30 @@ void udev_init_device(struct udevice *udev, const char* devpath, const char *sub
 	udev->mode = 0660;
 	strcpy(udev->owner, "root");
 	strcpy(udev->group, "root");
+
+	/* get kernel name */
+	pos = strrchr(udev->devpath, '/');
+	if (pos == NULL)
+		return -1;
+	strfieldcpy(udev->kernel_name, &pos[1]);
+
+	/* get kernel number */
+	pos = &udev->kernel_name[strlen(udev->kernel_name)];
+	while (isdigit(pos[-1]))
+		pos--;
+	strfieldcpy(udev->kernel_number, pos);
+	dbg("kernel_number='%s'", udev->kernel_number);
+
+	/* Some block devices have '!' in their name, change that to '/' */
+	pos = udev->kernel_name;
+	while (pos[0] != '\0') {
+		if (pos[0] == '!')
+			pos[0] = '/';
+		pos++;
+	}
+
+	dbg("kernel_name='%s'", udev->kernel_name);
+	return 0;
 }
 
 int kernel_release_satisfactory(unsigned int version, unsigned int patchlevel, unsigned int sublevel)
@@ -232,31 +260,35 @@ void no_trailing_slash(char *path)
 		path[--len] = '\0';
 }
 
-struct files {
-	struct list_head list;
+struct name_entry {
+	struct list_head node;
 	char name[NAME_SIZE];
 };
 
 /* sort files in lexical order */
-static int file_list_insert(char *filename, struct list_head *file_list)
+static int name_list_add(struct list_head *name_list, const char *name, int sort)
 {
-	struct files *loop_file;
-	struct files *new_file;
+	struct name_entry *loop_name;
+	struct name_entry *new_name;
 
-	list_for_each_entry(loop_file, file_list, list) {
-		if (strcmp(loop_file->name, filename) > 0) {
-			break;
+	list_for_each_entry(loop_name, name_list, node) {
+		/* avoid doubles */
+		if (strcmp(loop_name->name, name) == 0) {
+			dbg("'%s' is already in the list", name);
+			return 0;
 		}
+		if (sort && strcmp(loop_name->name, name) > 0)
+			break;
 	}
 
-	new_file = malloc(sizeof(struct files));
-	if (new_file == NULL) {
+	new_name = malloc(sizeof(struct name_entry));
+	if (new_name == NULL) {
 		dbg("error malloc");
 		return -ENOMEM;
 	}
 
-	strfieldcpy(new_file->name, filename);
-	list_add_tail(&new_file->list, &loop_file->list);
+	strfieldcpy(new_name->name, name);
+	list_add_tail(&new_name->node, &loop_name->node);
 	return 0;
 }
 
@@ -267,8 +299,8 @@ int call_foreach_file(file_fnct_t fnct, const char *dirname,
 	struct dirent *ent;
 	DIR *dir;
 	char *ext;
-	struct files *loop_file;
-	struct files *tmp_file;
+	struct name_entry *loop_file;
+	struct name_entry *tmp_file;
 	LIST_HEAD(file_list);
 
 	dbg("open directory '%s'", dirname);
@@ -295,11 +327,11 @@ int call_foreach_file(file_fnct_t fnct, const char *dirname,
 			continue;
 
 		dbg("put file '%s/%s' in list", dirname, ent->d_name);
-		file_list_insert(ent->d_name, &file_list);
+		name_list_add(&file_list, ent->d_name, 1);
 	}
 
 	/* call function for every file in the list */
-	list_for_each_entry_safe(loop_file, tmp_file, &file_list, list) {
+	list_for_each_entry_safe(loop_file, tmp_file, &file_list, node) {
 		char filename[NAME_SIZE];
 
 		snprintf(filename, NAME_SIZE, "%s/%s", dirname, loop_file->name);
@@ -307,7 +339,7 @@ int call_foreach_file(file_fnct_t fnct, const char *dirname,
 
 		fnct(filename, data);
 
-		list_del(&loop_file->list);
+		list_del(&loop_file->node);
 		free(loop_file);
 	}
 

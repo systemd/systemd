@@ -26,6 +26,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include "libsysfs/sysfs/libsysfs.h"
+#include "list.h"
 
 #define ALARM_TIMEOUT			120
 #define COMMENT_CHARACTER		'#'

@@ -343,19 +343,6 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 	}
 }
 
-static void fix_kernel_name(struct udevice *udev)
-{
-	char *temp = udev->kernel_name;
-
-	while (*temp != 0x00) {
-		/* Some block devices have a ! in their name, 
-		 * we need to change that to / */
-		if (*temp == '!')
-			*temp = '/';
-		++temp;
-	}
-}
-
 static int execute_program(struct udevice *udev, const char *path, char *value, int len)
 {
 	int retval;
@@ -549,8 +536,8 @@ static int match_id(struct config_device *dev, struct sysfs_class_device *class_
 	dbg("search '%s' in '%s', path='%s'", dev->id, temp, path);
 	if (strcmp_pattern(dev->id, temp) != 0)
 		return -ENODEV;
-	else
-		return 0;
+
+	return 0;
 }
 
 static int match_place(struct config_device *dev, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
@@ -582,7 +569,6 @@ static int match_place(struct config_device *dev, struct sysfs_class_device *cla
 static int match_rule(struct udevice *udev, struct config_device *dev,
 		      struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
-	/* check for matching kernel name */
 	if (dev->kernel[0] != '\0') {
 		dbg("check for " FIELD_KERNEL " dev->kernel='%s' class_dev->name='%s'",
 		    dev->kernel, class_dev->name);
@@ -593,7 +579,6 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 		dbg(FIELD_KERNEL " matches");
 	}
 
-	/* check for matching subsystem */
 	if (dev->subsystem[0] != '\0') {
 		dbg("check for " FIELD_SUBSYSTEM " dev->subsystem='%s' class_dev->name='%s'",
 		    dev->subsystem, class_dev->name);
@@ -710,7 +695,6 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 	struct sysfs_class_device *class_dev_parent;
 	struct sysfs_device *sysfs_device = NULL;
 	struct config_device *dev;
-	char *pos;
 
 	dbg("class_dev->name='%s'", class_dev->name);
 
@@ -733,16 +717,7 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 		strfieldcpy(udev->bus_id, sysfs_device->bus_id);
 	}
 
-	strfieldcpy(udev->kernel_name, class_dev->name);
-	fix_kernel_name(udev);
-	dbg("udev->kernel_name = '%s'", udev->kernel_name);
-
-	/* get kernel number */
-	pos = class_dev->name + strlen(class_dev->name);
-	while (isdigit(*(pos-1)))
-		pos--;
-	strfieldcpy(udev->kernel_number, pos);
-	dbg("kernel_number='%s'", udev->kernel_number);
+	dbg("udev->kernel_name='%s'", udev->kernel_name);
 
 	/* look for a matching rule to apply */
 	list_for_each_entry(dev, &config_device_list, node) {
@@ -781,7 +756,7 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 				dbg("applied group='%s' to '%s'", udev->group, udev->kernel_name);
 			}
 
-			/* collect symlinks for this or the final matching rule */
+			/* collect symlinks */
 			if (dev->symlink[0] != '\0') {
 				char temp[NAME_SIZE];
 

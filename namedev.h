@@ -36,14 +36,14 @@ struct sysfs_class_device;
 #define DRIVER_SIZE		64
 #define PROGRAM_SIZE		128
 
+#define FIELD_KERNEL		"KERNEL"
+#define FIELD_SUBSYSTEM		"SUBSYSTEM"
 #define FIELD_BUS		"BUS"
 #define FIELD_SYSFS		"SYSFS"
 #define FIELD_ID		"ID"
 #define FIELD_PLACE		"PLACE"
 #define FIELD_PROGRAM		"PROGRAM"
 #define FIELD_RESULT		"RESULT"
-#define FIELD_KERNEL		"KERNEL"
-#define FIELD_SUBSYSTEM		"SUBSYSTEM"
 #define FIELD_DRIVER		"DRIVER"
 #define FIELD_NAME		"NAME"
 #define FIELD_SYMLINK		"SYMLINK"
