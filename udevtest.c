@@ -84,12 +84,6 @@ int main(int argc, char *argv[], char *envp[])
 
 	info("looking at '%s'", devpath);
 
-	/* we only care about class devices and block stuff */
-	if (!strstr(devpath, "class") && !strstr(devpath, "block")) {
-		dbg("not a block or class device");
-		return 2;
-	}
-
 	/* initialize the naming deamon */
 	namedev_init();
 
@@ -99,6 +93,12 @@ int main(int argc, char *argv[], char *envp[])
 	/* fill in values and test_run flag*/
 	udev_init_device(&udev, devpath, subsystem);
 
+	/* skip subsystems without "dev", but handle net devices */
+	if (udev.type != 'n' && subsystem_expect_no_dev(udev.subsystem)) {
+		info("don't care about '%s' devices", udev.subsystem);
+		return 2;
+	}
+
 	/* open the device */
 	snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, udev.devpath);
 	class_dev = sysfs_open_class_device_path(path);
@@ -107,7 +107,7 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	}
 
-	dbg("opened class_dev->name='%s'", class_dev->name);
+	info("opened class_dev->name='%s'", class_dev->name);
 
 	/* simulate node creation with test flag */
 	udev.test_run = 1;

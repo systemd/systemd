@@ -39,6 +39,7 @@ static const struct subsystem_file {
 	const char *subsystem;
 	const char *file;
 } subsystem_files[] = {
+	{ .subsystem = "class",		.file = NULL },
 	{ .subsystem = "net",		.file = "ifindex" },
 	{ .subsystem = "scsi_host",	.file = "unique_id" },
 	{ .subsystem = "scsi_device",	.file = NULL },
