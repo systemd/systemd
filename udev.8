@@ -72,6 +72,23 @@ calling external program, that returns a string to match
 .br
 keys: \fBBUS\fP, \fBPROGRAM\fP, \fBID\fP
 .P
+The name field supports simple printf-like string subtitution:
+.RS
+.TP
+.B %n
+the "kernel number" of the device
+for example, 'sda3' has a "kernel number" of '3'
+.TP
+.B %M
+the kernel major number for the device
+.TP
+.B %m
+the kernel minor number for the device
+.TP
+.B %b
+the bus id for the device
+.RE
+.P
 A sample \fIudev.conf\fP might look like this:
 .sp
 .nf
@@ -89,6 +106,9 @@ REPLACE, KERNEL="ttyUSB1", NAME="pda"
 
 # if /sbin/scsi_id returns "OEM 0815" device will be called disk1
 CALLOUT, PROGRAM="/sbin/scsi_id" BUS="scsi", ID="OEM 0815" NAME="disk1"
+
+# USB webcams to be called webcam0, webcam1, ...
+LABEL, BUS="usb", model="WebCam Version 3", NAME="webcam%n"
 .fi
 .P
 Permissions and ownership for the created device files may specified at
