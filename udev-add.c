@@ -74,6 +74,8 @@ static int create_node(struct udevice *dev)
 {
 	char filename[255];
 	int retval = 0;
+	uid_t uid = 0;
+	gid_t gid = 0;
 	dev_t res;
 
 	strncpy(filename, udev_root, sizeof(filename));
@@ -132,9 +134,6 @@ static int create_node(struct udevice *dev)
 	if (retval)
 		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
 		    filename, dev->mode, dev->major, dev->minor, strerror(errno));
-
-	uid_t uid = 0;
-	gid_t gid = 0;
 
 	if (*dev->owner) {
 		char *endptr;
