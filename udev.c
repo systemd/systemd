@@ -31,6 +31,7 @@
 
 #include "udev.h"
 #include "udev_version.h"
+#include "udev_dbus.h"
 #include "namedev.h"
 #include "udevdb.h"
 #include "libsysfs/libsysfs.h"
@@ -62,60 +63,6 @@ static inline char *get_seqnum(void)
 	seqnum = getenv("SEQNUM");
 	return seqnum;
 }
-
-#ifdef USE_DBUS
-
-/** Global variable for the connection the to system message bus or #NULL
- *  if we cannot connect or acquire the org.kernel.udev service
- */
-DBusConnection* sysbus_connection;
-
-/** Disconnect from the system message bus */
-static void sysbus_disconnect()
-{
-        if (sysbus_connection == NULL)
-                return;
-
-        dbus_connection_disconnect(sysbus_connection);
-        sysbus_connection = NULL;
-}
-
-/** Connect to the system message bus */
-static void sysbus_connect()
-{
-        DBusError error;
-
-        /* Connect to a well-known bus instance, the system bus */
-        dbus_error_init(&error);
-        sysbus_connection = dbus_bus_get(DBUS_BUS_SYSTEM, &error);
-        if (sysbus_connection == NULL) {
-                dbg("cannot connect to system message bus, error %s: %s", 
-                    error.name, error.message);
-                dbus_error_free(&error);
-                return;
-        }
-
-        /*  Acquire the org.kernel.udev service such that listeners
-         *  know that the message is really from us and not from a
-         *  random attacker. See the file udev_sysbus_policy.conf for
-         *  details.
-         *
-         *  Note that a service can have multiple owners (though there
-         *  is a concept of a primary owner for reception of messages)
-         *  so no race is introduced if two copies of udev is running
-         *  at the same time.
-         */
-        dbus_bus_acquire_service(sysbus_connection, "org.kernel.udev", 0, 
-                                 &error);
-        if (dbus_error_is_set(&error)) {
-                printf("cannot acquire org.kernel.udev service, error %s: %s'",
-                       error.name, error.message);
-                sysbus_disconnect();
-                return;
-        }
-}
-
-#endif /* USE_DBUS */
 
 int main(int argc, char **argv, char **envp)
 {
@@ -165,10 +112,8 @@ int main(int argc, char **argv, char **envp)
 	/* initialize our configuration */
 	udev_init_config();
 
-#ifdef USE_DBUS
-        /* connect to the system message bus */
-        sysbus_connect();
-#endif /* USE_DBUS */
+	/* connect to the system message bus */
+	sysbus_connect();
 
 	/* initialize udev database */
 	retval = udevdb_init(UDEVDB_DEFAULT);
@@ -192,11 +137,9 @@ int main(int argc, char **argv, char **envp)
 	}
 	udevdb_exit();
 
-#ifdef USE_DBUS
-        /* disconnect from the system message bus */
-        sysbus_disconnect();
-#endif /* USE_DBUS */
+	/* disconnect from the system message bus */
+	sysbus_disconnect();
 
-exit:	
+exit:
 	return retval;
 }
