@@ -16,14 +16,13 @@ export ACTION=$1	# 'add' or 'remove'
 
 for i in ${SYSFSDIR}/block/*; do
 	# add each drive
-	export DEVPATH="/"`echo $i | cut --delimiter='/' --fields=3-`
+	export DEVPATH=${i#${SYSFSDIR}}
 	$BIN block
 
 	# add each partition, on each device
 	for j in $i/*; do
 		if [ -f $j/dev ]; then
-			export DEVPATH="/"`echo $j |  \
-				cut --delimiter='/' --fields=3-`
+			export DEVPATH=${j#${SYSFSDIR}}
 			$BIN block
 		fi
 	done

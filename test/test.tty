@@ -15,6 +15,6 @@ BIN=./udev		# location of your udev binary
 export ACTION=$1	# 'add' or 'remove'
 
 for i in ${SYSFSDIR}/class/tty/*; do
-	export DEVPATH="/"`echo $i | cut --delimiter='/' --fields=3-`
+	export DEVPATH=${i#${SYSFSDIR}}
 	$BIN tty
 done
