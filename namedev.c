@@ -566,6 +566,107 @@ static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev
 	return -ENODEV;
 }
 
+static int do_label(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
+{
+	struct sysfs_attribute *tmpattr = NULL;
+	struct config_device *dev;
+	struct list_head *tmp;
+	char *temp = NULL;
+
+	list_for_each(tmp, &config_device_list) {
+		dev = list_entry(tmp, struct config_device, node);
+		if (dev->type != LABEL)
+			continue;
+
+		dbg_parse("LABEL: match file '%s' with value '%s'",
+				dev->sysfs_file, dev->sysfs_value);
+		/* try to find the attribute in the class device directory */
+		tmpattr = sysfs_get_classdev_attr(class_dev, dev->sysfs_file);
+		if (tmpattr)
+			goto label_found;
+
+		/* look in the class device directory if present */
+		if (sysfs_device) {
+			tmpattr = sysfs_get_device_attr(sysfs_device, dev->sysfs_file);
+			if (tmpattr)
+				goto label_found;
+		}
+
+		continue;
+
+label_found:
+		tmpattr->value[strlen(tmpattr->value)-1] = 0x00;
+		dbg_parse("file '%s' found with value '%s' compare with '%s'", dev->sysfs_file, tmpattr->value, dev->sysfs_value);
+		if (strcmp(dev->sysfs_value, tmpattr->value) != 0)
+			continue;
+
+		strcpy(udev->name, dev->name);
+		if (isdigit(class_dev->path[strlen(class_dev->path)-1])) {
+			temp = &class_dev->path[strlen(class_dev->path)-1];
+			strcat(udev->name, temp);
+		}
+		if (dev->mode != 0) {
+			udev->mode = dev->mode;
+			strcpy(udev->owner, dev->owner);
+			strcpy(udev->group, dev->group);
+		}
+		dbg_parse("file '%s' with value '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
+			dev->sysfs_file, dev->sysfs_value, udev->name, 
+			dev->owner, dev->group, dev->mode);
+
+		return 0;
+	}
+	return -ENODEV;
+}
+
+static int do_number(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
+{
+	struct config_device *dev;
+	struct list_head *tmp;
+	char path[SYSFS_PATH_MAX];
+	int found;
+	char *temp = NULL;
+
+	/* we have to have a sysfs device for NUMBER to work */
+	if (!sysfs_device)
+		return -ENODEV;
+
+	list_for_each(tmp, &config_device_list) {
+		dev = list_entry(tmp, struct config_device, node);
+		if (dev->type != NUMBER)
+			continue;
+
+		found = 0;
+		strcpy(path, sysfs_device->path);
+		temp = strrchr(path, '/');
+		dbg_parse("NUMBER path = '%s'", path);
+		dbg_parse("NUMBER temp = '%s' id = '%s'", temp, dev->id);
+		if (strstr(temp, dev->id) != NULL) {
+			found = 1;
+		} else {
+			*temp = 0x00;
+			temp = strrchr(path, '/');
+			dbg_parse("NUMBER temp = '%s' id = '%s'", temp, dev->id);
+			if (strstr(temp, dev->id) != NULL)
+				found = 1;
+		}
+		if (!found)
+			continue;
+		strcpy(udev->name, dev->name);
+		if (dev->mode != 0) {
+			udev->mode = dev->mode;
+			strcpy(udev->owner, dev->owner);
+			strcpy(udev->group, dev->group);
+		}
+		dbg_parse("device id '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
+			dev->id, udev->name, 
+			dev->owner, dev->group, dev->mode);
+		return 0;
+	}
+	return -ENODEV;
+}
+
+
 static int do_topology(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
 {
 	struct config_device *dev;
@@ -647,11 +748,9 @@ static int do_replace(struct sysfs_class_device *class_dev, struct udevice *udev
 
 static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
-	struct list_head *tmp;
 	struct sysfs_device *sysfs_device = NULL;
 	struct sysfs_class_device *class_dev_parent = NULL;
 	int retval = 0;
-	int found;
 	char *temp = NULL;
 
 	udev->mode = 0;
@@ -693,96 +792,17 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 	} else {
 		dbg_parse("class_dev->name = '%s'", class_dev->name);
 	}
-	list_for_each(tmp, &config_device_list) {
-		struct config_device *dev = list_entry(tmp, struct config_device, node);
-		switch (dev->type) {
-		case LABEL:
-			{
-			struct sysfs_attribute *tmpattr = NULL;
-
-			dbg_parse("LABEL: match file '%s' with value '%s'",
-					dev->sysfs_file, dev->sysfs_value);
-			/* try to find the attribute in the class device directory */
-			tmpattr = sysfs_get_classdev_attr(class_dev, dev->sysfs_file);
-			if (tmpattr)
-				goto label_found;
-
-			/* look in the class device directory if present */
-			if (sysfs_device) {
-				tmpattr = sysfs_get_device_attr(sysfs_device, dev->sysfs_file);
-				if (tmpattr)
-					goto label_found;
-			}
-
-			continue;
-
-label_found:
-			tmpattr->value[strlen(tmpattr->value)-1] = 0x00;
-			dbg_parse("file '%s' found with value '%s' compare with '%s'", dev->sysfs_file, tmpattr->value, dev->sysfs_value);
-			if (strcmp(dev->sysfs_value, tmpattr->value) != 0)
-				continue;
-
-			strcpy(udev->name, dev->name);
-			if (isdigit(class_dev->path[strlen(class_dev->path)-1])) {
-				temp = &class_dev->path[strlen(class_dev->path)-1];
-				strcat(udev->name, temp);
-			}
-			if (dev->mode != 0) {
-				udev->mode = dev->mode;
-				strcpy(udev->owner, dev->owner);
-				strcpy(udev->group, dev->group);
-			}
-			dbg_parse("file '%s' with value '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
-				dev->sysfs_file, dev->sysfs_value, udev->name, 
-				dev->owner, dev->group, dev->mode);
-			goto done;
-			break;
-			}
-		case NUMBER:
-			{
-			char path[SYSFS_PATH_MAX];
-
-			found = 0;
-			if (!sysfs_device)
-				continue;
-			s
-				rcpy(path, sysfs_device->path);
-			temp = strrchr(path, '/');
-			dbg_parse("NUMBER path = '%s'", path);
-			dbg_parse("NUMBER temp = '%s' id = '%s'", temp, dev->id);
-			if (strstr(temp, dev->id) != NULL) {
-				found = 1;
-			} else {
-				*temp = 0x00;
-				temp = strrchr(path, '/');
-				dbg_parse("NUMBERY temp = '%s' id = '%s'", temp, dev->id);
-				if (strstr(temp, dev->id) != NULL)
-					found = 1;
-			}
-			if (!found)
-				continue;
-
-			strcpy(udev->name, dev->name);
-			if (dev->mode != 0) {
-				udev->mode = dev->mode;
-				strcpy(udev->owner, dev->owner);
-				strcpy(udev->group, dev->group);
-			}
-			dbg_parse("device id '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
-				dev->id, udev->name, 
-				dev->owner, dev->group, dev->mode);
-			goto done;
-			break;
-			}
-		case KERNEL_NAME:
-		default:
-			break;
-		}	
-	}
 
 	/* rules are looked at in priority order */
-
 	retval = do_callout(class_dev, udev);
+	if (retval == 0)
+		goto done;
+
+	retval = do_label(class_dev, udev, sysfs_device);
+	if (retval == 0)
+		goto done;
+
+	retval = do_number(class_dev, udev, sysfs_device);
 	if (retval == 0)
 		goto done;
 
