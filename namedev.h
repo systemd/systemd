@@ -28,17 +28,6 @@
 
 struct sysfs_class_device;
 
-
-enum config_type {
-	KERNEL_NAME	= 0,	/* must be 0 to let memset() default to this value */
-	LABEL		= 1,
-	NUMBER		= 2,
-	TOPOLOGY	= 3,
-	REPLACE		= 4,
-	CALLOUT		= 5,
-	IGNORE		= 6,
-};
-
 #define BUS_SIZE	30
 #define FILE_SIZE	50
 #define VALUE_SIZE	100
@@ -46,23 +35,17 @@ enum config_type {
 #define PLACE_SIZE	50
 #define PROGRAM_SIZE	100
 
-#define TYPE_LABEL	"LABEL"
-#define TYPE_NUMBER	"NUMBER"
-#define TYPE_TOPOLOGY	"TOPOLOGY"
-#define TYPE_REPLACE	"REPLACE"
-#define TYPE_CALLOUT	"CALLOUT"
-#define TYPE_IGNORE	"IGNORE"
-
 #define FIELD_BUS	"BUS"
-#define FIELD_ID	"ID"
 #define FIELD_SYSFS	"SYSFS_"
+#define FIELD_ID	"ID"
 #define FIELD_PLACE	"PLACE"
 #define FIELD_PROGRAM	"PROGRAM"
+#define FIELD_RESULT	"RESULT"
 #define FIELD_KERNEL	"KERNEL"
 #define FIELD_NAME	"NAME"
 #define FIELD_SYMLINK	"SYMLINK"
 
-#define CALLOUT_MAXARG	8
+#define CALLOUT_MAXARG	10
 #define MAX_SYSFS_PAIRS	5
 
 struct sysfs_pair {
@@ -73,12 +56,12 @@ struct sysfs_pair {
 struct config_device {
 	struct list_head node;
 
-	enum config_type type;
 	char bus[BUS_SIZE];
 	char id[ID_SIZE];
 	char place[PLACE_SIZE];
-	char kernel_name[NAME_SIZE];
-	char exec_program[PROGRAM_SIZE];
+	char kernel[NAME_SIZE];
+	char program[PROGRAM_SIZE];
+	char result[PROGRAM_SIZE];
 	char name[NAME_SIZE];
 	char symlink[NAME_SIZE];
 	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];

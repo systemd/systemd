@@ -213,27 +213,27 @@ static void apply_format(struct udevice *udev, unsigned char *string)
 				dbg("substitute major number '%u'", udev->major);
 				break;
 			case 'c':
-				if (strlen(udev->callout_value) == 0)
+				if (strlen(udev->program_result) == 0)
 					break;
 				if (num) {
 					/* get part of return string */
-					strncpy(temp, udev->callout_value, sizeof(temp));
+					strncpy(temp, udev->program_result, sizeof(temp));
 					pos2 = temp;
 					while (num) {
 						num--;
 						pos3 = strsep(&pos2, " ");
 						if (pos3 == NULL) {
-							dbg("requested part of callout string not found");
+							dbg("requested part of result string not found");
 							break;
 						}
 					}
 					if (pos3) {
 						strcat(pos, pos3);
-						dbg("substitute partial callout output '%s'", pos3);
+						dbg("substitute part of result string '%s'", pos3);
 					}
 				} else {
-					strcat(pos, udev->callout_value);
-					dbg("substitute callout output '%s'", udev->callout_value);
+					strcat(pos, udev->program_result);
+					dbg("substitute result string '%s'", udev->program_result);
 				}
 				break;
 			default:
@@ -298,28 +298,7 @@ exit:
 	return; /* here to prevent compiler warning... */
 }
 
-static int do_ignore(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
-{
-	struct config_device *dev;
-	struct list_head *tmp;
-
-	list_for_each(tmp, &config_device_list) {
-		dev = list_entry(tmp, struct config_device, node);
-		if (dev->type != IGNORE)
-			continue;
-
-		dbg("compare name '%s' with '%s'", dev->kernel_name, class_dev->name);
-		if (strcmp_pattern(dev->kernel_name, class_dev->name) != 0)
-			continue;
-
-		dbg("found name, '%s' will be ignored", dev->kernel_name);
-
-		return 0;
-	}
-	return -ENODEV;
-}
-
-static int exec_program(char *path, char *value, int len)
+static int execute_program(char *path, char *value, int len)
 {
 	int retval;
 	int res;
@@ -332,7 +311,7 @@ static int exec_program(char *path, char *value, int len)
 	char *args[CALLOUT_MAXARG];
 	int i;
 
-	dbg("callout to '%s'", path);
+	dbg("executing '%s'", path);
 	retval = pipe(fds);
 	if (retval != 0) {
 		dbg("pipe failed");
@@ -349,7 +328,7 @@ static int exec_program(char *path, char *value, int len)
 		close(STDOUT_FILENO);
 		dup(fds[1]);	/* dup write side of pipe to STDOUT */
 		if (strchr(path, ' ')) {
-			/* callout with arguments */
+			/* exec with arguments */
 			pos = path;
 			for (i=0; i < CALLOUT_MAXARG-1; i++) {
 				args[i] = strsep(&pos, " ");
@@ -379,11 +358,11 @@ static int exec_program(char *path, char *value, int len)
 				break;
 			buffer[res] = '\0';
 			if (res > len) {
-				dbg("callout len %d too short", len);
+				dbg("result len %d too short", len);
 				retval = -1;
 			}
 			if (value_set) {
-				dbg("callout value already set");
+				dbg("result value already set");
 				retval = -1;
 			} else {
 				value_set = 1;
@@ -391,7 +370,7 @@ static int exec_program(char *path, char *value, int len)
 				pos = value + strlen(value)-1;
 				if (pos[0] == '\n')
 				pos[0] = '\0';
-				dbg("callout returned '%s'", value);
+				dbg("result is '%s'", value);
 			}
 		}
 		close(fds[0]);
@@ -402,46 +381,14 @@ static int exec_program(char *path, char *value, int len)
 		}
 
 		if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
-			dbg("callout program status 0x%x", status);
+			dbg("exec program status 0x%x", status);
 			retval = -1;
 		}
 	}
 	return retval;
 }
 
-static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
-{
-	struct config_device *dev;
-
-	list_for_each_entry(dev, &config_device_list, node) {
-		if (dev->type != CALLOUT)
-			continue;
-
-		if (dev->bus[0] != '\0') {
-			/* as the user specified a bus, we must match it up */
-			if (!sysfs_device)
-				continue;
-			dbg("dev->bus='%s' sysfs_device->bus='%s'", dev->bus, sysfs_device->bus);
-			if (strcasecmp(dev->bus, sysfs_device->bus) != 0)
-				continue;
-		}
-
-		/* substitute anything that needs to be in the program name */
-		apply_format(udev, dev->exec_program);
-		if (exec_program(dev->exec_program, udev->callout_value, NAME_SIZE))
-			continue;
-		if (strcmp_pattern(dev->id, udev->callout_value) != 0)
-			continue;
-		strfieldcpy(udev->name, dev->name);
-		strfieldcpy(udev->symlink, dev->symlink);
-		dbg("callout returned matching value '%s', '%s' becomes '%s'",
-		    dev->id, class_dev->name, udev->name);
-		return 0;
-	}
-	return -ENODEV;
-}
-
-static int match_pair(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, struct sysfs_pair *pair)
+static int compare_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, struct sysfs_pair *pair)
 {
 	struct sysfs_attribute *tmpattr = NULL;
 	char *c;
@@ -461,7 +408,6 @@ static int match_pair(struct sysfs_class_device *class_dev, struct sysfs_device 
 		if (tmpattr)
 			goto label_found;
 	}
-
 	return -ENODEV;
 
 label_found:
@@ -478,53 +424,26 @@ label_found:
 	return 0;
 }
 
-static int do_label(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
+static int match_sysfs_pairs(struct config_device *dev, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
 	struct sysfs_pair *pair;
-	struct config_device *dev;
 	int i;
-	int match;
 
-	list_for_each_entry(dev, &config_device_list, node) {
-		if (dev->type != LABEL)
-			continue;
-
-		if (dev->bus[0] != '\0') {
-			/* as the user specified a bus, we must match it up */
-			if (!sysfs_device)
-				continue;
-			dbg("dev->bus='%s' sysfs_device->bus='%s'", dev->bus, sysfs_device->bus);
-			if (strcasecmp(dev->bus, sysfs_device->bus) != 0)
-				continue;
+	for (i = 0; i < MAX_SYSFS_PAIRS; ++i) {
+		pair = &dev->sysfs_pair[i];
+		if ((pair->file[0] == '\0') || (pair->value[0] == '\0'))
+			break;
+		if (compare_sysfs_attribute(class_dev, sysfs_device, pair) != 0) {
+			dbg("sysfs attribute doesn't match");
+			return -ENODEV;
 		}
-
-		match = 1;
-		for (i = 0; i < MAX_SYSFS_PAIRS; ++i) {
-			pair = &dev->sysfs_pair[i];
-			if ((pair->file[0] == '\0') || (pair->value[0] == '\0'))
-				break;
-			if (match_pair(class_dev, sysfs_device, pair) != 0) {
-				match = 0;
-				break;
-			}
-		}
-		if (match == 0)
-			continue;
-
-		/* found match */
-		strfieldcpy(udev->name, dev->name);
-		strfieldcpy(udev->symlink, dev->symlink);
-		dbg("found matching attribute, '%s' becomes '%s' ",
-		    class_dev->name, udev->name);
-
-		return 0;
 	}
-	return -ENODEV;
+
+	return 0;
 }
 
-static int do_number(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
+static int match_id(struct config_device *dev, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
-	struct config_device *dev;
 	char path[SYSFS_PATH_MAX];
 	int found;
 	char *temp = NULL;
@@ -533,107 +452,56 @@ static int do_number(struct sysfs_class_device *class_dev, struct udevice *udev,
 	if (!sysfs_device)
 		return -ENODEV;
 
-	list_for_each_entry(dev, &config_device_list, node) {
-		if (dev->type != NUMBER)
-			continue;
-
-		dbg("dev->bus='%s' sysfs_device->bus='%s'", dev->bus, sysfs_device->bus);
-		if (strcasecmp(dev->bus, sysfs_device->bus) != 0)
-			continue;
-
-		found = 0;
-		strfieldcpy(path, sysfs_device->path);
+	found = 0;
+	strfieldcpy(path, sysfs_device->path);
+	temp = strrchr(path, '/');
+	dbg("search '%s' in '%s', path='%s'", dev->id, temp, path);
+	if (strstr(temp, dev->id) != NULL) {
+		found = 1;
+	} else {
+		*temp = 0x00;
 		temp = strrchr(path, '/');
 		dbg("search '%s' in '%s', path='%s'", dev->id, temp, path);
-		if (strstr(temp, dev->id) != NULL) {
+		if (strstr(temp, dev->id) != NULL)
 			found = 1;
-		} else {
-			*temp = 0x00;
-			temp = strrchr(path, '/');
-			dbg("search '%s' in '%s', path='%s'", dev->id, temp, path);
-			if (strstr(temp, dev->id) != NULL)
-				found = 1;
-		}
-		if (!found)
-			continue;
-		strfieldcpy(udev->name, dev->name);
-		strfieldcpy(udev->symlink, dev->symlink);
-		dbg("found matching id '%s', '%s' becomes '%s'",
-		    dev->id, class_dev->name, udev->name);
-		return 0;
 	}
-	return -ENODEV;
+	if (!found) {
+		dbg("id doesn't match");
+		return -ENODEV;
+	}
+
+	return 0;
 }
 
-static int do_topology(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
+static int match_place(struct config_device *dev, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
-	struct config_device *dev;
 	char path[SYSFS_PATH_MAX];
 	int found;
 	char *temp = NULL;
 
-	/* we have to have a sysfs device for TOPOLOGY to work */
+	/* we have to have a sysfs device for NUMBER to work */
 	if (!sysfs_device)
 		return -ENODEV;
 
-	list_for_each_entry(dev, &config_device_list, node) {
-		if (dev->type != TOPOLOGY)
-			continue;
-
-		dbg("dev->bus='%s' sysfs_device->bus='%s'", dev->bus, sysfs_device->bus);
-		if (strcasecmp(dev->bus, sysfs_device->bus) != 0)
-			continue;
-
-		found = 0;
-		strfieldcpy(path, sysfs_device->path);
+	found = 0;
+	strfieldcpy(path, sysfs_device->path);
+	temp = strrchr(path, '/');
+	dbg("search '%s' in '%s', path='%s'", dev->place, temp, path);
+	if (strstr(temp, dev->place) != NULL) {
+		found = 1;
+	} else {
+		*temp = 0x00;
 		temp = strrchr(path, '/');
 		dbg("search '%s' in '%s', path='%s'", dev->place, temp, path);
-		if (strstr(temp, dev->place) != NULL) {
+		if (strstr(temp, dev->place) != NULL)
 			found = 1;
-		} else {
-			*temp = 0x00;
-			temp = strrchr(path, '/');
-			dbg("search '%s' in '%s', path='%s'", dev->place, temp, path);
-			if (strstr(temp, dev->place) != NULL)
-				found = 1;
-		}
-		if (!found)
-			continue;
-
-		strfieldcpy(udev->name, dev->name);
-		strfieldcpy(udev->symlink, dev->symlink);
-		dbg("found matching place '%s', '%s' becomes '%s'",
-		    dev->place, class_dev->name, udev->name);
-		return 0;
 	}
-	return -ENODEV;
-}
-
-static int do_replace(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
-{
-	struct config_device *dev;
-
-	list_for_each_entry(dev, &config_device_list, node) {
-		if (dev->type != REPLACE)
-			continue;
-
-		dbg("compare name '%s' with '%s'", dev->kernel_name, class_dev->name);
-		if (strcmp_pattern(dev->kernel_name, class_dev->name) != 0)
-			continue;
-
-		strfieldcpy(udev->name, dev->name);
-		strfieldcpy(udev->symlink, dev->symlink);
-		dbg("found name, '%s' becomes '%s'", dev->kernel_name, udev->name);
-		
-		return 0;
+	if (!found) {
+		dbg("place doesn't match");
+		return -ENODEV;
 	}
-	return -ENODEV;
-}
 
-static void do_kernelname(struct sysfs_class_device *class_dev, struct udevice *udev)
-{
-	/* heh, this is pretty simple... */
-	strfieldcpy(udev->name, class_dev->name);
+	return 0;
 }
 
 static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_dev)
@@ -725,7 +593,7 @@ exit:
 int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
 	struct sysfs_device *sysfs_device = NULL;
-	int retval = 0;
+	struct config_device *dev;
 	struct perm_device *perm;
 	char *pos;
 
@@ -752,34 +620,109 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 	strfieldcpy(udev->kernel_number, pos);
 	dbg("kernel_number='%s'", udev->kernel_number);
 
-	/* rules are looked at in priority order */
-	retval = do_ignore(class_dev, udev, sysfs_device);
-	if (retval == 0) {
-		dbg("name, '%s' is being ignored", class_dev->name);
-		return 1;
+	/* look for a matching rule to apply */
+	list_for_each_entry(dev, &config_device_list, node) {
+		dbg("process rule");
+
+		/* check for matching bus value */
+		if (dev->bus[0] != '\0') {
+			if (sysfs_device == NULL) {
+				dbg("device has no bus");
+				continue;
+			}
+			dbg("check for " FIELD_BUS " dev->bus='%s' sysfs_device->bus='%s'", dev->bus, sysfs_device->bus);
+			if (strcmp_pattern(dev->bus, sysfs_device->bus) != 0) {
+				dbg(FIELD_BUS " is not matching");
+				continue;
+			} else {
+				dbg(FIELD_BUS " matches");
+			}
+		}
+
+		/* check for matching kernel name*/
+		if (dev->kernel[0] != '\0') {
+			dbg("check for " FIELD_KERNEL " dev->kernel='%s' class_dev->name='%s'", dev->kernel, class_dev->name);
+			if (strcmp_pattern(dev->kernel, class_dev->name) != 0) {
+				dbg(FIELD_KERNEL " is not matching");
+				continue;
+			} else {
+				dbg(FIELD_KERNEL " matches");
+			}
+		}
+
+		/* check for matching bus id */
+		if (dev->id[0] != '\0') {
+			dbg("check " FIELD_ID);
+			if (match_id(dev, class_dev, sysfs_device) != 0) {
+				dbg(FIELD_ID " is not matching");
+				continue;
+			} else {
+				dbg(FIELD_ID " matches");
+			}
+		}
+
+		/* check for matching place of device */
+		if (dev->place[0] != '\0') {
+			dbg("check " FIELD_PLACE);
+			if (match_place(dev, class_dev, sysfs_device) != 0) {
+				dbg(FIELD_PLACE " is not matching");
+				continue;
+			} else {
+				dbg(FIELD_PLACE " matches");
+			}
+		}
+
+		/* check for matching sysfs pairs */
+		if (dev->sysfs_pair[0].file[0] != '\0') {
+			dbg("check " FIELD_SYSFS " pairs");
+			if (match_sysfs_pairs(dev, class_dev, sysfs_device) != 0) {
+				dbg(FIELD_SYSFS " is not matching");
+				continue;
+			} else {
+				dbg(FIELD_SYSFS " matches");
+			}
+		}
+
+		/* execute external program */
+		if (dev->program[0] != '\0') {
+			dbg("check " FIELD_PROGRAM);
+			apply_format(udev, dev->program);
+			if (execute_program(dev->program, udev->program_result, NAME_SIZE) != 0) {
+				dbg(FIELD_PROGRAM " returned nozero");
+				continue;
+			} else {
+				dbg(FIELD_PROGRAM " returned successful");
+			}
+		}
+
+		/* check for matching result of external program */
+		if (dev->result[0] != '\0') {
+			dbg("check for " FIELD_RESULT
+			    " dev->result='%s', udev->program_result='%s'",
+			    dev->result, udev->program_result);
+			if (strcmp_pattern(dev->result, udev->program_result) != 0) {
+				dbg(FIELD_RESULT " is not matching");
+				continue;
+			} else {
+				dbg(FIELD_RESULT " matches");
+			}
+		}
+
+		/* check if we are instructed to ignore this device */
+		if (dev->name[0] == '\0') {
+			dbg("instructed to ignore this device");
+			return -1;
+		}
+
+		/* Yup, this rule belongs to us! */
+		dbg("found matching rule, '%s' becomes '%s'", dev->kernel, udev->name);
+		strfieldcpy(udev->name, dev->name);
+		strfieldcpy(udev->symlink, dev->symlink);
+		goto found;
 	}
 
-	retval = do_callout(class_dev, udev, sysfs_device);
-	if (retval == 0)
-		goto found;
-
-	retval = do_label(class_dev, udev, sysfs_device);
-	if (retval == 0)
-		goto found;
-
-	retval = do_number(class_dev, udev, sysfs_device);
-	if (retval == 0)
-		goto found;
-
-	retval = do_topology(class_dev, udev, sysfs_device);
-	if (retval == 0)
-		goto found;
-
-	retval = do_replace(class_dev, udev, sysfs_device);
-	if (retval == 0)
-		goto found;
-
-	do_kernelname(class_dev, udev);
+	/* no rule was found so we use the kernel name */
+	strfieldcpy(udev->name, class_dev->name);
 	goto done;
 
 found:

@@ -86,37 +86,13 @@ int get_pair(char **orig_string, char **left, char **right)
 
 void dump_config_dev(struct config_device *dev)
 {
-	switch (dev->type) {
-	case KERNEL_NAME:
-		dbg_parse("KERNEL name='%s'", dev->name);
-		break;
-	case LABEL:
-		dbg_parse("LABEL name='%s', bus='%s', sysfs_file[0]='%s', sysfs_value[0]='%s'",
-			  dev->name, dev->bus, dev->sysfs_pair[0].file, dev->sysfs_pair[0].value);
-		break;
-	case NUMBER:
-		dbg_parse("NUMBER name='%s', bus='%s', id='%s'",
-			  dev->name, dev->bus, dev->id);
-		break;
-	case TOPOLOGY:
-		dbg_parse("TOPOLOGY name='%s', bus='%s', place='%s'",
-			  dev->name, dev->bus, dev->place);
-		break;
-	case REPLACE:
-		dbg_parse("REPLACE name='%s', kernel_name='%s'",
-			  dev->name, dev->kernel_name);
-		break;
-	case CALLOUT:
-		dbg_parse("CALLOUT name='%s', bus='%s', program='%s', id='%s'",
-			  dev->name, dev->bus, dev->exec_program, dev->id);
-		break;
-	case IGNORE:
-		dbg_parse("IGNORE name='%s', kernel_name='%s'",
-			  dev->name, dev->kernel_name);
-		break;
-	default:
-		dbg_parse("unknown type of method");
-	}
+	/*FIXME dump all sysfs's */
+	dbg_parse("name='%s', symlink='%s', bus='%s', place='%s', id='%s', "
+		  "sysfs_file[0]='%s', sysfs_value[0]='%s', "
+		  "kernel='%s', program='%s', result='%s'",
+		  dev->name, dev->symlink, dev->bus, dev->place, dev->id,
+		  dev->sysfs_pair[0].file, dev->sysfs_pair[0].value,
+		  dev->kernel, dev->program, dev->result);
 }
 
 void dump_config_dev_list(void)
@@ -150,6 +126,7 @@ int namedev_init_rules(void)
 	char *temp2;
 	char *temp3;
 	FILE *fd;
+	int program_given = 0;
 	int retval = 0;
 	struct config_device dev;
 
@@ -185,42 +162,6 @@ int namedev_init_rules(void)
 
 		memset(&dev, 0x00, sizeof(struct config_device));
 
-		/* get the method */
-		temp2 = strsep(&temp, ",");
-
-		if (strcasecmp(temp2, TYPE_LABEL) == 0) {
-			dev.type = LABEL;
-			goto keys;
-		}
-
-		if (strcasecmp(temp2, TYPE_NUMBER) == 0) {
-			dev.type = NUMBER;
-			goto keys;
-		}
-
-		if (strcasecmp(temp2, TYPE_TOPOLOGY) == 0) {
-			dev.type = TOPOLOGY;
-			goto keys;
-		}
-
-		if (strcasecmp(temp2, TYPE_REPLACE) == 0) {
-			dev.type = REPLACE;
-			goto keys;
-		}
-
-		if (strcasecmp(temp2, TYPE_CALLOUT) == 0) {
-			dev.type = CALLOUT;
-			goto keys;
-		}
-
-		if (strcasecmp(temp2, TYPE_IGNORE) == 0) {
-			dev.type = IGNORE;
-			goto keys;
-		}
-
-		dbg_parse("unknown type of method '%s'", temp2);
-		goto error;
-keys:
 		/* get all known keys */
 		while (1) {
 			retval = get_pair(&temp, &temp2, &temp3);
@@ -264,12 +205,18 @@ keys:
 			}
 
 			if (strcasecmp(temp2, FIELD_KERNEL) == 0) {
-				strfieldcpy(dev.kernel_name, temp3);
+				strfieldcpy(dev.kernel, temp3);
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_PROGRAM) == 0) {
-				strfieldcpy(dev.exec_program, temp3);
+				program_given = 1;
+				strfieldcpy(dev.program, temp3);
+				continue;
+			}
+
+			if (strcasecmp(temp2, FIELD_RESULT) == 0) {
+				strfieldcpy(dev.result, temp3);
 				continue;
 			}
 
@@ -286,60 +233,15 @@ keys:
 			dbg_parse("unknown type of field '%s'", temp2);
 		}
 
-		/* check presence of keys according to method type */
-		switch (dev.type) {
-		case LABEL:
-			dbg_parse(TYPE_LABEL " name='%s', bus='%s', "
-				  "sysfs_file[0]='%s', sysfs_value[0]='%s', symlink='%s'",
-				  dev.name, dev.bus, dev.sysfs_pair[0].file,
-				  dev.sysfs_pair[0].value, dev.symlink);
-			if ((*dev.name == '\0') ||
-			    (*dev.sysfs_pair[0].file == '\0') ||
-			    (*dev.sysfs_pair[0].value == '\0'))
-				goto error;
-			break;
-		case NUMBER:
-			dbg_parse(TYPE_NUMBER " name='%s', bus='%s', id='%s', symlink='%s'",
-				  dev.name, dev.bus, dev.id, dev.symlink);
-			if ((*dev.name == '\0') ||
-			    (*dev.bus == '\0') ||
-			    (*dev.id == '\0'))
-				goto error;
-			break;
-		case TOPOLOGY:
-			dbg_parse(TYPE_TOPOLOGY " name='%s', bus='%s', "
-				  "place='%s', symlink='%s'",
-				  dev.name, dev.bus, dev.place, dev.symlink);
-			if ((*dev.name == '\0') ||
-			    (*dev.bus == '\0') ||
-			    (*dev.place == '\0'))
-				goto error;
-			break;
-		case REPLACE:
-			dbg_parse(TYPE_REPLACE " name='%s', kernel_name='%s', symlink='%s'",
-				  dev.name, dev.kernel_name, dev.symlink);
-			if ((*dev.name == '\0') ||
-			    (*dev.kernel_name == '\0'))
-				goto error;
-			break;
-		case CALLOUT:
-			dbg_parse(TYPE_CALLOUT " name='%s', bus='%s', program='%s', "
-				  "id='%s', symlink='%s'",
-				  dev.name, dev.bus, dev.exec_program,
-				  dev.id, dev.symlink);
-			if ((*dev.name == '\0') ||
-			    (*dev.id == '\0') ||
-			    (*dev.exec_program == '\0'))
-				goto error;
-			break;
-		case IGNORE:
-			dbg_parse(TYPE_IGNORE "name='%s', kernel_name='%s'",
-				  dev.name, dev.kernel_name);
-			if ((*dev.kernel_name == '\0'))
-				goto error;
-			break;
-		default:
-			dbg_parse("unknown type of method");
+		/* simple plausibility check for given keys */
+		if ((dev.sysfs_pair[0].file[0] == '\0') ^
+		    (dev.sysfs_pair[0].value[0] == '\0')) {
+			dbg("inconsistency in SYSFS_ key");
+			goto error;
+		}
+
+		if ((dev.result[0] != '\0') && (program_given == 0)) {
+			dbg("RESULT is only useful when PROGRAM called in any rule before");
 			goto error;
 		}
 
@@ -347,11 +249,11 @@ keys:
 		if (retval) {
 			dbg("add_config_dev returned with error %d", retval);
 			continue;
+error:
+			dbg("%s:%d:%Zd: parse error, rule skipped",
+				  udev_rules_filename, lineno, temp - line);
 		}
 	}
-error:
-	dbg_parse("%s:%d:%Zd: field missing or parse error", udev_rules_filename,
-		  lineno, temp - line);
 exit:
 	fclose(fd);
 	return retval;

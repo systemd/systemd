@@ -38,8 +38,8 @@ my @tests = (
 		devpath  => "block/sda",
 		expected => "boot_disk" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="boot_disk%n"
-REPLACE, KERNEL="ttyUSB0", NAME="visor"
+BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="boot_disk%n"
+KERNEL="ttyUSB0", NAME="visor"
 EOF
 	},
 	{
@@ -48,7 +48,7 @@ EOF
 		devpath  => "block/sda/sda1",
 		expected => "boot_disk1" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="boot_disk%n"
+BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="boot_disk%n"
 EOF
 	},
 	{
@@ -57,10 +57,10 @@ EOF
 		devpath  => "block/sda/sda1",
 		expected => "boot_disk1" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", SYSFS_vendor="?IBM-ESXS", NAME="boot_disk%n-1"
-LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS?", NAME="boot_disk%n-2"
-LABEL, BUS="scsi", SYSFS_vendor="IBM-ES??", NAME="boot_disk%n"
-LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXSS", NAME="boot_disk%n-3"
+BUS="scsi", SYSFS_vendor="?IBM-ESXS", NAME="boot_disk%n-1"
+BUS="scsi", SYSFS_vendor="IBM-ESXS?", NAME="boot_disk%n-2"
+BUS="scsi", SYSFS_vendor="IBM-ES??", NAME="boot_disk%n"
+BUS="scsi", SYSFS_vendor="IBM-ESXSS", NAME="boot_disk%n-3"
 EOF
 	},
 	{
@@ -69,8 +69,8 @@ EOF
 		devpath  => "block/sda/sda1",
 		expected => "boot_disk1" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW   !#", NAME="boot_diskX%n"
-LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW    !#", NAME="boot_disk%n"
+BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW   !#", NAME="boot_diskX%n"
+BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW    !#", NAME="boot_disk%n"
 EOF
 	},
 	{
@@ -79,8 +79,8 @@ EOF
 		devpath  => "block/sda/sda1",
 		expected => "boot_disk1" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW    !#", SYSFS_scsi_level="4", SYSFS_rev="B245", SYSFS_type="2", SYSFS_queue_depth="32", NAME="boot_diskXX%n"
-LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW    !#", SYSFS_scsi_level="4", SYSFS_rev="B245", SYSFS_type="0", NAME="boot_disk%n"
+BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW    !#", SYSFS_scsi_level="4", SYSFS_rev="B245", SYSFS_type="2", SYSFS_queue_depth="32", NAME="boot_diskXX%n"
+BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW    !#", SYSFS_scsi_level="4", SYSFS_rev="B245", SYSFS_type="0", NAME="boot_disk%n"
 EOF
 	},
 	{
@@ -89,7 +89,7 @@ EOF
 		devpath  => "class/tty/ttyUSB0",
 		expected => "visor/0" ,
 		conf     => <<EOF
-REPLACE, KERNEL="ttyUSB*", NAME="visor/%n"
+KERNEL="ttyUSB*", NAME="visor/%n"
 EOF
 	},
 	{
@@ -98,9 +98,9 @@ EOF
 		devpath  => "class/tty/ttyUSB0",
 		expected => "visor/0" ,
 		conf     => <<EOF
-REPLACE, KERNEL="ttyUSB??*", NAME="visor/%n-1"
-REPLACE, KERNEL="ttyUSB??", NAME="visor/%n-2"
-REPLACE, KERNEL="ttyUSB?", NAME="visor/%n"
+KERNEL="ttyUSB??*", NAME="visor/%n-1"
+KERNEL="ttyUSB??", NAME="visor/%n-2"
+KERNEL="ttyUSB?", NAME="visor/%n"
 EOF
 	},
 	{
@@ -109,9 +109,9 @@ EOF
 		devpath  => "class/tty/ttyUSB0",
 		expected => "visor/0" ,
 		conf     => <<EOF
-REPLACE, KERNEL="ttyUSB[A-Z]*", NAME="visor/%n-1"
-REPLACE, KERNEL="ttyUSB?[0-9]", NAME="visor/%n-2"
-REPLACE, KERNEL="ttyUSB[0-9]*", NAME="visor/%n"
+KERNEL="ttyUSB[A-Z]*", NAME="visor/%n-1"
+KERNEL="ttyUSB?[0-9]", NAME="visor/%n-2"
+KERNEL="ttyUSB[0-9]*", NAME="visor/%n"
 EOF
 	},
 	{
@@ -120,7 +120,7 @@ EOF
 		devpath  => "class/tty/ttyUSB0",
 		expected => "visor" ,
 		conf     => <<EOF
-REPLACE, KERNEL="ttyUSB0", NAME="visor"
+KERNEL="ttyUSB0", NAME="visor"
 EOF
 	},
 	{
@@ -130,7 +130,7 @@ EOF
 		expected => "visor" ,
 		conf     => <<EOF
 # this is a comment
-REPLACE, KERNEL="ttyUSB0", NAME="visor"
+KERNEL="ttyUSB0", NAME="visor"
 
 EOF
 	},
@@ -141,7 +141,7 @@ EOF
 		expected => "visor" ,
 		conf     => <<EOF
  # this is a comment with whitespace before the comment 
-REPLACE, KERNEL="ttyUSB0", NAME="visor"
+KERNEL="ttyUSB0", NAME="visor"
 
 EOF
 	},
@@ -152,7 +152,7 @@ EOF
 		expected => "visor" ,
 		conf     => <<EOF
 
-REPLACE, KERNEL="ttyUSB0", NAME="visor"
+KERNEL="ttyUSB0", NAME="visor"
 
 EOF
 	},
@@ -162,7 +162,7 @@ EOF
 		devpath  => "class/tty/ttyUSB0",
 		expected => "sub/direct/ory/visor" ,
 		conf     => <<EOF
-REPLACE, KERNEL="ttyUSB0", NAME="sub/direct/ory/visor"
+KERNEL="ttyUSB0", NAME="sub/direct/ory/visor"
 EOF
 	},
 	{
@@ -171,7 +171,7 @@ EOF
 		devpath  => "block/sda/sda3",
 		expected => "first_disk3" ,
 		conf     => <<EOF
-TOPOLOGY, BUS="scsi", PLACE="0:0:0:0", NAME="first_disk%n"
+BUS="scsi", PLACE="0:0:0:0", NAME="first_disk%n"
 EOF
 	},
 	{
@@ -180,58 +180,58 @@ EOF
 		devpath  => "block/sda/sda3",
 		expected => "Major:8:minor:3:kernelnumber:3:bus:0:0:0:0" ,
 		conf     => <<EOF
-TOPOLOGY, BUS="scsi", PLACE="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:bus:%b"
+BUS="scsi", PLACE="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:bus:%b"
 EOF
 	},
 	{
-		desc     => "callout result substitution",
+		desc     => "program result substitution",
 		subsys   => "block",
 		devpath  => "block/sda/sda3",
 		expected => "special-device-3" ,
 		conf     => <<EOF
-CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n special-device", ID="-special-*", NAME="%c-1-%n"
-CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n special-device", ID="special--*", NAME="%c-2-%n"
-CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n special-device", ID="special-device-", NAME="%c-3-%n"
-CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n special-device", ID="special-devic", NAME="%c-4-%n"
-CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n special-device", ID="special-*", NAME="%c-%n"
+BUS="scsi", PROGRAM="/bin/echo -n special-device", RESULT="-special-*", NAME="%c-1-%n"
+BUS="scsi", PROGRAM="/bin/echo -n special-device", RESULT="special--*", NAME="%c-2-%n"
+BUS="scsi", PROGRAM="/bin/echo -n special-device", RESULT="special-device-", NAME="%c-3-%n"
+BUS="scsi", PROGRAM="/bin/echo -n special-device", RESULT="special-devic", NAME="%c-4-%n"
+BUS="scsi", PROGRAM="/bin/echo -n special-device", RESULT="special-*", NAME="%c-%n"
 EOF
 	},
 	{
-		desc     => "callout program substitution",
+		desc     => "program result substitution",
 		subsys   => "block",
 		devpath  => "block/sda/sda3",
 		expected => "test-0:0:0:0" ,
 		conf     => <<EOF
-CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n test-%b", ID="test-*", NAME="%c"
+BUS="scsi", PROGRAM="/bin/echo -n test-%b", RESULT="test-0:0*", NAME="%c"
 EOF
 	},
 	{
-		desc     => "callout program substitution (numbered part of)",
+		desc     => "program result substitution (numbered part of)",
 		subsys   => "block",
 		devpath  => "block/sda/sda3",
 		expected => "link1" ,
 		conf     => <<EOF
-CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n node link1 link2", ID="node *", NAME="%1c", SYMLINK="%2c %3c"
+BUS="scsi", PROGRAM="/bin/echo -n node link1 link2", RESULT="node *", NAME="%1c", SYMLINK="%2c %3c"
 EOF
 	},
 	{
-		desc     => "invalid callout for device with no bus",
+		desc     => "invalid program for device with no bus",
 		subsys   => "tty",
 		devpath  => "class/tty/console",
 		expected => "TTY" ,
 		conf     => <<EOF
-CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n foo", ID="foo", NAME="foo"
-REPLACE, KERNEL="console", NAME="TTY"
+BUS="scsi", PROGRAM="/bin/echo -n foo", RESULT="foo", NAME="foo"
+KERNEL="console", NAME="TTY"
 EOF
 	},
 	{
-		desc     => "valid callout for device with no bus",
+		desc     => "valid program for device with no bus",
 		subsys   => "tty",
 		devpath  => "class/tty/console",
 		expected => "foo" ,
 		conf     => <<EOF
-CALLOUT, PROGRAM="/bin/echo -n foo", ID="foo", NAME="foo"
-REPLACE, KERNEL="console", NAME="TTY"
+PROGRAM="/bin/echo -n foo", RESULT="foo", NAME="foo"
+KERNEL="console", NAME="TTY"
 EOF
 	},
 	{
@@ -240,8 +240,8 @@ EOF
 		devpath  => "class/tty/console",
 		expected => "TTY" ,
 		conf     => <<EOF
-LABEL, BUS="foo", SYSFS_dev="5:1", NAME="foo"
-REPLACE, KERNEL="console", NAME="TTY"
+BUS="foo", SYSFS_dev="5:1", NAME="foo"
+KERNEL="console", NAME="TTY"
 EOF
 	},
 	{
@@ -250,8 +250,8 @@ EOF
 		devpath  => "class/tty/console",
 		expected => "foo" ,
 		conf     => <<EOF
-LABEL, SYSFS_dev="5:1", NAME="foo"
-REPLACE, KERNEL="console", NAME="TTY"
+SYSFS_dev="5:1", NAME="foo"
+KERNEL="console", NAME="TTY"
 EOF
 	},
 	{
@@ -260,7 +260,7 @@ EOF
 		devpath  => "block/sda",
 		expected => "lun0/disc" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="lun0/%D"
+BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="lun0/%D"
 EOF
 	},
 	{
@@ -269,18 +269,18 @@ EOF
 		devpath  => "block/sda/sda2",
 		expected => "lun0/part2" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="lun0/%D"
+BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="lun0/%D"
 EOF
 	},
 	{
-		desc     => "callout bus type",
+		desc     => "program and bus type match",
 		subsys   => "block",
 		devpath  => "block/sda",
 		expected => "scsi-0:0:0:0" ,
 		conf     => <<EOF
-CALLOUT, BUS="usb", PROGRAM="/bin/echo -n usb-%b", ID="*", NAME="%c"
-CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n scsi-%b", ID="*", NAME="%c"
-CALLOUT, BUS="foo", PROGRAM="/bin/echo -n foo-%b", ID="*", NAME="%c"
+BUS="usb", PROGRAM="/bin/echo -n usb-%b", NAME="%c"
+BUS="scsi", PROGRAM="/bin/echo -n scsi-%b", NAME="%c"
+BUS="foo", PROGRAM="/bin/echo -n foo-%b", NAME="%c"
 EOF
 	},
 	{
@@ -289,7 +289,7 @@ EOF
 		devpath  => "class/tty/ttyUSB0",
 		expected => "visor0" ,
 		conf     => <<EOF
-REPLACE, KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="visor%n"
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="visor%n"
 EOF
 	},
 	{
@@ -298,7 +298,7 @@ EOF
 		devpath  => "block/sda/sda2",
 		expected => "1/2/a/b/symlink" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="1/2/node", SYMLINK="1/2/a/b/symlink"
+BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="1/2/node", SYMLINK="1/2/a/b/symlink"
 EOF
 	},
 	{
@@ -307,7 +307,7 @@ EOF
 		devpath  => "block/sda/sda2",
 		expected => "1/2/symlink" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/symlink"
+BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/symlink"
 EOF
 	},
 	{
@@ -316,7 +316,7 @@ EOF
 		devpath  => "block/sda/sda2",
 		expected => "1/2/c/d/symlink" ,
 		conf     => <<EOF
-LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/c/d/symlink"
+BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/c/d/symlink"
 EOF
 	},
 	{
@@ -325,7 +325,7 @@ EOF
 		devpath  => "class/tty/ttyUSB0",
 		expected => "second-0" ,
 		conf     => <<EOF
-REPLACE, KERNEL="ttyUSB0", NAME="visor", SYMLINK="first-%n second-%n third-%n"
+KERNEL="ttyUSB0", NAME="visor", SYMLINK="first-%n second-%n third-%n"
 EOF
 	},
 );
@@ -368,11 +368,8 @@ print CONF "udev_permissions=\"$perm\"\n";
 close CONF;
 
 foreach my $config (@tests) {
-	$config->{conf} =~ m/([A-Z]+)\s*,/;
-	my $method  = $1;
-
 	print "TEST: $config->{desc}\n";
-	print "method \'$method\' for \'$config->{devpath}\' expecting node \'$config->{expected}\'\n";
+	print "device \'$config->{devpath}\' expecting node \'$config->{expected}\'\n";
 
 	udev("add", $config->{subsys}, $config->{devpath}, \$config->{conf});
 	if (-e "$PWD/$udev_root$config->{expected}") {
