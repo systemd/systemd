@@ -22,23 +22,23 @@ export ACTION=add
 export DEVPATH=block/sda
 
 ../udev block
-ls udev
+ls -l udev
 
 export DEVPATH=block/sda/sda3
 
 ../udev block
-ls udev
+ls -l udev
 
 export ACTION=remove
 export DEVPATH=block/sda
 
 ../udev block
-ls udev
+ls -l udev
 
 export DEVPATH=block/sda/sda3
 
 ../udev block
-ls udev
+ls -l udev
 
 
 rm $RULES
