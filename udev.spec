@@ -27,11 +27,6 @@
 # 1 - debugging enabled
 %define debug 0
 
-# if we want to use the LSB version of the init script or the Redhat one
-# 0 - use Redhat: etc/init.d/udev
-# 1 - use LSB: etc/init.d/udev.init.LSB
-%define lsb 0
-
 # if we want to build the scsi_id "extra" package or not
 # 0 - do not build the package
 # 1 - build it
@@ -99,11 +94,6 @@ make DESTDIR=$RPM_BUILD_ROOT install \
 	USE_SELINUX=true	\
 %else
 	USE_SELINUX=false	\
-%endif
-%if %{lsb}
-	USE_LSB=true		\
-%else
-	USE_LSB=false		\
 %endif
 	EXTRAS="	\
 %if %{scsi_id}

@@ -7,7 +7,6 @@ greg@kroah.com
 
 
 - more documentation (can never have too much.)
-- install the proper init.d script based on the distro we are running on.
 - persuade the distro packagers to submit their changes (or just steal them
   if we can find them...)
 - create kernel name to devfs name config file so that all of the devfs users

@@ -347,6 +347,15 @@ uninstall-dbus-policy:
 	-
 endif
 
+install-initscript: etc/init.d/udev etc/init.d/udev.debian etc/init.d/udev.init.LSB
+	@if [ -f /etc/redhat-release ]; then \
+		$(INSTALL_DATA) etc/init.d/udev $(etcdir)/init.d/udev; \
+	elif [ -f /etc/SuSE-release ]; then \
+		$(INSTALL_DATA) etc/init.d/udev.init.LSB $(etcdir)/init.d/udev; \
+	elif [ -f /etc/debian_version ]; then \
+		$(INSTALL_DATA) etc/init.d/udev.debian $(etcdir)/init.d/udev; \
+	fi
+
 install-config: $(GEN_CONFIGS)
 	$(INSTALL) -d $(DESTDIR)$(configdir)
 	@if [ ! -r $(DESTDIR)$(configdir)udev.conf ]; then \
@@ -362,7 +371,7 @@ install-config: $(GEN_CONFIGS)
 		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.permissions $(DESTDIR)$(configdir); \
 	fi
 
-install: install-config install-dbus-policy all
+install: install-initscript install-config install-dbus-policy all
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
 	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
@@ -370,12 +379,6 @@ install: install-config install-dbus-policy all
 	$(INSTALL_PROGRAM) -D $(SENDER) $(DESTDIR)$(sbindir)/$(SENDER)
 	$(INSTALL_PROGRAM) -D $(HELPER) $(DESTDIR)$(sbindir)/$(HELPER)
 	$(INSTALL_PROGRAM) -D $(TESTER) $(DESTDIR)$(sbindir)/$(TESTER)
-	@if [ "x$(USE_LSB)" = "xtrue" ]; then \
-		$(INSTALL_PROGRAM) -D etc/init.d/udev.init.LSB $(DESTDIR)$(initdir)/udev; \
-		ln -s $(DESTDIR)$(initdir)/udev $(sbindir)/rcudev; \
-	else \
-		$(INSTALL_PROGRAM) -D etc/init.d/udev $(DESTDIR)$(initdir)/udev; \
-	fi
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
 	$(INSTALL_DATA) -D udevinfo.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
 	$(INSTALL_DATA) -D udevd.8 $(DESTDIR)$(mandir)/man8/udevd.8
