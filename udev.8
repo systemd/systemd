@@ -149,13 +149,13 @@ value in the
 file.
 .P
 Every line in the rules file defines the mapping between device attributes
-and the device file name. One ore more keys are specified to match a rule
+and the device file name. One or more keys are specified to match a rule
 with the current device. If all keys are matching, the rule will be applied
 and the name is used for the device node.
 .br
 If no matching rule is found, the default kernel device name is used.
 .P
-Every rule consists of a list a comma separated fields:
+Every rule consists of a list of comma separated fields:
 .sp
 .IR "key " ,[ "key " ,...] " name " [, " symlink" ]
 .sp
@@ -252,7 +252,7 @@ The string returned from the execution of
 field for the obvious reason.)
 .br
 A single part of the string, separated by a space character
-may be selected by specifying the part number as a attribute:
+may be selected by specifying the part number as an attribute:
 .BI %c{ N }
 If the number is followed by the + char this part plus
 all remaining parts of the result string are substituted:
