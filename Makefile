@@ -221,6 +221,7 @@ $(KLCC):
 			 INSTALLDIR=$(KLIBC_INSTALL) \
 			 bindir=$(KLIBC_INSTALL)/bin \
 			 mandir=$(KLIBC_INSTALL)/man all install
+	-find $(KLIBC_INSTALL)/include -name SCCS -print| xargs rm -rf
 
 udev.a: $(UDEV_OBJS)
 	rm -f $@
