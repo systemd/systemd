@@ -63,6 +63,7 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 		{ .subsystem = "usb_host",	.file = NULL },
 		{ .subsystem = "bluetooth",	.file = "address" },
 		{ .subsystem = "i2c-adapter",	.file = NULL },
+		{ .subsystem = "pci_bus",	.file = NULL },
 		{ NULL, NULL }
 	};
 	struct class_file *classfile;
@@ -126,8 +127,7 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 		{ .subsystem = "input",		.device = "mice" },
 		{ .subsystem = "input",		.device = "mouse" },
 		{ .subsystem = "input",		.device = "ts" },
-		{ .subsystem = "vc",		.device = "vcs" },
-		{ .subsystem = "vc",		.device = "vcsa" },
+		{ .subsystem = "vc",		.device = NULL },
 		{ .subsystem = "tty",		.device = NULL },
 		{ .subsystem = "cpuid",		.device = "cpu" },
 		{ .subsystem = "graphics",	.device = "fb" },
@@ -135,9 +135,15 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 		{ .subsystem = "misc",		.device = NULL },
 		{ .subsystem = "msr",		.device = NULL },
 		{ .subsystem = "netlink",	.device = NULL },
+		{ .subsystem = "net",		.device = NULL },
 		{ .subsystem = "sound",		.device = NULL },
-		{ .subsystem = "snd",		.device = NULL },
 		{ .subsystem = "printer",	.device = "lp" },
+		{ .subsystem = "nvidia",	.device = NULL },
+		{ .subsystem = "video4linux",	.device = NULL },
+		{ .subsystem = "lirc",		.device = NULL },
+		{ .subsystem = "firmware",	.device = NULL },
+		{ .subsystem = "drm",		.device = NULL },
+		{ .subsystem = "pci_bus",	.device = NULL },
 		{ NULL, NULL }
 	};
 	struct class_device *classdevice;
