@@ -32,6 +32,7 @@
 #include <sys/stat.h>
 
 #include "logging.h"
+#include "udev_version.h"
 #include "libsysfs/sysfs/libsysfs.h"
 
 #ifdef LOG
@@ -138,11 +139,14 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 		{ .subsystem = "misc",		.device = NULL },
 		{ .subsystem = "msr",		.device = NULL },
 		{ .subsystem = "netlink",	.device = NULL },
-		{ .subsystem = "net",		.device = NULL },
+		{ .subsystem = "net",		.device = "sit" },
+		{ .subsystem = "net",		.device = "ppp" },
+		{ .subsystem = "net",		.device = "lo" },
+		{ .subsystem = "net",		.device = "tap" },
 		{ .subsystem = "sound",		.device = NULL },
 		{ .subsystem = "printer",	.device = "lp" },
 		{ .subsystem = "nvidia",	.device = NULL },
-		{ .subsystem = "video4linux",	.device = NULL },
+		{ .subsystem = "video4linux",	.device = "vbi" },
 		{ .subsystem = "lirc",		.device = NULL },
 		{ .subsystem = "firmware",	.device = NULL },
 		{ .subsystem = "drm",		.device = NULL },
@@ -407,9 +411,10 @@ exit:
 	if (rc == 0)
 		dbg("result: waiting for sysfs successful '%s'", devpath);
 	else
-		info("error: wait_for_sysfs needs an update to handle the device '%s' "
-		     "properly (%d), please report to <linux-hotplug-devel@lists.sourceforge.net>",
-		     devpath, rc);
+		info("either wait_for_sysfs (udev %s) needs an update to handle the device '%s' "
+		     "properly (%d) or the sysfs-support of your device's driver needs to be fixed, "
+		     "please report to <linux-hotplug-devel@lists.sourceforge.net>",
+		     UDEV_VERSION, devpath, rc);
 
 	return rc;
 }
