@@ -91,7 +91,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	udev_init_config();
 
-	if (strstr(argv[0], "udevstart")) {
+	if (strstr(argv[0], "udevstart") || (argv[1] != NULL && strstr(argv[1], "udevstart"))) {
 		act_type = UDEVSTART;
 	} else {
 		const char *action = get_action();
