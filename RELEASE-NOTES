@@ -19,3 +19,6 @@ but existing rules should be converted if possible, to be better readable.
 
 We have new ENV{}== key now, to match against a maximum of 5 environment
 variables.
+
+udevstart is its own binary again, cause we don't need co carry this araound
+with every forked event.
