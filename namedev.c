@@ -822,6 +822,13 @@ done:
 			strcpy(name, pos+2);
 			*pos = 0x00;
 			switch (pos[1]) {
+			case 'b':
+				if (!sysfs_device)
+					break;
+				strcat(udev->name, sysfs_device->bus_id);
+				dbg("bus_id appended: %s", 
+						sysfs_device->bus_id);
+				break;
 			case 'n':
 				dig = class_dev->name + strlen(class_dev->name);
 				while (isdigit(*(dig-1)))
