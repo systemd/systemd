@@ -43,7 +43,7 @@
 /* global variables */
 static int sock = -1;
 
-#ifdef LOG
+#ifdef USE_LOG
 void log_message (int level, const char *format, ...)
 {
 	va_list	args;

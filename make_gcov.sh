@@ -28,7 +28,7 @@ GCCINCDIR=`gcc -print-search-dirs | sed -ne "s/install: \(.*\)/\1include/gp"`
 LIBSYSFS="-I$PWD/libsysfs/sysfs -I$PWD/libsysfs"
 WARNINGS="-Wall -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations"
 GCC="-I$GCCINCDIR"
-USE_LOG="-DLOG"
+USE_LOG="-DUSE_LOG"
 DEBUG="-D_GNU_SOURCE"
 GCOV_FLAGS="-pipe -fprofile-arcs -ftest-coverage"
 

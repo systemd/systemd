@@ -35,7 +35,7 @@
 
 #define BLKGETSIZE64 _IOR(0x12,114,size_t)
 
-#ifdef LOG
+#ifdef USE_LOG
 void log_message(int level, const char *format, ...)
 {
 	va_list args;

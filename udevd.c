@@ -1,7 +1,7 @@
 /*
  * udevd.c - hotplug event serializer
  *
- * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2004-2005 Kay Sievers <kay.sievers@vrfy.org>
  * Copyright (C) 2004 Chris Friesen <chris_friesen@sympatico.ca>
  *
  *
@@ -67,7 +67,7 @@ static void user_sighandler(void);
 static void reap_sigchilds(void);
 char *udev_bin;
 
-#ifdef LOG
+#ifdef USE_LOG
 void log_message (int level, const char *format, ...)
 {
 	va_list	args;

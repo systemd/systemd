@@ -30,7 +30,7 @@
 #define logging_init(foo)		do { } while (0)
 #define logging_close(foo)		do { } while (0)
 
-#ifdef LOG
+#ifdef USE_LOG
 #include <stdarg.h>
 #include <unistd.h>
 #include <syslog.h>
@@ -73,6 +73,6 @@ static inline void logging_close(void)
 	closelog();
 }
 
-#endif	/* LOG */
+#endif	/* USE_LOG */
 
 #endif

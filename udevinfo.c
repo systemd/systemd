@@ -3,7 +3,6 @@
  *
  * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
  *
- *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
  *	Free Software Foundation version 2 of the License.
@@ -38,7 +37,7 @@
 
 #define SYSFS_VALUE_SIZE		256
 
-#ifdef LOG
+#ifdef USE_LOG
 void log_message (int level, const char *format, ...)
 {
 	va_list	args;

@@ -1,6 +1,7 @@
 # Makefile for udev
 #
 # Copyright (C) 2003,2004 Greg Kroah-Hartman <greg@kroah.com>
+# Copyright (C) 2004-2005 Kay Sievers <kay.sievers@vrfy.org>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,17 +17,27 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
-# Set the following to control the use of syslog
-# Set it to `false' to remove all logging
+# Set this to make use of syslog
 USE_LOG = true
 
-# Set the following to `true' to log the debug
-# and make a unstripped, unoptimized  binary.
-# Leave this set to `false' for production use.
+# Set this to ad development debug messages
 DEBUG = false
 
-# Set this to compile with Security-Enhanced Linux support.
+# Set this to include Security-Enhanced Linux support.
 USE_SELINUX = false
+
+# Set this to comile with the local version of klibc instead of glibc.
+USE_KLIBC = false
+
+# Set this to create statically linked binaries.
+USE_STATIC = false
+
+# To build any of the extras programs, run with:
+# 	make EXTRAS="extras/a extras/b"
+EXTRAS=
+
+# make the build silent. Set this to something else to make it noisy again.
+V=false
 
 ROOT =		udev
 DAEMON =	udevd
@@ -39,9 +50,7 @@ INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
 LOCAL_CFG_DIR =	etc/udev
 HOTPLUG_EXEC =	$(ROOT)
-
 DESTDIR =
-
 KERNEL_DIR = /lib/modules/${shell uname -r}/build
 
 # override this to make udev look in a different location for it's config files
@@ -62,21 +71,9 @@ INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 
-# To build any of the extras programs, run with:
-# 	make EXTRAS="extras/a extras/b" 
-EXTRAS=
-
 # place to put our device nodes
 udevdir =	${prefix}/udev
 udevdb =	${udevdir}/.udevdb
-
-# Comment out this line to build with something other 
-# than the local version of klibc
-#USE_KLIBC = true
-
-# make the build silent (well, at least the udev part)  Set this
-# to something else to make it noisy again.
-V=false
 
 # set up PWD so that older versions of make will work with our build.
 PWD = $(shell pwd)
@@ -160,7 +157,7 @@ CFLAGS +=	-I$(PWD)/libsysfs/sysfs \
 		-I$(PWD)/libsysfs
 
 ifeq ($(strip $(USE_LOG)),true)
-	CFLAGS += -DLOG
+	CFLAGS += -DUSE_LOG
 endif
 
 # if DEBUG is enabled, then we do not strip or optimize
@@ -182,10 +179,7 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	INCLUDE_DIR	:= $(KLIBC_BASE)/include
 	LINUX_INCLUDE_DIR	:= $(KERNEL_DIR)/include
 	include $(KLIBC_DIR)/arch/$(ARCH)/MCONFIG
-	# arch specific objects
 	ARCH_LIB_OBJS =	 $(KLIBC_DIR)/libc.a
-
-
 	CRT0 = $(KLIBC_DIR)/crt0.o
 	LIBC = $(ARCH_LIB_OBJS) $(LIB_OBJS) $(CRT0)
 	CFLAGS += $(WARNINGS) -nostdinc				\
@@ -197,8 +191,7 @@ ifeq ($(strip $(USE_KLIBC)),true)
 		-I$(GCCINCDIR)					\
 		-I$(LINUX_INCLUDE_DIR)
 	LIB_OBJS =
-	LDFLAGS = --static --nostdlib -nostartfiles -nodefaultlibs
-
+	LDFLAGS = -static -nostdlib -nostartfiles -nodefaultlibs
 else
 	WARNINGS += -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
 	CRT0 =
@@ -211,6 +204,11 @@ ifeq ($(strip $(USE_SELINUX)),true)
 	UDEV_OBJS += udev_selinux.o
 	LIB_OBJS += -lselinux
 	CFLAGS += -DUSE_SELINUX
+endif
+
+ifeq ($(strip $(USE_STATIC)),true)
+	CFLAGS += -DUSE_STATIC
+	LDFLAGS += -static
 endif
 
 ifeq ($(strip $(V)),false)
