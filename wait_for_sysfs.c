@@ -60,7 +60,7 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 		{ .subsystem = "net",		.file = "ifindex" },
 		{ .subsystem = "scsi_host",	.file = "unique_id" },
 		{ .subsystem = "scsi_device",	.file = NULL },
-		{ .subsystem = "pcmcia_socket",	.file = "card_type" },
+		{ .subsystem = "pcmcia_socket",	.file = NULL }, /* all files are unreadable in empty slot :( */
 		{ .subsystem = "usb_host",	.file = NULL },
 		{ .subsystem = "bluetooth",	.file = "address" },
 		{ .subsystem = "i2c-adapter",	.file = NULL },
