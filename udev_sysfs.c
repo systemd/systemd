@@ -171,6 +171,7 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 		{ .subsystem = "net",		.device = "bnep" },
 		{ .subsystem = "net",		.device = "vmnet" },
 		{ .subsystem = "net",		.device = "ippp" },
+		{ .subsystem = "net",		.device = "nlv" },
 		{ .subsystem = "ppp",		.device = NULL },
 		{ .subsystem = "sound",		.device = NULL },
 		{ .subsystem = "printer",	.device = "lp" },
