@@ -1,0 +1,69 @@
+# There are a number of modifiers that are allowed to be used in some
+# of the different fields. They provide the following subsitutions:
+# %n - the "kernel number" of the device.
+#      For example, 'sda3' has a "kernel number" of '3'
+# %k - the kernel name for the device.
+# %M - the kernel major number for the device
+# %m - the kernel minor number for the device
+# %b - the bus id for the device
+# %c - the string returned by the PROGRAM. (Note, this doesn't work within
+#      the PROGRAM field for the obvious reason.)
+# %s{filename} - the content of a sysfs attribute.  
+# %% - the '%' char itself.
+#
+
+# /dev/cdrom symlink
+BUS="ide", KERNEL="hd[a-z]", PROGRAM="/etc/udev/cdsymlinks.sh %k", SYMLINK="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
+
+# permissions for SCSI sg devices
+BUS="scsi", KERNEL="s[grt][0-9]*", SYSFS{type}="5", NAME="%k", MODE="0660", GROUP="cdrom"
+
+# permissions for IDE CD devices
+BUS="ide", KERNEL="*[!0-9]", PROGRAM="/bin/cat /proc/ide/%k/media", RESULT="cdrom*", NAME="%k", MODE="0660", GROUP="cdrom"
+
+# permissions for IDE floppy devices
+BUS="ide", KERNEL="*[!0-9]", PROGRAM="/bin/cat /proc/ide/%k/media", RESULT="floppy*", NAME="%k", MODE="0660", GROUP="floppy"
+
+# USB devices
+BUS="usb", KERNEL="hiddev*",	NAME="usb/%k"
+BUS="usb", KERNEL="auer*",	NAME="usb/%k"
+BUS="usb", KERNEL="legousbtower*", NAME="usb/%k"
+BUS="usb", KERNEL="dabusb*",	NAME="usb/%k"
+BUS="usb", KERNEL="lp[0-9]*",	NAME="usb/%k"
+
+KERNEL="dvb*",		PROGRAM="/etc/udev/dvb.sh %k", NAME="%c"
+
+KERNEL="card*",		NAME="dri/card%n"
+KERNEL="cdemu[0-9]*",	NAME="cdemu/%n"
+KERNEL="cpu[0-9]*",	NAME="cpu/%n/cpuid"
+KERNEL="msr[0-9]*",	NAME="cpu/%n/msr"
+KERNEL="microcode",	NAME="cpu/microcode"
+
+# ALSA devices
+KERNEL="controlC[0-9]*", NAME="snd/%k"
+KERNEL="hw[CD0-9]*",	NAME="snd/%k"
+KERNEL="pcm[CD0-9cp]*",	NAME="snd/%k"
+KERNEL="midi[CD0-9]*",	NAME="snd/%k"
+KERNEL="timer",		NAME="snd/%k"
+KERNEL="seq",		NAME="snd/%k"
+
+# input devices
+KERNEL="mice",		NAME="input/%k"
+KERNEL="mouse[0-9]*",	NAME="input/%k"
+KERNEL="event[0-9]*",	NAME="input/%k", PROGRAM="/etc/udev/inputdev.sh %k", RESULT="inputdev", MODE="0664", GROUP="video"
+KERNEL="event[0-9]*",	NAME="input/%k"
+KERNEL="js[0-9]*",	NAME="input/%k"
+KERNEL="ts[0-9]*",	NAME="input/%k"
+KERNEL="uinput",	NAME="input/%k"
+
+KERNEL="tap*",		NAME="net/%k"
+KERNEL="tun",		NAME="net/%k"
+
+# CAPI devices
+KERNEL="capi",		NAME="capi20", SYMLINK="isdn/capi20"
+KERNEL="capi[0-9]*",	NAME="capi/%n"
+
+# device mapper creates its own device nodes, so ignore these
+KERNEL="dm-[0-9]*",	NAME=""
+KERNEL="device-mapper",	NAME="mapper/control"
+
