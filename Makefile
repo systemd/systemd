@@ -118,14 +118,15 @@ WARNINGS += $(call cc-supports,-Wdeclaration-after-statement)
 CFLAGS := -pipe
 
 HEADERS = \
-	udev.h		\
-	udev_utils.h	\
-	namedev.h	\
-	udev_version.h	\
-	udev_db.h	\
-	udev_sysfs.h	\
-	logging.h	\
-	udev_selinux.h	\
+	udev.h			\
+	udev_utils.h		\
+	namedev.h		\
+	udev_version.h		\
+	udev_db.h		\
+	udev_sysfs.h		\
+	logging.h		\
+	udev_libc_wrapper.h	\
+	udev_selinux.h		\
 	list.h
 
 SYSFS_OBJS = \
@@ -146,7 +147,8 @@ UDEV_OBJS = \
 	udev_db.o		\
 	udev_multiplex.o	\
 	namedev.o		\
-	namedev_parse.o
+	namedev_parse.o		\
+	udev_libc_wrapper.o
 
 OBJS = \
 	udev.a			\
@@ -158,7 +160,7 @@ CFLAGS +=	-I$(PWD)/libsysfs/sysfs \
 		-I$(PWD)/libsysfs
 
 ifeq ($(strip $(USE_LOG)),true)
-	CFLAGS  += -DLOG
+	CFLAGS += -DLOG
 endif
 
 # if DEBUG is enabled, then we do not strip or optimize
@@ -175,7 +177,6 @@ endif
 # If we are using our version of klibc, then we need to build, link it, and then
 # link udev against it statically. Otherwise, use glibc and link dynamically.
 ifeq ($(strip $(USE_KLIBC)),true)
-	KLIBC_FIXUPS_DIR= $(PWD)/klibc_fixups
 	KLIBC_BASE	= $(PWD)/klibc
 	KLIBC_DIR	= $(KLIBC_BASE)/klibc
 	INCLUDE_DIR	:= $(KLIBC_BASE)/include
@@ -190,7 +191,6 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	CFLAGS += $(WARNINGS) -nostdinc				\
 		$(OPTFLAGS) $(REQFLAGS)				\
 		-D__KLIBC__ -fno-builtin-printf			\
-		-I$(KLIBC_FIXUPS_DIR)				\
 		-I$(INCLUDE_DIR)				\
 		-I$(INCLUDE_DIR)/arch/$(ARCH)			\
 		-I$(INCLUDE_DIR)/bits$(BITSIZE)			\
@@ -199,20 +199,12 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	LIB_OBJS =
 	LDFLAGS = --static --nostdlib -nostartfiles -nodefaultlibs
 
-	HEADERS	+= \
-		klibc_fixups/pwd.h
-
-	KLIBC_FIXUP_OBJS = \
-		klibc_fixups/klibc_fixups.o
-
-	OBJS += klibc_fixups/klibc_fixups.a
 else
 	WARNINGS += -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
 	CRT0 =
 	LIBC =
 	CFLAGS += $(WARNINGS) -I$(GCCINCDIR)
 	LIB_OBJS = -lc
-	LDFLAGS =
 endif
 
 ifeq ($(strip $(USE_SELINUX)),true)
@@ -261,11 +253,6 @@ libsysfs/sysfs.a: $(SYSFS_OBJS)
 	$(QUIET) $(AR) cq $@ $(SYSFS_OBJS)
 	$(QUIET) $(RANLIB) $@
 
-klibc_fixups/klibc_fixups.a: $(KLIBC_FIXUP_OBJS)
-	rm -f $@
-	$(QUIET) $(AR) cq $@ $(KLIBC_FIXUP_OBJS)
-	$(QUIET) $(RANLIB) $@
-
 # header files automatically generated
 GEN_HEADERS =	udev_version.h
 
@@ -298,7 +285,6 @@ $(GEN_MANPAGES): $(GEN_MANPAGESIN)
 
 $(UDEV_OBJS): $(GEN_HEADERS) $(HOST_PROGS)
 $(SYSFS_OBJS): $(HOST_PROGS)
-$(KLIBC_FIXUP_OBJS): $(HOST_PROGS)
 $(OBJS): $(GEN_HEADERS) $(HOST_PROGS)
 $(ROOT).o: $(GEN_HEADERS) $(HOST_PROGS)
 $(TESTER).o: $(GEN_HEADERS) $(HOST_PROGS)

@@ -34,9 +34,9 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <linux/sockios.h>
-#include <pwd.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
+#include "udev_libc_wrapper.h"
 #include "udev.h"
 #include "udev_utils.h"
 #include "udev_sysfs.h"
@@ -132,15 +132,8 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 
 		if (endptr[0] == '\0')
 			uid = (uid_t) id;
-		else {
-			struct passwd *pw;
-
-			pw = getpwnam(udev->owner);
-			if (pw == NULL)
-				dbg("specified user unknown '%s'", udev->owner);
-			else
-				uid = pw->pw_uid;
-		}
+		else
+			uid = lookup_user(udev->owner);
 	}
 
 	if (udev->group[0] != '\0') {
@@ -149,13 +142,8 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 
 		if (endptr[0] == '\0')
 			gid = (gid_t) id;
-		else {
-			struct group *gr = getgrnam(udev->group);
-			if (gr == NULL)
-				dbg("specified group unknown '%s'", udev->group);
-			else
-				gid = gr->gr_gid;
-		}
+		else
+			gid = lookup_group(udev->group);
 	}
 
 	if (!udev->test_run) {
