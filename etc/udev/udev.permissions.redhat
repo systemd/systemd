@@ -1,0 +1,193 @@
+# /etc/udev/udev.permissions:  permission/ownership map for udev
+
+# console devices
+console:root:root:0600
+tty[0-9][0-9]*:root:tty:0660
+vc/[0-9]*:root:tty:0660
+
+# pty devices
+#  Set this to 0660 if you only want users belonging to tty group
+#  to be able to allocate PTYs
+ptmx:root:tty:0666
+pty[p-za-e][0-9a-f]*:root:tty:0660
+tty[p-za-e][0-9a-f]*:root:tty:0660
+pty/m*:root:tty:0660
+vc/s*:root:tty:0660
+
+# serial+dialup devices
+ttyS*:root:uucp:0660
+ippp*:root:root:0660
+isdn*:root:root:0660
+isdnctrl*:root:root:0660
+capi*:root:root:0660
+dcbri*:root:root:0660
+ircomm*:root:uucp:0660
+ttyUSB*:root:uucp:0660
+tts/[0-9]*:root:uucp:0660
+tts/USB[0-9]*:root:uucp:0660
+
+# vc devices
+vcs:vcsa:tty:0600
+vcs[0-9]*:vcsa:tty:0600
+vcsa:vcsa:tty:0600
+vcsa[0-9]*:vcsa:tty:0600
+vcc/*:vcsa:tty:0600
+
+# memory devices
+random:root:root:0666
+urandom:root:root:0444
+mem:root:kmem:0640
+kmem:root:kmem:0640
+port:root:kmem:0640
+full:root:root:0666
+null:root:root:0666
+zero:root:root:0666
+
+# misc devices
+nvram:root:root:0660
+rtc:root:root:0660
+
+# floppy devices
+fd[01]*:root:floppy:0660
+
+# audio devices
+dsp*:root:root:0660
+audio*:root:root:0660
+midi*:root:root:0660
+mixer*:root:root:0660
+sequencer*:root:root:0660
+sound/*:root:root:0660
+snd/*:root:root:0660
+beep:root:root:0660
+admm*:root:root:0660
+adsp*:root:root:0660
+aload*:root:root:0660
+amidi*:root:root:0660
+dmfm*:root:root:0660
+dmmidi*:root:root:0660
+sndstat:root:root:0660
+
+# optical devices
+sr*:root:disk:660
+scd*:root:disk:660
+pcd*:root:disk:0660
+disk*:root:disk:0660
+dvd:root:disk:0660
+rdvd:root:disk:0660
+cdroms/*:root:disk:0660
+
+# pilot/palm devices
+pilot:root:uucp:0660
+
+# jaz devices
+jaz*:root:disk:0660
+
+# zip devices
+pocketzip*:root:disk:0660
+zip*:root:disk:0660
+
+# ls120 devices
+ls120:root:disk:0660
+ls120*:root:disk:0660
+
+# lp devices
+lp*:root:lp:0660
+parport*:root:lp:0660
+irlpt*:root:lp:0660
+usblp*:root:lp:0660
+usb/lp*:root:lp:0660
+
+# scanner devices
+scanner:root:root:0600
+usb/scanner*:root:root:0600
+
+# camera devices
+camera*:root:root:0600
+usb/dc2xx*:root:root:0600
+usb/mdc800*:root:root:0600
+
+# raw devices
+ram*:root:disk:660
+raw/*:root:disk:660
+
+# disk devices
+hd*:root:disk:660
+sd*:root:disk:660
+dasd*:root:disk:660
+ataraid*:root:disk:660
+loop*:root:disk:660
+md*:root:disk:660
+ide/*/*/*/*/*:root:disk:660
+discs/*/*:root:disk:660
+loop/*:root:disk:660
+md/*:root:disk:660
+
+# tape devices
+ht*:root:disk:0660
+nht*:root:disk:0660
+pt[0-9]*:root:disk:0660
+npt*:root:disk:0660
+st*:root:disk:0660
+nst*:root:disk:0660
+
+# dm devices
+dm-*:root:root:0640
+
+# memstick devices
+memstick*:root:root:0600
+
+# flash devices
+flash*:root:root:0600
+
+# diskonkey devices
+diskonkey*:root:disk:0660
+
+# rem_ide devices
+microdrive*:root:disk:0660
+
+# fb devices
+fb:root:root:0600
+fb[0-9]*:root:root:0600
+fb/*:root:root:0600
+
+# kbd devices
+kbd:root:root:0644
+
+# joystick devices
+js[0-9]*:root:root:0644
+djs[0-9]*:root:root:0644
+
+# v4l devices
+video*:root:root:0660
+radio*:root:root:0660
+winradio*:root:root:0660
+vtx*:root:root:0660
+vbi*:root:root:0660
+video/*:root:root:0660
+vttuner:root:root:0660
+v4l/*:root:root:0660
+
+# input devices
+input/*:root:root:644
+
+# gpm devices
+gpmctl:root:root:0700
+
+# dri devices
+nvidia*:root:root:0660
+3dfx*:root:root:0660
+dri/*:root:root:0660
+
+# mainboard devices
+apm_bios:root:root:0600
+
+# scsi devices
+sg*:root:disk:0660
+pg*:root:disk:0660
+cdwriter:root:disk:0660
+
+# usb devices
+usb/dabusb*:root:usb:0660
+usb/mdc800*:root:usb:0660
+usb/rio500:root:usb:0660
+
