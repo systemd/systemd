@@ -780,6 +780,16 @@ KERNEL="i2c-fake2", NAME="node"
 EOF
 	},
 	{
+		desc		=> "multiple symlinks with format char",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "symlink2-ttyUSB0",
+		exp_target	=> "ttyUSB0",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="symlink1-%n symlink2-%k symlink3-%b"
+EOF
+	},
+	{
 		desc		=> "symlink creation (same directory)",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",
