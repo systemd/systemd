@@ -53,7 +53,7 @@ A: The devfs approach caused a lot of spurious modprobe attempts as
 Q: I really like the devfs naming scheme, will udev do that?
 A: Yes, udev can create /dev nodes using the devfs naming policy.  A
    configuration file needs to be created to map the kernel default names
-   to the devfs names.  See the initial udev.conf.devfs file in the udev
+   to the devfs names.  See the initial udev.rules.devfs file in the udev
    release.  It is the start of such a configuration file.  If there are
    any things missing, please let the udev authors know.
 
