@@ -52,9 +52,9 @@ extern int log_message (int level, const char *format, ...)
 
 
 /* filenames for the config and database files */
-#define UDEV_DB				"udevdb.tdb"
-#define NAMEDEV_CONFIG_PERMISSION_FILE	"namedev.permissions"
-#define NAMEDEV_CONFIG_FILE		"namedev.config"
+#define UDEV_DB				"udev.tdb"
+#define UDEV_CONFIG_PERMISSION_FILE	"udev.permissions"
+#define UDEV_CONFIG_FILE		"udev.config"
 
 #define NAME_SIZE	100
 #define OWNER_SIZE	30

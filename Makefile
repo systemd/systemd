@@ -198,14 +198,14 @@ install: all
 	$(INSTALL) -d $(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(sbindir)/$(ROOT)
 	$(INSTALL_DATA) -D udev.8 $(mandir)/man8/udev.8
-	$(INSTALL_DATA) namedev.config $(configdir)
-	$(INSTALL_DATA) namedev.permissions $(configdir)
+	$(INSTALL_DATA) udev.config $(configdir)
+	$(INSTALL_DATA) udev.permissions $(configdir)
 	- ln -s $(sbindir)/$(ROOT) $(hotplugdir)/udev.hotplug
 
 uninstall:
 	- rm $(hotplugdir)/udev.hotplug
-	- rm $(configdir)/namedev.permissions
-	- rm $(configdir)/namedev.config
+	- rm $(configdir)/udev.permissions
+	- rm $(configdir)/udev.config
 	- rm $(mandir)/man8/udev.8
 	- rm $(sbindir)/$(ROOT)
 	- rmdir $(hotplugdir)

@@ -74,8 +74,8 @@ static void get_dirs(void)
 {
 	char *temp;
 	char *udev_db = UDEV_DB;
-	char *udev_config = NAMEDEV_CONFIG_FILE;
-	char *udev_permission = NAMEDEV_CONFIG_PERMISSION_FILE;
+	char *udev_config = UDEV_CONFIG_FILE;
+	char *udev_permission = UDEV_CONFIG_PERMISSION_FILE;
 	int retval;
 
 	retval = sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX);

@@ -18,16 +18,16 @@ On device creation,
 .B udev
 reads the sysfs directory of the given device to collect device attributes
 like label, serial number or bus device number.
-These attributes are passed as a key to the namedev subsystem
-to receive a unique name for device file creation.
-namedev maintains a database for devices present on the system.
+These attributes are treated as a key 
+to determine a unique name for device file creation.
+udev maintains a database for devices present on the system.
 .br
 On device removal,
 .B udev
-queries the namedev database for the name of the device file to be deleted.
+queries the internal database for the name of the device file to be deleted.
 .SH "CONFIGURATION"
-namedev expects its configuration at
-.I /etc/udev/namedev.config.
+udev expects its configuration at
+.I /etc/udev/udev.config.
 The file consists of a set of lines. All empty lines and
 lines beginning with a '#' will be ignored.
 .br
@@ -70,7 +70,7 @@ calling external program, that returns a string to match
 .br
 keys: \fBBUS\fP, \fBPROGRAM\fP, \fBID\fP
 .P
-A sample \fInamedev.conf\fP might look like this:
+A sample \fIudev.conf\fP might look like this:
 .sp
 .nf
 # USB printer to be called lp_color
@@ -90,13 +90,13 @@ CALLOUT, PROGRAM="/sbin/dev_id", BUS="pci", ID="V0815", NAME="dev0815"
 .fi
 .P
 Permissions and ownership for the created device files may specified at
-.I /etc/udev/namedev.permissions.
+.I /etc/udev/udev.permissions.
 The file consists of a set of lines. All empty lines and
 lines beginning with a '#' will be ignored.
 .br
 Every line lists a device name followed by owner, group and permission mode. All values are separated by colons.
 .sp
-A sample \fInamedev.permissions\fP might look like this:
+A sample \fIudev.permissions\fP might look like this:
 .sp
 .nf
 #name:user:group:mode
