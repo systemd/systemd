@@ -172,7 +172,7 @@ clean:
 	$(MAKE) -C libsysfs clean
 	$(MAKE) -C tdb clean
 
-DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v CVS | grep -v "\.tar\.gz" | grep -v "\/\." | grep -v releases | grep -v BitKeeper | grep -v SCCS | grep -v "\.tdb" | sort )
+#DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v CVS | grep -v "\.tar\.gz" | grep -v "\/\." | grep -v releases | grep -v BitKeeper | grep -v SCCS | grep -v "\.tdb" | sort )
 DISTDIR := $(RELEASE_NAME)
 srcdir = .
 release: $(DISTFILES) clean
