@@ -1,7 +1,7 @@
 /*
  * wait_for_sysfs.c  - small program to delay the execution
  *		       of /etc/hotplug.d/ programs, until sysfs
- *		       is populated by the kernel. Depending on
+ *		       is fully populated by the kernel. Depending on
  *		       the type of device, we wait for all expected
  *		       directories and then just exit.
  *
@@ -49,6 +49,7 @@ void log_message(int level, const char *format, ...)
 #define WAIT_MAX_SECONDS		5
 #define WAIT_LOOP_PER_SECOND		20
 
+/* wait for specific file to show up, normally the "dev"-file */
 static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev)
 {
 	static struct class_file {
@@ -56,8 +57,10 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 		char *file;
 	} class_files[] = {
 		{ .subsystem = "net",		.file = "ifindex" },
+		{ .subsystem = "scsi_host",	.file = "unique_id" },
+		{ .subsystem = "scsi_device",	.file = NULL },
+		{ .subsystem = "pcmcia_socket",	.file = "card_type" },
 		{ .subsystem = "usb_host",	.file = NULL },
-		{ .subsystem = "pcmcia_socket",	.file = NULL },
 		{ NULL, NULL }
 	};
 	struct class_file *classfile;
@@ -83,16 +86,17 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 			dbg("class '%s' specific file '%s' found", class_dev->classname, file);
 			return 0;
 		}
+
+		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
 	}
 
-	dbg("error: getting bus '%s' specific file '%s'", class_dev->classname, file);
+	dbg("error: getting class '%s' specific file '%s'", class_dev->classname, file);
 	return -1;
 }
 
+/* skip waiting for physical device */
 static int class_device_expect_no_device_link(struct sysfs_class_device *class_dev)
 {
-	char **device;
-
 	static char *devices_without_link[] = {
 		"nb",
 		"ram",
@@ -120,6 +124,7 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 		"ttyS",
 		NULL
 	};
+	char **device;
 
 	for (device = devices_without_link; *device != NULL; device++) {
 		int len = strlen(*device);
@@ -140,6 +145,26 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 	return 0;
 }
 
+/* skip waiting for the bus */
+static int class_device_expect_no_bus(struct sysfs_class_device *class_dev)
+{
+	static char *devices_without_bus[] = {
+		"scsi_host",
+		NULL
+	};
+	char **device;
+
+	for (device = devices_without_bus; *device != NULL; device++) {
+		int len = strlen(*device);
+
+		if (strncmp(class_dev->classname, *device, len) == 0)
+			return 1;
+	}
+
+	return 0;
+}
+
+/* wait for the bus and for a bus specific file to show up */
 static int wait_for_bus_device(struct sysfs_device *device_dev)
 {
 	static struct bus_file {
@@ -152,6 +177,7 @@ static int wait_for_bus_device(struct sysfs_device *device_dev)
 		{ .bus = "usb-serial",	.file = "detach_state" },
 		{ .bus = "ide",		.file = "detach_state" },
 		{ .bus = "pci",		.file = "vendor" },
+		{ .bus = "platform",	.file = "detach_state" },
 		{ NULL }
 	};
 	struct bus_file *busfile;
@@ -174,19 +200,24 @@ static int wait_for_bus_device(struct sysfs_device *device_dev)
 	/* wait for a bus specific file to show up */
 	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
 	while (--loop) {
+		int found = 0;
+
 		for (busfile = bus_files; busfile->bus != NULL; busfile++) {
 			if (strcmp(device_dev->bus, busfile->bus) == 0) {
+				found = 1;
 				dbg("looking at bus '%s' for specific file '%s'", device_dev->bus, busfile->file);
 				if (sysfs_get_device_attr(device_dev, busfile->file) != NULL) {
 					dbg("bus '%s' specific file '%s' found", device_dev->bus, busfile->file);
 					return 0;
 				}
-				if (busfile->bus == NULL) {
-					info("error: unknown bus, update the build-in list '%s'", device_dev->bus);
-					return -1;
-				}
 			}
 		}
+		if (found == 0) {
+			info("error: unknown bus, please report to "
+			     "<linux-hotplug-devel@lists.sourceforge.net> '%s'", device_dev->bus);
+			return -1;
+		}
+		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
 	}
 
 	dbg("error: getting bus '%s' specific file '%s'", device_dev->bus, busfile->file);
@@ -206,6 +237,8 @@ int main(int argc, char *argv[], char *envp[])
 	int loop;
 	int rc = 0;
 
+	init_logging("wait_for_sysfs");
+
 	if (argc != 2) {
 		dbg("error: subsystem");
 		return 1;
@@ -224,6 +257,7 @@ int main(int argc, char *argv[], char *envp[])
 		return 1;
 	}
 
+	/* we only wait on an add event */
 	if (strcmp(action, "add") != 0)
 		return 0;
 
@@ -242,20 +276,25 @@ int main(int argc, char *argv[], char *envp[])
 			class_dev = sysfs_open_class_device_path(filename);
 			if (class_dev)
 				break;
+
+			usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
 		}
 		if (class_dev == NULL) {
 			dbg("error: getting class_device");
-			rc = 4;
+			rc = 3;
 			goto exit;
 		}
 		dbg("class_device opened '%s'", filename);
 
-		wait_for_class_device_attributes(class_dev);
+		if (wait_for_class_device_attributes(class_dev) != 0) {
+			rc = 4;
+			goto exit_class;
+		}
 
+		/* skip devices without /device-link */
 		if (class_device_expect_no_device_link(class_dev)) {
-			dbg("no device symlink expected");
-			sysfs_close_class_device(class_dev);
-			goto exit;
+			dbg("no device symlink expected for '%s', ", class_dev->name);
+			goto exit_class;
 		}
 
 		/* the symlink may be on the parent device */
@@ -279,19 +318,21 @@ int main(int argc, char *argv[], char *envp[])
 		}
 		if (device_dev == NULL) {
 			dbg("error: getting /device-device");
-			sysfs_close_class_device(class_dev);
 			rc = 5;
-			goto exit;
+			goto exit_class;
 		}
 		dbg("device symlink found pointing to '%s'", device_dev->path);
 
 		/* wait for the bus value */
-		if (wait_for_bus_device(device_dev) != 0)
-			rc = 6;
-		sysfs_close_class_device(class_dev);
+		if (class_device_expect_no_bus(class_dev)) {
+			dbg("no bus device expected for '%s', ", class_dev->classname);
+		} else {
+			if (wait_for_bus_device(device_dev) != 0)
+				rc = 6;
+		}
 
-		/* finished */
-		goto exit;
+exit_class:
+		sysfs_close_class_device(class_dev);
 
 	} else if ((strncmp(devpath, "/devices/", 9) == 0)) {
 		/* open the path we are called for */
@@ -303,22 +344,21 @@ int main(int argc, char *argv[], char *envp[])
 			device_dev = sysfs_open_device_path(filename);
 			if (device_dev)
 				break;
+
+			usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
 		}
 		if (device_dev == NULL) {
 			dbg("error: getting /device-device");
-			rc = 4;
+			rc = 7;
 			goto exit;
 		}
 		dbg("device_device opened '%s'", filename);
 
 		/* wait for the bus value */
 		if (wait_for_bus_device(device_dev) != 0)
-			rc = 9;
+			rc = 8;
 
 		sysfs_close_device(device_dev);
-
-		/* finished */
-		goto exit;
 
 	} else {
 		dbg("unhandled sysfs path, no need to wait");
@@ -326,9 +366,11 @@ int main(int argc, char *argv[], char *envp[])
 
 exit:
 	if (rc == 0)
-		info("result: waiting for sysfs successful '%s'", devpath);
+		dbg("result: waiting for sysfs successful '%s'", devpath);
 	else
-		info("result: waiting for sysfs failed '%s'", devpath);
+		info("error: wait_for_sysfs needs an update to handle the device '%s' "
+		     "properly, please report to <linux-hotplug-devel@lists.sourceforge.net>",
+		     devpath);
 
 	return rc;
 }

@@ -399,7 +399,7 @@ install: install-initscript install-config install-man install-dev.d all
 	$(INSTALL_PROGRAM) -D $(WAIT) $(DESTDIR)$(sbindir)/$(WAIT)
 	- ln -f -s $(sbindir)/udev $(DESTDIR)$(sbindir)/$(STARTER)
 	- ln -f -s $(sbindir)/$(SENDER) $(DESTDIR)$(hotplugdir)/10-udev.hotplug
-	- ln -f -s $(sbindir)/$(WAIT) $(DESTDIR)$(hotplugdir)/00-wait_for_sysfs.hotplug
+	- ln -f -s $(sbindir)/$(WAIT) $(DESTDIR)$(hotplugdir)/05-wait_for_sysfs.hotplug
 ifndef DESTDIR
 	- killall udevd
 	- rm -f $(udevdir)/.udev.tdb
@@ -412,7 +412,7 @@ endif
 
 uninstall: uninstall-man uninstall-dev.d
 	- rm $(hotplugdir)/10-udev.hotplug
-	- rm $(hotplugdir)/00-wait_for_sysfs.hotplug
+	- rm $(hotplugdir)/05-wait_for_sysfs.hotplug
 	- rm $(configdir)/rules.d/50-udev.rules
 	- rm $(configdir)/permissions.d/50-udev.permissions
 	- rm $(configdir)/udev.conf
