@@ -29,6 +29,9 @@ bin=/sbin/udev
 udevd=/sbin/udevd
 
 run_udev () {
+	export ACTION=add
+	export UDEV_NO_SLEEP=1
+
 	# handle block devices and their partitions
 	for i in ${sysfs_dir}/block/*; do
 		# add each drive
@@ -85,8 +88,6 @@ echo "mounting... ramfs at $udev_root"
 mount -n -t ramfs none $udev_root
 
 # propogate /udev from /sys
-export ACTION=add
-export UDEV_NO_SLEEP=1
 echo "Creating initial udev device nodes:"
 
 # You can use the shell scripts above by calling run_udev or execute udevstart
