@@ -1,3 +1,42 @@
+Summary of changes from v051 to v052
+============================================
+
+<md:linux.it>:
+  o debian: update rules files
+  o raid-devfs.sh: devfs names for hardware RAID controllers
+  o scsi_id: when udevstart is started, /tmp is not writeable
+  o cdsymlinks.sh: trivial fix, the variable is initialized to '', not 0
+
+<sschweizer:gmail.com>:
+  o gentoo/udev.rules: add default permissions for sound devices
+
+Greg Kroah-Hartman:
+  o fix example comment in ide-devfs.sh
+  o Add infiniband to gentoo rules
+  o Another gentoo fix, adding dvb support
+  o Fix gentoo bug #76056 (fb device group permissions.)
+  o Fix gentoo bug #81102, device nodes for the pktcdvd device
+
+Kay Sievers:
+  o provide temporary device node for callouts to access the device
+  o udev_volume_id: fix dasd disklabel reading with -l option
+  o udev_volume_id: volume_id version 034
+  o udev_volume_id: rename probe_ibm into probe_dasd
+  o udev_volume_id: volume_id version 032
+  o Makefile: add some more warnings and prepare for clean gcc4 compile
+  o Makefile: cleanup conditional config option sections
+  o fix -Wsign-compare warnings
+  o chassis_id: clean compilation and fix bad function parameter passing
+  o simple_build_check: make it possible to pass KERNEL_DIR
+  o selinux: cleanup udev integration
+
+Michael Buesch:
+  o trivial: remove _all_ trailing slashes with no_trailing_slash()
+  o trivial: fix signedness
+  o namdev: allow symlink-only rules to specify node permissions
+  o udevd: fix valgrind warning
+
+
 Summary of changes from v050 to v051
 ============================================
 
