@@ -86,7 +86,7 @@ static void get_dirs(void)
 	temp = getenv("UDEV_TEST");
 	if (temp != NULL) {
 		/* hm testing is happening, use the specified values, if they are present */
-		temp = getenv("UDEV_SYSFS_PATH");
+		temp = getenv("SYSFS_PATH");
 		if (temp)
 			strncpy(sysfs_path, temp, sizeof(sysfs_path));
 		temp = getenv("UDEV_CONFIG_DIR");

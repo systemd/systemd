@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export UDEV_TEST=yes
-export UDEV_SYSFS_PATH=$PWD/sys/
+export SYSFS_PATH=$PWD/sys/
 export UDEV_CONFIG_DIR=$PWD/
 export UDEV_ROOT=$PWD/udev/
 export UDEV_DB=udev.tdb
