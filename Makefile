@@ -89,7 +89,7 @@ STRIP = $(CROSS)strip
 RANLIB = $(CROSS)ranlib
 HOSTCC = gcc
 
-export CROSS CC AR STRIP RANLIB CFLAGS LDFLAGS LIB_OBJS ARCH_LIB_OBJS CRT0
+export CROSS CC AR STRIP RANLIB CFLAGS LDFLAGS LIB_OBJS
 
 # code taken from uClibc to determine the current arch
 ARCH := ${shell $(CC) -dumpmachine | sed -e s'/-.*//' -e 's/i.86/i386/' -e 's/sparc.*/sparc/' \
@@ -108,11 +108,11 @@ OPTIMIZATION := ${shell if $(CC) -Os -S -o /dev/null -xc /dev/null >/dev/null 2>
 # check if compiler option is supported
 cc-supports = ${shell if $(CC) ${1} -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "$(1)"; fi;}
 
-WARNINGS := -Wall -fno-builtin -Wchar-subscripts -Wpointer-arith -Wstrict-prototypes -Wsign-compare
-WARNINGS += $(call cc-supports,-Wno-pointer-sign)
-WARNINGS += $(call cc-supports,-Wdeclaration-after-statement)
-
-CFLAGS := -pipe
+CFLAGS		+= -Wall -fno-builtin -Wchar-subscripts -Wpointer-arith -Wstrict-prototypes -Wsign-compare
+CFLAGS		+= $(call cc-supports,-Wno-pointer-sign)
+CFLAGS		+= $(call cc-supports,-Wdeclaration-after-statement)
+CFLAGS		+= -pipe
+CFLAGS		+= -D_GNU_SOURCE
 
 HEADERS = \
 	udev.h			\
@@ -161,42 +161,25 @@ endif
 
 # if DEBUG is enabled, then we do not strip or optimize
 ifeq ($(strip $(DEBUG)),true)
-	CFLAGS  += -O1 -g -DDEBUG -D_GNU_SOURCE
-	LDFLAGS += -Wl,-warn-common
+	CFLAGS  += -O1 -g -DDEBUG
+	LDFLAGS += -Wl
 	STRIPCMD = /bin/true -Since_we_are_debugging
 else
-	CFLAGS  += $(OPTIMIZATION) -fomit-frame-pointer -D_GNU_SOURCE
-	LDFLAGS += -s -Wl,-warn-common
+	CFLAGS  += $(OPTIMIZATION) -fomit-frame-pointer
+	LDFLAGS += -s -Wl
 	STRIPCMD = $(STRIP) -s --remove-section=.note --remove-section=.comment
 endif
 
 # If we are using our version of klibc, then we need to build, link it, and then
 # link udev against it statically. Otherwise, use glibc and link dynamically.
 ifeq ($(strip $(USE_KLIBC)),true)
-	KLIBC_BASE	= $(PWD)/klibc
-	KLIBC_DIR	= $(KLIBC_BASE)/klibc
-	INCLUDE_DIR	:= $(KLIBC_BASE)/include
-	LINUX_INCLUDE_DIR	:= $(KERNEL_DIR)/include
-	include $(KLIBC_DIR)/arch/$(ARCH)/MCONFIG
-	ARCH_LIB_OBJS =	 $(KLIBC_DIR)/libc.a
-	CRT0 = $(KLIBC_DIR)/crt0.o
-	LIBC = $(ARCH_LIB_OBJS) $(LIB_OBJS) $(CRT0)
-	CFLAGS += $(WARNINGS) -nostdinc				\
-		$(OPTFLAGS) $(REQFLAGS)				\
-		-D__KLIBC__ -fno-builtin-printf			\
-		-I$(INCLUDE_DIR)				\
-		-I$(INCLUDE_DIR)/arch/$(ARCH)			\
-		-I$(INCLUDE_DIR)/bits$(BITSIZE)			\
-		-I$(GCCINCDIR)					\
-		-I$(LINUX_INCLUDE_DIR)
-	LIB_OBJS =
-	LDFLAGS = -static -nostdlib -nostartfiles -nodefaultlibs
+	KLIBC_INSTALL	= $(PWD)/klibc/.install
+	KLCC		= $(KLIBC_INSTALL)/bin/klcc
+	CC		= $(KLCC)
+	LD		= $(KLCC)
+	LDFLAGS		+= -static
 else
-	WARNINGS += -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
-	CRT0 =
-	LIBC =
-	CFLAGS += $(WARNINGS) -I$(GCCINCDIR)
-	LIB_OBJS = -lc
+	CFLAGS		+= -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
 endif
 
 ifeq ($(strip $(USE_SELINUX)),true)
@@ -221,7 +204,7 @@ endif
 # config files automatically generated
 GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
 
-all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(STARTER) $(GEN_CONFIGS)
+all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(STARTER) $(GEN_CONFIGS) $(KLCC)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) \
@@ -232,13 +215,12 @@ all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(STARTER) $(GEN_CONFIGS)
 			-C $$target $@ ; \
 	done ; \
 
-$(ARCH_LIB_OBJS) : $(CRT0)
-
-$(CRT0):
-	@if [ ! -r klibc/linux ]; then \
-		ln -f -s $(KERNEL_DIR) klibc/linux; \
-	fi
-	$(MAKE) -C klibc SUBDIRS=klibc TESTS=
+$(KLCC):
+	$(MAKE) -C klibc KRNLSRC=$(KERNEL_DIR) SUBDIRS=klibc TESTS= \
+			 SHLIBDIR=$(KLIBC_INSTALL)/lib \
+			 INSTALLDIR=$(KLIBC_INSTALL) \
+			 bindir=$(KLIBC_INSTALL)/bin \
+			 mandir=$(KLIBC_INSTALL)/man all install
 
 udev.a: $(UDEV_OBJS)
 	rm -f $@
@@ -290,33 +272,32 @@ $(DAEMON).o: $(GEN_HEADERS) $(HOST_PROGS)
 $(SENDER).o: $(GEN_HEADERS) $(HOST_PROGS)
 $(STARTER).o: $(GEN_HEADERS) $(HOST_PROGS)
 
-$(ROOT): $(LIBC) $(ROOT).o $(OBJS) $(HEADERS) $(GEN_MANPAGES)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(ROOT).o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+$(ROOT): $(KLCC) $(ROOT).o $(OBJS) $(HEADERS) $(GEN_MANPAGES)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(ROOT).o $(OBJS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
-$(TESTER): $(LIBC) $(TESTER).o $(OBJS) $(HEADERS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(TESTER).o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+$(TESTER): $(KLCC) $(TESTER).o $(OBJS) $(HEADERS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(TESTER).o $(OBJS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
-$(INFO): $(LIBC) $(INFO).o $(OBJS) $(HEADERS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(INFO).o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+$(INFO): $(KLCC) $(INFO).o $(OBJS) $(HEADERS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(INFO).o $(OBJS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
-$(DAEMON): $(LIBC) $(DAEMON).o $(OBJS) udevd.h
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(DAEMON).o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+$(DAEMON): $(KLCC) $(DAEMON).o $(OBJS) udevd.h
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(DAEMON).o $(OBJS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
-$(SENDER): $(LIBC) $(SENDER).o $(OBJS) udevd.h
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(SENDER).o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+$(SENDER): $(KLCC) $(SENDER).o $(OBJS) udevd.h
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(SENDER).o $(OBJS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
-$(STARTER): $(LIBC) $(STARTER).o $(OBJS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(STARTER).o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+$(STARTER): $(KLCC) $(STARTER).o $(OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(STARTER).o $(OBJS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
 .c.o:
 	$(QUIET) $(CC) $(CFLAGS) -c -o $@ $<
-
 
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
@@ -333,7 +314,7 @@ clean:
 
 spotless: clean
 	$(MAKE) -C klibc SUBDIRS=klibc spotless
-	-rm -f klibc/linux
+	rm -rf klibc/.install
 
 DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v -e CVS -e "\.tar\.gz" -e "\/\." -e releases -e BitKeeper -e SCCS -e test/sys | sort )
 DISTDIR := $(RELEASE_NAME)

@@ -28,7 +28,7 @@ INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 
-override CFLAGS+=-D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE
+override CFLAGS+=-D_FILE_OFFSET_BITS=64
 
 VOLUME_ID_BASE=volume_id
 include $(VOLUME_ID_BASE)/Makefile.inc
@@ -42,7 +42,7 @@ $(OBJS): $(HEADERS)
 	$(QUIET) $(CC) $(CFLAGS) -c -o $@ $<
 
 $(PROG): $(OBJS) $(HEADERS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $(PROG) $(CRT0) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $(PROG) $(OBJS) $(LIB_OBJS)
 
 clean:
 	rm -f $(PROG) $(OBJS)
