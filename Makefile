@@ -31,6 +31,8 @@ USE_DBUS = false
 
 
 ROOT =		udev
+DAEMON =	udevd
+SENDER =	udevsend
 VERSION =	014_bk
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
@@ -155,7 +157,7 @@ endif
 
 CFLAGS += -I$(PWD)/libsysfs
 
-all: $(ROOT)
+all: $(ROOT) $(DAEMON) $(SENDER)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
@@ -229,10 +231,18 @@ $(ROOT): $(OBJS) udev.h namedev.h udev_version.h udev_dbus.h udevdb.h klibc_fixu
 	$(LD) $(LDFLAGS) -o $(ROOT) $(CRT0) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $(ROOT)
 
+$(DAEMON): $(ROOT) udevd.h udevd.o
+	$(LD) $(LDFLAGS) -o $(DAEMON) $(CRT0) udevd.o logging.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(STRIPCMD) $(ROOT)
+
+$(SENDER): $(ROOT) udevd.h udevsend.o
+	$(LD) $(LDFLAGS) -o $(SENDER) $(CRT0) udevsend.o logging.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(STRIPCMD) $(ROOT)
+
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
-	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS)
+	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(DAEMON) $(SENDER)
 	$(MAKE) -C klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
