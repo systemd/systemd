@@ -477,8 +477,9 @@ static int match_id(struct config_device *dev, struct sysfs_class_device *class_
 
 	strfieldcpy(path, sysfs_device->path);
 	temp = strrchr(path, '/');
+	temp++;
 	dbg("search '%s' in '%s', path='%s'", dev->id, temp, path);
-	if (strstr(temp, dev->id) == NULL)
+	if (strcmp_pattern(dev->id, temp) != 0)
 		return -ENODEV;
 	else
 		return 0;
