@@ -1,11 +1,67 @@
-.TH UDEV 8 "October 2003" "" "Linux Programmer's Manual"
+.TH UDEV 8 "October 2003" "" "Linux Administrator's Manual"
 .SH NAME
-udev \- Linux dynamic device naming support
+udev \- Linux configurable dynamic device naming support
 .SH SYNOPSIS
 .B udev
 .SH "DESCRIPTION"
 .B udev
-is a wonderful program whose man page has not been written yet.
+creates or removes device node files usually located in the /dev directory.
+As part of the
+.B hotplug
+subsystem,
+.B udev
+is exectuted if a kernel device is added or removed from the system.
+.P
+On device creation,
+.B udev
+reads the sysfs directory of the given device, to collect device attributes
+like label, serial number or bus device number.
+These attributes are passed as a key to the namedev subsystem
+to receive a unique name for device file creation.
+namedev maintains a database for devices present on the system.
+.P
+On device removal,
+.B udev
+queries the namedev database for the name of the device file to delete.
+.P
+namedev expects its configuration at
+.I /etc/udev/namedev.config.
+The file consists of a set of lines. All empty lines and
+lines beginning with a '#' will be ignored.
+.br
+Every line defines the mapping between device attributes and the name of
+the device file. It starts with a keyword defining the method for
+overriding the default kernel naming scheme, followed by a list
+of keys and ends with the definition of the filename for the device.
+.TP
+.B LABEL
+device label or serial number, like USB serial number, SCSI UUID or
+file system label
+.TP
+.B NUMBER
+device number on the bus, like PCI bus id
+.TP
+.B TOPOLOGY
+device position on bus, like physical port of USB device
+.TP
+.B REPLACE
+string replacement of the kernel device name
+.P
+If no matching configuration is found, the default kernel device name is used.
+.SH "EXAMPLE"
+.nf
+# USB printer to be called lp_color
+LABEL, BUS="usb", serial="W09090207101241330", NAME="lp_color"
+
+# sound card with PCI bus id 00:0b.0 to be called dsp
+NUMBER, BUS="pci", id="00:0b.0", NAME="dsp"
+
+# USB mouse at third port of the second hub to be called mouse1
+TOPOLOGY, BUS="usb", place="2.3", NAME="mouse1"
+
+# ttyUSB1 should always be called pda
+REPLACE, KERNEL="ttyUSB1", NAME="pda"
+.fi
 .SH "FILES"
 .nf
 .ft B
@@ -16,7 +72,7 @@ is a wonderful program whose man page has not been written yet.
 .fi
 .LP
 .SH "SEE ALSO"
-.BR hotplug "(8)"
+.B hotplug (8)
 .PP
 The
 .I http://linux-hotplug.sourceforge.net/
