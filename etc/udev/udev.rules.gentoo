@@ -57,12 +57,11 @@ KERNEL="loop[0-9]*", NAME="loop/%n", SYMLINK="%k"
 KERNEL="md[0-9]*", NAME="md/%n", SYMLINK="%k"
 
 # misc devices
-KERNEL="rtc",     NAME="misc/%k", SYMLINK="%k"
-KERNEL="psaux",   NAME="misc/%k", SYMLINK="%k"
-KERNEL="agpgart", NAME="misc/%k", SYMLINK="%k"
-KERNEL="rtc",     NAME="misc/%k", SYMLINK="%k"
-KERNEL="psaux",   NAME="misc/%k", SYMLINK="%k"
-KERNEL="uinput",  NAME="misc/%k", SYMLINK="%k"
+KERNEL="agpgart",   NAME="misc/%k", SYMLINK="%k"
+KERNEL="microcode", NAME="misc/%k", SYMLINK="%k"
+KERNEL="psaux",     NAME="misc/%k", SYMLINK="%k"
+KERNEL="rtc",       NAME="misc/%k", SYMLINK="%k"
+KERNEL="uinput",    NAME="misc/%k", SYMLINK="%k"
 
 # pty devices
 KERNEL="pty[p-za-e][0-9a-f]*", NAME="pty/m%n", SYMLINK="%k"
