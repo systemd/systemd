@@ -61,7 +61,7 @@ static int run_program(char *name)
  * 	subsystem/
  * 	default/
  */
-void dev_d_send(struct udevice *dev, char *subsystem)
+void dev_d_send(struct udevice *dev, char *subsystem, char *devpath)
 {
 	char dirname[256];
 	char devname[NAME_SIZE];
@@ -74,8 +74,8 @@ void dev_d_send(struct udevice *dev, char *subsystem)
 		strfieldcat(devname, dev->name);
 	} else if (dev->type == 'n') {
 		strfieldcpy(devname, dev->name);
+		setenv("DEVPATH", devpath, 1);
 	}
-	setenv("DEVNODE", devname, 1); /* FIXME: bad name for netif */
 	setenv("DEVNAME", devname, 1);
 	dbg("DEVNAME='%s'", devname);
 

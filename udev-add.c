@@ -403,7 +403,7 @@ int udev_add_device(char *path, char *subsystem, int fake)
 {
 	struct sysfs_class_device *class_dev;
 	struct udevice dev;
-	char key[DEVPATH_SIZE];
+	char devpath[DEVPATH_SIZE];
 	char *pos;
 	int retval;
 
@@ -452,10 +452,11 @@ int udev_add_device(char *path, char *subsystem, int fake)
 			dbg("udevdb_add_dev failed, but we are going to try "
 			    "to create the node anyway. But remove might not "
 			    "work properly for this device.");
+
+		dev_d_send(&dev, subsystem, path);
 		break;
 
 	case 'n':
-		strfieldcpy(key, path);
 		if (strcmp(dev.name, dev.kernel_name) != 0) {
 			retval = rename_net_if(&dev, fake);
 			if (fake || retval != 0)
@@ -463,19 +464,19 @@ int udev_add_device(char *path, char *subsystem, int fake)
 			/* netif's are keyed with the configured name, cause
 			 * the original kernel name sleeps with the fishes
 			 */
-			pos = strrchr(key, '/');
+			strfieldcpy(devpath, path);
+			pos = strrchr(devpath, '/');
 			if (pos != NULL) {
 				pos[1] = '\0';
-				strfieldcat(key, dev.name);
+				strfieldcat(devpath, dev.name);
 			}
 		}
-		if (udevdb_add_dev(key, &dev) != 0)
+		if (udevdb_add_dev(devpath, &dev) != 0)
 			dbg("udevdb_add_dev failed");
+
+		dev_d_send(&dev, subsystem, devpath);
 		break;
 	}
-
-	/* execute programs in dev.d/ with the name in the environment */
-	dev_d_send(&dev, subsystem);
 
 exit:
 	sysfs_close_class_device(class_dev);

@@ -33,6 +33,7 @@
 #include <unistd.h>
 
 #include "logging.h"
+#include "udev_lib.h"
 
 
 #ifdef LOG
@@ -61,8 +62,8 @@ static void udev_exec(const char *path, const char* subsystem)
 	char nosleep[] = "UDEV_NO_SLEEP=1";
 	char *env[] = { action, devpath, nosleep, NULL };
 
-	snprintf(devpath, MAX_PATHLEN, "DEVPATH=%s", path);
-	devpath[MAX_PATHLEN-1] = '\0';
+	strcpy(action, "DEVPATH=%s");
+	strfieldcat(action, path);
 
 	pid = fork();
 	switch (pid) {

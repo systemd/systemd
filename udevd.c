@@ -139,8 +139,10 @@ static void udev_run(struct hotplug_msg *msg)
 	char devpath[DEVPATH_SIZE];
 	char *env[] = { action, devpath, NULL };
 
-	snprintf(action, sizeof(action), "ACTION=%s", msg->action);
-	snprintf(devpath, sizeof(devpath), "DEVPATH=%s", msg->devpath);
+	strcpy(action, "ACTION=");
+	strfieldcat(action, msg->action);
+	strcpy(devpath, "DEVPATH=");
+	strfieldcat(devpath, msg->devpath);
 
 	pid = fork();
 	switch (pid) {

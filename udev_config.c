@@ -86,13 +86,13 @@ static void init_variables(void)
 
 #define set_var(_name, _var)				\
 	if (strcasecmp(variable, _name) == 0) {		\
-		dbg_parse("%s = '%s'", _name, value);	\
-		strfieldcpymax(_var, value, sizeof(_var));\
+		dbg_parse("%s='%s'", _name, value);	\
+		strfieldcpy(_var, value);\
 	}
 
 #define set_bool(_name, _var)				\
 	if (strcasecmp(variable, _name) == 0) {		\
-		dbg_parse("%s = '%s'", _name, value);	\
+		dbg_parse("%s='%s'", _name, value);	\
 		_var = string_is_true(value);		\
 	}
 

@@ -148,7 +148,7 @@ int udev_remove_device(char *path, char *subsystem)
 	dbg("name='%s'", dev.name);
 
 	dev.type = get_device_type(path, subsystem);
-	dev_d_send(&dev, subsystem);
+	dev_d_send(&dev, subsystem, path);
 	udevdb_delete_dev(path);
 
 	if (dev.type == 'b' || dev.type == 'c')
