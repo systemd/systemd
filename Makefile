@@ -205,8 +205,8 @@ SYSFS =	$(PWD)/libsysfs/sysfs_bus.o	\
 
 OBJS =	udev_lib.o	\
 	udev_config.o	\
-	udev-add.o	\
-	udev-remove.o	\
+	udev_add.o	\
+	udev_remove.o	\
 	udevdb.o	\
 	namedev.o	\
 	namedev_parse.o	\
