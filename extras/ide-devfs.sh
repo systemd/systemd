@@ -18,7 +18,7 @@ get_dev_number() {
 	local x=
 	local num=0
 	local MEDIA=
-	local DRIVE="${1%[0-9]*}"
+	local DRIVE="${1%%[0-9]*}"
 
 	for x in /proc/ide/*/media; do
 		if [ -e "${x}" ]; then
