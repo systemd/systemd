@@ -40,7 +40,7 @@ struct udevice {
 	char type;
 	int major;
 	int minor;
-	mode_t mode;
+	unsigned int mode;	/* not mode_t due to conflicting definitions in different libcs */
 	char symlink[NAME_SIZE];
 
 	/* fields that help us in building strings */

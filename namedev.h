@@ -74,7 +74,7 @@ struct perm_device {
 	char name[NAME_SIZE];
 	char owner[OWNER_SIZE];
 	char group[GROUP_SIZE];
-	mode_t mode;
+	unsigned int mode;
 };
 
 extern struct list_head config_device_list;
