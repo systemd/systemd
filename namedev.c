@@ -421,23 +421,101 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 	int retval = 0;
 	int found;
 
-	dbg("class_dev->sysdevice->directory->path = '%s'", class_dev->sysdevice->directory->path);
-	dbg("class_dev->sysdevice->bus_id = '%s'", class_dev->sysdevice->bus_id);
+	if (class_dev->sysdevice) {
+		dbg("class_dev->sysdevice->directory->path = '%s'", class_dev->sysdevice->directory->path);
+		dbg("class_dev->sysdevice->bus_id = '%s'", class_dev->sysdevice->bus_id);
+	} else {
+		dbg("class_dev->name = '%s'", class_dev->name);
+	}
 	list_for_each(tmp, &config_device_list) {
 		struct config_device *dev = list_entry(tmp, struct config_device, node);
 		switch (dev->type) {
 		case LABEL:
-			dbg("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'"
+			{
+			char *temp;
+
+			dbg("LABEL: match file '%s' with value '%s'", dev->sysfs_file, dev->sysfs_value);
+			/* try to find the attribute in the class device directory */
+			temp = sysfs_get_value_from_attributes(class_dev->directory->attributes, dev->sysfs_file);
+			if (temp)
+				goto label_found;
+
+			/* look in the class device device directory if present */
+			if (class_dev->sysdevice) {
+				temp = sysfs_get_value_from_attributes(class_dev->sysdevice->directory->attributes, dev->sysfs_file);
+				if (temp)
+					goto label_found;
+			}
+
+			/* bah, let's go backwards up a level to see if the device is there,
+			 * as block partitions don't point to the physical device.  Need to fix that
+			 * up in the kernel...
+			 */
+			if (strstr(class_dev->directory->path, "block")) {
+				dbg("looking at block device...");
+				if (isdigit(class_dev->directory->path[strlen(class_dev->directory->path)-1])) {
+					char path[SYSFS_PATH_MAX];
+					struct sysfs_class_device *class_dev_parent;
+
+					dbg("really is a partition...");
+					strcpy(path, class_dev->directory->path);
+					temp = strrchr(path, '/');
+					*temp = 0x00;
+					dbg("looking for a class device at '%s'", path);
+					class_dev_parent = sysfs_open_class_device(path);
+					if (class_dev_parent == NULL) {
+						dbg ("sysfs_open_class_device failed");
+						continue;
+					}
+					dbg("class_dev_parent->name = %s", class_dev_parent->name);
+
+					/* try to find the attribute in the class device directory */
+					temp = sysfs_get_value_from_attributes(class_dev_parent->directory->attributes, dev->sysfs_file);
+					if (temp) {
+						//sysfs_close_class_device(class_dev_parent);
+						goto label_found;
+					}
+
+					/* look in the class device device directory if present */
+					if (class_dev_parent->sysdevice) {
+						temp = sysfs_get_value_from_attributes(class_dev_parent->sysdevice->directory->attributes, dev->sysfs_file);
+						if (temp) {
+							// sysfs_close_class_device(class_dev_parent);
+							goto label_found;
+						}
+					}
+					
+				}
+			}
+			continue;
+						
+label_found:
+			dbg("file '%s' found with value '%s'", dev->sysfs_file, temp);
+			if (strcmp(dev->sysfs_value, temp) != 0)
+				continue;
+
+			strcpy(attr->name, dev->attr.name);
+			attr->mode = dev->attr.mode;
+			strcpy(attr->owner, dev->attr.owner);
+			strcpy(attr->group, dev->attr.group);
+			dbg("file '%s' with value '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
+				dev->sysfs_file, dev->sysfs_value, attr->name, 
+				dev->attr.owner, dev->attr.group, dev->attr.mode);
+			return retval;
+dbg("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'"
 				" owner = '%s', group = '%s', mode = '%#o'",
 				dev->attr.name, dev->bus, dev->sysfs_file, dev->sysfs_value,
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
 			break;
+			}
 		case NUMBER:
 			{
 			char path[SYSFS_PATH_MAX];
 			char *temp;
 
-			found = 0;	
+			found = 0;
+			if (!class_dev->sysdevice)
+				continue;
 			strcpy(path, class_dev->sysdevice->directory->path);
 			temp = strrchr(path, '/');
 			dbg("NUMBER path = '%s'", path);
@@ -469,6 +547,8 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 			char path[SYSFS_PATH_MAX];
 			char *temp;
 
+			if (!class_dev->sysdevice)
+				continue;
 			found = 0;	
 			strcpy(path, class_dev->sysdevice->directory->path);
 			temp = strrchr(path, '/');
@@ -508,8 +588,10 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
 			return retval;
 			break;
+		case KERNEL_NAME:
+			break;
 		default:
-			dbg("Unknown type of device!");
+			dbg("Unknown type of device '%d'", dev->type);
 			break;
 		}	
 	}
