@@ -2,8 +2,8 @@
 
 # a horribly funny script that shows how flexible udev can really be
 # This is to be executed by udev with the following rules:
-# CALLOUT, BUS="ide", PROGRAM="name_cdrom.pl %M %m", ID="good*", NAME="%1c", SYMLINK="cdrom" 
-# CALLOUT, BUS="scsi", PROGRAM="name_cdrom.pl %M %m", ID="good*", NAME="%1c", SYMLINK="cdrom" 
+# CALLOUT, BUS="ide", PROGRAM="name_cdrom.pl %M %m", ID="good*", NAME="%2c", SYMLINK="cdrom"
+# CALLOUT, BUS="scsi", PROGRAM="name_cdrom.pl %M %m", ID="good*", NAME="%2c", SYMLINK="cdrom"
 #
 # The scsi rule catches USB cdroms and ide-scsi devices.
 #
@@ -27,9 +27,10 @@ $major = $ARGV[0];
 $minor = $ARGV[1];
 
 # create our temp device node to read the cd info from
+unlink($dev_node);
 if (system("mknod $dev_node b $major $minor")) {
        die "bad mknod failed";
-       }
+}
 
 # get it on
 my %cd=get_cddb(\%config);
@@ -41,5 +42,7 @@ unlink($dev_node);
 unless(defined $cd{title}) {
 	print"bad unknown cdrom\n";
 } else {
-	print "good $cd{artist}_$cd{title}\n";
+	$cd{artist} =~ s/ /_/g;
+	$cd{title} =~ s/ /_/g;
+	print "good $cd{artist}-$cd{title}\n";
 }
