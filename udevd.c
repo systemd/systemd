@@ -44,7 +44,7 @@
 #include "logging.h"
 
 static int pipefds[2];
-static int expected_seqnum = 0;
+static long expected_seqnum = 0;
 volatile static int children_waiting;
 volatile static int run_msg_q;
 volatile static int sig_flag;
@@ -82,7 +82,7 @@ static void msg_dump_queue(void)
 	struct hotplug_msg *msg;
 
 	list_for_each_entry(msg, &msg_list, list)
-		dbg("sequence %d in queue", msg->seqnum);
+		dbg("sequence %li in queue", msg->seqnum);
 #endif
 }
 
@@ -120,7 +120,7 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 	msg->queue_time = info.uptime;
 
 	list_add(&msg->list, &loop_msg->list);
-	dbg("queued message seq %d", msg->seqnum);
+	dbg("queued message seq %li", msg->seqnum);
 
 	/* run msg queue manager */
 	run_msg_q = 1;
@@ -134,12 +134,15 @@ static void udev_run(struct hotplug_msg *msg)
 	pid_t pid;
 	char action[ACTION_SIZE];
 	char devpath[DEVPATH_SIZE];
-	char *env[] = { action, devpath, NULL };
+	char seqnum[SEQNUM_SIZE];
+	char *env[] = { action, devpath, seqnum, NULL };
 
 	strcpy(action, "ACTION=");
 	strfieldcat(action, msg->action);
 	strcpy(devpath, "DEVPATH=");
 	strfieldcat(devpath, msg->devpath);
+	strcpy(seqnum, "SEQNUM=");
+	strlongcat(seqnum, msg->seqnum);
 
 	pid = fork();
 	switch (pid) {
@@ -158,7 +161,7 @@ static void udev_run(struct hotplug_msg *msg)
 		break;
 	default:
 		/* get SIGCHLD in main loop */
-		dbg("==> exec seq %d [%d] working at '%s'", msg->seqnum, pid, msg->devpath);
+		dbg("==> exec seq %li [%d] working at '%s'", msg->seqnum, pid, msg->devpath);
 		msg->pid = pid;
 	}
 }
@@ -186,9 +189,9 @@ static void exec_queue_manager()
 			/* move event to run list */
 			list_move_tail(&loop_msg->list, &running_list);
 			udev_run(loop_msg);
-			dbg("moved seq %d to running list", loop_msg->seqnum);
+			dbg("moved seq %li to running list", loop_msg->seqnum);
 		} else {
-			dbg("delay seq %d, cause seq %d already working on '%s'",
+			dbg("delay seq %li, cause seq %li already working on '%s'",
 				loop_msg->seqnum, msg->seqnum, msg->devpath);
 		}
 	}
@@ -199,7 +202,7 @@ static void msg_move_exec(struct hotplug_msg *msg)
 	list_move_tail(&msg->list, &exec_list);
 	run_exec_q = 1;
 	expected_seqnum = msg->seqnum+1;
-	dbg("moved seq %d to exec, next expected is %d",
+	dbg("moved seq %li to exec, next expected is %li",
 		msg->seqnum, expected_seqnum);
 }
 
@@ -211,7 +214,7 @@ static void msg_queue_manager()
 	struct sysinfo info;
 	long msg_age = 0;
 
-	dbg("msg queue manager, next expected is %d", expected_seqnum);
+	dbg("msg queue manager, next expected is %li", expected_seqnum);
 recheck:
 	list_for_each_entry_safe(loop_msg, tmp_msg, &msg_list, list) {
 		/* move event with expected sequence to the exec list */
@@ -223,7 +226,7 @@ recheck:
 		/* move event with expired timeout to the exec list */
 		sysinfo(&info);
 		msg_age = info.uptime - loop_msg->queue_time;
-		dbg("seq %d is %li seconds old", loop_msg->seqnum, msg_age);
+		dbg("seq %li is %li seconds old", loop_msg->seqnum, msg_age);
 		if (msg_age > EVENT_TIMEOUT_SEC-1) {
 			msg_move_exec(loop_msg);
 			goto recheck;
@@ -350,9 +353,9 @@ static void udev_done(int pid)
 
 	list_for_each_entry(msg, &running_list, list) {
 		if (msg->pid == pid) {
-			dbg("<== exec seq %d came back", msg->seqnum);
+			dbg("<== exec seq %li came back", msg->seqnum);
 			run_queue_delete(msg);
-			
+
 			/* we want to run the exec queue manager since there may
 			 * be events waiting with the devpath of the one that
 			 * just finished

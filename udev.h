@@ -33,9 +33,10 @@
 #define GROUP_SIZE			30
 #define MODE_SIZE			8
 
-#define ACTION_SIZE			30
-#define DEVPATH_SIZE			255
-#define SUBSYSTEM_SIZE			30
+#define ACTION_SIZE			32
+#define DEVPATH_SIZE			256
+#define SUBSYSTEM_SIZE			32
+#define SEQNUM_SIZE			32
 
 /* length of public data */
 #define UDEVICE_LEN (offsetof(struct udevice, bus_id))
