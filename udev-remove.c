@@ -51,6 +51,8 @@ static int delete_path(char *path)
 
 		/* remove if empty */
 		retval = rmdir(path);
+		if (errno == ENOENT)
+			retval = 0;
 		if (retval) {
 			if (errno == ENOTEMPTY)
 				return 0;
@@ -77,6 +79,8 @@ static int delete_node(struct udevice *dev)
 
 	info("removing device node '%s'", filename);
 	retval = unlink(filename);
+	if (errno == ENOENT)
+		retval = 0;
 	if (retval) {
 		dbg("unlink(%s) failed with error '%s'",
 			filename, strerror(errno));
@@ -109,6 +113,8 @@ static int delete_node(struct udevice *dev)
 
 			dbg("unlinking symlink '%s'", filename);
 			retval = unlink(filename);
+			if (errno == ENOENT)
+				retval = 0;
 			if (retval) {
 				dbg("unlink(%s) failed with error '%s'",
 					filename, strerror(errno));
