@@ -21,7 +21,7 @@
 #define STANDALONE
 #define TDB_DEBUG
 #define HAVE_MMAP	1
-
+#include "../udev.h"
 
 #if HAVE_CONFIG_H
 #include <config.h>
@@ -40,7 +40,6 @@
 #include "tdb.h"
 #include "spinlock.h"
 
-#define DEBUG
 #else
 #include "includes.h"
 #endif
@@ -299,10 +298,8 @@ static void __write_unlock(tdb_rwlock_t *rwlock)
 {
 	__spin_lock(&rwlock->lock);
 
-#ifdef DEBUG
 	if (!(rwlock->count & RWLOCK_BIAS))
-		fprintf(stderr, "bug: write_unlock\n");
-#endif
+		dbg("bug: write_unlock");
 
 	rwlock->count &= ~RWLOCK_BIAS;
 	__spin_unlock(&rwlock->lock);
@@ -312,13 +309,11 @@ static void __read_unlock(tdb_rwlock_t *rwlock)
 {
 	__spin_lock(&rwlock->lock);
 
-#ifdef DEBUG
 	if (!rwlock->count)
-		fprintf(stderr, "bug: read_unlock\n");
+		dbg("bug: read_unlock");
 
 	if (rwlock->count & RWLOCK_BIAS)
-		fprintf(stderr, "bug: read_unlock\n");
-#endif
+		dbg("bug: read_unlock");
 
 	rwlock->count--;
 	__spin_unlock(&rwlock->lock);
