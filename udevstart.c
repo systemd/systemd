@@ -36,25 +36,12 @@
 #include "logging.h"
 #include "udev_lib.h"
 #include "list.h"
-
-
-#ifdef LOG
-unsigned char logname[LOGNAME_SIZE];
-void log_message(int level, const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	vsyslog(level, format, args);
-	va_end(args);
-}
-#endif
+#include "udev.h"
 
 
 #define MAX_PATHLEN		1024
 #define SYSBLOCK		"/sys/block"
 #define SYSCLASS		"/sys/class"
-#define UDEV_BIN		"/sbin/udev"
 
 struct device {
 	struct list_head list;
@@ -88,28 +75,13 @@ static int device_list_insert(char *path, char *subsystem, struct list_head *dev
 
 static void udev_exec(const char *path, const char* subsystem)
 {
-	pid_t pid;
-	char action[] = "ACTION=add";
-	char devpath[MAX_PATHLEN];
-	char nosleep[] = "UDEV_NO_SLEEP=1";
-	char *env[] = { action, devpath, nosleep, NULL };
+	/* Setup env variables. */
+	setenv("UDEV_NO_SLEEP", "1", 1);
 
-	strcpy(devpath, "DEVPATH=");
-	strfieldcat(devpath, path);
-
-	pid = fork();
-	switch (pid) {
-	case 0:
-		/* child */
-		execle(UDEV_BIN, "udev", subsystem, NULL, env);
-		dbg("exec of child failed");
+	/* Now call __udev_hotplug(). */
+	if (__udev_hotplug("add", path, subsystem)) {
+		dbg("Calling of udev_hotplug failed");
 		exit(1);
-		break;
-	case -1:
-		dbg("fork of child failed");
-		break;
-	default:
-		wait(NULL);
 	}
 }
 
@@ -267,12 +239,9 @@ static void udev_scan_class(void)
 	exec_list(&device_list);
 }
 
-int main(int argc, char *argv[], char *envp[])
+int udev_start(void)
 {
-	init_logging("udevstart");
-
 	udev_scan_class();
 	udev_scan_block();
-
 	return 0;
 }

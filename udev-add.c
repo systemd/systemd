@@ -316,7 +316,7 @@ error:
 	return -1;
 }
 
-static struct sysfs_class_device *get_class_dev(char *device_name)
+static struct sysfs_class_device *get_class_dev(const char *device_name)
 {
 	char dev_path[SYSFS_PATH_MAX];
 	struct sysfs_class_device *class_dev = NULL;
@@ -341,7 +341,7 @@ exit:
  * If it doesn't happen in about 10 seconds, give up.
  */
 #define SECONDS_TO_WAIT_FOR_FILE	10
-static int sleep_for_file(char *path, char* file)
+static int sleep_for_file(const char *path, char* file)
 {
 	char filename[SYSFS_PATH_MAX + 6];
 	int loop = SECONDS_TO_WAIT_FOR_FILE;
@@ -395,7 +395,7 @@ static int rename_net_if(struct udevice *dev, int fake)
 	return retval;
 }
 
-int udev_add_device(char *path, char *subsystem, int fake)
+int udev_add_device(const char *path, const char *subsystem, int fake)
 {
 	struct sysfs_class_device *class_dev;
 	struct udevice dev;

@@ -61,11 +61,15 @@ struct udevice {
 	char kernel_name[NAME_SIZE];
 };
 
-extern int udev_add_device(char *path, char *subsystem, int fake);
-extern int udev_remove_device(char *path, char *subsystem);
+extern int udev_add_device(const char *path, const char *subsystem, int fake);
+extern int udev_remove_device(const char *path, const char *subsystem);
 extern void udev_init_config(void);
+extern int udev_start(void);
+extern int __udev_hotplug(char *action, const char *devpath,
+	const char *subsystem);
 extern int parse_get_pair(char **orig_string, char **left, char **right);
-extern void dev_d_send(struct udevice *dev, char *subsystem, char *devpath);
+extern void dev_d_send(struct udevice *dev, const char *subsystem,
+	const char *devpath);
 
 extern char **main_argv;
 extern char **main_envp;

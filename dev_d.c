@@ -61,7 +61,7 @@ static int run_program(char *name)
  * 	subsystem/
  * 	default/
  */
-void dev_d_send(struct udevice *dev, char *subsystem, char *devpath)
+void dev_d_send(struct udevice *dev, const char *subsystem, const char *devpath)
 {
 	char dirname[256];
 	char env_devname[NAME_SIZE];

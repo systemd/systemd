@@ -172,7 +172,7 @@ endif
 
 CFLAGS += -I$(PWD)/libsysfs
 
-all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(STARTER)
+all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) \
@@ -261,8 +261,8 @@ $(DAEMON).o: $(GEN_HEADERS)
 $(SENDER).o: $(GEN_HEADERS)
 $(STARTER).o: $(GEN_HEADERS)
 
-$(ROOT): $(ROOT).o $(OBJS) $(HEADERS) $(LIBC) $(GEN_MANPAGES)
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+$(ROOT): $(ROOT).o $(STARTER).o $(OBJS) $(HEADERS) $(LIBC) $(GEN_MANPAGES)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o udevstart.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
 $(TESTER): $(TESTER).o $(OBJS) $(HEADERS) $(LIBC)
@@ -281,10 +281,6 @@ $(SENDER): $(SENDER).o udevd.h $(LIBC)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o udev_lib.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(STARTER): $(STARTER).o $(HEADERS) $(LIBC)
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevstart.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
-	$(STRIPCMD) $@
-
 $(RULER): $(RULER).o $(OBJS) $(HEADERS) $(LIBC)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevruler.o udev_lib.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS) -lnewt
 	$(STRIPCMD) $@
@@ -292,7 +288,7 @@ $(RULER): $(RULER).o $(OBJS) $(HEADERS) $(LIBC)
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
-	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) $(SENDER) $(TESTER) $(STARTER) $(RULER)
+	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) $(SENDER) $(TESTER) $(RULER)
 	$(MAKE) -C klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
@@ -392,7 +388,7 @@ install: install-initscript install-config install-man install-dev.d all
 	$(INSTALL_PROGRAM) -D $(SENDER) $(DESTDIR)$(sbindir)/$(SENDER)
 	$(INSTALL_PROGRAM) -D $(INFO) $(DESTDIR)$(usrbindir)/$(INFO)
 	$(INSTALL_PROGRAM) -D $(TESTER) $(DESTDIR)$(usrbindir)/$(TESTER)
-	$(INSTALL_PROGRAM) -D $(STARTER) $(DESTDIR)$(sbindir)/$(STARTER)
+	ln -sf $(sbindir)/udev $(DESTDIR)$(sbindir)/$(STARTER)
 	- ln -f -s $(sbindir)/$(SENDER) $(DESTDIR)$(hotplugdir)/$(ROOT).hotplug
 ifndef DESTDIR
 	- killall udevd

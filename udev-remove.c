@@ -159,7 +159,7 @@ static int delete_node(struct udevice *dev)
  * something different from the kernel name.  If we have, us it.  If not, use
  * the default kernel name for lack of anything else to know to do.
  */
-int udev_remove_device(char *path, char *subsystem)
+int udev_remove_device(const char *path, const char *subsystem)
 {
 	struct udevice dev;
 	char *temp;
