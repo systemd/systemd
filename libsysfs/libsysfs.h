@@ -40,6 +40,7 @@
 #define SYSFS_DRIVERS_NAME	"drivers"
 #define SYSFS_NAME_ATTRIBUTE	"name"
 #define SYSFS_UNKNOWN		"unknown"
+#define SYSFS_PATH_ENV		"SYSFS_PATH"
 
 /* Some "block" subsystem specific #defines */
 #define SYSFS_QUEUE_NAME	"queue"
