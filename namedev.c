@@ -585,6 +585,113 @@ exit:
 	return sysfs_device;
 }
 
+static int match_rule(struct config_device *dev, struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
+{
+	while (1) {
+		/* check for matching bus value */
+		if (dev->bus[0] != '\0') {
+			if (sysfs_device == NULL) {
+				dbg("device has no bus");
+				goto no_good;
+			}
+			dbg("check for " FIELD_BUS " dev->bus='%s' sysfs_device->bus='%s'", dev->bus, sysfs_device->bus);
+			if (strcmp_pattern(dev->bus, sysfs_device->bus) != 0) {
+				dbg(FIELD_BUS " is not matching");
+				goto no_good;
+			} else {
+				dbg(FIELD_BUS " matches");
+			}
+		}
+
+		/* check for matching kernel name*/
+		if (dev->kernel[0] != '\0') {
+			dbg("check for " FIELD_KERNEL " dev->kernel='%s' class_dev->name='%s'", dev->kernel, class_dev->name);
+			if (strcmp_pattern(dev->kernel, class_dev->name) != 0) {
+				dbg(FIELD_KERNEL " is not matching");
+				goto no_good;
+			} else {
+				dbg(FIELD_KERNEL " matches");
+			}
+		}
+
+		/* check for matching bus id */
+		if (dev->id[0] != '\0') {
+			dbg("check " FIELD_ID);
+			if (match_id(dev, class_dev, sysfs_device) != 0) {
+				dbg(FIELD_ID " is not matching");
+				goto no_good;
+			} else {
+				dbg(FIELD_ID " matches");
+			}
+		}
+
+		/* check for matching place of device */
+		if (dev->place[0] != '\0') {
+			dbg("check " FIELD_PLACE);
+			if (match_place(dev, class_dev, sysfs_device) != 0) {
+				dbg(FIELD_PLACE " is not matching");
+				goto no_good;
+			} else {
+				dbg(FIELD_PLACE " matches");
+			}
+		}
+
+		/* check for matching sysfs pairs */
+		if (dev->sysfs_pair[0].file[0] != '\0') {
+			dbg("check " FIELD_SYSFS " pairs");
+			if (match_sysfs_pairs(dev, class_dev, sysfs_device) != 0) {
+				dbg(FIELD_SYSFS " is not matching");
+				goto no_good;
+			} else {
+				dbg(FIELD_SYSFS " matches");
+			}
+		}
+
+		/* execute external program */
+		if (dev->program[0] != '\0') {
+			dbg("check " FIELD_PROGRAM);
+			apply_format(udev, dev->program);
+			if (execute_program(dev->program, udev->program_result, NAME_SIZE) != 0) {
+				dbg(FIELD_PROGRAM " returned nozero");
+				goto no_good;
+			} else {
+				dbg(FIELD_PROGRAM " returned successful");
+			}
+		}
+
+		/* check for matching result of external program */
+		if (dev->result[0] != '\0') {
+			dbg("check for " FIELD_RESULT
+			    " dev->result='%s', udev->program_result='%s'",
+			    dev->result, udev->program_result);
+			if (strcmp_pattern(dev->result, udev->program_result) != 0) {
+				dbg(FIELD_RESULT " is not matching");
+				goto no_good;
+			} else {
+				dbg(FIELD_RESULT " matches");
+			}
+		}
+
+		/* check if we are instructed to ignore this device */
+		if (dev->name[0] == '\0') {
+			dbg("instructed to ignore this device");
+			return -1;
+		}
+
+		/* Yeah, we matched! */
+		return 0;
+
+no_good:
+		sysfs_device = sysfs_get_device_parent(sysfs_device);
+		if (sysfs_device == NULL)
+			return -ENODEV;
+		dbg("sysfs_device->path='%s'", sysfs_device->path);
+		dbg("sysfs_device->bus_id='%s'", sysfs_device->bus_id);
+		dbg("sysfs_device->bus='%s'", sysfs_device->bus);
+	}
+
+}
+
 int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
 	struct sysfs_device *sysfs_device = NULL;
@@ -619,102 +726,14 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 	list_for_each_entry(dev, &config_device_list, node) {
 		dbg("process rule");
 
-		/* check for matching bus value */
-		if (dev->bus[0] != '\0') {
-			if (sysfs_device == NULL) {
-				dbg("device has no bus");
-				continue;
-			}
-			dbg("check for " FIELD_BUS " dev->bus='%s' sysfs_device->bus='%s'", dev->bus, sysfs_device->bus);
-			if (strcmp_pattern(dev->bus, sysfs_device->bus) != 0) {
-				dbg(FIELD_BUS " is not matching");
-				continue;
-			} else {
-				dbg(FIELD_BUS " matches");
-			}
+		if (match_rule(dev, class_dev, udev, sysfs_device) == 0) {
+			/* Yup, this rule belongs to us! */
+			info("configured rule in '%s' at line %i applied, '%s' becomes '%s'",
+			    udev_rules_filename, dev->config_line, udev->kernel_name, dev->name);
+			strfieldcpy(udev->name, dev->name);
+			strfieldcpy(udev->symlink, dev->symlink);
+			goto found;
 		}
-
-		/* check for matching kernel name*/
-		if (dev->kernel[0] != '\0') {
-			dbg("check for " FIELD_KERNEL " dev->kernel='%s' class_dev->name='%s'", dev->kernel, class_dev->name);
-			if (strcmp_pattern(dev->kernel, class_dev->name) != 0) {
-				dbg(FIELD_KERNEL " is not matching");
-				continue;
-			} else {
-				dbg(FIELD_KERNEL " matches");
-			}
-		}
-
-		/* check for matching bus id */
-		if (dev->id[0] != '\0') {
-			dbg("check " FIELD_ID);
-			if (match_id(dev, class_dev, sysfs_device) != 0) {
-				dbg(FIELD_ID " is not matching");
-				continue;
-			} else {
-				dbg(FIELD_ID " matches");
-			}
-		}
-
-		/* check for matching place of device */
-		if (dev->place[0] != '\0') {
-			dbg("check " FIELD_PLACE);
-			if (match_place(dev, class_dev, sysfs_device) != 0) {
-				dbg(FIELD_PLACE " is not matching");
-				continue;
-			} else {
-				dbg(FIELD_PLACE " matches");
-			}
-		}
-
-		/* check for matching sysfs pairs */
-		if (dev->sysfs_pair[0].file[0] != '\0') {
-			dbg("check " FIELD_SYSFS " pairs");
-			if (match_sysfs_pairs(dev, class_dev, sysfs_device) != 0) {
-				dbg(FIELD_SYSFS " is not matching");
-				continue;
-			} else {
-				dbg(FIELD_SYSFS " matches");
-			}
-		}
-
-		/* execute external program */
-		if (dev->program[0] != '\0') {
-			dbg("check " FIELD_PROGRAM);
-			apply_format(udev, dev->program);
-			if (execute_program(dev->program, udev->program_result, NAME_SIZE) != 0) {
-				dbg(FIELD_PROGRAM " returned nozero");
-				continue;
-			} else {
-				dbg(FIELD_PROGRAM " returned successful");
-			}
-		}
-
-		/* check for matching result of external program */
-		if (dev->result[0] != '\0') {
-			dbg("check for " FIELD_RESULT
-			    " dev->result='%s', udev->program_result='%s'",
-			    dev->result, udev->program_result);
-			if (strcmp_pattern(dev->result, udev->program_result) != 0) {
-				dbg(FIELD_RESULT " is not matching");
-				continue;
-			} else {
-				dbg(FIELD_RESULT " matches");
-			}
-		}
-
-		/* check if we are instructed to ignore this device */
-		if (dev->name[0] == '\0') {
-			dbg("instructed to ignore this device");
-			return -1;
-		}
-
-		/* Yup, this rule belongs to us! */
-		info("configured rule in '%s' at line %i applied, '%s' becomes '%s'",
-		    udev_rules_filename, dev->config_line, udev->kernel_name, dev->name);
-		strfieldcpy(udev->name, dev->name);
-		strfieldcpy(udev->symlink, dev->symlink);
-		goto found;
 	}
 
 	/* no rule was found so we use the kernel name */

@@ -319,6 +319,15 @@ EOF
 KERNEL="ttyUSB0", NAME="visor", SYMLINK="first-%n second-%n third-%n"
 EOF
 	},
+	{
+		desc     => "sysfs parent heirachy",
+		subsys   => "tty",
+		devpath  => "class/tty/ttyUSB0",
+		expected => "visor" ,
+		conf     => <<EOF
+SYSFS_idProduct="2008", NAME="visor"
+EOF
+	},
 );
 
 # set env
