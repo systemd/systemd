@@ -191,7 +191,6 @@ ifeq ($(strip $(USE_KLIBC)),true)
 		$(OPTFLAGS) $(REQFLAGS)				\
 		-D__KLIBC__ -fno-builtin-printf			\
 		-I$(KLIBC_FIXUPS_DIR)				\
-		-include $(KLIBC_FIXUPS_DIR)/klibc_fixups.h	\
 		-I$(INCLUDE_DIR)				\
 		-I$(INCLUDE_DIR)/arch/$(ARCH)			\
 		-I$(INCLUDE_DIR)/bits$(BITSIZE)			\
@@ -201,7 +200,6 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	LDFLAGS = --static --nostdlib -nostartfiles -nodefaultlibs
 
 	HEADERS	+= \
-		klibc_fixups/klibc_fixups.h	\
 		klibc_fixups/pwd.h
 
 	KLIBC_FIXUP_OBJS = \

@@ -150,7 +150,7 @@ int sysfs_read_attribute(struct sysfs_attribute *sysattr)
 		errno = EACCES;
 		return -1;
 	}
-	pgsize = sysconf(_SC_PAGESIZE);
+	pgsize = getpagesize();
 	fbuf = (char *)calloc(1, pgsize+1);
 	if (!fbuf) {
 		dprintf("calloc failed\n");
