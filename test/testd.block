@@ -1,0 +1,36 @@
+#!/bin/bash
+#
+# test.block - run udev(8) on each block device in /sys/block
+
+if [ $# = "0" ] ; then
+	echo
+	echo "usage: $0 <action>"
+	echo "where <action> is \"add\" or \"remove\""
+	echo
+	exit 1
+fi
+
+killall udevd
+
+SYSFSDIR=/sys		# change this for a nonstand sysfs mount point
+BIN=./udevsend		# location of your udev binary
+export ACTION=$1	# 'add' or 'remove'
+seq=1
+
+for i in ${SYSFSDIR}/block/*; do
+	# add each drive
+	export DEVPATH=${i#${SYSFSDIR}}
+	export SEQNUM=$seq
+	$BIN block
+	x=$((seq++))
+
+	# add each partition, on each device
+	for j in $i/*; do
+		if [ -f $j/dev ]; then
+			export DEVPATH=${j#${SYSFSDIR}}
+			export SEQNUM=$seq
+			$BIN block
+			x=$((seq++))
+		fi
+	done
+done
