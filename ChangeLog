@@ -1,3 +1,35 @@
+Summary of changes from v053 to v054
+============================================
+
+<tklauser:access.unizh.ch>:
+  o udev_volume_id: add Reiser4 support
+
+Kay Sievers:
+  o namedev: skip backslashes only if followed by newline
+  o wait_for_sysfs: add joydev
+  o udevinfo: print devpath -> node relationship for all devices
+  o trivial rename of some variables
+  o klibc v0.199
+  o big libsysfs diet (pre 2.0 version)
+  o udev_volume_id: volume_id v35
+  o add "serio" to bus list
+  o determine device type in udev_init_device()
+  o move kernel name/number evaluation into udev_init_device()
+  o detect NAME="" as ignore_device rule
+  o trivial namedev cleanup
+  o cleanup db functions
+  o clean up match_place()
+  o switch device type to enum
+  o switch major/minor to dev_t
+  o remove the device node only if the major/minor number matches
+  o libsysfs: work around a klibc bug
+  o introduce OPTIONS=ignore_device, ignore_remove, all_partitions" key
+  o namedev: execute PROGRAM only once and not possibly for every physical device
+
+Patrick Mansfield:
+  o update scsi_id to work with libsysfs changes
+
+
 Summary of changes from v052 to v053
 ============================================
 
