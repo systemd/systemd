@@ -205,7 +205,7 @@ static int namedev_init_config(void)
 	int retval = 0;
 	struct config_device dev;
 
-	dbg("opening %s to read as permissions config", udev_config_filename);
+	dbg("opening %s to read as config", udev_config_filename);
 	fd = fopen(udev_config_filename, "r");
 	if (fd == NULL) {
 		dbg("Can't open %s", udev_config_filename);
