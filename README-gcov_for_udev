@@ -14,20 +14,11 @@ Note that this was developed with udev version 024.
 - Make sure you've installed udev and that it is working properly.
   If you are having problems, refer to the README and HOWTO-udev_for_dev
   documents in udev tarball.  I've also compiled a udev_for_dev
-  toubleshooting document for Red Hat which can be found at:
+  toubleshooting document for Red Hat which can be found in:
 
-  http://developer.osdl.org/ogasawara/gcov_for_udev/rh_udev_for_dev.txt
+  docs/rh_udev_for_dev.txt
 
-- Get the following files:
-    make_gcov.sh
-    run_gcov.sh
-
-  These can be found at http://developer.osdl.org/ogasawara/gcov_for_udev/
-
-- After grabbing these files, copy both make_gcov.sh and run_gcov.sh
-  into the top level of your udev directory.
-
-- execute make_gcov.sh
+- execute make_gcov.sh from udev top level directory
 
     ./make_gcov.sh
 
@@ -60,17 +51,18 @@ Note that this was developed with udev version 024.
 
 - Then execute some udev tasks.  You can run some udev tests, reboot, or
   do anything your little udev heart desires.  Once you are satisfied, you
-  can now see how much udev code was covered.
+  can now see how much udev code was covered.  I personally recommend just
+  running test/udev-test.pl for starters.
 
-- To get the udev code coverage analysis, execute run_gcov.sh.  You need to
-  be root to do this.
+- To get the udev code coverage analysis, execute run_gcov.sh from udev top
+  level directory.  You need to be root to do this.
 
     su to root
     ./run_gcov.sh
 
-- This creates udev_gcov.txt which holds all the code coverage information.
-  To see an example of the code coverage info after executing the udev-test.pl
-  test, please see:
+- This creates udev_gcov.txt in the udev top level directory which holds all
+  the code coverage information. To see an example of the code coverage info
+  after executing the udev-test.pl test, please see:
 
   http://developer.osdl.org/ogasawara/gcov_for_udev/udev_gcov.txt
 
