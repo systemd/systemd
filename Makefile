@@ -374,14 +374,6 @@ small_release: $(DISTFILES) spotless
 	@rm -rf $(DISTDIR)
 	@echo "Built $(RELEASE_NAME).tar.gz"
 
-
-install-initscript: etc/init.d/udev etc/init.d/udev.init.LSB
-	@if [ -f /etc/redhat-release ]; then \
-		$(INSTALL_DATA) -D etc/init.d/udev $(DESTDIR)$(initdir)/udev; \
-	elif [ -f /etc/SuSE-release ]; then \
-		$(INSTALL_DATA) -D etc/init.d/udev.init.LSB $(DESTDIR)$(initdir)/udev; \
-	fi
-
 install-config:
 	$(INSTALL) -d $(DESTDIR)$(configdir)/rules.d
 	$(INSTALL) -d $(DESTDIR)$(configdir)/permissions.d
@@ -424,7 +416,7 @@ uninstall-man:
 	- rm $(mandir)/man8/udevd.8
 	- rm $(mandir)/man8/udevsend.8
 
-install: install-initscript install-config install-man install-dev.d all
+install: install-config install-man install-dev.d all
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
 	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
@@ -452,7 +444,6 @@ uninstall: uninstall-man uninstall-dev.d
 	- rmdir $(configdir)/rules.d
 	- rmdir $(configdir)/permissions.d
 	- rmdir $(configdir)
-	- rm $(initdir)/udev
 	- rm $(sbindir)/$(ROOT)
 	- rm $(sbindir)/$(DAEMON)
 	- rm $(sbindir)/$(SENDER)
