@@ -151,20 +151,21 @@ static mode_t get_default_mode(struct sysfs_class_device *class_dev)
 
 static void apply_format(struct udevice *udev, unsigned char *string)
 {
-	char name[NAME_SIZE];
 	char temp[NAME_SIZE];
+	char temp1[NAME_SIZE];
 	char *tail;
 	char *pos;
 	char *pos2;
 	char *pos3;
 	int num;
 
+	pos = string;
 	while (1) {
 		num = 0;
-		pos = strchr(string, '%');
+		pos = strchr(pos, '%');
 
 		if (pos) {
-			*pos = '\0';
+			pos[0] = '\0';
 			tail = pos+1;
 			if (isdigit(tail[0])) {
 				num = (int) strtoul(&pos[1], &tail, 10);
@@ -173,7 +174,7 @@ static void apply_format(struct udevice *udev, unsigned char *string)
 					break;
 				}
 			}
-			strfieldcpy(name, tail+1);
+			strfieldcpy(temp, tail+1);
 
 			switch (tail[0]) {
 			case 'b':
@@ -217,8 +218,8 @@ static void apply_format(struct udevice *udev, unsigned char *string)
 					break;
 				if (num) {
 					/* get part of return string */
-					strncpy(temp, udev->program_result, sizeof(temp));
-					pos2 = temp;
+					strncpy(temp1, udev->program_result, sizeof(temp1));
+					pos2 = temp1;
 					while (num) {
 						num--;
 						pos3 = strsep(&pos2, " ");
@@ -236,11 +237,15 @@ static void apply_format(struct udevice *udev, unsigned char *string)
 					dbg("substitute result string '%s'", udev->program_result);
 				}
 				break;
+			case '%':
+				strcat(pos, "%");
+				pos++;
+				break;
 			default:
 				dbg("unknown substitution type '%%%c'", pos[1]);
 				break;
 			}
-			strcat(string, name);
+			strcat(string, temp);
 		} else
 			break;
 	}

@@ -206,6 +206,15 @@ BUS="scsi", PROGRAM="/bin/echo -n test-%b", RESULT="test-0:0*", NAME="%c"
 EOF
 	},
 	{
+		desc     => "program with escaped format char (tricky: callout returns format char!)",
+		subsys   => "block",
+		devpath  => "block/sda/sda3",
+		expected => "escape-3" ,
+		conf     => <<EOF
+BUS="scsi", PROGRAM="/bin/echo -n escape-%%n", KERNEL="sda3", NAME="%c"
+EOF
+	},
+	{
 		desc     => "program result substitution (numbered part of)",
 		subsys   => "block",
 		devpath  => "block/sda/sda3",
