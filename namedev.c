@@ -487,6 +487,66 @@ static mode_t get_default_mode(struct sysfs_class_device *class_dev)
 	return 0666;
 }
 
+static void build_kernel_number(struct sysfs_class_device *class_dev, struct udevice *udev)
+{
+	char *dig;
+
+	/* FIXME, figure out how to handle stuff like sdaj which will not work right now. */
+	dig = class_dev->name + strlen(class_dev->name);
+	while (isdigit(*(dig-1)))
+		dig--;
+	strfieldcpy(udev->kernel_number, dig);
+	dbg("kernel_number = %s", udev->kernel_number);
+}
+
+static void apply_format(struct udevice *udev, unsigned char *string)
+{
+	char name[NAME_SIZE];
+	char *pos;
+
+	while (1) {
+		pos = strchr(string, '%');
+
+		if (pos) {
+			strfieldcpy(name, pos+2);
+			*pos = 0x00;
+			switch (pos[1]) {
+			case 'b':
+				if (strlen(udev->bus_id) == 0)
+					break;
+				strcat(string, udev->bus_id);
+				dbg("substitute bus_id '%s'", udev->bus_id);
+				break;
+			case 'n':
+				if (strlen(udev->kernel_number) == 0)
+					break;
+				strcat(pos, udev->kernel_number);
+				dbg("substitute kernel number '%s'", udev->kernel_number);
+				break;
+			case 'm':
+				sprintf(pos, "%u", udev->minor);
+				dbg("substitute minor number '%u'", udev->minor);
+				break;
+			case 'M':
+				sprintf(pos, "%u", udev->major);
+				dbg("substitute major number '%u'", udev->major);
+				break;
+			case 'c':
+				if (strlen(udev->callout_value) == 0)
+					break;
+				strcat(pos, udev->callout_value);
+				dbg("substitute callout output '%s'", udev->callout_value);
+				break;
+			default:
+				dbg("unknown substitution type '%%%c'", pos[1]);
+				break;
+			}
+			strcat(string, name);
+		} else
+			break;
+	}
+}
+
 
 static int exec_callout(struct config_device *dev, char *value, int len)
 {
@@ -577,7 +637,7 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 	return retval;
 }
 
-static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev, char *value, int len)
+static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
 	struct config_device *dev;
 	struct list_head *tmp;
@@ -586,9 +646,12 @@ static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev
 		dev = list_entry(tmp, struct config_device, node);
 		if (dev->type != CALLOUT)
 			continue;
-		if (exec_callout(dev, value, len))
+
+		/* substitute anything that needs to be in the program name */
+		apply_format(udev, dev->exec_program);
+		if (exec_callout(dev, udev->callout_value, NAME_SIZE))
 			continue;
-		if (strncmp_wildcard(value, dev->id, len) != 0)
+		if (strncmp_wildcard(udev->callout_value, dev->id, NAME_SIZE) != 0)
 			continue;
 		strfieldcpy(udev->name, dev->name);
 		if (dev->mode != 0) {
@@ -808,7 +871,6 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 	struct sysfs_class_device *class_dev_parent = NULL;
 	int retval = 0;
 	char *temp = NULL;
-	char value[ID_SIZE];
 
 	udev->mode = 0;
 
@@ -846,12 +908,15 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 	if (sysfs_device) {
 		dbg_parse("sysfs_device->path='%s'", sysfs_device->path);
 		dbg_parse("sysfs_device->bus_id='%s'", sysfs_device->bus_id);
+		strfieldcpy(udev->bus_id, sysfs_device->bus_id);
 	} else {
 		dbg_parse("class_dev->name = '%s'", class_dev->name);
 	}
 
+	build_kernel_number(class_dev, udev);
+
 	/* rules are looked at in priority order */
-	retval = do_callout(class_dev, udev, value, sizeof(value));
+	retval = do_callout(class_dev, udev);
 	if (retval == 0)
 		goto found;
 
@@ -876,48 +941,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 
 found:
 	/* substitute placeholder in NAME  */
-	while (1) {
-		char *pos = strchr(udev->name, '%');
-		char *dig;
-		char name[NAME_SIZE];
-
-		if (pos) {
-			strfieldcpy(name, pos+2);
-			*pos = 0x00;
-			switch (pos[1]) {
-			case 'b':
-				if (!sysfs_device)
-					break;
-				strcat(udev->name, sysfs_device->bus_id);
-				dbg("substitute bus_id '%s'", sysfs_device->bus_id);
-				break;
-			case 'n':
-				dig = class_dev->name + strlen(class_dev->name);
-				while (isdigit(*(dig-1)))
-					dig--;
-				strcat(pos, dig);
-				dbg("substitute kernel number '%s'", dig);
-				break;
-			case 'm':
-				sprintf(pos, "%u", udev->minor);
-				dbg("substitute minor number '%u'", udev->minor);
-				break;
-			case 'M':
-				sprintf(pos, "%u", udev->major);
-				dbg("substitute major number '%u'", udev->major);
-				break;
-			case 'c':
-				strcat(pos, value);
-				dbg("substitute callout output '%s'", value);
-				break;
-			default:
-				dbg("unknown substitution type '%%%c'", pos[1]);
-				break;
-			}
-			strcat(udev->name, name);
-		} else
-			break;
-	}
+	apply_format(udev, udev->name);
 
 done:
 	/* mode was never set above */

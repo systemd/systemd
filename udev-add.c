@@ -245,6 +245,8 @@ int udev_add_device(char *path, char *subsystem)
 	struct udevice dev;
 	int retval = -EINVAL;
 
+	memset(&dev, 0x00, sizeof(dev));
+
 	/* for now, the block layer is the only place where block devices are */
 	if (strcmp(subsystem, "block") == 0)
 		dev.type = 'b';

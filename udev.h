@@ -68,6 +68,12 @@ struct udevice {
 	int major;
 	int minor;
 	mode_t mode;
+
+	/* fields that help us in building strings */
+	unsigned char bus_id[SYSFS_NAME_LEN];
+	unsigned char callout_value[NAME_SIZE];
+	unsigned char kernel_number[NAME_SIZE];
+
 };
 
 #define strfieldcpy(to, from) \

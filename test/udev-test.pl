@@ -92,6 +92,15 @@ CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n special-device", ID="special-devic", 
 CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n special-device", ID="special-*", NAME="%c-%n"
 EOF
 	},
+	{
+		desc     => "callout program subtitution",
+		subsys   => "block",
+		devpath  => "block/sda/sda3",
+		expected => "test-0:0:0:0" ,
+		conf     => <<EOF
+CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n test-%b", ID="test-*", NAME="%c"
+EOF
+	},
 );
 
 # set env
