@@ -328,7 +328,7 @@ print CONF "udev_permissions=\"$perm\"\n";
 close CONF;
 
 foreach my $config (@tests) {
-	$config->{conf} =~ m/^([A-Z]*).*/;
+	$config->{conf} =~ m/([A-Z]+)\s*,/;
 	my $method  = $1;
 
 	print "TEST: $config->{desc}\n";
