@@ -94,7 +94,6 @@ static void udev_exec(const char *path, const char* subsystem)
 	char nosleep[] = "UDEV_NO_SLEEP=1";
 	char *env[] = { action, devpath, nosleep, NULL };
 
-	return;
 	strcpy(devpath, "DEVPATH=");
 	strfieldcat(devpath, path);
 
