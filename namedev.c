@@ -47,34 +47,35 @@ LIST_HEAD(perm_device_list);
 /* compare string with pattern (supports * ? [0-9] [!A-Z]) */
 static int strcmp_pattern(const char *p, const char *s)
 {
-	if (*s == '\0') {
-		while (*p == '*')
+	if (s[0] == '\0') {
+		while (p[0] == '*')
 			p++;
-		return (*p != '\0');
+		return (p[0] != '\0');
 	}
-	switch (*p) {
+	switch (p[0]) {
 	case '[':
 		{
 			int not = 0;
 			p++;
-			if (*p == '!') {
+			if (p[0] == '!') {
 				not = 1;
 				p++;
 			}
-			while (*p && (*p != ']')) {
+			while ((p[0] != '\0') && (p[0] != ']')) {
 				int match = 0;
 				if (p[1] == '-') {
-					if ((*s >= *p) && (*s <= p[2]))
+					if ((s[0] >= p[0]) && (s[0] <= p[2]))
 						match = 1;
 					p += 3;
 				} else {
-					match = (*p == *s);
+					match = (p[0] == s[0]);
 					p++;
 				}
 				if (match ^ not) {
-					while (*p && (*p != ']'))
+					while ((p[0] != '\0') && (p[0] != ']'))
 						p++;
-					return strcmp_pattern(p+1, s+1);
+					if (p[0] == ']')
+						return strcmp_pattern(p+1, s+1);
 				}
 			}
 		}
@@ -84,12 +85,12 @@ static int strcmp_pattern(const char *p, const char *s)
 			return strcmp_pattern(p+1, s);
 		return 0;
 	case '\0':
-		if (*s == '\0') {
+		if (s[0] == '\0') {
 			return 0;
 		}
 		break;
 	default:
-		if ((*p == *s) || (*p == '?'))
+		if ((p[0] == s[0]) || (p[0] == '?'))
 			return strcmp_pattern(p+1, s+1);
 		break;
 	}
