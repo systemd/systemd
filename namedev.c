@@ -813,10 +813,12 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 
 		/* execute external program */
 		if (dev->program[0] != '\0') {
+			char program[PROGRAM_SIZE];
+
 			dbg("check " FIELD_PROGRAM);
-			apply_format(udev, dev->program, sizeof(dev->program),
-				     class_dev, sysfs_device);
-			if (execute_program(dev->program, udev->program_result, NAME_SIZE) != 0) {
+			strfieldcpy(program, dev->program);
+			apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
+			if (execute_program(program, udev->program_result, NAME_SIZE) != 0) {
 				dbg(FIELD_PROGRAM " returned nonzero");
 				goto try_parent;
 			} else {
