@@ -82,13 +82,26 @@ static inline char *get_seqnum(void)
 	return seqnum;
 }
 
+enum query_type {
+	NONE,
+	NAME,
+	SYMLINK,
+	OWNER,
+	GROUP
+};
+
 static inline int udev_user(int argc, char **argv)
 {
-	static const char short_options[] = "q:rVh";
+	static const char short_options[] = "p:q:rVh";
 	int option;
 	int retval = -EINVAL;
 	struct udevice dev;
+	int root = 0;
+	enum query_type query = NONE;
+	char result[NAME_SIZE] = "";
+	char path[NAME_SIZE] = "";
 
+	/* get command line options */
 	while (1) {
 		option = getopt(argc, argv, short_options);
 		if (option == -1)
@@ -96,25 +109,40 @@ static inline int udev_user(int argc, char **argv)
 
 		dbg("option '%c'", option);
 		switch (option) {
+		case 'p':
+			dbg("udev path: %s\n", optarg);
+			strfieldcpy(path, optarg);
+			break;
+
 		case 'q':
 			dbg("udev query: %s\n", optarg);
-			retval = udevdb_open_ro();
-			if (retval != 0) {
-				printf("unable to open udev database\n");
-				return -1;
+
+			if (strcmp(optarg, "name") == 0) {
+				query = NAME;
+				break;
 			}
-			retval = udevdb_get_dev(optarg, &dev);
-			if (retval == 0) {
-				printf("%s\n", dev.name);
-			} else {
-				printf("device not found in udev database\n");
+
+			if (strcmp(optarg, "symlink") == 0) {
+				query = SYMLINK;
+				break;
 			}
-			udevdb_exit();
-			return retval;
+
+			if (strcmp(optarg, "owner") == 0) {
+				query = OWNER;
+				break;
+			}
+
+			if (strcmp(optarg, "group") == 0) {
+				query = GROUP;
+				break;
+			}
+
+			printf("unknown query type\n");
+			return -EINVAL;
 
 		case 'r':
-			printf("%s\n", udev_root);
-			return 0;
+			root = 1;
+			break;
 
 		case 'V':
 			printf("udev, version %s\n", UDEV_VERSION);
@@ -128,14 +156,63 @@ static inline int udev_user(int argc, char **argv)
 		}
 	}
 
+	/* process options */
+	if (query != NONE) {
+		if (path[0] == '\0') {
+			printf("query needs device path specified\n");
+			return -EINVAL;
+		}
+
+		retval = udevdb_open_ro();
+		if (retval != 0) {
+			printf("unable to open udev database\n");
+			return -EACCES;
+		}
+		retval = udevdb_get_dev(path, &dev);
+		if (retval == 0) {
+			switch(query) {
+			case NAME:
+				if (root)
+				strfieldcpy(result, udev_root);
+				strncat(result, dev.name, sizeof(result));
+				break;
+
+			case SYMLINK:
+				strfieldcpy(result, dev.symlink);
+				break;
+
+			case GROUP:
+				strfieldcpy(result, dev.group);
+				break;
+
+			case OWNER:
+				strfieldcpy(result, dev.owner);
+				break;
+
+			default:
+				break;
+			}
+			printf("%s\n", result);
+		} else {
+			printf("device not found in udev database\n");
+		}
+		udevdb_exit();
+		return retval;
+	}
+
+	if (root) {
+		printf("%s\n", udev_root);
+		return 0;
+	}
+
 help:
 	printf("Usage: [-qrVh]\n"
-	       "  -q <path>  query database for the name of the created node\n"
+	       "  -q <name>  query database for the specified value\n"
+	       "  -p <path>  device path used for query\n"
 	       "  -r         print udev root\n"
 	       "  -V         print udev version\n"
 	       "  -h         print this help text\n"
 	       "\n");
-
 	return retval;
 }
 
