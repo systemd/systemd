@@ -1,6 +1,8 @@
 #!/bin/sh
-#export ACTION=add
-export ACTION=remove
+export ACTION=add
+#export ACTION=remove
 export DEVPATH=/devices/pci0/00:09.0/usb1/1-1/1-1.1/ttyUSB7
+export DEVPATH=/class/tty/ttyUSB0
+
 
 ./udev tty
