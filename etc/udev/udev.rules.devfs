@@ -10,9 +10,12 @@ BUS="ide", id="1.1", NAME="ide/host0/bus1/target1/lun0/%D"
 # md block devices
 KERNEL="md[0-9]*", NAME="md/%n"
 
+# floppy devices
+KERNEL="fd[0-9]*", NAME="floppy/%n"
+
 # tty devices
-KERNEL="tty[0-9]*", NAME="vc/%n"
-KERNEL="ttyS[0-9]*", NAME="tts/%n"
+KERNEL="tty[0-9]*",    NAME="vc/%n"
+KERNEL="ttyS[0-9]*",   NAME="tts/%n"
 KERNEL="ttyUSB[0-9]*", NAME="tts/USB%n"
 
 # vc devices
@@ -43,8 +46,12 @@ KERNEL="ram[0-9]*", NAME="rd/%n", SYMLINK="%k"
 KERNEL="fb[0-9]*", NAME="fb/%n", SYMLINK="%k"
 
 # misc
-KERNEL="rtc",   NAME="misc/%k", SYMLINK="%k"
-KERNEL="psaux", NAME="misc/%k", SYMLINK="%k"
+KERNEL="rtc",     NAME="misc/%k", SYMLINK="%k"
+KERNEL="psaux",   NAME="misc/%k", SYMLINK="%k"
+KERNEL="agpgart", NAME="misc/%k", SYMLINK="%k"
+KERNEL="rtc",     NAME="misc/%k", SYMLINK="%k"
+KERNEL="psaux",   NAME="misc/%k", SYMLINK="%k"
+KERNEL="uinput",  NAME="misc/%k", SYMLINK="%k"
 
 # alsa devices
 KERNEL="controlC[0-9]*", NAME="snd/%k"
@@ -54,10 +61,18 @@ KERNEL="midi[CD0-9]*",   NAME="snd/%k"
 KERNEL="timer",          NAME="snd/%k"
 KERNEL="seq",            NAME="snd/%k"
 
+# oss devices
+KERNEL="audio*",     NAME="sound/%k", SYMLINK="%k"
+KERNEL="dmmidi",     NAME="sound/%k", SYMLINK="%k"
+KERNEL="dsp*",       NAME="sound/%k", SYMLINK="%k"
+KERNEL="midi*",      NAME="sound/%k", SYMLINK="%k"
+KERNEL="mixer*",     NAME="sound/%k", SYMLINK="%k"
+KERNEL="sequencer*", NAME="sound/%k", SYMLINK="%k"
+
 # input devices
-KERNEL="mice",		NAME="input/%k"
-KERNEL="mouse*",	NAME="input/%k"
-KERNEL="event*",	NAME="input/%k"
-KERNEL="js*",		NAME="input/%k"
-KERNEL="ts*",		NAME="input/%k"
+KERNEL="mice",   NAME="input/%k"
+KERNEL="mouse*", NAME="input/%k"
+KERNEL="event*", NAME="input/%k"
+KERNEL="js*",    NAME="input/%k"
+KERNEL="ts*",	 NAME="input/%k"
 
