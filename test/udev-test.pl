@@ -64,6 +64,26 @@ LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXSS", NAME="boot_disk%n-3"
 EOF
 	},
 	{
+		desc     => "label test of multiple sysfs files",
+		subsys   => "block",
+		devpath  => "block/sda/sda1",
+		expected => "boot_disk1" ,
+		conf     => <<EOF
+LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW   !#", NAME="boot_diskX%n"
+LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW    !#", NAME="boot_disk%n"
+EOF
+	},
+	{
+		desc     => "label test of max sysfs files",
+		subsys   => "block",
+		devpath  => "block/sda/sda1",
+		expected => "boot_disk1" ,
+		conf     => <<EOF
+LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW    !#", SYSFS_scsi_level="4", SYSFS_rev="B245", SYSFS_type="2", SYSFS_queue_depth="32", NAME="boot_diskXX%n"
+LABEL, BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW    !#", SYSFS_scsi_level="4", SYSFS_rev="B245", SYSFS_type="0", NAME="boot_disk%n"
+EOF
+	},
+	{
 		desc     => "catch device by *",
 		subsys   => "tty",
 		devpath  => "class/tty/ttyUSB0",
