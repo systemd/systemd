@@ -513,6 +513,17 @@ BUS="scsi", SYSFS{whitespace_test}="WHITE  SPACE ", NAME="wrong-to-ignore"
 BUS="scsi", SYSFS{whitespace_test}="WHITE  SPACE   ", NAME="matched-with-space"
 EOF
 	},
+	{
+		desc     => "SYMLINK only rule",
+		subsys   => "block",
+		devpath  => "block/sda",
+		expected => "symlink-only2",
+		conf     => <<EOF
+BUS="scsi", KERNEL="sda", SYMLINK="symlink-only1"
+BUS="scsi", KERNEL="sda", SYMLINK="symlink-only2"
+BUS="scsi", KERNEL="sda", NAME="link", SYMLINK="symlink0"
+EOF
+	},
 );
 
 # set env
