@@ -23,21 +23,29 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <errno.h>
 
-#include "libsysfs.h"
+#include "../../udev.h"
+#include "../../udev_version.h"
+#include "../../logging.h"
+#include "../../udevdb.h"
+#include "../../libsysfs/libsysfs.h"
 
 
-# define VALUE_SIZE 200
+# define SYSFS_VALUE_MAX 200
 
 char **main_argv;
+int main_argc;
 char **main_envp;
 
-static int print_all_attributes(char *path)
+static int print_all_attributes(const char *path)
 {
 	struct dlist *attributes;
 	struct sysfs_attribute *attr;
 	struct sysfs_directory *sysfs_dir;
-	char value[VALUE_SIZE];
+	char value[SYSFS_VALUE_MAX];
 	int len;
 	int retval = 0;
 
@@ -53,7 +61,7 @@ static int print_all_attributes(char *path)
 
 	dlist_for_each_data(attributes, attr, struct sysfs_attribute) {
 		if (attr->value != NULL) {
-			strncpy(value, attr->value, VALUE_SIZE);
+			strncpy(value, attr->value, SYSFS_VALUE_MAX);
 			len = strlen(value);
 			if (len == 0)
 				continue;
@@ -82,23 +90,37 @@ exit:
 	return retval;
 }
 
-int main(int argc, char **argv, char **envp)
+/* callback for database dump */
+static int print_record(char *path, struct udevice *dev)
 {
-	main_argv = argv;
-	main_envp = envp;
+	printf("P: %s\n", path);
+	printf("N: %s\n", dev->name);
+	printf("M: %#o\n", dev->mode);
+	printf("S: %s\n", dev->symlink);
+	printf("O: %s\n", dev->owner);
+	printf("G: %s\n", dev->group);
+	printf("\n");
+	return 0;
+}
+
+enum query_type {
+	NONE,
+	NAME,
+	PATH,
+	SYMLINK,
+	MODE,
+	OWNER,
+	GROUP
+};
+
+static int print_device_chain(const char *path)
+{
 	struct sysfs_class_device *class_dev;
 	struct sysfs_class_device *class_dev_parent;
 	struct sysfs_attribute *attr;
 	struct sysfs_device *sysfs_dev;
 	struct sysfs_device *sysfs_dev_parent;
-	char *path;
 	int retval = 0;
-
-	if (argc != 2) {
-		printf("Usage: udevinfo <sysfs_device_path>\n");
-		return -1;
-	}
-	path = argv[1];
 
 	/*  get the class dev */
 	class_dev = sysfs_open_class_device_path(path);
@@ -156,4 +178,247 @@ int main(int argc, char **argv, char **envp)
 exit:
 	//sysfs_close_class_device(class_dev);
 	return retval;
+}
+
+static int process_options(void)
+{
+	static const char short_options[] = "adn:p:q:rVh";
+	int option;
+	int retval = 1;
+	struct udevice dev;
+	int root = 0;
+	int attributes = 0;
+	enum query_type query = NONE;
+	char result[NAME_SIZE] = "";
+	char path[NAME_SIZE] = "";
+	char name[NAME_SIZE] = "";
+	char temp[NAME_SIZE];
+	char *pos;
+
+	/* get command line options */
+	while (1) {
+		option = getopt(main_argc, main_argv, short_options);
+		if (option == -1)
+			break;
+
+		dbg("option '%c'", option);
+		switch (option) {
+		case 'n':
+			dbg("udev name: %s\n", optarg);
+			strfieldcpy(name, optarg);
+			break;
+
+		case 'p':
+			dbg("udev path: %s\n", optarg);
+			strfieldcpy(path, optarg);
+			break;
+
+		case 'q':
+			dbg("udev query: %s\n", optarg);
+
+			if (strcmp(optarg, "name") == 0) {
+				query = NAME;
+				break;
+			}
+
+			if (strcmp(optarg, "symlink") == 0) {
+				query = SYMLINK;
+				break;
+			}
+
+			if (strcmp(optarg, "mode") == 0) {
+				query = MODE;
+				break;
+			}
+
+			if (strcmp(optarg, "owner") == 0) {
+				query = OWNER;
+				break;
+			}
+
+			if (strcmp(optarg, "group") == 0) {
+				query = GROUP;
+				break;
+			}
+
+			if (strcmp(optarg, "path") == 0) {
+				query = PATH;
+				break;
+			}
+
+			printf("unknown query type\n");
+			exit(1);
+
+		case 'r':
+			root = 1;
+			break;
+
+		case 'a':
+			attributes = 1;
+			break;
+
+		case 'd':
+			retval = udevdb_open_ro();
+			if (retval != 0) {
+				printf("unable to open udev database\n");
+				exit(2);
+			}
+			udevdb_call_foreach(print_record);
+			udevdb_exit();
+			exit(0);
+
+		case 'V':
+			printf("udev, version %s\n", UDEV_VERSION);
+			exit(0);
+
+		case 'h':
+			retval = 0;
+		case '?':
+		default:
+			goto help;
+		}
+	}
+
+	/* process options */
+	if (query != NONE) {
+		retval = udevdb_open_ro();
+		if (retval != 0) {
+			printf("unable to open udev database\n");
+			return -EACCES;
+		}
+
+		if (path[0] != '\0') {
+			/* remove sysfs_path if given */
+			if (strncmp(path, sysfs_path, strlen(sysfs_path)) == 0) {
+				pos = path + strlen(sysfs_path);
+			} else {
+				if (path[0] != '/') {
+					/* prepend '/' if missing */
+					strcat(temp, "/");
+					strncat(temp, path, sizeof(path));
+					pos = temp;
+				} else {
+					pos = path;
+				}
+			}
+			retval = udevdb_get_dev(pos, &dev);
+			if (retval != 0) {
+				printf("device not found in database\n");
+				goto exit;
+			}
+			goto print;
+		}
+
+		if (name[0] != '\0') {
+			/* remove udev_root if given */
+			if (strncmp(name, udev_root, strlen(udev_root)) == 0) {
+				pos = name + strlen(udev_root);
+			} else
+				pos = name;
+			retval = udevdb_get_dev_byname(pos, path, &dev);
+			if (retval != 0) {
+				printf("device not found in database\n");
+				goto exit;
+			}
+			goto print;
+		}
+
+		printf("query needs device path(-p) or node name(-n) specified\n");
+		goto exit;
+
+print:
+		switch(query) {
+		case NAME:
+			if (root)
+				strfieldcpy(result, udev_root);
+			strncat(result, dev.name, sizeof(result));
+			break;
+
+		case SYMLINK:
+			strfieldcpy(result, dev.symlink);
+			break;
+
+		case MODE:
+			sprintf(result, "%#o", dev.mode);
+			break;
+
+		case GROUP:
+			strfieldcpy(result, dev.group);
+			break;
+
+		case OWNER:
+			strfieldcpy(result, dev.owner);
+			break;
+
+		case PATH:
+			strfieldcpy(result, path);
+			break;
+
+		default:
+			goto exit;
+		}
+		printf("%s\n", result);
+
+exit:
+		udevdb_exit();
+		return retval;
+	}
+
+	if (attributes) {
+		if (path[0] == '\0') {
+			printf("attribute walk on device chain needs path(-p) specified\n");
+			return -EINVAL;
+		} else {
+			if (strncmp(path, sysfs_path, strlen(sysfs_path)) != 0) {
+				/* prepend sysfs mountpoint if not given */
+				strfieldcpy(temp, path);
+				strfieldcpy(path, sysfs_path);
+				strncat(path, temp, sizeof(path));
+			}
+			print_device_chain(path);
+			return 0;
+		}
+	}
+
+	if (root) {
+		printf("%s\n", udev_root);
+		return 0;
+	}
+
+help:
+	printf("Usage: [-anpqrdVh]\n"
+	       "  -q TYPE  query database for the specified value:\n"
+	       "             'name'    name of device node\n"
+	       "             'symlink' pointing to node\n"
+	       "             'mode'    permissions of node\n"
+	       "             'owner'   of node\n"
+	       "             'group'   of node\n"
+	       "             'path'    sysfs device path\n"
+	       "  -p PATH  sysfs device path used for query or chain\n"
+	       "  -n NAME  node name used for query\n"
+	       "\n"
+	       "  -r       print udev root\n"
+	       "  -a       print all attributes along the chain of the device\n"
+	       "  -d       dump whole database\n"
+	       "  -V       print udev version\n"
+	       "  -h       print this help text\n"
+	       "\n");
+	return retval;
+}
+
+int main(int argc, char *argv[], char *envp[])
+{
+	int retval;
+
+	main_argv = argv;
+	main_argc = argc;
+	main_envp = envp;
+
+	/* initialize our configuration */
+	udev_init_config();
+
+	retval = process_options();
+	if (retval != 0)
+		exit(1);
+	exit(0);
 }
