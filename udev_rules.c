@@ -463,36 +463,12 @@ static int execute_program(struct udevice *udev, const char *path, char *value, 
 	return retval;
 }
 
-static int compare_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, struct key_pair *pair)
-{
-	char value[VALUE_SIZE];
-	int i;
-
-	if (find_sysfs_attribute(class_dev, sysfs_device, pair->name, value, sizeof(value)) != 0)
-		return -1;
-
-	/* strip trailing whitespace of value, if not asked to match for it */
-	if (!isspace(pair->value[strlen(pair->value)-1])) {
-		i = strlen(value);
-		while (i > 0 && isspace(value[i-1]))
-			value[--i] = '\0';
-		dbg("removed %i trailing whitespace chars from '%s'", strlen(value)-i, value);
-	}
-
-	dbg("compare attribute '%s' value '%s' with '%s'", pair->name, value, pair->value);
-	if (strcmp_pattern(pair->value, value) != 0)
-		return -1;
-
-	dbg("found matching attribute '%s' with value '%s'", pair->name, pair->value);
-	return 0;
-}
-
 static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		      struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
 	struct sysfs_device *parent_device = sysfs_device;
 
-	if (rule->kernel[0] != '\0') {
+	if (rule->kernel_operation != KEY_OP_UNSET) {
 		dbg("check for " KEY_KERNEL " rule->kernel='%s' class_dev->name='%s'",
 		    rule->kernel, class_dev->name);
 		if (strcmp_pattern(rule->kernel, class_dev->name) != 0) {
@@ -507,7 +483,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		dbg(KEY_KERNEL " key is true");
 	}
 
-	if (rule->subsystem[0] != '\0') {
+	if (rule->subsystem_operation != KEY_OP_UNSET) {
 		dbg("check for " KEY_SUBSYSTEM " rule->subsystem='%s' class_dev->name='%s'",
 		    rule->subsystem, class_dev->name);
 		if (strcmp_pattern(rule->subsystem, udev->subsystem) != 0) {
@@ -552,7 +528,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 	/* walk up the chain of physical devices and find a match */
 	while (1) {
 		/* check for matching driver */
-		if (rule->driver[0] != '\0') {
+		if (rule->driver_operation != KEY_OP_UNSET) {
 			if (parent_device == NULL) {
 				dbg("device has no sysfs_device");
 				goto exit;
@@ -572,7 +548,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		}
 
 		/* check for matching bus value */
-		if (rule->bus[0] != '\0') {
+		if (rule->bus_operation != KEY_OP_UNSET) {
 			if (parent_device == NULL) {
 				dbg("device has no sysfs_device");
 				goto exit;
@@ -592,7 +568,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		}
 
 		/* check for matching bus id */
-		if (rule->id[0] != '\0') {
+		if (rule->id_operation != KEY_OP_UNSET) {
 			if (parent_device == NULL) {
 				dbg("device has no sysfs_device");
 				goto exit;
@@ -617,9 +593,23 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 			dbg("check " KEY_SYSFS " pairs");
 			for (i = 0; i < rule->sysfs_pair_count; i++) {
 				struct key_pair *pair;
+				char value[VALUE_SIZE];
 
 				pair = &rule->sysfs_pair[i];
-				if (compare_sysfs_attribute(class_dev, parent_device, pair) != 0) {
+				if (find_sysfs_attribute(class_dev, parent_device, pair->name, value, sizeof(value)) != 0)
+					goto try_parent;
+
+				/* strip trailing whitespace of value, if not asked to match for it */
+				if (!isspace(pair->value[strlen(pair->value)-1])) {
+					size_t len = strlen(value);
+
+					while (len > 0 && isspace(value[len-1]))
+						value[--len] = '\0';
+					dbg("removed %i trailing whitespace chars from '%s'", strlen(value)-len, value);
+				}
+
+				dbg("compare attribute '%s' value '%s' with '%s'", pair->name, value, pair->value);
+				if (strcmp_pattern(pair->value, value) != 0) {
 					dbg(KEY_SYSFS "{'%s'} is not matching", pair->name);
 					if (pair->operation != KEY_OP_NOMATCH)
 						goto try_parent;
@@ -644,7 +634,7 @@ try_parent:
 	}
 
 	/* execute external program */
-	if (rule->program[0] != '\0') {
+	if (rule->program_operation != KEY_OP_UNSET) {
 		char program[PATH_SIZE];
 
 		dbg("check " KEY_PROGRAM);
@@ -663,7 +653,7 @@ try_parent:
 	}
 
 	/* check for matching result of external program */
-	if (rule->result[0] != '\0') {
+	if (rule->result_operation != KEY_OP_UNSET) {
 		dbg("check for " KEY_RESULT " rule->result='%s', udev->program_result='%s'",
 		   rule->result, udev->program_result);
 		if (strcmp_pattern(rule->result, udev->program_result) != 0) {

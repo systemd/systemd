@@ -806,7 +806,7 @@ EOF
 		exp_name	=> "link",
 		exp_target	=> "link",
 		exp_rem_error	=> "yes",
-		option		=> "clear",
+		option		=> "clean",
 		rules		=> <<EOF
 KERNEL=="tty0", NAME="link", SYMLINK="link"
 EOF
@@ -1006,7 +1006,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda4",
 		exp_name	=> "cdrom2",
-		option		=> "clear",
+		option		=> "clean",
 		rules		=> <<EOF
 KERNEL=="sda4", NAME="cdrom%e"
 EOF
@@ -1067,7 +1067,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "node14",
 		exp_rem_error	=> "yes",
-		option		=> "clear",
+		option		=> "clean",
 		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="node", OPTIONS="ignore_remove, all_partitions"
 EOF
@@ -1231,6 +1231,18 @@ EOF
 		exp_name	=> "serial-0000:00:09.0",
 		rules		=> <<EOF
 KERNEL=="ttyUSB*", NAME="serial-%s{serial}"
+EOF
+	},
+	{
+		desc		=> "match against empty key string",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "ok",
+		rules		=> <<EOF
+KERNEL=="sda", SYSFS{nothing}!="", NAME="not-1-ok"
+KERNEL=="sda", SYSFS{nothing}=="", NAME="not-2-ok"
+KERNEL=="sda", SYSFS{vendor}!="", NAME="ok"
+KERNEL=="sda", SYSFS{vendor}=="", NAME="not-3-ok"
 EOF
 	},
 );
@@ -1415,7 +1427,7 @@ sub run_test {
 
 	print "\n";
 
-	if (defined($rules->{option}) && $rules->{option} eq "clear") {
+	if (defined($rules->{option}) && $rules->{option} eq "clean") {
 		system("rm -rf $udev_db");
 		system("rm -rf $udev_root");
 		mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";

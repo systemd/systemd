@@ -236,7 +236,7 @@ static int rules_parse(const char *filename)
 		while (1) {
 			char *key;
 			char *value;
-			enum key_operation operation = KEY_OP_UNKNOWN;
+			enum key_operation operation = KEY_OP_UNSET;
 
 			retval = get_key(&linepos, &key, &operation, &value);
 			if (retval)
@@ -407,13 +407,6 @@ static int rules_parse(const char *filename)
 		/* skip line if not any valid key was found */
 		if (!valid)
 			goto error;
-
-		/* simple plausibility checks for given keys */
-		if ((rule.sysfs_pair[0].name[0] == '\0') ^
-		    (rule.sysfs_pair[0].value[0] == '\0')) {
-			err("inconsistency in " KEY_SYSFS " key");
-			goto error;
-		}
 
 		if ((rule.result[0] != '\0') && (program_given == 0)) {
 			info(KEY_RESULT " is only useful when " KEY_PROGRAM " is called in any rule before");

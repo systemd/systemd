@@ -55,7 +55,7 @@
 #define RULEFILE_SUFFIX		".rules"
 
 enum key_operation {
-	KEY_OP_UNKNOWN,
+	KEY_OP_UNSET,
 	KEY_OP_MATCH,
 	KEY_OP_NOMATCH,
 	KEY_OP_ADD,
