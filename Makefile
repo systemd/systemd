@@ -114,8 +114,9 @@ else
 	STRIPCMD = $(STRIP) -s --remove-section=.note --remove-section=.comment
 endif
 
-# If we are using our version of klibc, then we need to build and link it.
-# Otherwise, use glibc and link statically.
+# If we are using our version of klibc, then we need to build, link it, and then
+# link udev against it statically.
+# Otherwise, use glibc and link dynamically.
 ifeq ($(strip $(USE_KLIBC)),true)
 	KLIBC_BASE	= $(PWD)/klibc
 	KLIBC_DIR	= $(KLIBC_BASE)/klibc
@@ -139,7 +140,7 @@ else
 	LIBC = 
 	CFLAGS += -I$(GCCINCDIR)
 	LIB_OBJS = -lc
-	LDFLAGS = --static 
+	LDFLAGS =
 endif
 
 CFLAGS += -I$(PWD)/libsysfs
