@@ -88,10 +88,6 @@ int main(int argc, char **argv, char **envp)
 	char *subsystem;
 	int retval = -EINVAL;
 
-	signal(SIGINT, sig_handler);
-	signal(SIGTERM, sig_handler);
-	signal(SIGKILL, sig_handler);
-
 	main_argv = argv;
 	main_envp = envp;
 
@@ -142,6 +138,11 @@ int main(int argc, char **argv, char **envp)
 		dbg("unable to initialize database");
 		goto exit_sysbus;
 	}
+
+	/* set up a default signal handler for now */
+	signal(SIGINT, sig_handler);
+	signal(SIGTERM, sig_handler);
+	signal(SIGKILL, sig_handler);
 
 	/* initialize the naming deamon */
 	namedev_init();
