@@ -25,10 +25,6 @@ USE_LOG = true
 # Leave this set to `false' for production use.
 DEBUG = false
 
-# Set the following to `true' to make udev emit a D-BUS signal when a
-# new node is created.
-USE_DBUS = false
-
 
 ROOT =		udev
 DAEMON =	udevd
@@ -55,7 +51,6 @@ sbindir =	${exec_prefix}/sbin
 usrbindir =	${exec_prefix}/usr/bin
 mandir =	${prefix}/usr/share/man
 hotplugdir =	${etcdir}/hotplug.d/default
-dbusdir =	${etcdir}/dbus-1/system.d
 configdir =	${etcdir}/udev/
 initdir = 	${etcdir}/init.d/
 srcdir = .
@@ -226,13 +221,6 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	OBJS += klibc_fixups.o
 endif
 
-ifeq ($(USE_DBUS), true)
-	CFLAGS += -DUSE_DBUS
-	CFLAGS += $(shell pkg-config --cflags dbus-1)
-	LDFLAGS += $(shell pkg-config --libs dbus-1)
-	OBJS += udev_dbus.o
-endif
-
 # if USE_SELINUX is enabled, then we do not strip or optimize
 ifeq ($(strip $(USE_SELINUX)),true)
 	CFLAGS  += -DUSE_SELINUX
@@ -345,20 +333,6 @@ small_release: $(DISTFILES) clean
 	@echo "Built $(RELEASE_NAME).tar.gz"
 
 
-ifeq ($(USE_DBUS), true)
-install-dbus-policy:
-	$(INSTALL) -d $(DESTDIR)$(dbusdir)
-	$(INSTALL_DATA) etc/dbus-1/system.d/udev_sysbus_policy.conf $(DESTDIR)$(dbusdir)
-
-uninstall-dbus-policy:
-	- rm $(DESTDIR)$(dbusdir)/udev_sysbus_policy.conf
-else
-install-dbus-policy:
-	-
-uninstall-dbus-policy:
-	-
-endif
-
 install-initscript: etc/init.d/udev etc/init.d/udev.debian etc/init.d/udev.init.LSB
 	@if [ -f /etc/redhat-release ]; then \
 		$(INSTALL_DATA) -D etc/init.d/udev $(DESTDIR)$(initdir)/udev; \
@@ -383,7 +357,7 @@ install-config: $(GEN_CONFIGS)
 		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.permissions $(DESTDIR)$(configdir); \
 	fi
 
-install: install-initscript install-config install-dbus-policy all
+install: install-initscript install-config all
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
 	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
@@ -409,7 +383,7 @@ endif
 			-C $$target $@ ; \
 	done ; \
 
-uninstall: uninstall-dbus-policy
+uninstall: 
 	- rm $(hotplugdir)/udev.hotplug
 	- rm $(configdir)/udev.permissions
 	- rm $(configdir)/udev.rules
