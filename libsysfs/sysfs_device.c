@@ -20,7 +20,7 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
-#include "sysfs/libsysfs.h"
+#include "libsysfs.h"
 #include "sysfs.h"
 
 /**
@@ -502,7 +502,7 @@ struct sysfs_attribute *sysfs_get_device_attr(struct sysfs_device *dev,
  * @psize: size of "path"
  * Returns 0 on success -1 on failure
  */
-static int get_device_absolute_path(const char *device, const char *bus, 
+static int get_device_absolute_path(const char *device,	const char *bus, 
 				char *path, size_t psize)
 {
 	char bus_path[SYSFS_PATH_MAX];
@@ -547,7 +547,7 @@ static int get_device_absolute_path(const char *device, const char *bus,
  * 2. Bus the device is on must be supplied
  * 	Use sysfs_find_device_bus to get the bus name
  */
-struct sysfs_device *sysfs_open_device(const char *bus, const char *bus_id)
+struct sysfs_device *sysfs_open_device(const char *bus,	const char *bus_id)
 {
 	char sysfs_path[SYSFS_PATH_MAX];
 	struct sysfs_device *device = NULL;

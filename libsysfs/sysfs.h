@@ -27,15 +27,18 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <mntent.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-#include "dlist.h"
+
+/* external library functions */
+extern int isascii(int c);
 
 /* Debugging */
 #ifdef DEBUG
-#include "../logging.h" 
+#include "../logging.h"
 #define dprintf(format, arg...) dbg(format, ##arg)
 #else
 #define dprintf(format, arg...) do { } while (0)

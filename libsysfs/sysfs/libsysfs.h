@@ -25,6 +25,7 @@
 
 #include <sys/types.h>
 #include <string.h>
+#include "dlist.h"
 
 /* 
  * Defines to prevent buffer overruns

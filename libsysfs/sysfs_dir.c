@@ -20,7 +20,7 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
-#include "sysfs/libsysfs.h"
+#include "libsysfs.h"
 #include "sysfs.h"
 
 /**
@@ -273,7 +273,7 @@ int sysfs_read_attribute(struct sysfs_attribute *sysattr)
 		errno = EACCES;
 		return -1;
 	}
-	pgsize = getpagesize();
+	pgsize = sysconf(_SC_PAGESIZE);
 	fbuf = (char *)calloc(1, pgsize+1);
 	if (fbuf == NULL) {
 		dprintf("calloc failed\n");
@@ -513,6 +513,7 @@ struct sysfs_link *sysfs_open_link(const char *linkpath)
 	safestrcpy(ln->path, linkpath);
 	if ((sysfs_get_name_from_path(linkpath, ln->name, SYSFS_NAME_LEN)) != 0
 	    || (sysfs_get_link(linkpath, ln->target, SYSFS_PATH_MAX)) != 0) {
+		sysfs_close_link(ln);
 		errno = EINVAL;
 		dprintf("Invalid link path %s\n", linkpath);
 		return NULL;
@@ -884,7 +885,8 @@ struct sysfs_attribute *sysfs_get_directory_attribute
 	attr = (struct sysfs_attribute *)dlist_find_custom
 			(dir->attributes, attrname, dir_attribute_name_equal);
 	if (attr != NULL) {
-		if ((sysfs_read_attribute(attr)) != 0) {
+		if ((attr->method & SYSFS_METHOD_SHOW) &&
+			(sysfs_read_attribute(attr)) != 0) {
 			dprintf("Error reading attribute %s\n", attr->name);
 			return NULL;
 		}

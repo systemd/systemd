@@ -27,7 +27,6 @@
  * delete function.  Otherwise dlist will just use free.
 
 */
-#include <stdlib.h>
 #include "dlist.h"
 
 /*
@@ -207,6 +206,46 @@ void *dlist_insert(Dlist *list,void *data,int direction)
   return(list->marker->data);
 }
 
+/* internal use only
+ * Insert dl_node  at marker.
+ * If direction true it inserts after.
+ * If direction false it inserts before.
+ * move marker to inserted node
+ * return pointer to inserted node
+ */
+void *_dlist_insert_dlnode(struct dlist *list,struct dl_node *new_node,int direction)
+{
+  if(list==NULL || new_node==NULL)
+    return(NULL);
+  if(list->marker==NULL) //in case the marker ends up unset
+    list->marker=list->head;
+  list->count++;
+  if(list->head->next==NULL) 
+    {
+      list->head->next=list->head->prev=new_node;
+      new_node->prev=list->head;
+      new_node->next=list->head;
+    }
+  else if(direction)
+    {
+      new_node->next=list->marker->next;
+      new_node->prev=list->marker;
+      list->marker->next->prev=new_node;
+      list->marker->next=new_node;
+    }
+  else
+    {
+      new_node->prev=list->marker->prev;
+      new_node->next=list->marker;
+      list->marker->prev->next=new_node;
+      list->marker->prev=new_node;
+    }
+  list->marker=new_node;
+  return(list->marker);
+}
+
+
+
 /* 
  * Remove DL_node from list without deallocating data.
  * if marker == killme .
@@ -239,6 +278,54 @@ void *_dlist_remove(Dlist *list,DL_node *killme,int direction)
     return (NULL);
 }
 
+/* 
+ * move dl_node from source to dest
+ * if marker == target .
+ *  when direction true it moves marker after 
+ *  when direction false it moves marker before.
+ * to previous if there is no next.
+ */
+void dlist_move(struct dlist *source, struct dlist *dest, struct dl_node *target,int direction)
+{
+
+  if(target!=NULL)
+    {
+      if(target==source->head)
+	{
+	  //not even going to try
+	}
+      else
+	{
+	  // take care of head and marker pointers.
+	  if(source->marker==target)
+	    _dlist_mark_move(source,direction);
+	  if(target ==source->head->next)
+	    source->head->next=target->next;
+	  if(target==source->head->prev)  
+	    source->head->prev=target->prev;
+	  // remove from list
+	  if(source->count==1)
+	    {
+	      target->prev=NULL;
+	      target->next=NULL;
+	      source->head->next=NULL;
+	      source->head->prev=NULL;
+	    }
+	  else
+	    {
+	      if(target->prev !=NULL)
+		target->prev->next=target->next;
+	      if(target->next !=NULL)
+		target->next->prev=target->prev;
+	      target->prev=NULL;
+	      target->next=NULL;
+	    }
+	  source->count--;
+	  _dlist_insert_dlnode(dest,target,direction);
+	}
+    }
+}
+
 
 /*
  * Insert node containing data after end.
@@ -261,7 +348,7 @@ void dlist_unshift(Dlist *list,void *data)
 }
 
 void dlist_unshift_sorted(Dlist *list, void *data, 
-			int (*sorter)(void *new, void *old))
+			int (*sorter)(void *new_elem, void *old_elem))
 {
 	if (list->count == 0)
 		dlist_unshift(list, data);
@@ -352,3 +439,179 @@ void *dlist_insert_sorted(struct dlist *list, void *new, int (*sorter)(void *, v
 		list->marker!=list->head && !sorter(new,list->marker->data);dlist_next(list));
 	return(dlist_insert_before(list,new));
 }
+
+/*
+ * NOTE: internal use only
+ */
+int _dlist_merge(struct dlist *listsource, struct dlist *listdest, unsigned int passcount, int (*compare)(void *, void *))
+{
+
+  struct dl_node *l1head;
+  struct dl_node *l2head;
+  struct dl_node *target;
+  unsigned int l1count=0;
+  unsigned int l2count=0;
+  unsigned int mergecount=0;
+  while(listsource->count>0)
+    {
+      l1head=listsource->head->next;
+      l2head=l1head;
+      while((l1count<passcount)&&(l2head!=listsource->head))
+	{
+	  l2head=l2head->next;
+	  l1count++;
+	}
+      // so now we have two lists to merge
+      
+      if(l2head==listsource->head)
+	{// l2count
+	  l2count=0;
+	}
+      else
+	{
+	  l2count=passcount;
+	}
+      while(l1count>0 || l2count>0)
+	{
+	  mergecount++;
+	  if((l2count>0)&&(l1count>0))
+	    {
+	      // we have things to merge
+	      int result=compare(l1head->data,l2head->data);
+	      if(result>0)
+		{
+		  // move from l2
+		  target=l2head;
+		  l2head=l2head->next;
+		  dlist_move(listsource,listdest,target,1);
+		  l2count--;
+		  if(l2head==listsource->head)
+		    l2count=0;
+		}
+	      else
+		{
+		  // move from l1
+		  target=l1head;
+		  l1head=l1head->next;
+		  dlist_move(listsource,listdest,target,1);
+		  l1count--;
+		}
+	    }
+	  else if(l1count>0)
+	    {
+	      // only have l1 to work with
+	      while(l1count>0)
+		{
+		  target=l1head;
+		  l1head=l1head->next;
+		  dlist_move(listsource,listdest,target,1);
+		  l1count--;
+		}
+	    }
+	  else if(l2count>0)
+	    {
+	      // only have l2 to work with
+	      while(l2count>0)
+		{
+		  if(l2head==listsource->head)
+		    {
+		      l2count=0;
+		    }
+		  else
+		    {
+		      target=l2head;
+		      l2head=l2head->next;
+		      dlist_move(listsource,listdest,target,1);
+		      l2count--;
+		    }
+		}
+	    }
+	  else
+	    { //nothing left and this should be unreachable
+	    }
+	}  
+    }
+  return(mergecount);
+}
+
+/**
+ * mergesort the list based on compare
+ * compare function in form int sorter(void * a,void * b)
+ *       must return >0 for a after b
+ *       must return <0 for a before b
+ *       else 0
+
+ * NOTE: mergesort changes the mark pointer
+ */
+void dlist_sort_custom(struct dlist *list, int (*compare)(void *, void *))
+{
+
+  dlist_start(list);
+  struct dlist *listsource, *listdest, *swap;
+  struct dlist *templist = dlist_new(list->data_size);
+  unsigned int passcount = 1;
+  unsigned int mergecount = 1;
+  // do nothing if there isn't anything to sort
+  listsource = list;
+  listdest = templist;
+  if(listsource->count<2)
+    { //nothing to do
+      return;
+    }
+  else
+    {
+      while(mergecount>0)
+	{
+	  mergecount=_dlist_merge(listsource, listdest, passcount, compare);
+	  if(mergecount>1)
+	    {
+	      passcount=passcount*2;
+	      //start new pass
+	      swap=listsource;
+	      listsource=listdest;
+	      listdest=swap;
+	    }
+	}
+    }
+  // now put the input list pointers right
+  // list pointers = newlist pointers
+  // including the forward and next nodes prev and back pointers
+  if(list->count==0)
+    {//copy
+      list->marker = listdest->marker;
+      list->count = listdest->count;
+      list->data_size = listdest->data_size;
+      list->del_func = listdest->del_func;
+      list->head->prev = listdest->head->prev;
+      list->head->next = listdest->head->next;
+      list->head->data = listdest->head->data;
+      list->head->next->prev=list->head;
+      list->head->prev->next=list->head;
+      templist->head->next=NULL;
+      templist->head->prev=NULL;
+      templist->count=0;
+    }
+  else
+    {// no need to copy
+      
+    }
+
+  dlist_destroy(templist);
+}
+
+
+
+/* internal use function
+   swaps elements a and b
+   No sense in juggling node pointers when we can just swap the data pointers
+*/
+
+void _dlist_swap(struct dlist *list, struct dl_node *a, struct dl_node *b)
+{
+
+  void *swap=a->data;
+  a->data=b->data;
+  b->data=swap;
+  
+}
+  

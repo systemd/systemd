@@ -52,6 +52,7 @@
 * to think about it.
 
 */
+#include <malloc.h>
 typedef struct dl_node {
   struct dl_node *prev;
   struct dl_node *next;
@@ -73,7 +74,7 @@ void *_dlist_mark_move(Dlist *list,int direction);
 void *dlist_mark(Dlist *);
 void dlist_start(Dlist *);
 void dlist_end(Dlist *);
-
+void dlist_move(struct dlist *source, struct dlist *dest, struct dl_node *target,int direction);
 void *dlist_insert(Dlist *,void *,int) ;
 
 void *dlist_insert_sorted(struct dlist *list, void *new_elem, int (*sorter)(void *, void *));
@@ -91,7 +92,15 @@ void *dlist_shift(Dlist *);
 
 void dlist_destroy(Dlist *);
 
+int _dlist_merge(struct dlist *listsource, struct dlist *listdest, unsigned int passcount, int (*compare)(void *, void *));
+
 void *dlist_find_custom(struct dlist *list, void *target, int (*comp)(void *, void *));
+
+void dlist_sort_custom(struct dlist *list, int (*compare)(void *, void *));
+
+
+void _dlist_swap(struct dlist *list, struct dl_node *a, struct dl_node *b);
+
 void dlist_transform(struct dlist *list, void (*node_operation)(void *));
 
 
@@ -100,6 +109,7 @@ void dlist_transform(struct dlist *list, void (*node_operation)(void *));
  * _dlist_mark_move is for internal use only
  */
 void *_dlist_remove(struct dlist *,struct dl_node *,int );
+void *_dlist_insert_dlnode(struct dlist *list,struct dl_node *new_node,int direction);
 
 #define dlist_prev(A) _dlist_mark_move((A),0)
 #define dlist_next(A) _dlist_mark_move((A),1)

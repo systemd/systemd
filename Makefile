@@ -176,7 +176,8 @@ ifeq ($(strip $(USE_SELINUX)),true)
 	LIB_OBJS += -lselinux
 endif
 
-CFLAGS += -I$(PWD)/libsysfs
+CFLAGS += 	-I$(PWD)/libsysfs/sysfs \
+		-I$(PWD)/libsysfs
 
 # config files automatically generated
 GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
@@ -231,10 +232,13 @@ HEADERS =	udev.h		\
 		udev_sysfs.h	\
 		logging.h	\
 		selinux.h	\
-		list.h		\
-		klibc_fixups/klibc_fixups.h
+		list.h
 
 ifeq ($(strip $(USE_KLIBC)),true)
+	HEADERS +=	klibc_fixups/klibc_fixups.h	\
+			klibc_fixups/mntent.h		\
+			klibc_fixups/pwd.h
+
 	OBJS += klibc_fixups/klibc_fixups.o
 	KLIBC_FIXUP = klibc_fixups/klibc_fixups.o
 endif

@@ -20,16 +20,13 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  */
-#include "sysfs/libsysfs.h"
+#include "libsysfs.h"
 #include "sysfs.h"
-#ifndef __KLIBC__
-#include <mntent.h>
-#endif
 
-static int sort_char(void *new_elem, void *old_elem)
+static int sort_char(void *new, void *old)
 {
-	return ((strncmp((char *)new_elem, (char *)old_elem, 
-			strlen((char *)new_elem))) < 0 ? 1 : 0);
+	return ((strncmp((char *)new, (char *)old, 
+			strlen((char *)new))) < 0 ? 1 : 0);
 }
 
 /**
@@ -66,10 +63,6 @@ int sysfs_remove_trailing_slash(char *path)
 static int sysfs_get_fs_mnt_path(const char *fs_type, 
 				char *mnt_path, size_t len)
 {
-#ifdef __KLIBC__
-	safestrcpymax(mnt_path, "/sys", len);
-	return 0;
-#else
 	FILE *mnt;
 	struct mntent *mntent;
 	int ret = 0;
@@ -106,7 +99,6 @@ static int sysfs_get_fs_mnt_path(const char *fs_type,
 		ret = -1;
 	
 	return ret;
-#endif
 }
 
 /*
@@ -454,7 +446,7 @@ int sysfs_path_is_link(const char *path)
 		return 1;
 	}
 	if ((lstat(path, &astats)) != 0) {
-		dprintf("stat() failed");
+		dprintf("stat() failed\n");
 		return 1;
 	}
 	if (S_ISLNK(astats.st_mode))
@@ -477,7 +469,7 @@ int sysfs_path_is_file(const char *path)
 		return 1;
 	}
 	if ((lstat(path, &astats)) != 0) {
-		dprintf("stat() failed");
+		dprintf("stat() failed\n");
 		return 1;
 	}
 	if (S_ISREG(astats.st_mode))
