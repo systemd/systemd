@@ -21,7 +21,7 @@
 #ifndef _VOLUME_ID_H_
 #define _VOLUME_ID_H_
 
-#define VOLUME_ID_VERSION		024
+#define VOLUME_ID_VERSION		25
 
 #define VOLUME_ID_LABEL_SIZE		64
 #define VOLUME_ID_UUID_SIZE		16
@@ -68,6 +68,7 @@ struct volume_id_partition {
 	char		*type;
 	unsigned long long off;
 	unsigned long long len;
+	unsigned int partition_type_raw;
 };
 
 struct volume_id {

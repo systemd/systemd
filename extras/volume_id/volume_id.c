@@ -321,7 +321,7 @@ static int probe_lvm2(struct volume_id *id, __u64 off)
 found:
 	strncpy(id->type_version, lvm->type, 8);
 	id->usage_id = VOLUME_ID_RAID;
-	id->type_id = VOLUME_ID_LVM1;
+	id->type_id = VOLUME_ID_LVM2;
 	id->type = "LVM2_member";
 
 	return 0;
@@ -461,6 +461,8 @@ static int probe_msdos_part_table(struct volume_id *id, __u64 off)
 
 		p = &id->partitions[i];
 
+		p->partition_type_raw = part[i].sys_ind;
+
 		if (is_extended(part[i].sys_ind)) {
 			dbg("found extended partition at 0x%llx", poff);
 			p->usage_id = VOLUME_ID_PARTITIONTABLE;
@@ -535,6 +537,9 @@ static int probe_msdos_part_table(struct volume_id *id, __u64 off)
 				p->off = current + poff;
 				p->len = plen;
 				id->partition_count++;
+
+				p->partition_type_raw = part[i].sys_ind;
+
 				if (id->partition_count >= VOLUME_ID_PARTITIONS_MAX) {
 					dbg("to many partitions");
 					next = 0;
@@ -918,13 +923,13 @@ valid:
 
 	for (i = 0; i <= root_dir_entries; i++) {
 		/* end marker */
-		if (dir[i].attr == 0x00) {
+		if (dir[i].name[0] == 0x00) {
 			dbg("end of dir");
 			break;
 		}
 
 		/* empty entry */
-		if (dir[i].attr == 0xe5)
+		if (dir[i].name[0] == 0xe5)
 			continue;
 
 		if (dir[i].attr == FAT_ATTR_VOLUME) {
@@ -976,13 +981,13 @@ fat32:
 
 		for (i = 0; i <= count; i++) {
 			/* end marker */
-			if (dir[i].attr == 0x00) {
+			if (dir[i].name[0] == 0x00) {
 				dbg("end of dir");
 				goto fat32_label;
 			}
 
 			/* empty entry */
-			if (dir[i].attr == 0xe5)
+			if (dir[i].name[0] == 0xe5)
 				continue;
 
 			if (dir[i].attr == FAT_ATTR_VOLUME) {
@@ -1016,7 +1021,7 @@ fat32_label:
 		set_label_raw(id, vs->type.fat32.label, 11);
 		set_label_string(id, vs->type.fat32.label, 11);
 	}
-	set_uuid(id, vs->type.fat32.serno, UUID_DCE);
+	set_uuid(id, vs->type.fat32.serno, UUID_DOS);
 
 found:
 	id->usage_id = VOLUME_ID_FILESYSTEM;
@@ -2035,18 +2040,25 @@ int volume_id_probe(struct volume_id *id,
 		break;
 	case VOLUME_ID_ALL:
 	default:
+		/* probe for raid first, cause fs probes may be successful on raid members */
 		rc = probe_linux_raid(id, off, size);
 		if (rc == 0)
 			break;
+		rc = probe_lvm1(id, off);
+		if (rc == 0)
+			break;
+		rc = probe_lvm2(id, off);
+		if (rc == 0)
+			break;
 
-		/* signature in the first block */
+		/* signature in the first block, only small buffer needed */
+		rc = probe_msdos_part_table(id, off);
+		if (rc == 0)
+			break;
 		rc = probe_ntfs(id, off);
 		if (rc == 0)
 			break;
 		rc = probe_vfat(id, off);
-		if (rc == 0)
-			break;
-		rc = probe_msdos_part_table(id, off);
 		if (rc == 0)
 			break;
 		rc = probe_mac_partition_map(id, off);
@@ -2081,12 +2093,6 @@ int volume_id_probe(struct volume_id *id,
 		if (rc == 0)
 			break;
 		rc = probe_ufs(id, off);
-		if (rc == 0)
-			break;
-		rc = probe_lvm1(id, off);
-		if (rc == 0)
-			break;
-		rc = probe_lvm2(id, off);
 		if (rc == 0)
 			break;
 
