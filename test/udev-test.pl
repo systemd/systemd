@@ -21,9 +21,7 @@
 use warnings;
 use strict;
 
-my $PWD = `pwd`;
-chomp($PWD);
-
+my $PWD = $ENV{PWD};
 my $sysfs     = "sys/";
 my $udev_bin  = "../udev";
 my $udev_root = "udev-root/"; # !!! directory will be removed !!!
@@ -80,7 +78,7 @@ TOPOLOGY, BUS="scsi", PLACE="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:b
 EOF
 	},
 	{
-		desc     => "callout result subtitution, only last should match",
+		desc     => "callout result substitution, only last should match",
 		subsys   => "block",
 		devpath  => "block/sda/sda3",
 		expected => "special-device-3" ,
@@ -93,7 +91,7 @@ CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n special-device", ID="special-*", NAME
 EOF
 	},
 	{
-		desc     => "callout program subtitution",
+		desc     => "callout program substitution",
 		subsys   => "block",
 		devpath  => "block/sda/sda3",
 		expected => "test-0:0:0:0" ,
@@ -151,7 +149,6 @@ foreach my $config (@tests) {
 		system("tree $udev_root");
 		print "\n";
 		$error++;
-#		next;
 	}
 
 	udev("remove", $config->{subsys}, $config->{devpath}, \$config->{conf});
