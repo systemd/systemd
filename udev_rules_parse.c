@@ -39,38 +39,27 @@
 
 LIST_HEAD(udev_rule_list);
 
-static int add_config_dev(struct udev_rule *new_rule)
+static int add_config_dev(struct udev_rule *rule)
 {
 	struct udev_rule *tmp_rule;
 
 	tmp_rule = malloc(sizeof(*tmp_rule));
 	if (tmp_rule == NULL)
 		return -ENOMEM;
-	memcpy(tmp_rule, new_rule, sizeof(*tmp_rule));
+	memcpy(tmp_rule, rule, sizeof(struct udev_rule));
 	list_add_tail(&tmp_rule->node, &udev_rule_list);
-	udev_rule_dump(tmp_rule);
 
-	return 0;
-}
-
-void udev_rule_dump(struct udev_rule *rule)
-{
 	dbg("name='%s', symlink='%s', bus='%s', id='%s', "
 	    "sysfs_file[0]='%s', sysfs_value[0]='%s', "
-	    "kernel='%s', program='%s', result='%s'"
-	    "owner='%s', group='%s', mode=%#o",
+	    "kernel='%s', program='%s', result='%s', "
+	    "owner='%s', group='%s', mode=%#o, "
+	    "all_partions=%u, ignore_remove=%u, ignore_device=%u, last_rule=%u",
 	    rule->name, rule->symlink, rule->bus, rule->id,
 	    rule->sysfs_pair[0].file, rule->sysfs_pair[0].value,
-	    rule->kernel, rule->program, rule->result,
-	    rule->owner, rule->group, rule->mode);
-}
+	    rule->kernel, rule->program, rule->result, rule->owner, rule->group, rule->mode,
+	    rule->partitions, rule->ignore_remove, rule->ignore_device, rule->last_rule);
 
-void udev_rule_list_dump(void)
-{
-	struct udev_rule *rule;
-
-	list_for_each_entry(rule, &udev_rule_list, node)
-		udev_rule_dump(rule);
+	return 0;
 }
 
 static int get_key(char **line, char **key, enum key_operation *operation, char **value)

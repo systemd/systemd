@@ -1161,6 +1161,16 @@ KERNEL=="sda1", PROGRAM!="/bin/false", NAME="nonzero-program"
 BUS=="scsi", KERNEL=="sda1", NAME="wrong"
 EOF
 	},
+	{
+		desc		=> "test for whitespace between the operator",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "true",
+		conf		=> <<EOF
+KERNEL   ==   "sda1"     ,    NAME   =    "true"
+BUS=="scsi", KERNEL=="sda1", NAME="wrong"
+EOF
+	},
 );
 
 # set env

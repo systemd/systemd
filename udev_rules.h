@@ -20,8 +20,8 @@
  *
  */
 
-#ifndef NAMEDEV_H
-#define NAMEDEV_H
+#ifndef UDEV_RULES_H
+#define UDEV_RULES_H
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
@@ -105,8 +105,5 @@ extern struct list_head udev_rule_list;
 extern int udev_rules_init(void);
 extern int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_dev);
 extern void udev_rules_close(void);
-
-extern void udev_rule_dump(struct udev_rule *rule);
-extern void udev_rule_list_dump(void);
 
 #endif
