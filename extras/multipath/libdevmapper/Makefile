@@ -10,7 +10,7 @@ CC = gcc
 GCCINCDIR := ${shell $(CC) -print-search-dirs | sed -ne "s/install: \(.*\)/\1include/gp"}
 CFLAGS = -pipe -g -O2 -Wall -Wunused -Wstrict-prototypes -nostdinc \
          -I$(klibcdir)/klibc/include -I$(klibcdir)/klibc/include/bits32 \
-         -I$(GCCINCDIR) -I$(klibcdir)/linux/include -I. -Iioctl
+         -I$(GCCINCDIR) -I$(KERNEL_DIR)/include -I. -Iioctl
 
 OBJS = ioctl/libdevmapper.o libdm-common.o
 

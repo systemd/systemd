@@ -41,6 +41,9 @@ LOCAL_CFG_DIR =	etc/udev
 HOTPLUG_EXEC =	$(ROOT)
 
 DESTDIR =
+
+KERNEL_DIR = /lib/modules/${shell uname -r}/build
+
 # override this to make udev look in a different location for it's config files
 prefix =
 exec_prefix =	${prefix}
@@ -135,7 +138,8 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	KLIBC_BASE	= $(PWD)/klibc
 	KLIBC_DIR	= $(KLIBC_BASE)/klibc
 	INCLUDE_DIR	:= $(KLIBC_DIR)/include
-	LINUX_INCLUDE_DIR	:= $(KLIBC_BASE)/linux/include
+	LINUX_INCLUDE_DIR	:= $(KERNEL_DIR)/include
+#	LINUX_INCLUDE_DIR	:= $(KLIBC_BASE)/linux/include
 	include $(KLIBC_DIR)/arch/$(ARCH)/MCONFIG
 	# arch specific objects
 	ARCH_LIB_OBJS =	\
@@ -169,7 +173,10 @@ CFLAGS += -I$(PWD)/libsysfs
 all: $(ROOT) $(SENDER) $(UDEVD) $(HELPER)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
-		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
+		$(MAKE) prefix=$(prefix) \
+			LD="$(LD)" \
+			SYSFS="$(SYSFS)" \
+			KERNEL_DIR="$(KERNEL_DIR)" \
 			-C $$target $@ ; \
 	done ; \
 
@@ -178,7 +185,7 @@ $(ROOT): $(LIBC)
 $(ARCH_LIB_OBJS) : $(CRT0)
 
 $(CRT0):
-	$(MAKE) -C klibc
+	$(MAKE) -C klibc KERNEL_DIR=$(KERNEL_DIR)
 
 TDB =	tdb/tdb.o	\
 	tdb/spinlock.o

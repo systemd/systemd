@@ -52,14 +52,15 @@ To use:
 	DEBUG
 		if set to 'true', debugging messages will be sent to the syslog
 		as udev is run.  Default value is 'false'.
+	KERNEL_DIR
+		If this is not set it will default to /lib/modules/`uname -r`/build
+		This is used if USE_KLIBC=true to find the kernel include
+		directory that klibc needs to build against.  This must be set
+		if you are not building udev while running a 2.6 kernel.
 
       So, if you want to build udev using klibc with debugging messages, you
       would do:
 	make USE_KLIBC=true DEBUG=true
-
-      Note: If you want to use klibc, you will have to set up the "linux"
-            symlink properly.  See the file klibc/klibc/README and pay
-	    attention to step "a)" there.
 
 - Install the project:
 	make install
@@ -92,6 +93,7 @@ know by sending a message to the linux-hotplug-devel mailing list at:
 
 greg k-h
 greg@kroah.com
+
 
 
 

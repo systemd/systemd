@@ -15,7 +15,7 @@ CC = gcc
 GCCINCDIR := ${shell $(CC) -print-search-dirs | sed -ne "s/install: \(.*\)/\1include/gp"}
 CFLAGS = -pipe -g -O2 -Wall -Wunused -Wstrict-prototypes -nostdinc \
          -I$(klibcdir)/klibc/include -I$(klibcdir)/klibc/include/bits32 \
-         -I$(GCCINCDIR) -I$(klibcdir)/linux/include -I$(sysfsdir) -I.
+         -I$(GCCINCDIR) -I$(KERNEL_DIR)/include -I$(sysfsdir) -I.
 
 OBJS = main.o
 CRT0 = ../../klibc/klibc/crt0.o
@@ -32,7 +32,7 @@ SUBDIRS = libdevmapper
 
 recurse:
 	@for dir in $(SUBDIRS); do\
-	$(MAKE) -C $$dir ; \
+	$(MAKE) KERNEL_DIR=$(KERNEL_DIR) -C $$dir ; \
 	done
 	$(MAKE) $(EXEC)
 
