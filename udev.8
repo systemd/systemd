@@ -199,11 +199,9 @@ or specified by the
 value in the 
 .I /etc/udev/udev.conf
 file.
-The file consists of a set of lines. All empty lines and
-lines beginning with a '#' will be ignored.
 .br
 Every line lists a device name followed by owner, group and permission
-mode. All values are separated by colons. The name field may end with a
+mode. All values are separated by colons. The name field may contain a
 wildcard to apply the values to a whole class of devices.
 .br
 If
@@ -221,6 +219,24 @@ ttyUSB1:0:8:0660
 video*:root:video:0660
 dsp1:::0666
 .fi
+.P
+A number of different fields in the above configuration files support a simple
+form of wildcard matching.  This form is based on the fnmatch(3) style, and
+supports the following fields:
+.RS
+.TP
+.B *
+Matches zero, one, or more characters.
+.TP
+.B ?
+Matches any single character, but does not match zero characters.
+.TP
+.B [ ]
+Matches any single character specified within the brackets. For example, the
+pattern string "tty[SR]" would match either "ttyS" or "ttyR".  Ranges are also
+supported within this match with the '-' character.  For example, to match on
+the range of all digits, the pattern [0-9] would be used.
+.RE
 .SH "FILES"
 .nf
 .ft B
