@@ -55,6 +55,7 @@ udevdir = ${prefix}/udev/
 # to compile vs uClibc, that can be done here as well.
 CROSS = #/usr/i386-linux-uclibc/usr/bin/i386-uclibc-
 CC = $(CROSS)gcc
+LD = $(CROSS)gcc
 AR = $(CROSS)ar
 STRIP = $(CROSS)strip
 RANLIB = $(CROSS)ranlib
@@ -109,6 +110,7 @@ endif
 ifeq ($(strip $(KLIBC)),true)
 	KLIBC_DIR	= klibc/klibc
 	INCLUDE_DIR	:= $(KLIBC_DIR)/include
+	include $(KLIBC_DIR)/arch/$(ARCH)/MCONFIG
 	# arch specific objects
 	LIBGCC		= $(shell $(CC) --print-libgcc)
 	ARCH_LIB_OBJS =	\
@@ -117,8 +119,10 @@ ifeq ($(strip $(KLIBC)),true)
 
 
 	CRT0 = $(KLIBC_DIR)/crt0.o
-	LIBC =	$(ARCH_LIB_OBJS) $(LIB_OBJS)
-	CFLAGS += -nostdinc -I$(INCLUDE_DIR) -I$(INCLUDE_DIR)/bits32 -I$(GCCINCDIR) -Iklibc/linux/include -D__KLIBC__
+	LIBC =	$(ARCH_LIB_OBJS) $(LIB_OBJS) $(CRT0)
+	CFLAGS += -nostdinc -I$(INCLUDE_DIR) -I$(KLIBC_DIR)/arch/$(ARCH)/include \
+		-I$(INCLUDE_DIR)/bits$(BITSIZE) -I$(GCCINCDIR) -Iklibc/linux/include \
+		-D__KLIBC__
 	LIB_OBJS =
 	LDFLAGS = --static --nostdlib -nostartfiles
 else
@@ -169,7 +173,7 @@ udev_version.h:
 
 
 $(ROOT): $(GEN_HEADERS) $(OBJS)
-	$(CC) $(LDFLAGS) -o $(ROOT) $(CRT0) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(LD) $(LDFLAGS) -o $(ROOT) $(CRT0) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $(ROOT)
 
 clean:
