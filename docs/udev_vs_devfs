@@ -13,7 +13,7 @@ Executive summary for those too lazy to read this whole thing:
 	will be gladly ignored.
 
 
-First off, some background.  For a description of udev, and what it's
+First off, some background.  For a description of udev, and what its
 original design goals were, please see the OLS 2003 paper on udev,
 available at:
 	<http://www.kroah.com/linux/talks/ols_2003_udev_paper/Reprint-Kroah-Hartman-OLS2003.pdf>
@@ -26,7 +26,7 @@ directory.
 In that OLS paper, I described the current situation of a static /dev
 and the current problems that a number of people have with it.  I also
 detailed how devfs tries to solve a number of these problems.  In
-hindsight, I should have never mentioned the word, devfs, when talking
+hindsight, I should have never mentioned the word "devfs" when talking
 about udev.  I did so only because it seemed like a good place to start
 with.  Most people understood what devfs is, and what it does.  To
 compare udev against it, showing how udev was more powerful, and a more
@@ -90,7 +90,7 @@ And now for udev:
        to name devices in a persistent manner.  More on that below.
     4) udev emits D-BUS messages so that any other userspace program
        (like HAL) can listen to see what devices are created or removed.
-       It also allows userspace programs to query it's database to see
+       It also allows userspace programs to query its database to see
        what devices are present and what they are currently named as
        (providing a pointer into the sysfs tree for that specific device
        node.)
@@ -123,8 +123,8 @@ everything that devfs currently does, in about 6Kb of userspace code:
 Yes, that's right, 6Kb.  So, you are asking, why are you still working
 on udev if it did everything devfs did back in May 2003?  That's because
 just managing static device nodes based on what the kernel calls the
-devices is _not_ the primary goal of udev.  It's just a tiny side affect
-of it's primary goal, the ability to never worry about major/minor
+devices is _not_ the primary goal of udev.  It's just a tiny side effect
+of its primary goal, the ability to never worry about major/minor
 number assignments and provide the ability to achieve persistent device
 names if wanted.
 
@@ -132,7 +132,7 @@ All the people wanting to bring up the udev vs. devfs argument go back
 and read the previous paragraph.  Yes, all Gentoo users who keep filling
 up my inbox with smoking emails, I mean you.
 
-So, how well does udev solve it's goals:
+So, how well does udev solve its goals:
   Prevent users from ever worrying about major/minor numbers
     And here you were, not knowing you ever needed to worry about
     major/minor numbers in the first place, right?  Ah, I see you
