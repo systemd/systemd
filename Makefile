@@ -33,7 +33,7 @@ USE_DBUS = false
 ROOT =		udev
 DAEMON =	udevd
 SENDER =	udevsend
-HELPER =	udevinfo
+INFO =		udevinfo
 TESTER =	udevtest
 STARTER =	udevstart
 VERSION =	020
@@ -51,6 +51,7 @@ prefix =
 exec_prefix =	${prefix}
 etcdir =	${prefix}/etc
 sbindir =	${exec_prefix}/sbin
+usrbindir =	${exec_prefix}/usr/bin
 mandir =	${prefix}/usr/share/man
 hotplugdir =	${etcdir}/hotplug.d/default
 dbusdir =	${etcdir}/dbus-1/system.d
@@ -173,7 +174,7 @@ endif
 
 CFLAGS += -I$(PWD)/libsysfs
 
-all: $(ROOT) $(SENDER) $(DAEMON) $(HELPER) $(TESTER) $(STARTER)
+all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(STARTER)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) \
@@ -263,7 +264,7 @@ $(LOCAL_CFG_DIR)/udev.conf:
 $(OBJS): $(GEN_HEADERS)
 $(ROOT).o: $(GEN_HEADERS)
 $(TESTER).o: $(GEN_HEADERS)
-$(HELPER).o: $(GEN_HEADERS)
+$(INFO).o: $(GEN_HEADERS)
 $(DAEMON).o: $(GEN_HEADERS)
 $(SENDER).o: $(GEN_HEADERS)
 $(STARTER).o: $(GEN_HEADERS)
@@ -276,7 +277,7 @@ $(TESTER): $(TESTER).o $(OBJS) $(HEADERS) $(LIBC)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevtest.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(HELPER): $(HELPER).o $(OBJS) $(HEADERS) $(LIBC)
+$(INFO): $(INFO).o $(OBJS) $(HEADERS) $(LIBC)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
@@ -295,7 +296,7 @@ $(STARTER): $(STARTER).o $(HEADERS) $(LIBC)
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
-	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(HELPER) $(DAEMON) $(SENDER) $(TESTER) $(STARTER)
+	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(INFO) $(DAEMON) $(SENDER) $(TESTER) $(STARTER)
 	$(MAKE) -C klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
@@ -377,7 +378,7 @@ install: install-initscript install-config install-dbus-policy all
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
 	$(INSTALL_PROGRAM) -D $(DAEMON) $(DESTDIR)$(sbindir)/$(DAEMON)
 	$(INSTALL_PROGRAM) -D $(SENDER) $(DESTDIR)$(sbindir)/$(SENDER)
-	$(INSTALL_PROGRAM) -D $(HELPER) $(DESTDIR)$(sbindir)/$(HELPER)
+	$(INSTALL_PROGRAM) -D $(INFO) $(DESTDIR)$(usrbindir)/$(INFO)
 	$(INSTALL_PROGRAM) -D $(TESTER) $(DESTDIR)$(sbindir)/$(TESTER)
 	$(INSTALL_PROGRAM) -D $(STARTER) $(DESTDIR)$(sbindir)/$(STARTER)
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
@@ -407,7 +408,7 @@ uninstall: uninstall-dbus-policy
 	- rm $(sbindir)/$(ROOT)
 	- rm $(sbindir)/$(DAEMON)
 	- rm $(sbindir)/$(SENDER)
-	- rm $(sbindir)/$(HELPER)
+	- rm $(usrbindir)/$(INFO)
 	- rmdir $(hotplugdir)
 	- rmdir $(configdir)
 	- rm $(udevdir)/.udev.tdb
