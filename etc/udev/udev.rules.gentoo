@@ -95,3 +95,27 @@ KERNEL="radio[0-9]*", NAME="v4l/radio%n"
 KERNEL="vbi[0-9]*",   NAME="v4l/vbi%n"
 KERNEL="vtx[0-9]*",   NAME="v4l/vtx%n"
 
+# dm devices (ignore them)
+KERNEL="dm-[0-9]*", NAME=""
+
+# i2c devices
+KERNEL="i2c-[0-9]*", NAME="i2c/%n", SYMLINK="%k"
+
+# loop devices
+KERNEL="loop[0-9]*", NAME="loop/%n", SYMLINK="%k"
+
+# framebuffer devices
+KERNEL="fb[0-9]*", NAME="fb/%n", SYMLINK="%k"
+
+# misc devices
+KERNEL="rtc",   NAME="misc/%k", SYMLINK="%k"
+KERNEL="psaux", NAME="misc/%k", SYMLINK="%k"
+
+# alsa devices
+KERNEL="controlC[0-9]*", NAME="snd/%k"
+KERNEL="hw[CD0-9]*",     NAME="snd/%k"
+KERNEL="pcm[CD0-9cp]*",  NAME="snd/%k"
+KERNEL="midi[CD0-9]*",   NAME="snd/%k"
+KERNEL="timer",          NAME="snd/%k"
+KERNEL="seq",            NAME="snd/%k"
+
