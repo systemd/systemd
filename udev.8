@@ -112,7 +112,8 @@ calling external program, that returns a string to match
 .TP
 .B LABEL
 device label or serial number, like USB serial number, SCSI UUID or
-file system label
+file system label.  Up to 5 different sysfs files can be checked, with
+all of the values being required in order to match the rule.
 .br
 .RB "keys: " BUS ", " SYSFS_
 .TP
@@ -167,6 +168,9 @@ CALLOUT, BUS="scsi", PROGRAM="/sbin/scsi_id", ID="OEM 0815", NAME="disk1"
 
 # USB printer to be called lp_color
 LABEL, BUS="usb", SYSFS_serial="W09090207101241330", NAME="lp_color"
+
+# SCSI disk with a specific vendor and model number is to be called boot
+LABEL, BUS="scsi", SYSFS_vendor="IBM", SYSFS_model="ST336", NAME="boot%n"
 
 # sound card with PCI bus id 00:0b.0 to be called dsp
 NUMBER, BUS="pci", ID="00:0b.0", NAME="dsp"
