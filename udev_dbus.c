@@ -12,6 +12,7 @@
 #include "udev.h"
 #include "udev_version.h"
 #include "udev_dbus.h"
+#include "logging.h"
 
 
 /** variable for the connection the to system message bus or #NULL
