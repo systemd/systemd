@@ -50,6 +50,19 @@
 
 static LIST_HEAD(config_device_list);
 
+/* s2 may end with '*' to match everything */
+static int strncmp_wildcard(char *s1, char *s2, int max)
+{
+	int len = strlen(s2);
+	if (len > max)
+		len = max;
+	if (s2[len-1] == '*')
+		len--;
+	else
+		len = max;
+	return strncmp(s1, s2, len);
+}
+
 static void dump_dev(struct config_device *dev)
 {
 	switch (dev->type) {
@@ -109,16 +122,8 @@ static int add_dev(struct config_device *new_dev)
 	/* update the values if we already have the device */
 	list_for_each(tmp, &config_device_list) {
 		struct config_device *dev = list_entry(tmp, struct config_device, node);
-		int len = strlen(new_dev->name);
-		if (new_dev->name[len-1] == '*') {
-			len--;
-			if (strncmp(dev->name, new_dev->name, len))
-				continue;
-		} else {
-			if (strcmp(dev->name, new_dev->name))
-				continue;
-		}
-		/* the same, copy the new info into this structure */
+		if (strncmp_wildcard(dev->name, new_dev->name, sizeof(dev->name)))
+			continue;
 		copy_var(dev, new_dev, type);
 		copy_var(dev, new_dev, mode);
 		copy_string(dev, new_dev, bus);
@@ -572,20 +577,18 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 	return retval;
 }
 
-static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev)
+static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev, char *value, int len)
 {
 	struct config_device *dev;
 	struct list_head *tmp;
-	char value[ID_SIZE];
 
 	list_for_each(tmp, &config_device_list) {
 		dev = list_entry(tmp, struct config_device, node);
 		if (dev->type != CALLOUT)
 			continue;
-
-		if (exec_callout(dev, value, sizeof(value)))
+		if (exec_callout(dev, value, len))
 			continue;
-		if (strncmp(value, dev->id, sizeof(value)) != 0)
+		if (strncmp_wildcard(value, dev->id, len) != 0)
 			continue;
 		strfieldcpy(udev->name, dev->name);
 		if (dev->mode != 0) {
@@ -784,17 +787,12 @@ static void do_kernelname(struct sysfs_class_device *class_dev, struct udevice *
 	int len;
 
 	strfieldcpy(udev->name, class_dev->name);
+	/* look for permissions */
 	list_for_each(tmp, &config_device_list) {
 		dev = list_entry(tmp, struct config_device, node);
 		len = strlen(dev->name);
-		if (dev->name[len-1] == '*') {
-			len--;
-			if (strncmp(dev->name, class_dev->name, len))
-				continue;
-		} else {
-			if (strcmp(dev->name, class_dev->name))
-				continue;
-		}
+		if (strncmp_wildcard(class_dev->name, dev->name, sizeof(dev->name)))
+			continue;
 		if (dev->mode != 0) {
 			dbg_parse("found permissions for '%s'", class_dev->name);
 			udev->mode = dev->mode;
@@ -810,6 +808,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 	struct sysfs_class_device *class_dev_parent = NULL;
 	int retval = 0;
 	char *temp = NULL;
+	char value[ID_SIZE];
 
 	udev->mode = 0;
 
@@ -852,7 +851,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 	}
 
 	/* rules are looked at in priority order */
-	retval = do_callout(class_dev, udev);
+	retval = do_callout(class_dev, udev, value, sizeof(value));
 	if (retval == 0)
 		goto found;
 
@@ -896,7 +895,7 @@ found:
 				dig = class_dev->name + strlen(class_dev->name);
 				while (isdigit(*(dig-1)))
 					dig--;
-				strcat(udev->name, dig);
+				strcat(pos, dig);
 				dbg("substitute kernel number '%s'", dig);
 				break;
 			case 'm':
@@ -906,6 +905,10 @@ found:
 			case 'M':
 				sprintf(pos, "%u", udev->major);
 				dbg("substitute major number '%u'", udev->major);
+				break;
+			case 'c':
+				strcat(pos, value);
+				dbg("substitute callout output '%s'", value);
 				break;
 			default:
 				dbg("unknown substitution type '%%%c'", pos[1]);
