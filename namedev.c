@@ -252,6 +252,7 @@ static struct bus_file {
 } bus_files[] = {
 	{ .bus = "scsi",	.file = "vendor" },
 	{ .bus = "usb",		.file = "idVendor" },
+	{ .bus = "ide",		.file = "detach_state" },
 	{ .bus = "pci",		.file = "vendor" },
 	{}
 };
