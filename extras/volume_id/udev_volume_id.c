@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
 	struct sysfs_class_device *class_dev_parent = NULL;
 	struct volume_id *vid = NULL;
 	char *devpath;
-	char probe_main_device = 0;
+	char probe_disk_label = 0;
 	char print = 'a';
 	static char name[VOLUME_ID_LABEL_SIZE];
 	int len, i, j;
@@ -116,7 +116,7 @@ int main(int argc, char *argv[])
 			print = 'u';
 			continue;
 		case 'd':
-			probe_main_device = 1;
+			probe_disk_label = 1;
 			continue;
 		case 'h':
 		case '?':
@@ -146,8 +146,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	if (probe_main_device == 0) {
-		/* open block device */
+	if (probe_disk_label == 0) {
 		vid = open_classdev(class_dev);
 		if (vid == NULL)
 			goto exit;
@@ -205,7 +204,8 @@ print:
 		printf("%s\n", vid->type);
 		break;
 	case 'l':
-		if (name[0] == '\0' || vid->usage_id != VOLUME_ID_FILESYSTEM) {
+		if (name[0] == '\0' ||
+		    (vid->usage_id != VOLUME_ID_FILESYSTEM && vid->usage_id != VOLUME_ID_DISKLABEL)) {
 			rc = 2;
 			goto exit;
 		}
