@@ -278,10 +278,16 @@ static int namedev_parse_rules(const char *filename, void *data)
 
 			if (strncasecmp(temp2, FIELD_NAME, sizeof(FIELD_NAME)-1) == 0) {
 				attr = get_key_attribute(temp2 + sizeof(FIELD_NAME)-1);
-				if (attr != NULL && strcasecmp(attr, ATTR_PARTITIONS) == 0) {
+				if (attr != NULL) {
+					if (strstr(attr, ATTR_PARTITIONS) != NULL) {
 						dbg_parse("creation of partition nodes requested");
 						dev.partitions = PARTITIONS_COUNT;
 					}
+					if (strstr(attr, ATTR_IGNORE_REMOVE) != NULL) {
+						dbg_parse("remove event should be ignored");
+						dev.ignore_remove = 1;
+					}
+				}
 				strfieldcpy(dev.name, temp3);
 				valid = 1;
 				continue;

@@ -57,6 +57,7 @@ struct udevice {
 	mode_t mode;
 	char symlink[NAME_SIZE];
 	int partitions;
+	int ignore_remove;
 	int config_line;
 	char config_file[NAME_SIZE];
 	long config_uptime;

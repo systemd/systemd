@@ -216,6 +216,13 @@ If given with the attribute
 .BR NAME{ all_partitions }
 it will  create all 15 partitions of a blockdevice.
 This may be useful for removable media devices.
+.br
+If given with the attribute
+.BR NAME{ ignore_remove }
+it will will ignore any later remove event for this device.
+This may be useful as a workaround for broken device drivers.
+.sp
+Multiple attributes may be separated by comma.
 .TP
 .B SYMLINK
 The name of a symlink targeting the node. Multiple symlinks may be

@@ -185,6 +185,11 @@ int udev_remove_device(struct udevice *udev)
 		dbg("'%s' not found in database, falling back on default name", udev->name);
 	}
 
+	if (udev->ignore_remove) {
+		dbg("remove event for '%s' requested to be ignored by rule", udev->name);
+		return 0;
+	}
+
 	dbg("remove name='%s'", udev->name);
 	udev_db_delete_device(udev);
 

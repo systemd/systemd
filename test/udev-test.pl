@@ -1105,7 +1105,28 @@ KERNEL="sda", NAME="cdrom%e"
 EOF
 	},
 	{
-		desc		=> "SUBSYSTEM test",
+		desc		=> "ignore remove event test",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "node",
+		exp_error	=> "yes",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", NAME{ignore_remove}="node"
+EOF
+	},
+	{
+		desc		=> "ignore remove event test (with all partitions)",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "node14",
+		exp_error	=> "yes",
+		option		=> "clear",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", NAME{ignore_remove, all_partitions}="node"
+EOF
+	},
+	{
+		desc		=> "SUBSYSTEM match test",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
@@ -1116,7 +1137,7 @@ BUS="scsi", KERNEL="sda", NAME="should_not_match2", SUBSYSTEM="vc"
 EOF
 	},
 	{
-		desc		=> "DRIVER test",
+		desc		=> "DRIVER match test",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",

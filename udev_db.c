@@ -79,7 +79,8 @@ int udev_db_add_device(struct udevice *udev)
 	fprintf(f, "P:%s\n", udev->devpath);
 	fprintf(f, "N:%s\n", udev->name);
 	fprintf(f, "S:%s\n", udev->symlink);
-	fprintf(f, "A:%d\n", udev->partitions);
+	fprintf(f, "A:%u\n", udev->partitions);
+	fprintf(f, "R:%u\n", udev->ignore_remove);
 
 	fclose(f);
 
@@ -111,20 +112,33 @@ static int parse_db_file(struct udevice *udev, const char *filename)
 			if (count > DEVPATH_SIZE)
 				count = DEVPATH_SIZE-1;
 			strncpy(udev->devpath, &bufline[2], count-2);
+			udev->devpath[count-2] = '\0';
 			break;
 		case 'N':
 			if (count > NAME_SIZE)
 				count = NAME_SIZE-1;
 			strncpy(udev->name, &bufline[2], count-2);
+			udev->name[count-2] = '\0';
 			break;
 		case 'S':
 			if (count > NAME_SIZE)
 				count = NAME_SIZE-1;
 			strncpy(udev->symlink, &bufline[2], count-2);
+			udev->symlink[count-2] = '\0';
 			break;
 		case 'A':
-			strfieldcpy(line, &bufline[2]);
+			if (count > NAME_SIZE)
+				count = NAME_SIZE-1;
+			strncpy(line, &bufline[2], count-2);
+			line[count-2] = '\0';
 			udev->partitions = atoi(line);
+			break;
+		case 'R':
+			if (count > NAME_SIZE)
+				count = NAME_SIZE-1;
+			strncpy(line, &bufline[2], count-2);
+			line[count-2] = '\0';
+			udev->ignore_remove = atoi(line);
 			break;
 		}
 	}

@@ -807,6 +807,7 @@ found:
 		goto done;
 
 	udev->partitions = dev->partitions;
+	udev->ignore_remove = dev->ignore_remove;
 
 	/* get permissions given in rule */
 	set_empty_perms(udev, dev->mode,

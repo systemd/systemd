@@ -52,6 +52,7 @@ struct sysfs_class_device;
 #define FIELD_MODE		"MODE"
 
 #define ATTR_PARTITIONS		"all_partitions"
+#define ATTR_IGNORE_REMOVE	"ignore_remove"
 #define PARTITIONS_COUNT	15
 
 #define MAX_SYSFS_PAIRS		5
@@ -90,6 +91,7 @@ struct config_device {
 	char group[GROUP_SIZE];
 	unsigned int mode;
 	int partitions;
+	int ignore_remove;
 	char config_file[NAME_SIZE];
 	int config_line;
 };
