@@ -113,16 +113,22 @@ all: $(LIBC) $(ROOT)
 $(ARCH_LIB_OBJS) :
 	$(MAKE) -C klibc
 
+LIBSYSFS = libsysfs/libsysfs.a
+TDB = tdb/tdb.o tdb/spinlock.o
+
 OBJS =	udev.o		\
 	udev-add.o	\
 	udev-remove.o	\
+	udevdb.o	\
 	logging.o	\
-	namedev.o
-
-LIBSYSFS = libsysfs/libsysfs.a
+	namedev.o	\
+	$(TDB)
 
 libsysfs/libsysfs.a:
 	$(MAKE) -C libsysfs
+
+tdb/tdb.o:
+	$(MAKE) -C tdb
 
 # header files automatically generated
 GEN_HEADERS =	udev_version.h
@@ -132,7 +138,7 @@ udev_version.h:
 	@echo \#define UDEV_VERSION \"$(VERSION)\" > $@
 
 
-$(ROOT): $(GEN_HEADERS) $(OBJS) $(LIBSYSFS)
+$(ROOT): $(GEN_HEADERS) $(OBJS) $(LIBSYSFS) $(TDB)
 	$(MAKE) -C libsysfs
 	$(CC) $(LDFLAGS) -o $(ROOT) $(OBJS) -lsysfs $(LIB_OBJS) -L$(LIB) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $(ROOT)
@@ -143,6 +149,7 @@ clean:
 	-rm -f core $(ROOT) $(GEN_HEADERS)
 	$(MAKE) -C klibc clean
 	$(MAKE) -C libsysfs clean
+	$(MAKE) -C tdb clean
 
 DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v CVS | grep -v "\.tar\.gz" | grep -v "\/\." | grep -v releases | grep -v BitKeeper | grep -v SCCS )
 DISTDIR := $(RELEASE_NAME)

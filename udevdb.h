@@ -7,9 +7,9 @@
 #include "namedev.h"
 #include "udev.h"
 
-#define BUS_DB		"/home/stekloff/src/udev-0.2/busdb.tdb"
-#define CLASS_DB	"/home/stekloff/src/udev-0.2/classdb.tdb"
-#define NAME_DB		"/home/stekloff/src/udev-0.2/namedb.tdb"
+#define BUS_DB		"/home/greg/src/udev/busdb.tdb"
+#define CLASS_DB	"/home/greg/src/udev/classdb.tdb"
+#define NAME_DB		"/home/greg/src/udev/namedb.tdb"
 
 #define PATH_SIZE	256
 

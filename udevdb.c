@@ -7,9 +7,10 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <errno.h>
+#include <signal.h>
 
 #include "udevdb.h"
-#include "tdb.h"
+#include "tdb/tdb.h"
 
 static TDB_CONTEXT *busdb;
 static TDB_CONTEXT *classdb;

@@ -136,6 +136,7 @@ int udev_add_device(char *device, char *subsystem)
 {
 	struct sysfs_class_device *class_dev;
 	struct device_attr attr;
+	struct udevice dbdev;
 	int major;
 	int minor;
 	char type;
