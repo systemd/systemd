@@ -105,24 +105,30 @@ static int add_dev(struct config_device *new_dev)
 	struct list_head *tmp;
 	struct config_device *tmp_dev;
 
-	/* loop through the whole list of devices to see if we already have
-	 * this one... */
+	/* update the values if we already have the device */
 	list_for_each(tmp, &config_device_list) {
 		struct config_device *dev = list_entry(tmp, struct config_device, node);
-		if (strcmp(dev->name, new_dev->name) == 0) {
-			/* the same, copy the new info into this structure */
-			copy_var(dev, new_dev, type);
-			copy_var(dev, new_dev, mode);
-			copy_string(dev, new_dev, bus);
-			copy_string(dev, new_dev, sysfs_file);
-			copy_string(dev, new_dev, sysfs_value);
-			copy_string(dev, new_dev, id);
-			copy_string(dev, new_dev, place);
-			copy_string(dev, new_dev, kernel_name);
-			copy_string(dev, new_dev, owner);
-			copy_string(dev, new_dev, group);
-			return 0;
+		int len = strlen(new_dev->name);
+		if (new_dev->name[len-1] == '*') {
+			len--;
+			if (strncmp(dev->name, new_dev->name, len))
+				continue;
+		} else {
+			if (strcmp(dev->name, new_dev->name))
+				continue;
 		}
+		/* the same, copy the new info into this structure */
+		copy_var(dev, new_dev, type);
+		copy_var(dev, new_dev, mode);
+		copy_string(dev, new_dev, bus);
+		copy_string(dev, new_dev, sysfs_file);
+		copy_string(dev, new_dev, sysfs_value);
+		copy_string(dev, new_dev, id);
+		copy_string(dev, new_dev, place);
+		copy_string(dev, new_dev, kernel_name);
+		copy_string(dev, new_dev, owner);
+		copy_string(dev, new_dev, group);
+		return 0;
 	}
 
 	/* not found, lets create a new structure, and add it to the list */
@@ -743,6 +749,32 @@ static int do_replace(struct sysfs_class_device *class_dev, struct udevice *udev
 	return -ENODEV;
 }
 
+static void do_kernelname(struct sysfs_class_device *class_dev, struct udevice *udev)
+{
+	struct config_device *dev;
+	struct list_head *tmp;
+
+	strfieldcpy(udev->name, class_dev->name);
+	list_for_each(tmp, &config_device_list) {
+		dev = list_entry(tmp, struct config_device, node);
+		int len = strlen(dev->name);
+		if (dev->name[len-1] == '*') {
+			len--;
+			if (strncmp(dev->name, class_dev->name, len))
+				continue;
+		} else {
+			if (strcmp(dev->name, class_dev->name))
+				continue;
+		}
+		if (dev->mode != 0) {
+			dbg_parse("found permissions from config for '%s'", class_dev->name);
+			udev->mode = dev->mode;
+			strfieldcpy(udev->owner, dev->owner);
+			strfieldcpy(udev->group, dev->group);
+		}
+	}
+}
+
 static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
 	struct sysfs_device *sysfs_device = NULL;
@@ -793,27 +825,28 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 	/* rules are looked at in priority order */
 	retval = do_callout(class_dev, udev);
 	if (retval == 0)
-		goto done;
+		goto found;
 
 	retval = do_label(class_dev, udev, sysfs_device);
 	if (retval == 0)
-		goto done;
+		goto found;
 
 	retval = do_number(class_dev, udev, sysfs_device);
 	if (retval == 0)
-		goto done;
+		goto found;
 
 	retval = do_topology(class_dev, udev, sysfs_device);
 	if (retval == 0)
-		goto done;
+		goto found;
 
 	retval = do_replace(class_dev, udev);
 	if (retval == 0)
-		goto done;
+		goto found;
 
-	strfieldcpy(udev->name, class_dev->name);
+	do_kernelname(class_dev, udev);
+	goto done;
 
-done:
+found:
 	/* substitute placeholder in NAME  */
 	while (1) {
 		char *pos = strchr(udev->name, '%');
@@ -854,6 +887,7 @@ done:
 			break;
 	}
 
+done:
 	/* mode was never set above */
 	if (!udev->mode) {
 		udev->mode = get_default_mode(class_dev);
