@@ -217,7 +217,6 @@ HEADERS =	udev.h		\
 		udev_lib.h	\
 		namedev.h	\
 		udev_version.h	\
-		udev_dbus.h	\
 		udevdb.h	\
 		klibc_fixups.h	\
 		logging.h	\
