@@ -104,6 +104,8 @@ else
 	LDFLAGS = --static 
 endif
 
+LIB=libsysfs
+
 all: $(LIBC) $(ROOT)
 
 $(ARCH_LIB_OBJS) :
@@ -113,6 +115,10 @@ OBJS =	udev.o		\
 	logging.o	\
 	namedev.o
 
+LIBSYSFS = libsysfs/libsysfs.a
+
+libsysfs/libsysfs.a:
+	$(MAKE) -C libsysfs
 
 # header files automatically generated
 GEN_HEADERS =	udev_version.h
@@ -122,8 +128,9 @@ udev_version.h:
 	@echo \#define UDEV_VERSION \"$(VERSION)\" > $@
 
 
-$(ROOT): $(GEN_HEADERS) $(OBJS)
-	$(CC) $(LDFLAGS) -o $(ROOT) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+$(ROOT): $(GEN_HEADERS) $(OBJS) $(LIBSYSFS)
+	$(MAKE) -C libsysfs
+	$(CC) $(LDFLAGS) -o $(ROOT) $(OBJS) -lsysfs $(LIB_OBJS) -L$(LIB) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $(ROOT)
 
 clean:
@@ -131,6 +138,7 @@ clean:
 	 | xargs rm -f 
 	-rm -f core $(ROOT) $(GEN_HEADERS)
 	$(MAKE) -C klibc clean
+	$(MAKE) -C libsysfs clean
 
 DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v CVS | grep -v "\.tar\.gz" | grep -v "\/\." | grep -v releases | grep -v BitKeeper | grep -v SCCS )
 DISTDIR := $(RELEASE_NAME)
