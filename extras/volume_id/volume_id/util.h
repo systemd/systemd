@@ -29,6 +29,8 @@
 #  include <config.h>
 #endif
 
+#include <endian.h>
+
 /* size of superblock buffer, reiserfs block is at 64k */
 #define SB_BUFFER_SIZE				0x11000
 /* size of seek buffer, FAT cluster is 32k max */
@@ -52,6 +54,7 @@
 			   (((__u64)(x) & 0x000000000000ff00ull) << 40) | \
 			   (((__u64)(x) & 0x00000000000000ffull) << 56))
 
+#ifdef __BYTE_ORDER
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
 #define le16_to_cpu(x) (x)
 #define le32_to_cpu(x) (x)
@@ -69,6 +72,7 @@
 #define cpu_to_le32(x) bswap32(x)
 #define cpu_to_be32(x) (x)
 #endif
+#endif /* __BYTE_ORDER */
 
 enum uuid_format {
 	UUID_DCE_STRING,
