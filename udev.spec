@@ -11,11 +11,6 @@
 # Note, it is not recommend if you use klibc to enable logging.
 %define log 0
 
-# if we want to build DBUS support in or not.
-# 0 - no DBUS support
-# 1 - DBUS support
-%define dbus 0
-
 # if we want to build SELinux support in or not.
 # 0 - no SELinux support
 # 1 - SELinux support
@@ -26,6 +21,11 @@
 # 0 - debugging disabled
 # 1 - debugging enabled
 %define debug 0
+
+# if we want to build the DBUS "extra package or not
+# 0 - no DBUS support
+# 1 - DBUS support
+%define dbus 0
 
 # if we want to build the scsi_id "extra" package or not
 # 0 - do not build the package
@@ -62,11 +62,6 @@ make CC="gcc $RPM_OPT_FLAGS"	\
 %else
 	USE_LOG=false		\
 %endif
-%if %{dbus}
-	USE_DBUS=true		\
-%else
-	USE_DBUS=false		\
-%endif
 %if %{selinux}
 	USE_SELINUX=true	\
 %else
@@ -81,15 +76,13 @@ make CC="gcc $RPM_OPT_FLAGS"	\
 %if %{scsi_id}
 	extras/scsi_id	\
 %endif
+%if %{dbus}
+	extras/dbus	\
+%endif
 "
 
 %install
 make DESTDIR=$RPM_BUILD_ROOT install \
-%if %{dbus}
-	USE_DBUS=true		\
-%else
-	USE_DBUS=false		\
-%endif
 %if %{selinux}
 	USE_SELINUX=true	\
 %else
@@ -98,6 +91,9 @@ make DESTDIR=$RPM_BUILD_ROOT install \
 	EXTRAS="	\
 %if %{scsi_id}
 	extras/scsi_id	\
+%endif
+%if %{dbus}
+	extras/dbus	\
 %endif
 "
 
@@ -143,6 +139,9 @@ rm -rf $RPM_BUILD_ROOT
 %endif
 
 %changelog
+* Wed Mar 24 2004 Greg Kroah-Hartman <greg@kroah.com>
+- change the way dbus support is built (now an extra)
+
 * Tue Mar 2 2004 Greg Kroah-Hartman <greg@kroah.com>
 - added udevstart to the list of files installed
 - udevinfo is now in /usr/bin not /sbin
