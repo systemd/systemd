@@ -25,6 +25,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <linux/fs.h>
+#include <sys/ioctl.h>
 
 #include "../../libsysfs/sysfs/libsysfs.h"
 #include "../../udev_lib.h"
@@ -71,6 +73,36 @@ static struct volume_id *open_classdev(struct sysfs_class_device *class_dev)
 	return vid;
 }
 
+static unsigned long long get_size(struct volume_id *vid)
+{
+	unsigned long long size;
+
+	if (ioctl(vid->fd, BLKGETSIZE64, &size) != 0)
+		size = 0;
+
+	return size;
+}
+
+static char *usage_id_name(enum volume_id_usage usage)
+{
+	switch(usage) {
+	case VOLUME_ID_UNUSED:
+		return "unused";
+	case VOLUME_ID_UNPROBED:
+		return "unprobed";
+	case VOLUME_ID_OTHER:
+		return "other";
+	case VOLUME_ID_PARTITIONTABLE:
+		return "partitiontable";
+	case VOLUME_ID_FILESYSTEM:
+		return "filesystem";
+	case VOLUME_ID_RAID:
+		return "raid";
+	default:
+		return "unknown type_id";
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	const char help[] = "usage: udev_volume_id [-t|-l|-u|-d]\n"
@@ -80,7 +112,6 @@ int main(int argc, char *argv[])
 			    "       -d disk label from main device\n"
 			    "\n";
 	static const char short_options[] = "htlud";
-	int option;
 	char sysfs_path[SYSFS_PATH_MAX];
 	char dev_path[SYSFS_PATH_MAX];
 	struct sysfs_class_device *class_dev = NULL;
@@ -92,9 +123,12 @@ int main(int argc, char *argv[])
 	char dasd_label[7];
 	static char name[VOLUME_ID_LABEL_SIZE];
 	int len, i, j;
+	unsigned long long size;
 	int rc = 1;
 
 	while (1) {
+		int option;
+
 		option = getopt(argc, argv, short_options);
 		if (option == -1)
 			break;
@@ -146,24 +180,26 @@ int main(int argc, char *argv[])
 		vid = open_classdev(class_dev);
 		if (vid == NULL)
 			goto exit;
-		if (volume_id_probe(vid, ALL) == 0)
+
+		size = get_size(vid);
+
+		if (volume_id_probe(vid, VOLUME_ID_ALL, 0, size) == 0)
 			goto print;
 		break;
 	case 'd' :
-		/* if we are on a partition, close it and open main block device */
+		/* if we are on a partition, open main block device instead */
 		class_dev_parent = sysfs_get_classdev_parent(class_dev);
-		if (class_dev_parent != NULL) {
-			volume_id_close(vid);
+		if (class_dev_parent != NULL)
 			vid = open_classdev(class_dev_parent);
-		} else {
+		else
 			vid = open_classdev(class_dev_parent);
-		}
 		if (vid == NULL)
 			goto exit;
+
 		if (probe_ibm_partition(vid->fd, dasd_label) == 0) {
-			vid->fs_name = "dasd";
-			strncpy(vid->label_string, dasd_label, 6);
-			vid->label_string[6] = '\0';
+			vid->type = "dasd";
+			strncpy(vid->label, dasd_label, 6);
+			vid->label[6] = '\0';
 			goto print;
 		}
 		break;
@@ -174,10 +210,10 @@ int main(int argc, char *argv[])
 
 
 print:
-	len = strnlen(vid->label_string, VOLUME_ID_LABEL_SIZE);
+	len = strnlen(vid->label, VOLUME_ID_LABEL_SIZE);
 
 	/* remove trailing spaces */
-	while (len > 0 && isspace(vid->label_string[len-1]))
+	while (len > 0 && isspace(vid->label[len-1]))
 		len--;
 	name[len] = '\0';
 
@@ -185,14 +221,14 @@ print:
 	i = 0;
 	j = 0;
 	while (j < len) {
-		switch(vid->label_string[j]) {
+		switch(vid->label[j]) {
 		case '/' :
 			break;
 		case ' ' :
 			name[i++] = '_';
 			break;
 		default :
-			name[i++] = vid->label_string[j];
+			name[i++] = vid->label[j];
 		}
 		j++;
 	}
@@ -200,27 +236,29 @@ print:
 
 	switch (print) {
 	case 't':
-		printf("%s\n", vid->fs_name);
+		printf("%s\n", vid->type);
 		break;
 	case 'l':
-		if (name[0] == '\0') {
+		if (name[0] == '\0' || vid->usage_id != VOLUME_ID_FILESYSTEM) {
 			rc = 2;
 			goto exit;
 		}
 		printf("%s\n", name);
 		break;
 	case 'u':
-		if (vid->uuid_string[0] == '\0') {
+		if (vid->uuid[0] == '\0' || vid->usage_id != VOLUME_ID_FILESYSTEM) {
 			rc = 2;
 			goto exit;
 		}
-		printf("%s\n", vid->uuid_string);
+		printf("%s\n", vid->uuid);
 		break;
 	case 'a':
-		printf("T:%s\n", vid->fs_name);
-		printf("L:%s\n", vid->label_string);
+		printf("F:%s\n", usage_id_name(vid->usage_id));
+		printf("T:%s\n", vid->type);
+		printf("V:%s\n", vid->type_version);
+		printf("L:%s\n", vid->label);
 		printf("N:%s\n", name);
-		printf("U:%s\n", vid->uuid_string);
+		printf("U:%s\n", vid->uuid);
 	}
 	rc = 0;
 

@@ -28,7 +28,11 @@ INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 
-override CFLAGS+=-Wall -fno-builtin
+override CFLAGS+=-Wall -fno-builtin -Wchar-subscripts -Wmissing-declarations \
+		 -Wnested-externs -Wpointer-arith -Wcast-align \
+		 -Wsign-compare
+
+override CFLAGS+=-D_FILE_OFFSET_BITS=64
 
 SYSFS =	../../libsysfs/sysfs_bus.o	\
 	../../libsysfs/sysfs_class.o	\
