@@ -40,9 +40,6 @@
 /* Where udev should create its device nodes, trailing / needed */
 #define UDEV_ROOT	"/udev/"
 
-/* Binaries that udev calls to do stuff */
-#define MKNOD		"/bin/mknod"
-
 extern int log_message (int level, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
 

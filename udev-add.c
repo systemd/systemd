@@ -78,20 +78,27 @@ static int create_node(char *name, char type, int major, int minor, int mode)
 	int retval = 0;
 	strncpy(filename, UDEV_ROOT, sizeof(filename));
 	strncat(filename, name, sizeof(filename));
-	if (type == 'b') {
-	       mode |= S_IFBLK;
-    	} else if ((type == 'c') || (type == 'u')){
-	        mode |= S_IFCHR;
-    	} else if ( type == 'p') {
-       		 mode |= S_IFIFO;
-    	} else {
-       		dbg("unknown node type %c\n", type);
-       		return -1;
- 	}
+	switch (type) {
+	case 'b':
+		mode |= S_IFBLK;
+		break;
+	case 'c':
+	case 'u':
+		mode |= S_IFCHR;
+		break;
+	case 'p':
+		mode |= S_IFIFO;
+		break;
+	default:
+		dbg("unknown node type %c\n", type);
+		return -EINVAL;
+	}
 
 	retval = mknod(filename,mode,makedev(major,minor));
+	if (retval)
+		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
+		    filename, mode, major, minor, strerror(errno));
 	return retval;
-		
 }
 
 struct sysfs_class_device *get_class_dev(char *device_name)
