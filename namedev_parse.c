@@ -65,7 +65,7 @@ void dump_config_dev(struct config_device *dev)
 		  "owner='%s', group='%s', mode=%#o",
 		  dev->name, dev->symlink, dev->bus, dev->place, dev->id,
 		  dev->sysfs_pair[0].file, dev->sysfs_pair[0].value,
-		  dev->kernel, dev->program, dev->result,;
+		  dev->kernel, dev->program, dev->result,
 		  dev->owner, dev->group, dev->mode);
 }
 
