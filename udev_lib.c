@@ -152,6 +152,26 @@ size_t buf_get_line(char *buf, size_t buflen, size_t cur)
 	return count - cur;
 }
 
+void leading_slash(char *path)
+{
+	int len;
+
+	len = strlen(path);
+	if (len > 0 && path[len-1] != '/') {
+		path[len] = '/';
+		path[len+1] = '\0';
+	}
+}
+
+void no_leading_slash(char *path)
+{
+	int len;
+
+	len = strlen(path);
+	if (len > 0 && path[len-1] == '/')
+		path[len-1] = '\0';
+}
+
 struct files {
 	struct list_head list;
 	char name[NAME_SIZE];
@@ -180,7 +200,7 @@ static int file_list_insert(char *filename, struct list_head *file_list)
 	return 0;
 }
 
-/* calls function for file or every file found in directory */
+/* calls function for every file found in specified directory */
 int call_foreach_file(int fnct(char *f) , char *dirname, char *suffix)
 {
 	struct dirent *ent;

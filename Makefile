@@ -51,9 +51,9 @@ sbindir =	${exec_prefix}/sbin
 usrbindir =	${exec_prefix}/usr/bin
 mandir =	${prefix}/usr/share/man
 hotplugdir =	${etcdir}/hotplug.d/default
-configdir =	${etcdir}/udev/
-initdir = 	${etcdir}/init.d/
-dev_ddir =	${etcdir}/dev.d/
+configdir =	${etcdir}/udev
+initdir = 	${etcdir}/init.d
+dev_ddir =	${etcdir}/dev.d
 srcdir = .
 
 INSTALL = /usr/bin/install -c
@@ -228,16 +228,16 @@ GEN_HEADERS =	udev_version.h
 
 # Rules on how to create the generated header files
 udev_version.h:
-	@echo \#define UDEV_VERSION	\"$(VERSION)\" > $@
-	@echo \#define UDEV_ROOT	\"$(udevdir)/\" >> $@
-	@echo \#define UDEV_DB		\"$(udevdir)/\.udev.tdb\" >> $@
-	@echo \#define UDEV_CONFIG_DIR	\"$(configdir)\" >> $@
-	@echo \#define UDEV_CONFIG_FILE	\"$(configdir)\udev.conf\" >> $@
-	@echo \#define UDEV_RULES_FILE	\"$(configdir)\udev.rules\" >> $@
-	@echo \#define UDEV_PERMISSION_FILE	\"$(configdir)\udev.permissions\" >> $@
-	@echo \#define UDEV_LOG_DEFAULT \"yes\" >> $@
-	@echo \#define UDEV_BIN		\"$(DESTDIR)$(sbindir)/udev\" >> $@
-	@echo \#define UDEVD_BIN	\"$(DESTDIR)$(sbindir)/udevd\" >> $@
+	@echo \#define UDEV_VERSION		\"$(VERSION)\" > $@
+	@echo \#define UDEV_ROOT		\"$(udevdir)/\" >> $@
+	@echo \#define UDEV_DB			\"$(udevdir)/.udev.tdb\" >> $@
+	@echo \#define UDEV_CONFIG_DIR		\"$(configdir)\" >> $@
+	@echo \#define UDEV_CONFIG_FILE		\"$(configdir)/udev.conf\" >> $@
+	@echo \#define UDEV_RULES_FILE		\"$(configdir)/rules.d\" >> $@
+	@echo \#define UDEV_PERMISSION_FILE	\"$(configdir)/permissions.d\" >> $@
+	@echo \#define UDEV_LOG_DEFAULT 	\"yes\" >> $@
+	@echo \#define UDEV_BIN			\"$(DESTDIR)$(sbindir)/udev\" >> $@
+	@echo \#define UDEVD_BIN		\"$(DESTDIR)$(sbindir)/udevd\" >> $@
 
 # config files automatically generated
 GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
@@ -343,29 +343,29 @@ install-initscript: etc/init.d/udev etc/init.d/udev.debian etc/init.d/udev.init.
 	fi
 
 install-config: $(GEN_CONFIGS)
-	$(INSTALL) -d $(DESTDIR)$(configdir)
-	@if [ ! -r $(DESTDIR)$(configdir)udev.conf ]; then \
+	$(INSTALL) -d $(DESTDIR)$(configdir)/rules.d
+	$(INSTALL) -d $(DESTDIR)$(configdir)/permissions.d
+	@if [ ! -r $(DESTDIR)$(configdir)/udev.conf ]; then \
 		echo $(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.conf $(DESTDIR)$(configdir); \
 		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.conf $(DESTDIR)$(configdir); \
 	fi
-	@if [ ! -r $(DESTDIR)$(configdir)udev.rules ]; then \
-		echo $(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.rules $(DESTDIR)$(configdir); \
-		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.rules $(DESTDIR)$(configdir); \
+	@if [ ! -r $(DESTDIR)$(configdir)/rules.d/50-udev.rules ]; then \
+		echo $(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.rules $(DESTDIR)$(configdir)/rules.d/50-udev.rules; \
+		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.rules $(DESTDIR)$(configdir)/rules.d/50-udev.rules; \
 	fi
-	@if [ ! -r $(DESTDIR)$(configdir)udev.permissions ]; then \
-		echo $(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.permissions $(DESTDIR)$(configdir); \
-		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.permissions $(DESTDIR)$(configdir); \
+	@if [ ! -r $(DESTDIR)$(configdir)/permissions.d/50-udev.permissions ]; then \
+		echo $(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.permissions $(DESTDIR)$(configdir)/permissions.d/50-udev.permissions; \
+		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.permissions $(DESTDIR)$(configdir)/permissions.d/50-udev.permissions; \
 	fi
 
 install-dev.d:
-	$(INSTALL) -d $(DESTDIR)$(dev_ddir)
-	$(INSTALL) -d $(DESTDIR)$(dev_ddir)default/
-	$(INSTALL_PROGRAM) -D etc/dev.d/net/hotplug.dev $(DESTDIR)$(dev_ddir)net/hotplug.dev
+	$(INSTALL) -d $(DESTDIR)$(dev_ddir)/default
+	$(INSTALL_PROGRAM) -D etc/dev.d/net/hotplug.dev $(DESTDIR)$(dev_ddir)/net/hotplug.dev
 
 uninstall-dev.d:
-	- rm $(dev_ddir)net/hotplug.dev
-	- rmdir $(dev_ddir)net
-	- rmdir $(dev_ddir)default
+	- rm $(dev_ddir)/net/hotplug.dev
+	- rmdir $(dev_ddir)/net
+	- rmdir $(dev_ddir)/default
 	- rmdir $(dev_ddir)
 
 install-man:
@@ -406,16 +406,20 @@ endif
 
 uninstall: uninstall-man uninstall-dev.d
 	- rm $(hotplugdir)/udev.hotplug
-	- rm $(configdir)/udev.permissions
-	- rm $(configdir)/udev.rules
+	- rm $(configdir)/rules.d/50-udev.rules
+	- rm $(configdir)/permissions.d/50-udev.permissions
 	- rm $(configdir)/udev.conf
+	- rmdir $(configdir)/rules.d
+	- rmdir $(configdir)/permissions.d
+	- rmdir $(configdir)
 	- rm $(initdir)/udev
 	- rm $(sbindir)/$(ROOT)
 	- rm $(sbindir)/$(DAEMON)
 	- rm $(sbindir)/$(SENDER)
+	- rm $(sbindir)/$(STARTER)
 	- rm $(usrbindir)/$(INFO)
+	- rm $(usrbindir)/$(TESTER)
 	- rmdir $(hotplugdir)
-	- rmdir $(configdir)
 	- rm $(udevdir)/.udev.tdb
 	- rmdir $(udevdir)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \

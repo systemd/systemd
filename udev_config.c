@@ -84,18 +84,6 @@ static void init_variables(void)
 		udev_dev_d = 0;
 }
 
-#define set_var(_name, _var)				\
-	if (strcasecmp(variable, _name) == 0) {		\
-		dbg_parse("%s='%s'", _name, value);	\
-		strfieldcpy(_var, value);\
-	}
-
-#define set_bool(_name, _var)				\
-	if (strcasecmp(variable, _name) == 0) {		\
-		dbg_parse("%s='%s'", _name, value);	\
-		_var = string_is_true(value);		\
-	}
-
 int parse_get_pair(char **orig_string, char **left, char **right)
 {
 	char *temp;
@@ -181,22 +169,58 @@ static int parse_config_file(void)
 			continue;
 
 		retval = parse_get_pair(&temp, &variable, &value);
-		if (retval)
-			break;
-		
-		dbg_parse("variable = '%s', value = '%s'", variable, value);
+		if (retval != 0)
+			info("%s:%d:%Zd: error parsing '%s'",
+			     udev_config_filename, lineno, temp-line, temp);
 
-		set_var("udev_root", udev_root);
-		set_var("udev_db", udev_db_filename);
-		set_var("udev_rules", udev_rules_filename);
-		set_var("udev_permissions", udev_permissions_filename);
-		set_var("default_mode", default_mode_str);
-		set_var("default_owner", default_owner_str);
-		set_var("default_group", default_group_str);
-		set_bool("udev_log", udev_log);
+		dbg_parse("variable='%s', value='%s'", variable, value);
+
+		if (strcasecmp(variable, "udev_root") == 0) {
+			strfieldcpy(udev_root, value);
+			leading_slash(udev_root);
+			continue;
+		}
+
+		if (strcasecmp(variable, "udev_db") == 0) {
+			strfieldcpy(udev_db_filename, value);
+			continue;
+		}
+
+		if (strcasecmp(variable, "udev_rules") == 0) {
+			strfieldcpy(udev_rules_filename, value);
+			no_leading_slash(udev_rules_filename);
+			continue;
+		}
+
+		if (strcasecmp(variable, "udev_permissions") == 0) {
+			strfieldcpy(udev_permissions_filename, value);
+			no_leading_slash(udev_permissions_filename);
+			continue;
+		}
+
+		if (strcasecmp(variable, "default_mode") == 0) {
+			strfieldcpy(default_mode_str, value);
+			continue;
+		}
+
+		if (strcasecmp(variable, "default_owner") == 0) {
+			strfieldcpy(default_owner_str, value);
+			continue;
+		}
+
+		if (strcasecmp(variable, "default_group") == 0) {
+			strfieldcpy(default_group_str, value);
+			continue;
+		}
+
+		if (strcasecmp(variable, "udev_log") == 0) {
+			udev_log = string_is_true(value);
+			continue;
+		}
+
+		info("%s:%d:%Zd: unknown key '%s'",
+		     udev_config_filename, lineno, temp-line, temp);
 	}
-	dbg_parse("%s:%d:%Zd: error parsing '%s'", udev_config_filename,
-		  lineno, temp - line, temp);
 
 	file_unmap(buf, bufsize);
 	return retval;
@@ -212,32 +236,34 @@ static void get_dirs(void)
 		dbg("sysfs_get_mnt_path failed");
 
 	/* see if we should try to override any of the default values */
-	temp = getenv("UDEV_TEST");
-	if (temp != NULL) {
-		/* hm testing is happening, use the specified values, if they are present */
+	if (getenv("UDEV_TEST") != NULL) {
 		temp = getenv("SYSFS_PATH");
-		if (temp)
+		if (temp != NULL) {
 			strfieldcpy(sysfs_path, temp);
+			no_leading_slash(sysfs_path);
+		}
+
 		temp = getenv("UDEV_CONFIG_FILE");
-		if (temp)
+		if (temp != NULL)
 			strfieldcpy(udev_config_filename, temp);
 	}
-	dbg("sysfs_path='%s'", sysfs_path);
 
+	dbg("sysfs_path='%s'", sysfs_path);
 	dbg_parse("udev_root = %s", udev_root);
 	dbg_parse("udev_config_filename = %s", udev_config_filename);
 	dbg_parse("udev_db_filename = %s", udev_db_filename);
 	dbg_parse("udev_rules_filename = %s", udev_rules_filename);
 	dbg_parse("udev_permissions_filename = %s", udev_permissions_filename);
 	dbg_parse("udev_log = %d", udev_log);
+
 	parse_config_file();
 
-	dbg_parse("udev_root = %s", udev_root);
-	dbg_parse("udev_config_filename = %s", udev_config_filename);
-	dbg_parse("udev_db_filename = %s", udev_db_filename);
-	dbg_parse("udev_rules_filename = %s", udev_rules_filename);
-	dbg_parse("udev_permissions_filename = %s", udev_permissions_filename);
-	dbg_parse("udev_log_str = %d", udev_log);
+	dbg("udev_root = %s", udev_root);
+	dbg("udev_config_filename = %s", udev_config_filename);
+	dbg("udev_db_filename = %s", udev_db_filename);
+	dbg("udev_rules_filename = %s", udev_rules_filename);
+	dbg("udev_permissions_filename = %s", udev_permissions_filename);
+	dbg("udev_log_str = %d", udev_log);
 }
 
 void udev_init_config(void)
@@ -245,5 +271,3 @@ void udev_init_config(void)
 	init_variables();
 	get_dirs();
 }
-
-

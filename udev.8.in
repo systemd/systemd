@@ -77,7 +77,7 @@ in this file:
 .B udev_root
 Indicates where to place the device nodes in the filesystem. The default
 value is
-.IR @udevdir@ .
+.IR @udevdir@/ .
 .TP
 .B udev_db
 The name and location of the udev database. The default value is
@@ -87,14 +87,14 @@ The name and location of the udev database. The default value is
 The name of the udev rules file or directory to look for files with the suffix
 .IR .rules .
 All rule files are read in lexical order. The default value is
-.IR /etc/udev/udev.rules .
+.IR /etc/udev/rules.d/ .
 .TP
 .B udev_permissions
 The name of the udev permission file or directory to look for files with the
 suffix
 .IR .permissions .
 All permission files are read in lexical order. The default value is
-.IR /etc/udev/udev.permissions .
+.IR /etc/udev/permissions.d/ .
 .TP
 .B udev_log
 The switch, if udev logs some information for every device handled.
@@ -121,17 +121,17 @@ file. The default value is
 .sp
 .nf
 # udev_root - where to place the device nodes in the filesystem
-udev_root="@udevdir@"
+udev_root="/udev"
 
 # udev_db - The name and location of the udev database
-udev_db="@udevdir@/.udev.tdb"
+udev_db="/udev/.udev.tdb"
 
 # udev_rules - The name of the udev rules file or directory to look
                for files with the suffix .rules
 udev_rules="/etc/udev/rules.d/"
 
-# udev_permissions - The name of the udev permission file or directry to look
-                     for files with the suffix .permissions
+# udev_permissions - The name of the udev permission file or directory
+                     to look for files with the suffix .permissions
 udev_permissions="/etc/udev/udev.permissions"
 
 # udev_log - set to "yes" if you want logging, else "no"
@@ -150,14 +150,14 @@ default_owner="root"
 default_group="root"
 .fi
 .P
-The rules for udev to use when naming devices may specified in
-.I /etc/udev/udev.rules
-or by the
+The rules for device naming, are read from the files located in the
+.I /etc/udev/rules.d/
+directory, or at the location specified by the
 .I udev_rules
 value in the
 .I /etc/udev/udev.conf
 file.
-.P
+.br
 Every line in the rules file defines the mapping between device attributes
 and the device name. One or more keys are specified to match a rule with
 the current device. If all keys are matching, the rule will be applied and
@@ -304,9 +304,10 @@ KERNEL="ttyUSB1", NAME="pda", SYMLINK="palmtop handheld"
 BUS="usb", SYSFS{model}="XV3", NAME="video%n", SYMLINK="webcam%n"
 .fi
 .P
-Permissions and ownership for the created device files may specified in
-.I /etc/udev/udev.permissions
-or by the
+The permissions and ownership of the created device file is read from
+the files located in the
+.I /etc/udev/permissions.d/
+directory, or at the location specified by the
 .I udev_permission
 value in the
 .I /etc/udev/udev.conf
