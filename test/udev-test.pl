@@ -550,11 +550,11 @@ KERNEL="tty2", NAME="tty2"
 EOF
 	},
 	{
-		desc		=> "permissions tty3:::",
+		desc		=> "permissions tty3::: (default mode applied)",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/tty3",
 		exp_name	=> "tty3",
-		exp_perms	=> "0:0:0",
+		exp_perms	=> "0:0:600",
 		conf		=> <<EOF
 KERNEL="tty3", NAME="tty3"
 EOF

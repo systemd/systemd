@@ -798,11 +798,10 @@ perms:
 		set_empty_perms(udev, perm->mode,
 				      perm->owner,
 				      perm->group);
-	} else {
-		set_empty_perms(udev, get_default_mode(),
-				      get_default_owner(),
-				      get_default_group());
 	}
+	set_empty_perms(udev, get_default_mode(),
+			      get_default_owner(),
+			      get_default_group());
 
 	dbg("name, '%s' is going to have owner='%s', group='%s', mode = %#o",
 	    udev->name, udev->owner, udev->group, udev->mode);
