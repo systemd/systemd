@@ -1,3 +1,14 @@
+Summary of changes from v031 to v032
+============================================
+
+<harald:redhat.com>:
+  o udev parse bug
+
+Kay Sievers:
+  o handle only block and class devices
+  o fix udevstart badly broken in udev 031
+
+
 Summary of changes from v030 to v031
 ============================================
 
