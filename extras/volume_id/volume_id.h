@@ -3,27 +3,27 @@
  *
  * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
  *
- *	This program is free software; you can redistribute it and/or modify it
- *	under the terms of the GNU General Public License as published by the
- *	Free Software Foundation version 2 of the License.
- * 
- *	This program is distributed in the hope that it will be useful, but
- *	WITHOUT ANY WARRANTY; without even the implied warranty of
- *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *	General Public License for more details.
- * 
- *	You should have received a copy of the GNU General Public License along
- *	with this program; if not, write to the Free Software Foundation, Inc.,
- *	675 Mass Ave, Cambridge, MA 02139, USA.
+ *	This library is free software; you can redistribute it and/or
+ *	modify it under the terms of the GNU Lesser General Public
+ *	License as published by the Free Software Foundation; either
+ *	version 2.1 of the License, or (at your option) any later version.
  *
+ *	This library is distributed in the hope that it will be useful,
+ *	but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ *	Lesser General Public License for more details.
+ *
+ *	You should have received a copy of the GNU Lesser General Public
+ *	License along with this library; if not, write to the Free Software
+ *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
 #ifndef _VOLUME_ID_H_
 #define _VOLUME_ID_H_
 
-#define VOLUME_ID_VERSION		001
+#define VOLUME_ID_VERSION		002
 
-#define VOLUME_ID_LABEL_SIZE		16
+#define VOLUME_ID_LABEL_SIZE		32
 #define VOLUME_ID_UUID_SIZE		16
 #define VOLUME_ID_UUID_STRING_SIZE	37
 #define VOLUME_ID_PATH_MAX		255
@@ -38,20 +38,27 @@ enum filesystem_type {
 	JFS,
 	MSDOS,
 	VFAT,
+	UDF,
+	ISO9660,
 	NTFS,
 	SWAP
 };
 
 struct volume_id {
-	char label[VOLUME_ID_LABEL_SIZE];
-	char label_string[VOLUME_ID_LABEL_SIZE+1];
-	unsigned char uuid[VOLUME_ID_UUID_SIZE];
-	char uuid_string[VOLUME_ID_UUID_STRING_SIZE];
-	enum filesystem_type fs_type;
-	char *fs_name;
-	int fd;
-	char *buf;
-	int fd_close;
+	char		label_raw[VOLUME_ID_LABEL_SIZE];
+	size_t		label_raw_len;
+	char		label_string[VOLUME_ID_LABEL_SIZE+1];
+	unsigned char	uuid[VOLUME_ID_UUID_SIZE];
+	char		uuid_string[VOLUME_ID_UUID_STRING_SIZE];
+	enum		filesystem_type fs_type;
+	char		*fs_name;
+	int		fd;
+	char		*sbbuf;
+	size_t		sbbuf_len;
+	char		*seekbuf;
+	size_t		seekbuf_off;
+	size_t		seekbuf_len;
+	int		fd_close;
 };
 
 /* open volume by already open file descriptor */

@@ -11,19 +11,19 @@
  *	a look at:
  *		http://e2fsprogs.sourceforge.net.
  *
- *	This program is free software; you can redistribute it and/or modify it
- *	under the terms of the GNU General Public License as published by the
- *	Free Software Foundation version 2 of the License.
+ *	This library is free software; you can redistribute it and/or
+ *	modify it under the terms of the GNU Lesser General Public
+ *	License as published by the Free Software Foundation; either
+ *	version 2.1 of the License, or (at your option) any later version.
  *
- *	This program is distributed in the hope that it will be useful, but
- *	WITHOUT ANY WARRANTY; without even the implied warranty of
- *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *	General Public License for more details.
+ *	This library is distributed in the hope that it will be useful,
+ *	but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ *	Lesser General Public License for more details.
  *
- *	You should have received a copy of the GNU General Public License along
- *	with this program; if not, write to the Free Software Foundation, Inc.,
- *	675 Mass Ave, Cambridge, MA 02139, USA.
- *
+ *	You should have received a copy of the GNU Lesser General Public
+ *	License along with this library; if not, write to the Free Software
+ *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
 #include <stdlib.h>
@@ -38,6 +38,17 @@
 
 #include "volume_id.h"
 
+#ifdef DEBUG
+#define dbg(format, arg...)						\
+	do {								\
+		printf("%s: " format "\n", __FUNCTION__ , ## arg);	\
+	} while (0)
+#else
+#define dbg(format, arg...)	do {} while (0)
+#endif
+
+#define bswap16(x) (__u16)((((__u16)(x) & 0x00ffu) << 8) | \
+			   (((__u32)(x) & 0xff00u) >> 8))
 
 #define bswap32(x) (__u32)((((__u32)(x) & 0xff000000u) >> 24) | \
 			   (((__u32)(x) & 0x00ff0000u) >>  8) | \
@@ -45,19 +56,28 @@
 			   (((__u32)(x) & 0x000000ffu) << 24))
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN) 
-#define cpu_to_le32(x) (x)
+#define le16_to_cpu(x) (x)
+#define le32_to_cpu(x) (x)
 #elif (__BYTE_ORDER == __BIG_ENDIAN)
-#define cpu_to_le32(x) bswap32(x)
+#define le16_to_cpu(x) bswap16(x)
+#define le32_to_cpu(x) bswap32(x)
 #endif
 
-#define VOLUME_ID_BUFFER_SIZE		0x11000 /* reiser offset is 64k */
+/* size of superblock buffer, reiser block is at 64k */
+#define SB_BUFFER_SIZE				0x11000
+/* size of seek buffer 2k */
+#define SEEK_BUFFER_SIZE			0x800
 
 
-static void set_label(struct volume_id *id, char *buf, int count)
+static void set_label_raw(struct volume_id *id, char *buf, int count)
+{
+	memcpy(id->label_raw, buf, count);
+	id->label_raw_len = count;
+}
+
+static void set_label_string(struct volume_id *id, char *buf, int count)
 {
 	int i;
-
-	memcpy(id->label, buf, count);
 
 	memcpy(id->label_string, buf, count);
 
@@ -90,7 +110,8 @@ set:
 		break;
 	case 16:
 		sprintf(id->uuid_string,
-			"%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
+			"%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-"
+			"%02x%02x%02x%02x%02x%02x",
 			buf[0], buf[1], buf[2], buf[3],
 			buf[4], buf[5],
 			buf[6], buf[7],
@@ -100,29 +121,67 @@ set:
 	}
 }
 
-static int open_superblock(struct volume_id *id)
+static char *get_buffer(struct volume_id *id, size_t off, size_t len)
 {
-	/* get buffer to read the first block */
-	if (id->buf == NULL) {
-		id->buf = malloc(VOLUME_ID_BUFFER_SIZE);
-		if (id->buf == NULL)
-			return -1;
+	size_t buf_len;
+
+	/* check if requested area fits in superblock buffer */
+	if (off + len <= SB_BUFFER_SIZE) {
+		if (id->sbbuf == NULL) {
+			id->sbbuf = malloc(SB_BUFFER_SIZE);
+			if (id->sbbuf == NULL)
+				return NULL;
+		}
+
+		/* check if we need to read */
+		if ((off + len) > id->sbbuf_len) {
+			dbg("read sbbuf len:0x%x", off + len);
+			lseek(id->fd, 0, SEEK_SET);
+			buf_len = read(id->fd, id->sbbuf, off + len);
+			id->sbbuf_len = buf_len;
+			if (buf_len < off + len)
+				return NULL;
+		}
+
+		return &(id->sbbuf[off]);
+	} else {
+		if (len > SEEK_BUFFER_SIZE)
+			len = SEEK_BUFFER_SIZE;
+
+		/* get seek buffer */
+		if (id->seekbuf == NULL) {
+			id->seekbuf = malloc(SEEK_BUFFER_SIZE);
+			if (id->seekbuf == NULL)
+				return NULL;
+		}
+
+		/* check if we need to read */
+		if ((off < id->seekbuf_off) ||
+		    ((off + len) > (id->seekbuf_off + id->seekbuf_len))) {
+			dbg("read seekbuf off:0x%x len:0x%x", off, len);
+			lseek(id->fd, off, SEEK_SET);
+			buf_len = read(id->fd, id->seekbuf, len);
+			id->seekbuf_off = off;
+			id->seekbuf_len = buf_len;
+			if (buf_len < len)
+				return NULL;
+		}
+
+		return &(id->seekbuf[off - id->seekbuf_off]);
 	}
-
-	/* try to read the first 64k, but at least the first block */
-	memset(id->buf, 0x00, VOLUME_ID_BUFFER_SIZE);
-	lseek(id->fd, 0, SEEK_SET);
-	if (read(id->fd, id->buf, VOLUME_ID_BUFFER_SIZE) < 0x200)
-		return -1;
-
-	return 0;
 }
 
-static void close_superblock(struct volume_id *id)
+static void free_buffer(struct volume_id *id)
 {
-	if (id->buf != NULL) {
-		free(id->buf);
-		id->buf = NULL;
+	if (id->sbbuf != NULL) {
+		free(id->sbbuf);
+		id->sbbuf = NULL;
+		id->sbbuf_len = 0;
+	}
+	if (id->seekbuf != NULL) {
+		free(id->seekbuf);
+		id->seekbuf = NULL;
+		id->seekbuf_len = 0;
 	}
 }
 
@@ -132,34 +191,39 @@ static void close_superblock(struct volume_id *id)
 static int probe_ext(struct volume_id *id)
 {
 	struct ext2_super_block {
-		__u32		s_inodes_count;
-		__u32		s_blocks_count;
-		__u32		s_r_blocks_count;
-		__u32		s_free_blocks_count;
-		__u32		s_free_inodes_count;
-		__u32		s_first_data_block;
-		__u32		s_log_block_size;
-		__u32		s_dummy3[7];
-		unsigned char	s_magic[2];
-		__u16		s_state;
-		__u32		s_dummy5[8];
-		__u32		s_feature_compat;
-		__u32		s_feature_incompat;
-		__u32		s_feature_ro_compat;
-		unsigned char	s_uuid[16];
-		char		s_volume_name[16];
+		__u32		inodes_count;
+		__u32		blocks_count;
+		__u32		r_blocks_count;
+		__u32		free_blocks_count;
+		__u32		free_inodes_count;
+		__u32		first_data_block;
+		__u32		log_block_size;
+		__u32		dummy3[7];
+		unsigned char	magic[2];
+		__u16		state;
+		__u32		dummy5[8];
+		__u32		feature_compat;
+		__u32		feature_incompat;
+		__u32		feature_ro_compat;
+		unsigned char	uuid[16];
+		char		volume_name[16];
 	} *es;
 
-	es = (struct ext2_super_block *) (id->buf + EXT_SUPERBLOCK_OFFSET);
-
-	if (es->s_magic[0] != 0123 ||
-	    es->s_magic[1] != 0357)
+	es = (struct ext2_super_block *)
+	     get_buffer(id, EXT_SUPERBLOCK_OFFSET, 0x200);
+	if (es == NULL)
 		return -1;
 
-	set_label(id, es->s_volume_name, 16);
-	set_uuid(id, es->s_uuid, 16);
+	if (es->magic[0] != 0123 ||
+	    es->magic[1] != 0357)
+		return -1;
 
-	if ((cpu_to_le32(es->s_feature_compat) & EXT3_FEATURE_COMPAT_HAS_JOURNAL) != 0) {
+	set_label_raw(id, es->volume_name, 16);
+	set_label_string(id, es->volume_name, 16);
+	set_uuid(id, es->uuid, 16);
+
+	if ((le32_to_cpu(es->feature_compat) &
+	     EXT3_FEATURE_COMPAT_HAS_JOURNAL) != 0) {
 		id->fs_type = EXT3;
 		id->fs_name = "ext3";
 	} else {
@@ -175,38 +239,45 @@ static int probe_ext(struct volume_id *id)
 static int probe_reiser(struct volume_id *id)
 {
 	struct reiser_super_block {
-		__u32		rs_blocks_count;
-		__u32		rs_free_blocks;
-		__u32		rs_root_block;
-		__u32		rs_journal_block;
-		__u32		rs_journal_dev;
-		__u32		rs_orig_journal_size;
-		__u32		rs_dummy2[5];
-		__u16		rs_blocksize;
-		__u16		rs_dummy3[3];
-		unsigned char	rs_magic[12];
-		__u32		rs_dummy4[5];
-		unsigned char	rs_uuid[16];
-		char		rs_label[16];
+		__u32		blocks_count;
+		__u32		free_blocks;
+		__u32		root_block;
+		__u32		journal_block;
+		__u32		journal_dev;
+		__u32		orig_journal_size;
+		__u32		dummy2[5];
+		__u16		blocksize;
+		__u16		dummy3[3];
+		unsigned char	magic[12];
+		__u32		dummy4[5];
+		unsigned char	uuid[16];
+		char		label[16];
 	} *rs;
 
-	rs = (struct reiser_super_block *) &(id->buf[REISER1_SUPERBLOCK_OFFSET]);
+	rs = (struct reiser_super_block *)
+	     get_buffer(id, REISER_SUPERBLOCK_OFFSET, 0x200);
+	if (rs == NULL)
+		return -1;
 
-	if (strncmp(rs->rs_magic, "ReIsErFs", 8) == 0)
+	if (strncmp(rs->magic, "ReIsEr2Fs", 9) == 0)
+		goto found;
+	if (strncmp(rs->magic, "ReIsEr3Fs", 9) == 0)
 		goto found;
 
-	rs = (struct reiser_super_block *) &(id->buf[REISER_SUPERBLOCK_OFFSET]);
+	rs = (struct reiser_super_block *)
+	     get_buffer(id, REISER1_SUPERBLOCK_OFFSET, 0x200);
+	if (rs == NULL)
+		return -1;
 
-	if (strncmp(rs->rs_magic, "ReIsEr2Fs", 9) == 0)
-		goto found;
-	if (strncmp(rs->rs_magic, "ReIsEr3Fs", 9) == 0)
+	if (strncmp(rs->magic, "ReIsErFs", 8) == 0)
 		goto found;
 
 	return -1;
 
 found:
-	set_label(id, rs->rs_label, 16);
-	set_uuid(id, rs->rs_uuid, 16);
+	set_label_raw(id, rs->label, 16);
+	set_label_string(id, rs->label, 16);
+	set_uuid(id, rs->uuid, 16);
 
 	id->fs_type = REISER;
 	id->fs_name = "reiser";
@@ -217,27 +288,30 @@ found:
 static int probe_xfs(struct volume_id *id)
 {
 	struct xfs_super_block {
-		unsigned char	xs_magic[4];
-		__u32		xs_blocksize;
-		__u64		xs_dblocks;
-		__u64		xs_rblocks;
-		__u32		xs_dummy1[2];
-		unsigned char	xs_uuid[16];
-		__u32		xs_dummy2[15];
-		char		xs_fname[12];
-		__u32		xs_dummy3[2];
-		__u64		xs_icount;
-		__u64		xs_ifree;
-		__u64		xs_fdblocks;
+		unsigned char	magic[4];
+		__u32		blocksize;
+		__u64		dblocks;
+		__u64		rblocks;
+		__u32		dummy1[2];
+		unsigned char	uuid[16];
+		__u32		dummy2[15];
+		char		fname[12];
+		__u32		dummy3[2];
+		__u64		icount;
+		__u64		ifree;
+		__u64		fdblocks;
 	} *xs;
 
-	xs = (struct xfs_super_block *) id->buf;
-
-	if (strncmp(xs->xs_magic, "XFSB", 4) != 0)
+	xs = (struct xfs_super_block *) get_buffer(id, 0, 0x200);
+	if (xs == NULL)
 		return -1;
 
-	set_label(id, xs->xs_fname, 12);
-	set_uuid(id, xs->xs_uuid, 16);
+	if (strncmp(xs->magic, "XFSB", 4) != 0)
+		return -1;
+
+	set_label_raw(id, xs->fname, 12);
+	set_label_string(id, xs->fname, 12);
+	set_uuid(id, xs->uuid, 16);
 
 	id->fs_type = XFS;
 	id->fs_name = "xfs";
@@ -249,25 +323,29 @@ static int probe_xfs(struct volume_id *id)
 static int probe_jfs(struct volume_id *id)
 {
 	struct jfs_super_block {
-		unsigned char	js_magic[4];
-		__u32		js_version;
-		__u64		js_size;
-		__u32		js_bsize;
-		__u32		js_dummy1;
-		__u32		js_pbsize;
-		__u32		js_dummy2[27];
-		unsigned char	js_uuid[16];
-		unsigned char	js_label[16];
-		unsigned char	js_loguuid[16];
+		unsigned char	magic[4];
+		__u32		version;
+		__u64		size;
+		__u32		bsize;
+		__u32		dummy1;
+		__u32		pbsize;
+		__u32		dummy2[27];
+		unsigned char	uuid[16];
+		unsigned char	label[16];
+		unsigned char	loguuid[16];
 	} *js;
 
-	js = (struct jfs_super_block *) &(id->buf[JFS_SUPERBLOCK_OFFSET]);
-
-	if (strncmp(js->js_magic, "JFS1", 4) != 0)
+	js = (struct jfs_super_block *)
+	     get_buffer(id, JFS_SUPERBLOCK_OFFSET, 0x200);
+	if (js == NULL)
 		return -1;
 
-	set_label(id, js->js_label, 16);
-	set_uuid(id, js->js_uuid, 16);
+	if (strncmp(js->magic, "JFS1", 4) != 0)
+		return -1;
+
+	set_label_raw(id, js->label, 16);
+	set_label_string(id, js->label, 16);
+	set_uuid(id, js->uuid, 16);
 
 	id->fs_type = JFS;
 	id->fs_name = "jfs";
@@ -278,46 +356,49 @@ static int probe_jfs(struct volume_id *id)
 static int probe_vfat(struct volume_id *id)
 {
 	struct vfat_super_block {
-		unsigned char	vs_ignored[3];
-		unsigned char	vs_sysid[8];
-		unsigned char	vs_sector_size[2];
-		__u8		vs_cluster_size;
-		__u16		vs_reserved;
-		__u8		vs_fats;
-		unsigned char	vs_dir_entries[2];
-		unsigned char	vs_sectors[2];
-		unsigned char	vs_media;
-		__u16		vs_fat_length;
-		__u16		vs_secs_track;
-		__u16		vs_heads;
-		__u32		vs_hidden;
-		__u32		vs_total_sect;
-		__u32		vs_fat32_length;
-		__u16		vs_flags;
-		__u8		vs_version[2];
-		__u32		vs_root_cluster;
-		__u16		vs_insfo_sector;
-		__u16		vs_backup_boot;
-		__u16		vs_reserved2[6];
-		unsigned char	vs_unknown[3];
-		unsigned char	vs_serno[4];
-		char		vs_label[11];
-		unsigned char	vs_magic[8];
-		unsigned char	vs_dummy2[164];
-		unsigned char	vs_pmagic[2];
+		unsigned char	ignored[3];
+		unsigned char	sysid[8];
+		unsigned char	sector_size[2];
+		__u8		cluster_size;
+		__u16		reserved;
+		__u8		fats;
+		unsigned char	dir_entries[2];
+		unsigned char	sectors[2];
+		unsigned char	media;
+		__u16		fat_length;
+		__u16		secs_track;
+		__u16		heads;
+		__u32		hidden;
+		__u32		total_sect;
+		__u32		fat32_length;
+		__u16		flags;
+		__u8		version[2];
+		__u32		root_cluster;
+		__u16		insfo_sector;
+		__u16		backup_boot;
+		__u16		reserved2[6];
+		unsigned char	unknown[3];
+		unsigned char	serno[4];
+		char		label[11];
+		unsigned char	magic[8];
+		unsigned char	dummy2[164];
+		unsigned char	pmagic[2];
 	} *vs;
 
-	vs = (struct vfat_super_block *) id->buf;
+	vs = (struct vfat_super_block *) get_buffer(id, 0, 0x200);
+	if (vs == NULL)
+		return -1;
 
-	if (strncmp(vs->vs_magic, "MSWIN", 5) == 0)
+	if (strncmp(vs->magic, "MSWIN", 5) == 0)
 		goto found;
-	if (strncmp(vs->vs_magic, "FAT32   ", 8) == 0)
+	if (strncmp(vs->magic, "FAT32   ", 8) == 0)
 		goto found;
 	return -1;
 
 found:
-	memcpy(id->label, vs->vs_label, 11);
-	memcpy(id->uuid, vs->vs_serno, 4);
+	set_label_raw(id, vs->label, 11);
+	set_label_string(id, vs->label, 11);
+	set_uuid(id, vs->serno, 4);
 
 	id->fs_type = VFAT;
 	id->fs_name = "vfat";
@@ -328,44 +409,259 @@ found:
 static int probe_msdos(struct volume_id *id)
 {
 	struct msdos_super_block {
-		unsigned char	ms_ignored[3];
-		unsigned char	ms_sysid[8];
-		unsigned char	ms_sector_size[2];
-		__u8		ms_cluster_size;
-		__u16		ms_reserved;
-		__u8		ms_fats;
-		unsigned char	ms_dir_entries[2];
-		unsigned char	ms_sectors[2];
-		unsigned char	ms_media;
-		__u16		ms_fat_length;
-		__u16		ms_secs_track;
-		__u16		ms_heads;
-		__u32		ms_hidden;
-		__u32		ms_total_sect;
-		unsigned char	ms_unknown[3];
-		unsigned char	ms_serno[4];
-		char		ms_label[11];
-		unsigned char	ms_magic[8];
-		unsigned char	ms_dummy2[192];
-		unsigned char	ms_pmagic[2];
+		unsigned char	ignored[3];
+		unsigned char	sysid[8];
+		unsigned char	sector_size[2];
+		__u8		cluster_size;
+		__u16		reserved;
+		__u8		fats;
+		unsigned char	dir_entries[2];
+		unsigned char	sectors[2];
+		unsigned char	media;
+		__u16		fat_length;
+		__u16		secs_track;
+		__u16		heads;
+		__u32		hidden;
+		__u32		total_sect;
+		unsigned char	unknown[3];
+		unsigned char	serno[4];
+		char		label[11];
+		unsigned char	magic[8];
+		unsigned char	dummy2[192];
+		unsigned char	pmagic[2];
 	} *ms;
 
-	ms = (struct msdos_super_block *) id->buf;
+	ms = (struct msdos_super_block *) get_buffer(id, 0, 0x200);
+	if (ms == NULL)
+		return -1;
 
-	if (strncmp(ms->ms_magic, "MSDOS", 5) == 0)
+	if (strncmp(ms->magic, "MSDOS", 5) == 0)
 		goto found;
-	if (strncmp(ms->ms_magic, "FAT16   ", 8) == 0)
+	if (strncmp(ms->magic, "FAT16   ", 8) == 0)
 		goto found;
-	if (strncmp(ms->ms_magic, "FAT12   ", 8) == 0)
+	if (strncmp(ms->magic, "FAT12   ", 8) == 0)
 		goto found;
 	return -1;
 
 found:
-	set_label(id, ms->ms_label, 11);
-	set_uuid(id, ms->ms_serno, 4);
+	set_label_raw(id, ms->label, 11);
+	set_label_string(id, ms->label, 11);
+	set_uuid(id, ms->serno, 4);
 
 	id->fs_type = MSDOS;
 	id->fs_name = "msdos";
+
+	return 0;
+}
+
+#define UDF_VSD_OFFSET			0x8000
+static int probe_udf(struct volume_id *id)
+{
+	struct volume_descriptor {
+		struct descriptor_tag {
+			__u16		id;
+			__u16		version;
+			unsigned char	checksum;
+			unsigned char	reserved;
+			__u16		serial;
+			__u16		crc;
+			__u16		crc_len;
+			__u32		location;
+		} tag;
+		union {
+			struct anchor_descriptor {
+				__u32		length;
+				__u32		location;
+			} anchor;
+			struct primary_descriptor {
+				__u32		seq_num;
+				__u32		desc_num;
+				struct dstring {
+					char		clen;
+					char		c[31];
+				} ident;
+			} primary;
+		} type;
+	} *vd;
+
+	struct volume_structure_descriptor {
+		unsigned char	type;
+		char		id[5];
+		unsigned char	version;
+	} *vsd;
+
+	size_t bs;
+	size_t b;
+	int type;
+	int count;
+	int loc;
+	int clen;
+	int i,j;
+	int c;
+
+	vsd = (struct volume_structure_descriptor *)
+	      get_buffer(id, UDF_VSD_OFFSET, 0x200);
+	if (vsd == NULL)
+		return -1;
+
+	if (strncmp(vsd->id, "NSR02", 5) == 0)
+		goto blocksize;
+	if (strncmp(vsd->id, "NSR03", 5) == 0)
+		goto blocksize;
+	if (strncmp(vsd->id, "BEA01", 5) == 0)
+		goto blocksize;
+	if (strncmp(vsd->id, "BOOT2", 5) == 0)
+		goto blocksize;
+	if (strncmp(vsd->id, "CD001", 5) == 0)
+		goto blocksize;
+	if (strncmp(vsd->id, "CDW02", 5) == 0)
+		goto blocksize;
+	if (strncmp(vsd->id, "TEA03", 5) == 0)
+		goto blocksize;
+	return -1;
+
+blocksize:
+	/* search the next VSD to get the logical block size of the volume */
+	for (bs = 0x800; bs < 0x8000; bs += 0x800) {
+		vsd = (struct volume_structure_descriptor *)
+		      get_buffer(id, UDF_VSD_OFFSET + bs, 0x800);
+		if (vsd == NULL)
+			return -1;
+		dbg("test for blocksize: 0x%x", bs);
+		if (vsd->id[0] != '\0')
+			goto nsr;
+	}
+	return -1;
+
+nsr:
+	/* search the list of VSDs for a NSR descriptor */
+	for (b = 0; b < 64; b++) {
+		vsd = (struct volume_structure_descriptor *)
+		      get_buffer(id, UDF_VSD_OFFSET + (b * bs), 0x800);
+		if (vsd == NULL)
+			return -1;
+
+		dbg("vsd: %c%c%c%c%c",
+		    vsd->id[0], vsd->id[1], vsd->id[2], vsd->id[3], vsd->id[4]);
+
+		if (vsd->id[0] == '\0')
+			return -1;
+		if (strncmp(vsd->id, "NSR02", 5) == 0)
+			goto anchor;
+		if (strncmp(vsd->id, "NSR03", 5) == 0)
+			goto anchor;
+	}
+	return -1;
+
+anchor:
+	/* read anchor volume descriptor */
+	vd = (struct volume_descriptor *) get_buffer(id, 256 * bs, 0x200);
+	if (vd == NULL)
+		return -1;
+
+	type = le16_to_cpu(vd->tag.id);
+	if (type != 2) /* TAG_ID_AVDP */
+		goto found;
+
+	/* get desriptor list address and block count */
+	count = le32_to_cpu(vd->type.anchor.length) / bs;
+	loc = le32_to_cpu(vd->type.anchor.location);
+	dbg("0x%x descriptors starting at logical secor 0x%x", count, loc);
+
+	/* pick the primary descriptor from the list */
+	for (b = 0; b < count; b++) {
+		vd = (struct volume_descriptor *)
+		     get_buffer(id, (loc + b) * bs, 0x200);
+		if (vd == NULL)
+			return -1;
+
+		type = le16_to_cpu(vd->tag.id);
+		dbg("descriptor type %i", type);
+
+		/* check validity */
+		if (type == 0)
+			goto found;
+		if (le32_to_cpu(vd->tag.location) != loc + b)
+			goto found;
+
+		if (type == 1) /* TAG_ID_PVD */
+			goto pvd;
+	}
+	goto found;
+
+pvd:
+	set_label_raw(id, &(vd->type.primary.ident.clen), 32);
+
+	clen = vd->type.primary.ident.clen;
+	dbg("label string charsize=%i bit", clen);
+	if (clen == 8) {
+		set_label_string(id, vd->type.primary.ident.c, 31);
+	} else if (clen == 16) {
+		/* convert unicode OSTA dstring to UTF-8 */
+		j = 0;
+		for (i = 0; i < 32; i += 2) {
+			c = (vd->type.primary.ident.c[i] << 8) |
+			    vd->type.primary.ident.c[i+1];
+			if (c == 0) {
+				id->label_string[j] = '\0';
+				break;
+			}else if (c < 0x80U) {
+				id->label_string[j++] = (char) c;
+			} else if (c < 0x800U) {
+				id->label_string[j++] = (char) (0xc0 | (c >> 6));
+				id->label_string[j++] = (char) (0x80 | (c & 0x3f));
+			} else {
+				id->label_string[j++] = (char) (0xe0 | (c >> 12));
+				id->label_string[j++] = (char) (0x80 | ((c >> 6) & 0x3f));
+				id->label_string[j++] = (char) (0x80 | (c & 0x3f));
+			}
+		}
+	}
+
+found:
+	id->fs_type = UDF;
+	id->fs_name = "udf";
+
+	return 0;
+}
+
+#define ISO_SUPERBLOCK_OFFSET		0x8000
+static int probe_iso9660(struct volume_id *id)
+{
+	union iso_super_block {
+		struct iso_header {
+			unsigned char	type;
+			char		id[5];
+			unsigned char	version;
+			unsigned char	unused1;
+			char		system_id[32];
+			char		volume_id[32];
+		} iso;
+		struct hs_header {
+			char		foo[8];
+			unsigned char	type;
+			char		id[4];
+			unsigned char	version;
+		} hs;
+	} *is;
+
+	is = (union iso_super_block *)
+	     get_buffer(id, ISO_SUPERBLOCK_OFFSET, 0x200);
+	if (is == NULL)
+		return -1;
+
+	if (strncmp(is->iso.id, "CD001", 5) == 0) {
+		set_label_raw(id, is->iso.volume_id, 32);
+		set_label_string(id, is->iso.volume_id, 32);
+		goto found;
+	}
+	if (strncmp(is->hs.id, "CDROM", 5) == 0)
+		goto found;
+	return -1;
+
+found:
+	id->fs_type = ISO9660;
+	id->fs_name = "iso9660";
 
 	return 0;
 }
@@ -377,7 +673,9 @@ static int probe_ntfs(struct volume_id *id)
 		char oem_id[4];
 	} *ns;
 
-	ns = (struct ntfs_super_block *) id->buf;
+	ns = (struct ntfs_super_block *) get_buffer(id, 0, 0x200);
+	if (ns == NULL)
+		return -1;
 
 	if (strncmp(ns->oem_id, "NTFS", 4) != 0)
 		return -1;
@@ -388,15 +686,21 @@ static int probe_ntfs(struct volume_id *id)
 	return 0;
 }
 
+#define LARGEST_PAGESIZE			0x4000
 static int probe_swap(struct volume_id *id)
 {
-	int magic;
+	char *sig;
+	size_t page;
 
 	/* huhh, the swap signature is on the end of the PAGE_SIZE */
-	for (magic = 0x1000; magic <= 0x4000; magic <<= 1) {
-			if (strncmp(&(id->buf[magic -10]), "SWAP-SPACE", 10) == 0)
+	for (page = 0x1000; page <= LARGEST_PAGESIZE; page <<= 1) {
+			sig = get_buffer(id, page-10, 10);
+			if (sig == NULL)
+				return -1;
+
+			if (strncmp(sig, "SWAP-SPACE", 10) == 0)
 				goto found;
-			if (strncmp(&(id->buf[magic -10]), "SWAPSPACE2", 10) == 0)
+			if (strncmp(sig, "SWAPSPACE2", 10) == 0)
 				goto found;
 	}
 	return -1;
@@ -415,9 +719,6 @@ int volume_id_probe(struct volume_id *id, enum filesystem_type fs_type)
 
 	if (id == NULL)
 		return -EINVAL;
-
-	if (open_superblock(id) != 0)
-		return -EACCES;
 
 	switch (fs_type) {
 	case EXT3:
@@ -439,13 +740,22 @@ int volume_id_probe(struct volume_id *id, enum filesystem_type fs_type)
 	case VFAT:
 		rc = probe_vfat(id);
 		break;
+	case UDF:
+		rc = probe_udf(id);
+		break;
+	case ISO9660:
+		rc = probe_iso9660(id);
+		break;
 	case NTFS:
 		rc = probe_ntfs(id);
 		break;
 	case SWAP:
 		rc = probe_swap(id);
 		break;
+	case ALL:
 	default:
+		/* fill buffer with maximum */
+		get_buffer(id, 0, SB_BUFFER_SIZE);
 		rc = probe_ext(id);
 		if (rc == 0)
 			break;
@@ -464,6 +774,12 @@ int volume_id_probe(struct volume_id *id, enum filesystem_type fs_type)
 		rc = probe_vfat(id);
 		if (rc == 0)
 			break;
+		rc = probe_udf(id);
+		if (rc == 0)
+			break;
+		rc = probe_iso9660(id);
+		if (rc == 0)
+			break;
 		rc = probe_ntfs(id);
 		if (rc == 0)
 			break;
@@ -473,8 +789,10 @@ int volume_id_probe(struct volume_id *id, enum filesystem_type fs_type)
 		rc = -1;
 	}
 
+	/* If the filestystem in recognized, we free the allocated buffers,
+	   otherwise they will stay in place for the possible next probe call */
 	if (rc == 0)
-		close_superblock(id);
+		free_buffer(id);
 
 	return rc;
 }
@@ -544,7 +862,7 @@ void volume_id_close(struct volume_id *id)
 	if (id->fd_close != 0)
 		close(id->fd);
 
-	close_superblock(id);
+	free_buffer(id);
 
 	free(id);
 }
