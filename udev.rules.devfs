@@ -1,0 +1,34 @@
+# These rules are to try to emulate a devfs naming scheme in udev
+# if there are any missing rules, please let the udev developers
+# know.
+#
+# There are a number of modifiers that are allowed to be used in the
+# a number of the different fields. They provide the following subsitutions:
+# %n - the "kernel number" of the device.
+#      for example, 'sda3' has a "kernel number" of '3'
+# %M - the kernel major number for the device
+# %m - the kernel minor number for the device
+# %b - the bus id for the device
+# %c - the return value for the CALLOUT program (note, this doesn't work within
+#      the PROGRAM field for the obvious reason.)
+# %D - use the devfs style disk name for this device.
+#      For partitions, this will result in 'part%n'
+#      If this is not a partition, it will result in 'disk'
+#
+
+NUMBER, BUS="ide", id="0.0", NAME="ide/host0/bus0/target0/lun0/%D"
+NUMBER, BUS="ide", id="0.1", NAME="ide/host0/bus0/target1/lun0/%D"
+NUMBER, BUS="ide", id="1.0", NAME="ide/host0/bus1/target0/lun0/%D"
+NUMBER, BUS="ide", id="1.1", NAME="ide/host0/bus1/target1/lun0/%D"
+
+REPLACE, KERNEL="md[0-9]*", NAME="md/%n"
+
+REPLACE, KERNEL="tty[0-9]*", NAME="vc/%n"
+REPLACE, KERNEL="ttyS[0-9]*", NAME="tts/%n"
+REPLACE, KERNEL="ttyUSB[0-9]*", NAME="tts/USB%n"
+
+REPLACE, KERNEL="video[0-9]*", NAME="v4l/video%n"
+REPLACE, KERNEL="radio[0-9]*", NAME="v4l/radio%n"
+REPLACE, KERNEL="vbi[0-9]*",   NAME="v4l/vbi%n"
+REPLACE, KERNEL="vtx[0-9]*",   NAME="v4l/vtx%n"
+
