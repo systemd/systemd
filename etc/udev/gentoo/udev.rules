@@ -198,6 +198,8 @@ KERNEL="pt*",		NAME="%k", GROUP="tape"
 KERNEL="npt*",		NAME="%k", GROUP="tape"
 KERNEL="st*",		NAME="%k", GROUP="tape"
 KERNEL="nst*",		NAME="%k", GROUP="tape"
+KERNEL="osst*",		NAME="%k", GROUP="tape"
+KERNEL="nosst*",	NAME="%k", GROUP="tape"
 
 # diskonkey devices
 KERNEL="diskonkey*",	NAME="%k", GROUP="disk"
@@ -210,7 +212,4 @@ KERNEL="kbd",		NAME="%k", MODE="0664"
 
 # Sony Vaio Jogdial sonypi device
 KERNEL="sonypi",	NAME="%k", MODE="0666"
-
-# gpm devices
-KERNEL="gpmctl",	NAME="%k", MODE="0700"
 
