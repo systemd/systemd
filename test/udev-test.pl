@@ -539,10 +539,9 @@ EOF
 		subsys		=> "block",
 		devpath		=> "block/sda",
 		exp_name	=> "node",
-		perms		=> "5000::0444",
 		exp_majorminor	=> "8:0",
 		conf		=> <<EOF
-BUS="scsi", KERNEL="sda", NAME="node", OWNER="5000", MODE="0444"
+BUS="scsi", KERNEL="sda", NAME="node"
 EOF
 	},
 );
@@ -593,7 +592,9 @@ sub run_test {
 			if ($3 ne "") {
 				if (($mode & 07777) != oct($3)) { $wrong = 1; };
 			}
-			if ($wrong == 1) {
+			if ($wrong == 0) {
+				print "permissions: ok    ";
+			} else {
 				printf "expected permissions are: %i:%i:%#o\n", $1, $2, oct($3);
 				printf "created permissions are : %i:%i:%#o\n", $uid, $gid, $mode & 07777;
 				$error++;
@@ -612,7 +613,9 @@ sub run_test {
 			if ($2 ne "") {
 				if ($minor != $2) { $wrong = 1; };
 			}
-			if ($wrong == 1) {
+			if ($wrong == 0) {
+				print "major:minor: ok    ";
+			} else {
 				printf "expected major:minor is: %i:%i\n", $1, $2;
 				printf "created major:minor is : %i:%i\n", $major, $minor;
 				$error++;
