@@ -1,17 +1,5 @@
-# There are a number of modifiers that are allowed to be used in the NAME or PROGRAM fields.
-# They provide the following subsitutions:
-# %n - the "kernel number" of the device.
-#      for example, 'sda3' has a "kernel number" of '3'
-# %k - the kernel name for the device.
-# %M - the kernel major number for the device
-# %m - the kernel minor number for the device
-# %b - the bus id for the device
-# %c - the return value of the external PROGRAM (note, this doesn't work within
-#      the PROGRAM field for the obvious reason.)
-# %D - use the devfs style disk name for this device.
-#      For partitions, this will result in 'part%n'
-#      If this is not a partition, it will result in 'disc'
-#
+# There are a number of modifiers that are allowed to be used in some of the
+# fields.  See the udev man page for a full description of them.
 
 # Looking for scsi bus id 42:0:0:1
 BUS="scsi", PROGRAM="/bin/echo -n test-%b", RESULT="test-42:0:0:1", NAME="%c"

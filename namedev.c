@@ -196,16 +196,6 @@ static void apply_format(struct udevice *udev, unsigned char *string)
 				strcat(pos, udev->kernel_number);
 				dbg("substitute kernel number '%s'", udev->kernel_number);
 				break;
-			case 'D':
-				if (strlen(udev->kernel_number) == 0) {
-					strcat(pos, "disc");
-					dbg("substitute devfs disc");
-					break;
-				}
-				strcat(pos, "part");
-				strcat(pos, udev->kernel_number);
-				dbg("substitute devfs part '%s'", udev->kernel_number);
-				break;
 			case 'm':
 				sprintf(pos, "%u", udev->minor);
 				dbg("substitute minor number '%u'", udev->minor);
