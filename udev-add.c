@@ -74,45 +74,24 @@ exit:
  */
 static int create_node(char *name, char type, int major, int minor, int mode)
 {
-	char *argv[7];
-	char mode_string[100];
-	char type_string[3];
-	char major_string[20];
-	char minor_string[20];
 	char filename[255];
 	int retval = 0;
-
 	strncpy(filename, UDEV_ROOT, sizeof(filename));
 	strncat(filename, name, sizeof(filename));
+	if (type == 'b') {
+	       mode |= S_IFBLK;
+    	} else if ((type == 'c') || (type == 'u')){
+	        mode |= S_IFCHR;
+    	} else if ( type == 'p') {
+       		 mode |= S_IFIFO;
+    	} else {
+       		dbg("unknown node type %c\n", type);
+       		return -1;
+ 	}
 
-	snprintf(mode_string, sizeof(mode_string), "--mode=%#o", mode);
-	snprintf(type_string, sizeof(type_string), "%c", type);
-	snprintf(major_string, sizeof(major_string), "%d", major);
-	snprintf(minor_string, sizeof(minor_string), "%d", minor);
-	
-	argv[0] = MKNOD;
-	argv[1] = mode_string;
-	argv[2] = filename;
-	argv[3] = type_string;
-	argv[4] = major_string;
-	argv[5] = minor_string;
-	argv[6] = NULL;
-	dbg ("executing %s %s %s %s %s %s",
-		argv[0], argv[1], argv[2], argv[3], argv[4], argv[5]);
-	switch (fork()) {
-		case 0:
-			/* we are the child, so lets run the program */
-			execv (MKNOD, argv);
-			exit(0);
-			break;
-		case (-1):
-			dbg ("fork failed.");
-			retval = -EFAULT;
-			break;
-		default:
-			break;
-	}
+	retval = mknod(filename,mode,makedev(major,minor));
 	return retval;
+		
 }
 
 struct sysfs_class_device *get_class_dev(char *device_name)
