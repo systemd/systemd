@@ -43,6 +43,7 @@
 #define FIELD_MODE		"MODE"
 #define FIELD_OPTIONS		"OPTIONS"
 
+#define OPTION_LAST_RULE	"last_rule"
 #define OPTION_IGNORE_DEVICE	"ignore_device"
 #define OPTION_IGNORE_REMOVE	"ignore_remove"
 #define OPTION_PARTITIONS	"all_partitions"
@@ -74,9 +75,10 @@ struct udev_rule {
 	char group[USER_SIZE];
 	mode_t mode;
 
-	int partitions;
+	int last_rule;
 	int ignore_device;
 	int ignore_remove;
+	int partitions;
 
 	char config_file[PATH_SIZE];
 	int config_line;

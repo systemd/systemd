@@ -759,6 +759,12 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 
 				break;
 			}
+
+			if (rule->last_rule) {
+				dbg("last rule to be applied");
+				break;
+			}
+
 		}
 	}
 

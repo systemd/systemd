@@ -1115,9 +1115,18 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "start-udev-root-end",
-		option		=> "clean",
 		conf		=> <<EOF
 BUS="scsi", KERNEL="sda1", NAME="start-%r-end"
+EOF
+	},
+	{
+		desc		=> "last_rule option",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "last",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda1", SYMLINK="last", OPTIONS="last_rule"
+BUS="scsi", KERNEL="sda1", NAME="very-last"
 EOF
 	},
 );

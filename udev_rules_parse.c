@@ -283,6 +283,10 @@ static int rules_parse(struct udevice *udev, const char *filename)
 			}
 
 			if (strcasecmp(temp2, FIELD_OPTIONS) == 0) {
+				if (strstr(temp3, OPTION_LAST_RULE) != NULL) {
+					dbg("last rule to be applied");
+					rule.last_rule = 1;
+				}
 				if (strstr(temp3, OPTION_IGNORE_DEVICE) != NULL) {
 					dbg("device should be ignored");
 					rule.ignore_device = 1;
