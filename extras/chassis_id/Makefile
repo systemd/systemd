@@ -23,6 +23,11 @@
 CFLAGS = -g 
 TARGET = chassis_id
 
+exec_prefix =   ${prefix}
+sbindir =       ${exec_prefix}/sbin
+INSTALL = /usr/bin/install -c
+INSTALL_PROGRAM = ${INSTALL}
+INSTALL_DATA  = ${INSTALL} -m 644
 all:	chassis_id  
 
 chassis_id:	chassis_id.c table.c
@@ -30,3 +35,7 @@ chassis_id:	chassis_id.c table.c
 
 clean:	
 	rm -rf core a.out $(TARGET)
+
+install: all
+	$(INSTALL_PROGRAM) $(TARGET) $(DESTDIR)$(sbindir)/$(TARGET)
+ 
