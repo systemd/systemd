@@ -174,6 +174,9 @@ input/event*:root:root:600
 input/ts*:root:root:600
 input/*:root:root:644
 
+# Sony Vaio Jogdial sonypi device
+sonypi:root:root:0666
+
 # gpm devices
 gpmctl:root:root:0700
 
