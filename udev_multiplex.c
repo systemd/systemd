@@ -74,26 +74,28 @@ static int run_program(const char *filename, void *data)
 void udev_multiplex_directory(struct udevice *udev, const char *basedir, const char *suffix)
 {
 	char dirname[PATH_MAX];
-	char devname[NAME_SIZE];
-	char *temp;
-
-	/* skip if UDEV_NO_DEVD is set */
-	if (udev_dev_d == 0)
-		return;
-
-	strfieldcpy(devname, udev->name);
 
 	/* chop the device name up into pieces based on '/' */
-	temp = strchr(devname, '/');
-	while (temp != NULL) {
-		temp[0] = '\0';
-		snprintf(dirname, PATH_MAX, "%s/%s", basedir, devname);
-		dirname[PATH_MAX-1] = '\0';
-		call_foreach_file(run_program, dirname, suffix, udev);
+	if (udev->name[0] != '\0') {
+		char devname[NAME_SIZE];
+		char *temp;
 
-		temp[0] = '/';
-		++temp;
-		temp = strchr(temp, '/');
+		strfieldcpy(devname, udev->name);
+		temp = strchr(devname, '/');
+		while (temp != NULL) {
+			temp[0] = '\0';
+
+			/* don't call the subsystem directory here */
+			if (strcmp(devname, udev->subsystem) != 0) {
+				snprintf(dirname, PATH_MAX, "%s/%s", basedir, devname);
+				dirname[PATH_MAX-1] = '\0';
+				call_foreach_file(run_program, dirname, suffix, udev);
+			}
+
+			temp[0] = '/';
+			++temp;
+			temp = strchr(temp, '/');
+		}
 	}
 
 	if (udev->name[0] != '\0') {
