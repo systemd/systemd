@@ -45,9 +45,9 @@
 
 static int pipefds[2];
 static unsigned long long expected_seqnum = 0;
-volatile static int children_waiting;
-volatile static int run_msg_q;
-volatile static int sig_flag;
+static volatile int children_waiting;
+static volatile int run_msg_q;
+static volatile int sig_flag;
 static int run_exec_q;
 
 static LIST_HEAD(msg_list);
@@ -397,7 +397,7 @@ int main(int argc, char *argv[])
 	int ssock, maxsockplus;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
-	int retval;
+	int retval, fd;
 	const int on = 1;
 	struct sigaction act;
 	fd_set readfds;
@@ -409,6 +409,22 @@ int main(int argc, char *argv[])
 		dbg("need to be root, exit");
 		exit(1);
 	}
+	/* make sure we are at top of dir */
+	chdir("/");
+	umask( umask( 077 ) | 022 );
+	/* Set fds to dev/null */
+	fd = open( "/dev/null", O_RDWR );
+	if ( fd < 0 ) {
+		dbg("error opening /dev/null %s", strerror(errno));
+		exit(1);
+	}
+	dup2(fd, 0);
+	dup2(fd, 1);
+	dup2(fd, 2);
+	if (fd > 2) 
+		close(fd);
+	/* Get new session id so stray signals don't come our way. */
+	setsid();
 
 	/* setup signal handler pipe */
 	retval = pipe(pipefds);
@@ -418,7 +434,12 @@ int main(int argc, char *argv[])
 	}
 
 	retval = fcntl(pipefds[0], F_SETFL, O_NONBLOCK);
-		if (retval < 0) {
+	if (retval < 0) {
+		dbg("error fcntl on read pipe: %s", strerror(errno));
+		exit(1);
+	}
+	retval = fcntl(pipefds[0], F_SETFD, FD_CLOEXEC);
+	if (retval < 0) {
 		dbg("error fcntl on read pipe: %s", strerror(errno));
 		exit(1);
 	}
@@ -428,7 +449,13 @@ int main(int argc, char *argv[])
 		dbg("error fcntl on write pipe: %s", strerror(errno));
 		exit(1);
 	}
+	retval = fcntl(pipefds[1], F_SETFD, FD_CLOEXEC);
+	if (retval < 0) {
+		dbg("error fcntl on write pipe: %s", strerror(errno));
+		exit(1);
+	}
 
+	
 	/* set signal handlers */
 	act.sa_handler = sig_handler;
 	sigemptyset(&act.sa_mask);
@@ -455,6 +482,11 @@ int main(int argc, char *argv[])
 	if (retval < 0) {
 		dbg("bind failed, exit");
 		goto exit;
+	}
+	retval = fcntl(ssock, F_SETFD, FD_CLOEXEC);
+	if (retval < 0) {
+		dbg("error fcntl on ssock: %s", strerror(errno));
+		exit(1);
 	}
 
 	/* enable receiving of the sender credentials */
