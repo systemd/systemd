@@ -33,6 +33,7 @@ INFO =		udevinfo
 TESTER =	udevtest
 STARTER =	udevstart
 RULER =		udevruler
+WAIT =		wait_for_sysfs
 VERSION =	032_bk
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
@@ -171,7 +172,7 @@ endif
 
 CFLAGS += -I$(PWD)/libsysfs
 
-all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER)
+all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(WAIT)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) \
@@ -287,10 +288,14 @@ $(RULER): $(LIBC) $(RULER).o $(OBJS) $(HEADERS)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevruler.o udev_lib.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS) -lnewt
 	$(STRIPCMD) $@
 
+$(WAIT): $(WAIT).o $(OBJS) $(HEADERS) $(LIBC)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) $(WAIT).o $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(STRIPCMD) $@
+
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
-	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) $(SENDER) $(TESTER) $(RULER)
+	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) $(SENDER) $(TESTER) $(RULER) $(WAIT)
 	$(MAKE) -C klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
@@ -391,8 +396,10 @@ install: install-initscript install-config install-man install-dev.d all
 	$(INSTALL_PROGRAM) -D $(SENDER) $(DESTDIR)$(sbindir)/$(SENDER)
 	$(INSTALL_PROGRAM) -D $(INFO) $(DESTDIR)$(usrbindir)/$(INFO)
 	$(INSTALL_PROGRAM) -D $(TESTER) $(DESTDIR)$(usrbindir)/$(TESTER)
-	ln -sf $(sbindir)/udev $(DESTDIR)$(sbindir)/$(STARTER)
+	$(INSTALL_PROGRAM) -D $(WAIT) $(DESTDIR)$(sbindir)/$(WAIT)
+	- ln -f -s $(sbindir)/udev $(DESTDIR)$(sbindir)/$(STARTER)
 	- ln -f -s $(sbindir)/$(SENDER) $(DESTDIR)$(hotplugdir)/10-udev.hotplug
+	- ln -f -s $(sbindir)/$(WAIT) $(DESTDIR)$(hotplugdir)/00-wait_for_sysfs.hotplug
 ifndef DESTDIR
 	- killall udevd
 	- rm -f $(udevdir)/.udev.tdb
@@ -405,6 +412,7 @@ endif
 
 uninstall: uninstall-man uninstall-dev.d
 	- rm $(hotplugdir)/10-udev.hotplug
+	- rm $(hotplugdir)/00-wait_for_sysfs.hotplug
 	- rm $(configdir)/rules.d/50-udev.rules
 	- rm $(configdir)/permissions.d/50-udev.permissions
 	- rm $(configdir)/udev.conf
@@ -418,6 +426,7 @@ uninstall: uninstall-man uninstall-dev.d
 	- rm $(sbindir)/$(STARTER)
 	- rm $(usrbindir)/$(INFO)
 	- rm $(usrbindir)/$(TESTER)
+	- rm $(usrbindir)/$(WAIT)
 	- rmdir $(hotplugdir)
 	- rm $(udevdir)/.udev.tdb
 	- rmdir $(udevdir)
