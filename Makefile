@@ -94,7 +94,7 @@ OPTIMIZATION := ${shell if $(CC) -Os -S -o /dev/null -xc /dev/null >/dev/null 2>
 		then echo "-Os"; else echo "-O2" ; fi}
 
 # add -Wredundant-decls when libsysfs gets cleaned up
-WARNINGS := -Wall -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
+WARNINGS := -Wall 
 
 # Some nice architecture specific optimizations
 ifeq ($(strip $(TARGET_ARCH)),arm)
@@ -117,11 +117,11 @@ endif
 
 # if DEBUG is enabled, then we do not strip or optimize
 ifeq ($(strip $(DEBUG)),true)
-	CFLAGS  += $(WARNINGS) -O1 -g -DDEBUG -D_GNU_SOURCE
+	CFLAGS  += -O1 -g -DDEBUG -D_GNU_SOURCE
 	LDFLAGS += -Wl,-warn-common
 	STRIPCMD = /bin/true -Since_we_are_debugging
 else
-	CFLAGS  += $(WARNINGS) $(OPTIMIZATION) -fomit-frame-pointer -D_GNU_SOURCE
+	CFLAGS  += $(OPTIMIZATION) -fomit-frame-pointer -D_GNU_SOURCE
 	LDFLAGS += -s -Wl,-warn-common
 	STRIPCMD = $(STRIP) -s --remove-section=.note --remove-section=.comment
 endif
@@ -142,15 +142,20 @@ ifeq ($(strip $(USE_KLIBC)),true)
 
 	CRT0 = $(KLIBC_DIR)/crt0.o
 	LIBC =	$(ARCH_LIB_OBJS) $(LIB_OBJS) $(CRT0)
-	CFLAGS += -nostdinc -I$(INCLUDE_DIR) -I$(KLIBC_DIR)/arch/$(ARCH)/include \
-		-I$(INCLUDE_DIR)/bits$(BITSIZE) -I$(GCCINCDIR) -I$(LINUX_INCLUDE_DIR) \
-		-D__KLIBC__ -fno-builtin-printf
+	CFLAGS += $(WARNINGS) -nostdinc			\
+		-D__KLIBC__ -fno-builtin-printf		\
+		-I$(INCLUDE_DIR)			\
+		-I$(KLIBC_DIR)/arch/$(ARCH)/include	\
+		-I$(INCLUDE_DIR)/bits$(BITSIZE)		\
+		-I$(GCCINCDIR)				\
+		-I$(LINUX_INCLUDE_DIR)
 	LIB_OBJS =
 	LDFLAGS = --static --nostdlib -nostartfiles -nodefaultlibs
 else
+	WARNINGS += -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
 	CRT0 =
 	LIBC = 
-	CFLAGS += -I$(GCCINCDIR)
+	CFLAGS += $(WARNINGS) -I$(GCCINCDIR)
 	LIB_OBJS = -lc
 	LDFLAGS =
 endif
