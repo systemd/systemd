@@ -183,7 +183,21 @@ static int create_node(char *name, char type, int major, int minor, int mode)
 	return retval;
 }
 
-static int add_node(char *device, char type)
+/*
+ * We also want to clean up any symlinks that were created in create_node()
+ */
+static int delete_node(char *name)
+{
+	char filename[255];
+
+	strncpy(filename, UDEV_ROOT, sizeof(filename));
+	strncat(filename, name, sizeof(filename));
+
+	dbg("unlinking %s", filename);
+	return unlink(filename);
+}
+
+static int add_device(char *device, char type)
 {
 	char *name;
 	int major;
@@ -217,9 +231,22 @@ exit:
 	return retval;
 }
 
-static int remove_node(char *device)
+static int remove_device(char *device)
 {
-	return 0;
+	char *name;
+	int retval = 0;
+
+	name = get_name(device, 0, 0);
+	if (name == NULL) {
+		dbg ("get_name failed");
+		retval = -ENODEV;
+		goto exit;
+	}
+
+	return delete_node(name);
+
+exit:
+	return retval;
 }
 
 int main(int argc, char *argv[])
@@ -256,10 +283,10 @@ int main(int argc, char *argv[])
 	dbg("looking at %s", device);
 
 	if (strcmp(action, "add") == 0)
-		return add_node(device, type);
+		return add_device(device, type);
 
 	if (strcmp(action, "remove") == 0)
-		return remove_node(device);
+		return remove_device(device);
 
 	dbg("Unknown action: %s", action);
 	return -EINVAL;
