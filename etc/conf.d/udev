@@ -1,0 +1,11 @@
+# if selinux file attributes
+# should be restored (leave to yes, if unsure)
+UDEV_SELINUX="yes"
+
+# if console permissions (pam_console)
+# should be restored (leave to yes, if unsure)
+UDEV_CONSOLE="yes"
+
+# if dbus messages should be sent
+UDEV_DBUS="no"
+
