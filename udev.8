@@ -3,11 +3,34 @@
 udev \- Linux configurable dynamic device naming support
 .SH SYNOPSIS
 .BI udev " hotplug-subsystem"
+.P
+The environment must provide the following variables:
+.TP
+.B ACTION
+.IR add " or " remove
+signifies the connection or disconnection of a device.
+.TP
+.B DEVPATH
+The sysfs devpath of the device without the mountpoint but a leading slash.
+.P
+Additional optional environment variables are:
+.TP
+.B UDEV_CONFIG_FILE
+Overrides the default location of the
+.B udev
+config file.
+.TP
+.B UDEV_NO_SLEEP
+The default behavior of
+.B udev
+is to wait until all the sysfs files of the device chain are populated. If set
+.B udev
+will will continue, regardless of the state of the device representation.
 .SH "DESCRIPTION"
 .B udev
 creates or removes device node files usually located in the /dev directory.
-Its goal is to provide a dynamic device directory that contains only the files
-for devices that are actually present.
+It provides a dynamic device directory that contains only the files for
+devices that are actually present.
 .P
 As part of the
 .B hotplug
@@ -159,6 +182,11 @@ all of the values being required in order to match the rule.
 .TP
 .B PROGRAM
 Call external program. This key is valid if the program returns successful.
+A few command line options may specified, but shell characters like pipe,
+diversion or similiar options are not available. The environment variables of
+.B udev
+are also available for the program.
+.br
 The string returned by the program may additionally matched with the
 .B RESULT
 key.
@@ -285,6 +313,7 @@ following the '[' is a '!' then any character not enclosed is matched.
 .LP
 .SH "SEE ALSO"
 .BR udevinfo (8),
+.BR udevd (8),
 .BR hotplug (8)
 .PP
 The

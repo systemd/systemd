@@ -3,6 +3,21 @@
 udevd \- udev event serializer daemon
 .br
 udevsend \- sends the event to udevd
+.SH SYNOPSIS
+.BI udevsend " hotplug-subsystem"
+.sp
+The environment must provide the following variables:
+.TP
+.B ACTION
+.IR add " or " remove
+signifies the connection or disconnection of a device.
+.TP
+.B DEVPATH
+The sysfs devpath of the device without the mountpoint but a leading slash.
+.TP
+.B SEQNUM
+The sequence number of the event provided by the kernel.
+If unset, the event bypasses the queue and will be executed immediately.
 .SH "DESCRIPTION"
 .B udevd
 allows the serialization of
@@ -33,7 +48,9 @@ isn't already running,
 .B udevsend
 will start it.
 .SH "SEE ALSO"
-.BR udev (8), " hotplug" (8)
+.BR udev (8),
+.BR udevinfo (8),
+.BR hotplug (8)
 .SH AUTHORS
 .B udevd
 was developed primarily by Kay Sievers <kay.sievers@vrfy.org>, with much help
