@@ -564,7 +564,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		if (rule->driver[0] != '\0') {
 			if (sysfs_device == NULL) {
 				dbg("device has no sysfs_device");
-				goto try_parent;
+				goto exit;
 			}
 			dbg("check for " KEY_DRIVER " rule->driver='%s' sysfs_device->driver_name='%s'",
 			    rule->driver, sysfs_device->driver_name);
@@ -584,7 +584,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		if (rule->bus[0] != '\0') {
 			if (sysfs_device == NULL) {
 				dbg("device has no sysfs_device");
-				goto try_parent;
+				goto exit;
 			}
 			dbg("check for " KEY_BUS " rule->bus='%s' sysfs_device->bus='%s'",
 			    rule->bus, sysfs_device->bus);
@@ -604,7 +604,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		if (rule->id[0] != '\0') {
 			if (sysfs_device == NULL) {
 				dbg("device has no sysfs_device");
-				goto try_parent;
+				goto exit;
 			}
 			dbg("check " KEY_ID);
 			if (strcmp_pattern(rule->id, sysfs_device->bus_id) != 0) {
@@ -648,8 +648,8 @@ try_parent:
 		sysfs_device = sysfs_get_device_parent(sysfs_device);
 		if (sysfs_device == NULL)
 			goto exit;
-		dbg("sysfs_device->path='%s'", sysfs_device->path);
-		dbg("sysfs_device->bus_id='%s'", sysfs_device->bus_id);
+		dbg("look at sysfs_device->path='%s'", sysfs_device->path);
+		dbg("look at sysfs_device->bus_id='%s'", sysfs_device->bus_id);
 	}
 
 	/* execute external program */
