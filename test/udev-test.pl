@@ -1275,6 +1275,13 @@ sub run_test {
 
 }
 
+# only run if we have root permissions
+# due to mknod restrictions
+if (!($<==0)) {
+	print "Must have root permissions to run properly.\n";
+	exit;
+}
+
 # prepare
 system("rm -rf $udev_root");
 mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
