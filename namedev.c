@@ -200,11 +200,12 @@ static void apply_format(struct udevice *udev, unsigned char *string)
 			case 'D':
 				if (strlen(udev->kernel_number) == 0) {
 					strcat(pos, "disc");
+					dbg("substitute devfs disc");
 					break;
 				}
 				strcat(pos, "part");
 				strcat(pos, udev->kernel_number);
-				dbg("substitute kernel number '%s'", udev->kernel_number);
+				dbg("substitute devfs part '%s'", udev->kernel_number);
 				break;
 			case 'm':
 				sprintf(pos, "%u", udev->minor);
@@ -229,8 +230,10 @@ static void apply_format(struct udevice *udev, unsigned char *string)
 							break;
 						}
 					}
-					strcat(pos, pos3);
-					dbg("substitute partial callout output '%s'", pos3);
+					if (pos3) {
+						strcat(pos, pos3);
+						dbg("substitute partial callout output '%s'", pos3);
+					}
 				} else {
 					strcat(pos, udev->callout_value);
 					dbg("substitute callout output '%s'", udev->callout_value);
