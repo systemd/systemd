@@ -1,3 +1,33 @@
+Summary of changes from v010 to v011
+============================================
+
+<mbuesch:freenet.de>:
+  o proper cleanup on udevdb_init() failure
+
+<mh:nadir.org>:
+  o patch udev 009-010 rpm spec file
+
+<svetljo:gmx.de>:
+  o fix udev sed Makefile usage
+
+Greg Kroah-Hartman:
+  o add documentation about the BUS key being optional for the LABEL rule
+  o add tests for LABEL rule with a device that has no bus
+  o Don't require the BUS value for the LABEL rule
+  o If a LABEL rule has a BUS id, then we must check to see if the device is on a bus
+  o add documentation about the BUS key being optional for the CALLOUT rule
+  o If a CALLOUT rule has a BUS id, then we must check to see if the device is on a bus
+  o Don't require the BUS value for the CALLOUT rule
+  o add test for callout rule with a device that has no bus
+  o 010_bk stamp
+  o added different build options to the rpm udev.spec file
+  o add pci to the bus_files list
+  o check for empty line a bit better in the parser
+  o more init script cleanups, the stop target now calls udev to cleanup instead of just removing the whole /udev directory
+  o make udev init script run udev in the background to let startup go much faster
+  o fix long delay for all devices in namedev
+
+
 Summary of changes from v009 to v010
 ============================================
 
