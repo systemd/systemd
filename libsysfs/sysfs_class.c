@@ -23,7 +23,7 @@
 #include "libsysfs.h"
 #include "sysfs.h"
 
-void sysfs_close_cls_dev(void *dev)
+static void sysfs_close_cls_dev(void *dev)
 {
 	sysfs_close_class_device((struct sysfs_class_device *)dev);
 }
@@ -116,9 +116,17 @@ static struct sysfs_directory *open_class_dir(const unsigned char *name)
 		return NULL;
 	}
 
-	strcat(classpath, SYSFS_CLASS_DIR);
-	strcat(classpath, "/");
-	strcat(classpath, name);
+	/* 
+	 * We shall now treat "block" also as a class. Hence, check here
+	 * if "name" is "block" and proceed accordingly
+	 */
+	if (strcmp(name, SYSFS_BLOCK_NAME) == 0) {
+		strcat(classpath, SYSFS_BLOCK_DIR);
+	} else {
+		strcat(classpath, SYSFS_CLASS_DIR);
+		strcat(classpath, "/");
+		strcat(classpath, name);
+	}
 	classdir = sysfs_open_directory(classpath);
 	if (classdir == NULL) {
 		errno = EINVAL;
@@ -132,6 +140,39 @@ static struct sysfs_directory *open_class_dir(const unsigned char *name)
 	}
 
 	return classdir;
+}
+
+/** 
+ * set_classdev_classname: Grabs classname from path
+ * @cdev: class device to set
+ * Returns nothing
+ */
+static void set_classdev_classname(struct sysfs_class_device *cdev)
+{
+	unsigned char *c = NULL, *e = NULL;
+	int count = 0;
+
+	c = strstr(cdev->path, SYSFS_CLASS_DIR);
+	if (c == NULL) 
+		c = strstr(cdev->path, SYSFS_BLOCK_DIR);
+	else {
+		c++;
+		while (c != NULL && *c != '/') 
+			c++;
+	}
+
+	if (c == NULL) 
+		strcpy(cdev->classname, SYSFS_UNKNOWN);
+
+	else {
+		c++;
+		e = c;
+		while (e != NULL && *e != '/' && *e != '\0') {
+			e++;
+			count++;
+		}
+		strncpy(cdev->classname, c, count);
+	}
 }
 
 /**
@@ -178,6 +219,7 @@ struct sysfs_class_device *sysfs_open_class_device(const unsigned char *path)
 	sysfs_read_all_subdirs(dir);
 	cdev->directory = dir;
 	strcpy(cdev->path, dir->path);
+	set_classdev_classname(cdev);
 
 	/* get driver and device, if implemented */
 	if (cdev->directory->links != NULL) {
@@ -304,46 +346,72 @@ struct sysfs_class_device *sysfs_get_class_device(struct sysfs_class *class,
 }
 
 /**
+ * get_classdev_path: given the class and a device in the class, return the
+ * 		absolute path to the device
+ * @classname: name of the class
+ * @clsdev: the class device
+ * @path: buffer to return path
+ * @psize: size of "path"
+ * Returns 0 on SUCCESS or -1 on error
+ */
+static int get_classdev_path(const unsigned char *classname, 
+		const unsigned char *clsdev, unsigned char *path, size_t len)
+{
+	if (classname == NULL || clsdev == NULL || path == NULL) {
+		errno = EINVAL;
+		return -1;
+	}
+        if (sysfs_get_mnt_path(path, len) != 0) {
+                dprintf("Error getting sysfs mount path\n");
+                return -1;
+	}
+	if (strcmp(classname, SYSFS_BLOCK_NAME) == 0) {
+		strcat(path, SYSFS_BLOCK_DIR);
+	} else {
+		strcat(path, SYSFS_CLASS_DIR);
+		strcat(path, "/");
+		strcat(path, classname);
+	}
+	strcat(path, "/");
+	strcat(path, clsdev);
+	return 0;
+}
+
+/**
  * sysfs_open_class_device_by_name: Locates a specific class_device and returns it.
  * Class_device must be closed using sysfs_close_class_device
  * @classname: Class to search
  * @name: name of the class_device
+ * 
+ * NOTE:
+ * 	Call sysfs_close_class_device() to close the class device
  */
 struct sysfs_class_device *sysfs_open_class_device_by_name
-		(const unsigned char *classname, unsigned char *name)
+		(const unsigned char *classname, const unsigned char *name)
 {
-	struct sysfs_class *class = NULL;
-	struct sysfs_class_device *cdev = NULL, *rcdev = NULL;
+	unsigned char devpath[SYSFS_PATH_MAX];
+	struct sysfs_class_device *cdev = NULL;
 
 	if (classname == NULL || name == NULL) {
 		errno = EINVAL;
 		return NULL;
 	}
 	
-	class = sysfs_open_class(classname);
-	if (class == NULL) {
-		dprintf("Error opening class %s\n", classname);
+	memset(devpath, 0, SYSFS_PATH_MAX);
+	if ((get_classdev_path(classname, name, devpath, 
+					SYSFS_PATH_MAX)) != 0) {
+		dprintf("Error getting to device %s on class %s\n",
+							name, classname);
 		return NULL;
 	}
-
-	cdev = sysfs_get_class_device(class, name);
+	
+	cdev = sysfs_open_class_device(devpath);
 	if (cdev == NULL) {
 		dprintf("Error getting class device %s from class %s\n",
 				name, classname);
-		sysfs_close_class(class);
 		return NULL;
 	}
-
-	rcdev = sysfs_open_class_device(cdev->directory->path);
-	if (rcdev == NULL) {
-		dprintf("Error getting class device %s from class %s\n",
-				name, classname);
-		sysfs_close_class(class);
-		return NULL;
-	}
-	sysfs_close_class(class);
-	
-	return rcdev;
+	return cdev;
 }
 
 /**
@@ -358,53 +426,6 @@ struct dlist *sysfs_get_classdev_attributes(struct sysfs_class_device *cdev)
 		return NULL;
 
 	return (cdev->directory->attributes);
-}
-
-/**
- * sysfs_find_device_class: locates the device the device is on
- * @bus_id: device to look for
- * @classname: buffer to copy class name to
- * @bsize: size of buffer
- * returns 0 with success and -1 with error
- */
-int sysfs_find_device_class(const unsigned char *bus_id, 
-				unsigned char *classname, size_t bsize)
-{
-	unsigned char class[SYSFS_NAME_LEN], clspath[SYSFS_NAME_LEN];
-	unsigned char *cls = NULL, *clsdev = NULL;
-	struct dlist *clslist = NULL, *clsdev_list = NULL;
-
-	if (bus_id == NULL || classname == NULL) {
-		errno = EINVAL;
-		return -1;
-	}
-
-	strcpy(class, SYSFS_CLASS_DIR);
-	clslist = sysfs_open_subsystem_list(class);
-	if (clslist != NULL) {
-		dlist_for_each_data(clslist, cls, char) {
-			memset(clspath, 0, SYSFS_NAME_LEN);
-			strcpy(clspath, SYSFS_CLASS_DIR);
-			strcat(clspath, "/");
-			strcat(clspath, cls);
-			clsdev_list = sysfs_open_subsystem_list(clspath);
-			if (clsdev_list != NULL) {
-				dlist_for_each_data(clsdev_list, 
-							clsdev, char) {
-					if (strcmp(bus_id, clsdev) == 0) {
-						strncpy(classname, 
-								cls, bsize);
-						sysfs_close_list(clsdev_list);
-						sysfs_close_list(clslist);
-						return 0;
-					}
-				}
-				sysfs_close_list(clsdev_list);
-			}
-		}
-		sysfs_close_list(clslist);
-	}
-	return -1;
 }
 
 /**
@@ -433,99 +454,45 @@ struct sysfs_attribute *sysfs_get_classdev_attr
 }
 
 /**
- * sysfs_write_classdev_attr: modify writable attribute value for the given
- * 				class device
- * @dev: class device name for which the attribute has to be changed
- * @attrib: attribute to change
- * @value: value to change to
- * @len: size of buffer at "value"
- * Returns 0 on success and -1 on error
- */
-int sysfs_write_classdev_attr(unsigned char *dev, unsigned char *attrib,
-				unsigned char *value, size_t len)
-{
-	struct sysfs_class_device *clsdev = NULL;
-	struct sysfs_attribute *attribute = NULL;
-	unsigned char class_name[SYSFS_NAME_LEN];
-
-	if (dev == NULL || attrib == NULL || value == NULL) {
-		errno = EINVAL;
-		return -1;
-	}
-	
-	memset(class_name, 0, SYSFS_NAME_LEN);
-	if ((sysfs_find_device_class(dev, 
-					class_name, SYSFS_NAME_LEN)) < 0) {
-		dprintf("Class device %s not found\n", dev);
-		return -1;
-	}
-	clsdev = sysfs_open_class_device_by_name(class_name, dev);
-	if (clsdev == NULL) {
-		dprintf("Error opening %s in class %s\n", dev, class_name);
-		return -1;
-	}
-	attribute = sysfs_get_directory_attribute(clsdev->directory, attrib);
-	if (attribute == NULL) {
-		dprintf("Attribute %s not defined for device %s on class %s\n",
-				attrib, dev, class_name);
-		sysfs_close_class_device(clsdev);
-		return -1;
-	}
-	if ((sysfs_write_attribute(attribute, value, len)) < 0) {
-		dprintf("Error setting %s to %s\n", attrib, value);
-		sysfs_close_class_device(clsdev);
-		return -1;
-	}
-	sysfs_close_class_device(clsdev);
-	return 0;
-}
-
-/**
- * sysfs_read_classdev_attr: read an attribute for a given class device
+ * sysfs_open_classdev_attr: read an attribute for a given class device
+ * @classname: name of the class on which to look
  * @dev: class device name for which the attribute has to be read
  * @attrib: attribute to read
- * @value: buffer to return value to user
- * @len: size of buffer at "value"
- * Returns 0 on success and -1 on error
+ * Returns sysfs_attribute * on SUCCESS and NULL on error
+ * 
+ * NOTE:
+ * 	A call to sysfs_close_attribute() is required to close the
+ * 	attribute returned and to free memory
  */
-int sysfs_read_classdev_attr(unsigned char *dev, unsigned char *attrib,
-				unsigned char *value, size_t len)
+struct sysfs_attribute *sysfs_open_classdev_attr(const unsigned char *classname,
+		const unsigned char *dev, const unsigned char *attrib)
 {
-	struct sysfs_class_device *clsdev = NULL;
 	struct sysfs_attribute *attribute = NULL;
-	unsigned char class_name[SYSFS_NAME_LEN];
+	unsigned char path[SYSFS_PATH_MAX];
 
-	if (dev == NULL || attrib == NULL || value == NULL) {
+	if (classname == NULL || dev == NULL || attrib == NULL) {
 		errno = EINVAL;
-		return -1;
+		return NULL;
 	}
-	
-	memset(class_name, 0, SYSFS_NAME_LEN);
-	if ((sysfs_find_device_class(dev, 
-					class_name, SYSFS_NAME_LEN)) < 0) {
-		dprintf("Class device %s not found\n", dev);
-		return -1;
+	memset(path, 0, SYSFS_PATH_MAX);
+	if ((get_classdev_path(classname, dev, path, SYSFS_PATH_MAX)) != 0) {
+		dprintf("Error getting to device %s on class %s\n",
+						dev, classname);
+		return NULL;
 	}
-	clsdev = sysfs_open_class_device_by_name(class_name, dev);
-	if (clsdev == NULL) {
-		dprintf("Error opening %s in class %s\n", dev, class_name);
-		return -1;
-	}
-	attribute = sysfs_get_directory_attribute(clsdev->directory, attrib);
+	strcat(path, "/");
+	strcat(path, attrib);
+	attribute = sysfs_open_attribute(path);
 	if (attribute == NULL) {
-		dprintf("Attribute %s not defined for device %s on class %s\n",
-				attrib, dev, class_name);
-		sysfs_close_class_device(clsdev);
-		return -1;
+		dprintf("Error opening attribute %s on class device %s\n",
+				attrib, dev);
+		return NULL;
 	}
-	if (attribute->len > len) {
-		dprintf("Value length %d is greater that suppled buffer %d\n",
-				attribute->len, len);
-		sysfs_close_class_device(clsdev);
-		return -1;
+	if ((sysfs_read_attribute(attribute)) != 0) {
+		dprintf("Error reading attribute %s for class device %s\n",
+				attrib, dev);
+		sysfs_close_attribute(attribute);
+		return NULL;
 	}
-	strncpy(value, attribute->value, attribute->len);
-	value[(attribute->len)+1] = 0;
-	sysfs_close_class_device(clsdev);
-	return 0;
+	return attribute;
 }

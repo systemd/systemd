@@ -25,12 +25,12 @@
 
 static void sysfs_close_dev(void *dev)
 {
-	        sysfs_close_device((struct sysfs_device *)dev);
+        sysfs_close_device((struct sysfs_device *)dev);
 }
 
 static void sysfs_close_drv(void *drv)
 {
-	        sysfs_close_driver((struct sysfs_driver *)drv);
+        sysfs_close_driver((struct sysfs_driver *)drv);
 }
 
 /*
@@ -421,48 +421,6 @@ struct sysfs_device *sysfs_open_bus_device(unsigned char *busname,
 	}
 	
 	return rdev;
-}
-
-/**
- * sysfs_find_device_bus: locates the bus a device is on.
- * @dev_id: device id.
- * @busname: buffer to copy name to
- * @bsize: buffer size
- * returns 0 with success or -1 with error
- */
-int sysfs_find_device_bus(const unsigned char *dev_id, unsigned char *busname, 
-								size_t bsize)
-{
-	unsigned char subsys[SYSFS_NAME_LEN], *bus = NULL, *curdev = NULL; 
-	struct dlist *buslist = NULL, *device_list = NULL;
-
-	if (dev_id == NULL || busname == NULL) {
-		errno = EINVAL;
-		return -1;
-	}
-	
-	strcpy(subsys, SYSFS_BUS_DIR);	/* subsys = /bus */
-	buslist = sysfs_open_subsystem_list(subsys);
-	if (buslist != NULL) {
-		dlist_for_each_data(buslist, bus, char) {
-			device_list = sysfs_open_bus_devices_list(bus);
-			if (device_list != NULL) {
-				dlist_for_each_data(device_list, 
-						curdev, char) {
-					if (strcmp(dev_id, curdev) == 0) {
-						strncpy(busname, 
-							bus, bsize);
-						sysfs_close_list(device_list);
-						sysfs_close_list(buslist);
-						return 0;
-					}
-				}
-			sysfs_close_list(device_list);
-			}
-		}
-		sysfs_close_list(buslist);
-	}
-	return -1;
 }
 
 /**

@@ -32,8 +32,11 @@
 #define SYSFS_FSTYPE_NAME	"sysfs"
 #define SYSFS_PROC_MNTS		"/proc/mounts"
 #define SYSFS_BUS_DIR		"/bus"
+#define SYSFS_BUS_NAME		"bus"
 #define SYSFS_CLASS_DIR		"/class"
+#define SYSFS_CLASS_NAME	"class"
 #define SYSFS_BLOCK_DIR		"/block"
+#define SYSFS_BLOCK_NAME	"block"
 #define SYSFS_DEVICES_DIR	"/devices"
 #define SYSFS_DEVICES_NAME	"devices"
 #define SYSFS_DRIVERS_DIR	"/drivers"
@@ -41,10 +44,6 @@
 #define SYSFS_NAME_ATTRIBUTE	"name"
 #define SYSFS_UNKNOWN		"unknown"
 #define SYSFS_PATH_ENV		"SYSFS_PATH"
-
-/* Some "block" subsystem specific #defines */
-#define SYSFS_QUEUE_NAME	"queue"
-#define SYSFS_IOSCHED_NAME	"iosched"
 
 #define SYSFS_PATH_MAX		255
 #define	SYSFS_NAME_LEN		50
@@ -89,8 +88,9 @@ struct sysfs_device {
 	struct dlist *children;	
 	unsigned char name[SYSFS_NAME_LEN];
 	unsigned char bus_id[SYSFS_NAME_LEN];
-	unsigned char path[SYSFS_PATH_MAX];
+	unsigned char bus[SYSFS_NAME_LEN];
 	unsigned char driver_name[SYSFS_NAME_LEN];
+	unsigned char path[SYSFS_PATH_MAX];
 
 	/* for internal use only */
 	struct sysfs_directory *directory;	
@@ -119,6 +119,7 @@ struct sysfs_class_device {
 	struct sysfs_device *sysdevice;		/* NULL if virtual */
 	struct sysfs_driver *driver;		/* NULL if not implemented */
 	unsigned char name[SYSFS_NAME_LEN];
+	unsigned char classname[SYSFS_NAME_LEN];
 	unsigned char path[SYSFS_PATH_MAX];
 
 	/* for internal use only */
@@ -185,10 +186,8 @@ extern struct dlist *sysfs_get_driver_links(struct sysfs_driver *driver);
 extern void sysfs_close_driver_by_name(struct sysfs_driver *driver);
 extern struct sysfs_driver *sysfs_open_driver_by_name
 	(const unsigned char *drv_name, const unsigned char *bus, size_t bsize);
-extern int sysfs_write_driver_attr(unsigned char *drv, unsigned char *attrib,
-				unsigned char *value, size_t len);
-extern int sysfs_read_driver_attr(unsigned char *drv, unsigned char *attrib,
-				unsigned char *value, size_t len);
+extern struct sysfs_attribute *sysfs_open_driver_attr(const unsigned char *bus, 
+		const unsigned char *drv, const unsigned char *attrib);
 
 /* generic sysfs device access */
 extern void sysfs_close_root_device(struct sysfs_root_device *root);
@@ -201,10 +200,8 @@ extern struct sysfs_attribute *sysfs_get_device_attr
 extern struct dlist *sysfs_get_device_attributes(struct sysfs_device *device);
 extern struct sysfs_device *sysfs_open_device_by_id
 	(const unsigned char *bus_id, const unsigned char *bus, size_t bsize);
-extern int sysfs_write_device_attr(unsigned char *dev, unsigned char *attrib,
-				unsigned char *value, size_t len);
-extern int sysfs_read_device_attr(unsigned char *dev, unsigned char *attrib,
-				unsigned char *value, size_t len);
+extern struct sysfs_attribute *sysfs_open_device_attr(const unsigned char *bus, 
+		const unsigned char *bus_id, const unsigned char *attrib);
 
 /* generic sysfs bus access */
 extern void sysfs_close_bus(struct sysfs_bus *bus);
@@ -218,8 +215,6 @@ extern struct sysfs_attribute *sysfs_get_bus_attribute(struct sysfs_bus *bus,
 						unsigned char *attrname);
 extern struct sysfs_device *sysfs_open_bus_device(unsigned char *busname, 
 							unsigned char *dev_id);
-extern int sysfs_find_device_bus(const unsigned char *dev_id, 
-					unsigned char *busname,	size_t bsize);
 extern int sysfs_find_driver_bus(const unsigned char *driver, 
 					unsigned char *busname,	size_t bsize);
 
@@ -232,17 +227,14 @@ extern struct sysfs_class *sysfs_open_class(const unsigned char *name);
 extern struct sysfs_class_device *sysfs_get_class_device
 	(struct sysfs_class *class, unsigned char *name);
 extern struct sysfs_class_device *sysfs_open_class_device_by_name
-	(const unsigned char *class, unsigned char *name);
+	(const unsigned char *class, const unsigned char *name);
 extern struct dlist *sysfs_get_classdev_attributes
 	(struct sysfs_class_device *cdev);
-extern int sysfs_find_device_class(const unsigned char *bus_id, 
-		unsigned char *classname, size_t bsize);
 extern struct sysfs_attribute *sysfs_get_classdev_attr
 	(struct sysfs_class_device *clsdev, const unsigned char *name);
-extern int sysfs_write_classdev_attr(unsigned char *dev, unsigned char *attrib, 
-		unsigned char *value, size_t len);
-extern int sysfs_read_classdev_attr(unsigned char *dev, unsigned char *attrib, 
-		unsigned char *value, size_t len);
+extern struct sysfs_attribute *sysfs_open_classdev_attr
+	(const unsigned char *classname, const unsigned char *dev, 
+	 					const unsigned char *attrib); 
 
 #ifdef __cplusplus
 }
