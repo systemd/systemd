@@ -1,3 +1,50 @@
+Summary of changes from v030 to v031
+============================================
+
+<arun:codemovers.org>:
+  o udev - read long lines from config files overflow fix
+
+<ballarin.marc:gmx.de>:
+  o Update the FAQ with info about hardlink security
+
+<david:fubar.dk>:
+  o compatibility symlinks for udev
+
+David Weinehall:
+  o Minor POSIX-fixes for udev
+
+Greg Kroah-Hartman:
+  o add symlink for video rule
+  o add a "first" list to udevstart and make it contain the class/mem/ devices
+  o fix compiler warning in udevtest.c
+  o Fix old-style pty breakage in rules file for tty device
+  o add rules for i386 cpu devices
+  o add permission for legotower usb devices
+  o 030 release TAG: v030
+
+Kay Sievers:
+  o Fix naming ethernet devices in udevstart
+  o update udev_volume_id
+  o let /sbin/hotplug execute udev earlier
+  o pass SEQNUM trough udevd
+  o fix manpages based on esr's spambot
+
+Martin Schlemmer:
+  o add microcode rule to permissions.gentoo file
+
+Michael Buesch:
+  o Try to provide a bit of security for hardlinks to /dev entries
+
+Olaf Hering:
+  o udevsend depends on udev_lib.o
+
+Tom Rini:
+  o fix UDEV_NO_SLEEP
+  o clean up start_udev a bit
+  o Make udev/udevstart be one binary
+  o Add 'asmlinkage' to udev-030
+
+
 Summary of changes from v029 to v030
 ============================================
 
