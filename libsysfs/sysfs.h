@@ -37,9 +37,7 @@
 #ifdef DEBUG
 #include "../logging.h" 
 #define dprintf(format, arg...)								\
-	do {										\
-		log_message (LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
-	} while (0)
+	dbg(format, ##arg)
 #else
 #define dprintf(format, arg...) do { } while (0)
 #endif

@@ -29,6 +29,8 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include "logging.h"
 

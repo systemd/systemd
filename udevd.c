@@ -33,6 +33,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/time.h>
+#include <fcntl.h>
 
 #include "list.h"
 #include "udev.h"
@@ -41,9 +42,12 @@
 #include "udevd.h"
 #include "logging.h"
 
+static int pipefds[2];
 static int expected_seqnum = 0;
 volatile static int children_waiting;
-volatile static int msg_q_timeout;
+volatile static int run_msg_q;
+volatile static int sig_flag;
+static int run_exec_q;
 
 static LIST_HEAD(msg_list);
 static LIST_HEAD(exec_list);
@@ -51,6 +55,8 @@ static LIST_HEAD(running_list);
 
 static void exec_queue_manager(void);
 static void msg_queue_manager(void);
+static void user_sighandler(void);
+static void reap_kids(void);
 
 #ifdef LOG
 unsigned char logname[LOGNAME_SIZE];
@@ -66,10 +72,12 @@ void log_message (int level, const char *format, ...)
 
 static void msg_dump_queue(void)
 {
+#ifdef DEBUG
 	struct hotplug_msg *msg;
 
 	list_for_each_entry(msg, &msg_list, list)
 		dbg("sequence %d in queue", msg->seqnum);
+#endif
 }
 
 static void msg_dump(struct hotplug_msg *msg)
@@ -92,7 +100,6 @@ static void run_queue_delete(struct hotplug_msg *msg)
 {
 	list_del(&msg->list);
 	free(msg);
-	exec_queue_manager();
 }
 
 /* orders the message in the queue by sequence number */
@@ -100,18 +107,20 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 {
 	struct hotplug_msg *loop_msg;
 
-	/* sort message by sequence number into list*/
-	list_for_each_entry(loop_msg, &msg_list, list)
-		if (loop_msg->seqnum > msg->seqnum)
+	/* sort message by sequence number into list. events
+	 * will tend to come in order, so scan the list backwards
+	 */
+	list_for_each_entry_reverse(loop_msg, &msg_list, list)
+		if (loop_msg->seqnum < msg->seqnum)
 			break;
-	list_add_tail(&msg->list, &loop_msg->list);
+	list_add(&msg->list, &loop_msg->list);
 	dbg("queued message seq %d", msg->seqnum);
 
 	/* store timestamp of queuing */
 	msg->queue_time = time(NULL);
 
 	/* run msg queue manager */
-	msg_queue_manager();
+	run_msg_q = 1;
 
 	return ;
 }
@@ -138,6 +147,9 @@ static void udev_run(struct hotplug_msg *msg)
 	case -1:
 		dbg("fork of child failed");
 		run_queue_delete(msg);
+		/* note: we never managed to run, so we had no impact on 
+		 * running_with_devpath(), so don't bother setting run_exec_q
+		 */
 		break;
 	default:
 		/* get SIGCHLD in main loop */
@@ -180,7 +192,7 @@ static void exec_queue_manager()
 static void msg_move_exec(struct hotplug_msg *msg)
 {
 	list_move_tail(&msg->list, &exec_list);
-	exec_queue_manager();
+	run_exec_q = 1;
 	expected_seqnum = msg->seqnum+1;
 	dbg("moved seq %d to exec, next expected is %d",
 		msg->seqnum, expected_seqnum);
@@ -276,7 +288,7 @@ static void handle_msg(int sock)
 	/* if no seqnum is given, we move straight to exec queue */
 	if (msg->seqnum == -1) {
 		list_add(&msg->list, &exec_list);
-		exec_queue_manager();
+		run_exec_q = 1;
 	} else {
 		msg_queue_insert(msg);
 	}
@@ -289,19 +301,37 @@ skip:
 
 static void sig_handler(int signum)
 {
+	int rc;
 	switch (signum) {
 		case SIGINT:
 		case SIGTERM:
 			exit(20 + signum);
 			break;
 		case SIGALRM:
-			msg_q_timeout = 1;
+			/* set flag, then write to pipe if needed */
+			run_msg_q = 1;
+			goto do_write;
 			break;
 		case SIGCHLD:
+			/* set flag, then write to pipe if needed */
 			children_waiting = 1;
+			goto do_write;
 			break;
 		default:
 			dbg("unhandled signal");
+			return;
+	}
+	
+do_write:
+	/* if pipe is empty, write to pipe to force select to return
+	 * immediately when it gets called
+	 */
+	if (!sig_flag) {
+		rc = write(pipefds[1],&signum,sizeof(signum));
+		if (rc < 0)
+			dbg("unable to write to pipe");
+		else
+			sig_flag = 1;
 	}
 }
 
@@ -314,19 +344,53 @@ static void udev_done(int pid)
 		if (msg->pid == pid) {
 			dbg("<== exec seq %d came back", msg->seqnum);
 			run_queue_delete(msg);
+			
+			/* we want to run the exec queue manager since there may
+			 * be events waiting with the devpath of the one that
+			 * just finished
+			 */
+			run_exec_q = 1;
 			return;
 		}
 	}
 }
 
+static void reap_kids()
+{
+	/* reap all dead children */
+	while(1) {
+		int pid = waitpid(-1, 0, WNOHANG);
+		if ((pid == -1) || (pid == 0))
+			break;
+		udev_done(pid);
+	}
+}
+
+/* just read everything from the pipe and clear the flag,
+ * the useful flags were set in the signal handler
+ */
+static void user_sighandler()
+{
+	int sig;
+	while(1) {
+		int rc = read(pipefds[0],&sig,sizeof(sig));
+		if (rc < 0)
+			break;
+
+		sig_flag = 0;
+	}
+}
+
+
 int main(int argc, char *argv[])
 {
-	int ssock;
+	int ssock, maxsockplus;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
 	int retval;
 	const int on = 1;
 	struct sigaction act;
+	fd_set readfds;
 
 	init_logging("udevd");
 	dbg("version %s", UDEV_VERSION);
@@ -335,16 +399,32 @@ int main(int argc, char *argv[])
 		dbg("need to be root, exit");
 		exit(1);
 	}
+	
+	/* setup signal handler pipe */
+   retval = pipe(pipefds);
+   if (retval < 0) {
+      dbg("error getting pipes: %s", strerror(errno));
+      exit(1);
+   }
+	
+   retval = fcntl(pipefds[0], F_SETFL, O_NONBLOCK);
+   if (retval < 0) {
+      dbg("fcntl on read pipe: %s", strerror(errno));
+      exit(1);
+   }
+   
+   retval = fcntl(pipefds[1], F_SETFL, O_NONBLOCK);
+   if (retval < 0) {
+      dbg("fcntl on write pipe: %s", strerror(errno));
+      exit(1);
+   }
 
-	/* set signal handler */
+	/* set signal handlers */
 	act.sa_handler = sig_handler;
-	sigemptyset (&act.sa_mask);
+	sigemptyset(&act.sa_mask);
 	act.sa_flags = SA_RESTART;
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGTERM, &act, NULL);
-
-	/* we want these two to interrupt system calls */
-	act.sa_flags = 0;
 	sigaction(SIGALRM, &act, NULL);
 	sigaction(SIGCHLD, &act, NULL);
 
@@ -370,23 +450,50 @@ int main(int argc, char *argv[])
 	/* enable receiving of the sender credentials */
 	setsockopt(ssock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 
+   FD_ZERO(&readfds);
+   FD_SET(ssock, &readfds);
+   FD_SET(pipefds[0], &readfds);
+	maxsockplus = ssock+1;
 	while (1) {
-		handle_msg(ssock);
-
-		while(msg_q_timeout) {
-			msg_q_timeout = 0;
+		fd_set workreadfds = readfds;
+		retval = select(maxsockplus, &workreadfds, NULL, NULL, NULL);
+		
+		if (retval < 0) {
+			dbg("error in select: %s", strerror(errno));
+			continue;
+		}
+		
+		if (FD_ISSET(ssock, &workreadfds))
+			handle_msg(ssock);
+		
+		if (FD_ISSET(pipefds[0], &workreadfds))
+			user_sighandler();
+		
+		if (children_waiting) {
+			children_waiting = 0;
+			reap_kids();
+		}
+		
+		if (run_msg_q) {
+			run_msg_q = 0;
 			msg_queue_manager();
 		}
-
-		while(children_waiting) {
-			children_waiting = 0;
-			/* reap all dead children */
-			while(1) {
-				int pid = waitpid(-1, 0, WNOHANG);
-				if ((pid == -1) || (pid == 0))
-					break;
-				udev_done(pid);
+		
+		if (run_exec_q) {
+			
+			/* this is tricky.  exec_queue_manager() loops over exec_list, and
+			 * calls running_with_devpath(), which loops over running_list. This gives
+			 * O(N*M), which can get *nasty*.  Clean up running_list before
+			 * calling exec_queue_manager().
+			 */
+			
+			if (children_waiting) {
+				children_waiting = 0;
+				reap_kids();
 			}
+
+			run_exec_q = 0;
+			exec_queue_manager();
 		}
 	}
 exit:
