@@ -97,12 +97,13 @@ rm -rf $RPM_BUILD_ROOT
 %endif
 %attr(-,root,root) /etc/hotplug.d/default/udev.hotplug
 %attr(755,root,root) /etc/init.d/udev
-%attr(0644,root,root) %{_mandir}/man8/udev.8*
+%attr(0644,root,root) %{_mandir}/man8/udev*.8*
 
 %changelog
 * Mon Jan 26 2004 Greg Kroah-Hartman <greg@kroah.com>
-- add udevinfo to rpm
+- added udevinfo to rpm
 - added URL to spec file
+- added udevinfo's man page
 
 * Mon Jan 05 2004 Rolf Eike Beer <eike-hotplug@sf-tec.de>
 - add defines to choose the init script (Redhat or LSB)
