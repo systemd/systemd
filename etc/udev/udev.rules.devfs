@@ -93,3 +93,13 @@ KERNEL="route6",	NAME="netlink/%k"
 KERNEL="ip6_fw",	NAME="netlink/%k"
 KERNEL="dnrtmsg",	NAME="netlink/%k"
 KERNEL="tap*",		NAME="netlink/%k"
+
+# CAPI devices
+KERNEL="capi",		NAME="capi20", SYMLINK="isdn/capi20"
+KERNEL="capi*",		NAME="capi/%n"
+
+# Network devices
+KERNEL="tun",		NAME="net/%k"
+
+# raw devices
+KERNEL="raw[0-9]*",     NAME="raw/%k" 

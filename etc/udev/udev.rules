@@ -39,3 +39,9 @@ BUS="usb", KERNEL="lp[0-9]*",	NAME="usb/%k"
 # CAPI devices
 KERNEL="capi",		NAME="capi20", SYMLINK="isdn/capi20"
 KERNEL="capi*",		NAME="capi/%n"
+
+# Network devices
+KERNEL="tun",		NAME="net/%k"
+
+# raw devices
+KERNEL="raw[0-9]*",	NAME="raw/%k" 
