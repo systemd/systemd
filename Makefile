@@ -352,6 +352,7 @@ install: install-config install-dbus-policy all
 	$(INSTALL_PROGRAM) -D $(DAEMON) $(DESTDIR)$(sbindir)/$(DAEMON)
 	$(INSTALL_PROGRAM) -D $(SENDER) $(DESTDIR)$(sbindir)/$(SENDER)
 	$(INSTALL_PROGRAM) -D $(HELPER) $(DESTDIR)$(sbindir)/$(HELPER)
+	$(INSTALL_PROGRAM) -D $(TESTER) $(DESTDIR)$(sbindir)/$(TESTER)
 	@if [ "x$(USE_LSB)" = "xtrue" ]; then \
 		$(INSTALL_PROGRAM) -D etc/init.d/udev.init.LSB $(DESTDIR)$(initdir)/udev; \
 		ln -s $(DESTDIR)$(initdir)/udev $(sbindir)/rcudev; \
