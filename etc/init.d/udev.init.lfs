@@ -1,0 +1,103 @@
+#!/bin/sh
+#
+# LinuxFromScratch udev init script
+#  derived from original RedHat udev init script
+#  2003 by Michael Buesch <mbuesch@freenet.de>
+#
+
+source /etc/sysconfig/rc
+source $rc_functions
+
+udev_dir="/udev"
+sysfs_dir="/sys"
+bin="/sbin/udev"
+
+case "$1" in
+	start)
+		echo "Creating initial udev device nodes ..."
+		if [ ! -d $udev_dir ]; then
+			mkdir $udev_dir
+			if [ $? -ne 0 ]; then
+				print_status failure
+				exit 1
+			fi
+		fi
+		if [ ! -d $sysfs_dir ]; then
+			echo "sysfs_dir $sysfs_dir does not exist!"
+			print_status failure
+			exit 1
+		fi
+		# propogate /udev from /sys - we only need this while we do not
+		# have initramfs and an early user-space with which to do early
+		# device bring up
+		clean_exit="yes"
+		export ACTION=add
+		# add block devices and their partitions
+		for i in ${sysfs_dir}/block/*; do
+			# add each drive
+			export DEVPATH=${i#${sysfs_dir}}
+			$bin block
+
+			# add each partition, on each device
+			for j in $i/*; do
+				if [ -f $j/dev ]; then
+					export DEVPATH=${j#${sysfs_dir}}
+					$bin block
+					if [ $? -ne 0 ]; then
+						echo "Warning: $DEVPATH failed."
+						clean_exit="no"
+					fi
+				fi
+			done
+		done
+		# all other device classes
+		for i in ${sysfs_dir}/class/*; do
+			for j in $i/*; do
+				if [ -f $j/dev ]; then
+					export DEVPATH=${j#${sysfs_dir}}
+					CLASS=`echo ${i#${sysfs_dir}} | \
+						cut --delimiter='/' --fields=3-`
+					$bin $CLASS
+					if [ $? -ne 0 ]; then
+						echo "Warning: $DEVPATH failed."
+						clean_exit="no"
+					fi
+				fi
+			done
+		done
+		if [ $clean_exit = "yes" ]; then
+			print_status success
+		else
+			print_status warning
+		fi
+		;;
+	stop)
+		echo "Removing udev device nodes ..."
+	  	# be careful
+		if [ $udev_dir -a "$udev_dir" != "/" ]; then
+		  	# clear out /udev
+  			rm -rf ${udev_dir}/*
+			evaluate_retval
+		fi
+		;;
+	reload)
+	  	# nothing to do here
+		;;
+	restart)
+		$0 stop
+		sleep 1
+		$0 start
+		;;
+	status)
+	  	if [ -d $udev_dir ]; then
+			echo "the udev device node directory exists"
+		else
+			echo "the udev device node directory does not exist"
+		fi
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart|status}"
+		exit 1
+		;;
+esac
+exit 0
