@@ -77,6 +77,23 @@ static int sysfs_get_fs_mnt_path(const unsigned char *fs_type,
 }
 
 /*
+ * sysfs_trailing_slash: checks if there's a trailing slash to path
+ * @path: path to check
+ * returns 1 if true and 0 if not
+ */
+int sysfs_trailing_slash(unsigned char *path)
+{
+	unsigned char *s = NULL;
+
+	if (path == NULL)
+		return 0;
+	s = &path[strlen(path)-1];
+	if (strncmp(s, "/", 1) == 0)
+		return 1;
+	return 0;
+}
+
+/*
  * sysfs_get_mnt_path: Gets the sysfs mount point.
  * @mnt_path: place to put "sysfs" mount point
  * @len: size of mnt_path
@@ -226,6 +243,8 @@ struct dlist *sysfs_open_subsystem_list(unsigned char *name)
 		return NULL;
 	}
 
+	if (sysfs_trailing_slash(sysfs_path) == 0)
+		strcat(sysfs_path, "/");
 	strcat(sysfs_path, name);
 	dir = sysfs_open_directory(sysfs_path);
 	if (dir == NULL) {
@@ -301,7 +320,9 @@ struct dlist *sysfs_open_bus_devices_list(unsigned char *name)
 		return NULL;
 	}
 
-	strcat(sysfs_path, SYSFS_BUS_DIR);
+	if (sysfs_trailing_slash(sysfs_path) == 0)
+		strcat(sysfs_path, "/");
+	strcat(sysfs_path, SYSFS_BUS_NAME);
 	strcat(sysfs_path, "/");
 	strcat(sysfs_path, name);
 	strcat(sysfs_path, SYSFS_DEVICES_DIR);

@@ -142,6 +142,7 @@ extern "C" {
 /*
  * Function Prototypes
  */
+extern int sysfs_trailing_slash(unsigned char *path);
 extern int sysfs_get_mnt_path(unsigned char *mnt_path, size_t len);
 extern int sysfs_get_name_from_path(const unsigned char *path, 
 					unsigned char *name, size_t len);

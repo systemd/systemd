@@ -182,7 +182,9 @@ static int get_driver_path(const unsigned char *bus, const unsigned char *drv,
 		dprintf("Error getting sysfs mount path\n");
 		return -1;
 	}
-	strcat(path, SYSFS_BUS_DIR);
+	if (sysfs_trailing_slash(path) == 0)
+		strcat(path, "/");
+	strcat(path, SYSFS_BUS_NAME);
 	strcat(path, "/");
 	strcat(path, bus);
 	strcat(path, SYSFS_DRIVERS_DIR);

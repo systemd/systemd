@@ -112,7 +112,10 @@ static struct sysfs_directory *open_bus_dir(const unsigned char *name)
 		return NULL;
 	}
 
-	strcat(buspath, SYSFS_BUS_DIR);
+	if (sysfs_trailing_slash(buspath) == 0)
+		strcat(buspath, "/");
+		
+	strcat(buspath, SYSFS_BUS_NAME);
 	strcat(buspath, "/");
 	strcat(buspath, name);
 	busdir = sysfs_open_directory(buspath);
@@ -406,10 +409,13 @@ struct sysfs_device *sysfs_open_bus_device(unsigned char *busname,
 		return NULL;
 	}
 
-	strcat(path, SYSFS_BUS_DIR);
+	if (sysfs_trailing_slash(path) == 0)
+		strcat(path, "/");
+	strcat(path, SYSFS_BUS_NAME);
 	strcat(path, "/");
 	strcat(path, busname);
-	strcat(path, SYSFS_DEVICES_DIR);
+	strcat(path, "/");
+	strcat(path, SYSFS_DEVICES_NAME);
 	strcat(path, "/");
 	strcat(path, dev_id);
 
@@ -442,15 +448,17 @@ int sysfs_find_driver_bus(const unsigned char *driver, unsigned char *busname,
 	}
 
 	memset(subsys, 0, SYSFS_PATH_MAX);
-	strcpy(subsys, SYSFS_BUS_DIR);
+	strcpy(subsys, SYSFS_BUS_NAME);
 	buslist = sysfs_open_subsystem_list(subsys);
 	if (buslist != NULL) {
 		dlist_for_each_data(buslist, bus, char) {
 			memset(subsys, 0, SYSFS_PATH_MAX);
-			strcpy(subsys, SYSFS_BUS_DIR);
+			strcat(subsys, "/");
+			strcpy(subsys, SYSFS_BUS_NAME);
 			strcat(subsys, "/");
 			strcat(subsys, bus);
-			strcat(subsys, SYSFS_DRIVERS_DIR);
+			strcat(subsys, "/");
+			strcat(subsys, SYSFS_DRIVERS_NAME);
 			drivers = sysfs_open_subsystem_list(subsys);
 			if (drivers != NULL) {
 				dlist_for_each_data(drivers, curdrv, char) {

@@ -116,14 +116,16 @@ static struct sysfs_directory *open_class_dir(const unsigned char *name)
 		return NULL;
 	}
 
+	if (sysfs_trailing_slash(classpath) == 0)
+		strcat(classpath, "/");
 	/* 
 	 * We shall now treat "block" also as a class. Hence, check here
 	 * if "name" is "block" and proceed accordingly
 	 */
 	if (strcmp(name, SYSFS_BLOCK_NAME) == 0) {
-		strcat(classpath, SYSFS_BLOCK_DIR);
+		strcat(classpath, SYSFS_BLOCK_NAME);
 	} else {
-		strcat(classpath, SYSFS_CLASS_DIR);
+		strcat(classpath, SYSFS_CLASS_NAME);
 		strcat(classpath, "/");
 		strcat(classpath, name);
 	}
@@ -365,10 +367,13 @@ static int get_classdev_path(const unsigned char *classname,
                 dprintf("Error getting sysfs mount path\n");
                 return -1;
 	}
+	if (sysfs_trailing_slash(path) == 0)
+		strcat(path, "/");
+
 	if (strcmp(classname, SYSFS_BLOCK_NAME) == 0) {
-		strcat(path, SYSFS_BLOCK_DIR);
+		strcat(path, SYSFS_BLOCK_NAME);
 	} else {
-		strcat(path, SYSFS_CLASS_DIR);
+		strcat(path, SYSFS_CLASS_NAME);
 		strcat(path, "/");
 		strcat(path, classname);
 	}
