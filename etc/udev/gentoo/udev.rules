@@ -29,6 +29,13 @@ KERNEL="sd*",		NAME="%k", GROUP="disk"
 KERNEL="dasd*",		NAME="%k", GROUP="disk"
 KERNEL="ataraid*",	NAME="%k", GROUP="disk"
 
+# compaq smart array
+KERNEL="cciss!*",	PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", NAME="%c{1}", SYMLINK="%k"
+KERNEL="ida!*",		PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", NAME="%c{1}", SYMLINK="%k"
+
+# mylex
+KERNEL="rd!*",		PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", NAME="%c{1}", SYMLINK="%k"
+
 # dri devices
 KERNEL="card*",		NAME="dri/card%n", GROUP="video"
 KERNEL="nvidia*",	NAME="%k", GROUP="video"
