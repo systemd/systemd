@@ -3,7 +3,8 @@
 
 # console devices
 console:root:tty:0600
-tty[0-9][0-9]*:root:tty:0660
+tty:root:tty:0666
+tty[0-9]*:root:tty:0660
 vc/[0-9]*:root:tty:0660
 
 # pty devices
@@ -45,8 +46,8 @@ null:root:root:0666
 zero:root:root:0666
 
 # misc devices
-nvram:root:root:0660
-rtc:root:root:0660
+misc/nvram:root:root:0660
+misc/rtc:root:root:0660
 
 # floppy devices
 fd[01]*:root:floppy:0660
