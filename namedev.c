@@ -816,7 +816,7 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 			}
 
 			if (dev->symlink[0] != '\0') {
-				char temp[NAMESIZE];
+				char temp[NAME_SIZE];
 
 				info("configured rule in '%s' at line %i applied, added symlink '%s'",
 				     dev->config_file, dev->config_line, dev->symlink);
