@@ -45,8 +45,14 @@ Things are still quite rough, and it's a bit beyond proof of concept
 code.  Help is very much appreciated, see the TODO file for a list of
 things left to be done.
 
+If you want to build using klibc, use the Makefile.klibc file:
+	make clean
+	make -f Makefile.klibc
+and marvel at the tiny binary you just created :)
+
 Any comment/questions/concerns please let me know.
 
 greg k-h
 greg@kroah.com
+
 
