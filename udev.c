@@ -73,6 +73,7 @@ static char *subsystem_blacklist[] = {
 	"scsi_device",
 	"usb_host",
 	"pci_bus",
+	"pcmcia_socket",
 	"",
 };
 
