@@ -60,6 +60,7 @@
 #include "hpfs.h"
 #include "romfs.h"
 #include "sysv.h"
+#include "minix.h"
 #include "mac.h"
 #include "msdos.h"
 
@@ -134,6 +135,9 @@ int volume_id_probe_all(struct volume_id *id, unsigned long long off, unsigned l
 		goto exit;
 
 	if (volume_id_probe_sysv(id, off) == 0)
+		goto exit;
+
+	if (volume_id_probe_minix(id, off) == 0)
 		goto exit;
 
 	return -1;
