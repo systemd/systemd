@@ -89,7 +89,7 @@ static int delete_node(struct udevice *udev)
 	num = udev->partitions;
 	if (num > 0) {
 		info("removing all_partitions '%s[1-%i]'", filename, num);
-		if (num > PARTITIONS_COUNT) {
+		if (num > 255) {
 			info("garbage from udev database, skip all_partitions removal");
 			return -1;
 		}

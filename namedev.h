@@ -53,7 +53,6 @@ struct sysfs_class_device;
 
 #define ATTR_PARTITIONS		"all_partitions"
 #define ATTR_IGNORE_REMOVE	"ignore_remove"
-#define PARTITIONS_COUNT	15
 
 #define MAX_SYSFS_PAIRS		5
 
@@ -91,6 +90,7 @@ extern struct list_head config_device_list;
 
 extern int namedev_init(void);
 extern int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_dev);
+extern void namedev_close(void);
 
 extern void dump_config_dev(struct config_device *dev);
 extern void dump_config_dev_list(void);

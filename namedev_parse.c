@@ -250,7 +250,7 @@ static int namedev_parse(const char *filename, void *data)
 				if (attr != NULL) {
 					if (strstr(attr, ATTR_PARTITIONS) != NULL) {
 						dbg_parse("creation of partition nodes requested");
-						dev.partitions = PARTITIONS_COUNT;
+						dev.partitions = DEFAULT_PARTITIONS_COUNT;
 					}
 					if (strstr(attr, ATTR_IGNORE_REMOVE) != NULL) {
 						dbg_parse("remove event should be ignored");
@@ -338,3 +338,14 @@ int namedev_init(void)
 
 	return retval;
 }
+
+void namedev_close(void)
+{
+	struct config_device *dev;
+
+	list_for_each_entry(dev, &config_device_list, node) {
+		list_del(&dev->node);
+		free(dev);
+	}
+}
+

@@ -117,16 +117,16 @@ exit:
 	return retval;
 }
 
-static int create_node(struct udevice *udev)
+static int create_node(struct udevice *udev, struct sysfs_class_device *class_dev)
 {
 	char filename[NAME_SIZE];
 	char partitionname[NAME_SIZE];
 	uid_t uid = 0;
 	gid_t gid = 0;
-	int i;
 	int tail;
 	char *pos;
 	int len;
+		int i;
 
 	snprintf(filename, NAME_SIZE, "%s/%s", udev_root, udev->name);
 	filename[NAME_SIZE-1] = '\0';
@@ -154,6 +154,7 @@ static int create_node(struct udevice *udev)
 	if (udev->owner[0] != '\0') {
 		char *endptr;
 		unsigned long id = strtoul(udev->owner, &endptr, 10);
+
 		if (endptr[0] == '\0')
 			uid = (uid_t) id;
 		else {
@@ -170,6 +171,7 @@ static int create_node(struct udevice *udev)
 	if (udev->group[0] != '\0') {
 		char *endptr;
 		unsigned long id = strtoul(udev->group, &endptr, 10);
+
 		if (endptr[0] == '\0')
 			gid = (gid_t) id;
 		else {
@@ -193,6 +195,16 @@ static int create_node(struct udevice *udev)
 
 	/* create all_partitions if requested */
 	if (udev->partitions > 0) {
+		struct sysfs_attribute *attr;
+		int range;
+
+		/* take the maximum registered minor range */
+		attr = sysfs_get_classdev_attr(class_dev, "range");
+		if (attr) {
+			range = atoi(attr->value);
+			if (range > 1)
+				udev->partitions = range-1;
+		}
 		info("creating device partition nodes '%s[1-%i]'", filename, udev->partitions);
 		if (!udev->test_run) {
 			for (i = 1; i <= udev->partitions; i++) {
@@ -298,7 +310,7 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 	selinux_init();
 
 	if (udev->type == 'b' || udev->type == 'c') {
-		retval = create_node(udev);
+		retval = create_node(udev, class_dev);
 		if (retval != 0)
 			goto exit;
 

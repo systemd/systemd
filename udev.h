@@ -46,6 +46,8 @@
 #define HOTPLUGD_DIR			"/etc/hotplug.d"
 #define HOTPLUG_SUFFIX			".hotplug"
 
+#define DEFAULT_PARTITIONS_COUNT	15
+
 struct udevice {
 	char devpath[DEVPATH_SIZE];
 	char subsystem[SUBSYSTEM_SIZE];
