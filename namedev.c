@@ -635,8 +635,6 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 	struct sysfs_device *sysfs_device;
 	struct sysfs_class_device *class_dev_parent;
 	int loop;
-	int retval;
-	char filename[SYSFS_PATH_MAX + 6];
 
 	/* FIXME!!! */
 	/* This is needed here as we can easily out-race the placement of the
@@ -646,10 +644,17 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 	 * class device really shows up.  For now, we live with the time
 	 * delay...
 	 */
-//	sleep(1);
+	sleep(1);
+
+#if 0	/* FIXME
+	   Something like this could also work, but for some reason doesn't,
+	   I also tried just stat() on the device symlink, but that still
+	   has nasty races, I'm probably doing something stupid... :( */
 	loop = 10;
 	while (loop--) {
 		struct stat buf;
+		int retval;
+		char filename[SYSFS_PATH_MAX + 6];
 
 		strcpy(filename, class_dev->path);
 		strcat(filename, "/device");
@@ -657,49 +662,30 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 		retval = stat(filename, &buf);
 		if (!retval)
 			break;
-#if 0
+
 		/* bah, let's go backwards up a level to see if the device is there,
 		 * as block partitions don't point to the physical device.  Need to fix that
 		 * up in the kernel...
 		 */
 		if (strcmp(class_dev->classname, SYSFS_BLOCK_NAME) == 0) {
 			if (isdigit(class_dev->path[strlen(class_dev->path)-1])) {
-				char *temp = strrchr(filename, '/');
-				if (temp) {
-					*temp = 0x00;
-					temp = strrchr(filename, '/');
-					if (temp) {
-						*temp = 0x00;
-						strcat(filename, "/device");
-						dbg("looking for '%s'", filename);
-						retval = stat(filename, &buf);
-						if (!retval)
-							break;
-					}
+				class_dev_parent = sysfs_get_classdev_parent(class_dev);
+				if (class_dev_parent == NULL) {
+					dbg("sysfs_get_classdev_parent for class device '%s' failed", class_dev->name);
+				} else {
+					strcpy(filename, class_dev_parent->path);
+					strcat(filename, "/device");
+					dbg("looking for '%s'", filename);
+					retval = stat(filename, &buf);
+					if (!retval)
+						break;
 				}
 			}
 		}
-#endif
-//				class_dev_parent = sysfs_get_classdev_parent(class_dev);
-//				if (class_dev_parent == NULL) {
-//					dbg("sysfs_get_classdev_parent for class device '%s' failed", class_dev->name);
-//				} else {
-//					strcpy(filename, class_dev_parent->path);
-//					strcat(filename, "/device");
-//					dbg("looking for '%s'", filename);
-//					retval = stat(filename, &buf);
-//					if (!retval)
-//						break;
-//				}
-//			}
-//		}
 		/* sleep to give the kernel a chance to create the device file */
 		sleep(1);
 	}
-//	retval = -ENODEV;
-
-//	sleep(1);
-
+#endif
 	loop = 1;	/* FIXME put a real value in here for when everything is fixed... */
 	while (loop--) {
 		/* find the sysfs_device for this class device */
@@ -728,10 +714,10 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 			}
 		}
 		/* sleep to give the kernel a chance to create the link */
-		/* sleep(1); */
+		sleep(1);
 
 	}
-//	dbg("Timed out waiting for device symlink, continuing on anyway...");
+	dbg("Timed out waiting for device symlink, continuing on anyway...");
 exit:
 	return sysfs_device;
 }
