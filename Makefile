@@ -203,6 +203,14 @@ udev_version.h:
 	@echo \#define UDEV_RULES_FILE	\"$(configdir)\udev.rules\" >> $@
 	@echo \#define UDEV_PERMISSION_FILE	\"$(configdir)\udev.permissions\" >> $@
 
+# config files automatically generated
+GEN_CONFIGS =	udev.conf
+
+# Rules on how to create the generated config files
+udev.conf:
+	sed -e "s-@udevdir@-$(udevdir)-" < udev.conf.in > $@
+
+
 $(OBJS): $(GEN_HEADERS)
 
 $(ROOT): $(OBJS)
@@ -212,7 +220,7 @@ $(ROOT): $(OBJS)
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
-	-rm -f core $(ROOT) $(GEN_HEADERS) udev.conf
+	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS)
 	$(MAKE) -C klibc clean
 	@for target in $(EXTRAS) ; do \
 		echo $$target ; \
@@ -265,13 +273,12 @@ uninstall-dbus-policy:
 	-
 endif
 
-install: install-dbus-policy all
+install: install-dbus-policy all $(GEN_CONFIGS)
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
 	$(INSTALL) -d $(DESTDIR)$(configdir)
 	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
-	sed -e "s-@udevdir@-$(udevdir)-" < udev.conf.in > udev.conf
 	$(INSTALL_DATA) udev.conf $(DESTDIR)$(configdir)
 	$(INSTALL_DATA) udev.rules $(DESTDIR)$(configdir)
 	$(INSTALL_DATA) udev.permissions $(DESTDIR)$(configdir)
