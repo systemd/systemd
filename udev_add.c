@@ -114,8 +114,8 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 	char filename[PATH_SIZE];
 	char partitionname[PATH_SIZE];
 	struct name_entry *name_loop;
-	uid_t uid = 0;
-	gid_t gid = 0;
+	uid_t uid;
+	gid_t gid;
 	int tail;
 	int i;
 
@@ -126,24 +126,30 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 	if (strchr(udev->name, '/'))
 		create_path(filename);
 
-	if (udev->owner[0] != '\0') {
+	if (strcmp(udev->owner, "root") == 0)
+		uid = 0;
+	else {
 		char *endptr;
-		unsigned long id = strtoul(udev->owner, &endptr, 10);
+		unsigned long id;
 
+		id = strtoul(udev->owner, &endptr, 10);
 		if (endptr[0] == '\0')
 			uid = (uid_t) id;
 		else
 			uid = lookup_user(udev->owner);
 	}
 
-	if (udev->group[0] != '\0') {
+	if (strcmp(udev->group, "root") == 0)
+		gid = 0;
+	else {
 		char *endptr;
-		unsigned long id = strtoul(udev->group, &endptr, 10);
+		unsigned long id;
 
+		id = strtoul(udev->group, &endptr, 10);
 		if (endptr[0] == '\0')
 			gid = (gid_t) id;
 		else
-			gid = lookup_group(udev->group);
+			gid = lookup_user(udev->group);
 	}
 
 	if (!udev->test_run) {
