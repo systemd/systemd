@@ -289,7 +289,6 @@ keys:
 				  dev.name, dev.bus, dev.sysfs_pair[0].file,
 				  dev.sysfs_pair[0].value, dev.symlink);
 			if ((*dev.name == '\0') ||
-			    (*dev.bus == '\0') ||
 			    (*dev.sysfs_pair[0].file == '\0') ||
 			    (*dev.sysfs_pair[0].value == '\0'))
 				goto error;
