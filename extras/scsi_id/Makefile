@@ -14,7 +14,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
-SCSI_ID_VERSION=0.7
+SCSI_ID_VERSION=0.8
 
 prefix =
 etcdir =        ${prefix}/etc

@@ -44,8 +44,8 @@
 /*
  * temporary names for mknod.
  */
-#define TMP_DIR	"/dev"
-#define TMP_PREFIX "tmp-scsi"
+#define TMP_DIR	"/tmp"
+#define TMP_PREFIX "scsi"
 
 /*
  * XXX Note the 'e' (send output to stderr in all cases), and 'c' (callout)
@@ -736,9 +736,7 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 			format_serial(serial);
 		if (display_bus_id)
 			printf("%s: ", scsi_dev->name);
-		printf("%s", serial);
-		if (!hotplug_mode)
-			printf("\n");
+		printf("%s\n", serial);
 		dprintf("%s\n", serial);
 		retval = 0;
 	}
@@ -762,11 +760,6 @@ int main(int argc, char **argv)
 	if (getenv("DEBUG"))
 		debug++;
 
-	if ((argc == 2) && (argv[1][0] != '-')) {
-		hotplug_mode = 1;
-		dprintf("hotplug assumed\n");
-	}
-
 	dprintf("argc is %d\n", argc);
 	if (sysfs_get_mnt_path(sysfs_mnt_path, MAX_NAME_LEN)) {
 		log_message(LOG_WARNING, "sysfs_get_mnt_path failed: %s\n",
@@ -774,27 +767,19 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	if (hotplug_mode) {
+	devpath = getenv("DEVPATH");
+	if (devpath) {
 		/*
-		 * There is a kernel race creating attributes, if called
-		 * directly, uncomment the sleep.
+		 * This implies that we were invoked via udev or hotplug.
 		 */
-		/* sleep(1); */
-
-		devpath = getenv("DEVPATH");
-		if (!devpath) {
-			log_message(LOG_WARNING, "DEVPATH is not set\n");
-			exit(1);
-		}
+		hotplug_mode = 1;
 		sys_specified = 1;
-
 		strncpy(target_path, sysfs_mnt_path, MAX_NAME_LEN);
 		strncat(target_path, devpath, MAX_NAME_LEN);
 	}
 
 	/*
-	 * Override any command line options set via the config file. This
-	 * is the only way to set options when in hotplug mode.
+	 * Get config file options.
 	 */
 	newargv = NULL;
 	retval = get_file_options(NULL, NULL, &newargc, &newargv);
@@ -806,11 +791,13 @@ int main(int argc, char **argv)
 			exit(1);
 		free(newargv);
 	}
-	if (!hotplug_mode) {
-		if (set_options(argc, argv, short_options, target_path,
-				maj_min_dev) < 0)
+	/*
+	 * Get command line options (overriding any config file or DEVPATH
+	 * settings).
+	 */
+	if (set_options(argc, argv, short_options, target_path,
+			maj_min_dev) < 0)
 		exit(1);
-	}
 
 	if (!sys_specified) {
 		log_message(LOG_WARNING, "-s must be specified\n");

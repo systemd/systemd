@@ -53,9 +53,10 @@ identifier starts with the NAA value of 6):
 .SH OPTIONS
 .TP
 .BI subsystem
-When called with only a single argument without a leading \-, runs in a hotplug
-mode, and expects the environment variable DEVPATH to specify the
-corresponding sysfs device. See section below on usage with \fBudev\fP.
+Deprecated method: when called with only a single argument without a
+leading \-, runs in a hotplug mode, and expects the environment variable
+DEVPATH to specify the corresponding sysfs device. See section below on
+usage with \fBudev\fP.
 .TP
 .BI \-b
 The default behaviour \- treat the device as black listed, and do nothing
@@ -66,6 +67,8 @@ Instead
 of determining and creating a device node based on a sysfs dev
 entry as done for the \fB\-s\fP, send SG_IO commands to 
 \fBdevice\fP, such as \fB/dev/sdc\fP.
+This argument should also be used when invoked via udev to avoid problems
+with creation of temporary files on not-yet writable directories.
 .TP
 .BI \-f "\| config\-file"
 Read configuration and black/white list entries from
@@ -106,15 +109,15 @@ Display version number and exit.
 .RE
 
 .SH USAGE WITH UDEV 
+
 If \fBscsi_id\fP is invoked with one argument without a leading \-, it
 assumes it is called for a hotplug event, and looks for the sysfs device
-in the DEVPATH environment variable. 
+in the DEVPATH environment variable. This mode is deprecated, but
+available for backwards compatibility.
 
-This mode is used when run via the \fBudev\fP PROGRAM key. Passing any
-arguments or options as part of the PROGRAM rule breaks this assumption,
-and the results will likely not be as expected.
-
-When in this mode, all errors and warnings are sent via syslog.
+If the DEVPATH environment variable is set, scsi_id assumes it has been
+invoked via udev (or some other hotplug program), and all errors or
+warnings are sent using syslog.
 
 To determine the specific value needed in a RESULT key, use the \-s option,
 for example:
@@ -131,7 +134,7 @@ of 312345:
 
 .sp
 .nf
-BUS="scsi", PROGRAM="/sbin/scsi_id", RESULT="312345", NAME="disk%n"
+BUS="scsi", PROGRAM="/sbin/scsi_id -d %N -s %p", RESULT="312345", NAME="disk%n"
 .fi
 .P
 

@@ -60,7 +60,7 @@ do
 	if [ $first_line = "yes" ]
 	then
 		first_line=no
-		echo "BUS=\"scsi\", PROGRAM=\"${scsi_id}\", RESULT=\"${id}\", NAME=\"${prefix}${name}%n\""
+		echo "BUS=\"scsi\", PROGRAM=\"${scsi_id} -d %N -s %p\", RESULT=\"${id}\", NAME=\"${prefix}${name}%n\""
 		echo
 		echo "# Further RESULT keys use the result of the last PROGRAM rule."
 		echo "# Be careful not to add any rules containing PROGRAM key between here"
