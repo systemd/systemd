@@ -222,6 +222,11 @@ static void handle_msg(int sock)
 {
 	struct hotplug_msg *msg;
 	int retval;
+	struct msghdr smsg;
+	struct cmsghdr *cmsg;
+	struct iovec iov;
+	struct ucred *cred;
+	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
 
 	msg = msg_create();
 	if (msg == NULL) {
@@ -229,13 +234,30 @@ static void handle_msg(int sock)
 		return;
 	}
 
-	retval = recv(sock, msg, sizeof(struct hotplug_msg), 0);
+	iov.iov_base = msg;
+	iov.iov_len = sizeof(struct hotplug_msg);
+
+	memset(&smsg, 0x00, sizeof(struct msghdr));
+	smsg.msg_iov = &iov;
+	smsg.msg_iovlen = 1;
+	smsg.msg_control = cred_msg;
+	smsg.msg_controllen = sizeof(cred_msg);
+
+	retval = recvmsg(sock, &smsg, 0);
 	if (retval <  0) {
 		if (errno != EINTR)
 			dbg("unable to receive message");
 		return;
 	}
-	
+	cmsg = CMSG_FIRSTHDR(&smsg);
+	cred = (struct ucred *) CMSG_DATA(cmsg);
+
+	if (cred->uid != 0) {
+		dbg("sender uid=%i, message ignored", cred->uid);
+		free(msg);
+		return;
+	}
+
 	if (strncmp(msg->magic, UDEV_MAGIC, sizeof(UDEV_MAGIC)) != 0 ) {
 		dbg("message magic '%s' doesn't match, ignore it", msg->magic);
 		free(msg);
@@ -289,6 +311,7 @@ int main(int argc, char *argv[])
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
 	int retval;
+	const int on = 1;
 	struct sigaction act;
 
 	init_logging("udevd");
@@ -323,6 +346,9 @@ int main(int argc, char *argv[])
 		dbg("bind failed\n");
 		goto exit;
 	}
+
+	/* enable receiving of the sender credentials */
+	setsockopt(ssock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 
 	while (1) {
 		handle_msg(ssock);

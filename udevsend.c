@@ -119,7 +119,7 @@ static int start_daemon(void)
 
 int main(int argc, char* argv[])
 {
-	struct hotplug_msg message;
+	struct hotplug_msg msg;
 	char *action;
 	char *devpath;
 	char *subsystem;
@@ -133,6 +133,13 @@ int main(int argc, char* argv[])
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
 	int started_daemon = 0;
+	struct iovec iov;
+	struct msghdr smsg;
+	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
+	struct cmsghdr *cmsg;
+	struct ucred *cred;
+	
+
 
 #ifdef DEBUG
 	init_logging("udevsend");
@@ -174,12 +181,34 @@ int main(int argc, char* argv[])
 	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
 	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 
-	size = build_hotplugmsg(&message, action, devpath, subsystem, seq);
-	
+	size = build_hotplugmsg(&msg, action, devpath, subsystem, seq);
+
+	/* prepare message with credentials to authenticate ourself */
+	iov.iov_base = &msg;
+	iov.iov_len = size;
+
+	smsg.msg_name = &saddr;
+	smsg.msg_namelen = addrlen;
+	smsg.msg_iov = &iov;
+	smsg.msg_iovlen = 1;
+	smsg.msg_control = cred_msg;
+	smsg.msg_controllen = CMSG_LEN(sizeof(struct ucred));;
+	smsg.msg_flags = 0;
+
+	cmsg = CMSG_FIRSTHDR(&smsg);
+	cmsg->cmsg_level = SOL_SOCKET;
+	cmsg->cmsg_type = SCM_CREDENTIALS;
+	cmsg->cmsg_len = sizeof(cred_msg);
+	cred = (struct ucred *) CMSG_DATA(cmsg);
+	cred->uid = getuid();
+	cred->gid = getgid();
+	cred->pid = getpid();
+	cred->pid = getpid();
+
 	/* If we can't send, try to start daemon and resend message */
 	loop = UDEVSEND_CONNECT_RETRY;
 	while (loop--) {
-		retval = sendto(sock, &message, size, 0, (struct sockaddr *)&saddr, addrlen);
+		retval = sendmsg(sock, &smsg, 0);
 		if (retval != -1) {
 			retval = 0;
 			goto close_and_exit;
