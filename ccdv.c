@@ -28,12 +28,12 @@
 size_t gNBufUsed = 0, gNBufAllocated = 0;
 char *gBuf = NULL;
 int gCCPID;
-char gAction[64] = "";
-char gTarget[64] = "";
+char gAction[200] = "";
+char gTarget[200] = "";
 char gAr[32] = "";
 char gArLibraryTarget[64] = "";
 int gDumpCmdArgs = 0;
-char gArgsStr[800];
+char gArgsStr[1000];
 int gColumns = 80;
 int gANSIEscapes = 0;
 int gExitStatus = 95;
@@ -250,6 +250,7 @@ static const char * Extension(const char *path)
 	cp = strrchr(path, '.');
 	if (cp == NULL)
 		return ("");
+	// printf("Extension='%s'\n", cp);
 	return (cp);
 }	/* Extension */
 
@@ -289,6 +290,7 @@ int main(int argc, char **argv)
 	snprintf(gAction, sizeof(gAction), "Running %s", Basename(argv[1]));
 	memset(gArgsStr, 0, sizeof(gArgsStr));
 	for (i = 1; i < argc; i++) {
+		// printf("argv[%d]='%s'\n", i, argv[i]);
 		quote = (strchr(argv[i], ' ') != NULL) ? "\"" : "";
 		snprintf(gArgsStr + strlen(gArgsStr), sizeof(gArgsStr) - strlen(gArgsStr), "%s%s%s%s%s", (i == 1) ? "" : " ", quote, argv[i], quote, (i == (argc - 1)) ? "\n" : "");
 		if ((strcmp(argv[i], "-o") == 0) && ((i + 1) < argc)) {
@@ -296,11 +298,12 @@ int main(int argc, char **argv)
 				strcpy(gAction, "Linking");
 				snprintf(gTarget, sizeof(gTarget), "%s", Basename(argv[i + 1]));
 			}
-		} else if (strchr("-+/", (int) argv[i][0]) != NULL) {
+		} else if (strchr("-+", (int) argv[i][0]) != NULL) {
 			continue;
 		} else if (strncasecmp(Extension(argv[i]), ".c", 2) == 0) {
 			cc++;
 			snprintf(gTarget, sizeof(gTarget), "%s", Basename(argv[i]));
+			// printf("gTarget='%s'\n", gTarget);
 		} else if ((strncasecmp(Extension(argv[i]), ".h", 2) == 0) && (cc == 0)) {
 			pch++;
 			snprintf(gTarget, sizeof(gTarget), "%s", Basename(argv[i]));
