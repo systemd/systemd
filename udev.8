@@ -104,7 +104,8 @@ the kernel minor number for the device
 the bus id for the device
 .TP
 .B %c
-the CALLOUT program return value (this does not work within the PROGRAM field for the obvious reason.)
+the CALLOUT program returned string
+(this does not work within the PROGRAM field for the obvious reason.)
 .RE
 .P
 A sample \fIudev.conf\fP might look like this:
@@ -134,26 +135,25 @@ Permissions and ownership for the created device files may specified at
 The file consists of a set of lines. All empty lines and
 lines beginning with a '#' will be ignored.
 .br
-Every line lists a device name followed by numeric owner, group and permission
+Every line lists a device name followed by owner, group and permission
 mode. All values are separated by colons. The name field may end with a
 wildcard to apply the values to a whole class of devices.
 .br
-If udev was built using glibc, string owner and group names may be used.
+If
+.B udev
+was built using klibc or is used before the user database is accessible (e.g.
+.B initrd
+), only numeric owner and group values may be used.
 .sp
 A sample \fIudev.permissions\fP might look like this:
 .sp
 .nf
 #name:user:group:mode
+input/*:root:root:644
 ttyUSB1:0:8:0660
-video*:500:500:0660
+video*:root:video:0660
 dsp1:::0666
 .fi
-.P
-If 
-.B
-udev
-was built using glibc, string owner and group names may be used.
-
 .SH "FILES"
 .nf
 .ft B
