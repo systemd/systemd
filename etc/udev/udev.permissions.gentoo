@@ -170,6 +170,8 @@ vttuner:root:video:0660
 v4l/*:root:video:0660
 
 # input devices
+input/event*:root:root:600
+input/ts*:root:root:600
 input/*:root:root:644
 
 # gpm devices
