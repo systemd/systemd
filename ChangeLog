@@ -1,3 +1,35 @@
+Summary of changes from v045 to v046
+============================================
+
+Greg Kroah-Hartman:
+  o make spotless for releases
+
+Kay Sievers:
+  o Don't try to print major/minor for devices without a dev file
+  o remove get_device_type and merge that into udev_set_values()
+  o prevent udevd crash if DEVPATH is not set
+  o add ippp and bcrypt to the exception lists of wait_for_sysfs
+  o let klibc add the trailing newline to syslog conditionally
+  o disable logging for udevstart
+  o add NAME{ignore_remove} attribute
+  o remove historical SYSFS_attr="value" format
+  o don't wait for sysfs if the kernel(2.6.10-rc2) tells us what not to expect
+  o change key names in udevinfo sysfs walk to match the kernel
+  o support DRIVER as a rule key
+  o support SUBSYSTEM as a rule key
+  o rename udevdb* to udev_db*
+  o Make dev.d/ handling a separate processing stage
+  o make the udev object available to more processing stages
+  o remove udev_lib dependency from udevsend, which makes it smaller
+  o add ACTION to udev object to expose it to the whole process
+  o make udevinfo's -r option also workimg for symlink queries
+  o let udev act as udevstart if argv[1] == "udevstart"
+  o improve udevinfo sysfs info walk
+  o add sysfs info walk to udevinfo
+  o pass the whole event environment to udevd
+  o replace tdb database by simple lockless file database
+
+
 Summary of changes from v044 to v045
 ============================================
 
