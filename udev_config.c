@@ -171,7 +171,7 @@ static int parse_config_file(void)
 		if (bufline[0] == COMMENT_CHARACTER)
 			continue;
 
-		strlcpy(line, bufline, count);
+		strlcpy(line, bufline, count+1);
 
 		linepos = line;
 		retval = get_key(&linepos, &variable, &value);

@@ -13,7 +13,7 @@ size_t strlcpy(char *dst, const char *src, size_t size)
   char ch;
 
   while ( (ch = *p++) ) {
-    if ( bytes < size )
+    if ( bytes+1 < size )
       *q++ = ch;
 
     bytes++;

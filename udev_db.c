@@ -116,37 +116,37 @@ static int parse_db_file(struct udevice *udev, const char *filename)
 		switch(bufline[0]) {
 		case 'P':
 			if (count > sizeof(udev->devpath))
-				count = sizeof(udev->devpath)-1;
-			strlcpy(udev->devpath, &bufline[2], count-2);
+				count = sizeof(udev->devpath);
+			strlcpy(udev->devpath, &bufline[2], count-1);
 			break;
 		case 'N':
 			if (count > sizeof(udev->name))
-				count = sizeof(udev->name)-1;
-			strlcpy(udev->name, &bufline[2], count-2);
+				count = sizeof(udev->name);
+			strlcpy(udev->name, &bufline[2], count-1);
 			break;
 		case 'M':
 			if (count > sizeof(line))
-				count = sizeof(line)-1;
-			strlcpy(line, &bufline[2], count-2);
+				count = sizeof(line);
+			strlcpy(line, &bufline[2], count-1);
 			sscanf(line, "%u:%u", &major, &minor);
 			udev->devt = makedev(major, minor);
 			break;
 		case 'S':
-			if (count >  sizeof(line))
-				count =  sizeof(line)-1;
-			strlcpy(line, &bufline[2], count-2);
+			if (count > sizeof(line))
+				count =  sizeof(line);
+			strlcpy(line, &bufline[2], count-1);
 			name_list_add(&udev->symlink_list, line, 0);
 			break;
 		case 'A':
-			if (count >  sizeof(line))
-				count =  sizeof(line)-1;
-			strlcpy(line, &bufline[2], count-2);
+			if (count > sizeof(line))
+				count =  sizeof(line);
+			strlcpy(line, &bufline[2], count-1);
 			udev->partitions = atoi(line);
 			break;
 		case 'R':
-			if (count >  sizeof(line))
-				count =  sizeof(line)-1;
-			strlcpy(line, &bufline[2], count-2);
+			if (count > sizeof(line))
+				count =  sizeof(line);
+			strlcpy(line, &bufline[2], count-1);
 			udev->ignore_remove = atoi(line);
 			break;
 		}
@@ -227,14 +227,14 @@ int udev_db_search_name(char *devpath, size_t len, const char *name)
 			switch(bufline[0]) {
 			case 'P':
 				if (count > sizeof(path))
-					count = sizeof(path)-1;
-				strlcpy(path, &bufline[2], count-2);
+					count = sizeof(path);
+				strlcpy(path, &bufline[2], count-1);
 				break;
 			case 'N':
 			case 'S':
 				if (count > sizeof(nodename))
-					count = sizeof(nodename)-1;
-				strlcpy(nodename, &bufline[2], count-2);
+					count = sizeof(nodename);
+				strlcpy(nodename, &bufline[2], count-1);
 				dbg("compare '%s' '%s'", nodename, name);
 				if (strcmp(nodename, name) == 0) {
 					strlcpy(devpath, path, len);
@@ -302,13 +302,13 @@ int udev_db_dump_names(int (*handler_function)(const char *path, const char *nam
 			switch(bufline[0]) {
 			case 'P':
 				if (count > sizeof(path))
-					count = sizeof(path)-1;
-				strlcpy(path, &bufline[2], count-2);
+					count = sizeof(path);
+				strlcpy(path, &bufline[2], count-1);
 				break;
 			case 'N':
 				if (count > sizeof(nodename))
-				count = sizeof(nodename)-1;
-				strlcpy(nodename, &bufline[2], count-2);
+					count = sizeof(nodename);
+				strlcpy(nodename, &bufline[2], count-1);
 				break;
 			default:
 				continue;

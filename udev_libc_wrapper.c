@@ -36,11 +36,15 @@
 #define __OWN_USERDB_PARSER__
 #endif
 
+#ifdef __GLIBC__
+#define __OWN_STRLCPYCAT__
+#endif
+
 #ifdef USE_STATIC
 #define __OWN_USERDB_PARSER__
 #endif
 
-#ifndef strlcpy
+#ifdef __OWN_STRLCPYCAT__
 size_t strlcpy(char *dst, const char *src, size_t size)
 {
 	size_t bytes = 0;
@@ -49,7 +53,7 @@ size_t strlcpy(char *dst, const char *src, size_t size)
 	char ch;
 
 	while ((ch = *p++)) {
-		if (bytes < size)
+		if (bytes+1 < size)
 			*q++ = ch;
 		bytes++;
 	}
@@ -57,9 +61,7 @@ size_t strlcpy(char *dst, const char *src, size_t size)
 	*q = '\0';
 	return bytes;
 }
-#endif
 
-#ifndef strlcat
 size_t strlcat(char *dst, const char *src, size_t size)
 {
 	size_t bytes = 0;
@@ -71,9 +73,11 @@ size_t strlcat(char *dst, const char *src, size_t size)
 		q++;
 		bytes++;
 	}
+	if (bytes == size)
+		return (bytes + strlen(src));
 
 	while ((ch = *p++)) {
-		if (bytes < size)
+		if (bytes+1 < size)
 		*q++ = ch;
 		bytes++;
 	}
@@ -81,7 +85,7 @@ size_t strlcat(char *dst, const char *src, size_t size)
 	*q = '\0';
 	return bytes;
 }
-#endif
+#endif /* __OWN_STRLCPYCAT__ */
 
 #ifndef __OWN_USERDB_PARSER__
 #include <sys/types.h>

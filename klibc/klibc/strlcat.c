@@ -16,9 +16,11 @@ size_t strlcat(char *dst, const char *src, size_t size)
     q++;
     bytes++;
   }
+  if (bytes == size)
+    return (bytes + strlen(src));
 
   while ( (ch = *p++) ) {
-    if ( bytes < size )
+    if ( bytes+1 < size )
       *q++ = ch;
 
     bytes++;
