@@ -454,10 +454,8 @@ static int execute_program(char *path, char *value, int len)
 	switch(pid) {
 	case 0:
 		/* child */
-		close(STDOUT_FILENO);
-
-		/* dup write side of pipe to STDOUT */
-		dup(fds[1]);
+		/* dup2 write side of pipe to STDOUT */
+		dup2(fds[1], STDOUT_FILENO);
 		if (argv[0] !=  NULL) {
 			dbg("execute '%s' with given arguments", argv[0]);
 			retval = execv(argv[0], argv);

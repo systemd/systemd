@@ -23,9 +23,13 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <unistd.h>
+#include <fcntl.h>
+
 #include "udev.h"
 #include "udev_lib.h"
+#include "udevdb.h"
 #include "logging.h"
 
 #define DEVD_DIR			"/etc/dev.d/"
@@ -34,6 +38,7 @@
 static int run_program(char *name)
 {
 	pid_t pid;
+	int fd;
 
 	dbg("running %s", name);
 
@@ -41,6 +46,14 @@ static int run_program(char *name)
 	switch (pid) {
 	case 0:
 		/* child */
+		udevdb_exit();  /* close udevdb */
+		fd = open("/dev/null", O_RDWR);
+		if ( fd >= 0) {
+			dup2(fd, STDOUT_FILENO);
+			dup2(fd, STDIN_FILENO);
+			dup2(fd, STDERR_FILENO);
+		}
+		close(fd);
 		execv(name, main_argv);
 		dbg("exec of child failed");
 		exit(1);

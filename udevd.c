@@ -477,6 +477,8 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+	set_cloexec_flag(ssock, 1);
+
 	/* the bind takes care of ensuring only one copy running */
 	retval = bind(ssock, (struct sockaddr *) &saddr, addrlen);
 	if (retval < 0) {

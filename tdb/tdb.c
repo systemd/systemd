@@ -65,6 +65,7 @@
 #include <signal.h>
 #include "tdb.h"
 #include "spinlock.h"
+#include "../udev_lib.h"
 #else
 #include "includes.h"
 #endif
@@ -1735,6 +1736,12 @@ TDB_CONTEXT *tdb_open_ex(const char *name, int hash_size, int tdb_flags,
 			 name, strerror(errno)));
 		goto fail;	/* errno set by open(2) */
 	}
+
+	/* 
+	   Close file when execing another process.  
+	   Prevents SELinux access errors.
+	*/
+	set_cloexec_flag(tdb->fd, 1);
 
 	/* ensure there is only one process initialising at once */
 	if (tdb_brlock(tdb, GLOBAL_LOCK, F_WRLCK, F_SETLKW, 0) == -1) {

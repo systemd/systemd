@@ -160,6 +160,8 @@ int main(int argc, char* argv[])
 		goto fallback;
 	}
 
+	set_cloexec_flag(sock, 1);
+
 	memset(&saddr, 0x00, sizeof(struct sockaddr_un));
 	saddr.sun_family = AF_LOCAL;
 	/* use abstract namespace for socket path */

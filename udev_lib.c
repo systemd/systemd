@@ -255,3 +255,22 @@ int call_foreach_file(int fnct(char *f) , char *dirname, char *suffix)
 	closedir(dir);
 	return 0;
 }
+
+/* Set the FD_CLOEXEC  flag of desc if value is nonzero,
+   or clear the flag if value is 0.
+   Return 0 on success, or -1 on error with errno  set. */ 
+	
+int set_cloexec_flag (int desc, int value)
+{
+	int oldflags = fcntl (desc, F_GETFD, 0);
+	/* If reading the flags failed, return error indication now. */
+	if (oldflags < 0)
+		return oldflags;
+	/* Set just the flag we want to set. */
+	if (value != 0)
+		oldflags |= FD_CLOEXEC;
+	else
+		oldflags &= ~FD_CLOEXEC;
+	/* Store modified flag word in the descriptor. */
+	return fcntl (desc, F_SETFD, oldflags);
+}
