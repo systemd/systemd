@@ -120,7 +120,7 @@ ifeq ($(strip $(KLIBC)),true)
 #	LIB_OBJS =	$(GCC_LIB)
 
 	LIBC =	$(ARCH_LIB_OBJS) $(LIB_OBJS)
-	CFLAGS += -nostdinc -I$(INCLUDE_DIR) -I$(INCLUDE_DIR)/bits32 -I/home/greg/linux/linux-2.5/include -I$(GCCINCDIR) -D__KLIBC__
+	CFLAGS += -nostdinc -I$(INCLUDE_DIR) -I$(INCLUDE_DIR)/bits32 -I$(GCCINCDIR) -Iklibc/linux/include -D__KLIBC__
 	LDFLAGS =
 #	LDFLAGS = --static --nostdlib -nostartfiles
 else
