@@ -228,7 +228,7 @@ static void udev_scan_class(void)
 				continue;
 
 			snprintf(dirname, MAX_PATHLEN, "%s/%s", SYSCLASS, dent->d_name);
-			dirname[MAX_PATHLEN] = '\0';
+			dirname[MAX_PATHLEN-1] = '\0';
 			dir2 = opendir(dirname);
 			if (dir2 != NULL) {
 				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
