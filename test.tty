@@ -1,10 +1,12 @@
-#!/bin/sh
-export ACTION=add
-#export ACTION=remove
-export DEVPATH=/devices/pci0/00:09.0/usb1/1-1/1-1.1/ttyUSB7
-export DEVPATH=/class/tty/ttyUSB0
-#export DEVPATH=/block/hda
+#! /bin/sh
+#
+# test.tty - run udev(8) on each tty device in /sys/class/tty
 
+SYSFSDIR=/sys		# change this for a nonstand sysfs mount point
+BIN=./udev		# location of your udev binary
+export ACTION=add	# 'add' or 'remove'
 
-#./udev block
-./udev tty
+for i in ${SYSFSDIR}/class/tty/*; do
+	export DEVPATH="/"`echo $i | cut --delimiter='/' --fields=3-`
+	$BIN tty
+done

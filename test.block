@@ -1,10 +1,12 @@
-#!/bin/sh
-export ACTION=add
-#export ACTION=remove
+#! /bin/sh
+#
+# test.block - run udev(8) on each block device in /sys/block
 
-export DEVPATH=/block/hda
-export DEVPATH=/block/sda/sda1
-#export DEVPATH=/block/sda
+SYSFSDIR=/sys		# change this for a nonstand sysfs mount point
+BIN=./udev		# location of your udev binary
+export ACTION=add	# 'add' or 'remove'
 
-
-./udev block
+for i in ${SYSFSDIR}/block/*; do
+	export DEVPATH="/"`echo $i | cut --delimiter='/' --fields=3-`
+	$BIN block
+done
