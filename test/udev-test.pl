@@ -328,6 +328,16 @@ EOF
 SYSFS_idProduct="2008", NAME="visor"
 EOF
 	},
+	{
+		desc     => "name test with ! in the name",
+		subsys   => "block",
+		devpath  => "block/rd!c0d0",
+		expected => "rd/c0d0" ,
+		conf     => <<EOF
+BUS="scsi", NAME="%k"
+KERNEL="ttyUSB0", NAME="visor"
+EOF
+	},
 );
 
 # set env
