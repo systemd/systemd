@@ -41,7 +41,7 @@ char **main_envp;
 
 #ifdef LOG
 unsigned char logname[42];
-void log_message (int level, const char *format, ...)
+void log_message(int level, const char *format, ...)
 {
 	va_list args;
 
@@ -76,7 +76,7 @@ static char *subsystem_blacklist[] = {
 	"",
 };
 
-static int udev_hotplug(int argc, char **argv)
+static int udev_hotplug(void)
 {
 	char *action;
 	char *devpath;
@@ -106,7 +106,7 @@ static int udev_hotplug(int argc, char **argv)
 	}
 
 	/* skip blacklisted subsystems */
-	subsystem = get_subsystem(argv[1]);
+	subsystem = get_subsystem(main_argv[1]);
 	if (!subsystem) {
 		dbg("no subsystem?");
 		goto exit;
@@ -122,9 +122,6 @@ static int udev_hotplug(int argc, char **argv)
 
 	/* connect to the system message bus */
 	sysbus_connect();
-
-	/* initialize our configuration */
-	udev_init_config();
 
 	/* initialize udev database */
 	retval = udevdb_init(UDEVDB_DEFAULT);
@@ -172,7 +169,11 @@ int main(int argc, char **argv, char **envp)
 	main_envp = envp;
 
 	init_logging("udev");
+
+	/* initialize our configuration */
+	udev_init_config();
+
 	dbg("version %s", UDEV_VERSION);
 
-	return udev_hotplug(argc, argv);
+	return udev_hotplug();
 }

@@ -228,7 +228,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 	pos = string;
 
 	while (1) {
-		pos = strchr(pos, '%');
+		pos = strchr(string, '%');
 		if (pos != NULL) {
 			pos[0] = '\0';
 			tail = pos+1;
@@ -247,19 +247,19 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 		case 'b':
 			if (strlen(udev->bus_id) == 0)
 				break;
-			strnfieldcat(pos, udev->bus_id, maxsize);
+			strnfieldcat(string, udev->bus_id, maxsize);
 			dbg("substitute bus_id '%s'", udev->bus_id);
 			break;
 		case 'k':
 			if (strlen(udev->kernel_name) == 0)
 				break;
-			strnfieldcat(pos, udev->kernel_name, maxsize);
+			strnfieldcat(string, udev->kernel_name, maxsize);
 			dbg("substitute kernel name '%s'", udev->kernel_name);
 			break;
 		case 'n':
 			if (strlen(udev->kernel_number) == 0)
 				break;
-			strnfieldcat(pos, udev->kernel_number, maxsize);
+			strnfieldcat(string, udev->kernel_number, maxsize);
 			dbg("substitute kernel number '%s'", udev->kernel_number);
 				break;
 		case 'm':
@@ -289,11 +289,11 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 					}
 				}
 				if (pos3) {
-					strnfieldcat(pos, pos3, maxsize);
+					strnfieldcat(string, pos3, maxsize);
 					dbg("substitute part of result string '%s'", pos3);
 				}
 			} else {
-				strnfieldcat(pos, udev->program_result, maxsize);
+				strnfieldcat(string, udev->program_result, maxsize);
 				dbg("substitute result string '%s'", udev->program_result);
 			}
 			break;
@@ -304,20 +304,20 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 					dbg("sysfa attribute '%s' not found", attr);
 					break;
 				}
-				strnfieldcpy(pos, tmpattr->value, maxsize);
+				strnfieldcat(string, tmpattr->value, maxsize);
 				dbg("substitute sysfs value '%s'", tmpattr->value);
 			} else {
 				dbg("missing attribute");
 			}
 			break;
 		case '%':
-			strnfieldcat(pos, "%", maxsize);
+			strnfieldcat(string, "%", maxsize);
 			break;
 		default:
 			dbg("unknown substitution type '%%%c'", c);
 			break;
 		}
-		strnfieldcat(pos, tail, maxsize);
+		strnfieldcat(string, tail, maxsize);
 	}
 }
 

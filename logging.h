@@ -37,14 +37,14 @@
 #undef info
 #define info(format, arg...)								\
 	do {										\
-		log_message (LOG_INFO , format , ## arg);				\
+		log_message(LOG_INFO , format , ## arg);				\
 	} while (0)
 
 #ifdef DEBUG
 #undef dbg
 #define dbg(format, arg...)								\
 	do {										\
-		log_message (LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
+		log_message(LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
 	} while (0)
 #endif
 
@@ -53,11 +53,11 @@
 #undef dbg_parse
 #define dbg_parse(format, arg...)							\
 	do {										\
-		log_message (LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
+		log_message(LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
 	} while (0)
 #endif
 
-extern void log_message (int level, const char *format, ...)
+extern void log_message(int level, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
 
 /* each program that uses syslog must declare this variable somewhere */

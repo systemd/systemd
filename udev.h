@@ -90,7 +90,7 @@ static inline char *get_action(void)
 	char *action;
 
 	action = getenv("ACTION");
-	if (strlen(action) > ACTION_SIZE)
+	if (action != NULL && strlen(action) > ACTION_SIZE)
 		action[ACTION_SIZE-1] = '\0';
 
 	return action;
@@ -101,7 +101,7 @@ static inline char *get_devpath(void)
 	char *devpath;
 
 	devpath = getenv("DEVPATH");
-	if (strlen(devpath) > DEVPATH_SIZE)
+	if (devpath != NULL && strlen(devpath) > DEVPATH_SIZE)
 		devpath[DEVPATH_SIZE-1] = '\0';
 
 	return devpath;
@@ -118,7 +118,7 @@ static inline char *get_seqnum(void)
 
 static inline char *get_subsystem(char *subsystem)
 {
-	if (strlen(subsystem) > SUBSYSTEM_SIZE)
+	if (subsystem != NULL && strlen(subsystem) > SUBSYSTEM_SIZE)
 		subsystem[SUBSYSTEM_SIZE-1] = '\0';
 
 	return subsystem;
