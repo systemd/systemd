@@ -82,7 +82,7 @@ static int start_daemon(void)
 		dbg("fork of helper failed");
 		return -1;
 	default:
-		wait(NULL);
+		waitpid(pid, NULL, 0);
 	}
 	return 0;
 }
@@ -103,7 +103,7 @@ static void run_udev(const char *subsystem)
 		dbg("fork of child failed");
 		break;
 	default:
-		wait(NULL);
+		waitpid(pid, NULL, 0);
 	}
 }
 

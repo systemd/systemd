@@ -68,7 +68,7 @@ static int run_program(char *name)
 		break;
 		return -1;
 	default:
-		wait(NULL);
+		waitpid(pid, NULL, 0);
 	}
 
 	return 0;

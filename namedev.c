@@ -444,7 +444,7 @@ static int execute_program(const char *path, char *value, int len)
 		dbg("result is '%s'", value);
 
 		close(fds[0]);
-		wait(&status);
+		waitpid(pid, &status, 0);
 
 		if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
 			dbg("exec program status 0x%x", status);
