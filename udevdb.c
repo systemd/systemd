@@ -62,29 +62,22 @@ int udevdb_add_dev(const char *path, const struct udevice *dev)
 	return tdb_store(udevdb, key, data, TDB_REPLACE); 
 }
 
-struct udevice *udevdb_get_dev(const char *path)
+int udevdb_get_dev(const char *path, struct udevice *dev)
 {
 	TDB_DATA key, data;
-	struct udevice *dev;
 
 	if (path == NULL)
-		return NULL;
+		return -ENODEV;
 
 	key.dptr = (void *)path;
 	key.dsize = strlen(path) + 1;
 
 	data = tdb_fetch(udevdb, key);
 	if (data.dptr == NULL || data.dsize == 0)
-		return NULL;
-
-	dev = malloc(sizeof(*dev));
-	if (dev == NULL)
-		goto exit;
+		return -ENODEV;
 
 	memcpy(dev, data.dptr, sizeof(*dev));
-exit:
-	free(data.dptr);
-	return dev;
+	return 0;
 }
 
 int udevdb_delete_dev(const char *path)

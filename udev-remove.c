@@ -119,18 +119,21 @@ static int delete_node(struct udevice *dev)
 int udev_remove_device(char *path, char *subsystem)
 {
 	struct udevice *dev;
-	struct udevice device;
 	char *temp;
+	int retval;
 
-	dev = udevdb_get_dev(path);
-	if (dev == NULL) {
+	dev = malloc(sizeof(*dev));
+	if (dev == NULL)
+		return -ENOMEM;
+	memset(dev, 0, sizeof(*dev));
+
+	retval = udevdb_get_dev(path, dev);
+	if (retval) {
 		dbg("'%s' not found in database, falling back on default name", path);
 		temp = strrchr(path, '/');
 		if (temp == NULL)
 			return -ENODEV;
-		memset(&device, 0, sizeof(device));
-		dev = &device;
-		strncpy(device.name, &temp[1], sizeof(device.name));
+		strncpy(dev->name, &temp[1], sizeof(dev->name));
 	}
 
 	dbg("name is '%s'", dev->name);
@@ -138,5 +141,7 @@ int udev_remove_device(char *path, char *subsystem)
 
 	sysbus_send_remove(dev->name, path);
 
-	return delete_node(dev);
+	retval = delete_node(dev);
+	free(dev);
+	return retval;
 }
