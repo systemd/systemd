@@ -3,7 +3,7 @@
  *
  * Userspace devfs
  *
- * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
+ * Copyright (C) 2003,2004 Greg Kroah-Hartman <greg@kroah.com>
  *
  *
  *	This program is free software; you can redistribute it and/or modify it
@@ -49,41 +49,6 @@ static int add_config_dev(struct config_device *new_dev)
 	memcpy(tmp_dev, new_dev, sizeof(*tmp_dev));
 	list_add_tail(&tmp_dev->node, &config_device_list);
 	//dump_config_dev(tmp_dev);
-	return 0;
-}
-
-int get_pair(char **orig_string, char **left, char **right)
-{
-	char *temp;
-	char *string = *orig_string;
-
-	if (!string)
-		return -ENODEV;
-
-	/* eat any whitespace */
-	while (isspace(*string) || *string == ',')
-		++string;
-
-	/* split based on '=' */
-	temp = strsep(&string, "=");
-	*left = temp;
-	if (!string)
-		return -ENODEV;
-
-	/* take the right side and strip off the '"' */
-	while (isspace(*string))
-		++string;
-	if (*string == '"')
-		++string;
-	else
-		return -ENODEV;
-
-	temp = strsep(&string, "\"");
-	if (!string || *temp == '\0')
-		return -ENODEV;
-	*right = temp;
-	*orig_string = string;
-	
 	return 0;
 }
 
@@ -166,7 +131,7 @@ int namedev_init_rules(void)
 
 		/* get all known keys */
 		while (1) {
-			retval = get_pair(&temp, &temp2, &temp3);
+			retval = parse_get_pair(&temp, &temp2, &temp3);
 			if (retval)
 				break;
 

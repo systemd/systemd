@@ -3,7 +3,7 @@
  *
  * Userspace devfs
  *
- * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
+ * Copyright (C) 2003,2004 Greg Kroah-Hartman <greg@kroah.com>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -90,7 +90,5 @@ extern void dump_config_dev(struct config_device *dev);
 extern void dump_config_dev_list(void);
 extern void dump_perm_dev(struct perm_device *dev);
 extern void dump_perm_dev_list(void);
-
-extern int get_pair(char **orig_string, char **left, char **right);
 
 #endif

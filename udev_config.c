@@ -3,7 +3,7 @@
  *
  * Userspace devfs
  *
- * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
+ * Copyright (C) 2003,2004 Greg Kroah-Hartman <greg@kroah.com>
  *
  *
  *	This program is free software; you can redistribute it and/or modify it
@@ -68,6 +68,41 @@ static void init_variables(void)
 		strncpy(_var, value, sizeof(_var));	\
 	}
 
+int parse_get_pair(char **orig_string, char **left, char **right)
+{
+	char *temp;
+	char *string = *orig_string;
+
+	if (!string)
+		return -ENODEV;
+
+	/* eat any whitespace */
+	while (isspace(*string) || *string == ',')
+		++string;
+
+	/* split based on '=' */
+	temp = strsep(&string, "=");
+	*left = temp;
+	if (!string)
+		return -ENODEV;
+
+	/* take the right side and strip off the '"' */
+	while (isspace(*string))
+		++string;
+	if (*string == '"')
+		++string;
+	else
+		return -ENODEV;
+
+	temp = strsep(&string, "\"");
+	if (!string || *temp == '\0')
+		return -ENODEV;
+	*right = temp;
+	*orig_string = string;
+	
+	return 0;
+}
+
 static int parse_config_file(void)
 {
 	char line[255];
@@ -108,7 +143,7 @@ static int parse_config_file(void)
 		if (*temp == COMMENT_CHARACTER)
 			continue;
 
-		retval = get_pair(&temp, &variable, &value);
+		retval = parse_get_pair(&temp, &variable, &value);
 		if (retval)
 			break;
 		
