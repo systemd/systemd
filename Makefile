@@ -26,6 +26,7 @@ VERSION =	005_bk
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
 
+DESTDIR =
 # override this to make udev look in a different location for it's config files
 prefix =
 exec_prefix =	${prefix}
@@ -195,14 +196,14 @@ release: $(DISTFILES) clean
 
 
 install: all
-	$(INSTALL) -d $(udevdir)
-	$(INSTALL) -d $(configdir)
-	$(INSTALL) -d $(hotplugdir)
-	$(INSTALL_PROGRAM) -D $(ROOT) $(sbindir)/$(ROOT)
-	$(INSTALL_DATA) -D udev.8 $(mandir)/man8/udev.8
-	$(INSTALL_DATA) udev.config $(configdir)
-	$(INSTALL_DATA) udev.permissions $(configdir)
-	- ln -s $(sbindir)/$(ROOT) $(hotplugdir)/udev.hotplug
+	$(INSTALL) -d $(DESTDIR)$(udevdir)
+	$(INSTALL) -d $(DESTDIR)$(configdir)
+	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
+	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
+	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
+	$(INSTALL_DATA) udev.config $(DESTDIR)$(configdir)
+	$(INSTALL_DATA) udev.permissions $(DESTDIR)$(configdir)
+	- ln -s $(sbindir)/$(ROOT) $(DESTDIR)$(hotplugdir)/udev.hotplug
 
 uninstall:
 	- rm $(hotplugdir)/udev.hotplug

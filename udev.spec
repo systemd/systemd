@@ -7,7 +7,7 @@ Group: Utilities/System
 Source: ftp://ftp.kernel.org/pub/linux/utils/kernel/hotplug/%{name}-%{version}.tar.gz
 ExclusiveOS: Linux
 Vendor: Greg Kroah-Hartman <greg@kroah.com>
-BuildRoot: /var/tmp/%{name}-%{version}-%{release}-root
+BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Prereq: /bin/sh, fileutils, hotplug
 
 %description
@@ -21,9 +21,7 @@ udev is a implementation of devfs in userspace using sysfs and
 make CC="gcc $RPM_OPT_FLAGS"
 
 %install
-make prefix=$RPM_BUILD_ROOT install
-rm -f ${RPM_BUILD_ROOT}/etc/hotplug.d/default/udev.hotplug
-ln -s /sbin/udev ${RPM_BUILD_ROOT}/etc/hotplug.d/default/udev.hotplug
+make DESTDIR=$RPM_BUILD_ROOT install
 
 %clean
 rm -rf $RPM_BUILD_ROOT
