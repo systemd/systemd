@@ -21,9 +21,9 @@
 #ifndef _VOLUME_ID_H_
 #define _VOLUME_ID_H_
 
-#define VOLUME_ID_VERSION		002
+#define VOLUME_ID_VERSION		004
 
-#define VOLUME_ID_LABEL_SIZE		32
+#define VOLUME_ID_LABEL_SIZE		64
 #define VOLUME_ID_UUID_SIZE		16
 #define VOLUME_ID_UUID_STRING_SIZE	37
 #define VOLUME_ID_PATH_MAX		255
@@ -45,19 +45,19 @@ enum filesystem_type {
 };
 
 struct volume_id {
-	char		label_raw[VOLUME_ID_LABEL_SIZE];
-	size_t		label_raw_len;
+	unsigned char	label_raw[VOLUME_ID_LABEL_SIZE];
+	unsigned int	label_raw_len;
 	char		label_string[VOLUME_ID_LABEL_SIZE+1];
 	unsigned char	uuid[VOLUME_ID_UUID_SIZE];
 	char		uuid_string[VOLUME_ID_UUID_STRING_SIZE];
 	enum		filesystem_type fs_type;
 	char		*fs_name;
 	int		fd;
-	char		*sbbuf;
-	size_t		sbbuf_len;
-	char		*seekbuf;
-	size_t		seekbuf_off;
-	size_t		seekbuf_len;
+	unsigned char	*sbbuf;
+	unsigned int	sbbuf_len;
+	unsigned char	*seekbuf;
+	unsigned int	seekbuf_off;
+	unsigned int	seekbuf_len;
 	int		fd_close;
 };
 
