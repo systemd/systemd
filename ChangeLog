@@ -1,3 +1,53 @@
+Summary of changes from v017 to v018
+============================================
+
+<ext.devoteam.varoqui:sncf.fr>:
+  o [PATCH] symlink dm-[0-9]* rule
+  o update extras/multipath
+
+<john-hotplug:fjellstad.org>:
+  o init.d debian patch
+
+Kay Sievers:
+  o udev - TODO update
+  o udev - add %s{filename} to man page
+  o udev - udevd/udevsend man page
+  o udev - switch callout part selector to {attribute}
+  o udev - switch SYSFS_file to SYSFS{file}
+  o udev - create all partitions of blockdevice
+  o allow SYSFS{file}
+  o Adding '%s' format specifier to NAME and SYMLINK
+
+Greg Kroah-Hartman:
+  o added some scsi_id files to the bk ignore file
+  o added scsi_id and some more documentation to the udev.spec file
+  o update udev.rules.gentoo with new config file format
+  o Update the Gentoo udev.rules and udev.permissions files
+  o Create a udev.rules.examples file to hold odd udev.rules
+  o add udevd priority issue to the TODO list
+  o more HOWTO cleanups
+  o add HOWTO detailing how to use udev to manage /dev
+  o mv libsysfs/libsysfs.h to libsysfs/sysfs/libsysfs.h to make it easier to use
+  o add start_udev init script
+  o add support for UDEV_NO_SLEEP env variable so Gentoo people will be happy
+  o start up udevd ourselves in the init script to give it some good priorities
+  o update the red hat init script to handle nodes that are not present
+  o add a "old style" SYSFS_attribute test to udev-test.pl
+  o Have udevsend report more info in debug mode
+  o Have udevd report it's version in debug mode
+  o fix up bug created for udevtest in previous partition creation patch
+  o update the udev.spec to add udevtest and make some more Red Hat suggested changes
+  o add ability to install udevtest to Makefile
+  o 017_bk mark
+  o Add another test to udev-test.pl and fix a bug when only running 1 test
+  o Fix bug where we did not use the "converted" kernel name if we had no rule
+  o v017 release TAG: v017
+
+Patrick Mansfield:
+  o udev use new libsysfs header file location
+  o udev add some ID tests
+
+
 Summary of changes from v016 to v017
 ============================================
 
