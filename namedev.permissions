@@ -1,0 +1,4 @@
+#name:user:group:mode
+ttyUSB0:root:uucp:0666
+ttyUSB1:root:uucp:0666
+

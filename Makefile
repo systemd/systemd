@@ -110,7 +110,8 @@ $(ARCH_LIB_OBJS) :
 	$(MAKE) -C klibc
 
 OBJS =	udev.o		\
-	logging.o
+	logging.o	\
+	namedev.o
 
 
 # header files automatically generated

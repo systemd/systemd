@@ -30,6 +30,7 @@
 
 #include "udev.h"
 #include "udev_version.h"
+#include "namedev.h"
 
 
 static char *get_action(void)
@@ -261,6 +262,8 @@ int main(int argc, char *argv[])
 		dbg ("unknown number of arguments");
 		goto exit;
 	}
+
+	namedev_init();
 
 	/* sleep for a second or two to give the kernel a chance to
 	 * create the dev file

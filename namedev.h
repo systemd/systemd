@@ -1,5 +1,5 @@
 /*
- * udev.h
+ * namedev.h
  *
  * Userspace devfs
  *
@@ -20,37 +20,15 @@
  *
  */
 
-#ifndef UDEV_H
-#define UDEV_H
+#ifndef NAMEDEV_H
+#define NAMEDEV_H
 
+/* namedev config files */
+#define COMMENT_CHARACTER		'#'
+#define NAMEDEV_CONFIG_ROOT		"/home/greg/src/udev/"
+#define NAMEDEV_CONFIG_PERMISSION_FILE	"namedev.permissions"
+#define NAMEDEV_CONFIG_FILE		"namedev.config"
 
-#ifdef DEBUG
-#include <syslog.h>
-#define dbg(format, arg...)								\
-	do {										\
-		log_message (LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
-	} while (0)
-#else
-	#define dbg(format, arg...) do { } while (0)
-#endif
-
-
-/* Lots of constants that should be in a config file sometime */
-
-/* Location of sysfs mount */
-#define SYSFS_ROOT	"/sys"
-
-/* Where udev should create its device nodes, trailing / needed */
-#define UDEV_ROOT	"/udev/"
-
-/* device file in sysfs that contains major/minor number, leading / needed */
-#define DEV_FILE	"/dev"
-
-/* Binaries that udev calls to do stuff */
-#define MKNOD		"/bin/mknod"
-
-extern int log_message (int level, const char *format, ...);
-
+extern int namedev_init(void);
 
 #endif
-
