@@ -2,6 +2,7 @@
 # They provide the following subsitutions:
 # %n - the "kernel number" of the device.
 #      for example, 'sda3' has a "kernel number" of '3'
+# %k - the kernel name for the device.
 # %M - the kernel major number for the device
 # %m - the kernel minor number for the device
 # %b - the bus id for the device
@@ -16,7 +17,7 @@
 CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n test-%b", ID="test-42:0:0:1", NAME="%c"
 
 # A usb camera.
-LABEL, BUS="usb", SYSFS_vendor="FUJIFILM", NAME="camera%n"
+LABEL, BUS="usb", SYSFS_vendor="FUJIFILM", SYSFS_model="M100", NAME="camera%n"
 
 # USB Epson printer to be called lp_epson
 LABEL, BUS="usb", SYSFS_serial="HXOLL0012202323480", NAME="lp_epson"
