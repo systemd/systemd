@@ -10,7 +10,7 @@ use FileHandle;
 %errors  = ();
 %errmsg  = ();
 $maxerr  = -1;
-$rootdir = 'linux/include/';	# Must have trailing /
+$rootdir = '../linux/include/';	# Must have trailing /
 
 sub parse_file($) {
     my($file) = @_;

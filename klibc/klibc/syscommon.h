@@ -26,3 +26,7 @@
 #include <sys/vfs.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
+#ifdef __i386__
+#include <sys/vm86.h>
+#endif

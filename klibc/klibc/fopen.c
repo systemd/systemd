@@ -13,10 +13,9 @@ FILE *fopen(const char *file, const char *mode)
 {
   int flags = O_RDONLY;
   int plus = 0;
-  int fd;
 
   while ( *mode ) {
-    switch ( *mode ) {
+    switch ( *mode++ ) {
     case 'r':
       flags = O_RDONLY;
       break;
@@ -30,17 +29,12 @@ FILE *fopen(const char *file, const char *mode)
       plus = 1;
       break;
     }
-    mode++;
   }
 
   if ( plus ) {
     flags = (flags & ~(O_RDONLY|O_WRONLY)) | O_RDWR;
   }
 
-  fd = open(file, flags, 0666);
-
-  if ( fd < 0 )
-    return NULL;
-  else
-    return fdopen(fd, mode);
+  /* Note: __create_file(-1) == NULL, so this is safe */
+  return __create_file(open(file, flags, 0666));
 }

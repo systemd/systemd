@@ -31,15 +31,22 @@ typedef struct _IO_file FILE;
 #define SEEK_CUR 1
 #define SEEK_END 2
 
+/*
+ * Convert between a FILE * and a file descriptor.  We don't actually
+ * have any in-memory data, so we just abuse the pointer itself to
+ * hold the data.  Note, however, that for file descriptors, -1 is
+ * error and 0 is a valid value; for FILE *, NULL (0) is error and
+ * non-NULL are valid.
+ */
 static __inline__ int fileno(FILE *__f)
 {
   /* This should really be intptr_t, but size_t should be the same size */
-  return (int)(size_t)__f;
+  return (int)(size_t)__f - 1;
 }
 
 static __inline__ FILE * __create_file(int __fd)
 {
-  return (FILE *)(size_t)__fd;
+  return (FILE *)(size_t)(__fd + 1);
 }
 
 __extern FILE *fopen(const char *, const char *);

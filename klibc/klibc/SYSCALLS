@@ -71,6 +71,7 @@ int chdir(const char *)
 int rename(const char *, const char *)
 int mknod(const char *, mode_t, dev_t)
 int chmod(const char *, mode_t)
+int fchmod(int, mode_t)
 int mkdir(const char *, mode_t)
 int rmdir(const char *)
 <!alpha,ia64,mips,mips64> int pipe(int *)
@@ -144,3 +145,10 @@ long delete_module(const char *, unsigned int)
 <!ia64> int query_module(const char *, int, void *, size_t, size_t)
 int reboot::__reboot(int, int, int, void *)
 int syslog::klogctl(int, char *, int)
+
+#
+# Low-level I/O (generally architecture-specific)
+#
+<i386,x86_64> int iopl(int)
+<i386,x86_64> int ioperm(unsigned long, unsigned long, int)
+<i386> int vm86(struct vm86_struct *)
