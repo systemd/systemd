@@ -246,8 +246,8 @@ GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
 $(LOCAL_CFG_DIR)/udev.conf:
 	sed -e "s:@udevdir@:$(udevdir):" < $(LOCAL_CFG_DIR)/udev.conf.in > $@
 
-GEN_MANPAGES   = udev.8    udevd.8    udevinfo.8    udevstart.8    udevtest.8
-GEN_MANPAGESIN = udev.8.in udevd.8.in udevinfo.8.in udevstart.8.in udevtest.8.in
+GEN_MANPAGES   = udev.8
+GEN_MANPAGESIN = udev.8.in
 # Rules on how to create the man pages
 $(GEN_MANPAGES): $(GEN_MANPAGESIN)
 	sed -e "s:@udevdir@:$(udevdir):" < $@.in > $@
