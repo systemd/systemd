@@ -124,7 +124,7 @@ ifeq ($(strip $(KLIBC)),true)
 		-I$(INCLUDE_DIR)/bits$(BITSIZE) -I$(GCCINCDIR) -Iklibc/linux/include \
 		-D__KLIBC__
 	LIB_OBJS =
-	LDFLAGS = --static --nostdlib -nostartfiles
+	LDFLAGS = --static --nostdlib -nostartfiles -nodefaultlibs
 else
 	CRT0 =
 	LIBC = 
