@@ -419,18 +419,45 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 {
 	struct list_head *tmp;
 	int retval = 0;
+	int found;
 
 	list_for_each(tmp, &config_device_list) {
 		struct config_device *dev = list_entry(tmp, struct config_device, node);
-		if (strcmp(dev->attr.name, class_dev->name) == 0) {
+		switch (dev->type) {
+		case LABEL:
+			dbg("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'"
+				" owner = '%s', group = '%s', mode = '%#o'",
+				dev->attr.name, dev->bus, dev->sysfs_file, dev->sysfs_value,
+				dev->attr.owner, dev->attr.group, dev->attr.mode);
+			break;
+		case NUMBER:
+			dbg("NUMBER name = '%s', bus = '%s', id = '%s'"
+				" owner = '%s', group = '%s', mode = '%#o'",
+				dev->attr.name, dev->bus, dev->id,
+				dev->attr.owner, dev->attr.group, dev->attr.mode);
+			break;
+		case TOPOLOGY:
+			dbg("TOPOLOGY name = '%s', bus = '%s', place = '%s'"
+				" owner = '%s', group = '%s', mode = '%#o'",
+				dev->attr.name, dev->bus, dev->place,
+				dev->attr.owner, dev->attr.group, dev->attr.mode);
+			break;
+		case REPLACE:
+			if (strcmp(dev->kernel_name, class_dev->name) != 0)
+				continue;
+			strcpy(attr->name, dev->attr.name);
 			attr->mode = dev->attr.mode;
 			strcpy(attr->owner, dev->attr.owner);
 			strcpy(attr->group, dev->attr.group);
-			/* FIXME  put the proper name here!!! */
-			strcpy(attr->name, dev->attr.name);
-			dbg("%s - owner = %s, group = %s, mode = %#o", dev->attr.name, dev->attr.owner, dev->attr.group, dev->attr.mode);
-			goto exit;
-		}
+			dbg("'%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
+				dev->kernel_name, attr->name, 
+				dev->attr.owner, dev->attr.group, dev->attr.mode);
+			return retval;
+			break;
+		default:
+			dbg("Unknown type of device!");
+			break;
+		}	
 	}
 	attr->mode = get_default_mode(class_dev);
 	attr->owner[0] = 0x00;
