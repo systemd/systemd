@@ -816,17 +816,31 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 	list_for_each_entry(dev, &config_device_list, node) {
 		dbg("process rule");
 		if (match_rule(dev, class_dev, udev, sysfs_device) == 0) {
-			if (dev->name[0] == '\0') {
+			if (dev->name[0] == '\0' && dev->symlink[0] == '\0') {
 				info("configured rule in '%s' at line %i applied, '%s' is ignored",
 				     udev_rules_filename, dev->config_line, udev->kernel_name);
 				return -1;
 			}
 
-			info("configured rule in '%s' at line %i applied, '%s' becomes '%s'",
-			     udev_rules_filename, dev->config_line, udev->kernel_name, dev->name);
-			strfieldcpy(udev->name, dev->name);
-			strfieldcpy(udev->symlink, dev->symlink);
-			goto found;
+			if (dev->symlink[0] != '\0') {
+				char temp[NAME_MAX];
+
+				info("configured rule in '%s' at line %i applied, added symlink '%s'",
+				     udev_rules_filename, dev->config_line, dev->symlink);
+				/* do not clobber dev */
+				strfieldcpy(temp, dev->symlink);
+				apply_format(udev, temp, sizeof(temp),
+					     class_dev, sysfs_device);
+				strfieldcat(udev->symlink, temp);
+				strfieldcat(udev->symlink, " ");
+			}
+
+			if (dev->name[0] != '\0') {
+				info("configured rule in '%s' at line %i applied, '%s' becomes '%s'",
+				     udev_rules_filename, dev->config_line, udev->kernel_name, dev->name);
+				strfieldcpy(udev->name, dev->name);
+				goto found;
+			}
 		}
 	}
 
@@ -837,8 +851,6 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 found:
 	/* substitute placeholder */
 	apply_format(udev, udev->name, sizeof(udev->name),
-		     class_dev, sysfs_device);
-	apply_format(udev, udev->symlink, sizeof(udev->symlink),
 		     class_dev, sysfs_device);
 	udev->partitions = dev->partitions;
 done:
