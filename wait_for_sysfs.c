@@ -63,6 +63,7 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 		{ .subsystem = "pcmcia_socket",	.file = NULL }, /* all files are unreadable in empty slot :( */
 		{ .subsystem = "usb_host",	.file = NULL },
 		{ .subsystem = "bluetooth",	.file = "address" },
+		{ .subsystem = "firmware",	.file = "data" },
 		{ .subsystem = "i2c-adapter",	.file = NULL },
 		{ .subsystem = "pci_bus",	.file = NULL },
 		{ .subsystem = "ieee1394",	.file = NULL },
@@ -144,6 +145,7 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 		{ .subsystem = "net",		.device = "lo" },
 		{ .subsystem = "net",		.device = "tap" },
 		{ .subsystem = "net",		.device = "ipsec" },
+		{ .subsystem = "net",		.device = "irda" },
 		{ .subsystem = "sound",		.device = NULL },
 		{ .subsystem = "printer",	.device = "lp" },
 		{ .subsystem = "nvidia",	.device = NULL },
