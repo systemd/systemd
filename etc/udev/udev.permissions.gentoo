@@ -47,7 +47,7 @@ zero:root:root:0666
 
 # misc devices
 misc/nvram:root:root:0660
-misc/rtc:root:root:0660
+misc/rtc:root:root:0664
 
 # floppy devices
 fd[01]*:root:floppy:0660
