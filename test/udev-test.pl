@@ -215,6 +215,16 @@ CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n node link1 link2", ID="node *", NAME=
 EOF
 	},
 	{
+		desc     => "callout for device with no bus",
+		subsys   => "tty",
+		devpath  => "class/tty/console",
+		expected => "TTY" ,
+		conf     => <<EOF
+CALLOUT, BUS="scsi", PROGRAM="/bin/echo -n foo", ID="foo", NAME="foo"
+REPLACE, KERNEL="console", NAME="TTY"
+EOF
+	},
+	{
 		desc     => "devfs disk naming substitution",
 		subsys   => "block",
 		devpath  => "block/sda",
