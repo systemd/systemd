@@ -27,7 +27,8 @@
 #define info(format, arg...)		do { } while (0)
 #define dbg(format, arg...)		do { } while (0)
 #define dbg_parse(format, arg...)	do { } while (0)
-#define init_logging(foo)		do { } while (0)
+#define logging_init(foo)		do { } while (0)
+#define logging_close(foo)		do { } while (0)
 
 #ifdef LOG
 #include <stdarg.h>
@@ -65,11 +66,17 @@ extern void log_message(int level, const char *format, ...)
 /* each program that uses syslog must declare this variable somewhere */
 extern unsigned char logname[LOGNAME_SIZE];
 
-#undef init_logging
-static inline void init_logging(char *program_name)
+#undef logging_init
+static inline void logging_init(char *program_name)
 {
 	snprintf(logname, LOGNAME_SIZE,"%s[%d]", program_name, getpid());
 	openlog(logname, 0, LOG_DAEMON);
+}
+
+#undef logging_close
+static inline void logging_close(void)
+{
+	closelog();
 }
 
 #endif	/* LOG */

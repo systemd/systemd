@@ -150,7 +150,7 @@ static void udev_run(struct hotplug_msg *msg)
 		/* child */
 		execle(udev_bin, "udev", msg->subsystem, NULL, env);
 		dbg("exec of child failed");
-		exit(1);
+		_exit(1);
 		break;
 	case -1:
 		dbg("fork of child failed");
@@ -403,7 +403,7 @@ int main(int argc, char *argv[])
 	struct sigaction act;
 	fd_set readfds;
 
-	init_logging("udevd");
+	logging_init("udevd");
 	dbg("version %s", UDEV_VERSION);
 
 	if (getuid() != 0) {
@@ -549,5 +549,6 @@ int main(int argc, char *argv[])
 	}
 exit:
 	close(ssock);
+	logging_close();
 	exit(1);
 }

@@ -122,7 +122,7 @@ int main(int argc, char *argv[], char *envp[])
 	main_argv = argv;
 	main_envp = envp;
 
-	init_logging("udev");
+	logging_init("udev");
 
 	udev_init_config();
 
@@ -203,5 +203,6 @@ int main(int argc, char *argv[], char *envp[])
 	udevdb_exit();
 
 exit:
+	logging_close();
 	return retval;
 }

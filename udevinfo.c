@@ -447,18 +447,18 @@ help:
 
 int main(int argc, char *argv[], char *envp[])
 {
-	int retval;
+	int rc = 0;
 
 	main_argv = argv;
 	main_argc = argc;
 
-	init_logging("udevinfo");
+	logging_init("udevinfo");
 
 	/* initialize our configuration */
 	udev_init_config();
 
-	retval = process_options();
-	if (retval != 0)
-		exit(1);
-	exit(0);
+	rc = process_options();
+
+	logging_close();
+	exit(rc);
 }

@@ -392,7 +392,7 @@ int main(int argc, char *argv[], char *envp[])
 	int rc = 0;
 	const char *error = NULL;
 
-	init_logging("wait_for_sysfs");
+	logging_init("wait_for_sysfs");
 
 	if (argc != 2) {
 		dbg("error: subsystem");
@@ -475,5 +475,6 @@ exit:
 		dbg("result: waiting for sysfs successful '%s'", devpath);
 	}
 
+	logging_close();
 	exit(rc);
 }

@@ -123,7 +123,7 @@ int main(int argc, char* argv[])
 	socklen_t addrlen;
 	int started_daemon = 0;
 
-	init_logging("udevsend");
+	logging_init("udevsend");
 	dbg("version %s", UDEV_VERSION);
 
 	subsystem = get_subsystem(argv[1]);
@@ -214,6 +214,8 @@ fallback:
 exit:
 	if (sock != -1)
 		close(sock);
+
+	logging_close();
 
 	return retval;
 }
