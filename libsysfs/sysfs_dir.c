@@ -274,7 +274,7 @@ int sysfs_read_attribute(struct sysfs_attribute *sysattr)
 		return -1;
 	}
 #ifdef __KLIBC__
-	pgsize = 0x4000;
+	pgsize = 0x1000;		
 #else
 	pgsize = sysconf(_SC_PAGESIZE);
 #endif
