@@ -202,7 +202,6 @@ ifeq ($(strip $(USE_KLIBC)),true)
 
 	HEADERS	+= \
 		klibc_fixups/klibc_fixups.h	\
-		klibc_fixups/mntent.h		\
 		klibc_fixups/pwd.h
 
 	KLIBC_FIXUP_OBJS = \

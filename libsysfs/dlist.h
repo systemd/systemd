@@ -50,9 +50,10 @@
 
 * Just use the dlist_(insert|delete)_(before|after) macros if you do not want
 * to think about it.
-
 */
-#include <malloc.h>
+
+#include <stddef.h>
+
 typedef struct dl_node {
   struct dl_node *prev;
   struct dl_node *next;
