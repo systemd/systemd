@@ -7,9 +7,6 @@ greg@kroah.com
 
 
 - more documentation (can never have too much.)
-- have udevd move up to the "default" priority level if it is started by
-  keventd (otherwise it runs at a _very_ low priority level.)  Don't
-  know if this is necessary, but it would be nice to do.
 - install the proper init.d script based on the distro we are running on.
 - persuade the distro packagers to submit their changes (or just steal them
   if we can find them...)

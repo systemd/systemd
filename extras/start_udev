@@ -84,11 +84,6 @@ fi
 echo "mounting... ramfs at $udev_root"
 mount -n -t ramfs none $udev_root
 
-# We want to start udevd ourselves if it isn't already running.  This
-# lets udevd run at a sane nice level...
-echo "starting udevd"
-$udevd &
-
 # propogate /udev from /sys
 export ACTION=add
 export UDEV_NO_SLEEP=1
