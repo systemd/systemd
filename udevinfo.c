@@ -38,7 +38,6 @@
 
 char **main_argv;
 int main_argc;
-char **main_envp;
 
 static int print_all_attributes(const char *path)
 {
@@ -412,7 +411,6 @@ int main(int argc, char *argv[], char *envp[])
 
 	main_argv = argv;
 	main_argc = argc;
-	main_envp = envp;
 
 	/* initialize our configuration */
 	udev_init_config();
