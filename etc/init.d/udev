@@ -12,6 +12,7 @@
 prog=udev
 sysfs_dir=/sys
 bin=/sbin/udev
+udevd=/sbin/udevd
 udev_root=/udev
 
 run_udev () {
@@ -89,6 +90,11 @@ case "$1" in
 	echo -n $"Creating initial udev device nodes:"
 	run_udev
 	make_extra_nodes
+
+	# We want to start udevd ourselves if it isn't already running.  This
+	# lets udevd run at a sane nice level...
+	$udevd &
+
 	success /bin/true
 	echo
 	touch /var/lock/subsys/udev
