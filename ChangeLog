@@ -1,3 +1,55 @@
+Summary of changes from v022 to v023
+============================================
+
+Kay Sievers:
+  o hmm, handle net devices with udev?
+  o correct apply_format() for symlink only rules
+  o don't init namedev on remove
+  o first stupid try for a rule compose gui
+  o replace fgets() with mmap() and introduce udev_lib.[hc]
+  o make udevtest a real program :)
+
+Daniel E. F. Stekloff:
+  o udevinfo patch
+
+Greg Kroah-Hartman:
+  o create the /etc/dev.d/ directories in 'make install'
+  o actually have udev run files ending in .dev in the /etc/dev.d/ directory as documented
+  o added RFC-dev.d document detailing how /etc/dev.d/ works
+  o fixed up udev.spec to handle selinux stuff properly now
+  o remove USE_DBUS and USE_SELINUX flags from the README as they are no longer present
+  o remove selinux stuff from the main Makefile
+  o move udev_selinux into extras/selinux
+  o fix dbus build in the udev.spec file
+  o remove dbus stuff from main Makefile
+  o move udev_dbus to extras/dbus
+  o udev_dbus can now compile properly, but linnking is another story
+  o remove udev_dbus.h from Makefile
+  o first cut at standalone udev_selinux program
+  o remove selinux support from udev core as it's no longer needed
+  o first cut at standalone udev_dbus program
+  o add get_devnode() helper to udev_lib for udev_dbus program
+  o remove dbus code from core udev code as it's no longer needed to be there
+  o add /etc/dev.d/ support for udev add and remove events
+  o fix build error in namedev.c caused by previous patch
+  o 022_bk tag
+  o fix 'make spotless' to really do that in klibc
+  o add a question/answer about automounting usb devices to the FAQ
+  o mark scsi-devfs.sh as executable
+  o Increase the name size as requested by Richard Gooch <rgooch@ras.ucalgary.ca>
+  o fix udevtest to build properly after the big udev_lib change
+  o 022 release TAG: v022
+
+Olaf Hering:
+  o uninitialized variable for mknod and friend
+
+Richard Gooch:
+  o SCSI logical and physical names for udev
+
+Theodore Y. T'so:
+  o Trivial man page typo fixes to udev
+
+
 Summary of changes from v021 to v022
 ============================================
 
@@ -8,7 +60,7 @@ Summary of changes from v021 to v022
 <async:cc.gatech.edu>:
   o fix HOWTO-udev_for_dev for udevdir
 
-<kay.sievers:vrfy.org>:
+Kay Sievers:
   o udev-test.pl cleanup
   o add dev node test to udev-test.pl
   o add permission tests
