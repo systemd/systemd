@@ -253,6 +253,9 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 		sprintf(all_paths[k].sg_dev, "/dev/%s", buff);
 		strcpy(all_paths[k].dev, all_paths[k].sg_dev);
 		if ((sg_fd = open(all_paths[k].sg_dev, O_RDONLY)) < 0) {
+			if (conf->verbose)
+				fprintf(stderr, "can't open %s. mknod ?",
+					all_paths[k].sg_dev); 
 			continue;
 		}
 		get_lun_strings(sg_fd, &all_paths[k]);
@@ -285,8 +288,12 @@ get_all_paths_nosysfs(struct env * conf, struct path * all_paths,
 		sprintf(buff, "%d", k);
 		strncat(file_name, buff, FILE_NAME_SIZE);
 		strcpy(all_paths[k].sg_dev, file_name);
-		if ((sg_fd = open(file_name, O_RDONLY)) < 0)
+		if ((sg_fd = open(file_name, O_RDONLY)) < 0) {
+			if (conf->verbose)
+				fprintf(stderr, "can't open %s. mknod ?",
+					file_name); 
 			continue;
+		}
 		get_lun_strings(sg_fd, &all_paths[k]);
 		get_unique_id(sg_fd, &all_paths[k]);
 		all_paths[k].state = do_tur(sg_fd);
@@ -340,8 +347,12 @@ get_all_scsi_ids(struct env * conf, struct scsi_dev * all_scsi_ids)
 		} else
 			strcat(fname, "xxxx");
 
-		if ((fd = open(fname, O_RDONLY)) < 0)
+		if ((fd = open(fname, O_RDONLY)) < 0) {
+			if (conf->verbose)
+				fprintf(stderr, "can't open %s. mknod ?",
+					fname); 
 			continue;
+		}
 
 		res = ioctl(fd, SCSI_IOCTL_GET_IDLUN, &my_scsi_id);
 		if (res < 0) {

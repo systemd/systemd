@@ -6,16 +6,22 @@ EXEC = multipath
 
 prefix      = /usr/local
 exec_prefix = ${prefix}
-bindir     = ${exec_prefix}/bin
+bindir      = ${exec_prefix}/bin
+udevdir	    = ../..
+klibcdir    = $(udevdir)/klibc
+sysfsdir    = $(udevdir)/libsysfs
 
 CC = gcc
-CFLAGS = -pipe -g -O2 -Wall -Wunused -Wstrict-prototypes -nostdinc -I../../klibc/klibc/include -I../../klibc/klibc/include/bits32 -I/usr/lib/gcc-lib/i586-mandrake-linux-gnu/3.3.1/include -I../../klibc/linux/include -I../../libsysfs -I.
-LDFLAGS = -lsysfs -ldevmapper -ldlist
+GCCINCDIR := ${shell $(CC) -print-search-dirs | sed -ne "s/install: \(.*\)/\1include/gp"}
+CFLAGS = -pipe -g -O2 -Wall -Wunused -Wstrict-prototypes -nostdinc \
+         -I$(klibcdir)/klibc/include -I$(klibcdir)/klibc/include/bits32 \
+         -I$(GCCINCDIR) -I$(klibcdir)/linux/include -I$(sysfsdir) -I.
 
 OBJS = main.o
 CRT0 = ../../klibc/klibc/crt0.o
 LIB = ../../klibc/klibc/libc.a
-LIBGCC = /usr/lib/gcc-lib/i586-mandrake-linux-gnu/3.3.1/libgcc.a
+LIBGCC := $(shell $(CC) -print-libgcc-file-name )
+
 DMOBJS = libdevmapper/libdm-common.o libdevmapper/ioctl/libdevmapper.o
 SYSFSOBJS = ../../libsysfs/dlist.o ../../libsysfs/sysfs_bus.o \
 	    ../../libsysfs/sysfs_class.o ../../libsysfs/sysfs_device.o \
