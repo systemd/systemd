@@ -88,8 +88,7 @@ static void print_record(char *path, struct udevice *dev)
 	printf("N: %s\n", dev->name);
 	printf("S: %s\n", dev->symlink);
 	printf("O: %s\n", dev->owner);
-	printf("G: %s\n", dev->group);
-	printf("\n");
+	printf("G: %s\n\n", dev->group);
 }
 
 enum query_type {
