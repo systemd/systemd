@@ -113,88 +113,6 @@ WARNINGS := -Wall
 
 CFLAGS := -pipe
 
-ifeq ($(strip $(USE_LOG)),true)
-	CFLAGS  += -DLOG
-endif
-
-# if DEBUG is enabled, then we do not strip or optimize
-ifeq ($(strip $(DEBUG)),true)
-	CFLAGS  += -O1 -g -DDEBUG -D_GNU_SOURCE
-	LDFLAGS += -Wl,-warn-common
-	STRIPCMD = /bin/true -Since_we_are_debugging
-else
-	CFLAGS  += $(OPTIMIZATION) -fomit-frame-pointer -D_GNU_SOURCE
-	LDFLAGS += -s -Wl,-warn-common
-	STRIPCMD = $(STRIP) -s --remove-section=.note --remove-section=.comment
-endif
-
-# If we are using our version of klibc, then we need to build, link it, and then
-# link udev against it statically.
-# Otherwise, use glibc and link dynamically.
-ifeq ($(strip $(USE_KLIBC)),true)
-	KLIBC_FIXUPS_DIR= $(PWD)/klibc_fixups
-	KLIBC_BASE	= $(PWD)/klibc
-	KLIBC_DIR	= $(KLIBC_BASE)/klibc
-	INCLUDE_DIR	:= $(KLIBC_BASE)/include
-	LINUX_INCLUDE_DIR	:= $(KERNEL_DIR)/include
-	include $(KLIBC_DIR)/arch/$(ARCH)/MCONFIG
-	# arch specific objects
-	ARCH_LIB_OBJS =	 $(KLIBC_DIR)/libc.a
-
-
-	CRT0 = $(KLIBC_DIR)/crt0.o
-	LIBC = $(ARCH_LIB_OBJS) $(LIB_OBJS) $(CRT0)
-	CFLAGS += $(WARNINGS) -nostdinc				\
-		$(OPTFLAGS)					\
-		-D__KLIBC__ -fno-builtin-printf			\
-		-I$(KLIBC_FIXUPS_DIR)				\
-		-include $(KLIBC_FIXUPS_DIR)/klibc_fixups.h	\
-		-I$(INCLUDE_DIR)				\
-		-I$(INCLUDE_DIR)/arch/$(ARCH)			\
-		-I$(INCLUDE_DIR)/bits$(BITSIZE)			\
-		-I$(GCCINCDIR)					\
-		-I$(LINUX_INCLUDE_DIR)
-	LIB_OBJS =
-	LDFLAGS = --static --nostdlib -nostartfiles -nodefaultlibs
-else
-	WARNINGS += -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
-	CRT0 =
-	LIBC =
-	CFLAGS += $(WARNINGS) -I$(GCCINCDIR)
-	LIB_OBJS = -lc
-	LDFLAGS =
-endif
-
-ifeq ($(strip $(USE_SELINUX)),true)
-	CFLAGS += -DUSE_SELINUX
-	LIB_OBJS += -lselinux
-endif
-
-CFLAGS +=	-I$(PWD)/libsysfs/sysfs \
-		-I$(PWD)/libsysfs
-
-# config files automatically generated
-GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
-
-all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(GEN_CONFIGS)
-	@extras="$(EXTRAS)" ; for target in $$extras ; do \
-		echo $$target ; \
-		$(MAKE) prefix=$(prefix) \
-			LD="$(LD)" \
-			SYSFS="$(SYSFS)" \
-			KERNEL_DIR="$(KERNEL_DIR)" \
-			QUIET="$(QUIET)" \
-			-C $$target $@ ; \
-	done ; \
-
-$(ARCH_LIB_OBJS) : $(CRT0)
-
-$(CRT0):
-	@if [ ! -r klibc/linux ]; then \
-		ln -f -s $(KERNEL_DIR) klibc/linux; \
-	fi
-	$(MAKE) -C klibc SUBDIRS=klibc TESTS=
-
 HEADERS = \
 	udev.h		\
 	udev_utils.h	\
@@ -228,12 +146,57 @@ UDEV_OBJS = \
 	namedev_parse.o
 
 OBJS = \
-	udev.a	\
+	udev.a			\
 	libsysfs/sysfs.a
 
 SYSFS = $(PWD)/libsysfs/sysfs.a
 
+CFLAGS +=	-I$(PWD)/libsysfs/sysfs \
+		-I$(PWD)/libsysfs
+
+ifeq ($(strip $(USE_LOG)),true)
+	CFLAGS  += -DLOG
+endif
+
+# if DEBUG is enabled, then we do not strip or optimize
+ifeq ($(strip $(DEBUG)),true)
+	CFLAGS  += -O1 -g -DDEBUG -D_GNU_SOURCE
+	LDFLAGS += -Wl,-warn-common
+	STRIPCMD = /bin/true -Since_we_are_debugging
+else
+	CFLAGS  += $(OPTIMIZATION) -fomit-frame-pointer -D_GNU_SOURCE
+	LDFLAGS += -s -Wl,-warn-common
+	STRIPCMD = $(STRIP) -s --remove-section=.note --remove-section=.comment
+endif
+
+# If we are using our version of klibc, then we need to build, link it, and then
+# link udev against it statically. Otherwise, use glibc and link dynamically.
 ifeq ($(strip $(USE_KLIBC)),true)
+	KLIBC_FIXUPS_DIR= $(PWD)/klibc_fixups
+	KLIBC_BASE	= $(PWD)/klibc
+	KLIBC_DIR	= $(KLIBC_BASE)/klibc
+	INCLUDE_DIR	:= $(KLIBC_BASE)/include
+	LINUX_INCLUDE_DIR	:= $(KERNEL_DIR)/include
+	include $(KLIBC_DIR)/arch/$(ARCH)/MCONFIG
+	# arch specific objects
+	ARCH_LIB_OBJS =	 $(KLIBC_DIR)/libc.a
+
+
+	CRT0 = $(KLIBC_DIR)/crt0.o
+	LIBC = $(ARCH_LIB_OBJS) $(LIB_OBJS) $(CRT0)
+	CFLAGS += $(WARNINGS) -nostdinc				\
+		$(OPTFLAGS)					\
+		-D__KLIBC__ -fno-builtin-printf			\
+		-I$(KLIBC_FIXUPS_DIR)				\
+		-include $(KLIBC_FIXUPS_DIR)/klibc_fixups.h	\
+		-I$(INCLUDE_DIR)				\
+		-I$(INCLUDE_DIR)/arch/$(ARCH)			\
+		-I$(INCLUDE_DIR)/bits$(BITSIZE)			\
+		-I$(GCCINCDIR)					\
+		-I$(LINUX_INCLUDE_DIR)
+	LIB_OBJS =
+	LDFLAGS = --static --nostdlib -nostartfiles -nodefaultlibs
+
 	HEADERS	+= \
 		klibc_fixups/klibc_fixups.h	\
 		klibc_fixups/mntent.h		\
@@ -243,11 +206,19 @@ ifeq ($(strip $(USE_KLIBC)),true)
 		klibc_fixups/klibc_fixups.o
 
 	OBJS += klibc_fixups/klibc_fixups.a
+else
+	WARNINGS += -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
+	CRT0 =
+	LIBC =
+	CFLAGS += $(WARNINGS) -I$(GCCINCDIR)
+	LIB_OBJS = -lc
+	LDFLAGS =
 endif
 
 ifeq ($(strip $(USE_SELINUX)),true)
 	UDEV_OBJS += udev_selinux.o
 	LIB_OBJS += -lselinux
+	CFLAGS += -DUSE_SELINUX
 endif
 
 ifeq ($(strip $(V)),false)
@@ -257,6 +228,28 @@ else
 	QUIET=
 	HOST_PROGS=
 endif
+
+# config files automatically generated
+GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
+
+all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(GEN_CONFIGS)
+	@extras="$(EXTRAS)" ; for target in $$extras ; do \
+		echo $$target ; \
+		$(MAKE) prefix=$(prefix) \
+			LD="$(LD)" \
+			SYSFS="$(SYSFS)" \
+			KERNEL_DIR="$(KERNEL_DIR)" \
+			QUIET="$(QUIET)" \
+			-C $$target $@ ; \
+	done ; \
+
+$(ARCH_LIB_OBJS) : $(CRT0)
+
+$(CRT0):
+	@if [ ! -r klibc/linux ]; then \
+		ln -f -s $(KERNEL_DIR) klibc/linux; \
+	fi
+	$(MAKE) -C klibc SUBDIRS=klibc TESTS=
 
 udev.a: $(UDEV_OBJS)
 	rm -f $@
