@@ -60,11 +60,15 @@ static int string_is_true(char *str)
 		return 1;
 	if (strcasecmp(str, "yes") == 0)
 		return 1;
+	if (strcasecmp(str, "1") == 0)
+		return 1;
 	return 0;
 }
 
 static void init_variables(void)
 {
+	char *env;
+
 	/* fill up the defaults.  
 	 * If any config values are specified, they will
 	 * override these values. */
@@ -76,11 +80,13 @@ static void init_variables(void)
 	udev_log = string_is_true(UDEV_LOG_DEFAULT);
 
 	udev_sleep = 1;
-	if (getenv("UDEV_NO_SLEEP") != NULL)
+	env = getenv("UDEV_NO_SLEEP");
+	if (env && string_is_true(env))
 		udev_sleep = 0;
 
 	udev_dev_d = 1;
-	if (getenv("UDEV_NO_DEVD") != NULL)
+	env = getenv("UDEV_NO_DEVD");
+	if (env && string_is_true(env))
 		udev_dev_d = 0;
 }
 
