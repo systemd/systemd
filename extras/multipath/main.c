@@ -23,7 +23,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <linux/kdev_t.h>
-#include <errno.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <libsysfs.h>
@@ -34,7 +33,6 @@ static int
 do_inq(int sg_fd, int cmddt, int evpd, unsigned int pg_op,
        void *resp, int mx_resp_len, int noisy)
 {
-	int res;
 	unsigned char inqCmdBlk[INQUIRY_CMDLEN] =
 	    { INQUIRY_CMD, 0, 0, 0, 0, 0 };
 	unsigned char sense_b[SENSE_BUFF_LEN];
@@ -61,14 +59,27 @@ do_inq(int sg_fd, int cmddt, int evpd, unsigned int pg_op,
 		perror("SG_IO (inquiry) error");
 		return -1;
 	}
-	res = sg_err_category3(&io_hdr);
-	switch (res) {
-	case SG_ERR_CAT_CLEAN:
-	case SG_ERR_CAT_RECOVERED:
+
+	/* treat SG_ERR here to get rid of sg_err.[ch] */
+	io_hdr.status &= 0x7e;
+	if ((0 == io_hdr.status) && (0 == io_hdr.host_status) &&
+	    (0 == io_hdr.driver_status))
 		return 0;
-	default:
-		return -1;
+	if ((SCSI_CHECK_CONDITION == io_hdr.status) ||
+	    (SCSI_COMMAND_TERMINATED == io_hdr.status) ||
+	    (SG_ERR_DRIVER_SENSE == (0xf & io_hdr.driver_status))) {
+		if (io_hdr.sbp && (io_hdr.sb_len_wr > 2)) {
+			int sense_key;
+			unsigned char * sense_buffer = io_hdr.sbp;
+			if (sense_buffer[0] & 0x2)
+				sense_key = sense_buffer[1] & 0xf;
+			else
+				sense_key = sense_buffer[2] & 0xf;
+			if(RECOVERED_ERROR == sense_key)
+				return 0;
+		}
 	}
+	return -1;
 }
 
 static int
@@ -191,7 +202,7 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 	int sg_fd;
 	struct sysfs_directory * sdir;
 	struct sysfs_directory * devp;
-	struct sysfs_dlink * linkp;
+	struct sysfs_link * linkp;
 	char buff[FILE_NAME_SIZE];
 
 	char block_path[FILE_NAME_SIZE];
@@ -199,17 +210,15 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 	sprintf(block_path, "%s/block", conf->sysfs_path);
 	sdir = sysfs_open_directory(block_path);
 	sysfs_read_directory(sdir);
-	devp = sdir->subdirs;
-	while (devp != NULL) {
+	dlist_for_each_data(sdir->subdirs, devp, struct sysfs_directory) {
 		sysfs_read_directory(devp);
-		linkp = devp->links;
-		while (linkp != NULL) {
+		if(devp->links == NULL)
+			continue;
+		dlist_for_each_data(devp->links, linkp, struct sysfs_link) {
 			if (!strncmp(linkp->name, "device", 6))
 				break;
-			linkp = linkp->next;
 		}
 		if (linkp == NULL) {
-			devp = devp->next;
 			continue;
 		}
 
@@ -217,21 +226,19 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 		sprintf(all_paths[k].sg_dev, "/dev/%s", buff);
 		strcpy(all_paths[k].dev, all_paths[k].sg_dev);
 		if ((sg_fd = open(all_paths[k].sg_dev, O_RDONLY)) < 0) {
-			devp = devp->next;
 			continue;
 		}
 		get_lun_strings(sg_fd, &all_paths[k]);
 		get_unique_id(sg_fd, &all_paths[k]);
 		all_paths[k].state = do_tur(sg_fd);
 		close(sg_fd);
-		basename(linkp->target->path, buff);
+		basename(linkp->target, buff);
 		sscanf(buff, "%i:%i:%i:%i",
 			&all_paths[k].sg_id.host_no,
 			&all_paths[k].sg_id.channel,
 			&all_paths[k].sg_id.scsi_id,
 			&all_paths[k].sg_id.lun);
 		k++;
-		devp = devp->next;
 	}
 	sysfs_close_directory(sdir);
 

@@ -9,7 +9,6 @@
     #include <linux/../scsi/scsi.h>
   #else
     #include <scsi/sg.h>
-    #include <scsi/scsi.h>
   #endif
 #endif
 

@@ -9,10 +9,10 @@ exec_prefix = ${prefix}
 bindir     = ${exec_prefix}/bin
 
 CC = gcc
-CFLAGS = -g -O2 -Wall -Wunused -Wstrict-prototypes
-LDFLAGS = -lsysfs -ldevmapper
+CFLAGS = -pipe -g -O2 -Wall -Wunused -Wstrict-prototypes -nostdinc -I../../klibc/klibc/include -I../../klibc/klibc/include/bits32 -I/usr/lib/gcc-lib/i586-mandrake-linux-gnu/3.3.1/include -I../../klibc/linux/include -I../../libsysfs -I.
+LDFLAGS = -lsysfs -ldevmapper -ldlist
 
-OBJS = main.o sg_err.o
+OBJS = main.o
 
 all:	$(EXEC)
 	strip $(EXEC)
@@ -20,7 +20,7 @@ all:	$(EXEC)
 	@echo "Make complete"
 
 $(EXEC): $(OBJS)
-	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS)
+	$(CC) $(OBJS) -o $(EXEC) $(LDFLAGS) $(CFLAGS)
 
 clean:
 	rm -f core *.o $(EXEC)
@@ -30,5 +30,4 @@ install:
 	install -m 755 $(EXEC) $(bindir)/
 
 # Code dependencies
-main.o: main.c main.h sg_err.h sg_include.h
-sg_err.o: sg_err.c sg_err.h sg_include.h
+main.o: main.c main.h sg_include.h

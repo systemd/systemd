@@ -21,7 +21,16 @@
 
 /* local includes */
 #include "sg_include.h"
-#include "sg_err.h"
+
+/* exerpt from "sg_err.h" */
+#define SCSI_CHECK_CONDITION 	0x2
+#define SCSI_COMMAND_TERMINATED 0x22
+#define SG_ERR_DRIVER_SENSE     0x08
+
+/* exerpt from "scsi.h" */
+#define RECOVERED_ERROR     0x01
+#define SCSI_IOCTL_GET_IDLUN            0x5382
+#define SCSI_IOCTL_GET_BUS_NUMBER       0x5386
 
 /* global defs */
 #define WWID_SIZE	33
@@ -37,7 +46,7 @@
 #define TUR_CMD_LEN	6
 #define MX_ALLOC_LEN	255
 #define BLKGETSIZE      _IO(0x12,96)
-#define DM_TARGET	"striped"
+#define DM_TARGET	"multipath"
 
 #define PINDEX(x,y)	mp[(x)].pindex[(y)]
 
@@ -96,8 +105,8 @@ struct env {
 /* Build version */
 #define PROG    "multipath"
 
-#define VERSION_CODE 0x000005
-#define DATE_CODE    0x120903
+#define VERSION_CODE 0x000006
+#define DATE_CODE    0x271103
 
 #define MULTIPATH_VERSION(version)	\
 	(version >> 16) & 0xFF,		\
