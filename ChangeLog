@@ -1,3 +1,78 @@
+Summary of changes from v005 to v006
+============================================
+
+<chris_friesen:sympatico.ca>:
+  o faster test scripts
+
+Arnd Bergmann:
+  o more robust config file parsing in namedev.c
+  o add bus id modifier
+
+Daniel E. F. Stekloff:
+  o patch for libsysfs sysfs directory handling
+
+Greg Kroah-Hartman:
+  o add another line to udev.permissions in the proper format
+  o tweak replace_test
+  o fix permissions to work properly now
+  o add real udev.permissions file to test directory
+  o fix namedev.c to build with older version of gcc
+  o add dumb test for all of the different modifiers
+  o update the TODO list with more items that people can easily do
+  o move the test.block and test.tty scripts to the test/ directory
+  o add remove actions to the test scripts
+  o turn DEBUG_PARSER off by default
+  o add some documentation for the %b modifier to the default config file
+  o fix make install rule for when the udev symlink is already there
+  o change release target in makefile
+  o change debug level on printf values for now
+  o updated demo config file
+  o add some documentation of the modifiers to the default config file
+  o add demo config file
+  o updated bk ignore list for klibc generated files
+  o add printf option to label test to verify it works
+  o fix up printf-like functionality due to previous changes
+  o get the major/minor number before we name the device
+  o add scsi_id "extra" program from Patrick Mansfield <patmans@us.ibm.com>
+  o Add multipath "extra" program from Christophe Varoqui, <christophe.varoqui@free.fr>
+  o trailing whitespace cleanups
+  o splig LABEL and NUMBER into separate functions
+  o add TOPO regression test
+  o move TOPOLOGY rule to it's own function
+  o fix bug where NUMBER and TOPOLOGY would not work for partitions
+  o clean up the way we find the sysdevice for a block device for namedev
+  o updated label test script (tests for partitions now.)
+  o split REPLACE and CALLOUT into separate functions
+  o add debug line for REPLACE call
+  o add replace test
+  o add more sysfs test tree files
+  o change UDEV_SYSFS_PATH environment variable due to libsysfs change
+  o fix bug in klibc's isspace function
+  o fix udev-add.c to build properly with older versions of gcc
+  o add prototype for ftruncate to klibc
+  o Remove a few items from the TODO list that are already done
+  o version number to 005_bk
+  o pull some klibc stuff into the make Makefile to try to stay in sync
+  o klibc build fixes
+
+Kay Sievers:
+  o apply permissions.conf support for wildcard and default name
+  o man page with included placeholder list
+  o implement printf-like placeholder support for NAME
+  o more manpage tweaks
+  o add support for subdirs
+  o add uid/gid to nodes
+
+Olaf Hering:
+  o DESTDIR for udev
+
+Paul Mundt:
+  o Fixup path for kernel includes when building with klibc
+
+Robert Love:
+  o udev init script
+
+
 Summary of changes from v004 to v005
 ============================================
 
@@ -184,3 +259,4 @@ Greg Kroah-Hartman:
   o fixed up config
   o Initial repository create
   o BitKeeper file /home/greg/src/udev/udev/ChangeSet
+
