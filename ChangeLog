@@ -1,3 +1,28 @@
+Summary of changes from v039 to v040
+============================================
+
+<jk:blackdown.de>:
+  o wait_for_sysfs update for dm devices
+
+Greg Kroah-Hartman:
+  o sparse cleanups on the tree
+  o fix stupid cut-and-paste error for msr devices on gentoo boxes
+  o add *~ to bk ignore list
+  o delete udevruler.c as per Kay's request
+  o fix up the wait_for_sysfs_test script a bit
+
+Kay Sievers:
+  o fix debug in volume id / fix clashing global var name
+  o volume_id fix
+  o $local user
+  o cleanup netif handling and netif-dev.d/ events
+  o big cleanup of internal udev api
+  o don't wait for dummy devices
+  o close the syslog
+  o Fix ppp net devices in wait_for_sysfs
+  o Fix wait_for_sysfs messages (more debugging info)
+
+
 Summary of changes from v038 to v039
 ============================================
 
