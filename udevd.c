@@ -501,6 +501,7 @@ int main(int argc, char *argv[], char *envp[])
 	int fd;
 	struct sigaction act;
 	fd_set readfds;
+	const char *udevd_expected_seqnum;
 
 	logging_init("udevd");
 	dbg("version %s", UDEV_VERSION);
@@ -596,7 +597,14 @@ int main(int argc, char *argv[], char *envp[])
 	else
 		udev_bin = UDEV_BIN;
 
-	/* handle special startup timeout*/
+	/* possible set of expected_seqnum number */
+	udevd_expected_seqnum = getenv("UDEVD_EXPECTED_SEQNUM");
+	if (udevd_expected_seqnum != NULL) {
+		expected_seqnum = strtoull(udevd_expected_seqnum, NULL, 10);
+		dbg("initialize expected_seqnum to %llu", expected_seqnum);
+	}
+
+	/* get current time to provide shorter startup timeout */
 	sysinfo(&info);
 	startup_time = info.uptime;
 
