@@ -24,12 +24,12 @@
 #include "sysfs.h"
 
 /**
- * get_device_bus: retrieves the bus name the device is on, checks path to
- *	bus' link to make sure it has correct device.
+ * sysfs_get_device_bus: retrieves the bus name the device is on, checks path 
+ * 	to bus' link to make sure it has correct device.
  * @dev: device to get busname.
  * returns 0 with success and -1 with error.
  */
-static int get_device_bus(struct sysfs_device *dev)
+int sysfs_get_device_bus(struct sysfs_device *dev)
 {
 	unsigned char subsys[SYSFS_NAME_LEN], path[SYSFS_PATH_MAX];
 	unsigned char target[SYSFS_PATH_MAX], *bus = NULL, *c = NULL;
@@ -197,6 +197,11 @@ struct sysfs_device *sysfs_open_device_path(const unsigned char *path)
 		return NULL;
 	}
 	strcpy(dev->path, path);
+	if ((sysfs_remove_trailing_slash(dev->path)) != 0) {
+		dprintf("Invalid path to device %s\n", dev->path);
+		sysfs_close_device(dev);
+		return NULL;
+	}
 	/* 
 	 * The "name" attribute no longer exists... return the device's
 	 * sysfs representation instead, in the "dev->name" field, which
@@ -204,8 +209,8 @@ struct sysfs_device *sysfs_open_device_path(const unsigned char *path)
 	 */
 	strncpy(dev->name, dev->bus_id, SYSFS_NAME_LEN);
 	
-	if (get_device_bus(dev) != 0)
-		strcpy(dev->bus, SYSFS_UNKNOWN);
+	if (sysfs_get_device_bus(dev) != 0)
+		dprintf("Could not get device bus\n");
 
 	return dev;
 }
@@ -334,8 +339,7 @@ struct sysfs_root_device *sysfs_open_root_device(const unsigned char *name)
 		return NULL;
 	}
 
-	if (sysfs_trailing_slash(rootpath) == 0)
-		strcat(rootpath, "/");
+	strcat(rootpath, "/");
 	strcat(rootpath, SYSFS_DEVICES_NAME);
 	strcat(rootpath, "/");
 	strcat(rootpath, name);
@@ -352,6 +356,11 @@ struct sysfs_root_device *sysfs_open_root_device(const unsigned char *name)
 	}
 	strcpy(root->name, name);
 	strcpy(root->path, rootpath);
+	if ((sysfs_remove_trailing_slash(root->path)) != 0) {
+		dprintf("Invalid path to root device %s\n", root->path);
+		sysfs_close_root_device(root);
+		return NULL;
+	}
 	return root;
 }
 
@@ -373,17 +382,34 @@ struct dlist *sysfs_get_device_attributes(struct sysfs_device *device)
 	if (device->directory->attributes == NULL) {
 		if ((sysfs_read_dir_attributes(device->directory)) != 0)
 			return NULL;
-	} else {
-		if ((sysfs_path_is_dir(device->path)) != 0) {
-			dprintf("Device at %s no longer exists", device->path);
-			return NULL;
-		}
-		if ((sysfs_refresh_attributes
-				(device->directory->attributes)) != 0) {
-			dprintf("Error refreshing device attributes\n");
-			return NULL;
-		}
 	}
+	return (device->directory->attributes);
+}
+
+/**
+ * sysfs_refresh_device_attributes: refreshes the device's list of attributes
+ * @device: sysfs_device whose attributes to refresh
+ *  
+ * NOTE: Upon return, prior references to sysfs_attributes for this device
+ * 		_may_ not be valid
+ *
+ * Returns list of attributes on success and NULL on failure
+ */
+struct dlist *sysfs_refresh_device_attributes(struct sysfs_device *device)
+{
+	if (device == NULL) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (device->directory == NULL)
+		return (sysfs_get_device_attributes(device));
+
+	if ((sysfs_refresh_dir_attributes(device->directory)) != 0) {
+		dprintf("Error refreshing device attributes\n");
+		return NULL;
+	}
+
 	return (device->directory->attributes);
 }
 
@@ -396,22 +422,19 @@ struct dlist *sysfs_get_device_attributes(struct sysfs_device *device)
 struct sysfs_attribute *sysfs_get_device_attr(struct sysfs_device *dev,
 						const unsigned char *name)
 {
-	struct sysfs_attribute *cur = NULL;
 	struct dlist *attrlist = NULL;
 
 	if (dev == NULL || name == NULL) {
 		errno = EINVAL;
 		return NULL;
 	}
-
+	
 	attrlist = sysfs_get_device_attributes(dev);
 	if (attrlist == NULL)
 		return NULL;
 
-	cur = sysfs_get_directory_attribute(dev->directory, 
-			(unsigned char *)name);
-
-	return cur;
+	return sysfs_get_directory_attribute(dev->directory, 
+					(unsigned char *)name);
 }
 
 /**
@@ -437,8 +460,7 @@ static int get_device_absolute_path(const unsigned char *device,
 		dprintf ("Sysfs not supported on this system\n");
 		return -1;
 	}
-	if (sysfs_trailing_slash(bus_path) == 0)
-		strcat(bus_path, "/");
+	strcat(bus_path, "/");
 	strcat(bus_path, SYSFS_BUS_NAME);
 	strcat(bus_path, "/");
 	strcat(bus_path, bus);

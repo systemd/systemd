@@ -103,6 +103,11 @@ struct sysfs_driver *sysfs_open_driver_path(const unsigned char *path)
 		return NULL;
 	}
 	strcpy(driver->path, path);
+	if ((sysfs_remove_trailing_slash(driver->path)) != 0) {
+		dprintf("Invalid path to driver %s\n", driver->path);
+		sysfs_close_driver(driver);
+		return NULL;
+	}
 	
 	return driver;
 }
@@ -125,23 +130,35 @@ struct dlist *sysfs_get_driver_attributes(struct sysfs_driver *driver)
 			return NULL;
 	}
 	if (driver->directory->attributes == NULL) {
-		if ((sysfs_read_dir_attributes(driver->directory)) != 0) {
-			dprintf("Error reading driver attributes\n");
+		if ((sysfs_read_dir_attributes(driver->directory)) != 0) 
 			return NULL;
-		}
-	} else {
-		if ((sysfs_path_is_dir(driver->path)) != 0) {
-			dprintf("Driver at %s no longer exists\n", 
-							driver->path);
-			return NULL;
-		}
-		if ((sysfs_refresh_attributes
-				(driver->directory->attributes)) != 0) {
-			dprintf("Error refreshing driver attributes\n");
-			return NULL;
-		}
 	}
 	return(driver->directory->attributes);
+}
+
+/**
+ * sysfs_refresh_driver_attributes: refreshes the driver's list of attributes
+ * @driver: sysfs_driver whose attributes to refresh
+ *
+ * NOTE: Upon return, prior references to sysfs_attributes for this driver
+ * 		_may_ not be valid
+ * 		
+ * Returns list of attributes on success and NULL on failure
+ */
+struct dlist *sysfs_refresh_driver_attributes(struct sysfs_driver *driver)
+{
+	if (driver == NULL) {
+		errno = EINVAL;
+		return NULL;
+	}
+	if (driver->directory == NULL)
+		return (sysfs_get_driver_attributes(driver));
+	
+	if ((sysfs_refresh_dir_attributes(driver->directory)) != 0) {
+		dprintf("Error refreshing driver attributes\n");
+		return NULL;
+	}
+	return (driver->directory->attributes);
 }
 
 /**
@@ -153,7 +170,6 @@ struct dlist *sysfs_get_driver_attributes(struct sysfs_driver *driver)
 struct sysfs_attribute *sysfs_get_driver_attr(struct sysfs_driver *drv,
 					const unsigned char *name)
 {
-	struct sysfs_attribute *cur = NULL;
 	struct dlist *attrlist = NULL;
 
         if (drv == NULL) {
@@ -163,9 +179,10 @@ struct sysfs_attribute *sysfs_get_driver_attr(struct sysfs_driver *drv,
 	
 	attrlist = sysfs_get_driver_attributes(drv);
 	if (attrlist != NULL) 
-		cur = sysfs_get_directory_attribute(drv->directory,
+		return NULL;
+
+	return sysfs_get_directory_attribute(drv->directory,
 						(unsigned char *)name);
-        return cur;
 }
 
 /**
@@ -234,6 +251,38 @@ struct dlist *sysfs_get_driver_devices(struct sysfs_driver *driver)
 }
 
 /**
+ * sysfs_refresh_driver_devices: Refreshes drivers list of devices
+ * @driver: sysfs_driver whose devices list needs to be refreshed
+ *
+ * NOTE: Upon return from this function, prior sysfs_device references from
+ * 		this driver's list of devices _may_ not be valid
+ * 		
+ * Returns dlist of devices on success and NULL on failure
+ */
+struct dlist *sysfs_refresh_driver_devices(struct sysfs_driver *driver)
+{
+	if (driver == NULL) {
+		errno = EINVAL;
+		return NULL;
+	}
+	
+	if (driver->devices != NULL) {
+		dlist_destroy(driver->devices);
+		driver->devices = NULL;
+	}
+	
+	if (driver->directory == NULL)
+		return (sysfs_get_driver_devices(driver));
+
+	if ((sysfs_refresh_dir_links(driver->directory)) != 0) {
+		dprintf("Error refreshing driver links\n");
+		return NULL;
+	}
+	
+	return (sysfs_get_driver_devices(driver));
+}
+
+/**
  * sysfs_get_driver_device: looks up a device from a list of driver's devices
  * 	and returns its sysfs_device corresponding to it
  * @driver: sysfs_driver on which to search
@@ -285,8 +334,7 @@ static int get_driver_path(const unsigned char *bus,
 		dprintf("Error getting sysfs mount path\n");
 		return -1;
 	}
-	if (sysfs_trailing_slash(path) == 0)
-		strcat(path, "/");
+	strcat(path, "/");
 	strcat(path, SYSFS_BUS_NAME);
 	strcat(path, "/");
 	strcat(path, bus);

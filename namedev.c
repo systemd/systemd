@@ -29,6 +29,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
+#include <time.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 
@@ -514,11 +515,8 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 {
 	struct sysfs_device *sysfs_device;
 	struct sysfs_class_device *class_dev_parent;
+	struct timespec tspec;
 	int loop;
-	char filename[SYSFS_PATH_MAX + 6];
-	int retval;
-	char *temp;
-	int partition = 0;
 
 	/* Figure out where the device symlink is at.  For char devices this will
 	 * always be in the class_dev->path.  But for block devices, it's different.
@@ -529,69 +527,54 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 	 * symlink yet.  We do sit and spin on waiting for them right now, we should
 	 * possibly have a whitelist for these devices here...
 	 */
-	strcpy(filename, class_dev->path);
-	dbg("filename = %s", filename);
-	if (strcmp(class_dev->classname, SYSFS_BLOCK_NAME) == 0) {
-		if (isdigit(class_dev->path[strlen(class_dev->path)-1])) {
-			temp = strrchr(filename, '/');
-			if (temp) {
-				char *temp2 = strrchr(filename, '/');
-				partition = 1;
-				*temp = 0x00;
-				dbg("temp2 = %s", temp2);
-				if (temp2 && (strcmp(temp2, "/block") == 0)) {
-					/* oops, we have no parent block device, so go back to original directory */
-					strcpy(filename, class_dev->path);
-					partition = 0;
-				}
-			}
-		}
-	}
-	strcat(filename, "/device");
+	class_dev_parent = sysfs_get_classdev_parent(class_dev);
+	if (class_dev_parent) 
+		dbg("Really a partition");
 
-	loop = 2;
+	tspec.tv_sec = 0;
+	tspec.tv_nsec = 10000000;  /* sleep 10 millisec */
+	loop = 10;
 	while (loop--) {
-		struct stat buf;
-		dbg("looking for '%s'", filename);
-		retval = stat(filename, &buf);
-		if (!retval)
-			break;
-		/* sleep to give the kernel a chance to create the device file */
-		sleep(1);
-	}
+		nanosleep(&tspec, NULL);
+		if (class_dev_parent)
+			sysfs_device = sysfs_get_classdev_device(class_dev_parent);
+		else
+			sysfs_device = sysfs_get_classdev_device(class_dev);
 
-	loop = 1;	/* FIXME put a real value in here for when everything is fixed... */
-	while (loop--) {
-		/* find the sysfs_device for this class device */
-		/* Wouldn't it really be nice if libsysfs could do this for us? */
-		sysfs_device = sysfs_get_classdev_device(class_dev);
 		if (sysfs_device != NULL)
-			goto exit;
-
-		/* if it's a partition, we need to get the parent device */
-		if (partition) {
-			/* FIXME  HACK HACK HACK HACK
-			 * for some reason partitions need this extra sleep here, in order
-			 * to wait for the device properly.  Once the libsysfs code is
-			 * fixed properly, this sleep should go away, and we can just loop above.
-			 */
-			sleep(1);
-			dbg("really is a partition");
-			class_dev_parent = sysfs_get_classdev_parent(class_dev);
-			if (class_dev_parent == NULL) {
-				dbg("sysfs_get_classdev_parent for class device '%s' failed", class_dev->name);
-			} else {
-				dbg("class_dev_parent->name='%s'", class_dev_parent->name);
-				sysfs_device = sysfs_get_classdev_device(class_dev_parent);
-				if (sysfs_device != NULL)
-					goto exit;
-			}
-		}
-		/* sleep to give the kernel a chance to create the link */
-		/* FIXME remove comment...
-		sleep(1); */
+			goto device_found;
 	}
 	dbg("Timed out waiting for device symlink, continuing on anyway...");
+	
+device_found:
+        /* We have another issue with just the wait above - the sysfs part of
+	 * the kernel may not be quick enough to have created the link to the
+	 * device under the "bus" subsystem. Due to this, the sysfs_device->bus
+	 * will not contain the actual bus name :(
+	 *
+	 * Libsysfs now provides a new API sysfs_get_device_bus(), so use it
+	 * if needed
+	 */
+        if (sysfs_device) {
+		
+		if (sysfs_device->bus[0] != '\0')
+			goto bus_found;
+		
+		loop = 10;
+		tspec.tv_nsec = 10000000;
+		while (loop--) {
+			nanosleep(&tspec, NULL);
+			sysfs_get_device_bus(sysfs_device);
+			
+			if (sysfs_device->bus[0] != '\0')
+				goto bus_found;
+		}
+		dbg("Timed out waiting to find the device bus, continuing on anyway\n");
+		goto exit;
+bus_found:
+		dbg("Device %s is registered with bus %s\n",
+				sysfs_device->name, sysfs_device->bus);
+	}
 exit:
 	return sysfs_device;
 }

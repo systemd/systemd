@@ -27,6 +27,30 @@
 #endif
 
 /**
+ * sysfs_remove_trailing_slash: Removes any trailing '/' in the given path
+ * @path: Path to look for the trailing '/'
+ * Returns 0 on success 1 on error
+ */ 
+int sysfs_remove_trailing_slash(unsigned char *path)
+{
+	unsigned char *c = NULL;
+
+	if (path == NULL) {
+		errno = EINVAL;
+		return 1;
+	}
+	c = strrchr(path, '/');
+	if (c == NULL) {
+		dprintf("Invalid path %s\n", path);
+		errno = EINVAL;
+		return 1;
+	}
+	if (*(c+1) == '\0') 
+		*c = '\0';
+	return 0;
+}
+
+/**
  * sysfs_get_mnt_path: Gets the mount point for specified filesystem.
  * @fs_type: filesystem type to retrieve mount point
  * @mnt_path: place to put the retrieved mount path
@@ -72,25 +96,11 @@ static int sysfs_get_fs_mnt_path(const unsigned char *fs_type,
 		errno = EINVAL;
 		ret = -1;
 	}
+	if ((sysfs_remove_trailing_slash(mnt_path)) != 0)
+		ret = -1;
+	
 	return ret;
 #endif
-}
-
-/*
- * sysfs_trailing_slash: checks if there's a trailing slash to path
- * @path: path to check
- * returns 1 if true and 0 if not
- */
-int sysfs_trailing_slash(unsigned char *path)
-{
-	unsigned char *s = NULL;
-
-	if (path == NULL)
-		return 0;
-	s = &path[strlen(path)-1];
-	if (strncmp(s, "/", 1) == 0)
-		return 1;
-	return 0;
 }
 
 /*
@@ -109,9 +119,11 @@ int sysfs_get_mnt_path(unsigned char *mnt_path, size_t len)
 		return -1;
 	}
 	sysfs_path = getenv(SYSFS_PATH_ENV);
-	if (sysfs_path != NULL) 
+	if (sysfs_path != NULL) {
 		strncpy(mnt_path, sysfs_path, len);
-	else
+		if ((sysfs_remove_trailing_slash(mnt_path)) != 0)
+			return 1;
+	} else
 		ret = sysfs_get_fs_mnt_path(SYSFS_FSTYPE_NAME, mnt_path, len);
 
 	return ret;
@@ -152,7 +164,7 @@ int sysfs_get_name_from_path(const unsigned char *path, unsigned char *name,
 	strncpy(name, n, len);
 	return 0;
 }
-
+	
 /**
  * sysfs_get_link: returns link source
  * @path: symbolic link's path
@@ -178,31 +190,68 @@ int sysfs_get_link(const unsigned char *path, unsigned char *target, size_t len)
 	if ((readlink(path, linkpath, SYSFS_PATH_MAX)) < 0) {
 		return -1;
 	}
-									        
 	d = linkpath;
-
-	/* getting rid of leading "../.." */	
-	while (*d == '/' || *d == '.') {
-		if (*d == '/')
-			slashes++;
-		d++;
+	/* 
+	 * Three cases here:
+	 * 1. relative path => format ../..
+	 * 2. absolute path => format /abcd/efgh
+	 * 3. relative path _from_ this dir => format abcd/efgh
+	 */ 
+	switch (*d) {
+		case '.': 
+			/* 
+			 * handle the case where link is of type ./abcd/xxx
+			 */
+			strncpy(target, devdir, len);
+			if (*(d+1) == '/')
+				d += 2;
+			else if (*(d+1) == '.')
+				goto parse_path;
+			s = strrchr(target, '/');
+			if (s != NULL) {
+				*(s+1) = '\0';
+				strcat(target, d);
+			} else {
+				strcpy(target, d);
+			}
+			break;
+			/* 
+			 * relative path  
+			 * getting rid of leading "../.." 
+			 */
+parse_path:
+			while (*d == '/' || *d == '.') {
+				if (*d == '/')
+					slashes++;
+				d++;
+			}
+			d--;
+			s = &devdir[strlen(devdir)-1];
+			while (s != NULL && count != (slashes+1)) {
+				s--;
+				if (*s == '/')
+					count++;
+			}
+			strncpy(s, d, (SYSFS_PATH_MAX-strlen(devdir)));
+			strncpy(target, devdir, len);
+			break;
+		case '/':
+			/* absolute path - copy as is */
+			strncpy(target, linkpath, len);
+			break;
+		default:
+			/* relative path from this directory */
+			strncpy(target, devdir, len);
+			s = strrchr(target, '/');
+			if (s != NULL) {
+				*(s+1) = '\0';
+				strcat(target, linkpath);
+			} else {
+				strcpy(target, linkpath);
+			}			
 	}
-
-	d--;
-
-	s = &devdir[strlen(devdir)-1];
-	while (s != NULL && count != (slashes+1)) {
-		s--;
-		if (*s == '/')
-			count++;
-	}
-	
-	strncpy(s, d, (SYSFS_PATH_MAX-strlen(devdir)));
-	strncpy(target, devdir, len);
-
 	return 0;
 }
-
 
 /**
  * sysfs_del_name: free function for sysfs_open_subsystem_list
@@ -245,8 +294,8 @@ struct dlist *sysfs_open_subsystem_list(unsigned char *name)
 		dprintf("Error getting sysfs mount point\n");
 		return NULL;
 	}
-	if (sysfs_trailing_slash(sysfs_path) == 0)
-		strcat(sysfs_path, "/");
+
+	strcat(sysfs_path, "/");
 	strcat(sysfs_path, name);
 	dir = sysfs_open_directory(sysfs_path);
 	if (dir == NULL) {
@@ -318,8 +367,7 @@ struct dlist *sysfs_open_bus_devices_list(unsigned char *name)
 		return NULL;
 	}
 
-	if (sysfs_trailing_slash(sysfs_path) == 0)
-		strcat(sysfs_path, "/");
+	strcat(sysfs_path, "/");
 	strcat(sysfs_path, SYSFS_BUS_NAME);
 	strcat(sysfs_path, "/");
 	strcat(sysfs_path, name);
@@ -376,7 +424,7 @@ int sysfs_path_is_dir(const unsigned char *path)
 	}
 	if (S_ISDIR(astats.st_mode))
 		return 0;
-
+		
 	return 1;
 }
 
@@ -399,7 +447,7 @@ int sysfs_path_is_link(const unsigned char *path)
 	}
 	if (S_ISLNK(astats.st_mode))
 		return 0;
-
+		
 	return 1;
 }
 
@@ -422,6 +470,6 @@ int sysfs_path_is_file(const unsigned char *path)
 	}
 	if (S_ISREG(astats.st_mode))
 		return 0;
-
+		
 	return 1;
 }
