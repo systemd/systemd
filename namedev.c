@@ -665,8 +665,7 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 
 		/* check for matching result of external program */
 		if (dev->result[0] != '\0') {
-			dbg("check for " FIELD_RESULT
-			    " dev->result='%s', udev->program_result='%s'",
+			dbg("check for " FIELD_RESULT " dev->result='%s', udev->program_result='%s'",
 			    dev->result, udev->program_result);
 			if (strcmp_pattern(dev->result, udev->program_result) != 0) {
 				dbg(FIELD_RESULT " is not matching");
@@ -777,7 +776,9 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 				udev->partitions = dev->partitions;
 				udev->mode = dev->mode;
 				strfieldcpy(udev->owner, dev->owner);
+				apply_format(udev, udev->owner, sizeof(udev->owner), class_dev, sysfs_device);
 				strfieldcpy(udev->group, dev->group);
+				apply_format(udev, udev->group, sizeof(udev->group), class_dev, sysfs_device);
 
 				goto perms;
 			}
