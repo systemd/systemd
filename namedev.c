@@ -796,7 +796,6 @@ static int do_number(struct sysfs_class_device *class_dev, struct udevice *udev,
 	return -ENODEV;
 }
 
-
 static int do_topology(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
 {
 	struct config_device *dev;
@@ -901,7 +900,7 @@ static void do_kernelname(struct sysfs_class_device *class_dev, struct udevice *
 	}
 }
 
-static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
+int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
 	struct sysfs_device *sysfs_device = NULL;
 	struct sysfs_class_device *class_dev_parent = NULL;
@@ -992,17 +991,6 @@ done:
 		sysfs_close_class_device(class_dev_parent);
 
 	return 0;
-}
-
-int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *dev)
-{
-	int retval;
-
-	retval = get_attr(class_dev, dev);
-	if (retval)
-		dbg("get_attr failed");
-
-	return retval;
 }
 
 int namedev_init(void)
