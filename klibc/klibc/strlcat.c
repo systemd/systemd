@@ -26,8 +26,7 @@ size_t strlcat(char *dst, const char *src, size_t size)
     bytes++;
   }
 
-  if (size)
-    *q = '\0';
+  *q = '\0';
   return bytes;
 }
 
