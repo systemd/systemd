@@ -197,6 +197,7 @@ cdwriter:root:disk:0660
 usb/dabusb*:root:usb:0660
 usb/mdc800*:root:usb:0660
 usb/rio500:root:usb:0660
+usb/legousbtower*:root:usb:0660
 
 sgi_fetchop:root:root:666
 iseries/vcd*:root:disk:660
