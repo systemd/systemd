@@ -221,14 +221,6 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	OBJS += klibc_fixups.o
 endif
 
-# if USE_SELINUX is enabled, then we do not strip or optimize
-ifeq ($(strip $(USE_SELINUX)),true)
-	CFLAGS  += -DUSE_SELINUX
-	OBJS += udev_selinux.o
-	LIB_OBJS += -lselinux
-endif
-
-
 # header files automatically generated
 GEN_HEADERS =	udev_version.h
 
