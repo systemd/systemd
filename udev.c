@@ -139,12 +139,20 @@ help:
 	return retval;
 }
 
+static char *subsystem_blacklist[] = {
+	"net",
+	"scsi_host",
+	"scsi_device",
+	"",
+};
+
 static inline int udev_hotplug(int argc, char **argv)
 {
 	char *action;
 	char *devpath;
 	char *subsystem;
 	int retval = -EINVAL;
+	int i;
 
 	subsystem = argv[1];
 
@@ -162,10 +170,14 @@ static inline int udev_hotplug(int argc, char **argv)
 		goto exit;
 	}
 
-	/* but we don't care about net class devices */
-	if (strcmp(subsystem, "net") == 0) {
-		dbg("don't care about net devices");
-		goto exit;
+	/* skip blacklisted subsystems */
+	i = 0;
+	while (subsystem_blacklist[i][0] != '\0') {
+		if (strcmp(subsystem, subsystem_blacklist[i]) == 0) {
+			dbg("don't care about '%s' devices", subsystem);
+			goto exit;
+		}
+		i++;
 	}
 
 	action = get_action();
