@@ -64,7 +64,6 @@ static void reap_sigchilds(void);
 char *udev_bin;
 
 #ifdef LOG
-unsigned char logname[LOGNAME_SIZE];
 void log_message (int level, const char *format, ...)
 {
 	va_list	args;
