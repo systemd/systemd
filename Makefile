@@ -200,3 +200,15 @@ install: all
 	$(INSTALL_DATA) namedev.config $(configdir)
 	$(INSTALL_DATA) namedev.permissions $(configdir)
 	- ln -s $(sbindir)/$(ROOT) $(hotplugdir)/udev.hotplug
+
+uninstall:
+	- rm $(hotplugdir)/udev.hotplug
+	- rm $(configdir)/namedev.permissions
+	- rm $(configdir)/namedev.config
+	- rm $(mandir)/man8/udev.8
+	- rm $(sbindir)/$(ROOT)
+	- rmdir $(hotplugdir)
+	- rmdir $(configdir)
+	- rmdir $(udevdir)
+
+
