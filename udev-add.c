@@ -150,6 +150,7 @@ int sleep_for_dev(char *path)
 		/* sleep for a second or two to give the kernel a chance to
 		 * create the dev file */
 		sleep(1);
+		++loop;
 	}
 	retval = -ENODEV;
 exit:
