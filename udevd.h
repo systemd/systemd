@@ -47,6 +47,7 @@ struct hotplug_msg {
 	char *devpath;
 	char *subsystem;
 	unsigned long long seqnum;
+	char *physdevpath;
 	char *envp[HOTPLUG_NUM_ENVP+1];
 	char envbuf[];
 };

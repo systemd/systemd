@@ -151,22 +151,40 @@ static void udev_run(struct hotplug_msg *msg)
 	}
 }
 
-/* returns already running task with devpath */
+/* returns still running task for the same event sequence */
 static struct hotplug_msg *running_with_devpath(struct hotplug_msg *msg)
 {
 	struct hotplug_msg *loop_msg;
+	int i;
+
 	list_for_each_entry(loop_msg, &running_list, list) {
 		if (loop_msg->devpath == NULL || msg->devpath == NULL)
 			continue;
 
-		if (strcmp(loop_msg->devpath, msg->devpath) == 0)
-			return loop_msg;
+		/* is a parent or child device event still running */
+		for (i = 0; i < DEVPATH_SIZE; i++) {
+			if (loop_msg->devpath[i] == '\0' || msg->devpath[i] == '\0')
+				return loop_msg;
+
+			if (loop_msg->devpath[i] != msg->devpath[i])
+				break;
+		}
+
+		/* is the physical device event still running on an add sequence */
+		if (msg->physdevpath && msg->action && strcmp(msg->action, "add") == 0)
+			for (i = 0; i < DEVPATH_SIZE; i++) {
+				if (loop_msg->devpath[i] == '\0' || msg->physdevpath[i] == '\0')
+					return loop_msg;
+
+				if (loop_msg->devpath[i] != msg->physdevpath[i])
+					break;
+			}
 	}
 
 	return NULL;
 }
 
-/* exec queue management routine executes the events and delays events for the same devpath */
+/* exec queue management routine executes the events and serializes events in the same sequence */
 static void exec_queue_manager(void)
 {
 	struct hotplug_msg *loop_msg;
@@ -181,8 +199,8 @@ static void exec_queue_manager(void)
 			udev_run(loop_msg);
 			dbg("moved seq %llu to running list", loop_msg->seqnum);
 		} else {
-			dbg("delay seq %llu, cause seq %llu already working on '%s'",
-				loop_msg->seqnum, msg->seqnum, msg->devpath);
+			dbg("delay seq %llu (%s), cause seq %llu (%s) is still running",
+			    loop_msg->seqnum, loop_msg->devpath, msg->seqnum, msg->devpath);
 		}
 	}
 }
@@ -314,6 +332,9 @@ static void handle_udevsend_msg(int sock)
 
 		if (strncmp(key, "SEQNUM=", 7) == 0)
 			msg->seqnum = strtoull(&key[7], NULL, 10);
+
+		if (strncmp(key, "PHYSDEVPATH=", 12) == 0)
+			msg->physdevpath = &key[12];
 	}
 	msg->envp[i++] = "MANAGED_EVENT=1";
 	msg->envp[i] = NULL;
