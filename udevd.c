@@ -151,34 +151,51 @@ static void udev_run(struct hotplug_msg *msg)
 	}
 }
 
-/* returns still running task for the same event sequence */
+static int compare_devpath(const char *running, const char *waiting)
+{
+	int i;
+
+	for (i = 0; i < DEVPATH_SIZE; i++) {
+		/* identical device event found */
+		if (running[i] == '\0' && waiting[i] == '\0')
+			return 1;
+
+		/* parent device event found */
+		if (running[i] == '\0' && waiting[i] == '/')
+			return 2;
+
+		/* child device event found */
+		if (running[i] == '/' && waiting[i] == '\0')
+			return 3;
+
+		/* no matching event */
+		if (running[i] != waiting[i])
+			break;
+	}
+
+	return 0;
+}
+
+/* returns still running task for the same device, its parent or its physical device */
 static struct hotplug_msg *running_with_devpath(struct hotplug_msg *msg)
 {
 	struct hotplug_msg *loop_msg;
-	int i;
+
+	if (msg->devpath == NULL)
+		return NULL;
 
 	list_for_each_entry(loop_msg, &running_list, list) {
-		if (loop_msg->devpath == NULL || msg->devpath == NULL)
+		if (loop_msg->devpath == NULL)
 			continue;
 
-		/* is a parent or child device event still running */
-		for (i = 0; i < DEVPATH_SIZE; i++) {
-			if (loop_msg->devpath[i] == '\0' || msg->devpath[i] == '\0')
-				return loop_msg;
+		/* return running parent/child device event */
+		if (compare_devpath(loop_msg->devpath, msg->devpath) != 0)
+			return loop_msg;
 
-			if (loop_msg->devpath[i] != msg->devpath[i])
-				break;
-		}
-
-		/* is the physical device event still running on an add sequence */
+		/* return running physical device event */
 		if (msg->physdevpath && msg->action && strcmp(msg->action, "add") == 0)
-			for (i = 0; i < DEVPATH_SIZE; i++) {
-				if (loop_msg->devpath[i] == '\0' || msg->physdevpath[i] == '\0')
-					return loop_msg;
-
-				if (loop_msg->devpath[i] != msg->physdevpath[i])
-					break;
-			}
+			if (compare_devpath(loop_msg->devpath, msg->physdevpath) != 0)
+				return loop_msg;
 	}
 
 	return NULL;
