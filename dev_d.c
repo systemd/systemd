@@ -96,13 +96,17 @@ void dev_d_execute(struct udevice *udev, const char *basedir, const char *suffix
 		temp = strchr(temp, '/');
 	}
 
-	snprintf(dirname, PATH_MAX, "%s/%s", basedir, udev->name);
-	dirname[PATH_MAX-1] = '\0';
-	call_foreach_file(run_program, dirname, suffix, udev);
+	if (udev->name[0] != '\0') {
+		snprintf(dirname, PATH_MAX, "%s/%s", basedir, udev->name);
+		dirname[PATH_MAX-1] = '\0';
+		call_foreach_file(run_program, dirname, suffix, udev);
+	}
 
-	snprintf(dirname, PATH_MAX, "%s/%s", basedir, udev->subsystem);
-	dirname[PATH_MAX-1] = '\0';
-	call_foreach_file(run_program, dirname, suffix, udev);
+	if (udev->subsystem[0] != '\0') {
+		snprintf(dirname, PATH_MAX, "%s/%s", basedir, udev->subsystem);
+		dirname[PATH_MAX-1] = '\0';
+		call_foreach_file(run_program, dirname, suffix, udev);
+	}
 
 	snprintf(dirname, PATH_MAX, "%s/default", basedir);
 	dirname[PATH_MAX-1] = '\0';
