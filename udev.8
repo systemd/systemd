@@ -178,6 +178,9 @@ Match the topological position on bus, like physical port of USB device
 Match sysfs device attribute like label, vendor, USB serial number, SCSI UUID
 or file system label.  Up to 5 different sysfs files can be checked, with
 all of the values being required in order to match the rule.
+.br
+Trailing whitespace characters in the sysfs attribute value are ignored, if
+the key doesn't have any trailing whitespace characters by itself.
 .TP
 .B PROGRAM
 Call external program. This key is valid if the program returns successful.

@@ -525,6 +525,8 @@ attr_found:
 static int compare_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, struct sysfs_pair *pair)
 {
 	struct sysfs_attribute *tmpattr;
+	int i;
+	int len;
 
 	if ((pair == NULL) || (pair->file[0] == '\0') || (pair->value == '\0'))
 		return -ENODEV;
@@ -532,6 +534,18 @@ static int compare_sysfs_attribute(struct sysfs_class_device *class_dev, struct 
 	tmpattr = find_sysfs_attribute(class_dev, sysfs_device, pair->file);
 	if (tmpattr == NULL)
 		return -ENODEV;
+
+	/* strip trailing whitespace of value, if not asked to match for it */
+	if (! isspace(pair->value[strlen(pair->value)-1])) {
+		i = len = strlen(tmpattr->value);
+		while (i > 0 &&  isspace(tmpattr->value[i-1]))
+			i--;
+		if (i < len) {
+			tmpattr->value[i] = '\0';
+			dbg("remove %i trailing whitespace chars from '%s'",
+			    len - i, tmpattr->value);
+		}
+	}
 
 	dbg("compare attribute '%s' value '%s' with '%s'",
 		  pair->file, tmpattr->value, pair->value);

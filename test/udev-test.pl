@@ -467,6 +467,25 @@ BUS="scsi", ID="*:0:0:0", NAME="scsi-0:0:0:0"
 BUS="scsi", ID="0:0:0:0", NAME="bad"
 EOF
 	},
+	{
+		desc     => "ignore SYSFS attribute whitespace",
+		subsys   => "block",
+		devpath  => "block/sda",
+		expected => "ignored",
+		conf     => <<EOF
+BUS="scsi", SYSFS{whitespace_test}="WHITE  SPACE", NAME="ignored"
+EOF
+	},
+	{
+		desc     => "do not ignore SYSFS attribute whitespace",
+		subsys   => "block",
+		devpath  => "block/sda",
+		expected => "matched-with-space",
+		conf     => <<EOF
+BUS="scsi", SYSFS{whitespace_test}="WHITE  SPACE ", NAME="wrong-to-ignore"
+BUS="scsi", SYSFS{whitespace_test}="WHITE  SPACE   ", NAME="matched-with-space"
+EOF
+	},
 );
 
 # set env
