@@ -143,6 +143,7 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 		{ .subsystem = "net",		.device = "ppp" },
 		{ .subsystem = "net",		.device = "lo" },
 		{ .subsystem = "net",		.device = "tap" },
+		{ .subsystem = "net",		.device = "ipsec" },
 		{ .subsystem = "sound",		.device = NULL },
 		{ .subsystem = "printer",	.device = "lp" },
 		{ .subsystem = "nvidia",	.device = NULL },
