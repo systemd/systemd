@@ -252,16 +252,19 @@ static void handle_msg(int sock)
 	cmsg = CMSG_FIRSTHDR(&smsg);
 	cred = (struct ucred *) CMSG_DATA(cmsg);
 
+	if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
+		dbg("no sender credentials received, message ignored");
+		goto skip;
+	}
+
 	if (cred->uid != 0) {
 		dbg("sender uid=%i, message ignored", cred->uid);
-		free(msg);
-		return;
+		goto skip;
 	}
 
 	if (strncmp(msg->magic, UDEV_MAGIC, sizeof(UDEV_MAGIC)) != 0 ) {
 		dbg("message magic '%s' doesn't match, ignore it", msg->magic);
-		free(msg);
-		return;
+		goto skip;
 	}
 
 	/* if no seqnum is given, we move straight to exec queue */
@@ -271,6 +274,11 @@ static void handle_msg(int sock)
 	} else {
 		msg_queue_insert(msg);
 	}
+	return;
+
+skip:
+	free(msg);
+	return;
 }
 
 static void sig_handler(int signum)
@@ -316,6 +324,11 @@ int main(int argc, char *argv[])
 
 	init_logging("udevd");
 
+	if (getuid() != 0) {
+		dbg("need to be root, exit");
+		exit(1);
+	}
+
 	/* set signal handler */
 	act.sa_handler = sig_handler;
 	sigemptyset (&act.sa_mask);
@@ -336,14 +349,14 @@ int main(int argc, char *argv[])
 
 	ssock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (ssock == -1) {
-		dbg("error getting socket");
+		dbg("error getting socket, exit");
 		exit(1);
 	}
 
 	/* the bind takes care of ensuring only one copy running */
 	retval = bind(ssock, (struct sockaddr *) &saddr, addrlen);
 	if (retval < 0) {
-		dbg("bind failed\n");
+		dbg("bind failed, exit");
 		goto exit;
 	}
 
