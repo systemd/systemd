@@ -101,7 +101,7 @@ static int create_node(char *name, char type, int major, int minor, int mode)
 	return retval;
 }
 
-struct sysfs_class_device *get_class_dev(char *device_name)
+static struct sysfs_class_device *get_class_dev(char *device_name)
 {
 	char sysfs_path[SYSFS_PATH_MAX];
 	char dev_path[SYSFS_PATH_MAX];

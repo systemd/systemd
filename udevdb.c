@@ -130,13 +130,13 @@ static struct busdb_record *busdb_fetch(const char *bus, const char *id)
 	data = tdb_fetch(udevdb, key);
 	if (data.dptr == NULL || data.dsize == 0)
 		return NULL;
-	
+
 	rec = (struct busdb_record *)malloc(sizeof(struct busdb_record));
 	if (rec == NULL) {
 		free(data.dptr);
 		return NULL;
 	}
-	
+
 	memcpy(rec, data.dptr, sizeof(struct busdb_record));
 	free(data.dptr);
 
