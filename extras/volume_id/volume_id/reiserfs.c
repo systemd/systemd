@@ -80,6 +80,10 @@ int volume_id_probe_reiserfs(struct volume_id *id, __u64 off)
 		return -1;
 
 	rs = (struct reiserfs_super_block *) buf;;
+	if (memcmp(rs->magic, "ReIsErFs", 8) == 0) {
+		strcpy(id->type_version, "3.5");
+		goto found;
+	}
 	if (memcmp(rs->magic, "ReIsEr2Fs", 9) == 0) {
 		strcpy(id->type_version, "3.6");
 		goto found_v3;
@@ -104,7 +108,7 @@ int volume_id_probe_reiserfs(struct volume_id *id, __u64 off)
 
 	if (memcmp(rs->magic, "ReIsErFs", 8) == 0) {
 		strcpy(id->type_version, "3.5");
-		goto found_v3;
+		goto found;
 	}
 
 	return -1;
