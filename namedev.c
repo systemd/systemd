@@ -655,9 +655,9 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 		if (isdigit(class_dev->path[strlen(class_dev->path)-1])) {
 			temp = strrchr(filename, '/');
 			if (temp) {
+				char *temp2 = strrchr(filename, '/');
 				partition = 1;
 				*temp = 0x00;
-				char *temp2 = strrchr(filename, '/');
 				dbg("temp2 = %s", temp2);
 				if (temp2 && (strcmp(temp2, "/block") == 0)) {
 					/* oops, we have no parent block device, so go back to original directory */
