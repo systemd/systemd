@@ -118,8 +118,8 @@ static int delete_node(struct udevice *dev)
  */
 int udev_remove_device(char *path, char *subsystem)
 {
-	char name[100];
 	struct udevice *dev;
+	struct udevice device;
 	char *temp;
 
 	dev = udevdb_get_dev(path);
@@ -128,13 +128,15 @@ int udev_remove_device(char *path, char *subsystem)
 		temp = strrchr(path, '/');
 		if (temp == NULL)
 			return -ENODEV;
-		strncpy(name, &temp[1], sizeof(name));
+		memset(&device, 0, sizeof(device));
+		dev = &device;
+		strncpy(device.name, &temp[1], sizeof(device.name));
 	}
 
 	dbg("name is '%s'", dev->name);
 	udevdb_delete_dev(path);
 
-	sysbus_send_remove(name, path);
+	sysbus_send_remove(dev->name, path);
 
 	return delete_node(dev);
 }
