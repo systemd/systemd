@@ -40,9 +40,8 @@ void openlog(const char *ident, int option, int facility)
   id[MAXID] = '\0';		/* Make sure it's null-terminated */
 }
 
-void syslog(int prio, const char *format, ...)
+void vsyslog(int prio, const char *format, va_list ap)
 {
-  va_list ap;
   char buf[BUFLEN];
   int rv, len;
   int fd;
@@ -62,13 +61,20 @@ void syslog(int prio, const char *format, ...)
   if ( *id )
     len += sprintf(buf+3, "%s: ", id);
   
-  va_start(ap, format);
   rv = vsnprintf(buf+len, BUFLEN-len, format, ap);
-  va_end(ap);
 
   len += rv;
   if ( len > BUFLEN-1 ) len = BUFLEN-1;
   buf[len] = '\n';
 
   write(fd, buf, len+1);
+}
+
+void syslog(int prio, const char *format, ...)
+{
+  va_list ap;
+
+  va_start(ap, format);
+  vsyslog(prio, format, ap);
+  va_end(ap);
 }

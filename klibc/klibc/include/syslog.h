@@ -6,6 +6,7 @@
 #define _SYSLOG_H
 
 #include <klibc/extern.h>
+#include <stdarg.h>
 
 /* Alert levels */
 #define LOG_EMERG	0
@@ -49,5 +50,6 @@
 __extern void openlog(const char *, int, int);
 __extern void syslog(int, const char *, ...);
 __extern void closelog(void);
+__extern void vsyslog(int, const char *format, va_list ap);
 
 #endif /* _SYSLOG_H */
