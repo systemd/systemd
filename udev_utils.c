@@ -200,11 +200,11 @@ size_t buf_get_line(const char *buf, size_t buflen, size_t cur)
 
 void no_trailing_slash(char *path)
 {
-	int len;
+	size_t len;
 
 	len = strlen(path);
-	if (len > 0 && path[len-1] == '/')
-		path[len-1] = '\0';
+	while (len > 0 && path[len-1] == '/')
+		path[--len] = '\0';
 }
 
 struct files {
