@@ -214,7 +214,7 @@ udev.conf:
 
 $(OBJS): $(GEN_HEADERS)
 
-$(ROOT): $(OBJS) udev.h namedev.h
+$(ROOT): $(OBJS) udev.h namedev.h udev_version.h udev_dbus.h udevdb.h klibc_fixups.h list.h
 	$(LD) $(LDFLAGS) -o $(ROOT) $(CRT0) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $(ROOT)
 
