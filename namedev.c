@@ -21,7 +21,8 @@
  *
  */
 
-#undef DEBUG
+/* define this to enable parsing debugging */
+/* #define DEBUG_PARSER */
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -51,43 +52,43 @@ static void dump_dev(struct config_device *dev)
 {
 	switch (dev->type) {
 	case KERNEL_NAME:
-		dbg("KERNEL name ='%s'"
+		dbg_parse("KERNEL name ='%s'"
 			" owner = '%s', group = '%s', mode = '%#o'",
 			dev->attr.name, 
 			dev->attr.owner, dev->attr.group, dev->attr.mode);
 		break;
 	case LABEL:
-		dbg("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'"
+		dbg_parse("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'"
 			" owner = '%s', group = '%s', mode = '%#o'",
 			dev->attr.name, dev->bus, dev->sysfs_file, dev->sysfs_value,
 			dev->attr.owner, dev->attr.group, dev->attr.mode);
 		break;
 	case NUMBER:
-		dbg("NUMBER name = '%s', bus = '%s', id = '%s'"
+		dbg_parse("NUMBER name = '%s', bus = '%s', id = '%s'"
 			" owner = '%s', group = '%s', mode = '%#o'",
 			dev->attr.name, dev->bus, dev->id,
 			dev->attr.owner, dev->attr.group, dev->attr.mode);
 		break;
 	case TOPOLOGY:
-		dbg("TOPOLOGY name = '%s', bus = '%s', place = '%s'"
+		dbg_parse("TOPOLOGY name = '%s', bus = '%s', place = '%s'"
 			" owner = '%s', group = '%s', mode = '%#o'",
 			dev->attr.name, dev->bus, dev->place,
 			dev->attr.owner, dev->attr.group, dev->attr.mode);
 		break;
 	case REPLACE:
-		dbg("REPLACE name = %s, kernel_name = %s"
+		dbg_parse("REPLACE name = %s, kernel_name = %s"
 			" owner = '%s', group = '%s', mode = '%#o'",
 			dev->attr.name, dev->kernel_name,
 			dev->attr.owner, dev->attr.group, dev->attr.mode);
 		break;
 	case CALLOUT:
-		dbg("CALLOUT name = '%s', program ='%s', bus = '%s', id = '%s'"
+		dbg_parse("CALLOUT name = '%s', program ='%s', bus = '%s', id = '%s'"
 			" owner = '%s', group = '%s', mode = '%#o'",
 			dev->attr.name, dev->exec_program, dev->bus, dev->id,
 			dev->attr.owner, dev->attr.group, dev->attr.mode);
 		break;
 	default:
-		dbg("Unknown type of device!");
+		dbg_parse("Unknown type of device!");
 	}
 }
 
@@ -205,7 +206,7 @@ static int namedev_init_config(void)
 	int retval = 0;
 	struct config_device dev;
 
-	strcpy(filename, NAMEDEV_CONFIG_ROOT NAMEDEV_CONFIG_FILE);
+	strcpy(filename, UDEV_CONFIG_DIR NAMEDEV_CONFIG_FILE);
 	dbg("opening %s to read as permissions config", filename);
 	fd = fopen(filename, "r");
 	if (fd == NULL) {
@@ -220,7 +221,7 @@ static int namedev_init_config(void)
 		if (temp == NULL)
 			break;
 
-		dbg("read %s", temp);
+		dbg_parse("read %s", temp);
 
 		/* eat the whitespace at the beginning of the line */
 		while (isspace(*temp))
@@ -263,7 +264,10 @@ static int namedev_init_config(void)
 				continue;
 			strcpy(dev.attr.name, temp3);
 
-			dbg("LABEL name = '%s', bus = '%s', sysfs_file = '%s', sysfs_value = '%s'", dev.attr.name, dev.bus, dev.sysfs_file, dev.sysfs_value);
+			dbg_parse("LABEL name = '%s', bus = '%s', "
+				"sysfs_file = '%s', sysfs_value = '%s'", 
+				dev.attr.name, dev.bus, dev.sysfs_file, 
+				dev.sysfs_value);
 		}
 
 		if (strcasecmp(temp2, TYPE_NUMBER) == 0) {
@@ -290,7 +294,8 @@ static int namedev_init_config(void)
 				continue;
 			strcpy(dev.attr.name, temp3);
 
-			dbg("NUMBER name = '%s', bus = '%s', id = '%s'", dev.attr.name, dev.bus, dev.id);
+			dbg_parse("NUMBER name = '%s', bus = '%s', id = '%s'",
+					dev.attr.name, dev.bus, dev.id);
 		}
 
 		if (strcasecmp(temp2, TYPE_TOPOLOGY) == 0) {
@@ -317,7 +322,8 @@ static int namedev_init_config(void)
 				continue;
 			strcpy(dev.attr.name, temp3);
 
-			dbg("TOPOLOGY name = '%s', bus = '%s', place = '%s'", dev.attr.name, dev.bus, dev.place);
+			dbg_parse("TOPOLOGY name = '%s', bus = '%s', place = '%s'",
+					dev.attr.name, dev.bus, dev.place);
 		}
 
 		if (strcasecmp(temp2, TYPE_REPLACE) == 0) {
@@ -336,7 +342,8 @@ static int namedev_init_config(void)
 			if (retval)
 				continue;
 			strcpy(dev.attr.name, temp3);
-			dbg("REPLACE name = %s, kernel_name = %s", dev.attr.name, dev.kernel_name);
+			dbg_parse("REPLACE name = %s, kernel_name = %s",
+					dev.attr.name, dev.kernel_name);
 		}
 		if (strcasecmp(temp2, TYPE_CALLOUT) == 0) {
 			/* number type */
@@ -368,7 +375,8 @@ static int namedev_init_config(void)
 			if (retval)
 				continue;
 			strcpy(dev.attr.name, temp3);
-			dbg("CALLOUT name = %s, program = %s", dev.attr.name, dev.exec_program);
+			dbg_parse("CALLOUT name = %s, program = %s",
+					dev.attr.name, dev.exec_program);
 		}
 
 		retval = add_dev(&dev);
@@ -394,7 +402,7 @@ static int namedev_init_permissions(void)
 	int retval = 0;
 	struct config_device dev;
 
-	strcpy(filename, NAMEDEV_CONFIG_ROOT NAMEDEV_CONFIG_PERMISSION_FILE);
+	strcpy(filename, UDEV_CONFIG_DIR NAMEDEV_CONFIG_PERMISSION_FILE);
 	dbg("opening %s to read as permissions config", filename);
 	fd = fopen(filename, "r");
 	if (fd == NULL) {
@@ -409,7 +417,7 @@ static int namedev_init_permissions(void)
 		if (temp == NULL)
 			break;
 
-		dbg("read %s", temp);
+		dbg_parse("read %s", temp);
 
 		/* eat the whitespace at the beginning of the line */
 		while (isspace(*temp))
@@ -437,7 +445,8 @@ static int namedev_init_permissions(void)
 
 		dev.attr.mode = strtol(temp, NULL, 8);
 
-		dbg("name = %s, owner = %s, group = %s, mode = %#o", dev.attr.name, dev.attr.owner, dev.attr.group, dev.attr.mode);
+		dbg_parse("name = %s, owner = %s, group = %s, mode = %#o",
+				dev.attr.name, dev.attr.owner, dev.attr.group, dev.attr.mode);
 		retval = add_dev(&dev);
 		if (retval) {
 			dbg("add_dev returned with error %d", retval);
@@ -537,10 +546,10 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 
 	attr->mode = -1;
 	if (class_dev->sysdevice) {
-		dbg("class_dev->sysdevice->directory->path = '%s'", class_dev->sysdevice->directory->path);
-		dbg("class_dev->sysdevice->bus_id = '%s'", class_dev->sysdevice->bus_id);
+		dbg_parse("class_dev->sysdevice->directory->path = '%s'", class_dev->sysdevice->directory->path);
+		dbg_parse("class_dev->sysdevice->bus_id = '%s'", class_dev->sysdevice->bus_id);
 	} else {
-		dbg("class_dev->name = '%s'", class_dev->name);
+		dbg_parse("class_dev->name = '%s'", class_dev->name);
 	}
 	list_for_each(tmp, &config_device_list) {
 		struct config_device *dev = list_entry(tmp, struct config_device, node);
@@ -549,7 +558,8 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 			{
 			char *temp;
 
-			dbg("LABEL: match file '%s' with value '%s'", dev->sysfs_file, dev->sysfs_value);
+			dbg_parse("LABEL: match file '%s' with value '%s'",
+					dev->sysfs_file, dev->sysfs_value);
 			/* try to find the attribute in the class device directory */
 			temp = sysfs_get_value_from_attributes(class_dev->directory->attributes, dev->sysfs_file);
 			if (temp)
@@ -567,22 +577,22 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 			 * up in the kernel...
 			 */
 			if (strstr(class_dev->directory->path, "block")) {
-				dbg("looking at block device...");
+				dbg_parse("looking at block device...");
 				if (isdigit(class_dev->directory->path[strlen(class_dev->directory->path)-1])) {
 					char path[SYSFS_PATH_MAX];
 					struct sysfs_class_device *class_dev_parent;
 
-					dbg("really is a partition...");
+					dbg_parse("really is a partition...");
 					strcpy(path, class_dev->directory->path);
 					temp = strrchr(path, '/');
 					*temp = 0x00;
-					dbg("looking for a class device at '%s'", path);
+					dbg_parse("looking for a class device at '%s'", path);
 					class_dev_parent = sysfs_open_class_device(path);
 					if (class_dev_parent == NULL) {
-						dbg ("sysfs_open_class_device failed");
+						dbg("sysfs_open_class_device at '%s' failed", path);
 						continue;
 					}
-					dbg("class_dev_parent->name = %s", class_dev_parent->name);
+					dbg_parse("class_dev_parent->name = %s", class_dev_parent->name);
 
 					/* try to find the attribute in the class device directory */
 					temp = sysfs_get_value_from_attributes(class_dev_parent->directory->attributes, dev->sysfs_file);
@@ -606,7 +616,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 
 label_found:
 			temp[strlen(temp)-1] = 0x00;
-			dbg("file '%s' found with value '%s' compare with '%s'", dev->sysfs_file, temp, dev->sysfs_value);
+			dbg_parse("file '%s' found with value '%s' compare with '%s'", dev->sysfs_file, temp, dev->sysfs_value);
 			if (strcmp(dev->sysfs_value, temp) != 0)
 				continue;
 
@@ -621,7 +631,7 @@ label_found:
 				strcpy(attr->owner, dev->attr.owner);
 				strcpy(attr->group, dev->attr.group);
 			}
-			dbg("file '%s' with value '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
+			dbg_parse("file '%s' with value '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 				dev->sysfs_file, dev->sysfs_value, attr->name, 
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
 			goto done;
@@ -637,14 +647,14 @@ label_found:
 				continue;
 			strcpy(path, class_dev->sysdevice->directory->path);
 			temp = strrchr(path, '/');
-			dbg("NUMBER path = '%s'", path);
-			dbg("NUMBER temp = '%s' id = '%s'", temp, dev->id);
+			dbg_parse("NUMBER path = '%s'", path);
+			dbg_parse("NUMBER temp = '%s' id = '%s'", temp, dev->id);
 			if (strstr(temp, dev->id) != NULL) {
 				found = 1;
 			} else {
 				*temp = 0x00;
 				temp = strrchr(path, '/');
-				dbg("NUMBERY temp = '%s' id = '%s'", temp, dev->id);
+				dbg_parse("NUMBERY temp = '%s' id = '%s'", temp, dev->id);
 				if (strstr(temp, dev->id) != NULL)
 					found = 1;
 			}
@@ -657,7 +667,7 @@ label_found:
 				strcpy(attr->owner, dev->attr.owner);
 				strcpy(attr->group, dev->attr.group);
 			}
-			dbg("device id '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
+			dbg_parse("device id '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 				dev->id, attr->name, 
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
 			goto done;
@@ -673,14 +683,14 @@ label_found:
 			found = 0;	
 			strcpy(path, class_dev->sysdevice->directory->path);
 			temp = strrchr(path, '/');
-			dbg("TOPOLOGY path = '%s'", path);
-			dbg("TOPOLOGY temp = '%s' place = '%s'", temp, dev->place);
+			dbg_parse("TOPOLOGY path = '%s'", path);
+			dbg_parse("TOPOLOGY temp = '%s' place = '%s'", temp, dev->place);
 			if (strstr(temp, dev->place) != NULL) {
 				found = 1;
 			} else {
 				*temp = 0x00;
 				temp = strrchr(path, '/');
-				dbg("TOPOLOGY temp = '%s' place = '%s'", temp, dev->place);
+				dbg_parse("TOPOLOGY temp = '%s' place = '%s'", temp, dev->place);
 				if (strstr(temp, dev->place) != NULL)
 					found = 1;
 			}
@@ -693,7 +703,7 @@ label_found:
 				strcpy(attr->owner, dev->attr.owner);
 				strcpy(attr->group, dev->attr.group);
 			}
-			dbg("device at '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
+			dbg_parse("device at '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 				dev->place, attr->name, 
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
 			goto done;
@@ -713,7 +723,7 @@ label_found:
 				strcpy(attr->owner, dev->attr.owner);
 				strcpy(attr->group, dev->attr.group);
 			}
-			dbg("device callout '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
+			dbg_parse("device callout '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 				dev->id, attr->name, 
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
 			goto done;
@@ -728,7 +738,7 @@ label_found:
 				strcpy(attr->owner, dev->attr.owner);
 				strcpy(attr->group, dev->attr.group);
 			}
-			dbg("'%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
+			dbg_parse("'%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 				dev->kernel_name, attr->name, 
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
 			goto done;
@@ -736,7 +746,7 @@ label_found:
 		case KERNEL_NAME:
 			break;
 		default:
-			dbg("Unknown type of device '%d'", dev->type);
+			dbg_parse("Unknown type of device '%d'", dev->type);
 			break;
 		}	
 	}
