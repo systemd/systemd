@@ -389,7 +389,7 @@ install: install-initscript install-config install-man install-dev.d all
 	$(INSTALL_PROGRAM) -D $(INFO) $(DESTDIR)$(usrbindir)/$(INFO)
 	$(INSTALL_PROGRAM) -D $(TESTER) $(DESTDIR)$(usrbindir)/$(TESTER)
 	ln -sf $(sbindir)/udev $(DESTDIR)$(sbindir)/$(STARTER)
-	- ln -f -s $(sbindir)/$(SENDER) $(DESTDIR)$(hotplugdir)/$(ROOT).hotplug
+	- ln -f -s $(sbindir)/$(SENDER) $(DESTDIR)$(hotplugdir)/10-udev.hotplug
 ifndef DESTDIR
 	- killall udevd
 	- rm -f $(udevdir)/.udev.tdb
@@ -401,7 +401,7 @@ endif
 	done ; \
 
 uninstall: uninstall-man uninstall-dev.d
-	- rm $(hotplugdir)/udev.hotplug
+	- rm $(hotplugdir)/10-udev.hotplug
 	- rm $(configdir)/rules.d/50-udev.rules
 	- rm $(configdir)/permissions.d/50-udev.permissions
 	- rm $(configdir)/udev.conf
