@@ -20,6 +20,7 @@
  *
  */
 
+#define _KLIBC_HAS_ARCH_SIG_ATOMIC_T
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
