@@ -138,8 +138,12 @@ int add_config_dev(struct config_device *new_dev)
 
 static mode_t get_default_mode(struct sysfs_class_device *class_dev)
 {
-	/* just default everyone to rw for the world! */
-	return 0666;
+	mode_t mode = 0600;	/* default to owner rw only */
+
+	if (strlen(default_mode_str) != 0) {
+		mode = strtol(default_mode_str, NULL, 8);
+	}
+	return mode;
 }
 
 static void build_kernel_number(struct sysfs_class_device *class_dev, struct udevice *udev)
