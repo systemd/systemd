@@ -68,7 +68,8 @@ INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 EXTRAS=
 
 # place to put our device nodes
-udevdir = ${prefix}/udev
+udevdir =	${prefix}/udev
+udevdb =	${udevdir}/.udevdb
 
 # Comment out this line to build with something other 
 # than the local version of klibc
@@ -112,11 +113,6 @@ OPTIMIZATION := ${shell if $(CC) -Os -S -o /dev/null -xc /dev/null >/dev/null 2>
 WARNINGS := -Wall 
 
 CFLAGS := -pipe
-
-# set up the proper tdb spinlock code if we can
-ifeq ($(strip $(ARCH)),i386)
-	CFLAGS += -DUSE_SPINLOCKS -DINTEL_SPINLOCKS
-endif
 
 ifeq ($(strip $(USE_LOG)),true)
 	CFLAGS  += -DLOG
@@ -201,9 +197,6 @@ $(CRT0):
 	fi
 	$(MAKE) -C klibc SUBDIRS=klibc
 
-TDB =	tdb/tdb.o	\
-	tdb/spinlock.o
-
 SYSFS =	$(PWD)/libsysfs/sysfs_bus.o	\
 	$(PWD)/libsysfs/sysfs_class.o	\
 	$(PWD)/libsysfs/sysfs_device.o	\
@@ -221,8 +214,7 @@ OBJS =	udev_lib.o	\
 	namedev.o	\
 	namedev_parse.o	\
 	dev_d.o		\
-	$(SYSFS)	\
-	$(TDB)
+	$(SYSFS)
 
 HEADERS =	udev.h		\
 		udev_lib.h	\
@@ -262,8 +254,8 @@ ccdv:
 udev_version.h:
 	@echo "Creating udev_version.h"
 	@echo \#define UDEV_VERSION		\"$(VERSION)\" > $@
-	@echo \#define UDEV_ROOT		\"$(udevdir)/\" >> $@
-	@echo \#define UDEV_DB			\"$(udevdir)/.udev.tdb\" >> $@
+	@echo \#define UDEV_ROOT		\"$(udevdir)\" >> $@
+	@echo \#define UDEV_DB			\"$(udevdb)\" >> $@
 	@echo \#define UDEV_CONFIG_DIR		\"$(configdir)\" >> $@
 	@echo \#define UDEV_CONFIG_FILE		\"$(configdir)/udev.conf\" >> $@
 	@echo \#define UDEV_RULES_FILE		\"$(configdir)/rules.d\" >> $@
@@ -300,7 +292,7 @@ $(TESTER): $(LIBC) $(TESTER).o $(OBJS) $(HEADERS)
 	$(QUIET) $(STRIPCMD) $@
 
 $(INFO): $(LIBC) $(INFO).o $(OBJS) $(HEADERS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o udev_lib.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o udev_lib.o udev_config.o udevdb.o $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
 $(DAEMON): $(LIBC) $(DAEMON).o $(OBJS) udevd.h
@@ -337,7 +329,7 @@ spotless: clean
 	$(MAKE) -C klibc spotless
 	-rm -f klibc/linux
 
-DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v -e CVS -e "\.tar\.gz$" -e "\/\." -e releases -e BitKeeper -e SCCS -e "\.tdb$" -e test/sys | sort )
+DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v -e CVS -e "\.tar\.gz" -e "\/\." -e releases -e BitKeeper -e SCCS -e test/sys | sort )
 DISTDIR := $(RELEASE_NAME)
 srcdir = .
 release: clean
@@ -429,8 +421,8 @@ install: install-initscript install-config install-man install-dev.d all
 	- ln -f -s $(sbindir)/$(SENDER) $(DESTDIR)$(hotplugdir)/10-udev.hotplug
 	- ln -f -s $(sbindir)/$(WAIT) $(DESTDIR)$(hotplugdir)/05-wait_for_sysfs.hotplug
 ifndef DESTDIR
-	- killall udevd
-	- rm -f $(udevdir)/.udev.tdb
+	- killall $(DAEMON)
+	- rm -rf $(udevdb)
 endif
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
@@ -456,8 +448,9 @@ uninstall: uninstall-man uninstall-dev.d
 	- rm $(usrbindir)/$(TESTER)
 	- rm $(usrbindir)/$(WAIT)
 	- rmdir $(hotplugdir)
-	- rm $(udevdir)/.udev.tdb
+	- rm -rf $(udevdb)
 	- rmdir $(udevdir)
+	- killall $(DAEMON)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \

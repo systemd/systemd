@@ -103,19 +103,11 @@ exit:
 	return retval;
 }
 
-/* callback for database dump */
-static int print_record(const char *path, struct udevice *dev)
+static int print_record(struct udevice *udev)
 {
-	printf("P: %s\n", path);
-	printf("N: %s\n", dev->name);
-	printf("T: %c\n", dev->type);
-	printf("M: %#o\n", dev->mode);
-	printf("S: %s\n", dev->symlink);
-	printf("O: %s\n", dev->owner);
-	printf("G: %s\n", dev->group);
-	printf("F: %s\n", dev->config_file);
-	printf("L: %i\n", dev->config_line);
-	printf("U: %li\n", dev->config_uptime);
+	printf("P: %s\n", udev->devpath);
+	printf("N: %s\n", udev->name);
+	printf("S: %s\n", udev->symlink);
 	printf("\n");
 	return 0;
 }
@@ -125,9 +117,6 @@ enum query_type {
 	NAME,
 	PATH,
 	SYMLINK,
-	MODE,
-	OWNER,
-	GROUP,
 	ALL
 };
 
@@ -213,7 +202,7 @@ static int process_options(void)
 	static const char short_options[] = "adn:p:q:rVh";
 	int option;
 	int retval = 1;
-	struct udevice dev;
+	struct udevice udev;
 	int root = 0;
 	int attributes = 0;
 	enum query_type query = NONE;
@@ -254,21 +243,6 @@ static int process_options(void)
 				break;
 			}
 
-			if (strcmp(optarg, "mode") == 0) {
-				query = MODE;
-				break;
-			}
-
-			if (strcmp(optarg, "owner") == 0) {
-				query = OWNER;
-				break;
-			}
-
-			if (strcmp(optarg, "group") == 0) {
-				query = GROUP;
-				break;
-			}
-
 			if (strcmp(optarg, "path") == 0) {
 				query = PATH;
 				break;
@@ -290,16 +264,6 @@ static int process_options(void)
 			attributes = 1;
 			break;
 
-		case 'd':
-			retval = udevdb_open_ro();
-			if (retval != 0) {
-				printf("unable to open udev database\n");
-				exit(2);
-			}
-			udevdb_call_foreach(print_record);
-			udevdb_exit();
-			exit(0);
-
 		case 'V':
 			printf("udevinfo, version %s\n", UDEV_VERSION);
 			exit(0);
@@ -314,12 +278,6 @@ static int process_options(void)
 
 	/* process options */
 	if (query != NONE) {
-		retval = udevdb_open_ro();
-		if (retval != 0) {
-			printf("unable to open udev database\n");
-			return -EACCES;
-		}
-
 		if (path[0] != '\0') {
 			/* remove sysfs_path if given */
 			if (strncmp(path, sysfs_path, strlen(sysfs_path)) == 0) {
@@ -334,7 +292,9 @@ static int process_options(void)
 					pos = path;
 				}
 			}
-			retval = udevdb_get_dev(pos, &dev);
+			memset(&udev, 0x00, sizeof(struct udevice));
+			strfieldcpy(udev.devpath, pos);
+			retval = udevdb_get_dev(&udev);
 			if (retval != 0) {
 				printf("device not found in database\n");
 				goto exit;
@@ -344,15 +304,21 @@ static int process_options(void)
 
 		if (name[0] != '\0') {
 			/* remove udev_root if given */
-			if (strncmp(name, udev_root, strlen(udev_root)) == 0) {
-				pos = name + strlen(udev_root);
+			int len = strlen(udev_root);
+
+			if (strncmp(name, udev_root, len) == 0) {
+				pos = &name[len+1];
 			} else
 				pos = name;
-			retval = udevdb_get_dev_byname(pos, path, &dev);
+
+			memset(&udev, 0x00, sizeof(struct udevice));
+			strfieldcpy(udev.name, pos);
+			retval = udevdb_get_dev_byname(&udev, pos);
 			if (retval != 0) {
 				printf("device not found in database\n");
 				goto exit;
 			}
+
 			goto print;
 		}
 
@@ -362,25 +328,16 @@ static int process_options(void)
 print:
 		switch(query) {
 		case NAME:
-			if (root)
-				strfieldcpy(result, udev_root);
-			strfieldcat(result, dev.name);
+			if (root) {
+				snprintf(result, NAME_SIZE-1, "%s/%s", udev_root, udev.name);
+				result[NAME_SIZE-1] = '\0';
+			} else {
+				strfieldcpy(result, udev.name);
+			}
 			break;
 
 		case SYMLINK:
-			strfieldcpy(result, dev.symlink);
-			break;
-
-		case MODE:
-			sprintf(result, "%#o", dev.mode);
-			break;
-
-		case GROUP:
-			strfieldcpy(result, dev.group);
-			break;
-
-		case OWNER:
-			strfieldcpy(result, dev.owner);
+			strfieldcpy(result, udev.symlink);
 			break;
 
 		case PATH:
@@ -388,7 +345,7 @@ print:
 			break;
 
 		case ALL:
-			print_record(path, &dev);
+			print_record(&udev);
 			goto exit;
 
 		default:
@@ -397,7 +354,6 @@ print:
 		printf("%s\n", result);
 
 exit:
-		udevdb_exit();
 		return retval;
 	}
 
@@ -427,9 +383,6 @@ help:
 	       "  -q TYPE  query database for the specified value:\n"
 	       "             'name'    name of device node\n"
 	       "             'symlink' pointing to node\n"
-	       "             'mode'    permissions of node\n"
-	       "             'owner'   of node\n"
-	       "             'group'   of node\n"
 	       "             'path'    sysfs device path\n"
 	       "             'all'     all values\n"
 	       "\n"
@@ -438,7 +391,6 @@ help:
 	       "\n"
 	       "  -r       print udev root\n"
 	       "  -a       print all SYSFS_attributes along the device chain\n"
-	       "  -d       dump whole database\n"
 	       "  -V       print udev version\n"
 	       "  -h       print this help text\n"
 	       "\n");

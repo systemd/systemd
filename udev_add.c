@@ -68,37 +68,6 @@ error:
 	return -1;
 }
 
-static int create_path(char *file)
-{
-	char p[NAME_SIZE];
-	char *pos;
-	int retval;
-	struct stat stats;
-	
-	strfieldcpy(p, file);
-	pos = strchr(p+1, '/');
-	while (1) {
-		pos = strchr(pos+1, '/');
-		if (pos == NULL)
-			break;
-		*pos = 0x00;
-		if (stat(p, &stats)) {
-			selinux_setfscreatecon(p, S_IFDIR);
-			retval = mkdir(p, 0755);
-			if (retval != 0) {
-				dbg("mkdir(%s) failed with error '%s'",
-				    p, strerror(errno));
-				return retval;
-			}
-			dbg("created '%s'", p);
-		} else {
-			selinux_setfilecon(p, S_IFDIR);
-		}
-		*pos = '/';
-	}
-	return 0;
-}
-
 static int make_node(char *file, int major, int minor, unsigned int mode, uid_t uid, gid_t gid)
 {
 	struct stat stats;
@@ -152,8 +121,6 @@ exit:
 static int create_node(struct udevice *udev)
 {
 	char filename[NAME_SIZE];
-	char linkname[NAME_SIZE];
-	char linktarget[NAME_SIZE];
 	char partitionname[NAME_SIZE];
 	uid_t uid = 0;
 	gid_t gid = 0;
@@ -162,8 +129,8 @@ static int create_node(struct udevice *udev)
 	char *pos;
 	int len;
 
-	strfieldcpy(filename, udev_root);
-	strfieldcat(filename, udev->name);
+	snprintf(filename, NAME_SIZE-1, "%s/%s", udev_root, udev->name);
+	filename[NAME_SIZE-1] = '\0';
 
 	switch (udev->type) {
 	case 'b':
@@ -239,9 +206,13 @@ static int create_node(struct udevice *udev)
 
 	/* create symlink(s) if requested */
 	foreach_strpart(udev->symlink, " ", pos, len) {
+		char linkname[NAME_SIZE];
+		char linktarget[NAME_SIZE];
+
 		strfieldcpymax(linkname, pos, len+1);
-		strfieldcpy(filename, udev_root);
-		strfieldcat(filename, linkname);
+		snprintf(filename, NAME_SIZE-1, "%s/%s", udev_root, linkname);
+		filename[NAME_SIZE-1] = '\0';
+
 		dbg("symlink '%s' to node '%s' requested", filename, udev->name);
 		if (!udev->test_run)
 			if (strrchr(linkname, '/'))
@@ -337,7 +308,8 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 			    "remove might not work for custom names");
 
 		/* use full path to the environment */
-		snprintf(udev->devname, NAME_SIZE-1, "%s%s", udev_root, udev->name);
+		snprintf(udev->devname, NAME_SIZE-1, "%s/%s", udev_root, udev->name);
+		udev->devname[NAME_SIZE-1] = '\0';
 
 	} else if (udev->type == 'n') {
 		/* look if we want to change the name of the netif */

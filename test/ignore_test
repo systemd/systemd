@@ -13,7 +13,7 @@ EOF
 
 cat > $CONFIG << EOF
 udev_root="$PWD/udev/"
-udev_db="$PWD/udev/.udev.tdb"
+udev_db="$PWD/udev/.udevdb"
 udev_rules="$PWD/$RULES"
 udev_permissions="$PWD/udev.permissions"
 udev_log="true"

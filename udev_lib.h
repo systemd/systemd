@@ -83,11 +83,11 @@ extern char *get_seqnum(void);
 extern char *get_subsystem(char *subsystem);
 extern char get_device_type(const char *path, const char *subsystem);
 extern void udev_set_values(struct udevice *udev, const char* devpath, const char *subsystem);
+extern int create_path(const char *path);
 extern int file_map(const char *filename, char **buf, size_t *bufsize);
 extern void file_unmap(char *buf, size_t bufsize);
 extern size_t buf_get_line(char *buf, size_t buflen, size_t cur);
-extern void leading_slash(char *path);
-extern void no_leading_slash(char *path);
+extern void no_trailing_slash(char *path);
 extern int  call_foreach_file(int fnct(char *f) , char *filename, char *extension);
 extern int set_cloexec_flag (int desc, int value);
 

@@ -38,8 +38,6 @@
 #include "namedev.h"
 #include "udevdb.h"
 
-/* timeout flag for udevdb */
-extern sig_atomic_t gotalarm;
 
 /* global variables */
 char **main_argv;
@@ -64,8 +62,7 @@ static void asmlinkage sig_handler(int signum)
 {
 	switch (signum) {
 		case SIGALRM:
-			gotalarm = 1;
-			break;
+			exit(1);
 		case SIGINT:
 		case SIGTERM:
 			exit(20 + signum);
@@ -153,10 +150,6 @@ int main(int argc, char *argv[], char *envp[])
 	/* trigger timout to interrupt blocking syscalls */
 	alarm(ALARM_TIMEOUT);
 
-	/* initialize udev database */
-	if (udevdb_init(UDEVDB_DEFAULT) != 0)
-		info("error: unable to initialize database, continuing without database");
-
 	switch(act_type) {
 	case UDEVSTART:
 		dbg("udevstart");
@@ -195,8 +188,6 @@ int main(int argc, char *argv[], char *envp[])
 		/* run scripts */
 		dev_d_execute(&udev);
 	}
-
-	udevdb_exit();
 
 exit:
 	logging_close();

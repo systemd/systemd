@@ -1,22 +1,34 @@
 /*
- * udevdb header file
+ * udevdb.h
+ *
+ * Userspace devfs
+ *
+ * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
+ * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+ *
+ *	This program is free software; you can redistribute it and/or modify it
+ *	under the terms of the GNU General Public License as published by the
+ *	Free Software Foundation version 2 of the License.
+ * 
+ *	This program is distributed in the hope that it will be useful, but
+ *	WITHOUT ANY WARRANTY; without even the implied warranty of
+ *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *	General Public License for more details.
+ * 
+ *	You should have received a copy of the GNU General Public License along
+ *	with this program; if not, write to the Free Software Foundation, Inc.,
+ *	675 Mass Ave, Cambridge, MA 02139, USA.
+ *
  */
+
 #ifndef _UDEVDB_H_
 #define _UDEVDB_H_
 
-/* Udevdb initialization flags */
-#define UDEVDB_DEFAULT	0	/* defaults database to use file */
-#define UDEVDB_INTERNAL	1	/* don't store db on disk, use in memory */
-
-/* function prototypes */
-extern void udevdb_exit(void);
-extern int udevdb_init(int init_flag);
-extern int udevdb_open_ro(void);
-extern int udevdb_call_foreach(int (*user_record_handler) (const char *path, struct udevice *dev));
 
 extern int udevdb_add_dev(struct udevice *dev);
-extern int udevdb_get_dev(const char *path, struct udevice *dev);
-extern int udevdb_delete_dev(const char *path);
-extern int udevdb_get_dev_byname(const char *name, char *path, struct udevice *dev);
+extern int udevdb_get_dev(struct udevice *dev);
+extern int udevdb_delete_dev(struct udevice *dev);
+
+extern int udevdb_get_dev_byname(struct udevice *udev, const char *name);
 
 #endif /* _UDEVDB_H_ */

@@ -102,10 +102,9 @@ static int secure_unlink(const char *filename)
 	return retval;
 }
 
-static int delete_node(struct udevice *dev)
+static int delete_node(struct udevice *udev)
 {
 	char filename[NAME_SIZE];
-	char linkname[NAME_SIZE];
 	char partitionname[NAME_SIZE];
 	int retval;
 	int i;
@@ -113,8 +112,8 @@ static int delete_node(struct udevice *dev)
 	int len;
 	int num;
 
-	strfieldcpy(filename, udev_root);
-	strfieldcat(filename, dev->name);
+	snprintf(filename, NAME_SIZE-1, "%s/%s", udev_root, udev->name);
+	filename[NAME_SIZE-1] = '\0';
 
 	info("removing device node '%s'", filename);
 	retval = secure_unlink(filename);
@@ -122,7 +121,7 @@ static int delete_node(struct udevice *dev)
 		return retval;
 
 	/* remove all_partitions nodes */
-	num = dev->partitions;
+	num = udev->partitions;
 	if (num > 0) {
 		info("removing all_partitions '%s[1-%i]'", filename, num);
 		if (num > PARTITIONS_COUNT) {
@@ -137,13 +136,15 @@ static int delete_node(struct udevice *dev)
 	}
 
 	/* remove subdirectories */
-	if (strchr(dev->name, '/'))
+	if (strchr(udev->name, '/'))
 		delete_path(filename);
 
-	foreach_strpart(dev->symlink, " ", pos, len) {
+	foreach_strpart(udev->symlink, " ", pos, len) {
+		char linkname[NAME_SIZE];
+
 		strfieldcpymax(linkname, pos, len+1);
-		strfieldcpy(filename, udev_root);
-		strfieldcat(filename, linkname);
+		snprintf(filename, NAME_SIZE-1, "%s/%s", udev_root, linkname);
+		filename[NAME_SIZE-1] = '\0';
 
 		dbg("unlinking symlink '%s'", filename);
 		retval = unlink(filename);
@@ -154,7 +155,7 @@ static int delete_node(struct udevice *dev)
 				filename, strerror(errno));
 			return retval;
 		}
-		if (strchr(dev->symlink, '/')) {
+		if (strchr(udev->symlink, '/')) {
 			delete_path(filename);
 		}
 	}
@@ -168,18 +169,14 @@ static int delete_node(struct udevice *dev)
  */
 int udev_remove_device(struct udevice *udev)
 {
-	struct udevice db_dev;
 	const char *temp;
 	int retval;
 
 	if (udev->type != 'b' && udev->type != 'c')
 		return 0;
 
-	retval = udevdb_get_dev(udev->devpath, &db_dev);
-	if (retval == 0) {
-		/* copy over the stored values to our device */
-		memcpy(udev, &db_dev, UDEVICE_DB_LEN);
-	} else {
+	retval = udevdb_get_dev(udev);
+	if (retval) {
 		/* fall back to kernel name */
 		temp = strrchr(udev->devpath, '/');
 		if (temp == NULL)
@@ -189,10 +186,10 @@ int udev_remove_device(struct udevice *udev)
 	}
 
 	dbg("remove name='%s'", udev->name);
-	udevdb_delete_dev(udev->devpath);
+	udevdb_delete_dev(udev);
 
 	/* use full path to the environment */
-	snprintf(udev->devname, NAME_SIZE-1, "%s%s", udev_root, udev->name);
+	snprintf(udev->devname, NAME_SIZE-1, "%s/%s", udev_root, udev->name);
 
 	return delete_node(udev);
 }

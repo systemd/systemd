@@ -47,7 +47,6 @@ static int run_program(char *name)
 	switch (pid) {
 	case 0:
 		/* child */
-		udevdb_exit();  /* close udevdb */
 		fd = open("/dev/null", O_RDWR);
 		if ( fd >= 0) {
 			dup2(fd, STDOUT_FILENO);

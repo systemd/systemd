@@ -42,7 +42,7 @@
 /* global variables */
 char sysfs_path[SYSFS_PATH_MAX];
 char udev_root[PATH_MAX];
-char udev_db_filename[PATH_MAX+NAME_MAX];
+char udev_db_path[PATH_MAX+NAME_MAX];
 char udev_permissions_filename[PATH_MAX+NAME_MAX];
 char udev_rules_filename[PATH_MAX+NAME_MAX];
 char udev_config_filename[PATH_MAX+NAME_MAX];
@@ -72,7 +72,7 @@ static void init_variables(void)
 	 * If any config values are specified, they will
 	 * override these values. */
 	strfieldcpy(udev_root, UDEV_ROOT);
-	strfieldcpy(udev_db_filename, UDEV_DB);
+	strfieldcpy(udev_db_path, UDEV_DB);
 	strfieldcpy(udev_config_filename, UDEV_CONFIG_FILE);
 	strfieldcpy(udev_rules_filename, UDEV_RULES_FILE);
 	strfieldcpy(udev_permissions_filename, UDEV_PERMISSION_FILE);
@@ -181,24 +181,25 @@ static int parse_config_file(void)
 
 		if (strcasecmp(variable, "udev_root") == 0) {
 			strfieldcpy(udev_root, value);
-			leading_slash(udev_root);
+			no_trailing_slash(udev_root);
 			continue;
 		}
 
 		if (strcasecmp(variable, "udev_db") == 0) {
-			strfieldcpy(udev_db_filename, value);
+			strfieldcpy(udev_db_path, value);
+			no_trailing_slash(udev_db_path);
 			continue;
 		}
 
 		if (strcasecmp(variable, "udev_rules") == 0) {
 			strfieldcpy(udev_rules_filename, value);
-			no_leading_slash(udev_rules_filename);
+			no_trailing_slash(udev_rules_filename);
 			continue;
 		}
 
 		if (strcasecmp(variable, "udev_permissions") == 0) {
 			strfieldcpy(udev_permissions_filename, value);
-			no_leading_slash(udev_permissions_filename);
+			no_trailing_slash(udev_permissions_filename);
 			continue;
 		}
 
@@ -244,7 +245,7 @@ static void get_dirs(void)
 		temp = getenv("SYSFS_PATH");
 		if (temp != NULL) {
 			strfieldcpy(sysfs_path, temp);
-			no_leading_slash(sysfs_path);
+			no_trailing_slash(sysfs_path);
 		}
 
 		temp = getenv("UDEV_CONFIG_FILE");
@@ -255,7 +256,7 @@ static void get_dirs(void)
 	dbg("sysfs_path='%s'", sysfs_path);
 	dbg_parse("udev_root = %s", udev_root);
 	dbg_parse("udev_config_filename = %s", udev_config_filename);
-	dbg_parse("udev_db_filename = %s", udev_db_filename);
+	dbg_parse("udev_db_path = %s", udev_db_path);
 	dbg_parse("udev_rules_filename = %s", udev_rules_filename);
 	dbg_parse("udev_permissions_filename = %s", udev_permissions_filename);
 	dbg_parse("udev_log = %d", udev_log);
@@ -264,7 +265,7 @@ static void get_dirs(void)
 
 	dbg("udev_root = %s", udev_root);
 	dbg("udev_config_filename = %s", udev_config_filename);
-	dbg("udev_db_filename = %s", udev_db_filename);
+	dbg("udev_db_path = %s", udev_db_path);
 	dbg("udev_rules_filename = %s", udev_rules_filename);
 	dbg("udev_permissions_filename = %s", udev_permissions_filename);
 	dbg("udev_log_str = %d", udev_log);

@@ -74,7 +74,7 @@ value is
 .TP
 .B udev_db
 The name and location of the udev database. The default value is
-.IR @udevdir@/.udev.tdb .
+.IR @udevdir@/.udevdb .
 .TP
 .B udev_rules
 The name of the udev rules file or directory to look for files with the suffix
@@ -117,7 +117,7 @@ file. The default value is
 udev_root="/udev"
 
 # udev_db - The name and location of the udev database
-udev_db="/udev/.udev.tdb"
+udev_db="/udev/.udevdb"
 
 # udev_rules - The name of the udev rules file or directory to look
                for files with the suffix .rules

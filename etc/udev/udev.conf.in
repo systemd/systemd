@@ -6,16 +6,16 @@
 
 
 # udev_root - where in the filesystem to place the device nodes
-udev_root="@udevdir@/"
+udev_root="@udevdir@"
 
 # udev_db - The name and location of the udev database.
-udev_db="@udevdir@/.udev.tdb"
+udev_db="@udevdir@/.udevdb"
 
 # udev_rules - The name and location of the udev rules file
-udev_rules="@configdir@/rules.d/"
+udev_rules="@configdir@/rules.d"
 
 # udev_permissions - The name and location of the udev permission file
-udev_permissions="@configdir@/permissions.d/"
+udev_permissions="@configdir@/permissions.d"
 
 # default_mode - set the default mode for all nodes that have no
 #                explicit match in the permissions file

@@ -1,10 +1,10 @@
 /*
- * udevdb.c - udev database library
+ * udevdb.c
  *
  * Userspace devfs
  *
  * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
- * Copyright (C) 2003 IBM Corp.
+ * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -21,216 +21,194 @@
  *
  */
 
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
 #include <fcntl.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <errno.h>
-#include <signal.h>
+#include <dirent.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
 #include "udev_lib.h"
-#include "udev_version.h"
 #include "logging.h"
-#include "namedev.h"
 #include "udevdb.h"
-#include "tdb/tdb.h"
 
-static TDB_CONTEXT *udevdb;
-sig_atomic_t gotalarm;
+#define PATH_TO_NAME_CHAR		'@'
+
+static int get_db_filename(struct udevice *udev, char *filename, int len)
+{
+	char devpath[SYSFS_PATH_MAX];
+	char *pos;
+
+	/* replace '/' to transform path into a filename */
+	strfieldcpy(devpath, udev->devpath);
+	pos = strchr(&devpath[1], '/');
+	while (pos) {
+		pos[0] = PATH_TO_NAME_CHAR;
+		pos = strchr(&pos[1], '/');
+	}
+	snprintf(filename, len-1, "%s%s", udev_db_path, devpath);
+	filename[len-1] = '\0';
+
+	return 0;
+}
 
 int udevdb_add_dev(struct udevice *udev)
 {
-	TDB_DATA key, data;
-	char keystr[SYSFS_PATH_MAX];
+	char filename[SYSFS_PATH_MAX];
+	FILE *f;
 
 	if (udev->test_run)
 		return 0;
 
-	if (udevdb == NULL)
+	get_db_filename(udev, filename, SYSFS_PATH_MAX);
+
+	create_path(filename);
+
+	f = fopen(filename, "w");
+	if (f == NULL) {
+		dbg("unable to create db file '%s'", filename);
 		return -1;
+	}
+	dbg("storing data for device '%s' in '%s'", udev->devpath, filename);
 
-	memset(keystr, 0x00, SYSFS_PATH_MAX);
-	strfieldcpy(keystr, udev->devpath);
-	key.dptr = keystr;
-	key.dsize = strlen(keystr) + 1;
+	fprintf(f, "P:%s\n", udev->devpath);
+	fprintf(f, "N:%s\n", udev->name);
+	fprintf(f, "S:%s\n", udev->symlink);
+	fprintf(f, "A:%d\n", udev->partitions);
 
-	data.dptr = (void *) udev;
-	data.dsize = UDEVICE_DB_LEN;
-	dbg("store key '%s' for device '%s'", keystr, udev->name);
-
-	return tdb_store(udevdb, key, data, TDB_REPLACE); 
-}
-
-int udevdb_get_dev(const char *path, struct udevice *udev)
-{
-	TDB_DATA key, data;
-
-	if (udevdb == NULL)
-		return -1;
-
-	if (path == NULL)
-		return -ENODEV;
-
-	key.dptr = (void *)path;
-	key.dsize = strlen(path) + 1;
-
-	data = tdb_fetch(udevdb, key);
-	if (data.dptr == NULL || data.dsize == 0)
-		return -ENODEV;
-
-	memset(udev, 0x00, sizeof(struct udevice));
-	memcpy(udev, data.dptr, UDEVICE_DB_LEN);
+	fclose(f);
 
 	return 0;
 }
 
-int udevdb_delete_dev(const char *path)
+static int parse_db_file(struct udevice *udev, const char *filename)
 {
-	TDB_DATA key;
-	char keystr[SYSFS_PATH_MAX];
+	char line[NAME_SIZE];
+	char *bufline;
+	char *buf;
+	size_t bufsize;
+	size_t cur;
+	size_t count;
 
-	if (udevdb == NULL)
+	if (file_map(filename, &buf, &bufsize) != 0) {
+		dbg("unable to read db file '%s'", filename);
+		return -1;
+	}
+
+	cur = 0;
+	while (cur < bufsize) {
+		count = buf_get_line(buf, bufsize, cur);
+		bufline = &buf[cur];
+		cur += count+1;
+
+		switch(bufline[0]) {
+		case 'P':
+			if (count > DEVPATH_SIZE)
+				count = DEVPATH_SIZE-1;
+			strncpy(udev->devpath, &bufline[2], count-2);
+			break;
+		case 'N':
+			if (count > NAME_SIZE)
+				count = NAME_SIZE-1;
+			strncpy(udev->name, &bufline[2], count-2);
+			break;
+		case 'S':
+			if (count > NAME_SIZE)
+				count = NAME_SIZE-1;
+			strncpy(udev->symlink, &bufline[2], count-2);
+			break;
+		case 'A':
+			strfieldcpy(line, &bufline[2]);
+			udev->partitions = atoi(line);
+			break;
+		}
+	}
+
+	if (udev->name[0] == '\0')
 		return -1;
 
-	if (path == NULL)
-		return -EINVAL;
-
-	memset(keystr, 0, sizeof(keystr));
-	strfieldcpy(keystr, path);
-
-	key.dptr = keystr;
-	key.dsize = strlen(keystr) + 1;
-
-	return tdb_delete(udevdb, key);
-}
-
-/**
- * udevdb_exit: closes database
- */
-void udevdb_exit(void)
-{
-	if (udevdb != NULL) {
-		tdb_close(udevdb);
-		udevdb = NULL;
-	}
-}
-
-/**
- * udevdb_init: initializes database
- * @init_flag: UDEVDB_INTERNAL - database stays in memory
- *	       UDEVDB_DEFAULT - database is written to a file
- */
-int udevdb_init(int init_flag)
-{
-	if (init_flag != UDEVDB_DEFAULT && init_flag != UDEVDB_INTERNAL)
-		return -EINVAL;
-
-	tdb_set_lock_alarm(&gotalarm);
-
-	udevdb = tdb_open(udev_db_filename, 0, init_flag, O_RDWR | O_CREAT, 0644);
-	if (udevdb == NULL) {
-		if (init_flag == UDEVDB_INTERNAL)
-			dbg("unable to initialize in-memory database");
-		else
-			dbg("unable to initialize database at '%s'", udev_db_filename);
-		return -EACCES;
-	}
 	return 0;
 }
 
-/**
- * udevdb_open_ro: open database for reading
- */
-int udevdb_open_ro(void)
+int udevdb_get_dev(struct udevice *udev)
 {
-	udevdb = tdb_open(udev_db_filename, 0, 0, O_RDONLY, 0);
-	if (udevdb == NULL) {
-		dbg("unable to open database at '%s'", udev_db_filename);
-		return -EACCES;
-	}
+	char filename[SYSFS_PATH_MAX];
+
+	get_db_filename(udev, filename, SYSFS_PATH_MAX);
+
+	return parse_db_file(udev, filename);
+}
+
+int udevdb_delete_dev(struct udevice *udev)
+{
+	char filename[SYSFS_PATH_MAX];
+
+	get_db_filename(udev, filename, SYSFS_PATH_MAX);
+	unlink(filename);
+
 	return 0;
 }
 
-static int (*user_record_callback) (const char *path, struct udevice *dev);
-
-static int traverse_callback(TDB_CONTEXT *tdb, TDB_DATA key, TDB_DATA dbuf, void *state)
+int udevdb_get_dev_byname(struct udevice *udev, const char *name)
 {
-	return user_record_callback((char*) key.dptr, (struct udevice*) dbuf.dptr);
-}
+	struct dirent *ent;
+	DIR *dir;
+	char filename[NAME_SIZE];
+	struct udevice db_udev;
 
-/**
- * udevdb_call_foreach: dumps whole database by passing record data to user function
- * @user_record_handler: user function called for every record in the database
- */
-int udevdb_call_foreach(int (*user_record_handler) (const char *path, struct udevice *dev))
-{
-	int retval = 0;
-
-	if (udevdb == NULL)
+	dir = opendir(udev_db_path);
+	if (dir == NULL) {
+		dbg("unable to udev db '%s'", udev_db_path);
 		return -1;
-
-	if (user_record_handler == NULL) {
-		dbg("invalid user record handling function");
-		return -EINVAL;
 	}
-	user_record_callback = user_record_handler;
-	retval = tdb_traverse(udevdb, traverse_callback, NULL);
-	if (retval < 0)
-		return -ENODEV;
-	else
-		return 0;
-}
 
-static struct udevice *find_dev;
-static char *find_path;
-static const char *find_name;
-static int find_found;
+	while (1) {
+		ent = readdir(dir);
+		if (ent == NULL || ent->d_name[0] == '\0')
+			break;
 
-static int find_device_by_name(const char *path, struct udevice *udev)
-{
-	char *pos;
-	int len;
-
-	if (strncmp(udev->name, find_name, sizeof(udev->name)) == 0) {
-		memcpy(find_dev, udev, sizeof(struct udevice));
-		strfieldcpymax(find_path, path, NAME_SIZE);
-		find_found = 1;
-		/* stop search */
-		return 1;
-	}
-	/* look for matching symlink*/
-	foreach_strpart(udev->symlink, " ", pos, len) {
-		if (strncmp(pos, find_name, len) != 0)
+		if (ent->d_name[0] == '.')
 			continue;
 
-		if (len != strlen(find_name))
-			continue;
+		snprintf(filename, NAME_SIZE-1, "%s/%s", udev_db_path, ent->d_name);
+		filename[NAME_SIZE-1] = '\0';
 
-		memcpy(find_dev, udev, sizeof(struct udevice));
-		strfieldcpymax(find_path, path, NAME_SIZE);
-		find_found = 1;
-		return 1;
+		memset(&db_udev, 0x00, sizeof(struct udevice));
+		if (parse_db_file(&db_udev, filename) == 0) {
+			char *pos;
+			int len;
+
+			if (strncmp(name, db_udev.name, NAME_SIZE) == 0) {
+				goto found;
+			}
+
+			foreach_strpart(db_udev.symlink, " ", pos, len) {
+				if (strncmp(name, pos, len) != 0)
+					continue;
+
+				if (len == strlen(name))
+					goto found;
+			}
+
+		}
 	}
-	return 0;
-}
 
-/**
- * udevdb_get_dev_byname: search device with given name by traversing the whole database
- */
-int udevdb_get_dev_byname(const char *name, char *path, struct udevice *dev)
-{
-	find_found = 0;
-	find_path = path;
-	find_dev = dev;
-	find_name = name;
-	udevdb_call_foreach(find_device_by_name);
-	if (find_found == 1)
-		return 0;
-	else
-		return -1;
+	closedir(dir);
+
+	return -1;
+
+found:
+	closedir(dir);
+
+	strfieldcpy(udev->devpath, db_udev.devpath);
+	strfieldcpy(udev->name, db_udev.name);
+	strfieldcpy(udev->symlink, db_udev.symlink);
+	udev->partitions = db_udev.partitions;
+
+	return 0;
 }

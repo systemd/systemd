@@ -41,26 +41,21 @@
 
 #define LINE_SIZE			256
 
-/* length of public data to store in udevdb */
-#define UDEVICE_DB_LEN (offsetof(struct udevice, devpath))
-
 struct udevice {
+	char devpath[DEVPATH_SIZE];
+	char subsystem[SUBSYSTEM_SIZE];
 	char name[NAME_SIZE];
 	char owner[OWNER_SIZE];
 	char group[GROUP_SIZE];
 	char type;
 	int major;
 	int minor;
-	unsigned int mode;	/* not mode_t due to conflicting definitions in different libcs */
+	mode_t mode;
 	char symlink[NAME_SIZE];
 	int partitions;
 	int config_line;
 	char config_file[NAME_SIZE];
 	long config_uptime;
-
-	/* private data, not stored in udevdb */
-	char devpath[DEVPATH_SIZE];
-	char subsystem[SUBSYSTEM_SIZE];
 	char bus_id[SYSFS_NAME_LEN];
 	char bus[SYSFS_NAME_LEN];
 	char program_result[NAME_SIZE];
@@ -81,7 +76,7 @@ extern char **main_argv;
 extern char **main_envp;
 extern char sysfs_path[SYSFS_PATH_MAX];
 extern char udev_root[PATH_MAX];
-extern char udev_db_filename[PATH_MAX+NAME_MAX];
+extern char udev_db_path[PATH_MAX+NAME_MAX];
 extern char udev_permissions_filename[PATH_MAX+NAME_MAX];
 extern char udev_config_filename[PATH_MAX+NAME_MAX];
 extern char udev_rules_filename[PATH_MAX+NAME_MAX];

@@ -95,7 +95,7 @@ static void run_udev(const char *subsystem)
 	switch (pid) {
 	case 0:
 		/* child */
-		execl(UDEV_BIN, UDEV_BIN, subsystem, NULL);
+		execl(UDEV_BIN, "udev", subsystem, NULL);
 		dbg("exec of child failed");
 		_exit(1);
 		break;

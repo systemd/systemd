@@ -30,7 +30,7 @@ my $PWD = $ENV{PWD};
 my $sysfs     = "sys/";
 my $udev_bin  = "../udev";
 my $udev_root = "udev-root/"; # !!! directory will be removed !!!
-my $udev_db   = ".udev.tdb";
+my $udev_db   = ".udevdb";
 my $perm      = "udev.permissions";
 my $main_conf = "udev-test.conf";
 my $conf_tmp  = "udev-test.rules";
@@ -1268,7 +1268,7 @@ sub run_test {
 	}
 
 	if (defined($config->{option}) && $config->{option} eq "clear") {
-		unlink($udev_db);
+		system("rm -rf $udev_db");
 		system("rm -rf $udev_root");
 		mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
 	}
@@ -1319,7 +1319,7 @@ if ($ARGV[0]) {
 print "$error errors occured\n\n";
 
 # cleanup
-unlink($udev_db);
+system("rm -rf $udev_db");
 system("rm -rf $udev_root");
 unlink($conf_tmp);
 unlink($main_conf);

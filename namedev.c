@@ -184,29 +184,29 @@ static int get_format_len(char **str)
  *  @param  name                Name to check for
  *  @return                     0 if <name> didn't exist and N otherwise.
  */
-static unsigned int find_free_number (struct udevice *udev, char *name)
+static int find_free_number(struct udevice *udev, const char *name)
 {
-	char temp[NAME_SIZE];
-	char path[NAME_SIZE];
-	struct udevice dev;
-	int result;
+	char filename[NAME_SIZE];
+	int num = 0;
+	struct udevice db_udev;
 
-	/* have to sweep the database for each lookup */
-	result = 0;
-	strncpy(temp, name, sizeof (temp));
+	strfieldcpy(filename, name);
 	while (1) {
-		if (udevdb_get_dev_byname(temp, path, &dev) != 0)
-			goto found;
-		/* symlink might be stale if $(udevroot) isn't cleaned; check
-		 * on major/minor to see if it's the same device
-		 */
-		if (dev.major == udev->major && dev.minor == udev->minor)
-			goto found;
-		snprintf (temp, sizeof(temp), "%s%d", name, ++result);
-	}
+		dbg("look for existing node '%s'", filename);
+		memset(&db_udev, 0x00, sizeof(struct udevice));
+		if (udevdb_get_dev_byname(&db_udev, filename) != 0) {
+			dbg("free num=%d", num);
+			return num;
+		}
 
-found:
-	return result;
+		num++;
+		if (num > 1000) {
+			info("find_free_number gone crazy (num=%d), aborted", num);
+			return -1;
+		}
+		snprintf(filename, NAME_SIZE-1, "%s%d", name, num);
+		filename[NAME_SIZE-1] = '\0';
+	}
 }
 
 static void apply_format(struct udevice *udev, char *string, size_t maxsize,
@@ -329,7 +329,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 		case 'e':
 			next_free_number = find_free_number(udev, string);
 			if (next_free_number > 0) {
-				snprintf(temp2, sizeof(temp2), "%d", next_free_number);
+				sprintf(temp2, "%d", next_free_number);
 				strfieldcatmax(string, temp2, maxsize);
 			}
 			break;

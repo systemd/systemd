@@ -110,10 +110,8 @@ uses:
 (1) /sys maintained by sysfs 
 (2) /etc/udev/udev.rules - where you can store the identifier to NAME
     mapping information.
-(3) The tdb (udev-021/tdb/tdb.c),  trivial data base,  that is held in
-    memory and holds the valid system configuration.  It is not saved
-    between one boot to the next.  It is constructed at boot time and
-    updated with configuration changes.
+(3) The udevdb, that keeps track the valid system configuration.
+    It is constructed at boot time and updated with configuration changes.
 
 The persistent names are kept (at least this is one way to do it) in
 udev.rules (uuid and NAME), one entry per device.  If you want to initially
@@ -148,9 +146,9 @@ the device.  The result of the program execution (the uuid)  is compared
 with the RESULT entry in the same udev.rules line.  
 
 - If it matches, then the NAME entered on this line is used.  The uuid and
-  major/minor number is saved in tdb (newly recreated upon boot).  That
-  device is created in /udev (the target directory name is configurable)
-  with the assigned NAME.    
+  major/minor number is saved in the udevdb (newly recreated upon boot).
+  That device is created in /udev (the target directory name is configurable)
+  with the assigned NAME.
 
 - If it doesn't match, the RESULT (uuid) is preserved for use on the next
   udev.rules line as long as the bus type (scsi) is the same.  So the
@@ -159,18 +157,18 @@ with the RESULT entry in the same udev.rules line.
 
 - If no match occurs, the device will be assigned a default name.  
 
-- Tdb is updated with the resulting name assignment.
+- The udevdb is updated with the resulting name assignment.
 
 
 Thus if the uuid and names are enumerated, they will be found, assigned,
 and are therefore permanent.
 
 If the device is removed from a live system, a hotplug event occurs, and it
-is removed from tdb and the /udev entry disappears.
+is removed from udevdb and the /udev entry disappears.
 
 If it is re-inserted at a new location, the udev.rules file is scanned as
-above.  The new major/minor number goes in tdb with the uuid , the name in
-udev.rules is found again,  and the /udev name re-appears.
+above.  The rule matches again against the uuid, the name in udev.rules
+is applied again and the /udev name re-appears.
 
 
 

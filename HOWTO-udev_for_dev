@@ -39,10 +39,10 @@ NOTE NOTE NOTE NOTE NOTE NOTE NOTE
    the end of this file.
 
  - make sure the /etc/udev/udev.conf file lists the udev_root as "/dev/"
-   and the udev_db as "/dev/.udev.tdb". It should contain the
+   and the udev_db as "/dev/.udevdb". It should contain the
    following lines in order to work properly.
 	udev_root="/dev/"
-	udev_db="/dev/.udev.tdb"
+	udev_db="/dev/.udevdb"
 
  - reboot into a 2.6 kernel and watch udev create all of the initial
    device nodes in /dev

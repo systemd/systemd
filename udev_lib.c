@@ -120,6 +120,33 @@ void udev_set_values(struct udevice *udev, const char* devpath, const char *subs
 	udev->type = get_device_type(devpath, subsystem);
 }
 
+int create_path(const char *path)
+{
+	char p[NAME_SIZE];
+	char *pos;
+	struct stat stats;
+
+	strcpy (p, path);
+	pos = strrchr(p, '/');
+	if (pos == p || pos == NULL)
+		return 0;
+
+	while (pos[-1] == '/')
+		pos--;
+
+	pos[0] = '\0';
+
+	dbg("stat '%s'\n", p);
+	if (stat (p, &stats) == 0 && (stats.st_mode & S_IFMT) == S_IFDIR)
+		return 0;
+
+	if (create_path (p) != 0)
+		return -1;
+
+	dbg("mkdir '%s'\n", p);
+	return mkdir(p, 0755);
+}
+
 int file_map(const char *filename, char **buf, size_t *bufsize)
 {
 	struct stat stats;
@@ -161,18 +188,7 @@ size_t buf_get_line(char *buf, size_t buflen, size_t cur)
 	return count - cur;
 }
 
-void leading_slash(char *path)
-{
-	int len;
-
-	len = strlen(path);
-	if (len > 0 && path[len-1] != '/') {
-		path[len] = '/';
-		path[len+1] = '\0';
-	}
-}
-
-void no_leading_slash(char *path)
+void no_trailing_slash(char *path)
 {
 	int len;
 
@@ -249,9 +265,8 @@ int call_foreach_file(int fnct(char *f) , char *dirname, char *suffix)
 
 	/* call function for every file in the list */
 	list_for_each_entry_safe(loop_file, tmp_file, &file_list, list) {
-		strfieldcpy(file, dirname);
-		strfieldcat(file, "/");
-		strfieldcat(file, loop_file->name);
+		snprintf(file, NAME_SIZE-1, "%s/%s", dirname, loop_file->name);
+		file[NAME_SIZE-1] = '\0';
 
 		fnct(file);
 
