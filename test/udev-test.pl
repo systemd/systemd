@@ -161,7 +161,7 @@ sub udev {
 	my ($action, $subsys, $devpath, $config) = @_;
 
 	$ENV{DEVPATH} = $devpath;
-	$ENV{UDEV_CONFIG_FILE} = $conf_tmp;
+	$ENV{UDEV_RULES_FILE} = $conf_tmp;
 
 	# create temporary config
 	open CONF, ">$conf_tmp" || die "unable to create config file: $conf_tmp";

@@ -6,6 +6,7 @@ export UDEV_CONFIG_DIR=$PWD/
 export UDEV_ROOT=$PWD/udev/
 export UDEV_DB=udev.tdb
 export UDEV_CONFIG_FILE=modifier_test.config
+export UDEV_RULES_FILE=modifier_test.rules
 export UDEV_PERMISSION_FILE=udev.permissions
 
 export ACTION=add
