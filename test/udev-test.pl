@@ -596,6 +596,7 @@ sub run_test {
 			if ($wrong == 1) {
 				printf "expected permissions are: %i:%i:%#o\n", $1, $2, oct($3);
 				printf "created permissions are : %i:%i:%#o\n", $uid, $gid, $mode & 07777;
+				$error++;
 			}
 		}
 
@@ -614,6 +615,7 @@ sub run_test {
 			if ($wrong == 1) {
 				printf "expected major:minor is: %i:%i\n", $1, $2;
 				printf "created major:minor is : %i:%i\n", $major, $minor;
+				$error++;
 			}
 		}
 
