@@ -52,7 +52,6 @@
 * to think about it.
 
 */
-#include <malloc.h>
 typedef struct dl_node {
   struct dl_node *prev;
   struct dl_node *next;
