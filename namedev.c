@@ -412,7 +412,7 @@ label_found:
 			*c = 0x00;
 		dbg("compare attribute '%s' value '%s' with '%s'",
 			  dev->sysfs_file, tmpattr->value, dev->sysfs_value);
-		if (strcmp(dev->sysfs_value, tmpattr->value) != 0)
+		if (strcmp_pattern(dev->sysfs_value, tmpattr->value) != 0)
 			continue;
 
 		strfieldcpy(udev->name, dev->name);

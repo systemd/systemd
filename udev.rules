@@ -42,7 +42,6 @@ REPLACE, KERNEL="ttyUSB1", NAME="visor"
 REPLACE, KERNEL="ttyUSB0", NAME="pl2303"
 
 # a devfs like way to name some tty devices
-#REPLACE, KERNEL="tty", NAME="tty"
 #REPLACE, KERNEL="ttyS*", NAME="tts/%n"
 #REPLACE, KERNEL="tty*", NAME="vc/%n"
 

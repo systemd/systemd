@@ -52,6 +52,18 @@ LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="boot_disk%n"
 EOF
 	},
 	{
+		desc     => "label test of pattern match",
+		subsys   => "block",
+		devpath  => "block/sda/sda1",
+		expected => "boot_disk1" ,
+		conf     => <<EOF
+LABEL, BUS="scsi", vendor="?IBM-ESXS", NAME="boot_disk%n-1"
+LABEL, BUS="scsi", vendor="IBM-ESXS?", NAME="boot_disk%n-2"
+LABEL, BUS="scsi", vendor="IBM-ES??", NAME="boot_disk%n"
+LABEL, BUS="scsi", vendor="IBM-ESXSS", NAME="boot_disk%n-3"
+EOF
+	},
+	{
 		desc     => "catch device by *",
 		subsys   => "tty",
 		devpath  => "class/tty/ttyUSB0",
