@@ -1,3 +1,3 @@
 . /etc/hotplug/hotplug.functions
 sleep 1
-mesg `/root/multipath scsi $DEVPATH`
+mesg `/sbin/multipath scsi $DEVPATH`

@@ -1,3 +1,6 @@
+2003-12-29 multipath-012
+	* refresh doc
+	* add the uninstall target in Makefile
 2003-12-22 multipath-010
 	* tweak the install target in Makefile
 	* stop passing fds as argument : this change enable a strict

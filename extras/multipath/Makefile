@@ -55,5 +55,9 @@ install:
 	install -d /etc/hotplug.d/scsi/
 	install -m 755 multipath.hotplug /etc/hotplug.d/scsi/
 
+uninstall:
+	rm /etc/hotplug.d/scsi/multipath.hotplug
+	rm $(bindir)/$(EXEC)
+
 # Code dependencies
 main.o: main.c main.h sg_include.h

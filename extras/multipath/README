@@ -3,6 +3,7 @@ Dependancies :
 
 o libdevmapper : comes with device-mapper-XXXX.tar.gz
   See www.sistina.com
+  This lib has been dropped in the multipath tree
 o libsysfs : comes with sysutils
   See ftp.kernel.org/pub/linux/utils/kernel/hotplug/
 
@@ -34,8 +35,9 @@ In 2.5+, we rely on libsysfs (sysutils) to access to
 sysfs device enums.
 
 the wwid is retrieved by a switch fonction. Only White
-Listed HW can filled this field. For now only 
-StorageWorks HW is White Listed. (See notes)
+Listed HW can filled this field. For now every FC array 
+HW listed in kernel's devinfo.c is White Listed, assuming
+the WWID is stored is the SCSI-3 standard 0x83 EVPD page.
 
 When all_paths is filled, we coalesce the paths and store
 the result in mp array. Each mp is a struct like this :
@@ -47,24 +49,20 @@ struct multipath {
 };
 
 When mp is filled, the device maps are fed to the kernel
-through libdevmapper. Stale paths (failed TUR) are 
-discarded.
+through libdevmapper.
 
 Notes :
 =======
 
-o make sure you have enough /dev/sg* nodes
-  (/dev/MAKEDEV if necesary)
+o On 2.4, make sure you have enough /dev/sg* nodes
+  (/dev/MAKEDEV if necesary). Same goes for /dev/sd*
 
 o path coalescing relies on a path unique id being found.
   This unique id, lacking a standard method, is vendor
   specific. A switch function (get_unique_id) is present
   and an example function is provided for storageworks
-  arrays (get_storageworks_wwid). Feel free to enrich
+  arrays (get_evpd_wwid). Feel free to enrich
   with hardware you have at hand :)
-
-o Something goes wrong with sd.o, qla2200 & dm-mod
-  refcounting : I can't unload these modules after exec.
 
 o The kernel does NOT manage properly ghosts paths
   with StorageWorks HW. Seems nobody cares after a load
