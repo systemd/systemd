@@ -43,6 +43,7 @@ enum config_type {
 #define VALUE_SIZE	100
 #define ID_SIZE		50
 #define PLACE_SIZE	50
+#define PROGRAM_SIZE	100
 
 #define TYPE_LABEL	"LABEL"
 #define TYPE_NUMBER	"NUMBER"
@@ -75,7 +76,7 @@ struct config_device {
 	char id[ID_SIZE];
 	char place[PLACE_SIZE];
 	char kernel_name[NAME_SIZE];
-	char exec_program[FILE_SIZE];
+	char exec_program[PROGRAM_SIZE];
 	char name[NAME_SIZE];
 	char symlink[NAME_SIZE];
 	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];
