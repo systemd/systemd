@@ -115,13 +115,12 @@ int main(int argc, char* argv[])
 		dbg("no seqnum");
 		goto exit;
 	}
-
 	seq = atoi(seqnum);
+
 	key = ftok(DEFAULT_EXEC_PROGRAM, IPC_KEY_ID);
 	size =  build_hotplugmsg( (struct hotplug_msg**) &pmsg, action, devpath, subsystem, seq);
 	msgid = msgget(key, IPC_CREAT);
-	if (msgid == -1)
-	{
+	if (msgid == -1) {
 		dbg("open ipc queue error");
 		goto exit;
 	}
@@ -137,8 +136,7 @@ int main(int argc, char* argv[])
 
 	retval = msgsnd(msgid, pmsg, size, 0);
 	free_hotplugmsg( (struct hotplug_msg*) pmsg);
-	if (retval == -1)
-	{
+	if (retval == -1) {
 		dbg("send ipc message error");
 		goto exit;
 	}
