@@ -43,6 +43,7 @@
 
 LIST_HEAD(file_list);
 
+
 static int add_config_dev(struct config_device *new_dev)
 {
 	struct config_device *tmp_dev;
@@ -61,9 +62,11 @@ void dump_config_dev(struct config_device *dev)
 	dbg_parse("name='%s', symlink='%s', bus='%s', place='%s', id='%s', "
 		  "sysfs_file[0]='%s', sysfs_value[0]='%s', "
 		  "kernel='%s', program='%s', result='%s'",
+		  "owner='%s', group='%s', mode=%#o",
 		  dev->name, dev->symlink, dev->bus, dev->place, dev->id,
 		  dev->sysfs_pair[0].file, dev->sysfs_pair[0].value,
-		  dev->kernel, dev->program, dev->result);
+		  dev->kernel, dev->program, dev->result,;
+		  dev->owner, dev->group, dev->mode);
 }
 
 void dump_config_dev_list(void)
@@ -72,6 +75,31 @@ void dump_config_dev_list(void)
 
 	list_for_each_entry(dev, &config_device_list, node)
 		dump_config_dev(dev);
+}
+
+static int add_perm_dev(struct perm_device *new_dev)
+{
+	struct perm_device *dev;
+	struct perm_device *tmp_dev;
+
+	/* update the values if we already have the device */
+	list_for_each_entry(dev, &perm_device_list, node) {
+		if (strcmp(new_dev->name, dev->name) != 0)
+			continue;
+
+		set_empty_perms(dev, new_dev->mode, new_dev->owner, new_dev->group);
+		return 0;
+	}
+
+	/* not found, add new structure to the perm list */
+	tmp_dev = malloc(sizeof(*tmp_dev));
+	if (!tmp_dev)
+		return -ENOMEM;
+
+	memcpy(tmp_dev, new_dev, sizeof(*tmp_dev));
+	list_add_tail(&tmp_dev->node, &perm_device_list);
+	//dump_perm_dev(tmp_dev);
+	return 0;
 }
 
 void dump_perm_dev(struct perm_device *dev)
@@ -240,12 +268,26 @@ static int namedev_parse_rules(char *filename)
 				continue;
 			}
 
+			if (strcasecmp(temp2, FIELD_OWNER) == 0) {
+				strfieldcpy(dev.owner, temp3);
+				continue;
+			}
+
+			if (strcasecmp(temp2, FIELD_GROUP) == 0) {
+				strfieldcpy(dev.group, temp3);
+				continue;
+			}
+
+			if (strcasecmp(temp2, FIELD_MODE) == 0) {
+				dev.mode = strtol(temp3, NULL, 8);
+				continue;
+			}
+
 			dbg("unknown type of field '%s'", temp2);
-			dbg("You might be using a rules file in the old format, please fix.");
 			goto error;
 		}
 
-		/* simple plausibility check for given keys */
+		/* simple plausibility checks for given keys */
 		if ((dev.sysfs_pair[0].file[0] == '\0') ^
 		    (dev.sysfs_pair[0].value[0] == '\0')) {
 			dbg("inconsistency in " FIELD_SYSFS " key");
@@ -336,14 +378,14 @@ static int namedev_parse_permissions(char *filename)
 		strfieldcpy(dev.group, temp2);
 
 		if (!temp) {
-			dbg("cannot parse line: %s", line);
+			dbg("cannot parse line '%s'", line);
 			continue;
 		}
 		dev.mode = strtol(temp, NULL, 8);
 
 		dbg_parse("name='%s', owner='%s', group='%s', mode=%#o",
-			  dev.name, dev.owner, dev.group,
-			  dev.mode);
+			  dev.name, dev.owner, dev.group, dev.mode);
+
 		retval = add_perm_dev(&dev);
 		if (retval) {
 			dbg("add_perm_dev returned with error %d", retval);

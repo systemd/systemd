@@ -220,6 +220,10 @@ to the symlink list of the rule which will create the node.
 This makes it possible to specify additional symlinks in a possibly
 separate rules file, while the device nodes are maintained by the
 distribution provided rules file.
+.TP
+.B OWNER, GROUP, MODE
+The permissions for this device. Every specified value overwrites the value
+given in the permissions file.
 .P
 .RB "The " NAME " ," SYMLINK " and " PROGRAM
 fields support simple printf-like string substitution:

@@ -44,6 +44,9 @@ struct sysfs_class_device;
 #define FIELD_KERNEL		"KERNEL"
 #define FIELD_NAME		"NAME"
 #define FIELD_SYMLINK		"SYMLINK"
+#define FIELD_OWNER		"OWNER"
+#define FIELD_GROUP		"GROUP"
+#define FIELD_MODE		"MODE"
 
 #define ATTR_PARTITIONS		"all_partitions"
 #define PARTITIONS_COUNT	15
@@ -53,6 +56,14 @@ struct sysfs_class_device;
 
 #define RULEFILE_EXT		".rules"
 #define PERMFILE_EXT		".permissions"
+
+#define set_empty_perms(dev, m, o, g)		\
+	if (dev->mode == 0)			\
+		dev->mode = m;			\
+	if (dev->owner[0] == '\0')		\
+		strfieldcpy(dev->owner, o);	\
+	if (dev->group[0] == '\0')		\
+		strfieldcpy(dev->group, g);
 
 struct sysfs_pair {
 	char file[FILE_SIZE];
@@ -71,6 +82,9 @@ struct config_device {
 	char name[NAME_SIZE];
 	char symlink[NAME_SIZE];
 	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];
+	char owner[OWNER_SIZE];
+	char group[GROUP_SIZE];
+	unsigned int mode;
 	int partitions;
 	char config_file[NAME_SIZE];
 	int config_line;
@@ -93,7 +107,6 @@ extern int namedev_name_device(struct sysfs_class_device *class_dev, struct udev
 extern int namedev_init_permissions(void);
 extern int namedev_init_rules(void);
 
-extern int add_perm_dev(struct perm_device *new_dev);
 extern void dump_config_dev(struct config_device *dev);
 extern void dump_config_dev_list(void);
 extern void dump_perm_dev(struct perm_device *dev);

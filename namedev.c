@@ -46,6 +46,7 @@ static struct sysfs_attribute *find_sysfs_attribute(struct sysfs_class_device *c
 LIST_HEAD(config_device_list);
 LIST_HEAD(perm_device_list);
 
+
 /* compare string with pattern (supports * ? [0-9] [!A-Z]) */
 static int strcmp_pattern(const char *p, const char *s)
 {
@@ -97,39 +98,6 @@ static int strcmp_pattern(const char *p, const char *s)
 		break;
 	}
 	return 1;
-}
-
-#define copy_var(a, b, var)		\
-	if (b->var)			\
-		a->var = b->var;
-
-#define copy_string(a, b, var)		\
-	if (strlen(b->var))		\
-		strcpy(a->var, b->var);
-
-int add_perm_dev(struct perm_device *new_dev)
-{
-	struct perm_device *dev;
-	struct perm_device *tmp_dev;
-
-	/* update the values if we already have the device */
-	list_for_each_entry(dev, &perm_device_list, node) {
-		if (strcmp(new_dev->name, dev->name))
-			continue;
-		copy_var(dev, new_dev, mode);
-		copy_string(dev, new_dev, owner);
-		copy_string(dev, new_dev, group);
-		return 0;
-	}
-
-	/* not found, add new structure to the perm list */
-	tmp_dev = malloc(sizeof(*tmp_dev));
-	if (!tmp_dev)
-		return -ENOMEM;
-	memcpy(tmp_dev, new_dev, sizeof(*tmp_dev));
-	list_add_tail(&tmp_dev->node, &perm_device_list);
-	//dump_perm_dev(tmp_dev);
-	return 0;
 }
 
 static struct perm_device *find_perm(char *name)
@@ -865,22 +833,28 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 	goto done;
 
 found:
-	/* substitute placeholder */
 	apply_format(udev, udev->name, sizeof(udev->name),
 		     class_dev, sysfs_device);
 	udev->partitions = dev->partitions;
+
 done:
+	/* get permissions given in rule */
+	set_empty_perms(udev, dev->mode,
+			      dev->owner,
+			      dev->group);
+
+	/* get permissions given in config file or set defaults */
 	perm = find_perm(udev->name);
-	if (perm) {
-		udev->mode = perm->mode;
-		strfieldcpy(udev->owner, perm->owner);
-		strfieldcpy(udev->group, perm->group);
+	if (perm != NULL) {
+		set_empty_perms(udev, perm->mode,
+				      perm->owner,
+				      perm->group);
 	} else {
-		/* no matching perms found :( */
-		udev->mode = get_default_mode();
-		strfieldcpy(udev->owner, get_default_owner());
-		strfieldcpy(udev->group, get_default_group());
+		set_empty_perms(udev, get_default_mode(),
+				      get_default_owner(),
+				      get_default_group());
 	}
+
 	dbg("name, '%s' is going to have owner='%s', group='%s', mode = %#o",
 	    udev->name, udev->owner, udev->group, udev->mode);
 
