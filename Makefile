@@ -139,8 +139,7 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	LINUX_INCLUDE_DIR	:= $(KERNEL_DIR)/include
 	include $(KLIBC_DIR)/arch/$(ARCH)/MCONFIG
 	# arch specific objects
-	ARCH_LIB_OBJS =	\
-			$(KLIBC_DIR)/libc.a
+	ARCH_LIB_OBJS =	 $(KLIBC_DIR)/libc.a
 
 
 	CRT0 = $(KLIBC_DIR)/crt0.o
@@ -171,7 +170,7 @@ ifeq ($(strip $(USE_SELINUX)),true)
 	LIB_OBJS += -lselinux
 endif
 
-CFLAGS += 	-I$(PWD)/libsysfs/sysfs \
+CFLAGS +=	-I$(PWD)/libsysfs/sysfs \
 		-I$(PWD)/libsysfs
 
 # config files automatically generated
@@ -196,43 +195,52 @@ $(CRT0):
 	fi
 	$(MAKE) -C klibc SUBDIRS=klibc
 
-SYSFS =	$(PWD)/libsysfs/sysfs_bus.o	\
-	$(PWD)/libsysfs/sysfs_class.o	\
-	$(PWD)/libsysfs/sysfs_device.o	\
-	$(PWD)/libsysfs/sysfs_dir.o	\
-	$(PWD)/libsysfs/sysfs_driver.o	\
-	$(PWD)/libsysfs/sysfs_utils.o	\
-	$(PWD)/libsysfs/dlist.o
+HEADERS = \
+	udev.h		\
+	udev_utils.h	\
+	namedev.h	\
+	udev_version.h	\
+	udev_db.h	\
+	udev_sysfs.h	\
+	logging.h	\
+	selinux.h	\
+	list.h
 
-OBJS =	udev_utils.o	\
-	udev_config.o	\
-	udev_add.o	\
-	udev_remove.o	\
-	udev_start.o	\
-	udev_sysfs.o	\
-	udev_db.o	\
-	udev_multiplex.o\
-	namedev.o	\
-	namedev_parse.o	\
-	$(SYSFS)
+SYSFS_OBJS = \
+	libsysfs/sysfs_bus.o	\
+	libsysfs/sysfs_class.o	\
+	libsysfs/sysfs_device.o	\
+	libsysfs/sysfs_dir.o	\
+	libsysfs/sysfs_driver.o	\
+	libsysfs/sysfs_utils.o	\
+	libsysfs/dlist.o
 
-HEADERS =	udev.h		\
-		udev_utils.h	\
-		namedev.h	\
-		udev_version.h	\
-		udev_db.h	\
-		udev_sysfs.h	\
-		logging.h	\
-		selinux.h	\
-		list.h
+UDEV_OBJS = \
+	udev_utils.o		\
+	udev_config.o		\
+	udev_add.o		\
+	udev_remove.o		\
+	udev_start.o		\
+	udev_sysfs.o		\
+	udev_db.o		\
+	udev_multiplex.o	\
+	namedev.o		\
+	namedev_parse.o
+
+OBJS = \
+	libsysfs/sysfs.a	\
+	udev.a
 
 ifeq ($(strip $(USE_KLIBC)),true)
-	HEADERS +=	klibc_fixups/klibc_fixups.h	\
-			klibc_fixups/mntent.h		\
-			klibc_fixups/pwd.h
+	HEADERS	+= \
+		klibc_fixups/klibc_fixups.h	\
+		klibc_fixups/mntent.h		\
+		klibc_fixups/pwd.h
 
-	OBJS += klibc_fixups/klibc_fixups.o
-	KLIBC_FIXUP = klibc_fixups/klibc_fixups.o
+	KLIBC_FIXUP_OBJS = \
+		klibc_fixups/klibc_fixups.o
+
+	OBJS += klibc_fixups/klibc_fixups.a
 endif
 
 ifeq ($(strip $(V)),false)
@@ -242,6 +250,18 @@ else
 	QUIET=
 	HOST_PROGS=
 endif
+
+udev.a: $(UDEV_OBJS)
+	$(QUIET) $(AR) cq $@ $(UDEV_OBJS)
+	$(QUIET) $(RANLIB) $@
+
+libsysfs/sysfs.a: $(SYSFS_OBJS)
+	$(QUIET) $(AR) cq $@ $(SYSFS_OBJS)
+	$(QUIET) $(RANLIB) $@
+
+klibc_fixups/klibc_fixups.a: $(KLIBC_FIXUP_OBJS)
+	$(QUIET) $(AR) cq $@ $(KLIBC_FIXUP_OBJS)
+	$(QUIET) $(RANLIB) $@
 
 # header files automatically generated
 GEN_HEADERS =	udev_version.h
@@ -283,27 +303,25 @@ $(SENDER).o: $(GEN_HEADERS) $(HOST_PROGS)
 $(STARTER).o: $(GEN_HEADERS) $(HOST_PROGS)
 
 $(ROOT): $(LIBC) $(ROOT).o $(OBJS) $(HEADERS) $(GEN_MANPAGES)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(ROOT).o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
 $(TESTER): $(LIBC) $(TESTER).o $(OBJS) $(HEADERS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevtest.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(TESTER).o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
 $(INFO): $(LIBC) $(INFO).o $(OBJS) $(HEADERS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o udev_utils.o udev_config.o udev_db.o $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(INFO).o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
 $(DAEMON): $(LIBC) $(DAEMON).o $(OBJS) udevd.h
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevd.o udev_utils.o $(KLIBC_FIXUP) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(DAEMON).o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
 $(SENDER): $(LIBC) $(SENDER).o $(OBJS) udevd.h
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(SENDER).o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
-#.c.o:
-#	$(CC) $(CFLAGS) $(DEFS) $(CPPFLAGS) -c -o $@ $<
 .c.o:
 	$(QUIET) $(CC) $(CFLAGS) -c -o $@ $<
 
