@@ -32,7 +32,7 @@
 #include "udev_sysfs.h"
 #include "udev_utils.h"
 #include "udev_version.h"
-#include "namedev.h"
+#include "udev_rules.h"
 #include "logging.h"
 
 
@@ -83,7 +83,7 @@ int main(int argc, char *argv[], char *envp[])
 	info("looking at '%s'", devpath);
 
 	/* initialize the naming deamon */
-	namedev_init();
+	udev_rules_init();
 
 	if (argc == 3)
 		subsystem = argv[2];

@@ -1,5 +1,5 @@
 /*
- * namedev.h
+ * udev_rules.h
  *
  * Userspace devfs
  *
@@ -23,10 +23,10 @@
 #ifndef NAMEDEV_H
 #define NAMEDEV_H
 
+#include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
 #include "list.h"
 
-struct sysfs_class_device;
 
 #define FIELD_KERNEL		"KERNEL"
 #define FIELD_SUBSYSTEM		"SUBSYSTEM"
@@ -56,7 +56,7 @@ struct sysfs_pair {
 	char value[VALUE_SIZE];
 };
 
-struct config_device {
+struct udev_rule {
 	struct list_head node;
 
 	char kernel[NAME_SIZE];
@@ -82,13 +82,13 @@ struct config_device {
 	int config_line;
 };
 
-extern struct list_head config_device_list;
+extern struct list_head udev_rule_list;
 
-extern int namedev_init(void);
-extern int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_dev);
-extern void namedev_close(void);
+extern int udev_rules_init(void);
+extern int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_dev);
+extern void udev_rules_close(void);
 
-extern void dump_config_dev(struct config_device *dev);
-extern void dump_config_dev_list(void);
+extern void udev_rule_dump(struct udev_rule *rule);
+extern void udev_rule_list_dump(void);
 
 #endif

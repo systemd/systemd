@@ -37,7 +37,7 @@
 #include "udev_utils.h"
 #include "udev_sysfs.h"
 #include "udev_version.h"
-#include "namedev.h"
+#include "udev_rules.h"
 #include "logging.h"
 
 
@@ -177,7 +177,7 @@ int main(int argc, char *argv[], char *envp[])
 			wait_for_class_device(class_dev, &error);
 
 			/* init rules */
-			namedev_init();
+			udev_rules_init();
 
 			/* name, create node, store in db */
 			retval = udev_add_device(&udev, class_dev);

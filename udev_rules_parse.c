@@ -1,5 +1,5 @@
 /*
- * namedev_parse.c
+ * udev_rules_parse.c
  *
  * Userspace devfs
  *
@@ -22,11 +22,6 @@
  *
  */
 
-#ifdef DEBUG
-/* define this to enable parsing debugging also */
-/* #define DEBUG_PARSER */
-#endif
-
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -40,41 +35,42 @@
 #include "udev.h"
 #include "udev_utils.h"
 #include "logging.h"
-#include "namedev.h"
+#include "udev_rules.h"
 
-LIST_HEAD(config_device_list);
+LIST_HEAD(udev_rule_list);
 
-static int add_config_dev(struct config_device *new_dev)
+static int add_config_dev(struct udev_rule *new_rule)
 {
-	struct config_device *tmp_dev;
+	struct udev_rule *tmp_rule;
 
-	tmp_dev = malloc(sizeof(*tmp_dev));
-	if (tmp_dev == NULL)
+	tmp_rule = malloc(sizeof(*tmp_rule));
+	if (tmp_rule == NULL)
 		return -ENOMEM;
-	memcpy(tmp_dev, new_dev, sizeof(*tmp_dev));
-	list_add_tail(&tmp_dev->node, &config_device_list);
-	//dump_config_dev(tmp_dev);
+	memcpy(tmp_rule, new_rule, sizeof(*tmp_rule));
+	list_add_tail(&tmp_rule->node, &udev_rule_list);
+	udev_rule_dump(tmp_rule);
+
 	return 0;
 }
 
-void dump_config_dev(struct config_device *dev)
+void udev_rule_dump(struct udev_rule *rule)
 {
-	dbg_parse("name='%s', symlink='%s', bus='%s', id='%s', "
-		  "sysfs_file[0]='%s', sysfs_value[0]='%s', "
-		  "kernel='%s', program='%s', result='%s'"
-		  "owner='%s', group='%s', mode=%#o",
-		  dev->name, dev->symlink, dev->bus, dev->id,
-		  dev->sysfs_pair[0].file, dev->sysfs_pair[0].value,
-		  dev->kernel, dev->program, dev->result,
-		  dev->owner, dev->group, dev->mode);
+	dbg("name='%s', symlink='%s', bus='%s', id='%s', "
+	    "sysfs_file[0]='%s', sysfs_value[0]='%s', "
+	    "kernel='%s', program='%s', result='%s'"
+	    "owner='%s', group='%s', mode=%#o",
+	    rule->name, rule->symlink, rule->bus, rule->id,
+	    rule->sysfs_pair[0].file, rule->sysfs_pair[0].value,
+	    rule->kernel, rule->program, rule->result,
+	    rule->owner, rule->group, rule->mode);
 }
 
-void dump_config_dev_list(void)
+void udev_rule_list_dump(void)
 {
-	struct config_device *dev;
+	struct udev_rule *rule;
 
-	list_for_each_entry(dev, &config_device_list, node)
-		dump_config_dev(dev);
+	list_for_each_entry(rule, &udev_rule_list, node)
+		udev_rule_dump(rule);
 }
 
 /* extract possible KEY{attr} */
@@ -99,7 +95,7 @@ static char *get_key_attribute(char *str)
 	return NULL;
 }
 
-static int namedev_parse(struct udevice *udev, const char *filename)
+static int rules_parse(struct udevice *udev, const char *filename)
 {
 	char line[LINE_SIZE];
 	char *bufline;
@@ -115,7 +111,7 @@ static int namedev_parse(struct udevice *udev, const char *filename)
 	int program_given = 0;
 	int valid;
 	int retval = 0;
-	struct config_device dev;
+	struct udev_rule rule;
 
 	if (file_map(filename, &buf, &bufsize) == 0) {
 		dbg("reading '%s' as rules file", filename);
@@ -160,10 +156,10 @@ static int namedev_parse(struct udevice *udev, const char *filename)
 			line[j++] = bufline[i];
 		}
 		line[j] = '\0';
-		dbg_parse("read '%s'", line);
+		dbg("read '%s'", line);
 
 		/* get all known keys */
-		memset(&dev, 0x00, sizeof(struct config_device));
+		memset(&rule, 0x00, sizeof(struct udev_rule));
 		temp = line;
 		valid = 0;
 
@@ -173,31 +169,31 @@ static int namedev_parse(struct udevice *udev, const char *filename)
 				break;
 
 			if (strcasecmp(temp2, FIELD_KERNEL) == 0) {
-				strlcpy(dev.kernel, temp3, sizeof(dev.kernel));
+				strlcpy(rule.kernel, temp3, sizeof(rule.kernel));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_SUBSYSTEM) == 0) {
-				strlcpy(dev.subsystem, temp3, sizeof(dev.subsystem));
+				strlcpy(rule.subsystem, temp3, sizeof(rule.subsystem));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_BUS) == 0) {
-				strlcpy(dev.bus, temp3, sizeof(dev.bus));
+				strlcpy(rule.bus, temp3, sizeof(rule.bus));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_ID) == 0) {
-				strlcpy(dev.id, temp3, sizeof(dev.id));
+				strlcpy(rule.id, temp3, sizeof(rule.id));
 				valid = 1;
 				continue;
 			}
 
 			if (strncasecmp(temp2, FIELD_SYSFS, sizeof(FIELD_SYSFS)-1) == 0) {
-				struct sysfs_pair *pair = &dev.sysfs_pair[0];
+				struct sysfs_pair *pair = &rule.sysfs_pair[0];
 				int sysfs_pair_num = 0;
 
 				/* find first unused pair */
@@ -223,20 +219,20 @@ static int namedev_parse(struct udevice *udev, const char *filename)
 			}
 
 			if (strcasecmp(temp2, FIELD_DRIVER) == 0) {
-				strlcpy(dev.driver, temp3, sizeof(dev.driver));
+				strlcpy(rule.driver, temp3, sizeof(rule.driver));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_PROGRAM) == 0) {
 				program_given = 1;
-				strlcpy(dev.program, temp3, sizeof(dev.program));
+				strlcpy(rule.program, temp3, sizeof(rule.program));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_RESULT) == 0) {
-				strlcpy(dev.result, temp3, sizeof(dev.result));
+				strlcpy(rule.result, temp3, sizeof(rule.result));
 				valid = 1;
 				continue;
 			}
@@ -246,58 +242,58 @@ static int namedev_parse(struct udevice *udev, const char *filename)
 				/* FIXME: remove old style options and make OPTIONS= mandatory */
 				if (attr != NULL) {
 					if (strstr(attr, OPTION_PARTITIONS) != NULL) {
-						dbg_parse("creation of partition nodes requested");
-						dev.partitions = DEFAULT_PARTITIONS_COUNT;
+						dbg("creation of partition nodes requested");
+						rule.partitions = DEFAULT_PARTITIONS_COUNT;
 					}
 					if (strstr(attr, OPTION_IGNORE_REMOVE) != NULL) {
-						dbg_parse("remove event should be ignored");
-						dev.ignore_remove = 1;
+						dbg("remove event should be ignored");
+						rule.ignore_remove = 1;
 					}
 				}
 				if (temp3[0] != '\0')
-					strlcpy(dev.name, temp3, sizeof(dev.name));
+					strlcpy(rule.name, temp3, sizeof(rule.name));
 				else
-					dev.ignore_device = 1;
+					rule.ignore_device = 1;
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_SYMLINK) == 0) {
-				strlcpy(dev.symlink, temp3, sizeof(dev.symlink));
+				strlcpy(rule.symlink, temp3, sizeof(rule.symlink));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_OWNER) == 0) {
-				strlcpy(dev.owner, temp3, sizeof(dev.owner));
+				strlcpy(rule.owner, temp3, sizeof(rule.owner));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_GROUP) == 0) {
-				strlcpy(dev.group, temp3, sizeof(dev.group));
+				strlcpy(rule.group, temp3, sizeof(rule.group));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_MODE) == 0) {
-				dev.mode = strtol(temp3, NULL, 8);
+				rule.mode = strtol(temp3, NULL, 8);
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_OPTIONS) == 0) {
 				if (strstr(temp3, OPTION_IGNORE_DEVICE) != NULL) {
-					dbg_parse("device should be ignored");
-					dev.ignore_device = 1;
+					dbg("device should be ignored");
+					rule.ignore_device = 1;
 				}
 				if (strstr(temp3, OPTION_IGNORE_REMOVE) != NULL) {
-					dbg_parse("remove event should be ignored");
-					dev.ignore_remove = 1;
+					dbg("remove event should be ignored");
+					rule.ignore_remove = 1;
 				}
 				if (strstr(temp3, OPTION_PARTITIONS) != NULL) {
-					dbg_parse("creation of partition nodes requested");
-					dev.partitions = DEFAULT_PARTITIONS_COUNT;
+					dbg("creation of partition nodes requested");
+					rule.partitions = DEFAULT_PARTITIONS_COUNT;
 				}
 				valid = 1;
 				continue;
@@ -312,21 +308,21 @@ static int namedev_parse(struct udevice *udev, const char *filename)
 			goto error;
 
 		/* simple plausibility checks for given keys */
-		if ((dev.sysfs_pair[0].file[0] == '\0') ^
-		    (dev.sysfs_pair[0].value[0] == '\0')) {
+		if ((rule.sysfs_pair[0].file[0] == '\0') ^
+		    (rule.sysfs_pair[0].value[0] == '\0')) {
 			info("inconsistency in " FIELD_SYSFS " key");
 			goto error;
 		}
 
-		if ((dev.result[0] != '\0') && (program_given == 0)) {
+		if ((rule.result[0] != '\0') && (program_given == 0)) {
 			info(FIELD_RESULT " is only useful when "
 			     FIELD_PROGRAM " is called in any rule before");
 			goto error;
 		}
 
-		dev.config_line = lineno;
-		strlcpy(dev.config_file, filename, sizeof(dev.config_file));
-		retval = add_config_dev(&dev);
+		rule.config_line = lineno;
+		strlcpy(rule.config_file, filename, sizeof(rule.config_file));
+		retval = add_config_dev(&rule);
 		if (retval) {
 			dbg("add_config_dev returned with error %d", retval);
 			continue;
@@ -340,7 +336,7 @@ error:
 	return retval;
 }
 
-int namedev_init(void)
+int udev_rules_init(void)
 {
 	struct stat stats;
 	int retval;
@@ -349,21 +345,21 @@ int namedev_init(void)
 		return -1;
 
 	if ((stats.st_mode & S_IFMT) != S_IFDIR)
-		retval = namedev_parse(NULL, udev_rules_filename);
+		retval = rules_parse(NULL, udev_rules_filename);
 	else
-		retval = call_foreach_file(namedev_parse, NULL, udev_rules_filename, RULEFILE_SUFFIX);
+		retval = call_foreach_file(rules_parse, NULL, udev_rules_filename, RULEFILE_SUFFIX);
 
 	return retval;
 }
 
-void namedev_close(void)
+void udev_rules_close(void)
 {
-	struct config_device *dev;
-	struct config_device *temp_dev;
+	struct udev_rule *rule;
+	struct udev_rule *temp_rule;
 
-	list_for_each_entry_safe(dev, temp_dev, &config_device_list, node) {
-		list_del(&dev->node);
-		free(dev);
+	list_for_each_entry_safe(rule, temp_rule, &udev_rule_list, node) {
+		list_del(&rule->node);
+		free(rule);
 	}
 }
 

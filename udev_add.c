@@ -42,7 +42,7 @@
 #include "udev_sysfs.h"
 #include "udev_version.h"
 #include "logging.h"
-#include "namedev.h"
+#include "udev_rules.h"
 #include "udev_db.h"
 #include "udev_selinux.h"
 
@@ -276,7 +276,7 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 		}
 	}
 
-	if (namedev_name_device(udev, class_dev) != 0)
+	if (udev_rules_get_name(udev, class_dev) != 0)
 		return 0;
 
 	dbg("adding name='%s'", udev->name);

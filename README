@@ -65,7 +65,7 @@ To use:
 
   This will put the udev binary in /sbin, create the /udev and /etc/udev
   directories, and place the udev configuration files in /etc/udev.  You
-  will probably want to edit the namedev.* files to create custom naming
+  will probably want to edit the *.rules files to create custom naming
   rules.  More info on how the config files are set up are contained in
   comments in the files, and is located in the documentation.
 

@@ -39,7 +39,7 @@
 #include "udev_libc_wrapper.h"
 #include "udev.h"
 #include "logging.h"
-#include "namedev.h"
+#include "udev_rules.h"
 #include "udev_utils.h"
 #include "list.h"
 
@@ -317,7 +317,7 @@ int main(int argc, char *argv[], char *envp[])
 	setenv("ACTION", "add", 1);
 	setenv("UDEV_START", "1", 1);
 
-	namedev_init();
+	udev_rules_init();
 
 	udev_scan_block();
 	udev_scan_class();

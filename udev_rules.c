@@ -1,5 +1,5 @@
 /*
- * namedev.c
+ * udev_rules.c
  *
  * Userspace devfs
  *
@@ -40,7 +40,7 @@
 #include "udev_utils.h"
 #include "udev_version.h"
 #include "logging.h"
-#include "namedev.h"
+#include "udev_rules.h"
 #include "udev_db.h"
 
 static struct sysfs_attribute *find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, char *attr);
@@ -498,13 +498,13 @@ static int compare_sysfs_attribute(struct sysfs_class_device *class_dev, struct 
 	return 0;
 }
 
-static int match_sysfs_pairs(struct config_device *dev, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
+static int match_sysfs_pairs(struct udev_rule *rule, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
 	struct sysfs_pair *pair;
 	int i;
 
 	for (i = 0; i < MAX_SYSFS_PAIRS; ++i) {
-		pair = &dev->sysfs_pair[i];
+		pair = &rule->sysfs_pair[i];
 		if ((pair->file[0] == '\0') || (pair->value[0] == '\0'))
 			break;
 		if (compare_sysfs_attribute(class_dev, sysfs_device, pair) != 0) {
@@ -516,7 +516,7 @@ static int match_sysfs_pairs(struct config_device *dev, struct sysfs_class_devic
 	return 0;
 }
 
-static int match_id(struct config_device *dev, struct sysfs_device *sysfs_device)
+static int match_id(struct udev_rule *rule, struct sysfs_device *sysfs_device)
 {
 	char path[PATH_SIZE];
 	char *temp;
@@ -524,30 +524,30 @@ static int match_id(struct config_device *dev, struct sysfs_device *sysfs_device
 	strlcpy(path, sysfs_device->path, sizeof(path));
 	temp = strrchr(path, '/');
 	temp++;
-	dbg("search '%s' in '%s', path='%s'", dev->id, temp, path);
-	if (strcmp_pattern(dev->id, temp) != 0)
+	dbg("search '%s' in '%s', path='%s'", rule->id, temp, path);
+	if (strcmp_pattern(rule->id, temp) != 0)
 		return -ENODEV;
 
 	return 0;
 }
 
-static int match_rule(struct udevice *udev, struct config_device *dev,
+static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		      struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
-	if (dev->kernel[0] != '\0') {
-		dbg("check for " FIELD_KERNEL " dev->kernel='%s' class_dev->name='%s'",
-		    dev->kernel, class_dev->name);
-		if (strcmp_pattern(dev->kernel, class_dev->name) != 0) {
+	if (rule->kernel[0] != '\0') {
+		dbg("check for " FIELD_KERNEL " rule->kernel='%s' class_dev->name='%s'",
+		    rule->kernel, class_dev->name);
+		if (strcmp_pattern(rule->kernel, class_dev->name) != 0) {
 			dbg(FIELD_KERNEL " is not matching");
 			goto exit;
 		}
 		dbg(FIELD_KERNEL " matches");
 	}
 
-	if (dev->subsystem[0] != '\0') {
-		dbg("check for " FIELD_SUBSYSTEM " dev->subsystem='%s' class_dev->name='%s'",
-		    dev->subsystem, class_dev->name);
-		if (strcmp_pattern(dev->subsystem, udev->subsystem) != 0) {
+	if (rule->subsystem[0] != '\0') {
+		dbg("check for " FIELD_SUBSYSTEM " rule->subsystem='%s' class_dev->name='%s'",
+		    rule->subsystem, class_dev->name);
+		if (strcmp_pattern(rule->subsystem, udev->subsystem) != 0) {
 			dbg(FIELD_SUBSYSTEM " is not matching");
 			goto exit;
 		}
@@ -557,14 +557,14 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 	/* walk up the chain of physical devices and find a match */
 	while (1) {
 		/* check for matching driver */
-		if (dev->driver[0] != '\0') {
+		if (rule->driver[0] != '\0') {
 			if (sysfs_device == NULL) {
 				dbg("device has no sysfs_device");
 				goto try_parent;
 			}
-			dbg("check for " FIELD_DRIVER " dev->driver='%s' sysfs_device->driver_name='%s'",
-			    dev->driver, sysfs_device->driver_name);
-			if (strcmp_pattern(dev->driver, sysfs_device->driver_name) != 0) {
+			dbg("check for " FIELD_DRIVER " rule->driver='%s' sysfs_device->driver_name='%s'",
+			    rule->driver, sysfs_device->driver_name);
+			if (strcmp_pattern(rule->driver, sysfs_device->driver_name) != 0) {
 				dbg(FIELD_DRIVER " is not matching");
 				goto try_parent;
 			}
@@ -572,14 +572,14 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 		}
 
 		/* check for matching bus value */
-		if (dev->bus[0] != '\0') {
+		if (rule->bus[0] != '\0') {
 			if (sysfs_device == NULL) {
 				dbg("device has no sysfs_device");
 				goto try_parent;
 			}
-			dbg("check for " FIELD_BUS " dev->bus='%s' sysfs_device->bus='%s'",
-			    dev->bus, sysfs_device->bus);
-			if (strcmp_pattern(dev->bus, sysfs_device->bus) != 0) {
+			dbg("check for " FIELD_BUS " rule->bus='%s' sysfs_device->bus='%s'",
+			    rule->bus, sysfs_device->bus);
+			if (strcmp_pattern(rule->bus, sysfs_device->bus) != 0) {
 				dbg(FIELD_BUS " is not matching");
 				goto try_parent;
 			}
@@ -587,13 +587,13 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 		}
 
 		/* check for matching bus id */
-		if (dev->id[0] != '\0') {
+		if (rule->id[0] != '\0') {
 			if (sysfs_device == NULL) {
 				dbg("device has no sysfs_device");
 				goto try_parent;
 			}
 			dbg("check " FIELD_ID);
-			if (match_id(dev, sysfs_device) != 0) {
+			if (match_id(rule, sysfs_device) != 0) {
 				dbg(FIELD_ID " is not matching");
 				goto try_parent;
 			}
@@ -601,9 +601,9 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 		}
 
 		/* check for matching sysfs pairs */
-		if (dev->sysfs_pair[0].file[0] != '\0') {
+		if (rule->sysfs_pair[0].file[0] != '\0') {
 			dbg("check " FIELD_SYSFS " pairs");
-			if (match_sysfs_pairs(dev, class_dev, sysfs_device) != 0) {
+			if (match_sysfs_pairs(rule, class_dev, sysfs_device) != 0) {
 				dbg(FIELD_SYSFS " is not matching");
 				goto try_parent;
 			}
@@ -622,11 +622,11 @@ try_parent:
 	}
 
 	/* execute external program */
-	if (dev->program[0] != '\0') {
+	if (rule->program[0] != '\0') {
 		char program[PATH_SIZE];
 
 		dbg("check " FIELD_PROGRAM);
-		strlcpy(program, dev->program, sizeof(program));
+		strlcpy(program, rule->program, sizeof(program));
 		apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
 		if (execute_program(udev, program, udev->program_result, sizeof(udev->program_result)) != 0) {
 			dbg(FIELD_PROGRAM " returned nonzero");
@@ -636,10 +636,10 @@ try_parent:
 	}
 
 	/* check for matching result of external program */
-	if (dev->result[0] != '\0') {
-		dbg("check for " FIELD_RESULT " dev->result='%s', udev->program_result='%s'",
-		    dev->result, udev->program_result);
-		if (strcmp_pattern(dev->result, udev->program_result) != 0) {
+	if (rule->result[0] != '\0') {
+		dbg("check for " FIELD_RESULT "rule->result='%s', udev->program_result='%s'",
+		   rule->result, udev->program_result);
+		if (strcmp_pattern(rule->result, udev->program_result) != 0) {
 			dbg(FIELD_RESULT " is not matching");
 			goto try_parent;
 		}
@@ -653,11 +653,11 @@ exit:
 	return -1;
 }
 
-int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_dev)
+int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_dev)
 {
 	struct sysfs_class_device *class_dev_parent;
 	struct sysfs_device *sysfs_device = NULL;
-	struct config_device *dev;
+	struct udev_rule *rule;
 
 	dbg("class_dev->name='%s'", class_dev->name);
 
@@ -683,50 +683,50 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 	dbg("udev->kernel_name='%s'", udev->kernel_name);
 
 	/* look for a matching rule to apply */
-	list_for_each_entry(dev, &config_device_list, node) {
+	list_for_each_entry(rule, &udev_rule_list, node) {
 		dbg("process rule");
-		if (match_rule(udev, dev, class_dev, sysfs_device) == 0) {
+		if (match_rule(udev, rule, class_dev, sysfs_device) == 0) {
 
 			/* apply options */
-			if (dev->ignore_device) {
+			if (rule->ignore_device) {
 				info("configured rule in '%s[%i]' applied, '%s' is ignored",
-				     dev->config_file, dev->config_line, udev->kernel_name);
+				     rule->config_file, rule->config_line, udev->kernel_name);
 				return -1;
 			}
-			if (dev->ignore_remove) {
+			if (rule->ignore_remove) {
 				udev->ignore_remove = 1;
-				dbg_parse("remove event should be ignored");
+				dbg("remove event should be ignored");
 			}
 			/* apply all_partitions option only at a main block device */
-			if (dev->partitions && udev->type == DEV_BLOCK && udev->kernel_number[0] == '\0') {
-				udev->partitions = dev->partitions;
+			if (rule->partitions && udev->type == DEV_BLOCK && udev->kernel_number[0] == '\0') {
+				udev->partitions = rule->partitions;
 				dbg("creation of partition nodes requested");
 			}
 
 			/* apply permissions */
-			if (dev->mode != 0000) {
-				udev->mode = dev->mode;
+			if (rule->mode != 0000) {
+				udev->mode = rule->mode;
 				dbg("applied mode=%#o to '%s'", udev->mode, udev->kernel_name);
 			}
-			if (dev->owner[0] != '\0') {
-				strlcpy(udev->owner, dev->owner, sizeof(udev->owner));
+			if (rule->owner[0] != '\0') {
+				strlcpy(udev->owner, rule->owner, sizeof(udev->owner));
 				apply_format(udev, udev->owner, sizeof(udev->owner), class_dev, sysfs_device);
 				dbg("applied owner='%s' to '%s'", udev->owner, udev->kernel_name);
 			}
-			if (dev->group[0] != '\0') {
-				strlcpy(udev->group, dev->group, sizeof(udev->group));
+			if (rule->group[0] != '\0') {
+				strlcpy(udev->group, rule->group, sizeof(udev->group));
 				apply_format(udev, udev->group, sizeof(udev->group), class_dev, sysfs_device);
 				dbg("applied group='%s' to '%s'", udev->group, udev->kernel_name);
 			}
 
 			/* collect symlinks */
-			if (dev->symlink[0] != '\0') {
+			if (rule->symlink[0] != '\0') {
 				char temp[PATH_SIZE];
 				char *pos, *next;
 
 				info("configured rule in '%s[%i]' applied, added symlink '%s'",
-				     dev->config_file, dev->config_line, dev->symlink);
-				strlcpy(temp, dev->symlink, sizeof(temp));
+				     rule->config_file, rule->config_line, rule->symlink);
+				strlcpy(temp, rule->symlink, sizeof(temp));
 				apply_format(udev, temp, sizeof(temp), class_dev, sysfs_device);
 
 				/* add multiple symlinks separated by spaces */
@@ -744,14 +744,14 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 			}
 
 			/* rule matches */
-			if (dev->name[0] != '\0') {
+			if (rule->name[0] != '\0') {
 				info("configured rule in '%s[%i]' applied, '%s' becomes '%s'",
-				     dev->config_file, dev->config_line, udev->kernel_name, dev->name);
+				     rule->config_file, rule->config_line, udev->kernel_name, rule->name);
 
-				strlcpy(udev->name, dev->name, sizeof(udev->name));
+				strlcpy(udev->name, rule->name, sizeof(udev->name));
 				apply_format(udev, udev->name, sizeof(udev->name), class_dev, sysfs_device);
-				strlcpy(udev->config_file, dev->config_file, sizeof(udev->config_file));
-				udev->config_line = dev->config_line;
+				strlcpy(udev->config_file, rule->config_file, sizeof(udev->config_file));
+				udev->config_line = rule->config_line;
 
 				if (udev->type != DEV_NET)
 					dbg("name, '%s' is going to have owner='%s', group='%s', mode=%#o partitions=%i",

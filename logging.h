@@ -26,7 +26,6 @@
 
 #define info(format, arg...)		do { } while (0)
 #define dbg(format, arg...)		do { } while (0)
-#define dbg_parse(format, arg...)	do { } while (0)
 #define logging_init(foo)		do { } while (0)
 #define logging_close(foo)		do { } while (0)
 
@@ -44,15 +43,6 @@
 #ifdef DEBUG
 #undef dbg
 #define dbg(format, arg...)							\
-	do {									\
-		log_message(LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
-	} while (0)
-#endif
-
-/* Parser needs it's own debugging statement, we usually don't care about this at all */
-#ifdef DEBUG_PARSER
-#undef dbg_parse
-#define dbg_parse(format, arg...)						\
 	do {									\
 		log_message(LOG_DEBUG , "%s: " format , __FUNCTION__ , ## arg);	\
 	} while (0)

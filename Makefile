@@ -117,7 +117,7 @@ CFLAGS := -pipe
 HEADERS = \
 	udev.h			\
 	udev_utils.h		\
-	namedev.h		\
+	udev_rules.h		\
 	udev_version.h		\
 	udev_db.h		\
 	udev_sysfs.h		\
@@ -142,8 +142,8 @@ UDEV_OBJS = \
 	udev_sysfs.o		\
 	udev_db.o		\
 	udev_multiplex.o	\
-	namedev.o		\
-	namedev_parse.o		\
+	udev_rules.o		\
+	udev_rules_parse.o	\
 	udev_libc_wrapper.o
 
 OBJS = \

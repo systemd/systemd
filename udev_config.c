@@ -21,9 +21,6 @@
  *
  */
 
-/* define this to enable parsing debugging */
-/* #define DEBUG_PARSER */
-
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -38,7 +35,7 @@
 #include "udev_utils.h"
 #include "udev_version.h"
 #include "logging.h"
-#include "namedev.h"
+#include "udev_rules.h"
 
 /* global variables */
 char sysfs_path[PATH_SIZE];
@@ -134,14 +131,14 @@ static int parse_config_file(void)
 
 		strlcpy(line, bufline, count);
 		temp = line;
-		dbg_parse("read '%s'", temp);
+		dbg("read '%s'", temp);
 
 		retval = parse_get_pair(&temp, &variable, &value);
 		if (retval != 0)
 			info("%s:%d:%Zd: error parsing '%s'",
 			     udev_config_filename, lineno, temp-line, temp);
 
-		dbg_parse("variable='%s', value='%s'", variable, value);
+		dbg("variable='%s', value='%s'", variable, value);
 
 		if (strcasecmp(variable, "udev_root") == 0) {
 			strlcpy(udev_root, value, sizeof(udev_root));
