@@ -154,6 +154,7 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 		{ .subsystem = "ieee1394",	.device = NULL },
 		{ .subsystem = "ieee1394_host",	.device = NULL },
 		{ .subsystem = "ieee1394_node",	.device = NULL },
+		{ .subsystem = "raw",		.device = NULL },
 		{ NULL, NULL }
 	};
 	struct class_device *classdevice;
