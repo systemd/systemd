@@ -39,35 +39,15 @@
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
 #include "udev_utils.h"
+#include "udev_sysfs.h"
 #include "udev_version.h"
 #include "logging.h"
 #include "namedev.h"
 #include "udev_db.h"
 #include "udev_selinux.h"
 
-/*
- * the major/minor of a device is stored in a file called "dev"
- * The number is stored in decimal values in the format: M:m
- */
-static int get_major_minor(struct sysfs_class_device *class_dev, struct udevice *udev)
-{
-	struct sysfs_attribute *attr = NULL;
 
-	attr = sysfs_get_classdev_attr(class_dev, "dev");
-	if (attr == NULL)
-		goto error;
-	dbg("dev='%s'", attr->value);
-
-	if (sscanf(attr->value, "%u:%u", &udev->major, &udev->minor) != 2)
-		goto error;
-	dbg("found major=%d, minor=%d", udev->major, udev->minor);
-
-	return 0;
-error:
-	return -1;
-}
-
-int udev_make_node(struct udevice *udev, const char *file, int major, int minor, mode_t mode, uid_t uid, gid_t gid)
+int udev_make_node(struct udevice *udev, const char *file, dev_t devt, mode_t mode, uid_t uid, gid_t gid)
 {
 	struct stat stats;
 	int retval = 0;
@@ -77,7 +57,7 @@ int udev_make_node(struct udevice *udev, const char *file, int major, int minor,
 
 	/* preserve node with already correct numbers, to not change the inode number */
 	if (((stats.st_mode & S_IFMT) == S_IFBLK || (stats.st_mode & S_IFMT) == S_IFCHR) &&
-	    (stats.st_rdev == makedev(major, minor))) {
+	    (stats.st_rdev == devt)) {
 		dbg("preserve file '%s', cause it has correct dev_t", file);
 		selinux_setfilecon(file, udev->kernel_name, stats.st_mode);
 		goto perms;
@@ -106,10 +86,10 @@ create:
 	}
 
 	selinux_setfscreatecon(file, udev->kernel_name, mode);
-	retval = mknod(file, mode, makedev(major, minor));
+	retval = mknod(file, mode, devt);
 	if (retval != 0) {
 		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
-		    file, mode, major, minor, strerror(errno));
+		    file, mode, major(devt), minor(devt), strerror(errno));
 		goto exit;
 	}
 
@@ -185,12 +165,12 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 
 	if (!udev->test_run) {
 		info("creating device node '%s'", filename);
-		if (udev_make_node(udev, filename, udev->major, udev->minor, udev->mode, uid, gid) != 0)
+		if (udev_make_node(udev, filename, udev->devt, udev->mode, uid, gid) != 0)
 			goto error;
 	} else {
 		info("creating device node '%s', major = '%d', minor = '%d', "
 		     "mode = '%#o', uid = '%d', gid = '%d'", filename,
-		     udev->major, udev->minor, udev->mode, uid, gid);
+		     major(udev->devt), minor(udev->devt), udev->mode, uid, gid);
 	}
 
 	/* create all_partitions if requested */
@@ -208,9 +188,12 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 		info("creating device partition nodes '%s[1-%i]'", filename, udev->partitions);
 		if (!udev->test_run) {
 			for (i = 1; i <= udev->partitions; i++) {
+				dev_t part_devt;
+
 				strfieldcpy(partitionname, filename);
 				strintcat(partitionname, i);
-				udev_make_node(udev, partitionname, udev->major, udev->minor + i, udev->mode, uid, gid);
+				part_devt = makedev(major(udev->devt), minor(udev->devt)+1);
+				udev_make_node(udev, partitionname, part_devt, udev->mode, uid, gid);
 			}
 		}
 	}
@@ -295,8 +278,8 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 	int retval = 0;
 
 	if (udev->type == 'b' || udev->type == 'c') {
-		retval = get_major_minor(class_dev, udev);
-		if (retval != 0) {
+		udev->devt = get_devt(class_dev);
+		if (!udev->devt) {
 			dbg("no dev-file found, do nothing");
 			return 0;
 		}

@@ -228,12 +228,12 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			dbg("substitute kernel number '%s'", udev->kernel_number);
 				break;
 		case 'm':
-			strintcatmax(string, udev->minor, maxsize);
-			dbg("substitute minor number '%u'", udev->minor);
+			strintcatmax(string, minor(udev->devt), maxsize);
+			dbg("substitute minor number '%u'", minor(udev->devt));
 			break;
 		case 'M':
-			strintcatmax(string, udev->major, maxsize);
-			dbg("substitute major number '%u'", udev->major);
+			strintcatmax(string, major(udev->devt), maxsize);
+			dbg("substitute major number '%u'", major(udev->devt));
 			break;
 		case 'c':
 			if (strlen(udev->program_result) == 0)
@@ -317,8 +317,9 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 		case 'N':
 			if (udev->tmp_node[0] == '\0') {
 				dbg("create temporary device node for callout");
-				snprintf(udev->tmp_node, NAME_SIZE-1, "%s/.tmp-%u-%u", udev_root, udev->major, udev->minor);
-				udev_make_node(udev, udev->tmp_node, udev->major, udev->minor, 0600, 0, 0);
+				snprintf(udev->tmp_node, NAME_SIZE, "%s/.tmp-%u-%u", udev_root, major(udev->devt), minor(udev->devt));
+				udev->tmp_node[NAME_SIZE] = '\0';
+				udev_make_node(udev, udev->tmp_node, udev->devt, 0600, 0, 0);
 			}
 			strfieldcatmax(string, udev->tmp_node, maxsize);
 			dbg("substitute temporary device node name '%s'", udev->tmp_node);

@@ -85,7 +85,7 @@ static int delete_node(struct udevice *udev)
 	if (stat(filename, &stats) != 0)
 		return -1;
 
-	if (udev->major && stats.st_rdev != makedev(udev->major, udev->minor)) {
+	if (udev->devt && stats.st_rdev != udev->devt) {
 		info("device node '%s' points to a different device, skip removal", filename);
 		return -1;
 	}

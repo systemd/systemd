@@ -59,6 +59,23 @@ static const struct subsystem_file {
 	{ NULL, NULL }
 };
 
+dev_t get_devt(struct sysfs_class_device *class_dev)
+{
+	struct sysfs_attribute *attr = NULL;
+	unsigned int major, minor;
+
+	attr = sysfs_get_classdev_attr(class_dev, "dev");
+	if (attr == NULL)
+		return 0;
+	dbg("dev='%s'", attr->value);
+
+	if (sscanf(attr->value, "%u:%u", &major, &minor) != 2)
+		return 0;
+	dbg("found major=%d, minor=%d", major, minor);
+
+	return makedev(major, minor);
+}
+
 int subsystem_expect_no_dev(const char *subsystem)
 {
 	const struct subsystem_file *file;
