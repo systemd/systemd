@@ -381,7 +381,7 @@ int wait_for_devices_device(struct sysfs_device *devices_dev,
 
 struct sysfs_class_device *wait_class_device_open(const char *path)
 {
-	struct sysfs_class_device *class_dev;
+	struct sysfs_class_device *class_dev = NULL;
 	int loop;
 
 	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
@@ -393,7 +393,7 @@ struct sysfs_class_device *wait_class_device_open(const char *path)
 		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
 	}
 
-	return (class_dev);
+	return class_dev;
 }
 
 int wait_for_class_device(struct sysfs_class_device *class_dev,
@@ -450,7 +450,7 @@ int wait_for_class_device(struct sysfs_class_device *class_dev,
 
 struct sysfs_device *wait_devices_device_open(const char *path)
 {
-	struct sysfs_device *devices_dev;
+	struct sysfs_device *devices_dev = NULL;
 	int loop;
 
 	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
@@ -462,5 +462,5 @@ struct sysfs_device *wait_devices_device_open(const char *path)
 		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
 	}
 
-	return(devices_dev);
+	return devices_dev;
 }
