@@ -19,7 +19,7 @@
 # if we want to build SELinux support in or not.
 # 0 - no SELinux support
 # 1 - SELinux support
-%define selinux 1 
+%define selinux 0
 
 # if we want to enable debugging support in udev.  If it is enabled, lots of 
 # stuff will get sent to the debug syslog.
