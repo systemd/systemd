@@ -166,9 +166,26 @@ static void set_to_local_user(char *user)
 	endutent();
 }
 
-static int create_node(struct udevice *dev, int fake)
+/* Used to unlink existing files to ensure that our new file/symlink is created */
+static int unlink_entry(char *filename)
 {
 	struct stat stats;
+	int retval = 0;
+	
+	if (lstat(filename, &stats) == 0) {
+		if ((stats.st_mode & S_IFMT) != S_IFDIR) {
+			retval = unlink(filename);
+			if (retval) {
+				dbg("unlink(%s) failed with error '%s', "
+				    filename, strerror(errno));
+			}
+		}
+	}
+	return retval;
+}
+
+static int create_node(struct udevice *dev, int fake)
+{
 	char filename[255];
 	char linktarget[255];
 	char partitionname[255];
@@ -235,6 +252,7 @@ static int create_node(struct udevice *dev, int fake)
 	}
 
 	if (!fake) {
+		unlink_entry(filename);
 		info("creating device node '%s'", filename);
 		make_node(filename, dev->major, dev->minor, dev->mode, uid, gid);
 	} else {
@@ -250,6 +268,7 @@ static int create_node(struct udevice *dev, int fake)
 			for (i = 1; i <= dev->partitions; i++) {
 				strfieldcpy(partitionname, filename);
 				strintcat(partitionname, i);
+				unlink_entry(partitionname);
 				make_node(partitionname, dev->major,
 					  dev->minor + i, dev->mode, uid, gid);
 			}
@@ -291,14 +310,8 @@ static int create_node(struct udevice *dev, int fake)
 
 			strfieldcat(linktarget, &dev->name[tail]);
 
-			/* unlink existing files to ensure that our symlink is created */
-			if (!fake && (lstat(filename, &stats) == 0)) {
-				if ((stats.st_mode & S_IFMT) != S_IFDIR) {
-					if (unlink(filename))
-						dbg("unlink(%s) failed with error '%s'",
-						    filename, strerror(errno));
-				}
-			}
+			if (!fake)
+				unlink_entry(filename);
 
 			dbg("symlink(%s, %s)", linktarget, filename);
 			if (!fake) {
