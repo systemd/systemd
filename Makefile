@@ -133,9 +133,13 @@ else
 	LDFLAGS = --static 
 endif
 
-all: $(LIBC) $(ROOT)
+all: $(ROOT)
 
-$(ARCH_LIB_OBJS) :
+$(ROOT): $(LIBC)
+
+$(ARCH_LIB_OBJS) : $(CRT0)
+
+$(CRT0):
 	$(MAKE) -C klibc
 
 TDB =	tdb/tdb.o	\
@@ -171,8 +175,9 @@ udev_version.h:
 	@echo \#define UDEV_CONFIG_DIR	\"$(configdir)\" >> $@
 	@echo \#define UDEV_ROOT	\"$(udevdir)\" >> $@
 
+$(OBJS): $(GEN_HEADERS)
 
-$(ROOT): $(GEN_HEADERS) $(OBJS)
+$(ROOT): $(OBJS)
 	$(LD) $(LDFLAGS) -o $(ROOT) $(CRT0) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $(ROOT)
 
