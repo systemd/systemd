@@ -161,6 +161,22 @@ KERNEL="ttyUSB0", NAME="visor"
 EOF
 	},
 	{
+		desc		=> "Handle whitespace only lines (and replace kernel name)",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "whitespace" ,
+		conf		=> <<EOF
+
+ 
+
+ # this is a comment with whitespace before the comment 
+KERNEL="ttyUSB0", NAME="whitespace"
+
+ 
+
+EOF
+	},
+	{
 		desc		=> "Handle empty lines in config file (and replace kernel name)",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",

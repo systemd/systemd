@@ -182,15 +182,13 @@ static int namedev_parse_rules(char *filename)
 			continue;
 		}
 
-		/* empty line? */
-		if (bufline[0] == '\0' || bufline[0] == '\n')
-			continue;
-
 		/* eat the whitespace */
-		while (isspace(bufline[0])) {
+		while ((count > 0) && isspace(bufline[0])) {
 			bufline++;
 			count--;
 		}
+		if (count == 0)
+			continue;
 
 		/* see if this is a comment */
 		if (bufline[0] == COMMENT_CHARACTER)
@@ -381,15 +379,13 @@ static int namedev_parse_permissions(char *filename)
 			continue;
 		}
 
-		/* empty line? */
-		if (bufline[0] == '\0' || bufline[0] == '\n')
-			continue;
-
 		/* eat the whitespace */
-		while (isspace(bufline[0])) {
+		while ((count > 0) && isspace(bufline[0])) {
 			bufline++;
 			count--;
 		}
+		if (count == 0)
+			continue;
 
 		/* see if this is a comment */
 		if (bufline[0] == COMMENT_CHARACTER)
