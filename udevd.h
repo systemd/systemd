@@ -21,9 +21,11 @@
  *
  */
 
-#define HOTPLUGMSGTYPE		44
-#define DEFAULT_EXEC_PROGRAM	"/sbin/udev"
+#define DEFAULT_UDEV_EXEC	"./udev"
+#define DEFAULT_UDEVD_EXEC	"./udevd"
+
 #define IPC_KEY_ID		0
+#define HOTPLUGMSGTYPE		44
 
 
 struct hotplug_msg {

@@ -29,6 +29,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <time.h>
+#include <wait.h>
 
 #include "udev.h"
 #include "udevd.h"
@@ -78,6 +81,39 @@ static void free_hotplugmsg(struct hotplug_msg *pmsg)
 	free(pmsg);
 }
 
+static int start_daemon(void)
+{
+	pid_t pid;
+	pid_t child_pid;
+
+	pid = fork();
+	switch (pid) {
+	case 0:
+		/* helper child */
+		child_pid = fork();
+		switch (child_pid) {
+		case 0:
+			/* daemon */
+			execl(DEFAULT_UDEVD_EXEC, NULL);
+			dbg("exec of daemon failed");
+			exit(1);
+		case -1:
+			dbg("fork of daemon failed");
+			return -1;
+		default:
+			exit(0);
+		}
+		break;
+	case -1:
+		dbg("fork of helper failed");
+		return -1;
+	default:
+		wait(0);
+	}
+	return 0;
+}
+
+
 int main(int argc, char* argv[])
 {
 	int msgid;
@@ -91,6 +127,8 @@ int main(int argc, char* argv[])
 	int seq;
 	int retval = -EINVAL;
 	int size;
+	int loop;
+	struct timespec tspec;
 
 	subsystem = argv[1];
 	if (subsystem == NULL) {
@@ -118,22 +156,13 @@ int main(int argc, char* argv[])
 	seq = atoi(seqnum);
 
 	/* create ipc message queue or get id of our existing one */
-	key = ftok(DEFAULT_EXEC_PROGRAM, IPC_KEY_ID);
+	key = ftok(DEFAULT_UDEVD_EXEC, IPC_KEY_ID);
 	size =  build_hotplugmsg( (struct hotplug_msg**) &pmsg, action, devpath, subsystem, seq);
 	msgid = msgget(key, IPC_CREAT);
 	if (msgid == -1) {
 		dbg("error open ipc queue");
 		goto exit;
 	}
-
-	/* get state of ipc queue */
-	retval = msgctl(msgid, IPC_STAT, &msg_queue);
-	if (retval == -1) {
-		dbg("error getting info on ipc queue");
-		goto exit;
-	}
-	if (msg_queue.msg_qnum > 0)
-		dbg("%li messages already in the ipc queue", msg_queue.msg_qnum);
 
 	/* send ipc message to the daemon */
 	retval = msgsnd(msgid, pmsg, size, 0);
@@ -142,11 +171,25 @@ int main(int argc, char* argv[])
 		dbg("error sending ipc message");
 		goto exit;
 	}
-	return 0;
+
+	/* get state of ipc queue */
+	tspec.tv_sec = 0;
+	tspec.tv_nsec = 10000000;  /* 10 millisec */
+	loop = 20;
+	while (loop--) {
+		retval = msgctl(msgid, IPC_STAT, &msg_queue);
+		if (retval == -1) {
+			dbg("error getting info on ipc queue");
+			goto exit;
+		}
+		if (msg_queue.msg_qnum == 0)
+			goto exit;
+		nanosleep(&tspec, NULL);
+	}
+
+	info("message is still in the ipc queue, starting daemon...");
+	retval = start_daemon();
 
 exit:
-	if (retval > 0)
-		retval = 0;
-
 	return retval;
 }

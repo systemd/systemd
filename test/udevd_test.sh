@@ -1,47 +1,52 @@
 #!/bin/bash
 
-# reset udevd, expected sequence number and empty queue
-killall -HUP udevd
+# kill daemon, first event will start it again
+killall udevd
 
-export ACTION=add
-export DEVPATH=/block/sda
+# connect(123) - disconnect(456) - connect(789) sequence of sda/sdb/sdc
 
 export SEQNUM=1
+export ACTION=add
+export DEVPATH=/block/sda
 ./udevsend block
 
 export SEQNUM=2
-./udevsend block
-
-export SEQNUM=3
-./udevsend block
-
-export SEQNUM=5
+export ACTION=add
+export DEVPATH=/block/sdb
 ./udevsend block
 
 export SEQNUM=4
+export ACTION=remove
+export DEVPATH=/block/sda
+./udevsend block
+
+export SEQNUM=3
+export ACTION=add
+export DEVPATH=/block/sdc
 ./udevsend block
 
 export SEQNUM=6
+export ACTION=remove
+export DEVPATH=/block/sdc
+./udevsend block
+
+export SEQNUM=5
+export ACTION=remove
+export DEVPATH=/block/sdb
 ./udevsend block
 
 export SEQNUM=7
-./udevsend block
-
-export SEQNUM=10
-./udevsend block
+export ACTION=add
+export DEVPATH=/block/sda
+#./udevsend block
 
 export SEQNUM=9
-#./udevsend block
+export ACTION=add
+export DEVPATH=/block/sdc
+./udevsend block
 
 export SEQNUM=8
-#./udevsend block
-
-export SEQNUM=13
-./udevsend block
-
-export SEQNUM=12
-./udevsend block
-
-export SEQNUM=11
+export ACTION=add
+export DEVPATH=/block/sdb
 ./udevsend block
 

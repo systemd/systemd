@@ -37,49 +37,20 @@
 #include "udevd.h"
 #include "logging.h"
 
-#define BUFFER_SIZE		1024
-#define TIMEOUT_SECONDS		10
-
-static void reset_timer(void);
-static void reset_queue(void);
+#define BUFFER_SIZE			1024
+#define EVENT_TIMEOUT_SECONDS		10
+#define DAEMON_TIMEOUT_SECONDS		30
 
 
 static int expect_seqnum = 0;
-static int timeout_value = TIMEOUT_SECONDS;
-static int timeout = 0;
 static struct hotplug_msg *head = NULL;
-static char exec_program[100];
 
-
-static void sig_handler(int signum)
-{
-	dbg("caught signal %d", signum);
-	switch (signum) {
-		case SIGHUP:
-			dbg("reset requested, all waiting events killed");
-			reset_timer();
-			reset_queue();
-			timeout = 0;
-			expect_seqnum = 0;
-			break;
-
-		case SIGINT:
-		case SIGTERM:
-		case SIGKILL:
-			exit(20 + signum);
-			break;
-
-		default:
-			dbg("unhandled signal");
-	}
-}
 
 static void sig_alarmhandler(int signum)
 {
 	dbg("caught signal %d", signum);
 	switch (signum) {
 	case SIGALRM:
-		timeout = 1;
 		dbg("event timeout reached");
 		break;
 
@@ -94,9 +65,9 @@ static void dump_queue(void)
 	p = head;
 
 	dbg("next expected sequence is %d", expect_seqnum);
-	while(p) {
+	while(p != NULL) {
 		dbg("sequence %d in queue", p->seqnum);
-		p=p->next;
+		p = p->next;
 	}
 }
 
@@ -110,59 +81,37 @@ static int dispatch_msg(struct hotplug_msg *pmsg)
 {
 	pid_t pid;
 	char *argv[3];
-	int retval;
 	extern char **environ;
 
 	dump_msg(pmsg);
-	dbg("exec '%s'", exec_program);
 
 	setenv("ACTION", pmsg->action, 1);
 	setenv("DEVPATH", pmsg->devpath, 1);
-
-	argv[0] = exec_program;
+	argv[0] = DEFAULT_UDEV_EXEC;
 	argv[1] = pmsg->subsystem;
 	argv[2] = NULL;
 
 	pid = fork();
 	switch (pid) {
 	case 0:
-		retval = execve(argv[0], argv, environ);
-		if (retval != 0) {
-			dbg("child execve failed");
-			exit(1);
-		}
+		/* child */
+		execve(argv[0], argv, environ);
+		dbg("exec of child failed");
+		exit(1);
 		break;
 	case -1:
-		dbg("fork failed");
+		dbg("fork of child failed");
 		return -1;
 	default:
 		wait(0);
-		break;
 	}
 	return 0;
 }
 
-static void reset_timer(void)
-{
-	alarm(0);
-}
-
-static void set_timer(void)
+static void set_timer(int seconds)
 {
 	signal(SIGALRM, sig_alarmhandler);
-	alarm(timeout_value);
-}
-
-static void reset_queue(void)
-{
-	struct hotplug_msg *p;
-	p = head;
-
-	while(head) {
-		p = head;
-		head = head->next;
-		free(p);
-	}
+	alarm(seconds);
 }
 
 static void check_queue(void)
@@ -171,7 +120,7 @@ static void check_queue(void)
 	p = head;
 
 	dump_queue();
-	while(head && head->seqnum == expect_seqnum) {
+	while(head != NULL && head->seqnum == expect_seqnum) {
 		dispatch_msg(head);
 		expect_seqnum++;
 		p = head;
@@ -179,9 +128,9 @@ static void check_queue(void)
 		free(p);
 	}
 	if (head != NULL)
-		set_timer();
+		set_timer(EVENT_TIMEOUT_SECONDS);
 	else
-		reset_timer();
+		set_timer(DAEMON_TIMEOUT_SECONDS);
 }
 
 static void add_queue(struct hotplug_msg *pmsg)
@@ -195,7 +144,7 @@ static void add_queue(struct hotplug_msg *pmsg)
 	pnewmsg = malloc(sizeof(struct hotplug_msg));
 	*pnewmsg = *pmsg;
 	pnewmsg->next = NULL;
-	while(p && pmsg->seqnum > p->seqnum) {
+	while(p != NULL && pmsg->seqnum > p->seqnum) {
 		p1 = p;
 		p = p->next;
 	}
@@ -216,12 +165,12 @@ static int process_queue(void)
 	char buf[BUFFER_SIZE];
 	int ret;
 
-	key = ftok(DEFAULT_EXEC_PROGRAM, IPC_KEY_ID);
+	key = ftok(DEFAULT_UDEVD_EXEC, IPC_KEY_ID);
 	pmsg = (struct hotplug_msg *) buf;
 	msgid = msgget(key, IPC_CREAT);
 	if (msgid == -1) {
 		dbg("open message queue error");
-		goto exit;
+		return -1;
 	}
 	while (1) {
 		ret = msgrcv(msgid, (struct msgbuf *) buf, BUFFER_SIZE-4, HOTPLUGMSGTYPE, 0);
@@ -236,7 +185,7 @@ static int process_queue(void)
 
 			if (pmsg->seqnum > expect_seqnum) {
 				add_queue(pmsg);
-				set_timer();
+				set_timer(EVENT_TIMEOUT_SECONDS);
 			} else {
 				if (pmsg->seqnum == expect_seqnum) {
 					dispatch_msg(pmsg);
@@ -246,37 +195,49 @@ static int process_queue(void)
 					dbg("timeout event for unexpected sequence number %d", pmsg->seqnum);
 				}
 			}
-		} else
+		} else {
 			if (errno == EINTR) {
 				if (head != NULL) {
-					/* timeout, skip all missing, proceed with next queued event */
-					dbg("timeout reached, skip events %d - %d", expect_seqnum, head->seqnum-1);
+					/* event timeout, skip all missing, proceed with next queued event */
+					info("timeout reached, skip events %d - %d", expect_seqnum, head->seqnum-1);
 					expect_seqnum = head->seqnum;
+				} else {
+					info("we have nothing to do, so daemon exits...");
+					exit(0);
 				}
 				check_queue();
-				timeout = 0;
 			} else {
 				dbg("ipc message receive error '%s'", strerror(errno));
 			}
+		}
 	}
 	return 0;
-exit:
-	return -1;
+}
+
+static void sig_handler(int signum)
+{
+	dbg("caught signal %d", signum);
+	switch (signum) {
+		case SIGINT:
+		case SIGTERM:
+		case SIGKILL:
+			exit(20 + signum);
+			break;
+
+		default:
+			dbg("unhandled signal");
+	}
 }
 
 int main(int argc, char *argv[])
 {
-	/* get program to exec on events */
-	if (argc == 2)
-		strncpy(exec_program, argv[1], sizeof(exec_program));
-	else
-		strcpy(exec_program, DEFAULT_EXEC_PROGRAM);
-
 	/* set up signal handler */
 	signal(SIGINT, sig_handler);
 	signal(SIGTERM, sig_handler);
 	signal(SIGKILL, sig_handler);
-	signal(SIGHUP, sig_handler);
+
+	/* we exit if we have nothing to do, next event will start us again */
+	set_timer(DAEMON_TIMEOUT_SECONDS);
 
 	/* main loop */
 	process_queue();
