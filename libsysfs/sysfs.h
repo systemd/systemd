@@ -27,7 +27,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <mntent.h>
 #include <dirent.h>
 #include <sys/stat.h>
 #include <fcntl.h>
