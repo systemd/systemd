@@ -145,7 +145,7 @@ endif
 CFLAGS += -I$(PWD)/libsysfs
 
 all: $(ROOT)
-	@for target in $(EXTRAS) ; do \
+	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
 			-C $$target $@ ; \
@@ -223,7 +223,7 @@ clean:
 	 | xargs rm -f 
 	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS)
 	$(MAKE) -C klibc clean
-	@for target in $(EXTRAS) ; do \
+	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
 			-C $$target $@ ; \
@@ -286,7 +286,7 @@ install: install-dbus-policy all $(GEN_CONFIGS)
 	$(INSTALL_DATA) udev.permissions $(DESTDIR)$(configdir)
 	- rm -f $(DESTDIR)$(hotplugdir)/udev.hotplug
 	- ln -s $(sbindir)/$(ROOT) $(DESTDIR)$(hotplugdir)/udev.hotplug
-	@for target in $(EXTRAS) ; do \
+	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
 			-C $$target $@ ; \
@@ -303,7 +303,7 @@ uninstall: uninstall-dbus-policy
 	- rmdir $(hotplugdir)
 	- rmdir $(configdir)
 	- rmdir $(udevdir)
-	@for target in $(EXTRAS) ; do \
+	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
 			-C $$target $@ ; \
