@@ -163,7 +163,7 @@ int main(int argc, char* argv[])
 	strcpy(saddr.sun_path, UDEVD_SOCK);
 
 	/* try to connect, if it fails start daemon */
-	retval = connect(sock, &saddr, sizeof(saddr));
+	retval = connect(sock, (struct sockaddr *) &saddr, sizeof(saddr));
 	if (retval != -1) {
 		goto send;
 	} else {
@@ -182,7 +182,7 @@ int main(int argc, char* argv[])
 	tspec.tv_nsec = 100000000;  /* 100 millisec */
 	loop = UDEVSEND_CONNECT_RETRY;
 	while (loop--) {
-		retval = connect(sock, &saddr, sizeof(saddr));
+		retval = connect(sock, (struct sockaddr *) &saddr, sizeof(saddr));
 		if (retval != -1)
 			goto send;
 		else

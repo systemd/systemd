@@ -161,12 +161,12 @@ else
 	CFLAGS += $(WARNINGS) -I$(GCCINCDIR)
 	LIB_OBJS = -lc
 	LDFLAGS =
-	UDEVD = $(DAEMON) $(SENDER)
+	UDEVD = $(DAEMON)
 endif
 
 CFLAGS += -I$(PWD)/libsysfs
 
-all: $(ROOT) $(UDEVD) $(HELPER)
+all: $(ROOT) $(SENDER) $(UDEVD) $(HELPER)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
