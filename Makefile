@@ -373,10 +373,12 @@ install: install-config install-dbus-policy all
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
 	$(INSTALL_DATA) -D udevinfo.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
 	$(INSTALL_DATA) -D udevd.8 $(DESTDIR)$(mandir)/man8/udevd.8
-	- ln -f -s ./udevd.8 $(DESTDIR)$(mandir)/man8/udevsend.8
-	- rm -f $(DESTDIR)$(hotplugdir)/$(ROOT).hotplug
-	- rm -f $(DESTDIR)$(udevdir)/.udev.tdb
+	- ln -f -s udevd.8 $(DESTDIR)$(mandir)/man8/udevsend.8
 	- ln -f -s $(sbindir)/$(SENDER) $(DESTDIR)$(hotplugdir)/$(ROOT).hotplug
+ifndef DESTDIR
+	- killall udevd
+	- rm -f $(udevdir)/.udev.tdb
+endif
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
