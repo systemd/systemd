@@ -524,6 +524,16 @@ BUS="scsi", KERNEL="sda", SYMLINK="symlink-only2"
 BUS="scsi", KERNEL="sda", NAME="link", SYMLINK="symlink0"
 EOF
 	},
+	{
+		desc     => "permissions test",
+		subsys   => "block",
+		devpath  => "block/sda",
+		expected => "node",
+		perms    => "5000::0444",
+		conf     => <<EOF
+BUS="scsi", KERNEL="sda", NAME="node", OWNER="5000", MODE="0444"
+EOF
+	},
 );
 
 # set env
@@ -556,6 +566,26 @@ sub run_test {
 
 	udev("add", $config->{subsys}, $config->{devpath}, \$config->{conf});
 	if (-e "$PWD/$udev_root$config->{expected}") {
+		if (defined($config->{perms})) {
+			my $wrong = 0;
+			my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
+			    $atime, $mtime, $ctime, $blksize, $blocks) = stat("$PWD/$udev_root$config->{expected}");
+
+			$config->{perms} =~ m/^(.*):(.*):(.*)$/;
+			if ($1 ne "") {
+				if ($uid != $1) { $wrong = 1; };
+			}
+			if ($2 ne "") {
+				if ($gid != $2) { $wrong = 1; };
+			}
+			if ($3 ne "") {
+				if (($mode & 07777) != oct($3)) { $wrong = 1; };
+			}
+			if ($wrong == 1) {
+				printf "expected permissions are: %i:%i:%#o\n", $1, $2, oct($3);
+				printf "created permissions are : %i:%i:%#o\n", $uid, $gid, $mode & 07777;
+			}
+		}
 		print "add: ok    ";
 	} else {
 		print "add: error\n";
