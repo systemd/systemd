@@ -531,28 +531,6 @@ static int match_id(struct config_device *dev, struct sysfs_device *sysfs_device
 	return 0;
 }
 
-static int match_place(struct config_device *dev, struct sysfs_device *sysfs_device)
-{
-	char path[PATH_SIZE];
-	char *temp;
-
-	strlcpy(path, sysfs_device->path, sizeof(path));
-	temp = strrchr(path, '/');
-	dbg("search '%s' in '%s', path='%s'", dev->place, temp, path);
-	if (strstr(temp, dev->place) != NULL)
-		return 0;
-
-	/* try the parent */
-	temp[0] = '\0';
-	temp = strrchr(path, '/');
-	dbg("search '%s' in '%s', path='%s'", dev->place, temp, path);
-	if (strstr(temp, dev->place) == NULL)
-		return 0;
-
-	dbg("place doesn't match");
-	return -ENODEV;
-}
-
 static int match_rule(struct udevice *udev, struct config_device *dev,
 		      struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
@@ -620,20 +598,6 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 				goto try_parent;
 			}
 			dbg(FIELD_ID " matches");
-		}
-
-		/* check for matching place of device */
-		if (dev->place[0] != '\0') {
-			if (sysfs_device == NULL) {
-				dbg("device has no sysfs_device");
-				goto try_parent;
-			}
-			dbg("check " FIELD_PLACE);
-			if (match_place(dev, sysfs_device) != 0) {
-				dbg(FIELD_PLACE " is not matching");
-				goto try_parent;
-			}
-			dbg(FIELD_PLACE " matches");
 		}
 
 		/* check for matching sysfs pairs */

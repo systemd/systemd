@@ -114,9 +114,6 @@ Match the kernel driver name.
 .B ID
 Match the device number on the bus, like PCI bus id.
 .TP
-.B PLACE
-Match the topological position on bus, like physical port of USB device
-.TP
 .BI SYSFS{ filename }
 Match sysfs device attribute like label, vendor, USB serial number, SCSI UUID
 or file system label. Up to 5 different sysfs files can be checked, with
@@ -255,7 +252,7 @@ BUS="scsi", SYSFS{vendor}="IBM", SYSFS{model}="ST336", NAME="boot%n"
 BUS="pci", ID="00:0b.0", NAME="dsp"
 
 # USB mouse at third port of the second hub to be called mouse1
-BUS="usb", PLACE="2.3", NAME="mouse1"
+BUS="usb", ID="2.3", NAME="mouse1"
 
 # ttyUSB1 should always be called pda with two additional symlinks
 KERNEL="ttyUSB1", NAME="pda", SYMLINK="palmtop handheld"

@@ -237,7 +237,7 @@ EOF
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "first_disk3" ,
 		conf		=> <<EOF
-BUS="scsi", PLACE="0:0:0:0", NAME="first_disk%n"
+BUS="scsi", ID="0:0:0:0", NAME="first_disk%n"
 EOF
 	},
 	{
@@ -246,7 +246,7 @@ EOF
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "Major:8:minor:3:kernelnumber:3:bus:0:0:0:0" ,
 		conf		=> <<EOF
-BUS="scsi", PLACE="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:bus:%b"
+BUS="scsi", ID="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:bus:%b"
 EOF
 	},
 	{
@@ -255,7 +255,7 @@ EOF
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "M8-m3-n3-b0:0-sIBM" ,
 		conf		=> <<EOF
-BUS="scsi", PLACE="0:0:0:0", NAME="M%M-m%m-n%n-b%3b-s%3s{vendor}"
+BUS="scsi", ID="0:0:0:0", NAME="M%M-m%m-n%n-b%3b-s%3s{vendor}"
 EOF
 	},
 	{

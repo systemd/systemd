@@ -33,7 +33,6 @@ struct sysfs_class_device;
 #define FIELD_BUS		"BUS"
 #define FIELD_SYSFS		"SYSFS"
 #define FIELD_ID		"ID"
-#define FIELD_PLACE		"PLACE"
 #define FIELD_PROGRAM		"PROGRAM"
 #define FIELD_RESULT		"RESULT"
 #define FIELD_DRIVER		"DRIVER"
@@ -64,7 +63,6 @@ struct config_device {
 	char subsystem[NAME_SIZE];
 	char bus[NAME_SIZE];
 	char id[NAME_SIZE];
-	char place[NAME_SIZE];
 	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];
 	char program[PATH_SIZE];
 	char result[PATH_SIZE];
