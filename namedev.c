@@ -583,32 +583,15 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 		      struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
 	while (1) {
-		/* check for matching bus value */
-		if (dev->bus[0] != '\0') {
-			if (sysfs_device == NULL) {
-				dbg("device has no bus");
-				goto try_parent;
-			}
-			dbg("check for " FIELD_BUS " dev->bus='%s' sysfs_device->bus='%s'",
-			    dev->bus, sysfs_device->bus);
-			if (strcmp_pattern(dev->bus, sysfs_device->bus) != 0) {
-				dbg(FIELD_BUS " is not matching");
-				goto try_parent;
-			} else {
-				dbg(FIELD_BUS " matches");
-			}
-		}
-
 		/* check for matching kernel name */
 		if (dev->kernel[0] != '\0') {
 			dbg("check for " FIELD_KERNEL " dev->kernel='%s' class_dev->name='%s'",
 			    dev->kernel, class_dev->name);
 			if (strcmp_pattern(dev->kernel, class_dev->name) != 0) {
 				dbg(FIELD_KERNEL " is not matching");
-				goto try_parent;
-			} else {
-				dbg(FIELD_KERNEL " matches");
+				goto exit;
 			}
+			dbg(FIELD_KERNEL " matches");
 		}
 
 		/* check for matching subsystem */
@@ -617,10 +600,9 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 			    dev->subsystem, class_dev->name);
 			if (strcmp_pattern(dev->subsystem, udev->subsystem) != 0) {
 				dbg(FIELD_SUBSYSTEM " is not matching");
-				goto try_parent;
-			} else {
-				dbg(FIELD_SUBSYSTEM " matches");
+				goto exit;
 			}
+			dbg(FIELD_SUBSYSTEM " matches");
 		}
 
 		/* check for matching driver */
@@ -633,6 +615,21 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 			} else {
 				dbg(FIELD_DRIVER " matches");
 			}
+		}
+
+		/* check for matching bus value */
+		if (dev->bus[0] != '\0') {
+			if (sysfs_device == NULL) {
+				dbg("device has no bus");
+				goto try_parent;
+			}
+			dbg("check for " FIELD_BUS " dev->bus='%s' sysfs_device->bus='%s'",
+			    dev->bus, sysfs_device->bus);
+			if (strcmp_pattern(dev->bus, sysfs_device->bus) != 0) {
+				dbg(FIELD_BUS " is not matching");
+				goto try_parent;
+			}
+			dbg(FIELD_BUS " matches");
 		}
 
 		/* check for matching bus id */
@@ -695,17 +692,20 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 			}
 		}
 
-		/* Yeah, we matched! */
+		/* we matched */
 		return 0;
 
 try_parent:
 		dbg("try parent sysfs device");
 		sysfs_device = sysfs_get_device_parent(sysfs_device);
 		if (sysfs_device == NULL)
-			return -ENODEV;
+			goto exit;
 		dbg("sysfs_device->path='%s'", sysfs_device->path);
 		dbg("sysfs_device->bus_id='%s'", sysfs_device->bus_id);
 	}
+
+exit:
+	return -1;
 }
 
 int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_dev)
