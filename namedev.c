@@ -433,9 +433,9 @@ static int execute_program(char *path, char *value, int len)
 				/* don't separate if in apostrophes */
 				pos++;
 				argv[i] = strsep(&pos, "\'");
-				while (pos[0] == ' ')
+				while (pos && pos[0] == ' ')
 					pos++;
-		} else {
+			} else {
 				argv[i] = strsep(&pos, " ");
 			}
 			dbg("arg[%i] '%s'", i, argv[i]);
