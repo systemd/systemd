@@ -1281,6 +1281,19 @@ KERNEL=="sda", NAME="not-ok"
 EOF
 	},
 	{
+		desc		=> "test RUN key and DEVNAME",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "testsymlink",
+		exp_target	=> "ok",
+		exp_rem_error	=> "yes",
+		option		=> "clean",
+		rules		=> <<EOF
+KERNEL=="sda", NAME="ok", RUN+="/bin/sh -c 'ln -s `basename \$DEVNAME` %r/testsymlink'"
+KERNEL=="sda", NAME="not-ok"
+EOF
+	},
+	{
 		desc		=> "test RUN key remove",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
