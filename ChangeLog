@@ -1,3 +1,46 @@
+Summary of changes from v024 to v025
+============================================
+
+<md:linux.it>:
+  o devfs.sh-ide-floppy
+
+<sjoerd:spring.luon.net>:
+  o DEVNODE -> DEVNAME transition fixes
+
+Daniel Drake:
+  o Update writing udev rules docs
+
+Greg Kroah-Hartman:
+  o make dev.d call each directory in the directory chain of the device name, instead of just the whole name
+  o add devd_test script
+  o add more permissions based on SuSE's recommendations
+  o added rules for tun and raw devices
+  o add udev conf.d file
+  o Switch the default config to point to a directory for the rules and permission files
+  o update the Red Hat .dev files to work on other distros
+  o add dbus.dev, pam_console.dev and selinux.dev files for /etc/dev.d/default/ usage
+  o add hints for red hat users from Leann Ogasawara <ogasawara@osdl.org>
+  o add scripts to run gcov for udev from Leann Ogasawara <ogasawara@osdl.org>
+  o change permissions on udevd test scripts
+  o Fix build process for users who have LC_ALL set to a non-english language
+  o Added expanded tests to the test framework from Leann Ogasawara <ogasawara@osdl.org>
+  o added execelent "writing udev rules" document from Daniel Drake <dan@reactivated.net>
+  o added rule to put USB printers in their proper places
+  o added rules for CAPI devices
+  o added a dev.d alsa script to help people out
+  o v024 release TAG: v024
+
+Kay Sievers:
+  o fix test regressions
+  o udev_selinux changes
+  o udevd test script
+  o udev_dbus changes
+  o fix devpath for netdev
+
+Leann Ogasawara:
+  o gcov for udev
+
+
 Summary of changes from v023 to v024
 ============================================
 
