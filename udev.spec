@@ -1,3 +1,21 @@
+# if we want to build against the included version of klibc or not.
+# 0 - do not use klibc
+# 1 - use klibc
+# Watch out for where the linux symlink is in the klibc part of the tarball,
+# it probably is not where you want it to be.
+%define klibc 1
+
+# if we want to build DBUS support in or not.
+# 0 - no DBUS support
+# 1 - DBUS support
+%define dbus 0
+
+# if we want to enable debugging support in udev.  If it is enabled, lots of 
+# stuff will get sent to the debug syslog.
+# 0 - debugging disabled
+# 1 - debugging enabled
+%define debug 0
+
 Summary: A userspace implementation of devfs
 Name: udev
 Version: 010
@@ -18,7 +36,16 @@ udev is a implementation of devfs in userspace using sysfs and
 %setup -q
 
 %build
-make CC="gcc $RPM_OPT_FLAGS"
+make CC="gcc $RPM_OPT_FLAGS"	\
+%if %{klibc}
+	USE_KLIBC=true		\
+%endif
+%if %{dbus}
+	USE_DBUS=true		\
+%endif
+%if %{debug}
+	DEBUG=true		\
+%endif
 
 %install
 make DESTDIR=$RPM_BUILD_ROOT install
