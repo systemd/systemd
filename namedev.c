@@ -623,7 +623,8 @@ static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_de
 	tspec.tv_nsec = 10000000;  /* sleep 10 millisec */
 	loop = 10;
 	while (loop--) {
-		nanosleep(&tspec, NULL);
+		if (udev_sleep)
+			nanosleep(&tspec, NULL);
 		if (class_dev_parent)
 			sysfs_device = sysfs_get_classdev_device(class_dev_parent);
 		else
@@ -650,7 +651,8 @@ device_found:
 		loop = 10;
 		tspec.tv_nsec = 10000000;
 		while (loop--) {
-			nanosleep(&tspec, NULL);
+			if (udev_sleep)
+				nanosleep(&tspec, NULL);
 			sysfs_get_device_bus(sysfs_device);
 			
 			if (sysfs_device->bus[0] != '\0')

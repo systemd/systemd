@@ -49,6 +49,7 @@ char default_mode_str[MODE_SIZE];
 char default_owner_str[OWNER_SIZE];
 char default_group_str[GROUP_SIZE];
 int udev_log;
+int udev_sleep;
 
 
 static int string_is_true(char *str)
@@ -71,6 +72,10 @@ static void init_variables(void)
 	strfieldcpy(udev_rules_filename, UDEV_RULES_FILE);
 	strfieldcpy(udev_permissions_filename, UDEV_PERMISSION_FILE);
 	udev_log = string_is_true(UDEV_LOG_DEFAULT);
+
+	udev_sleep = 1;
+	if (getenv("UDEV_NO_SLEEP") != NULL)
+		udev_sleep = 0;
 }
 
 #define set_var(_name, _var)				\
