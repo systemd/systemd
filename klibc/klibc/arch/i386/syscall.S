@@ -14,7 +14,7 @@
 	.globl	__syscall_common
 	.type	__syscall_common,@function
 __syscall_common:
-#ifdef REGPARM
+#ifdef _REGPARM
 	xchgl	%ebx,(%esp)
 #else
 	popl	%eax
@@ -24,7 +24,7 @@ __syscall_common:
 	pushl	%edi
 	pushl	%ebp
 
-#ifdef REGPARM
+#ifdef _REGPARM
 	xchgl	%eax,%ebx
 	xchgl	%ecx,%edx
 	movl	ARG(0),%esi

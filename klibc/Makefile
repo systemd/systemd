@@ -17,6 +17,7 @@ $(CROSS)klibc.config: Makefile
 	rm -f $@
 	echo 'ARCH=$(ARCH)' >> $@
 	echo 'CROSS=$(CROSS)' >> $@
+	echo 'KCROSS=$(KCROSS)' >> $@
 	echo "CC=$(shell bash -c 'type -p $(CC)')" >> $@
 	echo "LD=$(shell bash -c 'type -p $(LD)')" >> $@
 	echo 'REQFLAGS=$(filter-out -I%,$(REQFLAGS))' >> $@
@@ -49,19 +50,20 @@ local-install: $(CROSS)klcc
 	mkdir -p $(INSTALLROOT)$(mandir)/man1
 	mkdir -p $(INSTALLROOT)$(SHLIBDIR)
 	mkdir -p $(INSTALLROOT)$(INSTALLDIR)
-	-rm -rf $(INSTALLROOT)$(INSTALLDIR)/$(CROSS)include
-	mkdir -p $(INSTALLROOT)$(INSTALLDIR)/$(CROSS)include
-	mkdir -p $(INSTALLROOT)$(INSTALLDIR)/$(CROSS)lib
-	mkdir -p $(INSTALLROOT)$(INSTALLDIR)/$(CROSS)bin
-	set -xe ; for d in linux asm asm-generic ; do \
+	-rm -rf $(INSTALLROOT)$(INSTALLDIR)/$(KCROSS)include
+	mkdir -p $(INSTALLROOT)$(INSTALLDIR)/$(KCROSS)include
+	mkdir -p $(INSTALLROOT)$(INSTALLDIR)/$(KCROSS)lib
+	mkdir -p $(INSTALLROOT)$(INSTALLDIR)/$(KCROSS)bin
+	set -xe ; for d in linux asm-$(ARCH) asm-generic $(ASMARCH); do \
 	  mkdir -p $(INSTALLROOT)$(INSTALLDIR)/$(CROSS)include/$$d ; \
-	  cp -rfL $(KRNLSRC)/include/$$d/.  $(INSTALLROOT)$(INSTALLDIR)/$(CROSS)include/$$d/. ; \
-	  cp -rfL $(KRNLOBJ)/include/$$d/.  $(INSTALLROOT)$(INSTALLDIR)/$(CROSS)include/$$d/. ; \
-	  [ ! -d $(KRNLOBJ)/include2/$$d ] || \
-	    cp -rfL $(KRNLOBJ)/include2/$$d/. $(INSTALLROOT)$(INSTALLDIR)/$(CROSS)include/$$d/. ; \
+	  for r in $(KRNLSRC)/include $(KRNLOBJ)/include $(KRNLOBJ)/include2 ; do \
+	    [ ! -d $$r/$$d ] || \
+	      cp -rfL $$r/$$d/. $(INSTALLROOT)$(INSTALLDIR)/$(KCROSS)include/$$d/. ; \
+	  done ; \
 	done
-	cp -rf include/. $(INSTALLROOT)$(INSTALLDIR)/$(CROSS)include/.
-	$(INSTALL_DATA) klcc.1 $(INSTALLROOT)$(mandir)/man1/$(CROSS)klcc.1
-	$(INSTALL_EXEC) $(CROSS)klcc $(INSTALLROOT)$(bindir)
+	cd $(INSTALLROOT)$(INSTALLDIR)/$(KCROSS)include && ln -sf asm-$(ARCH) asm
+	cp -rf include/. $(INSTALLROOT)$(INSTALLDIR)/$(KCROSS)include/.
+	$(INSTALL_DATA) klcc.1 $(INSTALLROOT)$(mandir)/man1/$(KCROSS)klcc.1
+	$(INSTALL_EXEC) $(KCROSS)klcc $(INSTALLROOT)$(bindir)
 
 -include MCONFIG

@@ -26,3 +26,6 @@ LDFLAGS      = -m elf_x86_64
 # 2 MB - normal binaries start at 4 MB
 SHAREDFLAGS     = -Ttext 0x00200200
 
+# Additional asm- directories needed during installation
+ASMARCH = asm-i386
+

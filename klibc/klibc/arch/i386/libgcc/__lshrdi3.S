@@ -8,7 +8,7 @@
 	.globl __lshrdi3
 	.type __lshrdi3,@function
 __lshrdi3:
-#ifndef REGPARM
+#ifndef _REGPARM
 	movl  4(%esp),%eax
 	movl  8(%esp),%edx
 	movb  12(%esp),%cl

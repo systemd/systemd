@@ -116,7 +116,7 @@ $(SOLIB).hash: $(SOLIB) sha1hash
 
 $(SOHASH): $(SOLIB) $(SOLIB).hash
 	cp -f $(SOLIB) $@
-	$(STRIP) $@
+	$(STRIPCMD) $@
 	rm -f klibc-??????????????????????.so
 	ln -f $@ klibc-`cat $(SOLIB).hash`.so
 

@@ -19,13 +19,21 @@ Vendor: Starving Linux Artists
 %description
 %{name} is intended to be a minimalistic libc subset for use with
 initramfs.  It is deliberately written for small size, minimal
-entanglement, and portability, not speed.  It is definitely a work in
-progress, and a lot of things are still missing.
+entanglement, and portability, not speed.
+
+%package devel
+Summary: Libraries and tools needed to compile applications against klibc.
+Group: Development/Libraries
+Requires: klibc = %{version}-%{release}
+
+%description devel
+This package contains the link libraries, header files, and gcc
+wrapper scripts needed to compile applications against klibc.
 
 %package utils
 Summary: Small utilities built with klibc.
 Group: Utilities/System
-Requires: klibc = %{version}
+Requires: klibc = %{version}-%{release}
 
 %description utils
 This package contains a collection of programs that are linked against
@@ -62,8 +70,11 @@ make  ARCH=%{_target_cpu} prefix=%{_prefix} bindir=%{_bindir} \
 	INSTALLDIR=%{klibcdir} mandir=%{_mandir} INSTALLROOT=%{buildroot} \
 	install
 
-# Install the docs
+# Make the .so file in /lib a hardlink (they will be expanded as two
+# files automatically if it crosses filesystems when extracted.)
+ln -f %{buildroot}%{klibcdir}/lib/klibc-*.so %{buildroot}/lib
 
+# Install the docs
 mkdir -p %{buildroot}%{bindocdir} %{buildroot}%{libdocdir}
 install -m 444 README %{buildroot}%{libdocdir}
 install -m 444 klibc/README %{buildroot}%{libdocdir}/README.klibc
@@ -77,12 +88,25 @@ install -m 444 kinit/README %{buildroot}%{bindocdir}/README.kinit
 %clean
 rm -rf $RPM_BUILD_ROOT
 
+#
+# Note: libc.so and interp.o are technically -devel files, but
+# put them in this package until we can make really, really sure
+# the dependency system can avoid confusion.  (In fact, it would be
+# good to eventually get them out of here, so that multiple runtimes
+# can be installed should it be necessary.)
+#
 %files
 %defattr(-,root,root,-)
-%{klibcdir}/lib
-%{klibcdir}/include
-%{_bindir}/klcc
 /lib/klibc-*.so
+%{klibcdir}/lib/*.so
+%{klibcdir}/lib/interp.o
+
+%files devel
+%defattr(-,root,root,-)
+%{klibcdir}/include
+%{klibcdir}/lib/*.a
+%{klibcdir}/lib/crt0.o
+%{_bindir}/klcc
 %doc %{_mandir}/man1/*
 %doc %{libdocdir}/*
 

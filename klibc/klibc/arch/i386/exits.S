@@ -28,7 +28,7 @@ exit:
 	.globl _exit
 	.type _exit,@function
 _exit:
-#ifdef REGPARM
+#ifdef _REGPARM
 	movl %eax,%ebx
 #else
 	popl %ebx

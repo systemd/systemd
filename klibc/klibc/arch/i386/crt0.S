@@ -20,7 +20,7 @@ _start:
 	push %ebp		# Keep gdb from getting confused
 	push %ebp		# Keep gdb from getting confused
 	# Push the arguments and called __libc_init()
-#ifndef REGPARM
+#ifndef _REGPARM
 	push %edx		# atexit() function
 	push %eax		# ELF array
 #endif

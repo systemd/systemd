@@ -3,6 +3,14 @@
 # Makefile configuration, without explicit rules
 #
 
+# CROSS is the prefix used for system tools like gcc, ld etc.
+CROSS   = 
+
+# KCROSS is the prefix we use for klibc installations.  This is usually
+# the same as CROSS, but may be different, e.g. to install an i386
+# cross-compilation suite on an x86-64 system, using the same gcc/binutils.
+KCROSS ?= $(CROSS)
+
 # Location for installation
 prefix      = /usr
 bindir      = $(prefix)/bin
@@ -22,7 +30,6 @@ KRNLSRC = $(SRCROOT)/linux
 KRNLOBJ = $(SRCROOT)/linux
 
 ARCH    = $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ -e s/arm.*/arm/ -e s/sa110/arm/)
-CROSS   = 
 CC	= $(CROSS)gcc
 LD      = $(CROSS)ld
 KLIBSRC = $(SRCROOT)/klibc

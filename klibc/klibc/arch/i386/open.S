@@ -15,7 +15,7 @@
 	.type	open,@function
 
 open:
-#ifdef REGPARM
+#ifdef _REGPARM
 	movl	4(%esp),%eax
 	movl	8(%esp),%edx
 	movl	12(%esp),%ecx

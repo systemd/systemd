@@ -8,7 +8,7 @@
 	.globl __ashrdi3
 	.type __ashrdi3,@function
 __ashrdi3:
-#ifndef REGPARM
+#ifndef _REGPARM
 	movl  4(%esp),%eax
 	movl  8(%esp),%edx
 	movb  12(%esp),%cl

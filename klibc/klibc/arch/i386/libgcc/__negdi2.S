@@ -9,7 +9,7 @@
 	.globl __negdi2
 	.type __negdi2,@function
 __negdi2:
-#ifndef REGPARM
+#ifndef _REGPARM
 	movl 4(%esp),%eax
 	movl 8(%esp),%edx
 #endif

@@ -19,7 +19,7 @@
 	.globl setjmp
 	.type setjmp, @function
 setjmp:
-#ifdef REGPARM
+#ifdef _REGPARM
 	movl %eax,%edx
 #else
 	movl 4(%esp),%edx
@@ -42,7 +42,7 @@ setjmp:
 	.globl longjmp
 	.type longjmp, @function
 longjmp:
-#ifdef REGPARM
+#ifdef _REGPARM
 	xchgl %eax,%edx
 #else
 	movl 4(%esp),%edx		# jmp_ptr address

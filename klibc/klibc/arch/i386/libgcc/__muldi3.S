@@ -10,7 +10,7 @@
 	.type __muldi3,@function
 __muldi3:
 	push  %esi
-#ifndef REGPARM
+#ifndef _REGPARM
 	movl  8(%esp),%eax
 	movl  %eax,%esi
 	movl  16(%esp),%ecx

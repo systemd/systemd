@@ -16,7 +16,7 @@ sub make_sysstub($$$$@) {
     print OUT "${fname}:\n";
 
     if ( $stype eq 'varadic' ) {
-	print OUT "#ifdef REGPARM\n";
+	print OUT "#ifdef _REGPARM\n";
 	print OUT "\tmovl  4(%esp),%eax\n";
 	print OUT "\tmovl  8(%esp),%edx\n";
 	print OUT "\tmovl 12(%esp),%ecx\n";
