@@ -6,32 +6,47 @@ files in the docs/ directory.
 
 To use:
 
-- Edit the udev.h file and replace the following variables with values
-  that make sense for your system:
-	#define UDEV_ROOT       "/udev/"
-	#define MKNOD           "/bin/mknod"
-  The only value most people will have to change is the UDEV_ROOT
-  variable, as I doubt you really want device nodes to be created in my
-  home directory :)
+- You must be running a 2.6 version of the Linux kernel.
 
-- Run make to build the project.
+- Make sure sysfs is mounted.  udev will figure out where sysfs is mounted, but
+  the traditional place for it is at /sys.  You can mount it by hand by running:
+  	mount -t sysfs none /sys
 
-- Make sure sysfs is mounted.
+- Make sure you have the latest version of the linux-hotplug scripts.  They are
+  available at linux-hotplug.sf.net or from your local kernel.org mirror at:
+	kernel.org/pub/linux/utils/kernel/hotplug/
+  They are required in order for udev to work properly.
 
-- Point /proc/sys/kernel/hotplug at the location of the udev binary that
-  is created.  Then plug some block devices in, or other types of
-  devices that create dev files in sysfs.  An easy way to do this,
-  without any hardware is to use the scsi_debug module to create virtual
-  scsi devices.
+  If for some reason you do not install the hotplug scripts, you must tell the
+  kernel to point the hotplug binary at wherever you install udev at.  This can
+  be done by:
+	echo "/sbin/udev" > /proc/sys/kernel/hotplug
 
-- Watch as the nodes get created and removed.
+- Build the project:
+	make
+
+- Install the project:
+	make install
+
+  This will put the udev binary in /sbin, create the /udev and /etc/udev
+  directories, and place the udev configuration files in /etc/udev.  You
+  will probably want to edit the namedev.* files to create custom naming
+  rules.  More info on how the config files are set up are contained in
+  comments in the files, and is located in the documentation.
+
+- Add and remove devices from the system and marvel as nodes are created
+  and removed in /udev/ based on the device types.
+
+- If you later get sick of it, uninstall it:
+	make uninstall
 
 
-Yes this is a really rough first cut, I know.  It's mostly a proof of
-concept that this can actually work.  See the TODO file for a list of
+Things are still quite rough, and it's a bit beyond proof of concept
+code.  Help is very much appreciated, see the TODO file for a list of
 things left to be done.
 
 Any comment/questions/concerns please let me know.
 
 greg k-h
 greg@kroah.com
+
