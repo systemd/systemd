@@ -58,7 +58,8 @@ size_t strlcpy(char *dst, const char *src, size_t size)
 		bytes++;
 	}
 
-	*q = '\0';
+	if (size)
+		*q = '\0';
 	return bytes;
 }
 
@@ -82,7 +83,8 @@ size_t strlcat(char *dst, const char *src, size_t size)
 		bytes++;
 	}
 
-	*q = '\0';
+	if (size)
+		*q = '\0';
 	return bytes;
 }
 #endif /* __OWN_STRLCPYCAT__ */
