@@ -54,14 +54,14 @@
 static int get_major_minor(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
 	int retval = -ENODEV;
-	char *dev;
+	struct sysfs_attribute *attr = NULL;
 
-	dev = sysfs_get_value_from_attributes(class_dev->directory->attributes, "dev");
-	if (dev == NULL)
+	attr = sysfs_get_classdev_attr(class_dev, "dev");
+	if (attr == NULL)
 		goto exit;
-	dbg("dev='%s'", dev);
+	dbg("dev='%s'", attr->value);
 
-	if (sscanf(dev, "%u:%u", &udev->major, &udev->minor) != 2)
+	if (sscanf(attr->value, "%u:%u", &udev->major, &udev->minor) != 2)
 		goto exit;
 	dbg("found major=%d, minor=%d", udev->major, udev->minor);
 

@@ -552,37 +552,29 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 	struct sysfs_device *sysfs_device = NULL;
 	struct sysfs_class_device *class_dev_parent = NULL;
 	int retval = 0;
-	char *temp = NULL;
 	struct perm_device *perm;
 
 	udev->mode = 0;
 
 	/* find the sysfs_device for this class device */
 	/* Wouldn't it really be nice if libsysfs could do this for us? */
-	if (class_dev->sysdevice) {
-		sysfs_device = class_dev->sysdevice;
-	} else {
+	sysfs_device = sysfs_get_classdev_device(class_dev);
+	if (sysfs_device == NULL) {
 		/* bah, let's go backwards up a level to see if the device is there,
 		 * as block partitions don't point to the physical device.  Need to fix that
 		 * up in the kernel...
 		 */
-		if (strstr(class_dev->path, "block")) {
+		if (strcmp(class_dev->classname, SYSFS_BLOCK_NAME) == 0) {
 			dbg("looking at block device");
 			if (isdigit(class_dev->path[strlen(class_dev->path)-1])) {
-				char path[SYSFS_PATH_MAX];
-
 				dbg("really is a partition");
-				strfieldcpy(path, class_dev->path);
-				temp = strrchr(path, '/');
-				*temp = 0x00;
-				dbg("looking for a class device at '%s'", path);
-				class_dev_parent = sysfs_open_class_device(path);
+				class_dev_parent = sysfs_get_classdev_parent
+								   (class_dev);
 				if (class_dev_parent == NULL) {
-					dbg("sysfs_open_class_device at '%s' failed", path);
+					dbg("sysfs_get_classdev_parent for class device '%s' failed", class_dev->name);
 				} else {
 					dbg("class_dev_parent->name='%s'", class_dev_parent->name);
-					if (class_dev_parent->sysdevice)
-						sysfs_device = class_dev_parent->sysdevice;
+					sysfs_device = sysfs_get_classdev_device(class_dev_parent);
 				}
 			}
 		}
@@ -642,9 +634,6 @@ done:
 	}
 	dbg("name, '%s' is going to have owner='%s', group='%s', mode = %#o",
 	    udev->name, udev->owner, udev->group, udev->mode);
-
-	if (class_dev_parent)
-		sysfs_close_class_device(class_dev_parent);
 
 	return 0;
 }
