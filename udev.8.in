@@ -61,18 +61,18 @@ The default value is
 .IR yes .
 .TP
 .B default_mode
-The default mode for all nodes not explicitly matching in the permissions
-file. The default value is
-.IR 0666 .
+The default mode for all nodes where no explicit value is given by a rule.
+The default value is
+.IR 0600 .
 .TP
 .B default_owner
-The default owner for all nodes not explicitly matching in the permissions
-file. The default value is
+The default owner for all nodes where no explicit value is given by a rule.
+The default value is
 .IR root .
 .TP
 .B default_group
-The default group for all nodes not explicitly matching in the permissions
-file. The default value is
+The default group for all nodes where no explicitly value is given by a rule.
+The default value is
 .IR root .
 .br
 .P
@@ -92,16 +92,16 @@ udev_rules="/etc/udev/rules.d/"
 # udev_log - set to "yes" if you want logging, else "no"
 udev_log="yes"
 
-# default_mode - set the default mode for all nodes not
-#                explicitly matching in the permissions file
+# default_mode - set the default mode for all nodes that have no
+#                permissions specified
 default_mode="0666"
 
-# default_owner - set the default owner for all nodes not
-#                 explicitly matching in the permissions file
+# default_owner - set the default owner for all nodes that have no
+#                 permissions specified
 default_owner="root"
 
-# default_group - set the default group for all nodes not
-#                 explicitly matching in the permissions file
+# default_group - set the default group for all nodes that have no
+#                 permissions specified
 default_group="root"
 .fi
 .P
