@@ -30,7 +30,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <fcntl.h>
 #include <ctype.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -38,6 +37,7 @@
 #include <errno.h>
 
 #include "udev.h"
+#include "udev_lib.h"
 #include "logging.h"
 #include "namedev.h"
 
@@ -153,27 +153,36 @@ static int namedev_parse_rules(char *filename)
 	char *temp2;
 	char *temp3;
 	char *attr;
-	FILE *fd;
+	char *buf;
+	size_t bufsize;
+	size_t cur;
+	size_t count;
 	int program_given = 0;
 	int retval = 0;
 	struct config_device dev;
 
-	fd = fopen(filename, "r");
-	if (fd != NULL) {
+	if (file_map(filename, &buf, &bufsize) == 0) {
 		dbg("reading '%s' as rules file", filename);
 	} else {
-		dbg("can't open '%s' as a rules file", filename);
-		return -ENODEV;
+		dbg("can't open '%s' as rules file", filename);
+		return -1;
 	}
 
 	/* loop through the whole file */
+	cur = 0;
 	lineno = 0;
 	while (1) {
-		/* get a line */
-		temp = fgets(line, sizeof(line), fd);
-		if (temp == NULL)
-			goto exit;
+		count = buf_get_line(buf, bufsize, cur);
+
+		strncpy(line, buf + cur, count);
+		line[count] = '\0';
+		temp = line;
 		lineno++;
+
+		cur += count+1;
+		if (cur > bufsize)
+			break;
+
 		dbg_parse("read '%s'", temp);
 
 		/* eat the whitespace */
@@ -311,8 +320,8 @@ error:
 			    filename, lineno, temp - line);
 		}
 	}
-exit:
-	fclose(fd);
+
+	file_unmap(buf, bufsize);
 	return retval;
 }
 
@@ -321,22 +330,31 @@ static int namedev_parse_permissions(char *filename)
 	char line[255];
 	char *temp;
 	char *temp2;
-	FILE *fd;
+	char *buf;
+	size_t bufsize;
+	size_t cur;
+	size_t count;
 	int retval = 0;
 	struct perm_device dev;
 
-	fd = fopen(filename, "r");
-	if (fd != NULL) {
+	if (file_map(filename, &buf, &bufsize) == 0) {
 		dbg("reading '%s' as permissions file", filename);
 	} else {
 		dbg("can't open '%s' as permissions file", filename);
-		return -ENODEV;
+		return -1;
 	}
 
 	/* loop through the whole file */
+	cur = 0;
 	while (1) {
-		temp = fgets(line, sizeof(line), fd);
-		if (temp == NULL)
+		count = buf_get_line(buf, bufsize, cur);
+
+		strncpy(line, buf + cur, count);
+		line[count] = '\0';
+		temp = line;
+
+		cur += count+1;
+		if (cur > bufsize)
 			break;
 
 		dbg_parse("read '%s'", temp);
@@ -394,7 +412,7 @@ static int namedev_parse_permissions(char *filename)
 	}
 
 exit:
-	fclose(fd);
+	file_unmap(buf, bufsize);
 	return retval;
 }
 

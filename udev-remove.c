@@ -29,6 +29,7 @@
 #include <errno.h>
 
 #include "udev.h"
+#include "udev_lib.h"
 #include "udev_version.h"
 #include "udev_dbus.h"
 #include "logging.h"

@@ -28,6 +28,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 
+#include "udev.h"
 #include "klibc_fixups.h"
 #include "logging.h"
 
@@ -40,22 +41,35 @@
 static unsigned long get_id_by_name(const char *uname, const char *dbfile)
 {
 	unsigned long id = -1;
-	FILE *file;
-	char buf[255];
+	char line[255];
+	char *buf;
+	size_t bufsize;
+	size_t cur;
+	size_t count;
 	char *pos;
 	char *name;
 	char *idstr;
 	char *tail;
 
-	file = fopen(dbfile, "r");
-	if (file == NULL) {
-		dbg("unable to open file '%s'", dbfile);
+	if (file_map(dbfile, &buf, &bufsize) == 0) {
+		dbg("reading '%s' as db file", dbfile);
+	} else {
+		dbg("can't open '%s' as db file", dbfile);
 		return -1;
 	}
 
+	/* loop through the whole file */
+
+	cur = 0;
 	while (1) {
-		pos = fgets(buf, sizeof(buf), file);
-		if (pos == NULL)
+		count = buf_get_line(buf, bufsize, cur);
+
+		strncpy(line, buf + cur, count);
+		line[count] = '\0';
+		pos = line;
+
+		cur += count+1;
+		if (cur > bufsize)
 			break;
 
 		/* get name */
@@ -82,7 +96,7 @@ static unsigned long get_id_by_name(const char *uname, const char *dbfile)
 		}
 	}
 
-	fclose(file);
+	file_unmap(buf, bufsize);
 	return id;
 }
 

@@ -37,6 +37,7 @@
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
+#include "udev_lib.h"
 #include "udev_version.h"
 #include "udev_dbus.h"
 #include "udev_selinux.h"

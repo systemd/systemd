@@ -20,25 +20,22 @@
  *
  */
 
-#ifndef UDEV_H
-#define UDEV_H
+#ifndef _UDEV_H_
+#define _UDEV_H_
 
-#include <stdlib.h>
-#include <string.h>
-#include <sysfs/libsysfs.h>
-#include <stddef.h>
 #include <sys/param.h>
+#include "libsysfs/sysfs/libsysfs.h"
 
 #define COMMENT_CHARACTER		'#'
 
-#define NAME_SIZE	100
-#define OWNER_SIZE	30
-#define GROUP_SIZE	30
-#define MODE_SIZE	8
+#define NAME_SIZE			100
+#define OWNER_SIZE			30
+#define GROUP_SIZE			30
+#define MODE_SIZE			8
 
-#define ACTION_SIZE	30
-#define DEVPATH_SIZE	255
-#define SUBSYSTEM_SIZE	30
+#define ACTION_SIZE			30
+#define DEVPATH_SIZE			255
+#define SUBSYSTEM_SIZE			30
 
 /* length of public data */
 #define UDEVICE_LEN (offsetof(struct udevice, bus_id))
@@ -60,87 +57,6 @@ struct udevice {
 	char kernel_number[NAME_SIZE];
 	char kernel_name[NAME_SIZE];
 };
-
-#define strfieldcpy(to, from) \
-do { \
-	to[sizeof(to)-1] = '\0'; \
-	strncpy(to, from, sizeof(to)-1); \
-} while (0)
-
-#define strfieldcat(to, from) \
-do { \
-	to[sizeof(to)-1] = '\0'; \
-	strncat(to, from, sizeof(to) - strlen(to)-1); \
-} while (0)
-
-#define strfieldcpymax(to, from, maxsize) \
-do { \
-	to[maxsize-1] = '\0'; \
-	strncpy(to, from, maxsize-1); \
-} while (0)
-
-#define strfieldcatmax(to, from, maxsize) \
-do { \
-	to[maxsize-1] = '\0'; \
-	strncat(to, from, maxsize - strlen(to)-1); \
-} while (0)
-
-#define strintcat(to, i) \
-do { \
-	to[sizeof(to)-1] = '\0'; \
-	snprintf((to) + strlen(to), sizeof(to) - strlen(to)-1, "%u", i); \
-} while (0)
-
-#define strintcatmax(to, i, maxsize) \
-do { \
-	to[maxsize-1] = '\0'; \
-	snprintf((to) + strlen(to), maxsize - strlen(to)-1, "%u", i); \
-} while (0)
-
-#define foreach_strpart(str, separator, pos, len) \
-	for(pos = str, len = 0; \
-	    (pos) < ((str) + strlen(str)); \
-	    pos = pos + len + strspn(pos, separator), len = strcspn(pos, separator)) \
-		if (len > 0)
-
-static inline char *get_action(void)
-{
-	char *action;
-
-	action = getenv("ACTION");
-	if (action != NULL && strlen(action) > ACTION_SIZE)
-		action[ACTION_SIZE-1] = '\0';
-
-	return action;
-}
-
-static inline char *get_devpath(void)
-{
-	char *devpath;
-
-	devpath = getenv("DEVPATH");
-	if (devpath != NULL && strlen(devpath) > DEVPATH_SIZE)
-		devpath[DEVPATH_SIZE-1] = '\0';
-
-	return devpath;
-}
-
-static inline char *get_seqnum(void)
-{
-	char *seqnum;
-
-	seqnum = getenv("SEQNUM");
-
-	return seqnum;
-}
-
-static inline char *get_subsystem(char *subsystem)
-{
-	if (subsystem != NULL && strlen(subsystem) > SUBSYSTEM_SIZE)
-		subsystem[SUBSYSTEM_SIZE-1] = '\0';
-
-	return subsystem;
-}
 
 extern int udev_add_device(char *path, char *subsystem, int fake);
 extern int udev_remove_device(char *path, char *subsystem);

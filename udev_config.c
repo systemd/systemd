@@ -34,6 +34,7 @@
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
+#include "udev_lib.h"
 #include "udev_version.h"
 #include "logging.h"
 #include "namedev.h"
@@ -131,12 +132,14 @@ static int parse_config_file(void)
 	char *temp;
 	char *variable;
 	char *value;
-	FILE *fd;
-	int lineno = 0;
+	char *buf;
+	size_t bufsize;
+	size_t cur;
+	size_t count;
+	int lineno;
 	int retval = 0;
-	
-	fd = fopen(udev_config_filename, "r");
-	if (fd != NULL) {
+
+	if (file_map(udev_config_filename, &buf, &bufsize) == 0) {
 		dbg("reading '%s' as config file", udev_config_filename);
 	} else {
 		dbg("can't open '%s' as config file", udev_config_filename);
@@ -144,12 +147,19 @@ static int parse_config_file(void)
 	}
 
 	/* loop through the whole file */
+	lineno = 0;
+	cur = 0;
 	while (1) {
-		/* get a line */
-		temp = fgets(line, sizeof(line), fd);
-		if (temp == NULL)
-			goto exit;
+		count = buf_get_line(buf, bufsize, cur);
+
+		strncpy(line, buf + cur, count);
+		line[count] = '\0';
+		temp = line;
 		lineno++;
+
+		cur += count+1;
+		if (cur > bufsize)
+			break;
 
 		dbg_parse("read '%s'", temp);
 
@@ -182,8 +192,8 @@ static int parse_config_file(void)
 	}
 	dbg_parse("%s:%d:%Zd: error parsing '%s'", udev_config_filename,
 		  lineno, temp - line, temp);
-exit:
-	fclose(fd);
+
+	file_unmap(buf, bufsize);
 	return retval;
 }
 

@@ -1,5 +1,5 @@
 /*
- * udevdb.c
+ * udevdb.c - udev database library
  *
  * Userspace devfs
  *
@@ -21,13 +21,11 @@
  *
  */
 
-/*
- * udev database library
- */
 #define _KLIBC_HAS_ARCH_SIG_ATOMIC_T
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 #include <fcntl.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -35,8 +33,9 @@
 #include <signal.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
-#include "udev_version.h"
 #include "udev.h"
+#include "udev_lib.h"
+#include "udev_version.h"
 #include "logging.h"
 #include "namedev.h"
 #include "udevdb.h"

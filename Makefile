@@ -201,7 +201,8 @@ SYSFS =	$(PWD)/libsysfs/sysfs_bus.o	\
 	$(PWD)/libsysfs/sysfs_utils.o	\
 	$(PWD)/libsysfs/dlist.o
 
-OBJS =	udev_config.o	\
+OBJS =	udev_lib.o	\
+	udev_config.o	\
 	udev-add.o	\
 	udev-remove.o	\
 	udevdb.o	\
@@ -211,6 +212,7 @@ OBJS =	udev_config.o	\
 	$(TDB)
 
 HEADERS =	udev.h		\
+		udev_lib.h	\
 		namedev.h	\
 		udev_version.h	\
 		udev_dbus.h	\
@@ -279,7 +281,7 @@ $(TESTER): $(TESTER).o $(OBJS) $(HEADERS) $(LIBC)
 	$(STRIPCMD) $@
 
 $(INFO): $(INFO).o $(OBJS) $(HEADERS) $(LIBC)
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o udev_lib.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
 $(DAEMON): $(DAEMON).o udevd.h $(LIBC)
@@ -287,7 +289,7 @@ $(DAEMON): $(DAEMON).o udevd.h $(LIBC)
 	$(STRIPCMD) $@
 
 $(SENDER): $(SENDER).o udevd.h $(LIBC)
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o udev_lib.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
 $(STARTER): $(STARTER).o $(HEADERS) $(LIBC)

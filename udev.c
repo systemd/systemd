@@ -20,15 +20,17 @@
  *
  */
 
+#include <stdio.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include <errno.h>
 #include <ctype.h>
+#include <errno.h>
 #include <signal.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
+#include "udev_lib.h"
 #include "udev_version.h"
 #include "udev_dbus.h"
 #include "logging.h"
