@@ -2,10 +2,7 @@
 # fields.  See the udev man page for a full description of them.
 
 # ide block devices
-BUS="ide", id="0.0", NAME="ide/host0/bus0/target0/lun0/%D"
-BUS="ide", id="0.1", NAME="ide/host0/bus0/target1/lun0/%D"
-BUS="ide", id="1.0", NAME="ide/host0/bus1/target0/lun0/%D"
-BUS="ide", id="1.1", NAME="ide/host0/bus1/target1/lun0/%D"
+BUS="ide", KERNEL="hd*", PROGRAM="/etc/udev/ide-devfs.sh %k %b %n", NAME="%k", SYMLINK="%1c %2c"
 
 # md block devices
 KERNEL="md[0-9]*", NAME="md/%n"
