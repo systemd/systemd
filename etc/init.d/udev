@@ -64,11 +64,15 @@ case "$1" in
 		echo "the udev device node directory does not exist"
 	fi
 	;;
-  restart|reload)
+  restart)
+	$0 stop
+	$0 start
+	;;
+  reload)
   	# nothing to do here
 	;;
   *)
-  	echo "Usage: $0 {start|stop|status}"
+  	echo "Usage: $0 {start|stop|status|restart}"
 	exit 1
 esac
 
