@@ -843,12 +843,12 @@ found:
 	strfieldcpy(udev->config_file, dev->config_file);
 	udev->config_line = dev->config_line;
 
-done:
 	/* get permissions given in rule */
 	set_empty_perms(udev, dev->mode,
 			      dev->owner,
 			      dev->group);
 
+done:
 	/* get permissions given in config file or set defaults */
 	perm = find_perm(udev->name);
 	if (perm != NULL) {
