@@ -49,30 +49,23 @@ static char sysfs_path[SYSFS_PATH_MAX];
  */
 static int get_major_minor(struct sysfs_class_device *class_dev, int *major, int *minor)
 {
-	char temp[3];
-	int retval = 0;
+	int retval = -ENODEV;
 
 	char *dev;
 
 	dev = sysfs_get_value_from_attributes(class_dev->directory->attributes, "dev");
 	if (dev == NULL)
-		return -ENODEV;
+		goto exit;
 
 	dbg("dev = %s", dev);
 
-	temp[0] = dev[0];
-	temp[1] = dev[1];
-	temp[2] = 0x00;
-	*major = (int)strtol(&temp[0], NULL, 16);
-
-	temp[0] = dev[2];
-	temp[1] = dev[3];
-	temp[2] = 0x00;
-	*minor = (int)strtol(&temp[0], NULL, 16);
+	if (sscanf(dev, "%u:%u", major, minor) != 2)
+		goto exit;
 
 	dbg("found major = %d, minor = %d", *major, *minor);
 
 	retval = 0;
+exit:
 	return retval;
 }
 
