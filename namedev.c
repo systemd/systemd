@@ -346,69 +346,6 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 	}
 }
 
-/* 
- * Note, we can have multiple files for different busses in here due
- * to the mess that USB has for its device tree...
- */
-static struct bus_file {
-	char *bus;
-	char *file;
-} bus_files[] = {
-	{ .bus = "scsi",	.file = "vendor" },
-	{ .bus = "usb",		.file = "idVendor" },
-	{ .bus = "usb",		.file = "iInterface" },
-	{ .bus = "usb-serial",	.file = "detach_state" },
-	{ .bus = "ide",		.file = "detach_state" },
-	{ .bus = "pci",		.file = "vendor" },
-	{}
-};
-
-static void wait_for_device_to_initialize(struct sysfs_device *sysfs_device)
-{
-	/* sleep until we see the file for this specific bus type show up this
-	 * is needed because we can easily out-run the kernel in looking for
-	 * these files before the paticular subsystem has created them in the
-	 * sysfs tree properly.
-	 *
-	 * And people thought that the /sbin/hotplug event system was going to
-	 * be slow, poo on you for arguing that before even testing it...
-	 */
-	struct bus_file *b = &bus_files[0];
-	struct sysfs_attribute *tmpattr;
-	int found = 0;
-	int loop = WAIT_FOR_FILE_SECONDS * WAIT_FOR_FILE_RETRY_FREQ;
-
-	while (1) {
-		if (b->bus == NULL) {
-			if (!found)
-				break;
-			/* give the kernel a chance to create the file */
-			usleep(1000 * 1000 / WAIT_FOR_FILE_RETRY_FREQ);
-			--loop;
-			if (loop == 0)
-				break;
-			b = &bus_files[0];
-		}
-		if (strcmp(sysfs_device->bus, b->bus) == 0) {
-			found = 1;
-			dbg("looking for file '%s' on bus '%s'", b->file, b->bus);
-			tmpattr = sysfs_get_device_attr(sysfs_device, b->file);
-			if (tmpattr) {
-				/* found it! */
-				goto exit;
-			}
-			dbg("can't find '%s' file", b->file);
-		}
-		++b;
-	}
-	if (!found)
-		dbg("did not find bus type '%s' on list of bus_id_files, "
-		    "please report to <linux-hotplug-devel@lists.sourceforge.net>",
-		    sysfs_device->bus);
-exit:
-	return; /* here to prevent compiler warning... */
-}
-
 static void fix_kernel_name(struct udevice *udev)
 {
 	char *temp = udev->kernel_name;
@@ -650,108 +587,6 @@ static int match_place(struct config_device *dev, struct sysfs_class_device *cla
 	return 0;
 }
 
-static int whitelist_search(struct sysfs_class_device *class_dev)
-{
-	char *sysblock = "/sys/block";
-  	int i;
-
-  	static char *list[] = {
-  		"nb",
-  		"ram",
-  		"loop",
-		"fd",
-  		"md",
-		"dos_cd",
-		"double",
-  		"flash",
-		"msd",
-		"rflash",
-  		"rom",
-		"rrom",
-  		"sbpcd",
-  		"pcd",
-  		"pf",
-  		"scd",
-  		"ubd",
-		NULL,
-  	};
-
-	if (strncmp(class_dev->path, sysblock, strlen(sysblock)))
-		return 0;
-
-	for (i=0; list[i] != NULL; i++)
-		if (!strncmp(class_dev->name, list[i], strlen(list[i])))
-			return 1;
-
-	return 0;
-}
-
-static struct sysfs_device *get_sysfs_device(struct sysfs_class_device *class_dev)
-{
-	struct sysfs_device *sysfs_device;
-	struct sysfs_class_device *class_dev_parent;
-	int loop;
-
-	/* Figure out where the device symlink is at.  For char devices this will
-	 * always be in the class_dev->path.  But for block devices, it's different.
-	 * The main block device will have the device symlink in it's path, but
-	 * all partitions have the symlink in its parent directory.
-	 * But we need to watch out for block devices that do not have parents, yet
-	 * look like a partition (fd0, loop0, etc.)  They all do not have a device
-	 * symlink yet.  We do sit and spin on waiting for them right now unless
-	 * they happen to be in the whitelist in which case we exit.
-	 */
-	class_dev_parent = sysfs_get_classdev_parent(class_dev);
-	if (class_dev_parent != NULL) 
-		dbg("given class device has a parent, use this instead");
-
-	loop = WAIT_FOR_FILE_SECONDS * WAIT_FOR_FILE_RETRY_FREQ;
-	while (loop--) {
-		if (udev_sleep) {
-			if (whitelist_search(class_dev)) {
-				sysfs_device = NULL;
-				goto exit;
-			}
-			usleep(1000 * 1000 / WAIT_FOR_FILE_RETRY_FREQ);
-		}
-
-		if (class_dev_parent)
-			sysfs_device = sysfs_get_classdev_device(class_dev_parent);
-		else
-			sysfs_device = sysfs_get_classdev_device(class_dev);
-		if (sysfs_device != NULL)
-			goto device_found;
-	}
-	dbg("timed out waiting for device symlink, continuing on anyway...");
-
-device_found:
-        /* We have another issue with just the wait above - the sysfs part of
-	 * the kernel may not be quick enough to have created the link to the
-	 * device under the "bus" subsystem. Due to this, the sysfs_device->bus
-	 * will not contain the actual bus name :(
-	 */
-        if (sysfs_device) {
-		if (sysfs_device->bus[0] != '\0')
-			goto bus_found;
-
-		while (loop--) {
-			if (udev_sleep)
-				usleep(1000 * 1000 / WAIT_FOR_FILE_RETRY_FREQ);
-			sysfs_get_device_bus(sysfs_device);
-			
-			if (sysfs_device->bus[0] != '\0')
-				goto bus_found;
-		}
-		dbg("timed out waiting to find the device bus, continuing on anyway");
-		goto exit;
-bus_found:
-		dbg("device %s is registered with bus '%s'",
-				sysfs_device->name, sysfs_device->bus);
-	}
-exit:
-	return sysfs_device;
-}
-
 static int match_rule(struct config_device *dev, struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
 {
 	while (1) {
@@ -859,6 +694,7 @@ try_parent:
 
 int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
+	struct sysfs_class_device *class_dev_parent;
 	struct sysfs_device *sysfs_device = NULL;
 	struct config_device *dev;
 	struct perm_device *perm;
@@ -866,17 +702,26 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 	char *pos;
 
 	udev->mode = 0;
+	dbg("class_dev->name='%s'", class_dev->name);
 
-	/* find the sysfs_device associated with this class device */
-	sysfs_device = get_sysfs_device(class_dev);
-	if (sysfs_device) {
-		dbg("sysfs_device->path='%s'", sysfs_device->path);
-		dbg("sysfs_device->bus_id='%s'", sysfs_device->bus_id);
-		dbg("sysfs_device->bus='%s'", sysfs_device->bus);
-		strfieldcpy(udev->bus_id, sysfs_device->bus_id);
-		wait_for_device_to_initialize(sysfs_device);
+	/* Figure out where the "device"-symlink is at.  For char devices this will
+	 * always be in the class_dev->path.  On block devices, only the main block
+	 * device will have the device symlink in it's path. All partition devices
+	 * need to look at the symlink in its parent directory.
+	 */
+	class_dev_parent = sysfs_get_classdev_parent(class_dev);
+	if (class_dev_parent != NULL) {
+		dbg("given class device has a parent, use this instead");
+		sysfs_device = sysfs_get_classdev_device(class_dev_parent);
+	} else {
+		sysfs_device = sysfs_get_classdev_device(class_dev);
 	}
-	dbg("class_dev->name = '%s'", class_dev->name);
+
+	if (sysfs_device) {
+		dbg("found /device-device: path='%s', bus_id='%s', bus='%s'",
+		    sysfs_device->path, sysfs_device->bus_id, sysfs_device->bus);
+		strfieldcpy(udev->bus_id, sysfs_device->bus_id);
+	}
 
 	strfieldcpy(udev->kernel_name, class_dev->name);
 	fix_kernel_name(udev);

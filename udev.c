@@ -75,14 +75,34 @@ static void asmlinkage sig_handler(int signum)
 	}
 }
 
-static char *subsystem_blacklist[] = {
-	"scsi_host",
-	"scsi_device",
-	"usb_host",
-	"pci_bus",
-	"pcmcia_socket",
-	""
-};
+/* list of subsystems we don't care about. not listing such systems here
+ * is not critical, but it makes it faster as we don't look for the "dev" file
+ */
+static int subsystem_without_dev(const char *subsystem)
+{
+	char *subsystem_blacklist[] = {
+		"scsi_host",
+		"scsi_device",
+		"usb_host",
+		"pci_bus",
+		"pcmcia_socket",
+		"bluetooth",
+		"i2c-adapter",
+		"pci_bus",
+		"ieee1394",
+		"ieee1394_host",
+		"ieee1394_node",
+		NULL
+	};
+	char **subsys;
+
+	for (subsys = subsystem_blacklist; *subsys != NULL; subsys++) {
+		if (strcmp(subsystem, *subsys) == 0)
+			return 1;
+	}
+
+	return 0;
+}
 
 int main(int argc, char *argv[], char *envp[])
 {
@@ -92,7 +112,6 @@ int main(int argc, char *argv[], char *envp[])
 	char *action;
 	char *devpath = "";
 	char *subsystem = "";
-	int i;
 	int retval = -EINVAL;
 	enum {
 		ADD,
@@ -143,20 +162,16 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		/* skip blacklisted subsystems */
-		i = 0;
-		while (subsystem_blacklist[i][0] != '\0') {
-			if (strcmp(subsystem, subsystem_blacklist[i]) == 0) {
-				dbg("don't care about '%s' devices", subsystem);
-				goto exit;
-			}
-			i++;
-		}
+		if (subsystem_without_dev(subsystem)) {
+			dbg("don't care about '%s' devices", subsystem);
+			exit(0);
+		};
 	}
 
 	/* set signal handlers */
 	act.sa_handler = (void (*) (int))sig_handler;
 	sigemptyset (&act.sa_mask);
-	/* alarm must interrupt syscalls*/
+	/* alarm must not restart syscalls*/
 	sigaction(SIGALRM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGTERM, &act, NULL);
@@ -172,7 +187,6 @@ int main(int argc, char *argv[], char *envp[])
 	case UDEVSTART:
 		dbg("udevstart");
 		namedev_init();
-		udev_sleep = 0;
 		retval = udev_start();
 		break;
 	case ADD:

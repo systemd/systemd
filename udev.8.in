@@ -20,13 +20,6 @@ Overrides the default location of the
 .B udev
 config file.
 .TP
-.B UDEV_NO_SLEEP
-The default behavior of
-.B udev
-is to wait until all the sysfs files of the device chain are populated. If set,
-.B udev
-will continue, regardless of the state of the device representation.
-.TP
 .B UDEV_NO_DEVD
 The default behavior of
 .B udev

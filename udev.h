@@ -27,8 +27,6 @@
 #include "libsysfs/sysfs/libsysfs.h"
 
 #define ALARM_TIMEOUT			30
-#define WAIT_FOR_FILE_SECONDS		10
-#define WAIT_FOR_FILE_RETRY_FREQ	10
 #define COMMENT_CHARACTER		'#'
 
 #define NAME_SIZE			256
@@ -90,7 +88,6 @@ extern char default_mode_str[MODE_SIZE];
 extern char default_owner_str[OWNER_SIZE];
 extern char default_group_str[GROUP_SIZE];
 extern int udev_log;
-extern int udev_sleep;
 extern int udev_dev_d;
 
 #endif

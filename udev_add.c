@@ -52,14 +52,9 @@
 
 #include "selinux.h"
 
-/* 
- * Right now the major/minor of a device is stored in a file called
- * "dev" in sysfs.
- * The number is stored as:
- * 	MM:mm
- * 		MM is the major
- * 		mm is the minor
- * 		The value is in decimal.
+/*
+ * the major/minor of a device is stored in a file called "dev"
+ * The number is stored in decimal values in the format: M:m
  */
 static int get_major_minor(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
@@ -345,35 +340,6 @@ exit:
 	return class_dev;
 }
 
-/* wait for the "dev" file to show up in the directory in sysfs.
- * If it doesn't happen in about 10 seconds, give up.
- */
-static int sleep_for_file(const char *path, char* file)
-{
-	char filename[SYSFS_PATH_MAX + 6];
-	int loop = WAIT_FOR_FILE_SECONDS * WAIT_FOR_FILE_RETRY_FREQ;
-	int retval;
-
-	strfieldcpy(filename, sysfs_path);
-	strfieldcat(filename, path);
-	strfieldcat(filename, file);
-
-	while (loop--) {
-		struct stat buf;
-
-		dbg("looking for '%s'", filename);
-		retval = stat(filename, &buf);
-		if (retval == 0)
-			goto exit;
-
-		/* sleep to give the kernel a chance to create the dev file */
-		usleep(1000 * 1000 / WAIT_FOR_FILE_RETRY_FREQ);
-	}
-	retval = -ENODEV;
-exit:
-	return retval;
-}
-
 static int rename_net_if(struct udevice *dev, int fake)
 {
 	int sk;
@@ -408,25 +374,11 @@ int udev_add_device(const char *path, const char *subsystem, int fake)
 	struct udevice dev;
 	char devpath[DEVPATH_SIZE];
 	char *pos;
-	int retval;
+	int retval = 0;
 
 	memset(&dev, 0x00, sizeof(dev));
 
 	dev.type = get_device_type(path, subsystem);
-	switch (dev.type) {
-	case 'b':
-	case 'c':
-		retval = sleep_for_file(path, "/dev");
-		break;
-
-	case 'n':
-		retval = sleep_for_file(path, "/address");
-		break;
-
-	default:
-		dbg("unknown device type '%c'", dev.type);
-		return -1;
-	}
 
 	class_dev = get_class_dev(path);
 	if (class_dev == NULL)
@@ -435,8 +387,8 @@ int udev_add_device(const char *path, const char *subsystem, int fake)
 	if (dev.type == 'b' || dev.type == 'c') {
 		retval = get_major_minor(class_dev, &dev);
 		if (retval != 0) {
-			dbg("get_major_minor failed");
-			goto exit;
+			dbg("no dev-file found, do nothing");
+			goto close;
 		}
 	}
 
@@ -484,6 +436,7 @@ int udev_add_device(const char *path, const char *subsystem, int fake)
 
 exit:
 	selinux_restore();
+close:
 	sysfs_close_class_device(class_dev);
 
 	return retval;

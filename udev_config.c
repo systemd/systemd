@@ -50,7 +50,6 @@ char default_mode_str[MODE_SIZE];
 char default_owner_str[OWNER_SIZE];
 char default_group_str[GROUP_SIZE];
 int udev_log;
-int udev_sleep;
 int udev_dev_d;
 
 
@@ -78,11 +77,6 @@ static void init_variables(void)
 	strfieldcpy(udev_rules_filename, UDEV_RULES_FILE);
 	strfieldcpy(udev_permissions_filename, UDEV_PERMISSION_FILE);
 	udev_log = string_is_true(UDEV_LOG_DEFAULT);
-
-	udev_sleep = 1;
-	env = getenv("UDEV_NO_SLEEP");
-	if (env && string_is_true(env))
-		udev_sleep = 0;
 
 	udev_dev_d = 1;
 	env = getenv("UDEV_NO_DEVD");
