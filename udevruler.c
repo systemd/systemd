@@ -222,6 +222,7 @@ static int add_all_attributes(const char *path, int level)
 			}
 		}
 
+	sysfs_close_directory(sysfs_dir);
 	return 0;
 }
 
@@ -229,7 +230,6 @@ static int get_all_attributes(char *path)
 {
 	struct sysfs_class_device *class_dev;
 	struct sysfs_class_device *class_dev_parent;
-	struct sysfs_attribute *attr;
 	struct sysfs_device *sysfs_dev;
 	struct sysfs_device *sysfs_dev_parent;
 	char key[NAME_SIZE];
@@ -246,16 +246,6 @@ static int get_all_attributes(char *path)
 		return -1;
 	}
 
-	/* read the 'dev' file for major/minor*/
-	attr = sysfs_get_classdev_attr(class_dev, "dev");
-	if (attr == NULL) {
-		dbg("couldn't get the \"dev\" file");
-		retval = -1;
-		goto exit;
-	}
-
-	sysfs_close_attribute(attr);
-
 	/* open sysfs class device directory and get all attributes */
 	if (add_all_attributes(class_dev->path, level) != 0) {
 		dbg("couldn't open class device directory");
@@ -266,11 +256,10 @@ static int get_all_attributes(char *path)
 
 	/* get the device link (if parent exists look here) */
 	class_dev_parent = sysfs_get_classdev_parent(class_dev);
-	if (class_dev_parent != NULL) {
-		//sysfs_close_class_device(class_dev);
-		class_dev = class_dev_parent;
-	}
-	sysfs_dev = sysfs_get_classdev_device(class_dev);
+	if (class_dev_parent != NULL)
+		sysfs_dev = sysfs_get_classdev_device(class_dev_parent);
+	else
+		sysfs_dev = sysfs_get_classdev_device(class_dev);
 
 	/* look the device chain upwards */
 	while (sysfs_dev != NULL) {
@@ -290,13 +279,11 @@ static int get_all_attributes(char *path)
 		if (sysfs_dev_parent == NULL)
 			break;
 
-		//sysfs_close_device(sysfs_dev);
 		sysfs_dev = sysfs_dev_parent;
 	}
-	sysfs_close_device(sysfs_dev);
 
 exit:
-	//sysfs_close_class_device(class_dev);
+	sysfs_close_class_device(class_dev);
 	return retval;
 }
 
@@ -403,7 +390,7 @@ int main(int argc, char *argv[]) {
 		int i;
 		int numitems;
 		struct attribute **selattr;
-		char text_rule[80];
+		char text_rule[255];
 
 		answer = newtRunForm(form);
 		if (answer == quit)
