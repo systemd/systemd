@@ -36,6 +36,7 @@ enum config_type {
 	TOPOLOGY	= 3,
 	REPLACE		= 4,
 	CALLOUT		= 5,
+	IGNORE		= 6,
 };
 
 #define BUS_SIZE	30
@@ -50,6 +51,7 @@ enum config_type {
 #define TYPE_TOPOLOGY	"TOPOLOGY"
 #define TYPE_REPLACE	"REPLACE"
 #define TYPE_CALLOUT	"CALLOUT"
+#define TYPE_IGNORE	"IGNORE"
 
 #define FIELD_BUS	"BUS"
 #define FIELD_ID	"ID"

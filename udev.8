@@ -161,9 +161,15 @@ device position on bus, like physical port of USB device
 string replacement of the kernel device name
 .br
 .RB "key: " KERNEL
+.TP
+.B IGNORE
+tell udev to not care about creation of this device, e.g. because the
+device is already handled by another program
+.br
+.RB "key: " KERNEL
 .P
 The methods are applied in the following order:
-.BR CALLOUT ", " LABEL ", " NUMBER ", " TOPOLOGY ", " REPLACE "."
+.BR IGNORE ", " CALLOUT ", " LABEL ", " NUMBER ", " TOPOLOGY ", " REPLACE "."
 .P
 .RB "The " NAME " ," SYMLINK " and " PROGRAM
 fields support simple printf-like string substitution:

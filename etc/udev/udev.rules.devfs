@@ -41,3 +41,6 @@ REPLACE, KERNEL="video[0-9]*", NAME="v4l/video%n"
 REPLACE, KERNEL="radio[0-9]*", NAME="v4l/radio%n"
 REPLACE, KERNEL="vbi[0-9]*",   NAME="v4l/vbi%n"
 REPLACE, KERNEL="vtx[0-9]*",   NAME="v4l/vtx%n"
+
+# dm devices
+IGNORE, KERNEL="dm-[0-9]*"

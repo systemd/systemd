@@ -110,6 +110,10 @@ void dump_config_dev(struct config_device *dev)
 		dbg_parse("CALLOUT name='%s', bus='%s', program='%s', id='%s'",
 			  dev->name, dev->bus, dev->exec_program, dev->id);
 		break;
+	case IGNORE:
+		dbg_parse("IGNORE name='%s', kernel_name='%s'",
+			  dev->name, dev->kernel_name);
+		break;
 	default:
 		dbg_parse("unknown type of method");
 	}
@@ -206,6 +210,11 @@ int namedev_init_rules(void)
 
 		if (strcasecmp(temp2, TYPE_CALLOUT) == 0) {
 			dev.type = CALLOUT;
+			goto keys;
+		}
+
+		if (strcasecmp(temp2, TYPE_IGNORE) == 0) {
+			dev.type = IGNORE;
 			goto keys;
 		}
 
@@ -321,6 +330,12 @@ keys:
 			if ((*dev.name == '\0') ||
 			    (*dev.id == '\0') ||
 			    (*dev.exec_program == '\0'))
+				goto error;
+			break;
+		case IGNORE:
+			dbg_parse(TYPE_IGNORE "name='%s', kernel_name='%s'",
+				  dev.name, dev.kernel_name);
+			if ((*dev.kernel_name == '\0'))
 				goto error;
 			break;
 		default:

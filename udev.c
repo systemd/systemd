@@ -221,6 +221,9 @@ exit_sysbus:
 	sysbus_disconnect();
 
 exit:
+	if (retval > 0)
+		retval = 0;
+
 	return -retval;
 }
 

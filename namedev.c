@@ -298,6 +298,27 @@ exit:
 	return; /* here to prevent compiler warning... */
 }
 
+static int do_ignore(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
+{
+	struct config_device *dev;
+	struct list_head *tmp;
+
+	list_for_each(tmp, &config_device_list) {
+		dev = list_entry(tmp, struct config_device, node);
+		if (dev->type != IGNORE)
+			continue;
+
+		dbg("compare name '%s' with '%s'", dev->kernel_name, class_dev->name);
+		if (strcmp_pattern(dev->kernel_name, class_dev->name) != 0)
+			continue;
+
+		dbg("found name, '%s' will be ignored", dev->kernel_name);
+
+		return 0;
+	}
+	return -ENODEV;
+}
+
 static int exec_callout(struct config_device *dev, char *value, int len)
 {
 	int retval;
@@ -734,6 +755,12 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 	dbg("kernel_number='%s'", udev->kernel_number);
 
 	/* rules are looked at in priority order */
+	retval = do_ignore(class_dev, udev, sysfs_device);
+	if (retval == 0) {
+		dbg("name, '%s' is being ignored", class_dev->name);
+		return 1;
+	}
+
 	retval = do_callout(class_dev, udev, sysfs_device);
 	if (retval == 0)
 		goto found;
