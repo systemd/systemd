@@ -1,6 +1,6 @@
 Summary: A userspace implementation of devfs
 Name: udev
-Version: 003
+Version: 003_bk
 Release: 1
 License: GPL
 Group: Utilities/System
@@ -32,6 +32,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) /sbin/udev
 %attr(755,root,root) /udev/
 %attr(755,root,root) /etc/udev/
+#%attr(755,root,root) /etc/hotplug.d/default/udev.hotplug
 %attr(0644,root,root) /etc/udev/namedev.config
 %attr(0644,root,root) /etc/udev/namedev.permissions
 %attr(0644,root,root) %{_mandir}/man8/udev.8*
