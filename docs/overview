@@ -1,0 +1,123 @@
+
+Instead of heading in on another "proposal" document, I thought I'd send out 
+this email describing ideas I've had about udev - thanks to the comments I've 
+received. The idea is starting to mushroom a bit and I'd like to get people's 
+comments before I go further down the path.
+
+As I see it, we've got a couple goals for udev:
+
+1) dynamic replacement for /dev
+2) device naming
+3) API to access info about current system devices
+
+I'd like to split these goals into separate subsystems:
+
+1) udev - dynamic replacement for /dev
+2) namedev - device naming
+3) libsysfs - a standard library for accessing device information on the 
+system.
+
+Udev
+------
+
+Udev will be responsible for responding to /sbin/hotplug on device events. It 
+will receive the device class information along with device's sysfs 
+directory. Udev will call the name_device function from the naming device 
+subsystem with that information and receive a unique device name in return. 
+Udev will then query sysfs through the libsysfs for specific device 
+information required for creating the /dev node like major and minor number. 
+Once it has the important information, udev will create a /dev entry for the 
+device, add the device to the in memory table of current devices, and send 
+notification of the successful event. On a remove call, udev will remove the 
+/dev entry, remove the device from the in memory table, and send 
+notification. 
+
+Udev will consist of a command udev - to be called from /sbin/hotplug. It will 
+require the in memory dynamic database/table for keeping track of current 
+system devices, and a library of routines for accessing that database/table. 
+Udev will not care about "how" devices are named, that will be separated into 
+the device naming subsystem. It's presented a common device naming API by the 
+device naming subsystem to use for naming devices.
+
+namedev
+----------
+
+From comments Martin has made, I've decided to push out the device naming part 
+of udev into its own "subsystem". The reason is to make this as flexible and 
+pluggable as possible. The device naming subsystem, or namedev, will present 
+a standard interface for udev to call for naming a particular device. Under 
+that interface, system administrators can plug in their own methods for 
+device naming. 
+
+We would provide a default naming scheme. The first prototype implementation 
+could simply take the sysfs directory passed in with the device name 
+function, query sysfs for the major and minor numbers, and then look up in a 
+static device name mapping file the name of the device. The static device 
+naming file could look just like devices.txt in the Linux kernel's 
+Documentation directory. Obviously, this isn't a great implementation because 
+eventually we'd like major an minor numbers to be dynamic.
+
+The default naming scheme in the future would have a set of policies to go 
+through, these were given to me by Greg. The device naming subsystem would 
+get the sysfs directory of the to be named device and would use the following 
+information in order to map the device's name:
+
+1) Label info - like SCSI's UUID
+2) Bus Device Number
+3) Topology on Bus
+4) Kernel Name - DEFAULT
+
+System administrators could use the default naming system or enterprise 
+computing environments could plug in their Universal Unique Identifier (UUID) 
+policies. The idea is to make the device naming as flexible and pluggable as 
+possible.
+
+The device naming subsystem would require accessing sysfs for device 
+information. It will receive the device's sysfs directory in the call from 
+udev and use it to get more information to determine naming. The namedev 
+subsystem will include a standard naming API for udev to use. The default 
+naming scheme will include a set of functions and a static device naming 
+file, which will reside in /etc or /var. 
+
+libsysfs
+--------
+
+Greg may object, but I believe there's a need for a common API to access 
+device information in sysfs. The device naming subsystem and the udev 
+subsystem need to take the sysfs directory path and query device information. 
+Instead of copying code so each one will have to readdir, etc., I've decided 
+to split out the sysfs calls into a separate library that will sit atop 
+sysfs. Sysfs callbacks aren't standard across devices, I beleive this is 
+another reason for creating a common and standard library interface for 
+querying device information. 
+
+Another reason for libsysfs is it satisfies requirements the LTC RAS team has 
+for getting current system device information. Rather than keeping tons of 
+information in udev's in memory database, or even querying that database for 
+the sysfs directory that will require storing extra reference info in memory, 
+I've decided the RAS requirements can be fulfilled with a library atop sysfs. 
+Sysfs contains devices currently on the system. 
+
+Applications like the Error Log Analysis piece, for example, can query the 
+sysfs library for device information. ELA gets specific information in an 
+error message thanks to the dev_* and soon to be proposed netdev_* macros. 
+One goal of the ELA is to gather as much information about an erroring device 
+so service engineers and administrators can diagnose the problem. The ELA 
+will get an error message with the bus id and driver name of the device. It 
+will then need to query sysfs for other VPD information. 
+
+I've used syfs in the name of libsysfs for a reason, I believe sysfs will be 
+the device tree to use in the future. Until all VPD info is in sysfs, the 
+library could also make use of /proc, sginfo, and other sources for device 
+information under the covers so ELA and other applications don' t need to all 
+have that knowledge. 
+
+
+I'd like to know what everyone thinks about my proposal to split this all up 
+into three separate subsystems. All comments are welcome.
+
+Thanks,
+
+Dan
+
+
