@@ -53,6 +53,7 @@ mandir =	${prefix}/usr/share/man
 hotplugdir =	${etcdir}/hotplug.d/default
 configdir =	${etcdir}/udev/
 initdir = 	${etcdir}/init.d/
+dev_ddir =	${etcdir}/dev.d/
 srcdir = .
 
 INSTALL = /usr/bin/install -c
@@ -349,7 +350,11 @@ install-config: $(GEN_CONFIGS)
 		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.permissions $(DESTDIR)$(configdir); \
 	fi
 
-install: install-initscript install-config all
+install-dev.d:
+	$(INSTALL) -d $(DESTDIR)$(dev_ddir)
+	$(INSTALL) -d $(DESTDIR)$(dev_ddir)default/
+
+install: install-initscript install-config install-dev.d all
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
 	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
@@ -393,6 +398,8 @@ uninstall:
 	- rm $(usrbindir)/$(INFO)
 	- rmdir $(hotplugdir)
 	- rmdir $(configdir)
+	- rmdir $(dev_ddir)default
+	- rmdir $(dev_ddir)
 	- rm $(udevdir)/.udev.tdb
 	- rmdir $(udevdir)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
