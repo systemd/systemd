@@ -327,20 +327,15 @@ static void asmlinkage sig_handler(int signum)
 			sigchilds_waiting = 1;
 			goto do_write;
 			break;
-		default:
-			dbg("unhandled signal %d", signum);
-			return;
 	}
-	
+
 do_write:
 	/* if pipe is empty, write to pipe to force select to return
 	 * immediately when it gets called
 	 */
 	if (!sig_flag) {
 		rc = write(pipefds[1],&signum,sizeof(signum));
-		if (rc < 0)
-			dbg("unable to write to pipe");
-		else
+		if (rc >= 0)
 			sig_flag = 1;
 	}
 }

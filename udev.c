@@ -65,14 +65,10 @@ static void asmlinkage sig_handler(int signum)
 	switch (signum) {
 		case SIGALRM:
 			gotalarm = 1;
-			info("error: timeout reached, event probably not handled correctly");
 			break;
 		case SIGINT:
 		case SIGTERM:
-			udevdb_exit();
 			exit(20 + signum);
-		default:
-			dbg("unhandled signal %d", signum);
 	}
 }
 
@@ -148,6 +144,7 @@ int main(int argc, char *argv[], char *envp[])
 	/* set signal handlers */
 	act.sa_handler = (void (*) (int))sig_handler;
 	sigemptyset (&act.sa_mask);
+	act.sa_flags = 0;
 	/* alarm must not restart syscalls*/
 	sigaction(SIGALRM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
