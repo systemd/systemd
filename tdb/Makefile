@@ -7,7 +7,9 @@ CFLAGS = -DSTANDALONE -DTDB_DEBUG -g -DHAVE_MMAP=1
 PROGS = tdbtest tdbtool tdbtorture
 TDB_OBJ = tdb.o spinlock.o
 
-default: $(PROGS)
+default: $(TDB_OBJ)
+
+progs: $(PROGS)
 
 tdbtest: tdbtest.o $(TDB_OBJ)
 	$(CC) $(CFLAGS) -o tdbtest tdbtest.o $(TDB_OBJ) -lgdbm
