@@ -102,7 +102,7 @@ extern struct list_head config_device_list;
 extern struct list_head perm_device_list;
 
 extern int namedev_init(void);
-extern int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *dev);
+extern int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_dev);
 extern int namedev_init_permissions(void);
 extern int namedev_init_rules(void);
 

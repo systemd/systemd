@@ -104,7 +104,7 @@ exit:
 }
 
 /* callback for database dump */
-static int print_record(char *path, struct udevice *dev)
+static int print_record(const char *path, struct udevice *dev)
 {
 	printf("P: %s\n", path);
 	printf("N: %s\n", dev->name);

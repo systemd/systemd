@@ -107,9 +107,9 @@ static int subsystem_without_dev(const char *subsystem)
 int main(int argc, char *argv[], char *envp[])
 {
 	struct sigaction act;
-	char *action;
-	char *devpath = "";
-	char *subsystem = "";
+	struct sysfs_class_device *class_dev;
+	struct udevice udev;
+	char path[SYSFS_PATH_MAX];
 	int retval = -EINVAL;
 	enum {
 		ADD,
@@ -129,7 +129,10 @@ int main(int argc, char *argv[], char *envp[])
 	if (strstr(argv[0], "udevstart")) {
 		act_type = UDEVSTART;
 	} else {
-		action = get_action();
+		const char *action = get_action();
+		const char *devpath = get_devpath();
+		const char *subsystem = get_subsystem(main_argv[1]);
+
 		if (!action) {
 			dbg("no action?");
 			goto exit;
@@ -139,16 +142,15 @@ int main(int argc, char *argv[], char *envp[])
 		} else if (strcmp(action, "remove") == 0) {
 			act_type = REMOVE;
 		} else {
-			dbg("unknown action '%s'", action);
+			dbg("no action '%s' for us", action);
 			goto exit;
 		}
 
-		devpath = get_devpath();
 		if (!devpath) {
 			dbg("no devpath?");
 			goto exit;
 		}
-		dbg("looking at '%s'", devpath);
+		dbg("looking at '%s'", udev.devpath);
 
 		/* we only care about class devices and block stuff */
 		if (!strstr(devpath, "class") && !strstr(devpath, "block")) {
@@ -156,17 +158,18 @@ int main(int argc, char *argv[], char *envp[])
 			goto exit;
 		}
 
-		subsystem = get_subsystem(main_argv[1]);
 		if (!subsystem) {
-			dbg("no subsystem?");
+			dbg("no subsystem");
 			goto exit;
 		}
 
 		/* skip blacklisted subsystems */
 		if (subsystem_without_dev(subsystem)) {
 			dbg("don't care about '%s' devices", subsystem);
-			exit(0);
+			goto exit;
 		};
+
+		udev_set_values(&udev, devpath, subsystem);
 	}
 
 	/* set signal handlers */
@@ -192,12 +195,25 @@ int main(int argc, char *argv[], char *envp[])
 		break;
 	case ADD:
 		dbg("udev add");
+
+		/* init rules */
 		namedev_init();
-		retval = udev_add_device(devpath, subsystem, NOFAKE);
+
+		/* open the device */
+		snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, udev.devpath);
+		class_dev = sysfs_open_class_device_path(path);
+		if (class_dev == NULL) {
+			dbg ("sysfs_open_class_device_path failed");
+			break;
+		}
+		dbg("opened class_dev->name='%s'", class_dev->name);
+
+		/* name, create node, store in db */
+		retval = udev_add_device(&udev, class_dev);
 		break;
 	case REMOVE:
 		dbg("udev remove");
-		retval = udev_remove_device(devpath, subsystem);
+		retval = udev_remove_device(&udev);
 	}
 
 	udevdb_exit();

@@ -44,7 +44,7 @@
 static TDB_CONTEXT *udevdb;
 sig_atomic_t gotalarm;
 
-int udevdb_add_dev(const char *path, const struct udevice *dev)
+int udevdb_add_dev(struct udevice *udev)
 {
 	TDB_DATA key, data;
 	char keystr[SYSFS_PATH_MAX];
@@ -52,22 +52,19 @@ int udevdb_add_dev(const char *path, const struct udevice *dev)
 	if (udevdb == NULL)
 		return -1;
 
-	if ((path == NULL) || (dev == NULL))
-		return -ENODEV;
-
-	memset(keystr, 0, SYSFS_PATH_MAX);
-	strfieldcpy(keystr, path);
+	memset(keystr, 0x00, SYSFS_PATH_MAX);
+	strfieldcpy(keystr, udev->devpath);
 	key.dptr = keystr;
 	key.dsize = strlen(keystr) + 1;
 
-	data.dptr = (void *)dev;
-	data.dsize = UDEVICE_LEN;
-	dbg("store key '%s' for device '%s'", path, dev->name);
+	data.dptr = (void *) udev;
+	data.dsize = UDEVICE_DB_LEN;
+	dbg("store key '%s' for device '%s'", keystr, udev->name);
 
 	return tdb_store(udevdb, key, data, TDB_REPLACE); 
 }
 
-int udevdb_get_dev(const char *path, struct udevice *dev)
+int udevdb_get_dev(const char *path, struct udevice *udev)
 {
 	TDB_DATA key, data;
 
@@ -84,8 +81,9 @@ int udevdb_get_dev(const char *path, struct udevice *dev)
 	if (data.dptr == NULL || data.dsize == 0)
 		return -ENODEV;
 
-	memset(dev, 0, sizeof(struct udevice));
-	memcpy(dev, data.dptr, UDEVICE_LEN);
+	memset(udev, 0x00, sizeof(struct udevice));
+	memcpy(udev, data.dptr, UDEVICE_DB_LEN);
+
 	return 0;
 }
 
@@ -156,7 +154,7 @@ int udevdb_open_ro(void)
 	return 0;
 }
 
-static int (*user_record_callback) (char *path, struct udevice *dev);
+static int (*user_record_callback) (const char *path, struct udevice *dev);
 
 static int traverse_callback(TDB_CONTEXT *tdb, TDB_DATA key, TDB_DATA dbuf, void *state)
 {
@@ -167,7 +165,7 @@ static int traverse_callback(TDB_CONTEXT *tdb, TDB_DATA key, TDB_DATA dbuf, void
  * udevdb_call_foreach: dumps whole database by passing record data to user function
  * @user_record_handler: user function called for every record in the database
  */
-int udevdb_call_foreach(int (*user_record_handler) (char *path, struct udevice *dev))
+int udevdb_call_foreach(int (*user_record_handler) (const char *path, struct udevice *dev))
 {
 	int retval = 0;
 
@@ -191,27 +189,27 @@ static char *find_path;
 static const char *find_name;
 static int find_found;
 
-static int find_device_by_name(char *path, struct udevice *dev)
+static int find_device_by_name(const char *path, struct udevice *udev)
 {
 	char *pos;
 	int len;
 
-	if (strncmp(dev->name, find_name, sizeof(dev->name)) == 0) {
-		memcpy(find_dev, dev, sizeof(struct udevice));
+	if (strncmp(udev->name, find_name, sizeof(udev->name)) == 0) {
+		memcpy(find_dev, udev, sizeof(struct udevice));
 		strfieldcpymax(find_path, path, NAME_SIZE);
 		find_found = 1;
 		/* stop search */
 		return 1;
 	}
 	/* look for matching symlink*/
-	foreach_strpart(dev->symlink, " ", pos, len) {
+	foreach_strpart(udev->symlink, " ", pos, len) {
 		if (strncmp(pos, find_name, len) != 0)
 			continue;
 
 		if (len != strlen(find_name))
 			continue;
 
-		memcpy(find_dev, dev, sizeof(struct udevice));
+		memcpy(find_dev, udev, sizeof(struct udevice));
 		strfieldcpymax(find_path, path, NAME_SIZE);
 		find_found = 1;
 		return 1;

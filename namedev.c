@@ -692,7 +692,7 @@ try_parent:
 
 }
 
-int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *udev)
+int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 {
 	struct sysfs_class_device *class_dev_parent;
 	struct sysfs_device *sysfs_device = NULL;
@@ -718,9 +718,10 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 	}
 
 	if (sysfs_device) {
-		dbg("found /device-device: path='%s', bus_id='%s', bus='%s'",
+		dbg("found devices device: path='%s', bus_id='%s', bus='%s'",
 		    sysfs_device->path, sysfs_device->bus_id, sysfs_device->bus);
 		strfieldcpy(udev->bus_id, sysfs_device->bus_id);
+		strfieldcpy(udev->bus, sysfs_device->bus);
 	}
 
 	strfieldcpy(udev->kernel_name, class_dev->name);

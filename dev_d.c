@@ -80,7 +80,7 @@ static int run_program(char *name)
  * 	subsystem/
  * 	default/
  */
-void dev_d_send(struct udevice *dev, const char *subsystem, const char *devpath)
+void dev_d_send(struct udevice *udev)
 {
 	char dirname[256];
 	char env_devname[NAME_SIZE];
@@ -91,17 +91,17 @@ void dev_d_send(struct udevice *dev, const char *subsystem, const char *devpath)
 		return;
 
 	memset(env_devname, 0x00, sizeof(env_devname));
-	if (dev->type == 'b' || dev->type == 'c') {
+	if (udev->type == 'b' || udev->type == 'c') {
 		strfieldcpy(env_devname, udev_root);
-		strfieldcat(env_devname, dev->name);
-	} else if (dev->type == 'n') {
-		strfieldcpy(env_devname, dev->name);
-		setenv("DEVPATH", devpath, 1);
+		strfieldcat(env_devname, udev->name);
+	} else if (udev->type == 'n') {
+		strfieldcpy(env_devname, udev->name);
+		setenv("DEVPATH", udev->devpath, 1);
 	}
 	setenv("DEVNAME", env_devname, 1);
 	dbg("DEVNAME='%s'", env_devname);
 
-	devname = strdup(dev->name);
+	devname = strdup(udev->name);
 	if (!devname) {
 		dbg("out of memory");
 		return;
@@ -121,11 +121,11 @@ void dev_d_send(struct udevice *dev, const char *subsystem, const char *devpath)
 	}
 
 	strcpy(dirname, DEVD_DIR);
-	strfieldcat(dirname, dev->name);
+	strfieldcat(dirname, udev->name);
 	call_foreach_file(run_program, dirname, DEVD_SUFFIX);
 
 	strcpy(dirname, DEVD_DIR);
-	strfieldcat(dirname, subsystem);
+	strfieldcat(dirname, udev->subsystem);
 	call_foreach_file(run_program, dirname, DEVD_SUFFIX);
 
 	strcpy(dirname, DEVD_DIR "default");

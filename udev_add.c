@@ -186,7 +186,7 @@ static void set_to_local_user(char *user)
 	endutent();
 }
 
-static int create_node(struct udevice *dev, int fake)
+static int create_node(struct udevice *udev)
 {
 	char filename[NAME_SIZE];
 	char linkname[NAME_SIZE];
@@ -200,90 +200,89 @@ static int create_node(struct udevice *dev, int fake)
 	int len;
 
 	strfieldcpy(filename, udev_root);
-	strfieldcat(filename, dev->name);
+	strfieldcat(filename, udev->name);
 
-	switch (dev->type) {
+	switch (udev->type) {
 	case 'b':
-		dev->mode |= S_IFBLK;
+		udev->mode |= S_IFBLK;
 		break;
 	case 'c':
 	case 'u':
-		dev->mode |= S_IFCHR;
+		udev->mode |= S_IFCHR;
 		break;
 	case 'p':
-		dev->mode |= S_IFIFO;
+		udev->mode |= S_IFIFO;
 		break;
 	default:
-		dbg("unknown node type %c\n", dev->type);
+		dbg("unknown node type %c\n", udev->type);
 		return -EINVAL;
 	}
 
 	/* create parent directories if needed */
-	if (strrchr(dev->name, '/'))
+	if (strrchr(udev->name, '/'))
 		create_path(filename);
 
-	if (dev->owner[0] != '\0') {
+	if (udev->owner[0] != '\0') {
 		char *endptr;
-		unsigned long id = strtoul(dev->owner, &endptr, 10);
+		unsigned long id = strtoul(udev->owner, &endptr, 10);
 		if (endptr[0] == '\0')
 			uid = (uid_t) id;
 		else {
 			struct passwd *pw;
-			if (strncmp(dev->owner, LOCAL_USER, sizeof(LOCAL_USER)) == 0)
-				set_to_local_user(dev->owner);
+			if (strncmp(udev->owner, LOCAL_USER, sizeof(LOCAL_USER)) == 0)
+				set_to_local_user(udev->owner);
 
-			pw = getpwnam(dev->owner);
+			pw = getpwnam(udev->owner);
 			if (pw == NULL)
-				dbg("specified user unknown '%s'", dev->owner);
+				dbg("specified user unknown '%s'", udev->owner);
 			else
 				uid = pw->pw_uid;
 		}
 	}
 
-	if (dev->group[0] != '\0') {
+	if (udev->group[0] != '\0') {
 		char *endptr;
-		unsigned long id = strtoul(dev->group, &endptr, 10);
+		unsigned long id = strtoul(udev->group, &endptr, 10);
 		if (endptr[0] == '\0')
 			gid = (gid_t) id;
 		else {
-			struct group *gr = getgrnam(dev->group);
+			struct group *gr = getgrnam(udev->group);
 			if (gr == NULL)
-				dbg("specified group unknown '%s'", dev->group);
+				dbg("specified group unknown '%s'", udev->group);
 			else
 				gid = gr->gr_gid;
 		}
 	}
 
-	if (!fake) {
+	if (!udev->test_run) {
 		info("creating device node '%s'", filename);
-		if (make_node(filename, dev->major, dev->minor, dev->mode, uid, gid) != 0)
+		if (make_node(filename, udev->major, udev->minor, udev->mode, uid, gid) != 0)
 			goto error;
 	} else {
 		info("creating device node '%s', major = '%d', minor = '%d', "
 		     "mode = '%#o', uid = '%d', gid = '%d'", filename,
-		     dev->major, dev->minor, (mode_t)dev->mode, uid, gid);
+		     udev->major, udev->minor, (mode_t)udev->mode, uid, gid);
 	}
 
 	/* create all_partitions if requested */
-	if (dev->partitions > 0) {
-		info("creating device partition nodes '%s[1-%i]'", filename, dev->partitions);
-		if (!fake) {
-			for (i = 1; i <= dev->partitions; i++) {
+	if (udev->partitions > 0) {
+		info("creating device partition nodes '%s[1-%i]'", filename, udev->partitions);
+		if (!udev->test_run) {
+			for (i = 1; i <= udev->partitions; i++) {
 				strfieldcpy(partitionname, filename);
 				strintcat(partitionname, i);
-				make_node(partitionname, dev->major,
-					  dev->minor + i, dev->mode, uid, gid);
+				make_node(partitionname, udev->major, udev->minor + i, udev->mode, uid, gid);
 			}
 		}
 	}
 
 	/* create symlink(s) if requested */
-	foreach_strpart(dev->symlink, " ", pos, len) {
+	foreach_strpart(udev->symlink, " ", pos, len) {
 		strfieldcpymax(linkname, pos, len+1);
 		strfieldcpy(filename, udev_root);
 		strfieldcat(filename, linkname);
-		dbg("symlink '%s' to node '%s' requested", filename, dev->name);
-		if (!fake)
+		dbg("symlink '%s' to node '%s' requested", filename, udev->name);
+		if (!udev->test_run)
 			if (strrchr(linkname, '/'))
 				create_path(filename);
 
@@ -291,8 +290,8 @@ static int create_node(struct udevice *dev, int fake)
 		linktarget[0] = '\0';
 		i = 0;
 		tail = 0;
-		while ((dev->name[i] == linkname[i]) && dev->name[i]) {
-			if (dev->name[i] == '/')
+		while ((udev->name[i] == linkname[i]) && udev->name[i]) {
+			if (udev->name[i] == '/')
 				tail = i+1;
 			i++;
 		}
@@ -302,10 +301,10 @@ static int create_node(struct udevice *dev, int fake)
 			i++;
 		}
 
-		strfieldcat(linktarget, &dev->name[tail]);
+		strfieldcat(linktarget, &udev->name[tail]);
 
 		dbg("symlink(%s, %s)", linktarget, filename);
-		if (!fake) {
+		if (!udev->test_run) {
 			selinux_setfscreatecon(filename, S_IFLNK);
 			unlink(filename);
 			if (symlink(linktarget, filename) != 0)
@@ -319,35 +318,14 @@ error:
 	return -1;
 }
 
-static struct sysfs_class_device *get_class_dev(const char *device_name)
-{
-	char dev_path[SYSFS_PATH_MAX];
-	struct sysfs_class_device *class_dev = NULL;
-
-	strfieldcpy(dev_path, sysfs_path);
-	strfieldcat(dev_path, device_name);
-	dbg("looking at '%s'", dev_path);
-
-	/* open up the sysfs class device for this thing... */
-	class_dev = sysfs_open_class_device_path(dev_path);
-	if (class_dev == NULL) {
-		dbg ("sysfs_open_class_device_path failed");
-		goto exit;
-	}
-	dbg("class_dev->name='%s'", class_dev->name);
-
-exit:
-	return class_dev;
-}
-
-static int rename_net_if(struct udevice *dev, int fake)
+static int rename_net_if(struct udevice *udev)
 {
 	int sk;
 	struct ifreq ifr;
 	int retval;
 
-	dbg("changing net interface name from '%s' to '%s'", dev->kernel_name, dev->name);
-	if (fake)
+	dbg("changing net interface name from '%s' to '%s'", udev->kernel_name, udev->name);
+	if (udev->test_run)
 		return 0;
 
 	sk = socket(PF_INET, SOCK_DGRAM, 0);
@@ -357,8 +335,8 @@ static int rename_net_if(struct udevice *dev, int fake)
 	}
 
 	memset(&ifr, 0x00, sizeof(struct ifreq));
-	strfieldcpy(ifr.ifr_name, dev->kernel_name);
-	strfieldcpy(ifr.ifr_newname, dev->name);
+	strfieldcpy(ifr.ifr_name, udev->kernel_name);
+	strfieldcpy(ifr.ifr_newname, udev->name);
 
 	retval = ioctl(sk, SIOCSIFNAME, &ifr);
 	if (retval != 0)
@@ -368,69 +346,57 @@ static int rename_net_if(struct udevice *dev, int fake)
 	return retval;
 }
 
-int udev_add_device(const char *path, const char *subsystem, int fake)
+int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 {
-	struct sysfs_class_device *class_dev;
-	struct udevice dev;
-	char devpath[DEVPATH_SIZE];
 	char *pos;
 	int retval = 0;
 
-	memset(&dev, 0x00, sizeof(dev));
-
-	dev.type = get_device_type(path, subsystem);
-
-	class_dev = get_class_dev(path);
-	if (class_dev == NULL)
-		return -1;
-
-	if (dev.type == 'b' || dev.type == 'c') {
-		retval = get_major_minor(class_dev, &dev);
+	if (udev->type == 'b' || udev->type == 'c') {
+		retval = get_major_minor(class_dev, udev);
 		if (retval != 0) {
 			dbg("no dev-file found, do nothing");
 			goto close;
 		}
 	}
 
-	if (namedev_name_device(class_dev, &dev) != 0)
+	if (namedev_name_device(udev, class_dev) != 0)
 		goto exit;
 
-	dbg("name='%s'", dev.name);
+	dbg("adding name='%s'", udev->name);
 
 	selinux_init();
-	switch (dev.type) {
+	switch (udev->type) {
 	case 'b':
 	case 'c':
-		retval = create_node(&dev, fake);
+		retval = create_node(udev);
 		if (retval != 0)
 			goto exit;
-		if ((!fake) && (udevdb_add_dev(path, &dev) != 0))
+		if ((!udev->test_run) && (udevdb_add_dev(udev) != 0))
 			dbg("udevdb_add_dev failed, but we are going to try "
 			    "to create the node anyway. But remove might not "
 			    "work properly for this device.");
 
-		dev_d_send(&dev, subsystem, path);
+		dev_d_send(udev);
 		break;
 
 	case 'n':
-		strfieldcpy(devpath, path);
-		if (strcmp(dev.name, dev.kernel_name) != 0) {
-			retval = rename_net_if(&dev, fake);
+		if (strcmp(udev->name, udev->kernel_name) != 0) {
+			retval = rename_net_if(udev);
 			if (retval != 0)
 				goto exit;
 			/* netif's are keyed with the configured name, cause
 			 * the original kernel name sleeps with the fishes
 			 */
-			pos = strrchr(devpath, '/');
+			pos = strrchr(udev->devpath, '/');
 			if (pos != NULL) {
 				pos[1] = '\0';
-				strfieldcat(devpath, dev.name);
+				strfieldcat(udev->devpath, udev->name);
 			}
 		}
-		if ((!fake) && (udevdb_add_dev(devpath, &dev) != 0))
+		if ((!udev->test_run) && (udevdb_add_dev(udev) != 0))
 			dbg("udevdb_add_dev failed");
 
-		dev_d_send(&dev, subsystem, devpath);
+		dev_d_send(udev);
 		break;
 	}
 

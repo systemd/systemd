@@ -1100,7 +1100,6 @@ EOF
 $ENV{UDEV_TEST} = "yes";
 $ENV{SYSFS_PATH} = $sysfs;
 $ENV{UDEV_CONFIG_FILE} = $main_conf;
-$ENV{UDEV_NO_SLEEP} = "yes";
 $ENV{UDEV_NO_DEVD} = "yes";
 
 

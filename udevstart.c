@@ -33,6 +33,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "libsysfs/sysfs/libsysfs.h"
 #include "logging.h"
 #include "udev_lib.h"
 #include "list.h"
@@ -86,19 +87,32 @@ static char *first_list[] = {
 	NULL,
 };
 
-static void add_device(char *path, char *subsys, int fake)
+static int add_device(char *devpath, char *subsystem)
 {
+	struct udevice udev;
+	char path[SYSFS_PATH_MAX];
+	struct sysfs_class_device *class_dev;
 	char *argv[3];
 
 	/* fake argument vector and environment for callouts and dev.d/ */
 	argv[0] = "udev";
-	argv[1] = subsys;
+	argv[1] = subsystem;
 	argv[2] = NULL;
 
 	main_argv = argv;
-	setenv("DEVPATH", path, 1);
+	setenv("DEVPATH", devpath, 1);
 	setenv("ACTION", "add", 1);
-	udev_add_device(path, subsys, fake);
+
+	snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, devpath);
+	class_dev = sysfs_open_class_device_path(path);
+	if (class_dev == NULL) {
+		dbg ("sysfs_open_class_device_path failed");
+		return -ENODEV;
+	}
+
+	udev_set_values(&udev, devpath, subsystem);
+
+	return udev_add_device(&udev, class_dev);
 }
 
 static void exec_list(struct list_head *device_list)
@@ -111,7 +125,7 @@ static void exec_list(struct list_head *device_list)
 	list_for_each_entry_safe(loop_device, tmp_device, device_list, list) {
 		for (i=0; first_list[i] != NULL; i++) {
 			if (strncmp(loop_device->path, first_list[i], strlen(first_list[i])) == 0) {
-				add_device(loop_device->path, loop_device->subsys, NOFAKE);
+				add_device(loop_device->path, loop_device->subsys);
 				list_del(&loop_device->list);
 				free(loop_device);
 				break;
@@ -131,14 +145,14 @@ static void exec_list(struct list_head *device_list)
 		if (found)
 			continue;
 
-		add_device(loop_device->path, loop_device->subsys, NOFAKE);
+		add_device(loop_device->path, loop_device->subsys);
 		list_del(&loop_device->list);
 		free(loop_device);
 	}
 
 	/* handle the rest of the devices left over, if any */
 	list_for_each_entry_safe(loop_device, tmp_device, device_list, list) {
-		add_device(loop_device->path, loop_device->subsys, NOFAKE);
+		add_device(loop_device->path, loop_device->subsys);
 		list_del(&loop_device->list);
 		free(loop_device);
 	}

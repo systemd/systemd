@@ -29,7 +29,6 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
 #include "logging.h"
 #include "udev_lib.h"
@@ -111,6 +110,14 @@ char get_device_type(const char *path, const char *subsystem)
 		return 'c';
 
 	return '\0';
+}
+
+void udev_set_values(struct udevice *udev, const char* devpath, const char *subsystem)
+{
+	memset(udev, 0x00, sizeof(struct udevice));
+	strfieldcpy(udev->devpath, devpath);
+	strfieldcpy(udev->subsystem, subsystem);
+	udev->type = get_device_type(devpath, subsystem);
 }
 
 int file_map(const char *filename, char **buf, size_t *bufsize)

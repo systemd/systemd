@@ -30,7 +30,6 @@ udevd=/sbin/udevd
 
 run_udev () {
 	export ACTION=add
-	export UDEV_NO_SLEEP=1
 
 	# handle block devices and their partitions
 	for i in ${sysfs_dir}/block/*; do

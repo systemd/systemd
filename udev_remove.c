@@ -23,6 +23,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -161,35 +162,37 @@ static int delete_node(struct udevice *dev)
 }
 
 /*
- * Look up the sysfs path in the database to see if we have named this device
- * something different from the kernel name.  If we have, us it.  If not, use
- * the default kernel name for lack of anything else to know to do.
+ * look up the sysfs path in the database to get the node name to remove
+ * If we can't find it, use kernel name for lack of anything else to know to do
  */
-int udev_remove_device(const char *path, const char *subsystem)
+int udev_remove_device(struct udevice *udev)
 {
-	struct udevice dev;
+	struct udevice db_dev;
 	char *temp;
 	int retval;
 
-	memset(&dev, 0x00, sizeof(dev));
+	memset(&db_dev, 0x00, sizeof(struct udevice));
 
-	retval = udevdb_get_dev(path, &dev);
-	if (retval != 0) {
-		dbg("'%s' not found in database, falling back on default name", path);
-		temp = strrchr(path, '/');
+	retval = udevdb_get_dev(udev->devpath, &db_dev);
+	if (retval == 0) {
+		/* get stored values in our device */
+		memcpy(udev, &db_dev, UDEVICE_DB_LEN);
+	} else {
+		/* fall back to kernel name */
+		temp = strrchr(udev->devpath, '/');
 		if (temp == NULL)
 			return -ENODEV;
-		strfieldcpy(dev.name, &temp[1]);
+		strfieldcpy(udev->name, &temp[1]);
+		dbg("'%s' not found in database, falling back on default name", udev->name);
 	}
-	dbg("name='%s'", dev.name);
+	dbg("remove name='%s'", udev->name);
 
-	dev.type = get_device_type(path, subsystem);
-	dev_d_send(&dev, subsystem, path);
-	udevdb_delete_dev(path);
+	dev_d_send(udev);
+	udevdb_delete_dev(udev->devpath);
 
-	if (dev.type == 'b' || dev.type == 'c')
-		retval = delete_node(&dev);
-	else if (dev.type == 'n')
+	if (udev->type == 'b' || udev->type == 'c')
+		retval = delete_node(udev);
+	else
 		retval = 0;
 
 	return retval;

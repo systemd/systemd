@@ -22,6 +22,7 @@
 #ifndef _UDEV_LIB_H_
 #define _UDEV_LIB_H_
 
+#include "udev.h"
 
 #define strfieldcpy(to, from) \
 do { \
@@ -81,6 +82,7 @@ extern char *get_devname(void);
 extern char *get_seqnum(void);
 extern char *get_subsystem(char *subsystem);
 extern char get_device_type(const char *path, const char *subsystem);
+extern void udev_set_values(struct udevice *udev, const char* devpath, const char *subsystem);
 extern int file_map(const char *filename, char **buf, size_t *bufsize);
 extern void file_unmap(char *buf, size_t bufsize);
 extern size_t buf_get_line(char *buf, size_t buflen, size_t cur);

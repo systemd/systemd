@@ -41,11 +41,8 @@
 
 #define LINE_SIZE			256
 
-#define FAKE				1
-#define NOFAKE				0
-
 /* length of public data to store in udevdb */
-#define UDEVICE_LEN (offsetof(struct udevice, bus_id))
+#define UDEVICE_DB_LEN (offsetof(struct udevice, devpath))
 
 struct udevice {
 	char name[NAME_SIZE];
@@ -61,20 +58,23 @@ struct udevice {
 	char config_file[NAME_SIZE];
 	long config_uptime;
 
-	/* private data that help us in building strings */
+	/* private data, not stored in udevdb */
+	char devpath[DEVPATH_SIZE];
+	char subsystem[SUBSYSTEM_SIZE];
 	char bus_id[SYSFS_NAME_LEN];
+	char bus[SYSFS_NAME_LEN];
 	char program_result[NAME_SIZE];
 	char kernel_number[NAME_SIZE];
 	char kernel_name[NAME_SIZE];
+	int test_run;
 };
 
-extern int udev_add_device(const char *path, const char *subsystem, int fake);
-extern int udev_remove_device(const char *path, const char *subsystem);
+extern int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev);
+extern int udev_remove_device(struct udevice *udev);
 extern void udev_init_config(void);
 extern int udev_start(void);
 extern int parse_get_pair(char **orig_string, char **left, char **right);
-extern void dev_d_send(struct udevice *dev, const char *subsystem,
-	const char *devpath);
+extern void dev_d_send(struct udevice *udev);
 
 extern char **main_argv;
 extern char **main_envp;

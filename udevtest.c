@@ -55,9 +55,12 @@ void log_message (int level, const char *format, ...)
 
 int main(int argc, char *argv[], char *envp[])
 {
+	struct sysfs_class_device *class_dev;
 	char *devpath;
+	char path[SYSFS_PATH_MAX];
 	char temp[NAME_SIZE];
 	char *subsystem = "";
+	struct udevice udev;
 
 	main_argv = argv;
 	main_envp = envp;
@@ -88,9 +91,8 @@ int main(int argc, char *argv[], char *envp[])
 	info("looking at '%s'", devpath);
 
 	/* we only care about class devices and block stuff */
-	if (!strstr(devpath, "class") &&
-	    !strstr(devpath, "block")) {
-		info("not a block or class device");
+	if (!strstr(devpath, "class") && !strstr(devpath, "block")) {
+		dbg("not a block or class device");
 		goto exit;
 	}
 
@@ -100,8 +102,20 @@ int main(int argc, char *argv[], char *envp[])
 	if (argv[2] != NULL)
 		subsystem = argv[2];
 
+	/* fill in values and test_run flag*/
+	udev_set_values(&udev, devpath, subsystem);
+	udev.test_run = 1;
+
+	/* open the device */
+	snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, udev.devpath);
+	class_dev = sysfs_open_class_device_path(path);
+	if (class_dev == NULL)
+		dbg ("sysfs_open_class_device_path failed");
+	else
+		dbg("opened class_dev->name='%s'", class_dev->name);
+
 	/* simulate node creation with fake flag */
-	udev_add_device(devpath, subsystem, FAKE);
+	udev_add_device(&udev, class_dev);
 
 exit:
 	return 0;
