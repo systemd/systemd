@@ -78,8 +78,6 @@ struct config_device {
 
 static LIST_HEAD(config_device_list);
 
-static char sysfs_path[SYSFS_PATH_MAX];
-
 static void dump_dev(struct config_device *dev)
 {
 	switch (dev->type) {
@@ -445,46 +443,17 @@ exit:
 	return retval;
 }	
 
-
-static int get_major_minor(struct sysfs_class_device *class_dev, int *major, int *minor)
+static int get_default_mode(struct sysfs_class_device *class_dev)
 {
-	char temp[3];
-	int retval = 0;
-
-	char *dev;
-
-	dev = sysfs_get_value_from_attributes(class_dev->directory->attributes, "dev");
-	if (dev == NULL)
-		return -ENODEV;
-
-	dbg("dev = %s", dev);
-
-	temp[0] = dev[0];
-	temp[1] = dev[1];
-	temp[2] = 0x00;
-	*major = (int)strtol(&temp[0], NULL, 16);
-
-	temp[0] = dev[2];
-	temp[1] = dev[3];
-	temp[2] = 0x00;
-	*minor = (int)strtol(&temp[0], NULL, 16);
-
-	dbg("found major = %d, minor = %d", *major, *minor);
-
-	retval = 0;
-	return retval;
+	/* just default everyone to rw for the world! */
+	return 0666;
 }
+
 
 static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *attr)
 {
 	struct list_head *tmp;
 	int retval = 0;
-
-	retval = get_major_minor(class_dev, &attr->major, &attr->minor);
-	if (retval) {
-		dbg ("get_major_minor failed");
-		goto exit;
-	}
 
 	list_for_each(tmp, &config_device_list) {
 		struct config_device *dev = list_entry(tmp, struct config_device, node);
@@ -498,7 +467,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 			goto exit;
 		}
 	}
-	attr->mode = 0666;
+	attr->mode = get_default_mode(class_dev);
 	attr->owner[0] = 0x00;
 	attr->group[0] = 0x00;
 	strcpy(attr->name, class_dev->name);
@@ -506,32 +475,14 @@ exit:
 	return retval;
 }
 
-int namedev_name_device(char *device_name, struct device_attr *attr)
+int namedev_name_device(struct sysfs_class_device *class_dev, struct device_attr *attr)
 {
-	char dev_path[SYSFS_PATH_MAX];
-	struct sysfs_class_device *class_dev;
 	int retval;
 
-	strcpy(dev_path, sysfs_path);
-	strcat(dev_path, device_name);
-
-	dbg("looking at %s", dev_path);
-
-	/* open up the sysfs class device for this thing... */
-	class_dev = sysfs_open_class_device(dev_path);
-	if (class_dev == NULL) {
-		dbg ("sysfs_open_class_device failed");
-		return -ENODEV;
-	}
-	dbg("class_dev->name = %s", class_dev->name);
-	
 	retval = get_attr(class_dev, attr);
-	if (retval) {
-		dbg ("get_attr failed");
-		goto exit;
-	}
-exit:
-	sysfs_close_class_device(class_dev);
+	if (retval)
+		dbg("get_attr failed");
+
 	return retval;
 }
 
@@ -539,11 +490,6 @@ int namedev_init(void)
 {
 	int retval;
 	
-	retval = sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX);
-	if (retval)
-		return retval;
-	dbg("sysfs_path = %s", sysfs_path);
-
 	retval = namedev_init_config();
 	if (retval)
 		return retval;

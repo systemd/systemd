@@ -23,6 +23,8 @@
 #ifndef NAMEDEV_H
 #define NAMEDEV_H
 
+struct sysfs_class_device;
+
 /* namedev config files */
 #define COMMENT_CHARACTER		'#'
 #define NAMEDEV_CONFIG_ROOT		"/home/greg/src/udev/"
@@ -30,6 +32,6 @@
 #define NAMEDEV_CONFIG_FILE		"namedev.config"
 
 extern int namedev_init(void);
-extern int namedev_name_device(char *device_name, struct device_attr *attr);
+extern int namedev_name_device(struct sysfs_class_device *class_dev, struct device_attr *attr);
 
 #endif

@@ -57,12 +57,10 @@ extern int log_message (int level, const char *format, ...)
 #define GROUP_SIZE	30
 
 struct device_attr {
-	int major;
-	int minor;
-	int mode;
 	char name[NAME_SIZE];
 	char owner[OWNER_SIZE];
 	char group[GROUP_SIZE];
+	int mode;
 };
 
 

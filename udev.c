@@ -31,7 +31,10 @@
 #include "udev.h"
 #include "udev_version.h"
 #include "namedev.h"
+#include "libsysfs/libsysfs.h"
 
+
+static char sysfs_path[SYSFS_PATH_MAX];
 
 static char *get_action(void)
 {
@@ -44,16 +47,9 @@ static char *get_action(void)
 
 static char *get_device(void)
 {
-	static char device[255];
-	char *temp;
+	char *device;
 
-	temp = getenv("DEVPATH");
-	if (temp == NULL)
-		return NULL;
-	strcpy(device, "");
-//	strcpy(device, SYSFS_ROOT);
-	strcat(device, temp);
-
+	device = getenv("DEVPATH");
 	return device;
 }
 
@@ -68,45 +64,32 @@ static char *get_device(void)
  * Yes, this will probably change when we go to a bigger major/minor
  * range, and will have to be changed at that time.
  */
-static int get_major_minor (char *dev, int *major, int *minor)
+static int get_major_minor(struct sysfs_class_device *class_dev, int *major, int *minor)
 {
-	char filename[255];
-	char line[20];
 	char temp[3];
-	int fd;
 	int retval = 0;
 
-	/* add the dev file to the directory and see if it's present */
-	strncpy(filename, dev, sizeof(filename));
-	strncat(filename, DEV_FILE, sizeof(filename));
-	fd = open(filename, O_RDONLY);
-	if (fd < 0) {
-		dbg("Can't open %s", filename);
+	char *dev;
+
+	dev = sysfs_get_value_from_attributes(class_dev->directory->attributes, "dev");
+	if (dev == NULL)
 		return -ENODEV;
-	}
 
-	/* get the major/minor */
-	retval = read(fd, line, sizeof(line));
-	if (retval < 0) {
-		dbg("read error on %s", dev);
-		goto exit;
-	}
+	dbg("dev = %s", dev);
 
-	temp[0] = line[0];
-	temp[1] = line[1];
+	temp[0] = dev[0];
+	temp[1] = dev[1];
 	temp[2] = 0x00;
 	*major = (int)strtol(&temp[0], NULL, 16);
 
-	temp[0] = line[2];
-	temp[1] = line[3];
+	temp[0] = dev[2];
+	temp[1] = dev[3];
 	temp[2] = 0x00;
 	*minor = (int)strtol(&temp[0], NULL, 16);
 
 	dbg("found major = %d, minor = %d", *major, *minor);
 
 	retval = 0;
-exit:
-	close(fd);
 	return retval;
 }
 
@@ -128,15 +111,6 @@ static char *get_name(char *dev, int major, int minor)
 	dbg("name is %s", name);
 
 	return &name[0];
-}
-
-/*
- * Again, this will live in the naming deamon
- */
-static int get_mode(char *name, char *dev, int major, int minor)
-{
-	/* just default everyone to rw for the world! */
-	return 0666;
 }
 
 /*
@@ -199,35 +173,61 @@ static int delete_node(char *name)
 	return unlink(filename);
 }
 
-static int add_device(char *device, char type, struct device_attr *attr)
+struct sysfs_class_device *get_class_dev(char *device_name)
 {
-	char *name;
+	char dev_path[SYSFS_PATH_MAX];
+	struct sysfs_class_device *class_dev;
+
+	strcpy(dev_path, sysfs_path);
+	strcat(dev_path, device_name);
+
+	dbg("looking at %s", dev_path);
+
+	/* open up the sysfs class device for this thing... */
+	class_dev = sysfs_open_class_device(dev_path);
+	if (class_dev == NULL) {
+		dbg ("sysfs_open_class_device failed");
+		return NULL;
+	}
+	dbg("class_dev->name = %s", class_dev->name);
+
+	return class_dev;
+}
+
+static int add_device(char *device, char *subsystem)
+{
+	struct sysfs_class_device *class_dev;
+	struct device_attr attr;
+	//char *name;
 	int major;
 	int minor;
-	int mode;
+	char type;
+	//int mode;
 	int retval = -EINVAL;
-#if 0
-	retval = get_major_minor(device, &major, &minor);
+
+	/* for now, the block layer is the only place where block devices are */
+	if (strcmp(subsystem, "block") == 0)
+		type = 'b';
+	else
+		type = 'c';
+
+	class_dev = get_class_dev(device);
+	if (class_dev == NULL)
+		goto exit;
+
+	retval = namedev_name_device(class_dev, &attr);
+	if (retval)
+		return retval;
+
+	retval = get_major_minor(class_dev, &major, &minor);
 	if (retval) {
 		dbg ("get_major_minor failed");
 		goto exit;
 	}
 
-	name = get_name(device, major, minor);
-	if (name == NULL) {
-		dbg ("get_name failed");
-		retval = -ENODEV;
-		goto exit;
-	}
+	sysfs_close_class_device(class_dev);
 
-	mode = get_mode(name, device, major, minor);
-	if (mode < 0) {
-		dbg ("get_mode failed");
-		retval = -EINVAL;
-		goto exit;
-	}
-#endif
-	return create_node(attr->name, type, attr->major, attr->minor, attr->mode);
+	return create_node(attr.name, type, major, minor, attr.mode);
 
 exit:
 	return retval;
@@ -250,38 +250,24 @@ static int remove_device(char *device)
 exit:
 	return retval;
 }
+	
+static int udev_init(void)
+{
+	int retval;
+
+	retval = sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX);
+	dbg("sysfs_path = %s", sysfs_path);
+	return retval;
+}
 
 int main(int argc, char *argv[])
 {
-	struct device_attr attr;
-	char *subsystem;
 	char *action;
 	char *device;
-	char type;
 	int retval = -EINVAL;
 	
 	if (argc != 2) {
 		dbg ("unknown number of arguments");
-		goto exit;
-	}
-
-	namedev_init();
-
-	/* sleep for a second or two to give the kernel a chance to
-	 * create the dev file
-	 */
-	sleep(2);
-
-	/* for now, the block layer is the only place where block devices are */
-	subsystem = argv[1];
-	if (strcmp(subsystem, "block") == 0)
-		type = 'b';
-	else
-		type = 'c';
-
-	action = get_action();
-	if (!action) {
-		dbg ("no action?");
 		goto exit;
 	}
 
@@ -292,12 +278,29 @@ int main(int argc, char *argv[])
 	}
 	dbg("looking at %s", device);
 
-	retval = namedev_name_device(device, &attr);
-	if (retval)
-		return retval;
+	/* we only care about class devices and block stuff */
+	if (!strstr(device, "class") &&
+	    !strstr(device, "block")) {
+		dbg("not block or class");
+		goto exit;
+	}
+	
+	/* sleep for a second or two to give the kernel a chance to
+	 * create the dev file
+	 */
+	sleep(1);
+
+	udev_init();
+	namedev_init();
+
+	action = get_action();
+	if (!action) {
+		dbg ("no action?");
+		goto exit;
+	}
 
 	if (strcmp(action, "add") == 0)
-		return add_device(device, type, &attr);
+		return add_device(device, argv[1]);
 
 	if (strcmp(action, "remove") == 0)
 		return remove_device(device);
