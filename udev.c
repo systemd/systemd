@@ -262,6 +262,11 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
+	/* sleep for a second or two to give the kernel a chance to
+	 * create the dev file
+	 */
+	sleep(2);
+
 	/* for now, the block layer is the only place where block devices are */
 	subsystem = argv[1];
 	if (strcmp(subsystem, "block") == 0)
