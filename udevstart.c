@@ -50,7 +50,7 @@ void log_message(int level, const char *format, ...)
 #endif
 
 struct device {
-	struct list_head list;
+	struct list_head node;
 	char path[PATH_SIZE];
 	char subsys[NAME_SIZE];
 };
@@ -63,7 +63,7 @@ static int device_list_insert(const char *path, char *subsystem, struct list_hea
 
 	dbg("insert: '%s'\n", path);
 
-	list_for_each_entry(loop_device, device_list, list) {
+	list_for_each_entry(loop_device, device_list, node) {
 		if (strcmp(loop_device->path, path) > 0) {
 			break;
 		}
@@ -77,7 +77,7 @@ static int device_list_insert(const char *path, char *subsystem, struct list_hea
 
 	strlcpy(new_device->path, path, sizeof(new_device->path));
 	strlcpy(new_device->subsys, subsystem, sizeof(new_device->subsys));
-	list_add_tail(&new_device->list, &loop_device->list);
+	list_add_tail(&new_device->node, &loop_device->node);
 	dbg("add '%s' from subsys '%s'", new_device->path, new_device->subsys);
 	return 0;
 }
@@ -136,11 +136,11 @@ static void exec_list(struct list_head *device_list)
 	int i;
 
 	/* handle the "first" type devices first */
-	list_for_each_entry_safe(loop_device, tmp_device, device_list, list) {
+	list_for_each_entry_safe(loop_device, tmp_device, device_list, node) {
 		for (i = 0; first_list[i] != NULL; i++) {
 			if (strncmp(loop_device->path, first_list[i], strlen(first_list[i])) == 0) {
 				add_device(loop_device->path, loop_device->subsys);
-				list_del(&loop_device->list);
+				list_del(&loop_device->node);
 				free(loop_device);
 				break;
 			}
@@ -148,7 +148,7 @@ static void exec_list(struct list_head *device_list)
 	}
 
 	/* handle the devices we are allowed to, excluding the "last" type devices */
-	list_for_each_entry_safe(loop_device, tmp_device, device_list, list) {
+	list_for_each_entry_safe(loop_device, tmp_device, device_list, node) {
 		int found = 0;
 		for (i = 0; last_list[i] != NULL; i++) {
 			if (strncmp(loop_device->path, last_list[i], strlen(last_list[i])) == 0) {
@@ -160,14 +160,14 @@ static void exec_list(struct list_head *device_list)
 			continue;
 
 		add_device(loop_device->path, loop_device->subsys);
-		list_del(&loop_device->list);
+		list_del(&loop_device->node);
 		free(loop_device);
 	}
 
 	/* handle the rest of the devices left over, if any */
-	list_for_each_entry_safe(loop_device, tmp_device, device_list, list) {
+	list_for_each_entry_safe(loop_device, tmp_device, device_list, node) {
 		add_device(loop_device->path, loop_device->subsys);
-		list_del(&loop_device->list);
+		list_del(&loop_device->node);
 		free(loop_device);
 	}
 }
