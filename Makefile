@@ -52,7 +52,7 @@ INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 EXTRAS=
 
 # place to put our device nodes
-udevdir = ${prefix}/udev/
+udevdir = ${prefix}/udev
 
 # Comment out this line to build with something other 
 # than the local version of klibc
@@ -196,8 +196,8 @@ GEN_HEADERS =	udev_version.h
 # Rules on how to create the generated header files
 udev_version.h:
 	@echo \#define UDEV_VERSION	\"$(VERSION)\" > $@
-	@echo \#define UDEV_ROOT	\"$(udevdir)\" >> $@
-	@echo \#define UDEV_DB		\"$(udevdir)\.udev.tdb\" >> $@
+	@echo \#define UDEV_ROOT	\"$(udevdir)/\" >> $@
+	@echo \#define UDEV_DB		\"$(udevdir)/\.udev.tdb\" >> $@
 	@echo \#define UDEV_CONFIG_DIR	\"$(configdir)\" >> $@
 	@echo \#define UDEV_CONFIG_FILE	\"$(configdir)\udev.conf\" >> $@
 	@echo \#define UDEV_RULES_FILE	\"$(configdir)\udev.rules\" >> $@
@@ -212,7 +212,7 @@ $(ROOT): $(OBJS)
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
-	-rm -f core $(ROOT) $(GEN_HEADERS)
+	-rm -f core $(ROOT) $(GEN_HEADERS) udev.conf
 	$(MAKE) -C klibc clean
 	@for target in $(EXTRAS) ; do \
 		echo $$target ; \
@@ -271,6 +271,7 @@ install: install-dbus-policy all
 	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
+	sed -e "s-@udevdir@-$(udevdir)-" < udev.conf.in > udev.conf
 	$(INSTALL_DATA) udev.conf $(DESTDIR)$(configdir)
 	$(INSTALL_DATA) udev.rules $(DESTDIR)$(configdir)
 	$(INSTALL_DATA) udev.permissions $(DESTDIR)$(configdir)

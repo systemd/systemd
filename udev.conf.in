@@ -6,10 +6,10 @@
 
 
 # udev_root - where in the filesystem to place the device nodes
-udev_root="/udev/"
+udev_root="@udevdir@/"
 
 # udev_db - The name and location of the udev database.
-udev_db="/udev/.udev.tdb"
+udev_db="@udevdir@/.udev.tdb"
 
 # udev_rules - The name and location of the udev rules file
 udev_rules="/etc/udev/udev.rules"
