@@ -1,3 +1,9 @@
+udev 056
+========
+Possible use of a system-wide klibc:
+  make USE_KLIB=true KLCC=/usr/bin/klcc all
+will link against an external klibc and our own version will be ignored.
+
 udev 055
 ========
 We support an unlimited count of symlinks now.

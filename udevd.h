@@ -60,6 +60,7 @@ struct hotplug_msg {
 	char *subsystem;
 	unsigned long long seqnum;
 	char *physdevpath;
+	unsigned int timeout;
 	char *envp[HOTPLUG_NUM_ENVP+1];
 	char envbuf[];
 };

@@ -113,6 +113,14 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 		return;
 	}
 
+	/* don't delay messages with timeout set */
+	if (msg->timeout) {
+		dbg("move seq %llu with timeout %u to exec queue", msg->seqnum, msg->timeout);
+		list_add(&msg->node, &exec_list);
+		run_exec_q = 1;
+		return;
+	}
+
 	/* sort message by sequence number into list */
 	list_for_each_entry_reverse(loop_msg, &msg_list, node) {
 		if (loop_msg->seqnum < msg->seqnum)
@@ -291,6 +299,10 @@ static struct hotplug_msg *running_with_devpath(struct hotplug_msg *msg)
 	struct hotplug_msg *loop_msg;
 
 	if (msg->devpath == NULL)
+		return NULL;
+
+	/* skip any events with a timeout set */
+	if (msg->timeout)
 		return NULL;
 
 	list_for_each_entry(loop_msg, &running_list, node) {
@@ -490,6 +502,9 @@ static struct hotplug_msg *get_udevsend_msg(void)
 
 		if (strncmp(key, "PHYSDEVPATH=", 12) == 0)
 			msg->physdevpath = &key[12];
+
+		if (strncmp(key, "TIMEOUT=", 8) == 0)
+			msg->timeout = strtoull(&key[8], NULL, 10);
 	}
 	msg->envp[i++] = "UDEVD_EVENT=1";
 	msg->envp[i] = NULL;
