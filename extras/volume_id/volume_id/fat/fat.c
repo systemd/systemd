@@ -159,6 +159,8 @@ int volume_id_probe_vfat(struct volume_id *id, __u64 off)
 	__u32 next;
 	int maxloop;
 
+	dbg("probing at offset %llu", off);
+
 	vs = (struct vfat_super_block *) volume_id_get_buffer(id, off, 0x200);
 	if (vs == NULL)
 		return -1;

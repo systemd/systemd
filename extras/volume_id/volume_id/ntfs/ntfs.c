@@ -39,6 +39,64 @@
 #include "../util.h"
 #include "ntfs.h"
 
+struct ntfs_super_block {
+	__u8	jump[3];
+	__u8	oem_id[8];
+	__u16	bytes_per_sector;
+	__u8	sectors_per_cluster;
+	__u16	reserved_sectors;
+	__u8	fats;
+	__u16	root_entries;
+	__u16	sectors;
+	__u8	media_type;
+	__u16	sectors_per_fat;
+	__u16	sectors_per_track;
+	__u16	heads;
+	__u32	hidden_sectors;
+	__u32	large_sectors;
+	__u16	unused[2];
+	__u64	number_of_sectors;
+	__u64	mft_cluster_location;
+	__u64	mft_mirror_cluster_location;
+	__s8	cluster_per_mft_record;
+	__u8	reserved1[3];
+	__s8	cluster_per_index_record;
+	__u8	reserved2[3];
+	__u8	volume_serial[8];
+	__u16	checksum;
+} __attribute__((__packed__)) *ns;
+
+struct master_file_table_record {
+	__u8	magic[4];
+	__u16	usa_ofs;
+	__u16	usa_count;
+	__u64	lsn;
+	__u16	sequence_number;
+	__u16	link_count;
+	__u16	attrs_offset;
+	__u16	flags;
+	__u32	bytes_in_use;
+	__u32	bytes_allocated;
+} __attribute__((__packed__)) *mftr;
+
+struct file_attribute {
+	__u32	type;
+	__u32	len;
+	__u8	non_resident;
+	__u8	name_len;
+	__u16	name_offset;
+	__u16	flags;
+	__u16	instance;
+	__u32	value_len;
+	__u16	value_offset;
+} __attribute__((__packed__)) *attr;
+
+struct volume_info {
+	__u64 reserved;
+	__u8 major_ver;
+	__u8 minor_ver;
+} __attribute__((__packed__)) *info;
+
 #define MFT_RECORD_VOLUME			3
 #define MFT_RECORD_ATTR_VOLUME_NAME		0x60
 #define MFT_RECORD_ATTR_VOLUME_INFO		0x70
@@ -47,64 +105,6 @@
 
 int volume_id_probe_ntfs(struct volume_id *id, __u64 off)
 {
-	struct ntfs_super_block {
-		__u8	jump[3];
-		__u8	oem_id[8];
-		__u16	bytes_per_sector;
-		__u8	sectors_per_cluster;
-		__u16	reserved_sectors;
-		__u8	fats;
-		__u16	root_entries;
-		__u16	sectors;
-		__u8	media_type;
-		__u16	sectors_per_fat;
-		__u16	sectors_per_track;
-		__u16	heads;
-		__u32	hidden_sectors;
-		__u32	large_sectors;
-		__u16	unused[2];
-		__u64	number_of_sectors;
-		__u64	mft_cluster_location;
-		__u64	mft_mirror_cluster_location;
-		__s8	cluster_per_mft_record;
-		__u8	reserved1[3];
-		__s8	cluster_per_index_record;
-		__u8	reserved2[3];
-		__u8	volume_serial[8];
-		__u16	checksum;
-	} __attribute__((__packed__)) *ns;
-
-	struct master_file_table_record {
-		__u8	magic[4];
-		__u16	usa_ofs;
-		__u16	usa_count;
-		__u64	lsn;
-		__u16	sequence_number;
-		__u16	link_count;
-		__u16	attrs_offset;
-		__u16	flags;
-		__u32	bytes_in_use;
-		__u32	bytes_allocated;
-	} __attribute__((__packed__)) *mftr;
-
-	struct file_attribute {
-		__u32	type;
-		__u32	len;
-		__u8	non_resident;
-		__u8	name_len;
-		__u16	name_offset;
-		__u16	flags;
-		__u16	instance;
-		__u32	value_len;
-		__u16	value_offset;
-	} __attribute__((__packed__)) *attr;
-
-	struct volume_info {
-		__u64 reserved;
-		__u8 major_ver;
-		__u8 minor_ver;
-	} __attribute__((__packed__)) *info;
-
 	unsigned int sector_size;
 	unsigned int cluster_size;
 	__u64 mft_cluster;
@@ -117,6 +117,8 @@ int volume_id_probe_ntfs(struct volume_id *id, __u64 off)
 	unsigned int val_len;
 	const __u8 *buf;
 	const __u8 *val;
+
+	dbg("probing at offset %llu", off);
 
 	ns = (struct ntfs_super_block *) volume_id_get_buffer(id, off, 0x200);
 	if (ns == NULL)

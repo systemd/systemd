@@ -39,21 +39,23 @@
 #include "../util.h"
 #include "linux_swap.h"
 
+struct swap_header_v1_2 {
+	__u8	bootbits[1024];
+	__u32	version;
+	__u32	last_page;
+	__u32	nr_badpages;
+	__u8	uuid[16];
+	__u8	volume_name[16];
+} __attribute__((__packed__)) *sw;
+
 #define LARGEST_PAGESIZE			0x4000
 
 int volume_id_probe_linux_swap(struct volume_id *id, __u64 off)
 {
-	struct swap_header_v1_2 {
-		__u8	bootbits[1024];
-		__u32	version;
-		__u32	last_page;
-		__u32	nr_badpages;
-		__u8	uuid[16];
-		__u8	volume_name[16];
-	} __attribute__((__packed__)) *sw;
-
 	const __u8 *buf;
 	unsigned int page;
+
+	dbg("probing at offset %llu", off);
 
 	/* the swap signature is at the end of the PAGE_SIZE */
 	for (page = 0x1000; page <= LARGEST_PAGESIZE; page <<= 1) {

@@ -35,6 +35,7 @@
 #include <asm/types.h>
 
 #include "../volume_id.h"
+#include "../logging.h"
 #include "../util.h"
 #include "dasd.h"
 
@@ -141,7 +142,7 @@ typedef struct dasd_information_t {
 	unsigned int confdata_size;
 	char characteristics[64];	/* from read_device_characteristics */
 	char configuration_data[256];	/* from read_configuration_data */
-} dasd_information_t;
+} __attribute__((__packed__)) dasd_information_t;
 
 #define _IOC_NRBITS		8
 #define _IOC_TYPEBITS		8
@@ -167,6 +168,8 @@ int volume_id_probe_dasd_partition(struct volume_id *id)
 	__u8 *data;
 	__u8 *label_raw;
 	unsigned char name[7];
+
+	dbg("probing");
 
 	if (ioctl(id->fd, BIODASDINFO, &info) != 0)
 		return -1;

@@ -39,22 +39,26 @@
 #include "../util.h"
 #include "xfs.h"
 
+struct xfs_super_block {
+	__u8	magic[4];
+	__u32	blocksize;
+	__u64	dblocks;
+	__u64	rblocks;
+	__u32	dummy1[2];
+	__u8	uuid[16];
+	__u32	dummy2[15];
+	__u8	fname[12];
+	__u32	dummy3[2];
+	__u64	icount;
+	__u64	ifree;
+	__u64	fdblocks;
+} __attribute__((__packed__));
+
 int volume_id_probe_xfs(struct volume_id *id, __u64 off)
 {
-	struct xfs_super_block {
-		__u8	magic[4];
-		__u32	blocksize;
-		__u64	dblocks;
-		__u64	rblocks;
-		__u32	dummy1[2];
-		__u8	uuid[16];
-		__u32	dummy2[15];
-		__u8	fname[12];
-		__u32	dummy3[2];
-		__u64	icount;
-		__u64	ifree;
-		__u64	fdblocks;
-	} __attribute__((__packed__)) *xs;
+	struct xfs_super_block *xs;
+
+	dbg("probing at offset %llu", off);
 
 	xs = (struct xfs_super_block *) volume_id_get_buffer(id, off, 0x200);
 	if (xs == NULL)

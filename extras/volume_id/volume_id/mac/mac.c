@@ -39,25 +39,29 @@
 #include "../util.h"
 #include "mac.h"
 
+struct mac_driver_desc {
+	__u8	signature[2];
+	__u16	block_size;
+	__u32	block_count;
+} __attribute__((__packed__));
+
+struct mac_partition {
+	__u8	signature[2];
+	__u16	res1;
+	__u32	map_count;
+	__u32	start_block;
+	__u32	block_count;
+	__u8	name[32];
+	__u8	type[32];
+} __attribute__((__packed__));
+
 int volume_id_probe_mac_partition_map(struct volume_id *id, __u64 off)
 {
-	struct mac_driver_desc {
-		__u8	signature[2];
-		__u16	block_size;
-		__u32	block_count;
-	} __attribute__((__packed__)) *driver;
-
-	struct mac_partition {
-		__u8	signature[2];
-		__u16	res1;
-		__u32	map_count;
-		__u32	start_block;
-		__u32	block_count;
-		__u8	name[32];
-		__u8	type[32];
-	} __attribute__((__packed__)) *part;
-
 	const __u8 *buf;
+	struct mac_driver_desc *driver;
+	struct mac_partition *part;
+
+	dbg("probing at offset %llu", off);
 
 	buf = volume_id_get_buffer(id, off, 0x200);
 	if (buf == NULL)

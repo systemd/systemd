@@ -39,49 +39,53 @@
 #include "../util.h"
 #include "udf.h"
 
+struct volume_descriptor {
+	struct descriptor_tag {
+		__u16	id;
+		__u16	version;
+		__u8	checksum;
+		__u8	reserved;
+		__u16	serial;
+		__u16	crc;
+		__u16	crc_len;
+		__u32	location;
+	} __attribute__((__packed__)) tag;
+	union {
+		struct anchor_descriptor {
+			__u32	length;
+			__u32	location;
+		} __attribute__((__packed__)) anchor;
+		struct primary_descriptor {
+			__u32	seq_num;
+			__u32	desc_num;
+			struct dstring {
+				__u8	clen;
+				__u8	c[31];
+			} __attribute__((__packed__)) ident;
+		} __attribute__((__packed__)) primary;
+	} __attribute__((__packed__)) type;
+} __attribute__((__packed__));
+
+struct volume_structure_descriptor {
+	__u8	type;
+	__u8	id[5];
+	__u8	version;
+} __attribute__((__packed__));
+
 #define UDF_VSD_OFFSET			0x8000
 
 int volume_id_probe_udf(struct volume_id *id, __u64 off)
 {
-	struct volume_descriptor {
-		struct descriptor_tag {
-			__u16	id;
-			__u16	version;
-			__u8	checksum;
-			__u8	reserved;
-			__u16	serial;
-			__u16	crc;
-			__u16	crc_len;
-			__u32	location;
-		} __attribute__((__packed__)) tag;
-		union {
-			struct anchor_descriptor {
-				__u32	length;
-				__u32	location;
-			} __attribute__((__packed__)) anchor;
-			struct primary_descriptor {
-				__u32	seq_num;
-				__u32	desc_num;
-				struct dstring {
-					__u8	clen;
-					__u8	c[31];
-				} __attribute__((__packed__)) ident;
-			} __attribute__((__packed__)) primary;
-		} __attribute__((__packed__)) type;
-	} __attribute__((__packed__)) *vd;
-
-	struct volume_structure_descriptor {
-		__u8	type;
-		__u8	id[5];
-		__u8	version;
-	} *vsd;
-
+	struct volume_descriptor *vd;
+	struct volume_structure_descriptor *vsd;
 	unsigned int bs;
 	unsigned int b;
 	unsigned int type;
 	unsigned int count;
 	unsigned int loc;
 	unsigned int clen;
+
+	dbg("probing at offset %llu", off);
 
 	vsd = (struct volume_structure_descriptor *) volume_id_get_buffer(id, off + UDF_VSD_OFFSET, 0x200);
 	if (vsd == NULL)

@@ -39,22 +39,33 @@
 #include "../util.h"
 #include "lvm.h"
 
+struct lvm1_super_block {
+	__u8	id[2];
+} __attribute__((packed));
+
+struct lvm2_super_block {
+	__u8	id[8];
+	__u64	sector_xl;
+	__u32	crc_xl;
+	__u32	offset_xl;
+	__u8	type[8];
+} __attribute__((packed));
+
 #define LVM1_SB_OFF			0x400
 #define LVM1_MAGIC			"HM"
 
 int volume_id_probe_lvm1(struct volume_id *id, __u64 off)
 {
-	struct lvm2_super_block {
-		__u8	id[2];
-	} __attribute__((packed)) *lvm;
-
 	const __u8 *buf;
+	struct lvm1_super_block *lvm;
+
+	dbg("probing at offset %llu", off);
 
 	buf = volume_id_get_buffer(id, off + LVM1_SB_OFF, 0x800);
 	if (buf == NULL)
 		return -1;
 
-	lvm = (struct lvm2_super_block *) buf;
+	lvm = (struct lvm1_super_block *) buf;
 
 	if (memcmp(lvm->id, LVM1_MAGIC, 2) != 0)
 		return -1;
@@ -70,16 +81,11 @@ int volume_id_probe_lvm1(struct volume_id *id, __u64 off)
 
 int volume_id_probe_lvm2(struct volume_id *id, __u64 off)
 {
-	struct lvm2_super_block {
-		__u8	id[8];
-		__u64	sector_xl;
-		__u32	crc_xl;
-		__u32	offset_xl;
-		__u8	type[8];
-	} __attribute__((packed)) *lvm;
-
 	const __u8 *buf;
 	unsigned int soff;
+	struct lvm2_super_block *lvm;
+
+	dbg("probing at offset %llu", off);
 
 	buf = volume_id_get_buffer(id, off, LVM2LABEL_SCAN_SECTORS * 0x200);
 	if (buf == NULL)

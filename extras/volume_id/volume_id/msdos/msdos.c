@@ -39,6 +39,19 @@
 #include "../util.h"
 #include "msdos.h"
 
+struct msdos_partition_entry {
+	__u8	boot_ind;
+	__u8	head;
+	__u8	sector;
+	__u8	cyl;
+	__u8	sys_ind;
+	__u8	end_head;
+	__u8	end_sector;
+	__u8	end_cyl;
+	__u32	start_sect;
+	__u32	nr_sects;
+} __attribute__((packed));
+
 #define MSDOS_MAGIC			"\x55\xaa"
 #define MSDOS_PARTTABLE_OFFSET		0x1be
 #define MSDOS_SIG_OFF			0x1fe
@@ -56,19 +69,6 @@
 
 int volume_id_probe_msdos_part_table(struct volume_id *id, __u64 off)
 {
-	struct msdos_partition_entry {
-		__u8	boot_ind;
-		__u8	head;
-		__u8	sector;
-		__u8	cyl;
-		__u8	sys_ind;
-		__u8	end_head;
-		__u8	end_sector;
-		__u8	end_cyl;
-		__u32	start_sect;
-		__u32	nr_sects;
-	} __attribute__((packed)) *part;
-
 	const __u8 *buf;
 	int i;
 	__u64 poff;
@@ -78,7 +78,10 @@ int volume_id_probe_msdos_part_table(struct volume_id *id, __u64 off)
 	__u64 next;
 	int limit;
 	int empty = 1;
+	struct msdos_partition_entry *part;
 	struct volume_id_partition *p;
+
+	dbg("probing at offset %llu", off);
 
 	buf = volume_id_get_buffer(id, off, 0x200);
 	if (buf == NULL)

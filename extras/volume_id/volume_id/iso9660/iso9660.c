@@ -47,24 +47,28 @@
 #define ISO_VD_END			0xff
 #define ISO_VD_MAX			16
 
+union iso_super_block {
+	struct iso_header {
+		__u8	type;
+		__u8	id[5];
+		__u8	version;
+		__u8	unused1;
+		__u8		system_id[32];
+		__u8		volume_id[32];
+	} __attribute__((__packed__)) iso;
+	struct hs_header {
+		__u8	foo[8];
+		__u8	type;
+		__u8	id[4];
+		__u8	version;
+	} __attribute__((__packed__)) hs;
+} __attribute__((__packed__));
+
 int volume_id_probe_iso9660(struct volume_id *id, __u64 off)
 {
-	union iso_super_block {
-		struct iso_header {
-			__u8	type;
-			__u8	id[5];
-			__u8	version;
-			__u8	unused1;
-			__u8		system_id[32];
-			__u8		volume_id[32];
-		} __attribute__((__packed__)) iso;
-		struct hs_header {
-			__u8	foo[8];
-			__u8	type;
-			__u8	id[4];
-			__u8	version;
-		} __attribute__((__packed__)) hs;
-	} __attribute__((__packed__)) *is;
+	union iso_super_block *is;
+
+	dbg("probing at offset %llu", off);
 
 	is = (union iso_super_block *) volume_id_get_buffer(id, off + ISO_SUPERBLOCK_OFFSET, 0x200);
 	if (is == NULL)

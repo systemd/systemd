@@ -39,22 +39,26 @@
 #include "../util.h"
 #include "jfs.h"
 
+struct jfs_super_block {
+	__u8	magic[4];
+	__u32	version;
+	__u64	size;
+	__u32	bsize;
+	__u32	dummy1;
+	__u32	pbsize;
+	__u32	dummy2[27];
+	__u8	uuid[16];
+	__u8	label[16];
+	__u8	loguuid[16];
+} __attribute__((__packed__));
+
 #define JFS_SUPERBLOCK_OFFSET			0x8000
 
 int volume_id_probe_jfs(struct volume_id *id, __u64 off)
 {
-	struct jfs_super_block {
-		__u8	magic[4];
-		__u32	version;
-		__u64	size;
-		__u32	bsize;
-		__u32	dummy1;
-		__u32	pbsize;
-		__u32	dummy2[27];
-		__u8	uuid[16];
-		__u8	label[16];
-		__u8	loguuid[16];
-	} __attribute__((__packed__)) *js;
+	struct jfs_super_block *js;
+
+	dbg("probing at offset %llu", off);
 
 	js = (struct jfs_super_block *) volume_id_get_buffer(id, off + JFS_SUPERBLOCK_OFFSET, 0x200);
 	if (js == NULL)

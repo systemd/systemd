@@ -58,12 +58,16 @@
 #define le64_to_cpu(x) (x)
 #define be16_to_cpu(x) bswap16(x)
 #define be32_to_cpu(x) bswap32(x)
+#define cpu_to_le32(x) (x)
+#define cpu_to_be32(x) bswap32(x)
 #elif (__BYTE_ORDER == __BIG_ENDIAN)
 #define le16_to_cpu(x) bswap16(x)
 #define le32_to_cpu(x) bswap32(x)
 #define le64_to_cpu(x) bswap64(x)
 #define be16_to_cpu(x) (x)
 #define be32_to_cpu(x) (x)
+#define cpu_to_le32(x) bswap32(x)
+#define cpu_to_be32(x) (x)
 #endif
 
 enum uuid_format {

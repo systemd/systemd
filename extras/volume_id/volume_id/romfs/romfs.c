@@ -35,56 +35,39 @@
 #include <asm/types.h>
 
 #include "../volume_id.h"
-#include "../util.h"
 #include "../logging.h"
-#include "ext.h"
+#include "../util.h"
+#include "romfs.h"
 
-struct ext2_super_block {
-	__u32	inodes_count;
-	__u32	blocks_count;
-	__u32	r_blocks_count;
-	__u32	free_blocks_count;
-	__u32	free_inodes_count;
-	__u32	first_data_block;
-	__u32	log_block_size;
-	__u32	dummy3[7];
-	__u8	magic[2];
-	__u16	state;
-	__u32	dummy5[8];
-	__u32	feature_compat;
-	__u32	feature_incompat;
-	__u32	feature_ro_compat;
-	__u8	uuid[16];
-	__u8	volume_name[16];
+struct romfs_super {
+	__u8 magic[8];
+	__u32 size;
+	__u32 checksum;
+	__u8 name[0];
 } __attribute__((__packed__));
 
-#define EXT3_FEATURE_COMPAT_HAS_JOURNAL		0x00000004
-#define EXT3_FEATURE_INCOMPAT_JOURNAL_DEV	0x00000008
-#define EXT_SUPERBLOCK_OFFSET			0x400
-
-int volume_id_probe_ext(struct volume_id *id, __u64 off)
+int volume_id_probe_romfs(struct volume_id *id, __u64 off)
 {
-	struct ext2_super_block *es;
+	struct romfs_super *rfs;
 
 	dbg("probing at offset %llu", off);
 
-	es = (struct ext2_super_block *) volume_id_get_buffer(id, off + EXT_SUPERBLOCK_OFFSET, 0x200);
-	if (es == NULL)
+	rfs = (struct romfs_super *) volume_id_get_buffer(id, off, 0x200);
+	if (rfs == NULL)
 		return -1;
 
-	if (es->magic[0] != 0123 ||
-	    es->magic[1] != 0357)
-		return -1;
+	if (memcmp(rfs->magic, "-rom1fs-", 4) == 0) {
+		size_t len = strlen(rfs->name);
 
-	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
-	volume_id_set_label_raw(id, es->volume_name, 16);
-	volume_id_set_label_string(id, es->volume_name, 16);
-	volume_id_set_uuid(id, es->uuid, UUID_DCE);
+		if (len) {
+			volume_id_set_label_raw(id, rfs->name, len);
+			volume_id_set_label_string(id, rfs->name, len);
+		}
 
-	if ((le32_to_cpu(es->feature_compat) & EXT3_FEATURE_COMPAT_HAS_JOURNAL) != 0)
-		id->type = "ext3";
-	else
-		id->type = "ext2";
+		volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
+		id->type = "romfs";
+		return 0;
+	}
 
-	return 0;
+	return -1;
 }

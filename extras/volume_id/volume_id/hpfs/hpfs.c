@@ -1,7 +1,7 @@
 /*
  * volume_id - reads filesystem label and uuid
  *
- * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This library is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU Lesser General Public
@@ -37,39 +37,31 @@
 #include "../volume_id.h"
 #include "../logging.h"
 #include "../util.h"
-#include "cramfs.h"
+#include "hpfs.h"
 
-struct cramfs_super {
+struct hpfs_super
+{
 	__u8	magic[4];
-	__u32	size;
-	__u32	flags;
-	__u32	future;
-	__u8	signature[16];
-	struct cramfs_info {
-		__u32	crc;
-		__u32	edition;
-		__u32	blocks;
-		__u32	files;
-	} __attribute__((__packed__)) info;
-	__u8 name[16];
+	__u8	version;
 } __attribute__((__packed__));
 
-int volume_id_probe_cramfs(struct volume_id *id, __u64 off)
+#define HPFS_SUPERBLOCK_OFFSET			0x2000
+
+int volume_id_probe_hpfs(struct volume_id *id, __u64 off)
 {
-	struct cramfs_super *cs;
+	struct hpfs_super *hs;
 
 	dbg("probing at offset %llu", off);
 
-	cs = (struct cramfs_super *) volume_id_get_buffer(id, off, 0x200);
-	if (cs == NULL)
+	hs = (struct hpfs_super *) volume_id_get_buffer(id, off + HPFS_SUPERBLOCK_OFFSET, 0x200);
+	if (hs == NULL)
 		return -1;
 
-	if (memcmp(cs->magic, "\x45\x3d\xcd\x28", 4) == 0) {
-		volume_id_set_label_raw(id, cs->name, 16);
-		volume_id_set_label_string(id, cs->name, 16);
+	if (memcmp(hs->magic, "\x49\xe8\x95\xf9", 4) == 0) {
+		snprintf(id->type_version, VOLUME_ID_FORMAT_SIZE-1, "%u", hs->version);
 
 		volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
-		id->type = "cramfs";
+		id->type = "hpfs";
 		return 0;
 	}
 

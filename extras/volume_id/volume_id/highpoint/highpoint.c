@@ -39,20 +39,22 @@
 #include "../util.h"
 #include "highpoint.h"
 
+struct hpt37x {
+	__u8	filler1[32];
+	__u32	magic;
+	__u32	magic_0;
+	__u32	magic_1;
+} __attribute__((packed)) *hpt;
+
 #define HPT37X_CONFIG_OFF		0x1200
 #define HPT37X_MAGIC_OK			0x5a7816f0
 #define HPT37X_MAGIC_BAD		0x5a7816fd
 
 int volume_id_probe_highpoint_ataraid(struct volume_id *id, __u64 off)
 {
-	struct hpt37x {
-		__u8	filler1[32];
-		__u32	magic;
-		__u32	magic_0;
-		__u32	magic_1;
-	} __attribute__((packed)) *hpt;
-
 	const __u8 *buf;
+
+	dbg("probing at offset %llu", off);
 
 	buf = volume_id_get_buffer(id, off + HPT37X_CONFIG_OFF, 0x200);
 	if (buf == NULL)

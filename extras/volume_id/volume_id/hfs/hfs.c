@@ -39,119 +39,119 @@
 #include "../util.h"
 #include "hfs.h"
 
+struct hfs_finder_info{
+	__u32	boot_folder;
+	__u32	start_app;
+	__u32	open_folder;
+	__u32	os9_folder;
+	__u32	reserved;
+	__u32	osx_folder;
+	__u8	id[8];
+} __attribute__((__packed__));
+
+struct hfs_mdb {
+	__u8	signature[2];
+	__u32	cr_date;
+	__u32	ls_Mod;
+	__u16	atrb;
+	__u16	nm_fls;
+	__u16	vbm_st;
+	__u16	alloc_ptr;
+	__u16	nm_al_blks;
+	__u32	al_blk_size;
+	__u32	clp_size;
+	__u16	al_bl_st;
+	__u32	nxt_cnid;
+	__u16	free_bks;
+	__u8	label_len;
+	__u8	label[27];
+	__u32	vol_bkup;
+	__u16	vol_seq_num;
+	__u32	wr_cnt;
+	__u32	xt_clump_size;
+	__u32	ct_clump_size;
+	__u16	num_root_dirs;
+	__u32	file_count;
+	__u32	dir_count;
+	struct hfs_finder_info finder_info;
+	__u8	embed_sig[2];
+	__u16	embed_startblock;
+	__u16	embed_blockcount;
+} __attribute__((__packed__)) *hfs;
+
+struct hfsplus_bnode_descriptor {
+	__u32	next;
+	__u32	prev;
+	__u8	type;
+	__u8	height;
+	__u16	num_recs;
+	__u16	reserved;
+} __attribute__((__packed__));
+
+struct hfsplus_bheader_record {
+	__u16	depth;
+	__u32	root;
+	__u32	leaf_count;
+	__u32	leaf_head;
+	__u32	leaf_tail;
+	__u16	node_size;
+} __attribute__((__packed__));
+
+struct hfsplus_catalog_key {
+	__u16	key_len;
+	__u32	parent_id;
+	__u16	unicode_len;
+	__u8	unicode[255 * 2];
+} __attribute__((__packed__));
+
+struct hfsplus_extent {
+	__u32 start_block;
+	__u32 block_count;
+} __attribute__((__packed__));
+
+#define HFSPLUS_EXTENT_COUNT		8
+struct hfsplus_fork {
+	__u64 total_size;
+	__u32 clump_size;
+	__u32 total_blocks;
+	struct hfsplus_extent extents[HFSPLUS_EXTENT_COUNT];
+} __attribute__((__packed__));
+
+struct hfsplus_vol_header {
+	__u8	signature[2];
+	__u16	version;
+	__u32	attributes;
+	__u32	last_mount_vers;
+	__u32	reserved;
+	__u32	create_date;
+	__u32	modify_date;
+	__u32	backup_date;
+	__u32	checked_date;
+	__u32	file_count;
+	__u32	folder_count;
+	__u32	blocksize;
+	__u32	total_blocks;
+	__u32	free_blocks;
+	__u32	next_alloc;
+	__u32	rsrc_clump_sz;
+	__u32	data_clump_sz;
+	__u32	next_cnid;
+	__u32	write_count;
+	__u64	encodings_bmp;
+	struct hfs_finder_info finder_info;
+	struct hfsplus_fork alloc_file;
+	struct hfsplus_fork ext_file;
+	struct hfsplus_fork cat_file;
+	struct hfsplus_fork attr_file;
+	struct hfsplus_fork start_file;
+} __attribute__((__packed__)) *hfsplus;
+
 #define HFS_SUPERBLOCK_OFFSET		0x400
 #define HFS_NODE_LEAF			0xff
 #define HFSPLUS_POR_CNID		1
-#define HFSPLUS_EXTENT_COUNT		8
 
 int volume_id_probe_hfs_hfsplus(struct volume_id *id, __u64 off)
 {
-	struct hfs_finder_info{
-		__u32	boot_folder;
-		__u32	start_app;
-		__u32	open_folder;
-		__u32	os9_folder;
-		__u32	reserved;
-		__u32	osx_folder;
-		__u8	id[8];
-	} __attribute__((__packed__));
-
-	struct hfs_mdb {
-		__u8	signature[2];
-		__u32	cr_date;
-		__u32	ls_Mod;
-		__u16	atrb;
-		__u16	nm_fls;
-		__u16	vbm_st;
-		__u16	alloc_ptr;
-		__u16	nm_al_blks;
-		__u32	al_blk_size;
-		__u32	clp_size;
-		__u16	al_bl_st;
-		__u32	nxt_cnid;
-		__u16	free_bks;
-		__u8	label_len;
-		__u8	label[27];
-		__u32	vol_bkup;
-		__u16	vol_seq_num;
-		__u32	wr_cnt;
-		__u32	xt_clump_size;
-		__u32	ct_clump_size;
-		__u16	num_root_dirs;
-		__u32	file_count;
-		__u32	dir_count;
-		struct hfs_finder_info finder_info;
-		__u8	embed_sig[2];
-		__u16	embed_startblock;
-		__u16	embed_blockcount;
-	} __attribute__((__packed__)) *hfs;
-
-	struct hfsplus_bnode_descriptor {
-		__u32	next;
-		__u32	prev;
-		__u8	type;
-		__u8	height;
-		__u16	num_recs;
-		__u16	reserved;
-	} __attribute__((__packed__));
-
-	struct hfsplus_bheader_record {
-		__u16	depth;
-		__u32	root;
-		__u32	leaf_count;
-		__u32	leaf_head;
-		__u32	leaf_tail;
-		__u16	node_size;
-	} __attribute__((__packed__));
-
-	struct hfsplus_catalog_key {
-		__u16	key_len;
-		__u32	parent_id;
-		__u16	unicode_len;
-		__u8	unicode[255 * 2];
-	} __attribute__((__packed__));
-
-	struct hfsplus_extent {
-		__u32 start_block;
-		__u32 block_count;
-	} __attribute__((__packed__));
-
-	struct hfsplus_fork {
-		__u64 total_size;
-        	__u32 clump_size;
-		__u32 total_blocks;
-		struct hfsplus_extent extents[HFSPLUS_EXTENT_COUNT];
-	} __attribute__((__packed__));
-
-	struct hfsplus_vol_header {
-		__u8	signature[2];
-		__u16	version;
-		__u32	attributes;
-		__u32	last_mount_vers;
-		__u32	reserved;
-		__u32	create_date;
-		__u32	modify_date;
-		__u32	backup_date;
-		__u32	checked_date;
-		__u32	file_count;
-		__u32	folder_count;
-		__u32	blocksize;
-		__u32	total_blocks;
-		__u32	free_blocks;
-		__u32	next_alloc;
-		__u32	rsrc_clump_sz;
-		__u32	data_clump_sz;
-		__u32	next_cnid;
-		__u32	write_count;
-		__u64	encodings_bmp;
-		struct hfs_finder_info finder_info;
-		struct hfsplus_fork alloc_file;
-		struct hfsplus_fork ext_file;
-		struct hfsplus_fork cat_file;
-		struct hfsplus_fork attr_file;
-		struct hfsplus_fork start_file;
-	} __attribute__((__packed__)) *hfsplus;
-
 	unsigned int blocksize;
 	unsigned int cat_block;
 	unsigned int ext_block_start;
@@ -172,6 +172,8 @@ int volume_id_probe_hfs_hfsplus(struct volume_id *id, __u64 off)
 	unsigned int	label_len;
 	struct hfsplus_extent extents[HFSPLUS_EXTENT_COUNT];
 	const __u8 *buf;
+
+	dbg("probing at offset %llu", off);
 
 	buf = volume_id_get_buffer(id, off + HFS_SUPERBLOCK_OFFSET, 0x200);
 	if (buf == NULL)
