@@ -23,12 +23,12 @@ echo > udev_gcov.txt
 echo "CODE COVERAGE ANALYSIS FOR UDEV" >> udev_gcov.txt
 echo  >> udev_gcov.txt
 
-for file in `find -maxdepth 1 -name "*.bb"`; do
-	name=`basename $file .bb`
+for file in `find -maxdepth 1 -name "*.gcno"`; do
+	name=`basename $file .gcno`
 	echo "################" >> udev_gcov.txt
 	echo "$name.c" >> udev_gcov.txt
 	echo "################" >> udev_gcov.txt
-	if [ -e "$name.da" ]; then
+	if [ -e "$name.gcda" ]; then
 		gcov -l "$name.c" >> udev_gcov.txt 2>&1
 	else
 		echo "code for $name.c was never executed" >> udev_gcov.txt 2>&1

@@ -16,16 +16,16 @@
 
 # clean up udev dir
 clean_udev () {
-	find -name "*.da" -exec rm -f "{}" \;
-	find -name "*.bb" -exec rm -f "{}" \;
-	find -name "*.bbg" -exec rm -f "{}" \;
+	find -name "*.gcno" -exec rm -f "{}" \;
+	find -name "*.gcda" -exec rm -f "{}" \;
 	find -name "*.gcov" -exec rm -f "{}" \;
+	rm -f udev_gcov.txt
 	make clean
 }
 
 PWD=`pwd`
 GCCINCDIR=`gcc -print-search-dirs | sed -ne "s/install: \(.*\)/\1include/gp"`
-LIBSYSFS="-I$PWD/libsysfs"
+LIBSYSFS="-I$PWD/libsysfs/sysfs -I$PWD/libsysfs"
 WARNINGS="-Wall -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations"
 GCC="-I$GCCINCDIR"
 USE_LOG="-DLOG"
@@ -50,4 +50,4 @@ done
 
 clean_udev
 
-make $* CFLAGS="$WARNINGS $GCOV_FLAGS $USE_LOG $DEBUG $GCC $LIBSYSFS"
+make $* CFLAGS="$WARNINGS $GCOV_FLAGS $USE_LOG $DEBUG $GCC $LIBSYSFS" LDFLAGS="-Wl,-warn-common -fprofile-arcs"
