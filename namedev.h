@@ -28,12 +28,13 @@
 
 struct sysfs_class_device;
 
-#define BUS_SIZE		30
-#define FILE_SIZE		50
-#define VALUE_SIZE		100
-#define ID_SIZE			50
-#define PLACE_SIZE		50
-#define PROGRAM_SIZE		100
+#define BUS_SIZE		32
+#define FILE_SIZE		64
+#define VALUE_SIZE		128
+#define ID_SIZE			64
+#define PLACE_SIZE		64
+#define DRIVER_SIZE		64
+#define PROGRAM_SIZE		128
 
 #define FIELD_BUS		"BUS"
 #define FIELD_SYSFS		"SYSFS"
@@ -43,6 +44,7 @@ struct sysfs_class_device;
 #define FIELD_RESULT		"RESULT"
 #define FIELD_KERNEL		"KERNEL"
 #define FIELD_SUBSYSTEM		"SUBSYSTEM"
+#define FIELD_DRIVER		"DRIVER"
 #define FIELD_NAME		"NAME"
 #define FIELD_SYMLINK		"SYMLINK"
 #define FIELD_OWNER		"OWNER"
@@ -80,6 +82,7 @@ struct config_device {
 	char program[PROGRAM_SIZE];
 	char result[PROGRAM_SIZE];
 	char subsystem[SUBSYSTEM_SIZE];
+	char driver[DRIVER_SIZE];
 	char name[NAME_SIZE];
 	char symlink[NAME_SIZE];
 	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];

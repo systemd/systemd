@@ -626,6 +626,17 @@ static int match_rule(struct config_device *dev, struct sysfs_class_device *clas
 			}
 		}
 
+		/* check for matching driver */
+		if (dev->driver[0] != '\0') {
+			dbg("check for " FIELD_DRIVER " dev->driver='%s' sysfs_device->driver_name='%s'", dev->driver, sysfs_device->driver_name);
+			if (strcmp_pattern(dev->driver, sysfs_device->driver_name) != 0) {
+				dbg(FIELD_DRIVER " is not matching");
+				goto try_parent;
+			} else {
+				dbg(FIELD_DRIVER " matches");
+			}
+		}
+
 		/* check for matching bus id */
 		if (dev->id[0] != '\0') {
 			dbg("check " FIELD_ID);

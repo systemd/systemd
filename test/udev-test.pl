@@ -1115,6 +1115,16 @@ BUS="scsi", KERNEL="sda", NAME="node", SUBSYSTEM="block"
 BUS="scsi", KERNEL="sda", NAME="should_not_match2", SUBSYSTEM="vc"
 EOF
 	},
+	{
+		desc		=> "DRIVER test",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "node",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", NAME="should_not_match", DRIVER="sd-wrong"
+BUS="scsi", KERNEL="sda", NAME="node", DRIVER="sd"
+EOF
+	},
 );
 
 # set env
