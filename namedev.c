@@ -716,18 +716,35 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 	list_for_each_entry(dev, &config_device_list, node) {
 		dbg("process rule");
 		if (match_rule(udev, dev, class_dev, sysfs_device) == 0) {
-			/* empty name and symlink will not create any node */
 			if (dev->name[0] == '\0' && dev->symlink[0] == '\0') {
-				info("configured rule in '%s' at line %i applied, '%s' is ignored",
-				     dev->config_file, dev->config_line, udev->kernel_name);
-				return -1;
+				/* empty name, symlink, perms will not create any node */
+				if (dev->mode == 0000 && dev->owner[0] == '\0' && dev->group[0] == '\0') {
+					info("configured rule in '%s[%i]' applied, '%s' is ignored",
+					     dev->config_file, dev->config_line, udev->kernel_name);
+					return -1;
+				}
+
+				if (dev->mode != 0000) {
+					udev->mode = dev->mode;
+					dbg("applied mode=%#o to '%s'", udev->mode, udev->kernel_name);
+				}
+				if (dev->owner[0] != '\0') {
+					strfieldcpy(udev->owner, dev->owner);
+					apply_format(udev, udev->owner, sizeof(udev->owner), class_dev, sysfs_device);
+					dbg("applied owner='%s' to '%s'", udev->owner, udev->kernel_name);
+				}
+				if (dev->group[0] != '\0') {
+					strfieldcpy(udev->group, dev->group);
+					apply_format(udev, udev->group, sizeof(udev->group), class_dev, sysfs_device);
+					dbg("applied group='%s' to '%s'", udev->group, udev->kernel_name);
+				}
 			}
 
 			/* collect symlinks for the final matching rule */
 			if (dev->symlink[0] != '\0') {
 				char temp[NAME_SIZE];
 
-				info("configured rule in '%s' at line %i applied, added symlink '%s'",
+				info("configured symlink-only rule in '%s[%i]' applied, added symlink '%s'",
 				     dev->config_file, dev->config_line, dev->symlink);
 				strfieldcpy(temp, dev->symlink);
 				apply_format(udev, temp, sizeof(temp), class_dev, sysfs_device);
@@ -743,7 +760,7 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 				    (udev->type != 'b' || udev->kernel_number[0] != '\0'))
 					continue;
 
-				info("configured rule in '%s' at line %i applied, '%s' becomes '%s'",
+				info("configured rule in '%s[%i]' applied, '%s' becomes '%s'",
 				     dev->config_file, dev->config_line, udev->kernel_name, dev->name);
 
 				strfieldcpy(udev->name, dev->name);

@@ -622,6 +622,18 @@ KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n", OWNER="5000", GROUP="100", MODE="0777"
 EOF
 	},
 	{
+		desc		=> "permissions only rule",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "ttyUSB0",
+		exp_perms	=> "5000:100:0777",
+		conf		=> <<EOF
+KERNEL="ttyUSB[0-9]*", OWNER="5000", GROUP="100", MODE="0777"
+KERNEL="ttyUSX[0-9]*", OWNER="5001", GROUP="101", MODE="0444"
+KERNEL="ttyUSB[0-9]*", NAME="ttyUSB%n"
+EOF
+	},
+	{
 		desc		=> "major/minor number test",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
