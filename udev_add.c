@@ -89,6 +89,22 @@ int udev_make_node(struct udevice *udev, const char *file, int major, int minor,
 		dbg("already present file '%s' unlinked", file);
 
 create:
+	switch (udev->type) {
+	case 'b':
+		mode |= S_IFBLK;
+		break;
+	case 'c':
+	case 'u':
+		mode |= S_IFCHR;
+		break;
+	case 'p':
+		mode |= S_IFIFO;
+		break;
+	default:
+		dbg("unknown node type %c\n", udev->type);
+		return -EINVAL;
+	}
+
 	selinux_setfscreatecon(file, udev->kernel_name, mode);
 	retval = mknod(file, mode, makedev(major, minor));
 	if (retval != 0) {
@@ -131,24 +147,8 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 	snprintf(filename, NAME_SIZE, "%s/%s", udev_root, udev->name);
 	filename[NAME_SIZE-1] = '\0';
 
-	switch (udev->type) {
-	case 'b':
-		udev->mode |= S_IFBLK;
-		break;
-	case 'c':
-	case 'u':
-		udev->mode |= S_IFCHR;
-		break;
-	case 'p':
-		udev->mode |= S_IFIFO;
-		break;
-	default:
-		dbg("unknown node type %c\n", udev->type);
-		return -EINVAL;
-	}
-
 	/* create parent directories if needed */
-	if (strrchr(udev->name, '/'))
+	if (strchr(udev->name, '/'))
 		create_path(filename);
 
 	if (udev->owner[0] != '\0') {

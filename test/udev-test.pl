@@ -1068,7 +1068,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "sda",
 		conf		=> <<EOF
-BUS="scsi", KERNEL="sda", PROGRAM="/usr/bin/test -b %N" NAME="%N"
+BUS="scsi", KERNEL="sda", PROGRAM="/usr/bin/test ! -b %N" NAME="%N"
 EOF
 	},
 	{
