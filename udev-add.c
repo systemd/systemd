@@ -251,8 +251,6 @@ static int create_node(struct udevice *dev, int fake)
 				i++;
 			}
 
-			if (linktarget[0] == '\0')
-				strfieldcpy(linktarget, "./");
 			strfieldcat(linktarget, &dev->name[tail]);
 
 			/* unlink existing files to ensure that our symlink is created */
