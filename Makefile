@@ -274,18 +274,31 @@ uninstall-dbus-policy:
 	-
 endif
 
-install: install-dbus-policy all $(GEN_CONFIGS)
-	$(INSTALL) -d $(DESTDIR)$(udevdir)
+install-config: $(GEN_CONFIGS)
 	$(INSTALL) -d $(DESTDIR)$(configdir)
+	@if [ ! -r $(DESTDIR)$(configdir)udev.conf ]; then \
+		echo $(INSTALL_DATA) udev.conf $(DESTDIR)$(configdir); \
+		$(INSTALL_DATA) udev.conf $(DESTDIR)$(configdir); \
+	fi
+	@if [ ! -r $(DESTDIR)$(configdir)udev.rules ]; then \
+		echo $(INSTALL_DATA) udev.rules $(DESTDIR)$(configdir); \
+		$(INSTALL_DATA) udev.rules $(DESTDIR)$(configdir); \
+	fi
+	@if [ ! -r $(DESTDIR)$(configdir)udev.permissions ]; then \
+		echo $(INSTALL_DATA) udev.permissions $(DESTDIR)$(configdir); \
+		$(INSTALL_DATA) udev.permissions $(DESTDIR)$(configdir); \
+	fi
+
+
+
+install: install-config install-dbus-policy all
+	$(INSTALL) -d $(DESTDIR)$(udevdir)
 	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
 	$(INSTALL_PROGRAM) -D etc/init.d/udev $(DESTDIR)$(initdir)/udev
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
-	$(INSTALL_DATA) udev.conf $(DESTDIR)$(configdir)
-	$(INSTALL_DATA) udev.rules $(DESTDIR)$(configdir)
-	$(INSTALL_DATA) udev.permissions $(DESTDIR)$(configdir)
 	- rm -f $(DESTDIR)$(hotplugdir)/udev.hotplug
-	- ln -s $(sbindir)/$(ROOT) $(DESTDIR)$(hotplugdir)/udev.hotplug
+	- ln -f -s $(sbindir)/$(ROOT) $(DESTDIR)$(hotplugdir)/udev.hotplug
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
