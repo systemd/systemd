@@ -155,6 +155,7 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	CRT0 = $(KLIBC_DIR)/crt0.o
 	LIBC =	$(ARCH_LIB_OBJS) $(LIB_OBJS) $(CRT0)
 	CFLAGS += $(WARNINGS) -nostdinc			\
+		$(OPTFLAGS)				\
 		-D__KLIBC__ -fno-builtin-printf		\
 		-I$(INCLUDE_DIR)			\
 		-I$(KLIBC_DIR)/arch/$(ARCH)/include	\
