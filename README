@@ -44,16 +44,6 @@ To use:
 		what udev is doing.  This is enabled by default.  Note, if you
 		are building udev against klibc it is recommended that you
 		disable this option (due to klibc's syslog implementation.)
-	USE_DBUS
-		if set to 'true', DBUS messages will be sent everytime udev
-		creates or removes a device node.  This requires that DBUS
-		development headers and libraries be present on your system to
-		build properly.  Default value is 'false'.
-	USE_SELINUX
-		if set to 'true', SELinux support for udev will be built in.
-		This requires that SELinux development headers and libraries be
-		present on your system to build properly.  Default value is
-		'false'.
 	DEBUG
 		if set to 'true', debugging messages will be sent to the syslog
 		as udev is run.  Default value is 'false'.
@@ -98,8 +88,3 @@ know by sending a message to the linux-hotplug-devel mailing list at:
 
 greg k-h
 greg@kroah.com
-
-
-
-
-
