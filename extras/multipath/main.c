@@ -509,8 +509,8 @@ setup_map(struct env * conf, struct path * all_paths,
 
 	params_p += sprintf(params_p, "%i", conf->dm_path_test_int);
 
-	if (all_paths[PINDEX(index,0)].iopolicy == MULTIBUS &&
-	    !conf->forcedfailover ) {
+	if ((all_paths[PINDEX(index,0)].iopolicy == MULTIBUS &&
+	    conf->iopolicy == -1) || conf->iopolicy == MULTIBUS) {
 		params_p += sprintf(params_p, " 1 %i %s %i %i",
 				    dm_pg_prio, dm_ps_name, np, dm_ps_nr_args);
 		
@@ -522,8 +522,8 @@ setup_map(struct env * conf, struct path * all_paths,
 		}
 	}
 
-	if (all_paths[PINDEX(index,0)].iopolicy == FAILOVER ||
-	    conf->forcedfailover) {
+	if ((all_paths[PINDEX(index,0)].iopolicy == FAILOVER &&
+	     conf->iopolicy == -1) || conf->iopolicy == FAILOVER) {
 		params_p += sprintf(params_p, " %i", mp[index].npaths + 1);
 		for (i=0; i<=mp[index].npaths; i++) {
 			if (0 != all_paths[PINDEX(index,i)].sg_id.scsi_type)
@@ -537,8 +537,8 @@ setup_map(struct env * conf, struct path * all_paths,
 		}
 	}
 
-	if (all_paths[PINDEX(index,0)].iopolicy == GROUP_BY_SERIAL &&
-	    !conf->forcedfailover ) {
+	if ((all_paths[PINDEX(index,0)].iopolicy == GROUP_BY_SERIAL &&
+	     conf->iopolicy == -1) || conf->iopolicy == GROUP_BY_SERIAL) {
 		group_by_serial(&mp[index], all_paths, params_p);
 	}
 
@@ -602,14 +602,18 @@ static void
 usage(char * progname)
 {
 	fprintf(stderr, VERSION_STRING);
-	fprintf(stderr, "Usage: %s [-v|-q] [-d] [-i int] [-m max_devs]\n",
+	fprintf(stderr, "Usage: %s [-v|-q] [-d] [-i int] [-m max_devs] ",
 		progname);
+	fprintf(stderr,	"[-p failover|multibus|group_by_serial]\n");
+	fprintf(stderr, "\t-v\t\tverbose, print all paths and multipaths\n");
+	fprintf(stderr, "\t-q\t\tquiet, no output at all\n");
 	fprintf(stderr, "\t-d\t\tdry run, do not create or update devmaps\n");
-	fprintf(stderr, "\t-f\t\tforce maps to failover mode (1 path/pg)\n");
 	fprintf(stderr, "\t-i\t\tmultipath target param : polling interval\n");
 	fprintf(stderr, "\t-m max_devs\tscan {max_devs} devices at most\n");
-	fprintf(stderr, "\t-q\t\tquiet, no output at all\n");
-	fprintf(stderr, "\t-v\t\tverbose, print all paths and multipaths\n");
+	fprintf(stderr, "\t-p policy\tforce maps to specified policy :\n");
+	fprintf(stderr, "\t\t\tfailover\t1 path per priority group\n");
+	fprintf(stderr, "\t\t\tmultibus\tall paths in 1 priority group\n");
+	fprintf(stderr, "\t\t\tgroup_by_serial\t1 priority group per serial\n");
 	exit(1);
 }
 
@@ -627,12 +631,8 @@ main(int argc, char *argv[])
 	conf.dry_run = 0;	/* 1 == Do not Create/Update devmaps */
 	conf.verbose = 0;	/* 1 == Print all_paths and mp */
 	conf.quiet = 0;		/* 1 == Do not even print devmaps */
-	conf.with_sysfs = 0;	/* Default to compat / suboptimal behaviour */
+	conf.iopolicy = -1;	/* Apply the defaults in get_unique_id() */
 	conf.dm_path_test_int = 10;
-
-	/* kindly provided by libsysfs */
-	if (0 == sysfs_get_mnt_path(conf.sysfs_path, FILE_NAME_SIZE))
-		conf.with_sysfs = 1;
 
 	for (i = 1; i < argc; ++i) {
 		if (0 == strcmp("-v", argv[i])) {
@@ -649,11 +649,16 @@ main(int argc, char *argv[])
 			conf.quiet = 1;
 		} else if (0 == strcmp("-d", argv[i]))
 			conf.dry_run = 1;
-		else if (0 == strcmp("-f", argv[i]))
-			conf.forcedfailover = 1;
 		else if (0 == strcmp("-i", argv[i]))
 			conf.dm_path_test_int = atoi(argv[++i]);
-		else if (0 == strcmp("scsi", argv[i]))
+		else if (0 == strcmp("-p", argv[i++])) {
+			if (!strcmp(argv[i], "failover"))
+				conf.iopolicy = FAILOVER;
+			if (!strcmp(argv[i], "multibus"))
+				conf.iopolicy = MULTIBUS;
+			if (!strcmp(argv[i], "group_by_serial"))
+				conf.iopolicy = GROUP_BY_SERIAL;
+		} else if (0 == strcmp("scsi", argv[i]))
 			strcpy(conf.hotplugdev, argv[++i]);
 		else if (*argv[i] == '-') {
 			fprintf(stderr, "Unknown switch: %s\n", argv[i]);
@@ -672,7 +677,7 @@ main(int argc, char *argv[])
 	if (mp == NULL || all_paths == NULL || all_scsi_ids == NULL)
 		exit(1);
 
-	if (!conf.with_sysfs) {
+	if (sysfs_get_mnt_path(conf.sysfs_path, FILE_NAME_SIZE)) {
 		get_all_scsi_ids(&conf, all_scsi_ids);
 		get_all_paths_nosysfs(&conf, all_paths, all_scsi_ids);
 	} else {

@@ -1,3 +1,7 @@
+2004-02-17 multipath-017
+	* remove the restrictive -f flag.
+	  Introduce a more generic "-m iopolicy" one.
+	* remove useless "int with_sysfs" in env struct 
 2004-02-04 multipath-016
 	* add a GROUP_BY_SERIAL flag. This should be useful for
 	  controlers that activate they spare paths on simple IO

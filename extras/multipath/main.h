@@ -100,7 +100,7 @@ struct env {
 	int verbose;
 	int quiet;
 	int dry_run;
-	int forcedfailover;
+	int iopolicy;
 	int with_sysfs;
 	int dm_path_test_int;
 	char sysfs_path[FILE_NAME_SIZE];
