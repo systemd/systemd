@@ -6,6 +6,7 @@ License: GPL
 Group: Utilities/System
 Source: ftp://ftp.kernel.org/pub/linux/utils/kernel/hotplug/%{name}-%{version}.tar.gz
 ExclusiveOS: Linux
+Vendor: Greg Kroah-Hartman <greg@kroah.com>
 BuildRoot: /var/tmp/%{name}-%{version}-%{release}-root
 
 %description
