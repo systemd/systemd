@@ -1,0 +1,116 @@
+################################################
+
+Using GCC's code coverage tool, gcov, with udev
+
+################################################
+
+For more information on using gcov please see:
+
+http://gcc.gnu.org/onlinedocs/gcc/Gcov.html
+
+With that said, here is how to get code coverage analysis for udev files.
+Note that this was developed with udev version 024.
+
+- Make sure you've installed udev and that it is working properly.
+  If you are having problems, refer to the README and HOWTO-udev_for_dev
+  documents in udev tarball.  I've also compiled a udev_for_dev
+  toubleshooting document for Red Hat which can be found at:
+
+  http://developer.osdl.org/ogasawara/gcov_for_udev/rh_udev_for_dev.txt
+
+- Get the following files:
+    make_gcov.sh
+    run_gcov.sh
+
+  These can be found at http://developer.osdl.org/ogasawara/gcov_for_udev/
+
+- After grabbing these files, copy both make_gcov.sh and run_gcov.sh
+  into the top level of your udev directory.
+
+- execute make_gcov.sh
+
+    ./make_gcov.sh
+
+  This will compile udev with gcov support.  Basically make_gcov.sh will
+  run make but override the CFLAGS.  It strips any optimization from
+  CFLAGS in order for gcov to get correct code coverage analysis.  It will
+  also add the -fprofile-arcs and -ftest-coverage options which are the
+  necessary flags needed to use gcov.
+
+  make_gcov.sh will assume the same default parameters as the regular
+  make but also accepts the same parameters.  For example if you want
+  to get code coverage analysis for udev with the DEBUG flag turned
+  on, you would just execute:
+
+    ./make_gcov.sh DEBUG=true
+
+  There is one exception, gcov will not work with klibc as it does not
+  compile cleanly with the -fprofile-arcs and -ftest-coverage flags.
+  With this said it is pretty much useless to set the KERNEL_DIR flag
+  when using make_gcov.sh as well.
+
+  Don't be alarmed if you look into your udev directory and see that it
+  has been polluted with a bunch of *.bb, *.bbg, *.da, and *.gcov files.
+  gcov creates and uses these files to extract the code coverage info.
+
+- After running make_gcov.sh you need to install udev again.  So basically,
+
+    su to root
+    make install
+
+- Then execute some udev tasks.  You can run some udev tests, reboot, or
+  do anything your little udev heart desires.  Once you are satisfied, you
+  can now see how much udev code was covered.
+
+- To get the udev code coverage analysis, execute run_gcov.sh.  You need to
+  be root to do this.
+
+    su to root
+    ./run_gcov.sh
+
+- This creates udev_gcov.txt which holds all the code coverage information.
+  To see an example of the code coverage info after executing the udev-test.pl
+  test, please see:
+
+  http://developer.osdl.org/ogasawara/gcov_for_udev/udev_gcov.txt
+
+- Also, after having executed gcov on udev (ie executing run_gcov.sh) a
+  *.gcov file is created for every file which contained code that was
+  used.  Looking at the *.gcov files, one will see what lines of code
+  were hit, and what lines were missed.  For, example if code in udev-add.c
+  were executed, gcov then created a file called udev-add.c.gcov.  And a
+  portion of udev-add.c.gov might look like:
+
+  static int get_major_minor(struct sysfs_class_device *class_dev, struct udevice *udev)
+          95    {
+          95    	struct sysfs_attribute *attr = NULL;
+		
+          95    	attr = sysfs_get_classdev_attr(class_dev, "dev");
+          95    	if (attr == NULL)
+      ######    		goto error;
+			dbg("dev='%s'", attr->value);
+		
+          95    	if (sscanf(attr->value, "%u:%u", &udev->major, &udev->minor) != 2)
+      ######    		goto error;
+			dbg("found major=%d, minor=%d", udev->major, udev->minor);
+		
+          95    	return 0;
+		error:
+      ######    	return -1;
+		}
+
+  Any line of code that is preceded by a "######" implies that the code
+  was never hit during execution.
+
+- Once you are done with using gcov for udev and want to return to your
+  normal use of udev.  Simply,
+
+    ./make_gcov.sh clean
+
+  This will clean out all the *.bb, *.bbg, *.da, *.gcov files produced by gcov.
+  It will also run a regular make clean on your udev directory.  Then just run
+  a regular make and make install and you are back to normal:
+
+    make
+    su to root
+    make isntall
