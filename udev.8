@@ -144,7 +144,7 @@ Match the device number on the bus, like PCI bus id.
 .B PLACE
 Match the topological position on bus, like physical port of USB device
 .TP
-.BI SYSFS_ filename
+.BI SYSFS{ filename }
 Match sysfs device attribute like label, vendor, USB serial number, SCSI UUID
 or file system label.  Up to 5 different sysfs files can be checked, with
 all of the values being required in order to match the rule.
@@ -161,6 +161,13 @@ Match the returned string of the last
 call. This key may used in any following rule after a
 .B PROGRAM
 call.
+.P
+The
+.B NAME
+field given with the attribute
+.BR NAME{ all_partitions }
+will  create all 15 partitions of a blockdevice.
+This may be useful for removable media devices.
 .P
 .RB "The " NAME " ," SYMLINK " and " PROGRAM
 fields support simple printf-like string substitution:
@@ -199,10 +206,10 @@ The '%' char itself.
 BUS="scsi", PROGRAM="/sbin/scsi_id", RESULT="OEM 0815", NAME="disk1"
 
 # USB printer to be called lp_color
-BUS="usb", SYSFS_serial="W09090207101241330", NAME="lp_color"
+BUS="usb", SYSFS{serial}="W09090207101241330", NAME="lp_color"
 
 # SCSI disk with a specific vendor and model number is to be called boot
-BUS="scsi", SYSFS_vendor="IBM", SYSFS_model="ST336", NAME="boot%n"
+BUS="scsi", SYSFS{vendor}="IBM", SYSFS{model}="ST336", NAME="boot%n"
 
 # sound card with PCI bus id 00:0b.0 to be called dsp
 BUS="pci", ID="00:0b.0", NAME="dsp"
@@ -214,7 +221,7 @@ BUS="usb", PLACE="2.3", NAME="mouse1"
 KERNEL="ttyUSB1", NAME="pda", SYMLINK="palmtop handheld"
 
 # multiple USB webcams with symlinks to be called webcam0, webcam1, ...
-BUS="usb", SYSFS_model="XV3", NAME="video%n", SYMLINK="webcam%n"
+BUS="usb", SYSFS{model}="XV3", NAME="video%n", SYMLINK="webcam%n"
 .fi
 .P
 Permissions and ownership for the created device files may specified at

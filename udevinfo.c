@@ -90,7 +90,7 @@ static int print_all_attributes(const char *path)
 				len--;
 			}
 			if (len == 0)
-				printf("    SYSFS_%s=\"%s\"\n", attr->name, value);
+				printf("    SYSFS{%s}=\"%s\"\n", attr->name, value);
 		}
 	}
 	printf("\n");

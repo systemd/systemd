@@ -23,13 +23,13 @@
 BUS="scsi", PROGRAM="/bin/echo -n test-%b", RESULT="test-42:0:0:1", NAME="%c"
 
 # A usb camera.
-BUS="usb", SYSFS_vendor="FUJIFILM", SYSFS_model="M100", NAME="camera%n"
+BUS="usb", SYSFS{vendor}="FUJIFILM", SYSFS{model}="M100", NAME="camera%n"
 
 # USB Epson printer to be called lp_epson
-BUS="usb", SYSFS_serial="HXOLL0012202323480", NAME="lp_epson"
+BUS="usb", SYSFS{serial}="HXOLL0012202323480", NAME="lp_epson"
 
 # USB HP printer to be called lp_hp
-BUS="usb", SYSFS_serial="W09090207101241330", NAME="lp_hp"
+BUS="usb", SYSFS{serial}="W09090207101241330", NAME="lp_hp"
 
 # sound card with PCI bus id 00:0b.0 to be the first sound card
 BUS="pci", ID="00:0b.0", NAME="dsp"

@@ -38,7 +38,7 @@ my @tests = (
 		devpath  => "block/sda",
 		expected => "boot_disk" ,
 		conf     => <<EOF
-BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="boot_disk%n"
+BUS="scsi", SYSFS{vendor}="IBM-ESXS", NAME="boot_disk%n"
 KERNEL="ttyUSB0", NAME="visor"
 EOF
 	},
@@ -48,7 +48,7 @@ EOF
 		devpath  => "block/sda/sda1",
 		expected => "boot_disk1" ,
 		conf     => <<EOF
-BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="boot_disk%n"
+BUS="scsi", SYSFS{vendor}="IBM-ESXS", NAME="boot_disk%n"
 EOF
 	},
 	{
@@ -57,10 +57,10 @@ EOF
 		devpath  => "block/sda/sda1",
 		expected => "boot_disk1" ,
 		conf     => <<EOF
-BUS="scsi", SYSFS_vendor="?IBM-ESXS", NAME="boot_disk%n-1"
-BUS="scsi", SYSFS_vendor="IBM-ESXS?", NAME="boot_disk%n-2"
-BUS="scsi", SYSFS_vendor="IBM-ES??", NAME="boot_disk%n"
-BUS="scsi", SYSFS_vendor="IBM-ESXSS", NAME="boot_disk%n-3"
+BUS="scsi", SYSFS{vendor}="?IBM-ESXS", NAME="boot_disk%n-1"
+BUS="scsi", SYSFS{vendor}="IBM-ESXS?", NAME="boot_disk%n-2"
+BUS="scsi", SYSFS{vendor}="IBM-ES??", NAME="boot_disk%n"
+BUS="scsi", SYSFS{vendor}="IBM-ESXSS", NAME="boot_disk%n-3"
 EOF
 	},
 	{
@@ -69,8 +69,8 @@ EOF
 		devpath  => "block/sda/sda1",
 		expected => "boot_disk1" ,
 		conf     => <<EOF
-BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW   !#", NAME="boot_diskX%n"
-BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW    !#", NAME="boot_disk%n"
+BUS="scsi", SYSFS{vendor}="IBM-ESXS", SYSFS{model}="ST336605LW   !#", NAME="boot_diskX%n"
+BUS="scsi", SYSFS{vendor}="IBM-ESXS", SYSFS{model}="ST336605LW    !#", NAME="boot_disk%n"
 EOF
 	},
 	{
@@ -79,8 +79,8 @@ EOF
 		devpath  => "block/sda/sda1",
 		expected => "boot_disk1" ,
 		conf     => <<EOF
-BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW    !#", SYSFS_scsi_level="4", SYSFS_rev="B245", SYSFS_type="2", SYSFS_queue_depth="32", NAME="boot_diskXX%n"
-BUS="scsi", SYSFS_vendor="IBM-ESXS", SYSFS_model="ST336605LW    !#", SYSFS_scsi_level="4", SYSFS_rev="B245", SYSFS_type="0", NAME="boot_disk%n"
+BUS="scsi", SYSFS{vendor}="IBM-ESXS", SYSFS{model}="ST336605LW    !#", SYSFS{scsi_level}="4", SYSFS{rev}="B245", SYSFS{type}="2", SYSFS{queue_depth}="32", NAME="boot_diskXX%n"
+BUS="scsi", SYSFS{vendor}="IBM-ESXS", SYSFS{model}="ST336605LW    !#", SYSFS{scsi_level}="4", SYSFS{rev}="B245", SYSFS{type}="0", NAME="boot_disk%n"
 EOF
 	},
 	{
@@ -209,7 +209,7 @@ EOF
 		devpath  => "block/sda",
 		expected => "disk-IBM-ESXS-sda" ,
 		conf     => <<EOF
-BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="disk-%s{vendor}-%k"
+BUS="scsi", SYSFS{vendor}="IBM-ESXS", NAME="disk-%s{vendor}-%k"
 KERNEL="ttyUSB0", NAME="visor"
 EOF
 	},
@@ -279,7 +279,7 @@ EOF
 		devpath  => "class/tty/console",
 		expected => "TTY" ,
 		conf     => <<EOF
-BUS="foo", SYSFS_dev="5:1", NAME="foo"
+BUS="foo", SYSFS{dev}="5:1", NAME="foo"
 KERNEL="console", NAME="TTY"
 EOF
 	},
@@ -289,7 +289,7 @@ EOF
 		devpath  => "class/tty/console",
 		expected => "foo" ,
 		conf     => <<EOF
-SYSFS_dev="5:1", NAME="foo"
+SYSFS{dev}="5:1", NAME="foo"
 KERNEL="console", NAME="TTY"
 EOF
 	},
@@ -319,7 +319,7 @@ EOF
 		devpath  => "block/sda/sda2",
 		expected => "1/2/a/b/symlink" ,
 		conf     => <<EOF
-BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="1/2/node", SYMLINK="1/2/a/b/symlink"
+BUS="scsi", SYSFS{vendor}="IBM-ESXS", NAME="1/2/node", SYMLINK="1/2/a/b/symlink"
 EOF
 	},
 	{
@@ -328,7 +328,7 @@ EOF
 		devpath  => "block/sda/sda2",
 		expected => "1/2/symlink" ,
 		conf     => <<EOF
-BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/symlink"
+BUS="scsi", SYSFS{vendor}="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/symlink"
 EOF
 	},
 	{
@@ -337,7 +337,7 @@ EOF
 		devpath  => "block/sda/sda2",
 		expected => "1/2/c/d/symlink" ,
 		conf     => <<EOF
-BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/c/d/symlink"
+BUS="scsi", SYSFS{vendor}="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/c/d/symlink"
 EOF
 	},
 	{
@@ -355,7 +355,7 @@ EOF
 		devpath  => "block/sda",
 		expected => "boot_disk15" ,
 		conf     => <<EOF
-BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME{all_partitions}="boot_disk"
+BUS="scsi", SYSFS{vendor}="IBM-ESXS", NAME{all_partitions}="boot_disk"
 EOF
 	},
 	{
@@ -364,7 +364,7 @@ EOF
 		devpath  => "class/tty/ttyUSB0",
 		expected => "visor" ,
 		conf     => <<EOF
-SYSFS_idProduct="2008", NAME="visor"
+SYSFS{idProduct}="2008", NAME="visor"
 EOF
 	},
 	{
