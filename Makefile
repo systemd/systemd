@@ -35,6 +35,7 @@ DAEMON =	udevd
 SENDER =	udevsend
 HELPER =	udevinfo
 TESTER =	udevtest
+STARTER =	udevstart
 VERSION =	019_bk
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
@@ -172,7 +173,7 @@ endif
 
 CFLAGS += -I$(PWD)/libsysfs
 
-all: $(ROOT) $(SENDER) $(DAEMON) $(HELPER) $(TESTER)
+all: $(ROOT) $(SENDER) $(DAEMON) $(HELPER) $(TESTER) $(STARTER)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) \
@@ -265,6 +266,7 @@ $(TESTER).o: $(GEN_HEADERS)
 $(HELPER).o: $(GEN_HEADERS)
 $(DAEMON).o: $(GEN_HEADERS)
 $(SENDER).o: $(GEN_HEADERS)
+$(STARTER).o: $(GEN_HEADERS)
 
 $(ROOT): $(ROOT).o $(OBJS) $(HEADERS) $(LIBC)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
@@ -286,10 +288,14 @@ $(SENDER): $(SENDER).o udevd.h $(LIBC)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
+$(STARTER): $(STARTER).o $(HEADERS) $(LIBC)
+	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevstart.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(STRIPCMD) $@
+
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
-	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(HELPER) $(DAEMON) $(SENDER) $(TESTER)
+	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(HELPER) $(DAEMON) $(SENDER) $(TESTER) $(STARTER)
 	$(MAKE) -C klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
