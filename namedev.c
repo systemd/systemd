@@ -827,18 +827,18 @@ done:
 				while (isdigit(*(dig-1)))
 					dig--;
 				strcat(udev->name, dig);
-				dbg_parse("kernel number appended: %s", dig);
+				dbg("kernel number appended: %s", dig);
 				break;
 			case 'm':
 				sprintf(pos, "%u", udev->minor);
-				dbg_parse("minor number appended: %u", udev->minor);
+				dbg("minor number appended: %u", udev->minor);
 				break;
 			case 'M':
 				sprintf(pos, "%u", udev->major);
-				dbg_parse("major number appended: %u", udev->major);
+				dbg("major number appended: %u", udev->major);
 				break;
 			default:
-				dbg_parse("unknown substitution type: %%%c", pos[1]);
+				dbg("unknown substitution type: %%%c", pos[1]);
 				break;
 			}
 			strcat(udev->name, name);
