@@ -242,7 +242,7 @@ static int print_sysfs_devices(void)
 
 static int process_options(int argc, char *argv[])
 {
-	static const char short_options[] = "adn:p:q:rsVh";
+	static const char short_options[] = "an:p:q:rsVh";
 	int option;
 	int retval = 1;
 	struct udevice udev;
@@ -439,7 +439,7 @@ exit:
 	}
 
 help:
-	printf("Usage: udevinfo [-anpqrdVh]\n"
+	printf("Usage: udevinfo [-anpqrVh]\n"
 	       "  -q TYPE  query database for the specified value:\n"
 	       "             'name'    name of device node\n"
 	       "             'symlink' pointing to node\n"
