@@ -116,7 +116,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %doc COPYING README TODO ChangeLog HOWTO* etc/udev/udev.rules.examples docs/*
 %attr(755,root,root) /sbin/udev
-%attr(755,root,root) /sbin/udevinfo
+%attr(755,root,root) /usr/bin/udevinfo
 %attr(755,root,root) /sbin/udevsend
 %attr(755,root,root) /sbin/udevd
 %attr(755,root,root) /sbin/udevtest
@@ -143,6 +143,7 @@ rm -rf $RPM_BUILD_ROOT
 %changelog
 * Tue Mar 2 2004 Greg Kroah-Hartman <greg@kroah.com>
 - added udevstart to the list of files installed
+- udevinfo is now in /usr/bin not /sbin
 
 * Fri Feb 27 2004 Greg Kroah-Hartman <greg@kroah.com>
 - added ability to build with SELinux support
