@@ -106,8 +106,6 @@ static int subsystem_without_dev(const char *subsystem)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	main_argv = argv;
-	main_envp = envp;
 	struct sigaction act;
 	char *action;
 	char *devpath = "";
@@ -120,6 +118,9 @@ int main(int argc, char *argv[], char *envp[])
 	} act_type;
 
 	dbg("version %s", UDEV_VERSION);
+
+	main_argv = argv;
+	main_envp = envp;
 
 	init_logging("udev");
 
