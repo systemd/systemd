@@ -101,6 +101,32 @@ static int create_node(struct udevice *dev)
 		return -EINVAL;
 	}
 
+	/* create subdirectories if requested */
+	if (strchr(dev->name, '/')) {
+		char path[255];
+		char *pos;
+		struct stat stats;
+
+		strncpy(path, filename, sizeof(path));
+		pos = strchr(path+1, '/');
+		while (1) {
+			pos = strchr(pos+1, '/');
+			if (pos == NULL)
+				break;
+			*pos = 0x00;
+			if (stat(path, &stats)) {
+				retval = mkdir(path, 0755);
+				if (retval) {
+					dbg("mkdir(%s) failed with error '%s'",
+					    path, strerror(errno));
+					return retval;
+				}
+				dbg("created %s", path);
+			}
+			*pos = '/';
+		}
+	}
+
 	dbg("mknod(%s, %#o, %u, %u)", filename, dev->mode, dev->major, dev->minor);
 	retval = mknod(filename, dev->mode, res);
 	if (retval)

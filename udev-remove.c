@@ -69,12 +69,45 @@ exit:
 static int delete_node(char *name)
 {
 	char filename[255];
+	int retval;
 
 	strncpy(filename, udev_root, sizeof(filename));
 	strncat(filename, name, sizeof(filename));
 
 	dbg("unlinking %s", filename);
-	return unlink(filename);
+	retval = unlink(filename);
+	if (retval) {
+		dbg("unlink(%s) failed with error '%s'",
+			filename, strerror(errno));
+		return retval;
+	}
+
+	/* remove subdirectories */
+	if (strchr(name, '/')) {
+		char *pos;
+
+		pos = strrchr(filename, '/');
+		while (1) {
+			*pos = 0x00;
+			pos = strrchr(filename, '/');
+
+			/* don't remove the last one */
+			if ((pos == filename) || (pos == NULL))
+				break;
+
+			/* remove if empty */
+			retval = rmdir(filename);
+			if (retval) {
+				if (errno == ENOTEMPTY)
+					return 0;
+				dbg("rmdir(%s) failed with error '%s'",
+				    filename, strerror(errno));
+				break;
+			}
+			dbg("removed %s", filename);
+		}
+	}
+	return retval;
 }
 
 int udev_remove_device(char *device, char *subsystem)
