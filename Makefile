@@ -266,7 +266,8 @@ small_release: $(DISTFILES) clean
 ifeq ($(USE_DBUS), true)
 install-dbus-policy:
 	$(INSTALL) -d $(DESTDIR)$(dbusdir)
-	$(INSTALL_DATA) udev_sysbus_policy.conf $(DESTDIR)$(dbusdir)
+	$(INSTALL_DATA) etc/dbus-1/system.d/udev_sysbus_policy.conf $(DESTDIR)$(dbusdir)
+
 uninstall-dbus-policy:
 	- rm $(DESTDIR)$(dbusdir)/udev_sysbus_policy.conf
 else
