@@ -1,0 +1,6 @@
+#name:user:group:mode
+ttyUSB0:root:uucp:0660
+ttyUSB1:root:uucp:0666
+visor:500:500:0666
+dsp1:::0666
+
