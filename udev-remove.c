@@ -52,14 +52,14 @@ static char *get_name(char *path, int major, int minor)
 		goto exit;
 	}
 
-	dbg("%s not found in database, falling back on default name", path);
+	dbg("'%s' not found in database, falling back on default name", path);
 	temp = strrchr(path, '/');
 	if (temp == NULL)
 		return NULL;
 	strncpy(name, &temp[1], sizeof(name));
 
 exit:
-	dbg("name is %s", name);
+	dbg("name is '%s'", name);
 	return &name[0];
 }
 
@@ -74,7 +74,7 @@ static int delete_node(char *name)
 	strncpy(filename, udev_root, sizeof(filename));
 	strncat(filename, name, sizeof(filename));
 
-	dbg("unlinking %s", filename);
+	dbg("unlinking '%s'", filename);
 	retval = unlink(filename);
 	if (retval) {
 		dbg("unlink(%s) failed with error '%s'",
@@ -104,7 +104,7 @@ static int delete_node(char *name)
 				    filename, strerror(errno));
 				break;
 			}
-			dbg("removed %s", filename);
+			dbg("removed '%s'", filename);
 		}
 	}
 	return retval;

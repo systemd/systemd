@@ -54,7 +54,7 @@ int udevdb_add_dev(const char *path, const struct udevice *dev)
 	strcpy(keystr, path);
 	key.dptr = keystr;
 	key.dsize = strlen(keystr) + 1;
-	
+
 	data.dptr = (void *)dev;
 	data.dsize = sizeof(*dev);
 	
@@ -79,7 +79,7 @@ struct udevice *udevdb_get_dev(const char *path)
 	dev = malloc(sizeof(*dev));
 	if (dev == NULL)
 		goto exit;
-	
+
 	memcpy(dev, data.dptr, sizeof(*dev));
 exit:
 	free(data.dptr);
@@ -99,7 +99,7 @@ int udevdb_delete_dev(const char *path)
 
 	key.dptr = keystr;
 	key.dsize = strlen(keystr) + 1;
-	
+
 	return tdb_delete(udevdb, key);
 }
 
@@ -116,8 +116,8 @@ void udevdb_exit(void)
 
 /**
  * udevdb_init: initializes database
- * @init_flag: database can either be in memory - UDEVDB_INTERNAL - or
- *	written to a file with UDEVDB_DEFAULT.
+ * @init_flag: UDEVDB_INTERNAL - database stays in memory
+ *	       UDEVDB_DEFAULT - database is written to a file
  */
 int udevdb_init(int init_flag)
 {
@@ -127,9 +127,9 @@ int udevdb_init(int init_flag)
 	udevdb = tdb_open(udev_db_filename, 0, init_flag, O_RDWR | O_CREAT, 0644);
 	if (udevdb == NULL) {
 		if (init_flag == UDEVDB_INTERNAL)
-			dbg("Unable to initialize in-memory database");
+			dbg("unable to initialize in-memory database");
 		else
-			dbg("Unable to initialize database at %s", udev_db_filename);
+			dbg("unable to initialize database at '%s'", udev_db_filename);
 		return -EINVAL;
 	}
 	return 0;

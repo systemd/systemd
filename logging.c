@@ -32,26 +32,26 @@
 static int logging_init = 0;
 static unsigned char udev_logname[42];
 
-static void init_logging (void)
+static void init_logging(void)
 {
-	snprintf(udev_logname,42,"udev[%d]", getpid());
+	snprintf(udev_logname, 42,"udev[%d]", getpid());
 
-	openlog (udev_logname, 0, LOG_DAEMON);
+	openlog(udev_logname, 0, LOG_DAEMON);
 	logging_init = 1;
 }
 
 /**
  * log_message - sends a message to the logging facility
  */
-int log_message (int level, const char *format, ...)
+int log_message(int level, const char *format, ...)
 {
 	va_list	args;
 
 	if (!logging_init)
 		init_logging();
-	va_start (args, format);
-	vsyslog (level, format, args);
-	va_end (args);
+	va_start(args, format);
+	vsyslog(level, format, args);
+	va_end(args);
 	return 1;
 }
 

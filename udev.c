@@ -105,7 +105,7 @@ static void get_dirs(void)
 		if (temp)
 			udev_permission = temp;
 	}
-	dbg("sysfs_path = %s", sysfs_path);
+	dbg("sysfs_path='%s'", sysfs_path);
 
 	strncpy(udev_db_filename, udev_config_dir, sizeof(udev_db_filename));
 	strncat(udev_db_filename, udev_db, sizeof(udev_db_filename));
@@ -141,12 +141,12 @@ int main(int argc, char **argv, char **envp)
 		dbg ("no devpath?");
 		goto exit;
 	}
-	dbg("looking at %s", devpath);
+	dbg("looking at '%s'", devpath);
 
 	/* we only care about class devices and block stuff */
 	if (!strstr(devpath, "class") &&
 	    !strstr(devpath, "block")) {
-		dbg("not block or class");
+		dbg("not a block or class device");
 		goto exit;
 	}
 
@@ -166,7 +166,7 @@ int main(int argc, char **argv, char **envp)
 	get_dirs();
 	retval = udevdb_init(UDEVDB_DEFAULT);
 	if (retval != 0) {
-		dbg("Unable to initialize database.");
+		dbg("unable to initialize database");
 		goto exit;
 	}
 
@@ -180,7 +180,7 @@ int main(int argc, char **argv, char **envp)
 		retval = udev_remove_device(devpath, subsystem);
 
 	else {
-		dbg("Unknown action: %s", action);
+		dbg("unknown action '%s'", action);
 		retval = -EINVAL;
 	}
 	udevdb_exit();
@@ -188,4 +188,3 @@ int main(int argc, char **argv, char **envp)
 exit:	
 	return retval;
 }
-

@@ -60,12 +60,12 @@ static int get_major_minor(struct sysfs_class_device *class_dev, struct udevice 
 	if (dev == NULL)
 		goto exit;
 
-	dbg("dev = %s", dev);
+	dbg("dev='%s'", dev);
 
 	if (sscanf(dev, "%u:%u", &udev->major, &udev->minor) != 2)
 		goto exit;
 
-	dbg("found major = %d, minor = %d", udev->major, udev->minor);
+	dbg("found major=%d, minor=%d", udev->major, udev->minor);
 
 	retval = 0;
 exit:
@@ -129,7 +129,7 @@ static int create_node(struct udevice *dev)
 					    path, strerror(errno));
 					return retval;
 				}
-				dbg("created %s", path);
+				dbg("created '%s'", path);
 			}
 			*pos = '/';
 		}
@@ -155,7 +155,7 @@ static int create_node(struct udevice *dev)
 		else {
 			struct passwd *pw = getpwnam(dev->owner);
 			if (!pw)
-				dbg("user unknown: %s", dev->owner);
+				dbg("user unknown '%s'", dev->owner);
 			else
 				uid = pw->pw_uid;
 		}
@@ -169,7 +169,7 @@ static int create_node(struct udevice *dev)
 		else {
 			struct group *gr = getgrnam(dev->group);
 			if (!gr)
-				dbg("group unknown: %s", dev->group);
+				dbg("group unknown '%s'", dev->group);
 			else
 				gid = gr->gr_gid;
 		}
@@ -194,7 +194,7 @@ static struct sysfs_class_device *get_class_dev(char *device_name)
 	strcpy(dev_path, sysfs_path);
 	strcat(dev_path, device_name);
 
-	dbg("looking at %s", dev_path);
+	dbg("looking at '%s'", dev_path);
 
 	/* open up the sysfs class device for this thing... */
 	class_dev = sysfs_open_class_device(dev_path);
@@ -202,7 +202,7 @@ static struct sysfs_class_device *get_class_dev(char *device_name)
 		dbg ("sysfs_open_class_device failed");
 		goto exit;
 	}
-	dbg("class_dev->name = %s", class_dev->name);
+	dbg("class_dev->name='%s'", class_dev->name);
 
 exit:
 	return class_dev;
@@ -225,13 +225,12 @@ static int sleep_for_dev(char *path)
 	while (loop--) {
 		struct stat buf;
 
-		dbg("looking for %s", filename);
+		dbg("looking for '%s'", filename);
 		retval = stat(filename, &buf);
 		if (!retval)
 			goto exit;
 
-		/* sleep for a second or two to give the kernel a chance to
-		 * create the dev file */
+		/* sleep to give the kernel a chance to create the dev file */
 		sleep(1);
 	}
 	retval = -ENODEV;
@@ -276,7 +275,7 @@ int udev_add_device(char *path, char *subsystem)
 		dbg("udevdb_add_dev failed, but we are going to try to create the node anyway. "
 		    "But remove might not work properly for this device.");
 
-	dbg("name = %s", dev.name);
+	dbg("name='%s'", dev.name);
 	retval = create_node(&dev);
 
 exit:
@@ -285,4 +284,3 @@ exit:
 
 	return retval;
 }
-

@@ -50,7 +50,6 @@ struct config_device {
 	struct list_head node;
 
 	enum config_type type;
-
 	char bus[BUS_SIZE];
 	char sysfs_file[FILE_SIZE];
 	char sysfs_value[VALUE_SIZE];
@@ -58,7 +57,7 @@ struct config_device {
 	char place[PLACE_SIZE];
 	char kernel_name[NAME_SIZE];
 	char exec_program[FILE_SIZE];
-	
+
 	/* what to set the device to */
 	char name[NAME_SIZE];
 	char owner[OWNER_SIZE];

@@ -216,10 +216,10 @@ static int namedev_init_config(void)
 	int retval = 0;
 	struct config_device dev;
 
-	dbg("opening %s to read as config", udev_config_filename);
+	dbg("opening '%s' to read as config", udev_config_filename);
 	fd = fopen(udev_config_filename, "r");
 	if (fd == NULL) {
-		dbg("can't open %s", udev_config_filename);
+		dbg("can't open '%s'", udev_config_filename);
 		return -ENODEV;
 	}
 
@@ -232,7 +232,7 @@ static int namedev_init_config(void)
 			goto exit;
 		lineno++;
 
-		dbg_parse("read %s", temp);
+		dbg_parse("read '%s'", temp);
 
 		/* eat the whitespace at the beginning of the line */
 		while (isspace(*temp))
@@ -413,10 +413,10 @@ static int namedev_init_permissions(void)
 	int retval = 0;
 	struct config_device dev;
 
-	dbg("opening %s to read as permissions config", udev_config_permission_filename);
+	dbg("opening '%s' to read as permissions config", udev_config_permission_filename);
 	fd = fopen(udev_config_permission_filename, "r");
 	if (fd == NULL) {
-		dbg("can't open %s", udev_config_permission_filename);
+		dbg("can't open '%s'", udev_config_permission_filename);
 		return -ENODEV;
 	}
 
@@ -426,7 +426,7 @@ static int namedev_init_permissions(void)
 		if (temp == NULL)
 			break;
 
-		dbg_parse("read %s", temp);
+		dbg_parse("read '%s'", temp);
 
 		/* eat the whitespace at the beginning of the line */
 		while (isspace(*temp))
@@ -445,21 +445,21 @@ static int namedev_init_permissions(void)
 		/* parse the line */
 		temp2 = strsep(&temp, ":");
 		if (!temp2) {
-			dbg("cannot parse line: %s", line);
+			dbg("cannot parse line '%s'", line);
 			continue;
 		}
 		strncpy(dev.name, temp2, sizeof(dev.name));
 
 		temp2 = strsep(&temp, ":");
 		if (!temp2) {
-			dbg("cannot parse line: %s", line);
+			dbg("cannot parse line '%s'", line);
 			continue;
 		}
 		strncpy(dev.owner, temp2, sizeof(dev.owner));
 
 		temp2 = strsep(&temp, ":");
 		if (!temp2) {
-			dbg("cannot parse line: %s", line);
+			dbg("cannot parse line '%s'", line);
 			continue;
 		}
 		strncpy(dev.group, temp2, sizeof(dev.owner));
@@ -496,7 +496,7 @@ static void build_kernel_number(struct sysfs_class_device *class_dev, struct ude
 	while (isdigit(*(dig-1)))
 		dig--;
 	strfieldcpy(udev->kernel_number, dig);
-	dbg("kernel_number = %s", udev->kernel_number);
+	dbg("kernel_number='%s'", udev->kernel_number);
 }
 
 static void apply_format(struct udevice *udev, unsigned char *string)
@@ -608,7 +608,7 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 				break;
 			buffer[res] = '\0';
 			if (res > len) {
-				dbg("callout len %d too short\n", len);
+				dbg("callout len %d too short", len);
 				retval = -1;
 			}
 			if (value_set) {
@@ -660,7 +660,7 @@ static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev
 			strfieldcpy(udev->group, dev->group);
 		}
 		dbg_parse("callout returned matching value '%s', '%s' becomes '%s'"
-			  " - owner='%s', group='%s', mode =%#o",
+			  " - owner='%s', group='%s', mode=%#o",
 			  dev->id, class_dev->name, udev->name,
 			  dev->owner, dev->group, dev->mode);
 		return 0;
@@ -884,11 +884,11 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 		 * up in the kernel...
 		 */
 		if (strstr(class_dev->path, "block")) {
-			dbg_parse("looking at block device...");
+			dbg_parse("looking at block device");
 			if (isdigit(class_dev->path[strlen(class_dev->path)-1])) {
 				char path[SYSFS_PATH_MAX];
 
-				dbg_parse("really is a partition...");
+				dbg_parse("really is a partition");
 				strfieldcpy(path, class_dev->path);
 				temp = strrchr(path, '/');
 				*temp = 0x00;
@@ -897,7 +897,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 				if (class_dev_parent == NULL) {
 					dbg("sysfs_open_class_device at '%s' failed", path);
 				} else {
-					dbg_parse("class_dev_parent->name=%s", class_dev_parent->name);
+					dbg_parse("class_dev_parent->name='%s'", class_dev_parent->name);
 					if (class_dev_parent->sysdevice)
 						sysfs_device = class_dev_parent->sysdevice;
 				}

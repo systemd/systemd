@@ -95,4 +95,3 @@ extern char udev_config_permission_filename[PATH_MAX+NAME_MAX];
 extern char udev_config_filename[PATH_MAX+NAME_MAX];
 
 #endif
-
