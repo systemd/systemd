@@ -7,6 +7,7 @@ greg@kroah.com
 
 
 - more documentation (can never have too much.)
+- create way to set permission to the local user.
 - install the proper init.d script based on the distro we are running on.
 - persuade the distro packagers to submit their changes (or just steal them
   if we can find them...)
