@@ -1,0 +1,5 @@
+id  host   number_of_disks     chassis#    slot#   serial#                  name
+1    1   	2		1	    2	   3BM07NKA000070456Z6B	    disk1
+2    1  	2		1	    2	   3BM07R68000070456ZCK	    disk2
+3    2          2		1	    3	   3EV08ANK00007219JAVA	    disk3
+4    2          2		1	    4	   3EV00NZB000072190Y90	    disk4
