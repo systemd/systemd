@@ -21,8 +21,10 @@
  *
  */
 
-/* define this to enable parsing debugging */
+#ifdef DEBUG
+/* define this to enable parsing debugging also */
 /* #define DEBUG_PARSER */
+#endif
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -230,7 +232,9 @@ int namedev_init_rules(void)
 				continue;
 			}
 
-			dbg_parse("unknown type of field '%s'", temp2);
+			dbg("unknown type of field '%s'", temp2);
+			dbg("You might be using a rules file in the old format, please fix.");
+			goto error;
 		}
 
 		/* simple plausibility check for given keys */
@@ -250,7 +254,7 @@ int namedev_init_rules(void)
 			dbg("add_config_dev returned with error %d", retval);
 			continue;
 error:
-			dbg("%s:%d:%Zd: parse error, rule skipped",
+			dbg("%s:%d:%d: parse error, rule skipped",
 				  udev_rules_filename, lineno, temp - line);
 		}
 	}
