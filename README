@@ -44,6 +44,9 @@ To use:
 		what udev is doing.  This is enabled by default.  Note, if you
 		are building udev against klibc it is recommended that you
 		disable this option (due to klibc's syslog implementation.)
+	USE_SELINUX
+		if set to 'true', udev will be built with SELinux support
+		enabled.  This is disabled by default.
 	DEBUG
 		if set to 'true', debugging messages will be sent to the syslog
 		as udev is run.  Default value is 'false'.
@@ -88,3 +91,4 @@ know by sending a message to the linux-hotplug-devel mailing list at:
 
 greg k-h
 greg@kroah.com
+
