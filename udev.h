@@ -85,6 +85,18 @@ do { \
 	strncat(to, from, maxsize - strlen(to)-1); \
 } while (0)
 
+#define strintcat(to, i) \
+do { \
+	to[sizeof(to)-1] = '\0'; \
+	snprintf((to) + strlen(to), sizeof(to) - strlen(to)-1, "%u", i); \
+} while (0)
+
+#define strnintcat(to, i, maxsize) \
+do { \
+	to[maxsize-1] = '\0'; \
+	snprintf((to) + strlen(to), maxsize - strlen(to)-1, "%u", i); \
+} while (0)
+
 static inline char *get_action(void)
 {
 	char *action;

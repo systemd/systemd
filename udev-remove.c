@@ -87,7 +87,8 @@ static int delete_node(struct udevice *dev)
 	if (dev->partitions > 0) {
 		info("removing partitions '%s[1-%i]'", filename, dev->partitions);
 		for (i = 1; i <= dev->partitions; i++) {
-			sprintf(partitionname, "%s%i", filename, i);
+			strfieldcpy(partitionname, filename);
+			strintcat(partitionname, i);
 			unlink(partitionname);
 		}
 	}

@@ -263,11 +263,11 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			dbg("substitute kernel number '%s'", udev->kernel_number);
 				break;
 		case 'm':
-			sprintf(pos, "%u", udev->minor);
+			strnintcat(string, udev->minor, maxsize);
 			dbg("substitute minor number '%u'", udev->minor);
 			break;
-			case 'M':
-			sprintf(pos, "%u", udev->major);
+		case 'M':
+			strnintcat(string, udev->major, maxsize);
 			dbg("substitute major number '%u'", udev->major);
 			break;
 		case 'c':

@@ -211,7 +211,8 @@ static int create_node(struct udevice *dev, int fake)
 		info("creating device partition nodes '%s[1-%i]'", filename, dev->partitions);
 		if (!fake) {
 			for (i = 1; i <= dev->partitions; i++) {
-				sprintf(partitionname, "%s%i", filename, i);
+				strfieldcpy(partitionname, filename);
+				strintcat(partitionname, i);
 				make_node(partitionname, dev->major,
 					  dev->minor + i, dev->mode, uid, gid);
 			}
