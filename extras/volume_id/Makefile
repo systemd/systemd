@@ -1,6 +1,6 @@
 # Makefile for udev_volume_id
 #
-# Copyright (C) 2004 Kay Sievers <kay@vrfy.org>
+# Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,8 +29,19 @@ INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 
 override CFLAGS+=-Wall -fno-builtin
-OBJS = volume_id.o udev_volume_id.o
-HEADERS = volume_id.h
+
+SYSFS =	../../libsysfs/sysfs_bus.o	\
+	../../libsysfs/sysfs_class.o	\
+	../../libsysfs/sysfs_device.o	\
+	../../libsysfs/sysfs_dir.o	\
+	../../libsysfs/sysfs_driver.o	\
+	../../libsysfs/sysfs_utils.o	\
+	../../libsysfs/dlist.o
+
+
+
+OBJS = volume_id.o udev_volume_id.o dasdlabel.o $(SYSFS)
+HEADERS = volume_id.h dasdlabel.h
 
 $(OBJS): $(HEADERS)
 

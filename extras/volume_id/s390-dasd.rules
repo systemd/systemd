@@ -1,0 +1,7 @@
+# s390 block devices named by disk label
+KERNEL="dasd*[a-z]", PROGRAM="/sbin/udev_volume_id -d -l" RESULT="[0-9A-Z]*", SYMLINK="dasd/%c/disc dasd/%b/disc"
+KERNEL="dasd*[0-9]", PROGRAM="/sbin/udev_volume_id -d -l" RESULT="[0-9A-Z]*", SYMLINK="dasd/%c/part%n dasd/%b/part%n"
+KERNEL="dasd*[a-z]", SYMLINK="dasd/%b/disc"
+KERNEL="dasd*[0-9]", SYMLINK="dasd/%b/part%n"
+KERNEL="dcssblk*", NAME="%k", SYMLINK="dcssblk/%b"
+

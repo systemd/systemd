@@ -82,7 +82,7 @@ static void set_label_string(struct volume_id *id, char *buf, int count)
 	memcpy(id->label_string, buf, count);
 
 	/* remove trailing whitespace */
-	i = strlen(id->label_string);
+	i = strnlen(id->label_string, count);
 	while (i--) {
 		if (! isspace(id->label_string[i]))
 			break;
@@ -839,10 +839,11 @@ struct volume_id *volume_id_open_dev_t(dev_t devt)
 	char tmp_node[VOLUME_ID_PATH_MAX];
 
 	snprintf(tmp_node, VOLUME_ID_PATH_MAX,
-		 "/tmp/volume-%u-%u", major(devt), minor(devt));
+		 "/tmp/volume-%u-%u-%u", getpid(), major(devt), minor(devt));
 	tmp_node[VOLUME_ID_PATH_MAX] = '\0';
 
 	/* create tempory node to open the block device */
+	unlink(tmp_node);
 	if (mknod(tmp_node, (S_IFBLK | 0600), devt) != 0)
 		return NULL;
 
