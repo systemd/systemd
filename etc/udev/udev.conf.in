@@ -12,10 +12,10 @@ udev_root="@udevdir@/"
 udev_db="@udevdir@/.udev.tdb"
 
 # udev_rules - The name and location of the udev rules file
-udev_rules="/etc/udev/udev.rules"
+udev_rules="/etc/udev/rules.d/"
 
 # udev_permissions - The name and location of the udev permission file
-udev_permissions="/etc/udev/udev.permissions"
+udev_permissions="/etc/udev/permissions.d/"
 
 # default_mode - set the default mode for all nodes that have no
 #                explicit match in the permissions file
