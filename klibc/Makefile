@@ -54,7 +54,7 @@ local-install: $(CROSS)klcc
 	mkdir -p $(INSTALLROOT)$(INSTALLDIR)/$(KCROSS)include
 	mkdir -p $(INSTALLROOT)$(INSTALLDIR)/$(KCROSS)lib
 	mkdir -p $(INSTALLROOT)$(INSTALLDIR)/$(KCROSS)bin
-	set -xe ; for d in linux asm-$(ARCH) asm-generic $(ASMARCH); do \
+	set -xe ; for d in linux scsi asm-$(ARCH) asm-generic $(ASMARCH); do \
 	  mkdir -p $(INSTALLROOT)$(INSTALLDIR)/$(CROSS)include/$$d ; \
 	  for r in $(KRNLSRC)/include $(KRNLOBJ)/include $(KRNLOBJ)/include2 ; do \
 	    [ ! -d $$r/$$d ] || \

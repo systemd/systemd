@@ -78,6 +78,11 @@ sub mysystem(@) {
 }
 
 #
+# Initialization
+# 
+open(NULL, '+<', '/dev/null') or die "$0: cannot open /dev/null\n";
+
+#
 # Begin parsing options.
 #
 
@@ -191,10 +196,17 @@ if ( $operation ne '' ) {
 	}
     }
 
+    # Get the libgcc pathname for the *current* gcc
+    open(LIBGCC, '-|', $CC, @ccopt, '-print-libgcc-file-name')
+	or die "$0: cannot get libgcc filename\n";
+    $libgcc = <LIBGCC>;
+    chomp $libgcc;
+    close(LIBGCC);
+
     if ( $shared ) {
-	$rv = mysystem($LD, @LDFLAGS, @sharedopt, @ldopt, @outopt, @objs, @sharedlib);
+	$rv = mysystem($LD, @LDFLAGS, @sharedopt, @ldopt, @outopt, @objs, @sharedlib, $libgcc);
     } else {
-	$rv = mysystem($LD, @LDFLAGS, @staticopt, @ldopt, @outopt, @objs, @staticlib);
+	$rv = mysystem($LD, @LDFLAGS, @staticopt, @ldopt, @outopt, @objs, @staticlib, $libgcc);
     }
 
     unlink(@rmobjs);

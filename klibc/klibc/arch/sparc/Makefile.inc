@@ -16,7 +16,12 @@ ARCHOBJS = \
 	arch/$(ARCH)/umul.o \
 	arch/$(ARCH)/setjmp.o \
 	arch/$(ARCH)/syscall.o \
-	arch/$(ARCH)/sysfork.o
+	arch/$(ARCH)/sysfork.o \
+	libgcc/__divdi3.o \
+	libgcc/__moddi3.o \
+	libgcc/__udivdi3.o \
+	libgcc/__umoddi3.o \
+	libgcc/__udivmoddi4.o
 
 arch/$(ARCH)/sdiv.S: arch/$(ARCH)/divrem.m4
 	@echo 'building $@ from $^'

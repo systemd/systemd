@@ -7,7 +7,7 @@
 # accordingly.
 #
 
-OPTFLAGS = -Os
+OPTFLAGS = -Os -m32 -mptr32
 BITSIZE  = 32
 
 # Extra linkflags when building the shared version of the library

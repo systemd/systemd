@@ -22,7 +22,7 @@
 
 /* How to declare a function that *must* be inlined */
 #ifdef __GNUC__
-# if __GNUC_MAJOR__ >= 3
+# if __GNUC__ >= 3
 #  define __must_inline static __inline__ __attribute__((always_inline))
 # else
 #  define __must_inline extern __inline__
@@ -84,14 +84,14 @@
 #endif
 
 /* malloc() function (returns unaliased pointer) */
-#if defined(__GNUC__) && (__GNUC_MAJOR__ >= 3)
+#if defined(__GNUC__) && (__GNUC__ >= 3)
 # define __mallocfunc __attribute__((malloc))
 #else
 # define __mallocfunc
 #endif
 
 /* likely/unlikely */
-#if defined(__GNUC__) && (__GNUC_MAJOR__ > 2 || (__GNUC_MAJOR__ == 2 && __GNUC_MINOR__ >= 95))
+#if defined(__GNUC__) && (__GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95))
 # define __likely(x)   __builtin_expect((x), 1)
 # define __unlikely(x) __builtin_expect((x), 0)
 #else
