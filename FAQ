@@ -31,12 +31,25 @@ Q: But udev will not automatically load a driver if a /dev node is opened
 A: If you really require this functionality, then use devfs.  It is still
    present in the kernel.
 
-Q: But I really like the devfs naming scheme, will udev do that?
+Q: But wait, I really want udev to automatically load drivers when they
+   are not present but the device node is opened.  It's the only reason I
+   like using devfs.  Please make udev do this.
+A: No.  udev is for managing /dev, not loading kernel drivers.
+
+Q: Oh come on, pretty please.  It can't be that hard to do.
+A: Such a functionality isn't needed on a properly configured system. All
+   devices present on the system should generate hotplug events, loading
+   the appropriate driver, and udev will notice and create the
+   appropriate device node.  If you don't want to keep all drivers for your
+   hardware in memory, then use something else to manage your modules
+   (scripts, modules.conf, etc.)  This is not a task for udev.
+
+Q: I really like the devfs naming scheme, will udev do that?
 A: Yes, udev can create /dev nodes using the devfs naming policy.  A
    configuration file needs to be created to map the kernel default names
-   to the devfs names.  Such a configuration file would be gladly added to
-   the udev package if it is provided by anyone who can create such a
-   mapping.
+   to the devfs names.  See the initial udev.conf.devfs file in the udev
+   release.  It is the start of such a configuration file.  If there are
+   any things missing, please let the udev authors know.
 
 Q: What kinds of devices does udev create nodes for?
 A: All devices that are shown in sysfs will work with udev.  If more
@@ -51,7 +64,7 @@ A: udev is entirely in userspace.  If the kernel supports a greater number
    of anonymous devices, udev will support it.
 
 Q: Will udev support symlinks?
-A: Yes, patches are gladly accepted to add this functionality.
+A: Yes, It now does.  Multiple symlinks per device node too.
 
 Q: How will udev support changes to device permissions?
 A: On shutdown, udev will save the state of existing device permissions to
