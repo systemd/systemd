@@ -145,7 +145,7 @@ static int add_dev(struct config_device *new_dev)
 	if (!tmp_dev)
 		return -ENOMEM;
 	memcpy(tmp_dev, new_dev, sizeof(*tmp_dev));
-	list_add(&tmp_dev->node, &config_device_list);
+	list_add_tail(&tmp_dev->node, &config_device_list);
 	//dump_dev(tmp_dev);
 	return 0;
 }
