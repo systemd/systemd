@@ -193,7 +193,7 @@ static int create_node(struct udevice *dev)
 		symlinks = dev->symlink;
 		while (1) {
 			linkname = strsep(&symlinks, " ");
-			if (linkname == NULL)
+			if (linkname == NULL || linkname[0] == '\0')
 				break;
 
 			strncpy(filename, udev_root, sizeof(filename));
