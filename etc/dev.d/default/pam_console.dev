@@ -11,7 +11,7 @@ fi
 [ "$UDEV_CONSOLE" != "yes" ] && exit 0
 
 if [ -x /sbin/pam_console_setowner ]; then
-	if [ "$UDEV_LOG" = "yes" -a -x /usr/bin/logger ]; then 
+	if [ "$UDEV_LOG" = "yes" ] && [ -x /usr/bin/logger ]; then 
 		/usr/bin/logger -p auth.debug "Restoring console permissions for $DEVNAME"
 	fi
 	exec /sbin/pam_console_setowner $DEVNAME

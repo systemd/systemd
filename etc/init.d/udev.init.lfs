@@ -5,9 +5,9 @@
 #  2003, 2004 by Michael Buesch <mbuesch@freenet.de>
 #
 
-source /etc/sysconfig/rc
-source $rc_functions
-source /etc/udev/udev.conf
+. /etc/sysconfig/rc
+. $rc_functions
+. /etc/udev/udev.conf
 
 sysfs_dir="/sys"
 bin="/sbin/udev"

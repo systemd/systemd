@@ -14,7 +14,7 @@
 # BUS="scsi", KERNEL="sg*", PROGRAM="/etc/udev/scsi-devfs.sh sg %b %n", NAME="%c{1}", SYMLINK="%c{2} %k %c{3} %c{4}"
 
 # Find out where sysfs is mounted. Exit if not available
-sysfs=`fgrep sysfs /proc/mounts | awk '{print $2}'`
+sysfs=`grep -F sysfs /proc/mounts | awk '{print $2}'`
 if [ "$sysfs" = "" ]; then
     echo "sysfs is required"
     exit 1
@@ -63,7 +63,7 @@ s_com="b${scsi_bus}t${scsi_target}u${scsi_lun}$spart"
 l_log="scsi/host$scsi_host/$l_com"
 s_log="$1/c${scsi_host}${s_com}"
 
-readlink $2 | fgrep -q pci
+readlink $2 | grep -F -q pci
 if [ "$?" != "0" ]; then
     # Not a PCI controller, show logical locations only
     echo $l_log $s_log

@@ -15,15 +15,13 @@ else
 fi
 
 get_dev_number() {
-	local x=
-	local num=0
-	local MEDIA=
-	local DRIVE="${1%%[0-9]*}"
+	num=0
+	DRIVE="${1%%[0-9]*}"
 
 	for x in /proc/ide/*/media; do
 		if [ -e "${x}" ]; then
-			MEDIA=`cat ${x}`
-			if [ "${MEDIA}" = "$2" ]; then
+			lMEDIA=`cat ${x}`
+			if [ "${lMEDIA}" = "$2" ]; then
 				num=$((${num} + 1))
 			fi
 			if [ "${x}" = "/proc/ide/${DRIVE}/media" ]; then
@@ -35,7 +33,7 @@ get_dev_number() {
 	echo $((${num} - 1))
 }
 
-if [ -z "$3" -a -f /proc/ide/${1}/media ]; then
+if [ -z "$3" ] && [ -f /proc/ide/${1}/media ]; then
 	MEDIA=`cat /proc/ide/${1}/media`
 	if [ "${MEDIA}" = "cdrom" ]; then
 		echo ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/cd cdroms/cdrom`get_dev_number $1 cdrom`
