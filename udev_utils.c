@@ -112,6 +112,31 @@ int create_path(const char *path)
 	return mkdir(p, 0755);
 }
 
+/* Reset permissions on the device node, before unlinking it to make sure,
+ * that permisions of possible hard links will be removed to.
+ */
+int unlink_secure(const char *filename)
+{
+	int retval;
+
+	retval = chown(filename, 0, 0);
+	if (retval)
+		dbg("chown(%s, 0, 0) failed with error '%s'", filename, strerror(errno));
+
+	retval = chmod(filename, 0000);
+	if (retval)
+		dbg("chmod(%s, 0000) failed with error '%s'", filename, strerror(errno));
+
+	retval = unlink(filename);
+	if (errno == ENOENT)
+		retval = 0;
+
+	if (retval)
+		dbg("unlink(%s) failed with error '%s'", filename, strerror(errno));
+
+	return retval;
+}
+
 int parse_get_pair(char **orig_string, char **left, char **right)
 {
 	char *temp;

@@ -188,6 +188,9 @@ For example, 'sda3' has a "kernel number" of '3'.
 .B %k
 The "kernel name" for the device.
 .TP
+.B %p
+The devpath for the device.
+.TP
 .B %M
 The kernel major number for the device.
 .TP
@@ -210,6 +213,10 @@ may be selected by specifying the part number as an attribute:
 If the number is followed by the + char this part plus
 all remaining parts of the result string are substituted:
 .BI %c{ N+ }
+.TP
+.B %N
+The name of a created temporary device node to provide access to the
+device from a external program.
 .TP
 .BI %s{ filename }
 The content of a sysfs attribute.

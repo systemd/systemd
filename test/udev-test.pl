@@ -1068,6 +1068,24 @@ BUS="scsi", KERNEL="sda", NAME="should_not_match", DRIVER="sd-wrong"
 BUS="scsi", KERNEL="sda", NAME="node", DRIVER="sd"
 EOF
 	},
+	{
+		desc		=> "temporary node creation test",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "sda",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", PROGRAM="/usr/bin/test -b %N" NAME="%N"
+EOF
+	},
+	{
+		desc		=> "devpath substitution test",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "sda",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", PROGRAM="/bin/echo %p", RESULT="/block/sda" NAME="%k"
+EOF
+	},
 );
 
 # set env

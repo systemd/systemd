@@ -67,7 +67,7 @@ error:
 	return -1;
 }
 
-static int make_node(struct udevice *udev, char *file, int major, int minor, unsigned int mode, uid_t uid, gid_t gid)
+int udev_make_node(struct udevice *udev, const char *file, int major, int minor, mode_t mode, uid_t uid, gid_t gid)
 {
 	struct stat stats;
 	int retval = 0;
@@ -183,7 +183,7 @@ static int create_node(struct udevice *udev)
 
 	if (!udev->test_run) {
 		info("creating device node '%s'", filename);
-		if (make_node(udev, filename, udev->major, udev->minor, udev->mode, uid, gid) != 0)
+		if (udev_make_node(udev, filename, udev->major, udev->minor, udev->mode, uid, gid) != 0)
 			goto error;
 	} else {
 		info("creating device node '%s', major = '%d', minor = '%d', "
@@ -198,7 +198,7 @@ static int create_node(struct udevice *udev)
 			for (i = 1; i <= udev->partitions; i++) {
 				strfieldcpy(partitionname, filename);
 				strintcat(partitionname, i);
-				make_node(udev, partitionname, udev->major, udev->minor + i, udev->mode, uid, gid);
+				udev_make_node(udev, partitionname, udev->major, udev->minor + i, udev->mode, uid, gid);
 			}
 		}
 	}

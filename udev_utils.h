@@ -80,6 +80,7 @@ extern void udev_init_device(struct udevice *udev, const char* devpath, const ch
 extern int kernel_release_satisfactory(unsigned int version, unsigned int patchlevel, unsigned int sublevel);
 extern int create_path(const char *path);
 extern int parse_get_pair(char **orig_string, char **left, char **right);
+extern int unlink_secure(const char *filename);
 extern int file_map(const char *filename, char **buf, size_t *bufsize);
 extern void file_unmap(char *buf, size_t bufsize);
 extern size_t buf_get_line(const char *buf, size_t buflen, size_t cur);

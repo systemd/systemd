@@ -23,6 +23,7 @@
 #ifndef _UDEV_H_
 #define _UDEV_H_
 
+#include <sys/types.h>
 #include <sys/param.h>
 #include "libsysfs/sysfs/libsysfs.h"
 
@@ -59,6 +60,7 @@ struct udevice {
 	int minor;
 
 	char devname[NAME_SIZE];
+	char tmp_node[NAME_SIZE];
 	int partitions;
 	int ignore_remove;
 	int config_line;
@@ -75,6 +77,7 @@ extern int udev_remove_device(struct udevice *udev);
 extern void udev_init_config(void);
 extern int udev_start(void);
 extern void udev_multiplex_directory(struct udevice *udev, const char *basedir, const char *suffix);
+extern int udev_make_node(struct udevice *udev, const char *file, int major, int minor, mode_t mode, uid_t uid, gid_t gid);
 
 extern char sysfs_path[SYSFS_PATH_MAX];
 extern char udev_root[PATH_MAX];

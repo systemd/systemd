@@ -201,6 +201,12 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 
 
 		switch (c) {
+		case 'p':
+			if (strlen(udev->devpath) == 0)
+				break;
+			strfieldcatmax(string, udev->devpath, maxsize);
+			dbg("substitute kernel name '%s'", udev->kernel_name);
+			break;
 		case 'b':
 			if (strlen(udev->bus_id) == 0)
 				break;
@@ -289,6 +295,15 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 				sprintf(temp2, "%d", next_free_number);
 				strfieldcatmax(string, temp2, maxsize);
 			}
+			break;
+		case 'N':
+			if (udev->tmp_node[0] == '\0') {
+				dbg("create temporary device node for callout");
+				snprintf(udev->tmp_node, NAME_SIZE-1, "%s/.tmp-%u-%u", udev_root, udev->major, udev->minor);
+				udev_make_node(udev, udev->tmp_node, udev->major, udev->minor, 0600, 0, 0);
+			}
+			strfieldcatmax(string, udev->tmp_node, maxsize);
+			dbg("substitute temporary device node name '%s'", udev->tmp_node);
 			break;
 		default:
 			dbg("unknown substitution type '%%%c'", c);
@@ -787,5 +802,11 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 	dbg("no rule found, use kernel name '%s'", udev->name);
 
 exit:
+	if (udev->tmp_node[0] != '\0') {
+		dbg("removing temporary device node");
+		unlink_secure(udev->tmp_node);
+		udev->tmp_node[0] = '\0';
+	}
+
 	return 0;
 }
