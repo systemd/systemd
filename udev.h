@@ -41,7 +41,7 @@
 #define SYSFS_ROOT	"/sys"
 
 /* Where udev should create its device nodes, trailing / needed */
-#define UDEV_ROOT	"/home/greg/linux/udev/"
+#define UDEV_ROOT	"/udev/"
 
 /* device file in sysfs that contains major/minor number, leading / needed */
 #define DEV_FILE	"/dev"
