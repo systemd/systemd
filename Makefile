@@ -25,6 +25,8 @@ USE_LOG = true
 # Leave this set to `false' for production use.
 DEBUG = false
 
+# Set this to compile with Security-Enhanced Linux support.
+USE_SELINUX = false
 
 ROOT =		udev
 DAEMON =	udevd
@@ -170,6 +172,11 @@ else
 	LDFLAGS =
 endif
 
+ifeq ($(strip $(USE_SELINUX)),true)
+	CFLAGS += -DUSE_SELINUX
+	LIB_OBJS += -lselinux
+endif
+
 CFLAGS += -I$(PWD)/libsysfs
 
 # config files automatically generated
@@ -222,6 +229,7 @@ HEADERS =	udev.h		\
 		udevdb.h	\
 		klibc_fixups.h	\
 		logging.h	\
+		selinux.h	\
 		list.h
 
 ifeq ($(strip $(USE_KLIBC)),true)

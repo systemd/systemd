@@ -50,6 +50,8 @@
 
 #define LOCAL_USER "$local"
 
+#include "selinux.h"
+
 /* 
  * Right now the major/minor of a device is stored in a file called
  * "dev" in sysfs.
@@ -92,6 +94,7 @@ static int create_path(char *file)
 			break;
 		*pos = 0x00;
 		if (stat(p, &stats)) {
+			selinux_setfscreatecon(p, S_IFDIR);
 			retval = mkdir(p, 0755);
 			if (retval != 0) {
 				dbg("mkdir(%s) failed with error '%s'",
@@ -99,6 +102,8 @@ static int create_path(char *file)
 				return retval;
 			}
 			dbg("created '%s'", p);
+		} else {
+			selinux_setfilecon(p, S_IFDIR);
 		}
 		*pos = '/';
 	}
@@ -117,6 +122,7 @@ static int make_node(char *file, int major, int minor, unsigned int mode, uid_t 
 	if (((stats.st_mode & S_IFMT) == S_IFBLK || (stats.st_mode & S_IFMT) == S_IFCHR) &&
 	    (stats.st_rdev == makedev(major, minor))) {
 		dbg("preserve file '%s', cause it has correct dev_t", file);
+		selinux_setfilecon(file,stats.st_mode);
 		goto perms;
 	}
 
@@ -126,6 +132,7 @@ static int make_node(char *file, int major, int minor, unsigned int mode, uid_t 
 		dbg("already present file '%s' unlinked", file);
 
 create:
+	selinux_setfscreatecon(file, mode);
 	retval = mknod(file, mode, makedev(major, minor));
 	if (retval != 0) {
 		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
@@ -304,6 +311,7 @@ static int create_node(struct udevice *dev, int fake)
 
 		dbg("symlink(%s, %s)", linktarget, filename);
 		if (!fake) {
+			selinux_setfscreatecon(filename, S_IFLNK);
 			unlink(filename);
 			if (symlink(linktarget, filename) != 0)
 				dbg("symlink(%s, %s) failed with error '%s'",
@@ -438,6 +446,7 @@ int udev_add_device(const char *path, const char *subsystem, int fake)
 
 	dbg("name='%s'", dev.name);
 
+	selinux_init();
 	switch (dev.type) {
 	case 'b':
 	case 'c':
@@ -475,6 +484,7 @@ int udev_add_device(const char *path, const char *subsystem, int fake)
 	}
 
 exit:
+	selinux_restore();
 	sysfs_close_class_device(class_dev);
 
 	return retval;
