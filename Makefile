@@ -151,6 +151,7 @@ ifeq ($(strip $(USE_KLIBC)),true)
 		-I$(LINUX_INCLUDE_DIR)
 	LIB_OBJS =
 	LDFLAGS = --static --nostdlib -nostartfiles -nodefaultlibs
+	UDEVD =
 else
 	WARNINGS += -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
 	CRT0 =
@@ -158,11 +159,12 @@ else
 	CFLAGS += $(WARNINGS) -I$(GCCINCDIR)
 	LIB_OBJS = -lc
 	LDFLAGS =
+	UDEVD = $(DAEMON) $(SENDER)
 endif
 
 CFLAGS += -I$(PWD)/libsysfs
 
-all: $(ROOT) $(DAEMON) $(SENDER)
+all: $(ROOT) $(UDEVD)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
@@ -236,11 +238,11 @@ $(ROOT): $(OBJS) udev.h namedev.h udev_version.h udev_dbus.h udevdb.h klibc_fixu
 	$(LD) $(LDFLAGS) -o $(ROOT) $(CRT0) $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $(ROOT)
 
-$(DAEMON): $(ROOT) udevd.h udevd.o
+$(DAEMON): udevd.h udevd.o udevd.o logging.o
 	$(LD) $(LDFLAGS) -o $(DAEMON) $(CRT0) udevd.o logging.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $(ROOT)
 
-$(SENDER): $(ROOT) udevd.h udevsend.o
+$(SENDER): udevd.h udevsend.o udevd.o logging.o
 	$(LD) $(LDFLAGS) -o $(SENDER) $(CRT0) udevsend.o logging.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $(ROOT)
 

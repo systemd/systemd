@@ -64,6 +64,7 @@ static inline char *get_seqnum(void)
 static int build_hotplugmsg(struct hotplug_msg *msg, char *action,
 			    char *devpath, char *subsystem, int seqnum)
 {
+	memset(msg, 0x00, sizeof(msg));
 	msg->mtype = HOTPLUGMSGTYPE;
 	msg->seqnum = seqnum;
 	strncpy(msg->action, action, 8);
@@ -85,7 +86,8 @@ static int start_daemon(void)
 		switch (child_pid) {
 		case 0:
 			/* daemon */
-			execl(DEFAULT_UDEVD_EXEC, NULL);
+			setsid();
+			execl(UDEVD_EXEC, "udevd", NULL);
 			dbg("exec of daemon failed");
 			exit(1);
 		case -1:
@@ -99,7 +101,7 @@ static int start_daemon(void)
 		dbg("fork of helper failed");
 		return -1;
 	default:
-		wait(0);
+		wait(NULL);
 	}
 	return 0;
 }
@@ -147,7 +149,7 @@ int main(int argc, char* argv[])
 	seq = atoi(seqnum);
 
 	/* create ipc message queue or get id of our existing one */
-	key = ftok(DEFAULT_UDEVD_EXEC, IPC_KEY_ID);
+	key = ftok(UDEVD_EXEC, IPC_KEY_ID);
 	size =  build_hotplugmsg(&message, action, devpath, subsystem, seq);
 	msgid = msgget(key, IPC_CREAT);
 	if (msgid == -1) {
@@ -165,7 +167,7 @@ int main(int argc, char* argv[])
 	/* get state of ipc queue */
 	tspec.tv_sec = 0;
 	tspec.tv_nsec = 10000000;  /* 10 millisec */
-	loop = 20;
+	loop = 30;
 	while (loop--) {
 		retval = msgctl(msgid, IPC_STAT, &msg_queue);
 		if (retval == -1) {

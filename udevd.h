@@ -21,17 +21,22 @@
  *
  */
 
-#define DEFAULT_UDEV_EXEC	"./udev"
-#define DEFAULT_UDEVD_EXEC	"./udevd"
+#include "list.h"
 
-#define IPC_KEY_ID		0
-#define HOTPLUGMSGTYPE		44
+#define UDEV_EXEC			"./udev"
+#define UDEVD_EXEC			"./udevd"
+#define UDEVD_TIMEOUT_SECONDS		60
+#define EVENT_TIMEOUT_SECONDS		5
+
+#define IPC_KEY_ID			0
+#define HOTPLUGMSGTYPE			44
 
 
 struct hotplug_msg {
 	long mtype;
-	struct hotplug_msg *next;
+	struct list_head list;
 	int seqnum;
+	time_t queue_time;
 	char action[8];
 	char devpath[128];
 	char subsystem[16];
