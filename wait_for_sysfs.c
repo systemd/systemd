@@ -174,6 +174,7 @@ static int wait_for_bus_device(struct sysfs_device *device_dev)
 		{ .bus = "scsi",	.file = "vendor" },
 		{ .bus = "usb",		.file = "idVendor" },
 		{ .bus = "usb",		.file = "iInterface" },
+		{ .bus = "usb",		.file = "bNumEndpoints" },
 		{ .bus = "usb-serial",	.file = "detach_state" },
 		{ .bus = "ide",		.file = "detach_state" },
 		{ .bus = "pci",		.file = "vendor" },
