@@ -197,21 +197,22 @@ exit:
 	return retval;
 }
 
-/* print all class/block devices with major/minor, physical device and bus*/
-static void print_sysfs_devices(void)
+/* print all class/main block devices with major/minor, physical device, driver and bus */
+static int print_sysfs_devices(void)
 {
 	struct dlist *subsyslist;
 	char *class;
 
 	subsyslist = sysfs_open_subsystem_list("class");
 	if (!subsyslist)
-		exit(1);
+		return -1;
 
 	dlist_for_each_data(subsyslist, class, char) {
 		struct sysfs_class *cls;
 		struct dlist *class_devices;
 		struct sysfs_class_device *class_dev;
 		struct sysfs_device *phys_dev;
+		struct sysfs_driver *driver;
 
 		cls = sysfs_open_class(class);
 		if (!cls)
@@ -227,7 +228,6 @@ static void print_sysfs_devices(void)
 			printf("\n");
 			printf("DEVPATH        '%s'\n", class_dev->path);
 			printf("SUBSYSTEM      '%s'\n", class_dev->classname);
-			printf("NAME           '%s'\n", class_dev->name);
 
 			attr = sysfs_get_classdev_attr(class_dev, "dev");
 			if (attr) {
@@ -236,23 +236,25 @@ static void print_sysfs_devices(void)
 				if  (pos[0] == '\n')
 					pos[0] = '\0';
 
-				printf("MAJORMINOR     '%s'\n", attr->value);
+				printf("DEVMAJORMINOR  '%s'\n", attr->value);
 			}
+
+			driver = sysfs_get_classdev_driver(class_dev);
+			if (driver)
+				printf("DEVDRIVER      '%s'\n", driver->name);
 
 			phys_dev = sysfs_get_classdev_device(class_dev);
 			if (phys_dev) {
 				printf("PHYSDEVPATH    '%s'\n", phys_dev->path);
 				if (phys_dev->bus[0] != '\0')
-					printf("PHYSDEVPATHBUS '%s'\n", phys_dev->bus);
-				if (phys_dev->driver_name[0] != '\0')
-					printf("DRIVER         '%s'\n", phys_dev->driver_name);
+					printf("PHYSDEVBUS     '%s'\n", phys_dev->bus);
 			}
 		}
-
 		sysfs_close_class(cls);
 	}
-
 	sysfs_close_list(subsyslist);
+
+	return 0;
 }
 
 static int process_options(void)
