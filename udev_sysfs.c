@@ -28,14 +28,13 @@
 #include <errno.h>
 #include <sys/stat.h>
 
-#include "logging.h"
+#include "libsysfs/sysfs/libsysfs.h"
 #include "udev_version.h"
 #include "udev_sysfs.h"
-#include "libsysfs/sysfs/libsysfs.h"
+#include "udev_lib.h"
+#include "logging.h"
 
-/* list of subsystem specific files
- * NULL if there is no file to wait for
- */
+/* list of subsystem specific files, NULL if there is no file to wait for */
 static struct subsystem_file {
 	char *subsystem;
 	char *file;
@@ -204,6 +203,13 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 	struct class_device *classdevice;
 	int len;
 
+	/* the kernel may tell us what to wait for */
+	if (kernel_release_satisfactory(2,6,10) > 0)
+		if (getenv("PHYSDEVPATH") == NULL) {
+			dbg("the kernel says, that there is no physical device for '%s'", class_dev->path);
+			return 1;
+		}
+
 	for (classdevice = class_device; classdevice->subsystem != NULL; classdevice++) {
 		if (strcmp(class_dev->classname, classdevice->subsystem) == 0) {
 			/* see if no device in this class is expected to have a device-link */
@@ -229,7 +235,7 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 	return 0;
 }
 
-/* skip waiting for the bus */
+/* skip waiting for the bus of the devices device */
 static int class_device_expect_no_bus(struct sysfs_class_device *class_dev)
 {
 	static char *devices_without_bus[] = {
@@ -250,14 +256,14 @@ static int class_device_expect_no_bus(struct sysfs_class_device *class_dev)
 	return 0;
 }
 
-/* wait for the bus and for a bus specific file to show up */
-int wait_for_bus_device(struct sysfs_device *devices_dev,
+/* wait for a devices device specific file to show up */
+int wait_for_devices_device(struct sysfs_device *devices_dev,
 			const char **error)
 {
-	static struct bus_file {
+	static struct device_file {
 		char *bus;
 		char *file;
-	} bus_files[] = {
+	} device_files[] = {
 		{ .bus = "scsi",	.file = "vendor" },
 		{ .bus = "usb",		.file = "idVendor" },
 		{ .bus = "usb",		.file = "iInterface" },
@@ -272,8 +278,15 @@ int wait_for_bus_device(struct sysfs_device *devices_dev,
 		{ .bus = "ieee1394",	.file = "address" },
 		{ NULL, NULL }
 	};
-	struct bus_file *busfile;
+	struct device_file *devicefile;
 	int loop;
+
+	/* the kernel may tell us what to wait for */
+	if (kernel_release_satisfactory(2,6,10) > 0)
+		if (getenv("PHYSDEVBUS") == NULL) {
+			dbg("the kernel says, that there is no bus for '%s'", devices_dev->path);
+			return 0;
+		}
 
 	/* wait for the bus device link to the devices device */
 	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
@@ -291,22 +304,22 @@ int wait_for_bus_device(struct sysfs_device *devices_dev,
 	}
 	dbg("bus device link found for bus '%s'", devices_dev->bus);
 
-	/* wait for a bus specific file to show up */
+	/* wait for a bus device specific file to show up */
 	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
 	while (--loop) {
 		int found_bus_type = 0;
 
-		for (busfile = bus_files; busfile->bus != NULL; busfile++) {
-			if (strcmp(devices_dev->bus, busfile->bus) == 0) {
+		for (devicefile = device_files; devicefile->bus != NULL; devicefile++) {
+			if (strcmp(devices_dev->bus, devicefile->bus) == 0) {
 				char filename[SYSFS_PATH_MAX];
 				struct stat stats;
 
 				found_bus_type = 1;
-				snprintf(filename, SYSFS_PATH_MAX-1, "%s/%s", devices_dev->path, busfile->file);
-				dbg("looking at bus '%s' for specific file '%s'", devices_dev->bus, filename);
+				snprintf(filename, SYSFS_PATH_MAX-1, "%s/%s", devices_dev->path, devicefile->file);
+				dbg("looking at bus '%s' device for specific file '%s'", devices_dev->bus, filename);
 
 				if (stat(filename, &stats) == 0) {
-					dbg("bus '%s' specific file '%s' found", devices_dev->bus, busfile->file);
+					dbg("bus '%s' device specific file '%s' found", devices_dev->bus, devicefile->file);
 					return 0;
 				}
 			}
@@ -321,14 +334,14 @@ int wait_for_bus_device(struct sysfs_device *devices_dev,
 		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
 	}
 
-	dbg("error: getting bus '%s' specific file '%s'", devices_dev->bus, busfile->file);
+	dbg("error: getting '%s' device specific file '%s'", devices_dev->bus, devicefile->file);
 	if (error)
-		*error = "bus specific file unavailable";
+		*error = "bus device specific file unavailable";
 	return -1;
 }
 
 
-struct sysfs_class_device *open_class_device_wait(const char *path)
+struct sysfs_class_device *wait_class_device_open(const char *path)
 {
 	struct sysfs_class_device *class_dev;
 	int loop;
@@ -358,7 +371,7 @@ int wait_for_class_device(struct sysfs_class_device *class_dev,
 	/* skip devices without devices-link */
 	if (class_device_expect_no_device_link(class_dev)) {
 		dbg("no device symlink expected for '%s', ", class_dev->name);
-		return -ENODEV;
+		return 0;
 	}
 
 	/* the symlink may be on the parent device */
@@ -388,16 +401,16 @@ int wait_for_class_device(struct sysfs_class_device *class_dev,
 	}
 	dbg("device symlink found pointing to '%s'", devices_dev->path);
 
-	/* wait for the bus value */
+	/* wait for the devices device */
 	if (class_device_expect_no_bus(class_dev)) {
 		dbg("no bus device expected for '%s', ", class_dev->classname);
 		return 0;
-	} else {
-		return wait_for_bus_device(devices_dev, error);
 	}
+
+	return wait_for_devices_device(devices_dev, error);
 }
 
-struct sysfs_device *open_devices_device_wait(const char *path)
+struct sysfs_device *wait_devices_device_open(const char *path)
 {
 	struct sysfs_device *devices_dev;
 	int loop;

@@ -28,6 +28,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#include <sys/utsname.h>
 
 #include "udev.h"
 #include "logging.h"
@@ -70,6 +71,29 @@ void udev_set_values(struct udevice *udev, const char* devpath,
 	strfieldcpy(udev->subsystem, subsystem);
 	strfieldcpy(udev->action, action);
 	udev->type = get_device_type(devpath, subsystem);
+}
+
+int kernel_release_satisfactory(int version, int patchlevel, int sublevel)
+{
+	static struct utsname uts;
+	static int kversion = 0;
+	static int kpatchlevel;
+	static int ksublevel;
+
+	if (kversion == 0) {
+		if (uname(&uts) != 0)
+			return -1;
+
+		if (sscanf (uts.release, "%u.%u.%u", &kversion, &kpatchlevel, &ksublevel) != 3) {
+			kversion = 0;
+			return -1;
+		}
+	}
+
+	if (kversion >= version && kpatchlevel >= patchlevel && ksublevel >= sublevel)
+		return 1;
+	else
+		return 0;
 }
 
 int create_path(const char *path)

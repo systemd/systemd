@@ -32,10 +32,11 @@
 #include <errno.h>
 #include <sys/stat.h>
 
-#include "logging.h"
+#include "libsysfs/sysfs/libsysfs.h"
+#include "udev_lib.h"
 #include "udev_version.h"
 #include "udev_sysfs.h"
-#include "libsysfs/sysfs/libsysfs.h"
+#include "logging.h"
 
 #ifdef LOG
 unsigned char logname[LOGNAME_SIZE];
@@ -106,7 +107,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		/* open the class device we are called for */
-		class_dev = open_class_device_wait(filename);
+		class_dev = wait_class_device_open(filename);
 		if (!class_dev) {
 			dbg("error: class device unavailable (probably remove has beaten us)");
 			goto exit;
@@ -132,15 +133,15 @@ int main(int argc, char *argv[], char *envp[])
 		filename[SYSFS_PATH_MAX-1] = '\0';
 
 		/* open the path we are called for */
-		devices_dev = open_devices_device_wait(filename);
+		devices_dev = wait_devices_device_open(filename);
 		if (!devices_dev) {
 			dbg("error: devices device unavailable (probably remove has beaten us)");
 			goto exit;
 		}
 		dbg("devices device opened '%s'", filename);
 
-		/* wait for the bus value */
-		wait_for_bus_device(devices_dev, &error);
+		/* wait for the devices device */
+		wait_for_devices_device(devices_dev, &error);
 
 		sysfs_close_device(devices_dev);
 
