@@ -30,6 +30,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -40,21 +41,21 @@
 #include "udev.h"
 
 
-#define MAX_PATHLEN		1024
-#define SYSBLOCK		"/sys/block"
-#define SYSCLASS		"/sys/class"
+#define MAX_PATH_SIZE		512
 
 struct device {
 	struct list_head list;
-	char path[MAX_PATHLEN];
-	char subsys[MAX_PATHLEN];
+	char path[MAX_PATH_SIZE];
+	char subsys[MAX_PATH_SIZE];
 };
 
 /* sort files in lexical order */
-static int device_list_insert(char *path, char *subsystem, struct list_head *device_list)
+static int device_list_insert(const char *path, char *subsystem, struct list_head *device_list)
 {
 	struct device *loop_device;
 	struct device *new_device;
+
+	dbg("insert: '%s'\n", path);
 
 	list_for_each_entry(loop_device, device_list, list) {
 		if (strcmp(loop_device->path, path) > 0) {
@@ -87,18 +88,20 @@ static char *first_list[] = {
 	NULL,
 };
 
-static int add_device(char *devpath, char *subsystem)
+static int add_device(const char *path, const char *subsystem)
 {
 	struct udevice udev;
-	char path[SYSFS_PATH_MAX];
 	struct sysfs_class_device *class_dev;
+	const char *devpath;
+
+	devpath = &path[strlen(sysfs_path)];
 
 	/* set environment for callouts and dev.d/ */
 	setenv("DEVPATH", devpath, 1);
 	setenv("SUBSYSTEM", subsystem, 1);
 
-	snprintf(path, SYSFS_PATH_MAX, "%s%s", sysfs_path, devpath);
-	path[SYSFS_PATH_MAX-1] = '\0';
+	dbg("exec  : '%s' (%s)\n", devpath, path);
+
 	class_dev = sysfs_open_class_device_path(path);
 	if (class_dev == NULL) {
 		dbg ("sysfs_open_class_device_path failed");
@@ -127,7 +130,7 @@ static void exec_list(struct list_head *device_list)
 
 	/* handle the "first" type devices first */
 	list_for_each_entry_safe(loop_device, tmp_device, device_list, list) {
-		for (i=0; first_list[i] != NULL; i++) {
+		for (i = 0; first_list[i] != NULL; i++) {
 			if (strncmp(loop_device->path, first_list[i], strlen(first_list[i])) == 0) {
 				add_device(loop_device->path, loop_device->subsys);
 				list_del(&loop_device->list);
@@ -140,7 +143,7 @@ static void exec_list(struct list_head *device_list)
 	/* handle the devices we are allowed to, excluding the "last" type devices */
 	list_for_each_entry_safe(loop_device, tmp_device, device_list, list) {
 		int found = 0;
-		for (i=0; last_list[i] != NULL; i++) {
+		for (i = 0; last_list[i] != NULL; i++) {
 			if (strncmp(loop_device->path, last_list[i], strlen(last_list[i])) == 0) {
 				found = 1;
 				break;
@@ -162,56 +165,61 @@ static void exec_list(struct list_head *device_list)
 	}
 }
 
+static int has_devt(const char *directory)
+{
+	char filename[MAX_PATH_SIZE];
+	struct stat statbuf;
+
+	snprintf(filename, MAX_PATH_SIZE, "%s/dev", directory);
+	filename[MAX_PATH_SIZE-1] = '\0';
+
+	if (stat(filename, &statbuf) == 0)
+		return 1;
+
+	return 0;
+}
+
 static void udev_scan_block(void)
 {
+	char base[MAX_PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
 	LIST_HEAD(device_list);
 
-	dir = opendir(SYSBLOCK);
+	snprintf(base, MAX_PATH_SIZE, "%s/block", sysfs_path);
+	base[MAX_PATH_SIZE-1] = '\0';
+
+	dir = opendir(base);
 	if (dir != NULL) {
 		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-			char dirname[MAX_PATHLEN];
+			char dirname[MAX_PATH_SIZE];
 			DIR *dir2;
 			struct dirent *dent2;
 
-			if ((strcmp(dent->d_name, ".") == 0) ||
-			    (strcmp(dent->d_name, "..") == 0))
+			if (dent->d_name[0] == '.')
 				continue;
 
-			snprintf(dirname, MAX_PATHLEN, "/block/%s", dent->d_name);
-			dirname[MAX_PATHLEN-1] = '\0';
-			device_list_insert(dirname, "block", &device_list);
+			snprintf(dirname, MAX_PATH_SIZE, "%s/%s", base, dent->d_name);
+			dirname[MAX_PATH_SIZE-1] = '\0';
+			if (has_devt(dirname))
+				device_list_insert(dirname, "block", &device_list);
+			else
+				continue;
 
-			snprintf(dirname, MAX_PATHLEN, "%s/%s", SYSBLOCK, dent->d_name);
+			snprintf(dirname, MAX_PATH_SIZE, "%s/%s", base, dent->d_name);
 			dir2 = opendir(dirname);
 			if (dir2 != NULL) {
 				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
-					char dirname2[MAX_PATHLEN];
-					DIR *dir3;
-					struct dirent *dent3;
+					char dirname2[MAX_PATH_SIZE];
 
-					if ((strcmp(dent2->d_name, ".") == 0) ||
-					    (strcmp(dent2->d_name, "..") == 0))
+					if (dent2->d_name[0] == '.')
 						continue;
 
-					snprintf(dirname2, MAX_PATHLEN, "%s/%s", dirname, dent2->d_name);
-					dirname2[MAX_PATHLEN-1] = '\0';
+					snprintf(dirname2, MAX_PATH_SIZE, "%s/%s", dirname, dent2->d_name);
+					dirname2[MAX_PATH_SIZE-1] = '\0';
 
-					dir3 = opendir(dirname2);
-					if (dir3 != NULL) {
-						for (dent3 = readdir(dir3); dent3 != NULL; dent3 = readdir(dir3)) {
-							char filename[MAX_PATHLEN];
-
-							if (strcmp(dent3->d_name, "dev") == 0) {
-								snprintf(filename, MAX_PATHLEN, "/block/%s/%s",
-									 dent->d_name, dent2->d_name);
-								filename[MAX_PATHLEN-1] = '\0';
-								device_list_insert(filename, "block", &device_list);
-							}
-						}
-						closedir(dir3);
-					}
+					if (has_devt(dirname2))
+						device_list_insert(dirname2, "block", &device_list);
 				}
 				closedir(dir2);
 			}
@@ -224,59 +232,42 @@ static void udev_scan_block(void)
 
 static void udev_scan_class(void)
 {
+	char base[MAX_PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
 	LIST_HEAD(device_list);
 
-	dir = opendir(SYSCLASS);
+	snprintf(base, MAX_PATH_SIZE, "%s/class", sysfs_path);
+	base[MAX_PATH_SIZE-1] = '\0';
+
+	dir = opendir(base);
 	if (dir != NULL) {
 		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-			char dirname[MAX_PATHLEN];
+			char dirname[MAX_PATH_SIZE];
 			DIR *dir2;
 			struct dirent *dent2;
 
-			if ((strcmp(dent->d_name, ".") == 0) ||
-			    (strcmp(dent->d_name, "..") == 0))
+			if (dent->d_name[0] == '.')
 				continue;
 
-			snprintf(dirname, MAX_PATHLEN, "%s/%s", SYSCLASS, dent->d_name);
-			dirname[MAX_PATHLEN-1] = '\0';
+			snprintf(dirname, MAX_PATH_SIZE, "%s/%s", base, dent->d_name);
+			dirname[MAX_PATH_SIZE-1] = '\0';
 			dir2 = opendir(dirname);
 			if (dir2 != NULL) {
 				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
-					char dirname2[MAX_PATHLEN];
-					DIR *dir3;
-					struct dirent *dent3;
+					char dirname2[MAX_PATH_SIZE];
 
-					if ((strcmp(dent2->d_name, ".") == 0) ||
-					    (strcmp(dent2->d_name, "..") == 0))
+					if (dent2->d_name[0] == '.')
 						continue;
+
+					snprintf(dirname2, MAX_PATH_SIZE, "%s/%s", dirname, dent2->d_name);
+					dirname2[MAX_PATH_SIZE-1] = '\0';
 
 					/* pass the net class as it is */
-					if (strcmp(dent->d_name, "net") == 0) {
-						snprintf(dirname2, MAX_PATHLEN, "/class/net/%s", dent2->d_name);
+					if (strcmp(dent->d_name, "net") == 0)
 						device_list_insert(dirname2, "net", &device_list);
-						continue;
-					}
-
-					snprintf(dirname2, MAX_PATHLEN, "%s/%s", dirname, dent2->d_name);
-					dirname2[MAX_PATHLEN-1] = '\0';
-					dir3 = opendir(dirname2);
-					if (dir3 != NULL) {
-						for (dent3 = readdir(dir3); dent3 != NULL; dent3 = readdir(dir3)) {
-							char filename[MAX_PATHLEN];
-
-							/* pass devices with a "dev" file */
-							if (strcmp(dent3->d_name, "dev") == 0) {
-								snprintf(filename, MAX_PATHLEN, "/class/%s/%s",
-									 dent->d_name, dent2->d_name);
-								filename[MAX_PATHLEN-1] = '\0';
-								device_list_insert(filename, dent->d_name, &device_list);
-								break;
-							}
-						}
-						closedir(dir3);
-					}
+					else if (has_devt(dirname2))
+						device_list_insert(dirname2, dent->d_name, &device_list);
 				}
 				closedir(dir2);
 			}

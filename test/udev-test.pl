@@ -14,14 +14,8 @@
 # After creation and removal the result is checked against the
 # expected value and the result is printed.
 #
-# happy testing,
 # Kay Sievers <kay.sievers@vrfy.org>, 2003
-#
-# Modified April 9, 2004 by Leann Ogasawara <ogasawara@osdl.org>
-#  - expanded @tests array to add more symlinks and permissions tests
-#  - some of the symlinks tests also test lack of node creation
-#  - added symlink_test() function
-#  - moved permissions and major_minor tests into their own functions
+# Leann Ogasawara <ogasawara@osdl.org>, 2004
 
 use warnings;
 use strict;
