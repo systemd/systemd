@@ -58,6 +58,7 @@ enum device_type {
 struct udevice {
 	char devpath[PATH_SIZE];
 	char subsystem[NAME_SIZE];
+	char action[NAME_SIZE];
 
 	enum device_type type;
 	char name[PATH_SIZE];
@@ -67,9 +68,11 @@ struct udevice {
 	char group[USER_SIZE];
 	mode_t mode;
 	dev_t devt;
+	struct list_head run_list;
 
 	char tmp_node[PATH_SIZE];
 	int partitions;
+	int ignore_device;
 	int ignore_remove;
 	int config_line;
 	char config_file[PATH_SIZE];
@@ -93,6 +96,7 @@ extern char udev_db_path[PATH_SIZE];
 extern char udev_config_filename[PATH_SIZE];
 extern char udev_rules_filename[PATH_SIZE];
 extern int udev_log_priority;
+extern int udev_run;
 extern int udev_dev_d;
 extern int udev_hotplug_d;
 

@@ -256,6 +256,13 @@ static int rules_parse(const char *filename)
 				continue;
 			}
 
+			if (strcasecmp(key, KEY_ACTION) == 0) {
+				strlcpy(rule.action, value, sizeof(rule.action));
+				rule.action_operation = operation;
+				valid = 1;
+				continue;
+			}
+
 			if (strcasecmp(key, KEY_BUS) == 0) {
 				strlcpy(rule.bus, value, sizeof(rule.bus));
 				rule.bus_operation = operation;
@@ -375,6 +382,12 @@ static int rules_parse(const char *filename)
 
 			if (strcasecmp(key, KEY_MODE) == 0) {
 				rule.mode = strtol(value, NULL, 8);
+				valid = 1;
+				continue;
+			}
+
+			if (strcasecmp(key, KEY_RUN) == 0) {
+				strlcpy(rule.run, value, sizeof(rule.run));
 				valid = 1;
 				continue;
 			}

@@ -474,6 +474,21 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 {
 	struct sysfs_device *parent_device = sysfs_device;
 
+	if (rule->action_operation != KEY_OP_UNSET) {
+		dbg("check for " KEY_ACTION " rule->action='%s' udev->action='%s'",
+		    rule->action, udev->action);
+		if (strcmp_pattern(rule->action, udev->action) != 0) {
+			dbg(KEY_ACTION " is not matching");
+			if (rule->action_operation != KEY_OP_NOMATCH)
+				goto exit;
+		} else {
+			dbg(KEY_ACTION " matches");
+			if (rule->action_operation == KEY_OP_NOMATCH)
+				goto exit;
+		}
+		dbg(KEY_ACTION " key is true");
+	}
+
 	if (rule->kernel_operation != KEY_OP_UNSET) {
 		dbg("check for " KEY_KERNEL " rule->kernel='%s' udev_kernel_name='%s'",
 		    rule->kernel, udev->kernel_name);
@@ -716,12 +731,17 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 	list_for_each_entry(rule, &udev_rule_list, node) {
 		dbg("process rule");
 		if (match_rule(udev, rule, class_dev, sysfs_device) == 0) {
+			if (udev->name[0] != '\0' && rule->name[0] != '\0') {
+				dbg("node name already set, rule ignored");
+				continue;
+			}
 
 			/* apply options */
 			if (rule->ignore_device) {
 				info("configured rule in '%s[%i]' applied, '%s' is ignored",
 				     rule->config_file, rule->config_line, udev->kernel_name);
-				return -1;
+				udev->ignore_device = 1;
+				return 0;
 			}
 			if (rule->ignore_remove) {
 				udev->ignore_remove = 1;
@@ -773,7 +793,7 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 				name_list_add(&udev->symlink_list, pos, 0);
 			}
 
-			/* rule matches */
+			/* set name, later rules with name set will be ignored */
 			if (rule->name[0] != '\0') {
 				info("configured rule in '%s[%i]' applied, '%s' becomes '%s'",
 				     rule->config_file, rule->config_line, udev->kernel_name, rule->name);
@@ -786,20 +806,25 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 				if (udev->type != DEV_NET)
 					dbg("name, '%s' is going to have owner='%s', group='%s', mode=%#o partitions=%i",
 					    udev->name, udev->owner, udev->group, udev->mode, udev->partitions);
+			}
 
-				break;
+			if (rule->run[0] != '\0') {
+				char program[PATH_SIZE];
+
+				strlcpy(program, rule->run, sizeof(program));
+				apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
+				dbg("add run '%s'", program);
+				name_list_add(&udev->run_list, program, 0);
 			}
 
 			if (rule->last_rule) {
 				dbg("last rule to be applied");
 				break;
 			}
-
 		}
 	}
 
 	if (udev->name[0] == '\0') {
-		/* no rule matched, so we use the kernel name */
 		strlcpy(udev->name, udev->kernel_name, sizeof(udev->name));
 		info("no rule found, use kernel name '%s'", udev->name);
 	}
@@ -808,6 +833,119 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 		dbg("removing temporary device node");
 		unlink_secure(udev->tmp_node);
 		udev->tmp_node[0] = '\0';
+	}
+
+	return 0;
+}
+
+int udev_rules_get_run(struct udevice *udev)
+{
+	struct udev_rule *rule;
+	char program[PATH_SIZE];
+
+	/* look for a matching rule to apply */
+	list_for_each_entry(rule, &udev_rule_list, node) {
+		dbg("process rule");
+
+		if (rule->run[0] == '\0')
+			continue;
+
+		if (rule->name[0] != '\0' || rule->symlink[0] != '\0' ||
+		    rule->mode != 0000 || rule->owner[0] != '\0' || rule->group[0] != '\0') {
+			dbg("skip rule that names a device");
+			continue;
+		}
+
+		if (rule->action_operation != KEY_OP_UNSET) {
+			dbg("check for " KEY_ACTION " rule->action='%s' udev->action='%s'",
+			    rule->action, udev->action);
+			if (strcmp_pattern(rule->action, udev->action) != 0) {
+				dbg(KEY_ACTION " is not matching");
+				if (rule->action_operation != KEY_OP_NOMATCH)
+					continue;
+			} else {
+				dbg(KEY_ACTION " matches");
+				if (rule->action_operation == KEY_OP_NOMATCH)
+					continue;
+			}
+			dbg(KEY_ACTION " key is true");
+		}
+
+		if (rule->kernel_operation != KEY_OP_UNSET) {
+			dbg("check for " KEY_KERNEL " rule->kernel='%s' udev->kernel_name='%s'",
+			    rule->kernel, udev->kernel_name);
+			if (strcmp_pattern(rule->kernel, udev->kernel_name) != 0) {
+				dbg(KEY_KERNEL " is not matching");
+				if (rule->kernel_operation != KEY_OP_NOMATCH)
+					continue;
+		} else {
+				dbg(KEY_KERNEL " matches");
+				if (rule->kernel_operation == KEY_OP_NOMATCH)
+					continue;
+			}
+			dbg(KEY_KERNEL " key is true");
+		}
+
+		if (rule->subsystem_operation != KEY_OP_UNSET) {
+			dbg("check for " KEY_SUBSYSTEM " rule->subsystem='%s' udev->subsystem='%s'",
+			    rule->subsystem, udev->subsystem);
+			if (strcmp_pattern(rule->subsystem, udev->subsystem) != 0) {
+				dbg(KEY_SUBSYSTEM " is not matching");
+				if (rule->subsystem_operation != KEY_OP_NOMATCH)
+					continue;
+			} else {
+				dbg(KEY_SUBSYSTEM " matches");
+				if (rule->subsystem_operation == KEY_OP_NOMATCH)
+					continue;
+			}
+			dbg(KEY_SUBSYSTEM " key is true");
+		}
+
+		if (rule->env_pair_count) {
+			int i;
+
+			dbg("check for " KEY_ENV " pairs");
+			for (i = 0; i < rule->env_pair_count; i++) {
+				struct key_pair *pair;
+				const char *value;
+
+				pair = &rule->env_pair[i];
+				value = getenv(pair->name);
+				if (!value) {
+					dbg(KEY_ENV "{'%s'} is not found", pair->name);
+					continue;
+				}
+				if (strcmp_pattern(pair->value, value) != 0) {
+					dbg(KEY_ENV "{'%s'} is not matching", pair->name);
+					if (pair->operation != KEY_OP_NOMATCH)
+						continue;
+				} else {
+					dbg(KEY_ENV "{'%s'} matches", pair->name);
+					if (pair->operation == KEY_OP_NOMATCH)
+						continue;
+				}
+			}
+			dbg(KEY_ENV " key is true");
+		}
+
+		/* rule matches */
+
+		if (rule->ignore_device) {
+			info("configured rule in '%s[%i]' applied, '%s' is ignored",
+			     rule->config_file, rule->config_line, udev->kernel_name);
+			udev->ignore_device = 1;
+			return 0;
+		}
+
+		strlcpy(program, rule->run, sizeof(program));
+		apply_format(udev, program, sizeof(program), NULL, NULL);
+		dbg("add run '%s'", program);
+		name_list_add(&udev->run_list, program, 0);
+
+		if (rule->last_rule) {
+			dbg("last rule to be applied");
+			break;
+		}
 	}
 
 	return 0;

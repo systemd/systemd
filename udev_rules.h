@@ -30,6 +30,7 @@
 
 #define KEY_KERNEL		"KERNEL"
 #define KEY_SUBSYSTEM		"SUBSYSTEM"
+#define KEY_ACTION		"ACTION"
 #define KEY_BUS			"BUS"
 #define KEY_ID			"ID"
 #define KEY_PROGRAM		"PROGRAM"
@@ -42,6 +43,7 @@
 #define KEY_OWNER		"OWNER"
 #define KEY_GROUP		"GROUP"
 #define KEY_MODE		"MODE"
+#define KEY_RUN			"RUN"
 #define KEY_OPTIONS		"OPTIONS"
 
 #define OPTION_LAST_RULE	"last_rule"
@@ -75,6 +77,8 @@ struct udev_rule {
 	enum key_operation kernel_operation;
 	char subsystem[NAME_SIZE];
 	enum key_operation subsystem_operation;
+	char action[NAME_SIZE];
+	enum key_operation action_operation;
 	char bus[NAME_SIZE];
 	enum key_operation bus_operation;
 	char id[NAME_SIZE];
@@ -95,6 +99,7 @@ struct udev_rule {
 	char owner[USER_SIZE];
 	char group[USER_SIZE];
 	mode_t mode;
+	char run[PATH_SIZE];
 
 	int last_rule;
 	int ignore_device;
@@ -109,6 +114,7 @@ extern struct list_head udev_rule_list;
 
 extern int udev_rules_init(void);
 extern int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_dev);
+extern int udev_rules_get_run(struct udevice *udev);
 extern void udev_rules_close(void);
 
 #endif

@@ -126,6 +126,14 @@ static int add_device(const char *path, const char *subsystem)
 	udev_init_device(&udev, devpath, subsystem, "add");
 	udev_add_device(&udev, class_dev);
 
+	if (udev_run && !list_empty(&udev.run_list)) {
+		struct name_entry *name_loop;
+
+		dbg("executing run list");
+		list_for_each_entry(name_loop, &udev.run_list, node)
+			execute_command(name_loop->name, udev.subsystem);
+	}
+
 	/* run dev.d/ scripts if we created a node or changed a netif name */
 	if (udev_dev_d && udev.devname[0] != '\0') {
 		setenv("DEVNAME", udev.devname, 1);

@@ -44,6 +44,7 @@ char udev_db_path[PATH_SIZE];
 char udev_config_filename[PATH_SIZE];
 char udev_rules_filename[PATH_SIZE];
 int udev_log_priority;
+int udev_run;
 int udev_dev_d;
 int udev_hotplug_d;
 
@@ -217,9 +218,15 @@ void udev_init_config(void)
 	strcpy(udev_config_filename, UDEV_CONFIG_FILE);
 	strcpy(udev_rules_filename, UDEV_RULES_FILE);
 	udev_log_priority = LOG_ERR;
+	udev_run = 1;
 	udev_dev_d = 1;
 	udev_hotplug_d = 1;
 	sysfs_get_mnt_path(sysfs_path, sizeof(sysfs_path));
+
+	/* disable RUN key execution */
+	env = getenv("UDEV_RUN");
+	if (env && !string_is_true(env))
+		udev_run = 0;
 
 	env = getenv("UDEV_NO_DEVD");
 	if (env && string_is_true(env))

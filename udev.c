@@ -157,6 +157,8 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	if (udev.type == DEV_BLOCK || udev.type == DEV_CLASS || udev.type == DEV_NET) {
+		udev_rules_init();
+
 		if (strcmp(action, "add") == 0) {
 			/* wait for sysfs and possibly add node */
 			dbg("udev add");
@@ -178,9 +180,6 @@ int main(int argc, char *argv[], char *envp[])
 
 			wait_for_class_device(class_dev, &error);
 
-			/* init rules */
-			udev_rules_init();
-
 			/* name, create node, store in db */
 			retval = udev_add_device(&udev, class_dev);
 
@@ -195,8 +194,22 @@ int main(int argc, char *argv[], char *envp[])
 				goto hotplug;
 			}
 
+			udev_rules_get_run(&udev);
+			if (udev.ignore_device) {
+				dbg("device event will be ignored");
+				goto hotplug;
+			}
+
 			/* get node from db, remove db-entry, delete created node */
 			retval = udev_remove_device(&udev);
+		}
+
+		if (udev_run && !list_empty(&udev.run_list)) {
+			struct name_entry *name_loop;
+
+			dbg("executing run list");
+			list_for_each_entry(name_loop, &udev.run_list, node)
+				execute_command(name_loop->name, udev.subsystem);
 		}
 
 		/* run dev.d/ scripts if we created/deleted a node or changed a netif name */

@@ -45,9 +45,13 @@ int udev_init_device(struct udevice *udev, const char* devpath, const char *subs
 
 	memset(udev, 0x00, sizeof(struct udevice));
 	INIT_LIST_HEAD(&udev->symlink_list);
+	INIT_LIST_HEAD(&udev->run_list);
 
 	if (subsystem)
 		strlcpy(udev->subsystem, subsystem, sizeof(udev->subsystem));
+
+	if (action)
+		strlcpy(udev->action, action, sizeof(udev->action));
 
 	if (devpath) {
 		strlcpy(udev->devpath, devpath, sizeof(udev->devpath));

@@ -111,6 +111,9 @@ Match the kernel device name.
 .B SUBSYSTEM
 Match the kernel subsystem name.
 .TP
+.B ACTION
+Match the kernel action name.
+.TP
 .B DRIVER
 Match the kernel driver name.
 .TP
@@ -169,6 +172,9 @@ distribution provided rules file.
 .B OWNER, GROUP, MODE
 The permissions for the device node. Every specified value overwrites the
 compiled-in default value.
+.TP
+.B RUN
+Add a program to the list of programs to be executed for a specific device.
 .TP
 .B OPTIONS
 .B last_rule
@@ -233,6 +239,9 @@ The node name of the parent device.
 .TP
 .BI %s{ filename }
 The content of a sysfs attribute.
+.TP
+.B %r
+The udev_root value.
 .TP
 .B %e
 If a device node already exists with the name, the smallest positive
@@ -344,6 +353,9 @@ config file.
 .B UDEV_LOG
 Overrides the log priority specified in the config file.
 .TP
+.B UDEV_RUN
+If set to "0", it disables the execution of programs added by rules.
+.TP
 .B UDEV_NO_DEVD
 The default behavior of
 .B udev
@@ -356,7 +368,6 @@ will skip this step.
 .nf
 /sbin/udev                           udev program
 /etc/udev/*                          udev config files
-/etc/hotplug.d/default/udev.hotplug  hotplug symlink to udev program
 /etc/dev.d/*                         programs invoked by udev
 .fi
 .SH "SEE ALSO"

@@ -276,8 +276,11 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 		}
 	}
 
-	if (udev_rules_get_name(udev, class_dev) != 0)
+	udev_rules_get_name(udev, class_dev);
+	if (udev->ignore_device) {
+		dbg("device event will be ignored");
 		return 0;
+	}
 
 	dbg("adding name='%s'", udev->name);
 

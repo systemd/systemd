@@ -145,7 +145,7 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 }
 
 /* forks event and removes event from run queue when finished */
-static void udev_run(struct hotplug_msg *msg)
+static void execute_udev(struct hotplug_msg *msg)
 {
 	char *const argv[] = { "udev", msg->subsystem, NULL };
 	pid_t pid;
@@ -349,7 +349,7 @@ static void exec_queue_manager(void)
 		if (!msg) {
 			/* move event to run list */
 			list_move_tail(&loop_msg->node, &running_list);
-			udev_run(loop_msg);
+			execute_udev(loop_msg);
 			running++;
 			dbg("moved seq %llu to running list", loop_msg->seqnum);
 		} else {

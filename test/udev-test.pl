@@ -1245,6 +1245,53 @@ KERNEL=="sda", SYSFS{vendor}!="", NAME="ok"
 KERNEL=="sda", SYSFS{vendor}=="", NAME="not-3-ok"
 EOF
 	},
+	{
+		desc		=> "check ACTION value",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "ok",
+		rules		=> <<EOF
+ACTION=="unknown", KERNEL=="sda", NAME="unknown-not-ok"
+ACTION=="add", KERNEL=="sda", NAME="ok"
+EOF
+	},
+	{
+		desc		=> "apply NAME only once",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "link",
+		exp_target	=> "ok",
+		rules		=> <<EOF
+KERNEL=="sda", NAME="ok"
+KERNEL=="sda", NAME="not-ok"
+KERNEL=="sda", SYMLINK+="link"
+EOF
+	},
+	{
+		desc		=> "test RUN key",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "testsymlink",
+		exp_target	=> "ok",
+		exp_rem_error	=> "yes",
+		option		=> "clean",
+		rules		=> <<EOF
+KERNEL=="sda", NAME="ok", RUN+="/bin/ln -s ok %r/testsymlink"
+KERNEL=="sda", NAME="not-ok"
+EOF
+	},
+	{
+		desc		=> "test RUN key remove",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "testsymlink2",
+		exp_target	=> "ok2",
+		rules		=> <<EOF
+KERNEL=="sda", NAME="ok2", RUN+="/bin/ln -s ok2 %r/testsymlink2"
+KERNEL=="sda", ACTION=="remove", RUN+="/bin/rm -f %r/testsymlink2"
+KERNEL=="sda", NAME="not-ok2"
+EOF
+	},
 );
 
 # set env

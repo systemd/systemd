@@ -51,7 +51,6 @@ VERSION =	056
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
 LOCAL_CFG_DIR =	etc/udev
-HOTPLUG_EXEC =	$(ROOT)
 DESTDIR =
 KERNEL_DIR = /lib/modules/${shell uname -r}/build
 
