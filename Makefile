@@ -172,7 +172,10 @@ endif
 
 CFLAGS += -I$(PWD)/libsysfs
 
-all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(WAIT)
+# config files automatically generated
+GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
+
+all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(WAIT) $(GEN_CONFIGS)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) \
@@ -242,12 +245,9 @@ udev_version.h:
 	@echo \#define UDEV_BIN			\"$(DESTDIR)$(sbindir)/udev\" >> $@
 	@echo \#define UDEVD_BIN		\"$(DESTDIR)$(sbindir)/udevd\" >> $@
 
-# config files automatically generated
-GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
-
 # Rules on how to create the generated config files
 $(LOCAL_CFG_DIR)/udev.conf:
-	sed -e "s:@udevdir@:$(udevdir):" < $(LOCAL_CFG_DIR)/udev.conf.in > $@
+	sed -e "s:@udevdir@:$(udevdir):" -e "s:@configdir@:$(configdir):" < $(LOCAL_CFG_DIR)/udev.conf.in > $@
 
 GEN_MANPAGES   = udev.8
 GEN_MANPAGESIN = udev.8.in
@@ -346,7 +346,7 @@ install-initscript: etc/init.d/udev etc/init.d/udev.debian etc/init.d/udev.init.
 		$(INSTALL_DATA) -D etc/init.d/udev.debian $(DESTDIR)$(initdir)/udev; \
 	fi
 
-install-config: $(GEN_CONFIGS)
+install-config:
 	$(INSTALL) -d $(DESTDIR)$(configdir)/rules.d
 	$(INSTALL) -d $(DESTDIR)$(configdir)/permissions.d
 	@if [ ! -r $(DESTDIR)$(configdir)/udev.conf ]; then \
