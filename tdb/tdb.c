@@ -41,6 +41,12 @@
  * right time.  Probably too hard -- the process just doesn't know.
  */ 
 
+/* udev defines */
+#define STANDALONE
+#define TDB_DEBUG
+#define HAVE_MMAP	1
+
+
 #ifdef STANDALONE
 #if HAVE_CONFIG_H
 #include <config.h>

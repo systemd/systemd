@@ -17,11 +17,17 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
+/* udev defines */
+#define STANDALONE
+#define TDB_DEBUG
+#define HAVE_MMAP	1
+
+
 #if HAVE_CONFIG_H
 #include <config.h>
 #endif
 
-#if STANDALONE
+#ifdef STANDALONE
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
