@@ -62,12 +62,12 @@ void udev_set_values(struct udevice *udev, const char* devpath,
 
 int kernel_release_satisfactory(int version, int patchlevel, int sublevel)
 {
-	static struct utsname uts;
 	static int kversion = 0;
 	static int kpatchlevel;
 	static int ksublevel;
 
 	if (kversion == 0) {
+		struct utsname uts;
 		if (uname(&uts) != 0)
 			return -1;
 

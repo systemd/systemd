@@ -35,9 +35,9 @@
 #include "logging.h"
 
 /* list of subsystem specific files, NULL if there is no file to wait for */
-static struct subsystem_file {
-	char *subsystem;
-	char *file;
+static const struct subsystem_file {
+	const char *subsystem;
+	const char *file;
 } subsystem_files[] = {
 	{ .subsystem = "net",		.file = "ifindex" },
 	{ .subsystem = "scsi_host",	.file = "unique_id" },
@@ -56,7 +56,7 @@ static struct subsystem_file {
 
 int subsystem_expect_no_dev(const char *subsystem)
 {
-	struct subsystem_file *file;
+	const struct subsystem_file *file;
 
 	for (file = subsystem_files; file->subsystem != NULL; file++)
 		if (strcmp(subsystem, file->subsystem) == 0)
@@ -66,9 +66,9 @@ int subsystem_expect_no_dev(const char *subsystem)
 }
 
 /* get subsystem specific files, returns "dev" if no other found */
-static char *get_subsystem_specific_file(const char *subsystem)
+static const char *get_subsystem_specific_file(const char *subsystem)
 {
-	struct subsystem_file *file;
+	const struct subsystem_file *file;
 
 	/* look if we want to look for another file instead of "dev" */
 	for (file = subsystem_files; file->subsystem != NULL; file++)
@@ -123,9 +123,9 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 {
 	/* list of devices without a "device" symlink to the physical device
 	 * if device is set to NULL, no devices in that subsystem has a link */
-	static struct class_device {
-		char *subsystem;
-		char *device;
+	static const struct class_device {
+		const char *subsystem;
+		const char *device;
 	} class_device[] = {
 		{ .subsystem = "block",		.device = "double" },
 		{ .subsystem = "block",		.device = "nb" },
@@ -202,7 +202,7 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 		{ .subsystem = "capi",		.device = NULL },
 		{ NULL, NULL }
 	};
-	struct class_device *classdevice;
+	const struct class_device *classdevice;
 	int len;
 
 	/* the kernel may tell us what to wait for */
@@ -240,13 +240,13 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 /* skip waiting for the bus of the devices device */
 static int class_device_expect_no_bus(struct sysfs_class_device *class_dev)
 {
-	static char *devices_without_bus[] = {
+	static const char *devices_without_bus[] = {
 		"scsi_host",
 		"i2c-adapter",
 		"i2c-dev",
 		NULL
 	};
-	char **device;
+	const char **device;
 
 	for (device = devices_without_bus; *device != NULL; device++) {
 		int len = strlen(*device);
@@ -262,9 +262,9 @@ static int class_device_expect_no_bus(struct sysfs_class_device *class_dev)
 int wait_for_devices_device(struct sysfs_device *devices_dev,
 			const char **error)
 {
-	static struct device_file {
-		char *bus;
-		char *file;
+	static const struct device_file {
+		const char *bus;
+		const char *file;
 	} device_files[] = {
 		{ .bus = "scsi",	.file = "vendor" },
 		{ .bus = "usb",		.file = "idVendor" },
@@ -302,7 +302,7 @@ int wait_for_devices_device(struct sysfs_device *devices_dev,
 		{ .bus = "iucv",	.file = "detach_state" },
 		{ NULL, NULL }
 	};
-	struct device_file *devicefile;
+	const struct device_file *devicefile;
 	int loop;
 
 	/* the kernel may tell us what to wait for */
