@@ -67,7 +67,8 @@ exit:
 }
 
 /*
- * We also want to add some permissions here, and possibly some symlinks
+ * we possibly want to add some symlinks here
+ * only numeric owner/group id's are supported
  */
 static int create_node(struct udevice *dev)
 {
@@ -106,7 +107,35 @@ static int create_node(struct udevice *dev)
 		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
 		    filename, dev->mode, dev->major, dev->minor, strerror(errno));
 
-	// FIXME set the ownership of the node
+	uid_t uid = 0;
+	gid_t gid = 0;
+
+	if (*dev->owner) {
+		char *endptr;
+		unsigned long id = strtoul(dev->owner, &endptr, 10);
+		if (*endptr == 0x00)
+			uid = (uid_t) id;
+		else
+			dbg("only numeric owner id supported: %s", dev->owner);
+	}
+
+	if (*dev->group) {
+		char *endptr;
+		unsigned long id = strtoul(dev->group, &endptr, 10);
+		if (*endptr == 0x00)
+			gid = (gid_t) id;
+		else
+			dbg("only numeric group id supported: %s", dev->group);
+	}
+
+	if (uid || gid) {
+		dbg("chown(%s, %u, %u)", filename, uid, gid);
+		retval = chown(filename, uid, gid);
+		if (retval)
+			dbg("chown(%s, %u, %u) failed with error '%s'", filename,
+			    uid, gid, strerror(errno));
+	}
+
 	return retval;
 }
 
