@@ -516,14 +516,10 @@ static int match_sysfs_pairs(struct config_device *dev, struct sysfs_class_devic
 	return 0;
 }
 
-static int match_id(struct config_device *dev, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
+static int match_id(struct config_device *dev, struct sysfs_device *sysfs_device)
 {
 	char path[PATH_SIZE];
 	char *temp;
-
-	/* we have to have a sysfs device for ID to work */
-	if (!sysfs_device)
-		return -ENODEV;
 
 	strlcpy(path, sysfs_device->path, sizeof(path));
 	temp = strrchr(path, '/');
@@ -535,14 +531,10 @@ static int match_id(struct config_device *dev, struct sysfs_class_device *class_
 	return 0;
 }
 
-static int match_place(struct config_device *dev, struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
+static int match_place(struct config_device *dev, struct sysfs_device *sysfs_device)
 {
 	char path[PATH_SIZE];
 	char *temp;
-
-	/* we have to have a sysfs device for PLACE to work */
-	if (!sysfs_device)
-		return -ENODEV;
 
 	strlcpy(path, sysfs_device->path, sizeof(path));
 	temp = strrchr(path, '/');
@@ -588,6 +580,10 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 	while (1) {
 		/* check for matching driver */
 		if (dev->driver[0] != '\0') {
+			if (sysfs_device == NULL) {
+				dbg("device has no sysfs_device");
+				goto try_parent;
+			}
 			dbg("check for " FIELD_DRIVER " dev->driver='%s' sysfs_device->driver_name='%s'",
 			    dev->driver, sysfs_device->driver_name);
 			if (strcmp_pattern(dev->driver, sysfs_device->driver_name) != 0) {
@@ -600,7 +596,7 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 		/* check for matching bus value */
 		if (dev->bus[0] != '\0') {
 			if (sysfs_device == NULL) {
-				dbg("device has no bus");
+				dbg("device has no sysfs_device");
 				goto try_parent;
 			}
 			dbg("check for " FIELD_BUS " dev->bus='%s' sysfs_device->bus='%s'",
@@ -614,8 +610,12 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 
 		/* check for matching bus id */
 		if (dev->id[0] != '\0') {
+			if (sysfs_device == NULL) {
+				dbg("device has no sysfs_device");
+				goto try_parent;
+			}
 			dbg("check " FIELD_ID);
-			if (match_id(dev, class_dev, sysfs_device) != 0) {
+			if (match_id(dev, sysfs_device) != 0) {
 				dbg(FIELD_ID " is not matching");
 				goto try_parent;
 			}
@@ -624,8 +624,12 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 
 		/* check for matching place of device */
 		if (dev->place[0] != '\0') {
+			if (sysfs_device == NULL) {
+				dbg("device has no sysfs_device");
+				goto try_parent;
+			}
 			dbg("check " FIELD_PLACE);
-			if (match_place(dev, class_dev, sysfs_device) != 0) {
+			if (match_place(dev, sysfs_device) != 0) {
 				dbg(FIELD_PLACE " is not matching");
 				goto try_parent;
 			}
