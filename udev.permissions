@@ -4,4 +4,4 @@ ttyUSB1:root:uucp:0666
 pl2303:500:500:0666
 visor:root:uucp:0666
 dsp1:::0666
-
+camera*:500:500:0666
