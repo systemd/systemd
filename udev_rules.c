@@ -480,6 +480,8 @@ static int compare_sysfs_attribute(struct sysfs_class_device *class_dev, struct 
 static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		      struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
+	struct sysfs_device *parent_device = sysfs_device;
+
 	if (rule->kernel[0] != '\0') {
 		dbg("check for " KEY_KERNEL " rule->kernel='%s' class_dev->name='%s'",
 		    rule->kernel, class_dev->name);
@@ -541,13 +543,13 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 	while (1) {
 		/* check for matching driver */
 		if (rule->driver[0] != '\0') {
-			if (sysfs_device == NULL) {
+			if (parent_device == NULL) {
 				dbg("device has no sysfs_device");
 				goto exit;
 			}
 			dbg("check for " KEY_DRIVER " rule->driver='%s' sysfs_device->driver_name='%s'",
-			    rule->driver, sysfs_device->driver_name);
-			if (strcmp_pattern(rule->driver, sysfs_device->driver_name) != 0) {
+			    rule->driver, parent_device->driver_name);
+			if (strcmp_pattern(rule->driver, parent_device->driver_name) != 0) {
 				dbg(KEY_DRIVER " is not matching");
 				if (rule->driver_operation != KEY_OP_NOMATCH)
 					goto try_parent;
@@ -561,13 +563,13 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 
 		/* check for matching bus value */
 		if (rule->bus[0] != '\0') {
-			if (sysfs_device == NULL) {
+			if (parent_device == NULL) {
 				dbg("device has no sysfs_device");
 				goto exit;
 			}
 			dbg("check for " KEY_BUS " rule->bus='%s' sysfs_device->bus='%s'",
-			    rule->bus, sysfs_device->bus);
-			if (strcmp_pattern(rule->bus, sysfs_device->bus) != 0) {
+			    rule->bus, parent_device->bus);
+			if (strcmp_pattern(rule->bus, parent_device->bus) != 0) {
 				dbg(KEY_BUS " is not matching");
 				if (rule->bus_operation != KEY_OP_NOMATCH)
 					goto try_parent;
@@ -581,12 +583,12 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 
 		/* check for matching bus id */
 		if (rule->id[0] != '\0') {
-			if (sysfs_device == NULL) {
+			if (parent_device == NULL) {
 				dbg("device has no sysfs_device");
 				goto exit;
 			}
 			dbg("check " KEY_ID);
-			if (strcmp_pattern(rule->id, sysfs_device->bus_id) != 0) {
+			if (strcmp_pattern(rule->id, parent_device->bus_id) != 0) {
 				dbg(KEY_ID " is not matching");
 				if (rule->id_operation != KEY_OP_NOMATCH)
 					goto try_parent;
@@ -607,7 +609,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 				struct key_pair *pair;
 
 				pair = &rule->sysfs_pair[i];
-				if (compare_sysfs_attribute(class_dev, sysfs_device, pair) != 0) {
+				if (compare_sysfs_attribute(class_dev, parent_device, pair) != 0) {
 					dbg(KEY_SYSFS "{'%s'} is not matching", pair->name);
 					if (pair->operation != KEY_OP_NOMATCH)
 						goto try_parent;
@@ -624,11 +626,11 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		break;
 try_parent:
 		dbg("try parent sysfs device");
-		sysfs_device = sysfs_get_device_parent(sysfs_device);
-		if (sysfs_device == NULL)
+		parent_device = sysfs_get_device_parent(parent_device);
+		if (parent_device == NULL)
 			goto exit;
-		dbg("look at sysfs_device->path='%s'", sysfs_device->path);
-		dbg("look at sysfs_device->bus_id='%s'", sysfs_device->bus_id);
+		dbg("look at sysfs_device->path='%s'", parent_device->path);
+		dbg("look at sysfs_device->bus_id='%s'", parent_device->bus_id);
 	}
 
 	/* execute external program */
