@@ -8,8 +8,7 @@ export SYSFS_PATH=$PWD/sys/
 export UDEV_CONFIG_FILE=$PWD/$CONFIG
 
 cat > $RULES << EOF
-BUS="scsi", SYSFS{vendor}="IBM-ESXS", SYSFS{model}="ST336605LW   !#", NAME="boot_diskX%n"
-BUS="scsi", SYSFS{vendor}="IBM-ESXS", SYSFS{model}="ST336605LW    !#", NAME="boot_disk%n"
+SYSFS{address}="00:e0:00:8d:9f:25", NAME="wireless"
 EOF
 
 cat > $CONFIG << EOF
@@ -22,27 +21,16 @@ EOF
 mkdir udev
 
 export ACTION=add
-export DEVPATH=block/sda
+export DEVPATH=class/net/eth1
 
-../udev block
-ls -l udev
-
-export DEVPATH=block/sda/sda3
-
-../udev block
+../udevtest class/net/eth1 net
 ls -l udev
 
 export ACTION=remove
-export DEVPATH=block/sda
+export DEVPATH=class/net/eth1
 
-../udev block
+../udevtest net
 ls -l udev
-
-export DEVPATH=block/sda/sda3
-
-../udev block
-ls -l udev
-
 
 rm $RULES
 rm $CONFIG
