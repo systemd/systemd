@@ -211,7 +211,7 @@ static int class_device_expect_no_device_link(struct sysfs_class_device *class_d
 		{ NULL, NULL }
 	};
 	const struct class_device *classdevice;
-	int len;
+	unsigned int len;
 
 	/* the kernel may tell us what to wait for */
 	if (kernel_release_satisfactory(2,6,10) > 0)

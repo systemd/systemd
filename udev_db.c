@@ -195,7 +195,7 @@ int udev_db_get_device_byname(struct udevice *udev, const char *name)
 		memset(&db_udev, 0x00, sizeof(struct udevice));
 		if (parse_db_file(&db_udev, filename) == 0) {
 			char *pos;
-			int len;
+			unsigned int len;
 
 			if (strncmp(name, db_udev.name, NAME_SIZE) == 0) {
 				goto found;

@@ -553,7 +553,7 @@ static int do_scsi_page83_inquiry(struct sysfs_device *scsi_dev, int fd,
 				  char *serial, int len)
 {
 	int retval;
-	int id_ind, j;
+	unsigned int id_ind, j;
 	unsigned char page_83[SCSI_INQ_BUFF_LEN];
 
 	memset(page_83, 0, SCSI_INQ_BUFF_LEN);
@@ -584,8 +584,7 @@ static int do_scsi_page83_inquiry(struct sysfs_device *scsi_dev, int fd,
 		 * Examine each descriptor returned. There is normally only
 		 * one or a small number of descriptors.
 		 */
-		for (j = 4; j <= page_83[3] + 3;
-			j += page_83[j + 3] + 4) {
+		for (j = 4; j <= (unsigned int)page_83[3] + 3; j += page_83[j + 3] + 4) {
 			retval = check_fill_0x83_id(scsi_dev, &page_83[j],
 						    &id_search_list[id_ind],
 						    serial, len);

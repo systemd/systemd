@@ -126,7 +126,7 @@ static int namedev_parse(const char *filename, void *data)
 	cur = 0;
 	lineno = 0;
 	while (cur < bufsize) {
-		int i, j;
+		unsigned int i, j;
 
 		count = buf_get_line(buf, bufsize, cur);
 		bufline = &buf[cur];
