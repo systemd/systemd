@@ -21,7 +21,7 @@
 #ifndef _VOLUME_ID_H_
 #define _VOLUME_ID_H_
 
-#define VOLUME_ID_VERSION		25
+#define VOLUME_ID_VERSION		26
 
 #define VOLUME_ID_LABEL_SIZE		64
 #define VOLUME_ID_UUID_SIZE		16
@@ -36,7 +36,7 @@ enum volume_id_usage {
 	VOLUME_ID_OTHER,
 	VOLUME_ID_FILESYSTEM,
 	VOLUME_ID_PARTITIONTABLE,
-	VOLUME_ID_RAID
+	VOLUME_ID_RAID,
 };
 
 enum volume_id_type {
@@ -59,7 +59,8 @@ enum volume_id_type {
 	VOLUME_ID_UFS,
 	VOLUME_ID_LINUX_RAID,
 	VOLUME_ID_LVM1,
-	VOLUME_ID_LVM2
+	VOLUME_ID_LVM2,
+	VOLUME_ID_HPTRAID,
 };
 
 struct volume_id_partition {
