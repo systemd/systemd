@@ -10,38 +10,6 @@
 . /etc/udev/udev.conf
 
 sysfs_dir="/sys"
-bin="/sbin/udev"
-
-
-run_udev ()
-{
-	# handle block devices and their partitions
-	for i in ${sysfs_dir}/block/*; do
-		# add each drive
-		export DEVPATH=${i#${sysfs_dir}}
-		$bin block &
-
-		# add each partition, on each device
-		for j in $i/*; do
-			if [ -f $j/dev ]; then
-				export DEVPATH=${j#${sysfs_dir}}
-				$bin block &
-			fi
-		done
-	done
-	# all other device classes
-	for i in ${sysfs_dir}/class/*; do
-		for j in $i/*; do
-			if [ -f $j/dev ]; then
-				export DEVPATH=${j#${sysfs_dir}}
-				CLASS=`echo ${i#${sysfs_dir}} | \
-					cut --delimiter='/' --fields=3-`
-				$bin $CLASS &
-			fi
-		done
-	done
-	return 0
-}
 
 case "$1" in
 	start)
@@ -62,14 +30,11 @@ case "$1" in
 		# propogate /udev from /sys - we only need this while we do not
 		# have initramfs and an early user-space with which to do early
 		# device bring up
-		export ACTION=add
-		run_udev
+		udevstart
 		evaluate_retval
 		;;
 	stop)
-		echo "Removing udev device nodes ..."
-		export ACTION=remove
-		run_udev
+		echo "Stopping udev ..."
 		evaluate_retval
 		;;
 	reload)

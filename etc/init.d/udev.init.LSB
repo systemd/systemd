@@ -49,34 +49,6 @@ SYSFS_DIR=/sys
 # Source LSB init functions
 . /lib/lsb/init-functions
 
-run_udev () {
-	# handle block devices and their partitions
-	for i in ${SYSFS_DIR}/block/*; do
-		# add each drive
-		export DEVPATH=${i#${SYSFS_DIR}}
-		$UDEV_BIN block &
-
-		# add each partition, on each device
-		for j in $i/*; do
-			if [ -f $j/dev ]; then
-				export DEVPATH=${j#${SYSFS_DIR}}
-				$UDEV_BIN block &
-			fi
-		done
-	done
-	# all other device classes
-	for i in ${SYSFS_DIR}/class/*; do
-		for j in $i/*; do
-			if [ -f $j/dev ]; then
-				export DEVPATH=${j#${SYSFS_DIR}}
-				CLASS=`echo ${i#${SYSFS_DIR}} | \
-					cut --delimiter='/' --fields=3-`
-				$UDEV_BIN $CLASS &
-			fi
-		done
-	done
-}
-
 case "$1" in
     start)
 	if [ ! -d $SYSFS_DIR ]; then
@@ -91,16 +63,12 @@ case "$1" in
 	# device bring up
 	echo -n "Creating initial udev device nodes: "
 	export ACTION=add
-	run_udev
+	udevstart
 	log_success_msg
 	;;
     stop)
-  	# be careful
-	echo -n "Removing udev device nodes: "
-	export ACTION=remove
-	run_udev
-	rm -f $udev_db || exit 1
-	rmdir $udev_root || exit 1
+	# nothing to do here
+	echo -n "Stopping udev: "
 	log_success_msg
 	;;
     restart)
