@@ -150,6 +150,7 @@ int udev_remove_device(char *path, char *subsystem)
 	dbg("name is '%s'", dev.name);
 	udevdb_delete_dev(path);
 
+	dev_d_send(&dev, subsystem);
 	sysbus_send_remove(dev.name, path);
 
 	retval = delete_node(&dev);

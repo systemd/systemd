@@ -65,6 +65,7 @@ extern int udev_add_device(char *path, char *subsystem, int fake);
 extern int udev_remove_device(char *path, char *subsystem);
 extern void udev_init_config(void);
 extern int parse_get_pair(char **orig_string, char **left, char **right);
+extern void dev_d_send(struct udevice *dev, char *subsystem);
 
 extern char **main_argv;
 extern char **main_envp;

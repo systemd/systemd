@@ -417,8 +417,10 @@ int udev_add_device(char *path, char *subsystem, int fake)
 	dbg("name='%s'", dev.name);
 	retval = create_node(&dev, fake);
 
-	if ((retval == 0) && (!fake))
+	if ((retval == 0) && (!fake)) {
+		dev_d_send(&dev, subsystem);
 		sysbus_send_create(&dev, path);
+	}
 
 exit:
 	if (class_dev)
