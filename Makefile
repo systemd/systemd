@@ -22,7 +22,7 @@ DEBUG = false
 
 # Set the following to `true' to make udev emit a D-BUS signal when a
 # new node is created.
-DBUS = false
+USE_DBUS = false
 
 
 ROOT =		udev
@@ -57,7 +57,7 @@ udevdir = ${prefix}/udev
 
 # Comment out this line to build with something other 
 # than the local version of klibc
-#KLIBC = true
+#USE_KLIBC = true
 
 # If you are running a cross compiler, you may want to set this
 # to something more interesting, like "arm-linux-".  I you want
@@ -116,7 +116,7 @@ endif
 
 # If we are using our version of klibc, then we need to build and link it.
 # Otherwise, use glibc and link statically.
-ifeq ($(strip $(KLIBC)),true)
+ifeq ($(strip $(USE_KLIBC)),true)
 	KLIBC_BASE	= $(PWD)/klibc
 	KLIBC_DIR	= $(KLIBC_BASE)/klibc
 	INCLUDE_DIR	:= $(KLIBC_DIR)/include
@@ -180,11 +180,11 @@ OBJS =	udev.o		\
 	$(SYSFS)	\
 	$(TDB)
 
-ifeq ($(strip $(KLIBC)),true)
+ifeq ($(strip $(USE_KLIBC)),true)
 	OBJS += klibc_fixups.o
 endif
 
-ifeq ($(DBUS), true)
+ifeq ($(USE_DBUS), true)
 	CFLAGS += -DUSE_DBUS
 	CFLAGS += $(shell pkg-config --cflags dbus-1)
 	LDFLAGS += $(shell pkg-config --libs dbus-1)
@@ -261,7 +261,7 @@ small_release: $(DISTFILES) clean
 	@echo "Built $(RELEASE_NAME).tar.gz"
 
 
-ifeq ($(DBUS), true)
+ifeq ($(USE_DBUS), true)
 install-dbus-policy:
 	$(INSTALL) -d $(DESTDIR)$(dbusdir)
 	$(INSTALL_DATA) udev_sysbus_policy.conf $(DESTDIR)$(dbusdir)
