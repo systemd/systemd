@@ -509,16 +509,16 @@ static int get_classdev_path(const char *classname, const char *clsdev,
 	}
 	if (strncmp(classname, SYSFS_BLOCK_NAME,
 				sizeof(SYSFS_BLOCK_NAME)) == 0) {
-		safestrncat(path, "/", len);
-		safestrncat(path, SYSFS_BLOCK_NAME, len);
+		safestrcatmax(path, "/", len);
+		safestrcatmax(path, SYSFS_BLOCK_NAME, len);
 	} else {
-		safestrncat(path, "/", len);
-		safestrncat(path, SYSFS_CLASS_NAME, len);
-		safestrncat(path, "/", len);
-		safestrncat(path, classname, len);
+		safestrcatmax(path, "/", len);
+		safestrcatmax(path, SYSFS_CLASS_NAME, len);
+		safestrcatmax(path, "/", len);
+		safestrcatmax(path, classname, len);
 	}
-	safestrncat(path, "/", len);
-	safestrncat(path, clsdev, len);
+	safestrcatmax(path, "/", len);
+	safestrcatmax(path, clsdev, len);
 	return 0;
 }
 

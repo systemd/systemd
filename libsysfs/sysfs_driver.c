@@ -335,14 +335,14 @@ static int get_driver_path(const char *bus, const char *drv,
 		dprintf("Error getting sysfs mount path\n");
 		return -1;
 	}
-	safestrncat(path, "/", psize);
-	safestrncat(path, SYSFS_BUS_NAME, psize);
-	safestrncat(path, "/", psize);
-	safestrncat(path, bus, psize);
-	safestrncat(path, "/", psize);
-	safestrncat(path, SYSFS_DRIVERS_NAME, psize);
-	safestrncat(path, "/", psize);
-	safestrncat(path, drv, psize);
+	safestrcatmax(path, "/", psize);
+	safestrcatmax(path, SYSFS_BUS_NAME, psize);
+	safestrcatmax(path, "/", psize);
+	safestrcatmax(path, bus, psize);
+	safestrcatmax(path, "/", psize);
+	safestrcatmax(path, SYSFS_DRIVERS_NAME, psize);
+	safestrcatmax(path, "/", psize);
+	safestrcatmax(path, drv, psize);
 	return 0;
 }
 

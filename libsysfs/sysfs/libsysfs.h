@@ -32,16 +32,16 @@
 #define safestrcpy(to, from)	strncpy(to, from, sizeof(to)-1)
 #define safestrcat(to, from)	strncat(to, from, sizeof(to) - strlen(to)-1)
 
-#define safestrncpy(to, from, maxsize) \
+#define safestrcpymax(to, from, max) \
 do { \
-	to[maxsize-1] = '\0'; \
-	strncpy(to, from, maxsize-1); \
+	to[max-1] = '\0'; \
+	strncpy(to, from, max-1); \
 } while (0)
 
-#define safestrncat(to, from, maxsize) \
+#define safestrcatmax(to, from, max) \
 do { \
-	to[maxsize-1] = '\0'; \
-	strncat(to, from, maxsize - strlen(to)-1); \
+	to[max-1] = '\0'; \
+	strncat(to, from, max - strlen(to)-1); \
 } while (0)
 
 /*

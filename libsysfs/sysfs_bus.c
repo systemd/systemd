@@ -384,7 +384,7 @@ int sysfs_find_driver_bus(const char *driver, char *busname, size_t bsize)
 			if (drivers != NULL) {
 				dlist_for_each_data(drivers, curdrv, char) {
 					if (strcmp(driver, curdrv) == 0) {
-						safestrncpy(busname, 
+						safestrcpymax(busname, 
 								bus, bsize);
 						sysfs_close_list(drivers);
 						sysfs_close_list(buslist);

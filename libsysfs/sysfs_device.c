@@ -53,7 +53,7 @@ static int get_dev_driver(struct sysfs_device *dev)
 	if (c == NULL)
 		return 1;
 	*c = '\0';
-	safestrncat(c, path, (sizeof(devpath) - strlen(devpath)));
+	safestrcatmax(c, path, (sizeof(devpath) - strlen(devpath)));
 
 	drvlist = sysfs_open_subsystem_list(path);
 	if (drvlist != NULL) {

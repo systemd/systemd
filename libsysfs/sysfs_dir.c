@@ -239,10 +239,10 @@ int sysfs_write_attribute(struct sysfs_attribute *sysattr,
 			sysattr->value = (char *)realloc
 				(sysattr->value, length);
 			sysattr->len = length;
-			safestrncpy(sysattr->value, new_value, length);
+			safestrcpymax(sysattr->value, new_value, length);
 		} else {
 			/*"length" of the new value is same as old one */ 
-			safestrncpy(sysattr->value, new_value, length);
+			safestrcpymax(sysattr->value, new_value, length);
 		}
 	}
 			
@@ -348,7 +348,7 @@ int sysfs_read_attribute_value(const char *attrpath,
 	if (length > vsize) 
 		dprintf("Value length %d is larger than supplied buffer %d\n",
 			length, vsize);
-	safestrncpy(value, attr->value, vsize);
+	safestrcpymax(value, attr->value, vsize);
 	sysfs_close_attribute(attr);
 
 	return 0;
