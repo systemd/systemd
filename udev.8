@@ -106,7 +106,10 @@ The line format is:
 where valid methods with corresponding keys are:
 .TP
 .B CALLOUT
-calling external program, that returns a string to match
+calling external program, that returns a string to match.  The 
+.BR BUS 
+key is optional, but if specified, the sysfs device bus must be able to be
+detemined by a "device" symlink.
 .br
 .RB "keys: " BUS ", " PROGRAM ", " ID
 .TP
