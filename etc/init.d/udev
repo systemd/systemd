@@ -7,7 +7,8 @@
 
 . /etc/rc.d/init.d/functions
 
-udev_dir=/udev
+. /etc/udev/udev.conf
+
 sysfs_dir=/sys
 bin=/sbin/udev
 
@@ -42,11 +43,11 @@ run_udev () {
 
 case "$1" in
   start)
-	if [ ! -d $udev_dir ]; then
-		mkdir $udev_dir
-	fi
 	if [ ! -d $sysfs_dir ]; then
 		exit 1
+	fi
+	if [ ! -d $udev_root ]; then
+		mkdir $udev_root
 	fi
 	# propogate /udev from /sys - we only need this while we do not
 	# have initramfs and an early user-space with which to do early
@@ -62,7 +63,7 @@ case "$1" in
 	run_udev 
 	;;
   status)
-  	if [ -d $udev_dir ]; then
+  	if [ -d $udev_root ]; then
 		echo "the udev device node directory exists"
 	else
 		echo "the udev device node directory does not exist"

@@ -1,0 +1,133 @@
+#! /bin/sh
+#
+# Author: Rolf Eike Beer <eike-hotplug@sf-tec.de>
+#   derived from original RedHat udev init script
+#   based on the SuSE 9.0 template (c) 1995-2002 SuSE Linux AG
+#
+# /etc/init.d/udev
+#   and its symbolic link
+# /(usr/)sbin/rcudev
+#
+# System startup script for udev
+#
+# LSB compatible service control script; see http://www.linuxbase.org/spec/
+# 
+### BEGIN INIT INFO
+# Provides:          udev
+# Required-Start:    
+# Required-Stop:     
+# Default-Start:     1 2 3 5
+# Default-Stop:      0 6
+# Short-Description: manage user-space device nodes in /udev
+# Description:       Start udev to create the device files for all
+#		     devices already present in system when script is
+#		     called. All other devices files will be automatically
+#		     created when udev is called via /sbin/hotplug.
+#		     Requires at least a kernel 2.6 to work properly.
+### END INIT INFO
+# 
+# Note on script names:
+# http://www.linuxbase.org/spec/refspecs/LSB_1.2.0/gLSB/scrptnames.html
+# A registry has been set up to manage the init script namespace.
+# http://www.lanana.org/
+# Please use the names already registered or register one or use a
+# vendor prefix.
+
+
+# Check for missing binaries (stale symlinks should not happen)
+UDEV_BIN=/sbin/udev
+test -x $UDEV_BIN || exit 5
+
+# Check for existence of needed config file and read it
+UDEV_CONFIG=/etc/udev/udev.conf
+test -r $UDEV_CONFIG || exit 6
+. $UDEV_CONFIG
+
+# Directory where sysfs is mounted
+SYSFS_DIR=/sys
+
+# Source LSB init functions
+. /lib/lsb/init-functions
+
+run_udev () {
+	# handle block devices and their partitions
+	for i in ${SYSFS_DIR}/block/*; do
+		# add each drive
+		export DEVPATH=${i#${SYSFS_DIR}}
+		$UDEV_BIN block &
+
+		# add each partition, on each device
+		for j in $i/*; do
+			if [ -f $j/dev ]; then
+				export DEVPATH=${j#${SYSFS_DIR}}
+				$UDEV_BIN block &
+			fi
+		done
+	done
+	# all other device classes
+	for i in ${SYSFS_DIR}/class/*; do
+		for j in $i/*; do
+			if [ -f $j/dev ]; then
+				export DEVPATH=${j#${SYSFS_DIR}}
+				CLASS=`echo ${i#${SYSFS_DIR}} | \
+					cut --delimiter='/' --fields=3-`
+				$UDEV_BIN $CLASS &
+			fi
+		done
+	done
+}
+
+case "$1" in
+    start)
+	if [ ! -d $SYSFS_DIR ]; then
+		log_failure_msg "${0}: SYSFS_DIR \"$SYSFS_DIR\" not found"
+		exit 1
+	fi
+	if [ ! -d $udev_root ]; then
+		mkdir $udev_root || exit 4
+	fi
+	# propogate /udev from /sys - we only need this while we do not
+	# have initramfs and an early user-space with which to do early
+	# device bring up
+	echo -n "Creating initial udev device nodes: "
+	export ACTION=add
+	run_udev
+	log_success_msg
+	;;
+    stop)
+  	# be careful
+	echo -n "Removing udev device nodes: "
+	export ACTION=remove
+	run_udev
+	rm -f $udev_db || exit 1
+	rmdir $udev_root || exit 1
+	log_success_msg
+	;;
+    restart)
+	$0 stop
+	$0 start
+
+	exit $?
+	;;
+    force-reload)
+	echo -n "Reload udev "
+	$0 stop  &&  $0 start
+	exit $?
+	;;
+    reload)
+	exit 3
+	;;
+    status)
+	echo -n "Checking for udev root directory: "
+  	if [ -d $udev_root ]; then
+		log_success_msg found
+	else
+		log_warning_msg "not found"
+		exit 3
+	fi
+	;;
+    *)
+	echo "Usage: $0 {start|stop|status|restart|force-reload|reload}"
+	exit 1
+	;;
+esac

@@ -61,7 +61,7 @@ udevdir = ${prefix}/udev
 #USE_KLIBC = true
 
 # If you are running a cross compiler, you may want to set this
-# to something more interesting, like "arm-linux-".  I you want
+# to something more interesting, like "arm-linux-".  If you want
 # to compile vs uClibc, that can be done here as well.
 CROSS = #/usr/i386-linux-uclibc/usr/bin/i386-uclibc-
 CC = $(CROSS)gcc
@@ -231,7 +231,7 @@ clean:
 			-C $$target $@ ; \
 	done ; \
 
-DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v CVS | grep -v "\.tar\.gz" | grep -v "\/\." | grep -v releases | grep -v BitKeeper | grep -v SCCS | grep -v "\.tdb" | grep -v "test\/sys" | sort )
+DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v -e CVS -e "\.tar\.gz$" -e "\/\." -e releases -e BitKeeper -e SCCS -e "\.tdb$" -e test/sys | sort )
 DISTDIR := $(RELEASE_NAME)
 srcdir = .
 release: clean
@@ -292,13 +292,16 @@ install-config: $(GEN_CONFIGS)
 		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.permissions $(DESTDIR)$(configdir); \
 	fi
 
-
-
 install: install-config install-dbus-policy all
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
 	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
-	$(INSTALL_PROGRAM) -D etc/init.d/udev $(DESTDIR)$(initdir)/udev
+	@if [ "x$(USE_LSB)" = "xtrue" ]; then \
+		$(INSTALL_PROGRAM) -D etc/init.d/udev.init.LSB $(DESTDIR)$(initdir)/udev
+		ln -s $(DESTDIR)$(initdir)/udev $(sbin_dir)/rcudev
+	else
+		$(INSTALL_PROGRAM) -D etc/init.d/udev $(DESTDIR)$(initdir)/udev
+	fi
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
 	- rm -f $(DESTDIR)$(hotplugdir)/udev.hotplug
 	- ln -f -s $(sbindir)/$(ROOT) $(DESTDIR)$(hotplugdir)/udev.hotplug
@@ -324,5 +327,3 @@ uninstall: uninstall-dbus-policy
 		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
 			-C $$target $@ ; \
 	done ; \
-
-

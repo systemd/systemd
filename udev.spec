@@ -16,6 +16,11 @@
 # 1 - debugging enabled
 %define debug 0
 
+# if we want to use the LSB version of the init script or the Redhat one
+# 0 - use Redhat version: etc/init.d/udev
+# 1 - use LSB version: etc/init.d/udev.init.LSB
+%define lsb 0
+
 Summary: A userspace implementation of devfs
 Name: udev
 Version: 012_bk
@@ -52,6 +57,9 @@ make DESTDIR=$RPM_BUILD_ROOT install \
 %if %{dbus}
 	USE_DBUS=true
 %endif
+%if %{lsb}
+	USE_LSB=true
+%endif
 
 %post
 /sbin/chkconfig --add udev
@@ -81,6 +89,9 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0644,root,root) %{_mandir}/man8/udev.8*
 
 %changelog
+* Mon Jan 05 2004 Rolf Eike Beer <eike-hotplug@sf-tec.de>
+- add defines to choose the init script (Redhat or LSB)
+
 * Tue Dec 16 2003 Robert Love <rml@ximian.com>
 - install the initscript and run chkconfig on it
 
@@ -96,4 +107,3 @@ rm -rf $RPM_BUILD_ROOT
 
 * Mon Jul 28 2003 Paul Mundt <lethal@linux-sh.org>
 - Initial spec file for udev-0.2.
-

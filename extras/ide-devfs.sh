@@ -38,7 +38,7 @@ get_dev_number() {
 if [ -z "$3" ]; then
 	MEDIA=`cat /proc/ide/${1}/media`
 	if [ "${MEDIA}" = "cdrom" ]; then
-		echo ${1} ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/cd cdroms/cdrom`get_dev_number $1 cdrom`
+		echo $1 ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/cd cdroms/cdrom`get_dev_number $1 cdrom`
 	elif [ "${MEDIA}" = "disk" ]; then
 		echo $1 ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/disc discs/disc`get_dev_number $1 disk`/disc
 	fi
