@@ -11,20 +11,8 @@ udev_dir=/udev
 sysfs_dir=/sys
 bin=/sbin/udev
 
-case "$1" in
-  start)
-	if [ ! -d $udev_dir ]; then
-		mkdir $udev_dir
-	fi
-	if [ ! -d $sysfs_dir ]; then
-		exit 1
-	fi
-	# propogate /udev from /sys - we only need this while we do not
-	# have initramfs and an early user-space with which to do early
-	# device bring up
-	action "Creating initial udev device nodes: " /bin/true
-	export ACTION=add
-	# add block devices and their partitions
+run_udev () {
+	# handle block devices and their partitions
 	for i in ${sysfs_dir}/block/*; do
 		# add each drive
 		export DEVPATH=${i#${sysfs_dir}}
@@ -49,14 +37,29 @@ case "$1" in
 			fi
 		done
 	done
+}
+
+
+case "$1" in
+  start)
+	if [ ! -d $udev_dir ]; then
+		mkdir $udev_dir
+	fi
+	if [ ! -d $sysfs_dir ]; then
+		exit 1
+	fi
+	# propogate /udev from /sys - we only need this while we do not
+	# have initramfs and an early user-space with which to do early
+	# device bring up
+	action "Creating initial udev device nodes: " /bin/true
+	export ACTION=add
+	run_udev 
 	;;
   stop)
   	# be careful
 	action "Removing udev device nodes: " /bin/true
-	if [ $udev_dir -a "$udev_dir" != "/" ]; then
-	  	# clear out /udev
-  		rm -rf ${udev_dir}/*
-	fi
+	export ACTION=remove
+	run_udev 
 	;;
   status)
   	if [ -d $udev_dir ]; then
