@@ -8,6 +8,11 @@ include ../MCONFIG
 include ../MRULES
 
 WARNFLAGS = -W -Wall -Wpointer-arith -Wwrite-strings -Wstrict-prototypes -Winline
+
+ifeq ($(ERRLIST),1)
+REQFLAGS += -DWITH_ERRLIST
+endif
+
 CFLAGS  = -Wp,-MD,$(dir $*).$(notdir $*).d $(OPTFLAGS) $(REQFLAGS) $(WARNFLAGS)
 
 SOFLAGS = -fPIC

@@ -10,16 +10,14 @@
 #include <sys/resource.h>
 #include <sys/syscall.h>
 
-#define __NR__getpriority __NR_getpriority
+#if !defined(__alpha__) && !defined(__ia64__)
 
-static inline _syscall2(int,_getpriority,int,which,int,who);
+extern int __getpriority(int, int);
 
 int getpriority(int which, int who)
 {
-#if defined(__alpha__) || defined(__ia64__)
-  return _getpriority(which, who);
-#else
-  int rv = _getpriority(which, who);
+  int rv = __getpriority(which, who);
   return ( rv < 0 ) ? rv : 20-rv;
-#endif
 }
+
+#endif

@@ -20,7 +20,7 @@ sub parse_file($) {
 
     $file = $rootdir.$file;
 
-    print STDERR "opening $file\n";
+    print STDERR "opening $file\n" unless ( $quiet );
 
     if ( !($fh->open("< ".$file)) ) {
 	die "$0: cannot open $file\n";
@@ -38,7 +38,7 @@ sub parse_file($) {
 		$error = $1;
 		$errno = $2+0;
 		$msg   = $3;
-		print STDERR "$error ($errno) => \"$msg\"\n";
+		print STDERR "$error ($errno) => \"$msg\"\n" unless ( $quiet );
 		$errors{$errno} = $error;
 		$errmsg{$errno} = $msg;
 		$maxerr = $errno if ( $errno > $maxerr );
@@ -50,12 +50,23 @@ sub parse_file($) {
 	}
     }
     close($fh);
-    print STDERR "closing $file\n";
+    print STDERR "closing $file\n" unless ( $quiet );
 }
 	 
-parse_file('linux/errno.h');
+$v = $ENV{'KBUILD_VERBOSE'};
+$quiet = defined($v) ? !$v : 0;
 
-($type) = @ARGV;
+foreach $arg ( @ARGV ) {
+    if ( $arg eq '-q' ) {
+	$quiet = 1;
+    } elsif ( $arg =~ /^-(errlist|errnos|maxerr)$/ ) {
+	$type = $arg;
+    } else {
+	die "$0: Unknown option: $arg\n";
+    }
+}
+
+parse_file('linux/errno.h');
 
 if ( $type eq '-errlist' ) {
     print  "#include <errno.h>\n";

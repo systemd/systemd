@@ -5,11 +5,7 @@
 #include <sys/time.h>
 #include <sys/syscall.h>
 
-#ifdef __NR_alarm
-
-_syscall1(unsigned int,alarm,unsigned int,seconds);
-
-#else
+#ifndef __NR_alarm
 
 /* Emulate alarm() via setitimer() */
 

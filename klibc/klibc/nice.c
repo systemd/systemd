@@ -7,11 +7,7 @@
 #include <sys/resource.h>
 #include <sys/syscall.h>
 
-#ifdef __NR_nice
-
-_syscall1(int,nice,int,inc);
-
-#else
+#ifndef __NR_nice
 
 int nice(int inc)
 {

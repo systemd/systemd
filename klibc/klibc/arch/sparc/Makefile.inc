@@ -14,7 +14,9 @@ ARCHOBJS = \
 	arch/$(ARCH)/urem.o \
 	arch/$(ARCH)/smul.o \
 	arch/$(ARCH)/umul.o \
-	arch/$(ARCH)/setjmp.o
+	arch/$(ARCH)/setjmp.o \
+	arch/$(ARCH)/syscall.o \
+	arch/$(ARCH)/sysfork.o
 
 arch/$(ARCH)/sdiv.S: arch/$(ARCH)/divrem.m4
 	@echo 'building $@ from $^'

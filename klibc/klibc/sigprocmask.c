@@ -5,11 +5,7 @@
 #include <signal.h>
 #include <sys/syscall.h>
 
-#ifdef __NR_sigprocmask
-
-_syscall3(int,sigprocmask,int,how,const sigset_t *,set,sigset_t *,oset);
-
-#else
+#ifndef __NR_sigprocmask
 
 int sigprocmask(int how, const sigset_t *set, sigset_t *oset)
 {

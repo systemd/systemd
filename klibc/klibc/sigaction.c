@@ -5,11 +5,7 @@
 #include <signal.h>
 #include <sys/syscall.h>
 
-#ifdef __NR_sigaction
-
-_syscall3(int,sigaction,int,sig,const struct sigaction *,act,struct sigaction *,oact);
-
-#else
+#if !defined(__NR_sigaction)
 
 int sigaction(int sig, const struct sigaction *act, struct sigaction *oact)
 {

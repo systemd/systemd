@@ -9,8 +9,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#define START_PORT	600
-#define END_PORT	(IPPORT_RESERVED - 1)
+#define START_PORT	768
+#define END_PORT	IPPORT_RESERVED
 #define NUM_PORTS	(END_PORT - START_PORT)
 
 int bindresvport(int sd, struct sockaddr_in *sin)
@@ -21,14 +21,12 @@ int bindresvport(int sd, struct sockaddr_in *sin)
 	int i;
 
 	if (sin == NULL) {
+		memset(&me, 0, sizeof(me));
 		sin = &me;
-		memset(sin, 0, sizeof(me));
-		sin->sin_port = AF_INET;
-	}
-	else if (sin->sin_family != AF_INET) {
+		sin->sin_family = AF_INET;
+	} else if (sin->sin_family != AF_INET) {
 		errno = EPFNOSUPPORT;
-		ret = -1;
-		goto bail;
+		return -1;
 	}
 	
 	if (port == 0) {
@@ -36,13 +34,12 @@ int bindresvport(int sd, struct sockaddr_in *sin)
 	}
 	
 	for (i = 0; i < NUM_PORTS; i++, port++) {
-		sin->sin_port = htons(port);
-		if ((ret = bind(sd, (struct sockaddr *)&sin, sizeof(*sin))) != -1)
-			break;
 		if (port == END_PORT)
 			port = START_PORT;
+		sin->sin_port = htons(port);
+		if ((ret = bind(sd, (struct sockaddr *)sin, sizeof(*sin))) != -1)
+			break;
 	}
 
- bail:
 	return ret;
 }

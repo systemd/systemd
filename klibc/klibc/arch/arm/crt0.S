@@ -3,10 +3,8 @@
 #
 # void _start(void)
 # {
-#    /* Divine up argc, argv, and envp */
-#    environ = envp;
-#    exit(main(argc, argv, envp));
-# } 
+#    __libc_init(elf_structure, atexit_ptr);
+# }
 #
 
 	.text

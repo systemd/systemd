@@ -11,6 +11,8 @@ ARCHOBJS = \
 	arch/$(ARCH)/exits.o \
 	arch/$(ARCH)/socketcall.o \
 	arch/$(ARCH)/setjmp.o \
+	arch/$(ARCH)/syscall.o \
+	arch/$(ARCH)/open.o \
 	arch/$(ARCH)/libgcc/__ashldi3.o \
 	arch/$(ARCH)/libgcc/__ashrdi3.o \
 	arch/$(ARCH)/libgcc/__lshrdi3.o \
@@ -21,7 +23,5 @@ ARCHOBJS = \
 	libgcc/__udivdi3.o \
 	libgcc/__umoddi3.o \
 	libgcc/__udivmoddi4.o
-
-ARCHSOOBJS = $(patsubst %.o,%.lo,$(ARCHOBJS))
 
 archclean:

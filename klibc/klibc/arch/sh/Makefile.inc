@@ -7,7 +7,8 @@
 # accordingly.
 #
 
-ARCHOBJS = arch/sh/setjmp.o
+ARCHOBJS = arch/sh/setjmp.o \
+	   arch/sh/syscall.o
 
 ARCHSOOBJS = $(patsubst %.o,%.lo,$(ARCHOBJS))
 

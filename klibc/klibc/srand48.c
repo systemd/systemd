@@ -5,8 +5,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-extern unsigned short __rand48_seed[3];
-
+unsigned short __rand48_seed[3]; /* Common with mrand48.c, lrand48.c */
 
 void srand48(long seedval)
 {

@@ -8,6 +8,8 @@
 #
 
 ARCHOBJS = \
-	arch/$(ARCH)/setjmp.o
+	arch/$(ARCH)/setjmp.o \
+	arch/$(ARCH)/syscall.o \
+	arch/$(ARCH)/sysfork.o
 
 archclean:

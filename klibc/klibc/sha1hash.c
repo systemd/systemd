@@ -289,7 +289,7 @@ char *mybase64(uint8_t digest[20])
 
 int main(int argc, char** argv)
 {
-  int i, j;
+  int i;
   SHA1_CTX context;
   uint8_t digest[20], buffer[16384];
   FILE* file;

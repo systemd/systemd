@@ -1,0 +1,207 @@
+; -*- fundamental -*-
+;
+; This is a list of system calls we invoke "directly".  These
+; are generated into syscall stubs in their own files, so the
+; linker can do its job properly.
+;
+; The full description of a line is:
+; [<[?][!]arch,...>] type [sysname,...][@systype][::funcname](args)
+;
+; ? means only instantiate this system call if present in asm/unistd.h
+;
+
+#include <asm/unistd.h>
+
+;
+; Process-related syscalls
+;
+<?!ia64> pid_t clone::__clone(unsigned long, void *)
+<?ia64> pid_t clone::__clone2(unsigned long, void *, void *)
+<?!sparc> pid_t fork()
+<sparc> pid_t fork@forkish()
+<!mips,mips64,sparc,ia64> pid_t vfork()
+<sparc> pid_t vfork@forkish()
+<!alpha> pid_t getpid()
+<alpha> pid_t getxpid@dual0::getpid()
+int setpgid(pid_t, pid_t)
+pid_t getpgid(pid_t)
+<!alpha> pid_t getppid()
+<alpha> pid_t getxpid@dual1::getppid()
+pid_t setsid()
+pid_t getsid(pid_t)
+pid_t wait4(pid_t, int *, int, struct rusage *)
+int execve(const char *, char * const *, char * const *)
+<?> int nice(int)
+<alpha,ia64> int getpriority(int, int)
+<!alpha,ia64> int getpriority::__getpriority(int, int)
+int setpriority(int, int, int)
+int sched_setscheduler(pid_t, int, const struct sched_param *)
+int sched_yield()
+
+;
+; User and group IDs
+;
+int setuid32,setuid::setuid(uid_t)
+int setgid32,setgid::setgid(gid_t)
+<!alpha> uid_t getuid32,getuid::getuid()
+<alpha>  uid_t getxuid@dual0::getuid()
+<!alpha> gid_t getgid32,getgid::getgid()
+<alpha> gid_t getxgid@dual0::getgid()
+<!alpha> uid_t geteuid32,geteuid::geteuid()
+<alpha> uid_t getxuid@dual1::geteuid()
+<!alpha> gid_t getegid32,getegid::getegid()
+<alpha> gid_t getxgid@dual1::getegid()
+int getgroups32,getgroups::getgroups(int, gid_t *)
+int setgroups32,setgroups::setgroups(size_t, const gid_t *)
+int setreuid32,setreuid::setreuid(uid_t, uid_t)
+int setregid32,setregid::setregid(gid_t, gid_t)
+int setfsuid32,setfsuid::setfsuid(uid_t)
+int setfsgid32,setfsgid::setfsgid(gid_t)
+int setresuid32,setresuid::setresuid(int, uid_t, uid, uid_t)
+
+;
+; Filesystem-related system calls
+;
+int mount(const char *, const char *, const char *, unsigned long, const void *)
+<!alpha,ia64> int umount2(const char *, int)
+<alpha,ia64> int umount::umount2(const char *, int)
+<!m68k> int pivot_root(const char *, const char *)
+int sync()
+#ifdef __NR_statfs64
+int statfs64::__statfs64(const char *, size_t, struct statfs *)
+#else
+int statfs(const char *, struct statfs *)
+#endif
+#ifdef __NR_fstatfs64
+int fstatfs64::__fstatfs64(int, size_t, struct statfs *)
+#else
+int fstatfs(int, struct statfs *)
+#endif
+int swapon(const char *, int)
+int swapoff(const char *)
+
+;
+; Inode-related system calls
+;
+int access(const char *, int)
+int link(const char *, const char *)
+int unlink(const char *)
+int chdir(const char *)
+int fchdir(int)
+int rename(const char *, const char *)
+int mknod(const char *, mode_t, dev_t)
+int chmod(const char *, mode_t)
+int fchmod(int, mode_t)
+int mkdir(const char *, mode_t)
+int rmdir(const char *)
+<!alpha,ia64,mips,mips64> int pipe(int *)
+mode_t umask(mode_t)
+int chroot(const char *)
+int symlink(const char *, const char *)
+int readlink(const char *, char *, size_t)
+int stat64,stat::stat(const char *, struct stat *)
+int lstat64,lstat::lstat(const char *, struct stat *)
+int fstat64,fstat::fstat(int, struct stat *)
+int getdents64,getdents::getdents(unsigned int, struct dirent *, unsigned int)
+int chown32,chown::chown(const char *, uid_t, gid_t)
+int fchown32,fchown::fchown(int, uid_t, gid_t)
+int lchown32,lchown::lchown(const char *, uid_t, gid_t)
+int getcwd::__getcwd(char *, size_t)
+<?> int utime(const char *, const struct utimbuf *)
+<?> int utimes(const char *, const struct timeval *)
+
+;
+; I/O operations
+;
+<!i386,64> int open::__open(const char *, int, mode_t)
+<64> int open(const char *, int, mode_t)
+ssize_t read(int, void *, size_t)
+ssize_t write(int, const void *, size_t)
+int close(int)
+<64> off_t lseek(int, off_t, int)
+<32> int _llseek::__llseek(int, unsigned long, unsigned long, off_t *, int)
+int dup(int)
+int dup2(int, int)
+<i386> int fcntl64@varadic::fcntl(int, int, unsigned long)
+<!i386> int fcntl64,fcntl::fcntl(int, int, unsigned long)
+int ioctl(int, int, void *)
+int flock(int, int)
+int _newselect,select::select(int, fd_set *, fd_set *, fd_set *, struct timeval *)
+int poll(struct pollfd *, nfds_t, long)
+int fsync(int)
+int fdatasync,fsync::fdatasync(int)
+int readv(int, const struct iovec *, int)
+int writev(int, const struct iovec *, int)
+int ftruncate64,ftruncate::ftruncate(int, off_t)
+ssize_t pread64,pread::pread(int, void *, size_t, off_t)
+ssize_t pwrite64,pwrite::pwrite(int, void *, size_t, off_t)
+
+;
+; Signal operations
+;
+int kill(pid_t, int)
+<?> int sigaction(int, const struct sigaction *, struct sigaction *)
+int rt_sigaction(int, const struct sigaction *, struct sigaction *, size_t)
+<?> int sigsuspend(const sigset_t *)
+int rt_sigsuspend(const sigset_t *, size_t)
+<?> int sigpending(sigset_t)
+int rt_sigpending(sigset_t *, size_t)
+<?> int sigprocmask(int, const sigset_t *, sigset_t *)
+int rt_sigprocmask(int, const sigset_t *, sigset_t *, size_t)
+<?> unsigned int alarm(unsigned int)
+int getitimer(int, struct itimerval *)
+int setitimer(int, const struct itimerval *, struct itimerval *)
+
+;
+; Time-related system calls
+;
+<?> time_t time(time_t *)
+clock_t times(struct tms *)
+int gettimeofday(struct timeval *, struct timezone *)
+int settimeofday(const struct timeval *, const struct timezone *)
+int nanosleep(const struct timespec *, struct timespec *)
+<?> int pause()
+
+;
+; Memory
+;
+void * brk::__brk(void *)
+int munmap(void *, size_t)
+void * mremap(void *, size_t, size_t, unsigned long)
+int msync(const void *, size_t, int)
+int mprotect(const void *, size_t, int)
+#if (BITSIZE == 32 && defined(__NR_mmap2)) || (BITSIZE == 64 && !defined(__NR_mmap))
+<!s390> void * mmap2::__mmap2(void *, size_t, int, int, int, long)
+#else
+<!s390x> void * mmap(void *, size_t, int, int, int, long)
+#endif
+int mlockall(int)
+int munlockall()
+int mlock(const void *, size_t)
+int munlock(const void *, size_t)
+
+;
+; System stuff
+;
+int uname(struct utsname *)
+int setdomainname(const char *, size_t)
+int sethostname(const char *, size_t)
+long init_module(void *, unsigned long, const char *)
+long delete_module(const char *, unsigned int)
+int reboot::__reboot(int, int, int, void *)
+int syslog::klogctl(int, char *, int)
+int sysinfo(struct sysinfo *)
+
+;
+; Low-level I/O (generally architecture-specific)
+;
+<i386,x86_64> int iopl(int)
+<i386,x86_64> int ioperm(unsigned long, unsigned long, int)
+<i386> int vm86(struct vm86_struct *)
+
+;
+; Most architectures have the socket interfaces using regular
+; system calls.
+;
+<?!i386> long socketcall::__socketcall(int, const unsigned long *)
+#include "SOCKETCALLS.def"

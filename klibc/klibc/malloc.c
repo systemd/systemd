@@ -133,9 +133,14 @@ void *malloc(size_t size)
   }
 
   /* Nothing found... need to request a block from the kernel */
-  fsize = (size+MALLOC_CHUNK_MASK) & ~MALLOC_CHUNK_MASK; 
+  fsize = (size+MALLOC_CHUNK_MASK) & ~MALLOC_CHUNK_MASK;
+
+#ifdef MALLOC_USING_SBRK
+  fp = (struct free_arena_header *) sbrk(fsize);
+#else
   fp = (struct free_arena_header *)
     mmap(NULL, fsize, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, 0);
+#endif
 
   if ( fp == (struct free_arena_header *)MAP_FAILED ) {
     return NULL;		/* Failed to get a block */

@@ -7,13 +7,7 @@
 #include <sys/types.h>
 #include <sys/syscall.h>
 
-#ifdef __NR_utime
-
-_syscall2(int,utime,const char *,filename,const struct utimbuf *,buf);
-
-#else
-
-static inline _syscall2(int,utimes,const char *,filename, const struct timeval *,tvp);
+#ifndef __NR_utime
 
 int utime(const char *filename, const struct utimbuf *buf)
 {

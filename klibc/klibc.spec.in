@@ -1,16 +1,14 @@
-%define _rpmdir rpms
-%define _builddir .
-
 Summary: A minimal libc subset for use with initramfs.
 Name: klibc
-Version: 0.89
+Version: @@VERSION@@
 Release: 1
 License: BSD/GPL
 Group: Development/Libraries
-URL: http://www.zytor.com/klibc
-Source: /dev/null
+URL: http://www.zytor.com/mailman/listinfo/klibc
+Source: http://www.kernel.org/pub/linux/libs/klibc-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
-Packager: Bryan O'Sullivan <bos@serpentine.com>
+BuildRequires: kernel-source >= 2.6.0
+Packager: H. Peter Anvin <hpa@zytor.com>
 Prefix: /usr
 Vendor: Starving Linux Artists
 
@@ -43,18 +41,24 @@ full-function counterparts.  They are intended for inclusion in
 initramfs images and embedded systems.
 
 %prep
-if [ ! -L linux ]; then
-    echo "*** You must have a symlink named linux to build klibc" 1>&2
-    exit 1
-fi
-if [ ! -f linux/include/asm/page.h ]; then
-    echo "*** You need to 'make prepare' in the linux tree before building klibc" 1>&2
-    exit 1
-fi
-mkdir -p %{buildroot} %{_rpmdir}
+%setup -q
+cp -as /usr/src/linux-`rpm -q kernel-source | tail -1 | cut -d- -f3-` ./linux
+make -C linux defconfig ARCH=%{_target_cpu}
+make -C linux prepare ARCH=%{_target_cpu}
+# Deal with braindamage in RedHat's kernel-source RPM
+rm -f linux/include/linux/config.h
+cat <<EOF > linux/include/linux/config.h
+#ifndef _LINUX_CONFIG_H
+#define _LINUX_CONFIG_H
+
+#include <linux/autoconf.h>
+
+#endif
+EOF
+mkdir -p %{buildroot}
 
 %build
-make
+make ARCH=%{_target_cpu}
 
 %install
 rm -rf %{buildroot}
@@ -77,6 +81,7 @@ ln $lib/klibc.so $lib/libc.so
 ln $lib/klibc.so $lib/klibc-$(cat $lib/libc.so.hash).so
 
 # Next, the generated binaries.
+# These are currently static binaries, should we go for shared?
 
 install -m 755 ash/sh $exe
 install -m 755 gzip/gzip $exe
@@ -85,9 +90,7 @@ ln $exe/gzip $exe/zcat
 install -m 755 ipconfig/ipconfig $exe
 install -m 755 kinit/kinit $exe
 install -m 755 nfsmount/nfsmount $exe
-for i in chroot dd fstype mkdir mkfifo mount umount; do
-    install -m 755 utils/$i $exe
-done
+install -m 755 utils/static/* $exe
 
 # The docs.
 
@@ -102,7 +105,7 @@ install -m 444 kinit/README $udoc/README.kinit
 
 # Finally, the include files.
 
-bitsize=$(make --no-print-directory -C klibc bitsize)
+bitsize=$(make --no-print-directory -C klibc bitsize ARCH=%{_target_cpu})
 cp --parents $(find klibc/include \( -name CVS -o -name SCCS \) -prune \
     -o -name '*.h' -print) $inc
 mv $inc/klibc $inc/klibc.$$
@@ -147,5 +150,8 @@ rm -rf $RPM_BUILD_ROOT
 %{prefix}/share/doc/%{name}-utils-%{version}
 
 %changelog
+* Tue Jul 6 2004 H. Peter Anvin <hpa@zytor.com>
+- Update to use kernel-source RPM for the kernel symlink.
+
 * Sat Nov 29 2003 Bryan O'Sullivan <bos@serpentine.com> - 
 - Initial build.

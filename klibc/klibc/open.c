@@ -1,17 +1,21 @@
 /*
  * open.c
  *
- * The open syscall is weird, because it's defined as a varadic
- * function, but implementing it as such generally sucks for
- * performance.  Thus we generate it as a 3-argument function,
- * but with explicit __cdecl assuming the __cdecl convention is
- * independent of being varadic.
+ * On 32-bit platforms we need to pass O_LARGEFILE to the open()
+ * system call, to indicate that we're 64-bit safe.
  */
 
-#define __IN_OPEN_C
+#define _KLIBC_IN_OPEN_C
 #include <unistd.h>
 #include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/syscall.h>
 
-__cdecl _syscall3(int,open,const char *,file,int,flags,mode_t,mode)
+#if BITSIZE == 32 && !defined(__i386__)
+
+extern int __open(const char *, int, mode_t);
+
+int open(const char *pathname, int flags, mode_t mode)
+{
+  return __open(pathname, flags|O_LARGEFILE, mode);
+}
+
+#endif

@@ -11,6 +11,7 @@ ARCHOBJS = \
 	arch/$(ARCH)/pipe.o \
 	arch/$(ARCH)/vfork.o \
 	arch/$(ARCH)/setjmp.o \
+	arch/$(ARCH)/syscall.o \
 	libgcc/__divdi3.o \
         libgcc/__moddi3.o \
         libgcc/__udivdi3.o \

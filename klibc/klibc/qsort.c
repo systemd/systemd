@@ -23,14 +23,14 @@ void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, co
 {
   size_t gap = nmemb;
   size_t i, j;
-  void *p1, *p2;
+  char *p1, *p2;
   int swapped;
 
   do {
     gap = newgap(gap);
     swapped = 0;
     
-    for ( i = 0, p1 = base ; i < nmemb-gap ; i++, (char *)p1 += size ) {
+    for ( i = 0, p1 = base ; i < nmemb-gap ; i++, p1 += size ) {
       j = i+gap;
       if ( compar(p1, p2 = (char *)base+j*size) > 0 ) {
 	memswap(p1, p2, size);

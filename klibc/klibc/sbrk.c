@@ -1,23 +1,41 @@
 /* sbrk.c - Change data segment size */
 
 /* Written 2000 by Werner Almesberger */
+/* Modified 2003-2004 for klibc by H. Peter Anvin */
 
 #include <stddef.h>
 #include <unistd.h>
-#include <sys/types.h>
+#include <inttypes.h>
+#include <errno.h>
+#include "malloc.h"
 
 char *__current_brk;		/* Common with brk.c */
 
+/* p is an address,  a is alignment; must be a power of 2 */
+static inline void *align_up(void *p, uintptr_t a)
+{
+  return (void *) (((uintptr_t)p + a-1) & ~(a-1));
+}
+
 void *sbrk(ptrdiff_t increment)
 {
-  char *old_brk, *new_brk;
+  char *start, *end, *new_brk;
   
   if (!__current_brk)
     __current_brk = __brk(NULL);
-  new_brk = __brk(__current_brk+increment);
-  if (new_brk != __current_brk+increment)
+
+  start = align_up(__current_brk, SBRK_ALIGNMENT);
+  end   = start + increment;
+
+  new_brk = __brk(end);
+
+  if (new_brk == (void *)-1)
+    return (void *)-1;
+  else if (new_brk < end) {
+    errno = ENOMEM;
     return (void *) -1;
-  old_brk = __current_brk;
+  }
+
   __current_brk = new_brk;
-  return old_brk;
+  return end;
 }

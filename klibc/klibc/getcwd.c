@@ -1,12 +1,13 @@
 /*
  * getcwd.c
+ *
+ * The system call behaves differently than the library function.
  */
 
 #include <unistd.h>
 #include <sys/syscall.h>
 
-#define __NR___getcwd __NR_getcwd
-static inline _syscall2(int,__getcwd,char *,buf,size_t,size);
+extern int __getcwd(char * buf, size_t size);
 
 char *getcwd(char *buf, size_t size)
 {

@@ -9,11 +9,11 @@
 
 # Enable this to compile with register parameters; only safe for
 # gcc > 3
-REGPARM_OPT := -mregparm=3 -DREGPARM
+REGPARM_OPT := -mregparm=3 -DREGPARM=3
 
-gcc_major := $(shell $(CC) -v 2>&1 | awk '/gcc version/{print int($$3)}')
+gcc_major := $(shell echo __GNUC__ | $(CC) -E -xc - | tail -n 1)
 
-OPTFLAGS = $(REGPARM) -march=i386 -Os
+OPTFLAGS = $(REGPARM) -march=i386 -Os -g
 
 ifeq ($(gcc_major),3)
 REGPARM  := $(REGPARM_OPT)

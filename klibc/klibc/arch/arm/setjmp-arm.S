@@ -34,7 +34,6 @@ setjmp:
 	.type longjmp, #function
 longjmp:
 	ldmia	r0, {r4, r5, r6, r7, r8, r9, r10, fp, sp, lr}
-	movs	r0, r1
-	moveq	r0, #1
+	mov	r0, r1
 	mov	pc, lr
 	.size longjmp,.-longjmp

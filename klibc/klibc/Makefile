@@ -10,6 +10,7 @@ include MCONFIG
 TESTS   = $(patsubst %.c,%,$(wildcard tests/*.c)) \
 	  $(patsubst %.c,%.shared,$(wildcard tests/*.c))
 LIBOBJS = vsnprintf.o snprintf.o vsprintf.o sprintf.o \
+	  asprintf.o vasprintf.o \
 	  vsscanf.o sscanf.o ctypes.o \
 	  strntoumax.o strntoimax.o \
 	  atoi.o atol.o atoll.o \
@@ -18,41 +19,51 @@ LIBOBJS = vsnprintf.o snprintf.o vsprintf.o sprintf.o \
 	  globals.o exitc.o atexit.o onexit.o \
 	  execl.o execle.o execv.o execvpe.o execvp.o execlp.o execlpe.o \
 	  fork.o wait.o wait3.o waitpid.o system.o setpgrp.o getpgrp.o \
-	  open.o \
+	  daemon.o \
 	  printf.o vprintf.o fprintf.o vfprintf.o perror.o \
-	  fopen.o fread.o fread2.o fgetc.o fgets.o \
-	  fwrite.o fwrite2.o fputc.o fputs.o puts.o \
-	  sleep.o usleep.o raise.o abort.o assert.o alarm.o pause.o \
+	  statfs.o fstatfs.o umount.o \
+	  open.o fopen.o fread.o fread2.o fgetc.o fgets.o \
+	  fwrite.o fwrite2.o fputc.o fputs.o puts.o putchar.o \
+	  sleep.o usleep.o strtotimespec.o strtotimeval.o \
+	  raise.o abort.o assert.o alarm.o pause.o \
 	  __signal.o sysv_signal.o bsd_signal.o siglist.o siglongjmp.o \
 	  sigaction.o sigpending.o sigprocmask.o sigsuspend.o \
-	  brk.o sbrk.o malloc.o realloc.o calloc.o mmap.o getpagesize.o \
+	  brk.o sbrk.o malloc.o realloc.o calloc.o mmap.o \
 	  memcpy.o memcmp.o memset.o memccpy.o memmem.o memswap.o \
-	  memmove.o \
+	  memmove.o memchr.o \
 	  strcasecmp.o strncasecmp.o strndup.o strerror.o \
-	  strcat.o strchr.o strcmp.o strcpy.o strdup.o strlen.o \
-	  strncat.o strstr.o strncmp.o strncpy.o strrchr.o strspn.o \
+	  strcat.o strchr.o strcmp.o strcpy.o strdup.o strlen.o strnlen.o \
+	  strncat.o strlcpy.o strlcat.o \
+	  strstr.o strncmp.o strncpy.o strrchr.o strspn.o \
 	  strsep.o strtok.o \
 	  gethostname.o getdomainname.o getcwd.o \
-	  seteuid.o setegid.o setresuid.o setresgid.o \
+	  seteuid.o setegid.o \
 	  getenv.o setenv.o putenv.o __put_env.o unsetenv.o \
 	  getopt.o readdir.o \
 	  syslog.o closelog.o pty.o getpt.o isatty.o reboot.o \
-	  time.o utime.o fdatasync.o llseek.o select.o nice.o getpriority.o \
-	  qsort.o lrand48.o srand48.o seed48.o \
+	  time.o utime.o llseek.o nice.o getpriority.o \
+	  qsort.o \
+	  lrand48.o jrand48.o mrand48.o nrand48.o srand48.o seed48.o \
 	  inet/inet_ntoa.o inet/inet_aton.o inet/inet_addr.o \
 	  inet/inet_ntop.o inet/inet_pton.o inet/bindresvport.o \
 	  send.o recv.o
+ifeq ($(ERRLIST),1)
+LIBOBJS += errlist.o
+endif
+
 SOLIB   = libc.so
 SOHASH  = klibc.so
 
 CRT0    = crt0.o
 LIB     = libc.a
 
-#all: tests $(CRT0) $(LIB) $(SOLIB) klibc.so
-all:  $(CRT0) $(LIB) $(SOLIB) klibc.so
+INTERP_O = interp.o
+
+all: tests $(CRT0) $(LIB) $(SOLIB) klibc.so
 
 # Add any architecture-specific rules
 include arch/$(ARCH)/Makefile.inc
+EMAIN ?= -e main
 
 tests: $(TESTS)
 
@@ -71,19 +82,20 @@ tests/% : tests/%.o $(LIB) $(CRT0)
 	$(STRIP) $@.stripped
 
 tests/%.shared : tests/%.o interp.o $(SOLIB)
-	$(LD) $(LDFLAGS) -o $@ -e main interp.o tests/$*.o -R $(SOLIB) $(LIBGCC)
+	$(LD) $(LDFLAGS) -o $@ $(EMAIN) interp.o tests/$*.o -R $(SOLIB) $(LIBGCC)
 	cp $@ $@.stripped
 	$(STRIP) $@.stripped
 
 $(LIB): __static_init.o $(LIBOBJS) $(ARCHOBJS) syscalls/static.obj socketcalls/static.obj
 	rm -f $(LIB)
-	$(AR) cq $(LIB) __static_init.o $(LIBOBJS) $(ARCHOBJS) syscalls/*.o socketcalls/*.o
+	$(AR) cq $(LIB) __static_init.o $(LIBOBJS) $(ARCHOBJS) \
+		$(wildcard syscalls/*.o) $(wildcard socketcalls/*.o)
 	$(RANLIB) $(LIB)
 
 $(SOLIB): $(CRT0) __shared_init.o $(LIBOBJS) $(ARCHOBJS) syscalls/static.obj socketcalls/static.obj
 	$(LD) $(LDFLAGS) $(SHAREDFLAGS) -o $@ \
 		$(CRT0) __shared_init.o $(LIBOBJS) $(ARCHOBJS) \
-	        syscalls/*.o socketcalls/*.o \
+	        $(wildcard syscalls/*.o) $(wildcard socketcalls/*.o) \
 		$(LIBGCC)
 
 sha1hash: sha1hash.c
@@ -99,7 +111,7 @@ $(SOHASH): $(SOLIB) $(SOLIB).hash
 	rm -f klibc-??????????????????????.so
 	ln -f $@ klibc-`cat $(SOLIB).hash`.so
 
-interp.o: interp.S $(SOLIB).hash
+$(INTERP_O): interp.S $(SOLIB).hash
 	$(CC) $(CFLAGS) -D__ASSEMBLY__ -DLIBDIR=\"$(SHLIBDIR)\" \
 		-DSOHASH=\"`cat $(SOLIB).hash`\" \
 		-c -o $@ $<
@@ -107,16 +119,29 @@ interp.o: interp.S $(SOLIB).hash
 crt0.o: arch/$(ARCH)/crt0.o
 	cp arch/$(ARCH)/crt0.o .
 
-syscalls.dir: SYSCALLS syscalls.pl syscommon.h
+errlist.c:
+	$(PERL) makeerrlist.pl -errlist > $@ || rm -f $@
+
+# We pass -ansi to keep cpp from define e.g. "i386" as well as "__i386__"
+SYSCALLS.i: SYSCALLS.def
+	$(CC) $(CFLAGS) -D__ASSEMBLY__ -ansi -x assembler-with-cpp -E -o $@ $<
+
+syscalls.nrs: ../include/sys/syscall.h ../include/arch/$(ARCH)/klibc/archsys.h ../linux/include/asm/unistd.h
+	$(CC) $(CFLAGS) -Wp,-dM -x c -E -o $@ ../include/sys/syscall.h
+
+syscalls.dir: SYSCALLS.i syscalls.pl arch/$(ARCH)/sysstub.ph syscommon.h syscalls.nrs
 	rm -rf syscalls
 	mkdir syscalls
-	$(PERL) syscalls.pl $(ARCH) SYSCALLS
+	$(PERL) syscalls.pl SYSCALLS.i $(ARCH) $(BITSIZE) syscalls.nrs ../include/klibc/havesyscall.h
 	touch $@
 
-socketcalls.dir: SOCKETCALLS socketcalls.pl socketcommon.h
+../include/klibc/havesyscall.h: syscalls.dir
+	: Generated by side effect
+
+socketcalls.dir: SOCKETCALLS.def socketcalls.pl socketcommon.h
 	rm -rf socketcalls
 	mkdir socketcalls
-	$(PERL) socketcalls.pl $(ARCH) SOCKETCALLS
+	$(PERL) socketcalls.pl SOCKETCALLS.def $(ARCH)
 	touch $@
 
 %/static.obj: %.dir
@@ -133,9 +158,10 @@ clean: archclean
 	rm -f $(TESTS) tests/*.stripped
 	rm -rf syscalls syscalls.dir
 	rm -rf socketcalls socketcalls.dir
-	rm -f sha1hash
+	rm -f sha1hash errlist.c
 
 spotless: clean
+	rm -f ../include/klibc/havesyscall.h syscalls.nrs
 	find . \( -name \*~ -o -name '.*.d' \) -not -type d -print0 | \
 		xargs -0rt rm -f
 

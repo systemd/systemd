@@ -6,11 +6,7 @@
 #include <sys/time.h>
 #include <sys/syscall.h>
 
-#ifdef __NR_time
-
-_syscall1(time_t,time,time_t *,t);
-
-#else
+#ifndef __NR_time
 
 time_t time(time_t *t)
 {

@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <string.h>
 
-extern unsigned short __rand48_seed[3];
+unsigned short __rand48_seed[3];
 
 unsigned short *seed48(const unsigned short xsubi[3])
 {

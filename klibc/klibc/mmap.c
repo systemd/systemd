@@ -6,46 +6,44 @@
 #include <errno.h>
 #include <sys/syscall.h>
 #include <sys/mman.h>
+#include <unistd.h>
 #include <asm/page.h>		/* For PAGE_SHIFT */
 
 #if defined(__sparc__)
 # define MMAP2_SHIFT	12	/* Fixed by syscall definition */
+#elif defined(__mips__) || defined(__powerpc__)
+# define MMAP2_SHIFT	__getpageshift() /* Variable */
 #else
 # define MMAP2_SHIFT	PAGE_SHIFT
 #endif
-#define MMAP2_MASK	((1UL << MMAP2_SHIFT)-1)
 
 /*
- * Prefer mmap2() over mmap(), except on the architectures listed
+ * Set in SYSCALLS whether or not we should use an unadorned mmap() system
+ * call (typical on 64-bit architectures).
  */
+#if (BITSIZE == 32 && defined(__NR_mmap2)) || (BITSIZE == 64 && !defined(__NR_mmap))
 
-#if defined(__NR_mmap2) && !defined(__sparc__) && !defined(__ia64__) && !defined(__powerpc__) && !defined(__powerpc64__)
+/* This architecture uses mmap2(). The Linux mmap2() system call takes
+   a page offset as the offset argument.  We need to make sure we have
+   the proper conversion in place. */
 
-/* This architecture uses mmap2() */
-
-static inline _syscall6(void *,mmap2,void *,start,size_t,length,int,prot,int,flags,int,fd,off_t,offset);
-
-/* The Linux mmap2() system call takes a page offset as the offset argument.
-   We need to make sure we have the proper conversion in place. */
+extern void *__mmap2(void *, size_t, int, int, int, size_t);
 
 void *mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset)
 {
-  if ( offset & MMAP2_MASK ) {
+  const int mmap2_shift = MMAP2_SHIFT;
+  const unsigned long mmap2_mask = (1UL << mmap2_shift) - 1;
+
+  if ( offset & mmap2_mask ) {
     errno = EINVAL;
     return MAP_FAILED;
   }
 
-  return mmap2(start, length, prot, flags, fd, (size_t)offset >> MMAP2_SHIFT);
+  return __mmap2(start, length, prot, flags, fd, (size_t)offset >> mmap2_shift);
 }
 
-#else
-
-/* This architecture uses a plain mmap() system call */
-/* Only use this for architectures where mmap() is a real 6-argument system call! */
-
-_syscall6(void *,mmap,void *,start,size_t,length,int,prot,int,flags,int,fd,off_t,offset)
-
 #endif
+
 
     
   

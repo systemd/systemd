@@ -3,10 +3,10 @@
 #
 
 	.text
-	.type	__start,@function
-	.ent	__start, 0
-	.globl	__start
-__start:
+	.type	_start,@function
+	.ent	_start, 0
+	.globl	_start
+_start:
 	.frame  $30, 0, $26, 0
 	mov	$31, $15
 	br	$29, 1f
@@ -18,4 +18,5 @@ __start:
 	
 	jsr	$26, __libc_init
 	
-	.size __start,.-__start
+	.size	_start,.-_start
+	.end	_start

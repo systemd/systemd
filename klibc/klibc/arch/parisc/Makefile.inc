@@ -8,8 +8,12 @@
 #
 
 ARCHOBJS = \
-	arch/$(ARCH)/setjmp.o
+	arch/$(ARCH)/setjmp.o \
+	arch/$(ARCH)/syscall.o
 
 ARCHOOBJS = $(patsubst %o,%.lo,%(ARCHOBJS))
 
 archclean:
+
+arch/$(ARCH)/syscall.o: arch/$(ARCH)/syscall.c
+	$(CC) $(CFLAGS) -ffixed-r20 -c -o $@ $<

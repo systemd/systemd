@@ -27,7 +27,7 @@ int pipe(int *filedes)
 	long _retval;
 	__asm __volatile (__IA64_BREAK
 			  : "=r" (_r8), "=r" (_r10), "=r" (_r15),
-			    "=r" (_out0)
+			  "=r" (_out0), "=r" (_r9)
 			  : "2" (_r15), "3" (_out0)
 			  : "memory" ASM_CLOBBERS);
 	if (_r10 == -1) {

@@ -27,8 +27,8 @@ vfork:
 	mov	out0=CLONE_VM|CLONE_VFORK|SIGCHLD
 	mov     out1=0
 	;;
-	__IA64_BREAK      // Do the syscall
-	
+	break 0x100000      // Do the syscall
+	;; 
 	addl	r15=0,r1
 	cmp.eq  p7,p6 = -1,r10
 	;;

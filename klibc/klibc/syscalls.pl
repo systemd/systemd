@@ -1,46 +1,99 @@
 #!/usr/bin/perl
-($arch, $file) = @ARGV;
+#
+# Script to parse the SYSCALLS file and generate appropriate
+# stubs.
 
-if (!open(FILE, "< $file")) {
-    print STDERR "$file: $!\n";
-    exit(1);
+$v = $ENV{'KBUILD_VERBOSE'};
+$quiet = defined($v) ? !$v : 0;
+
+@args = ();
+for $arg ( @ARGV ) {
+    if ( $arg =~ /^-/ ) {
+	if ( $arg eq '-q' ) {
+	    $quiet = 1;
+	} else {
+	    die "$0: Unknown option: $arg\n";
+	}
+    } else {
+	push(@args, $arg);
+    }
+}
+($file, $arch, $bits, $unistd, $havesyscall) = @args;
+
+require "arch/$arch/sysstub.ph";
+
+if (!open(UNISTD, '<', $unistd)) {
+    die "$0: $unistd: $!\n";
+}
+while ( defined($line = <UNISTD>) ) {
+    chomp $line;
+
+    if ( $line =~ /^\#\s*define\s+__NR_([A-Za-z0-9_]+)\s+(.*\S)\s*$/ ) {
+	$syscalls{$1} = $2;
+	print STDERR "SYSCALL FOUND: $1\n" unless ( $quiet );
+    }
+}
+close(UNISTD);
+
+if (!open(HAVESYS, '>', $havesyscall)) {
+    die "$0: $havesyscall: $!\n";
+}
+
+print HAVESYS "#ifndef _KLIBC_HAVESYSCALL_H\n";
+print HAVESYS "#define _KLIBC_HAVESYSCALL_H 1\n\n";
+
+if (!open(FILE, '<', $file)) {
+    die "$0: $file: $!\n";
 }
 
 while ( defined($line = <FILE>) ) {
     chomp $line;
-    $line =~ s/\s*\#.*$//;	# Strip comments and trailing blanks
+    $line =~ s/\s*(|[\#;].*)$//; # Strip comments and trailing blanks
     next unless $line;
 
-    if ( $line =~ /^\s*(\<[^\>]+\>\s+|)([^\(\<\>]+[^\@\:A-Za-z0-9_])([A-Za-z0-9_]+)(|\@[A-Za-z0-9_]+)(|\:\:[A-Za-z0-9_]+)\s*\(([^\:\)]*)\)\s*$/ ) {
-	$archs = $1;
-	$type  = $2;
-	$sname = $3;
-	$stype = $4;
-	$fname = $5;
-	$argv  = $6;
+    if ( $line =~ /^\s*(\<[^\>]+\>\s+|)([A-Za-z0-9_\*\s]+)\s+([A-Za-z0-9_,]+)(|\@[A-Za-z0-9_]+)(|\:\:[A-Za-z0-9_]+)\s*\(([^\:\)]*)\)\s*$/ ) {
+	$archs  = $1;
+	$type   = $2;
+	$snames = $3;
+	$stype  = $4;
+	$fname  = $5;
+	$argv   = $6;
 
-	$doit = 1;
+	$doit  = 1;
+	$maybe = 0;
 	if ( $archs ne '' ) {
-	    die "$0: Internal error"
-		unless ( $archs =~ /^\<(|\!)([^\>\!]+)\>/ );
-	    $not = $1;
-	    $list = $2;
+	    die "$file:$.: Invalid architecture spec: <$archs>\n"
+		unless ( $archs =~ /^\<(|\?)(|\!)([^\>\!\?]*)\>/ );
+	    $maybe = $1 ne '';
+	    $not = $2 ne '';
+	    $list = $3;
 
-	    $doit = ($not eq '') ? 0 : 1;
+	    $doit = $not || ($list eq '');
 
 	    @list = split(/,/, $list);
 	    foreach  $a ( @list ) {
-		if ( $a eq $arch ) {
-		    $doit = ($not eq '') ? 1 : 0;
+		if ( $a eq $arch || $a eq $bits ) {
+		    $doit = !$not;
 		    last;
 		}
 	    }
 	}
 	next if ( ! $doit );
 
-	$type =~ s/\s*$//;
+	undef $sname;
+	foreach $sn ( split(/,/, $snames) ) {
+	    if ( defined $syscalls{$sn} ) {
+		$sname = $sn;
+		last;
+	    }
+	}
+	if ( !defined($sname) ) {
+	    next if ( $maybe );
+	    die "$file:$.: Undefined system call: $snames\n";
+	}
 
-	$stype =~ s/^\@/_/;
+	$type  =~ s/\s*$//;
+	$stype =~ s/^\@//;
 
 	if ( $fname eq '' ) {
 	    $fname = $sname;
@@ -50,32 +103,12 @@ while ( defined($line = <FILE>) ) {
 
 	@args = split(/\s*\,\s*/, $argv);
 
-	open(OUT, "> syscalls/${fname}.c")
-	    or die "$0: Cannot open syscalls/${fname}.c\n";
-
-	if ( $fname eq "rt_sigaction") {
-	    print OUT "#ifdef __x86_64__\n\n";
-	    print OUT "struct sigaction;\n\n";
-            print OUT "#endif\n\n"
-	}
-
-	print OUT "#include \"syscommon.h\"\n\n";
-	
-	if ( $fname ne $sname ) {
-	    print OUT "#undef __NR_${fname}\n";
-	    print OUT "#define __NR_${fname} __NR_${sname}\n\n";
-	}
-
-	print OUT "_syscall", scalar(@args), $stype, "(", $type, ',', $fname;
-
-	$i = 0;
-	foreach $arg ( @args ) {
-	    print OUT ",", $arg, ",a",$i++;
-	}
-	print OUT ");\n";
-	close(OUT);
+	print HAVESYS "#define _KLIBC_HAVE_SYSCALL_${fname} ${sname}\n";
+	make_sysstub($fname, $type, $sname, $stype, @args);
     } else {
-	print STDERR "$file:$.: Could not parse input\n";
-	exit(1);
+	die "$file:$.: Could not parse input: \"$line\"\n";
     }
 }
+
+print HAVESYS "\n#endif\n";
+close(HAVESYS);

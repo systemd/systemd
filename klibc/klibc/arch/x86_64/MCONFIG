@@ -9,8 +9,14 @@
 # Blatantly copied and modified from i386 version by Mats Petersson, AMD.
 #
 
+#
+# NOTE: -fno-asynchronous-unwind-tables produce significantly smaller
+# binaries (20% smaller), but makes the code completely useless for
+# debugging using gdb.
+#
 ARCHREQFLAGS = -m64
-OPTFLAGS     = -Os -fomit-frame-pointer -falign-functions=0 -falign-jumps=0 -falign-loops=0
+OPTFLAGS     = -Os -fno-asynchronous-unwind-tables -fomit-frame-pointer \
+		-falign-functions=0 -falign-jumps=0 -falign-loops=0
 BITSIZE      = 64
 LDFLAGS      = -m elf_x86_64
 

@@ -1,12 +1,11 @@
 #
 # arch/sh/crt0.S
 #
-# void _start(void)
-# {
-#    /* Divine up argc, argv, and envp */
-#    environ = envp;
-#    exit(main(argc, argv, envp));
-# } 
+# Does arch-specific initialization and invokes __libc_init
+# with the appropriate arguments.
+#
+# See __static_init.c or __shared_init.c for the expected
+# arguments.
 #
 
 	.text

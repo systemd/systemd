@@ -6,13 +6,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-
-/*
- * This is the minimum chunk size we will ask the kernel for; this should
- * be a multiple of the page size on all architectures.
- */
-#define MALLOC_CHUNK_SIZE	65536
-#define MALLOC_CHUNK_MASK       (MALLOC_CHUNK_SIZE-1)
+#include <klibc/sysconfig.h>
 
 /*
  * This structure should be a power of two.  This becomes the
