@@ -112,7 +112,7 @@ int add_perm_dev(struct perm_device *new_dev)
 
 	/* update the values if we already have the device */
 	list_for_each_entry(dev, &perm_device_list, node) {
-		if (strcmp_pattern(new_dev->name, dev->name))
+		if (strcmp(new_dev->name, dev->name))
 			continue;
 		copy_var(dev, new_dev, mode);
 		copy_string(dev, new_dev, owner);
