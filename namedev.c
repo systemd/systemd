@@ -378,6 +378,7 @@ static int do_label(struct sysfs_class_device *class_dev, struct udevice *udev, 
 	struct sysfs_attribute *tmpattr = NULL;
 	struct config_device *dev;
 	struct list_head *tmp;
+	char *c;
 
 	list_for_each(tmp, &config_device_list) {
 		dev = list_entry(tmp, struct config_device, node);
@@ -406,7 +407,9 @@ static int do_label(struct sysfs_class_device *class_dev, struct udevice *udev, 
 		continue;
 
 label_found:
-		tmpattr->value[strlen(tmpattr->value)-1] = 0x00;
+		c = tmpattr->value + strlen(tmpattr->value)-1;
+		if (*c == '\n')
+			*c = 0x00;
 		dbg("compare attribute '%s' value '%s' with '%s'",
 			  dev->sysfs_file, tmpattr->value, dev->sysfs_value);
 		if (strcmp(dev->sysfs_value, tmpattr->value) != 0)
@@ -578,7 +581,7 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 			}
 		}
 	}
-		
+
 	if (sysfs_device) {
 		dbg("sysfs_device->path='%s'", sysfs_device->path);
 		dbg("sysfs_device->bus_id='%s'", sysfs_device->bus_id);
@@ -642,7 +645,7 @@ done:
 int namedev_init(void)
 {
 	int retval;
-	
+
 	retval = namedev_init_rules();
 	if (retval)
 		return retval;
