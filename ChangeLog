@@ -1,3 +1,48 @@
+Summary of changes from v011 to v012
+============================================
+
+<azarah:nosferatu.za.org>:
+  o make symlink work properly if there is already a file in its place
+  o Fix udev gcc-2.95.4 compat
+
+<christophe.varoqui:free.fr>:
+  o extras multipath update
+  o extras multipath update
+
+Kay Sievers:
+  o mention user callable udev + options in man page
+  o make udev user callable to query the database
+  o depend on all .h files
+  o cleanup namedev_parse debug text
+  o extend exec_program[]
+  o ide-devfs.sh update
+  o fix for apply_format()
+  o check for empty symlink string
+  o 'ide' missing in bus_files[]
+  o small trivial cleanup of latest changes
+
+<mbuesch:freenet.de>:
+  o introduce signal handler
+
+<rml:ximian.com>:
+  o udev spec file update
+
+Greg Kroah-Hartman:
+  o minor grammer fixes for the udev_vs_devfs document
+  o move the dbus config file to etc/dbus-1/system.d/
+  o move the config files to etc/udev to clean up main directory a bit
+  o add Gentoo versions of the rules and permissions files
+  o if using glibc, link dynamically, as no one like 500Kb udev binaries
+  o minor change to udev_vs_devfs document
+  o added udev vs devfs supid document to the tree
+  o move the signal handling registration to after we have initialized enough stuff
+  o make ide-devfs.sh executable in the tree
+  o udev.permissions.debian - forgot the dm nodes
+  o update the udev.permissions.debian file with new entries
+  o added udev.init script for the Linux From Scratch project
+
+
+
 Summary of changes from v010 to v011
 ============================================
 
