@@ -99,6 +99,12 @@ int main(int argc, char *argv[], char *envp[])
 		snprintf(filename, SYSFS_PATH_MAX-1, "%s%s", sysfs_mnt_path, devpath);
 		filename[SYSFS_PATH_MAX-1] = '\0';
 
+		/* skip bad events where we get no device for the class */
+		if (strncmp(devpath, "/class/", 7) == 0 && strchr(&devpath[7], '/') == NULL) {
+			dbg("no device name for '%s', bad event", devpath);
+			goto exit;
+		}
+
 		/* open the class device we are called for */
 		class_dev = open_class_device_wait(filename);
 		if (!class_dev) {
