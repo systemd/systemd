@@ -180,7 +180,7 @@ exit:
 }
 
 static int print_dump(const char *devpath, const char *name) {
-	printf("%s:%s/%s\n", devpath, udev_root, name);
+	printf("%s=%s/%s\n", devpath, udev_root, name);
 	return 0;
 }
 
