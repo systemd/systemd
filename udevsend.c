@@ -61,24 +61,15 @@ static inline char *get_seqnum(void)
 	return seqnum;
 }
 
-static int build_hotplugmsg(struct hotplug_msg **ppmsg, char *action,
+static int build_hotplugmsg(struct hotplug_msg *msg, char *action,
 			    char *devpath, char *subsystem, int seqnum)
 {
-	struct hotplug_msg *pmsg;
-
-	pmsg = malloc(sizeof(struct hotplug_msg));
-	pmsg->mtype = HOTPLUGMSGTYPE;
-	pmsg->seqnum = seqnum;
-	strncpy(pmsg->action, action, 8);
-	strncpy(pmsg->devpath, devpath, 128);
-	strncpy(pmsg->subsystem, subsystem, 16);
-	*ppmsg = pmsg;
+	msg->mtype = HOTPLUGMSGTYPE;
+	msg->seqnum = seqnum;
+	strncpy(msg->action, action, 8);
+	strncpy(msg->devpath, devpath, 128);
+	strncpy(msg->subsystem, subsystem, 16);
 	return sizeof(struct hotplug_msg);
-}
-
-static void free_hotplugmsg(struct hotplug_msg *pmsg)
-{
-	free(pmsg);
 }
 
 static int start_daemon(void)
@@ -118,8 +109,8 @@ int main(int argc, char* argv[])
 {
 	int msgid;
 	key_t key;
-	struct msqid_ds  msg_queue;
-	struct msgbuf *pmsg;
+	struct msqid_ds msg_queue;
+	struct hotplug_msg message;
 	char *action;
 	char *devpath;
 	char *subsystem;
@@ -157,7 +148,7 @@ int main(int argc, char* argv[])
 
 	/* create ipc message queue or get id of our existing one */
 	key = ftok(DEFAULT_UDEVD_EXEC, IPC_KEY_ID);
-	size =  build_hotplugmsg( (struct hotplug_msg**) &pmsg, action, devpath, subsystem, seq);
+	size =  build_hotplugmsg(&message, action, devpath, subsystem, seq);
 	msgid = msgget(key, IPC_CREAT);
 	if (msgid == -1) {
 		dbg("error open ipc queue");
@@ -165,8 +156,7 @@ int main(int argc, char* argv[])
 	}
 
 	/* send ipc message to the daemon */
-	retval = msgsnd(msgid, pmsg, size, 0);
-	free_hotplugmsg( (struct hotplug_msg*) pmsg);
+	retval = msgsnd(msgid, &message, size, 0);
 	if (retval == -1) {
 		dbg("error sending ipc message");
 		goto exit;
