@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <fcntl.h>
 
 #include "udev.h"
 #include "udevd.h"
@@ -157,6 +158,9 @@ static void add_queue(struct hotplug_msg *pmsg)
 	dump_queue();
 }
 
+static int lock_file = -1;
+static char *lock_filename = ".udevd_lock";
+
 static int process_queue(void)
 {
 	int msgid;
@@ -203,6 +207,10 @@ static int process_queue(void)
 					expect_seqnum = head->seqnum;
 				} else {
 					info("we have nothing to do, so daemon exits...");
+					if (lock_file >= 0) {
+						close(lock_file);
+						unlink(lock_filename);
+					}
 					exit(0);
 				}
 				check_queue();
@@ -221,6 +229,10 @@ static void sig_handler(int signum)
 		case SIGINT:
 		case SIGTERM:
 		case SIGKILL:
+			if (lock_file >= 0) {
+				close(lock_file);
+				unlink(lock_filename);
+			}
 			exit(20 + signum);
 			break;
 
@@ -229,8 +241,35 @@ static void sig_handler(int signum)
 	}
 }
 
+static int one_and_only(void)
+{
+	char string[100];
+
+	lock_file = open(lock_filename, O_RDWR | O_CREAT, 0x640);
+
+	/* see if we can open */
+	if (lock_file < 0)
+		return -EINVAL;
+	
+	/* see if we can lock */
+	if (lockf(lock_file, F_TLOCK, 0) < 0) {
+		close(lock_file);
+		unlink(lock_filename);
+		return -EINVAL;
+	}
+
+	snprintf(string, sizeof(string), "%d\n", getpid());
+	write(lock_file, string, strlen(string));
+	
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
+	/* only let one version of the daemon run at any one time */
+	if (one_and_only() != 0)
+		exit(0);
+
 	/* set up signal handler */
 	signal(SIGINT, sig_handler);
 	signal(SIGTERM, sig_handler);
