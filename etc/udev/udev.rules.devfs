@@ -73,3 +73,8 @@ KERNEL="event*", NAME="input/%k"
 KERNEL="js*",    NAME="input/%k"
 KERNEL="ts*",	 NAME="input/%k"
 
+# USB devices
+KERNEL="hiddev*",	NAME="usb/%k"
+KERNEL="auer*",		NAME="usb/%k"
+KERNEL="legousbtower*",	NAME="usb/%k"
+KERNEL="dabusb*",	NAME="usb/%k"

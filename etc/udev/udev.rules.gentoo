@@ -100,3 +100,8 @@ KERNEL="radio[0-9]*", NAME="v4l/radio%n"
 KERNEL="vbi[0-9]*",   NAME="v4l/vbi%n"
 KERNEL="vtx[0-9]*",   NAME="v4l/vtx%n"
 
+# USB devices
+KERNEL="hiddev*",	NAME="usb/%k"
+KERNEL="auer*",		NAME="usb/%k"
+KERNEL="legousbtower*",	NAME="usb/%k"
+KERNEL="dabusb*",	NAME="usb/%k"
