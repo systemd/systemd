@@ -30,6 +30,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <grp.h>
+#include <net/if.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <linux/sockios.h>
 #ifndef __KLIBC__
 #include <pwd.h>
 #include <utmp.h>
@@ -342,16 +346,16 @@ exit:
 /* wait for the "dev" file to show up in the directory in sysfs.
  * If it doesn't happen in about 10 seconds, give up.
  */
-#define SECONDS_TO_WAIT_FOR_DEV		10
-static int sleep_for_dev(char *path)
+#define SECONDS_TO_WAIT_FOR_FILE	10
+static int sleep_for_file(char *path, char* file)
 {
 	char filename[SYSFS_PATH_MAX + 6];
-	int loop = SECONDS_TO_WAIT_FOR_DEV;
+	int loop = SECONDS_TO_WAIT_FOR_FILE;
 	int retval;
 
 	strfieldcpy(filename, sysfs_path);
 	strfieldcat(filename, path);
-	strfieldcat(filename, "/dev");
+	strfieldcat(filename, file);
 
 	while (loop--) {
 		struct stat buf;
@@ -369,6 +373,30 @@ exit:
 	return retval;
 }
 
+static int rename_net_if(struct udevice *dev)
+{
+	int sk;
+	struct ifreq ifr;
+	int retval;
+
+	sk = socket(PF_INET, SOCK_DGRAM, 0);
+	if (sk < 0) {
+		dbg("error opening socket");
+		return -1;
+	}
+
+	memset(&ifr, 0x00, sizeof(struct ifreq));
+	strfieldcpy(ifr.ifr_name, dev->kernel_name);
+	strfieldcpy(ifr.ifr_newname, dev->name);
+
+	dbg("changing net interface name from '%s' to '%s'", dev->kernel_name, dev->name);
+	retval = ioctl(sk, SIOCSIFNAME, &ifr);
+	if (retval != 0)
+		dbg("error changing net interface name");
+
+	return retval;
+}
+
 int udev_add_device(char *path, char *subsystem, int fake)
 {
 	struct sysfs_class_device *class_dev = NULL;
@@ -378,39 +406,61 @@ int udev_add_device(char *path, char *subsystem, int fake)
 	memset(&dev, 0x00, sizeof(dev));
 
 	/* for now, the block layer is the only place where block devices are */
-	if (strcmp(subsystem, "block") == 0)
-		dev.type = 'b';
-	else
-		dev.type = 'c';
 
-	retval = sleep_for_dev(path);
-	if (retval != 0)
-		goto exit;
+	dev.type = get_device_type(path, subsystem);
+
+	switch (dev.type) {
+	case 'b':
+	case 'c':
+		retval = sleep_for_file(path, "/dev");
+		break;
+
+	case 'n':
+		retval = sleep_for_file(path, "/address");
+		break;
+
+	default:
+		dbg("unknown device type '%c'", dev.type);
+		retval = -EINVAL;
+	}
 
 	class_dev = get_class_dev(path);
 	if (class_dev == NULL)
 		goto exit;
 
-	retval = get_major_minor(class_dev, &dev);
-	if (retval != 0) {
-		dbg("get_major_minor failed");
-		goto exit;
+	if (dev.type == 'b' || dev.type == 'c') {
+		retval = get_major_minor(class_dev, &dev);
+		if (retval != 0) {
+			dbg("get_major_minor failed");
+			goto exit;
+		}
 	}
 
 	retval = namedev_name_device(class_dev, &dev);
 	if (retval != 0)
 		goto exit;
 
-	if (!fake) {
+	if (!fake && (dev.type == 'b' || dev.type == 'c')) {
 		retval = udevdb_add_dev(path, &dev);
 		if (retval != 0)
 			dbg("udevdb_add_dev failed, but we are going to try "
 			    "to create the node anyway. But remove might not "
 			    "work properly for this device.");
-
 	}
+
 	dbg("name='%s'", dev.name);
-	retval = create_node(&dev, fake);
+	switch (dev.type) {
+	case 'b':
+	case 'c':
+		retval = create_node(&dev, fake);
+		break;
+
+	case 'n':
+		retval = rename_net_if(&dev);
+		if (retval != 0)
+			dbg("net device naming failed");
+		break;
+	}
 
 	if ((retval == 0) && (!fake))
 		dev_d_send(&dev, subsystem);

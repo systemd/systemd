@@ -81,6 +81,22 @@ char *get_subsystem(char *subsystem)
 	return subsystem;
 }
 
+char get_device_type(const char *path, const char *subsystem)
+{
+	if (strcmp(subsystem, "block") == 0 ||
+	    strstr(path, "/block/") != NULL)
+		return 'b';
+
+	if (strcmp(subsystem, "net") == 0 ||
+	    strstr(path, "/class/net/") != NULL)
+		return 'n';
+
+	if (strstr(path, "/class/") != NULL)
+		return 'c';
+
+	return '\0';
+}
+
 int file_map(const char *filename, char **buf, size_t *bufsize)
 {
 	struct stat stats;

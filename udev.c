@@ -68,7 +68,6 @@ static void sig_handler(int signum)
 }
 
 static char *subsystem_blacklist[] = {
-	"net",
 	"scsi_host",
 	"scsi_device",
 	"usb_host",
@@ -85,6 +84,7 @@ static int udev_hotplug(void)
 	int retval = -EINVAL;
 	int i;
 	struct sigaction act;
+	const int nofake = 0;
 
 	action = get_action();
 	if (!action) {
@@ -137,23 +137,23 @@ static int udev_hotplug(void)
 
 	if (strcmp(action, "add") == 0) {
 		namedev_init();
-		retval = udev_add_device(devpath, subsystem, 0);
-	} else {
-		if (strcmp(action, "remove") == 0) {
-			retval = udev_remove_device(devpath, subsystem);
-		} else {
-			dbg("unknown action '%s'", action);
-			retval = -EINVAL;
-		}
+		retval = udev_add_device(devpath, subsystem, nofake);
+		goto action_done;
 	}
 
+	if (strcmp(action, "remove") == 0) {
+		retval = udev_remove_device(devpath, subsystem);
+		goto action_done;
+	}
+
+	dbg("unknown action '%s'", action);
+	retval = -EINVAL;
+
+action_done:
 	udevdb_exit();
 
 exit:
-	if (retval > 0)
-		retval = 0;
-
-	return -retval;
+	return retval;
 }
 
 int main(int argc, char *argv[], char *envp[])

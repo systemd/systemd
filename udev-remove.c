@@ -135,22 +135,38 @@ int udev_remove_device(char *path, char *subsystem)
 	char *temp;
 	int retval;
 
-	memset(&dev, 0, sizeof(dev));
+	memset(&dev, 0x00, sizeof(dev));
 
-	retval = udevdb_get_dev(path, &dev);
-	if (retval) {
-		dbg("'%s' not found in database, falling back on default name", path);
-		temp = strrchr(path, '/');
-		if (temp == NULL)
-			return -ENODEV;
-		strfieldcpy(dev.name, &temp[1]);
+	dev.type = get_device_type(path, subsystem);
+
+	switch (dev.type) {
+	case 'b':
+	case 'c':
+		retval = udevdb_get_dev(path, &dev);
+		if (retval) {
+			dbg("'%s' not found in database, falling back on default name", path);
+			temp = strrchr(path, '/');
+			if (temp == NULL)
+				return -ENODEV;
+			strfieldcpy(dev.name, &temp[1]);
+		}
+
+		dbg("name='%s'", dev.name);
+		udevdb_delete_dev(path);
+
+		dev_d_send(&dev, subsystem);
+
+		retval = delete_node(&dev);
+		break;
+
+	case 'n':
+		retval = 0;
+		break;
+
+	default:
+		dbg("unknown device type '%c'", dev.type);
+		retval = -EINVAL;
 	}
 
-	dbg("name is '%s'", dev.name);
-	udevdb_delete_dev(path);
-
-	dev_d_send(&dev, subsystem);
-
-	retval = delete_node(&dev);
 	return retval;
 }

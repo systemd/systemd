@@ -836,12 +836,22 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 		}
 	}
 
+	/* no rule was found for the net device */
+	if (udev->type == 'n') {
+		dbg("no name for net device '%s' configured", udev->kernel_name);
+		return -1;
+	}
+
 	/* no rule was found so we use the kernel name */
 	strfieldcpy(udev->name, udev->kernel_name);
 	goto done;
 
 found:
 	apply_format(udev, udev->name, sizeof(udev->name), class_dev, sysfs_device);
+
+	if (udev->type == 'n')
+		return 0;
+
 	udev->partitions = dev->partitions;
 	strfieldcpy(udev->config_file, dev->config_file);
 	udev->config_line = dev->config_line;

@@ -138,6 +138,10 @@ static int print_device_chain(const char *path)
 	struct sysfs_device *sysfs_dev;
 	struct sysfs_device *sysfs_dev_parent;
 	int retval = 0;
+	char type;
+
+	type = get_device_type(path, "");
+	dbg("device type is %c", type);
 
 	/*  get the class dev */
 	class_dev = sysfs_open_class_device_path(path);
@@ -146,21 +150,23 @@ static int print_device_chain(const char *path)
 		return -1;
 	}
 
-	/* read the 'dev' file for major/minor*/
-	attr = sysfs_get_classdev_attr(class_dev, "dev");
-	if (attr == NULL) {
-		printf("couldn't get the \"dev\" file\n");
-		retval = -1;
-		goto exit;
-	}
-
 	printf("\nudevinfo starts with the device the node belongs to and then walks up the\n"
 	       "device chain, to print for every device found, all possibly useful attributes\n"
 	       "in the udev key format.\n"
 	       "Only attributes within one device section may be used together in one rule,\n"
 	       "to match the device for which the node will be created.\n"
 	       "\n");
-	printf("device '%s' has major:minor %s", class_dev->path, attr->value);
+
+	if (type == 'b' || type =='c') {
+		/* read the 'dev' file for major/minor*/
+		attr = sysfs_get_classdev_attr(class_dev, "dev");
+		if (attr == NULL) {
+			printf("couldn't get the \"dev\" file\n");
+			retval = -1;
+			goto exit;
+		}
+		printf("device '%s' has major:minor %s", class_dev->path, attr->value);
+	}
 
 	/* open sysfs class device directory and print all attributes */
 	printf("  looking at class device '%s':\n", class_dev->path);
