@@ -1,5 +1,5 @@
 # USB camera from Fuji to be named "camera"
-LABEL, BUS="usb", vendor="FUJIFILM", NAME="camera"
+LABEL, BUS="usb", vendor="FUJIFILM", NAME="camera%n"
 
 # USB device plugged into the fourth port of the second hub to be called gps_device
 TOPOLOGY, BUS="usb", place="2.4", NAME="gps_device"
