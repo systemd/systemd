@@ -16,19 +16,28 @@
 #      If this is not a partition, it will result in 'disk'
 #
 
+# ide block devices
 NUMBER, BUS="ide", id="0.0", NAME="ide/host0/bus0/target0/lun0/%D"
 NUMBER, BUS="ide", id="0.1", NAME="ide/host0/bus0/target1/lun0/%D"
 NUMBER, BUS="ide", id="1.0", NAME="ide/host0/bus1/target0/lun0/%D"
 NUMBER, BUS="ide", id="1.1", NAME="ide/host0/bus1/target1/lun0/%D"
 
+# md block devices
 REPLACE, KERNEL="md[0-9]*", NAME="md/%n"
 
+# tty devices
 REPLACE, KERNEL="tty[0-9]*", NAME="vc/%n"
 REPLACE, KERNEL="ttyS[0-9]*", NAME="tts/%n"
 REPLACE, KERNEL="ttyUSB[0-9]*", NAME="tts/USB%n"
 
+# vc devices
+REPLACE, KERNEL="vcs",        NAME="vcc/0"
+REPLACE, KERNEL="vcs[0-9]*",  NAME="vcc/%n"
+REPLACE, KERNEL="vcsa",       NAME="vcc/a0"
+REPLACE, KERNEL="vcsa[0-9]*", NAME="vcc/a%n"
+
+# v4l devices
 REPLACE, KERNEL="video[0-9]*", NAME="v4l/video%n"
 REPLACE, KERNEL="radio[0-9]*", NAME="v4l/radio%n"
 REPLACE, KERNEL="vbi[0-9]*",   NAME="v4l/vbi%n"
 REPLACE, KERNEL="vtx[0-9]*",   NAME="v4l/vtx%n"
-
