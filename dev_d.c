@@ -11,8 +11,8 @@
 /*
  * This essentially emulates the following shell script logic in C:
  *	DIR="/etc/dev.d"
- *	export DEVNODE="whatever_dev_name_udev_just_gave"
- *	for I in "${DIR}/$DEVNODE/"*.dev "${DIR}/$1/"*.dev "${DIR}/default/"*.dev ; do
+ *	export DEVNAME="whatever_dev_name_udev_just_gave"
+ *	for I in "${DIR}/$DEVNAME/"*.dev "${DIR}/$1/"*.dev "${DIR}/default/"*.dev ; do
  *		if [ -f $I ]; then $I $1 ; fi
  *	done
  *	exit 1;

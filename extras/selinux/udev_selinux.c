@@ -48,7 +48,7 @@ int main(int argc, char *argv[], char *envp[])
 {
 	char *action;
 	char *devpath;
-	char *devnode;
+	char *devname;
 	int retval = 0;
 
 	init_logging("udev_selinux");
@@ -58,14 +58,14 @@ int main(int argc, char *argv[], char *envp[])
 		dbg("no action?");
 		goto exit;
 	}
-	devnode = get_devnode();
-	if (!devnode) {
-		dbg("no devnode?");
+	devname = get_devname();
+	if (!devname) {
+		dbg("no devname?");
 		goto exit;
 	}
 
 	if (strcmp(action, "add") == 0)
-		selinux_add_node(devnode);
+		selinux_add_node(devname);
 
 exit:
 	return retval;

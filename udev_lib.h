@@ -68,7 +68,7 @@ do { \
 
 extern char *get_action(void);
 extern char *get_devpath(void);
-extern char *get_devnode(void);
+extern char *get_devname(void);
 extern char *get_seqnum(void);
 extern char *get_subsystem(char *subsystem);
 extern char get_device_type(const char *path, const char *subsystem);

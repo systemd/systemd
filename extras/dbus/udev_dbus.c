@@ -80,10 +80,10 @@ static void sysbus_connect(void)
 
 /** Send out a signal that a device node is created
  *
- *  @param  devnode             name of the device node, e.g. /dev/sda1
+ *  @param  devname             name of the device node, e.g. /dev/sda1
  *  @param  path                Sysfs path of device
  */
-static void sysbus_send_create(const char *devnode, const char *path)
+static void sysbus_send_create(const char *devname, const char *path)
 {
 	DBusMessage* message;
 	DBusMessageIter iter;
@@ -94,7 +94,7 @@ static void sysbus_send_create(const char *devnode, const char *path)
 					  "NodeCreated");
 
 	dbus_message_iter_init(message, &iter);
-	dbus_message_iter_append_string(&iter, devnode);
+	dbus_message_iter_append_string(&iter, devname);
 	dbus_message_iter_append_string(&iter, path);
 
 	if ( !dbus_connection_send(sysbus_connection, message, NULL) )
@@ -107,10 +107,10 @@ static void sysbus_send_create(const char *devnode, const char *path)
 
 /** Send out a signal that a device node is deleted
  *
- *  @param  devnode             Name of the device node, e.g. /udev/sda1
+ *  @param  devname             Name of the device node, e.g. /udev/sda1
  *  @param  path                Sysfs path of device
  */
-static void sysbus_send_remove(const char *devnode, const char *path)
+static void sysbus_send_remove(const char *devname, const char *path)
 {
 	DBusMessage* message;
 	DBusMessageIter iter;
@@ -121,7 +121,7 @@ static void sysbus_send_remove(const char *devnode, const char *path)
 					  "NodeDeleted");
 
 	dbus_message_iter_init(message, &iter);
-	dbus_message_iter_append_string(&iter, devnode);
+	dbus_message_iter_append_string(&iter, devname);
 	dbus_message_iter_append_string(&iter, path);
 
 	if ( !dbus_connection_send(sysbus_connection, message, NULL) )
@@ -136,7 +136,7 @@ int main(int argc, char *argv[], char *envp[])
 {
 	char *action;
 	char *devpath;
-	char *devnode;
+	char *devname;
 	int retval = 0;
 
 	init_logging("udev_dbus");
@@ -155,17 +155,17 @@ int main(int argc, char *argv[], char *envp[])
 		dbg("no devpath?");
 		goto exit;
 	}
-	devnode = get_devnode();
-	if (!devnode) {
-		dbg("no devnode?");
+	devname = get_devname();
+	if (!devname) {
+		dbg("no devname?");
 		goto exit;
 	}
 
 	if (strcmp(action, "add") == 0) {
-		sysbus_send_create(devnode, devpath);
+		sysbus_send_create(devname, devpath);
 	} else {
 		if (strcmp(action, "remove") == 0) {
-			sysbus_send_remove(devnode, devpath);
+			sysbus_send_remove(devname, devpath);
 		} else {
 			dbg("unknown action '%s'", action);
 			retval = -EINVAL;

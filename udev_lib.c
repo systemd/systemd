@@ -58,15 +58,15 @@ char *get_devpath(void)
 	return devpath;
 }
 
-char *get_devnode(void)
+char *get_devname(void)
 {
-	char *devnode;
+	char *devname;
 
-	devnode = getenv("DEVNODE");
-	if (devnode != NULL && strlen(devnode) > NAME_SIZE)
-		devnode[NAME_SIZE-1] = '\0';
+	devname = getenv("DEVNAME");
+	if (devname != NULL && strlen(devname) > NAME_SIZE)
+		devname[NAME_SIZE-1] = '\0';
 
-	return devnode;
+	return devname;
 }
 
 char *get_seqnum(void)
