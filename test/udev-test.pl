@@ -1224,6 +1224,15 @@ EOF
 BUS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e name; (/sbin/badprogram)", RESULT="name_ _/sbin/badprogram_", NAME="sane"
 EOF
 	},
+	{
+		desc		=> "read sysfs value from device down in the chain",
+		subsys		=> "block",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "serial-0000:00:09.0",
+		rules		=> <<EOF
+KERNEL=="ttyUSB*", NAME="serial-%s{serial}"
+EOF
+	},
 );
 
 # set env

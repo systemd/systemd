@@ -287,8 +287,18 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 				break;
 			}
 			if (find_sysfs_attribute(class_dev, sysfs_device, attr, temp2, sizeof(temp2)) != 0) {
-				dbg("sysfs attribute '%s' not found", attr);
-				break;
+				struct sysfs_device *parent_device;
+
+				dbg("sysfs attribute '%s' not found, walk up the physical devices", attr);
+				parent_device = sysfs_get_device_parent(sysfs_device);
+				while (parent_device) {
+					dbg("looking at '%s'", parent_device->path);
+					if (find_sysfs_attribute(NULL, parent_device, attr, temp2, sizeof(temp2)) == 0)
+						break;
+					parent_device = sysfs_get_device_parent(parent_device);
+				}
+				if (!parent_device)
+					break;
 			}
 			/* strip trailing whitespace of sysfs value */
 			i = strlen(temp2);
