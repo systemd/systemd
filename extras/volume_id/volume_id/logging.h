@@ -16,6 +16,6 @@
 #endif
 
 /* just use the udev version */
-#include "../../logging.h"
+#include "../../../logging.h"
 
 #endif /* _VOLUME_ID_LOGGING_H_ */
