@@ -142,30 +142,35 @@ int main(int argc, char* argv[])
 #ifdef DEBUG
 	init_logging("udevsend");
 #endif
+	dbg("version %s", UDEV_VERSION);
 
 	subsystem = argv[1];
 	if (subsystem == NULL) {
 		dbg("no subsystem");
 		goto exit;
 	}
+	dbg("subsystem = '%s'", subsystem);
 
 	devpath = get_devpath();
 	if (devpath == NULL) {
 		dbg("no devpath");
 		goto exit;
 	}
+	dbg("DEVPATH = '%s'", devpath);
 
 	action = get_action();
 	if (action == NULL) {
 		dbg("no action");
 		goto exit;
 	}
+	dbg("ACTION = '%s'", action);
 
 	seqnum = get_seqnum();
 	if (seqnum == NULL)
 		seq = -1;
 	else
 		seq = atoi(seqnum);
+	dbg("SEQNUM = '%d'", seq);
 
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (sock == -1) {
