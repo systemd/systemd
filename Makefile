@@ -26,7 +26,7 @@ USE_DBUS = false
 
 
 ROOT =		udev
-VERSION =	013
+VERSION =	013_bk
 INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
 LOCAL_CFG_DIR =	etc/udev
