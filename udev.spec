@@ -62,6 +62,10 @@ make CC="gcc $RPM_OPT_FLAGS"	\
 	DEBUG=true		\
 %endif
 
+# now build udevd on it's own, as it can't handle being built with klibc
+make CC="gcc $RPM_OPT_FLAGS" udevd
+
+
 %install
 make DESTDIR=$RPM_BUILD_ROOT install \
 %if %{dbus}
@@ -70,7 +74,6 @@ make DESTDIR=$RPM_BUILD_ROOT install \
 %if %{lsb}
 	USE_LSB=true
 %endif
-
 %post
 /sbin/chkconfig --add udev
 
@@ -87,6 +90,8 @@ rm -rf $RPM_BUILD_ROOT
 %doc COPYING README TODO ChangeLog
 %attr(755,root,root) /sbin/udev
 %attr(755,root,root) /sbin/udevinfo
+%attr(755,root,root) /sbin/udevsend
+%attr(755,root,root) /sbin/udevd
 %attr(755,root,root) /udev/
 %attr(755,root,root) /etc/udev/
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.conf
@@ -100,6 +105,10 @@ rm -rf $RPM_BUILD_ROOT
 %attr(0644,root,root) %{_mandir}/man8/udev*.8*
 
 %changelog
+* Mon Feb 2 2004 Greg Kroah-Hartman <greg@kroah.com>
+- add udevsend, and udevd to the files
+- add ability to build udevd with glibc after the rest is build with klibc
+
 * Mon Jan 26 2004 Greg Kroah-Hartman <greg@kroah.com>
 - added udevinfo to rpm
 - added URL to spec file
