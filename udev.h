@@ -24,6 +24,7 @@
 #define UDEV_H
 
 #include "libsysfs/libsysfs.h"
+#include <stddef.h>
 #include <sys/param.h>
 
 #define COMMENT_CHARACTER		'#'
@@ -32,6 +33,9 @@
 #define OWNER_SIZE	30
 #define GROUP_SIZE	30
 #define MODE_SIZE	8
+
+/* length of public data */
+#define UDEVICE_LEN (offsetof(struct udevice, bus_id))
 
 struct udevice {
 	char name[NAME_SIZE];
@@ -43,11 +47,11 @@ struct udevice {
 	unsigned int mode;	/* not mode_t due to conflicting definitions in different libcs */
 	char symlink[NAME_SIZE];
 
-	/* fields that help us in building strings */
-	unsigned char bus_id[SYSFS_NAME_LEN];
-	unsigned char program_result[NAME_SIZE];
-	unsigned char kernel_number[NAME_SIZE];
-	unsigned char kernel_name[NAME_SIZE];
+	/* private data that help us in building strings */
+	char bus_id[SYSFS_NAME_LEN];
+	char program_result[NAME_SIZE];
+	char kernel_number[NAME_SIZE];
+	char kernel_name[NAME_SIZE];
 };
 
 #define strfieldcpy(to, from) \

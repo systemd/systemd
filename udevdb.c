@@ -58,8 +58,8 @@ int udevdb_add_dev(const char *path, const struct udevice *dev)
 	key.dsize = strlen(keystr) + 1;
 
 	data.dptr = (void *)dev;
-	data.dsize = sizeof(*dev);
-	
+	data.dsize = UDEVICE_LEN;
+
 	return tdb_store(udevdb, key, data, TDB_REPLACE); 
 }
 
@@ -77,7 +77,8 @@ int udevdb_get_dev(const char *path, struct udevice *dev)
 	if (data.dptr == NULL || data.dsize == 0)
 		return -ENODEV;
 
-	memcpy(dev, data.dptr, sizeof(*dev));
+	memset(dev, 0, sizeof(struct udevice));
+	memcpy(dev, data.dptr, UDEVICE_LEN);
 	return 0;
 }
 
