@@ -197,9 +197,67 @@ exit:
 	return retval;
 }
 
+/* print all class/block devices with major/minor, physical device and bus*/
+static void print_sysfs_devices(void)
+{
+	struct dlist *subsyslist;
+	char *class;
+
+	subsyslist = sysfs_open_subsystem_list("class");
+	if (!subsyslist)
+		exit(1);
+
+	dlist_for_each_data(subsyslist, class, char) {
+		struct sysfs_class *cls;
+		struct dlist *class_devices;
+		struct sysfs_class_device *class_dev;
+		struct sysfs_device *phys_dev;
+
+		cls = sysfs_open_class(class);
+		if (!cls)
+			continue;
+
+		class_devices = sysfs_get_class_devices(cls);
+		if (!class_devices)
+			continue;
+
+		dlist_for_each_data(class_devices, class_dev, struct sysfs_class_device) {
+			struct sysfs_attribute *attr;
+
+			printf("\n");
+			printf("DEVPATH        '%s'\n", class_dev->path);
+			printf("SUBSYSTEM      '%s'\n", class_dev->classname);
+			printf("NAME           '%s'\n", class_dev->name);
+
+			attr = sysfs_get_classdev_attr(class_dev, "dev");
+			if (attr) {
+				char *pos = &(attr->value[strlen(attr->value)-1]);
+
+				if  (pos[0] == '\n')
+					pos[0] = '\0';
+
+				printf("MAJORMINOR     '%s'\n", attr->value);
+			}
+
+			phys_dev = sysfs_get_classdev_device(class_dev);
+			if (phys_dev) {
+				printf("PHYSDEVPATH    '%s'\n", phys_dev->path);
+				if (phys_dev->bus[0] != '\0')
+					printf("PHYSDEVPATHBUS '%s'\n", phys_dev->bus);
+				if (phys_dev->driver_name[0] != '\0')
+					printf("DRIVER         '%s'\n", phys_dev->driver_name);
+			}
+		}
+
+		sysfs_close_class(cls);
+	}
+
+	sysfs_close_list(subsyslist);
+}
+
 static int process_options(void)
 {
-	static const char short_options[] = "adn:p:q:rVh";
+	static const char short_options[] = "adn:p:q:rsVh";
 	int option;
 	int retval = 1;
 	struct udevice udev;
@@ -259,6 +317,10 @@ static int process_options(void)
 		case 'r':
 			root = 1;
 			break;
+
+		case 's':
+			print_sysfs_devices();
+			exit(0);
 
 		case 'a':
 			attributes = 1;
@@ -391,6 +453,7 @@ help:
 	       "\n"
 	       "  -r       print udev root\n"
 	       "  -a       print all SYSFS_attributes along the device chain\n"
+	       "  -s       print all sysfs devices with major/minor, physical device and bus\n"
 	       "  -V       print udev version\n"
 	       "  -h       print this help text\n"
 	       "\n");
