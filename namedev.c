@@ -473,7 +473,10 @@ static int do_label(struct sysfs_class_device *class_dev, struct udevice *udev, 
 		if (dev->type != LABEL)
 			continue;
 
-		if (sysfs_device) {
+		if (dev->bus[0] != '\0') {
+			/* as the user specified a bus, we must match it up */
+			if (!sysfs_device)
+				continue;
 			dbg("dev->bus='%s' sysfs_device->bus='%s'", dev->bus, sysfs_device->bus);
 			if (strcasecmp(dev->bus, sysfs_device->bus) != 0)
 				continue;
