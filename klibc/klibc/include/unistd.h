@@ -103,6 +103,8 @@ __extern int optind, opterr, optopt;
 
 __extern int isatty(int);
 
+__extern int ftruncate(int, off_t);
+
 /* Standard file descriptor numbers. */
 #define STDIN_FILENO	0
 #define STDOUT_FILENO	1
