@@ -61,6 +61,7 @@ video*:root:video:0660
 radio*:root:video:0660
 vbi*:root:video:0660
 vtx*:root:video:0660
+mol:root:root:0600
 
 # block devices
 
