@@ -128,7 +128,7 @@ exit:
  * If it doesn't happen in about 10 seconds, give up.
  */
 #define SECONDS_TO_WAIT_FOR_DEV		10
-int sleep_for_dev(char *path)
+static int sleep_for_dev(char *path)
 {
 	char filename[SYSFS_PATH_MAX + 6];
 	struct stat buf;
