@@ -105,6 +105,7 @@ KERNEL="hiddev*",	NAME="usb/%k"
 KERNEL="auer*",		NAME="usb/%k"
 KERNEL="legousbtower*",	NAME="usb/%k"
 KERNEL="dabusb*",	NAME="usb/%k"
+BUS="usb", KERNEL="lp[0-9]*",	NAME="usb/%k"
 
 # netlink devices
 KERNEL="route",		NAME="netlink/%k"
