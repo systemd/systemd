@@ -304,8 +304,8 @@ Matches any single character, but does not match zero characters.
 .B [ ]
 Matches any single character specified within the brackets. For example, the
 pattern string "tty[SR]" would match either "ttyS" or "ttyR".  Ranges are also
-supported within this match with the '-' character.  For example, to match on
-the range of all digits, the pattern [0-9] would be used. If the first character
+supported within this match with the '\-' character.  For example, to match on
+the range of all digits, the pattern [0\-9] would be used. If the first character
 following the '[' is a '!' then any character not enclosed is matched.
 .SH "FILES"
 .nf
@@ -320,7 +320,7 @@ following the '[' is a '!' then any character not enclosed is matched.
 .BR hotplug (8)
 .PP
 The
-.I http://linux-hotplug.sourceforge.net/
+.I http://linux\-hotplug.sourceforge.net/
 web site.
 .SH AUTHORS
 .B udev
