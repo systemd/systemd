@@ -86,6 +86,21 @@ static char *first_list[] = {
 	NULL,
 };
 
+static void add_device(char *path, char *subsys, int fake)
+{
+	char *argv[3];
+
+	/* fake argument vector and environment for callouts and dev.d/ */
+	argv[0] = "udev";
+	argv[1] = subsys;
+	argv[2] = NULL;
+
+	main_argv = argv;
+	setenv("DEVPATH", path, 1);
+	setenv("ACTION", "add", 1);
+	udev_add_device(path, subsys, fake);
+}
+
 static void exec_list(struct list_head *device_list)
 {
 	struct device *loop_device;
@@ -96,7 +111,7 @@ static void exec_list(struct list_head *device_list)
 	list_for_each_entry_safe(loop_device, tmp_device, device_list, list) {
 		for (i=0; first_list[i] != NULL; i++) {
 			if (strncmp(loop_device->path, first_list[i], strlen(first_list[i])) == 0) {
-				udev_add_device(loop_device->path, loop_device->subsys, NOFAKE);
+				add_device(loop_device->path, loop_device->subsys, NOFAKE);
 				list_del(&loop_device->list);
 				free(loop_device);
 				break;
@@ -116,14 +131,14 @@ static void exec_list(struct list_head *device_list)
 		if (found)
 			continue;
 
-		udev_add_device(loop_device->path, loop_device->subsys, NOFAKE);
+		add_device(loop_device->path, loop_device->subsys, NOFAKE);
 		list_del(&loop_device->list);
 		free(loop_device);
 	}
 
 	/* handle the rest of the devices left over, if any */
 	list_for_each_entry_safe(loop_device, tmp_device, device_list, list) {
-		udev_add_device(loop_device->path, loop_device->subsys, NOFAKE);
+		add_device(loop_device->path, loop_device->subsys, NOFAKE);
 		list_del(&loop_device->list);
 		free(loop_device);
 	}

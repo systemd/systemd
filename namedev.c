@@ -412,7 +412,7 @@ static void fix_kernel_name(struct udevice *udev)
 	}
 }
 
-static int execute_program(char *path, char *value, int len)
+static int execute_program(const char *path, char *value, int len)
 {
 	int retval;
 	int count;
@@ -421,12 +421,12 @@ static int execute_program(char *path, char *value, int len)
 	pid_t pid;
 	char *pos;
 	char arg[PROGRAM_SIZE];
-	char *argv[sizeof(arg) / 2];
+	char *argv[(PROGRAM_SIZE / 2) + 1];
 	int i;
 
+	strfieldcpy(arg, path);
 	i = 0;
 	if (strchr(path, ' ')) {
-		strfieldcpy(arg, path);
 		pos = arg;
 		while (pos != NULL) {
 			if (pos[0] == '\'') {
@@ -441,8 +441,19 @@ static int execute_program(char *path, char *value, int len)
 			dbg("arg[%i] '%s'", i, argv[i]);
 			i++;
 		}
+		argv[i] =  NULL;
+		dbg("execute '%s' with parsed arguments", arg);
+	} else {
+		argv[0] = arg;
+		argv[1] = main_argv[1];
+		argv[2] = NULL;
+		dbg("execute '%s' with subsystem '%s' argument", arg, argv[1]);
 	}
-	argv[i] =  NULL;
+
+	/* set basename() only */
+	pos = strrchr(argv[0], '/');
+	if (pos != NULL)
+		argv[0] = &pos[1];
 
 	retval = pipe(fds);
 	if (retval != 0) {
@@ -456,13 +467,7 @@ static int execute_program(char *path, char *value, int len)
 		/* child */
 		/* dup2 write side of pipe to STDOUT */
 		dup2(fds[1], STDOUT_FILENO);
-		if (argv[0] !=  NULL) {
-			dbg("execute '%s' with given arguments", argv[0]);
-			retval = execv(argv[0], argv);
-		} else {
-			dbg("execute '%s' with main argument", path);
-			retval = execv(path, main_argv);
-		}
+		retval = execv(arg, argv);
 
 		info(FIELD_PROGRAM " execution of '%s' failed", path);
 		exit(1);
