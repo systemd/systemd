@@ -29,38 +29,55 @@ namedev expects its configuration at
 The file consists of a set of lines. All empty lines and
 lines beginning with a '#' will be ignored.
 .br
-Every line defines the mapping between device attributes and the name of
-the device file. It starts with a keyword defining the method for
-overriding the default kernel naming scheme, followed by a list
-of keys and ends with the definition of the filename for the device.
+Every line defines the mapping between device attributes and the device file
+name. It starts with a keyword defining the method used to match, followed by
+one ore more keys to compare, optional ownwership and permission settings and
+the filename for the device. If no matching configuration is found,
+the default kernel device name is used.
+.P
+.I method, key,[key,...] [owner,] [group,] [mode,] name
 .TP
 .B LABEL
 device label or serial number, like USB serial number, SCSI UUID or
 file system label
+.br
+keys: \fBBUS\fP, \fIsysfs_attribute\fP
 .TP
 .B NUMBER
 device number on the bus, like PCI bus id
+.br
+keys: \fBBUS\fP, \fBID\fP
 .TP
 .B TOPOLOGY
 device position on bus, like physical port of USB device
+.br
+keys: \fBBUS\fP, \fBPLACE\fP
 .TP
 .B REPLACE
 string replacement of the kernel device name
-.P
-If no matching configuration is found, the default kernel device name is used.
+.br
+key: \fBKERNEL_NAME\fP
+.TP
+.B CALLOUT
+calling external program, that returns a string to match
+.br
+keys: \fBBUS\fP, \fBPROGRAM\fP, \fBID\fP
 .SH "EXAMPLE"
 .nf
 # USB printer to be called lp_color
 LABEL, BUS="usb", serial="W09090207101241330", NAME="lp_color"
 
 # sound card with PCI bus id 00:0b.0 to be called dsp
-NUMBER, BUS="pci", id="00:0b.0", NAME="dsp"
+NUMBER, BUS="pci", ID="00:0b.0", NAME="dsp"
 
 # USB mouse at third port of the second hub to be called mouse1
-TOPOLOGY, BUS="usb", place="2.3", NAME="mouse1"
+TOPOLOGY, BUS="usb", PLACE="2.3", NAME="mouse1"
 
 # ttyUSB1 should always be called pda
 REPLACE, KERNEL="ttyUSB1", NAME="pda"
+
+# if /sbin/dev_id returns "V0815" device will be called dev0815
+CALLOUT, PROGRAM="/sbin/dev_id", BUS="pci", ID="V0815", NAME="dev0815"
 .fi
 .SH "FILES"
 .nf
