@@ -6,7 +6,7 @@
 # %M - the kernel major number for the device
 # %m - the kernel minor number for the device
 # %b - the bus id for the device
-# %c - the return value for the CALLOUT program (note, this doesn't work within
+# %c - the return value of the external PROGRAM (note, this doesn't work within
 #      the PROGRAM field for the obvious reason.)
 # %D - use the devfs style disk name for this device.
 #      For partitions, this will result in 'part%n'

@@ -2,8 +2,8 @@
 
 # a horribly funny script that shows how flexible udev can really be
 # This is to be executed by udev with the following rules:
-# CALLOUT, BUS="ide", PROGRAM="name_cdrom.pl %M %m", ID="good*", NAME="%2c", SYMLINK="cdrom"
-# CALLOUT, BUS="scsi", PROGRAM="name_cdrom.pl %M %m", ID="good*", NAME="%2c", SYMLINK="cdrom"
+# BUS="ide", PROGRAM="name_cdrom.pl %M %m", PROGRAM="good*", NAME="%2c", SYMLINK="cdrom"
+# BUS="scsi", PROGRAM="name_cdrom.pl %M %m", PROGRAM="good*", NAME="%2c", SYMLINK="cdrom"
 #
 # The scsi rule catches USB cdroms and ide-scsi devices.
 #

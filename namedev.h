@@ -45,7 +45,7 @@ struct sysfs_class_device;
 #define FIELD_NAME	"NAME"
 #define FIELD_SYMLINK	"SYMLINK"
 
-#define CALLOUT_MAXARG	10
+#define PROGRAM_MAXARG	10
 #define MAX_SYSFS_PAIRS	5
 
 struct sysfs_pair {

@@ -309,7 +309,7 @@ static int execute_program(char *path, char *value, int len)
 	int value_set = 0;
 	char buffer[256];
 	char *pos;
-	char *args[CALLOUT_MAXARG];
+	char *args[PROGRAM_MAXARG];
 	int i;
 
 	dbg("executing '%s'", path);
@@ -331,7 +331,7 @@ static int execute_program(char *path, char *value, int len)
 		if (strchr(path, ' ')) {
 			/* exec with arguments */
 			pos = path;
-			for (i=0; i < CALLOUT_MAXARG-1; i++) {
+			for (i=0; i < PROGRAM_MAXARG-1; i++) {
 				args[i] = strsep(&pos, " ");
 				if (args[i] == NULL)
 					break;

@@ -1,8 +1,8 @@
 #!/bin/sh
 
-# udev CALLOUT script
+# udev external PROGRAM script
 # return devfs-names for ide-devices
-# CALLOUT, BUS="ide", PROGRAM="/etc/udev/ide-devfs.sh %k %b %n", ID="hd*", NAME="%1c", SYMLINK="%2c %3c"
+# BUS="ide", PROGRAM="/etc/udev/ide-devfs.sh %k %b %n", RESULT="hd*", NAME="%1c", SYMLINK="%2c %3c"
 
 HOST="${2%\.[0-9]}"
 TARGET="${2#[0-9]\.}"
