@@ -559,46 +559,6 @@ coalesce_paths(struct env * conf, struct multipath * mp,
 }
 
 static int
-make_dm_node(char * str)
-{
-	int r = 0;
-	char buff[FILE_NAME_SIZE];
-	struct dm_names * names;
-        unsigned next = 0;
-	struct dm_task *dmt;
-
-	if (!(dmt = dm_task_create(DM_DEVICE_LIST)))
-		return 0;
-
-	if (!dm_task_run(dmt))
-		goto out;
-
-	if (!(names = dm_task_get_names(dmt)))
-		goto out;
-
-	if (!names->dev) {
-		r = 1;
-		goto out;
-	}
-
-        do {
-		if (0 == strcmp(names->name, str))
-			break;
-                next = names->next;
-                names = (void *) names + next;
-        } while (next);
-
-	sprintf(buff, "/dev/mapper/%s", str);
-	unlink(buff);
-	mknod(buff, 0600 | S_IFBLK, names->dev);
-
-	out:
-	dm_task_destroy(dmt);
-	return r;
-
-}
-
-static int
 dm_simplecmd(int task, const char *name) {
 	int r = 0;
 	struct dm_task *dmt;
@@ -711,7 +671,6 @@ setup_map(struct env * conf, struct path * all_paths,
 	if (op == DM_DEVICE_RELOAD)
 		dm_simplecmd(DM_DEVICE_RESUME, mp[index].wwid);
 
-	make_dm_node(mp[index].wwid);
 	return 1;
 }
 

@@ -1,3 +1,7 @@
+2004-02-04 multipath-016
+	* remove make_dm_node fn & call. Rely on udev for this.
+	* don't rely on the linux symlink in the udev/klibc dir since
+	  udev build doesn't use it anymore. This corrects build breakage
 2004-01-19 multipath-013
 	* update the DM target synthax to the 2.6.0-udm5 style
 2003-12-29 multipath-012

@@ -13,6 +13,7 @@ sysfsdir    = $(udevdir)/libsysfs
 
 CC = gcc
 GCCINCDIR := ${shell $(CC) -print-search-dirs | sed -ne "s/install: \(.*\)/\1include/gp"}
+KERNEL_DIR = /lib/modules/${shell uname -r}/build
 CFLAGS = -pipe -g -O2 -Wall -Wunused -Wstrict-prototypes -nostdinc \
          -I$(klibcdir)/klibc/include -I$(klibcdir)/klibc/include/bits32 \
          -I$(GCCINCDIR) -I$(KERNEL_DIR)/include -I$(sysfsdir) -I.
