@@ -23,17 +23,15 @@
  */
 
 #include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/msg.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
+#include <sys/un.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
-#include <wait.h>
-#include <sys/socket.h>
-#include <sys/un.h>
 
 #include "udev.h"
 #include "udev_version.h"
