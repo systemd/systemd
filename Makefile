@@ -259,15 +259,15 @@ $(ROOT): udev.o $(OBJS) $(HEADERS) $(GEN_HEADERS)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(HELPER): udevinfo.o $(OBJS) $(HEADERS)
+$(HELPER): $(HEADERS) udevinfo.o $(OBJS)
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(DAEMON): udevd.h udevd.o
+$(DAEMON): udevd.h $(GEN_HEADERS) udevd.o
 	$(LD) $(LDFLAGS) -lpthread -o $@ $(CRT0) udevd.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
-$(SENDER): udevd.h udevsend.o
+$(SENDER): udevd.h $(GEN_HEADERS) udevsend.o
 	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
