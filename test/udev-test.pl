@@ -217,6 +217,15 @@ EOF
 LABEL, BUS="scsi", vendor="IBM-ESXS", NAME="1/2/a/b/node", SYMLINK="1/2/c/d/symlink"
 EOF
 	},
+	{
+		desc     => "multiple symlinks",
+		subsys   => "tty",
+		devpath  => "class/tty/ttyUSB0",
+		expected => "second-0" ,
+		conf     => <<EOF
+REPLACE, KERNEL="ttyUSB0", NAME="visor", SYMLINK="first-%n second-%n third-%n"
+EOF
+	},
 );
 
 # set env

@@ -66,6 +66,8 @@ static int delete_path(char *path)
 static int delete_node(struct udevice *dev)
 {
 	char filename[255];
+	char *symlinks;
+	char *linkname;
 	int retval;
 
 	strncpy(filename, udev_root, sizeof(filename));
@@ -84,17 +86,25 @@ static int delete_node(struct udevice *dev)
 		delete_path(filename);
 
 	if (*dev->symlink) {
-		strncpy(filename, udev_root, sizeof(filename));
-		strncat(filename, dev->symlink, sizeof(filename));
-		dbg("unlinking symlink '%s'", filename);
-		retval = unlink(filename);
-		if (retval) {
-			dbg("unlink(%s) failed with error '%s'",
-				filename, strerror(errno));
-			return retval;
-		}
-		if (strchr(dev->symlink, '/')) {
-			delete_path(filename);
+		symlinks = dev->symlink;
+		while (1) {
+			linkname = strsep(&symlinks, " ");
+			if (linkname == NULL)
+				break;
+
+			strncpy(filename, udev_root, sizeof(filename));
+			strncat(filename, linkname, sizeof(filename));
+
+			dbg("unlinking symlink '%s'", filename);
+			retval = unlink(filename);
+			if (retval) {
+				dbg("unlink(%s) failed with error '%s'",
+					filename, strerror(errno));
+				return retval;
+			}
+			if (strchr(dev->symlink, '/')) {
+				delete_path(filename);
+			}
 		}
 	}
 

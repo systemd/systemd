@@ -102,6 +102,8 @@ static int create_node(struct udevice *dev)
 {
 	char filename[255];
 	char linktarget[255];
+	char *linkname;
+	char *symlinks;
 	int retval = 0;
 	uid_t uid = 0;
 	gid_t gid = 0;
@@ -186,39 +188,45 @@ static int create_node(struct udevice *dev)
 			    filename, uid, gid, strerror(errno));
 	}
 
-
 	/* create symlink if requested */
 	if (*dev->symlink) {
-		strncpy(filename, udev_root, sizeof(filename));
-		strncat(filename, dev->symlink, sizeof(filename));
-		dbg("symlink '%s' to node '%s' requested", filename, dev->name);
-		if (strrchr(dev->symlink, '/'))
-			create_path(filename);
+		symlinks = dev->symlink;
+		while (1) {
+			linkname = strsep(&symlinks, " ");
+			if (linkname == NULL)
+				break;
 
-		/* optimize relative link */
-		linktarget[0] = '\0';
-		i = 0;
-		tail = 0;
-		while ((dev->name[i] == dev->symlink[i]) && dev->name[i]) {
-			if (dev->name[i] == '/')
-				tail = i+1;
-			i++;
+			strncpy(filename, udev_root, sizeof(filename));
+			strncat(filename, linkname, sizeof(filename));
+			dbg("symlink '%s' to node '%s' requested", filename, dev->name);
+			if (strrchr(linkname, '/'))
+				create_path(filename);
+
+			/* optimize relative link */
+			linktarget[0] = '\0';
+			i = 0;
+			tail = 0;
+			while ((dev->name[i] == linkname[i]) && dev->name[i]) {
+				if (dev->name[i] == '/')
+					tail = i+1;
+				i++;
+			}
+			while (linkname[i]) {
+				if (linkname[i] == '/')
+					strcat(linktarget, "../");
+				i++;
+			}
+
+			if (*linktarget == '\0')
+				strcpy(linktarget, "./");
+			strcat(linktarget, &dev->name[tail]);
+
+			dbg("symlink(%s, %s)", linktarget, filename);
+			retval = symlink(linktarget, filename);
+			if (retval)
+				dbg("symlink(%s, %s) failed with error '%s'",
+				    linktarget, filename, strerror(errno));
 		}
-		while (dev->symlink[i]) {
-			if (dev->symlink[i] == '/')
-				strcat(linktarget, "../");
-			i++;
-		}
-
-		if (*linktarget == '\0')
-			strcpy(linktarget, "./");
-		strcat(linktarget, &dev->name[tail]);
-
-		dbg("symlink(%s, %s)", linktarget, filename);
-		retval = symlink(linktarget, filename);
-		if (retval)
-			dbg("symlink(%s, %s) failed with error '%s'",
-			    linktarget, filename, strerror(errno));
 	}
 
 	return retval;
