@@ -6,24 +6,24 @@ EXTRAS="extras/chassis_id extras/scsi_id extras/volume_id"
 echo KERNEL_DIR: "$KERNEL_DIR"
 
 make spotless EXTRAS="$EXTRAS" >/dev/null
-make all EXTRAS="$EXTRAS" || exit
+make all $MAKEOPTS EXTRAS="$EXTRAS" || exit
 echo -e "\n\n"
 
 make spotless EXTRAS="$EXTRAS" >/dev/null
-make all DEBUG=true EXTRAS="$EXTRAS"  || exit
+make all $MAKEOPTS DEBUG=true EXTRAS="$EXTRAS"  || exit
 echo -e "\n\n"
 
 make spotless EXTRAS="$EXTRAS" >/dev/null
-make all USE_LOG=false EXTRAS="$EXTRAS"  || exit
+make all $MAKEOPTS USE_LOG=false EXTRAS="$EXTRAS"  || exit
 echo -e "\n\n"
 
 make spotless EXTRAS="$EXTRAS" >/dev/null
-make all USE_KLIBC=true DEBUG=true EXTRAS="$EXTRAS" KERNEL_DIR="$KERNEL_DIR" || exit
+make all $MAKEOPTS USE_KLIBC=true DEBUG=true EXTRAS="$EXTRAS" KERNEL_DIR="$KERNEL_DIR" || exit
 echo -e "\n\n"
 
 make spotless EXTRAS="$EXTRAS" >/dev/null
-make all USE_KLIBC=true USE_LOG=false EXTRAS="$EXTRAS" KERNEL_DIR="$KERNEL_DIR" || exit
+make all $MAKEOPTS USE_KLIBC=true USE_LOG=false EXTRAS="$EXTRAS" KERNEL_DIR="$KERNEL_DIR" || exit
 echo -e "\n\n"
 
 make spotless EXTRAS="$EXTRAS" >/dev/null
-
+echo "build test completed successfully"
