@@ -147,6 +147,7 @@ OBJS =	udev.o		\
 	udevdb.o	\
 	logging.o	\
 	namedev.o	\
+	klibc_fixups.o	\
 	$(SYSFS)	\
 	$(TDB)
 
