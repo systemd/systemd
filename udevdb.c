@@ -128,3 +128,16 @@ int udevdb_init(int init_flag)
 	}
 	return 0;
 }
+
+/**
+ * udevdb_init: open database for reading
+ */
+int udevdb_open_ro(void)
+{
+	udevdb = tdb_open(udev_db_filename, 0, 0, O_RDONLY, 0);
+	if (udevdb == NULL) {
+		dbg("unable to open database at '%s'", udev_db_filename);
+		return -EINVAL;
+	}
+	return 0;
+}

@@ -29,6 +29,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <signal.h>
+#include <stdarg.h>
 
 #include "udev.h"
 #include "udev_version.h"
@@ -81,22 +82,69 @@ static inline char *get_seqnum(void)
 	return seqnum;
 }
 
-int main(int argc, char **argv, char **envp)
+static inline int udev_user(int argc, char **argv)
+{
+	static const char short_options[] = "q:rVh";
+	int option;
+	int retval = -EINVAL;
+	struct udevice dev;
+
+	while (1) {
+		option = getopt(argc, argv, short_options);
+		if (option == -1)
+			break;
+
+		dbg("option '%c'", option);
+		switch (option) {
+		case 'q':
+			dbg("udev query: %s\n", optarg);
+			retval = udevdb_open_ro();
+			if (retval != 0) {
+				printf("unable to open udev database\n");
+				return -1;
+			}
+			retval = udevdb_get_dev(optarg, &dev);
+			if (retval == 0) {
+				printf("%s\n", dev.name);
+			} else {
+				printf("device not found in udev database\n");
+			}
+			udevdb_exit();
+			return retval;
+
+		case 'r':
+			printf("%s\n", udev_root);
+			return 0;
+
+		case 'V':
+			printf("udev, version %s\n", UDEV_VERSION);
+			return 0;
+
+		case 'h':
+			retval = 0;
+		case '?':
+		default:
+			goto help;
+		}
+	}
+
+help:
+	printf("Usage: [-qrVh]\n"
+	       "  -q arg     query database \n"
+	       "  -r         print udev root\n"
+	       "  -V         print udev version\n"
+	       "  -h         print this help text\n"
+	       "\n");
+
+	return retval;
+}
+
+static inline int udev_hotplug(int argc, char **argv)
 {
 	char *action;
 	char *devpath;
 	char *subsystem;
 	int retval = -EINVAL;
-
-	main_argv = argv;
-	main_envp = envp;
-
-	dbg("version %s", UDEV_VERSION);
-
-	if (argc != 2) {
-		dbg ("unknown number of arguments");
-		goto exit;
-	}
 
 	subsystem = argv[1];
 
@@ -125,9 +173,6 @@ int main(int argc, char **argv, char **envp)
 		dbg ("no action?");
 		goto exit;
 	}
-
-	/* initialize our configuration */
-	udev_init_config();
 
 	/* connect to the system message bus */
 	sysbus_connect();
@@ -166,3 +211,27 @@ exit_sysbus:
 exit:
 	return retval;
 }
+
+int main(int argc, char **argv, char **envp)
+{
+	main_argv = argv;
+	main_envp = envp;
+	int retval;
+
+	dbg("version %s", UDEV_VERSION);
+
+	/* initialize our configuration */
+	udev_init_config();
+
+	if (argc == 2 && argv[1][0] != '-') {
+		dbg("called by hotplug");
+		retval = udev_hotplug(argc, argv);
+	} else {
+		dbg("called by user");
+		retval = udev_user(argc, argv);
+	}
+
+	return retval;
+}
+
+

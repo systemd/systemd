@@ -11,6 +11,7 @@
 /* function prototypes */
 extern void udevdb_exit(void);
 extern int udevdb_init(int init_flag);
+extern int udevdb_open_ro(void);
 
 extern int udevdb_add_dev(const char *path, const struct udevice *dev);
 extern int udevdb_get_dev(const char *path, struct udevice *dev);
