@@ -4,6 +4,10 @@ if [ -f /etc/sysconfig/udev ]; then
 	. /etc/sysconfig/udev
 fi
 
+if [ -f /etc/conf.d/udev ]; then
+	. /etc/conf.d/udev
+fi
+
 [ "$UDEV_SELINUX" != "yes" ] && exit 0
 
 if [ -x /sbin/restorecon ]; then
