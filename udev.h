@@ -57,5 +57,7 @@ struct device_attr {
 extern int udev_add_device(char *device, char *subsystem);
 extern int udev_remove_device(char *device, char *subsystem);
 
+extern char **main_argv;
+extern char **main_envp;
 #endif
 

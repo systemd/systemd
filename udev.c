@@ -52,13 +52,19 @@ static char *get_device(void)
 	return device;
 }
 
-int main(int argc, char *argv[])
+char **main_argv;
+char **main_envp;
+
+int main(int argc, char **argv, char **envp)
 {
 	char *action;
 	char *device;
 	char *subsystem;
 	int retval = -EINVAL;
 	
+	main_argv = argv;
+	main_envp = envp;
+
 	if (argc != 2) {
 		dbg ("unknown number of arguments");
 		goto exit;

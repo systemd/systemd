@@ -31,6 +31,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
+#include <sys/wait.h>
 
 #include "list.h"
 #include "udev.h"
@@ -42,6 +43,7 @@
 #define TYPE_NUMBER	"NUMBER"
 #define TYPE_TOPOLOGY	"TOPOLOGY"
 #define TYPE_REPLACE	"REPLACE"
+#define TYPE_CALLOUT	"CALLOUT"
 
 static LIST_HEAD(config_device_list);
 
@@ -76,6 +78,12 @@ static void dump_dev(struct config_device *dev)
 		dbg("REPLACE name = %s, kernel_name = %s"
 			" owner = '%s', group = '%s', mode = '%#o'",
 			dev->attr.name, dev->kernel_name,
+			dev->attr.owner, dev->attr.group, dev->attr.mode);
+		break;
+	case CALLOUT:
+		dbg("CALLOUT name = '%s', program ='%s', bus = '%s', id = '%s'"
+			" owner = '%s', group = '%s', mode = '%#o'",
+			dev->attr.name, dev->exec_program, dev->bus, dev->id,
 			dev->attr.owner, dev->attr.group, dev->attr.mode);
 		break;
 	default:
@@ -330,6 +338,38 @@ static int namedev_init_config(void)
 			strcpy(dev.attr.name, temp3);
 			dbg("REPLACE name = %s, kernel_name = %s", dev.attr.name, dev.kernel_name);
 		}
+		if (strcasecmp(temp2, TYPE_CALLOUT) == 0) {
+			/* number type */
+			dev.type = CALLOUT;
+
+			/* PROGRAM="executable" */
+			retval = get_value("PROGRAM", &temp, &temp3);
+			if (retval)
+				continue;
+			strcpy(dev.exec_program, temp3);
+
+			/* BUS="bus" */
+			temp2 = strsep(&temp, ",");
+			retval = get_value("BUS", &temp, &temp3);
+			if (retval)
+				continue;
+			strcpy(dev.bus, temp3);
+
+			/* ID="id" */
+			temp2 = strsep(&temp, ",");
+			retval = get_value("ID", &temp, &temp3);
+			if (retval)
+				continue;
+			strcpy(dev.id, temp3);
+
+			/* NAME="new_name" */
+			temp2 = strsep(&temp, ",");
+			retval = get_value("NAME", &temp, &temp3);
+			if (retval)
+				continue;
+			strcpy(dev.attr.name, temp3);
+			dbg("CALLOUT name = %s, program = %s", dev.attr.name, dev.exec_program);
+		}
 
 		retval = add_dev(&dev);
 		if (retval) {
@@ -416,6 +456,78 @@ static int get_default_mode(struct sysfs_class_device *class_dev)
 	return 0666;
 }
 
+
+static int exec_callout(struct config_device *dev, char *value, int len)
+{
+	int retval;
+	int res;
+	int status;
+	int fds[2];
+	pid_t pid;
+	int value_set = 0;
+	char buffer[256];
+
+	dbg("callout to %s\n", dev->exec_program);
+	retval = pipe(fds);
+	if (retval != 0) {
+		dbg("pipe failed");
+		return -1;
+	}
+	pid = fork();
+	if (pid == -1) {
+		dbg("fork failed");
+		return -1;
+	}
+
+	if (pid == 0) {
+		/*
+		 * child 
+		 */
+		close(STDOUT_FILENO);
+		dup(fds[1]);	/* dup write side of pipe to STDOUT */
+		retval = execve(dev->exec_program, main_argv, main_envp);
+		if (retval != 0) {
+			dbg("child execve failed");
+			exit(1);
+		}
+		return -1; /* avoid compiler warning */
+	} else {
+		/*
+		 * Parent reads from fds[0].
+		 */
+		close(fds[1]);
+		retval = 0;
+		while (1) {
+			res = read(fds[0], buffer, sizeof(buffer) - 1);
+			if (res <= 0)
+				break;
+			buffer[res] = '\0';
+			if (res > len) {
+				dbg("callout len %d too short\n", len);
+				retval = -1;
+			}
+			if (value_set) {
+				dbg("callout value already set");
+				retval = -1;
+			} else {
+				value_set = 1;
+				strncpy(value, buffer, len);
+			}
+		}
+		close(fds[0]);
+		res = wait(&status);
+		if (res < 0) {
+			dbg("wait failed result %d", res);
+			retval = -1;
+		}
+
+		if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
+			dbg("callout program status 0x%x", status);
+			retval = -1;
+		}
+	}
+	return retval;
+}
 
 static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *attr)
 {
@@ -583,6 +695,26 @@ label_found:
 			}
 			dbg("device at '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
 				dev->place, attr->name, 
+				dev->attr.owner, dev->attr.group, dev->attr.mode);
+			goto done;
+			break;
+			}
+		case CALLOUT:
+			{
+			char value[ID_SIZE];
+
+			if (exec_callout(dev, value, sizeof(value)))
+				continue;
+			if (strncmp(value, dev->id, sizeof(value)) != 0)
+				continue;
+			strcpy(attr->name, dev->attr.name);
+			if (dev->attr.mode != 0) {
+				attr->mode = dev->attr.mode;
+				strcpy(attr->owner, dev->attr.owner);
+				strcpy(attr->group, dev->attr.group);
+			}
+			dbg("device callout '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
+				dev->id, attr->name, 
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
 			goto done;
 			break;

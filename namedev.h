@@ -40,6 +40,7 @@ enum config_type {
 	NUMBER		= 2,
 	TOPOLOGY	= 3,
 	REPLACE		= 4,
+	CALLOUT		= 5,
 };
 
 #define BUS_SIZE	30
@@ -60,6 +61,7 @@ struct config_device {
 	char id[ID_SIZE];
 	char place[PLACE_SIZE];
 	char kernel_name[NAME_SIZE];
+	char exec_program[FILE_SIZE];
 	
 	/* what to set the device to */
 	struct device_attr attr;
