@@ -106,19 +106,22 @@ endif
 # If we are using our version of klibc, then we need to build and link it.
 # Otherwise, use glibc and link statically.
 ifeq ($(strip $(KLIBC)),true)
-	KLIBC_DIR	= klibc
+	KLIBC_DIR	= klibc/klibc
 	INCLUDE_DIR	:= $(KLIBC_DIR)/include
 	# arch specific objects
+	LIBGCC		= $(shell $(CC) --print-libgcc)
 	ARCH_LIB_OBJS =	\
-			$(KLIBC_DIR)/bin-$(ARCH)/start.o	\
-			$(KLIBC_DIR)/bin-$(ARCH)/klibc.a
+			$(KLIBC_DIR)/libc.a	\
+			$(LIBGCC)
 
-	LIB_OBJS =	$(GCC_LIB)
 
+	CRT0 = $(KLIBC_DIR)/crt0.o
 	LIBC =	$(ARCH_LIB_OBJS) $(LIB_OBJS)
-	CFLAGS += -nostdinc -I$(INCLUDE_DIR) -I$(GCCINCDIR)
+	CFLAGS += -nostdinc -I$(INCLUDE_DIR) -I$(INCLUDE_DIR)/bits32 -I$(GCCINCDIR) -Iklibc/linux/include -D__KLIBC__
+	LIB_OBJS =
 	LDFLAGS = --static --nostdlib -nostartfiles
 else
+	CRT0 =
 	LIBC = 
 	CFLAGS += -I$(GCCINCDIR)
 	LIB_OBJS = -lc
