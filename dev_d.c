@@ -96,8 +96,9 @@ void dev_d_send(struct udevice *dev, const char *subsystem, const char *devpath)
 		strfieldcat(env_devname, dev->name);
 	} else if (dev->type == 'n') {
 		strfieldcpy(env_devname, dev->name);
-		setenv("DEVPATH", devpath, 1);
 	}
+
+	setenv("DEVPATH", devpath, 1);
 	setenv("DEVNAME", env_devname, 1);
 	dbg("DEVNAME='%s'", env_devname);
 
