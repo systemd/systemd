@@ -99,7 +99,8 @@ static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev
 /* skip waiting for physical device */
 static int class_device_expect_no_device_link(struct sysfs_class_device *class_dev)
 {
-	/* List of devices without a "device" symlink */
+	/* List of devices without a "device" symlink
+	 * set .device to NULL to accept all devices in that subsystem */
 	static struct class_device {
 		char *subsystem;
 		char *device;
