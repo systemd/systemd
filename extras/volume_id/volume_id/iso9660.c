@@ -47,68 +47,86 @@
 #define ISO_VD_END			0xff
 #define ISO_VD_MAX			16
 
-union iso_super_block {
-	struct iso_header {
-		__u8	type;
-		__u8	id[5];
-		__u8	version;
-		__u8	unused1;
-		__u8		system_id[32];
-		__u8		volume_id[32];
-	} __attribute__((__packed__)) iso;
-	struct hs_header {
-		__u8	foo[8];
-		__u8	type;
-		__u8	id[4];
-		__u8	version;
-	} __attribute__((__packed__)) hs;
+struct iso_volume_descriptor {
+	__u8	vd_type;
+	__u8	vd_id[5];
+	__u8	vd_version;
+	__u8	flags;
+	__u8	system_id[32];
+	__u8	volume_id[32];
+	__u8	unused[8];
+	__u8	space_size[8];
+	__u8	escape_sequences[8];
+} __attribute__((__packed__));
+
+struct high_sierra_volume_descriptor {
+	__u8	foo[8];
+	__u8	type;
+	__u8	id[4];
+	__u8	version;
 } __attribute__((__packed__));
 
 int volume_id_probe_iso9660(struct volume_id *id, __u64 off)
 {
-	union iso_super_block *is;
+	__u8 *buf;
+	struct iso_volume_descriptor *is;
+	struct high_sierra_volume_descriptor *hs;
 
 	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
-	is = (union iso_super_block *) volume_id_get_buffer(id, off + ISO_SUPERBLOCK_OFFSET, 0x200);
-	if (is == NULL)
+	buf = volume_id_get_buffer(id, off + ISO_SUPERBLOCK_OFFSET, 0x200);
+	if (buf == NULL)
 		return -1;
 
-	if (memcmp(is->iso.id, "CD001", 5) == 0) {
-		char root_label[VOLUME_ID_LABEL_SIZE+1];
+	is = (struct iso_volume_descriptor *) buf;
+
+	if (memcmp(is->vd_id, "CD001", 5) == 0) {
 		int vd_offset;
 		int i;
-		int found_svd;
 
-		memset(root_label, 0, sizeof(root_label));
-		strncpy(root_label, is->iso.volume_id, sizeof(root_label)-1);
+		dbg("read label from PVD");
+		volume_id_set_label_raw(id, is->volume_id, 32);
+		volume_id_set_label_string(id, is->volume_id, 32);
 
-		found_svd = 0;
+		dbg("looking for SVDs");
 		vd_offset = ISO_VD_OFFSET;
 		for (i = 0; i < ISO_VD_MAX; i++) {
-			is = (union iso_super_block *) volume_id_get_buffer(id, off + vd_offset, 0x200);
-			if (is == NULL || is->iso.type == ISO_VD_END)
+			char svd_label[64];
+
+			is = (struct iso_volume_descriptor *) volume_id_get_buffer(id, off + vd_offset, 0x200);
+			if (is == NULL || is->vd_type == ISO_VD_END)
 				break;
-			if (is->iso.type == ISO_VD_SUPPLEMENTARY) {
-				dbg("found ISO supplementary VD at offset 0x%llx", (unsigned long long) (off + vd_offset));
-				volume_id_set_label_raw(id, is->iso.volume_id, 32);
-				volume_id_set_label_unicode16(id, is->iso.volume_id, BE, 32);
-				found_svd = 1;
-				break;
+			if (is->vd_type != ISO_VD_SUPPLEMENTARY)
+				continue;
+
+			dbg("found SVD at offset 0x%llx", (unsigned long long) (off + vd_offset));
+			if (memcmp(is->escape_sequences, "%/@", 3) == 0||
+			    memcmp(is->escape_sequences, "%/C", 3) == 0||
+			    memcmp(is->escape_sequences, "%/E", 3) == 0) {
+				dbg("Joliet extension found");
+				volume_id_set_unicode16(svd_label, sizeof(svd_label), is->volume_id, BE, 32);
+				if (memcmp(id->label, svd_label, 16) == 0) {
+					dbg("SVD label is identical, use the possibly longer PVD one");
+					break;
+				}
+
+				volume_id_set_label_raw(id, is->volume_id, 32);
+				volume_id_set_label_string(id, svd_label, 32);
+				strcpy(id->type_version, "Joliet Extension");
+				goto found;
 			}
 			vd_offset += ISO_SECTOR_SIZE;
 		}
-
-		if (!found_svd ||
-		    (found_svd && !memcmp(root_label, id->label, 16)))
-		{
-			volume_id_set_label_raw(id, root_label, 32);
-			volume_id_set_label_string(id, root_label, 32);
-		}
 		goto found;
 	}
-	if (memcmp(is->hs.id, "CDROM", 5) == 0)
+
+	hs = (struct high_sierra_volume_descriptor *) buf;
+
+	if (memcmp(hs->id, "CDROM", 5) == 0) {
+		strcpy(id->type_version, "High Sierra");
 		goto found;
+	}
+
 	return -1;
 
 found:

@@ -40,6 +40,40 @@
 #include "logging.h"
 #include "util.h"
 
+void volume_id_set_unicode16(char *str, unsigned int len, const __u8 *buf, enum endian endianess, unsigned int count)
+{
+	unsigned int i, j;
+	__u16 c;
+
+	j = 0;
+	for (i = 0; i + 2 <= count; i += 2) {
+		if (endianess == LE)
+			c = (buf[i+1] << 8) | buf[i];
+		else
+			c = (buf[i] << 8) | buf[i+1];
+		if (c == 0) {
+			str[j] = '\0';
+			break;
+		} else if (c < 0x80) {
+			if (j+1 >= len)
+				break;
+			str[j++] = (__u8) c;
+		} else if (c < 0x800) {
+			if (j+2 >= len)
+				break;
+			str[j++] = (__u8) (0xc0 | (c >> 6));
+			str[j++] = (__u8) (0x80 | (c & 0x3f));
+		} else {
+			if (j+3 >= len)
+				break;
+			str[j++] = (__u8) (0xe0 | (c >> 12));
+			str[j++] = (__u8) (0x80 | ((c >> 6) & 0x3f));
+			str[j++] = (__u8) (0x80 | (c & 0x3f));
+		}
+	}
+	str[j] = '\0';
+}
+
 static char *usage_to_string(enum volume_id_usage usage_id)
 {
 	switch (usage_id) {
@@ -98,29 +132,7 @@ void volume_id_set_label_string(struct volume_id *id, const __u8 *buf, unsigned 
 
 void volume_id_set_label_unicode16(struct volume_id *id, const __u8 *buf, enum endian endianess, unsigned int count)
 {
-	unsigned int i, j;
-	__u16 c;
-
-	j = 0;
-	for (i = 0; i + 2 <= count; i += 2) {
-		if (endianess == LE)
-			c = (buf[i+1] << 8) | buf[i];
-		else
-			c = (buf[i] << 8) | buf[i+1];
-		if (c == 0) {
-			id->label[j] = '\0';
-			break;
-		} else if (c < 0x80) {
-			id->label[j++] = (__u8) c;
-		} else if (c < 0x800) {
-			id->label[j++] = (__u8) (0xc0 | (c >> 6));
-			id->label[j++] = (__u8) (0x80 | (c & 0x3f));
-		} else {
-			id->label[j++] = (__u8) (0xe0 | (c >> 12));
-			id->label[j++] = (__u8) (0x80 | ((c >> 6) & 0x3f));
-			id->label[j++] = (__u8) (0x80 | (c & 0x3f));
-		}
-	}
+	 volume_id_set_unicode16(id->label, sizeof(id->label), buf, endianess, count);
 }
 
 void volume_id_set_uuid(struct volume_id *id, const __u8 *buf, enum uuid_format format)

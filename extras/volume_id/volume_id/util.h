@@ -83,6 +83,7 @@ enum endian {
 	BE = 1
 };
 
+extern void volume_id_set_unicode16(char *str, unsigned int len, const __u8 *buf, enum endian endianess, unsigned int count);
 extern void volume_id_set_usage(struct volume_id *id, enum volume_id_usage usage_id);
 extern void volume_id_set_usage_part(struct volume_id_partition *part, enum volume_id_usage usage_id);
 extern void volume_id_set_label_raw(struct volume_id *id, const __u8 *buf, unsigned int count);
