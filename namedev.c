@@ -39,6 +39,7 @@
 #include "udev_version.h"
 #include "namedev.h"
 #include "libsysfs/libsysfs.h"
+#include "klibc_fixups.h"
 
 #define TYPE_LABEL	"LABEL"
 #define TYPE_NUMBER	"NUMBER"

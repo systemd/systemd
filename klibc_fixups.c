@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <sys/types.h>
+#include "klibc_fixups.h"
 
 char *strerror(int errnum)
 {
@@ -29,5 +31,5 @@ int strcasecmp(const char *s1, const char *s2)
 	free(n2);
 	return retval;
 }
-	
+
 #endif
