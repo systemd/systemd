@@ -23,14 +23,25 @@ config file.
 .B UDEV_NO_SLEEP
 The default behavior of
 .B udev
-is to wait until all the sysfs files of the device chain are populated. If set
+is to wait until all the sysfs files of the device chain are populated. If set,
 .B udev
 will continue, regardless of the state of the device representation.
+.TP
+.B UDEV_NO_DEVD
+The default behavior of
+.B udev
+is to execute programs in the
+.I /etc/dev.d/
+directory after device handling. If set,
+.B udev
+will skip this step.
 .SH "DESCRIPTION"
 .B udev
-creates or removes device node files usually located in the /dev directory.
-It provides a dynamic device directory contaning only the files for
-actually present devices.
+provides a dynamic device directory containing only the files for actually
+present devices. It creates or removes device node files usually located in
+the /dev directory, or it renames network interfaces.
+.br
+
 .P
 As part of the
 .B hotplug
@@ -42,7 +53,7 @@ On device creation,
 reads the sysfs directory of the given device to collect device attributes
 like label, serial number or bus device number.
 These attributes may be used as keys to determine a
-unique name for device file creation.
+unique name for the device.
 .B udev
 maintains a database for devices present on the system.
 .br
@@ -88,8 +99,8 @@ If a directory is specified, the whole directory is scanned for files ending wit
 and all permission files are read in lexical order.
 .TP
 .B udev_log
-If you want udev to log some information to the syslog for every node created or
-removed. The default value is
+If you want udev to log some information to the syslog for every device handled.
+The default value is
 .IR yes .
 .TP
 .B default_mode
@@ -149,9 +160,9 @@ value in the
 file.
 .P
 Every line in the rules file defines the mapping between device attributes
-and the device file name. One or more keys are specified to match a rule
-with the current device. If all keys are matching, the rule will be applied
-and the name is used for the device node.
+and the device name. One or more keys are specified to match a rule with
+the current device. If all keys are matching, the rule will be applied and
+the name is used to name the device file or the network interface.
 .br
 If no matching rule is found, the default kernel device name is used.
 .P
@@ -200,7 +211,8 @@ call. This key may be used in any following rule after a
 call.
 .TP
 .B NAME
-The name of the node to be created.
+The name of the node to be created, or the name, the network interface
+should be renamed to.
 .br
 If given with the attribute
 .BR NAME{ all_partitions }
@@ -341,11 +353,33 @@ pattern string "tty[SR]" would match either "ttyS" or "ttyR".  Ranges are also
 supported within this match with the '\-' character.  For example, to match on
 the range of all digits, the pattern [0\-9] would be used. If the first character
 following the '[' is a '!', any character not enclosed is matched.
+.P
+After device node creation, removal, or network device renaming,
+.B udev
+executes the programs in the directory tree under
+.IR /etc/dev.d/ .
+The name of a program must end with
+.I .dev
+suffix, to be recognized.
+.br
+In addition to the hotplug environment variables,
+.B DEVNAME
+is exported to make the name of the created node, or the name the network
+device is renamed to, available to the executed program. The programs in every
+directory are sorted in lexical order, while the directories are searched in
+the following order:
+.sp
+.nf
+/etc/dev.d/$(DEVNAME)/*.dev
+/etc/dev.d/$(SUBSYSTEM)/*.dev
+/etc/dev.d/default/*.dev
+.fi
 .SH "FILES"
 .nf
 /sbin/udev                           udev program
 /etc/udev/*                          udev config files
 /etc/hotplug.d/default/udev.hotplug  hotplug symlink to udev program
+/etc/dev.d/*                         programs invoked by udev
 .fi
 .LP
 .SH "SEE ALSO"
