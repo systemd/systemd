@@ -46,6 +46,8 @@ char udev_permissions_filename[PATH_MAX+NAME_MAX];
 char udev_rules_filename[PATH_MAX+NAME_MAX];
 char udev_config_filename[PATH_MAX+NAME_MAX];
 char default_mode_str[NAME_MAX];
+char default_owner_str[OWNER_SIZE];
+char default_group_str[GROUP_SIZE];
 
 
 static void init_variables(void)
@@ -117,6 +119,8 @@ static int parse_config_file(void)
 		set_var("udev_rules", udev_rules_filename);
 		set_var("udev_permissions", udev_permissions_filename);
 		set_var("default_mode", default_mode_str);
+		set_var("default_owner", default_owner_str);
+		set_var("default_group", default_group_str);
 	}
 	dbg_parse("%s:%d:%Zd: error parsing '%s'", udev_config_filename,
 		  lineno, temp - line, temp);

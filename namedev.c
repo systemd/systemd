@@ -151,6 +151,22 @@ static mode_t get_default_mode(struct sysfs_class_device *class_dev)
 	return mode;
 }
 
+static char * get_default_owner(void)
+{
+	if (strlen(default_owner_str) == 0) {
+		strncpy(default_owner_str, "root", OWNER_SIZE);
+	}
+	return default_owner_str;
+}
+
+static char * get_default_group(void)
+{
+	if (strlen(default_group_str) == 0) {
+		strncpy(default_group_str, "root", GROUP_SIZE);
+	}
+	return default_group_str;
+}
+
 static void apply_format(struct udevice *udev, unsigned char *string)
 {
 	char temp[NAME_SIZE];
@@ -720,8 +736,8 @@ done:
 	} else {
 		/* no matching perms found :( */
 		udev->mode = get_default_mode(class_dev);
-		udev->owner[0] = 0x00;
-		udev->group[0] = 0x00;
+		strncpy(udev->owner, get_default_owner(), OWNER_SIZE);
+		strncpy(udev->group, get_default_group(), GROUP_SIZE);
 	}
 	dbg("name, '%s' is going to have owner='%s', group='%s', mode = %#o",
 	    udev->name, udev->owner, udev->group, udev->mode);
