@@ -37,14 +37,8 @@
 
 /* Lots of constants that should be in a config file sometime */
 
-/* Location of sysfs mount */
-#define SYSFS_ROOT	"/sys"
-
 /* Where udev should create its device nodes, trailing / needed */
 #define UDEV_ROOT	"/udev/"
-
-/* device file in sysfs that contains major/minor number, leading / needed */
-#define DEV_FILE	"/dev"
 
 /* Binaries that udev calls to do stuff */
 #define MKNOD		"/bin/mknod"
