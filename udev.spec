@@ -40,9 +40,9 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) /sbin/udev
 %attr(755,root,root) /udev/
 %attr(755,root,root) /etc/udev/
-%attr(0644,root,root) /etc/udev/udev.conf
-%attr(0644,root,root) /etc/udev/udev.rules
-%attr(0644,root,root) /etc/udev/udev.permissions
+%config(noreplace) %attr(0644,root,root) /etc/udev/udev.conf
+%config(noreplace) %attr(0644,root,root) /etc/udev/udev.rules
+%config(noreplace) %attr(0644,root,root) /etc/udev/udev.permissions
 %attr(-,root,root) /etc/hotplug.d/default/udev.hotplug
 %attr(755,root,root) /etc/init.d/udev
 %attr(0644,root,root) %{_mandir}/man8/udev.8*
