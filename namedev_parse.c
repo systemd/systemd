@@ -319,21 +319,21 @@ static int namedev_parse_permissions(char *filename)
 			dbg("cannot parse line '%s'", line);
 			continue;
 		}
-		strncpy(dev.name, temp2, sizeof(dev.name));
+		strfieldcpy(dev.name, temp2);
 
 		temp2 = strsep(&temp, ":");
 		if (!temp2) {
 			dbg("cannot parse line '%s'", line);
 			continue;
 		}
-		strncpy(dev.owner, temp2, sizeof(dev.owner));
+		strfieldcpy(dev.owner, temp2);
 
 		temp2 = strsep(&temp, ":");
 		if (!temp2) {
 			dbg("cannot parse line '%s'", line);
 			continue;
 		}
-		strncpy(dev.group, temp2, sizeof(dev.group));
+		strfieldcpy(dev.group, temp2);
 
 		if (!temp) {
 			dbg("cannot parse line: %s", line);
@@ -422,7 +422,7 @@ static int call_foreach_file(int parser (char *f) , char *filename, char *extens
 	/* parse every file in the list */
 	list_for_each_entry_safe(loop_file, tmp_file, &file_list, list) {
 		strfieldcpy(file, filename);
-		strcat(file, loop_file->name);
+		strfieldcat(file, loop_file->name);
 		parser(file);
 		list_del(&loop_file->list);
 		free(loop_file);

@@ -78,7 +78,7 @@ static int create_path(char *file)
 	int retval;
 	struct stat stats;
 	
-	strncpy(p, file, sizeof(p));
+	strfieldcpy(p, file);
 	pos = strchr(p+1, '/');
 	while (1) {
 		pos = strchr(pos+1, '/');
@@ -145,8 +145,8 @@ static int create_node(struct udevice *dev, int fake)
 	int i;
 	int tail;
 
-	strncpy(filename, udev_root, sizeof(filename));
-	strncat(filename, dev->name, sizeof(filename));
+	strfieldcpy(filename, udev_root);
+	strfieldcat(filename, dev->name);
 
 	switch (dev->type) {
 	case 'b':
@@ -225,8 +225,8 @@ static int create_node(struct udevice *dev, int fake)
 			if (linkname == NULL || linkname[0] == '\0')
 				break;
 
-			strncpy(filename, udev_root, sizeof(filename));
-			strncat(filename, linkname, sizeof(filename));
+			strfieldcpy(filename, udev_root);
+			strfieldcat(filename, linkname);
 			dbg("symlink '%s' to node '%s' requested", filename, dev->name);
 			if (!fake)
 				if (strrchr(linkname, '/'))
@@ -243,13 +243,13 @@ static int create_node(struct udevice *dev, int fake)
 			}
 			while (linkname[i] != '\0') {
 				if (linkname[i] == '/')
-					strcat(linktarget, "../");
+					strfieldcat(linktarget, "../");
 				i++;
 			}
 
 			if (linktarget[0] == '\0')
-				strcpy(linktarget, "./");
-			strcat(linktarget, &dev->name[tail]);
+				strfieldcpy(linktarget, "./");
+			strfieldcat(linktarget, &dev->name[tail]);
 
 			/* unlink existing files to ensure that our symlink is created */
 			if (!fake && (lstat(filename, &stats) == 0)) {
@@ -278,8 +278,8 @@ static struct sysfs_class_device *get_class_dev(char *device_name)
 	char dev_path[SYSFS_PATH_MAX];
 	struct sysfs_class_device *class_dev = NULL;
 
-	strcpy(dev_path, sysfs_path);
-	strcat(dev_path, device_name);
+	strfieldcpy(dev_path, sysfs_path);
+	strfieldcat(dev_path, device_name);
 	dbg("looking at '%s'", dev_path);
 
 	/* open up the sysfs class device for this thing... */
@@ -304,9 +304,9 @@ static int sleep_for_dev(char *path)
 	int loop = SECONDS_TO_WAIT_FOR_DEV;
 	int retval;
 
-	strcpy(filename, sysfs_path);
-	strcat(filename, path);
-	strcat(filename, "/dev");
+	strfieldcpy(filename, sysfs_path);
+	strfieldcat(filename, path);
+	strfieldcat(filename, "/dev");
 
 	while (loop--) {
 		struct stat buf;

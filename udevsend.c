@@ -82,9 +82,9 @@ static int build_hotplugmsg(struct hotplug_msg *msg, char *action,
 	memset(msg, 0x00, sizeof(*msg));
 	strfieldcpy(msg->magic, UDEV_MAGIC);
 	msg->seqnum = seqnum;
-	strncpy(msg->action, action, 8);
-	strncpy(msg->devpath, devpath, 128);
-	strncpy(msg->subsystem, subsystem, 16);
+	strfieldcpy(msg->action, action);
+	strfieldcpy(msg->devpath, devpath);
+	strfieldcpy(msg->subsystem, subsystem);
 	return sizeof(struct hotplug_msg);
 }
 

@@ -53,7 +53,7 @@ int udevdb_add_dev(const char *path, const struct udevice *dev)
 		return -ENODEV;
 
 	memset(keystr, 0, NAME_SIZE);
-	strcpy(keystr, path);
+	strfieldcpy(keystr, path);
 	key.dptr = keystr;
 	key.dsize = strlen(keystr) + 1;
 
@@ -91,7 +91,7 @@ int udevdb_delete_dev(const char *path)
 		return -EINVAL;
 
 	memset(keystr, 0, sizeof(keystr));
-	strcpy(keystr, path);
+	strfieldcpy(keystr, path);
 
 	key.dptr = keystr;
 	key.dsize = strlen(keystr) + 1;
@@ -180,7 +180,7 @@ static int find_device_by_name(char *path, struct udevice *dev)
 {
 	if (strncmp(dev->name, find_name, sizeof(dev->name)) == 0) {
 		memcpy(find_dev, dev, sizeof(*find_dev));
-		strncpy(find_path, path, NAME_SIZE);
+		strfieldcpy(find_path, path);
 		find_found = 1;
 		/* stop search */
 		return 1;

@@ -72,8 +72,8 @@ static int delete_node(struct udevice *dev)
 	int retval;
 	int i;
 
-	strncpy(filename, udev_root, sizeof(filename));
-	strncat(filename, dev->name, sizeof(filename));
+	strfieldcpy(filename, udev_root);
+	strfieldcat(filename, dev->name);
 
 	info("removing device node '%s'", filename);
 	retval = unlink(filename);
@@ -103,8 +103,8 @@ static int delete_node(struct udevice *dev)
 			if (linkname == NULL)
 				break;
 
-			strncpy(filename, udev_root, sizeof(filename));
-			strncat(filename, linkname, sizeof(filename));
+			strfieldcpy(filename, udev_root);
+			strfieldcat(filename, linkname);
 
 			dbg("unlinking symlink '%s'", filename);
 			retval = unlink(filename);
@@ -141,7 +141,7 @@ int udev_remove_device(char *path, char *subsystem)
 		temp = strrchr(path, '/');
 		if (temp == NULL)
 			return -ENODEV;
-		strncpy(dev.name, &temp[1], sizeof(dev.name));
+		strfieldcpy(dev.name, &temp[1]);
 	}
 
 	dbg("name is '%s'", dev.name);

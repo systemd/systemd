@@ -80,8 +80,8 @@ void sysbus_send_create(struct udevice *dev, const char *path)
 	if (sysbus_connection == NULL)
 		return;
 
-	strncpy(filename, udev_root, sizeof(filename));
-	strncat(filename, dev->name, sizeof(filename));
+	strfieldcpy(filename, udev_root);
+	strfieldcat(filename, dev->name);
 
 	/* object, interface, member */
 	message = dbus_message_new_signal("/org/kernel/udev/NodeMonitor", 
@@ -114,8 +114,8 @@ void sysbus_send_remove(const char* name, const char *path)
 	if (sysbus_connection == NULL)
 		return;
 
-	strncpy(filename, udev_root, sizeof(filename));
-	strncat(filename, name, sizeof(filename));
+	strfieldcpy(filename, udev_root);
+	strfieldcat(filename, name);
 
 	/* object, interface, member */
 	message = dbus_message_new_signal("/org/kernel/udev/NodeMonitor", 

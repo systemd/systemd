@@ -73,7 +73,7 @@ static int print_all_attributes(const char *path)
 
 	dlist_for_each_data(attributes, attr, struct sysfs_attribute) {
 		if (attr->value != NULL) {
-			strncpy(value, attr->value, SYSFS_VALUE_MAX);
+			strfieldcpy(value, attr->value);
 			len = strlen(value);
 			if (len == 0)
 				continue;
@@ -306,8 +306,8 @@ static int process_options(void)
 			} else {
 				if (path[0] != '/') {
 					/* prepend '/' if missing */
-					strcat(temp, "/");
-					strncat(temp, path, sizeof(path));
+					strfieldcat(temp, "/");
+					strfieldcat(temp, path);
 					pos = temp;
 				} else {
 					pos = path;
@@ -343,7 +343,7 @@ print:
 		case NAME:
 			if (root)
 				strfieldcpy(result, udev_root);
-			strncat(result, dev.name, sizeof(result));
+			strfieldcat(result, dev.name);
 			break;
 
 		case SYMLINK:
@@ -385,7 +385,7 @@ exit:
 				/* prepend sysfs mountpoint if not given */
 				strfieldcpy(temp, path);
 				strfieldcpy(path, sysfs_path);
-				strncat(path, temp, sizeof(path));
+				strfieldcat(path, temp);
 			}
 			print_device_chain(path);
 			return 0;

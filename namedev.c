@@ -157,7 +157,7 @@ static mode_t get_default_mode(void)
 static char *get_default_owner(void)
 {
 	if (strlen(default_owner_str) == 0)
-		strncpy(default_owner_str, "root", OWNER_SIZE);
+		strfieldcpy(default_owner_str, "root");
 
 	return default_owner_str;
 }
@@ -165,7 +165,7 @@ static char *get_default_owner(void)
 static char *get_default_group(void)
 {
 	if (strlen(default_group_str) == 0)
-		strncpy(default_group_str, "root", GROUP_SIZE);
+		strfieldcpy(default_group_str, "root");
 
 	return default_group_str;
 }
@@ -276,7 +276,7 @@ static void apply_format(struct udevice *udev, unsigned char *string, struct sys
 			if (attr != NULL)
 				i = atoi(attr);
 			if (i > 0) {
-				strncpy(temp1, udev->program_result, sizeof(temp1));
+				strfieldcpy(temp1, udev->program_result);
 				pos2 = temp1;
 				while (i) {
 					i--;
@@ -837,8 +837,8 @@ done:
 	} else {
 		/* no matching perms found :( */
 		udev->mode = get_default_mode();
-		strncpy(udev->owner, get_default_owner(), OWNER_SIZE);
-		strncpy(udev->group, get_default_group(), GROUP_SIZE);
+		strfieldcpy(udev->owner, get_default_owner());
+		strfieldcpy(udev->group, get_default_group());
 	}
 	dbg("name, '%s' is going to have owner='%s', group='%s', mode = %#o",
 	    udev->name, udev->owner, udev->group, udev->mode);
