@@ -77,6 +77,15 @@ KERNEL="loop[0-9]*",	NAME="loop/%n", SYMLINK="%k", GROUP="disk"
 # md block devices
 KERNEL="md[0-9]*",	NAME="md/%n", SYMLINK="%k", GROUP="disk"
 
+# aoe char devices,
+# we might have to add a "CLASS" type one of these days to make this a bit saner
+KERNEL="discover",	NAME="etherd/%k", GROUP="disk", MODE="0220"
+KERNEL="err",		NAME="etherd/%k", GROUP="disk", MODE="0440"
+KERNEL="interfaces",	NAME="etherd/%k", GROUP="disk", MODE="0220"
+
+# aoe block devices
+KERNEL="etherd*",	NAME="%k", GROUP="disk"
+
 # misc devices
 KERNEL="agpgart",	NAME="misc/%k", SYMLINK="%k"
 KERNEL="psaux",		NAME="misc/%k", SYMLINK="%k"
