@@ -75,6 +75,10 @@ udevdir = ${prefix}/udev
 # than the local version of klibc
 #USE_KLIBC = true
 
+# make the build silent (well, at least the udev part)  Set this
+# to something else to make it noisy again.
+V=false
+
 # set up PWD so that older versions of make will work with our build.
 PWD = $(shell pwd)
 
@@ -87,6 +91,7 @@ LD = $(CROSS)gcc
 AR = $(CROSS)ar
 STRIP = $(CROSS)strip
 RANLIB = $(CROSS)ranlib
+HOSTCC = gcc
 
 export CROSS CC AR STRIP RANLIB CFLAGS LDFLAGS LIB_OBJS ARCH_LIB_OBJS CRT0
 
@@ -195,13 +200,13 @@ $(CRT0):
 TDB =	tdb/tdb.o	\
 	tdb/spinlock.o
 
-SYSFS =	$(PWD)/libsysfs/sysfs_bus.o	\
-	$(PWD)/libsysfs/sysfs_class.o	\
-	$(PWD)/libsysfs/sysfs_device.o	\
-	$(PWD)/libsysfs/sysfs_dir.o	\
-	$(PWD)/libsysfs/sysfs_driver.o	\
-	$(PWD)/libsysfs/sysfs_utils.o	\
-	$(PWD)/libsysfs/dlist.o
+SYSFS =	libsysfs/sysfs_bus.o	\
+	libsysfs/sysfs_class.o	\
+	libsysfs/sysfs_device.o	\
+	libsysfs/sysfs_dir.o	\
+	libsysfs/sysfs_driver.o	\
+	libsysfs/sysfs_utils.o	\
+	libsysfs/dlist.o
 
 OBJS =	udev_lib.o	\
 	udev_config.o	\
@@ -229,8 +234,20 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	KLIBC_FIXUP = klibc_fixups.o
 endif
 
+ifeq ($(strip $(V)),false)
+	QUIET=@./ccdv
+	HOST_PROGS=ccdv
+else
+	QUIET=
+	HOST_PROGS=
+endif
+
 # header files automatically generated
 GEN_HEADERS =	udev_version.h
+
+ccdv:
+	@echo "Building ccdv"
+	@$(HOSTCC) -O1 ccdv.c -o ccdv
 
 # Rules on how to create the generated header files
 udev_version.h:
@@ -247,17 +264,17 @@ udev_version.h:
 
 # Rules on how to create the generated config files
 $(LOCAL_CFG_DIR)/udev.conf:
-	sed -e "s:@udevdir@:$(udevdir):" -e "s:@configdir@:$(configdir):" < $(LOCAL_CFG_DIR)/udev.conf.in > $@
+	@./ccdv sed -e "s:@udevdir@:$(udevdir):" -e "s:@configdir@:$(configdir):" < $(LOCAL_CFG_DIR)/udev.conf.in > $@
 
 GEN_MANPAGES   = udev.8
 GEN_MANPAGESIN = udev.8.in
 # Rules on how to create the man pages
 $(GEN_MANPAGES): $(GEN_MANPAGESIN)
-	sed -e "s:@udevdir@:$(udevdir):" < $@.in > $@
+	@./ccdv sed -e "s:@udevdir@:$(udevdir):" < $@.in > $@
 
 
 $(OBJS): $(GEN_HEADERS)
-$(ROOT).o: $(GEN_HEADERS)
+$(ROOT).o: $(GEN_HEADERS) $(HOST_PROGS)
 $(TESTER).o: $(GEN_HEADERS)
 $(INFO).o: $(GEN_HEADERS)
 $(DAEMON).o: $(GEN_HEADERS)
@@ -266,37 +283,44 @@ $(STARTER).o: $(GEN_HEADERS)
 $(WAIT).o: $(GEN_HEADERS)
 
 $(ROOT): $(LIBC) $(ROOT).o $(STARTER).o $(OBJS) $(HEADERS) $(GEN_MANPAGES)
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o udevstart.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
-	$(STRIPCMD) $@
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udev.o udevstart.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(STRIPCMD) $@
 
 $(TESTER): $(LIBC) $(TESTER).o $(OBJS) $(HEADERS)
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevtest.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
-	$(STRIPCMD) $@
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevtest.o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(STRIPCMD) $@
 
 $(INFO): $(LIBC) $(INFO).o $(OBJS) $(HEADERS)
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o udev_lib.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS)
-	$(STRIPCMD) $@
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevinfo.o udev_lib.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(STRIPCMD) $@
 
 $(DAEMON): $(LIBC) $(DAEMON).o $(OBJS) udevd.h
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevd.o udev_lib.o $(KLIBC_FIXUP) $(LIB_OBJS) $(ARCH_LIB_OBJS)
-	$(STRIPCMD) $@
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevd.o udev_lib.o $(KLIBC_FIXUP) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(STRIPCMD) $@
 
 $(SENDER): $(LIBC) $(SENDER).o $(OBJS) udevd.h
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o udev_lib.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
-	$(STRIPCMD) $@
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevsend.o udev_lib.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(STRIPCMD) $@
 
 $(RULER): $(LIBC) $(RULER).o $(OBJS) $(HEADERS)
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevruler.o udev_lib.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS) -lnewt
-	$(STRIPCMD) $@
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) udevruler.o udev_lib.o udev_config.o udevdb.o $(SYSFS) $(TDB) $(LIB_OBJS) $(ARCH_LIB_OBJS) -lnewt
+	$(QUIET) $(STRIPCMD) $@
 
 $(WAIT): $(WAIT).o $(OBJS) $(HEADERS) $(LIBC)
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) $(WAIT).o $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
-	$(STRIPCMD) $@
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(WAIT).o $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(STRIPCMD) $@
+
+#.c.o:
+#	$(CC) $(CFLAGS) $(DEFS) $(CPPFLAGS) -c -o $@ $<
+.c.o:
+	$(QUIET) $(CC) $(CFLAGS) -c -o $@ $<
+
 
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
 	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) $(SENDER) $(TESTER) $(RULER) $(WAIT)
+	- rm -f ccdv
 	$(MAKE) -C klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
