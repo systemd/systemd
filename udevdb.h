@@ -25,7 +25,7 @@ struct udevice {
 	char type;
 	int major;
 	int minor;
-	int mode;
+	mode_t mode;
 };
 
 /* Function Prototypes */

@@ -73,7 +73,7 @@ struct namedb_record {
 	char type;
 	int major;
 	int minor;
-	int mode;
+	mode_t mode;
 };
 
 /**

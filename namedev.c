@@ -446,7 +446,8 @@ static int namedev_init_permissions(void)
 		dev.attr.mode = strtol(temp, NULL, 8);
 
 		dbg_parse("name = %s, owner = %s, group = %s, mode = %#o",
-				dev.attr.name, dev.attr.owner, dev.attr.group, dev.attr.mode);
+				dev.attr.name, dev.attr.owner, dev.attr.group,
+				dev.attr.mode);
 		retval = add_dev(&dev);
 		if (retval) {
 			dbg("add_dev returned with error %d", retval);
@@ -459,7 +460,7 @@ exit:
 	return retval;
 }	
 
-static int get_default_mode(struct sysfs_class_device *class_dev)
+static mode_t get_default_mode(struct sysfs_class_device *class_dev)
 {
 	/* just default everyone to rw for the world! */
 	return 0666;
@@ -544,7 +545,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 	int retval = 0;
 	int found;
 
-	attr->mode = -1;
+	attr->mode = 0;
 	if (class_dev->sysdevice) {
 		dbg_parse("class_dev->sysdevice->directory->path = '%s'", class_dev->sysdevice->directory->path);
 		dbg_parse("class_dev->sysdevice->bus_id = '%s'", class_dev->sysdevice->bus_id);
@@ -751,9 +752,10 @@ label_found:
 		}	
 	}
 	strcpy(attr->name, class_dev->name);
-	
+
 done:
-	if (attr->mode == -1) {	
+	/* mode was never set above */
+	if (!attr->mode) {
 		attr->mode = get_default_mode(class_dev);
 		attr->owner[0] = 0x00;
 		attr->group[0] = 0x00;

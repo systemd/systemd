@@ -71,7 +71,7 @@ exit:
 /*
  * We also want to add some permissions here, and possibly some symlinks
  */
-static int create_node(char *name, char type, int major, int minor, int mode)
+static int create_node(char *name, char type, int major, int minor, mode_t mode)
 {
 	char filename[255];
 	int retval = 0;
@@ -94,7 +94,7 @@ static int create_node(char *name, char type, int major, int minor, int mode)
 	}
 
 	dbg("mknod(%s, %#o, %u, %u)", filename, mode, major, minor);
-	retval = mknod(filename,mode,makedev(major,minor));
+	retval = mknod(filename, mode, makedev(major, minor));
 	if (retval)
 		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
 		    filename, mode, major, minor, strerror(errno));
