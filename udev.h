@@ -38,6 +38,8 @@
 #define SUBSYSTEM_SIZE			32
 #define SEQNUM_SIZE			32
 
+#define LINE_SIZE			256
+
 /* length of public data */
 #define UDEVICE_LEN (offsetof(struct udevice, bus_id))
 

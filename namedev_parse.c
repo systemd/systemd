@@ -58,7 +58,7 @@ void dump_config_dev(struct config_device *dev)
 {
 	dbg_parse("name='%s', symlink='%s', bus='%s', place='%s', id='%s', "
 		  "sysfs_file[0]='%s', sysfs_value[0]='%s', "
-		  "kernel='%s', program='%s', result='%s'",
+		  "kernel='%s', program='%s', result='%s'"
 		  "owner='%s', group='%s', mode=%#o",
 		  dev->name, dev->symlink, dev->bus, dev->place, dev->id,
 		  dev->sysfs_pair[0].file, dev->sysfs_pair[0].value,
@@ -144,7 +144,8 @@ static char *get_key_attribute(char *str)
 
 static int namedev_parse_rules(char *filename)
 {
-	char line[255];
+	char line[LINE_SIZE];
+	char *bufline;
 	int lineno;
 	char *temp;
 	char *temp2;
@@ -155,6 +156,7 @@ static int namedev_parse_rules(char *filename)
 	size_t cur;
 	size_t count;
 	int program_given = 0;
+	int valid;
 	int retval = 0;
 	struct config_device dev;
 
@@ -168,35 +170,41 @@ static int namedev_parse_rules(char *filename)
 	/* loop through the whole file */
 	cur = 0;
 	lineno = 0;
-	while (1) {
+	while (cur < bufsize) {
 		count = buf_get_line(buf, bufsize, cur);
-
-		strncpy(line, buf + cur, count);
-		line[count] = '\0';
-		temp = line;
+		bufline = &buf[cur];
+		cur += count+1;
 		lineno++;
 
-		cur += count+1;
-		if (cur > bufsize)
-			break;
-
-		dbg_parse("read '%s'", temp);
-
-		/* eat the whitespace */
-		while (isspace(*temp))
-			++temp;
+		if (count >= LINE_SIZE) {
+			info("line too long, rule skipped %s, line %d",
+			     filename, lineno);
+			continue;
+		}
 
 		/* empty line? */
-		if ((*temp == '\0') || (*temp == '\n'))
+		if (bufline[0] == '\0' || bufline[0] == '\n')
 			continue;
+
+		/* eat the whitespace */
+		while (isspace(bufline[0])) {
+			bufline++;
+			count--;
+		}
 
 		/* see if this is a comment */
-		if (*temp == COMMENT_CHARACTER)
+		if (bufline[0] == COMMENT_CHARACTER)
 			continue;
 
-		memset(&dev, 0x00, sizeof(struct config_device));
+		strncpy(line, bufline, count);
+		line[count] = '\0';
+		dbg_parse("read '%s'", line);
 
 		/* get all known keys */
+		memset(&dev, 0x00, sizeof(struct config_device));
+		temp = line;
+		valid = 0;
+
 		while (1) {
 			retval = parse_get_pair(&temp, &temp2, &temp3);
 			if (retval)
@@ -204,16 +212,19 @@ static int namedev_parse_rules(char *filename)
 
 			if (strcasecmp(temp2, FIELD_BUS) == 0) {
 				strfieldcpy(dev.bus, temp3);
+				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_ID) == 0) {
 				strfieldcpy(dev.id, temp3);
+				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_PLACE) == 0) {
 				strfieldcpy(dev.place, temp3);
+				valid = 1;
 				continue;
 			}
 
@@ -238,54 +249,62 @@ static int namedev_parse_rules(char *filename)
 					}
 					strfieldcpy(pair->file, attr);
 					strfieldcpy(pair->value, temp3);
+					valid = 1;
 				}
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_KERNEL) == 0) {
 				strfieldcpy(dev.kernel, temp3);
+				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_PROGRAM) == 0) {
 				program_given = 1;
 				strfieldcpy(dev.program, temp3);
+				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_RESULT) == 0) {
 				strfieldcpy(dev.result, temp3);
+				valid = 1;
 				continue;
 			}
 
 			if (strncasecmp(temp2, FIELD_NAME, sizeof(FIELD_NAME)-1) == 0) {
 				attr = get_key_attribute(temp2 + sizeof(FIELD_NAME)-1);
-				if (attr != NULL)
-					if (strcasecmp(attr, ATTR_PARTITIONS) == 0) {
+				if (attr != NULL && strcasecmp(attr, ATTR_PARTITIONS) == 0) {
 						dbg_parse("creation of partition nodes requested");
 						dev.partitions = PARTITIONS_COUNT;
 					}
 				strfieldcpy(dev.name, temp3);
+				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_SYMLINK) == 0) {
 				strfieldcpy(dev.symlink, temp3);
+				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_OWNER) == 0) {
 				strfieldcpy(dev.owner, temp3);
+				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_GROUP) == 0) {
 				strfieldcpy(dev.group, temp3);
+				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(temp2, FIELD_MODE) == 0) {
 				dev.mode = strtol(temp3, NULL, 8);
+				valid = 1;
 				continue;
 			}
 
@@ -293,16 +312,20 @@ static int namedev_parse_rules(char *filename)
 			goto error;
 		}
 
+		/* skip line if not any valid key was found */
+		if (!valid)
+			goto error;
+
 		/* simple plausibility checks for given keys */
 		if ((dev.sysfs_pair[0].file[0] == '\0') ^
 		    (dev.sysfs_pair[0].value[0] == '\0')) {
-			dbg("inconsistency in " FIELD_SYSFS " key");
+			info("inconsistency in " FIELD_SYSFS " key");
 			goto error;
 		}
 
 		if ((dev.result[0] != '\0') && (program_given == 0)) {
-			dbg(FIELD_RESULT " is only useful when "
-			    FIELD_PROGRAM " is called in any rule before");
+			info(FIELD_RESULT " is only useful when "
+			     FIELD_PROGRAM " is called in any rule before");
 			goto error;
 		}
 
@@ -313,8 +336,8 @@ static int namedev_parse_rules(char *filename)
 			dbg("add_config_dev returned with error %d", retval);
 			continue;
 error:
-			dbg("%s:%d:%d: parse error, rule skipped",
-			    filename, lineno, temp - line);
+			info("parse error %s, line %d:%d, rule skipped",
+			     filename, lineno, temp - line);
 		}
 	}
 
@@ -324,7 +347,8 @@ error:
 
 static int namedev_parse_permissions(char *filename)
 {
-	char line[255];
+	char line[LINE_SIZE];
+	char *bufline;
 	char *temp;
 	char *temp2;
 	char *buf;
@@ -333,6 +357,7 @@ static int namedev_parse_permissions(char *filename)
 	size_t count;
 	int retval = 0;
 	struct perm_device dev;
+	int lineno;
 
 	if (file_map(filename, &buf, &bufsize) == 0) {
 		dbg("reading '%s' as permissions file", filename);
@@ -343,34 +368,41 @@ static int namedev_parse_permissions(char *filename)
 
 	/* loop through the whole file */
 	cur = 0;
-	while (1) {
+	lineno = 0;
+	while (cur < bufsize) {
 		count = buf_get_line(buf, bufsize, cur);
-
-		strncpy(line, buf + cur, count);
-		line[count] = '\0';
-		temp = line;
-
+		bufline = &buf[cur];
 		cur += count+1;
-		if (cur > bufsize)
-			break;
+		lineno++;
 
-		dbg_parse("read '%s'", temp);
-
-		/* eat the whitespace at the beginning of the line */
-		while (isspace(*temp))
-			++temp;
+		if (count >= LINE_SIZE) {
+			info("line too long, rule skipped %s, line %d",
+			     filename, lineno);
+			continue;
+		}
 
 		/* empty line? */
-		if ((*temp == '\0') || (*temp == '\n'))
+		if (bufline[0] == '\0' || bufline[0] == '\n')
 			continue;
+
+		/* eat the whitespace */
+		while (isspace(bufline[0])) {
+			bufline++;
+			count--;
+		}
 
 		/* see if this is a comment */
-		if (*temp == COMMENT_CHARACTER)
+		if (bufline[0] == COMMENT_CHARACTER)
 			continue;
 
-		memset(&dev, 0x00, sizeof(dev));
+		strncpy(line, bufline, count);
+		line[count] = '\0';
+		dbg_parse("read '%s'", line);
 
 		/* parse the line */
+		memset(&dev, 0x00, sizeof(struct perm_device));
+		temp = line;
+
 		temp2 = strsep(&temp, ":");
 		if (!temp2) {
 			dbg("cannot parse line '%s'", line);

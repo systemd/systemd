@@ -41,8 +41,9 @@
 static unsigned long get_id_by_name(const char *uname, const char *dbfile)
 {
 	unsigned long id = -1;
-	char line[255];
+	char line[LINE_SIZE];
 	char *buf;
+	char *bufline;
 	size_t bufsize;
 	size_t cur;
 	size_t count;
@@ -59,18 +60,18 @@ static unsigned long get_id_by_name(const char *uname, const char *dbfile)
 	}
 
 	/* loop through the whole file */
-
 	cur = 0;
-	while (1) {
+	while (cur < bufsize) {
 		count = buf_get_line(buf, bufsize, cur);
+		bufline = &buf[cur];
+		cur += count+1;
 
-		strncpy(line, buf + cur, count);
+		if (count >= LINE_SIZE)
+			continue;
+
+		strncpy(line, bufline, count);
 		line[count] = '\0';
 		pos = line;
-
-		cur += count+1;
-		if (cur > bufsize)
-			break;
 
 		/* get name */
 		name = strsep(&pos, ":");

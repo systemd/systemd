@@ -127,7 +127,8 @@ int parse_get_pair(char **orig_string, char **left, char **right)
 
 static int parse_config_file(void)
 {
-	char line[255];
+	char line[LINE_SIZE];
+	char *bufline;
 	char *temp;
 	char *variable;
 	char *value;
@@ -148,31 +149,36 @@ static int parse_config_file(void)
 	/* loop through the whole file */
 	lineno = 0;
 	cur = 0;
-	while (1) {
+	while (cur < bufsize) {
 		count = buf_get_line(buf, bufsize, cur);
-
-		strncpy(line, buf + cur, count);
-		line[count] = '\0';
-		temp = line;
+		bufline = &buf[cur];
+		cur += count+1;
 		lineno++;
 
-		cur += count+1;
-		if (cur > bufsize)
-			break;
-
-		dbg_parse("read '%s'", temp);
-
-		/* eat the whitespace at the beginning of the line */
-		while (isspace(*temp))
-			++temp;
+		if (count >= LINE_SIZE) {
+			info("line too long, conf line skipped %s, line %d",
+					udev_config_filename, lineno);
+			continue;
+		}
 
 		/* empty line? */
-		if (*temp == 0x00)
+		if (bufline[0] == '\0' || bufline[0] == '\n')
 			continue;
 
+		/* eat the whitespace */
+		while (isspace(bufline[0])) {
+			bufline++;
+			count--;
+		}
+
 		/* see if this is a comment */
-		if (*temp == COMMENT_CHARACTER)
+		if (bufline[0] == COMMENT_CHARACTER)
 			continue;
+
+		strncpy(line, bufline, count);
+		line[count] = '\0';
+		temp = line;
+		dbg_parse("read '%s'", temp);
 
 		retval = parse_get_pair(&temp, &variable, &value);
 		if (retval != 0)
