@@ -31,6 +31,7 @@
 
 #ifdef LOG
 #include <stdarg.h>
+#include <unistd.h>
 #include <syslog.h>
 
 #undef info
