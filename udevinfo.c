@@ -40,6 +40,11 @@ char **main_argv;
 int main_argc;
 unsigned char logname[42];
 
+int log_ok(void)
+{
+	return 1;
+}
+
 static int print_all_attributes(const char *path)
 {
 	struct dlist *attributes;

@@ -40,6 +40,11 @@ char **main_argv;
 char **main_envp;
 unsigned char logname[42];
 
+int log_ok(void)
+{
+	return udev_log;
+}
+
 static void sig_handler(int signum)
 {
 	dbg("caught signal %d", signum);

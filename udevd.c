@@ -40,7 +40,6 @@
 #include "udevd.h"
 #include "logging.h"
 
-unsigned char logname[42];
 static int expected_seqnum = 0;
 volatile static int children_waiting;
 volatile static int msg_q_timeout;
@@ -51,6 +50,13 @@ LIST_HEAD(running_list);
 
 static void exec_queue_manager(void);
 static void msg_queue_manager(void);
+
+unsigned char logname[42];
+
+int log_ok(void)
+{
+	return 1;
+}
 
 static void msg_dump_queue(void)
 {

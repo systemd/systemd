@@ -34,9 +34,6 @@
 #include <unistd.h>
 #include <syslog.h>
 
-#include "udev.h"
-#include "udev_version.h"
-
 #undef info
 #define info(format, arg...)								\
 	do {										\
@@ -60,22 +57,23 @@
 	} while (0)
 #endif
 
+/* each program must declare this variable and function somewhere */
+extern unsigned char logname[42];
+extern int log_ok(void);
+
 static void log_message (int level, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
 static inline void log_message (int level, const char *format, ...)
 {
 	va_list	args;
 
-	if (0 != strncmp(udev_log_str, UDEV_LOG_DEFAULT, BOOL_SIZE))
+	if (!log_ok())
 		return;
 
 	va_start(args, format);
 	vsyslog(level, format, args);
 	va_end(args);
 }
-
-/* each program must declare this variable somewhere */
-extern unsigned char logname[42];
 
 #undef init_logging
 static inline void init_logging(char *program_name)

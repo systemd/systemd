@@ -42,6 +42,11 @@
 
 unsigned char logname[42];
 
+int log_ok(void)
+{
+	return 1;
+}
+
 static inline char *get_action(void)
 {
 	char *action;
