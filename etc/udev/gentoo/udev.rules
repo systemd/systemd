@@ -12,6 +12,9 @@
 #
 ###########################################################
 
+# all block devices
+SUBSYSTEM="block", GROUP="disk"
+
 # cdrom symlinks and other good cdrom naming
 BUS="ide",  KERNEL="hd[a-z]", PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYMLINK="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
 BUS="scsi", KERNEL="sr[0-9]*", PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYMLINK="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
@@ -32,6 +35,7 @@ KERNEL="nvidia*",	NAME="%k", GROUP="video"
 KERNEL="3dfx*",		NAME="%k", GROUP="video"
 
 # alsa devices
+SUBSYSTEM="sound", GROUP="audio"
 KERNEL="controlC[0-9]*",	NAME="snd/%k"
 KERNEL="hw[CD0-9]*",		NAME="snd/%k"
 KERNEL="pcm[CD0-9cp]*",		NAME="snd/%k"
@@ -211,9 +215,6 @@ KERNEL="diskonkey*",	NAME="%k", GROUP="disk"
 
 # rem_ide devices
 KERNEL="microdrive*",	NAME="%k", GROUP="disk"
-
-# all block devices
-SUBSYSTEM="block",	NAME="%k", GROUP="disk"
 
 # kbd devices
 KERNEL="kbd",		NAME="%k", MODE="0664"
