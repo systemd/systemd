@@ -1,3 +1,34 @@
+Summary of changes from v036 to v037
+============================================
+
+<md:linux.it>:
+  o small udev patch
+
+Greg Kroah-Hartman:
+  o fix compilation warning in tdb log message
+  o Fix build error with klibc due to recent changes
+  o merge
+  o add wait_for_sysfs test script to the tarball to help people debug their boxes
+  o add ipsec to wait_for_sysfs ignore list
+  o added ccdv to bk ignore list
+  o a few more Makefile tweaks for the quiet feature
+  o Make the build silent, thanks to a helper program from ncftp
+  o rename files to have '_' instead of '-' in them
+  o change max time to wait in wait_for_sysfs to 10 seconds to hopefully handle some slow machines
+  o add support for class/raw/ to wait_for_sysfs
+  o fix up Makefile for wait_for_sysfs udev_version.h dependancy
+  o remove the debian specific file, as they don't want to share with the rest of the world :(
+  o 036 release TAG: v036
+
+Kay Sievers:
+  o prevent deadlocks on an corrupt udev database
+  o wait_for_sysfs_update
+
+Michael Buesch:
+  o fix asmlinkage
+  o fix incompatible pointer type warning
+
+
 Summary of changes from v035 to v036
 ============================================
 
