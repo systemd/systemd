@@ -1,4 +1,16 @@
 2004-02-04 multipath-016
+	* add a GROUP_BY_SERIAL flag. This should be useful for
+	  controlers that activate they spare paths on simple IO
+	  submition with a penalty. The StorageWorks HW defaults to
+	  this mode, even if the MULTIBUS mode is OK.
+	* remove unused sg_err.c
+	* big restructuring : split devinfo.c from main.c. Export :
+		* void basename (char *, char *);
+		* int get_serial (int, char *);
+		* int get_lun_strings (char *, char *, char *, char *);
+		* int get_evpd_wwid(char *, char *);
+		* long get_disk_size (char *);
+	* stop passing struct env as param
 	* add devmap_name proggy for udev to name devmaps as per their
 	  internal DM name and not only by their sysfs enum name (dm-*)
 	  The corresponding udev.rules line is :

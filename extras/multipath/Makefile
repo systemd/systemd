@@ -18,7 +18,7 @@ CFLAGS = -pipe -g -O2 -Wall -Wunused -Wstrict-prototypes -nostdinc \
          -I$(klibcdir)/klibc/include -I$(klibcdir)/klibc/include/bits32 \
          -I$(GCCINCDIR) -I$(KERNEL_DIR)/include -I$(sysfsdir) -I.
 
-OBJS = main.o
+OBJS = devinfo.o main.o
 CRT0 = ../../klibc/klibc/crt0.o
 LIB = ../../klibc/klibc/libc.a
 LIBGCC := $(shell $(CC) -print-libgcc-file-name )
@@ -67,4 +67,4 @@ uninstall:
 	rm $(bindir)/devmap_name
 
 # Code dependencies
-main.o: main.c main.h sg_include.h
+main.o: main.c main.h sg_include.h devinfo.h
