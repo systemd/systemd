@@ -446,9 +446,9 @@ int udev_add_device(char *path, char *subsystem, int fake)
 	case 'b':
 	case 'c':
 		retval = create_node(&dev, fake);
-		if (fake || retval != 0)
+		if (retval != 0)
 			goto exit;
-		if (udevdb_add_dev(path, &dev) != 0)
+		if ((!fake) && (udevdb_add_dev(path, &dev) != 0))
 			dbg("udevdb_add_dev failed, but we are going to try "
 			    "to create the node anyway. But remove might not "
 			    "work properly for this device.");
@@ -459,7 +459,7 @@ int udev_add_device(char *path, char *subsystem, int fake)
 	case 'n':
 		if (strcmp(dev.name, dev.kernel_name) != 0) {
 			retval = rename_net_if(&dev, fake);
-			if (fake || retval != 0)
+			if (retval != 0)
 				goto exit;
 			/* netif's are keyed with the configured name, cause
 			 * the original kernel name sleeps with the fishes
@@ -471,7 +471,7 @@ int udev_add_device(char *path, char *subsystem, int fake)
 				strfieldcat(devpath, dev.name);
 			}
 		}
-		if (udevdb_add_dev(devpath, &dev) != 0)
+		if ((!fake) && (udevdb_add_dev(devpath, &dev) != 0))
 			dbg("udevdb_add_dev failed");
 
 		dev_d_send(&dev, subsystem, devpath);
