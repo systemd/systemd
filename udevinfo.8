@@ -6,18 +6,18 @@ udevinfo \- retrieve information from udev
 .RI "[\-q " query_type " \-p " sysfs_path "] [\-drVh]"
 .SH "DESCRIPTION"
 .B udevinfo
-allows users to query the udev database for information on any of the devices
-currently present in the system.  It also provides a way to query any device
-in the sysfs tree to help in creating
+allows users to query the udev database for information on any device
+currently present on the system.  It also provides a way to query any device
+in the sysfs tree to help creating
 .B udev
-rule files.
+rules.
 .SH "OPTIONS"
 .TP
 .B \-V
 Print the version information.
 .TP
 .B \-r
-Print the the
+Print the
 .B udev_root
 directory. When used in conjunction with a query for the node name, the
 .B udev_root
@@ -41,7 +41,7 @@ queried, the main device must be used instead.
 .B \-a
 Print all
 .BI SYSFS{ filename }
-attributes along the device chain. Useful for for finding
+attributes along the device chain. Useful for finding
 unique attributes to compose a rule.
 .RB Needs " \-p " specified.
 .TP

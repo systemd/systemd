@@ -13,7 +13,7 @@ signifies the connection or disconnection of a device.
 .B DEVPATH
 The sysfs devpath of the device without the mountpoint but a leading slash.
 .P
-Additional optional environment variables are:
+Additional optional environment variables:
 .TP
 .B UDEV_CONFIG_FILE
 Overrides the default location of the
@@ -29,8 +29,8 @@ will continue, regardless of the state of the device representation.
 .SH "DESCRIPTION"
 .B udev
 creates or removes device node files usually located in the /dev directory.
-It provides a dynamic device directory that contains only the files for
-devices that are actually present.
+It provides a dynamic device directory contaning only the files for
+actually present devices.
 .P
 As part of the
 .B hotplug
@@ -41,7 +41,7 @@ On device creation,
 .B udev
 reads the sysfs directory of the given device to collect device attributes
 like label, serial number or bus device number.
-These attributes may used as keys to determine a
+These attributes may be used as keys to determine a
 unique name for device file creation.
 .B udev
 maintains a database for devices present on the system.
@@ -53,27 +53,27 @@ queries its database for the name of the device file to be deleted.
 All
 .B udev
 configuration files consist of a set of lines of text.  All empty
-lines, and lines beginning with a '#' will be ignored.
+lines and lines beginning with a '#' will be ignored.
 .P
 
 .B udev
 expects its main configuration file at
 .IR /etc/udev/udev.conf .
-The file consists of a set of variables and values that allow the user to
-override default udev values.  The current set of variables that can be
-overridden in this file is:
+The file consists of a set of variables and values allowing the user to
+override default udev values. The following variables can be overridden
+in this file:
 .TP
 .B udev_root
-This is the where in the filesystem to place the device nodes.  The default
-value for this is
+Indicates where to place the device nodes in the filesystem. The default
+value is
 .IR /udev/ .
 .TP
 .B udev_db
-The name and location of the udev database.  The default value for this is
+The name and location of the udev database. The default value is
 .IR /udev/.udev.tdb .
 .TP
 .B udev_rules
-This is the location of the udev rules file.  The default value for this is
+This is the location of the udev rules file. The default value for this is
 .IR /etc/udev/udev.rules .
 If a directory is specified, the whole directory is
 scanned for files ending with
@@ -89,32 +89,32 @@ and all permission files are read in lexical order.
 .TP
 .B udev_log
 If you want udev to log some information to the syslog for every node created or
-removed. The default value for this is
+removed. The default value is
 .IR yes .
 .TP
 .B default_mode
-This is the default mode for all nodes that have no explicit match in the
-permissions file.  The default value for this is
+This is the default mode for all nodes not explicitely matching in the
+permissions file. The default value is
 .IR 0666 .
 .TP
 .B default_owner
-This is the default owner for all nodes that have no explicit match in the
-permissions file.  The default value for this is
+This is the default owner for all nodes not explicitely matching in the
+permissions file. The default value is
 .IR root .
 .TP
 .B default_group
-This is the default group for all nodes that have no explicit match in the
-permissions file.  The default value for this is
+This is the default group for all nodes not explicitely matching in the
+permissions file. The default value is
 .IR root .
 .br
 .P
 .RI "A sample " udev.conf " might look like this:
 .sp
 .nf
-# udev_root - where in the filesystem to place the device nodes
+# udev_root - where to place the device nodes in the filesystem
 udev_root="/udev/"
 
-# udev_db - The name and location of the udev database.
+# udev_db - The name and location of the udev database
 udev_db="/udev/.udev.tdb"
 
 # udev_rules - The location of the directory where to look for files
@@ -127,22 +127,22 @@ udev_permissions="/etc/udev/udev.permissions"
 # udev_log - set to "yes" if you want logging, else "no"
 udev_log="yes"
 
-# default_mode - set the default mode for all nodes that have no
-#                explicit match in the permissions file
+# default_mode - set the default mode for all nodes not
+#                explicitely matching in the permissions file
 default_mode="0666"
 
-# default_owner - set the default owner for all nodes that have no
-#                 explicit match in the permissions file
+# default_owner - set the default owner for all nodes not
+#                 explicitely matching in the permissions file
 default_owner="root"
 
-# default_group - set the default group for all nodes that have no
-#                 explicit match in the permissions file
+# default_group - set the default group for all nodes not
+#                 explicitely matching in the permissions file
 default_group="root"
 .fi
 .P
-The rules for udev to use when naming devices may specified at
+The rules for udev to use when naming devices may specified in
 .I /etc/udev/udev.rules
-or specified by the
+or by the
 .I udev_rules
 value in the
 .I /etc/udev/udev.conf
@@ -159,7 +159,7 @@ Every rule consists of a list a comma separated fields:
 .sp
 .IR "key " ,[ "key " ,...] " name " [, " symlink" ]
 .sp
-where possible fields are:
+where fields are:
 .TP
 .B BUS
 Match the bus type of the device.
@@ -177,7 +177,7 @@ Match the topological position on bus, like physical port of USB device
 .BI SYSFS{ filename }
 Match sysfs device attribute like label, vendor, USB serial number, SCSI UUID
 or file system label.  Up to 5 different sysfs files can be checked, with
-all of the values being required in order to match the rule.
+all of the values being required to match the rule.
 .br
 Trailing whitespace characters in the sysfs attribute value are ignored, if
 the key doesn't have any trailing whitespace characters by itself.
@@ -188,14 +188,14 @@ The environment variables of
 .B udev
 are also available for the program.
 .br
-The string returned by the program may additionally matched with the
+The string returned by the program may be additionally matched with the
 .B RESULT
 key.
 .TP
 .B RESULT
 Match the returned string of the last
 .B PROGRAM
-call. This key may used in any following rule after a
+call. This key may be used in any following rule after a
 .B PROGRAM
 call.
 .TP
@@ -241,15 +241,14 @@ The kernel minor number for the device.
 The bus id for the device.
 .TP
 .B %c
-The
+The string returned from the execution of
 .B PROGRAM
-returned string.
 (This does not work within the
 .B PROGRAM
 field for the obvious reason.)
 .br
-A single part of the string, separated by the space character
-my be selected by specifying the part number as a attribute:
+A single part of the string, separated by a space character
+may be selected by specifying the part number as a attribute:
 .BI %c{ part }
 .TP
 .BI %s{ filename }
@@ -271,7 +270,7 @@ BUS="scsi", PROGRAM="/sbin/scsi_id", RESULT="OEM 0815", NAME="disk1"
 # USB printer to be called lp_color
 BUS="usb", SYSFS{serial}="W09090207101241330", NAME="lp_color"
 
-# SCSI disk with a specific vendor and model number is to be called boot
+# SCSI disk with a specific vendor and model number will be called boot
 BUS="scsi", SYSFS{vendor}="IBM", SYSFS{model}="ST336", NAME="boot%n"
 
 # sound card with PCI bus id 00:0b.0 to be called dsp
@@ -287,9 +286,9 @@ KERNEL="ttyUSB1", NAME="pda", SYMLINK="palmtop handheld"
 BUS="usb", SYSFS{model}="XV3", NAME="video%n", SYMLINK="webcam%n"
 .fi
 .P
-Permissions and ownership for the created device files may specified at
+Permissions and ownership for the created device files may specified in
 .I /etc/udev/udev.permissions
-or specified by the
+or by the
 .I udev_permission
 value in the
 .I /etc/udev/udev.conf
@@ -311,7 +310,7 @@ dsp1:::0666
 .P
 The value
 .I $local
-can be substituted for a specific username.  In that case, udev will determine
+can be used instead of a specific username.  In that case, udev will determine
 the current local user at the time of device node creation and substitute
 that username as the owner of the new device node.  This is useful, for
 example, to let hot-plugged devices, such as cameras, be owned by the user at
@@ -334,7 +333,7 @@ Matches any single character specified within the brackets. For example, the
 pattern string "tty[SR]" would match either "ttyS" or "ttyR".  Ranges are also
 supported within this match with the '\-' character.  For example, to match on
 the range of all digits, the pattern [0\-9] would be used. If the first character
-following the '[' is a '!' then any character not enclosed is matched.
+following the '[' is a '!', any character not enclosed is matched.
 .SH "FILES"
 .nf
 /sbin/udev                           udev program
