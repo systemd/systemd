@@ -822,7 +822,7 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 		if (match_rule(dev, class_dev, udev, sysfs_device) == 0) {
 			if (dev->name[0] == '\0' && dev->symlink[0] == '\0') {
 				info("configured rule in '%s' at line %i applied, '%s' is ignored",
-				     udev_rules_filename, dev->config_line, udev->kernel_name);
+				     dev->config_file, dev->config_line, udev->kernel_name);
 				return -1;
 			}
 
@@ -830,7 +830,7 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 				char temp[NAME_MAX];
 
 				info("configured rule in '%s' at line %i applied, added symlink '%s'",
-				     udev_rules_filename, dev->config_line, dev->symlink);
+				     dev->config_file, dev->config_line, dev->symlink);
 				/* do not clobber dev */
 				strfieldcpy(temp, dev->symlink);
 				apply_format(udev, temp, sizeof(temp),
@@ -841,7 +841,7 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 
 			if (dev->name[0] != '\0') {
 				info("configured rule in '%s' at line %i applied, '%s' becomes '%s'",
-				     udev_rules_filename, dev->config_line, udev->kernel_name, dev->name);
+				     dev->config_file, dev->config_line, udev->kernel_name, dev->name);
 				strfieldcpy(udev->name, dev->name);
 				goto found;
 			}

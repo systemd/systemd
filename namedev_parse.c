@@ -260,6 +260,7 @@ static int namedev_parse_rules(char *filename)
 		}
 
 		dev.config_line = lineno;
+		strfieldcpy(dev.config_file, filename);
 		retval = add_config_dev(&dev);
 		if (retval) {
 			dbg("add_config_dev returned with error %d", retval);

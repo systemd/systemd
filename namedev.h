@@ -72,6 +72,7 @@ struct config_device {
 	char symlink[NAME_SIZE];
 	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];
 	int partitions;
+	char config_file[NAME_SIZE];
 	int config_line;
 };
 
