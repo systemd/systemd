@@ -684,7 +684,7 @@ static int do_topology(struct sysfs_class_device *class_dev, struct udevice *ude
 		if (dev->type != TOPOLOGY)
 			continue;
 
-		found = 0;	
+		found = 0;
 		strcpy(path, sysfs_device->path);
 		temp = strrchr(path, '/');
 		dbg_parse("TOPOLOGY path = '%s'", path);
