@@ -297,10 +297,10 @@ install: install-config install-dbus-policy all
 	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
 	@if [ "x$(USE_LSB)" = "xtrue" ]; then \
-		$(INSTALL_PROGRAM) -D etc/init.d/udev.init.LSB $(DESTDIR)$(initdir)/udev
-		ln -s $(DESTDIR)$(initdir)/udev $(sbin_dir)/rcudev
-	else
-		$(INSTALL_PROGRAM) -D etc/init.d/udev $(DESTDIR)$(initdir)/udev
+		$(INSTALL_PROGRAM) -D etc/init.d/udev.init.LSB $(DESTDIR)$(initdir)/udev; \
+		ln -s $(DESTDIR)$(initdir)/udev $(sbin_dir)/rcudev; \
+	else \
+		$(INSTALL_PROGRAM) -D etc/init.d/udev $(DESTDIR)$(initdir)/udev; \
 	fi
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
 	- rm -f $(DESTDIR)$(hotplugdir)/udev.hotplug
