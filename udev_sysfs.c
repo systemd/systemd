@@ -267,6 +267,7 @@ int wait_for_devices_device(struct sysfs_device *devices_dev,
 		const char *file;
 	} device_files[] = {
 		{ .bus = "scsi",	.file = "vendor" },
+		{ .bus = "usb",		.file = NULL },
 		{ .bus = "usb",		.file = "idVendor" },
 		{ .bus = "usb",		.file = "iInterface" },
 		{ .bus = "usb",		.file = "bNumEndpoints" },
@@ -278,7 +279,7 @@ int wait_for_devices_device(struct sysfs_device *devices_dev,
 		{ .bus = "ieee1394",	.file = "node_count" },
 		{ .bus = "ieee1394",	.file = "nodeid" },
 		{ .bus = "ieee1394",	.file = "address" },
-		{ .bus = "bttv-sub",	.file = "detach_state" },
+		{ .bus = "bttv-sub",	.file = NULL },
 		{ .bus = "pnp",		.file = "detach_state" },
 		{ .bus = "eisa",	.file = "detach_state" },
 		{ .bus = "pseudo",	.file = "detach_state" },
@@ -337,6 +338,11 @@ int wait_for_devices_device(struct sysfs_device *devices_dev,
 			if (strcmp(devices_dev->bus, devicefile->bus) == 0) {
 				char filename[SYSFS_PATH_MAX];
 				struct stat stats;
+
+				if (devicefile->file == NULL) {
+					dbg("bus '%s' has no file to wait for", devices_dev->bus);
+					return 0;
+				}
 
 				found_bus_type = 1;
 				snprintf(filename, SYSFS_PATH_MAX-1, "%s/%s", devices_dev->path, devicefile->file);
