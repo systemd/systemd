@@ -63,6 +63,8 @@ struct device_attr {
 	int mode;
 };
 
+extern int udev_add_device(char *device, char *subsystem);
+extern int udev_remove_device(char *device, char *subsystem);
 
 #endif
 

@@ -112,6 +112,8 @@ $(ARCH_LIB_OBJS) :
 	$(MAKE) -C klibc
 
 OBJS =	udev.o		\
+	udev-add.o	\
+	udev-remove.o	\
 	logging.o	\
 	namedev.o
 
