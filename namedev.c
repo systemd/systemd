@@ -104,12 +104,11 @@ static int strcmp_pattern(const char *p, const char *s)
 
 int add_perm_dev(struct perm_device *new_dev)
 {
-	struct list_head *tmp;
+	struct perm_device *dev;
 	struct perm_device *tmp_dev;
 
 	/* update the values if we already have the device */
-	list_for_each(tmp, &perm_device_list) {
-		struct perm_device *dev = list_entry(tmp, struct perm_device, node);
+	list_for_each_entry(dev, &perm_device_list, node) {
 		if (strcmp_pattern(new_dev->name, dev->name))
 			continue;
 		copy_var(dev, new_dev, mode);
@@ -130,11 +129,9 @@ int add_perm_dev(struct perm_device *new_dev)
 
 static struct perm_device *find_perm(char *name)
 {
-	struct list_head *tmp;
-	struct perm_device *perm = NULL;
+	struct perm_device *perm;
 
-	list_for_each(tmp, &perm_device_list) {
-		perm = list_entry(tmp, struct perm_device, node);
+	list_for_each_entry(perm, &perm_device_list, node) {
 		if (strcmp_pattern(perm->name, name))
 			continue;
 		return perm;
@@ -396,10 +393,8 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
 {
 	struct config_device *dev;
-	struct list_head *tmp;
 
-	list_for_each(tmp, &config_device_list) {
-		dev = list_entry(tmp, struct config_device, node);
+	list_for_each_entry(dev, &config_device_list, node) {
 		if (dev->type != CALLOUT)
 			continue;
 
@@ -468,12 +463,10 @@ static int do_label(struct sysfs_class_device *class_dev, struct udevice *udev, 
 {
 	struct sysfs_pair *pair;
 	struct config_device *dev;
-	struct list_head *tmp;
 	int i;
 	int match;
 
-	list_for_each(tmp, &config_device_list) {
-		dev = list_entry(tmp, struct config_device, node);
+	list_for_each_entry(dev, &config_device_list, node) {
 		if (dev->type != LABEL)
 			continue;
 
@@ -513,7 +506,6 @@ static int do_label(struct sysfs_class_device *class_dev, struct udevice *udev, 
 static int do_number(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
 {
 	struct config_device *dev;
-	struct list_head *tmp;
 	char path[SYSFS_PATH_MAX];
 	int found;
 	char *temp = NULL;
@@ -522,8 +514,7 @@ static int do_number(struct sysfs_class_device *class_dev, struct udevice *udev,
 	if (!sysfs_device)
 		return -ENODEV;
 
-	list_for_each(tmp, &config_device_list) {
-		dev = list_entry(tmp, struct config_device, node);
+	list_for_each_entry(dev, &config_device_list, node) {
 		if (dev->type != NUMBER)
 			continue;
 
@@ -558,7 +549,6 @@ static int do_number(struct sysfs_class_device *class_dev, struct udevice *udev,
 static int do_topology(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
 {
 	struct config_device *dev;
-	struct list_head *tmp;
 	char path[SYSFS_PATH_MAX];
 	int found;
 	char *temp = NULL;
@@ -567,8 +557,7 @@ static int do_topology(struct sysfs_class_device *class_dev, struct udevice *ude
 	if (!sysfs_device)
 		return -ENODEV;
 
-	list_for_each(tmp, &config_device_list) {
-		dev = list_entry(tmp, struct config_device, node);
+	list_for_each_entry(dev, &config_device_list, node) {
 		if (dev->type != TOPOLOGY)
 			continue;
 
@@ -604,10 +593,8 @@ static int do_topology(struct sysfs_class_device *class_dev, struct udevice *ude
 static int do_replace(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
 {
 	struct config_device *dev;
-	struct list_head *tmp;
 
-	list_for_each(tmp, &config_device_list) {
-		dev = list_entry(tmp, struct config_device, node);
+	list_for_each_entry(dev, &config_device_list, node) {
 		if (dev->type != REPLACE)
 			continue;
 

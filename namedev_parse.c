@@ -117,12 +117,10 @@ void dump_config_dev(struct config_device *dev)
 
 void dump_config_dev_list(void)
 {
-	struct list_head *tmp;
+	struct config_device *dev;
 
-	list_for_each(tmp, &config_device_list) {
-		struct config_device *dev = list_entry(tmp, struct config_device, node);
+	list_for_each_entry(dev, &config_device_list, node)
 		dump_config_dev(dev);
-	}
 }
 
 void dump_perm_dev(struct perm_device *dev)
@@ -133,12 +131,10 @@ void dump_perm_dev(struct perm_device *dev)
 
 void dump_perm_dev_list(void)
 {
-	struct list_head *tmp;
+	struct perm_device *dev;
 
-	list_for_each(tmp, &perm_device_list) {
-		struct perm_device *dev = list_entry(tmp, struct perm_device, node);
+	list_for_each_entry(dev, &perm_device_list, node)
 		dump_perm_dev(dev);
-	}
 }
 
 
