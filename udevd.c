@@ -28,11 +28,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <dirent.h>
+#include <fcntl.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-#include <fcntl.h>
 #include <sys/sysinfo.h>
 #include <sys/stat.h>
 
@@ -45,6 +47,7 @@
 
 /* global variables*/
 static int udevsendsock;
+static pid_t sid;
 
 static int pipefds[2];
 static long startup_time;
@@ -144,6 +147,8 @@ static void udev_run(struct hotplug_msg *msg)
 		/* child */
 		close(udevsendsock);
 		logging_close();
+
+		setpriority(PRIO_PROCESS, 0, UDEV_PRIORITY);
 		execve(udev_bin, argv, msg->envp);
 		dbg("exec of child failed");
 		_exit(1);
@@ -151,15 +156,106 @@ static void udev_run(struct hotplug_msg *msg)
 	case -1:
 		dbg("fork of child failed");
 		run_queue_delete(msg);
-		/* note: we never managed to run, so we had no impact on 
-		 * running_with_devpath(), so don't bother setting run_exec_q
-		 */
 		break;
 	default:
 		/* get SIGCHLD in main loop */
 		dbg("==> exec seq %llu [%d] working at '%s'", msg->seqnum, pid, msg->devpath);
 		msg->pid = pid;
 	}
+}
+
+static int running_processes(void)
+{
+	int f;
+	static char buf[4096];
+	int len;
+	int running;
+	const char *pos;
+
+	f = open("/proc/stat", O_RDONLY);
+	if (f == -1)
+		return -1;
+
+	len = read(f, buf, sizeof(buf));
+	close(f);
+
+	if (len <= 0)
+		return -1;
+	else
+		buf[len] = '\0';
+
+	pos = strstr(buf, "procs_running ");
+	if (pos == NULL)
+		return -1;
+
+	if (sscanf(pos, "procs_running %u", &running) != 1)
+		return -1;
+
+	return running;
+}
+
+/* return the number of process es in our session, count only until limit */
+static int running_processes_in_session(pid_t session, int limit)
+{
+	DIR *dir;
+	struct dirent *dent;
+	int running = 0;
+
+	dir = opendir("/proc");
+	if (!dir)
+		return -1;
+
+	/* read process info from /proc */
+	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+		int f;
+		char procdir[64];
+		char line[256];
+		const char *pos;
+		char state;
+		pid_t ppid, pgrp, sess;
+		int len;
+
+		if (!isdigit(dent->d_name[0]))
+			continue;
+
+		snprintf(procdir, sizeof(procdir), "/proc/%s/stat", dent->d_name);
+		procdir[sizeof(procdir)-1] = '\0';
+
+		f = open(procdir, O_RDONLY);
+		if (f == -1)
+			continue;
+
+		len = read(f, line, sizeof(line));
+		close(f);
+
+		if (len <= 0)
+			continue;
+		else
+			line[len] = '\0';
+
+		/* skip ugly program name */
+		pos = strrchr(line, ')') + 2;
+		if (pos == NULL)
+			continue;
+
+		if (sscanf(pos, "%c %d %d %d ", &state, &ppid, &pgrp, &sess) != 4)
+			continue;
+
+		/* count only processes in our session */
+		if (sess != session)
+			continue;
+
+		/* count only running, no sleeping processes */
+		if (state != 'R')
+			continue;
+
+		running++;
+		if (limit > 0 && running >= limit)
+			break;
+	}
+	closedir(dir);
+
+	return running;
 }
 
 static int compare_devpath(const char *running, const char *waiting)
@@ -218,13 +314,30 @@ static void exec_queue_manager(void)
 	struct hotplug_msg *loop_msg;
 	struct hotplug_msg *tmp_msg;
 	struct hotplug_msg *msg;
+	int running;
+
+	running = running_processes();
+	dbg("%d processes runnning on system", running);
+	if (running < 0)
+		running = THROTTLE_MAX_RUNNING_CHILDS;
 
 	list_for_each_entry_safe(loop_msg, tmp_msg, &exec_list, list) {
+		/* check running processes in our session and possibly throttle */
+		if (running >= THROTTLE_MAX_RUNNING_CHILDS) {
+			running = running_processes_in_session(sid, THROTTLE_MAX_RUNNING_CHILDS+10);
+			dbg("%d processes running in session", running);
+			if (running >= THROTTLE_MAX_RUNNING_CHILDS) {
+				dbg("delay seq %llu, cause too many processes already running", loop_msg->seqnum);
+				return;
+			}
+		}
+
 		msg = running_with_devpath(loop_msg);
 		if (!msg) {
 			/* move event to run list */
 			list_move_tail(&loop_msg->list, &running_list);
 			udev_run(loop_msg);
+			running++;
 			dbg("moved seq %llu to running list", loop_msg->seqnum);
 		} else {
 			dbg("delay seq %llu (%s), cause seq %llu (%s) is still running",
@@ -529,9 +642,16 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}
 
+	/* become session leader */
+	sid = setsid();
+	dbg("our session is %d", sid);
+
 	/* make sure we don't lock any path */
 	chdir("/");
 	umask(umask(077) | 022);
+
+	/*set a reasonable scheduling priority for the daemon */
+	setpriority(PRIO_PROCESS, 0, UDEVD_PRIORITY);
 
 	/* Set fds to dev/null */
 	fd = open( "/dev/null", O_RDWR );
@@ -543,9 +663,6 @@ int main(int argc, char *argv[], char *envp[])
 			close(fd);
 	} else
 		dbg("error opening /dev/null %s", strerror(errno));
-
-	/* become session leader */
-	setsid();
 
 	/* setup signal handler pipe */
 	retval = pipe(pipefds);
@@ -597,14 +714,14 @@ int main(int argc, char *argv[], char *envp[])
 	else
 		udev_bin = UDEV_BIN;
 
-	/* possible set of expected_seqnum number */
+	/* possible init of expected_seqnum value */
 	udevd_expected_seqnum = getenv("UDEVD_EXPECTED_SEQNUM");
 	if (udevd_expected_seqnum != NULL) {
 		expected_seqnum = strtoull(udevd_expected_seqnum, NULL, 10);
 		dbg("initialize expected_seqnum to %llu", expected_seqnum);
 	}
 
-	/* get current time to provide shorter startup timeout */
+	/* get current time to provide shorter timeout on startup */
 	sysinfo(&info);
 	startup_time = info.uptime;
 
