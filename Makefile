@@ -228,8 +228,8 @@ UDEV_OBJS = \
 	namedev_parse.o
 
 OBJS = \
-	libsysfs/sysfs.a	\
-	udev.a
+	udev.a	\
+	libsysfs/sysfs.a
 
 SYSFS = $(PWD)/libsysfs/sysfs.a
 
