@@ -433,11 +433,37 @@ static int get_attr(struct sysfs_class_device *class_dev, struct device_attr *at
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
 			break;
 		case NUMBER:
-			dbg("NUMBER name = '%s', bus = '%s', id = '%s'"
-				" owner = '%s', group = '%s', mode = '%#o'",
-				dev->attr.name, dev->bus, dev->id,
+			{
+			char path[SYSFS_PATH_MAX];
+			char *temp;
+
+			found = 0;	
+			strcpy(path, class_dev->sysdevice->directory->path);
+			temp = strrchr(path, '/');
+			dbg("NUMBER path = '%s'", path);
+			dbg("NUMBER temp = '%s' id = '%s'", temp, dev->id);
+			if (strstr(temp, dev->id) != NULL) {
+				found = 1;
+			} else {
+				*temp = 0x00;
+				temp = strrchr(path, '/');
+				dbg("TOPOLOGY temp = '%s' id = '%s'", temp, dev->id);
+				if (strstr(temp, dev->id) != NULL)
+					found = 1;
+			}
+			if (!found)
+				continue;
+
+			strcpy(attr->name, dev->attr.name);
+			attr->mode = dev->attr.mode;
+			strcpy(attr->owner, dev->attr.owner);
+			strcpy(attr->group, dev->attr.group);
+			dbg("device id '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
+				dev->id, attr->name, 
 				dev->attr.owner, dev->attr.group, dev->attr.mode);
+			return retval;
 			break;
+			}
 		case TOPOLOGY:
 			{
 			char path[SYSFS_PATH_MAX];
