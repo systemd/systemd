@@ -154,7 +154,6 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* set signal handlers */
 	act.sa_handler = (void (*) (int))sig_handler;
-
 	sigemptyset (&act.sa_mask);
 	/* alarm must interrupt syscalls*/
 	sigaction(SIGALRM, &act, NULL);
