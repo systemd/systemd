@@ -348,6 +348,15 @@ BUS="scsi", NAME="%k"
 KERNEL="ttyUSB0", NAME="visor"
 EOF
 	},
+	{
+		desc     => "name test with ! in the name, but no matching rule",
+		subsys   => "block",
+		devpath  => "block/rd!c0d0",
+		expected => "rd/c0d0" ,
+		conf     => <<EOF
+KERNEL="ttyUSB0", NAME="visor"
+EOF
+	},
 );
 
 # set env
@@ -418,7 +427,7 @@ if ($ARGV[0]) {
 	$test_num = $ARGV[0];
 	print "udev-test will run test number $test_num only\n";
 
-	run_test($tests[$test_num], $test_num);
+	run_test($tests[$test_num-1], $test_num);
 } else {
 	# test all
 	print "\nudev-test will run ".($#tests + 1)." tests:\n\n";
