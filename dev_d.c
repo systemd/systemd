@@ -71,6 +71,7 @@ void dev_d_send(struct udevice *dev, const char *subsystem, const char *devpath)
 	if (udev_dev_d == 0)
 		return;
 
+	memset(env_devname, 0x00, sizeof(env_devname));
 	if (dev->type == 'b' || dev->type == 'c') {
 		strfieldcpy(env_devname, udev_root);
 		strfieldcat(env_devname, dev->name);
