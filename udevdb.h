@@ -4,8 +4,6 @@
 #ifndef _UDEVDB_H_
 #define _UDEVDB_H_
 
-#define UDEV_DB		"udevdb.tdb" 
-
 /* Udevdb initialization flags */
 #define UDEVDB_DEFAULT	0	/* Defaults database to use file */
 #define UDEVDB_INTERNAL	1	/* Don't store db on disk, use in memory */

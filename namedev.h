@@ -28,10 +28,7 @@
 
 struct sysfs_class_device;
 
-/* namedev config files */
 #define COMMENT_CHARACTER		'#'
-#define NAMEDEV_CONFIG_PERMISSION_FILE	"namedev.permissions"
-#define NAMEDEV_CONFIG_FILE		"namedev.config"
 
 enum config_type {
 	KERNEL_NAME	= 0,	/* must be 0 to let memset() default to this value */

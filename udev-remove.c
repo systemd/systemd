@@ -70,7 +70,7 @@ static int delete_node(char *name)
 {
 	char filename[255];
 
-	strncpy(filename, UDEV_ROOT, sizeof(filename));
+	strncpy(filename, udev_root, sizeof(filename));
 	strncat(filename, name, sizeof(filename));
 
 	dbg("unlinking %s", filename);

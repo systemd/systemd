@@ -34,8 +34,6 @@
 #include "udevdb.h"
 #include "libsysfs/libsysfs.h"
 
-static char sysfs_path[SYSFS_PATH_MAX];
-
 /* 
  * Right now the major/minor of a device is stored in a file called
  * "dev" in sysfs.
@@ -75,7 +73,7 @@ static int create_node(struct udevice *dev)
 	char filename[255];
 	int retval = 0;
 
-	strncpy(filename, UDEV_ROOT, sizeof(filename));
+	strncpy(filename, udev_root, sizeof(filename));
 	strncat(filename, dev->name, sizeof(filename));
 
 	switch (dev->type) {
@@ -170,13 +168,6 @@ int udev_add_device(char *path, char *subsystem)
 		dev.type = 'b';
 	else
 		dev.type = 'c';
-
-	retval = sysfs_get_mnt_path(sysfs_path, SYSFS_PATH_MAX);
-	dbg("sysfs_path = %s", sysfs_path);
-	if (retval) {
-		dbg("sysfs_get_mnt_path failed");
-		goto exit;
-	}
 
 	retval = sleep_for_dev(path);
 	if (retval)

@@ -124,12 +124,12 @@ int udevdb_init(int init_flag)
 	if (init_flag != UDEVDB_DEFAULT && init_flag != UDEVDB_INTERNAL)
 		return -EINVAL;
 
-	udevdb = tdb_open(UDEV_CONFIG_DIR UDEV_DB, 0, init_flag, O_RDWR | O_CREAT, 0644);
+	udevdb = tdb_open(udev_db_filename, 0, init_flag, O_RDWR | O_CREAT, 0644);
 	if (udevdb == NULL) {
 		if (init_flag == UDEVDB_INTERNAL)
 			dbg("Unable to initialize in-memory database");
 		else
-			dbg("Unable to initialize database at %s", UDEV_CONFIG_DIR UDEV_DB);
+			dbg("Unable to initialize database at %s", udev_db_filename);
 		return -EINVAL;
 	}
 	return 0;

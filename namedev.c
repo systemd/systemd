@@ -197,7 +197,6 @@ static int get_pair(char **orig_string, char **left, char **right)
 
 static int namedev_init_config(void)
 {
-	char filename[255];
 	char line[255];
 	char *temp;
 	char *temp2;
@@ -206,11 +205,10 @@ static int namedev_init_config(void)
 	int retval = 0;
 	struct config_device dev;
 
-	strcpy(filename, UDEV_CONFIG_DIR NAMEDEV_CONFIG_FILE);
-	dbg("opening %s to read as permissions config", filename);
-	fd = fopen(filename, "r");
+	dbg("opening %s to read as permissions config", udev_config_filename);
+	fd = fopen(udev_config_filename, "r");
 	if (fd == NULL) {
-		dbg("Can't open %s", filename);
+		dbg("Can't open %s", udev_config_filename);
 		return -ENODEV;
 	}
 
@@ -394,7 +392,6 @@ exit:
 
 static int namedev_init_permissions(void)
 {
-	char filename[255];
 	char line[255];
 	char *temp;
 	char *temp2;
@@ -402,11 +399,10 @@ static int namedev_init_permissions(void)
 	int retval = 0;
 	struct config_device dev;
 
-	strcpy(filename, UDEV_CONFIG_DIR NAMEDEV_CONFIG_PERMISSION_FILE);
-	dbg("opening %s to read as permissions config", filename);
-	fd = fopen(filename, "r");
+	dbg("opening %s to read as permissions config", udev_config_permission_filename);
+	fd = fopen(udev_config_permission_filename, "r");
 	if (fd == NULL) {
-		dbg("Can't open %s", filename);
+		dbg("Can't open %s", udev_config_permission_filename);
 		return -ENODEV;
 	}
 

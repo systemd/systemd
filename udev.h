@@ -24,6 +24,7 @@
 #define UDEV_H
 
 #include "libsysfs/libsysfs.h"
+#include <limits.h>
 
 #ifdef DEBUG
 #include <syslog.h>
@@ -50,7 +51,10 @@ extern int log_message (int level, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
 
 
-/* Lots of constants that should be in a config file sometime */
+/* filenames for the config and database files */
+#define UDEV_DB				"udevdb.tdb"
+#define NAMEDEV_CONFIG_PERMISSION_FILE	"namedev.permissions"
+#define NAMEDEV_CONFIG_FILE		"namedev.config"
 
 #define NAME_SIZE	100
 #define OWNER_SIZE	30
@@ -78,5 +82,12 @@ extern int udev_remove_device(char *path, char *subsystem);
 
 extern char **main_argv;
 extern char **main_envp;
+extern char sysfs_path[SYSFS_PATH_MAX];
+extern char *udev_config_dir;
+extern char *udev_root;
+extern char udev_db_filename[PATH_MAX+NAME_MAX];
+extern char udev_config_permission_filename[PATH_MAX+NAME_MAX];
+extern char udev_config_filename[PATH_MAX+NAME_MAX];
+
 #endif
 
