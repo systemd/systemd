@@ -604,6 +604,7 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 		dbg(FIELD_SUBSYSTEM " matches");
 	}
 
+	/* walk up the chain of physical devices and find a match */
 	while (1) {
 		/* check for matching driver */
 		if (dev->driver[0] != '\0') {
@@ -612,9 +613,8 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 			if (strcmp_pattern(dev->driver, sysfs_device->driver_name) != 0) {
 				dbg(FIELD_DRIVER " is not matching");
 				goto try_parent;
-			} else {
-				dbg(FIELD_DRIVER " matches");
 			}
+			dbg(FIELD_DRIVER " matches");
 		}
 
 		/* check for matching bus value */
@@ -638,9 +638,8 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 			if (match_id(dev, class_dev, sysfs_device) != 0) {
 				dbg(FIELD_ID " is not matching");
 				goto try_parent;
-			} else {
-				dbg(FIELD_ID " matches");
 			}
+			dbg(FIELD_ID " matches");
 		}
 
 		/* check for matching place of device */
@@ -649,9 +648,8 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 			if (match_place(dev, class_dev, sysfs_device) != 0) {
 				dbg(FIELD_PLACE " is not matching");
 				goto try_parent;
-			} else {
-				dbg(FIELD_PLACE " matches");
 			}
+			dbg(FIELD_PLACE " matches");
 		}
 
 		/* check for matching sysfs pairs */
@@ -660,41 +658,12 @@ static int match_rule(struct udevice *udev, struct config_device *dev,
 			if (match_sysfs_pairs(dev, class_dev, sysfs_device) != 0) {
 				dbg(FIELD_SYSFS " is not matching");
 				goto try_parent;
-			} else {
-				dbg(FIELD_SYSFS " matches");
 			}
+			dbg(FIELD_SYSFS " matches");
 		}
 
-		/* execute external program */
-		if (dev->program[0] != '\0') {
-			char program[PROGRAM_SIZE];
-
-			dbg("check " FIELD_PROGRAM);
-			strfieldcpy(program, dev->program);
-			apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
-			if (execute_program(udev, program, udev->program_result, NAME_SIZE) != 0) {
-				dbg(FIELD_PROGRAM " returned nonzero");
-				goto try_parent;
-			} else {
-				dbg(FIELD_PROGRAM " returned successful");
-			}
-		}
-
-		/* check for matching result of external program */
-		if (dev->result[0] != '\0') {
-			dbg("check for " FIELD_RESULT " dev->result='%s', udev->program_result='%s'",
-			    dev->result, udev->program_result);
-			if (strcmp_pattern(dev->result, udev->program_result) != 0) {
-				dbg(FIELD_RESULT " is not matching");
-				goto try_parent;
-			} else {
-				dbg(FIELD_RESULT " matches");
-			}
-		}
-
-		/* we matched */
-		return 0;
-
+		/* found matching physical device  */
+		break;
 try_parent:
 		dbg("try parent sysfs device");
 		sysfs_device = sysfs_get_device_parent(sysfs_device);
@@ -703,6 +672,34 @@ try_parent:
 		dbg("sysfs_device->path='%s'", sysfs_device->path);
 		dbg("sysfs_device->bus_id='%s'", sysfs_device->bus_id);
 	}
+
+	/* execute external program */
+	if (dev->program[0] != '\0') {
+		char program[PROGRAM_SIZE];
+
+		dbg("check " FIELD_PROGRAM);
+		strfieldcpy(program, dev->program);
+		apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
+		if (execute_program(udev, program, udev->program_result, NAME_SIZE) != 0) {
+			dbg(FIELD_PROGRAM " returned nonzero");
+			goto try_parent;
+		}
+		dbg(FIELD_PROGRAM " returned successful");
+	}
+
+	/* check for matching result of external program */
+	if (dev->result[0] != '\0') {
+		dbg("check for " FIELD_RESULT " dev->result='%s', udev->program_result='%s'",
+		    dev->result, udev->program_result);
+		if (strcmp_pattern(dev->result, udev->program_result) != 0) {
+			dbg(FIELD_RESULT " is not matching");
+			goto try_parent;
+		}
+		dbg(FIELD_RESULT " matches");
+	}
+
+	/* rule matches */
+	return 0;
 
 exit:
 	return -1;
