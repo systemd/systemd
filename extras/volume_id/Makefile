@@ -33,13 +33,13 @@ override CFLAGS+=-Wall -fno-builtin -Wchar-subscripts \
 
 override CFLAGS+=-D_FILE_OFFSET_BITS=64
 
-SYSFS =	../../libsysfs/sysfs_bus.o	\
-	../../libsysfs/sysfs_class.o	\
-	../../libsysfs/sysfs_device.o	\
-	../../libsysfs/sysfs_dir.o	\
-	../../libsysfs/sysfs_driver.o	\
-	../../libsysfs/sysfs_utils.o	\
-	../../libsysfs/dlist.o
+override SYSFS =	../../libsysfs/sysfs_bus.o	\
+			../../libsysfs/sysfs_class.o	\
+			../../libsysfs/sysfs_device.o	\
+			../../libsysfs/sysfs_dir.o	\
+			../../libsysfs/sysfs_driver.o	\
+			../../libsysfs/sysfs_utils.o	\
+			../../libsysfs/dlist.o
 
 
 
@@ -60,8 +60,8 @@ clean:
 spotless: clean
 
 install: all
-	$(INSTALL_PROGRAM) $(PROG) $(DESTDIR)$(usrsbindir)/$(PROG)
+	$(INSTALL_PROGRAM) $(PROG) $(DESTDIR)$(sbindir)/$(PROG)
 
 uninstall:
-	- rm $(DESTDIR)$(usrsbindir)/$(PROG)
+	- rm $(DESTDIR)$(sbindir)/$(PROG)
 
