@@ -74,14 +74,14 @@ inline void *_dlist_mark_move(Dlist *list,int direction)
 {
   if(direction)
     {
-      if( list->marker->next!=NULL)
+      if( list->marker && list->marker->next!=NULL)
 	list->marker=list->marker->next;
       else
 	return(NULL);
     }
   else
     {
-      if( list->marker->prev!=NULL)
+      if( list->marker && list->marker->prev!=NULL)
 	list->marker=list->marker->prev;
       else
 	return(NULL);
