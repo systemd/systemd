@@ -39,12 +39,10 @@
  * Right now the major/minor of a device is stored in a file called
  * "dev" in sysfs.
  * The number is stored as:
- * 	MMmm
+ * 	MM:mm
  * 		MM is the major
  * 		mm is the minor
- * 		The value is in hex.
- * Yes, this will probably change when we go to a bigger major/minor
- * range, and will have to be changed at that time.
+ * 		The value is in decimal.
  */
 static int get_major_minor(struct sysfs_class_device *class_dev, int *major, int *minor)
 {
