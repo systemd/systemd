@@ -178,7 +178,19 @@ clean:
 DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v CVS | grep -v "\.tar\.gz" | grep -v "\/\." | grep -v releases | grep -v BitKeeper | grep -v SCCS | grep -v "\.tdb" | grep -v "test\/sys" | sort )
 DISTDIR := $(RELEASE_NAME)
 srcdir = .
-release: $(DISTFILES) clean
+release: clean
+	@echo "--------------------------cut here------------------------"
+	@echo "cd .."
+	@echo "rm -rf $(DISTDIR)"
+	@echo "mkdir $(DISTDIR)"
+	@echo "chmod 777 $(DISTDIR)"
+	@echo "cp -avr udev/* $(DISTDIR)"
+	@echo "tar -c $(DISTDIR) | gzip -9 > $(RELEASE_NAME).tar.gz"
+	@echo "rm -rf $(DISTDIR)"
+	@echo "--------------------------cut here------------------------"
+
+
+small_release: $(DISTFILES) clean
 #	@echo $(DISTFILES)
 	@-rm -rf $(DISTDIR)
 	@mkdir $(DISTDIR)
