@@ -1,6 +1,6 @@
-# Makefile for diethotplug
+# Makefile for udev
 #
-# Copyright (C) 2000,2001 Greg Kroah-Hartman <greg@kroah.com>
+# Copyright (C) 2003  Greg Kroah-Hartman <greg@kroah.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
