@@ -72,6 +72,7 @@ make CC="gcc $RPM_OPT_FLAGS"	\
 "
 
 %install
+rm -rf $RPM_BUILD_ROOT
 make DESTDIR=$RPM_BUILD_ROOT install \
 	EXTRAS="	\
 %if %{scsi_id}
@@ -107,11 +108,16 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) %dir /udev/
 %attr(755,root,root) %dir /etc/udev/
 %config(noreplace) %attr(0644,root,root) /etc/udev/udev.conf
-%config(noreplace) %attr(0644,root,root) /etc/udev/udev.rules
-%config(noreplace) %attr(0644,root,root) /etc/udev/udev.permissions
+%attr(755,root,root) %dir /etc/udev/rules.d/
+%attr(755,root,root) %dir /etc/udev/permissions.d/
+%config(noreplace) %attr(0644,root,root) /etc/udev/rules.d/50-udev.rules
+%config(noreplace) %attr(0644,root,root) /etc/udev/permissions.d/50-udev.permissions
 %attr(-,root,root) /etc/hotplug.d/default/udev.hotplug
 %attr(755,root,root) /etc/init.d/udev
 %attr(0644,root,root) %{_mandir}/man8/udev*.8*
+%attr(755,root,root) %dir /etc/dev.d/
+%attr(755,root,root) %dir /etc/dev.d/net/
+%attr(0755,root,root) /etc/dev.d/net/hotplug.dev
 
 %if %{scsi_id}
 	%attr(755,root,root) /sbin/scsi_id
