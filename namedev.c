@@ -124,6 +124,8 @@ static int add_dev(struct config_device *new_dev)
 		struct config_device *dev = list_entry(tmp, struct config_device, node);
 		if (strncmp_wildcard(dev->name, new_dev->name, sizeof(dev->name)))
 			continue;
+		if (strncmp(dev->bus, new_dev->bus, sizeof(dev->name)))
+			continue;
 		copy_var(dev, new_dev, type);
 		copy_var(dev, new_dev, mode);
 		copy_string(dev, new_dev, bus);
@@ -132,6 +134,7 @@ static int add_dev(struct config_device *new_dev)
 		copy_string(dev, new_dev, id);
 		copy_string(dev, new_dev, place);
 		copy_string(dev, new_dev, kernel_name);
+		copy_string(dev, new_dev, exec_program);
 		copy_string(dev, new_dev, owner);
 		copy_string(dev, new_dev, group);
 		return 0;
@@ -650,7 +653,7 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 	return retval;
 }
 
-static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev)
+static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
 {
 	struct config_device *dev;
 	struct list_head *tmp;
@@ -659,6 +662,12 @@ static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev
 		dev = list_entry(tmp, struct config_device, node);
 		if (dev->type != CALLOUT)
 			continue;
+
+		if (sysfs_device) {
+			dbg_parse("dev->bus='%s' sysfs_device->bus='%s'", dev->bus, sysfs_device->bus);
+			if (strcasecmp(dev->bus, sysfs_device->bus) != 0)
+				continue;
+		}
 
 		/* substitute anything that needs to be in the program name */
 		apply_format(udev, dev->exec_program);
@@ -691,6 +700,12 @@ static int do_label(struct sysfs_class_device *class_dev, struct udevice *udev, 
 		dev = list_entry(tmp, struct config_device, node);
 		if (dev->type != LABEL)
 			continue;
+
+		if (sysfs_device) {
+			dbg_parse("dev->bus='%s' sysfs_device->bus='%s'", dev->bus, sysfs_device->bus);
+			if (strcasecmp(dev->bus, sysfs_device->bus) != 0)
+				continue;
+		}
 
 		dbg_parse("look for device attribute '%s'", dev->sysfs_file);
 		/* try to find the attribute in the class device directory */
@@ -747,6 +762,10 @@ static int do_number(struct sysfs_class_device *class_dev, struct udevice *udev,
 		if (dev->type != NUMBER)
 			continue;
 
+		dbg_parse("dev->bus='%s' sysfs_device->bus='%s'", dev->bus, sysfs_device->bus);
+		if (strcasecmp(dev->bus, sysfs_device->bus) != 0)
+			continue;
+
 		found = 0;
 		strfieldcpy(path, sysfs_device->path);
 		temp = strrchr(path, '/');
@@ -795,6 +814,10 @@ static int do_topology(struct sysfs_class_device *class_dev, struct udevice *ude
 		if (dev->type != TOPOLOGY)
 			continue;
 
+		dbg_parse("dev->bus='%s' sysfs_device->bus='%s'", dev->bus, sysfs_device->bus);
+		if (strcasecmp(dev->bus, sysfs_device->bus) != 0)
+			continue;
+
 		found = 0;
 		strfieldcpy(path, sysfs_device->path);
 		temp = strrchr(path, '/');
@@ -826,7 +849,7 @@ static int do_topology(struct sysfs_class_device *class_dev, struct udevice *ude
 	return -ENODEV;
 }
 
-static int do_replace(struct sysfs_class_device *class_dev, struct udevice *udev)
+static int do_replace(struct sysfs_class_device *class_dev, struct udevice *udev, struct sysfs_device *sysfs_device)
 {
 	struct config_device *dev;
 	struct list_head *tmp;
@@ -921,6 +944,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 	if (sysfs_device) {
 		dbg_parse("sysfs_device->path='%s'", sysfs_device->path);
 		dbg_parse("sysfs_device->bus_id='%s'", sysfs_device->bus_id);
+		dbg_parse("sysfs_device->bus='%s'", sysfs_device->bus);
 		strfieldcpy(udev->bus_id, sysfs_device->bus_id);
 	} else {
 		dbg_parse("class_dev->name = '%s'", class_dev->name);
@@ -929,7 +953,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 	build_kernel_number(class_dev, udev);
 
 	/* rules are looked at in priority order */
-	retval = do_callout(class_dev, udev);
+	retval = do_callout(class_dev, udev, sysfs_device);
 	if (retval == 0)
 		goto found;
 
@@ -945,7 +969,7 @@ static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 	if (retval == 0)
 		goto found;
 
-	retval = do_replace(class_dev, udev);
+	retval = do_replace(class_dev, udev, sysfs_device);
 	if (retval == 0)
 		goto found;
 
