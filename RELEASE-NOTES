@@ -5,17 +5,17 @@ We support an unlimited count of symlinks now.
 If USE_STATIC=true is passed to a glibc build, we link statically and use
 a built-in userdb parser to resolve user and group names.
 
-THE PLACE= key is gone. It can be replaced by an ID= for a long time, cause
+The PLACE= key is gone. It can be replaced by an ID= for a long time, cause
 we walk up the chain of physical devices to find a match.
 
 The KEY="<value>" format supports '=', '==', '!=,' , '+=' now. This makes it
 easy to skip certain attribute matches without composing rules with weird
 character class negations like:
   KERNEL="[!s][!c][!d]*"
-
 this can now be replaced with:
   KERNEL!="scd*"
-
 The current simple '=' is still supported, and should work as it does today,
 but existing rules should be converted if possible, to be better readable.
 
+We have new ENV{}== key now, to match against a maximum of 5 environment
+variables.
