@@ -22,7 +22,7 @@
  */
 
 /* define this to enable parsing debugging */
-#define DEBUG_PARSER
+/* #define DEBUG_PARSER */
 
 #include <stddef.h>
 #include <stdlib.h>
