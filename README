@@ -8,9 +8,7 @@ To use:
 
 - Edit the udev.h file and replace the following variables with values
   that make sense for your system:
-	#define SYSFS_ROOT      "/sys"
-	#define UDEV_ROOT       "/home/greg/linux/udev/"
-	#define DEV_FILE        "/dev"
+	#define UDEV_ROOT       "/udev/"
 	#define MKNOD           "/bin/mknod"
   The only value most people will have to change is the UDEV_ROOT
   variable, as I doubt you really want device nodes to be created in my

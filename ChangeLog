@@ -1,2 +1,9 @@
-0.1 - Added a bit of documentation to the README and TODO files.
-0.01 - initial release
+0.2 -	added namedev
+	now used a snapshot of libsysfs.
+	Can now handle the 5 different naming schemes.
+	Was released based on my OLS 2003 presentation.
+	Lots still left to do, but it kinda works better...
+
+0.1 -	Added a bit of documentation to the README and TODO files.
+
+0.01 -	initial release

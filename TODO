@@ -1,6 +1,8 @@
 - use mknod(2) and not execute mknod(1)
 - add klibc to the build process (or make it easier to do) to get
   smaller binary
+- document the config file format (it will change over time...)
+- persistant naming database backend
 - make program work like design says it should (three parts, not 1)
 - add hooks to call D-BUS when new node is created or removed
 - lots of other stuff...
