@@ -71,7 +71,6 @@ KERNEL="seq",            NAME="snd/%k"
 
 # input devices
 KERNEL="mice",		NAME="input/%k"
-KERNEL="keyboard",	NAME="input/%k"
 KERNEL="mouse*",	NAME="input/%k"
 KERNEL="event*",	NAME="input/%k"
 KERNEL="js*",		NAME="input/%k"
