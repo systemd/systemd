@@ -33,16 +33,6 @@ override CFLAGS+=-Wall -fno-builtin -Wchar-subscripts \
 
 override CFLAGS+=-D_FILE_OFFSET_BITS=64
 
-override SYSFS =	../../libsysfs/sysfs_bus.o	\
-			../../libsysfs/sysfs_class.o	\
-			../../libsysfs/sysfs_device.o	\
-			../../libsysfs/sysfs_dir.o	\
-			../../libsysfs/sysfs_driver.o	\
-			../../libsysfs/sysfs_utils.o	\
-			../../libsysfs/dlist.o
-
-
-
 OBJS = volume_id.o udev_volume_id.o dasdlabel.o $(SYSFS)
 HEADERS = volume_id.h dasdlabel.h
 
