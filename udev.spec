@@ -113,7 +113,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(755,root,root) /usr/bin/udevinfo
 %attr(755,root,root) /sbin/udevsend
 %attr(755,root,root) /sbin/udevd
-%attr(755,root,root) /sbin/udevtest
+%attr(755,root,root) /usr/bin/udevtest
 %attr(755,root,root) /sbin/udevstart
 %attr(755,root,root) %dir /udev/
 %attr(755,root,root) %dir /etc/udev/
