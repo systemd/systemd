@@ -22,6 +22,11 @@
 # 1 - build it
 %define scsi_id 1
 
+# if we want to build the volume_id "extra" package or not
+# 0 - do not build the package
+# 1 - build it
+%define volume_id 1
+
 Summary: A userspace implementation of devfs
 Name: udev
 Version: 025
@@ -61,6 +66,9 @@ make CC="gcc $RPM_OPT_FLAGS"	\
 %if %{scsi_id}
 	extras/scsi_id	\
 %endif
+%if %{volume_id}
+	extras/volume_id	\
+%endif
 "
 
 %install
@@ -68,6 +76,9 @@ make DESTDIR=$RPM_BUILD_ROOT install \
 	EXTRAS="	\
 %if %{scsi_id}
 	extras/scsi_id	\
+%endif
+%if %{volume_id}
+	extras/volume_id	\
 %endif
 "
 
@@ -107,8 +118,15 @@ rm -rf $RPM_BUILD_ROOT
 	%config(noreplace) %attr(0644,root,root) /etc/scsi_id.config
 	%attr(0644,root,root) %{_mandir}/man8/scsi_id*.8*
 %endif
+%if %{volume_id}
+	%attr(755,root,root) /sbin/udev_volume_id
+%endif
 
 %changelog
+* Fri May 14 2004 Greg Kroah-Hartman <greg@kroah.com>
+- remove dbus and selinux stuff from here
+- added volume_id option
+
 * Wed Mar 24 2004 Greg Kroah-Hartman <greg@kroah.com>
 - change the way dbus and selinux support is built (now an extra)
 
