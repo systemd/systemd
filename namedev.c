@@ -190,6 +190,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 	int i;
 	char c;
 	char *spos;
+	char *rest;
 	int slen;
 	struct sysfs_attribute *tmpattr;
 
@@ -244,7 +245,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			/* get part part of the result string */
 			i = 0;
 			if (attr != NULL)
-				i = atoi(attr);
+				i = strtoul(attr, &rest, 10);
 			if (i > 0) {
 				foreach_strpart(udev->program_result, " \n\r", spos, slen) {
 					i--;
@@ -255,7 +256,10 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 					dbg("requested part of result string not found");
 					break;
 				}
-				strfieldcpymax(temp2, spos, slen+1);
+				if (rest[0] == '+')
+					strfieldcpy(temp2, spos);
+				else
+					strfieldcpymax(temp2, spos, slen+1);
 				strfieldcatmax(string, temp2, maxsize);
 				dbg("substitute part of result string '%s'", temp2);
 			} else {

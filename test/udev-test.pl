@@ -307,6 +307,15 @@ BUS="scsi", PROGRAM="/bin/echo -n node link1 link2", RESULT="node *", NAME="%c{1
 EOF
 	},
 	{
+		desc     => "program result substitution (numbered part of+)",
+		subsys   => "block",
+		devpath  => "block/sda/sda3",
+		expected => "link3" ,
+		conf     => <<EOF
+BUS="scsi", PROGRAM="/bin/echo -n node link1 link2 link3 link4", RESULT="node *", NAME="%c{1}", SYMLINK="%c{2+}"
+EOF
+	},
+	{
 		desc     => "invalid program for device with no bus",
 		subsys   => "tty",
 		devpath  => "class/tty/console",

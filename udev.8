@@ -253,7 +253,10 @@ field for the obvious reason.)
 .br
 A single part of the string, separated by a space character
 may be selected by specifying the part number as a attribute:
-.BI %c{ part }
+.BI %c{ N }
+If the number is followed by the + char this part plus
+all remaining parts of the result string are substituted:
+.BI %c{ N+ }
 .TP
 .BI %s{ filename }
 The content of a sysfs attribute.
