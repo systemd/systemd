@@ -1,17 +1,24 @@
-/* -*-c-*-: 
- **
- ** (C) 2003 Intel Corporation
- **          Atul Sabharwal <atul.sabharwal@intel.com>
- **
- ** $Id: table.c,v 1.4 2004/03/18 21:56:24 atul Exp $
- **
- ** Distributed under the terms of the GNU Public License, v2.0 or
- ** later.
- **
- ** Many parts heavily based on test-skeleton.c, by Ulrich Drepper;
- ** with his permission, they have been re-licensed GPL, and his
- ** copyright still applies on them. 
- **
+/* 
+ * table.c
+ *
+ * Copyright (C) 2004 Intel Corporation.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public
+ * License v2.0 as published by the Free Software Foundation; 
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public
+ * License along with this program; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 021110-1307, USA.
+ *
+ * Authors: Atul Sabharwal
+ *          
  */
 
 #include <stdio.h>
@@ -22,7 +29,6 @@
 struct provision_record
 {
 	int  id;
-	int  host_num;          //port # or adaptor number
 	int  num_disks;
 	int  chassis_num;
 	int  slot_num;
@@ -51,7 +57,7 @@ int table_init()
 	while (!feof(fp)) {
 		fgets(ptr, 80, fp);	
 		sscanf(ptr, "%d %d %d %d %d %s %s", &ptable[i].id,
-			&ptable[i].host_num, &ptable[i].num_disks, 
+			&ptable[i].num_disks, 
 			&ptable[i].chassis_num, &ptable[i].slot_num,
 			ptable[i].serial_num, ptable[i].name);
 		i++;       
@@ -70,7 +76,6 @@ int table_find_disk( char * serialnumber , int * host_num, int * chassis_num, in
 
 	for (i = 0; i < ptable_size; i++) {
 		if (strcmp(ptable[i].serial_num, serialnumber) == 0) {
-			*host_num =  ptable[i].host_num;
 			*chassis_num =  ptable[i].chassis_num;
 			*slot_num = ptable[i].slot_num;
 			break;
@@ -91,7 +96,6 @@ int table_select_disk( int diskindex )
 {
 	printf("%d ", ptable[diskindex].chassis_num);
 	printf("%d ", ptable[diskindex].slot_num);
-	printf("%d ", ptable[diskindex].host_num);
 	printf("%s ", ptable[diskindex].name);
 }
 

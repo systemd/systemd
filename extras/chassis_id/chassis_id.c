@@ -1,15 +1,24 @@
-/* -*-c-*-: 
- **
- ** (C) 2003 Intel Corporation
- **          Atul Sabharwal <atul.sabharwal@intel.com>
- **
- ** Distributed under the terms of the GNU Public License, v2.0 or
- ** later.
- **
- ** Many parts heavily based on test-skeleton.c, by Ulrich Drepper;
- ** with his permission, they have been re-licensed GPL, and his
- ** copyright still applies on them
- **
+/* 
+ * chassis_id.c
+ *
+ * Copyright (C) 2004 Intel Corporation.  All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public
+ * License v 2.0 as published by the Free Software Foundation; 
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public
+ * License along with this program; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 021110-1307, USA.
+ *
+ * Authors: Atul Sabharwal
+ *          
  */
 
 #include <stdio.h>
@@ -22,33 +31,13 @@
 
 int main(int argc, char **argv, char ** envp)
 {
-	int chassis_num, slot_num, retval, host_num;
+	int chassis_num, slot_num, retval;
 	char disk_snum[255], devpath[255];
 	char *ptr;
 	int disk_index;
 
 	syslog( LOG_PID| LOG_DAEMON| LOG_ERR, "\n%s", "starting chassis_id" );
 
-#if 0
-	ptr = getenv("CHASSIS");
-	if (ptr == NULL)
-		return -ERROR_NO_CHASSIS;
-
-	sscanf(ptr, "%d", &chassis_num);
-	#ifdef DEBUG
-	syslog(LOG_PID| LOG_DAEMON| LOG_ERR, "Chassis %d", chassis_num);
-	#endif
-
-
-	ptr = getenv("SLOT");
-	if (ptr== NULL)
-		return -ERROR_NO_SLOT;
-
-	sscanf(ptr, "%d", &slot_num);
-	#ifdef DEBUG
-	syslog( LOG_PID|LOG_DAEMON| LOG_ERR, "Slot %d", slot_num);
-	#endif
-#endif
 	ptr = getenv("DEVPATH");
 	if (ptr == NULL)
 		return -ERROR_NO_DEVPATH;
@@ -65,7 +54,7 @@ int main(int argc, char **argv, char ** envp)
 	getserial_number(devpath, disk_snum);
 
 	/* Now we open the provisioning table t find actual entry for the serial number*/
-	disk_index =  table_find_disk(disk_snum, &host_num, &chassis_num, &slot_num);
+	disk_index =  table_find_disk(disk_snum, &chassis_num, &slot_num);
 	if ( disk_index == -1 ) {
 		// typical provisioning error
 		return -ERROR_NO_DISK;
