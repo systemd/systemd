@@ -100,23 +100,13 @@ void log_message (int level, const char *format, ...)
 	return;
 }
 
-int sysfs_get_attr(const char *devpath, const char *attr, char *value,
-		   size_t bufsize)
+static int get_major_minor(struct sysfs_class_device *class_dev, int *maj,
+			   int *min)
 {
-	char attr_path[SYSFS_PATH_MAX];
+	struct sysfs_attribute *dev_attr;
 
-	strncpy(attr_path, devpath, SYSFS_PATH_MAX);
-	strncat(attr_path, "/", SYSFS_PATH_MAX);
-	strncat(attr_path, attr,  SYSFS_PATH_MAX);
-	dprintf("%s\n", attr_path);
-	return sysfs_read_attribute_value(attr_path, value, SYSFS_NAME_LEN);
-}
-
-static int get_major_minor(const char *devpath, int *maj, int *min)
-{
-	char dev_value[MAX_ATTR_LEN];
-
-	if (sysfs_get_attr(devpath, "dev", dev_value, MAX_ATTR_LEN)) {
+	dev_attr = sysfs_get_classdev_attr(class_dev, "dev");
+	if (!dev_attr) {
 		/*
 		 * XXX This happens a lot, since sg has no dev attr.
 		 * And now sysfsutils does not set a meaningful errno
@@ -125,27 +115,28 @@ static int get_major_minor(const char *devpath, int *maj, int *min)
 		 * it separately.
 		 */
 		log_message(LOG_DEBUG, "%s: could not get dev attribute: %s\n",
-			devpath, strerror(errno));
+			class_dev->name, strerror(errno));
 		return -1;
 	}
 
-	dprintf("dev value %s", dev_value); /* dev_value has a trailing \n */
-	if (sscanf(dev_value, "%u:%u", maj, min) != 2) {
+	dprintf("dev value %s", dev_attr->value); /* value has a trailing \n */
+	if (sscanf(dev_attr->value, "%u:%u", maj, min) != 2) {
 		log_message(LOG_WARNING, "%s: invalid dev major/minor\n",
-			    devpath);
+			    class_dev->name);
 		return -1;
 	}
 
 	return 0;
 }
 
-static int create_tmp_dev(const char *devpath, char *tmpdev, int dev_type)
+static int create_tmp_dev(struct sysfs_class_device *class_dev, char *tmpdev,
+			  int dev_type)
 {
 	int maj, min;
 
-	dprintf("(%s)\n", devpath);
+	dprintf("(%s)\n", class_dev->name);
 
-	if (get_major_minor(devpath, &maj, &min))
+	if (get_major_minor(class_dev, &maj, &min))
 		return -1;
 	snprintf(tmpdev, MAX_NAME_LEN, "%s/%s-maj%d-min%d-%u",
 		 TMP_DIR, TMP_PREFIX, maj, min, getpid());
@@ -500,8 +491,7 @@ static int per_dev_options(struct sysfs_device *scsi_dev, int *good_bad,
 	int retval;
 	int newargc;
 	char **newargv = NULL;
-	char vendor[MAX_ATTR_LEN];
-	char model[MAX_ATTR_LEN];
+	struct sysfs_attribute *vendor, *model;
 	int option;
 
 	*good_bad = all_good;
@@ -511,19 +501,22 @@ static int per_dev_options(struct sysfs_device *scsi_dev, int *good_bad,
 	else
 		callout[0] = '\0';
 
-	if (sysfs_get_attr(scsi_dev->path, "vendor", vendor, MAX_ATTR_LEN)) {
+	vendor = sysfs_get_device_attr(scsi_dev, "vendor");
+	if (!vendor) {
 		log_message(LOG_WARNING, "%s: cannot get vendor attribute\n",
 			    scsi_dev->name);
 		return -1;
 	}
 
-	if (sysfs_get_attr(scsi_dev->path, "model", model, MAX_ATTR_LEN)) {
+	model = sysfs_get_device_attr(scsi_dev, "model");
+	if (!model) {
 		log_message(LOG_WARNING, "%s: cannot get model attribute\n",
 			    scsi_dev->name);
 		return -1;
 	}
 
-	retval = get_file_options(vendor, model, &newargc, &newargv);
+	retval = get_file_options(vendor->value, model->value, &newargc,
+				  &newargv);
 
 	optind = 1; /* reset this global extern */
 	while (retval == 0) {
@@ -694,10 +687,8 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 
 	/*
 	 * mknod a temp dev to communicate with the device.
-	 *
-	 * XXX pass down class_dev or class_dev_parent.
 	 */
-	if (!dev_specified && create_tmp_dev(target_path, maj_min_dev,
+	if (!dev_specified && create_tmp_dev(class_dev, maj_min_dev,
 					     dev_type)) {
 		dprintf("create_tmp_dev failed\n");
 		return 1;

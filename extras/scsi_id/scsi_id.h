@@ -44,8 +44,6 @@
  */
 #define MAX_BUFFER_LEN	256
 
-extern int sysfs_get_attr(const char *devpath, const char *attr, char *value,
-			  size_t bufsize);
 extern int scsi_get_serial (struct sysfs_device *scsi_dev, const char
 			    *devname, int page_code, char *serial, int
 			    len);

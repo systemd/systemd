@@ -364,7 +364,7 @@ static int do_scsi_page0_inquiry(struct sysfs_device *scsi_dev, int fd,
 				 char *buffer, int len)
 {
 	int retval;
-	char vendor[MAX_ATTR_LEN];
+	struct sysfs_attribute *vendor;
 
 	memset(buffer, 0, len);
 	retval = scsi_inquiry(scsi_dev, fd, 1, 0x0, buffer, len);
@@ -394,14 +394,15 @@ static int do_scsi_page0_inquiry(struct sysfs_device *scsi_dev, int fd,
 		 * If the vendor id appears in the page assume the page is
 		 * invalid.
 		 */
-		if (sysfs_get_attr(scsi_dev->path, "vendor", vendor,
-				   MAX_ATTR_LEN)) {
+		vendor = sysfs_get_device_attr(scsi_dev, "vendor");
+		if (!vendor) {
 			log_message(LOG_WARNING,
 				    "%s: cannot get model attribute\n",
 				    scsi_dev->name);
 			return 1;
 		}
-		if (!strncmp(&buffer[VENDOR_LENGTH], vendor, VENDOR_LENGTH)) {
+		if (!strncmp(&buffer[VENDOR_LENGTH], vendor->value,
+			     VENDOR_LENGTH)) {
 			log_message(LOG_WARNING, "%s: invalid page0 data\n",
 				    scsi_dev->name);
 			return 1;
@@ -416,15 +417,16 @@ static int do_scsi_page0_inquiry(struct sysfs_device *scsi_dev, int fd,
  */
 static int prepend_vendor_model(struct sysfs_device *scsi_dev, char *serial)
 {
-	char attr[MAX_ATTR_LEN];
+	struct sysfs_attribute *attr;
 	int ind;
 
-	if (sysfs_get_attr(scsi_dev->path, "vendor", attr, MAX_ATTR_LEN)) {
+	attr = sysfs_get_device_attr(scsi_dev, "vendor");
+	if (!attr) {
 		log_message(LOG_WARNING, "%s: cannot get vendor attribute\n",
 			    scsi_dev->name);
 		return 1;
 	}
-	strncpy(serial, attr, VENDOR_LENGTH);
+	strncpy(serial, attr->value, VENDOR_LENGTH);
 	ind = strlen(serial) - 1;
 	/*
 	 * Remove sysfs added newlines.
@@ -432,12 +434,13 @@ static int prepend_vendor_model(struct sysfs_device *scsi_dev, char *serial)
 	if (serial[ind] == '\n')
 		serial[ind] = '\0';
 
-	if (sysfs_get_attr(scsi_dev->path, "model", attr, MAX_ATTR_LEN)) {
+	attr = sysfs_get_device_attr(scsi_dev, "model");
+	if (!attr) {
 		log_message(LOG_WARNING, "%s: cannot get model attribute\n",
 			    scsi_dev->name);
 		return 1;
 	}
-	strncat(serial, attr, MODEL_LENGTH);
+	strncat(serial, attr->value, MODEL_LENGTH);
 	ind = strlen(serial) - 1;
 	if (serial[ind] == '\n')
 		serial[ind] = '\0';
