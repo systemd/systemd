@@ -222,3 +222,6 @@ KERNEL="kbd",		NAME="%k", MODE="0664"
 # Sony Vaio Jogdial sonypi device
 KERNEL="sonypi",	NAME="%k", MODE="0666"
 
+# packet devices
+KERNEL="pktcdvd",	NAME="pktcdvd/control", GROUP="cdrw", MODE="0660"
+KERNEL="pktcdvd[0-9]*",	NAME="pktcdvd/pktcdvd%n", GROUP="cdrw", MODE="0660"
