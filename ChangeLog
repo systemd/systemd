@@ -1,3 +1,9 @@
+Summary of changes from v035 to v036
+============================================
+
+Greg Kroah-Hartman:
+  o add the error number to the error message in wait_for_sysfs to help out in debugging problems
+
 Summary of changes from v034 to v035
 ============================================
 
