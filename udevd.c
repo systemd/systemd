@@ -419,7 +419,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (getuid() != 0) {
 		dbg("need to be root, exit");
-		_exit(1);
+		goto exit;
 	}
 
 	/* make sure we don't lock any path */
@@ -430,7 +430,7 @@ int main(int argc, char *argv[], char *envp[])
 	fd = open( "/dev/null", O_RDWR );
 	if ( fd < 0 ) {
 		dbg("error opening /dev/null %s", strerror(errno));
-		exit(1);
+		goto exit;
 	}
 	dup2(fd, 0);
 	dup2(fd, 1);
@@ -445,29 +445,29 @@ int main(int argc, char *argv[], char *envp[])
 	retval = pipe(pipefds);
 	if (retval < 0) {
 		dbg("error getting pipes: %s", strerror(errno));
-		exit(1);
+		goto exit;
 	}
 
 	retval = fcntl(pipefds[0], F_SETFL, O_NONBLOCK);
 	if (retval < 0) {
 		dbg("error fcntl on read pipe: %s", strerror(errno));
-		exit(1);
+		goto exit;
 	}
 	retval = fcntl(pipefds[0], F_SETFD, FD_CLOEXEC);
 	if (retval < 0) {
 		dbg("error fcntl on read pipe: %s", strerror(errno));
-		exit(1);
+		goto exit;
 	}
 
 	retval = fcntl(pipefds[1], F_SETFL, O_NONBLOCK);
 	if (retval < 0) {
 		dbg("error fcntl on write pipe: %s", strerror(errno));
-		exit(1);
+		goto exit;
 	}
 	retval = fcntl(pipefds[1], F_SETFD, FD_CLOEXEC);
 	if (retval < 0) {
 		dbg("error fcntl on write pipe: %s", strerror(errno));
-		exit(1);
+		goto exit;
 	}
 
 	/* set signal handlers */
@@ -488,13 +488,14 @@ int main(int argc, char *argv[], char *envp[])
 	udevsendsock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (udevsendsock == -1) {
 		dbg("error getting socket, exit");
-		exit(1);
+		goto exit;
 	}
 
 	/* the bind takes care of ensuring only one copy running */
 	retval = bind(udevsendsock, (struct sockaddr *) &saddr, addrlen);
 	if (retval < 0) {
 		dbg("bind failed, exit");
+		close(udevsendsock);
 		goto exit;
 	}
 
@@ -549,8 +550,8 @@ int main(int argc, char *argv[], char *envp[])
 			exec_queue_manager();
 		}
 	}
+
 exit:
-	close(udevsendsock);
 	logging_close();
 	return 1;
 }
