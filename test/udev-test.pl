@@ -27,7 +27,8 @@ my $udev_bin  = "../udev";
 my $udev_root = "udev-root/"; # !!! directory will be removed !!!
 my $udev_db   = ".udev.tdb";
 my $perm      = "udev.permissions";
-my $conf_tmp  = "udev-test.config";
+my $main_conf = "udev-test.conf";
+my $conf_tmp  = "udev-test.rules";
 
 
 my @tests = (
@@ -173,17 +174,13 @@ EOF
 # set env
 $ENV{UDEV_TEST} = "yes";
 $ENV{SYSFS_PATH} = $sysfs;
-$ENV{UDEV_CONFIG_DIR} = "./";
-$ENV{UDEV_ROOT} = $udev_root;
-$ENV{UDEV_DB} = $udev_db;
-$ENV{UDEV_PERMISSION_FILE} = $perm;
+$ENV{UDEV_CONFIG_FILE} = $main_conf;
 
 
 sub udev {
 	my ($action, $subsys, $devpath, $config) = @_;
 
 	$ENV{DEVPATH} = $devpath;
-	$ENV{UDEV_RULES_FILE} = $conf_tmp;
 
 	# create temporary config
 	open CONF, ">$conf_tmp" || die "unable to create config file: $conf_tmp";
@@ -202,6 +199,14 @@ mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
 # test
 my $error = 0;
 print "\nudev-test will run ".($#tests + 1)." tests:\n\n";
+
+# create initial config file
+open CONF, ">$main_conf" || die "unable to create config file: $main_conf";
+print CONF "udev_root=\"$udev_root\"\n";
+print CONF "udev_db=\"$udev_db\"\n";
+print CONF "udev_rules=\"$conf_tmp\"\n";
+print CONF "udev_permissions=\"$perm\"\n";
+close CONF;
 
 foreach my $config (@tests) {
 	$config->{conf} =~ m/^([A-Z]*).*/;
@@ -236,4 +241,5 @@ print "$error errors occured\n\n";
 unlink($udev_db);
 system("rm -rf $udev_root");
 unlink($conf_tmp);
+unlink($main_conf);
 

@@ -1,13 +1,22 @@
 #!/bin/bash
 
+RULES=modifier_test.rules
+CONFIG=modifier_test.conf
+
 export UDEV_TEST=yes
 export SYSFS_PATH=$PWD/sys/
-export UDEV_CONFIG_DIR=$PWD/
-export UDEV_ROOT=$PWD/udev/
-export UDEV_DB=udev.tdb
-export UDEV_CONFIG_FILE=modifier_test.config
-export UDEV_RULES_FILE=modifier_test.rules
-export UDEV_PERMISSION_FILE=udev.permissions
+export UDEV_CONFIG_FILE=$PWD/$CONFIG
+
+cat > $RULES << EOF
+TOPOLOGY, BUS="scsi", place="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:bus:%b"
+EOF
+
+cat > $CONFIG << EOF
+udev_root="$PWD/udev/"
+udev_db="$PWD/udev/.udev.tdb"
+udev_rules="$PWD/$RULES"
+udev_permissions="$PWD/udev.permissions"
+EOF
 
 export ACTION=add
 export DEVPATH=block/sda
@@ -31,3 +40,5 @@ export DEVPATH=block/sda/sda3
 ../udev block
 ls udev
 
+rm $RULES
+rm $CONFIG
