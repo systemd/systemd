@@ -192,6 +192,10 @@ int main(int argc, char *argv[], char *envp[])
 			/* get node from db, remove db-entry, delete created node */
 			retval = udev_remove_device(&udev);
 
+			/* Set the DEVNAME if known */
+			if (udev.devname[0] != '\0') {
+				setenv("DEVNAME", udev.devname, 1);
+			}
 			/* run dev.d/ scripts if we're not instructed to ignore the event */
 			if (udev.devname[0] != '\0') {
 				setenv("DEVNAME", udev.devname, 1);
