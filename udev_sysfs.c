@@ -51,6 +51,7 @@ static const struct subsystem_file {
 	{ .subsystem = "ieee1394",	.file = NULL },
 	{ .subsystem = "ieee1394_host",	.file = NULL },
 	{ .subsystem = "ieee1394_node",	.file = NULL },
+	{ .subsystem = "fc_transport",	.file = "port_id" },
 	{ NULL, NULL }
 };
 
@@ -274,6 +275,7 @@ int wait_for_devices_device(struct sysfs_device *devices_dev,
 		{ .bus = "ide",		.file = "detach_state" },
 		{ .bus = "pci",		.file = "vendor" },
 		{ .bus = "platform",	.file = "detach_state" },
+		{ .bus = "pcmcia",	.file = "detach_state" },
 		{ .bus = "i2c",		.file = "detach_state" },
 		{ .bus = "ieee1394",	.file = "node_count" },
 		{ .bus = "ieee1394",	.file = "nodeid" },
