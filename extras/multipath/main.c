@@ -1,5 +1,5 @@
 /*
- * Soft:        Description here...
+ * Soft:        multipath device mapper target autoconfig
  *
  * Version:     $Id: main.h,v 0.0.1 2003/09/18 15:13:38 cvaroqui Exp $
  *
@@ -258,38 +258,80 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 	struct sysfs_directory * sdir;
 	struct sysfs_directory * devp;
 	struct sysfs_link * linkp;
+	char refwwid[WWID_SIZE];
+	char empty_buff[WWID_SIZE];
 	char buff[FILE_NAME_SIZE];
+	char path[FILE_NAME_SIZE];
+	struct path curpath;
 
-	char block_path[FILE_NAME_SIZE];
+	/* if called from udev, only consider the paths that relate to */
+	/* to the device pointed by conf.hotplugdev */
+	memset(empty_buff, 0, WWID_SIZE);
+	memset(refwwid, 0, WWID_SIZE);
+	if (strncmp("/devices", conf->hotplugdev, 8) == 0) {
+		sprintf(buff, "%s%s/block",
+			conf->sysfs_path, conf->hotplugdev);
+		memset(conf->hotplugdev, 0, FILE_NAME_SIZE);
+		readlink(buff, conf->hotplugdev, FILE_NAME_SIZE);
+		basename(conf->hotplugdev, buff);
+		sprintf(curpath.sg_dev, "/dev/%s", buff);
 
-	sprintf(block_path, "%s/block", conf->sysfs_path);
-	sdir = sysfs_open_directory(block_path);
+		if ((sg_fd = open(curpath.sg_dev, O_RDONLY)) < 0)
+			exit(1);
+
+		get_lun_strings(sg_fd, &curpath);
+		get_unique_id(sg_fd, &curpath);
+		strcpy(refwwid, curpath.wwid);
+		memset(&curpath, 0, sizeof(path));
+	}
+
+	sprintf(path, "%s/block", conf->sysfs_path);
+	sdir = sysfs_open_directory(path);
 	sysfs_read_directory(sdir);
+
 	dlist_for_each_data(sdir->subdirs, devp, struct sysfs_directory) {
 		if (blacklist(devp->name))
 			continue;
+
 		sysfs_read_directory(devp);
+
 		if(devp->links == NULL)
 			continue;
+
 		dlist_for_each_data(devp->links, linkp, struct sysfs_link) {
 			if (!strncmp(linkp->name, "device", 6))
 				break;
 		}
+
 		if (linkp == NULL) {
 			continue;
 		}
 
 		basename(devp->path, buff);
-		sprintf(all_paths[k].sg_dev, "/dev/%s", buff);
-		strcpy(all_paths[k].dev, all_paths[k].sg_dev);
-		if ((sg_fd = open(all_paths[k].sg_dev, O_RDONLY)) < 0) {
+		sprintf(curpath.sg_dev, "/dev/%s", buff);
+
+		if ((sg_fd = open(curpath.sg_dev, O_RDONLY)) < 0) {
 			if (conf->verbose)
-				fprintf(stderr, "can't open %s. mknod ?",
-					all_paths[k].sg_dev); 
+				fprintf(stderr, "can't open %s\n",
+					curpath.sg_dev); 
 			continue;
 		}
-		get_lun_strings(sg_fd, &all_paths[k]);
-		get_unique_id(sg_fd, &all_paths[k]);
+
+		get_lun_strings(sg_fd, &curpath);
+		get_unique_id(sg_fd, &curpath);
+
+		if (memcmp(empty_buff, refwwid, WWID_SIZE) != 0 && 
+		    strncmp(curpath.wwid, refwwid, WWID_SIZE) != 0) {
+			memset(&curpath, 0, sizeof(path));
+			continue;
+		}
+
+		strcpy(all_paths[k].sg_dev, curpath.sg_dev);
+		strcpy(all_paths[k].dev, curpath.sg_dev);
+		strcpy(all_paths[k].wwid, curpath.wwid);
+		strcpy(all_paths[k].vendor_id, curpath.vendor_id);
+		strcpy(all_paths[k].product_id, curpath.product_id);
+		memset(&curpath, 0, sizeof(path));
 		all_paths[k].state = do_tur(sg_fd);
 		close(sg_fd);
 		basename(linkp->target, buff);
@@ -301,7 +343,6 @@ get_all_paths_sysfs(struct env * conf, struct path * all_paths)
 		k++;
 	}
 	sysfs_close_directory(sdir);
-
 	return 0;
 }
 
@@ -562,26 +603,6 @@ make_dm_node(char * str)
 
 }
 
-/* future use ?
-static int
-del_map(char * str) {
-	struct dm_task *dmt;
-
-	if (!(dmt = dm_task_create(DM_DEVICE_REMOVE)))
-		return 0;
-	if (!dm_task_set_name(dmt, str))
-		goto delout;
-	if (!dm_task_run(dmt))
-		goto delout;
-
-	printf("Deleted device map : %s\n", str);
-
-	delout:
-	dm_task_destroy(dmt);
-	return 1;
-}
-*/
-
 static int
 add_map(struct env * conf, struct path * all_paths,
 	struct multipath * mp, int index, int op)
@@ -593,15 +614,9 @@ add_map(struct env * conf, struct path * all_paths,
 	long size = -1;
 
 	/* defaults for multipath target */
-	int dm_nr_path_args         = 2;
-	int dm_path_test_int        = 10;
+	int dm_pg_prio              = 1;
 	char * dm_ps_name           = "round-robin";
-	int dm_ps_nr_args           = 2;
-	int dm_path_failback_int    = 10;
-	int dm_path_nr_fail         = 2;
-	int dm_ps_prio              = 1;
-	int dm_ps_min_io            = 2;
-
+	int dm_ps_nr_args           = 0;
 
 	if (!(dmt = dm_task_create(op)))
 		return 0;
@@ -618,14 +633,13 @@ add_map(struct env * conf, struct path * all_paths,
 	}
 	if (np == 0)
 		goto addout;
-	/* temporarily disable creation of single path maps */
-	/* Sistina should modify the target limits */
-	if (np < 2)
+
+	if (np < 1)
 		goto addout;
 
-	params_p += sprintf(params_p, "%i %i %i %s %i",
-			    np, dm_nr_path_args, dm_path_test_int,
-			    dm_ps_name, dm_ps_nr_args);
+	params_p += sprintf(params_p, "%i %i %s %i %i",
+			    conf->dm_path_test_int, dm_pg_prio, 
+			    dm_ps_name, np, dm_ps_nr_args);
 	
 	for (i=0; i<=mp[index].npaths; i++) {
 		if (( 0 == all_paths[PINDEX(index,i)].state) ||
@@ -633,10 +647,8 @@ add_map(struct env * conf, struct path * all_paths,
 			continue;
 		if (size < 0)
 			size = get_disk_size(conf, all_paths[PINDEX(index,0)].dev);
-		params_p += sprintf(params_p, " %s %i %i %i %i",
-				    all_paths[PINDEX(index,i)].dev,
-				    dm_path_failback_int, dm_path_nr_fail,
-				    dm_ps_prio, dm_ps_min_io);
+		params_p += sprintf(params_p, " %s",
+				    all_paths[PINDEX(index,i)].dev);
 	}
 
 	if (size < 0)
@@ -664,44 +676,6 @@ add_map(struct env * conf, struct path * all_paths,
 	dm_task_destroy(dmt);
 	return 1;
 }
-
-/*
-static int
-get_table(const char * str)
-{
-	int r = 0;
-	struct dm_task *dmt;
-	void *next = NULL;
-	uint64_t start, length;
-	char *target_type = NULL;
-	char *params;
-
-        if (!(dmt = dm_task_create(DM_DEVICE_TABLE)))
-                return 0;
-
-        if (!dm_task_set_name(dmt, str))
-                goto out;
-
-        if (!dm_task_run(dmt))
-                goto out;
-
-        do {
-                next = dm_get_next_target(dmt, next, &start, &length,
-                                          &target_type, &params);
-                if (target_type) {
-                        printf("%" PRIu64 " %" PRIu64 " %s %s\n",
-                               start, length, target_type, params);
-                }
-        } while (next);
-
-        r = 1;
-
-      out:
-        dm_task_destroy(dmt);
-        return r;
-
-}
-*/
 
 static int
 map_present(char * str)
@@ -740,28 +714,18 @@ static void
 usage(char * progname)
 {
 	fprintf(stderr, VERSION_STRING);
-	fprintf(stderr, "Usage: %s [-v|-q] [-d] [-m max_devs]\n", progname);
-	fprintf(stderr, "\t-v\t\tverbose, print all paths and multipaths\n");
-	fprintf(stderr, "\t-q\t\tquiet, no output at all\n");
+	fprintf(stderr, "Usage: %s [-v|-q] [-d] [-i int] [-m max_devs]\n", progname);
 	fprintf(stderr, "\t-d\t\tdry run, do not create or update devmaps\n");
+	fprintf(stderr, "\t-i\t\tmultipath target param : polling interval\n");
 	fprintf(stderr, "\t-m max_devs\tscan {max_devs} devices at most\n");
+	fprintf(stderr, "\t-q\t\tquiet, no output at all\n");
+	fprintf(stderr, "\t-v\t\tverbose, print all paths and multipaths\n");
 	exit(1);
-}
-
-static int
-filepresent(char * run) {
-	struct stat buf;
-
-	if(!stat(run, &buf))
-		return 1;
-	return 0;
 }
 
 int
 main(int argc, char *argv[])
 {
-	char * run = "/var/run/multipath.run";
-	char * resched = "/var/run/multipath.reschedule";
 	struct multipath * mp;
 	struct path * all_paths;
 	struct scsi_dev * all_scsi_ids;
@@ -774,6 +738,7 @@ main(int argc, char *argv[])
 	conf.verbose = 0;	/* 1 == Print all_paths and mp */
 	conf.quiet = 0;		/* 1 == Do not even print devmaps */
 	conf.with_sysfs = 0;	/* Default to compat / suboptimal behaviour */
+	conf.dm_path_test_int = 10;
 
 	/* kindly provided by libsysfs */
 	if (0 == sysfs_get_mnt_path(conf.sysfs_path, FILE_NAME_SIZE))
@@ -794,6 +759,10 @@ main(int argc, char *argv[])
 			conf.quiet = 1;
 		} else if (0 == strcmp("-d", argv[i]))
 			conf.dry_run = 1;
+		else if (0 == strcmp("-i", argv[i]))
+			conf.dm_path_test_int = atoi(argv[++i]);
+		else if (0 == strcmp("scsi", argv[i]))
+			strcpy(conf.hotplugdev, argv[++i]);
 		else if (*argv[i] == '-') {
 			fprintf(stderr, "Unknown switch: %s\n", argv[i]);
 			usage(argv[0]);
@@ -804,27 +773,11 @@ main(int argc, char *argv[])
 
 	}
 
-	if (filepresent(run)) {
-		if (conf.verbose) {
-			fprintf(stderr, "Already running.\n");
-			fprintf(stderr, "If you know what you do, please ");
-			fprintf(stderr, "remove %s\n", run);
-		}
-		/* leave a trace that we were called while already running */
-		open(resched, O_CREAT);
-		return 1;
-	}
-
 	/* dynamic allocations */
 	mp = malloc(conf.max_devs * sizeof(struct multipath));
 	all_paths = malloc(conf.max_devs * sizeof(struct path));
 	all_scsi_ids = malloc(conf.max_devs * sizeof(struct scsi_dev));
-	if (mp == NULL || all_paths == NULL || all_scsi_ids == NULL) {
-		unlink(run);
-		exit(1);
-	}
-start:
-	if(!open(run, O_CREAT))
+	if (mp == NULL || all_paths == NULL || all_scsi_ids == NULL)
 		exit(1);
 
 	if (!conf.with_sysfs) {
@@ -842,10 +795,8 @@ start:
 		fprintf(stdout, "\n");
 	}
 
-	if (conf.dry_run) {
-		unlink(run);
+	if (conf.dry_run)
 		exit(0);
-	}
 
 	for (k=0; k<=nmp; k++) {
 		if (map_present(mp[k].wwid)) {
@@ -854,13 +805,11 @@ start:
 			add_map(&conf, all_paths, mp, k, DM_DEVICE_CREATE);
 		}
 	}
-	unlink(run);
 
-	/* start again if we were ask to during this process run */
-	/* ie. do not loose an event-asked run */
-	if (filepresent(resched)) {
-		unlink(resched);
-		goto start;
-	}
+	/* free allocs */
+	free(mp);
+	free(all_paths);
+	free(all_scsi_ids);
+
 	exit(0);
 }
