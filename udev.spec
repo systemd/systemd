@@ -1,6 +1,6 @@
 Summary: A userspace implementation of devfs
 Name: udev
-Version: 0.2
+Version: 003
 Release: 1
 License: GPL
 Group: Utilities/System
@@ -11,7 +11,7 @@ BuildRoot: /var/tmp/%{name}-%{version}-%{release}-root
 
 %description
 udev is a implementation of devfs in userspace using sysfs and
-/sbin/hotplug. It requires a 2.5/2.6 kernel to run properly.
+/sbin/hotplug. It requires a 2.6 kernel to run properly.
 
 %prep
 %setup
@@ -20,8 +20,7 @@ udev is a implementation of devfs in userspace using sysfs and
 make
 
 %install
-mkdir -p $RPM_BUILD_ROOT/sbin
-install -m 755 %{name} $RPM_BUILD_ROOT/sbin
+make prefix=$RPM_BUILD_ROOT install
 
 %clean
 rm -fr $RPM_BUILD_ROOT
