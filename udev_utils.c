@@ -50,7 +50,7 @@ int udev_init_device(struct udevice *udev, const char* devpath, const char *subs
 
 	if (devpath) {
 		strlcpy(udev->devpath, devpath, sizeof(udev->devpath));
-		no_trailing_slash(udev->devpath);
+		remove_trailing_char(udev->devpath, '/');
 
 		if (strncmp(udev->devpath, "/block/", 7) == 0)
 			udev->type = DEV_BLOCK;
@@ -228,12 +228,24 @@ size_t buf_get_line(const char *buf, size_t buflen, size_t cur)
 	return count - cur;
 }
 
-void no_trailing_slash(char *path)
+void replace_untrusted_chars(char *string)
+{
+	size_t len;
+
+	for (len = 0; string[len] != '\0'; len++) {
+		if (strchr(";,~\\()\'", string[len])) {
+			info("replace '%c' in '%s'", string[len], string);
+			string[len] = '_';
+		}
+	}
+}
+
+void remove_trailing_char(char *path, char c)
 {
 	size_t len;
 
 	len = strlen(path);
-	while (len > 0 && path[len-1] == '/')
+	while (len > 0 && path[len-1] == c)
 		path[--len] = '\0';
 }
 

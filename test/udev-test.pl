@@ -1215,6 +1215,15 @@ BUS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="test", ENV{ACTION}=="add", ENV{
 BUS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="bad", NAME="bad"
 EOF
 	},
+	{
+		desc		=> "untrusted string sanitize",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "sane",
+		rules		=> <<EOF
+BUS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e name; (/sbin/badprogram)", RESULT="name_ _/sbin/badprogram_", NAME="sane"
+EOF
+	},
 );
 
 # set env

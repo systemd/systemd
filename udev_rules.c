@@ -43,7 +43,6 @@
 #include "udev_rules.h"
 #include "udev_db.h"
 
-static struct sysfs_attribute *find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, char *attr);
 
 /* compare string with pattern (supports * ? [0-9] [!A-Z]) */
 static int strcmp_pattern(const char *p, const char *s)
@@ -167,6 +166,33 @@ static int find_free_number(struct udevice *udev, const char *name)
 	}
 }
 
+static int find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device,
+				const char *name, char *value, size_t len)
+{
+	struct sysfs_attribute *tmpattr;
+
+	dbg("look for device attribute '%s'", name);
+	if (class_dev) {
+		tmpattr = sysfs_get_classdev_attr(class_dev, name);
+		if (tmpattr)
+			goto attr_found;
+	}
+	if (sysfs_device) {
+		tmpattr = sysfs_get_device_attr(sysfs_device, name);
+		if (tmpattr)
+			goto attr_found;
+	}
+
+	return -1;
+
+attr_found:
+	strlcpy(value, tmpattr->value, len);
+	remove_trailing_char(value, '\n');
+
+	dbg("found attribute '%s'", tmpattr->path);
+	return 0;
+}
+
 static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			 struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
@@ -176,7 +202,6 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 	int len;
 	int i;
 	char c;
-	struct sysfs_attribute *tmpattr;
 	unsigned int next_free_number;
 	struct sysfs_class_device *class_dev_parent;
 
@@ -257,30 +282,21 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			}
 			break;
 		case 's':
-			if (!class_dev)
-				break;
 			if (attr == NULL) {
 				dbg("missing attribute");
 				break;
 			}
-			tmpattr = find_sysfs_attribute(class_dev, sysfs_device, attr);
-			if (tmpattr == NULL) {
+			if (find_sysfs_attribute(class_dev, sysfs_device, attr, temp2, sizeof(temp2)) != 0) {
 				dbg("sysfs attribute '%s' not found", attr);
 				break;
 			}
-			/* strip trailing whitespace of matching value */
-			if (isspace(tmpattr->value[strlen(tmpattr->value)-1])) {
-				i = len = strlen(tmpattr->value);
-				while (i > 0 &&  isspace(tmpattr->value[i-1]))
-					i--;
-				if (i < len) {
-					tmpattr->value[i] = '\0';
-					dbg("remove %i trailing whitespace chars from '%s'",
-						 len - i, tmpattr->value);
-				}
-			}
-			strlcat(string, tmpattr->value, maxsize);
-			dbg("substitute sysfs value '%s'", tmpattr->value);
+			/* strip trailing whitespace of sysfs value */
+			i = strlen(temp2);
+			while (i > 0 && isspace(temp2[i-1]))
+				temp2[--i] = '\0';
+			replace_untrusted_chars(temp2);
+			strlcat(string, temp2, maxsize);
+			dbg("substitute sysfs value '%s'", temp2);
 			break;
 		case '%':
 			strlcat(string, "%", maxsize);
@@ -385,8 +401,7 @@ static int execute_program(struct udevice *udev, const char *path, char *value, 
 	pid = fork();
 	switch(pid) {
 	case 0:
-		/* child */
-		/* dup2 write side of pipe to STDOUT */
+		/* child dup2 write side of pipe to STDOUT */
 		dup2(fds[1], STDOUT_FILENO);
 		retval = execv(arg, argv);
 
@@ -402,7 +417,12 @@ static int execute_program(struct udevice *udev, const char *path, char *value, 
 		i = 0;
 		while (1) {
 			count = read(fds[0], value + i, len - i-1);
-			if (count <= 0)
+			if (count < 0) {
+				err("read failed with '%s'", strerror(errno));
+				retval = -1;
+			}
+
+			if (count == 0)
 				break;
 
 			i += count;
@@ -412,16 +432,7 @@ static int execute_program(struct udevice *udev, const char *path, char *value, 
 				break;
 			}
 		}
-
-		if (count < 0) {
-			err("read failed with '%s'", strerror(errno));
-			retval = -1;
-		}
-
-		if (i > 0 && value[i-1] == '\n')
-			i--;
 		value[i] = '\0';
-		dbg("result is '%s'", value);
 
 		close(fds[0]);
 		waitpid(pid, &status, 0);
@@ -431,70 +442,38 @@ static int execute_program(struct udevice *udev, const char *path, char *value, 
 			retval = -1;
 		}
 	}
+
+	if (!retval) {
+		remove_trailing_char(value, '\n');
+		dbg("result is '%s'", value);
+		replace_untrusted_chars(value);
+	} else
+		value[0] = '\0';
+
 	return retval;
-}
-
-static struct sysfs_attribute *find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, char *attr)
-{
-	struct sysfs_attribute *tmpattr = NULL;
-	char *c;
-
-	dbg("look for device attribute '%s'", attr);
-	/* try to find the attribute in the class device directory */
-	tmpattr = sysfs_get_classdev_attr(class_dev, attr);
-	if (tmpattr)
-		goto attr_found;
-
-	/* look in the class device directory if present */
-	if (sysfs_device) {
-		tmpattr = sysfs_get_device_attr(sysfs_device, attr);
-		if (tmpattr)
-			goto attr_found;
-	}
-
-	return NULL;
-
-attr_found:
-	c = strchr(tmpattr->value, '\n');
-	if (c != NULL)
-		c[0] = '\0';
-
-	dbg("found attribute '%s'", tmpattr->path);
-	return tmpattr;
 }
 
 static int compare_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device, struct key_pair *pair)
 {
-	struct sysfs_attribute *tmpattr;
+	char value[VALUE_SIZE];
 	int i;
-	int len;
 
-	if ((pair == NULL) || (pair->name[0] == '\0') || (pair->value == '\0'))
-		return -ENODEV;
-
-	tmpattr = find_sysfs_attribute(class_dev, sysfs_device, pair->name);
-	if (tmpattr == NULL)
-		return -ENODEV;
+	if (find_sysfs_attribute(class_dev, sysfs_device, pair->name, value, sizeof(value)) != 0)
+		return -1;
 
 	/* strip trailing whitespace of value, if not asked to match for it */
-	if (! isspace(pair->value[strlen(pair->value)-1])) {
-		i = len = strlen(tmpattr->value);
-		while (i > 0 &&  isspace(tmpattr->value[i-1]))
-			i--;
-		if (i < len) {
-			tmpattr->value[i] = '\0';
-			dbg("remove %i trailing whitespace chars from '%s'",
-			    len - i, tmpattr->value);
-		}
+	if (!isspace(pair->value[strlen(pair->value)-1])) {
+		i = strlen(value);
+		while (i > 0 && isspace(value[i-1]))
+			value[--i] = '\0';
+		dbg("removed %i trailing whitespace chars from '%s'", strlen(value)-i, value);
 	}
 
-	dbg("compare attribute '%s' value '%s' with '%s'",
-		  pair->name, tmpattr->value, pair->value);
-	if (strcmp_pattern(pair->value, tmpattr->value) != 0)
-		return -ENODEV;
+	dbg("compare attribute '%s' value '%s' with '%s'", pair->name, value, pair->value);
+	if (strcmp_pattern(pair->value, value) != 0)
+		return -1;
 
-	dbg("found matching attribute '%s' with value '%s'",
-	    pair->name, pair->value);
+	dbg("found matching attribute '%s' with value '%s'", pair->name, pair->value);
 	return 0;
 }
 

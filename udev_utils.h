@@ -39,7 +39,8 @@ extern int unlink_secure(const char *filename);
 extern int file_map(const char *filename, char **buf, size_t *bufsize);
 extern void file_unmap(char *buf, size_t bufsize);
 extern size_t buf_get_line(const char *buf, size_t buflen, size_t cur);
-extern void no_trailing_slash(char *path);
+extern void remove_trailing_char(char *path, char c);
+extern void replace_untrusted_chars(char *string);
 extern int name_list_add(struct list_head *name_list, const char *name, int sort);
 extern int add_matching_files(struct list_head *name_list, const char *dirname, const char *suffix);
 
