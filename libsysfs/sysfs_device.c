@@ -28,7 +28,6 @@ static int confirm_device_bus(struct sysfs_device *dev,
 {
         struct sysfs_link *devlink = NULL;
         unsigned char devpath[SYSFS_PATH_MAX];
-	unsigned char *s = NULL;
 	int result = 0;
 
         if (busname == NULL || bus_id == NULL)
@@ -37,9 +36,6 @@ static int confirm_device_bus(struct sysfs_device *dev,
         if (sysfs_get_mnt_path(devpath, SYSFS_PATH_MAX) != 0)
                 return -1;
 
-	s = &devpath[strlen(devpath)-1];
-	if (strncmp(s, "/", 1) == 0)
-		*s = '\0';
         strcat(devpath, SYSFS_BUS_DIR);
         strcat(devpath, "/");
         strcat(devpath, busname);
