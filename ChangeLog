@@ -1,3 +1,27 @@
+Summary of changes from v042 to v043
+============================================
+
+Greg Kroah-Hartman:
+  o add test target to makefile
+  o add dumb script to show all sysfs devices in the system
+
+Kay Sievers:
+  o Shut up wait_for_sysfs class/net failure messages, as it's not possible to
+    get that right for all net devices. Kernels later than 2.6.10-rc1 will
+    handle that by carrying the neccessary information in the hotplug event.  
+  o wait() for specific pid to return from fork()
+  o Don't use any syslog() in signal handler, cause it may deadlock
+  o Add support for highpoint ataraid to volume_id to suppress label reading on raid set members.
+  o Add a bunch of devices without "device" symlinks
+  o Exit, if udevtest cannot open the device (segfault)
+  o Patches from Harald Hoyer <harald@redhat.com>
+  o Apply the default permissions even if we found a entry in the permissions
+    file. Correct one test, as the default is applied correctly now and the
+    mode will no longer be 0000.
+  o add test for format chars in multiple symlinks to replace
+  o Add net/vmnet and class/zaptel to the list of devices without physical device
+
+
 Summary of changes from v040 to v042
 ============================================
 
