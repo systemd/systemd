@@ -200,8 +200,7 @@ call. This key may used in any following rule after a
 call.
 .TP
 .B NAME
-The name of the node to be created. If the name field is omitted or its
-value is empty, the device will be ignored and no node will be created.
+The name of the node to be created.
 .br
 If given with the attribute
 .BR NAME{ all_partitions }
@@ -211,6 +210,16 @@ This may be useful for removable media devices.
 .B SYMLINK
 The name of a symlink targeting the node. Multiple symlinks may be
 specified by separating the names by the space character.
+.br
+If both the name and the symlink fields are omitted or its
+values empty, the device will be ignored and no node will be created.
+.br
+If only the symlink field is given and the name field is omitted,
+the rule will not be applied immediatly, but the symlink field is added
+to the symlink list of the rule which will create the node.
+This makes it possible to specify additional symlinks in a possibly
+separate rules file, while the device nodes are maintained by the
+distribution provided rules file.
 .P
 .RB "The " NAME " ," SYMLINK " and " PROGRAM
 fields support simple printf-like string substitution:
