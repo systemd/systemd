@@ -60,6 +60,7 @@ static void exec_queue_manager(void);
 static void msg_queue_manager(void);
 static void user_sighandler(void);
 static void reap_kids(void);
+char *udev_bin;
 
 #ifdef LOG
 unsigned char logname[LOGNAME_SIZE];
@@ -146,7 +147,7 @@ static void udev_run(struct hotplug_msg *msg)
 	switch (pid) {
 	case 0:
 		/* child */
-		execle(UDEV_BIN, "udev", msg->subsystem, NULL, env);
+		execle(udev_bin, "udev", msg->subsystem, NULL, env);
 		dbg("exec of child failed");
 		exit(1);
 		break;
@@ -457,6 +458,13 @@ int main(int argc, char *argv[])
 
 	/* enable receiving of the sender credentials */
 	setsockopt(ssock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+
+	/* possible override of udev binary, used for testing */
+	udev_bin = getenv("UDEV_BIN");
+	if (udev_bin != NULL)
+		dbg("udev binary is set to '%s'", udev_bin);
+	else
+		udev_bin = UDEV_BIN;
 
 	FD_ZERO(&readfds);
 	FD_SET(ssock, &readfds);
