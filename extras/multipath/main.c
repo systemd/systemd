@@ -160,8 +160,11 @@ get_serial (int fd, char * str)
 */
 
 /* hardware vendor specifics : add support for new models below */
+
+/* this one get EVPD page 0x83 off 8 */
+/* tested ok with StorageWorks */
 static int
-get_storageworks_wwid(int fd, char *str)
+get_evpd_wwid(int fd, char *str)
 {
 	char buff[64];
 
@@ -176,12 +179,39 @@ get_storageworks_wwid(int fd, char *str)
 static int
 get_unique_id(int fd, struct path * mypath)
 {
-	if (strncmp(mypath->product_id, "HSV110 (C)COMPAQ", 16) == 0 ||
-	    strncmp(mypath->product_id, "HSG80           ", 16) == 0) {
-		get_storageworks_wwid(fd, mypath->wwid);
-		return 0;
-	}
+	int i;
+	static struct {
+		char * vendor;
+		char * product;
+		int (*getuid) (int fd, char * wwid);
+	} wlist[] = {
+		{"COMPAQ  ", "HSV110 (C)COMPAQ", &get_evpd_wwid},
+		{"COMPAQ  ", "MSA1000         ", &get_evpd_wwid},
+		{"COMPAQ  ", "MSA1000 VOLUME  ", &get_evpd_wwid},
+		{"DEC     ", "HSG80           ", &get_evpd_wwid},
+		{"HP      ", "HSV100          ", &get_evpd_wwid},
+		{"HP      ", "A6189A          ", &get_evpd_wwid},
+		{"HP      ", "OPEN-           ", &get_evpd_wwid},
+		{"DDN     ", "SAN DataDirector", &get_evpd_wwid},
+		{"FSC     ", "CentricStor     ", &get_evpd_wwid},
+		{"HITACHI ", "DF400           ", &get_evpd_wwid},
+		{"HITACHI ", "DF500           ", &get_evpd_wwid},
+		{"HITACHI ", "DF600           ", &get_evpd_wwid},
+		{"IBM     ", "ProFibre 4000R  ", &get_evpd_wwid},
+		{"SGI     ", "TP9100          ", &get_evpd_wwid},
+		{"SGI     ", "TP9300          ", &get_evpd_wwid},
+		{"SGI     ", "TP9400          ", &get_evpd_wwid},
+		{"SGI     ", "TP9500          ", &get_evpd_wwid},
+		{NULL, NULL, NULL},
+	};
 
+	for (i = 0; wlist[i].vendor; i++) {
+		if (strncmp(mypath->vendor_id, wlist[i].vendor, 8) == 0 &&
+		    strncmp(mypath->product_id, wlist[i].product, 16) == 0) {
+			wlist[i].getuid(fd, mypath->wwid);
+			return 0;
+		}
+	}
 	return 1;
 }
 
