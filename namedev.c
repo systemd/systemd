@@ -816,11 +816,15 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 			}
 
 			if (dev->symlink[0] != '\0') {
+				char temp[NAMESIZE];
+
 				info("configured rule in '%s' at line %i applied, added symlink '%s'",
 				     dev->config_file, dev->config_line, dev->symlink);
+				strfieldcpy(temp, dev->symlink);
+				apply_format(udev, temp, sizeof(temp), class_dev, sysfs_device);
 				if (udev->symlink[0] != '\0')
 					strfieldcat(udev->symlink, " ");
-				strfieldcat(udev->symlink, dev->symlink);
+				strfieldcat(udev->symlink, temp);
 			}
 
 			if (dev->name[0] != '\0') {
@@ -838,7 +842,6 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 
 found:
 	apply_format(udev, udev->name, sizeof(udev->name), class_dev, sysfs_device);
-	apply_format(udev, udev->symlink, sizeof(udev->symlink), class_dev, sysfs_device);
 	udev->partitions = dev->partitions;
 	strfieldcpy(udev->config_file, dev->config_file);
 	udev->config_line = dev->config_line;
