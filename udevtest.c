@@ -57,7 +57,7 @@ int main(int argc, char *argv[], char *envp[])
 {
 	char *devpath;
 	char temp[NAME_SIZE];
-	char subsystem[] = "";
+	char *subsystem = "";
 	const int fake = 1;
 
 	main_argv = argv;
@@ -97,6 +97,9 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* initialize the naming deamon */
 	namedev_init();
+
+	if (argv[2] != NULL)
+		subsystem = argv[2];
 
 	/* simulate node creation with fake flag */
 	udev_add_device(devpath, subsystem, fake);
