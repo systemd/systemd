@@ -544,6 +544,16 @@ EOF
 BUS="scsi", KERNEL="sda", NAME="node"
 EOF
 	},
+	{
+		desc		=> "big minor number test",
+		subsys		=> "i2c-dev",
+		devpath		=> "class/i2c-dev/i2c-300",
+		exp_name	=> "node",
+		exp_majorminor	=> "89:300",
+		conf		=> <<EOF
+KERNEL="i2c-300", NAME="node"
+EOF
+	},
 );
 
 # set env
