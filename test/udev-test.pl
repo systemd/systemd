@@ -1017,6 +1017,74 @@ EOF
 BUS="scsi", PROGRAM="/bin/echo -n node link1 link2 link3 link4", RESULT="node *", NAME="%c{1}", SYMLINK="%c{2+}"
 EOF
 	},
+	{
+		desc		=> "enumeration char test (single test)",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "cdrom",
+		conf		=> <<EOF
+KERNEL="sda", NAME="cdrom%e"
+EOF
+	},
+	{
+		desc		=> "enumeration char test sequence (1/5 keep)",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "cdrom",
+		option		=> "keep",
+		conf		=> <<EOF
+KERNEL="sda", NAME="cdrom%e"
+EOF
+	},
+	{
+		desc		=> "enumeration char test sequence 2/5 (keep)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "enum",
+		option		=> "keep",
+		conf		=> <<EOF
+KERNEL="sda1", NAME="enum%e"
+EOF
+	},
+	{
+		desc		=> "enumeration char test sequence 3/5 (keep)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda2",
+		exp_name	=> "cdrom1",
+		option		=> "keep",
+		conf		=> <<EOF
+KERNEL="sda2", NAME="cdrom%e"
+EOF
+	},
+	{
+		desc		=> "enumeration char test sequence 4/5 (keep)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda3",
+		exp_name	=> "enum1",
+		option		=> "keep",
+		conf		=> <<EOF
+KERNEL="sda3", NAME="enum%e"
+EOF
+	},
+	{
+		desc		=> "enumeration char test sequence 5/5 (clean)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda4",
+		exp_name	=> "cdrom2",
+		option		=> "clear",
+		conf		=> <<EOF
+KERNEL="sda4", NAME="cdrom%e"
+EOF
+	},
+	{
+		desc		=> "enumeration char test after cleanup (single test)",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "cdrom",
+		conf		=> <<EOF
+KERNEL="sda", NAME="cdrom%e"
+EOF
+	},
 );
 
 # set env
@@ -1160,6 +1228,11 @@ sub run_test {
 		}
 	}
 
+	if (defined($config->{option}) && $config->{option} eq "keep") {
+		print "\n\n";
+		return;
+	}
+
 	udev("remove", $config->{subsys}, $config->{devpath}, \$config->{conf});
 	if ((-e "$PWD/$udev_root$config->{exp_name}") ||
 	    (-l "$PWD/$udev_root$config->{exp_name}")) {
@@ -1175,6 +1248,13 @@ sub run_test {
 	} else {
 		print "remove: ok\n\n";
 	}
+
+	if (defined($config->{option}) && $config->{option} eq "clear") {
+		unlink($udev_db);
+		system("rm -rf $udev_root");
+		mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
+	}
+
 }
 
 # prepare
@@ -1194,9 +1274,13 @@ my $test_num = 1;
 if ($ARGV[0]) {
 	# only run one test
 	$test_num = $ARGV[0];
-	print "udev-test will run test number $test_num only\n";
 
-	run_test($tests[$test_num-1], $test_num);
+	if (defined($tests[$test_num-1]->{desc})) {
+		print "udev-test will run test number $test_num only:\n\n";
+		run_test($tests[$test_num-1], $test_num);
+	} else {
+		print "test does not exist.\n";
+	}
 } else {
 	# test all
 	print "\nudev-test will run ".($#tests + 1)." tests:\n\n";
@@ -1204,7 +1288,6 @@ if ($ARGV[0]) {
 	foreach my $config (@tests) {
 		run_test($config, $test_num);
 		$test_num++;
-
 	}
 }
 
