@@ -131,6 +131,7 @@ static void udev_run(struct hotplug_msg *msg)
 	case 0:
 		/* child */
 		close(udevsendsock);
+		logging_close();
 		execle(udev_bin, "udev", msg->subsystem, NULL, msg->envp);
 		dbg("exec of child failed");
 		_exit(1);
