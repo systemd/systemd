@@ -181,8 +181,8 @@ exit:
 	return retval;
 }
 
-static int print_dump(struct udevice *udev) {
-	printf("%s:%s/%s\n", udev->devpath, udev_root, udev->name);
+static int print_dump(const char *devpath, const char *name) {
+	printf("%s:%s/%s\n", devpath, udev_root, name);
 	return 0;
 }
 
@@ -260,7 +260,7 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 
 		case 'd':
-			udev_db_call_foreach(print_dump);
+			udev_db_dump_names(print_dump);
 			goto exit;
 
 		case 'V':

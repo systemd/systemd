@@ -188,9 +188,7 @@ int udev_db_get_device(struct udevice *udev, const char *devpath)
 
 int udev_db_search_name(char *devpath, size_t len, const char *name)
 {
-	struct dirent *ent;
 	DIR *dir;
-	char filename[NAME_SIZE];
 
 	dir = opendir(udev_db_path);
 	if (dir == NULL) {
@@ -199,6 +197,8 @@ int udev_db_search_name(char *devpath, size_t len, const char *name)
 	}
 
 	while (1) {
+		struct dirent *ent;
+		char filename[NAME_SIZE];
 		char path[DEVPATH_SIZE];
 		char nodename[NAME_SIZE];
 		char *bufline;
@@ -262,12 +262,9 @@ int udev_db_search_name(char *devpath, size_t len, const char *name)
 	return -1;
 }
 
-int udev_db_call_foreach(int (*handler_function)(struct udevice *udev))
+int udev_db_dump_names(int (*handler_function)(const char *path, const char *name))
 {
-	struct dirent *ent;
 	DIR *dir;
-	char filename[NAME_SIZE];
-	struct udevice db_udev;
 
 	dir = opendir(udev_db_path);
 	if (dir == NULL) {
@@ -276,6 +273,16 @@ int udev_db_call_foreach(int (*handler_function)(struct udevice *udev))
 	}
 
 	while (1) {
+		struct dirent *ent;
+		char filename[NAME_SIZE];
+		char path[DEVPATH_SIZE];
+		char nodename[NAME_SIZE];
+		char *bufline;
+		char *buf;
+		size_t bufsize;
+		size_t cur;
+		size_t count;
+
 		ent = readdir(dir);
 		if (ent == NULL || ent->d_name[0] == '\0')
 			break;
@@ -285,14 +292,45 @@ int udev_db_call_foreach(int (*handler_function)(struct udevice *udev))
 
 		snprintf(filename, NAME_SIZE, "%s/%s", udev_db_path, ent->d_name);
 		filename[NAME_SIZE-1] = '\0';
+		dbg("looking at '%s'", filename);
 
-		dbg("found '%s'", filename);
-
-		udev_init_device(&db_udev, NULL, NULL);
-		if (parse_db_file(&db_udev, filename) == 0) {
-			if (handler_function(&db_udev) != 0)
-				break;
+		if (file_map(filename, &buf, &bufsize) != 0) {
+			dbg("unable to read db file '%s'", filename);
+			continue;
 		}
+
+		path[0] = '\0';
+		nodename[0] = '\0';
+		cur = 0;
+		while (cur < bufsize) {
+			count = buf_get_line(buf, bufsize, cur);
+			bufline = &buf[cur];
+			cur += count+1;
+
+			switch(bufline[0]) {
+			case 'P':
+				if (count > DEVPATH_SIZE)
+					count = DEVPATH_SIZE-1;
+				strncpy(path, &bufline[2], count-2);
+				path[count-2] = '\0';
+				break;
+			case 'N':
+				if (count > NAME_SIZE)
+				count = NAME_SIZE-1;
+				strncpy(nodename, &bufline[2], count-2);
+				nodename[count-2] = '\0';
+				break;
+			default:
+				continue;
+			}
+		}
+		file_unmap(buf, bufsize);
+
+		if (path[0] == '\0' || nodename[0] == '\0')
+			continue;
+
+		if (handler_function(path, nodename) != 0)
+			break;
 	}
 
 	closedir(dir);
