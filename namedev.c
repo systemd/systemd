@@ -22,7 +22,7 @@
  */
 
 /* define this to enable parsing debugging */
-/* #define DEBUG_PARSER */
+#define DEBUG_PARSER 
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -537,6 +537,65 @@ static int exec_callout(struct config_device *dev, char *value, int len)
 	return retval;
 }
 
+static int do_callout(struct sysfs_class_device *class_dev, struct udevice *udev)
+{
+	struct config_device *dev;
+	struct list_head *tmp;
+	char value[ID_SIZE];
+
+	list_for_each(tmp, &config_device_list) {
+		dev = list_entry(tmp, struct config_device, node);
+		if (dev->type != CALLOUT)
+			continue;
+
+		if (exec_callout(dev, value, sizeof(value)))
+			continue;
+		if (strncmp(value, dev->id, sizeof(value)) != 0)
+			continue;
+		strcpy(udev->name, dev->name);
+		if (dev->mode != 0) {
+			udev->mode = dev->mode;
+			strcpy(udev->owner, dev->owner);
+			strcpy(udev->group, dev->group);
+		}
+		dbg_parse("device callout '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
+			dev->id, udev->name, 
+			dev->owner, dev->group, dev->mode);
+		return 0;
+	}
+	return -ENODEV;
+}
+
+static int do_replace(struct sysfs_class_device *class_dev, struct udevice *udev)
+{
+	struct config_device *dev;
+	struct list_head *tmp;
+
+	list_for_each(tmp, &config_device_list) {
+		dev = list_entry(tmp, struct config_device, node);
+		if (dev->type != REPLACE)
+			continue;
+
+		dbg_parse("REPLACE: replace name '%s' with '%s'",
+			  dev->kernel_name, dev->name);
+		if (strcmp(dev->kernel_name, class_dev->name) != 0)
+			continue;
+
+		strcpy(udev->name, dev->name);
+		if (dev->mode != 0) {
+			udev->mode = dev->mode;
+			strcpy(udev->owner, dev->owner);
+			strcpy(udev->group, dev->group);
+		}
+		dbg_parse("'%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
+			dev->kernel_name, udev->name, 
+			dev->owner, dev->group, dev->mode);
+		
+		return 0;
+	}
+	return -ENODEV;
+}
+
 static int get_attr(struct sysfs_class_device *class_dev, struct udevice *udev)
 {
 	struct list_head *tmp;
@@ -712,49 +771,22 @@ label_found:
 			goto done;
 			break;
 			}
-		case CALLOUT:
-			{
-			char value[ID_SIZE];
-
-			if (exec_callout(dev, value, sizeof(value)))
-				continue;
-			if (strncmp(value, dev->id, sizeof(value)) != 0)
-				continue;
-			strcpy(udev->name, dev->name);
-			if (dev->mode != 0) {
-				udev->mode = dev->mode;
-				strcpy(udev->owner, dev->owner);
-				strcpy(udev->group, dev->group);
-			}
-			dbg_parse("device callout '%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
-				dev->id, udev->name, 
-				dev->owner, dev->group, dev->mode);
-			goto done;
-			break;
-			}
-		case REPLACE:
-			dbg_parse("REPLACE: replace name '%s' with '%s'",
-				  dev->kernel_name, dev->name);
-			if (strcmp(dev->kernel_name, class_dev->name) != 0)
-				continue;
-			strcpy(udev->name, dev->name);
-			if (dev->mode != 0) {
-				udev->mode = dev->mode;
-				strcpy(udev->owner, dev->owner);
-				strcpy(udev->group, dev->group);
-			}
-			dbg_parse("'%s' becomes '%s' - owner = %s, group = %s, mode = %#o",
-				dev->kernel_name, udev->name, 
-				dev->owner, dev->group, dev->mode);
-			goto done;
-			break;
 		case KERNEL_NAME:
-			break;
 		default:
-			dbg_parse("Unknown type of device '%d'", dev->type);
 			break;
 		}	
 	}
+
+	/* rules are looked at in priority order */
+
+	retval = do_callout(class_dev, udev);
+	if (retval == 0)
+		goto done;
+
+	retval = do_replace(class_dev, udev);
+	if (retval == 0)
+		goto done;
+
 	strcpy(udev->name, class_dev->name);
 
 done:
@@ -764,7 +796,7 @@ done:
 		udev->owner[0] = 0x00;
 		udev->group[0] = 0x00;
 	}
-	return retval;
+	return 0;
 }
 
 int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *dev)
