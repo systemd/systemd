@@ -1,39 +1,49 @@
-Version 0.3 of scsi_id is available at:
+Version 0.4 of scsi_id is available at:
 
-http://www-124.ibm.com/storageio/scsi_id/scsi_id-0.3.tar.gz
+http://www-124.ibm.com/storageio/scsi_id/scsi_id-0.4.tar.gz
 
-scsi_id is a program to generate a SCSI unique identifier for a given SCSI
+scsi_id is a program to generate a unique identifier for a given SCSI
 device.
 
-It is primarily for use with udev callout config entries. It can also be
-used for automatic multi-path configuration or device mapper configuration.
+It is primarily for use with the udev callout key. It could also be used
+for automatic multi-path configuration or device mapper configuration.
 
-Version 0.3 requires:
+Version 0.4 requires:
 
 - Linux kernel 2.6
 - libsysfs 0.4.0
 
 Major changes since the last release:
 
-	- Changes to work with libsysfs 0.4.0
+	- Support block device partitions
 
-All changes:
+	- Added a script to auto-generate udev rules. The script is not
+	  installed but is part of the tarball.
 
-	- fix "prefix" usage for path to scsi_id.config
+Detailed changes:
 
-	- install the sample scsi_id.config file.
+	- Add man page verbage about usage with udev, and running via
+	  hotplug
 
-	- Use DESTDIR in all install/uninstall rules, per problem reported
-	  by Svetoslav Slavtchev.
+	- Disable support for -e (all output to stderr) as it cannot be
+	  used in any useful way, and the -c (device specific callout) as
+	  the code is incomplete and has no users.
 
-	- Fix to work with current sysfs 0.4, based on patch from Dan
-	  Stekloff, but uses sysfs_read_attribute_value instead of
-	  sysfs_get_value_from_attributes.
+	- Don't print errno for NULL return from sysfs_get_classdev_device.
 
-	- SYSFS_BUS_DIR was replaced with SYSFS_BUS_NAME.
+	- Get rid of dead/leftover code that checked if we are on a scsi
+	  bus.
 
-	- Must now use sysfs_open_class_device_path instead of the
-	  previous sysfs_open_class_device.
+	- ":" consistently in output messages.
 
-	- patch from Olaf Hering <olh@suse.de> remove DEBUG and
-	  add --fno-builtin
+	- Add missing new lines for some error messages.
+
+	- open O_NONBLOCK so we handle tape drives without tapes loaded.
+
+	- Remove hacks based on KLIBC define to get around problems when
+	  building with udev (udev libsysfs files were rearranged).
+
+	- As done in udev code, support partitions via looking for a
+	  parent of the target path. Uses libsysfs functions to do most of
+	  the work, and includes changing a lot of variables to be struct
+	  sysfs_device instead of sysfs_class_device.

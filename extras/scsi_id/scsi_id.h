@@ -47,9 +47,9 @@
 
 extern int sysfs_get_attr(const char *devpath, const char *attr, char *value,
 			  size_t bufsize);
-extern int scsi_get_serial (struct sysfs_class_device *scsi_dev,
-			    const char *devname, int page_code, char *serial,
-			    int len);
+extern int scsi_get_serial (struct sysfs_device *scsi_dev, const char
+			    *devname, int page_code, char *serial, int
+			    len);
 extern void log_message (int level, const char *format, ...)
 	__attribute__ ((format (printf, 2, 3)));
 

@@ -50,8 +50,12 @@ identifier starts with the NAA value of 6):
 .fi
 .P
 
-
 .SH OPTIONS
+.TP
+.BI subsystem
+When called with only a single argument without a leading \-, runs in a hotplug
+mode, and expects the environment variable DEVPATH to specify the
+corresponding sysfs device. See section below on usage with \fBudev\fP.
 .TP
 .BI \-b
 The default behaviour - treat the device as black listed, and do nothing
@@ -62,11 +66,6 @@ Instead
 of determining and creating a device node based on a sysfs dev
 entry as done for the \fB-s\fP, send SG_IO commands to 
 \fBdevice\fP, such as \fB/dev/sdc\fP.
-.TP
-.BI \-e
-Send all output to standard error even if
-.B scsi_id 
-is running in hotplug mode.
 .TP
 .BI \-f "\| config-file"
 Read configuration and black/white list entries from
@@ -90,7 +89,7 @@ Use SCSI INQUIRY VPD page code 0x80 or 0x83. The default behaviour is to
 query the available VPD pages, and use page 0x83 if found, else page 0x80
 if found, else nothing.
 .TP
-.BI \-s "\|sysfs-device"
+.BI \-s "\| sysfs-device"
 Generate an id for the
 .B sysfs-device.
 The sysfs mount point must not be included. For example, use /block/sd,
@@ -102,6 +101,37 @@ Generate verbose debugging output.
 .BI \-V
 Display version number and exit.
 .RE
+
+.SH USAGE WITH UDEV 
+If \fBscsi_id\fP is invoked with one argument without a leading \-, it
+assumes it is called for a hotplug event, and looks for the sysfs device
+in the DEVPATH environment variable. 
+
+This mode is used when run via the \fBudev\fP PROGRAM key. Passing any
+arguments or options as part of the PROGRAM rule breaks this assumption,
+and the results will likely not be as expected.
+
+When in this mode, all errors and warnings are sent via syslog.
+
+To determine the specific value needed in a RESULT key, use the -s option,
+for example:
+
+.sp
+.nf
+/sbin/scsi_id -s /block/sda
+.fi
+.P
+
+An example \fBudev\fP rule using \fBscsi_id\fP, that will name a block
+device and any partitions for the device matching the \fBscsi_id\fP output
+of 312345:
+
+.sp
+.nf
+BUS="scsi", PROGRAM="/sbin/scsi_id", RESULT="312345", NAME="disk%n"
+.fi
+.P
+
 .SH "FILES"
 .nf
 .ft B
@@ -110,8 +140,7 @@ Display version number and exit.
 .fi
 .LP
 .SH "SEE ALSO"
-.BR udev (8)
-, especially the CALLOUT method.
+.BR udev (8), hotplug (8)
 .SH AUTHORS
 Developed by Patrick Mansfield <patmans@us.ibm.com> based on SCSI ID
 source included in earlier linux 2.5 kernels, sg_utils source, and SCSI

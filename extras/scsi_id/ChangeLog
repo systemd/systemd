@@ -1,3 +1,46 @@
+2004-feb-25:
+	* scsi_id.8: Add verbage about usage with udev, and running via
+	  hotplug.
+
+2004-feb-25:
+	* scsi_id.c, scsi_id.8: Disable support for -e (all output to
+	  stderr) as it cannot be used in any useful way, and the -c
+	  (device specific callout) as the code is incomplete and has no
+	  users.
+
+2004-feb-25:
+	* scsi_id.c: Don't print errno for NULL return from
+	  sysfs_get_classdev_device.
+
+2004-feb-23:
+	* scsi_id.c: Get rid of dead/leftover code that checked
+	  if we are on a scsi bus.
+
+2004-feb-23:
+	* scsi_serial.c, scsi_id.c: Use ":" consistently in output messages.
+
+2004-feb-23:
+	* scsi_serial.c: Add missing new lines for some error messages.
+
+2004-feb-23:
+	* scsi_serial.c: open O_NONBLOCK so we handle tape drives without
+	  tapes loaded.
+
+2004-feb-20:
+	* scsi_id.h, scsi_id.c: Remove hacks based on KLIBC define to get
+	  around problems when building with udev (udev libsysfs files
+	  were rearranged).
+
+2004-feb-19:
+	* scsi_id.h, scsi_id.c, scsi_serial.c: As done in udev code, support
+	  partitions via looking for a parent of the target path. Uses
+	  libsysfs functions to do most of the work, and includes changing
+	  a lot of variables to be struct sysfs_device instead of
+	  sysfs_class_device.
+
+2004-feb-19:
+	* Makefile: Version 0.4
+
 2004-jan-15:
 	* Makefile: Version 0.3
 

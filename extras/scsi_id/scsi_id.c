@@ -33,7 +33,6 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include <sysfs/libsysfs.h>
-
 #include "scsi_id_version.h"
 #include "scsi_id.h"
 
@@ -48,11 +47,16 @@
 #define TMP_DIR	"/tmp"
 #define TMP_PREFIX "scsi"
 
-static const char short_options[] = "bc:d:ef:gip:s:vV";
+/*
+ * XXX Note the 'e' (send output to stderr in all cases), and 'c' (callout)
+ * options are not supported, but other code is still left in place for
+ * now.
+ */
+static const char short_options[] = "bd:f:gip:s:vV";
 /*
  * Just duplicate per dev options.
  */
-static const char dev_short_options[] = "bc:gp:";
+static const char dev_short_options[] = "bgp:";
 
 char sysfs_mnt_path[SYSFS_PATH_MAX];
 
@@ -107,55 +111,6 @@ int sysfs_get_attr(const char *devpath, const char *attr, char *value,
 	return sysfs_read_attribute_value(attr_path, value, SYSFS_NAME_LEN);
 }
 
-static int sysfs_get_actual_dev(const char *sysfs_path, char *dev, int len)
-{
-	dprintf("%s\n", sysfs_path);
-	strncpy(dev, sysfs_path, len);
-	strncat(dev, "/device", len);
-	if (sysfs_get_link(dev, dev, len)) {
-		if (!hotplug_mode)
-			log_message(LOG_WARNING, "%s: %s\n", dev,
-				    strerror(errno));
-		return -1;
-	}
-	return 0;
-}
-
-/*
- * sysfs_is_bus: Given the sysfs_path to a device, return 1 if sysfs_path
- * is on bus, 0 if not on bus, and < 0 on error
- */
-static int sysfs_is_bus(const char *sysfs_path, const char *bus)
-{
-	char bus_dev_name[SYSFS_PATH_MAX];
-	char bus_id[SYSFS_NAME_LEN];
-	struct stat stat_buf;
-	ino_t dev_inode;
-
-	dprintf("%s\n", sysfs_path);
-
-	if (sysfs_get_name_from_path(sysfs_path, bus_id, SYSFS_NAME_LEN))
-		return -1;
-
-	snprintf(bus_dev_name, MAX_NAME_LEN, "%s/%s/%s/%s/%s", sysfs_mnt_path,
-		 SYSFS_BUS_NAME, bus, SYSFS_DEVICES_NAME, bus_id);
-
-	if (stat(sysfs_path, &stat_buf))
-		return -1;
-	dev_inode = stat_buf.st_ino;
-
-	if (stat(bus_dev_name, &stat_buf)) {
-		if (errno == ENOENT)
-			return 0;
-		else
-			return -1;
-	}
-	if (dev_inode == stat_buf.st_ino)
-		return 1;
-	else
-		return 0;
-}
-
 static int get_major_minor(const char *devpath, int *major, int *minor)
 {
 	char dev_value[MAX_ATTR_LEN];
@@ -168,7 +123,7 @@ static int get_major_minor(const char *devpath, int *major, int *minor)
 		 * And if sysfsutils changes, check for ENOENT and handle
 		 * it separately.
 		 */
-		log_message(LOG_DEBUG, "%s could not get dev attribute: %s\n",
+		log_message(LOG_DEBUG, "%s: could not get dev attribute: %s\n",
 			devpath, strerror(errno));
 		return -1;
 	}
@@ -534,7 +489,7 @@ static int set_options(int argc, char **argv, const char *short_opts,
 	return 0;
 }
 
-static int per_dev_options(struct sysfs_class_device *scsi_dev, int *good_bad,
+static int per_dev_options(struct sysfs_device *scsi_dev, int *good_bad,
 			   int *page_code, char *callout)
 {
 	int retval;
@@ -628,9 +583,10 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 {
 	int retval;
 	int dev_type = 0;
-	char full_dev_path[MAX_NAME_LEN];
 	char serial[MAX_SERIAL_LEN];
-	struct sysfs_class_device *scsi_dev; /* of scsi_device full_dev_path */
+	struct sysfs_class_device *class_dev; /* of target_path */
+	struct sysfs_class_device *class_dev_parent; /* for partitions */
+	struct sysfs_device *scsi_dev; /* the scsi_device */
 	int good_dev;
 	int page_code;
 	char callout[MAX_NAME_LEN];
@@ -661,20 +617,48 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 		}
 	}
 
-	if (sysfs_get_actual_dev(target_path, full_dev_path, MAX_NAME_LEN))
+	class_dev = sysfs_open_class_device_path(target_path);
+	if (!class_dev) {
+		log_message(LOG_WARNING, "open class %s failed: %s\n",
+			    target_path, strerror(errno));
 		return 1;
-
-	dprintf("full_dev_path %s\n", full_dev_path);
+	}
+	class_dev_parent = sysfs_get_classdev_parent(class_dev);
+	dprintf("class_dev 0x%p; class_dev_parent 0x%p\n", class_dev,
+		class_dev_parent);
+	if (class_dev_parent) {
+		scsi_dev = sysfs_get_classdev_device(class_dev_parent);
+	} else {
+		scsi_dev = sysfs_get_classdev_device(class_dev);
+	}
 
 	/*
-	 * Allow only scsi devices (those that have a matching device
-	 * under /bus/scsi/devices).
+	 * The close of scsi_dev will close class_dev or class_dev_parent.
+	 */
+
+	/*
+	 * We assume we are called after the device is completely ready,
+	 * so we don't have to loop here like udev. (And we are usually
+	 * called via udev.)
+	 */
+	if (!scsi_dev) {
+		/*
+		 * errno is not set if we can't find the device link, so
+		 * don't print it out here.
+		 */
+		log_message(LOG_WARNING, "Cannot find sysfs device associated with %s\n",
+			    target_path);
+		return 1;
+	}
+
+
+	/*
+	 * Allow only scsi devices.
 	 *
 	 * Other block devices can support SG IO, but only ide-cd does, so
 	 * for now, don't bother with anything else.
 	 */
-	retval = sysfs_is_bus(full_dev_path, "scsi");
-	if (retval == 0) {
+	if (strcmp(scsi_dev->bus, "scsi") != 0) {
 		if (hotplug_mode)
 			/*
 			 * Expected in some cases.
@@ -684,25 +668,16 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 			log_message(LOG_WARNING, "%s is not a scsi device\n",
 				    target_path);
 		return 1;
-	} else if (retval < 0) {
-		log_message(LOG_WARNING, "sysfs_is_bus failed: %s\n",
-			strerror(errno));
-		return 1;
 	}
 
 	/*
 	 * mknod a temp dev to communicate with the device.
+	 *
+	 * XXX pass down class_dev or class_dev_parent.
 	 */
 	if (!dev_specified && create_tmp_dev(target_path, maj_min_dev,
 					     dev_type)) {
 		dprintf("create_tmp_dev failed\n");
-		return 1;
-	}
-
-	scsi_dev = sysfs_open_class_device_path(full_dev_path);
-	if (!scsi_dev) {
-		log_message(LOG_WARNING, "open class %s failed: %s\n",
-			    full_dev_path, strerror(errno));
 		return 1;
 	}
 
@@ -718,14 +693,7 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 		retval = 1;
 	} else if (callout[0] != '\0') {
 		/*
-		 * exec vendor callout, pass it only the "name" to be used
-		 * for error messages, and the dev to open.
-		 *
-		 * This won't work if we need to pass on the original
-		 * command line (when not hotplug mode) since the option
-		 * parsing and per dev parsing modify the argv's.
-		 *
-		 * XXX Not implemented yet. And not fully tested ;-)
+		 * XXX Disabled for now ('c' is not in any options[]).
 		 */
 		retval = 1;
 	} else if (scsi_get_serial(scsi_dev, maj_min_dev, page_code,
@@ -736,14 +704,14 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 	}
 	if (!retval) {
 		if (display_bus_id)
-			printf("%s ", scsi_dev->name);
+			printf("%s: ", scsi_dev->name);
 		printf("%s", serial);
 		if (!hotplug_mode)
 			printf("\n");
 		dprintf("%s\n", serial);
 		retval = 0;
 	}
-	sysfs_close_class_device(scsi_dev);
+	sysfs_close_device(scsi_dev);
 
 	if (!dev_specified)
 		unlink(maj_min_dev);

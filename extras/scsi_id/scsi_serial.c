@@ -32,7 +32,6 @@
 #include <syslog.h>
 #include <scsi/sg.h>
 #include <sysfs/libsysfs.h>
-
 #include "scsi_id.h"
 #include "scsi.h"
 
@@ -69,12 +68,6 @@ static const struct scsi_id_search_values id_search_list[] = {
 };
 
 static const char hex_str[]="0123456789abcdef";
-
-/*
- * XXX maybe move all these to an sg_io.c file.
- *
- * From here ...
- */
 
 /*
  * Values returned in the result/status, only the ones used by the code
@@ -160,8 +153,7 @@ static int sg_err_category3(struct sg_io_hdr *hp)
 				   hp->sbp, hp->sb_len_wr);
 }
 
-static int scsi_dump_sense(struct sysfs_class_device *scsi_dev,
-			   struct sg_io_hdr *io)
+static int scsi_dump_sense(struct sysfs_device *scsi_dev, struct sg_io_hdr *io)
 {
 	unsigned char *sense_buffer;
 	int s;
@@ -257,7 +249,7 @@ static int scsi_dump_sense(struct sysfs_class_device *scsi_dev,
 				    scsi_dev->name,  sense_buffer[0],
 				    sense_buffer[2]);
 		log_message(LOG_WARNING,
-			    "%s: non-extended sense class %d code 0x%0x ",
+			    "%s: non-extended sense class %d code 0x%0x\n",
 			    scsi_dev->name, sense_class, code);
 
 	}
@@ -277,7 +269,7 @@ static int scsi_dump_sense(struct sysfs_class_device *scsi_dev,
 	return -1;
 }
 
-static int scsi_dump(struct sysfs_class_device *scsi_dev, struct sg_io_hdr *io)
+static int scsi_dump(struct sysfs_device *scsi_dev, struct sg_io_hdr *io)
 {
 	if (!io->status && !io->host_status && !io->msg_status &&
 	    !io->driver_status) {
@@ -298,9 +290,9 @@ static int scsi_dump(struct sysfs_class_device *scsi_dev, struct sg_io_hdr *io)
 		return -1;
 }
 
-static int scsi_inquiry(struct sysfs_class_device *scsi_dev, int fd,
-			unsigned char evpd, unsigned char page, unsigned
-			char *buf, unsigned int buflen)
+static int scsi_inquiry(struct sysfs_device *scsi_dev, int fd, unsigned
+			char evpd, unsigned char page, unsigned char *buf,
+			unsigned int buflen)
 {
 	unsigned char inq_cmd[INQUIRY_CMDLEN] =
 		{ INQUIRY_CMD, evpd, page, 0, buflen, 0 };
@@ -332,7 +324,7 @@ resend:
 	io_hdr.timeout = DEF_TIMEOUT;
 
 	if (ioctl(fd, SG_IO, &io_hdr) < 0) {
-		log_message(LOG_WARNING, "%s ioctl failed: %s\n",
+		log_message(LOG_WARNING, "%s: ioctl failed: %s\n",
 			    scsi_dev->name, strerror(errno));
 		return -1;
 	}
@@ -349,11 +341,6 @@ resend:
 			retval = scsi_dump(scsi_dev, &io_hdr);
 	}
 
-	/*
-	 * XXX where is the length checked? That is, was our request
-	 * buffer long enough?
-	 */
-
 	if (!retval) {
 		retval = buflen;
 		memcpy(buf, buffer, retval);
@@ -369,13 +356,7 @@ resend:
 	return retval;
 }
 
-/*
- * XXX maybe move all these to an sg_io.c file.
- *
- * Ending here.
- */
-
-static int do_scsi_page0_inquiry(struct sysfs_class_device *scsi_dev, int fd,
+static int do_scsi_page0_inquiry(struct sysfs_device *scsi_dev, int fd,
 				 char *buffer, int len)
 {
 	int retval;
@@ -392,7 +373,7 @@ static int do_scsi_page0_inquiry(struct sysfs_class_device *scsi_dev, int fd,
 		return 1;
 	}
 	if (buffer[3] > len) {
-		log_message(LOG_WARNING, "%s: page 0 buffer too long %d",
+		log_message(LOG_WARNING, "%s: page 0 buffer too long %d\n",
 			   scsi_dev->name,  buffer[3]);
 		return 1;
 	}
@@ -417,7 +398,7 @@ static int do_scsi_page0_inquiry(struct sysfs_class_device *scsi_dev, int fd,
 			return 1;
 		}
 		if (!strncmp(&buffer[VENDOR_LENGTH], vendor, VENDOR_LENGTH)) {
-			log_message(LOG_WARNING, "%s invalid page0 data\n",
+			log_message(LOG_WARNING, "%s: invalid page0 data\n",
 				    scsi_dev->name);
 			return 1;
 		}
@@ -429,8 +410,7 @@ static int do_scsi_page0_inquiry(struct sysfs_class_device *scsi_dev, int fd,
  * The caller checks that serial is long enough to include the vendor +
  * model.
  */
-static int prepend_vendor_model(struct sysfs_class_device *scsi_dev,
-				char *serial)
+static int prepend_vendor_model(struct sysfs_device *scsi_dev, char *serial)
 {
 	char attr[MAX_ATTR_LEN];
 	int ind;
@@ -477,10 +457,9 @@ static int prepend_vendor_model(struct sysfs_class_device *scsi_dev,
  * check_fill_0x83_id - check the page 0x83 id, if OK allocate and fill
  * serial number.
  **/
-static int check_fill_0x83_id(struct sysfs_class_device *scsi_dev,
-			      char *page_83,
-			      const struct scsi_id_search_values *id_search,
-			      char *serial, int max_len)
+static int check_fill_0x83_id(struct sysfs_device *scsi_dev, char
+			      *page_83, const struct scsi_id_search_values
+			      *id_search, char *serial, int max_len)
 {
 	int i, j, len;
 
@@ -565,7 +544,7 @@ static int check_fill_0x83_id(struct sysfs_class_device *scsi_dev,
 	return 0;
 }
 
-static int do_scsi_page83_inquiry(struct sysfs_class_device *scsi_dev, int fd,
+static int do_scsi_page83_inquiry(struct sysfs_device *scsi_dev, int fd,
 				  char *serial, int len)
 {
 	int retval;
@@ -622,7 +601,7 @@ static int do_scsi_page83_inquiry(struct sysfs_class_device *scsi_dev, int fd,
 	return 1;
 }
 
-static int do_scsi_page80_inquiry(struct sysfs_class_device *scsi_dev, int fd,
+static int do_scsi_page80_inquiry(struct sysfs_device *scsi_dev, int fd,
 				  char *serial, int max_len)
 {
 	int retval;
@@ -662,7 +641,7 @@ static int do_scsi_page80_inquiry(struct sysfs_class_device *scsi_dev, int fd,
 	return 0;
 }
 
-int scsi_get_serial (struct sysfs_class_device *scsi_dev, const char *devname,
+int scsi_get_serial (struct sysfs_device *scsi_dev, const char *devname,
 		     int page_code, char *serial, int len)
 {
 	unsigned char page0[256];
@@ -674,9 +653,9 @@ int scsi_get_serial (struct sysfs_class_device *scsi_dev, const char *devname,
 	}
 	memset(serial, 0, len);
 	dprintf("opening %s\n", devname);
-	fd = open(devname, O_RDONLY);
+	fd = open(devname, O_RDONLY | O_NONBLOCK);
 	if (fd < 0) {
-		log_message(LOG_WARNING, "%s cannot open %s: %s\n",
+		log_message(LOG_WARNING, "%s: cannot open %s: %s\n",
 			    scsi_dev->name, devname, strerror(errno));
 		return 1;
 	}
@@ -698,7 +677,7 @@ int scsi_get_serial (struct sysfs_class_device *scsi_dev, const char *devname,
 			goto completed;
 		}
 	} else if (page_code != 0x00) {
-		log_message(LOG_WARNING, "%s unsupported page code 0x%d\n",
+		log_message(LOG_WARNING, "%s: unsupported page code 0x%d\n",
 			    scsi_dev->name, page_code);
 		return 1;
 	}
@@ -743,6 +722,7 @@ int scsi_get_serial (struct sysfs_class_device *scsi_dev, const char *devname,
 	retval = 1;
 completed:
 	if (close(fd) < 0)
-		log_message(LOG_WARNING, "close failed: %s", strerror(errno));
+		log_message(LOG_WARNING, "%s: close failed: %s\n", 
+			    scsi_dev->name, strerror(errno));
 	return retval;
 }

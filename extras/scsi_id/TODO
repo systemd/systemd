@@ -1,11 +1,8 @@
-- add information about the config file to the man page
+- Document that config file options override command line options, or fix
+  the code. This means a '-b' in the config file disables any -g on the
+  command line.
 
-- change so non-KLIBC builds under udev don't use /usr/include/sysfs,
-  but instead use the sysfs included with udev (needs udev change and/or
-  sysfsutils changes).
+- Add code to check that  SCSI commands get back enough data for their
+  intended usage, mainly callers of scsi_inquiry().
 
-- do something with callout code - remove or change to a tag?
-
-  This needs an implementation of a device specific callout or device
-  specific code (called via some special  "tag" or such) before it can be
-  completed. Someone with such hardware to send in a patch.
+- Document the config file in the man page
