@@ -1,9 +1,7 @@
-#!/bin/bash
+#!/bin/sh
 
-# kill daemon, first event will start it again
-killall udevd
-
-# 3 x connect/disconnect sequence of sda/sdb/sdc
+# add/rem/add/rem/add sequence of sda/sdb/sdc
+# a few days longer and the socket of my usb-flash-reader is gone :)
 
 export SEQNUM=3
 export ACTION=add

@@ -32,11 +32,14 @@
 #include <unistd.h>
 #include <time.h>
 #include <wait.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #include "udev.h"
 #include "udev_version.h"
 #include "udevd.h"
 #include "logging.h"
+
 
 static inline char *get_action(void)
 {
@@ -66,7 +69,7 @@ static int build_hotplugmsg(struct hotplug_msg *msg, char *action,
 			    char *devpath, char *subsystem, int seqnum)
 {
 	memset(msg, 0x00, sizeof(*msg));
-	msg->mtype = HOTPLUGMSGTYPE;
+	strfieldcpy(msg->magic, UDEV_MAGIC);
 	msg->seqnum = seqnum;
 	strncpy(msg->action, action, 8);
 	strncpy(msg->devpath, devpath, 128);
@@ -108,12 +111,8 @@ static int start_daemon(void)
 	return 0;
 }
 
-
 int main(int argc, char* argv[])
 {
-	int msgid;
-	key_t key;
-	struct msqid_ds msg_queue;
 	struct hotplug_msg message;
 	char *action;
 	char *devpath;
@@ -124,6 +123,8 @@ int main(int argc, char* argv[])
 	int size;
 	int loop;
 	struct timespec tspec;
+	int sock;
+	struct sockaddr_un saddr;
 
 	subsystem = argv[1];
 	if (subsystem == NULL) {
@@ -150,41 +151,58 @@ int main(int argc, char* argv[])
 	}
 	seq = atoi(seqnum);
 
-	/* create ipc message queue or get id of our existing one */
-	key = ftok(UDEVD_BIN, IPC_KEY_ID);
-	dbg("using ipc queue 0x%0x", key);
-	size =  build_hotplugmsg(&message, action, devpath, subsystem, seq);
-	msgid = msgget(key, IPC_CREAT);
-	if (msgid == -1) {
-		dbg("error open ipc queue");
+	sock = socket(AF_LOCAL, SOCK_STREAM, 0);
+	if (sock == -1) {
+		dbg("error getting socket");
 		goto exit;
 	}
 
-	/* send ipc message to the daemon */
-	retval = msgsnd(msgid, &message, size, 0);
-	if (retval == -1) {
-		dbg("error sending ipc message");
-		goto exit;
-	}
+	memset(&saddr, 0x00, sizeof(saddr));
+	saddr.sun_family = AF_LOCAL;
+	strcpy(saddr.sun_path, UDEVD_SOCKET);
 
-	/* get state of ipc queue */
-	tspec.tv_sec = 0;
-	tspec.tv_nsec = 10000000;  /* 10 millisec */
-	loop = UDEVSEND_RETRY_COUNT;
-	while (loop--) {
-		retval = msgctl(msgid, IPC_STAT, &msg_queue);
-		if (retval == -1) {
-			dbg("error getting info on ipc queue");
+	/* try to connect, if it fails start daemon */
+	retval = connect(sock, &saddr, sizeof(saddr));
+	if (retval != -1) {
+		goto send;
+	} else {
+		dbg("connect failed, try starting daemon...");
+		retval = start_daemon();
+		if (retval == 0) {
+			dbg("daemon started");
+		} else {
+			dbg("error starting daemon");
 			goto exit;
 		}
-		if (msg_queue.msg_qnum == 0)
-			goto exit;
-		nanosleep(&tspec, NULL);
 	}
 
-	info("message is still in the ipc queue, starting daemon...");
-	retval = start_daemon();
+	/* try to connect while daemon to starts */
+	tspec.tv_sec = 0;
+	tspec.tv_nsec = 100000000;  /* 100 millisec */
+	loop = UDEVSEND_CONNECT_RETRY;
+	while (loop--) {
+		retval = connect(sock, &saddr, sizeof(saddr));
+		if (retval != -1)
+			goto send;
+		else
+			dbg("retry to connect %d",
+			    UDEVSEND_CONNECT_RETRY - loop);
+		nanosleep(&tspec, NULL);
+	}
+	dbg("error connecting to daemon, start daemon failed");
+	goto exit;
+
+send:
+	size = build_hotplugmsg(&message, action, devpath, subsystem, seq);
+	retval = send(sock, &message, size, 0);
+	if (retval == -1) {
+		dbg("error sending message");
+		close (sock);
+		goto exit;
+	}
+	close (sock);
+	return 0;
 
 exit:
-	return retval;
+	return 1;
 }

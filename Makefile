@@ -255,7 +255,7 @@ $(HELPER): udevinfo.o $(OBJS) $(HEADERS)
 	$(STRIPCMD) $@
 
 $(DAEMON): udevd.h udevd.o udevd.o logging.o
-	$(LD) $(LDFLAGS) -o $@ $(CRT0) udevd.o logging.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(LD) $(LDFLAGS) -lpthread -o $@ $(CRT0) udevd.o logging.o $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(STRIPCMD) $@
 
 $(SENDER): udevd.h udevsend.o udevd.o logging.o

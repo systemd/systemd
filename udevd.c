@@ -1,9 +1,6 @@
 /*
- * udevd.c
+ * udevd.c - hotplug event serializer
  *
- * Userspace devfs
- *
- * Copyright (C) 2004 Ling, Xiaofeng <xiaofeng.ling@intel.com>
  * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
  *
  *
@@ -24,9 +21,7 @@
 
 #include <stddef.h>
 #include <sys/types.h>
-#include <sys/ipc.h>
 #include <sys/wait.h>
-#include <sys/msg.h>
 #include <signal.h>
 #include <unistd.h>
 #include <errno.h>
@@ -35,6 +30,10 @@
 #include <string.h>
 #include <time.h>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <pthread.h>
 
 #include "list.h"
 #include "udev.h"
@@ -43,116 +42,27 @@
 #include "logging.h"
 
 
-#define BUFFER_SIZE			1024
-
-static int running_remove_queue(pid_t pid);
-static int msg_exec(struct hotplug_msg *msg);
-
-static int expect_seqnum = 0;
-static int lock_file = -1;
-static char *lock_filename = ".udevd_lock";
+static pthread_mutex_t  msg_lock;
+static pthread_mutex_t  msg_active_lock;
+static pthread_cond_t msg_active;
+static pthread_mutex_t  exec_lock;
+static pthread_mutex_t  exec_active_lock;
+static pthread_cond_t exec_active;
+static pthread_mutex_t  running_lock;
+static pthread_attr_t thr_attr;
+static int expected_seqnum = 0;
 
 LIST_HEAD(msg_list);
+LIST_HEAD(exec_list);
 LIST_HEAD(running_list);
-LIST_HEAD(delayed_list);
 
-static void sig_handler(int signum)
+
+static void msg_dump_queue(void)
 {
-	pid_t pid;
+	struct hotplug_msg *msg;
 
-	dbg("caught signal %d", signum);
-	switch (signum) {
-	case SIGALRM:
-		dbg("event timeout reached");
-		break;
-	case SIGCHLD:
-		/* catch signals from exiting childs */
-		while ( (pid = waitpid(-1, NULL, WNOHANG)) > 0) {
-			dbg("exec finished, pid %d", pid);
-			running_remove_queue(pid);
-		}
-		break;
-	case SIGINT:
-	case SIGTERM:
-		if (lock_file >= 0) {
-			close(lock_file);
-			unlink(lock_filename);
-		}
-		exit(20 + signum);
-		break;
-	default:
-		dbg("unhandled signal");
-	}
-}
-
-static void set_timeout(int seconds)
-{
-	alarm(seconds);
-	dbg("set timeout in %d seconds", seconds);
-}
-
-static int running_moveto_queue(struct hotplug_msg *msg)
-{
-	dbg("move sequence %d [%d] to running queue '%s'",
-	    msg->seqnum, msg->pid, msg->devpath);
-	list_move_tail(&msg->list, &running_list);
-	return 0;
-}
-
-static int running_remove_queue(pid_t  pid)
-{
-	struct hotplug_msg *child;
-	struct hotplug_msg *tmp_child;
-
-	list_for_each_entry_safe(child, tmp_child, &running_list, list)
-		if (child->pid == pid) {
-			list_del_init(&child->list);
-			free(child);
-			return 0;
-		}
-	return -EINVAL;
-}
-
-static pid_t running_getpid_by_devpath(struct hotplug_msg *msg)
-{
-	struct hotplug_msg *child;
-	struct hotplug_msg *tmp_child;
-
-	list_for_each_entry_safe(child, tmp_child, &running_list, list)
-		if (strncmp(child->devpath, msg->devpath, sizeof(child->devpath)) == 0)
-			return child->pid;
-	return 0;
-}
-
-static void delayed_dump_queue(void)
-{
-	struct hotplug_msg *child;
-
-	list_for_each_entry(child, &delayed_list, list)
-		dbg("event for '%s' in queue", child->devpath);
-}
-
-static int delayed_moveto_queue(struct hotplug_msg *msg)
-{
-	dbg("move event to delayed queue '%s'", msg->devpath);
-	list_move_tail(&msg->list, &delayed_list);
-	return 0;
-}
-
-static void delayed_check_queue(void)
-{
-	struct hotplug_msg *delayed_child;
-	struct hotplug_msg *running_child;
-	struct hotplug_msg *tmp_child;
-
-	/* see if we have delayed exec's that can run now */
-	list_for_each_entry_safe(delayed_child, tmp_child, &delayed_list, list)
-		list_for_each_entry_safe(running_child, tmp_child, &running_list, list)
-			if (strncmp(delayed_child->devpath, running_child->devpath,
-			    sizeof(running_child->devpath)) == 0) {
-				dbg("delayed exec for '%s' can run now", delayed_child->devpath);
-				msg_exec(delayed_child);
-			}
+	list_for_each_entry(msg, &msg_list, list)
+		dbg("sequence %d in queue", msg->seqnum);
 }
 
 static void msg_dump(struct hotplug_msg *msg)
@@ -161,22 +71,52 @@ static void msg_dump(struct hotplug_msg *msg)
 	    msg->seqnum, msg->action, msg->devpath, msg->subsystem);
 }
 
-static int msg_exec(struct hotplug_msg *msg)
+/* allocates a new message */
+static struct hotplug_msg *msg_create(void)
+{
+	struct hotplug_msg *new_msg;
+
+	new_msg = malloc(sizeof(struct hotplug_msg));
+	if (new_msg == NULL) {
+		dbg("error malloc");
+		return NULL;
+	}
+	memset(new_msg, 0x00, sizeof(struct hotplug_msg));
+	return new_msg;
+}
+
+/* orders the message in the queue by sequence number */
+static void msg_queue_insert(struct hotplug_msg *msg)
+{
+	struct hotplug_msg *loop_msg;
+
+	/* sort message by sequence number into list*/
+	list_for_each_entry(loop_msg, &msg_list, list)
+		if (loop_msg->seqnum > msg->seqnum)
+			break;
+	list_add_tail(&msg->list, &loop_msg->list);
+	dbg("queued message seq %d", msg->seqnum);
+
+	/* store timestamp of queuing */
+	msg->queue_time = time(NULL);
+
+	/* signal queue activity to manager */
+	pthread_mutex_lock(&msg_active_lock);
+	pthread_cond_signal(&msg_active);
+	pthread_mutex_unlock(&msg_active_lock);
+
+	return ;
+}
+
+/* forks event and removes event from run queue when finished */
+static void *run_threads(void * parm)
 {
 	pid_t pid;
+	struct hotplug_msg *msg;
 
-	msg_dump(msg);
-
+	msg = parm;
 	setenv("ACTION", msg->action, 1);
 	setenv("DEVPATH", msg->devpath, 1);
-
-	/* delay exec, if we already have a udev working on the same devpath */
-	pid = running_getpid_by_devpath(msg);
-	if (pid != 0) {
-		dbg("delay exec of sequence %d, [%d] already working on '%s'",
-		    msg->seqnum, pid, msg->devpath);
-		delayed_moveto_queue(msg);
-	}
 
 	pid = fork();
 	switch (pid) {
@@ -188,135 +128,206 @@ static int msg_exec(struct hotplug_msg *msg)
 		break;
 	case -1:
 		dbg("fork of child failed");
-		return -1;
+		goto exit;
 	default:
-		/* exec in background, get the SIGCHLD with the sig handler */
-		msg->pid = pid;
-		running_moveto_queue(msg);
-		break;
-	}
-	return 0;
-}
-
-static void msg_dump_queue(void)
-{
-	struct hotplug_msg *msg;
-
-	list_for_each_entry(msg, &msg_list, list)
-		dbg("sequence %d in queue", msg->seqnum);
-}
-
-static void msg_check_queue(void)
-{
-	struct hotplug_msg *msg;
-	struct hotplug_msg *tmp_msg;
-	time_t msg_age;
-
-recheck:
-	/* dispatch events until one is missing */
-	list_for_each_entry_safe(msg, tmp_msg, &msg_list, list) {
-		if (msg->seqnum != expect_seqnum)
-			break;
-		msg_exec(msg);
-		expect_seqnum++;
+		/* wait for exit of child */
+		dbg("==> exec seq %d [%d] working at '%s'",
+		    msg->seqnum, pid, msg->devpath);
+		wait(NULL);
+		dbg("<== exec seq %d came back", msg->seqnum);
 	}
 
-	/* recalculate next timeout */
-	if (list_empty(&msg_list) == 0) {
-		msg_age = time(NULL) - msg->queue_time;
-		if (msg_age > EVENT_TIMEOUT_SEC-1) {
-			info("event %d, age %li seconds, skip event %d-%d",
-			     msg->seqnum, msg_age, expect_seqnum, msg->seqnum-1);
-			expect_seqnum = msg->seqnum;
-			goto recheck;
-		}
+exit:
+	/* remove event from run list */
+	pthread_mutex_lock(&running_lock);
+	list_del_init(&msg->list);
+	pthread_mutex_unlock(&running_lock);
 
-		/* the first sequence gets its own timeout */
-		if (expect_seqnum == 0) {
-			msg_age = EVENT_TIMEOUT_SEC - FIRST_EVENT_TIMEOUT_SEC;
-			expect_seqnum = 1;
-		}
+	free(msg);
 
-		set_timeout(EVENT_TIMEOUT_SEC - msg_age);
-		return;
-	}
+	/* signal queue activity to exec manager */
+	pthread_mutex_lock(&exec_active_lock);
+	pthread_cond_signal(&exec_active);
+	pthread_mutex_unlock(&exec_active_lock);
+
+	pthread_exit(0);
 }
 
-static int msg_add_queue(struct hotplug_msg *msg)
+/* returns already running task with devpath */
+static struct hotplug_msg *running_with_devpath(struct hotplug_msg *msg)
 {
-	struct hotplug_msg *new_msg;
+	struct hotplug_msg *loop_msg;
 	struct hotplug_msg *tmp_msg;
 
-	new_msg = malloc(sizeof(*new_msg));
-	if (new_msg == NULL) {
-		dbg("error malloc");
-		return -ENOMEM;
-	}
-	memcpy(new_msg, msg, sizeof(*new_msg));
-
-	/* store timestamp of queuing */
-	new_msg->queue_time = time(NULL);
-
-	/* sort message by sequence number into list*/
-	list_for_each_entry(tmp_msg, &msg_list, list)
-		if (tmp_msg->seqnum > new_msg->seqnum)
-			break;
-	list_add_tail(&new_msg->list, &tmp_msg->list);
-
-	return 0;
+	list_for_each_entry_safe(loop_msg, tmp_msg, &running_list, list)
+		if (strncmp(loop_msg->devpath, msg->devpath, sizeof(loop_msg->devpath)) == 0)
+			return loop_msg;
+	return NULL;
 }
 
-static void work(void)
+/* queue management executes the events and delays events for the same devpath */
+static void *exec_queue_manager(void * parm)
 {
+	struct hotplug_msg *loop_msg;
+	struct hotplug_msg *tmp_msg;
 	struct hotplug_msg *msg;
-	int msgid;
-	key_t key;
-	char buf[BUFFER_SIZE];
-	int ret;
+	pthread_t run_tid;
 
-	key = ftok(UDEVD_BIN, IPC_KEY_ID);
-	msg = (struct hotplug_msg *) buf;
-	msgid = msgget(key, IPC_CREAT);
-	if (msgid == -1) {
-		dbg("open message queue error");
-		exit(1);
-	}
 	while (1) {
-		ret = msgrcv(msgid, (struct msgbuf *) buf, BUFFER_SIZE-4, HOTPLUGMSGTYPE, 0);
-		if (ret != -1) {
-			dbg("received sequence %d, expected sequence %d", msg->seqnum, expect_seqnum);
-			if (msg->seqnum >= expect_seqnum) {
-				msg_add_queue(msg);
-				msg_dump_queue();
-				msg_check_queue();
-				continue;
+		pthread_mutex_lock(&exec_lock);
+		list_for_each_entry_safe(loop_msg, tmp_msg, &exec_list, list) {
+			msg = running_with_devpath(loop_msg);
+			if (msg == NULL) {
+				/* move event to run list */
+				pthread_mutex_lock(&running_lock);
+				list_move_tail(&loop_msg->list, &running_list);
+				pthread_mutex_unlock(&running_lock);
+
+				pthread_create(&run_tid, &thr_attr, run_threads, (void *) loop_msg);
+
+				dbg("moved seq %d to running list", loop_msg->seqnum);
+			} else {
+				dbg("delay seq %d, cause seq %d already working on '%s'",
+				    loop_msg->seqnum, msg->seqnum, msg->devpath);
 			}
-			dbg("too late for event with sequence %d, event skipped ", msg->seqnum);
-		} else {
-			if (errno == EINTR) {
-				msg_check_queue();
-				msg_dump_queue();
-				delayed_check_queue();
-				delayed_dump_queue();
-				continue;
-			}
-			dbg("ipc message receive error '%s'", strerror(errno));
 		}
+		pthread_mutex_unlock(&exec_lock);
+
+		/* wait for activation, new events or childs coming back */
+		pthread_mutex_lock(&exec_active_lock);
+		pthread_cond_wait(&exec_active, &exec_active_lock);
+		pthread_mutex_unlock(&exec_active_lock);
+	}
+}
+
+/* move message from incoming to exec queue */
+static void msg_move_exec(struct list_head *head)
+{
+	list_move_tail(head, &exec_list);
+	/* signal queue activity to manager */
+	pthread_mutex_lock(&exec_active_lock);
+	pthread_cond_signal(&exec_active);
+	pthread_mutex_unlock(&exec_active_lock);
+}
+
+/* queue management thread handles the timeouts and dispatches the events */
+static void *msg_queue_manager(void * parm)
+{
+	struct hotplug_msg *loop_msg;
+	struct hotplug_msg *tmp_msg;
+	time_t msg_age = 0;
+	struct timespec tv;
+
+	while (1) {
+		dbg("msg queue manager, next expected is %d", expected_seqnum);
+		pthread_mutex_lock(&msg_lock);
+		pthread_mutex_lock(&exec_lock);
+recheck:
+		list_for_each_entry_safe(loop_msg, tmp_msg, &msg_list, list) {
+			/* move event with expected sequence to the exec list */
+			if (loop_msg->seqnum == expected_seqnum) {
+				msg_move_exec(&loop_msg->list);
+				expected_seqnum++;
+				dbg("moved seq %d to exec, next expected is %d",
+				    loop_msg->seqnum, expected_seqnum);
+				continue;
+			}
+
+			/* move event with expired timeout to the exec list */
+			msg_age = time(NULL) - loop_msg->queue_time;
+			if (msg_age > EVENT_TIMEOUT_SEC-1) {
+				msg_move_exec(&loop_msg->list);
+				expected_seqnum = loop_msg->seqnum+1;
+				dbg("moved seq %d to exec, reset next expected to %d",
+				    loop_msg->seqnum, expected_seqnum);
+				goto recheck;
+			} else {
+				break;
+			}
+		}
+
+		msg_dump_queue();
+		pthread_mutex_unlock(&exec_lock);
+		pthread_mutex_unlock(&msg_lock);
+
+		/* wait until queue gets active or next message timeout expires */
+		pthread_mutex_lock(&msg_active_lock);
+
+		if (list_empty(&msg_list) == 0) {
+			tv.tv_sec = time(NULL) + EVENT_TIMEOUT_SEC - msg_age;
+			tv.tv_nsec = 0;
+			dbg("next event expires in %li seconds",
+			    EVENT_TIMEOUT_SEC - msg_age);
+			pthread_cond_timedwait(&msg_active, &msg_active_lock, &tv);
+		} else {
+			pthread_cond_wait(&msg_active, &msg_active_lock);
+		}
+		pthread_mutex_unlock(&msg_active_lock);
+	}
+}
+
+/* every connect creates a thread which gets the msg, queues it and exits */
+static void *client_threads(void * parm)
+{
+	int sock;
+	struct hotplug_msg *msg;
+	int retval;
+
+	sock = (int) parm;
+
+	msg = msg_create();
+	if (msg == NULL) {
+		dbg("unable to store message");
+		goto exit;
+	}
+
+	retval = recv(sock, msg, sizeof(struct hotplug_msg), 0);
+	if (retval <  0) {
+		dbg("unable to receive message");
+		goto exit;
+	}
+
+	if (strncmp(msg->magic, UDEV_MAGIC, sizeof(UDEV_MAGIC)) != 0 ) {
+		dbg("message magic '%s' doesn't match, ignore it", msg->magic);
+		goto exit;
+	}
+
+	pthread_mutex_lock(&msg_lock);
+	msg_queue_insert(msg);
+	pthread_mutex_unlock(&msg_lock);
+
+exit:
+	close(sock);
+	pthread_exit(0);
+}
+
+static void sig_handler(int signum)
+{
+	switch (signum) {
+		case SIGINT:
+		case SIGTERM:
+			unlink(UDEVD_LOCK);
+			unlink(UDEVD_SOCKET);
+			exit(20 + signum);
+			break;
+		default:
+			dbg("unhandled signal");
 	}
 }
 
 static int one_and_only(void)
 {
-	char string[100];
-
-	lock_file = open(lock_filename, O_RDWR | O_CREAT, 0x640);
+	char string[50];
+	int lock_file;
 
 	/* see if we can open */
+	lock_file = open(UDEVD_LOCK, O_RDWR | O_CREAT, 0x640);
 	if (lock_file < 0)
 		return -1;
-	
+
 	/* see if we can lock */
 	if (lockf(lock_file, F_TLOCK, 0) < 0) {
+		dbg("file is already locked, exit");
 		close(lock_file);
 		return -1;
 	}
@@ -329,16 +340,73 @@ static int one_and_only(void)
 
 int main(int argc, char *argv[])
 {
+	int ssock;
+	int csock;
+	struct sockaddr_un saddr;
+	struct sockaddr_un caddr;
+	socklen_t clen;
+	pthread_t cli_tid;
+	pthread_t mgr_msg_tid;
+	pthread_t mgr_exec_tid;
+	int retval;
+
 	/* only let one version of the daemon run at any one time */
 	if (one_and_only() != 0)
 		exit(0);
 
-	/* set up signal handler */
 	signal(SIGINT, sig_handler);
 	signal(SIGTERM, sig_handler);
-	signal(SIGALRM, sig_handler);
-	signal(SIGCHLD, sig_handler);
 
-	work();
-	exit(0);
+	memset(&saddr, 0x00, sizeof(saddr));
+	saddr.sun_family = AF_LOCAL;
+	strcpy(saddr.sun_path, UDEVD_SOCKET);
+
+	unlink(UDEVD_SOCKET);
+	ssock = socket(AF_LOCAL, SOCK_STREAM, 0);
+	if (ssock == -1) {
+		dbg("error getting socket");
+		exit(1);
+	}
+
+	retval = bind(ssock, &saddr, sizeof(saddr));
+	if (retval < 0) {
+		dbg("bind failed\n");
+		goto exit;
+	}
+
+	retval = listen(ssock, SOMAXCONN);
+	if (retval < 0) {
+		dbg("listen failed\n");
+		goto exit;
+	}
+
+	pthread_mutex_init(&msg_lock, NULL);
+	pthread_mutex_init(&msg_active_lock, NULL);
+	pthread_mutex_init(&exec_lock, NULL);
+	pthread_mutex_init(&exec_active_lock, NULL);
+	pthread_mutex_init(&running_lock, NULL);
+
+	/* set default attributes for created threads */
+	pthread_attr_init(&thr_attr);
+	pthread_attr_setdetachstate(&thr_attr, PTHREAD_CREATE_DETACHED);
+
+	/* init queue management */
+	pthread_create(&mgr_msg_tid, &thr_attr, msg_queue_manager, NULL);
+	pthread_create(&mgr_exec_tid, &thr_attr, exec_queue_manager, NULL);
+
+	clen = sizeof(caddr);
+	/* main loop */
+	while (1) {
+		csock = accept(ssock, &caddr, &clen);
+		if (csock < 0) {
+			if (errno == EINTR)
+				continue;
+			dbg("client accept failed\n");
+		}
+		pthread_create(&cli_tid, &thr_attr, client_threads, (void *) csock);
+	}
+exit:
+	close(ssock);
+	unlink(UDEVD_SOCKET);
+	exit(1);
 }
