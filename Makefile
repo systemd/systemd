@@ -18,7 +18,7 @@
 
 # Set the following to control the use of syslog
 # Set it to `false' to remove all logging
-LOG = true
+USE_LOG = true
 
 # Set the following to `true' to log the debug
 # and make a unstripped, unoptimized  binary.
@@ -109,7 +109,7 @@ else
 	CFLAGS+=-pipe
 endif
 
-ifeq ($(strip $(LOG)),true)
+ifeq ($(strip $(USE_LOG)),true)
 	CFLAGS  += -DLOG
 endif
 

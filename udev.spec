@@ -5,6 +5,12 @@
 # it probably is not where you want it to be.
 %define klibc 1
 
+# if we want to have logging support in or not.
+# 0 - no logging  support
+# 1 - logging support
+# Note, it is not recommend if you use klibc to enable logging.
+%define log 0
+
 # if we want to build DBUS support in or not.
 # 0 - no DBUS support
 # 1 - DBUS support
@@ -44,6 +50,9 @@ udev is a implementation of devfs in userspace using sysfs and
 make CC="gcc $RPM_OPT_FLAGS"	\
 %if %{klibc}
 	USE_KLIBC=true		\
+%endif
+%if %{log}
+	USE_LOG=true		\
 %endif
 %if %{dbus}
 	USE_DBUS=true		\
