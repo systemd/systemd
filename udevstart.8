@@ -1,0 +1,18 @@
+.TH UDEVSTART 8 "March 2004" "" "Linux Administrator's Manual"
+.SH NAME
+udevstart \- populate device directory with all nodes available in sysfs
+.SH SYNOPSIS
+.B udevstart
+.SH "DESCRIPTION"
+.B udevstart
+walks trough the sysfs device tree and calls
+.B udev
+to create the node for every valid device found. It can be used to fill a
+empty device directory with nodes for all devices currently available on
+the system.
+.SH "SEE ALSO"
+.BR udev (8)
+.SH AUTHORS
+.B udevstart
+was developed primarily by Harald Hoyer <harald@redhat.com>, with much help
+from others.
