@@ -46,4 +46,7 @@ REPLACE, KERNEL="ttyUSB0", NAME="pl2303"
 #REPLACE, KERNEL="ttyS*", NAME="tts/%n"
 #REPLACE, KERNEL="tty*", NAME="vc/%n"
 
+# if this is a ide cdrom, name it the default name, and create a symlink to cdrom
+CALLOUT, BUS="ide", PROGRAM="/bin/cat /proc/ide/%k/media", ID="cdrom", NAME="%k", SYMLINK="cdrom" 
+
 
