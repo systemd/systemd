@@ -42,8 +42,14 @@
 static inline char *sysfs_get_attr(struct sysfs_class_device *dev,
 				    const char *attr)
 {
-	return sysfs_get_value_from_attributes(dev->directory->attributes,
-					       attr);
+	struct dlist *attributes = NULL;
+
+	attributes = sysfs_get_classdev_attributes(dev);
+
+	if (attributes == NULL)
+		return NULL;
+
+	return sysfs_get_value_from_attributes(attributes, attr);
 }
 
 extern int scsi_get_serial (struct sysfs_class_device *scsi_dev,

@@ -133,7 +133,7 @@ static int sysfs_is_bus(const char *sysfs_path, const char *bus)
 		return -1;
 
 	snprintf(bus_dev_name, MAX_NAME_LEN, "%s/%s/%s/%s/%s", sysfs_mnt_path,
-		 SYSFS_BUS_DIR, bus, SYSFS_DEVICES_NAME, bus_id);
+		 SYSFS_BUS_NAME, bus, SYSFS_DEVICES_NAME, bus_id);
 
 	if (stat(sysfs_path, &stat_buf))
 		return -1;
