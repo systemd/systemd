@@ -47,7 +47,7 @@ void log_message(int level, const char *format, ...)
 }
 #endif
 
-#define WAIT_MAX_SECONDS		5
+#define WAIT_MAX_SECONDS		10
 #define WAIT_LOOP_PER_SECOND		20
 
 /* wait for specific file to show up, normally the "dev"-file */
