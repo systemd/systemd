@@ -21,7 +21,8 @@ PERL    = perl
 STRIP   = $(CROSS)strip --strip-all -R .comment -R .note
 
 HOST_CC      = gcc
-HOST_LDFLAGS = -s
+HOST_CFLAGS  = -g -O
+HOST_LDFLAGS = 
 HOST_LIBS    =
 
 CRT0    = $(KLIBSRC)/crt0.o
