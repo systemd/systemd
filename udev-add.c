@@ -195,7 +195,8 @@ static int create_node(struct udevice *dev, int fake)
 	gid_t gid = 0;
 	int i;
 	int tail;
-	int pos, len;
+	char *pos;
+	int len;
 
 	strfieldcpy(filename, udev_root);
 	strfieldcat(filename, dev->name);
@@ -281,7 +282,7 @@ static int create_node(struct udevice *dev, int fake)
 
 	/* create symlink if requested */
 	foreach_strpart(dev->symlink, " ", pos, len) {
-		strnfieldcpy(linkname, dev->symlink + pos, len+1);
+		strnfieldcpy(linkname, pos, len+1);
 		strfieldcpy(filename, udev_root);
 		strfieldcat(filename, linkname);
 		dbg("symlink '%s' to node '%s' requested", filename, dev->name);

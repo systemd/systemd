@@ -179,7 +179,8 @@ static int find_found;
 
 static int find_device_by_name(char *path, struct udevice *dev)
 {
-	int pos, len;
+	char *pos;
+	int len;
 
 	if (strncmp(dev->name, find_name, sizeof(dev->name)) == 0) {
 		memcpy(find_dev, dev, sizeof(struct udevice));
@@ -190,7 +191,7 @@ static int find_device_by_name(char *path, struct udevice *dev)
 	}
 	/* look for matching symlink*/
 	foreach_strpart(dev->symlink, " ", pos, len) {
-		if (strncmp(&dev->symlink[pos], find_name, len) != 0)
+		if (strncmp(pos, find_name, len) != 0)
 			continue;
 
 		if (len != strlen(find_name))

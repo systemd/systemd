@@ -72,7 +72,8 @@ static int delete_node(struct udevice *dev)
 	char partitionname[NAME_SIZE];
 	int retval;
 	int i;
-	int pos, len;
+	char *pos;
+	int len;
 
 	strfieldcpy(filename, udev_root);
 	strfieldcat(filename, dev->name);
@@ -102,7 +103,7 @@ static int delete_node(struct udevice *dev)
 		delete_path(filename);
 
 	foreach_strpart(dev->symlink, " ", pos, len) {
-		strnfieldcpy(linkname, dev->symlink + pos, len+1);
+		strnfieldcpy(linkname, pos, len+1);
 		strfieldcpy(filename, udev_root);
 		strfieldcat(filename, linkname);
 
