@@ -195,6 +195,13 @@ returned string.
 (This does not work within the
 .B PROGRAM
 field for the obvious reason.)
+.br
+A single part of the string, separated by the space character
+my be selected by specifying the part number as a attribute:
+.BI %c{ part }
+.TP
+.BI %s{ filename }
+The content of a sysfs attribute.
 .TP
 .B %%
 The '%' char itself.

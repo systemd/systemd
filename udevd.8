@@ -20,16 +20,20 @@ For each event a
 .BR udev (8)
 instance is executed in the background. All further events for the same device
 are delayed until the execution is finished. This way it will never run more
-than one instance for a single device.
+than one instance for a single device at the same time.
 .br
 .B udevd
 receives the events from
 .B udevsend
 which is called by
-.BR hotplug (8)
-
+.BR hotplug (8).
+If
+.B udevd
+isn't already running,
+.B udevsend
+will start it.
 .SH "SEE ALSO"
-.BR udev (8)
+.BR udev (8), hotplug (8)
 .SH AUTHORS
 .B udevd
 was developed primarily by Kay Sievers <kay.sievers@vrfy.org>, with much help
