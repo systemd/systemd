@@ -1,3 +1,17 @@
+Summary of changes from v028 to v029
+============================================
+
+Greg Kroah-Hartman:
+  o add permission rule for jogdial device
+  o fix dumb bug I added to udevstart
+  o make a "last list" of devices for udevstart to operate on last
+  o fix permission problem with input event and ts nodes for gentoo
+  o change default perms of misc/rtc to be readable by anyone
+
+Olaf Hering:
+  o allow NAME_SIZE > SYSFS_PATH_MAX
+
+
 Summary of changes from v027 to v028
 ============================================
 
