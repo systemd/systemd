@@ -774,6 +774,8 @@ static int probe_jfs(struct volume_id *id, __u64 off)
 #define FAT16_MAX			0xfff5
 #define FAT_ATTR_VOLUME_ID		0x08
 #define FAT_ATTR_DIR			0x10
+#define FAT_ATTR_LONG_NAME		0x0f
+#define FAT_ATTR_MASK			0x3f
 #define FAT_ENTRY_FREE			0xe5
 static int probe_vfat(struct volume_id *id, __u64 off)
 {
@@ -859,6 +861,9 @@ static int probe_vfat(struct volume_id *id, __u64 off)
 	/* believe only that's fat, don't trust the version
 	 * the cluster_count will tell us
 	 */
+	if (strncmp(vs->sysid, "NTFS", 4) == 0)
+		return -1;
+
 	if (strncmp(vs->type.fat32.magic, "MSWIN", 5) == 0)
 		goto valid;
 
@@ -956,7 +961,7 @@ valid:
 
 	dir = (struct vfat_dir_entry*) buf;
 
-	for (i = 0; i <= root_dir_entries; i++) {
+	for (i = 0; i < root_dir_entries; i++) {
 		/* end marker */
 		if (dir[i].name[0] == 0x00) {
 			dbg("end of dir");
@@ -967,7 +972,15 @@ valid:
 		if (dir[i].name[0] == FAT_ENTRY_FREE)
 			continue;
 
+		/* long name */
+		if ((dir[i].attr & FAT_ATTR_MASK) == FAT_ATTR_LONG_NAME)
+			continue;
+
 		if ((dir[i].attr & (FAT_ATTR_VOLUME_ID | FAT_ATTR_DIR)) == FAT_ATTR_VOLUME_ID) {
+			/* labels do not have file data */
+			if (dir[i].cluster_high != 0 || dir[i].cluster_low != 0)
+				continue;
+
 			dbg("found ATTR_VOLUME_ID id in root dir");
 			label = dir[i].name;
 			break;
@@ -975,6 +988,10 @@ valid:
 
 		dbg("skip dir entry");
 	}
+
+	vs = (struct vfat_super_block *) get_buffer(id, off, 0x200);
+	if (vs == NULL)
+		return -1;
 
 	if (label != NULL && strncmp(label, "NO NAME    ", 11) != 0) {
 		set_label_raw(id, label, 11);
@@ -1015,7 +1032,7 @@ fat32:
 		count = buf_size / sizeof(struct vfat_dir_entry);
 		dbg("expected entries 0x%x", count);
 
-		for (i = 0; i <= count; i++) {
+		for (i = 0; i < count; i++) {
 			/* end marker */
 			if (dir[i].name[0] == 0x00) {
 				dbg("end of dir");
@@ -1026,7 +1043,15 @@ fat32:
 			if (dir[i].name[0] == FAT_ENTRY_FREE)
 				continue;
 
+			/* long name */
+			if ((dir[i].attr & FAT_ATTR_MASK) == FAT_ATTR_LONG_NAME)
+				continue;
+
 			if ((dir[i].attr & (FAT_ATTR_VOLUME_ID | FAT_ATTR_DIR)) == FAT_ATTR_VOLUME_ID) {
+				/* labels do not have file data */
+				if (dir[i].cluster_high != 0 || dir[i].cluster_low != 0)
+					continue;
+
 				dbg("found ATTR_VOLUME_ID id in root dir");
 				label = dir[i].name;
 				goto fat32_label;
@@ -1050,6 +1075,10 @@ fat32:
 		dbg("reached maximum follow count of root cluster chain, give up");
 
 fat32_label:
+	vs = (struct vfat_super_block *) get_buffer(id, off, 0x200);
+	if (vs == NULL)
+		return -1;
+
 	if (label != NULL && strncmp(label, "NO NAME    ", 11) != 0) {
 		set_label_raw(id, label, 11);
 		set_label_string(id, label, 11);
@@ -1251,9 +1280,13 @@ static int probe_iso9660(struct volume_id *id, __u64 off)
 		return -1;
 
 	if (strncmp(is->iso.id, "CD001", 5) == 0) {
+		char root_label[VOLUME_ID_LABEL_SIZE+1];
 		int vd_offset;
 		int i;
 		int found_svd;
+
+		memset(root_label, 0, sizeof(root_label));
+		strncpy(root_label, is->iso.volume_id, sizeof(root_label)-1);
 
 		found_svd = 0;
 		vd_offset = ISO_VD_OFFSET;
@@ -1264,22 +1297,19 @@ static int probe_iso9660(struct volume_id *id, __u64 off)
 				break;
 			if (is->iso.type == ISO_VD_SUPPLEMENTARY) {
 				dbg("found ISO supplementary VD at offset 0x%llx", off + vd_offset);
+				set_label_raw(id, is->iso.volume_id, 32);
+				set_label_unicode16(id, is->iso.volume_id, BE, 32);
 				found_svd = 1;
 				break;
 			}
 			vd_offset += ISO_SECTOR_SIZE;
 		}
 
-		if (!found_svd) {
-			is = (union iso_super_block *)
-			     get_buffer(id, off + ISO_SUPERBLOCK_OFFSET, 0x200);
-			if (is == NULL)
-				return -1;
-			set_label_raw(id, is->iso.volume_id, 32);
-			set_label_string(id, is->iso.volume_id, 32);
-		} else {
-			set_label_raw(id, is->iso.volume_id, 32);
-			set_label_unicode16(id, is->iso.volume_id, BE, 32);
+		if (!found_svd ||
+		    (found_svd && !strncmp(root_label, id->label, 16)))
+		{
+			set_label_raw(id, root_label, 32);
+			set_label_string(id, root_label, 32);
 		}
 		goto found;
 	}
