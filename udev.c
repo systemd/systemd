@@ -223,7 +223,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 hotplug:
-	if (manage_hotplug_event())
+	if (udev_hotplug_d && manage_hotplug_event())
 		udev_multiplex_directory(&udev, HOTPLUGD_DIR, HOTPLUG_SUFFIX);
 
 exit:

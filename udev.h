@@ -91,5 +91,6 @@ extern char default_owner_str[OWNER_SIZE];
 extern char default_group_str[GROUP_SIZE];
 extern int udev_log;
 extern int udev_dev_d;
+extern int udev_hotplug_d;
 
 #endif

@@ -51,6 +51,7 @@ char default_owner_str[OWNER_SIZE];
 char default_group_str[GROUP_SIZE];
 int udev_log;
 int udev_dev_d;
+int udev_hotplug_d;
 
 
 static int string_is_true(char *str)
@@ -68,7 +69,7 @@ static void init_variables(void)
 {
 	char *env;
 
-	/* fill up the defaults.  
+	/* fill up the defaults.
 	 * If any config values are specified, they will
 	 * override these values. */
 	strfieldcpy(udev_root, UDEV_ROOT);
@@ -82,6 +83,11 @@ static void init_variables(void)
 	env = getenv("UDEV_NO_DEVD");
 	if (env && string_is_true(env))
 		udev_dev_d = 0;
+
+	udev_hotplug_d = 1;
+	env = getenv("UDEV_NO_HOTPLUGD");
+	if (env && string_is_true(env))
+		udev_hotplug_d = 0;
 }
 
 int parse_get_pair(char **orig_string, char **left, char **right)
