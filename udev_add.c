@@ -43,8 +43,7 @@
 #include "logging.h"
 #include "namedev.h"
 #include "udev_db.h"
-
-#include "selinux.h"
+#include "udev_selinux.h"
 
 /*
  * the major/minor of a device is stored in a file called "dev"
@@ -68,7 +67,7 @@ error:
 	return -1;
 }
 
-static int make_node(char *file, int major, int minor, unsigned int mode, uid_t uid, gid_t gid)
+static int make_node(struct udevice *udev, char *file, int major, int minor, unsigned int mode, uid_t uid, gid_t gid)
 {
 	struct stat stats;
 	int retval = 0;
@@ -80,7 +79,7 @@ static int make_node(char *file, int major, int minor, unsigned int mode, uid_t 
 	if (((stats.st_mode & S_IFMT) == S_IFBLK || (stats.st_mode & S_IFMT) == S_IFCHR) &&
 	    (stats.st_rdev == makedev(major, minor))) {
 		dbg("preserve file '%s', cause it has correct dev_t", file);
-		selinux_setfilecon(file,stats.st_mode);
+		selinux_setfilecon(file, udev->kernel_name, stats.st_mode);
 		goto perms;
 	}
 
@@ -90,7 +89,7 @@ static int make_node(char *file, int major, int minor, unsigned int mode, uid_t 
 		dbg("already present file '%s' unlinked", file);
 
 create:
-	selinux_setfscreatecon(file, mode);
+	selinux_setfscreatecon(file, udev->kernel_name, mode);
 	retval = mknod(file, mode, makedev(major, minor));
 	if (retval != 0) {
 		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
@@ -184,7 +183,7 @@ static int create_node(struct udevice *udev)
 
 	if (!udev->test_run) {
 		info("creating device node '%s'", filename);
-		if (make_node(filename, udev->major, udev->minor, udev->mode, uid, gid) != 0)
+		if (make_node(udev, filename, udev->major, udev->minor, udev->mode, uid, gid) != 0)
 			goto error;
 	} else {
 		info("creating device node '%s', major = '%d', minor = '%d', "
@@ -199,7 +198,7 @@ static int create_node(struct udevice *udev)
 			for (i = 1; i <= udev->partitions; i++) {
 				strfieldcpy(partitionname, filename);
 				strintcat(partitionname, i);
-				make_node(partitionname, udev->major, udev->minor + i, udev->mode, uid, gid);
+				make_node(udev, partitionname, udev->major, udev->minor + i, udev->mode, uid, gid);
 			}
 		}
 	}
@@ -237,7 +236,7 @@ static int create_node(struct udevice *udev)
 
 		dbg("symlink(%s, %s)", linktarget, filename);
 		if (!udev->test_run) {
-			selinux_setfscreatecon(filename, S_IFLNK);
+			selinux_setfscreatecon(filename, udev->kernel_name, S_IFLNK);
 			unlink(filename);
 			if (symlink(linktarget, filename) != 0)
 				dbg("symlink(%s, %s) failed with error '%s'",

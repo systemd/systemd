@@ -203,7 +203,7 @@ HEADERS = \
 	udev_db.h	\
 	udev_sysfs.h	\
 	logging.h	\
-	selinux.h	\
+	udev_selinux.h	\
 	list.h
 
 SYSFS_OBJS = \
@@ -243,6 +243,11 @@ ifeq ($(strip $(USE_KLIBC)),true)
 		klibc_fixups/klibc_fixups.o
 
 	OBJS += klibc_fixups/klibc_fixups.a
+endif
+
+ifeq ($(strip $(USE_SELINUX)),true)
+	UDEV_OBJS += udev_selinux.o
+	LIB_OBJS += -lselinux
 endif
 
 ifeq ($(strip $(V)),false)
