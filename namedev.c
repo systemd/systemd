@@ -850,13 +850,13 @@ int namedev_name_device(struct sysfs_class_device *class_dev, struct udevice *ud
 
 found:
 	apply_format(udev, udev->name, sizeof(udev->name), class_dev, sysfs_device);
+	strfieldcpy(udev->config_file, dev->config_file);
+	udev->config_line = dev->config_line;
 
 	if (udev->type == 'n')
 		goto done;
 
 	udev->partitions = dev->partitions;
-	strfieldcpy(udev->config_file, dev->config_file);
-	udev->config_line = dev->config_line;
 
 	/* get permissions given in rule */
 	set_empty_perms(udev, dev->mode,
