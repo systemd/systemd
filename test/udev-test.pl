@@ -36,7 +36,7 @@ my @tests = (
 		desc		=> "label test of scsi disc",
 		subsys		=> "block",
 		devpath		=> "block/sda",
-		exp_name=> "boot_disk" ,
+		exp_name	=> "boot_disk" ,
 		conf		=> <<EOF
 BUS="scsi", SYSFS{vendor}="IBM-ESXS", NAME="boot_disk%n"
 KERNEL="ttyUSB0", NAME="visor"
@@ -46,7 +46,7 @@ EOF
 		desc		=> "label test of scsi partition",
 		subsys		=> "block",
 		devpath		=> "block/sda/sda1",
-		exp_name=> "boot_disk1" ,
+		exp_name	=> "boot_disk1" ,
 		conf		=> <<EOF
 BUS="scsi", SYSFS{vendor}="IBM-ESXS", NAME="boot_disk%n"
 EOF
@@ -55,7 +55,7 @@ EOF
 		desc		=> "label test of pattern match",
 		subsys		=> "block",
 		devpath		=> "block/sda/sda1",
-		exp_name=> "boot_disk1" ,
+		exp_name	=> "boot_disk1" ,
 		conf		=> <<EOF
 BUS="scsi", SYSFS{vendor}="?IBM-ESXS", NAME="boot_disk%n-1"
 BUS="scsi", SYSFS{vendor}="IBM-ESXS?", NAME="boot_disk%n-2"
@@ -529,7 +529,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "block/sda",
 		exp_name	=> "node",
-		perms		=> "5000::0444",
+		exp_perms	=> "5000::0444",
 		conf		=> <<EOF
 BUS="scsi", KERNEL="sda", NAME="node", OWNER="5000", MODE="0444"
 EOF
@@ -610,9 +610,9 @@ sub run_test {
 		my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
 		    $atime, $mtime, $ctime, $blksize, $blocks) = stat("$PWD/$udev_root$config->{exp_name}");
 
-		if (defined($config->{perms})) {
+		if (defined($config->{exp_perms})) {
 			my $wrong = 0;
-			$config->{perms} =~ m/^(.*):(.*):(.*)$/;
+			$config->{exp_perms} =~ m/^(.*):(.*):(.*)$/;
 			if ($1 ne "") {
 				if ($uid != $1) { $wrong = 1; };
 			}
