@@ -83,11 +83,13 @@ static void msg_dump_queue(void)
 #endif
 }
 
+#if 0
 static void msg_dump(struct hotplug_msg *msg)
 {
 	dbg("sequence %d, '%s', '%s', '%s'",
 	    msg->seqnum, msg->action, msg->devpath, msg->subsystem);
 }
+#endif
 
 static struct hotplug_msg *msg_create(void)
 {
