@@ -1,3 +1,17 @@
+Summary of changes from v043 to v044
+============================================
+
+Greg Kroah-Hartman:
+  o add cdsymlinks.sh support to gentoo rules file
+  o fix gentoo legacy tty rule
+  o remove 'sudo' usage from the Makefile
+  o make udev-test.pl test for root permissions before running
+
+Kay Sievers:
+  o reduce syslog noise of udevsend if multiple instances try to start udevd
+  o add i2c-dev to the list of devices without a bus
+
+
 Summary of changes from v042 to v043
 ============================================
 
