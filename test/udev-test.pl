@@ -194,6 +194,15 @@ BUS="scsi", PLACE="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:bus:%b"
 EOF
 	},
 	{
+		desc     => "old style SYSFS_ attribute",
+		subsys   => "block",
+		devpath  => "block/sda",
+		expected => "good" ,
+		conf     => <<EOF
+BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME="good"
+EOF
+	},
+	{
 		desc     => "sustitution of sysfs value (%s{file})",
 		subsys   => "block",
 		devpath  => "block/sda",
