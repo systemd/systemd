@@ -179,7 +179,8 @@ static int find_found;
 
 static int find_device_by_name(char *path, struct udevice *dev)
 {
-	int l, i, j;
+	int pos, len;
+
 	if (strncmp(dev->name, find_name, sizeof(dev->name)) == 0) {
 		memcpy(find_dev, dev, sizeof(struct udevice));
 		strnfieldcpy(find_path, path, NAME_SIZE);
@@ -188,20 +189,18 @@ static int find_device_by_name(char *path, struct udevice *dev)
 		return 1;
 	}
 	/* look for matching symlink*/
-	l = strlen(dev->symlink);
-	if (!l)
-		return 0;
-	i = j = 0;
-	do {
-		j = strcspn(&dev->symlink[i], " ");
-		if (j && strncmp(&dev->symlink[i], find_name, j) == 0) {
-			memcpy(find_dev, dev, sizeof(struct udevice));
-			strnfieldcpy(find_path, path, NAME_SIZE);
-			find_found = 1;
-			return 1;
-		}
-		i = i + j + 1;
-	} while (i < l);
+	foreach_strpart(dev->symlink, " ", pos, len) {
+		if (strncmp(&dev->symlink[pos], find_name, len) != 0)
+			continue;
+
+		if (len != strlen(find_name))
+			continue;
+
+		memcpy(find_dev, dev, sizeof(struct udevice));
+		strnfieldcpy(find_path, path, NAME_SIZE);
+		find_found = 1;
+		return 1;
+	}
 	return 0;
 }
 

@@ -186,16 +186,16 @@ static int unlink_entry(char *filename)
 
 static int create_node(struct udevice *dev, int fake)
 {
-	char filename[255];
-	char linktarget[255];
-	char partitionname[255];
-	char *linkname;
-	char *symlinks;
+	char filename[NAME_SIZE];
+	char linkname[NAME_SIZE];
+	char linktarget[NAME_SIZE];
+	char partitionname[NAME_SIZE];
 	int retval = 0;
 	uid_t uid = 0;
 	gid_t gid = 0;
 	int i;
 	int tail;
+	int pos, len;
 
 	strfieldcpy(filename, udev_root);
 	strfieldcat(filename, dev->name);
@@ -279,47 +279,41 @@ static int create_node(struct udevice *dev, int fake)
 		selinux_add_node(filename);
 
 	/* create symlink if requested */
-	if (dev->symlink[0] != '\0') {
-		symlinks = dev->symlink;
-		while (1) {
-			linkname = strsep(&symlinks, " ");
-			if (linkname == NULL || linkname[0] == '\0')
-				break;
+	foreach_strpart(dev->symlink, " ", pos, len) {
+		strnfieldcpy(linkname, dev->symlink + pos, len+1);
+		strfieldcpy(filename, udev_root);
+		strfieldcat(filename, linkname);
+		dbg("symlink '%s' to node '%s' requested", filename, dev->name);
+		if (!fake)
+			if (strrchr(linkname, '/'))
+				create_path(filename);
 
-			strfieldcpy(filename, udev_root);
-			strfieldcat(filename, linkname);
-			dbg("symlink '%s' to node '%s' requested", filename, dev->name);
-			if (!fake)
-				if (strrchr(linkname, '/'))
-					create_path(filename);
+		/* optimize relative link */
+		linktarget[0] = '\0';
+		i = 0;
+		tail = 0;
+		while ((dev->name[i] == linkname[i]) && dev->name[i]) {
+			if (dev->name[i] == '/')
+				tail = i+1;
+			i++;
+		}
+		while (linkname[i] != '\0') {
+			if (linkname[i] == '/')
+				strfieldcat(linktarget, "../");
+			i++;
+		}
 
-			/* optimize relative link */
-			linktarget[0] = '\0';
-			i = 0;
-			tail = 0;
-			while ((dev->name[i] == linkname[i]) && dev->name[i]) {
-				if (dev->name[i] == '/')
-					tail = i+1;
-				i++;
-			}
-			while (linkname[i] != '\0') {
-				if (linkname[i] == '/')
-					strfieldcat(linktarget, "../");
-				i++;
-			}
+		strfieldcat(linktarget, &dev->name[tail]);
 
-			strfieldcat(linktarget, &dev->name[tail]);
+		if (!fake)
+			unlink_entry(filename);
 
-			if (!fake)
-				unlink_entry(filename);
-
-			dbg("symlink(%s, %s)", linktarget, filename);
-			if (!fake) {
-				retval = symlink(linktarget, filename);
-				if (retval != 0)
-					dbg("symlink(%s, %s) failed with error '%s'",
-					    linktarget, filename, strerror(errno));
-			}
+		dbg("symlink(%s, %s)", linktarget, filename);
+		if (!fake) {
+			retval = symlink(linktarget, filename);
+			if (retval != 0)
+				dbg("symlink(%s, %s) failed with error '%s'",
+				    linktarget, filename, strerror(errno));
 		}
 	}
 

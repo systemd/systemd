@@ -67,12 +67,12 @@ static int delete_path(char *path)
 
 static int delete_node(struct udevice *dev)
 {
-	char filename[255];
-	char partitionname[255];
-	char *symlinks;
-	char *linkname;
+	char filename[NAME_SIZE];
+	char linkname[NAME_SIZE];
+	char partitionname[NAME_SIZE];
 	int retval;
 	int i;
+	int pos, len;
 
 	strfieldcpy(filename, udev_root);
 	strfieldcat(filename, dev->name);
@@ -101,28 +101,22 @@ static int delete_node(struct udevice *dev)
 	if (strchr(dev->name, '/'))
 		delete_path(filename);
 
-	if (dev->symlink[0] != '\0') {
-		symlinks = dev->symlink;
-		while (1) {
-			linkname = strsep(&symlinks, " ");
-			if (linkname == NULL)
-				break;
+	foreach_strpart(dev->symlink, " ", pos, len) {
+		strnfieldcpy(linkname, dev->symlink + pos, len+1);
+		strfieldcpy(filename, udev_root);
+		strfieldcat(filename, linkname);
 
-			strfieldcpy(filename, udev_root);
-			strfieldcat(filename, linkname);
-
-			dbg("unlinking symlink '%s'", filename);
-			retval = unlink(filename);
-			if (errno == ENOENT)
-				retval = 0;
-			if (retval) {
-				dbg("unlink(%s) failed with error '%s'",
-					filename, strerror(errno));
-				return retval;
-			}
-			if (strchr(dev->symlink, '/')) {
-				delete_path(filename);
-			}
+		dbg("unlinking symlink '%s'", filename);
+		retval = unlink(filename);
+		if (errno == ENOENT)
+			retval = 0;
+		if (retval) {
+			dbg("unlink(%s) failed with error '%s'",
+				filename, strerror(errno));
+			return retval;
+		}
+		if (strchr(dev->symlink, '/')) {
+			delete_path(filename);
 		}
 	}
 

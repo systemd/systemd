@@ -97,6 +97,12 @@ do { \
 	snprintf((to) + strlen(to), maxsize - strlen(to)-1, "%u", i); \
 } while (0)
 
+#define foreach_strpart(str, separator, pos, len) \
+	for(pos = 0, len = strcspn(str, separator); \
+	    (pos) < strlen(str); \
+	    pos = pos + (len) + 1, len = strcspn((str) + pos, separator)) \
+		if (len > 0)
+
 static inline char *get_action(void)
 {
 	char *action;
