@@ -8,12 +8,6 @@ greg@kroah.com
 
 - more documentation (can never have too much.)
 - document the config file format (it will change over time...)
-- add proper man page
-- add klibc to the build process (or make it easier to do) to get
-  smaller binary
-- import latest libsysfs and convert udev to use it.
-- On remove, look up the device in the database (now that we have one) and
-  delete what was created, not what the kernel is calling the device.
 - add symlink generation and removal support
 - better partition support (it's a hack right now, maybe new libsysfs changes
   can help out a lot here.)
