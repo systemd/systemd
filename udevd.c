@@ -101,9 +101,14 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 	struct hotplug_msg *loop_msg;
 	struct sysinfo info;
 
-	/* sort message by sequence number into list. events
-	 * will tend to come in order, so scan the list backwards
-	 */
+	if (msg->seqnum == 0) {
+		dbg("no SEQNUM, move straight to the exec queue");
+		list_add(&msg->list, &exec_list);
+		run_exec_q = 1;
+		return;
+	}
+
+	/* sort message by sequence number into list */
 	list_for_each_entry_reverse(loop_msg, &msg_list, list)
 		if (loop_msg->seqnum < msg->seqnum)
 			break;
@@ -279,8 +284,8 @@ recheck:
 	}
 }
 
-/* receive the msg, do some basic sanity checks, and queue it */
-static void handle_udevsend_msg(int sock)
+/* receive the udevsend message and do some sanity checks */
+static struct hotplug_msg *get_udevsend_msg(void)
 {
 	static struct udevsend_msg usend_msg;
 	struct hotplug_msg *msg;
@@ -304,33 +309,36 @@ static void handle_udevsend_msg(int sock)
 	smsg.msg_control = cred_msg;
 	smsg.msg_controllen = sizeof(cred_msg);
 
-	size = recvmsg(sock, &smsg, 0);
+	size = recvmsg(udevsendsock, &smsg, 0);
 	if (size <  0) {
 		if (errno != EINTR)
-			dbg("unable to receive message");
-		return;
+			dbg("unable to receive udevsend message");
+		return NULL;
 	}
 	cmsg = CMSG_FIRSTHDR(&smsg);
 	cred = (struct ucred *) CMSG_DATA(cmsg);
 
 	if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
 		dbg("no sender credentials received, message ignored");
-		goto exit;
+		return NULL;
 	}
 
 	if (cred->uid != 0) {
 		dbg("sender uid=%i, message ignored", cred->uid);
-		goto exit;
+		return NULL;
 	}
 
 	if (strncmp(usend_msg.magic, UDEV_MAGIC, sizeof(UDEV_MAGIC)) != 0 ) {
 		dbg("message magic '%s' doesn't match, ignore it", usend_msg.magic);
-		goto exit;
+		return NULL;
 	}
 
 	envbuf_size = size - offsetof(struct udevsend_msg, envbuf);
 	dbg("envbuf_size=%i", envbuf_size);
 	msg = malloc(sizeof(struct hotplug_msg) + envbuf_size);
+	if (msg == NULL)
+		return NULL;
+
 	memset(msg, 0x00, sizeof(struct hotplug_msg) + envbuf_size);
 
 	/* copy environment buffer and reconstruct envp */
@@ -365,16 +373,7 @@ static void handle_udevsend_msg(int sock)
 	msg->envp[i++] = "UDEVD_EVENT=1";
 	msg->envp[i] = NULL;
 
-	/* if no seqnum is given, we move straight to exec queue */
-	if (msg->seqnum == 0) {
-		list_add(&msg->list, &exec_list);
-		run_exec_q = 1;
-	} else {
-		msg_queue_insert(msg);
-	}
-
-exit:
-	return;
+	return msg;
 }
 
 static void asmlinkage sig_handler(int signum)
@@ -569,6 +568,8 @@ int main(int argc, char *argv[], char *envp[])
 	FD_SET(pipefds[0], &readfds);
 	maxsockplus = udevsendsock+1;
 	while (1) {
+		struct hotplug_msg *msg;
+
 		fd_set workreadfds = readfds;
 		retval = select(maxsockplus, &workreadfds, NULL, NULL, NULL);
 
@@ -578,8 +579,11 @@ int main(int argc, char *argv[], char *envp[])
 			continue;
 		}
 
-		if (FD_ISSET(udevsendsock, &workreadfds))
-			handle_udevsend_msg(udevsendsock);
+		if (FD_ISSET(udevsendsock, &workreadfds)) {
+			msg = get_udevsend_msg();
+			if (msg)
+				msg_queue_insert(msg);
+		}
 
 		if (FD_ISSET(pipefds[0], &workreadfds))
 			user_sighandler();
