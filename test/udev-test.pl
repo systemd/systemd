@@ -1021,13 +1021,44 @@ KERNEL="sda", NAME="cdrom%e"
 EOF
 	},
 	{
+		desc		=> "ignore rule test",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "node",
+		exp_error	=> "yes",
+		conf		=> <<EOF
+BUS="scsi", KERNEL="sda", NAME="node", OPTIONS="ignore"
+EOF
+	},
+	{
+		desc		=> "all_partitions, option-only rule",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "node6",
+		conf		=> <<EOF
+SUBSYSTEM="block", OPTIONS="all_partitions"
+BUS="scsi", KERNEL="sda", NAME="node"
+EOF
+	},
+	{
+		desc		=> "all_partitions, option-only rule (fail on partition)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "node6",
+		exp_error	=> "yes",
+		conf		=> <<EOF
+SUBSYSTEM="block", OPTIONS="all_partitions"
+BUS="scsi", KERNEL="sda", NAME="node"
+EOF
+	},
+	{
 		desc		=> "ignore remove event test",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
 		exp_error	=> "yes",
 		conf		=> <<EOF
-BUS="scsi", KERNEL="sda", NAME{ignore_remove}="node"
+BUS="scsi", KERNEL="sda", NAME="node", OPTIONS="ignore_remove"
 EOF
 	},
 	{
@@ -1038,7 +1069,7 @@ EOF
 		exp_error	=> "yes",
 		option		=> "clear",
 		conf		=> <<EOF
-BUS="scsi", KERNEL="sda", NAME{ignore_remove, all_partitions}="node"
+BUS="scsi", KERNEL="sda", NAME="node", OPTIONS="ignore_remove, all_partitions"
 EOF
 	},
 	{

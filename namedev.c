@@ -4,6 +4,7 @@
  * Userspace devfs
  *
  * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
+ * Copyright (C) 2003-2005 Kay Sievers <kay.sievers@vrfy.org>
  *
  *
  *	This program is free software; you can redistribute it and/or modify it
@@ -749,12 +750,29 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 		dbg("process rule");
 		if (match_rule(udev, dev, class_dev, sysfs_device) == 0) {
 
-			/* empty name, symlink and perms will not create any node */
+			/* FIXME: remove old style ignore rule and make OPTION="ignore" mandatory */
 			if (dev->name[0] == '\0' && dev->symlink[0] == '\0' &&
-			    dev->mode == 0000 && dev->owner[0] == '\0' && dev->group[0] == '\0') {
+			    dev->mode == 0000 && dev->owner[0] == '\0' && dev->group[0] == '\0' &&
+			    !dev->ignore_device && !dev->partitions && !dev->ignore_remove) {
 				info("configured rule in '%s[%i]' applied, '%s' is ignored",
 				     dev->config_file, dev->config_line, udev->kernel_name);
 				return -1;
+			}
+
+			/* apply options */
+			if (dev->ignore_device) {
+				info("configured rule in '%s[%i]' applied, '%s' is ignored",
+				     dev->config_file, dev->config_line, udev->kernel_name);
+				return -1;
+			}
+			if (dev->ignore_remove) {
+				udev->ignore_remove = dev->ignore_remove;
+				dbg_parse("remove event should be ignored");
+			}
+			/* apply all_partitions option only at a main block device */
+			if (dev->partitions && udev->type == 'b' && udev->kernel_number[0] == '\0') {
+				udev->partitions = dev->partitions;
+				dbg("creation of partition nodes requested");
 			}
 
 			/* apply permissions */
@@ -788,11 +806,6 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 
 			/* rule matches */
 			if (dev->name[0] != '\0') {
-				/* apply all_partitions flag only at a main block device */
-				if (dev->partitions > 0 &&
-				    (udev->type != 'b' || udev->kernel_number[0] != '\0'))
-					continue;
-
 				info("configured rule in '%s[%i]' applied, '%s' becomes '%s'",
 				     dev->config_file, dev->config_line, udev->kernel_name, dev->name);
 
@@ -800,15 +813,10 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 				apply_format(udev, udev->name, sizeof(udev->name), class_dev, sysfs_device);
 				strfieldcpy(udev->config_file, dev->config_file);
 				udev->config_line = dev->config_line;
-				udev->ignore_remove = dev->ignore_remove;
 
-				if (udev->type == 'n')
-					goto exit;
-
-				udev->partitions = dev->partitions;
-
-				dbg("name, '%s' is going to have owner='%s', group='%s', mode=%#o partitions=%i",
-				    udev->name, udev->owner, udev->group, udev->mode, udev->partitions);
+				if (udev->type != 'n')
+					dbg("name, '%s' is going to have owner='%s', group='%s', mode=%#o partitions=%i",
+					    udev->name, udev->owner, udev->group, udev->mode, udev->partitions);
 
 				goto exit;
 			}

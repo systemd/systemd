@@ -50,9 +50,11 @@ struct sysfs_class_device;
 #define FIELD_OWNER		"OWNER"
 #define FIELD_GROUP		"GROUP"
 #define FIELD_MODE		"MODE"
+#define FIELD_OPTIONS		"OPTIONS"
 
-#define ATTR_PARTITIONS		"all_partitions"
+#define ATTR_IGNORE_DEVICE	"ignore_device"
 #define ATTR_IGNORE_REMOVE	"ignore_remove"
+#define ATTR_PARTITIONS		"all_partitions"
 
 #define MAX_SYSFS_PAIRS		5
 
@@ -77,11 +79,15 @@ struct config_device {
 	char name[NAME_SIZE];
 	char symlink[NAME_SIZE];
 	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];
+
 	char owner[USER_SIZE];
 	char group[USER_SIZE];
 	mode_t mode;
+
 	int partitions;
+	int ignore_device;
 	int ignore_remove;
+
 	char config_file[NAME_SIZE];
 	int config_line;
 };

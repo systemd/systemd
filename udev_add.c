@@ -194,7 +194,7 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 	}
 
 	/* create all_partitions if requested */
-	if (udev->partitions > 0) {
+	if (udev->partitions) {
 		struct sysfs_attribute *attr;
 		int range;
 

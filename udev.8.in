@@ -145,20 +145,6 @@ call.
 .B NAME
 The name of the node to be created, or the name, the network interface
 should be renamed to.
-.br
-If given with the attribute
-.BR NAME{ all_partitions }
-.B udev
-will create device nodes for all 15 partitions of a blockdevice.
-This may be useful for removable media devices.
-.br
-If given with the attribute
-.BR NAME{ ignore_remove }
-.B udev
-will ignore any later remove event for this device.
-This may be useful as a workaround for broken device drivers.
-.sp
-Multiple attributes may be separated by comma.
 .TP
 .B SYMLINK
 The name of a symlink targeting the node. Multiple symlinks may be
@@ -177,6 +163,21 @@ distribution provided rules file.
 .B OWNER, GROUP, MODE
 The permissions for the device node. Every specified value overwrites the
 compiled-in default value.
+.TP
+.B OPTIONS
+.B ignore_device
+will ignore this device. No node will be created.
+.sp
+.B ignore_remove
+will ignore any later remove event for this device.
+This may be useful as a workaround for broken device drivers.
+.sp
+.B all_partitions
+will create device nodes for all available partitions of a blockdevice.
+This may be useful for removable media devices which do not detect a media
+change.
+.sp
+Multiple attributes may be separated by comma.
 .P
 .RB "The " NAME ", " SYMLINK ", " PROGRAM ", " OWNER " and " GROUP
 fields support simple printf-like string substitutions:

@@ -4,6 +4,7 @@
  * Userspace devfs
  *
  * Copyright (C) 2003,2004 Greg Kroah-Hartman <greg@kroah.com>
+ * Copyright (C) 2003-2005 Kay Sievers <kay.sievers@vrfy.org>
  *
  *
  *	This program is free software; you can redistribute it and/or modify it
@@ -247,6 +248,7 @@ static int namedev_parse(const char *filename, void *data)
 
 			if (strncasecmp(temp2, FIELD_NAME, sizeof(FIELD_NAME)-1) == 0) {
 				attr = get_key_attribute(temp2 + sizeof(FIELD_NAME)-1);
+				/* FIXME: remove old style options and make OPTIONS= mandatory */
 				if (attr != NULL) {
 					if (strstr(attr, ATTR_PARTITIONS) != NULL) {
 						dbg_parse("creation of partition nodes requested");
@@ -282,6 +284,23 @@ static int namedev_parse(const char *filename, void *data)
 
 			if (strcasecmp(temp2, FIELD_MODE) == 0) {
 				dev.mode = strtol(temp3, NULL, 8);
+				valid = 1;
+				continue;
+			}
+
+			if (strcasecmp(temp2, FIELD_OPTIONS) == 0) {
+				if (strstr(temp3, ATTR_IGNORE_DEVICE) != NULL) {
+					dbg_parse("device should be ignored");
+					dev.ignore_device = 1;
+				}
+				if (strstr(temp3, ATTR_IGNORE_REMOVE) != NULL) {
+					dbg_parse("remove event should be ignored");
+					dev.ignore_remove = 1;
+				}
+				if (strstr(temp3, ATTR_PARTITIONS) != NULL) {
+					dbg_parse("creation of partition nodes requested");
+					dev.partitions = DEFAULT_PARTITIONS_COUNT;
+				}
 				valid = 1;
 				continue;
 			}
