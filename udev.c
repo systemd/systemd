@@ -107,7 +107,7 @@ static void get_dirs(void)
 	}
 	dbg("sysfs_path='%s'", sysfs_path);
 
-	strncpy(udev_db_filename, udev_config_dir, sizeof(udev_db_filename));
+	strncpy(udev_db_filename, udev_root, sizeof(udev_db_filename));
 	strncat(udev_db_filename, udev_db, sizeof(udev_db_filename));
 
 	strncpy(udev_config_filename, udev_config_dir, sizeof(udev_config_filename));

@@ -52,7 +52,7 @@ extern int log_message (int level, const char *format, ...)
 
 
 /* filenames for the config and database files */
-#define UDEV_DB				"udev.tdb"
+#define UDEV_DB				".udev.tdb"
 #define UDEV_CONFIG_PERMISSION_FILE	"udev.permissions"
 #define UDEV_CONFIG_FILE		"udev.config"
 
