@@ -9,8 +9,9 @@
 
 #include <unistd.h>
 #include <sys/syscall.h>
+#include <bitsize.h>
 
-#if BITSIZE == 32
+#if _BITSIZE == 32
 
 extern int __llseek(int fd, unsigned long hi, unsigned long lo, off_t *res, int whence);
 

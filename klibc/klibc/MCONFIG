@@ -14,5 +14,7 @@ REQFLAGS += -DWITH_ERRLIST
 endif
 
 CFLAGS  = -Wp,-MT,$@,-MD,$(dir $@).$(notdir $@).d $(OPTFLAGS) $(REQFLAGS) $(WARNFLAGS)
+INCLUDE += -I./zlib
+CFLAGS  += -DDYNAMIC_CRC_TABLE
 
 SOFLAGS = -fPIC

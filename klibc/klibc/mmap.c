@@ -8,20 +8,20 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <asm/page.h>		/* For PAGE_SHIFT */
+#include <bitsize.h>
 
-#if defined(__sparc__)
+/*
+ * MMAP2_SHIFT is definitely *NOT* equal to getpageshift() for
+ * many 32-bit architectures.  Supposedly this is fixed to 12
+ * for all 32-bit architectures.  CHECK THIS!!!
+ */
 # define MMAP2_SHIFT	12	/* Fixed by syscall definition */
-#elif defined(__mips__) || defined(__powerpc__)
-# define MMAP2_SHIFT	__getpageshift() /* Variable */
-#else
-# define MMAP2_SHIFT	PAGE_SHIFT
-#endif
 
 /*
  * Set in SYSCALLS whether or not we should use an unadorned mmap() system
  * call (typical on 64-bit architectures).
  */
-#if (BITSIZE == 32 && defined(__NR_mmap2)) || (BITSIZE == 64 && !defined(__NR_mmap))
+#if (_BITSIZE == 32 && defined(__NR_mmap2)) || (_BITSIZE == 64 && !defined(__NR_mmap))
 
 /* This architecture uses mmap2(). The Linux mmap2() system call takes
    a page offset as the offset argument.  We need to make sure we have

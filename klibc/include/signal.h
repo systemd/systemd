@@ -27,8 +27,19 @@ typedef int sig_atomic_t;
 #ifndef SA_NODEFER
 # define SA_NODEFER SA_NOMASK
 #endif
+/* Some architectures define NSIG and not _NSIG or vice versa */
 #ifndef NSIG
 # define NSIG _NSIG
+#endif
+#ifndef _NSIG
+# define _NSIG NSIG
+#endif
+
+/* If we don't have any real-time signals available to userspace,
+   hide them all */
+#if SIGRTMAX <= SIGRTMIN
+# undef SIGRTMIN
+# undef SIGRTMAX
 #endif
 
 __extern const char * const sys_siglist[];

@@ -8,11 +8,12 @@
 #include <stdint.h>
 #include <klibc/extern.h>
 #include <sys/types.h>
+#include <bitsize.h>
 
 /* struct statfs64 -- there seems to be two standards -
    one for 32 and one for 64 bits, and they're incompatible... */
 
-#if BITSIZE == 32 || defined(__s390__)
+#if _BITSIZE == 32 || defined(__s390__)
 
 struct statfs {
         uint32_t f_type;
@@ -28,7 +29,7 @@ struct statfs {
         uint32_t f_spare[5];
 };
 
-#else /* BITSIZE == 64 */
+#else /* _BITSIZE == 64 */
 
 struct statfs {
         uint64_t f_type;
@@ -44,7 +45,7 @@ struct statfs {
         uint64_t f_spare[5];
 };
 
-#endif /* BITSIZE */
+#endif /* _BITSIZE */
 
 __extern int statfs(const char *, struct statfs *);
 __extern int fstatfs(int, struct statfs *);

@@ -11,6 +11,7 @@
 ;
 
 #include <asm/unistd.h>
+#include <bitsize.h>
 
 ;
 ; Process-related syscalls
@@ -175,7 +176,8 @@ int munmap(void *, size_t)
 void * mremap(void *, size_t, size_t, unsigned long)
 int msync(const void *, size_t, int)
 int mprotect(const void *, size_t, int)
-#if (BITSIZE == 32 && defined(__NR_mmap2)) || (BITSIZE == 64 && !defined(__NR_mmap))
+#if (_BITSIZE == 32 && defined(__NR_mmap2)) || \
+    (_BITSIZE == 64 && !defined(__NR_mmap))
 <!s390> void * mmap2::__mmap2(void *, size_t, int, int, int, long)
 #else
 <!s390x> void * mmap(void *, size_t, int, int, int, long)

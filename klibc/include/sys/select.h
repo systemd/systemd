@@ -5,6 +5,7 @@
 #ifndef _SYS_SELECT_H
 #define _SYS_SELECT_H
 
+#include <klibc/extern.h>
 #include <sys/time.h>
 #include <sys/types.h>
 

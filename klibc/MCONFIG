@@ -3,6 +3,17 @@
 # Makefile configuration, without explicit rules
 #
 
+# Location for installation
+prefix      = /usr
+bindir      = $(prefix)/bin
+libdir      = $(prefix)/lib
+mandir      = $(prefix)/man
+INSTALLDIR  = $(prefix)/lib/klibc
+INSTALLROOT =
+
+INSTALL_EXEC = install -m 755
+INSTALL_DATA = install -m 644
+
 # Eventually support separate compilation, but we don't have it yet...
 OBJROOT = $(SRCROOT)
 
@@ -20,16 +31,18 @@ INCLUDE = -I$(SRCROOT)/include/arch/$(ARCH) \
 	  -I$(SRCROOT)/include/bits$(BITSIZE) \
 	  -I$(SRCROOT)/include \
 	  -I$(KRNLOBJ)/include -I$(KRNLOBJ)/include2 -I$(KRNLSRC)/include
-REQFLAGS = $(ARCHREQFLAGS) -nostdinc -iwithprefix include \
-	  -D__KLIBC__ -DBITSIZE=$(BITSIZE) \
-	  $(INCLUDE)
+REQFLAGS = $(ARCHREQFLAGS) -nostdinc -iwithprefix include -D__KLIBC__ \
+	   $(INCLUDE)
 LDFLAGS =
 AR      = $(CROSS)ar
 RANLIB  = $(CROSS)ranlib
 NM	= $(CROSS)nm
 PERL    = perl
-STRIP   = $(CROSS)strip --strip-all -R .comment -R .note
 OBJCOPY = $(CROSS)objcopy
+
+STRIP      = $(CROSS)strip
+STRIPFLAGS = --strip-all -R .comment -R .note
+STRIPCMD   = $(STRIP) $(STRIPFLAGS)
 
 HOST_CC      = gcc
 HOST_CFLAGS  = -g -O
@@ -56,6 +69,9 @@ SHLIBDIR = /lib
 # This makes klibc.so and any static binary which uses these functions
 # about 4K bigger.
 ERRLIST = 1
+
+# Include zlib in klibc.  This roughly triples the size of klibc!
+ZLIB = 0
 
 #
 # Include arch-specific rule fragments

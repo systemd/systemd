@@ -1,0 +1,207 @@
+# -*- perl -*-
+
+# Standard includes
+@includes = ("-I${INSTALLDIR}/${CROSS}include/arch/${ARCH}",
+	     "-I${INSTALLDIR}/${CROSS}include/bits${BITSIZE}",
+	     "-I${INSTALLDIR}/${CROSS}include");
+
+# Default optimization options (for compiles without -g)
+@optopt =  @OPTFLAGS;
+@goptopt = ('-O');
+
+# Options and libraries to pass to ld; shared versus static
+@staticopt = ("$INSTALLDIR/${CROSS}lib/crt0.o");
+@staticlib = ("$INSTALLDIR/${CROSS}lib/libc.a");
+@sharedopt = (@EMAIN, "$INSTALLDIR/${CROSS}lib/interp.o");
+@sharedlib = ('-R', "$INSTALLDIR/lib/${CROSS}libc.so");
+
+# Returns the language (-x option string) for a specific extension.
+sub filename2lang($) {
+    my ($file) = @_;
+
+    return 'c' if ( $file =~ /\.c$/ );
+    return 'c-header' if ( $file =~ /\.h$/ );
+    return 'cpp-output' if ( $file =~ /\.i$/ );
+    return 'c++-cpp-output' if ( $file =~ /\.ii$/ );
+    return 'objective-c' if ( $file =~ /\.m$/ );
+    return 'objc-cpp-output' if ( $file =~ /\.mi$/ );
+    return 'c++' if ( $file =~/\.(cc|cp|cxx|cpp|CPP|c\+\+|C)$/ );
+    return 'c++-header' if ( $file =~ /\.(hh|H)$/ );
+    return 'f77' if ( $file =~ /\.(f|for|FOR)$/ );
+    return 'f77-cpp-input' if ( $file =~ /\.(F|fpp|FPP)$/ );
+    return 'ratfor' if ( $file =~ /\.r$/ );
+
+    # Is this correct?
+    return 'ada' if ( $file =~ /\.(ads|adb)$/ );
+
+    return 'assembler' if ( $file =~ /\.s$/ );
+    return 'assembler-with-cpp' if ( $file =~/ \.S$/ );
+
+    # Linker file; there is no option to gcc to assume something
+    # is a linker file, so we make up our own...
+    return 'obj';
+}
+
+# Produces a series of -x options and files
+sub files_with_lang($$) {
+    my($files, $flang) = @_;
+    my(@as) = ();
+    my($xopt) = 'none';
+    my($need);
+
+    foreach $f ( @{$files} ) {
+	$need = ${$flang}{$f};
+	$need = 'none' if ( $need eq 'obj' );
+	unless ( $xopt eq $need ||
+		 ($xopt eq 'none' && filename2lang($f) eq $need) ) {
+	    push(@as, '-x', $need);
+	    $xopt = $need;
+	}
+	push(@as, $f);
+    }
+
+    return @as;
+}
+
+# Convert a return value from system() to an exit() code
+sub syserr($) {
+    my($e) = @_;
+
+    return ($e & 0x7f) | 0x80 if ( $e & 0xff );
+    return $e >> 8;
+}
+
+# Run a program; printing out the command line if $verbose is set
+sub mysystem(@) {
+    print STDERR join(' ', @_), "\n" if ( $verbose );
+    return system(@_);
+}
+
+#
+# Begin parsing options.
+#
+
+@ccopt = ();
+@ldopt = ();
+
+@files = ();			# List of files
+%flang = ();			# Languages for files
+
+# This is 'c' for compile only, 'E' for preprocess only,
+# 'S' for compile to assembly.
+$operation = '';		# Compile and link
+
+# Current -x option.  If undefined, it means autodetect.
+undef $lang;
+
+$save_temps = 0;		# The -save-temps option
+$verbose = 0;			# The -v option
+$shared = 0;	   		# Are we compiling shared?
+$debugging = 0;	   		# -g or -p option present?
+$strip = 0;			# -s option present?
+undef $output;			# -o option present?
+
+while ( defined($a = shift(@ARGV)) ) {
+    if ( $a !~ /^\-/ ) {
+	# Not an option.  Must be a filename then.
+	push(@files, $a);
+	$flang{$a} = $lang || filename2lang($a);
+    } elsif ( $a =~ /^-Wl,(.*)$/ ) {
+	# -Wl used to pass options to the linker
+	push(@ldopt, split(/,/, $1));
+    } elsif ( $a =~ /^-([fmwWQdO]|std=|ansi|pedantic)/ ) {
+	# Options to gcc
+	push(@ccopt, $a);
+    } elsif ( $a =~ /^-([DUI])(.*)$/ ) {
+	# Options to gcc, which can take either a conjoined argument
+	# (-DFOO) or a disjoint argument (-D FOO)
+	push(@ccopt, $a);
+	push(@ccopt, shift(@ARGV)) if ( $2 eq '' );
+    } elsif ( $a eq '-include' ) {
+	# Options to gcc which always take a disjoint argument
+	push(@ccopt, $a, shift(@ARGV));
+    } elsif ( $a =~ /^-[gp]/ ) {
+	# Debugging options to gcc *and* ld
+	push(@ccopt, $a);
+	push(@ldopt, $a);
+	$debugging = 1;
+    } elsif ( $a eq '-v' ) {
+	push(@ccopt, $a);
+	$verbose = 1;
+    } elsif ( $a eq '-save-temps' ) {
+	push(@ccopt, $a);
+	$save_temps = 1;
+    } elsif ( $a =~ '^-([cSE])$' ) {
+	push(@ccopt, $a);
+	$operation = $1;
+    } elsif ( $a eq '-shared' ) {
+	$shared = 1;
+    } elsif ( $a eq '-static' ) {
+	$shared = 0;
+    } elsif ( $a eq '-s' ) {
+	$strip = 1;
+    } elsif ( $a eq '-o' ) {
+	$output = shift(@ARGV);
+    } elsif ( $a eq '-nostdinc' ) {
+	push(@ccopt, $a);
+	@includes = ();
+    } elsif ( $a =~ /^(-print|--help)/ ) {
+	# Pseudo-operations; just pass to gcc and don't do anything else
+	push(@ccopt, $a);
+	$operation = 'c' if ( $operation eq '' );
+    } else {
+	die "$0: unknown option: $a\n";
+    }
+}
+
+if ( $debugging ) {
+    @ccopt = (@REQFLAGS, @includes, @goptopt, @ccopt);
+} else {
+    @ccopt = (@REQFLAGS, @includes, @optopt, @ccopt);
+}
+
+if ( $operation ne '' ) {
+    # Just run gcc with the appropriate options
+    @outopt = ('-o', $output) if ( defined($output) );
+    $rv = mysystem($CC, @ccopt, @outopt, files_with_lang(\@files, \%flang));
+} else {
+    @outopt = ('-o', $output || 'a.out');
+
+    @objs = ();
+    @rmobjs = ();
+
+    foreach $f ( @files ) {
+	if ( $flang{$f} eq 'obj' ) {
+	    push(@objs, $f);
+	} else {
+	    $fo = $f;
+	    $fo =~ s/\.[^\/.]+$/\.o/;
+
+	    die if ( $f eq $fo ); # safety check
+
+	    push(@objs, $fo);
+	    push(@rmobjs, $fo) unless ( $save_temps );
+
+	    $rv = mysystem($CC, @ccopt, '-c', '-o', $fo, '-x', $flang{$f}, $f);
+
+	    if ( $rv ) {
+		unlink(@rmobjs);
+		exit syserr($rv);
+	    }
+	}
+    }
+
+    if ( $shared ) {
+	$rv = mysystem($LD, @LDFLAGS, @sharedopt, @ldopt, @outopt, @objs, @sharedlib);
+    } else {
+	$rv = mysystem($LD, @LDFLAGS, @staticopt, @ldopt, @outopt, @objs, @staticlib);
+    }
+
+    unlink(@rmobjs);
+
+    if ( $strip && !$rv ) {
+	$rv = mysystem($STRIP, @STRIPFLAGS, $output);
+    }
+}
+
+exit syserr($rv);

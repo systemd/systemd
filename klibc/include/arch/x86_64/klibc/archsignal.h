@@ -8,6 +8,10 @@
 #ifndef _KLIBC_ARCHSIGNAL_H
 #define _KLIBC_ARCHSIGNAL_H
 
-/* No special stuff for this architecture */
+/* The x86-64 headers defines NSIG 32, but it's actually 64 */
+#undef  _NSIG
+#undef  NSIG
+#define _NSIG 64
+#define NSIG  _NSIG
 
 #endif

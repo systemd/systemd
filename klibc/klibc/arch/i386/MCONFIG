@@ -13,11 +13,13 @@ REGPARM_OPT := -mregparm=3 -DREGPARM=3
 
 gcc_major := $(shell echo __GNUC__ | $(CC) -E -xc - | tail -n 1)
 
-OPTFLAGS = $(REGPARM) -march=i386 -Os -g
+OPTFLAGS  = -march=i386 -Os -g
+LDFLAGS   = -m elf_i386
 
 ifeq ($(gcc_major),3)
 REGPARM  := $(REGPARM_OPT)
 OPTFLAGS += -falign-functions=0 -falign-jumps=0 -falign-loops=0
+ARCHREQFLAGS += -m32
 else
 OPTFLAGS += -malign-functions=0 -malign-jumps=0 -malign-loops=0
 endif
