@@ -158,7 +158,7 @@ static void set_to_local_user(char *user)
 
 		if (u->ut_time > recent) {
 			recent = u->ut_time;
-			strfieldcpy(user, u->ut_user);
+			strnfieldcpy(user, u->ut_user, OWNER_SIZE);
 			dbg("local user is '%s'", user);
 			break;
 		}
