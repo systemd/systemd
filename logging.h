@@ -27,6 +27,7 @@
 #define info(format, arg...)		do { } while (0)
 #define dbg(format, arg...)		do { } while (0)
 #define dbg_parse(format, arg...)	do { } while (0)
+#define init_logging(foo)		do { } while (0)
 
 #ifdef LOG
 #include <stdarg.h>
@@ -69,6 +70,7 @@ static inline void log_message (int level, const char *format, ...)
 /* each program must declare this variable somewhere */
 extern unsigned char logname[42];
 
+#undef init_logging
 static inline void init_logging(char *program_name)
 {
 	snprintf(logname, 42,"%s[%d]", program_name, getpid());
