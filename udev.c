@@ -130,17 +130,6 @@ int main(int argc, char *argv[], char *envp[])
 	/* trigger timeout to prevent hanging processes */
 	alarm(ALARM_TIMEOUT);
 
-	if (strstr(argv[0], "udevstart") || (argc == 2 && strstr(argv[1], "udevstart"))) {
-		dbg("udevstart");
-
-		/* disable all logging, as it's much too slow on some facilities */
-		udev_log = 0;
-
-		namedev_init();
-		retval = udev_start();
-		goto exit;
-	}
-
 	/* let the executed programs know if we handle the whole hotplug event */
 	managed_event = manage_hotplug_event();
 	if (managed_event)
@@ -240,7 +229,6 @@ hotplug:
 	if (udev_hotplug_d && managed_event)
 		udev_multiplex_directory(&udev, HOTPLUGD_DIR, HOTPLUG_SUFFIX);
 
-exit:
 	logging_close();
 	return retval;
 }

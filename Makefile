@@ -139,7 +139,6 @@ UDEV_OBJS = \
 	udev_config.o		\
 	udev_add.o		\
 	udev_remove.o		\
-	udev_start.o		\
 	udev_sysfs.o		\
 	udev_db.o		\
 	udev_multiplex.o	\
@@ -222,7 +221,7 @@ endif
 # config files automatically generated
 GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
 
-all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(GEN_CONFIGS)
+all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(STARTER) $(GEN_CONFIGS)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) \
@@ -309,6 +308,10 @@ $(DAEMON): $(LIBC) $(DAEMON).o $(OBJS) udevd.h
 
 $(SENDER): $(LIBC) $(SENDER).o $(OBJS) udevd.h
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(SENDER).o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(STRIPCMD) $@
+
+$(STARTER): $(LIBC) $(STARTER).o $(OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CRT0) $(STARTER).o $(OBJS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
 .c.o:
@@ -405,7 +408,7 @@ install: install-config install-man install-dev.d all
 	$(INSTALL_PROGRAM) -D $(SENDER) $(DESTDIR)$(sbindir)/$(SENDER)
 	$(INSTALL_PROGRAM) -D $(INFO) $(DESTDIR)$(usrbindir)/$(INFO)
 	$(INSTALL_PROGRAM) -D $(TESTER) $(DESTDIR)$(usrbindir)/$(TESTER)
-	- ln -f -s $(sbindir)/udev $(DESTDIR)$(sbindir)/$(STARTER)
+	$(INSTALL_PROGRAM) -D $(STARTER) $(DESTDIR)$(sbindir)/$(STARTER)
 	- ln -f -s $(sbindir)/$(SENDER) $(DESTDIR)$(hotplugdir)/10-udev.hotplug
 ifndef DESTDIR
 	- killall $(DAEMON)

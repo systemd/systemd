@@ -26,27 +26,32 @@
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <errno.h>
 #include <ctype.h>
 #include <dirent.h>
+#include <signal.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "logging.h"
+#include "namedev.h"
 #include "udev_utils.h"
 #include "list.h"
 #include "udev.h"
 
-
-#define MAX_PATH_SIZE		512
+#ifdef USE_LOG
+void log_message(int level, const char *format, ...)
+{
+}
+#endif
 
 struct device {
 	struct list_head list;
-	char path[MAX_PATH_SIZE];
-	char subsys[MAX_PATH_SIZE];
+	char path[DEVPATH_SIZE];
+	char subsys[SUBSYSTEM_SIZE];
 };
 
 /* sort files in lexical order */
@@ -100,7 +105,7 @@ static int add_device(const char *path, const char *subsystem)
 	setenv("DEVPATH", devpath, 1);
 	setenv("SUBSYSTEM", subsystem, 1);
 
-	dbg("exec  : '%s' (%s)\n", devpath, path);
+	dbg("exec: '%s' (%s)\n", devpath, path);
 
 	class_dev = sysfs_open_class_device_path(path);
 	if (class_dev == NULL) {
@@ -118,6 +123,7 @@ static int add_device(const char *path, const char *subsystem)
 	}
 
 	sysfs_close_class_device(class_dev);
+	udev_cleanup_device(&udev);
 
 	return 0;
 }
@@ -167,11 +173,11 @@ static void exec_list(struct list_head *device_list)
 
 static int has_devt(const char *directory)
 {
-	char filename[MAX_PATH_SIZE];
+	char filename[NAME_SIZE];
 	struct stat statbuf;
 
-	snprintf(filename, MAX_PATH_SIZE, "%s/dev", directory);
-	filename[MAX_PATH_SIZE-1] = '\0';
+	snprintf(filename, NAME_SIZE, "%s/dev", directory);
+	filename[NAME_SIZE-1] = '\0';
 
 	if (stat(filename, &statbuf) == 0)
 		return 1;
@@ -181,42 +187,42 @@ static int has_devt(const char *directory)
 
 static void udev_scan_block(void)
 {
-	char base[MAX_PATH_SIZE];
+	char base[NAME_SIZE];
 	DIR *dir;
 	struct dirent *dent;
 	LIST_HEAD(device_list);
 
-	snprintf(base, MAX_PATH_SIZE, "%s/block", sysfs_path);
-	base[MAX_PATH_SIZE-1] = '\0';
+	snprintf(base, DEVPATH_SIZE, "%s/block", sysfs_path);
+	base[DEVPATH_SIZE-1] = '\0';
 
 	dir = opendir(base);
 	if (dir != NULL) {
 		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-			char dirname[MAX_PATH_SIZE];
+			char dirname[DEVPATH_SIZE];
 			DIR *dir2;
 			struct dirent *dent2;
 
 			if (dent->d_name[0] == '.')
 				continue;
 
-			snprintf(dirname, MAX_PATH_SIZE, "%s/%s", base, dent->d_name);
-			dirname[MAX_PATH_SIZE-1] = '\0';
+			snprintf(dirname, NAME_SIZE, "%s/%s", base, dent->d_name);
+			dirname[NAME_SIZE-1] = '\0';
 			if (has_devt(dirname))
 				device_list_insert(dirname, "block", &device_list);
 			else
 				continue;
 
-			snprintf(dirname, MAX_PATH_SIZE, "%s/%s", base, dent->d_name);
+			/* look for partitions */
 			dir2 = opendir(dirname);
 			if (dir2 != NULL) {
 				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
-					char dirname2[MAX_PATH_SIZE];
+					char dirname2[DEVPATH_SIZE];
 
 					if (dent2->d_name[0] == '.')
 						continue;
 
-					snprintf(dirname2, MAX_PATH_SIZE, "%s/%s", dirname, dent2->d_name);
-					dirname2[MAX_PATH_SIZE-1] = '\0';
+					snprintf(dirname2, DEVPATH_SIZE, "%s/%s", dirname, dent2->d_name);
+					dirname2[DEVPATH_SIZE-1] = '\0';
 
 					if (has_devt(dirname2))
 						device_list_insert(dirname2, "block", &device_list);
@@ -226,42 +232,42 @@ static void udev_scan_block(void)
 		}
 		closedir(dir);
 	}
-
 	exec_list(&device_list);
 }
 
 static void udev_scan_class(void)
 {
-	char base[MAX_PATH_SIZE];
+	char base[DEVPATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
 	LIST_HEAD(device_list);
 
-	snprintf(base, MAX_PATH_SIZE, "%s/class", sysfs_path);
-	base[MAX_PATH_SIZE-1] = '\0';
+	snprintf(base, DEVPATH_SIZE, "%s/class", sysfs_path);
+	base[DEVPATH_SIZE-1] = '\0';
 
 	dir = opendir(base);
 	if (dir != NULL) {
 		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-			char dirname[MAX_PATH_SIZE];
+			char dirname[DEVPATH_SIZE];
 			DIR *dir2;
 			struct dirent *dent2;
 
 			if (dent->d_name[0] == '.')
 				continue;
 
-			snprintf(dirname, MAX_PATH_SIZE, "%s/%s", base, dent->d_name);
-			dirname[MAX_PATH_SIZE-1] = '\0';
+			snprintf(dirname, DEVPATH_SIZE, "%s/%s", base, dent->d_name);
+			dirname[DEVPATH_SIZE-1] = '\0';
+
 			dir2 = opendir(dirname);
 			if (dir2 != NULL) {
 				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
-					char dirname2[MAX_PATH_SIZE];
+					char dirname2[DEVPATH_SIZE];
 
 					if (dent2->d_name[0] == '.')
 						continue;
 
-					snprintf(dirname2, MAX_PATH_SIZE, "%s/%s", dirname, dent2->d_name);
-					dirname2[MAX_PATH_SIZE-1] = '\0';
+					snprintf(dirname2, DEVPATH_SIZE, "%s/%s", dirname, dent2->d_name);
+					dirname2[DEVPATH_SIZE-1] = '\0';
 
 					/* pass the net class as it is */
 					if (strcmp(dent->d_name, "net") == 0)
@@ -274,18 +280,46 @@ static void udev_scan_class(void)
 		}
 		closedir(dir);
 	}
-
 	exec_list(&device_list);
 }
 
-int udev_start(void)
+static void asmlinkage sig_handler(int signum)
 {
-	/* set environment for callouts and dev.d/ */
+	switch (signum) {
+		case SIGALRM:
+			exit(1);
+		case SIGINT:
+		case SIGTERM:
+			exit(20 + signum);
+	}
+}
+
+int main(int argc, char *argv[], char *envp[])
+{
+	struct sigaction act;
+
+	udev_init_config();
+
+	/* set signal handlers */
+	memset(&act, 0x00, sizeof(act));
+	act.sa_handler = (void (*) (int))sig_handler;
+	sigemptyset (&act.sa_mask);
+	act.sa_flags = 0;
+	sigaction(SIGALRM, &act, NULL);
+	sigaction(SIGINT, &act, NULL);
+	sigaction(SIGTERM, &act, NULL);
+
+	/* trigger timeout to prevent hanging processes */
+	alarm(ALARM_TIMEOUT);
+
+	/* set environment for executed programs */
 	setenv("ACTION", "add", 1);
 	setenv("UDEV_START", "1", 1);
 
-	udev_scan_class();
+	namedev_init();
+
 	udev_scan_block();
+	udev_scan_class();
 
 	return 0;
 }
