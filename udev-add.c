@@ -99,11 +99,44 @@ static int create_path(char *file)
 	return 0;
 }
 
+static int make_node(char *filename, int major, int minor, unsigned int mode, uid_t uid, gid_t gid)
+{
+	int retval;
+
+	retval = mknod(filename, mode, makedev(major, minor));
+	if (retval != 0) {
+		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
+		    filename, mode, major, minor, strerror(errno));
+		return retval;
+	}
+
+	dbg("chmod(%s, %#o)", filename, mode);
+	retval = chmod(filename, mode);
+	if (retval != 0) {
+		dbg("chmod(%s, %#o) failed with error '%s'",
+		    filename, mode, strerror(errno));
+		return retval;
+	}
+
+	if (uid != 0 || gid != 0) {
+		dbg("chown(%s, %u, %u)", filename, uid, gid);
+		retval = chown(filename, uid, gid);
+		if (retval != 0) {
+			dbg("chown(%s, %u, %u) failed with error '%s'",
+			    filename, uid, gid, strerror(errno));
+			return retval;
+		}
+	}
+
+	return 0;
+}
+
 static int create_node(struct udevice *dev, int fake)
 {
 	struct stat stats;
 	char filename[255];
 	char linktarget[255];
+	char partitionname[255];
 	char *linkname;
 	char *symlinks;
 	int retval = 0;
@@ -135,23 +168,6 @@ static int create_node(struct udevice *dev, int fake)
 	if (strrchr(dev->name, '/'))
 		create_path(filename);
 
-	info("creating device node '%s'", filename);
-	dbg("mknod(%s, %#o, %u, %u)", filename, dev->mode, dev->major, dev->minor);
-	if (!fake) {
-		retval = mknod(filename, dev->mode, makedev(dev->major, dev->minor));
-		if (retval != 0)
-			dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
-			    filename, dev->mode, dev->major, dev->minor, strerror(errno));
-	}
-
-	dbg("chmod(%s, %#o)", filename, dev->mode);
-	if (!fake) {
-		retval = chmod(filename, dev->mode);
-		if (retval != 0)
-			dbg("chmod(%s, %#o) failed with error '%s'",
-			    filename, dev->mode, strerror(errno));
-	}
-
 	if (dev->owner[0] != '\0') {
 		char *endptr;
 		unsigned long id = strtoul(dev->owner, &endptr, 10);
@@ -180,12 +196,18 @@ static int create_node(struct udevice *dev, int fake)
 		}
 	}
 
-	if (uid != 0 || gid != 0) {
-		dbg("chown(%s, %u, %u)", filename, uid, gid);
-		retval = chown(filename, uid, gid);
-		if (retval != 0)
-			dbg("chown(%s, %u, %u) failed with error '%s'",
-			    filename, uid, gid, strerror(errno));
+	if (!fake)
+		info("creating device node '%s'", filename);
+		make_node(filename, dev->major, dev->minor, dev->mode, uid, gid);
+
+	/* create partitions if requested */
+	if (dev->partitions > 0) {
+		info("creating device partition nodes '%s[1-%i]'", filename, dev->partitions);
+		for (i = 1; i <= dev->partitions; i++) {
+			sprintf(partitionname, "%s%i", filename, i);
+			make_node(partitionname, dev->major, dev->minor + i,
+				    dev->mode, uid, gid);
+		}
 	}
 
 	/* create symlink if requested */
@@ -222,8 +244,7 @@ static int create_node(struct udevice *dev, int fake)
 				strcpy(linktarget, "./");
 			strcat(linktarget, &dev->name[tail]);
 
-			/* unlink existing non-directories to ensure that our symlink
-			 * is created */
+			/* unlink existing files to ensure that our symlink is created */
 			if (!fake && (lstat(filename, &stats) == 0)) {
 				if ((stats.st_mode & S_IFMT) != S_IFDIR) {
 					if (unlink(filename))

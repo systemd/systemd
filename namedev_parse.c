@@ -91,13 +91,6 @@ static char *get_key_attribute(char *str)
 	char *pos;
 	char *attr;
 
-	attr = strchr(str, '_');
-	if (attr != NULL) {
-		attr++;
-		dbg("attribute='%s'", attr);
-		return attr;
-	}
-
 	attr = strchr(str, '{');
 	if (attr != NULL) {
 		attr++;
@@ -107,6 +100,13 @@ static char *get_key_attribute(char *str)
 			return NULL;
 		}
 		pos[0] = '\0';
+		dbg("attribute='%s'", attr);
+		return attr;
+	}
+
+	attr = strchr(str, '_');
+	if (attr != NULL) {
+		attr++;
 		dbg("attribute='%s'", attr);
 		return attr;
 	}
@@ -221,7 +221,13 @@ int namedev_init_rules(void)
 				continue;
 			}
 
-			if (strcasecmp(temp2, FIELD_NAME) == 0) {
+			if (strncasecmp(temp2, FIELD_NAME, sizeof(FIELD_NAME)-1) == 0) {
+				attr = get_key_attribute(temp2 + sizeof(FIELD_NAME)-1);
+				if (attr != NULL)
+					if (strcasecmp(attr, ATTR_PARTITIONS) == 0) {
+						dbg_parse("creation of partition nodes requested");
+						dev.partitions = PARTITIONS_COUNT;
+					}
 				strfieldcpy(dev.name, temp3);
 				continue;
 			}

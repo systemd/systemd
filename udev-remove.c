@@ -66,9 +66,11 @@ static int delete_path(char *path)
 static int delete_node(struct udevice *dev)
 {
 	char filename[255];
+	char partitionname[255];
 	char *symlinks;
 	char *linkname;
 	int retval;
+	int i;
 
 	strncpy(filename, udev_root, sizeof(filename));
 	strncat(filename, dev->name, sizeof(filename));
@@ -81,11 +83,20 @@ static int delete_node(struct udevice *dev)
 		return retval;
 	}
 
+	/* remove partition nodes */
+	if (dev->partitions > 0) {
+		info("removing partitions '%s[1-%i]'", filename, dev->partitions);
+		for (i = 1; i <= dev->partitions; i++) {
+			sprintf(partitionname, "%s%i", filename, i);
+			unlink(partitionname);
+		}
+	}
+
 	/* remove subdirectories */
 	if (strchr(dev->name, '/'))
 		delete_path(filename);
 
-	if (*dev->symlink) {
+	if (dev->symlink[0] != '\0') {
 		symlinks = dev->symlink;
 		while (1) {
 			linkname = strsep(&symlinks, " ");

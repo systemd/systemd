@@ -350,7 +350,16 @@ KERNEL="ttyUSB0", NAME="visor", SYMLINK="first-%n second-%n third-%n"
 EOF
 	},
 	{
-		desc     => "sysfs parent heirachy",
+		desc     => "create all possible partitions",
+		subsys   => "block",
+		devpath  => "block/sda",
+		expected => "boot_disk15" ,
+		conf     => <<EOF
+BUS="scsi", SYSFS_vendor="IBM-ESXS", NAME{all_partitions}="boot_disk"
+EOF
+	},
+	{
+		desc     => "sysfs parent hierarchy",
 		subsys   => "tty",
 		devpath  => "class/tty/ttyUSB0",
 		expected => "visor" ,

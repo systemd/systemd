@@ -28,25 +28,29 @@
 
 struct sysfs_class_device;
 
-#define BUS_SIZE	30
-#define FILE_SIZE	50
-#define VALUE_SIZE	100
-#define ID_SIZE		50
-#define PLACE_SIZE	50
-#define PROGRAM_SIZE	100
+#define BUS_SIZE		30
+#define FILE_SIZE		50
+#define VALUE_SIZE		100
+#define ID_SIZE			50
+#define PLACE_SIZE		50
+#define PROGRAM_SIZE		100
 
-#define FIELD_BUS	"BUS"
-#define FIELD_SYSFS	"SYSFS"
-#define FIELD_ID	"ID"
-#define FIELD_PLACE	"PLACE"
-#define FIELD_PROGRAM	"PROGRAM"
-#define FIELD_RESULT	"RESULT"
-#define FIELD_KERNEL	"KERNEL"
-#define FIELD_NAME	"NAME"
-#define FIELD_SYMLINK	"SYMLINK"
+#define FIELD_BUS		"BUS"
+#define FIELD_SYSFS		"SYSFS"
+#define FIELD_ID		"ID"
+#define FIELD_PLACE		"PLACE"
+#define FIELD_PROGRAM		"PROGRAM"
+#define FIELD_RESULT		"RESULT"
+#define FIELD_KERNEL		"KERNEL"
+#define FIELD_NAME		"NAME"
+#define FIELD_SYMLINK		"SYMLINK"
 
-#define PROGRAM_MAXARG	10
-#define MAX_SYSFS_PAIRS	5
+#define ATTR_PARTITIONS		"all_partitions"
+#define PARTITIONS_COUNT	15
+
+
+#define PROGRAM_MAXARG		10
+#define MAX_SYSFS_PAIRS		5
 
 struct sysfs_pair {
 	char file[FILE_SIZE];
@@ -65,6 +69,7 @@ struct config_device {
 	char name[NAME_SIZE];
 	char symlink[NAME_SIZE];
 	struct sysfs_pair sysfs_pair[MAX_SYSFS_PAIRS];
+	int partitions;
 	int config_line;
 };
 

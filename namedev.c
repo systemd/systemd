@@ -820,7 +820,7 @@ found:
 	/* substitute placeholder */
 	apply_format(udev, udev->name, class_dev, sysfs_device);
 	apply_format(udev, udev->symlink, class_dev, sysfs_device);
-
+	udev->partitions = dev->partitions;
 done:
 	perm = find_perm(udev->name);
 	if (perm) {
