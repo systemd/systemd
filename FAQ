@@ -44,6 +44,12 @@ A: Such a functionality isn't needed on a properly configured system. All
    hardware in memory, then use something else to manage your modules
    (scripts, modules.conf, etc.)  This is not a task for udev.
 
+Q: But I love that feature of devfs, please?
+A: The devfs approach caused a lot of spurious modprobe attempts as
+   programs probed to see if devices were present or not.  Every probe
+   attempt created a process to run modprobe, almost all of which were
+   spurious.
+
 Q: I really like the devfs naming scheme, will udev do that?
 A: Yes, udev can create /dev nodes using the devfs naming policy.  A
    configuration file needs to be created to map the kernel default names
