@@ -46,7 +46,7 @@ code.  Help is very much appreciated, see the TODO file for a list of
 things left to be done.
 
 If you want to build using klibc, use the Makefile.klibc file:
-	- read the klibc/klibc/klibc/README file for how to set up the linux
+	- read the klibc/klibc/README file for how to set up the linux
 	  symlink properly.
 	- make clean
 	- make -f Makefile.klibc

@@ -1,3 +1,50 @@
+Summary of changes from v004 to v005
+============================================
+
+<kay:vrfy.org>:
+  o namedev.c comments + debug patch
+  o man page update
+
+Greg Kroah-Hartman:
+  o ignore the klibc/linux symlink
+  o add klibc linux symlink info to the README
+  o get 'make release' to work properly again
+  o added README info for how to build using klibc
+  o turn off debugging if we are building with klibc
+  o turn off debugging in namedev
+  o added vsyslog support to klibc
+  o add ftruncate to klibc
+  o klibc specific tweaks
+  o libsysfs does not need mntent.h in it's header file
+  o udev build tweaks to tdb's spinlock code
+  o klibc makefile changes
+  o build tdb and libsysfs from the same makefile as udev
+  o udev-add build cleanups for other libc versions
+  o tweak tdb to build within udev better
+  o make libsysfs spit debug messages to the same place as the rest of udev
+  o make libsysfs build cleanly
+  o updated bk ignore list
+  o added klibc version 0.82 (cvs tree) to the udev tree
+  o makefile fix for now
+  o Merge greg@bucket:/home/greg/src/udev into kroah.com:/home/greg/src/udev
+  o hm, makefile bug with so many files...  will fix later
+  o regression tests starting to be added
+  o fix LABEL bug for device files (not class files.)
+  o more warning flags to the build
+  o got rid of struct device_attr
+  o rename namedev.permissions and namedev.config to udev.permissions and udev.config
+  o fix dbg line in namedev.c
+  o more overrides of config info with env variables if in test mode
+  o Fix bug causing udev to sleep forever waiting for dev file to show up
+  o change version to 004_bk
+  o make config files, sysfs root, and udev root configurable from config variables
+  o 004 changelog entrys TAG: v004
+
+Robert Love:
+  o udev: sleep_for_dev() bits
+  o udev: another canidate for static
+
+
 Summary of changes from v003 to v004
 ============================================
 
