@@ -29,7 +29,7 @@
 
 Summary: A userspace implementation of devfs
 Name: udev
-Version: 025
+Version: 025_bk
 Release: 1
 License: GPL
 Group: Utilities/System
