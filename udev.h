@@ -63,7 +63,7 @@ struct udevice {
 
 	char name[NAME_SIZE];
 	char devname[NAME_SIZE];
-	char symlink[NAME_SIZE];
+	struct list_head symlink_list;
 	char owner[USER_SIZE];
 	char group[USER_SIZE];
 	mode_t mode;

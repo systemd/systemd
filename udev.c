@@ -236,6 +236,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 hotplug:
+	udev_cleanup_device(&udev);
 	if (udev_hotplug_d && managed_event)
 		udev_multiplex_directory(&udev, HOTPLUGD_DIR, HOTPLUG_SUFFIX);
 

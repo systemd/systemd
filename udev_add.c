@@ -113,12 +113,11 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 {
 	char filename[NAME_SIZE];
 	char partitionname[NAME_SIZE];
+	struct name_entry *name_loop;
 	uid_t uid = 0;
 	gid_t gid = 0;
 	int tail;
-	char *pos;
-	int len;
-		int i;
+	int i;
 
 	snprintf(filename, NAME_SIZE, "%s/%s", udev_root, udev->name);
 	filename[NAME_SIZE-1] = '\0';
@@ -195,30 +194,28 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 	}
 
 	/* create symlink(s) if requested */
-	foreach_strpart(udev->symlink, " ", pos, len) {
-		char linkname[NAME_SIZE];
+	list_for_each_entry(name_loop, &udev->symlink_list, node) {
 		char linktarget[NAME_SIZE];
 
-		strfieldcpymax(linkname, pos, len+1);
-		snprintf(filename, NAME_SIZE, "%s/%s", udev_root, linkname);
+		snprintf(filename, NAME_SIZE, "%s/%s", udev_root, name_loop->name);
 		filename[NAME_SIZE-1] = '\0';
 
 		dbg("symlink '%s' to node '%s' requested", filename, udev->name);
 		if (!udev->test_run)
-			if (strrchr(linkname, '/'))
+			if (strchr(filename, '/'))
 				create_path(filename);
 
 		/* optimize relative link */
 		linktarget[0] = '\0';
 		i = 0;
 		tail = 0;
-		while ((udev->name[i] == linkname[i]) && udev->name[i]) {
+		while (udev->name[i] && (udev->name[i] == name_loop->name[i])) {
 			if (udev->name[i] == '/')
 				tail = i+1;
 			i++;
 		}
-		while (linkname[i] != '\0') {
-			if (linkname[i] == '/')
+		while (name_loop->name[i] != '\0') {
+			if (name_loop->name[i] == '/')
 				strfieldcat(linktarget, "../");
 			i++;
 		}

@@ -82,6 +82,8 @@ struct name_entry {
 };
 
 extern int udev_init_device(struct udevice *udev, const char* devpath, const char *subsystem);
+extern void udev_cleanup_device(struct udevice *udev);
+
 extern int kernel_release_satisfactory(unsigned int version, unsigned int patchlevel, unsigned int sublevel);
 extern int create_path(const char *path);
 extern int parse_get_pair(char **orig_string, char **left, char **right);

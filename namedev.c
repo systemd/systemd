@@ -144,15 +144,14 @@ static int get_format_len(char **str)
  */
 static int find_free_number(struct udevice *udev, const char *name)
 {
+	char devpath[NAME_SIZE];
 	char filename[NAME_SIZE];
 	int num = 0;
-	struct udevice db_udev;
 
 	strfieldcpy(filename, name);
 	while (1) {
 		dbg("look for existing node '%s'", filename);
-		memset(&db_udev, 0x00, sizeof(struct udevice));
-		if (udev_db_get_device_by_name(&db_udev, filename) != 0) {
+		if (udev_db_search_name(devpath, DEVPATH_SIZE, filename) != 0) {
 			dbg("free num=%d", num);
 			return num;
 		}
@@ -298,13 +297,14 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 				struct udevice udev_parent;
 
 				dbg("found parent '%s', get the node name", class_dev_parent->path);
-				memset(&udev_parent, 0x00, sizeof(struct udevice));
+				udev_init_device(&udev_parent, NULL, NULL);
 				/* lookup the name in the udev_db with the DEVPATH of the parent */
-				if (udev_db_get_device_by_devpath(&udev_parent, &class_dev_parent->path[strlen(sysfs_path)]) == 0) {
+				if (udev_db_get_device(&udev_parent, &class_dev_parent->path[strlen(sysfs_path)]) == 0) {
 					strfieldcatmax(string, udev_parent.name, maxsize);
 					dbg("substitute parent node name'%s'", udev_parent.name);
 				} else
 					dbg("parent not found in database");
+				udev_cleanup_device(&udev_parent);
 			}
 			break;
 		case 'N':
@@ -749,14 +749,25 @@ int namedev_name_device(struct udevice *udev, struct sysfs_class_device *class_d
 			/* collect symlinks */
 			if (dev->symlink[0] != '\0') {
 				char temp[NAME_SIZE];
+				char *pos, *next;
 
 				info("configured rule in '%s[%i]' applied, added symlink '%s'",
 				     dev->config_file, dev->config_line, dev->symlink);
 				strfieldcpy(temp, dev->symlink);
 				apply_format(udev, temp, sizeof(temp), class_dev, sysfs_device);
-				if (udev->symlink[0] != '\0')
-					strfieldcat(udev->symlink, " ");
-				strfieldcat(udev->symlink, temp);
+
+				/* add multiple symlinks separated by spaces */
+				pos = temp;
+				next = strchr(temp, ' ');
+				while (next) {
+					next[0] = '\0';
+					dbg("add symlink '%s'", pos);
+					name_list_add(&udev->symlink_list, pos, 0);
+					pos = &next[1];
+					next = strchr(pos, ' ');
+				}
+				dbg("add symlink '%s'", pos);
+				name_list_add(&udev->symlink_list, pos, 0);
 			}
 
 			/* rule matches */

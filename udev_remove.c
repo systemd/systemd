@@ -71,11 +71,10 @@ static int delete_node(struct udevice *udev)
 {
 	char filename[NAME_SIZE];
 	char partitionname[NAME_SIZE];
+	struct name_entry *name_loop;
 	struct stat stats;
 	int retval;
 	int i;
-	char *pos;
-	int len;
 	int num;
 
 	snprintf(filename, NAME_SIZE, "%s/%s", udev_root, udev->name);
@@ -114,11 +113,8 @@ static int delete_node(struct udevice *udev)
 	if (strchr(udev->name, '/'))
 		delete_path(filename);
 
-	foreach_strpart(udev->symlink, " ", pos, len) {
-		char linkname[NAME_SIZE];
-
-		strfieldcpymax(linkname, pos, len+1);
-		snprintf(filename, NAME_SIZE, "%s/%s", udev_root, linkname);
+	list_for_each_entry(name_loop, &udev->symlink_list, node) {
+		snprintf(filename, NAME_SIZE, "%s/%s", udev_root, name_loop->name);
 		filename[NAME_SIZE-1] = '\0';
 
 		dbg("unlinking symlink '%s'", filename);
@@ -130,7 +126,7 @@ static int delete_node(struct udevice *udev)
 				filename, strerror(errno));
 			return retval;
 		}
-		if (strchr(udev->symlink, '/')) {
+		if (strchr(filename, '/')) {
 			delete_path(filename);
 		}
 	}
@@ -145,13 +141,18 @@ static int delete_node(struct udevice *udev)
 int udev_remove_device(struct udevice *udev)
 {
 	const char *temp;
-	int retval;
 
 	if (udev->type != BLOCK && udev->type != CLASS)
 		return 0;
 
-	retval = udev_db_get_device_by_devpath(udev, udev->devpath);
-	if (retval) {
+	if (udev_db_get_device(udev, udev->devpath) == 0) {
+		if (udev->ignore_remove) {
+			dbg("remove event for '%s' requested to be ignored by rule", udev->name);
+			return 0;
+		}
+		dbg("remove name='%s'", udev->name);
+		udev_db_delete_device(udev);
+	} else {
 		/* fall back to kernel name */
 		temp = strrchr(udev->devpath, '/');
 		if (temp == NULL)
@@ -159,14 +160,6 @@ int udev_remove_device(struct udevice *udev)
 		strfieldcpy(udev->name, &temp[1]);
 		dbg("'%s' not found in database, falling back on default name", udev->name);
 	}
-
-	if (udev->ignore_remove) {
-		dbg("remove event for '%s' requested to be ignored by rule", udev->name);
-		return 0;
-	}
-
-	dbg("remove name='%s'", udev->name);
-	udev_db_delete_device(udev);
 
 	/* use full path to the environment */
 	snprintf(udev->devname, NAME_SIZE, "%s/%s", udev_root, udev->name);

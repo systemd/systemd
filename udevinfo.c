@@ -83,10 +83,13 @@ static void print_all_attributes(struct dlist *attr_list)
 
 static int print_record(struct udevice *udev)
 {
+	struct name_entry *name_loop;
+
 	printf("P: %s\n", udev->devpath);
 	printf("N: %s\n", udev->name);
-	printf("S: %s\n", udev->symlink);
-	printf("\n");
+	list_for_each_entry(name_loop, &udev->symlink_list, node)
+		printf("S: %s\n", name_loop->name);
+
 	return 0;
 }
 
@@ -95,7 +98,7 @@ enum query_type {
 	NAME,
 	PATH,
 	SYMLINK,
-	ALL
+	ALL,
 };
 
 static int print_device_chain(const char *path)
@@ -183,20 +186,25 @@ static int print_dump(struct udevice *udev) {
 	return 0;
 }
 
-static int process_options(int argc, char *argv[])
+int main(int argc, char *argv[], char *envp[])
 {
 	static const char short_options[] = "adn:p:q:rVh";
 	int option;
-	int retval = 1;
 	struct udevice udev;
 	int root = 0;
 	int attributes = 0;
 	enum query_type query = NONE;
-	char result[1024] = "";
 	char path[NAME_SIZE] = "";
 	char name[NAME_SIZE] = "";
 	char temp[NAME_SIZE];
+	struct name_entry *name_loop;
 	char *pos;
+	int retval = 0;
+
+	logging_init("udevinfo");
+
+	udev_init_config();
+	udev_init_device(&udev, NULL, NULL);
 
 	/* get command line options */
 	while (1) {
@@ -240,7 +248,8 @@ static int process_options(int argc, char *argv[])
 			}
 
 			printf("unknown query type\n");
-			exit(1);
+			retval = 1;
+			goto exit;
 
 		case 'r':
 			root = 1;
@@ -252,14 +261,14 @@ static int process_options(int argc, char *argv[])
 
 		case 'd':
 			udev_db_call_foreach(print_dump);
-			exit(0);
+			goto exit;
 
 		case 'V':
 			printf("udevinfo, version %s\n", UDEV_VERSION);
-			exit(0);
+			goto exit;
 
 		case 'h':
-			retval = 0;
+			retval = 2;
 		case '?':
 		default:
 			goto help;
@@ -275,15 +284,14 @@ static int process_options(int argc, char *argv[])
 			} else {
 				if (path[0] != '/') {
 					/* prepend '/' if missing */
-					strfieldcat(temp, "/");
+					strcpy(temp, "/");
 					strfieldcat(temp, path);
 					pos = temp;
 				} else {
 					pos = path;
 				}
 			}
-			memset(&udev, 0x00, sizeof(struct udevice));
-			retval = udev_db_get_device_by_devpath(&udev, pos);
+			retval = udev_db_get_device(&udev, pos);
 			if (retval != 0) {
 				printf("device not found in database\n");
 				goto exit;
@@ -292,77 +300,64 @@ static int process_options(int argc, char *argv[])
 		}
 
 		if (name[0] != '\0') {
-			/* remove udev_root if given */
-			int len = strlen(udev_root);
+			char devpath[NAME_SIZE];
+			int len;
 
+			/* remove udev_root if given */
+			len = strlen(udev_root);
 			if (strncmp(name, udev_root, len) == 0) {
 				pos = &name[len+1];
 			} else
 				pos = name;
 
-			memset(&udev, 0x00, sizeof(struct udevice));
-			strfieldcpy(udev.name, pos);
-			retval = udev_db_get_device_by_name(&udev, pos);
+			retval = udev_db_search_name(devpath, DEVPATH_SIZE, pos);
 			if (retval != 0) {
 				printf("device not found in database\n");
 				goto exit;
 			}
-
+			udev_db_get_device(&udev, devpath);
 			goto print;
 		}
 
 		printf("query needs device path(-p) or node name(-n) specified\n");
+		retval = 3;
 		goto exit;
 
 print:
 		switch(query) {
 		case NAME:
-			if (root) {
-				snprintf(result, NAME_SIZE-1, "%s/%s", udev_root, udev.name);
-				result[NAME_SIZE-1] = '\0';
-			} else {
-				strfieldcpy(result, udev.name);
-			}
-			break;
-
+			if (root)
+				printf("%s/%s\n", udev_root, udev.name);
+			else
+				printf("%s\n", udev.name);
+			goto exit;
 		case SYMLINK:
-			if (root) {
-				int slen;
-				char *spos;
-				char slink[NAME_SIZE];
-
-				pos = result;
-				foreach_strpart(udev.symlink, " \n\r", spos, slen) {
-					strncpy(slink, spos, slen);
-					slink[slen] = '\0';
-					pos += sprintf(pos, "%s/%s ", udev_root, slink);
-				}
-			} else {
-				strfieldcpy(result, udev.symlink);
-			}
-			break;
-
+			if (list_empty(&udev.symlink_list))
+				break;
+			if (root)
+				list_for_each_entry(name_loop, &udev.symlink_list, node)
+					printf("%s/%s ", udev_root, name_loop->name);
+			else
+				list_for_each_entry(name_loop, &udev.symlink_list, node)
+					printf("%s ", name_loop->name);
+			printf("\n");
+			goto exit;
 		case PATH:
-			strfieldcpy(result, udev.devpath);
-			break;
-
+			printf("%s\n", udev.devpath);
+			goto exit;
 		case ALL:
 			print_record(&udev);
 			goto exit;
-
 		default:
-			goto exit;
+			goto help;
 		}
-		printf("%s\n", result);
-
-exit:
-		return retval;
 	}
 
 	if (attributes) {
 		if (path[0] == '\0') {
 			printf("attribute walk on device chain needs path(-p) specified\n");
-			return -EINVAL;
+			retval = 4;
+			goto exit;
 		} else {
 			if (strncmp(path, sysfs_path, strlen(sysfs_path)) != 0) {
 				/* prepend sysfs mountpoint if not given */
@@ -371,13 +366,13 @@ exit:
 				strfieldcat(path, temp);
 			}
 			print_device_chain(path);
-			return 0;
+			goto exit;
 		}
 	}
 
 	if (root) {
 		printf("%s\n", udev_root);
-		return 0;
+		goto exit;
 	}
 
 help:
@@ -398,20 +393,9 @@ help:
 	       "  -V       print udev version\n"
 	       "  -h       print this help text\n"
 	       "\n");
-	return retval;
-}
 
-int main(int argc, char *argv[], char *envp[])
-{
-	int rc = 0;
-
-	logging_init("udevinfo");
-
-	/* initialize our configuration */
-	udev_init_config();
-
-	rc = process_options(argc, argv);
-
+exit:
+	udev_cleanup_device(&udev);
 	logging_close();
-	exit(rc);
+	return retval;
 }

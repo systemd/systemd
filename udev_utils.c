@@ -42,6 +42,7 @@ int udev_init_device(struct udevice *udev, const char* devpath, const char *subs
 	char *pos;
 
 	memset(udev, 0x00, sizeof(struct udevice));
+	INIT_LIST_HEAD(&udev->symlink_list);
 
 	if (subsystem)
 		strfieldcpy(udev->subsystem, subsystem);
@@ -87,6 +88,17 @@ int udev_init_device(struct udevice *udev, const char* devpath, const char *subs
 	strcpy(udev->group, "root");
 
 	return 0;
+}
+
+void udev_cleanup_device(struct udevice *udev)
+{
+	struct name_entry *name_loop;
+	struct name_entry *temp_loop;
+
+	list_for_each_entry_safe(name_loop, temp_loop, &udev->symlink_list, node) {
+		list_del(&name_loop->node);
+		free(name_loop);
+	}
 }
 
 int kernel_release_satisfactory(unsigned int version, unsigned int patchlevel, unsigned int sublevel)
