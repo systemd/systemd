@@ -18,7 +18,7 @@ KERNEL="card*", NAME="dri/card%n"
 KERNEL="controlC[0-9]*", NAME="snd/%k"
 KERNEL="hw[CD0-9]*",     NAME="snd/%k"
 KERNEL="pcm[CD0-9cp]*",  NAME="snd/%k"
-KERNEL="midi[CD0-9]*",   NAME="snd/%k"
+KERNEL="midiC[D0-9]*",   NAME="snd/%k"
 KERNEL="timer",          NAME="snd/%k"
 KERNEL="seq",            NAME="snd/%k"
 

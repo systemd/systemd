@@ -54,7 +54,7 @@ BUS="ide", KERNEL="hd*", PROGRAM="/etc/udev/scripts/ide-devfs.sh %k %b %n", NAME
 KERNEL="controlC[0-9]*", NAME="snd/%k"
 KERNEL="hw[CD0-9]*",     NAME="snd/%k"
 KERNEL="pcm[CD0-9cp]*",  NAME="snd/%k"
-KERNEL="midi[CD0-9]*",   NAME="snd/%k"
+KERNEL="midiC[D0-9]*",   NAME="snd/%k"
 KERNEL="timer",          NAME="snd/%k"
 KERNEL="seq",            NAME="snd/%k"
 
@@ -103,12 +103,16 @@ KERNEL="tty[p-za-e][0-9a-f]*", NAME="tty/s%n", SYMLINK="%k"
 KERNEL="ram[0-9]*", NAME="rd/%n", SYMLINK="%k"
 
 # sound devices
-KERNEL="adsp",       NAME="sound/adsp",       SYMLINK="%k"
-KERNEL="audio",      NAME="sound/audio",      SYMLINK="%k"
-KERNEL="dsp",        NAME="sound/dsp",        SYMLINK="%k"
-KERNEL="mixer",      NAME="sound/mixer",      SYMLINK="%k"
-KERNEL="sequencer",  NAME="sound/sequencer",  SYMLINK="%k"
-KERNEL="sequencer2", NAME="sound/sequencer2", SYMLINK="%k"
+KERNEL="adsp",            NAME="sound/%k", SYMLINK="%k"
+KERNEL="adsp[0-9]*",      NAME="sound/%k", SYMLINK="%k"
+KERNEL="audio",           NAME="sound/%k", SYMLINK="%k"
+KERNEL="audio[0-9]*",     NAME="sound/%k", SYMLINK="%k"
+KERNEL="dsp",             NAME="sound/%k", SYMLINK="%k"
+KERNEL="dsp[0-9]*",       NAME="sound/%k", SYMLINK="%k"
+KERNEL="mixer",           NAME="sound/%k", SYMLINK="%k"
+KERNEL="mixer[0-9]*",     NAME="sound/%k", SYMLINK="%k"
+KERNEL="sequencer",       NAME="sound/%k", SYMLINK="%k"
+KERNEL="sequencer[0-9]*", NAME="sound/%k", SYMLINK="%k"
 
 # tty devices
 KERNEL="tty[0-9]*",    NAME="vc/%n",  SYMLINK="%k"
