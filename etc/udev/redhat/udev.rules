@@ -8,16 +8,44 @@
 # note devmap_name comes with extras/multipath
 #KERNEL="dm-[0-9]*", PROGRAM="/sbin/devmap_name %M %m", NAME="%k", SYMLINK="%c"
 
+KERNEL="console",	NAME="%k", GROUP="tty", MODE="0600"
+KERNEL="tty",		NAME="%k", GROUP="tty", MODE="0666"
+KERNEL="tty[0-9]*",	NAME="%k", GROUP="tty", MODE="0660
+
+KERNEL="ptmx",		NAME="%k", GROUP="tty", MODE="0666"
+KERNEL="pty[p-za-e][0-9a-f]*",	NAME="%k", GROUP="tty", MODE="0660"
+KERNEL="tty[p-za-e][0-9a-f]*",	NAME="%k", GROUP="tty", MODE="0660"
+
+KERNEL="ttyS[0-9]*",	NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL="ttyUSB[0-9]*",	NAME="%k", GROUP="uucp", MODE="0600"
+KERNEL="ippp0",		NAME="%k", MODE="0660"
+KERNEL="isdn*",		NAME="%k", MODE="0660"
+KERNEL="dcbri*",	NAME="%k", MODE="0660"
+KERNEL="ircomm*",	NAME="%k", GROUP="uucp", MODE="0660"
+
+KERNEL="vcs",		NAME="%k", OWNER="vcsa", GROUP="tty", MODE="0600"
+KERNEL="vcsa[0-9]*",	NAME="%k", OWNER="vcsa", GROUP="tty", MODE="0600
+
+# memory devices¶
+KERNEL="random",	NAME="%k", MODE="0666"
+KERNEL="urandom",	NAME="%k", MODE="0444"
+KERNEL="mem",		NAME="%k", MODE="0640"
+KERNEL="kmem",		NAME="%k", MODE="0640"
+KERNEL="port",		NAME="%k", MODE="0640"
+KERNEL="full",		NAME="%k", MODE="0666"
+KERNEL="null",		NAME="%k", MODE="0666"
+KERNEL="zero",		NAME="%k", MODE="0666"
+
 # DRI devices always go into a subdirectory (as per the LSB spec)
 KERNEL="card*",		NAME="dri/card%n"
 
 # alsa devices
-KERNEL="controlC[0-9]*", NAME="snd/%k"
-KERNEL="hw[CD0-9]*",     NAME="snd/%k"
-KERNEL="pcm[CD0-9cp]*",  NAME="snd/%k"
-KERNEL="midi[CD0-9]*",   NAME="snd/%k"
-KERNEL="timer",          NAME="snd/%k"
-KERNEL="seq",            NAME="snd/%k"
+KERNEL="controlC[0-9]*",	NAME="snd/%k"
+KERNEL="hw[CD0-9]*",		NAME="snd/%k"
+KERNEL="pcm[CD0-9cp]*",		NAME="snd/%k"
+KERNEL="midi[CD0-9]*",		NAME="snd/%k"
+KERNEL="timer",			NAME="snd/%k"
+KERNEL="seq",			NAME="snd/%k"
 
 # input devices
 KERNEL="mice",		NAME="input/%k"
@@ -53,11 +81,11 @@ KERNEL="tun",		NAME="net/%k"
 KERNEL="device-mapper",	NAME="mapper/control"
 
 # old compat symlinks with enumeration
-KERNEL="sr[0-9]*",  		SYMLINK="cdrom%e"
-KERNEL="scd[0-9]*", 		SYMLINK="cdrom%e"
-KERNEL="pcd[0-9]*", 		SYMLINK="cdrom%e"
-KERNEL="fd[0-9]*",	 	SYMLINK="floppy%e"
-KERNEL="nst[0-9]*", 		SYMLINK="tape%e"
+KERNEL="sr[0-9]*",	SYMLINK="cdrom%e"
+KERNEL="scd[0-9]*",	SYMLINK="cdrom%e"
+KERNEL="pcd[0-9]*",	SYMLINK="cdrom%e"
+KERNEL="fd[0-9]*",	SYMLINK="floppy%e"
+KERNEL="nst[0-9]*",	SYMLINK="tape%e"
 
 KERNEL="hd[a-z]", BUS="ide", SYSFS{removable}="1", PROGRAM="/etc/udev/scripts/ide-media.sh %k", RESULT="floppy", SYMLINK="floppy%e, NAME{ignore_remove, all_partitions}="%k"
 
