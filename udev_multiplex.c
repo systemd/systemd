@@ -32,38 +32,6 @@
 #include "udev_utils.h"
 #include "logging.h"
 
-static int run_program(struct udevice *udev, const char *filename)
-{
-	pid_t pid;
-	int fd;
-
-	dbg("running %s", filename);
-
-	pid = fork();
-	switch (pid) {
-	case 0:
-		/* child */
-		fd = open("/dev/null", O_RDWR);
-		if ( fd >= 0) {
-			dup2(fd, STDOUT_FILENO);
-			dup2(fd, STDIN_FILENO);
-			dup2(fd, STDERR_FILENO);
-		}
-		close(fd);
-
-		execl(filename, filename, udev->subsystem, NULL);
-		dbg("exec of child failed");
-		_exit(1);
-	case -1:
-		dbg("fork of child failed");
-		break;
-		return -1;
-	default:
-		waitpid(pid, NULL, 0);
-	}
-
-	return 0;
-}
 
 /* 
  * runs files in these directories in order:
@@ -117,7 +85,7 @@ void udev_multiplex_directory(struct udevice *udev, const char *basedir, const c
 	add_matching_files(&name_list, dirname, suffix);
 
 	list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
-		run_program(udev, name_loop->name);
+		execute_command(name_loop->name, udev->subsystem);
 		list_del(&name_loop->node);
 	}
 

@@ -86,16 +86,17 @@ int main(int argc, char *argv[], char *envp[])
 		} else
 			devpath = argv[1];
 
-	info("looking at '%s'", devpath);
+	subsystem = argv[2];
+	setenv("DEVPATH", devpath, 1);
+	setenv("SUBSYSTEM", subsystem, 1);
+	setenv("ACTION", "add", 1);
+	info("looking at device '%s' from subsystem '%s'", devpath, subsystem);
 
 	/* initialize the naming deamon */
 	udev_rules_init();
 
-	if (argc == 3)
-		subsystem = argv[2];
-
 	/* fill in values and test_run flag*/
-	udev_init_device(&udev, devpath, subsystem);
+	udev_init_device(&udev, devpath, subsystem, "add");
 
 	/* skip subsystems without "dev", but handle net devices */
 	if (udev.type != DEV_NET && subsystem_expect_no_dev(udev.subsystem)) {

@@ -29,7 +29,7 @@ struct name_entry {
 	char name[PATH_SIZE];
 };
 
-extern int udev_init_device(struct udevice *udev, const char* devpath, const char *subsystem);
+extern int udev_init_device(struct udevice *udev, const char* devpath, const char *subsystem, const char *action);
 extern void udev_cleanup_device(struct udevice *udev);
 
 extern int kernel_release_satisfactory(unsigned int version, unsigned int patchlevel, unsigned int sublevel);
@@ -43,5 +43,6 @@ extern void remove_trailing_char(char *path, char c);
 extern void replace_untrusted_chars(char *string);
 extern int name_list_add(struct list_head *name_list, const char *name, int sort);
 extern int add_matching_files(struct list_head *name_list, const char *dirname, const char *suffix);
+extern int execute_command(const char *command, const char *subsystem);
 
 #endif

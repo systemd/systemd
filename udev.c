@@ -141,7 +141,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (!subsystem && argc == 2)
 		subsystem = argv[1];
 
-	udev_init_device(&udev, devpath, subsystem);
+	udev_init_device(&udev, devpath, subsystem, action);
 
 	if (!action || !subsystem || !devpath) {
 		err("action, subsystem or devpath missing");
@@ -230,9 +230,10 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 hotplug:
-	udev_cleanup_device(&udev);
 	if (udev_hotplug_d && managed_event)
 		udev_multiplex_directory(&udev, HOTPLUGD_DIR, HOTPLUG_SUFFIX);
+
+	udev_cleanup_device(&udev);
 
 	logging_close();
 	return retval;

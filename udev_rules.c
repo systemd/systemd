@@ -31,7 +31,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/wait.h>
-#include <sys/stat.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "list.h"
@@ -327,7 +326,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 				struct udevice udev_parent;
 
 				dbg("found parent '%s', get the node name", class_dev_parent->path);
-				udev_init_device(&udev_parent, NULL, NULL);
+				udev_init_device(&udev_parent, NULL, NULL, NULL);
 				/* lookup the name in the udev_db with the DEVPATH of the parent */
 				if (udev_db_get_device(&udev_parent, &class_dev_parent->path[strlen(sysfs_path)]) == 0) {
 					strlcat(string, udev_parent.name, maxsize);
@@ -364,21 +363,22 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 	}
 }
 
-static int execute_program(struct udevice *udev, const char *path, char *value, int len)
+static int execute_program_pipe(const char *command, const char *subsystem, char *value, int len)
 {
 	int retval;
 	int count;
 	int status;
-	int fds[2];
+	int pipefds[2];
 	pid_t pid;
 	char *pos;
 	char arg[PATH_SIZE];
 	char *argv[(sizeof(arg) / 2) + 1];
+	int devnull;
 	int i;
 
-	strlcpy(arg, path, sizeof(arg));
+	strlcpy(arg, command, sizeof(arg));
 	i = 0;
-	if (strchr(path, ' ')) {
+	if (strchr(arg, ' ')) {
 		pos = arg;
 		while (pos != NULL) {
 			if (pos[0] == '\'') {
@@ -397,12 +397,12 @@ static int execute_program(struct udevice *udev, const char *path, char *value, 
 		dbg("execute '%s' with parsed arguments", arg);
 	} else {
 		argv[0] = arg;
-		argv[1] = udev->subsystem;
+		argv[1] = (char *) subsystem;
 		argv[2] = NULL;
 		dbg("execute '%s' with subsystem '%s' argument", arg, argv[1]);
 	}
 
-	retval = pipe(fds);
+	retval = pipe(pipefds);
 	if (retval != 0) {
 		err("pipe failed");
 		return -1;
@@ -412,22 +412,27 @@ static int execute_program(struct udevice *udev, const char *path, char *value, 
 	switch(pid) {
 	case 0:
 		/* child dup2 write side of pipe to STDOUT */
-		dup2(fds[1], STDOUT_FILENO);
+		devnull = open("/dev/null", O_RDWR);
+		if (devnull >= 0) {
+			dup2(devnull, STDIN_FILENO);
+			dup2(devnull, STDERR_FILENO);
+			close(devnull);
+		}
+		dup2(pipefds[1], STDOUT_FILENO);
 		retval = execv(arg, argv);
-
 		err("exec of program failed");
 		_exit(1);
 	case -1:
-		err("fork of '%s' failed", path);
+		err("fork of '%s' failed", arg);
 		retval = -1;
 		break;
 	default:
-		/* parent reads from fds[0] */
-		close(fds[1]);
+		/* parent reads from pipefds[0] */
+		close(pipefds[1]);
 		retval = 0;
 		i = 0;
 		while (1) {
-			count = read(fds[0], value + i, len - i-1);
+			count = read(pipefds[0], value + i, len - i-1);
 			if (count < 0) {
 				err("read failed with '%s'", strerror(errno));
 				retval = -1;
@@ -445,7 +450,7 @@ static int execute_program(struct udevice *udev, const char *path, char *value, 
 		}
 		value[i] = '\0';
 
-		close(fds[0]);
+		close(pipefds[0]);
 		waitpid(pid, &status, 0);
 
 		if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
@@ -470,9 +475,9 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 	struct sysfs_device *parent_device = sysfs_device;
 
 	if (rule->kernel_operation != KEY_OP_UNSET) {
-		dbg("check for " KEY_KERNEL " rule->kernel='%s' class_dev->name='%s'",
-		    rule->kernel, class_dev->name);
-		if (strcmp_pattern(rule->kernel, class_dev->name) != 0) {
+		dbg("check for " KEY_KERNEL " rule->kernel='%s' udev_kernel_name='%s'",
+		    rule->kernel, udev->kernel_name);
+		if (strcmp_pattern(rule->kernel, udev->kernel_name) != 0) {
 			dbg(KEY_KERNEL " is not matching");
 			if (rule->kernel_operation != KEY_OP_NOMATCH)
 				goto exit;
@@ -485,8 +490,8 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 	}
 
 	if (rule->subsystem_operation != KEY_OP_UNSET) {
-		dbg("check for " KEY_SUBSYSTEM " rule->subsystem='%s' class_dev->name='%s'",
-		    rule->subsystem, class_dev->name);
+		dbg("check for " KEY_SUBSYSTEM " rule->subsystem='%s' udev->subsystem='%s'",
+		    rule->subsystem, udev->subsystem);
 		if (strcmp_pattern(rule->subsystem, udev->subsystem) != 0) {
 			dbg(KEY_SUBSYSTEM " is not matching");
 			if (rule->subsystem_operation != KEY_OP_NOMATCH)
@@ -642,7 +647,8 @@ try_parent:
 		dbg("check " KEY_PROGRAM);
 		strlcpy(program, rule->program, sizeof(program));
 		apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
-		if (execute_program(udev, program, udev->program_result, sizeof(udev->program_result)) != 0) {
+		if (execute_program_pipe(program, udev->subsystem,
+					 udev->program_result, sizeof(udev->program_result)) != 0) {
 			dbg(KEY_PROGRAM " returned nonzero");
 			if (rule->program_operation != KEY_OP_NOMATCH)
 				goto exit;

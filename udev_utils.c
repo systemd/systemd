@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <dirent.h>
+#include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <sys/utsname.h>
@@ -38,7 +39,7 @@
 #include "list.h"
 
 
-int udev_init_device(struct udevice *udev, const char* devpath, const char *subsystem)
+int udev_init_device(struct udevice *udev, const char* devpath, const char *subsystem, const char *action)
 {
 	char *pos;
 
@@ -315,5 +316,66 @@ int add_matching_files(struct list_head *name_list, const char *dirname, const c
 	}
 
 	closedir(dir);
+	return 0;
+}
+
+int execute_command(const char *command, const char *subsystem)
+{
+	int retval;
+	pid_t pid;
+	char arg[PATH_SIZE];
+	char *argv[(PATH_SIZE / 2) + 1];
+	char *pos;
+	int devnull;
+	int i;
+
+	strlcpy(arg, command, sizeof(arg));
+	i = 0;
+	if (strchr(arg, ' ')) {
+		pos = arg;
+		while (pos != NULL) {
+			if (pos[0] == '\'') {
+				/* don't separate if in apostrophes */
+				pos++;
+				argv[i] = strsep(&pos, "\'");
+				while (pos && pos[0] == ' ')
+					pos++;
+			} else {
+				argv[i] = strsep(&pos, " ");
+			}
+			dbg("arg[%i] '%s'", i, argv[i]);
+			i++;
+		}
+		argv[i] =  NULL;
+		dbg("execute '%s' with parsed arguments", arg);
+	} else {
+		argv[0] = arg;
+		argv[1] = (char *) subsystem;
+		argv[2] = NULL;
+		dbg("execute '%s' with subsystem '%s' argument", arg, argv[1]);
+	}
+
+	pid = fork();
+	switch (pid) {
+	case 0:
+		/* child */
+		devnull = open("/dev/null", O_RDWR);
+		if (devnull >= 0) {
+			dup2(devnull, STDIN_FILENO);
+			dup2(devnull, STDOUT_FILENO);
+			dup2(devnull, STDERR_FILENO);
+			close(devnull);
+		}
+		retval = execv(arg, argv);
+		err("exec of child failed");
+		_exit(1);
+	case -1:
+		dbg("fork of child failed");
+		break;
+		return -1;
+	default:
+		waitpid(pid, NULL, 0);
+	}
+
 	return 0;
 }

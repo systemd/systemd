@@ -199,7 +199,7 @@ int main(int argc, char *argv[], char *envp[])
 	logging_init("udevinfo");
 
 	udev_init_config();
-	udev_init_device(&udev, NULL, NULL);
+	udev_init_device(&udev, NULL, NULL, NULL);
 
 	/* get command line options */
 	while (1) {
