@@ -51,8 +51,8 @@ case "$1" in
 	fi
 
 	# remove the database if it is there as we always want to start fresh
-	if [ -f $udev_root/.udevdb ]; then
-		rm -f $udev_root/.udevdb
+	if [ -f $udev_root/.udev.tdb ]; then
+		rm -f $udev_root/.udev.tdb
 	fi
 
 	# propogate /udev from /sys - we only need this while we do not
