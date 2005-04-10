@@ -13,87 +13,37 @@
 # %% the '%' char itself.
 #
 
-# default permissions for block devices
-SUBSYSTEM="block",			GROUP="disk"
-SUBSYSTEM="block", SYSFS{removable}="1", GROUP="floppy"
-
 # workaround for devices which do not report media changes
 BUS="ide", KERNEL="hd[a-z]", SYSFS{removable}="1", \
-  PROGRAM="/bin/cat /proc/ide/%k/model", RESULT="IOMEGA ZIP *", \
-  NAME{all_partitions}="%k%n", GROUP="floppy"
-
-# IDE devices
-BUS="ide", KERNEL="hd[a-z]", SYSFS{removable}="1", \
-  PROGRAM="/bin/cat /proc/ide/%k/media", RESULT="cdrom*", \
-  GROUP="cdrom"
-BUS="ide", KERNEL="hd[a-z]", SYSFS{removable}="1", \
-  PROGRAM="/bin/cat /proc/ide/%k/media", RESULT="floppy*", \
-  GROUP="floppy"
-BUS="ide", KERNEL="ht[0-9]*",	GROUP="tape"
-BUS="ide", KERNEL="nht[0-9]*",	GROUP="tape"
+  PROGRAM="/etc/udev/scripts/ide-model.sh %k", RESULT="IOMEGA ZIP *", \
+  OPTIONS="all_partitions", NAME="%k"
 
 # SCSI devices
-BUS="scsi", KERNEL="sr[0-9]*", SYSFS{type}="5", \
-  NAME="scd%n", SYMLINK="sr%n",			GROUP="cdrom"
-BUS="scsi", KERNEL="sg[0-9]*", SYSFS{type}="5",	GROUP="cdrom"
-BUS="scsi", KERNEL="st[0-9]*",			GROUP="tape"
-BUS="scsi", KERNEL="nst[0-9]*",			GROUP="tape"
-BUS="scsi", KERNEL="osst[0-9]*",		GROUP="tape"
-BUS="scsi", KERNEL="nosst[0-9]*",		GROUP="tape"
+BUS="scsi", KERNEL="sr[0-9]*",	NAME="scd%n", SYMLINK="sr%n"
 
 # USB devices
 BUS="usb", KERNEL="hiddev*",	NAME="usb/%k"
 BUS="usb", KERNEL="auer[0-9]*",	NAME="usb/%k"
-BUS="usb", KERNEL="legousbtower*", NAME="usb/%k", MODE="0666"
+BUS="usb", KERNEL="legousbtower*", NAME="usb/%k"
 BUS="usb", KERNEL="dabusb*",	NAME="usb/%k"
 BUS="usb", KERNEL="cpad[0-9]*",	NAME="usb/%k"
+BUS="usb", KERNEL="lp[0-9]*",	NAME="usb/%k"
 BUS="usb", KERNEL="ttyUSB*", SYSFS{product}="Palm Handheld*", SYMLINK="pilot"
 
 # serial devices
-SUBSYSTEM="tty",	GROUP="dialout"
 KERNEL="capi",		NAME="capi20", SYMLINK="isdn/capi20"
 KERNEL="capi[0-9]*",	NAME="capi/%n"
 
-# vc devices
-KERNEL="ptmx",		MODE="0666"
-KERNEL="tty",		MODE="0666"
-
 # video devices
-SUBSYSTEM="video4linux", GROUP="video"
-KERNEL="dvb*",		PROGRAM="/etc/udev/scripts/dvb.sh %k", \
-			NAME="%c", GROUP="video"
-KERNEL="fb[0-9]*",	GROUP="video"
-KERNEL="nvidia*",	GROUP="video"
-KERNEL="card[0-9]*",	NAME="dri/%k", GROUP="video"
+KERNEL="dvb*",		PROGRAM="/etc/udev/scripts/dvb.sh %k", NAME="%c"
+KERNEL="card[0-9]*",	NAME="dri/%k"
 
 # misc devices
-KERNEL="random",        MODE="0666"
-KERNEL="urandom",       MODE="0444"
-KERNEL="mem",           MODE="0640", GROUP="kmem"
-KERNEL="kmem",          MODE="0640", GROUP="kmem"
-KERNEL="port",          MODE="0640", GROUP="kmem"
-KERNEL="full",          MODE="0666"
-KERNEL="null",          MODE="0666"
-KERNEL="zero",          MODE="0666"
-KERNEL="inotify",       MODE="0666"
-KERNEL="sgi_fetchop",   MODE="0666"
-KERNEL="sonypi",        MODE="0666"
-KERNEL="agpgart",       GROUP="video"
-KERNEL="nvram",         GROUP="nvram"
-KERNEL="rtc",           MODE="0664", GROUP="audio"
 KERNEL="hw_random",	NAME="hwrng"
 
-# printers and parallel devices
-SUBSYSTEM="printer",	GROUP="lp"
-BUS="usb", KERNEL="lp[0-9]*", NAME="usb/%k"
-KERNEL="pt[0-9]*",	GROUP="tape"
-KERNEL="pht[0-9]*",	GROUP="tape"
-
-KERNEL="fd[0-9]*",	GROUP="floppy"
-
-KERNEL="cdemu[0-9]*",	NAME="cdemu/%n", GROUP="cdrom"
-KERNEL="pktcdvd[0-9]*",	NAME="pktcdvd/%n", GROUP="cdrom"
-KERNEL="pktcdvd",	NAME="pktcdvd/control", MODE="0644"
+KERNEL="cdemu[0-9]*",	NAME="cdemu/%n"
+KERNEL="pktcdvd[0-9]*",	NAME="pktcdvd/%n"
+KERNEL="pktcdvd",	NAME="pktcdvd/control"
 
 KERNEL="cpu[0-9]*",	NAME="cpu/%n/cpuid"
 KERNEL="msr[0-9]*",	NAME="cpu/%n/msr"
@@ -106,7 +56,6 @@ KERNEL="tap[0-9]*",	NAME="net/%k"
 KERNEL="tun",		NAME="net/%k"
 
 # ALSA devices
-SUBSYSTEM="sound",	GROUP="audio"
 KERNEL="controlC[0-9]*", NAME="snd/%k"
 KERNEL="hwC[D0-9]*",	NAME="snd/%k"
 KERNEL="pcmC[D0-9cp]*",	NAME="snd/%k"
@@ -117,11 +66,8 @@ KERNEL="seq",		NAME="snd/%k"
 # input devices
 KERNEL="mice",		NAME="input/%k"
 KERNEL="mouse[0-9]*",	NAME="input/%k"
-KERNEL="event[0-9]*",	NAME="input/%k", \
-  PROGRAM="/etc/udev/scripts/inputdev.sh %k", RESULT="inputdev", \
-  MODE="0664", GROUP="video"
 KERNEL="event[0-9]*",	NAME="input/%k"
-KERNEL="js[0-9]*",	NAME="input/%k", MODE="0664"
+KERNEL="js[0-9]*",	NAME="input/%k"
 KERNEL="ts[0-9]*",	NAME="input/%k"
 KERNEL="uinput",	NAME="input/%k"
 
@@ -132,7 +78,12 @@ KERNEL="zapchannel",	NAME="zap/channel"
 KERNEL="zappseudo",	NAME="zap/pseudo"
 KERNEL="zap[0-9]*",	NAME="zap/%n"
 
+# AOE character devices
+SUBSYSTEM="aoe", KERNEL="discover",	NAME="etherd/%k"
+SUBSYSTEM="aoe", KERNEL="err",		NAME="etherd/%k"
+SUBSYSTEM="aoe", KERNEL="interfaces",	NAME="etherd/%k"
+
 # device mapper creates its own device nodes, so ignore these
-KERNEL="dm-[0-9]*",	NAME=""
+KERNEL="dm-[0-9]*",	OPTIONS="ignore_device"
 KERNEL="device-mapper",	NAME="mapper/control"
 
