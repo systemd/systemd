@@ -89,9 +89,11 @@ int udev_init_device(struct udevice *udev, const char* devpath, const char *subs
 		}
 	}
 
-	udev->mode = 0660;
-	strcpy(udev->owner, "root");
-	strcpy(udev->group, "root");
+	if (udev->type == DEV_BLOCK || udev->type == DEV_CLASS) {
+		udev->mode = 0660;
+		strcpy(udev->owner, "root");
+		strcpy(udev->group, "root");
+	}
 
 	return 0;
 }
