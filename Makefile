@@ -427,3 +427,4 @@ uninstall: uninstall-man uninstall-dev.d
 
 test: all
 	@ cd test && ./udev-test.pl
+	@ cd test && ./udevstart-test.pl
