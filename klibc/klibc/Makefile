@@ -141,7 +141,9 @@ syscalls.nrs: ../include/sys/syscall.h
 syscalls.dir: SYSCALLS.i syscalls.pl arch/$(ARCH)/sysstub.ph syscommon.h syscalls.nrs
 	rm -rf syscalls
 	mkdir syscalls
-	$(PERL) syscalls.pl SYSCALLS.i $(ARCH) $(BITSIZE) syscalls.nrs ../include/klibc/havesyscall.h
+	$(PERL) syscalls.pl SYSCALLS.i arch/$(ARCH)/sysstub.ph $(ARCH) \
+		$(BITSIZE) syscalls.nrs \
+		syscalls ../include/klibc/havesyscall.h
 	touch $@
 
 ../include/klibc/havesyscall.h: syscalls.dir
@@ -150,7 +152,7 @@ syscalls.dir: SYSCALLS.i syscalls.pl arch/$(ARCH)/sysstub.ph syscommon.h syscall
 socketcalls.dir: SOCKETCALLS.def socketcalls.pl socketcommon.h
 	rm -rf socketcalls
 	mkdir socketcalls
-	$(PERL) socketcalls.pl SOCKETCALLS.def $(ARCH)
+	$(PERL) socketcalls.pl SOCKETCALLS.def $(ARCH) socketcalls
 	touch $@
 
 %/static.obj: %.dir

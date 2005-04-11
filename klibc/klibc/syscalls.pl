@@ -18,13 +18,14 @@ for $arg ( @ARGV ) {
 	push(@args, $arg);
     }
 }
-($file, $arch, $bits, $unistd, $havesyscall) = @args;
+($file, $sysstub, $arch, $bits, $unistd, $outputdir, $havesyscall) = @args;
 
-require "arch/$arch/sysstub.ph";
+require "$sysstub";
 
 if (!open(UNISTD, '<', $unistd)) {
     die "$0: $unistd: $!\n";
 }
+
 while ( defined($line = <UNISTD>) ) {
     chomp $line;
 
@@ -45,6 +46,8 @@ print HAVESYS "#define _KLIBC_HAVESYSCALL_H 1\n\n";
 if (!open(FILE, '<', $file)) {
     die "$0: $file: $!\n";
 }
+
+print "syscall-objs := ";
 
 while ( defined($line = <FILE>) ) {
     chomp $line;
@@ -104,11 +107,14 @@ while ( defined($line = <FILE>) ) {
 	@args = split(/\s*\,\s*/, $argv);
 
 	print HAVESYS "#define _KLIBC_HAVE_SYSCALL_${fname} ${sname}\n";
-	make_sysstub($fname, $type, $sname, $stype, @args);
+	print " \\\n\tsyscalls/${fname}.o";
+	make_sysstub($outputdir, $fname, $type, $sname, $stype, @args);
     } else {
 	die "$file:$.: Could not parse input: \"$line\"\n";
     }
 }
+
+print "\n";
 
 print HAVESYS "\n#endif\n";
 close(HAVESYS);

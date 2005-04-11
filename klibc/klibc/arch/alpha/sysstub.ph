@@ -12,13 +12,13 @@
 # A few system calls are dual-return with the second return value in
 # r20 (a4).
 
-sub make_sysstub($$$$@) {
-    my($fname, $type, $sname, $stype, @args) = @_;
+sub make_sysstub($$$$$@) {
+    my($outputdir, $fname, $type, $sname, $stype, @args) = @_;
 
     $stype = $stype || 'common';
     $stype = 'common' if ( $stype eq 'dual0' );
 
-    open(OUT, '>', "syscalls/${fname}.S");
+    open(OUT, '>', "${outputdir}/${fname}.S");
     print OUT "#include <asm/unistd.h>\n";
     print OUT "#include <machine/asm.h>\n";
     print OUT "\n";

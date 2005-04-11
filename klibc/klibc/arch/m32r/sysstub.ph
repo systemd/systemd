@@ -5,10 +5,10 @@
 # Script to generate system call stubs
 #
 
-sub make_sysstub($$$$@) {
-    my($fname, $type, $sname, $stype, @args) = @_;
+sub make_sysstub($$$$$@) {
+    my($outputdir, $fname, $type, $sname, $stype, @args) = @_;
 
-    open(OUT, '>', "syscalls/${fname}.S");
+    open(OUT, '>', "${outputdir}/${fname}.S");
     print OUT "#include <asm/unistd.h>\n";
     print OUT "\n";
     print OUT "\t.text\n";

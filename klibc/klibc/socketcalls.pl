@@ -15,12 +15,13 @@ for $arg ( @ARGV ) {
 	push(@args, $arg);
     }
 }
-($file, $arch) = @args;
+($file, $arch, $outputdir) = @args;
 
 if (!open(FILE, "< $file")) {
     die "$file: $!\n";
 }
 
+print "socketcall-objs := ";
 while ( defined($line = <FILE>) ) {
     chomp $line;
     $line =~ s/\s*[\#\;].*$//;	# Strip comments and trailing blanks
@@ -39,10 +40,11 @@ while ( defined($line = <FILE>) ) {
 	    push(@cargs, "$arg a".$i++);
 	}
 	$nargs = $i;
+	print " \\\n\tsocketcalls/${name}.o";
 
 	if ( $arch eq 'i386' ) {
-	    open(OUT, '>', "socketcalls/${name}.S")
-		or die "$0: Cannot open socketcalls/${name}.S\n";
+	    open(OUT, '>', "${outputdir}/${name}.S")
+		or die "$0: Cannot open ${outputdir}/${name}.S\n";
 
 	    print OUT "#include <sys/socketcalls.h>\n";
 	    print OUT "\n";
@@ -56,10 +58,10 @@ while ( defined($line = <FILE>) ) {
 	    print OUT "\t.size ${name},.-${name}\n";
 	    close(OUT);
 	} else {
-	    open(OUT, '>', "socketcalls/${name}.c")
-		or die "$0: Cannot open socketcalls/${name}.c\n";
+	    open(OUT, '>', "${outputdir}/${name}.c")
+		or die "$0: Cannot open ${outputdir}/${name}.c\n";
 
-	    print OUT "#include \"../socketcommon.h\"\n";
+	    print OUT "#include \"socketcommon.h\"\n";
 	    print OUT "\n";
 	    print OUT "#ifndef __NR_${name}\n\n";
 
@@ -82,3 +84,5 @@ while ( defined($line = <FILE>) ) {
 	die "$file:$.: Could not parse input\n";
     }
 }
+
+print "\n";

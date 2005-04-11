@@ -18,12 +18,12 @@ $(CROSS)klibc.config: Makefile
 	echo 'ARCH=$(ARCH)' >> $@
 	echo 'CROSS=$(CROSS)' >> $@
 	echo 'KCROSS=$(KCROSS)' >> $@
-	echo "CC=$(shell bash -c 'type -p $(CC)')" >> $@
-	echo "LD=$(shell bash -c 'type -p $(LD)')" >> $@
+	echo 'CC=$(CC)' >> $@
+	echo 'LD=$(LD)' >> $@
 	echo 'REQFLAGS=$(filter-out -I%,$(REQFLAGS))' >> $@
 	echo 'OPTFLAGS=$(OPTFLAGS)' >> $@
 	echo 'LDFLAGS=$(LDFLAGS)' >> $@
-	echo "STRIP=$(shell bash -c 'type -p $(STRIP)')" >> $@
+	echo 'STRIP=$(STRIP)' >> $@
 	echo 'STRIPFLAGS=$(STRIPFLAGS)' >> $@
 	echo 'EMAIN=$(EMAIN)' >> $@
 	echo 'BITSIZE=$(BITSIZE)' >> $@
@@ -45,7 +45,7 @@ local-all: $(CROSS)klcc
 local-clean:
 	rm -f klibc.config klcc
 
-local-spotless:
+local-spotless: local-clean
 	rm -f klibc.spec *~ tags
 
 local-install: $(CROSS)klcc
