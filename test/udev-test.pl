@@ -418,6 +418,7 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "boot_disk15" ,
+		exp_majorminor	=> "8:15",
 		rules		=> <<EOF
 BUS=="scsi", SYSFS{vendor}=="IBM-ESXS", NAME{all_partitions}="boot_disk"
 EOF
