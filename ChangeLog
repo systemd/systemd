@@ -1,3 +1,42 @@
+Summary of changes from v056 to v057
+============================================
+
+<tklauser:access.unizh.ch>:
+  o fix stupid all_partitions bug
+
+Kay Sievers:
+  o add test for make -j4 to build-check
+  o klibc: version 1.0.6
+  o update Debian rules
+  o apply default permissions only for devices that will need it
+  o adapt RELEASE-NOTES
+  o udev_volume_id: fix endianess macros
+  o udev-test.pl: add test for DEVNAME export to RUN environment
+  o update the man page to reflect the recent changes
+  o export DEVNAME to RUN-key executed programs
+  o fix make -j4 and the local klibc-install
+  o update RELEASE-NOTES
+  o add RUN key to be able to run rule based notification
+  o fix udevtest to print the error if logging is disabled
+  o move execute_program to utils + add action to init_device
+  o correct correction for error path for PROGRAM execution
+  o correct error path for PROGRAM execution
+  o klibc: version 1.0.5
+  o check for strlen()==0 before accessing strlen()-1
+  o allow to match against empty key values
+  o read %s{}-sysfs values at any device in the chain
+  o udev_rules.c: don't change sysfs_device while walking up the device chain
+  o klibc: strlcpy/strlcat - don't alter destination if size == 0
+  o fix klibc's broken strlcpy/strlcat
+  o udevinfo: print SYSFS attribute the same way we match it
+  o remove untrusted chars read from sysfs-values or returned by PROGRAM
+  o udevinfo: print errors to stderr instead of stdout
+  o klibc: version 1.0.4
+  o support log-priority levels in udev.conf
+  o test-suite: remove UDEV_TEST, it's not needed anymore
+  o libsysfs: remove trailing slash on SYSFS_PATH override
+
+
 Summary of changes from v055 to v056
 ============================================
 
