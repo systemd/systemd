@@ -40,7 +40,7 @@ while ( defined($line = <FILE>) ) {
 	    push(@cargs, "$arg a".$i++);
 	}
 	$nargs = $i;
-	print " \\\n\tsocketcalls/${name}.o";
+	print " \\\n\t${name}.o";
 
 	if ( $arch eq 'i386' ) {
 	    open(OUT, '>', "${outputdir}/${name}.S")
@@ -61,7 +61,7 @@ while ( defined($line = <FILE>) ) {
 	    open(OUT, '>', "${outputdir}/${name}.c")
 		or die "$0: Cannot open ${outputdir}/${name}.c\n";
 
-	    print OUT "#include \"socketcommon.h\"\n";
+	    print OUT "#include \"../socketcommon.h\"\n";
 	    print OUT "\n";
 	    print OUT "#ifndef __NR_${name}\n\n";
 

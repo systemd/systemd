@@ -107,7 +107,7 @@ while ( defined($line = <FILE>) ) {
 	@args = split(/\s*\,\s*/, $argv);
 
 	print HAVESYS "#define _KLIBC_HAVE_SYSCALL_${fname} ${sname}\n";
-	print " \\\n\tsyscalls/${fname}.o";
+	print " \\\n\t${fname}.o";
 	make_sysstub($outputdir, $fname, $type, $sname, $stype, @args);
     } else {
 	die "$file:$.: Could not parse input: \"$line\"\n";
