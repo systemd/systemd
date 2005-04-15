@@ -184,6 +184,21 @@ extern struct dlist *sysfs_get_classdev_attributes
 	(struct sysfs_class_device *clsdev);
 extern struct sysfs_device *sysfs_get_classdev_device
 	(struct sysfs_class_device *clsdev);
+extern void sysfs_close_class(struct sysfs_class *cls);
+extern struct sysfs_class *sysfs_open_class(const char *name);
+extern struct sysfs_class_device *sysfs_get_class_device
+	(struct sysfs_class *cls, const char *name);
+extern struct dlist *sysfs_get_class_devices(struct sysfs_class *cls);
+
+/* generic sysfs bus access */
+extern void sysfs_close_bus(struct sysfs_bus *bus);
+extern struct sysfs_bus *sysfs_open_bus(const char *name);
+extern struct dlist *sysfs_get_bus_devices(struct sysfs_bus *bus);
+extern struct dlist *sysfs_get_bus_drivers(struct sysfs_bus *bus);
+extern struct sysfs_device *sysfs_get_bus_device
+	(struct sysfs_bus *bus, const char *id);
+extern struct sysfs_driver *sysfs_get_bus_driver
+	(struct sysfs_bus *bus, const char *drvname);
 
 /**
  * sort_list: sorter function to keep list elements sorted in alphabetical 

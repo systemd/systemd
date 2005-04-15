@@ -338,7 +338,7 @@ struct sysfs_attribute *get_attribute(void *dev, const char *name)
 			SYSFS_PATH_MAX);
 	safestrcatmax(path, "/", SYSFS_PATH_MAX);
 	safestrcatmax(path, name, SYSFS_PATH_MAX);
-	if (!(sysfs_path_is_file(path)))
+	if (!sysfs_path_is_file(path))
 		cur = add_attribute((void *)dev, path);
 	return cur;
 }
@@ -373,7 +373,7 @@ struct dlist *read_dir_links(const char *path)
 		safestrcpy(file_path, path);
 		safestrcat(file_path, "/");
 		safestrcat(file_path, dirent->d_name);
-		if ((sysfs_path_is_link(file_path)) == 0) {
+		if (!sysfs_path_is_link(file_path)) {
 			if (!linklist) {
 				linklist = dlist_new_with_delete
 					(SYSFS_NAME_LEN, sysfs_del_name);
@@ -421,7 +421,7 @@ struct dlist *read_dir_subdirs(const char *path)
 		safestrcpy(file_path, path);
 		safestrcat(file_path, "/");
 		safestrcat(file_path, dirent->d_name);
-		if ((sysfs_path_is_dir(file_path)) == 0) {
+		if (!sysfs_path_is_dir(file_path)) {
 			if (!dirlist) {
 				dirlist = dlist_new_with_delete
 					(SYSFS_NAME_LEN, sysfs_del_name);
@@ -471,7 +471,7 @@ struct dlist *get_attributes_list(void *dev)
 		safestrcpy(file_path, path);
 		safestrcat(file_path, "/");
 		safestrcat(file_path, dirent->d_name);
-		if ((sysfs_path_is_file(file_path)) == 0) {
+		if (!sysfs_path_is_file(file_path)) {
 			if (((struct sysfs_device *)dev)->attrlist) {
 				/* check if attr is already in the list */
 				attr = (struct sysfs_attribute *)

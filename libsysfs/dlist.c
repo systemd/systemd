@@ -551,7 +551,7 @@ void dlist_sort_custom(struct dlist *list, int (*compare)(void *, void *))
   struct dlist *templist;
   unsigned int passcount = 1;
   unsigned int mergecount = 1;
-
+  
   dlist_start(list);
   templist = dlist_new(list->data_size);
 

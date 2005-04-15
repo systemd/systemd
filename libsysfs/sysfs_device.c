@@ -38,7 +38,6 @@ static int get_dev_driver(struct sysfs_device *dev)
 		errno = EINVAL;
 		return -1;
 	}
-
 	memset(path, 0, SYSFS_PATH_MAX);
 	memset(devpath, 0, SYSFS_PATH_MAX);
 	safestrcpymax(path, dev->path, SYSFS_PATH_MAX);
@@ -53,9 +52,9 @@ static int get_dev_driver(struct sysfs_device *dev)
 	}
 
 	/*
-	 * Devices on on earlier kernels do not have the "driver" link.
+	 * Devices on earlier kernels do not have the "driver" link.
 	 * Look it up in the bus directory.
-	 */
+	 */ 
 	if (dev->bus[0] == '\0')
 		return -1;
 	memset(path, 0, SYSFS_PATH_MAX);
@@ -81,7 +80,7 @@ static int get_dev_driver(struct sysfs_device *dev)
 			safestrcat(devpath, drv);
 			safestrcat(devpath, "/");
 			safestrcat(devpath, dev->bus_id);
-			if (sysfs_path_is_link(devpath) == 0) {
+			if (!sysfs_path_is_link(devpath)) {
 				safestrcpy(dev->driver_name, drv);
 				sysfs_close_list(drvlist);
 				return 0;
@@ -149,7 +148,7 @@ int sysfs_get_device_bus(struct sysfs_device *dev)
 			safestrcat(path, SYSFS_DEVICES_NAME);
 			safestrcat(path, "/");
 			safestrcat(path, dev->bus_id);
-			if ((sysfs_path_is_link(path)) == 0) {
+			if (!sysfs_path_is_link(path)) {
 				memset(target, 0, SYSFS_PATH_MAX);
 				if (sysfs_get_link(path, target, 
 						SYSFS_PATH_MAX)) {

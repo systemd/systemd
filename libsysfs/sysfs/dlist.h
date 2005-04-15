@@ -50,6 +50,7 @@
 
 * Just use the dlist_(insert|delete)_(before|after) macros if you do not want
 * to think about it.
+
 */
 
 #include <stddef.h>

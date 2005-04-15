@@ -40,6 +40,43 @@ void sysfs_close_class_device(struct sysfs_class_device *dev)
 	}
 }
 
+static void sysfs_close_cls_dev(void *dev)
+{
+	sysfs_close_class_device((struct sysfs_class_device *)dev);
+}
+
+/**
+ * sysfs_close_class: close the given class
+ * @cls: sysfs_class to close
+ */ 
+void sysfs_close_class(struct sysfs_class *cls)
+{
+	if (cls) {
+		if (cls->devices)
+			dlist_destroy(cls->devices);
+		if (cls->attrlist)
+			dlist_destroy(cls->attrlist);
+		free(cls);
+	}
+}
+
+static int cdev_name_equal(void *a, void *b)
+{
+	if (!a || !b)
+		return 0;
+
+	if (strncmp((char *)a, ((struct sysfs_class_device *)b)->name, 
+				strlen((char *)a)) == 0)
+		return 1;
+
+	return 0;
+}
+
+static struct sysfs_class *alloc_class(void)
+{
+	return (struct sysfs_class *) calloc(1, sizeof(struct sysfs_class));
+}
+
 /**
  * alloc_class_device: mallocs and initializes new class device struct.
  * returns sysfs_class_device or NULL.
@@ -96,7 +133,7 @@ struct sysfs_class_device *sysfs_open_class_device_path(const char *path)
 		errno = EINVAL;
 		return NULL;
 	}
-	if ((sysfs_path_is_dir(path)) != 0) {
+	if (sysfs_path_is_dir(path)) {
 		dprintf("%s is not a valid path to a class device\n", path);
 		return NULL;
 	}
@@ -113,7 +150,7 @@ struct sysfs_class_device *sysfs_open_class_device_path(const char *path)
 	}
 
 	safestrcpy(cdev->path, path);
-	if ((sysfs_remove_trailing_slash(cdev->path)) != 0) {
+	if (sysfs_remove_trailing_slash(cdev->path)) {
 		dprintf("Invalid path to class device %s\n", cdev->path);
 		sysfs_close_class_device(cdev);
 		return NULL;
@@ -335,3 +372,150 @@ struct sysfs_device *sysfs_get_classdev_device
 	}
 	return clsdev->sysdevice;
 }
+
+/**
+ * sysfs_open_class: opens specific class and all its devices on system
+ * returns sysfs_class structure with success or NULL with error.
+ */
+struct sysfs_class *sysfs_open_class(const char *name)
+{
+	struct sysfs_class *cls = NULL;
+	char classpath[SYSFS_PATH_MAX];
+
+	if (!name) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	memset(classpath, 0, SYSFS_PATH_MAX);
+        if ((sysfs_get_mnt_path(classpath, SYSFS_PATH_MAX)) != 0) {
+                dprintf("Sysfs not supported on this system\n");
+                return NULL;
+        }
+
+	/* 
+	 * We shall now treat "block" also as a class. Hence, check here
+	 * if "name" is "block" and proceed accordingly
+	 */
+	if (strcmp(name, SYSFS_BLOCK_NAME) == 0) {
+		safestrcat(classpath, "/");
+		safestrcat(classpath, SYSFS_BLOCK_NAME);
+	} else {
+		safestrcat(classpath, "/");
+		safestrcat(classpath, SYSFS_CLASS_NAME);
+		safestrcat(classpath, "/");
+		safestrcat(classpath, name);
+	}
+	if (sysfs_path_is_dir(classpath)) {
+		dprintf("Class %s not found on the system\n", name);
+		return NULL;
+	}
+
+	cls = alloc_class();
+	if (cls == NULL) {
+		dprintf("calloc failed\n");
+		return NULL;
+	}
+	safestrcpy(cls->name, name);	
+	safestrcpy(cls->path, classpath);
+	if ((sysfs_remove_trailing_slash(cls->path)) != 0) {
+		dprintf("Invalid path to class device %s\n", cls->path);
+		sysfs_close_class(cls);
+		return NULL;
+	}
+
+	return cls;
+}
+
+/**
+ * sysfs_get_class_device: get specific class device using the device's id
+ * @cls: sysfs_class to find the device on
+ * @name: name of the class device to look for
+ * 
+ * Returns sysfs_class_device * on success and NULL on failure
+ */ 
+struct sysfs_class_device *sysfs_get_class_device(struct sysfs_class *cls,
+		const char *name)
+{
+	char path[SYSFS_PATH_MAX];
+	struct sysfs_class_device *cdev = NULL;
+
+	if (!cls || !name) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	if (cls->devices) {
+		cdev = (struct sysfs_class_device *)dlist_find_custom
+			(cls->devices, (void *)name, cdev_name_equal);
+		if (cdev)
+			return cdev;
+	}
+
+	safestrcpy(path, cls->path);
+	safestrcat(path, "/");
+	safestrcat(path, name);
+	if (!sysfs_path_is_dir(path)) {
+		cdev = sysfs_open_class_device_path(path);
+		if (!cdev) {
+			dprintf("Error opening class device at %s\n", path);
+			return NULL;
+		}
+	}
+	if (!cls->devices)
+		cls->devices = dlist_new_with_delete
+			(sizeof(struct sysfs_class_device),
+				 sysfs_close_cls_dev);
+	
+	dlist_unshift_sorted(cls->devices, cdev, sort_list);
+	return cdev;
+}
+
+/**
+ * sysfs_get_class_devices: get all class devices in the given class
+ * @cls: sysfs_class whose devices list is needed
+ *
+ * Returns a dlist of sysfs_class_device * on success and NULL on failure
+ */
+struct dlist *sysfs_get_class_devices(struct sysfs_class *cls)
+{
+	char path[SYSFS_PATH_MAX];
+	char *cdev_name;
+	struct sysfs_class_device *cdev = NULL;
+	struct dlist *dirlist;
+
+	if (!cls) {
+		errno = EINVAL;
+		return NULL;
+	}
+
+	safestrcpy(path, cls->path);
+	dirlist = read_dir_subdirs(path);
+	if (dirlist) {
+		dlist_for_each_data(dirlist, cdev_name, char) {
+			if (cls->devices) {
+				cdev = (struct sysfs_class_device *)
+					dlist_find_custom(cls->devices, 
+					(void *)cdev_name, cdev_name_equal);
+				if (cdev)
+					continue;
+			}
+			safestrcpy(path, cls->path);
+			safestrcat(path, "/");
+			safestrcat(path, cdev_name);
+			cdev = sysfs_open_class_device_path(path);
+			if (cdev) {
+				if (!cls->devices)
+					cls->devices = dlist_new_with_delete
+					(sizeof(struct sysfs_class_device),
+					 sysfs_close_cls_dev);
+				dlist_unshift_sorted(cls->devices, cdev,
+						sort_list);
+			}
+		}
+		sysfs_close_list(dirlist);
+	}
+	
+	return cls->devices;
+}
+
