@@ -221,7 +221,7 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 		dbg("symlink(%s, %s)", linktarget, filename);
 		if (!udev->test_run) {
 			unlink(filename);
-			selinux_setfscreatecon(filename, udev->kernel_name, S_IFLNK);
+			selinux_setfscreatecon(filename, NULL, S_IFLNK);
 			retval = symlink(linktarget, filename);
 			selinux_resetfscreatecon();
 			if (retval != 0)
