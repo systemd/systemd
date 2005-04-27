@@ -105,7 +105,7 @@ void selinux_setfilecon(const char *file, const char *devname, unsigned int mode
 			} 
 
 		if (setfilecon(file, scontext) < 0)
-			dbg("setfilecon %s failed with error '%s'", file, strerror(errno));
+			dbg("setfiles %s failed with error '%s'", file, strerror(errno));
 
 		freecon(scontext);
 	}
@@ -131,17 +131,9 @@ void selinux_setfscreatecon(const char *file, const char *devname, unsigned int 
 			}
 
 		if (setfscreatecon(scontext) < 0)
-			dbg("setfscreatecon %s failed with error '%s'", file, strerror(errno));
+			dbg("setfiles %s failed with error '%s'", file, strerror(errno));
 
 		freecon(scontext);
-	}
-}
-
-void selinux_resetfscreatecon(void)
-{
-	if (is_selinux_running()) {
-		if (setfscreatecon(prev_scontext) < 0)
-			dbg("setfscreatecon %s failed with error '%s'", file, strerror(errno));
 	}
 }
 
@@ -152,17 +144,23 @@ void selinux_init(void)
 	 * restoration creation purposes.
 	 */
 	if (is_selinux_running()) {
-		if (getfscreatecon(&prev_scontext) < 0) {
+		if (getfscreatecon(&prev_scontext) < 0)
 			dbg("getfscreatecon failed\n");
-			prev_scontext = NULL;
-		}
+
+		prev_scontext = NULL;
 	}
 }
 
-void selinux_exit(void)
+void selinux_restore(void)
 {
-	if (is_selinux_running() && prev_scontext) {
-		freecon(prev_scontext);
-		prev_scontext = NULL;
+	if (is_selinux_running()) {
+		/* reset the file create context to its former glory */
+		if (setfscreatecon(prev_scontext) < 0)
+			dbg("setfscreatecon failed\n");
+
+		if (prev_scontext) {
+			freecon(prev_scontext);
+			prev_scontext = NULL;
+		}
 	}
 }

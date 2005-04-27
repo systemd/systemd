@@ -24,17 +24,15 @@
 
 extern void selinux_setfilecon(const char *file, const char *devname, unsigned int mode);
 extern void selinux_setfscreatecon(const char *file, const char *devname, unsigned int mode);
-extern void selinux_resetfscreatecon(void);
 extern void selinux_init(void);
-extern void selinux_exit(void);
+extern void selinux_restore(void);
 
 #else
 
 static inline void selinux_setfilecon(const char *file, const char *devname, unsigned int mode) {}
 static inline void selinux_setfscreatecon(const char *file, const char *devname, unsigned int mode) {}
-static inline void selinux_resetfscreatecon(void) {}
 static inline void selinux_init(void) {}
-static inline void selinux_exit(void) {}
+static inline void selinux_restore(void) {}
 
 #endif /* USE_SELINUX */
 #endif /* _UDEV_USE_SELINUX */
