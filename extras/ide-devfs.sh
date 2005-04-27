@@ -36,11 +36,11 @@ get_dev_number() {
 if [ -z "$3" ] && [ -f /proc/ide/${1}/media ]; then
 	MEDIA=`cat /proc/ide/${1}/media`
 	if [ "${MEDIA}" = "cdrom" ]; then
-		echo ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/cd cdroms/cdrom`get_dev_number $1 cdrom`
+		echo ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/cd cdroms/cdrom`get_dev_number $1 cdrom` ${MEDIA}
 	elif [ "${MEDIA}" = "floppy" ]; then
-		echo ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/disc floppies/floppy`get_dev_number $1 floppy`/disc
+		echo ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/disc floppies/floppy`get_dev_number $1 floppy`/disc ${MEDIA}
 	elif [ "${MEDIA}" = "disk" ]; then
-		echo ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/disc discs/disc`get_dev_number $1 disk`/disc
+		echo ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/disc discs/disc`get_dev_number $1 disk`/disc ${MEDIA}
 	fi
 else
 	echo ide/host${HOST}/bus${BUS}/target${TARGET}/lun0/part$3 discs/disc`get_dev_number $1 disk`/part$3

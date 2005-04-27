@@ -19,7 +19,7 @@ BUS="scsi", KERNEL="scd[a-z]", PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYM
 
 # devfs-names for ide-devices (uncomment only one)
 #  /dev/ide/.../{disc,cd} and /dev/{cdroms,discs}/* type names
-BUS="ide", KERNEL="hd*", PROGRAM="/etc/udev/scripts/ide-devfs.sh %k %b %n", NAME="%k", SYMLINK="%c{1} %c{2}"
+BUS="ide", KERNEL="hd*", PROGRAM="/etc/udev/scripts/ide-devfs.sh %k %b %n", NAME="%k", SYMLINK="%c{1} %c{2}", GROUP="%c{3}"
 
 # dri devices
 KERNEL="card*",		NAME="dri/card%n"
