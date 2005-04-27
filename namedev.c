@@ -809,11 +809,6 @@ found:
 	udev->partitions = dev->partitions;
 	udev->ignore_remove = dev->ignore_remove;
 
-	if (dev->group[0] != '\0') {
-		strfieldcpy(udev->group, dev->group);
-		apply_format(udev, udev->group, sizeof(udev->group), class_dev, sysfs_device);	
-	}
-
 	/* get permissions given in rule */
 	set_empty_perms(udev, dev->mode,
 			      dev->owner,
