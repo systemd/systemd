@@ -401,7 +401,7 @@ print:
 			break;
 
 		case PATH:
-			strfieldcpy(result, path);
+			strfieldcpy(result, udev.devpath);
 			break;
 
 		case ALL:

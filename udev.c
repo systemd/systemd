@@ -118,6 +118,7 @@ int main(int argc, char *argv[], char *envp[])
 	udev_init_config();
 
 	/* set signal handlers */
+	memset(&act, 0x00, sizeof(act));
 	act.sa_handler = (void (*) (int))sig_handler;
 	sigemptyset (&act.sa_mask);
 	act.sa_flags = 0;
