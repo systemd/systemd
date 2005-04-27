@@ -108,7 +108,6 @@ int main(int argc, char *argv[], char *envp[])
 	udev_init_config();
 
 	/* set signal handlers */
-	memset(&act, 0x00, sizeof(act));
 	act.sa_handler = (void (*) (int))sig_handler;
 	sigemptyset (&act.sa_mask);
 	act.sa_flags = 0;
@@ -193,10 +192,6 @@ int main(int argc, char *argv[], char *envp[])
 			/* get node from db, remove db-entry, delete created node */
 			retval = udev_remove_device(&udev);
 
-			/* Set the DEVNAME if known */
-			if (udev.devname[0] != '\0') {
-				setenv("DEVNAME", udev.devname, 1);
-			}
 			/* run dev.d/ scripts if we're not instructed to ignore the event */
 			if (udev_dev_d && udev.devname[0] != '\0') {
 				setenv("DEVNAME", udev.devname, 1);

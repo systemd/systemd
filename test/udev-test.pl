@@ -35,9 +35,6 @@ my $perm      = "udev.permissions";
 my $main_conf = "udev-test.conf";
 my $conf_tmp  = "udev-test.rules";
 
-# uncomment following line to run udev with valgrind.
-# Should make this a runtime option to the script someday...
-#my $udev_bin  = "valgrind --tool=memcheck --leak-check=yes   ../udev";
 
 my @tests = (
 	{
@@ -1262,6 +1259,7 @@ sub run_test {
 
 
 	udev("add", $config->{subsys}, $config->{devpath}, \$config->{conf});
+
 	if ((-e "$PWD/$udev_root$config->{exp_name}") ||
 	    (-l "$PWD/$udev_root$config->{exp_name}")) {
 
