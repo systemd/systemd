@@ -83,6 +83,7 @@ create:
 
 	selinux_setfscreatecon(file, udev->kernel_name, mode);
 	retval = mknod(file, mode, devt);
+	selinux_resetfscreatecon();
 	if (retval != 0) {
 		dbg("mknod(%s, %#o, %u, %u) failed with error '%s'",
 		    file, mode, major(devt), minor(devt), strerror(errno));
@@ -189,6 +190,7 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 
 	/* create symlink(s) if requested */
 	list_for_each_entry(name_loop, &udev->symlink_list, node) {
+		int retval;
 		char linktarget[PATH_SIZE];
 
 		snprintf(filename, sizeof(filename), "%s/%s", udev_root, name_loop->name);
@@ -218,9 +220,11 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 
 		dbg("symlink(%s, %s)", linktarget, filename);
 		if (!udev->test_run) {
-			selinux_setfscreatecon(filename, udev->kernel_name, S_IFLNK);
 			unlink(filename);
-			if (symlink(linktarget, filename) != 0)
+			selinux_setfscreatecon(filename, udev->kernel_name, S_IFLNK);
+			retval = symlink(linktarget, filename);
+			selinux_resetfscreatecon();
+			if (retval != 0)
 				dbg("symlink(%s, %s) failed with error '%s'",
 				    linktarget, filename, strerror(errno));
 		}
@@ -317,7 +321,7 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 	}
 
 exit:
-	selinux_restore();
+	selinux_exit();
 
 	return retval;
 }
