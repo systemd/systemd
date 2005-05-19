@@ -119,7 +119,7 @@ KERNEL=="vttuner",		MODE="0660"
 KERNEL=="v4l/*",		MODE="0660"
 
 # input devices
-KERNEL=="input/*",		MODE="0644"
+KERNEL=="input/*",		MODE="0660"
 
 # gpm devices
 KERNEL=="gpmctl",		MODE="0700"
@@ -195,8 +195,18 @@ KERNEL=="sr[0-9]*",		SYMLINK="cdrom%e"
 KERNEL=="scd[0-9]*",		SYMLINK="cdrom%e"
 KERNEL=="pcd[0-9]*",		SYMLINK="cdrom%e"
 KERNEL=="fd[0-9]*",		SYMLINK="floppy%e"
-KERNEL=="nst[0-9]",		SYMLINK="tape%e"
-KERNEL=="nosst[0-9]*",		SYMLINK="tape%e"
+KERNEL=="nst[0-9]", BUS=="scsi", 	SYMLINK="tape%e"
+KERNEL=="nosst[0-9]", BUS=="scsi", 	SYMLINK="tape%e"
+
+KERNEL=="umad*", 		NAME="infiniband/%k"
+KERNEL=="issm*", 		NAME="infiniband/%k"
+
+# Section for zaptel device
+KERNEL=="zapctl",     		NAME="zap/ctl"
+KERNEL=="zaptimer",   		NAME="zap/timer"
+KERNEL=="zapchannel", 		NAME="zap/channel"
+KERNEL=="zappseudo",  		NAME="zap/pseudo"
+KERNEL=="zap[0-9]*",  		NAME="zap/%n"
 
 # do not seperate the next 2 lines!!
 KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="/etc/udev/scripts/ide-media.sh %k", RESULT=="floppy", SYMLINK="floppy%e", NAME{ignore_remove, all_partitions}="%k"
