@@ -11,7 +11,12 @@
  * BUS="scsi", KERNEL="scd[0-9]*", PROGRAM="/etc/udev/cdsymlinks.sh %k", SYMLINK="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
  * (this last one is "just in case")
  *
- * (c) 2004 Darren Salt <linux@youmustbejoking.demon.co.uk>
+ * (c) 2004, 2005 Darren Salt <linux@youmustbejoking.demon.co.uk>
+ *
+ * Contributors:
+ *  - J A Magallon <jamagallon@able.es> (bug fixes)
+ *
+ * Last modified: 2005-02-15
  */
 
 #define _GNU_SOURCE
@@ -56,6 +61,7 @@ struct list_t {
 /* Configuration variables */
 static struct list_t allowed_output = {0};
 static int numbered_links = 1;
+static int link_zero = 0;
 
 /* Available devices */
 static struct list_t Devices = {0};
@@ -65,14 +71,40 @@ static struct list_t Devices = {0};
  */
 static struct list_t cap_DVDRAM = {0}, cap_DVDRW = {0}, cap_DVD = {0},
 		     cap_CDRW = {0}, cap_CDR = {0}, cap_CDWMRW = {0},
-		     cap_CDMRW = {0};
+		     cap_CDMRW = {0}, cap_CDRAM = {0};
 
 /* Device capabilities by name */
 static struct list_t dev_DVDRAM = {0}, dev_DVDRW = {0}, dev_DVD = {0},
 		     dev_CDRW = {0}, dev_CDR = {0}, dev_CDWMRW = {0},
-		     dev_CDMRW = {0};
+		     dev_CDMRW = {0}, dev_CDRAM = {0};
 #define dev_CD Devices
 
+typedef struct {
+  struct list_t *cap, *dev;
+  const char label[8], symlink[8];
+  const char *captext;
+  int captextlen;
+} cap_dev_t;
+
+#define CAPDEV(X) &cap_##X, &dev_##X
+
+static const cap_dev_t cap_dev_info[] = {
+  { NULL, &dev_CD,  "CD",     "cdrom",  NULL, 0 },
+  { CAPDEV(CDR),    "CDR",    "cd-r",   "Can write CD-R:", 15 },
+  { CAPDEV(CDRW),   "CDRW",   "cdrw",   "Can write CD-RW:", 16 },
+  { CAPDEV(DVD),    "DVD",    "dvd",    "Can read DVD:", 13 },
+  { CAPDEV(DVDRW),  "DVDRW",  "dvdrw",  "Can write DVD-R:", 16 },
+  { CAPDEV(DVDRAM), "DVDRAM", "dvdram", "Can write DVD-RAM:", 18 },
+  { CAPDEV(CDMRW),  "CDMRW",  "cdm",    "Can read MRW:", 13 },  /* CDC-MRW R */
+  { CAPDEV(CDWMRW), "CDWMRW", "cdmrw",  "Can write MRW:", 14 }, /* CDC-MRW W */
+  { CAPDEV(CDRAM),  "CDRAM",  "cdram",  "Can write RAM:", 14 }, /* CDC-RAM W */
+  { NULL }
+};
+
+#define foreach_cap_dev(loop) \
+  for ((loop) = cap_dev_info; (loop)->label[0]; ++(loop))
+#define foreach_cap_dev_noCD(loop) \
+  for ((loop) = cap_dev_info + 1; (loop)->label[0]; ++(loop))
 
 /*
  * Some library-like bits first...
@@ -218,7 +250,7 @@ static void
 list_assign_split (struct list_t *list, char *text)
 {
   char *token = strchr (text, ':');
-  token = strtok (token ? token + 1 : text, " \t");
+  token = strtok (token ? token + 1 : text, " \t\n");
   while (token)
   {
     list_prepend (list, token);
@@ -267,8 +299,10 @@ read_defaults (void)
             list_delete (&allowed_output);
             list_assign_split (&allowed_output, p.we_wordv[0] + 7);
           }
-          else if (!strncmp (p.we_wordv[0], "NUMBERED_LINKS=", 14))
-            numbered_links = atoi (p.we_wordv[0] + 14);
+          else if (!strncmp (p.we_wordv[0], "NUMBERED_LINKS=", 15))
+            numbered_links = atoi (p.we_wordv[0] + 15);
+          else if (!strncmp (p.we_wordv[0], "LINK_ZERO=", 15))
+            link_zero = atoi (p.we_wordv[0] + 15);
           break;
 	}
 	/* fall through */
@@ -315,20 +349,16 @@ populate_capability_lists (void)
   {
     if (!strncasecmp (text, "drive name", 10))
       list_assign_split (&Devices, text);
-    else if (!strncasecmp (text, "Can write DVD-RAM", 17))
-      list_assign_split (&cap_DVDRAM, text);
-    else if (!strncasecmp (text, "Can write DVD-R", 15))
-      list_assign_split (&cap_DVDRW, text);
-    else if (!strncasecmp (text, "Can read DVD", 12))
-      list_assign_split (&cap_DVD, text);
-    else if (!strncasecmp (text, "Can write CD-RW", 15))
-      list_assign_split (&cap_CDRW, text);
-    else if (!strncasecmp (text, "Can write CD-R", 14))
-      list_assign_split (&cap_CDR, text);
-    else if (!strncasecmp (text, "Can read MRW", 14))
-      list_assign_split (&cap_CDMRW, text);
-    else if (!strncasecmp (text, "Can write MRW", 14))
-      list_assign_split (&cap_CDWMRW, text);
+    else
+    {
+      const cap_dev_t *cap;
+      foreach_cap_dev_noCD (cap)
+	if (!strncasecmp (text, cap->captext, cap->captextlen))
+	{
+	  list_assign_split (cap->cap, text);
+	  break;
+	}
+    }
   }
   if (!feof (info))
     errexit ("error accessing CD/DVD info");
@@ -341,7 +371,8 @@ populate_capability_lists (void)
  * taking into account existing links and the capability list for type LINK.
  */
 static void
-do_output (const char *name, const char *link, const struct list_t *dev)
+do_output (const char *name, const char *link, const struct list_t *dev,
+	   int do_link_zero)
 {
   const struct list_item_t *i = (const struct list_item_t *)dev;
   if (!i->next)
@@ -406,6 +437,8 @@ do_output (const char *name, const char *link, const struct list_t *dev)
       /* Existing symlink found - don't output a new one.
        * If ISDEV, we output the name of the existing symlink.
        */
+      if (do_link_zero)
+	return;
       present = 1;
       if (isdev)
         printf (" %s", list_nth (&devls, li)->data);
@@ -415,14 +448,19 @@ do_output (const char *name, const char *link, const struct list_t *dev)
     if (!present)
     {
       char buf[256];
-      snprintf (buf, sizeof (buf), count ? "%s%d" : "%s", link, count);
+      snprintf (buf, sizeof (buf), count || do_link_zero ? "%s%d" : "%s",
+		link, count);
       /* Find the next available (not present) symlink name.
        * We always need to do this for reasons of output consistency: if a
        * symlink is created by udev as a result of use of this program, we
        * DON'T want different output!
        */
       while (list_search (&devls, buf))
+      {
+	if (do_link_zero)
+	  return;
         snprintf (buf, sizeof (buf), "%s%d", link, ++count);
+      }
       /* If ISDEV, output it. */
       if (isdev && (numbered_links || count == 0))
         printf (" %s", buf);
@@ -431,6 +469,8 @@ do_output (const char *name, const char *link, const struct list_t *dev)
        */
       if (!list_search (&devls, buf))
       {
+	if (do_link_zero)
+	  return;
         list_append (&devls, buf);
         ++count;
       }
@@ -458,6 +498,8 @@ populate_device_list (struct list_t *out, const struct list_t *caps)
 int
 main (int argc, char *argv[])
 {
+  const cap_dev_t *capdev;
+
   progname = argv[0];
   debug = argc > 2 && !strcmp (argv[2], "-d");
 
@@ -470,62 +512,43 @@ main (int argc, char *argv[])
   read_defaults ();
   populate_capability_lists ();
 
-  /* Construct the device lists from the capability lists. */
-  populate_device_list (&dev_DVDRAM, &cap_DVDRAM);
-  populate_device_list (&dev_DVDRW, &cap_DVDRW);
-  populate_device_list (&dev_DVD, &cap_DVD);
-  populate_device_list (&dev_CDRW, &cap_CDRW);
-  populate_device_list (&dev_CDR, &cap_CDR);
-  populate_device_list (&dev_CDWMRW, &cap_CDWMRW);
-  populate_device_list (&dev_CDMRW, &cap_CDMRW);
-  /* (All devices can read CDs.) */
+  /* Construct the device lists from the capability lists.
+   * (We assume that all relevant devices can read CDs.)
+   */
+  foreach_cap_dev_noCD (capdev)
+    populate_device_list (capdev->dev, capdev->cap);
 
   if (debug)
   {
-#define printdev(DEV) \
-	printf ("%-7s:", #DEV); \
-        list_print (&cap_##DEV, stdout); \
-        list_print (&dev_##DEV, stdout); \
-	puts ("");
-
     printf ("Devices:");
     const struct list_item_t *item = (const struct list_item_t *)&Devices;
     while ((item = item->next) != NULL)
       printf (" %s", item->data);
-    puts ("");
 
-    printdev (DVDRAM);
-    printdev (DVDRW);
-    printdev (DVD);
-    printdev (CDRW);
-    printdev (CDR);
-    printdev (CDWMRW);
-    printdev (CDMRW);
-
-    printf ("CDROM  : (all)");
+    printf ("\nCDROM     : (all)");
     item = (const struct list_item_t *)&dev_CD;
     while ((item = item->next) != NULL)
       printf (" %s", item->data);
     puts ("");
+
+    foreach_cap_dev_noCD (capdev)
+    {
+      printf ("%-10s:", capdev->label);
+      list_print (capdev->cap, stdout);
+      list_print (capdev->dev, stdout);
+      puts ("");
+    }
+
   }
 
   /* Write the symlink names. */
-  if (list_search (&allowed_output, "CD"))
-    do_output (argv[1], "cdrom",  &dev_CD);
-  if (list_search (&allowed_output, "CDR"))
-    do_output (argv[1], "cd-r",   &dev_CDR);
-  if (list_search (&allowed_output, "CDRW"))
-    do_output (argv[1], "cdrw",   &dev_CDRW);
-  if (list_search (&allowed_output, "DVD"))
-    do_output (argv[1], "dvd",    &dev_DVD);
-  if (list_search (&allowed_output, "DVDRW"))
-    do_output (argv[1], "dvdrw",  &dev_DVDRW);
-  if (list_search (&allowed_output, "DVDRAM"))
-    do_output (argv[1], "dvdram", &dev_DVDRAM);
-  if (list_search (&allowed_output, "CDMRW"))
-    do_output (argv[1], "cdmrw",   &dev_CDMRW);
-  if (list_search (&allowed_output, "CDWMRW"))
-    do_output (argv[1], "cdwmrw",   &dev_CDWMRW);
+  foreach_cap_dev (capdev)
+    if (list_search (&allowed_output, capdev->label))
+    {
+      do_output (argv[1], capdev->symlink, capdev->dev, 0);
+      if (link_zero)
+        do_output (argv[1], capdev->symlink, capdev->dev, 1);
+    }
   puts ("");
 
   return 0;

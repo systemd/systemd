@@ -1,6 +1,7 @@
 #! /bin/sh -e
 #
-# Map cdrom, cdm, cdmrw, cd-r, cdrw, dvd, dvdrw, dvdram to suitable devices.
+# Map cdrom, cd-r, cdrw, dvd, dvdrw, dvdram, cdm, cdmrw, cdram
+# to suitable devices.
 # Prefers cd* for DVD-incapable and cdrom and dvd for read-only devices.
 # First parameter is the kernel device name.
 # Second parameter, if present, must be "-d" => output the full mapping.
@@ -11,13 +12,16 @@
 # BUS="scsi", KERNEL="scd[0-9]*", PROGRAM="/etc/udev/cdsymlinks.sh %k", SYMLINK="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
 # (this last one is "just in case")
 #
-# (c) 2004 Darren Salt <linux@youmustbejoking.demon.co.uk>
+# (c) 2004, 2005 Darren Salt <linux@youmustbejoking.demon.co.uk>
+#
+# Last modified: 2005-02-15
 
 test -e /proc/sys/dev/cdrom/info || exit 0
 
 # Defaults; it's better that you alter them in /etc/udev/cdsymlinks.conf
 OUTPUT='CD CDRW DVD DVDRW DVDRAM'
 NUMBERED_LINKS=1
+LINK_ZERO=0
 
 test -e /etc/udev/cdsymlinks.conf && . /etc/udev/cdsymlinks.conf
 
@@ -61,6 +65,7 @@ setArray CDRWs   `sed -re '/^Can write CD-RW:/I!   d; s/.*://' /proc/sys/dev/cdr
 setArray CDRs    `sed -re '/^Can write CD-R:/I!    d; s/.*://' /proc/sys/dev/cdrom/info`
 setArray CDMRWs  `sed -re '/^Can write MRW:/I!     d; s/.*://' /proc/sys/dev/cdrom/info`
 setArray CDMs    `sed -re '/^Can read MRW:/I!      d; s/.*://' /proc/sys/dev/cdrom/info`
+setArray CDRAMs  `sed -re '/^Can write RAM:/I!     d; s/.*://' /proc/sys/dev/cdrom/info`
 
 # How many devices do we have?
 NumDevs=$(($DEVICES-1))
@@ -80,6 +85,7 @@ for i in $Count; do
   test "`ix CDRs $i`"    != '' || ixs CDRs $i 0
   test "`ix CDMRWs $i`"  != '' || ixs CDMRWs $i 0
   test "`ix CDMs $i`"    != '' || ixs CDMs $i 0
+  test "`ix CDRAMs $i`"  != '' || ixs CDRAMs $i 0
 done
 
 DVDRAM=''
@@ -89,6 +95,7 @@ CDRW=''
 CDR=''
 CDMRW=''
 CDM=''
+CDRAM=''
 CD=''
 
 # Calculate symlink->device mappings.
@@ -117,27 +124,31 @@ for i in $Count; do
   test "`ix CDMs $i`" = 1 &&	CDM="$CDM `ix DEVICES $i`"
 done
 for i in $Count; do
+  test "`ix CDRAMs $i`" = 1 &&	CDRAM="$CDRAM `ix DEVICES $i`"
+done
+for i in $Count; do
 				CD="$CD `ix DEVICES $i`"
 done
 
 # Debug output
 if test "$DEBUG" = 1; then
   echo 'Devices:' `for i in $Count; do ix DEVICES $i; echo -n \ ; done`
-  echo 'DVDRAM :' `for i in $Count; do ix DVDRAMs $i; echo -n \ ; done` $DVDRAM
-  echo 'DVDRW  :' `for i in $Count; do ix DVDRWs  $i; echo -n \ ; done` $DVDRW
-  echo 'DVD    :' `for i in $Count; do ix DVDs    $i; echo -n \ ; done` $DVD
-  echo 'CDRW   :' `for i in $Count; do ix CDRWs   $i; echo -n \ ; done` $CDRW
-  echo 'CD-R   :' `for i in $Count; do ix CDRs    $i; echo -n \ ; done` $CDR
-  echo 'CDMRW  :' `for i in $Count; do ix CDMRWs  $i; echo -n \ ; done` $CDMRW
-  echo 'CDM    :' `for i in $Count; do ix CDMs    $i; echo -n \ ; done` $CDM
   echo 'CDROM  : (all)' $CD
+  echo 'CD-R   :' `for i in $Count; do ix CDRs    $i; echo -n \ ; done` $CDR
+  echo 'CDRW   :' `for i in $Count; do ix CDRWs   $i; echo -n \ ; done` $CDRW
+  echo 'DVD    :' `for i in $Count; do ix DVDs    $i; echo -n \ ; done` $DVD
+  echo 'DVDRW  :' `for i in $Count; do ix DVDRWs  $i; echo -n \ ; done` $DVDRW
+  echo 'DVDRAM :' `for i in $Count; do ix DVDRAMs $i; echo -n \ ; done` $DVDRAM
+  echo 'CDMRW  :' `for i in $Count; do ix CDMRWs  $i; echo -n \ ; done` $CDMRW
+  echo 'CDWMRW :' `for i in $Count; do ix CDMs    $i; echo -n \ ; done` $CDM
+  echo 'CDRAM  :' `for i in $Count; do ix CDRAMs  $i; echo -n \ ; done` $CDRAM
 fi
 
 # Prepare symlink names output
-output () {
+do_output () {
   test "`eval echo '$'$3`" = '' && return
   local i
-  local COUNT=''
+  local COUNT=$4
   local DEVLS="`ls -dl \"/dev/$2\" \"/dev/$2\"[0-9]* 2>/dev/null`"
   local PRESENT="`echo "$DEVLS" |
     sed -re 's!^.* /dev/('$2'[[:digit:]]*) -> [^[:space:]]+$!\1!'`"
@@ -148,6 +159,7 @@ output () {
     if test "$DEVPRESENT" != ""; then
       # Existing symlinks found - don't output a new one.
       # If the target dev ($1) is the current dev ($i), we output their names.
+      test -z "$4" || return;
       test "$1" = "$i" && echo " $DEVPRESENT" | sed -e 'N; $ s/\n/ /'
     else
       # If we found no existing symlinks for the target device...
@@ -156,15 +168,17 @@ output () {
       # symlink is created by udev as a result of use of this program, we
       # DON'T want different output!
       until notin PRESENT "$2$COUNT"; do
+        test -z "$4" || return;
 	COUNT=$(($COUNT+1))
       done
       # If the target dev ($1) is the current dev ($i), we output its name.
-      if test $(($NUMBERED_LINKS)) -ne 0 || test "$COUNT" = ''; then
-	test "$i" = "$1" && echo -n " $2$COUNT"
+      if test $(($NUMBERED_LINKS)) -ne 0 || test -z "$COUNT"; then
+	test "$i" != "$1" || echo -n " $2$COUNT"
       fi
       # If the link isn't in our "existing links" list, add it and increment
       # our counter.
-      if test ! -e "/dev/$2$COUNT"; then
+      if notin PRESENT "$2$COUNT"; then
+        test -z "$4" || return;
 	PRESENT="$PRESENT\n$2$COUNT"
 	COUNT=$(($COUNT+1))
       fi
@@ -172,13 +186,19 @@ output () {
   done
 }
 
+output () {
+  do_output "$@"
+  test $(($LINK_ZERO)) -eq 0 || do_output "$@" 0
+}
+
 # And output it
 notin OUTPUT CD     || echo -n "`output "$1" cdrom CD`"
-notin OUTPUT CDMRW  || echo -n "`output "$1" cdmrw CDM`"
-notin OUTPUT CDWMRW || echo -n "`output "$1" cdwmrw CDMRW`"
 notin OUTPUT CDR    || echo -n "`output "$1" cd-r CDR`"
 notin OUTPUT CDRW   || echo -n "`output "$1" cdrw CDRW`"
 notin OUTPUT DVD    || echo -n "`output "$1" dvd DVD`"
 notin OUTPUT DVDRW  || echo -n "`output "$1" dvdrw DVDRW`"
 notin OUTPUT DVDRAM || echo -n "`output "$1" dvdram DVDRAM`"
+notin OUTPUT CDMRW  || echo -n "`output "$1" cdmrw CDM`"
+notin OUTPUT CDWMRW || echo -n "`output "$1" cdwmrw CDMRW`"
+notin OUTPUT CDRAM  || echo -n "`output "$1" cdram CDRAM`"
 echo
