@@ -1,0 +1,258 @@
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+	<head>
+		<title>Fedora Project, sponsored by Red Hat</title>
+		<base href="http://fedora.redhat.com/">
+		<meta http-equiv="Content-Type" content="text/html">
+		<link rel="stylesheet" type="text/css" media="print" href="/css/print.css">
+		<style type="text/css" media="screen">
+			@import url("/css/layout.css");
+			@import url("/css/content.css");
+			@import url("/css/docbook.css");
+		</style>
+		<meta name="MSSmartTagsPreventParsing" content="TRUE">
+		<link rel="shortcut icon" href="/images/favicon.ico">
+		<link rel="icon" href="/images/favicon.ico">
+	</head>
+
+	<body>
+		<!-- header BEGIN -->
+		<div id="fedora-header">
+			<div id="fedora-header-logo">
+				<a href="/"><img src="/images/header-fedora_logo.png" alt="Fedora Project"></a>
+			</div>
+
+			<div id="fedora-header-items">
+				<span class="fedora-header-icon">
+					<a href="/download/"><img src="/images/header-download.png" alt=" ">Download</a>
+					<a href="/projects/"><img src="/images/header-projects.png" alt=" ">Projects</a>
+					<a href="/about/faq/"><img src="/images/header-faq.png" alt=" ">FAQ</a></span>
+			</div>
+		</div>
+
+		<div id="fedora-nav"></div>
+		<!-- header END -->
+		
+		<!-- leftside BEGIN -->
+		<div id="fedora-side-left">
+		<div id="fedora-side-nav-label">Site Navigation:</div>	<ul id="fedora-side-nav">
+				<li><a href="/">Home</a></li>
+				<li><a href="/download/">Download</a></li>
+				<li><a href="/docs/">Docs</a></li>
+				<li><a href="/projects/">Projects</a></li>
+				<li><a href="/participate/">Participate</a></li>
+				<li><a href="/about/">About</a></li>
+			</ul>
+		</div>
+
+		<!-- leftside END -->
+
+		<!-- content BEGIN -->
+		<div id="fedora-middle-two">
+			<div class="fedora-corner-tr">&nbsp;</div>
+			<div class="fedora-corner-tl">&nbsp;</div>
+			<div id="fedora-content">
+						<!-- content BEGIN -->
+		<h1>Udev on Fedora</h1>
+		<h2>by Harald Hoyer</h2>
+		<p>
+		This document tries to reveal the secrets of udev and how it works on Fedora.
+		</p>
+		<p>
+		udev was developed by Greg  Kroah-Hartman  &lt;greg@kroah.com&gt;  with  much
+		help  from  Dan  Stekloff &lt;dsteklof@us.ibm.com&gt;, Kay Sievers &lt;kay.sievers@vrfy.org&gt;,
+		 and many others.
+		</p>
+		<p>
+		The <a href="http://www.kernel.org/pub/linux/utils/kernel/hotplug/udev.html">udev homepage</a> and the
+		Linux-hotplug-devel mailing list  <a href="https://lists.sourceforge.net/lists/listinfo/linux-hotplug-devel">https://lists.sourceforge.net/lists/listinfo/linux-hotplug-devel</a> are the main development sources.		
+		</p><p>
+		</p>
+
+		<h2>What Does Udev Do?</h2>
+		<p>
+		udev  provides a dynamic device directory containing only the files for
+		actually present devices. It creates or removes device node files  usually
+		located in the <tt class="filename">/dev/</tt> directory, or it renames network interfaces.
+		</p><p>
+		As  part  of the hotplug subsystem, udev is executed if a kernel device
+		is added or removed from the system.  On device  creation,  udev  reads
+		the  sysfs  directory  of the given device to collect device attributes
+		like label, serial number or bus device number.  These  attributes  may
+		be  used as keys to determine a unique name for the device.  udev maintains
+		a database for devices present on the system.
+		On device removal, udev queries its database for the name of the device
+		file to be deleted.
+		</p><p>
+		udev gets called by hotplug, if a module is loaded, and a device is added
+		or removed. udev looks in <tt class="filename">/sys/</tt>, if the driver provides a "dev" file, which 
+		contains the major and minor number for a device node to communicate with 
+		the driver. After looking in the udev rules (in the <tt class="filename">/etc/udev/rules.d/</tt> directory), which 
+		specify the device node filename and symlinks, a device node is created 
+		in <tt class="filename">/dev/</tt> with the permissions, which are specified in <tt class="filename">/etc/udev/permissions.d/</tt>.
+		</p>
+		After device node creation, removal, or network device  renaming,  udev
+		executes  the  programs  in  the directory tree under <tt class="filename">/etc/dev.d/</tt>.  The
+		name of a program must end with the <tt class="filename">.dev</tt> suffix, to be recognized.
+		In addition to the hotplug environment variables, DEVNAME  is  exported
+		to make the name of the created node or the name the network device is
+		renamed to, available to the executed program. The  programs  in  every
+		directory  are  sorted  in  lexical  order,  while  the directories are
+		searched in the following order:
+		<ul>
+		<li><tt class="filename">/etc/dev.d/$(DEVNAME)/*.dev</tt></li>
+		<li><tt class="filename">/etc/dev.d/$(SUBSYSTEM)/*.dev</tt></li>
+		<li><tt class="filename">/etc/dev.d/default/*.dev</tt></li>
+		</ul>
+		
+		<h2>How is Udev Integrated on Fedora?</h2>
+		<h3><tt class="command">initrd</tt> / <tt class="command">initfs</tt></h3>
+		<p>
+		<tt class="command">mkinitrd</tt> copies <tt class="filename">/sbin/udev.static</tt> 
+                to the <tt class="command">initrd</tt> <tt class="filename">/sbin/udev</tt> and symlinks it to 
+                <tt class="filename">/sbin/udevstart</tt>.
+		</p><p>
+After the kernel boots, it executes the nash script of the <tt class="command">initrd</tt>. This
+mounts a tmpfs filesystem on <tt class="filename">/dev/</tt>. Instead of hotplug <tt class="command">/sbin/udev</tt> is
+called in the <tt class="command">initrd</tt> phase. udevstart creates all device nodes for the
+devices, which are compiled in the kernel and for the modules, which
+are loaded by nash. </p>
+
+<h4>Problems</h4> 
+
+The whole udev and hotplug infrastructure is
+not available in <tt class="command">initrd</tt>. Thus no hotplug scripts, udev rules, and
+permissions and no <tt class="filename">/etc/dev.d/</tt> scripts are executed for any hotplug
+event, which is sent from the kernel. 
+
+<h3><tt class="filename">rc.sysinit</tt></h3>
+		<p> First, if SELinux is loaded and enabled,
+the context of <tt class="filename">/dev/</tt> is set. <tt class="filename">rc.sysinit</tt> calls <tt class="filename">/sbin/start_udev</tt>.
+<tt class="filename">start_udev</tt> mounts a tmpfs filesystem on <tt class="filename">/dev/</tt>, if there is none already
+mounted. Then it creates some device nodes, which need module
+autoloading, or where there is no kernel module. After that
+<tt class="command">/sbin/udevstart</tt> is called again, which simulates the hotplug events in
+the <tt class="command">initrd</tt> phase, to apply the whole udev rules and permissions. After
+that <tt class="filename">rc.sysinit</tt> parses the ouput of <tt class="filename">/sbin/kmodule</tt> and loads every
+module. This should provide device nodes for all hardware found on your
+computer. </p>
+		<h3>Console User Permissions</h3>
+		<p>
+<tt class="filename">/etc/dev.d/default/pam_console.dev</tt> is called whenever a device node is
+created and calls <tt class="filename">/sbin/pam_console_setowner</tt> with the filename (and an
+optional symlink) of the device node. This sets the permissions for
+console users like specified in <tt class="filename">/etc/security/console.perms</tt>. </p>
+		<h2>Customizing Udev on Fedora</h2>
+		<p>
+		Read the manpage of udev and udevinfo.
+		Please try not to modify the files of RPM packages.
+		</p>
+		<h3>New Rules</h3>
+		<p>
+New rules should be placed in a file, which ends in <tt class="filename">.rules</tt> in
+<tt class="filename">/etc/udev/rules.d/</tt>. Please do not use <tt class="filename">50-udev.rules</tt>. The supported and
+preferred way is to create rules without the "NAME" tag and only
+create "SYMLINK"s. </p><p>		
+		A nice document describing how to write rules can be found on <a href="http://www.reactivated.net/udevrules.php">http://www.reactivated.net/udevrules.php</a>.		
+		</p>
+
+<h3>Permissions</h3>
+New permissions should be placed in a file, which ends in
+<tt class="filename">.permissions</tt> in <tt class="filename">/etc/udev/permissions.d/</tt>. Please do not use
+<tt class="filename">50-udev.permissions</tt>. 
+
+<h3>But I Really Want My Device Node!</h3>
+		<p>
+		Put them in <tt class="filename">/etc/udev/devices/</tt>, and they will get copied to <tt class="filename">/dev/</tt>. <a href="https://bugzilla.redhat.com/bugzilla">File a bugzilla entry</a>, if you think that should be done per default.
+		</p>
+
+		<h2>Updating to udev Without <tt class="filename">/dev/</tt></h2>
+		<p>
+		The steps to upgrade without Anaconda or a rescue CD are (NOT recommended):
+		</p>
+
+                <ul>
+		<li>start from a kernel-2.6
+		</li><li>Make sure <tt class="filename">/sys/</tt> is mounted
+		</li><li>Install the latest <tt class="filename">initscripts</tt> package
+		</li><li>Install the latest <tt class="filename">udev</tt> package
+		</li><li>Execute <tt class="command">/sbin/start_udev</tt>
+		</li><li>Install the latest <tt class="filename">mkinitrd</tt> package
+		</li><li>Install the latest <tt class="filename">kernel</tt> package
+		</li><li>Or execute <tt class="command">mkinitrd</tt> for your existing kernel(s)
+		</li></ul>
+		
+		<h2>Udev without <tt class="command">initrd</tt></h2>
+
+		<p>Install Fedore Core as usual and reboot. Execute the following commands
+		</p>
+
+<pre class="screen">
+<tt class="command">
+mkdir /tmp/dev
+mount --move /dev /tmp/dev
+sbin/MAKEDEV null console zero
+mount --move /tmp/dev /dev
+</tt></pre>
+		Install your kernel without an <tt class="command">initrd</tt>. Reboot.
+		<p>
+		You will get some SELinux errors, and syslogd will not work as expected.
+		</p>
+		<h2>Current Problems on Fedora</h2>	
+		<p>
+		<a href="http://bugzilla.redhat.com/bugzilla/buglist.cgi?short_desc_type=allwordssubstr&amp;component=udev&amp;bug_status=ASSIGNED&amp;bug_status=MODIFIED&amp;bug_status=NEEDINFO&amp;bug_status=NEW&amp;bug_status=REOPENED&amp;bug_status=VERIFIED&amp;bug_severity=high&amp;bug_severity=low&amp;bug_severity=normal&amp;bug_severity=security&amp;bug_severity=translation&amp;long_desc_type=allwordssubstr&amp;bug_file_loc_type=allwordssubstr&amp;status_whiteboard_type=allwordssubstr&amp;fixed_in_type=allwordssubstr&amp;devel_whiteboard_type=allwordssubstr&amp;keywords_type=allwords&amp;cust_facing=YES&amp;emailassigned_to1=1&amp;emailtype1=exact&amp;emailreporter2=1&amp;emailtype2=exact&amp;bugidtype=include&amp;chfieldto=Now&amp;cmdtype=doit&amp;remaction=run&amp;namedcmd=blank&amp;order=Reuse+same+sort+as+last+time&amp;field0-0-0=noop&amp;type0-0-0=noop">All open bugs for <code class="filename">udev</code></a>
+		</p>
+		<h3>Nvidia</h3>		
+		<p>Quick solution: If you do not need rhgb, just load the nvidia module in <tt class="filename">/etc/rc.local</tt>
+		</p><p>
+		If you have udev &gt;= 032-5, load the nvidia module:
+		</p>
+<pre class="screen">
+<tt class="command">
+cp -a /dev/nvidia* /etc/udev/devices
+chown root.root /etc/udev/devices/nvidia*
+</tt></pre>
+		
+		<p>The Bugzilla for this problem is <strike><a href="https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=133900">133900</a></strike>.</p>
+		<h3>Palm Pilot</h3>		
+		<p>
+		If you have udev &gt;= 032-5, execute the command:
+		</p>
+<pre class="screen">
+<tt class="command">
+ln -s ttyUSB1 /etc/udev/devices/pilot
+</tt></pre>
+		
+		<h3>ISDN</h3>		
+		<p>
+		If you have udev &gt;= 032-5:
+		</p>
+<pre class="screen">
+<tt class="command">
+/sbin/MAKEDEV -d /etc/udev/devices isdn
+</tt></pre>
+		</pre>
+		
+		<!-- content END -->
+
+
+		</div>
+			<div class="fedora-corner-br">&nbsp;</div>
+			<div class="fedora-corner-bl">&nbsp;</div>
+		</div>
+		<!-- content END -->
+		
+		<!-- footer BEGIN -->
+		<div id="fedora-footer">
+			Copyright &copy; 2003-2004 Red Hat, Inc. All rights reserved.
+			<br>The Fedora Project is not a supported product of Red Hat, Inc.
+			<br><a href="/legal/">Legal</a> | <a href="/about/trademarks/">Trademark Guidelines</a>
+			<br>
+			This page last modified at: 2004/10/16 02:25:17 
+			<br>
+		</div>
+		<!-- footer END -->
+	</body>
+</html>
+	
