@@ -317,34 +317,9 @@ spotless: clean
 	$(MAKE) -C klibc SUBDIRS=klibc spotless
 	rm -rf klibc/.install
 
-DISTFILES = $(shell find . \( -not -name '.' \) -print | grep -v -e CVS -e "\.tar\.gz" -e "\/\." -e releases -e BitKeeper -e SCCS -e test/sys | sort )
-DISTDIR := $(RELEASE_NAME)
-srcdir = .
 release: spotless
-	-rm -rf $(DISTDIR)
-	mkdir $(DISTDIR)
-	chmod 777 $(DISTDIR)
-	bk export -w $(DISTDIR)
-	tar -c $(DISTDIR) | gzip -9 > $(RELEASE_NAME).tar.gz
-	rm -rf $(DISTDIR)
+	git-tar-tree HEAD $(RELEASE_NAME) | gzip -9v > $(RELEASE_NAME).tar.gz
 	@echo "$(RELEASE_NAME).tar.gz created"
-
-
-small_release: $(DISTFILES) spotless
-#	@echo $(DISTFILES)
-	@-rm -rf $(DISTDIR)
-	@mkdir $(DISTDIR)
-	@-chmod 777 $(DISTDIR)
-	@for file in $(DISTFILES); do			\
-		if test -d $$file; then			\
-		  	mkdir $(DISTDIR)/$$file;	\
-		else					\
-			cp -p $$file $(DISTDIR)/$$file;	\
-		fi;					\
-	done
-	@tar -c $(DISTDIR) | gzip -9 > $(RELEASE_NAME).tar.gz
-	@rm -rf $(DISTDIR)
-	@echo "Built $(RELEASE_NAME).tar.gz"
 
 install-config:
 	$(INSTALL) -d $(DESTDIR)$(configdir)/rules.d
