@@ -782,6 +782,15 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 
 				if (rule->symlink_operation == KEY_OP_ASSIGN_FINAL)
 					udev->symlink_final = 1;
+				else if (rule->symlink_operation == KEY_OP_ASSIGN) {
+					struct name_entry *name_loop;
+					struct name_entry *temp_loop;
+
+					list_for_each_entry_safe(name_loop, temp_loop, &udev->symlink_list, node) {
+						list_del(&name_loop->node);
+						free(name_loop);
+					}
+				}
 				info("configured rule in '%s[%i]' applied, added symlink '%s'",
 				     rule->config_file, rule->config_line, rule->symlink);
 				strlcpy(temp, rule->symlink, sizeof(temp));
@@ -821,6 +830,15 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 
 				if (rule->run_operation == KEY_OP_ASSIGN_FINAL)
 					udev->run_final = 1;
+				else if (rule->run_operation == KEY_OP_ASSIGN) {
+					struct name_entry *name_loop;
+					struct name_entry *temp_loop;
+
+					list_for_each_entry_safe(name_loop, temp_loop, &udev->run_list, node) {
+						list_del(&name_loop->node);
+						free(name_loop);
+					}
+				}
 				strlcpy(program, rule->run, sizeof(program));
 				apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
 				dbg("add run '%s'", program);

@@ -783,9 +783,9 @@ EOF
 		exp_name	=> "symlink-only2",
 		exp_target	=> "link",
 		rules		=> <<EOF
-BUS=="scsi", KERNEL=="sda", SYMLINK="symlink-only1"
-BUS=="scsi", KERNEL=="sda", SYMLINK="symlink-only2"
-BUS=="scsi", KERNEL=="sda", NAME="link", SYMLINK="symlink0"
+BUS=="scsi", KERNEL=="sda", SYMLINK+="symlink-only1"
+BUS=="scsi", KERNEL=="sda", SYMLINK+="symlink-only2"
+BUS=="scsi", KERNEL=="sda", NAME="link", SYMLINK+="symlink0"
 EOF
 	},
 	{
@@ -797,7 +797,7 @@ EOF
 		exp_add_error	=> "yes",
 		exp_rem_error	=> "yes",
 		rules		=> <<EOF
-BUS=="scsi", KERNEL=="sda", NAME="link", SYMLINK="."
+BUS=="scsi", KERNEL=="sda", NAME="link", SYMLINK+="."
 EOF
 	},
 	{
@@ -809,7 +809,7 @@ EOF
 		exp_rem_error	=> "yes",
 		option		=> "clean",
 		rules		=> <<EOF
-KERNEL=="tty0", NAME="link", SYMLINK="link"
+KERNEL=="tty0", NAME="link", SYMLINK+="link"
 EOF
 	},
 	{
@@ -819,7 +819,7 @@ EOF
 		exp_name	=> "symlink0",
 		exp_target	=> "ttyUSB0",
 		rules		=> <<EOF
-KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="symlink%n"
+KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK+="symlink%n"
 EOF
 	},
 	{
@@ -829,7 +829,7 @@ EOF
 		exp_name	=> "symlink-ttyUSB0",
 		exp_target	=> "ttyUSB0",
 		rules		=> <<EOF
-KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="symlink-%k"
+KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK+="symlink-%k"
 EOF
 	},
 	{
@@ -839,7 +839,7 @@ EOF
 		exp_name	=> "major-188:0",
 		exp_target	=> "ttyUSB0",
 		rules		=> <<EOF
-KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="major-%M:%m"
+KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK+="major-%M:%m"
 EOF
 	},
 	{
@@ -849,7 +849,7 @@ EOF
 		exp_name	=> "symlink-0:0:0:0",
 		exp_target	=> "node",
 		rules		=> <<EOF
-BUS=="scsi", KERNEL=="sda", NAME="node", SYMLINK="symlink-%b"
+BUS=="scsi", KERNEL=="sda", NAME="node", SYMLINK+="symlink-%b"
 EOF
 	},
 	{
@@ -859,7 +859,7 @@ EOF
 		exp_name	=> "test",
 		exp_target	=> "ttyUSB0",
 		rules		=> <<EOF
-KERNEL=="ttyUSB[0-9]*", PROGRAM=="/bin/echo test" NAME="ttyUSB%n", SYMLINK="%c"
+KERNEL=="ttyUSB[0-9]*", PROGRAM=="/bin/echo test" NAME="ttyUSB%n", SYMLINK+="%c"
 EOF
 	},
 	{
@@ -869,7 +869,7 @@ EOF
 		exp_name	=> "test",
 		exp_target	=> "ttyUSB0",
 		rules		=> <<EOF
-KERNEL=="ttyUSB[0-9]*", PROGRAM=="/bin/echo symlink test this" NAME="ttyUSB%n", SYMLINK="%c{2}"
+KERNEL=="ttyUSB[0-9]*", PROGRAM=="/bin/echo symlink test this" NAME="ttyUSB%n", SYMLINK+="%c{2}"
 EOF
 	},
 	{
@@ -879,7 +879,7 @@ EOF
 		exp_name	=> "this",
 		exp_target	=> "ttyUSB0",
 		rules		=> <<EOF
-KERNEL=="ttyUSB[0-9]*", PROGRAM=="/bin/echo symlink test this" NAME="ttyUSB%n", SYMLINK="%c{2+}"
+KERNEL=="ttyUSB[0-9]*", PROGRAM=="/bin/echo symlink test this" NAME="ttyUSB%n", SYMLINK+="%c{2+}"
 EOF
 	},
 	{
@@ -889,8 +889,8 @@ EOF
 		exp_name	=> "test",
 		exp_target	=> "link",
 		rules		=> <<EOF
-BUS=="scsi", KERNEL=="sda", PROGRAM=="/bin/echo link test this" SYMLINK="%c{2+}"
-BUS=="scsi", KERNEL=="sda", NAME="link", SYMLINK="symlink0"
+BUS=="scsi", KERNEL=="sda", PROGRAM=="/bin/echo link test this" SYMLINK+="%c{2+}"
+BUS=="scsi", KERNEL=="sda", NAME="link", SYMLINK+="symlink0"
 EOF
 	},
 	{
@@ -900,7 +900,7 @@ EOF
 		exp_name	=> "188:0",
 		exp_target	=> "ttyUSB0",
 		rules		=> <<EOF
-KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="%s{dev}"
+KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK+="%s{dev}"
 EOF
 	},
 	{
@@ -910,7 +910,7 @@ EOF
 		exp_name	=> "188",
 		exp_target	=> "ttyUSB0",
 		rules		=> <<EOF
-KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="%3s{dev}"
+KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK+="%3s{dev}"
 EOF
 	},
 	{
@@ -920,7 +920,7 @@ EOF
 		exp_name	=> "percent%sign",
 		exp_target	=> "ttyUSB0",
 		rules		=> <<EOF
-KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="percent%%sign"
+KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK+="percent%%sign"
 EOF
 	},
 	{
@@ -930,7 +930,7 @@ EOF
 		exp_name	=> "%ttyUSB0_name",
 		exp_target	=> "ttyUSB0",
 		rules		=> <<EOF
-KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="%%%k_name"
+KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK+="%%%k_name"
 EOF
 	},
 	{
@@ -940,7 +940,7 @@ EOF
 		exp_name	=> "link1",
 		exp_target	=> "node",
 		rules		=> <<EOF
-BUS=="scsi", PROGRAM=="/bin/echo -n node link1 link2", RESULT=="node *", NAME="%c{1}", SYMLINK="%c{2} %c{3}"
+BUS=="scsi", PROGRAM=="/bin/echo -n node link1 link2", RESULT=="node *", NAME="%c{1}", SYMLINK+="%c{2} %c{3}"
 EOF
 	},
 	{
@@ -950,7 +950,7 @@ EOF
 		exp_name	=> "link4",
 		exp_target	=> "node",
 		rules		=> <<EOF
-BUS=="scsi", PROGRAM=="/bin/echo -n node link1 link2 link3 link4", RESULT=="node *", NAME="%c{1}", SYMLINK="%c{2+}"
+BUS=="scsi", PROGRAM=="/bin/echo -n node link1 link2 link3 link4", RESULT=="node *", NAME="%c{1}", SYMLINK+="%c{2+}"
 EOF
 	},
 	{
@@ -1147,7 +1147,7 @@ EOF
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "last",
 		rules		=> <<EOF
-BUS=="scsi", KERNEL=="sda1", SYMLINK="last", OPTIONS="last_rule"
+BUS=="scsi", KERNEL=="sda1", SYMLINK+="last", OPTIONS="last_rule"
 BUS=="scsi", KERNEL=="sda1", NAME="very-last"
 EOF
 	},
@@ -1329,6 +1329,20 @@ SUBSYSTEM=="block", MODE:="640"
 KERNEL=="sda", GROUP="not-ok", MODE="0666", NAME="ok"
 EOF
 	},
+	{
+		desc		=> "reset list to current value",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "three",
+		not_exp_name	=> "two",
+		exp_target	=> "node",
+		rules		=> <<EOF
+KERNEL=="ttyUSB[0-9]*", SYMLINK+="one"
+KERNEL=="ttyUSB[0-9]*", SYMLINK+="two"
+KERNEL=="ttyUSB[0-9]*", SYMLINK="three"
+KERNEL=="ttyUSB[0-9]*", NAME="node"
+EOF
+	},
 );
 
 # set env
@@ -1466,6 +1480,13 @@ sub run_test {
 		my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
 		    $atime, $mtime, $ctime, $blksize, $blocks) = stat("$PWD/$udev_root$rules->{exp_name}");
 
+		if (defined($rules->{not_exp_name})) {
+			if ((-e "$PWD/$udev_root$rules->{not_exp_name}") ||
+			    (-l "$PWD/$udev_root$rules->{not_exp_name}")) {
+				print "nonexistent: error \'$rules->{not_exp_name}\' not expected to be there\n";
+				$error++
+			}
+		}
 		if (defined($rules->{exp_perms})) {
 			permissions_test($rules, $uid, $gid, $mode);
 		}

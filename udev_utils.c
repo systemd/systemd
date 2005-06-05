@@ -108,6 +108,10 @@ void udev_cleanup_device(struct udevice *udev)
 		list_del(&name_loop->node);
 		free(name_loop);
 	}
+	list_for_each_entry_safe(name_loop, temp_loop, &udev->run_list, node) {
+		list_del(&name_loop->node);
+		free(name_loop);
+	}
 }
 
 int string_is_true(const char *str)
