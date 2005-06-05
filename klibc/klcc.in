@@ -1,5 +1,7 @@
 # -*- perl -*-
 
+use IPC::Open3;
+
 # Standard includes
 @includes = ("-I${prefix}/${KCROSS}include/arch/${ARCH}",
 	     "-I${prefix}/${KCROSS}include/bits${BITSIZE}",
@@ -57,7 +59,7 @@ sub files_with_lang($$) {
 
 	# Skip object files
 	if ( $need ne 'obj' ) {
-	    unless ( $xopt eq $need ) {
+	    unless ( $xopt eq $need || $need eq 'stdin') {
 		push(@as, '-x', $need);
 		$xopt = $need;
 	    }
@@ -79,7 +81,11 @@ sub syserr($) {
 # Run a program; printing out the command line if $verbose is set
 sub mysystem(@) {
     print STDERR join(' ', @_), "\n" if ( $verbose );
-    return system(@_);
+    my $cmd = shift;
+    open(INPUT, "<&STDIN");	# dup STDIN filehandle to INPUT
+    my $childpid = open3("<&INPUT", ">&STDOUT", ">&STDERR", $cmd, @_);
+    waitpid ($childpid, 0);
+    return $?;
 }
 
 #
@@ -117,6 +123,11 @@ while ( defined($a = shift(@ARGV)) ) {
 	# Not an option.  Must be a filename then.
 	push(@files, $a);
 	$flang{$a} = $lang || filename2lang($a);
+    } elsif ( $a eq '-' ) {
+	# gcc gets its input from stdin
+	push(@files, $a);
+	# prevent setting -x
+	$flang{$a} = 'stdin'
     } elsif ( $a =~ /^-print-klibc-(.*)$/ ) {
 	# This test must precede -print
 	if ( defined($conf{$1}) ) {

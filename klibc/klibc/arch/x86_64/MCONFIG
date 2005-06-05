@@ -15,8 +15,13 @@
 # debugging using gdb.
 #
 ARCHREQFLAGS = -m64
+ifeq ($(DEBUG),y)
+OPTFLAGS     = -Os -fomit-frame-pointer \
+		-falign-functions=0 -falign-jumps=0 -falign-loops=0
+else
 OPTFLAGS     = -Os -fno-asynchronous-unwind-tables -fomit-frame-pointer \
 		-falign-functions=0 -falign-jumps=0 -falign-loops=0
+endif
 BITSIZE      = 64
 LDFLAGS      = -m elf_x86_64
 

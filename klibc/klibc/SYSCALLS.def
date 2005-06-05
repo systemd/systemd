@@ -145,17 +145,29 @@ ssize_t pwrite64,pwrite::pwrite(int, void *, size_t, off_t)
 ;
 ; Signal operations
 ;
-int kill(pid_t, int)
 ; We really should get rid of the non-rt_* of these, but that takes
-; sanitizing <signal.h> for all architectures, sigh...
-<?> int sigaction(int, const struct sigaction *, struct sigaction *)
-<?> int sigsuspend(const sigset_t *)
-<?> int sigpending(sigset_t *)
-<?> int sigprocmask(int, const sigset_t *, sigset_t *)
-int rt_sigaction(int, const struct sigaction *, struct sigaction *, size_t)
-int rt_sigsuspend(const sigset_t *, size_t)
-int rt_sigpending(sigset_t *, size_t)
-int rt_sigprocmask(int, const sigset_t *, sigset_t *, size_t)
+; sanitizing <signal.h> for all architectures, sigh.
+#ifdef __NR_sigaction
+int sigaction::__sigaction(int, const struct sigaction *, struct sigaction *)
+#else
+int rt_sigaction::__rt_sigaction(int, const struct sigaction *, struct sigaction *, size_t)
+#endif
+#ifdef __NR_sigsuspend
+int sigsuspend(const sigset_t *)
+#else
+int rt_sigsuspend::__rt_sigsuspend(const sigset_t *, size_t)
+#endif
+#ifdef __NR_sigpending
+int sigpending(sigset_t *)
+#else
+int rt_sigpending::__rt_sigpending(sigset_t *, size_t)
+#endif
+#ifdef __NR_sigprocmask
+int sigprocmask(int, const sigset_t *, sigset_t *)
+#else
+int rt_sigprocmask::__rt_sigprocmask(int, const sigset_t *, sigset_t *, size_t)
+#endif
+int kill(pid_t, int)
 <?> unsigned int alarm(unsigned int)
 int getitimer(int, struct itimerval *)
 int setitimer(int, const struct itimerval *, struct itimerval *)

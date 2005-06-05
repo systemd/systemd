@@ -33,12 +33,13 @@ uintmax_t strntoumax(const char *nptr, char **endptr, int base, size_t n)
   }
 
   /* Single optional + or - */
-  if ( n && *nptr == '-' ) {
-    minus = 1;
-    nptr++;
-    n--;
-  } else if ( n && *nptr == '+' ) {
-    nptr++;
+  if ( n ) {
+    char c = *nptr;
+    if ( c == '-' || c == '+' ) {
+      minus = (c == '-');
+      nptr++;
+      n--;
+    }
   }
 
   if ( base == 0 ) {
