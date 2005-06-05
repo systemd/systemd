@@ -38,6 +38,7 @@
 #include <sys/un.h>
 #include <sys/sysinfo.h>
 #include <sys/stat.h>
+#include <linux/netlink.h>
 
 #include "list.h"
 #include "udev_libc_wrapper.h"
@@ -49,6 +50,7 @@
 
 /* global variables*/
 static int udevsendsock;
+static int ueventsock;
 static pid_t sid;
 
 static int pipefds[2];
@@ -126,7 +128,8 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 			break;
 
 		if (loop_msg->seqnum == msg->seqnum) {
-			info("ignoring duplicate message seq %llu", msg->seqnum);
+			dbg("ignoring duplicate message seq %llu", msg->seqnum);
+			free(msg);
 			return;
 		}
 	}
@@ -154,6 +157,8 @@ static void execute_udev(struct hotplug_msg *msg)
 	switch (pid) {
 	case 0:
 		/* child */
+		if (ueventsock != -1)
+			close(ueventsock);
 		close(udevsendsock);
 		logging_close();
 
@@ -416,13 +421,60 @@ recheck:
 	}
 }
 
+static struct hotplug_msg *get_msg_from_envbuf(const char *buf, int buf_size)
+{
+	int bufpos;
+	int i;
+	struct hotplug_msg *msg;
+
+	msg = malloc(sizeof(struct hotplug_msg) + buf_size);
+	if (msg == NULL)
+		return NULL;
+	memset(msg, 0x00, sizeof(struct hotplug_msg) + buf_size);
+
+	/* copy environment buffer and reconstruct envp */
+	memcpy(msg->envbuf, buf, buf_size);
+	bufpos = 0;
+	for (i = 0; (bufpos < buf_size) && (i < HOTPLUG_NUM_ENVP-2); i++) {
+		int keylen;
+		char *key;
+
+		key = &msg->envbuf[bufpos];
+		keylen = strlen(key);
+		msg->envp[i] = key;
+		bufpos += keylen + 1;
+		dbg("add '%s' to msg.envp[%i]", msg->envp[i], i);
+
+		/* remember some keys for further processing */
+		if (strncmp(key, "ACTION=", 7) == 0)
+			msg->action = &key[7];
+
+		if (strncmp(key, "DEVPATH=", 8) == 0)
+			msg->devpath = &key[8];
+
+		if (strncmp(key, "SUBSYSTEM=", 10) == 0)
+			msg->subsystem = &key[10];
+
+		if (strncmp(key, "SEQNUM=", 7) == 0)
+			msg->seqnum = strtoull(&key[7], NULL, 10);
+
+		if (strncmp(key, "PHYSDEVPATH=", 12) == 0)
+			msg->physdevpath = &key[12];
+
+		if (strncmp(key, "TIMEOUT=", 8) == 0)
+			msg->timeout = strtoull(&key[8], NULL, 10);
+	}
+	msg->envp[i++] = "UDEVD_EVENT=1";
+	msg->envp[i] = NULL;
+
+	return msg;
+}
+
 /* receive the udevsend message and do some sanity checks */
 static struct hotplug_msg *get_udevsend_msg(void)
 {
 	static struct udevsend_msg usend_msg;
 	struct hotplug_msg *msg;
-	int bufpos;
-	int i;
 	ssize_t size;
 	struct msghdr smsg;
 	struct cmsghdr *cmsg;
@@ -467,46 +519,60 @@ static struct hotplug_msg *get_udevsend_msg(void)
 
 	envbuf_size = size - offsetof(struct udevsend_msg, envbuf);
 	dbg("envbuf_size=%i", envbuf_size);
-	msg = malloc(sizeof(struct hotplug_msg) + envbuf_size);
+	msg = get_msg_from_envbuf(usend_msg.envbuf, envbuf_size);
 	if (msg == NULL)
 		return NULL;
 
-	memset(msg, 0x00, sizeof(struct hotplug_msg) + envbuf_size);
+	return msg;
+}
 
-	/* copy environment buffer and reconstruct envp */
-	memcpy(msg->envbuf, usend_msg.envbuf, envbuf_size);
-	bufpos = 0;
-	for (i = 0; (bufpos < envbuf_size) && (i < HOTPLUG_NUM_ENVP-2); i++) {
-		int keylen;
-		char *key;
+/* receive the kernel user event message and do some sanity checks */
+static struct hotplug_msg *get_uevent_msg(void)
+{
+	struct hotplug_msg *msg;
+	int bufpos;
+	ssize_t size;
+	static char buffer[HOTPLUG_BUFFER_SIZE + 512];
+	char *pos;
 
-		key = &msg->envbuf[bufpos];
-		keylen = strlen(key);
-		msg->envp[i] = key;
-		bufpos += keylen + 1;
-		dbg("add '%s' to msg.envp[%i]", msg->envp[i], i);
-
-		/* remember some keys for further processing */
-		if (strncmp(key, "ACTION=", 7) == 0)
-			msg->action = &key[7];
-
-		if (strncmp(key, "DEVPATH=", 8) == 0)
-			msg->devpath = &key[8];
-
-		if (strncmp(key, "SUBSYSTEM=", 10) == 0)
-			msg->subsystem = &key[10];
-
-		if (strncmp(key, "SEQNUM=", 7) == 0)
-			msg->seqnum = strtoull(&key[7], NULL, 10);
-
-		if (strncmp(key, "PHYSDEVPATH=", 12) == 0)
-			msg->physdevpath = &key[12];
-
-		if (strncmp(key, "TIMEOUT=", 8) == 0)
-			msg->timeout = strtoull(&key[8], NULL, 10);
+	size = recv(ueventsock, &buffer, sizeof(buffer), 0);
+	if (size <  0) {
+		if (errno != EINTR)
+			dbg("unable to receive udevsend message");
+		return NULL;
 	}
-	msg->envp[i++] = "UDEVD_EVENT=1";
-	msg->envp[i] = NULL;
+
+	if ((size_t)size > sizeof(buffer)-1)
+		size = sizeof(buffer)-1;
+	buffer[size] = '\0';
+	dbg("uevent_size=%i", size);
+
+	/* start of event payload */
+	bufpos = strlen(buffer)+1;
+	msg = get_msg_from_envbuf(&buffer[bufpos], size-bufpos);
+	if (msg == NULL)
+		return NULL;
+
+	/* validate message */
+	pos = strchr(buffer, '@');
+	if (pos == NULL) {
+		dbg("invalid uevent '%s'", buffer);
+		free(msg);
+		return NULL;
+	}
+	pos[0] = '\0';
+
+	if (msg->action == NULL) {
+		dbg("no ACTION in payload found, skip event '%s'", buffer);
+		free(msg);
+		return NULL;
+	}
+
+	if (strcmp(msg->action, buffer) != 0) {
+		dbg("ACTION in payload does not match uevent, skip event '%s'", buffer);
+		free(msg);
+		return NULL;
+	}
 
 	return msg;
 }
@@ -622,6 +688,34 @@ static int init_udevsend_socket(void)
 	return 0;
 }
 
+static int init_uevent_socket(void)
+{
+	struct sockaddr_nl snl;
+	int retval;
+
+	memset(&snl, 0x00, sizeof(struct sockaddr_nl));
+	snl.nl_family = AF_NETLINK;
+	snl.nl_pid = getpid();
+	snl.nl_groups = 0xffffffff;
+
+	ueventsock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
+	if (ueventsock == -1) {
+		dbg("error getting socket, %s", strerror(errno));
+		return -1;
+	}
+
+	retval = bind(ueventsock, (struct sockaddr *) &snl,
+		      sizeof(struct sockaddr_nl));
+	if (retval < 0) {
+		dbg("bind failed, %s", strerror(errno));
+		close(ueventsock);
+		ueventsock = -1;
+		return -1;
+	}
+
+	return 0;
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	struct sysinfo info;
@@ -631,6 +725,7 @@ int main(int argc, char *argv[], char *envp[])
 	struct sigaction act;
 	fd_set readfds;
 	const char *udevd_expected_seqnum;
+	int uevent_active = 0;
 
 	logging_init("udevd");
 	udev_init_config();
@@ -716,6 +811,10 @@ int main(int argc, char *argv[], char *envp[])
 	sigaction(SIGALRM, &act, NULL);
 	sigaction(SIGCHLD, &act, NULL);
 
+	if (init_uevent_socket() < 0) {
+		dbg("uevent socket not available");
+ 	}
+
 	if (init_udevsend_socket() < 0) {
 		if (errno == EADDRINUSE)
 			dbg("another udevd running, exit");
@@ -745,6 +844,8 @@ int main(int argc, char *argv[], char *envp[])
 
 	FD_ZERO(&readfds);
 	FD_SET(udevsendsock, &readfds);
+	if (ueventsock != -1)
+		FD_SET(ueventsock, &readfds);
 	FD_SET(pipefds[0], &readfds);
 	maxsockplus = udevsendsock+1;
 	while (1) {
@@ -761,8 +862,27 @@ int main(int argc, char *argv[], char *envp[])
 
 		if (FD_ISSET(udevsendsock, &workreadfds)) {
 			msg = get_udevsend_msg();
-			if (msg)
+			if (msg) {
+				/* discard kernel messages if netlink is active */
+				if (uevent_active && msg->seqnum != 0) {
+					dbg("skip kernel udevsend message, netlink is active");
+					free(msg);
+					continue;
+				}
 				msg_queue_insert(msg);
+			}
+		}
+
+		if (FD_ISSET(ueventsock, &workreadfds)) {
+			msg = get_uevent_msg();
+			if (msg) {
+				msg_queue_insert(msg);
+				/* disable udevsend with first netlink message */
+				if (!uevent_active) {
+					info("netlink message received, disable kernel udevsend messages");
+					uevent_active = 1;
+				}
+			}
 		}
 
 		if (FD_ISSET(pipefds[0], &workreadfds))

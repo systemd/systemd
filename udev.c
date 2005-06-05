@@ -54,8 +54,10 @@ void log_message(int priority, const char *format, ...)
 }
 #endif
 
-/* decide if we should manage the whole hotplug event
- * for now look if the kernel calls udevsend instead of /sbin/hotplug
+/* Decide if we should manage the whole uevent, including multiplexing
+ * of the hotplug directories.
+ * For now look if the kernel calls udevsend instead of /sbin/hotplug,
+ * or the uevent-helper in /proc/sys/kernel/hotplug is empty.
  */
 static int manage_hotplug_event(void) {
 	char helper[256];
@@ -70,13 +72,15 @@ static int manage_hotplug_event(void) {
 	if (fd < 0)
 		return 0;
 
-	len = read(fd, helper, 256);
+	len = read(fd, helper, sizeof(helper)-1);
 	close(fd);
 
 	if (len < 0)
 		return 0;
 	helper[len] = '\0';
 
+	if (helper[0] == '\0' || helper[0] == '\n')
+		return 1;
 	if (strstr(helper, "udevsend"))
 		return 1;
 
