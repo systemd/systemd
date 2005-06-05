@@ -50,7 +50,6 @@ INFO =		udevinfo
 TESTER =	udevtest
 STARTER =	udevstart
 VERSION =	058
-INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
 LOCAL_CFG_DIR =	etc/udev
 DESTDIR =
@@ -180,7 +179,6 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	KLCC		= $(KLIBC_INSTALL)/bin/klcc
 	CC		= $(KLCC)
 	LD		= $(KLCC)
-	LDFLAGS		+= -static
 else
 	CFLAGS		+= -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
 endif
@@ -252,8 +250,8 @@ udev_version.h:
 	@echo \#define UDEV_CONFIG_DIR		\"$(configdir)\" >> $@
 	@echo \#define UDEV_CONFIG_FILE		\"$(configdir)/udev.conf\" >> $@
 	@echo \#define UDEV_RULES_FILE		\"$(configdir)/rules.d\" >> $@
-	@echo \#define UDEV_BIN			\"$(DESTDIR)$(sbindir)/udev\" >> $@
-	@echo \#define UDEVD_BIN		\"$(DESTDIR)$(sbindir)/udevd\" >> $@
+	@echo \#define UDEV_BIN			\"$(sbindir)/udev\" >> $@
+	@echo \#define UDEVD_BIN		\"$(sbindir)/udevd\" >> $@
 
 # Rules on how to create the generated config files
 $(LOCAL_CFG_DIR)/udev.conf:
