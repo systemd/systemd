@@ -45,39 +45,7 @@ char udev_config_filename[PATH_SIZE];
 char udev_rules_filename[PATH_SIZE];
 int udev_log_priority;
 int udev_run;
-int udev_dev_d;
 int udev_hotplug_d;
-
-static int string_is_true(const char *str)
-{
-	if (strcasecmp(str, "true") == 0)
-		return 1;
-	if (strcasecmp(str, "yes") == 0)
-		return 1;
-	if (strcasecmp(str, "1") == 0)
-		return 1;
-	return 0;
-}
-
-static int log_priority(const char *priority)
-{
-	char *endptr;
-	int prio;
-
-	prio = strtol(priority, &endptr, 10);
-	if (endptr[0] == '\0')
-		return prio;
-	if (strncasecmp(priority, "err", 3) == 0)
-		return LOG_ERR;
-	if (strcasecmp(priority, "info") == 0)
-		return LOG_INFO;
-	if (strcasecmp(priority, "debug") == 0)
-		return LOG_DEBUG;
-	if (string_is_true(priority))
-		return LOG_ERR;
-
-	return 0;
-}
 
 static int get_key(char **line, char **key, char **value)
 {
@@ -219,7 +187,6 @@ void udev_init_config(void)
 	strcpy(udev_rules_filename, UDEV_RULES_FILE);
 	udev_log_priority = LOG_ERR;
 	udev_run = 1;
-	udev_dev_d = 1;
 	udev_hotplug_d = 1;
 	sysfs_get_mnt_path(sysfs_path, sizeof(sysfs_path));
 
@@ -227,10 +194,6 @@ void udev_init_config(void)
 	env = getenv("UDEV_RUN");
 	if (env && !string_is_true(env))
 		udev_run = 0;
-
-	env = getenv("UDEV_NO_DEVD");
-	if (env && string_is_true(env))
-		udev_dev_d = 0;
 
 	env = getenv("UDEV_NO_HOTPLUGD");
 	if (env && string_is_true(env))

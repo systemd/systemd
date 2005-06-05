@@ -137,10 +137,6 @@ static int add_device(const char *path, const char *subsystem)
 			execute_command(name_loop->name, udev.subsystem);
 	}
 
-	/* run dev.d/ scripts if we created a node or changed a netif name */
-	if (udev_dev_d && udev.devname[0] != '\0')
-		udev_multiplex_directory(&udev, DEVD_DIR, DEVD_SUFFIX);
-
 	sysfs_close_class_device(class_dev);
 	udev_cleanup_device(&udev);
 

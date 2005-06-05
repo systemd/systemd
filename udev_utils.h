@@ -34,6 +34,8 @@ extern void udev_cleanup_device(struct udevice *udev);
 
 extern int kernel_release_satisfactory(unsigned int version, unsigned int patchlevel, unsigned int sublevel);
 extern int create_path(const char *path);
+extern int log_priority(const char *priority);
+extern int string_is_true(const char *str);
 extern int parse_get_pair(char **orig_string, char **left, char **right);
 extern int unlink_secure(const char *filename);
 extern int file_map(const char *filename, char **buf, size_t *bufsize);

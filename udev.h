@@ -102,7 +102,6 @@ extern char udev_config_filename[PATH_SIZE];
 extern char udev_rules_filename[PATH_SIZE];
 extern int udev_log_priority;
 extern int udev_run;
-extern int udev_dev_d;
 extern int udev_hotplug_d;
 
 #endif

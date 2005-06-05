@@ -219,10 +219,6 @@ int main(int argc, char *argv[], char *envp[])
 				execute_command(name_loop->name, udev.subsystem);
 		}
 
-		/* run dev.d/ scripts if we created/deleted a node or changed a netif name */
-		if (udev_dev_d && udev.devname[0] != '\0')
-			udev_multiplex_directory(&udev, DEVD_DIR, DEVD_SUFFIX);
-
 	} else if (udev.type == DEV_DEVICE) {
 		if (strcmp(action, "add") == 0) {
 			/* wait for sysfs */
