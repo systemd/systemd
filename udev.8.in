@@ -158,7 +158,8 @@ The following keys can get values assigned:
 .TP
 .B NAME
 The name of the node to be created, or the name, the network interface
-should be renamed to.
+should be renamed to. Only one rule can set the a name, all later rules
+with a NAME key will be ignored.
 .TP
 .B SYMLINK
 The name of a symlink targeting the node. Every matching rule can add
