@@ -268,22 +268,7 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 	char *pos;
 	int retval = 0;
 
-	if (udev->type == DEV_BLOCK || udev->type == DEV_CLASS) {
-		udev->devt = get_devt(class_dev);
-		if (!udev->devt) {
-			dbg("no dev-file found, do nothing");
-			return 0;
-		}
-	}
-
-	udev_rules_get_name(udev, class_dev);
-	if (udev->ignore_device) {
-		dbg("device event will be ignored");
-		return 0;
-	}
-
 	dbg("adding name='%s'", udev->name);
-
 	selinux_init();
 
 	if (udev->type == DEV_BLOCK || udev->type == DEV_CLASS) {
@@ -325,6 +310,5 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 
 exit:
 	selinux_exit();
-
 	return retval;
 }

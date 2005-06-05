@@ -37,6 +37,7 @@
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev_libc_wrapper.h"
+#include "udev_sysfs.h"
 #include "udev.h"
 #include "udev_version.h"
 #include "logging.h"
@@ -110,25 +111,37 @@ static int add_device(const char *path, const char *subsystem)
 	const char *devpath;
 
 	devpath = &path[strlen(sysfs_path)];
-
-	/* set environment for callouts and dev.d/ */
 	setenv("DEVPATH", devpath, 1);
 	setenv("SUBSYSTEM", subsystem, 1);
-
 	dbg("exec: '%s' (%s)\n", devpath, path);
 
 	class_dev = sysfs_open_class_device_path(path);
 	if (class_dev == NULL) {
 		dbg ("sysfs_open_class_device_path failed");
-		return -ENODEV;
+		return -1;
 	}
 
 	udev_init_device(&udev, devpath, subsystem, "add");
-	udev_add_device(&udev, class_dev);
+	udev.devt = get_devt(class_dev);
+	if (!udev.devt) {
+		dbg ("sysfs_open_class_device_path failed");
+		return -1;
+	}
+	udev_rules_get_name(&udev, class_dev);
+	if (udev.ignore_device) {
+		info("device event will be ignored");
+		goto exit;
+	}
+	if (udev.name[0] == '\0') {
+		info("device node creation supressed");
+		goto run;
+	}
 
+	udev_add_device(&udev, class_dev);
 	if (udev.devname[0] != '\0')
 		setenv("DEVNAME", udev.devname, 1);
 
+run:
 	if (udev_run && !list_empty(&udev.run_list)) {
 		struct name_entry *name_loop;
 
@@ -137,6 +150,7 @@ static int add_device(const char *path, const char *subsystem)
 			execute_command(name_loop->name, udev.subsystem);
 	}
 
+exit:
 	sysfs_close_class_device(class_dev);
 	udev_cleanup_device(&udev);
 

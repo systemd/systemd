@@ -58,9 +58,6 @@ int main(int argc, char *argv[], char *envp[])
 	const char *subsystem;
 	int fd;
 
-	if (getenv("DEVNAME") == NULL)
-		exit(0);
-
 	subsystem = argv[1];
 	logging_init("udev_run_hotplugd");
 

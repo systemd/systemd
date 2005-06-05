@@ -143,7 +143,6 @@ UDEV_OBJS = \
 	udev_remove.o		\
 	udev_sysfs.o		\
 	udev_db.o		\
-	udev_multiplex.o	\
 	udev_rules.o		\
 	udev_rules_parse.o	\
 	udev_libc_wrapper.o
@@ -382,6 +381,7 @@ install: install-config install-man install-dev.d all
 	- ln -f -s $(sbindir)/$(SENDER) $(DESTDIR)$(hotplugdir)/10-udev.hotplug
 ifndef DESTDIR
 	- killall $(DAEMON)
+	- $(sbindir)/$(DAEMON) -d
 	- rm -rf $(udevdb)
 endif
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \

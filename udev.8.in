@@ -306,11 +306,9 @@ following the '[' is a '!', any characters not enclosed are matched.
 .P
 After device node creation, removal, or network device renaming,
 .B udev
-executes the programs located in the directory tree under
-.IR /etc/dev.d/ .
-The name of a program must have the suffix
-.I .dev
-to be recognized.
+executes the programs specified by the
+.B RUN
+key.
 .br
 In addition to the kernel provided hotplug environment variables,
 .B UDEV_LOG
@@ -319,15 +317,7 @@ is set and contains the numerical priority value, if udev is configured to use
 Executed programs may want to follow that setting.
 .B DEVNAME
 is exported to make the name of the created node, or the name the network
-device is renamed to, available to the executed program. The programs in every
-directory are sorted in lexical order, while the directories are searched in
-the following order:
-.sp
-.nf
-/etc/dev.d/$(DEVNAME)/*.dev
-/etc/dev.d/$(SUBSYSTEM)/*.dev
-/etc/dev.d/default/*.dev
-.fi
+device is renamed to, available to the executed programs.
 .SH "ENVIRONMENT"
 .P
 The following variables are read from the environment:
@@ -353,20 +343,10 @@ Overrides the log priority specified in the config file.
 .TP
 .B UDEV_RUN
 If set to "0", it disables the execution of programs added by rules.
-.TP
-.B UDEV_NO_DEVD
-The default behavior of
-.B udev
-is to execute programs in the
-.I /etc/dev.d/
-directory after device handling. If set,
-.B udev
-will skip this step.
 .SH "FILES"
 .nf
 /sbin/udev                           udev program
 /etc/udev/*                          udev config files
-/etc/dev.d/*                         programs invoked by udev
 .fi
 .SH "SEE ALSO"
 .BR udevinfo (8),

@@ -39,12 +39,6 @@
 #define SEQNUM_SIZE			32
 #define VALUE_SIZE			128
 
-#define DEVD_DIR			"/etc/dev.d"
-#define DEVD_SUFFIX			".dev"
-
-#define HOTPLUGD_DIR			"/etc/hotplug.d"
-#define HOTPLUG_SUFFIX			".hotplug"
-
 #define DEFAULT_PARTITIONS_COUNT	15
 
 enum device_type {
@@ -62,6 +56,7 @@ struct udevice {
 
 	enum device_type type;
 	char name[PATH_SIZE];
+	int name_set;
 	char devname[PATH_SIZE];
 	struct list_head symlink_list;
 	int symlink_final;
@@ -92,7 +87,6 @@ extern int udev_add_device(struct udevice *udev, struct sysfs_class_device *clas
 extern int udev_remove_device(struct udevice *udev);
 extern void udev_init_config(void);
 extern int udev_start(void);
-extern void udev_multiplex_directory(struct udevice *udev, const char *basedir, const char *suffix);
 extern int udev_make_node(struct udevice *udev, const char *file, dev_t devt, mode_t mode, uid_t uid, gid_t gid);
 
 extern char sysfs_path[PATH_SIZE];
@@ -102,6 +96,5 @@ extern char udev_config_filename[PATH_SIZE];
 extern char udev_rules_filename[PATH_SIZE];
 extern int udev_log_priority;
 extern int udev_run;
-extern int udev_hotplug_d;
 
 #endif

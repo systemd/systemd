@@ -96,6 +96,7 @@ struct udev_rule {
 	int env_pair_count;
 
 	char name[PATH_SIZE];
+	enum key_operation name_operation;
 	char symlink[PATH_SIZE];
 	enum key_operation symlink_operation;
 	char owner[USER_SIZE];
@@ -120,7 +121,7 @@ extern struct list_head udev_rule_list;
 
 extern int udev_rules_init(void);
 extern int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_dev);
-extern int udev_rules_get_run(struct udevice *udev);
+extern int udev_rules_get_run(struct udevice *udev, struct sysfs_device *sysfs_device);
 extern void udev_rules_close(void);
 
 #endif

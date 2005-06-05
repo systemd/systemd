@@ -349,21 +349,19 @@ static int rules_parse(const char *filename)
 
 			if (strncasecmp(key, KEY_NAME, sizeof(KEY_NAME)-1) == 0) {
 				attr = get_key_attribute(key + sizeof(KEY_NAME)-1);
-				/* FIXME: remove old style options and make OPTIONS= mandatory */
 				if (attr != NULL) {
 					if (strstr(attr, OPTION_PARTITIONS) != NULL) {
 						dbg("creation of partition nodes requested");
 						rule.partitions = DEFAULT_PARTITIONS_COUNT;
 					}
+					/* FIXME: remove old style option and make OPTIONS= mandatory */
 					if (strstr(attr, OPTION_IGNORE_REMOVE) != NULL) {
 						dbg("remove event should be ignored");
 						rule.ignore_remove = 1;
 					}
 				}
-				if (value[0] != '\0')
-					strlcpy(rule.name, value, sizeof(rule.name));
-				else
-					rule.ignore_device = 1;
+				rule.name_operation = operation;
+				strlcpy(rule.name, value, sizeof(rule.name));
 				valid = 1;
 				continue;
 			}
