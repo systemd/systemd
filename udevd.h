@@ -43,15 +43,24 @@
 #define THROTTLE_MAX_RUNNING_CHILDS	10
 
 /* environment buffer, should match the kernel's size in lib/kobject_uevent.h */
-#define HOTPLUG_BUFFER_SIZE		1024
-#define HOTPLUG_NUM_ENVP		32
+#define UEVENT_BUFFER_SIZE		1024
+#define UEVENT_NUM_ENVP			32
 
-struct udevsend_msg {
-	char magic[20];
-	char envbuf[HOTPLUG_BUFFER_SIZE+256];
+enum udevd_msg_type {
+	UDEVD_UNKNOWN,
+	UDEVD_UEVENT,
+	UDEVD_STOP_EXEC_QUEUE,
+	UDEVD_START_EXEC_QUEUE,
 };
 
-struct hotplug_msg {
+
+struct udevd_msg {
+	char magic[32];
+	enum udevd_msg_type type;
+	char envbuf[UEVENT_BUFFER_SIZE+512];
+};
+
+struct uevent_msg {
 	struct list_head node;
 	pid_t pid;
 	long queue_time;
@@ -61,6 +70,6 @@ struct hotplug_msg {
 	unsigned long long seqnum;
 	char *physdevpath;
 	unsigned int timeout;
-	char *envp[HOTPLUG_NUM_ENVP+1];
+	char *envp[UEVENT_NUM_ENVP+1];
 	char envbuf[];
 };

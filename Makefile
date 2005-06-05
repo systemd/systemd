@@ -44,6 +44,7 @@ V=false
 ROOT =		udev
 DAEMON =	udevd
 SENDER =	udevsend
+CONTROL =	udevcontrol
 INFO =		udevinfo
 TESTER =	udevtest
 STARTER =	udevstart
@@ -205,7 +206,7 @@ endif
 # config files automatically generated
 GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
 
-all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(STARTER) $(GEN_CONFIGS) $(KLCC)
+all: $(ROOT) $(SENDER) $(CONTROL) $(DAEMON) $(INFO) $(TESTER) $(STARTER) $(GEN_CONFIGS) $(KLCC)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) \
@@ -271,6 +272,7 @@ $(TESTER).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(INFO).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(DAEMON).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(SENDER).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
+$(CONTROL).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(STARTER).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 
 $(ROOT): $(KLCC) $(ROOT).o $(OBJS) $(HEADERS) $(GEN_MANPAGES)
@@ -293,6 +295,10 @@ $(SENDER): $(KLCC) $(SENDER).o $(OBJS) udevd.h
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(SENDER).o $(OBJS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
+$(CONTROL): $(KLCC) $(CONTROL).o $(OBJS) udevd.h
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CONTROL).o $(OBJS) $(LIB_OBJS)
+	$(QUIET) $(STRIPCMD) $@
+
 $(STARTER): $(KLCC) $(STARTER).o $(OBJS)
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(STARTER).o $(OBJS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
@@ -304,7 +310,7 @@ clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
 	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) \
-	 $(SENDER) $(TESTER) $(STARTER)
+	 $(SENDER) $(CONTROL) $(TESTER) $(STARTER)
 	-rm -f ccdv
 	$(MAKE) -C klibc SUBDIRS=klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
@@ -364,6 +370,7 @@ install: install-config install-man install-dev.d all
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
 	$(INSTALL_PROGRAM) -D $(DAEMON) $(DESTDIR)$(sbindir)/$(DAEMON)
 	$(INSTALL_PROGRAM) -D $(SENDER) $(DESTDIR)$(sbindir)/$(SENDER)
+	$(INSTALL_PROGRAM) -D $(CONTROL) $(DESTDIR)$(sbindir)/$(CONTROL)
 	$(INSTALL_PROGRAM) -D $(INFO) $(DESTDIR)$(usrbindir)/$(INFO)
 	$(INSTALL_PROGRAM) -D $(TESTER) $(DESTDIR)$(usrbindir)/$(TESTER)
 	$(INSTALL_PROGRAM) -D $(STARTER) $(DESTDIR)$(sbindir)/$(STARTER)
@@ -387,6 +394,7 @@ uninstall: uninstall-man uninstall-dev.d
 	- rm $(sbindir)/$(ROOT)
 	- rm $(sbindir)/$(DAEMON)
 	- rm $(sbindir)/$(SENDER)
+	- rm $(sbindir)/$(CONTROL)
 	- rm $(sbindir)/$(STARTER)
 	- rm $(usrbindir)/$(INFO)
 	- rm $(usrbindir)/$(TESTER)

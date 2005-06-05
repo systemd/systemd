@@ -115,7 +115,7 @@ static void run_udev(const char *subsystem)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	static struct udevsend_msg usend_msg;
+	static struct udevd_msg usend_msg;
 	int usend_msg_len;
 	int i;
 	int loop;
@@ -144,8 +144,9 @@ int main(int argc, char *argv[], char *envp[])
 	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
 	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 
-	memset(&usend_msg, 0x00, sizeof(struct udevsend_msg));
+	memset(&usend_msg, 0x00, sizeof(struct udevd_msg));
 	strcpy(usend_msg.magic, UDEV_MAGIC);
+	usend_msg.type = UDEVD_UEVENT;
 
 	/* copy all keys to send buffer */
 	for (i = 0; envp[i]; i++) {
@@ -161,7 +162,7 @@ int main(int argc, char *argv[], char *envp[])
 			goto exit;
 		}
 
-		if (bufpos + keylen >= HOTPLUG_BUFFER_SIZE-1) {
+		if (bufpos + keylen >= UEVENT_BUFFER_SIZE-1) {
 			err("environment buffer too small, probably not called by the kernel");
 			continue;
 		}
@@ -180,7 +181,7 @@ int main(int argc, char *argv[], char *envp[])
 		dbg("add 'SUBSYSTEM=%s' to env[%i] buffer from argv", argv[1], i);
 	}
 
-	usend_msg_len = offsetof(struct udevsend_msg, envbuf) + bufpos;
+	usend_msg_len = offsetof(struct udevd_msg, envbuf) + bufpos;
 	dbg("usend_msg_len=%i", usend_msg_len);
 
 	/* If we can't send, try to start daemon and resend message */
