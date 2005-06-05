@@ -185,7 +185,7 @@ int main(int argc, char *argv[], char *envp[])
 	dbg("usend_msg_len=%i", usend_msg_len);
 
 	/* If we can't send, try to start daemon and resend message */
-	loop = SEND_WAIT_MAX_SECONDS * SEND_WAIT_LOOP_PER_SECOND;
+	loop = UDEVSEND_WAIT_MAX_SECONDS * UDEVSEND_WAIT_LOOP_PER_SECOND;
 	while (--loop) {
 		retval = sendto(sock, &usend_msg, usend_msg_len, 0, (struct sockaddr *)&saddr, addrlen);
 		if (retval != -1) {
@@ -208,8 +208,8 @@ int main(int argc, char *argv[], char *envp[])
 			dbg("udevd daemon started");
 			started_daemon = 1;
 		} else {
-			dbg("retry to connect %d", SEND_WAIT_MAX_SECONDS * SEND_WAIT_LOOP_PER_SECOND - loop);
-			usleep(1000 * 1000 / SEND_WAIT_LOOP_PER_SECOND);
+			dbg("retry to connect %d", UDEVSEND_WAIT_MAX_SECONDS * UDEVSEND_WAIT_LOOP_PER_SECOND - loop);
+			usleep(1000 * 1000 / UDEVSEND_WAIT_LOOP_PER_SECOND);
 		}
 	}
 

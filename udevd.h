@@ -26,21 +26,23 @@
 
 #define UDEV_MAGIC			"udevd_" UDEV_VERSION
 #define UDEVD_SOCK_PATH			"udevd"
-#define SEND_WAIT_MAX_SECONDS		3
-#define SEND_WAIT_LOOP_PER_SECOND	10
+#define UDEVSEND_WAIT_MAX_SECONDS	3
+#define UDEVSEND_WAIT_LOOP_PER_SECOND	10
 
 #define UDEVD_PRIORITY			-4
 #define UDEV_PRIORITY			-2
 
 /* duration of initialization phase with shorter timeout */
-#define INIT_TIME_SEC			5
-#define EVENT_INIT_TIMEOUT_SEC		2
+#define UDEVD_INIT_TIME			5
+#define UDEVD_INIT_EVENT_TIMEOUT	2
 
 /* timeout to wait for missing events */
-#define EVENT_TIMEOUT_SEC		10
+#define UDEVD_EVENT_TIMEOUT		5
 
+/* maximum limit of runnig childs */
+#define UDEVD_MAX_CHILDS		64
 /* start to throttle forking if maximum number of running childs in our session is reached */
-#define THROTTLE_MAX_RUNNING_CHILDS	10
+#define UDEVD_MAX_CHILDS_RUNNING	8
 
 /* environment buffer, should match the kernel's size in lib/kobject_uevent.h */
 #define UEVENT_BUFFER_SIZE		1024

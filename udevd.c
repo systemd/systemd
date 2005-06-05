@@ -54,11 +54,10 @@ static int uevent_nl_sock;
 static pid_t sid;
 
 static int pipefds[2];
-static long startup_time;
-static unsigned long long expected_seqnum;
 static volatile int sigchilds_waiting;
 static volatile int run_msg_q;
 static volatile int sig_flag;
+static int init_phase = 1;
 static int run_exec_q;
 static int stop_exec_q;
 
@@ -70,7 +69,13 @@ static void exec_queue_manager(void);
 static void msg_queue_manager(void);
 static void user_sighandler(void);
 static void reap_sigchilds(void);
-char *udev_bin;
+
+static char *udev_bin;
+static unsigned long long expected_seqnum;
+static int event_timeout;
+static int max_childs;
+static int max_childs_running;
+
 
 #ifdef USE_LOG
 void log_message (int priority, const char *format, ...)
@@ -115,6 +120,20 @@ static void msg_queue_insert(struct uevent_msg *msg)
 		return;
 	}
 
+	/* store timestamp of queuing */
+	sysinfo(&info);
+	msg->queue_time = info.uptime;
+
+	/* with the first event we provide a phase of shorter timeout */
+	if (init_phase) {
+		static long init_time;
+
+		if (init_time == 0)
+			init_time = info.uptime;
+		if (info.uptime - init_time >= UDEVD_INIT_TIME)
+			init_phase = 0;
+	}
+
 	/* don't delay messages with timeout set */
 	if (msg->timeout) {
 		dbg("move seq %llu with timeout %u to exec queue", msg->seqnum, msg->timeout);
@@ -134,13 +153,8 @@ static void msg_queue_insert(struct uevent_msg *msg)
 			return;
 		}
 	}
-
-	/* store timestamp of queuing */
-	sysinfo(&info);
-	msg->queue_time = info.uptime;
-
 	list_add(&msg->node, &loop_msg->node);
-	dbg("queued message seq %llu", msg->seqnum);
+	info("seq %llu queued, devpath '%s'", msg->seqnum, msg->devpath);
 
 	/* run msg queue manager */
 	run_msg_q = 1;
@@ -153,6 +167,7 @@ static void execute_udev(struct uevent_msg *msg)
 {
 	char *const argv[] = { "udev", msg->subsystem, NULL };
 	pid_t pid;
+	struct sysinfo info;
 
 	pid = fork();
 	switch (pid) {
@@ -174,7 +189,9 @@ static void execute_udev(struct uevent_msg *msg)
 		break;
 	default:
 		/* get SIGCHLD in main loop */
-		dbg("==> exec seq %llu [%d] working at '%s'", msg->seqnum, pid, msg->devpath);
+		sysinfo(&info);
+		info("seq %llu forked, pid %d, %ld seconds old",
+		     msg->seqnum, pid, info.uptime - msg->queue_time);
 		msg->pid = pid;
 	}
 }
@@ -299,32 +316,43 @@ static int compare_devpath(const char *running, const char *waiting)
 }
 
 /* returns still running task for the same device, its parent or its physical device */
-static struct uevent_msg *running_with_devpath(struct uevent_msg *msg)
+static int running_with_devpath(struct uevent_msg *msg, int limit)
 {
 	struct uevent_msg *loop_msg;
+	int childs_count = 0;
 
 	if (msg->devpath == NULL)
-		return NULL;
+		return 0;
 
 	/* skip any events with a timeout set */
-	if (msg->timeout)
-		return NULL;
+	if (msg->timeout != 0)
+		return 0;
 
 	list_for_each_entry(loop_msg, &running_list, node) {
+		if (limit && childs_count++ > limit) {
+			dbg("%llu, maximum number (%i) of child reached", msg->seqnum, childs_count);
+			return 1;
+		}
 		if (loop_msg->devpath == NULL)
 			continue;
 
 		/* return running parent/child device event */
-		if (compare_devpath(loop_msg->devpath, msg->devpath) != 0)
-			return loop_msg;
+		if (compare_devpath(loop_msg->devpath, msg->devpath) != 0) {
+			dbg("%llu, child device event still running %llu (%s)",
+			    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
+			return 2;
+		}
 
 		/* return running physical device event */
 		if (msg->physdevpath && msg->action && strcmp(msg->action, "add") == 0)
-			if (compare_devpath(loop_msg->devpath, msg->physdevpath) != 0)
-				return loop_msg;
+			if (compare_devpath(loop_msg->devpath, msg->physdevpath) != 0) {
+				dbg("%llu, physical device event still running %llu (%s)",
+				    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
+				return 3;
+			}
 	}
 
-	return NULL;
+	return 0;
 }
 
 /* exec queue management routine executes the events and serializes events in the same sequence */
@@ -332,36 +360,33 @@ static void exec_queue_manager(void)
 {
 	struct uevent_msg *loop_msg;
 	struct uevent_msg *tmp_msg;
-	struct uevent_msg *msg;
 	int running;
 
 	running = running_processes();
 	dbg("%d processes runnning on system", running);
 	if (running < 0)
-		running = THROTTLE_MAX_RUNNING_CHILDS;
+		running = max_childs_running;
 
 	list_for_each_entry_safe(loop_msg, tmp_msg, &exec_list, node) {
 		/* check running processes in our session and possibly throttle */
-		if (running >= THROTTLE_MAX_RUNNING_CHILDS) {
-			running = running_processes_in_session(sid, THROTTLE_MAX_RUNNING_CHILDS+10);
-			dbg("%d processes running in session", running);
-			if (running >= THROTTLE_MAX_RUNNING_CHILDS) {
-				dbg("delay seq %llu, cause too many processes already running", loop_msg->seqnum);
+		if (running >= max_childs_running) {
+			running = running_processes_in_session(sid, max_childs_running+10);
+			dbg("at least %d processes running in session", running);
+			if (running >= max_childs_running) {
+				dbg("delay seq %llu, cause too many processes already running",
+				    loop_msg->seqnum);
 				return;
 			}
 		}
 
-		msg = running_with_devpath(loop_msg);
-		if (!msg) {
+		if (running_with_devpath(loop_msg, max_childs) == 0) {
 			/* move event to run list */
 			list_move_tail(&loop_msg->node, &running_list);
 			execute_udev(loop_msg);
 			running++;
 			dbg("moved seq %llu to running list", loop_msg->seqnum);
-		} else {
-			dbg("delay seq %llu (%s), cause seq %llu (%s) is still running",
-			    loop_msg->seqnum, loop_msg->devpath, msg->seqnum, msg->devpath);
-		}
+		} else
+			dbg("delay seq %llu (%s)", loop_msg->seqnum, loop_msg->devpath);
 	}
 }
 
@@ -381,11 +406,11 @@ static void msg_queue_manager(void)
 	struct uevent_msg *tmp_msg;
 	struct sysinfo info;
 	long msg_age = 0;
-	static int timeout = EVENT_INIT_TIMEOUT_SEC;
-	static int init = 1;
+	int timeout = event_timeout;
 
 	dbg("msg queue manager, next expected is %llu", expected_seqnum);
 recheck:
+	sysinfo(&info);
 	list_for_each_entry_safe(loop_msg, tmp_msg, &msg_list, node) {
 		/* move event with expected sequence to the exec list */
 		if (loop_msg->seqnum == expected_seqnum) {
@@ -393,15 +418,13 @@ recheck:
 			continue;
 		}
 
-		/* see if we are in the initialization phase and wait for the very first events */
-		if (init && (info.uptime - startup_time >= INIT_TIME_SEC)) {
-			init = 0;
-			timeout = EVENT_TIMEOUT_SEC;
-			dbg("initialization phase passed, set timeout to %i seconds", EVENT_TIMEOUT_SEC);
+		/* limit timeout during initialization phase */
+		if (init_phase) {
+			timeout = UDEVD_INIT_EVENT_TIMEOUT;
+			dbg("initialization phase, limit timeout to %i seconds", UDEVD_INIT_EVENT_TIMEOUT);
 		}
 
 		/* move event with expired timeout to the exec list */
-		sysinfo(&info);
 		msg_age = info.uptime - loop_msg->queue_time;
 		dbg("seq %llu is %li seconds old", loop_msg->seqnum, msg_age);
 		if (msg_age >= timeout) {
@@ -629,10 +652,12 @@ static void udev_done(int pid)
 {
 	/* find msg associated with pid and delete it */
 	struct uevent_msg *msg;
+	struct sysinfo info;
 
 	list_for_each_entry(msg, &running_list, node) {
 		if (msg->pid == pid) {
-			dbg("<== exec seq %llu came back", msg->seqnum);
+			sysinfo(&info);
+			info("seq %llu exit, %ld sec old", msg->seqnum, info.uptime - msg->queue_time);
 			run_queue_delete(msg);
 
 			/* we want to run the exec queue manager since there may
@@ -734,13 +759,12 @@ static int init_uevent_nl_sock(void)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	struct sysinfo info;
 	int maxsockplus;
 	int retval;
 	int fd;
 	struct sigaction act;
 	fd_set readfds;
-	const char *udevd_expected_seqnum;
+	const char *value;
 	int uevent_nl_active = 0;
 
 	logging_init("udevd");
@@ -774,7 +798,6 @@ int main(int argc, char *argv[], char *envp[])
 	sid = setsid();
 	dbg("our session is %d", sid);
 
-	/* make sure we don't lock any path */
 	chdir("/");
 	umask(umask(077) | 022);
 
@@ -840,23 +863,43 @@ int main(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 
-	/* possible override of udev binary, used for testing */
+	/* override of forked udev binary, used for testing */
 	udev_bin = getenv("UDEV_BIN");
 	if (udev_bin != NULL)
 		info("udev binary is set to '%s'", udev_bin);
 	else
 		udev_bin = UDEV_BIN;
 
-	/* possible init of expected_seqnum value */
-	udevd_expected_seqnum = getenv("UDEVD_EXPECTED_SEQNUM");
-	if (udevd_expected_seqnum != NULL) {
-		expected_seqnum = strtoull(udevd_expected_seqnum, NULL, 10);
+	/* init of expected_seqnum value */
+	value = getenv("UDEVD_EXPECTED_SEQNUM");
+	if (value) {
+		expected_seqnum = strtoull(value, NULL, 10);
 		info("initialize expected_seqnum to %llu", expected_seqnum);
 	}
 
-	/* get current time to provide shorter timeout on startup */
-	sysinfo(&info);
-	startup_time = info.uptime;
+	/* timeout to wait for missing events */
+	value = getenv("UDEVD_EVENT_TIMEOUT");
+	if (value)
+		event_timeout = strtoul(value, NULL, 10);
+	else
+		event_timeout = UDEVD_EVENT_TIMEOUT;
+	info("initialize event_timeout to %u", event_timeout);
+
+	/* maximum limit of forked childs */
+	value = getenv("UDEVD_MAX_CHILDS");
+	if (value)
+		max_childs = strtoul(value, NULL, 10);
+	else
+		max_childs = UDEVD_MAX_CHILDS;
+	info("initialize max_childs to %u", max_childs);
+
+	/* start to throttle forking if maximum number of _running_ childs is reached */
+	value = getenv("UDEVD_MAX_CHILDS_RUNNING");
+	if (value)
+		max_childs_running = strtoull(value, NULL, 10);
+	else
+		max_childs_running = UDEVD_MAX_CHILDS_RUNNING;
+	info("initialize max_childs_running to %u", max_childs_running);
 
 	FD_ZERO(&readfds);
 	FD_SET(udevd_sock, &readfds);
@@ -893,7 +936,7 @@ int main(int argc, char *argv[], char *envp[])
 			msg = get_uevent_msg();
 			if (msg) {
 				msg_queue_insert(msg);
-				/* disable udevsend with first netlink message */
+				/* disable kernel uevent_helper with first netlink message */
 				if (!uevent_nl_active) {
 					info("uevent_nl message received, disable uevent_helper messages");
 					uevent_nl_active = 1;
