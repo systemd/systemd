@@ -62,6 +62,7 @@ enum key_operation {
 	KEY_OP_NOMATCH,
 	KEY_OP_ADD,
 	KEY_OP_ASSIGN,
+	KEY_OP_ASSIGN_FINAL,
 };
 
 struct key_pair {
@@ -96,10 +97,15 @@ struct udev_rule {
 
 	char name[PATH_SIZE];
 	char symlink[PATH_SIZE];
+	enum key_operation symlink_operation;
 	char owner[USER_SIZE];
+	enum key_operation owner_operation;
 	char group[USER_SIZE];
+	enum key_operation group_operation;
 	mode_t mode;
+	enum key_operation mode_operation;
 	char run[PATH_SIZE];
+	enum key_operation run_operation;
 
 	int last_rule;
 	int ignore_device;

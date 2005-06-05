@@ -89,6 +89,8 @@ static int get_key(char **line, char **key, enum key_operation *operation, char 
 			break;
 		if (linepos[0] == '!')
 			break;
+		if (linepos[0] == ':')
+			break;
 	}
 
 	/* remember end of key */
@@ -115,6 +117,10 @@ static int get_key(char **line, char **key, enum key_operation *operation, char 
 		*operation = KEY_OP_ASSIGN;
 		linepos++;
 		dbg("operator=assign");
+	} else if (linepos[0] == ':' && linepos[1] == '=') {
+		*operation = KEY_OP_ASSIGN_FINAL;
+		linepos += 2;
+		dbg("operator=assign_final");
 	} else
 		return -1;
 
@@ -364,30 +370,35 @@ static int rules_parse(const char *filename)
 
 			if (strcasecmp(key, KEY_SYMLINK) == 0) {
 				strlcpy(rule.symlink, value, sizeof(rule.symlink));
+				rule.symlink_operation = operation;
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(key, KEY_OWNER) == 0) {
 				strlcpy(rule.owner, value, sizeof(rule.owner));
+				rule.owner_operation = operation;
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(key, KEY_GROUP) == 0) {
 				strlcpy(rule.group, value, sizeof(rule.group));
+				rule.group_operation = operation;
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(key, KEY_MODE) == 0) {
 				rule.mode = strtol(value, NULL, 8);
+				rule.mode_operation = operation;
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(key, KEY_RUN) == 0) {
 				strlcpy(rule.run, value, sizeof(rule.run));
+				rule.run_operation = operation;
 				valid = 1;
 				continue;
 			}

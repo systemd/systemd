@@ -1306,6 +1306,29 @@ KERNEL=="sda", ACTION=="remove", RUN+="/bin/rm -f %r/testsymlink2"
 KERNEL=="sda", NAME="not-ok2"
 EOF
 	},
+	{
+		desc		=> "final assignment",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "ok",
+		exp_perms	=> "root:nobody:0640",
+		rules		=> <<EOF
+KERNEL=="sda", GROUP:="nobody"
+KERNEL=="sda", GROUP="not-ok", MODE="0640", NAME="ok"
+EOF
+	},
+	{
+		desc		=> "final assignment",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "ok",
+		exp_perms	=> "root:nobody:0640",
+		rules		=> <<EOF
+KERNEL=="sda", GROUP:="nobody"
+SUBSYSTEM=="block", MODE:="640"
+KERNEL=="sda", GROUP="not-ok", MODE="0666", NAME="ok"
+EOF
+	},
 );
 
 # set env

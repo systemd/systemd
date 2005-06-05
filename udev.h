@@ -64,11 +64,16 @@ struct udevice {
 	char name[PATH_SIZE];
 	char devname[PATH_SIZE];
 	struct list_head symlink_list;
+	int symlink_final;
 	char owner[USER_SIZE];
+	int owner_final;
 	char group[USER_SIZE];
+	int group_final;
 	mode_t mode;
+	int mode_final;
 	dev_t devt;
 	struct list_head run_list;
+	int run_final;
 
 	char tmp_node[PATH_SIZE];
 	int partitions;

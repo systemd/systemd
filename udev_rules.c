@@ -754,26 +754,34 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 			}
 
 			/* apply permissions */
-			if (rule->mode != 0000) {
+			if (!udev->mode_final && rule->mode != 0000) {
+				if (rule->mode_operation == KEY_OP_ASSIGN_FINAL)
+					udev->mode_final = 1;
 				udev->mode = rule->mode;
 				dbg("applied mode=%#o to '%s'", udev->mode, udev->kernel_name);
 			}
-			if (rule->owner[0] != '\0') {
+			if (!udev->owner_final && rule->owner[0] != '\0') {
+				if (rule->owner_operation == KEY_OP_ASSIGN_FINAL)
+					udev->owner_final = 1;
 				strlcpy(udev->owner, rule->owner, sizeof(udev->owner));
 				apply_format(udev, udev->owner, sizeof(udev->owner), class_dev, sysfs_device);
 				dbg("applied owner='%s' to '%s'", udev->owner, udev->kernel_name);
 			}
-			if (rule->group[0] != '\0') {
+			if (!udev->group_final && rule->group[0] != '\0') {
+				if (rule->group_operation == KEY_OP_ASSIGN_FINAL)
+					udev->group_final = 1;
 				strlcpy(udev->group, rule->group, sizeof(udev->group));
 				apply_format(udev, udev->group, sizeof(udev->group), class_dev, sysfs_device);
 				dbg("applied group='%s' to '%s'", udev->group, udev->kernel_name);
 			}
 
 			/* collect symlinks */
-			if (rule->symlink[0] != '\0') {
+			if (!udev->symlink_final && rule->symlink[0] != '\0') {
 				char temp[PATH_SIZE];
 				char *pos, *next;
 
+				if (rule->symlink_operation == KEY_OP_ASSIGN_FINAL)
+					udev->symlink_final = 1;
 				info("configured rule in '%s[%i]' applied, added symlink '%s'",
 				     rule->config_file, rule->config_line, rule->symlink);
 				strlcpy(temp, rule->symlink, sizeof(temp));
@@ -808,9 +816,11 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 					    udev->name, udev->owner, udev->group, udev->mode, udev->partitions);
 			}
 
-			if (rule->run[0] != '\0') {
+			if (!udev->run_final && rule->run[0] != '\0') {
 				char program[PATH_SIZE];
 
+				if (rule->run_operation == KEY_OP_ASSIGN_FINAL)
+					udev->run_final = 1;
 				strlcpy(program, rule->run, sizeof(program));
 				apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
 				dbg("add run '%s'", program);
