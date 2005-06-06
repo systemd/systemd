@@ -152,19 +152,16 @@ static int print_device_chain(const char *path)
 
 	/* look the device chain upwards */
 	while (sysfs_dev != NULL) {
-		attr_list = sysfs_get_device_attributes(sysfs_dev);
-		if (attr_list == NULL) {
-			fprintf(stderr, "couldn't open device directory\n");
-			retval = -1;
-			goto exit;
-		}
-
 		printf("  looking at the device chain at '%s':\n", sysfs_dev->path);
 		printf("    BUS==\"%s\"\n", sysfs_dev->bus);
 		printf("    ID==\"%s\"\n", sysfs_dev->bus_id);
 		printf("    DRIVER==\"%s\"\n", sysfs_dev->driver_name);
 
-		print_all_attributes(attr_list);
+		attr_list = sysfs_get_device_attributes(sysfs_dev);
+		if (attr_list != NULL)
+			print_all_attributes(attr_list);
+		else
+			printf("\n");
 
 		sysfs_dev = sysfs_get_device_parent(sysfs_dev);
 		if (sysfs_dev == NULL)
