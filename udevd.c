@@ -766,6 +766,8 @@ int main(int argc, char *argv[], char *envp[])
 	fd_set readfds;
 	const char *value;
 	int uevent_nl_active = 0;
+	int daemonize = 0;
+	int i;
 
 	logging_init("udevd");
 	udev_init_config();
@@ -776,8 +778,18 @@ int main(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 
-	/* daemonize on request */
-	if (argc == 2 && strcmp(argv[1], "-d") == 0) {
+	for (i = 1 ; i < argc; i++) {
+		char *arg = argv[i];
+		if (strcmp(arg, "--daemon") == 0 || strcmp(arg, "-d") == 0) {
+			info("will daemonize");
+			daemonize = 1;
+		}
+		if (strcmp(arg, "--stop-exec-queue") == 0) {
+			info("will not execute event until START_EXEC_QUEUE is received");
+			stop_exec_q = 1;
+		}
+	}
+	if (daemonize) {
 		pid_t pid;
 
 		pid = fork();

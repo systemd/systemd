@@ -117,30 +117,29 @@ static int add_device(const char *path, const char *subsystem)
 
 	class_dev = sysfs_open_class_device_path(path);
 	if (class_dev == NULL) {
-		dbg ("sysfs_open_class_device_path failed");
+		dbg("sysfs_open_class_device_path failed");
 		return -1;
 	}
 
 	udev_init_device(&udev, devpath, subsystem, "add");
 	udev.devt = get_devt(class_dev);
 	if (!udev.devt) {
-		dbg ("sysfs_open_class_device_path failed");
+		dbg("sysfs_open_class_device_path failed");
 		return -1;
 	}
 	udev_rules_get_name(&udev, class_dev);
 	if (udev.ignore_device) {
-		info("device event will be ignored");
+		dbg("device event will be ignored");
 		goto exit;
 	}
 	if (udev.name[0] == '\0') {
-		info("device node creation supressed");
+		dbg("device node creation supressed");
 		goto run;
 	}
 
 	udev_add_device(&udev, class_dev);
 	if (udev.devname[0] != '\0')
 		setenv("DEVNAME", udev.devname, 1);
-
 run:
 	if (udev_run && !list_empty(&udev.run_list)) {
 		struct name_entry *name_loop;
@@ -149,7 +148,6 @@ run:
 		list_for_each_entry(name_loop, &udev.run_list, node)
 			execute_command(name_loop->name, udev.subsystem);
 	}
-
 exit:
 	sysfs_close_class_device(class_dev);
 	udev_cleanup_device(&udev);
