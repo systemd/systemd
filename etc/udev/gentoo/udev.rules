@@ -51,8 +51,8 @@ KERNEL="timer",			NAME="snd/%k"
 KERNEL="seq",			NAME="snd/%k"
 
 # capi devices
-KERNEL="capi",		NAME="capi20", SYMLINK="isdn/capi20"
-KERNEL="capi*",		NAME="capi/%n"
+KERNEL="capi",		NAME="capi20", SYMLINK="isdn/capi20", GROUP="dialout"
+KERNEL="capi*",		NAME="capi/%n", GROUP="dialout"
 
 # cpu devices
 KERNEL="cpu[0-9]*",	NAME="cpu/%n/cpuid"
