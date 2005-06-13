@@ -95,8 +95,13 @@ int main(int argc, char *argv[], char *envp[])
 
 
 	retval = sendto(sock, &usend_msg, sizeof(usend_msg), 0, (struct sockaddr *)&saddr, addrlen);
-	if (retval == -1)
+	if (retval == -1) {
 		info("error sending message (%s)", strerror(errno));
+		retval = 1;
+	} else {
+		dbg("sent message '%x' (%u bytes sent)\n", usend_msg.type, retval);
+		retval = 0;
+	}
 
 	close(sock);
 
