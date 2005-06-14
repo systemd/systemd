@@ -1,0 +1,149 @@
+#
+# Kbuild file for klibc
+#
+
+libc-y := vsnprintf.o snprintf.o vsprintf.o sprintf.o \
+	  asprintf.o vasprintf.o \
+	  vsscanf.o sscanf.o ctypes.o \
+	  strntoumax.o strntoimax.o \
+	  atoi.o atol.o atoll.o \
+	  strtol.o strtoll.o strtoul.o strtoull.o \
+	  strtoimax.o strtoumax.o \
+	  globals.o exitc.o atexit.o onexit.o \
+	  execl.o execle.o execv.o execvpe.o execvp.o execlp.o execlpe.o \
+	  fork.o wait.o wait3.o waitpid.o system.o setpgrp.o getpgrp.o \
+	  daemon.o \
+	  printf.o vprintf.o fprintf.o vfprintf.o perror.o \
+	  statfs.o fstatfs.o umount.o \
+	  open.o fopen.o fread.o fread2.o fgetc.o fgets.o \
+	  fwrite.o fwrite2.o fputc.o fputs.o puts.o putchar.o \
+	  sleep.o usleep.o strtotimespec.o strtotimeval.o \
+	  raise.o abort.o assert.o alarm.o pause.o \
+	  __signal.o sysv_signal.o bsd_signal.o siglist.o siglongjmp.o \
+	  sigaction.o sigpending.o sigprocmask.o sigsuspend.o \
+	  brk.o sbrk.o malloc.o realloc.o calloc.o mmap.o \
+	  memcpy.o memcmp.o memset.o memccpy.o memmem.o memswap.o \
+	  memmove.o memchr.o memrchr.o \
+	  strcasecmp.o strncasecmp.o strndup.o strerror.o \
+	  strcat.o strchr.o strcmp.o strcpy.o strdup.o strlen.o strnlen.o \
+	  strncat.o strlcpy.o strlcat.o \
+	  strstr.o strncmp.o strncpy.o strrchr.o \
+	  strxspn.o strspn.o strcspn.o strpbrk.o strsep.o strtok.o \
+	  gethostname.o getdomainname.o getcwd.o \
+	  seteuid.o setegid.o \
+	  getenv.o setenv.o putenv.o __put_env.o unsetenv.o \
+	  getopt.o readdir.o \
+	  syslog.o closelog.o pty.o getpt.o isatty.o reboot.o \
+	  time.o utime.o llseek.o nice.o getpriority.o \
+	  qsort.o \
+	  lrand48.o jrand48.o mrand48.o nrand48.o srand48.o seed48.o \
+	  inet/inet_ntoa.o inet/inet_aton.o inet/inet_addr.o \
+	  inet/inet_ntop.o inet/inet_pton.o inet/bindresvport.o \
+	  send.o recv.o
+
+libc-$(CONFIG_KLIBC_ERRLIST) += errlist.o
+
+libc-$(CONFIG_KLIBC_ZLIB)    += \
+	zlib/adler32.o zlib/compress.o zlib/crc32.o zlib/gzio.o \
+	zlib/uncompr.o zlib/deflate.o zlib/trees.o zlib/zutil.o \
+	zlib/inflate.o zlib/infback.o zlib/inftrees.o zlib/inffast.o
+
+#####
+# Add any architecture-specific rules
+include $(obj)/arch/$(ARCH)/Makefile.inc
+
+#####
+# Shared definitions
+LIB      := libc.a
+SOLIB    := libc.so
+SOHASH   := klibc.so
+CRT0     := arch/$(ARCH)/crt0.o
+INTERP_O := interp.o
+
+always   := $(CRT0) $(LIB) $(SOLIB) $(SOHASH) $(INTERP_O)
+LIB      := $(call objectify,$(LIB))
+SOLIB    := $(call objectify,$(SOLIB))
+SOHASH   := $(call objectify,$(SOHASH))
+CRT0     := $(call objectify,$(CRT0))
+INTERP_O := $(call objectify,$(INTERP_O))
+
+targets  := arch/$(ARCH)/crt0.o
+targets  += $(libc-y) $(ARCHOBJS)
+
+# Generate syscall stubs
+subdir-y += syscalls
+# Generate socket calls stubs
+subdir-y += socketcalls
+
+# Tell make to descend before building libs
+$(obj)/syscalls/syscalls.o: $(obj)/syscalls
+$(obj)/socketcalls/socketcalls.o: $(obj)/socketcalls
+
+#####
+# Readable errormessages extracted from src..
+targets += errlist.c
+quiet_cmd_errlist = GEN     $@
+      cmd_errlist = $(PERL) $< $(LINUXINCLUDE) -errlist > $@ || rm -f $@
+
+$(obj)/errlist.c: $(srctree)/$(src)/makeerrlist.pl
+	$(call cmd,errlist)
+
+# full list of dependencies for klibc
+libc-deps = $(call objectify, $(libc-y) $(ARCHOBJS)) \
+            $(call objectify, syscalls/syscalls.o socketcalls/socketcalls.o)
+
+######
+# Build static library: libc.a
+targets += libc.a __static_init.o
+quiet_cmd_libc = USERAR  $@
+      cmd_libc = rm -f $@; \
+                 $(USERAR) cq $@ $(filter-out FORCE,$^); \
+                 $(USERRANLIB) $@
+
+$(LIB): $(call objectify,__static_init.o) $(libc-deps) FORCE
+	$(call if_changed,libc)
+
+######
+# Build shared library
+targets += libc.so __shared_init.o
+
+quiet_cmd_libcso = LD      $@
+      cmd_libcso = $(USERLD) $(USERLDFLAGS) $(USERSHAREDFLAGS) \
+                             -o $@ $(filter-out FORCE,$^) $(USERLIBGCC)
+
+$(SOLIB): $(CRT0) $(call objectify,__shared_init.o) $(libc-deps) FORCE
+	$(call if_changed,libcso)
+
+
+#####
+# Build sha1 hash values
+targets     += klibc.so libc.so.hash
+hostprogs-y := sha1hash
+
+quiet_cmd_solibhash = HASH    $@
+      cmd_solibhash = $(USERNM) $< | egrep '^[0-9a-fA-F]+ [ADRTW] ' | \
+                                        sort | $(obj)/sha1hash > $@
+$(SOLIB).hash: $(SOLIB) $(obj)/sha1hash FORCE
+	$(call if_changed,solibhash)
+
+quiet_cmd_sohash = GEN     $@
+      cmd_sohash = cat $< > $@;                                           \
+                     $(USERSTRIP) $(USERSTRIPFLAGS) $@;                   \
+                     rm -f $(obj)/klibc-??????????????????????.so;        \
+                     ln -f $@ $(obj)/klibc-`cat $(SOLIB).hash`.so
+$(SOHASH): $(SOLIB) $(SOLIB).hash
+	$(call cmd,sohash)
+
+
+#####
+# build interp.o
+targets += interp.o
+
+quiet_cmd_interp = BUILD  $@
+      cmd_interp = $(USERCC) $(usercflags) -D__ASSEMBLY__     \
+                             -DLIBDIR=\"$(SHLIBDIR)\"         \
+			     -DSOHASH=\"`cat $(SOLIB).hash`\" \
+			     -c -o $@ $<
+
+$(INTERP_O): $(obj)/interp.S $(SOLIB).hash
+	$(call if_changed,interp)
