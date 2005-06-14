@@ -138,29 +138,29 @@ int main(int argc, char *argv[], char *envp[])
 			wait_for_class_device(class_dev, &error);
 
 			/* get major/minor */
-			if (udev.type == DEV_BLOCK || udev.type == DEV_CLASS) {
+			if (udev.type == DEV_BLOCK || udev.type == DEV_CLASS)
 				udev.devt = get_devt(class_dev);
-				if (udev.devt) {
-					/* name device */
-					udev_rules_get_name(&udev, class_dev);
-					if (udev.ignore_device) {
-						info("device event will be ignored");
-						goto exit;
-					}
-					if (udev.name[0] == '\0') {
-						info("device node creation supressed");
-						goto run;
-					}
 
-					/* create node, store in db */
-					retval = udev_add_device(&udev, class_dev);
-				} else {
-					dbg("no dev-file found");
-					udev_rules_get_run(&udev, NULL);
-					if (udev.ignore_device) {
-						info("device event will be ignored");
-						goto exit;
-					}
+			if (udev.type == DEV_NET || udev.devt) {
+				/* name device */
+				udev_rules_get_name(&udev, class_dev);
+				if (udev.ignore_device) {
+					info("device event will be ignored");
+					goto cleanup;
+				}
+				if (udev.name[0] == '\0') {
+					info("device node creation supressed");
+					goto cleanup;
+				}
+				
+				/* create node, store in db */
+				retval = udev_add_device(&udev, class_dev);
+			} else {
+				dbg("no dev-file found");
+				udev_rules_get_run(&udev, NULL);
+				if (udev.ignore_device) {
+					info("device event will be ignored");
+					goto cleanup;
 				}
 			}
 			sysfs_close_class_device(class_dev);
@@ -169,7 +169,7 @@ int main(int argc, char *argv[], char *envp[])
 			udev_rules_get_run(&udev, NULL);
 			if (udev.ignore_device) {
 				dbg("device event will be ignored");
-				goto exit;
+				goto cleanup;
 			}
 
 			/* get name from db, remove db-entry, delete node */
@@ -198,14 +198,14 @@ int main(int argc, char *argv[], char *envp[])
 			sysfs_close_device(devices_dev);
 			if (udev.ignore_device) {
 				info("device event will be ignored");
-				goto exit;
+				goto cleanup;
 			}
 		} else if (strcmp(action, "remove") == 0) {
 			dbg("devices remove");
 			udev_rules_get_run(&udev, NULL);
 			if (udev.ignore_device) {
 				info("device event will be ignored");
-				goto exit;
+				goto cleanup;
 			}
 		}
 	}
@@ -219,9 +219,10 @@ run:
 			execute_command(name_loop->name, udev.subsystem);
 	}
 
-exit:
+cleanup:
 	udev_cleanup_device(&udev);
 
+exit:
 	logging_close();
 	return retval;
 }
