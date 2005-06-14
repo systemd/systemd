@@ -104,6 +104,36 @@ Every rule consists of a list of comma separated key value fields:
 .sp
 .IR "key " ,[ "key " ,...]
 .P
+Each key has the following format:
+.sp
+.IR "name op value"
+.P
+There are distinct key operation types, depending on the type of the key, it
+does a comparison or an assignment.
+.P
+Comparison operators are:
+.TP
+.B ==
+Compare for equality.
+.TP
+.B !=
+Compare for non-equality.
+.P
+Assignment operators are:
+.TP
+.B +=
+Add the value to a key that holds a list of entries.
+.TP
+.B :=
+Assign a value to a key finally; disallow any later changes, which
+is useful to prevent changes by any later rules.
+.TP
+.B =
+Asign a value to a key. Keys that represent a list, are reset and only this
+single value is assigned.  While this operator still works inplicitely as
+comparison on keys that can't get a value assigned, its usage as an comparison
+operator is deprecated.
+.P
 The following key names can be used to match against device properties:
 .TP
 .B BUS
