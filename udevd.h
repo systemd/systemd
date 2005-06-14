@@ -50,7 +50,9 @@
 
 enum udevd_msg_type {
 	UDEVD_UNKNOWN,
-	UDEVD_UEVENT,
+	UDEVD_UDEVSEND,
+	UDEVD_INITSEND,
+	UDEVD_NL,
 	UDEVD_STOP_EXEC_QUEUE,
 	UDEVD_START_EXEC_QUEUE,
 };
@@ -63,6 +65,7 @@ struct udevd_msg {
 };
 
 struct uevent_msg {
+	enum udevd_msg_type type;
 	struct list_head node;
 	pid_t pid;
 	long queue_time;

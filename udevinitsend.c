@@ -58,17 +58,18 @@ void log_message (int level, const char *format, ...)
  * Scan a file, write all variables into the msgbuf and
  * fires the message to udevd.
  */
-static int udevsend(char *filename, int sock, int ignore_loops)
+static int udevsend(char *filename, int sock, int disable_loop_detection)
 {
-	struct stat statbuf;
-	int fd, bufpos;
-	char *fdmap, *ls, *le, *ch;
-	struct udevd_msg usend_msg;
-	int retval = 0;
+	static struct udevd_msg usend_msg;
 	int usend_msg_len;
+	int bufpos = 0;
+	struct stat statbuf;
+	int fd;
+	char *fdmap, *ls, *le, *ch;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
-	
+	int retval = 0;
+
 	if (stat(filename,&statbuf) < 0) {
 		dbg("cannot stat %s: %s\n", filename, strerror(errno));
 		return 1;
@@ -91,24 +92,23 @@ static int udevsend(char *filename, int sock, int ignore_loops)
 	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
 	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 
-	memset(usend_msg.envbuf, 0, UEVENT_BUFFER_SIZE+256);
-	bufpos = 0;
 	memset(&usend_msg, 0x00, sizeof(struct udevd_msg));
 	strcpy(usend_msg.magic, UDEV_MAGIC);
+	usend_msg.type = UDEVD_INITSEND;
 
 	ls = fdmap;
 	ch = le = ls;
 	while (*ch && ch < fdmap + statbuf.st_size) {
-		le = strchr(ch,'\n');
+		le = strchr(ch, '\n');
 		if (!le)
 			break;
-		ch = strchr(ch,'=');
+		ch = strchr(ch, '=');
 		if (!ch)
 			break;
 
 		/* prevent loops in the scripts we execute */
 		if (strncmp(ls, "UDEVD_EVENT=", 12) == 0) {
-			if (!ignore_loops) {
+			if (!disable_loop_detection) {
 				dbg("event already handled by udev\n");
 				retval = -1;
 				break;
@@ -161,7 +161,8 @@ int main(int argc, char *argv[], char *envp[])
 	char *event_file = NULL;
 	DIR *dirstream;
 	struct dirent *direntry;
-	int retval = 1, ignore_loops = 0;
+	int retval = 1;
+	int disable_loop_detection = 0;
 	int sock;
 
 	logging_init("udevinitsend");
@@ -186,13 +187,9 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 
 		case 'l':
-			dbg("ignoring loops\n");
-			ignore_loops = 1;
+			dbg("disable loop detection, ignore UDEVD_EVENT\n");
+			disable_loop_detection = 1;
 			break;
-
-		case 'V':
-			printf("udevinitsend, version 0.1\n");
-			return 0;
 
 		case 'h':
 			retval = 0;
@@ -217,11 +214,11 @@ int main(int argc, char *argv[], char *envp[])
 			if (!strcmp(direntry->d_name,".") ||
 			    !strcmp(direntry->d_name,".."))
 				continue;
-			retval = udevsend(direntry->d_name, sock, ignore_loops);
+			retval = udevsend(direntry->d_name, sock, disable_loop_detection);
 		}
 		closedir(dirstream);
 	} else if (event_file) {
-		retval = udevsend(event_file, sock, ignore_loops);
+		retval = udevsend(event_file, sock, disable_loop_detection);
 	}
 
 	if (sock != -1)

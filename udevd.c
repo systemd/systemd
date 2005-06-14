@@ -542,13 +542,15 @@ static struct uevent_msg *get_udevd_msg(void)
 	}
 
 switch (usend_msg.type) {
-	case UDEVD_UEVENT:
-		dbg("udevd message (UEVENT) received");
+	case UDEVD_UDEVSEND:
+	case UDEVD_INITSEND:
+		dbg("udevd event message received");
 		envbuf_size = size - offsetof(struct udevd_msg, envbuf);
 		dbg("envbuf_size=%i", envbuf_size);
 		msg = get_msg_from_envbuf(usend_msg.envbuf, envbuf_size);
 		if (msg == NULL)
 			return NULL;
+		msg->type = usend_msg.type;
 		return msg;
 	case UDEVD_STOP_EXEC_QUEUE:
 		dbg("udevd message (STOP_EXEC_QUEUE) received");
@@ -566,7 +568,7 @@ switch (usend_msg.type) {
 }
 
 /* receive the kernel user event message and do some sanity checks */
-static struct uevent_msg *get_uevent_msg(void)
+static struct uevent_msg *get_nl_msg(void)
 {
 	struct uevent_msg *msg;
 	int bufpos;
@@ -591,6 +593,7 @@ static struct uevent_msg *get_uevent_msg(void)
 	msg = get_msg_from_envbuf(&buffer[bufpos], size-bufpos);
 	if (msg == NULL)
 		return NULL;
+	msg->type = UDEVD_NL;
 
 	/* validate message */
 	pos = strchr(buffer, '@');
@@ -935,7 +938,7 @@ int main(int argc, char *argv[], char *envp[])
 			msg = get_udevd_msg();
 			if (msg) {
 				/* discard kernel messages if netlink is active */
-				if (uevent_nl_active && msg->seqnum != 0) {
+				if (uevent_nl_active && msg->type == UDEVD_UDEVSEND && msg->seqnum != 0) {
 					dbg("skip uevent_helper message, netlink is active");
 					free(msg);
 					continue;
@@ -945,7 +948,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		if (FD_ISSET(uevent_nl_sock, &workreadfds)) {
-			msg = get_uevent_msg();
+			msg = get_nl_msg();
 			if (msg) {
 				msg_queue_insert(msg);
 				/* disable kernel uevent_helper with first netlink message */
