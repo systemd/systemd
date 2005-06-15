@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -38,16 +39,21 @@
 #include "udev.h"
 #include "udev_version.h"
 #include "udevd.h"
+#include "udev_utils.h"
 #include "logging.h"
 
+static int log = 0;
 
 #ifdef USE_LOG
-void log_message (int level, const char *format, ...)
+void log_message (int priority, const char *format, ...)
 {
 	va_list	args;
 
+	if (priority > log)
+		return;
+
 	va_start(args, format);
-	vsyslog(level, format, args);
+	vsyslog(priority, format, args);
 	va_end(args);
 }
 #endif
@@ -164,6 +170,11 @@ int main(int argc, char *argv[], char *envp[])
 	int retval = 1;
 	int disable_loop_detection = 0;
 	int sock;
+	const char *env;
+
+	env = getenv("UDEV_LOG");
+	if (env)
+		log = log_priority(env);
 
 	logging_init("udevinitsend");
 	dbg("version %s", UDEV_VERSION);

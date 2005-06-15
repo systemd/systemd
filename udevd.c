@@ -660,7 +660,7 @@ static void udev_done(int pid)
 	list_for_each_entry(msg, &running_list, node) {
 		if (msg->pid == pid) {
 			sysinfo(&info);
-			info("seq %llu exit, %ld sec old", msg->seqnum, info.uptime - msg->queue_time);
+			info("seq %llu exit, %ld seconds old", msg->seqnum, info.uptime - msg->queue_time);
 			run_queue_delete(msg);
 
 			/* we want to run the exec queue manager since there may
@@ -951,9 +951,9 @@ int main(int argc, char *argv[], char *envp[])
 			msg = get_nl_msg();
 			if (msg) {
 				msg_queue_insert(msg);
-				/* disable kernel uevent_helper with first netlink message */
+				/* disable udevsend with first netlink message */
 				if (!uevent_nl_active) {
-					info("uevent_nl message received, disable uevent_helper messages");
+					info("uevent_nl message received, disable udevsend messages");
 					uevent_nl_active = 1;
 				}
 			}
