@@ -146,7 +146,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	memset(&usend_msg, 0x00, sizeof(struct udevd_msg));
 	strcpy(usend_msg.magic, UDEV_MAGIC);
-	usend_msg.type = UDEVD_UDEVSEND;
+	usend_msg.type = UDEVD_UEVENT_UDEVSEND;
 
 	/* copy all keys to send buffer */
 	for (i = 0; envp[i]; i++) {

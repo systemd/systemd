@@ -388,7 +388,7 @@ install: install-config install-man install-dev.d all
 	- ln -f -s $(sbindir)/$(SENDER) $(DESTDIR)$(hotplugdir)/10-udev.hotplug
 ifndef DESTDIR
 	- killall $(DAEMON)
-	- $(sbindir)/$(DAEMON) -d
+	- $(sbindir)/$(DAEMON) --daemon
 	- rm -rf $(udevdb)
 endif
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \

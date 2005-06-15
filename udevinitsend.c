@@ -100,7 +100,7 @@ static int udevsend(char *filename, int sock, int disable_loop_detection)
 
 	memset(&usend_msg, 0x00, sizeof(struct udevd_msg));
 	strcpy(usend_msg.magic, UDEV_MAGIC);
-	usend_msg.type = UDEVD_INITSEND;
+	usend_msg.type = UDEVD_UEVENT_INITSEND;
 
 	ls = fdmap;
 	ch = le = ls;

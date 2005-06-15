@@ -37,18 +37,23 @@
 #include "udev.h"
 #include "udev_version.h"
 #include "udevd.h"
+#include "udev_utils.h"
 #include "logging.h"
 
 /* global variables */
 static int sock = -1;
+static int log = 0;
 
 #ifdef USE_LOG
-void log_message (int level, const char *format, ...)
+void log_message (int priority, const char *format, ...)
 {
 	va_list	args;
 
+	if (priority > log)
+		return;
+
 	va_start(args, format);
-	vsyslog(level, format, args);
+	vsyslog(priority, format, args);
 	va_end(args);
 }
 #endif
@@ -59,25 +64,37 @@ int main(int argc, char *argv[], char *envp[])
 	static struct udevd_msg usend_msg;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
+	const char *env;
 	int retval = 1;
+
+	env = getenv("UDEV_LOG");
+	if (env)
+		log = log_priority(env);
 
 	logging_init("udevcontrol");
 	dbg("version %s", UDEV_VERSION);
 
 	if (argc != 2) {
-		info("usage: udevcontrol <cmd>\n");
+		info("usage: udevcontrol <cmd>");
 		goto exit;
 	}
 
 	memset(&usend_msg, 0x00, sizeof(struct udevd_msg));
 	strcpy(usend_msg.magic, UDEV_MAGIC);
 
-	if (strstr(argv[1], "stop_exec_queue"))
+	if (!strcmp(argv[1], "stop_exec_queue"))
 		usend_msg.type = UDEVD_STOP_EXEC_QUEUE;
-	else if (strstr(argv[1], "start_exec_queue"))
+	else if (!strcmp(argv[1], "start_exec_queue"))
 		usend_msg.type = UDEVD_START_EXEC_QUEUE;
-	else {
-		info("unknown command\n");
+	else if (!strncmp(argv[1], "log_priority=", strlen("log_priority="))) {
+		int *level = (int *) usend_msg.envbuf;
+		char *prio = &argv[1][strlen("log_priority=")];
+
+		usend_msg.type = UDEVD_SET_LOG_LEVEL;
+		*level = log_priority(prio);
+		dbg("send log_priority=%i", *level);
+	} else {
+		err("unknown command\n");
 		goto exit;
 	}
 
@@ -99,7 +116,7 @@ int main(int argc, char *argv[], char *envp[])
 		info("error sending message (%s)", strerror(errno));
 		retval = 1;
 	} else {
-		dbg("sent message '%x' (%u bytes sent)\n", usend_msg.type, retval);
+		dbg("sent message '%x' (%u bytes sent)", usend_msg.type, retval);
 		retval = 0;
 	}
 

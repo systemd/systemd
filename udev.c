@@ -109,7 +109,7 @@ int main(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 
-	/* export log_level , as called programs may want to do the same as udev */
+	/* export log_priority , as called programs may want to do the same as udev */
 	if (udev_log_priority) {
 		char priority[32];
 

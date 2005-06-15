@@ -50,7 +50,7 @@
 
 /* global variables*/
 static int udevd_sock;
-static int uevent_nl_sock;
+static int uevent_netlink_sock;
 static pid_t sid;
 
 static int pipefds[2];
@@ -173,8 +173,8 @@ static void execute_udev(struct uevent_msg *msg)
 	switch (pid) {
 	case 0:
 		/* child */
-		if (uevent_nl_sock != -1)
-			close(uevent_nl_sock);
+		if (uevent_netlink_sock != -1)
+			close(uevent_netlink_sock);
 		close(udevd_sock);
 		logging_close();
 
@@ -362,6 +362,9 @@ static void exec_queue_manager(void)
 	struct uevent_msg *tmp_msg;
 	int running;
 
+	if (list_empty(&exec_list))
+		return;
+
 	running = running_processes();
 	dbg("%d processes runnning on system", running);
 	if (running < 0)
@@ -506,6 +509,7 @@ static struct uevent_msg *get_udevd_msg(void)
 	struct ucred *cred;
 	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
 	int envbuf_size;
+	int *intval;
 
 	memset(&usend_msg, 0x00, sizeof(struct udevd_msg));
 	iov.iov_base = &usend_msg;
@@ -541,10 +545,10 @@ static struct uevent_msg *get_udevd_msg(void)
 		return NULL;
 	}
 
-switch (usend_msg.type) {
-	case UDEVD_UDEVSEND:
-	case UDEVD_INITSEND:
-		dbg("udevd event message received");
+	switch (usend_msg.type) {
+	case UDEVD_UEVENT_UDEVSEND:
+	case UDEVD_UEVENT_INITSEND:
+		info("udevd event message received");
 		envbuf_size = size - offsetof(struct udevd_msg, envbuf);
 		dbg("envbuf_size=%i", envbuf_size);
 		msg = get_msg_from_envbuf(usend_msg.envbuf, envbuf_size);
@@ -553,13 +557,23 @@ switch (usend_msg.type) {
 		msg->type = usend_msg.type;
 		return msg;
 	case UDEVD_STOP_EXEC_QUEUE:
-		dbg("udevd message (STOP_EXEC_QUEUE) received");
+		info("udevd message (STOP_EXEC_QUEUE) received");
 		stop_exec_q = 1;
 		break;
 	case UDEVD_START_EXEC_QUEUE:
-		dbg("udevd message (START_EXEC_QUEUE) received");
+		info("udevd message (START_EXEC_QUEUE) received");
 		stop_exec_q = 0;
 		exec_queue_manager();
+		break;
+	case UDEVD_SET_LOG_LEVEL:
+		intval = (int *) usend_msg.envbuf;
+		info("udevd message (SET_LOG_PRIORITY) received, udev_log_priority=%i", *intval);
+		udev_log_priority = *intval;
+		break;
+	case UDEVD_SET_MAX_CHILDS:
+		intval = (int *) usend_msg.envbuf;
+		info("udevd message (UDEVD_SET_MAX_CHILDS) received, max_childs=%i", *intval);
+		max_childs = *intval;
 		break;
 	default:
 		dbg("unknown message type");
@@ -568,7 +582,7 @@ switch (usend_msg.type) {
 }
 
 /* receive the kernel user event message and do some sanity checks */
-static struct uevent_msg *get_nl_msg(void)
+static struct uevent_msg *get_netlink_msg(void)
 {
 	struct uevent_msg *msg;
 	int bufpos;
@@ -576,7 +590,7 @@ static struct uevent_msg *get_nl_msg(void)
 	static char buffer[UEVENT_BUFFER_SIZE + 512];
 	char *pos;
 
-	size = recv(uevent_nl_sock, &buffer, sizeof(buffer), 0);
+	size = recv(uevent_netlink_sock, &buffer, sizeof(buffer), 0);
 	if (size <  0) {
 		if (errno != EINTR)
 			dbg("unable to receive udevd message");
@@ -593,7 +607,7 @@ static struct uevent_msg *get_nl_msg(void)
 	msg = get_msg_from_envbuf(&buffer[bufpos], size-bufpos);
 	if (msg == NULL)
 		return NULL;
-	msg->type = UDEVD_NL;
+	msg->type = UDEVD_UEVENT_NETLINK;
 
 	/* validate message */
 	pos = strchr(buffer, '@');
@@ -732,7 +746,7 @@ static int init_udevd_socket(void)
 	return 0;
 }
 
-static int init_uevent_nl_sock(void)
+static int init_uevent_netlink_sock(void)
 {
 	struct sockaddr_nl snl;
 	int retval;
@@ -742,18 +756,18 @@ static int init_uevent_nl_sock(void)
 	snl.nl_pid = getpid();
 	snl.nl_groups = 0xffffffff;
 
-	uevent_nl_sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
-	if (uevent_nl_sock == -1) {
+	uevent_netlink_sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
+	if (uevent_netlink_sock == -1) {
 		dbg("error getting socket, %s", strerror(errno));
 		return -1;
 	}
 
-	retval = bind(uevent_nl_sock, (struct sockaddr *) &snl,
+	retval = bind(uevent_netlink_sock, (struct sockaddr *) &snl,
 		      sizeof(struct sockaddr_nl));
 	if (retval < 0) {
 		dbg("bind failed, %s", strerror(errno));
-		close(uevent_nl_sock);
-		uevent_nl_sock = -1;
+		close(uevent_netlink_sock);
+		uevent_netlink_sock = -1;
 		return -1;
 	}
 
@@ -768,7 +782,7 @@ int main(int argc, char *argv[], char *envp[])
 	struct sigaction act;
 	fd_set readfds;
 	const char *value;
-	int uevent_nl_active = 0;
+	int uevent_netlink_active = 0;
 	int daemonize = 0;
 	int i;
 
@@ -788,7 +802,7 @@ int main(int argc, char *argv[], char *envp[])
 			daemonize = 1;
 		}
 		if (strcmp(arg, "--stop-exec-queue") == 0) {
-			info("will not execute event until START_EXEC_QUEUE is received");
+			info("will not execute events until START_EXEC_QUEUE is received");
 			stop_exec_q = 1;
 		}
 	}
@@ -865,7 +879,7 @@ int main(int argc, char *argv[], char *envp[])
 	sigaction(SIGALRM, &act, NULL);
 	sigaction(SIGCHLD, &act, NULL);
 
-	if (init_uevent_nl_sock() < 0) {
+	if (init_uevent_netlink_sock() < 0) {
 		dbg("uevent socket not available");
  	}
 
@@ -918,8 +932,8 @@ int main(int argc, char *argv[], char *envp[])
 
 	FD_ZERO(&readfds);
 	FD_SET(udevd_sock, &readfds);
-	if (uevent_nl_sock != -1)
-		FD_SET(uevent_nl_sock, &readfds);
+	if (uevent_netlink_sock != -1)
+		FD_SET(uevent_netlink_sock, &readfds);
 	FD_SET(pipefds[0], &readfds);
 	maxsockplus = udevd_sock+1;
 	while (1) {
@@ -938,7 +952,7 @@ int main(int argc, char *argv[], char *envp[])
 			msg = get_udevd_msg();
 			if (msg) {
 				/* discard kernel messages if netlink is active */
-				if (uevent_nl_active && msg->type == UDEVD_UDEVSEND && msg->seqnum != 0) {
+				if (uevent_netlink_active && msg->type == UDEVD_UEVENT_UDEVSEND && msg->seqnum != 0) {
 					dbg("skip uevent_helper message, netlink is active");
 					free(msg);
 					continue;
@@ -947,14 +961,14 @@ int main(int argc, char *argv[], char *envp[])
 			}
 		}
 
-		if (FD_ISSET(uevent_nl_sock, &workreadfds)) {
-			msg = get_nl_msg();
+		if (FD_ISSET(uevent_netlink_sock, &workreadfds)) {
+			msg = get_netlink_msg();
 			if (msg) {
 				msg_queue_insert(msg);
 				/* disable udevsend with first netlink message */
-				if (!uevent_nl_active) {
+				if (!uevent_netlink_active) {
 					info("uevent_nl message received, disable udevsend messages");
-					uevent_nl_active = 1;
+					uevent_netlink_active = 1;
 				}
 			}
 		}

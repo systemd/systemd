@@ -409,10 +409,10 @@ int execute_command(const char *command, const char *subsystem)
 			close(devnull);
 		}
 		retval = execv(arg, argv);
-		err("exec of child failed");
+		err("exec of child '%s' failed", command);
 		_exit(1);
 	case -1:
-		dbg("fork of child failed");
+		dbg("fork of child '%s' failed", command);
 		break;
 		return -1;
 	default:
