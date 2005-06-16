@@ -65,6 +65,8 @@ int main(int argc, char *argv[], char *envp[])
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
 	const char *env;
+	const char *val;
+	int *intval;
 	int retval = 1;
 
 	env = getenv("UDEV_LOG");
@@ -75,7 +77,7 @@ int main(int argc, char *argv[], char *envp[])
 	dbg("version %s", UDEV_VERSION);
 
 	if (argc != 2) {
-		info("usage: udevcontrol <cmd>");
+		err("error finding comand");
 		goto exit;
 	}
 
@@ -87,20 +89,25 @@ int main(int argc, char *argv[], char *envp[])
 	else if (!strcmp(argv[1], "start_exec_queue"))
 		usend_msg.type = UDEVD_START_EXEC_QUEUE;
 	else if (!strncmp(argv[1], "log_priority=", strlen("log_priority="))) {
-		int *level = (int *) usend_msg.envbuf;
-		char *prio = &argv[1][strlen("log_priority=")];
-
+		intval = (int *) usend_msg.envbuf;
+		val = &argv[1][strlen("log_priority=")];
 		usend_msg.type = UDEVD_SET_LOG_LEVEL;
-		*level = log_priority(prio);
-		dbg("send log_priority=%i", *level);
+		*intval = log_priority(val);
+		info("send log_priority=%i", *intval);
+	} else if (!strncmp(argv[1], "max_childs=", strlen("max_childs="))) {
+		intval = (int *) usend_msg.envbuf;
+		val = &argv[1][strlen("max_childs=")];
+		usend_msg.type = UDEVD_SET_MAX_CHILDS;
+		*intval = atoi(val);
+		info("send max_childs=%i", *intval);
 	} else {
-		err("unknown command\n");
+		err("error parsing command\n");
 		goto exit;
 	}
 
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (sock == -1) {
-		info("error getting socket");
+		err("error getting socket");
 		goto exit;
 	}
 
@@ -116,7 +123,7 @@ int main(int argc, char *argv[], char *envp[])
 		info("error sending message (%s)", strerror(errno));
 		retval = 1;
 	} else {
-		dbg("sent message '%x' (%u bytes sent)", usend_msg.type, retval);
+		dbg("sent message type=0x%02x, %u bytes sent", usend_msg.type, retval);
 		retval = 0;
 	}
 
