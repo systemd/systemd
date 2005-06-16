@@ -63,10 +63,7 @@ etcdir =	${prefix}/etc
 sbindir =	${exec_prefix}/sbin
 usrbindir =	${exec_prefix}/usr/bin
 mandir =	${prefix}/usr/share/man
-hotplugdir =	${etcdir}/hotplug.d/default
 configdir =	${etcdir}/udev
-initdir = 	${etcdir}/init.d
-dev_ddir =	${etcdir}/dev.d
 srcdir = .
 
 INSTALL = /usr/bin/install -c
@@ -347,16 +344,6 @@ install-config:
 		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.rules $(DESTDIR)$(configdir)/rules.d/50-udev.rules; \
 	fi
 
-install-dev.d:
-	$(INSTALL) -d $(DESTDIR)$(dev_ddir)/default
-	$(INSTALL_PROGRAM) -D etc/dev.d/net/hotplug.dev $(DESTDIR)$(dev_ddir)/net/hotplug.dev
-
-uninstall-dev.d:
-	- rm $(dev_ddir)/net/hotplug.dev
-	- rmdir $(dev_ddir)/net
-	- rmdir $(dev_ddir)/default
-	- rmdir $(dev_ddir)
-
 install-man:
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
 	$(INSTALL_DATA) -D udevinfo.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
@@ -373,19 +360,15 @@ uninstall-man:
 	- rm $(mandir)/man8/udevd.8
 	- rm $(mandir)/man8/udevsend.8
 
-install: install-config install-man install-dev.d all
+install: install-config install-man all
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
-	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
 	$(INSTALL_PROGRAM) -D $(DAEMON) $(DESTDIR)$(sbindir)/$(DAEMON)
 	$(INSTALL_PROGRAM) -D $(SENDER) $(DESTDIR)$(sbindir)/$(SENDER)
-	$(INSTALL_PROGRAM) -D $(INITSENDER) $(DESTDIR)$(sbindir)/$(INITSENDER)
-	$(INSTALL_PROGRAM) -D $(RECORDER) $(DESTDIR)$(sbindir)/$(RECORDER)
 	$(INSTALL_PROGRAM) -D $(CONTROL) $(DESTDIR)$(sbindir)/$(CONTROL)
 	$(INSTALL_PROGRAM) -D $(INFO) $(DESTDIR)$(usrbindir)/$(INFO)
 	$(INSTALL_PROGRAM) -D $(TESTER) $(DESTDIR)$(usrbindir)/$(TESTER)
 	$(INSTALL_PROGRAM) -D $(STARTER) $(DESTDIR)$(sbindir)/$(STARTER)
-	- ln -f -s $(sbindir)/$(SENDER) $(DESTDIR)$(hotplugdir)/10-udev.hotplug
 ifndef DESTDIR
 	- killall $(DAEMON)
 	- $(sbindir)/$(DAEMON) --daemon
@@ -397,8 +380,7 @@ endif
 			-C $$target $@ ; \
 	done ; \
 
-uninstall: uninstall-man uninstall-dev.d
-	- rm $(hotplugdir)/10-udev.hotplug
+uninstall: uninstall-man
 	- rm $(configdir)/rules.d/50-udev.rules
 	- rm $(configdir)/udev.conf
 	- rmdir $(configdir)/rules.d
@@ -412,7 +394,6 @@ uninstall: uninstall-man uninstall-dev.d
 	- rm $(sbindir)/$(STARTER)
 	- rm $(usrbindir)/$(INFO)
 	- rm $(usrbindir)/$(TESTER)
-	- rmdir $(hotplugdir)
 	- rm -rf $(udevdb)
 	- rmdir $(udevdir)
 	- killall $(DAEMON)
