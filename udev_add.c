@@ -52,23 +52,6 @@ int udev_make_node(struct udevice *udev, const char *file, dev_t devt, mode_t mo
 	struct stat stats;
 	int retval = 0;
 
-	if (stat(file, &stats) != 0)
-		goto create;
-
-	/* preserve node with already correct numbers, to not change the inode number */
-	if (((stats.st_mode & S_IFMT) == S_IFBLK || (stats.st_mode & S_IFMT) == S_IFCHR) &&
-	    (stats.st_rdev == devt)) {
-		info("preserve file '%s', cause it has correct dev_t", file);
-		selinux_setfilecon(file, udev->kernel_name, stats.st_mode);
-		goto perms;
-	}
-
-	if (unlink(file) != 0)
-		dbg("unlink(%s) failed with error '%s'", file, strerror(errno));
-	else
-		dbg("already present file '%s' unlinked", file);
-
-create:
 	switch (udev->type) {
 	case DEV_BLOCK:
 		mode |= S_IFBLK;
@@ -81,6 +64,22 @@ create:
 		return -EINVAL;
 	}
 
+	if (stat(file, &stats) != 0)
+		goto create;
+
+	/* preserve node with already correct numbers, to not change the inode number */
+	if ((stats.st_mode & S_IFMT) == (mode & S_IFMT) && (stats.st_rdev == devt)) {
+		info("preserve file '%s', cause it has correct dev_t", file);
+		selinux_setfilecon(file, udev->kernel_name, stats.st_mode);
+		goto perms;
+	}
+
+	if (unlink(file) != 0)
+		dbg("unlink(%s) failed with error '%s'", file, strerror(errno));
+	else
+		dbg("already present file '%s' unlinked", file);
+
+create:
 	selinux_setfscreatecon(file, udev->kernel_name, mode);
 	retval = mknod(file, mode, devt);
 	selinux_resetfscreatecon();
