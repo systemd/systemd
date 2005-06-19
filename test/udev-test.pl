@@ -241,7 +241,7 @@ BUS=="scsi", ID=="0:0:0:0", NAME="first_disk%n"
 EOF
 	},
 	{
-		desc		=> "test NAME substitution chars",
+		desc		=> "test substitution chars",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "Major:8:minor:3:kernelnumber:3:bus:0:0:0:0" ,
@@ -250,7 +250,7 @@ BUS=="scsi", ID=="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:bus:%b"
 EOF
 	},
 	{
-		desc		=> "test NAME substitution chars (with length limit)",
+		desc		=> "test substitution chars (with length limit)",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "M8-m3-n3-b0:0-sIBM" ,
@@ -360,6 +360,51 @@ EOF
 		exp_name	=> "my-foo8" ,
 		rules		=> <<EOF
 BUS=="scsi", PROGRAM=="/bin/echo -n foo3 foo4 foo5 foo6 foo7 foo8 foo9", KERNEL=="sda3", NAME="my-%c{6}"
+EOF
+	},
+	{
+		desc		=> "test substitution by variable name",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda3",
+		exp_name	=> "Major:8-minor:3-kernelnumber:3-bus:0:0:0:0" ,
+		rules		=> <<EOF
+BUS=="scsi", ID=="0:0:0:0", NAME="Major:\$major-minor:\$minor-kernelnumber:\$number-bus:\$id"
+EOF
+	},
+	{
+		desc		=> "test substitution by variable name 2",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda3",
+		exp_name	=> "Major:8-minor:3-kernelnumber:3-bus:0:0:0:0" ,
+		rules		=> <<EOF
+BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="Major:\$major-minor:%m-kernelnumber:\$number-bus:%b"
+EOF
+	},
+	{
+		desc		=> "test substitution by variable name 3",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda3",
+		exp_name	=> "830:0:0:03" ,
+		rules		=> <<EOF
+BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="%M%m%b%n"
+EOF
+	},
+	{
+		desc		=> "test substitution by variable name 4",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda3",
+		exp_name	=> "833" ,
+		rules		=> <<EOF
+BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="\$major\$minor\$number"
+EOF
+	},
+	{
+		desc		=> "test substitution by variable name 5",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda3",
+		exp_name	=> "8330:0:0:0" ,
+		rules		=> <<EOF
+BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="\$major%m%n\$id"
 EOF
 	},
 	{
@@ -1290,7 +1335,7 @@ EOF
 		exp_rem_error	=> "yes",
 		option		=> "clean",
 		rules		=> <<EOF
-KERNEL=="sda", NAME="ok", RUN+="/bin/sh -c 'ln -s `basename \$DEVNAME` %r/testsymlink'"
+KERNEL=="sda", NAME="ok", RUN+="/bin/sh -c 'ln -s `basename \$\$DEVNAME` %r/testsymlink'"
 KERNEL=="sda", NAME="not-ok"
 EOF
 	},

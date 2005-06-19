@@ -269,6 +269,13 @@ static int rules_parse(const char *filename)
 				continue;
 			}
 
+			if (strcasecmp(key, KEY_DEVPATH) == 0) {
+				strlcpy(rule.devpath, value, sizeof(rule.devpath));
+				rule.devpath_operation = operation;
+				valid = 1;
+				continue;
+			}
+
 			if (strcasecmp(key, KEY_BUS) == 0) {
 				strlcpy(rule.bus, value, sizeof(rule.bus));
 				rule.bus_operation = operation;
@@ -321,6 +328,13 @@ static int rules_parse(const char *filename)
 				strlcpy(pair->value, value, sizeof(pair->value));
 				pair->operation = operation;
 				rule.env_pair_count++;
+				valid = 1;
+				continue;
+			}
+
+			if (strcasecmp(key, KEY_MODALIAS) == 0) {
+				strlcpy(rule.modalias, value, sizeof(rule.modalias));
+				rule.modalias_operation = operation;
 				valid = 1;
 				continue;
 			}

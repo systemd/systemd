@@ -172,16 +172,17 @@ static int find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sys
 
 	dbg("look for device attribute '%s'", name);
 	if (class_dev) {
+		dbg("look for class attribute '%s/%s'", class_dev->path, name);
 		tmpattr = sysfs_get_classdev_attr(class_dev, name);
 		if (tmpattr)
 			goto attr_found;
 	}
 	if (sysfs_device) {
+		dbg("look for devices attribute '%s/%s'", sysfs_device->path, name);
 		tmpattr = sysfs_get_device_attr(sysfs_device, name);
 		if (tmpattr)
 			goto attr_found;
 	}
-
 	return -1;
 
 attr_found:
@@ -197,56 +198,133 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 {
 	char temp[PATH_SIZE];
 	char temp2[PATH_SIZE];
-	char *tail, *pos, *cpos, *attr, *rest;
+	char *head, *tail, *cpos, *attr, *rest;
 	int len;
 	int i;
-	char c;
 	unsigned int next_free_number;
 	struct sysfs_class_device *class_dev_parent;
+	enum subst_type {
+		SUBST_UNKNOWN,
+		SUBST_DEVPATH,
+		SUBST_ID,
+		SUBST_KERNEL_NUMBER,
+		SUBST_KERNEL_NAME,
+		SUBST_MAJOR,
+		SUBST_MINOR,
+		SUBST_RESULT,
+		SUBST_SYSFS,
+		SUBST_ENUM,
+		SUBST_PARENT,
+		SUBST_TEMP_NODE,
+		SUBST_ROOT,
+		SUBST_MODALIAS,
+	};
+	static const struct subst_map {
+		char *name;
+		char fmt;
+		enum subst_type type;
+	} map[] = {
+		{ .name = "devpath",		.fmt = 'p',	.type = SUBST_DEVPATH },
+		{ .name = "id",			.fmt = 'b',	.type = SUBST_ID },
+		{ .name = "number",		.fmt = 'n',	.type = SUBST_KERNEL_NUMBER },
+		{ .name = "kernel",		.fmt = 'k',	.type = SUBST_KERNEL_NAME },
+		{ .name = "major",		.fmt = 'M',	.type = SUBST_MAJOR },
+		{ .name = "minor",		.fmt = 'm',	.type = SUBST_MINOR },
+		{ .name = "result",		.fmt = 'c',	.type = SUBST_RESULT },
+		{ .name = "sysfs",		.fmt = 's',	.type = SUBST_SYSFS },
+		{ .name = "enum",		.fmt = 'e',	.type = SUBST_ENUM },
+		{ .name = "parent",		.fmt = 'P',	.type = SUBST_PARENT },
+		{ .name = "tempnode",		.fmt = 'N',	.type = SUBST_TEMP_NODE },
+		{ .name = "root",		.fmt = 'r',	.type = SUBST_ROOT },
+		{ .name = "modalias",		.fmt = 'A',	.type = SUBST_MODALIAS },
+		{}
+	};
+	enum subst_type type;
+	const struct subst_map *subst;
 
-	pos = string;
+	head = string;
 	while (1) {
-		pos = strchr(pos, '%');
-		if (pos == NULL)
-			break;
-
-		pos[0] = '\0';
-		tail = pos+1;
-		len = get_format_len(&tail);
-		c = tail[0];
-		strlcpy(temp, tail+1, sizeof(temp));
-		tail = temp;
-		dbg("format=%c, string='%s', tail='%s'",c , string, tail);
+		len = -1;
+		while (head[0] != '\0') {
+			if (head[0] == '$') {
+				/* substitute named variable */
+				if (head[1] == '\0')
+					break;
+				if (head[1] == '$') {
+					strlcpy(temp, head+2, sizeof(temp));
+					strlcpy(head+1, temp, maxsize);
+					head++;
+					continue;
+				}
+				head[0] = '\0';
+				for (subst = map; subst->name; subst++) {
+					if (strncasecmp(&head[1], subst->name, strlen(subst->name)) == 0) {
+						type = subst->type;
+						tail = head + strlen(subst->name)+1;
+						dbg("will substitute format name '%s'", subst->name);
+						goto found;
+					}
+				}
+			}
+			else if (head[0] == '%') {
+				/* substitute format char */
+				if (head[1] == '\0')
+					break;
+				if (head[1] == '%') {
+					strlcpy(temp, head+2, sizeof(temp));
+					strlcpy(head+1, temp, maxsize);
+					head++;
+					continue;
+				}
+				head[0] = '\0';
+				tail = head+1;
+				len = get_format_len(&tail);
+				for (subst = map; subst->name; subst++) {
+					if (tail[0] == subst->fmt) {
+						type = subst->type;
+						tail++;
+						dbg("will substitute format char '%c'", subst->fmt);
+						goto found;
+					}
+				}
+			}
+			head++;
+		}
+		break;
+found:
 		attr = get_format_attribute(&tail);
+		strlcpy(temp, tail, sizeof(temp));
+		dbg("format=%i, string='%s', tail='%s', class_dev=%p, sysfs_dev=%p",
+		    type ,string, tail, class_dev, sysfs_device);
 
-		switch (c) {
-		case 'p':
+		switch (type) {
+		case SUBST_DEVPATH:
 			strlcat(string, udev->devpath, maxsize);
-			dbg("substitute kernel name '%s'", udev->kernel_name);
+			dbg("substitute devpath '%s'", udev->devpath);
 			break;
-		case 'b':
+		case SUBST_ID:
 			strlcat(string, udev->bus_id, maxsize);
 			dbg("substitute bus_id '%s'", udev->bus_id);
 			break;
-		case 'k':
+		case SUBST_KERNEL_NAME:
 			strlcat(string, udev->kernel_name, maxsize);
 			dbg("substitute kernel name '%s'", udev->kernel_name);
 			break;
-		case 'n':
+		case SUBST_KERNEL_NUMBER:
 			strlcat(string, udev->kernel_number, maxsize);
 			dbg("substitute kernel number '%s'", udev->kernel_number);
-				break;
-		case 'm':
-			sprintf(temp2, "%d", minor(udev->devt));
-			strlcat(string, temp2, maxsize);
-			dbg("substitute minor number '%s'", temp2);
 			break;
-		case 'M':
+		case SUBST_MAJOR:
 			sprintf(temp2, "%d", major(udev->devt));
 			strlcat(string, temp2, maxsize);
 			dbg("substitute major number '%s'", temp2);
 			break;
-		case 'c':
+		case SUBST_MINOR:
+			sprintf(temp2, "%d", minor(udev->devt));
+			strlcat(string, temp2, maxsize);
+			dbg("substitute minor number '%s'", temp2);
+			break;
+		case SUBST_RESULT:
 			if (udev->program_result[0] == '\0')
 				break;
 			/* get part part of the result string */
@@ -280,7 +358,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 				dbg("substitute result string '%s'", udev->program_result);
 			}
 			break;
-		case 's':
+		case SUBST_SYSFS:
 			if (attr == NULL) {
 				dbg("missing attribute");
 				break;
@@ -307,18 +385,14 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			strlcat(string, temp2, maxsize);
 			dbg("substitute sysfs value '%s'", temp2);
 			break;
-		case '%':
-			strlcat(string, "%", maxsize);
-			pos++;
-			break;
-		case 'e':
+		case SUBST_ENUM:
 			next_free_number = find_free_number(udev, string);
 			if (next_free_number > 0) {
 				sprintf(temp2, "%d", next_free_number);
 				strlcat(string, temp2, maxsize);
 			}
 			break;
-		case 'P':
+		case SUBST_PARENT:
 			if (!class_dev)
 				break;
 			class_dev_parent = sysfs_get_classdev_parent(class_dev);
@@ -336,7 +410,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 				udev_cleanup_device(&udev_parent);
 			}
 			break;
-		case 'N':
+		case SUBST_TEMP_NODE:
 			if (udev->tmp_node[0] == '\0') {
 				dbg("create temporary device node for callout");
 				snprintf(udev->tmp_node, sizeof(udev->tmp_node), "%s/.tmp-%u-%u",
@@ -347,19 +421,27 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			strlcat(string, udev->tmp_node, maxsize);
 			dbg("substitute temporary device node name '%s'", udev->tmp_node);
 			break;
-		case 'r':
+		case SUBST_ROOT:
 			strlcat(string, udev_root, maxsize);
 			dbg("substitute udev_root '%s'", udev_root);
 			break;
+		case SUBST_MODALIAS:
+			if (find_sysfs_attribute(NULL, sysfs_device, "modalias", temp2, sizeof(temp2)) != 0)
+				break;
+			strlcat(string, temp2, maxsize);
+			dbg("substitute MODALIAS '%s'", temp2);
+			break;
 		default:
-			err("unknown substitution type '%%%c'", c);
+			err("unknown substitution type=%i", type);
 			break;
 		}
-		/* truncate to specified length */
-		if (len > 0)
-			pos[len] = '\0';
+		/* possibly truncate to format-char specified length */
+		if (len != -1) {
+			head[len] = '\0';
+			dbg("truncate to %i chars, subtitution string becomes '%s'", len, head);
+		}
 
-		strlcat(string, tail, maxsize);
+		strlcat(string, temp, maxsize);
 	}
 }
 
@@ -517,6 +599,42 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 				goto exit;
 		}
 		dbg(KEY_SUBSYSTEM " key is true");
+	}
+
+	if (rule->devpath_operation != KEY_OP_UNSET) {
+		dbg("check for " KEY_DEVPATH " rule->devpath='%s' udev->devpath='%s'",
+		    rule->devpath, udev->devpath);
+		if (strcmp_pattern(rule->devpath, udev->devpath) != 0) {
+			dbg(KEY_DEVPATH " is not matching");
+			if (rule->devpath_operation != KEY_OP_NOMATCH)
+				goto exit;
+		} else {
+			dbg(KEY_DEVPATH " matches");
+			if (rule->devpath_operation == KEY_OP_NOMATCH)
+				goto exit;
+		}
+		dbg(KEY_DEVPATH " key is true");
+	}
+
+	if (rule->modalias_operation != KEY_OP_UNSET) {
+		char value[NAME_SIZE];
+
+		if (find_sysfs_attribute(NULL, sysfs_device, "modalias", value, sizeof(value)) != 0) {
+			dbg(KEY_MODALIAS " value not found");
+			goto exit;
+		}
+		dbg("check for " KEY_MODALIAS " rule->modalias='%s' modalias='%s'",
+		    rule->modalias, value);
+		if (strcmp_pattern(rule->modalias, value) != 0) {
+			dbg(KEY_MODALIAS " is not matching");
+			if (rule->modalias_operation != KEY_OP_NOMATCH)
+				goto exit;
+		} else {
+			dbg(KEY_MODALIAS " matches");
+			if (rule->modalias_operation == KEY_OP_NOMATCH)
+				goto exit;
+		}
+		dbg(KEY_MODALIAS " key is true");
 	}
 
 	if (rule->env_pair_count) {
@@ -729,13 +847,13 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 
 	/* look for a matching rule to apply */
 	list_for_each_entry(rule, &udev_rule_list, node) {
+		if (udev->name_set && rule->name_operation != KEY_OP_UNSET) {
+			dbg("node name already set, rule ignored");
+			continue;
+		}
+
 		dbg("process rule");
 		if (match_rule(udev, rule, class_dev, sysfs_device) == 0) {
-			if (udev->name_set && rule->name_operation != KEY_OP_UNSET) {
-				dbg("node name already set, rule ignored");
-				continue;
-			}
-
 			/* apply options */
 			if (rule->ignore_device) {
 				info("configured rule in '%s[%i]' applied, '%s' is ignored",
@@ -917,7 +1035,7 @@ int udev_rules_get_run(struct udevice *udev, struct sysfs_device *sysfs_device)
 				}
 				if (rule->run[0] != '\0') {
 					strlcpy(program, rule->run, sizeof(program));
-					apply_format(udev, program, sizeof(program), NULL, NULL);
+					apply_format(udev, program, sizeof(program), NULL, sysfs_device);
 					dbg("add run '%s'", program);
 					name_list_add(&udev->run_list, program, 0);
 				}

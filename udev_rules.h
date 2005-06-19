@@ -31,6 +31,7 @@
 #define KEY_KERNEL		"KERNEL"
 #define KEY_SUBSYSTEM		"SUBSYSTEM"
 #define KEY_ACTION		"ACTION"
+#define KEY_DEVPATH		"DEVPATH"
 #define KEY_BUS			"BUS"
 #define KEY_ID			"ID"
 #define KEY_PROGRAM		"PROGRAM"
@@ -38,6 +39,7 @@
 #define KEY_DRIVER		"DRIVER"
 #define KEY_SYSFS		"SYSFS"
 #define KEY_ENV			"ENV"
+#define KEY_MODALIAS		"MODALIAS"
 #define KEY_NAME		"NAME"
 #define KEY_SYMLINK		"SYMLINK"
 #define KEY_OWNER		"OWNER"
@@ -80,6 +82,8 @@ struct udev_rule {
 	enum key_operation subsystem_operation;
 	char action[NAME_SIZE];
 	enum key_operation action_operation;
+	char devpath[PATH_SIZE];
+	enum key_operation devpath_operation;
 	char bus[NAME_SIZE];
 	enum key_operation bus_operation;
 	char id[NAME_SIZE];
@@ -94,6 +98,8 @@ struct udev_rule {
 	int sysfs_pair_count;
 	struct key_pair env_pair[KEY_ENV_PAIRS_MAX];
 	int env_pair_count;
+	enum key_operation modalias_operation;
+	char modalias[PATH_SIZE];
 
 	char name[PATH_SIZE];
 	enum key_operation name_operation;
