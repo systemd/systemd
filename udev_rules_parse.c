@@ -89,6 +89,8 @@ static int get_key(char **line, char **key, enum key_operation *operation, char 
 			break;
 		if (linepos[0] == '!')
 			break;
+		if (linepos[0] == ':')
+			break;
 	}
 
 	/* remember end of key */
@@ -115,6 +117,10 @@ static int get_key(char **line, char **key, enum key_operation *operation, char 
 		*operation = KEY_OP_ASSIGN;
 		linepos++;
 		dbg("operator=assign");
+	} else if (linepos[0] == ':' && linepos[1] == '=') {
+		*operation = KEY_OP_ASSIGN_FINAL;
+		linepos += 2;
+		dbg("operator=assign_final");
 	} else
 		return -1;
 
@@ -263,6 +269,13 @@ static int rules_parse(const char *filename)
 				continue;
 			}
 
+			if (strcasecmp(key, KEY_DEVPATH) == 0) {
+				strlcpy(rule.devpath, value, sizeof(rule.devpath));
+				rule.devpath_operation = operation;
+				valid = 1;
+				continue;
+			}
+
 			if (strcasecmp(key, KEY_BUS) == 0) {
 				strlcpy(rule.bus, value, sizeof(rule.bus));
 				rule.bus_operation = operation;
@@ -319,6 +332,13 @@ static int rules_parse(const char *filename)
 				continue;
 			}
 
+			if (strcasecmp(key, KEY_MODALIAS) == 0) {
+				strlcpy(rule.modalias, value, sizeof(rule.modalias));
+				rule.modalias_operation = operation;
+				valid = 1;
+				continue;
+			}
+
 			if (strcasecmp(key, KEY_DRIVER) == 0) {
 				strlcpy(rule.driver, value, sizeof(rule.driver));
 				rule.driver_operation = operation;
@@ -343,51 +363,54 @@ static int rules_parse(const char *filename)
 
 			if (strncasecmp(key, KEY_NAME, sizeof(KEY_NAME)-1) == 0) {
 				attr = get_key_attribute(key + sizeof(KEY_NAME)-1);
-				/* FIXME: remove old style options and make OPTIONS= mandatory */
 				if (attr != NULL) {
 					if (strstr(attr, OPTION_PARTITIONS) != NULL) {
 						dbg("creation of partition nodes requested");
 						rule.partitions = DEFAULT_PARTITIONS_COUNT;
 					}
+					/* FIXME: remove old style option and make OPTIONS= mandatory */
 					if (strstr(attr, OPTION_IGNORE_REMOVE) != NULL) {
 						dbg("remove event should be ignored");
 						rule.ignore_remove = 1;
 					}
 				}
-				if (value[0] != '\0')
-					strlcpy(rule.name, value, sizeof(rule.name));
-				else
-					rule.ignore_device = 1;
+				rule.name_operation = operation;
+				strlcpy(rule.name, value, sizeof(rule.name));
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(key, KEY_SYMLINK) == 0) {
 				strlcpy(rule.symlink, value, sizeof(rule.symlink));
+				rule.symlink_operation = operation;
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(key, KEY_OWNER) == 0) {
 				strlcpy(rule.owner, value, sizeof(rule.owner));
+				rule.owner_operation = operation;
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(key, KEY_GROUP) == 0) {
 				strlcpy(rule.group, value, sizeof(rule.group));
+				rule.group_operation = operation;
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(key, KEY_MODE) == 0) {
 				rule.mode = strtol(value, NULL, 8);
+				rule.mode_operation = operation;
 				valid = 1;
 				continue;
 			}
 
 			if (strcasecmp(key, KEY_RUN) == 0) {
 				strlcpy(rule.run, value, sizeof(rule.run));
+				rule.run_operation = operation;
 				valid = 1;
 				continue;
 			}

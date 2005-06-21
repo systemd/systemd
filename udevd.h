@@ -26,32 +26,48 @@
 
 #define UDEV_MAGIC			"udevd_" UDEV_VERSION
 #define UDEVD_SOCK_PATH			"udevd"
-#define SEND_WAIT_MAX_SECONDS		3
-#define SEND_WAIT_LOOP_PER_SECOND	10
+#define UDEVSEND_WAIT_MAX_SECONDS	3
+#define UDEVSEND_WAIT_LOOP_PER_SECOND	10
 
 #define UDEVD_PRIORITY			-4
 #define UDEV_PRIORITY			-2
 
 /* duration of initialization phase with shorter timeout */
-#define INIT_TIME_SEC			5
-#define EVENT_INIT_TIMEOUT_SEC		2
+#define UDEVD_INIT_TIME			5
+#define UDEVD_INIT_EVENT_TIMEOUT	2
 
 /* timeout to wait for missing events */
-#define EVENT_TIMEOUT_SEC		10
+#define UDEVD_EVENT_TIMEOUT		5
 
+/* maximum limit of runnig childs */
+#define UDEVD_MAX_CHILDS		64
 /* start to throttle forking if maximum number of running childs in our session is reached */
-#define THROTTLE_MAX_RUNNING_CHILDS	10
+#define UDEVD_MAX_CHILDS_RUNNING	8
 
 /* environment buffer, should match the kernel's size in lib/kobject_uevent.h */
-#define HOTPLUG_BUFFER_SIZE		1024
-#define HOTPLUG_NUM_ENVP		32
+#define UEVENT_BUFFER_SIZE		1024
+#define UEVENT_NUM_ENVP			32
 
-struct udevsend_msg {
-	char magic[20];
-	char envbuf[HOTPLUG_BUFFER_SIZE+256];
+enum udevd_msg_type {
+	UDEVD_UNKNOWN,
+	UDEVD_UEVENT_UDEVSEND,
+	UDEVD_UEVENT_INITSEND,
+	UDEVD_UEVENT_NETLINK,
+	UDEVD_STOP_EXEC_QUEUE,
+	UDEVD_START_EXEC_QUEUE,
+	UDEVD_SET_LOG_LEVEL,
+	UDEVD_SET_MAX_CHILDS,
 };
 
-struct hotplug_msg {
+
+struct udevd_msg {
+	char magic[32];
+	enum udevd_msg_type type;
+	char envbuf[UEVENT_BUFFER_SIZE+512];
+};
+
+struct uevent_msg {
+	enum udevd_msg_type type;
 	struct list_head node;
 	pid_t pid;
 	long queue_time;
@@ -61,6 +77,6 @@ struct hotplug_msg {
 	unsigned long long seqnum;
 	char *physdevpath;
 	unsigned int timeout;
-	char *envp[HOTPLUG_NUM_ENVP+1];
+	char *envp[UEVENT_NUM_ENVP+1];
 	char envbuf[];
 };

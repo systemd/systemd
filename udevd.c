@@ -38,6 +38,7 @@
 #include <sys/un.h>
 #include <sys/sysinfo.h>
 #include <sys/stat.h>
+#include <linux/netlink.h>
 
 #include "list.h"
 #include "udev_libc_wrapper.h"
@@ -48,16 +49,17 @@
 #include "logging.h"
 
 /* global variables*/
-static int udevsendsock;
+static int udevd_sock;
+static int uevent_netlink_sock;
 static pid_t sid;
 
 static int pipefds[2];
-static long startup_time;
-static unsigned long long expected_seqnum = 0;
 static volatile int sigchilds_waiting;
 static volatile int run_msg_q;
 static volatile int sig_flag;
+static int init_phase = 1;
 static int run_exec_q;
+static int stop_exec_q;
 
 static LIST_HEAD(msg_list);
 static LIST_HEAD(exec_list);
@@ -67,7 +69,13 @@ static void exec_queue_manager(void);
 static void msg_queue_manager(void);
 static void user_sighandler(void);
 static void reap_sigchilds(void);
-char *udev_bin;
+
+static char *udev_bin;
+static unsigned long long expected_seqnum;
+static int event_timeout;
+static int max_childs;
+static int max_childs_running;
+
 
 #ifdef USE_LOG
 void log_message (int priority, const char *format, ...)
@@ -86,23 +94,23 @@ void log_message (int priority, const char *format, ...)
 static void msg_dump_queue(void)
 {
 #ifdef DEBUG
-	struct hotplug_msg *msg;
+	struct uevent_msg *msg;
 
 	list_for_each_entry(msg, &msg_list, node)
 		dbg("sequence %llu in queue", msg->seqnum);
 #endif
 }
 
-static void run_queue_delete(struct hotplug_msg *msg)
+static void run_queue_delete(struct uevent_msg *msg)
 {
 	list_del(&msg->node);
 	free(msg);
 }
 
 /* orders the message in the queue by sequence number */
-static void msg_queue_insert(struct hotplug_msg *msg)
+static void msg_queue_insert(struct uevent_msg *msg)
 {
-	struct hotplug_msg *loop_msg;
+	struct uevent_msg *loop_msg;
 	struct sysinfo info;
 
 	if (msg->seqnum == 0) {
@@ -110,6 +118,20 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 		list_add(&msg->node, &exec_list);
 		run_exec_q = 1;
 		return;
+	}
+
+	/* store timestamp of queuing */
+	sysinfo(&info);
+	msg->queue_time = info.uptime;
+
+	/* with the first event we provide a phase of shorter timeout */
+	if (init_phase) {
+		static long init_time;
+
+		if (init_time == 0)
+			init_time = info.uptime;
+		if (info.uptime - init_time >= UDEVD_INIT_TIME)
+			init_phase = 0;
 	}
 
 	/* don't delay messages with timeout set */
@@ -126,17 +148,13 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 			break;
 
 		if (loop_msg->seqnum == msg->seqnum) {
-			info("ignoring duplicate message seq %llu", msg->seqnum);
+			dbg("ignoring duplicate message seq %llu", msg->seqnum);
+			free(msg);
 			return;
 		}
 	}
-
-	/* store timestamp of queuing */
-	sysinfo(&info);
-	msg->queue_time = info.uptime;
-
 	list_add(&msg->node, &loop_msg->node);
-	dbg("queued message seq %llu", msg->seqnum);
+	info("seq %llu queued, devpath '%s'", msg->seqnum, msg->devpath);
 
 	/* run msg queue manager */
 	run_msg_q = 1;
@@ -145,16 +163,19 @@ static void msg_queue_insert(struct hotplug_msg *msg)
 }
 
 /* forks event and removes event from run queue when finished */
-static void execute_udev(struct hotplug_msg *msg)
+static void execute_udev(struct uevent_msg *msg)
 {
 	char *const argv[] = { "udev", msg->subsystem, NULL };
 	pid_t pid;
+	struct sysinfo info;
 
 	pid = fork();
 	switch (pid) {
 	case 0:
 		/* child */
-		close(udevsendsock);
+		if (uevent_netlink_sock != -1)
+			close(uevent_netlink_sock);
+		close(udevd_sock);
 		logging_close();
 
 		setpriority(PRIO_PROCESS, 0, UDEV_PRIORITY);
@@ -168,7 +189,9 @@ static void execute_udev(struct hotplug_msg *msg)
 		break;
 	default:
 		/* get SIGCHLD in main loop */
-		dbg("==> exec seq %llu [%d] working at '%s'", msg->seqnum, pid, msg->devpath);
+		sysinfo(&info);
+		info("seq %llu forked, pid %d, %ld seconds old",
+		     msg->seqnum, pid, info.uptime - msg->queue_time);
 		msg->pid = pid;
 	}
 }
@@ -293,73 +316,84 @@ static int compare_devpath(const char *running, const char *waiting)
 }
 
 /* returns still running task for the same device, its parent or its physical device */
-static struct hotplug_msg *running_with_devpath(struct hotplug_msg *msg)
+static int running_with_devpath(struct uevent_msg *msg, int limit)
 {
-	struct hotplug_msg *loop_msg;
+	struct uevent_msg *loop_msg;
+	int childs_count = 0;
 
 	if (msg->devpath == NULL)
-		return NULL;
+		return 0;
 
 	/* skip any events with a timeout set */
-	if (msg->timeout)
-		return NULL;
+	if (msg->timeout != 0)
+		return 0;
 
 	list_for_each_entry(loop_msg, &running_list, node) {
+		if (limit && childs_count++ > limit) {
+			dbg("%llu, maximum number (%i) of child reached", msg->seqnum, childs_count);
+			return 1;
+		}
 		if (loop_msg->devpath == NULL)
 			continue;
 
 		/* return running parent/child device event */
-		if (compare_devpath(loop_msg->devpath, msg->devpath) != 0)
-			return loop_msg;
+		if (compare_devpath(loop_msg->devpath, msg->devpath) != 0) {
+			dbg("%llu, child device event still running %llu (%s)",
+			    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
+			return 2;
+		}
 
 		/* return running physical device event */
 		if (msg->physdevpath && msg->action && strcmp(msg->action, "add") == 0)
-			if (compare_devpath(loop_msg->devpath, msg->physdevpath) != 0)
-				return loop_msg;
+			if (compare_devpath(loop_msg->devpath, msg->physdevpath) != 0) {
+				dbg("%llu, physical device event still running %llu (%s)",
+				    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
+				return 3;
+			}
 	}
 
-	return NULL;
+	return 0;
 }
 
 /* exec queue management routine executes the events and serializes events in the same sequence */
 static void exec_queue_manager(void)
 {
-	struct hotplug_msg *loop_msg;
-	struct hotplug_msg *tmp_msg;
-	struct hotplug_msg *msg;
+	struct uevent_msg *loop_msg;
+	struct uevent_msg *tmp_msg;
 	int running;
+
+	if (list_empty(&exec_list))
+		return;
 
 	running = running_processes();
 	dbg("%d processes runnning on system", running);
 	if (running < 0)
-		running = THROTTLE_MAX_RUNNING_CHILDS;
+		running = max_childs_running;
 
 	list_for_each_entry_safe(loop_msg, tmp_msg, &exec_list, node) {
 		/* check running processes in our session and possibly throttle */
-		if (running >= THROTTLE_MAX_RUNNING_CHILDS) {
-			running = running_processes_in_session(sid, THROTTLE_MAX_RUNNING_CHILDS+10);
-			dbg("%d processes running in session", running);
-			if (running >= THROTTLE_MAX_RUNNING_CHILDS) {
-				dbg("delay seq %llu, cause too many processes already running", loop_msg->seqnum);
+		if (running >= max_childs_running) {
+			running = running_processes_in_session(sid, max_childs_running+10);
+			dbg("at least %d processes running in session", running);
+			if (running >= max_childs_running) {
+				dbg("delay seq %llu, cause too many processes already running",
+				    loop_msg->seqnum);
 				return;
 			}
 		}
 
-		msg = running_with_devpath(loop_msg);
-		if (!msg) {
+		if (running_with_devpath(loop_msg, max_childs) == 0) {
 			/* move event to run list */
 			list_move_tail(&loop_msg->node, &running_list);
 			execute_udev(loop_msg);
 			running++;
 			dbg("moved seq %llu to running list", loop_msg->seqnum);
-		} else {
-			dbg("delay seq %llu (%s), cause seq %llu (%s) is still running",
-			    loop_msg->seqnum, loop_msg->devpath, msg->seqnum, msg->devpath);
-		}
+		} else
+			dbg("delay seq %llu (%s)", loop_msg->seqnum, loop_msg->devpath);
 	}
 }
 
-static void msg_move_exec(struct hotplug_msg *msg)
+static void msg_move_exec(struct uevent_msg *msg)
 {
 	list_move_tail(&msg->node, &exec_list);
 	run_exec_q = 1;
@@ -371,15 +405,15 @@ static void msg_move_exec(struct hotplug_msg *msg)
 /* msg queue management routine handles the timeouts and dispatches the events */
 static void msg_queue_manager(void)
 {
-	struct hotplug_msg *loop_msg;
-	struct hotplug_msg *tmp_msg;
+	struct uevent_msg *loop_msg;
+	struct uevent_msg *tmp_msg;
 	struct sysinfo info;
 	long msg_age = 0;
-	static int timeout = EVENT_INIT_TIMEOUT_SEC;
-	static int init = 1;
+	int timeout = event_timeout;
 
 	dbg("msg queue manager, next expected is %llu", expected_seqnum);
 recheck:
+	sysinfo(&info);
 	list_for_each_entry_safe(loop_msg, tmp_msg, &msg_list, node) {
 		/* move event with expected sequence to the exec list */
 		if (loop_msg->seqnum == expected_seqnum) {
@@ -387,15 +421,13 @@ recheck:
 			continue;
 		}
 
-		/* see if we are in the initialization phase and wait for the very first events */
-		if (init && (info.uptime - startup_time >= INIT_TIME_SEC)) {
-			init = 0;
-			timeout = EVENT_TIMEOUT_SEC;
-			dbg("initialization phase passed, set timeout to %i seconds", EVENT_TIMEOUT_SEC);
+		/* limit timeout during initialization phase */
+		if (init_phase) {
+			timeout = UDEVD_INIT_EVENT_TIMEOUT;
+			dbg("initialization phase, limit timeout to %i seconds", UDEVD_INIT_EVENT_TIMEOUT);
 		}
 
 		/* move event with expired timeout to the exec list */
-		sysinfo(&info);
 		msg_age = info.uptime - loop_msg->queue_time;
 		dbg("seq %llu is %li seconds old", loop_msg->seqnum, msg_age);
 		if (msg_age >= timeout) {
@@ -416,67 +448,21 @@ recheck:
 	}
 }
 
-/* receive the udevsend message and do some sanity checks */
-static struct hotplug_msg *get_udevsend_msg(void)
+static struct uevent_msg *get_msg_from_envbuf(const char *buf, int buf_size)
 {
-	static struct udevsend_msg usend_msg;
-	struct hotplug_msg *msg;
 	int bufpos;
 	int i;
-	ssize_t size;
-	struct msghdr smsg;
-	struct cmsghdr *cmsg;
-	struct iovec iov;
-	struct ucred *cred;
-	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
-	int envbuf_size;
+	struct uevent_msg *msg;
 
-	memset(&usend_msg, 0x00, sizeof(struct udevsend_msg));
-	iov.iov_base = &usend_msg;
-	iov.iov_len = sizeof(struct udevsend_msg);
-
-	memset(&smsg, 0x00, sizeof(struct msghdr));
-	smsg.msg_iov = &iov;
-	smsg.msg_iovlen = 1;
-	smsg.msg_control = cred_msg;
-	smsg.msg_controllen = sizeof(cred_msg);
-
-	size = recvmsg(udevsendsock, &smsg, 0);
-	if (size <  0) {
-		if (errno != EINTR)
-			dbg("unable to receive udevsend message");
-		return NULL;
-	}
-	cmsg = CMSG_FIRSTHDR(&smsg);
-	cred = (struct ucred *) CMSG_DATA(cmsg);
-
-	if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
-		info("no sender credentials received, message ignored");
-		return NULL;
-	}
-
-	if (cred->uid != 0) {
-		info("sender uid=%i, message ignored", cred->uid);
-		return NULL;
-	}
-
-	if (strncmp(usend_msg.magic, UDEV_MAGIC, sizeof(UDEV_MAGIC)) != 0 ) {
-		info("message magic '%s' doesn't match, ignore it", usend_msg.magic);
-		return NULL;
-	}
-
-	envbuf_size = size - offsetof(struct udevsend_msg, envbuf);
-	dbg("envbuf_size=%i", envbuf_size);
-	msg = malloc(sizeof(struct hotplug_msg) + envbuf_size);
+	msg = malloc(sizeof(struct uevent_msg) + buf_size);
 	if (msg == NULL)
 		return NULL;
-
-	memset(msg, 0x00, sizeof(struct hotplug_msg) + envbuf_size);
+	memset(msg, 0x00, sizeof(struct uevent_msg) + buf_size);
 
 	/* copy environment buffer and reconstruct envp */
-	memcpy(msg->envbuf, usend_msg.envbuf, envbuf_size);
+	memcpy(msg->envbuf, buf, buf_size);
 	bufpos = 0;
-	for (i = 0; (bufpos < envbuf_size) && (i < HOTPLUG_NUM_ENVP-2); i++) {
+	for (i = 0; (bufpos < buf_size) && (i < UEVENT_NUM_ENVP-2); i++) {
 		int keylen;
 		char *key;
 
@@ -507,6 +493,142 @@ static struct hotplug_msg *get_udevsend_msg(void)
 	}
 	msg->envp[i++] = "UDEVD_EVENT=1";
 	msg->envp[i] = NULL;
+
+	return msg;
+}
+
+/* receive the udevd message from userspace */
+static struct uevent_msg *get_udevd_msg(void)
+{
+	static struct udevd_msg usend_msg;
+	struct uevent_msg *msg;
+	ssize_t size;
+	struct msghdr smsg;
+	struct cmsghdr *cmsg;
+	struct iovec iov;
+	struct ucred *cred;
+	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
+	int envbuf_size;
+	int *intval;
+
+	memset(&usend_msg, 0x00, sizeof(struct udevd_msg));
+	iov.iov_base = &usend_msg;
+	iov.iov_len = sizeof(struct udevd_msg);
+
+	memset(&smsg, 0x00, sizeof(struct msghdr));
+	smsg.msg_iov = &iov;
+	smsg.msg_iovlen = 1;
+	smsg.msg_control = cred_msg;
+	smsg.msg_controllen = sizeof(cred_msg);
+
+	size = recvmsg(udevd_sock, &smsg, 0);
+	if (size <  0) {
+		if (errno != EINTR)
+			dbg("unable to receive udevd message");
+		return NULL;
+	}
+	cmsg = CMSG_FIRSTHDR(&smsg);
+	cred = (struct ucred *) CMSG_DATA(cmsg);
+
+	if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
+		info("no sender credentials received, message ignored");
+		return NULL;
+	}
+
+	if (cred->uid != 0) {
+		info("sender uid=%i, message ignored", cred->uid);
+		return NULL;
+	}
+
+	if (strncmp(usend_msg.magic, UDEV_MAGIC, sizeof(UDEV_MAGIC)) != 0 ) {
+		info("message magic '%s' doesn't match, ignore it", usend_msg.magic);
+		return NULL;
+	}
+
+	switch (usend_msg.type) {
+	case UDEVD_UEVENT_UDEVSEND:
+	case UDEVD_UEVENT_INITSEND:
+		info("udevd event message received");
+		envbuf_size = size - offsetof(struct udevd_msg, envbuf);
+		dbg("envbuf_size=%i", envbuf_size);
+		msg = get_msg_from_envbuf(usend_msg.envbuf, envbuf_size);
+		if (msg == NULL)
+			return NULL;
+		msg->type = usend_msg.type;
+		return msg;
+	case UDEVD_STOP_EXEC_QUEUE:
+		info("udevd message (STOP_EXEC_QUEUE) received");
+		stop_exec_q = 1;
+		break;
+	case UDEVD_START_EXEC_QUEUE:
+		info("udevd message (START_EXEC_QUEUE) received");
+		stop_exec_q = 0;
+		exec_queue_manager();
+		break;
+	case UDEVD_SET_LOG_LEVEL:
+		intval = (int *) usend_msg.envbuf;
+		info("udevd message (SET_LOG_PRIORITY) received, udev_log_priority=%i", *intval);
+		udev_log_priority = *intval;
+		break;
+	case UDEVD_SET_MAX_CHILDS:
+		intval = (int *) usend_msg.envbuf;
+		info("udevd message (UDEVD_SET_MAX_CHILDS) received, max_childs=%i", *intval);
+		max_childs = *intval;
+		break;
+	default:
+		dbg("unknown message type");
+	}
+	return NULL;
+}
+
+/* receive the kernel user event message and do some sanity checks */
+static struct uevent_msg *get_netlink_msg(void)
+{
+	struct uevent_msg *msg;
+	int bufpos;
+	ssize_t size;
+	static char buffer[UEVENT_BUFFER_SIZE + 512];
+	char *pos;
+
+	size = recv(uevent_netlink_sock, &buffer, sizeof(buffer), 0);
+	if (size <  0) {
+		if (errno != EINTR)
+			dbg("unable to receive udevd message");
+		return NULL;
+	}
+
+	if ((size_t)size > sizeof(buffer)-1)
+		size = sizeof(buffer)-1;
+	buffer[size] = '\0';
+	dbg("uevent_size=%i", size);
+
+	/* start of event payload */
+	bufpos = strlen(buffer)+1;
+	msg = get_msg_from_envbuf(&buffer[bufpos], size-bufpos);
+	if (msg == NULL)
+		return NULL;
+	msg->type = UDEVD_UEVENT_NETLINK;
+
+	/* validate message */
+	pos = strchr(buffer, '@');
+	if (pos == NULL) {
+		dbg("invalid uevent '%s'", buffer);
+		free(msg);
+		return NULL;
+	}
+	pos[0] = '\0';
+
+	if (msg->action == NULL) {
+		dbg("no ACTION in payload found, skip event '%s'", buffer);
+		free(msg);
+		return NULL;
+	}
+
+	if (strcmp(msg->action, buffer) != 0) {
+		dbg("ACTION in payload does not match uevent, skip event '%s'", buffer);
+		free(msg);
+		return NULL;
+	}
 
 	return msg;
 }
@@ -546,11 +668,13 @@ do_write:
 static void udev_done(int pid)
 {
 	/* find msg associated with pid and delete it */
-	struct hotplug_msg *msg;
+	struct uevent_msg *msg;
+	struct sysinfo info;
 
 	list_for_each_entry(msg, &running_list, node) {
 		if (msg->pid == pid) {
-			dbg("<== exec seq %llu came back", msg->seqnum);
+			sysinfo(&info);
+			info("seq %llu exit, %ld seconds old", msg->seqnum, info.uptime - msg->queue_time);
 			run_queue_delete(msg);
 
 			/* we want to run the exec queue manager since there may
@@ -589,7 +713,7 @@ static void user_sighandler(void)
 	}
 }
 
-static int init_udevsend_socket(void)
+static int init_udevd_socket(void)
 {
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
@@ -602,35 +726,65 @@ static int init_udevsend_socket(void)
 	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
 	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 
-	udevsendsock = socket(AF_LOCAL, SOCK_DGRAM, 0);
-	if (udevsendsock == -1) {
+	udevd_sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
+	if (udevd_sock == -1) {
 		err("error getting socket, %s", strerror(errno));
 		return -1;
 	}
 
 	/* the bind takes care of ensuring only one copy running */
-	retval = bind(udevsendsock, (struct sockaddr *) &saddr, addrlen);
+	retval = bind(udevd_sock, (struct sockaddr *) &saddr, addrlen);
 	if (retval < 0) {
 		err("bind failed, %s", strerror(errno));
-		close(udevsendsock);
+		close(udevd_sock);
 		return -1;
 	}
 
 	/* enable receiving of the sender credentials */
-	setsockopt(udevsendsock, SOL_SOCKET, SO_PASSCRED, &feature_on, sizeof(feature_on));
+	setsockopt(udevd_sock, SOL_SOCKET, SO_PASSCRED, &feature_on, sizeof(feature_on));
+
+	return 0;
+}
+
+static int init_uevent_netlink_sock(void)
+{
+	struct sockaddr_nl snl;
+	int retval;
+
+	memset(&snl, 0x00, sizeof(struct sockaddr_nl));
+	snl.nl_family = AF_NETLINK;
+	snl.nl_pid = getpid();
+	snl.nl_groups = 0xffffffff;
+
+	uevent_netlink_sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
+	if (uevent_netlink_sock == -1) {
+		dbg("error getting socket, %s", strerror(errno));
+		return -1;
+	}
+
+	retval = bind(uevent_netlink_sock, (struct sockaddr *) &snl,
+		      sizeof(struct sockaddr_nl));
+	if (retval < 0) {
+		dbg("bind failed, %s", strerror(errno));
+		close(uevent_netlink_sock);
+		uevent_netlink_sock = -1;
+		return -1;
+	}
 
 	return 0;
 }
 
 int main(int argc, char *argv[], char *envp[])
 {
-	struct sysinfo info;
 	int maxsockplus;
 	int retval;
 	int fd;
 	struct sigaction act;
 	fd_set readfds;
-	const char *udevd_expected_seqnum;
+	const char *value;
+	int uevent_netlink_active = 0;
+	int daemonize = 0;
+	int i;
 
 	logging_init("udevd");
 	udev_init_config();
@@ -641,8 +795,18 @@ int main(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 
-	/* daemonize on request */
-	if (argc == 2 && strcmp(argv[1], "-d") == 0) {
+	for (i = 1 ; i < argc; i++) {
+		char *arg = argv[i];
+		if (strcmp(arg, "--daemon") == 0 || strcmp(arg, "-d") == 0) {
+			info("will daemonize");
+			daemonize = 1;
+		}
+		if (strcmp(arg, "--stop-exec-queue") == 0) {
+			info("will not execute events until START_EXEC_QUEUE is received");
+			stop_exec_q = 1;
+		}
+	}
+	if (daemonize) {
 		pid_t pid;
 
 		pid = fork();
@@ -663,7 +827,6 @@ int main(int argc, char *argv[], char *envp[])
 	sid = setsid();
 	dbg("our session is %d", sid);
 
-	/* make sure we don't lock any path */
 	chdir("/");
 	umask(umask(077) | 022);
 
@@ -716,39 +879,65 @@ int main(int argc, char *argv[], char *envp[])
 	sigaction(SIGALRM, &act, NULL);
 	sigaction(SIGCHLD, &act, NULL);
 
-	if (init_udevsend_socket() < 0) {
+	if (init_uevent_netlink_sock() < 0) {
+		dbg("uevent socket not available");
+ 	}
+
+	if (init_udevd_socket() < 0) {
 		if (errno == EADDRINUSE)
 			dbg("another udevd running, exit");
 		else
-			dbg("error initialising udevsend socket: %s", strerror(errno));
+			dbg("error initialising udevd socket: %s", strerror(errno));
 
 		goto exit;
 	}
 
-	/* possible override of udev binary, used for testing */
+	/* override of forked udev binary, used for testing */
 	udev_bin = getenv("UDEV_BIN");
 	if (udev_bin != NULL)
 		info("udev binary is set to '%s'", udev_bin);
 	else
 		udev_bin = UDEV_BIN;
 
-	/* possible init of expected_seqnum value */
-	udevd_expected_seqnum = getenv("UDEVD_EXPECTED_SEQNUM");
-	if (udevd_expected_seqnum != NULL) {
-		expected_seqnum = strtoull(udevd_expected_seqnum, NULL, 10);
+	/* init of expected_seqnum value */
+	value = getenv("UDEVD_EXPECTED_SEQNUM");
+	if (value) {
+		expected_seqnum = strtoull(value, NULL, 10);
 		info("initialize expected_seqnum to %llu", expected_seqnum);
 	}
 
-	/* get current time to provide shorter timeout on startup */
-	sysinfo(&info);
-	startup_time = info.uptime;
+	/* timeout to wait for missing events */
+	value = getenv("UDEVD_EVENT_TIMEOUT");
+	if (value)
+		event_timeout = strtoul(value, NULL, 10);
+	else
+		event_timeout = UDEVD_EVENT_TIMEOUT;
+	info("initialize event_timeout to %u", event_timeout);
+
+	/* maximum limit of forked childs */
+	value = getenv("UDEVD_MAX_CHILDS");
+	if (value)
+		max_childs = strtoul(value, NULL, 10);
+	else
+		max_childs = UDEVD_MAX_CHILDS;
+	info("initialize max_childs to %u", max_childs);
+
+	/* start to throttle forking if maximum number of _running_ childs is reached */
+	value = getenv("UDEVD_MAX_CHILDS_RUNNING");
+	if (value)
+		max_childs_running = strtoull(value, NULL, 10);
+	else
+		max_childs_running = UDEVD_MAX_CHILDS_RUNNING;
+	info("initialize max_childs_running to %u", max_childs_running);
 
 	FD_ZERO(&readfds);
-	FD_SET(udevsendsock, &readfds);
+	FD_SET(udevd_sock, &readfds);
+	if (uevent_netlink_sock != -1)
+		FD_SET(uevent_netlink_sock, &readfds);
 	FD_SET(pipefds[0], &readfds);
-	maxsockplus = udevsendsock+1;
+	maxsockplus = udevd_sock+1;
 	while (1) {
-		struct hotplug_msg *msg;
+		struct uevent_msg *msg;
 
 		fd_set workreadfds = readfds;
 		retval = select(maxsockplus, &workreadfds, NULL, NULL, NULL);
@@ -759,10 +948,29 @@ int main(int argc, char *argv[], char *envp[])
 			continue;
 		}
 
-		if (FD_ISSET(udevsendsock, &workreadfds)) {
-			msg = get_udevsend_msg();
-			if (msg)
+		if (FD_ISSET(udevd_sock, &workreadfds)) {
+			msg = get_udevd_msg();
+			if (msg) {
+				/* discard kernel messages if netlink is active */
+				if (uevent_netlink_active && msg->type == UDEVD_UEVENT_UDEVSEND && msg->seqnum != 0) {
+					dbg("skip uevent_helper message, netlink is active");
+					free(msg);
+					continue;
+				}
 				msg_queue_insert(msg);
+			}
+		}
+
+		if (FD_ISSET(uevent_netlink_sock, &workreadfds)) {
+			msg = get_netlink_msg();
+			if (msg) {
+				msg_queue_insert(msg);
+				/* disable udevsend with first netlink message */
+				if (!uevent_netlink_active) {
+					info("uevent_nl message received, disable udevsend messages");
+					uevent_netlink_active = 1;
+				}
+			}
 		}
 
 		if (FD_ISSET(pipefds[0], &workreadfds))
@@ -786,7 +994,8 @@ int main(int argc, char *argv[], char *envp[])
 			}
 
 			run_exec_q = 0;
-			exec_queue_manager();
+			if (!stop_exec_q)
+				exec_queue_manager();
 		}
 	}
 

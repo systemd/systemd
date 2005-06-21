@@ -82,10 +82,6 @@ __extern int sigaction(int, const struct sigaction *, struct sigaction *);
 __extern int sigprocmask(int, const sigset_t *, sigset_t *);
 __extern int sigpending(sigset_t *);
 __extern int sigsuspend(const sigset_t *);
-__extern int rt_sigaction(int, const struct sigaction *, struct sigaction *, size_t);
-__extern int rt_sigprocmask(int, const sigset_t *, sigset_t *, size_t);
-__extern int rt_sigpending(sigset_t *, size_t);
-__extern int rt_sigsuspend(const sigset_t *, size_t);
 __extern int raise(int);
 __extern int kill(pid_t, int);
 

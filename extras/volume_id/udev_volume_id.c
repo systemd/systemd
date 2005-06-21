@@ -40,12 +40,26 @@
 #define BLKGETSIZE64 _IOR(0x12,114,size_t)
 
 #ifdef USE_LOG
-void log_message(int level, const char *format, ...)
+void log_message(int priority, const char *format, ...)
 {
 	va_list args;
+	static int udev_log = -1;
+
+	if (udev_log == -1) {
+		const char *value;
+
+		value = getenv("UDEV_LOG");
+		if (value)
+			udev_log = log_priority(value);
+		else
+			udev_log = LOG_ERR;
+	}
+
+	if (priority > udev_log)
+		return;
 
 	va_start(args, format);
-	vsyslog(level, format, args);
+	vsyslog(priority, format, args);
 	va_end(args);
 }
 #endif

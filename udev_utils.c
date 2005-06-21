@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <ctype.h>
 #include <dirent.h>
+#include <syslog.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -107,6 +108,41 @@ void udev_cleanup_device(struct udevice *udev)
 		list_del(&name_loop->node);
 		free(name_loop);
 	}
+	list_for_each_entry_safe(name_loop, temp_loop, &udev->run_list, node) {
+		list_del(&name_loop->node);
+		free(name_loop);
+	}
+}
+
+int string_is_true(const char *str)
+{
+	if (strcasecmp(str, "true") == 0)
+		return 1;
+	if (strcasecmp(str, "yes") == 0)
+		return 1;
+	if (strcasecmp(str, "1") == 0)
+		return 1;
+	return 0;
+}
+
+int log_priority(const char *priority)
+{
+	char *endptr;
+	int prio;
+
+	prio = strtol(priority, &endptr, 10);
+	if (endptr[0] == '\0')
+		return prio;
+	if (strncasecmp(priority, "err", 3) == 0)
+		return LOG_ERR;
+	if (strcasecmp(priority, "info") == 0)
+		return LOG_INFO;
+	if (strcasecmp(priority, "debug") == 0)
+		return LOG_DEBUG;
+	if (string_is_true(priority))
+		return LOG_ERR;
+
+	return 0;
 }
 
 int kernel_release_satisfactory(unsigned int version, unsigned int patchlevel, unsigned int sublevel)
@@ -373,10 +409,10 @@ int execute_command(const char *command, const char *subsystem)
 			close(devnull);
 		}
 		retval = execv(arg, argv);
-		err("exec of child failed");
+		err("exec of child '%s' failed", command);
 		_exit(1);
 	case -1:
-		dbg("fork of child failed");
+		dbg("fork of child '%s' failed", command);
 		break;
 		return -1;
 	default:

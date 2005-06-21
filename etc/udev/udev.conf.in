@@ -1,5 +1,4 @@
 # udev.conf
-#
 
 # Where in the filesystem to place the device nodes
 udev_root="@udevdir@"

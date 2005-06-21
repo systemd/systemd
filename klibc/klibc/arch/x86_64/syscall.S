@@ -15,14 +15,14 @@ __syscall_common:
 	syscall
 
 	cmpq	$-4095,%rax
-	jb	1f
+	jnb	1f
+	ret
 
 	# Error return, must set errno
+1:
 	negl	%eax
 	movl	%eax,errno(%rip)	# errno is type int, so 32 bits
 	orq	$-1,%rax		# orq $-1 smaller than movq $-1
-
-1:
 	ret
 
 	.size	__syscall_common,.-__syscall_common

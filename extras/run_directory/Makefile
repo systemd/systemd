@@ -7,9 +7,10 @@
 # the Free Software Foundation; version 2 of the License.
 #
 
-PROG = udev_volume_id
+DEVD = udev_run_devd
+HOTPLUGD = udev_run_hotplugd
 
-all:	$(PROG)
+all:	$(DEVD) $(HOTPLUGD)
 
 prefix =
 exec_prefix =	${prefix}
@@ -30,27 +31,25 @@ INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 
 override CFLAGS+=-D_FILE_OFFSET_BITS=64
 
-VOLUME_ID_BASE=volume_id
-include $(VOLUME_ID_BASE)/Makefile.inc
-
-OBJS = udev_volume_id.o $(VOLUME_ID_OBJS) ../../udev.a
-HEADERS = $(VOLUME_ID_HEADERS)
-
-$(OBJS): $(HEADERS)
+OBJS = ../../udev.a ../../libsysfs/sysfs.a
 
 .c.o:
 	$(QUIET) $(CC) $(CFLAGS) -c -o $@ $<
 
-$(PROG): $(OBJS) $(HEADERS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $(PROG) $(OBJS) $(LIB_OBJS)
+$(DEVD): $(HEADERS) $(DEVD).o run_directory.o
+	$(QUIET) $(LD) $(LDFLAGS) -o $(DEVD) $(DEVD).o run_directory.o $(OBJS)
+
+$(HOTPLUGD): $(HEADERS) $(HOTPLUGD).o run_directory.o
+	$(QUIET) $(LD) $(LDFLAGS) -o $(HOTPLUGD) $(HOTPLUGD).o run_directory.o $(OBJS)
 
 clean:
-	rm -f $(PROG) $(OBJS)
+	rm -f $(DEVD) $(HOTPLUGD) run_directory.o
 
 spotless: clean
 
 install: all
-	$(INSTALL_PROGRAM) $(PROG) $(DESTDIR)$(sbindir)/$(PROG)
+	$(INSTALL_PROGRAM) $(DEVD) $(DESTDIR)$(sbindir)/$(DEVD)
+	$(INSTALL_PROGRAM) $(HOTPLUGD) $(DESTDIR)$(sbindir)/$(HOTPLUGD)
 
 uninstall:
-	- rm $(DESTDIR)$(sbindir)/$(PROG)
+	- rm $(DESTDIR)$(sbindir)/$(DEVD)

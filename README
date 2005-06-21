@@ -10,8 +10,7 @@ To use:
 
 - Your 2.6 kernel must have had CONFIG_HOTPLUG enabled when it was built.
 
-- Make sure sysfs is mounted.  udev will figure out where sysfs is mounted, but
-  the traditional place for it is at /sys.  You can mount it by hand by running:
+- Make sure sysfs is mounted at /sys. You can mount it by running:
   	mount -t sysfs none /sys
 
 - Make sure you have the latest version of the linux-hotplug scripts.  They are

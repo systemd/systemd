@@ -112,9 +112,6 @@ rm -rf $RPM_BUILD_ROOT
 %attr(-,root,root) /etc/hotplug.d/default/udev.hotplug
 %attr(755,root,root) /etc/init.d/udev
 %attr(0644,root,root) %{_mandir}/man8/udev*.8*
-%attr(755,root,root) %dir /etc/dev.d/
-%attr(755,root,root) %dir /etc/dev.d/net/
-%attr(0755,root,root) /etc/dev.d/net/hotplug.dev
 
 %if %{scsi_id}
 	%attr(755,root,root) /sbin/scsi_id

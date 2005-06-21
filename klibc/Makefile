@@ -69,4 +69,9 @@ local-install: $(CROSS)klcc
 	$(INSTALL_DATA) klcc.1 $(INSTALLROOT)$(mandir)/man1/$(KCROSS)klcc.1
 	$(INSTALL_EXEC) $(KCROSS)klcc $(INSTALLROOT)$(bindir)
 
+# This does all the prep work needed to turn a freshly exported git repository
+# into a release tarball tree
+release: klibc.spec
+	rm -f maketar.sh
+
 -include MCONFIG

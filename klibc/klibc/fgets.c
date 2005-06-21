@@ -20,6 +20,7 @@ char *fgets(char *s, int n, FILE *f)
       return NULL;
     }
     *p++ = ch;
+    n--;
     if ( ch == '\n' )
       break;
   }

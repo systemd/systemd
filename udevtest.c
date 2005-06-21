@@ -98,12 +98,6 @@ int main(int argc, char *argv[], char *envp[])
 	/* fill in values and test_run flag*/
 	udev_init_device(&udev, devpath, subsystem, "add");
 
-	/* skip subsystems without "dev", but handle net devices */
-	if (udev.type != DEV_NET && subsystem_expect_no_dev(udev.subsystem)) {
-		info("don't care about '%s' devices", udev.subsystem);
-		return 2;
-	}
-
 	/* open the device */
 	snprintf(path, sizeof(path), "%s%s", sysfs_path, udev.devpath);
 	path[sizeof(path)-1] = '\0';
@@ -112,13 +106,18 @@ int main(int argc, char *argv[], char *envp[])
 		info("sysfs_open_class_device_path failed");
 		return 1;
 	}
-
 	info("opened class_dev->name='%s'", class_dev->name);
+
+	if (udev.type == DEV_BLOCK || udev.type == DEV_CLASS)
+		udev.devt = get_devt(class_dev);
 
 	/* simulate node creation with test flag */
 	udev.test_run = 1;
-	udev_add_device(&udev, class_dev);
-
+	if (udev.type == DEV_NET || udev.devt) {
+		udev_rules_get_name(&udev, class_dev);
+		udev_add_device(&udev, class_dev);
+	} else
+		info("only char and block devices with a dev-file are supported by this test program");
 	sysfs_close_class_device(class_dev);
 
 	return 0;

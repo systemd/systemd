@@ -31,6 +31,7 @@
 #define KEY_KERNEL		"KERNEL"
 #define KEY_SUBSYSTEM		"SUBSYSTEM"
 #define KEY_ACTION		"ACTION"
+#define KEY_DEVPATH		"DEVPATH"
 #define KEY_BUS			"BUS"
 #define KEY_ID			"ID"
 #define KEY_PROGRAM		"PROGRAM"
@@ -38,6 +39,7 @@
 #define KEY_DRIVER		"DRIVER"
 #define KEY_SYSFS		"SYSFS"
 #define KEY_ENV			"ENV"
+#define KEY_MODALIAS		"MODALIAS"
 #define KEY_NAME		"NAME"
 #define KEY_SYMLINK		"SYMLINK"
 #define KEY_OWNER		"OWNER"
@@ -62,6 +64,7 @@ enum key_operation {
 	KEY_OP_NOMATCH,
 	KEY_OP_ADD,
 	KEY_OP_ASSIGN,
+	KEY_OP_ASSIGN_FINAL,
 };
 
 struct key_pair {
@@ -79,6 +82,8 @@ struct udev_rule {
 	enum key_operation subsystem_operation;
 	char action[NAME_SIZE];
 	enum key_operation action_operation;
+	char devpath[PATH_SIZE];
+	enum key_operation devpath_operation;
 	char bus[NAME_SIZE];
 	enum key_operation bus_operation;
 	char id[NAME_SIZE];
@@ -93,13 +98,21 @@ struct udev_rule {
 	int sysfs_pair_count;
 	struct key_pair env_pair[KEY_ENV_PAIRS_MAX];
 	int env_pair_count;
+	enum key_operation modalias_operation;
+	char modalias[PATH_SIZE];
 
 	char name[PATH_SIZE];
+	enum key_operation name_operation;
 	char symlink[PATH_SIZE];
+	enum key_operation symlink_operation;
 	char owner[USER_SIZE];
+	enum key_operation owner_operation;
 	char group[USER_SIZE];
+	enum key_operation group_operation;
 	mode_t mode;
+	enum key_operation mode_operation;
 	char run[PATH_SIZE];
+	enum key_operation run_operation;
 
 	int last_rule;
 	int ignore_device;
@@ -114,7 +127,7 @@ extern struct list_head udev_rule_list;
 
 extern int udev_rules_init(void);
 extern int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_dev);
-extern int udev_rules_get_run(struct udevice *udev);
+extern int udev_rules_get_run(struct udevice *udev, struct sysfs_device *sysfs_device);
 extern void udev_rules_close(void);
 
 #endif

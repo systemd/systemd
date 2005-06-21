@@ -44,11 +44,13 @@ V=false
 ROOT =		udev
 DAEMON =	udevd
 SENDER =	udevsend
+INITSENDER =	udevinitsend
+RECORDER =	udeveventrecorder
+CONTROL =	udevcontrol
 INFO =		udevinfo
 TESTER =	udevtest
 STARTER =	udevstart
 VERSION =	058
-INSTALL_DIR =	/usr/local/bin
 RELEASE_NAME =	$(ROOT)-$(VERSION)
 LOCAL_CFG_DIR =	etc/udev
 DESTDIR =
@@ -61,10 +63,7 @@ etcdir =	${prefix}/etc
 sbindir =	${exec_prefix}/sbin
 usrbindir =	${exec_prefix}/usr/bin
 mandir =	${prefix}/usr/share/man
-hotplugdir =	${etcdir}/hotplug.d/default
 configdir =	${etcdir}/udev
-initdir = 	${etcdir}/init.d
-dev_ddir =	${etcdir}/dev.d
 srcdir = .
 
 INSTALL = /usr/bin/install -c
@@ -142,7 +141,6 @@ UDEV_OBJS = \
 	udev_remove.o		\
 	udev_sysfs.o		\
 	udev_db.o		\
-	udev_multiplex.o	\
 	udev_rules.o		\
 	udev_rules_parse.o	\
 	udev_libc_wrapper.o
@@ -178,7 +176,6 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	KLCC		= $(KLIBC_INSTALL)/bin/klcc
 	CC		= $(KLCC)
 	LD		= $(KLCC)
-	LDFLAGS		+= -static
 else
 	CFLAGS		+= -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
 endif
@@ -205,7 +202,7 @@ endif
 # config files automatically generated
 GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
 
-all: $(ROOT) $(SENDER) $(DAEMON) $(INFO) $(TESTER) $(STARTER) $(GEN_CONFIGS) $(KLCC)
+all: $(ROOT) $(SENDER) $(INITSENDER) $(RECORDER) $(CONTROL) $(DAEMON) $(INFO) $(TESTER) $(STARTER) $(GEN_CONFIGS) $(KLCC)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) \
@@ -250,8 +247,8 @@ udev_version.h:
 	@echo \#define UDEV_CONFIG_DIR		\"$(configdir)\" >> $@
 	@echo \#define UDEV_CONFIG_FILE		\"$(configdir)/udev.conf\" >> $@
 	@echo \#define UDEV_RULES_FILE		\"$(configdir)/rules.d\" >> $@
-	@echo \#define UDEV_BIN			\"$(DESTDIR)$(sbindir)/udev\" >> $@
-	@echo \#define UDEVD_BIN		\"$(DESTDIR)$(sbindir)/udevd\" >> $@
+	@echo \#define UDEV_BIN			\"$(sbindir)/udev\" >> $@
+	@echo \#define UDEVD_BIN		\"$(sbindir)/udevd\" >> $@
 
 # Rules on how to create the generated config files
 $(LOCAL_CFG_DIR)/udev.conf:
@@ -263,15 +260,18 @@ GEN_MANPAGESIN = udev.8.in
 $(GEN_MANPAGES): $(GEN_MANPAGESIN)
 	sed -e "s:@udevdir@:$(udevdir):" < $@.in > $@
 
-$(UDEV_OBJS): $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(SYSFS_OBJS): $(HOST_PROGS) $(KLCC)
-$(OBJS): $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(ROOT).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(TESTER).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(INFO).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(DAEMON).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(SENDER).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(STARTER).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
+$(UDEV_OBJS): $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
+$(SYSFS_OBJS): $(HEADERS) $(HOST_PROGS) $(KLCC)
+$(OBJS): $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
+$(ROOT).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
+$(TESTER).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
+$(INFO).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
+$(DAEMON).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
+$(SENDER).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
+$(INITSENDER).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
+$(RECORDER).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
+$(CONTROL).o: $(HEADERS) $( $(HEADERS)GEN_HEADERS) $(HOST_PROGS) $(KLCC)
+$(STARTER).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 
 $(ROOT): $(KLCC) $(ROOT).o $(OBJS) $(HEADERS) $(GEN_MANPAGES)
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(ROOT).o $(OBJS) $(LIB_OBJS)
@@ -293,6 +293,18 @@ $(SENDER): $(KLCC) $(SENDER).o $(OBJS) udevd.h
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(SENDER).o $(OBJS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
+$(INITSENDER): $(KLCC) $(INITSENDER).o $(OBJS) udevd.h
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(INITSENDER).o $(OBJS) $(LIB_OBJS)
+	$(QUIET) $(STRIPCMD) $@
+
+$(RECORDER): $(KLCC) $(RECORDER).o $(OBJS) udevd.h
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(RECORDER).o $(OBJS) $(LIB_OBJS)
+	$(QUIET) $(STRIPCMD) $@
+
+$(CONTROL): $(KLCC) $(CONTROL).o $(OBJS) udevd.h
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CONTROL).o $(OBJS) $(LIB_OBJS)
+	$(QUIET) $(STRIPCMD) $@
+
 $(STARTER): $(KLCC) $(STARTER).o $(OBJS)
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(STARTER).o $(OBJS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
@@ -304,7 +316,7 @@ clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
 	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) \
-	 $(SENDER) $(TESTER) $(STARTER)
+	 $(SENDER) $(INITSENDER) $(RECORDER) $(CONTROL) $(TESTER) $(STARTER)
 	-rm -f ccdv
 	$(MAKE) -C klibc SUBDIRS=klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
@@ -332,16 +344,6 @@ install-config:
 		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.rules $(DESTDIR)$(configdir)/rules.d/50-udev.rules; \
 	fi
 
-install-dev.d:
-	$(INSTALL) -d $(DESTDIR)$(dev_ddir)/default
-	$(INSTALL_PROGRAM) -D etc/dev.d/net/hotplug.dev $(DESTDIR)$(dev_ddir)/net/hotplug.dev
-
-uninstall-dev.d:
-	- rm $(dev_ddir)/net/hotplug.dev
-	- rmdir $(dev_ddir)/net
-	- rmdir $(dev_ddir)/default
-	- rmdir $(dev_ddir)
-
 install-man:
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
 	$(INSTALL_DATA) -D udevinfo.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
@@ -358,18 +360,18 @@ uninstall-man:
 	- rm $(mandir)/man8/udevd.8
 	- rm $(mandir)/man8/udevsend.8
 
-install: install-config install-man install-dev.d all
+install: install-config install-man all
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
-	$(INSTALL) -d $(DESTDIR)$(hotplugdir)
 	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
 	$(INSTALL_PROGRAM) -D $(DAEMON) $(DESTDIR)$(sbindir)/$(DAEMON)
 	$(INSTALL_PROGRAM) -D $(SENDER) $(DESTDIR)$(sbindir)/$(SENDER)
+	$(INSTALL_PROGRAM) -D $(CONTROL) $(DESTDIR)$(sbindir)/$(CONTROL)
 	$(INSTALL_PROGRAM) -D $(INFO) $(DESTDIR)$(usrbindir)/$(INFO)
 	$(INSTALL_PROGRAM) -D $(TESTER) $(DESTDIR)$(usrbindir)/$(TESTER)
 	$(INSTALL_PROGRAM) -D $(STARTER) $(DESTDIR)$(sbindir)/$(STARTER)
-	- ln -f -s $(sbindir)/$(SENDER) $(DESTDIR)$(hotplugdir)/10-udev.hotplug
 ifndef DESTDIR
 	- killall $(DAEMON)
+	- $(sbindir)/$(DAEMON) --daemon
 	- rm -rf $(udevdb)
 endif
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
@@ -378,8 +380,7 @@ endif
 			-C $$target $@ ; \
 	done ; \
 
-uninstall: uninstall-man uninstall-dev.d
-	- rm $(hotplugdir)/10-udev.hotplug
+uninstall: uninstall-man
 	- rm $(configdir)/rules.d/50-udev.rules
 	- rm $(configdir)/udev.conf
 	- rmdir $(configdir)/rules.d
@@ -387,10 +388,12 @@ uninstall: uninstall-man uninstall-dev.d
 	- rm $(sbindir)/$(ROOT)
 	- rm $(sbindir)/$(DAEMON)
 	- rm $(sbindir)/$(SENDER)
+	- rm $(sbindir)/$(INITSENDER)
+	- rm $(sbindir)/$(RECORDER)
+	- rm $(sbindir)/$(CONTROL)
 	- rm $(sbindir)/$(STARTER)
 	- rm $(usrbindir)/$(INFO)
 	- rm $(usrbindir)/$(TESTER)
-	- rmdir $(hotplugdir)
 	- rm -rf $(udevdb)
 	- rmdir $(udevdir)
 	- killall $(DAEMON)
