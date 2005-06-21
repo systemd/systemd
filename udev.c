@@ -200,13 +200,13 @@ int main(int argc, char *argv[], char *envp[])
 				info("device event will be ignored");
 				goto cleanup;
 			}
-		} else if (strcmp(action, "remove") == 0) {
-			dbg("devices remove");
-			udev_rules_get_run(&udev, NULL);
-			if (udev.ignore_device) {
-				info("device event will be ignored");
-				goto cleanup;
-			}
+		}
+	} else {
+		dbg("default handling");
+		udev_rules_get_run(&udev, NULL);
+		if (udev.ignore_device) {
+			info("device event will be ignored");
+			goto cleanup;
 		}
 	}
 
