@@ -48,6 +48,10 @@
 #include "udevd.h"
 #include "logging.h"
 
+#ifndef NETLINK_KOBJECT_UEVENT
+#define NETLINK_KOBJECT_UEVENT 15
+#endif
+
 /* global variables*/
 static int udevd_sock;
 static int uevent_netlink_sock;
