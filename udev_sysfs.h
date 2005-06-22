@@ -24,7 +24,7 @@
 
 #include "libsysfs/sysfs/libsysfs.h"
 
-#define WAIT_MAX_SECONDS		5
+#define WAIT_MAX_SECONDS		3
 #define WAIT_LOOP_PER_SECOND		20
 
 extern dev_t get_devt(struct sysfs_class_device *class_dev);

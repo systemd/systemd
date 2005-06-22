@@ -179,27 +179,25 @@ int main(int argc, char *argv[], char *envp[])
 		/* export name of device node or netif */
 		if (udev.devname[0] != '\0')
 			setenv("DEVNAME", udev.devname, 1);
-	} else if (udev.type == DEV_DEVICE) {
-		if (strcmp(action, "add") == 0) {
-			struct sysfs_device *devices_dev;
+	} else if (udev.type == DEV_DEVICE && strcmp(action, "add") == 0) {
+		struct sysfs_device *devices_dev;
 
-			/* wait for sysfs of /sys/devices/ */
-			dbg("devices add");
-			snprintf(path, sizeof(path), "%s%s", sysfs_path, devpath);
-			path[sizeof(path)-1] = '\0';
-			devices_dev = wait_devices_device_open(path);
-			if (!devices_dev) {
-				dbg("devices device unavailable (probably remove has beaten us)");
-				goto run;
-			}
-			dbg("devices device opened '%s'", path);
-			wait_for_devices_device(devices_dev, &error);
-			udev_rules_get_run(&udev, devices_dev);
-			sysfs_close_device(devices_dev);
-			if (udev.ignore_device) {
-				info("device event will be ignored");
-				goto cleanup;
-			}
+		/* wait for sysfs of /sys/devices/ */
+		dbg("devices add");
+		snprintf(path, sizeof(path), "%s%s", sysfs_path, devpath);
+		path[sizeof(path)-1] = '\0';
+		devices_dev = wait_devices_device_open(path);
+		if (!devices_dev) {
+			dbg("devices device unavailable (probably remove has beaten us)");
+			goto run;
+		}
+		dbg("devices device opened '%s'", path);
+		wait_for_devices_device(devices_dev, &error);
+		udev_rules_get_run(&udev, devices_dev);
+		sysfs_close_device(devices_dev);
+		if (udev.ignore_device) {
+			info("device event will be ignored");
+			goto cleanup;
 		}
 	} else {
 		dbg("default handling");
