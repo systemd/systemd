@@ -247,7 +247,7 @@ int file_map(const char *filename, char **buf, size_t *bufsize)
 	return 0;
 }
 
-void file_unmap(char *buf, size_t bufsize)
+void file_unmap(void *buf, size_t bufsize)
 {
 	munmap(buf, bufsize);
 }

@@ -44,6 +44,7 @@ V=false
 ROOT =		udev
 DAEMON =	udevd
 SENDER =	udevsend
+COMPILE =	udevrulescompile
 INITSENDER =	udevinitsend
 RECORDER =	udeveventrecorder
 CONTROL =	udevcontrol
@@ -202,7 +203,8 @@ endif
 # config files automatically generated
 GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
 
-all: $(ROOT) $(SENDER) $(INITSENDER) $(RECORDER) $(CONTROL) $(DAEMON) $(INFO) $(TESTER) $(STARTER) $(GEN_CONFIGS) $(KLCC)
+all: $(ROOT) $(SENDER) $(COMPILE) $(INITSENDER) $(RECORDER) $(CONTROL) \
+	$(DAEMON) $(COMPILE) $(INFO) $(TESTER) $(STARTER) $(GEN_CONFIGS) $(KLCC)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
 		$(MAKE) prefix=$(prefix) \
@@ -268,6 +270,7 @@ $(TESTER).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(INFO).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(DAEMON).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(SENDER).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
+$(COMPILE).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(INITSENDER).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(RECORDER).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(CONTROL).o: $(HEADERS) $( $(HEADERS)GEN_HEADERS) $(HOST_PROGS) $(KLCC)
@@ -293,6 +296,10 @@ $(SENDER): $(KLCC) $(SENDER).o $(OBJS) udevd.h
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(SENDER).o $(OBJS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
+$(COMPILE): $(KLCC) $(COMPILE).o $(OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(COMPILE).o $(OBJS) $(LIB_OBJS)
+	$(QUIET) $(STRIPCMD) $@
+
 $(INITSENDER): $(KLCC) $(INITSENDER).o $(OBJS) udevd.h
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(INITSENDER).o $(OBJS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
@@ -316,7 +323,7 @@ clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
 	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) \
-	 $(SENDER) $(INITSENDER) $(RECORDER) $(CONTROL) $(TESTER) $(STARTER)
+	 $(SENDER) $(COMPILE) $(INITSENDER) $(RECORDER) $(CONTROL) $(TESTER) $(STARTER)
 	-rm -f ccdv
 	$(MAKE) -C klibc SUBDIRS=klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \

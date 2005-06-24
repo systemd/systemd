@@ -123,11 +123,13 @@ struct udev_rule {
 	int config_line;
 };
 
-extern struct list_head udev_rule_list;
-
 extern int udev_rules_init(void);
+extern void udev_rules_close(void);
+
+extern int udev_rules_iter_init(void);
+extern struct udev_rule *udev_rules_iter_next(void);
+
 extern int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_dev);
 extern int udev_rules_get_run(struct udevice *udev, struct sysfs_device *sysfs_device);
-extern void udev_rules_close(void);
 
 #endif

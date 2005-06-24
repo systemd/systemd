@@ -37,9 +37,45 @@
 #include "logging.h"
 #include "udev_rules.h"
 
-LIST_HEAD(udev_rule_list);
+/* rules parsed from .rules files*/
+static LIST_HEAD(rules_list);
+static struct list_head *rules_list_current;
 
-static int add_config_dev(struct udev_rule *rule)
+/* mapped compiled rules stored on disk */
+static struct udev_rule *rules_array = NULL;
+static size_t rules_array_current;
+static size_t rules_array_size = 0;
+
+static size_t rules_count = 0;
+
+int udev_rules_iter_init(void)
+{
+	rules_list_current = rules_list.next;
+	rules_array_current = 0;
+
+	return 0;
+}
+
+struct udev_rule *udev_rules_iter_next(void)
+{
+	static struct udev_rule *rule;
+
+	if (rules_array) {
+		if (rules_array_current >= rules_count)
+			return NULL;
+		rule = &rules_array[rules_array_current];
+		rules_array_current++;
+	} else {
+		dbg("head=%p current=%p next=%p", &rules_list, rules_list_current, rules_list_current->next);
+		if (rules_list_current == &rules_list)
+			return NULL;
+		rule = list_entry(rules_list_current, struct udev_rule, node);
+		rules_list_current = rules_list_current->next;
+	}
+	return rule;
+}
+
+static int add_rule_to_list(struct udev_rule *rule)
 {
 	struct udev_rule *tmp_rule;
 
@@ -47,7 +83,7 @@ static int add_config_dev(struct udev_rule *rule)
 	if (tmp_rule == NULL)
 		return -ENOMEM;
 	memcpy(tmp_rule, rule, sizeof(struct udev_rule));
-	list_add_tail(&tmp_rule->node, &udev_rule_list);
+	list_add_tail(&tmp_rule->node, &rules_list);
 
 	dbg("name='%s', symlink='%s', bus='%s', id='%s', "
 	    "sysfs_file[0]='%s', sysfs_value[0]='%s', "
@@ -451,9 +487,9 @@ static int rules_parse(const char *filename)
 
 		rule.config_line = lineno;
 		strlcpy(rule.config_file, filename, sizeof(rule.config_file));
-		retval = add_config_dev(&rule);
+		retval = add_rule_to_list(&rule);
 		if (retval) {
-			dbg("add_config_dev returned with error %d", retval);
+			dbg("add_rule_to_list returned with error %d", retval);
 			continue;
 error:
 			err("parse error %s, line %d:%d, rule skipped",
@@ -465,20 +501,47 @@ error:
 	return retval;
 }
 
+static int rules_map(const char *filename)
+{
+	char *buf;
+	size_t size;
+
+	if (file_map(filename, &buf, &size))
+		return -1;
+	if (size == 0)
+		return -1;
+	rules_array = (struct udev_rule *) buf;
+	rules_array_size = size;
+	rules_count = size / sizeof(struct udev_rule);
+	dbg("found %zi compiled rules", rules_count);
+
+	return 0;
+}
+
 int udev_rules_init(void)
 {
+	char comp[PATH_SIZE];
 	struct stat stats;
 	int retval;
+
+	strlcpy(comp, udev_rules_filename, sizeof(comp));
+	strlcat(comp, ".compiled", sizeof(comp));
+	if (stat(comp, &stats) == 0) {
+		dbg("parse compiled rules '%s'", comp);
+		return rules_map(comp);
+	}
 
 	if (stat(udev_rules_filename, &stats) != 0)
 		return -1;
 
-	if ((stats.st_mode & S_IFMT) != S_IFDIR)
+	if ((stats.st_mode & S_IFMT) != S_IFDIR) {
+		dbg("parse single rules file '%s'", udev_rules_filename);
 		retval = rules_parse(udev_rules_filename);
-	else {
+	} else {
 		struct name_entry *name_loop, *name_tmp;
 		LIST_HEAD(name_list);
 
+		dbg("parse rules directory '%s'", udev_rules_filename);
 		retval = add_matching_files(&name_list, udev_rules_filename, RULEFILE_SUFFIX);
 
 		list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
@@ -495,9 +558,11 @@ void udev_rules_close(void)
 	struct udev_rule *rule;
 	struct udev_rule *temp_rule;
 
-	list_for_each_entry_safe(rule, temp_rule, &udev_rule_list, node) {
-		list_del(&rule->node);
-		free(rule);
-	}
+	if (rules_array)
+		file_unmap(rules_array, rules_array_size);
+	else
+		list_for_each_entry_safe(rule, temp_rule, &rules_list, node) {
+			list_del(&rule->node);
+			free(rule);
+		}
 }
-

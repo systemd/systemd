@@ -846,7 +846,12 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 	dbg("udev->kernel_name='%s'", udev->kernel_name);
 
 	/* look for a matching rule to apply */
-	list_for_each_entry(rule, &udev_rule_list, node) {
+	udev_rules_iter_init();
+	while (1) {
+		rule = udev_rules_iter_next();
+		if (rule == NULL)
+			break;
+
 		if (udev->name_set && rule->name_operation != KEY_OP_UNSET) {
 			dbg("node name already set, rule ignored");
 			continue;
@@ -1000,9 +1005,13 @@ int udev_rules_get_run(struct udevice *udev, struct sysfs_device *sysfs_device)
 	struct udev_rule *rule;
 
 	/* look for a matching rule to apply */
-	list_for_each_entry(rule, &udev_rule_list, node) {
-		dbg("process rule");
+	udev_rules_iter_init();
+	while (1) {
+		rule = udev_rules_iter_next();
+		if (rule == NULL)
+			break;
 
+		dbg("process rule");
 		if (rule->run_operation == KEY_OP_UNSET)
 			continue;
 
