@@ -1,6 +1,6 @@
 #/bin/sh
 
-EXTRAS="extras/chassis_id extras/scsi_id extras/volume_id extras/run_directory"
+EXTRAS="extras/chassis_id extras/scsi_id extras/ata_id extras/volume_id extras/run_directory"
 
 [ -z "$KERNEL_DIR" ] && KERNEL_DIR=/lib/modules/`uname -r`/build
 echo KERNEL_DIR: "$KERNEL_DIR"
