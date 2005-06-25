@@ -259,12 +259,22 @@ BUS=="scsi", ID=="0:0:0:0", NAME="M%M-m%m-n%n-b%3b-s%3s{vendor}"
 EOF
 	},
 	{
-		desc		=> "import of shellvalue file",
+		desc		=> "import of shell-value file",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "subdir/sys/node" ,
 		rules		=> <<EOF
 BUS=="scsi", IMPORT="test.all", NAME="subdir%E{SYSFSDIR}/node"
+KERNEL=="ttyUSB0", NAME="visor"
+EOF
+	},
+	{
+		desc		=> "import of shell-value returned from program",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "node12345678",
+		rules		=> <<EOF
+BUS=="scsi", IMPORT{exec}="/bin/echo -e \' TEST_KEY=12345678  \\n  TEST_key2=98765 \'", NAME="node\$env{TEST_KEY}"
 KERNEL=="ttyUSB0", NAME="visor"
 EOF
 	},

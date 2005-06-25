@@ -99,10 +99,11 @@ struct udev_rule {
 	int sysfs_pair_count;
 	struct key_pair env_pair[KEY_ENV_PAIRS_MAX];
 	int env_pair_count;
+	char modalias[NAME_SIZE];
 	enum key_operation modalias_operation;
-	char modalias[PATH_SIZE];
-	enum key_operation import_operation;
 	char import[PATH_SIZE];
+	enum key_operation import_operation;
+	int import_exec;
 
 	char name[PATH_SIZE];
 	enum key_operation name_operation;

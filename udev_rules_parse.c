@@ -375,7 +375,12 @@ static int rules_parse(const char *filename)
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_IMPORT) == 0) {
+			if (strncasecmp(key, KEY_IMPORT, sizeof(KEY_IMPORT)-1) == 0) {
+				attr = get_key_attribute(key + sizeof(KEY_IMPORT)-1);
+				if (attr && strstr(attr, "exec")) {
+					dbg(KEY_IMPORT" will be executed");
+					rule.import_exec = 1;
+				}
 				strlcpy(rule.import, value, sizeof(rule.import));
 				rule.import_operation = operation;
 				valid = 1;
@@ -411,7 +416,6 @@ static int rules_parse(const char *filename)
 						dbg("creation of partition nodes requested");
 						rule.partitions = DEFAULT_PARTITIONS_COUNT;
 					}
-					/* FIXME: remove old style option and make OPTIONS= mandatory */
 					if (strstr(attr, OPTION_IGNORE_REMOVE) != NULL) {
 						dbg("remove event should be ignored");
 						rule.ignore_remove = 1;

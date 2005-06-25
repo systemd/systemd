@@ -241,8 +241,8 @@ static int import_keys_into_env(const char *buf, size_t bufsize)
 
 		linepos = line;
 		if (get_key(&linepos, &variable, &value) == 0) {
-			dbg("import %s=%s", variable, value);
-			setenv(variable, value, 0);
+			dbg("import '%s=%s'", variable, value);
+			setenv(variable, value, 1);
 		}
 	}
 
@@ -264,11 +264,18 @@ static int import_file_into_env(const char *filename)
 	return 0;
 }
 
-/** Finds the lowest positive N such that <name>N isn't present in 
- *  $(udevroot) either as a file or a symlink.
- *
- *  @param  name                Name to check for
- *  @return                     0 if <name> didn't exist and N otherwise.
+static int import_program_into_env(struct udevice *udev, const char *program)
+{
+	char result[1024];
+	size_t reslen;
+
+	if (execute_program(program, udev->subsystem, result, sizeof(result), &reslen) != 0)
+		return -1;
+	return import_keys_into_env(result, reslen);
+}
+
+/* finds the lowest positive N such that <name>N isn't present in the udevdb
+ * if <name> doesn't exist, 0 is returned, N otherwise
  */
 static int find_free_number(struct udevice *udev, const char *name)
 {
@@ -811,16 +818,24 @@ try_parent:
 	/* import variables from file into environment */
 	if (rule->import_operation != KEY_OP_UNSET) {
 		char import[PATH_SIZE];
+		int rc = -1;
 
 		strlcpy(import, rule->import, sizeof(import));
 		apply_format(udev, import, sizeof(import), class_dev, sysfs_device);
-		dbg("check for " KEY_IMPORT " import='%s", import);
-		if (import_file_into_env(import) != 0) {
+		dbg("check for " KEY_IMPORT " import='%s'", import);
+		if (rule->import_exec) {
+			dbg("run executable file import='%s'", import);
+			rc = import_program_into_env(udev, import);
+		} else {
+			dbg("import file import='%s'", import);
+			rc = import_file_into_env(import);
+		}
+		if (rc) {
 			dbg(KEY_IMPORT " failed");
 			if (rule->import_operation != KEY_OP_NOMATCH)
 				goto exit;
 		} else
-			dbg(KEY_IMPORT " file '%s' imported", rule->import);
+			dbg(KEY_IMPORT " '%s' imported", rule->import);
 		dbg(KEY_IMPORT " key is true");
 	}
 
