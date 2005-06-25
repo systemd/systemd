@@ -45,6 +45,7 @@ extern void remove_trailing_char(char *path, char c);
 extern void replace_untrusted_chars(char *string);
 extern int name_list_add(struct list_head *name_list, const char *name, int sort);
 extern int add_matching_files(struct list_head *name_list, const char *dirname, const char *suffix);
-extern int execute_command(const char *command, const char *subsystem);
+extern int execute_program(const char *command, const char *subsystem,
+			   char *result, size_t ressize, size_t *reslen);
 
 #endif

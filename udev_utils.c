@@ -361,15 +361,20 @@ int add_matching_files(struct list_head *name_list, const char *dirname, const c
 	return 0;
 }
 
-int execute_command(const char *command, const char *subsystem)
+int execute_program(const char *command, const char *subsystem,
+		    char *result, size_t ressize, size_t *reslen)
 {
-	int retval;
+	int retval = 0;
+	int count;
+	int status;
+	int pipefds[2];
 	pid_t pid;
-	char arg[PATH_SIZE];
-	char *argv[(PATH_SIZE / 2) + 1];
 	char *pos;
+	char arg[PATH_SIZE];
+	char *argv[(sizeof(arg) / 2) + 1];
 	int devnull;
 	int i;
+	size_t len;
 
 	strlcpy(arg, command, sizeof(arg));
 	i = 0;
@@ -397,27 +402,68 @@ int execute_command(const char *command, const char *subsystem)
 		dbg("execute '%s' with subsystem '%s' argument", arg, argv[1]);
 	}
 
+	if (result) {
+		if (pipe(pipefds) != 0) {
+			err("pipe failed");
+			return -1;
+		}
+	}
+
 	pid = fork();
-	switch (pid) {
+	switch(pid) {
 	case 0:
-		/* child */
+		/* child dup2 write side of pipe to STDOUT */
 		devnull = open("/dev/null", O_RDWR);
 		if (devnull >= 0) {
 			dup2(devnull, STDIN_FILENO);
-			dup2(devnull, STDOUT_FILENO);
+			if (!result)
+				dup2(devnull, STDOUT_FILENO);
 			dup2(devnull, STDERR_FILENO);
 			close(devnull);
 		}
-		retval = execv(arg, argv);
-		err("exec of child '%s' failed", command);
+		if (result)
+			dup2(pipefds[1], STDOUT_FILENO);
+		execv(arg, argv);
+		err("exec of program failed");
 		_exit(1);
 	case -1:
-		dbg("fork of child '%s' failed", command);
-		break;
+		err("fork of '%s' failed", arg);
 		return -1;
 	default:
-		waitpid(pid, NULL, 0);
+		/* parent reads from pipefds[0] */
+		if (result) {
+			close(pipefds[1]);
+			len = 0;
+			while (1) {
+				count = read(pipefds[0], result + len, ressize - len-1);
+				if (count < 0) {
+					err("read failed with '%s'", strerror(errno));
+					retval = -1;
+					break;
+				}
+
+				if (count == 0)
+					break;
+
+				len += count;
+				if (len >= ressize-1) {
+					err("ressize %d too short", ressize);
+					retval = -1;
+					break;
+				}
+			}
+			result[len] = '\0';
+			close(pipefds[0]);
+			if (reslen)
+				*reslen = len;
+		}
+		waitpid(pid, &status, 0);
+
+		if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
+			dbg("exec program status 0x%x", status);
+			retval = -1;
+		}
 	}
 
-	return 0;
+	return retval;
 }

@@ -200,24 +200,16 @@ static int get_key(char **line, char **key, char **value)
 	return 0;
 }
 
-static int import_file_into_env(const char *filename)
+static int import_keys_into_env(const char *buf, size_t bufsize)
 {
 	char line[LINE_SIZE];
-	char *bufline;
+	const char *bufline;
 	char *linepos;
 	char *variable;
 	char *value;
-	char *buf;
-	size_t bufsize;
 	size_t cur;
 	size_t count;
 	int lineno;
-	int retval = 0;
-
-	if (file_map(filename, &buf, &bufsize) != 0) {
-		err("can't open '%s'", filename);
-		return -1;
-	}
 
 	/* loop through the whole file */
 	lineno = 0;
@@ -254,8 +246,22 @@ static int import_file_into_env(const char *filename)
 		}
 	}
 
+	return 0;
+}
+
+static int import_file_into_env(const char *filename)
+{
+	char *buf;
+	size_t bufsize;
+
+	if (file_map(filename, &buf, &bufsize) != 0) {
+		err("can't open '%s'", filename);
+		return -1;
+	}
+	import_keys_into_env(buf, bufsize);
 	file_unmap(buf, bufsize);
-	return retval;
+
+	return 0;
 }
 
 /** Finds the lowest positive N such that <name>N isn't present in 
@@ -576,115 +582,8 @@ found:
 			head[len] = '\0';
 			dbg("truncate to %i chars, subtitution string becomes '%s'", len, head);
 		}
-
 		strlcat(string, temp, maxsize);
 	}
-}
-
-static int execute_program_pipe(const char *command, const char *subsystem, char *value, int len)
-{
-	int retval;
-	int count;
-	int status;
-	int pipefds[2];
-	pid_t pid;
-	char *pos;
-	char arg[PATH_SIZE];
-	char *argv[(sizeof(arg) / 2) + 1];
-	int devnull;
-	int i;
-
-	strlcpy(arg, command, sizeof(arg));
-	i = 0;
-	if (strchr(arg, ' ')) {
-		pos = arg;
-		while (pos != NULL) {
-			if (pos[0] == '\'') {
-				/* don't separate if in apostrophes */
-				pos++;
-				argv[i] = strsep(&pos, "\'");
-				while (pos && pos[0] == ' ')
-					pos++;
-			} else {
-				argv[i] = strsep(&pos, " ");
-			}
-			dbg("arg[%i] '%s'", i, argv[i]);
-			i++;
-		}
-		argv[i] =  NULL;
-		dbg("execute '%s' with parsed arguments", arg);
-	} else {
-		argv[0] = arg;
-		argv[1] = (char *) subsystem;
-		argv[2] = NULL;
-		dbg("execute '%s' with subsystem '%s' argument", arg, argv[1]);
-	}
-
-	retval = pipe(pipefds);
-	if (retval != 0) {
-		err("pipe failed");
-		return -1;
-	}
-
-	pid = fork();
-	switch(pid) {
-	case 0:
-		/* child dup2 write side of pipe to STDOUT */
-		devnull = open("/dev/null", O_RDWR);
-		if (devnull >= 0) {
-			dup2(devnull, STDIN_FILENO);
-			dup2(devnull, STDERR_FILENO);
-			close(devnull);
-		}
-		dup2(pipefds[1], STDOUT_FILENO);
-		retval = execv(arg, argv);
-		err("exec of program failed");
-		_exit(1);
-	case -1:
-		err("fork of '%s' failed", arg);
-		retval = -1;
-		break;
-	default:
-		/* parent reads from pipefds[0] */
-		close(pipefds[1]);
-		retval = 0;
-		i = 0;
-		while (1) {
-			count = read(pipefds[0], value + i, len - i-1);
-			if (count < 0) {
-				err("read failed with '%s'", strerror(errno));
-				retval = -1;
-			}
-
-			if (count == 0)
-				break;
-
-			i += count;
-			if (i >= len-1) {
-				err("result len %d too short", len);
-				retval = -1;
-				break;
-			}
-		}
-		value[i] = '\0';
-
-		close(pipefds[0]);
-		waitpid(pid, &status, 0);
-
-		if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
-			dbg("exec program status 0x%x", status);
-			retval = -1;
-		}
-	}
-
-	if (!retval) {
-		remove_trailing_char(value, '\n');
-		dbg("result is '%s'", value);
-		replace_untrusted_chars(value);
-	} else
-		value[0] = '\0';
-
-	return retval;
 }
 
 static int match_rule(struct udevice *udev, struct udev_rule *rule,
@@ -909,34 +808,40 @@ try_parent:
 		dbg("look at sysfs_device->bus_id='%s'", parent_device->bus_id);
 	}
 
+	/* import variables from file into environment */
 	if (rule->import_operation != KEY_OP_UNSET) {
 		char import[PATH_SIZE];
 
 		strlcpy(import, rule->import, sizeof(import));
 		apply_format(udev, import, sizeof(import), class_dev, sysfs_device);
 		dbg("check for " KEY_IMPORT " import='%s", import);
-		if (import_file_into_env(import) == 0) {
-			dbg(KEY_IMPORT " file '%s' imported", rule->import);
-			if (rule->import_operation == KEY_OP_NOMATCH)
+		if (import_file_into_env(import) != 0) {
+			dbg(KEY_IMPORT " failed");
+			if (rule->import_operation != KEY_OP_NOMATCH)
 				goto exit;
 		} else
-			goto exit;
+			dbg(KEY_IMPORT " file '%s' imported", rule->import);
 		dbg(KEY_IMPORT " key is true");
 	}
 
 	/* execute external program */
 	if (rule->program_operation != KEY_OP_UNSET) {
 		char program[PATH_SIZE];
+		char result[PATH_SIZE];
 
 		strlcpy(program, rule->program, sizeof(program));
 		apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
 		dbg("check for " KEY_PROGRAM " program='%s", program);
-		if (execute_program_pipe(program, udev->subsystem,
-					 udev->program_result, sizeof(udev->program_result)) != 0) {
-			dbg(KEY_PROGRAM " returned nonzero");
+		if (execute_program(program, udev->subsystem, result, sizeof(result), NULL) != 0) {
+			dbg(KEY_PROGRAM " is not matching");
 			if (rule->program_operation != KEY_OP_NOMATCH)
 				goto exit;
 		} else {
+			dbg(KEY_PROGRAM " matches");
+			remove_trailing_char(result, '\n');
+			replace_untrusted_chars(result);
+			dbg("result is '%s'", result);
+			strlcpy(udev->program_result, result, sizeof(udev->program_result));
 			dbg(KEY_PROGRAM " returned successful");
 			if (rule->program_operation == KEY_OP_NOMATCH)
 				goto exit;

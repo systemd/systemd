@@ -214,7 +214,7 @@ run:
 
 		dbg("executing run list");
 		list_for_each_entry(name_loop, &udev.run_list, node)
-			execute_command(name_loop->name, udev.subsystem);
+			execute_program(name_loop->name, udev.subsystem, NULL, 0, NULL);
 	}
 
 cleanup:
