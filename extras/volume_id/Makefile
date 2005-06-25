@@ -1,13 +1,13 @@
-# Makefile for udev_volume_id
+# Makefile for volume_id
 #
-# Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+# Copyright (C) 2004, 2005 Kay Sievers <kay.sievers@vrfy.org>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; version 2 of the License.
 #
 
-PROG = udev_volume_id
+PROG = vol_id
 
 all:	$(PROG)
 
@@ -33,7 +33,7 @@ override CFLAGS+=-D_FILE_OFFSET_BITS=64
 VOLUME_ID_BASE=volume_id
 include $(VOLUME_ID_BASE)/Makefile.inc
 
-OBJS = udev_volume_id.o $(VOLUME_ID_OBJS) ../../udev.a
+OBJS = vol_id.o $(VOLUME_ID_OBJS) ../../udev.a
 HEADERS = $(VOLUME_ID_HEADERS)
 
 $(OBJS): $(HEADERS)

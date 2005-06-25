@@ -81,6 +81,7 @@ static void set_str(char *to, const unsigned char *from, int count)
 		case '/':
 		case ' ':
 			to[j++] = '_';
+			break;
 		default:
 			to[j++] = from[i];
 		}

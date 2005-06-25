@@ -64,60 +64,83 @@ void log_message(int priority, const char *format, ...)
 }
 #endif
 
-extern int optind;
+static void set_str(char *to, const unsigned char *from, int count)
+{
+	int i, j;
+	int len;
+
+	len = strnlen(from, count);
+	while (isspace(from[len-1]))
+		len--;
+
+	i = 0;
+	while (isspace(from[i]) && (i < len))
+		i++;
+
+	j = 0;
+	while (i < len) {
+		switch(from[i]) {
+		case '/':
+			break;
+		case ' ':
+			to[j++] = '_';
+			break;
+		default:
+			to[j++] = from[i];
+		}
+		i++;
+	}
+	to[j] = '\0';
+}
 
 int main(int argc, char *argv[])
 {
-	const char help[] = "usage: udev_volume_id [-t|-l|-u] <device>\n"
+	const char help[] = "usage: udev_volume_id [--export|-t|-l|-u] <device>\n"
+			    "       --export\n"
 			    "       -t filesystem type\n"
 			    "       -l filesystem label\n"
 			    "       -u filesystem uuid\n"
 			    "\n";
-	static const char short_options[] = "htlu";
+	enum print_type {
+		PRINT_EXPORT,
+		PRINT_TYPE,
+		PRINT_LABEL,
+		PRINT_UUID,
+	} print = PRINT_EXPORT;
 	struct volume_id *vid = NULL;
-	const char *device;
-	char print = 'a';
 	static char name[VOLUME_ID_LABEL_SIZE];
-	int len, i, j;
+	int i;
 	unsigned long long size;
-	int rc = 1;
+	const char *node = NULL;
+	int rc = 0;
 
 	logging_init("udev_volume_id");
 
-	while (1) {
-		int option;
+	for (i = 1 ; i < argc; i++) {
+		char *arg = argv[i];
 
-		option = getopt(argc, argv, short_options);
-		if (option == -1)
-			break;
-
-		switch (option) {
-		case 't':
-			print = 't';
-			continue;
-		case 'l':
-			print = 'l';
-			continue;
-		case 'u':
-			print = 'u';
-			continue;
-		case 'h':
-		case '?':
-		default:
-			printf(help);
-			exit(1);
-		}
+		if (strcmp(arg, "--export") == 0) {
+			print = PRINT_EXPORT;
+		} else if (strcmp(arg, "-t") == 0) {
+			print = PRINT_TYPE;
+		} else if (strcmp(arg, "-l") == 0) {
+			print = PRINT_LABEL;
+		} else if (strcmp(arg, "-u") == 0) {
+			print = PRINT_UUID;
+		} else
+			node = arg;
+	}
+	if (!node) {
+		err("no node specified");
+		fprintf(stderr, help);
+		rc = 1;
+		goto exit;
 	}
 
-	device = argv[optind];
-	if (device == NULL) {
-		printf(help);
-		exit(1);
-	}
-
-	vid = volume_id_open_node(device);
+	vid = volume_id_open_node(node);
 	if (vid == NULL) {
-		printf("error open volume\n");
+		fprintf(stderr, "error open volume\n");
+		rc = 2;
 		goto exit;
 	}
 
@@ -130,69 +153,46 @@ int main(int argc, char *argv[])
 	if (volume_id_probe_dasd(vid) == 0)
 		goto print;
 
-	printf("unknown volume type\n");
+	fprintf(stderr, "unknown volume type\n");
+	rc = 3;
 	goto exit;
 
-
 print:
-	len = strnlen(vid->label, VOLUME_ID_LABEL_SIZE);
-
-	/* remove trailing spaces */
-	while (len > 0 && isspace(vid->label[len-1]))
-		len--;
-	name[len] = '\0';
-
-	/* substitute chars */
-	i = 0;
-	j = 0;
-	while (j < len) {
-		switch(vid->label[j]) {
-		case '/' :
-			break;
-		case ' ' :
-			name[i++] = '_';
-			break;
-		default :
-			name[i++] = vid->label[j];
-		}
-		j++;
-	}
-	name[i] = '\0';
+	set_str(name, vid->label, sizeof(vid->label));
 
 	switch (print) {
-	case 't':
+	case PRINT_EXPORT:
+		printf("ID_FS_USAGE=%s\n", vid->usage);
+		printf("ID_FS_TYPE=%s\n", vid->type);
+		printf("ID_FS_VERSION=%s\n", vid->type_version);
+		printf("ID_FS_UUID=%s\n", vid->uuid);
+		printf("ID_FS_LABEL=%s\n", vid->label);
+		printf("ID_FS_LABEL_SAFE=%s\n", name);
+		break;
+	case PRINT_TYPE:
 		printf("%s\n", vid->type);
 		break;
-	case 'l':
+	case PRINT_LABEL:
 		if (name[0] == '\0' ||
 		    (vid->usage_id != VOLUME_ID_FILESYSTEM && vid->usage_id != VOLUME_ID_DISKLABEL)) {
-			rc = 2;
+			rc = 3;
 			goto exit;
 		}
 		printf("%s\n", name);
 		break;
-	case 'u':
+	case PRINT_UUID:
 		if (vid->uuid[0] == '\0' || vid->usage_id != VOLUME_ID_FILESYSTEM) {
-			rc = 2;
+			rc = 4;
 			goto exit;
 		}
 		printf("%s\n", vid->uuid);
 		break;
-	case 'a':
-		printf("F:%s\n", vid->usage);
-		printf("T:%s\n", vid->type);
-		printf("V:%s\n", vid->type_version);
-		printf("L:%s\n", vid->label);
-		printf("N:%s\n", name);
-		printf("U:%s\n", vid->uuid);
 	}
-	rc = 0;
 
 exit:
 	if (vid != NULL)
 		volume_id_close(vid);
 
 	logging_close();
-
-	exit(rc);
+	return rc;
 }

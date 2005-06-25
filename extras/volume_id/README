@@ -1,43 +1,73 @@
-
-udev_volume_id - partition, filesystem, disklabel reader
+vol_id - partition, filesystem, disklabel reader
 
 This program is normally called from a udev rule, to provide udev with the
 name, uuid or the filesystem type of a partition to name a device node.
-udev_volume_id opens the blockdevice node specified at the commandline.
-The following commandline switches are supported to specify what udev_volume_id
-should print to stdout:
+vol_id opens the blockdevice node specified at the commandline.
+The following commandline switches are supported to specify what vol_id
+should print:
 
-       no option prints all values
-  -h   prints help text
-  -l   prints the label of the partition
-  -u   prints the uuid of the partition
+  --export prints all values
+  -h       prints help text
+  -l       prints the label of the partition
+  -u       prints the uuid of the partition
 
-udev_volume_id will only return successful if the string asked for, is not
+vol_id will only return successful if the string asked for, is not
 empty. All trailing whitespace will be removed, spaces replaced by underscore
 and slashes ignored.
 
-The following rule will create a symlink named with the label string:
-  KERNEL="[hs]d*", PROGRAM="/sbin/udev_volume_id -l %N", SYMLINK="%c"
+fstype                 probe  label  uuid  fsversion
+----------------------------------------------------
+ext                    *      *      *     *
+reiserfs jr/3.5/3.6/4  *      *      *     *
+fat (12, 16, 32)       *      *      *     *
+ntfs                   *      *      *     *
+jfs                    *      *      *     -
+xfs                    *      *      *     -
+hfs (plus, wrapped)    *      *      *     -
+udf                    *      *      -     -
+iso9660                *      *      n/a   -
+ufs                    *      -      -     -
+linux swap             *      *      *     *
+LVM 1                  *      -      -     -
+LVM 2                  *      -      -     *
+linux raid             *      -      *     *
+cramfs                 *      *      -     -
+sysv                   *      *      -     *
+luks                   *      -      *     -
+hpfs                   *      -      -     -
+romfs                  *
+minix                  *
+dasd                   *
+highpoint              *
+isw_raid               *
+lsi_raid               *
+nvidia_raid            *
+promise_raid           *
+silicon_raid           *
+via_raid               *
+mac partitons          *
+msdos partitions       *
 
-If no label is found udev_volume_id exits with nonzero and the rule will be
+
+The following rule will create a symlink named with the label string:
+  KERNEL=="[hs]d*", PROGRAM=="/sbin/vol_id -l %N", SYMLINK+="%c"
+
+If no label is found vol_id exits with nonzero and the rule will be
 ignored.
 
 To give it a try, you may call it on the commandline:
-
-  [root@pim udev.kay]# extras/volume_id/udev_volume_id /dev/hda3
+  [root@pim udev.kay]# extras/volume_id/vol_id /dev/hda3
   T:ext3
   L:Music Store
   N:Music_Store
   U:d2da42b5-bbd9-44eb-a72c-cc4542fcb71e
 
-  [root@pim udev.kay]# extras/volume_id/udev_volume_id -l /dev/hda3
+  [root@pim udev.kay]# extras/volume_id/vol_id -l /dev/hda3
   Music_Store
 
-  [root@pim udev.kay]# extras/volume_id/udev_volume_id -t /dev/hda3
+  [root@pim udev.kay]# extras/volume_id/vol_id -t /dev/hda3
   swap
 
 
-Please send any comment/questions/concerns to me or:
-	linux-hotplug-devel@lists.sourceforge.net
-
+Any comment/questions/concerns to me:
 Kay Sievers <kay.sievers@vrfy.org>
