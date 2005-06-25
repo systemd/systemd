@@ -40,6 +40,7 @@
 #define KEY_SYSFS		"SYSFS"
 #define KEY_ENV			"ENV"
 #define KEY_MODALIAS		"MODALIAS"
+#define KEY_IMPORT		"IMPORT"
 #define KEY_NAME		"NAME"
 #define KEY_SYMLINK		"SYMLINK"
 #define KEY_OWNER		"OWNER"
@@ -100,6 +101,8 @@ struct udev_rule {
 	int env_pair_count;
 	enum key_operation modalias_operation;
 	char modalias[PATH_SIZE];
+	enum key_operation import_operation;
+	char import[PATH_SIZE];
 
 	char name[PATH_SIZE];
 	enum key_operation name_operation;

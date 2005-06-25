@@ -259,6 +259,16 @@ BUS=="scsi", ID=="0:0:0:0", NAME="M%M-m%m-n%n-b%3b-s%3s{vendor}"
 EOF
 	},
 	{
+		desc		=> "import of shellvalue file",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "subdir/sys/node" ,
+		rules		=> <<EOF
+BUS=="scsi", IMPORT="test.all", NAME="subdir%E{SYSFSDIR}/node"
+KERNEL=="ttyUSB0", NAME="visor"
+EOF
+	},
+	{
 		desc		=> "sustitution of sysfs value (%s{file})",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
@@ -1372,6 +1382,15 @@ EOF
 KERNEL=="sda", GROUP:="nobody"
 SUBSYSTEM=="block", MODE:="640"
 KERNEL=="sda", GROUP="not-ok", MODE="0666", NAME="ok"
+EOF
+	},
+	{
+		desc		=> "env substitution",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "node-add-me",
+		rules		=> <<EOF
+KERNEL=="sda", MODE="0666", NAME="node-\$env{ACTION}-me"
 EOF
 	},
 	{

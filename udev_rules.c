@@ -135,6 +135,129 @@ static int get_format_len(char **str)
 	return -1;
 }
 
+static int get_key(char **line, char **key, char **value)
+{
+	char *linepos;
+	char *temp;
+
+	linepos = *line;
+	if (!linepos)
+		return -1;
+
+	if (strchr(linepos, '\\')) {
+		dbg("escaped characters are not supported, skip");
+		return -1;
+	}
+
+	/* skip whitespace */
+	while (isspace(linepos[0]))
+		linepos++;
+
+	/* get the key */
+	*key = linepos;
+	while (1) {
+		linepos++;
+		if (linepos[0] == '\0')
+			return -1;
+		if (isspace(linepos[0]))
+			break;
+		if (linepos[0] == '=')
+			break;
+	}
+
+	/* terminate key */
+	linepos[0] = '\0';
+	linepos++;
+
+	/* skip whitespace */
+	while (isspace(linepos[0]))
+		linepos++;
+
+	/* get the value*/
+	if (linepos[0] == '\0')
+		return -1;
+
+	if (linepos[0] == '"') {
+		linepos++;
+		temp = strchr(linepos, '"');
+		if (!temp)
+			return -1;
+		temp[0] = '\0';
+	} else if (linepos[0] == '\'') {
+		linepos++;
+		temp = strchr(linepos, '\'');
+		if (!temp)
+			return -1;
+		temp[0] = '\0';
+	} else {
+		temp = linepos;
+		while (temp[0] && !isspace(temp[0]))
+			temp++;
+		temp[0] = '\0';
+	}
+	*value = linepos;
+
+	return 0;
+}
+
+static int import_file_into_env(const char *filename)
+{
+	char line[LINE_SIZE];
+	char *bufline;
+	char *linepos;
+	char *variable;
+	char *value;
+	char *buf;
+	size_t bufsize;
+	size_t cur;
+	size_t count;
+	int lineno;
+	int retval = 0;
+
+	if (file_map(filename, &buf, &bufsize) != 0) {
+		err("can't open '%s'", filename);
+		return -1;
+	}
+
+	/* loop through the whole file */
+	lineno = 0;
+	cur = 0;
+	while (cur < bufsize) {
+		count = buf_get_line(buf, bufsize, cur);
+		bufline = &buf[cur];
+		cur += count+1;
+		lineno++;
+
+		if (count >= sizeof(line)) {
+			err("line too long, conf line skipped %s, line %d", udev_config_filename, lineno);
+			continue;
+		}
+
+		/* eat the whitespace */
+		while ((count > 0) && isspace(bufline[0])) {
+			bufline++;
+			count--;
+		}
+		if (count == 0)
+			continue;
+
+		/* see if this is a comment */
+		if (bufline[0] == COMMENT_CHARACTER)
+			continue;
+
+		strlcpy(line, bufline, count+1);
+
+		linepos = line;
+		if (get_key(&linepos, &variable, &value) == 0) {
+			dbg("import %s=%s", variable, value);
+			setenv(variable, value, 0);
+		}
+	}
+
+	file_unmap(buf, bufsize);
+	return retval;
+}
+
 /** Finds the lowest positive N such that <name>N isn't present in 
  *  $(udevroot) either as a file or a symlink.
  *
@@ -198,7 +321,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 {
 	char temp[PATH_SIZE];
 	char temp2[PATH_SIZE];
-	char *head, *tail, *cpos, *attr, *rest;
+	char *head, *tail, *pos, *cpos, *attr, *rest;
 	int len;
 	int i;
 	unsigned int next_free_number;
@@ -218,6 +341,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 		SUBST_TEMP_NODE,
 		SUBST_ROOT,
 		SUBST_MODALIAS,
+		SUBST_ENV,
 	};
 	static const struct subst_map {
 		char *name;
@@ -237,6 +361,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 		{ .name = "tempnode",		.fmt = 'N',	.type = SUBST_TEMP_NODE },
 		{ .name = "root",		.fmt = 'r',	.type = SUBST_ROOT },
 		{ .name = "modalias",		.fmt = 'A',	.type = SUBST_MODALIAS },
+		{ .name = "env",		.fmt = 'E',	.type = SUBST_ENV },
 		{}
 	};
 	enum subst_type type;
@@ -430,6 +555,17 @@ found:
 				break;
 			strlcat(string, temp2, maxsize);
 			dbg("substitute MODALIAS '%s'", temp2);
+			break;
+		case SUBST_ENV:
+			if (attr == NULL) {
+				dbg("missing attribute");
+				break;
+			}
+			pos = getenv(attr);
+			if (pos == NULL)
+				break;
+			strlcat(string, pos, maxsize);
+			dbg("substitute env '%s=%s'", attr, pos);
 			break;
 		default:
 			err("unknown substitution type=%i", type);
@@ -773,13 +909,28 @@ try_parent:
 		dbg("look at sysfs_device->bus_id='%s'", parent_device->bus_id);
 	}
 
+	if (rule->import_operation != KEY_OP_UNSET) {
+		char import[PATH_SIZE];
+
+		strlcpy(import, rule->import, sizeof(import));
+		apply_format(udev, import, sizeof(import), class_dev, sysfs_device);
+		dbg("check for " KEY_IMPORT " import='%s", import);
+		if (import_file_into_env(import) == 0) {
+			dbg(KEY_IMPORT " file '%s' imported", rule->import);
+			if (rule->import_operation == KEY_OP_NOMATCH)
+				goto exit;
+		} else
+			goto exit;
+		dbg(KEY_IMPORT " key is true");
+	}
+
 	/* execute external program */
 	if (rule->program_operation != KEY_OP_UNSET) {
 		char program[PATH_SIZE];
 
-		dbg("check " KEY_PROGRAM);
 		strlcpy(program, rule->program, sizeof(program));
 		apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
+		dbg("check for " KEY_PROGRAM " program='%s", program);
 		if (execute_program_pipe(program, udev->subsystem,
 					 udev->program_result, sizeof(udev->program_result)) != 0) {
 			dbg(KEY_PROGRAM " returned nonzero");

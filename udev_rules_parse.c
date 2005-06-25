@@ -375,6 +375,13 @@ static int rules_parse(const char *filename)
 				continue;
 			}
 
+			if (strcasecmp(key, KEY_IMPORT) == 0) {
+				strlcpy(rule.import, value, sizeof(rule.import));
+				rule.import_operation = operation;
+				valid = 1;
+				continue;
+			}
+
 			if (strcasecmp(key, KEY_DRIVER) == 0) {
 				strlcpy(rule.driver, value, sizeof(rule.driver));
 				rule.driver_operation = operation;
