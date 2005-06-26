@@ -1,10 +1,7 @@
 /*
- * udev_volume_id - udev callout to read filesystem label and uuid
+ * vol_id - udev callout to read filesystem label and uuid
  *
  * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
- *
- *	sample udev rule for creation of a symlink with the filsystem uuid:
- *	KERNEL="sd*", PROGRAM="/sbin/udev_volume_id -u %N", SYMLINK="%c"
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -95,7 +92,7 @@ static void set_str(char *to, const unsigned char *from, int count)
 
 int main(int argc, char *argv[])
 {
-	const char help[] = "usage: udev_volume_id [--export|-t|-l|-u] <device>\n"
+	const char help[] = "usage: vol_id [--export|-t|-l|-u] <device>\n"
 			    "       --export\n"
 			    "       -t filesystem type\n"
 			    "       -l filesystem label\n"
@@ -114,7 +111,7 @@ int main(int argc, char *argv[])
 	const char *node = NULL;
 	int rc = 0;
 
-	logging_init("udev_volume_id");
+	logging_init("vol_id");
 
 	for (i = 1 ; i < argc; i++) {
 		char *arg = argv[i];

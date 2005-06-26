@@ -1,4 +1,4 @@
-# Makefile for udev_volume_id
+# Makefile for ata_id
 #
 # Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
 #

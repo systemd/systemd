@@ -44,6 +44,7 @@ extern size_t buf_get_line(const char *buf, size_t buflen, size_t cur);
 extern void remove_trailing_char(char *path, char c);
 extern void replace_untrusted_chars(char *string);
 extern int name_list_add(struct list_head *name_list, const char *name, int sort);
+extern int name_list_key_add(struct list_head *name_list, const char *key, const char *value);
 extern int add_matching_files(struct list_head *name_list, const char *dirname, const char *suffix);
 extern int execute_program(const char *command, const char *subsystem,
 			   char *result, size_t ressize, size_t *reslen);

@@ -69,6 +69,7 @@ struct udevice {
 	dev_t devt;
 	struct list_head run_list;
 	int run_final;
+	struct list_head env_list;
 
 	char tmp_node[PATH_SIZE];
 	int partitions;

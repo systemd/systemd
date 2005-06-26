@@ -92,14 +92,6 @@ static int print_record(struct udevice *udev)
 	return 0;
 }
 
-enum query_type {
-	NONE,
-	NAME,
-	PATH,
-	SYMLINK,
-	ALL,
-};
-
 static int print_device_chain(const char *path)
 {
 	struct sysfs_class_device *class_dev;
@@ -185,7 +177,14 @@ int main(int argc, char *argv[], char *envp[])
 	struct udevice udev;
 	int root = 0;
 	int attributes = 0;
-	enum query_type query = NONE;
+	enum query_type {
+		QUERY_NONE,
+		QUERY_NAME,
+		QUERY_PATH,
+		QUERY_SYMLINK,
+		QUERY_ENV,
+		QUERY_ALL,
+	} query = QUERY_NONE;
 	char path[PATH_SIZE] = "";
 	char name[PATH_SIZE] = "";
 	char temp[PATH_SIZE];
@@ -220,22 +219,27 @@ int main(int argc, char *argv[], char *envp[])
 			dbg("udev query: %s\n", optarg);
 
 			if (strcmp(optarg, "name") == 0) {
-				query = NAME;
+				query = QUERY_NAME;
 				break;
 			}
 
 			if (strcmp(optarg, "symlink") == 0) {
-				query = SYMLINK;
+				query = QUERY_SYMLINK;
 				break;
 			}
 
 			if (strcmp(optarg, "path") == 0) {
-				query = PATH;
+				query = QUERY_PATH;
+				break;
+			}
+
+			if (strcmp(optarg, "env") == 0) {
+				query = QUERY_ENV;
 				break;
 			}
 
 			if (strcmp(optarg, "all") == 0) {
-				query = ALL;
+				query = QUERY_ALL;
 				break;
 			}
 
@@ -268,7 +272,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	/* process options */
-	if (query != NONE) {
+	if (query != QUERY_NONE) {
 		if (path[0] != '\0') {
 			/* remove sysfs_path if given */
 			if (strncmp(path, sysfs_path, strlen(sysfs_path)) == 0) {
@@ -317,13 +321,13 @@ int main(int argc, char *argv[], char *envp[])
 
 print:
 		switch(query) {
-		case NAME:
+		case QUERY_NAME:
 			if (root)
 				printf("%s/%s\n", udev_root, udev.name);
 			else
 				printf("%s\n", udev.name);
 			goto exit;
-		case SYMLINK:
+		case QUERY_SYMLINK:
 			if (list_empty(&udev.symlink_list))
 				break;
 			if (root)
@@ -334,10 +338,14 @@ print:
 					printf("%s ", name_loop->name);
 			printf("\n");
 			goto exit;
-		case PATH:
+		case QUERY_PATH:
 			printf("%s\n", udev.devpath);
 			goto exit;
-		case ALL:
+		case QUERY_ENV:
+			list_for_each_entry(name_loop, &udev.env_list, node)
+				printf("%s\n", name_loop->name);
+			goto exit;
+		case QUERY_ALL:
 			print_record(&udev);
 			goto exit;
 		default:
@@ -373,6 +381,7 @@ help:
 	       "             'name'    name of device node\n"
 	       "             'symlink' pointing to node\n"
 	       "             'path'    sysfs device path\n"
+	       "             'env'     the device related imported environment\n"
 	       "             'all'     all values\n"
 	       "\n"
 	       "  -p PATH  sysfs device path used for query or chain\n"

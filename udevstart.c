@@ -45,6 +45,9 @@
 #include "udev_utils.h"
 #include "list.h"
 
+static const char *udev_run_str;
+static const char *udev_log_str;
+
 #ifdef USE_LOG
 void log_message(int priority, const char *format, ...)
 {
@@ -111,8 +114,17 @@ static int add_device(const char *path, const char *subsystem)
 	const char *devpath;
 
 	devpath = &path[strlen(sysfs_path)];
+
+	/* clear and set environment for next event */
+	clearenv();
+	setenv("ACTION", "add", 1);
 	setenv("DEVPATH", devpath, 1);
 	setenv("SUBSYSTEM", subsystem, 1);
+	setenv("UDEV_START", "1", 1);
+	if (udev_log_str)
+		setenv("UDEV_LOG", udev_log_str, 1);
+	if (udev_run_str)
+		setenv("UDEV_RUN", udev_run_str, 1);
 	dbg("exec: '%s' (%s)\n", devpath, path);
 
 	class_dev = sysfs_open_class_device_path(path);
@@ -327,10 +339,14 @@ int main(int argc, char *argv[], char *envp[])
 
 	logging_init("udev");
 	udev_init_config();
-	/* disable all logging if not explicitely requested */
-	if (getenv("UDEV_LOG") == NULL)
-		udev_log_priority = 0;
 	dbg("version %s", UDEV_VERSION);
+
+	udev_run_str = getenv("UDEV_RUN");
+	udev_log_str = getenv("UDEV_LOG");
+
+	/* disable all logging if not explicitely requested */
+	if (udev_log_str == NULL)
+		udev_log_priority = 0;
 
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(act));
@@ -343,10 +359,6 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* trigger timeout to prevent hanging processes */
 	alarm(ALARM_TIMEOUT);
-
-	/* set environment for executed programs */
-	setenv("ACTION", "add", 1);
-	setenv("UDEV_START", "1", 1);
 
 	udev_rules_init();
 

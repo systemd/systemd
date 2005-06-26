@@ -47,6 +47,7 @@ int udev_init_device(struct udevice *udev, const char* devpath, const char *subs
 	memset(udev, 0x00, sizeof(struct udevice));
 	INIT_LIST_HEAD(&udev->symlink_list);
 	INIT_LIST_HEAD(&udev->run_list);
+	INIT_LIST_HEAD(&udev->env_list);
 
 	if (subsystem)
 		strlcpy(udev->subsystem, subsystem, sizeof(udev->subsystem));
@@ -109,6 +110,10 @@ void udev_cleanup_device(struct udevice *udev)
 		free(name_loop);
 	}
 	list_for_each_entry_safe(name_loop, temp_loop, &udev->run_list, node) {
+		list_del(&name_loop->node);
+		free(name_loop);
+	}
+	list_for_each_entry_safe(name_loop, temp_loop, &udev->env_list, node) {
 		list_del(&name_loop->node);
 		free(name_loop);
 	}
@@ -303,9 +308,13 @@ int name_list_add(struct list_head *name_list, const char *name, int sort)
 			dbg("'%s' is already in the list", name);
 			return 0;
 		}
-		if (sort && strcmp(loop_name->name, name) > 0)
-			break;
 	}
+
+	if (sort)
+		list_for_each_entry(loop_name, name_list, node) {
+			if (sort && strcmp(loop_name->name, name) > 0)
+				break;
+		}
 
 	new_name = malloc(sizeof(struct name_entry));
 	if (new_name == NULL) {
@@ -314,6 +323,35 @@ int name_list_add(struct list_head *name_list, const char *name, int sort)
 	}
 
 	strlcpy(new_name->name, name, sizeof(new_name->name));
+	dbg("adding '%s'", new_name->name);
+	list_add_tail(&new_name->node, &loop_name->node);
+
+	return 0;
+}
+
+int name_list_key_add(struct list_head *name_list, const char *key, const char *value)
+{
+	struct name_entry *loop_name;
+	struct name_entry *new_name;
+
+	list_for_each_entry(loop_name, name_list, node) {
+		if (strncmp(loop_name->name, key, strlen(key)) == 0) {
+			dbg("key already present '%s', replace it", loop_name->name);
+			snprintf(loop_name->name, sizeof(loop_name->name), "%s=%s", key, value);
+			loop_name->name[sizeof(loop_name->name)-1] = '\0';
+			return 0;
+		}
+	}
+
+	new_name = malloc(sizeof(struct name_entry));
+	if (new_name == NULL) {
+		dbg("error malloc");
+		return -ENOMEM;
+	}
+
+	snprintf(new_name->name, sizeof(new_name->name), "%s=%s", key, value);
+	new_name->name[sizeof(new_name->name)-1] = '\0';
+	dbg("adding '%s'", new_name->name);
 	list_add_tail(&new_name->node, &loop_name->node);
 
 	return 0;

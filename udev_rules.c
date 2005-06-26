@@ -174,21 +174,26 @@ static int get_key(char **line, char **key, char **value)
 		linepos++;
 
 	/* get the value*/
-	if (linepos[0] == '\0')
-		return -1;
-
 	if (linepos[0] == '"') {
 		linepos++;
 		temp = strchr(linepos, '"');
-		if (!temp)
+		if (!temp) {
+			dbg("missing closing quote");
 			return -1;
+		}
+		dbg("value is quoted");
 		temp[0] = '\0';
 	} else if (linepos[0] == '\'') {
 		linepos++;
 		temp = strchr(linepos, '\'');
-		if (!temp)
+		if (!temp) {
+			dbg("missing closing quote");
 			return -1;
+		}
+		dbg("value is quoted");
 		temp[0] = '\0';
+	} else if (linepos[0] == '\0') {
+		dbg("value is empty");
 	} else {
 		temp = linepos;
 		while (temp[0] && !isspace(temp[0]))
@@ -200,7 +205,7 @@ static int get_key(char **line, char **key, char **value)
 	return 0;
 }
 
-static int import_keys_into_env(const char *buf, size_t bufsize)
+static int import_keys_into_env(struct udevice *udev, const char *buf, size_t bufsize)
 {
 	char line[LINE_SIZE];
 	const char *bufline;
@@ -211,7 +216,7 @@ static int import_keys_into_env(const char *buf, size_t bufsize)
 	size_t count;
 	int lineno;
 
-	/* loop through the whole file */
+	/* loop through the whole buffer */
 	lineno = 0;
 	cur = 0;
 	while (cur < bufsize) {
@@ -242,6 +247,7 @@ static int import_keys_into_env(const char *buf, size_t bufsize)
 		linepos = line;
 		if (get_key(&linepos, &variable, &value) == 0) {
 			dbg("import '%s=%s'", variable, value);
+			name_list_key_add(&udev->env_list, variable, value);
 			setenv(variable, value, 1);
 		}
 	}
@@ -249,7 +255,7 @@ static int import_keys_into_env(const char *buf, size_t bufsize)
 	return 0;
 }
 
-static int import_file_into_env(const char *filename)
+static int import_file_into_env(struct udevice *udev, const char *filename)
 {
 	char *buf;
 	size_t bufsize;
@@ -258,7 +264,7 @@ static int import_file_into_env(const char *filename)
 		err("can't open '%s'", filename);
 		return -1;
 	}
-	import_keys_into_env(buf, bufsize);
+	import_keys_into_env(udev, buf, bufsize);
 	file_unmap(buf, bufsize);
 
 	return 0;
@@ -271,7 +277,7 @@ static int import_program_into_env(struct udevice *udev, const char *program)
 
 	if (execute_program(program, udev->subsystem, result, sizeof(result), &reslen) != 0)
 		return -1;
-	return import_keys_into_env(result, reslen);
+	return import_keys_into_env(udev, result, reslen);
 }
 
 /* finds the lowest positive N such that <name>N isn't present in the udevdb
@@ -828,7 +834,7 @@ try_parent:
 			rc = import_program_into_env(udev, import);
 		} else {
 			dbg("import file import='%s'", import);
-			rc = import_file_into_env(import);
+			rc = import_file_into_env(udev, import);
 		}
 		if (rc) {
 			dbg(KEY_IMPORT " failed");

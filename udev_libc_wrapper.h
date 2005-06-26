@@ -44,15 +44,18 @@
 
 #include <string.h>
 
+#ifdef __KLIBC__
+static inline int clearenv(void)
+{
+	environ[0] = NULL;
+	return 0;
+}
+#endif
+
 extern uid_t lookup_user(const char *user);
 extern gid_t lookup_group(const char *group);
 
-#ifndef strlcat
 extern size_t strlcpy(char *dst, const char *src, size_t size);
-#endif
-
-#ifndef strlcat
 extern size_t strlcat(char *dst, const char *src, size_t size);
-#endif
 
 #endif /* _UDEV_LIBC_WRAPPER_H_ */

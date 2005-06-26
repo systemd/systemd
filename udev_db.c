@@ -86,7 +86,8 @@ int udev_db_add_device(struct udevice *udev)
 	fprintf(f, "M:%u:%u\n", major(udev->devt), minor(udev->devt));
 	fprintf(f, "A:%u\n", udev->partitions);
 	fprintf(f, "R:%u\n", udev->ignore_remove);
-
+	list_for_each_entry(name_loop, &udev->env_list, node)
+		fprintf(f, "E:%s\n", name_loop->name);
 	fclose(f);
 
 	return 0;
@@ -148,6 +149,12 @@ static int parse_db_file(struct udevice *udev, const char *filename)
 				count =  sizeof(line);
 			strlcpy(line, &bufline[2], count-1);
 			udev->ignore_remove = atoi(line);
+			break;
+		case 'E':
+			if (count > sizeof(line))
+				count =  sizeof(line);
+			strlcpy(line, &bufline[2], count-1);
+			name_list_add(&udev->env_list, line, 0);
 			break;
 		}
 	}
