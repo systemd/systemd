@@ -52,7 +52,7 @@
  * options are not supported, but other code is still left in place for
  * now.
  */
-static const char short_options[] = "bd:f:gip:s:uvV";
+static const char short_options[] = "bd:f:gip:s:uvVx";
 /*
  * Just duplicate per dev options.
  */
@@ -71,6 +71,9 @@ static int use_stderr;
 static int debug;
 static int hotplug_mode;
 static int reformat_serial;
+static int export;
+static char vendor_str[64];
+static char model_str[64];
 
 void log_message (int level, const char *format, ...)
 {
@@ -84,13 +87,8 @@ void log_message (int level, const char *format, ...)
 		vfprintf(stderr, format, args);
 	} else {
 		static int logging_init = 0;
-		static unsigned char logname[32];
 		if (!logging_init) {
-			/*
-			 * klibc does not have LOG_PID.
-			 */
-			snprintf(logname, 32, "scsi_id[%d]", getpid());
-			openlog (logname, 0, LOG_DAEMON);
+			openlog ("scsi_id", LOG_PID, LOG_DAEMON);
 			logging_init = 1;
 		}
 
@@ -98,6 +96,34 @@ void log_message (int level, const char *format, ...)
 	}
 	va_end (args);
 	return;
+}
+
+static void set_str(char *to, const unsigned char *from, int count)
+{
+	int i, j;
+	int len;
+
+	len = strnlen(from, count);
+	while (isspace(from[len-1]))
+		len--;
+
+	i = 0;
+	while (isspace(from[i]) && (i < len))
+		i++;
+
+	j = 0;
+	while (i < len) {
+		switch(from[i]) {
+		case '/':
+		case ' ':
+			to[j++] = '_';
+			break;
+		default:
+			to[j++] = from[i];
+		}
+		i++;
+	}
+	to[j] = '\0';
 }
 
 static int get_major_minor(struct sysfs_class_device *class_dev, int *maj,
@@ -465,6 +491,10 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			reformat_serial = 1;
 			break;
 
+		case 'x':
+			export = 1;
+			break;
+
 		case 'v':
 			debug++;
 			break;
@@ -507,6 +537,7 @@ static int per_dev_options(struct sysfs_device *scsi_dev, int *good_bad,
 			    scsi_dev->name);
 		return -1;
 	}
+	set_str(vendor_str, vendor->value, sizeof(vendor_str)-1);
 
 	model = sysfs_get_device_attr(scsi_dev, "model");
 	if (!model) {
@@ -514,6 +545,7 @@ static int per_dev_options(struct sysfs_device *scsi_dev, int *good_bad,
 			    scsi_dev->name);
 		return -1;
 	}
+	set_str(model_str, model->value, sizeof(model_str)-1);
 
 	retval = get_file_options(vendor->value, model->value, &newargc,
 				  &newargv);
@@ -584,7 +616,7 @@ static void format_serial(char *serial)
 			*p = '_';
 		p++;
 	}
-	return;
+return;
 }
 
 /*
@@ -723,11 +755,19 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 		retval = 0;
 	}
 	if (!retval) {
-		if (reformat_serial)
-			format_serial(serial);
-		if (display_bus_id)
-			printf("%s: ", scsi_dev->name);
-		printf("%s\n", serial);
+		if (export) {
+			static char serial_str[64];
+			printf("ID_VENDOR=%s\n", vendor_str);
+			printf("ID_MODEL=%s\n", model_str);
+			set_str(serial_str, serial, sizeof(serial_str));
+			printf("ID_SERIAL=%s\n", serial_str);
+		} else {
+			if (reformat_serial)
+				format_serial(serial);
+			if (display_bus_id)
+				printf("%s: ", scsi_dev->name);
+			printf("%s\n", serial);
+		}
 		dprintf("%s\n", serial);
 		retval = 0;
 	}
