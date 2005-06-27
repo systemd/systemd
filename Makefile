@@ -174,7 +174,7 @@ endif
 # link udev against it statically. Otherwise, use glibc and link dynamically.
 ifeq ($(strip $(USE_KLIBC)),true)
 	KLIBC_INSTALL	= $(PWD)/klibc/.install
-	KLCC		= $(KLIBC_INSTALL)/bin/klcc
+	KLCC		= $(KLIBC_INSTALL)/bin/$(CROSS)klcc
 	CC		= $(KLCC)
 	LD		= $(KLCC)
 else
