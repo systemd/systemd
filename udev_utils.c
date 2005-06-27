@@ -485,7 +485,7 @@ int execute_program(const char *command, const char *subsystem,
 
 				len += count;
 				if (len >= ressize-1) {
-					err("ressize %d too short", ressize);
+					err("ressize %ld too short", (long)ressize);
 					retval = -1;
 					break;
 				}

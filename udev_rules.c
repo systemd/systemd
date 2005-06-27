@@ -793,7 +793,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 					len = strlen(value);
 					while (len > 0 && isspace(value[len-1]))
 						value[--len] = '\0';
-					dbg("removed %i trailing whitespace chars from '%s'", strlen(value)-len, value);
+					dbg("removed %zi trailing whitespace chars from '%s'", strlen(value)-len, value);
 				}
 
 				dbg("compare attribute '%s' value '%s' with '%s'", pair->name, value, pair->value);

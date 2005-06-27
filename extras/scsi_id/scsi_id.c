@@ -74,6 +74,8 @@ static int reformat_serial;
 static int export;
 static char vendor_str[64];
 static char model_str[64];
+static char revision_str[16];
+static char type_str[16];
 
 void log_message (int level, const char *format, ...)
 {
@@ -103,27 +105,70 @@ static void set_str(char *to, const unsigned char *from, int count)
 	int i, j;
 	int len;
 
+	/* strip trailing whitespace */
 	len = strnlen(from, count);
 	while (isspace(from[len-1]))
 		len--;
 
+	/* strip leading whitespace */
 	i = 0;
 	while (isspace(from[i]) && (i < len))
 		i++;
 
 	j = 0;
 	while (i < len) {
-		switch(from[i]) {
-		case '/':
-		case ' ':
+		/* substitute multiple whitespace */
+		if (isspace(from[i])) {
+			while (isspace(from[i]))
+				i++;
 			to[j++] = '_';
-			break;
-		default:
-			to[j++] = from[i];
 		}
-		i++;
+		/* skip chars */
+		if (from[i] == '/') {
+			i++;
+			continue;
+		}
+		to[j++] = from[i++];
 	}
 	to[j] = '\0';
+}
+
+static void set_type(char *to, const char *from, int count)
+{
+	int type_num;
+	char *eptr;
+
+	type_num = strtoul(from, &eptr, 0);
+	if (eptr != from) {
+		switch (type_num) {
+		case 0:
+			sprintf(to, "disk");
+			break;
+		case 1:
+			sprintf(to, "tape");
+			break;
+		case 4:
+			sprintf(to, "optical");
+			break;
+		case 5:
+			sprintf(to, "cd");
+			break;
+		case 7:
+			sprintf(to, "optical");
+			break;
+		case 0xe:
+			sprintf(to, "disk");
+			break;
+		case 0xf:
+			sprintf(to, "optical");
+			break;
+		default:
+			sprintf(to, "generic");
+			break;
+		}
+	} else {
+		sprintf(to, "generic");
+	}
 }
 
 static int get_major_minor(struct sysfs_class_device *class_dev, int *maj,
@@ -521,7 +566,7 @@ static int per_dev_options(struct sysfs_device *scsi_dev, int *good_bad,
 	int retval;
 	int newargc;
 	char **newargv = NULL;
-	struct sysfs_attribute *vendor, *model;
+	struct sysfs_attribute *vendor, *model, *type;
 	int option;
 
 	*good_bad = all_good;
@@ -546,6 +591,22 @@ static int per_dev_options(struct sysfs_device *scsi_dev, int *good_bad,
 		return -1;
 	}
 	set_str(model_str, model->value, sizeof(model_str)-1);
+
+	type = sysfs_get_device_attr(scsi_dev, "type");
+	if (!type) {
+		log_message(LOG_WARNING, "%s: cannot get type attribute\n",
+			    scsi_dev->name);
+		return -1;
+	}
+	set_type(type_str, type->value, sizeof(type_str)-1);
+
+	type = sysfs_get_device_attr(scsi_dev, "rev");
+	if (!type) {
+		log_message(LOG_WARNING, "%s: cannot get type attribute\n",
+			    scsi_dev->name);
+		return -1;
+	}
+	set_str(revision_str, type->value, sizeof(revision_str)-1);
 
 	retval = get_file_options(vendor->value, model->value, &newargc,
 				  &newargv);
@@ -616,7 +677,6 @@ static void format_serial(char *serial)
 			*p = '_';
 		p++;
 	}
-return;
 }
 
 /*
@@ -759,8 +819,10 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 			static char serial_str[64];
 			printf("ID_VENDOR=%s\n", vendor_str);
 			printf("ID_MODEL=%s\n", model_str);
+			printf("ID_REVISION=%s\n", revision_str);
 			set_str(serial_str, serial, sizeof(serial_str));
 			printf("ID_SERIAL=%s\n", serial_str);
+			printf("ID_TYPE=%s\n", type_str);
 		} else {
 			if (reformat_serial)
 				format_serial(serial);

@@ -600,7 +600,7 @@ static struct uevent_msg *get_netlink_msg(void)
 	if ((size_t)size > sizeof(buffer)-1)
 		size = sizeof(buffer)-1;
 	buffer[size] = '\0';
-	dbg("uevent_size=%i", size);
+	dbg("uevent_size=%li", (long)size);
 
 	/* start of event payload */
 	bufpos = strlen(buffer)+1;

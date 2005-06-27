@@ -67,25 +67,30 @@ static void set_str(char *to, const unsigned char *from, int count)
 	int i, j;
 	int len;
 
+	/* strip trailing whitespace */
 	len = strnlen(from, count);
 	while (isspace(from[len-1]))
 		len--;
 
+	/* strip leading whitespace */
 	i = 0;
 	while (isspace(from[i]) && (i < len))
 		i++;
 
 	j = 0;
 	while (i < len) {
-		switch(from[i]) {
-		case '/':
-		case ' ':
+		/* substitute multiple whitespace */
+		if (isspace(from[i])) {
+			while (isspace(from[i]))
+				i++;
 			to[j++] = '_';
-			break;
-		default:
-			to[j++] = from[i];
 		}
-		i++;
+		/* skip chars */
+		if (from[i] == '/') {
+			i++;
+			continue;
+		}
+		to[j++] = from[i++];
 	}
 	to[j] = '\0';
 }
@@ -137,6 +142,28 @@ int main(int argc, char *argv[])
 	set_str(revision, id.fw_rev, 8);
 
 	if (export) {
+		if ((id.config >> 8) & 0x80) {
+			/* This is an ATAPI device */
+			switch ((id.config >> 8) & 0x1f) {
+			case 0:
+				printf("ID_TYPE=cd\n");
+				break;
+			case 1:
+				printf("ID_TYPE=tape\n");
+				break;
+			case 5:
+				printf("ID_TYPE=cd\n");
+				break;
+			case 7:
+				printf("ID_TYPE=optical\n");
+				break;
+			default:
+				printf("ID_TYPE=generic\n");
+				break;
+			}
+		} else {
+			printf("ID_TYPE=disk\n");
+		}
 		printf("ID_MODEL=%s\n", model);
 		printf("ID_SERIAL=%s\n", serial);
 		printf("ID_REVISION=%s\n", revision);
