@@ -377,9 +377,26 @@ static int rules_parse(const char *filename)
 
 			if (strncasecmp(key, KEY_IMPORT, sizeof(KEY_IMPORT)-1) == 0) {
 				attr = get_key_attribute(key + sizeof(KEY_IMPORT)-1);
-				if (attr && strstr(attr, "exec")) {
+				if (attr && strstr(attr, "program")) {
 					dbg(KEY_IMPORT" will be executed");
 					rule.import_exec = 1;
+				} else if (attr && strstr(attr, "file")) {
+					dbg(KEY_IMPORT" will be included as file");
+				} else {
+					/* figure it out if it is executable */
+					char file[PATH_SIZE];
+					char *pos;
+					struct stat stats;
+
+					strlcpy(file, value, sizeof(file));
+					pos = strchr(file, ' ');
+					if (pos)
+						pos[0] = '\0';
+					dbg(KEY_IMPORT" auto mode for '%s'", file);
+					if (!lstat(file, &stats) && (stats.st_mode & S_IXUSR)) {
+							dbg(KEY_IMPORT" is executable, will be executed");
+							rule.import_exec = 1;
+					}
 				}
 				strlcpy(rule.import, value, sizeof(rule.import));
 				rule.import_operation = operation;

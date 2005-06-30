@@ -1,3 +1,102 @@
+udev 059
+========
+Major changes happened with this release. The goal is to take over the
+complete kernel-event handling and provide a more efficient way to dispatch
+kernel events. Replacing most of the current shell script logic and the
+kernel forked helper with a netlink-daemon and a rule-based event handling.
+
+o udevd listens to netlink events now. The first valid netlink event
+  will make udevd ignore any message from udevsend that contains a
+  SEQNUM, to avoid duplicate events. The forked events can be disabled
+  with:
+    echo "" > /proc/sys/kernel/hotplug
+  For full support, the broken input-subsytem needs to be fixed, not to
+  bypass the driver core.
+
+o /etc/dev.d/ + /etc/hotplug.d/ directory multiplexing is completely
+  removed from udev itself and must be emulated by calling small
+  helper binaries provided in the extras folder:
+    make EXTRAS=extras/run_directory/
+  will build udev_run_devd and udev_run_hotplugd, which can be called
+  from a rule if needed:
+    RUN+="/sbin/udev_run_hotplugd"
+  The recommended way to handle this is to convert all the calls from
+  the directories to explicit udev rules and get completely rid of the
+  multiplexing. (To catch a ttyUSB event, you now no longer need to
+  fork and exit 300 tty script instances you are not interested in, it
+  is just one rule that matches exactly the device.)
+
+o udev handles now _all_ events not just events for class and block
+  devices, this way it is possible to control the complete event
+  behavior with udev rules. Especially useful for rules like:
+    ACTION="add", DEVPATH="/devices/*", MODALIAS=="?*", RUN+="/sbin/modprobe $modalias"
+
+o As used in the modalias rule, udev supports now textual
+  substitution placeholder along with the usual format chars. This
+  needs to be documented, for now it's only visible in udev_rules_parse.c.
+
+o The rule keys support now more operations. This is documented in the
+  man page. It is possible to add values to list-keys like the SYMLINK
+  and RUN list with KEY+="value" and to clear the list by assigning KEY="".
+  Also "final"-assignments are supported by using KEY:="value", which will
+  prevent changing the key by any later rule.
+
+o kernel 2.6.12 has the "detached_state" attribute removed from
+  sysfs, which was used to recognize sysfs population. We switched that
+  to wait for the "bus" link, which is only available in kernels after 2.6.11.
+  Running this udev version on older kernels may cause a short delay for
+  some events.
+
+o To provide infrastructure for persistent device naming, the id programs:
+  scsi_id, vol_id (former udev_volume_id), and ata_id (new) are able now
+  to export the probed data in environment key format:
+    pim:~ # /sbin/ata_id --export /dev/hda
+    ID_MODEL=HTS726060M9AT00
+    ID_SERIAL=MRH401M4G6UM9B
+    ID_REVISION=MH4OA6BA
+
+  The following rules:
+    KERNEL="hd*[!0-9]", IMPORT="/sbin/ata_id --export $tempnode"
+    KERNEL="hd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_MODEL}_$env{ID_SERIAL}"
+
+  Will create:
+    kay@pim:~> tree /dev/disk
+    /dev/disk
+    |-- by-id
+    |   |-- HTS726060M9AT00_MRH401M4G6UM9B -> ../../hda
+    |   `-- IBM-Memory_Key -> ../../sda
+    |-- by-label
+    |   |-- swap -> ../../hda1
+    |   |-- date -> ../../sda1
+    |   `-- home -> ../../hda3
+    `-- by-uuid
+        |-- 2E08712B0870F2E7 -> ../../hda3
+        |-- 9352cfef-7687-47bc-a2a3-34cf136f72e1 -> ../../hda1
+        |-- E845-7A89 -> ../../sda1
+        `-- b2a61681-3812-4f13-a4ff-920d70604299 -> ../../hda2
+
+  The IMPORT= operation will import these keys in the environment and make
+  it available for later PROGRAM= and RUN= executed programs. The keys are
+  also stored in the udevdb and can be queried from there with one of the
+  next udev versions.
+
+o A few binaries are silently added to the repository, which can be used
+  to replay kernel events from initramfs instead of using coldplug. udevd
+  can be instructed now to queue-up events while the stored events from
+  initramfs are filled into the udevd-queue. This code is still under
+  development and there is no documentation now besides the code itself.
+  The additional binaries get compiled, but are not installed by default.
+
+o There is also a temporary fix for a performance problem where too many
+  events happen in parallel and every event needs to parse the rules.
+  udev can now read precompiled rules stored on disk. This is likely to be
+  replaced by a more elegant solution in a future udev version.
+
+udev 058
+========
+With kernel version 2.6.12, the sysfs file "detached_state" was removed.
+Fix for libsysfs not to expect this file was added.
+
 udev 057
 ========
 All rules are applied now, but only the first matching rule with a NAME-key

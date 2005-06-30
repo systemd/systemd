@@ -264,7 +264,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "subdir/sys/node" ,
 		rules		=> <<EOF
-BUS=="scsi", IMPORT="test.all", NAME="subdir%E{SYSFSDIR}/node"
+BUS=="scsi", IMPORT{file}="test.all", NAME="subdir%E{SYSFSDIR}/node"
 KERNEL=="ttyUSB0", NAME="visor"
 EOF
 	},
@@ -274,7 +274,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "node12345678",
 		rules		=> <<EOF
-BUS=="scsi", IMPORT{exec}="/bin/echo -e \' TEST_KEY=12345678  \\n  TEST_key2=98765 \'", NAME="node\$env{TEST_KEY}"
+BUS=="scsi", IMPORT="/bin/echo -e \' TEST_KEY=12345678  \\n  TEST_key2=98765 \'", NAME="node\$env{TEST_KEY}"
 KERNEL=="ttyUSB0", NAME="visor"
 EOF
 	},
