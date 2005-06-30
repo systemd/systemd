@@ -141,7 +141,7 @@ KERNEL="console",	NAME="%k", GROUP="tty", MODE="0600"
 KERNEL="tty",		NAME="%k", GROUP="tty", MODE="0666"
 KERNEL="tty[0-9]*",	NAME="vc/%n",  SYMLINK="%k", GROUP="tty"
 KERNEL="ttyS[0-9]*",	NAME="tts/%n", SYMLINK="%k", GROUP="tty"
-KERNEL="ttyUSB[0-9]*",	NAME="tts/USB%n", GROUP="tty", MODE="0600"
+KERNEL="ttyUSB[0-9]*",	NAME="tts/USB%n", GROUP="tty", MODE="0660"
 KERNEL="ippp0",		NAME="%k", GROUP="tty"
 KERNEL="isdn*",		NAME="%k", GROUP="tty"
 KERNEL="dcbri*",	NAME="%k", GROUP="tty"
@@ -184,7 +184,7 @@ KERNEL="vtx[0-9]*",	NAME="v4l/vtx%n", GROUP="video"
 # dvb devices
 KERNEL="dvb*", PROGRAM="/etc/udev/scripts/dvb.sh %k", NAME="%c", GROUP="video", MODE="0660"
 
-# Asterix Zaptel devices
+# Asterisk Zaptel devices
 KERNEL="zapctl",	NAME="zap/ctl"
 KERNEL="zaptimer",	NAME="zap/timer"
 KERNEL="zapchannel",	NAME="zap/channel"
@@ -238,4 +238,12 @@ KERNEL="pktcdvd[0-9]*",	NAME="pktcdvd/pktcdvd%n", GROUP="cdrw", MODE="0660"
 
 # infiniband devices
 KERNEL="umad*",	NAME="infiniband/%k"
-KERNEL="issm*", NAME="infiniband/%k"
+KERNEL="issm*",	NAME="infiniband/%k"
+
+# tpm devices
+KERNEL="tpm*",	NAME="%k", OWNER="tss", GROUP="tss", MODE="0600"
+
+# be backward compatible for a while with the /etc/dev.d and /etc/hotplug.d/ systems
+RUN += "/sbin/udev_run_devd"
+RUN += "/sbin/udev_run_hotplugd"
+
