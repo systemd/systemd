@@ -135,7 +135,7 @@ static int add_device(const char *path, const char *subsystem)
 
 	udev_init_device(&udev, devpath, subsystem, "add");
 	udev.devt = get_devt(class_dev);
-	if (!udev.devt) {
+	if (!udev.devt && udev.type != DEV_NET) {
 		dbg("sysfs_open_class_device_path failed");
 		return -1;
 	}
@@ -337,7 +337,7 @@ int main(int argc, char *argv[], char *envp[])
 {
 	struct sigaction act;
 
-	logging_init("udev");
+	logging_init("udevstart");
 	udev_init_config();
 	dbg("version %s", UDEV_VERSION);
 
