@@ -243,10 +243,10 @@ KERNEL=="issm*",	NAME="infiniband/%k"
 # tpm devices
 KERNEL=="tpm*",	NAME="%k", OWNER="tss", GROUP="tss", MODE="0600"
 
-# firewire devices
-KERNEL="raw1394", NAME="%k"
-KERNEL="dv1394*", NAME="dv1394/%n"
-KERNEL="video1394*", NAME="video1394/%n"
+# IEEE1394 (firewire) devices
+KERNEL=="raw1394", NAME="%k", GROUP="video"
+KERNEL=="dv1394*", NAME="dv1394/%n", GROUP="video"
+KERNEL=="video1394*", NAME="video1394/%n", GROUP="video"
 
 # be backward compatible for a while with the /etc/dev.d and /etc/hotplug.d/ systems
 # run hotplug.d/ stuff only if we came from a hotplug event, not for udevstart
