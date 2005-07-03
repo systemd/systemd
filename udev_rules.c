@@ -1089,9 +1089,6 @@ int udev_rules_get_run(struct udevice *udev, struct sysfs_device *sysfs_device)
 			break;
 
 		dbg("process rule");
-		if (rule->run_operation == KEY_OP_UNSET)
-			continue;
-
 		if (rule->name_operation != KEY_OP_UNSET || rule->symlink_operation != KEY_OP_UNSET ||
 		    rule->mode != 0000 || rule->owner[0] != '\0' || rule->group[0] != '\0') {
 			dbg("skip rule that names a device");
