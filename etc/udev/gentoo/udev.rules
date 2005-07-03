@@ -244,6 +244,8 @@ KERNEL="issm*",	NAME="infiniband/%k"
 KERNEL="tpm*",	NAME="%k", OWNER="tss", GROUP="tss", MODE="0600"
 
 # be backward compatible for a while with the /etc/dev.d and /etc/hotplug.d/ systems
-RUN += "/sbin/udev_run_devd"
-RUN += "/sbin/udev_run_hotplugd"
+# run hotplug.d stuff only if we came from a hotplug event, not for udevstart
+ENV{UDEVD_EVENT}=="1", RUN+="/sbin/udev_run_hotplugd"
 
+# always run etc.d stuff for now.
+RUN += "/sbin/udev_run_devd"
