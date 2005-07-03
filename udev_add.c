@@ -290,6 +290,7 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 			if (retval != 0)
 				goto exit;
 
+			info("renamed netif to '%s'", udev->name);
 			/* we've changed the name, now fake the devpath, cause the
 			 * original kernel name sleeps with the fishes and we don't
 			 * get an event from the kernel with the new name
@@ -298,6 +299,7 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 			if (pos != NULL) {
 				pos[1] = '\0';
 				strlcat(udev->devpath, udev->name, sizeof(udev->devpath));
+				strlcpy(udev->kernel_name, udev->name, sizeof(udev->kernel_name));
 				setenv("DEVPATH", udev->devpath, 1);
 				setenv("INTERFACE", udev->name, 1);
 			}
