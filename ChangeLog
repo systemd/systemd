@@ -1,3 +1,69 @@
+Summary of changes from v058 to v059
+============================================
+
+Greg Kroah-Hartman:
+  Fix the gentoo udev rules to allow the box to boot properly
+
+Gustavo Zacarias:
+  Udev doesn't properly build with $CROSS
+
+Kay Sievers:
+  Keep udevstart from skipping devices without a 'dev' file
+
+Marco d'Itri:
+  #define NETLINK_KOBJECT_UEVENT
+
+
+Summary of changes from v058 to v059
+============================================
+
+Greg Kroah-Hartman:
+  Update the gentoo rule file
+  Fix udevinfo for empty sysfs directories
+  Fix makefile to allow 'make release' to work with git
+
+Hannes Reinecke:
+  udev: fix netdev RUN handling
+  udevcontrol: fix exit code
+
+Kay Sievers:
+  prepare RELEASE-NOTES
+  add ID_TYPE to the id probers
+  add -x to scsi_id to export the queried values in env format
+  store the imported device information in the udevdb
+  rename udev_volume_id to vol_id and add --export option
+  add ata_id to read serial numbers from ATA drives
+  IMPORT allow to import program returned keys into the env
+  unify execute_command() and execute_program()
+  IMPORT=<file> allow to import a shell-var style config-file
+  allow rules to be compiled to one binary file
+  fix the fix and change the file to wait for to the "bus" link
+  fix udevstart and let all events trvel trough udev
+  prepare for module loading rules and add MODALIAS key
+  remove device node, when type block/char has changed
+  Makefile: remove dev.d/ hotplug.d/ from install target
+  udevcontrol: add max_childs command
+  udevd: control log-priority of the running daemon with udevcontrol
+  udeveventrecorder: add small program that writes an event to disk
+  klibc: add missing files
+  udevinitsend: handle replay messages correctly
+  udev man page: add operators
+  udevd: allow starting of udevd with stopped exec-queue
+  klibc: version 1.0.14
+  udev: handle all events - not only class and block devices
+  volume_id: use udev-provided log-level
+  udev: clear lists if a new value is assigned
+  udev: move dev.d/ handling to external helper
+  udev: allow final assignments :=
+  udevd: improve timeout handling
+  Makefile: fix DESTDIR
+  udevd: add initsend
+  udevd: add udevcontrol
+  udevd: listen for netlink events
+
+Stefan Schweizer:
+  Dialout group fix for capi devices in the gentoo rules file
+
 Summary of changes from v057 to v058
 ============================================
 
