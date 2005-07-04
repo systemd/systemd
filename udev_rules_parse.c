@@ -284,59 +284,59 @@ static int rules_parse(const char *filename)
 			if (retval)
 				break;
 
-			if (strcasecmp(key, KEY_KERNEL) == 0) {
+			if (strcasecmp(key, "KERNEL") == 0) {
 				strlcpy(rule.kernel_name, value, sizeof(rule.kernel_name));
 				rule.kernel_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_SUBSYSTEM) == 0) {
+			if (strcasecmp(key, "SUBSYSTEM") == 0) {
 				strlcpy(rule.subsystem, value, sizeof(rule.subsystem));
 				rule.subsystem_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_ACTION) == 0) {
+			if (strcasecmp(key, "ACTION") == 0) {
 				strlcpy(rule.action, value, sizeof(rule.action));
 				rule.action_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_DEVPATH) == 0) {
+			if (strcasecmp(key, "DEVPATH") == 0) {
 				strlcpy(rule.devpath, value, sizeof(rule.devpath));
 				rule.devpath_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_BUS) == 0) {
+			if (strcasecmp(key, "BUS") == 0) {
 				strlcpy(rule.bus, value, sizeof(rule.bus));
 				rule.bus_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_ID) == 0) {
+			if (strcasecmp(key, "ID") == 0) {
 				strlcpy(rule.id, value, sizeof(rule.id));
 				rule.id_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strncasecmp(key, KEY_SYSFS, sizeof(KEY_SYSFS)-1) == 0) {
+			if (strncasecmp(key, "SYSFS", sizeof("SYSFS")-1) == 0) {
 				struct key_pair *pair;
 
 				if (rule.sysfs_pair_count >= KEY_SYSFS_PAIRS_MAX) {
-					err("skip rule, to many " KEY_SYSFS " keys in a single rule");
+					err("skip rule, to many SYSFS keys in a single rule");
 					goto error;
 				}
 				pair = &rule.sysfs_pair[rule.sysfs_pair_count];
-				attr = get_key_attribute(key + sizeof(KEY_SYSFS)-1);
+				attr = get_key_attribute(key + sizeof("SYSFS")-1);
 				if (attr == NULL) {
-					err("error parsing " KEY_SYSFS " attribute");
+					err("error parsing SYSFS attribute");
 					goto error;
 				}
 				strlcpy(pair->name, attr, sizeof(pair->name));
@@ -347,17 +347,17 @@ static int rules_parse(const char *filename)
 				continue;
 			}
 
-			if (strncasecmp(key, KEY_ENV, sizeof(KEY_ENV)-1) == 0) {
+			if (strncasecmp(key, "ENV", sizeof("ENV")-1) == 0) {
 				struct key_pair *pair;
 
 				if (rule.env_pair_count >= KEY_ENV_PAIRS_MAX) {
-					err("skip rule, to many " KEY_ENV " keys in a single rule");
+					err("skip rule, to many ENV keys in a single rule");
 					goto error;
 				}
 				pair = &rule.env_pair[rule.env_pair_count];
-				attr = get_key_attribute(key + sizeof(KEY_ENV)-1);
+				attr = get_key_attribute(key + sizeof("ENV")-1);
 				if (attr == NULL) {
-					err("error parsing " KEY_ENV " attribute");
+					err("error parsing ENV attribute");
 					continue;
 				}
 				strlcpy(pair->name, attr, sizeof(pair->name));
@@ -368,20 +368,20 @@ static int rules_parse(const char *filename)
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_MODALIAS) == 0) {
+			if (strcasecmp(key, "MODALIAS") == 0) {
 				strlcpy(rule.modalias, value, sizeof(rule.modalias));
 				rule.modalias_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strncasecmp(key, KEY_IMPORT, sizeof(KEY_IMPORT)-1) == 0) {
-				attr = get_key_attribute(key + sizeof(KEY_IMPORT)-1);
+			if (strncasecmp(key, "IMPORT", sizeof("IMPORT")-1) == 0) {
+				attr = get_key_attribute(key + sizeof("IMPORT")-1);
 				if (attr && strstr(attr, "program")) {
-					dbg(KEY_IMPORT" will be executed");
+					dbg("IMPORT will be executed");
 					rule.import_exec = 1;
 				} else if (attr && strstr(attr, "file")) {
-					dbg(KEY_IMPORT" will be included as file");
+					dbg("IMPORT will be included as file");
 				} else {
 					/* figure it out if it is executable */
 					char file[PATH_SIZE];
@@ -392,9 +392,9 @@ static int rules_parse(const char *filename)
 					pos = strchr(file, ' ');
 					if (pos)
 						pos[0] = '\0';
-					dbg(KEY_IMPORT" auto mode for '%s'", file);
+					dbg("IMPORT auto mode for '%s'", file);
 					if (!lstat(file, &stats) && (stats.st_mode & S_IXUSR)) {
-							dbg(KEY_IMPORT" is executable, will be executed");
+							dbg("IMPORT is executable, will be executed");
 							rule.import_exec = 1;
 					}
 				}
@@ -404,21 +404,21 @@ static int rules_parse(const char *filename)
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_DRIVER) == 0) {
+			if (strcasecmp(key, "DRIVER") == 0) {
 				strlcpy(rule.driver, value, sizeof(rule.driver));
 				rule.driver_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_RESULT) == 0) {
+			if (strcasecmp(key, "RESULT") == 0) {
 				strlcpy(rule.result, value, sizeof(rule.result));
 				rule.result_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_PROGRAM) == 0) {
+			if (strcasecmp(key, "PROGRAM") == 0) {
 				strlcpy(rule.program, value, sizeof(rule.program));
 				rule.program_operation = operation;
 				program_given = 1;
@@ -426,14 +426,14 @@ static int rules_parse(const char *filename)
 				continue;
 			}
 
-			if (strncasecmp(key, KEY_NAME, sizeof(KEY_NAME)-1) == 0) {
-				attr = get_key_attribute(key + sizeof(KEY_NAME)-1);
+			if (strncasecmp(key, "NAME", sizeof("NAME")-1) == 0) {
+				attr = get_key_attribute(key + sizeof("NAME")-1);
 				if (attr != NULL) {
-					if (strstr(attr, OPTION_PARTITIONS) != NULL) {
+					if (strstr(attr, "all_partitions") != NULL) {
 						dbg("creation of partition nodes requested");
 						rule.partitions = DEFAULT_PARTITIONS_COUNT;
 					}
-					if (strstr(attr, OPTION_IGNORE_REMOVE) != NULL) {
+					if (strstr(attr, "ignore_remove") != NULL) {
 						dbg("remove event should be ignored");
 						rule.ignore_remove = 1;
 					}
@@ -444,55 +444,55 @@ static int rules_parse(const char *filename)
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_SYMLINK) == 0) {
+			if (strcasecmp(key, "SYMLINK") == 0) {
 				strlcpy(rule.symlink, value, sizeof(rule.symlink));
 				rule.symlink_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_OWNER) == 0) {
+			if (strcasecmp(key, "OWNER") == 0) {
 				strlcpy(rule.owner, value, sizeof(rule.owner));
 				rule.owner_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_GROUP) == 0) {
+			if (strcasecmp(key, "GROUP") == 0) {
 				strlcpy(rule.group, value, sizeof(rule.group));
 				rule.group_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_MODE) == 0) {
+			if (strcasecmp(key, "MODE") == 0) {
 				rule.mode = strtol(value, NULL, 8);
 				rule.mode_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_RUN) == 0) {
+			if (strcasecmp(key, "RUN") == 0) {
 				strlcpy(rule.run, value, sizeof(rule.run));
 				rule.run_operation = operation;
 				valid = 1;
 				continue;
 			}
 
-			if (strcasecmp(key, KEY_OPTIONS) == 0) {
-				if (strstr(value, OPTION_LAST_RULE) != NULL) {
+			if (strcasecmp(key, "OPTIONS") == 0) {
+				if (strstr(value, "last_rule") != NULL) {
 					dbg("last rule to be applied");
 					rule.last_rule = 1;
 				}
-				if (strstr(value, OPTION_IGNORE_DEVICE) != NULL) {
+				if (strstr(value, "ignore_device") != NULL) {
 					dbg("device should be ignored");
 					rule.ignore_device = 1;
 				}
-				if (strstr(value, OPTION_IGNORE_REMOVE) != NULL) {
+				if (strstr(value, "ignore_remove") != NULL) {
 					dbg("remove event should be ignored");
 					rule.ignore_remove = 1;
 				}
-				if (strstr(value, OPTION_PARTITIONS) != NULL) {
+				if (strstr(value, "all_partitions") != NULL) {
 					dbg("creation of partition nodes requested");
 					rule.partitions = DEFAULT_PARTITIONS_COUNT;
 				}
@@ -509,7 +509,7 @@ static int rules_parse(const char *filename)
 			goto error;
 
 		if ((rule.result[0] != '\0') && (program_given == 0)) {
-			info(KEY_RESULT " is only useful when " KEY_PROGRAM " is called in any rule before");
+			info("RESULT is only useful when PROGRAM is called in any rule before");
 			goto error;
 		}
 

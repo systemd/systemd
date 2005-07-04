@@ -626,33 +626,32 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 {
 	struct sysfs_device *parent_device = sysfs_device;
 
-	if (match_key(KEY_ACTION, rule->action, rule->action_operation, udev->action))
+	if (match_key("ACTION", rule->action, rule->action_operation, udev->action))
 		goto exit;
 
-	if (match_key(KEY_KERNEL, rule->kernel_name, rule->kernel_operation, udev->kernel_name))
+	if (match_key("KERNEL", rule->kernel_name, rule->kernel_operation, udev->kernel_name))
 		goto exit;
 
-	if (match_key(KEY_SUBSYSTEM, rule->subsystem, rule->subsystem_operation, udev->subsystem))
+	if (match_key("SUBSYSTEM", rule->subsystem, rule->subsystem_operation, udev->subsystem))
 		goto exit;
 
-	if (match_key(KEY_DEVPATH, rule->devpath, rule->devpath_operation, udev->devpath))
+	if (match_key("DEVPATH", rule->devpath, rule->devpath_operation, udev->devpath))
 		goto exit;
 
 	if (rule->modalias_operation != KEY_OP_UNSET) {
 		char value[NAME_SIZE];
 
 		if (find_sysfs_attribute(NULL, sysfs_device, "modalias", value, sizeof(value)) != 0) {
-			dbg(KEY_MODALIAS " value not found");
+			dbg("MODALIAS value not found");
 			goto exit;
 		}
-		if (match_key(KEY_MODALIAS, rule->modalias, rule->modalias_operation, value))
+		if (match_key("MODALIAS", rule->modalias, rule->modalias_operation, value))
 			goto exit;
 	}
 
 	if (rule->env_pair_count) {
 		int i;
 
-		dbg("check for " KEY_ENV " pairs");
 		for (i = 0; i < rule->env_pair_count; i++) {
 			struct key_pair *pair;
 			const char *value;
@@ -660,14 +659,14 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 			pair = &rule->env_pair[i];
 			value = getenv(pair->name);
 			if (!value) {
-				dbg(KEY_ENV "{'%s'} is not found", pair->name);
+				dbg("ENV{'%s'} is not found", pair->name);
 				goto exit;
 			}
-			dbg("check %i " KEY_ENV " keys", rule->env_pair_count);
+			dbg("check %i ENV keys", rule->env_pair_count);
 			if (match_key(pair->name, pair->value, pair->operation, value))
 				goto exit;
 		}
-		dbg("all %i " KEY_ENV " keys matched", rule->env_pair_count);
+		dbg("all %i ENV keys matched", rule->env_pair_count);
 	}
 
 	/* walk up the chain of physical devices and find a match */
@@ -678,7 +677,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 				dbg("device has no sysfs_device");
 				goto exit;
 			}
-			if (match_key(KEY_BUS, rule->driver, rule->driver_operation, parent_device->driver_name))
+			if (match_key("DRIVER", rule->driver, rule->driver_operation, parent_device->driver_name))
 				goto try_parent;
 		}
 
@@ -688,7 +687,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 				dbg("device has no sysfs_device");
 				goto exit;
 			}
-			if (match_key(KEY_BUS, rule->bus, rule->bus_operation, parent_device->bus))
+			if (match_key("BUS", rule->bus, rule->bus_operation, parent_device->bus))
 				goto try_parent;
 		}
 
@@ -698,7 +697,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 				dbg("device has no sysfs_device");
 				goto exit;
 			}
-			if (match_key(KEY_ID, rule->id, rule->id_operation, parent_device->bus_id))
+			if (match_key("ID", rule->id, rule->id_operation, parent_device->bus_id))
 				goto try_parent;
 		}
 
@@ -706,7 +705,6 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		if (rule->sysfs_pair_count) {
 			int i;
 
-			dbg("check " KEY_SYSFS " pairs");
 			for (i = 0; i < rule->sysfs_pair_count; i++) {
 				struct key_pair *pair;
 				char value[VALUE_SIZE];
@@ -725,11 +723,11 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 					dbg("removed %zi trailing whitespace chars from '%s'", strlen(value)-len, value);
 				}
 
-				dbg("check %i " KEY_SYSFS " keys", rule->sysfs_pair_count);
+				dbg("check %i SYSFS keys", rule->sysfs_pair_count);
 				if (match_key(pair->name, pair->value, pair->operation, value))
 					goto try_parent;
 			}
-			dbg("all %i " KEY_SYSFS " keys matched", rule->sysfs_pair_count);
+			dbg("all %i SYSFS keys matched", rule->sysfs_pair_count);
 		}
 
 		/* found matching physical device  */
@@ -750,7 +748,7 @@ try_parent:
 
 		strlcpy(import, rule->import, sizeof(import));
 		apply_format(udev, import, sizeof(import), class_dev, sysfs_device);
-		dbg("check for " KEY_IMPORT " import='%s'", import);
+		dbg("check for IMPORT import='%s'", import);
 		if (rule->import_exec) {
 			dbg("run executable file import='%s'", import);
 			rc = import_program_into_env(udev, import);
@@ -759,12 +757,12 @@ try_parent:
 			rc = import_file_into_env(udev, import);
 		}
 		if (rc) {
-			dbg(KEY_IMPORT " failed");
+			dbg("IMPORT failed");
 			if (rule->import_operation != KEY_OP_NOMATCH)
 				goto exit;
 		} else
-			dbg(KEY_IMPORT " '%s' imported", rule->import);
-		dbg(KEY_IMPORT " key is true");
+			dbg("IMPORT '%s' imported", rule->import);
+		dbg("IMPORT key is true");
 	}
 
 	/* execute external program */
@@ -774,26 +772,26 @@ try_parent:
 
 		strlcpy(program, rule->program, sizeof(program));
 		apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
-		dbg("check for " KEY_PROGRAM " program='%s", program);
+		dbg("check for PROGRAM program='%s", program);
 		if (execute_program(program, udev->subsystem, result, sizeof(result), NULL) != 0) {
-			dbg(KEY_PROGRAM " is not matching");
+			dbg("PROGRAM is not matching");
 			if (rule->program_operation != KEY_OP_NOMATCH)
 				goto exit;
 		} else {
-			dbg(KEY_PROGRAM " matches");
+			dbg("PROGRAM matches");
 			remove_trailing_char(result, '\n');
 			replace_untrusted_chars(result);
 			dbg("result is '%s'", result);
 			strlcpy(udev->program_result, result, sizeof(udev->program_result));
-			dbg(KEY_PROGRAM " returned successful");
+			dbg("PROGRAM returned successful");
 			if (rule->program_operation == KEY_OP_NOMATCH)
 				goto exit;
 		}
-		dbg(KEY_PROGRAM " key is true");
+		dbg("PROGRAM key is true");
 	}
 
 	/* check for matching result of external program */
-	if (match_key(KEY_RESULT, rule->result, rule->result_operation, udev->program_result))
+	if (match_key("RESULT", rule->result, rule->result_operation, udev->program_result))
 		goto exit;
 
 	/* rule matches */

@@ -27,33 +27,6 @@
 #include "udev.h"
 #include "list.h"
 
-
-#define KEY_KERNEL		"KERNEL"
-#define KEY_SUBSYSTEM		"SUBSYSTEM"
-#define KEY_ACTION		"ACTION"
-#define KEY_DEVPATH		"DEVPATH"
-#define KEY_BUS			"BUS"
-#define KEY_ID			"ID"
-#define KEY_PROGRAM		"PROGRAM"
-#define KEY_RESULT		"RESULT"
-#define KEY_DRIVER		"DRIVER"
-#define KEY_SYSFS		"SYSFS"
-#define KEY_ENV			"ENV"
-#define KEY_MODALIAS		"MODALIAS"
-#define KEY_IMPORT		"IMPORT"
-#define KEY_NAME		"NAME"
-#define KEY_SYMLINK		"SYMLINK"
-#define KEY_OWNER		"OWNER"
-#define KEY_GROUP		"GROUP"
-#define KEY_MODE		"MODE"
-#define KEY_RUN			"RUN"
-#define KEY_OPTIONS		"OPTIONS"
-
-#define OPTION_LAST_RULE	"last_rule"
-#define OPTION_IGNORE_DEVICE	"ignore_device"
-#define OPTION_IGNORE_REMOVE	"ignore_remove"
-#define OPTION_PARTITIONS	"all_partitions"
-
 #define KEY_SYSFS_PAIRS_MAX	5
 #define KEY_ENV_PAIRS_MAX	5
 
