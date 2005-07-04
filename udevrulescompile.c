@@ -108,7 +108,7 @@ int main(int argc, char *argv[], char *envp[])
 			sprintf(rule->group, "%li", gid);
 		}
 
-		dbg("kernel='%s' name='%s'", rule->kernel, rule->name);
+		dbg("kernel_name='%s' name='%s'", rule->kernel_name, rule->name);
 		fwrite(rule, sizeof(struct udev_rule), 1, f);
 	}
 

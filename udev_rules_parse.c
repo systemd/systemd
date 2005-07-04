@@ -87,12 +87,12 @@ static int add_rule_to_list(struct udev_rule *rule)
 
 	dbg("name='%s', symlink='%s', bus='%s', id='%s', "
 	    "sysfs_file[0]='%s', sysfs_value[0]='%s', "
-	    "kernel='%s', program='%s', result='%s', "
+	    "kernel_name='%s', program='%s', result='%s', "
 	    "owner='%s', group='%s', mode=%#o, "
 	    "all_partions=%u, ignore_remove=%u, ignore_device=%u, last_rule=%u",
 	    rule->name, rule->symlink, rule->bus, rule->id,
 	    rule->sysfs_pair[0].name, rule->sysfs_pair[0].value,
-	    rule->kernel, rule->program, rule->result, rule->owner, rule->group, rule->mode,
+	    rule->kernel_name, rule->program, rule->result, rule->owner, rule->group, rule->mode,
 	    rule->partitions, rule->ignore_remove, rule->ignore_device, rule->last_rule);
 
 	return 0;
@@ -285,7 +285,7 @@ static int rules_parse(const char *filename)
 				break;
 
 			if (strcasecmp(key, KEY_KERNEL) == 0) {
-				strlcpy(rule.kernel, value, sizeof(rule.kernel));
+				strlcpy(rule.kernel_name, value, sizeof(rule.kernel_name));
 				rule.kernel_operation = operation;
 				valid = 1;
 				continue;

@@ -77,7 +77,7 @@ struct key_pair {
 struct udev_rule {
 	struct list_head node;
 
-	char kernel[NAME_SIZE];
+	char kernel_name[NAME_SIZE];
 	enum key_operation kernel_operation;
 	char subsystem[NAME_SIZE];
 	enum key_operation subsystem_operation;
