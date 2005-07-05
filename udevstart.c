@@ -47,6 +47,7 @@
 
 static const char *udev_run_str;
 static const char *udev_log_str;
+static struct udev_rules rules;
 
 #ifdef USE_LOG
 void log_message(int priority, const char *format, ...)
@@ -139,7 +140,7 @@ static int add_device(const char *path, const char *subsystem)
 		dbg("sysfs_open_class_device_path failed");
 		return -1;
 	}
-	udev_rules_get_name(&udev, class_dev);
+	udev_rules_get_name(&rules, &udev, class_dev);
 	if (udev.ignore_device) {
 		dbg("device event will be ignored");
 		goto exit;
@@ -360,11 +361,12 @@ int main(int argc, char *argv[], char *envp[])
 	/* trigger timeout to prevent hanging processes */
 	alarm(ALARM_TIMEOUT);
 
-	udev_rules_init();
+	udev_rules_init(&rules, 1);
 
 	udev_scan_block();
 	udev_scan_class();
 
+	udev_rules_close(&rules);
 	logging_close();
 	return 0;
 }

@@ -55,6 +55,7 @@ void log_message (int priority, const char *format, ...)
 
 int main(int argc, char *argv[], char *envp[])
 {
+	struct udev_rules rules;
 	struct sysfs_class_device *class_dev;
 	char *devpath;
 	char path[PATH_SIZE];
@@ -93,7 +94,7 @@ int main(int argc, char *argv[], char *envp[])
 	info("looking at device '%s' from subsystem '%s'", devpath, subsystem);
 
 	/* initialize the naming deamon */
-	udev_rules_init();
+	udev_rules_init(&rules, 0);
 
 	/* fill in values and test_run flag*/
 	udev_init_device(&udev, devpath, subsystem, "add");
@@ -114,7 +115,7 @@ int main(int argc, char *argv[], char *envp[])
 	/* simulate node creation with test flag */
 	udev.test_run = 1;
 	if (udev.type == DEV_NET || udev.devt) {
-		udev_rules_get_name(&udev, class_dev);
+		udev_rules_get_name(&rules, &udev, class_dev);
 		udev_add_device(&udev, class_dev);
 	} else
 		info("only char and block devices with a dev-file are supported by this test program");

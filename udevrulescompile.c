@@ -50,7 +50,7 @@ void log_message(int priority, const char *format, ...)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	struct udev_rule *rule;
+	struct udev_rules rules;
 	FILE *f;
 	char comp[PATH_SIZE];
 	char comp_tmp[PATH_SIZE];
@@ -65,12 +65,11 @@ int main(int argc, char *argv[], char *envp[])
 	strlcpy(comp_tmp, comp, sizeof(comp_tmp));
 	strlcat(comp_tmp, ".tmp", sizeof(comp_tmp));
 
-	/* remove old version, otherwise we would read it
-	 * instead of the real rules */
+	/* remove old version, otherwise we would read it instead of the real rules */
 	unlink(comp);
 	unlink(comp_tmp);
 
-	udev_rules_init();
+	udev_rules_init(&rules, 1);
 
 	f = fopen(comp_tmp, "w");
 	if (f == NULL) {
@@ -79,40 +78,11 @@ int main(int argc, char *argv[], char *envp[])
 		retval = 1;
 		goto exit;
 	}
-	dbg("storing compiled rules in '%s'", comp_tmp);
 
-	udev_rules_iter_init();
-	while (1) {
-		char *endptr;
-		unsigned long id;
-
-		rule = udev_rules_iter_next();
-		if (rule == NULL)
-			break;
-
-		id = strtoul(rule->owner, &endptr, 10);
-		if (endptr[0] != '\0') {
-			uid_t uid;
-
-			uid = lookup_user(rule->owner);
-			dbg("replacing username='%s' by id=%i", rule->owner, uid);
-			sprintf(rule->owner, "%li", uid);
-		}
-
-		id = strtoul(rule->group, &endptr, 10);
-		if (endptr[0] != '\0') {
-			gid_t gid;
-
-			gid = lookup_group(rule->group);
-			dbg("replacing groupname='%s' by id=%i", rule->group, gid);
-			sprintf(rule->group, "%li", gid);
-		}
-
-		dbg("kernel_name='%s' name='%s'", rule->kernel_name, rule->name);
-		fwrite(rule, sizeof(struct udev_rule), 1, f);
-	}
-
+	dbg("storing compiled rules in '%s' size=%zi", comp_tmp, rules.bufsize);
+	fwrite(rules.buf, rules.bufsize, 1, f);
 	fclose(f);
+
 	dbg("activating compiled rules in '%s'", comp);
 	if (rename(comp_tmp, comp) != 0) {
 		err("unable to write file");

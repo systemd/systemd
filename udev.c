@@ -68,6 +68,7 @@ static void asmlinkage sig_handler(int signum)
 int main(int argc, char *argv[], char *envp[])
 {
 	struct udevice udev;
+	struct udev_rules rules;
 	char path[PATH_SIZE];
 	const char *error;
 	const char *action;
@@ -118,7 +119,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	udev_init_device(&udev, devpath, subsystem, action);
-	udev_rules_init();
+	udev_rules_init(&rules, 0);
 
 	if (udev.type == DEV_BLOCK || udev.type == DEV_CLASS || udev.type == DEV_NET) {
 		/* handle device node */
@@ -143,7 +144,7 @@ int main(int argc, char *argv[], char *envp[])
 
 			if (udev.type == DEV_NET || udev.devt) {
 				/* name device */
-				udev_rules_get_name(&udev, class_dev);
+				udev_rules_get_name(&rules, &udev, class_dev);
 				if (udev.ignore_device) {
 					info("device event will be ignored");
 					goto cleanup;
@@ -157,7 +158,7 @@ int main(int argc, char *argv[], char *envp[])
 				retval = udev_add_device(&udev, class_dev);
 			} else {
 				dbg("no dev-file found");
-				udev_rules_get_run(&udev, NULL);
+				udev_rules_get_run(&rules, &udev, NULL);
 				if (udev.ignore_device) {
 					info("device event will be ignored");
 					goto cleanup;
@@ -166,7 +167,7 @@ int main(int argc, char *argv[], char *envp[])
 			sysfs_close_class_device(class_dev);
 		} else if (strcmp(action, "remove") == 0) {
 			dbg("node remove");
-			udev_rules_get_run(&udev, NULL);
+			udev_rules_get_run(&rules, &udev, NULL);
 			if (udev.ignore_device) {
 				dbg("device event will be ignored");
 				goto cleanup;
@@ -193,7 +194,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 		dbg("devices device opened '%s'", path);
 		wait_for_devices_device(devices_dev, &error);
-		udev_rules_get_run(&udev, devices_dev);
+		udev_rules_get_run(&rules, &udev, devices_dev);
 		sysfs_close_device(devices_dev);
 		if (udev.ignore_device) {
 			info("device event will be ignored");
@@ -201,7 +202,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	} else {
 		dbg("default handling");
-		udev_rules_get_run(&udev, NULL);
+		udev_rules_get_run(&rules, &udev, NULL);
 		if (udev.ignore_device) {
 			info("device event will be ignored");
 			goto cleanup;

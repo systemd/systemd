@@ -37,65 +37,29 @@
 #include "logging.h"
 #include "udev_rules.h"
 
-/* rules parsed from .rules files*/
-static LIST_HEAD(rules_list);
-static struct list_head *rules_list_current;
 
-/* mapped compiled rules stored on disk */
-static struct udev_rule *rules_array = NULL;
-static size_t rules_array_current;
-static size_t rules_array_size = 0;
-
-static size_t rules_count = 0;
-
-int udev_rules_iter_init(void)
+void udev_rules_iter_init(struct udev_rules *rules)
 {
-	rules_list_current = rules_list.next;
-	rules_array_current = 0;
-
-	return 0;
+	dbg("bufsize=%zi", rules->bufsize);
+	rules->current = 0;
 }
 
-struct udev_rule *udev_rules_iter_next(void)
+struct udev_rule *udev_rules_iter_next(struct udev_rules *rules)
 {
 	static struct udev_rule *rule;
 
-	if (rules_array) {
-		if (rules_array_current >= rules_count)
-			return NULL;
-		rule = &rules_array[rules_array_current];
-		rules_array_current++;
-	} else {
-		dbg("head=%p current=%p next=%p", &rules_list, rules_list_current, rules_list_current->next);
-		if (rules_list_current == &rules_list)
-			return NULL;
-		rule = list_entry(rules_list_current, struct udev_rule, node);
-		rules_list_current = rules_list_current->next;
-	}
+	if (!rules)
+		return NULL;
+
+	dbg("current=%zi", rules->current);
+	if (rules->current >= rules->bufsize)
+		return NULL;
+
+	/* get next rule */
+	rule = (struct udev_rule *) (rules->buf + rules->current);
+	rules->current += sizeof(struct udev_rule) + rule->bufsize;
+
 	return rule;
-}
-
-static int add_rule_to_list(struct udev_rule *rule)
-{
-	struct udev_rule *tmp_rule;
-
-	tmp_rule = malloc(sizeof(*tmp_rule));
-	if (tmp_rule == NULL)
-		return -ENOMEM;
-	memcpy(tmp_rule, rule, sizeof(struct udev_rule));
-	list_add_tail(&tmp_rule->node, &rules_list);
-
-	dbg("name='%s', symlink='%s', bus='%s', id='%s', "
-	    "sysfs_file[0]='%s', sysfs_value[0]='%s', "
-	    "kernel_name='%s', program='%s', result='%s', "
-	    "owner='%s', group='%s', mode=%#o, "
-	    "all_partions=%u, ignore_remove=%u, ignore_device=%u, last_rule=%u",
-	    rule->name, rule->symlink, rule->bus, rule->id,
-	    rule->sysfs_pair[0].name, rule->sysfs_pair[0].value,
-	    rule->kernel_name, rule->program, rule->result, rule->owner, rule->group, rule->mode,
-	    rule->partitions, rule->ignore_remove, rule->ignore_device, rule->last_rule);
-
-	return 0;
 }
 
 static int get_key(char **line, char **key, enum key_operation *operation, char **value)
@@ -210,21 +174,306 @@ static char *get_key_attribute(char *str)
 	return NULL;
 }
 
-static int rules_parse(const char *filename)
+static int add_rule_key(struct udev_rule *rule, struct key *key,
+			enum key_operation operation, const char *value)
+{
+	size_t val_len = strnlen(value, PATH_SIZE);
+
+	key->operation = operation;
+
+	key->val_off = rule->bufsize;
+	strlcpy(rule->buf + rule->bufsize, value, val_len+1);
+	rule->bufsize += val_len+1;
+
+	return 0;
+}
+
+static int add_rule_key_pair(struct udev_rule *rule, struct key_pairs *pairs,
+			     enum key_operation operation, const char *key, const char *value)
+{
+	size_t key_len = strnlen(key, PATH_SIZE);
+
+	if (pairs->count >= PAIRS_MAX) {
+		err("skip, too many keys in a single rule");
+		return -1;
+	}
+
+	add_rule_key(rule, &pairs->keys[pairs->count].key, operation, value);
+
+	/* add the key-name of the pair */
+	pairs->keys[pairs->count].key_name_off = rule->bufsize;
+	strlcpy(rule->buf + rule->bufsize, key, key_len+1);
+	rule->bufsize += key_len+1;
+
+	pairs->count++;
+
+	return 0;
+}
+
+static int add_to_rules(struct udev_rules *rules, char *line)
+{
+	struct udev_rule *rule;
+	size_t rule_size;
+	int valid;
+	char *linepos;
+	char *attr;
+	int retval;
+
+	/* get all the keys */
+	rule = calloc(1, sizeof (struct udev_rule) + LINE_SIZE);
+	if (!rule) {
+		err("malloc failed");
+		return -1;
+	}
+	linepos = line;
+	valid = 0;
+
+	while (1) {
+		char *key;
+		char *value;
+		enum key_operation operation = KEY_OP_UNSET;
+
+		retval = get_key(&linepos, &key, &operation, &value);
+		if (retval)
+			break;
+
+		if (strcasecmp(key, "KERNEL") == 0) {
+			add_rule_key(rule, &rule->kernel_name, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "SUBSYSTEM") == 0) {
+			add_rule_key(rule, &rule->subsystem, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "ACTION") == 0) {
+			add_rule_key(rule, &rule->action, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "DEVPATH") == 0) {
+			add_rule_key(rule, &rule->devpath, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "BUS") == 0) {
+			add_rule_key(rule, &rule->bus, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "ID") == 0) {
+			add_rule_key(rule, &rule->id, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strncasecmp(key, "SYSFS", sizeof("SYSFS")-1) == 0) {
+			attr = get_key_attribute(key + sizeof("SYSFS")-1);
+			if (attr == NULL) {
+				err("error parsing SYSFS attribute in '%s'", line);
+				continue;
+			}
+			add_rule_key_pair(rule, &rule->sysfs, operation, attr, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strncasecmp(key, "ENV", sizeof("ENV")-1) == 0) {
+			attr = get_key_attribute(key + sizeof("ENV")-1);
+			if (attr == NULL) {
+				err("error parsing ENV attribute");
+				continue;
+			}
+			add_rule_key_pair(rule, &rule->env, operation, attr, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "MODALIAS") == 0) {
+			add_rule_key(rule, &rule->modalias, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strncasecmp(key, "IMPORT", sizeof("IMPORT")-1) == 0) {
+			attr = get_key_attribute(key + sizeof("IMPORT")-1);
+			if (attr && strstr(attr, "program")) {
+				dbg("IMPORT will be executed");
+				rule->import_exec = 1;
+			} else if (attr && strstr(attr, "file")) {
+				dbg("IMPORT will be included as file");
+			} else {
+				/* figure it out if it is executable */
+				char file[PATH_SIZE];
+				char *pos;
+				struct stat stats;
+
+				strlcpy(file, value, sizeof(file));
+				pos = strchr(file, ' ');
+				if (pos)
+					pos[0] = '\0';
+				dbg("IMPORT auto mode for '%s'", file);
+				if (!lstat(file, &stats) && (stats.st_mode & S_IXUSR)) {
+						dbg("IMPORT is executable, will be executed");
+						rule->import_exec = 1;
+				}
+			}
+			add_rule_key(rule, &rule->import, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "DRIVER") == 0) {
+			add_rule_key(rule, &rule->driver, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "RESULT") == 0) {
+			add_rule_key(rule, &rule->result, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "PROGRAM") == 0) {
+			add_rule_key(rule, &rule->program, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strncasecmp(key, "NAME", sizeof("NAME")-1) == 0) {
+			attr = get_key_attribute(key + sizeof("NAME")-1);
+			if (attr != NULL) {
+				if (strstr(attr, "all_partitions") != NULL) {
+					dbg("creation of partition nodes requested");
+					rule->partitions = DEFAULT_PARTITIONS_COUNT;
+				}
+				if (strstr(attr, "ignore_remove") != NULL) {
+					dbg("remove event should be ignored");
+					rule->ignore_remove = 1;
+				}
+			}
+			add_rule_key(rule, &rule->name, operation, value);
+			continue;
+		}
+
+		if (strcasecmp(key, "SYMLINK") == 0) {
+			add_rule_key(rule, &rule->symlink, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "OWNER") == 0) {
+			valid = 1;
+			if (rules->resolve_names) {
+				char *endptr;
+				strtoul(value, &endptr, 10);
+				if (endptr[0] != '\0') {
+					char owner[32];
+					uid_t uid = lookup_user(value);
+					dbg("replacing username='%s' by id=%i", value, uid);
+					sprintf(owner, "%li", uid);
+					add_rule_key(rule, &rule->owner, operation, owner);
+					continue;
+				}
+			}
+
+			add_rule_key(rule, &rule->owner, operation, value);
+			continue;
+		}
+
+		if (strcasecmp(key, "GROUP") == 0) {
+			valid = 1;
+			if (rules->resolve_names) {
+				char *endptr;
+				strtoul(value, &endptr, 10);
+				if (endptr[0] != '\0') {
+					char group[32];
+					gid_t gid = lookup_group(value);
+					dbg("replacing groupname='%s' by id=%i", value, gid);
+					sprintf(group, "%li", gid);
+					add_rule_key(rule, &rule->owner, operation, group);
+					continue;
+				}
+			}
+
+			add_rule_key(rule, &rule->group, operation, value);
+			continue;
+		}
+
+		if (strcasecmp(key, "MODE") == 0) {
+			rule->mode = strtol(value, NULL, 8);
+			rule->mode_operation = operation;
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "RUN") == 0) {
+			add_rule_key(rule, &rule->run, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "OPTIONS") == 0) {
+			if (strstr(value, "last_rule") != NULL) {
+				dbg("last rule to be applied");
+				rule->last_rule = 1;
+			}
+			if (strstr(value, "ignore_device") != NULL) {
+				dbg("device should be ignored");
+				rule->ignore_device = 1;
+			}
+			if (strstr(value, "ignore_remove") != NULL) {
+				dbg("remove event should be ignored");
+				rule->ignore_remove = 1;
+			}
+			if (strstr(value, "all_partitions") != NULL) {
+				dbg("creation of partition nodes requested");
+				rule->partitions = DEFAULT_PARTITIONS_COUNT;
+			}
+			valid = 1;
+			continue;
+		}
+
+		err("unknown key '%s', in '%s'", key, line);
+	}
+
+	/* skip line if not any valid key was found */
+	if (!valid) {
+		err("invalid rule '%s'", line);
+		goto exit;
+	}
+
+	/* grow buffer and add rule */
+	rule_size = sizeof(struct udev_rule) + rule->bufsize;
+	rules->buf = realloc(rules->buf, rules->bufsize + rule_size);
+	if (!rules->buf) {
+		err("realloc failed");
+		goto exit;
+	}
+	memcpy(rules->buf + rules->bufsize, rule, rule_size);
+	rules->bufsize += rule_size;
+exit:
+	free(rule);
+	return 0;
+}
+
+static int parse_file(struct udev_rules *rules, const char *filename)
 {
 	char line[LINE_SIZE];
 	char *bufline;
 	int lineno;
-	char *linepos;
-	char *attr;
 	char *buf;
 	size_t bufsize;
 	size_t cur;
 	size_t count;
-	int program_given = 0;
-	int valid;
 	int retval = 0;
-	struct udev_rule rule;
 
 	if (file_map(filename, &buf, &bufsize) != 0) {
 		err("can't open '%s' as rules file", filename);
@@ -268,295 +517,46 @@ static int rules_parse(const char *filename)
 			line[j++] = bufline[i];
 		}
 		line[j] = '\0';
+
 		dbg("read '%s'", line);
-
-		/* get all known keys */
-		memset(&rule, 0x00, sizeof(struct udev_rule));
-		linepos = line;
-		valid = 0;
-
-		while (1) {
-			char *key;
-			char *value;
-			enum key_operation operation = KEY_OP_UNSET;
-
-			retval = get_key(&linepos, &key, &operation, &value);
-			if (retval)
-				break;
-
-			if (strcasecmp(key, "KERNEL") == 0) {
-				strlcpy(rule.kernel_name, value, sizeof(rule.kernel_name));
-				rule.kernel_operation = operation;
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(key, "SUBSYSTEM") == 0) {
-				strlcpy(rule.subsystem, value, sizeof(rule.subsystem));
-				rule.subsystem_operation = operation;
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(key, "ACTION") == 0) {
-				strlcpy(rule.action, value, sizeof(rule.action));
-				rule.action_operation = operation;
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(key, "DEVPATH") == 0) {
-				strlcpy(rule.devpath, value, sizeof(rule.devpath));
-				rule.devpath_operation = operation;
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(key, "BUS") == 0) {
-				strlcpy(rule.bus, value, sizeof(rule.bus));
-				rule.bus_operation = operation;
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(key, "ID") == 0) {
-				strlcpy(rule.id, value, sizeof(rule.id));
-				rule.id_operation = operation;
-				valid = 1;
-				continue;
-			}
-
-			if (strncasecmp(key, "SYSFS", sizeof("SYSFS")-1) == 0) {
-				struct key_pair *pair;
-
-				if (rule.sysfs_pair_count >= KEY_SYSFS_PAIRS_MAX) {
-					err("skip rule, to many SYSFS keys in a single rule");
-					goto error;
-				}
-				pair = &rule.sysfs_pair[rule.sysfs_pair_count];
-				attr = get_key_attribute(key + sizeof("SYSFS")-1);
-				if (attr == NULL) {
-					err("error parsing SYSFS attribute");
-					goto error;
-				}
-				strlcpy(pair->name, attr, sizeof(pair->name));
-				strlcpy(pair->value, value, sizeof(pair->value));
-				pair->operation = operation;
-				rule.sysfs_pair_count++;
-				valid = 1;
-				continue;
-			}
-
-			if (strncasecmp(key, "ENV", sizeof("ENV")-1) == 0) {
-				struct key_pair *pair;
-
-				if (rule.env_pair_count >= KEY_ENV_PAIRS_MAX) {
-					err("skip rule, to many ENV keys in a single rule");
-					goto error;
-				}
-				pair = &rule.env_pair[rule.env_pair_count];
-				attr = get_key_attribute(key + sizeof("ENV")-1);
-				if (attr == NULL) {
-					err("error parsing ENV attribute");
-					continue;
-				}
-				strlcpy(pair->name, attr, sizeof(pair->name));
-				strlcpy(pair->value, value, sizeof(pair->value));
-				pair->operation = operation;
-				rule.env_pair_count++;
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(key, "MODALIAS") == 0) {
-				strlcpy(rule.modalias, value, sizeof(rule.modalias));
-				rule.modalias_operation = operation;
-				valid = 1;
-				continue;
-			}
-
-			if (strncasecmp(key, "IMPORT", sizeof("IMPORT")-1) == 0) {
-				attr = get_key_attribute(key + sizeof("IMPORT")-1);
-				if (attr && strstr(attr, "program")) {
-					dbg("IMPORT will be executed");
-					rule.import_exec = 1;
-				} else if (attr && strstr(attr, "file")) {
-					dbg("IMPORT will be included as file");
-				} else {
-					/* figure it out if it is executable */
-					char file[PATH_SIZE];
-					char *pos;
-					struct stat stats;
-
-					strlcpy(file, value, sizeof(file));
-					pos = strchr(file, ' ');
-					if (pos)
-						pos[0] = '\0';
-					dbg("IMPORT auto mode for '%s'", file);
-					if (!lstat(file, &stats) && (stats.st_mode & S_IXUSR)) {
-							dbg("IMPORT is executable, will be executed");
-							rule.import_exec = 1;
-					}
-				}
-				strlcpy(rule.import, value, sizeof(rule.import));
-				rule.import_operation = operation;
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(key, "DRIVER") == 0) {
-				strlcpy(rule.driver, value, sizeof(rule.driver));
-				rule.driver_operation = operation;
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(key, "RESULT") == 0) {
-				strlcpy(rule.result, value, sizeof(rule.result));
-				rule.result_operation = operation;
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(key, "PROGRAM") == 0) {
-				strlcpy(rule.program, value, sizeof(rule.program));
-				rule.program_operation = operation;
-				program_given = 1;
-				valid = 1;
-				continue;
-			}
-
-			if (strncasecmp(key, "NAME", sizeof("NAME")-1) == 0) {
-				attr = get_key_attribute(key + sizeof("NAME")-1);
-				if (attr != NULL) {
-					if (strstr(attr, "all_partitions") != NULL) {
-						dbg("creation of partition nodes requested");
-						rule.partitions = DEFAULT_PARTITIONS_COUNT;
-					}
-					if (strstr(attr, "ignore_remove") != NULL) {
-						dbg("remove event should be ignored");
-						rule.ignore_remove = 1;
-					}
-				}
-				rule.name_operation = operation;
-				strlcpy(rule.name, value, sizeof(rule.name));
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(key, "SYMLINK") == 0) {
-				strlcpy(rule.symlink, value, sizeof(rule.symlink));
-				rule.symlink_operation = operation;
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(key, "OWNER") == 0) {
-				strlcpy(rule.owner, value, sizeof(rule.owner));
-				rule.owner_operation = operation;
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(key, "GROUP") == 0) {
-				strlcpy(rule.group, value, sizeof(rule.group));
-				rule.group_operation = operation;
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(key, "MODE") == 0) {
-				rule.mode = strtol(value, NULL, 8);
-				rule.mode_operation = operation;
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(key, "RUN") == 0) {
-				strlcpy(rule.run, value, sizeof(rule.run));
-				rule.run_operation = operation;
-				valid = 1;
-				continue;
-			}
-
-			if (strcasecmp(key, "OPTIONS") == 0) {
-				if (strstr(value, "last_rule") != NULL) {
-					dbg("last rule to be applied");
-					rule.last_rule = 1;
-				}
-				if (strstr(value, "ignore_device") != NULL) {
-					dbg("device should be ignored");
-					rule.ignore_device = 1;
-				}
-				if (strstr(value, "ignore_remove") != NULL) {
-					dbg("remove event should be ignored");
-					rule.ignore_remove = 1;
-				}
-				if (strstr(value, "all_partitions") != NULL) {
-					dbg("creation of partition nodes requested");
-					rule.partitions = DEFAULT_PARTITIONS_COUNT;
-				}
-				valid = 1;
-				continue;
-			}
-
-			err("unknown key '%s'", key);
-			goto error;
-		}
-
-		/* skip line if not any valid key was found */
-		if (!valid)
-			goto error;
-
-		if ((rule.result[0] != '\0') && (program_given == 0)) {
-			info("RESULT is only useful when PROGRAM is called in any rule before");
-			goto error;
-		}
-
-		rule.config_line = lineno;
-		strlcpy(rule.config_file, filename, sizeof(rule.config_file));
-		retval = add_rule_to_list(&rule);
-		if (retval) {
-			dbg("add_rule_to_list returned with error %d", retval);
-			continue;
-error:
-			err("parse error %s, line %d:%d, rule skipped",
-			     filename, lineno, (int) (linepos - line));
-		}
+		add_to_rules(rules, line);
 	}
 
 	file_unmap(buf, bufsize);
 	return retval;
 }
 
-static int rules_map(const char *filename)
+static int rules_map(struct udev_rules *rules, const char *filename)
 {
-	char *buf;
-	size_t size;
-
-	if (file_map(filename, &buf, &size))
+	if (file_map(filename, &rules->buf, &rules->bufsize)) {
+		rules->buf = NULL;
 		return -1;
-	if (size == 0)
+	}
+	if (rules->bufsize == 0) {
+		file_unmap(rules->buf, rules->bufsize);
+		rules->buf = NULL;
 		return -1;
-	rules_array = (struct udev_rule *) buf;
-	rules_array_size = size;
-	rules_count = size / sizeof(struct udev_rule);
-	dbg("found %zi compiled rules", rules_count);
+	}
 
 	return 0;
 }
 
-int udev_rules_init(void)
+int udev_rules_init(struct udev_rules *rules, int resolve_names)
 {
 	char comp[PATH_SIZE];
 	struct stat stats;
 	int retval;
 
+	memset(rules, 0x00, sizeof(struct udev_rules));
+	rules->resolve_names = resolve_names;
+
+	/* check for precompiled rules */
 	strlcpy(comp, udev_rules_filename, sizeof(comp));
 	strlcat(comp, ".compiled", sizeof(comp));
 	if (stat(comp, &stats) == 0) {
-		dbg("parse compiled rules '%s'", comp);
-		return rules_map(comp);
+		dbg("map compiled rules '%s'", comp);
+		if (rules_map(rules, comp) == 0)
+			return 0;
 	}
 
 	if (stat(udev_rules_filename, &stats) != 0)
@@ -564,7 +564,7 @@ int udev_rules_init(void)
 
 	if ((stats.st_mode & S_IFMT) != S_IFDIR) {
 		dbg("parse single rules file '%s'", udev_rules_filename);
-		retval = rules_parse(udev_rules_filename);
+		retval = parse_file(rules, udev_rules_filename);
 	} else {
 		struct name_entry *name_loop, *name_tmp;
 		LIST_HEAD(name_list);
@@ -573,7 +573,7 @@ int udev_rules_init(void)
 		retval = add_matching_files(&name_list, udev_rules_filename, RULEFILE_SUFFIX);
 
 		list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
-			rules_parse(name_loop->name);
+			parse_file(rules, name_loop->name);
 			list_del(&name_loop->node);
 		}
 	}
@@ -581,16 +581,12 @@ int udev_rules_init(void)
 	return retval;
 }
 
-void udev_rules_close(void)
+void udev_rules_close(struct udev_rules *rules)
 {
-	struct udev_rule *rule;
-	struct udev_rule *temp_rule;
-
-	if (rules_array)
-		file_unmap(rules_array, rules_array_size);
+	if (rules->mapped)
+		file_unmap(rules->buf, rules->bufsize);
 	else
-		list_for_each_entry_safe(rule, temp_rule, &rules_list, node) {
-			list_del(&rule->node);
-			free(rule);
-		}
+		free(rules->buf);
+
+	rules->buf = NULL;
 }

@@ -599,25 +599,38 @@ found:
 	}
 }
 
-static int match_key(const char *key, const char *key_val, enum key_operation key_op, const char *val)
+static char *key_val(struct udev_rule *rule, struct key *key)
+{
+	return rule->buf + key->val_off;
+}
+
+static char *key_pair_name(struct udev_rule *rule, struct key_pair *pair)
+{
+	return rule->buf + pair->key_name_off;
+}
+
+static int match_key(const char *key_name, struct udev_rule *rule, struct key *key, const char *val)
 {
 	int match;
+	char *key_value;
 
-	if (key_op == KEY_OP_UNSET)
+	if (key->operation == KEY_OP_UNSET)
 		return 0;
 
-	dbg("check for %s '%s' <-> '%s'", key, key_val, val);
-	match = (strcmp_pattern(key_val, val) == 0);
-	if (match && (key_op != KEY_OP_NOMATCH)) {
-		dbg("%s key is matching (matching value)", key);
+	key_value = rule->buf + key->val_off;
+
+	dbg("check for %s '%s' <-> '%s'", key_name, key_value, val);
+	match = (strcmp_pattern(key_value, val) == 0);
+	if (match && (key->operation != KEY_OP_NOMATCH)) {
+		dbg("%s key is matching (matching value)", key_name);
 		return 0;
 	}
-	if (!match && (key_op == KEY_OP_NOMATCH)) {
-		dbg("%s key is matching, (non matching value)", key);
+	if (!match && (key->operation == KEY_OP_NOMATCH)) {
+		dbg("%s key is matching, (non matching value)", key_name);
 		return 0;
 	}
 
-	dbg("%s key is not matching", key);
+	dbg("%s key is not matching", key_name);
 	return -1;
 }
 
@@ -626,108 +639,108 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 {
 	struct sysfs_device *parent_device = sysfs_device;
 
-	if (match_key("ACTION", rule->action, rule->action_operation, udev->action))
+	if (match_key("ACTION", rule, &rule->action, udev->action))
 		goto exit;
 
-	if (match_key("KERNEL", rule->kernel_name, rule->kernel_operation, udev->kernel_name))
+	if (match_key("KERNEL", rule, &rule->kernel_name, udev->kernel_name))
 		goto exit;
 
-	if (match_key("SUBSYSTEM", rule->subsystem, rule->subsystem_operation, udev->subsystem))
+	if (match_key("SUBSYSTEM", rule, &rule->subsystem, udev->subsystem))
 		goto exit;
 
-	if (match_key("DEVPATH", rule->devpath, rule->devpath_operation, udev->devpath))
+	if (match_key("DEVPATH", rule, &rule->devpath, udev->devpath))
 		goto exit;
 
-	if (rule->modalias_operation != KEY_OP_UNSET) {
+	if (rule->modalias.operation != KEY_OP_UNSET) {
 		char value[NAME_SIZE];
 
 		if (find_sysfs_attribute(NULL, sysfs_device, "modalias", value, sizeof(value)) != 0) {
 			dbg("MODALIAS value not found");
 			goto exit;
 		}
-		if (match_key("MODALIAS", rule->modalias, rule->modalias_operation, value))
+		if (match_key("MODALIAS", rule, &rule->modalias, value))
 			goto exit;
 	}
 
-	if (rule->env_pair_count) {
+	if (rule->env.count) {
 		int i;
 
-		for (i = 0; i < rule->env_pair_count; i++) {
-			struct key_pair *pair;
-			const char *value;
+		dbg("check %i ENV keys", rule->env.count);
+		for (i = 0; i < rule->env.count; i++) {
+			struct key_pair *pair = &rule->env.keys[i];
+			const char *key_name = key_pair_name(rule, pair);
+			const char *value = getenv(key_name);
 
-			pair = &rule->env_pair[i];
-			value = getenv(pair->name);
 			if (!value) {
-				dbg("ENV{'%s'} is not found", pair->name);
+				dbg("ENV{'%s'} is not found", key_name);
 				goto exit;
 			}
-			dbg("check %i ENV keys", rule->env_pair_count);
-			if (match_key(pair->name, pair->value, pair->operation, value))
+			if (match_key("ENV", rule, &pair->key, value))
 				goto exit;
 		}
-		dbg("all %i ENV keys matched", rule->env_pair_count);
+		dbg("all %i ENV keys matched", rule->env.count);
 	}
 
 	/* walk up the chain of physical devices and find a match */
 	while (1) {
 		/* check for matching driver */
-		if (rule->driver_operation != KEY_OP_UNSET) {
+		if (rule->driver.operation != KEY_OP_UNSET) {
 			if (parent_device == NULL) {
 				dbg("device has no sysfs_device");
 				goto exit;
 			}
-			if (match_key("DRIVER", rule->driver, rule->driver_operation, parent_device->driver_name))
+			if (match_key("DRIVER", rule, &rule->driver, parent_device->driver_name))
 				goto try_parent;
 		}
 
 		/* check for matching bus value */
-		if (rule->bus_operation != KEY_OP_UNSET) {
+		if (rule->bus.operation != KEY_OP_UNSET) {
 			if (parent_device == NULL) {
 				dbg("device has no sysfs_device");
 				goto exit;
 			}
-			if (match_key("BUS", rule->bus, rule->bus_operation, parent_device->bus))
+			if (match_key("BUS", rule, &rule->bus, parent_device->bus))
 				goto try_parent;
 		}
 
 		/* check for matching bus id */
-		if (rule->id_operation != KEY_OP_UNSET) {
+		if (rule->id.operation != KEY_OP_UNSET) {
 			if (parent_device == NULL) {
 				dbg("device has no sysfs_device");
 				goto exit;
 			}
-			if (match_key("ID", rule->id, rule->id_operation, parent_device->bus_id))
+			if (match_key("ID", rule, &rule->id, parent_device->bus_id))
 				goto try_parent;
 		}
 
 		/* check for matching sysfs pairs */
-		if (rule->sysfs_pair_count) {
+		if (rule->sysfs.count) {
 			int i;
 
-			for (i = 0; i < rule->sysfs_pair_count; i++) {
-				struct key_pair *pair;
+			dbg("check %i SYSFS keys", rule->sysfs.count);
+			for (i = 0; i < rule->sysfs.count; i++) {
+				struct key_pair *pair = &rule->sysfs.keys[i];
+				const char *key_name = key_pair_name(rule, pair);
+				const char *key_value = key_val(rule, &pair->key);
 				char value[VALUE_SIZE];
 				size_t len;
 
-				pair = &rule->sysfs_pair[i];
-				if (find_sysfs_attribute(class_dev, parent_device, pair->name, value, sizeof(value)) != 0)
+				if (find_sysfs_attribute(class_dev, parent_device, key_name, value, sizeof(value)) != 0)
 					goto try_parent;
 
 				/* strip trailing whitespace of value, if not asked to match for it */
-				len = strlen(pair->value);
-				if (len && !isspace(pair->value[len-1])) {
+				len = strlen(key_value);
+				if (len && !isspace(key_value[len-1])) {
 					len = strlen(value);
 					while (len > 0 && isspace(value[len-1]))
 						value[--len] = '\0';
 					dbg("removed %zi trailing whitespace chars from '%s'", strlen(value)-len, value);
 				}
 
-				dbg("check %i SYSFS keys", rule->sysfs_pair_count);
-				if (match_key(pair->name, pair->value, pair->operation, value))
+				if (match_key("SYSFS", rule, &pair->key, value))
 					goto try_parent;
 			}
-			dbg("all %i SYSFS keys matched", rule->sysfs_pair_count);
+			dbg("all %i SYSFS keys matched", rule->sysfs.count);
 		}
 
 		/* found matching physical device  */
@@ -742,11 +755,11 @@ try_parent:
 	}
 
 	/* import variables from file into environment */
-	if (rule->import_operation != KEY_OP_UNSET) {
+	if (rule->import.operation != KEY_OP_UNSET) {
 		char import[PATH_SIZE];
 		int rc = -1;
 
-		strlcpy(import, rule->import, sizeof(import));
+		strlcpy(import, key_val(rule, &rule->import), sizeof(import));
 		apply_format(udev, import, sizeof(import), class_dev, sysfs_device);
 		dbg("check for IMPORT import='%s'", import);
 		if (rule->import_exec) {
@@ -758,24 +771,24 @@ try_parent:
 		}
 		if (rc) {
 			dbg("IMPORT failed");
-			if (rule->import_operation != KEY_OP_NOMATCH)
+			if (rule->import.operation != KEY_OP_NOMATCH)
 				goto exit;
 		} else
-			dbg("IMPORT '%s' imported", rule->import);
+			dbg("IMPORT '%s' imported", key_val(rule, &rule->import));
 		dbg("IMPORT key is true");
 	}
 
 	/* execute external program */
-	if (rule->program_operation != KEY_OP_UNSET) {
+	if (rule->program.operation != KEY_OP_UNSET) {
 		char program[PATH_SIZE];
 		char result[PATH_SIZE];
 
-		strlcpy(program, rule->program, sizeof(program));
+		strlcpy(program, key_val(rule, &rule->program), sizeof(program));
 		apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
 		dbg("check for PROGRAM program='%s", program);
 		if (execute_program(program, udev->subsystem, result, sizeof(result), NULL) != 0) {
 			dbg("PROGRAM is not matching");
-			if (rule->program_operation != KEY_OP_NOMATCH)
+			if (rule->program.operation != KEY_OP_NOMATCH)
 				goto exit;
 		} else {
 			dbg("PROGRAM matches");
@@ -784,14 +797,14 @@ try_parent:
 			dbg("result is '%s'", result);
 			strlcpy(udev->program_result, result, sizeof(udev->program_result));
 			dbg("PROGRAM returned successful");
-			if (rule->program_operation == KEY_OP_NOMATCH)
+			if (rule->program.operation == KEY_OP_NOMATCH)
 				goto exit;
 		}
 		dbg("PROGRAM key is true");
 	}
 
 	/* check for matching result of external program */
-	if (match_key("RESULT", rule->result, rule->result_operation, udev->program_result))
+	if (match_key("RESULT", rule, &rule->result, udev->program_result))
 		goto exit;
 
 	/* rule matches */
@@ -801,7 +814,7 @@ exit:
 	return -1;
 }
 
-int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_dev)
+int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct sysfs_class_device *class_dev)
 {
 	struct sysfs_class_device *class_dev_parent;
 	struct sysfs_device *sysfs_device = NULL;
@@ -831,13 +844,13 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 	dbg("udev->kernel_name='%s'", udev->kernel_name);
 
 	/* look for a matching rule to apply */
-	udev_rules_iter_init();
+	udev_rules_iter_init(rules);
 	while (1) {
-		rule = udev_rules_iter_next();
+		rule = udev_rules_iter_next(rules);
 		if (rule == NULL)
 			break;
 
-		if (udev->name_set && rule->name_operation != KEY_OP_UNSET) {
+		if (udev->name_set && rule->name.operation != KEY_OP_UNSET) {
 			dbg("node name already set, rule ignored");
 			continue;
 		}
@@ -846,8 +859,7 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 		if (match_rule(udev, rule, class_dev, sysfs_device) == 0) {
 			/* apply options */
 			if (rule->ignore_device) {
-				info("configured rule in '%s[%i]' applied, '%s' is ignored",
-				     rule->config_file, rule->config_line, udev->kernel_name);
+				info("rule applied, '%s' is ignored", udev->kernel_name);
 				udev->ignore_device = 1;
 				return 0;
 			}
@@ -866,31 +878,31 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 				if (rule->mode_operation == KEY_OP_ASSIGN_FINAL)
 					udev->mode_final = 1;
 				udev->mode = rule->mode;
-				dbg("applied mode=%#o to '%s'", udev->mode, udev->kernel_name);
+				dbg("applied mode=%#o to '%s'", rule->mode, udev->kernel_name);
 			}
-			if (!udev->owner_final && rule->owner[0] != '\0') {
-				if (rule->owner_operation == KEY_OP_ASSIGN_FINAL)
+			if (!udev->owner_final && rule->owner.operation != KEY_OP_UNSET) {
+				if (rule->owner.operation == KEY_OP_ASSIGN_FINAL)
 					udev->owner_final = 1;
-				strlcpy(udev->owner, rule->owner, sizeof(udev->owner));
+				strlcpy(udev->owner, key_val(rule, &rule->owner), sizeof(udev->owner));
 				apply_format(udev, udev->owner, sizeof(udev->owner), class_dev, sysfs_device);
 				dbg("applied owner='%s' to '%s'", udev->owner, udev->kernel_name);
 			}
-			if (!udev->group_final && rule->group[0] != '\0') {
-				if (rule->group_operation == KEY_OP_ASSIGN_FINAL)
+			if (!udev->group_final && rule->group.operation != KEY_OP_UNSET) {
+				if (rule->group.operation == KEY_OP_ASSIGN_FINAL)
 					udev->group_final = 1;
-				strlcpy(udev->group, rule->group, sizeof(udev->group));
-				apply_format(udev, udev->group, sizeof(udev->group), class_dev, sysfs_device);
+				strlcpy(udev->group, key_val(rule, &rule->group), sizeof(udev->group));
+				apply_format(udev, key_val(rule, &rule->group), sizeof(udev->group), class_dev, sysfs_device);
 				dbg("applied group='%s' to '%s'", udev->group, udev->kernel_name);
 			}
 
 			/* collect symlinks */
-			if (!udev->symlink_final && rule->symlink_operation != KEY_OP_UNSET) {
+			if (!udev->symlink_final && rule->symlink.operation != KEY_OP_UNSET) {
 				char temp[PATH_SIZE];
 				char *pos, *next;
 
-				if (rule->symlink_operation == KEY_OP_ASSIGN_FINAL)
+				if (rule->symlink.operation == KEY_OP_ASSIGN_FINAL)
 					udev->symlink_final = 1;
-				if (rule->symlink_operation == KEY_OP_ASSIGN || rule->symlink_operation == KEY_OP_ASSIGN_FINAL) {
+				if (rule->symlink.operation == KEY_OP_ASSIGN || rule->symlink.operation == KEY_OP_ASSIGN_FINAL) {
 					struct name_entry *name_loop;
 					struct name_entry *temp_loop;
 
@@ -900,53 +912,42 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 						free(name_loop);
 					}
 				}
-				if (rule->symlink[0] != '\0') {
-					info("configured rule in '%s[%i]' applied, added symlink '%s'",
-					     rule->config_file, rule->config_line, rule->symlink);
-					strlcpy(temp, rule->symlink, sizeof(temp));
-					apply_format(udev, temp, sizeof(temp), class_dev, sysfs_device);
+				strlcpy(temp, key_val(rule, &rule->symlink), sizeof(temp));
+				apply_format(udev, temp, sizeof(temp), class_dev, sysfs_device);
+				info("rule applied, added symlink '%s'", temp);
 
-					/* add multiple symlinks separated by spaces */
-					pos = temp;
-					next = strchr(temp, ' ');
-					while (next) {
-						next[0] = '\0';
-						info("add symlink '%s'", pos);
-						name_list_add(&udev->symlink_list, pos, 0);
-						pos = &next[1];
-						next = strchr(pos, ' ');
-					}
+				/* add multiple symlinks separated by spaces */
+				pos = temp;
+				next = strchr(temp, ' ');
+				while (next) {
+					next[0] = '\0';
 					info("add symlink '%s'", pos);
 					name_list_add(&udev->symlink_list, pos, 0);
+					pos = &next[1];
+					next = strchr(pos, ' ');
 				}
+				info("add symlink '%s'", pos);
+				name_list_add(&udev->symlink_list, pos, 0);
 			}
 
 			/* set name, later rules with name set will be ignored */
-			if (rule->name_operation != KEY_OP_UNSET) {
+			if (rule->name.operation != KEY_OP_UNSET) {
 				udev->name_set = 1;
-				if (rule->name[0] == '\0') {
-					info("configured rule in '%s[%i]' applied, node handling for '%s' supressed",
-					     rule->config_file, rule->config_line, udev->kernel_name);
-				} else {
-					strlcpy(udev->name, rule->name, sizeof(udev->name));
-					apply_format(udev, udev->name, sizeof(udev->name), class_dev, sysfs_device);
-					strlcpy(udev->config_file, rule->config_file, sizeof(udev->config_file));
-					udev->config_line = rule->config_line;
+				strlcpy(udev->name, key_val(rule, &rule->name), sizeof(udev->name));
+				apply_format(udev, udev->name, sizeof(udev->name), class_dev, sysfs_device);
 
-					info("configured rule in '%s:%i' applied, '%s' becomes '%s'",
-					     rule->config_file, rule->config_line, udev->kernel_name, rule->name);
-					if (udev->type != DEV_NET)
-						dbg("name, '%s' is going to have owner='%s', group='%s', mode=%#o partitions=%i",
-						    udev->name, udev->owner, udev->group, udev->mode, udev->partitions);
-				}
+				info("rule applied, '%s' becomes '%s'", udev->kernel_name, udev->name);
+				if (udev->type != DEV_NET)
+					dbg("name, '%s' is going to have owner='%s', group='%s', mode=%#o partitions=%i",
+					    udev->name, udev->owner, udev->group, udev->mode, udev->partitions);
 			}
 
-			if (!udev->run_final && rule->run_operation != KEY_OP_UNSET) {
+			if (!udev->run_final && rule->run.operation != KEY_OP_UNSET) {
 				char program[PATH_SIZE];
 
-				if (rule->run_operation == KEY_OP_ASSIGN_FINAL)
+				if (rule->run.operation == KEY_OP_ASSIGN_FINAL)
 					udev->run_final = 1;
-				if (rule->run_operation == KEY_OP_ASSIGN || rule->run_operation == KEY_OP_ASSIGN_FINAL) {
+				if (rule->run.operation == KEY_OP_ASSIGN || rule->run.operation == KEY_OP_ASSIGN_FINAL) {
 					struct name_entry *name_loop;
 					struct name_entry *temp_loop;
 
@@ -956,12 +957,10 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 						free(name_loop);
 					}
 				}
-				if (rule->run[0] != '\0') {
-					strlcpy(program, rule->run, sizeof(program));
-					apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
-					dbg("add run '%s'", program);
-					name_list_add(&udev->run_list, program, 0);
-				}
+				strlcpy(program, key_val(rule, &rule->run), sizeof(program));
+				apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
+				dbg("add run '%s'", program);
+				name_list_add(&udev->run_list, program, 0);
 			}
 
 			if (rule->last_rule) {
@@ -973,7 +972,7 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 
 	if (udev->name[0] == '\0') {
 		strlcpy(udev->name, udev->kernel_name, sizeof(udev->name));
-		info("no rule found, use kernel name '%s'", udev->name);
+		info("no rule found, will use kernel name '%s'", udev->name);
 	}
 
 	if (udev->tmp_node[0] != '\0') {
@@ -985,36 +984,35 @@ int udev_rules_get_name(struct udevice *udev, struct sysfs_class_device *class_d
 	return 0;
 }
 
-int udev_rules_get_run(struct udevice *udev, struct sysfs_device *sysfs_device)
+int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev, struct sysfs_device *sysfs_device)
 {
 	struct udev_rule *rule;
 
 	/* look for a matching rule to apply */
-	udev_rules_iter_init();
+	udev_rules_iter_init(rules);
 	while (1) {
-		rule = udev_rules_iter_next();
+		rule = udev_rules_iter_next(rules);
 		if (rule == NULL)
 			break;
 
 		dbg("process rule");
-		if (rule->name_operation != KEY_OP_UNSET || rule->symlink_operation != KEY_OP_UNSET ||
-		    rule->mode != 0000 || rule->owner[0] != '\0' || rule->group[0] != '\0') {
+		if (rule->name.operation != KEY_OP_UNSET || rule->symlink.operation != KEY_OP_UNSET ||
+		    rule->mode_operation != KEY_OP_UNSET || rule->owner.operation != KEY_OP_UNSET || rule->group.operation != KEY_OP_UNSET) {
 			dbg("skip rule that names a device");
 			continue;
 		}
 
 		if (match_rule(udev, rule, NULL, sysfs_device) == 0) {
 			if (rule->ignore_device) {
-				info("configured rule in '%s[%i]' applied, '%s' is ignored",
-				     rule->config_file, rule->config_line, udev->kernel_name);
+				info("rule applied, '%s' is ignored", udev->kernel_name);
 				udev->ignore_device = 1;
 				return 0;
 			}
 
-			if (!udev->run_final && rule->run_operation != KEY_OP_UNSET) {
+			if (!udev->run_final && rule->run.operation != KEY_OP_UNSET) {
 				char program[PATH_SIZE];
 
-				if (rule->run_operation == KEY_OP_ASSIGN || rule->run_operation == KEY_OP_ASSIGN_FINAL) {
+				if (rule->run.operation == KEY_OP_ASSIGN || rule->run.operation == KEY_OP_ASSIGN_FINAL) {
 					struct name_entry *name_loop;
 					struct name_entry *temp_loop;
 
@@ -1024,13 +1022,11 @@ int udev_rules_get_run(struct udevice *udev, struct sysfs_device *sysfs_device)
 						free(name_loop);
 					}
 				}
-				if (rule->run[0] != '\0') {
-					strlcpy(program, rule->run, sizeof(program));
-					apply_format(udev, program, sizeof(program), NULL, sysfs_device);
-					dbg("add run '%s'", program);
-					name_list_add(&udev->run_list, program, 0);
-				}
-				if (rule->run_operation == KEY_OP_ASSIGN_FINAL)
+				strlcpy(program, key_val(rule, &rule->run), sizeof(program));
+				apply_format(udev, program, sizeof(program), NULL, sysfs_device);
+				dbg("add run '%s'", program);
+				name_list_add(&udev->run_list, program, 0);
+				if (rule->run.operation == KEY_OP_ASSIGN_FINAL)
 					break;
 			}
 
