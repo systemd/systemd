@@ -73,7 +73,7 @@ INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 
 # place to put our device nodes
-udevdir =	${prefix}/udev
+udevdir =	/dev
 udevdb =	${udevdir}/.udevdb
 
 # set up PWD so that older versions of make will work with our build.
