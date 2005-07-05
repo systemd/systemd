@@ -143,18 +143,17 @@ int udev_remove_device(struct udevice *udev)
 	if (udev->type != DEV_BLOCK && udev->type != DEV_CLASS)
 		return 0;
 
-	/* remove node only if we can find it in our database */
-	if (udev_db_get_device(udev, udev->devpath) != 0) {
-		dbg("'%s' not found in database, ignore event", udev->name);
-		return -1;
+	if (udev_db_get_device(udev, udev->devpath) == 0) {
+		if (udev->ignore_remove) {
+			dbg("remove event for '%s' requested to be ignored by rule", udev->name);
+			return 0;
+		}
+		dbg("remove name='%s'", udev->name);
+		udev_db_delete_device(udev);
+	} else {
+		dbg("'%s' not found in database, using kernel name '%s'", udev->devpath, udev->kernel_name);
+		strlcpy(udev->name, udev->kernel_name, sizeof(udev->name));
 	}
-	if (udev->ignore_remove) {
-		dbg("remove event for '%s' requested to be ignored by rule", udev->name);
-		return 0;
-	}
-	dbg("remove name='%s'", udev->name);
-	udev_db_delete_device(udev);
-
 	/* use full path to the environment */
 	snprintf(udev->devname, sizeof(udev->devname), "%s/%s", udev_root, udev->name);
 	udev->devname[sizeof(udev->devname)-1] = '\0';

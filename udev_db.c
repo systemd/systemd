@@ -68,10 +68,18 @@ int udev_db_add_device(struct udevice *udev)
 	if (udev->test_run)
 		return 0;
 
+	/* don't write anything if udev created only the node with the
+	 * kernel name without any interesting data to remember
+	 */
+	if (strcmp(udev->name, udev->kernel_name) == 0 &&
+	    list_empty(&udev->symlink_list) && list_empty(&udev->env_list) &&
+	    !udev->partitions && !udev->ignore_remove) {
+		dbg("nothing interesting to store in udevdb, skip");
+		goto exit;
+	}
+
 	get_db_filename(udev->devpath, filename, sizeof(filename));
-
 	create_path(filename);
-
 	f = fopen(filename, "w");
 	if (f == NULL) {
 		err("unable to create db file '%s'", filename);
@@ -84,12 +92,15 @@ int udev_db_add_device(struct udevice *udev)
 	list_for_each_entry(name_loop, &udev->symlink_list, node)
 		fprintf(f, "S:%s\n", name_loop->name);
 	fprintf(f, "M:%u:%u\n", major(udev->devt), minor(udev->devt));
-	fprintf(f, "A:%u\n", udev->partitions);
-	fprintf(f, "R:%u\n", udev->ignore_remove);
+	if (udev->partitions)
+		fprintf(f, "A:%u\n", udev->partitions);
+	if (udev->ignore_remove)
+		fprintf(f, "R:%u\n", udev->ignore_remove);
 	list_for_each_entry(name_loop, &udev->env_list, node)
 		fprintf(f, "E:%s\n", name_loop->name);
 	fclose(f);
 
+exit:
 	return 0;
 }
 
