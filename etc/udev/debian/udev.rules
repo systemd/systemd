@@ -4,86 +4,90 @@
 # %n the "kernel number" of the device.
 #    For example, 'sda3' has a "kernel number" of '3'
 # %e the smallest number for that name which does not matches an existing node
-# %k the kernel name for the device.
+# %k the kernel name for the device
 # %M the kernel major number for the device
 # %m the kernel minor number for the device
 # %b the bus id for the device
 # %c the string returned by the PROGRAM
-# %s{filename} the content of a sysfs attribute.
-# %% the '%' char itself.
+# %s{filename} the content of a sysfs attribute
+# %% the '%' char itself
 #
 
 # workaround for devices which do not report media changes
-BUS="ide", KERNEL="hd[a-z]", SYSFS{removable}="1", \
-  PROGRAM="/etc/udev/scripts/ide-model.sh %k", RESULT="IOMEGA ZIP *", \
-  OPTIONS="all_partitions", NAME="%k"
+BUS=="ide", KERNEL=="hd[a-z]", SYSFS{removable}=="1", \
+  PROGRAM="/etc/udev/scripts/ide-model.sh %k", RESULT=="IOMEGA ZIP *", \
+					NAME="%k", OPTIONS+="all_partitions"
 
 # SCSI devices
-BUS="scsi", KERNEL="sr[0-9]*",	NAME="scd%n", SYMLINK="sr%n"
+BUS=="scsi", KERNEL=="sr[0-9]*",	NAME="scd%n", SYMLINK+="sr%n"
 
 # USB devices
-BUS="usb", KERNEL="hiddev*",	NAME="usb/%k"
-BUS="usb", KERNEL="auer[0-9]*",	NAME="usb/%k"
-BUS="usb", KERNEL="legousbtower*", NAME="usb/%k"
-BUS="usb", KERNEL="dabusb*",	NAME="usb/%k"
-BUS="usb", KERNEL="cpad[0-9]*",	NAME="usb/%k"
-BUS="usb", KERNEL="lp[0-9]*",	NAME="usb/%k"
-BUS="usb", KERNEL="ttyUSB*", SYSFS{product}="Palm Handheld*", SYMLINK="pilot"
+BUS=="usb", KERNEL=="hiddev*",		NAME="usb/%k"
+BUS=="usb", KERNEL=="auer[0-9]*",	NAME="usb/%k"
+BUS=="usb", KERNEL=="legousbtower*",	NAME="usb/%k"
+BUS=="usb", KERNEL=="dabusb*",		NAME="usb/%k"
+BUS=="usb", KERNEL=="cpad[0-9]*",	NAME="usb/%k"
+BUS=="usb", KERNEL=="lp[0-9]*",		NAME="usb/%k"
+BUS=="usb", KERNEL=="ttyUSB*", SYSFS{product}=="Palm Handheld*", \
+					SYMLINK+=="pilot"
 
 # serial devices
-KERNEL="capi",		NAME="capi20", SYMLINK="isdn/capi20"
-KERNEL="capi[0-9]*",	NAME="capi/%n"
+KERNEL=="capi",			NAME="capi20", SYMLINK+="isdn/capi20"
+KERNEL=="capi[0-9]*",		NAME="capi/%n"
 
 # video devices
-KERNEL="dvb*",		PROGRAM="/etc/udev/scripts/dvb.sh %k", NAME="%c"
-KERNEL="card[0-9]*",	NAME="dri/%k"
+KERNEL=="dvb*",			PROGRAM="/etc/udev/scripts/dvb.sh %k", \
+				NAME="%c"
+KERNEL=="card[0-9]*",		NAME="dri/%k"
 
 # misc devices
-KERNEL="hw_random",	NAME="hwrng"
+KERNEL=="hw_random",		NAME="hwrng"
+KERNEL=="tun",			NAME="net/%k"
 
-KERNEL="cdemu[0-9]*",	NAME="cdemu/%n"
-KERNEL="pktcdvd[0-9]*",	NAME="pktcdvd/%n"
-KERNEL="pktcdvd",	NAME="pktcdvd/control"
+KERNEL=="cdemu[0-9]*",		NAME="cdemu/%n"
+KERNEL=="pktcdvd[0-9]*",	NAME="pktcdvd/%n"
+KERNEL=="pktcdvd",		NAME="pktcdvd/control"
 
-KERNEL="cpu[0-9]*",	NAME="cpu/%n/cpuid"
-KERNEL="msr[0-9]*",	NAME="cpu/%n/msr"
-KERNEL="microcode",	NAME="cpu/microcode"
+KERNEL=="cpu[0-9]*",		NAME="cpu/%n/cpuid"
+KERNEL=="msr[0-9]*",		NAME="cpu/%n/msr"
+KERNEL=="microcode",		NAME="cpu/microcode"
 
-KERNEL="umad*",		NAME="infiniband/%k"
-KERNEL="issm*",		NAME="infiniband/%k"
-
-KERNEL="tap[0-9]*",	NAME="net/%k"
-KERNEL="tun",		NAME="net/%k"
+KERNEL=="umad*",		NAME="infiniband/%k"
+KERNEL=="issm*",		NAME="infiniband/%k"
 
 # ALSA devices
-KERNEL="controlC[0-9]*", NAME="snd/%k"
-KERNEL="hwC[D0-9]*",	NAME="snd/%k"
-KERNEL="pcmC[D0-9cp]*",	NAME="snd/%k"
-KERNEL="midiC[D0-9]*",	NAME="snd/%k"
-KERNEL="timer",		NAME="snd/%k"
-KERNEL="seq",		NAME="snd/%k"
+KERNEL=="controlC[0-9]*",	NAME="snd/%k"
+KERNEL=="hwC[D0-9]*",		NAME="snd/%k"
+KERNEL=="pcmC[D0-9cp]*",	NAME="snd/%k"
+KERNEL=="midiC[D0-9]*",		NAME="snd/%k"
+KERNEL=="timer",		NAME="snd/%k"
+KERNEL=="seq",			NAME="snd/%k"
+
+# ieee1394 devices       
+KERNEL=="dv1394*",		NAME="dv1394/%n"
+KERNEL=="video1394*",		NAME="video1394/%n"
 
 # input devices
-KERNEL="mice",		NAME="input/%k"
-KERNEL="mouse[0-9]*",	NAME="input/%k"
-KERNEL="event[0-9]*",	NAME="input/%k"
-KERNEL="js[0-9]*",	NAME="input/%k"
-KERNEL="ts[0-9]*",	NAME="input/%k"
-KERNEL="uinput",	NAME="input/%k"
+KERNEL=="mice",			NAME="input/%k"
+KERNEL=="mouse[0-9]*",		NAME="input/%k"
+KERNEL=="event[0-9]*",		NAME="input/%k"
+KERNEL=="js[0-9]*",		NAME="input/%k"
+KERNEL=="ts[0-9]*",		NAME="input/%k"
+KERNEL=="uinput",		NAME="input/%k"
 
 # Zaptel
-KERNEL="zapctl",	NAME="zap/ctl"
-KERNEL="zaptimer",	NAME="zap/timer"
-KERNEL="zapchannel",	NAME="zap/channel"
-KERNEL="zappseudo",	NAME="zap/pseudo"
-KERNEL="zap[0-9]*",	NAME="zap/%n"
+KERNEL=="zapctl",		NAME="zap/ctl"
+KERNEL=="zaptimer",		NAME="zap/timer"
+KERNEL=="zapchannel",		NAME="zap/channel"
+KERNEL=="zappseudo",		NAME="zap/pseudo"
+KERNEL=="zap[0-9]*",		NAME="zap/%n"
 
 # AOE character devices
-SUBSYSTEM="aoe", KERNEL="discover",	NAME="etherd/%k"
-SUBSYSTEM="aoe", KERNEL="err",		NAME="etherd/%k"
-SUBSYSTEM="aoe", KERNEL="interfaces",	NAME="etherd/%k"
+SUBSYSTEM=="aoe", KERNEL=="discover",	NAME="etherd/%k"
+SUBSYSTEM=="aoe", KERNEL=="err",	NAME="etherd/%k"
+SUBSYSTEM=="aoe", KERNEL=="interfaces",	NAME="etherd/%k"
 
 # device mapper creates its own device nodes, so ignore these
-KERNEL="dm-[0-9]*",	OPTIONS="ignore_device"
-KERNEL="device-mapper",	NAME="mapper/control"
+KERNEL=="dm-[0-9]*",		OPTIONS+="ignore_device"
+KERNEL=="device-mapper",	NAME="mapper/control"
 

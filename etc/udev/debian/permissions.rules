@@ -1,73 +1,81 @@
 # default permissions for block devices
-SUBSYSTEM="block",			GROUP="disk"
-SUBSYSTEM="block", SYSFS{removable}="1", GROUP="floppy"
+SUBSYSTEM=="block",				GROUP="disk"
+SUBSYSTEM=="block", SYSFS{removable}=="1",	GROUP="floppy"
 
 # IDE devices
-BUS="ide", KERNEL="hd[a-z]", SYSFS{removable}="1", \
-  PROGRAM="/bin/cat /proc/ide/%k/media", RESULT="cdrom*", GROUP="cdrom"
-BUS="ide", KERNEL="ht[0-9]*",	GROUP="tape"
-BUS="ide", KERNEL="nht[0-9]*",	GROUP="tape"
+BUS=="ide", KERNEL=="hd[a-z]", SYSFS{removable}="1", \
+  PROGRAM="/bin/cat /proc/ide/%k/media", RESULT=="cdrom*",	GROUP="cdrom"
+BUS=="ide", KERNEL=="ht[0-9]*",					GROUP="tape"
+BUS=="ide", KERNEL=="nht[0-9]*",				GROUP="tape"
 
 # SCSI devices
-BUS="scsi", SYSFS{type}="1",	GROUP="tape"
-BUS="scsi", SYSFS{type}="5",	GROUP="cdrom"
-BUS="scsi", SYSFS{type}="6",	GROUP="scanner"
+BUS=="scsi", SYSFS{type}=="1",	GROUP="tape"
+BUS=="scsi", SYSFS{type}=="5",	GROUP="cdrom"
+BUS=="scsi", SYSFS{type}=="6",	GROUP="scanner"
 
 # USB devices
-BUS="usb", KERNEL="legousbtower*", MODE="0666"
+BUS=="usb", KERNEL=="legousbtower*", MODE="0666"
+BUS=="usb", KERNEL=="lp[0-9]*", GROUP="lp"
 
 # serial devices
-SUBSYSTEM="tty",	GROUP="dialout"
-SUBSYSTEM="capi",	GROUP="dialout"
+SUBSYSTEM=="tty",	GROUP="dialout"
+SUBSYSTEM=="capi",	GROUP="dialout"
+SUBSYSTEM=="slamr",	GROUP="dialout"
 
 # vc devices (all members of the tty subsystem)
-KERNEL="ptmx",		MODE="0666", GROUP="root"
-KERNEL="console",	MODE="0600", GROUP="root"
-KERNEL="tty",		MODE="0666", GROUP="root"
-KERNEL="tty[0-9]*",	GROUP="root"
+KERNEL=="ptmx",		MODE="0666", GROUP="root"
+KERNEL=="console",	MODE="0600", GROUP="root"
+KERNEL=="tty",		MODE="0666", GROUP="root"
+KERNEL=="tty[0-9]*",	GROUP="root"
 
 # video devices
-SUBSYSTEM="video4linux", GROUP="video"
-SUBSYSTEM="dvb",	GROUP="video"
-SUBSYSTEM="graphics",	GROUP="video"
-SUBSYSTEM="nvidia",	GROUP="video"
-SUBSYSTEM="drm",	GROUP="video"
+SUBSYSTEM=="video4linux", GROUP="video"
+SUBSYSTEM=="drm",	GROUP="video"
+SUBSYSTEM=="dvb",	GROUP="video"
+SUBSYSTEM=="em8300",	GROUP="video"
+SUBSYSTEM=="graphics",	GROUP="video"
+SUBSYSTEM=="nvidia",	GROUP="video"
 
 # misc devices
-KERNEL="random",	MODE="0666"
-KERNEL="urandom",	MODE="0444"
-KERNEL="mem",		MODE="0640", GROUP="kmem"
-KERNEL="kmem",		MODE="0640", GROUP="kmem"
-KERNEL="port",		MODE="0640", GROUP="kmem"
-KERNEL="full",		MODE="0666"
-KERNEL="null",		MODE="0666"
-KERNEL="zero",		MODE="0666"
-KERNEL="inotify",	MODE="0666"
-KERNEL="sgi_fetchop",	MODE="0666"
-KERNEL="sonypi",	MODE="0666"
-KERNEL="agpgart",	GROUP="video"
-KERNEL="nvram",		GROUP="nvram"
-KERNEL="rtc",		MODE="0660", GROUP="audio"
+KERNEL=="random",	MODE="0666"
+KERNEL=="urandom",	MODE="0444"
+KERNEL=="mem",		MODE="0640", GROUP="kmem"
+KERNEL=="kmem",		MODE="0640", GROUP="kmem"
+KERNEL=="port",		MODE="0640", GROUP="kmem"
+KERNEL=="full",		MODE="0666"
+KERNEL=="null",		MODE="0666"
+KERNEL=="zero",		MODE="0666"
+KERNEL=="inotify",	MODE="0666"
+KERNEL=="sgi_fetchop",	MODE="0666"
+KERNEL=="sonypi",	MODE="0666"
+KERNEL=="agpgart",	GROUP="video"
+KERNEL=="nvram",	GROUP="nvram"
+KERNEL=="rtc",		MODE="0660", GROUP="audio"
 
-KERNEL="cdemu[0-9]*",	GROUP="cdrom"
-KERNEL="pktcdvd[0-9]*",	GROUP="cdrom"
-KERNEL="pktcdvd",	MODE="0644"
+KERNEL=="cdemu[0-9]*",	GROUP="cdrom"
+KERNEL=="pktcdvd[0-9]*", GROUP="cdrom"
+KERNEL=="pktcdvd",	MODE="0644"
 
 # printers and parallel devices
-SUBSYSTEM="printer",	GROUP="lp"
-SUBSYSTEM="ppdev",	GROUP="lp"
-KERNEL="pt[0-9]*",	GROUP="tape"
-KERNEL="pht[0-9]*",	GROUP="tape"
+SUBSYSTEM=="printer",	GROUP="lp"
+SUBSYSTEM=="ppdev",	GROUP="lp"
+KERNEL=="pt[0-9]*",	GROUP="tape"
+KERNEL=="pht[0-9]*",	GROUP="tape"
 
 # sound devices
-SUBSYSTEM="sound",	GROUP="audio"
+SUBSYSTEM=="sound",	GROUP="audio"
+
+# ieee1394 devices       
+KERNEL=="raw1394",	GROUP="disk"
+KERNEL=="dv1394*",	GROUP="video"
+KERNEL=="video1394*",	GROUP="video"
 
 # input devices
-KERNEL="event[0-9]*",	PROGRAM="/etc/udev/scripts/inputdev.sh %k", \
-			RESULT="inputdev", MODE="0664", GROUP="video"
-KERNEL="js[0-9]*",	MODE="0664"
+KERNEL=="event[0-9]*",	PROGRAM="/etc/udev/scripts/inputdev.sh %k", \
+			RESULT=="inputdev", MODE="0664", GROUP="video"
+KERNEL=="js[0-9]*",	MODE="0664"
 
 # AOE character devices
-SUBSYSTEM="aoe",		MODE="0220", GROUP="disk"
-SUBSYSTEM="aoe", KERNEL="err",	MODE="0440"
+SUBSYSTEM=="aoe",			MODE="0220", GROUP="disk"
+SUBSYSTEM=="aoe", KERNEL=="err",	MODE="0440"
 

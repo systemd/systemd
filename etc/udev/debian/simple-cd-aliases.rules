@@ -1,5 +1,7 @@
 # grouping of optical drives from multiple kernel subsystems
-BUS="scsi", KERNEL="sr[0-9]*",	                      SYMLINK="cdrom%e"
-BUS="ide",  KERNEL="hd[a-z]",	SYSFS{removable}="1", SYMLINK="cdrom%e", PROGRAM="/bin/cat /proc/ide/%k/media", RESULT="cdrom"
-BUS="ide",  KERNEL="pcd[0-9]*",	SYSFS{removable}="1", SYMLINK="cdrom%e"
+BUS=="scsi", KERNEL=="sr[0-9]*",			 SYMLINK+="cdrom%e"
+BUS=="ide",  KERNEL=="hd[a-z]",	  SYSFS{removable}=="1", \
+	PROGRAM="/bin/cat /proc/ide/%k/media", RESULT=="cdrom", \
+							 SYMLINK+="cdrom%e"
+BUS=="ide",  KERNEL=="pcd[0-9]*", SYSFS{removable}=="1", SYMLINK+="cdrom%e"
 
