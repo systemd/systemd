@@ -371,7 +371,7 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 
 		if (strcasecmp(key, "OWNER") == 0) {
 			valid = 1;
-			if (rules->resolve_names) {
+			if (rules->resolve_names && (!strchr(value, '$') && !strchr(value, '%'))) {
 				char *endptr;
 				strtoul(value, &endptr, 10);
 				if (endptr[0] != '\0') {
@@ -390,7 +390,7 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 
 		if (strcasecmp(key, "GROUP") == 0) {
 			valid = 1;
-			if (rules->resolve_names) {
+			if (rules->resolve_names && (!strchr(value, '$') && !strchr(value, '%'))) {
 				char *endptr;
 				strtoul(value, &endptr, 10);
 				if (endptr[0] != '\0') {
