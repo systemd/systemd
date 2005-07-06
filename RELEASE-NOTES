@@ -1,3 +1,18 @@
+udev 061
+========
+We changed the  internal rule storage format. Our large rule files took
+2 MB of RAM, with the change we are down to 99kB.
+
+If the device-node has been created with default name and no symlink or
+options are to remenber, it is not longer stored in the udevdb. HAL will
+need to be updated to work correctly with that change.
+
+To overrride optimization flags, OPTFLAGS may be used now.
+
+udev 060
+========
+Bugfix release.
+
 udev 059
 ========
 Major changes happened with this release. The goal is to take over the
