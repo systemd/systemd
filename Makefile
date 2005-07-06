@@ -41,6 +41,7 @@ EXTRAS=
 # make the build silent. Set this to something else to make it noisy again.
 V=false
 
+VERSION =	060
 ROOT =		udev
 DAEMON =	udevd
 SENDER =	udevsend
@@ -51,7 +52,6 @@ CONTROL =	udevcontrol
 INFO =		udevinfo
 TESTER =	udevtest
 STARTER =	udevstart
-VERSION =	060
 RELEASE_NAME =	$(ROOT)-$(VERSION)
 LOCAL_CFG_DIR =	etc/udev
 DESTDIR =
@@ -102,18 +102,17 @@ GCCINCDIR := ${shell LC_ALL=C $(CC) -print-search-dirs | sed -ne "s/install: \(.
 # code taken from uClibc to determine the libgcc.a filename
 GCC_LIB := $(shell $(CC) -print-libgcc-file-name )
 
-# use '-Os' optimization if available, else use -O2
-OPTIMIZATION := ${shell if $(CC) -Os -S -o /dev/null -xc /dev/null >/dev/null 2>&1; \
-		then echo "-Os"; else echo "-O2" ; fi}
-
 # check if compiler option is supported
-cc-supports = ${shell if $(CC) ${1} -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "$(1)"; fi;}
+cc-supports = ${shell if $(CC) ${1} -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi;}
 
 CFLAGS		+= -Wall -fno-builtin -Wchar-subscripts -Wpointer-arith -Wstrict-prototypes -Wsign-compare
-CFLAGS		+= $(call cc-supports,-Wno-pointer-sign)
-CFLAGS		+= $(call cc-supports,-Wdeclaration-after-statement)
+CFLAGS		+= $(call cc-supports, -Wno-pointer-sign, )
+CFLAGS		+= $(call cc-supports, -Wdeclaration-after-statement, )
 CFLAGS		+= -pipe
 CFLAGS		+= -D_GNU_SOURCE
+
+# use '-Os' optimization if available, else use -O2
+OPTFLAGS := $(call cc-supports, -Os, -O2)
 
 HEADERS = \
 	udev.h			\
@@ -165,7 +164,7 @@ ifeq ($(strip $(DEBUG)),true)
 	LDFLAGS += -Wl
 	STRIPCMD = /bin/true -Since_we_are_debugging
 else
-	CFLAGS  += $(OPTIMIZATION) -fomit-frame-pointer
+	CFLAGS  += $(OPTFLAGS) -fomit-frame-pointer
 	LDFLAGS += -s -Wl
 	STRIPCMD = $(STRIP) -s --remove-section=.note --remove-section=.comment
 endif
