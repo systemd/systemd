@@ -1,3 +1,29 @@
+Summary of changes from v060 to v061
+============================================
+
+Greg Kroah-Hartman:
+  Sync up the Debian rules files
+  fix cdrom symlink problem in gentoo rules
+  Fix ChangeLog titles
+
+Kay Sievers:
+  update RELEASE-NOTES
+  we want to provide OPTFLAGS
+  rename ALARM_TIMEOUT to UDEV_ALARM_TIMEOUT
+  udevd: optimize env-key parsing
+  don't resolve OWNER, GROUP on precompile if string contains %, $
+  set default device node to /dev
+  create udevdb files only if somehting interesting happened
+  pack parsed rules list
+  replace useless defines by inline text
+  move rule matches to function
+  add usb_id program to generate usb-storage device identifiers
+  add IEEE1394 rules to the gentoo rule file
+  fake also kernel-name if we renamed a netif
+  allow OPTIONS to be recognized for /sys/modules /sys/devices events
+  switch gentoo rules to new operators
+
+
 Summary of changes from v059 to v060
 ============================================
 
