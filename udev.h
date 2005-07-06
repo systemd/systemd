@@ -29,9 +29,7 @@
 #include "libsysfs/sysfs/libsysfs.h"
 #include "list.h"
 
-#define ALARM_TIMEOUT			120
 #define COMMENT_CHARACTER		'#'
-
 #define LINE_SIZE			512
 #define NAME_SIZE			128
 #define PATH_SIZE			256
@@ -40,6 +38,7 @@
 #define VALUE_SIZE			128
 
 #define DEFAULT_PARTITIONS_COUNT	15
+#define UDEV_ALARM_TIMEOUT		120
 
 enum device_type {
 	DEV_UNKNOWN,

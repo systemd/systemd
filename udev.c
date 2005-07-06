@@ -96,7 +96,7 @@ int main(int argc, char *argv[], char *envp[])
 	sigaction(SIGTERM, &act, NULL);
 
 	/* trigger timeout to prevent hanging processes */
-	alarm(ALARM_TIMEOUT);
+	alarm(UDEV_ALARM_TIMEOUT);
 
 	action = getenv("ACTION");
 	devpath = getenv("DEVPATH");
