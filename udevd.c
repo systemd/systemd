@@ -105,7 +105,7 @@ static void msg_dump_queue(void)
 #endif
 }
 
-static void run_queue_delete(struct uevent_msg *msg)
+static void msg_queue_delete(struct uevent_msg *msg)
 {
 	list_del(&msg->node);
 	free(msg);
@@ -189,7 +189,7 @@ static void execute_udev(struct uevent_msg *msg)
 		break;
 	case -1:
 		err("fork of child failed");
-		run_queue_delete(msg);
+		msg_queue_delete(msg);
 		break;
 	default:
 		/* get SIGCHLD in main loop */
@@ -457,6 +457,8 @@ static struct uevent_msg *get_msg_from_envbuf(const char *buf, int buf_size)
 	int bufpos;
 	int i;
 	struct uevent_msg *msg;
+	int major = 0;
+	int minor = 0;
 
 	msg = malloc(sizeof(struct uevent_msg) + buf_size);
 	if (msg == NULL)
@@ -479,22 +481,22 @@ static struct uevent_msg *get_msg_from_envbuf(const char *buf, int buf_size)
 		/* remember some keys for further processing */
 		if (strncmp(key, "ACTION=", 7) == 0)
 			msg->action = &key[7];
-
-		if (strncmp(key, "DEVPATH=", 8) == 0)
+		else if (strncmp(key, "DEVPATH=", 8) == 0)
 			msg->devpath = &key[8];
-
-		if (strncmp(key, "SUBSYSTEM=", 10) == 0)
+		else if (strncmp(key, "SUBSYSTEM=", 10) == 0)
 			msg->subsystem = &key[10];
-
-		if (strncmp(key, "SEQNUM=", 7) == 0)
+		else if (strncmp(key, "SEQNUM=", 7) == 0)
 			msg->seqnum = strtoull(&key[7], NULL, 10);
-
-		if (strncmp(key, "PHYSDEVPATH=", 12) == 0)
+		else if (strncmp(key, "PHYSDEVPATH=", 12) == 0)
 			msg->physdevpath = &key[12];
-
-		if (strncmp(key, "TIMEOUT=", 8) == 0)
+		else if (strncmp(key, "MAJOR=", 6) == 0)
+			major = strtoull(&key[6], NULL, 10);
+		else if (strncmp(key, "MINOR=", 6) == 0)
+			minor = strtoull(&key[6], NULL, 10);
+		else if (strncmp(key, "TIMEOUT=", 8) == 0)
 			msg->timeout = strtoull(&key[8], NULL, 10);
 	}
+	msg->devt = makedev(major, minor);
 	msg->envp[i++] = "UDEVD_EVENT=1";
 	msg->envp[i] = NULL;
 
@@ -604,7 +606,7 @@ static struct uevent_msg *get_netlink_msg(void)
 	if ((size_t)size > sizeof(buffer)-1)
 		size = sizeof(buffer)-1;
 	buffer[size] = '\0';
-	dbg("uevent_size=%li", (long)size);
+	dbg("uevent_size=%zi", size);
 
 	/* start of event payload */
 	bufpos = strlen(buffer)+1;
@@ -679,7 +681,7 @@ static void udev_done(int pid)
 		if (msg->pid == pid) {
 			sysinfo(&info);
 			info("seq %llu exit, %ld seconds old", msg->seqnum, info.uptime - msg->queue_time);
-			run_queue_delete(msg);
+			msg_queue_delete(msg);
 
 			/* we want to run the exec queue manager since there may
 			 * be events waiting with the devpath of the one that

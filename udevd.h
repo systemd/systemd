@@ -74,6 +74,7 @@ struct uevent_msg {
 	char *action;
 	char *devpath;
 	char *subsystem;
+	dev_t devt;
 	unsigned long long seqnum;
 	char *physdevpath;
 	unsigned int timeout;
