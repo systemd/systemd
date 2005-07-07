@@ -1,3 +1,14 @@
+Summary of changes from v061 to v062
+============================================
+
+Kay Sievers:
+  fix symlink values separated by multiple spaces
+  update RELEASE-NOTES
+  fix typo in group assignment
+  fix default-name handling and NAME="" rules
+  add WAIT_FOR_SYSFS key to loop until a file in sysfs arrives
+  fix unquoted strings in udevinitsend
+
 Summary of changes from v060 to v061
 ============================================
 
