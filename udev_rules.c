@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "list.h"

@@ -1,3 +1,10 @@
+udev 062
+========
+Mostly a Bugfix release.
+
+Added WAIT_FOR_SYSFS="<attribute>" to be able to fight against the sysfs
+timing with custom rules.
+
 udev 061
 ========
 We changed the  internal rule storage format. Our large rule files took
