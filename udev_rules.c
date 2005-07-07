@@ -857,6 +857,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 	struct sysfs_class_device *class_dev_parent;
 	struct sysfs_device *sysfs_device = NULL;
 	struct udev_rule *rule;
+	int name_set = 0;
 
 	dbg("class_dev->name='%s'", class_dev->name);
 
@@ -888,7 +889,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 		if (rule == NULL)
 			break;
 
-		if (udev->name_set && rule->name.operation != KEY_OP_UNSET) {
+		if (name_set && rule->name.operation != KEY_OP_UNSET) {
 			dbg("node name already set, rule ignored");
 			continue;
 		}
@@ -970,7 +971,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 
 			/* set name, later rules with name set will be ignored */
 			if (rule->name.operation != KEY_OP_UNSET) {
-				udev->name_set = 1;
+				name_set = 1;
 				strlcpy(udev->name, key_val(rule, &rule->name), sizeof(udev->name));
 				apply_format(udev, udev->name, sizeof(udev->name), class_dev, sysfs_device);
 
@@ -1008,7 +1009,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 		}
 	}
 
-	if (udev->name[0] == '\0') {
+	if (!name_set) {
 		strlcpy(udev->name, udev->kernel_name, sizeof(udev->name));
 		info("no rule found, will use kernel name '%s'", udev->name);
 	}

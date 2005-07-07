@@ -55,7 +55,6 @@ struct udevice {
 
 	enum device_type type;
 	char name[PATH_SIZE];
-	int name_set;
 	char devname[PATH_SIZE];
 	struct list_head symlink_list;
 	int symlink_final;
