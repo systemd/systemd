@@ -409,7 +409,7 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 					gid_t gid = lookup_group(value);
 					dbg("replacing groupname='%s' by id=%i", value, gid);
 					sprintf(group, "%li", gid);
-					add_rule_key(rule, &rule->owner, operation, group);
+					add_rule_key(rule, &rule->group, operation, group);
 					continue;
 				}
 			}

@@ -1090,7 +1090,8 @@ EOF
 		desc		=> "ignore rule test",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
-		exp_name	=> "node",
+		exp_name	=> "nothing",
+		not_exp_name	=> "node",
 		exp_add_error	=> "yes",
 		rules		=> <<EOF
 BUS=="scsi", KERNEL=="sda", NAME="node", OPTIONS="ignore"
@@ -1415,6 +1416,29 @@ KERNEL=="ttyUSB[0-9]*", SYMLINK+="one"
 KERNEL=="ttyUSB[0-9]*", SYMLINK+="two"
 KERNEL=="ttyUSB[0-9]*", SYMLINK="three"
 KERNEL=="ttyUSB[0-9]*", NAME="node"
+EOF
+	},
+	{
+		desc		=> "test empty NAME",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "node",
+		not_exp_name	=> "wrong",
+		exp_add_error	=> "yes",
+		rules		=> <<EOF
+KERNEL=="ttyUSB[0-9]*", NAME=""
+KERNEL=="ttyUSB[0-9]*", NAME="wrong"
+EOF
+	},
+	{
+		desc		=> "test empty NAME 2",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "right",
+		rules		=> <<EOF
+KERNEL=="ttyUSB[0-9]*", NAME="right"
+KERNEL=="ttyUSB[0-9]*", NAME=""
+KERNEL=="ttyUSB[0-9]*", NAME="wrong"
 EOF
 	},
 );
