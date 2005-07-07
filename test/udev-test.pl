@@ -802,6 +802,17 @@ KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="symlink1-%n symlink2-%k symlin
 EOF
 	},
 	{
+		desc		=> "multiple symlinks with a lot of s p a c e s",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "one",
+		not_exp_name	=> " ",
+		exp_target	=> "ttyUSB0",
+		rules		=> <<EOF
+KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="  one     two        "
+EOF
+	},
+	{
 		desc		=> "symlink creation (same directory)",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/ttyUSB0",

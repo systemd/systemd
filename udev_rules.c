@@ -958,16 +958,22 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 
 				/* add multiple symlinks separated by spaces */
 				pos = temp;
-				next = strchr(temp, ' ');
+				while (isspace(pos[0]))
+					pos++;
+				next = strchr(pos, ' ');
 				while (next) {
 					next[0] = '\0';
 					info("add symlink '%s'", pos);
 					name_list_add(&udev->symlink_list, pos, 0);
+					while (isspace(next[1]))
+						next++;
 					pos = &next[1];
 					next = strchr(pos, ' ');
 				}
-				info("add symlink '%s'", pos);
-				name_list_add(&udev->symlink_list, pos, 0);
+				if (pos[0] != '\0') {
+					info("add symlink '%s'", pos);
+					name_list_add(&udev->symlink_list, pos, 0);
+				}
 			}
 
 			/* set name, later rules with name set will be ignored */
