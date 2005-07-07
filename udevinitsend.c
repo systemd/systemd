@@ -132,11 +132,11 @@ static int udevsend(char *filename, int sock, int disable_loop_detection)
 			strncpy(&usend_msg.envbuf[bufpos],ls,(ch - ls) + 1);
 			bufpos += (ch - ls) + 1;
 			if (ch[1] == '\'' && le[-1] == '\'') {
-				strncpy(&usend_msg.envbuf[bufpos],ch + 2, (le - ch) -3);
+				strncpy(&usend_msg.envbuf[bufpos],ch + 2, (le - ch) - 3);
 				bufpos += (le - ch) - 3;
 			} else {
-				strncpy(&usend_msg.envbuf[bufpos],ch, (le - ch));
-				bufpos += (le - ch);
+				strncpy(&usend_msg.envbuf[bufpos],ch + 1, (le - ch) - 1);
+				bufpos += (le - ch) - 1;
 			}
 			bufpos++;
 		}
