@@ -66,6 +66,7 @@ struct udev_rule {
 	struct key result;
 	struct key modalias;
 	struct key import;
+	struct key wait_for_sysfs;
 	struct key_pairs sysfs;
 	struct key_pairs env;
 

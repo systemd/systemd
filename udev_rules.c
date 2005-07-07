@@ -335,6 +335,28 @@ attr_found:
 	return 0;
 }
 
+#define WAIT_LOOP_PER_SECOND			20
+static int wait_for_sysfs(struct udevice *udev, const char *file, int timeout)
+{
+	char filename[PATH_SIZE];
+	struct stat stats;
+	int loop = timeout * WAIT_LOOP_PER_SECOND;
+
+	snprintf(filename, sizeof(filename), "%s%s/%s", sysfs_path, udev->devpath, file);
+	filename[sizeof(filename)-1] = '\0';
+	dbg("wait %i sec for '%s'", timeout, filename);
+
+	while (--loop) {
+		if (stat(filename, &stats) == 0) {
+			dbg("file appeared after %i loops", (timeout * WAIT_LOOP_PER_SECOND) - loop-1);
+			return 0;
+		}
+		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
+	}
+	dbg("waiting for '%s' failed", filename);
+	return -1;
+}
+
 static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 			 struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
@@ -622,15 +644,15 @@ static int match_key(const char *key_name, struct udev_rule *rule, struct key *k
 	dbg("check for %s '%s' <-> '%s'", key_name, key_value, val);
 	match = (strcmp_pattern(key_value, val) == 0);
 	if (match && (key->operation != KEY_OP_NOMATCH)) {
-		dbg("%s key is matching (matching value)", key_name);
+		dbg("%s is matching (matching value)", key_name);
 		return 0;
 	}
 	if (!match && (key->operation == KEY_OP_NOMATCH)) {
-		dbg("%s key is matching, (non matching value)", key_name);
+		dbg("%s is matching, (non matching value)", key_name);
 		return 0;
 	}
 
-	dbg("%s key is not matching", key_name);
+	dbg("%s is not matching", key_name);
 	return -1;
 }
 
@@ -679,6 +701,22 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 				goto exit;
 		}
 		dbg("all %i ENV keys matched", rule->env.count);
+	}
+
+	if (rule->wait_for_sysfs.operation != KEY_OP_UNSET) {
+		int match;
+
+		match = (wait_for_sysfs(udev, key_val(rule, &rule->wait_for_sysfs), 3) == 0);
+		if (match && (rule->wait_for_sysfs.operation != KEY_OP_NOMATCH)) {
+			dbg("WAIT_FOR_SYSFS is matching (matching value)");
+			return 0;
+		}
+		if (!match && (rule->wait_for_sysfs.operation == KEY_OP_NOMATCH)) {
+			dbg("WAIT_FOR_SYSFS is matching, (non matching value)");
+			return 0;
+		}
+		dbg("WAIT_FOR_SYSFS is not matching");
+		return -1;
 	}
 
 	/* walk up the chain of physical devices and find a match */

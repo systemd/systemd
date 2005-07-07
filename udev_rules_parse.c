@@ -284,6 +284,12 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 			continue;
 		}
 
+		if (strcasecmp(key, "WAIT_FOR_SYSFS") == 0) {
+			add_rule_key(rule, &rule->wait_for_sysfs, operation, value);
+			valid = 1;
+			continue;
+		}
+
 		if (strncasecmp(key, "ENV", sizeof("ENV")-1) == 0) {
 			attr = get_key_attribute(key + sizeof("ENV")-1);
 			if (attr == NULL) {
