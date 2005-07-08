@@ -89,6 +89,7 @@ static const char hex_str[]="0123456789abcdef";
 #define SG_ERR_CAT_RESET	2      /* interpreted from sense buffer */
 #define SG_ERR_CAT_TIMEOUT	3
 #define SG_ERR_CAT_RECOVERED	4  /* Successful command after recovered err */
+#define SG_ERR_CAT_NOTSUPPORTED 5 /* Illegal / unsupported command */
 #define SG_ERR_CAT_SENSE	98     /* Something else in the sense buffer */
 #define SG_ERR_CAT_OTHER	99     /* Some other error/warning */
 
@@ -130,6 +131,8 @@ static int sg_err_category_new(int scsi_status, int msg_status, int
 					return SG_ERR_CAT_MEDIA_CHANGED;
 				if (0x29 == asc)
 					return SG_ERR_CAT_RESET;
+			} else if (sense_key == ILLEGAL_REQUEST) {
+				return SG_ERR_CAT_NOTSUPPORTED;
 			}
 		}
 		return SG_ERR_CAT_SENSE;
@@ -331,6 +334,9 @@ resend:
 	retval = sg_err_category3(&io_hdr);
 
 	switch (retval) {
+		case SG_ERR_CAT_NOTSUPPORTED:
+			buf[1] = 0;
+			/* Fallthrough */
 		case SG_ERR_CAT_CLEAN:
 		case SG_ERR_CAT_RECOVERED:
 			retval = 0;
