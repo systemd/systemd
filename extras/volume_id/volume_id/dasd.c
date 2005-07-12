@@ -39,8 +39,8 @@
 #include "util.h"
 #include "dasd.h"
 
-static unsigned char EBCtoASC[256] =
-{
+#ifdef __s390__
+static unsigned char EBCtoASC[256] = {
 /* 0x00  NUL   SOH   STX   ETX  *SEL    HT  *RNL   DEL */
 	0x00, 0x01, 0x02, 0x03, 0x07, 0x09, 0x07, 0x7F,
 /* 0x08  -GE  -SPS  -RPT    VT    FF    CR    SO    SI */
@@ -144,20 +144,7 @@ typedef struct dasd_information_t {
 	char configuration_data[256];	/* from read_configuration_data */
 } dasd_information_t;
 
-#define _IOC_NRBITS		8
-#define _IOC_TYPEBITS		8
-#define _IOC_SIZEBITS		14
-#define _IOC_DIRBITS		2
-#define _IOC_NRMASK		((1 << _IOC_NRBITS)-1)
-#define _IOC_TYPEMASK		((1 << _IOC_TYPEBITS)-1)
-#define _IOC_SIZEMASK		((1 << _IOC_SIZEBITS)-1)
-#define _IOC_DIRMASK		((1 << _IOC_DIRBITS)-1)
-#define _IOC_NRSHIFT		0
-#define _IOC_TYPESHIFT		(_IOC_NRSHIFT+_IOC_NRBITS)
-#define _IOC_SIZESHIFT		(_IOC_TYPESHIFT+_IOC_TYPEBITS)
-#define _IOC_DIRSHIFT		(_IOC_SIZESHIFT+_IOC_SIZEBITS)
 #define DASD_IOCTL_LETTER	 'D'
-
 #define BIODASDINFO _IOR(DASD_IOCTL_LETTER,1,dasd_information_t)
 #define BLKSSZGET _IO(0x12,104)
 
@@ -170,7 +157,6 @@ int volume_id_probe_dasd(struct volume_id *id)
 	unsigned char name[7];
 
 	dbg("probing");
-
 	if (ioctl(id->fd, BIODASDINFO, &info) != 0)
 		return -1;
 
@@ -195,3 +181,11 @@ int volume_id_probe_dasd(struct volume_id *id)
 
 	return 0;
 }
+
+#else
+int volume_id_probe_dasd(struct volume_id *id)
+{
+	return -1;
+}
+#endif /* __s390__ */
+
