@@ -281,6 +281,46 @@ static int import_program_into_env(struct udevice *udev, const char *program)
 	return import_keys_into_env(udev, result, reslen);
 }
 
+static int import_parent_into_env(struct udevice *udev, struct sysfs_class_device *class_dev, const char *filter)
+{
+	struct sysfs_class_device *parent = sysfs_get_classdev_parent(class_dev);
+	int rc = -1;
+
+	if (parent != NULL) {
+		struct udevice udev_parent;
+		struct name_entry *name_loop;
+
+		dbg("found parent '%s', get the node name", parent->path);
+		udev_init_device(&udev_parent, NULL, NULL, NULL);
+		/* import the udev_db of the parent */
+		if (udev_db_get_device(&udev_parent, &parent->path[strlen(sysfs_path)]) == 0) {
+			dbg("import stored parent env '%s'", udev_parent.name);
+			list_for_each_entry(name_loop, &udev_parent.env_list, node) {
+				char name[NAME_SIZE];
+				char *pos;
+
+				strlcpy(name, name_loop->name, sizeof(name));
+				pos = strchr(name, '=');
+				if (pos) {
+					pos[0] = '\0';
+					pos++;
+					if (strcmp_pattern(filter, name) == 0) {
+						dbg("import key '%s'", name_loop->name);
+						name_list_add(&udev->env_list, name_loop->name, 0);
+						setenv(name, pos, 1);
+					} else
+						dbg("skip key '%s'", name_loop->name);
+				}
+			}
+			rc = 0;
+		} else
+			dbg("parent not found in database");
+		udev_cleanup_device(&udev_parent);
+	}
+
+	return rc;
+}
+
 /* finds the lowest positive N such that <name>N isn't present in the udevdb
  * if <name> doesn't exist, 0 is returned, N otherwise
  */
@@ -604,8 +644,10 @@ found:
 				break;
 			}
 			pos = getenv(attr);
-			if (pos == NULL)
+			if (pos == NULL) {
+				dbg("env '%s' not avialable", attr);
 				break;
+			}
 			dbg("substitute env '%s=%s'", attr, pos);
 			strlcat(string, pos, maxsize);
 			break;
@@ -812,12 +854,15 @@ try_parent:
 		strlcpy(import, key_val(rule, &rule->import), sizeof(import));
 		apply_format(udev, import, sizeof(import), class_dev, sysfs_device);
 		dbg("check for IMPORT import='%s'", import);
-		if (rule->import_exec) {
+		if (rule->import_type == IMPORT_PROGRAM) {
 			dbg("run executable file import='%s'", import);
 			rc = import_program_into_env(udev, import);
-		} else {
+		} else if (rule->import_type == IMPORT_FILE) {
 			dbg("import file import='%s'", import);
 			rc = import_file_into_env(udev, import);
+		} else if (rule->import_type == IMPORT_PARENT && class_dev) {
+			dbg("import parent import='%s'", import);
+			rc = import_parent_into_env(udev, class_dev, import);
 		}
 		if (rc) {
 			dbg("IMPORT failed");
