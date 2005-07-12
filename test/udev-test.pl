@@ -1452,6 +1452,27 @@ KERNEL=="ttyUSB[0-9]*", NAME=""
 KERNEL=="ttyUSB[0-9]*", NAME="wrong"
 EOF
 	},
+	{
+		desc		=> "test multi matches",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "right",
+		rules		=> <<EOF
+KERNEL=="ttyUSB*|nothing", NAME="right"
+KERNEL=="ttyUSB*", NAME="wrong"
+EOF
+	},
+	{
+		desc		=> "test multi matches 2",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "right",
+		rules		=> <<EOF
+KERNEL=="dontknow*|*nothing", NAME="nomatch"
+KERNEL=="dontknow*|ttyUSB*|nothing*", NAME="right"
+KERNEL=="ttyUSB*", NAME="wrong"
+EOF
+	},
 );
 
 # set env

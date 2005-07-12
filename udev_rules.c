@@ -635,25 +635,36 @@ static char *key_pair_name(struct udev_rule *rule, struct key_pair *pair)
 static int match_key(const char *key_name, struct udev_rule *rule, struct key *key, const char *val)
 {
 	int match;
+	char value[PATH_SIZE];
 	char *key_value;
+	char *pos;
 
 	if (key->operation == KEY_OP_UNSET)
 		return 0;
 
-	key_value = rule->buf + key->val_off;
+	strlcpy(value, rule->buf + key->val_off, sizeof(value));
+	key_value = value;
 
-	dbg("check for %s '%s' <-> '%s'", key_name, key_value, val);
-	match = (strcmp_pattern(key_value, val) == 0);
-	if (match && (key->operation != KEY_OP_NOMATCH)) {
-		dbg("%s is matching (matching value)", key_name);
-		return 0;
+	dbg("key %s value='%s'", key_name, key_value);
+	while (key_value) {
+		pos = strchr(key_value, '|');
+		if (pos) {
+			pos[0] = '\0';
+			pos++;
+		}
+		dbg("match %s '%s' <-> '%s'", key_name, key_value, val);
+		match = (strcmp_pattern(key_value, val) == 0);
+		if (match && (key->operation != KEY_OP_NOMATCH)) {
+			dbg("%s is true (matching value)", key_name);
+			return 0;
+		}
+		if (!match && (key->operation == KEY_OP_NOMATCH)) {
+			dbg("%s is true (non-matching value)", key_name);
+			return 0;
+		}
+		key_value = pos;
 	}
-	if (!match && (key->operation == KEY_OP_NOMATCH)) {
-		dbg("%s is matching, (non matching value)", key_name);
-		return 0;
-	}
-
-	dbg("%s is not matching", key_name);
+	dbg("%s is false", key_name);
 	return -1;
 }
 
@@ -709,14 +720,14 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 
 		match = (wait_for_sysfs(udev, key_val(rule, &rule->wait_for_sysfs), 3) == 0);
 		if (match && (rule->wait_for_sysfs.operation != KEY_OP_NOMATCH)) {
-			dbg("WAIT_FOR_SYSFS is matching (matching value)");
+			dbg("WAIT_FOR_SYSFS is true (matching value)");
 			return 0;
 		}
 		if (!match && (rule->wait_for_sysfs.operation == KEY_OP_NOMATCH)) {
-			dbg("WAIT_FOR_SYSFS is matching, (non matching value)");
+			dbg("WAIT_FOR_SYSFS is true, (non matching value)");
 			return 0;
 		}
-		dbg("WAIT_FOR_SYSFS is not matching");
+		dbg("WAIT_FOR_SYSFS is false");
 		return -1;
 	}
 
@@ -826,7 +837,7 @@ try_parent:
 		apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
 		dbg("check for PROGRAM program='%s", program);
 		if (execute_program(program, udev->subsystem, result, sizeof(result), NULL) != 0) {
-			dbg("PROGRAM is not matching");
+			dbg("PROGRAM is false");
 			if (rule->program.operation != KEY_OP_NOMATCH)
 				goto exit;
 		} else {
