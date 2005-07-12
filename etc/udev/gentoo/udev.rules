@@ -120,6 +120,11 @@ KERNEL=="tun",		NAME="net/%k"
 # ramdisk devices
 KERNEL=="ram[0-9]*",	NAME="rd/%n", SYMLINK+="%k"
 
+# IEEE1394 (firewire) devices (must be before raw devices below)
+KERNEL=="raw1394",	NAME="%k",		GROUP="video"
+KERNEL=="dv1394*",	NAME="dv1394/%n",	GROUP="video"
+KERNEL=="video1394*",	NAME="video1394/%n",	GROUP="video"
+
 # raw devices
 KERNEL=="raw[0-9]*",	NAME="raw/%k", GROUP="disk"
 KERNEL=="ram*",		NAME="%k", GROUP="disk"
@@ -242,11 +247,6 @@ KERNEL=="issm*",	NAME="infiniband/%k"
 
 # tpm devices
 KERNEL=="tpm*",	NAME="%k", OWNER="tss", GROUP="tss", MODE="0600"
-
-# IEEE1394 (firewire) devices
-KERNEL=="raw1394", NAME="%k", GROUP="video"
-KERNEL=="dv1394*", NAME="dv1394/%n", GROUP="video"
-KERNEL=="video1394*", NAME="video1394/%n", GROUP="video"
 
 # be backward compatible for a while with the /etc/dev.d and /etc/hotplug.d/ systems
 # run /etc/hotplug.d/ stuff only if we came from a hotplug event, not for udevstart
