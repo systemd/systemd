@@ -606,8 +606,8 @@ found:
 			pos = getenv(attr);
 			if (pos == NULL)
 				break;
-			strlcat(string, pos, maxsize);
 			dbg("substitute env '%s=%s'", attr, pos);
+			strlcat(string, pos, maxsize);
 			break;
 		default:
 			err("unknown substitution type=%i", type);

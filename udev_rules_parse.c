@@ -548,6 +548,7 @@ static int rules_map(struct udev_rules *rules, const char *filename)
 		rules->buf = NULL;
 		return -1;
 	}
+	rules->mapped = 1;
 
 	return 0;
 }
