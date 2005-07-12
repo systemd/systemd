@@ -167,8 +167,12 @@ int main(int argc, char *argv[])
 		printf("ID_MODEL=%s\n", model);
 		printf("ID_SERIAL=%s\n", serial);
 		printf("ID_REVISION=%s\n", revision);
-	} else
-		printf("%s_%s\n", model, serial);
+	} else {
+		if (serial[0] != '\0')
+			printf("%s_%s\n", model, serial);
+		else
+			printf("%s\n", model);
+	}
 
 close:
 	close(fd);
