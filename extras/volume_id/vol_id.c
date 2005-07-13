@@ -32,7 +32,6 @@
 #include "../../udev_utils.h"
 #include "../../logging.h"
 #include "volume_id/volume_id.h"
-#include "volume_id/dasd.h"
 
 #define BLKGETSIZE64 _IOR(0x12,114,size_t)
 
@@ -147,9 +146,6 @@ int main(int argc, char *argv[])
 	if (volume_id_probe_all(vid, 0, size) == 0)
 		goto print;
 
-	if (volume_id_probe_dasd(vid) == 0)
-		goto print;
-	
 	if (print != PRINT_EXPORT)
 		fprintf(stderr, "%s: unknown volume type\n", node);
 	rc = 3;
