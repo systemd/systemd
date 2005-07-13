@@ -136,7 +136,7 @@ int main(int argc, char *argv[])
 
 	vid = volume_id_open_node(node);
 	if (vid == NULL) {
-		fprintf(stderr, "error open volume\n");
+		fprintf(stderr, "%s: error open volume\n", node);
 		rc = 2;
 		goto exit;
 	}
@@ -149,8 +149,9 @@ int main(int argc, char *argv[])
 
 	if (volume_id_probe_dasd(vid) == 0)
 		goto print;
-
-	fprintf(stderr, "unknown volume type\n");
+	
+	if (print != PRINT_EXPORT)
+		fprintf(stderr, "%s: unknown volume type\n", node);
 	rc = 3;
 	goto exit;
 

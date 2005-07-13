@@ -107,6 +107,8 @@ int main(int argc, char *argv[])
 	int fd;
 	int rc = 0;
 
+	logging_init("ata_id");
+
 	for (i = 1 ; i < argc; i++) {
 		char *arg = argv[i];
 
