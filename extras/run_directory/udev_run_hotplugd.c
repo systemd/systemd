@@ -25,8 +25,8 @@
 #include "../../udev_utils.h"
 #include "../../list.h"
 #include "../../logging.h"
+#include "run_directory.h"
 
-extern int run_directory(const char *dir, const char *suffix, const char *subsystem);
 
 #ifdef USE_LOG
 void log_message (int priority, const char *format, ...)
@@ -55,6 +55,7 @@ void log_message (int priority, const char *format, ...)
 
 int main(int argc, char *argv[], char *envp[])
 {
+	char dirname[NAME_SIZE];
 	const char *subsystem;
 	int fd;
 
@@ -71,6 +72,8 @@ int main(int argc, char *argv[], char *envp[])
 
 	dbg("running dev.d directory");
 
-	run_directory("/etc/hotplug.d", ".hotplug", subsystem);
+	sprintf(dirname, "/etc/hotplug.d/%s", subsystem);
+	run_directory(dirname, ".hotplug", subsystem);
+	run_directory("/etc/hotplug.d/default", ".hotplug", subsystem);
 	exit(0);
 }

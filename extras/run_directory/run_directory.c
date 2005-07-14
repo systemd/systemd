@@ -25,8 +25,7 @@
 #include "../../udev_utils.h"
 #include "../../list.h"
 #include "../../logging.h"
-
-int run_directory(const char *dir, const char *suffix, const char *subsystem);
+#include "run_directory.h"
 
 static int run_program(const char *filename, const char *subsystem)
 {
@@ -53,21 +52,11 @@ static int run_program(const char *filename, const char *subsystem)
 
 int run_directory(const char *dir, const char *suffix, const char *subsystem)
 {
-	char dirname[NAME_SIZE];
 	struct name_entry *name_loop, *name_tmp;
 	LIST_HEAD(name_list);
 
-	if (subsystem) {
-		snprintf(dirname, sizeof(dirname), "%s/%s", dir, subsystem);
-		dirname[sizeof(dirname)-1] = '\0';
-		dbg("looking at '%s'", dirname);
-		add_matching_files(&name_list, dirname, suffix);
-	}
-
-	snprintf(dirname, sizeof(dirname), "%s/default", dir);
-	dirname[sizeof(dirname)-1] = '\0';
-	dbg("looking at '%s'", dirname);
-	add_matching_files(&name_list, dirname, suffix);
+	dbg("looking at '%s'", dir);
+	add_matching_files(&name_list, dir, suffix);
 
 	list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
 		run_program(name_loop->name, subsystem);

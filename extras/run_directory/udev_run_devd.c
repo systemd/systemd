@@ -25,8 +25,8 @@
 #include "../../udev_utils.h"
 #include "../../list.h"
 #include "../../logging.h"
+#include "run_directory.h"
 
-extern int run_directory(const char *dir, const char *suffix, const char *subsystem);
 
 #ifdef USE_LOG
 void log_message (int priority, const char *format, ...)
@@ -55,11 +55,25 @@ void log_message (int priority, const char *format, ...)
 
 int main(int argc, char *argv[], char *envp[])
 {
+	char dirname[NAME_SIZE];
+	const char *devname;
+	const char *my_devname;
 	const char *subsystem;
 	int fd;
 
-	if (getenv("DEVNAME") == NULL)
+	devname = getenv("DEVNAME");
+	if (devname == NULL)
 		exit(0);
+	/*
+	 * Hack, we are assuming that the device nodes are in /dev,
+	 * if not, this will not work, but you should be using the
+	 * RUN= rule anyway...
+	 */
+	my_devname = strstr(devname, "/dev/");
+	if (my_devname != NULL)
+		my_devname = &my_devname[5];
+	else
+		my_devname = devname;
 
 	subsystem = argv[1];
 	logging_init("udev_run_devd");
@@ -73,6 +87,11 @@ int main(int argc, char *argv[], char *envp[])
 	}
 	dbg("running dev.d directory");
 
-	run_directory("/etc/dev.d", ".dev", subsystem);
+	sprintf(dirname, "/etc/dev.d/%s", my_devname);
+	run_directory(dirname, ".dev", subsystem);
+	sprintf(dirname, "/etc/dev.d/%s", subsystem);
+	run_directory(dirname, ".dev", subsystem);
+	run_directory("/etc/dev.d/default", ".dev", subsystem);
+
 	exit(0);
 }
