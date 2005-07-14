@@ -321,7 +321,7 @@ Building on the style mentioned above, you can do even more flashy things. The u
 
 This prevents the need to excessively provide a <i>GROUP="audio"</i> key on every following rule which names sound devices.<br /><br />
 
-udev defaults to creating nodes with unix permissions of 0660 (read/write to owner and group), which is configured by the <b>default_mode</b> setting inside <i>/etc/udev/udev.conf</i>. There may be some situations where you do not want to use the default permissions on your device node. Fortunately, you can easily override the permissions in your rules using the <i>MODE</i> assignment key. As an example, the following rule defines that the inotify node shall be readable and writable to everyone:
+udev defaults to creating nodes with unix permissions of 0660 (read/write to owner and group). There may be some situations where you do not want to use the default permissions on your device node. Fortunately, you can easily override the permissions in your rules using the <i>MODE</i> assignment key. As an example, the following rule defines that the inotify node shall be readable and writable to everyone:
 
 <blockquote><pre>KERNEL="inotify", NAME="misc/%k", SYMLINK="%k", MODE="0666"</pre></blockquote>
 
