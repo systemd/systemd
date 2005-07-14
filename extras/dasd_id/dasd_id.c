@@ -31,13 +31,42 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <sys/ioctl.h>
 #include <asm/types.h>
 
-#include "volume_id.h"
-#include "logging.h"
-#include "util.h"
-#include "dasd.h"
+#include "../../logging.h"
+#include "../../udev_utils.h"
+
+#ifdef USE_LOG
+void log_message(int priority, const char *format, ...)
+{
+	va_list args;
+	static int udev_log = -1;
+
+	if (udev_log == -1) {
+		const char *value;
+
+		value = getenv("UDEV_LOG");
+		if (value)
+			udev_log = log_priority(value);
+		else
+			udev_log = LOG_ERR;
+	}
+
+	if (priority > udev_log)
+		return;
+
+	va_start(args, format);
+	vsyslog(priority, format, args);
+	va_end(args);
+}
+#endif
+
+/*
+ * Only compile this on S/390. Doesn't make any sense
+ * for other architectures.
+ */
 
 static unsigned char EBCtoASC[256] =
 {
@@ -55,7 +84,7 @@ static unsigned char EBCtoASC[256] =
                                 -INP                   */
 	0x07, 0x07, 0x1C, 0x07, 0x07, 0x0A, 0x17, 0x1B,
 /* 0x28  -SA  -SFE   -SM  -CSP  -MFA   ENQ   ACK   BEL
-                     -SW                               */ 
+                     -SW                               */
 	0x07, 0x07, 0x07, 0x07, 0x07, 0x05, 0x06, 0x07,
 /* 0x30 ----  ----   SYN   -IR   -PP  -TRN  -NBS   EOT */
 	0x07, 0x07, 0x16, 0x07, 0x07, 0x07, 0x07, 0x04,
@@ -71,7 +100,7 @@ static unsigned char EBCtoASC[256] =
 	0x8D, 0xE1, 0x21, 0x24, 0x2A, 0x29, 0x3B, 0xAA,
 /* 0x60    -     /  ----     Ä  ----  ----  ----       */
 	0x2D, 0x2F, 0x07, 0x8E, 0x07, 0x07, 0x07, 0x8F,
-/* 0x68             ----     ,     %     _     >     ? */ 
+/* 0x68             ----     ,     %     _     >     ? */
 	0x80, 0xA5, 0x07, 0x2C, 0x25, 0x5F, 0x3E, 0x3F,
 /* 0x70  ---        ----  ----  ----  ----  ----  ---- */
 	0x07, 0x90, 0x07, 0x07, 0x07, 0x07, 0x07, 0x07,
@@ -111,15 +140,15 @@ static unsigned char EBCtoASC[256] =
 	0x38, 0x39, 0x07, 0x07, 0x9A, 0x07, 0x07, 0x07
 };
 
-static void vtoc_ebcdic_dec (const unsigned char *source, unsigned char *target, int l) 
+static void vtoc_ebcdic_dec (const unsigned char *source, char *target, int l) 
 {
 	int i;
 
 	for (i = 0; i < l; i++) 
-		target[i]=EBCtoASC[(unsigned char)(source[i])];
+		target[i]=(char)EBCtoASC[(unsigned char)(source[i])];
 }
 
-/* 
+/*
  * struct dasd_information_t
  * represents any data about the data, which is visible to userspace
  */
@@ -144,54 +173,101 @@ typedef struct dasd_information_t {
 	char configuration_data[256];	/* from read_configuration_data */
 } dasd_information_t;
 
-#define _IOC_NRBITS		8
-#define _IOC_TYPEBITS		8
-#define _IOC_SIZEBITS		14
-#define _IOC_DIRBITS		2
-#define _IOC_NRMASK		((1 << _IOC_NRBITS)-1)
-#define _IOC_TYPEMASK		((1 << _IOC_TYPEBITS)-1)
-#define _IOC_SIZEMASK		((1 << _IOC_SIZEBITS)-1)
-#define _IOC_DIRMASK		((1 << _IOC_DIRBITS)-1)
-#define _IOC_NRSHIFT		0
-#define _IOC_TYPESHIFT		(_IOC_NRSHIFT+_IOC_NRBITS)
-#define _IOC_SIZESHIFT		(_IOC_TYPESHIFT+_IOC_TYPEBITS)
-#define _IOC_DIRSHIFT		(_IOC_SIZESHIFT+_IOC_SIZEBITS)
 #define DASD_IOCTL_LETTER	 'D'
-
 #define BIODASDINFO _IOR(DASD_IOCTL_LETTER,1,dasd_information_t)
 #define BLKSSZGET _IO(0x12,104)
 
-int volume_id_probe_dasd(struct volume_id *id)
+unsigned char serial[8];
+
+static int dasd_id(int fd)
 {
 	int blocksize;
 	dasd_information_t info;
 	__u8 *data;
 	__u8 *label_raw;
-	unsigned char name[7];
 
-	dbg("probing");
-
-	if (ioctl(id->fd, BIODASDINFO, &info) != 0)
+	if (ioctl(fd, BIODASDINFO, &info) != 0) {
+		dbg("not a dasd");
 		return -1;
+	}
 
-	if (ioctl(id->fd, BLKSSZGET, &blocksize) != 0)
-		return -1;
+		if (ioctl(fd, BLKSSZGET, &blocksize) != 0) {
+			err("failed to get blocksize");
+			return -1;
+		}
 
-	data = volume_id_get_buffer(id, info.label_block * blocksize, 16);
-	if (data == NULL)
-		return -1;
+		if (lseek(fd,info.label_block * blocksize, SEEK_SET) == -1) {
+			err("seek failed on dasd");
+			return -1;
+		}
 
-	if ((!info.FBA_layout) && (!strcmp(info.type, "ECKD")))
-		label_raw = &data[8];
-	else
-		label_raw = &data[4];
+		data = malloc(blocksize);
+		if (data == NULL)
+			return -1;
 
-	name[6] = '\0';
-	volume_id_set_usage(id, VOLUME_ID_DISKLABEL);
-	id->type = "dasd";
-	volume_id_set_label_raw(id, label_raw, 6);
-	vtoc_ebcdic_dec(label_raw, name, 6);
-	volume_id_set_label_string(id, name, 6);
+		if (read(fd, data, blocksize) == -1) {
+			err("read disklabel failed");
+			free(data);
+			return -1;
+		}
 
-	return 0;
+		if ((!info.FBA_layout) && (!strcmp(info.type, "ECKD")))
+			label_raw = &data[8];
+		else
+			label_raw = &data[4];
+		serial[6] = '\0';
+
+		vtoc_ebcdic_dec(label_raw, serial, 6);
+		free(data);
+
+		return 0;
+	}
+
+int main(int argc, char *argv[])
+{
+	const char *node = NULL;
+	int i;
+	int export = 0;
+	int fd;
+	int rc = 0;
+
+	logging_init("dasd_id");
+
+	for (i = 1; i < argc; i++) {
+		char *arg = argv[i];
+
+		if (strcmp(arg, "--export") == 0) {
+			export = 1;
+		} else
+			node = arg;
+	}
+	if (!node) {
+		err("no node specified");
+		rc = 1;
+		goto exit;
+	}
+
+	fd = open(node, O_RDONLY);
+	if (fd < 0) {
+		err("unable to open '%s'", node);
+		rc = 1;
+		goto exit;
+	}
+
+	if (dasd_id(fd) < 0) {
+		err("dasd_id failed: %s", strerror(errno));
+		rc = 1;
+	}
+
+	if (export) {
+		printf("ID_TYPE=disk\n");
+		printf("ID_SERIAL=%s\n",serial);
+	} else
+		printf("%s\n", serial);
+
+	close(fd);
+exit:
+	logging_close();
+	return rc;
 }
+

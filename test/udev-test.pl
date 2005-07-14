@@ -1452,6 +1452,48 @@ KERNEL=="ttyUSB[0-9]*", NAME=""
 KERNEL=="ttyUSB[0-9]*", NAME="wrong"
 EOF
 	},
+	{
+		desc		=> "test multi matches",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "right",
+		rules		=> <<EOF
+KERNEL=="ttyUSB*|nothing", NAME="right"
+KERNEL=="ttyUSB*", NAME="wrong"
+EOF
+	},
+	{
+		desc		=> "test multi matches 2",
+		subsys		=> "tty",
+		devpath		=> "/class/tty/ttyUSB0",
+		exp_name	=> "right",
+		rules		=> <<EOF
+KERNEL=="dontknow*|*nothing", NAME="nomatch"
+KERNEL=="dontknow*|ttyUSB*|nothing*", NAME="right"
+KERNEL=="ttyUSB*", NAME="wrong"
+EOF
+	},
+	{
+		desc		=> "IMPORT parent test sequence 1/2 (keep)",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "parent",
+		option		=> "keep",
+		rules		=> <<EOF
+KERNEL=="sda", IMPORT="/bin/echo -e \'PARENT_KEY=parent_right\\nWRONG_PARENT_KEY=parent_wrong'"
+KERNEL=="sda", NAME="parent"
+EOF
+	},
+	{
+		desc		=> "IMPORT parent test sequence 2/2 (keep)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "parentenv-parent_right",
+		option		=> "clean",
+		rules		=> <<EOF
+KERNEL=="sda1", IMPORT{parent}="PARENT*", NAME="parentenv-\$env{PARENT_KEY}\$env{WRONG_PARENT_KEY}"
+EOF
+	},
 );
 
 # set env

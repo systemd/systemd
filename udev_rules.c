@@ -281,6 +281,46 @@ static int import_program_into_env(struct udevice *udev, const char *program)
 	return import_keys_into_env(udev, result, reslen);
 }
 
+static int import_parent_into_env(struct udevice *udev, struct sysfs_class_device *class_dev, const char *filter)
+{
+	struct sysfs_class_device *parent = sysfs_get_classdev_parent(class_dev);
+	int rc = -1;
+
+	if (parent != NULL) {
+		struct udevice udev_parent;
+		struct name_entry *name_loop;
+
+		dbg("found parent '%s', get the node name", parent->path);
+		udev_init_device(&udev_parent, NULL, NULL, NULL);
+		/* import the udev_db of the parent */
+		if (udev_db_get_device(&udev_parent, &parent->path[strlen(sysfs_path)]) == 0) {
+			dbg("import stored parent env '%s'", udev_parent.name);
+			list_for_each_entry(name_loop, &udev_parent.env_list, node) {
+				char name[NAME_SIZE];
+				char *pos;
+
+				strlcpy(name, name_loop->name, sizeof(name));
+				pos = strchr(name, '=');
+				if (pos) {
+					pos[0] = '\0';
+					pos++;
+					if (strcmp_pattern(filter, name) == 0) {
+						dbg("import key '%s'", name_loop->name);
+						name_list_add(&udev->env_list, name_loop->name, 0);
+						setenv(name, pos, 1);
+					} else
+						dbg("skip key '%s'", name_loop->name);
+				}
+			}
+			rc = 0;
+		} else
+			dbg("parent not found in database");
+		udev_cleanup_device(&udev_parent);
+	}
+
+	return rc;
+}
+
 /* finds the lowest positive N such that <name>N isn't present in the udevdb
  * if <name> doesn't exist, 0 is returned, N otherwise
  */
@@ -604,10 +644,12 @@ found:
 				break;
 			}
 			pos = getenv(attr);
-			if (pos == NULL)
+			if (pos == NULL) {
+				dbg("env '%s' not avialable", attr);
 				break;
-			strlcat(string, pos, maxsize);
+			}
 			dbg("substitute env '%s=%s'", attr, pos);
+			strlcat(string, pos, maxsize);
 			break;
 		default:
 			err("unknown substitution type=%i", type);
@@ -635,25 +677,36 @@ static char *key_pair_name(struct udev_rule *rule, struct key_pair *pair)
 static int match_key(const char *key_name, struct udev_rule *rule, struct key *key, const char *val)
 {
 	int match;
+	char value[PATH_SIZE];
 	char *key_value;
+	char *pos;
 
 	if (key->operation == KEY_OP_UNSET)
 		return 0;
 
-	key_value = rule->buf + key->val_off;
+	strlcpy(value, rule->buf + key->val_off, sizeof(value));
+	key_value = value;
 
-	dbg("check for %s '%s' <-> '%s'", key_name, key_value, val);
-	match = (strcmp_pattern(key_value, val) == 0);
-	if (match && (key->operation != KEY_OP_NOMATCH)) {
-		dbg("%s is matching (matching value)", key_name);
-		return 0;
+	dbg("key %s value='%s'", key_name, key_value);
+	while (key_value) {
+		pos = strchr(key_value, '|');
+		if (pos) {
+			pos[0] = '\0';
+			pos++;
+		}
+		dbg("match %s '%s' <-> '%s'", key_name, key_value, val);
+		match = (strcmp_pattern(key_value, val) == 0);
+		if (match && (key->operation != KEY_OP_NOMATCH)) {
+			dbg("%s is true (matching value)", key_name);
+			return 0;
+		}
+		if (!match && (key->operation == KEY_OP_NOMATCH)) {
+			dbg("%s is true (non-matching value)", key_name);
+			return 0;
+		}
+		key_value = pos;
 	}
-	if (!match && (key->operation == KEY_OP_NOMATCH)) {
-		dbg("%s is matching, (non matching value)", key_name);
-		return 0;
-	}
-
-	dbg("%s is not matching", key_name);
+	dbg("%s is false", key_name);
 	return -1;
 }
 
@@ -709,14 +762,14 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 
 		match = (wait_for_sysfs(udev, key_val(rule, &rule->wait_for_sysfs), 3) == 0);
 		if (match && (rule->wait_for_sysfs.operation != KEY_OP_NOMATCH)) {
-			dbg("WAIT_FOR_SYSFS is matching (matching value)");
+			dbg("WAIT_FOR_SYSFS is true (matching value)");
 			return 0;
 		}
 		if (!match && (rule->wait_for_sysfs.operation == KEY_OP_NOMATCH)) {
-			dbg("WAIT_FOR_SYSFS is matching, (non matching value)");
+			dbg("WAIT_FOR_SYSFS is true, (non matching value)");
 			return 0;
 		}
-		dbg("WAIT_FOR_SYSFS is not matching");
+		dbg("WAIT_FOR_SYSFS is false");
 		return -1;
 	}
 
@@ -801,12 +854,15 @@ try_parent:
 		strlcpy(import, key_val(rule, &rule->import), sizeof(import));
 		apply_format(udev, import, sizeof(import), class_dev, sysfs_device);
 		dbg("check for IMPORT import='%s'", import);
-		if (rule->import_exec) {
+		if (rule->import_type == IMPORT_PROGRAM) {
 			dbg("run executable file import='%s'", import);
 			rc = import_program_into_env(udev, import);
-		} else {
+		} else if (rule->import_type == IMPORT_FILE) {
 			dbg("import file import='%s'", import);
 			rc = import_file_into_env(udev, import);
+		} else if (rule->import_type == IMPORT_PARENT && class_dev) {
+			dbg("import parent import='%s'", import);
+			rc = import_parent_into_env(udev, class_dev, import);
 		}
 		if (rc) {
 			dbg("IMPORT failed");
@@ -826,7 +882,7 @@ try_parent:
 		apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
 		dbg("check for PROGRAM program='%s", program);
 		if (execute_program(program, udev->subsystem, result, sizeof(result), NULL) != 0) {
-			dbg("PROGRAM is not matching");
+			dbg("PROGRAM is false");
 			if (rule->program.operation != KEY_OP_NOMATCH)
 				goto exit;
 		} else {
@@ -931,7 +987,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 				if (rule->group.operation == KEY_OP_ASSIGN_FINAL)
 					udev->group_final = 1;
 				strlcpy(udev->group, key_val(rule, &rule->group), sizeof(udev->group));
-				apply_format(udev, key_val(rule, &rule->group), sizeof(udev->group), class_dev, sysfs_device);
+				apply_format(udev, udev->group, sizeof(udev->group), class_dev, sysfs_device);
 				dbg("applied group='%s' to '%s'", udev->group, udev->kernel_name);
 			}
 

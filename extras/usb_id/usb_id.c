@@ -72,7 +72,9 @@ static char revision_str[16];
 static char type_str[16];
 
 static int use_usb_info;
+static int use_num_info;
 static int export;
+static int debug;
 
 static void set_str(char *to, const unsigned char *from, int count)
 {
@@ -259,7 +261,7 @@ static int usb_id(const char *target_path)
 	struct sysfs_device *target_dev;
 	struct sysfs_device *host_dev, *interface_dev, *usb_dev;
 	struct sysfs_attribute *scsi_model, *scsi_vendor, *scsi_type, *scsi_rev;
-	struct sysfs_attribute *usb_model, *usb_vendor, *usb_rev, *usb_serial;
+	struct sysfs_attribute *usb_model = NULL, *usb_vendor = NULL, *usb_rev, *usb_serial;
 	struct sysfs_attribute *if_class, *if_subclass;
 	int if_class_num;
 	int protocol = 0;
@@ -322,11 +324,12 @@ static int usb_id(const char *target_path)
 	if_class = sysfs_get_device_attr(interface_dev, "bInterfaceClass");
 	if (!if_class) {
 		info("%s: cannot get bInterfaceClass attribute", interface_dev->name);
-		return -1;
+		return 1;
 	}
 	if_class_num = strtoul(if_class->value, NULL, 16);
 	if (if_class_num != 8) {
 		set_usb_iftype(type_str, if_class->value, sizeof(type_str) - 1);
+		protocol = 0;
 	} else {
 		if_subclass = sysfs_get_device_attr(interface_dev, 
 						    "bInterfaceSubClass");
@@ -338,29 +341,29 @@ static int usb_id(const char *target_path)
 		/* Generic SPC-2 device */
 		scsi_vendor = sysfs_get_device_attr(scsi_dev, "vendor");
 		if (!scsi_vendor) {
-			info("%s: cannot get vendor attribute", scsi_dev->name);
-			return -1;
+			info("%s: cannot get SCSI vendor attribute", scsi_dev->name);
+			return 1;
 		}
 		set_str(vendor_str, scsi_vendor->value, sizeof(vendor_str)-1);
 
 		scsi_model = sysfs_get_device_attr(scsi_dev, "model");
 		if (!scsi_model) {
-			info("%s: cannot get model attribute", scsi_dev->name);
-			return -1;
+			info("%s: cannot get SCSI model attribute", scsi_dev->name);
+			return 1;
 		}
 		set_str(model_str, scsi_model->value, sizeof(model_str)-1);
 
 		scsi_type = sysfs_get_device_attr(scsi_dev, "type");
 		if (!scsi_type) {
-			info("%s: cannot get type attribute", scsi_dev->name);
-			return -1;
+			info("%s: cannot get SCSI type attribute", scsi_dev->name);
+			return 1;
 		}
 		set_scsi_type(type_str, scsi_type->value, sizeof(type_str)-1);
 
 		scsi_rev = sysfs_get_device_attr(scsi_dev, "rev");
 		if (!scsi_rev) {
-			info("%s: cannot get type attribute", scsi_dev->name);
-			return -1;
+			info("%s: cannot get SCSI revision attribute", scsi_dev->name);
+			return 1;
 		}
 		set_str(revision_str, scsi_rev->value, sizeof(revision_str)-1);
 
@@ -368,19 +371,29 @@ static int usb_id(const char *target_path)
 
 	/* Fallback to USB vendor & device */
 	if (vendor_str[0] == '\0') {
-		usb_vendor = sysfs_get_device_attr(usb_dev, "manufacturer");
+		if (!use_num_info)
+			if (!(usb_vendor = sysfs_get_device_attr(usb_dev, "manufacturer")))
+				dbg("No USB vendor string found, using idVendor");
+
 		if (!usb_vendor) {
-			dbg("No USB vendor string found, using idVendor");
-			usb_vendor = sysfs_get_device_attr(usb_dev, "idVendor");
+			if (!(usb_vendor = sysfs_get_device_attr(usb_dev, "idVendor"))) {
+				dbg("No USB vendor information available\n");
+				sprintf(vendor_str,"0000");
+			}
 		}
 		set_str(vendor_str,usb_vendor->value, sizeof(vendor_str) - 1);
 	}
 	
 	if (model_str[0] == '\0') {
-		usb_model = sysfs_get_device_attr(usb_dev, "product");
+		if (!use_num_info)
+			if (!(usb_model = sysfs_get_device_attr(usb_dev, "product")))
+				dbg("No USB model string found, using idProduct");
+		
 		if (!usb_model) {
-			dbg("No USB model string found, using idProduct");
-			usb_model = sysfs_get_device_attr(usb_dev, "idProduct");
+			if (!(usb_model = sysfs_get_device_attr(usb_dev, "idProduct"))) {
+				dbg("No USB model information available\n");
+				sprintf(model_str,"0000");
+			}
 		}
 		set_str(model_str, usb_model->value, sizeof(model_str) - 1);
 	}
@@ -417,13 +430,20 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	while ((option = getopt(argc, argv, "ux")) != -1 ) {
+	while ((option = getopt(argc, argv, "dnux")) != -1 ) {
 		if (optarg)
 			dbg("option '%c' arg '%s'", option, optarg);
 		else
 			dbg("option '%c'", option);
 
 		switch (option) {
+		case 'd':
+			debug = 1;
+			break;
+		case 'n':
+			use_num_info=1;
+			use_usb_info=1;
+			break;
 		case 'u':
 			use_usb_info=1;
 			break;
@@ -432,7 +452,7 @@ int main(int argc, char **argv)
 			break;
 		default:
 			info("Unknown or bad option '%c' (0x%x)", option, option);
-			retval = -1;
+			retval = 1;
 			break;
 		}
 	}
@@ -452,25 +472,27 @@ int main(int argc, char **argv)
 
 	retval = usb_id(target_path);
 
-	if (export) {
-		printf("ID_VENDOR=%s\n", vendor_str);
-		printf("ID_MODEL=%s\n", model_str);
-		printf("ID_REVISION=%s\n", revision_str);
-		if (serial_str[0] == '\0') {
-			printf("ID_SERIAL=%s_%s\n", 
-			       vendor_str, model_str);
+	if (retval == 0) {
+		if (export) {
+			printf("ID_VENDOR=%s\n", vendor_str);
+			printf("ID_MODEL=%s\n", model_str);
+			printf("ID_REVISION=%s\n", revision_str);
+			if (serial_str[0] == '\0') {
+				printf("ID_SERIAL=%s_%s\n", 
+				       vendor_str, model_str);
+			} else {
+				printf("ID_SERIAL=%s_%s_%s\n", 
+				       vendor_str, model_str, serial_str);
+			}
+			printf("ID_TYPE=%s\n", type_str);
 		} else {
-			printf("ID_SERIAL=%s_%s_%s\n", 
-			       vendor_str, model_str, serial_str);
-		}
-		printf("ID_TYPE=%s\n", type_str);
-	} else {
-		if (serial_str[0] == '\0') {
-			printf("%s_%s\n", 
-			       vendor_str, model_str);
-		} else {
-			printf("%s_%s_%s\n", 
-			       vendor_str, model_str, serial_str);
+			if (serial_str[0] == '\0') {
+				printf("%s_%s\n", 
+				       vendor_str, model_str);
+			} else {
+				printf("%s_%s_%s\n", 
+				       vendor_str, model_str, serial_str);
+			}
 		}
 	}
 	exit(retval);

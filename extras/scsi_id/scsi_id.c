@@ -52,7 +52,7 @@
  * options are not supported, but other code is still left in place for
  * now.
  */
-static const char short_options[] = "bd:f:gip:s:uvVx";
+static const char short_options[] = "abd:f:gip:s:uvVx";
 /*
  * Just duplicate per dev options.
  */
@@ -61,6 +61,7 @@ static const char dev_short_options[] = "bgp:";
 char sysfs_mnt_path[SYSFS_PATH_MAX];
 
 static int all_good;
+static int always_info;
 static char *default_callout;
 static int dev_specified;
 static int sys_specified;
@@ -485,6 +486,9 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			dprintf("option '%c'\n", option);
 
 		switch (option) {
+		case 'a':
+			always_info = 1;
+			break;
 		case 'b':
 			all_good = 0;
 			break;
@@ -810,7 +814,7 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 		retval = 1;
 	} else if (scsi_get_serial(scsi_dev, maj_min_dev, page_code,
 				   serial, MAX_SERIAL_LEN)) {
-		retval = 1;
+		retval = always_info?0:1;
 	} else {
 		retval = 0;
 	}

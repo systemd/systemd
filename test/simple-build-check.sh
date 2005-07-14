@@ -6,6 +6,7 @@ EXTRAS="\
 	extras/ata_id \
 	extras/volume_id \
 	extras/usb_id \
+	extras/dasd_id \
 	extras/run_directory"
 
 [ -z "$KERNEL_DIR" ] && KERNEL_DIR=/lib/modules/`uname -r`/build

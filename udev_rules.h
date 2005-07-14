@@ -54,6 +54,13 @@ struct key_pairs {
 	struct key_pair keys[PAIRS_MAX];
 };
 
+enum import_type {
+	IMPORT_UNSET,
+	IMPORT_PROGRAM,
+	IMPORT_FILE,
+	IMPORT_PARENT,
+};
+
 struct udev_rule {
 	struct key kernel_name;
 	struct key subsystem;
@@ -66,6 +73,7 @@ struct udev_rule {
 	struct key result;
 	struct key modalias;
 	struct key import;
+	enum import_type import_type;
 	struct key wait_for_sysfs;
 	struct key_pairs sysfs;
 	struct key_pairs env;
@@ -81,8 +89,7 @@ struct udev_rule {
 	unsigned int partitions;
 	unsigned int last_rule:1,
 		     ignore_device:1,
-		     ignore_remove:1,
-		     import_exec:1;
+		     ignore_remove:1;
 
 	size_t bufsize;
 	char buf[];

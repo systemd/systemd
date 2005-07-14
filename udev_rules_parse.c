@@ -311,9 +311,13 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 			attr = get_key_attribute(key + sizeof("IMPORT")-1);
 			if (attr && strstr(attr, "program")) {
 				dbg("IMPORT will be executed");
-				rule->import_exec = 1;
+				rule->import_type  = IMPORT_PROGRAM;
 			} else if (attr && strstr(attr, "file")) {
 				dbg("IMPORT will be included as file");
+				rule->import_type  = IMPORT_FILE;
+			} else if (attr && strstr(attr, "parent")) {
+				dbg("IMPORT will include the parent values");
+				rule->import_type = IMPORT_PARENT;
 			} else {
 				/* figure it out if it is executable */
 				char file[PATH_SIZE];
@@ -326,8 +330,11 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 					pos[0] = '\0';
 				dbg("IMPORT auto mode for '%s'", file);
 				if (!lstat(file, &stats) && (stats.st_mode & S_IXUSR)) {
-						dbg("IMPORT is executable, will be executed");
-						rule->import_exec = 1;
+					dbg("IMPORT is executable, will be executed (autotype)");
+					rule->import_type  = IMPORT_PROGRAM;
+				} else {
+					dbg("IMPORT is not executable, will be included as file (autotype)");
+					rule->import_type  = IMPORT_FILE;
 				}
 			}
 			add_rule_key(rule, &rule->import, operation, value);
@@ -548,6 +555,7 @@ static int rules_map(struct udev_rules *rules, const char *filename)
 		rules->buf = NULL;
 		return -1;
 	}
+	rules->mapped = 1;
 
 	return 0;
 }

@@ -167,7 +167,7 @@ static void msg_queue_insert(struct uevent_msg *msg)
 }
 
 /* forks event and removes event from run queue when finished */
-static void execute_udev(struct uevent_msg *msg)
+static void udev_event_fork(struct uevent_msg *msg)
 {
 	char *const argv[] = { "udev", msg->subsystem, NULL };
 	pid_t pid;
@@ -181,12 +181,10 @@ static void execute_udev(struct uevent_msg *msg)
 			close(uevent_netlink_sock);
 		close(udevd_sock);
 		logging_close();
-
 		setpriority(PRIO_PROCESS, 0, UDEV_PRIORITY);
 		execve(udev_bin, argv, msg->envp);
 		err("exec of child failed");
 		_exit(1);
-		break;
 	case -1:
 		err("fork of child failed");
 		msg_queue_delete(msg);
@@ -389,7 +387,7 @@ static void exec_queue_manager(void)
 		if (running_with_devpath(loop_msg, max_childs) == 0) {
 			/* move event to run list */
 			list_move_tail(&loop_msg->node, &running_list);
-			execute_udev(loop_msg);
+			udev_event_fork(loop_msg);
 			running++;
 			dbg("moved seq %llu to running list", loop_msg->seqnum);
 		} else
@@ -722,6 +720,7 @@ static void user_sighandler(void)
 static int init_udevd_socket(void)
 {
 	struct sockaddr_un saddr;
+	const int buffersize = 1024 * 1024;
 	socklen_t addrlen;
 	const int feature_on = 1;
 	int retval;
@@ -737,6 +736,9 @@ static int init_udevd_socket(void)
 		err("error getting socket, %s", strerror(errno));
 		return -1;
 	}
+
+	/* set receive buffersize */
+	setsockopt(udevd_sock, SOL_SOCKET, SO_RCVBUF, &buffersize, sizeof(buffersize));
 
 	/* the bind takes care of ensuring only one copy running */
 	retval = bind(udevd_sock, (struct sockaddr *) &saddr, addrlen);
@@ -755,6 +757,7 @@ static int init_udevd_socket(void)
 static int init_uevent_netlink_sock(void)
 {
 	struct sockaddr_nl snl;
+	const int buffersize = 1024 * 1024;
 	int retval;
 
 	memset(&snl, 0x00, sizeof(struct sockaddr_nl));
@@ -767,6 +770,9 @@ static int init_uevent_netlink_sock(void)
 		dbg("error getting socket, %s", strerror(errno));
 		return -1;
 	}
+
+	/* set receive buffersize */
+	setsockopt(uevent_netlink_sock, SOL_SOCKET, SO_RCVBUF, &buffersize, sizeof(buffersize));
 
 	retval = bind(uevent_netlink_sock, (struct sockaddr *) &snl,
 		      sizeof(struct sockaddr_nl));
