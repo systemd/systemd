@@ -987,7 +987,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 				if (rule->group.operation == KEY_OP_ASSIGN_FINAL)
 					udev->group_final = 1;
 				strlcpy(udev->group, key_val(rule, &rule->group), sizeof(udev->group));
-				apply_format(udev, key_val(rule, &rule->group), sizeof(udev->group), class_dev, sysfs_device);
+				apply_format(udev, udev->group, sizeof(udev->group), class_dev, sysfs_device);
 				dbg("applied group='%s' to '%s'", udev->group, udev->kernel_name);
 			}
 
