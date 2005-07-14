@@ -412,3 +412,5 @@ uninstall: uninstall-man
 test: all
 	@ cd test && ./udev-test.pl
 	@ cd test && ./udevstart-test.pl
+
+tests:	test
