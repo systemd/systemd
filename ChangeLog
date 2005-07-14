@@ -1,3 +1,33 @@
+Summary of changes from v062 to v063
+============================================
+
+Anton Farygin:
+  fix typo in GROUP value application
+
+Greg Kroah-Hartman:
+  add 'make tests' as I'm always typing that one wrong...
+  Really commit the udev_run_devd changes...
+  Fixed udev_run_devd to run the /etc/dev.d/DEVNAME/ files too
+  fix position of raw rules in gentoo config file
+
+Hannes Reinecke:
+  dasd_id: add s390 disk-label prober
+  fix usb_id and let scsi_id ignore "illegal request"
+
+Kay Sievers:
+  volume_id: remove s390 dasd handling, it is dasd_id now
+  trivial fixes for *_id programs
+  IMPORT: add {parent} to import the persistent data of the parent device
+  allow multiple values to be matched with KEY=="value1|value2"
+  udevd: set incoming socket buffer SO_RCVBUF to maximum
+  remember mapped rules state
+  ata_id: check for empty serial number
+  compile dasd only on s390
+
+Ville Skyttä:
+  correct default mode documentation in udev
+
+
 Summary of changes from v061 to v062
 ============================================
 
