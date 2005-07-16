@@ -748,8 +748,8 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 			const char *value = getenv(key_name);
 
 			if (!value) {
-				dbg("ENV{'%s'} is not found", key_name);
-				goto exit;
+				dbg("ENV{'%s'} is not set", key_name);
+				value = "";
 			}
 			if (match_key("ENV", rule, &pair->key, value))
 				goto exit;
