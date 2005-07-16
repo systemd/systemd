@@ -377,8 +377,8 @@ install: install-config install-man all
 	$(INSTALL_PROGRAM) -D $(STARTER) $(DESTDIR)$(sbindir)/$(STARTER)
 ifndef DESTDIR
 	- killall $(DAEMON)
-	- $(sbindir)/$(DAEMON) --daemon
 	- rm -rf $(udevdb)
+	- $(sbindir)/$(DAEMON) --daemon
 endif
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \

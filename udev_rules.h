@@ -62,6 +62,8 @@ enum import_type {
 };
 
 struct udev_rule {
+	struct key label;
+	struct key goto_label;
 	struct key kernel_name;
 	struct key subsystem;
 	struct key action;
@@ -108,6 +110,7 @@ extern void udev_rules_close(struct udev_rules *rules);
 
 extern void udev_rules_iter_init(struct udev_rules *rules);
 extern struct udev_rule *udev_rules_iter_next(struct udev_rules *rules);
+extern struct udev_rule *udev_rules_iter_label(struct udev_rules *rules, const char *label);
 
 extern int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct sysfs_class_device *class_dev);
 extern int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev, struct sysfs_device *sysfs_device);

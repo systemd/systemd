@@ -1494,6 +1494,19 @@ EOF
 KERNEL=="sda1", IMPORT{parent}="PARENT*", NAME="parentenv-\$env{PARENT_KEY}\$env{WRONG_PARENT_KEY}"
 EOF
 	},
+	{
+		desc		=> "GOTO test",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "right",
+		rules		=> <<EOF
+KERNEL=="sda1", GOTO="TEST"
+KERNEL=="sda1", NAME="wrong"
+KERNEL=="sda1", NAME="", LABEL="NO"
+KERNEL=="sda1", NAME="right", LABEL="TEST"
+KERNEL=="sda1", NAME="wrong2"
+EOF
+	},
 );
 
 # set env

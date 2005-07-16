@@ -1069,6 +1069,11 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 				dbg("last rule to be applied");
 				break;
 			}
+
+			if (rule->goto_label.operation != KEY_OP_UNSET) {
+				dbg("moving forward to label '%s'", key_val(rule, &rule->goto_label));
+				udev_rules_iter_label(rules, key_val(rule, &rule->goto_label));
+			}
 		}
 	}
 

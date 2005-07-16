@@ -52,13 +52,37 @@ struct udev_rule *udev_rules_iter_next(struct udev_rules *rules)
 		return NULL;
 
 	dbg("current=%zi", rules->current);
-	if (rules->current >= rules->bufsize)
+	if (rules->current >= rules->bufsize) {
+		dbg("no more rules");
 		return NULL;
+	}
 
 	/* get next rule */
 	rule = (struct udev_rule *) (rules->buf + rules->current);
 	rules->current += sizeof(struct udev_rule) + rule->bufsize;
 
+	return rule;
+}
+
+struct udev_rule *udev_rules_iter_label(struct udev_rules *rules, const char *label)
+{
+	static struct udev_rule *rule;
+
+next:
+	dbg("current=%zi", rules->current);
+	if (rules->current >= rules->bufsize) {
+		dbg("no more rules");
+		return NULL;
+	}
+	rule = (struct udev_rule *) (rules->buf + rules->current);
+
+	if (strcmp(&rule->buf[rule->label.val_off], label) != 0) {
+		dbg("moving forward, looking for label '%s'", label);
+		rules->current += sizeof(struct udev_rule) + rule->bufsize;
+		goto next;
+	}
+
+	dbg("found label '%s'", label);
 	return rule;
 }
 
@@ -236,6 +260,18 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 		retval = get_key(&linepos, &key, &operation, &value);
 		if (retval)
 			break;
+
+		if (strcasecmp(key, "LABEL") == 0) {
+			add_rule_key(rule, &rule->label, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "GOTO") == 0) {
+			add_rule_key(rule, &rule->goto_label, operation, value);
+			valid = 1;
+			continue;
+		}
 
 		if (strcasecmp(key, "KERNEL") == 0) {
 			add_rule_key(rule, &rule->kernel_name, operation, value);
@@ -475,6 +511,7 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 		err("realloc failed");
 		goto exit;
 	}
+	dbg("adding rule to offset %zi", rules->bufsize);
 	memcpy(rules->buf + rules->bufsize, rule, rule_size);
 	rules->bufsize += rule_size;
 exit:
