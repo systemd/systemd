@@ -241,6 +241,7 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 	int valid;
 	char *linepos;
 	char *attr;
+	size_t padding;
 	int retval;
 
 	/* get all the keys */
@@ -506,6 +507,11 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 
 	/* grow buffer and add rule */
 	rule_size = sizeof(struct udev_rule) + rule->bufsize;
+	padding = (sizeof(size_t) - rule_size % sizeof(size_t)) % sizeof(size_t);
+	dbg("add %zi padding bytes", padding);
+	rule_size += padding;
+	rule->bufsize += padding;
+
 	rules->buf = realloc(rules->buf, rules->bufsize + rule_size);
 	if (!rules->buf) {
 		err("realloc failed");
