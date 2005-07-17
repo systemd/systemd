@@ -27,6 +27,7 @@ VOLUME_ID_OBJS=					\
 	$(VOLUME_ID_BASE)/sysv.o		\
 	$(VOLUME_ID_BASE)/minix.o		\
 	$(VOLUME_ID_BASE)/luks.o		\
+	$(VOLUME_ID_BASE)/ocfs2.o		\
 	$(VOLUME_ID_BASE)/volume_id.o		\
 	$(VOLUME_ID_BASE)/util.o
 
@@ -58,5 +59,6 @@ VOLUME_ID_HEADERS=				\
 	$(VOLUME_ID_BASE)/sysv.h		\
 	$(VOLUME_ID_BASE)/minix.h		\
 	$(VOLUME_ID_BASE)/luks.h		\
+	$(VOLUME_ID_BASE)/ocfs2.h		\
 	$(VOLUME_ID_BASE)/volume_id.h		\
 	$(VOLUME_ID_BASE)/util.h

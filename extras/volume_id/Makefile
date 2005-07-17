@@ -33,7 +33,8 @@ override CFLAGS+=-D_FILE_OFFSET_BITS=64
 VOLUME_ID_BASE=volume_id
 include $(VOLUME_ID_BASE)/Makefile.inc
 
-OBJS = vol_id.o $(VOLUME_ID_OBJS) ../../udev.a
+OBJS = vol_id.o $(VOLUME_ID_OBJS)
+LIB_OBJS=../../udev.a
 HEADERS = $(VOLUME_ID_HEADERS)
 
 $(OBJS): $(HEADERS)

@@ -69,6 +69,7 @@
 #include "minix.h"
 #include "mac.h"
 #include "msdos.h"
+#include "ocfs2.h"
 
 int volume_id_probe_all(struct volume_id *id, unsigned long long off, unsigned long long size)
 {
@@ -167,6 +168,9 @@ int volume_id_probe_all(struct volume_id *id, unsigned long long off, unsigned l
 		goto exit;
 
 	if (volume_id_probe_minix(id, off) == 0)
+		goto exit;
+
+	if (volume_id_probe_ocfs2(id, off) == 0)
 		goto exit;
 
 	return -1;
