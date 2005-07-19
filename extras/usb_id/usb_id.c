@@ -485,6 +485,7 @@ int main(int argc, char **argv)
 				       vendor_str, model_str, serial_str);
 			}
 			printf("ID_TYPE=%s\n", type_str);
+			printf("ID_BUS=usb\n");
 		} else {
 			if (serial_str[0] == '\0') {
 				printf("%s_%s\n", 

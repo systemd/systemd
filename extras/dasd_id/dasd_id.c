@@ -262,6 +262,7 @@ int main(int argc, char *argv[])
 	if (export) {
 		printf("ID_TYPE=disk\n");
 		printf("ID_SERIAL=%s\n",serial);
+		printf("ID_BUS=ccw\n");
 	} else
 		printf("%s\n", serial);
 

@@ -827,6 +827,7 @@ static int scsi_id(const char *target_path, char *maj_min_dev)
 			set_str(serial_str, serial, sizeof(serial_str));
 			printf("ID_SERIAL=%s\n", serial_str);
 			printf("ID_TYPE=%s\n", type_str);
+			printf("ID_BUS=scsi\n");
 		} else {
 			if (reformat_serial)
 				format_serial(serial);
