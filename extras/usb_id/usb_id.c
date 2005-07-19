@@ -316,11 +316,11 @@ static int usb_id(const char *target_path)
 	/* usb device directory */
 	usb_dev = sysfs_get_device_parent(interface_dev);
 
-	if (!strcmp(interface_dev->bus, "bus") != 0) {
+	if (strcmp(interface_dev->bus, "usb") != 0) {
 		info("%s is not an usb device", target_path);
 		return 1;
 	}
-	
+
 	if_class = sysfs_get_device_attr(interface_dev, "bInterfaceClass");
 	if (!if_class) {
 		info("%s: cannot get bInterfaceClass attribute", interface_dev->name);

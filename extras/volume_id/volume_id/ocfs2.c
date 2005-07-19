@@ -51,7 +51,7 @@ This is one has been simplified since we only care about the superblock.
 */
 
 struct ocfs2_super_block {
-	__u8 i_signature[8];			/* Signature for validation */
+	__u8  i_signature[8];			/* Signature for validation */
 	__u32 i_generation;			/* Generation number */
 	__s16 i_suballoc_slot;			/* Slot suballocator this inode belongs to */
 	__u16 i_suballoc_bit;			/* Bit offset in suballocator block group */

@@ -58,6 +58,10 @@ leading \-, runs in a hotplug mode, and expects the environment variable
 DEVPATH to specify the corresponding sysfs device. See section below on
 usage with \fBudev\fP.
 .TP
+.BI \-a
+Always print information (model, vendor strings) about the device even
+if it does not support VPD pages.
+.TP
 .BI \-b
 The default behaviour \- treat the device as black listed, and do nothing
 unless a white listed device is found in the scsi_id config\-file.
