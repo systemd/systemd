@@ -147,27 +147,29 @@ int main(int argc, char *argv[], char *envp[])
 				udev_rules_get_name(&rules, &udev, class_dev);
 				if (udev.ignore_device) {
 					info("device event will be ignored");
+					sysfs_close_class_device(class_dev);
 					goto cleanup;
 				}
 				if (udev.name[0] == '\0') {
 					info("device node creation supressed");
+					sysfs_close_class_device(class_dev);
 					goto cleanup;
 				}
-				
 				/* create node, store in db */
 				retval = udev_add_device(&udev, class_dev);
 			} else {
 				dbg("no dev-file found");
-				udev_rules_get_run(&rules, &udev, NULL);
+				udev_rules_get_run(&rules, &udev, class_dev, NULL);
 				if (udev.ignore_device) {
 					info("device event will be ignored");
+					sysfs_close_class_device(class_dev);
 					goto cleanup;
 				}
 			}
 			sysfs_close_class_device(class_dev);
 		} else if (strcmp(action, "remove") == 0) {
 			dbg("node remove");
-			udev_rules_get_run(&rules, &udev, NULL);
+			udev_rules_get_run(&rules, &udev, NULL, NULL);
 			if (udev.ignore_device) {
 				dbg("device event will be ignored");
 				goto cleanup;
@@ -194,7 +196,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 		dbg("devices device opened '%s'", path);
 		wait_for_devices_device(devices_dev, &error);
-		udev_rules_get_run(&rules, &udev, devices_dev);
+		udev_rules_get_run(&rules, &udev, NULL, devices_dev);
 		sysfs_close_device(devices_dev);
 		if (udev.ignore_device) {
 			info("device event will be ignored");
@@ -202,7 +204,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	} else {
 		dbg("default handling");
-		udev_rules_get_run(&rules, &udev, NULL);
+		udev_rules_get_run(&rules, &udev, NULL, NULL);
 		if (udev.ignore_device) {
 			info("device event will be ignored");
 			goto cleanup;

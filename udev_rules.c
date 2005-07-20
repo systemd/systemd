@@ -1091,9 +1091,20 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 	return 0;
 }
 
-int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev, struct sysfs_device *sysfs_device)
+int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev,
+		       struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_dev)
 {
 	struct udev_rule *rule;
+
+	if (class_dev && !sysfs_dev)
+		sysfs_dev = sysfs_get_classdev_device(class_dev);
+	if (sysfs_dev) {
+		dbg("found devices device: path='%s', bus_id='%s', bus='%s'",
+		    sysfs_dev->path, sysfs_dev->bus_id, sysfs_dev->bus);
+		strlcpy(udev->bus_id, sysfs_dev->bus_id, sizeof(udev->bus_id));
+	}
+
+	dbg("udev->kernel_name='%s'", udev->kernel_name);
 
 	/* look for a matching rule to apply */
 	udev_rules_iter_init(rules);
@@ -1109,7 +1120,7 @@ int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev, struct sy
 			continue;
 		}
 
-		if (match_rule(udev, rule, NULL, sysfs_device) == 0) {
+		if (match_rule(udev, rule, class_dev, sysfs_dev) == 0) {
 			if (rule->ignore_device) {
 				info("rule applied, '%s' is ignored", udev->kernel_name);
 				udev->ignore_device = 1;
@@ -1130,7 +1141,7 @@ int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev, struct sy
 					}
 				}
 				strlcpy(program, key_val(rule, &rule->run), sizeof(program));
-				apply_format(udev, program, sizeof(program), NULL, sysfs_device);
+				apply_format(udev, program, sizeof(program), class_dev, sysfs_dev);
 				dbg("add run '%s'", program);
 				name_list_add(&udev->run_list, program, 0);
 				if (rule->run.operation == KEY_OP_ASSIGN_FINAL)
@@ -1140,6 +1151,11 @@ int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev, struct sy
 			if (rule->last_rule) {
 				dbg("last rule to be applied");
 				break;
+			}
+
+			if (rule->goto_label.operation != KEY_OP_UNSET) {
+				dbg("moving forward to label '%s'", key_val(rule, &rule->goto_label));
+				udev_rules_iter_label(rules, key_val(rule, &rule->goto_label));
 			}
 		}
 	}

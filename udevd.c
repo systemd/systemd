@@ -38,6 +38,7 @@
 #include <sys/un.h>
 #include <sys/sysinfo.h>
 #include <sys/stat.h>
+#include <linux/types.h>
 #include <linux/netlink.h>
 
 #include "list.h"
