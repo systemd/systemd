@@ -1,9 +1,8 @@
 /*
  * udev_rules.h
  *
- * Userspace devfs
- *
- * Copyright (C) 2003,2004 Greg Kroah-Hartman <greg@kroah.com>
+ * Copyright (C) 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
+ * Copyright (C) 2004-2005 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -107,6 +106,9 @@ struct udev_rules {
 
 extern int udev_rules_init(struct udev_rules *rules, int resolve_names);
 extern void udev_rules_close(struct udev_rules *rules);
+
+extern void udev_apply_format(struct udevice *udev, char *string, size_t maxsize,
+			      struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device);
 
 extern void udev_rules_iter_init(struct udev_rules *rules);
 extern struct udev_rule *udev_rules_iter_next(struct udev_rules *rules);

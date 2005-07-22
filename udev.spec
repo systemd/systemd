@@ -27,7 +27,7 @@
 # 1 - build it
 %define volume_id 1
 
-Summary: A userspace implementation of devfs
+Summary: A userspace device manager providing devfs functionality
 Name: udev
 Version: 063
 Release: 1
@@ -41,8 +41,9 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 Prereq: /bin/sh, fileutils, hotplug
 
 %description
-udev is a implementation of devfs in userspace using sysfs and
-/sbin/hotplug. It requires a 2.6 kernel to run properly.
+udev is a userspace device manager, using sysfs and uevents
+to provide a devfs-like device directory management and uevent
+dispatching.
 
 %prep
 %setup -q

@@ -1,8 +1,7 @@
 /*
- * udev_lib - generic stuff used by udev
+ * udev_utils.c - generic stuff used by udev
  *
- * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
- *
+ * Copyright (C) 2004-2005 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -19,19 +18,18 @@
  *
  */
 
-#ifndef _UDEV_LIB_H_
-#define _UDEV_LIB_H_
+#ifndef _UDEV_COMMON_H_
+#define _UDEV_COMMON_H_
 
 #include "udev.h"
+#include "list.h"
 
 struct name_entry {
 	struct list_head node;
 	char name[PATH_SIZE];
 };
 
-extern int udev_init_device(struct udevice *udev, const char* devpath, const char *subsystem, const char *action);
-extern void udev_cleanup_device(struct udevice *udev);
-
+extern int strcmp_pattern(const char *p, const char *s);
 extern int kernel_release_satisfactory(unsigned int version, unsigned int patchlevel, unsigned int sublevel);
 extern int create_path(const char *path);
 extern int log_priority(const char *priority);

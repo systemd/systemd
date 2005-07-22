@@ -1,9 +1,9 @@
 /*
  * udeveventrecorder.c
  *
- * Userspace devfs
- *
- * Copyright (C) 2004, 2005 Olaf Hering <olh@suse.de>
+ * Copyright (C) 2004-2005 SuSE Linux Products GmbH
+ * Author:
+ *	Olaf Hering <olh@suse.de>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the

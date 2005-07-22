@@ -2,10 +2,12 @@
  * udevstart.c
  *
  * Copyright (C) 2004 Greg Kroah-Hartman <greg@kroah.com>
- * 
+ * Copyright (C) 2004 Kay Sievers <kay@vrfy.org>
+ *
  * Quick and dirty way to populate a /dev with udev if your system
- * does not have access to a shell.  Based originally on a patch to udev 
- * from Harald Hoyer <harald@redhat.com>
+ * does not have access to a shell.  Based originally on a patch
+ * from:
+ *	Harald Hoyer <harald@redhat.com>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -41,8 +43,8 @@
 #include "udev.h"
 #include "udev_version.h"
 #include "logging.h"
-#include "udev_rules.h"
 #include "udev_utils.h"
+#include "udev_rules.h"
 #include "list.h"
 
 static const char *udev_run_str;

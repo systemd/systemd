@@ -1,9 +1,9 @@
 /*
  * udevinitsend.c
  *
- * Userspace devfs
- *
- * Copyright (C) 2004, 2005 Hannes Reinecke <hare@suse.de>
+ * Copyright (C) 2004, 2005 SuSE Linux Products GmbH
+ * Author:
+ *	Hannes Reinecke <hare@suse.de>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the

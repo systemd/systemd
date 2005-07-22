@@ -1,8 +1,6 @@
 /*
  * udev_db.c
  *
- * Userspace devfs
- *
  * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
  * Copyright (C) 2004-2005 Kay Sievers <kay.sievers@vrfy.org>
  *

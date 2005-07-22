@@ -1,7 +1,7 @@
 /*
- * udev_lib - generic stuff used by udev
+ * udev_utils.c - generic stuff used by udev
  *
- * Copyright (C) 2004 Kay Sievers <kay@vrfy.org>
+ * Copyright (C) 2004-2005 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -39,84 +39,57 @@
 #include "udev_utils.h"
 #include "list.h"
 
-
-int udev_init_device(struct udevice *udev, const char* devpath, const char *subsystem, const char *action)
+/* compare string with pattern (supports * ? [0-9] [!A-Z]) */
+int strcmp_pattern(const char *p, const char *s)
 {
-	char *pos;
-
-	memset(udev, 0x00, sizeof(struct udevice));
-	INIT_LIST_HEAD(&udev->symlink_list);
-	INIT_LIST_HEAD(&udev->run_list);
-	INIT_LIST_HEAD(&udev->env_list);
-
-	if (subsystem)
-		strlcpy(udev->subsystem, subsystem, sizeof(udev->subsystem));
-
-	if (action)
-		strlcpy(udev->action, action, sizeof(udev->action));
-
-	if (devpath) {
-		strlcpy(udev->devpath, devpath, sizeof(udev->devpath));
-		remove_trailing_char(udev->devpath, '/');
-
-		if (strncmp(udev->devpath, "/block/", 7) == 0)
-			udev->type = DEV_BLOCK;
-		else if (strncmp(udev->devpath, "/class/net/", 11) == 0)
-			udev->type = DEV_NET;
-		else if (strncmp(udev->devpath, "/class/", 7) == 0)
-			udev->type = DEV_CLASS;
-		else if (strncmp(udev->devpath, "/devices/", 9) == 0)
-			udev->type = DEV_DEVICE;
-
-		/* get kernel name */
-		pos = strrchr(udev->devpath, '/');
-		if (pos) {
-			strlcpy(udev->kernel_name, &pos[1], sizeof(udev->kernel_name));
-			dbg("kernel_name='%s'", udev->kernel_name);
-
-			/* Some block devices have '!' in their name, change that to '/' */
-			pos = udev->kernel_name;
-			while (pos[0] != '\0') {
-				if (pos[0] == '!')
-					pos[0] = '/';
-				pos++;
+	if (s[0] == '\0') {
+		while (p[0] == '*')
+			p++;
+		return (p[0] != '\0');
+	}
+	switch (p[0]) {
+	case '[':
+		{
+			int not = 0;
+			p++;
+			if (p[0] == '!') {
+				not = 1;
+				p++;
 			}
-
-			/* get kernel number */
-			pos = &udev->kernel_name[strlen(udev->kernel_name)];
-			while (isdigit(pos[-1]))
-				pos--;
-			strlcpy(udev->kernel_number, pos, sizeof(udev->kernel_number));
-			dbg("kernel_number='%s'", udev->kernel_number);
+			while ((p[0] != '\0') && (p[0] != ']')) {
+				int match = 0;
+				if (p[1] == '-') {
+					if ((s[0] >= p[0]) && (s[0] <= p[2]))
+						match = 1;
+					p += 3;
+				} else {
+					match = (p[0] == s[0]);
+					p++;
+				}
+				if (match ^ not) {
+					while ((p[0] != '\0') && (p[0] != ']'))
+						p++;
+					if (p[0] == ']')
+						return strcmp_pattern(p+1, s+1);
+				}
+			}
 		}
+		break;
+	case '*':
+		if (strcmp_pattern(p, s+1))
+			return strcmp_pattern(p+1, s);
+		return 0;
+	case '\0':
+		if (s[0] == '\0') {
+			return 0;
+		}
+		break;
+	default:
+		if ((p[0] == s[0]) || (p[0] == '?'))
+			return strcmp_pattern(p+1, s+1);
+		break;
 	}
-
-	if (udev->type == DEV_BLOCK || udev->type == DEV_CLASS) {
-		udev->mode = 0660;
-		strcpy(udev->owner, "root");
-		strcpy(udev->group, "root");
-	}
-
-	return 0;
-}
-
-void udev_cleanup_device(struct udevice *udev)
-{
-	struct name_entry *name_loop;
-	struct name_entry *temp_loop;
-
-	list_for_each_entry_safe(name_loop, temp_loop, &udev->symlink_list, node) {
-		list_del(&name_loop->node);
-		free(name_loop);
-	}
-	list_for_each_entry_safe(name_loop, temp_loop, &udev->run_list, node) {
-		list_del(&name_loop->node);
-		free(name_loop);
-	}
-	list_for_each_entry_safe(name_loop, temp_loop, &udev->env_list, node) {
-		list_del(&name_loop->node);
-		free(name_loop);
-	}
+	return 1;
 }
 
 int string_is_true(const char *str)

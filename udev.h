@@ -1,8 +1,6 @@
 /*
  * udev.h
  *
- * Userspace devfs
- *
  * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
  * Copyright (C) 2003-2005 Kay Sievers <kay.sievers@vrfy.org>
  *
@@ -39,6 +37,8 @@
 
 #define DEFAULT_PARTITIONS_COUNT	15
 #define UDEV_ALARM_TIMEOUT		120
+
+struct udev_rules;
 
 enum device_type {
 	DEV_UNKNOWN,
@@ -82,6 +82,9 @@ struct udevice {
 	int test_run;
 };
 
+extern int udev_init_device(struct udevice *udev, const char* devpath, const char *subsystem, const char *action);
+extern void udev_cleanup_device(struct udevice *udev);
+extern int udev_process_event(struct udev_rules *rules, struct udevice *udev);
 extern int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev);
 extern int udev_remove_device(struct udevice *udev);
 extern void udev_init_config(void);

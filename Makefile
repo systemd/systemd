@@ -115,34 +115,36 @@ CFLAGS		+= -D_GNU_SOURCE
 OPTFLAGS := $(call cc-supports, -Os, -O2)
 
 HEADERS = \
-	udev.h			\
-	udev_utils.h		\
-	udev_rules.h		\
-	udev_version.h		\
-	udev_db.h		\
-	udev_sysfs.h		\
-	logging.h		\
-	udev_libc_wrapper.h	\
-	udev_selinux.h		\
+	udev.h				\
+	udev_utils.h			\
+	udev_rules.h			\
+	udev_version.h			\
+	udev_db.h			\
+	udev_sysfs.h			\
+	logging.h			\
+	udev_libc_wrapper.h		\
+	udev_selinux.h			\
 	list.h
 
 SYSFS_OBJS = \
-	libsysfs/sysfs_class.o	\
-	libsysfs/sysfs_device.o	\
-	libsysfs/sysfs_dir.o	\
-	libsysfs/sysfs_driver.o	\
-	libsysfs/sysfs_utils.o	\
+	libsysfs/sysfs_class.o		\
+	libsysfs/sysfs_device.o		\
+	libsysfs/sysfs_dir.o		\
+	libsysfs/sysfs_driver.o		\
+	libsysfs/sysfs_utils.o		\
 	libsysfs/dlist.o
 
 UDEV_OBJS = \
-	udev_utils.o		\
-	udev_config.o		\
-	udev_add.o		\
-	udev_remove.o		\
-	udev_sysfs.o		\
-	udev_db.o		\
-	udev_rules.o		\
-	udev_rules_parse.o	\
+	udev_utils.o			\
+	udev_event.o			\
+	udev_device.o			\
+	udev_config.o			\
+	udev_add.o			\
+	udev_remove.o			\
+	udev_sysfs.o			\
+	udev_db.o			\
+	udev_rules.o			\
+	udev_rules_parse.o		\
 	udev_libc_wrapper.o
 
 OBJS = \
@@ -151,7 +153,7 @@ OBJS = \
 
 SYSFS = $(PWD)/libsysfs/sysfs.a
 
-CFLAGS +=	-I$(PWD)/libsysfs/sysfs \
+CFLAGS +=	-I$(PWD)/libsysfs/sysfs	\
 		-I$(PWD)/libsysfs
 
 ifeq ($(strip $(USE_LOG)),true)

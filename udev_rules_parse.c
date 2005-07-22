@@ -1,11 +1,8 @@
 /*
  * udev_rules_parse.c
  *
- * Userspace devfs
- *
  * Copyright (C) 2003,2004 Greg Kroah-Hartman <greg@kroah.com>
  * Copyright (C) 2003-2005 Kay Sievers <kay.sievers@vrfy.org>
- *
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the

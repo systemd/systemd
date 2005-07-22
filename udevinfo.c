@@ -1,5 +1,5 @@
 /*
- * udevinfo - fetches attributes for a device
+ * udevinfo.c - fetches attributes for a device
  *
  * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
  *

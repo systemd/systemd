@@ -1,10 +1,8 @@
 /*
  * udev.c
  *
- * Userspace devfs
- *
- * Copyright (C) 2003,2004 Greg Kroah-Hartman <greg@kroah.com>
- * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
+ * Copyright (C) 2004-2005 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -69,8 +67,6 @@ int main(int argc, char *argv[], char *envp[])
 {
 	struct udevice udev;
 	struct udev_rules rules;
-	char path[PATH_SIZE];
-	const char *error;
 	const char *action;
 	const char *devpath;
 	const char *subsystem;
@@ -121,98 +117,9 @@ int main(int argc, char *argv[], char *envp[])
 	udev_init_device(&udev, devpath, subsystem, action);
 	udev_rules_init(&rules, 0);
 
-	if (udev.type == DEV_BLOCK || udev.type == DEV_CLASS || udev.type == DEV_NET) {
-		/* handle device node */
-		if (strcmp(action, "add") == 0) {
-			struct sysfs_class_device *class_dev;
+	retval = udev_process_event(&rules, &udev);
 
-			/* wait for sysfs of /sys/class /sys/block */
-			dbg("node add");
-			snprintf(path, sizeof(path), "%s%s", sysfs_path, udev.devpath);
-			path[sizeof(path)-1] = '\0';
-			class_dev = wait_class_device_open(path);
-			if (class_dev == NULL) {
-				dbg("open class device failed");
-				goto run;
-			}
-			dbg("opened class_dev->name='%s'", class_dev->name);
-			wait_for_class_device(class_dev, &error);
-
-			/* get major/minor */
-			if (udev.type == DEV_BLOCK || udev.type == DEV_CLASS)
-				udev.devt = get_devt(class_dev);
-
-			if (udev.type == DEV_NET || udev.devt) {
-				/* name device */
-				udev_rules_get_name(&rules, &udev, class_dev);
-				if (udev.ignore_device) {
-					info("device event will be ignored");
-					sysfs_close_class_device(class_dev);
-					goto cleanup;
-				}
-				if (udev.name[0] == '\0') {
-					info("device node creation supressed");
-					sysfs_close_class_device(class_dev);
-					goto cleanup;
-				}
-				/* create node, store in db */
-				retval = udev_add_device(&udev, class_dev);
-			} else {
-				dbg("no dev-file found");
-				udev_rules_get_run(&rules, &udev, class_dev, NULL);
-				if (udev.ignore_device) {
-					info("device event will be ignored");
-					sysfs_close_class_device(class_dev);
-					goto cleanup;
-				}
-			}
-			sysfs_close_class_device(class_dev);
-		} else if (strcmp(action, "remove") == 0) {
-			dbg("node remove");
-			udev_rules_get_run(&rules, &udev, NULL, NULL);
-			if (udev.ignore_device) {
-				dbg("device event will be ignored");
-				goto cleanup;
-			}
-
-			/* get name from db, remove db-entry, delete node */
-			retval = udev_remove_device(&udev);
-		}
-
-		/* export name of device node or netif */
-		if (udev.devname[0] != '\0')
-			setenv("DEVNAME", udev.devname, 1);
-	} else if (udev.type == DEV_DEVICE && strcmp(action, "add") == 0) {
-		struct sysfs_device *devices_dev;
-
-		/* wait for sysfs of /sys/devices/ */
-		dbg("devices add");
-		snprintf(path, sizeof(path), "%s%s", sysfs_path, devpath);
-		path[sizeof(path)-1] = '\0';
-		devices_dev = wait_devices_device_open(path);
-		if (!devices_dev) {
-			dbg("devices device unavailable (probably remove has beaten us)");
-			goto run;
-		}
-		dbg("devices device opened '%s'", path);
-		wait_for_devices_device(devices_dev, &error);
-		udev_rules_get_run(&rules, &udev, NULL, devices_dev);
-		sysfs_close_device(devices_dev);
-		if (udev.ignore_device) {
-			info("device event will be ignored");
-			goto cleanup;
-		}
-	} else {
-		dbg("default handling");
-		udev_rules_get_run(&rules, &udev, NULL, NULL);
-		if (udev.ignore_device) {
-			info("device event will be ignored");
-			goto cleanup;
-		}
-	}
-
-run:
-	if (udev_run && !list_empty(&udev.run_list)) {
+	if (!retval && udev_run && !list_empty(&udev.run_list)) {
 		struct name_entry *name_loop;
 
 		dbg("executing run list");
@@ -220,7 +127,6 @@ run:
 			execute_program(name_loop->name, udev.subsystem, NULL, 0, NULL);
 	}
 
-cleanup:
 	udev_cleanup_device(&udev);
 
 exit:
