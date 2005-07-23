@@ -29,7 +29,7 @@
 
 Summary: A userspace device manager providing devfs functionality
 Name: udev
-Version: 063
+Version: 064
 Release: 1
 License: GPL
 Group: Utilities/System
