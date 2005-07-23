@@ -1,3 +1,22 @@
+Summary of changes from v063 to v064
+============================================
+
+Andre Masella:
+  volume_id: add OCFS (Oracle Cluster File System) support
+
+Hannes Reinecke:
+  usb_id: fix typo
+  add ID_BUS to *_id programs
+  create_floppy_devices: add tool to create floppy nodes based on sysfs info
+
+Kay Sievers:
+  move code to its own files
+  make SYSFS{} usable for all devices
+  add padding to rules structure
+  allow rules to have labels and skip to next label
+  thread unknown ENV{key} match as empty value
+
+
 Summary of changes from v062 to v063
 ============================================
 
