@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -41,21 +40,21 @@
 
 struct minix_super_block
 {
-	__u16	s_ninodes;
-	__u16	s_nzones;
-	__u16	s_imap_blocks;
-	__u16	s_zmap_blocks;
-	__u16	s_firstdatazone;
-	__u16	s_log_zone_size;
-	__u32	s_max_size;
-	__u16	s_magic;
-	__u16	s_state;
-	__u32	s_zones;
+	uint16_t	s_ninodes;
+	uint16_t	s_nzones;
+	uint16_t	s_imap_blocks;
+	uint16_t	s_zmap_blocks;
+	uint16_t	s_firstdatazone;
+	uint16_t	s_log_zone_size;
+	uint32_t	s_max_size;
+	uint16_t	s_magic;
+	uint16_t	s_state;
+	uint32_t	s_zones;
 } __attribute__((__packed__));
 
 #define MINIX_SUPERBLOCK_OFFSET			0x400
 
-int volume_id_probe_minix(struct volume_id *id, __u64 off)
+int volume_id_probe_minix(struct volume_id *id, uint64_t off)
 {
 	struct minix_super_block *ms;
 

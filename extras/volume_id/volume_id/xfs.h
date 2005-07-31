@@ -21,6 +21,6 @@
 #ifndef _VOLUME_ID__
 #define _VOLUME_ID__
 
-extern int volume_id_probe_xfs(struct volume_id *id, __u64 off);
+extern int volume_id_probe_xfs(struct volume_id *id, uint64_t off);
 
 #endif

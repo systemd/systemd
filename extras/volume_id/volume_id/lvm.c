@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,23 +39,23 @@
 #include "lvm.h"
 
 struct lvm1_super_block {
-	__u8	id[2];
+	uint8_t	id[2];
 } __attribute__((packed));
 
 struct lvm2_super_block {
-	__u8	id[8];
-	__u64	sector_xl;
-	__u32	crc_xl;
-	__u32	offset_xl;
-	__u8	type[8];
+	uint8_t		id[8];
+	uint64_t	sector_xl;
+	uint32_t	crc_xl;
+	uint32_t	offset_xl;
+	uint8_t		type[8];
 } __attribute__((packed));
 
 #define LVM1_SB_OFF			0x400
 #define LVM1_MAGIC			"HM"
 
-int volume_id_probe_lvm1(struct volume_id *id, __u64 off)
+int volume_id_probe_lvm1(struct volume_id *id, uint64_t off)
 {
-	const __u8 *buf;
+	const uint8_t *buf;
 	struct lvm1_super_block *lvm;
 
 	dbg("probing at offset 0x%llx", (unsigned long long) off);
@@ -79,9 +78,9 @@ int volume_id_probe_lvm1(struct volume_id *id, __u64 off)
 #define LVM2_LABEL_ID			"LABELONE"
 #define LVM2LABEL_SCAN_SECTORS		4
 
-int volume_id_probe_lvm2(struct volume_id *id, __u64 off)
+int volume_id_probe_lvm2(struct volume_id *id, uint64_t off)
 {
-	const __u8 *buf;
+	const uint8_t *buf;
 	unsigned int soff;
 	struct lvm2_super_block *lvm;
 
@@ -102,7 +101,7 @@ int volume_id_probe_lvm2(struct volume_id *id, __u64 off)
 	return -1;
 
 found:
-	strncpy(id->type_version, lvm->type, 8);
+	memcpy(id->type_version, lvm->type, 8);
 	volume_id_set_usage(id, VOLUME_ID_RAID);
 	id->type = "LVM2_member";
 

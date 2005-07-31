@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,16 +39,16 @@
 #include "msdos.h"
 
 struct msdos_partition_entry {
-	__u8	boot_ind;
-	__u8	head;
-	__u8	sector;
-	__u8	cyl;
-	__u8	sys_ind;
-	__u8	end_head;
-	__u8	end_sector;
-	__u8	end_cyl;
-	__u32	start_sect;
-	__u32	nr_sects;
+	uint8_t		boot_ind;
+	uint8_t		head;
+	uint8_t		sector;
+	uint8_t		cyl;
+	uint8_t		sys_ind;
+	uint8_t		end_head;
+	uint8_t		end_sector;
+	uint8_t		end_cyl;
+	uint32_t	start_sect;
+	uint32_t	nr_sects;
 } __attribute__((packed));
 
 #define MSDOS_MAGIC			"\x55\xaa"
@@ -67,15 +66,15 @@ struct msdos_partition_entry {
 #define is_raid(type) \
 	(type == LINUX_RAID_PARTITION)
 
-int volume_id_probe_msdos_part_table(struct volume_id *id, __u64 off)
+int volume_id_probe_msdos_part_table(struct volume_id *id, uint64_t off)
 {
-	const __u8 *buf;
+	const uint8_t *buf;
 	int i;
-	__u64 poff;
-	__u64 plen;
-	__u64 extended = 0;
-	__u64 current;
-	__u64 next;
+	uint64_t poff;
+	uint64_t plen;
+	uint64_t extended = 0;
+	uint64_t current;
+	uint64_t next;
 	int limit;
 	int empty = 1;
 	struct msdos_partition_entry *part;
@@ -113,8 +112,8 @@ int volume_id_probe_msdos_part_table(struct volume_id *id, __u64 off)
 	       VOLUME_ID_PARTITIONS_MAX * sizeof(struct volume_id_partition));
 
 	for (i = 0; i < 4; i++) {
-		poff = (__u64) le32_to_cpu(part[i].start_sect) * BSIZE;
-		plen = (__u64) le32_to_cpu(part[i].nr_sects) * BSIZE;
+		poff = (uint64_t) le32_to_cpu(part[i].start_sect) * BSIZE;
+		plen = (uint64_t) le32_to_cpu(part[i].nr_sects) * BSIZE;
 
 		if (plen == 0)
 			continue;
@@ -167,8 +166,8 @@ int volume_id_probe_msdos_part_table(struct volume_id *id, __u64 off)
 		next = 0;
 
 		for (i = 0; i < 4; i++) {
-			poff = (__u64) le32_to_cpu(part[i].start_sect) * BSIZE;
-			plen = (__u64) le32_to_cpu(part[i].nr_sects) * BSIZE;
+			poff = (uint64_t) le32_to_cpu(part[i].start_sect) * BSIZE;
+			plen = (uint64_t) le32_to_cpu(part[i].nr_sects) * BSIZE;
 
 			if (plen == 0)
 				continue;

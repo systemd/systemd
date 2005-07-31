@@ -21,7 +21,9 @@
 #ifndef _VOLUME_ID_H_
 #define _VOLUME_ID_H_
 
-#define VOLUME_ID_VERSION		46
+#include <stdint.h>
+
+#define VOLUME_ID_VERSION		47
 
 #define VOLUME_ID_LABEL_SIZE		64
 #define VOLUME_ID_UUID_SIZE		36
@@ -44,17 +46,17 @@ struct volume_id_partition {
 	enum		volume_id_usage usage_id;
 	char		*usage;
 	char		*type;
-	unsigned long long off;
-	unsigned long long len;
-	unsigned int partition_type_raw;
+	uint64_t	off;
+	uint64_t	len;
+	uint8_t		partition_type_raw;
 };
 
 struct volume_id {
-	unsigned char	label_raw[VOLUME_ID_LABEL_SIZE];
-	unsigned int	label_raw_len;
+	uint8_t		label_raw[VOLUME_ID_LABEL_SIZE];
+	size_t		label_raw_len;
 	char		label[VOLUME_ID_LABEL_SIZE+1];
-	unsigned char	uuid_raw[VOLUME_ID_UUID_SIZE];
-	unsigned int	uuid_raw_len;
+	uint8_t		uuid_raw[VOLUME_ID_UUID_SIZE];
+	size_t		uuid_raw_len;
 	char		uuid[VOLUME_ID_UUID_SIZE+1];
 	enum		volume_id_usage usage_id;
 	char		*usage;
@@ -62,21 +64,21 @@ struct volume_id {
 	char		type_version[VOLUME_ID_FORMAT_SIZE];
 
 	struct volume_id_partition *partitions;
-	unsigned int	partition_count;
+	size_t		partition_count;
 
 	int		fd;
-	unsigned char	*sbbuf;
-	unsigned int	sbbuf_len;
-	unsigned char	*seekbuf;
-	unsigned long long seekbuf_off;
-	unsigned int	seekbuf_len;
-	int		fd_close;
+	uint8_t		*sbbuf;
+	size_t		sbbuf_len;
+	uint8_t		*seekbuf;
+	uint64_t	seekbuf_off;
+	size_t		seekbuf_len;
+	int		fd_close:1;
 };
 
 extern struct volume_id *volume_id_open_fd(int fd);
 extern struct volume_id *volume_id_open_node(const char *path);
 extern struct volume_id *volume_id_open_dev_t(dev_t devt);
-extern int volume_id_probe_all(struct volume_id *id, unsigned long long off, unsigned long long size);
+extern int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size);
 extern void volume_id_close(struct volume_id *id);
 
 #endif

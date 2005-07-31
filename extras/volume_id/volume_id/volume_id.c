@@ -35,7 +35,6 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -71,7 +70,7 @@
 #include "msdos.h"
 #include "ocfs2.h"
 
-int volume_id_probe_all(struct volume_id *id, unsigned long long off, unsigned long long size)
+int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	if (id == NULL)
 		return -EINVAL;
@@ -224,7 +223,7 @@ struct volume_id *volume_id_open_node(const char *path)
 struct volume_id *volume_id_open_dev_t(dev_t devt)
 {
 	struct volume_id *id;
-	__u8 tmp_node[VOLUME_ID_PATH_MAX];
+	char tmp_node[VOLUME_ID_PATH_MAX];
 
 	snprintf(tmp_node, VOLUME_ID_PATH_MAX,
 		 "/dev/.volume_id-%u-%u-%u", getpid(), major(devt), minor(devt));

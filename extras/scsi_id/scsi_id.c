@@ -101,10 +101,9 @@ void log_message (int level, const char *format, ...)
 	return;
 }
 
-static void set_str(char *to, const unsigned char *from, int count)
+static void set_str(char *to, const char *from, size_t count)
 {
-	int i, j;
-	int len;
+	size_t i, j, len;
 
 	/* strip trailing whitespace */
 	len = strnlen(from, count);

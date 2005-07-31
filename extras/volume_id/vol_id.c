@@ -60,31 +60,34 @@ void log_message(int priority, const char *format, ...)
 }
 #endif
 
-static void set_str(char *to, const unsigned char *from, int count)
+static void set_str(char *to, const char *from, size_t count)
 {
-	int i, j;
-	int len;
+	size_t i, j, len;
 
+	/* strip trailing whitespace */
 	len = strnlen(from, count);
 	while (isspace(from[len-1]))
 		len--;
 
+	/* strip leading whitespace */
 	i = 0;
 	while (isspace(from[i]) && (i < len))
 		i++;
 
 	j = 0;
 	while (i < len) {
-		switch(from[i]) {
-		case '/':
-			break;
-		case ' ':
+		/* substitute multiple whitespace */
+		if (isspace(from[i])) {
+			while (isspace(from[i]))
+				i++;
 			to[j++] = '_';
-			break;
-		default:
-			to[j++] = from[i];
 		}
-		i++;
+		/* skip chars */
+		if (from[i] == '/') {
+			i++;
+			continue;
+		}
+		to[j++] = from[i++];
 	}
 	to[j] = '\0';
 }
@@ -106,7 +109,7 @@ int main(int argc, char *argv[])
 	struct volume_id *vid = NULL;
 	static char name[VOLUME_ID_LABEL_SIZE];
 	int i;
-	unsigned long long size;
+	uint64_t size;
 	const char *node = NULL;
 	int rc = 0;
 

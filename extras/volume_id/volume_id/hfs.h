@@ -21,6 +21,6 @@
 #ifndef _VOLUME_ID_HFS_
 #define _VOLUME_ID_HFS_
 
-extern int volume_id_probe_hfs_hfsplus(struct volume_id *id, __u64 off);
+extern int volume_id_probe_hfs_hfsplus(struct volume_id *id, uint64_t off);
 
 #endif

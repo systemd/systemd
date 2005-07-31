@@ -28,7 +28,7 @@ INSTALL_DATA  = ${INSTALL} -m 644
 # Note some of the variables used here are set when built under udev, and
 # otherwise might not be set.
 
-override CFLAGS+=-Wall -fno-builtin
+CFLAGS+=-Wall -fno-builtin
 
 PROG=scsi_id
 SYSFS=-lsysfs
@@ -77,3 +77,4 @@ spotless: clean
 
 $(PROG):	$(OBJS)
 	$(QUIET) $(LD) $(LDFLAGS) -o $(PROG) $(CRT0) $(OBJS) $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+

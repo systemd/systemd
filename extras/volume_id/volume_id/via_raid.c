@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,25 +39,25 @@
 #include "via_raid.h"
 
 struct via_meta {
-	__u16	signature;
-	__u8	version_number;
+	uint16_t	signature;
+	uint8_t		version_number;
 	struct via_array {
-		__u16	disk_bits;
-		__u8	disk_array_ex;
-		__u32	capacity_low;
-		__u32	capacity_high;
-		__u32	serial_checksum;
+		uint16_t	disk_bits;
+		uint8_t		disk_array_ex;
+		uint32_t	capacity_low;
+		uint32_t	capacity_high;
+		uint32_t	serial_checksum;
 	} __attribute((packed)) array;
-	__u32	serial_checksum[8];
-	__u8	checksum;
+	uint32_t	serial_checksum[8];
+	uint8_t		checksum;
 } __attribute__((packed));
 
 #define VIA_SIGNATURE		0xAA55
 
-int volume_id_probe_via_raid(struct volume_id *id, __u64 off, __u64 size)
+int volume_id_probe_via_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
-	const __u8 *buf;
-	__u64 meta_off;
+	const uint8_t *buf;
+	uint64_t meta_off;
 	struct via_meta *via;
 
 	dbg("probing at offset 0x%llx, size 0x%llx",

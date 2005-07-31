@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,12 +39,12 @@
 #include "highpoint.h"
 
 struct hpt37x_meta {
-	__u8	filler1[32];
-	__u32	magic;
+	uint8_t		filler1[32];
+	uint32_t	magic;
 } __attribute__((packed));
 
 struct hpt45x_meta {
-	__u32	magic;
+	uint32_t	magic;
 } __attribute__((packed));
 
 #define HPT37X_CONFIG_OFF		0x1200
@@ -56,11 +55,11 @@ struct hpt45x_meta {
 #define HPT45X_MAGIC_BAD		0x5a7816fd
 
 
-int volume_id_probe_highpoint_37x_raid(struct volume_id *id, __u64 off)
+int volume_id_probe_highpoint_37x_raid(struct volume_id *id, uint64_t off)
 {
-	const __u8 *buf;
+	const uint8_t *buf;
 	struct hpt37x_meta *hpt;
-	__u32 magic;
+	uint32_t magic;
 
 	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
@@ -79,12 +78,12 @@ int volume_id_probe_highpoint_37x_raid(struct volume_id *id, __u64 off)
 	return 0;
 }
 
-int volume_id_probe_highpoint_45x_raid(struct volume_id *id, __u64 off, __u64 size)
+int volume_id_probe_highpoint_45x_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
-	const __u8 *buf;
+	const uint8_t *buf;
 	struct hpt45x_meta *hpt;
-	__u64 meta_off;
-	__u32 magic;
+	uint64_t meta_off;
+	uint32_t magic;
 
 	dbg("probing at offset 0x%llx, size 0x%llx",
 	    (unsigned long long) off, (unsigned long long) size);

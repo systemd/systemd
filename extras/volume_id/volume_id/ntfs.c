@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,61 +39,61 @@
 #include "ntfs.h"
 
 struct ntfs_super_block {
-	__u8	jump[3];
-	__u8	oem_id[8];
-	__u16	bytes_per_sector;
-	__u8	sectors_per_cluster;
-	__u16	reserved_sectors;
-	__u8	fats;
-	__u16	root_entries;
-	__u16	sectors;
-	__u8	media_type;
-	__u16	sectors_per_fat;
-	__u16	sectors_per_track;
-	__u16	heads;
-	__u32	hidden_sectors;
-	__u32	large_sectors;
-	__u16	unused[2];
-	__u64	number_of_sectors;
-	__u64	mft_cluster_location;
-	__u64	mft_mirror_cluster_location;
-	__s8	cluster_per_mft_record;
-	__u8	reserved1[3];
-	__s8	cluster_per_index_record;
-	__u8	reserved2[3];
-	__u8	volume_serial[8];
-	__u16	checksum;
+	uint8_t		jump[3];
+	uint8_t		oem_id[8];
+	uint16_t	bytes_per_sector;
+	uint8_t		sectors_per_cluster;
+	uint16_t	reserved_sectors;
+	uint8_t		fats;
+	uint16_t	root_entries;
+	uint16_t	sectors;
+	uint8_t		media_type;
+	uint16_t	sectors_per_fat;
+	uint16_t	sectors_per_track;
+	uint16_t	heads;
+	uint32_t	hidden_sectors;
+	uint32_t	large_sectors;
+	uint16_t	unused[2];
+	uint64_t	number_of_sectors;
+	uint64_t	mft_cluster_location;
+	uint64_t	mft_mirror_cluster_location;
+	int8_t		cluster_per_mft_record;
+	uint8_t		reserved1[3];
+	int8_t		cluster_per_index_record;
+	uint8_t		reserved2[3];
+	uint8_t		volume_serial[8];
+	uint16_t	checksum;
 } __attribute__((__packed__)) *ns;
 
 struct master_file_table_record {
-	__u8	magic[4];
-	__u16	usa_ofs;
-	__u16	usa_count;
-	__u64	lsn;
-	__u16	sequence_number;
-	__u16	link_count;
-	__u16	attrs_offset;
-	__u16	flags;
-	__u32	bytes_in_use;
-	__u32	bytes_allocated;
+	uint8_t		magic[4];
+	uint16_t	usa_ofs;
+	uint16_t	usa_count;
+	uint64_t	lsn;
+	uint16_t	sequence_number;
+	uint16_t	link_count;
+	uint16_t	attrs_offset;
+	uint16_t	flags;
+	uint32_t	bytes_in_use;
+	uint32_t	bytes_allocated;
 } __attribute__((__packed__)) *mftr;
 
 struct file_attribute {
-	__u32	type;
-	__u32	len;
-	__u8	non_resident;
-	__u8	name_len;
-	__u16	name_offset;
-	__u16	flags;
-	__u16	instance;
-	__u32	value_len;
-	__u16	value_offset;
+	uint32_t	type;
+	uint32_t	len;
+	uint8_t		non_resident;
+	uint8_t		name_len;
+	uint16_t	name_offset;
+	uint16_t	flags;
+	uint16_t	instance;
+	uint32_t	value_len;
+	uint16_t	value_offset;
 } __attribute__((__packed__)) *attr;
 
 struct volume_info {
-	__u64 reserved;
-	__u8 major_ver;
-	__u8 minor_ver;
+	uint64_t	reserved;
+	uint8_t		major_ver;
+	uint8_t		minor_ver;
 } __attribute__((__packed__)) *info;
 
 #define MFT_RECORD_VOLUME			3
@@ -103,20 +102,20 @@ struct volume_info {
 #define MFT_RECORD_ATTR_OBJECT_ID		0x40
 #define MFT_RECORD_ATTR_END			0xffffffffu
 
-int volume_id_probe_ntfs(struct volume_id *id, __u64 off)
+int volume_id_probe_ntfs(struct volume_id *id, uint64_t off)
 {
 	unsigned int sector_size;
 	unsigned int cluster_size;
-	__u64 mft_cluster;
-	__u64 mft_off;
+	uint64_t mft_cluster;
+	uint64_t mft_off;
 	unsigned int mft_record_size;
 	unsigned int attr_type;
 	unsigned int attr_off;
 	unsigned int attr_len;
 	unsigned int val_off;
 	unsigned int val_len;
-	const __u8 *buf;
-	const __u8 *val;
+	const uint8_t *buf;
+	const uint8_t *val;
 
 	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
@@ -183,7 +182,7 @@ int volume_id_probe_ntfs(struct volume_id *id, __u64 off)
 
 		if (attr_type == MFT_RECORD_ATTR_VOLUME_INFO) {
 			dbg("found info, len %i", val_len);
-			info = (struct volume_info*) (((__u8 *) attr) + val_off);
+			info = (struct volume_info*) (((uint8_t *) attr) + val_off);
 			snprintf(id->type_version, sizeof(id->type_version)-1,
 				 "%u.%u", info->major_ver, info->minor_ver);
 		}
@@ -193,7 +192,7 @@ int volume_id_probe_ntfs(struct volume_id *id, __u64 off)
 			if (val_len > VOLUME_ID_LABEL_SIZE)
 				val_len = VOLUME_ID_LABEL_SIZE;
 
-			val = ((__u8 *) attr) + val_off;
+			val = ((uint8_t *) attr) + val_off;
 			volume_id_set_label_raw(id, val, val_len);
 			volume_id_set_label_unicode16(id, val, LE, val_len);
 		}

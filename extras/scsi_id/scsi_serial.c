@@ -294,9 +294,9 @@ static int scsi_dump(struct sysfs_device *scsi_dev, struct sg_io_hdr *io)
 		return -1;
 }
 
-static int scsi_inquiry(struct sysfs_device *scsi_dev, int fd, unsigned
-			char evpd, unsigned char page, unsigned char *buf,
-			unsigned int buflen)
+static int scsi_inquiry(struct sysfs_device *scsi_dev, int fd,
+			unsigned char evpd, unsigned char page,
+			unsigned char *buf, unsigned int buflen)
 {
 	unsigned char inq_cmd[INQUIRY_CMDLEN] =
 		{ INQUIRY_CMD, evpd, page, 0, buflen, 0 };
@@ -367,7 +367,7 @@ error:
 
 /* Get list of supported EVPD pages */
 static int do_scsi_page0_inquiry(struct sysfs_device *scsi_dev, int fd,
-				 char *buffer, int len)
+				 unsigned char *buffer, unsigned int len)
 {
 	int retval;
 	struct sysfs_attribute *vendor;
@@ -407,7 +407,7 @@ static int do_scsi_page0_inquiry(struct sysfs_device *scsi_dev, int fd,
 				    scsi_dev->name);
 			return 1;
 		}
-		if (!strncmp(&buffer[VENDOR_LENGTH], vendor->value,
+		if (!strncmp((char *)&buffer[VENDOR_LENGTH], vendor->value,
 			     VENDOR_LENGTH)) {
 			log_message(LOG_WARNING, "%s: invalid page0 data\n",
 				    scsi_dev->name);
@@ -470,8 +470,9 @@ static int prepend_vendor_model(struct sysfs_device *scsi_dev, char *serial)
  * check_fill_0x83_id - check the page 0x83 id, if OK allocate and fill
  * serial number.
  **/
-static int check_fill_0x83_id(struct sysfs_device *scsi_dev, char
-			      *page_83, const struct scsi_id_search_values
+static int check_fill_0x83_id(struct sysfs_device *scsi_dev,
+			      unsigned char *page_83,
+			      const struct scsi_id_search_values
 			      *id_search, char *serial, int max_len)
 {
 	int i, j, len;

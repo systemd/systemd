@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,15 +39,15 @@
 #include "promise_raid.h"
 
 struct promise_meta {
-	__u8	sig[24];
+	uint8_t	sig[24];
 } __attribute__((packed));
 
 #define PDC_CONFIG_OFF		0x1200
 #define PDC_SIGNATURE		"Promise Technology, Inc."
 
-int volume_id_probe_promise_fasttrack_raid(struct volume_id *id, __u64 off, __u64 size)
+int volume_id_probe_promise_fasttrack_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
-	const __u8 *buf;
+	const uint8_t *buf;
 	struct promise_meta *pdc;
 	unsigned int i;
 	static unsigned int sectors[] = {
@@ -62,7 +61,7 @@ int volume_id_probe_promise_fasttrack_raid(struct volume_id *id, __u64 off, __u6
 		return -1;
 
 	for (i = 0; sectors[i] != 0; i++) {
-		__u64 meta_off;
+		uint64_t meta_off;
 
 		meta_off = ((size / 0x200) - sectors[i]) * 0x200;
 		buf = volume_id_get_buffer(id, off + meta_off, 0x200);

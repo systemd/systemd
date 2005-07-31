@@ -21,6 +21,6 @@
 #ifndef _VOLUME_ID_ISW_RAID_
 #define _VOLUME_ID_ISW_RAID_
 
-extern int volume_id_probe_intel_software_raid(struct volume_id *id, __u64 off, __u64 size);
+extern int volume_id_probe_intel_software_raid(struct volume_id *id, uint64_t off, uint64_t size);
 
 #endif

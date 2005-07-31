@@ -33,7 +33,6 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <sys/ioctl.h>
-#include <asm/types.h>
 
 #include "../../logging.h"
 #include "../../udev_utils.h"
@@ -140,7 +139,7 @@ static unsigned char EBCtoASC[256] =
 	0x38, 0x39, 0x07, 0x07, 0x9A, 0x07, 0x07, 0x07
 };
 
-static void vtoc_ebcdic_dec (const unsigned char *source, char *target, int l) 
+static void vtoc_ebcdic_dec (const unsigned char *source, unsigned char *target, int l) 
 {
 	int i;
 
@@ -183,8 +182,8 @@ static int dasd_id(int fd)
 {
 	int blocksize;
 	dasd_information_t info;
-	__u8 *data;
-	__u8 *label_raw;
+	unsigned char *data;
+	unsigned char *label_raw;
 
 	if (ioctl(fd, BIODASDINFO, &info) != 0) {
 		dbg("not a dasd");

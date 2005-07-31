@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,21 +39,21 @@
 #include "jfs.h"
 
 struct jfs_super_block {
-	__u8	magic[4];
-	__u32	version;
-	__u64	size;
-	__u32	bsize;
-	__u32	dummy1;
-	__u32	pbsize;
-	__u32	dummy2[27];
-	__u8	uuid[16];
-	__u8	label[16];
-	__u8	loguuid[16];
+	uint8_t		magic[4];
+	uint32_t	version;
+	uint64_t	size;
+	uint32_t	bsize;
+	uint32_t	dummy1;
+	uint32_t	pbsize;
+	uint32_t	dummy2[27];
+	uint8_t		uuid[16];
+	uint8_t		label[16];
+	uint8_t		loguuid[16];
 } __attribute__((__packed__));
 
 #define JFS_SUPERBLOCK_OFFSET			0x8000
 
-int volume_id_probe_jfs(struct volume_id *id, __u64 off)
+int volume_id_probe_jfs(struct volume_id *id, uint64_t off)
 {
 	struct jfs_super_block *js;
 

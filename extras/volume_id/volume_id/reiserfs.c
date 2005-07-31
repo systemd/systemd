@@ -41,37 +41,37 @@
 #include "reiserfs.h"
 
 struct reiserfs_super_block {
-	__u32	blocks_count;
-	__u32	free_blocks;
-	__u32	root_block;
-	__u32	journal_block;
-	__u32	journal_dev;
-	__u32	orig_journal_size;
-	__u32	dummy2[5];
-	__u16	blocksize;
-	__u16	dummy3[3];
-	__u8	magic[12];
-	__u32	dummy4[5];
-	__u8	uuid[16];
-	__u8	label[16];
+	uint32_t	blocks_count;
+	uint32_t	free_blocks;
+	uint32_t	root_block;
+	uint32_t	journal_block;
+	uint32_t	journal_dev;
+	uint32_t	orig_journal_size;
+	uint32_t	dummy2[5];
+	uint16_t	blocksize;
+	uint16_t	dummy3[3];
+	uint8_t		magic[12];
+	uint32_t	dummy4[5];
+	uint8_t		uuid[16];
+	uint8_t		label[16];
 } __attribute__((__packed__));
 
 struct reiser4_super_block {
-	__u8	magic[16];
-	__u16	dummy[2];
-	__u8	uuid[16];
-	__u8	label[16];
-	__u64	dummy2;
+	uint8_t		magic[16];
+	uint16_t	dummy[2];
+	uint8_t		uuid[16];
+	uint8_t		label[16];
+	uint64_t	dummy2;
 } __attribute__((__packed__));
 
 #define REISERFS1_SUPERBLOCK_OFFSET		0x2000
 #define REISERFS_SUPERBLOCK_OFFSET		0x10000
 
-int volume_id_probe_reiserfs(struct volume_id *id, __u64 off)
+int volume_id_probe_reiserfs(struct volume_id *id, uint64_t off)
 {
 	struct reiserfs_super_block *rs;
 	struct reiser4_super_block *rs4;
-	__u8 *buf;
+	uint8_t	 *buf;
 
 	dbg("probing at offset 0x%llx", (unsigned long long) off);
 

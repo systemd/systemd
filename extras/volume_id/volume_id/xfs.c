@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,21 +39,21 @@
 #include "xfs.h"
 
 struct xfs_super_block {
-	__u8	magic[4];
-	__u32	blocksize;
-	__u64	dblocks;
-	__u64	rblocks;
-	__u32	dummy1[2];
-	__u8	uuid[16];
-	__u32	dummy2[15];
-	__u8	fname[12];
-	__u32	dummy3[2];
-	__u64	icount;
-	__u64	ifree;
-	__u64	fdblocks;
+	uint8_t	magic[4];
+	uint32_t	blocksize;
+	uint64_t	dblocks;
+	uint64_t	rblocks;
+	uint32_t	dummy1[2];
+	uint8_t	uuid[16];
+	uint32_t	dummy2[15];
+	uint8_t	fname[12];
+	uint32_t	dummy3[2];
+	uint64_t	icount;
+	uint64_t	ifree;
+	uint64_t	fdblocks;
 } __attribute__((__packed__));
 
-int volume_id_probe_xfs(struct volume_id *id, __u64 off)
+int volume_id_probe_xfs(struct volume_id *id, uint64_t off)
 {
 	struct xfs_super_block *xs;
 

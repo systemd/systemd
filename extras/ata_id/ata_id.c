@@ -62,10 +62,9 @@ void log_message(int priority, const char *format, ...)
 }
 #endif
 
-static void set_str(char *to, const unsigned char *from, int count)
+static void set_str(char *to, const char *from, size_t count)
 {
-	int i, j;
-	int len;
+	size_t i, j, len;
 
 	/* strip trailing whitespace */
 	len = strnlen(from, count);
@@ -139,9 +138,9 @@ int main(int argc, char *argv[])
 		goto close;
 	}
 
-	set_str(model, id.model, 40);
-	set_str(serial, id.serial_no, 20);
-	set_str(revision, id.fw_rev, 8);
+	set_str(model, (char *) id.model, 40);
+	set_str(serial, (char *) id.serial_no, 20);
+	set_str(revision, (char *) id.fw_rev, 8);
 
 	if (export) {
 		if ((id.config >> 8) & 0x80) {

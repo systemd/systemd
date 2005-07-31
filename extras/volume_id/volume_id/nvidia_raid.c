@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,18 +39,18 @@
 #include "nvidia_raid.h"
 
 struct nvidia_meta {
-	__u8	vendor[8];
-	__u32	size;
-	__u32	chksum;
-	__u16	version;
+	uint8_t		vendor[8];
+	uint32_t	size;
+	uint32_t	chksum;
+	uint16_t	version;
 } __attribute__((packed));
 
 #define NVIDIA_SIGNATURE		"NVIDIA"
 
-int volume_id_probe_nvidia_raid(struct volume_id *id, __u64 off, __u64 size)
+int volume_id_probe_nvidia_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
-	const __u8 *buf;
-	__u64 meta_off;
+	const uint8_t *buf;
+	uint64_t meta_off;
 	struct nvidia_meta *nv;
 
 	dbg("probing at offset 0x%llx, size 0x%llx",

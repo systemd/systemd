@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -48,62 +47,62 @@
 #define FAT_ENTRY_FREE			0xe5
 
 struct vfat_super_block {
-	__u8	boot_jump[3];
-	__u8	sysid[8];
-	__u16	sector_size;
-	__u8	sectors_per_cluster;
-	__u16	reserved;
-	__u8	fats;
-	__u16	dir_entries;
-	__u16	sectors;
-	__u8	media;
-	__u16	fat_length;
-	__u16	secs_track;
-	__u16	heads;
-	__u32	hidden;
-	__u32	total_sect;
+	uint8_t		boot_jump[3];
+	uint8_t		sysid[8];
+	uint16_t	sector_size;
+	uint8_t		sectors_per_cluster;
+	uint16_t	reserved;
+	uint8_t		fats;
+	uint16_t	dir_entries;
+	uint16_t	sectors;
+	uint8_t		media;
+	uint16_t	fat_length;
+	uint16_t	secs_track;
+	uint16_t	heads;
+	uint32_t	hidden;
+	uint32_t	total_sect;
 	union {
 		struct fat_super_block {
-			__u8	unknown[3];
-			__u8	serno[4];
-			__u8	label[11];
-			__u8	magic[8];
-			__u8	dummy2[192];
-			__u8	pmagic[2];
+			uint8_t		unknown[3];
+			uint8_t		serno[4];
+			uint8_t		label[11];
+			uint8_t		magic[8];
+			uint8_t		dummy2[192];
+			uint8_t		pmagic[2];
 		} __attribute__((__packed__)) fat;
 		struct fat32_super_block {
-			__u32	fat32_length;
-			__u16	flags;
-			__u8	version[2];
-			__u32	root_cluster;
-			__u16	insfo_sector;
-			__u16	backup_boot;
-			__u16	reserved2[6];
-			__u8	unknown[3];
-			__u8	serno[4];
-			__u8	label[11];
-			__u8	magic[8];
-			__u8	dummy2[164];
-			__u8	pmagic[2];
+			uint32_t	fat32_length;
+			uint16_t	flags;
+			uint8_t		version[2];
+			uint32_t	root_cluster;
+			uint16_t	insfo_sector;
+			uint16_t	backup_boot;
+			uint16_t	reserved2[6];
+			uint8_t		unknown[3];
+			uint8_t		serno[4];
+			uint8_t		label[11];
+			uint8_t		magic[8];
+			uint8_t		dummy2[164];
+			uint8_t		pmagic[2];
 		} __attribute__((__packed__)) fat32;
 	} __attribute__((__packed__)) type;
 } __attribute__((__packed__));
 
 struct vfat_dir_entry {
-	__u8	name[11];
-	__u8	attr;
-	__u16	time_creat;
-	__u16	date_creat;
-	__u16	time_acc;
-	__u16	date_acc;
-	__u16	cluster_high;
-	__u16	time_write;
-	__u16	date_write;
-	__u16	cluster_low;
-	__u32	size;
+	uint8_t		name[11];
+	uint8_t		attr;
+	uint16_t	time_creat;
+	uint16_t	date_creat;
+	uint16_t	time_acc;
+	uint16_t	date_acc;
+	uint16_t	cluster_high;
+	uint16_t	time_write;
+	uint16_t	date_write;
+	uint16_t	cluster_low;
+	uint32_t	size;
 } __attribute__((__packed__));
 
-static char *get_attr_volume_id(struct vfat_dir_entry *dir, unsigned int count)
+static uint8_t *get_attr_volume_id(struct vfat_dir_entry *dir, unsigned int count)
 {
 	unsigned int i;
 
@@ -137,26 +136,26 @@ static char *get_attr_volume_id(struct vfat_dir_entry *dir, unsigned int count)
 	return NULL;
 }
 
-int volume_id_probe_vfat(struct volume_id *id, __u64 off)
+int volume_id_probe_vfat(struct volume_id *id, uint64_t off)
 {
 	struct vfat_super_block *vs;
 	struct vfat_dir_entry *dir;
-	__u16 sector_size;
-	__u16 dir_entries;
-	__u32 sect_count;
-	__u16 reserved;
-	__u32 fat_size;
-	__u32 root_cluster;
-	__u32 dir_size;
-	__u32 cluster_count;
-	__u32 fat_length;
-	__u64 root_start;
-	__u32 start_data_sect;
-	__u16 root_dir_entries;
-	__u8 *buf;
-	__u32 buf_size;
-	__u8 *label = NULL;
-	__u32 next;
+	uint16_t sector_size;
+	uint16_t dir_entries;
+	uint32_t sect_count;
+	uint16_t reserved;
+	uint32_t fat_size;
+	uint32_t root_cluster;
+	uint32_t dir_size;
+	uint32_t cluster_count;
+	uint32_t fat_length;
+	uint64_t root_start;
+	uint32_t start_data_sect;
+	uint16_t root_dir_entries;
+	uint8_t *buf;
+	uint32_t buf_size;
+	uint8_t *label = NULL;
+	uint32_t next;
 	int maxloop;
 
 	dbg("probing at offset 0x%llx", (unsigned long long) off);
@@ -294,9 +293,9 @@ fat32:
 	next = root_cluster;
 	maxloop = 100;
 	while (--maxloop) {
-		__u32 next_sect_off;
-		__u64 next_off;
-		__u64 fat_entry_off;
+		uint32_t next_sect_off;
+		uint64_t next_off;
+		uint64_t fat_entry_off;
 		int count;
 
 		dbg("next cluster %u", next);
@@ -318,13 +317,13 @@ fat32:
 			break;
 
 		/* get FAT entry */
-		fat_entry_off = (reserved * sector_size) + (next * sizeof(__u32));
+		fat_entry_off = (reserved * sector_size) + (next * sizeof(uint32_t));
 		buf = volume_id_get_buffer(id, off + fat_entry_off, buf_size);
 		if (buf == NULL)
 			goto found;
 
 		/* set next cluster */
-		next = le32_to_cpu(*((__u32 *) buf) & 0x0fffffff);
+		next = le32_to_cpu(*((uint32_t *) buf) & 0x0fffffff);
 		if (next == 0)
 			break;
 	}

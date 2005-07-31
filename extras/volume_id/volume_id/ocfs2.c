@@ -51,66 +51,66 @@ This is one has been simplified since we only care about the superblock.
 */
 
 struct ocfs2_super_block {
-	__u8  i_signature[8];			/* Signature for validation */
-	__u32 i_generation;			/* Generation number */
-	__s16 i_suballoc_slot;			/* Slot suballocator this inode belongs to */
-	__u16 i_suballoc_bit;			/* Bit offset in suballocator block group */
-	__u32 i_reserved0;
-	__u32 i_clusters;			/* Cluster count */
-	__u32 i_uid;				/* Owner UID */
-	__u32 i_gid;				/* Owning GID */
-	__u64 i_size;				/* Size in bytes */
-	__u16 i_mode;				/* File mode */
-	__u16 i_links_count;			/* Links count */
-	__u32 i_flags;				/* File flags */
-	__u64 i_atime;				/* Access time */
-	__u64 i_ctime;				/* Creation time */
-	__u64 i_mtime;				/* Modification time */
-	__u64 i_dtime;				/* Deletion time */
-	__u64 i_blkno;				/* Offset on disk, in blocks */
-	__u64 i_last_eb_blk;			/* Pointer to last extent block */
-	__u32 i_fs_generation;			/* Generation per fs-instance */
-	__u32 i_atime_nsec;
-	__u32 i_ctime_nsec;
-	__u32 i_mtime_nsec;
-	__u64 i_reserved1[9];
-	__u64 i_pad1;				/* Generic way to refer to this 64bit union */
+	uint8_t		i_signature[8];			/* Signature for validation */
+	uint32_t	i_generation;			/* Generation number */
+	int16_t		i_suballoc_slot;			/* Slot suballocator this inode belongs to */
+	uint16_t	i_suballoc_bit;			/* Bit offset in suballocator block group */
+	uint32_t	i_reserved0;
+	uint32_t	i_clusters;			/* Cluster count */
+	uint32_t	i_uid;				/* Owner UID */
+	uint32_t	i_gid;				/* Owning GID */
+	uint64_t	i_size;				/* Size in bytes */
+	uint16_t	i_mode;				/* File mode */
+	uint16_t	i_links_count;			/* Links count */
+	uint32_t	i_flags;				/* File flags */
+	uint64_t	i_atime;				/* Access time */
+	uint64_t	i_ctime;				/* Creation time */
+	uint64_t	i_mtime;				/* Modification time */
+	uint64_t	i_dtime;				/* Deletion time */
+	uint64_t	i_blkno;				/* Offset on disk, in blocks */
+	uint64_t	i_last_eb_blk;			/* Pointer to last extent block */
+	uint32_t	i_fs_generation;			/* Generation per fs-instance */
+	uint32_t	i_atime_nsec;
+	uint32_t	i_ctime_nsec;
+	uint32_t	i_mtime_nsec;
+	uint64_t	i_reserved1[9];
+	uint64_t	i_pad1;				/* Generic way to refer to this 64bit union */
 	/* Normally there is a union of the different block types, but we only care about the superblock. */
-	__u16 s_major_rev_level;
-	__u16 s_minor_rev_level;
-	__u16 s_mnt_count;
-	__s16 s_max_mnt_count;
-	__u16 s_state;				/* File system state */
-	__u16 s_errors;				/* Behaviour when detecting errors */
-	__u32 s_checkinterval;			/* Max time between checks */
-	__u64 s_lastcheck;			/* Time of last check */
-	__u32 s_creator_os;			/* OS */
-	__u32 s_feature_compat;			/* Compatible feature set */
-	__u32 s_feature_incompat;		/* Incompatible feature set */
-	__u32 s_feature_ro_compat;		/* Readonly-compatible feature set */
-	__u64 s_root_blkno;			/* Offset, in blocks, of root directory dinode */
-	__u64 s_system_dir_blkno;		/* Offset, in blocks, of system directory dinode */
-	__u32 s_blocksize_bits;			/* Blocksize for this fs */
-	__u32 s_clustersize_bits;		/* Clustersize for this fs */
-	__u16 s_max_slots;			/* Max number of simultaneous mounts before tunefs required */
-	__u16 s_reserved1;
-	__u32 s_reserved2;
-	__u64 s_first_cluster_group;		/* Block offset of 1st cluster group header */
-	__u8  s_label[OCFS2_MAX_VOL_LABEL_LEN];	/* Label for mounting, etc. */
-	__u8  s_uuid[OCFS2_VOL_UUID_LEN];	/* 128-bit uuid */
+	uint16_t	s_major_rev_level;
+	uint16_t	s_minor_rev_level;
+	uint16_t	s_mnt_count;
+	int16_t		s_max_mnt_count;
+	uint16_t	s_state;				/* File system state */
+	uint16_t	s_errors;				/* Behaviour when detecting errors */
+	uint32_t	s_checkinterval;			/* Max time between checks */
+	uint64_t	s_lastcheck;			/* Time of last check */
+	uint32_t	s_creator_os;			/* OS */
+	uint32_t	s_feature_compat;			/* Compatible feature set */
+	uint32_t	s_feature_incompat;		/* Incompatible feature set */
+	uint32_t	s_feature_ro_compat;		/* Readonly-compatible feature set */
+	uint64_t	s_root_blkno;			/* Offset, in blocks, of root directory dinode */
+	uint64_t	s_system_dir_blkno;		/* Offset, in blocks, of system directory dinode */
+	uint32_t	s_blocksize_bits;			/* Blocksize for this fs */
+	uint32_t	s_clustersize_bits;		/* Clustersize for this fs */
+	uint16_t	s_max_slots;			/* Max number of simultaneous mounts before tunefs required */
+	uint16_t	s_reserved1;
+	uint32_t	s_reserved2;
+	uint64_t	s_first_cluster_group;		/* Block offset of 1st cluster group header */
+	uint8_t		s_label[OCFS2_MAX_VOL_LABEL_LEN];	/* Label for mounting, etc. */
+	uint8_t		s_uuid[OCFS2_VOL_UUID_LEN];	/* 128-bit uuid */
 } __attribute__((__packed__));
 
-int volume_id_probe_ocfs2(struct volume_id *id, __u64 off)
+int volume_id_probe_ocfs2(struct volume_id *id, uint64_t		off)
 {
 	struct ocfs2_super_block *os;
 
 	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
-	os = (struct ocsf2_super_block *) volume_id_get_buffer(id, off + OCFS2_SUPERBLOCK_OFFSET, 0x200);
+	os = (struct ocfs2_super_block *) volume_id_get_buffer(id, off + OCFS2_SUPERBLOCK_OFFSET, 0x200);
 	if (os == NULL)
 		return -1;
 
-	if (strcmp(os->i_signature, "OCFSV2") != 0) {
+	if (memcmp(os->i_signature, "OCFSV2", 6) != 0) {
 		return -1;
 	}
 

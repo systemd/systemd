@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -41,13 +40,13 @@
 
 struct hpfs_super
 {
-	__u8	magic[4];
-	__u8	version;
+	uint8_t		magic[4];
+	uint8_t		version;
 } __attribute__((__packed__));
 
 #define HPFS_SUPERBLOCK_OFFSET			0x2000
 
-int volume_id_probe_hpfs(struct volume_id *id, __u64 off)
+int volume_id_probe_hpfs(struct volume_id *id, uint64_t off)
 {
 	struct hpfs_super *hs;
 

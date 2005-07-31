@@ -105,11 +105,11 @@ GCC_LIB := $(shell $(CC) -print-libgcc-file-name )
 # check if compiler option is supported
 cc-supports = ${shell if $(CC) ${1} -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi;}
 
-CFLAGS		+= -Wall -fno-builtin -Wchar-subscripts -Wpointer-arith -Wstrict-prototypes -Wsign-compare
-CFLAGS		+= $(call cc-supports, -Wno-pointer-sign, )
+CFLAGS		+= -Wall -fno-builtin -Wchar-subscripts -Wpointer-arith \
+		   -Wstrict-prototypes -Wsign-compare
 CFLAGS		+= $(call cc-supports, -Wdeclaration-after-statement, )
 CFLAGS		+= -pipe
-CFLAGS		+= -D_GNU_SOURCE
+CFLAGS		+= -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
 
 # use '-Os' optimization if available, else use -O2
 OPTFLAGS := $(call cc-supports, -Os, -O2)

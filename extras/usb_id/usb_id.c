@@ -76,10 +76,9 @@ static int use_num_info;
 static int export;
 static int debug;
 
-static void set_str(char *to, const unsigned char *from, int count)
+static void set_str(char *to, const char *from, size_t count)
 {
-	int i, j;
-	int len;
+	size_t i, j, len;
 
 	/* strip trailing whitespace */
 	len = strnlen(from, count);

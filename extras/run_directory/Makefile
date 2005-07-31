@@ -29,8 +29,6 @@ INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 
-override CFLAGS+=-D_FILE_OFFSET_BITS=64
-
 OBJS = ../../udev.a ../../libsysfs/sysfs.a
 
 .c.o:

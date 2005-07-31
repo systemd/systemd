@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "util.h"
@@ -40,29 +39,29 @@
 #include "ext.h"
 
 struct ext2_super_block {
-	__u32	inodes_count;
-	__u32	blocks_count;
-	__u32	r_blocks_count;
-	__u32	free_blocks_count;
-	__u32	free_inodes_count;
-	__u32	first_data_block;
-	__u32	log_block_size;
-	__u32	dummy3[7];
-	__u8	magic[2];
-	__u16	state;
-	__u32	dummy5[8];
-	__u32	feature_compat;
-	__u32	feature_incompat;
-	__u32	feature_ro_compat;
-	__u8	uuid[16];
-	__u8	volume_name[16];
+	uint32_t	inodes_count;
+	uint32_t	blocks_count;
+	uint32_t	r_blocks_count;
+	uint32_t	free_blocks_count;
+	uint32_t	free_inodes_count;
+	uint32_t	first_data_block;
+	uint32_t	log_block_size;
+	uint32_t	dummy3[7];
+	uint8_t	magic[2];
+	uint16_t	state;
+	uint32_t	dummy5[8];
+	uint32_t	feature_compat;
+	uint32_t	feature_incompat;
+	uint32_t	feature_ro_compat;
+	uint8_t	uuid[16];
+	uint8_t	volume_name[16];
 } __attribute__((__packed__));
 
 #define EXT3_FEATURE_COMPAT_HAS_JOURNAL		0x00000004
 #define EXT3_FEATURE_INCOMPAT_JOURNAL_DEV	0x00000008
 #define EXT_SUPERBLOCK_OFFSET			0x400
 
-int volume_id_probe_ext(struct volume_id *id, __u64 off)
+int volume_id_probe_ext(struct volume_id *id, uint64_t off)
 {
 	struct ext2_super_block *es;
 

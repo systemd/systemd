@@ -21,7 +21,7 @@
 #ifndef _VOLUME_ID_HIGHPOINT_
 #define _VOLUME_ID_HIGHPOINT_
 
-extern int volume_id_probe_highpoint_37x_raid(struct volume_id *id, __u64 off);
-extern int volume_id_probe_highpoint_45x_raid(struct volume_id *id, __u64 off, __u64 size);
+extern int volume_id_probe_highpoint_37x_raid(struct volume_id *id, uint64_t off);
+extern int volume_id_probe_highpoint_45x_raid(struct volume_id *id, uint64_t off, uint64_t size);
 
 #endif

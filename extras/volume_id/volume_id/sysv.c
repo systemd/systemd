@@ -44,56 +44,56 @@
 
 struct sysv_super
 {
-	__u16	s_isize;
-	__u16	s_pad0;
-	__u32	s_fsize;
-	__u16	s_nfree;
-	__u16	s_pad1;
-	__u32	s_free[SYSV_NICFREE];
-	__u16	s_ninode;
-	__u16	s_pad2;
-	__u16	s_inode[SYSV_NICINOD];
-	__u8	s_flock;
-	__u8	s_ilock;
-	__u8	s_fmod;
-	__u8	s_ronly;
-	__u32	s_time;
-	__u16	s_dinfo[4];
-	__u32	s_tfree;
-	__u16	s_tinode;
-	__u16	s_pad3;
-	__u8	s_fname[6];
-	__u8	s_fpack[6];
-	__u32	s_fill[12];
-	__u32	s_state;
-	__u32	s_magic;
-	__u32	s_type;
+	uint16_t	s_isize;
+	uint16_t	s_pad0;
+	uint32_t	s_fsize;
+	uint16_t	s_nfree;
+	uint16_t	s_pad1;
+	uint32_t	s_free[SYSV_NICFREE];
+	uint16_t	s_ninode;
+	uint16_t	s_pad2;
+	uint16_t	s_inode[SYSV_NICINOD];
+	uint8_t		s_flock;
+	uint8_t		s_ilock;
+	uint8_t		s_fmod;
+	uint8_t		s_ronly;
+	uint32_t	s_time;
+	uint16_t	s_dinfo[4];
+	uint32_t	s_tfree;
+	uint16_t	s_tinode;
+	uint16_t	s_pad3;
+	uint8_t		s_fname[6];
+	uint8_t		s_fpack[6];
+	uint32_t	s_fill[12];
+	uint32_t	s_state;
+	uint32_t	s_magic;
+	uint32_t	s_type;
 } __attribute__((__packed__));
 
 #define XENIX_NICINOD				100
 #define XENIX_NICFREE				100
 
 struct xenix_super {
-	__u16	s_isize;
-	__u32	s_fsize;
-	__u16	s_nfree;
-	__u32	s_free[XENIX_NICFREE];
-	__u16	s_ninode;
-	__u16	s_inode[XENIX_NICINOD];
-	__u8	s_flock;
-	__u8	s_ilock;
-	__u8	s_fmod;
-	__u8	s_ronly;
-	__u32	s_time;
-	__u32	s_tfree;
-	__u16	s_tinode;
-	__u16	s_dinfo[4];
-	__u8	s_fname[6];
-	__u8	s_fpack[6];
-	__u8	s_clean;
-	__u8	s_fill[371];
-	__u32	s_magic;
-	__u32	s_type;
+	uint16_t	s_isize;
+	uint32_t	s_fsize;
+	uint16_t	s_nfree;
+	uint32_t	s_free[XENIX_NICFREE];
+	uint16_t	s_ninode;
+	uint16_t	s_inode[XENIX_NICINOD];
+	uint8_t		s_flock;
+	uint8_t		s_ilock;
+	uint8_t		s_fmod;
+	uint8_t		s_ronly;
+	uint32_t	s_time;
+	uint32_t	s_tfree;
+	uint16_t	s_tinode;
+	uint16_t	s_dinfo[4];
+	uint8_t		s_fname[6];
+	uint8_t		s_fpack[6];
+	uint8_t		s_clean;
+	uint8_t		s_fill[371];
+	uint32_t	s_magic;
+	uint32_t	s_type;
 } __attribute__((__packed__));
 
 #define SYSV_SUPERBLOCK_BLOCK			0x01
@@ -102,7 +102,7 @@ struct xenix_super {
 #define XENIX_MAGIC				0x2b5544
 #define SYSV_MAX_BLOCKSIZE			0x800
 
-int volume_id_probe_sysv(struct volume_id *id, __u64 off)
+int volume_id_probe_sysv(struct volume_id *id, uint64_t off)
 {
 	struct sysv_super *vs;
 	struct xenix_super *xs;

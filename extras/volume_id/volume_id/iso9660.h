@@ -21,6 +21,6 @@
 #ifndef _VOLUME_ID_ISO9660_
 #define _VOLUME_ID_ISO9660_
 
-extern int volume_id_probe_iso9660(struct volume_id *id, __u64 off);
+extern int volume_id_probe_iso9660(struct volume_id *id, uint64_t off);
 
 #endif

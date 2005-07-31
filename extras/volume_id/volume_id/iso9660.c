@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -48,27 +47,27 @@
 #define ISO_VD_MAX			16
 
 struct iso_volume_descriptor {
-	__u8	vd_type;
-	__u8	vd_id[5];
-	__u8	vd_version;
-	__u8	flags;
-	__u8	system_id[32];
-	__u8	volume_id[32];
-	__u8	unused[8];
-	__u8	space_size[8];
-	__u8	escape_sequences[8];
+	uint8_t		vd_type;
+	uint8_t		vd_id[5];
+	uint8_t		vd_version;
+	uint8_t		flags;
+	uint8_t		system_id[32];
+	uint8_t		volume_id[32];
+	uint8_t		unused[8];
+	uint8_t		space_size[8];
+	uint8_t		escape_sequences[8];
 } __attribute__((__packed__));
 
 struct high_sierra_volume_descriptor {
-	__u8	foo[8];
-	__u8	type;
-	__u8	id[4];
-	__u8	version;
+	uint8_t		foo[8];
+	uint8_t		type;
+	uint8_t		id[4];
+	uint8_t		version;
 } __attribute__((__packed__));
 
-int volume_id_probe_iso9660(struct volume_id *id, __u64 off)
+int volume_id_probe_iso9660(struct volume_id *id, uint64_t off)
 {
-	__u8 *buf;
+	uint8_t *buf;
 	struct iso_volume_descriptor *is;
 	struct high_sierra_volume_descriptor *hs;
 
@@ -91,7 +90,7 @@ int volume_id_probe_iso9660(struct volume_id *id, __u64 off)
 		dbg("looking for SVDs");
 		vd_offset = ISO_VD_OFFSET;
 		for (i = 0; i < ISO_VD_MAX; i++) {
-			char svd_label[64];
+			uint8_t svd_label[64];
 
 			is = (struct iso_volume_descriptor *) volume_id_get_buffer(id, off + vd_offset, 0x200);
 			if (is == NULL || is->vd_type == ISO_VD_END)
@@ -104,7 +103,7 @@ int volume_id_probe_iso9660(struct volume_id *id, __u64 off)
 			    memcmp(is->escape_sequences, "%/C", 3) == 0||
 			    memcmp(is->escape_sequences, "%/E", 3) == 0) {
 				dbg("Joliet extension found");
-				volume_id_set_unicode16(svd_label, sizeof(svd_label), is->volume_id, BE, 32);
+				volume_id_set_unicode16((char *)svd_label, sizeof(svd_label), is->volume_id, BE, 32);
 				if (memcmp(id->label, svd_label, 16) == 0) {
 					dbg("SVD label is identical, use the possibly longer PVD one");
 					break;

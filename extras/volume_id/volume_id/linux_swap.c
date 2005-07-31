@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,19 +39,19 @@
 #include "linux_swap.h"
 
 struct swap_header_v1_2 {
-	__u8	bootbits[1024];
-	__u32	version;
-	__u32	last_page;
-	__u32	nr_badpages;
-	__u8	uuid[16];
-	__u8	volume_name[16];
+	uint8_t		bootbits[1024];
+	uint32_t	version;
+	uint32_t	last_page;
+	uint32_t	nr_badpages;
+	uint8_t		uuid[16];
+	uint8_t		volume_name[16];
 } __attribute__((__packed__)) *sw;
 
 #define LARGEST_PAGESIZE			0x4000
 
-int volume_id_probe_linux_swap(struct volume_id *id, __u64 off)
+int volume_id_probe_linux_swap(struct volume_id *id, uint64_t off)
 {
-	const __u8 *buf;
+	const uint8_t *buf;
 	unsigned int page;
 
 	dbg("probing at offset 0x%llx", (unsigned long long) off);

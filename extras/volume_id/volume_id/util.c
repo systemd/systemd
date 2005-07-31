@@ -34,16 +34,15 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
 #include "util.h"
 
-void volume_id_set_unicode16(char *str, unsigned int len, const __u8 *buf, enum endian endianess, unsigned int count)
+void volume_id_set_unicode16(char *str, size_t len, const uint8_t *buf, enum endian endianess, size_t count)
 {
 	unsigned int i, j;
-	__u16 c;
+	uint16_t c;
 
 	j = 0;
 	for (i = 0; i + 2 <= count; i += 2) {
@@ -57,18 +56,18 @@ void volume_id_set_unicode16(char *str, unsigned int len, const __u8 *buf, enum 
 		} else if (c < 0x80) {
 			if (j+1 >= len)
 				break;
-			str[j++] = (__u8) c;
+			str[j++] = (uint8_t) c;
 		} else if (c < 0x800) {
 			if (j+2 >= len)
 				break;
-			str[j++] = (__u8) (0xc0 | (c >> 6));
-			str[j++] = (__u8) (0x80 | (c & 0x3f));
+			str[j++] = (uint8_t) (0xc0 | (c >> 6));
+			str[j++] = (uint8_t) (0x80 | (c & 0x3f));
 		} else {
 			if (j+3 >= len)
 				break;
-			str[j++] = (__u8) (0xe0 | (c >> 12));
-			str[j++] = (__u8) (0x80 | ((c >> 6) & 0x3f));
-			str[j++] = (__u8) (0x80 | (c & 0x3f));
+			str[j++] = (uint8_t) (0xe0 | (c >> 12));
+			str[j++] = (uint8_t) (0x80 | ((c >> 6) & 0x3f));
+			str[j++] = (uint8_t) (0x80 | (c & 0x3f));
 		}
 	}
 	str[j] = '\0';
@@ -109,20 +108,26 @@ void volume_id_set_usage(struct volume_id *id, enum volume_id_usage usage_id)
 	id->usage = usage_to_string(usage_id);
 }
 
-void volume_id_set_label_raw(struct volume_id *id, const __u8 *buf, unsigned int count)
+void volume_id_set_label_raw(struct volume_id *id, const uint8_t *buf, size_t count)
 {
 	memcpy(id->label_raw, buf, count);
 	id->label_raw_len = count;
 }
 
-void volume_id_set_label_string(struct volume_id *id, const __u8 *buf, unsigned int count)
+static size_t my_strnlen(const char *s, size_t max) {
+    const char *p = s;
+    for (; *p && max--; ++p);
+    return(p - s);
+}
+
+void volume_id_set_label_string(struct volume_id *id, const uint8_t *buf, size_t count)
 {
 	unsigned int i;
 
 	memcpy(id->label, buf, count);
 
 	/* remove trailing whitespace */
-	i = strnlen(id->label, count);
+	i = my_strnlen(id->label, count);
 	while (i--) {
 		if (!isspace(id->label[i]))
 			break;
@@ -130,12 +135,12 @@ void volume_id_set_label_string(struct volume_id *id, const __u8 *buf, unsigned 
 	id->label[i+1] = '\0';
 }
 
-void volume_id_set_label_unicode16(struct volume_id *id, const __u8 *buf, enum endian endianess, unsigned int count)
+void volume_id_set_label_unicode16(struct volume_id *id, const uint8_t *buf, enum endian endianess, size_t count)
 {
 	 volume_id_set_unicode16(id->label, sizeof(id->label), buf, endianess, count);
 }
 
-void volume_id_set_uuid(struct volume_id *id, const __u8 *buf, enum uuid_format format)
+void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, enum uuid_format format)
 {
 	unsigned int i;
 	unsigned int count = 0;
@@ -196,11 +201,11 @@ set:
 	}
 }
 
-__u8 *volume_id_get_buffer(struct volume_id *id, __u64 off, unsigned int len)
+uint8_t *volume_id_get_buffer(struct volume_id *id, uint64_t off, size_t len)
 {
-	unsigned int buf_len;
+	size_t buf_len;
 
-	dbg("get buffer off 0x%llx(%llu), len 0x%x", (unsigned long long) off, (unsigned long long) off, len);
+	dbg("get buffer off 0x%llx(%llu), len 0x%zx", (unsigned long long) off, (unsigned long long) off, len);
 	/* check if requested area fits in superblock buffer */
 	if (off + len <= SB_BUFFER_SIZE) {
 		if (id->sbbuf == NULL) {
@@ -214,7 +219,7 @@ __u8 *volume_id_get_buffer(struct volume_id *id, __u64 off, unsigned int len)
 			dbg("read sbbuf len:0x%llx", (unsigned long long) (off + len));
 			lseek(id->fd, 0, SEEK_SET);
 			buf_len = read(id->fd, id->sbbuf, off + len);
-			dbg("got 0x%x (%i) bytes", buf_len, buf_len);
+			dbg("got 0x%zx (%zi) bytes", buf_len, buf_len);
 			id->sbbuf_len = buf_len;
 			if (buf_len < off + len)
 				return NULL;
@@ -236,15 +241,15 @@ __u8 *volume_id_get_buffer(struct volume_id *id, __u64 off, unsigned int len)
 
 		/* check if we need to read */
 		if ((off < id->seekbuf_off) || ((off + len) > (id->seekbuf_off + id->seekbuf_len))) {
-			dbg("read seekbuf off:0x%llx len:0x%x", (unsigned long long) off, len);
+			dbg("read seekbuf off:0x%llx len:0x%zx", (unsigned long long) off, len);
 			if (lseek(id->fd, off, SEEK_SET) == -1)
 				return NULL;
 			buf_len = read(id->fd, id->seekbuf, len);
-			dbg("got 0x%x (%i) bytes", buf_len, buf_len);
+			dbg("got 0x%zx (%zi) bytes", buf_len, buf_len);
 			id->seekbuf_off = off;
 			id->seekbuf_len = buf_len;
 			if (buf_len < len) {
-				dbg("requested 0x%x bytes, got only 0x%x bytes", len, buf_len);
+				dbg("requested 0x%zx bytes, got only 0x%zx bytes", len, buf_len);
 				return NULL;
 			}
 		}

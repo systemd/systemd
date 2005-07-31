@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,13 +39,13 @@
 #include "romfs.h"
 
 struct romfs_super {
-	__u8 magic[8];
-	__u32 size;
-	__u32 checksum;
-	__u8 name[0];
+	uint8_t magic[8];
+	uint32_t size;
+	uint32_t checksum;
+	uint8_t name[0];
 } __attribute__((__packed__));
 
-int volume_id_probe_romfs(struct volume_id *id, __u64 off)
+int volume_id_probe_romfs(struct volume_id *id, uint64_t off)
 {
 	struct romfs_super *rfs;
 
@@ -57,7 +56,7 @@ int volume_id_probe_romfs(struct volume_id *id, __u64 off)
 		return -1;
 
 	if (memcmp(rfs->magic, "-rom1fs-", 4) == 0) {
-		size_t len = strlen(rfs->name);
+		size_t len = strlen((char *)rfs->name);
 
 		if (len) {
 			volume_id_set_label_raw(id, rfs->name, len);

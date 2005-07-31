@@ -21,7 +21,7 @@
 #ifndef _VOLUME_ID_LVM_
 #define _VOLUME_ID_LVM_
 
-extern int volume_id_probe_lvm1(struct volume_id *id, __u64 off);
-extern int volume_id_probe_lvm2(struct volume_id *id, __u64 off);
+extern int volume_id_probe_lvm1(struct volume_id *id, uint64_t off);
+extern int volume_id_probe_lvm2(struct volume_id *id, uint64_t off);
 
 #endif

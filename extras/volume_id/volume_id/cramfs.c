@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,21 +39,21 @@
 #include "cramfs.h"
 
 struct cramfs_super {
-	__u8	magic[4];
-	__u32	size;
-	__u32	flags;
-	__u32	future;
-	__u8	signature[16];
+	uint8_t		magic[4];
+	uint32_t	size;
+	uint32_t	flags;
+	uint32_t	future;
+	uint8_t		signature[16];
 	struct cramfs_info {
-		__u32	crc;
-		__u32	edition;
-		__u32	blocks;
-		__u32	files;
+		uint32_t	crc;
+		uint32_t	edition;
+		uint32_t	blocks;
+		uint32_t	files;
 	} __attribute__((__packed__)) info;
-	__u8 name[16];
+	uint8_t		name[16];
 } __attribute__((__packed__));
 
-int volume_id_probe_cramfs(struct volume_id *id, __u64 off)
+int volume_id_probe_cramfs(struct volume_id *id, uint64_t off)
 {
 	struct cramfs_super *cs;
 

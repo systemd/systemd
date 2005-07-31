@@ -40,24 +40,24 @@
 #include "mac.h"
 
 struct mac_driver_desc {
-	__u8	signature[2];
-	__u16	block_size;
-	__u32	block_count;
+	uint8_t		signature[2];
+	uint16_t	block_size;
+	uint32_t	block_count;
 } __attribute__((__packed__));
 
 struct mac_partition {
-	__u8	signature[2];
-	__u16	res1;
-	__u32	map_count;
-	__u32	start_block;
-	__u32	block_count;
-	__u8	name[32];
-	__u8	type[32];
+	uint8_t		signature[2];
+	uint16_t	res1;
+	uint32_t	map_count;
+	uint32_t	start_block;
+	uint32_t	block_count;
+	uint8_t		name[32];
+	uint8_t		type[32];
 } __attribute__((__packed__));
 
-int volume_id_probe_mac_partition_map(struct volume_id *id, __u64 off)
+int volume_id_probe_mac_partition_map(struct volume_id *id, uint64_t off)
 {
-	const __u8 *buf;
+	const uint8_t *buf;
 	struct mac_driver_desc *driver;
 	struct mac_partition *part;
 
@@ -108,8 +108,8 @@ int volume_id_probe_mac_partition_map(struct volume_id *id, __u64 off)
 		id->partition_count = part_count;
 
 		for (i = 0; i < part_count; i++) {
-			__u64 poff;
-			__u64 plen;
+			uint64_t poff;
+			uint64_t plen;
 
 			buf = volume_id_get_buffer(id, off + ((i+1) * bsize), 0x200);
 			if (buf == NULL)

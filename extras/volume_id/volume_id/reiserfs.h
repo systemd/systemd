@@ -21,6 +21,6 @@
 #ifndef _VOLUME_ID_REISERFS_
 #define _VOLUME_ID_REISERFS_
 
-extern int volume_id_probe_reiserfs(struct volume_id *id, __u64 off);
+extern int volume_id_probe_reiserfs(struct volume_id *id, uint64_t off);
 
 #endif

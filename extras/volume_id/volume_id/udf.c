@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -41,40 +40,40 @@
 
 struct volume_descriptor {
 	struct descriptor_tag {
-		__u16	id;
-		__u16	version;
-		__u8	checksum;
-		__u8	reserved;
-		__u16	serial;
-		__u16	crc;
-		__u16	crc_len;
-		__u32	location;
+		uint16_t	id;
+		uint16_t	version;
+		uint8_t		checksum;
+		uint8_t		reserved;
+		uint16_t	serial;
+		uint16_t	crc;
+		uint16_t	crc_len;
+		uint32_t	location;
 	} __attribute__((__packed__)) tag;
 	union {
 		struct anchor_descriptor {
-			__u32	length;
-			__u32	location;
+			uint32_t	length;
+			uint32_t	location;
 		} __attribute__((__packed__)) anchor;
 		struct primary_descriptor {
-			__u32	seq_num;
-			__u32	desc_num;
+			uint32_t	seq_num;
+			uint32_t	desc_num;
 			struct dstring {
-				__u8	clen;
-				__u8	c[31];
+				uint8_t	clen;
+				uint8_t	c[31];
 			} __attribute__((__packed__)) ident;
 		} __attribute__((__packed__)) primary;
 	} __attribute__((__packed__)) type;
 } __attribute__((__packed__));
 
 struct volume_structure_descriptor {
-	__u8	type;
-	__u8	id[5];
-	__u8	version;
+	uint8_t		type;
+	uint8_t		id[5];
+	uint8_t		version;
 } __attribute__((__packed__));
 
 #define UDF_VSD_OFFSET			0x8000
 
-int volume_id_probe_udf(struct volume_id *id, __u64 off)
+int volume_id_probe_udf(struct volume_id *id, uint64_t off)
 {
 	struct volume_descriptor *vd;
 	struct volume_structure_descriptor *vsd;

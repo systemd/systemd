@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,140 +39,140 @@
 #include "ufs.h"
 
 struct ufs_super_block {
-	__u32	fs_link;
-	__u32	fs_rlink;
-	__u32	fs_sblkno;
-	__u32	fs_cblkno;
-	__u32	fs_iblkno;
-	__u32	fs_dblkno;
-	__u32	fs_cgoffset;
-	__u32	fs_cgmask;
-	__u32	fs_time;
-	__u32	fs_size;
-	__u32	fs_dsize;
-	__u32	fs_ncg;	
-	__u32	fs_bsize;
-	__u32	fs_fsize;
-	__u32	fs_frag;
-	__u32	fs_minfree;
-	__u32	fs_rotdelay;
-	__u32	fs_rps;	
-	__u32	fs_bmask;
-	__u32	fs_fmask;
-	__u32	fs_bshift;
-	__u32	fs_fshift;
-	__u32	fs_maxcontig;
-	__u32	fs_maxbpg;
-	__u32	fs_fragshift;
-	__u32	fs_fsbtodb;
-	__u32	fs_sbsize;
-	__u32	fs_csmask;
-	__u32	fs_csshift;
-	__u32	fs_nindir;
-	__u32	fs_inopb;
-	__u32	fs_nspf;
-	__u32	fs_optim;
-	__u32	fs_npsect_state;
-	__u32	fs_interleave;
-	__u32	fs_trackskew;
-	__u32	fs_id[2];
-	__u32	fs_csaddr;
-	__u32	fs_cssize;
-	__u32	fs_cgsize;
-	__u32	fs_ntrak;
-	__u32	fs_nsect;
-	__u32	fs_spc;	
-	__u32	fs_ncyl;
-	__u32	fs_cpg;
-	__u32	fs_ipg;
-	__u32	fs_fpg;
+	uint32_t	fs_link;
+	uint32_t	fs_rlink;
+	uint32_t	fs_sblkno;
+	uint32_t	fs_cblkno;
+	uint32_t	fs_iblkno;
+	uint32_t	fs_dblkno;
+	uint32_t	fs_cgoffset;
+	uint32_t	fs_cgmask;
+	uint32_t	fs_time;
+	uint32_t	fs_size;
+	uint32_t	fs_dsize;
+	uint32_t	fs_ncg;	
+	uint32_t	fs_bsize;
+	uint32_t	fs_fsize;
+	uint32_t	fs_frag;
+	uint32_t	fs_minfree;
+	uint32_t	fs_rotdelay;
+	uint32_t	fs_rps;	
+	uint32_t	fs_bmask;
+	uint32_t	fs_fmask;
+	uint32_t	fs_bshift;
+	uint32_t	fs_fshift;
+	uint32_t	fs_maxcontig;
+	uint32_t	fs_maxbpg;
+	uint32_t	fs_fragshift;
+	uint32_t	fs_fsbtodb;
+	uint32_t	fs_sbsize;
+	uint32_t	fs_csmask;
+	uint32_t	fs_csshift;
+	uint32_t	fs_nindir;
+	uint32_t	fs_inopb;
+	uint32_t	fs_nspf;
+	uint32_t	fs_optim;
+	uint32_t	fs_npsect_state;
+	uint32_t	fs_interleave;
+	uint32_t	fs_trackskew;
+	uint32_t	fs_id[2];
+	uint32_t	fs_csaddr;
+	uint32_t	fs_cssize;
+	uint32_t	fs_cgsize;
+	uint32_t	fs_ntrak;
+	uint32_t	fs_nsect;
+	uint32_t	fs_spc;	
+	uint32_t	fs_ncyl;
+	uint32_t	fs_cpg;
+	uint32_t	fs_ipg;
+	uint32_t	fs_fpg;
 	struct ufs_csum {
-		__u32	cs_ndir;
-		__u32	cs_nbfree;
-		__u32	cs_nifree;
-		__u32	cs_nffree;
+		uint32_t	cs_ndir;
+		uint32_t	cs_nbfree;
+		uint32_t	cs_nifree;
+		uint32_t	cs_nffree;
 	} __attribute__((__packed__)) fs_cstotal;
-	__s8	fs_fmod;
-	__s8	fs_clean;
-	__s8	fs_ronly;
-	__s8	fs_flags;
+	int8_t		fs_fmod;
+	int8_t		fs_clean;
+	int8_t		fs_ronly;
+	int8_t		fs_flags;
 	union {
 		struct {
-			__s8	fs_fsmnt[512];
-			__u32	fs_cgrotor;
-			__u32	fs_csp[31];
-			__u32	fs_maxcluster;
-			__u32	fs_cpc;
-			__u16	fs_opostbl[16][8];
+			int8_t	fs_fsmnt[512];
+			uint32_t	fs_cgrotor;
+			uint32_t	fs_csp[31];
+			uint32_t	fs_maxcluster;
+			uint32_t	fs_cpc;
+			uint16_t	fs_opostbl[16][8];
 		} __attribute__((__packed__)) fs_u1;
 		struct {
-			__s8	fs_fsmnt[468];
-			__u8	fs_volname[32];
-			__u64	fs_swuid;
-			__s32	fs_pad;
-			__u32	fs_cgrotor;
-			__u32	fs_ocsp[28];
-			__u32	fs_contigdirs;
-			__u32	fs_csp;	
-			__u32	fs_maxcluster;
-			__u32	fs_active;
-			__s32	fs_old_cpc;
-			__s32	fs_maxbsize;
-			__s64	fs_sparecon64[17];
-			__s64	fs_sblockloc;
+			int8_t		fs_fsmnt[468];
+			uint8_t		fs_volname[32];
+			uint64_t	fs_swuid;
+			int32_t		fs_pad;
+			uint32_t	fs_cgrotor;
+			uint32_t	fs_ocsp[28];
+			uint32_t	fs_contigdirs;
+			uint32_t	fs_csp;	
+			uint32_t	fs_maxcluster;
+			uint32_t	fs_active;
+			int32_t		fs_old_cpc;
+			int32_t		fs_maxbsize;
+			int64_t		fs_sparecon64[17];
+			int64_t		fs_sblockloc;
 			struct ufs2_csum_total {
-				__u64	cs_ndir;
-				__u64	cs_nbfree;
-				__u64	cs_nifree;
-				__u64	cs_nffree;
-				__u64	cs_numclusters;
-				__u64	cs_spare[3];
+				uint64_t	cs_ndir;
+				uint64_t	cs_nbfree;
+				uint64_t	cs_nifree;
+				uint64_t	cs_nffree;
+				uint64_t	cs_numclusters;
+				uint64_t	cs_spare[3];
 			} __attribute__((__packed__)) fs_cstotal;
 			struct ufs_timeval {
-				__s32	tv_sec;
-				__s32	tv_usec;
+				int32_t		tv_sec;
+				int32_t		tv_usec;
 			} __attribute__((__packed__)) fs_time;
-			__s64	fs_size;
-			__s64	fs_dsize;
-			__u64	fs_csaddr;
-			__s64	fs_pendingblocks;
-			__s32	fs_pendinginodes;
+			int64_t		fs_size;
+			int64_t		fs_dsize;
+			uint64_t	fs_csaddr;
+			int64_t		fs_pendingblocks;
+			int32_t		fs_pendinginodes;
 		} __attribute__((__packed__)) fs_u2;
 	}  fs_u11;
 	union {
 		struct {
-			__s32	fs_sparecon[53];
-			__s32	fs_reclaim;
-			__s32	fs_sparecon2[1];
-			__s32	fs_state;
-			__u32	fs_qbmask[2];
-			__u32	fs_qfmask[2];
+			int32_t		fs_sparecon[53];
+			int32_t		fs_reclaim;
+			int32_t		fs_sparecon2[1];
+			int32_t		fs_state;
+			uint32_t	fs_qbmask[2];
+			uint32_t	fs_qfmask[2];
 		} __attribute__((__packed__)) fs_sun;
 		struct {
-			__s32	fs_sparecon[53];
-			__s32	fs_reclaim;
-			__s32	fs_sparecon2[1];
-			__u32	fs_npsect;
-			__u32	fs_qbmask[2];
-			__u32	fs_qfmask[2];
+			int32_t		fs_sparecon[53];
+			int32_t		fs_reclaim;
+			int32_t		fs_sparecon2[1];
+			uint32_t	fs_npsect;
+			uint32_t	fs_qbmask[2];
+			uint32_t	fs_qfmask[2];
 		} __attribute__((__packed__)) fs_sunx86;
 		struct {
-			__s32	fs_sparecon[50];
-			__s32	fs_contigsumsize;
-			__s32	fs_maxsymlinklen;
-			__s32	fs_inodefmt;
-			__u32	fs_maxfilesize[2];
-			__u32	fs_qbmask[2];
-			__u32	fs_qfmask[2];
-			__s32	fs_state;
+			int32_t		fs_sparecon[50];
+			int32_t		fs_contigsumsize;
+			int32_t		fs_maxsymlinklen;
+			int32_t		fs_inodefmt;
+			uint32_t	fs_maxfilesize[2];
+			uint32_t	fs_qbmask[2];
+			uint32_t	fs_qfmask[2];
+			int32_t		fs_state;
 		} __attribute__((__packed__)) fs_44;
 	} fs_u2;
-	__s32	fs_postblformat;
-	__s32	fs_nrpos;
-	__s32	fs_postbloff;
-	__s32	fs_rotbloff;
-	__u32	fs_magic;
-	__u8	fs_space[1];
+	int32_t		fs_postblformat;
+	int32_t		fs_nrpos;
+	int32_t		fs_postbloff;
+	int32_t		fs_rotbloff;
+	uint32_t	fs_magic;
+	uint8_t		fs_space[1];
 } __attribute__((__packed__));
 
 #define UFS_MAGIC			0x00011954
@@ -181,12 +180,12 @@ struct ufs_super_block {
 #define UFS_MAGIC_FEA			0x00195612
 #define UFS_MAGIC_LFN			0x00095014
 
-int volume_id_probe_ufs(struct volume_id *id, __u64 off)
+int volume_id_probe_ufs(struct volume_id *id, uint64_t off)
 {
-	__u32	magic;
-	int 	i;
+	uint32_t magic;
+	int i;
 	struct ufs_super_block *ufs;
-	int	offsets[] = {0, 8, 64, 256, -1};
+	int offsets[] = {0, 8, 64, 256, -1};
 
 	dbg("probing at offset 0x%llx", (unsigned long long) off);
 

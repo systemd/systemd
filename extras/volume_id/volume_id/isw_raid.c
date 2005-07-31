@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,20 +39,20 @@
 #include "isw_raid.h"
 
 struct isw_meta {
-	__u8	sig[32];
-	__u32	check_sum;
-	__u32	mpb_size;
-	__u32	family_num;
-	__u32	generation_num;
+	uint8_t		sig[32];
+	uint32_t	check_sum;
+	uint32_t	mpb_size;
+	uint32_t	family_num;
+	uint32_t	generation_num;
 } __attribute__((packed));
 
 #define ISW_SIGNATURE		"Intel Raid ISM Cfg Sig. "
 
 
-int volume_id_probe_intel_software_raid(struct volume_id *id, __u64 off, __u64 size)
+int volume_id_probe_intel_software_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
-	const __u8 *buf;
-	__u64 meta_off;
+	const uint8_t *buf;
+	uint64_t meta_off;
 	struct isw_meta *isw;
 
 	dbg("probing at offset 0x%llx, size 0x%llx",
@@ -72,7 +71,7 @@ int volume_id_probe_intel_software_raid(struct volume_id *id, __u64 off, __u64 s
 		return -1;
 
 	volume_id_set_usage(id, VOLUME_ID_RAID);
-	strncpy(id->type_version, &isw->sig[sizeof(ISW_SIGNATURE)-1], 6);
+	memcpy(id->type_version, &isw->sig[sizeof(ISW_SIGNATURE)-1], 6);
 	id->type = "isw_raid_member";
 
 	return 0;

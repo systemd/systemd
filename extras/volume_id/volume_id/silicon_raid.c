@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,30 +39,30 @@
 #include "silicon_raid.h"
 
 struct silicon_meta {
-	__u8	unknown0[0x2E];
-	__u8	ascii_version[0x36 - 0x2E];
-	__u8	diskname[0x56 - 0x36];
-	__u8	unknown1[0x60 - 0x56];
-	__u32	magic;
-	__u32	unknown1a[0x6C - 0x64];
-	__u32	array_sectors_low;
-	__u32	array_sectors_high;
-	__u8	unknown2[0x78 - 0x74];
-	__u32	thisdisk_sectors;
-	__u8	unknown3[0x100 - 0x7C];
-	__u8	unknown4[0x104 - 0x100];
-	__u16	product_id;
-	__u16	vendor_id;
-	__u16	minor_ver;
-	__u16	major_ver;
+	uint8_t		unknown0[0x2E];
+	uint8_t		ascii_version[0x36 - 0x2E];
+	uint8_t		diskname[0x56 - 0x36];
+	uint8_t		unknown1[0x60 - 0x56];
+	uint32_t	magic;
+	uint32_t	unknown1a[0x6C - 0x64];
+	uint32_t	array_sectors_low;
+	uint32_t	array_sectors_high;
+	uint8_t		unknown2[0x78 - 0x74];
+	uint32_t	thisdisk_sectors;
+	uint8_t		unknown3[0x100 - 0x7C];
+	uint8_t		unknown4[0x104 - 0x100];
+	uint16_t	product_id;
+	uint16_t	vendor_id;
+	uint16_t	minor_ver;
+	uint16_t	major_ver;
 } __attribute__((packed));
 
 #define SILICON_MAGIC		0x2F000000
 
-int volume_id_probe_silicon_medley_raid(struct volume_id *id, __u64 off, __u64 size)
+int volume_id_probe_silicon_medley_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
-	const __u8 *buf;
-	__u64 meta_off;
+	const uint8_t *buf;
+	uint64_t meta_off;
 	struct silicon_meta *sil;
 
 	dbg("probing at offset 0x%llx, size 0x%llx",

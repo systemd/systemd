@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,104 +39,104 @@
 #include "hfs.h"
 
 struct hfs_finder_info{
-	__u32	boot_folder;
-	__u32	start_app;
-	__u32	open_folder;
-	__u32	os9_folder;
-	__u32	reserved;
-	__u32	osx_folder;
-	__u8	id[8];
+	uint32_t	boot_folder;
+	uint32_t	start_app;
+	uint32_t	open_folder;
+	uint32_t	os9_folder;
+	uint32_t	reserved;
+	uint32_t	osx_folder;
+	uint8_t		id[8];
 } __attribute__((__packed__));
 
 struct hfs_mdb {
-	__u8	signature[2];
-	__u32	cr_date;
-	__u32	ls_Mod;
-	__u16	atrb;
-	__u16	nm_fls;
-	__u16	vbm_st;
-	__u16	alloc_ptr;
-	__u16	nm_al_blks;
-	__u32	al_blk_size;
-	__u32	clp_size;
-	__u16	al_bl_st;
-	__u32	nxt_cnid;
-	__u16	free_bks;
-	__u8	label_len;
-	__u8	label[27];
-	__u32	vol_bkup;
-	__u16	vol_seq_num;
-	__u32	wr_cnt;
-	__u32	xt_clump_size;
-	__u32	ct_clump_size;
-	__u16	num_root_dirs;
-	__u32	file_count;
-	__u32	dir_count;
+	uint8_t		signature[2];
+	uint32_t	cr_date;
+	uint32_t	ls_Mod;
+	uint16_t	atrb;
+	uint16_t	nm_fls;
+	uint16_t	vbm_st;
+	uint16_t	alloc_ptr;
+	uint16_t	nm_al_blks;
+	uint32_t	al_blk_size;
+	uint32_t	clp_size;
+	uint16_t	al_bl_st;
+	uint32_t	nxt_cnid;
+	uint16_t	free_bks;
+	uint8_t		label_len;
+	uint8_t		label[27];
+	uint32_t	vol_bkup;
+	uint16_t	vol_seq_num;
+	uint32_t	wr_cnt;
+	uint32_t	xt_clump_size;
+	uint32_t	ct_clump_size;
+	uint16_t	num_root_dirs;
+	uint32_t	file_count;
+	uint32_t	dir_count;
 	struct hfs_finder_info finder_info;
-	__u8	embed_sig[2];
-	__u16	embed_startblock;
-	__u16	embed_blockcount;
+	uint8_t		embed_sig[2];
+	uint16_t	embed_startblock;
+	uint16_t	embed_blockcount;
 } __attribute__((__packed__)) *hfs;
 
 struct hfsplus_bnode_descriptor {
-	__u32	next;
-	__u32	prev;
-	__u8	type;
-	__u8	height;
-	__u16	num_recs;
-	__u16	reserved;
+	uint32_t	next;
+	uint32_t	prev;
+	uint8_t		type;
+	uint8_t		height;
+	uint16_t	num_recs;
+	uint16_t	reserved;
 } __attribute__((__packed__));
 
 struct hfsplus_bheader_record {
-	__u16	depth;
-	__u32	root;
-	__u32	leaf_count;
-	__u32	leaf_head;
-	__u32	leaf_tail;
-	__u16	node_size;
+	uint16_t	depth;
+	uint32_t	root;
+	uint32_t	leaf_count;
+	uint32_t	leaf_head;
+	uint32_t	leaf_tail;
+	uint16_t	node_size;
 } __attribute__((__packed__));
 
 struct hfsplus_catalog_key {
-	__u16	key_len;
-	__u32	parent_id;
-	__u16	unicode_len;
-	__u8	unicode[255 * 2];
+	uint16_t	key_len;
+	uint32_t	parent_id;
+	uint16_t	unicode_len;
+	uint8_t		unicode[255 * 2];
 } __attribute__((__packed__));
 
 struct hfsplus_extent {
-	__u32 start_block;
-	__u32 block_count;
+	uint32_t	start_block;
+	uint32_t	block_count;
 } __attribute__((__packed__));
 
 #define HFSPLUS_EXTENT_COUNT		8
 struct hfsplus_fork {
-	__u64 total_size;
-	__u32 clump_size;
-	__u32 total_blocks;
+	uint64_t	total_size;
+	uint32_t	clump_size;
+	uint32_t	total_blocks;
 	struct hfsplus_extent extents[HFSPLUS_EXTENT_COUNT];
 } __attribute__((__packed__));
 
 struct hfsplus_vol_header {
-	__u8	signature[2];
-	__u16	version;
-	__u32	attributes;
-	__u32	last_mount_vers;
-	__u32	reserved;
-	__u32	create_date;
-	__u32	modify_date;
-	__u32	backup_date;
-	__u32	checked_date;
-	__u32	file_count;
-	__u32	folder_count;
-	__u32	blocksize;
-	__u32	total_blocks;
-	__u32	free_blocks;
-	__u32	next_alloc;
-	__u32	rsrc_clump_sz;
-	__u32	data_clump_sz;
-	__u32	next_cnid;
-	__u32	write_count;
-	__u64	encodings_bmp;
+	uint8_t		signature[2];
+	uint16_t	version;
+	uint32_t	attributes;
+	uint32_t	last_mount_vers;
+	uint32_t	reserved;
+	uint32_t	create_date;
+	uint32_t	modify_date;
+	uint32_t	backup_date;
+	uint32_t	checked_date;
+	uint32_t	file_count;
+	uint32_t	folder_count;
+	uint32_t	blocksize;
+	uint32_t	total_blocks;
+	uint32_t	free_blocks;
+	uint32_t	next_alloc;
+	uint32_t	rsrc_clump_sz;
+	uint32_t	data_clump_sz;
+	uint32_t	next_cnid;
+	uint32_t	write_count;
+	uint64_t	encodings_bmp;
 	struct hfs_finder_info finder_info;
 	struct hfsplus_fork alloc_file;
 	struct hfsplus_fork ext_file;
@@ -150,7 +149,7 @@ struct hfsplus_vol_header {
 #define HFS_NODE_LEAF			0xff
 #define HFSPLUS_POR_CNID		1
 
-int volume_id_probe_hfs_hfsplus(struct volume_id *id, __u64 off)
+int volume_id_probe_hfs_hfsplus(struct volume_id *id, uint64_t off)
 {
 	unsigned int blocksize;
 	unsigned int cat_block;
@@ -161,7 +160,7 @@ int volume_id_probe_hfs_hfsplus(struct volume_id *id, __u64 off)
 	unsigned int leaf_node_count;
 	unsigned int leaf_node_size;
 	unsigned int leaf_block;
-	__u64 leaf_off;
+	uint64_t leaf_off;
 	unsigned int alloc_block_size;
 	unsigned int alloc_first_block;
 	unsigned int embed_first_block;
@@ -169,9 +168,9 @@ int volume_id_probe_hfs_hfsplus(struct volume_id *id, __u64 off)
 	struct hfsplus_bnode_descriptor *descr;
 	struct hfsplus_bheader_record *bnode;
 	struct hfsplus_catalog_key *key;
-	unsigned int	label_len;
+	unsigned int label_len;
 	struct hfsplus_extent extents[HFSPLUS_EXTENT_COUNT];
-	const __u8 *buf;
+	const uint8_t *buf;
 
 	dbg("probing at offset 0x%llx", (unsigned long long) off);
 

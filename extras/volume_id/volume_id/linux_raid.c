@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "logging.h"
@@ -40,32 +39,32 @@
 #include "linux_raid.h"
 
 struct mdp_super_block {
-	__u32	md_magic;
-	__u32	major_version;
-	__u32	minor_version;
-	__u32	patch_version;
-	__u32	gvalid_words;
-	__u32	set_uuid0;
-	__u32	ctime;
-	__u32	level;
-	__u32	size;
-	__u32	nr_disks;
-	__u32	raid_disks;
-	__u32	md_minor;
-	__u32	not_persistent;
-	__u32	set_uuid1;
-	__u32	set_uuid2;
-	__u32	set_uuid3;
+	uint32_t	md_magic;
+	uint32_t	major_version;
+	uint32_t	minor_version;
+	uint32_t	patch_version;
+	uint32_t	gvalid_words;
+	uint32_t	set_uuid0;
+	uint32_t	ctime;
+	uint32_t	level;
+	uint32_t	size;
+	uint32_t	nr_disks;
+	uint32_t	raid_disks;
+	uint32_t	md_minor;
+	uint32_t	not_persistent;
+	uint32_t	set_uuid1;
+	uint32_t	set_uuid2;
+	uint32_t	set_uuid3;
 } __attribute__((packed)) *mdp;
 
 #define MD_RESERVED_BYTES		0x10000
 #define MD_MAGIC			0xa92b4efc
 
-int volume_id_probe_linux_raid(struct volume_id *id, __u64 off, __u64 size)
+int volume_id_probe_linux_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
-	const __u8 *buf;
-	__u64 sboff;
-	__u8 uuid[16];
+	const uint8_t *buf;
+	uint64_t sboff;
+	uint8_t uuid[16];
 
 	dbg("probing at offset 0x%llx, size 0x%llx",
 	    (unsigned long long) off, (unsigned long long) size);

@@ -32,7 +32,6 @@
 #include <string.h>
 #include <errno.h>
 #include <ctype.h>
-#include <asm/types.h>
 
 #include "volume_id.h"
 #include "util.h"
@@ -49,33 +48,33 @@
 #define LUKS_SALTSIZE			32
 #define LUKS_NUMKEYS			8
 
-const __u8 LUKS_MAGIC[] = {'L','U','K','S', 0xba, 0xbe};
+const uint8_t LUKS_MAGIC[] = {'L','U','K','S', 0xba, 0xbe};
 #define LUKS_MAGIC_L 6
 #define LUKS_PHDR_SIZE (sizeof(struct luks_phdr)/SECTOR_SIZE+1)
 #define UUID_STRING_L 40
 
 struct luks_phdr {
-	__u8		magic[LUKS_MAGIC_L];
-	__u16		version;
-	__u8		cipherName[LUKS_CIPHERNAME_L];
-	__u8		cipherMode[LUKS_CIPHERMODE_L];
-	__u8		hashSpec[LUKS_HASHSPEC_L];
-	__u32		payloadOffset;
-	__u32		keyBytes;
-	__u8		mkDigest[LUKS_DIGESTSIZE];
-	__u8		mkDigestSalt[LUKS_SALTSIZE];
-	__u32		mkDigestIterations;
-	__u8		uuid[UUID_STRING_L];
+	uint8_t		magic[LUKS_MAGIC_L];
+	uint16_t	version;
+	uint8_t		cipherName[LUKS_CIPHERNAME_L];
+	uint8_t		cipherMode[LUKS_CIPHERMODE_L];
+	uint8_t		hashSpec[LUKS_HASHSPEC_L];
+	uint32_t	payloadOffset;
+	uint32_t	keyBytes;
+	uint8_t		mkDigest[LUKS_DIGESTSIZE];
+	uint8_t		mkDigestSalt[LUKS_SALTSIZE];
+	uint32_t	mkDigestIterations;
+	uint8_t		uuid[UUID_STRING_L];
 	struct {
-		__u32	active;
-		__u32	passwordIterations;
-		__u8		passwordSalt[LUKS_SALTSIZE];
-		__u32	keyMaterialOffset;
-		__u32	stripes;
+		uint32_t	active;
+		uint32_t	passwordIterations;
+		uint8_t		passwordSalt[LUKS_SALTSIZE];
+		uint32_t	keyMaterialOffset;
+		uint32_t	stripes;
 	} keyblock[LUKS_NUMKEYS];
 };
 
-int volume_id_probe_luks(struct volume_id *id, __u64 off)
+int volume_id_probe_luks(struct volume_id *id, uint64_t off)
 {
 	struct luks_phdr *header;
 

@@ -21,6 +21,6 @@
 #ifndef _VOLUME_ID_UFS_
 #define _VOLUME_ID_UFS_
 
-extern int volume_id_probe_ufs(struct volume_id *id, __u64 off);
+extern int volume_id_probe_ufs(struct volume_id *id, uint64_t off);
 
 #endif
