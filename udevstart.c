@@ -160,8 +160,12 @@ run:
 		struct name_entry *name_loop;
 
 		dbg("executing run list");
-		list_for_each_entry(name_loop, &udev.run_list, node)
-			execute_program(name_loop->name, udev.subsystem, NULL, 0, NULL);
+		list_for_each_entry(name_loop, &udev.run_list, node) {
+			if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0)
+				pass_env_to_socket(&name_loop->name[strlen("socket:")], devpath, "add");
+			else
+				execute_program(name_loop->name, udev.subsystem, NULL, 0, NULL);
+		}
 	}
 exit:
 	sysfs_close_class_device(class_dev);

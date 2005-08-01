@@ -28,6 +28,8 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <syslog.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
@@ -370,6 +372,38 @@ int add_matching_files(struct list_head *name_list, const char *dirname, const c
 
 	closedir(dir);
 	return 0;
+}
+
+int pass_env_to_socket(const char *sockname, const char *devpath, const char *action)
+{
+	int sock;
+	struct sockaddr_un saddr;
+	socklen_t addrlen;
+	char buf[2048];
+	size_t bufpos = 0;
+	int i;
+	int retval;
+
+	dbg("pass environment to socket '%s'", sockname);
+	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
+	memset(&saddr, 0x00, sizeof(struct sockaddr_un));
+	saddr.sun_family = AF_LOCAL;
+	/* only abstract namespace is supported */
+	strcpy(&saddr.sun_path[1], sockname);
+	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
+
+	bufpos = snprintf(buf, sizeof(buf)-1, "%s@%s", action, devpath);
+	bufpos++;
+	for (i = 0; environ[i] != NULL && bufpos < sizeof(buf); i++) {
+		bufpos += strlcpy(&buf[bufpos], environ[i], sizeof(buf) - bufpos-1);
+		bufpos++;
+	}
+
+	retval = sendto(sock, &buf, bufpos, 0, (struct sockaddr *)&saddr, addrlen);
+	if (retval != -1)
+		retval = 0;
+
+	return retval;
 }
 
 int execute_program(const char *command, const char *subsystem,
