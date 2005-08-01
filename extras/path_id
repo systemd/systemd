@@ -1,0 +1,390 @@
+#!/bin/sh
+#set -x
+
+# this script should provide the shortest possible unique hardware path 
+# to a block device
+#
+
+# Horrible script. Handle with extreme care.
+
+# to be called from udev
+# DEVPATH=/block/sda/sda3 $0  (or similar)
+# $0 /block/sda
+# $0 /sys/block/sda
+
+# example for all:
+# for i in `find /sys/block -name dev` ;do DEVPATH="`echo $i | sed -e 's@^/sys\|/dev@@g'`" $0 ; done
+
+# examples:
+# SCSI cdrom
+# /block/sr0 -> /devices/pci0002:30/0002:30:0c.0/host0/0:0:1:0
+# result: pci-0002:30:0c.0-scsi-0:0:1:0
+# SCSI disk
+# /block/sda -> /devices/pci0002:30/0002:30:0c.0/host0/0:0:4:0
+# result: pci-0002:30:0c.0-scsi-0:0:4:0 
+# SATA disk, 4 channels per controller
+# /block/sda -> /devices/pci0001:00/0001:00:07.0/0001:05:0c.0/host0/0:0:0:0
+# result: pci-0001:05:0c.0-scsi-0:0:0:0
+# IDE disk
+# /block/hda -> /devices/pci0002:02/0002:02:0d.0/ide0/0.0
+# result: pci-0002:02:0d.0-ide-0.0
+# IDE cdrom on a Mac ASIC:
+# /block/hdc -> /devices/pci0001:01/0001:01:17.0/0.80000000:mac-io/0.00020000:ata-3/ide1/1.0
+# result: mac-io_ata-3_master
+# IDE cdrom on a Mac ASIC, with ide-scsi:
+# /block/sr0 -> /devices/pci0001:01/0001:01:17.0/0.80000000:mac-io/0.0001f000:ata-4/ide0/0.1/host2/2:0:0:0
+# result: mac-io_ata-4_slave
+
+# USB CDrom drive without 'serial' number:
+# reusing 'product' and 'manufacturer' string, if available
+# /block/sr0 -> /devices/pci0001:00/0001:00:04.0/0001:02:0b.0/usb4/4-2/4-2:1.0/host4/4:0:0:0
+# result: usb-storage-odd-Freecom-USIDERev930:0:0:0
+
+# devices may have several interfaces on one PCI device, like IDE:
+# pci-0001:00:04.0_ide1-master
+# pci-0001:00:04.0_ide2-master
+# pci-0001:00:04.0_ide2-slave
+# they are marked as ports, it is expected that the driver shows
+# ide1 even if there is nothing connected to either master or slave
+# interface
+#
+# match order is important.
+# first IDE to find ide-scsi devices.
+# then SCSI
+# first usb-storage
+# then firewire sbp2
+# then the rest
+
+PATH=/lib/klibc/bin #/usr:/usr/sbin:/usr/bin:/sbin:/bin
+SYSFS=/sys
+export PATH
+RESULT=1
+CDROM=
+TYPE=
+OPWD="`pwd`"
+# Check for 'pwd -P'
+if $(pwd -P > /dev/null 2>&1); then
+    pwd_cmd="pwd -P"
+else
+    pwd_cmd="pwd"
+fi
+full_sysfs_class_path=
+full_sysfs_device_path=
+
+if [ -z "$DEVPATH" -a -z "$1" ] ; then
+    exit 1
+fi
+
+if [ -z "$DEVPATH" ] ; then
+    case "$1" in
+	$SYSFS/*)
+	    DEVPATH="${1#$SYSFS}"
+	    ;;
+	*)
+	    DEVPATH=$1
+	    ;;
+    esac
+fi
+
+if [ ! -d $SYSFS$DEVPATH ] ; then
+    exit 1
+fi
+if [ ! -f $SYSFS$DEVPATH/dev ] ; then
+    exit 1
+fi
+
+case "$DEVPATH" in
+    /block/*)
+	TYPE=block
+	;;
+    /class/*)
+	TYPE="${DEVPATH#/class/}"
+	TYPE="${TYPE%%/*}"
+	;;
+    *)
+	exit 1
+	;;
+esac
+	
+#
+##
+#
+
+get_port () {
+    local type offset port
+    type=$1
+    offset=$2
+    for i in $type[0-9]* ; do
+	: i $i
+	port="${i#$type}"
+	if [ "$port" -lt "$offset" ] ; then offset=$port ; fi
+    done
+    if [ "$port" != "0" ] ; then
+	echo $(($2 - $offset))
+    fi
+}
+
+handle_block_ide () {
+: handle_block_ide $*
+	local DEV=$1
+	local port idedev idecontroller
+	# IDE
+	: DEV $DEV
+	d=$DEV
+	case "$DEV" in
+	# remove ide-scsi part, leave only channel info
+		*/ide[0-9]*/host[0-9]*)
+		while [ ! -z "$d" ] ; do
+			case "$d" in
+				*/host[0-9]*)
+				d="${d%/*}"
+				continue
+				;;
+				*)
+				break
+				;;
+			esac
+		done
+		;;
+	esac
+	idedev=$d
+	while [ ! -z "$d" ] ; do
+		case "$d" in
+			*/ide[0-9]*)
+			port="${d##*/}"
+			d="${d%/*}"
+			continue
+			;;
+			*)
+			break
+			;;
+		esac
+	done
+	idecontroller=$d
+	# port info if the controller has more than one interface
+	port="${port#ide}"
+	: port $port d $d
+	: idedev $idedev kernel_port $port
+	case "${idedev##*.}" in
+		 0)
+		 channel=0
+		 ;;
+		 1)
+		 channel=1
+		 ;;
+		 *)
+		 echo "Error: $idedev is neither master or slave" >&2
+	esac
+	case "$d" in
+		*:mac-io/*)
+		: mac-io: $d
+		d="`echo $d | sed -e 's@^.*:mac-io[^:]\+:\([^/]\+\).*@mac-io_\1@'`"
+		;;
+		/sys/devices)
+		# PCMCIA devices
+		ifname=${full_sysfs_class_path##*/}
+		set -- `sed -n "/$ifname/p" /var/lib/pcmcia/stab`
+		d="pcmcia-$1"
+		;;
+		*)
+		d="pci-${d##*/}"
+		# d="`echo $d | sed -e 's@^.*/\([^/]\{1,\}\)/.@pci-\1@'`"
+		;;
+	esac
+
+	cd $idecontroller
+	port="`get_port ide $port`"
+	cd "$OPWD"
+	:  hardware_port $port
+	if [ -z "$port" ] ; then
+		d="${d}-ide-0:$channel"
+	else
+		d="${d}-ide-${port}:$channel"
+	fi
+	   
+	RESULT=0
+}
+
+handle_block_scsi () {
+: handle_block_scsi $*
+	local DEV=$1
+	local cil controller_port controller_dev
+	# SCSI device
+	cil="${DEV##*/}"
+	cil="${cil#*:}"
+	controller_dev=$DEV
+	while [ ! -z "$controller_dev" ] ; do
+		case "$controller_dev" in
+			*/host[0-9]*)
+			controller_port=$controller_dev
+			controller_dev="${controller_dev%/*}"
+			;;
+			*) break ;;
+		esac
+	done
+	: controller_dev $controller_dev
+	: controller_port $controller_port
+	# a host controller may have more than one interface/port
+	controller_port="${controller_port##*/}"
+	controller_port="${controller_port##host}"
+	#
+	case "$controller_dev" in
+		# grand central, old powermacs
+		*:gc/*)
+		adapter="`echo $controller_dev |  sed -e 's@/[^/]\{1,\}$@@;s@^.*/@@;s@^.*:@@'`"
+		bus="gc"
+		;;
+		*)
+		adapter="${controller_dev##*/}"
+		bus="pci"
+		;;
+	esac
+	cd "$controller_dev"
+	controller_port="`get_port host $controller_port`"
+	cd "$OPWD"
+	d="$bus-$adapter"
+	if [ -z "$controller_port" ] ; then
+		controller_port=0
+	fi
+	d="${d}-scsi-${controller_port}:${cil}"
+	RESULT=0
+}
+
+handle_block_usb_storage () {
+: handle_block_usb_storage $*
+	local DEV=$1
+	cil="${DEV##*/}"
+	cil="${cil#*:}"
+	controller_dev=$DEV
+	while [ ! -z "$controller_dev" ] ; do
+		case "$controller_dev" in
+			*/host[0-9]*)
+			controller_dev="${controller_dev%/*}"
+			;;
+			*) break ;;
+		esac
+	done
+	: controller_dev $controller_dev
+	#
+	# usb-storage devs have a serial number, hopefully unique
+	serial=
+	if [ -f $controller_dev/../serial ] ; then
+		serial="`sed -e 's@^[ -]\{1,\}\|[ -]\{1,\}$@@g;s@[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_0123456789]@@g' < $controller_dev/../serial`"
+		: serial XXX_${serial}_XXX
+		d="usb-$serial"
+		serial="`echo $serial | sed -e 's@[ 0]\{1,\}@@g'`"
+	fi
+	if [ -z "$serial" ] ; then
+		# no serial, broken device
+		# has eventually binary junk in vpd
+		identifier=
+		if [ -f $controller_dev/../product ] ; then
+		product="`sed -e 's@^[ -]\{1,\}\|[ -]\{1,\}$@@g;s@[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_0123456789]@@g' < $controller_dev/../product`"
+		fi
+		if [ -f $controller_dev/../manufacturer ] ; then
+		manufacturer="`sed -e 's@^[ -]\{1,\}\|[ -]\{1,\}$@@g;s@[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_0123456789]@@g' < $controller_dev/../manufacturer`"
+		fi
+		if [ -z "$product" -o -z "$manufacturer" ] ; then
+			read idvendor < $controller_dev/../idVendor
+			read idproduct < $controller_dev/../idProduct
+			identifier="0x${idvendor}-0x${idproduct}"
+		else
+			identifier="${manufacturer}-${product}"
+		fi
+		d="usb-${identifier}"
+	fi
+	d="$d:$cil"
+	RESULT=0
+
+
+}
+
+handle_block () {
+    full_sysfs_class_path="$SYSFS$DEVPATH"
+    if [ ! -f $full_sysfs_class_path/dev ] ; then return ; fi
+    # the main device has (hopefully) a symlink to the real device
+    # a partition is a subdir of the main (raw) device
+    if [ ! -L $full_sysfs_class_path/device ] ; then
+	if [ -f $full_sysfs_class_path/range ] ; then return ; fi
+	full_sysfs_class_path="${full_sysfs_class_path%/*}"
+	: full_sysfs_class_path "$full_sysfs_class_path"
+	if [ ! -L $full_sysfs_class_path/device -o ! -f $full_sysfs_class_path/dev ] ; then
+	    return
+	fi
+    fi
+    cd $full_sysfs_class_path/device
+    full_sysfs_device_path="`$pwd_cmd`"
+    cd "$OPWD"
+    D=$full_sysfs_device_path
+    case "$D" in
+	*/ide[0-9]/[0-9].[0-9]*|*/ide[0-9][0-9]/[0-9][0-9].[0-9]*)
+	handle_block_ide "$D"
+	;;
+	*/usb[0-9]*/[0-9]*/host[0-9]*/[0-9]*:[0-9]*:[0-9]*:[0-9]*)
+	handle_block_usb_storage "$D"
+	;;
+	*/css0/*)
+	if [ -r $full_sysfs_device_path/wwpn ]; then
+	    read wwpn < $full_sysfs_device_path/wwpn
+	fi
+	if [ -r $full_sysfs_device_path/fcp_lun ]; then
+	    read lun < $full_sysfs_device_path/fcp_lun
+	fi
+	if [ -r $full_sysfs_device_path/hba_id ]; then
+	    read bus_id < $full_sysfs_device_path/hba_id
+	fi
+	if [ "$bus_id" -a "$wwpn" -a "$lun" ]; then
+	    # S/390 zfcp adapter
+	    d="ccw-$bus_id-zfcp-$wwpn:$lun"
+	    RESULT=0
+	else
+	    # DASD devices
+	    bus="ccw"
+	    adapter=${D##*/}
+	    d="$bus-$adapter"
+	    RESULT=0
+	fi
+	;;
+	*/host[0-9]*/[0-9]*:[0-9]*:[0-9]*:[0-9]*)
+	# check for ieee1394 sbp2 
+	if test -f $D/ieee1394_id ; then
+	    read ieee1394_id < $D/ieee1394_id
+	    d="`echo ieee1394-${ieee1394_id} | sed -e 's@:@-@g'`"
+	    RESULT=0
+	else
+	    handle_block_scsi "$D"
+	fi
+	;;
+
+	*)
+	: not handled
+	RESULT=1
+	return
+
+	;;
+    esac
+    # look for a partition
+    if [ "$full_sysfs_class_path" != "$SYSFS$DEVPATH" ] ; then
+	dp="`echo $SYSFS$DEVPATH | sed -e 's@^/.*/@@;s@^[^0-9]\{1,\}@@;s@.*_@@'`"
+	case "$d" in
+	    *[0-9])
+	    d="${d}p${dp}"
+	    ;;
+	    *)
+		d="${d}${dp}"
+		;;
+	esac
+    fi
+    # done
+    echo "ID_PATH=$d"
+}
+
+case "$TYPE" in
+	block)
+	handle_block
+	;;
+	*)
+	RESULT=1
+	;;
+esac
+exit $RESULT
