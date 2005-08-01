@@ -22,7 +22,7 @@
 #include "list.h"
 
 #define UDEV_MAGIC			"udevd_" UDEV_VERSION
-#define UDEVD_SOCK_PATH			"udevd"
+#define UDEVD_SOCK_PATH			"/org/kernel/udev/udevd"
 #define UDEVSEND_WAIT_MAX_SECONDS	3
 #define UDEVSEND_WAIT_LOOP_PER_SECOND	10
 

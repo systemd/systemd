@@ -49,6 +49,7 @@ COMPILE =	udevrulescompile
 INITSENDER =	udevinitsend
 RECORDER =	udeveventrecorder
 CONTROL =	udevcontrol
+MONITOR =	udevmonitor
 INFO =		udevinfo
 TESTER =	udevtest
 STARTER =	udevstart
@@ -204,7 +205,7 @@ endif
 # config files automatically generated
 GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
 
-all: $(ROOT) $(SENDER) $(COMPILE) $(INITSENDER) $(RECORDER) $(CONTROL) \
+all: $(ROOT) $(SENDER) $(COMPILE) $(INITSENDER) $(RECORDER) $(CONTROL) $(MONITOR)\
 	$(DAEMON) $(COMPILE) $(INFO) $(TESTER) $(STARTER) $(GEN_CONFIGS) $(KLCC)
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
 		echo $$target ; \
@@ -275,6 +276,7 @@ $(COMPILE).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(INITSENDER).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(RECORDER).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(CONTROL).o: $(HEADERS) $( $(HEADERS)GEN_HEADERS) $(HOST_PROGS) $(KLCC)
+$(MONITOR).o: $(HEADERS) $( $(HEADERS)GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(STARTER).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 
 $(ROOT): $(KLCC) $(ROOT).o $(OBJS) $(HEADERS) $(GEN_MANPAGES)
@@ -313,6 +315,10 @@ $(CONTROL): $(KLCC) $(CONTROL).o $(OBJS) udevd.h
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CONTROL).o $(OBJS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
+$(MONITOR): $(KLCC) $(MONITOR).o $(OBJS) udevd.h
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(MONITOR).o $(OBJS) $(LIB_OBJS)
+	$(QUIET) $(STRIPCMD) $@
+
 $(STARTER): $(KLCC) $(STARTER).o $(OBJS)
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(STARTER).o $(OBJS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
@@ -324,7 +330,7 @@ clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
 	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) \
-	 $(SENDER) $(COMPILE) $(INITSENDER) $(RECORDER) $(CONTROL) $(TESTER) $(STARTER)
+	 $(SENDER) $(COMPILE) $(INITSENDER) $(RECORDER) $(CONTROL) $(MONITOR) $(TESTER) $(STARTER)
 	-rm -f ccdv
 	$(MAKE) -C klibc SUBDIRS=klibc clean
 	@extras="$(EXTRAS)" ; for target in $$extras ; do \
@@ -374,6 +380,7 @@ install: install-config install-man all
 	$(INSTALL_PROGRAM) -D $(DAEMON) $(DESTDIR)$(sbindir)/$(DAEMON)
 	$(INSTALL_PROGRAM) -D $(SENDER) $(DESTDIR)$(sbindir)/$(SENDER)
 	$(INSTALL_PROGRAM) -D $(CONTROL) $(DESTDIR)$(sbindir)/$(CONTROL)
+	$(INSTALL_PROGRAM) -D $(MONITOR) $(DESTDIR)$(sbindir)/$(MONITOR)
 	$(INSTALL_PROGRAM) -D $(INFO) $(DESTDIR)$(usrbindir)/$(INFO)
 	$(INSTALL_PROGRAM) -D $(TESTER) $(DESTDIR)$(usrbindir)/$(TESTER)
 	$(INSTALL_PROGRAM) -D $(STARTER) $(DESTDIR)$(sbindir)/$(STARTER)
@@ -399,6 +406,7 @@ uninstall: uninstall-man
 	- rm $(sbindir)/$(INITSENDER)
 	- rm $(sbindir)/$(RECORDER)
 	- rm $(sbindir)/$(CONTROL)
+	- rm $(sbindir)/$(MONITOR)
 	- rm $(sbindir)/$(STARTER)
 	- rm $(usrbindir)/$(INFO)
 	- rm $(usrbindir)/$(TESTER)
