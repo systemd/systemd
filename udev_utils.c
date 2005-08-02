@@ -403,6 +403,7 @@ int pass_env_to_socket(const char *sockname, const char *devpath, const char *ac
 	if (retval != -1)
 		retval = 0;
 
+	close(sock);
 	return retval;
 }
 

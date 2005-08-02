@@ -1,3 +1,25 @@
+udev 065
+========
+We can use socket communication now to pass events from udev to
+other programs:
+  RUN+="socket:/org/freedesktop/hal/udev_event"
+will pass the whole udev event to the HAL daemon without the need
+for a forked helper. (See ChangeLog for udevmonitor, as an example)
+
+udev 064
+========
+Mostly bugfixes and see ChangeLog.
+
+The test for the existence of an environment value should be
+switched from:
+  ENV{KEY}=="*" to ENV{KEY}=="?*"
+cause "*" will not fail anymore, if the key does not exist or
+is empty.
+
+udev 063
+========
+Bugfixes and a few tweaks described in the ChangeLog.
+
 udev 062
 ========
 Mostly a Bugfix release.
