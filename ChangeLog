@@ -1,3 +1,18 @@
+Summary of changes from v064 to v065
+============================================
+
+Greg Kroah-Hartman:
+  Added persistent name rules for block devices to gentoo rule file.
+  Added horrible (but fun) path_id script to extras.
+  Update gentoo rules file.
+
+Kay Sievers:
+  update release notes for next version
+  add udevmonitor, to debug netlink+udev events at the same time
+  allow RUN to send the environment to a local socket
+  fix GGC signed pointer warnings and switch volume_id to stdint
+
+
 Summary of changes from v063 to v064
 ============================================
 
