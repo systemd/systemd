@@ -295,6 +295,7 @@ static int find_free_number(struct udevice *udev, const char *name)
 static int find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device,
 				const char *name, char *value, size_t len)
 {
+	struct sysfs_class_device *class_dev_parent;
 	struct sysfs_attribute *tmpattr;
 
 	dbg("look for device attribute '%s'", name);
@@ -303,6 +304,12 @@ static int find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sys
 		tmpattr = sysfs_get_classdev_attr(class_dev, name);
 		if (tmpattr)
 			goto attr_found;
+		class_dev_parent = sysfs_get_classdev_parent(class_dev);
+		if (class_dev_parent) {
+			tmpattr = sysfs_get_classdev_attr(class_dev_parent, name);
+			if (tmpattr)
+				goto attr_found;
+		}
 	}
 	if (sysfs_device) {
 		dbg("look for devices attribute '%s/%s'", sysfs_device->path, name);
