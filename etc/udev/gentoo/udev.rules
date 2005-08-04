@@ -245,6 +245,12 @@ KERNEL=="tpm*",	NAME="%k", OWNER="tss", GROUP="tss", MODE="0600"
 
 # block device disk id's
 SUBSYSTEM=="block", GROUP="disk", MODE="0640"
+
+# skip accessing removable ide devices, cause the ide drivers are horrible broken
+SUBSYSTEM=="block", BUS=="ide", SYSFS{removable}="1", GOTO="no_volume_id"
+SUBSYSTEM=="block", BUS=="ide", SYSFS{../removable}="1", GOTO="no_volume_id"
+
+# persistent disk device links /dev/disk/
 KERNEL=="hd*[!0-9]", ACTION=="add", IMPORT="/etc/udev/scripts/ata_id --export $tempnode"
 KERNEL=="hd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="$env{ID_TYPE}/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
 KERNEL=="hd*[0-9]", ACTION=="add", IMPORT{parent}=="ID_*", SYMLINK+="$env{ID_TYPE}/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
