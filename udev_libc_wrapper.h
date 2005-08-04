@@ -42,6 +42,10 @@
 #define __FD_ZERO(set) ((void) memset ((void*) (set), 0, sizeof (fd_set)))
 #endif
 
+#ifndef NETLINK_KOBJECT_UEVENT
+#define NETLINK_KOBJECT_UEVENT 15
+#endif
+
 #include <string.h>
 
 #ifdef __KLIBC__
