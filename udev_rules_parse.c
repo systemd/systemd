@@ -650,10 +650,12 @@ int udev_rules_init(struct udev_rules *rules, int resolve_names)
 
 void udev_rules_close(struct udev_rules *rules)
 {
-	if (rules->mapped)
-		file_unmap(rules->buf, rules->bufsize);
-	else
-		free(rules->buf);
-
-	rules->buf = NULL;
+	if (rules->buf) {
+		if (rules->mapped) {
+			rules->mapped = 0;
+			file_unmap(rules->buf, rules->bufsize);
+		} else
+			free(rules->buf);
+		rules->buf = NULL;
+	}
 }

@@ -58,6 +58,7 @@ static int pipefds[2];
 static volatile int sigchilds_waiting;
 static volatile int run_msg_q;
 static volatile int sig_flag;
+static volatile int udev_exit;
 static int init_phase = 1;
 static int run_exec_q;
 static int stop_exec_q;
@@ -641,23 +642,20 @@ static void asmlinkage sig_handler(int signum)
 	switch (signum) {
 		case SIGINT:
 		case SIGTERM:
-			exit(20 + signum);
+			udev_exit = 1;
 			break;
 		case SIGALRM:
 			/* set flag, then write to pipe if needed */
 			run_msg_q = 1;
-			goto do_write;
 			break;
 		case SIGCHLD:
 			/* set flag, then write to pipe if needed */
 			sigchilds_waiting = 1;
-			goto do_write;
 			break;
 	}
 
-do_write:
-	/* if pipe is empty, write to pipe to force select to return
-	 * immediately when it gets called
+	/* if pipe is empty, write to pipe to force select to return,
+	 * which will wakeup our mainloop
 	 */
 	if (!sig_flag) {
 		rc = write(pipefds[1],&signum,sizeof(signum));
@@ -839,7 +837,7 @@ int main(int argc, char *argv[], char *envp[])
 	chdir("/");
 	umask(umask(077) | 022);
 
-	/*set a reasonable scheduling priority for the daemon */
+	/* set a reasonable scheduling priority for the daemon */
 	setpriority(PRIO_PROCESS, 0, UDEVD_PRIORITY);
 
 	/* Set fds to dev/null */
@@ -887,6 +885,7 @@ int main(int argc, char *argv[], char *envp[])
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGALRM, &act, NULL);
 	sigaction(SIGCHLD, &act, NULL);
+	sigaction(SIGHUP, &act, NULL);
 
 	if (init_uevent_netlink_sock() < 0) {
 		dbg("uevent socket not available");
@@ -941,11 +940,11 @@ int main(int argc, char *argv[], char *envp[])
 
 	FD_ZERO(&readfds);
 	FD_SET(udevd_sock, &readfds);
-	if (uevent_netlink_sock != -1)
+	if (uevent_netlink_sock > 0)
 		FD_SET(uevent_netlink_sock, &readfds);
 	FD_SET(pipefds[0], &readfds);
 	maxsockplus = udevd_sock+1;
-	while (1) {
+	while (!udev_exit) {
 		struct uevent_msg *msg;
 
 		fd_set workreadfds = readfds;
@@ -957,6 +956,7 @@ int main(int argc, char *argv[], char *envp[])
 			continue;
 		}
 
+		/* get user socket message */
 		if (FD_ISSET(udevd_sock, &workreadfds)) {
 			msg = get_udevd_msg();
 			if (msg) {
@@ -970,6 +970,7 @@ int main(int argc, char *argv[], char *envp[])
 			}
 		}
 
+		/* get kernel netlink message */
 		if (FD_ISSET(uevent_netlink_sock, &workreadfds)) {
 			msg = get_netlink_msg();
 			if (msg) {
@@ -982,9 +983,11 @@ int main(int argc, char *argv[], char *envp[])
 			}
 		}
 
+		/* received a signal, clear our notification pipe */
 		if (FD_ISSET(pipefds[0], &workreadfds))
 			user_sighandler();
 
+		/* forked child have returned */
 		if (sigchilds_waiting) {
 			sigchilds_waiting = 0;
 			reap_sigchilds();
@@ -1009,6 +1012,13 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 exit:
+	if (udevd_sock > 0)
+		close(udevd_sock);
+
+	if (uevent_netlink_sock > 0)
+		close(uevent_netlink_sock);
+
 	logging_close();
-	return 1;
+
+	return 0;
 }
