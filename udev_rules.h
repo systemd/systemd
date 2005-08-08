@@ -104,7 +104,7 @@ struct udev_rules {
 	int resolve_names;
 };
 
-extern int udev_rules_init(struct udev_rules *rules, int resolve_names);
+extern int udev_rules_init(struct udev_rules *rules, int read_compiled, int resolve_names);
 extern void udev_rules_close(struct udev_rules *rules);
 
 extern void udev_apply_format(struct udevice *udev, char *string, size_t maxsize,

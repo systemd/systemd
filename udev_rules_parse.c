@@ -607,7 +607,7 @@ static int rules_map(struct udev_rules *rules, const char *filename)
 	return 0;
 }
 
-int udev_rules_init(struct udev_rules *rules, int resolve_names)
+int udev_rules_init(struct udev_rules *rules, int read_compiled, int resolve_names)
 {
 	char comp[PATH_SIZE];
 	struct stat stats;
@@ -617,14 +617,17 @@ int udev_rules_init(struct udev_rules *rules, int resolve_names)
 	rules->resolve_names = resolve_names;
 
 	/* check for precompiled rules */
-	strlcpy(comp, udev_rules_filename, sizeof(comp));
-	strlcat(comp, ".compiled", sizeof(comp));
-	if (stat(comp, &stats) == 0) {
-		dbg("map compiled rules '%s'", comp);
-		if (rules_map(rules, comp) == 0)
-			return 0;
+	if (read_compiled) {
+		strlcpy(comp, udev_rules_filename, sizeof(comp));
+		strlcat(comp, ".compiled", sizeof(comp));
+		if (stat(comp, &stats) == 0) {
+			dbg("map compiled rules '%s'", comp);
+			if (rules_map(rules, comp) == 0)
+				return 0;
+		}
 	}
 
+	/* parse rules file or all matching files in directory */
 	if (stat(udev_rules_filename, &stats) != 0)
 		return -1;
 

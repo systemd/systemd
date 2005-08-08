@@ -92,7 +92,7 @@ int main(int argc, char *argv[], char *envp[])
 	info("looking at device '%s' from subsystem '%s'", devpath, subsystem);
 
 	/* initialize the naming deamon */
-	udev_rules_init(&rules, 0);
+	udev_rules_init(&rules, 0, 0);
 
 	/* fill in values and test_run flag*/
 	udev_init_device(&udev, devpath, subsystem, "add");

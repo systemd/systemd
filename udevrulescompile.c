@@ -69,7 +69,7 @@ int main(int argc, char *argv[], char *envp[])
 	unlink(comp);
 	unlink(comp_tmp);
 
-	udev_rules_init(&rules, 1);
+	udev_rules_init(&rules, 0, 1);
 
 	f = fopen(comp_tmp, "w");
 	if (f == NULL) {
