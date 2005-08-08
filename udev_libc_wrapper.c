@@ -159,7 +159,8 @@ static unsigned long get_id_by_name(const char *uname, const char *dbfile)
 		if (count >= sizeof(line))
 			continue;
 
-		strlcpy(line, bufline, count);
+		memcpy(line, bufline, count-1);
+		line[count-1] = '\0';
 		pos = line;
 
 		/* get name */

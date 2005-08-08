@@ -89,7 +89,7 @@ static int get_key(char **line, char **key, enum key_operation *operation, char 
 	char *temp;
 
 	linepos = *line;
-	if (!linepos)
+	if (linepos == NULL && linepos[0] == '\0')
 		return -1;
 
 	/* skip whitespace */
@@ -97,7 +97,10 @@ static int get_key(char **line, char **key, enum key_operation *operation, char 
 		linepos++;
 
 	/* get the key */
+	if (linepos[0] == '\0')
+		return -1;
 	*key = linepos;
+
 	while (1) {
 		linepos++;
 		if (linepos[0] == '\0')
@@ -120,6 +123,8 @@ static int get_key(char **line, char **key, enum key_operation *operation, char 
 	/* skip whitespace after key */
 	while (isspace(linepos[0]))
 		linepos++;
+	if (linepos[0] == '\0')
+		return -1;
 
 	/* get operation type */
 	if (linepos[0] == '=' && linepos[1] == '=') {
@@ -152,6 +157,8 @@ static int get_key(char **line, char **key, enum key_operation *operation, char 
 	/* skip whitespace after operator */
 	while (isspace(linepos[0]))
 		linepos++;
+	if (linepos[0] == '\0')
+		return -1;
 
 	/* get the value*/
 	if (linepos[0] == '"')
@@ -634,6 +641,7 @@ int udev_rules_init(struct udev_rules *rules, int resolve_names)
 		list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
 			parse_file(rules, name_loop->name);
 			list_del(&name_loop->node);
+			free(name_loop);
 		}
 	}
 

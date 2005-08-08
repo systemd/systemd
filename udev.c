@@ -131,6 +131,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}
 
+	udev_rules_close(&rules);
 	udev_cleanup_device(&udev);
 
 exit:

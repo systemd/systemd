@@ -137,7 +137,8 @@ static int parse_config_file(void)
 		if (bufline[0] == COMMENT_CHARACTER)
 			continue;
 
-		strlcpy(line, bufline, count+1);
+		memcpy(line, bufline, count);
+		line[count] = '\0';
 
 		linepos = line;
 		retval = get_key(&linepos, &variable, &value);

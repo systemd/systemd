@@ -187,7 +187,8 @@ static int import_keys_into_env(struct udevice *udev, const char *buf, size_t bu
 		if (bufline[0] == COMMENT_CHARACTER)
 			continue;
 
-		strlcpy(line, bufline, count+1);
+		memcpy(line, bufline, count);
+		line[count] = '\0';
 
 		linepos = line;
 		if (get_key(&linepos, &variable, &value) == 0) {
