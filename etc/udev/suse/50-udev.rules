@@ -191,7 +191,6 @@ KERNEL=="dm-[0-9]*", ACTION=="add", PROGRAM="/sbin/udev.devmap_name.sh %M %m", N
 # persistent disk device links /dev/disk/
 # skip rules for for ram/loop/fd
 SUBSYSTEM=="block", KERNEL=="ram*|loop*|fd*", GOTO="persistent_end"
-SUBSYSTEM!="block", GOTO="persistent_end"
 ACTION!="add", GOTO="persistent_end"
 
 # never access removable ide devices, the drivers are causing event loops on open()
@@ -202,11 +201,13 @@ KERNEL=="hd*[!0-9]", IMPORT="/sbin/ata_id --export $tempnode"
 KERNEL=="hd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="$env{ID_TYPE}/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
 KERNEL=="hd*[0-9]", IMPORT{parent}=="ID_*", SYMLINK+="$env{ID_TYPE}/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
 
-KERNEL=="sd*[!0-9]", SYSFS{ieee1394_id}=="*", IMPORT="/bin/echo -e 'ID_SERIAL=$sysfs{ieee1394_id}\nID_BUS=ieee1394\nID_TYPE=disk'"
-KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="", IMPORT="/sbin/usb_id -x"
-KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="", IMPORT="/sbin/scsi_id -g -x -s %p"
-KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="", IMPORT="/sbin/scsi_id -g -x -a -s %p"
-KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="$env{ID_TYPE}/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
+KERNEL=="sd*[!0-9]|sr*", SYSFS{ieee1394_id}=="*", IMPORT="/bin/echo -e 'ID_SERIAL=$sysfs{ieee1394_id}\nID_BUS=ieee1394\nID_TYPE=disk'"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT="/sbin/usb_id -x"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT="/sbin/scsi_id -g -x -s %p"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT="/sbin/scsi_id -g -x -a -s %p"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="?*", SYMLINK+="$env{ID_TYPE}/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
+
+# for partitions import parent information
 KERNEL=="sd*[0-9]", IMPORT{parent}=="ID_*"
 KERNEL=="sd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="$env{ID_TYPE}/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
 
@@ -223,7 +224,8 @@ KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="$env{ID_TYPE}/by-path/$env{ID_PA
 # by-label/by-uuid (filesystem properties)
 KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_end"
 KERNEL=="sr*", GOTO="persistent_end"
-KERNEL=="*[0-9]", ACTION=="add", IMPORT="/sbin/vol_id --export $tempnode"
+SUBSYSTEM!="block", GOTO="persistent_end"
+KERNEL=="*[0-9]", IMPORT="/sbin/vol_id --export $tempnode"
 KERNEL=="*[0-9]", ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
 KERNEL=="*[0-9]", ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
 LABEL="persistent_end"
@@ -253,5 +255,5 @@ RUN+="/usr/sbin/hal.hotplug"
 RUN+="socket:/org/kernel/udev/monitor"
 
 # debug events to /events, but not on default udev_log="err"
-ENV{UDEV_LOG}=="[4567]", RUN+="/sbin/hotplugeventrecorder"
+ENV{UDEV_LOG}=="[4-9]", RUN+="/sbin/hotplugeventrecorder"
 
