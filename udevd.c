@@ -1,5 +1,5 @@
 /*
- * udevd.c - hotplug event serializer
+ * udevd.c - event listener and serializer
  *
  * Copyright (C) 2004-2005 Kay Sievers <kay.sievers@vrfy.org>
  * Copyright (C) 2004 Chris Friesen <chris_friesen@sympatico.ca>

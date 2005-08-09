@@ -1,5 +1,5 @@
 
-udev - a userspace implementation of devfs
+udev - a userspace device manager
 
 For more information on the design, and structure of this project, see the
 files in the docs/ directory.
@@ -10,18 +10,24 @@ To use:
 
 - Your 2.6 kernel must have had CONFIG_HOTPLUG enabled when it was built.
 
-- Make sure sysfs is mounted at /sys. You can mount it by running:
+- Make sure sysfs is mounted at /sys. No other location is supported.
+  You can mount it by running:
   	mount -t sysfs none /sys
 
-- Make sure you have the latest version of the linux-hotplug scripts.  They are
-  available at linux-hotplug.sf.net or from your local kernel.org mirror at:
-	kernel.org/pub/linux/utils/kernel/hotplug/
-  They are required in order for udev to work properly.
+- Make sure you integrate udev with your hotplug setup. There is a copy of
+  the rules files for all major distros in the etc/udev folder. You may look
+  there how others are doing it.
 
-  If for some reason you do not install the hotplug scripts, you must tell the
-  kernel to point the hotplug binary at wherever you install udev at.  This can
-  be done by:
+- Make sure you integrate with the kernel hotplug events. Later versions of
+  udev are able to listen directly to a netlink socket, older versions used
+  udevsend to feed the udev daemon with the kernel event. The most basic
+  setup to run udev is to let the kernel for the udev binary directly:
 	echo "/sbin/udev" > /proc/sys/kernel/hotplug
+
+  While this may work in some setups, it is not recommended to do. A recent
+  kernel and udev version is able to operate with the event serializing daemon
+  udevd, that makes sure, that no "remove" event will beat a "add" event for
+  the same device.
 
 - Build the project:
 	make
@@ -59,30 +65,30 @@ To use:
       would do:
 	make USE_KLIBC=true DEBUG=true
 
+      udev will follow the setting of the debug level in udev.conf. Adapt this
+      value to see the debug in syslog.
+
 - Install the project:
 	make install
 
-  This will put the udev binary in /sbin, create the /udev and /etc/udev
-  directories, and place the udev configuration files in /etc/udev.  You
+  This will put the udev binaries in /sbin, create the and /etc/udev
+  directories, and place the udev configuration files in /etc/udev/.  You
   will probably want to edit the *.rules files to create custom naming
   rules.  More info on how the config files are set up are contained in
   comments in the files, and is located in the documentation.
 
 - Add and remove devices from the system and marvel as nodes are created
-  and removed in /udev/ based on the device types.
+  and removed in /dev based on the device types.
 
 - If you later get sick of it, uninstall it:
 	make uninstall
 
-
-Things are still quite rough, but it should work properly.  If nothing
-seems to happen, make sure your build worked properly by running the
-udev-test.pl script as root in the test/ subdirectory of the udev source
-tree.
+If nothing seems to happen, make sure your build worked properly by
+running the udev-test.pl script as root in the test/ subdirectory of the
+udev source tree.
 
 Development and documentation help is very much appreciated, see the TODO
 file for a list of things left to be done.
-
 
 Any comment/questions/concerns please let me and the other udev developers
 know by sending a message to the linux-hotplug-devel mailing list at:

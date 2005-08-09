@@ -381,7 +381,6 @@ If set to "0", it disables the execution of programs added by rules.
 .SH "SEE ALSO"
 .BR udevinfo (8),
 .BR udevd (8),
-.BR hotplug (8)
 .PP
 .B Web resources:
 .nf
