@@ -27,6 +27,7 @@ KERNEL=="ptmx",		MODE="0666", GROUP="root"
 KERNEL=="console",	MODE="0600", GROUP="root"
 KERNEL=="tty",		MODE="0666", GROUP="root"
 KERNEL=="tty[0-9]*",	GROUP="root"
+KERNEL=="pty*",		MODE="0666", GROUP="tty"
 
 # video devices
 SUBSYSTEM=="video4linux", GROUP="video"

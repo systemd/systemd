@@ -1,0 +1,49 @@
+# This file contains the rules needed to create persistent device names.
+
+# we are only interested in add actions for block devices
+ACTION!="add",		GOTO="no_volume_id"
+SUBSYSTEM!="block",	GOTO="no_volume_id"
+
+# and we can safely ignore these kinds of devices
+KERNEL=="ram*|loop*|fd*|sr*", GOTO="no_volume_id"
+
+# disk id
+KERNEL=="hd*[!0-9]",	IMPORT="/sbin/ata_id --export $tempnode"
+KERNEL=="hd*[!0-9]",	ENV{ID_SERIAL}=="?*", \
+	SYMLINK+="$env{ID_TYPE}/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
+
+KERNEL=="hd*[0-9]",	IMPORT{parent}="ID_*"
+KERNEL=="hd*[0-9]",	ENV{ID_SERIAL}=="?*", \
+	SYMLINK+="$env{ID_TYPE}/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
+
+KERNEL=="sd*[!0-9]",	SYSFS{ieee1394_id}=="*", \
+	IMPORT="/bin/echo -e 'ID_SERIAL=$sysfs{ieee1394_id}\nID_BUS=ieee1394\nID_TYPE=disk'"
+KERNEL=="sd*[!0-9]",	ENV{ID_SERIAL}=="", IMPORT="/sbin/usb_id -x"
+KERNEL=="sd*[!0-9]",	ENV{ID_SERIAL}=="", \
+	IMPORT="/sbin/scsi_id -g -x -a -s %p"
+KERNEL=="sd*[!0-9]",	ENV{ID_SERIAL}=="?*", \
+	SYMLINK+="$env{ID_TYPE}/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
+
+KERNEL=="sd*[0-9]",	IMPORT{parent}="ID_*"
+KERNEL=="sd*[0-9]",	ENV{ID_SERIAL}=="?*", \
+	SYMLINK+="$env{ID_TYPE}/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
+
+# path
+KERNEL=="*[!0-9]",	ENV{ID_TYPE}=="?*", IMPORT="/sbin/path_id %p", \
+	SYMLINK+="$env{ID_TYPE}/by-path/$env{ID_PATH}"
+
+KERNEL=="*[0-9]",	IMPORT{parent}="ID_*"
+KERNEL=="*[0-9]",	ENV{ID_PATH}=="?*", \
+	SYMLINK+="$env{ID_TYPE}/by-path/$env{ID_PATH}-part%n"
+
+# volume label and uuid
+KERNEL=="*[!0-9]",	SYSFS{removable}=="1", GOTO="no_volume_id"
+KERNEL=="*[0-9]",	IMPORT="/sbin/vol_id --export $tempnode"
+KERNEL=="*[0-9]",	ENV{ID_FS_UUID}=="?*", \
+	SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
+KERNEL=="*[0-9]",	ENV{ID_FS_LABEL_SAFE}=="?*", \
+	SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
+
+# end of processing
+SUBSYSTEM=="block", LABEL="no_volume_id"
+

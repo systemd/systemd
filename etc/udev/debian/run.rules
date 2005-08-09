@@ -3,5 +3,6 @@ KERNEL=="ptmx",		OPTIONS+="last_rule"
 KERNEL=="console",	OPTIONS+="last_rule"
 KERNEL=="tty"	,	OPTIONS+="last_rule"
 KERNEL=="tty[0-9]*",	OPTIONS+="last_rule"
+KERNEL=="pty*",		OPTIONS+="last_rule"
 SUBSYSTEM=="vc",	OPTIONS+="last_rule"
 
