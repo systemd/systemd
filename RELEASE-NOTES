@@ -1,3 +1,9 @@
+udev 066
+========
+Minor bugfixes and some distro rules updates. If you don't have the
+persistent disk rules in /dev/disk/by-*/* on your distro, just
+grab it from here. :)
+
 udev 065
 ========
 We can use socket communication now to pass events from udev to

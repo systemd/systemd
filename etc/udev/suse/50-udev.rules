@@ -185,7 +185,6 @@ KERNEL=="iseries/ibmsis*",	NAME="%k", GROUP="disk"
 
 # device mapper targets
 KERNEL=="device-mapper", ACTION=="add", NAME="%k", SYMLINK+="mapper/control"
-KERNEL=="dm-[0-9]*", ACTION=="add", PROGRAM="/sbin/udev.devmap_name.sh %M %m | /bin/sed 's.--._.;s.-./.;s._.-.'", SYMLINK+="%c"
 KERNEL=="dm-[0-9]*", ACTION=="add", PROGRAM="/sbin/udev.devmap_name.sh %M %m", NAME="mapper/%c"
 
 # persistent disk device links /dev/disk/
@@ -235,8 +234,9 @@ KERNEL=="tun", NAME="net/%k", MODE="0600"
 SUBSYSTEM=="net", ACTION=="add", RUN+="/sbin/ifup $env{INTERFACE} -o hotplug"
 SUBSYSTEM=="net", ACTION=="remove", RUN+="/sbin/ifdown %k -o hotplug"
 
-# mount usbfs
+# libusb device access (mount usbfs or usbdev nodes)
 DEVPATH=="/module/usbcore", ACTION=="add", RUN+="/bin/mount -t usbfs usbfs /proc/bus/usb"
+SUBSYSTEM="usb_device", PROGRAM="/bin/sh -c 'X=%k X=$${X#usbdev} B=$${X%%%%.*} D=$${X#*.}; echo bus/usb/$$B/$$D'", SYMLINK="%c"
 
 # firmware loader
 SUBSYSTEM=="firmware", ACTION=="add", RUN+="/etc/hotplug.d/firmware/50-firmware.hotplug"

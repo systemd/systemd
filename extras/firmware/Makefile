@@ -1,4 +1,4 @@
-# Makefile for usb_id
+# Makefile for firmware_helper
 #
 # Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
 #
