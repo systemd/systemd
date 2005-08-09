@@ -38,7 +38,7 @@
 #undef err
 #define err(format, arg...)							\
 	do {									\
-		log_message(LOG_INFO ,"%s: " format ,__FILE__ ,## arg);		\
+		log_message(LOG_ERR ,"%s: " format ,__FILE__ ,## arg);		\
 	} while (0)
 
 #undef info

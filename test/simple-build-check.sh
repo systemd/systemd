@@ -8,7 +8,8 @@ EXTRAS="\
 	extras/usb_id \
 	extras/dasd_id \
 	extras/floppy \
-	extras/run_directory"
+	extras/run_directory \
+	extras/firmware"
 
 [ -z "$KERNEL_DIR" ] && KERNEL_DIR=/lib/modules/`uname -r`/build
 echo KERNEL_DIR: "$KERNEL_DIR"
