@@ -85,7 +85,8 @@ To use:
 
 If nothing seems to happen, make sure your build worked properly by
 running the udev-test.pl script as root in the test/ subdirectory of the
-udev source tree.
+udev source tree. Running udevstart should populate an empty /dev
+directory. You may test, if a node is recreated after running udevstart.
 
 Development and documentation help is very much appreciated, see the TODO
 file for a list of things left to be done.
