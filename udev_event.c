@@ -28,10 +28,6 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <syslog.h>
-#include <sys/wait.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <sys/utsname.h>
 
 #include "udev_libc_wrapper.h"
 #include "udev.h"

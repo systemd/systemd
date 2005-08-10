@@ -136,7 +136,6 @@ SYSFS_OBJS = \
 	libsysfs/dlist.o
 
 UDEV_OBJS = \
-	udev_utils.o			\
 	udev_event.o			\
 	udev_device.o			\
 	udev_config.o			\
@@ -146,6 +145,9 @@ UDEV_OBJS = \
 	udev_db.o			\
 	udev_rules.o			\
 	udev_rules_parse.o		\
+	udev_utils.o			\
+	udev_utils_file.o		\
+	udev_utils_run.o		\
 	udev_libc_wrapper.o
 
 OBJS = \
