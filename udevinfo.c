@@ -289,7 +289,7 @@ int main(int argc, char *argv[], char *envp[])
 			}
 			retval = udev_db_get_device(&udev, pos);
 			if (retval != 0) {
-				fprintf(stderr, "device not found in database\n");
+				fprintf(stderr, "no record for '%s' in database\n", pos);
 				goto exit;
 			}
 			goto print;
@@ -329,7 +329,7 @@ print:
 			goto exit;
 		case QUERY_SYMLINK:
 			if (list_empty(&udev.symlink_list))
-				break;
+				goto exit;
 			if (root)
 				list_for_each_entry(name_loop, &udev.symlink_list, node)
 					printf("%s/%s ", udev_root, name_loop->name);
