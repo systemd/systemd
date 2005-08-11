@@ -37,7 +37,8 @@ BUS=="ide",  KERNEL="hd[a-z]", PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYM
 BUS=="scsi", KERNEL="sr[0-9]*", PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYMLINK+="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
 BUS=="scsi", KERNEL="scd[a-z]", PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYMLINK+="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
 
-# devfs-names for ide-devices (uncomment only one)
+# devfs-names for ide-devices
+# Note, this is going away soon...
 #  /dev/ide/.../{disc,cd} and /dev/{cdroms,discs}/* type names
 BUS=="ide", KERNEL="hd*", PROGRAM="/etc/udev/scripts/ide-devfs.sh %k %b %n", NAME="%k", SYMLINK+="%c{1} %c{2}", GROUP="%c{3}"
 
@@ -243,8 +244,9 @@ KERNEL=="issm*",	NAME="infiniband/%k"
 # tpm devices
 KERNEL=="tpm*",	NAME="%k", OWNER="tss", GROUP="tss", MODE="0600"
 
-# block device disk id's
-SUBSYSTEM=="block", GROUP="disk", MODE="0640"
+#######################################
+# Persistant block device stuff - begin
+#######################################
 
 # skip accessing removable ide devices, cause the ide drivers are horrible broken
 SUBSYSTEM=="block", BUS=="ide", SYSFS{removable}="1", GOTO="no_volume_id"
@@ -252,25 +254,25 @@ SUBSYSTEM=="block", BUS=="ide", SYSFS{../removable}="1", GOTO="no_volume_id"
 
 # persistent disk device links /dev/disk/
 KERNEL=="hd*[!0-9]", ACTION=="add", IMPORT="/etc/udev/scripts/ata_id --export $tempnode"
-KERNEL=="hd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="$env{ID_TYPE}/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
-KERNEL=="hd*[0-9]", ACTION=="add", IMPORT{parent}=="ID_*", SYMLINK+="$env{ID_TYPE}/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
+KERNEL=="hd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
+KERNEL=="hd*[0-9]", ACTION=="add", IMPORT{parent}=="ID_*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
 
-KERNEL=="sd*[!0-9]", ACTION=="add", SYSFS{ieee1394_id}=="*", IMPORT="/bin/echo -e 'ID_SERIAL=$sysfs{ieee1394_id}\nID_BUS=ieee1394\nID_TYPE=disk'"
+KERNEL=="sd*[!0-9]", ACTION=="add", SYSFS{ieee1394_id}=="*", IMPORT="/bin/echo -e 'ID_SERIAL=$sysfs{ieee1394_id}\nID_BUS=ieee1394'"
 KERNEL=="sd*[!0-9]", ACTION=="add", ENV{ID_SERIAL}=="", IMPORT="/etc/udev/scripts/usb_id -x"
 KERNEL=="sd*[!0-9]", ACTION=="add", ENV{ID_SERIAL}=="", IMPORT="/etc/udev/scripts/scsi_id -g -x -s %p"
 KERNEL=="sd*[!0-9]", ACTION=="add", ENV{ID_SERIAL}=="", IMPORT="/etc/udev/scripts/scsi_id -g -x -a -s %p"
-KERNEL=="sd*[!0-9]", ACTION=="add", ENV{ID_SERIAL}=="?*", SYMLINK+="$env{ID_TYPE}/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
+KERNEL=="sd*[!0-9]", ACTION=="add", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 KERNEL=="sd*[0-9]", ACTION=="add", IMPORT{parent}=="ID_*"
-KERNEL=="sd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="$env{ID_TYPE}/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
+KERNEL=="sd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
 
 # Skip id for ram / loop / fd
 SUBSYSTEM=="block", KERNEL=="ram*", GOTO="no_volume_id"
 SUBSYSTEM=="block", KERNEL=="loop*", GOTO="no_volume_id"
 SUBSYSTEM=="block", KERNEL=="fd*", GOTO="no_volume_id"
 
-SUBSYSTEM=="block", KERNEL=="*[!0-9]", ACTION=="add", ENV{ID_TYPE}=="?*", IMPORT="/etc/udev/scripts/path_id %p", SYMLINK+="$env{ID_TYPE}/by-path/$env{ID_PATH}"
+SUBSYSTEM=="block", KERNEL=="*[!0-9]", ACTION=="add", ENV{ID_TYPE}=="?*", IMPORT="/etc/udev/scripts/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
 SUBSYSTEM=="block", KERNEL=="*[0-9]", ACTION=="add", IMPORT{parent}=="ID_*"
-SUBSYSTEM=="block", KERNEL=="*[0-9]", ACTION=="add", ENV{ID_PATH}=="?*", SYMLINK+="$env{ID_TYPE}/by-path/$env{ID_PATH}-part%n"
+SUBSYSTEM=="block", KERNEL=="*[0-9]", ACTION=="add", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 
 # volume-label/uuid
 SUBSYSTEM=="block", KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="no_volume_id"
@@ -280,6 +282,9 @@ SUBSYSTEM=="block", KERNEL=="*[0-9]", ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-u
 SUBSYSTEM=="block", KERNEL=="*[0-9]", ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
 SUBSYSTEM=="block", LABEL="no_volume_id"
 
+#####################################
+# Persistant block device stuff - end
+#####################################
 
 # be backward compatible for a while with the /etc/dev.d and /etc/hotplug.d/ systems
 # run /etc/hotplug.d/ stuff only if we came from a hotplug event, not for udevstart
