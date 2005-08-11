@@ -41,7 +41,7 @@ EXTRAS=
 # make the build silent. Set this to something else to make it noisy again.
 V=false
 
-VERSION =	065
+VERSION =	066
 ROOT =		udev
 DAEMON =	udevd
 SENDER =	udevsend

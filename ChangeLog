@@ -1,3 +1,42 @@
+Summary of changes from v065 to v066
+============================================
+
+Greg Kroah-Hartman:
+  update gentoo rule file.
+  Created cdrom_id program to make it easier to determine cdrom types
+  added cdrom_id to the build check
+  updated gentoo rule file to handle removable ide devices.
+  changed cdrom_id exports to be easier to understand and consistant with other _id programs.
+  fix klibc build issue in cdrom_id.c
+  Change the gentoo rules to use cdrom_id instead of cdsymlink.sh
+  changed location of gentoo helper apps to be /sbin instead of in scripts dir
+  tweak the gentoo rules some more.
+
+Kay Sievers:
+  add NETLINK define for the lazy distros
+  read sysfs attribute also from parent class device
+  switch some strlcpy's to memcpy
+  allow clean shutdown of udevd
+  add flag for reading of precompiled rules
+  update distro rules files
+  add SUSE rules
+  update SUSE rules
+  add firmware_helper to load firmware
+  more distro rules updates
+  update README
+  remove example rules and put the dev.d stuff into the run_directory folder
+  trivial text cleanups
+  update SUSE rules
+  split udev_util in several files
+  update SUSE rules
+  allow logging of all output from executed tools
+  add Usage: to udevmonitor and udevcontrol
+  move some logging to the info level
+
+Thierry Vignaud:
+  fix udevinfo output
+
+
 Summary of changes from v064 to v065
 ============================================
 
