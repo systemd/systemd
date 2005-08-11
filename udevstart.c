@@ -315,10 +315,7 @@ static void udev_scan_class(void)
 					snprintf(dirname2, sizeof(dirname2), "%s/%s", dirname, dent2->d_name);
 					dirname2[sizeof(dirname2)-1] = '\0';
 
-					/* pass the net class as it is */
-					if (strcmp(dent->d_name, "net") == 0)
-						device_list_insert(dirname2, "net", &device_list);
-					else if (has_devt(dirname2))
+					if (has_devt(dirname2) || strcmp(dent->d_name, "net") == 0)
 						device_list_insert(dirname2, dent->d_name, &device_list);
 				}
 				closedir(dir2);

@@ -46,7 +46,7 @@ SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="1604/8006/*", RUN+="/sbin/fxload
 SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="1604/8001/*", RUN+="/sbin/startproc /usr/bin/us428control"
 SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="1604/8005/*", RUN+="/sbin/startproc /usr/bin/us428control"
 SUBSYSTEM=="sound", KERNEL=="controlC?", RUN+="/usr/sbin/alsactl -F restore %n"
-SUBSYSTEM=="sound", KERNEL=="hwC?D2", DRIVER=="EMU10K1_Audigy", RUN+="/etc/dev.d/snd/hwC0D2/alsa"
+SUBSYSTEM=="sound", KERNEL=="hwC?D2", DRIVER=="EMU10K1_Audigy", RUN+="/etc/alsa.d/udev-soundfont"
 
 # OpenCT (SmartCard)
 SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="973/1*", RUN+="/usr/sbin/openct-control attach $env{DEVICE} usb:$env{PRODUCT}"
@@ -221,7 +221,8 @@ KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="$env{ID_TYPE}/by-path/$env{ID_PA
 # by-label/by-uuid (filesystem properties)
 KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_end"
 KERNEL=="sr*", GOTO="persistent_end"
-IMPORT="/sbin/vol_id --export $tempnode"
+KERNEL=="*[0-9]", IMPORT="/sbin/vol_id --export $tempnode"
+KERNEL=="*[!0-9]", SYSFS{range}=="[1-9]*", IMPORT="/sbin/vol_id --export $tempnode"
 ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
 ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
 LABEL="persistent_end"
