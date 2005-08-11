@@ -33,14 +33,13 @@ KERNEL=="ircomm*",	NAME="%k", GROUP="tty"
 SUBSYSTEM=="block", GROUP="disk"
 
 # cdrom symlinks and other good cdrom naming
-BUS=="ide",  KERNEL="hd[a-z]", PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYMLINK+="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
-BUS=="scsi", KERNEL="sr[0-9]*", PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYMLINK+="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
-BUS=="scsi", KERNEL="scd[a-z]", PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", SYMLINK+="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
-
-# devfs-names for ide-devices
-# Note, this is going away soon...
-#  /dev/ide/.../{disc,cd} and /dev/{cdroms,discs}/* type names
-BUS=="ide", KERNEL="hd*", PROGRAM="/etc/udev/scripts/ide-devfs.sh %k %b %n", NAME="%k", SYMLINK+="%c{1} %c{2}", GROUP="%c{3}"
+BUS=="ide",	KERNEL=="hd[a-z]", ACTION=="add", IMPORT="/etc/udev/scripts/cdrom_id --export $tempnode"
+BUS=="scsi",	KERNEL="sr[0-9]*", ACTION=="add", IMPORT="/etc/udev/scripts/cdrom_id --export $tempnode"
+BUS=="scsi",	KERNEL="scd[a-z]", ACTION=="add", IMPORT="/etc/udev/scripts/cdrom_id --export $tempnode"
+ENV{ID_CDROM}=="?*",		SYMLINK+="cdrom%e", GROUP="cdrom"
+ENV{ID_CDROM_CD_RW}=="?*",	SYMLINK+="cdrw%e"
+ENV{ID_CDROM_DVD}=="?*",	SYMLINK+="dvd%e"
+ENV{ID_CDROM_DVD_R}=="?*",	SYMLINK+="dvdrw%e"
 
 # disk devices
 KERNEL=="sd*",		NAME="%k", GROUP="disk"
