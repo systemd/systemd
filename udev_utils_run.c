@@ -29,6 +29,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>
+#include <sys/select.h>
 
 #include "udev_libc_wrapper.h"
 #include "udev.h"
@@ -70,20 +71,19 @@ int pass_env_to_socket(const char *sockname, const char *devpath, const char *ac
 	return retval;
 }
 
-int execute_program(const char *command, const char *subsystem,
-		    char *result, size_t ressize, size_t *reslen)
+int run_program(const char *command, const char *subsystem,
+		char *result, size_t ressize, size_t *reslen, int dbg)
 {
 	int retval = 0;
-	int count;
 	int status;
-	int pipefds[2];
+	int outpipe[2] = {-1, -1};
+	int errpipe[2] = {-1, -1};
 	pid_t pid;
 	char *pos;
 	char arg[PATH_SIZE];
 	char *argv[(sizeof(arg) / 2) + 1];
 	int devnull;
 	int i;
-	size_t len;
 
 	strlcpy(arg, command, sizeof(arg));
 	i = 0;
@@ -102,7 +102,7 @@ int execute_program(const char *command, const char *subsystem,
 			dbg("arg[%i] '%s'", i, argv[i]);
 			i++;
 		}
-		argv[i] =  NULL;
+		argv[i] = NULL;
 		dbg("execute '%s' with parsed arguments", arg);
 	} else {
 		argv[0] = arg;
@@ -111,8 +111,15 @@ int execute_program(const char *command, const char *subsystem,
 		dbg("execute '%s' with subsystem '%s' argument", arg, argv[1]);
 	}
 
-	if (result) {
-		if (pipe(pipefds) != 0) {
+	/* prepare pipes from child to parent */
+	if (result || dbg) {
+		if (pipe(outpipe) != 0) {
+			err("pipe failed");
+			return -1;
+		}
+	}
+	if (dbg) {
+		if (pipe(errpipe) != 0) {
 			err("pipe failed");
 			return -1;
 		}
@@ -121,53 +128,127 @@ int execute_program(const char *command, const char *subsystem,
 	pid = fork();
 	switch(pid) {
 	case 0:
-		/* child dup2 write side of pipe to STDOUT */
+		/* child closes parent ends of pipes */
+		if (outpipe[0] > 0)
+			close(outpipe[0]);
+		if (errpipe[0] > 0)
+			close(errpipe[0]);
+
+		/* discard child output or connect to pipe */
 		devnull = open("/dev/null", O_RDWR);
-		if (devnull >= 0) {
-			dup2(devnull, STDIN_FILENO);
-			if (!result)
-				dup2(devnull, STDOUT_FILENO);
-			dup2(devnull, STDERR_FILENO);
-			close(devnull);
+		if (devnull < 0) {
+			err("open /dev/null failed");
+			exit(1);
 		}
-		if (result)
-			dup2(pipefds[1], STDOUT_FILENO);
+		dup2(devnull, STDIN_FILENO);
+
+		if (outpipe[1] > 0)
+			dup2(outpipe[1], STDOUT_FILENO);
+		else
+			dup2(devnull, STDOUT_FILENO);
+
+		if (errpipe[1] > 0)
+			dup2(errpipe[1], STDERR_FILENO);
+		else
+			dup2(devnull, STDERR_FILENO);
+
+		close(devnull);
 		execv(arg, argv);
+
+		/* we should never reach this */
 		err("exec of program failed");
 		_exit(1);
 	case -1:
 		err("fork of '%s' failed", arg);
 		return -1;
 	default:
-		/* parent reads from pipefds[0] */
-		if (result) {
-			close(pipefds[1]);
-			len = 0;
-			while (1) {
-				count = read(pipefds[0], result + len, ressize - len-1);
-				if (count < 0) {
-					err("read failed with '%s'", strerror(errno));
+		/* read from child if requested */
+		if (outpipe[0] > 0 || errpipe[0] > 0) {
+			size_t count;
+			size_t respos = 0;
+
+			/* parent closes child ends of pipes */
+			if (outpipe[1] > 0)
+				close(outpipe[1]);
+			if (errpipe[1] > 0)
+				close(errpipe[1]);
+
+			/* read child output */
+			while (outpipe[0] > 0 || errpipe[0] > 0) {
+				int fdcount;
+				fd_set readfds;
+
+				FD_ZERO(&readfds);
+				if (outpipe[0] > 0)
+					FD_SET(outpipe[0], &readfds);
+				if (errpipe[0] > 0)
+					FD_SET(errpipe[0], &readfds);
+				fdcount = select(UDEV_MAX(outpipe[0], errpipe[0])+1, &readfds, NULL, NULL, NULL);
+				if (fdcount < 0) {
+					if (errno == EINTR)
+						continue;
 					retval = -1;
 					break;
 				}
 
-				if (count == 0)
-					break;
+				/* get stdout */
+				if (outpipe[0] > 0 && FD_ISSET(outpipe[0], &readfds)) {
+					char inbuf[1024];
 
-				len += count;
-				if (len >= ressize-1) {
-					err("ressize %ld too short", (long)ressize);
-					retval = -1;
-					break;
+					count = read(outpipe[0], inbuf, sizeof(inbuf)-1);
+					if (count <= 0) {
+						close(outpipe[0]);
+						outpipe[0] = -1;
+						if (count < 0) {
+							err("stdin read failed with '%s'", strerror(errno));
+							retval = -1;
+						}
+						continue;
+					}
+					inbuf[count] = '\0';
+					dbg("stdout: '%s'", inbuf);
+
+					if (result) {
+						if (respos + count >= ressize) {
+							err("ressize %ld too short", (long)ressize);
+							retval = -1;
+							continue;
+						}
+						memcpy(&result[respos], inbuf, count);
+						respos += count;
+					}
+				}
+
+				/* get stderr */
+				if (errpipe[0] > 0 && FD_ISSET(errpipe[0], &readfds)) {
+					char errbuf[1024];
+
+					count = read(errpipe[0], errbuf, sizeof(errbuf)-1);
+					if (count <= 0) {
+						close(errpipe[0]);
+						errpipe[0] = -1;
+						if (count < 0)
+							err("stderr read failed with '%s'", strerror(errno));
+						continue;
+					}
+					errbuf[count] = '\0';
+					dbg("stderr: '%s'", errbuf);
 				}
 			}
-			result[len] = '\0';
-			close(pipefds[0]);
-			if (reslen)
-				*reslen = len;
+			if (outpipe[0] > 0)
+				close(outpipe[0]);
+			if (errpipe[0] > 0)
+				close(errpipe[0]);
+
+			/* return the childs stdout string */
+			if (result) {
+				result[respos] = '\0';
+				dbg("result='%s'", result);
+				if (reslen)
+					*reslen = respos;
+			}
 		}
 		waitpid(pid, &status, 0);
-
 		if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
 			dbg("exec program status 0x%x", status);
 			retval = -1;
@@ -176,4 +257,3 @@ int execute_program(const char *command, const char *subsystem,
 
 	return retval;
 }
-

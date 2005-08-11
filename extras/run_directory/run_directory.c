@@ -27,7 +27,7 @@
 #include "../../logging.h"
 #include "run_directory.h"
 
-static int run_program(const char *filename, const char *subsystem)
+static int exec_program(const char *filename, const char *subsystem)
 {
 	pid_t pid;
 
@@ -59,7 +59,7 @@ int run_directory(const char *dir, const char *suffix, const char *subsystem)
 	add_matching_files(&name_list, dir, suffix);
 
 	list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
-		run_program(name_loop->name, subsystem);
+		exec_program(name_loop->name, subsystem);
 		list_del(&name_loop->node);
 	}
 

@@ -27,6 +27,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
+#include <syslog.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 
@@ -221,7 +222,7 @@ static int import_program_into_env(struct udevice *udev, const char *program)
 	char result[1024];
 	size_t reslen;
 
-	if (execute_program(program, udev->subsystem, result, sizeof(result), &reslen) != 0)
+	if (run_program(program, udev->subsystem, result, sizeof(result), &reslen, (udev_log_priority >= LOG_DEBUG)) != 0)
 		return -1;
 	return import_keys_into_env(udev, result, reslen);
 }
@@ -833,8 +834,9 @@ try_parent:
 		strlcpy(program, key_val(rule, &rule->program), sizeof(program));
 		apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
 		dbg("check for PROGRAM program='%s", program);
-		if (execute_program(program, udev->subsystem, result, sizeof(result), NULL) != 0) {
+		if (run_program(program, udev->subsystem, result, sizeof(result), NULL, (udev_log_priority >= LOG_DEBUG)) != 0) {
 			dbg("PROGRAM is false");
+			udev->program_result[0] = '\0';
 			if (rule->program.operation != KEY_OP_NOMATCH)
 				goto exit;
 		} else {

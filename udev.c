@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <unistd.h>
+#include <syslog.h>
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev_libc_wrapper.h"
@@ -127,7 +128,7 @@ int main(int argc, char *argv[], char *envp[])
 			if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0)
 				pass_env_to_socket(&name_loop->name[strlen("socket:")], devpath, action);
 			else
-				execute_program(name_loop->name, udev.subsystem, NULL, 0, NULL);
+				run_program(name_loop->name, udev.subsystem, NULL, 0, NULL, (udev_log_priority >= LOG_DEBUG));
 		}
 	}
 

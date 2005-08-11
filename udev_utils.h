@@ -24,6 +24,8 @@
 #include "udev.h"
 #include "list.h"
 
+#define UDEV_MAX(a,b) ((a) > (b) ? (a) : (b))
+
 struct name_entry {
 	struct list_head node;
 	char name[PATH_SIZE];
@@ -45,7 +47,7 @@ extern int name_list_add(struct list_head *name_list, const char *name, int sort
 extern int name_list_key_add(struct list_head *name_list, const char *key, const char *value);
 extern int add_matching_files(struct list_head *name_list, const char *dirname, const char *suffix);
 extern int pass_env_to_socket(const char *name, const char *devpath, const char *action);
-extern int execute_program(const char *command, const char *subsystem,
-			   char *result, size_t ressize, size_t *reslen);
+extern int run_program(const char *command, const char *subsystem,
+		       char *result, size_t ressize, size_t *reslen, int log);
 
 #endif
