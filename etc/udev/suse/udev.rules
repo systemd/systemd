@@ -234,7 +234,7 @@ SUBSYSTEM=="net", ACTION=="remove", RUN+="/sbin/ifdown %k -o hotplug"
 
 # libusb device access (mount usbfs or usbdev nodes)
 DEVPATH=="/module/usbcore", ACTION=="add", RUN+="/bin/mount -t usbfs usbfs /proc/bus/usb"
-SUBSYSTEM="usb_device", PROGRAM="/bin/sh -c 'X=%k X=$${X#usbdev} B=$${X%%%%.*} D=$${X#*.}; echo bus/usb/$$B/$$D'", SYMLINK="%c"
+SUBSYSTEM="usb_device", PROGRAM="/bin/sh -c 'X=%k X=$${X#usbdev} B=$${X%%%%.*} D=$${X#*.}; echo bus/usb/$$B/$$D'", SYMLINK+="%c"
 
 # firmware loader
 SUBSYSTEM=="firmware", ACTION=="add", RUN+="/etc/hotplug.d/firmware/50-firmware.hotplug"

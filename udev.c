@@ -125,6 +125,7 @@ int main(int argc, char *argv[], char *envp[])
 
 		dbg("executing run list");
 		list_for_each_entry(name_loop, &udev.run_list, node) {
+			info("RUN key executes '%s'", name_loop->name);
 			if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0)
 				pass_env_to_socket(&name_loop->name[strlen("socket:")], devpath, action);
 			else

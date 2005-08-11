@@ -808,7 +808,7 @@ try_parent:
 		apply_format(udev, import, sizeof(import), class_dev, sysfs_device);
 		dbg("check for IMPORT import='%s'", import);
 		if (rule->import_type == IMPORT_PROGRAM) {
-			dbg("run executable file import='%s'", import);
+			info("IMPORT executes '%s'", import);
 			rc = import_program_into_env(udev, import);
 		} else if (rule->import_type == IMPORT_FILE) {
 			dbg("import file import='%s'", import);
@@ -833,7 +833,7 @@ try_parent:
 
 		strlcpy(program, key_val(rule, &rule->program), sizeof(program));
 		apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
-		dbg("check for PROGRAM program='%s", program);
+		info("PROGRAM key executes '%s", program);
 		if (run_program(program, udev->subsystem, result, sizeof(result), NULL, (udev_log_priority >= LOG_DEBUG)) != 0) {
 			dbg("PROGRAM is false");
 			udev->program_result[0] = '\0';
@@ -1033,7 +1033,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 
 	if (!name_set) {
 		strlcpy(udev->name, udev->kernel_name, sizeof(udev->name));
-		info("no rule found, will use kernel name '%s'", udev->name);
+		info("no node name set, will use kernel name '%s'", udev->name);
 	}
 
 	if (udev->tmp_node[0] != '\0') {
