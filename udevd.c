@@ -54,7 +54,7 @@ static int udevd_sock;
 static int uevent_netlink_sock;
 static pid_t sid;
 
-static int pipefds[2];
+static int pipefds[2] = {-1, -1};
 static volatile int sigchilds_waiting;
 static volatile int run_msg_q;
 static volatile int sig_flag;
@@ -843,11 +843,10 @@ int main(int argc, char *argv[], char *envp[])
 	/* Set fds to dev/null */
 	fd = open( "/dev/null", O_RDWR );
 	if (fd >= 0)  {
-		dup2(fd, 0);
-		dup2(fd, 1);
-		dup2(fd, 2);
-		if (fd > 2)
-			close(fd);
+		dup2(fd, STDIN_FILENO);
+		dup2(fd, STDOUT_FILENO);
+		dup2(fd, STDERR_FILENO);
+		close(fd);
 	} else
 		err("error opening /dev/null %s", strerror(errno));
 
@@ -1012,6 +1011,11 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 exit:
+	if (pipefds[0] > 0)
+		close(pipefds[0]);
+	if (pipefds[1] > 0)
+		close(pipefds[1]);
+
 	if (udevd_sock > 0)
 		close(udevd_sock);
 

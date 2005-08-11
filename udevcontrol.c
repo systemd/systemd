@@ -64,6 +64,7 @@ int main(int argc, char *argv[], char *envp[])
 	const char *env;
 	const char *val;
 	int *intval;
+	int i;
 	int retval = 1;
 
 	env = getenv("UDEV_LOG");
@@ -73,33 +74,50 @@ int main(int argc, char *argv[], char *envp[])
 	logging_init("udevcontrol");
 	dbg("version %s", UDEV_VERSION);
 
-	if (argc != 2) {
-		err("error finding comand");
+	if (argc < 2) {
+		fprintf(stderr, "missing command\n\n");
 		goto exit;
 	}
 
 	memset(&usend_msg, 0x00, sizeof(struct udevd_msg));
 	strcpy(usend_msg.magic, UDEV_MAGIC);
 
-	if (!strcmp(argv[1], "stop_exec_queue"))
-		usend_msg.type = UDEVD_STOP_EXEC_QUEUE;
-	else if (!strcmp(argv[1], "start_exec_queue"))
-		usend_msg.type = UDEVD_START_EXEC_QUEUE;
-	else if (!strncmp(argv[1], "log_priority=", strlen("log_priority="))) {
-		intval = (int *) usend_msg.envbuf;
-		val = &argv[1][strlen("log_priority=")];
-		usend_msg.type = UDEVD_SET_LOG_LEVEL;
-		*intval = log_priority(val);
-		info("send log_priority=%i", *intval);
-	} else if (!strncmp(argv[1], "max_childs=", strlen("max_childs="))) {
-		intval = (int *) usend_msg.envbuf;
-		val = &argv[1][strlen("max_childs=")];
-		usend_msg.type = UDEVD_SET_MAX_CHILDS;
-		*intval = atoi(val);
-		info("send max_childs=%i", *intval);
-	} else {
-		err("error parsing command\n");
-		goto exit;
+	for (i = 1 ; i < argc; i++) {
+		char *arg = argv[i];
+
+		if (!strcmp(arg, "stop_exec_queue"))
+			usend_msg.type = UDEVD_STOP_EXEC_QUEUE;
+		else if (!strcmp(arg, "start_exec_queue"))
+			usend_msg.type = UDEVD_START_EXEC_QUEUE;
+		else if (!strncmp(arg, "log_priority=", strlen("log_priority="))) {
+			intval = (int *) usend_msg.envbuf;
+			val = &arg[strlen("log_priority=")];
+			usend_msg.type = UDEVD_SET_LOG_LEVEL;
+			*intval = log_priority(val);
+			info("send log_priority=%i", *intval);
+		} else if (!strncmp(arg, "max_childs=", strlen("max_childs="))) {
+			intval = (int *) usend_msg.envbuf;
+			val = &arg[strlen("max_childs=")];
+			usend_msg.type = UDEVD_SET_MAX_CHILDS;
+			*intval = atoi(val);
+			info("send max_childs=%i", *intval);
+		} else if (strcmp(arg, "help") == 0  || strcmp(arg, "--help") == 0  || strcmp(arg, "-h") == 0) {
+			printf("Usage: udevcontrol COMMAND\n"
+				"  log_priority=<level> set the udev log level for the daemon\n"
+				"  stop_exec_queue      keep udevd from executing events, queue only\n"
+				"  start_exec_queue     execute events, flush queue\n"
+				"  max_childs=<N>       maximum number of childs running at the same time\n"
+				"  --help               print this help text\n\n");
+			exit(0);
+		} else {
+			fprintf(stderr, "unknown option\n\n");
+			exit(1);
+		}
+	}
+
+	if (getuid() != 0) {
+		fprintf(stderr, "need to be root, exit\n\n");
+		exit(1);
 	}
 
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);

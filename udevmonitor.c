@@ -33,6 +33,7 @@
 
 #include "udev.h"
 #include "udevd.h"
+#include "udev_utils.h"
 #include "udev_libc_wrapper.h"
 
 static int uevent_netlink_sock;
@@ -102,25 +103,42 @@ static int init_uevent_netlink_sock(void)
 int main(int argc, char *argv[])
 {
 	int env = 0;
-	int maxsockplus;
 	fd_set readfds;
+	int i;
 	int retval;
 
-	if (getuid() != 0) {
-		printf("need to be root, exit\n");
-		exit(1);
+	for (i = 1 ; i < argc; i++) {
+		char *arg = argv[i];
+		if (strcmp(arg, "--env") == 0 || strcmp(arg, "-e") == 0) {
+			env = 1;
+		}
+		else if (strcmp(arg, "--help") == 0  || strcmp(arg, "-h") == 0){
+			printf("Usage: udevmonitor [--env]\n"
+				"  --env    print the whole event environment\n"
+				"  --help   print this help text\n\n");
+			exit(0);
+		} else {
+			fprintf(stderr, "unknown option\n\n");
+			exit(1);
+		}
 	}
 
-	if (argc == 2 && strstr(argv[1], "--env"))
-		env = 1;
+	if (getuid() != 0) {
+		fprintf(stderr, "need to be root, exit\n\n");
+		exit(1);
+	}
 
 	init_uevent_netlink_sock();
 	init_udev_monitor_socket();
 
+	printf("udevmonitor prints received from the kernel [UEVENT] and after\n"
+	       "the udev processing, the event which udev [UDEV] has generated\n\n");
+
 	FD_ZERO(&readfds);
-	FD_SET(uevent_netlink_sock, &readfds);
-	FD_SET(udev_monitor_sock, &readfds);
-	maxsockplus = udev_monitor_sock+1;
+	if (uevent_netlink_sock > 0)
+		FD_SET(uevent_netlink_sock, &readfds);
+	if (udev_monitor_sock > 0)
+		FD_SET(udev_monitor_sock, &readfds);
 
 	while (1) {
 		static char buf[UEVENT_BUFFER_SIZE*2];
@@ -130,14 +148,14 @@ int main(int argc, char *argv[])
 		buflen = 0;
 		workreadfds = readfds;
 
-		retval = select(maxsockplus, &workreadfds, NULL, NULL, NULL);
+		retval = select(UDEV_MAX(uevent_netlink_sock, udev_monitor_sock)+1, &workreadfds, NULL, NULL, NULL);
 		if (retval < 0) {
 			if (errno != EINTR)
 				fprintf(stderr, "error receiving uevent message\n");
 			continue;
 		}
 
-		if (FD_ISSET(uevent_netlink_sock, &workreadfds)) {
+		if ((uevent_netlink_sock > 0) && FD_ISSET(uevent_netlink_sock, &workreadfds)) {
 			buflen = recv(uevent_netlink_sock, &buf, sizeof(buf), 0);
 			if (buflen <=  0) {
 				fprintf(stderr, "error receiving uevent message\n");
@@ -146,7 +164,7 @@ int main(int argc, char *argv[])
 			printf("UEVENT[%i] %s\n", time(NULL), buf);
 		}
 
-		if (FD_ISSET(udev_monitor_sock, &workreadfds)) {
+		if ((udev_monitor_sock > 0) && FD_ISSET(udev_monitor_sock, &workreadfds)) {
 			buflen = recv(udev_monitor_sock, &buf, sizeof(buf), 0);
 			if (buflen <=  0) {
 				fprintf(stderr, "error receiving udev message\n");
@@ -180,7 +198,9 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	close(uevent_netlink_sock);
-	close(udev_monitor_sock);
+	if (uevent_netlink_sock > 0)
+		close(uevent_netlink_sock);
+	if (udev_monitor_sock > 0)
+		close(udev_monitor_sock);
 	exit(1);
 }
