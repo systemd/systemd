@@ -98,27 +98,27 @@ int main(int argc, char *argv[])
 		goto close;
 	}
 
-	printf("ID_CDC=true\n");
+	printf("ID_CDROM=1\n");
 
 	if (result & CDC_CD_R)
-		printf("ID_CDC_CD_R=true\n");
+		printf("ID_CDROM_CD_R=1\n");
 	if (result & CDC_CD_RW)
-		printf("ID_CDC_CD_RW=true\n");
+		printf("ID_CDROM_CD_RW=1\n");
 
 	if (result & CDC_DVD)
-		printf("ID_CDC_DVD=true\n");
+		printf("ID_CDROM_DVD=1\n");
 	if (result & CDC_DVD_R)
-		printf("ID_CDC_DVD_R=true\n");
+		printf("ID_CDROM_DVD_R=1\n");
 	if (result & CDC_DVD_RAM)
-		printf("ID_CDC_DVD_RAM=true\n");
+		printf("ID_CDROM_DVD_RAM=1\n");
 
 	if (result & CDC_MRW)
-		printf("ID_CDC_MRW=true\n");
+		printf("ID_CDROM_MRW=1\n");
 	if (result & CDC_MRW_W)
-		printf("ID_CDC_MRW_W=true\n");
+		printf("ID_CDROM_MRW_W=1\n");
 	
 	if (result & CDC_RAM)
-		printf("ID_CDC_RAM=true\n");
+		printf("ID_CDROM_RAM=1\n");
 	goto close;
 
 close:
