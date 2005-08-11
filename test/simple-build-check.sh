@@ -7,6 +7,7 @@ EXTRAS="\
 	extras/volume_id \
 	extras/usb_id \
 	extras/dasd_id \
+	extras/cdrom_id \
 	extras/floppy \
 	extras/run_directory \
 	extras/firmware"
