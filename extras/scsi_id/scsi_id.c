@@ -133,42 +133,42 @@ static void set_str(char *to, const char *from, size_t count)
 	to[j] = '\0';
 }
 
-static void set_type(char *to, const char *from, int count)
+static void set_type(char *to, const char *from, size_t len)
 {
 	int type_num;
 	char *eptr;
+	char *type = "generic";
 
 	type_num = strtoul(from, &eptr, 0);
 	if (eptr != from) {
 		switch (type_num) {
 		case 0:
-			sprintf(to, "disk");
+			type = "disk";
 			break;
 		case 1:
-			sprintf(to, "tape");
+			type = "tape";
 			break;
 		case 4:
-			sprintf(to, "optical");
+			type = "optical";
 			break;
 		case 5:
-			sprintf(to, "cd");
+			type = "cd";
 			break;
 		case 7:
-			sprintf(to, "optical");
+			type = "optical";
 			break;
 		case 0xe:
-			sprintf(to, "disk");
+			type = "disk";
 			break;
 		case 0xf:
-			sprintf(to, "optical");
+			type = "optical";
 			break;
 		default:
-			sprintf(to, "generic");
 			break;
 		}
-	} else {
-		sprintf(to, "generic");
 	}
+	strncpy(to, type, len);
+	to[len-1] = '\0';
 }
 
 static int get_major_minor(struct sysfs_class_device *class_dev, int *maj,
@@ -475,7 +475,7 @@ static int set_options(int argc, char **argv, const char *short_opts,
 	 */
 	optind = 1;
 	while (1) {
-		option = getopt(argc, argv, short_options);
+		option = getopt(argc, argv, short_opts);
 		if (option == -1)
 			break;
 
@@ -601,7 +601,7 @@ static int per_dev_options(struct sysfs_device *scsi_dev, int *good_bad,
 			    scsi_dev->name);
 		return -1;
 	}
-	set_type(type_str, type->value, sizeof(type_str)-1);
+	set_type(type_str, type->value, sizeof(type_str));
 
 	type = sysfs_get_device_attr(scsi_dev, "rev");
 	if (!type) {

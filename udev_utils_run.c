@@ -164,7 +164,7 @@ int run_program(const char *command, const char *subsystem,
 	default:
 		/* read from child if requested */
 		if (outpipe[0] > 0 || errpipe[0] > 0) {
-			size_t count;
+			ssize_t count;
 			size_t respos = 0;
 
 			/* parent closes child ends of pipes */

@@ -262,7 +262,7 @@ int udev_db_search_name(char *devpath, size_t len, const char *name)
 				nodename[count-2] = '\0';
 				dbg("compare '%s' '%s'", nodename, name);
 				if (strcmp(nodename, name) == 0) {
-					memcpy(devpath, &bufline[2], count-2);
+					strlcpy(devpath, nodename, len);
 					devpath[count-2] = '\0';
 					file_unmap(buf, bufsize);
 					closedir(dir);

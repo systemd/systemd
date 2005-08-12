@@ -270,7 +270,7 @@ static int import_parent_into_env(struct udevice *udev, struct sysfs_class_devic
 /* finds the lowest positive N such that <name>N isn't present in the udevdb
  * if <name> doesn't exist, 0 is returned, N otherwise
  */
-static int find_free_number(struct udevice *udev, const char *name)
+static int find_free_number(const char *name)
 {
 	char devpath[PATH_SIZE];
 	char filename[PATH_SIZE];
@@ -397,7 +397,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 		{ .name = "root",		.fmt = 'r',	.type = SUBST_ROOT },
 		{ .name = "modalias",		.fmt = 'A',	.type = SUBST_MODALIAS },
 		{ .name = "env",		.fmt = 'E',	.type = SUBST_ENV },
-		{}
+		{ NULL, '\0', 0 }
 	};
 	enum subst_type type;
 	const struct subst_map *subst;
@@ -546,7 +546,7 @@ found:
 			dbg("substitute sysfs value '%s'", temp2);
 			break;
 		case SUBST_ENUM:
-			next_free_number = find_free_number(udev, string);
+			next_free_number = find_free_number(string);
 			if (next_free_number > 0) {
 				sprintf(temp2, "%d", next_free_number);
 				strlcat(string, temp2, maxsize);

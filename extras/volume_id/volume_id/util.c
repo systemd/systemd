@@ -114,12 +114,6 @@ void volume_id_set_label_raw(struct volume_id *id, const uint8_t *buf, size_t co
 	id->label_raw_len = count;
 }
 
-static size_t my_strnlen(const char *s, size_t max) {
-    const char *p = s;
-    for (; *p && max--; ++p);
-    return(p - s);
-}
-
 void volume_id_set_label_string(struct volume_id *id, const uint8_t *buf, size_t count)
 {
 	unsigned int i;
@@ -127,7 +121,7 @@ void volume_id_set_label_string(struct volume_id *id, const uint8_t *buf, size_t
 	memcpy(id->label, buf, count);
 
 	/* remove trailing whitespace */
-	i = my_strnlen(id->label, count);
+	i = strnlen(id->label, count);
 	while (i--) {
 		if (!isspace(id->label[i]))
 			break;

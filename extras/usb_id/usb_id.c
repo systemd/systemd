@@ -119,25 +119,26 @@ static void set_str(char *to, const char *from, size_t count)
  *
  * Set the type based on the USB interface class
  */
-static void set_usb_iftype(char *to, const char *from, int count)
+static void set_usb_iftype(char *to, const char *from, size_t len)
 {
 	int type_num;
 	char *eptr;
+	char *type = "generic";
 
 	type_num = strtoul(from, &eptr, 0);
 	if (eptr != from) {
 		switch (type_num) {
 		case 1:
-			sprintf(to, "audio");
+			type = "audio";
 			break;
 		case 3:
-			sprintf(to, "hid");
+			type = "hid";
 			break;
 		case 7:
-			sprintf(to, "printer");
+			type = "printer";
 			break;
 		case 8:
-			sprintf(to, "disk");
+			type = "disk";
 			break;
 		case 2: /* CDC-Control */
 		case 5: /* Physical */
@@ -152,12 +153,11 @@ static void set_usb_iftype(char *to, const char *from, int count)
 		case 0xf2: /* Application-specific */
 		case 0xff: /* Vendor-specific */
 		default:
-			sprintf(to, "generic");
 			break;
 		}
-	} else {
-		sprintf(to, "generic");
 	}
+	strncpy(to, type, len);
+	to[len-1] = '\0';
 }
 
 /*
@@ -166,32 +166,35 @@ static void set_usb_iftype(char *to, const char *from, int count)
  * Set the type base on the interfaceSubClass.
  * Valid for Mass-Storage devices (type 8) only.
  */
-static int set_usb_ifsubtype(char *to, const char *from, int count)
+static int set_usb_ifsubtype(char *to, const char *from, size_t len)
 {
 	int type_num = 0;
 	char *eptr;
+	char *type = "generic";
 
 	type_num = strtoul(from, &eptr, 0);
 	if (eptr != from) {
 		switch (type_num) {
 		case 2:
-			sprintf(to, "cd");
+			type = "cd";
 			break;
 		case 3:
-			sprintf(to, "tape");
+			type = "tape";
 			break;
 		case 4: /* UFI */
 		case 5: /* SFF-8070i */
-			sprintf(to, "floppy");
+			type = "floppy";
 			break;
 		case 1: /* RBC devices */
 		case 6: /* Transparent SPC-2 devices */
-			sprintf(to, "disk");
+			type = "disk";
+			break;
+		default:
 			break;
 		}
-	} else {
-		sprintf(to, "generic");
 	}
+	strncpy(to, type, len);
+	to[len-1] = '\0';
 
 	return type_num;
 }
