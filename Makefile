@@ -356,8 +356,9 @@ install-config:
 		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.conf $(DESTDIR)$(configdir); \
 	fi
 	@if [ ! -r $(DESTDIR)$(configdir)/rules.d/50-udev.rules ]; then \
-		echo $(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.rules $(DESTDIR)$(configdir)/rules.d/50-udev.rules; \
-		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.rules $(DESTDIR)$(configdir)/rules.d/50-udev.rules; \
+		echo ; \
+		echo "pick a udev rules file from the etc/udev directory that matches your distribution"; \
+		echo ; \
 	fi
 
 install-man:
