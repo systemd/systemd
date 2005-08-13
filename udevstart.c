@@ -77,11 +77,12 @@ static int device_list_insert(const char *path, char *subsystem, struct list_hea
 {
 	struct device *loop_device;
 	struct device *new_device;
+	const char *devpath = &path[strlen(sysfs_path)];
 
-	dbg("insert: '%s'\n", path);
+	dbg("insert: '%s'\n", devpath);
 
 	list_for_each_entry(loop_device, device_list, node) {
-		if (strcmp(loop_device->path, path) > 0) {
+		if (strcmp(loop_device->path, devpath) > 0) {
 			break;
 		}
 	}
@@ -92,7 +93,7 @@ static int device_list_insert(const char *path, char *subsystem, struct list_hea
 		return -ENOMEM;
 	}
 
-	strlcpy(new_device->path, path, sizeof(new_device->path));
+	strlcpy(new_device->path, devpath, sizeof(new_device->path));
 	strlcpy(new_device->subsys, subsystem, sizeof(new_device->subsys));
 	list_add_tail(&new_device->node, &loop_device->node);
 	dbg("add '%s' from subsys '%s'", new_device->path, new_device->subsys);
@@ -107,17 +108,16 @@ static char *last_list[] = {
 
 /* list of devices that we should run first due to any one of a number of reasons */
 static char *first_list[] = {
-	"/class/mem",	/* people tend to like their memory devices around first... */
+	"/class/mem",
+	"/class/tty",
 	NULL,
 };
 
-static int add_device(const char *path, const char *subsystem)
+static int add_device(const char *devpath, const char *subsystem)
 {
 	struct udevice udev;
 	struct sysfs_class_device *class_dev;
-	const char *devpath;
-
-	devpath = &path[strlen(sysfs_path)];
+	char path[PATH_SIZE];
 
 	/* clear and set environment for next event */
 	clearenv();
@@ -129,8 +129,10 @@ static int add_device(const char *path, const char *subsystem)
 		setenv("UDEV_LOG", udev_log_str, 1);
 	if (udev_run_str)
 		setenv("UDEV_RUN", udev_run_str, 1);
-	dbg("exec: '%s' (%s)\n", devpath, path);
+	dbg("add '%s'", devpath);
 
+	snprintf(path, sizeof(path), "%s%s", sysfs_path, devpath);
+	path[sizeof(path)-1] = '\0';
 	class_dev = sysfs_open_class_device_path(path);
 	if (class_dev == NULL) {
 		dbg("sysfs_open_class_device_path failed");
@@ -218,12 +220,12 @@ static void exec_list(struct list_head *device_list)
 	}
 }
 
-static int has_devt(const char *directory)
+static int has_devt(const char *path)
 {
 	char filename[PATH_SIZE];
 	struct stat statbuf;
 
-	snprintf(filename, sizeof(filename), "%s/dev", directory);
+	snprintf(filename, sizeof(filename), "%s/dev", path);
 	filename[sizeof(filename)-1] = '\0';
 
 	if (stat(filename, &statbuf) == 0)
@@ -232,12 +234,11 @@ static int has_devt(const char *directory)
 	return 0;
 }
 
-static void udev_scan_block(void)
+static void udev_scan_block(struct list_head *device_list)
 {
 	char base[PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
-	LIST_HEAD(device_list);
 
 	snprintf(base, sizeof(base), "%s/block", sysfs_path);
 	base[sizeof(base)-1] = '\0';
@@ -255,7 +256,7 @@ static void udev_scan_block(void)
 			snprintf(dirname, sizeof(dirname), "%s/%s", base, dent->d_name);
 			dirname[sizeof(dirname)-1] = '\0';
 			if (has_devt(dirname))
-				device_list_insert(dirname, "block", &device_list);
+				device_list_insert(dirname, "block", device_list);
 			else
 				continue;
 
@@ -272,22 +273,20 @@ static void udev_scan_block(void)
 					dirname2[sizeof(dirname2)-1] = '\0';
 
 					if (has_devt(dirname2))
-						device_list_insert(dirname2, "block", &device_list);
+						device_list_insert(dirname2, "block", device_list);
 				}
 				closedir(dir2);
 			}
 		}
 		closedir(dir);
 	}
-	exec_list(&device_list);
 }
 
-static void udev_scan_class(void)
+static void udev_scan_class(struct list_head *device_list)
 {
 	char base[PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
-	LIST_HEAD(device_list);
 
 	snprintf(base, sizeof(base), "%s/class", sysfs_path);
 	base[sizeof(base)-1] = '\0';
@@ -317,14 +316,13 @@ static void udev_scan_class(void)
 					dirname2[sizeof(dirname2)-1] = '\0';
 
 					if (has_devt(dirname2) || strcmp(dent->d_name, "net") == 0)
-						device_list_insert(dirname2, dent->d_name, &device_list);
+						device_list_insert(dirname2, dent->d_name, device_list);
 				}
 				closedir(dir2);
 			}
 		}
 		closedir(dir);
 	}
-	exec_list(&device_list);
 }
 
 static void asmlinkage sig_handler(int signum)
@@ -340,6 +338,7 @@ static void asmlinkage sig_handler(int signum)
 
 int main(int argc, char *argv[], char *envp[])
 {
+	LIST_HEAD(device_list);
 	struct sigaction act;
 
 	logging_init("udevstart");
@@ -367,8 +366,9 @@ int main(int argc, char *argv[], char *envp[])
 
 	udev_rules_init(&rules, 0, 1);
 
-	udev_scan_block();
-	udev_scan_class();
+	udev_scan_class(&device_list);
+	udev_scan_block(&device_list);
+	exec_list(&device_list);
 
 	udev_rules_close(&rules);
 	logging_close();
