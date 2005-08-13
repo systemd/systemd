@@ -785,7 +785,7 @@ int main(int argc, char *argv[], char *envp[])
 {
 	int maxsockplus;
 	int retval;
-	int fd;
+	int devnull;
 	struct sigaction act;
 	fd_set readfds;
 	const char *value;
@@ -841,12 +841,12 @@ int main(int argc, char *argv[], char *envp[])
 	setpriority(PRIO_PROCESS, 0, UDEVD_PRIORITY);
 
 	/* Set fds to dev/null */
-	fd = open( "/dev/null", O_RDWR );
-	if (fd >= 0)  {
-		dup2(fd, STDIN_FILENO);
-		dup2(fd, STDOUT_FILENO);
-		dup2(fd, STDERR_FILENO);
-		close(fd);
+	devnull = open( "/dev/null", O_RDWR );
+	if (devnull > 0)  {
+		dup2(devnull, STDIN_FILENO);
+		dup2(devnull, STDOUT_FILENO);
+		dup2(devnull, STDERR_FILENO);
+		close(devnull);
 	} else
 		err("error opening /dev/null %s", strerror(errno));
 

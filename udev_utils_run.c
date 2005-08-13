@@ -136,23 +136,19 @@ int run_program(const char *command, const char *subsystem,
 
 		/* discard child output or connect to pipe */
 		devnull = open("/dev/null", O_RDWR);
-		if (devnull < 0) {
+		if (devnull > 0) {
+			dup2(devnull, STDIN_FILENO);
+			if (outpipe[1] < 0)
+				dup2(devnull, STDOUT_FILENO);
+			if (errpipe[1] < 0)
+				dup2(devnull, STDERR_FILENO);
+			close(devnull);
+		} else
 			err("open /dev/null failed");
-			exit(1);
-		}
-		dup2(devnull, STDIN_FILENO);
-
 		if (outpipe[1] > 0)
 			dup2(outpipe[1], STDOUT_FILENO);
-		else
-			dup2(devnull, STDOUT_FILENO);
-
 		if (errpipe[1] > 0)
 			dup2(errpipe[1], STDERR_FILENO);
-		else
-			dup2(devnull, STDERR_FILENO);
-
-		close(devnull);
 		execv(arg, argv);
 
 		/* we should never reach this */
