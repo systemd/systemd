@@ -1,3 +1,17 @@
+Summary of changes from v066 to v067
+============================================
+
+Greg Kroah-Hartman:
+  added the cdrom.h #defines directly into the cdrom_id.c file
+
+Kay Sievers:
+  update SUSE rules
+  fix make install, as we don't provide a default rule set anymore
+  fix more compiler warnings ...
+  fix udevstart event ordering, we want /dev/null very early
+  don't fail too bad, if /dev/null does not exist
+
+
 Summary of changes from v065 to v066
 ============================================
 
