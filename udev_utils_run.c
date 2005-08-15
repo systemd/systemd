@@ -46,7 +46,8 @@ int pass_env_to_socket(const char *sockname, const char *devpath, const char *ac
 	char buf[2048];
 	size_t bufpos = 0;
 	int i;
-	int retval;
+	ssize_t count;
+	int retval = 0;
 
 	dbg("pass environment to socket '%s'", sockname);
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
@@ -63,23 +64,23 @@ int pass_env_to_socket(const char *sockname, const char *devpath, const char *ac
 		bufpos++;
 	}
 
-	retval = sendto(sock, &buf, bufpos, 0, (struct sockaddr *)&saddr, addrlen);
-	if (retval != -1)
-		retval = 0;
+	count = sendto(sock, &buf, bufpos, 0, (struct sockaddr *)&saddr, addrlen);
+	if (count < 0)
+		retval = -1;
+	info("passed %zi bytes to socket '%s', ", count, sockname);
 
 	close(sock);
 	return retval;
 }
 
 int run_program(const char *command, const char *subsystem,
-		char *result, size_t ressize, size_t *reslen, int dbg)
+		char *result, size_t ressize, size_t *reslen, int log)
 {
 	int retval = 0;
 	int status;
 	int outpipe[2] = {-1, -1};
 	int errpipe[2] = {-1, -1};
 	pid_t pid;
-	char *pos;
 	char arg[PATH_SIZE];
 	char *argv[(sizeof(arg) / 2) + 1];
 	int devnull;
@@ -88,7 +89,7 @@ int run_program(const char *command, const char *subsystem,
 	strlcpy(arg, command, sizeof(arg));
 	i = 0;
 	if (strchr(arg, ' ')) {
-		pos = arg;
+		char *pos = arg;
 		while (pos != NULL) {
 			if (pos[0] == '\'') {
 				/* don't separate if in apostrophes */
@@ -103,22 +104,22 @@ int run_program(const char *command, const char *subsystem,
 			i++;
 		}
 		argv[i] = NULL;
-		dbg("execute '%s' with parsed arguments", arg);
+		info("'%s'", command);
 	} else {
 		argv[0] = arg;
 		argv[1] = (char *) subsystem;
 		argv[2] = NULL;
-		dbg("execute '%s' with subsystem '%s' argument", arg, argv[1]);
+		info("'%s' '%s'", arg, argv[1]);
 	}
 
 	/* prepare pipes from child to parent */
-	if (result || dbg) {
+	if (result || log) {
 		if (pipe(outpipe) != 0) {
 			err("pipe failed");
 			return -1;
 		}
 	}
-	if (dbg) {
+	if (log) {
 		if (pipe(errpipe) != 0) {
 			err("pipe failed");
 			return -1;
@@ -149,13 +150,13 @@ int run_program(const char *command, const char *subsystem,
 			dup2(outpipe[1], STDOUT_FILENO);
 		if (errpipe[1] > 0)
 			dup2(errpipe[1], STDERR_FILENO);
-		execv(arg, argv);
+		execv(argv[0], argv);
 
 		/* we should never reach this */
 		err("exec of program failed");
 		_exit(1);
 	case -1:
-		err("fork of '%s' failed", arg);
+		err("fork of '%s' failed", argv[0]);
 		return -1;
 	default:
 		/* read from child if requested */
@@ -190,6 +191,8 @@ int run_program(const char *command, const char *subsystem,
 				/* get stdout */
 				if (outpipe[0] > 0 && FD_ISSET(outpipe[0], &readfds)) {
 					char inbuf[1024];
+					char *pos;
+					char *line;
 
 					count = read(outpipe[0], inbuf, sizeof(inbuf)-1);
 					if (count <= 0) {
@@ -202,22 +205,28 @@ int run_program(const char *command, const char *subsystem,
 						continue;
 					}
 					inbuf[count] = '\0';
-					dbg("stdout: '%s'", inbuf);
 
+					/* store result for rule processing */
 					if (result) {
-						if (respos + count >= ressize) {
+						if (respos + count < ressize) {
+							memcpy(&result[respos], inbuf, count);
+							respos += count;
+						} else {
 							err("ressize %ld too short", (long)ressize);
 							retval = -1;
-							continue;
 						}
-						memcpy(&result[respos], inbuf, count);
-						respos += count;
 					}
+					pos = inbuf;
+					while ((line = strsep(&pos, "\n")))
+						if (pos || line[0] != '\0')
+							info("'%s' (stdout) '%s'", argv[0], line);
 				}
 
 				/* get stderr */
 				if (errpipe[0] > 0 && FD_ISSET(errpipe[0], &readfds)) {
 					char errbuf[1024];
+					char *pos;
+					char *line;
 
 					count = read(errpipe[0], errbuf, sizeof(errbuf)-1);
 					if (count <= 0) {
@@ -228,7 +237,10 @@ int run_program(const char *command, const char *subsystem,
 						continue;
 					}
 					errbuf[count] = '\0';
-					dbg("stderr: '%s'", errbuf);
+					pos = errbuf;
+					while ((line = strsep(&pos, "\n")))
+						if (pos || line[0] != '\0')
+							info("'%s' (stderr) '%s'", argv[0], line);
 				}
 			}
 			if (outpipe[0] > 0)
@@ -245,8 +257,12 @@ int run_program(const char *command, const char *subsystem,
 			}
 		}
 		waitpid(pid, &status, 0);
-		if (!WIFEXITED(status) || (WEXITSTATUS(status) != 0)) {
-			dbg("exec program status 0x%x", status);
+		if (WIFEXITED(status)) {
+			info("'%s' returned with status %i", argv[0], WEXITSTATUS(status));
+			if (WEXITSTATUS(status) != 0)
+				retval = -1;
+		} else {
+			err("'%s' abnormal exit", argv[0]);
 			retval = -1;
 		}
 	}

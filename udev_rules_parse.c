@@ -642,7 +642,13 @@ int udev_rules_init(struct udev_rules *rules, int read_compiled, int resolve_nam
 		retval = add_matching_files(&name_list, udev_rules_filename, RULEFILE_SUFFIX);
 
 		list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
-			parse_file(rules, name_loop->name);
+			if (stat(name_loop->name, &stats) == 0) {
+				if (stats.st_size)
+					parse_file(rules, name_loop->name);
+				else
+					dbg("empty rules file '%s'", name_loop->name);
+			} else
+				dbg("could not read '%s'", name_loop->name);
 			list_del(&name_loop->node);
 			free(name_loop);
 		}

@@ -63,7 +63,7 @@ int main(int argc, char **argv, char **envp)
 	const char *env;
 
 	if (stat("/events", &sb) || !(S_ISDIR(sb.st_mode)))
-		return 1;
+		return 0;
 
 	env = getenv("UDEV_LOG");
 	if (env)

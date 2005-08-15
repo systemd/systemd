@@ -88,7 +88,7 @@ static int delete_node(struct udevice *udev)
 			continue;;
 		}
 
-		dbg("removing symlink '%s'", filename);
+		info("removing symlink '%s'", filename);
 		unlink(filename);
 
 		if (strchr(filename, '/'))

@@ -113,7 +113,7 @@ static int parse_db_file(struct udevice *udev, const char *filename)
 	size_t count;
 
 	if (file_map(filename, &buf, &bufsize) != 0) {
-		err("unable to read db file '%s'", filename);
+		dbg("no db file to read '%s'", filename);
 		return -1;
 	}
 

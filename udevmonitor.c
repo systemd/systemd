@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 	int env = 0;
 	fd_set readfds;
 	int i;
-	int retval;
+	int retval = 0;
 
 	for (i = 1 ; i < argc; i++) {
 		char *arg = argv[i];
@@ -128,34 +128,34 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
+	retval = init_udev_monitor_socket();
+	if (retval)
+		goto out;
 	init_uevent_netlink_sock();
-	init_udev_monitor_socket();
 
 	printf("udevmonitor prints received from the kernel [UEVENT] and after\n"
 	       "the udev processing, the event which udev [UDEV] has generated\n\n");
 
-	FD_ZERO(&readfds);
-	if (uevent_netlink_sock > 0)
-		FD_SET(uevent_netlink_sock, &readfds);
-	if (udev_monitor_sock > 0)
-		FD_SET(udev_monitor_sock, &readfds);
-
 	while (1) {
 		static char buf[UEVENT_BUFFER_SIZE*2];
 		ssize_t buflen;
-		fd_set workreadfds;
+		int fdcount;
 
 		buflen = 0;
-		workreadfds = readfds;
+		FD_ZERO(&readfds);
+		if (uevent_netlink_sock > 0)
+			FD_SET(uevent_netlink_sock, &readfds);
+		if (udev_monitor_sock > 0)
+			FD_SET(udev_monitor_sock, &readfds);
 
-		retval = select(UDEV_MAX(uevent_netlink_sock, udev_monitor_sock)+1, &workreadfds, NULL, NULL, NULL);
-		if (retval < 0) {
+		fdcount = select(UDEV_MAX(uevent_netlink_sock, udev_monitor_sock)+1, &readfds, NULL, NULL, NULL);
+		if (fdcount < 0) {
 			if (errno != EINTR)
 				fprintf(stderr, "error receiving uevent message\n");
 			continue;
 		}
 
-		if ((uevent_netlink_sock > 0) && FD_ISSET(uevent_netlink_sock, &workreadfds)) {
+		if ((uevent_netlink_sock > 0) && FD_ISSET(uevent_netlink_sock, &readfds)) {
 			buflen = recv(uevent_netlink_sock, &buf, sizeof(buf), 0);
 			if (buflen <=  0) {
 				fprintf(stderr, "error receiving uevent message\n");
@@ -164,7 +164,7 @@ int main(int argc, char *argv[])
 			printf("UEVENT[%i] %s\n", time(NULL), buf);
 		}
 
-		if ((udev_monitor_sock > 0) && FD_ISSET(udev_monitor_sock, &workreadfds)) {
+		if ((udev_monitor_sock > 0) && FD_ISSET(udev_monitor_sock, &readfds)) {
 			buflen = recv(udev_monitor_sock, &buf, sizeof(buf), 0);
 			if (buflen <=  0) {
 				fprintf(stderr, "error receiving udev message\n");
@@ -198,9 +198,11 @@ int main(int argc, char *argv[])
 		}
 	}
 
+out:
 	if (uevent_netlink_sock > 0)
 		close(uevent_netlink_sock);
 	if (udev_monitor_sock > 0)
 		close(udev_monitor_sock);
-	exit(1);
+
+	return retval;
 }

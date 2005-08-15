@@ -22,6 +22,11 @@
 #ifndef _UDEV_LIBC_WRAPPER_H_
 #define _UDEV_LIBC_WRAPPER_H_
 
+#include <string.h>
+#include <unistd.h>
+#include <linux/types.h>
+
+/* needed for our signal handlers to work */
 #undef asmlinkage
 #ifdef __i386__
 #define asmlinkage	__attribute__((regparm(0)))
@@ -29,6 +34,7 @@
 #define asmlinkage
 #endif
 
+/* headers are broken on some lazy platforms */
 #ifndef __FD_SET
 #define __FD_SET(d, set) ((set)->fds_bits[__FDELT(d)] |= __FDMASK(d))
 #endif
@@ -42,11 +48,10 @@
 #define __FD_ZERO(set) ((void) memset ((void*) (set), 0, sizeof (fd_set)))
 #endif
 
+/* missing in some lazy distros */
 #ifndef NETLINK_KOBJECT_UEVENT
 #define NETLINK_KOBJECT_UEVENT 15
 #endif
-
-#include <string.h>
 
 #ifdef __KLIBC__
 static inline int clearenv(void)

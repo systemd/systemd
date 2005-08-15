@@ -30,6 +30,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <fcntl.h>
+#include <syslog.h>
 #include <sys/select.h>
 #include <sys/wait.h>
 #include <sys/time.h>
@@ -62,21 +63,16 @@ static volatile int udev_exit;
 static int init_phase = 1;
 static int run_exec_q;
 static int stop_exec_q;
+static char *udev_bin;
+static int event_timeout;
+static int max_childs;
+static int max_childs_running;
+static unsigned long long expected_seqnum;
+static char log[32];
 
 static LIST_HEAD(msg_list);
 static LIST_HEAD(exec_list);
 static LIST_HEAD(running_list);
-
-static void exec_queue_manager(void);
-static void msg_queue_manager(void);
-static void user_sighandler(void);
-static void reap_sigchilds(void);
-
-static char *udev_bin;
-static unsigned long long expected_seqnum;
-static int event_timeout;
-static int max_childs;
-static int max_childs_running;
 
 
 #ifdef USE_LOG
@@ -138,7 +134,8 @@ static void msg_queue_insert(struct uevent_msg *msg)
 
 	/* don't delay messages with timeout set */
 	if (msg->timeout) {
-		dbg("move seq %llu with timeout %u to exec queue", msg->seqnum, msg->timeout);
+		info("seq %llu with timeout %u seconds will be execute without queuing, '%s' '%s'",
+		     msg->seqnum, msg->timeout, msg->action, msg->devpath);
 		list_add(&msg->node, &exec_list);
 		run_exec_q = 1;
 		return;
@@ -156,7 +153,7 @@ static void msg_queue_insert(struct uevent_msg *msg)
 		}
 	}
 	list_add(&msg->node, &loop_msg->node);
-	info("seq %llu queued, devpath '%s'", msg->seqnum, msg->devpath);
+	info("seq %llu queued, '%s' '%s'", msg->seqnum, msg->action, msg->devpath);
 
 	/* run msg queue manager */
 	run_msg_q = 1;
@@ -165,7 +162,7 @@ static void msg_queue_insert(struct uevent_msg *msg)
 }
 
 /* forks event and removes event from run queue when finished */
-static void udev_event_fork(struct uevent_msg *msg)
+static void udev_event_run(struct uevent_msg *msg)
 {
 	char *const argv[] = { "udev", msg->subsystem, NULL };
 	pid_t pid;
@@ -190,8 +187,8 @@ static void udev_event_fork(struct uevent_msg *msg)
 	default:
 		/* get SIGCHLD in main loop */
 		sysinfo(&info);
-		info("seq %llu forked, pid %d, %ld seconds old",
-		     msg->seqnum, pid, info.uptime - msg->queue_time);
+		info("seq %llu forked, pid [%d], '%s' '%s', %ld seconds old",
+		     msg->seqnum, pid,  msg->action, msg->subsystem, info.uptime - msg->queue_time);
 		msg->pid = pid;
 	}
 }
@@ -385,7 +382,7 @@ static void exec_queue_manager(void)
 		if (running_with_devpath(loop_msg, max_childs) == 0) {
 			/* move event to run list */
 			list_move_tail(&loop_msg->node, &running_list);
-			udev_event_fork(loop_msg);
+			udev_event_run(loop_msg);
 			running++;
 			dbg("moved seq %llu to running list", loop_msg->seqnum);
 		} else
@@ -441,7 +438,7 @@ recheck:
 	msg_dump_queue();
 
 	/* set timeout for remaining queued events */
-	if (list_empty(&msg_list) == 0) {
+	if (!list_empty(&msg_list)) {
 		struct itimerval itv = {{0, 0}, {timeout - msg_age, 0}};
 		dbg("next event expires in %li seconds", timeout - msg_age);
 		setitimer(ITIMER_REAL, &itv, NULL);
@@ -550,7 +547,7 @@ static struct uevent_msg *get_udevd_msg(void)
 	switch (usend_msg.type) {
 	case UDEVD_UEVENT_UDEVSEND:
 	case UDEVD_UEVENT_INITSEND:
-		info("udevd event message received");
+		dbg("udevd event message received");
 		envbuf_size = size - offsetof(struct udevd_msg, envbuf);
 		dbg("envbuf_size=%i", envbuf_size);
 		msg = get_msg_from_envbuf(usend_msg.envbuf, envbuf_size);
@@ -571,6 +568,8 @@ static struct uevent_msg *get_udevd_msg(void)
 		intval = (int *) usend_msg.envbuf;
 		info("udevd message (SET_LOG_PRIORITY) received, udev_log_priority=%i", *intval);
 		udev_log_priority = *intval;
+		sprintf(log, "UDEV_LOG=%i", udev_log_priority);
+		putenv(log);
 		break;
 	case UDEVD_SET_MAX_CHILDS:
 		intval = (int *) usend_msg.envbuf;
@@ -658,7 +657,7 @@ static void asmlinkage sig_handler(int signum)
 	 * which will wakeup our mainloop
 	 */
 	if (!sig_flag) {
-		rc = write(pipefds[1],&signum,sizeof(signum));
+		rc = write(pipefds[1], &signum, sizeof(signum));
 		if (rc >= 0)
 			sig_flag = 1;
 	}
@@ -688,27 +687,13 @@ static void udev_done(int pid)
 
 static void reap_sigchilds(void)
 {
-	while(1) {
-		int pid = waitpid(-1, NULL, WNOHANG);
-		if ((pid == -1) || (pid == 0))
+	pid_t pid;
+
+	while (1) {
+		pid = waitpid(-1, NULL, WNOHANG);
+		if (pid <= 0)
 			break;
 		udev_done(pid);
-	}
-}
-
-/* just read everything from the pipe and clear the flag,
- * the flags was set in the signal handler
- */
-static void user_sighandler(void)
-{
-	int sig;
-
-	while(1) {
-		int rc = read(pipefds[0], &sig, sizeof(sig));
-		if (rc < 0)
-			break;
-
-		sig_flag = 0;
 	}
 }
 
@@ -783,7 +768,6 @@ static int init_uevent_netlink_sock(void)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	int maxsockplus;
 	int retval;
 	int devnull;
 	struct sigaction act;
@@ -813,6 +797,7 @@ int main(int argc, char *argv[], char *envp[])
 			stop_exec_q = 1;
 		}
 	}
+
 	if (daemonize) {
 		pid_t pid;
 
@@ -856,7 +841,6 @@ int main(int argc, char *argv[], char *envp[])
 		err("error getting pipes: %s", strerror(errno));
 		goto exit;
 	}
-
 	retval = fcntl(pipefds[0], F_SETFL, O_NONBLOCK);
 	if (retval < 0) {
 		err("error fcntl on read pipe: %s", strerror(errno));
@@ -865,7 +849,6 @@ int main(int argc, char *argv[], char *envp[])
 	retval = fcntl(pipefds[0], F_SETFD, FD_CLOEXEC);
 	if (retval < 0)
 		err("error fcntl on read pipe: %s", strerror(errno));
-
 	retval = fcntl(pipefds[1], F_SETFL, O_NONBLOCK);
 	if (retval < 0) {
 		err("error fcntl on write pipe: %s", strerror(errno));
@@ -886,10 +869,6 @@ int main(int argc, char *argv[], char *envp[])
 	sigaction(SIGCHLD, &act, NULL);
 	sigaction(SIGHUP, &act, NULL);
 
-	if (init_uevent_netlink_sock() < 0) {
-		dbg("uevent socket not available");
- 	}
-
 	if (init_udevd_socket() < 0) {
 		if (errno == EADDRINUSE)
 			dbg("another udevd running, exit");
@@ -898,6 +877,9 @@ int main(int argc, char *argv[], char *envp[])
 
 		goto exit;
 	}
+
+	if (init_uevent_netlink_sock() < 0)
+		info("uevent socket not available");
 
 	/* override of forked udev binary, used for testing */
 	udev_bin = getenv("UDEV_BIN");
@@ -937,26 +919,29 @@ int main(int argc, char *argv[], char *envp[])
 		max_childs_running = UDEVD_MAX_CHILDS_RUNNING;
 	info("initialize max_childs_running to %u", max_childs_running);
 
-	FD_ZERO(&readfds);
-	FD_SET(udevd_sock, &readfds);
-	if (uevent_netlink_sock > 0)
-		FD_SET(uevent_netlink_sock, &readfds);
-	FD_SET(pipefds[0], &readfds);
-	maxsockplus = udevd_sock+1;
+	/* export log_priority , as called programs may want to follow that setting */
+	sprintf(log, "UDEV_LOG=%i", udev_log_priority);
+	putenv(log);
+
 	while (!udev_exit) {
 		struct uevent_msg *msg;
+		int fdcount;
 
-		fd_set workreadfds = readfds;
-		retval = select(maxsockplus, &workreadfds, NULL, NULL, NULL);
+		FD_ZERO(&readfds);
+		FD_SET(pipefds[0], &readfds);
+		FD_SET(udevd_sock, &readfds);
+		if (uevent_netlink_sock > 0)
+			FD_SET(uevent_netlink_sock, &readfds);
 
-		if (retval < 0) {
+		fdcount = select(UDEV_MAX(udevd_sock, uevent_netlink_sock)+1, &readfds, NULL, NULL, NULL);
+		if (fdcount < 0) {
 			if (errno != EINTR)
 				dbg("error in select: %s", strerror(errno));
 			continue;
 		}
 
 		/* get user socket message */
-		if (FD_ISSET(udevd_sock, &workreadfds)) {
+		if (FD_ISSET(udevd_sock, &readfds)) {
 			msg = get_udevd_msg();
 			if (msg) {
 				/* discard kernel messages if netlink is active */
@@ -970,7 +955,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		/* get kernel netlink message */
-		if (FD_ISSET(uevent_netlink_sock, &workreadfds)) {
+		if ((uevent_netlink_sock > 0) && FD_ISSET(uevent_netlink_sock, &readfds)) {
 			msg = get_netlink_msg();
 			if (msg) {
 				msg_queue_insert(msg);
@@ -983,8 +968,17 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		/* received a signal, clear our notification pipe */
-		if (FD_ISSET(pipefds[0], &workreadfds))
-			user_sighandler();
+		if (FD_ISSET(pipefds[0], &readfds)) {
+			int sig;
+			ssize_t rlen;
+
+			while(1) {
+				rlen = read(pipefds[0], &sig, sizeof(sig));
+				if (rlen <= 0)
+					break;
+			}
+			sig_flag = 0;
+		}
 
 		/* forked child have returned */
 		if (sigchilds_waiting) {
@@ -1018,7 +1012,6 @@ exit:
 
 	if (udevd_sock > 0)
 		close(udevd_sock);
-
 	if (uevent_netlink_sock > 0)
 		close(uevent_netlink_sock);
 

@@ -222,7 +222,7 @@ static int import_program_into_env(struct udevice *udev, const char *program)
 	char result[1024];
 	size_t reslen;
 
-	if (run_program(program, udev->subsystem, result, sizeof(result), &reslen, (udev_log_priority >= LOG_DEBUG)) != 0)
+	if (run_program(program, udev->subsystem, result, sizeof(result), &reslen, (udev_log_priority >= LOG_INFO)) != 0)
 		return -1;
 	return import_keys_into_env(udev, result, reslen);
 }
@@ -808,7 +808,6 @@ try_parent:
 		apply_format(udev, import, sizeof(import), class_dev, sysfs_device);
 		dbg("check for IMPORT import='%s'", import);
 		if (rule->import_type == IMPORT_PROGRAM) {
-			info("IMPORT executes '%s'", import);
 			rc = import_program_into_env(udev, import);
 		} else if (rule->import_type == IMPORT_FILE) {
 			dbg("import file import='%s'", import);
@@ -833,8 +832,7 @@ try_parent:
 
 		strlcpy(program, key_val(rule, &rule->program), sizeof(program));
 		apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
-		info("PROGRAM key executes '%s", program);
-		if (run_program(program, udev->subsystem, result, sizeof(result), NULL, (udev_log_priority >= LOG_DEBUG)) != 0) {
+		if (run_program(program, udev->subsystem, result, sizeof(result), NULL, (udev_log_priority >= LOG_INFO)) != 0) {
 			dbg("PROGRAM is false");
 			udev->program_result[0] = '\0';
 			if (rule->program.operation != KEY_OP_NOMATCH)
@@ -964,7 +962,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 				}
 				strlcpy(temp, key_val(rule, &rule->symlink), sizeof(temp));
 				apply_format(udev, temp, sizeof(temp), class_dev, sysfs_device);
-				info("rule applied, added symlink '%s'", temp);
+				dbg("rule applied, added symlink '%s'", temp);
 
 				/* add multiple symlinks separated by spaces */
 				pos = temp;
