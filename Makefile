@@ -64,6 +64,7 @@ exec_prefix =	${prefix}
 etcdir =	${prefix}/etc
 sbindir =	${exec_prefix}/sbin
 usrbindir =	${exec_prefix}/usr/bin
+usrsbindir =	${exec_prefix}/usr/sbin
 mandir =	${prefix}/usr/share/man
 configdir =	${etcdir}/udev
 srcdir = .
@@ -383,7 +384,7 @@ install: install-config install-man all
 	$(INSTALL_PROGRAM) -D $(DAEMON) $(DESTDIR)$(sbindir)/$(DAEMON)
 	$(INSTALL_PROGRAM) -D $(SENDER) $(DESTDIR)$(sbindir)/$(SENDER)
 	$(INSTALL_PROGRAM) -D $(CONTROL) $(DESTDIR)$(sbindir)/$(CONTROL)
-	$(INSTALL_PROGRAM) -D $(MONITOR) $(DESTDIR)$(sbindir)/$(MONITOR)
+	$(INSTALL_PROGRAM) -D $(MONITOR) $(DESTDIR)$(usrsbindir)/$(MONITOR)
 	$(INSTALL_PROGRAM) -D $(INFO) $(DESTDIR)$(usrbindir)/$(INFO)
 	$(INSTALL_PROGRAM) -D $(TESTER) $(DESTDIR)$(usrbindir)/$(TESTER)
 	$(INSTALL_PROGRAM) -D $(STARTER) $(DESTDIR)$(sbindir)/$(STARTER)
@@ -409,8 +410,8 @@ uninstall: uninstall-man
 	- rm $(sbindir)/$(INITSENDER)
 	- rm $(sbindir)/$(RECORDER)
 	- rm $(sbindir)/$(CONTROL)
-	- rm $(sbindir)/$(MONITOR)
 	- rm $(sbindir)/$(STARTER)
+	- rm $(usrsbindir)/$(MONITOR)
 	- rm $(usrbindir)/$(INFO)
 	- rm $(usrbindir)/$(TESTER)
 	- rm -rf $(udevdb)
