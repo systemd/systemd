@@ -667,6 +667,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		      struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
 	struct sysfs_device *parent_device = sysfs_device;
+	int i;
 
 	if (match_key("ACTION", rule, &rule->action, udev->action))
 		goto exit;
@@ -691,23 +692,21 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 			goto exit;
 	}
 
-	if (rule->env.count) {
-		int i;
+	for (i = 0; i < rule->env.count; i++) {
+		struct key_pair *pair = &rule->env.keys[i];
 
-		dbg("check %i ENV keys", rule->env.count);
-		for (i = 0; i < rule->env.count; i++) {
-			struct key_pair *pair = &rule->env.keys[i];
+		/* we only check for matches, assignments will be handled later */
+		if (pair->key.operation != KEY_OP_ASSIGN) {
 			const char *key_name = key_pair_name(rule, pair);
 			const char *value = getenv(key_name);
 
 			if (!value) {
-				dbg("ENV{'%s'} is not set", key_name);
+				dbg("ENV{'%s'} is not set, treat as empty", key_name);
 				value = "";
 			}
 			if (match_key("ENV", rule, &pair->key, value))
 				goto exit;
 		}
-		dbg("all %i ENV keys matched", rule->env.count);
 	}
 
 	if (rule->wait_for_sysfs.operation != KEY_OP_UNSET) {
@@ -760,8 +759,6 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule,
 
 		/* check for matching sysfs pairs */
 		if (rule->sysfs.count) {
-			int i;
-
 			dbg("check %i SYSFS keys", rule->sysfs.count);
 			for (i = 0; i < rule->sysfs.count; i++) {
 				struct key_pair *pair = &rule->sysfs.keys[i];
@@ -799,32 +796,6 @@ try_parent:
 		dbg("look at sysfs_device->bus_id='%s'", parent_device->bus_id);
 	}
 
-	/* import variables from file into environment */
-	if (rule->import.operation != KEY_OP_UNSET) {
-		char import[PATH_SIZE];
-		int rc = -1;
-
-		strlcpy(import, key_val(rule, &rule->import), sizeof(import));
-		apply_format(udev, import, sizeof(import), class_dev, sysfs_device);
-		dbg("check for IMPORT import='%s'", import);
-		if (rule->import_type == IMPORT_PROGRAM) {
-			rc = import_program_into_env(udev, import);
-		} else if (rule->import_type == IMPORT_FILE) {
-			dbg("import file import='%s'", import);
-			rc = import_file_into_env(udev, import);
-		} else if (rule->import_type == IMPORT_PARENT && class_dev) {
-			dbg("import parent import='%s'", import);
-			rc = import_parent_into_env(udev, class_dev, import);
-		}
-		if (rc) {
-			dbg("IMPORT failed");
-			if (rule->import.operation != KEY_OP_NOMATCH)
-				goto exit;
-		} else
-			dbg("IMPORT '%s' imported", key_val(rule, &rule->import));
-		dbg("IMPORT key is true");
-	}
-
 	/* execute external program */
 	if (rule->program.operation != KEY_OP_UNSET) {
 		char program[PATH_SIZE];
@@ -854,7 +825,45 @@ try_parent:
 	if (match_key("RESULT", rule, &rule->result, udev->program_result))
 		goto exit;
 
-	/* rule matches */
+	/* import variables returned from program or or file into environment */
+	if (rule->import.operation != KEY_OP_UNSET) {
+		char import[PATH_SIZE];
+		int rc = -1;
+
+		strlcpy(import, key_val(rule, &rule->import), sizeof(import));
+		apply_format(udev, import, sizeof(import), class_dev, sysfs_device);
+		dbg("check for IMPORT import='%s'", import);
+		if (rule->import_type == IMPORT_PROGRAM) {
+			rc = import_program_into_env(udev, import);
+		} else if (rule->import_type == IMPORT_FILE) {
+			dbg("import file import='%s'", import);
+			rc = import_file_into_env(udev, import);
+		} else if (rule->import_type == IMPORT_PARENT && class_dev) {
+			dbg("import parent import='%s'", import);
+			rc = import_parent_into_env(udev, class_dev, import);
+		}
+		if (rc) {
+			dbg("IMPORT failed");
+			if (rule->import.operation != KEY_OP_NOMATCH)
+				goto exit;
+		} else
+			dbg("IMPORT '%s' imported", key_val(rule, &rule->import));
+		dbg("IMPORT key is true");
+	}
+
+	/* rule matches, if we have ENV assignments export it */
+	for (i = 0; i < rule->env.count; i++) {
+		struct key_pair *pair = &rule->env.keys[i];
+
+		if (pair->key.operation == KEY_OP_ASSIGN) {
+			const char *key_name = key_pair_name(rule, pair);
+			const char *value = key_val(rule, &pair->key);
+
+			setenv(key_name, value, 1);
+			dbg("export ENV '%s=%s'", key_name, value);
+		}
+	}
+
 	return 0;
 
 exit:

@@ -1294,6 +1294,31 @@ BUS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="bad", NAME="bad"
 EOF
 	},
 	{
+		desc		=> "ENV{} test (assign)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "true",
+		rules		=> <<EOF
+BUS=="scsi", KERNEL=="sda1", ENV{ASSIGN}="true"
+BUS=="scsi", KERNEL=="sda1", ENV{ASSIGN}=="yes", NAME="no"
+BUS=="scsi", KERNEL=="sda1", ENV{ASSIGN}=="true", NAME="true"
+BUS=="scsi", KERNEL=="sda1", NAME="bad"
+EOF
+	},
+	{
+		desc		=> "ENV{} test (assign2)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "part",
+		rules		=> <<EOF
+SUBSYSTEM=="block", KERNEL="*[0-9]", ENV{PARTITION}="true", ENV{MAINDEVICE}="false"
+SUBSYSTEM=="block", KERNEL="*[!0-9]", ENV{PARTITION}="false", ENV{MAINDEVICE}="true"
+ENV{MAINDEVICE}=="true", NAME="disk"
+ENV{PARTITION}=="true", NAME="part"
+NAME="bad"
+EOF
+	},
+	{
 		desc		=> "untrusted string sanitize",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",
