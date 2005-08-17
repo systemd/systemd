@@ -204,19 +204,30 @@ uint8_t *volume_id_get_buffer(struct volume_id *id, uint64_t off, size_t len)
 	if (off + len <= SB_BUFFER_SIZE) {
 		if (id->sbbuf == NULL) {
 			id->sbbuf = malloc(SB_BUFFER_SIZE);
-			if (id->sbbuf == NULL)
+			if (id->sbbuf == NULL) {
+				dbg("error malloc");
 				return NULL;
+			}
 		}
 
 		/* check if we need to read */
 		if ((off + len) > id->sbbuf_len) {
 			dbg("read sbbuf len:0x%llx", (unsigned long long) (off + len));
-			lseek(id->fd, 0, SEEK_SET);
+			if (lseek(id->fd, 0, SEEK_SET) < 0) {
+				dbg("lseek failed (%s)", strerror(errno));
+				return NULL;
+			}
 			buf_len = read(id->fd, id->sbbuf, off + len);
+			if (buf_len < 0) {
+				dbg("read failed (%s)", strerror(errno));
+				return NULL;
+			}
 			dbg("got 0x%zx (%zi) bytes", buf_len, buf_len);
 			id->sbbuf_len = buf_len;
-			if (buf_len < off + len)
+			if (buf_len < off + len) {
+				dbg("requested 0x%zx bytes, got only 0x%zx bytes", len, buf_len);
 				return NULL;
+			}
 		}
 
 		return &(id->sbbuf[off]);
@@ -229,16 +240,24 @@ uint8_t *volume_id_get_buffer(struct volume_id *id, uint64_t off, size_t len)
 		/* get seek buffer */
 		if (id->seekbuf == NULL) {
 			id->seekbuf = malloc(SEEK_BUFFER_SIZE);
-			if (id->seekbuf == NULL)
+			if (id->seekbuf == NULL) {
+				dbg("error malloc");
 				return NULL;
+			}
 		}
 
 		/* check if we need to read */
 		if ((off < id->seekbuf_off) || ((off + len) > (id->seekbuf_off + id->seekbuf_len))) {
 			dbg("read seekbuf off:0x%llx len:0x%zx", (unsigned long long) off, len);
-			if (lseek(id->fd, off, SEEK_SET) == -1)
+			if (lseek(id->fd, off, SEEK_SET) < 0) {
+				dbg("lseek failed (%s)", strerror(errno));
 				return NULL;
+			}
 			buf_len = read(id->fd, id->seekbuf, len);
+			if (buf_len < 0) {
+				dbg("read failed (%s)", strerror(errno));
+				return NULL;
+			}
 			dbg("got 0x%zx (%zi) bytes", buf_len, buf_len);
 			id->seekbuf_off = off;
 			id->seekbuf_len = buf_len;
