@@ -107,21 +107,21 @@ int main(int argc, char *argv[])
 			node = arg;
 	}
 	if (!node) {
-		err("no node specified");
+		info("no node specified");
 		rc = 1;
 		goto exit;
 	}
 
 	fd = open(node, O_RDONLY|O_NONBLOCK);
 	if (fd < 0) {
-		err("unable to open '%s'", node);
+		info("unable to open '%s'", node);
 		rc = 1;
 		goto exit;
 	}
 
 	result = ioctl(fd, CDROM_GET_CAPABILITY, NULL);
 	if (result < 0) {
-		err("CDROM_GET_CABILITY failed for '%s'", node);
+		info("CDROM_GET_CABILITY failed for '%s'", node);
 		rc = 3;
 		goto close;
 	}
