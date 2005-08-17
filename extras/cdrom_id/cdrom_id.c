@@ -112,10 +112,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	fd = open(node, O_RDONLY);
-	if (fd < 0)
-		if (errno == ENOMEDIUM)
-			fd = open(node, O_RDONLY|O_NONBLOCK);
+	fd = open(node, O_RDONLY|O_NONBLOCK);
 	if (fd < 0) {
 		err("unable to open '%s'", node);
 		rc = 1;
