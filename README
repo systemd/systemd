@@ -60,10 +60,17 @@ To use:
 		This is used if USE_KLIBC=true to find the kernel include
 		directory that klibc needs to build against.  This must be set
 		if you are not building udev while running a 2.6 kernel.
+	EXTRAS
+		if set, will build the "extra" helper programs as specified
+		as listed (see below for an example.)
 
       So, if you want to build udev using klibc with debugging messages, you
       would do:
 	make USE_KLIBC=true DEBUG=true
+
+      If you want to build the udev helper program cdrom_id and scsi_id you
+      would do:
+	make EXTRAS="extras/cdrom_id extras/scsi_id"
 
       udev will follow the setting of the debug level in udev.conf. Adapt this
       value to see the debug in syslog.
