@@ -1,3 +1,21 @@
+Summary of changes from v067 to v068
+============================================
+
+Greg Kroah-Hartman:
+  add EXTRAS documentation to the README file.
+  Always open the cdrom drive in non-blocking mode in cdrom_id
+  cdrom_id: change err() to info() to help with debugging problems
+
+Kay Sievers:
+  cleanup some debug output and move to info level + unify select() loops
+  move udevmonitor to /usr/sbin
+  ENV{TEST}=="1" compares and ENV{TEST}="1" sets the environment
+  vol_id: fix sloppy error handling
+  fix typo in cdrom_id syslog
+  bring std(in|out|err) fd's in a sane state
+  fix printed udevmonitor header
+
+
 Summary of changes from v066 to v067
 ============================================
 
