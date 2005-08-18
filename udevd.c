@@ -777,7 +777,23 @@ int main(int argc, char *argv[], char *envp[])
 	int daemonize = 0;
 	int i;
 
+	/* set std fd's to /dev/null, if the kernel forks us, we don't have them at all */
+	devnull = open("/dev/null", O_RDWR);
+	if (devnull >= 0)  {
+		if (devnull != STDIN_FILENO)
+			dup2(devnull, STDIN_FILENO);
+		if (devnull != STDOUT_FILENO)
+			dup2(devnull, STDOUT_FILENO);
+		if (devnull != STDERR_FILENO)
+			dup2(devnull, STDERR_FILENO);
+		if (devnull > STDERR_FILENO)
+			close(devnull);
+	}
+
 	logging_init("udevd");
+	if (devnull < 0)
+		err("fatal, could not open /dev/null");
+
 	udev_init_config();
 	dbg("version %s", UDEV_VERSION);
 
@@ -824,16 +840,6 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* set a reasonable scheduling priority for the daemon */
 	setpriority(PRIO_PROCESS, 0, UDEVD_PRIORITY);
-
-	/* Set fds to dev/null */
-	devnull = open( "/dev/null", O_RDWR );
-	if (devnull > 0)  {
-		dup2(devnull, STDIN_FILENO);
-		dup2(devnull, STDOUT_FILENO);
-		dup2(devnull, STDERR_FILENO);
-		close(devnull);
-	} else
-		err("error opening /dev/null %s", strerror(errno));
 
 	/* setup signal handler pipe */
 	retval = pipe(pipefds);
