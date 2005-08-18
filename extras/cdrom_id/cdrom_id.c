@@ -121,7 +121,7 @@ int main(int argc, char *argv[])
 
 	result = ioctl(fd, CDROM_GET_CAPABILITY, NULL);
 	if (result < 0) {
-		info("CDROM_GET_CABILITY failed for '%s'", node);
+		info("CDROM_GET_CAPABILITY failed for '%s'", node);
 		rc = 3;
 		goto close;
 	}
@@ -147,8 +147,6 @@ int main(int argc, char *argv[])
 
 	if (result & CDC_RAM)
 		printf("ID_CDROM_RAM=1\n");
-	goto close;
-
 close:
 	close(fd);
 exit:
