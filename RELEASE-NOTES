@@ -1,3 +1,16 @@
+udev 068
+========
+More bugfixes. If udevd was started from the kernel, we don't
+have stdin/stdout/stderr, which broke the forked tools in some
+situations.
+
+udev 067
+========
+Bugfix. udevstart event ordering was broken for a long time.
+The new run_program() uncovered it, cause /dev/null was not
+available while we try to run external programs.
+Now udevstart should create it before we run anything.
+
 udev 066
 ========
 Minor bugfixes and some distro rules updates. If you don't have the

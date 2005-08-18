@@ -133,8 +133,8 @@ int main(int argc, char *argv[])
 		goto out;
 	init_uevent_netlink_sock();
 
-	printf("udevmonitor prints received from the kernel [UEVENT] and after\n"
-	       "the udev processing, the event which udev [UDEV] has generated\n\n");
+	printf("udevmonitor prints the received event from the kernel [UEVENT]\n"
+	       "and the event which udev sends out after rule processing [UDEV]\n\n");
 
 	while (1) {
 		static char buf[UEVENT_BUFFER_SIZE*2];
