@@ -128,7 +128,6 @@ static int udevsend(char *filename, int sock, int disable_loop_detection)
 		}
 
 		if (ch < le) {
-
 			strncpy(&usend_msg.envbuf[bufpos],ls,(ch - ls) + 1);
 			bufpos += (ch - ls) + 1;
 			if (ch[1] == '\'' && le[-1] == '\'') {
@@ -153,9 +152,10 @@ loop_end:
 		retval = sendto(sock, &usend_msg, usend_msg_len, 0, (struct sockaddr *)&saddr, addrlen);
 		if (retval < 0) {
 			dbg("error sending message (%s)", strerror(errno));
+			retval = -1;
 		}
 	}
-		
+
 	return retval;
 }
 
@@ -167,7 +167,7 @@ int main(int argc, char *argv[], char *envp[])
 	char *event_file = NULL;
 	DIR *dirstream;
 	struct dirent *direntry;
-	int retval = 1;
+	int retval = 0;
 	int disable_loop_detection = 0;
 	int sock;
 	const char *env;
@@ -218,7 +218,7 @@ int main(int argc, char *argv[], char *envp[])
 		if (!dirstream) {
 			info("error opening directory %s: %s\n",
 			     event_dir, strerror(errno));
-			return 1;
+			return 2;
 		}
 		chdir(event_dir);
 		while ((direntry = readdir(dirstream)) != NULL) {
@@ -235,5 +235,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (sock != -1)
 		close(sock);
 
-	return retval;
+	if (retval)
+		return 3;
+	return 0;
 }

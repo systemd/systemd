@@ -63,6 +63,7 @@ static int init_udev_monitor_socket(void)
 	if (retval < 0) {
 		fprintf(stderr, "bind failed, %s\n", strerror(errno));
 		close(udev_monitor_sock);
+		udev_monitor_sock = -1;
 		return -1;
 	}
 
@@ -125,13 +126,15 @@ int main(int argc, char *argv[])
 
 	if (getuid() != 0) {
 		fprintf(stderr, "need to be root, exit\n\n");
-		exit(1);
+		exit(2);
 	}
 
 	retval = init_udev_monitor_socket();
 	if (retval)
 		goto out;
-	init_uevent_netlink_sock();
+	retval = init_uevent_netlink_sock();
+	if (retval)
+		goto out;
 
 	printf("udevmonitor prints the received event from the kernel [UEVENT]\n"
 	       "and the event which udev sends out after rule processing [UDEV]\n\n");
@@ -204,5 +207,7 @@ out:
 	if (udev_monitor_sock > 0)
 		close(udev_monitor_sock);
 
-	return retval;
+	if (retval)
+		return 3;
+	return 0;
 }
