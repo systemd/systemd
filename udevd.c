@@ -113,7 +113,7 @@ static void msg_queue_insert(struct uevent_msg *msg)
 
 	if (msg->seqnum == 0) {
 		dbg("no SEQNUM, move straight to the exec queue");
-		list_add(&msg->node, &exec_list);
+		list_add_tail(&msg->node, &exec_list);
 		run_exec_q = 1;
 		return;
 	}
