@@ -82,7 +82,7 @@ static void set_str(char *to, const char *from, size_t count)
 
 	/* strip trailing whitespace */
 	len = strnlen(from, count);
-	while (isspace(from[len-1]))
+	while (len && isspace(from[len-1]))
 		len--;
 
 	/* strip leading whitespace */
