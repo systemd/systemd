@@ -153,7 +153,7 @@ int run_program(const char *command, const char *subsystem,
 		execv(argv[0], argv);
 
 		/* we should never reach this */
-		err("exec of program failed");
+		err("exec of program '%s' failed", argv[0]);
 		_exit(1);
 	case -1:
 		err("fork of '%s' failed", argv[0]);
