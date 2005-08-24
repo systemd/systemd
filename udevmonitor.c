@@ -25,6 +25,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <errno.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/select.h>
@@ -38,6 +39,7 @@
 
 static int uevent_netlink_sock;
 static int udev_monitor_sock;
+static volatile int udev_exit;
 
 static int init_udev_monitor_socket(void)
 {
@@ -101,8 +103,15 @@ static int init_uevent_netlink_sock(void)
 	return 0;
 }
 
+static void asmlinkage sig_handler(int signum)
+{
+	if (signum == SIGINT || signum == SIGTERM)
+		udev_exit = 1;
+}
+
 int main(int argc, char *argv[])
 {
+	struct sigaction act;
 	int env = 0;
 	fd_set readfds;
 	int i;
@@ -129,6 +138,14 @@ int main(int argc, char *argv[])
 		exit(2);
 	}
 
+	/* set signal handlers */
+	memset(&act, 0x00, sizeof(struct sigaction));
+	act.sa_handler = (void (*)(int)) sig_handler;
+	sigemptyset(&act.sa_mask);
+	act.sa_flags = SA_RESTART;
+	sigaction(SIGINT, &act, NULL);
+	sigaction(SIGTERM, &act, NULL);
+
 	retval = init_udev_monitor_socket();
 	if (retval)
 		goto out;
@@ -139,7 +156,7 @@ int main(int argc, char *argv[])
 	printf("udevmonitor prints the received event from the kernel [UEVENT]\n"
 	       "and the event which udev sends out after rule processing [UDEV]\n\n");
 
-	while (1) {
+	while (!udev_exit) {
 		static char buf[UEVENT_BUFFER_SIZE*2];
 		ssize_t buflen;
 		int fdcount;
