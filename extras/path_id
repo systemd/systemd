@@ -1,13 +1,12 @@
 #!/bin/sh
-#set -x
 
-# this script should provide the shortest possible unique hardware path 
-# to a block device
+# provide the shortest possible unique hardware path to a block device
+# for the udev persistent disk device naming scheme
 #
-
-# Horrible script. Handle with extreme care.
-
-# to be called from udev
+# Copyright (C) 2005 SUSE Linux Products GmbH
+# Licensed under the GPL v2.
+#
+# to be called from a udev rule to return the name for a symlink
 # DEVPATH=/block/sda/sda3 $0  (or similar)
 # $0 /block/sda
 # $0 /sys/block/sda
@@ -55,9 +54,7 @@
 # then firewire sbp2
 # then the rest
 
-PATH=/lib/klibc/bin #/usr:/usr/sbin:/usr/bin:/sbin:/bin
 SYSFS=/sys
-export PATH
 RESULT=1
 CDROM=
 TYPE=
