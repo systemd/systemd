@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
 	}
 
 	snprintf(data_path, sizeof(data_path), "/sys/%s/data", devpath);
-	fw_path[sizeof(data_path)-1] = '\0';
+	data_path[sizeof(data_path)-1] = '\0';
 	fw_fd = open(data_path, O_RDWR);
 	if (fw_fd < 0) {
 		rc = errno;
