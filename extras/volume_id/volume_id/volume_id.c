@@ -118,9 +118,6 @@ int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size)
 	if (volume_id_probe_vfat(id, off) == 0)
 		goto exit;
 
-	if (volume_id_probe_mac_partition_map(id, off) == 0)
-		goto exit;
-
 	if (volume_id_probe_xfs(id, off) == 0)
 		goto exit;
 
