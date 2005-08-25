@@ -27,8 +27,11 @@ KERNEL=="winradio*",		NAME="%k", GROUP="video"
 KERNEL=="vttuner*",		NAME="%k", GROUP="video"
 KERNEL=="nvidia*",		NAME="%k", GROUP="video"
 KERNEL=="nvidiactl*",		NAME="%k", GROUP="video"
+KERNEL=="video0",		SYMLINK+="video"
+KERNEL=="radi0",		SYMLINK+="radio"
 
 # dvb
+#SUBSYSTEM="dvb", PROGRAM="/bin/sh -c 'X=%k X=$${X#dvb} A=$${X%%%%.*} D=$${X#*.}; echo dvb/adapter$$A/$$D'", NAME="%c", GROUP="video"
 KERNEL=="dvb*", PROGRAM="/etc/udev/scripts/dvb.sh %k", NAME="%c", GROUP="video"
 
 # ALSA/sound
@@ -59,34 +62,6 @@ SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="76b/596*", RUN+="/usr/sbin/openc
 SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="76b/1784*", RUN+="/usr/sbin/openct-control attach $env{DEVICE} usb:$env{PRODUCT}"
 SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="8d4/9*", RUN+="/usr/sbin/openct-control attach $env{DEVICE} usb:$env{PRODUCT}"
 SUBSYSTEM=="usb", ACTION=="add", ENV{INTERFACE}=="11/*", RUN+="/usr/sbin/openct-control attach $env{DEVICE} usb:$env{PRODUCT}"
-
-# CAPI devices
-SUBSYSTEM="capi",		GROUP="dialout"
-KERNEL=="capi",			NAME="capi20", SYMLINK+="isdn/capi20"
-KERNEL=="capi*",		NAME="capi/%n"
-
-# ISDN
-KERNEL=="isdn*",		NAME="%k", MODE="600"
-KERNEL=="isdnctrl*",		NAME="%k", MODE="600"
-KERNEL=="ippp*",		NAME="%k", MODE="600"
-KERNEL=="isdninfo*",		NAME="%k", MODE="444"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="57c/c00*", IMPORT="/bin/echo 'DRV=fcusb'", RUN+="/etc/sysconfig/isdn/scripts/load-avmusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="57c/1000*", IMPORT="/bin/echo -e 'DRV=fcusb2\nFIRMWARE=fus2base.frm'", RUN+="/etc/sysconfig/isdn/scripts/load-avmusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="57c/1900*", IMPORT="/bin/echo -e 'DRV=fcusb2\nFIRMWARE=fus3base.frm'", RUN+="/etc/sysconfig/isdn/scripts/load-avmusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="57c/2000*", IMPORT="/bin/echo DRV=fxusb", RUN+="/etc/sysconfig/isdn/scripts/load-avmusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="57c/2200*", IMPORT="/bin/echo DRV=bfusb", RUN+="/etc/sysconfig/isdn/scripts/load-bfusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="57c/2300*", IMPORT="/bin/echo -e 'DRV=fcdslusb\nFIRMWARE=fdsubase.frm\nDSL_CONTR=dslisdn'", RUN+="/etc/sysconfig/isdn/scripts/load-avmusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="57c/2800*", IMPORT="/bin/echo DRV=fxusb_CZ", RUN+="/etc/sysconfig/isdn/scripts/load-avmusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="57c/3000*", IMPORT="/bin/echo -e 'DRV=fcdslusba\nFIRMWARE=fdsabase.frm\nDSL_CONTR=dslonly\nISDNLOG_START=no'", RUN+="/etc/sysconfig/isdn/scripts/load-avmusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="57c/3500*", IMPORT="/bin/echo -e 'DRV=fcdslslusb\nFIRMWARE=fdlubase.frm\nDSL_CONTR=dslonly\nISDNLOG_START=no'", RUN+="/etc/sysconfig/isdn/scripts/load-avmusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="57c/3600*", IMPORT="/bin/echo -e 'DRV=fcdslusb2\nFIRMWARE=fds2base.frm\nDSL_CONTR=dslisdn'", RUN+="/etc/sysconfig/isdn/scripts/load-avmusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="57c/2805*", IMPORT="/bin/echo 'DRV=e2220pc'", RUN+="/etc/sysconfig/isdn/scripts/load-avmusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="57c/2806*", IMPORT="/bin/echo 'DRV=e5520pc'", RUN+="/etc/sysconfig/isdn/scripts/load-avmusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="57c/4401*", IMPORT="/bin/echo 'DRV=e2220pc'", RUN+="/etc/sysconfig/isdn/scripts/load-avmusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="57c/4601*", IMPORT="/bin/echo 'DRV=e5520pc'", RUN+="/etc/sysconfig/isdn/scripts/load-avmusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="483/4810*", IMPORT="/bin/echo 'DRV=hisax_st5481'", RUN+="/etc/sysconfig/isdn/scripts/load-hisaxusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="959/2bd0*", IMPORT="/bin/echo 'DRV=hfc_usb'", RUN+="/etc/sysconfig/isdn/scripts/load-hisaxusb"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="9bf/*", IMPORT="/bin/echo 'DRV=auerswald'", RUN+="/etc/sysconfig/isdn/scripts/load-auerswald"
 
 # input devices
 KERNEL=="mice",			NAME="input/%k", MODE="0640"
@@ -127,7 +102,7 @@ KERNEL=="sxctl",		NAME="specialix_sxctl", SYMLINK+="%k"
 KERNEL=="mem",			NAME="%k", GROUP="kmem", MODE="640"
 KERNEL=="kmem",			NAME="%k", GROUP="kmem", MODE="640"
 KERNEL=="port",			NAME="%k", GROUP="kmem", MODE="640"
-KERNEL=="nvram",		NAME="%k", GROUP="kmem"
+KERNEL=="nvram",		NAME="%k", GROUP="kmem", MODE="600"
 KERNEL=="null",			NAME="%k", MODE="666"
 KERNEL=="zero",			NAME="%k", MODE="666"
 KERNEL=="full",			NAME="%k", MODE="622"
@@ -149,9 +124,9 @@ KERNEL=="z90crypt",		NAME="%k", MODE="666"
 KERNEL=="mmtimer",		NAME="%k", MODE="444"
 
 # fix floppy devices
-KERNEL=="nvram", ACTION=="add", NAME="%k", MODE="600", RUN="/sbin/load_floppy_module"
-KERNEL=="fd*", ACTION=="add", SYSFS{device/cmos}=="*", RUN="/sbin/create_floppy_devices -c -t $sysfs{device/cmos} -m %M /dev/%k"
-KERNEL=="fd*", ACTION=="remove", RUN="/sbin/remove_floppy_devices /dev/%k"
+KERNEL=="nvram", ACTION=="add", RUN+="/sbin/load_floppy_module"
+KERNEL=="fd*", ACTION=="add", SYSFS{device/cmos}=="*", RUN+="/sbin/create_floppy_devices -c -t $sysfs{device/cmos} -m %M /dev/%k"
+KERNEL=="fd*", ACTION=="remove", RUN+="/sbin/remove_floppy_devices %k"
 
 # block devices
 SUBSYSTEM=="block", GROUP="disk", MODE="0640"
@@ -236,11 +211,12 @@ DEVPATH=="/module/usbcore", ACTION=="add", RUN+="/bin/mount -t usbfs usbfs /proc
 SUBSYSTEM="usb_device", PROGRAM="/bin/sh -c 'X=%k X=$${X#usbdev} B=$${X%%%%.*} D=$${X#*.}; echo bus/usb/$$B/$$D'", SYMLINK+="%c"
 
 # firmware loader
-SUBSYSTEM=="firmware", ACTION=="add", RUN+="/etc/hotplug.d/firmware/50-firmware.hotplug"
+SUBSYSTEM=="firmware", ACTION=="add", RUN+="/sbin/firmware.hotplug.sh"
 
 # SUSE system integration
 SUBSYSTEM=="pci", ACTION=="add", RUN+="/sbin/hwup bus-pci-%k -o hotplug"
 SUBSYSTEM=="usb", ACTION=="add", RUN+="/sbin/hwup usb-devpath-/sys%p -o hotplug"
+LABEL="after_usb_default"
 SUBSYSTEM=="ieee1394", ACTION=="add", RUN+="/sbin/hwup ieee1394-devpath-/sys%p -o hotplug"
 SUBSYSTEM=="ccw", ACTION=="add", RUN+="/sbin/hwup ccw-devpath-/sys%p -o hotplug"
 SUBSYSTEM=="ccwgroup", ACTION=="add", RUN+="/sbin/hwup ccwgroup-devpath-/sys%p -o hotplug"

@@ -1,0 +1,54 @@
+#
+# Very important !!!
+# These rules must be processed befor 50-pcmcia and 50-udev
+# if not here 'll be a endless loop !!! 
+#
+# CAPI devices
+SUBSYSTEM="capi",		GROUP="dialout"
+KERNEL=="capi",			NAME="capi20", SYMLINK+="isdn/capi20"
+KERNEL=="capi*",		NAME="capi/%n"
+
+# ISDN
+KERNEL=="isdn*",		NAME="%k", MODE="600"
+KERNEL=="isdnctrl*",		NAME="%k", MODE="600"
+KERNEL=="ippp*",		NAME="%k", MODE="600"
+KERNEL=="isdninfo*",		NAME="%k", MODE="444"
+# USB
+SUBSYSTEM=="usb", ENV{PRODUCT}=="57c/c00*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="57c/1000*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="57c/1900*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="57c/2000*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="57c/2200*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="57c/2300*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="57c/2800*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="57c/3000*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="57c/3500*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="57c/3600*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="57c/2805*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="57c/2806*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="57c/4401*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="57c/4601*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="483/4810*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="959/2bd0*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+SUBSYSTEM=="usb", ENV{PRODUCT}=="9bf/*", RUN+="/sbin/udev.isdn.sh", GOTO="after_usb_default"
+
+# ISDN PCMCIA
+# AVM B1 models
+SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="pcmcia:m*c*f*fn*pfn*pa95D42008pb845DC335pc*pd*", RUN+="/sbin/udev.isdn.sh b1 1", GOTO="after_pcmcia"
+SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="pcmcia:m*c*f*fn*pfn*pa95D42008pb81E10430pc*pd*", RUN+="/sbin/udev.isdn.sh b1 2", GOTO="after_pcmcia"
+SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="pcmcia:m*c*f*fn*pfn*pa95D42008pb18E8558Apc*pd*", RUN+="/sbin/udev.isdn.sh b1 3", GOTO="after_pcmcia"
+# AVM A1 models (aka Fritz!Card PCMCIA)
+SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="pcmcia:m*c*f*fn*pfn*pa95D42008pbADC9D4BBpc*pd*", RUN+="/sbin/udev.isdn.sh a1 1", GOTO="after_pcmcia"
+SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="pcmcia:m*c*f*fn*pfn*pa8D9761C8pb01C5AA7Bpc*pd*", RUN+="/sbin/udev.isdn.sh a1 2", GOTO="after_pcmcia"
+# teles
+SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="pcmcia:m*c*f*fn*pfn*pa67B50EAEpbE9E70119pc*pd*", RUN+="/sbin/udev.isdn.sh teles 1", GOTO="after_pcmcia"
+# sedlbauer
+SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="pcmcia:m*c*f*fn*pfn*pa81FB79F5pbF3612E1Dpc6B95C78Apd*", RUN+="/sbin/udev.isdn.sh sedlbauer 1", GOTO="after_pcmcia"
+SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="pcmcia:m*c*f*fn*pfn*pa81FB79F5pbE4E9BC12pc397B7E90pd*", RUN+="/sbin/udev.isdn.sh sedlbauer 2", GOTO="after_pcmcia"
+SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="pcmcia:m*c*f*fn*pfn*pa81FB79F5pbE4E9BC12pc2E5C7FCEpd*", RUN+="/sbin/udev.isdn.sh sedlbauer 3", GOTO="after_pcmcia"
+SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="pcmcia:m*c*f*fn*pfn*pa81FB79F5pbE4E9BC12pc8DB143FEpd*", RUN+="/sbin/udev.isdn.sh sedlbauer 4", GOTO="after_pcmcia"
+SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="pcmcia:m*c*f*fn*pfn*pa81FB79F5pbE4E9BC12pcB391AB4Cpd*", RUN+="/sbin/udev.isdn.sh sedlbauer 5", GOTO="after_pcmcia"
+SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="pcmcia:m*c*f*fn*pfn*paD79E0B84pb21D083AEpc*pd*", RUN+="/sbin/udev.isdn.sh sedlbauer 6", GOTO="after_pcmcia"
+# elsa
+SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="pcmcia:m*c*f*fn*pfn*pa983DE2C4pb333BA257pc*pd*", RUN+="/sbin/udev.isdn.sh elsa 1", GOTO="after_pcmcia"
+SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="pcmcia:m*c*f*fn*pfn*pa639E5718pb333BA257pc*pd*", RUN+="/sbin/udev.isdn.sh elsa 2", GOTO="after_pcmcia"
