@@ -4,9 +4,9 @@
 # Copyright (c) 2004 Piotr Roszatycki <dexter@debian.org>
 #
 # Usage:
-# KERNEL="cciss!*", PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", NAME="%c{1}", SYMLINK="%k"
-# KERNEL="ida!*",   PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", NAME="%c{1}", SYMLINK="%k"
-# KERNEL="rd!*",    PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", NAME="%c{1}", SYMLINK="%k"
+# KERNEL=="cciss!*", PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", NAME="%c{1}", SYMLINK+="%k"
+# KERNEL=="ida!*",   PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", NAME="%c{1}", SYMLINK+="%k"
+# KERNEL=="rd!*",    PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", NAME="%c{1}", SYMLINK+="%k"
 
 get_dev_number_cciss() {
   grep '^cciss/' /proc/driver/cciss/* | cat -n | \
