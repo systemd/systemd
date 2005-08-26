@@ -207,6 +207,8 @@ int udev_db_get_device(struct udevice *udev, const char *devpath)
 int udev_db_search_name(char *devpath, size_t len, const char *name)
 {
 	DIR *dir;
+	char path[PATH_SIZE];
+	int found = 0;
 
 	dir = opendir(udev_db_path);
 	if (dir == NULL) {
@@ -214,10 +216,9 @@ int udev_db_search_name(char *devpath, size_t len, const char *name)
 		return -1;
 	}
 
-	while (1) {
+	while (!found) {
 		struct dirent *ent;
 		char filename[PATH_SIZE];
-		char path[PATH_SIZE];
 		char nodename[PATH_SIZE];
 		char *bufline;
 		char *buf;
@@ -242,7 +243,7 @@ int udev_db_search_name(char *devpath, size_t len, const char *name)
 		}
 
 		cur = 0;
-		while (cur < bufsize) {
+		while (cur < bufsize && !found) {
 			count = buf_get_line(buf, bufsize, cur);
 			bufline = &buf[cur];
 			cur += count+1;
@@ -262,11 +263,8 @@ int udev_db_search_name(char *devpath, size_t len, const char *name)
 				nodename[count-2] = '\0';
 				dbg("compare '%s' '%s'", nodename, name);
 				if (strcmp(nodename, name) == 0) {
-					strlcpy(devpath, nodename, len);
-					devpath[count-2] = '\0';
-					file_unmap(buf, bufsize);
-					closedir(dir);
-					return 0;
+					found = 1;
+					break;
 				}
 				break;
 			default:
@@ -277,7 +275,11 @@ int udev_db_search_name(char *devpath, size_t len, const char *name)
 	}
 
 	closedir(dir);
-	return -1;
+	if (found) {
+		strlcpy(devpath, path, len);
+		return 0;
+	} else
+		return -1;
 }
 
 int udev_db_dump_names(int (*handler_function)(const char *path, const char *name))
