@@ -859,6 +859,7 @@ try_parent:
 			const char *key_name = key_pair_name(rule, pair);
 			const char *value = key_val(rule, &pair->key);
 
+			name_list_key_add(&udev->env_list, key_name, value);
 			setenv(key_name, value, 1);
 			dbg("export ENV '%s=%s'", key_name, value);
 		}

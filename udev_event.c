@@ -91,15 +91,21 @@ int udev_process_event(struct udev_rules *rules, struct udevice *udev)
 			}
 			sysfs_close_class_device(class_dev);
 		} else if (strcmp(udev->action, "remove") == 0) {
+			struct name_entry *name_loop;
+
+			/* get data from db, remove db-entry, delete node */
 			dbg("node remove");
+			retval = udev_remove_device(udev);
+
+			/* restore stored persistent data */
+			list_for_each_entry(name_loop, &udev->env_list, node)
+				putenv(name_loop->name);
+
 			udev_rules_get_run(rules, udev, NULL, NULL);
 			if (udev->ignore_device) {
 				dbg("device event will be ignored");
 				return -1;
 			}
-
-			/* get name from db, remove db-entry, delete node */
-			retval = udev_remove_device(udev);
 		}
 
 		/* export name of device node or netif */
