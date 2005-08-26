@@ -28,11 +28,10 @@ KERNEL=="vttuner*",		NAME="%k", GROUP="video"
 KERNEL=="nvidia*",		NAME="%k", GROUP="video"
 KERNEL=="nvidiactl*",		NAME="%k", GROUP="video"
 KERNEL=="video0",		SYMLINK+="video"
-KERNEL=="radi0",		SYMLINK+="radio"
+KERNEL=="radio0",		SYMLINK+="radio"
 
 # dvb
-#SUBSYSTEM="dvb", PROGRAM="/bin/sh -c 'X=%k X=$${X#dvb} A=$${X%%%%.*} D=$${X#*.}; echo dvb/adapter$$A/$$D'", NAME="%c", GROUP="video"
-KERNEL=="dvb*", PROGRAM="/etc/udev/scripts/dvb.sh %k", NAME="%c", GROUP="video"
+SUBSYSTEM="dvb", PROGRAM="/bin/sh -c 'X=%k X=$${X#dvb} A=$${X%%%%.*} D=$${X#*.}; echo dvb/adapter$$A/$$D'", NAME="%c", GROUP="video"
 
 # ALSA/sound
 SUBSYSTEM="sound",		GROUP="audio"
@@ -50,18 +49,6 @@ SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="1604/8001/*", RUN+="/sbin/startp
 SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="1604/8005/*", RUN+="/sbin/startproc /usr/bin/us428control"
 SUBSYSTEM=="sound", KERNEL=="controlC?", RUN+="/usr/sbin/alsactl -F restore %n"
 SUBSYSTEM=="sound", KERNEL=="hwC?D2", DRIVER=="EMU10K1_Audigy", RUN+="/etc/alsa.d/udev-soundfont"
-
-# OpenCT (SmartCard)
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="973/1*", RUN+="/usr/sbin/openct-control attach $env{DEVICE} usb:$env{PRODUCT}"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="529/50c*", RUN+="/usr/sbin/openct-control attach $env{DEVICE} usb:$env{PRODUCT}"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="529/514*", RUN+="/usr/sbin/openct-control attach $env{DEVICE} usb:$env{PRODUCT}"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="73d/5*", RUN+="/usr/sbin/openct-control attach $env{DEVICE} usb:$env{PRODUCT}"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="4b9/1200*", RUN+="/usr/sbin/openct-control attach $env{DEVICE} usb:$env{PRODUCT}"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="4b9/1300*", RUN+="/usr/sbin/openct-control attach $env{DEVICE} usb:$env{PRODUCT}"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="76b/596*", RUN+="/usr/sbin/openct-control attach $env{DEVICE} usb:$env{PRODUCT}"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="76b/1784*", RUN+="/usr/sbin/openct-control attach $env{DEVICE} usb:$env{PRODUCT}"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="8d4/9*", RUN+="/usr/sbin/openct-control attach $env{DEVICE} usb:$env{PRODUCT}"
-SUBSYSTEM=="usb", ACTION=="add", ENV{INTERFACE}=="11/*", RUN+="/usr/sbin/openct-control attach $env{DEVICE} usb:$env{PRODUCT}"
 
 # input devices
 KERNEL=="mice",			NAME="input/%k", MODE="0640"
@@ -130,9 +117,29 @@ KERNEL=="fd*", ACTION=="remove", RUN+="/sbin/remove_floppy_devices %k"
 
 # block devices
 SUBSYSTEM=="block", GROUP="disk", MODE="0640"
-SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="0", RUN+="/sbin/modprobe sd_mod"
+
+# SCSI types:
+# sd / block values:
+#    0 TYPE_DISK
+#    7 TYPE_MOD
+#   14 TYPE_RBC
+#
+# st/osst tape:
+#    1 TYPE_TAPE
+#
+# sr cd like ones:
+#    4 TYPE_WORM
+#    5 TYPE_ROM
+SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="0|7|14", RUN+="/sbin/modprobe sd_mod"
+# Treat osst as a unique case, that is, osst will load more often than
+# actually required, but the osst and st drivers will do the right thing.
+SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="1", SYSFS{device/vendor}=="Onstream", RUN+="/sbin/modprobe osst"
 SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="1", RUN+="/sbin/modprobe st"
-SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="[345]", RUN+="/sbin/modprobe sr_mod"
+SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="[45]", RUN+="/sbin/modprobe sr_mod"
+SUBSYSTEM=="scsi_device", ACTION=="add", RUN+="/sbin/modprobe sg"
+
+# IDE/ATAPI handling
+SUBSYSTEM=="ide", ACTION=="add", RUN+="/sbin/udev.load_ide_modules.sh"
 
 # misc storage devices (non-block)
 KERNEL=="sg*",			NAME="%k", GROUP="disk", MODE="640"
@@ -173,15 +180,15 @@ KERNEL=="ram*|loop*|fd*", GOTO="persistent_end"
 SUBSYSTEM=="block", BUS=="ide", DRIVER!="ide-cdrom", SYSFS{removable}="1", GOTO="persistent_end"
 
 # by-id (hardware serial number)
-KERNEL=="hd*[!0-9]", IMPORT="/sbin/ata_id --export $tempnode"
+KERNEL=="hd*[!0-9]", IMPORT{program}="/sbin/ata_id --export $tempnode"
 KERNEL=="hd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
 KERNEL=="hd*[0-9]", IMPORT{parent}=="ID_*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
 
-KERNEL=="sd*[!0-9]|sr*", SYSFS{ieee1394_id}=="*", IMPORT="/bin/echo -e 'ID_SERIAL=$sysfs{ieee1394_id}\nID_BUS=ieee1394\n'"
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT="/sbin/usb_id -x"
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT="/sbin/scsi_id -g -x -s %p"
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT="/sbin/scsi_id -g -x -a -s %p"
-KERNEL=="dasd*[!0-9]", IMPORT="/sbin/dasd_id --export $tempnode"
+KERNEL=="sd*[!0-9]|sr*", SYSFS{ieee1394_id}=="*", ENV{ID_SERIAL}="$sysfs{ieee1394_id}", ENV{ID_BUS}="ieee1394"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/usb_id -x"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/scsi_id -g -x -s %p"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/scsi_id -g -x -a -s %p"
+KERNEL=="dasd*[!0-9]", IMPORT{program}="/sbin/dasd_id --export $tempnode"
 KERNEL=="sd*[!0-9]|sr*|dasd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 
 # for partitions import parent information
@@ -189,14 +196,14 @@ KERNEL=="sd*[0-9]|dasd*[0-9]", IMPORT{parent}=="ID_*"
 KERNEL=="sd*[0-9]|dasd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
 
 # by-path (shortest physical path)
-KERNEL=="*[!0-9]", ENV{ID_TYPE}=="?*", IMPORT="/sbin/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
+KERNEL=="*[!0-9]", ENV{ID_TYPE}=="?*", IMPORT{program}="/sbin/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
 KERNEL=="*[0-9]", IMPORT{parent}=="ID_*"
 KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 
 # by-label/by-uuid (filesystem properties)
 KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_end"
 KERNEL=="sr*", GOTO="persistent_end"
-IMPORT="/sbin/vol_id --export $tempnode"
+IMPORT{program}="/sbin/vol_id --export $tempnode"
 ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
 ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
 LABEL="persistent_end"
@@ -211,7 +218,7 @@ DEVPATH=="/module/usbcore", ACTION=="add", RUN+="/bin/mount -t usbfs usbfs /proc
 SUBSYSTEM="usb_device", PROGRAM="/bin/sh -c 'X=%k X=$${X#usbdev} B=$${X%%%%.*} D=$${X#*.}; echo bus/usb/$$B/$$D'", SYMLINK+="%c"
 
 # firmware loader
-SUBSYSTEM=="firmware", ACTION=="add", RUN+="/sbin/firmware.hotplug.sh"
+SUBSYSTEM=="firmware", ACTION=="add", RUN+="/sbin/udev.firmware.sh"
 
 # SUSE system integration
 SUBSYSTEM=="pci", ACTION=="add", RUN+="/sbin/hwup bus-pci-%k -o hotplug"
@@ -229,8 +236,4 @@ RUN+="socket:/org/kernel/udev/monitor"
 
 # debug events to /events, but not on default udev_log="err"
 ENV{UDEV_LOG}=="[4-9]", RUN+="/sbin/hotplugeventrecorder"
-
-# for backward compatibility with older udev versions and hotplug (no longer supported)
-# RUN+="/sbin/udev_run_hotplugd"
-# RUN+="/sbin/udev_run_devd"
 
