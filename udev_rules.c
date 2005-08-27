@@ -279,7 +279,7 @@ static int find_free_number(const char *name, const char *devpath)
 	strlcpy(filename, name, sizeof(filename));
 	while (1) {
 		dbg("look for existing node '%s'", filename);
-		if (udev_db_search_name(filename, db_devpath, sizeof(db_devpath)) != 0) {
+		if (udev_db_lookup_name(filename, db_devpath, sizeof(db_devpath)) != 0) {
 			dbg("free num=%d", num);
 			break;
 		}

@@ -319,7 +319,7 @@ int main(int argc, char *argv[], char *envp[])
 			} else
 				pos = name;
 
-			retval = udev_db_search_name(pos, devpath, sizeof(devpath));
+			retval = udev_db_lookup_name(pos, devpath, sizeof(devpath));
 			if (retval != 0) {
 				fprintf(stderr, "no record for '%s' in database\n", pos);
 				goto exit;

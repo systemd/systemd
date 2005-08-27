@@ -39,10 +39,11 @@
 
 #define PATH_TO_NAME_CHAR		'@'
 
-static int get_db_filename(const char *devpath, char *filename, size_t len)
+static int devpath_to_db_path(const char *devpath, char *filename, size_t len)
 {
 	size_t start, end, i;
 
+	/* add location of db files */
 	start = strlcpy(filename, udev_db_path, len);
 	end = strlcat(filename, devpath, len);
 	if (end > len)
@@ -52,6 +53,21 @@ static int get_db_filename(const char *devpath, char *filename, size_t len)
 	for (i = start+1; i < end; i++)
 		if (filename[i] == '/')
 			filename[i] = PATH_TO_NAME_CHAR;
+
+	return 0;
+}
+
+static int db_file_to_devpath(const char *filename, char *devpath, size_t len)
+{
+	size_t end, i;
+
+	strlcpy(devpath, "/", len);
+	end = strlcat(devpath, filename, len);
+
+	/* replace PATH_TO_NAME_CHAR to transform name into devpath */
+	for (i = 1; i < end; i++)
+		if (devpath[i] == PATH_TO_NAME_CHAR)
+			devpath[i] = '/';
 
 	return 0;
 }
@@ -75,7 +91,7 @@ int udev_db_add_device(struct udevice *udev)
 		goto exit;
 	}
 
-	get_db_filename(udev->devpath, filename, sizeof(filename));
+	devpath_to_db_path(udev->devpath, filename, sizeof(filename));
 	create_path(filename);
 	f = fopen(filename, "w");
 	if (f == NULL) {
@@ -84,7 +100,6 @@ int udev_db_add_device(struct udevice *udev)
 	}
 	dbg("storing data for device '%s' in '%s'", udev->devpath, filename);
 
-	fprintf(f, "P:%s\n", udev->devpath);
 	fprintf(f, "N:%s\n", udev->name);
 	list_for_each_entry(name_loop, &udev->symlink_list, node)
 		fprintf(f, "S:%s\n", name_loop->name);
@@ -101,8 +116,9 @@ exit:
 	return 0;
 }
 
-static int parse_db_file(struct udevice *udev, const char *filename)
+int udev_db_get_device(struct udevice *udev, const char *devpath)
 {
+	char filename[PATH_SIZE];
 	char line[PATH_SIZE];
 	unsigned int major, minor;
 	char *bufline;
@@ -111,11 +127,13 @@ static int parse_db_file(struct udevice *udev, const char *filename)
 	size_t cur;
 	size_t count;
 
+	devpath_to_db_path(devpath, filename, sizeof(filename));
 	if (file_map(filename, &buf, &bufsize) != 0) {
 		dbg("no db file to read '%s'", filename);
 		return -1;
 	}
 
+	strlcpy(udev->devpath, devpath, sizeof(udev->devpath));
 	cur = 0;
 	while (cur < bufsize) {
 		count = buf_get_line(buf, bufsize, cur);
@@ -123,12 +141,6 @@ static int parse_db_file(struct udevice *udev, const char *filename)
 		cur += count+1;
 
 		switch(bufline[0]) {
-		case 'P':
-			if (count > sizeof(udev->devpath))
-				count = sizeof(udev->devpath);
-			memcpy(udev->devpath, &bufline[2], count-2);
-			udev->devpath[count-2] = '\0';
-			break;
 		case 'N':
 			if (count > sizeof(udev->name))
 				count = sizeof(udev->name);
@@ -185,27 +197,15 @@ int udev_db_delete_device(struct udevice *udev)
 {
 	char filename[PATH_SIZE];
 
-	get_db_filename(udev->devpath, filename, sizeof(filename));
+	devpath_to_db_path(udev->devpath, filename, sizeof(filename));
 	unlink(filename);
 
 	return 0;
 }
 
-int udev_db_get_device(struct udevice *udev, const char *devpath)
-{
-	char filename[PATH_SIZE];
-
-	get_db_filename(devpath, filename, sizeof(filename));
-	if (parse_db_file(udev, filename) != 0)
-		return -1;
-
-	return 0;
-}
-
-int udev_db_search_name(const char *name, char *devpath, size_t len)
+int udev_db_lookup_name(const char *name, char *devpath, size_t len)
 {
 	DIR *dir;
-	char path[PATH_SIZE];
 	int found = 0;
 
 	dir = opendir(udev_db_path);
@@ -227,7 +227,6 @@ int udev_db_search_name(const char *name, char *devpath, size_t len)
 		ent = readdir(dir);
 		if (ent == NULL || ent->d_name[0] == '\0')
 			break;
-
 		if (ent->d_name[0] == '.')
 			continue;
 
@@ -247,12 +246,6 @@ int udev_db_search_name(const char *name, char *devpath, size_t len)
 			cur += count+1;
 
 			switch(bufline[0]) {
-			case 'P':
-				if (count > sizeof(path))
-					count = sizeof(path);
-				memcpy(path, &bufline[2], count-2);
-				path[count-2] = '\0';
-				break;
 			case 'N':
 			case 'S':
 				if (count > sizeof(nodename))
@@ -261,8 +254,8 @@ int udev_db_search_name(const char *name, char *devpath, size_t len)
 				nodename[count-2] = '\0';
 				dbg("compare '%s' '%s'", nodename, name);
 				if (strcmp(nodename, name) == 0) {
+					db_file_to_devpath(ent->d_name, devpath, len);
 					found = 1;
-					break;
 				}
 				break;
 			default:
@@ -273,10 +266,9 @@ int udev_db_search_name(const char *name, char *devpath, size_t len)
 	}
 
 	closedir(dir);
-	if (found) {
-		strlcpy(devpath, path, len);
+	if (found)
 		return 0;
-	} else
+	else
 		return -1;
 }
 
@@ -298,7 +290,6 @@ int udev_db_get_all_entries(struct list_head *name_list)
 		ent = readdir(dir);
 		if (ent == NULL || ent->d_name[0] == '\0')
 			break;
-
 		if (ent->d_name[0] == '.')
 			continue;
 
