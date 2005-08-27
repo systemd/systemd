@@ -224,6 +224,17 @@ int name_list_key_add(struct list_head *name_list, const char *key, const char *
 	return 0;
 }
 
+void name_list_cleanup(struct list_head *name_list)
+{
+	struct name_entry *name_loop;
+	struct name_entry *temp_loop;
+
+	list_for_each_entry_safe(name_loop, temp_loop, name_list, node) {
+		list_del(&name_loop->node);
+		free(name_loop);
+	}
+}
+
 /* calls function for every file found in specified directory */
 int add_matching_files(struct list_head *name_list, const char *dirname, const char *suffix)
 {

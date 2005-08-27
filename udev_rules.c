@@ -964,14 +964,8 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 				if (rule->symlink.operation == KEY_OP_ASSIGN_FINAL)
 					udev->symlink_final = 1;
 				if (rule->symlink.operation == KEY_OP_ASSIGN || rule->symlink.operation == KEY_OP_ASSIGN_FINAL) {
-					struct name_entry *name_loop;
-					struct name_entry *temp_loop;
-
 					info("reset symlink list");
-					list_for_each_entry_safe(name_loop, temp_loop, &udev->symlink_list, node) {
-						list_del(&name_loop->node);
-						free(name_loop);
-					}
+					name_list_cleanup(&udev->symlink_list);
 				}
 				strlcpy(temp, key_val(rule, &rule->symlink), sizeof(temp));
 				apply_format(udev, temp, sizeof(temp), class_dev, sysfs_device);
@@ -1015,14 +1009,8 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 				if (rule->run.operation == KEY_OP_ASSIGN_FINAL)
 					udev->run_final = 1;
 				if (rule->run.operation == KEY_OP_ASSIGN || rule->run.operation == KEY_OP_ASSIGN_FINAL) {
-					struct name_entry *name_loop;
-					struct name_entry *temp_loop;
-
 					info("reset run list");
-					list_for_each_entry_safe(name_loop, temp_loop, &udev->run_list, node) {
-						list_del(&name_loop->node);
-						free(name_loop);
-					}
+					name_list_cleanup(&udev->run_list);
 				}
 				strlcpy(program, key_val(rule, &rule->run), sizeof(program));
 				apply_format(udev, program, sizeof(program), class_dev, sysfs_device);
@@ -1096,14 +1084,8 @@ int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev,
 				char program[PATH_SIZE];
 
 				if (rule->run.operation == KEY_OP_ASSIGN || rule->run.operation == KEY_OP_ASSIGN_FINAL) {
-					struct name_entry *name_loop;
-					struct name_entry *temp_loop;
-
 					info("reset run list");
-					list_for_each_entry_safe(name_loop, temp_loop, &udev->run_list, node) {
-						list_del(&name_loop->node);
-						free(name_loop);
-					}
+					name_list_cleanup(&udev->run_list);
 				}
 				strlcpy(program, key_val(rule, &rule->run), sizeof(program));
 				apply_format(udev, program, sizeof(program), class_dev, sysfs_dev);

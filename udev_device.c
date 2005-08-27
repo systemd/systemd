@@ -103,19 +103,7 @@ int udev_init_device(struct udevice *udev, const char* devpath, const char *subs
 
 void udev_cleanup_device(struct udevice *udev)
 {
-	struct name_entry *name_loop;
-	struct name_entry *temp_loop;
-
-	list_for_each_entry_safe(name_loop, temp_loop, &udev->symlink_list, node) {
-		list_del(&name_loop->node);
-		free(name_loop);
-	}
-	list_for_each_entry_safe(name_loop, temp_loop, &udev->run_list, node) {
-		list_del(&name_loop->node);
-		free(name_loop);
-	}
-	list_for_each_entry_safe(name_loop, temp_loop, &udev->env_list, node) {
-		list_del(&name_loop->node);
-		free(name_loop);
-	}
+	name_list_cleanup(&udev->symlink_list);
+	name_list_cleanup(&udev->run_list);
+	name_list_cleanup(&udev->env_list);
 }
