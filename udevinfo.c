@@ -165,9 +165,22 @@ exit:
 	return retval;
 }
 
-static int print_dump(const char *devpath, const char *name) {
-	printf("%s=%s/%s\n", devpath, udev_root, name);
-	return 0;
+static void dump_names(void) {
+	LIST_HEAD(name_list);
+	struct name_entry *name_loop;
+	struct name_entry *tmp_loop;
+
+	udev_db_get_all_entries(&name_list);
+	list_for_each_entry_safe(name_loop, tmp_loop, &name_list, node) {
+		struct udevice udev_db;
+
+		udev_init_device(&udev_db, NULL, NULL, NULL);
+		if (udev_db_get_device(&udev_db, name_loop->name) == 0) {
+			printf("%s=%s/%s\n", udev_db.devpath, udev_root, udev_db.name);
+			free(name_loop);
+		}
+		udev_cleanup_device(&udev_db);
+	}
 }
 
 int main(int argc, char *argv[], char *envp[])
@@ -256,7 +269,7 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 
 		case 'd':
-			udev_db_dump_names(print_dump);
+			dump_names();
 			goto exit;
 
 		case 'V':

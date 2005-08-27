@@ -39,20 +39,19 @@
 
 #define PATH_TO_NAME_CHAR		'@'
 
-static int get_db_filename(const char *devpath, char *filename, int len)
+static int get_db_filename(const char *devpath, char *filename, size_t len)
 {
-	char temp[PATH_SIZE];
-	char *pos;
+	size_t start, end, i;
+
+	start = strlcpy(filename, udev_db_path, len);
+	end = strlcat(filename, devpath, len);
+	if (end > len)
+		end = len;
 
 	/* replace '/' to transform path into a filename */
-	strlcpy(temp, devpath, sizeof(temp));
-	pos = strchr(&temp[1], '/');
-	while (pos) {
-		pos[0] = PATH_TO_NAME_CHAR;
-		pos = strchr(&pos[1], '/');
-	}
-	snprintf(filename, len, "%s%s", udev_db_path, temp);
-	filename[len-1] = '\0';
+	for (i = start+1; i < end; i++)
+		if (filename[i] == '/')
+			filename[i] = PATH_TO_NAME_CHAR;
 
 	return 0;
 }
@@ -197,7 +196,6 @@ int udev_db_get_device(struct udevice *udev, const char *devpath)
 	char filename[PATH_SIZE];
 
 	get_db_filename(devpath, filename, sizeof(filename));
-
 	if (parse_db_file(udev, filename) != 0)
 		return -1;
 
@@ -282,7 +280,7 @@ int udev_db_search_name(char *devpath, size_t len, const char *name)
 		return -1;
 }
 
-int udev_db_dump_names(int (*handler_function)(const char *path, const char *name))
+int udev_db_get_all_entries(struct list_head *name_list)
 {
 	DIR *dir;
 
@@ -294,14 +292,8 @@ int udev_db_dump_names(int (*handler_function)(const char *path, const char *nam
 
 	while (1) {
 		struct dirent *ent;
-		char filename[PATH_SIZE];
-		char path[PATH_SIZE];
-		char nodename[PATH_SIZE];
-		char *bufline;
-		char *buf;
-		size_t bufsize;
-		size_t cur;
-		size_t count;
+		char filename[PATH_SIZE] = "/";
+		size_t end, i;
 
 		ent = readdir(dir);
 		if (ent == NULL || ent->d_name[0] == '\0')
@@ -310,47 +302,12 @@ int udev_db_dump_names(int (*handler_function)(const char *path, const char *nam
 		if (ent->d_name[0] == '.')
 			continue;
 
-		snprintf(filename, sizeof(filename), "%s/%s", udev_db_path, ent->d_name);
-		filename[sizeof(filename)-1] = '\0';
-		dbg("looking at '%s'", filename);
-
-		if (file_map(filename, &buf, &bufsize) != 0) {
-			err("unable to read db file '%s'", filename);
-			continue;
-		}
-
-		path[0] = '\0';
-		nodename[0] = '\0';
-		cur = 0;
-		while (cur < bufsize) {
-			count = buf_get_line(buf, bufsize, cur);
-			bufline = &buf[cur];
-			cur += count+1;
-
-			switch(bufline[0]) {
-			case 'P':
-				if (count > sizeof(path))
-					count = sizeof(path);
-				memcpy(path, &bufline[2], count-2);
-				path[count-2] = '\0';
-				break;
-			case 'N':
-				if (count > sizeof(nodename))
-					count = sizeof(nodename);
-				memcpy(nodename, &bufline[2], count-2);
-				nodename[count-2] = '\0';
-				break;
-			default:
-				continue;
-			}
-		}
-		file_unmap(buf, bufsize);
-
-		if (path[0] == '\0' || nodename[0] == '\0')
-			continue;
-
-		if (handler_function(path, nodename) != 0)
-			break;
+		end = strlcat(filename, ent->d_name, sizeof(filename));
+		for (i = 1; i < end; i++)
+			if (filename[i] == PATH_TO_NAME_CHAR)
+				filename[i] = '/';
+		name_list_add(name_list, filename, 1);
+		dbg("added '%s'", filename);
 	}
 
 	closedir(dir);

@@ -28,6 +28,6 @@ extern int udev_db_delete_device(struct udevice *dev);
 
 extern int udev_db_get_device(struct udevice *udev, const char *devpath);
 extern int udev_db_search_name(char *devpath, size_t len, const char *name);
-extern int udev_db_dump_names(int (*handler_function)(const char *path, const char *name));
+extern int udev_db_get_all_entries(struct list_head *name_list);
 
 #endif /* _UDEV_DB_H_ */
