@@ -88,6 +88,8 @@ static int print_record(struct udevice *udev)
 	printf("N: %s\n", udev->name);
 	list_for_each_entry(name_loop, &udev->symlink_list, node)
 		printf("S: %s\n", name_loop->name);
+	list_for_each_entry(name_loop, &udev->env_list, node)
+		printf("E: %s\n", name_loop->name);
 
 	return 0;
 }
@@ -321,7 +323,7 @@ int main(int argc, char *argv[], char *envp[])
 
 			retval = udev_db_search_name(devpath, sizeof(devpath), pos);
 			if (retval != 0) {
-				fprintf(stderr, "device not found in database\n");
+				fprintf(stderr, "no record for '%s' in database\n", pos);
 				goto exit;
 			}
 			udev_db_get_device(&udev, devpath);
