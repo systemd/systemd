@@ -270,28 +270,31 @@ static int import_parent_into_env(struct udevice *udev, struct sysfs_class_devic
 /* finds the lowest positive N such that <name>N isn't present in the udevdb
  * if <name> doesn't exist, 0 is returned, N otherwise
  */
-static int find_free_number(const char *name)
+static int find_free_number(const char *name, const char *devpath)
 {
-	char devpath[PATH_SIZE];
+	char db_devpath[PATH_SIZE];
 	char filename[PATH_SIZE];
 	int num = 0;
 
 	strlcpy(filename, name, sizeof(filename));
 	while (1) {
 		dbg("look for existing node '%s'", filename);
-		if (udev_db_search_name(devpath, sizeof(devpath), filename) != 0) {
+		if (udev_db_search_name(filename, db_devpath, sizeof(db_devpath)) != 0) {
 			dbg("free num=%d", num);
-			return num;
+			break;
 		}
 
 		num++;
-		if (num > 1000) {
-			info("find_free_number gone crazy (num=%d), aborted", num);
-			return -1;
+		if (num > 100000) {
+			err("find_free_number aborted at num=%d", num);
+			num = -1;
+			break;
 		}
 		snprintf(filename, sizeof(filename), "%s%d", name, num);
 		filename[sizeof(filename)-1] = '\0';
 	}
+
+	return num;
 }
 
 static int find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device,
@@ -546,7 +549,7 @@ found:
 			dbg("substitute sysfs value '%s'", temp2);
 			break;
 		case SUBST_ENUM:
-			next_free_number = find_free_number(string);
+			next_free_number = find_free_number(string, udev->devpath);
 			if (next_free_number > 0) {
 				sprintf(temp2, "%d", next_free_number);
 				strlcat(string, temp2, maxsize);

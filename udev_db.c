@@ -202,7 +202,7 @@ int udev_db_get_device(struct udevice *udev, const char *devpath)
 	return 0;
 }
 
-int udev_db_search_name(char *devpath, size_t len, const char *name)
+int udev_db_search_name(const char *name, char *devpath, size_t len)
 {
 	DIR *dir;
 	char path[PATH_SIZE];
