@@ -636,8 +636,6 @@ static struct uevent_msg *get_netlink_msg(void)
 
 static void asmlinkage sig_handler(int signum)
 {
-	int rc;
-
 	switch (signum) {
 		case SIGINT:
 		case SIGTERM:
@@ -653,14 +651,8 @@ static void asmlinkage sig_handler(int signum)
 			break;
 	}
 
-	/* if pipe is empty, write to pipe to force select to return,
-	 * which will wakeup our mainloop
-	 */
-	if (!sig_flag) {
-		rc = write(signal_pipe[1], &signum, sizeof(signum));
-		if (rc >= 0)
-			sig_flag = 1;
-	}
+	/* write to pipe, which will wakeup select() in our mainloop */
+	write(signal_pipe[WRITE_END], "", 1);
 }
 
 static void udev_done(int pid)
@@ -974,16 +966,10 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		/* received a signal, clear our notification pipe */
-		if (FD_ISSET(signal_pipe[0], &readfds)) {
-			int sig;
-			ssize_t rlen;
+		if (FD_ISSET(signal_pipe[READ_END], &readfds)) {
+			char buf[256];
 
-			while(1) {
-				rlen = read(signal_pipe[0], &sig, sizeof(sig));
-				if (rlen <= 0)
-					break;
-			}
-			sig_flag = 0;
+			read(signal_pipe[READ_END], &buf, sizeof(buf));
 		}
 
 		/* forked child have returned */
