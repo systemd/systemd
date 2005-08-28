@@ -100,7 +100,7 @@ int string_is_true(const char *str)
 	return 0;
 }
 
-void remove_trailing_char(char *path, char c)
+void remove_trailing_chars(char *path, char c)
 {
 	size_t len;
 

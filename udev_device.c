@@ -58,7 +58,7 @@ int udev_init_device(struct udevice *udev, const char* devpath, const char *subs
 
 	if (devpath) {
 		strlcpy(udev->devpath, devpath, sizeof(udev->devpath));
-		remove_trailing_char(udev->devpath, '/');
+		remove_trailing_chars(udev->devpath, '/');
 
 		if (strncmp(udev->devpath, "/block/", 7) == 0)
 			udev->type = DEV_BLOCK;

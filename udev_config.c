@@ -149,19 +149,19 @@ static int parse_config_file(void)
 
 		if (strcasecmp(variable, "udev_root") == 0) {
 			strlcpy(udev_root, value, sizeof(udev_root));
-			remove_trailing_char(udev_root, '/');
+			remove_trailing_chars(udev_root, '/');
 			continue;
 		}
 
 		if (strcasecmp(variable, "udev_db") == 0) {
 			strlcpy(udev_db_path, value, sizeof(udev_db_path));
-			remove_trailing_char(udev_db_path, '/');
+			remove_trailing_chars(udev_db_path, '/');
 			continue;
 		}
 
 		if (strcasecmp(variable, "udev_rules") == 0) {
 			strlcpy(udev_rules_filename, value, sizeof(udev_rules_filename));
-			remove_trailing_char(udev_rules_filename, '/');
+			remove_trailing_chars(udev_rules_filename, '/');
 			continue;
 		}
 
@@ -195,7 +195,7 @@ void udev_init_config(void)
 	env = getenv("UDEV_CONFIG_FILE");
 	if (env) {
 		strlcpy(udev_config_filename, env, sizeof(udev_config_filename));
-		remove_trailing_char(udev_config_filename, '/');
+		remove_trailing_chars(udev_config_filename, '/');
 	}
 
 	parse_config_file();

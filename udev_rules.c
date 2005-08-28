@@ -326,7 +326,7 @@ static int find_sysfs_attribute(struct sysfs_class_device *class_dev, struct sys
 
 attr_found:
 	strlcpy(value, tmpattr->value, len);
-	remove_trailing_char(value, '\n');
+	remove_trailing_chars(value, '\n');
 
 	dbg("found attribute '%s'", tmpattr->path);
 	return 0;
@@ -818,7 +818,7 @@ try_parent:
 			int count;
 
 			dbg("PROGRAM matches");
-			remove_trailing_char(result, '\n');
+			remove_trailing_chars(result, '\n');
 			count = replace_untrusted_chars(result);
 			if (count)
 				info("%i untrusted character(s) replaced" , count);
