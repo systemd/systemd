@@ -362,6 +362,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize,
 	char *head, *tail, *pos, *cpos, *attr, *rest;
 	int len;
 	int i;
+	int count;
 	unsigned int next_free_number;
 	struct sysfs_class_device *class_dev_parent;
 	enum subst_type {
@@ -544,7 +545,9 @@ found:
 			i = strlen(temp2);
 			while (i > 0 && isspace(temp2[i-1]))
 				temp2[--i] = '\0';
-			replace_untrusted_chars(temp2);
+			count = replace_untrusted_chars(temp2);
+			if (count)
+				info("%i untrusted character(s) replaced" , count);
 			strlcat(string, temp2, maxsize);
 			dbg("substitute sysfs value '%s'", temp2);
 			break;
@@ -812,9 +815,13 @@ try_parent:
 			if (rule->program.operation != KEY_OP_NOMATCH)
 				goto exit;
 		} else {
+			int count;
+
 			dbg("PROGRAM matches");
 			remove_trailing_char(result, '\n');
-			replace_untrusted_chars(result);
+			count = replace_untrusted_chars(result);
+			if (count)
+				info("%i untrusted character(s) replaced" , count);
 			dbg("result is '%s'", result);
 			strlcpy(udev->program_result, result, sizeof(udev->program_result));
 			dbg("PROGRAM returned successful");
@@ -960,6 +967,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 			if (!udev->symlink_final && rule->symlink.operation != KEY_OP_UNSET) {
 				char temp[PATH_SIZE];
 				char *pos, *next;
+				int count;
 
 				if (rule->symlink.operation == KEY_OP_ASSIGN_FINAL)
 					udev->symlink_final = 1;
@@ -969,7 +977,10 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 				}
 				strlcpy(temp, key_val(rule, &rule->symlink), sizeof(temp));
 				apply_format(udev, temp, sizeof(temp), class_dev, sysfs_device);
-				dbg("rule applied, added symlink '%s'", temp);
+				count = replace_untrusted_chars(temp);
+				if (count)
+					info("%i untrusted character(s) replaced" , count);
+				dbg("rule applied, added symlink(s) '%s'", temp);
 
 				/* add multiple symlinks separated by spaces */
 				pos = temp;
@@ -993,9 +1004,13 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev, struct s
 
 			/* set name, later rules with name set will be ignored */
 			if (rule->name.operation != KEY_OP_UNSET) {
+				int count;
 				name_set = 1;
 				strlcpy(udev->name, key_val(rule, &rule->name), sizeof(udev->name));
 				apply_format(udev, udev->name, sizeof(udev->name), class_dev, sysfs_device);
+				count = replace_untrusted_chars(udev->name);
+				if (count)
+					info("%i untrusted character(s) replaced", count);
 
 				info("rule applied, '%s' becomes '%s'", udev->kernel_name, udev->name);
 				if (udev->type != DEV_NET)

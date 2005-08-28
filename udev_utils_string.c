@@ -232,12 +232,35 @@ int utf8_encoded_valid_unichar(const char *str)
 	return len;
 }
 
-void replace_untrusted_chars(char *string)
+/* replace everything but whitelisted plain ascii and valid utf8 */
+int replace_untrusted_chars(char *str)
 {
-	size_t len;
+	size_t i = 0;
+	int replaced = 0;
 
-	for (len = 0; string[len] != '\0'; len++) {
-		if (strchr(";,~\\()\'", string[len]))
-			string[len] = '_';
+	while (str[i] != '\0') {
+		int len;
+
+		/* valid printable ascii char */
+		if ((str[i] >= '0' && str[i] <= '9') ||
+		    (str[i] >= 'A' && str[i] <= 'Z') ||
+		    (str[i] >= 'a' && str[i] <= 'z') ||
+		    strchr(" #$%+-./:=?@_", str[i])) {
+			i++;
+			continue;
+		}
+		/* valid utf8 is accepted */
+		len = utf8_encoded_valid_unichar(&str[i]);
+		if (len > 1) {
+			i += len;
+			continue;
+		}
+
+		/* everything else is garbage */
+		str[i] = '_';
+		i++;
+		replaced++;
 	}
+
+	return replaced;
 }

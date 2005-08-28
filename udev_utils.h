@@ -42,9 +42,9 @@ extern int add_matching_files(struct list_head *name_list, const char *dirname, 
 /* udev_utils_string.c */
 extern int strcmp_pattern(const char *p, const char *s);
 extern int string_is_true(const char *str);
-extern void replace_untrusted_chars(char *string);
 extern void remove_trailing_char(char *path, char c);
 extern int utf8_encoded_valid_unichar(const char *str);
+extern int replace_untrusted_chars(char *str);
 
 /* udev_utils_file.c */
 extern int create_path(const char *path);

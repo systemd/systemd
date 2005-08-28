@@ -1324,7 +1324,25 @@ EOF
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "sane",
 		rules		=> <<EOF
-BUS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e name; (/sbin/badprogram)", RESULT="name_ _/sbin/badprogram_", NAME="sane"
+BUS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e name; (/sbin/badprogram)", RESULT=="name_ _/sbin/badprogram_", NAME="sane"
+EOF
+	},
+	{
+		desc		=> "untrusted string sanitize (don't replace utf8)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "uber",
+		rules		=> <<EOF
+BUS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e \\xc3\\xbcber" RESULT=="\xc3\xbcber", NAME="uber"
+EOF
+	},
+	{
+		desc		=> "untrusted string sanitize (replace invalid utf8)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "replaced",
+		rules		=> <<EOF
+BUS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e \\xef\\xe8garbage", RESULT=="[?][?]garbage", NAME="replaced"
 EOF
 	},
 	{
