@@ -26,6 +26,10 @@
 
 #define UDEV_MAX(a,b) ((a) > (b) ? (a) : (b))
 
+/* pipes */
+#define READ_END		0
+#define WRITE_END		1
+
 struct name_entry {
 	struct list_head node;
 	char name[PATH_SIZE];

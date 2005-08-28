@@ -55,7 +55,7 @@ static int udevd_sock;
 static int uevent_netlink_sock;
 static pid_t sid;
 
-static int pipefds[2] = {-1, -1};
+static int signal_pipe[2] = {-1, -1};
 static volatile int sigchilds_waiting;
 static volatile int run_msg_q;
 static volatile int sig_flag;
@@ -657,7 +657,7 @@ static void asmlinkage sig_handler(int signum)
 	 * which will wakeup our mainloop
 	 */
 	if (!sig_flag) {
-		rc = write(pipefds[1], &signum, sizeof(signum));
+		rc = write(signal_pipe[1], &signum, sizeof(signum));
 		if (rc >= 0)
 			sig_flag = 1;
 	}
@@ -842,25 +842,25 @@ int main(int argc, char *argv[], char *envp[])
 	setpriority(PRIO_PROCESS, 0, UDEVD_PRIORITY);
 
 	/* setup signal handler pipe */
-	retval = pipe(pipefds);
+	retval = pipe(signal_pipe);
 	if (retval < 0) {
 		err("error getting pipes: %s", strerror(errno));
 		goto exit;
 	}
-	retval = fcntl(pipefds[0], F_SETFL, O_NONBLOCK);
+	retval = fcntl(signal_pipe[READ_END], F_SETFL, O_NONBLOCK);
 	if (retval < 0) {
 		err("error fcntl on read pipe: %s", strerror(errno));
 		goto exit;
 	}
-	retval = fcntl(pipefds[0], F_SETFD, FD_CLOEXEC);
+	retval = fcntl(signal_pipe[READ_END], F_SETFD, FD_CLOEXEC);
 	if (retval < 0)
 		err("error fcntl on read pipe: %s", strerror(errno));
-	retval = fcntl(pipefds[1], F_SETFL, O_NONBLOCK);
+	retval = fcntl(signal_pipe[WRITE_END], F_SETFL, O_NONBLOCK);
 	if (retval < 0) {
 		err("error fcntl on write pipe: %s", strerror(errno));
 		goto exit;
 	}
-	retval = fcntl(pipefds[1], F_SETFD, FD_CLOEXEC);
+	retval = fcntl(signal_pipe[WRITE_END], F_SETFD, FD_CLOEXEC);
 	if (retval < 0)
 		err("error fcntl on write pipe: %s", strerror(errno));
 
@@ -934,7 +934,7 @@ int main(int argc, char *argv[], char *envp[])
 		int fdcount;
 
 		FD_ZERO(&readfds);
-		FD_SET(pipefds[0], &readfds);
+		FD_SET(signal_pipe[READ_END], &readfds);
 		FD_SET(udevd_sock, &readfds);
 		if (uevent_netlink_sock > 0)
 			FD_SET(uevent_netlink_sock, &readfds);
@@ -974,12 +974,12 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		/* received a signal, clear our notification pipe */
-		if (FD_ISSET(pipefds[0], &readfds)) {
+		if (FD_ISSET(signal_pipe[0], &readfds)) {
 			int sig;
 			ssize_t rlen;
 
 			while(1) {
-				rlen = read(pipefds[0], &sig, sizeof(sig));
+				rlen = read(signal_pipe[0], &sig, sizeof(sig));
 				if (rlen <= 0)
 					break;
 			}
@@ -1011,10 +1011,10 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 exit:
-	if (pipefds[0] > 0)
-		close(pipefds[0]);
-	if (pipefds[1] > 0)
-		close(pipefds[1]);
+	if (signal_pipe[READ_END] > 0)
+		close(signal_pipe[READ_END]);
+	if (signal_pipe[WRITE_END] > 0)
+		close(signal_pipe[WRITE_END]);
 
 	if (udevd_sock > 0)
 		close(udevd_sock);

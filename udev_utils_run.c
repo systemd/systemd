@@ -130,26 +130,26 @@ int run_program(const char *command, const char *subsystem,
 	switch(pid) {
 	case 0:
 		/* child closes parent ends of pipes */
-		if (outpipe[0] > 0)
-			close(outpipe[0]);
-		if (errpipe[0] > 0)
-			close(errpipe[0]);
+		if (outpipe[READ_END] > 0)
+			close(outpipe[READ_END]);
+		if (errpipe[READ_END] > 0)
+			close(errpipe[READ_END]);
 
 		/* discard child output or connect to pipe */
 		devnull = open("/dev/null", O_RDWR);
 		if (devnull > 0) {
 			dup2(devnull, STDIN_FILENO);
-			if (outpipe[1] < 0)
+			if (outpipe[WRITE_END] < 0)
 				dup2(devnull, STDOUT_FILENO);
-			if (errpipe[1] < 0)
+			if (errpipe[WRITE_END] < 0)
 				dup2(devnull, STDERR_FILENO);
 			close(devnull);
 		} else
 			err("open /dev/null failed");
-		if (outpipe[1] > 0)
-			dup2(outpipe[1], STDOUT_FILENO);
-		if (errpipe[1] > 0)
-			dup2(errpipe[1], STDERR_FILENO);
+		if (outpipe[WRITE_END] > 0)
+			dup2(outpipe[WRITE_END], STDOUT_FILENO);
+		if (errpipe[WRITE_END] > 0)
+			dup2(errpipe[WRITE_END], STDERR_FILENO);
 		execv(argv[0], argv);
 
 		/* we should never reach this */
@@ -160,27 +160,27 @@ int run_program(const char *command, const char *subsystem,
 		return -1;
 	default:
 		/* read from child if requested */
-		if (outpipe[0] > 0 || errpipe[0] > 0) {
+		if (outpipe[READ_END] > 0 || errpipe[READ_END] > 0) {
 			ssize_t count;
 			size_t respos = 0;
 
 			/* parent closes child ends of pipes */
-			if (outpipe[1] > 0)
-				close(outpipe[1]);
-			if (errpipe[1] > 0)
-				close(errpipe[1]);
+			if (outpipe[WRITE_END] > 0)
+				close(outpipe[WRITE_END]);
+			if (errpipe[WRITE_END] > 0)
+				close(errpipe[WRITE_END]);
 
 			/* read child output */
-			while (outpipe[0] > 0 || errpipe[0] > 0) {
+			while (outpipe[READ_END] > 0 || errpipe[READ_END] > 0) {
 				int fdcount;
 				fd_set readfds;
 
 				FD_ZERO(&readfds);
-				if (outpipe[0] > 0)
-					FD_SET(outpipe[0], &readfds);
-				if (errpipe[0] > 0)
-					FD_SET(errpipe[0], &readfds);
-				fdcount = select(UDEV_MAX(outpipe[0], errpipe[0])+1, &readfds, NULL, NULL, NULL);
+				if (outpipe[READ_END] > 0)
+					FD_SET(outpipe[READ_END], &readfds);
+				if (errpipe[READ_END] > 0)
+					FD_SET(errpipe[READ_END], &readfds);
+				fdcount = select(UDEV_MAX(outpipe[READ_END], errpipe[READ_END])+1, &readfds, NULL, NULL, NULL);
 				if (fdcount < 0) {
 					if (errno == EINTR)
 						continue;
@@ -189,15 +189,15 @@ int run_program(const char *command, const char *subsystem,
 				}
 
 				/* get stdout */
-				if (outpipe[0] > 0 && FD_ISSET(outpipe[0], &readfds)) {
+				if (outpipe[READ_END] > 0 && FD_ISSET(outpipe[READ_END], &readfds)) {
 					char inbuf[1024];
 					char *pos;
 					char *line;
 
-					count = read(outpipe[0], inbuf, sizeof(inbuf)-1);
+					count = read(outpipe[READ_END], inbuf, sizeof(inbuf)-1);
 					if (count <= 0) {
-						close(outpipe[0]);
-						outpipe[0] = -1;
+						close(outpipe[READ_END]);
+						outpipe[READ_END] = -1;
 						if (count < 0) {
 							err("stdin read failed with '%s'", strerror(errno));
 							retval = -1;
@@ -223,15 +223,15 @@ int run_program(const char *command, const char *subsystem,
 				}
 
 				/* get stderr */
-				if (errpipe[0] > 0 && FD_ISSET(errpipe[0], &readfds)) {
+				if (errpipe[READ_END] > 0 && FD_ISSET(errpipe[READ_END], &readfds)) {
 					char errbuf[1024];
 					char *pos;
 					char *line;
 
-					count = read(errpipe[0], errbuf, sizeof(errbuf)-1);
+					count = read(errpipe[READ_END], errbuf, sizeof(errbuf)-1);
 					if (count <= 0) {
-						close(errpipe[0]);
-						errpipe[0] = -1;
+						close(errpipe[READ_END]);
+						errpipe[READ_END] = -1;
 						if (count < 0)
 							err("stderr read failed with '%s'", strerror(errno));
 						continue;
@@ -243,10 +243,10 @@ int run_program(const char *command, const char *subsystem,
 							info("'%s' (stderr) '%s'", argv[0], line);
 				}
 			}
-			if (outpipe[0] > 0)
-				close(outpipe[0]);
-			if (errpipe[0] > 0)
-				close(errpipe[0]);
+			if (outpipe[READ_END] > 0)
+				close(outpipe[READ_END]);
+			if (errpipe[READ_END] > 0)
+				close(errpipe[READ_END]);
 
 			/* return the childs stdout string */
 			if (result) {
