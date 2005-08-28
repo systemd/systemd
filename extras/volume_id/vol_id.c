@@ -156,6 +156,7 @@ int main(int argc, char *argv[])
 
 print:
 	set_str(name, vid->label, sizeof(vid->label));
+	replace_untrusted_chars(name);
 
 	switch (print) {
 	case PRINT_EXPORT:
