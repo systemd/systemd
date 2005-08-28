@@ -131,15 +131,6 @@ static void msg_queue_insert(struct uevent_msg *msg)
 			init_phase = 0;
 	}
 
-	/* don't delay messages with timeout set */
-	if (msg->timeout) {
-		info("seq %llu with timeout %u seconds will be execute without queuing, '%s' '%s'",
-		     msg->seqnum, msg->timeout, msg->action, msg->devpath);
-		list_add(&msg->node, &exec_list);
-		run_exec_q = 1;
-		return;
-	}
-
 	/* sort message by sequence number into list */
 	list_for_each_entry_reverse(loop_msg, &msg_list, node) {
 		if (loop_msg->seqnum < msg->seqnum)
