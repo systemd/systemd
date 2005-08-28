@@ -946,9 +946,8 @@ int main(int argc, char *argv[], char *envp[])
 				if (uevent_netlink_active && msg->type == UDEVD_UEVENT_UDEVSEND && msg->seqnum != 0) {
 					dbg("skip uevent_helper message, netlink is active");
 					free(msg);
-					continue;
-				}
-				msg_queue_insert(msg);
+				} else
+					msg_queue_insert(msg);
 			}
 		}
 
