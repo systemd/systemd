@@ -31,22 +31,29 @@ struct name_entry {
 	char name[PATH_SIZE];
 };
 
-extern int strcmp_pattern(const char *p, const char *s);
-extern int kernel_release_satisfactory(unsigned int version, unsigned int patchlevel, unsigned int sublevel);
-extern int create_path(const char *path);
+/* udev_utils.c */
 extern int log_priority(const char *priority);
-extern int string_is_true(const char *str);
-extern int parse_get_pair(char **orig_string, char **left, char **right);
-extern int unlink_secure(const char *filename);
-extern int file_map(const char *filename, char **buf, size_t *bufsize);
-extern void file_unmap(void *buf, size_t bufsize);
-extern size_t buf_get_line(const char *buf, size_t buflen, size_t cur);
-extern void remove_trailing_char(char *path, char c);
-extern void replace_untrusted_chars(char *string);
+extern int kernel_release_satisfactory(unsigned int version, unsigned int patchlevel, unsigned int sublevel);
 extern int name_list_add(struct list_head *name_list, const char *name, int sort);
 extern int name_list_key_add(struct list_head *name_list, const char *key, const char *value);
 extern void name_list_cleanup(struct list_head *name_list);
 extern int add_matching_files(struct list_head *name_list, const char *dirname, const char *suffix);
+
+/* udev_utils_string.c */
+extern int strcmp_pattern(const char *p, const char *s);
+extern int string_is_true(const char *str);
+extern void replace_untrusted_chars(char *string);
+extern void remove_trailing_char(char *path, char c);
+extern int utf8_encoded_valid_unichar(const char *str);
+
+/* udev_utils_file.c */
+extern int create_path(const char *path);
+extern int file_map(const char *filename, char **buf, size_t *bufsize);
+extern void file_unmap(void *buf, size_t bufsize);
+extern int unlink_secure(const char *filename);
+extern size_t buf_get_line(const char *buf, size_t buflen, size_t cur);
+
+/* udev_utils_run.c */
 extern int pass_env_to_socket(const char *name, const char *devpath, const char *action);
 extern int run_program(const char *command, const char *subsystem,
 		       char *result, size_t ressize, size_t *reslen, int log);

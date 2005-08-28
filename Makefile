@@ -147,6 +147,7 @@ UDEV_OBJS = \
 	udev_rules.o			\
 	udev_rules_parse.o		\
 	udev_utils.o			\
+	udev_utils_string.o		\
 	udev_utils_file.o		\
 	udev_utils_run.o		\
 	udev_libc_wrapper.o
