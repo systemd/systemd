@@ -58,7 +58,6 @@ static pid_t sid;
 static int signal_pipe[2] = {-1, -1};
 static volatile int sigchilds_waiting;
 static volatile int run_msg_q;
-static volatile int sig_flag;
 static volatile int udev_exit;
 static int init_phase = 1;
 static int run_exec_q;
@@ -440,7 +439,7 @@ recheck:
 	/* set timeout for remaining queued events */
 	if (!list_empty(&msg_list)) {
 		struct itimerval itv = {{0, 0}, {timeout - msg_age, 0}};
-		dbg("next event expires in %li seconds", timeout - msg_age);
+		info("next event expires in %li seconds", timeout - msg_age);
 		setitimer(ITIMER_REAL, &itv, NULL);
 	}
 }
@@ -523,31 +522,31 @@ static struct uevent_msg *get_udevd_msg(void)
 	size = recvmsg(udevd_sock, &smsg, 0);
 	if (size <  0) {
 		if (errno != EINTR)
-			dbg("unable to receive udevd message");
+			err("unable to receive udevd message");
 		return NULL;
 	}
 	cmsg = CMSG_FIRSTHDR(&smsg);
 	cred = (struct ucred *) CMSG_DATA(cmsg);
 
 	if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
-		info("no sender credentials received, message ignored");
+		err("no sender credentials received, message ignored");
 		return NULL;
 	}
 
 	if (cred->uid != 0) {
-		info("sender uid=%i, message ignored", cred->uid);
+		err("sender uid=%i, message ignored", cred->uid);
 		return NULL;
 	}
 
 	if (strncmp(usend_msg.magic, UDEV_MAGIC, sizeof(UDEV_MAGIC)) != 0 ) {
-		info("message magic '%s' doesn't match, ignore it", usend_msg.magic);
+		err("message magic '%s' doesn't match, ignore it", usend_msg.magic);
 		return NULL;
 	}
 
 	switch (usend_msg.type) {
 	case UDEVD_UEVENT_UDEVSEND:
 	case UDEVD_UEVENT_INITSEND:
-		dbg("udevd event message received");
+		info("udevd event message received");
 		envbuf_size = size - offsetof(struct udevd_msg, envbuf);
 		dbg("envbuf_size=%i", envbuf_size);
 		msg = get_msg_from_envbuf(usend_msg.envbuf, envbuf_size);
@@ -594,7 +593,7 @@ static struct uevent_msg *get_netlink_msg(void)
 	size = recv(uevent_netlink_sock, &buffer, sizeof(buffer), 0);
 	if (size <  0) {
 		if (errno != EINTR)
-			dbg("unable to receive udevd message");
+			err("unable to receive udevd message");
 		return NULL;
 	}
 
@@ -613,20 +612,20 @@ static struct uevent_msg *get_netlink_msg(void)
 	/* validate message */
 	pos = strchr(buffer, '@');
 	if (pos == NULL) {
-		dbg("invalid uevent '%s'", buffer);
+		err("invalid uevent '%s'", buffer);
 		free(msg);
 		return NULL;
 	}
 	pos[0] = '\0';
 
 	if (msg->action == NULL) {
-		dbg("no ACTION in payload found, skip event '%s'", buffer);
+		err("no ACTION in payload found, skip event '%s'", buffer);
 		free(msg);
 		return NULL;
 	}
 
 	if (strcmp(msg->action, buffer) != 0) {
-		dbg("ACTION in payload does not match uevent, skip event '%s'", buffer);
+		err("ACTION in payload does not match uevent, skip event '%s'", buffer);
 		free(msg);
 		return NULL;
 	}
@@ -664,7 +663,10 @@ static void udev_done(int pid)
 	list_for_each_entry(msg, &running_list, node) {
 		if (msg->pid == pid) {
 			sysinfo(&info);
-			info("seq %llu exit, %ld seconds old", msg->seqnum, info.uptime - msg->queue_time);
+			if (msg->queue_time)
+				info("seq %llu, pid [%d] exit, %ld seconds old", msg->seqnum, msg->pid, info.uptime - msg->queue_time);
+			else
+				info("seq 0, pid [%d] exit", msg->pid);
 			msg_queue_delete(msg);
 
 			/* we want to run the exec queue manager since there may
@@ -739,7 +741,7 @@ static int init_uevent_netlink_sock(void)
 
 	uevent_netlink_sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
 	if (uevent_netlink_sock == -1) {
-		dbg("error getting socket, %s", strerror(errno));
+		err("error getting socket, %s", strerror(errno));
 		return -1;
 	}
 
@@ -749,7 +751,7 @@ static int init_uevent_netlink_sock(void)
 	retval = bind(uevent_netlink_sock, (struct sockaddr *) &snl,
 		      sizeof(struct sockaddr_nl));
 	if (retval < 0) {
-		dbg("bind failed, %s", strerror(errno));
+		err("bind failed, %s", strerror(errno));
 		close(uevent_netlink_sock);
 		uevent_netlink_sock = -1;
 		return -1;
@@ -944,7 +946,7 @@ int main(int argc, char *argv[], char *envp[])
 			if (msg) {
 				/* discard kernel messages if netlink is active */
 				if (uevent_netlink_active && msg->type == UDEVD_UEVENT_UDEVSEND && msg->seqnum != 0) {
-					dbg("skip uevent_helper message, netlink is active");
+					info("skip uevent_helper message with SEQNUM, netlink is active");
 					free(msg);
 				} else
 					msg_queue_insert(msg);
