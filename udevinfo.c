@@ -1,7 +1,7 @@
 /*
- * udevinfo.c - fetches attributes for a device
+ * udevinfo.c - fetches stored device information or sysfs attributes
  *
- * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2004-2005 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -80,7 +80,7 @@ static void print_all_attributes(struct dlist *attr_list)
 	printf("\n");
 }
 
-static int print_record(struct udevice *udev)
+static void print_record(struct udevice *udev)
 {
 	struct name_entry *name_loop;
 
@@ -90,8 +90,6 @@ static int print_record(struct udevice *udev)
 		printf("S: %s\n", name_loop->name);
 	list_for_each_entry(name_loop, &udev->env_list, node)
 		printf("E: %s\n", name_loop->name);
-
-	return 0;
 }
 
 static int print_device_chain(const char *path)
@@ -124,6 +122,7 @@ static int print_device_chain(const char *path)
 
 	/* open sysfs class device directory and print all attributes */
 	printf("  looking at class device '%s':\n", class_dev->path);
+	printf("    KERNEL==\"%s\"\n", class_dev->name);
 	printf("    SUBSYSTEM==\"%s\"\n", class_dev->classname);
 
 	attr_list = sysfs_get_classdev_attributes(class_dev);
@@ -167,7 +166,16 @@ exit:
 	return retval;
 }
 
-static void dump_names(void) {
+static void dump_name_devpath(struct udevice *udev) {
+	printf("%s=%s/%s\n", udev->devpath, udev_root, udev->name);
+}
+
+static void dump_record(struct udevice *udev) {
+	print_record(udev);
+	printf("\n");
+}
+
+static void dump_db(void fnct(struct udevice *udev)) {
 	LIST_HEAD(name_list);
 	struct name_entry *name_loop;
 
@@ -177,19 +185,48 @@ static void dump_names(void) {
 
 		udev_init_device(&udev_db, NULL, NULL, NULL);
 		if (udev_db_get_device(&udev_db, name_loop->name) == 0)
-			printf("%s=%s/%s\n", udev_db.devpath, udev_root, udev_db.name);
+			fnct(&udev_db);
 		udev_cleanup_device(&udev_db);
 	}
 	name_list_cleanup(&name_list);
 }
 
+static void print_help(void)
+{
+	fprintf(stderr, "Usage: udevinfo [-anpqrVh]\n"
+	       "  -q TYPE  query database for the specified value:\n"
+	       "             'name'    name of device node\n"
+	       "             'symlink' pointing to node\n"
+	       "             'path'    sysfs device path\n"
+	       "             'env'     the device related imported environment\n"
+	       "             'all'     all values\n"
+	       "\n"
+	       "  -p PATH  sysfs device path used for query or chain\n"
+	       "  -n NAME  node/symlink name used for query\n"
+	       "\n"
+	       "  -r       print udev root\n"
+	       "  -a       print all SYSFS_attributes along the device chain\n"
+	       "  -d       print the relationship of devpath and the node name for all\n"
+	       "  -e       print the content of the udev database\n"
+	       "  -V       print udev version\n"
+	       "  -h       print this help text\n"
+	       "\n");
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
-	static const char short_options[] = "adn:p:q:rVh";
+	static const char short_options[] = "aden:p:q:rVh";
 	int option;
 	struct udevice udev;
 	int root = 0;
-	int attributes = 0;
+
+	enum action_type {
+		ACTION_NONE,
+		ACTION_QUERY,
+		ACTION_ATTRIBUTE_WALK,
+		ACTION_ROOT,
+	} action = ACTION_NONE;
+
 	enum query_type {
 		QUERY_NONE,
 		QUERY_NAME,
@@ -198,6 +235,7 @@ int main(int argc, char *argv[], char *envp[])
 		QUERY_ENV,
 		QUERY_ALL,
 	} query = QUERY_NONE;
+
 	char path[PATH_SIZE] = "";
 	char name[PATH_SIZE] = "";
 	char temp[PATH_SIZE];
@@ -222,70 +260,65 @@ int main(int argc, char *argv[], char *envp[])
 			dbg("udev name: %s\n", optarg);
 			strlcpy(name, optarg, sizeof(name));
 			break;
-
 		case 'p':
 			dbg("udev path: %s\n", optarg);
 			strlcpy(path, optarg, sizeof(path));
 			break;
-
 		case 'q':
 			dbg("udev query: %s\n", optarg);
-
+			action = ACTION_QUERY;
 			if (strcmp(optarg, "name") == 0) {
 				query = QUERY_NAME;
 				break;
 			}
-
 			if (strcmp(optarg, "symlink") == 0) {
 				query = QUERY_SYMLINK;
 				break;
 			}
-
 			if (strcmp(optarg, "path") == 0) {
 				query = QUERY_PATH;
 				break;
 			}
-
 			if (strcmp(optarg, "env") == 0) {
 				query = QUERY_ENV;
 				break;
 			}
-
 			if (strcmp(optarg, "all") == 0) {
 				query = QUERY_ALL;
 				break;
 			}
-
 			fprintf(stderr, "unknown query type\n");
-			retval = 1;
+			retval = 2;
 			goto exit;
-
 		case 'r':
+			if (action == ACTION_NONE)
+				action = ACTION_ROOT;
 			root = 1;
 			break;
-
 		case 'a':
-			attributes = 1;
+			action = ACTION_ATTRIBUTE_WALK;
 			break;
-
 		case 'd':
-			dump_names();
+			dump_db(dump_name_devpath);
 			goto exit;
-
+		case 'e':
+			dump_db(dump_record);
+			goto exit;
 		case 'V':
 			printf("udevinfo, version %s\n", UDEV_VERSION);
 			goto exit;
-
 		case 'h':
-			retval = 2;
 		case '?':
 		default:
-			goto help;
+			print_help();
+			goto exit;
 		}
 	}
 
-	/* process options */
-	if (query != QUERY_NONE) {
+	/* run action */
+	switch (action) {
+	case ACTION_QUERY:
+		/* need devpath or node/symlink name for query */
 		if (path[0] != '\0') {
 			/* remove sysfs_path if given */
 			if (strncmp(path, sysfs_path, strlen(sysfs_path)) == 0) {
@@ -303,12 +336,10 @@ int main(int argc, char *argv[], char *envp[])
 			retval = udev_db_get_device(&udev, pos);
 			if (retval != 0) {
 				fprintf(stderr, "no record for '%s' in database\n", pos);
+				retval = 3;
 				goto exit;
 			}
-			goto print;
-		}
-
-		if (name[0] != '\0') {
+		} else if (name[0] != '\0') {
 			char devpath[PATH_SIZE];
 			int len;
 
@@ -322,24 +353,23 @@ int main(int argc, char *argv[], char *envp[])
 			retval = udev_db_lookup_name(pos, devpath, sizeof(devpath));
 			if (retval != 0) {
 				fprintf(stderr, "no record for '%s' in database\n", pos);
+				retval = 3;
 				goto exit;
 			}
 			udev_db_get_device(&udev, devpath);
-			goto print;
+		} else {
+			fprintf(stderr, "query needs device path(-p) or node name(-n) specified\n");
+			retval = 4;
+			goto exit;
 		}
 
-		fprintf(stderr, "query needs device path(-p) or node name(-n) specified\n");
-		retval = 3;
-		goto exit;
-
-print:
 		switch(query) {
 		case QUERY_NAME:
 			if (root)
 				printf("%s/%s\n", udev_root, udev.name);
 			else
 				printf("%s\n", udev.name);
-			goto exit;
+			break;
 		case QUERY_SYMLINK:
 			if (list_empty(&udev.symlink_list))
 				goto exit;
@@ -350,23 +380,23 @@ print:
 				list_for_each_entry(name_loop, &udev.symlink_list, node)
 					printf("%s ", name_loop->name);
 			printf("\n");
-			goto exit;
+			break;
 		case QUERY_PATH:
 			printf("%s\n", udev.devpath);
 			goto exit;
 		case QUERY_ENV:
 			list_for_each_entry(name_loop, &udev.env_list, node)
 				printf("%s\n", name_loop->name);
-			goto exit;
+			break;
 		case QUERY_ALL:
 			print_record(&udev);
-			goto exit;
+			break;
 		default:
-			goto help;
+			print_help();
+			break;
 		}
-	}
-
-	if (attributes) {
+		break;
+	case ACTION_ATTRIBUTE_WALK:
 		if (path[0] == '\0') {
 			fprintf(stderr, "attribute walk on device chain needs path(-p) specified\n");
 			retval = 4;
@@ -379,34 +409,16 @@ print:
 				strlcpy(path, temp, sizeof(temp));
 			}
 			print_device_chain(path);
-			goto exit;
 		}
-	}
-
-	if (root) {
+		break;
+	case ACTION_ROOT:
 		printf("%s\n", udev_root);
-		goto exit;
+		break;
+	default:
+		print_help();
+		retval = 1;
+		break;
 	}
-
-help:
-	fprintf(stderr, "Usage: udevinfo [-anpqrVh]\n"
-	       "  -q TYPE  query database for the specified value:\n"
-	       "             'name'    name of device node\n"
-	       "             'symlink' pointing to node\n"
-	       "             'path'    sysfs device path\n"
-	       "             'env'     the device related imported environment\n"
-	       "             'all'     all values\n"
-	       "\n"
-	       "  -p PATH  sysfs device path used for query or chain\n"
-	       "  -n NAME  node/symlink name used for query\n"
-	       "\n"
-	       "  -r       print udev root\n"
-	       "  -a       print all SYSFS_attributes along the device chain\n"
-	       "  -d       print the relationship of devpath and the node name for all\n"
-	       "           devices available in the database\n"
-	       "  -V       print udev version\n"
-	       "  -h       print this help text\n"
-	       "\n");
 
 exit:
 	udev_cleanup_device(&udev);
