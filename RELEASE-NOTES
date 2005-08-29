@@ -1,3 +1,11 @@
+udev 069
+========
+A bunch of mostly trivial bugfixes. From now on no node name or
+symlink name can contain any character than plain whitelisted ascii
+characters or validated utf8 byte-streams. This is needed for the
+/dev/disk/by-label/* links, cause we import untrusted data and
+export it to the filesystem.
+
 udev 068
 ========
 More bugfixes. If udevd was started from the kernel, we don't
