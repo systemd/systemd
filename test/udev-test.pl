@@ -1342,7 +1342,7 @@ EOF
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "replaced",
 		rules		=> <<EOF
-BUS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e \\xef\\xe8garbage", RESULT=="[?][?]garbage", NAME="replaced"
+BUS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e \\xef\\xe8garbage", RESULT=="__garbage", NAME="replaced"
 EOF
 	},
 	{
