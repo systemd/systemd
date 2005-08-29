@@ -267,16 +267,58 @@ static int import_parent_into_env(struct udevice *udev, struct sysfs_class_devic
 	return rc;
 }
 
-/* finds the lowest positive N such that <name>N isn't present in the udevdb
- * if <name> doesn't exist, 0 is returned, N otherwise
- */
-static int find_free_number(const char *name, const char *devpath)
+static int match_name_and_get_number(const char *base, const char *devname)
+{
+	size_t baselen;
+	char *endptr;
+	int num;
+
+	baselen = strlen(base);
+	if (strncmp(base, devname, baselen) != 0)
+		return -1;
+	if (devname[baselen] == '\0')
+		return 0;
+	if (!isdigit(devname[baselen]))
+		return -1;
+	num = strtoul(&devname[baselen], &endptr, 10);
+	if (endptr[0] != '\0')
+		return -1;
+	return num;
+}
+
+/* finds the lowest positive device number such that <name>N isn't present in the udevdb
+ * if <name> doesn't exist, 0 is returned, N otherwise */
+static int find_free_number(const char *base, const char *devpath)
 {
 	char db_devpath[PATH_SIZE];
 	char filename[PATH_SIZE];
+	struct udevice udev_db;
 	int num = 0;
 
-	strlcpy(filename, name, sizeof(filename));
+	/* check if the device already owns a matching name */
+	udev_init_device(&udev_db, NULL, NULL, NULL);
+	if (udev_db_get_device(&udev_db, devpath) == 0) {
+		struct name_entry *name_loop;
+		int devnum;
+
+		devnum = match_name_and_get_number(base, udev_db.name);
+		if (devnum >= 0) {
+			num = devnum;
+			dbg("device '%s', already has the node '%s' with num %u, use it", devpath, base, num);
+			goto out;
+		}
+		list_for_each_entry(name_loop, &udev_db.symlink_list, node) {
+			devnum = match_name_and_get_number(base, name_loop->name);
+			if (devnum >= 0) {
+				num = devnum;
+				dbg("device '%s', already has a symlink '%s' with num %u, use it", devpath, base, num);
+				goto out;
+			}
+		}
+	}
+
+	/* just search the database again and again until a free name is found */
+	strlcpy(filename, base, sizeof(filename));
 	while (1) {
 		dbg("look for existing node '%s'", filename);
 		if (udev_db_lookup_name(filename, db_devpath, sizeof(db_devpath)) != 0) {
@@ -290,10 +332,12 @@ static int find_free_number(const char *name, const char *devpath)
 			num = -1;
 			break;
 		}
-		snprintf(filename, sizeof(filename), "%s%d", name, num);
+		snprintf(filename, sizeof(filename), "%s%d", base, num);
 		filename[sizeof(filename)-1] = '\0';
 	}
 
+out:
+	udev_cleanup_device(&udev_db);
 	return num;
 }
 
@@ -345,12 +389,12 @@ static int wait_for_sysfs(struct udevice *udev, const char *file, int timeout)
 
 	while (--loop) {
 		if (stat(filename, &stats) == 0) {
-			dbg("file appeared after %i loops", (timeout * WAIT_LOOP_PER_SECOND) - loop-1);
+			info("file appeared after %i loops", (timeout * WAIT_LOOP_PER_SECOND) - loop-1);
 			return 0;
 		}
 		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
 	}
-	dbg("waiting for '%s' failed", filename);
+	info("waiting for '%s' failed", filename);
 	return -1;
 }
 
@@ -669,6 +713,7 @@ static int match_key(const char *key_name, struct udev_rule *rule, struct key *k
 	return -1;
 }
 
+/* match a single rule against a given device and possibly its parent devices */
 static int match_rule(struct udevice *udev, struct udev_rule *rule,
 		      struct sysfs_class_device *class_dev, struct sysfs_device *sysfs_device)
 {
