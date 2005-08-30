@@ -166,16 +166,16 @@ exit:
 	return retval;
 }
 
-static void dump_name_devpath(struct udevice *udev) {
+static void export_name_devpath(struct udevice *udev) {
 	printf("%s=%s/%s\n", udev->devpath, udev_root, udev->name);
 }
 
-static void dump_record(struct udevice *udev) {
+static void export_record(struct udevice *udev) {
 	print_record(udev);
 	printf("\n");
 }
 
-static void dump_db(void fnct(struct udevice *udev)) {
+static void export_db(void fnct(struct udevice *udev)) {
 	LIST_HEAD(name_list);
 	struct name_entry *name_loop;
 
@@ -204,10 +204,9 @@ static void print_help(void)
 	       "  -p PATH  sysfs device path used for query or chain\n"
 	       "  -n NAME  node/symlink name used for query\n"
 	       "\n"
-	       "  -r       print udev root\n"
+	       "  -r       prepend to query result or print udev_root\n"
 	       "  -a       print all SYSFS_attributes along the device chain\n"
-	       "  -d       print the relationship of devpath and the node name for all\n"
-	       "  -e       print the content of the udev database\n"
+	       "  -e       export the content of the udev database\n"
 	       "  -V       print udev version\n"
 	       "  -h       print this help text\n"
 	       "\n");
@@ -215,7 +214,7 @@ static void print_help(void)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	static const char short_options[] = "aden:p:q:rVh";
+	static const char short_options[] = "aen:p:q:rVh";
 	int option;
 	struct udevice udev;
 	int root = 0;
@@ -299,10 +298,10 @@ int main(int argc, char *argv[], char *envp[])
 			action = ACTION_ATTRIBUTE_WALK;
 			break;
 		case 'd':
-			dump_db(dump_name_devpath);
+			export_db(export_name_devpath);
 			goto exit;
 		case 'e':
-			dump_db(dump_record);
+			export_db(export_record);
 			goto exit;
 		case 'V':
 			printf("udevinfo, version %s\n", UDEV_VERSION);
