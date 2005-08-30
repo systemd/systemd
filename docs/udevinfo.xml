@@ -1,0 +1,131 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<article>
+  <articleinfo>
+    <title>xmlto</title>
+    <author>
+      <firstname>Kay</firstname>
+      <surname>Sievers</surname>
+      <email>kay.sievers@vrfy.org</email>
+    </author>
+    <copyright>
+      <year>2005</year>
+      <holder>Kay Sievers</holder>
+    </copyright>
+  </articleinfo>
+
+  <section>
+    <title>udevinfo</title>
+    <refentry>
+      <refentryinfo>
+        <title>udevinfo</title>
+        <date>August 2005</date>
+        <productname>udev</productname>
+      </refentryinfo>
+
+      <refmeta>
+        <refentrytitle>udevinfo</refentrytitle>
+        <manvolnum>8</manvolnum>
+      </refmeta>
+
+      <refnamediv>
+        <refname>udevinfo</refname><refpurpose>query device information from the udev database</refpurpose>
+      </refnamediv>
+
+      <refsynopsisdiv>
+        <cmdsynopsis>
+          <command>udevinfo</command>
+          <arg><option>-q <replaceable>query-type</replaceable></option></arg>
+          <arg><option>-a </option></arg>
+          <arg><option>-p <replaceable>device-path</replaceable></option></arg>
+          <arg><option>-n <replaceable>node-name</replaceable></option></arg>
+          <arg><option>-r</option></arg>
+          <arg><option>-e</option></arg>
+          <arg><option>-V</option></arg>
+          <arg><option>-h</option></arg>
+        </cmdsynopsis>
+      </refsynopsisdiv>
+
+      <refsect1><title>DESCRIPTION</title>
+        <para>udevinfo queries the udev database for device information
+        stored in the udev database. udevinfo also queries the properties
+        of a device from its sysfs representation to help creating udev
+        rules to match this device.</para>
+      </refsect1>
+
+      <refsect1><title>OPTIONS</title>
+        <variablelist>
+          <varlistentry>
+            <term><option>-q</option></term>
+            <listitem>
+              <para>Query the database for specified type of device data. It needs the
+              <option>-p</option> or <option>-n</option> to identify the specified
+              device. Valid queries are:
+              <command>name</command>, <command>symlink</command>, <command>path</command>,
+              <command>env</command>, <command>all</command>.</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>-a</option></term>
+            <listitem>
+              <para>Print all sysfs properties of the specified device that can be used
+              in udev rules to match the specified device. It prints all devices
+              along the chain, up to the root of sysfs that can be used in udev rules.</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>-p <replaceable>device-path</replaceable></option></term>
+            <listitem>
+              <para>The sysfs path of the device to query.</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>-n <replaceable>node-name</replaceable></option></term>
+            <listitem>
+              <para>The name of the device node or a symlink to query</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>-r</option></term>
+            <listitem>
+              <para>The udev root directory: <filename>/dev</filename>. If used in conjunction
+              with a <command>name</command> or <command>symlink</command> query, the
+              query returns the absolute path.</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>-e</option></term>
+            <listitem>
+              <para>Export the content of the udev database.</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>-h</option></term>
+            <listitem>
+              <para>Print help text.</para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+      </refsect1>
+
+      <refsect1><title>AUTHOR</title>
+        <para>Written by Kay Sievers <email>kay.sievers@vrfy.org</email>.</para>
+      </refsect1>
+
+      <refsect1>
+        <title>SEE ALSO</title>
+        <para><citerefentry>
+            <refentrytitle>udev</refentrytitle><manvolnum>8</manvolnum>
+        </citerefentry></para>
+      </refsect1>
+    </refentry>
+  </section>
+</article>

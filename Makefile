@@ -158,6 +158,13 @@ OBJS = \
 
 SYSFS = $(PWD)/libsysfs/sysfs.a
 
+MAN_PAGES = \
+	udevmonitor.8				\
+	udevd.8				\
+	udevtest.8			\
+	udevinfo.8			\
+	udevstart.8
+
 CFLAGS +=	-I$(PWD)/libsysfs/sysfs	\
 		-I$(PWD)/libsysfs
 
@@ -262,11 +269,9 @@ udev_version.h:
 $(LOCAL_CFG_DIR)/udev.conf:
 	sed -e "s:@udevdir@:$(udevdir):" -e "s:@configdir@:$(configdir):" < $(LOCAL_CFG_DIR)/udev.conf.in > $@
 
-GEN_MANPAGES   = udev.8
-GEN_MANPAGESIN = udev.8.in
-# Rules on how to create the man pages
-$(GEN_MANPAGES): $(GEN_MANPAGESIN)
-	sed -e "s:@udevdir@:$(udevdir):" < $@.in > $@
+# man pages
+%.8: docs/%.xml
+	xmlto man $?
 
 $(UDEV_OBJS): $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(SYSFS_OBJS): $(HEADERS) $(HOST_PROGS) $(KLCC)
@@ -283,7 +288,7 @@ $(CONTROL).o: $(HEADERS) $( $(HEADERS)GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(MONITOR).o: $(HEADERS) $( $(HEADERS)GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 $(STARTER).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
 
-$(ROOT): $(KLCC) $(ROOT).o $(OBJS) $(HEADERS) $(GEN_MANPAGES)
+$(ROOT): $(KLCC) $(ROOT).o $(OBJS) $(HEADERS) $(MAN_PAGES)
 	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(ROOT).o $(OBJS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
@@ -333,7 +338,7 @@ $(STARTER): $(KLCC) $(STARTER).o $(OBJS)
 clean:
 	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
 	 | xargs rm -f 
-	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(GEN_MANPAGES) $(INFO) $(DAEMON) \
+	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(INFO) $(DAEMON) \
 	 $(SENDER) $(COMPILE) $(INITSENDER) $(RECORDER) $(CONTROL) $(MONITOR) $(TESTER) $(STARTER)
 	-rm -f ccdv
 	$(MAKE) -C klibc SUBDIRS=klibc clean
@@ -369,7 +374,9 @@ install-man:
 	$(INSTALL_DATA) -D udevtest.8 $(DESTDIR)$(mandir)/man8/udevtest.8
 	$(INSTALL_DATA) -D udevstart.8 $(DESTDIR)$(mandir)/man8/udevstart.8
 	$(INSTALL_DATA) -D udevd.8 $(DESTDIR)$(mandir)/man8/udevd.8
+	$(INSTALL_DATA) -D udevmonitor.8 $(DESTDIR)$(mandir)/man8/udevmonitor.8
 	- ln -f -s udevd.8 $(DESTDIR)$(mandir)/man8/udevsend.8
+	- ln -f -s udevd.8 $(DESTDIR)$(mandir)/man8/udevcontrol.8
 
 uninstall-man:
 	- rm $(mandir)/man8/udev.8
@@ -377,7 +384,9 @@ uninstall-man:
 	- rm $(mandir)/man8/udevtest.8
 	- rm $(mandir)/man8/udevstart.8
 	- rm $(mandir)/man8/udevd.8
+	- rm $(mandir)/man8/udevmonitor.8
 	- rm $(mandir)/man8/udevsend.8
+	- rm $(mandir)/man8/udevcontrol.8
 
 install: install-config install-man all
 	$(INSTALL) -d $(DESTDIR)$(udevdir)

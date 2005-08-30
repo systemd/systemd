@@ -1,18 +1,24 @@
-.TH UDEVSTART 8 "March 2004" "" "Linux Administrator's Manual"
-.SH NAME
+.\" ** You probably do not want to edit this file directly **
+.\" It was generated using the DocBook XSL Stylesheets (version 1.69.0).
+.\" Instead of manually editing it, you probably should edit the DocBook XML
+.\" source for it and then use the DocBook XSL Stylesheets to regenerate it.
+.TH "UDEVSTART" "8" "August 2005" "udev" "udevstart"
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.SH "NAME"
 udevstart \- populate initial device directory
-.SH SYNOPSIS
-.B udevstart
+.SH "SYNOPSIS"
+.HP 10
+\fBudevstart\fR
 .SH "DESCRIPTION"
-.B udevstart
-walks trough the sysfs device tree and calls
-.B udev
-to create the nodes for every valid device found. It can be used to fill a
-empty device directory with nodes for all devices currently available on
-the system.
+.PP
+udevstart scans the kernel exported device information available in sysfs for devices which require a device node to operate and creates the node using the specified udev rules. udevstart is used to create the initial device directory after system bootup.
+.SH "AUTHOR"
+.PP
+Written by Harald Hoyer 
+<harald@redhat.com>.
 .SH "SEE ALSO"
-.BR udev (8)
-.SH AUTHORS
-.B udevstart
-was developed primarily by Harald Hoyer <harald@redhat.com>, with much help
-from others.
+.PP
+\fBudev\fR(8)

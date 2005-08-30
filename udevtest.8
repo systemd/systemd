@@ -1,19 +1,24 @@
-.TH UDEVTEST 8 "March 2004" "" "Linux Administrator's Manual"
-.SH NAME
-udevtest \- simulates a udev run to test the configured rules
-.SH SYNOPSIS
-.B udevtest
-.I sysfs_device_path subsystem
+.\" ** You probably do not want to edit this file directly **
+.\" It was generated using the DocBook XSL Stylesheets (version 1.69.0).
+.\" Instead of manually editing it, you probably should edit the DocBook XML
+.\" source for it and then use the DocBook XSL Stylesheets to regenerate it.
+.TH "UDEVTEST" "8" "August 2005" "udev" "udevtest"
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.SH "NAME"
+udevtest \- simulate a udev run and print the action to the console
+.SH "SYNOPSIS"
+.HP 31
+\fBudevtest \fR\fB\fIdevice\-path\fR\fR\fB \fR\fB\fIsubsystem\fR\fR
 .SH "DESCRIPTION"
-.B udevtest
-simulates a
-.B udev
-run for the given device, and prints out the name of the node
-the real udev would have created, or the name of the renamed network
-interface.
+.PP
+udevtest simulates a udev run for the given device and prints out the name of the node udev would have created, or the name of the network interface, that would have been renamend.
+.SH "AUTHOR"
+.PP
+Written by Greg Kroah\-Hartman 
+<greg@kroah.com>.
 .SH "SEE ALSO"
-.BR udev (8)
-.SH AUTHORS
-.B udevtest
-was developed by Greg Kroah-Hartman <greg@kroah.com> with much help
-from others.
+.PP
+\fBudev\fR(8)

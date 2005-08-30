@@ -1,0 +1,62 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<article>
+  <articleinfo>
+    <title>xmlto</title>
+    <author>
+      <firstname>Kay</firstname>
+      <surname>Sievers</surname>
+      <email>kay.sievers@vrfy.org</email>
+    </author>
+    <copyright>
+      <year>2005</year>
+      <holder>Kay Sievers</holder>
+    </copyright>
+  </articleinfo>
+
+  <section>
+    <title>udevtest</title>
+    <refentry>
+      <refentryinfo>
+        <title>udevtest</title>
+        <date>August 2005</date>
+        <productname>udev</productname>
+      </refentryinfo>
+
+      <refmeta>
+        <refentrytitle>udevtest</refentrytitle>
+        <manvolnum>8</manvolnum>
+      </refmeta>
+
+      <refnamediv>
+        <refname>udevtest</refname>
+        <refpurpose>simulate a udev run and print the action to the console</refpurpose>
+      </refnamediv>
+
+      <refsynopsisdiv>
+        <cmdsynopsis>
+          <command>udevtest <filename>device-path</filename> <replaceable>subsystem</replaceable></command>
+        </cmdsynopsis>
+      </refsynopsisdiv>
+
+      <refsect1><title>DESCRIPTION</title>
+        <para>udevtest simulates a udev run for the given device and prints out the
+        name of the node udev would have created, or the name of the network interface,
+        that would have been renamend.</para>
+      </refsect1>
+
+      <refsect1><title>AUTHOR</title>
+        <para>Written by Greg Kroah-Hartman <email>greg@kroah.com</email>.</para>
+      </refsect1>
+
+      <refsect1>
+        <title>SEE ALSO</title>
+        <para><citerefentry>
+            <refentrytitle>udev</refentrytitle><manvolnum>8</manvolnum>
+        </citerefentry></para>
+      </refsect1>
+    </refentry>
+  </section>
+</article>

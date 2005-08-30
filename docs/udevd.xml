@@ -1,0 +1,99 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<article>
+  <articleinfo>
+    <title>xmlto</title>
+    <author>
+      <firstname>Kay</firstname>
+      <surname>Sievers</surname>
+      <email>kay.sievers@vrfy.org</email>
+    </author>
+    <copyright>
+      <year>2005</year>
+      <holder>Kay Sievers</holder>
+    </copyright>
+  </articleinfo>
+
+  <section>
+    <title>udevd, udevsend, udevcontrol</title>
+    <refentry>
+      <refentryinfo>
+        <title>udevd</title>
+        <date>August 2005</date>
+        <productname>udev</productname>
+      </refentryinfo>
+
+      <refmeta>
+        <refentrytitle>udevd</refentrytitle>
+        <manvolnum>8</manvolnum>
+      </refmeta>
+
+      <refnamediv>
+        <refname>udevd</refname><refpurpose>event managing daemon</refpurpose>
+      </refnamediv>
+
+      <refsynopsisdiv>
+        <cmdsynopsis>
+          <command>udevd</command>
+          <arg><option>--daemon</option></arg>
+        </cmdsynopsis>
+        <cmdsynopsis>
+          <command>udevcontrol <replaceable>command</replaceable></command>
+        </cmdsynopsis>
+        <cmdsynopsis>
+          <command>udevsend <replaceable>subsystem</replaceable></command>
+        </cmdsynopsis>
+      </refsynopsisdiv>
+
+      <refsect1><title>DESCRIPTION</title>
+        <para>udevd listens to kernel uevents and passes the incoming events to
+        udev. It ensures the right event order and takes care, that events for child
+        devices are delayed until the parent has finished the device handling. </para>
+      </refsect1>
+
+      <refsect1><title>OPTIONS</title>
+        <variablelist>
+          <varlistentry>
+            <term><option>--daemon</option></term>
+            <listitem>
+              <para>Detach and run in the background.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>log_priority=<replaceable>value</replaceable></option></term>
+            <listitem>
+              <para>udevcontrol can dynamically set the log level of udevd.
+              Valid values are the numerical syslog priorities or their textual
+              representations: err, info and debug.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>stop_exec_queue</option></term>
+            <listitem>
+              <para>udevcontrol stops the execution of events from udevd.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>start_exec_queue</option></term>
+            <listitem>
+              <para>udevcontrol starts the execution of events from udevd.</para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+      </refsect1>
+
+      <refsect1><title>AUTHOR</title>
+        <para>Written by Kay Sievers <email>kay.sievers@vrfy.org</email>.</para>
+      </refsect1>
+
+      <refsect1>
+        <title>SEE ALSO</title>
+        <para><citerefentry>
+            <refentrytitle>udev</refentrytitle><manvolnum>8</manvolnum>
+        </citerefentry></para>
+      </refsect1>
+    </refentry>
+  </section>
+</article>

@@ -1,69 +1,60 @@
-.TH UDEVINFO 8 "January 2004" "" "Linux Administrator's Manual"
-.SH NAME
-udevinfo \- retrieve information from udev
-.SH SYNOPSIS
-.B udevinfo
-.RI "[\-q " query_type " \-p " sysfs_path "] [\-drVh]"
+.\" ** You probably do not want to edit this file directly **
+.\" It was generated using the DocBook XSL Stylesheets (version 1.69.0).
+.\" Instead of manually editing it, you probably should edit the DocBook XML
+.\" source for it and then use the DocBook XSL Stylesheets to regenerate it.
+.TH "UDEVINFO" "8" "August 2005" "udev" "udevinfo"
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.SH "NAME"
+udevinfo \- query device information from the udev database
+.SH "SYNOPSIS"
+.HP 9
+\fBudevinfo\fR [\fB\-q\ \fR\fB\fIquery\-type\fR\fR] [\fB\-a\ \fR] [\fB\-p\ \fR\fB\fIdevice\-path\fR\fR] [\fB\-n\ \fR\fB\fInode\-name\fR\fR] [\fB\-r\fR] [\fB\-e\fR] [\fB\-V\fR] [\fB\-h\fR]
 .SH "DESCRIPTION"
-.B udevinfo
-allows users to query the udev database for information on any device
-currently present on the system.  It also provides a way to query any device
-in the sysfs tree to help creating
-.B udev
-rules.
+.PP
+udevinfo queries the udev database for device information stored in the udev database. udevinfo also queries the properties of a device from its sysfs representation to help creating udev rules to match this device.
 .SH "OPTIONS"
 .TP
-.B \-V
-Print the version information.
+\fB\-q\fR
+Query the database for specified type of device data. It needs the 
+\fB\-p\fR 
+or 
+\fB\-n\fR 
+to identify the specified device. Valid queries are: 
+\fBname\fR, 
+\fBsymlink\fR, 
+\fBpath\fR, 
+\fBenv\fR, 
+\fBall\fR.
 .TP
-.B \-r
-Print the
-.B udev_root
-directory. When used in conjunction with a query for the node name or the
-symlink names, the
-.B udev_root
-will be prepended to query result.
+\fB\-a\fR
+Print all sysfs properties of the specified device that can be used in udev rules to match the specified device. It prints all devices along the chain, up to the root of sysfs that can be used in udev rules.
 .TP
-.BI \-q " query_type"
-Query the database for specified value of a created device node or network
-interface.
-.RB Needs " \-p " or " \-n " specified.
-.br
-Valid types are:
-.BR name ", " symlink ", " path " or " all.
+\fB\-p \fR\fB\fIdevice\-path\fR\fR
+The sysfs path of the device to query.
 .TP
-.BI \-p " sysfs_path"
-Specify the sysfs path of the device to query.
+\fB\-n \fR\fB\fInode\-name\fR\fR
+The name of the device node or a symlink to query
 .TP
-.BI \-n " name"
-Specify the name of the node, the symlink or the network interface for the
-device to query. Partition names generated with the NAME{all_partitons} option
-can not be queried, the main device must be used instead.
+\fB\-r\fR
+The udev root directory: 
+\fI/dev\fR. If used in conjunction with a 
+\fBname\fR 
+or 
+\fBsymlink\fR 
+query, the query returns the absolute path.
 .TP
-.B \-a
-Print all
-.BI SYSFS{ filename }
-attributes along the device chain. Useful for finding
-unique attributes to compose a rule.
-.RB Needs " \-p " specified.
+\fB\-e\fR
+Export the content of the udev database.
 .TP
-.B \-d
-Print the relationship between the devpath and the node name for all devices
-currently available in the database.
-.TP
-.B \-e
-Print all attributes for all devices curently available in the database.
-.TP
-.B \-h
+\fB\-h\fR
 Print help text.
-.SH "FILES"
-.nf
-/etc/udev/*  udev config files
-.fi
-.LP
+.SH "AUTHOR"
+.PP
+Written by Kay Sievers 
+<kay.sievers@vrfy.org>.
 .SH "SEE ALSO"
-.BR udev (8)
-.SH AUTHORS
-.B udevinfo
-was developed primarily by Kay Sievers <kay.sievers@vrfy.org>, with help
-from others.
+.PP
+\fBudev\fR(8)
