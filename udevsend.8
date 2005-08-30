@@ -1,0 +1,38 @@
+.\" ** You probably do not want to edit this file directly **
+.\" It was generated using the DocBook XSL Stylesheets (version 1.69.0).
+.\" Instead of manually editing it, you probably should edit the DocBook XML
+.\" source for it and then use the DocBook XSL Stylesheets to regenerate it.
+.TH "UDEVSEND" "8" "August 2005" "udev" "udevsend"
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.SH "NAME"
+udevsend \- send the current environment to the udev daemon
+.SH "SYNOPSIS"
+.HP 9
+\fBudevsend\fR
+.SH "DESCRIPTION"
+.PP
+Usually the udev daemon listens directly to the kernel uevents. udevsend may be used to pass events for already existing devices from a userspace application to the daemon.
+.SH "ENVIRONMENT"
+.TP
+\fBACTION\fR
+\fIadd\fR 
+or 
+\fIremove\fR 
+signifies the addition or the removal of a device.
+.TP
+\fBDEVPATH\fR
+The sysfs devpath without the mountpoint but a leading slash.
+.TP
+\fBSUBSYSTEM\fR
+The kernel subsystem the device belongs to.
+.SH "AUTHOR"
+.PP
+Written by Kay Sievers 
+<kay.sievers@vrfy.org>.
+.SH "SEE ALSO"
+.PP
+\fBudev\fR(8), 
+\fBudevd\fR(8)
