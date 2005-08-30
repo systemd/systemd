@@ -17,46 +17,96 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
-# Set this to make use of syslog.
+VERSION =	068
+
+# set this to make use of syslog
 USE_LOG = true
 
-# Set this to compile-in development debug messages. Pass UDEV_LOG="debug"
-# to the executed binary or set the value in the udev configuration file to
-# let udev print the debug messages to syslog.
+# compile-in development debug messages
+# (export UDEV_LOG="debug" or set udev_log="debug" in udev.conf
+#  to print the debug messages to syslog)
 DEBUG = false
 
-# Set this to include Security-Enhanced Linux support.
+# include Security-Enhanced Linux support
 USE_SELINUX = false
 
-# Set this to comile with klibc instead of glibc.
+# comile with klibc instead of glibc
 USE_KLIBC = false
 
-# Set this to create statically linked binaries.
+# set this to create statically linked binaries
 USE_STATIC = false
 
-# To build any of the extras programs, run with:
-# 	make EXTRAS="extras/a extras/b"
+# to build any of the extras programs pass:
+#  make EXTRAS="extras/<extra1> extras/<extra2>"
 EXTRAS=
 
 # make the build silent. Set this to something else to make it noisy again.
 V=false
 
-VERSION =	068
-ROOT =		udev
-DAEMON =	udevd
-SENDER =	udevsend
-COMPILE =	udevrulescompile
-INITSENDER =	udevinitsend
-RECORDER =	udeveventrecorder
-CONTROL =	udevcontrol
-MONITOR =	udevmonitor
-INFO =		udevinfo
-TESTER =	udevtest
-STARTER =	udevstart
-RELEASE_NAME =	$(ROOT)-$(VERSION)
-LOCAL_CFG_DIR =	etc/udev
-DESTDIR =
-KERNEL_DIR = /lib/modules/${shell uname -r}/build
+PROGRAMS = \
+	udev				\
+	udevd				\
+	udevsend			\
+	udevrulescompile		\
+	udevinitsend			\
+	udeveventrecorder		\
+	udevcontrol			\
+	udevmonitor			\
+	udevinfo			\
+	udevtest			\
+	udevstart
+
+HEADERS = \
+	udev.h				\
+	udev_utils.h			\
+	udev_rules.h			\
+	udev_version.h			\
+	udev_db.h			\
+	udev_sysfs.h			\
+	logging.h			\
+	udev_libc_wrapper.h		\
+	udev_selinux.h			\
+	list.h
+
+UDEV_OBJS = \
+	udev_event.o			\
+	udev_device.o			\
+	udev_config.o			\
+	udev_add.o			\
+	udev_remove.o			\
+	udev_sysfs.o			\
+	udev_db.o			\
+	udev_rules.o			\
+	udev_rules_parse.o		\
+	udev_utils.o			\
+	udev_utils_string.o		\
+	udev_utils_file.o		\
+	udev_utils_run.o		\
+	udev_libc_wrapper.o
+LIBUDEV = libudev.a
+
+MAN_PAGES = \
+	udevmonitor.8			\
+	udevd.8				\
+	udevtest.8			\
+	udevinfo.8			\
+	udevstart.8
+
+SYSFS_OBJS = \
+	libsysfs/sysfs_class.o		\
+	libsysfs/sysfs_device.o		\
+	libsysfs/sysfs_dir.o		\
+	libsysfs/sysfs_driver.o		\
+	libsysfs/sysfs_utils.o		\
+	libsysfs/dlist.o
+LIBSYSFS = libsysfs/libsysfs.a
+
+# config files automatically generated
+GEN_CONFIGS = \
+	$(LOCAL_CFG_DIR)/udev.conf
+
+GEN_HEADERS = \
+	udev_version.h
 
 # override this to make udev look in a different location for it's config files
 prefix =
@@ -67,18 +117,18 @@ usrbindir =	${exec_prefix}/usr/bin
 usrsbindir =	${exec_prefix}/usr/sbin
 mandir =	${prefix}/usr/share/man
 configdir =	${etcdir}/udev
+udevdir =	/dev
+udevdb =	${udevdir}/.udevdb
+LOCAL_CFG_DIR =	etc/udev
+KERNEL_DIR =	/lib/modules/${shell uname -r}/build
 srcdir = .
+DESTDIR =
+RELEASE_NAME =	udev-$(VERSION)
 
 INSTALL = /usr/bin/install -c
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
-
-# place to put our device nodes
-udevdir =	/dev
-udevdb =	${udevdir}/.udevdb
-
-# set up PWD so that older versions of make will work with our build.
 PWD = $(shell pwd)
 
 # If you are running a cross compiler, you may want to set this
@@ -98,10 +148,10 @@ export CROSS CC AR STRIP RANLIB CFLAGS LDFLAGS LIB_OBJS
 ARCH := ${shell $(CC) -dumpmachine | sed -e s'/-.*//' -e 's/i.86/i386/' -e 's/sparc.*/sparc/' \
 	-e 's/arm.*/arm/g' -e 's/m68k.*/m68k/' -e 's/powerpc/ppc/g'}
 
-# code taken from uClibc to determine the gcc include dir
+# determine the gcc include dir
 GCCINCDIR := ${shell LC_ALL=C $(CC) -print-search-dirs | sed -ne "s/install: \(.*\)/\1include/gp"}
 
-# code taken from uClibc to determine the libgcc.a filename
+# determine the libgcc.a filename
 GCC_LIB := $(shell $(CC) -print-libgcc-file-name )
 
 # check if compiler option is supported
@@ -116,55 +166,7 @@ CFLAGS		+= -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
 # use '-Os' optimization if available, else use -O2
 OPTFLAGS := $(call cc-supports, -Os, -O2)
 
-HEADERS = \
-	udev.h				\
-	udev_utils.h			\
-	udev_rules.h			\
-	udev_version.h			\
-	udev_db.h			\
-	udev_sysfs.h			\
-	logging.h			\
-	udev_libc_wrapper.h		\
-	udev_selinux.h			\
-	list.h
-
-SYSFS_OBJS = \
-	libsysfs/sysfs_class.o		\
-	libsysfs/sysfs_device.o		\
-	libsysfs/sysfs_dir.o		\
-	libsysfs/sysfs_driver.o		\
-	libsysfs/sysfs_utils.o		\
-	libsysfs/dlist.o
-
-UDEV_OBJS = \
-	udev_event.o			\
-	udev_device.o			\
-	udev_config.o			\
-	udev_add.o			\
-	udev_remove.o			\
-	udev_sysfs.o			\
-	udev_db.o			\
-	udev_rules.o			\
-	udev_rules_parse.o		\
-	udev_utils.o			\
-	udev_utils_string.o		\
-	udev_utils_file.o		\
-	udev_utils_run.o		\
-	udev_libc_wrapper.o
-
-OBJS = \
-	udev.a			\
-	libsysfs/sysfs.a
-
-SYSFS = $(PWD)/libsysfs/sysfs.a
-
-MAN_PAGES = \
-	udevmonitor.8				\
-	udevd.8				\
-	udevtest.8			\
-	udevinfo.8			\
-	udevstart.8
-
+# include our local copy of libsysfs
 CFLAGS +=	-I$(PWD)/libsysfs/sysfs	\
 		-I$(PWD)/libsysfs
 
@@ -183,8 +185,7 @@ else
 	STRIPCMD = $(STRIP) -s --remove-section=.note --remove-section=.comment
 endif
 
-# If we are using our version of klibc, then we need to build, link it, and then
-# link udev against it statically. Otherwise, use glibc and link dynamically.
+# if our own version of klibc is used, we need to build it
 ifeq ($(strip $(USE_KLIBC)),true)
 	KLIBC_INSTALL	= $(PWD)/klibc/.install
 	KLCC		= $(KLIBC_INSTALL)/bin/$(CROSS)klcc
@@ -213,21 +214,25 @@ else
 	HOST_PROGS=
 endif
 
-# config files automatically generated
-GEN_CONFIGS =	$(LOCAL_CFG_DIR)/udev.conf
-
-all: $(ROOT) $(SENDER) $(COMPILE) $(INITSENDER) $(RECORDER) $(CONTROL) $(MONITOR)\
-	$(DAEMON) $(COMPILE) $(INFO) $(TESTER) $(STARTER) $(GEN_CONFIGS) $(KLCC)
-	@extras="$(EXTRAS)" ; for target in $$extras ; do \
-		echo $$target ; \
+all: $(KLCC) $(PROGRAMS) $(MAN_PAGES)
+	@extras="$(EXTRAS)"; for target in $$extras; do \
+		echo $$target; \
 		$(MAKE) prefix=$(prefix) \
 			LD="$(LD)" \
-			SYSFS="$(SYSFS)" \
+			LIBUDEV="$(PWD)/$(LIBUDEV)" \
+			LIBSYSFS="$(PWD)/$(LIBSYSFS)" \
 			KERNEL_DIR="$(KERNEL_DIR)" \
 			QUIET="$(QUIET)" \
-			-C $$target $@ ; \
-	done ; \
+			-C $$target $@; \
+	done;
+.PHONY: all
 
+$(PROGRAMS): $(HOST_PROGS) $(KLCC) $(HEADERS) $(GEN_HEADERS) $(LIBSYSFS) $(LIBUDEV)
+	$(QUIET) $(CC) $(CFLAGS) -c -o $@.o $@.c
+	$(QUIET) $(LD) $(LDFLAGS) -o $@ $@.o $(LIBUDEV) $(LIBSYSFS) $(LIB_OBJS)
+	$(QUIET) $(STRIPCMD) $@
+
+# our own copy of klibc if KLCC is specified it will not be used
 $(KLCC):
 	$(MAKE) -j1 -C klibc KRNLSRC=$(KERNEL_DIR) SUBDIRS=klibc TESTS= \
 			 SHLIBDIR=$(KLIBC_INSTALL)/lib \
@@ -236,24 +241,23 @@ $(KLCC):
 			 mandir=$(KLIBC_INSTALL)/man all install
 	-find $(KLIBC_INSTALL)/include -name SCCS -print| xargs rm -rf
 
-udev.a: $(UDEV_OBJS)
-	rm -f $@
+$(UDEV_OBJS): $(KLCC)
+$(LIBUDEV): $(HOST_PROGS) $(HEADERS) $(GEN_HEADERS) $(UDEV_OBJS)
+	@rm -f $@
 	$(QUIET) $(AR) cq $@ $(UDEV_OBJS)
 	$(QUIET) $(RANLIB) $@
 
-libsysfs/sysfs.a: $(SYSFS_OBJS)
-	rm -f $@
+$(SYSFS_OBJS): $(KLCC)
+$(LIBSYSFS): $(HOST_PROGS) $(SYSFS_OBJS)
+	@rm -f $@
 	$(QUIET) $(AR) cq $@ $(SYSFS_OBJS)
 	$(QUIET) $(RANLIB) $@
 
-# header files automatically generated
-GEN_HEADERS =	udev_version.h
+# generate config files
+$(GEN_CONFIGS):
+	sed -e "s:@udevdir@:$(udevdir):" -e "s:@configdir@:$(configdir):" < $@.in > $@
 
-ccdv:
-	@echo "Building ccdv"
-	@$(HOSTCC) -O1 ccdv.c -o ccdv
-
-# Rules on how to create the generated header files
+# generate config header file
 udev_version.h:
 	@echo "Creating udev_version.h"
 	@echo \#define UDEV_VERSION		\"$(VERSION)\" > $@
@@ -265,108 +269,50 @@ udev_version.h:
 	@echo \#define UDEV_BIN			\"$(sbindir)/udev\" >> $@
 	@echo \#define UDEVD_BIN		\"$(sbindir)/udevd\" >> $@
 
-# Rules on how to create the generated config files
-$(LOCAL_CFG_DIR)/udev.conf:
-	sed -e "s:@udevdir@:$(udevdir):" -e "s:@configdir@:$(configdir):" < $(LOCAL_CFG_DIR)/udev.conf.in > $@
-
 # man pages
 %.8: docs/%.xml
 	xmlto man $?
-
-$(UDEV_OBJS): $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(SYSFS_OBJS): $(HEADERS) $(HOST_PROGS) $(KLCC)
-$(OBJS): $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(ROOT).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(TESTER).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(INFO).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(DAEMON).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(SENDER).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(COMPILE).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(INITSENDER).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(RECORDER).o: $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(CONTROL).o: $(HEADERS) $( $(HEADERS)GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(MONITOR).o: $(HEADERS) $( $(HEADERS)GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-$(STARTER).o: $(HEADERS) $(GEN_HEADERS) $(HOST_PROGS) $(KLCC)
-
-$(ROOT): $(KLCC) $(ROOT).o $(OBJS) $(HEADERS) $(MAN_PAGES)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(ROOT).o $(OBJS) $(LIB_OBJS)
-	$(QUIET) $(STRIPCMD) $@
-
-$(TESTER): $(KLCC) $(TESTER).o $(OBJS) $(HEADERS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(TESTER).o $(OBJS) $(LIB_OBJS)
-	$(QUIET) $(STRIPCMD) $@
-
-$(INFO): $(KLCC) $(INFO).o $(OBJS) $(HEADERS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(INFO).o $(OBJS) $(LIB_OBJS)
-	$(QUIET) $(STRIPCMD) $@
-
-$(DAEMON): $(KLCC) $(DAEMON).o $(OBJS) udevd.h
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(DAEMON).o $(OBJS) $(LIB_OBJS)
-	$(QUIET) $(STRIPCMD) $@
-
-$(SENDER): $(KLCC) $(SENDER).o $(OBJS) udevd.h
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(SENDER).o $(OBJS) $(LIB_OBJS)
-	$(QUIET) $(STRIPCMD) $@
-
-$(COMPILE): $(KLCC) $(COMPILE).o $(OBJS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(COMPILE).o $(OBJS) $(LIB_OBJS)
-	$(QUIET) $(STRIPCMD) $@
-
-$(INITSENDER): $(KLCC) $(INITSENDER).o $(OBJS) udevd.h
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(INITSENDER).o $(OBJS) $(LIB_OBJS)
-	$(QUIET) $(STRIPCMD) $@
-
-$(RECORDER): $(KLCC) $(RECORDER).o $(OBJS) udevd.h
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(RECORDER).o $(OBJS) $(LIB_OBJS)
-	$(QUIET) $(STRIPCMD) $@
-
-$(CONTROL): $(KLCC) $(CONTROL).o $(OBJS) udevd.h
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(CONTROL).o $(OBJS) $(LIB_OBJS)
-	$(QUIET) $(STRIPCMD) $@
-
-$(MONITOR): $(KLCC) $(MONITOR).o $(OBJS) udevd.h
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(MONITOR).o $(OBJS) $(LIB_OBJS)
-	$(QUIET) $(STRIPCMD) $@
-
-$(STARTER): $(KLCC) $(STARTER).o $(OBJS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $(STARTER).o $(OBJS) $(LIB_OBJS)
-	$(QUIET) $(STRIPCMD) $@
+.PRECIOUS: %.8
 
 .c.o:
 	$(QUIET) $(CC) $(CFLAGS) -c -o $@ $<
 
+ccdv: ccdv.c
+	@$(HOSTCC) -O1 ccdv.c -o ccdv
+.SILENT: ccdv
+
 clean:
-	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print \
-	 | xargs rm -f 
-	-rm -f core $(ROOT) $(GEN_HEADERS) $(GEN_CONFIGS) $(INFO) $(DAEMON) \
-	 $(SENDER) $(COMPILE) $(INITSENDER) $(RECORDER) $(CONTROL) $(MONITOR) $(TESTER) $(STARTER)
-	-rm -f ccdv
+	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print | xargs rm -f
+	-rm -f core $(PROGRAMS) $(GEN_HEADERS) $(GEN_CONFIGS)
 	$(MAKE) -C klibc SUBDIRS=klibc clean
-	@extras="$(EXTRAS)" ; for target in $$extras ; do \
-		echo $$target ; \
-		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
-			-C $$target $@ ; \
-	done ; \
+	@extras="$(EXTRAS)"; for target in $$extras; do \
+		echo $$target; \
+		$(MAKE) prefix=$(prefix) -C $$target $@; \
+	done;
+.PHONY: clean
 
 spotless: clean
 	$(MAKE) -C klibc SUBDIRS=klibc spotless
 	rm -rf klibc/.install
+.PHONY: spotless
 
 release: spotless
 	git-tar-tree HEAD $(RELEASE_NAME) | gzip -9v > $(RELEASE_NAME).tar.gz
 	@echo "$(RELEASE_NAME).tar.gz created"
+.PHONY: release
 
-install-config:
+install-config: $(GEN_CONFIGS)
 	$(INSTALL) -d $(DESTDIR)$(configdir)/rules.d
 	@if [ ! -r $(DESTDIR)$(configdir)/udev.conf ]; then \
 		echo $(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.conf $(DESTDIR)$(configdir); \
 		$(INSTALL_DATA) $(LOCAL_CFG_DIR)/udev.conf $(DESTDIR)$(configdir); \
 	fi
 	@if [ ! -r $(DESTDIR)$(configdir)/rules.d/50-udev.rules ]; then \
-		echo ; \
+		echo; \
 		echo "pick a udev rules file from the etc/udev directory that matches your distribution"; \
-		echo ; \
+		echo; \
 	fi
+.PHONY: install-config
 
 install-man:
 	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
@@ -377,6 +323,7 @@ install-man:
 	$(INSTALL_DATA) -D udevmonitor.8 $(DESTDIR)$(mandir)/man8/udevmonitor.8
 	- ln -f -s udevd.8 $(DESTDIR)$(mandir)/man8/udevsend.8
 	- ln -f -s udevd.8 $(DESTDIR)$(mandir)/man8/udevcontrol.8
+.PHONY: install-man
 
 uninstall-man:
 	- rm $(mandir)/man8/udev.8
@@ -387,54 +334,55 @@ uninstall-man:
 	- rm $(mandir)/man8/udevmonitor.8
 	- rm $(mandir)/man8/udevsend.8
 	- rm $(mandir)/man8/udevcontrol.8
+.PHONY: uninstall-man
 
 install: install-config install-man all
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
-	$(INSTALL_PROGRAM) -D $(ROOT) $(DESTDIR)$(sbindir)/$(ROOT)
-	$(INSTALL_PROGRAM) -D $(DAEMON) $(DESTDIR)$(sbindir)/$(DAEMON)
-	$(INSTALL_PROGRAM) -D $(SENDER) $(DESTDIR)$(sbindir)/$(SENDER)
-	$(INSTALL_PROGRAM) -D $(CONTROL) $(DESTDIR)$(sbindir)/$(CONTROL)
-	$(INSTALL_PROGRAM) -D $(MONITOR) $(DESTDIR)$(usrsbindir)/$(MONITOR)
-	$(INSTALL_PROGRAM) -D $(INFO) $(DESTDIR)$(usrbindir)/$(INFO)
-	$(INSTALL_PROGRAM) -D $(TESTER) $(DESTDIR)$(usrbindir)/$(TESTER)
-	$(INSTALL_PROGRAM) -D $(STARTER) $(DESTDIR)$(sbindir)/$(STARTER)
+	$(INSTALL_PROGRAM) -D udev $(DESTDIR)$(sbindir)/udev
+	$(INSTALL_PROGRAM) -D udevd $(DESTDIR)$(sbindir)/udevd
+	$(INSTALL_PROGRAM) -D udevsend $(DESTDIR)$(sbindir)/udevsend
+	$(INSTALL_PROGRAM) -D udevcontrol $(DESTDIR)$(sbindir)/udevcontrol
+	$(INSTALL_PROGRAM) -D udevmonitor $(DESTDIR)$(usrsbindir)/udevmonitor
+	$(INSTALL_PROGRAM) -D udevinfo $(DESTDIR)$(usrbindir)/udevinfo
+	$(INSTALL_PROGRAM) -D udevtest $(DESTDIR)$(usrbindir)/udevtest
+	$(INSTALL_PROGRAM) -D udevstart $(DESTDIR)$(sbindir)/udevstart
 ifndef DESTDIR
-	- killall $(DAEMON)
+	- killall udevd
 	- rm -rf $(udevdb)
-	- $(sbindir)/$(DAEMON) --daemon
+	- $(sbindir)/udevd --daemon
 endif
-	@extras="$(EXTRAS)" ; for target in $$extras ; do \
-		echo $$target ; \
-		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
-			-C $$target $@ ; \
-	done ; \
+	@extras="$(EXTRAS)"; for target in $$extras; do \
+		echo $$target; \
+		$(MAKE) prefix=$(prefix) -C $$target $@; \
+	done;
+.PHONY: install
 
 uninstall: uninstall-man
 	- rm $(configdir)/rules.d/50-udev.rules
 	- rm $(configdir)/udev.conf
 	- rmdir $(configdir)/rules.d
 	- rmdir $(configdir)
-	- rm $(sbindir)/$(ROOT)
-	- rm $(sbindir)/$(DAEMON)
-	- rm $(sbindir)/$(SENDER)
-	- rm $(sbindir)/$(INITSENDER)
-	- rm $(sbindir)/$(RECORDER)
-	- rm $(sbindir)/$(CONTROL)
-	- rm $(sbindir)/$(STARTER)
-	- rm $(usrsbindir)/$(MONITOR)
-	- rm $(usrbindir)/$(INFO)
-	- rm $(usrbindir)/$(TESTER)
+	- rm $(sbindir)/udev
+	- rm $(sbindir)/udevd
+	- rm $(sbindir)/udevsend
+	- rm $(sbindir)/udevinitsend
+	- rm $(sbindir)/udeveventrecoreder
+	- rm $(sbindir)/udevcontrol
+	- rm $(sbindir)/udevstart
+	- rm $(usrsbindir)/udevmonitor
+	- rm $(usrbindir)/udevinfo
+	- rm $(usrbindir)/udevtest
 	- rm -rf $(udevdb)
 	- rmdir $(udevdir)
-	- killall $(DAEMON)
-	@extras="$(EXTRAS)" ; for target in $$extras ; do \
-		echo $$target ; \
-		$(MAKE) prefix=$(prefix) LD="$(LD)" SYSFS="$(SYSFS)" \
-			-C $$target $@ ; \
-	done ; \
+	- killall udevd
+	@extras="$(EXTRAS)"; for target in $$extras; do \
+		echo $$target; \
+		$(MAKE) prefix=$(prefix) -C $$target $@; \
+	done;
+.PHONY: uninstall-man
 
-test: all
+test tests: all
 	@ cd test && ./udev-test.pl
 	@ cd test && ./udevstart-test.pl
+.PHONY: test tests
 
-tests:	test

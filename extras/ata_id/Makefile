@@ -28,7 +28,7 @@ INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 
-OBJS = ata_id.o ../../udev.a
+OBJS = ata_id.o $(LIBUDEV)
 
 $(OBJS): $(HEADERS)
 

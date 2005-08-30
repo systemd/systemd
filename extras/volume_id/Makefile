@@ -31,8 +31,7 @@ INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 VOLUME_ID_BASE=volume_id
 include $(VOLUME_ID_BASE)/Makefile.inc
 
-OBJS = vol_id.o $(VOLUME_ID_OBJS)
-LIB_OBJS=../../udev.a
+OBJS = vol_id.o $(VOLUME_ID_OBJS) $(LIBUDEV)
 HEADERS = $(VOLUME_ID_HEADERS)
 
 $(OBJS): $(HEADERS)
@@ -41,7 +40,7 @@ $(OBJS): $(HEADERS)
 	$(QUIET) $(CC) $(CFLAGS) -c -o $@ $<
 
 $(PROG): $(OBJS) $(HEADERS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $(PROG) $(OBJS) $(LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $(PROG) $(OBJS)
 
 clean:
 	rm -f $(PROG) $(OBJS)

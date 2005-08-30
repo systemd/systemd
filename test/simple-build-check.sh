@@ -36,4 +36,3 @@ make all $MAKEOPTS USE_KLIBC=true USE_LOG=false EXTRAS="$EXTRAS" KERNEL_DIR="$KE
 echo -e "\n\n"
 
 make spotless EXTRAS="$EXTRAS" >/dev/null
-echo "build test completed successfully"

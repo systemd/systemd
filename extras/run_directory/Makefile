@@ -29,7 +29,7 @@ INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 
-OBJS = ../../udev.a ../../libsysfs/sysfs.a
+OBJS = $(LIBUDEV)
 
 .c.o:
 	$(QUIET) $(CC) $(CFLAGS) -c -o $@ $<
