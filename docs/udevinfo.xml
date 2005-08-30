@@ -50,9 +50,9 @@
 
       <refsect1><title>DESCRIPTION</title>
         <para>udevinfo queries the udev database for device information
-        stored in the udev database. udevinfo also queries the properties
+        stored in the udev database. It can also query the properties
         of a device from its sysfs representation to help creating udev
-        rules to match this device.</para>
+        rules that match this device.</para>
       </refsect1>
 
       <refsect1><title>OPTIONS</title>
