@@ -86,8 +86,10 @@ UDEV_OBJS = \
 LIBUDEV = libudev.a
 
 MAN_PAGES = \
+	udev.8				\
 	udevmonitor.8			\
 	udevd.8				\
+	udevsend.8			\
 	udevtest.8			\
 	udevinfo.8			\
 	udevstart.8
@@ -320,8 +322,8 @@ install-man:
 	$(INSTALL_DATA) -D udevtest.8 $(DESTDIR)$(mandir)/man8/udevtest.8
 	$(INSTALL_DATA) -D udevstart.8 $(DESTDIR)$(mandir)/man8/udevstart.8
 	$(INSTALL_DATA) -D udevd.8 $(DESTDIR)$(mandir)/man8/udevd.8
+	$(INSTALL_DATA) -D udevsend.8 $(DESTDIR)$(mandir)/man8/udevsend.8
 	$(INSTALL_DATA) -D udevmonitor.8 $(DESTDIR)$(mandir)/man8/udevmonitor.8
-	- ln -f -s udevd.8 $(DESTDIR)$(mandir)/man8/udevsend.8
 	- ln -f -s udevd.8 $(DESTDIR)$(mandir)/man8/udevcontrol.8
 .PHONY: install-man
 

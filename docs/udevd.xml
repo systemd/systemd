@@ -17,7 +17,7 @@
   </articleinfo>
 
   <section>
-    <title>udevd, udevsend, udevcontrol</title>
+    <title>udevd, udevcontrol</title>
     <refentry>
       <refentryinfo>
         <title>udevd</title>
@@ -42,9 +42,6 @@
         <cmdsynopsis>
           <command>udevcontrol <replaceable>command</replaceable></command>
         </cmdsynopsis>
-        <cmdsynopsis>
-          <command>udevsend <replaceable>subsystem</replaceable></command>
-        </cmdsynopsis>
       </refsynopsisdiv>
 
       <refsect1><title>DESCRIPTION</title>
@@ -66,7 +63,8 @@
             <listitem>
               <para>udevcontrol can dynamically set the log level of udevd.
               Valid values are the numerical syslog priorities or their textual
-              representations: err, info and debug.</para>
+              representations: <option>err</option>, <option>info</option>
+              and <option>debug</option>.</para>
             </listitem>
           </varlistentry>
           <varlistentry>
@@ -83,6 +81,17 @@
           </varlistentry>
         </variablelist>
       </refsect1>
+
+      <refsect1><title>ENVIRONMENT</title>
+        <variablelist>
+          <varlistentry>
+            <term><option>UDEV_LOG</option></term>
+            <listitem>
+              <para>Overrides the syslog priority specified in the config file.</para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+     </refsect1>
 
       <refsect1><title>AUTHOR</title>
         <para>Written by Kay Sievers <email>kay.sievers@vrfy.org</email>.</para>
