@@ -31,7 +31,7 @@ INSTALL_DATA  = ${INSTALL} -m 644
 CFLAGS+=-Wall -fno-builtin
 
 PROG=scsi_id
-SYSFS=-lsysfs
+LIBSYSFS=-lsysfs
 
 #
 # Built static and stripped when built with udev.
@@ -76,5 +76,5 @@ spotless: clean
 	$(QUIET) $(CC) $(CFLAGS) -c -o $@ $<
 
 $(PROG):	$(OBJS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $(PROG) $(CRT0) $(OBJS) $(SYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) -o $(PROG) $(CRT0) $(OBJS) $(LIBSYSFS) $(LIB_OBJS) $(ARCH_LIB_OBJS)
 
