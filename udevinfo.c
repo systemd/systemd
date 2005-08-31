@@ -214,7 +214,7 @@ static void print_help(void)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	static const char short_options[] = "aen:p:q:rVh";
+	static const char short_options[] = "aden:p:q:rVh";
 	int option;
 	struct udevice udev;
 	int root = 0;
