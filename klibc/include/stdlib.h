@@ -9,6 +9,8 @@
 #include <klibc/compiler.h>
 #include <stddef.h>
 
+#include <malloc.h>
+
 #define EXIT_FAILURE 1
 #define EXIT_SUCCESS 0
 
@@ -28,7 +30,6 @@ __extern int atoi(const char *);
 __extern long atol(const char *);
 __extern long long atoll(const char *);
 __extern __noreturn exit(int);
-__extern void free(void *);
 static __inline__ long labs(long __n) {
   return (__n < 0L) ? -__n : __n;
 }
@@ -37,9 +38,6 @@ static __inline__ long long llabs(long long __n) {
   return (__n < 0LL) ? -__n : __n;
 }
 
-__extern __mallocfunc void *malloc(size_t);
-__extern __mallocfunc void *calloc(size_t, size_t);
-__extern __mallocfunc void *realloc(void *, size_t);
 __extern long strtol(const char *, char **, int);
 __extern long long strtoll(const char *, char **, int);
 __extern unsigned long strtoul(const char *, char **, int);

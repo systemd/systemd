@@ -3,6 +3,7 @@
  */
 
 #include <string.h>
+#include <klibc/compiler.h>
 
 char *strchr(const char *s, int c)
 {
@@ -14,3 +15,5 @@ char *strchr(const char *s, int c)
 
   return (char *)s;
 }
+
+__ALIAS(char *, index, (const char *, int), strchr)

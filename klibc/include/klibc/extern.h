@@ -11,4 +11,6 @@
 #define __extern extern
 #endif
 
+#define __alias(x) __attribute__((weak, alias(x)))
+
 #endif /* _KLIBC_EXTERN_H */

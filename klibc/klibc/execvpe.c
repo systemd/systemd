@@ -9,7 +9,9 @@
  * Since execlpe() and execvpe() aren't in POSIX, nor in glibc,
  * I have followed QNX precedent in the implementation of the PATH:
  * the PATH that is used is the one in the current environment, not
- * in the new environment.
+ * in the new environment.  Otherwise it would be impossible to pass
+ * a different PATH to the new process than the one one would want to
+ * use to search.
  */
 
 #include <errno.h>

@@ -116,4 +116,8 @@
 # define __bitwise
 #endif
 
+/* Compiler pragma to make an alias symbol */
+#define __ALIAS(__t, __f, __p, __a) \
+  __t __f __p __attribute__((weak, alias(#__a)));
+
 #endif

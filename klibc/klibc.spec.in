@@ -7,7 +7,7 @@ Group: Development/Libraries
 URL: http://www.zytor.com/mailman/listinfo/klibc
 Source: http://www.kernel.org/pub/linux/libs/klibc-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
-BuildRequires: kernel >= 2.6.0
+BuildRequires: kernel >= 2.6.0, kernel-devel
 Packager: H. Peter Anvin <hpa@zytor.com>
 Prefix: /usr
 Vendor: Starving Linux Artists
@@ -44,7 +44,7 @@ embedded systems.
 
 %prep
 %setup -q
-cp -dRs /lib/modules/`uname -r`/build ./linux
+cp -dRs /lib/modules/`uname -r`/build/ ./linux
 # Shouldn't need this when getting the build tree from /lib/modules
 # make -C linux defconfig ARCH=%{_target_cpu}
 # make -C linux prepare ARCH=%{_target_cpu}

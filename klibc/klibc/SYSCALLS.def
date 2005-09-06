@@ -114,6 +114,9 @@ int lchown32,lchown::lchown(const char *, uid_t, gid_t)
 int getcwd::__getcwd(char *, size_t)
 <?> int utime(const char *, const struct utimbuf *)
 <?> int utimes(const char *, const struct timeval *)
+<?> int inotify_init(void)
+<?> int inotify_add_watch(int, const char *, __u32)
+<?> int inotify_rm_watch(int, __u32)
 
 ;
 ; I/O operations

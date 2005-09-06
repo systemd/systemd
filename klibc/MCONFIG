@@ -33,7 +33,7 @@ KRNLOBJ = $(SRCROOT)/linux
 KLIBCVER = -D__KLIBC__=$(shell cut -d. -f1 < $(SRCROOT)/version) \
 	   -D__KLIBC_MINOR__=$(shell cut -d. -f2 < $(SRCROOT)/version)
 
-ARCH    = $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ -e s/arm.*/arm/ -e s/sa110/arm/)
+ARCH    = $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ -e s/arm.*/arm/ -e s/sa110/arm/ -e s/parisc.*/parisc/)
 CC	= $(CROSS)gcc
 LD      = $(CROSS)ld
 KLIBSRC = $(SRCROOT)/klibc
@@ -42,7 +42,7 @@ INCLUDE = -I$(SRCROOT)/include/arch/$(ARCH) \
 	  -I$(SRCROOT)/include/bits$(BITSIZE) \
 	  -I$(SRCROOT)/include \
 	  -I$(KRNLOBJ)/include -I$(KRNLOBJ)/include2 -I$(KRNLSRC)/include
-REQFLAGS = $(ARCHREQFLAGS) $(KLIBCVER) -nostdinc -iwithprefix include \
+REQFLAGS = $(ARCHREQFLAGS) $(KLIBCVER) -nostdlib -nostdinc -iwithprefix include \
 	   $(INCLUDE)
 LDFLAGS =
 AR      = $(CROSS)ar
