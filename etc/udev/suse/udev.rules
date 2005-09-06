@@ -50,6 +50,10 @@ SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="1604/8005/*", RUN+="/sbin/startp
 SUBSYSTEM=="sound", KERNEL=="controlC?", RUN+="/usr/sbin/alsactl -F restore %n"
 SUBSYSTEM=="sound", KERNEL=="hwC?D2", DRIVER=="EMU10K1_Audigy", RUN+="/etc/alsa.d/udev-soundfont"
 
+# Kino jogshuttle support
+SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="b33/10/*", RUN+="/usr/bin/killall --quiet -USR2 kino"
+SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="5f3/240/*", RUN+="/usr/bin/killall --quiet -USR2 kino"
+
 # input devices
 KERNEL=="mice",			NAME="input/%k", MODE="0640"
 KERNEL=="mouse*",		NAME="input/%k", MODE="0640"
@@ -57,9 +61,8 @@ KERNEL=="event*",		NAME="input/%k", MODE="0640"
 KERNEL=="js*",			NAME="input/%k", MODE="0644"
 KERNEL=="ts*",			NAME="input/%k", MODE="0600"
 KERNEL=="uinput",		NAME="input/%k", MODE="0600"
-KERNEL=="event*", PROGRAM="/sbin/udev.get_input_lirc.sh %k", RESULT="*IR*", NAME="input/%k", SYMLINK+="input/ir"
 KERNEL=="lirc0",		NAME="%k", SYMLINK+="lirc"
-SUBSYSTEM=="input_device", RUN+="/etc/hotplug.d/input_device/50-input_device.hotplug"
+SUBSYSTEM=="input_device", RUN+="/sbin/udev.input_device.sh"
 
 # printer
 SUBSYSTEM=="usb", KERNEL=="lp*", ACTION=="add", NAME="usb/%k", SYMLINK+="usb%k", GROUP="lp"
@@ -208,6 +211,8 @@ ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
 ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
 LABEL="persistent_end"
 
+SUBSYSTEM=="block", KERNEL=="sd*[0-9]|hd*[0-9]", ACTION=="add", RUN+="/sbin/udev.mount.sh"
+
 # network devices
 KERNEL=="tun", NAME="net/%k", MODE="0600"
 SUBSYSTEM=="net", ACTION=="add", RUN+="/sbin/ifup $env{INTERFACE} -o hotplug"
@@ -222,6 +227,7 @@ SUBSYSTEM=="firmware", ACTION=="add", RUN+="/sbin/udev.firmware.sh"
 
 # SUSE system integration
 SUBSYSTEM=="pci", ACTION=="add", RUN+="/sbin/hwup bus-pci-%k -o hotplug"
+SUBSYSTEM=="macio", ACTION=="add", RUN+="/sbin/hwup bus-macio-%k -o hotplug"
 SUBSYSTEM=="usb", ACTION=="add", RUN+="/sbin/hwup usb-devpath-/sys%p -o hotplug"
 LABEL="after_usb_default"
 SUBSYSTEM=="ieee1394", ACTION=="add", RUN+="/sbin/hwup ieee1394-devpath-/sys%p -o hotplug"
