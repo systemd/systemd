@@ -1,5 +1,11 @@
+-------------------------------------------------------------------------
+    This is a proposal from the early days of udev. A lot of the things
+    mentioned here are implemented differently and most of the features
+    implemented in udev are not part of that document.
+    This document is only kept in the tree for sentimental reasons.
+-------------------------------------------------------------------------
 
-We've got a couple goals for udev:
+We've got a couple of goals for udev:
 
 1) dynamic replacement for /dev
 2) device naming
