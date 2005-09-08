@@ -20,7 +20,6 @@ KERNEL=="iseries/vtty*",	NAME="%k", GROUP="uucp"
 # video/graphics
 SUBSYSTEM=="video4linux",	GROUP="video"
 SUBSYSTEM=="graphics"		GROUP="video"
-KERNEL=="video*",		NAME="%k", GROUP="video"
 KERNEL=="vtx*",			NAME="%k", GROUP="video"
 KERNEL=="vbi*",			NAME="%k", GROUP="video"
 KERNEL=="winradio*",		NAME="%k", GROUP="video"
@@ -29,6 +28,8 @@ KERNEL=="nvidia*",		NAME="%k", GROUP="video"
 KERNEL=="nvidiactl*",		NAME="%k", GROUP="video"
 KERNEL=="video0",		SYMLINK+="video"
 KERNEL=="radio0",		SYMLINK+="radio"
+KERNEL=="vbi0",			SYMLINK+="vbi"
+KERNEL=="pmu",			GROUP="video"
 
 # dvb
 SUBSYSTEM="dvb", PROGRAM="/bin/sh -c 'X=%k X=$${X#dvb} A=$${X%%%%.*} D=$${X#*.}; echo dvb/adapter$$A/$$D'", NAME="%c", GROUP="video"
@@ -63,6 +64,7 @@ KERNEL=="ts*",			NAME="input/%k", MODE="0600"
 KERNEL=="uinput",		NAME="input/%k", MODE="0600"
 KERNEL=="lirc0",		NAME="%k", SYMLINK+="lirc"
 SUBSYSTEM=="input_device", RUN+="/sbin/udev.input_device.sh"
+SUBSYSTEM=="input_device", ACTION=="add", ENV{ABS}=="[1-9]*", RUN+="/sbin/modprobe joydev"
 
 # printer
 SUBSYSTEM=="usb", KERNEL=="lp*", ACTION=="add", NAME="usb/%k", SYMLINK+="usb%k", GROUP="lp"
@@ -199,13 +201,13 @@ KERNEL=="sd*[0-9]|dasd*[0-9]", IMPORT{parent}=="ID_*"
 KERNEL=="sd*[0-9]|dasd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
 
 # by-path (shortest physical path)
-KERNEL=="*[!0-9]", ENV{ID_TYPE}=="?*", IMPORT{program}="/sbin/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
+KERNEL=="*[!0-9]|sr*", ENV{ID_TYPE}=="?*", IMPORT{program}="/sbin/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
+KERNEL=="sr*", GOTO="persistent_end"
 KERNEL=="*[0-9]", IMPORT{parent}=="ID_*"
 KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 
 # by-label/by-uuid (filesystem properties)
 KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_end"
-KERNEL=="sr*", GOTO="persistent_end"
 IMPORT{program}="/sbin/vol_id --export $tempnode"
 ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
 ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
