@@ -1,14 +1,19 @@
 This is a short list of things that needs to be done.  They are in no specific
-order.  I will gladly accept patches for any of these items, or any other stuff
-people offer up.
+order.  We will gladly accept patches for any of these items:
 
-greg k-h
-greg@kroah.com
+- More documentation:
+    Allmost all extras/*_id/  programs don't have a man page
+    some details are missing in the udev man pages.
 
+- Completely replace the built-in wait_for_sysfs stuff in udev_sysfs.c
+  by rules using the WAIT_FOR_SYSFS key.
 
-- more documentation (can never have too much.)
-- persuade the distro packagers to submit their changes (or just steal them
-  if we can find them...)
-- do early boot logic (putting udev into initramfs, handle pivot-root,
-  etc.)
-- solve world hunger
+- Log the relationship of the kernel name and the persistent disk name
+  to syslog, so any error logged from the kernel can be associated with
+  any of the links.
+
+- Do generic early boot logic:
+    initramfs, pivot-root, cover coldplug or event replay, etc...
+
+- Keep the distro rules in etc/ up-to-date.
+
