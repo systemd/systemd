@@ -118,9 +118,9 @@ int main(int argc, char **argv) {
 
 	count = 0;
 	while (count < fw_buffer_size) {
-		int c;
+		ssize_t c;
 
-		c = write(fw_fd, fw_buffer+count, fw_buffer_size);
+		c = write(fw_fd, fw_buffer+count, fw_buffer_size-count);
 		if (c <= 0) {
 			rc = errno;
 			close(fw_fd);
