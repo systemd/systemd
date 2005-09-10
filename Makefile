@@ -60,7 +60,6 @@ HEADERS = \
 	udev.h				\
 	udev_utils.h			\
 	udev_rules.h			\
-	udev_version.h			\
 	udev_db.h			\
 	udev_sysfs.h			\
 	logging.h			\
@@ -229,19 +228,27 @@ all: $(KLCC) $(PROGRAMS) $(MAN_PAGES)
 	done;
 .PHONY: all
 
-$(PROGRAMS): $(HOST_PROGS) $(KLCC) $(HEADERS) $(GEN_HEADERS) $(LIBSYSFS) $(LIBUDEV)
-	$(QUIET) $(CC) $(CFLAGS) -c -o $@.o $@.c
-	$(QUIET) $(LD) $(LDFLAGS) -o $@ $@.o $(LIBUDEV) $(LIBSYSFS) $(LIB_OBJS)
+# clear implicit rules
+.SUFFIXES:
+
+# build the objects
+%.o: %.c
+	$(QUIET) $(CC) -c $(CFLAGS) $< -o $@
+
+# "Static Pattern Rule" to build all programs
+$(PROGRAMS): %: $(HOST_PROGS) $(KLCC) $(HEADERS) $(GEN_HEADERS) $(LIBSYSFS) $(LIBUDEV) %.o
+	$(QUIET) $(LD) $(LDFLAGS) $@.o -o $@ $(LIBUDEV) $(LIBSYSFS) $(LIB_OBJS)
 	$(QUIET) $(STRIPCMD) $@
 
-# our own copy of klibc if KLCC is specified it will not be used
+# our own copy of klibc, it is not used if KLCC is given
 $(KLCC):
-	$(MAKE) -j1 -C klibc KRNLSRC=$(KERNEL_DIR) SUBDIRS=klibc TESTS= \
+	$(MAKE) -C klibc KRNLSRC=$(KERNEL_DIR) SUBDIRS=klibc TESTS= \
 			 SHLIBDIR=$(KLIBC_INSTALL)/lib \
 			 INSTALLDIR=$(KLIBC_INSTALL) \
 			 bindir=$(KLIBC_INSTALL)/bin \
 			 mandir=$(KLIBC_INSTALL)/man all install
 	-find $(KLIBC_INSTALL)/include -name SCCS -print| xargs rm -rf
+.NOTPARALLEL: $(KLCC)
 
 $(UDEV_OBJS): $(KLCC)
 $(LIBUDEV): $(HOST_PROGS) $(HEADERS) $(GEN_HEADERS) $(UDEV_OBJS)
@@ -275,9 +282,6 @@ udev_version.h:
 %.8: docs/%.xml
 	xmlto man $?
 .PRECIOUS: %.8
-
-.c.o:
-	$(QUIET) $(CC) $(CFLAGS) -c -o $@ $<
 
 ccdv: ccdv.c
 	@$(HOSTCC) -O1 ccdv.c -o ccdv
