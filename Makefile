@@ -194,6 +194,7 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	LD		= $(KLCC)
 else
 	CFLAGS		+= -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
+	LDFLAGS		+= -Wl,-warn-common
 endif
 
 ifeq ($(strip $(USE_SELINUX)),true)
@@ -227,6 +228,7 @@ all: $(KLCC) $(PROGRAMS) $(MAN_PAGES)
 			-C $$target $@; \
 	done;
 .PHONY: all
+.DEFAULT: all
 
 # clear implicit rules
 .SUFFIXES:
@@ -288,8 +290,8 @@ ccdv: ccdv.c
 .SILENT: ccdv
 
 clean:
-	-find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print | xargs rm -f
-	-rm -f core $(PROGRAMS) $(GEN_HEADERS) $(GEN_CONFIGS)
+	- find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print0 | xargs -0rt rm -f
+	- rm -f core $(PROGRAMS) $(GEN_HEADERS) $(GEN_CONFIGS)
 	$(MAKE) -C klibc SUBDIRS=klibc clean
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
@@ -342,7 +344,7 @@ uninstall-man:
 	- rm $(mandir)/man8/udevcontrol.8
 .PHONY: uninstall-man
 
-install: install-config install-man all
+install-bin:
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
 	$(INSTALL_PROGRAM) -D udev $(DESTDIR)$(sbindir)/udev
 	$(INSTALL_PROGRAM) -D udevd $(DESTDIR)$(sbindir)/udevd
@@ -361,13 +363,9 @@ endif
 		echo $$target; \
 		$(MAKE) prefix=$(prefix) -C $$target $@; \
 	done;
-.PHONY: install
+.PHONY: install-bin
 
-uninstall: uninstall-man
-	- rm $(configdir)/rules.d/50-udev.rules
-	- rm $(configdir)/udev.conf
-	- rmdir $(configdir)/rules.d
-	- rmdir $(configdir)
+uninstall-bin:
 	- rm $(sbindir)/udev
 	- rm $(sbindir)/udevd
 	- rm $(sbindir)/udevsend
@@ -379,16 +377,24 @@ uninstall: uninstall-man
 	- rm $(usrbindir)/udevinfo
 	- rm $(usrbindir)/udevtest
 	- rm -rf $(udevdb)
-	- rmdir $(udevdir)
 	- killall udevd
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
 		$(MAKE) prefix=$(prefix) -C $$target $@; \
 	done;
-.PHONY: uninstall-man
+.PHONY: uninstall-bin
+
+install: all install-bin install-config install-man
+.PHONY: install
+
+uninstall: uninstall-bin uninstall-man
+.PHONY: uninstall
 
 test tests: all
 	@ cd test && ./udev-test.pl
 	@ cd test && ./udevstart-test.pl
 .PHONY: test tests
+
+buildtest:
+	./test/simple-build-check.sh
 
