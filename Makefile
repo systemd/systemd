@@ -27,6 +27,10 @@ USE_LOG = true
 #  to print the debug messages to syslog)
 DEBUG = false
 
+# compile with gcc's code coverage option
+# (use it with DEBUG, works only with glibc)
+USE_GCOV = false
+
 # include Security-Enhanced Linux support
 USE_SELINUX = false
 
@@ -186,6 +190,11 @@ else
 	STRIPCMD = $(STRIP) -s --remove-section=.note --remove-section=.comment
 endif
 
+ifeq ($(strip $(USE_GCOV)),true)
+	CFLAGS += -fprofile-arcs -ftest-coverage
+	LDFLAGS = -fprofile-arcs
+endif
+
 # if our own version of klibc is used, we need to build it
 ifeq ($(strip $(USE_KLIBC)),true)
 	KLIBC_INSTALL	= $(PWD)/klibc/.install
@@ -291,6 +300,10 @@ ccdv: ccdv.c
 
 clean:
 	- find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print0 | xargs -0rt rm -f
+	- find -name "*.gcno" -print0 | xargs -0rt rm -f
+	- find -name "*.gcda" -print0 | xargs -0rt rm -f
+	- find -name "*.gcov" -print0 | xargs -0rt rm -f
+	- rm -f udev_gcov.txt
 	- rm -f core $(PROGRAMS) $(GEN_HEADERS) $(GEN_CONFIGS)
 	$(MAKE) -C klibc SUBDIRS=klibc clean
 	@extras="$(EXTRAS)"; for target in $$extras; do \
@@ -397,4 +410,28 @@ test tests: all
 
 buildtest:
 	./test/simple-build-check.sh
+.PHONY: buildtest
+
+gcov-all:
+	$(MAKE) clean all DEBUG=true USE_GCOV=true
+	@echo
+	@echo "binaries built with gcov support."
+	@echo "run the tests and analyze with 'make udev_gcov.txt'"
+.PHONY: gcov-all
+
+# see docs/README-gcov_for_udev
+udev_gcov.txt: $(wildcard *.gcda) $(wildcard *.gcno)
+	for file in `find -maxdepth 1 -name "*.gcno"`; do \
+		name=`basename $$file .gcno`; \
+		echo "################" >> $@; \
+		echo "$$name.c" >> $@; \
+		echo "################" >> $@; \
+		if [ -e "$$name.gcda" ]; then \
+			gcov -l "$$name.c" >> $@ 2>&1; \
+		else \
+			echo "code for $$name.c was never executed" >> $@ 2>&1; \
+		fi; \
+		echo >> $@; \
+	done; \
+	echo "view $@ for the result"
 
