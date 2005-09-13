@@ -250,6 +250,7 @@ KERNEL=="tpm*",	NAME="%k", OWNER="tss", GROUP="tss", MODE="0600"
 # Skip all of this if we are not adding a block device
 ACTION!="add",		GOTO="persistent_end"
 SUBSYSTEM!="block",	GOTO="persistent_end"
+KERNEL=="ram*|loop*|fd*|nbd*",	GOTO="persistent_end"
 
 # skip accessing removable ide devices, cause the ide drivers are horrible broken
 BUS=="ide", SYSFS{removable}="1", GOTO="no_volume_id"
