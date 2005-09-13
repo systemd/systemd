@@ -1,3 +1,72 @@
+Summary of changes from v068 to v069
+============================================
+
+Amir Shalem:
+  fix typo in firmware_helper
+
+Duncan Sands:
+  firmware_helper: fix write count
+
+Kay Sievers:
+  *_id: fix zero length in set_str()
+  add program name to logged error
+  fix exit code of udevinitsend and udevmonitor
+  udevd: keep the right order for messages without SEQNUM
+  volume_id: don't probe for mac_partition_maps
+  udevmonitor: cleanup on exit
+  path_id: remove SUSE specific PATH
+  update SUSE rules
+  add pci_express to bus list
+  update SUSE rules
+  store ENV{key}="value" exported keys in the database
+  fix lookup for name in the udevdb, it should return the devpath
+  prepare for new HAL udevdb dump
+  print persistent data with "udevinfo -q all"
+  change parameter order of udev_db_search_name()
+  add and use name_list_cleanup() for cleaning up the string lists
+  don't store devpath in udevdb, we don't need it
+  add uft8 validation for safe volume label exporting
+  start to enforce plain ascii or valid utf8
+  use WRITE_END/READ_END for the pipe index
+  remove not needed sig_flag for state of signal_pipe
+  don't reenter get_udevd_msg() if message is ignored
+  rename ...trailing_char() to ...trailing_chars()
+  vol_id: ID_LABEL_SAFE will no longer contain fancy characters
+  udevd: move some logging to "info" and "err"
+  remove special TIMEOUT handling from incoming queue
+  udev_test.pl: we replace untrusted chars with '_'
+  check the udevdb before assigning a new %e
+  update RELEASE-NOTES
+  udevinfo: add database export
+  write man page masters in DocBook XML
+  udevinfo: rename dump() to export()
+  test the automatic man page rebuild and checkin
+  Makefile: remove all the duplicated rules
+  all man pages rewritten to use DocBook XML
+  add missing udevsend man page
+  also forgot udevmonitor.8
+  udevinfo: restore -d option
+  scsi_id: rename SYSFS to LIBSYSFS
+  add edd_id tool to match BIOS EDD disk information
+  move and update libsysfs.txt
+  klibc: update to version 1.1.1
+  delete cdromsymlinks* - obsoleted by cdrom_id and IMPORT rules
+  delete docs/persistent_naming - obsoleted by persistent disk names
+  delete old Fedora html page
+  add "totally outdated" header to docs/overview :)
+  update SUSE rules
+  fix useless but funny name_cdrom.pl script to work again
+  update TODO
+  Makefile: fix prerequisits for $(PROGRAMS)
+  Makefile: cleanup install targets
+  remove chassis_id program
+  fic gcov use and move it into the Makefile
+  FAQ: update things that have changed
+
+Thierry Vignaud:
+  switch to '==' in raid-devfs.sh
+
+
 Summary of changes from v067 to v068
 ============================================
 
