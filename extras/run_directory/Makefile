@@ -45,9 +45,9 @@ clean:
 
 spotless: clean
 
-install: all
+install-bin: all
 	$(INSTALL_PROGRAM) $(DEVD) $(DESTDIR)$(sbindir)/$(DEVD)
 	$(INSTALL_PROGRAM) $(HOTPLUGD) $(DESTDIR)$(sbindir)/$(HOTPLUGD)
 
-uninstall:
+uninstall-bin:
 	- rm $(DESTDIR)$(sbindir)/$(DEVD)

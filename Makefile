@@ -333,6 +333,10 @@ install-config: $(GEN_CONFIGS)
 		echo "pick a udev rules file from the etc/udev directory that matches your distribution"; \
 		echo; \
 	fi
+	@extras="$(EXTRAS)"; for target in $$extras; do \
+		echo $$target; \
+		$(MAKE) prefix=$(prefix) -C $$target $@; \
+	done;
 .PHONY: install-config
 
 install-man:
@@ -344,6 +348,10 @@ install-man:
 	$(INSTALL_DATA) -D udevsend.8 $(DESTDIR)$(mandir)/man8/udevsend.8
 	$(INSTALL_DATA) -D udevmonitor.8 $(DESTDIR)$(mandir)/man8/udevmonitor.8
 	- ln -f -s udevd.8 $(DESTDIR)$(mandir)/man8/udevcontrol.8
+	@extras="$(EXTRAS)"; for target in $$extras; do \
+		echo $$target; \
+		$(MAKE) prefix=$(prefix) -C $$target $@; \
+	done;
 .PHONY: install-man
 
 uninstall-man:
@@ -355,6 +363,10 @@ uninstall-man:
 	- rm $(mandir)/man8/udevmonitor.8
 	- rm $(mandir)/man8/udevsend.8
 	- rm $(mandir)/man8/udevcontrol.8
+	@extras="$(EXTRAS)"; for target in $$extras; do \
+		echo $$target; \
+		$(MAKE) prefix=$(prefix) -C $$target $@; \
+	done;
 .PHONY: uninstall-man
 
 install-bin:

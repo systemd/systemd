@@ -44,8 +44,8 @@ clean:
 
 spotless: clean
 
-install: all
+install-bin: all
 	$(INSTALL_PROGRAM) $(PROG) $(DESTDIR)$(sbindir)/$(PROG)
 
-uninstall:
+uninstall-bin:
 	- rm $(DESTDIR)$(sbindir)/$(PROG)

@@ -46,18 +46,23 @@ all:	$(PROG)
 
 # XXX use a compressed man page?
 
-install: all
+install-bin: all
 	$(INSTALL_PROGRAM) -D $(PROG) $(DESTDIR)$(sbindir)/$(PROG)
+
+install-man:
 	$(INSTALL_DATA) -D scsi_id.8 $(DESTDIR)$(mandir)/man8/scsi_id.8
+
+install-config:
 	@if [ ! -r $(DESTDIR)$(etcdir)/scsi_id.config ]; then \
 		echo $(INSTALL_DATA) -D ./scsi_id.config  $(DESTDIR)$(etcdir); \
 		$(INSTALL_DATA) -D ./scsi_id.config $(DESTDIR)$(etcdir)/scsi_id.config; \
 	fi
 	
-uninstall:
+uninstall-bin:
 	-rm $(DESTDIR)$(sbindir)/$(PROG)
+
+uninstall-man:
 	-rm $(DESTDIR)$(mandir)/man8/scsi_id.8
-	-rm $(DESTDIR)$(etcdir)/scsi_id.config
 
 GEN_HEADER=scsi_id_version.h
 
