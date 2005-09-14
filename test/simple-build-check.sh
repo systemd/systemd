@@ -1,7 +1,6 @@
 #/bin/sh
 
 EXTRAS="\
-	extras/chassis_id \
 	extras/scsi_id \
 	extras/ata_id \
 	extras/volume_id \

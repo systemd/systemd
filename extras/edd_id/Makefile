@@ -1,15 +1,15 @@
-# Makefile for edd_id
+# Makefile for udev extra invoked from the udev main Makefile
 #
-# Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+# Copyright (C) 2004-2005 Kay Sievers <kay.sievers@vrfy.org>
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; version 2 of the License.
+# Released under the GNU General Public License, version 2.
 #
 
 PROG = edd_id
-
-all:	$(PROG)
+OBJ =
+HEADERS =
+GEN_HEADERS =
+MAN_PAGES =
 
 prefix =
 exec_prefix =	${prefix}
@@ -18,9 +18,7 @@ sbindir =	${exec_prefix}/sbin
 usrbindir =	${exec_prefix}/usr/bin
 usrsbindir =	${exec_prefix}/usr/sbin
 mandir =	${prefix}/usr/share/man
-devddir =	${etcdir}/dev.d/default
 configdir =	${etcdir}/udev/
-initdir = 	${etcdir}/init.d/
 srcdir = .
 
 INSTALL = /usr/bin/install -c
@@ -28,23 +26,43 @@ INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 
-OBJS = $(PROG).o $(LIBUDEV)
+all: $(PROG) $(MAN_PAGES)
+.PHONY: all
+.DEFAULT: all
 
-$(OBJS): $(HEADERS)
+%.o: %.c $(GEN_HEADERS)
+	$(QUIET) $(CC) -c $(CFLAGS) $< -o $@
 
-.c.o:
-	$(QUIET) $(CC) $(CFLAGS) -c -o $@ $<
+$(PROG): %: $(HEADERS) %.o $(OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) $@.o $(OBJS) -o $@ $(LIBUDEV) $(LIBSYSFS) $(LIB_OBJS)
+	$(QUIET) $(STRIPCMD) $@
 
-$(PROG): $(OBJS) $(HEADERS)
-	$(QUIET) $(LD) $(LDFLAGS) -o $(PROG) $(OBJS) $(LIB_OBJS)
+# man pages
+%.8: %.xml
+	xmlto man $?
+.PRECIOUS: %.8
 
 clean:
-	rm -f $(PROG) $(OBJS)
-
-spotless: clean
+	rm -f $(PROG) $(OBJS) $(GEN_HEADERS)
+.PHONY: clean
 
 install-bin: all
 	$(INSTALL_PROGRAM) $(PROG) $(DESTDIR)$(sbindir)/$(PROG)
+.PHONY: install-bin
 
 uninstall-bin:
 	- rm $(DESTDIR)$(sbindir)/$(PROG)
+.PHONY: uninstall-bin
+
+install-man:
+	@echo "Please create a man page for this tool."
+.PHONY: uninstall-man
+
+uninstall-man:
+	@echo "Please create a man page for this tool."
+.PHONY: uninstall-man
+
+install-config:
+	@echo "no config file to install"
+.PHONY: install-config
+

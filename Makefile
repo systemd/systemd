@@ -147,8 +147,6 @@ STRIP = $(CROSS)strip
 RANLIB = $(CROSS)ranlib
 HOSTCC = gcc
 
-export CROSS CC AR STRIP RANLIB CFLAGS LDFLAGS LIB_OBJS
-
 # code taken from uClibc to determine the current arch
 ARCH := ${shell $(CC) -dumpmachine | sed -e s'/-.*//' -e 's/i.86/i386/' -e 's/sparc.*/sparc/' \
 	-e 's/arm.*/arm/g' -e 's/m68k.*/m68k/' -e 's/powerpc/ppc/g'}
@@ -229,7 +227,12 @@ all: $(KLCC) $(PROGRAMS) $(MAN_PAGES)
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
 		$(MAKE) prefix=$(prefix) \
+			CC="$(CC)" \
+			CFLAGS="$(CFLAGS)" \
 			LD="$(LD)" \
+			LDFLAGS="$(LDFLAGS)" \
+			STRIPCMD="$(STRIPCMD)" \
+			LIB_OBJS="$(LIB_OBJS)" \
 			LIBUDEV="$(PWD)/$(LIBUDEV)" \
 			LIBSYSFS="$(PWD)/$(LIBSYSFS)" \
 			KERNEL_DIR="$(KERNEL_DIR)" \
@@ -243,7 +246,7 @@ all: $(KLCC) $(PROGRAMS) $(MAN_PAGES)
 .SUFFIXES:
 
 # build the objects
-%.o: %.c
+%.o: %.c $(GEN_HEADERS)
 	$(QUIET) $(CC) -c $(CFLAGS) $< -o $@
 
 # "Static Pattern Rule" to build all programs
@@ -379,15 +382,15 @@ install-bin:
 	$(INSTALL_PROGRAM) -D udevinfo $(DESTDIR)$(usrbindir)/udevinfo
 	$(INSTALL_PROGRAM) -D udevtest $(DESTDIR)$(usrbindir)/udevtest
 	$(INSTALL_PROGRAM) -D udevstart $(DESTDIR)$(sbindir)/udevstart
+	@extras="$(EXTRAS)"; for target in $$extras; do \
+		echo $$target; \
+		$(MAKE) prefix=$(prefix) -C $$target $@; \
+	done;
 ifndef DESTDIR
 	- killall udevd
 	- rm -rf $(udevdb)
 	- $(sbindir)/udevd --daemon
 endif
-	@extras="$(EXTRAS)"; for target in $$extras; do \
-		echo $$target; \
-		$(MAKE) prefix=$(prefix) -C $$target $@; \
-	done;
 .PHONY: install-bin
 
 uninstall-bin:
