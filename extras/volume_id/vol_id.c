@@ -145,6 +145,7 @@ int main(int argc, char *argv[])
 
 	if (ioctl(vid->fd, BLKGETSIZE64, &size) != 0)
 		size = 0;
+	dbg("BLKGETSIZE64=%llu", size);
 
 	if (volume_id_probe_all(vid, 0, size) == 0)
 		goto print;
