@@ -358,14 +358,14 @@ install-man:
 .PHONY: install-man
 
 uninstall-man:
-	- rm $(mandir)/man8/udev.8
-	- rm $(mandir)/man8/udevinfo.8
-	- rm $(mandir)/man8/udevtest.8
-	- rm $(mandir)/man8/udevstart.8
-	- rm $(mandir)/man8/udevd.8
-	- rm $(mandir)/man8/udevmonitor.8
-	- rm $(mandir)/man8/udevsend.8
-	- rm $(mandir)/man8/udevcontrol.8
+	- rm -f $(mandir)/man8/udev.8
+	- rm -f $(mandir)/man8/udevinfo.8
+	- rm -f $(mandir)/man8/udevtest.8
+	- rm -f $(mandir)/man8/udevstart.8
+	- rm -f $(mandir)/man8/udevd.8
+	- rm -f $(mandir)/man8/udevmonitor.8
+	- rm -f $(mandir)/man8/udevsend.8
+	- rm -f $(mandir)/man8/udevcontrol.8
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
 		$(MAKE) prefix=$(prefix) -C $$target $@; \
@@ -394,16 +394,16 @@ endif
 .PHONY: install-bin
 
 uninstall-bin:
-	- rm $(sbindir)/udev
-	- rm $(sbindir)/udevd
-	- rm $(sbindir)/udevsend
-	- rm $(sbindir)/udevinitsend
-	- rm $(sbindir)/udeveventrecoreder
-	- rm $(sbindir)/udevcontrol
-	- rm $(sbindir)/udevstart
-	- rm $(usrsbindir)/udevmonitor
-	- rm $(usrbindir)/udevinfo
-	- rm $(usrbindir)/udevtest
+	- rm -f $(sbindir)/udev
+	- rm -f $(sbindir)/udevd
+	- rm -f $(sbindir)/udevsend
+	- rm -f $(sbindir)/udevinitsend
+	- rm -f $(sbindir)/udeveventrecoreder
+	- rm -f $(sbindir)/udevcontrol
+	- rm -f $(sbindir)/udevstart
+	- rm -f $(usrsbindir)/udevmonitor
+	- rm -f $(usrbindir)/udevinfo
+	- rm -f $(usrbindir)/udevtest
 	- rm -rf $(udevdb)
 	- killall udevd
 	@extras="$(EXTRAS)"; for target in $$extras; do \

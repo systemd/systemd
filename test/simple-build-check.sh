@@ -15,24 +15,35 @@ EXTRAS="\
 [ -z "$KERNEL_DIR" ] && KERNEL_DIR=/lib/modules/`uname -r`/build
 echo KERNEL_DIR: "$KERNEL_DIR"
 
-make spotless EXTRAS="$EXTRAS" >/dev/null
-make all $MAKEOPTS EXTRAS="$EXTRAS" || exit
-echo -e "\n\n"
-
+# with debug
 make spotless EXTRAS="$EXTRAS" >/dev/null
 make all -j4 $MAKEOPTS DEBUG=true EXTRAS="$EXTRAS"  || exit
 echo -e "\n\n"
 
+# without any logging
 make spotless EXTRAS="$EXTRAS" >/dev/null
 make all $MAKEOPTS USE_LOG=false EXTRAS="$EXTRAS"  || exit
 echo -e "\n\n"
 
+# klibc and debug
 make spotless EXTRAS="$EXTRAS" >/dev/null
 make all -j4 $MAKEOPTS USE_KLIBC=true DEBUG=true EXTRAS="$EXTRAS" KERNEL_DIR="$KERNEL_DIR" || exit
 echo -e "\n\n"
 
+# klibc without logging
 make spotless EXTRAS="$EXTRAS" >/dev/null
 make all $MAKEOPTS USE_KLIBC=true USE_LOG=false EXTRAS="$EXTRAS" KERNEL_DIR="$KERNEL_DIR" || exit
 echo -e "\n\n"
+
+# install in temporary dir and show it
+TEMPDIR="`pwd`/.tmp"
+rm -rf $TEMPDIR
+mkdir $TEMPDIR
+make spotless EXTRAS="$EXTRAS" >/dev/null
+make all $MAKEOPTS DESTDIR="$TEMPDIR" EXTRAS="$EXTRAS" || exit
+make install DESTDIR="$TEMPDIR" EXTRAS="$EXTRAS" || exit
+echo -e "\nInstalled tree:"
+find $TEMPDIR
+rm -rf $TEMPDIR
 
 make spotless EXTRAS="$EXTRAS" >/dev/null

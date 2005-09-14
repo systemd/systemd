@@ -37,8 +37,6 @@ CC = $(CROSS)gcc
 LD = $(CROSS)gcc
 AR = $(CROSS)ar
 STRIPCMD = $(CROSS)strip
-RANLIB = $(CROSS)ranlib
-HOSTCC = gcc
 CFLAGS += -Wall -pipe -fno-builtin -Wstrict-prototypes -Wsign-compare -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
 LDFLAGS += -Wl
 
@@ -90,4 +88,8 @@ install-config:
 	fi
 .PHONY: install-config
 
+install: all install-bin install-config install-man
+.PHONY: install
 
+uninstall: uninstall-bin uninstall-man
+.PHONY: uninstall
