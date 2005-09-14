@@ -1,3 +1,8 @@
+udev 070
+========
+Fix a 'install' target in the Makefile, that prevents EXTRAS from
+beeing installed.
+
 udev 069
 ========
 A bunch of mostly trivial bugfixes. From now on no node name or
