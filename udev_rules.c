@@ -648,7 +648,7 @@ found:
 			}
 			pos = getenv(attr);
 			if (pos == NULL) {
-				dbg("env '%s' not avialable", attr);
+				dbg("env '%s' not available", attr);
 				break;
 			}
 			dbg("substitute env '%s=%s'", attr, pos);
