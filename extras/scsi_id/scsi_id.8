@@ -91,10 +91,18 @@ to generate any output.
 Prefix the identification string with the  driver model (sysfs) bus id of
 the SCSI device.
 .TP
-.BI \-p "\| 0x80 | 0x83"
-Use SCSI INQUIRY VPD page code 0x80 or 0x83. The default behaviour is to
-query the available VPD pages, and use page 0x83 if found, else page 0x80
-if found, else nothing.
+.BI \-p "\| 0x80 | 0x83 | pre-spc3-83"
+Use SCSI INQUIRY VPD page code 0x80, 0x83, or pre-spc3-83.
+.sp
+The default
+behaviour is to query the availabe VPD pages, and use page 0x83 if found,
+else page 0x80 if found, else nothing.
+.sp
+Page pre-spc3-83 should only be utilized for those scsi devices which
+are not compliant with the SPC-2 or SPC-3 format for page 83.  While this
+option is used for older model 4, 5, and 6 EMC Symmetrix devices, its
+use with SPC-2 or SPC-3 compliant devices will fallback to the page 83
+format supported by these devices.
 .TP
 .BI \-s "\| sysfs\-device"
 Generate an id for the

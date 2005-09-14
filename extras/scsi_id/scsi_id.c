@@ -67,7 +67,7 @@ static int dev_specified;
 static int sys_specified;
 static char config_file[MAX_NAME_LEN] = SCSI_ID_CONFIG_FILE;
 static int display_bus_id;
-static int default_page_code;
+static enum page_code default_page_code;
 static int use_stderr;
 static int debug;
 static int hotplug_mode;
@@ -519,9 +519,11 @@ static int set_options(int argc, char **argv, const char *short_opts,
 
 		case 'p':
 			if (strcmp(optarg, "0x80") == 0) {
-				default_page_code = 0x80;
+				default_page_code = PAGE_80;
 			} else if (strcmp(optarg, "0x83") == 0) {
-				default_page_code = 0x83;
+				default_page_code = PAGE_83;
+			} else if (strcmp(optarg, "pre-spc3-83") == 0) {
+				default_page_code = PAGE_83_PRE_SPC3; 
 			} else {
 				log_message(LOG_WARNING,
 					    "Unknown page code '%s'\n", optarg);
@@ -640,9 +642,11 @@ static int per_dev_options(struct sysfs_device *scsi_dev, int *good_bad,
 
 		case 'p':
 			if (strcmp(optarg, "0x80") == 0) {
-				*page_code = 0x80;
+				*page_code = PAGE_80;
 			} else if (strcmp(optarg, "0x83") == 0) {
-				*page_code = 0x83;
+				*page_code = PAGE_83;
+			} else if (strcmp(optarg, "pre-spc3-83") == 0) {
+				*page_code = PAGE_83_PRE_SPC3; 
 			} else {
 				log_message(LOG_WARNING,
 					    "Unknown page code '%s'\n", optarg);

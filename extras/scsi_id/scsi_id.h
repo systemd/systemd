@@ -53,3 +53,13 @@ extern void log_message (int level, const char *format, ...)
 #ifndef u8
 typedef unsigned char u8;
 #endif
+
+/*
+ * Page code values. 
+ */
+enum page_code {
+		PAGE_83_PRE_SPC3 = -0x83,
+		PAGE_UNSPECIFIED = 0x00,
+		PAGE_80		 = 0x80,
+		PAGE_83		 = 0x83,
+};

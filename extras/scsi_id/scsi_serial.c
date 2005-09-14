@@ -567,12 +567,12 @@ static int do_scsi_page83_inquiry(struct sysfs_device *scsi_dev, int fd,
 	unsigned char page_83[SCSI_INQ_BUFF_LEN];
 
 	memset(page_83, 0, SCSI_INQ_BUFF_LEN);
-	retval = scsi_inquiry(scsi_dev, fd, 1, 0x83, page_83,
+	retval = scsi_inquiry(scsi_dev, fd, 1, PAGE_83, page_83,
 			      SCSI_INQ_BUFF_LEN);
 	if (retval < 0)
 		return 1;
 
-	if (page_83[1] != 0x83) {
+	if (page_83[1] != PAGE_83) {
 		log_message(LOG_WARNING, "%s: Invalid page 0x83\n",
 			    scsi_dev->name);
 		return 1;
@@ -616,6 +616,74 @@ static int do_scsi_page83_inquiry(struct sysfs_device *scsi_dev, int fd,
 	return 1;
 }
 
+/*
+ * Get device identification VPD page for older SCSI-2 device which is not
+ * compliant with either SPC-2 or SPC-3 format.
+ *
+ * Return the hard coded error code value 2 if the page 83 reply is not
+ * conformant to the SCSI-2 format.
+ */
+static int do_scsi_page83_prespc3_inquiry(struct sysfs_device *scsi_dev, int fd,
+				          char *serial, int len)
+{
+	int retval;
+	int i, j;
+	unsigned char page_83[SCSI_INQ_BUFF_LEN];
+
+	memset(page_83, 0, SCSI_INQ_BUFF_LEN);
+	retval = scsi_inquiry(scsi_dev, fd, 1, PAGE_83, page_83, SCSI_INQ_BUFF_LEN);
+	if (retval < 0)
+		return 1;
+
+	if (page_83[1] != PAGE_83) {
+		log_message(LOG_WARNING, "%s: Invalid page 0x83\n", scsi_dev->name);
+		return 1;
+	}
+	/*
+	 * Model 4, 5, and (some) model 6 EMC Symmetrix devices return
+	 * a page 83 reply according to SCSI-2 format instead of SPC-2/3.
+	 *
+	 * The SCSI-2 page 83 format returns an IEEE WWN in binary
+	 * encoded hexi-decimal in the 16 bytes following the initial
+	 * 4-byte page 83 reply header.
+	 *
+	 * Both the SPC-2 and SPC-3 formats return an IEEE WWN as part
+	 * of an Identification descriptor.  The 3rd byte of the first
+	 * Identification descriptor is a reserved (BSZ) byte field.
+	 *
+	 * Reference the 7th byte of the page 83 reply to determine
+	 * whether the reply is compliant with SCSI-2 or SPC-2/3
+	 * specifications.  A zero value in the 7th byte indicates
+	 * an SPC-2/3 conformant reply, (i.e., the reserved field of the
+	 * first Identification descriptor).  This byte will be non-zero
+	 * for a SCSI-2 conformant page 83 reply from these EMC
+	 * Symmetrix models since the 7th byte of the reply corresponds
+	 * to the 4th and 5th nibbles of the 6-byte OUI for EMC, that is,
+	 * 0x006048.
+	 */
+	if (page_83[6] == 0)
+		return 2;
+
+	serial[0] = hex_str[id_search_list[0].id_type];
+	/*
+	 * The first four bytes contain data, not a descriptor.
+	 */
+	i = 4;
+	j = strlen(serial);
+	/*
+	 * Binary descriptor, convert to ASCII,
+	 * using two bytes of ASCII for each byte
+	 * in the page_83.
+	 */
+	while (i < (page_83[3]+4)) {
+		serial[j++] = hex_str[(page_83[i] & 0xf0) >> 4];
+		serial[j++] = hex_str[page_83[i] & 0x0f];
+		i++;
+	}
+	dprintf("using pre-spc3-83 for %s.\n", scsi_dev->name);
+	return 0;
+}
+
 /* Get unit serial number VPD page */
 static int do_scsi_page80_inquiry(struct sysfs_device *scsi_dev, int fd,
 				  char *serial, int max_len)
@@ -627,11 +695,11 @@ static int do_scsi_page80_inquiry(struct sysfs_device *scsi_dev, int fd,
 	unsigned char buf[SCSI_INQ_BUFF_LEN];
 
 	memset(buf, 0, SCSI_INQ_BUFF_LEN);
-	retval = scsi_inquiry(scsi_dev, fd, 1, 0x80, buf, SCSI_INQ_BUFF_LEN);
+	retval = scsi_inquiry(scsi_dev, fd, 1, PAGE_80, buf, SCSI_INQ_BUFF_LEN);
 	if (retval < 0)
 		return retval;
 
-	if (buf[1] != 0x80) {
+	if (buf[1] != PAGE_80) {
 		log_message(LOG_WARNING, "%s: Invalid page 0x80\n",
 			    scsi_dev->name);
 		return 1;
@@ -674,7 +742,7 @@ int scsi_get_serial (struct sysfs_device *scsi_dev, const char *devname,
 		return 1;
 	}
 
-	if (page_code == 0x80) {
+	if (page_code == PAGE_80) {
 		if (do_scsi_page80_inquiry(scsi_dev, fd, serial, len)) {
 			retval = 1;
 			goto completed;
@@ -682,10 +750,35 @@ int scsi_get_serial (struct sysfs_device *scsi_dev, const char *devname,
 			retval = 0;
 			goto completed;
 		}
-	} else if (page_code == 0x83) {
+	} else if (page_code == PAGE_83) {
 		if (do_scsi_page83_inquiry(scsi_dev, fd, serial, len)) {
 			retval = 1;
 			goto completed;
+		} else  {
+			retval = 0;
+			goto completed;
+		}
+	} else if (page_code == PAGE_83_PRE_SPC3) {
+		retval = do_scsi_page83_prespc3_inquiry(scsi_dev, fd, serial, len);
+		if (retval) {
+			/*
+			 * Fallback to servicing a SPC-2/3 compliant page 83
+			 * inquiry if the page 83 reply format does not
+			 * conform to pre-SPC3 expectations.
+			 */
+			if (retval == 2) {
+				if (do_scsi_page83_inquiry(scsi_dev, fd, serial, len)) {
+					retval = 1;
+					goto completed;
+				} else  {
+					retval = 0;
+					goto completed;
+				}
+			}
+			else {
+				retval = 1;
+				goto completed;
+			}
 		} else  {
 			retval = 0;
 			goto completed;
@@ -713,7 +806,7 @@ int scsi_get_serial (struct sysfs_device *scsi_dev, const char *devname,
 	dprintf("%s: Checking page0\n", scsi_dev->name);
 
 	for (ind = 4; ind <= page0[3] + 3; ind++)
-		if (page0[ind] == 0x83)
+		if (page0[ind] == PAGE_83)
 			if (!do_scsi_page83_inquiry(scsi_dev, fd, serial,
 						    len)) {
 				/*
@@ -724,7 +817,7 @@ int scsi_get_serial (struct sysfs_device *scsi_dev, const char *devname,
 			}
 
 	for (ind = 4; ind <= page0[3] + 3; ind++)
-		if (page0[ind] == 0x80)
+		if (page0[ind] == PAGE_80)
 			if (!do_scsi_page80_inquiry(scsi_dev, fd, serial,
 						    len)) {
 				/*
