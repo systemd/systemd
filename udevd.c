@@ -195,7 +195,7 @@ static int running_processes(void)
 	if (f == -1)
 		return -1;
 
-	len = read(f, buf, sizeof(buf));
+	len = read(f, buf, sizeof(buf)-1);
 	close(f);
 
 	if (len <= 0)
@@ -244,7 +244,7 @@ static int running_processes_in_session(pid_t session, int limit)
 		if (f == -1)
 			continue;
 
-		len = read(f, line, sizeof(line));
+		len = read(f, line, sizeof(line)-1);
 		close(f);
 
 		if (len <= 0)
