@@ -1,3 +1,29 @@
+Summary of changes from v069 to v070
+============================================
+
+Amir Shalem:
+  udevd: fix udevd read() calls to leave room for null byte
+
+Edward Goggin:
+  scsi_id: derive a UID for a SCSI-2 not compliant with the page 83
+
+Greg Kroah-Hartman:
+  fix nbd error messages with a gentoo rule hack
+  fix scsi_id rule in gentoo config file
+
+Jürg Billeter:
+  EXTRAS/Makefile: fix install targets to match main Makefile
+
+Kay Sievers:
+  volume_id: fix error handling with failing read()
+  EXTRAS: cleanup and sync all Makefiles
+  add install test to 'make buildtest'
+  update RELEASE-NOTES
+
+Olivier Blin:
+  fix a debug text typo in udev_rules.c
+
+
 Summary of changes from v068 to v069
 ============================================
 
