@@ -63,6 +63,7 @@ int main(int argc, char *argv[])
 	int sysfs_fd;
 	DIR *dir = NULL;
 	int rc = 1;
+	char *match = NULL;
 
 	logging_init("edd_id");
 
@@ -165,14 +166,23 @@ int main(int argc, char *argv[])
 
 		sysfs_id = strtoul(sysfs_id_buf, NULL, 16);
 		if (disk_id == sysfs_id) {
-			if (export)
-				printf("ID_EDD=%s\n", dent->d_name);
-			else
-				printf("%s\n", dent->d_name);
-			rc = 0;
-			break;
+			if (!match) {
+				match = dent->d_name;
+			} else {
+				info("'%s' does not have a unique signature", node);
+				fprintf(stderr, "'%s' does not have a unique signature\n", node);
+				rc=10;
+				goto exit;
+			}
 		}
+
 	}
+
+			if (export)
+		printf("ID_EDD=%s\n", match);
+			else
+		printf("%s\n", match);
+			rc = 0;
 
 close:
 	close(disk_fd);
