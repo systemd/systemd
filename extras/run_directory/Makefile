@@ -47,7 +47,7 @@ clean:
 
 install-bin: all
 	$(INSTALL_PROGRAM) udev_run_devd $(DESTDIR)$(sbindir)/udev_run_devd
-	$(INSTALL_PROGRAM) udev_run_devd $(DESTDIR)$(sbindir)/udev_run_hotplugd
+	$(INSTALL_PROGRAM) udev_run_hotplugd $(DESTDIR)$(sbindir)/udev_run_hotplugd
 .PHONY: install-bin
 
 uninstall-bin:
