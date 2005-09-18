@@ -44,8 +44,8 @@
 /*
  * temporary names for mknod.
  */
-#define TMP_DIR	"/tmp"
-#define TMP_PREFIX "scsi"
+#define TMP_DIR	"/dev"
+#define TMP_PREFIX "tmp-scsi"
 
 /*
  * XXX Note the 'e' (send output to stderr in all cases), and 'c' (callout)

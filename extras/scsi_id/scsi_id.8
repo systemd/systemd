@@ -111,7 +111,10 @@ The sysfs mount point must not be included. For example, use /block/sd,
 not /sys/block/sd.
 .TP
 .BI \-u
-Reformat the output : replace all whitespaces by underscores
+Reformat the output : replace all whitespaces by underscores.
+.TP
+.BI \-x
+Export all data in KEY=<value> format used to import in other programs.
 .TP
 .BI \-v
 Generate verbose debugging output.
@@ -140,13 +143,18 @@ for example:
 .fi
 .P
 
-An example \fBudev\fP rule using \fBscsi_id\fP, that will name a block
+\fBscsi_id\fP is one of the tools used in the "Linux Persistent Device Names"
+scheme that creates persistent device links in /dev/disk. It is called with
+the -x option which will print all values in a defined format to let udev
+import it into its own environment for later event processing.
+.sp
+An example custom \fBudev\fP rule using \fBscsi_id\fP, that will name a block
 device and any partitions for the device matching the \fBscsi_id\fP output
 of 312345:
 
 .sp
 .nf
-BUS="scsi", PROGRAM="/sbin/scsi_id -d %N -s %p", RESULT="312345", NAME="disk%n"
+BUS=="scsi", PROGRAM=="/sbin/scsi_id -d %N -s %p", RESULT=="312345", NAME="disk%n"
 .fi
 .P
 
@@ -158,7 +166,7 @@ BUS="scsi", PROGRAM="/sbin/scsi_id -d %N -s %p", RESULT="312345", NAME="disk%n"
 .fi
 .LP
 .SH "SEE ALSO"
-.BR udev (8), hotplug (8)
+.BR udev (8)
 .SH AUTHORS
 Developed by Patrick Mansfield <patmans@us.ibm.com> based on SCSI ID
 source included in earlier linux 2.5 kernels, sg_utils source, and SCSI
