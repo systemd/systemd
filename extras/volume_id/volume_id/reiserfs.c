@@ -82,14 +82,17 @@ int volume_id_probe_reiserfs(struct volume_id *id, uint64_t off)
 	rs = (struct reiserfs_super_block *) buf;;
 	if (memcmp(rs->magic, "ReIsErFs", 8) == 0) {
 		strcpy(id->type_version, "3.5");
+		id->type = "reiserfs";
 		goto found;
 	}
 	if (memcmp(rs->magic, "ReIsEr2Fs", 9) == 0) {
 		strcpy(id->type_version, "3.6");
+		id->type = "reiserfs";
 		goto found_label;
 	}
 	if (memcmp(rs->magic, "ReIsEr3Fs", 9) == 0) {
 		strcpy(id->type_version, "JR");
+		id->type = "reiserfs";
 		goto found_label;
 	}
 
@@ -99,15 +102,18 @@ int volume_id_probe_reiserfs(struct volume_id *id, uint64_t off)
 		volume_id_set_label_raw(id, rs4->label, 16);
 		volume_id_set_label_string(id, rs4->label, 16);
 		volume_id_set_uuid(id, rs4->uuid, UUID_DCE);
+		id->type = "reiser4";
 		goto found;
 	}
 
-	rs = (struct reiserfs_super_block *) volume_id_get_buffer(id, off + REISERFS1_SUPERBLOCK_OFFSET, 0x200);
-	if (rs == NULL)
+	buf = volume_id_get_buffer(id, off + REISERFS1_SUPERBLOCK_OFFSET, 0x200);
+	if (buf == NULL)
 		return -1;
 
+	rs = (struct reiserfs_super_block *) buf;
 	if (memcmp(rs->magic, "ReIsErFs", 8) == 0) {
 		strcpy(id->type_version, "3.5");
+		id->type = "reiserfs";
 		goto found;
 	}
 
@@ -120,7 +126,6 @@ found_label:
 
 found:
 	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
-	id->type = "reiserfs";
 
 	return 0;
 }
