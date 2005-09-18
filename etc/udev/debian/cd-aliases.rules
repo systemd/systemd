@@ -1,17 +1,15 @@
-# These rules create the /dev/{cdrom,dvd,...} symlinks. Also see the
-# /etc/udev/cdsymlinks.conf config file.
+# These rules create the /dev/{cdrom,dvd,...} symlinks.
 #
 # If you would like to statically configure the aliases instead, you can
 # use rules like:
 # BUS=="ide", ID=="1.0", SYMLINK+="cdrom"
 
-BUS=="scsi", KERNEL=="sr[0-9]*", \
-	PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", \
-	SYMLINK+="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
-BUS=="ide",  KERNEL=="hd[a-z]",   SYSFS{removable}=="1", \
-	PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", \
-	SYMLINK+="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
-BUS=="ide",  KERNEL=="pcd[0-9]*", SYSFS{removable}=="1", \
-	PROGRAM="/etc/udev/scripts/cdsymlinks.sh %k", \
-	SYMLINK+="%c{1} %c{2} %c{3} %c{4} %c{5} %c{6}"
+# The variables for IDE devices are imported in permissions.rules.
+BUS=="scsi", KERNEL=="sr[0-9]*", ACTION=="add", \
+	IMPORT{program}="/sbin/cdrom_id --export $tempnode"
+
+ENV{ID_CDROM}=="?*",		SYMLINK+="cdrom%e"
+ENV{ID_CDROM_CD_RW}=="?*",	SYMLINK+="cdrw%e"
+ENV{ID_CDROM_DVD}=="?*",	SYMLINK+="dvd%e"
+ENV{ID_CDROM_DVD_R}=="?*",	SYMLINK+="dvdrw%e"
 

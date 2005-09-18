@@ -15,28 +15,32 @@
 
 # workaround for devices which do not report media changes
 BUS=="ide", KERNEL=="hd[a-z]", SYSFS{removable}=="1", \
-  PROGRAM="/etc/udev/scripts/ide-model.sh %k", RESULT=="IOMEGA ZIP *", \
+  PROGRAM="/sbin/ata_id --export $tempnode", ENV{ID_MODEL}=="IOMEGA_ZIP*", \
 					NAME="%k", OPTIONS+="all_partitions"
 
 # SCSI devices
 BUS=="scsi", KERNEL=="sr[0-9]*",	NAME="scd%n", SYMLINK+="sr%n"
 
 # USB devices
-BUS=="usb", KERNEL=="hiddev*",		NAME="usb/%k"
 BUS=="usb", KERNEL=="auer[0-9]*",	NAME="usb/%k"
-BUS=="usb", KERNEL=="legousbtower*",	NAME="usb/%k"
-BUS=="usb", KERNEL=="dabusb*",		NAME="usb/%k"
 BUS=="usb", KERNEL=="cpad[0-9]*",	NAME="usb/%k"
+BUS=="usb", KERNEL=="dabusb*",		NAME="usb/%k"
+BUS=="usb", KERNEL=="hiddev*",		NAME="usb/%k"
+BUS=="usb", KERNEL=="legousbtower*",	NAME="usb/%k"
 BUS=="usb", KERNEL=="lp[0-9]*",		NAME="usb/%k"
 BUS=="usb", KERNEL=="ttyUSB*", SYSFS{product}=="Palm Handheld*", \
-					SYMLINK+=="pilot"
+					SYMLINK+="pilot"
+
+# usbfs-like devices
+SUBSYSTEM=="usb_device",	PROGRAM="/bin/sh -c 'K=%k K=$${K#usbdev} B=$${K%%%%.*} D=$${K#*.}; echo bus/usb/$$B/$$D'", \
+				SYMLINK+="%c"
 
 # serial devices
 KERNEL=="capi",			NAME="capi20", SYMLINK+="isdn/capi20"
 KERNEL=="capi[0-9]*",		NAME="capi/%n"
 
 # video devices
-KERNEL=="dvb*",			PROGRAM="/etc/udev/scripts/dvb.sh %k", \
+KERNEL=="dvb*",			PROGRAM="/bin/sh -c 'K=%k K=$${K#dvb} A=$${K%%%%.*} D=$${K#*.}; echo dvb/adapter$$A/$$D'", \
 				NAME="%c"
 KERNEL=="card[0-9]*",		NAME="dri/%k"
 
@@ -54,6 +58,8 @@ KERNEL=="microcode",		NAME="cpu/microcode"
 
 KERNEL=="umad*",		NAME="infiniband/%k"
 KERNEL=="issm*",		NAME="infiniband/%k"
+KERNEL=="uverbs*",		NAME="infiniband/%k"
+KERNEL=="ucm",			NAME="infiniband/%k"
 
 # ALSA devices
 KERNEL=="controlC[0-9]*",	NAME="snd/%k"

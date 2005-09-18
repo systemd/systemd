@@ -15,30 +15,26 @@
 
 # workaround for devices which do not report media changes
 BUS=="ide", KERNEL=="hd[a-z]", SYSFS{removable}=="1", \
-  PROGRAM="/etc/udev/scripts/ide-model.sh %k", RESULT=="IOMEGA ZIP *", \
-				NAME="%k", OPTIONS+="all_partitions"
+  PROGRAM="/sbin/ata_id --export $tempnode", ENV{ID_MODEL}=="IOMEGA_ZIP*", \
+					NAME="%k", OPTIONS+="all_partitions"
 
 # IDE devices
 BUS=="ide", KERNEL=="hd[a-z]*", \
   PROGRAM="/etc/udev/scripts/ide-devfs.sh %k %b %n", \
-				NAME="%c{1}", SYMLINK+="%k %c{2}"
+					NAME="%c{1}", SYMLINK+="%k %c{2}"
 
 # SCSI devices
-BUS=="scsi",		PROGRAM="/etc/udev/scripts/scsi-devfs.sh %k %b %n", \
-				NAME="%c{1}", SYMLINK+="%k %c{2}"
+BUS=="scsi", PROGRAM="/etc/udev/scripts/scsi-devfs.sh %k %b %n", \
+					NAME="%c{1}", SYMLINK+="%k %c{2}"
 
 # RAID controllers
-KERNEL=="cciss!*",	PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", \
-				NAME="%c{1}", SYMLINK+="%k"
-KERNEL=="ida!*",	PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", \
-				NAME="%c{1}", SYMLINK+="%k"
-KERNEL=="rd!*",		PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", \
-				NAME="%c{1}", SYMLINK+="%k"
+KERNEL=="cciss!*|ida!*|rd!*", PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", \
+					NAME="%c{1}", SYMLINK+="%k"
 
 # other block devices
-KERNEL=="md[0-9]*",		NAME="md/%n",
-KERNEL=="loop[0-9]*",		NAME="loop/%n"
-KERNEL=="ram[0-9]*",		NAME="rd/%n"
+KERNEL=="md[0-9]*",			NAME="md/%n",
+KERNEL=="loop[0-9]*",			NAME="loop/%n"
+KERNEL=="ram[0-9]*",			NAME="rd/%n"
 
 # USB devices
 BUS=="usb", KERNEL=="auer[0-9]*",	NAME="usb/%k"
@@ -49,6 +45,10 @@ BUS=="usb", KERNEL=="legousbtower*",	NAME="usb/%k"
 BUS=="usb", KERNEL=="lp[0-9]*",		NAME="usb/%k"
 BUS=="usb", KERNEL=="ttyUSB*", SYSFS{product}=="Palm Handheld*", \
 					SYMLINK+="pilot"
+
+# usbfs-like devices
+SUBSYSTEM=="usb_device",	PROGRAM="/bin/sh -c 'K=%k K=$${K#usbdev} B=$${K%%%%.*} D=$${K#*.}; echo bus/usb/$$B/$$D'", \
+				SYMLINK+="%c"
 
 # serial devices
 KERNEL=="ttyS[0-9]*",		NAME="tts/%n"
@@ -69,7 +69,7 @@ KERNEL=="video[0-9]*",		NAME="v4l/%k"
 KERNEL=="radio[0-9]*",		NAME="v4l/%k"
 KERNEL=="vbi[0-9]*",		NAME="v4l/%k"
 KERNEL=="vtx[0-9]*",		NAME="v4l/%k"
-KERNEL=="dvb*",			PROGRAM="/etc/udev/scripts/dvb.sh %k", \
+KERNEL=="dvb*",			PROGRAM="/bin/sh -c 'KNAME=%k KNAME=$${KNAME#dvb} A=$${KNAME%%%%.*} D=$${KNAME#*.}; echo dvb/adapter$$A/$$D'", \
 				NAME="%c"
 KERNEL=="fb[0-9]*",		NAME="fb/%n"
 KERNEL=="card[0-9]*",		NAME="dri/%k"
@@ -100,6 +100,8 @@ KERNEL=="microcode",		NAME="cpu/microcode"
 
 KERNEL=="umad*",		NAME="infiniband/%k"
 KERNEL=="issm*",		NAME="infiniband/%k"
+KERNEL=="uverbs*",		NAME="infiniband/%k"
+KERNEL=="ucm",			NAME="infiniband/%k"
 
 # sound devices
 KERNEL=="controlC[0-9]*",	NAME="snd/%k"
