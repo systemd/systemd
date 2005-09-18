@@ -3,34 +3,37 @@
 #
 # default is OWNER="root" GROUP="root", MODE="0600"
 #
+KERNEL="*", OWNER="root" GROUP="root", MODE="0600"
 
 # all block devices
 SUBSYSTEM=="block",		GROUP="disk", MODE="0640"
+KERNEL=="root",			GROUP="disk", MODE="0640"
 
 # console devices
-KERNEL=="tty",			MODE="0666"
-KERNEL=="tty[0-9]",		GROUP="tty", MODE="0660"
-KERNEL=="tty[0-9][0-9]*",	GROUP="tty", MODE="0660"
-KERNEL=="vc/[0-9]*",		GROUP="tty", MODE="0660"
+KERNEL=="tty",			MODE="0666", OPTIONS="last_rule"
+KERNEL=="tty[0-9]",		GROUP="tty", MODE="0660", OPTIONS="last_rule"
+KERNEL=="tty[0-9][0-9]*",	GROUP="tty", MODE="0660", OPTIONS="last_rule"
+KERNEL=="vc/[0-9]*",		GROUP="tty", MODE="0660", OPTIONS="last_rule"
 
 # pty devices
 #  Set this to 0660 if you only want users belonging to tty group
 #  to be able to allocate PTYs
-KERNEL=="ptmx",			GROUP="tty", MODE="0666"
-KERNEL=="pty[p-za-e][0-9a-f]*",	GROUP="tty", MODE="0660"
-KERNEL=="tty[p-za-e][0-9a-f]*",	GROUP="tty", MODE="0660"
-KERNEL=="pty/m*",		GROUP="tty", MODE="0660"
-KERNEL=="vc/s*",		GROUP="tty", MODE="0660"
+KERNEL=="ptmx",			GROUP="tty", MODE="0666", OPTIONS="last_rule"
+KERNEL=="pty[p-za-e][0-9a-f]*",	GROUP="tty", MODE="0660", OPTIONS="last_rule"
+KERNEL=="tty[p-za-e][0-9a-f]*",	GROUP="tty", MODE="0660", OPTIONS="last_rule"
+KERNEL=="pty/m*",		GROUP="tty", MODE="0660", OPTIONS="last_rule"
+KERNEL=="vc/s*",		GROUP="tty", MODE="0660", OPTIONS="last_rule"
 
 # serial+dialup devices
-KERNEL=="ttyS*",		GROUP="uucp", MODE="0660"
+KERNEL=="ttyS*",		GROUP="uucp", MODE="0660", OPTIONS="last_rule"
+KERNEL=="ttyACM*",		GROUP="uucp", MODE="0660", OPTIONS="last_rule"
+KERNEL=="ttyUSB*",		GROUP="uucp", MODE="0660", OPTIONS="last_rule"
 KERNEL=="ippp*",		MODE="0660"
 KERNEL=="isdn*",		MODE="0660"
 KERNEL=="isdnctrl*",		MODE="0660"
 KERNEL=="capi*",		MODE="0660"
 KERNEL=="dcbri*",		MODE="0660"
 KERNEL=="ircomm*",		GROUP="uucp", MODE="0660"
-KERNEL=="ttyUSB*",		GROUP="uucp", MODE="0660"
 KERNEL=="tts/[0-9]*",		GROUP="uucp", MODE="0660"
 KERNEL=="tts/USB[0-9]*",	GROUP="uucp", MODE="0660"
 
@@ -170,9 +173,8 @@ KERNEL=="lp[0-9]*",		SYMLINK+="par%n"
 BUS=="usb", KERNEL=="lp[0-9]*",	NAME="usb/%k"
 
 KERNEL=="microcode",		NAME="cpu/%k"
-# provide symlinks for backwards compatibility
-KERNEL="msr[0-9]*",     	NAME="cpu/%n/msr", SYMLINK+="cpu/%k"
-KERNEL="cpu[0-9]*",     	NAME="cpu/%n/cpu", SYMLINK+="cpu/%k", SYMLINK+="%k"
+KERNEL="msr[0-9]*",     	NAME="cpu/%n/msr"
+KERNEL="cpu[0-9]*",     	NAME="cpu/%n/cpu"
 
 KERNEL=="ram1",			SYMLINK+="ram"
 KERNEL=="video0",		SYMLINK+="video"
@@ -235,6 +237,55 @@ KERNEL=="hd[a-z]*", BUS=="ide", SYSFS{removable}=="1", NAME{ignore_remove}="%k"
 
 KERNEL=="dvb*", PROGRAM=="/etc/udev/scripts/dvb.sh %k", NAME="%c"
 
+#######################################
+# Persistant block device stuff - begin
+#######################################
+
+# Skip all of this if we are not adding a block device
+ACTION!="add",          GOTO="persistent_end"
+SUBSYSTEM!="block",     GOTO="persistent_end"
+
+# skip accessing removable ide devices, cause the ide drivers are horrible broken
+BUS=="ide", SYSFS{removable}="1", GOTO="no_volume_id"
+BUS=="ide", SYSFS{../removable}="1", GOTO="no_volume_id"
+
+# persistent disk device links /dev/disk/
+KERNEL=="hd*[!0-9]", IMPORT="/sbin/ata_id --export $tempnode"
+KERNEL=="hd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
+KERNEL=="hd*[0-9]", IMPORT{parent}=="ID_*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
+
+KERNEL=="sd*[!0-9]", SYSFS{ieee1394_id}=="*", IMPORT="/bin/echo -e 'ID_SERIAL=$sysfs{ieee1394_id}\nID_BUS=ieee1394'"
+KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="", IMPORT="/sbin/usb_id -x"
+KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="", IMPORT="/sbin/scsi_id -g -x -s %p"
+KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="", IMPORT="/sbin/scsi_id -g -x -a -s %p"
+KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
+KERNEL=="sd*[0-9]", IMPORT{parent}=="ID_*"
+KERNEL=="sd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
+
+# Skip id for ram / loop / fd
+KERNEL=="ram*", GOTO="no_volume_id"
+KERNEL=="loop*", GOTO="no_volume_id"
+KERNEL=="fd*", GOTO="no_volume_id"
+
+KERNEL=="*[!0-9]", ENV{ID_TYPE}=="?*", IMPORT="/sbin/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
+KERNEL=="*[0-9]", IMPORT{parent}=="ID_*"
+KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
+
+# volume-label/uuid
+KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="no_volume_id"
+KERNEL=="sr*", GOTO="no_volume_id"
+KERNEL=="*[0-9]", IMPORT="/sbin/vol_id --export $tempnode"
+KERNEL=="*[0-9]", ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
+KERNEL=="*[0-9]", ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
+LABEL="no_volume_id"
+
+LABEL="persistent_end"
+
+#####################################
+# Persistant block device stuff - end
+#####################################
+
+
 
 # Perhaps this should just be for all subsystems?
 
@@ -265,5 +316,5 @@ ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="1", SYSFS{vendor}!="Onstream", \
 ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="[23689]", \
 	RUN+="/sbin/modprobe sg"
 
-ACTION=="add", SUBSYSTEM=="firmware", ENV{FIRMWARE}="*", \
+ACTION=="add", SUBSYSTEM=="firmware", ENV{FIRMWARE}=="*", \
         RUN+="/sbin/firmware_helper"
