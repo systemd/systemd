@@ -1,8 +1,12 @@
-# The use of these rules is not recommended or supported.
-# In a world where devices can come and go at any time, the devfs scheme
-# of simple device enumeration does not help _anything_. Just forget about
-# it. Use custom rules to name your device or look at the persistent device
-# naming scheme, which is implemented for disks and add your subsystem.
+# The use of these rules is not recommended or supported. This file
+# is just kept around to proof that udev is able to emulate the devfs scheme.
+#
+# In a world where devices can come and go at any time, the devfs device
+# naming scheme of simple grouping and enumeration does not help _anything_.
+#
+# Use custom rules to name your device or look at the persistent device
+# naming scheme, which is implemented for disks and extend it in a 
+# similar way for the subsystem you want a sane node layout for.
 
 # ide block devices
 BUS="ide", KERNEL="hd*", PROGRAM="/etc/udev/ide-devfs.sh %k %b %n", NAME="%k", SYMLINK="%c{1} %c{2}"
