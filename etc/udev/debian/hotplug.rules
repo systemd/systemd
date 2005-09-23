@@ -1,0 +1,46 @@
+ACTION!="add", GOTO="hotplug_not_add_event"
+
+# check if the device has already been claimed by a driver
+PROGRAM="/bin/sh -c 'test -e /sys$devpath/driver'", \
+					GOTO="hotplug_driver_loaded"
+
+# workarounds for kernels which lack $MODALIAS support
+SUBSYSTEM=="input", BUS=="serio", ENV{MODALIAS}!="?*", \
+	IMPORT{program}="/lib/hotplug/modalias_serio"
+SUBSYSTEM=="ieee1394", ENV{MODALIAS}!="?*", \
+	IMPORT{program}="/lib/hotplug/modalias_ieee1394"
+
+# load the drivers
+ENV{MODALIAS}=="?*",			RUN+="/sbin/modprobe $modalias"
+SUBSYSTEM=="pnp", ENV{MODALIAS}!="?*",	RUN+="/bin/sh -c 'while read id; do /sbin/modprobe pnp:d$$id; done < /sys$devpath/id'"
+
+SUBSYSTEM=="scsi_device", SYSFS{type}=="0|7|14", RUN+="/sbin/modprobe sd_mod"
+SUBSYSTEM=="scsi_device", SYSFS{type}=="1",	RUN+="/sbin/modprobe osst", \
+	SYSFS{vendor}=="Onstream", SYSFS{model}!="ADR*"
+SUBSYSTEM=="scsi_device", SYSFS{type}=="1",	RUN+="/sbin/modprobe st", \
+	SYSFS{vendor}=="Onstream", SYSFS{model}=="ADR*"
+SUBSYSTEM=="scsi_device", SYSFS{type}=="1",	RUN+="/sbin/modprobe st", \
+	SYSFS{vendor}!="Onstream"
+SUBSYSTEM=="scsi_device", SYSFS{type}=="[345]",	RUN+="/sbin/modprobe sr_mod"
+SUBSYSTEM=="scsi_device", SYSFS{type}=="[235689]", RUN+="/sbin/modprobe sg"
+
+SUBSYSTEM=="input_device", ENV{ABS}=="?*",	RUN+="/sbin/modprobe joydev"
+
+SUBSYSTEM=="ide",				RUN+="/lib/hotplug/ide.agent"
+
+# From here on follows the hotplug agents which do not load modules
+LABEL="hotplug_driver_loaded"
+
+# FIXME: does a sane default exist?
+#SUBSYSTEM=="scsi_device", SYSFS{idVendor}=="...", \
+#	RUN+="/lib/hotplug/scsi-re-add"
+
+SUBSYSTEM=="firmware",			RUN+="/lib/hotplug/firmware.agent"
+
+LABEL="hotplug_not_add_event"
+
+SUBSYSTEM=="net",			RUN+="/lib/hotplug/net.agent"
+
+# for debugging
+#RUN+="/lib/hotplug/logger.agent"
+

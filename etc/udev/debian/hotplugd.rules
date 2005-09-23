@@ -7,9 +7,3 @@ SUBSYSTEM=="module",	OPTIONS="last_rule"
 ENV{UDEVD_EVENT}=="1",	RUN+="/sbin/udev_run_hotplugd"
 RUN+="/sbin/udev_run_devd"
 
-# run a command on remove events
-ACTION=="remove", ENV{REMOVE_CMD}!="", RUN+="$env{REMOVE_CMD}"
-
-# debugging monitor
-RUN+="socket:/org/kernel/udev/monitor"
-
