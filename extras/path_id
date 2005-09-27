@@ -4,15 +4,19 @@
 # for the udev persistent disk device naming scheme
 #
 # Copyright (C) 2005 SUSE Linux Products GmbH
-# Licensed under the GPL v2.
+# Author:
+#	Hannes Reinecke <hare@suse.de>
+#
+#	This program is free software; you can redistribute it and/or modify it
+#	under the terms of the GNU General Public License as published by the
+#	Free Software Foundation version 2 of the License.
 #
 # to be called from a udev rule to return the name for a symlink
-# DEVPATH=/block/sda/sda3 $0  (or similar)
-# $0 /block/sda
-# $0 /sys/block/sda
+#	DEVPATH=/block/sda/sda3 path_id
+#	path_id <devpath>
 
-# example for all:
-# for i in `find /sys/block -name dev` ;do DEVPATH="`echo $i | sed -e 's@^/sys\|/dev@@g'`" $0 ; done
+# example for all block devices on a system:
+#	for i in `find /sys/block -name dev` ;do DEVPATH="`echo $i | sed -e 's@^/sys\|/dev@@g'`" path_id ; done
 
 # examples:
 # SCSI cdrom
