@@ -9,46 +9,54 @@ KERNEL=="ram*|loop*|fd*|nbd*",		GOTO="no_volume_id"
 
 # skip removable ide devices, because open(2) on them causes an events loop
 BUS=="ide", SYSFS{removable}=="1", DRIVER!="ide-cdrom",	GOTO="no_volume_id"
-BUS=="ide", SYSFS{../removable}=="1",			GOTO="no_volume_id"
 
-# disk id
+# look for different kinds of unique identificators
 KERNEL=="hd*[!0-9]", \
 	IMPORT{program}="/sbin/ata_id --export $tempnode"
 
 KERNEL=="sd*[!0-9]|sr*",		SYSFS{ieee1394_id}=="?*", \
-	IMPORT{program}="/bin/echo -e 'ID_SERIAL=$sysfs{ieee1394_id}\nID_BUS=ieee1394'"
+	ENV{ID_BUS}="ieee1394", ENV{ID_SERIAL}="$sysfs{ieee1394_id}"
 KERNEL=="sd*[!0-9]|sr*",		ENV{ID_SERIAL}=="", \
 	IMPORT{program}="/sbin/usb_id -x"
 KERNEL=="sd*[!0-9]|sr*",		ENV{ID_SERIAL}=="", \
-	IMPORT{program}="/sbin/scsi_id -g -x -s %p -d %N"
+	IMPORT{program}="/sbin/scsi_id -g -x -s $devpath -d $tempnode"
 KERNEL=="sd*[!0-9]|sr*",		ENV{ID_SERIAL}=="", \
-	IMPORT{program}="/sbin/scsi_id -g -x -a -s %p -d %N"
+	IMPORT{program}="/sbin/scsi_id -g -x -a -s $devpath -d $tempnode"
 
 KERNEL=="dasd*[!0-9]", \
 	IMPORT{program}="/sbin/dasd_id --export $tempnode"
 
-KERNEL=="hd*[0-9]|sd*[0-9]|dasd*[0-9]", IMPORT{parent}="ID_*"
+KERNEL=="*[!0-9]", SYSFS{removable}!="1", \
+	IMPORT{program}="/sbin/edd_id --export $tempnode"
+
+# find the physical path of the device
+KERNEL=="*[!0-9]|sr*",			ENV{ID_TYPE}=="?*", \
+	IMPORT{program}="/sbin/path_id $devpath"
+
+# import the variables of partitions from the parent disks
+KERNEL=="*[0-9]",			IMPORT{parent}="ID_*"
+
 KERNEL=="hd*[!0-9]",			ENV{ID_SERIAL}=="?*", \
 	SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
-KERNEL=="sd*[!0-9]|sr*|dasd[!0-9]*",	ENV{ID_SERIAL}=="?*", \
-	SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 KERNEL=="hd*[0-9]",			ENV{ID_SERIAL}=="?*", \
 	SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
+KERNEL=="sd*[!0-9]|dasd[!0-9]*|sr*",	ENV{ID_SERIAL}=="?*", \
+	SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 KERNEL=="sd*[0-9]|dasd*[0-9]",		ENV{ID_SERIAL}=="?*", \
 	SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
+KERNEL=="*[!0-9]",			ENV{ID_EDD}=="?*", \
+	SYMLINK+="disk/by-id/edd-$env{ID_EDD}"
+KERNEL=="*[0-9]",			ENV{ID_EDD}=="?*", \
+	SYMLINK+="disk/by-id/edd-$env{ID_EDD}-part%n"
 
-# path
-KERNEL=="*[!0-9]|sr*",			ENV{ID_TYPE}=="?*", \
-	IMPORT{program}="/sbin/path_id %p"
-
-KERNEL=="*[0-9]",			IMPORT{parent}="ID_*"
 KERNEL=="*[!0-9]|sr*",			ENV{ID_PATH}=="?*", \
 	SYMLINK+="disk/by-path/$env{ID_PATH}"
+KERNEL=="sr*",				GOTO="no_volume_id"
 KERNEL=="*[0-9]",			ENV{ID_PATH}=="?*", \
 	SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 
 # UUID and volume label
-KERNEL=="*[!0-9]|sr*", SYSFS{removable}=="1", GOTO="no_volume_id"
+KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="no_volume_id"
 IMPORT{program}="/sbin/vol_id --export $tempnode"
 ENV{ID_FS_UUID}=="?*",		SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
 ENV{ID_FS_LABEL_SAFE}=="?*",	SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
