@@ -410,8 +410,9 @@ recheck:
 
 		/* limit timeout during initialization phase */
 		if (init_phase) {
-			timeout = UDEVD_INIT_EVENT_TIMEOUT;
-			dbg("initialization phase, limit timeout to %i seconds", UDEVD_INIT_EVENT_TIMEOUT);
+			if (timeout > UDEVD_INIT_EVENT_TIMEOUT)
+				timeout = UDEVD_INIT_EVENT_TIMEOUT;
+			dbg("initialization phase, timeout %i seconds", timeout);
 		}
 
 		/* move event with expired timeout to the exec list */
