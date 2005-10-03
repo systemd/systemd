@@ -1,107 +1,77 @@
+udev - userspace device management
 
-udev - a userspace device manager
+For more information see the files in the docs/ directory.
 
-For more information on the design, and structure of this project, see the
-files in the docs/ directory.
+Important Note:
+  Integrating udev in the system is a whole lot of work, has complex dependencies
+  and differs a lot from distro to distro. All reasonable distros use udev these
+  days, the major ones make it mandatory and the system will not work without it.
 
-To use:
+  The upstream udev project does not support or recomend to replace a distro's udev
+  installation with the upstream version. The installation of a unmodified upstream
+  version may render your system unusable! There is no "default" setup or a set
+  of "default" rules provided by the upstream udev version.
 
-- You must be running a 2.6 version of the Linux kernel.
+udev requires:
+  - 2.6 version of the Linux kernel
 
-- Your 2.6 kernel must have had CONFIG_HOTPLUG enabled when it was built.
+  - the kernel must have sysfs, netlink, and hotplug enabled
 
-- Make sure sysfs is mounted at /sys. No other location is supported.
-  You can mount it by running:
-  	mount -t sysfs none /sys
+  - proc must be mounted on /proc
 
-- Make sure you integrate udev with your hotplug setup. There is a copy of
-  the rules files for all major distros in the etc/udev folder. You may look
-  there how others are doing it.
+  - sysfs must be mounted at /sys, no other location is supported
 
-- Make sure you integrate with the kernel hotplug events. Later versions of
-  udev are able to listen directly to a netlink socket, older versions used
-  udevsend to feed the udev daemon with the kernel event. The most basic
-  setup to run udev is to let the kernel for the udev binary directly:
-	echo "/sbin/udev" > /proc/sys/kernel/hotplug
+  - udev creates and removes device nodes in /dev based on events
+    the kernel sends out on device discovery or removal
 
-  While this may work in some setups, it is not recommended to do. A recent
-  kernel and udev version is able to operate with the event serializing daemon
-  udevd, that makes sure, that no "remove" event will beat a "add" event for
-  the same device.
+  - during bootup /dev usually gets a tmpfs mounted which is populated scratch
+    by udev (created nodes don't survive a reboot, it always starts from scratch)
 
-- Build the project:
-	make
+  - udev replaces the hotplug event management invoked from /sbin/hotplug
+    by the udevd daemon, which receives the kernel events over netlink
 
-  Note:
-      There are a number of different flags that you can use when building
-      udev.  They are as follows:
-	prefix
-		set this to the default root that you want udev to be
-		installed into.  This works just like the 'configure --prefix'
-		script does.  Default value is ''.  Only override this if you
-		really know what you are doing.
-	USE_KLIBC
-		if set to 'true', udev is built and linked against the
-		included version of klibc.  Default value is 'false'.
-	USE_LOG
-		if set to 'true', udev will emit messages to the syslog when
-		it creates or removes device nodes.  This is helpful to see
-		what udev is doing.  This is enabled by default.  Note, if you
-		are building udev against klibc it is recommended that you
-		disable this option (due to klibc's syslog implementation.)
-	USE_SELINUX
-		if set to 'true', udev will be built with SELinux support
-		enabled.  This is disabled by default.
-	DEBUG
-		if set to 'true', debugging messages will be sent to the syslog
-		as udev is run.  Default value is 'false'.
-	KERNEL_DIR
-		If this is not set it will default to /lib/modules/`uname -r`/build
-		This is used if USE_KLIBC=true to find the kernel include
-		directory that klibc needs to build against.  This must be set
-		if you are not building udev while running a 2.6 kernel.
-	EXTRAS
-		if set, will build the "extra" helper programs as specified
-		as listed (see below for an example.)
+  - all kernel events are matched against a set of specified rules which
+    make it posible to hook into the event processing
 
-      So, if you want to build udev using klibc with debugging messages, you
-      would do:
-	make USE_KLIBC=true DEBUG=true
+  - there is a copy of the rules files for all major distros in the etc/udev
+    directory (you may look there how others distros are doing it)
 
-      If you want to build the udev helper program cdrom_id and scsi_id you
-      would do:
-	make EXTRAS="extras/cdrom_id extras/scsi_id"
+Setting which are used for building udev:
+  prefix
+  	set this to the default root that you want to use
+  	Only override this if you really know what you are doing
+  DESTDIR
+  	prefix for install target for package building
+  USE_LOG
+  	if set to 'true', udev will emit messages to the syslog when
+  	it creates or removes device nodes.  This is helpful to see
+  	what udev is doing.  This is enabled by default.  Note, if you
+  	are building udev against klibc it is recommended that you
+  	disable this option (due to klibc's syslog implementation.)
+  DEBUG
+  	if set to 'true', verbose debugging messages will be compiled into
+  	the udev binaries.  Default value is 'false'.
+  USE_SELINUX
+  	if set to 'true', udev will be built with SELinux support
+  	enabled.  This is disabled by default.
+  USE_KLIBC
+  	if set to 'true', udev is built and linked against the
+  	included version of klibc.  Default value is 'false'.
+  KERNEL_DIR
+  	If this is not set it will default to /lib/modules/`uname -r`/build
+  	This is used if USE_KLIBC=true to find the kernel include
+  	directory that klibc needs to build against.  This must be set
+  	if you are not building udev while running a 2.6 kernel.
+  EXTRAS
+  	if set, will build the "extra" helper programs as specified
+  	as listed (see below for an example.)
 
-      udev will follow the setting of the debug level in udev.conf. Adapt this
-      value to see the debug in syslog.
+if you want to build udev using klibc with debugging messages:
+  make USE_KLIBC=true DEBUG=true
 
-- Install the project:
-	make install
+if you want to build the udev helper program cdrom_id and scsi_id:
+  make EXTRAS="extras/cdrom_id extras/scsi_id"
 
-  This will put the udev binaries in /sbin, create the and /etc/udev
-  directories, and place the udev configuration files in /etc/udev/.  You
-  will probably want to edit the *.rules files to create custom naming
-  rules.  More info on how the config files are set up are contained in
-  comments in the files, and is located in the documentation.
-
-- Add and remove devices from the system and marvel as nodes are created
-  and removed in /dev based on the device types.
-
-- If you later get sick of it, uninstall it:
-	make uninstall
-
-If nothing seems to happen, make sure your build worked properly by
-running the udev-test.pl script as root in the test/ subdirectory of the
-udev source tree. Running udevstart should populate an empty /dev
-directory. You may test, if a node is recreated after running udevstart.
-
-Development and documentation help is very much appreciated, see the TODO
-file for a list of things left to be done.
-
-Any comment/questions/concerns please let me and the other udev developers
-know by sending a message to the linux-hotplug-devel mailing list at:
-	linux-hotplug-devel@lists.sourceforge.net
-
-greg k-h
-greg@kroah.com
+Please direct any comment/question/concern to the linux-hotplug-devel mailing list at:
+  linux-hotplug-devel@lists.sourceforge.net
 

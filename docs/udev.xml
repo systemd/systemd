@@ -440,7 +440,7 @@
                 devices of the same type originating from different kernel subsystems.</para>
                 <para>Note: The use of the enumeration facility is unreliable for events that
                 request a number at the same time. The  use  of enumerations in todays setups
-                where devices can come and go at any time is not recomended.</para>
+                where devices can come and go at any time is not recommended.</para>
               </listitem>
             </varlistentry>
 
