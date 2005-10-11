@@ -686,7 +686,7 @@ static void reap_sigchilds(void)
 static int init_udevd_socket(void)
 {
 	struct sockaddr_un saddr;
-	const int buffersize = 1024 * 1024;
+	const int buffersize = 16 * 1024 * 1024;
 	socklen_t addrlen;
 	const int feature_on = 1;
 	int retval;
@@ -704,7 +704,7 @@ static int init_udevd_socket(void)
 	}
 
 	/* set receive buffersize */
-	setsockopt(udevd_sock, SOL_SOCKET, SO_RCVBUF, &buffersize, sizeof(buffersize));
+	setsockopt(udevd_sock, SOL_SOCKET, SO_RCVBUFFORCE, &buffersize, sizeof(buffersize));
 
 	/* the bind takes care of ensuring only one copy running */
 	retval = bind(udevd_sock, (struct sockaddr *) &saddr, addrlen);
@@ -723,7 +723,7 @@ static int init_udevd_socket(void)
 static int init_uevent_netlink_sock(void)
 {
 	struct sockaddr_nl snl;
-	const int buffersize = 1024 * 1024;
+	const int buffersize = 16 * 1024 * 1024;
 	int retval;
 
 	memset(&snl, 0x00, sizeof(struct sockaddr_nl));
@@ -738,7 +738,7 @@ static int init_uevent_netlink_sock(void)
 	}
 
 	/* set receive buffersize */
-	setsockopt(uevent_netlink_sock, SOL_SOCKET, SO_RCVBUF, &buffersize, sizeof(buffersize));
+	setsockopt(uevent_netlink_sock, SOL_SOCKET, SO_RCVBUFFORCE, &buffersize, sizeof(buffersize));
 
 	retval = bind(uevent_netlink_sock, (struct sockaddr *) &snl,
 		      sizeof(struct sockaddr_nl));

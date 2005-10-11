@@ -53,6 +53,10 @@
 #define NETLINK_KOBJECT_UEVENT 15
 #endif
 
+#ifndef SO_RCVBUFFORCE
+#define SO_RCVBUFFORCE 33
+#endif
+
 #ifdef __KLIBC__
 static inline int clearenv(void)
 {
