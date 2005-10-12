@@ -611,7 +611,7 @@ static struct uevent_msg *get_netlink_msg(void)
 	pos[0] = '\0';
 
 	if (msg->action == NULL) {
-		err("no ACTION in payload found, skip event '%s'", buffer);
+		info("no ACTION in payload found, skip event '%s'", buffer);
 		free(msg);
 		return NULL;
 	}
@@ -865,7 +865,7 @@ int main(int argc, char *argv[], char *envp[])
 		if (errno == EADDRINUSE)
 			dbg("another udevd running, exit");
 		else
-			dbg("error initialising udevd socket: %s", strerror(errno));
+			dbg("error initializing udevd socket: %s", strerror(errno));
 
 		goto exit;
 	}
