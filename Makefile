@@ -206,7 +206,7 @@ endif
 
 ifeq ($(strip $(USE_SELINUX)),true)
 	UDEV_OBJS += udev_selinux.o
-	LIB_OBJS += -lselinux
+	LIB_OBJS += -lselinux -lsepol
 	CFLAGS += -DUSE_SELINUX
 endif
 
