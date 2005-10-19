@@ -1,3 +1,18 @@
+udev 071
+========
+Fix a stupid typo in extras/run_directory for "make install".
+
+scsi_id creates the temporary devnode now in /dev for usage with a
+non-writable /tmp directory.
+
+The uevent kernel socket buffer can carry app. 50.000 events now,
+let's see who can break this again. :)
+
+The upcoming kernel will have a new input driver core integration.
+Some class devices are now symlinks to the real device. libsysfs
+needs a fix for this to work correctly. Udevstart of older udev
+versions will _not_ create these devices!
+
 udev 070
 ========
 Fix a 'install' target in the Makefile, that prevents EXTRAS from

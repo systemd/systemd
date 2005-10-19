@@ -1,3 +1,36 @@
+Summary of changes from v70 to v071
+============================================
+
+Greg Kroah-Hartman:
+      Remove the udev.spec file as no one uses it anymore
+
+John Hull:
+      edd_id: check that EDD id is unique
+
+Kay Sievers:
+      ata_id: open volume O_NONBLOCK
+      add "Persistent Device Naming" rules file for disks
+      scsi_id: switch temporary node creation to /dev
+      volume_id: set reiser instead of reiserfs for filesystem type
+      update devfs rules header
+      update Debian rules
+      update Fedora rules
+      update Debian rules
+      remove no longer needed includes
+      switch tools and volume_id from LGPL to GPLv2
+      add edd-*-part%n to the persistent.rules
+      update Debian persistent rules
+      clarify README
+      udevd: fix initial timeout handling
+      force event socket buffer size to 16MB
+      udevd: move logging from err to info for non-hotplug uevent
+      fix selinux compilation
+      libsysfs: accept sysmlinks to directories instead of real directories
+
+Marco d'Itri:
+      run_directory: fix typo in "make install"
+
+
 Summary of changes from v069 to v070
 ============================================
 
