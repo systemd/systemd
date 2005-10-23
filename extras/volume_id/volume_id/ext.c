@@ -29,31 +29,53 @@
 #include "ext.h"
 
 struct ext2_super_block {
-	uint32_t	inodes_count;
-	uint32_t	blocks_count;
-	uint32_t	r_blocks_count;
-	uint32_t	free_blocks_count;
-	uint32_t	free_inodes_count;
-	uint32_t	first_data_block;
-	uint32_t	log_block_size;
-	uint32_t	dummy3[7];
-	uint8_t	magic[2];
-	uint16_t	state;
-	uint32_t	dummy5[8];
-	uint32_t	feature_compat;
-	uint32_t	feature_incompat;
-	uint32_t	feature_ro_compat;
-	uint8_t	uuid[16];
-	uint8_t	volume_name[16];
+	uint32_t	s_inodes_count;
+	uint32_t	s_blocks_count;
+	uint32_t	s_r_blocks_count;
+	uint32_t	s_free_blocks_count;
+	uint32_t	s_free_inodes_count;
+	uint32_t	s_first_data_block;
+	uint32_t	s_log_block_size;
+	uint32_t	s_log_frag_size;
+	uint32_t	s_blocks_per_group;
+	uint32_t	s_frags_per_group;
+	uint32_t	s_inodes_per_group;
+	uint32_t	s_mtime;
+	uint32_t	s_wtime;
+	uint16_t	s_mnt_count;
+	uint16_t	s_max_mnt_count;
+	uint16_t	s_magic;
+	uint16_t	s_state;
+	uint16_t	s_errors;
+	uint16_t	s_minor_rev_level;
+	uint32_t	s_lastcheck;
+	uint32_t	s_checkinterval;
+	uint32_t	s_creator_os;
+	uint32_t	s_rev_level;
+	uint16_t	s_def_resuid;
+	uint16_t	s_def_resgid;
+	uint32_t	s_first_ino;
+	uint16_t	s_inode_size;
+	uint16_t	s_block_group_nr;
+	uint32_t	s_feature_compat;
+	uint32_t	s_feature_incompat;
+	uint32_t	s_feature_ro_compat;
+	uint8_t		s_uuid[16];
+	uint8_t		s_volume_name[16];
 } __attribute__((__packed__));
 
+#define EXT_SUPER_MAGIC				0xEF53
 #define EXT3_FEATURE_COMPAT_HAS_JOURNAL		0x00000004
 #define EXT3_FEATURE_INCOMPAT_JOURNAL_DEV	0x00000008
 #define EXT_SUPERBLOCK_OFFSET			0x400
 
+#define EXT3_MIN_BLOCK_SIZE			0x400
+#define EXT3_MAX_BLOCK_SIZE			0x1000
+
 int volume_id_probe_ext(struct volume_id *id, uint64_t off)
 {
 	struct ext2_super_block *es;
+	size_t bsize;
 
 	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
@@ -61,16 +83,32 @@ int volume_id_probe_ext(struct volume_id *id, uint64_t off)
 	if (es == NULL)
 		return -1;
 
-	if (es->magic[0] != 0123 ||
-	    es->magic[1] != 0357)
+	if (es->s_magic != cpu_to_le16(EXT_SUPER_MAGIC))
 		return -1;
 
-	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
-	volume_id_set_label_raw(id, es->volume_name, 16);
-	volume_id_set_label_string(id, es->volume_name, 16);
-	volume_id_set_uuid(id, es->uuid, UUID_DCE);
+	bsize = 0x200 << le32_to_cpu(es->s_log_block_size);
+	dbg("ext blocksize 0x%zx", bsize);
+	if (bsize < EXT3_MIN_BLOCK_SIZE || bsize > EXT3_MAX_BLOCK_SIZE) {
+		dbg("invalid ext blocksize");
+		return -1;
+	}
 
-	if ((le32_to_cpu(es->feature_compat) & EXT3_FEATURE_COMPAT_HAS_JOURNAL) != 0)
+	volume_id_set_label_raw(id, es->s_volume_name, 16);
+	volume_id_set_label_string(id, es->s_volume_name, 16);
+	volume_id_set_uuid(id, es->s_uuid, UUID_DCE);
+	snprintf(id->type_version, sizeof(id->type_version)-1,
+		 "%u.%u", es->s_rev_level, es->s_minor_rev_level);
+
+	/* check for external journal device */
+	if ((le32_to_cpu(es->s_feature_incompat) & EXT3_FEATURE_INCOMPAT_JOURNAL_DEV) != 0) {
+		volume_id_set_usage(id, VOLUME_ID_OTHER);
+		id->type = "jbd";
+		return 0;
+	}
+
+	/* check for ext2 / ext3 */
+	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
+	if ((le32_to_cpu(es->s_feature_compat) & EXT3_FEATURE_COMPAT_HAS_JOURNAL) != 0)
 		id->type = "ext3";
 	else
 		id->type = "ext2";
