@@ -162,6 +162,9 @@ int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size)
 	if (volume_id_probe_ocfs2(id, off) == 0)
 		goto exit;
 
+	if (volume_id_probe_vxfs(id, off) == 0)
+		goto exit;
+
 	return -1;
 
 exit:
