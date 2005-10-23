@@ -58,7 +58,7 @@
 #include "minix.h"
 #include "mac.h"
 #include "msdos.h"
-#include "ocfs2.h"
+#include "ocfs.h"
 
 int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size)
 {
@@ -154,6 +154,9 @@ int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size)
 		goto exit;
 
 	if (volume_id_probe_minix(id, off) == 0)
+		goto exit;
+
+	if (volume_id_probe_ocfs1(id, off) == 0)
 		goto exit;
 
 	if (volume_id_probe_ocfs2(id, off) == 0)
