@@ -86,13 +86,6 @@ int volume_id_probe_ext(struct volume_id *id, uint64_t off)
 	if (es->s_magic != cpu_to_le16(EXT_SUPER_MAGIC))
 		return -1;
 
-	bsize = 0x200 << le32_to_cpu(es->s_log_block_size);
-	dbg("ext blocksize 0x%zx", bsize);
-	if (bsize < EXT3_MIN_BLOCK_SIZE || bsize > EXT3_MAX_BLOCK_SIZE) {
-		dbg("invalid ext blocksize");
-		return -1;
-	}
-
 	volume_id_set_label_raw(id, es->s_volume_name, 16);
 	volume_id_set_label_string(id, es->s_volume_name, 16);
 	volume_id_set_uuid(id, es->s_uuid, UUID_DCE);
@@ -104,6 +97,13 @@ int volume_id_probe_ext(struct volume_id *id, uint64_t off)
 		volume_id_set_usage(id, VOLUME_ID_OTHER);
 		id->type = "jbd";
 		return 0;
+	}
+
+	bsize = 0x200 << le32_to_cpu(es->s_log_block_size);
+	dbg("ext blocksize 0x%zx", bsize);
+	if (bsize < EXT3_MIN_BLOCK_SIZE || bsize > EXT3_MAX_BLOCK_SIZE) {
+		dbg("invalid ext blocksize");
+		return -1;
 	}
 
 	/* check for ext2 / ext3 */
