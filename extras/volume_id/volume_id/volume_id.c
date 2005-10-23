@@ -59,6 +59,7 @@
 #include "mac.h"
 #include "msdos.h"
 #include "ocfs.h"
+#include "vxfs.h"
 
 int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size)
 {
