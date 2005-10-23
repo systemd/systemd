@@ -13,7 +13,7 @@
 
 #include <stdint.h>
 
-#define VOLUME_ID_VERSION		50
+#define VOLUME_ID_VERSION		51
 
 #define VOLUME_ID_LABEL_SIZE		64
 #define VOLUME_ID_UUID_SIZE		36
