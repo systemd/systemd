@@ -138,7 +138,8 @@ int volume_id_probe_vfat(struct volume_id *id, uint64_t off)
 	uint32_t root_cluster;
 	uint32_t dir_size;
 	uint32_t cluster_count;
-	uint32_t fat_length;
+	uint16_t fat_length;
+	uint32_t fat32_length;
 	uint64_t root_start;
 	uint32_t start_data_sect;
 	uint16_t root_dir_entries;
@@ -222,11 +223,18 @@ valid:
 	dbg("sect_count 0x%x", sect_count);
 
 	fat_length = le16_to_cpu(vs->fat_length);
-	if (fat_length == 0)
-		fat_length = le32_to_cpu(vs->type.fat32.fat32_length);
 	dbg("fat_length 0x%x", fat_length);
+	fat32_length = le32_to_cpu(vs->type.fat32.fat32_length);
+	dbg("fat32_length 0x%x", fat32_length);
 
-	fat_size = fat_length * vs->fats;
+	if (fat_length)
+		fat_size = fat_length * vs->fats;
+	else if (fat32_length)
+		fat_size = fat32_length * vs->fats;
+	else
+		return -1;
+	dbg("fat_size 0x%x", fat_size);
+
 	dir_size = ((dir_entries * sizeof(struct vfat_dir_entry)) +
 			(sector_size-1)) / sector_size;
 	dbg("dir_size 0x%x", dir_size);
@@ -235,14 +243,17 @@ valid:
 	cluster_count /= vs->sectors_per_cluster;
 	dbg("cluster_count 0x%x", cluster_count);
 
-	if (cluster_count < FAT12_MAX) {
-		strcpy(id->type_version, "FAT12");
-	} else if (cluster_count < FAT16_MAX) {
-		strcpy(id->type_version, "FAT16");
-	} else {
-		strcpy(id->type_version, "FAT32");
+	/* must be FAT32 */
+	if (!fat_length && fat32_length)
 		goto fat32;
-	}
+
+	/* cluster_count tells us the format */
+	if (cluster_count < FAT12_MAX)
+		strcpy(id->type_version, "FAT12");
+	else if (cluster_count < FAT16_MAX)
+		strcpy(id->type_version, "FAT16");
+	else
+		goto fat32;
 
 	/* the label may be an attribute in the root directory */
 	root_start = (reserved + fat_size) * sector_size;
@@ -274,6 +285,8 @@ valid:
 	goto found;
 
 fat32:
+	strcpy(id->type_version, "FAT32");
+
 	/* FAT32 root dir is a cluster chain like any other directory */
 	buf_size = vs->sectors_per_cluster * sector_size;
 	root_cluster = le32_to_cpu(vs->type.fat32.root_cluster);
