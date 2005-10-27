@@ -1,3 +1,15 @@
+udev 072
+========
+The rule parsing happens now in the daemon once at startup, all udev
+event processes inherit the already parsed rules from the daemon.
+It is shipped with SUSE10.0 and reduces heavily the system load at
+startup.
+
+using 'make STRIPCMD=' will leave the binaries unstripped for debugging
+and packaging.
+
+A few improvements for vol_id, the filesytem probing code.
+
 udev 071
 ========
 Fix a stupid typo in extras/run_directory for "make install".

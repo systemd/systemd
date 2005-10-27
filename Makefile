@@ -169,7 +169,7 @@ endif
 # if DEBUG is enabled, then we do not strip
 ifeq ($(strip $(DEBUG)),true)
 	CFLAGS  += -DDEBUG
-	STRIPCMD = /bin/true unstripped binary
+	STRIPCMD =
 endif
 
 ifeq ($(strip $(USE_GCOV)),true)
@@ -233,7 +233,9 @@ all: $(KLCC) $(PROGRAMS) $(MAN_PAGES)
 # "Static Pattern Rule" to build all programs
 $(PROGRAMS): %: $(HOST_PROGS) $(KLCC) $(HEADERS) $(GEN_HEADERS) $(LIBSYSFS) $(LIBUDEV) %.o
 	$(QUIET) $(LD) $(LDFLAGS) $@.o -o $@ $(LIBUDEV) $(LIBSYSFS) $(LIB_OBJS)
+ifneq ($(strip $(STRIPCMD)),)
 	$(QUIET) $(STRIPCMD) $@
+endif
 
 # our own copy of klibc, it is not used if KLCC is given
 $(KLCC):
