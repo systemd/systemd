@@ -17,7 +17,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
-VERSION =	071
+VERSION = 071
 
 # set this to make use of syslog
 USE_LOG = true
@@ -42,10 +42,10 @@ USE_STATIC = false
 
 # to build any of the extras programs pass:
 #  make EXTRAS="extras/<extra1> extras/<extra2>"
-EXTRAS=
+EXTRAS =
 
 # make the build silent. Set this to something else to make it noisy again.
-V=false
+V = false
 
 PROGRAMS = \
 	udev				\
@@ -136,10 +136,7 @@ INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 PWD = $(shell pwd)
 
-# If you are running a cross compiler, you may want to set this
-# to something more interesting, like "arm-linux-".  If you want
-# to compile vs uClibc, that can be done here as well.
-CROSS = #/usr/i386-linux-uclibc/usr/bin/i386-uclibc-
+CROSS =
 CC = $(CROSS)gcc
 LD = $(CROSS)gcc
 AR = $(CROSS)ar
@@ -147,24 +144,17 @@ STRIP = $(CROSS)strip
 RANLIB = $(CROSS)ranlib
 HOSTCC = gcc
 
-# code taken from uClibc to determine the current arch
-ARCH := ${shell $(CC) -dumpmachine | sed -e s'/-.*//' -e 's/i.86/i386/' -e 's/sparc.*/sparc/' \
-	-e 's/arm.*/arm/g' -e 's/m68k.*/m68k/' -e 's/powerpc/ppc/g'}
-
-# determine the gcc include dir
-GCCINCDIR := ${shell LC_ALL=C $(CC) -print-search-dirs | sed -ne "s/install: \(.*\)/\1include/gp"}
-
-# determine the libgcc.a filename
-GCC_LIB := $(shell $(CC) -print-libgcc-file-name )
-
 # check if compiler option is supported
 cc-supports = ${shell if $(CC) ${1} -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi;}
 
-CFLAGS		+= -Wall -fno-builtin -Wchar-subscripts -Wpointer-arith \
-		   -Wstrict-prototypes -Wsign-compare
+CFLAGS		+= -g -Wall -pipe -fno-builtin -Wstrict-prototypes -Wsign-compare \
+		   -Wchar-subscripts -Wmissing-declarations -Wnested-externs \
+		   -Wpointer-arith -Wcast-align -Wsign-compare -Wmissing-prototypes \
+		   -Wshadow
 CFLAGS		+= $(call cc-supports, -Wdeclaration-after-statement, )
-CFLAGS		+= -pipe
 CFLAGS		+= -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
+
+LDFLAGS = -Wl,-warn-common
 
 # use '-Os' optimization if available, else use -O2
 OPTFLAGS := $(call cc-supports, -Os, -O2)
@@ -179,8 +169,7 @@ endif
 
 # if DEBUG is enabled, then we do not strip or optimize
 ifeq ($(strip $(DEBUG)),true)
-	CFLAGS  += -O1 -g -DDEBUG
-	LDFLAGS += -Wl
+	CFLAGS  += -DDEBUG
 	STRIPCMD = /bin/true -Since_we_are_debugging
 else
 	CFLAGS  += $(OPTFLAGS) -fomit-frame-pointer
@@ -190,7 +179,7 @@ endif
 
 ifeq ($(strip $(USE_GCOV)),true)
 	CFLAGS += -fprofile-arcs -ftest-coverage
-	LDFLAGS = -fprofile-arcs
+	LDFLAGS += -fprofile-arcs
 endif
 
 # if our own version of klibc is used, we need to build it
@@ -199,9 +188,6 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	KLCC		= $(KLIBC_INSTALL)/bin/$(CROSS)klcc
 	CC		= $(KLCC)
 	LD		= $(KLCC)
-else
-	CFLAGS		+= -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations
-	LDFLAGS		+= -Wl,-warn-common
 endif
 
 ifeq ($(strip $(USE_SELINUX)),true)
@@ -261,7 +247,6 @@ $(KLCC):
 			 INSTALLDIR=$(KLIBC_INSTALL) \
 			 bindir=$(KLIBC_INSTALL)/bin \
 			 mandir=$(KLIBC_INSTALL)/man all install
-	-find $(KLIBC_INSTALL)/include -name SCCS -print| xargs rm -rf
 .NOTPARALLEL: $(KLCC)
 
 $(UDEV_OBJS): $(KLCC)
