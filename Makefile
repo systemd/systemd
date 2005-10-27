@@ -125,9 +125,7 @@ udevdir =	/dev
 udevdb =	${udevdir}/.udevdb
 LOCAL_CFG_DIR =	etc/udev
 KERNEL_DIR =	/lib/modules/${shell uname -r}/build
-srcdir = .
 DESTDIR =
-RELEASE_NAME =	udev-$(VERSION)
 
 INSTALL = /usr/bin/install -c
 INSTALL_PROGRAM = ${INSTALL}
@@ -290,6 +288,7 @@ clean:
 	- find -name "*.gcov" -print0 | xargs -0rt rm -f
 	- rm -f udev_gcov.txt
 	- rm -f core $(PROGRAMS) $(GEN_HEADERS) $(GEN_CONFIGS)
+	- rm -f udev-$(VERSION).tar.gz
 	$(MAKE) -C klibc SUBDIRS=klibc clean
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
@@ -300,8 +299,8 @@ clean:
 .PHONY: clean
 
 release:
-	git-tar-tree HEAD $(RELEASE_NAME) | gzip -9v > $(RELEASE_NAME).tar.gz
-	@echo "$(RELEASE_NAME).tar.gz created"
+	git-tar-tree HEAD udev-$(VERSION) | gzip -9v > udev-$(VERSION).tar.gz
+	@echo "udev-$(VERSION).tar.gz created"
 .PHONY: release
 
 install-config: $(GEN_CONFIGS)
