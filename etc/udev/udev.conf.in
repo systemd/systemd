@@ -9,6 +9,8 @@ udev_db="@udevdir@/.udevdb"
 # The name and location of the udev rules file(s).
 udev_rules="@configdir@/rules.d"
 
-# The syslog(3) priority: "err", "info", or the numerical value.
+# The initial syslog(3) priority: "err", "info", "debug" or its
+# numerical equivalent. For runtime debugging, change the daemons
+# internal state with: "udevcontrol log_priority=<value>".
 udev_log="err"
 

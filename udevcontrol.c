@@ -89,6 +89,8 @@ int main(int argc, char *argv[], char *envp[])
 			usend_msg.type = UDEVD_STOP_EXEC_QUEUE;
 		else if (!strcmp(arg, "start_exec_queue"))
 			usend_msg.type = UDEVD_START_EXEC_QUEUE;
+		else if (!strcmp(arg, "reload_rules"))
+			usend_msg.type = UDEVD_RELOAD_RULES;
 		else if (!strncmp(arg, "log_priority=", strlen("log_priority="))) {
 			intval = (int *) usend_msg.envbuf;
 			val = &arg[strlen("log_priority=")];
@@ -106,6 +108,7 @@ int main(int argc, char *argv[], char *envp[])
 				"  log_priority=<level> set the udev log level for the daemon\n"
 				"  stop_exec_queue      keep udevd from executing events, queue only\n"
 				"  start_exec_queue     execute events, flush queue\n"
+				"  reload_rules         reloads the rules files\n"
 				"  max_childs=<N>       maximum number of childs running at the same time\n"
 				"  --help               print this help text\n\n");
 			exit(0);

@@ -39,6 +39,7 @@
 #include <sys/un.h>
 #include <sys/sysinfo.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <linux/types.h>
 #include <linux/netlink.h>
 
@@ -46,23 +47,26 @@
 #include "udev_libc_wrapper.h"
 #include "udev.h"
 #include "udev_version.h"
+#include "udev_rules.h"
 #include "udev_utils.h"
 #include "udevd.h"
 #include "logging.h"
 
 /* global variables*/
+struct udev_rules rules;
 static int udevd_sock;
 static int uevent_netlink_sock;
+static int inotify_fd;
 static pid_t sid;
 
 static int signal_pipe[2] = {-1, -1};
 static volatile int sigchilds_waiting;
 static volatile int run_msg_q;
 static volatile int udev_exit;
+static volatile int reload_config;
 static int init_phase = 1;
 static int run_exec_q;
 static int stop_exec_q;
-static char *udev_bin;
 static int event_timeout;
 static int max_childs;
 static int max_childs_running;
@@ -75,7 +79,7 @@ static LIST_HEAD(running_list);
 
 
 #ifdef USE_LOG
-void log_message (int priority, const char *format, ...)
+void log_message(int priority, const char *format, ...)
 {
 	va_list args;
 
@@ -151,10 +155,55 @@ static void msg_queue_insert(struct uevent_msg *msg)
 	return;
 }
 
-/* forks event and removes event from run queue when finished */
+static void asmlinkage udev_event_sig_handler(int signum)
+{
+	if (signum == SIGALRM)
+		exit(1);
+}
+
+static int udev_event_process(struct uevent_msg *msg)
+{
+	struct sigaction act;
+	struct udevice udev;
+	struct name_entry *name_loop;
+	int i;
+	int retval;
+
+	/* set signal handlers */
+	memset(&act, 0x00, sizeof(act));
+	act.sa_handler = (void (*)(int)) udev_event_sig_handler;
+	sigemptyset (&act.sa_mask);
+	act.sa_flags = 0;
+	sigaction(SIGALRM, &act, NULL);
+
+	/* trigger timeout to prevent hanging processes */
+	alarm(UDEV_ALARM_TIMEOUT);
+
+	/* reconstruct env from message */
+	for (i = 0; msg->envp[i]; i++)
+		putenv(msg->envp[i]);
+
+	udev_init_device(&udev, msg->devpath, msg->subsystem, msg->action);
+	retval = udev_process_event(&rules, &udev);
+
+	/* run programs collected by RUN-key*/
+	if (!retval) {
+		list_for_each_entry(name_loop, &udev.run_list, node) {
+			if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0)
+				pass_env_to_socket(&name_loop->name[strlen("socket:")], msg->devpath, msg->action);
+			else
+				run_program(name_loop->name, udev.subsystem, NULL, 0, NULL, (udev_log_priority >= LOG_INFO));
+		}
+	}
+
+	udev_cleanup_device(&udev);
+
+	return 0;
+}
+
+/* runs event and removes event from run queue when finished */
 static void udev_event_run(struct uevent_msg *msg)
 {
-	char *const argv[] = { "udev", msg->subsystem, NULL };
 	pid_t pid;
 	struct sysinfo info;
 
@@ -162,14 +211,22 @@ static void udev_event_run(struct uevent_msg *msg)
 	switch (pid) {
 	case 0:
 		/* child */
-		if (uevent_netlink_sock != -1)
+		if (uevent_netlink_sock > 0)
 			close(uevent_netlink_sock);
+		if (inotify_fd > 0)
+			close(inotify_fd);
 		close(udevd_sock);
+		close(signal_pipe[READ_END]);
+		close(signal_pipe[WRITE_END]);
 		logging_close();
+
+		logging_init("udevd-event");
 		setpriority(PRIO_PROCESS, 0, UDEV_PRIORITY);
-		execve(udev_bin, argv, msg->envp);
-		err("exec of child failed");
-		_exit(1);
+		udev_event_process(msg);
+		info("seq %llu finished", msg->seqnum);
+
+		logging_close();
+		exit(0);
 	case -1:
 		err("fork of child failed");
 		msg_queue_delete(msg);
@@ -421,9 +478,8 @@ recheck:
 		if (msg_age >= timeout) {
 			msg_move_exec(loop_msg);
 			goto recheck;
-		} else {
+		} else
 			break;
-		}
 	}
 
 	msg_dump_queue();
@@ -567,6 +623,10 @@ static struct uevent_msg *get_udevd_msg(void)
 		info("udevd message (UDEVD_SET_MAX_CHILDS) received, max_childs=%i", *intval);
 		max_childs = *intval;
 		break;
+	case UDEVD_RELOAD_RULES:
+		info("udevd message (RELOAD_RULES) received");
+		reload_config = 1;
+		break;
 	default:
 		dbg("unknown message type");
 	}
@@ -639,6 +699,9 @@ static void asmlinkage sig_handler(int signum)
 		case SIGCHLD:
 			/* set flag, then write to pipe if needed */
 			sigchilds_waiting = 1;
+			break;
+		case SIGHUP:
+			reload_config = 1;
 			break;
 	}
 
@@ -838,17 +901,11 @@ int main(int argc, char *argv[], char *envp[])
 		err("error fcntl on read pipe: %s", strerror(errno));
 		goto exit;
 	}
-	retval = fcntl(signal_pipe[READ_END], F_SETFD, FD_CLOEXEC);
-	if (retval < 0)
-		err("error fcntl on read pipe: %s", strerror(errno));
 	retval = fcntl(signal_pipe[WRITE_END], F_SETFL, O_NONBLOCK);
 	if (retval < 0) {
 		err("error fcntl on write pipe: %s", strerror(errno));
 		goto exit;
 	}
-	retval = fcntl(signal_pipe[WRITE_END], F_SETFD, FD_CLOEXEC);
-	if (retval < 0)
-		err("error fcntl on write pipe: %s", strerror(errno));
 
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(struct sigaction));
@@ -861,6 +918,9 @@ int main(int argc, char *argv[], char *envp[])
 	sigaction(SIGCHLD, &act, NULL);
 	sigaction(SIGHUP, &act, NULL);
 
+	/* parse the rules and keep it in memory */
+	udev_rules_init(&rules, 0, 1);
+
 	if (init_udevd_socket() < 0) {
 		if (errno == EADDRINUSE)
 			dbg("another udevd running, exit");
@@ -871,14 +931,12 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	if (init_uevent_netlink_sock() < 0)
-		info("uevent socket not available");
+		err("uevent socket not available");
 
-	/* override of forked udev binary, used for testing */
-	udev_bin = getenv("UDEV_BIN");
-	if (udev_bin != NULL)
-		info("udev binary is set to '%s'", udev_bin);
-	else
-		udev_bin = UDEV_BIN;
+	/* watch rules directory */
+	inotify_fd = inotify_init();
+	if (inotify_fd > 0)
+		inotify_add_watch(inotify_fd, udev_rules_filename, IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
 
 	/* init of expected_seqnum value */
 	value = getenv("UDEVD_EXPECTED_SEQNUM");
@@ -911,6 +969,9 @@ int main(int argc, char *argv[], char *envp[])
 		max_childs_running = UDEVD_MAX_CHILDS_RUNNING;
 	info("initialize max_childs_running to %u", max_childs_running);
 
+	/* clear environment for forked event processes */
+	clearenv();
+
 	/* export log_priority , as called programs may want to follow that setting */
 	sprintf(udev_log, "UDEV_LOG=%i", udev_log_priority);
 	putenv(udev_log);
@@ -924,8 +985,10 @@ int main(int argc, char *argv[], char *envp[])
 		FD_SET(udevd_sock, &readfds);
 		if (uevent_netlink_sock > 0)
 			FD_SET(uevent_netlink_sock, &readfds);
+		if (inotify_fd > 0)
+			FD_SET(inotify_fd, &readfds);
 
-		fdcount = select(UDEV_MAX(udevd_sock, uevent_netlink_sock)+1, &readfds, NULL, NULL, NULL);
+		fdcount = select(UDEV_MAX(uevent_netlink_sock, inotify_fd)+1, &readfds, NULL, NULL, NULL);
 		if (fdcount < 0) {
 			if (errno != EINTR)
 				dbg("error in select: %s", strerror(errno));
@@ -965,6 +1028,33 @@ int main(int argc, char *argv[], char *envp[])
 			read(signal_pipe[READ_END], &buf, sizeof(buf));
 		}
 
+		/* rules directory inotify watch */
+		if ((inotify_fd > 0) && FD_ISSET(inotify_fd, &readfds)) {
+			int nbytes;
+
+			/* discard all possible events, we can just reload the config */
+			if ((ioctl(inotify_fd, FIONREAD, &nbytes) == 0) && nbytes) {
+				char *buf;
+
+				reload_config = 1;
+				buf = malloc(nbytes);
+				if (!buf) {
+					err("error getting buffer for inotify, disable watching");
+					close(inotify_fd);
+					inotify_fd = -1;
+				}
+				read(inotify_fd, buf, nbytes);
+				free(buf);
+			}
+		}
+
+		/* rules changed, set by inotify or a signal*/
+		if (reload_config) {
+			reload_config = 0;
+			udev_rules_close(&rules);
+			udev_rules_init(&rules, 0, 1);
+		}
+
 		/* forked child have returned */
 		if (sigchilds_waiting) {
 			sigchilds_waiting = 0;
@@ -990,6 +1080,8 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 exit:
+	udev_rules_close(&rules);
+
 	if (signal_pipe[READ_END] > 0)
 		close(signal_pipe[READ_END]);
 	if (signal_pipe[WRITE_END] > 0)
@@ -997,6 +1089,8 @@ exit:
 
 	if (udevd_sock > 0)
 		close(udevd_sock);
+	if (inotify_fd > 0)
+		close(inotify_fd);
 	if (uevent_netlink_sock > 0)
 		close(uevent_netlink_sock);
 
