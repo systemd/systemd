@@ -67,7 +67,7 @@ static int event_timeout;
 static int max_childs;
 static int max_childs_running;
 static unsigned long long expected_seqnum;
-static char log[32];
+static char udev_log[32];
 
 static LIST_HEAD(msg_list);
 static LIST_HEAD(exec_list);
@@ -559,8 +559,8 @@ static struct uevent_msg *get_udevd_msg(void)
 		intval = (int *) usend_msg.envbuf;
 		info("udevd message (SET_LOG_PRIORITY) received, udev_log_priority=%i", *intval);
 		udev_log_priority = *intval;
-		sprintf(log, "UDEV_LOG=%i", udev_log_priority);
-		putenv(log);
+		sprintf(udev_log, "UDEV_LOG=%i", udev_log_priority);
+		putenv(udev_log);
 		break;
 	case UDEVD_SET_MAX_CHILDS:
 		intval = (int *) usend_msg.envbuf;
@@ -912,8 +912,8 @@ int main(int argc, char *argv[], char *envp[])
 	info("initialize max_childs_running to %u", max_childs_running);
 
 	/* export log_priority , as called programs may want to follow that setting */
-	sprintf(log, "UDEV_LOG=%i", udev_log_priority);
-	putenv(log);
+	sprintf(udev_log, "UDEV_LOG=%i", udev_log_priority);
+	putenv(udev_log);
 
 	while (!udev_exit) {
 		struct uevent_msg *msg;

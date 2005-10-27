@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "error receiving uevent message\n");
 				continue;
 			}
-			printf("UEVENT[%i] %s\n", time(NULL), buf);
+			printf("UEVENT[%llu] %s\n", (unsigned long long) time(NULL), buf);
 		}
 
 		if ((udev_monitor_sock > 0) && FD_ISSET(udev_monitor_sock, &readfds)) {
@@ -190,7 +190,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "error receiving udev message\n");
 				continue;
 			}
-			printf("UDEV  [%i] %s\n", time(NULL), buf);
+			printf("UDEV  [%llu] %s\n", (unsigned long long) time(NULL), buf);
 		}
 
 		if (buflen == 0)

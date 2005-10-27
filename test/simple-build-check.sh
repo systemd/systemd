@@ -17,12 +17,12 @@ echo KERNEL_DIR: "$KERNEL_DIR"
 
 # with debug
 make clean EXTRAS="$EXTRAS" >/dev/null
-make all -j4 $MAKEOPTS DEBUG=true EXTRAS="$EXTRAS"  || exit
+make all -j4 $MAKEOPTS DEBUG=true EXTRAS="$EXTRAS" || exit
 echo -e "\n\n"
 
 # without any logging
 make clean EXTRAS="$EXTRAS" >/dev/null
-make all $MAKEOPTS USE_LOG=false EXTRAS="$EXTRAS"  || exit
+make all $MAKEOPTS USE_LOG=false EXTRAS="$EXTRAS" || exit
 echo -e "\n\n"
 
 # klibc and debug

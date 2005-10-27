@@ -437,7 +437,7 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 					char owner[32];
 					uid_t uid = lookup_user(value);
 					dbg("replacing username='%s' by id=%i", value, uid);
-					sprintf(owner, "%li", uid);
+					sprintf(owner, "%u", (unsigned int) uid);
 					add_rule_key(rule, &rule->owner, operation, owner);
 					continue;
 				}
@@ -456,7 +456,7 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 					char group[32];
 					gid_t gid = lookup_group(value);
 					dbg("replacing groupname='%s' by id=%i", value, gid);
-					sprintf(group, "%li", gid);
+					sprintf(group, "%u", (unsigned int) gid);
 					add_rule_key(rule, &rule->group, operation, group);
 					continue;
 				}

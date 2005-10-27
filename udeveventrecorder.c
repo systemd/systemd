@@ -37,14 +37,14 @@
 #define BUFSIZE 12345
 #define FNSIZE  123
 
-static int log = 0;
+static int udev_log = 0;
 
 #ifdef USE_LOG
 void log_message (int priority, const char *format, ...)
 {
 	va_list	args;
 
-	if (priority > log)
+	if (priority > udev_log)
 		return;
 
 	va_start(args, format);
@@ -67,7 +67,7 @@ int main(int argc, char **argv, char **envp)
 
 	env = getenv("UDEV_LOG");
 	if (env)
-		log = log_priority(env);
+		udev_log = log_priority(env);
 
 	logging_init("udeveventrecorder");
 	dbg("version %s", UDEV_VERSION);
