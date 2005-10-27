@@ -31,11 +31,6 @@ Q: But udev will not automatically load a driver if a /dev node is opened
 A: Right, but Linux is supposed to load a module when a device is discovered
    not to load a module when it's accessed.
 
-Q: But wait, I really want udev to automatically load drivers when they
-   are not present but the device node is opened.  It's the only reason I
-   like using devfs.  Please make udev do this.
-A: No. udev is for managing /dev, not loading kernel drivers.
-
 Q: Oh come on, pretty please.  It can't be that hard to do.
 A: Such a functionality isn't needed on a properly configured system. All
    devices present on the system should generate hotplug events, loading
