@@ -34,7 +34,9 @@ all: $(PROG) $(MAN_PAGES)
 
 $(PROG): %: $(HEADERS) %.o $(OBJS)
 	$(QUIET) $(LD) $(LDFLAGS) $@.o $(OBJS) -o $@ $(LIBUDEV) $(LIBSYSFS) $(LIB_OBJS)
+ifneq ($(strip $(STRIPCMD)),)
 	$(QUIET) $(STRIPCMD) $@
+endif
 
 # man pages
 %.8: %.xml

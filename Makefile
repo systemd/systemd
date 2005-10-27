@@ -233,7 +233,7 @@ all: $(KLCC) $(PROGRAMS) $(MAN_PAGES)
 # "Static Pattern Rule" to build all programs
 $(PROGRAMS): %: $(HOST_PROGS) $(KLCC) $(HEADERS) $(GEN_HEADERS) $(LIBSYSFS) $(LIBUDEV) %.o
 	$(QUIET) $(LD) $(LDFLAGS) $@.o -o $@ $(LIBUDEV) $(LIBSYSFS) $(LIB_OBJS)
-ifneq ($(strip $(STRIPCMD)),)
+ifneq ($(STRIPCMD),)
 	$(QUIET) $(STRIPCMD) $@
 endif
 
