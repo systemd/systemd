@@ -78,7 +78,7 @@ install-man:
 .PHONY: uninstall-man
 
 uninstall-man:
-	-rm -f $(mandir)/man8/scsi_id.8
+	-rm -f $(DESTDIR)$(mandir)/man8/scsi_id.8
 .PHONY: uninstall-man
 
 install-config:

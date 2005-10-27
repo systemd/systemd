@@ -188,6 +188,7 @@ ifeq ($(strip $(USE_KLIBC)),true)
 	KLCC		= $(KLIBC_INSTALL)/bin/$(CROSS)klcc
 	CC		= $(KLCC)
 	LD		= $(KLCC)
+	V = true
 endif
 
 ifeq ($(strip $(USE_SELINUX)),true)
@@ -212,8 +213,7 @@ endif
 all: $(KLCC) $(PROGRAMS) $(MAN_PAGES)
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
-		$(MAKE) prefix=$(prefix) \
-			CC="$(CC)" \
+		$(MAKE) CC="$(CC)" \
 			CFLAGS="$(CFLAGS)" \
 			LD="$(LD)" \
 			LDFLAGS="$(LDFLAGS)" \
@@ -296,16 +296,13 @@ clean:
 	$(MAKE) -C klibc SUBDIRS=klibc clean
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
-		$(MAKE) prefix=$(prefix) -C $$target $@; \
+		$(MAKE) -C $$target $@; \
 	done;
-.PHONY: clean
-
-spotless: clean
 	$(MAKE) -C klibc SUBDIRS=klibc spotless
 	rm -rf klibc/.install
-.PHONY: spotless
+.PHONY: clean
 
-release: spotless
+release:
 	git-tar-tree HEAD $(RELEASE_NAME) | gzip -9v > $(RELEASE_NAME).tar.gz
 	@echo "$(RELEASE_NAME).tar.gz created"
 .PHONY: release
@@ -323,7 +320,7 @@ install-config: $(GEN_CONFIGS)
 	fi
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
-		$(MAKE) prefix=$(prefix) -C $$target $@; \
+		$(MAKE) -C $$target $@; \
 	done;
 .PHONY: install-config
 
@@ -338,22 +335,22 @@ install-man:
 	- ln -f -s udevd.8 $(DESTDIR)$(mandir)/man8/udevcontrol.8
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
-		$(MAKE) prefix=$(prefix) -C $$target $@; \
+		$(MAKE) -C $$target $@; \
 	done;
 .PHONY: install-man
 
 uninstall-man:
-	- rm -f $(mandir)/man8/udev.8
-	- rm -f $(mandir)/man8/udevinfo.8
-	- rm -f $(mandir)/man8/udevtest.8
-	- rm -f $(mandir)/man8/udevstart.8
-	- rm -f $(mandir)/man8/udevd.8
-	- rm -f $(mandir)/man8/udevmonitor.8
-	- rm -f $(mandir)/man8/udevsend.8
-	- rm -f $(mandir)/man8/udevcontrol.8
+	- rm -f $(DESTDIR)$(mandir)/man8/udev.8
+	- rm -f $(DESTDIR)$(mandir)/man8/udevinfo.8
+	- rm -f $(DESTDIR)$(mandir)/man8/udevtest.8
+	- rm -f $(DESTDIR)$(mandir)/man8/udevstart.8
+	- rm -f $(DESTDIR)$(mandir)/man8/udevd.8
+	- rm -f $(DESTDIR)$(mandir)/man8/udevmonitor.8
+	- rm -f $(DESTDIR)$(mandir)/man8/udevsend.8
+	- rm -f $(DESTDIR)$(mandir)/man8/udevcontrol.8
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
-		$(MAKE) prefix=$(prefix) -C $$target $@; \
+		$(MAKE) -C $$target $@; \
 	done;
 .PHONY: uninstall-man
 
@@ -369,7 +366,7 @@ install-bin:
 	$(INSTALL_PROGRAM) -D udevstart $(DESTDIR)$(sbindir)/udevstart
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
-		$(MAKE) prefix=$(prefix) -C $$target $@; \
+		$(MAKE) -C $$target $@; \
 	done;
 ifndef DESTDIR
 	- killall udevd
@@ -379,21 +376,23 @@ endif
 .PHONY: install-bin
 
 uninstall-bin:
-	- rm -f $(sbindir)/udev
-	- rm -f $(sbindir)/udevd
-	- rm -f $(sbindir)/udevsend
-	- rm -f $(sbindir)/udevinitsend
-	- rm -f $(sbindir)/udeveventrecoreder
-	- rm -f $(sbindir)/udevcontrol
-	- rm -f $(sbindir)/udevstart
-	- rm -f $(usrsbindir)/udevmonitor
+	- rm -f $(DESTDIR)$(sbindir)/udev
+	- rm -f $(DESTDIR)$(sbindir)/udevd
+	- rm -f $(DESTDIR)$(sbindir)/udevsend
+	- rm -f $(DESTDIR)$(sbindir)/udevinitsend
+	- rm -f $(DESTDIR)$(sbindir)/udeveventrecoreder
+	- rm -f $(DESTDIR)$(sbindir)/udevcontrol
+	- rm -f $(DESTDIR)$(sbindir)/udevstart
+	- rm -f $(DESTDIR)$(usrsbindir)/udevmonitor
 	- rm -f $(usrbindir)/udevinfo
-	- rm -f $(usrbindir)/udevtest
-	- rm -rf $(udevdb)
+	- rm -f $(DESTDIR)$(DESTDIR)$(usrbindir)/udevtest
+ifndef DESTDIR
 	- killall udevd
+	- rm -rf $(udevdb)
+endif
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
-		$(MAKE) prefix=$(prefix) -C $$target $@; \
+		$(MAKE) -C $$target $@; \
 	done;
 .PHONY: uninstall-bin
 
