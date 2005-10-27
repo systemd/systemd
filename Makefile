@@ -28,7 +28,6 @@ USE_LOG = true
 DEBUG = false
 
 # compile with gcc's code coverage option
-# (use it with DEBUG, works only with glibc)
 USE_GCOV = false
 
 # include Security-Enhanced Linux support
@@ -140,24 +139,26 @@ CROSS =
 CC = $(CROSS)gcc
 LD = $(CROSS)gcc
 AR = $(CROSS)ar
-STRIP = $(CROSS)strip
 RANLIB = $(CROSS)ranlib
 HOSTCC = gcc
+STRIP = $(CROSS)strip
+STRIPCMD = $(STRIP) -s
 
 # check if compiler option is supported
 cc-supports = ${shell if $(CC) ${1} -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi;}
 
-CFLAGS		+= -g -Wall -pipe -fno-builtin -Wstrict-prototypes -Wsign-compare \
-		   -Wchar-subscripts -Wmissing-declarations -Wnested-externs \
-		   -Wpointer-arith -Wcast-align -Wsign-compare -Wmissing-prototypes \
-		   -Wshadow
-CFLAGS		+= $(call cc-supports, -Wdeclaration-after-statement, )
-CFLAGS		+= -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
+CFLAGS		= -g -Wall -pipe -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
+WARNINGS	= -Wstrict-prototypes -Wsign-compare -Wshadow \
+		  -Wchar-subscripts -Wmissing-declarations -Wnested-externs \
+		  -Wpointer-arith -Wcast-align -Wsign-compare -Wmissing-prototypes
+WARNINGS	+= $(call cc-supports, -Wdeclaration-after-statement, )
+CFLAGS		+= $(WARNINGS)
 
 LDFLAGS = -Wl,-warn-common
 
-# use '-Os' optimization if available, else use -O2
+# use -Os optimization if available, else use -O2
 OPTFLAGS := $(call cc-supports, -Os, -O2)
+CFLAGS += $(OPTFLAGS)
 
 # include our local copy of libsysfs
 CFLAGS +=	-I$(PWD)/libsysfs/sysfs	\
@@ -167,14 +168,10 @@ ifeq ($(strip $(USE_LOG)),true)
 	CFLAGS += -DUSE_LOG
 endif
 
-# if DEBUG is enabled, then we do not strip or optimize
+# if DEBUG is enabled, then we do not strip
 ifeq ($(strip $(DEBUG)),true)
 	CFLAGS  += -DDEBUG
-	STRIPCMD = /bin/true -Since_we_are_debugging
-else
-	CFLAGS  += $(OPTFLAGS) -fomit-frame-pointer
-	LDFLAGS += -s -Wl
-	STRIPCMD = $(STRIP) -s --remove-section=.note --remove-section=.comment
+	STRIPCMD = /bin/true unstripped binary
 endif
 
 ifeq ($(strip $(USE_GCOV)),true)
@@ -412,7 +409,7 @@ buildtest:
 .PHONY: buildtest
 
 gcov-all:
-	$(MAKE) clean all DEBUG=true USE_GCOV=true
+	$(MAKE) clean all STRIPCMD= USE_GCOV=true
 	@echo
 	@echo "binaries built with gcov support."
 	@echo "run the tests and analyze with 'make udev_gcov.txt'"
