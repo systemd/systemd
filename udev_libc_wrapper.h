@@ -66,10 +66,22 @@
 # define __NR_inotify_add_watch	291
 # define __NR_inotify_rm_watch	292
 #else
-# error "Unsupported architecture!"
+#warning "inotify unsupported on this architecture!"
 #endif
 #endif /* __NR_inotify_init */
 
+/* dummy if we don't have the syscalls defined */
+#ifndef __NR_inotify_init
+static inline int inotify_init(void)
+{
+	return -1;
+}
+
+static inline int inotify_add_watch(int fd, const char *name, uint32_t mask)
+{
+	return -1;
+}
+#else
 /* needed until /usr/include/sys/inotify.h is working */
 #ifdef __KLIBC__
 #include <sys/inotify.h>
@@ -83,13 +95,17 @@ static inline int inotify_add_watch(int fd, const char *name, uint32_t mask)
 {
 	return syscall(__NR_inotify_add_watch, fd, name, mask);
 }
+#endif /* __KLIBC__ */
+#endif /* __NR_inotify_init */
+
+#ifndef IN_CREATE
 #define IN_CREATE		0x00000100	/* Subfile was created */
 #define IN_MOVED_FROM		0x00000040	/* File was moved from X */
 #define IN_MOVED_TO		0x00000080	/* File was moved to Y */
 #define IN_DELETE		0x00000200	/* Subfile was deleted */
 #define IN_CLOSE_WRITE		0x00000008	/* Writtable file was closed */
 #define IN_MOVE			(IN_MOVED_FROM | IN_MOVED_TO) /* moves */
-#endif /* __KLIBC__ */
+#endif /* IN_CREATE */
 
 /* needed for our signal handlers to work */
 #undef asmlinkage
