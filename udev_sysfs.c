@@ -35,30 +35,6 @@
 #include "logging.h"
 
 /* list of subsystem specific files, NULL if there is no file to wait for */
-static const struct subsystem_file {
-	const char *subsystem;
-	const char *file;
-} subsystem_files[] = {
-	{ .subsystem = "class",		.file = NULL },
-	{ .subsystem = "net",		.file = "ifindex" },
-	{ .subsystem = "scsi_host",	.file = "unique_id" },
-	{ .subsystem = "scsi_device",	.file = NULL },
-	{ .subsystem = "pcmcia_socket",	.file = "card_type" },
-	{ .subsystem = "usb_host",	.file = NULL },
-	{ .subsystem = "bluetooth",	.file = "address" },
-	{ .subsystem = "firmware",	.file = "data" },
-	{ .subsystem = "i2c-adapter",	.file = NULL },
-	{ .subsystem = "pci_bus",	.file = NULL },
-	{ .subsystem = "ieee1394",	.file = NULL },
-	{ .subsystem = "ieee1394_host",	.file = NULL },
-	{ .subsystem = "ieee1394_node",	.file = NULL },
-	{ .subsystem = "fc_transport",	.file = "port_id" },
-	{ .subsystem = "fc_host",	.file = "port_id" },
-	{ .subsystem = "spi_transport",	.file = "width" },
-	{ .subsystem = "spi_host",	.file = "width" },
-	{ NULL, NULL }
-};
-
 dev_t get_devt(struct sysfs_class_device *class_dev)
 {
 	struct sysfs_attribute *attr = NULL;
@@ -74,215 +50,6 @@ dev_t get_devt(struct sysfs_class_device *class_dev)
 	dbg("found major=%d, minor=%d", major, minor);
 
 	return makedev(major, minor);
-}
-
-int subsystem_expect_no_dev(const char *subsystem)
-{
-	const struct subsystem_file *file;
-
-	for (file = subsystem_files; file->subsystem != NULL; file++)
-		if (strcmp(subsystem, file->subsystem) == 0)
-			return 1;
-
-	return 0;
-}
-
-/* get subsystem specific files, returns "dev" if no other found */
-static const char *get_subsystem_specific_file(const char *subsystem)
-{
-	const struct subsystem_file *file;
-
-	/* look if we want to look for another file instead of "dev" */
-	for (file = subsystem_files; file->subsystem != NULL; file++)
-		if (strcmp(subsystem, file->subsystem) == 0)
-			return file->file;
-
-	return "dev";
-}
-
-/* wait for class pecific file to show up */
-static int wait_for_class_device_attributes(struct sysfs_class_device *class_dev,
-					    const char **error)
-{
-	const char *file;
-	char filename[PATH_SIZE];
-	int loop;
-
-	file = get_subsystem_specific_file(class_dev->classname);
-	if (file == NULL) {
-		dbg("class '%s' has no file to wait for", class_dev->classname);
-		return 0;
-	}
-
-	snprintf(filename, sizeof(filename), "%s/%s", class_dev->path, file);
-	filename[sizeof(filename)-1] = '\0';
-	dbg("looking at class '%s' for specific file '%s'", class_dev->classname, filename);
-
-	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
-	while (--loop) {
-		struct stat stats;
-
-		if (stat(class_dev->path, &stats) == -1) {
-			dbg("'%s' now disappeared (probably remove has beaten us)", class_dev->path);
-			return -ENODEV;
-		}
-
-		if (stat(filename, &stats) == 0) {
-			dbg("class '%s' specific file '%s' found", class_dev->classname, file);
-			return 0;
-		}
-
-		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
-	}
-
-	dbg("error: getting class '%s' specific file '%s'", class_dev->classname, file);
-	if (error)
-		*error = "class specific file unavailable";
-	return -ENOENT;
-}
-
-/* check if we need to wait for a physical device */
-static int class_device_expect_no_device_link(struct sysfs_class_device *class_dev)
-{
-	/* list of devices without a "device" symlink to the physical device
-	 * if device is set to NULL, no devices in that subsystem has a link */
-	static const struct class_device {
-		const char *subsystem;
-		const char *device;
-	} class_device[] = {
-		{ .subsystem = "block",		.device = "double" },
-		{ .subsystem = "block",		.device = "nb" },
-		{ .subsystem = "block",		.device = "ram" },
-		{ .subsystem = "block",		.device = "loop" },
-		{ .subsystem = "block",		.device = "fd" },
-		{ .subsystem = "block",		.device = "md" },
-		{ .subsystem = "block",		.device = "dos_cd" },
-		{ .subsystem = "block",		.device = "rflash" },
-		{ .subsystem = "block",		.device = "rom" },
-		{ .subsystem = "block",		.device = "rrom" },
-		{ .subsystem = "block",		.device = "flash" },
-		{ .subsystem = "block",		.device = "msd" },
-		{ .subsystem = "block",		.device = "sbpcd" },
-		{ .subsystem = "block",		.device = "pcd" },
-		{ .subsystem = "block",		.device = "pf" },
-		{ .subsystem = "block",		.device = "scd" },
-		{ .subsystem = "block",		.device = "ubd" },
-		{ .subsystem = "block",		.device = "dm-" },
-		{ .subsystem = "block",		.device = "bcrypt" },
-		{ .subsystem = "input",		.device = "event" },
-		{ .subsystem = "input",		.device = "mice" },
-		{ .subsystem = "input",		.device = "mouse" },
-		{ .subsystem = "input",		.device = "ts" },
-		{ .subsystem = "input",		.device = "js" },
-		{ .subsystem = "vc",		.device = NULL },
-		{ .subsystem = "tty",		.device = NULL },
-		{ .subsystem = "cpuid",		.device = "cpu" },
-		{ .subsystem = "graphics",	.device = "fb" },
-		{ .subsystem = "mem",		.device = NULL },
-		{ .subsystem = "misc",		.device = NULL },
-		{ .subsystem = "msr",		.device = NULL },
-		{ .subsystem = "netlink",	.device = NULL },
-		{ .subsystem = "net",		.device = "sit" },
-		{ .subsystem = "net",		.device = "lo" },
-		{ .subsystem = "net",		.device = "tap" },
-		{ .subsystem = "net",		.device = "ipsec" },
-		{ .subsystem = "net",		.device = "dummy" },
-		{ .subsystem = "net",		.device = "irda" },
-		{ .subsystem = "net",		.device = "ppp" },
-		{ .subsystem = "net",		.device = "tun" },
-		{ .subsystem = "net",		.device = "pan" },
-		{ .subsystem = "net",		.device = "bnep" },
-		{ .subsystem = "net",		.device = "vmnet" },
-		{ .subsystem = "net",		.device = "ippp" },
-		{ .subsystem = "net",		.device = "nlv" },
-		{ .subsystem = "net",		.device = "atml" },
-		{ .subsystem = "ppp",		.device = NULL },
-		{ .subsystem = "sound",		.device = NULL },
-		{ .subsystem = "printer",	.device = "lp" },
-		{ .subsystem = "ppdev",		.device = NULL },
-		{ .subsystem = "nvidia",	.device = NULL },
-		{ .subsystem = "video4linux",	.device = "vbi" },
-		{ .subsystem = "dvb",		.device = NULL },
-		{ .subsystem = "lirc",		.device = NULL },
-		{ .subsystem = "firmware",	.device = NULL },
-		{ .subsystem = "drm",		.device = NULL },
-		{ .subsystem = "pci_bus",	.device = NULL },
-		{ .subsystem = "ieee1394",	.device = NULL },
-		{ .subsystem = "ieee1394_host",	.device = NULL },
-		{ .subsystem = "ieee1394_node",	.device = NULL },
-		{ .subsystem = "raw",		.device = NULL },
-		{ .subsystem = "zaptel",	.device = NULL },
-		{ .subsystem = "tiglusb",	.device = NULL },
-		{ .subsystem = "ppdev",		.device = NULL },
-		{ .subsystem = "ticables",	.device = NULL },
-		{ .subsystem = "snsc",		.device = NULL },
-		{ .subsystem = "staliomem",	.device = NULL },
-		{ .subsystem = "tape",		.device = NULL },
-		{ .subsystem = "ip2",		.device = NULL },
-		{ .subsystem = "tpqic02",	.device = NULL },
-		{ .subsystem = "dsp56k",	.device = NULL },
-		{ .subsystem = "zft",		.device = NULL },
-		{ .subsystem = "adb",		.device = NULL },
-		{ .subsystem = "cosa",		.device = NULL },
-		{ .subsystem = "pg",		.device = NULL },
-		{ .subsystem = "pt",		.device = NULL },
-		{ .subsystem = "capi",		.device = NULL },
-		{ NULL, NULL }
-	};
-	const struct class_device *classdevice;
-	unsigned int len;
-
-	/* the kernel may tell us what to wait for */
-	if (kernel_release_satisfactory(2,6,10) > 0)
-		if (getenv("PHYSDEVPATH") == NULL) {
-			dbg("the kernel says, that there is no physical device for '%s'", class_dev->path);
-			return 1;
-		}
-
-	for (classdevice = class_device; classdevice->subsystem != NULL; classdevice++) {
-		if (strcmp(class_dev->classname, classdevice->subsystem) == 0) {
-			/* see if no device in this class is expected to have a device-link */
-			if (classdevice->device == NULL)
-				return 1;
-
-			len = strlen(classdevice->device);
-
-			/* see if device name matches */
-			if (strncmp(class_dev->name, classdevice->device, len) != 0)
-				continue;
-
-			/* exact name match */
-			if (strlen(class_dev->name) == len)
-				return 1;
-
-			/* name match with instance number */
-			if (isdigit(class_dev->name[len]))
-				return 1;
-		}
-	}
-
-	return 0;
-}
-
-/* skip waiting for the bus of the devices device */
-static int class_device_expect_no_bus(struct sysfs_class_device *class_dev)
-{
-	static const char *devices_without_bus[] = {
-		"scsi_host",
-		"i2c-adapter",
-		"i2c-dev",
-		NULL
-	};
-	const char **device;
-
-	for (device = devices_without_bus; *device != NULL; device++) {
-		int len = strlen(*device);
-
-		if (strncmp(class_dev->classname, *device, len) == 0)
-			return 1;
-	}
-
-	return 0;
 }
 
 /* wait for a devices device specific file to show up */
@@ -335,12 +102,10 @@ int wait_for_devices_device(struct sysfs_device *devices_dev,
 	const struct device_file *devicefile = NULL;
 	int loop;
 
-	/* the kernel may tell us what to wait for */
-	if (kernel_release_satisfactory(2,6,10) > 0)
-		if (getenv("PHYSDEVBUS") == NULL) {
-			dbg("the kernel says, that there is no bus for '%s'", devices_dev->path);
-			return 0;
-		}
+	if (getenv("PHYSDEVBUS") == NULL) {
+		dbg("the kernel says, that there is no bus for '%s'", devices_dev->path);
+		return 0;
+	}
 
 	/* wait for the bus device link to the devices device */
 	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
@@ -421,17 +186,68 @@ struct sysfs_class_device *wait_class_device_open(const char *path)
 int wait_for_class_device(struct sysfs_class_device *class_dev,
 			  const char **error)
 {
+	const struct subsystem_file {
+		const char *subsystem;
+		const char *file;
+	} subsystem_files[] = {
+		{ .subsystem = "net",		.file = "ifindex" },
+		{ .subsystem = "scsi_host",	.file = "unique_id" },
+		{ .subsystem = "pcmcia_socket",	.file = "card_type" },
+		{ .subsystem = "bluetooth",	.file = "address" },
+		{ .subsystem = "firmware",	.file = "data" },
+		{ .subsystem = "fc_transport",	.file = "port_id" },
+		{ .subsystem = "fc_host",	.file = "port_id" },
+		{ .subsystem = "spi_transport",	.file = "width" },
+		{ .subsystem = "spi_host",	.file = "width" },
+		{ NULL, NULL }
+	};
+
+	const struct subsystem_file *subsys_file;
 	struct sysfs_class_device *class_dev_parent;
 	struct sysfs_device *devices_dev = NULL;
+	char filename[PATH_SIZE];
 	int loop;
 
-	if (wait_for_class_device_attributes(class_dev, error) != 0)
-		return -ENOENT;
+	/* look if we want to wait for a file  */
+	for (subsys_file = subsystem_files; subsys_file->subsystem != NULL; subsys_file++)
+		if (strcmp(class_dev->classname, subsys_file->subsystem) == 0)
+			break;
+
+	if (subsys_file->file == NULL) {
+		dbg("class '%s' has no file to wait for", class_dev->classname);
+		return 0;
+	}
+
+	snprintf(filename, sizeof(filename), "%s/%s", class_dev->path, subsys_file->file);
+	filename[sizeof(filename)-1] = '\0';
+	dbg("looking at class '%s' for specific file '%s'", class_dev->classname, filename);
+
+	loop = WAIT_MAX_SECONDS * WAIT_LOOP_PER_SECOND;
+	while (--loop) {
+		struct stat stats;
+
+		if (stat(class_dev->path, &stats) == -1) {
+			dbg("'%s' now disappeared (probably remove has beaten us)", class_dev->path);
+			return -ENODEV;
+		}
+
+		if (stat(filename, &stats) == 0) {
+			dbg("class '%s' specific file '%s' found", class_dev->classname, subsys_file->file);
+			return 0;
+		}
+
+		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
+	}
+
+	dbg("error: getting class '%s' specific file '%s'", class_dev->classname, subsys_file->file);
+	if (error)
+		*error = "class specific file unavailable";
+	return -1;
 
 	/* skip devices without devices-link */
-	if (class_device_expect_no_device_link(class_dev)) {
-		dbg("no device symlink expected for '%s', ", class_dev->name);
-		return 0;
+	if (getenv("PHYSDEVPATH") == NULL) {
+		dbg("the kernel says, that there is no physical device for '%s'", class_dev->path);
+		return 1;
 	}
 
 	/* the symlink may be on the parent device */
@@ -460,12 +276,6 @@ int wait_for_class_device(struct sysfs_class_device *class_dev,
 		return -ENODEV;
 	}
 	dbg("device symlink found pointing to '%s'", devices_dev->path);
-
-	/* wait for the devices device */
-	if (class_device_expect_no_bus(class_dev)) {
-		dbg("no bus device expected for '%s', ", class_dev->classname);
-		return 0;
-	}
 
 	return wait_for_devices_device(devices_dev, error);
 }

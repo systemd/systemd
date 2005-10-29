@@ -37,7 +37,6 @@ struct name_entry {
 
 /* udev_utils.c */
 extern int log_priority(const char *priority);
-extern int kernel_release_satisfactory(unsigned int version, unsigned int patchlevel, unsigned int sublevel);
 extern int name_list_add(struct list_head *name_list, const char *name, int sort);
 extern int name_list_key_add(struct list_head *name_list, const char *key, const char *value);
 extern void name_list_cleanup(struct list_head *name_list);

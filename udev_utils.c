@@ -57,29 +57,6 @@ int log_priority(const char *priority)
 	return 0;
 }
 
-int kernel_release_satisfactory(unsigned int version, unsigned int patchlevel, unsigned int sublevel)
-{
-	static unsigned int kversion = 0;
-	static unsigned int kpatchlevel;
-	static unsigned int ksublevel;
-
-	if (kversion == 0) {
-		struct utsname uts;
-		if (uname(&uts) != 0)
-			return -1;
-
-		if (sscanf (uts.release, "%u.%u.%u", &kversion, &kpatchlevel, &ksublevel) != 3) {
-			kversion = 0;
-			return -1;
-		}
-	}
-
-	if (kversion >= version && kpatchlevel >= patchlevel && ksublevel >= sublevel)
-		return 1;
-	else
-		return 0;
-}
-
 int name_list_add(struct list_head *name_list, const char *name, int sort)
 {
 	struct name_entry *loop_name;

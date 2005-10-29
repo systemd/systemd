@@ -28,9 +28,8 @@
 #define WAIT_LOOP_PER_SECOND		20
 
 extern dev_t get_devt(struct sysfs_class_device *class_dev);
-extern int subsystem_expect_no_dev(const char *subsystem);
 
-/* /sys/class /sys/block devices */
+/* /sys/class, /sys/block devices */
 extern struct sysfs_class_device *wait_class_device_open(const char *path);
 extern int wait_for_class_device(struct sysfs_class_device *class_dev, const char **error);
 
