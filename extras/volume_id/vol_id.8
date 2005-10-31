@@ -1,0 +1,41 @@
+.TH VOL_ID 8 "November 2005" "" "Linux Administrator's Manual"
+.SH NAME
+vol_id \- probe filesystem type and read label and uuid
+.SH SYNOPSIS
+.BI vol_id
+[\fI--export\fP|\fI-t\fP|\fI-l\fP|\fI-u\fP] \fIblockdevice\fP
+.SH "DESCRIPTION"
+.B vol_id
+is normally called from a udev rule, to provide udev with the
+label and uuid of a filesystem. vol_id supports all common
+filesystem formats and detects various raid setups to prevent
+the recognition of raid members as a filesystem.
+.SH USAGE
+.B vol_id
+opens the device node specified at the commandline.
+.SH OPTIONS
+The following commandline switches are supported to specify what vol_id
+should print:
+.TP
+.BI --export
+print all values in key/value format to import them into the environment.
+.TP
+.BI -l
+print the label of the partition
+.TP
+.BI -t
+print the type of the partition
+.TP
+.BI -u
+print the uuid of the partition
+.RE
+.SH EXIT STATUS
+.B vol_id
+will only return successful if the string asked for is not empty.
+All trailing whitespace will be removed, spaces replaced by underscore
+and slashes ignored.
+.SH SEE ALSO
+.BR udev (8)
+.SH AUTHORS
+Developed by Kay Sievers <kay.sievers@vrfy.org>.
+

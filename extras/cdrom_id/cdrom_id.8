@@ -1,0 +1,27 @@
+.TH CDROM_ID 8 "November 2005" "" "Linux Administrator's Manual"
+.SH NAME
+cdrom_id \- udev callout to determine the capabilities of cd/dvd drives
+.SH SYNOPSIS
+.BI cdrom_id
+[\fI--export\fP] \fIblockdevice\fP
+.SH "DESCRIPTION"
+.B cdrom_id
+is normally called from a udev rule, to provide udev with the capabilities
+of a cdrom or dvdrom drive. Udev can use this information to create
+symlinks like /dev/cdrom or /dev/dvd to the real device node.
+.SH USAGE
+.B cdrom_id
+opens the blockdevice node specified at the commandline and prints the
+discovered capabilities.
+.SH OPTIONS
+The following commandline switches are supported to specify what cdrom_id
+should print:
+.TP
+.BI --export
+print all values (default)
+.RE
+.SH SEE ALSO
+.BR udev (8)
+.SH AUTHORS
+Developed by Greg Kroah\-Hartman <greg@kroah.com>.
+
