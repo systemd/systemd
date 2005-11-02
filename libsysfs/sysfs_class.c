@@ -128,28 +128,45 @@ static void set_classdev_classname(struct sysfs_class_device *cdev)
 struct sysfs_class_device *sysfs_open_class_device_path(const char *path)
 {
 	struct sysfs_class_device *cdev;
+	char temp_path[SYSFS_PATH_MAX];
 
 	if (!path) {
 		errno = EINVAL;
 		return NULL;
 	}
+
+	/*
+	 * Post linux-2.6.14 driver model supports nested classes with
+	 * links to the nested hierarchy at /sys/class/xxx/. Check for
+	 * a link to the actual class device if a directory isn't found
+	 */
 	if (sysfs_path_is_dir(path)) {
-		dprintf("%s is not a valid path to a class device\n", path);
-		return NULL;
-	}
+		dprintf("%s: Directory not found, checking for a link\n", path);
+		if (!sysfs_path_is_link(path)) {
+			if (sysfs_get_link(path, temp_path, SYSFS_PATH_MAX)) {
+				dprintf("Error retrieving link at %s\n", path);
+				return NULL;
+			}
+		} else {
+			dprintf("%s is not a valid class device path\n", path);
+			return NULL;
+		}
+	} else
+		safestrcpy(temp_path, path);
+
 	cdev = alloc_class_device();
 	if (!cdev) {
 		dprintf("calloc failed\n");
 		return NULL;
 	}
-	if (sysfs_get_name_from_path(path, cdev->name, SYSFS_NAME_LEN)) {
+	if (sysfs_get_name_from_path(temp_path, cdev->name, SYSFS_NAME_LEN)) {
 		errno = EINVAL;
 		dprintf("Error getting class device name\n");
 		sysfs_close_class_device(cdev);
 		return NULL;
 	}
 
-	safestrcpy(cdev->path, path);
+	safestrcpy(cdev->path, temp_path);
 	if (sysfs_remove_trailing_slash(cdev->path)) {
 		dprintf("Invalid path to class device %s\n", cdev->path);
 		sysfs_close_class_device(cdev);
@@ -455,12 +472,10 @@ struct sysfs_class_device *sysfs_get_class_device(struct sysfs_class *cls,
 	safestrcpy(path, cls->path);
 	safestrcat(path, "/");
 	safestrcat(path, name);
-	if (!sysfs_path_is_dir(path)) {
-		cdev = sysfs_open_class_device_path(path);
-		if (!cdev) {
-			dprintf("Error opening class device at %s\n", path);
-			return NULL;
-		}
+	cdev = sysfs_open_class_device_path(path);
+	if (!cdev) {
+		dprintf("Error opening class device at %s\n", path);
+		return NULL;
 	}
 	if (!cls->devices)
 		cls->devices = dlist_new_with_delete
@@ -472,6 +487,40 @@ struct sysfs_class_device *sysfs_get_class_device(struct sysfs_class *cls,
 }
 
 /**
+ * Add class devices to list
+ */
+static void add_cdevs_to_classlist(struct sysfs_class *cls, struct dlist *list)
+{
+	char path[SYSFS_PATH_MAX], *cdev_name;
+	struct sysfs_class_device *cdev = NULL;
+
+	if (cls == NULL || list == NULL)
+		return;
+
+	dlist_for_each_data(list, cdev_name, char) {
+		if (cls->devices) {
+			cdev = (struct sysfs_class_device *)
+				dlist_find_custom(cls->devices,
+				(void *)cdev_name, cdev_name_equal);
+			if (cdev)
+				continue;
+		}
+		safestrcpy(path, cls->path);
+		safestrcat(path, "/");
+		safestrcat(path, cdev_name);
+		cdev = sysfs_open_class_device_path(path);
+		if (cdev) {
+			if (!cls->devices)
+				cls->devices = dlist_new_with_delete
+				(sizeof(struct sysfs_class_device),
+				 sysfs_close_cls_dev);
+			dlist_unshift_sorted(cls->devices, cdev,
+					sort_list);
+		}
+	}
+}
+
+/**
  * sysfs_get_class_devices: get all class devices in the given class
  * @cls: sysfs_class whose devices list is needed
  *
@@ -480,42 +529,29 @@ struct sysfs_class_device *sysfs_get_class_device(struct sysfs_class *cls,
 struct dlist *sysfs_get_class_devices(struct sysfs_class *cls)
 {
 	char path[SYSFS_PATH_MAX];
-	char *cdev_name;
-	struct sysfs_class_device *cdev = NULL;
-	struct dlist *dirlist;
+	struct dlist *dirlist, *linklist;
 
 	if (!cls) {
 		errno = EINVAL;
 		return NULL;
 	}
 
+	/*
+	 * Post linux-2.6.14, we have nested classes and links under
+	 * /sys/class/xxx/. are also valid class devices
+	 */
 	safestrcpy(path, cls->path);
 	dirlist = read_dir_subdirs(path);
 	if (dirlist) {
-		dlist_for_each_data(dirlist, cdev_name, char) {
-			if (cls->devices) {
-				cdev = (struct sysfs_class_device *)
-					dlist_find_custom(cls->devices, 
-					(void *)cdev_name, cdev_name_equal);
-				if (cdev)
-					continue;
-			}
-			safestrcpy(path, cls->path);
-			safestrcat(path, "/");
-			safestrcat(path, cdev_name);
-			cdev = sysfs_open_class_device_path(path);
-			if (cdev) {
-				if (!cls->devices)
-					cls->devices = dlist_new_with_delete
-					(sizeof(struct sysfs_class_device),
-					 sysfs_close_cls_dev);
-				dlist_unshift_sorted(cls->devices, cdev,
-						sort_list);
-			}
-		}
+		add_cdevs_to_classlist(cls, dirlist);
 		sysfs_close_list(dirlist);
 	}
-	
+
+	linklist = read_dir_links(path);
+	if (linklist) {
+		add_cdevs_to_classlist(cls, linklist);
+		sysfs_close_list(linklist);
+	}
+
 	return cls->devices;
 }
-
