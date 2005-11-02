@@ -139,7 +139,7 @@ static int add_device(const char *devpath, const char *subsystem)
 		return -1;
 	}
 
-	udev_init_device(&udev, devpath, subsystem, "add");
+	udev_init_device(&udev, &class_dev->path[strlen(sysfs_path)], subsystem, "add");
 	udev.devt = get_devt(class_dev);
 	if (!udev.devt && udev.type != DEV_NET) {
 		dbg("sysfs_open_class_device_path failed");
