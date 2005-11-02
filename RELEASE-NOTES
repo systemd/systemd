@@ -5,7 +5,12 @@ event processes inherit the already parsed rules from the daemon.
 It is shipped with SUSE10.0 and reduces heavily the system load at
 startup.
 
-using 'make STRIPCMD=' will leave the binaries unstripped for debugging
+Kernel 2.6.15 will have symlinks at /class/input pointing to the real
+device. Libsysfs is changed to "translate" the requested link into the
+real device path, as it would happen with the hotplug event. Otherwise
+device removal and the udev database will not work.
+
+Using 'make STRIPCMD=' will leave the binaries unstripped for debugging
 and packaging.
 
 A few improvements for vol_id, the filesytem probing code.
