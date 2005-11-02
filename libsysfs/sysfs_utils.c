@@ -233,7 +233,7 @@ int sysfs_path_is_dir(const char *path)
 		errno = EINVAL;
 		return 1;
 	}
-	if ((stat(path, &astats)) != 0) {
+	if ((lstat(path, &astats)) != 0) {
 		dprintf("stat() failed\n");
 		return 1;
 	}
