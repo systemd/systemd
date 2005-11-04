@@ -211,11 +211,10 @@ static void udev_event_run(struct uevent_msg *msg)
 	switch (pid) {
 	case 0:
 		/* child */
-		if (uevent_netlink_sock > 0)
-			close(uevent_netlink_sock);
+		close(uevent_netlink_sock);
+		close(udevd_sock);
 		if (inotify_fd > 0)
 			close(inotify_fd);
-		close(udevd_sock);
 		close(signal_pipe[READ_END]);
 		close(signal_pipe[WRITE_END]);
 		logging_close();
@@ -773,7 +772,6 @@ static int init_udevd_socket(void)
 	retval = bind(udevd_sock, (struct sockaddr *) &saddr, addrlen);
 	if (retval < 0) {
 		err("bind failed, %s", strerror(errno));
-		close(udevd_sock);
 		return -1;
 	}
 
@@ -803,15 +801,13 @@ static int init_uevent_netlink_sock(void)
 	/* set receive buffersize */
 	setsockopt(uevent_netlink_sock, SOL_SOCKET, SO_RCVBUFFORCE, &buffersize, sizeof(buffersize));
 
-	retval = bind(uevent_netlink_sock, (struct sockaddr *) &snl,
-		      sizeof(struct sockaddr_nl));
+	retval = bind(uevent_netlink_sock, (struct sockaddr *) &snl, sizeof(struct sockaddr_nl));
 	if (retval < 0) {
 		err("bind failed, %s", strerror(errno));
 		close(uevent_netlink_sock);
 		uevent_netlink_sock = -1;
 		return -1;
 	}
-
 	return 0;
 }
 
@@ -825,10 +821,11 @@ int main(int argc, char *argv[], char *envp[])
 	int uevent_netlink_active = 0;
 	int daemonize = 0;
 	int i;
+	int rc = 0;
 
-	/* set std fd's to /dev/null, if the kernel forks us, we don't have them at all */
+	/* redirect std fd's, if the kernel forks us, we don't have them at all */
 	devnull = open("/dev/null", O_RDWR);
-	if (devnull >= 0)  {
+	if (devnull >= 0) {
 		if (devnull != STDIN_FILENO)
 			dup2(devnull, STDIN_FILENO);
 		if (devnull != STDOUT_FILENO)
@@ -851,6 +848,7 @@ int main(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 
+	/* parse commandline options */
 	for (i = 1 ; i < argc; i++) {
 		char *arg = argv[i];
 		if (strcmp(arg, "--daemon") == 0 || strcmp(arg, "-d") == 0) {
@@ -863,29 +861,51 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}
 
+	/* init sockets to receive events */
+	if (init_udevd_socket() < 0) {
+		if (errno == EADDRINUSE) {
+			dbg("another udevd running, exit");
+			rc = 1;
+		} else {
+			dbg("error initializing udevd socket: %s", strerror(errno));
+			rc = 2;
+		}
+		goto exit;
+	}
+
+	if (init_uevent_netlink_sock() < 0) {
+		err("uevent socket not available");
+		rc = 3;
+		goto exit;
+	}
+
+	/* parse the rules and keep it in memory */
+	udev_rules_init(&rules, 0, 1);
+
 	if (daemonize) {
 		pid_t pid;
 
 		pid = fork();
 		switch (pid) {
 		case 0:
-			dbg("damonized fork running");
+			dbg("daemonized fork running");
+
+			/* become session leader */
+			sid = setsid();
+			dbg("our session is %d", sid);
+
+			chdir("/");
+			umask(umask(077) | 022);
 			break;
 		case -1:
 			err("fork of daemon failed");
+			rc = 4;
 			goto exit;
 		default:
-			logging_close();
-			exit(0);
+			dbg("child [%u] running, parent exits", pid);
+			goto exit;
 		}
 	}
-
-	/* become session leader */
-	sid = setsid();
-	dbg("our session is %d", sid);
-
-	chdir("/");
-	umask(umask(077) | 022);
 
 	/* set a reasonable scheduling priority for the daemon */
 	setpriority(PRIO_PROCESS, 0, UDEVD_PRIORITY);
@@ -917,21 +937,6 @@ int main(int argc, char *argv[], char *envp[])
 	sigaction(SIGALRM, &act, NULL);
 	sigaction(SIGCHLD, &act, NULL);
 	sigaction(SIGHUP, &act, NULL);
-
-	/* parse the rules and keep it in memory */
-	udev_rules_init(&rules, 0, 1);
-
-	if (init_udevd_socket() < 0) {
-		if (errno == EADDRINUSE)
-			dbg("another udevd running, exit");
-		else
-			dbg("error initializing udevd socket: %s", strerror(errno));
-
-		goto exit;
-	}
-
-	if (init_uevent_netlink_sock() < 0)
-		err("uevent socket not available");
 
 	/* watch rules directory */
 	inotify_fd = inotify_init();
@@ -983,8 +988,7 @@ int main(int argc, char *argv[], char *envp[])
 		FD_ZERO(&readfds);
 		FD_SET(signal_pipe[READ_END], &readfds);
 		FD_SET(udevd_sock, &readfds);
-		if (uevent_netlink_sock > 0)
-			FD_SET(uevent_netlink_sock, &readfds);
+		FD_SET(uevent_netlink_sock, &readfds);
 		if (inotify_fd > 0)
 			FD_SET(inotify_fd, &readfds);
 
@@ -1009,7 +1013,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		/* get kernel netlink message */
-		if ((uevent_netlink_sock > 0) && FD_ISSET(uevent_netlink_sock, &readfds)) {
+		if (FD_ISSET(uevent_netlink_sock, &readfds)) {
 			msg = get_netlink_msg();
 			if (msg) {
 				msg_queue_insert(msg);
@@ -1096,5 +1100,5 @@ exit:
 
 	logging_close();
 
-	return 0;
+	return rc;
 }
