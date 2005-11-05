@@ -364,7 +364,7 @@ int main(int argc, char *argv[], char *envp[])
 	/* trigger timeout to prevent hanging processes */
 	alarm(UDEV_ALARM_TIMEOUT);
 
-	udev_rules_init(&rules, 0, 1);
+	udev_rules_init(&rules, 1);
 
 	udev_scan_class(&device_list);
 	udev_scan_block(&device_list);

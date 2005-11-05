@@ -591,41 +591,13 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 	return retval;
 }
 
-static int rules_map(struct udev_rules *rules, const char *filename)
+int udev_rules_init(struct udev_rules *rules, int resolve_names)
 {
-	if (file_map(filename, &rules->buf, &rules->bufsize)) {
-		rules->buf = NULL;
-		return -1;
-	}
-	if (rules->bufsize == 0) {
-		file_unmap(rules->buf, rules->bufsize);
-		rules->buf = NULL;
-		return -1;
-	}
-	rules->mapped = 1;
-
-	return 0;
-}
-
-int udev_rules_init(struct udev_rules *rules, int read_compiled, int resolve_names)
-{
-	char comp[PATH_SIZE];
 	struct stat stats;
 	int retval;
 
 	memset(rules, 0x00, sizeof(struct udev_rules));
 	rules->resolve_names = resolve_names;
-
-	/* check for precompiled rules */
-	if (read_compiled) {
-		strlcpy(comp, udev_rules_filename, sizeof(comp));
-		strlcat(comp, ".compiled", sizeof(comp));
-		if (stat(comp, &stats) == 0) {
-			dbg("map compiled rules '%s'", comp);
-			if (rules_map(rules, comp) == 0)
-				return 0;
-		}
-	}
 
 	/* parse rules file or all matching files in directory */
 	if (stat(udev_rules_filename, &stats) != 0)
@@ -660,11 +632,7 @@ int udev_rules_init(struct udev_rules *rules, int read_compiled, int resolve_nam
 void udev_rules_close(struct udev_rules *rules)
 {
 	if (rules->buf) {
-		if (rules->mapped) {
-			rules->mapped = 0;
-			file_unmap(rules->buf, rules->bufsize);
-		} else
-			free(rules->buf);
+		free(rules->buf);
 		rules->buf = NULL;
 	}
 }

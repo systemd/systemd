@@ -132,7 +132,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	udev_init_device(&udev, devpath, subsystem, action);
-	udev_rules_init(&rules, 1, 0);
+	udev_rules_init(&rules, 0);
 
 	retval = udev_process_event(&rules, &udev);
 

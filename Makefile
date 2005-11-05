@@ -50,7 +50,6 @@ PROGRAMS = \
 	udev				\
 	udevd				\
 	udevsend			\
-	udevrulescompile		\
 	udevinitsend			\
 	udeveventrecorder		\
 	udevcontrol			\

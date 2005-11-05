@@ -880,7 +880,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	/* parse the rules and keep it in memory */
-	udev_rules_init(&rules, 0, 1);
+	udev_rules_init(&rules, 1);
 
 	if (daemonize) {
 		pid_t pid;
@@ -1065,7 +1065,7 @@ int main(int argc, char *argv[], char *envp[])
 		if (reload_config) {
 			reload_config = 0;
 			udev_rules_close(&rules);
-			udev_rules_init(&rules, 0, 1);
+			udev_rules_init(&rules, 1);
 		}
 
 		/* forked child have returned */
