@@ -1,3 +1,48 @@
+Summary of changes from v71 to v072
+============================================
+
+Ananth N Mavinakayanahalli:
+  libsysfs: translate devpath of the symlinked class devices to its real path
+
+Jan Luebbe:
+  add man pages for *_id programs
+
+Kay Sievers:
+  volume_id: add OCFS Version 1
+  volume_id: add Veritas fs
+  volume_id: check ext fs for valid blocksize, cause magic is only 2 bytes
+  volume_id: move blocksize validation to fix jbd recognition
+  volume_id: fix typo in ocfs
+  volume_id: add vxfs include
+  volume_id: make FAT32 recognition more robust
+  volume_id: Version 051
+  volume_id: fix typo in ext blocksize check
+  volume_id: Version 052
+  FAQ: remove confusing statement about module loading
+  cleanup compiler/linker flags
+  use DESTDIR on uninstall, no need to pass prefix to submake
+  allow to pass STRIPCMD, to skip stripping of binaries
+  cleanup make release
+  fix the new warnings I asked for
+  move rules parsing into daemon
+  "make STRIPCMD=" will disable the stripping of binaries
+  remove no longer working udevd-test program
+  "STRIPCMD=" for the EXTRAS
+  add dummy inotify syscalls on unsupported architecture
+  remove no longer needed waiting for "dev" file
+  revert the "read symlink as device patch"
+  use libsysfs to translate the class linke to the device path
+  libsysfs: remove brute-force "bus", "driver" searching for old kernels
+  test: add "driver" and "bus" links to test sysfs tree
+  update RELEASE-NOTES
+  udevd: don't daemonize before initialization
+  log to console if syslog is not available
+  udevd: disable OOM
+  remove precompiled rules option
+  export DEVNAME on "remove" only if we really got a node to remove
+  fix typo in umask()
+
+
 Summary of changes from v70 to v071
 ============================================
 

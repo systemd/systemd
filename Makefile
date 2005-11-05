@@ -17,7 +17,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
-VERSION = 071
+VERSION = 072
 
 # set this to make use of syslog
 USE_LOG = true
