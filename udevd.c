@@ -904,7 +904,7 @@ int main(int argc, char *argv[], char *envp[])
 	setpriority(PRIO_PROCESS, 0, UDEVD_PRIORITY);
 
 	chdir("/");
-	umask(077);
+	umask(022);
 
 	/* become session leader */
 	sid = setsid();
