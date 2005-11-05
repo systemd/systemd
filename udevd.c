@@ -814,7 +814,7 @@ static int init_uevent_netlink_sock(void)
 int main(int argc, char *argv[], char *envp[])
 {
 	int retval;
-	int devnull;
+	int fd;
 	struct sigaction act;
 	fd_set readfds;
 	const char *value;
@@ -824,20 +824,20 @@ int main(int argc, char *argv[], char *envp[])
 	int rc = 0;
 
 	/* redirect std fd's, if the kernel forks us, we don't have them at all */
-	devnull = open("/dev/null", O_RDWR);
-	if (devnull >= 0) {
-		if (devnull != STDIN_FILENO)
-			dup2(devnull, STDIN_FILENO);
-		if (devnull != STDOUT_FILENO)
-			dup2(devnull, STDOUT_FILENO);
-		if (devnull != STDERR_FILENO)
-			dup2(devnull, STDERR_FILENO);
-		if (devnull > STDERR_FILENO)
-			close(devnull);
+	fd = open("/dev/null", O_RDWR);
+	if (fd >= 0) {
+		if (fd != STDIN_FILENO)
+			dup2(fd, STDIN_FILENO);
+		if (fd != STDOUT_FILENO)
+			dup2(fd, STDOUT_FILENO);
+		if (fd != STDERR_FILENO)
+			dup2(fd, STDERR_FILENO);
+		if (fd > STDERR_FILENO)
+			close(fd);
 	}
 
 	logging_init("udevd");
-	if (devnull < 0)
+	if (fd < 0)
 		err("fatal, could not open /dev/null");
 
 	udev_init_config();
@@ -889,13 +889,6 @@ int main(int argc, char *argv[], char *envp[])
 		switch (pid) {
 		case 0:
 			dbg("daemonized fork running");
-
-			/* become session leader */
-			sid = setsid();
-			dbg("our session is %d", sid);
-
-			chdir("/");
-			umask(umask(077) | 022);
 			break;
 		case -1:
 			err("fork of daemon failed");
@@ -907,8 +900,24 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}
 
-	/* set a reasonable scheduling priority for the daemon */
+	/* set scheduling priority for the daemon */
 	setpriority(PRIO_PROCESS, 0, UDEVD_PRIORITY);
+
+	chdir("/");
+	umask(077);
+
+	/* become session leader */
+	sid = setsid();
+	dbg("our session is %d", sid);
+
+	/* OOM_DISABLE == -17 */
+	fd = open("/proc/self/oom_adj", O_RDWR);
+	if (fd < 0)
+		err("error disabling OOM");
+	else {
+		write(fd, "-17", 3);
+		close(fd);
+	}
 
 	/* setup signal handler pipe */
 	retval = pipe(signal_pipe);
