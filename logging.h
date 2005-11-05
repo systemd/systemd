@@ -61,7 +61,7 @@ extern void log_message(int priority, const char *format, ...)
 #undef logging_init
 static inline void logging_init(const char *program_name)
 {
-	openlog(program_name, LOG_PID, LOG_DAEMON);
+	openlog(program_name, LOG_PID | LOG_CONS, LOG_DAEMON);
 }
 
 #undef logging_close
