@@ -112,6 +112,10 @@ static int delete_node(struct udevice *udev)
 	if (retval)
 		return retval;
 
+	/* export DEVNAME to the environment */
+	snprintf(udev->devname, sizeof(udev->devname), "%s/%s", udev_root, udev->name);
+	udev->devname[sizeof(udev->devname)-1] = '\0';
+
 	num = udev->partitions;
 	if (num > 0) {
 		info("removing all_partitions '%s[1-%i]'", filename, num);
@@ -152,9 +156,6 @@ int udev_remove_device(struct udevice *udev)
 		dbg("'%s' not found in database, using kernel name '%s'", udev->devpath, udev->kernel_name);
 		strlcpy(udev->name, udev->kernel_name, sizeof(udev->name));
 	}
-	/* use full path to the environment */
-	snprintf(udev->devname, sizeof(udev->devname), "%s/%s", udev_root, udev->name);
-	udev->devname[sizeof(udev->devname)-1] = '\0';
 
 	return delete_node(udev);
 }
