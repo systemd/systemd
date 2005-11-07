@@ -36,7 +36,7 @@
 #define VALUE_SIZE			128
 
 #define DEFAULT_PARTITIONS_COUNT	15
-#define UDEV_ALARM_TIMEOUT		120
+#define UDEV_ALARM_TIMEOUT		180
 
 struct udev_rules;
 

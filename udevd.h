@@ -29,13 +29,6 @@
 #define UDEVD_PRIORITY			-4
 #define UDEV_PRIORITY			-2
 
-/* duration of initialization phase with shorter timeout */
-#define UDEVD_INIT_TIME			5
-#define UDEVD_INIT_EVENT_TIMEOUT	2
-
-/* timeout to wait for missing events */
-#define UDEVD_EVENT_TIMEOUT		5
-
 /* maximum limit of runnig childs */
 #define UDEVD_MAX_CHILDS		64
 /* start to throttle forking if maximum number of running childs in our session is reached */
@@ -68,7 +61,7 @@ struct uevent_msg {
 	enum udevd_msg_type type;
 	struct list_head node;
 	pid_t pid;
-	long queue_time;
+	time_t queue_time;
 	char *action;
 	char *devpath;
 	char *subsystem;

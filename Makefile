@@ -270,7 +270,6 @@ udev_version.h:
 	@echo \#define UDEV_CONFIG_DIR		\"$(configdir)\" >> $@
 	@echo \#define UDEV_CONFIG_FILE		\"$(configdir)/udev.conf\" >> $@
 	@echo \#define UDEV_RULES_FILE		\"$(configdir)/rules.d\" >> $@
-	@echo \#define UDEV_BIN			\"$(sbindir)/udev\" >> $@
 	@echo \#define UDEVD_BIN		\"$(sbindir)/udevd\" >> $@
 
 # man pages

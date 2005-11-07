@@ -89,27 +89,6 @@ static int start_daemon(void)
 	return 0;
 }
 
-static void run_udev(const char *subsystem)
-{
-	char *const argv[] = { "udev", (char *)subsystem, NULL };
-	pid_t pid;
-
-	pid = fork();
-	switch (pid) {
-	case 0:
-		/* child */
-		execv(UDEV_BIN, argv);
-		err("exec of udev child failed");
-		_exit(1);
-		break;
-	case -1:
-		err("fork of udev child failed");
-		break;
-	default:
-		waitpid(pid, NULL, 0);
-	}
-}
-
 int main(int argc, char *argv[], char *envp[])
 {
 	static struct udevd_msg usend_msg;
@@ -132,7 +111,7 @@ int main(int argc, char *argv[], char *envp[])
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (sock == -1) {
 		err("error getting socket");
-		goto fallback;
+		goto exit;
 	}
 
 	memset(&saddr, 0x00, sizeof(struct sockaddr_un));
@@ -192,7 +171,7 @@ int main(int argc, char *argv[], char *envp[])
 
 		if (errno != ECONNREFUSED) {
 			err("error sending message (%s)", strerror(errno));
-			goto fallback;
+			goto exit;
 		}
 
 		if (!started_daemon) {
@@ -200,7 +179,7 @@ int main(int argc, char *argv[], char *envp[])
 			retval = start_daemon();
 			if (retval) {
 				dbg("error starting daemon");
-				goto fallback;
+				goto exit;
 			}
 			dbg("udevd daemon started");
 			started_daemon = 1;
@@ -209,10 +188,6 @@ int main(int argc, char *argv[], char *envp[])
 			usleep(1000 * 1000 / UDEVSEND_WAIT_LOOP_PER_SECOND);
 		}
 	}
-
-fallback:
-	err("unable to connect to event daemon, try to call udev directly");
-	run_udev(subsystem);
 
 exit:
 	if (sock != -1)
