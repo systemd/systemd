@@ -1,3 +1,11 @@
+udev 074
+========
+NAME="" will not create any nodes, but execute RUN keys. To completely
+ignore an event the OPTION "ignore_device" should be used.
+
+After removal of the reorder queue, events with a TIMEOUT can be executed
+without any queuing now.
+
 udev 073
 ========
 Fixed bug in udevd, if inotify is not available. We depend on netlink
