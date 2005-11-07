@@ -50,7 +50,6 @@ PROGRAMS = \
 	udev				\
 	udevd				\
 	udevsend			\
-	udevinitsend			\
 	udeveventrecorder		\
 	udevcontrol			\
 	udevmonitor			\
@@ -375,7 +374,6 @@ uninstall-bin:
 	- rm -f $(DESTDIR)$(sbindir)/udev
 	- rm -f $(DESTDIR)$(sbindir)/udevd
 	- rm -f $(DESTDIR)$(sbindir)/udevsend
-	- rm -f $(DESTDIR)$(sbindir)/udevinitsend
 	- rm -f $(DESTDIR)$(sbindir)/udeveventrecoreder
 	- rm -f $(DESTDIR)$(sbindir)/udevcontrol
 	- rm -f $(DESTDIR)$(sbindir)/udevstart
