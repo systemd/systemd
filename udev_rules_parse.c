@@ -413,12 +413,9 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 					rule->ignore_remove = 1;
 				}
 			}
-			if (value[0] == '\0') {
-				dbg("name empty device should be ignored");
-				rule->name.operation = operation;
-				rule->ignore_device = 1;
-			} else
-				add_rule_key(rule, &rule->name, operation, value);
+			if (value[0] == '\0')
+				dbg("name empty, not creation supressed");
+			add_rule_key(rule, &rule->name, operation, value);
 			continue;
 		}
 

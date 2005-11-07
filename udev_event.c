@@ -73,13 +73,12 @@ int udev_process_event(struct udev_rules *rules, struct udevice *udev)
 					sysfs_close_class_device(class_dev);
 					return -1;
 				}
-				if (udev->name[0] == '\0') {
+				if (udev->name[0] != '\0') {
+					/* create node, store in db */
+					retval = udev_add_device(udev, class_dev);
+				} else {
 					info("device node creation supressed");
-					sysfs_close_class_device(class_dev);
-					return -1;
 				}
-				/* create node, store in db */
-				retval = udev_add_device(udev, class_dev);
 			} else {
 				dbg("no dev-file found");
 				udev_rules_get_run(rules, udev, class_dev, NULL);
