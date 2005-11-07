@@ -56,8 +56,7 @@ static int delete_path(const char *path)
 		if (retval) {
 			if (errno == ENOTEMPTY)
 				return 0;
-			dbg("rmdir(%s) failed with error '%s'",
-			    path, strerror(errno));
+			dbg("rmdir(%s) failed: %s", path, strerror(errno));
 			break;
 		}
 		dbg("removed '%s'", path);
@@ -153,8 +152,8 @@ int udev_remove_device(struct udevice *udev)
 		dbg("remove name='%s'", udev->name);
 		udev_db_delete_device(udev);
 	} else {
-		dbg("'%s' not found in database, using kernel name '%s'", udev->devpath, udev->kernel_name);
-		strlcpy(udev->name, udev->kernel_name, sizeof(udev->name));
+		dbg("'%s' not found in database, don't remove anything", udev->devpath);
+		return -1;
 	}
 
 	return delete_node(udev);

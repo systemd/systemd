@@ -125,7 +125,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (sock == -1) {
-		err("error getting socket");
+		err("error getting socket: %s", strerror(errno));
 		goto exit;
 	}
 
@@ -138,7 +138,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	retval = sendto(sock, &usend_msg, sizeof(usend_msg), 0, (struct sockaddr *)&saddr, addrlen);
 	if (retval == -1) {
-		info("error sending message (%s)", strerror(errno));
+		err("error sending message: %s", strerror(errno));
 		retval = 1;
 	} else {
 		dbg("sent message type=0x%02x, %u bytes sent", usend_msg.type, retval);

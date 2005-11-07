@@ -55,14 +55,14 @@ static int init_udev_monitor_socket(void)
 
 	udev_monitor_sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (udev_monitor_sock == -1) {
-		fprintf(stderr, "error getting socket, %s\n", strerror(errno));
+		fprintf(stderr, "error getting socket: %s\n", strerror(errno));
 		return -1;
 	}
 
 	/* the bind takes care of ensuring only one copy running */
 	retval = bind(udev_monitor_sock, (struct sockaddr *) &saddr, addrlen);
 	if (retval < 0) {
-		fprintf(stderr, "bind failed, %s\n", strerror(errno));
+		fprintf(stderr, "bind failed: %s\n", strerror(errno));
 		close(udev_monitor_sock);
 		udev_monitor_sock = -1;
 		return -1;
@@ -86,14 +86,14 @@ static int init_uevent_netlink_sock(void)
 
 	uevent_netlink_sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
 	if (uevent_netlink_sock == -1) {
-		fprintf(stderr, "error getting socket, %s\n", strerror(errno));
+		fprintf(stderr, "error getting socket: %s\n", strerror(errno));
 		return -1;
 	}
 
 	retval = bind(uevent_netlink_sock, (struct sockaddr *) &snl,
 		      sizeof(struct sockaddr_nl));
 	if (retval < 0) {
-		fprintf(stderr, "bind failed, %s\n", strerror(errno));
+		fprintf(stderr, "bind failed: %s\n", strerror(errno));
 		close(uevent_netlink_sock);
 		uevent_netlink_sock = -1;
 		return -1;
@@ -173,7 +173,7 @@ int main(int argc, char *argv[])
 		fdcount = select(UDEV_MAX(uevent_netlink_sock, udev_monitor_sock)+1, &readfds, NULL, NULL, NULL);
 		if (fdcount < 0) {
 			if (errno != EINTR)
-				fprintf(stderr, "error receiving uevent message\n");
+				fprintf(stderr, "error receiving uevent message: %s\n", strerror(errno));
 			continue;
 		}
 
@@ -186,7 +186,7 @@ int main(int argc, char *argv[])
 		if ((uevent_netlink_sock > 0) && FD_ISSET(uevent_netlink_sock, &readfds)) {
 			buflen = recv(uevent_netlink_sock, &buf, sizeof(buf), 0);
 			if (buflen <=  0) {
-				fprintf(stderr, "error receiving uevent message\n");
+				fprintf(stderr, "error receiving uevent message: %s\n", strerror(errno));
 				continue;
 			}
 			printf("UEVENT[%s] %s\n", timestr, buf);
@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
 		if ((udev_monitor_sock > 0) && FD_ISSET(udev_monitor_sock, &readfds)) {
 			buflen = recv(udev_monitor_sock, &buf, sizeof(buf), 0);
 			if (buflen <=  0) {
-				fprintf(stderr, "error receiving udev message\n");
+				fprintf(stderr, "error receiving udev message: %s\n", strerror(errno));
 				continue;
 			}
 			printf("UDEV  [%s] %s\n", timestr, buf);

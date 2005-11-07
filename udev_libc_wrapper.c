@@ -144,7 +144,7 @@ static unsigned long get_id_by_name(const char *uname, const char *dbfile)
 	char *tail;
 
 	if (file_map(dbfile, &buf, &bufsize) != 0) {
-		dbg("can't open '%s' as db file", dbfile);
+		dbg("can't open '%s' as db file: %s", dbfile, strerror(errno));
 		return 0;
 	}
 	dbg("search '%s' in '%s'", uname, dbfile);

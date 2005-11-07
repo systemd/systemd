@@ -139,7 +139,7 @@ int add_matching_files(struct list_head *name_list, const char *dirname, const c
 	dbg("open directory '%s'", dirname);
 	dir = opendir(dirname);
 	if (dir == NULL) {
-		dbg("unable to open '%s'", dirname);
+		dbg("unable to open '%s': %s", dirname, strerror(errno));
 		return -1;
 	}
 

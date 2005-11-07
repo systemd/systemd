@@ -107,7 +107,7 @@ static int parse_config_file(void)
 	int retval = 0;
 
 	if (file_map(udev_config_filename, &buf, &bufsize) != 0) {
-		err("can't open '%s' as config file", udev_config_filename);
+		err("can't open '%s' as config file: %s", udev_config_filename, strerror(errno));
 		return -ENODEV;
 	}
 

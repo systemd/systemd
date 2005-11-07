@@ -160,7 +160,7 @@ static void udev_event_run(struct uevent_msg *msg)
 		logging_close();
 		exit(0);
 	case -1:
-		err("fork of child failed");
+		err("fork of child failed: %s", strerror(errno));
 		msg_queue_delete(msg);
 		break;
 	default:
@@ -460,7 +460,7 @@ static struct uevent_msg *get_udevd_msg(void)
 	size = recvmsg(udevd_sock, &smsg, 0);
 	if (size <  0) {
 		if (errno != EINTR)
-			err("unable to receive udevd message");
+			err("unable to receive udevd message: %s", strerror(errno));
 		return NULL;
 	}
 	cmsg = CMSG_FIRSTHDR(&smsg);
@@ -535,7 +535,7 @@ static struct uevent_msg *get_netlink_msg(void)
 	size = recv(uevent_netlink_sock, &buffer, sizeof(buffer), 0);
 	if (size <  0) {
 		if (errno != EINTR)
-			err("unable to receive udevd message");
+			err("unable to receive udevd message: %s", strerror(errno));
 		return NULL;
 	}
 
@@ -640,7 +640,7 @@ static int init_udevd_socket(void)
 
 	udevd_sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (udevd_sock == -1) {
-		err("error getting socket, %s", strerror(errno));
+		err("error getting socket: %s", strerror(errno));
 		return -1;
 	}
 
@@ -650,7 +650,7 @@ static int init_udevd_socket(void)
 	/* the bind takes care of ensuring only one copy running */
 	retval = bind(udevd_sock, (struct sockaddr *) &saddr, addrlen);
 	if (retval < 0) {
-		err("bind failed, %s", strerror(errno));
+		err("bind failed: %s", strerror(errno));
 		return -1;
 	}
 
@@ -673,7 +673,7 @@ static int init_uevent_netlink_sock(void)
 
 	uevent_netlink_sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
 	if (uevent_netlink_sock == -1) {
-		err("error getting socket, %s", strerror(errno));
+		err("error getting socket: %s", strerror(errno));
 		return -1;
 	}
 
@@ -682,7 +682,7 @@ static int init_uevent_netlink_sock(void)
 
 	retval = bind(uevent_netlink_sock, (struct sockaddr *) &snl, sizeof(struct sockaddr_nl));
 	if (retval < 0) {
-		err("bind failed, %s", strerror(errno));
+		err("bind failed: %s", strerror(errno));
 		close(uevent_netlink_sock);
 		uevent_netlink_sock = -1;
 		return -1;
@@ -717,7 +717,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	logging_init("udevd");
 	if (fd < 0)
-		err("fatal, could not open /dev/null");
+		err("fatal, could not open /dev/null: %s", strerror(errno));
 
 	udev_init_config();
 	dbg("version %s", UDEV_VERSION);
@@ -770,7 +770,7 @@ int main(int argc, char *argv[], char *envp[])
 			dbg("daemonized fork running");
 			break;
 		case -1:
-			err("fork of daemon failed");
+			err("fork of daemon failed: %s", strerror(errno));
 			rc = 4;
 			goto exit;
 		default:
@@ -792,7 +792,7 @@ int main(int argc, char *argv[], char *envp[])
 	/* OOM_DISABLE == -17 */
 	fd = open("/proc/self/oom_adj", O_RDWR);
 	if (fd < 0)
-		err("error disabling OOM");
+		err("error disabling OOM: %s", strerror(errno));
 	else {
 		write(fd, "-17", 3);
 		close(fd);

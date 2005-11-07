@@ -84,7 +84,7 @@ int main(int argc, char **argv, char **envp)
 
 	snprintf(buf, FNSIZE, "/events/debug.%05lu.%s.%s.%u", seq, argv[1], a ? a : "", getpid());
 	if ((fd = open(buf, O_CREAT | O_WRONLY | O_TRUNC, 0644)) < 0) {
-		err("error creating '%s'", buf);
+		err("error creating '%s': %s", buf, strerror(errno));
 		goto error;
 	}
 	free(buf);

@@ -95,7 +95,7 @@ int udev_db_add_device(struct udevice *udev)
 	create_path(filename);
 	f = fopen(filename, "w");
 	if (f == NULL) {
-		err("unable to create db file '%s'", filename);
+		err("unable to create db file '%s': %s", filename, strerror(errno));
 		return -1;
 	}
 	dbg("storing data for device '%s' in '%s'", udev->devpath, filename);
@@ -129,7 +129,7 @@ int udev_db_get_device(struct udevice *udev, const char *devpath)
 
 	devpath_to_db_path(devpath, filename, sizeof(filename));
 	if (file_map(filename, &buf, &bufsize) != 0) {
-		dbg("no db file to read '%s'", filename);
+		dbg("no db file to read %s: %s", filename, strerror(errno));
 		return -1;
 	}
 
@@ -210,7 +210,7 @@ int udev_db_lookup_name(const char *name, char *devpath, size_t len)
 
 	dir = opendir(udev_db_path);
 	if (dir == NULL) {
-		err("unable to open udev_db '%s'", udev_db_path);
+		err("unable to open udev_db '%s': %s", udev_db_path, strerror(errno));
 		return -1;
 	}
 
@@ -235,7 +235,7 @@ int udev_db_lookup_name(const char *name, char *devpath, size_t len)
 		dbg("looking at '%s'", filename);
 
 		if (file_map(filename, &buf, &bufsize) != 0) {
-			err("unable to read db file '%s'", filename);
+			err("unable to read db file '%s': %s", filename, strerror(errno));
 			continue;
 		}
 
@@ -278,7 +278,7 @@ int udev_db_get_all_entries(struct list_head *name_list)
 
 	dir = opendir(udev_db_path);
 	if (dir == NULL) {
-		err("unable to open udev_db '%s'", udev_db_path);
+		err("unable to open udev_db '%s': %s", udev_db_path, strerror(errno));
 		return -1;
 	}
 

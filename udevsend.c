@@ -71,17 +71,17 @@ static int start_daemon(void)
 			/* daemon with empty environment */
 			close(sock);
 			execve(UDEVD_BIN, argv, envp);
-			err("exec of daemon failed");
+			err("exec of daemon failed: %s", strerror(errno));
 			_exit(1);
 		case -1:
-			err("fork of daemon failed");
+			err("fork of daemon failed: %s", strerror(errno));
 			return -1;
 		default:
 			exit(0);
 		}
 		break;
 	case -1:
-		err("fork of helper failed");
+		err("fork of helper failed: %s", strerror(errno));
 		return -1;
 	default:
 		waitpid(pid, NULL, 0);
@@ -110,7 +110,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (sock == -1) {
-		err("error getting socket");
+		err("error getting socket: %s", strerror(errno));
 		goto exit;
 	}
 
@@ -170,7 +170,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		if (errno != ECONNREFUSED) {
-			err("error sending message (%s)", strerror(errno));
+			err("error sending message: %s", strerror(errno));
 			goto exit;
 		}
 

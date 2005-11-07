@@ -95,7 +95,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	logging_init("udev");
 	if (devnull < 0)
-		err("fatal, could not open /dev/null");
+		err("fatal, could not open /dev/null: %s", strerror(errno));
 	udev_init_config();
 	dbg("version %s", UDEV_VERSION);
 

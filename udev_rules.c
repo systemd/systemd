@@ -208,7 +208,7 @@ static int import_file_into_env(struct udevice *udev, const char *filename)
 	size_t bufsize;
 
 	if (file_map(filename, &buf, &bufsize) != 0) {
-		err("can't open '%s'", filename);
+		err("can't open '%s': %s", filename, strerror(errno));
 		return -1;
 	}
 	import_keys_into_env(udev, buf, bufsize);

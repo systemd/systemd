@@ -538,7 +538,7 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 	int retval = 0;
 
 	if (file_map(filename, &buf, &bufsize) != 0) {
-		err("can't open '%s' as rules file", filename);
+		err("can't open '%s' as rules file: %s", filename, strerror(errno));
 		return -1;
 	}
 	dbg("reading '%s' as rules file", filename);

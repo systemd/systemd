@@ -115,13 +115,13 @@ int run_program(const char *command, const char *subsystem,
 	/* prepare pipes from child to parent */
 	if (result || log) {
 		if (pipe(outpipe) != 0) {
-			err("pipe failed");
+			err("pipe failed: %s", strerror(errno));
 			return -1;
 		}
 	}
 	if (log) {
 		if (pipe(errpipe) != 0) {
-			err("pipe failed");
+			err("pipe failed: %s", strerror(errno));
 			return -1;
 		}
 	}
@@ -145,7 +145,7 @@ int run_program(const char *command, const char *subsystem,
 				dup2(devnull, STDERR_FILENO);
 			close(devnull);
 		} else
-			err("open /dev/null failed");
+			err("open /dev/null failed: %s", strerror(errno));
 		if (outpipe[WRITE_END] > 0)
 			dup2(outpipe[WRITE_END], STDOUT_FILENO);
 		if (errpipe[WRITE_END] > 0)
@@ -156,7 +156,7 @@ int run_program(const char *command, const char *subsystem,
 		err("exec of program '%s' failed", argv[0]);
 		_exit(1);
 	case -1:
-		err("fork of '%s' failed", argv[0]);
+		err("fork of '%s' failed: %s", argv[0], strerror(errno));
 		return -1;
 	default:
 		/* read from child if requested */
@@ -199,7 +199,7 @@ int run_program(const char *command, const char *subsystem,
 						close(outpipe[READ_END]);
 						outpipe[READ_END] = -1;
 						if (count < 0) {
-							err("stdin read failed with '%s'", strerror(errno));
+							err("stdin read failed: %s", strerror(errno));
 							retval = -1;
 						}
 						continue;
@@ -233,7 +233,7 @@ int run_program(const char *command, const char *subsystem,
 						close(errpipe[READ_END]);
 						errpipe[READ_END] = -1;
 						if (count < 0)
-							err("stderr read failed with '%s'", strerror(errno));
+							err("stderr read failed: %s", strerror(errno));
 						continue;
 					}
 					errbuf[count] = '\0';
