@@ -50,7 +50,6 @@
 #include "udevd.h"
 #include "logging.h"
 
-/* global variables*/
 struct udev_rules rules;
 static int udevd_sock;
 static int uevent_netlink_sock;
@@ -84,19 +83,6 @@ void log_message(int priority, const char *format, ...)
 	va_end(args);
 }
 #endif
-
-static void msg_queue_insert(struct uevent_msg *msg)
-{
-	list_add(&msg->node, &exec_list);
-	msg->queue_time = time(NULL);
-	run_exec_q = 1;
-}
-
-static void msg_queue_delete(struct uevent_msg *msg)
-{
-	list_del(&msg->node);
-	free(msg);
-}
 
 static void asmlinkage udev_event_sig_handler(int signum)
 {
@@ -144,7 +130,12 @@ static int udev_event_process(struct uevent_msg *msg)
 	return 0;
 }
 
-/* runs event and removes event from run queue when finished */
+static void msg_queue_delete(struct uevent_msg *msg)
+{
+	list_del(&msg->node);
+	free(msg);
+}
+
 static void udev_event_run(struct uevent_msg *msg)
 {
 	pid_t pid;
@@ -180,6 +171,22 @@ static void udev_event_run(struct uevent_msg *msg)
 	}
 }
 
+static void msg_queue_insert(struct uevent_msg *msg)
+{
+	msg->queue_time = time(NULL);
+
+	/* run all events with a timeout set immediately */
+	if (msg->timeout != 0) {
+		list_add_tail(&msg->node, &running_list);
+		udev_event_run(msg);
+		return;
+	}
+
+	list_add_tail(&msg->node, &exec_list);
+	run_exec_q = 1;
+}
+
+/* runs event and removes event from run queue when finished */
 static int running_processes(void)
 {
 	int f;
@@ -308,10 +315,6 @@ static int running_with_devpath(struct uevent_msg *msg, int limit)
 	if (msg->devpath == NULL)
 		return 0;
 
-	/* skip any events with a timeout set */
-	if (msg->timeout != 0)
-		return 0;
-
 	list_for_each_entry(loop_msg, &running_list, node) {
 		if (limit && childs_count++ > limit) {
 			dbg("%llu, maximum number (%i) of child reached", msg->seqnum, childs_count);
@@ -340,7 +343,7 @@ static int running_with_devpath(struct uevent_msg *msg, int limit)
 }
 
 /* exec queue management routine executes the events and serializes events in the same sequence */
-static void exec_queue_manager(void)
+static void msg_queue_manager(void)
 {
 	struct uevent_msg *loop_msg;
 	struct uevent_msg *tmp_msg;
@@ -360,20 +363,22 @@ static void exec_queue_manager(void)
 			running = running_processes_in_session(sid, max_childs_running+10);
 			dbg("at least %d processes running in session", running);
 			if (running >= max_childs_running) {
-				dbg("delay seq %llu, cause too many processes already running",
-				    loop_msg->seqnum);
+				dbg("delay seq %llu, too many processes already running", loop_msg->seqnum);
 				return;
 			}
 		}
 
-		if (running_with_devpath(loop_msg, max_childs) == 0) {
-			/* move event to run list */
-			list_move_tail(&loop_msg->node, &running_list);
-			udev_event_run(loop_msg);
-			running++;
-			dbg("moved seq %llu to running list", loop_msg->seqnum);
-		} else
+		/* don't run two processes for the same devpath and wait for the parent*/
+		if (running_with_devpath(loop_msg, max_childs)) {
 			dbg("delay seq %llu (%s)", loop_msg->seqnum, loop_msg->devpath);
+			continue;
+		}
+
+		/* move event to run list */
+		list_move_tail(&loop_msg->node, &running_list);
+		udev_event_run(loop_msg);
+		running++;
+		dbg("moved seq %llu to running list", loop_msg->seqnum);
 	}
 }
 
@@ -494,7 +499,7 @@ static struct uevent_msg *get_udevd_msg(void)
 	case UDEVD_START_EXEC_QUEUE:
 		info("udevd message (START_EXEC_QUEUE) received");
 		stop_exec_q = 0;
-		exec_queue_manager();
+		msg_queue_manager();
 		break;
 	case UDEVD_SET_LOG_LEVEL:
 		intval = (int *) usend_msg.envbuf;
@@ -597,16 +602,10 @@ static void udev_done(int pid)
 
 	list_for_each_entry(msg, &running_list, node) {
 		if (msg->pid == pid) {
-			if (msg->queue_time)
-				info("seq %llu, pid [%d] exit, %ld seconds old", msg->seqnum, msg->pid, time(NULL) - msg->queue_time);
-			else
-				info("seq 0, pid [%d] exit", msg->pid);
+			info("seq %llu, pid [%d] exit, %ld seconds old", msg->seqnum, msg->pid, time(NULL) - msg->queue_time);
 			msg_queue_delete(msg);
 
-			/* we want to run the exec queue manager since there may
-			 * be events waiting with the devpath of the one that
-			 * just finished
-			 */
+			/* there may be events waiting with the same devpath */
 			run_exec_q = 1;
 			return;
 		}
@@ -939,7 +938,7 @@ int main(int argc, char *argv[], char *envp[])
 		if (run_exec_q) {
 			run_exec_q = 0;
 			if (!stop_exec_q)
-				exec_queue_manager();
+				msg_queue_manager();
 		}
 	}
 

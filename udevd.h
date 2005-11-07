@@ -32,7 +32,7 @@
 /* maximum limit of runnig childs */
 #define UDEVD_MAX_CHILDS		64
 /* start to throttle forking if maximum number of running childs in our session is reached */
-#define UDEVD_MAX_CHILDS_RUNNING	8
+#define UDEVD_MAX_CHILDS_RUNNING	16
 
 /* environment buffer, should match the kernel's size in lib/kobject_uevent.h */
 #define UEVENT_BUFFER_SIZE		1024
