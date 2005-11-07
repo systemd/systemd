@@ -73,7 +73,7 @@ int udev_make_node(struct udevice *udev, const char *file, dev_t devt, mode_t mo
 	}
 
 	if (unlink(file) != 0)
-		dbg("unlink(%s) failed: %s", file, strerror(errno));
+		err("unlink(%s) failed: %s", file, strerror(errno));
 	else
 		dbg("already present file '%s' unlinked", file);
 
@@ -90,14 +90,14 @@ create:
 perms:
 	dbg("chmod(%s, %#o)", file, mode);
 	if (chmod(file, mode) != 0) {
-		dbg("chmod(%s, %#o) failed: %s", file, mode, strerror(errno));
+		err("chmod(%s, %#o) failed: %s", file, mode, strerror(errno));
 		goto exit;
 	}
 
 	if (uid != 0 || gid != 0) {
 		dbg("chown(%s, %u, %u)", file, uid, gid);
 		if (chown(file, uid, gid) != 0) {
-			dbg("chown(%s, %u, %u) failed: %s",
+			err("chown(%s, %u, %u) failed: %s",
 			    file, uid, gid, strerror(errno));
 			goto exit;
 		}
@@ -222,7 +222,7 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 			retval = symlink(linktarget, filename);
 			selinux_resetfscreatecon();
 			if (retval != 0)
-				dbg("symlink(%s, %s) failed: %s",
+				err("symlink(%s, %s) failed: %s",
 				    linktarget, filename, strerror(errno));
 		}
 	}
@@ -244,7 +244,7 @@ static int rename_net_if(struct udevice *udev)
 
 	sk = socket(PF_INET, SOCK_DGRAM, 0);
 	if (sk < 0) {
-		dbg("error opening socket: %s", strerror(errno));
+		err("error opening socket: %s", strerror(errno));
 		return -1;
 	}
 
@@ -254,7 +254,7 @@ static int rename_net_if(struct udevice *udev)
 
 	retval = ioctl(sk, SIOCSIFNAME, &ifr);
 	if (retval != 0)
-		dbg("error changing net interface name: %s", strerror(errno));
+		err("error changing net interface name: %s", strerror(errno));
 	close(sk);
 
 	return retval;

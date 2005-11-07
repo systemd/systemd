@@ -56,7 +56,7 @@ static int delete_path(const char *path)
 		if (retval) {
 			if (errno == ENOTEMPTY)
 				return 0;
-			dbg("rmdir(%s) failed: %s", path, strerror(errno));
+			err("rmdir(%s) failed: %s", path, strerror(errno));
 			break;
 		}
 		dbg("removed '%s'", path);

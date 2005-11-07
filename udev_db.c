@@ -129,7 +129,7 @@ int udev_db_get_device(struct udevice *udev, const char *devpath)
 
 	devpath_to_db_path(devpath, filename, sizeof(filename));
 	if (file_map(filename, &buf, &bufsize) != 0) {
-		dbg("no db file to read %s: %s", filename, strerror(errno));
+		info("no db file to read %s: %s", filename, strerror(errno));
 		return -1;
 	}
 

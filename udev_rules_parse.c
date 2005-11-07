@@ -617,7 +617,7 @@ int udev_rules_init(struct udev_rules *rules, int resolve_names)
 				else
 					dbg("empty rules file '%s'", name_loop->name);
 			} else
-				dbg("could not read '%s'", name_loop->name);
+				err("could not read '%s': %s", name_loop->name, strerror(errno));
 			list_del(&name_loop->node);
 			free(name_loop);
 		}

@@ -743,10 +743,10 @@ int main(int argc, char *argv[], char *envp[])
 	/* init sockets to receive events */
 	if (init_udevd_socket() < 0) {
 		if (errno == EADDRINUSE) {
-			dbg("another udevd running, exit");
+			err("another udevd running, exit");
 			rc = 1;
 		} else {
-			dbg("error initializing udevd socket: %s", strerror(errno));
+			err("error initializing udevd socket: %s", strerror(errno));
 			rc = 2;
 		}
 		goto exit;
@@ -872,7 +872,7 @@ int main(int argc, char *argv[], char *envp[])
 		fdcount = select(maxfd+1, &readfds, NULL, NULL, NULL);
 		if (fdcount < 0) {
 			if (errno != EINTR)
-				dbg("error in select: %s", strerror(errno));
+				err("error in select: %s", strerror(errno));
 			continue;
 		}
 

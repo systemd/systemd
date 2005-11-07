@@ -100,12 +100,12 @@ void selinux_setfilecon(const char *file, const char *devname, unsigned int mode
 
 		if (ret < 0)
 			if (matchpathcon(file, mode, &scontext) < 0) {
-				dbg("matchpathcon(%s) failed\n", file);
+				err("matchpathcon(%s) failed\n", file);
 				return;
 			} 
 
 		if (setfilecon(file, scontext) < 0)
-			dbg("setfilecon %s failed: %s", file, strerror(errno));
+			err("setfilecon %s failed: %s", file, strerror(errno));
 
 		freecon(scontext);
 	}
@@ -126,12 +126,12 @@ void selinux_setfscreatecon(const char *file, const char *devname, unsigned int 
 
 		if (ret < 0)
 			if (matchpathcon(file, mode, &scontext) < 0) {
-				dbg("matchpathcon(%s) failed\n", file);
+				err("matchpathcon(%s) failed\n", file);
 				return;
 			}
 
 		if (setfscreatecon(scontext) < 0)
-			dbg("setfscreatecon %s failed: %s", file, strerror(errno));
+			err("setfscreatecon %s failed: %s", file, strerror(errno));
 
 		freecon(scontext);
 	}
@@ -141,7 +141,7 @@ void selinux_resetfscreatecon(void)
 {
 	if (is_selinux_running()) {
 		if (setfscreatecon(prev_scontext) < 0)
-			dbg("setfscreatecon failed: %s", strerror(errno));
+			err("setfscreatecon failed: %s", strerror(errno));
 	}
 }
 
@@ -153,7 +153,7 @@ void selinux_init(void)
 	 */
 	if (is_selinux_running()) {
 		if (getfscreatecon(&prev_scontext) < 0) {
-			dbg("getfscreatecon failed\n");
+			err("getfscreatecon failed\n");
 			prev_scontext = NULL;
 		}
 	}

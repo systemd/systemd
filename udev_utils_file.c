@@ -72,18 +72,18 @@ int unlink_secure(const char *filename)
 
 	retval = chown(filename, 0, 0);
 	if (retval)
-		dbg("chown(%s, 0, 0) failed: %s", filename, strerror(errno));
+		err("chown(%s, 0, 0) failed: %s", filename, strerror(errno));
 
 	retval = chmod(filename, 0000);
 	if (retval)
-		dbg("chmod(%s, 0000) failed: %s", filename, strerror(errno));
+		err("chmod(%s, 0000) failed: %s", filename, strerror(errno));
 
 	retval = unlink(filename);
 	if (errno == ENOENT)
 		retval = 0;
 
 	if (retval)
-		dbg("unlink(%s) failed: %s", filename, strerror(errno));
+		err("unlink(%s) failed: %s", filename, strerror(errno));
 
 	return retval;
 }

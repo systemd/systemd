@@ -102,7 +102,7 @@ uid_t lookup_user(const char *user)
 
 	pw = getpwnam(user);
 	if (pw == NULL)
-		dbg("specified user unknown '%s'", user);
+		info("specified user unknown '%s'", user);
 	else
 		uid = pw->pw_uid;
 
@@ -116,7 +116,7 @@ gid_t lookup_group(const char *group)
 
 	gr = getgrnam(group);
 	if (gr == NULL)
-		dbg("specified group unknown '%s'", group);
+		info("specified group unknown '%s'", group);
 	else
 		gid = gr->gr_gid;
 
@@ -144,7 +144,7 @@ static unsigned long get_id_by_name(const char *uname, const char *dbfile)
 	char *tail;
 
 	if (file_map(dbfile, &buf, &bufsize) != 0) {
-		dbg("can't open '%s' as db file: %s", dbfile, strerror(errno));
+		err("can't open '%s' as db file: %s", dbfile, strerror(errno));
 		return 0;
 	}
 	dbg("search '%s' in '%s'", uname, dbfile);
