@@ -1,3 +1,12 @@
+Summary of changes from v72 to v073
+============================================
+
+Kay Sievers:
+      udevd: depend on netlink and remove all sequence reorder logic
+      print useconds in udevmonitor
+      add RELEASE-NOTES, update TODO
+
+
 Summary of changes from v71 to v072
 ============================================
 

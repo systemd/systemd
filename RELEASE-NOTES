@@ -1,3 +1,9 @@
+udev 073
+========
+Fixed bug in udevd, if inotify is not available. We depend on netlink
+uevents now, kernels without that event source will not work with that
+version of udev anymore.
+
 udev 072
 ========
 The rule parsing happens now in the daemon once at startup, all udev
