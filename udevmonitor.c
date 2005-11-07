@@ -23,13 +23,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
-#include <time.h>
 #include <errno.h>
 #include <signal.h>
+#include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/select.h>
-#include <linux/types.h>
 #include <linux/netlink.h>
 
 #include "udev.h"
@@ -160,6 +159,9 @@ int main(int argc, char *argv[])
 		static char buf[UEVENT_BUFFER_SIZE*2];
 		ssize_t buflen;
 		int fdcount;
+		struct timeval tv;
+		struct timezone tz;
+		char timestr[64];
 
 		buflen = 0;
 		FD_ZERO(&readfds);
@@ -175,13 +177,19 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
+		if (gettimeofday(&tv, &tz) == 0) {
+			snprintf(timestr, sizeof(timestr), "%llu.%06u",
+				 (unsigned long long) tv.tv_sec, (unsigned int) tv.tv_usec);
+		} else
+			timestr[0] = '\0';
+
 		if ((uevent_netlink_sock > 0) && FD_ISSET(uevent_netlink_sock, &readfds)) {
 			buflen = recv(uevent_netlink_sock, &buf, sizeof(buf), 0);
 			if (buflen <=  0) {
 				fprintf(stderr, "error receiving uevent message\n");
 				continue;
 			}
-			printf("UEVENT[%llu] %s\n", (unsigned long long) time(NULL), buf);
+			printf("UEVENT[%s] %s\n", timestr, buf);
 		}
 
 		if ((udev_monitor_sock > 0) && FD_ISSET(udev_monitor_sock, &readfds)) {
@@ -190,7 +198,7 @@ int main(int argc, char *argv[])
 				fprintf(stderr, "error receiving udev message\n");
 				continue;
 			}
-			printf("UDEV  [%llu] %s\n", (unsigned long long) time(NULL), buf);
+			printf("UDEV  [%s] %s\n", timestr, buf);
 		}
 
 		if (buflen == 0)
