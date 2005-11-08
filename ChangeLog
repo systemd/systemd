@@ -1,3 +1,17 @@
+Summary of changes from v73 to v074
+============================================
+
+Kay Sievers:
+      never queue events with TIMEOUT set
+      let NAME="" supress node creation, but do RUN keys
+      remove udevinitsend
+      update .gitignore
+
+Marco d'Itri:
+      add strerror() to error logs
+      move some logging from dbg() to info()
+
+
 Summary of changes from v72 to v073
 ============================================
 
