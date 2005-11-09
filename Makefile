@@ -122,7 +122,6 @@ configdir =	${etcdir}/udev
 udevdir =	/dev
 udevdb =	${udevdir}/.udevdb
 LOCAL_CFG_DIR =	etc/udev
-KERNEL_DIR =	/lib/modules/${shell uname -r}/build
 DESTDIR =
 
 INSTALL = /usr/bin/install -c
@@ -177,8 +176,7 @@ endif
 
 # if our own version of klibc is used, we need to build it
 ifeq ($(strip $(USE_KLIBC)),true)
-	KLIBC_INSTALL	= $(PWD)/klibc/.install
-	KLCC		= $(KLIBC_INSTALL)/bin/$(CROSS)klcc
+	KLCC		= /usr/bin/$(CROSS)klcc
 	CC		= $(KLCC)
 	LD		= $(KLCC)
 	V = true
@@ -203,7 +201,7 @@ else
 	HOST_PROGS=
 endif
 
-all: $(KLCC) $(PROGRAMS) $(MAN_PAGES)
+all: $(PROGRAMS) $(MAN_PAGES)
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
 		$(MAKE) CC="$(CC)" \
@@ -214,7 +212,6 @@ all: $(KLCC) $(PROGRAMS) $(MAN_PAGES)
 			LIB_OBJS="$(LIB_OBJS)" \
 			LIBUDEV="$(PWD)/$(LIBUDEV)" \
 			LIBSYSFS="$(PWD)/$(LIBSYSFS)" \
-			KERNEL_DIR="$(KERNEL_DIR)" \
 			QUIET="$(QUIET)" \
 			-C $$target $@; \
 	done;
@@ -229,28 +226,19 @@ all: $(KLCC) $(PROGRAMS) $(MAN_PAGES)
 	$(QUIET) $(CC) -c $(CFLAGS) $< -o $@
 
 # "Static Pattern Rule" to build all programs
-$(PROGRAMS): %: $(HOST_PROGS) $(KLCC) $(HEADERS) $(GEN_HEADERS) $(LIBSYSFS) $(LIBUDEV) %.o
+$(PROGRAMS): %: $(HOST_PROGS) $(HEADERS) $(GEN_HEADERS) $(LIBSYSFS) $(LIBUDEV) %.o
 	$(QUIET) $(LD) $(LDFLAGS) $@.o -o $@ $(LIBUDEV) $(LIBSYSFS) $(LIB_OBJS)
 ifneq ($(STRIPCMD),)
 	$(QUIET) $(STRIPCMD) $@
 endif
 
-# our own copy of klibc, it is not used if KLCC is given
-$(KLCC):
-	$(MAKE) -C klibc KRNLSRC=$(KERNEL_DIR) SUBDIRS=klibc TESTS= \
-			 SHLIBDIR=$(KLIBC_INSTALL)/lib \
-			 INSTALLDIR=$(KLIBC_INSTALL) \
-			 bindir=$(KLIBC_INSTALL)/bin \
-			 mandir=$(KLIBC_INSTALL)/man all install
-.NOTPARALLEL: $(KLCC)
-
-$(UDEV_OBJS): $(KLCC)
+$(UDEV_OBJS):
 $(LIBUDEV): $(HOST_PROGS) $(HEADERS) $(GEN_HEADERS) $(UDEV_OBJS)
 	@rm -f $@
 	$(QUIET) $(AR) cq $@ $(UDEV_OBJS)
 	$(QUIET) $(RANLIB) $@
 
-$(SYSFS_OBJS): $(KLCC)
+$(SYSFS_OBJS):
 $(LIBSYSFS): $(HOST_PROGS) $(SYSFS_OBJS)
 	@rm -f $@
 	$(QUIET) $(AR) cq $@ $(SYSFS_OBJS)
@@ -288,13 +276,10 @@ clean:
 	- rm -f udev_gcov.txt
 	- rm -f core $(PROGRAMS) $(GEN_HEADERS) $(GEN_CONFIGS)
 	- rm -f udev-$(VERSION).tar.gz
-	$(MAKE) -C klibc SUBDIRS=klibc clean
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
 		$(MAKE) -C $$target $@; \
 	done;
-	$(MAKE) -C klibc SUBDIRS=klibc spotless
-	rm -rf klibc/.install
 .PHONY: clean
 
 release:
