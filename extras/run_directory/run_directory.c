@@ -53,9 +53,16 @@ static int exec_program(const char *filename, const char *subsystem)
 int run_directory(const char *dir, const char *suffix, const char *subsystem)
 {
 	struct name_entry *name_loop, *name_tmp;
+	struct stat buf;
 	LIST_HEAD(name_list);
 
 	dbg("looking at '%s'", dir);
+
+	if (stat(dir, &buf) != 0) {
+		dbg("directory '%s' not found", dir);
+		return 0;
+	}
+
 	add_matching_files(&name_list, dir, suffix);
 
 	list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
