@@ -31,7 +31,7 @@
 
 #include "../../udev_utils.h"
 #include "../../logging.h"
-#include "volume_id/volume_id.h"
+#include "libvolume_id/volume_id.h"
 
 #define BLKGETSIZE64 _IOR(0x12,114,size_t)
 

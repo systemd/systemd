@@ -5,12 +5,8 @@
 # Released under the GNU General Public License, version 2.
 #
 
-VOLUME_ID_BASE=volume_id
-include $(VOLUME_ID_BASE)/Makefile.inc
-
 PROG = vol_id
-OBJS = $(VOLUME_ID_OBJS)
-HEADERS = $(VOLUME_ID_HEADERS)
+LIBVOLUME_ID = libvolume_id/libvolume_id.a
 GEN_HEADERS =
 MAN_PAGES =
 
@@ -36,8 +32,11 @@ all: $(PROG) $(MAN_PAGES)
 %.o: %.c $(GEN_HEADERS)
 	$(QUIET) $(CC) -c $(CFLAGS) $< -o $@
 
-$(PROG): %: $(HEADERS) %.o $(OBJS)
-	$(QUIET) $(LD) $(LDFLAGS) $@.o $(OBJS) -o $@ $(LIBUDEV) $(LIBSYSFS) $(LIB_OBJS)
+$(LIBVOLUME_ID):
+	$(MAKE) -C libvolume_id
+
+$(PROG): %: $(HEADERS) %.o $(LIBVOLUME_ID)
+	$(QUIET) $(LD) $(LDFLAGS) $@.o $(LIBVOLUME_ID) -o $@ $(LIBUDEV) $(LIBSYSFS) $(LIB_OBJS)
 ifneq ($(strip $(STRIPCMD)),)
 	$(QUIET) $(STRIPCMD) $@
 endif
@@ -49,6 +48,7 @@ endif
 
 clean:
 	rm -f $(PROG) $(OBJS) $(GEN_HEADERS)
+	$(MAKE) -C libvolume_id clean
 .PHONY: clean
 
 install-bin: all
