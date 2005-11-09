@@ -45,9 +45,7 @@ Setting which are used for building udev:
   USE_LOG
   	if set to 'true', udev will emit messages to the syslog when
   	it creates or removes device nodes.  This is helpful to see
-  	what udev is doing.  This is enabled by default.  Note, if you
-  	are building udev against klibc it is recommended that you
-  	disable this option (due to klibc's syslog implementation.)
+  	what udev is doing.  This is enabled by default.
   DEBUG
   	if set to 'true', verbose debugging messages will be compiled into
   	the udev binaries.  Default value is 'false'.
@@ -55,19 +53,12 @@ Setting which are used for building udev:
   	if set to 'true', udev will be built with SELinux support
   	enabled.  This is disabled by default.
   USE_KLIBC
-  	if set to 'true', udev is built and linked against the
-  	included version of klibc.  Default value is 'false'.
-  KERNEL_DIR
-  	If this is not set it will default to /lib/modules/`uname -r`/build
-  	This is used if USE_KLIBC=true to find the kernel include
-  	directory that klibc needs to build against.  This must be set
-  	if you are not building udev while running a 2.6 kernel.
+  	if set to 'true', udev is built and linked against klibc.
+  	Default value is 'false'. KLCC specifies the klibc compiler
+  	wrapper, usually in /usr/bin/klcc
   EXTRAS
   	if set, will build the "extra" helper programs as specified
   	as listed (see below for an example.)
-
-if you want to build udev using klibc with debugging messages:
-  make USE_KLIBC=true DEBUG=true
 
 if you want to build the udev helper program cdrom_id and scsi_id:
   make EXTRAS="extras/cdrom_id extras/scsi_id"

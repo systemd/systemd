@@ -1,3 +1,8 @@
+udev 075
+========
+The copy of klibc is removed. A systemwide installed version of klibc
+can be used to buil a klibc udev.
+
 udev 074
 ========
 NAME="" will not create any nodes, but execute RUN keys. To completely

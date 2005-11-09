@@ -12,9 +12,6 @@ EXTRAS="\
 	extras/run_directory \
 	extras/firmware"
 
-[ -z "$KERNEL_DIR" ] && KERNEL_DIR=/lib/modules/`uname -r`/build
-echo KERNEL_DIR: "$KERNEL_DIR"
-
 # with debug
 make clean EXTRAS="$EXTRAS" >/dev/null
 make all -j4 $MAKEOPTS DEBUG=true EXTRAS="$EXTRAS" || exit
@@ -25,10 +22,14 @@ make clean EXTRAS="$EXTRAS" >/dev/null
 make all $MAKEOPTS USE_LOG=false EXTRAS="$EXTRAS" || exit
 echo -e "\n\n"
 
-# klibc and debug
-make clean EXTRAS="$EXTRAS" >/dev/null
-make all -j4 $MAKEOPTS USE_KLIBC=true DEBUG=true EXTRAS="$EXTRAS" KERNEL_DIR="$KERNEL_DIR" || exit
-echo -e "\n\n"
+# klibc build
+[ -z "$KLCC" ] && KLCC=/usr/bin/klcc
+if [ -e "$KLCC" ]; then
+	echo KLCC: "$KLCC"
+	make clean EXTRAS="$EXTRAS" >/dev/null
+	make all -j4 $MAKEOPTS USE_KLIBC=true DEBUG=true EXTRAS="$EXTRAS" KLCC="$KLCC" || exit
+	echo -e "\n\n"
+fi
 
 # install in temporary dir and show it
 TEMPDIR="`pwd`/.tmp"
