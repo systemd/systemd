@@ -1,0 +1,20 @@
+ENV{SYSCONFIG}=="no|off|0", GOTO="sysconfig_end"
+
+# network devices
+KERNEL=="tun", NAME="net/%k", MODE="0600"
+SUBSYSTEM=="net", ACTION=="add", RUN+="/sbin/ifup $env{INTERFACE} -o hotplug"
+SUBSYSTEM=="net", ACTION=="remove", RUN+="/sbin/ifdown %k -o hotplug"
+
+# SUSE system integration
+SUBSYSTEM=="pci", ACTION=="add", RUN+="/sbin/hwup bus-pci-%k -o hotplug"
+SUBSYSTEM=="usb", ACTION=="add", RUN+="/sbin/hwup usb-devpath-/sys%p -o hotplug"
+SUBSYSTEM=="ieee1394", ACTION=="add", RUN+="/sbin/hwup ieee1394-devpath-/sys%p -o hotplug"
+SUBSYSTEM=="scsi", DEVPATH=="/devices/css*", ACTION=="remove", RUN+="/sbin/hwdown scsi-devpath-/sys%p -o hotplug"
+SUBSYSTEM=="scsi_host", ACTION=="add", SYSFS{device/cutype}=="*", RUN+="/sbin/hwup scsi__host-devpath-/sys%p -o hotplug"
+SUBSYSTEM=="vio", ACTION=="add", RUN+="/sbin/hwup bus-macio-%k -o hotplug"
+SUBSYSTEM=="macio", ACTION=="add", RUN+="/sbin/hwup bus-macio-%k -o hotplug"
+SUBSYSTEM=="ccw", ACTION=="add", RUN+="/sbin/hwup ccw-devpath-/sys%p -o hotplug"
+SUBSYSTEM=="ccwgroup", ACTION=="add", RUN+="/sbin/hwup ccwgroup-devpath-/sys%p -o hotplug"
+SUBSYSTEM=="pnp", RUN+="/bin/sh -c 'while read id; do /sbin/modprobe pnp:d$$id; done < /sys$devpath/id'"
+
+LABEL="sysconfig_end"

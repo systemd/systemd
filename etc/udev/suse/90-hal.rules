@@ -1,0 +1,3 @@
+# send all events to HAL
+RUN+="/usr/sbin/hal.hotplug"
+
