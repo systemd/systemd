@@ -1,7 +1,10 @@
 udev 075
 ========
+Silent a too verbose error logging for the old hotplug.d/ dev.d/
+emulation.
+
 The copy of klibc is removed. A systemwide installed version of klibc
-can be used to buil a klibc udev.
+should be used to build a klibc udev now.
 
 udev 074
 ========

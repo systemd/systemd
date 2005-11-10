@@ -1,6 +1,21 @@
 Summary of changes from v74 to v075
 ============================================
 
+Greg Kroah-Hartman:
+      Make run_directory.c stat the place it is going to try to run.
+
+Kay Sievers:
+      forgot the ChangeLog for 074
+      volume_id: provide libvolume_id.a file
+      remove our own copy of klibc
+      remove outdated HOWTO
+      update TODO
+      update SUSE rules
+      remove completely useless start script
+      fix tests and remove no longer useful stuff
+      replace udeveventrecorder by a shell script
+
+
 Summary of changes from v73 to v074
 ============================================
 
