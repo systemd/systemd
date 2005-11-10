@@ -1,5 +1,5 @@
 # debug events to /events, but not on default udev_log="err"
-ENV{UDEV_LOG}=="[4-9]", RUN+="/sbin/udeventrecorder"
+ENV{UDEV_LOG}=="[4-9]", RUN+="/lib/udev/eventrecorder.sh"
 
 # event to be catched by udevmonitor
 RUN+="socket:/org/kernel/udev/monitor"

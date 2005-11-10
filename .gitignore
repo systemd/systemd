@@ -9,6 +9,5 @@ udevinfo
 udevmonitor
 udevstart
 udevtest
-udeveventrecorder
 udev_version.h
 
