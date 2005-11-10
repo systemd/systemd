@@ -152,8 +152,8 @@ int udev_remove_device(struct udevice *udev)
 		dbg("remove name='%s'", udev->name);
 		udev_db_delete_device(udev);
 	} else {
-		dbg("'%s' not found in database, don't remove anything", udev->devpath);
-		return -1;
+		dbg("'%s' not found in database, using kernel name '%s'", udev->devpath, udev->kernel_name);
+		strlcpy(udev->name, udev->kernel_name, sizeof(udev->name));
 	}
 
 	return delete_node(udev);

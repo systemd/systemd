@@ -262,9 +262,9 @@ EOF
 		desc		=> "import of shell-value file",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
-		exp_name	=> "subdir/sys/node" ,
+		exp_name	=> "subdir/info/node" ,
 		rules		=> <<EOF
-BUS=="scsi", IMPORT{file}="test.all", NAME="subdir%E{SYSFSDIR}/node"
+BUS=="scsi", IMPORT{file}="udev-test.conf", NAME="subdir/%E{udev_log}/node"
 KERNEL=="ttyUSB0", NAME="visor"
 EOF
 	},
@@ -1763,6 +1763,7 @@ open CONF, ">$udev_conf" || die "unable to create config file: $udev_conf";
 print CONF "udev_root=\"$udev_root\"\n";
 print CONF "udev_db=\"$udev_db\"\n";
 print CONF "udev_rules=\"$udev_rules\"\n";
+print CONF "udev_log=\"info\"\n";
 close CONF;
 
 my $test_num = 1;
