@@ -12,6 +12,7 @@
 #define _VOLUME_ID_H_
 
 #include <stdint.h>
+#include <stddef.h>
 
 #define VOLUME_ID_VERSION		53
 
