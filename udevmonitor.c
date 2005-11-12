@@ -29,6 +29,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/select.h>
+#include <linux/types.h>
 #include <linux/netlink.h>
 
 #include "udev.h"
