@@ -1,3 +1,12 @@
+udev 076
+========
+All built-in logic to work around bad sysfs timing is removed with this
+version. The need to wait for sysfs files is almost fixed with a kernel
+version that doesn't work with this udev version anyway. Until we fix
+the timing of the "bus" link creation, the former integrated logic should
+be emulated by a rule placed before all other rules:
+  ACTION=="add", DEVPATH=="/devices/*", ENV{PHYSDEVBUS}=="?*", WAIT_FOR_SYSFS="bus"
+
 udev 075
 ========
 Silent a too verbose error logging for the old hotplug.d/ dev.d/

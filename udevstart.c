@@ -40,7 +40,6 @@
 
 #include "libsysfs/sysfs/libsysfs.h"
 #include "udev_libc_wrapper.h"
-#include "udev_sysfs.h"
 #include "udev.h"
 #include "udev_version.h"
 #include "logging.h"

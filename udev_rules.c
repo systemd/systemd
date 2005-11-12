@@ -376,7 +376,7 @@ attr_found:
 	return 0;
 }
 
-#define WAIT_LOOP_PER_SECOND			20
+#define WAIT_LOOP_PER_SECOND		50
 static int wait_for_sysfs(struct udevice *udev, const char *file, int timeout)
 {
 	char filename[PATH_SIZE];
@@ -392,9 +392,10 @@ static int wait_for_sysfs(struct udevice *udev, const char *file, int timeout)
 			info("file appeared after %i loops", (timeout * WAIT_LOOP_PER_SECOND) - loop-1);
 			return 0;
 		}
+		info("wait for %i mseconds", 1000 / WAIT_LOOP_PER_SECOND);
 		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
 	}
-	info("waiting for '%s' failed", filename);
+	err("waiting for '%s' failed", filename);
 	return -1;
 }
 

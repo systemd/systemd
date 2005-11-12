@@ -84,6 +84,7 @@ struct udevice {
 
 extern int udev_init_device(struct udevice *udev, const char* devpath, const char *subsystem, const char *action);
 extern void udev_cleanup_device(struct udevice *udev);
+extern dev_t get_devt(struct sysfs_class_device *class_dev);
 extern int udev_process_event(struct udev_rules *rules, struct udevice *udev);
 extern int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev);
 extern int udev_remove_device(struct udevice *udev);

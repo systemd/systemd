@@ -37,7 +37,6 @@
 #include "udev.h"
 #include "logging.h"
 #include "udev_utils.h"
-#include "udev_sysfs.h"
 #include "list.h"
 
 

@@ -34,7 +34,6 @@
 #include "udev_libc_wrapper.h"
 #include "udev.h"
 #include "udev_utils.h"
-#include "udev_sysfs.h"
 #include "udev_version.h"
 #include "udev_rules.h"
 #include "logging.h"

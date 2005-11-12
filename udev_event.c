@@ -28,38 +28,62 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <syslog.h>
+#include <sys/stat.h>
 
+#include "libsysfs/sysfs/libsysfs.h"
 #include "udev_libc_wrapper.h"
 #include "udev.h"
 #include "logging.h"
 #include "udev_rules.h"
 #include "udev_utils.h"
-#include "udev_sysfs.h"
 #include "list.h"
 
+
+dev_t get_devt(struct sysfs_class_device *class_dev)
+{
+	struct sysfs_attribute *attr = NULL;
+	unsigned int major, minor;
+	char *maj, *min;
+
+	maj = getenv("MAJOR");
+	min = getenv("MINOR");
+
+	if (maj && min) {
+		major = atoi(maj);
+		minor = atoi(min);
+	} else {
+		attr = sysfs_get_classdev_attr(class_dev, "dev");
+		if (attr == NULL)
+			return 0;
+		dbg("dev='%s'", attr->value);
+
+		if (sscanf(attr->value, "%u:%u", &major, &minor) != 2)
+			return 0;
+	}
+
+	dbg("found major=%d, minor=%d", major, minor);
+	return makedev(major, minor);
+}
 
 int udev_process_event(struct udev_rules *rules, struct udevice *udev)
 {
 	int retval;
 	char path[PATH_SIZE];
-	const char *error;
 
 	if (udev->type == DEV_BLOCK || udev->type == DEV_CLASS || udev->type == DEV_NET) {
 		/* handle device node */
 		if (strcmp(udev->action, "add") == 0) {
 			struct sysfs_class_device *class_dev;
 
-			/* wait for sysfs of /sys/class /sys/block */
 			dbg("node add");
 			snprintf(path, sizeof(path), "%s%s", sysfs_path, udev->devpath);
 			path[sizeof(path)-1] = '\0';
-			class_dev = wait_class_device_open(path);
+			class_dev = sysfs_open_class_device_path(path);
 			if (class_dev == NULL) {
 				dbg("open class device failed");
 				return 0;
 			}
 			dbg("opened class_dev->name='%s'", class_dev->name);
-			wait_for_class_device(class_dev, &error);
 
 			/* get major/minor */
 			if (udev->type == DEV_BLOCK || udev->type == DEV_CLASS)
@@ -113,17 +137,16 @@ int udev_process_event(struct udev_rules *rules, struct udevice *udev)
 	} else if (udev->type == DEV_DEVICE && strcmp(udev->action, "add") == 0) {
 		struct sysfs_device *devices_dev;
 
-		/* wait for sysfs of /sys/devices/ */
 		dbg("devices add");
 		snprintf(path, sizeof(path), "%s%s", sysfs_path, udev->devpath);
 		path[sizeof(path)-1] = '\0';
-		devices_dev = wait_devices_device_open(path);
+		devices_dev = sysfs_open_device_path(path);
 		if (!devices_dev) {
 			dbg("devices device unavailable (probably remove has beaten us)");
 			return 0;
 		}
+
 		dbg("devices device opened '%s'", path);
-		wait_for_devices_device(devices_dev, &error);
 		udev_rules_get_run(rules, udev, NULL, devices_dev);
 		sysfs_close_device(devices_dev);
 		if (udev->ignore_device) {

@@ -61,7 +61,6 @@ HEADERS = \
 	udev_utils.h			\
 	udev_rules.h			\
 	udev_db.h			\
-	udev_sysfs.h			\
 	logging.h			\
 	udev_libc_wrapper.h		\
 	udev_selinux.h			\
@@ -73,7 +72,6 @@ UDEV_OBJS = \
 	udev_config.o			\
 	udev_add.o			\
 	udev_remove.o			\
-	udev_sysfs.o			\
 	udev_db.o			\
 	udev_rules.o			\
 	udev_rules_parse.o		\
