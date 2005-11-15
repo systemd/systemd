@@ -313,16 +313,11 @@ static int running_with_devpath(struct uevent_msg *msg, int limit)
 	struct uevent_msg *loop_msg;
 	int childs_count = 0;
 
-	if (msg->devpath == NULL)
-		return 0;
-
 	list_for_each_entry(loop_msg, &running_list, node) {
 		if (limit && childs_count++ > limit) {
 			dbg("%llu, maximum number (%i) of child reached", msg->seqnum, childs_count);
 			return 1;
 		}
-		if (loop_msg->devpath == NULL)
-			continue;
 
 		/* return running parent/child device event */
 		if (compare_devpath(loop_msg->devpath, msg->devpath) != 0) {
@@ -430,6 +425,12 @@ static struct uevent_msg *get_msg_from_envbuf(const char *buf, int buf_size)
 	msg->devt = makedev(major, minor);
 	msg->envp[i++] = "UDEVD_EVENT=1";
 	msg->envp[i] = NULL;
+
+	if (!msg->devpath) {
+		info("DEVPATH missing, ingnore message");
+		free(msg);
+		return NULL;
+	}
 
 	return msg;
 }
