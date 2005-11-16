@@ -28,6 +28,7 @@
 #include "list.h"
 
 #define COMMENT_CHARACTER		'#'
+#define PATH_TO_NAME_CHAR		'@'
 #define LINE_SIZE			512
 #define NAME_SIZE			128
 #define PATH_SIZE			256
@@ -37,6 +38,8 @@
 
 #define DEFAULT_PARTITIONS_COUNT	15
 #define UDEV_ALARM_TIMEOUT		180
+
+#define DB_DIR				".udev/db"
 
 struct udev_rules;
 
@@ -92,9 +95,14 @@ extern void udev_init_config(void);
 extern int udev_start(void);
 extern int udev_make_node(struct udevice *udev, const char *file, dev_t devt, mode_t mode, uid_t uid, gid_t gid);
 
+extern int udev_db_add_device(struct udevice *dev);
+extern int udev_db_delete_device(struct udevice *dev);
+extern int udev_db_get_device(struct udevice *udev, const char *devpath);
+extern int udev_db_lookup_name(const char *name, char *devpath, size_t len);
+extern int udev_db_get_all_entries(struct list_head *name_list);
+
 extern char sysfs_path[PATH_SIZE];
 extern char udev_root[PATH_SIZE];
-extern char udev_db_path[PATH_SIZE];
 extern char udev_config_filename[PATH_SIZE];
 extern char udev_rules_filename[PATH_SIZE];
 extern int udev_log_priority;

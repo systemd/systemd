@@ -24,7 +24,6 @@ my $PWD		= $ENV{PWD};
 my $sysfs	= "sys/";
 my $udev_bin	= "../udev";
 my $udev_root	= "udev-root/"; # !!! directory will be removed !!!
-my $udev_db	= ".udevdb";
 my $udev_conf	= "udev-test.conf";
 my $udev_rules	= "udev-test.rules";
 
@@ -1740,7 +1739,6 @@ sub run_test {
 	print "\n";
 
 	if (defined($rules->{option}) && $rules->{option} eq "clean") {
-		system("rm -rf $udev_db");
 		system("rm -rf $udev_root");
 		mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
 	}
@@ -1761,7 +1759,6 @@ mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
 # create config file
 open CONF, ">$udev_conf" || die "unable to create config file: $udev_conf";
 print CONF "udev_root=\"$udev_root\"\n";
-print CONF "udev_db=\"$udev_db\"\n";
 print CONF "udev_rules=\"$udev_rules\"\n";
 print CONF "udev_log=\"info\"\n";
 close CONF;
@@ -1791,7 +1788,6 @@ if ($ARGV[0]) {
 print "$error errors occured\n\n";
 
 # cleanup
-system("rm -rf $udev_db");
 system("rm -rf $udev_root");
 unlink($udev_rules);
 unlink($udev_conf);

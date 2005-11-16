@@ -60,7 +60,6 @@ HEADERS = \
 	udev.h				\
 	udev_utils.h			\
 	udev_rules.h			\
-	udev_db.h			\
 	logging.h			\
 	udev_libc_wrapper.h		\
 	udev_selinux.h			\
@@ -117,7 +116,6 @@ usrsbindir =	${exec_prefix}/usr/sbin
 mandir =	${prefix}/usr/share/man
 configdir =	${etcdir}/udev
 udevdir =	/dev
-udevdb =	${udevdir}/.udevdb
 LOCAL_CFG_DIR =	etc/udev
 DESTDIR =
 
@@ -250,7 +248,6 @@ udev_version.h:
 	@echo "Creating udev_version.h"
 	@echo \#define UDEV_VERSION		\"$(VERSION)\" > $@
 	@echo \#define UDEV_ROOT		\"$(udevdir)\" >> $@
-	@echo \#define UDEV_DB			\"$(udevdb)\" >> $@
 	@echo \#define UDEV_CONFIG_DIR		\"$(configdir)\" >> $@
 	@echo \#define UDEV_CONFIG_FILE		\"$(configdir)/udev.conf\" >> $@
 	@echo \#define UDEV_RULES_FILE		\"$(configdir)/rules.d\" >> $@
@@ -347,7 +344,7 @@ install-bin:
 	done;
 ifndef DESTDIR
 	- killall udevd
-	- rm -rf $(udevdb)
+	- rm -rf /dev/.udev
 	- $(sbindir)/udevd --daemon
 endif
 .PHONY: install-bin
@@ -363,7 +360,7 @@ uninstall-bin:
 	- rm -f $(DESTDIR)$(DESTDIR)$(usrbindir)/udevtest
 ifndef DESTDIR
 	- killall udevd
-	- rm -rf $(udevdb)
+	- rm -rf /dev/.udev
 endif
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \

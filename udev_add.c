@@ -40,7 +40,6 @@
 #include "udev_version.h"
 #include "logging.h"
 #include "udev_rules.h"
-#include "udev_db.h"
 #include "udev_selinux.h"
 
 

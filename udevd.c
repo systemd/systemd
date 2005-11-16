@@ -139,9 +139,6 @@ enum event_state {
 	EVENT_FAILED,
 };
 
-#define PATH_TO_NAME_CHAR		'@'
-#define EVENT_QUEUE_DIR			".udev/queue"
-#define EVENT_FAILED_DIR		".udev/failed"
 static void export_event_state(struct uevent_msg *msg, enum event_state state)
 {
 	char filename[PATH_SIZE];

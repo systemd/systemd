@@ -29,6 +29,9 @@
 #define UDEVD_PRIORITY			-4
 #define UDEV_PRIORITY			-2
 
+#define EVENT_QUEUE_DIR			".udev/queue"
+#define EVENT_FAILED_DIR		".udev/failed"
+
 /* maximum limit of runnig childs */
 #define UDEVD_MAX_CHILDS		64
 /* start to throttle forking if maximum number of running childs in our session is reached */

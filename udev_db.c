@@ -35,16 +35,16 @@
 #include "udev.h"
 #include "udev_utils.h"
 #include "logging.h"
-#include "udev_db.h"
 
-#define PATH_TO_NAME_CHAR		'@'
 
 static int devpath_to_db_path(const char *devpath, char *filename, size_t len)
 {
 	size_t start, end, i;
 
 	/* add location of db files */
-	start = strlcpy(filename, udev_db_path, len);
+	strlcpy(filename, udev_root, len);
+	strlcat(filename, "/", len);
+	start = strlcat(filename, DB_DIR, len);
 	end = strlcat(filename, devpath, len);
 	if (end > len)
 		end = len;
@@ -205,12 +205,16 @@ int udev_db_delete_device(struct udevice *udev)
 
 int udev_db_lookup_name(const char *name, char *devpath, size_t len)
 {
+	char dbpath[PATH_MAX];
 	DIR *dir;
 	int found = 0;
 
-	dir = opendir(udev_db_path);
+	strlcpy(dbpath, udev_root, sizeof(dbpath));
+	strlcat(dbpath, "/", sizeof(dbpath));
+	strlcat(dbpath, DB_DIR, sizeof(dbpath));
+	dir = opendir(dbpath);
 	if (dir == NULL) {
-		err("unable to open udev_db '%s': %s", udev_db_path, strerror(errno));
+		err("unable to open udev_db '%s': %s", dbpath, strerror(errno));
 		return -1;
 	}
 
@@ -230,7 +234,7 @@ int udev_db_lookup_name(const char *name, char *devpath, size_t len)
 		if (ent->d_name[0] == '.')
 			continue;
 
-		snprintf(filename, sizeof(filename), "%s/%s", udev_db_path, ent->d_name);
+		snprintf(filename, sizeof(filename), "%s/%s", dbpath, ent->d_name);
 		filename[sizeof(filename)-1] = '\0';
 		dbg("looking at '%s'", filename);
 
@@ -274,11 +278,15 @@ int udev_db_lookup_name(const char *name, char *devpath, size_t len)
 
 int udev_db_get_all_entries(struct list_head *name_list)
 {
+	char dbpath[PATH_MAX];
 	DIR *dir;
 
-	dir = opendir(udev_db_path);
+	strlcpy(dbpath, udev_root, sizeof(dbpath));
+	strlcat(dbpath, "/", sizeof(dbpath));
+	strlcat(dbpath, DB_DIR, sizeof(dbpath));
+	dir = opendir(dbpath);
 	if (dir == NULL) {
-		err("unable to open udev_db '%s': %s", udev_db_path, strerror(errno));
+		err("unable to open udev_db '%s': %s", dbpath, strerror(errno));
 		return -1;
 	}
 

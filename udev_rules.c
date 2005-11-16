@@ -39,7 +39,6 @@
 #include "udev_version.h"
 #include "logging.h"
 #include "udev_rules.h"
-#include "udev_db.h"
 
 
 /* extract possible {attr} and move str behind it */

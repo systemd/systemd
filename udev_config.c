@@ -38,7 +38,6 @@
 /* global variables */
 char sysfs_path[PATH_SIZE];
 char udev_root[PATH_SIZE];
-char udev_db_path[PATH_SIZE];
 char udev_config_filename[PATH_SIZE];
 char udev_rules_filename[PATH_SIZE];
 int udev_log_priority;
@@ -153,12 +152,6 @@ static int parse_config_file(void)
 			continue;
 		}
 
-		if (strcasecmp(variable, "udev_db") == 0) {
-			strlcpy(udev_db_path, value, sizeof(udev_db_path));
-			remove_trailing_chars(udev_db_path, '/');
-			continue;
-		}
-
 		if (strcasecmp(variable, "udev_rules") == 0) {
 			strlcpy(udev_rules_filename, value, sizeof(udev_rules_filename));
 			remove_trailing_chars(udev_rules_filename, '/');
@@ -180,7 +173,6 @@ void udev_init_config(void)
 	const char *env;
 
 	strcpy(udev_root, UDEV_ROOT);
-	strcpy(udev_db_path, UDEV_DB);
 	strcpy(udev_config_filename, UDEV_CONFIG_FILE);
 	strcpy(udev_rules_filename, UDEV_RULES_FILE);
 	udev_log_priority = LOG_ERR;
@@ -207,7 +199,6 @@ void udev_init_config(void)
 	dbg("sysfs_path='%s'", sysfs_path);
 	dbg("UDEV_CONFIG_FILE='%s'", udev_config_filename);
 	dbg("udev_root='%s'", udev_root);
-	dbg("udev_db='%s'", udev_db_path);
 	dbg("udev_rules='%s'", udev_rules_filename);
 	dbg("udev_log=%d", udev_log_priority);
 }

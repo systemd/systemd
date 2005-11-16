@@ -32,7 +32,6 @@
 #include "udev.h"
 #include "udev_utils.h"
 #include "udev_version.h"
-#include "udev_db.h"
 #include "logging.h"
 
 static int delete_path(const char *path)

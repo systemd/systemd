@@ -7,6 +7,10 @@ the timing of the "bus" link creation, the former integrated logic should
 be emulated by a rule placed before all other rules:
   ACTION=="add", DEVPATH=="/devices/*", ENV{PHYSDEVBUS}=="?*", WAIT_FOR_SYSFS="bus"
 
+The option "udev_db" does no longer exist. All udev state will always
+be in /$udev_root/.udev/ now, there is no longer an option to set this
+to anything else.
+
 udev 075
 ========
 Silent a too verbose error logging for the old hotplug.d/ dev.d/

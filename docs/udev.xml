@@ -72,14 +72,6 @@
             </varlistentry>
 
             <varlistentry>
-              <term><option>udev_db</option></term>
-              <listitem>
-                <para>The name and location of the udev database. The default value is
-                <filename>/dev/.udevdb</filename>.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
               <term><option>udev_rules</option></term>
               <listitem>
                 <para>The name of the udev rules file or directory to look for files
