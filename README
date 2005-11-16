@@ -4,64 +4,91 @@ For more information see the files in the docs/ directory.
 
 Important Note:
   Integrating udev in the system is a whole lot of work, has complex dependencies
-  and differs a lot from distro to distro. All reasonable distros use udev these
-  days, the major ones make it mandatory and the system will not work without it.
+  and differs a lot from distro to distro. All reasonable distros depend on udev
+  these days and the system will not work without it.
 
   The upstream udev project does not support or recomend to replace a distro's udev
   installation with the upstream version. The installation of a unmodified upstream
   version may render your system unusable! There is no "default" setup or a set
   of "default" rules provided by the upstream udev version.
 
-udev requires:
-  - 2.6 version of the Linux kernel
+Requirements:
+  - 2.6 version of the Linux kernel.
 
-  - the kernel must have sysfs, netlink, and hotplug enabled
+  - The kernel must have sysfs, netlink, and hotplug enabled.
 
-  - proc must be mounted on /proc
+  - The proc filesystem must be mounted on /proc.
 
-  - sysfs must be mounted at /sys, no other location is supported
+  - The sysfs filesystem must be mounted at /sys. No other location
+    is supported.
 
-  - udev creates and removes device nodes in /dev based on events
+
+Operation:
+  - Udev creates and removes device nodes in /dev based on events
     the kernel sends out on device discovery or removal
 
-  - during bootup /dev usually gets a tmpfs mounted which is populated scratch
-    by udev (created nodes don't survive a reboot, it always starts from scratch)
+  - Directly after mounting the root filesystem, the udevd daemon must be
+    started by an init script.
 
-  - udev replaces the hotplug event management invoked from /sbin/hotplug
-    by the udevd daemon, which receives the kernel events over netlink
+  - From kernel version 2.6.15 on, the hotplug helper /sbin/hotplug should
+    be disabled with an init script before kernel modules are loaded.
 
-  - all kernel events are matched against a set of specified rules which
-    make it posible to hook into the event processing
+  - During bootup, /dev usually gets a tmpfs filesystem mounted which is
+    populated from scratch by udev (created nodes don't survive a reboot,
+    the /lib/udev/devices directory should be used for "static nodes").
 
-  - there is a copy of the rules files for all major distros in the etc/udev
-    directory (you may look there how others distros are doing it)
+  - Udev replaces the hotplug event management invoked from /sbin/hotplug
+    by the udevd daemon, which receives the kernel events over netlink.
 
-Setting which are used for building udev:
+  - All kernel events are matched against a set of specified rules which
+    make it possible to hook into the event processing.
+
+  - Copies of the rules files for all major distros are in the etc/udev
+    directory (you may look there how others distros are doing it).
+
+Compile Options:
   prefix
-  	set this to the default root that you want to use
-  	Only override this if you really know what you are doing
+  	Set this to the default root that you want to use only override
+  	this if you really know what you are doing even then, you probably
+  	don't do the right thing.
   DESTDIR
-  	prefix for install target for package building
+  	Prefix for install target, used for package building.
   USE_LOG
-  	if set to 'true', udev will emit messages to the syslog when
-  	it creates or removes device nodes.  This is helpful to see
-  	what udev is doing.  This is enabled by default.
+  	if set to 'true', udev is able to pass errors or debug information
+  	to syslog. This is very useful to see what udev is doing or not doing,
+  	it is enabled by default.
   DEBUG
-  	if set to 'true', verbose debugging messages will be compiled into
-  	the udev binaries.  Default value is 'false'.
+  	If set to 'true', very verbose debugging messages will be compiled
+  	into the udev binaries. The actual level of debugging is specified
+  	in the udev config file.
+  STRIPCMD
+  	If udev is compiled for packaging an empty string can be passed
+  	to disable the stripping of the binaries.
   USE_SELINUX
-  	if set to 'true', udev will be built with SELinux support
+  	If set to 'true', udev will be built with SELinux support
   	enabled.  This is disabled by default.
   USE_KLIBC
-  	if set to 'true', udev is built and linked against klibc.
+  	If set to 'true', udev is built and linked against klibc.
   	Default value is 'false'. KLCC specifies the klibc compiler
-  	wrapper, usually in /usr/bin/klcc
+  	wrapper, usually located at /usr/bin/klcc.
   EXTRAS
-  	if set, will build the "extra" helper programs as specified
-  	as listed (see below for an example.)
+  	If set, will build the "extra" helper programs as specified
+  	as listed (see below for an example).
 
-if you want to build the udev helper program cdrom_id and scsi_id:
+If you want to build the udev helper program cdrom_id and scsi_id:
   make EXTRAS="extras/cdrom_id extras/scsi_id"
+
+Installation:
+  - The install target intall the udev binaries in the default locations,
+    all at boot time reqired binaries will be installed in /sbin.
+
+  - The default location for scripts and binaries that are called from
+    rules is /lib/udev.
+
+  - It is recommended to use the /lib/udev/devices directory to place
+    device nodes and symlinks in, which are copied to /dev at every boot.
+    That way, nodes for broken subsystems or devices which can't be
+    detected automatically by the kernel will always be available.
 
 Please direct any comment/question/concern to the linux-hotplug-devel mailing list at:
   linux-hotplug-devel@lists.sourceforge.net
