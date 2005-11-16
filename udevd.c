@@ -133,9 +133,83 @@ static int udev_event_process(struct uevent_msg *msg)
 	return retval;
 }
 
+enum event_state {
+	EVENT_QUEUED,
+	EVENT_FINISHED,
+	EVENT_FAILED,
+};
+
+#define PATH_TO_NAME_CHAR		'@'
+#define EVENT_QUEUE_DIR			".udev/queue"
+#define EVENT_FAILED_DIR		".udev/failed"
+static void export_event_state(struct uevent_msg *msg, enum event_state state)
+{
+	char filename[PATH_SIZE];
+	char filename_failed[PATH_SIZE];
+	char target[PATH_SIZE];
+	size_t start, end, i;
+	struct uevent_msg *loop_msg;
+
+	/* add location of queue files */
+	strlcpy(filename, udev_root, sizeof(filename));
+	strlcat(filename, "/", sizeof(filename));
+	start = strlcat(filename, EVENT_QUEUE_DIR, sizeof(filename));
+	end = strlcat(filename, msg->devpath, sizeof(filename));
+	if (end > sizeof(filename))
+		end = sizeof(filename);
+
+	/* replace '/' to transform path into a filename */
+	for (i = start+1; i < end; i++)
+		if (filename[i] == '/')
+			filename[i] = PATH_TO_NAME_CHAR;
+
+	/* add location of failed files */
+	strlcpy(filename_failed, udev_root, sizeof(filename_failed));
+	strlcat(filename_failed, "/", sizeof(filename_failed));
+	start = strlcat(filename_failed, EVENT_FAILED_DIR, sizeof(filename_failed));
+	end = strlcat(filename_failed, msg->devpath, sizeof(filename_failed));
+	if (end > sizeof(filename_failed))
+		end = sizeof(filename_failed);
+
+	/* replace '/' to transform path into a filename */
+	for (i = start+1; i < end; i++)
+		if (filename_failed[i] == '/')
+			filename_failed[i] = PATH_TO_NAME_CHAR;
+
+	switch (state) {
+	case EVENT_QUEUED:
+		unlink(filename_failed);
+
+		strlcpy(target, sysfs_path, sizeof(target));
+		strlcat(target, msg->devpath, sizeof(target));
+		create_path(filename);
+		symlink(target, filename);
+		return;
+	case EVENT_FINISHED:
+		unlink(filename_failed);
+
+		/* don't remove if events for the same path are still pending */
+		list_for_each_entry(loop_msg, &running_list, node)
+			if (loop_msg->devpath && strcmp(loop_msg->devpath, msg->devpath) == 0)
+				return;
+		unlink(filename);
+	case EVENT_FAILED:
+		create_path(filename_failed);
+		rename(filename, filename_failed);
+		return;
+	}
+}
+
 static void msg_queue_delete(struct uevent_msg *msg)
 {
 	list_del(&msg->node);
+
+	/* mark as failed, if add event returns non-zero */
+	if (msg->exitstatus && strcmp(msg->action, "add") == 0)
+		export_event_state(msg, EVENT_FAILED);
+	else
+		export_event_state(msg, EVENT_FINISHED);
+
 	free(msg);
 }
 
@@ -180,6 +254,8 @@ static void udev_event_run(struct uevent_msg *msg)
 static void msg_queue_insert(struct uevent_msg *msg)
 {
 	msg->queue_time = time(NULL);
+
+	export_event_state(msg, EVENT_QUEUED);
 
 	/* run all events with a timeout set immediately */
 	if (msg->timeout != 0) {
