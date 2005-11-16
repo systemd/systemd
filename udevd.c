@@ -122,13 +122,15 @@ static int udev_event_process(struct uevent_msg *msg)
 			if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0)
 				pass_env_to_socket(&name_loop->name[strlen("socket:")], msg->devpath, msg->action);
 			else
-				run_program(name_loop->name, udev.subsystem, NULL, 0, NULL, (udev_log_priority >= LOG_INFO));
+				if (run_program(name_loop->name, udev.subsystem, NULL, 0, NULL,
+						(udev_log_priority >= LOG_INFO)))
+					retval = -1;
 		}
 	}
 
 	udev_cleanup_device(&udev);
 
-	return 0;
+	return retval;
 }
 
 static void msg_queue_delete(struct uevent_msg *msg)
@@ -140,6 +142,7 @@ static void msg_queue_delete(struct uevent_msg *msg)
 static void udev_event_run(struct uevent_msg *msg)
 {
 	pid_t pid;
+	int retval;
 
 	pid = fork();
 	switch (pid) {
@@ -155,10 +158,12 @@ static void udev_event_run(struct uevent_msg *msg)
 
 		logging_init("udevd-event");
 		setpriority(PRIO_PROCESS, 0, UDEV_PRIORITY);
-		udev_event_process(msg);
+		retval = udev_event_process(msg);
 		info("seq %llu finished", msg->seqnum);
 
 		logging_close();
+		if (retval)
+			exit(1);
 		exit(0);
 	case -1:
 		err("fork of child failed: %s", strerror(errno));
@@ -427,7 +432,7 @@ static struct uevent_msg *get_msg_from_envbuf(const char *buf, int buf_size)
 	msg->envp[i] = NULL;
 
 	if (!msg->devpath) {
-		info("DEVPATH missing, ingnore message");
+		info("DEVPATH missing, ignore message");
 		free(msg);
 		return NULL;
 	}
@@ -597,14 +602,16 @@ static void asmlinkage sig_handler(int signum)
 	write(signal_pipe[WRITE_END], "", 1);
 }
 
-static void udev_done(int pid)
+static void udev_done(int pid, int exitstatus)
 {
 	/* find msg associated with pid and delete it */
 	struct uevent_msg *msg;
 
 	list_for_each_entry(msg, &running_list, node) {
 		if (msg->pid == pid) {
-			info("seq %llu, pid [%d] exit, %ld seconds old", msg->seqnum, msg->pid, time(NULL) - msg->queue_time);
+			info("seq %llu, pid [%d] exit with %i, %ld seconds old", msg->seqnum, msg->pid,
+			     exitstatus, time(NULL) - msg->queue_time);
+			msg->exitstatus = exitstatus;
 			msg_queue_delete(msg);
 
 			/* there may be events waiting with the same devpath */
@@ -617,12 +624,17 @@ static void udev_done(int pid)
 static void reap_sigchilds(void)
 {
 	pid_t pid;
+	int status;
 
 	while (1) {
-		pid = waitpid(-1, NULL, WNOHANG);
+		pid = waitpid(-1, &status, WNOHANG);
 		if (pid <= 0)
 			break;
-		udev_done(pid);
+		if (WIFEXITED(status))
+			status = WEXITSTATUS(status);
+		else
+			status = 0;
+		udev_done(pid, status);
 	}
 }
 

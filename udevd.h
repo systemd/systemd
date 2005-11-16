@@ -61,6 +61,7 @@ struct uevent_msg {
 	enum udevd_msg_type type;
 	struct list_head node;
 	pid_t pid;
+	int exitstatus;
 	time_t queue_time;
 	char *action;
 	char *devpath;
