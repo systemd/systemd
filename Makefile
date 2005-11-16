@@ -108,11 +108,11 @@ GEN_HEADERS = \
 
 # override this to make udev look in a different location for it's config files
 prefix =
-exec_prefix =	${prefix}
 etcdir =	${prefix}/etc
-sbindir =	${exec_prefix}/sbin
-usrbindir =	${exec_prefix}/usr/bin
-usrsbindir =	${exec_prefix}/usr/sbin
+sbindir =	${prefix}/sbin
+usrbindir =	${prefix}/usr/bin
+usrsbindir =	${prefix}/usr/sbin
+libudevdir =	${prefix}/lib/udev
 mandir =	${prefix}/usr/share/man
 configdir =	${etcdir}/udev
 udevdir =	/dev
@@ -248,7 +248,6 @@ udev_version.h:
 	@echo "Creating udev_version.h"
 	@echo \#define UDEV_VERSION		\"$(VERSION)\" > $@
 	@echo \#define UDEV_ROOT		\"$(udevdir)\" >> $@
-	@echo \#define UDEV_CONFIG_DIR		\"$(configdir)\" >> $@
 	@echo \#define UDEV_CONFIG_FILE		\"$(configdir)/udev.conf\" >> $@
 	@echo \#define UDEV_RULES_FILE		\"$(configdir)/rules.d\" >> $@
 	@echo \#define UDEVD_BIN		\"$(sbindir)/udevd\" >> $@
