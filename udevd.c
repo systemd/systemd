@@ -705,6 +705,8 @@ static void reap_sigchilds(void)
 			break;
 		if (WIFEXITED(status))
 			status = WEXITSTATUS(status);
+		else if (WIFSIGNALED(status))
+			status = WTERMSIG(status) + 128;
 		else
 			status = 0;
 		udev_done(pid, status);
