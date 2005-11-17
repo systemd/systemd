@@ -190,6 +190,7 @@ static void export_event_state(struct uevent_msg *msg, enum event_state state)
 			if (loop_msg->devpath && strcmp(loop_msg->devpath, msg->devpath) == 0)
 				return;
 		unlink(filename);
+		return;
 	case EVENT_FAILED:
 		create_path(filename_failed);
 		rename(filename, filename_failed);
