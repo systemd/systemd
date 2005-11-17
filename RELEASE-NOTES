@@ -18,6 +18,10 @@ packages or the user can place real device nodes, which get copied over
 to /dev at every boot. This should replace the various solutions with
 custom config files.
 
+Udevsend does no longer start the udev daemon. This must be done with
+the init script that prepares /dev on tmpfs and creates the initial nodes,
+before starting the daemon.
+
 udev 075
 ========
 Silent a too verbose error logging for the old hotplug.d/ dev.d/

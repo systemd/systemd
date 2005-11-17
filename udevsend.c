@@ -54,52 +54,15 @@ void log_message (int priority, const char *format, ...)
 }
 #endif
 
-static int start_daemon(void)
-{
-	pid_t pid;
-	pid_t child_pid;
-	char *const argv[] = { "udevd", NULL };
-	char *const envp[] = { NULL };
-
-	pid = fork();
-	switch (pid) {
-	case 0:
-		/* helper child */
-		child_pid = fork();
-		switch (child_pid) {
-		case 0:
-			/* daemon with empty environment */
-			close(sock);
-			execve(UDEVD_BIN, argv, envp);
-			err("exec of daemon failed: %s", strerror(errno));
-			_exit(1);
-		case -1:
-			err("fork of daemon failed: %s", strerror(errno));
-			return -1;
-		default:
-			exit(0);
-		}
-		break;
-	case -1:
-		err("fork of helper failed: %s", strerror(errno));
-		return -1;
-	default:
-		waitpid(pid, NULL, 0);
-	}
-	return 0;
-}
-
 int main(int argc, char *argv[], char *envp[])
 {
 	static struct udevd_msg usend_msg;
 	int usend_msg_len;
 	int i;
-	int loop;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
 	int bufpos = 0;
-	int retval = 1;
-	int started_daemon = 0;
+	int retval = 0;
 	const char *subsystem = NULL;
 
 	logging_init("udevsend");
@@ -109,8 +72,9 @@ int main(int argc, char *argv[], char *envp[])
 	dbg("version %s", UDEV_VERSION);
 
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
-	if (sock == -1) {
+	if (sock < 0) {
 		err("error getting socket: %s", strerror(errno));
+		retval = 1;
 		goto exit;
 	}
 
@@ -134,7 +98,8 @@ int main(int argc, char *argv[], char *envp[])
 
 		/* prevent loops in the scripts we execute */
 		if (strncmp(key, "UDEVD_EVENT=", 12) == 0) {
-			dbg("seems that the event source is not the kernel, just exit");
+			err("event loop, already passed through the daemon, exit");
+			retval = 2;
 			goto exit;
 		}
 
@@ -151,42 +116,13 @@ int main(int argc, char *argv[], char *envp[])
 		strcpy(&usend_msg.envbuf[bufpos], key);
 		bufpos += keylen + 1;
 	}
-	/* older kernels passed the SUBSYSTEM only as the first argument */
-	if (!subsystem && argc == 2) {
-		bufpos += sprintf(&usend_msg.envbuf[bufpos], "SUBSYSTEM=%s", argv[1]) + 1;
-		dbg("add 'SUBSYSTEM=%s' to env[%i] buffer from argv", argv[1], i);
-	}
 
 	usend_msg_len = offsetof(struct udevd_msg, envbuf) + bufpos;
 	dbg("usend_msg_len=%i", usend_msg_len);
 
-	/* If we can't send, try to start daemon and resend message */
-	loop = UDEVSEND_WAIT_MAX_SECONDS * UDEVSEND_WAIT_LOOP_PER_SECOND;
-	while (--loop) {
-		retval = sendto(sock, &usend_msg, usend_msg_len, 0, (struct sockaddr *)&saddr, addrlen);
-		if (retval != -1) {
-			retval = 0;
-			goto exit;
-		}
-
-		if (errno != ECONNREFUSED) {
-			err("error sending message: %s", strerror(errno));
-			goto exit;
-		}
-
-		if (!started_daemon) {
-			info("try to start udevd daemon");
-			retval = start_daemon();
-			if (retval) {
-				dbg("error starting daemon");
-				goto exit;
-			}
-			dbg("udevd daemon started");
-			started_daemon = 1;
-		} else {
-			dbg("retry to connect %d", UDEVSEND_WAIT_MAX_SECONDS * UDEVSEND_WAIT_LOOP_PER_SECOND - loop);
-			usleep(1000 * 1000 / UDEVSEND_WAIT_LOOP_PER_SECOND);
-		}
+	if (sendto(sock, &usend_msg, usend_msg_len, 0, (struct sockaddr *)&saddr, addrlen) < 0) {
+		retval = 3;
+		err("error sending message: %s", strerror(errno));
 	}
 
 exit:
@@ -194,6 +130,5 @@ exit:
 		close(sock);
 
 	logging_close();
-
 	return retval;
 }

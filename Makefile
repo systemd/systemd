@@ -250,7 +250,6 @@ udev_version.h:
 	@echo \#define UDEV_ROOT		\"$(udevdir)\" >> $@
 	@echo \#define UDEV_CONFIG_FILE		\"$(configdir)/udev.conf\" >> $@
 	@echo \#define UDEV_RULES_FILE		\"$(configdir)/rules.d\" >> $@
-	@echo \#define UDEVD_BIN		\"$(sbindir)/udevd\" >> $@
 
 # man pages
 %.8: docs/%.xml
