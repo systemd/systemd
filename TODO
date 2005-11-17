@@ -1,9 +1,6 @@
 This is a list of things that needs to be done. They are in no specific
 order.  We will gladly accept patches for any of these items:
 
-- Completely replace the built-in wait_for_sysfs stuff in udev_sysfs.c
-  by rules using the WAIT_FOR_SYSFS key.
-
 - Log the relationship of the kernel name and the persistent disk name
   to syslog, so any error logged from the kernel can be associated with
   any of the links at that time.
