@@ -27,7 +27,7 @@
 #include <assert.h>
 #include <unistd.h>
 
-#define LOCALADDRESS (htonl(0x7F0002))
+#define LOCALADDRESS (htonl(0x7F000002))
 
 static enum nss_status fill_in_hostent(
     const char *hn,
@@ -73,7 +73,7 @@ static enum nss_status fill_in_hostent(
     return NSS_STATUS_SUCCESS;
 }
 
-enum nss_status _nss_hostname_gethostbyname2_r(
+enum nss_status _nss_myhostname_gethostbyname2_r(
     const char *name,
     int af,
     struct hostent * result,
@@ -113,7 +113,7 @@ enum nss_status _nss_hostname_gethostbyname2_r(
     return fill_in_hostent(hn, result, buffer, buflen, errnop, h_errnop);
 }
 
-enum nss_status _nss_hostname_gethostbyname_r (
+enum nss_status _nss_myhostname_gethostbyname_r (
     const char *name,
     struct hostent *result,
     char *buffer,
@@ -121,7 +121,7 @@ enum nss_status _nss_hostname_gethostbyname_r (
     int *errnop,
     int *h_errnop) {
 
-    return _nss_hostname_gethostbyname2_r(
+    return _nss_myhostname_gethostbyname2_r(
         name,
         AF_UNSPEC,
         result,
@@ -131,7 +131,7 @@ enum nss_status _nss_hostname_gethostbyname_r (
         h_errnop);
 }
 
-enum nss_status _nss_hostname_gethostbyaddr_r(
+enum nss_status _nss_myhostname_gethostbyaddr_r(
     const void* addr,
     int len,
     int af,
@@ -146,7 +146,7 @@ enum nss_status _nss_hostname_gethostbyaddr_r(
     assert(errnop);
     assert(h_errnop);
 
-    if (af != AF_INET || len != 4 || (*(uint32_t*) addr) != LOCALADDRESS) {
+    if (af != AF_INET || len < 4 || (*(uint32_t*) addr) != LOCALADDRESS) {
         *errnop = ENOENT;
         *h_errnop = HOST_NOT_FOUND;
         return NSS_STATUS_NOTFOUND;
