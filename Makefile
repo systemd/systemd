@@ -16,7 +16,8 @@ clean:
 nss-myhostname.tar.gz:
 	rm -rf "nss-myhostname-$(VERSION)"
 	mkdir "nss-myhostname-$(VERSION)"
-	cp Makefile README *.c "nss-myhostname-$(VERSION)"/
+	cp Makefile LICENSE README *.c "nss-myhostname-$(VERSION)"/
+	rm -f "nss-myhostname-$(VERSION).tar.gz"
 	tar czf "nss-myhostname-$(VERSION).tar.gz" "nss-myhostname-$(VERSION)"/
 	rm -rf "nss-myhostname-$(VERSION)"
 
