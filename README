@@ -1,0 +1,17 @@
+nss-myhostname is a GNU libc NSS module that statically translates the
+local host name to the IP address 127.0.0.2 (which is on the loopback
+device) and vice versa.
+
+This is useful to make sure that the local host name is always
+resolvable. Some programs (such as sudo) require this functionality. 
+
+Especially on embedded systems it may not be desirable to modify
+/etc/hosts to match the current host name. 
+
+It is a good idea to put this module as last resort in
+/etc/nsswitch.conf, to make sure that other name service take
+precedence.
+
+-- Lennart Poettering, lennart [at] poettering [dot] de
+
+$Id$

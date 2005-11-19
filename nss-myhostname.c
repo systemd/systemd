@@ -1,3 +1,5 @@
+/* $Id$ */
+
 /*
  * This file is part of nss-myhostname.
  *
