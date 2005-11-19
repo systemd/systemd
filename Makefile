@@ -23,4 +23,10 @@ nss-myhostname.tar.gz:
 
 tar: nss-myhostname.tar.gz
 
+homepage: tar
+	test -d $$HOME/homepage/private
+	mkdir -p $$HOME/homepage/private/projects/nss-myhostname
+	cp nss-myhostname-$(VERSION).tar.gz README $$HOME/homepage/private/projects/nss-myhostname
+	ln -sf README $$HOME/homepage/private/projects/nss-myhostname/README.txt
+				
 .PHONY: clean install tar
