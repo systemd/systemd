@@ -161,32 +161,38 @@ int volume_id_probe_vfat(struct volume_id *id, uint64_t off)
 		return -1;
 
 	if (memcmp(vs->type.fat32.magic, "MSWIN", 5) == 0)
-		goto valid;
+		goto magic;
 
 	if (memcmp(vs->type.fat32.magic, "FAT32   ", 8) == 0)
-		goto valid;
+		goto magic;
 
 	if (memcmp(vs->type.fat.magic, "FAT16   ", 8) == 0)
-		goto valid;
+		goto magic;
 
 	if (memcmp(vs->type.fat.magic, "MSDOS", 5) == 0)
-		goto valid;
+		goto magic;
 
 	if (memcmp(vs->type.fat.magic, "FAT12   ", 8) == 0)
-		goto valid;
+		goto magic;
 
-	/*
-	 * There are old floppies out there without a magic, so we check
-	 * for well known values and guess if it's a fat volume
-	 */
+	/* some old floppies don't have a magic, so we expect the boot code to match */
 
 	/* boot jump address check */
 	if ((vs->boot_jump[0] != 0xeb || vs->boot_jump[2] != 0x90) &&
 	     vs->boot_jump[0] != 0xe9)
 		return -1;
 
-	/* heads check */
-	if (vs->heads == 0)
+magic:
+	/* reserverd sector count */
+	if (!vs->reserved)
+		return -1;
+
+	/* fat count*/
+	if (!vs->fats)
+		return -1;
+
+	/* media check */
+	if (vs->media < 0xf8 && vs->media != 0xf0)
 		return -1;
 
 	/* cluster size check*/	
@@ -194,15 +200,6 @@ int volume_id_probe_vfat(struct volume_id *id, uint64_t off)
 	    (vs->sectors_per_cluster & (vs->sectors_per_cluster-1)))
 		return -1;
 
-	/* media check */
-	if (vs->media < 0xf8 && vs->media != 0xf0)
-		return -1;
-
-	/* fat count*/
-	if (vs->fats != 2)
-		return -1;
-
-valid:
 	/* sector size check */
 	sector_size = le16_to_cpu(vs->sector_size);
 	if (sector_size != 0x200 && sector_size != 0x400 &&
