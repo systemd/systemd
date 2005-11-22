@@ -63,6 +63,37 @@ int create_path(const char *path)
 	return mkdir(p, 0755);
 }
 
+int delete_path(const char *path)
+{
+	char p[PATH_SIZE];
+	char *pos;
+	int retval;
+
+	strcpy (p, path);
+	pos = strrchr(p, '/');
+	while (1) {
+		*pos = '\0';
+		pos = strrchr(p, '/');
+
+		/* don't remove the last one */
+		if ((pos == p) || (pos == NULL))
+			break;
+
+		/* remove if empty */
+		retval = rmdir(p);
+		if (errno == ENOENT)
+			retval = 0;
+		if (retval) {
+			if (errno == ENOTEMPTY)
+				return 0;
+			err("rmdir(%s) failed: %s", p, strerror(errno));
+			break;
+		}
+		dbg("removed '%s'", p);
+	}
+	return 0;
+}
+
 /* Reset permissions on the device node, before unlinking it to make sure,
  * that permisions of possible hard links will be removed too.
  */

@@ -51,6 +51,7 @@ extern int replace_untrusted_chars(char *str);
 
 /* udev_utils_file.c */
 extern int create_path(const char *path);
+extern int delete_path(const char *path);
 extern int file_map(const char *filename, char **buf, size_t *bufsize);
 extern void file_unmap(void *buf, size_t bufsize);
 extern int unlink_secure(const char *filename);

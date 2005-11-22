@@ -34,35 +34,6 @@
 #include "udev_version.h"
 #include "logging.h"
 
-static int delete_path(const char *path)
-{
-	char *pos;
-	int retval;
-
-	pos = strrchr(path, '/');
-	while (1) {
-		*pos = '\0';
-		pos = strrchr(path, '/');
-
-		/* don't remove the last one */
-		if ((pos == path) || (pos == NULL))
-			break;
-
-		/* remove if empty */
-		retval = rmdir(path);
-		if (errno == ENOENT)
-			retval = 0;
-		if (retval) {
-			if (errno == ENOTEMPTY)
-				return 0;
-			err("rmdir(%s) failed: %s", path, strerror(errno));
-			break;
-		}
-		dbg("removed '%s'", path);
-	}
-	return 0;
-}
-
 static int delete_node(struct udevice *udev)
 {
 	char filename[PATH_SIZE];
