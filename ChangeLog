@@ -1,3 +1,32 @@
+Summary of changes from v75 to v076
+============================================
+
+Kay Sievers:
+      fix typo in eventrecorder
+      volume_id: include stddef.h header
+      remove misleading install instructions
+      remove all built-in wait_for_sysfs logic
+      add linux/types.h back, old glibc-kernel-headers want it
+      volume_id: use glibc's byteswap
+      udevd: ignore all messages without DEVPATH
+      udevd: track exit status of event process
+      udevd: export event queue and event state
+      remove "udev_db" option from config file
+      Makefile: remove exec_prefix and srcdir
+      update README and RELEASE-NOTES
+      udevd: track killed event processes as failed
+      update README
+      don't start udevd from udevsend
+      udevd: add a missing return
+      libvolume_id: fix weird fat volume recognition
+      move some helpers from extras to /lib/udev
+
+Scott James Remnant:
+      move delete_path() to utils
+      clean-up empty queue directories
+      Makefile: fail, if submake fails
+
+
 Summary of changes from v74 to v075
 ============================================
 
