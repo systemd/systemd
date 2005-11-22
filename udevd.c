@@ -176,6 +176,7 @@ static void export_event_state(struct uevent_msg *msg, enum event_state state)
 	switch (state) {
 	case EVENT_QUEUED:
 		unlink(filename_failed);
+		delete_path(filename_failed);
 
 		strlcpy(target, sysfs_path, sizeof(target));
 		strlcat(target, msg->devpath, sizeof(target));
@@ -183,17 +184,26 @@ static void export_event_state(struct uevent_msg *msg, enum event_state state)
 		symlink(target, filename);
 		return;
 	case EVENT_FINISHED:
+	case EVENT_FAILED:
 		unlink(filename_failed);
+		delete_path(filename_failed);
 
-		/* don't remove if events for the same path are still pending */
+		/* don't remove, if events for the same path are still pending */
 		list_for_each_entry(loop_msg, &running_list, node)
 			if (loop_msg->devpath && strcmp(loop_msg->devpath, msg->devpath) == 0)
 				return;
-		unlink(filename);
-		return;
-	case EVENT_FAILED:
-		create_path(filename_failed);
-		rename(filename, filename_failed);
+
+		/* move failed events to the failed directory */
+		if (state == EVENT_FAILED) {
+			create_path(filename_failed);
+			rename(filename, filename_failed);
+		} else {
+			unlink(filename);
+		}
+
+		/* clean up the queue directory */
+		delete_path(filename);
+
 		return;
 	}
 }
