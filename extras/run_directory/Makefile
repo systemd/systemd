@@ -47,13 +47,13 @@ clean:
 .PHONY: clean
 
 install-bin: all
-	$(INSTALL_PROGRAM) udev_run_devd $(DESTDIR)$(sbindir)/udev_run_devd
-	$(INSTALL_PROGRAM) udev_run_hotplugd $(DESTDIR)$(sbindir)/udev_run_hotplugd
+	$(INSTALL_PROGRAM) -D udev_run_devd $(DESTDIR)$(libudevdir)/udev_run_devd
+	$(INSTALL_PROGRAM) -D udev_run_hotplugd $(DESTDIR)$(libudevdir)/udev_run_hotplugd
 .PHONY: install-bin
 
 uninstall-bin:
-	- rm $(DESTDIR)$(sbindir)/udev_run_devd
-	- rm $(DESTDIR)$(sbindir)/udev_run_hotplugd
+	- rm $(DESTDIR)$(libudevdir)/udev_run_devd
+	- rm $(DESTDIR)$(libudevdir)/udev_run_hotplugd
 .PHONY: uninstall-bin
 
 install-man:

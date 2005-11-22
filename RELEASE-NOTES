@@ -7,16 +7,22 @@ the timing of the "bus" link creation, the former integrated logic should
 be emulated by a rule placed before all other rules:
   ACTION=="add", DEVPATH=="/devices/*", ENV{PHYSDEVBUS}=="?*", WAIT_FOR_SYSFS="bus"
 
-The option "udev_db" does no longer exist. All udev state will always
-be in /$udev_root/.udev/ now, there is no longer an option to set this
+The option "udev_db" does no longer exist. All udev state will be in
+/$udev_root/.udev/ now, there is no longer an option to set this
 to anything else.
+If the init script or something else used this value, just depend on
+this hardcoded path. But remember _all_content_ of this directory is
+still private to udev and can change at any time.
 
 Default location for rule sripts and helper programs is now: /lib/udev/.
 Everything that is not useful on the commandline should go into this
-directory. Also /lib/udev/devices/ is recommended as a directory where
-packages or the user can place real device nodes, which get copied over
-to /dev at every boot. This should replace the various solutions with
-custom config files.
+directory. Some of the helpers in the extras folder are installed there
+now. The rules need to be changed, to find the helpers there.
+
+Also /lib/udev/devices is recommended as a directory where packages or
+the user can place real device nodes, which get copied over to /dev at
+every boot. This should replace the various solutions with custom config
+files.
 
 Udevsend does no longer start the udev daemon. This must be done with
 the init script that prepares /dev on tmpfs and creates the initial nodes,
