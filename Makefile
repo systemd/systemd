@@ -208,7 +208,7 @@ all: $(PROGRAMS) $(MAN_PAGES)
 			LIBUDEV="$(PWD)/$(LIBUDEV)" \
 			LIBSYSFS="$(PWD)/$(LIBSYSFS)" \
 			QUIET="$(QUIET)" \
-			-C $$target $@; \
+			-C $$target $@ || exit 1; \
 	done;
 .PHONY: all
 .DEFAULT: all
@@ -270,7 +270,7 @@ clean:
 	- rm -f udev-$(VERSION).tar.gz
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
-		$(MAKE) -C $$target $@; \
+		$(MAKE) -C $$target $@ || exit 1; \
 	done;
 .PHONY: clean
 
@@ -292,7 +292,7 @@ install-config: $(GEN_CONFIGS)
 	fi
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
-		$(MAKE) -C $$target $@; \
+		$(MAKE) -C $$target $@ || exit 1; \
 	done;
 .PHONY: install-config
 
@@ -307,7 +307,7 @@ install-man:
 	- ln -f -s udevd.8 $(DESTDIR)$(mandir)/man8/udevcontrol.8
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
-		$(MAKE) -C $$target $@; \
+		$(MAKE) -C $$target $@ || exit 1; \
 	done;
 .PHONY: install-man
 
@@ -322,7 +322,7 @@ uninstall-man:
 	- rm -f $(DESTDIR)$(mandir)/man8/udevcontrol.8
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
-		$(MAKE) -C $$target $@; \
+		$(MAKE) -C $$target $@ || exit 1; \
 	done;
 .PHONY: uninstall-man
 
@@ -338,7 +338,7 @@ install-bin:
 	$(INSTALL_PROGRAM) -D udevstart $(DESTDIR)$(sbindir)/udevstart
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
-		$(MAKE) -C $$target $@; \
+		$(MAKE) -C $$target $@ || exit 1; \
 	done;
 ifndef DESTDIR
 	- killall udevd
@@ -362,7 +362,7 @@ ifndef DESTDIR
 endif
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
-		$(MAKE) -C $$target $@; \
+		$(MAKE) -C $$target $@ || exit 1; \
 	done;
 .PHONY: uninstall-bin
 
