@@ -43,8 +43,7 @@ static int devpath_to_db_path(const char *devpath, char *filename, size_t len)
 
 	/* add location of db files */
 	strlcpy(filename, udev_root, len);
-	strlcat(filename, "/", len);
-	start = strlcat(filename, DB_DIR, len);
+	start = strlcat(filename, "/"DB_DIR, len);
 	end = strlcat(filename, devpath, len);
 	if (end > len)
 		end = len;
@@ -210,8 +209,7 @@ int udev_db_lookup_name(const char *name, char *devpath, size_t len)
 	int found = 0;
 
 	strlcpy(dbpath, udev_root, sizeof(dbpath));
-	strlcat(dbpath, "/", sizeof(dbpath));
-	strlcat(dbpath, DB_DIR, sizeof(dbpath));
+	strlcat(dbpath, "/"DB_DIR, sizeof(dbpath));
 	dir = opendir(dbpath);
 	if (dir == NULL) {
 		err("unable to open udev_db '%s': %s", dbpath, strerror(errno));
@@ -282,8 +280,7 @@ int udev_db_get_all_entries(struct list_head *name_list)
 	DIR *dir;
 
 	strlcpy(dbpath, udev_root, sizeof(dbpath));
-	strlcat(dbpath, "/", sizeof(dbpath));
-	strlcat(dbpath, DB_DIR, sizeof(dbpath));
+	strlcat(dbpath, "/"DB_DIR, sizeof(dbpath));
 	dir = opendir(dbpath);
 	if (dir == NULL) {
 		err("unable to open udev_db '%s': %s", dbpath, strerror(errno));
