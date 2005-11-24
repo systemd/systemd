@@ -95,7 +95,7 @@ int udev_process_event(struct udev_rules *rules, struct udevice *udev)
 				if (udev->ignore_device) {
 					info("device event will be ignored");
 					sysfs_close_class_device(class_dev);
-					return -1;
+					return 0;
 				}
 				if (udev->name[0] != '\0') {
 					/* create node, store in db */
@@ -109,7 +109,7 @@ int udev_process_event(struct udev_rules *rules, struct udevice *udev)
 				if (udev->ignore_device) {
 					info("device event will be ignored");
 					sysfs_close_class_device(class_dev);
-					return -1;
+					return 0;
 				}
 			}
 			sysfs_close_class_device(class_dev);
@@ -127,7 +127,7 @@ int udev_process_event(struct udev_rules *rules, struct udevice *udev)
 			udev_rules_get_run(rules, udev, NULL, NULL);
 			if (udev->ignore_device) {
 				dbg("device event will be ignored");
-				return -1;
+				return 0;
 			}
 		}
 
@@ -151,14 +151,14 @@ int udev_process_event(struct udev_rules *rules, struct udevice *udev)
 		sysfs_close_device(devices_dev);
 		if (udev->ignore_device) {
 			info("device event will be ignored");
-			return -1;
+			return 0;
 		}
 	} else {
 		dbg("default handling");
 		udev_rules_get_run(rules, udev, NULL, NULL);
 		if (udev->ignore_device) {
 			info("device event will be ignored");
-			return -1;
+			return 0;
 		}
 	}
 	return 0;
