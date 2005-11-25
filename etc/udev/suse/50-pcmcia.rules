@@ -1,7 +1,5 @@
-ENV{SYSCONFIG}=="no|off|0", GOTO="pcmcia_end"
-
 SUBSYSTEM=="pcmcia_socket", ACTION=="add", RUN+="/sbin/hwup pcmcia_socket-devpath-%p -o hotplug"
 SUBSYSTEM=="pcmcia", ACTION=="add", RUN+="/sbin/hwup pcmcia-devpath-%p -o hotplug"
 
-LABEL="pcmcia_end"
+LABEL="after_pcmcia"
 

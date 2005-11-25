@@ -1,3 +1,7 @@
+# ignore these events until someone needs them
+SUBSYSTEM=="drivers",		OPTIONS="last_rule"
+SUBSYSTEM=="module",		OPTIONS="last_rule"
+
 # console
 KERNEL=="pty[pqrstuvwxyzabcdef][0123456789abcdef]", NAME="%k", GROUP="tty", MODE="666", OPTIONS="last_rule"
 KERNEL=="tty[pqrstuvwxyzabcdef][0123456789abcdef]", NAME="%k", GROUP="tty", MODE="666", OPTIONS="last_rule"
@@ -5,8 +9,8 @@ KERNEL=="vcs*",			NAME="%k", GROUP="tty", MODE="620", OPTIONS="last_rule"
 KERNEL=="vcsa*",		NAME="%k", GROUP="tty", MODE="620", OPTIONS="last_rule"
 KERNEL=="tty",			NAME="%k", GROUP="tty", MODE="666", OPTIONS="last_rule"
 KERNEL=="tty[0-9]*",		NAME="%k", GROUP="tty", MODE="620", OPTIONS="last_rule"
-KERNEL=="console",		NAME="%k", MODE="600"
-KERNEL=="ptmx",			NAME="%k", GROUP="tty", MODE="666"
+KERNEL=="console",		NAME="%k", MODE="600", OPTIONS="last_rule"
+KERNEL=="ptmx",			NAME="%k", GROUP="tty", MODE="666", OPTIONS="last_rule"
 
 # serial devices
 KERNEL=="tty[A-Z]*",		NAME="%k", GROUP="uucp"
@@ -35,23 +39,6 @@ KERNEL=="pmu",			GROUP="video"
 # dvb
 SUBSYSTEM="dvb", PROGRAM="/bin/sh -c 'X=%k; X=$${X#dvb}; A=$${X%%%%.*}; D=$${X#*.}; echo dvb/adapter$$A/$$D'", NAME="%c", GROUP="video"
 
-# ALSA/sound
-SUBSYSTEM="sound",		GROUP="audio"
-SUBSYSTEM="snd",		GROUP="audio"
-KERNEL=="controlC[0-9]*",	NAME="snd/%k"
-KERNEL=="hwC[D0-9]*",		NAME="snd/%k"
-KERNEL=="pcmC[D0-9cp]*",	NAME="snd/%k"
-KERNEL=="midiC[D0-9]*",		NAME="snd/%k"
-KERNEL=="timer",		NAME="snd/%k"
-KERNEL=="seq",			NAME="snd/%k"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="1604/8000/*", RUN+="/sbin/fxload -s /usr/share/alsa/firmware/usx2yloader/tascam_loader.ihx -I /usr/share/alsa/firmware/usx2yloader/us428fw.ihx"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="1604/8004/*", RUN+="/sbin/fxload -s /usr/share/alsa/firmware/usx2yloader/tascam_loader.ihx -I /usr/share/alsa/firmware/usx2yloader/us224fw.ihx"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="1604/8006/*", RUN+="/sbin/fxload -s /usr/share/alsa/firmware/usx2yloader/tascam_loader.ihx -I /usr/share/alsa/firmware/usx2yloader/us122fw.ihx"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="1604/8001/*", RUN+="/sbin/startproc /usr/bin/us428control"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="1604/8005/*", RUN+="/sbin/startproc /usr/bin/us428control"
-SUBSYSTEM=="sound", KERNEL=="controlC?", RUN+="/usr/sbin/alsactl -F restore %n"
-SUBSYSTEM=="sound", KERNEL=="hwC?D2", DRIVER=="EMU10K1_Audigy", RUN+="/etc/alsa.d/udev-soundfont"
-
 # Kino jogshuttle support
 SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="b33/10/*", RUN+="/usr/bin/killall --quiet -USR2 kino"
 SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="5f3/240/*", RUN+="/usr/bin/killall --quiet -USR2 kino"
@@ -64,12 +51,12 @@ KERNEL=="js*",			NAME="input/%k", MODE="0644"
 KERNEL=="ts*",			NAME="input/%k", MODE="0600"
 KERNEL=="uinput",		NAME="input/%k", MODE="0600"
 KERNEL=="lirc0",		NAME="%k", SYMLINK+="lirc"
-SUBSYSTEM=="input[0-9]*", RUN+="/lib/udev/input_device.sh"
-KERNEL=="input[0-9]*", ACTION=="add", ENV{ABS}=="[1-9]*", RUN+="/sbin/modprobe joydev"
+KERNEL=="input[0-9]*",		RUN+="/lib/udev/input_device.sh"
+KERNEL=="input[0-9]*",		ACTION=="add", ENV{ABS}=="[1-9]*", RUN+="/sbin/modprobe joydev"
 
 # printer
-SUBSYSTEM=="usb", KERNEL=="lp*", ACTION=="add", NAME="usb/%k", SYMLINK+="usb%k", GROUP="lp"
-SUBSYSTEM=="printer", KERNEL=="lp*", ACTION=="add", NAME="%k", GROUP="lp"
+SUBSYSTEM=="usb",		KERNEL=="lp*", NAME="usb/%k", SYMLINK+="usb%k", GROUP="lp"
+SUBSYSTEM=="printer",		KERNEL=="lp*", NAME="%k", GROUP="lp"
 KERNEL=="irlpt*",		NAME="%k", GROUP="lp"
 
 # cpu devices
@@ -117,32 +104,25 @@ KERNEL=="z90crypt",		NAME="%k", MODE="666"
 KERNEL=="mmtimer",		NAME="%k", MODE="444"
 KERNEL=="auer[0-9]*"		NAME="usb/%k"
 
-KERNEL=="pktcdvd", NAME="pktcdvd/control"
-KERNEL=="pktcdvd[0-9]*", NAME="pktcdvd/%k"
+KERNEL=="pktcdvd",		NAME="pktcdvd/control"
+KERNEL=="pktcdvd[0-9]*",	NAME="pktcdvd/%k"
 
 # fix floppy devices
-KERNEL=="nvram", ACTION=="add", RUN+="/sbin/load_floppy_module.sh"
-KERNEL=="fd*", ACTION=="add", SYSFS{device/cmos}=="*", RUN+="/sbin/create_floppy_devices -c -t $sysfs{device/cmos} -m %M /dev/%k"
-KERNEL=="fd*", ACTION=="remove", RUN+="/sbin/remove_floppy_devices.sh %k"
+KERNEL=="nvram", ACTION=="add", RUN+="/lib/udev/load_floppy_module.sh"
+KERNEL=="fd*", ACTION=="add", SYSFS{device/cmos}=="*", RUN+="/lib/udev/create_floppy_devices -c -t $sysfs{device/cmos} -m %M /dev/%k"
+KERNEL=="fd*", ACTION=="remove", RUN+="/lib/udev/remove_floppy_devices.sh %k"
 
 # block devices
 SUBSYSTEM=="block", GROUP="disk", MODE="0640"
 
-# SCSI types:
-# sd / block values:
-#    0 TYPE_DISK
-#    7 TYPE_MOD
-#   14 TYPE_RBC
-#
-# st/osst tape:
-#    1 TYPE_TAPE
-#
-# sr cd like ones:
-#    4 TYPE_WORM
-#    5 TYPE_ROM
+# sd:		0 TYPE_DISK, 7 TYPE_MOD, 14 TYPE_RBC
+# sr:		4 TYPE_WORM, 5 TYPE_ROM
+# st/osst:	1 TYPE_TAPE
+ACTION=="add", SUBSYSTEM="scsi" , SYSFS{type}=="0|7|14", RUN+="/bin/sh -c 'echo 60 > /sys/$DEVPATH/timeout'"
+ACTION=="add", SUBSYSTEM="scsi" , SYSFS{type}=="1", RUN+="/bin/sh -c 'echo 900 > /sys/$DEVPATH/timeout'"
 SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="0|7|14", RUN+="/sbin/modprobe sd_mod"
 # Treat osst as a unique case, that is, osst will load more often than
-SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="1", SYSFS{device/vendor}=="Onstream", RUN+="/sbin/modprobe osst"
+SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="1", SYSFS{device/vendor}=="OnStream", RUN+="/sbin/modprobe osst"
 SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="1", RUN+="/sbin/modprobe st"
 SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="[45]", RUN+="/sbin/modprobe sr_mod"
 SUBSYSTEM=="scsi_device", ACTION=="add", RUN+="/sbin/modprobe sg"
@@ -150,9 +130,8 @@ SUBSYSTEM=="scsi_device", ACTION=="add", RUN+="/sbin/modprobe sg"
 # IDE/ATAPI handling
 SUBSYSTEM=="ide", ACTION=="add", RUN+="/lib/udev/load_ide_modules.sh"
 
-# device mapper targets
+# device mapper
 KERNEL=="device-mapper", ACTION=="add", NAME="%k", SYMLINK+="mapper/control"
-KERNEL=="dm-[0-9]*", ACTION=="add", PROGRAM="/sbin/dmsetup info -c --noheadings -o name -j %M -m %m", SYMLINK="disk/by-name/%c"
 
 # check fstab and possibly mount
 SUBSYSTEM=="block", KERNEL=="sd*[0-9]|hd*[0-9]", ACTION=="add", RUN+="/lib/udev/mount.sh"
@@ -181,8 +160,7 @@ KERNEL=="iseries/vt*",		NAME="%k", GROUP="disk"
 KERNEL=="iseries/nvt*",		NAME="%k", GROUP="disk"
 KERNEL=="iseries/ibmsis*",	NAME="%k", GROUP="disk"
 
-# libusb device access (mount usbfs or create usbdev nodes)
-DEVPATH=="/module/usbcore", ACTION=="add", RUN+="/bin/mount -t usbfs usbfs /proc/bus/usb"
+# libusb device access
 SUBSYSTEM="usb_device", PROGRAM="/bin/sh -c 'X=%k X=$${X#usbdev}; B=$${X%%%%.*}; D=$${X#*.}; echo bus/usb/$$B/$$D'", SYMLINK+="%c"
 
 # firmware loader

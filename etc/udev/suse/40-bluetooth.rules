@@ -1,0 +1,82 @@
+# bluetooth subsystem
+SUBSYSTEM=="bluetooth", RUN+="/sbin/udev.bluetooth.sh"
+
+# uncomment this if you have configured an automatic rfcomm-bind in
+# /etc/bluetooth/rfcomm.conf
+# KERNEL=="rfcomm*", NAME="%k" GROUP="uucp" MODE="0660" OPTIONS="resmgr"
+
+## PCMCIA-Cards 
+# "Brain Boxes BL-620 Bluetooth Adapter"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="Brain Boxes", SYSFS{prod_id2}=="Bluetooth PC Card", RUN+="/etc/pcmcia/bluetooth.sh"
+# "Xircom CreditCard Bluetooth Adapter"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="Xircom", SYSFS{prod_id3}=="CBT", RUN+="/etc/pcmcia/bluetooth.sh"
+# "Xircom RealPort2 Bluetooth Adapter"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="Xircom", SYSFS{prod_id3}=="CBT", RUN+="/etc/pcmcia/bluetooth.sh"
+# "IBM Bluetooth PC Card II"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="IBM", SYSFS{prod_id2}=="Bluetooth PC Card II", RUN+="/etc/pcmcia/bluetooth.sh"
+# "TDK Bluetooth PC Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="TDK", SYSFS{prod_id2}=="Bluetooth PC Card II", RUN+="/etc/pcmcia/bluetooth.sh"
+# "AmbiCom BT2000C Bluetooth PC/CF Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="AmbiCom BT2000C", SYSFS{prod_id2}=="Bluetooth PC/CF Card", RUN+="/etc/pcmcia/bluetooth.sh"
+# "COM One Platinium Bluetooth PC Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="COM1 SA", SYSFS{prod_id2}=="MC310 CARD", RUN+="/etc/pcmcia/bluetooth.sh"
+# "Sphinx PICO Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="SPHINX", SYSFS{prod_id2}=="BT-CARD", RUN+="/etc/pcmcia/bluetooth.sh"
+# "H-Soft blue+Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="H-Soft", SYSFS{prod_id2}=="Blue+CARD", RUN+="/etc/pcmcia/bluetooth.sh"
+# "Compaq iPAQ Bluetooth Sleeve"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="CF CARD", SYSFS{prod_id2}=="GENERIC", RUN+="/etc/pcmcia/bluetooth.sh"
+# "Zoom Bluetooth Card"
+# "Sitecom CN-504 Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="PCMCIA", SYSFS{prod_id2}=="Bluetooth Card", RUN+="/etc/pcmcia/bluetooth.sh"
+
+
+#
+# dtl1_cs
+#
+# card "Nokia Bluetooth Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="Nokia Mobile Phones", SYSFS{prod_id2}=="DTL-1", RUN+="/etc/pcmcia/bluetooth.sh"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="Nokia Mobile Phones", SYSFS{prod_id2}=="DTL-4", RUN+="/etc/pcmcia/bluetooth.sh"
+# "Socket Bluetooth Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="Socket", SYSFS{prod_id2}=="CF+ Personal Network Card", RUN+="/etc/pcmcia/bluetooth.sh"
+
+
+#
+# bt3c_cs
+#
+
+# "3Com Bluetooth PC Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="3COM", SYSFS{prod_id3}=="Bluetooth PC Card", RUN+="/etc/pcmcia/bluetooth.sh"
+
+#
+# bluecard_cs
+#
+
+# "LSE041 Bluetooth PC Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="BlueCard", SYSFS{prod_id2}=="LSE041", RUN+="/etc/pcmcia/bluetooth.sh"
+# "LSE039 Bluetooth Compact Flash Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="WSS", SYSFS{prod_id2}=="LSE039", RUN+="/etc/pcmcia/bluetooth.sh"
+# "LSE139 Bluetooth Compact Flash Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="BTCFCARD", SYSFS{prod_id2}=="LSE139", RUN+="/etc/pcmcia/bluetooth.sh"
+
+
+#
+# bt950_cs
+#
+
+# "AmbiCom BT2000E Bluetooth Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="AmbiCom,Inc", SYSFS{prod_id2}=="BT2000E", RUN+="/etc/pcmcia/bluetooth.sh"
+# "Pretec BT2000E Bluetooth Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="Pretec", SYSFS{prod_id2}=="BT2000E", RUN+="/etc/pcmcia/bluetooth.sh"
+# "Billionton Bluetooth Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="Compact Flash", SYSFS{prod_id2}=="Bluetooth Card", RUN+="/etc/pcmcia/bluetooth.sh"
+
+
+#
+# btuart_cs
+#
+
+# "Cyber-blue Compact Flash Card"
+SUBSYSTEM=="tty", ENV{PHYSDEVBUS}=="pcmcia", SYSFS{prod_id1}=="BT", SYSFS{prod_id2}=="", SYSFS{prod_id3}=="", SYSFS{prod_id4}=="", RUN+="/etc/pcmcia/bluetooth.sh"
+
+
