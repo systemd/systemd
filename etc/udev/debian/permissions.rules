@@ -1,7 +1,10 @@
+# workaround needed to make udevd wait for the "bus" link
+ACTION=="add", DEVPATH=="/devices/*", ENV{PHYSDEVBUS}=="?*", \
+	WAIT_FOR_SYSFS="bus"
+
 # default permissions for block devices
 SUBSYSTEM=="block",				GROUP="disk"
 SUBSYSTEM=="block", SYSFS{removable}=="1",	GROUP="floppy"
-SUBSYSTEM=="block", SYSFS{../removable}=="1",	GROUP="floppy"
 
 # IDE devices
 BUS=="ide", KERNEL=="hd[a-z]|pcd[0-9]*", ACTION=="add", \
@@ -18,6 +21,9 @@ BUS=="scsi", SYSFS{type}=="6",	GROUP="scanner"
 # USB devices
 BUS=="usb", KERNEL=="legousbtower*", MODE="0666"
 BUS=="usb", KERNEL=="lp[0-9]*", GROUP="lp"
+
+# usbfs-like devices
+SUBSYSTEM=="usb_device", MODE="0664"
 
 # serial devices
 SUBSYSTEM=="tty",	GROUP="dialout"
@@ -41,7 +47,7 @@ SUBSYSTEM=="nvidia",	GROUP="video"
 
 # misc devices
 KERNEL=="random",	MODE="0666"
-KERNEL=="urandom",	MODE="0444"
+KERNEL=="urandom",	MODE="0666"
 KERNEL=="mem",		MODE="0640", GROUP="kmem"
 KERNEL=="kmem",		MODE="0640", GROUP="kmem"
 KERNEL=="port",		MODE="0640", GROUP="kmem"
@@ -53,12 +59,16 @@ KERNEL=="sgi_fetchop",	MODE="0666"
 KERNEL=="sonypi",	MODE="0666"
 KERNEL=="agpgart",	GROUP="video"
 KERNEL=="nvram",	GROUP="nvram"
-KERNEL=="rtc",		MODE="0660", GROUP="audio"
+KERNEL=="rtc",		GROUP="audio"
 KERNEL=="tpm*",		MODE="0600", OWNER="tss", GROUP="tss"
+KERNEL=="fuse",		GROUP="fuse"
 
 KERNEL=="cdemu[0-9]*",	GROUP="cdrom"
 KERNEL=="pktcdvd[0-9]*", GROUP="cdrom"
 KERNEL=="pktcdvd",	MODE="0644"
+
+KERNEL=="uverbs*",	GROUP="rdma"
+KERNEL=="ucm*",		GROUP="rdma"
 
 # printers and parallel devices
 SUBSYSTEM=="printer",	GROUP="lp"
@@ -75,7 +85,7 @@ KERNEL=="dv1394*",	GROUP="video"
 KERNEL=="video1394*",	GROUP="video"
 
 # input devices
-KERNEL=="event[0-9]*",	PROGRAM="/etc/udev/scripts/inputdev.sh %k", \
+KERNEL=="event[0-9]*",	PROGRAM="/lib/udev/inputdev.sh %k", \
 			RESULT=="inputdev", MODE="0664", GROUP="video"
 KERNEL=="js[0-9]*",	MODE="0664"
 
