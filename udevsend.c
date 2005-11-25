@@ -96,6 +96,13 @@ int main(int argc, char *argv[], char *envp[])
 		key = envp[i];
 		keylen = strlen(key);
 
+		/* ignore events which are already sent on the netlink socket */
+		if (strncmp(key, "SEQNUM=", 7) == 0) {
+			dbg("ignoring event with SEQNUM set");
+			retval = 0;
+			goto exit;
+		}
+
 		/* prevent loops in the scripts we execute */
 		if (strncmp(key, "UDEVD_EVENT=", 12) == 0) {
 			err("event loop, already passed through the daemon, exit");
