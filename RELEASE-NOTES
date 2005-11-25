@@ -1,3 +1,9 @@
+udev 077
+========
+Fix a problem if udevsend is used as the hotplug handler and tries to use
+syslog, which causes a "vc" event loop. 2.6.15 will make udevsend obsolete
+and this kind of problems will hopefully go away soon.
+
 udev 076
 ========
 All built-in logic to work around bad sysfs timing is removed with this

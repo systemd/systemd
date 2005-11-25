@@ -1,3 +1,17 @@
+Summary of changes from v76 to v077
+============================================
+
+Kay Sievers:
+      merge two consecutive static strlcat's
+      don't return an error, if "ignore_device" is used
+      remove outdated and misleading stuff
+      move SEQNUM event skipping to udevsend
+
+Marco d'Itri:
+      allow to overwrite the configured udev_root by exporting UDEV_ROOT
+      let udevsend ignore events with SEQNUM set
+
+
 Summary of changes from v75 to v076
 ============================================
 
