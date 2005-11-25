@@ -979,13 +979,8 @@ int main(int argc, char *argv[], char *envp[])
 		/* get user socket message */
 		if (FD_ISSET(udevd_sock, &readfds)) {
 			msg = get_udevd_msg();
-			if (msg) {
-				if (msg->type == UDEVD_UEVENT_UDEVSEND && msg->seqnum != 0) {
-					info("skip non-kernel message with SEQNUM");
-					free(msg);
-				} else
-					msg_queue_insert(msg);
-			}
+			if (msg)
+				msg_queue_insert(msg);
 		}
 
 		/* get kernel netlink message */
