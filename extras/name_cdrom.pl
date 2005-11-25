@@ -1,9 +1,8 @@
 #!/usr/bin/perl
 
-# a horribly funny script that shows how flexible udev can really be
-# This is to be executed by udev with the following rules:
-#
-# KERNEL="hd*[!0-9]|sr*", PROGRAM="name_cdrom.pl $tempnode", SYMLINK+="%c"
+# Horrible but funny script that shows how flexible udev can really be
+# This is to be executed by udev with the following rule:
+#   KERNEL="hd*[!0-9]|sr*", PROGRAM="name_cdrom.pl $tempnode", SYMLINK+="%c"
 
 use strict;
 use warnings;

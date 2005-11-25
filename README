@@ -36,11 +36,13 @@ Operation:
     a tmpfs filesystem mounted, which is populated from scratch by udev.
     Created nodes or changed permissions don't survive a reboot.
 
-  - The content of /lib/udev/devices directory should be copied over to the
-    tmpfs mounted /dev, to provide the required nodes to initialize udev.
+  - The content of /lib/udev/devices directory which contains the nodes,
+    symlinks and directories, which are always expected to be in/dev, should
+    be copied over to the tmpfs mounted /dev, to provide the required nodes
+    to initialize udev and continue booting.
 
-  - The udevd daemon must be started to receive netlink events from the kernel
-    driver core.
+  - The udevd daemon must be started by an init script to receive netlink
+    events from the kernel driver core.
 
   - From kernel version 2.6.15 on, the hotplug helper /sbin/hotplug should
     be disabled with an init script before the boot scripts are run and
