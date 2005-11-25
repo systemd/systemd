@@ -192,6 +192,12 @@ void udev_init_config(void)
 
 	parse_config_file();
 
+	env = getenv("UDEV_ROOT");
+	if (env) {
+		strlcpy(udev_root, env, sizeof(udev_root));
+		remove_trailing_chars(udev_root, '/');
+	}
+
 	env = getenv("UDEV_LOG");
 	if (env)
 		udev_log_priority = log_priority(env);
