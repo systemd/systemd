@@ -82,6 +82,7 @@ int run_program(const char *command, const char *subsystem,
 	int errpipe[2] = {-1, -1};
 	pid_t pid;
 	char arg[PATH_SIZE];
+	char program[PATH_SIZE];
 	char *argv[(sizeof(arg) / 2) + 1];
 	int devnull;
 	int i;
@@ -124,6 +125,13 @@ int run_program(const char *command, const char *subsystem,
 			err("pipe failed: %s", strerror(errno));
 			return -1;
 		}
+	}
+
+	/* allow programs in /lib/udev called without the path */
+	if (strchr(argv[0], '/') == NULL) {
+		strlcpy(program, "/lib/udev/", sizeof(program));
+		strlcat(program, argv[0], sizeof(program));
+		argv[0] = program;
 	}
 
 	pid = fork();
