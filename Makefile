@@ -17,7 +17,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
-VERSION = 076
+VERSION = 077
 
 # set this to make use of syslog
 USE_LOG = true
@@ -382,9 +382,10 @@ buildtest:
 
 ChangeLog: Makefile
 	@ mv $@ $@.tmp
-	@ echo "Summary of changes from v$(VERSION) to v$(shell printf '%03i' $$(expr $(VERSION) + 1))" >> $@
+	@ echo "Summary of changes from v$(shell printf '%03i' $$(expr $(VERSION) - 1)) to v$(VERSION)" >> $@
 	@ echo "============================================" >> $@
-	@ git log --pretty=short $(VERSION)..HEAD | git shortlog  >> $@
+	@ echo >> $@
+	@ git log --pretty=short $(shell printf '%03i' $$(expr $(VERSION) - 1))..HEAD | git shortlog  >> $@
 	@ echo >> $@
 	@ cat $@
 	@ cat $@.tmp >> $@

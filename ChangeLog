@@ -1,3 +1,24 @@
+Summary of changes from v076 to v077
+============================================
+
+Kay Sievers:
+      merge two consecutive static strlcat's
+      don't return an error, if "ignore_device" is used
+      remove outdated and misleading stuff
+      move SEQNUM event skipping to udevsend
+      update RELEASE-NOTES
+      update SUSE rules
+      allow programs in /lib/udev called without the path
+      update SUSE rules
+      add target to to generate ChangeLog section
+      update Red Hat rules
+
+Marco d'Itri:
+      allow to overwrite the configured udev_root by exporting UDEV_ROOT
+      let udevsend ignore events with SEQNUM set
+      update Debian rules
+
+
 Summary of changes from v75 to v076
 ============================================
 
