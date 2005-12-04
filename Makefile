@@ -377,8 +377,18 @@ test tests: all
 .PHONY: test tests
 
 buildtest:
-	./test/simple-build-check.sh
+	test/simple-build-check.sh
 .PHONY: buildtest
+
+ChangeLog: Makefile
+	@ mv $@ $@.tmp
+	@ echo "Summary of changes from v$(VERSION) to v$(shell printf '%03i' $$(expr $(VERSION) + 1))" >> $@
+	@ echo "============================================" >> $@
+	@ git log --pretty=short $(VERSION)..HEAD | git shortlog  >> $@
+	@ echo >> $@
+	@ cat $@
+	@ cat $@.tmp >> $@
+	@ rm $@.tmp
 
 gcov-all:
 	$(MAKE) clean all STRIPCMD= USE_GCOV=true
