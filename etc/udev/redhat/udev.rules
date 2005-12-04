@@ -11,6 +11,7 @@ KERNEL=="root",			GROUP="disk", MODE="0640"
 
 # console devices
 KERNEL=="tty",			MODE="0666", OPTIONS="last_rule"
+KERNEL=="console",		MODE="0600", OPTIONS="last_rule"
 KERNEL=="tty[0-9]",		GROUP="tty", MODE="0660", OPTIONS="last_rule"
 KERNEL=="tty[0-9][0-9]*",	GROUP="tty", MODE="0660", OPTIONS="last_rule"
 KERNEL=="vc/[0-9]*",		GROUP="tty", MODE="0660", OPTIONS="last_rule"
@@ -38,21 +39,21 @@ KERNEL=="tts/[0-9]*",		GROUP="uucp", MODE="0660"
 KERNEL=="tts/USB[0-9]*",	GROUP="uucp", MODE="0660"
 
 # vc devices
-KERNEL=="vcs",			OWNER="vcsa", GROUP="tty"
-KERNEL=="vcs[0-9]*",		OWNER="vcsa", GROUP="tty"
-KERNEL=="vcsa",			OWNER="vcsa", GROUP="tty"
-KERNEL=="vcsa[0-9]*",		OWNER="vcsa", GROUP="tty"
-KERNEL=="vcc/*",		OWNER="vcsa", GROUP="tty"
+KERNEL=="vcs",			OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
+KERNEL=="vcs[0-9]*",		OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
+KERNEL=="vcsa",			OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
+KERNEL=="vcsa[0-9]*",		OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
+KERNEL=="vcc/*",		OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
 
 # memory devices
-KERNEL=="random",		MODE="0666"
-KERNEL=="urandom",		MODE="0444"
-KERNEL=="mem",			GROUP="kmem", MODE="0640"
-KERNEL=="kmem",			GROUP="kmem", MODE="0640"
-KERNEL=="port",			GROUP="kmem", MODE="0640"
-KERNEL=="full",			MODE="0666"
-KERNEL=="null",			MODE="0666"
-KERNEL=="zero",			MODE="0666"
+KERNEL=="random",		MODE="0666", OPTIONS="last_rule"
+KERNEL=="urandom",		MODE="0444", OPTIONS="last_rule"
+KERNEL=="mem",			GROUP="kmem", MODE="0640", OPTIONS="last_rule"
+KERNEL=="kmem",			GROUP="kmem", MODE="0640", OPTIONS="last_rule"
+KERNEL=="port",			GROUP="kmem", MODE="0640", OPTIONS="last_rule"
+KERNEL=="full",			MODE="0666", OPTIONS="last_rule"
+KERNEL=="null",			MODE="0666", OPTIONS="last_rule"
+KERNEL=="zero",			MODE="0666", OPTIONS="last_rule"
 
 # misc devices
 KERNEL=="nvram",		MODE="0660"
@@ -133,9 +134,9 @@ KERNEL=="3dfx*",		MODE="0660"
 KERNEL=="dri/*",		MODE="0666"
 
 # usb devices
-KERNEL=="usb/dabusb*",		GROUP="usb", MODE="0660"
-KERNEL=="usb/mdc800*",		GROUP="usb", MODE="0660"
-KERNEL=="usb/rio500",		GROUP="usb", MODE="0660"
+KERNEL=="usb/dabusb*",		MODE="0660"
+KERNEL=="usb/mdc800*",		MODE="0660"
+KERNEL=="usb/rio500",		MODE="0660"
 
 # s390 devices
 KERNEL=="z90crypt",		MODE="0666"
@@ -164,8 +165,13 @@ KERNEL=="seq",			NAME="snd/%k"
 KERNEL=="mice",			NAME="input/%k"
 KERNEL=="mouse*",		NAME="input/%k"
 KERNEL=="event*",		NAME="input/%k"
-KERNEL=="js*",			NAME="input/%k"
+KERNEL=="js*",			NAME="input/%k", SYMLINK+="%k"
 KERNEL=="ts*",			NAME="input/%k"
+
+# IEEE1394 (firewire) devices (must be before raw devices below)
+KERNEL=="raw1394",      	NAME="%k"
+KERNEL=="dv1394*",      	NAME="dv1394/%n"
+KERNEL=="video1394*",   	NAME="video1394/%n"
 
 KERNEL=="raw[0-9]*",		NAME="raw/%k"
 
@@ -174,7 +180,7 @@ BUS=="usb", KERNEL=="lp[0-9]*",	NAME="usb/%k"
 
 KERNEL=="microcode",		NAME="cpu/%k"
 KERNEL="msr[0-9]*",     	NAME="cpu/%n/msr"
-KERNEL="cpu[0-9]*",     	NAME="cpu/%n/cpu"
+KERNEL="cpu[0-9]*",     	NAME="cpu/%n/cpuid"
 
 KERNEL=="ram1",			SYMLINK+="ram"
 KERNEL=="video0",		SYMLINK+="video"
@@ -218,73 +224,80 @@ KERNEL=="zap[0-9]*",  		NAME="zap/%n"
 BUS=="scsi", KERNEL=="sg[0-9]*", SYSFS{type}=="6", NAME="%k", SYMLINK="scanner%e", MODE="0660"
 
 # do not seperate the next 2 lines!!
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="/etc/udev/scripts/ide-media.sh %k", RESULT=="floppy", SYMLINK+="floppy%e", NAME{ignore_remove, all_partitions}="%k"
+KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="/lib/udev/ide-media.sh %k", RESULT=="floppy", SYMLINK+="floppy%e", NAME{ignore_remove, all_partitions}="%k"
 
 KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", RESULT=="cdrom", SYMLINK+="cdrom%e"
 
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="/etc/udev/scripts/check-cdrom.sh %k DVD", SYMLINK+="dvd%e"
-KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="/etc/udev/scripts/check-cdrom.sh %k DVD", SYMLINK+="dvd%e"
+KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="/lib/udev/check-cdrom.sh %k DVD", SYMLINK+="dvd%e"
+KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="/lib/udev/check-cdrom.sh %k DVD", SYMLINK+="dvd%e"
 
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="/etc/udev/scripts/check-cdrom.sh %k CD-R", SYMLINK+="cdwriter%e"
-KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="/etc/udev/scripts/check-cdrom.sh %k CD-R", SYMLINK+="cdwriter%e"
+KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="/lib/udev/check-cdrom.sh %k CD-R", SYMLINK+="cdwriter%e"
+KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="/lib/udev/check-cdrom.sh %k CD-R", SYMLINK+="cdwriter%e"
 
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM="/etc/udev/scripts/check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter%e"
-KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="/etc/udev/scripts/check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter%e"
+KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM="/lib/udev/check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter%e"
+KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="/lib/udev/check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter%e"
 
 # rename sr* to scd*
 KERNEL=="sr[0-9]*", BUS=="scsi", NAME="scd%n"
 KERNEL=="hd[a-z]*", BUS=="ide", SYSFS{removable}=="1", NAME{ignore_remove}="%k"
 
-KERNEL=="dvb*", PROGRAM=="/etc/udev/scripts/dvb.sh %k", NAME="%c"
+KERNEL=="dvb*", PROGRAM=="/lib/udev/dvb.sh %k", NAME="%c"
 
 #######################################
-# Persistant block device stuff - begin
+# Persistent block device stuff - begin
 #######################################
+# persistent disk links: /dev/disk/{by-id,by-uuid,by-label,by-path}
+# scheme based on "Linux persistent device names", 2004, Hannes Reinecke <hare@suse.de>
 
-# Skip all of this if we are not adding a block device
-ACTION!="add",          GOTO="persistent_end"
-SUBSYSTEM!="block",     GOTO="persistent_end"
+ACTION!="add", GOTO="persistent_end"
+SUBSYSTEM!="block", GOTO="persistent_end"
 
-# skip accessing removable ide devices, cause the ide drivers are horrible broken
-BUS=="ide", SYSFS{removable}="1", GOTO="no_volume_id"
-BUS=="ide", SYSFS{../removable}="1", GOTO="no_volume_id"
+# skip rules for inappropriate block devices
+KERNEL=="ram*|loop*|fd*|nbd*", GOTO="persistent_end"
 
-# persistent disk device links /dev/disk/
-KERNEL=="hd*[!0-9]", IMPORT="/sbin/ata_id --export $tempnode"
+# never access removable ide devices, the drivers are causing event loops on open()
+BUS=="ide", DRIVER!="ide-cdrom", SYSFS{removable}="1", GOTO="persistent_end"
+
+# by-id (hardware serial number)
+KERNEL=="hd*[!0-9]", IMPORT{program}="/sbin/ata_id --export $tempnode"
 KERNEL=="hd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
 KERNEL=="hd*[0-9]", IMPORT{parent}=="ID_*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
 
-KERNEL=="sd*[!0-9]", SYSFS{ieee1394_id}=="*", IMPORT="/bin/echo -e 'ID_SERIAL=$sysfs{ieee1394_id}\nID_BUS=ieee1394'"
-KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="", IMPORT="/sbin/usb_id -x"
-KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="", IMPORT="/sbin/scsi_id -g -x -s %p"
-KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="", IMPORT="/sbin/scsi_id -g -x -a -s %p"
-KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
-KERNEL=="sd*[0-9]", IMPORT{parent}=="ID_*"
-KERNEL=="sd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
+KERNEL=="sd*[!0-9]|sr*", SYSFS{ieee1394_id}=="*", ENV{ID_SERIAL}="$sysfs{ieee1394_id}", ENV{ID_BUS}="ieee1394"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/usb_id -x"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/scsi_id -g -x -s %p -d $tempnode"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/scsi_id -g -x -a -s %p -d $tempnode"
+KERNEL=="dasd*[!0-9]", IMPORT{program}="/sbin/dasd_id --export $tempnode"
+KERNEL=="sd*[!0-9]|sr*|dasd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 
-# Skip id for ram / loop / fd
-KERNEL=="ram*", GOTO="no_volume_id"
-KERNEL=="loop*", GOTO="no_volume_id"
-KERNEL=="fd*", GOTO="no_volume_id"
+# for partitions import parent information
+KERNEL=="sd*[0-9]|dasd*[0-9]", IMPORT{parent}=="ID_*"
+KERNEL=="sd*[0-9]|dasd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
 
-KERNEL=="*[!0-9]", ENV{ID_TYPE}=="?*", IMPORT="/sbin/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
+# by-path (shortest physical path)
+KERNEL=="*[!0-9]|sr*", ENV{ID_TYPE}=="?*", IMPORT{program}="/sbin/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
+KERNEL=="sr*", GOTO="persistent_end"
 KERNEL=="*[0-9]", IMPORT{parent}=="ID_*"
 KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 
-# volume-label/uuid
-KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="no_volume_id"
-KERNEL=="sr*", GOTO="no_volume_id"
-KERNEL=="*[0-9]", IMPORT="/sbin/vol_id --export $tempnode"
-KERNEL=="*[0-9]", ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
-KERNEL=="*[0-9]", ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
-LABEL="no_volume_id"
+# by-label/by-uuid (filesystem properties)
+KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_end"
+IMPORT{program}="/sbin/vol_id --export $tempnode"
+ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
+ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
+
+# BIOS Enhanced Disk Device
+KERNEL=="*[!0-9]", IMPORT{program}="/sbin/edd_id --export $tempnode"
+KERNEL=="*[!0-9]", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}"
+KERNEL=="*[0-9]", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}-part%n"
 
 LABEL="persistent_end"
 
 #####################################
-# Persistant block device stuff - end
+# Persistent block device stuff - end
 #####################################
 
+ACTION=="add", SUBSYSTEM=="usb_device", PROGRAM="/bin/sh -c 'X=%k X=$${X#usbdev} B=$${X%%%%.*} D=$${X#*.}; echo bus/usb/$$B/$$D'", SYMLINK+="%c"
 
 
 # Perhaps this should just be for all subsystems?
@@ -307,11 +320,11 @@ ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="14", \
 	RUN+="/sbin/modprobe sd_mod"
 ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="[45]", \
 	RUN+="/sbin/modprobe sr_mod"
-ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="1", SYSFS{vendor}=="Onstream", \
+ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="1", SYSFS{vendor}=="On[sS]tream", \
 	SYSFS{model}!="ADR*", RUN+="/sbin/modprobe osst"
-ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="1", SYSFS{vendor}=="Onstream", \
+ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="1", SYSFS{vendor}=="On[sS]tream", \
 	SYSFS{model}=="ADR*", RUN+="/sbin/modprobe st"
-ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="1", SYSFS{vendor}!="Onstream", \
+ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="1", SYSFS{vendor}!="On[sS]tream", \
 	RUN+="/sbin/modprobe st"
 ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="[23689]", \
 	RUN+="/sbin/modprobe sg"
