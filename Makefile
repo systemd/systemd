@@ -106,7 +106,6 @@ GEN_CONFIGS = \
 GEN_HEADERS = \
 	udev_version.h
 
-# override this to make udev look in a different location for it's config files
 prefix =
 etcdir =	${prefix}/etc
 sbindir =	${prefix}/sbin

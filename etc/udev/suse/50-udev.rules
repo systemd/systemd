@@ -37,7 +37,7 @@ KERNEL=="vbi0",			SYMLINK+="vbi"
 KERNEL=="pmu",			GROUP="video"
 
 # dvb
-SUBSYSTEM="dvb", PROGRAM="/bin/sh -c 'X=%k; X=$${X#dvb}; A=$${X%%%%.*}; D=$${X#*.}; echo dvb/adapter$$A/$$D'", NAME="%c", GROUP="video"
+SUBSYSTEM=="dvb", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%i $${K%%%%.*} $${K#*.}'", NAME="%c", GROUP="video"
 
 # Kino jogshuttle support
 SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="b33/10/*", RUN+="/usr/bin/killall --quiet -USR2 kino"
@@ -51,8 +51,7 @@ KERNEL=="js*",			NAME="input/%k", MODE="0644"
 KERNEL=="ts*",			NAME="input/%k", MODE="0600"
 KERNEL=="uinput",		NAME="input/%k", MODE="0600"
 KERNEL=="lirc0",		NAME="%k", SYMLINK+="lirc"
-KERNEL=="input[0-9]*",		RUN+="/lib/udev/input_device.sh"
-KERNEL=="input[0-9]*",		ACTION=="add", ENV{ABS}=="[1-9]*", RUN+="/sbin/modprobe joydev"
+KERNEL=="input[0-9]*", ACTION=="add", RUN+="/lib/udev/input.sh"
 
 # printer
 SUBSYSTEM=="usb",		KERNEL=="lp*", NAME="usb/%k", SYMLINK+="usb%k", GROUP="lp"
@@ -121,14 +120,13 @@ SUBSYSTEM=="block", GROUP="disk", MODE="0640"
 ACTION=="add", SUBSYSTEM="scsi" , SYSFS{type}=="0|7|14", RUN+="/bin/sh -c 'echo 60 > /sys/$DEVPATH/timeout'"
 ACTION=="add", SUBSYSTEM="scsi" , SYSFS{type}=="1", RUN+="/bin/sh -c 'echo 900 > /sys/$DEVPATH/timeout'"
 SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="0|7|14", RUN+="/sbin/modprobe sd_mod"
-# Treat osst as a unique case, that is, osst will load more often than
-SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="1", SYSFS{device/vendor}=="OnStream", RUN+="/sbin/modprobe osst"
+SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="1", SYSFS{device/vendor}=="On[sS]tream", RUN+="/sbin/modprobe osst"
 SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="1", RUN+="/sbin/modprobe st"
 SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="[45]", RUN+="/sbin/modprobe sr_mod"
 SUBSYSTEM=="scsi_device", ACTION=="add", RUN+="/sbin/modprobe sg"
 
-# IDE/ATAPI handling
-SUBSYSTEM=="ide", ACTION=="add", RUN+="/lib/udev/load_ide_modules.sh"
+# IDE modules
+SUBSYSTEM=="ide", ACTION=="add", RUN+="/lib/udev/ide.sh"
 
 # device mapper
 KERNEL=="device-mapper", ACTION=="add", NAME="%k", SYMLINK+="mapper/control"
@@ -161,7 +159,7 @@ KERNEL=="iseries/nvt*",		NAME="%k", GROUP="disk"
 KERNEL=="iseries/ibmsis*",	NAME="%k", GROUP="disk"
 
 # libusb device access
-SUBSYSTEM="usb_device", PROGRAM="/bin/sh -c 'X=%k X=$${X#usbdev}; B=$${X%%%%.*}; D=$${X#*.}; echo bus/usb/$$B/$$D'", SYMLINK+="%c"
+SUBSYSTEM=="usb_device", PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", NAME="%c", MODE="0644"
 
 # firmware loader
 SUBSYSTEM=="firmware", ACTION=="add", RUN+="/lib/udev/firmware.sh"

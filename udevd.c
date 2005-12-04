@@ -551,7 +551,7 @@ static struct uevent_msg *get_udevd_msg(void)
 	size = recvmsg(udevd_sock, &smsg, 0);
 	if (size <  0) {
 		if (errno != EINTR)
-			err("unable to receive udevd message: %s", strerror(errno));
+			err("unable to receive user udevd message: %s", strerror(errno));
 		return NULL;
 	}
 	cmsg = CMSG_FIRSTHDR(&smsg);
@@ -626,7 +626,7 @@ static struct uevent_msg *get_netlink_msg(void)
 	size = recv(uevent_netlink_sock, &buffer, sizeof(buffer), 0);
 	if (size <  0) {
 		if (errno != EINTR)
-			err("unable to receive udevd message: %s", strerror(errno));
+			err("unable to receive kernel netlink message: %s", strerror(errno));
 		return NULL;
 	}
 
