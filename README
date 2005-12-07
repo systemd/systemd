@@ -31,22 +31,21 @@ Operation:
   Udev creates and removes device nodes in /dev, based on events the kernel
   sends out on device discovery or removal.
 
-  - Directly after mouting the real root filesystem, wherever that
-    happens, in initramfs or with a directly mounted root, /dev should get
-    a tmpfs filesystem mounted, which is populated from scratch by udev.
-    Created nodes or changed permissions don't survive a reboot.
+  - Early in the boot process, /dev should get a tmpfs filesystem
+    mounted, which is populated from scratch by udev. Created nodes or
+    changed permissions will not survive a reboot, which is intentional.
 
   - The content of /lib/udev/devices directory which contains the nodes,
-    symlinks and directories, which are always expected to be in/dev, should
+    symlinks and directories, which are always expected to be in /dev, should
     be copied over to the tmpfs mounted /dev, to provide the required nodes
     to initialize udev and continue booting.
 
   - The udevd daemon must be started by an init script to receive netlink
-    events from the kernel driver core.
+    uevents from the kernel driver core.
 
   - From kernel version 2.6.15 on, the hotplug helper /sbin/hotplug should
-    be disabled with an init script before the boot scripts are run and
-    kernel modules are loaded.
+    be disabled with an init script before actions like loading kernel
+    modules are taken, which may cause a lot of events.
 
   - All kernel events are matched against a set of specified rules in
     /etc/udev/rules.d/ which make it possible to hook into the event
@@ -56,12 +55,8 @@ Operation:
 
 
 Compile Options:
-  prefix
-  	Set this to the default root that you want to use. Only override
-  	this if you really know what you are doing, even then, you probably
-  	don't do the right thing.
   DESTDIR
-  	Prefix for install target, used for package building.
+  	Prefix of install target, used for package building.
   USE_LOG
   	If set to 'true', udev is able to pass errors or debug information
   	to syslog. This is very useful to see what udev is doing or not doing.
@@ -95,7 +90,7 @@ Installation:
 
   - The default location for scripts and binaries that are called from
     rules is /lib/udev. Other packages who install udev rules, should use
-    that diretory too.
+    that directory too.
 
   - It is recommended to use the /lib/udev/devices directory to place
     device nodes and symlinks in, which are copied to /dev at every boot.
