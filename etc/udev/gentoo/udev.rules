@@ -36,6 +36,7 @@ SUBSYSTEM=="block", GROUP="disk"
 BUS=="ide",	KERNEL=="hd[a-z]", ACTION=="add", IMPORT="/sbin/cdrom_id --export $tempnode"
 BUS=="scsi",	KERNEL="sr[0-9]*", ACTION=="add", IMPORT="/sbin/cdrom_id --export $tempnode"
 BUS=="scsi",	KERNEL="scd[a-z]", ACTION=="add", IMPORT="/sbin/cdrom_id --export $tempnode"
+BUS=="scsi",	KERNEL="sg[0-9]*", ACTION=="add", DRIVER=="sr", GROUP="cdrom"
 ENV{ID_CDROM}=="?*",		SYMLINK+="cdrom%e", GROUP="cdrom"
 ENV{ID_CDROM_CD_RW}=="?*",	SYMLINK+="cdrw%e"
 ENV{ID_CDROM_DVD}=="?*",	SYMLINK+="dvd%e"
@@ -47,11 +48,11 @@ KERNEL=="dasd*",	NAME="%k", GROUP="disk"
 KERNEL=="ataraid*",	NAME="%k", GROUP="disk"
 
 # compaq smart array
-KERNEL=="cciss*",	PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", NAME="%c{1}", SYMLINK+="%k"
-KERNEL=="ida*",		PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", NAME="%c{1}", SYMLINK+="%k"
+KERNEL=="cciss*",	PROGRAM="raid-devfs.sh %k", NAME="%c{1}", SYMLINK+="%k"
+KERNEL=="ida*",		PROGRAM="raid-devfs.sh %k", NAME="%c{1}", SYMLINK+="%k"
 
 # mylex
-KERNEL=="rd*",		PROGRAM="/etc/udev/scripts/raid-devfs.sh %k", NAME="%c{1}", SYMLINK+="%k"
+KERNEL=="rd*",		PROGRAM="raid-devfs.sh %k", NAME="%c{1}", SYMLINK+="%k"
 
 # dri devices
 KERNEL=="card*",	NAME="dri/card%n", GROUP="video"
@@ -177,12 +178,12 @@ BUS=="usb", KERNEL=="lp[0-9]*",	NAME="usb/%k", GROUP="lp"
 
 # v4l devices
 KERNEL=="video[0-9]*",	NAME="v4l/video%n", SYMLINK+="video%n", GROUP="video"
-KERNEL=="radio[0-9]*",	NAME="v4l/radio%n", GROUP="video"
+KERNEL=="radio[0-9]*",	NAME="v4l/radio%n", SYMLINK+="radio%n", GROUP="video"
 KERNEL=="vbi[0-9]*",	NAME="v4l/vbi%n", SYMLINK+="vbi%n", GROUP="video"
 KERNEL=="vtx[0-9]*",	NAME="v4l/vtx%n", GROUP="video"
 
 # dvb devices
-KERNEL=="dvb*", PROGRAM="/etc/udev/scripts/dvb.sh %k", NAME="%c", GROUP="video", MODE="0660"
+SUBSYSTEM=="dvb", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%i $${K%%%%.*} $${K#*.}'", NAME="%c"
 
 # Asterisk Zaptel devices
 KERNEL=="zapctl",	NAME="zap/ctl"
@@ -293,7 +294,7 @@ LABEL="persistent_end"
 #####################################
 
 # usbfs-like device nodes
-SUBSYSTEM="usb_device", PROGRAM="/bin/sh -c 'X=%k X=$${X#usbdev} B=$${X%%%%.*} D=$${X#*.}; echo bus/usb/$$B/$$D'", SYMLINK+="%c"
+SUBSYSTEM=="usb_device", PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", NAME="%c", MODE="0644"
 
 
 # be backward compatible for a while with the /etc/dev.d and /etc/hotplug.d/ systems

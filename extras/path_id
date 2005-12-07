@@ -235,6 +235,11 @@ handle_block_scsi () {
 		adapter="`echo $controller_dev |  sed -e 's@/[^/]\{1,\}$@@;s@^.*/@@;s@^.*:@@'`"
 		bus="gc"
 		;;
+		# PARISC devices
+		*parisc*)
+		adapter="${controler_dev##*/}"
+		bus=parisc;
+		;;
 		*)
 		adapter="${controller_dev##*/}"
 		bus="pci"
