@@ -677,13 +677,22 @@ static int per_dev_options(struct sysfs_device *scsi_dev, int *good_bad,
  */
 static void format_serial(char *serial)
 {
-	char *p = serial;
+	char *p = serial, *q;
 
+	q = p;
 	while (*p != '\0') {
-		if (isspace(*p))
-			*p = '_';
+		if (isspace(*p)) {
+			if (q > serial && q[-1] != '_') {
+				*q = '_';
+				q++;
+			}
+		} else {
+			*q = *p;
+			q++;
+		}
 		p++;
 	}
+	*q = '\0';
 }
 
 /*
