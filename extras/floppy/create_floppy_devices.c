@@ -31,9 +31,9 @@ static char *table[] = {
 	NULL
 };
 
-static int t360[] = { 1 };
-static int t1200[] = { 2, 5, 6, 10, 12, 14, 16, 18, 20, 23 };
-static int t3in[] = { 8, 9, 26, 27, 28, 7, 11, 15, 19, 24, 25, 29, 31, 3, 4, 13, 17, 21, 22, 30 };
+static int t360[] = { 1, 0 };
+static int t1200[] = { 2, 5, 6, 10, 12, 14, 16, 18, 20, 23, 0 };
+static int t3in[] = { 8, 9, 26, 27, 28, 7, 11, 15, 19, 24, 25, 29, 31, 3, 4, 13, 17, 21, 22, 30, 0 };
 
 static int *table_sup[] = { NULL, t360, t1200, t3in + 5 + 8, t3in + 5, t3in, t3in };
 
@@ -112,7 +112,7 @@ int main(int argc, char **argv)
 
 	i = 0;
 	while (table_sup[type][i]) {
-		sprintf(node,"%s%s",dev,table[table_sup[type][i]]);
+		sprintf(node, "%s%s",dev, table[table_sup[type][i]]);
 		minor = (table_sup[type][i] << 2) + fdnum;
 		if (print_nodes)
 			printf("%s b %d %d %d\n", node, mode, major, minor);
