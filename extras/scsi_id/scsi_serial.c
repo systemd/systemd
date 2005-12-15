@@ -558,6 +558,27 @@ static int check_fill_0x83_id(struct sysfs_device *scsi_dev,
 	return 0;
 }
 
+/* Extract the raw binary from VPD 0x83 pre-SPC devices */
+static int check_fill_0x83_prespc3(struct sysfs_device *scsi_dev,
+			           unsigned char *page_83,
+			           const struct scsi_id_search_values
+			           *id_search, char *serial, int max_len)
+{
+	int i, j;
+	
+	serial[0] = hex_str[id_search->id_type];
+	/* serial has been memset to zero before */
+	j = strlen(serial);	/* j = 1; */
+
+	for (i = 0; i < page_83[3]; ++i) {
+		serial[j++] = hex_str[(page_83[4+i] & 0xf0) >> 4];
+		serial[j++] = hex_str[ page_83[4+i] & 0x0f];
+	}
+	dprintf("using pre-spc3-83 for %s.\n", scsi_dev->name);
+	return 0;
+}
+
+
 /* Get device identification VPD page */
 static int do_scsi_page83_inquiry(struct sysfs_device *scsi_dev, int fd,
 				  char *serial, int len)
@@ -583,6 +604,33 @@ static int do_scsi_page83_inquiry(struct sysfs_device *scsi_dev, int fd,
 	 * the LUN is not actually configured. This leads to identifers of
 	 * the form: "1            ".
 	 */
+
+	/*
+	 * Model 4, 5, and (some) model 6 EMC Symmetrix devices return
+	 * a page 83 reply according to SCSI-2 format instead of SPC-2/3.
+	 *
+	 * The SCSI-2 page 83 format returns an IEEE WWN in binary
+	 * encoded hexi-decimal in the 16 bytes following the initial
+	 * 4-byte page 83 reply header.
+	 *
+	 * Both the SPC-2 and SPC-3 formats return an IEEE WWN as part
+	 * of an Identification descriptor.  The 3rd byte of the first
+	 * Identification descriptor is a reserved (BSZ) byte field.
+	 *
+	 * Reference the 7th byte of the page 83 reply to determine
+	 * whether the reply is compliant with SCSI-2 or SPC-2/3
+	 * specifications.  A zero value in the 7th byte indicates
+	 * an SPC-2/3 conformant reply, (i.e., the reserved field of the
+	 * first Identification descriptor).  This byte will be non-zero
+	 * for a SCSI-2 conformant page 83 reply from these EMC
+	 * Symmetrix models since the 7th byte of the reply corresponds
+	 * to the 4th and 5th nibbles of the 6-byte OUI for EMC, that is,
+	 * 0x006048.
+	 */
+	
+	if (page_83[6] != 0) 
+		return check_fill_0x83_prespc3(scsi_dev, page_83, 
+					       id_search_list, serial, len);
 
 	/*
 	 * Search for a match in the prioritized id_search_list.
