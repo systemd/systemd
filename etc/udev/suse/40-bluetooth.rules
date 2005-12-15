@@ -1,5 +1,5 @@
 # bluetooth subsystem
-SUBSYSTEM=="bluetooth", RUN+="/sbin/udev.bluetooth.sh"
+SUBSYSTEM=="bluetooth", RUN+="/lib/udev/bluetooth.sh"
 
 # uncomment this if you have configured an automatic rfcomm-bind in
 # /etc/bluetooth/rfcomm.conf

@@ -1,7 +1,3 @@
-# ignore these events until someone needs them
-SUBSYSTEM=="drivers",		OPTIONS="last_rule"
-SUBSYSTEM=="module",		OPTIONS="last_rule"
-
 # console
 KERNEL=="pty[pqrstuvwxyzabcdef][0123456789abcdef]", NAME="%k", GROUP="tty", MODE="666", OPTIONS="last_rule"
 KERNEL=="tty[pqrstuvwxyzabcdef][0123456789abcdef]", NAME="%k", GROUP="tty", MODE="666", OPTIONS="last_rule"
@@ -39,10 +35,6 @@ KERNEL=="pmu",			GROUP="video"
 # dvb
 SUBSYSTEM=="dvb", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%i $${K%%%%.*} $${K#*.}'", NAME="%c", GROUP="video"
 
-# Kino jogshuttle support
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="b33/10/*", RUN+="/usr/bin/killall --quiet -USR2 kino"
-SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="5f3/240/*", RUN+="/usr/bin/killall --quiet -USR2 kino"
-
 # input devices
 KERNEL=="mice",			NAME="input/%k", MODE="0640"
 KERNEL=="mouse*",		NAME="input/%k", MODE="0640"
@@ -51,7 +43,7 @@ KERNEL=="js*",			NAME="input/%k", MODE="0644"
 KERNEL=="ts*",			NAME="input/%k", MODE="0600"
 KERNEL=="uinput",		NAME="input/%k", MODE="0600"
 KERNEL=="lirc0",		NAME="%k", SYMLINK+="lirc"
-KERNEL=="input[0-9]*", ACTION=="add", RUN+="/lib/udev/input.sh"
+KERNEL=="input[0-9]*", ACTION=="add", RUN+="input.sh"
 
 # printer
 SUBSYSTEM=="usb",		KERNEL=="lp*", NAME="usb/%k", SYMLINK+="usb%k", GROUP="lp"
@@ -76,6 +68,9 @@ KERNEL=="mwave",		NAME="modems/%k"
 KERNEL=="rioctl",		NAME="specialix_rioctl", SYMLINK+="%k"
 # 167 /dev/specialix_sxctl Specialix serial control
 KERNEL=="sxctl",		NAME="specialix_sxctl", SYMLINK+="%k"
+
+# network
+KERNEL=="tun", NAME="net/%k", MODE="0600"
 
 # misc devices
 KERNEL=="mem",			NAME="%k", GROUP="kmem", MODE="640"
@@ -103,13 +98,14 @@ KERNEL=="z90crypt",		NAME="%k", MODE="666"
 KERNEL=="mmtimer",		NAME="%k", MODE="444"
 KERNEL=="auer[0-9]*"		NAME="usb/%k"
 
+# packet writing interface
 KERNEL=="pktcdvd",		NAME="pktcdvd/control"
 KERNEL=="pktcdvd[0-9]*",	NAME="pktcdvd/%k"
 
 # fix floppy devices
-KERNEL=="nvram", ACTION=="add", RUN+="/lib/udev/load_floppy_module.sh"
-KERNEL=="fd*", ACTION=="add", SYSFS{device/cmos}=="*", RUN+="/lib/udev/create_floppy_devices -c -t $sysfs{device/cmos} -m %M /dev/%k"
-KERNEL=="fd*", ACTION=="remove", RUN+="/lib/udev/remove_floppy_devices.sh %k"
+KERNEL=="nvram", ACTION=="add", RUN+="load_floppy_module.sh"
+KERNEL=="fd[0-9]*", ACTION=="add", SYSFS{device/cmos}=="*", RUN+="create_floppy_devices -c -t $sysfs{device/cmos} -m %M /dev/%k"
+KERNEL=="fd[0-9]*", ACTION=="remove", RUN+="/bin/rm -f $root/%k*"
 
 # block devices
 SUBSYSTEM=="block", GROUP="disk", MODE="0640"
@@ -125,14 +121,14 @@ SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="1", RUN+="/sbin/mo
 SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="[45]", RUN+="/sbin/modprobe sr_mod"
 SUBSYSTEM=="scsi_device", ACTION=="add", RUN+="/sbin/modprobe sg"
 
-# IDE modules
-SUBSYSTEM=="ide", ACTION=="add", RUN+="/lib/udev/ide.sh"
+# load IDE modules
+SUBSYSTEM=="ide", ACTION=="add", RUN+="ide.sh"
 
 # device mapper
-KERNEL=="device-mapper", ACTION=="add", NAME="%k", SYMLINK+="mapper/control"
+KERNEL=="device-mapper", NAME="%k", SYMLINK+="mapper/control"
 
 # check fstab and possibly mount
-SUBSYSTEM=="block", KERNEL=="sd*[0-9]|hd*[0-9]", ACTION=="add", RUN+="/lib/udev/mount.sh"
+SUBSYSTEM=="block", ACTION=="add", KERNEL=="sd*[0-9]|hd*[0-9]", RUN+="mount.sh"
 
 # misc storage devices (non-block)
 KERNEL=="sg*",			NAME="%k", GROUP="disk", MODE="640"
@@ -161,6 +157,6 @@ KERNEL=="iseries/ibmsis*",	NAME="%k", GROUP="disk"
 # libusb device access
 SUBSYSTEM=="usb_device", PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", NAME="%c", MODE="0644"
 
-# firmware loader
-SUBSYSTEM=="firmware", ACTION=="add", RUN+="/lib/udev/firmware.sh"
+# kernel firmware loader
+SUBSYSTEM=="firmware", ACTION=="add", RUN+="firmware.sh"
 
