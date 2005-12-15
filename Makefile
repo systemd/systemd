@@ -133,20 +133,15 @@ HOSTCC = gcc
 STRIP = $(CROSS)strip
 STRIPCMD = $(STRIP) -s
 
-# check if compiler option is supported
-cc-supports = ${shell if $(CC) ${1} -S -o /dev/null -xc /dev/null > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi;}
-
 CFLAGS		= -g -Wall -pipe -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
 WARNINGS	= -Wstrict-prototypes -Wsign-compare -Wshadow \
 		  -Wchar-subscripts -Wmissing-declarations -Wnested-externs \
 		  -Wpointer-arith -Wcast-align -Wsign-compare -Wmissing-prototypes
-WARNINGS	+= $(call cc-supports, -Wdeclaration-after-statement, )
 CFLAGS		+= $(WARNINGS)
 
 LDFLAGS = -Wl,-warn-common
 
-# use -Os optimization if available, else use -O2
-OPTFLAGS := $(call cc-supports, -Os, -O2)
+OPTFLAGS = -Os
 CFLAGS += $(OPTFLAGS)
 
 # include our local copy of libsysfs
