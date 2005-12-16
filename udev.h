@@ -76,8 +76,6 @@ struct udevice {
 	int partitions;
 	int ignore_device;
 	int ignore_remove;
-	int config_line;
-	char config_file[PATH_SIZE];
 	char bus_id[NAME_SIZE];
 	char program_result[PATH_SIZE];
 	char kernel_number[NAME_SIZE];
