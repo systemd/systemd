@@ -272,8 +272,7 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 			goto exit;
 
 		if (udev_db_add_device(udev) != 0)
-			dbg("udev_db_add_dev failed, but we create the node anyway, "
-			    "remove might not work for custom names");
+			dbg("udev_db_add_dev failed, remove might not work for custom names");
 
 		/* use full path to the environment */
 		snprintf(udev->devname, sizeof(udev->devname), "%s/%s", udev_root, udev->name);

@@ -1,11 +1,5 @@
 # udev.conf
 
-# Where in the filesystem to place the device nodes.
-udev_root="@udevdir@"
-
-# The name and location of the udev rules file(s).
-udev_rules="@configdir@/rules.d"
-
 # The initial syslog(3) priority: "err", "info", "debug" or its
 # numerical equivalent. For runtime debugging, the daemons internal
 # state can be changed with: "udevcontrol log_priority=<value>".
