@@ -138,14 +138,6 @@ static inline int inotify_add_watch(int fd, const char *name, uint32_t mask)
 #define SO_RCVBUFFORCE 33
 #endif
 
-#ifdef __KLIBC__
-static inline int clearenv(void)
-{
-	environ[0] = NULL;
-	return 0;
-}
-#endif
-
 extern uid_t lookup_user(const char *user);
 extern gid_t lookup_group(const char *group);
 
