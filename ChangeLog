@@ -1,3 +1,30 @@
+Summary of changes from v077 to v078
+============================================
+
+Greg Kroah-Hartman:
+      Update Gentoo udev main rule file.
+      add parisc support to path_id
+
+Hannes Reinecke:
+      scsi_id: -u fold multiple consecutive whitespace chars into single '_'
+
+Harald Hoyer:
+      optimize SELinux path match
+
+Kay Sievers:
+      update README
+      allow C99 statements
+      fix segfaulting create_floppy_devices
+      update SUSE rules
+      remove unused variables
+      remove default settings in udev.conf
+      clearenv() is now part of klibc
+      add DEVLINKS to the event environment
+
+Kurt Garloff:
+      scsi_id: support pre-SPC3 page 83 format
+
+
 Summary of changes from v076 to v077
 ============================================
 
