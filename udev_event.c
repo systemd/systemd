@@ -130,10 +130,6 @@ int udev_process_event(struct udev_rules *rules, struct udevice *udev)
 				return 0;
 			}
 		}
-
-		/* export name of device node or netif */
-		if (udev->devname[0] != '\0')
-			setenv("DEVNAME", udev->devname, 1);
 	} else if (udev->type == DEV_DEVICE && strcmp(udev->action, "add") == 0) {
 		struct sysfs_device *devices_dev;
 

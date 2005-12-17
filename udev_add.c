@@ -108,7 +108,6 @@ exit:
 static int create_node(struct udevice *udev, struct sysfs_class_device *class_dev)
 {
 	char filename[PATH_SIZE];
-	char partitionname[PATH_SIZE];
 	struct name_entry *name_loop;
 	uid_t uid;
 	gid_t gid;
@@ -152,6 +151,7 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 		info("creating device node '%s'", filename);
 		if (udev_make_node(udev, filename, udev->devt, udev->mode, uid, gid) != 0)
 			goto error;
+		setenv("DEVNAME", filename, 1);
 	} else {
 		info("creating device node '%s', major = '%d', minor = '%d', "
 		     "mode = '%#o', uid = '%d', gid = '%d'", filename,
@@ -160,6 +160,7 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 
 	/* create all_partitions if requested */
 	if (udev->partitions) {
+		char partitionname[PATH_SIZE];
 		struct sysfs_attribute *attr;
 		int range;
 
@@ -184,45 +185,55 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 	}
 
 	/* create symlink(s) if requested */
-	list_for_each_entry(name_loop, &udev->symlink_list, node) {
-		int retval;
-		char linktarget[PATH_SIZE];
+	if (!list_empty(&udev->symlink_list)) {
+		char symlinks[512] = "";
 
-		snprintf(filename, sizeof(filename), "%s/%s", udev_root, name_loop->name);
-		filename[sizeof(filename)-1] = '\0';
+		list_for_each_entry(name_loop, &udev->symlink_list, node) {
+			int retval;
+			char linktarget[PATH_SIZE];
 
-		dbg("symlink '%s' to node '%s' requested", filename, udev->name);
-		if (!udev->test_run)
-			if (strchr(filename, '/'))
-				create_path(filename);
+			snprintf(filename, sizeof(filename), "%s/%s", udev_root, name_loop->name);
+			filename[sizeof(filename)-1] = '\0';
 
-		/* optimize relative link */
-		linktarget[0] = '\0';
-		i = 0;
-		tail = 0;
-		while (udev->name[i] && (udev->name[i] == name_loop->name[i])) {
-			if (udev->name[i] == '/')
-				tail = i+1;
-			i++;
+			dbg("symlink '%s' to node '%s' requested", filename, udev->name);
+			if (!udev->test_run)
+				if (strchr(filename, '/'))
+					create_path(filename);
+
+			/* optimize relative link */
+			linktarget[0] = '\0';
+			i = 0;
+			tail = 0;
+			while (udev->name[i] && (udev->name[i] == name_loop->name[i])) {
+				if (udev->name[i] == '/')
+					tail = i+1;
+				i++;
+			}
+			while (name_loop->name[i] != '\0') {
+				if (name_loop->name[i] == '/')
+					strlcat(linktarget, "../", sizeof(linktarget));
+				i++;
+			}
+
+			strlcat(linktarget, &udev->name[tail], sizeof(linktarget));
+
+			info("creating symlink '%s' to '%s'", filename, linktarget);
+			if (!udev->test_run) {
+				unlink(filename);
+				selinux_setfscreatecon(filename, NULL, S_IFLNK);
+				retval = symlink(linktarget, filename);
+				selinux_resetfscreatecon();
+				if (retval != 0)
+					err("symlink(%s, %s) failed: %s",
+					    linktarget, filename, strerror(errno));
+			}
+
+			strlcat(symlinks, filename, sizeof(symlinks));
+			strlcat(symlinks, " ", sizeof(symlinks));
 		}
-		while (name_loop->name[i] != '\0') {
-			if (name_loop->name[i] == '/')
-				strlcat(linktarget, "../", sizeof(linktarget));
-			i++;
-		}
 
-		strlcat(linktarget, &udev->name[tail], sizeof(linktarget));
-
-		info("creating symlink '%s' to '%s'", filename, linktarget);
-		if (!udev->test_run) {
-			unlink(filename);
-			selinux_setfscreatecon(filename, NULL, S_IFLNK);
-			retval = symlink(linktarget, filename);
-			selinux_resetfscreatecon();
-			if (retval != 0)
-				err("symlink(%s, %s) failed: %s",
-				    linktarget, filename, strerror(errno));
-		}
+		remove_trailing_chars(symlinks, ' ');
+		setenv("DEVLINKS", symlinks, 1);
 	}
 
 	return 0;
@@ -273,11 +284,6 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 
 		if (udev_db_add_device(udev) != 0)
 			dbg("udev_db_add_dev failed, remove might not work for custom names");
-
-		/* use full path to the environment */
-		snprintf(udev->devname, sizeof(udev->devname), "%s/%s", udev_root, udev->name);
-		udev->devname[sizeof(udev->devname)-1] = '\0';
-
 	} else if (udev->type == DEV_NET) {
 		/* look if we want to change the name of the netif */
 		if (strcmp(udev->name, udev->kernel_name) != 0) {
@@ -298,9 +304,6 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 				setenv("DEVPATH", udev->devpath, 1);
 				setenv("INTERFACE", udev->name, 1);
 			}
-
-			/* use netif name for the environment */
-			strlcpy(udev->devname, udev->name, sizeof(udev->devname));
 		}
 	}
 

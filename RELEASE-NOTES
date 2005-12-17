@@ -1,3 +1,13 @@
+udev 078
+========
+Symlinks are now exported to the event environment. Hopefully it's no
+longer needed to run udevinfo from an event process, like it was
+mentioned on the hotplug list:
+  UDEV  [1134776873.702967] add@/block/sdb
+  ...
+  DEVNAME=/dev/sdb
+  DEVLINKS=/dev/disk/by-id/usb-IBM_Memory_Key_0218B301030027E8 /dev/disk/by-path/usb-0218B301030027E8:0:0:0
+
 udev 077
 ========
 Fix a problem if udevsend is used as the hotplug handler and tries to use

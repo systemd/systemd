@@ -37,6 +37,7 @@
 static int delete_node(struct udevice *udev)
 {
 	char filename[PATH_SIZE];
+	char devname[PATH_SIZE];
 	char partitionname[PATH_SIZE];
 	struct name_entry *name_loop;
 	struct stat stats;
@@ -81,9 +82,9 @@ static int delete_node(struct udevice *udev)
 	if (retval)
 		return retval;
 
-	/* export DEVNAME to the environment */
-	snprintf(udev->devname, sizeof(udev->devname), "%s/%s", udev_root, udev->name);
-	udev->devname[sizeof(udev->devname)-1] = '\0';
+	snprintf(devname, sizeof(devname), "%s/%s", udev_root, udev->name);
+	devname[sizeof(devname)-1] = '\0';
+	setenv("DEVNAME", devname, 1);
 
 	num = udev->partitions;
 	if (num > 0) {

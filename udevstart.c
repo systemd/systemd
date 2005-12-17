@@ -155,8 +155,6 @@ static int add_device(const char *devpath, const char *subsystem)
 	}
 
 	udev_add_device(&udev, class_dev);
-	if (udev.devname[0] != '\0')
-		setenv("DEVNAME", udev.devname, 1);
 run:
 	if (udev_run && !list_empty(&udev.run_list)) {
 		struct name_entry *name_loop;
