@@ -212,7 +212,7 @@ int udev_db_lookup_name(const char *name, char *devpath, size_t len)
 	strlcat(dbpath, "/"DB_DIR, sizeof(dbpath));
 	dir = opendir(dbpath);
 	if (dir == NULL) {
-		err("unable to open udev_db '%s': %s", dbpath, strerror(errno));
+		info("no udev_db available '%s': %s", dbpath, strerror(errno));
 		return -1;
 	}
 
@@ -283,7 +283,7 @@ int udev_db_get_all_entries(struct list_head *name_list)
 	strlcat(dbpath, "/"DB_DIR, sizeof(dbpath));
 	dir = opendir(dbpath);
 	if (dir == NULL) {
-		err("unable to open udev_db '%s': %s", dbpath, strerror(errno));
+		info("no udev_db available '%s': %s", dbpath, strerror(errno));
 		return -1;
 	}
 
