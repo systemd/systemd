@@ -1,3 +1,13 @@
+udev 079
+========
+Let scsi_id request libata drive serial numbers from page 0x80.
+
+Renamed etc/udev/persistent.rules to persistent-disk.rules and
+added /dev/disk/by-name/* for device mapper device names.
+
+Removed %e from the man page. It never worked reliably outside
+of udevstart and udevstart is no longer recommended to use.
+
 udev 078
 ========
 Symlinks are now exported to the event environment. Hopefully it's no

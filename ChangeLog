@@ -1,3 +1,13 @@
+Summary of changes from v078 to v079
+============================================
+
+Kay Sievers:
+      don't log error if database does not exist
+      use udev_root instead of "/dev"in selinux matchpathcon_init_prefix()
+      scsi_id: read page 0x80 with libata drives
+      update SUSE rules
+      remove %e from man page
+
 Summary of changes from v077 to v078
 ============================================
 
