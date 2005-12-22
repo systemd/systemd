@@ -33,7 +33,7 @@ KERNEL=="vbi0",			SYMLINK+="vbi"
 KERNEL=="pmu",			GROUP="video"
 
 # dvb
-SUBSYSTEM=="dvb", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%i $${K%%%%.*} $${K#*.}'", NAME="%c", GROUP="video"
+SUBSYSTEM=="dvb", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}'", NAME="%c", GROUP="video"
 
 # input devices
 KERNEL=="mice",			NAME="input/%k", MODE="0640"
@@ -126,9 +126,6 @@ SUBSYSTEM=="ide", ACTION=="add", RUN+="ide.sh"
 
 # device mapper
 KERNEL=="device-mapper", NAME="%k", SYMLINK+="mapper/control"
-
-# check fstab and possibly mount
-SUBSYSTEM=="block", ACTION=="add", KERNEL=="sd*[0-9]|hd*[0-9]", RUN+="mount.sh"
 
 # misc storage devices (non-block)
 KERNEL=="sg*",			NAME="%k", GROUP="disk", MODE="640"

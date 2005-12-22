@@ -1,5 +1,6 @@
 # sysfs is populated after the event is sent
 ACTION=="add", DEVPATH=="/devices/*", ENV{PHYSDEVBUS}=="?*", WAIT_FOR_SYSFS="bus"
+ACTION=="add", SUBSYSTEM=="net", WAIT_FOR_SYSFS="address"
 
 # ignore these events until someone needs them
 SUBSYSTEM=="drivers",		OPTIONS="ignore_device"
