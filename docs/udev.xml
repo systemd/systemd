@@ -42,9 +42,7 @@
 
         <para>Usually udev runs as <citerefentry><refentrytitle>udevd</refentrytitle>
         <manvolnum>8</manvolnum></citerefentry> and receives uevents directly from the
-        kernel if a device is added or removed form the system. The program
-        <command>udev</command> itself may be used as an event handler in situations,
-        where running the daemon is not appropriate, like in initramfs.</para>
+        kernel if a device is added or removed form the system.</para>
 
         <para>If udev receives a device event, it matches its configured rules
         against the available device attributes provided in sysfs to identify the device.
@@ -393,7 +391,7 @@
             </varlistentry>
 
             <varlistentry>
-              <term><option>%e{<replaceable>key</replaceable>}</option>, <option>$env{<replaceable>key</replaceable>}</option></term>
+              <term><option>%E{<replaceable>key</replaceable>}</option>, <option>$env{<replaceable>key</replaceable>}</option></term>
               <listitem>
                 <para>The value of an environment variable.</para>
               </listitem>
@@ -421,18 +419,6 @@
                 by specifying the part number as an attribute: <option>%c{N}</option>.
                 If the number is followed by the '+' char this part plus all remaining parts
                 of the result string are substituted: <option>%c{N+}</option></para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>%e</option>, <option>$enum</option></term>
-              <listitem>
-                <para>If a device node already exists with the name, the smallest next free
-                number is used. This  can be used to create compatibility symlinks and enumerate
-                devices of the same type originating from different kernel subsystems.</para>
-                <para>Note: The use of the enumeration facility is unreliable for events that
-                request a number at the same time. The  use  of enumerations in todays setups
-                where devices can come and go at any time is not recommended.</para>
               </listitem>
             </varlistentry>
 

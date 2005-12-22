@@ -17,9 +17,7 @@ directory, or it renames network interfaces.
 .PP
 Usually udev runs as 
 \fBudevd\fR(8) 
-and receives uevents directly from the kernel if a device is added or removed form the system. The program 
-\fBudev\fR 
-itself may be used as an event handler in situations, where running the daemon is not appropriate, like in initramfs.
+and receives uevents directly from the kernel if a device is added or removed form the system.
 .PP
 If udev receives a device event, it matches its configured rules against the available device attributes provided in sysfs to identify the device. Rules that match, may provide additional device information or specify a device node name and multiple symlink names and instruct udev to run additional programs as part of the device event handling.
 .SH "CONFIGURATION"
@@ -182,7 +180,7 @@ The devpath of the device.
 \fB%s{\fR\fB\fIfile\fR\fR\fB}\fR, \fB$sysfs{\fR\fB\fIfile\fR\fR\fB}\fR
 The content of a sysfs attribute.
 .TP
-\fB%e{\fR\fB\fIkey\fR\fR\fB}\fR, \fB$env{\fR\fB\fIkey\fR\fR\fB}\fR
+\fB%E{\fR\fB\fIkey\fR\fR\fB}\fR, \fB$env{\fR\fB\fIkey\fR\fR\fB}\fR
 The value of an environment variable.
 .TP
 \fB%m\fR, \fB$major\fR
@@ -195,11 +193,6 @@ The kernel minor number for the device.
 The string returned by the external program requested with PROGRAM. A single part of the string, separated by a space character may be selected by specifying the part number as an attribute: 
 \fB%c{N}\fR. If the number is followed by the '+' char this part plus all remaining parts of the result string are substituted: 
 \fB%c{N+}\fR
-.TP
-\fB%e\fR, \fB$enum\fR
-If a device node already exists with the name, the smallest next free number is used. This can be used to create compatibility symlinks and enumerate devices of the same type originating from different kernel subsystems.
-
-Note: The use of the enumeration facility is unreliable for events that request a number at the same time. The use of enumerations in todays setups where devices can come and go at any time is not recommended.
 .TP
 \fB%P\fR, \fB$parent\fR
 The node name of the parent device.
