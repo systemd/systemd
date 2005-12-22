@@ -152,7 +152,7 @@ void selinux_init(void)
 	 * restoration creation purposes.
 	 */
 	if (is_selinux_running()) {
-		matchpathcon_init_prefix(NULL, "/dev");
+		matchpathcon_init_prefix(NULL, udev_root);
 		if (getfscreatecon(&prev_scontext) < 0) {
 			err("getfscreatecon failed\n");
 			prev_scontext = NULL;
