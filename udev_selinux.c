@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <selinux/selinux.h>
 
+#include "udev.h"
 #include "udev_selinux.h"
 #include "logging.h"
 
