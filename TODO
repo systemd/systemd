@@ -1,7 +1,21 @@
-This is a list of things that needs to be done. They are in no specific
-order.  We will gladly accept patches for any of these items:
+These things need to be done, or would be nice to have:
 
-- Log the relationship of the kernel name and the persistent disk name
-  to syslog, so any error logged from the kernel can be associated with
-  any of the links at that time.
+  o Log the relationship of the kernel name and the persistent disk name
+    to syslog, so any error logged from the kernel can be associated with
+    any of the links at that time.
+
+
+These things are scheduled for removal sometimes:
+
+  o remove broken %e enumeration
+    (simple enumerations can't work and should go)
+
+  o remove devfs naming scheme rules and scripts
+
+  o remove MODALIAS + $modalias
+    (ENV{MODALIAS}, $env{MODALIAS}, $sysfs{modalias} will do it)
+
+  o remove udevstart, udevsend
+    (we rely on the kernel "uevent" triggers of kernel 2.6.15 and no longer
+     want to guess event properties from sysfs like udevstart is doing it)
 

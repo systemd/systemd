@@ -1,3 +1,15 @@
+udev 080
+========
+The enumeration format character '%e' is deprecated and will be
+removed sometimes from a future udev version. It never worked correctly
+outside of udevstart, so we can't use it with the new parallel
+coldplug. A simple enumeration is as useless as the devfs naming
+scheme, just get rid of both if you still use it.
+
+MODALIAS and $modalias is not needed and will be removed from one of
+the next udev versions, replace it in all rules with ENV{MODALIAS} or
+the sysfs "modalias" value.
+
 udev 079
 ========
 Let scsi_id request libata drive serial numbers from page 0x80.
