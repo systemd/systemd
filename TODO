@@ -4,8 +4,14 @@ These things need to be done, or would be nice to have:
     to syslog, so any error logged from the kernel can be associated with
     any of the links at that time.
 
+  o Fix inconsistency with KERNEL and ID. ID will walk up the device chain
+    but it matches on "KERNEL names" too. And ID and SYSFS can only match
+    on the same device in the chain. That's pretty hard to explain and to
+    understand. Same for SUBSYSTEM and BUS.
 
-These things are scheduled for removal sometimes:
+
+These things are deprecated and scheduled for removal in a future
+udev version:
 
   o remove broken %e enumeration
     (simple enumerations can't work and should go)
