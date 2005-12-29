@@ -16,7 +16,7 @@ KERNEL=="modems/mwave*",	NAME="%k", GROUP="uucp"
 KERNEL=="hvc*",			NAME="%k", GROUP="uucp"
 KERNEL=="hvsi*",		NAME="%k", GROUP="uucp"
 KERNEL=="iseries/vtty*",	NAME="%k", GROUP="uucp"
-KERNEL=="ttyUSB*", SYSFS{product}=="Palm Handheld*", SYMLINK+="pilot"
+KERNEL=="ttyUSB*", SYSFS{product}=="[Pp]alm*Handheld*", SYMLINK+="pilot"
 
 # video/graphics
 SUBSYSTEM=="video4linux",	GROUP="video"
