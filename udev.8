@@ -82,7 +82,7 @@ Match the kernel devpath.
 Match the kernel subsystem name
 .TP
 \fBBUS\fR
-Match the typ of bus the device is connected to.
+Match the type of bus the device is connected to.
 .TP
 \fBDRIVER\fR
 Match the kernel driver name.
@@ -116,13 +116,13 @@ Matches any single character specified within the brackets. example, the pattern
 The following keys can get values assigned:
 .TP
 \fBNAME\fR
-The name of the node to be created, or the name, the network interface should be renamed to. Only one rule can set the a name, all later rules with a NAME key will be ignored.
+The name of the node to be created, or the name the network interface should be renamed to. Only one rule can set the node name, all later rules with a NAME key will be ignored.
 .TP
 \fBSYMLINK\fR
 The name of a symlink targeting the node. Every matching rule can add this value to the list of symlinks to be created along with the device node. Multiple symlinks may be specified by separating the names by the space character.
 .TP
 \fBOWNER, GROUP, MODE\fR
-The permissions for the device node. Every specified value over writes the compiled\-in default value.
+The permissions for the device node. Every specified value overwrites the compiled\-in default value.
 .TP
 \fBENV{\fR\fB\fIkey\fR\fR\fB}\fR
 Export the key to the environment. Depending on the specified operation, this key is also used as a match.

@@ -176,7 +176,7 @@
             <varlistentry>
               <term><option>BUS</option></term>
               <listitem>
-                <para>Match the typ of bus the device is connected to.</para>
+                <para>Match the type of bus the device is connected to.</para>
               </listitem>
             </varlistentry>
 
@@ -263,8 +263,8 @@
             <varlistentry>
               <term><option>NAME</option></term>
               <listitem>
-                <para>The name of the node to be created, or the name, the network interface
-                should be renamed to. Only one rule can set the a name, all later rules with
+                <para>The name of the node to be created, or the name the network interface
+                should be renamed to. Only one rule can set the node name, all later rules with
                 a NAME key will be ignored.</para>
               </listitem>
             </varlistentry>
@@ -282,7 +282,7 @@
             <varlistentry>
               <term><option>OWNER, GROUP, MODE</option></term>
               <listitem>
-                <para>The permissions for the device node. Every specified value over writes
+                <para>The permissions for the device node. Every specified value overwrites
                 the compiled-in default value.</para>
               </listitem>
             </varlistentry>
