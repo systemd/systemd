@@ -211,7 +211,7 @@ all: $(PROGRAMS) $(MAN_PAGES)
 .SUFFIXES:
 
 # build the objects
-%.o: %.c $(GEN_HEADERS)
+%.o: %.c $(HOST_PROGS) $(GEN_HEADERS)
 	$(QUIET) $(CC) -c $(CFLAGS) $< -o $@
 
 # "Static Pattern Rule" to build all programs
@@ -255,6 +255,7 @@ ccdv: ccdv.c
 .SILENT: ccdv
 
 clean:
+	- rm -f $(HOST_PROGS)
 	- find . \( -not -type d \) -and \( -name '*~' -o -name '*.[oas]' \) -type f -print0 | xargs -0rt rm -f
 	- find -name "*.gcno" -print0 | xargs -0rt rm -f
 	- find -name "*.gcda" -print0 | xargs -0rt rm -f
