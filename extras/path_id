@@ -275,7 +275,7 @@ handle_block_usb_storage () {
 	# usb-storage devs have a serial number, hopefully unique
 	serial=
 	if [ -f $controller_dev/../serial ] ; then
-		serial="`sed -e 's@^[ -]\{1,\}\|[ -]\{1,\}$@@g;s@[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_0123456789]@@g' < $controller_dev/../serial`"
+		serial="`sed -e 's@^[ -]\{1,\}\|[ -]\{1,\}$@@g;s@[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789-]@@g' < $controller_dev/../serial`"
 		: serial XXX_${serial}_XXX
 		d="usb-$serial"
 		serial="`echo $serial | sed -e 's@[ 0]\{1,\}@@g'`"
@@ -285,10 +285,10 @@ handle_block_usb_storage () {
 		# has eventually binary junk in vpd
 		identifier=
 		if [ -f $controller_dev/../product ] ; then
-		product="`sed -e 's@^[ -]\{1,\}\|[ -]\{1,\}$@@g;s@[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_0123456789]@@g' < $controller_dev/../product`"
+		product="`sed -e 's@^[ -]\{1,\}\|[ -]\{1,\}$@@g;s@[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789-]@@g' < $controller_dev/../product`"
 		fi
 		if [ -f $controller_dev/../manufacturer ] ; then
-		manufacturer="`sed -e 's@^[ -]\{1,\}\|[ -]\{1,\}$@@g;s@[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_0123456789]@@g' < $controller_dev/../manufacturer`"
+		manufacturer="`sed -e 's@^[ -]\{1,\}\|[ -]\{1,\}$@@g;s@[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789-]@@g' < $controller_dev/../manufacturer`"
 		fi
 		if [ -z "$product" -o -z "$manufacturer" ] ; then
 			read idvendor < $controller_dev/../idVendor
