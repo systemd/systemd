@@ -53,7 +53,7 @@
 
       <refsect1><title>CONFIGURATION</title>
         <para>All udev configuration files are placed in <filename>/etc/udev/*</filename>.
-        Every file consist of a set of lines of text. All empty lines or lines beginning
+        Every file consists of a set of lines of text. All empty lines or lines beginning
         with '#' will be ignored.</para>
 
         <refsect2><title>Configuration file</title>
@@ -198,7 +198,7 @@
               <term><option>ENV{<replaceable>key</replaceable>}</option></term>
               <listitem>
                 <para>Match against the value of an environment key. Depending on
-                the specified operation, this key is also used as a assignment.</para>
+                the specified operation, this key is also used as an assignment.</para>
               </listitem>
             </varlistentry>
 
