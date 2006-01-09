@@ -1,3 +1,24 @@
+Summary of changes from v079 to v080
+============================================
+
+Brent Cook:
+      fix dependency for make -j2
+
+coly:
+      fix man page typos
+
+Kay Sievers:
+      update RELEASE-NOTES + TODO
+      fix typo in man page
+      update TODO
+      update SUSE rules
+      path_id: fix invalid character class
+      replace libsysfs
+
+Marco d'Itri:
+      udev_selinux.c: include udev.h
+
+
 Summary of changes from v078 to v079
 ============================================
 
@@ -7,6 +28,7 @@ Kay Sievers:
       scsi_id: read page 0x80 with libata drives
       update SUSE rules
       remove %e from man page
+
 
 Summary of changes from v077 to v078
 ============================================
