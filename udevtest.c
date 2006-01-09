@@ -21,17 +21,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stddef.h>
+#include <unistd.h>
 #include <errno.h>
 #include <ctype.h>
 #include <signal.h>
 #include <syslog.h>
 
-#include "libsysfs/sysfs/libsysfs.h"
 #include "udev.h"
-#include "udev_utils.h"
-#include "udev_version.h"
 #include "udev_rules.h"
-#include "logging.h"
 
 
 #ifdef USE_LOG
@@ -53,28 +51,28 @@ void log_message (int priority, const char *format, ...)
 int main(int argc, char *argv[], char *envp[])
 {
 	struct udev_rules rules;
-	struct sysfs_class_device *class_dev;
 	char *devpath;
-	char path[PATH_SIZE];
 	char temp[PATH_SIZE];
-	struct udevice udev;
-	char *subsystem = NULL;
+	struct udevice *udev;
+	struct sysfs_device *dev;
+	int retval;
+	int rc = 0;
 
 	info("version %s", UDEV_VERSION);
 
 	/* initialize our configuration */
-	udev_init_config();
+	udev_config_init();
 	if (udev_log_priority < LOG_INFO)
 		udev_log_priority = LOG_INFO;
 
-	if (argc != 3) {
-		info("Usage: udevtest <devpath> <subsystem>");
+	if (argc != 2) {
+		info("Usage: udevtest <devpath>");
 		return 1;
 	}
 
 	/* remove sysfs_path if given */
 	if (strncmp(argv[1], sysfs_path, strlen(sysfs_path)) == 0)
-		devpath = &argv[1][strlen(sysfs_path)] ;
+		devpath = &argv[1][strlen(sysfs_path)];
 	else
 		if (argv[1][0] != '/') {
 			/* prepend '/' if missing */
@@ -84,39 +82,46 @@ int main(int argc, char *argv[], char *envp[])
 		} else
 			devpath = argv[1];
 
-	subsystem = argv[2];
-	setenv("DEVPATH", devpath, 1);
-	setenv("SUBSYSTEM", subsystem, 1);
-	setenv("ACTION", "add", 1);
-	info("looking at device '%s' from subsystem '%s'", devpath, subsystem);
-
-	/* initialize the naming deamon */
+	sysfs_init();
 	udev_rules_init(&rules, 0);
 
-	/* fill in values and test_run flag*/
-	udev_init_device(&udev, devpath, subsystem, "add");
-
-	/* open the device */
-	snprintf(path, sizeof(path), "%s%s", sysfs_path, udev.devpath);
-	path[sizeof(path)-1] = '\0';
-	class_dev = sysfs_open_class_device_path(path);
-	if (class_dev == NULL) {
-		info("sysfs_open_class_device_path failed");
-		return 1;
+	dev = sysfs_device_get(devpath);
+	if (dev == NULL) {
+		info("unable to open '%s'", devpath);
+		rc = 2;
+		goto exit;
 	}
-	info("opened class_dev->name='%s'", class_dev->name);
 
-	if (udev.type == DEV_BLOCK || udev.type == DEV_CLASS)
-		udev.devt = get_devt(class_dev);
+	udev = udev_device_init();
+	if (udev == NULL) {
+		info("can't open device");
+		rc = 3;
+		goto exit;
+	}
+
+	/* override built-in sysfs device */
+	udev->dev = dev;
+	strcpy(udev->action, "add");
+	udev->devt = udev_device_get_devt(udev);
 
 	/* simulate node creation with test flag */
-	udev.test_run = 1;
-	if (udev.type == DEV_NET || udev.devt) {
-		udev_rules_get_name(&rules, &udev, class_dev);
-		udev_add_device(&udev, class_dev);
-	} else
-		info("only char and block devices with a dev-file are supported by this test program");
-	sysfs_close_class_device(class_dev);
+	udev->test_run = 1;
 
-	return 0;
+	setenv("DEVPATH", udev->dev->devpath, 1);
+	setenv("SUBSYSTEM", udev->dev->subsystem, 1);
+	setenv("ACTION", "add", 1);
+
+	info("looking at device '%s' from subsystem '%s'", udev->dev->devpath, udev->dev->subsystem);
+	retval = udev_device_event(&rules, udev);
+	if (retval == 0) {
+		struct name_entry *name_loop;
+
+		list_for_each_entry(name_loop, &udev->run_list, node)
+			info("run: '%s'", name_loop->name);
+	}
+
+exit:
+	udev_rules_cleanup(&rules);
+	sysfs_cleanup();
+	return rc;
 }

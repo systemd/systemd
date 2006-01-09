@@ -31,11 +31,7 @@
 #include <sys/wait.h>
 #include <sys/select.h>
 
-#include "udev_libc_wrapper.h"
 #include "udev.h"
-#include "logging.h"
-#include "udev_utils.h"
-#include "list.h"
 
 
 int pass_env_to_socket(const char *sockname, const char *devpath, const char *action)

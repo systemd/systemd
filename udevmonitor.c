@@ -34,8 +34,6 @@
 
 #include "udev.h"
 #include "udevd.h"
-#include "udev_utils.h"
-#include "udev_libc_wrapper.h"
 
 static int uevent_netlink_sock;
 static int udev_monitor_sock;

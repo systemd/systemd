@@ -28,11 +28,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 
-#include "udev_libc_wrapper.h"
 #include "udev.h"
-#include "udev_utils.h"
-#include "udev_version.h"
-#include "logging.h"
 
 static int delete_node(struct udevice *udev)
 {
@@ -112,10 +108,10 @@ static int delete_node(struct udevice *udev)
  */
 int udev_remove_device(struct udevice *udev)
 {
-	if (udev->type != DEV_BLOCK && udev->type != DEV_CLASS)
+	if (major(udev->devt) == 0)
 		return 0;
 
-	if (udev_db_get_device(udev, udev->devpath) == 0) {
+	if (udev_db_get_device(udev, udev->dev->devpath) == 0) {
 		if (udev->ignore_remove) {
 			dbg("remove event for '%s' requested to be ignored by rule", udev->name);
 			return 0;
@@ -123,8 +119,8 @@ int udev_remove_device(struct udevice *udev)
 		dbg("remove name='%s'", udev->name);
 		udev_db_delete_device(udev);
 	} else {
-		dbg("'%s' not found in database, using kernel name '%s'", udev->devpath, udev->kernel_name);
-		strlcpy(udev->name, udev->kernel_name, sizeof(udev->name));
+		dbg("'%s' not found in database, using kernel name '%s'", udev->dev->devpath, udev->dev->kernel_name);
+		strlcpy(udev->name, udev->dev->kernel_name, sizeof(udev->name));
 	}
 
 	return delete_node(udev);

@@ -24,8 +24,7 @@
 #include <errno.h>
 #include <sys/ioctl.h>
 
-#include "../../logging.h"
-#include "../../udev_utils.h"
+#include "../../udev.h"
 
 #ifdef USE_LOG
 void log_message(int priority, const char *format, ...)

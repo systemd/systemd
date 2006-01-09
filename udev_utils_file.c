@@ -30,11 +30,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 
-#include "udev_libc_wrapper.h"
 #include "udev.h"
-#include "logging.h"
-#include "udev_utils.h"
-#include "list.h"
 
 int create_path(const char *path)
 {

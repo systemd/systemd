@@ -27,10 +27,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 
-#include "udev_libc_wrapper.h"
 #include "udev.h"
-#include "udev_utils.h"
-#include "logging.h"
 
 #ifdef __KLIBC__
 #define __OWN_USERDB_PARSER__

@@ -33,7 +33,7 @@ all: $(PROG) $(MAN_PAGES)
 	$(QUIET) $(CC) -c $(CFLAGS) $< -o $@
 
 $(PROG): %: $(HEADERS) %.o $(OBJS)
-	$(QUIET) $(LD) $(LDFLAGS) $@.o $(OBJS) -o $@ $(LIBUDEV) $(LIBSYSFS) $(LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) $@.o $(OBJS) -o $@ $(LIBUDEV) $(LIB_OBJS)
 ifneq ($(strip $(STRIPCMD)),)
 	$(QUIET) $(STRIPCMD) $@
 endif

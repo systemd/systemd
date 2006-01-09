@@ -17,8 +17,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
-#include "../../udev_utils.h"
-#include "../../logging.h"
+#include "../../udev.h"
 
 #define FIRMWARE_PATH			"/lib/firmware"
 #define PATH_SIZE			256

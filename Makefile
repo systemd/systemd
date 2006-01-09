@@ -58,7 +58,6 @@ PROGRAMS = \
 
 HEADERS = \
 	udev.h				\
-	udev_utils.h			\
 	udev_rules.h			\
 	logging.h			\
 	udev_libc_wrapper.h		\
@@ -66,12 +65,12 @@ HEADERS = \
 	list.h
 
 UDEV_OBJS = \
-	udev_event.o			\
 	udev_device.o			\
 	udev_config.o			\
 	udev_add.o			\
 	udev_remove.o			\
 	udev_db.o			\
+	udev_sysfs.o			\
 	udev_rules.o			\
 	udev_rules_parse.o		\
 	udev_utils.o			\
@@ -89,15 +88,6 @@ MAN_PAGES = \
 	udevtest.8			\
 	udevinfo.8			\
 	udevstart.8
-
-SYSFS_OBJS = \
-	libsysfs/sysfs_class.o		\
-	libsysfs/sysfs_device.o		\
-	libsysfs/sysfs_dir.o		\
-	libsysfs/sysfs_driver.o		\
-	libsysfs/sysfs_utils.o		\
-	libsysfs/dlist.o
-LIBSYSFS = libsysfs/libsysfs.a
 
 # config files automatically generated
 GEN_CONFIGS = \
@@ -143,10 +133,6 @@ LDFLAGS = -Wl,-warn-common
 
 OPTFLAGS = -Os
 CFLAGS += $(OPTFLAGS)
-
-# include our local copy of libsysfs
-CFLAGS +=	-I$(PWD)/libsysfs/sysfs	\
-		-I$(PWD)/libsysfs
 
 ifeq ($(strip $(USE_LOG)),true)
 	CFLAGS += -DUSE_LOG
@@ -200,7 +186,6 @@ all: $(PROGRAMS) $(MAN_PAGES)
 			STRIPCMD="$(STRIPCMD)" \
 			LIB_OBJS="$(LIB_OBJS)" \
 			LIBUDEV="$(PWD)/$(LIBUDEV)" \
-			LIBSYSFS="$(PWD)/$(LIBSYSFS)" \
 			QUIET="$(QUIET)" \
 			-C $$target $@ || exit 1; \
 	done;
@@ -211,26 +196,19 @@ all: $(PROGRAMS) $(MAN_PAGES)
 .SUFFIXES:
 
 # build the objects
-%.o: %.c $(HOST_PROGS) $(GEN_HEADERS)
+%.o: %.c $(HOST_PROGS) $(HEADERS) $(GEN_HEADERS)
 	$(QUIET) $(CC) -c $(CFLAGS) $< -o $@
 
 # "Static Pattern Rule" to build all programs
-$(PROGRAMS): %: $(HOST_PROGS) $(HEADERS) $(GEN_HEADERS) $(LIBSYSFS) $(LIBUDEV) %.o
-	$(QUIET) $(LD) $(LDFLAGS) $@.o -o $@ $(LIBUDEV) $(LIBSYSFS) $(LIB_OBJS)
+$(PROGRAMS): %: $(HOST_PROGS) $(HEADERS) $(GEN_HEADERS) $(LIBUDEV) %.o
+	$(QUIET) $(LD) $(LDFLAGS) $@.o -o $@ $(LIBUDEV) $(LIB_OBJS)
 ifneq ($(STRIPCMD),)
 	$(QUIET) $(STRIPCMD) $@
 endif
 
-$(UDEV_OBJS):
 $(LIBUDEV): $(HOST_PROGS) $(HEADERS) $(GEN_HEADERS) $(UDEV_OBJS)
 	@rm -f $@
 	$(QUIET) $(AR) cq $@ $(UDEV_OBJS)
-	$(QUIET) $(RANLIB) $@
-
-$(SYSFS_OBJS):
-$(LIBSYSFS): $(HOST_PROGS) $(SYSFS_OBJS)
-	@rm -f $@
-	$(QUIET) $(AR) cq $@ $(SYSFS_OBJS)
 	$(QUIET) $(RANLIB) $@
 
 # generate config files

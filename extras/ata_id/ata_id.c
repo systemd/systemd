@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <ctype.h>
+#include <string.h>
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
@@ -24,8 +25,7 @@
 #include <linux/types.h>
 #include <linux/hdreg.h>
 
-#include "../../logging.h"
-#include "../../udev_utils.h"
+#include "../../udev.h"
 
 #ifdef USE_LOG
 void log_message(int priority, const char *format, ...)

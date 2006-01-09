@@ -33,9 +33,7 @@
 #include <linux/stddef.h>
 
 #include "udev.h"
-#include "udev_version.h"
 #include "udevd.h"
-#include "logging.h"
 
 /* global variables */
 static int sock = -1;
@@ -67,7 +65,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	logging_init("udevsend");
 #ifdef USE_LOG
-	udev_init_config();
+	udev_config_init();
 #endif
 	dbg("version %s", UDEV_VERSION);
 

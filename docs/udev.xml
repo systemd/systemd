@@ -362,13 +362,6 @@
             </varlistentry>
 
             <varlistentry>
-              <term><option>%b</option>, <option>$id</option></term>
-              <listitem>
-                <para>The kernel bus id for this device.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
               <term><option>%n</option>, <option>$number</option></term>
               <listitem>
                 <para>The kernel number for this device. For example, 'sda3' has

@@ -30,13 +30,8 @@
 #include <unistd.h>
 #include <syslog.h>
 
-#include "libsysfs/sysfs/libsysfs.h"
-#include "udev_libc_wrapper.h"
 #include "udev.h"
-#include "udev_utils.h"
-#include "udev_version.h"
 #include "udev_rules.h"
-#include "logging.h"
 
 #ifdef USE_LOG
 void log_message(int priority, const char *format, ...)
@@ -65,7 +60,9 @@ static void asmlinkage sig_handler(int signum)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	struct udevice udev;
+	struct sysfs_device *dev;
+	struct udevice *udev;
+	const char *maj, *min;
 	struct udev_rules rules;
 	const char *action;
 	const char *devpath;
@@ -95,7 +92,7 @@ int main(int argc, char *argv[], char *envp[])
 	logging_init("udev");
 	if (devnull < 0)
 		err("fatal, could not open /dev/null: %s", strerror(errno));
-	udev_init_config();
+	udev_config_init();
 	dbg("version %s", UDEV_VERSION);
 
 	/* set signal handlers */
@@ -114,10 +111,10 @@ int main(int argc, char *argv[], char *envp[])
 	devpath = getenv("DEVPATH");
 	subsystem = getenv("SUBSYSTEM");
 	/* older kernels passed the SUBSYSTEM only as argument */
-	if (!subsystem && argc == 2)
+	if (subsystem == NULL && argc == 2)
 		subsystem = argv[1];
 
-	if (!action || !subsystem || !devpath) {
+	if (action == NULL || subsystem == NULL || devpath == NULL) {
 		err("action, subsystem or devpath missing");
 		goto exit;
 	}
@@ -130,25 +127,49 @@ int main(int argc, char *argv[], char *envp[])
 		setenv("UDEV_LOG", priority, 1);
 	}
 
-	udev_init_device(&udev, devpath, subsystem, action);
+	sysfs_init();
 	udev_rules_init(&rules, 0);
 
-	retval = udev_process_event(&rules, &udev);
+	dev = sysfs_device_get(devpath);
+	if (dev == NULL) {
+		info("unable to open '%s'", devpath);
+		goto fail;
+	}
 
-	if (!retval && udev_run && !list_empty(&udev.run_list)) {
+	udev = udev_device_init();
+	if (udev == NULL)
+		goto fail;
+
+	/* override built-in sysfs device */
+	udev->dev = dev;
+	strlcpy(udev->action, action, sizeof(udev->action));
+
+	/* get dev_t from environment, which is needed for "remove" to work, "add" works also from sysfs */
+	maj = getenv("MAJOR");
+	min = getenv("MINOR");
+	if (maj != NULL && min != NULL)
+		udev->devt = makedev(atoi(maj), atoi(min));
+	else
+		udev->devt = udev_device_get_devt(udev);
+
+	retval = udev_device_event(&rules, udev);
+
+	if (!retval && udev_run && !list_empty(&udev->run_list)) {
 		struct name_entry *name_loop;
 
 		dbg("executing run list");
-		list_for_each_entry(name_loop, &udev.run_list, node) {
+		list_for_each_entry(name_loop, &udev->run_list, node) {
 			if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0)
 				pass_env_to_socket(&name_loop->name[strlen("socket:")], devpath, action);
 			else
-				run_program(name_loop->name, udev.subsystem, NULL, 0, NULL, (udev_log_priority >= LOG_INFO));
+				run_program(name_loop->name, udev->dev->subsystem, NULL, 0, NULL, (udev_log_priority >= LOG_INFO));
 		}
 	}
 
-	udev_rules_close(&rules);
-	udev_cleanup_device(&udev);
+	udev_device_cleanup(udev);
+fail:
+	udev_rules_cleanup(&rules);
+	sysfs_cleanup();
 
 exit:
 	logging_close();

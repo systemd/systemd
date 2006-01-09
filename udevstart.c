@@ -38,14 +38,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "libsysfs/sysfs/libsysfs.h"
-#include "udev_libc_wrapper.h"
 #include "udev.h"
-#include "udev_version.h"
-#include "logging.h"
-#include "udev_utils.h"
 #include "udev_rules.h"
-#include "list.h"
 
 static const char *udev_run_str;
 static const char *udev_log_str;
@@ -68,11 +62,10 @@ void log_message(int priority, const char *format, ...)
 struct device {
 	struct list_head node;
 	char path[PATH_SIZE];
-	char subsys[NAME_SIZE];
 };
 
 /* sort files in lexical order */
-static int device_list_insert(const char *path, char *subsystem, struct list_head *device_list)
+static int device_list_insert(const char *path, struct list_head *device_list)
 {
 	struct device *loop_device;
 	struct device *new_device;
@@ -93,9 +86,8 @@ static int device_list_insert(const char *path, char *subsystem, struct list_hea
 	}
 
 	strlcpy(new_device->path, devpath, sizeof(new_device->path));
-	strlcpy(new_device->subsys, subsystem, sizeof(new_device->subsys));
 	list_add_tail(&new_device->node, &loop_device->node);
-	dbg("add '%s' from subsys '%s'", new_device->path, new_device->subsys);
+	dbg("add '%s'" , new_device->path);
 	return 0;
 }
 
@@ -112,64 +104,68 @@ static char *first_list[] = {
 	NULL,
 };
 
-static int add_device(const char *devpath, const char *subsystem)
+static int add_device(const char *devpath)
 {
-	struct udevice udev;
-	struct sysfs_class_device *class_dev;
-	char path[PATH_SIZE];
+	struct sysfs_device *dev;
+	struct udevice *udev;
 
 	/* clear and set environment for next event */
 	clearenv();
 	setenv("ACTION", "add", 1);
-	setenv("DEVPATH", devpath, 1);
-	setenv("SUBSYSTEM", subsystem, 1);
 	setenv("UDEV_START", "1", 1);
 	if (udev_log_str)
 		setenv("UDEV_LOG", udev_log_str, 1);
 	if (udev_run_str)
 		setenv("UDEV_RUN", udev_run_str, 1);
-	dbg("add '%s'", devpath);
 
-	snprintf(path, sizeof(path), "%s%s", sysfs_path, devpath);
-	path[sizeof(path)-1] = '\0';
-	class_dev = sysfs_open_class_device_path(path);
-	if (class_dev == NULL) {
-		dbg("sysfs_open_class_device_path failed");
+	dev = sysfs_device_get(devpath);
+	if (dev == NULL)
 		return -1;
+
+	udev = udev_device_init();
+	if (udev == NULL)
+		return -1;
+
+	/* override built-in sysfs device */
+	udev->dev = dev;
+	strcpy(udev->action, "add");
+	udev->devt = udev_device_get_devt(udev);
+
+	if (strcmp(udev->dev->subsystem, "net") != 0) {
+		udev->devt = udev_device_get_devt(udev);
+		if (major(udev->devt) == 0)
+			return -1;
 	}
 
-	udev_init_device(&udev, &class_dev->path[strlen(sysfs_path)], subsystem, "add");
-	udev.devt = get_devt(class_dev);
-	if (!udev.devt && udev.type != DEV_NET) {
-		dbg("sysfs_open_class_device_path failed");
-		return -1;
-	}
-	udev_rules_get_name(&rules, &udev, class_dev);
-	if (udev.ignore_device) {
+	dbg("add '%s'", udev->dev->devpath);
+	setenv("DEVPATH", udev->dev->devpath, 1);
+	setenv("SUBSYSTEM", udev->dev->subsystem, 1);
+
+	udev_rules_get_name(&rules, udev);
+	if (udev->ignore_device) {
 		dbg("device event will be ignored");
 		goto exit;
 	}
-	if (udev.name[0] == '\0') {
+	if (udev->name[0] == '\0') {
 		dbg("device node creation supressed");
 		goto run;
 	}
 
-	udev_add_device(&udev, class_dev);
+	udev_add_device(udev);
 run:
-	if (udev_run && !list_empty(&udev.run_list)) {
+	if (udev_run && !list_empty(&udev->run_list)) {
 		struct name_entry *name_loop;
 
 		dbg("executing run list");
-		list_for_each_entry(name_loop, &udev.run_list, node) {
+		list_for_each_entry(name_loop, &udev->run_list, node) {
 			if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0)
-				pass_env_to_socket(&name_loop->name[strlen("socket:")], devpath, "add");
+				pass_env_to_socket(&name_loop->name[strlen("socket:")], udev->dev->devpath, "add");
 			else
-				run_program(name_loop->name, udev.subsystem, NULL, 0, NULL, (udev_log_priority >= LOG_INFO));
+				run_program(name_loop->name, udev->dev->subsystem, NULL, 0, NULL, (udev_log_priority >= LOG_INFO));
 		}
 	}
 exit:
-	sysfs_close_class_device(class_dev);
-	udev_cleanup_device(&udev);
+	udev_device_cleanup(udev);
 
 	return 0;
 }
@@ -184,7 +180,7 @@ static void exec_list(struct list_head *device_list)
 	list_for_each_entry_safe(loop_device, tmp_device, device_list, node) {
 		for (i = 0; first_list[i] != NULL; i++) {
 			if (strncmp(loop_device->path, first_list[i], strlen(first_list[i])) == 0) {
-				add_device(loop_device->path, loop_device->subsys);
+				add_device(loop_device->path);
 				list_del(&loop_device->node);
 				free(loop_device);
 				break;
@@ -204,14 +200,14 @@ static void exec_list(struct list_head *device_list)
 		if (found)
 			continue;
 
-		add_device(loop_device->path, loop_device->subsys);
+		add_device(loop_device->path);
 		list_del(&loop_device->node);
 		free(loop_device);
 	}
 
 	/* handle the rest of the devices left over, if any */
 	list_for_each_entry_safe(loop_device, tmp_device, device_list, node) {
-		add_device(loop_device->path, loop_device->subsys);
+		add_device(loop_device->path);
 		list_del(&loop_device->node);
 		free(loop_device);
 	}
@@ -253,7 +249,7 @@ static void udev_scan_block(struct list_head *device_list)
 			snprintf(dirname, sizeof(dirname), "%s/%s", base, dent->d_name);
 			dirname[sizeof(dirname)-1] = '\0';
 			if (has_devt(dirname))
-				device_list_insert(dirname, "block", device_list);
+				device_list_insert(dirname, device_list);
 			else
 				continue;
 
@@ -270,7 +266,7 @@ static void udev_scan_block(struct list_head *device_list)
 					dirname2[sizeof(dirname2)-1] = '\0';
 
 					if (has_devt(dirname2))
-						device_list_insert(dirname2, "block", device_list);
+						device_list_insert(dirname2, device_list);
 				}
 				closedir(dir2);
 			}
@@ -313,7 +309,7 @@ static void udev_scan_class(struct list_head *device_list)
 					dirname2[sizeof(dirname2)-1] = '\0';
 
 					if (has_devt(dirname2) || strcmp(dent->d_name, "net") == 0)
-						device_list_insert(dirname2, dent->d_name, device_list);
+						device_list_insert(dirname2, device_list);
 				}
 				closedir(dir2);
 			}
@@ -339,7 +335,7 @@ int main(int argc, char *argv[], char *envp[])
 	struct sigaction act;
 
 	logging_init("udevstart");
-	udev_init_config();
+	udev_config_init();
 	dbg("version %s", UDEV_VERSION);
 
 	udev_run_str = getenv("UDEV_RUN");
@@ -361,13 +357,15 @@ int main(int argc, char *argv[], char *envp[])
 	/* trigger timeout to prevent hanging processes */
 	alarm(UDEV_ALARM_TIMEOUT);
 
+	sysfs_init();
 	udev_rules_init(&rules, 1);
 
 	udev_scan_class(&device_list);
 	udev_scan_block(&device_list);
 	exec_list(&device_list);
 
-	udev_rules_close(&rules);
+	udev_rules_cleanup(&rules);
+	sysfs_cleanup();
 	logging_close();
 	return 0;
 }

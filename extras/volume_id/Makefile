@@ -35,7 +35,7 @@ $(LIBVOLUME_ID):
 	$(MAKE) -C libvolume_id
 
 $(PROG): %: $(HEADERS) %.o $(LIBVOLUME_ID)
-	$(QUIET) $(LD) $(LDFLAGS) $@.o $(LIBVOLUME_ID) -o $@ $(LIBUDEV) $(LIBSYSFS) $(LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) $@.o $(LIBVOLUME_ID) -o $@ $(LIBUDEV) $(LIB_OBJS)
 ifneq ($(strip $(STRIPCMD)),)
 	$(QUIET) $(STRIPCMD) $@
 endif

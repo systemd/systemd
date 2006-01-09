@@ -30,11 +30,7 @@
 #include <syslog.h>
 #include <sys/utsname.h>
 
-#include "udev_libc_wrapper.h"
 #include "udev.h"
-#include "logging.h"
-#include "udev_utils.h"
-#include "list.h"
 
 
 int log_priority(const char *priority)

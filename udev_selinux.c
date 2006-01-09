@@ -32,7 +32,6 @@
 
 #include "udev.h"
 #include "udev_selinux.h"
-#include "logging.h"
 
 static security_context_t prev_scontext = NULL;
 

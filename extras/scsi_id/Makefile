@@ -29,7 +29,6 @@ INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 
 # be able to run without udev
-LIBSYSFS = -lsysfs
 CROSS =
 QUIET =
 CC = $(CROSS)gcc
@@ -47,7 +46,7 @@ all: $(PROG) $(MAN_PAGES)
 	$(QUIET) $(CC) -c $(CFLAGS) $< -o $@
 
 $(PROG): %: $(HEADERS) %.o $(OBJS)
-	$(QUIET) $(LD) $(LDFLAGS) $@.o $(OBJS) -o $@ $(LIBUDEV) $(LIBSYSFS) $(LIB_OBJS)
+	$(QUIET) $(LD) $(LDFLAGS) $@.o $(OBJS) -o $@ $(LIBUDEV) $(LIB_OBJS)
 ifneq ($(strip $(STRIPCMD)),)
 	$(QUIET) $(STRIPCMD) $@
 endif

@@ -30,11 +30,7 @@
 #include <syslog.h>
 #include <sys/utsname.h>
 
-#include "udev_libc_wrapper.h"
 #include "udev.h"
-#include "logging.h"
-#include "udev_utils.h"
-#include "list.h"
 
 /* compare string with pattern (like fnmatch(), supports * ? [0-9] [!A-Z]) */
 int strcmp_pattern(const char *p, const char *s)

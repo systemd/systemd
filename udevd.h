@@ -32,7 +32,7 @@
 #define EVENT_QUEUE_DIR			".udev/queue"
 #define EVENT_FAILED_DIR		".udev/failed"
 
-/* maximum limit of runnig childs */
+/* maximum limit of forked childs */
 #define UDEVD_MAX_CHILDS		64
 /* start to throttle forking if maximum number of running childs in our session is reached */
 #define UDEVD_MAX_CHILDS_RUNNING	16

@@ -18,14 +18,14 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <ctype.h>
+#include <string.h>
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <linux/types.h>
 
-#include "../../logging.h"
-#include "../../udev_utils.h"
+#include "../../udev.h"
 
 /*
  * Taken from the cdrom.h kernel include file.

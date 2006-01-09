@@ -32,10 +32,7 @@
 #include <linux/stddef.h>
 
 #include "udev.h"
-#include "udev_version.h"
 #include "udevd.h"
-#include "udev_utils.h"
-#include "logging.h"
 
 /* global variables */
 static int sock = -1;

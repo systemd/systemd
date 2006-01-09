@@ -21,17 +21,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stddef.h>
 #include <ctype.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <dirent.h>
 #include <errno.h>
 
-#include "libsysfs/sysfs/libsysfs.h"
-#include "udev_libc_wrapper.h"
 #include "udev.h"
-#include "udev_utils.h"
-#include "udev_version.h"
-#include "logging.h"
 
 
 #ifdef USE_LOG
@@ -48,42 +45,89 @@ void log_message (int priority, const char *format, ...)
 }
 #endif
 
-static void print_all_attributes(struct dlist *attr_list)
+static void print_all_attributes(const char *devpath)
 {
-	struct sysfs_attribute *attr;
-	char value[VALUE_SIZE];
-	size_t len;
+	char path[PATH_SIZE];
+	DIR *dir;
+	struct dirent *dent;
 
-	dlist_for_each_data(attr_list, attr, struct sysfs_attribute) {
-		if (attr->value == NULL)
-			continue;
-		len = strlcpy(value, attr->value, sizeof(value));
-		if (len >= sizeof(value)) {
-			dbg("attribute value of '%s' too long, skip", attr->name);
-			continue;
-		}
+	strlcpy(path, sysfs_path, sizeof(path));
+	strlcat(path, devpath, sizeof(path));
 
-		/* remove trailing newlines */
-		while (len && value[len-1] == '\n')
-			value[--len] = '\0';
-		/* skip nonprintable attributes */
-		while (len && isprint(value[len-1]))
-			len--;
-		if (len) {
-			dbg("attribute value of '%s' non-printable, skip", attr->name);
-			continue;
+	dir = opendir(path);
+	if (dir != NULL) {
+		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+			char *attr_value;
+			char value[NAME_SIZE];
+			size_t len;
+
+			attr_value = sysfs_attr_get_value(devpath, dent->d_name);
+			if (attr_value == NULL)
+				continue;
+			len = strlcpy(value, attr_value, sizeof(value));
+			dbg("attr '%s'='%s'(%zi)", dent->d_name, value, len);
+
+			/* remove trailing newlines */
+			while (len && value[len-1] == '\n')
+				value[--len] = '\0';
+
+			/* skip nonprintable attributes */
+			while (len && isprint(value[len-1]))
+				len--;
+			if (len) {
+				dbg("attribute value of '%s' non-printable, skip", dent->d_name);
+				continue;
+			}
+
+			replace_untrusted_chars(value);
+			printf("    SYSFS{%s}==\"%s\"\n", dent->d_name, value);
 		}
-		replace_untrusted_chars(value);
-		printf("    SYSFS{%s}==\"%s\"\n", attr->name, value);
 	}
 	printf("\n");
+}
+
+static int print_device_chain(const char *devpath)
+{
+	struct sysfs_device *dev;
+
+	printf("\n"
+	       "udevinfo starts with the device the node belongs to and then walks up the\n"
+	       "device chain, to print for every device found, all possibly useful attributes\n"
+	       "in the udev key format.\n"
+	       "Only attributes within one device section may be used together in one rule,\n"
+	       "to match the device for which the node will be created.\n"
+	       "\n");
+
+	dev = sysfs_device_get(devpath);
+	if (dev == NULL)
+		return -1;
+
+	printf("  looking at device '%s':\n", dev->devpath);
+	printf("    KERNEL==\"%s\"\n", dev->kernel_name);
+	printf("    SUBSYSTEM==\"%s\"\n", dev->subsystem);
+	print_all_attributes(dev->devpath);
+
+	/* walk up the chain of devices */
+	while (1) {
+		dev = sysfs_device_get_parent(dev);
+		if (dev == NULL)
+			break;
+		printf("  looking at device '%s':\n", dev->devpath);
+		printf("    ID==\"%s\"\n", dev->kernel_name);
+		printf("    BUS==\"%s\"\n", dev->subsystem);
+		printf("    DRIVER==\"%s\"\n", dev->driver);
+
+		print_all_attributes(dev->devpath);
+	}
+
+	return 0;
 }
 
 static void print_record(struct udevice *udev)
 {
 	struct name_entry *name_loop;
 
-	printf("P: %s\n", udev->devpath);
+	printf("P: %s\n", udev->dev->devpath);
 	printf("N: %s\n", udev->name);
 	list_for_each_entry(name_loop, &udev->symlink_list, node)
 		printf("S: %s\n", name_loop->name);
@@ -91,82 +135,8 @@ static void print_record(struct udevice *udev)
 		printf("E: %s\n", name_loop->name);
 }
 
-static int print_device_chain(const char *path)
-{
-	struct sysfs_class_device *class_dev;
-	struct sysfs_class_device *class_dev_parent;
-	struct sysfs_attribute *attr;
-	struct sysfs_device *sysfs_dev;
-	struct dlist *attr_list;
-	int retval = 0;
-
-	/*  get the class dev */
-	class_dev = sysfs_open_class_device_path(path);
-	if (class_dev == NULL) {
-		fprintf(stderr, "couldn't get the class device\n");
-		return -1;
-	}
-
-	printf("\nudevinfo starts with the device the node belongs to and then walks up the\n"
-	       "device chain, to print for every device found, all possibly useful attributes\n"
-	       "in the udev key format.\n"
-	       "Only attributes within one device section may be used together in one rule,\n"
-	       "to match the device for which the node will be created.\n"
-	       "\n");
-
-	/* look for the 'dev' file */
-	attr = sysfs_get_classdev_attr(class_dev, "dev");
-	if (attr != NULL)
-		printf("device '%s' has major:minor %s", class_dev->path, attr->value);
-
-	/* open sysfs class device directory and print all attributes */
-	printf("  looking at class device '%s':\n", class_dev->path);
-	printf("    KERNEL==\"%s\"\n", class_dev->name);
-	printf("    SUBSYSTEM==\"%s\"\n", class_dev->classname);
-
-	attr_list = sysfs_get_classdev_attributes(class_dev);
-	if (attr_list == NULL) {
-		fprintf(stderr, "couldn't open class device directory\n");
-		retval = -1;
-		goto exit;
-	}
-	print_all_attributes(attr_list);
-
-	/* get the device link (if parent exists look here) */
-	class_dev_parent = sysfs_get_classdev_parent(class_dev);
-	if (class_dev_parent != NULL)
-		sysfs_dev = sysfs_get_classdev_device(class_dev_parent);
-	else 
-		sysfs_dev = sysfs_get_classdev_device(class_dev);
-	
-	if (sysfs_dev != NULL)
-		printf("follow the \"device\"-link to the physical device:\n");
-
-	/* look the device chain upwards */
-	while (sysfs_dev != NULL) {
-		printf("  looking at the device chain at '%s':\n", sysfs_dev->path);
-		printf("    BUS==\"%s\"\n", sysfs_dev->bus);
-		printf("    ID==\"%s\"\n", sysfs_dev->bus_id);
-		printf("    DRIVER==\"%s\"\n", sysfs_dev->driver_name);
-
-		attr_list = sysfs_get_device_attributes(sysfs_dev);
-		if (attr_list != NULL)
-			print_all_attributes(attr_list);
-		else
-			printf("\n");
-
-		sysfs_dev = sysfs_get_device_parent(sysfs_dev);
-		if (sysfs_dev == NULL)
-			break;
-	}
-
-exit:
-	sysfs_close_class_device(class_dev);
-	return retval;
-}
-
 static void export_name_devpath(struct udevice *udev) {
-	printf("%s=%s/%s\n", udev->devpath, udev_root, udev->name);
+	printf("%s=%s/%s\n", udev->dev->devpath, udev_root, udev->name);
 }
 
 static void export_record(struct udevice *udev) {
@@ -180,12 +150,14 @@ static void export_db(void fnct(struct udevice *udev)) {
 
 	udev_db_get_all_entries(&name_list);
 	list_for_each_entry(name_loop, &name_list, node) {
-		struct udevice udev_db;
+		struct udevice *udev_db;
 
-		udev_init_device(&udev_db, NULL, NULL, NULL);
-		if (udev_db_get_device(&udev_db, name_loop->name) == 0)
-			fnct(&udev_db);
-		udev_cleanup_device(&udev_db);
+		udev_db = udev_device_init();
+		if (udev_db == NULL)
+			continue;
+		if (udev_db_get_device(udev_db, name_loop->name) == 0)
+			fnct(udev_db);
+		udev_device_cleanup(udev_db);
 	}
 	name_list_cleanup(&name_list);
 }
@@ -215,7 +187,7 @@ int main(int argc, char *argv[], char *envp[])
 {
 	static const char short_options[] = "aden:p:q:rVh";
 	int option;
-	struct udevice udev;
+	struct udevice *udev;
 	int root = 0;
 
 	enum action_type {
@@ -239,12 +211,18 @@ int main(int argc, char *argv[], char *envp[])
 	char temp[PATH_SIZE];
 	struct name_entry *name_loop;
 	char *pos;
-	int retval = 0;
+	int rc = 0;
 
 	logging_init("udevinfo");
 
-	udev_init_config();
-	udev_init_device(&udev, NULL, NULL, NULL);
+	udev_config_init();
+	sysfs_init();
+
+	udev = udev_device_init();
+	if (udev == NULL) {
+		rc = 1;
+		goto exit;
+	}
 
 	/* get command line options */
 	while (1) {
@@ -260,7 +238,11 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 'p':
 			dbg("udev path: %s\n", optarg);
-			strlcpy(path, optarg, sizeof(path));
+			/* remove sysfs mountpoint if not given */
+			if (strncmp(optarg, sysfs_path, strlen(sysfs_path)) == 0)
+				strlcpy(path, &optarg[strlen(sysfs_path)], sizeof(path));
+			else
+				strlcpy(path, optarg, sizeof(path));
 			break;
 		case 'q':
 			dbg("udev query: %s\n", optarg);
@@ -286,7 +268,7 @@ int main(int argc, char *argv[], char *envp[])
 				break;
 			}
 			fprintf(stderr, "unknown query type\n");
-			retval = 2;
+			rc = 2;
 			goto exit;
 		case 'r':
 			if (action == ACTION_NONE)
@@ -331,10 +313,9 @@ int main(int argc, char *argv[], char *envp[])
 					pos = path;
 				}
 			}
-			retval = udev_db_get_device(&udev, pos);
-			if (retval != 0) {
+			if (udev_db_get_device(udev, pos) != 0) {
 				fprintf(stderr, "no record for '%s' in database\n", pos);
-				retval = 3;
+				rc = 3;
 				goto exit;
 			}
 		} else if (name[0] != '\0') {
@@ -348,46 +329,45 @@ int main(int argc, char *argv[], char *envp[])
 			} else
 				pos = name;
 
-			retval = udev_db_lookup_name(pos, devpath, sizeof(devpath));
-			if (retval != 0) {
+			if (udev_db_lookup_name(pos, devpath, sizeof(devpath)) != 0) {
 				fprintf(stderr, "no record for '%s' in database\n", pos);
-				retval = 3;
+				rc = 3;
 				goto exit;
 			}
-			udev_db_get_device(&udev, devpath);
+			udev_db_get_device(udev, devpath);
 		} else {
 			fprintf(stderr, "query needs device path(-p) or node name(-n) specified\n");
-			retval = 4;
+			rc = 4;
 			goto exit;
 		}
 
 		switch(query) {
 		case QUERY_NAME:
 			if (root)
-				printf("%s/%s\n", udev_root, udev.name);
+				printf("%s/%s\n", udev_root, udev->name);
 			else
-				printf("%s\n", udev.name);
+				printf("%s\n", udev->name);
 			break;
 		case QUERY_SYMLINK:
-			if (list_empty(&udev.symlink_list))
+			if (list_empty(&udev->symlink_list))
 				goto exit;
 			if (root)
-				list_for_each_entry(name_loop, &udev.symlink_list, node)
+				list_for_each_entry(name_loop, &udev->symlink_list, node)
 					printf("%s/%s ", udev_root, name_loop->name);
 			else
-				list_for_each_entry(name_loop, &udev.symlink_list, node)
+				list_for_each_entry(name_loop, &udev->symlink_list, node)
 					printf("%s ", name_loop->name);
 			printf("\n");
 			break;
 		case QUERY_PATH:
-			printf("%s\n", udev.devpath);
+			printf("%s\n", udev->dev->devpath);
 			goto exit;
 		case QUERY_ENV:
-			list_for_each_entry(name_loop, &udev.env_list, node)
+			list_for_each_entry(name_loop, &udev->env_list, node)
 				printf("%s\n", name_loop->name);
 			break;
 		case QUERY_ALL:
-			print_record(&udev);
+			print_record(udev);
 			break;
 		default:
 			print_help();
@@ -397,29 +377,23 @@ int main(int argc, char *argv[], char *envp[])
 	case ACTION_ATTRIBUTE_WALK:
 		if (path[0] == '\0') {
 			fprintf(stderr, "attribute walk on device chain needs path(-p) specified\n");
-			retval = 4;
+			rc = 4;
 			goto exit;
-		} else {
-			if (strncmp(path, sysfs_path, strlen(sysfs_path)) != 0) {
-				/* prepend sysfs mountpoint if not given */
-				snprintf(temp, sizeof(temp), "%s%s", sysfs_path, path);
-				temp[sizeof(temp)-1] = '\0';
-				strlcpy(path, temp, sizeof(temp));
-			}
+		} else
 			print_device_chain(path);
-		}
 		break;
 	case ACTION_ROOT:
 		printf("%s\n", udev_root);
 		break;
 	default:
 		print_help();
-		retval = 1;
+		rc = 1;
 		break;
 	}
 
 exit:
-	udev_cleanup_device(&udev);
+	udev_device_cleanup(udev);
+	sysfs_cleanup();
 	logging_close();
-	return retval;
+	return rc;
 }

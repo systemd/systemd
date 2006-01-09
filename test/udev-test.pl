@@ -243,18 +243,18 @@ EOF
 		desc		=> "test substitution chars",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
-		exp_name	=> "Major:8:minor:3:kernelnumber:3:bus:0:0:0:0" ,
+		exp_name	=> "Major:8:minor:3:kernelnumber:3" ,
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:bus:%b"
+BUS=="scsi", ID=="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n"
 EOF
 	},
 	{
 		desc		=> "test substitution chars (with length limit)",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
-		exp_name	=> "M8-m3-n3-b0:0-sIBM" ,
+		exp_name	=> "M8-m3-n3-bsd-sIBM" ,
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", NAME="M%M-m%m-n%n-b%3b-s%3s{vendor}"
+BUS=="scsi", ID=="0:0:0:0", NAME="M%M-m%m-n%n-b%2k-s%3s{vendor}"
 EOF
 	},
 	{
@@ -322,9 +322,9 @@ EOF
 		desc		=> "program result substitution",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
-		exp_name	=> "test-0:0:0:0" ,
+		exp_name	=> "test-3" ,
 		rules		=> <<EOF
-BUS=="scsi", PROGRAM=="/bin/echo -n test-%b", RESULT=="test-0:0*", NAME="%c"
+BUS=="scsi", PROGRAM=="/bin/echo -n test-%n", RESULT=="test-3*", NAME="%c"
 EOF
 	},
 	{
@@ -385,27 +385,27 @@ EOF
 		desc		=> "test substitution by variable name",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
-		exp_name	=> "Major:8-minor:3-kernelnumber:3-bus:0:0:0:0" ,
+		exp_name	=> "Major:8-minor:3-kernelnumber:3" ,
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", NAME="Major:\$major-minor:\$minor-kernelnumber:\$number-bus:\$id"
+BUS=="scsi", ID=="0:0:0:0", NAME="Major:\$major-minor:\$minor-kernelnumber:\$number"
 EOF
 	},
 	{
 		desc		=> "test substitution by variable name 2",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
-		exp_name	=> "Major:8-minor:3-kernelnumber:3-bus:0:0:0:0" ,
+		exp_name	=> "Major:8-minor:3-kernelnumber:3-name:sda3" ,
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="Major:\$major-minor:%m-kernelnumber:\$number-bus:%b"
+BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="Major:\$major-minor:%m-kernelnumber:\$number-name:\$kernel"
 EOF
 	},
 	{
 		desc		=> "test substitution by variable name 3",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
-		exp_name	=> "830:0:0:03" ,
+		exp_name	=> "83sda33" ,
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="%M%m%b%n"
+BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="%M%m%k%n"
 EOF
 	},
 	{
@@ -421,9 +421,9 @@ EOF
 		desc		=> "test substitution by variable name 5",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
-		exp_name	=> "8330:0:0:0" ,
+		exp_name	=> "833sda3" ,
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="\$major%m%n\$id"
+BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="\$major%m%n\$kernel"
 EOF
 	},
 	{
@@ -470,11 +470,11 @@ EOF
 		desc		=> "program and bus type match",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
-		exp_name	=> "scsi-0:0:0:0" ,
+		exp_name	=> "scsi-sda" ,
 		rules		=> <<EOF
-BUS=="usb", PROGRAM=="/bin/echo -n usb-%b", NAME="%c"
-BUS=="scsi", PROGRAM=="/bin/echo -n scsi-%b", NAME="%c"
-BUS=="foo", PROGRAM=="/bin/echo -n foo-%b", NAME="%c"
+BUS=="usb", PROGRAM=="/bin/echo -n usb-%k", NAME="%c"
+BUS=="scsi", PROGRAM=="/bin/echo -n scsi-%k", NAME="%c"
+BUS=="foo", PROGRAM=="/bin/echo -n foo-%k", NAME="%c"
 EOF
 	},
 	{
@@ -797,7 +797,7 @@ EOF
 		exp_name	=> "symlink2-ttyUSB0",
 		exp_target	=> "ttyUSB0",
 		rules		=> <<EOF
-KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="symlink1-%n symlink2-%k symlink3-%b"
+KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="symlink1-%n symlink2-%k"
 EOF
 	},
 	{
@@ -918,13 +918,13 @@ KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK+="major-%M:%m"
 EOF
 	},
 	{
-		desc		=> "symlink %b substitution",
+		desc		=> "symlink %k substitution",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
-		exp_name	=> "symlink-0:0:0:0",
+		exp_name	=> "symlink-sda",
 		exp_target	=> "node",
 		rules		=> <<EOF
-BUS=="scsi", KERNEL=="sda", NAME="node", SYMLINK+="symlink-%b"
+BUS=="scsi", KERNEL=="sda", NAME="node", SYMLINK+="symlink-%k"
 EOF
 	},
 	{
@@ -1563,6 +1563,13 @@ sub udev {
 	my ($action, $subsys, $devpath, $rules) = @_;
 
 	$ENV{DEVPATH} = $devpath;
+
+	open my $fd, "$sysfs$devpath/dev";
+	my $dev = <$fd>;
+	close $fd;
+	$dev =~ m/^(.+):(.+)$/;
+	$ENV{MAJOR} = $1;
+	$ENV{MINOR} = $2;
 
 	# create temporary rules
 	open CONF, ">$udev_rules" || die "unable to create rules file: $udev_rules";

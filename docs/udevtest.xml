@@ -37,7 +37,7 @@
 
       <refsynopsisdiv>
         <cmdsynopsis>
-          <command>udevtest <filename>device-path</filename> <replaceable>subsystem</replaceable></command>
+          <command>udevtest <filename>device-path</filename></command>
         </cmdsynopsis>
       </refsynopsisdiv>
 

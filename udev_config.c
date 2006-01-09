@@ -28,15 +28,9 @@
 #include <ctype.h>
 #include <syslog.h>
 
-#include "libsysfs/sysfs/libsysfs.h"
-#include "udev_libc_wrapper.h"
 #include "udev.h"
-#include "udev_utils.h"
-#include "udev_version.h"
-#include "logging.h"
 
 /* global variables */
-char sysfs_path[PATH_SIZE];
 char udev_root[PATH_SIZE];
 char udev_config_filename[PATH_SIZE];
 char udev_rules_filename[PATH_SIZE];
@@ -168,7 +162,7 @@ static int parse_config_file(void)
 	return retval;
 }
 
-void udev_init_config(void)
+void udev_config_init(void)
 {
 	const char *env;
 
@@ -177,7 +171,6 @@ void udev_init_config(void)
 	strcpy(udev_rules_filename, UDEV_RULES_FILE);
 	udev_log_priority = LOG_ERR;
 	udev_run = 1;
-	sysfs_get_mnt_path(sysfs_path, sizeof(sysfs_path));
 
 	/* disable RUN key execution */
 	env = getenv("UDEV_RUN");
@@ -202,7 +195,6 @@ void udev_init_config(void)
 	if (env)
 		udev_log_priority = log_priority(env);
 
-	dbg("sysfs_path='%s'", sysfs_path);
 	dbg("UDEV_CONFIG_FILE='%s'", udev_config_filename);
 	dbg("udev_root='%s'", udev_root);
 	dbg("udev_rules='%s'", udev_rules_filename);

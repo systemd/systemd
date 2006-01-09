@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stddef.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
@@ -29,16 +30,10 @@
 #include <sys/types.h>
 #include <grp.h>
 #include <net/if.h>
-#include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <linux/sockios.h>
 
-#include "libsysfs/sysfs/libsysfs.h"
-#include "udev_libc_wrapper.h"
 #include "udev.h"
-#include "udev_utils.h"
-#include "udev_version.h"
-#include "logging.h"
 #include "udev_rules.h"
 #include "udev_selinux.h"
 
@@ -48,25 +43,18 @@ int udev_make_node(struct udevice *udev, const char *file, dev_t devt, mode_t mo
 	struct stat stats;
 	int retval = 0;
 
-	switch (udev->type) {
-	case DEV_BLOCK:
+	if (major(devt) != 0 && strcmp(udev->dev->subsystem, "block") == 0)
 		mode |= S_IFBLK;
-		break;
-	case DEV_CLASS:
+	else
 		mode |= S_IFCHR;
-		break;
-	default:
-		dbg("unknown node type %c\n", udev->type);
-		return -EINVAL;
-	}
 
 	if (stat(file, &stats) != 0)
 		goto create;
 
-	/* preserve node with already correct numbers, to not change the inode number */
+	/* preserve node with already correct numbers, to prevent changing the inode number */
 	if ((stats.st_mode & S_IFMT) == (mode & S_IFMT) && (stats.st_rdev == devt)) {
 		info("preserve file '%s', cause it has correct dev_t", file);
-		selinux_setfilecon(file, udev->kernel_name, stats.st_mode);
+		selinux_setfilecon(file, udev->dev->kernel_name, stats.st_mode);
 		goto perms;
 	}
 
@@ -76,7 +64,7 @@ int udev_make_node(struct udevice *udev, const char *file, dev_t devt, mode_t mo
 		dbg("already present file '%s' unlinked", file);
 
 create:
-	selinux_setfscreatecon(file, udev->kernel_name, mode);
+	selinux_setfscreatecon(file, udev->dev->kernel_name, mode);
 	retval = mknod(file, mode, devt);
 	selinux_resetfscreatecon();
 	if (retval != 0) {
@@ -105,7 +93,7 @@ exit:
 	return retval;
 }
 
-static int create_node(struct udevice *udev, struct sysfs_class_device *class_dev)
+static int create_node(struct udevice *udev)
 {
 	char filename[PATH_SIZE];
 	struct name_entry *name_loop;
@@ -161,13 +149,13 @@ static int create_node(struct udevice *udev, struct sysfs_class_device *class_de
 	/* create all_partitions if requested */
 	if (udev->partitions) {
 		char partitionname[PATH_SIZE];
-		struct sysfs_attribute *attr;
+		char *attr;
 		int range;
 
 		/* take the maximum registered minor range */
-		attr = sysfs_get_classdev_attr(class_dev, "range");
+		attr = sysfs_attr_get_value(udev->dev->devpath, "range");
 		if (attr) {
-			range = atoi(attr->value);
+			range = atoi(attr);
 			if (range > 1)
 				udev->partitions = range-1;
 		}
@@ -247,7 +235,7 @@ static int rename_net_if(struct udevice *udev)
 	struct ifreq ifr;
 	int retval;
 
-	info("changing net interface name from '%s' to '%s'", udev->kernel_name, udev->name);
+	info("changing net interface name from '%s' to '%s'", udev->dev->kernel_name, udev->name);
 	if (udev->test_run)
 		return 0;
 
@@ -258,7 +246,7 @@ static int rename_net_if(struct udevice *udev)
 	}
 
 	memset(&ifr, 0x00, sizeof(struct ifreq));
-	strlcpy(ifr.ifr_name, udev->kernel_name, IFNAMSIZ);
+	strlcpy(ifr.ifr_name, udev->dev->kernel_name, IFNAMSIZ);
 	strlcpy(ifr.ifr_newname, udev->name, IFNAMSIZ);
 
 	retval = ioctl(sk, SIOCSIFNAME, &ifr);
@@ -269,7 +257,7 @@ static int rename_net_if(struct udevice *udev)
 	return retval;
 }
 
-int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
+int udev_add_device(struct udevice *udev)
 {
 	char *pos;
 	int retval = 0;
@@ -277,16 +265,16 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 	dbg("adding name='%s'", udev->name);
 	selinux_init();
 
-	if (udev->type == DEV_BLOCK || udev->type == DEV_CLASS) {
-		retval = create_node(udev, class_dev);
+	if (major(udev->devt)) {
+		retval = create_node(udev);
 		if (retval != 0)
 			goto exit;
 
 		if (udev_db_add_device(udev) != 0)
 			dbg("udev_db_add_dev failed, remove might not work for custom names");
-	} else if (udev->type == DEV_NET) {
+	} else if (strcmp(udev->dev->subsystem, "net") == 0) {
 		/* look if we want to change the name of the netif */
-		if (strcmp(udev->name, udev->kernel_name) != 0) {
+		if (strcmp(udev->name, udev->dev->kernel_name) != 0) {
 			retval = rename_net_if(udev);
 			if (retval != 0)
 				goto exit;
@@ -296,12 +284,12 @@ int udev_add_device(struct udevice *udev, struct sysfs_class_device *class_dev)
 			 * original kernel name sleeps with the fishes and we don't
 			 * get an event from the kernel with the new name
 			 */
-			pos = strrchr(udev->devpath, '/');
+			pos = strrchr(udev->dev->devpath, '/');
 			if (pos != NULL) {
 				pos[1] = '\0';
-				strlcat(udev->devpath, udev->name, sizeof(udev->devpath));
-				strlcpy(udev->kernel_name, udev->name, sizeof(udev->kernel_name));
-				setenv("DEVPATH", udev->devpath, 1);
+				strlcat(udev->dev->devpath, udev->name, sizeof(udev->dev->devpath));
+				strlcpy(udev->dev->kernel_name, udev->name, sizeof(udev->dev->kernel_name));
+				setenv("DEVPATH", udev->dev->devpath, 1);
 				setenv("INTERFACE", udev->name, 1);
 			}
 		}

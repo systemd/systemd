@@ -1,5 +1,11 @@
 udev 080
 ========
+Complete removal of libsysfs, replaced by simple helper functions
+which are much simpler and a bit faster. The udev daemon operatesentirely
+on event parameters and does not use sysfs for simple rules anymore.
+Please report any new bugs/problems, that may be caused by this big
+change. They will be fixed immediately.
+
 The enumeration format character '%e' is deprecated and will be
 removed sometimes from a future udev version. It never worked correctly
 outside of udevstart, so we can't use it with the new parallel
@@ -9,6 +15,8 @@ scheme, just get rid of both if you still use it.
 MODALIAS and $modalias is not needed and will be removed from one of
 the next udev versions, replace it in all rules with ENV{MODALIAS} or
 the sysfs "modalias" value.
+
+Thanks a lot to Marco for all his help on finding and fixing bugs.
 
 udev 079
 ========

@@ -42,16 +42,11 @@
 #include <linux/types.h>
 #include <linux/netlink.h>
 
-#include "list.h"
-#include "udev_libc_wrapper.h"
 #include "udev.h"
-#include "udev_version.h"
 #include "udev_rules.h"
-#include "udev_utils.h"
 #include "udevd.h"
-#include "logging.h"
 
-struct udev_rules rules;
+static struct udev_rules rules;
 static int udevd_sock;
 static int uevent_netlink_sock;
 static int inotify_fd;
@@ -94,8 +89,7 @@ static void asmlinkage udev_event_sig_handler(int signum)
 static int udev_event_process(struct uevent_msg *msg)
 {
 	struct sigaction act;
-	struct udevice udev;
-	struct name_entry *name_loop;
+	struct udevice *udev;
 	int i;
 	int retval;
 
@@ -109,27 +103,34 @@ static int udev_event_process(struct uevent_msg *msg)
 	/* trigger timeout to prevent hanging processes */
 	alarm(UDEV_ALARM_TIMEOUT);
 
-	/* reconstruct env from message */
+	/* reconstruct event environment from message */
 	for (i = 0; msg->envp[i]; i++)
 		putenv(msg->envp[i]);
 
-	udev_init_device(&udev, msg->devpath, msg->subsystem, msg->action);
-	retval = udev_process_event(&rules, &udev);
+	udev = udev_device_init();
+	if (udev == NULL)
+		return -1;
+	strlcpy(udev->action, msg->action, sizeof(udev->action));
+	sysfs_device_set_values(udev->dev, msg->devpath, msg->subsystem);
+	udev->devt = msg->devt;
+
+	retval = udev_device_event(&rules, udev);
 
 	/* run programs collected by RUN-key*/
-	if (!retval) {
-		list_for_each_entry(name_loop, &udev.run_list, node) {
+	if (retval == 0) {
+		struct name_entry *name_loop;
+
+		list_for_each_entry(name_loop, &udev->run_list, node) {
 			if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0)
 				pass_env_to_socket(&name_loop->name[strlen("socket:")], msg->devpath, msg->action);
 			else
-				if (run_program(name_loop->name, udev.subsystem, NULL, 0, NULL,
+				if (run_program(name_loop->name, udev->dev->subsystem, NULL, 0, NULL,
 						(udev_log_priority >= LOG_INFO)))
 					retval = -1;
 		}
 	}
 
-	udev_cleanup_device(&udev);
-
+	udev_device_cleanup(udev);
 	return retval;
 }
 
@@ -819,7 +820,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (fd < 0)
 		err("fatal, could not open /dev/null: %s", strerror(errno));
 
-	udev_init_config();
+	udev_config_init();
 	dbg("version %s", UDEV_VERSION);
 
 	if (getuid() != 0) {
@@ -859,6 +860,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	/* parse the rules and keep it in memory */
+	sysfs_init();
 	udev_rules_init(&rules, 1);
 
 	if (daemonize) {
@@ -1020,7 +1022,7 @@ int main(int argc, char *argv[], char *envp[])
 		/* rules changed, set by inotify or a signal*/
 		if (reload_config) {
 			reload_config = 0;
-			udev_rules_close(&rules);
+			udev_rules_cleanup(&rules);
 			udev_rules_init(&rules, 1);
 		}
 
@@ -1038,7 +1040,8 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 exit:
-	udev_rules_close(&rules);
+	udev_rules_cleanup(&rules);
+	sysfs_cleanup();
 
 	if (signal_pipe[READ_END] > 0)
 		close(signal_pipe[READ_END]);

@@ -28,10 +28,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#include "udev_libc_wrapper.h"
 #include "udev.h"
-#include "udev_utils.h"
-#include "logging.h"
 #include "udev_rules.h"
 
 
@@ -626,7 +623,7 @@ int udev_rules_init(struct udev_rules *rules, int resolve_names)
 	return retval;
 }
 
-void udev_rules_close(struct udev_rules *rules)
+void udev_rules_cleanup(struct udev_rules *rules)
 {
 	if (rules->buf) {
 		free(rules->buf);

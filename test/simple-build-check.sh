@@ -23,8 +23,7 @@ make all $MAKEOPTS USE_LOG=false EXTRAS="$EXTRAS" || exit
 echo -e "\n\n"
 
 # klibc build
-[ -z "$KLCC" ] && KLCC=/usr/bin/klcc
-if [ -e "$KLCC" ]; then
+if [ -n "$KLCC" -a -e "$KLCC" ]; then
 	echo KLCC: "$KLCC"
 	make clean EXTRAS="$EXTRAS" >/dev/null
 	make all -j4 $MAKEOPTS USE_KLIBC=true DEBUG=true EXTRAS="$EXTRAS" KLCC="$KLCC" || exit

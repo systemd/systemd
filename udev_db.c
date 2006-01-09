@@ -30,11 +30,7 @@
 #include <errno.h>
 #include <dirent.h>
 
-#include "libsysfs/sysfs/libsysfs.h"
-#include "udev_libc_wrapper.h"
 #include "udev.h"
-#include "udev_utils.h"
-#include "logging.h"
 
 
 static int devpath_to_db_path(const char *devpath, char *filename, size_t len)
@@ -83,21 +79,21 @@ int udev_db_add_device(struct udevice *udev)
 	/* don't write anything if udev created only the node with the
 	 * kernel name without any interesting data to remember
 	 */
-	if (strcmp(udev->name, udev->kernel_name) == 0 &&
+	if (strcmp(udev->name, udev->dev->kernel_name) == 0 &&
 	    list_empty(&udev->symlink_list) && list_empty(&udev->env_list) &&
 	    !udev->partitions && !udev->ignore_remove) {
 		dbg("nothing interesting to store in udevdb, skip");
 		goto exit;
 	}
 
-	devpath_to_db_path(udev->devpath, filename, sizeof(filename));
+	devpath_to_db_path(udev->dev->devpath, filename, sizeof(filename));
 	create_path(filename);
 	f = fopen(filename, "w");
 	if (f == NULL) {
 		err("unable to create db file '%s': %s", filename, strerror(errno));
 		return -1;
 	}
-	dbg("storing data for device '%s' in '%s'", udev->devpath, filename);
+	dbg("storing data for device '%s' in '%s'", udev->dev->devpath, filename);
 
 	fprintf(f, "N:%s\n", udev->name);
 	list_for_each_entry(name_loop, &udev->symlink_list, node)
@@ -132,7 +128,7 @@ int udev_db_get_device(struct udevice *udev, const char *devpath)
 		return -1;
 	}
 
-	strlcpy(udev->devpath, devpath, sizeof(udev->devpath));
+	strlcpy(udev->dev->devpath, devpath, sizeof(udev->dev->devpath));
 	cur = 0;
 	while (cur < bufsize) {
 		count = buf_get_line(buf, bufsize, cur);
@@ -196,7 +192,7 @@ int udev_db_delete_device(struct udevice *udev)
 {
 	char filename[PATH_SIZE];
 
-	devpath_to_db_path(udev->devpath, filename, sizeof(filename));
+	devpath_to_db_path(udev->dev->devpath, filename, sizeof(filename));
 	unlink(filename);
 
 	return 0;

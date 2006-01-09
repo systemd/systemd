@@ -21,9 +21,6 @@
  *  USA
  */
 
-#define dprintf(format, arg...) \
-	log_message(LOG_DEBUG, "%s: " format, __FUNCTION__ , ## arg)
-
 #define	MAX_NAME_LEN	72
 
 /*
@@ -44,15 +41,8 @@
  */
 #define MAX_BUFFER_LEN	256
 
-extern int scsi_get_serial (struct sysfs_device *scsi_dev, const char
-			    *devname, int page_code, char *serial, int
-			    len);
-extern void log_message (int level, const char *format, ...)
-	__attribute__ ((format (printf, 2, 3)));
-
-#ifndef u8
-typedef unsigned char u8;
-#endif
+extern int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
+			    int page_code, char *serial, int len);
 
 /*
  * Page code values. 
