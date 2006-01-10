@@ -33,7 +33,6 @@
 static int delete_node(struct udevice *udev)
 {
 	char filename[PATH_SIZE];
-	char devname[PATH_SIZE];
 	char partitionname[PATH_SIZE];
 	struct name_entry *name_loop;
 	struct stat stats;
@@ -41,24 +40,35 @@ static int delete_node(struct udevice *udev)
 	int i;
 	int num;
 
-	list_for_each_entry(name_loop, &udev->symlink_list, node) {
-		snprintf(filename, sizeof(filename), "%s/%s", udev_root, name_loop->name);
-		filename[sizeof(filename)-1] = '\0';
+	if (!list_empty(&udev->symlink_list)) {
+		char symlinks[512] = "";
 
-		if (stat(filename, &stats) != 0) {
-			dbg("symlink '%s' not found", filename);
-			continue;
+		list_for_each_entry(name_loop, &udev->symlink_list, node) {
+			snprintf(filename, sizeof(filename), "%s/%s", udev_root, name_loop->name);
+			filename[sizeof(filename)-1] = '\0';
+
+			if (stat(filename, &stats) != 0) {
+				dbg("symlink '%s' not found", filename);
+				continue;
+			}
+			if (udev->devt && stats.st_rdev != udev->devt) {
+				info("symlink '%s' points to a different device, skip removal", filename);
+				continue;
+			}
+
+			info("removing symlink '%s'", filename);
+			unlink(filename);
+
+			if (strchr(filename, '/'))
+				delete_path(filename);
+
+			strlcat(symlinks, filename, sizeof(symlinks));
+			strlcat(symlinks, " ", sizeof(symlinks));
 		}
-		if (udev->devt && stats.st_rdev != udev->devt) {
-			info("symlink '%s' points to a different device, skip removal", filename);
-			continue;;
-		}
 
-		info("removing symlink '%s'", filename);
-		unlink(filename);
-
-		if (strchr(filename, '/'))
-			delete_path(filename);
+		remove_trailing_chars(symlinks, ' ');
+		if (symlinks[0] != '\0')
+			setenv("DEVLINKS", symlinks, 1);
 	}
 
 	snprintf(filename, sizeof(filename), "%s/%s", udev_root, udev->name);
@@ -78,9 +88,7 @@ static int delete_node(struct udevice *udev)
 	if (retval)
 		return retval;
 
-	snprintf(devname, sizeof(devname), "%s/%s", udev_root, udev->name);
-	devname[sizeof(devname)-1] = '\0';
-	setenv("DEVNAME", devname, 1);
+	setenv("DEVNAME", filename, 1);
 
 	num = udev->partitions;
 	if (num > 0) {
