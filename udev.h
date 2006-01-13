@@ -55,7 +55,7 @@ struct udev_rules;
 struct sysfs_device {
 	struct list_head node;		/* for device cache */
 	char devpath[PATH_SIZE];
-	char subsystem[NAME_SIZE];	/* $class/$bus/"drivers */
+	char subsystem[NAME_SIZE];	/* $class/$bus/"drivers" */
 	char kernel_name[NAME_SIZE];	/* device instance name */
 	char kernel_number[NAME_SIZE];
 	char driver[NAME_SIZE];		/* device driver name */
@@ -63,7 +63,7 @@ struct sysfs_device {
 
 struct udevice {
 	/* device event */
-	struct sysfs_device *dev;
+	struct sysfs_device *dev;	/* points to dev_local by default */
 	struct sysfs_device dev_local;
 	char action[NAME_SIZE];
 
@@ -114,9 +114,11 @@ extern struct sysfs_device *sysfs_device_get(const char *devpath);
 extern struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev);
 extern char *sysfs_attr_get_value(const char *devpath, const char *attr_name);
 
-/* udev_add.c / udev_remove.c */
-extern int udev_add_device(struct udevice *udev);
+/* udev_add.c */
 extern int udev_make_node(struct udevice *udev, const char *file, dev_t devt, mode_t mode, uid_t uid, gid_t gid);
+extern int udev_add_device(struct udevice *udev);
+
+/* udev_remove.c */
 extern int udev_remove_device(struct udevice *udev);
 
 /* udev_db.c */

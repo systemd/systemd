@@ -352,7 +352,7 @@ static int wait_for_sysfs(struct udevice *udev, const char *file, int timeout)
 
 	while (--loop) {
 		if (stat(filename, &stats) == 0) {
-			info("file appeared after %i loops", (timeout * WAIT_LOOP_PER_SECOND) - loop-1);
+			info("file '%s' appeared after %i loops", filename, (timeout * WAIT_LOOP_PER_SECOND) - loop-1);
 			return 0;
 		}
 		info("wait for %i mseconds", 1000 / WAIT_LOOP_PER_SECOND);

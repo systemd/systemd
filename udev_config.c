@@ -136,7 +136,7 @@ static int parse_config_file(void)
 		linepos = line;
 		retval = get_key(&linepos, &variable, &value);
 		if (retval != 0) {
-			err("error parsing %s, line %d:%d", udev_config_filename, lineno, (int) (linepos-line));
+			err("error parsing %s, line %d:%d", udev_config_filename, lineno, (int)(linepos-line));
 			continue;
 		}
 
