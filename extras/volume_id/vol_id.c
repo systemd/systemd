@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
+#include <grp.h>
 #include <sys/ioctl.h>
 
 #include "../../udev.h"
@@ -110,6 +111,8 @@ int main(int argc, char *argv[])
 	int i;
 	uint64_t size;
 	const char *node = NULL;
+	uid_t nobody_uid;
+	gid_t nobody_gid;
 	int rc = 0;
 
 	logging_init("vol_id");
@@ -146,12 +149,24 @@ int main(int argc, char *argv[])
 		size = 0;
 	dbg("BLKGETSIZE64=%llu", size);
 
+	/* drop all privileges */
+	nobody_uid = lookup_user("nobody");
+	nobody_gid = lookup_group("nogroup");
+	if (nobody_uid > 0 && nobody_gid > 0) {
+		if (setgroups(0, NULL) != 0 ||
+		    setgid(nobody_gid) != 0 ||
+		    setuid(nobody_uid) != 0) {
+			rc = 3;
+			goto exit;
+		}
+	}
+
 	if (volume_id_probe_all(vid, 0, size) == 0)
 		goto print;
 
 	if (print != PRINT_EXPORT)
 		fprintf(stderr, "%s: unknown volume type\n", node);
-	rc = 3;
+	rc = 4;
 	goto exit;
 
 print:

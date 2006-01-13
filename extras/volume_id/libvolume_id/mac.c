@@ -84,14 +84,15 @@ int volume_id_probe_mac_partition_map(struct volume_id *id, uint64_t off)
 
 		part_count = be32_to_cpu(part->map_count);
 		dbg("expecting %d partition entries", part_count);
+		if (part_count < 1 || part_count > 256)
+			return -1;
 
 		if (id->partitions != NULL)
 			free(id->partitions);
-		id->partitions =
-			malloc(part_count * sizeof(struct volume_id_partition));
+		id->partitions = malloc(part_count * sizeof(struct volume_id_partition));
 		if (id->partitions == NULL)
 			return -1;
-		memset(id->partitions, 0x00, sizeof(struct volume_id_partition));
+		memset(id->partitions, 0x00, part_count * sizeof(struct volume_id_partition));
 
 		id->partition_count = part_count;
 
