@@ -128,7 +128,7 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 	strlcpy(path, sysfs_path, sizeof(path));
 	strlcat(path, devpath_real, sizeof(path));
 	if (lstat(path, &statbuf) != 0) {
-		dbg("stat '%s' failed: %s", devpath, strerror(errno));
+		dbg("stat '%s' failed: %s", path, strerror(errno));
 		return NULL;
 	}
 
@@ -182,10 +182,10 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 			pos[0] = '\0';
 		else
 			dev->subsystem[0] = '\0';
-	} else if (strncmp(devpath, "/block/", 7) == 0) {
+	} else if (strncmp(dev->devpath, "/block/", 7) == 0) {
 		strlcpy(dev->subsystem, "block", sizeof(dev->subsystem));
-	} else if (strncmp(devpath, "/devices/", 9) == 0) {
-		/* get subsystem from bus name */
+	} else if (strncmp(dev->devpath, "/devices/", 9) == 0) {
+		/* get subsystem from "bus" link */
 		strlcpy(link_path, sysfs_path, sizeof(link_path));
 		strlcat(link_path, dev->devpath, sizeof(link_path));
 		strlcat(link_path, "/bus", sizeof(link_path));
@@ -196,8 +196,20 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 			pos = strrchr(link_target, '/');
 			if (pos != NULL)
 				strlcpy(dev->subsystem, &pos[1], sizeof(dev->subsystem));
+		} else {
+			/* get subsystem from "subsystem" link */
+			strlcpy(link_path, sysfs_path, sizeof(link_path));
+			strlcat(link_path, dev->devpath, sizeof(link_path));
+			strlcat(link_path, "/subsystem", sizeof(link_path));
+			len = readlink(link_path, link_target, sizeof(link_target));
+			if (len > 0) {
+				link_target[len] = '\0';
+				dbg("subsystem link '%s' points to '%s'", link_path, link_target);
+				pos = strrchr(link_target, '/');
+				if (pos != NULL)
+					strlcpy(dev->subsystem, &pos[1], sizeof(dev->subsystem));
+			}
 		}
-
 		/* get driver name */
 		strlcpy(link_path, sysfs_path, sizeof(link_path));
 		strlcat(link_path, dev->devpath, sizeof(link_path));
@@ -210,9 +222,9 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 			if (pos != NULL)
 				strlcpy(dev->driver, &pos[1], sizeof(dev->driver));
 		}
-	} else if (strncmp(devpath, "/bus/", 5) == 0 && strstr(devpath, "/drivers/")) {
+	} else if (strncmp(dev->devpath, "/bus/", 5) == 0 && strstr(dev->devpath, "/drivers/")) {
 		strlcpy(dev->subsystem, "drivers", sizeof(dev->subsystem));
-	} else if (strncmp(devpath, "/module/", 8) == 0) {
+	} else if (strncmp(dev->devpath, "/module/", 8) == 0) {
 		strlcpy(dev->subsystem, "module", sizeof(dev->subsystem));
 	}
 
