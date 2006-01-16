@@ -376,6 +376,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize)
 		SUBST_DEVPATH,
 		SUBST_KERNEL_NUMBER,
 		SUBST_KERNEL_NAME,
+		SUBST_ID,
 		SUBST_MAJOR,
 		SUBST_MINOR,
 		SUBST_RESULT,
@@ -395,6 +396,7 @@ static void apply_format(struct udevice *udev, char *string, size_t maxsize)
 		{ .name = "devpath",		.fmt = 'p',	.type = SUBST_DEVPATH },
 		{ .name = "number",		.fmt = 'n',	.type = SUBST_KERNEL_NUMBER },
 		{ .name = "kernel",		.fmt = 'k',	.type = SUBST_KERNEL_NAME },
+		{ .name = "id",			.fmt = 'b',	.type = SUBST_ID },
 		{ .name = "major",		.fmt = 'M',	.type = SUBST_MAJOR },
 		{ .name = "minor",		.fmt = 'm',	.type = SUBST_MINOR },
 		{ .name = "result",		.fmt = 'c',	.type = SUBST_RESULT },
@@ -476,6 +478,12 @@ found:
 		case SUBST_KERNEL_NUMBER:
 			strlcat(string, udev->dev->kernel_number, maxsize);
 			dbg("substitute kernel number '%s'", udev->dev->kernel_number);
+			break;
+		case SUBST_ID:
+			if (udev->dev_parent != NULL) {
+				strlcat(string, udev->dev_parent->kernel_name, maxsize);
+				dbg("substitute id '%s'", udev->dev_parent->kernel_name);
+			}
 			break;
 		case SUBST_MAJOR:
 			sprintf(temp2, "%d", major(udev->devt));
@@ -681,20 +689,19 @@ static int match_key(const char *key_name, struct udev_rule *rule, struct key *k
 /* match a single rule against a given device and possibly its parent devices */
 static int match_rule(struct udevice *udev, struct udev_rule *rule)
 {
-	struct sysfs_device *dev_parent;
 	int i;
 
 	if (match_key("ACTION", rule, &rule->action, udev->action))
-		goto exit;
+		goto nomatch;
 
 	if (match_key("KERNEL", rule, &rule->kernel_name, udev->dev->kernel_name))
-		goto exit;
+		goto nomatch;
 
 	if (match_key("SUBSYSTEM", rule, &rule->subsystem, udev->dev->subsystem))
-		goto exit;
+		goto nomatch;
 
 	if (match_key("DEVPATH", rule, &rule->devpath, udev->dev->devpath))
-		goto exit;
+		goto nomatch;
 
 	if (rule->modalias.operation != KEY_OP_UNSET) {
 		const char *value;
@@ -702,10 +709,10 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 		value = sysfs_attr_get_value(udev->dev->devpath, "modalias");
 		if (value == NULL) {
 			dbg("MODALIAS value not found");
-			goto exit;
+			goto nomatch;
 		}
 		if (match_key("MODALIAS", rule, &rule->modalias, value))
-			goto exit;
+			goto nomatch;
 	}
 
 	for (i = 0; i < rule->env.count; i++) {
@@ -721,7 +728,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 				value = "";
 			}
 			if (match_key("ENV", rule, &pair->key, value))
-				goto exit;
+				goto nomatch;
 		}
 	}
 
@@ -741,24 +748,24 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 		return -1;
 	}
 
-	/* walk up the chain of physical devices and find a match */
-	dev_parent = udev->dev;
+	/* walk up the chain of parent devices and find a match */
+	udev->dev_parent = udev->dev;
 	while (1) {
 		/* check for matching driver */
 		if (rule->driver.operation != KEY_OP_UNSET) {
-			if (match_key("DRIVER", rule, &rule->driver, dev_parent->driver))
+			if (match_key("DRIVER", rule, &rule->driver, udev->dev_parent->driver))
 				goto try_parent;
 		}
 
-		/* check for matching bus value */
+		/* check for matching subsystem/bus value */
 		if (rule->bus.operation != KEY_OP_UNSET) {
-			if (match_key("BUS", rule, &rule->bus, dev_parent->subsystem))
+			if (match_key("BUS", rule, &rule->bus, udev->dev_parent->subsystem))
 				goto try_parent;
 		}
 
-		/* check for matching bus id */
+		/* check for matching bus id (device name) */
 		if (rule->id.operation != KEY_OP_UNSET) {
-			if (match_key("ID", rule, &rule->id, dev_parent->kernel_name))
+			if (match_key("ID", rule, &rule->id, udev->dev_parent->kernel_name))
 				goto try_parent;
 		}
 
@@ -773,7 +780,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 				char val[VALUE_SIZE];
 				size_t len;
 
-				value = sysfs_attr_get_value(dev_parent->devpath, key_name);
+				value = sysfs_attr_get_value(udev->dev_parent->devpath, key_name);
 				if (value == NULL)
 					goto try_parent;
 				strlcpy(val, value, sizeof(val));
@@ -796,12 +803,13 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 		/* found matching device  */
 		break;
 try_parent:
+		/* move to parent device */
 		dbg("try parent sysfs device");
-		dev_parent = sysfs_device_get_parent(dev_parent);
-		if (dev_parent == NULL)
-			goto exit;
-		dbg("looking at dev_parent->devpath='%s'", dev_parent->devpath);
-		dbg("looking at dev_parent->bus_kernel_name='%s'", dev_parent->kernel_name);
+		udev->dev_parent = sysfs_device_get_parent(udev->dev_parent);
+		if (udev->dev_parent == NULL)
+			goto nomatch;
+		dbg("looking at dev_parent->devpath='%s'", udev->dev_parent->devpath);
+		dbg("looking at dev_parent->bus_kernel_name='%s'", udev->dev_parent->kernel_name);
 	}
 
 	/* execute external program */
@@ -815,7 +823,7 @@ try_parent:
 			dbg("PROGRAM is false");
 			udev->program_result[0] = '\0';
 			if (rule->program.operation != KEY_OP_NOMATCH)
-				goto exit;
+				goto nomatch;
 		} else {
 			int count;
 
@@ -828,14 +836,14 @@ try_parent:
 			strlcpy(udev->program_result, result, sizeof(udev->program_result));
 			dbg("PROGRAM returned successful");
 			if (rule->program.operation == KEY_OP_NOMATCH)
-				goto exit;
+				goto nomatch;
 		}
 		dbg("PROGRAM key is true");
 	}
 
 	/* check for matching result of external program */
 	if (match_key("RESULT", rule, &rule->result, udev->program_result))
-		goto exit;
+		goto nomatch;
 
 	/* import variables returned from program or or file into environment */
 	if (rule->import.operation != KEY_OP_UNSET) {
@@ -857,7 +865,7 @@ try_parent:
 		if (rc != 0) {
 			dbg("IMPORT failed");
 			if (rule->import.operation != KEY_OP_NOMATCH)
-				goto exit;
+				goto nomatch;
 		} else
 			dbg("IMPORT '%s' imported", key_val(rule, &rule->import));
 		dbg("IMPORT key is true");
@@ -879,7 +887,7 @@ try_parent:
 
 	return 0;
 
-exit:
+nomatch:
 	return -1;
 }
 

@@ -148,66 +148,68 @@
             <varlistentry>
               <term><option>ACTION</option></term>
               <listitem>
-                <para>Match the kernel action name.</para>
+                <para>Match the name of the event action.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
               <term><option>KERNEL</option></term>
               <listitem>
-                <para>Match the kernel device name</para>
+                <para>Match the name of the device.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
               <term><option>DEVPATH</option></term>
               <listitem>
-                <para>Match the kernel devpath.</para>
+                <para>Match the devpath of the device.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
               <term><option>SUBSYSTEM</option></term>
               <listitem>
-                <para>Match the kernel subsystem name</para>
+                <para>Match the subsystem of the device.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
               <term><option>BUS</option></term>
               <listitem>
-                <para>Match the type of bus the device is connected to.</para>
+                <para>Search the devpath upwards for a matching device subsystem name.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
               <term><option>DRIVER</option></term>
               <listitem>
-                <para>Match the kernel driver name.</para>
+                <para>Search the devpath upwards for a matching device driver name.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
               <term><option>ID</option></term>
               <listitem>
-                <para>Match the device number on the bus.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>ENV{<replaceable>key</replaceable>}</option></term>
-              <listitem>
-                <para>Match against the value of an environment key. Depending on
-                the specified operation, this key is also used as an assignment.</para>
+                <para>Search the devpath upwards for a matching device name.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
               <term><option>SYSFS{<replaceable>filename</replaceable>}</option></term>
               <listitem>
-                <para>Match the sysfs attribute value. Up to five values can be specified.
-                Trailing whitespace is ignored, if the specified match value does not contain
-                trailing whitespace itself.</para>
+                <para>Search the devpath upwards for a device with matching sysfs attribute values.
+                Up to five <option>SYSFS</option> keys can be specified per rule. All attributes
+                must match on the same device. Trailing whitespace in the attribute values is ignored,
+                if the specified match value does not contain trailing whitespace itself.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><option>ENV{<replaceable>key</replaceable>}</option></term>
+              <listitem>
+                <para>Match against the value of an environment variable. Up to five <option>ENV</option>
+                keys can be specified per rule. This key can also be used to export a variable to
+                the environment.</para>
               </listitem>
             </varlistentry>
 
@@ -290,8 +292,8 @@
             <varlistentry>
               <term><option>ENV{<replaceable>key</replaceable>}</option></term>
               <listitem>
-                <para>Export the key to the environment. Depending on the specified
-                operation, this key is also used as a match.</para>
+                <para>Export a variable to the environment. This key can also be used to match
+                against an environment variable.</para>
               </listitem>
             </varlistentry>
 
@@ -320,7 +322,7 @@
             <varlistentry>
               <term><option>IMPORT{<replaceable>type</replaceable>}</option></term>
               <listitem>
-                <para>Import the printed result or the content of a file in environment key
+                <para>Import the printed result or the value of a file in environment key
                 format into the event environment. <option>program</option> will execute an
                 external program and read its output. <option>file</option> will inport a
                 text file. If no option is given, udev will determine it from the  executable
@@ -331,8 +333,8 @@
             <varlistentry>
               <term><option>WAIT_FOR_SYSFS</option></term>
               <listitem>
-                <para>Wait for the specified sysfs file of the device to be created. May be used
-                to fight agains timing issues wth the kernel.</para>
+                <para>Wait for the specified sysfs file of the device to be created. Can be used
+                to fight against kernel sysfs timing issues.</para>
               </listitem>
             </varlistentry>
 
@@ -355,14 +357,14 @@
           printf-like string substitutions:</para>
           <variablelist>
             <varlistentry>
-              <term><option>%k</option>, <option>$kernel</option></term>
+              <term><option>$kernel</option>, <option>%k</option></term>
               <listitem>
                 <para>The kernel name for this device.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
-              <term><option>%n</option>, <option>$number</option></term>
+              <term><option>$number</option>, <option>%n</option></term>
               <listitem>
                 <para>The kernel number for this device. For example, 'sda3' has
                 kernel number of '3'</para>
@@ -370,42 +372,51 @@
             </varlistentry>
 
             <varlistentry>
-              <term><option>%p</option>, <option>$devpath</option></term>
+              <term><option>$devpath</option>, <option>%p</option></term>
               <listitem>
                 <para>The devpath of the device.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
-              <term><option>%s{<replaceable>file</replaceable>}</option>, <option>$sysfs{<replaceable>file</replaceable>}</option></term>
+              <term><option>$id</option>, <option>%b</option></term>
               <listitem>
-                <para>The content of a sysfs attribute.</para>
+                <para>The name of the device matched while searching the devpath upwards for
+                  <option>BUS</option>, <option>ID</option> <option>DRIVER</option> and <option>SYSFS</option>.
+                </para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
-              <term><option>%E{<replaceable>key</replaceable>}</option>, <option>$env{<replaceable>key</replaceable>}</option></term>
+              <term><option>$sysfs{<replaceable>file</replaceable>}</option>, <option>%s{<replaceable>file</replaceable>}</option></term>
+              <listitem>
+                <para>The value of a sysfs attribute found at the current or a parent device.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><option>$env{<replaceable>key</replaceable>}</option>, <option>%E{<replaceable>key</replaceable>}</option></term>
               <listitem>
                 <para>The value of an environment variable.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
-              <term><option>%m</option>, <option>$major</option></term>
+              <term><option>$major</option>, <option>%M</option></term>
               <listitem>
                 <para>The kernel major number for the device.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
-              <term><option>%M</option> <option>$minor</option></term>
+              <term><option>$minor</option> <option>%m</option></term>
               <listitem>
                 <para>The kernel minor number for the device.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
-              <term><option>%c</option>, <option>$result</option></term>
+              <term><option>$result</option>, <option>%c</option></term>
               <listitem>
                 <para>The string returned by the external program requested with PROGRAM.
                 A single part of the string, separated by a space character may be selected
@@ -416,21 +427,21 @@
             </varlistentry>
 
             <varlistentry>
-              <term><option>%P</option>, <option>$parent</option></term>
+              <term><option>$parent</option>, <option>%P</option></term>
               <listitem>
                 <para>The node name of the parent device.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
-              <term><option>%r</option>, <option>$root</option></term>
+              <term><option>$root</option>, <option>%r</option></term>
               <listitem>
                 <para>The udev_root value.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
-              <term><option>%N</option>, <option>$tempnode</option></term>
+              <term><option>$tempnode</option>, <option>%N</option></term>
               <listitem>
                 <para>The name of a created temporary device node to provide access to
                 the device from a external program before the real node is created.</para>

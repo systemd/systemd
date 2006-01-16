@@ -231,7 +231,7 @@ KERNEL=="ttyUSB0", NAME="sub/direct/ory/visor"
 EOF
 	},
 	{
-		desc		=> "place on bus of scsi partition",
+		desc		=> "parent device name match of scsi partition",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "first_disk3" ,
@@ -243,18 +243,18 @@ EOF
 		desc		=> "test substitution chars",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
-		exp_name	=> "Major:8:minor:3:kernelnumber:3" ,
+		exp_name	=> "Major:8:minor:3:kernelnumber:3:id:0:0:0:0" ,
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n"
+BUS=="scsi", ID=="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:id:%b"
 EOF
 	},
 	{
 		desc		=> "test substitution chars (with length limit)",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
-		exp_name	=> "M8-m3-n3-bsd-sIBM" ,
+		exp_name	=> "M8-m3-n3-b0:0-sIBM" ,
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", NAME="M%M-m%m-n%n-b%2k-s%3s{vendor}"
+BUS=="scsi", ID=="0:0:0:0", NAME="M%M-m%m-n%n-b%3b-s%3s{vendor}"
 EOF
 	},
 	{
@@ -322,9 +322,9 @@ EOF
 		desc		=> "program result substitution",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
-		exp_name	=> "test-3" ,
+		exp_name	=> "test-0:0:0:0" ,
 		rules		=> <<EOF
-BUS=="scsi", PROGRAM=="/bin/echo -n test-%n", RESULT=="test-3*", NAME="%c"
+BUS=="scsi", PROGRAM=="/bin/echo -n test-%b", RESULT=="test-0:0*", NAME="%c"
 EOF
 	},
 	{
@@ -385,27 +385,27 @@ EOF
 		desc		=> "test substitution by variable name",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
-		exp_name	=> "Major:8-minor:3-kernelnumber:3" ,
+		exp_name	=> "Major:8-minor:3-kernelnumber:3-id:0:0:0:0",
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", NAME="Major:\$major-minor:\$minor-kernelnumber:\$number"
+BUS=="scsi", ID=="0:0:0:0", NAME="Major:\$major-minor:\$minor-kernelnumber:\$number-id:\$id"
 EOF
 	},
 	{
 		desc		=> "test substitution by variable name 2",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
-		exp_name	=> "Major:8-minor:3-kernelnumber:3-name:sda3" ,
+		exp_name	=> "Major:8-minor:3-kernelnumber:3-id:0:0:0:0",
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="Major:\$major-minor:%m-kernelnumber:\$number-name:\$kernel"
+BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="Major:\$major-minor:%m-kernelnumber:\$number-id:\$id"
 EOF
 	},
 	{
 		desc		=> "test substitution by variable name 3",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
-		exp_name	=> "83sda33" ,
+		exp_name	=> "830:0:0:03" ,
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="%M%m%k%n"
+BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="%M%m%b%n"
 EOF
 	},
 	{
@@ -421,33 +421,23 @@ EOF
 		desc		=> "test substitution by variable name 5",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",
-		exp_name	=> "833sda3" ,
+		exp_name	=> "8330:0:0:0" ,
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="\$major%m%n\$kernel"
+BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="\$major%m%n\$id"
 EOF
 	},
 	{
-		desc		=> "invalid program for device with no bus",
+		desc		=> "non matching BUS for device with no parent",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/console",
-		exp_name	=> "TTY" ,
+		exp_name	=> "TTY",
 		rules		=> <<EOF
 BUS=="scsi", PROGRAM=="/bin/echo -n foo", RESULT=="foo", NAME="foo"
 KERNEL=="console", NAME="TTY"
 EOF
 	},
 	{
-		desc		=> "valid program for device with no bus",
-		subsys		=> "tty",
-		devpath		=> "/class/tty/console",
-		exp_name	=> "foo" ,
-		rules		=> <<EOF
-PROGRAM=="/bin/echo -n foo", RESULT=="foo", NAME="foo"
-KERNEL=="console", NAME="TTY"
-EOF
-	},
-	{
-		desc		=> "invalid label for device with no bus",
+		desc		=> "non matching BUS",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/console",
 		exp_name	=> "TTY" ,
@@ -457,7 +447,7 @@ KERNEL=="console", NAME="TTY"
 EOF
 	},
 	{
-		desc		=> "valid label for device with no bus",
+		desc		=> "SYSFS match",
 		subsys		=> "tty",
 		devpath		=> "/class/tty/console",
 		exp_name	=> "foo" ,
@@ -470,11 +460,11 @@ EOF
 		desc		=> "program and bus type match",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
-		exp_name	=> "scsi-sda" ,
+		exp_name	=> "scsi-0:0:0:0" ,
 		rules		=> <<EOF
-BUS=="usb", PROGRAM=="/bin/echo -n usb-%k", NAME="%c"
-BUS=="scsi", PROGRAM=="/bin/echo -n scsi-%k", NAME="%c"
-BUS=="foo", PROGRAM=="/bin/echo -n foo-%k", NAME="%c"
+BUS=="usb", PROGRAM=="/bin/echo -n usb-%b", NAME="%c"
+BUS=="scsi", PROGRAM=="/bin/echo -n scsi-%b", NAME="%c"
+BUS=="foo", PROGRAM=="/bin/echo -n foo-%b", NAME="%c"
 EOF
 	},
 	{
@@ -797,7 +787,7 @@ EOF
 		exp_name	=> "symlink2-ttyUSB0",
 		exp_target	=> "ttyUSB0",
 		rules		=> <<EOF
-KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="symlink1-%n symlink2-%k"
+KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK="symlink1-%n symlink2-%k symlink3-%b"
 EOF
 	},
 	{
@@ -918,13 +908,13 @@ KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK+="major-%M:%m"
 EOF
 	},
 	{
-		desc		=> "symlink %k substitution",
+		desc		=> "symlink %b substitution",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
-		exp_name	=> "symlink-sda",
+		exp_name	=> "symlink-0:0:0:0",
 		exp_target	=> "node",
 		rules		=> <<EOF
-BUS=="scsi", KERNEL=="sda", NAME="node", SYMLINK+="symlink-%k"
+BUS=="scsi", KERNEL=="sda", NAME="node", SYMLINK+="symlink-%b"
 EOF
 	},
 	{
@@ -1563,13 +1553,6 @@ sub udev {
 	my ($action, $subsys, $devpath, $rules) = @_;
 
 	$ENV{DEVPATH} = $devpath;
-
-	open my $fd, "$sysfs$devpath/dev";
-	my $dev = <$fd>;
-	close $fd;
-	$dev =~ m/^(.+):(.+)$/;
-	$ENV{MAJOR} = $1;
-	$ENV{MINOR} = $2;
 
 	# create temporary rules
 	open CONF, ">$udev_rules" || die "unable to create rules file: $udev_rules";

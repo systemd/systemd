@@ -30,41 +30,42 @@
 #include "udev_libc_wrapper.h"
 #include "udev_version.h"
 
-#define COMMENT_CHARACTER		'#'
-#define PATH_TO_NAME_CHAR		'@'
-#define LINE_SIZE			512
-#define NAME_SIZE			128
-#define PATH_SIZE			256
-#define USER_SIZE			32
-#define SEQNUM_SIZE			32
-#define VALUE_SIZE			128
+#define COMMENT_CHARACTER			'#'
+#define PATH_TO_NAME_CHAR			'@'
+#define LINE_SIZE				512
+#define NAME_SIZE				128
+#define PATH_SIZE				256
+#define USER_SIZE				32
+#define SEQNUM_SIZE				32
+#define VALUE_SIZE				128
 
-#define DEFAULT_PARTITIONS_COUNT	15
-#define UDEV_ALARM_TIMEOUT		180
+#define DEFAULT_PARTITIONS_COUNT		15
+#define UDEV_ALARM_TIMEOUT			180
 
 #define UDEV_MAX(a,b) ((a) > (b) ? (a) : (b))
 
 /* pipes */
-#define READ_END			0
-#define WRITE_END			1
+#define READ_END				0
+#define WRITE_END				1
 
-#define DB_DIR				".udev/db"
+#define DB_DIR					".udev/db"
 
 struct udev_rules;
 
 struct sysfs_device {
-	struct list_head node;		/* for device cache */
+	struct list_head node;			/* for device cache */
 	char devpath[PATH_SIZE];
-	char subsystem[NAME_SIZE];	/* $class/$bus/"drivers" */
-	char kernel_name[NAME_SIZE];	/* device instance name */
+	char subsystem[NAME_SIZE];		/* $class/$bus/"drivers" */
+	char kernel_name[NAME_SIZE];		/* device instance name */
 	char kernel_number[NAME_SIZE];
-	char driver[NAME_SIZE];		/* device driver name */
+	char driver[NAME_SIZE];			/* device driver name */
 };
 
 struct udevice {
 	/* device event */
-	struct sysfs_device *dev;	/* points to dev_local by default */
+	struct sysfs_device *dev;		/* points to dev_local by default */
 	struct sysfs_device dev_local;
+	struct sysfs_device *dev_parent;	/* current parent device used for matching */
 	char action[NAME_SIZE];
 
 	/* node */

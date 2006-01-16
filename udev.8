@@ -70,31 +70,35 @@ Assign a value to a key finally; disallow any later changes, which may be used t
 The following key names can be used to match against device properties:
 .TP
 \fBACTION\fR
-Match the kernel action name.
+Match the name of the event action.
 .TP
 \fBKERNEL\fR
-Match the kernel device name
+Match the name of the device.
 .TP
 \fBDEVPATH\fR
-Match the kernel devpath.
+Match the devpath of the device.
 .TP
 \fBSUBSYSTEM\fR
-Match the kernel subsystem name
+Match the subsystem of the device.
 .TP
 \fBBUS\fR
-Match the type of bus the device is connected to.
+Search the devpath upwards for a matching device subsystem name.
 .TP
 \fBDRIVER\fR
-Match the kernel driver name.
+Search the devpath upwards for a matching device driver name.
 .TP
 \fBID\fR
-Match the device number on the bus.
-.TP
-\fBENV{\fR\fB\fIkey\fR\fR\fB}\fR
-Match against the value of an environment key. Depending on the specified operation, this key is also used as an assignment.
+Search the devpath upwards for a matching device name.
 .TP
 \fBSYSFS{\fR\fB\fIfilename\fR\fR\fB}\fR
-Match the sysfs attribute value. Up to five values can be specified. Trailing whitespace is ignored, if the specified match value does not contain trailing whitespace itself.
+Search the devpath upwards for a device with matching sysfs attribute values. Up to five 
+\fBSYSFS\fR 
+keys can be specified per rule. All attributes must match on the same device. Trailing whitespace in the attribute values is ignored, if the specified match value does not contain trailing whitespace itself.
+.TP
+\fBENV{\fR\fB\fIkey\fR\fR\fB}\fR
+Match against the value of an environment variable. Up to five 
+\fBENV\fR 
+keys can be specified per rule. This key can also be used to export a variable to the environment.
 .TP
 \fBPROGRAM\fR
 Execute external program. The key is true, if the program returns without exit code zero. The whole event environment is available to the executed program. The program's output printed to stdout is available for the RESULT key.
@@ -125,7 +129,7 @@ The name of a symlink targeting the node. Every matching rule can add this value
 The permissions for the device node. Every specified value overwrites the compiled\-in default value.
 .TP
 \fBENV{\fR\fB\fIkey\fR\fR\fB}\fR
-Export the key to the environment. Depending on the specified operation, this key is also used as a match.
+Export a variable to the environment. This key can also be used to match against an environment variable.
 .TP
 \fBRUN\fR
 Add a program to the list of programs to be executed for a specific device.
@@ -137,14 +141,14 @@ Named label where a GOTO can jump to.
 Jumps to the next LABEL with a matching gname
 .TP
 \fBIMPORT{\fR\fB\fItype\fR\fR\fB}\fR
-Import the printed result or the content of a file in environment key format into the event environment. 
+Import the printed result or the value of a file in environment key format into the event environment. 
 \fBprogram\fR 
 will execute an external program and read its output. 
 \fBfile\fR 
 will inport a text file. If no option is given, udev will determine it from the executable bit of of the file permissions.
 .TP
 \fBWAIT_FOR_SYSFS\fR
-Wait for the specified sysfs file of the device to be created. May be used to fight agains timing issues wth the kernel.
+Wait for the specified sysfs file of the device to be created. Can be used to fight against kernel sysfs timing issues.
 .TP
 \fBOPTIONS\fR
 \fBlast_rule\fR 
@@ -165,42 +169,46 @@ and
 \fBGROUP\fR 
 fields support simple printf\-like string substitutions:
 .TP
-\fB%k\fR, \fB$kernel\fR
+\fB$kernel\fR, \fB%k\fR
 The kernel name for this device.
 .TP
-\fB%b\fR, \fB$id\fR
-The kernel bus id for this device.
-.TP
-\fB%n\fR, \fB$number\fR
+\fB$number\fR, \fB%n\fR
 The kernel number for this device. For example, 'sda3' has kernel number of '3'
 .TP
-\fB%p\fR, \fB$devpath\fR
+\fB$devpath\fR, \fB%p\fR
 The devpath of the device.
 .TP
-\fB%s{\fR\fB\fIfile\fR\fR\fB}\fR, \fB$sysfs{\fR\fB\fIfile\fR\fR\fB}\fR
-The content of a sysfs attribute.
+\fB$id\fR, \fB%b\fR
+The name of the device matched while searching the devpath upwards for 
+\fBBUS\fR, 
+\fBID\fR \fBDRIVER\fR 
+and 
+\fBSYSFS\fR.
 .TP
-\fB%E{\fR\fB\fIkey\fR\fR\fB}\fR, \fB$env{\fR\fB\fIkey\fR\fR\fB}\fR
+\fB$sysfs{\fR\fB\fIfile\fR\fR\fB}\fR, \fB%s{\fR\fB\fIfile\fR\fR\fB}\fR
+The value of a sysfs attribute found at the current or a parent device.
+.TP
+\fB$env{\fR\fB\fIkey\fR\fR\fB}\fR, \fB%E{\fR\fB\fIkey\fR\fR\fB}\fR
 The value of an environment variable.
 .TP
-\fB%m\fR, \fB$major\fR
+\fB$major\fR, \fB%M\fR
 The kernel major number for the device.
 .TP
-\fB%M\fR \fB$minor\fR
+\fB$minor\fR \fB%m\fR
 The kernel minor number for the device.
 .TP
-\fB%c\fR, \fB$result\fR
+\fB$result\fR, \fB%c\fR
 The string returned by the external program requested with PROGRAM. A single part of the string, separated by a space character may be selected by specifying the part number as an attribute: 
 \fB%c{N}\fR. If the number is followed by the '+' char this part plus all remaining parts of the result string are substituted: 
 \fB%c{N+}\fR
 .TP
-\fB%P\fR, \fB$parent\fR
+\fB$parent\fR, \fB%P\fR
 The node name of the parent device.
 .TP
-\fB%r\fR, \fB$root\fR
+\fB$root\fR, \fB%r\fR
 The udev_root value.
 .TP
-\fB%N\fR, \fB$tempnode\fR
+\fB$tempnode\fR, \fB%N\fR
 The name of a created temporary device node to provide access to the device from a external program before the real node is created.
 .TP
 \fB%%\fR
