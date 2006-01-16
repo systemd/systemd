@@ -1,3 +1,14 @@
+Summary of changes from v080 to v081
+============================================
+
+Kay Sievers:
+      add DEVLINKS to "remove" event
+      better log text and comments
+      vol_id: probe volume as user nobody
+      fix BUS, ID, $id usage
+      prepare moving of /sys/class devices to /sys/devices
+
+
 Summary of changes from v079 to v080
 ============================================
 

@@ -1,3 +1,14 @@
+udev 081
+========
+Prepare udev to work with the experimental kernel patch, that moves
+/sys/class devices to /sys/devices and /sys/block to /sys/class/block.
+
+Clarify BUS, ID, $id usage and fix $id behavior. This prepares for
+moving the class devices to /sys/devices.
+
+Thanks again to Marco for help finding a hopefully nice compromise
+to make %b simpler and working again.
+
 udev 080
 ========
 Complete removal of libsysfs, replaced by simple helper functions
