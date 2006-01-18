@@ -21,7 +21,7 @@
  *  USA
  */
 
-#define	MAX_NAME_LEN	72
+#define	MAX_PATH_LEN	512
 
 /*
  * MAX_ATTR_LEN: maximum length of the result of reading a sysfs

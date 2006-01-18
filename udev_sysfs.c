@@ -306,6 +306,19 @@ device_link:
 	return sysfs_device_get(parent_devpath);
 }
 
+struct sysfs_device *sysfs_device_get_parent_with_subsystem(struct sysfs_device *dev, const char *subsystem)
+{
+	struct sysfs_device *dev_parent;
+
+	dev_parent = sysfs_device_get_parent(dev);
+	while (dev_parent != NULL) {
+		if (strcmp(dev_parent->subsystem, subsystem) == 0)
+			return dev_parent;
+		dev_parent = sysfs_device_get_parent(dev_parent);
+	}
+	return NULL;
+}
+
 char *sysfs_attr_get_value(const char *devpath, const char *attr_name)
 {
 	char path_full[PATH_SIZE];

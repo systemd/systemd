@@ -48,7 +48,7 @@ static int all_good;
 static int always_info;
 static int dev_specified;
 static int sys_specified;
-static char config_file[MAX_NAME_LEN] = SCSI_ID_CONFIG_FILE;
+static char config_file[MAX_PATH_LEN] = SCSI_ID_CONFIG_FILE;
 static int display_bus_id;
 static enum page_code default_page_code;
 static int use_stderr;
@@ -174,7 +174,7 @@ static int create_tmp_dev(const char *devpath, char *tmpdev, int dev_type)
 		return -1;
 	}
 
-	snprintf(tmpdev, MAX_NAME_LEN, "%s/%s-maj%d-min%d-%u",
+	snprintf(tmpdev, MAX_PATH_LEN, "%s/%s-maj%d-min%d-%u",
 		 TMP_DIR, TMP_PREFIX, maj, min, getpid());
 
 	dbg("tmpdev '%s'", tmpdev);
@@ -433,7 +433,8 @@ static int set_options(int argc, char **argv, const char *short_opts,
 
 		case 'd':
 			dev_specified = 1;
-			strncpy(maj_min_dev, optarg, MAX_NAME_LEN);
+			strncpy(maj_min_dev, optarg, MAX_PATH_LEN);
+			maj_min_dev[MAX_PATH_LEN-1] = '\0';
 			break;
 
 		case 'e':
@@ -441,7 +442,8 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			break;
 
 		case 'f':
-			strncpy(config_file, optarg, MAX_NAME_LEN);
+			strncpy(config_file, optarg, MAX_PATH_LEN);
+			config_file[MAX_PATH_LEN-1] = '\0';
 			break;
 
 		case 'g':
@@ -467,8 +469,8 @@ static int set_options(int argc, char **argv, const char *short_opts,
 
 		case 's':
 			sys_specified = 1;
-			strncpy(target, optarg, MAX_NAME_LEN);
-			target[MAX_NAME_LEN-1] = '\0';
+			strncpy(target, optarg, MAX_PATH_LEN);
+			target[MAX_PATH_LEN-1] = '\0';
 			break;
 
 		case 'u':
@@ -640,15 +642,9 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 		dev_type = S_IFCHR;
 
 	/* get scsi parent device */
-	dev_scsi = sysfs_device_get_parent(dev);
+	dev_scsi = sysfs_device_get_parent_with_subsystem(dev, "scsi");
 	if (dev_scsi == NULL) {
 		err("unable to access parent device of '%s'", devpath);
-		return 1;
-	}
-
-	/* allow only scsi devices */
-	if (strcmp(dev_scsi->subsystem, "scsi") != 0) {
-		info("%s is not a scsi device", devpath);
 		return 1;
 	}
 
@@ -707,8 +703,8 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 int main(int argc, char **argv)
 {
 	int retval = 0;
-	char devpath[MAX_NAME_LEN];
-	char maj_min_dev[MAX_NAME_LEN];
+	char devpath[MAX_PATH_LEN];
+	char maj_min_dev[MAX_PATH_LEN];
 	int newargc;
 	const char *env;
 	char **newargv;
@@ -729,7 +725,7 @@ int main(int argc, char **argv)
 	if (env) {
 		hotplug_mode = 1;
 		sys_specified = 1;
-		strncpy(devpath, env, MAX_NAME_LEN);
+		strncpy(devpath, env, MAX_PATH_LEN);
 		devpath[sizeof(devpath)-1] = '\0';
 	}
 

@@ -113,6 +113,7 @@ extern void sysfs_cleanup(void);
 extern void sysfs_device_set_values(struct sysfs_device *dev, const char *devpath, const char *subsystem);
 extern struct sysfs_device *sysfs_device_get(const char *devpath);
 extern struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev);
+extern struct sysfs_device *sysfs_device_get_parent_with_subsystem(struct sysfs_device *dev, const char *subsystem);
 extern char *sysfs_attr_get_value(const char *devpath, const char *attr_name);
 
 /* udev_add.c */

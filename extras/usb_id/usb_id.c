@@ -23,7 +23,7 @@
 
 #include "../../udev.h"
 
-#define MAX_NAME_LEN			72
+#define MAX_PATH_LEN			512
 #define MAX_SERIAL_LEN			256
 #define BLKGETSIZE64 _IOR(0x12,114,size_t)
 
@@ -247,7 +247,9 @@ static int usb_id(const char *devpath)
 	struct sysfs_device *dev;
 	struct sysfs_device *dev_scsi;
 	struct sysfs_device *dev_target;
-	struct sysfs_device *dev_host, *dev_interface, *dev_usb;
+	struct sysfs_device *dev_host;
+	struct sysfs_device *dev_interface;
+	struct sysfs_device *dev_usb;
 	const char *scsi_model, *scsi_vendor, *scsi_type, *scsi_rev;
 	const char *usb_model = NULL, *usb_vendor = NULL, *usb_rev, *usb_serial;
 	const char *if_class, *if_subclass;
@@ -263,14 +265,9 @@ static int usb_id(const char *devpath)
 	}
 
 	/* get scsi parent device */
-	dev_scsi = sysfs_device_get_parent(dev);
+	dev_scsi = sysfs_device_get_parent_with_subsystem(dev, "scsi");
 	if (dev_scsi == NULL) {
-		err("unable to access parent device of '%s'", devpath);
-		return 1;
-	}
-	/* allow only scsi devices */
-	if (strcmp(dev_scsi->subsystem, "scsi") != 0) {
-		info("%s is not a scsi device", devpath);
+		err("unable to find parent 'scsi' device of '%s'", devpath);
 		return 1;
 	}
 
@@ -289,20 +286,16 @@ static int usb_id(const char *devpath)
 	}
 
 	/* usb interface directory */
-	dev_interface = sysfs_device_get_parent(dev_host);
+	dev_interface = sysfs_device_get_parent_with_subsystem(dev_host, "usb");
 	if (dev_interface == NULL) {
 		err("unable to access parent device of '%s'", devpath);
 		return 1;
 	}
 
 	/* usb device directory */
-	dev_usb = sysfs_device_get_parent(dev_interface);
+	dev_usb = sysfs_device_get_parent_with_subsystem(dev_interface, "usb");
 	if (dev_usb == NULL) {
-		err("unable to access parent device of '%s'", devpath);
-		return 1;
-	}
-	if (strcmp(dev_interface->subsystem, "usb") != 0) {
-		info("%s is not an usb device", devpath);
+		err("unable to find parent 'usb' device of '%s'", devpath);
 		return 1;
 	}
 
@@ -397,7 +390,7 @@ int main(int argc, char **argv)
 {
 	int retval = 0;
 	const char *env;
-	char devpath[MAX_NAME_LEN];
+	char devpath[MAX_PATH_LEN];
 	int option;
 
 	logging_init("usb_id");
