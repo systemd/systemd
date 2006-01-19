@@ -15,33 +15,37 @@
 #	DEVPATH=/block/sda/sda3 path_id
 #	path_id <devpath>
 
-# example for all block devices on a system:
-#	for i in `find /sys/block -name dev` ;do DEVPATH="`echo $i | sed -e 's@^/sys\|/dev@@g'`" path_id ; done
+# examples for all block devices on a system:
+#	for i in `find /sys/class/block`; do DEVPATH="`echo $i | sed -e 's@^/sys\|/dev@@g'`"; path_id; done
 
-# examples:
 # SCSI cdrom
-# /block/sr0 -> /devices/pci0002:30/0002:30:0c.0/host0/0:0:1:0
-# result: pci-0002:30:0c.0-scsi-0:0:1:0
+# /class/block/sr0 -> /devices/pci0002:30/0002:30:0c.0/host0/target0:0:0/0:0:1:0
+# pci-0002:30:0c.0-scsi-0:0:1:0
+#
 # SCSI disk
-# /block/sda -> /devices/pci0002:30/0002:30:0c.0/host0/0:0:4:0
-# result: pci-0002:30:0c.0-scsi-0:0:4:0 
+# /class/block/sda -> /devices/pci0002:30/0002:30:0c.0/host0/target0:0:0/0:0:4:0
+# pci-0002:30:0c.0-scsi-0:0:4:0
+#
 # SATA disk, 4 channels per controller
-# /block/sda -> /devices/pci0001:00/0001:00:07.0/0001:05:0c.0/host0/0:0:0:0
-# result: pci-0001:05:0c.0-scsi-0:0:0:0
+# /class/block/sda -> /devices/pci0001:00/0001:00:07.0/0001:05:0c.0/host0/target0:0:0/0:0:0:0
+# pci-0001:05:0c.0-scsi-0:0:0:0
+#
 # IDE disk
-# /block/hda -> /devices/pci0002:02/0002:02:0d.0/ide0/0.0
-# result: pci-0002:02:0d.0-ide-0.0
+# /class/block/hda -> /devices/pci0002:02/0002:02:0d.0/ide0/0.0
+# pci-0002:02:0d.0-ide-0.0
+#
 # IDE cdrom on a Mac ASIC:
-# /block/hdc -> /devices/pci0001:01/0001:01:17.0/0.80000000:mac-io/0.00020000:ata-3/ide1/1.0
-# result: mac-io_ata-3_master
+# /class/block/hdc -> /devices/pci0001:01/0001:01:17.0/0.80000000:mac-io/0.00020000:ata-3/ide1/1.0
+# mac-io_ata-3_master
+#
 # IDE cdrom on a Mac ASIC, with ide-scsi:
-# /block/sr0 -> /devices/pci0001:01/0001:01:17.0/0.80000000:mac-io/0.0001f000:ata-4/ide0/0.1/host2/2:0:0:0
-# result: mac-io_ata-4_slave
+# /class/block/sr0 -> /devices/pci0001:01/0001:01:17.0/0.80000000:mac-io/0.0001f000:ata-4/ide0/0.1/host2/target2:0:0/2:0:0:0
+# mac-io_ata-4_slave
 
 # USB CDrom drive without 'serial' number:
 # reusing 'product' and 'manufacturer' string, if available
-# /block/sr0 -> /devices/pci0001:00/0001:00:04.0/0001:02:0b.0/usb4/4-2/4-2:1.0/host4/4:0:0:0
-# result: usb-storage-odd-Freecom-USIDERev930:0:0:0
+# /class/block/sr0 -> /devices/pci0001:00/0001:00:04.0/0001:02:0b.0/usb4/4-2/4-2:1.0/host4/4:0:0:0
+# usb-storage-odd-Freecom-USIDERev930:0:0:0
 
 # devices may have several interfaces on one PCI device, like IDE:
 # pci-0001:00:04.0_ide1-master
@@ -52,24 +56,14 @@
 # interface
 #
 # match order is important.
-# first IDE to find ide-scsi devices.
-# then SCSI
-# first usb-storage
-# then firewire sbp2
-# then the rest
+# first IDE to find ide-scsi devices, then SCSI
+# first usb-storage, then firewire sbp2, then the rest
 
 SYSFS=/sys
 RESULT=1
-CDROM=
 TYPE=
 OPWD="`pwd`"
-# Check for 'pwd -P'
-if $(pwd -P > /dev/null 2>&1); then
-    pwd_cmd="pwd -P"
-else
-    pwd_cmd="pwd"
-fi
-full_sysfs_class_path=
+full_sysfs_path=
 full_sysfs_device_path=
 
 if [ -z "$DEVPATH" -a -z "$1" ] ; then
@@ -87,29 +81,28 @@ if [ -z "$DEVPATH" ] ; then
     esac
 fi
 
-if [ ! -d $SYSFS$DEVPATH ] ; then
-    exit 1
-fi
-if [ ! -f $SYSFS$DEVPATH/dev ] ; then
+if [ ! -e $SYSFS$DEVPATH/dev ] ; then
     exit 1
 fi
 
 case "$DEVPATH" in
-    /block/*)
-	TYPE=block
+    /devices/*)
+	cd "$SYSFS$DEVPATH/subsystem";
+	TYPE="`pwd -P`"
+	cd "$OPWD"
+	TYPE="${TYPE##*/}"
 	;;
     /class/*)
 	TYPE="${DEVPATH#/class/}"
 	TYPE="${TYPE%%/*}"
 	;;
+    /block/*)
+	TYPE=block
+	;;
     *)
 	exit 1
 	;;
 esac
-	
-#
-##
-#
 
 get_port () {
     local type offset port
@@ -183,7 +176,7 @@ handle_block_ide () {
 		;;
 		/sys/devices)
 		# PCMCIA devices
-		ifname=${full_sysfs_class_path##*/}
+		ifname=${full_sysfs_path##*/}
 		set -- `sed -n "/$ifname/p" /var/lib/pcmcia/stab`
 		d="pcmcia-$1"
 		;;
@@ -202,7 +195,6 @@ handle_block_ide () {
 	else
 		d="${d}-ide-${port}:$channel"
 	fi
-	   
 	RESULT=0
 }
 
@@ -301,25 +293,35 @@ handle_block_usb_storage () {
 	fi
 	d="$d:$cil"
 	RESULT=0
-
-
 }
 
 handle_block () {
-    full_sysfs_class_path="$SYSFS$DEVPATH"
-    if [ ! -f $full_sysfs_class_path/dev ] ; then return ; fi
-    # the main device has (hopefully) a symlink to the real device
-    # a partition is a subdir of the main (raw) device
-    if [ ! -L $full_sysfs_class_path/device ] ; then
-	if [ -f $full_sysfs_class_path/range ] ; then return ; fi
-	full_sysfs_class_path="${full_sysfs_class_path%/*}"
-	: full_sysfs_class_path "$full_sysfs_class_path"
-	if [ ! -L $full_sysfs_class_path/device -o ! -f $full_sysfs_class_path/dev ] ; then
-	    return
+    full_sysfs_path="$SYSFS$DEVPATH"
+    if [ -L $full_sysfs_path/subsystem ]; then
+	# new sysfs block layout
+	full_sysfs_path="${full_sysfs_path%/*}"
+	cd "$full_sysfs_path/subsystem";
+	subsys="`pwd -P`"
+	cd "$OPWD"
+	subsys="${subsys##*/}"
+	if [ "$subsys" == "block" ]; then
+	    # parent is "block", it's a partition, move one up
+	    full_sysfs_path="${full_sysfs_path%/*}"
 	fi
+	cd $full_sysfs_path
+    else
+	# old sysfs block layout
+	if [ ! -L $full_sysfs_path/device ] ; then
+	    if [ -f $full_sysfs_path/range ] ; then return ; fi
+	    full_sysfs_path="${full_sysfs_path%/*}"
+	    : full_sysfs_path "$full_sysfs_path"
+	    if [ ! -L $full_sysfs_path/device -o ! -f $full_sysfs_path/dev ] ; then
+		return
+	    fi
+        fi
+	cd $full_sysfs_path/device
     fi
-    cd $full_sysfs_class_path/device
-    full_sysfs_device_path="`$pwd_cmd`"
+    full_sysfs_device_path="`pwd -P`"
     cd "$OPWD"
     D=$full_sysfs_device_path
     case "$D" in
@@ -361,27 +363,12 @@ handle_block () {
 	    handle_block_scsi "$D"
 	fi
 	;;
-
 	*)
 	: not handled
 	RESULT=1
 	return
-
 	;;
     esac
-    # look for a partition
-    if [ "$full_sysfs_class_path" != "$SYSFS$DEVPATH" ] ; then
-	dp="`echo $SYSFS$DEVPATH | sed -e 's@^/.*/@@;s@^[^0-9]\{1,\}@@;s@.*_@@'`"
-	case "$d" in
-	    *[0-9])
-	    d="${d}p${dp}"
-	    ;;
-	    *)
-		d="${d}${dp}"
-		;;
-	esac
-    fi
-    # done
     echo "ID_PATH=$d"
 }
 
