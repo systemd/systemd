@@ -30,9 +30,11 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <sys/select.h>
+#include <unistd.h>
 
 #include "udev.h"
 
+extern char **environ;
 
 int pass_env_to_socket(const char *sockname, const char *devpath, const char *action)
 {
