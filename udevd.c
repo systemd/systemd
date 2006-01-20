@@ -516,8 +516,8 @@ static struct uevent_msg *get_msg_from_envbuf(const char *buf, int buf_size)
 	msg->envp[i++] = "UDEVD_EVENT=1";
 	msg->envp[i] = NULL;
 
-	if (!msg->devpath) {
-		info("DEVPATH missing, ignore message");
+	if (msg->devpath == NULL || msg->action == NULL) {
+		info("DEVPATH or ACTION missing, ignore message");
 		free(msg);
 		return NULL;
 	}
