@@ -248,6 +248,46 @@ handle_block_scsi () {
 	RESULT=0
 }
 
+handle_block_fc () {
+: handle_block_fc $*
+	local DEV=$1
+	local cil controller_port controller_dev
+	# SCSI-FC device
+	fc_tgt_hcil="${DEV##*/}"
+	fc_tgt_lun="${fc_tgt_hcil##*:}"
+	fc_tgt_path="${DEV%/*}"
+	fc_tgt_num="${fc_tgt_path##*/}"
+	fc_tgt_dev="${fc_tgt_path}/fc_transport:${fc_tgt_num}"
+	if [ -e "$fc_tgt_dev/port_name" ]; then
+	    read wwpn < $fc_tgt_dev/port_name
+	fi
+	if [ -z "$wwpn" ] ; then
+	    : no WWPN
+	    RESULT=1
+	    return
+	fi
+	# Linux currently knows about 32bit luns
+	tmp_lun3=$(printf "%04x" $(($fc_tgt_lun & 0xFFFF)))
+	tmp_lun2=$(printf "%04x" $(( ($fc_tgt_lun >> 16) & 0xFFFF)))
+	tmp_lun1="0000"
+	tmp_lun0="0000"
+
+	if (($fc_tgt_lun == 0)) ; then
+	    lun="0x0000000000000000"
+	else
+	    lun="0x${tmp_lun3}${tmp_lun2}${tmp_lun1}${tmp_lun0}"
+	fi
+	controller_dev="${fc_tgt_path%/host[0-9]*}"
+	adapter="${controller_dev##*/}"
+	bus="pci"
+	d="$bus-$adapter"
+	if [ -z "$controller_port" ] ; then
+		controller_port=0
+	fi
+	d="${d}-fc-${wwpn}:${lun}"
+	RESULT=0
+}
+
 handle_block_usb_storage () {
 : handle_block_usb_storage $*
 	local DEV=$1
@@ -352,6 +392,9 @@ handle_block () {
 	    d="$bus-$adapter"
 	    RESULT=0
 	fi
+	;;
+	*/rport-[0-9]*:[0-9]*-[0-9]*/*)
+	handle_block_fc "$D"
 	;;
 	*/host[0-9]*/[0-9]*:[0-9]*:[0-9]*:[0-9]*)
 	# check for ieee1394 sbp2 
