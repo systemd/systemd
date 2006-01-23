@@ -101,59 +101,44 @@ static void set_str(char *to, const char *from, size_t count)
 	to[j] = '\0';
 }
 
-/*
- * set_usb_iftype
- *
- * Set the type based on the USB interface class
- */
-static void set_usb_iftype(char *to, const char *from, size_t len)
+static void set_usb_iftype(char *to, int if_class_num, size_t len)
 {
-	int type_num;
-	char *eptr;
 	char *type = "generic";
 
-	type_num = strtoul(from, &eptr, 0);
-	if (eptr != from) {
-		switch (type_num) {
-		case 1:
-			type = "audio";
-			break;
-		case 3:
-			type = "hid";
-			break;
-		case 7:
-			type = "printer";
-			break;
-		case 8:
-			type = "disk";
-			break;
-		case 2: /* CDC-Control */
-		case 5: /* Physical */
-		case 6: /* Image */
-		case 9: /* HUB */
-		case 0x0a: /* CDC-Data */
-		case 0x0b: /* Chip/Smart Card */
-		case 0x0d: /* Content Security */
-		case 0x0e: /* Video */
-		case 0xdc: /* Diagnostic Device */
-		case 0xe0: /* Wireless Controller */
-		case 0xf2: /* Application-specific */
-		case 0xff: /* Vendor-specific */
-		default:
-			break;
-		}
+	switch (if_class_num) {
+	case 1:
+		type = "audio";
+		break;
+	case 3:
+		type = "hid";
+		break;
+	case 7:
+		type = "printer";
+		break;
+	case 8:
+		type = "disk";
+		break;
+	case 2: /* CDC-Control */
+	case 5: /* Physical */
+	case 6: /* Image */
+	case 9: /* HUB */
+	case 0x0a: /* CDC-Data */
+	case 0x0b: /* Chip/Smart Card */
+	case 0x0d: /* Content Security */
+	case 0x0e: /* Video */
+	case 0xdc: /* Diagnostic Device */
+	case 0xe0: /* Wireless Controller */
+	case 0xf2: /* Application-specific */
+	case 0xff: /* Vendor-specific */
+		break;
+	default:
+		break;
 	}
 	strncpy(to, type, len);
 	to[len-1] = '\0';
 }
 
-/*
- * set_usb_ifsybtype
- *
- * Set the type base on the interfaceSubClass.
- * Valid for Mass-Storage devices (type 8) only.
- */
-static int set_usb_ifsubtype(char *to, const char *from, size_t len)
+static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len)
 {
 	int type_num = 0;
 	char *eptr;
@@ -245,9 +230,6 @@ static void set_scsi_type(char *to, const char *from, int count)
 static int usb_id(const char *devpath)
 {
 	struct sysfs_device *dev;
-	struct sysfs_device *dev_scsi;
-	struct sysfs_device *dev_target;
-	struct sysfs_device *dev_host;
 	struct sysfs_device *dev_interface;
 	struct sysfs_device *dev_usb;
 	const char *scsi_model, *scsi_vendor, *scsi_type, *scsi_rev;
@@ -258,44 +240,17 @@ static int usb_id(const char *devpath)
 
 	dbg("devpath %s\n", devpath);
 
+	/* get all usb specific information: dev_interface, if_class, dev_usb */
 	dev = sysfs_device_get(devpath);
 	if (dev == NULL) {
 		err("unable to access '%s'", devpath);
 		return 1;
 	}
 
-	/* get scsi parent device */
-	dev_scsi = sysfs_device_get_parent_with_subsystem(dev, "scsi");
-	if (dev_scsi == NULL) {
-		err("unable to find parent 'scsi' device of '%s'", devpath);
-		return 1;
-	}
-
-	/* target directory */
-	dev_target = sysfs_device_get_parent(dev_scsi);
-	if (dev_target == NULL) {
-		err("unable to access parent device of '%s'", devpath);
-		return 1;
-	}
-
-	/* host directory */
-	dev_host = sysfs_device_get_parent(dev_target);
-	if (dev_host == NULL) {
-		err("unable to access parent device of '%s'", devpath);
-		return 1;
-	}
-
 	/* usb interface directory */
-	dev_interface = sysfs_device_get_parent_with_subsystem(dev_host, "usb");
+	dev_interface = sysfs_device_get_parent_with_subsystem(dev, "usb");
 	if (dev_interface == NULL) {
-		err("unable to access parent device of '%s'", devpath);
-		return 1;
-	}
-
-	/* usb device directory */
-	dev_usb = sysfs_device_get_parent_with_subsystem(dev_interface, "usb");
-	if (dev_usb == NULL) {
-		err("unable to find parent 'usb' device of '%s'", devpath);
+		info("unable to access usb_interface device of '%s'", devpath);
 		return 1;
 	}
 
@@ -305,46 +260,64 @@ static int usb_id(const char *devpath)
 		return 1;
 	}
 	if_class_num = strtoul(if_class, NULL, 16);
-	if (if_class_num != 8) {
-		set_usb_iftype(type_str, if_class, sizeof(type_str)-1);
-		protocol = 0;
-	} else {
+	if (if_class_num == 8) {
 		if_subclass = sysfs_attr_get_value(dev_interface->devpath, "bInterfaceSubClass");
-		protocol = set_usb_ifsubtype(type_str, if_subclass, sizeof(type_str)-1);
+		if (if_subclass != NULL)
+			protocol = set_usb_mass_storage_ifsubtype(type_str, if_subclass, sizeof(type_str)-1);
+	} else
+		set_usb_iftype(type_str, if_class_num, sizeof(type_str)-1);
+
+	info("%s: if_class %d protocol %d\n", dev_interface->devpath, if_class_num, protocol);
+
+	/* usb device directory */
+	dev_usb = sysfs_device_get_parent_with_subsystem(dev_interface, "usb");
+	if (!dev_usb) {
+		info("unable to find parent 'usb' device of '%s'", devpath);
+		return 1;
 	}
 
-	if (!use_usb_info && protocol == 6) {
+	/* mass storage */
+	if (protocol == 6 && !use_usb_info) {
+		struct sysfs_device *dev_scsi;
+
+		/* get scsi device */
+		dev_scsi = sysfs_device_get_parent_with_subsystem(dev, "scsi");
+		if (dev_scsi == NULL) {
+			info("unable to find parent 'scsi' device of '%s'", devpath);
+			goto fallback;
+		}
+
 		/* Generic SPC-2 device */
 		scsi_vendor = sysfs_attr_get_value(dev_scsi->devpath, "vendor");
 		if (!scsi_vendor) {
 			info("%s: cannot get SCSI vendor attribute", dev_scsi->kernel_name);
-			return 1;
+			goto fallback;
 		}
 		set_str(vendor_str, scsi_vendor, sizeof(vendor_str)-1);
 
 		scsi_model = sysfs_attr_get_value(dev_scsi->devpath, "model");
 		if (!scsi_model) {
 			info("%s: cannot get SCSI model attribute", dev_scsi->kernel_name);
-			return 1;
+			goto fallback;
 		}
 		set_str(model_str, scsi_model, sizeof(model_str)-1);
 
 		scsi_type = sysfs_attr_get_value(dev_scsi->devpath, "type");
 		if (!scsi_type) {
 			info("%s: cannot get SCSI type attribute", dev_scsi->kernel_name);
-			return 1;
+			goto fallback;
 		}
 		set_scsi_type(type_str, scsi_type, sizeof(type_str)-1);
 
 		scsi_rev = sysfs_attr_get_value(dev_scsi->devpath, "rev");
 		if (!scsi_rev) {
 			info("%s: cannot get SCSI revision attribute", dev_scsi->kernel_name);
-			return 1;
+			goto fallback;
 		}
 		set_str(revision_str, scsi_rev, sizeof(revision_str)-1);
-
 	}
 
+fallback:
 	/* Fallback to USB vendor & device */
 	if (vendor_str[0] == '\0') {
 		if (!use_num_info)
