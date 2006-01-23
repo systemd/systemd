@@ -30,7 +30,6 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <sys/select.h>
-#include <unistd.h>
 
 #include "udev.h"
 
@@ -51,7 +50,7 @@ int pass_env_to_socket(const char *sockname, const char *devpath, const char *ac
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	memset(&saddr, 0x00, sizeof(struct sockaddr_un));
 	saddr.sun_family = AF_LOCAL;
-	/* only abstract namespace is supported */
+	/* abstract namespace only */
 	strcpy(&saddr.sun_path[1], sockname);
 	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 

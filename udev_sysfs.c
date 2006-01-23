@@ -275,7 +275,7 @@ struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
 	if (strncmp(parent_devpath, "/class", 6) == 0) {
 		pos = strrchr(parent_devpath, '/');
 		if (pos == &parent_devpath[6] || pos == parent_devpath) {
-			dbg("class top level, look for device link");
+			dbg("/class top level, look for device link");
 			goto device_link;
 		}
 	}
