@@ -262,9 +262,7 @@ install-man:
 	$(INSTALL_DATA) -D udev.7 $(DESTDIR)$(mandir)/man7/udev.7
 	$(INSTALL_DATA) -D udevinfo.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
 	$(INSTALL_DATA) -D udevtest.8 $(DESTDIR)$(mandir)/man8/udevtest.8
-	$(INSTALL_DATA) -D udevstart.8 $(DESTDIR)$(mandir)/man8/udevstart.8
 	$(INSTALL_DATA) -D udevd.8 $(DESTDIR)$(mandir)/man8/udevd.8
-	$(INSTALL_DATA) -D udevsend.8 $(DESTDIR)$(mandir)/man8/udevsend.8
 	$(INSTALL_DATA) -D udevmonitor.8 $(DESTDIR)$(mandir)/man8/udevmonitor.8
 	- ln -f -s udevd.8 $(DESTDIR)$(mandir)/man8/udevcontrol.8
 	@extras="$(EXTRAS)"; for target in $$extras; do \
@@ -277,10 +275,8 @@ uninstall-man:
 	- rm -f $(DESTDIR)$(mandir)/man7/udev.7
 	- rm -f $(DESTDIR)$(mandir)/man8/udevinfo.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevtest.8
-	- rm -f $(DESTDIR)$(mandir)/man8/udevstart.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevd.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevmonitor.8
-	- rm -f $(DESTDIR)$(mandir)/man8/udevsend.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevcontrol.8
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
@@ -290,14 +286,11 @@ uninstall-man:
 
 install-bin:
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
-	$(INSTALL_PROGRAM) -D udev $(DESTDIR)$(sbindir)/udev
 	$(INSTALL_PROGRAM) -D udevd $(DESTDIR)$(sbindir)/udevd
-	$(INSTALL_PROGRAM) -D udevsend $(DESTDIR)$(sbindir)/udevsend
 	$(INSTALL_PROGRAM) -D udevcontrol $(DESTDIR)$(sbindir)/udevcontrol
 	$(INSTALL_PROGRAM) -D udevmonitor $(DESTDIR)$(usrsbindir)/udevmonitor
 	$(INSTALL_PROGRAM) -D udevinfo $(DESTDIR)$(usrbindir)/udevinfo
 	$(INSTALL_PROGRAM) -D udevtest $(DESTDIR)$(usrbindir)/udevtest
-	$(INSTALL_PROGRAM) -D udevstart $(DESTDIR)$(sbindir)/udevstart
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		echo $$target; \
 		$(MAKE) -C $$target $@ || exit 1; \
@@ -310,11 +303,8 @@ endif
 .PHONY: install-bin
 
 uninstall-bin:
-	- rm -f $(DESTDIR)$(sbindir)/udev
 	- rm -f $(DESTDIR)$(sbindir)/udevd
-	- rm -f $(DESTDIR)$(sbindir)/udevsend
 	- rm -f $(DESTDIR)$(sbindir)/udevcontrol
-	- rm -f $(DESTDIR)$(sbindir)/udevstart
 	- rm -f $(DESTDIR)$(usrsbindir)/udevmonitor
 	- rm -f $(DESTDIR)$(usrbindir)/udevinfo
 	- rm -f $(DESTDIR)$(usrbindir)/udevtest
