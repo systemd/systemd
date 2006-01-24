@@ -88,7 +88,7 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 		udev_rules_get_name(rules, udev);
 		if (udev->ignore_device) {
 			info("device event will be ignored");
-			return 0;
+			return -1;
 		}
 		/* create node, store in db */
 		if (udev->name[0] != '\0')
@@ -104,7 +104,7 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 		udev_rules_get_run(rules, udev);
 		if (udev->ignore_device) {
 			info("device event will be ignored");
-			return 0;
+			return -1;
 		}
 		/* get data from db, remove db-entry, delete node */
 		retval = udev_remove_device(udev);
@@ -117,8 +117,10 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 
 	/* default devices */
 	udev_rules_get_run(rules, udev);
-	if (udev->ignore_device)
+	if (udev->ignore_device) {
 		info("device event will be ignored");
+		return -1;
+	}
 
 	return retval;
 }
