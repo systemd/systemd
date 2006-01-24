@@ -43,7 +43,6 @@ KERNEL=="js*",			NAME="input/%k", MODE="0644"
 KERNEL=="ts*",			NAME="input/%k", MODE="0600"
 KERNEL=="uinput",		NAME="input/%k", MODE="0600"
 KERNEL=="lirc0",		NAME="%k", SYMLINK+="lirc"
-KERNEL=="input[0-9]*", ACTION=="add", RUN+="input.sh"
 
 # printer
 SUBSYSTEM=="usb",		KERNEL=="lp*", NAME="usb/%k", SYMLINK+="usb%k", GROUP="lp"
@@ -120,9 +119,6 @@ SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="1", SYSFS{device/v
 SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="1", RUN+="/sbin/modprobe st"
 SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{device/type}=="[45]", RUN+="/sbin/modprobe sr_mod"
 SUBSYSTEM=="scsi_device", ACTION=="add", RUN+="/sbin/modprobe sg"
-
-# load IDE modules
-SUBSYSTEM=="ide", ACTION=="add", RUN+="ide.sh"
 
 # device mapper
 KERNEL=="device-mapper", NAME="%k", SYMLINK+="mapper/control"
