@@ -81,7 +81,7 @@ UDEV_OBJS = \
 LIBUDEV = libudev.a
 
 MAN_PAGES = \
-	udev.8				\
+	udev.7				\
 	udevmonitor.8			\
 	udevd.8				\
 	udevsend.8			\
@@ -213,7 +213,7 @@ udev_version.h:
 	@echo \#define UDEV_RULES_FILE		\"$(configdir)/rules.d\" >> $@
 
 # man pages
-%.8: docs/%.xml
+%.8 %.7: docs/%.xml
 	xmlto man $?
 .PRECIOUS: %.8
 
@@ -259,7 +259,7 @@ install-config:
 .PHONY: install-config
 
 install-man:
-	$(INSTALL_DATA) -D udev.8 $(DESTDIR)$(mandir)/man8/udev.8
+	$(INSTALL_DATA) -D udev.7 $(DESTDIR)$(mandir)/man7/udev.7
 	$(INSTALL_DATA) -D udevinfo.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
 	$(INSTALL_DATA) -D udevtest.8 $(DESTDIR)$(mandir)/man8/udevtest.8
 	$(INSTALL_DATA) -D udevstart.8 $(DESTDIR)$(mandir)/man8/udevstart.8
@@ -274,7 +274,7 @@ install-man:
 .PHONY: install-man
 
 uninstall-man:
-	- rm -f $(DESTDIR)$(mandir)/man8/udev.8
+	- rm -f $(DESTDIR)$(mandir)/man7/udev.7
 	- rm -f $(DESTDIR)$(mandir)/man8/udevinfo.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevtest.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevstart.8

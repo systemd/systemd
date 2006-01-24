@@ -27,7 +27,7 @@
 
       <refmeta>
         <refentrytitle>udev</refentrytitle>
-        <manvolnum>8</manvolnum>
+        <manvolnum>7</manvolnum>
       </refmeta>
 
       <refnamediv>
@@ -510,13 +510,10 @@
       <refsect1>
         <title>SEE ALSO</title>
         <para><citerefentry>
-            <refentrytitle>udev</refentrytitle><manvolnum>8</manvolnum>
+            <refentrytitle>udevd</refentrytitle><manvolnum>8</manvolnum>
           </citerefentry>, 
           <citerefentry>
             <refentrytitle>udevinfo</refentrytitle><manvolnum>8</manvolnum>
-          </citerefentry>, 
-          <citerefentry>
-            <refentrytitle>udevd</refentrytitle><manvolnum>8</manvolnum>
           </citerefentry>, 
           <citerefentry>
             <refentrytitle>udevmonitor</refentrytitle><manvolnum>8</manvolnum>

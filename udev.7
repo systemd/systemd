@@ -1,8 +1,8 @@
 .\" ** You probably do not want to edit this file directly **
-.\" It was generated using the DocBook XSL Stylesheets (version 1.69.0).
+.\" It was generated using the DocBook XSL Stylesheets (version 1.69.1).
 .\" Instead of manually editing it, you probably should edit the DocBook XML
 .\" source for it and then use the DocBook XSL Stylesheets to regenerate it.
-.TH "UDEV" "8" "August 2005" "udev" "udev"
+.TH "UDEV" "7" "August 2005" "udev" "udev"
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
@@ -11,43 +11,43 @@
 udev \- dynamic device management
 .SH "DESCRIPTION"
 .PP
-udev provides a dynamic device directory containing only the files for actually present devices. It creates or removes device node files in the 
-\fI/dev\fR 
+udev provides a dynamic device directory containing only the files for actually present devices. It creates or removes device node files in the
+\fI/dev\fR
 directory, or it renames network interfaces.
 .PP
-Usually udev runs as 
-\fBudevd\fR(8) 
+Usually udev runs as
+\fBudevd\fR(8)
 and receives uevents directly from the kernel if a device is added or removed form the system.
 .PP
 If udev receives a device event, it matches its configured rules against the available device attributes provided in sysfs to identify the device. Rules that match, may provide additional device information or specify a device node name and multiple symlink names and instruct udev to run additional programs as part of the device event handling.
 .SH "CONFIGURATION"
 .PP
-All udev configuration files are placed in 
+All udev configuration files are placed in
 \fI/etc/udev/*\fR. Every file consists of a set of lines of text. All empty lines or lines beginning with '#' will be ignored.
 .SS "Configuration file"
 .PP
-udev expects its main configuration file at 
+udev expects its main configuration file at
 \fI/etc/udev/udev.conf\fR. It consists of a set of variables allowing the user to override default udev values. The following variables can be set:
 .TP
 \fBudev_root\fR
-Specifies where to place the device nodes in the filesystem. The default value is 
+Specifies where to place the device nodes in the filesystem. The default value is
 \fI/dev\fR.
 .TP
 \fBudev_rules\fR
-The name of the udev rules file or directory to look for files with the suffix 
-\fI.rules\fR. Multiple rule files are read in lexical order. The default value is 
+The name of the udev rules file or directory to look for files with the suffix
+\fI.rules\fR. Multiple rule files are read in lexical order. The default value is
 \fI/etc/udev/rules.d\fR.
 .TP
 \fBudev_log\fR
-The logging priority. Valid values are the numerical syslog priorities or their textual representations: 
-\fBerr\fR, 
-\fBinfo\fR 
-and 
+The logging priority. Valid values are the numerical syslog priorities or their textual representations:
+\fBerr\fR,
+\fBinfo\fR
+and
 \fBdebug\fR.
 .SS "Rules files"
 .PP
-The udev rules are read from the files located in the 
-\fI/etc/udev/rules.d\fR 
+The udev rules are read from the files located in the
+\fI/etc/udev/rules.d\fR
 directory or at the location specified value in the configuraton file. Every line in the rules file contains at least one key value pair. There are two kind of keys, match and assignement keys. If all match keys are matching against its value, the rule gets applied and the assign keys get the specified value assigned. A matching rule may specify the name of the device node, add a symlink pointing to the node, or run a specified program as part of the event handling. If no matching rule is found, the default device node name is used.
 .PP
 A rule may consists of a list of one or more key value pairs separated by a comma. Each key has a distinct operation, depending on the used operator. Valid operators are:
@@ -91,13 +91,13 @@ Search the devpath upwards for a matching device driver name.
 Search the devpath upwards for a matching device name.
 .TP
 \fBSYSFS{\fR\fB\fIfilename\fR\fR\fB}\fR
-Search the devpath upwards for a device with matching sysfs attribute values. Up to five 
-\fBSYSFS\fR 
+Search the devpath upwards for a device with matching sysfs attribute values. Up to five
+\fBSYSFS\fR
 keys can be specified per rule. All attributes must match on the same device. Trailing whitespace in the attribute values is ignored, if the specified match value does not contain trailing whitespace itself.
 .TP
 \fBENV{\fR\fB\fIkey\fR\fR\fB}\fR
-Match against the value of an environment variable. Up to five 
-\fBENV\fR 
+Match against the value of an environment variable. Up to five
+\fBENV\fR
 keys can be specified per rule. This key can also be used to export a variable to the environment.
 .TP
 \fBPROGRAM\fR
@@ -141,32 +141,32 @@ Named label where a GOTO can jump to.
 Jumps to the next LABEL with a matching gname
 .TP
 \fBIMPORT{\fR\fB\fItype\fR\fR\fB}\fR
-Import the printed result or the value of a file in environment key format into the event environment. 
-\fBprogram\fR 
-will execute an external program and read its output. 
-\fBfile\fR 
+Import the printed result or the value of a file in environment key format into the event environment.
+\fBprogram\fR
+will execute an external program and read its output.
+\fBfile\fR
 will inport a text file. If no option is given, udev will determine it from the executable bit of of the file permissions.
 .TP
 \fBWAIT_FOR_SYSFS\fR
 Wait for the specified sysfs file of the device to be created. Can be used to fight against kernel sysfs timing issues.
 .TP
 \fBOPTIONS\fR
-\fBlast_rule\fR 
-stops further rules application. No later rules will have any effect. 
-\fBignore_device\fR 
-will ignore this event completely. 
-\fBignore_remove\fR 
-will ignore any later remove event for this device. This may be useful as a workaround for broken device drivers. 
-\fBall_partitions\fR 
+\fBlast_rule\fR
+stops further rules application. No later rules will have any effect.
+\fBignore_device\fR
+will ignore this event completely.
+\fBignore_remove\fR
+will ignore any later remove event for this device. This may be useful as a workaround for broken device drivers.
+\fBall_partitions\fR
 will create device nodes for all available partitions of a block device. This may be useful for removable media.
 .PP
-The 
-\fBNAME\fR, 
-\fBSYMLINK\fR, 
-\fBPROGRAM\fR, 
-\fBOWNER\fR 
-and 
-\fBGROUP\fR 
+The
+\fBNAME\fR,
+\fBSYMLINK\fR,
+\fBPROGRAM\fR,
+\fBOWNER\fR
+and
+\fBGROUP\fR
 fields support simple printf\-like string substitutions:
 .TP
 \fB$kernel\fR, \fB%k\fR
@@ -179,10 +179,10 @@ The kernel number for this device. For example, 'sda3' has kernel number of '3'
 The devpath of the device.
 .TP
 \fB$id\fR, \fB%b\fR
-The name of the device matched while searching the devpath upwards for 
-\fBBUS\fR, 
-\fBID\fR \fBDRIVER\fR 
-and 
+The name of the device matched while searching the devpath upwards for
+\fBBUS\fR,
+\fBID\fR\fBDRIVER\fR
+and
 \fBSYSFS\fR.
 .TP
 \fB$sysfs{\fR\fB\fIfile\fR\fR\fB}\fR, \fB%s{\fR\fB\fIfile\fR\fR\fB}\fR
@@ -198,8 +198,8 @@ The kernel major number for the device.
 The kernel minor number for the device.
 .TP
 \fB$result\fR, \fB%c\fR
-The string returned by the external program requested with PROGRAM. A single part of the string, separated by a space character may be selected by specifying the part number as an attribute: 
-\fB%c{N}\fR. If the number is followed by the '+' char this part plus all remaining parts of the result string are substituted: 
+The string returned by the external program requested with PROGRAM. A single part of the string, separated by a space character may be selected by specifying the part number as an attribute:
+\fB%c{N}\fR. If the number is followed by the '+' char this part plus all remaining parts of the result string are substituted:
 \fB%c{N+}\fR
 .TP
 \fB$parent\fR, \fB%P\fR
@@ -221,9 +221,9 @@ The count of characters to be substituted may be limited by specifying the forma
 .SH "ENVIRONMENT"
 .TP
 \fBACTION\fR
-\fIadd\fR 
-or 
-\fIremove\fR 
+\fIadd\fR
+or
+\fIremove\fR
 signifies the addition or the removal of a device.
 .TP
 \fBDEVPATH\fR
@@ -236,15 +236,14 @@ The kernel subsystem the device belongs to.
 Overrides the syslog priority specified in the config file.
 .SH "AUTHOR"
 .PP
-Written by Greg Kroah\-Hartman 
-<greg@kroah.com> 
-and Kay Sievers 
-<kay.sievers@vrfy.org>. With much help from Dan Stekloff 
-<dsteklof@us.ibm.com> 
+Written by Greg Kroah\-Hartman
+<greg@kroah.com>
+and Kay Sievers
+<kay.sievers@vrfy.org>. With much help from Dan Stekloff
+<dsteklof@us.ibm.com>
 and many others.
 .SH "SEE ALSO"
 .PP
-\fBudev\fR(8), 
-\fBudevinfo\fR(8), 
-\fBudevd\fR(8), 
+\fBudevd\fR(8),
+\fBudevinfo\fR(8),
 \fBudevmonitor\fR(8)
