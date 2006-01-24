@@ -1,5 +1,5 @@
 .\" ** You probably do not want to edit this file directly **
-.\" It was generated using the DocBook XSL Stylesheets (version 1.69.0).
+.\" It was generated using the DocBook XSL Stylesheets (version 1.69.1).
 .\" Instead of manually editing it, you probably should edit the DocBook XML
 .\" source for it and then use the DocBook XSL Stylesheets to regenerate it.
 .TH "UDEVINFO" "8" "August 2005" "udev" "udevinfo"
@@ -18,15 +18,15 @@ udevinfo queries the udev database for device information stored in the udev dat
 .SH "OPTIONS"
 .TP
 \fB\-q\fR
-Query the database for specified type of device data. It needs the 
-\fB\-p\fR 
-or 
-\fB\-n\fR 
-to identify the specified device. Valid queries are: 
-\fBname\fR, 
-\fBsymlink\fR, 
-\fBpath\fR, 
-\fBenv\fR, 
+Query the database for specified type of device data. It needs the
+\fB\-p\fR
+or
+\fB\-n\fR
+to identify the specified device. Valid queries are:
+\fBname\fR,
+\fBsymlink\fR,
+\fBpath\fR,
+\fBenv\fR,
 \fBall\fR.
 .TP
 \fB\-a\fR
@@ -39,11 +39,11 @@ The sysfs path of the device to query.
 The name of the device node or a symlink to query
 .TP
 \fB\-r\fR
-The udev root directory: 
-\fI/dev\fR. If used in conjunction with a 
-\fBname\fR 
-or 
-\fBsymlink\fR 
+The udev root directory:
+\fI/dev\fR. If used in conjunction with a
+\fBname\fR
+or
+\fBsymlink\fR
 query, the query returns the absolute path.
 .TP
 \fB\-e\fR
@@ -53,7 +53,7 @@ Export the content of the udev database.
 Print help text.
 .SH "AUTHOR"
 .PP
-Written by Kay Sievers 
+Written by Kay Sievers
 <kay.sievers@vrfy.org>.
 .SH "SEE ALSO"
 .PP
