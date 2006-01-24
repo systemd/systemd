@@ -160,8 +160,13 @@ run:
 		list_for_each_entry(name_loop, &udev->run_list, node) {
 			if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0)
 				pass_env_to_socket(&name_loop->name[strlen("socket:")], udev->dev->devpath, "add");
-			else
-				run_program(name_loop->name, udev->dev->subsystem, NULL, 0, NULL, (udev_log_priority >= LOG_INFO));
+			else {
+				char program[PATH_SIZE];
+
+				strlcpy(program, name_loop->name, sizeof(program));
+				apply_format(udev, program, sizeof(program));
+				run_program(program, udev->dev->subsystem, NULL, 0, NULL, (udev_log_priority >= LOG_INFO));
+			}
 		}
 	}
 exit:

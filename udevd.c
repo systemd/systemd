@@ -123,10 +123,15 @@ static int udev_event_process(struct uevent_msg *msg)
 		list_for_each_entry(name_loop, &udev->run_list, node) {
 			if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0)
 				pass_env_to_socket(&name_loop->name[strlen("socket:")], msg->devpath, msg->action);
-			else
-				if (run_program(name_loop->name, udev->dev->subsystem, NULL, 0, NULL,
+			else {
+				char program[PATH_SIZE];
+
+				strlcpy(program, name_loop->name, sizeof(program));
+				apply_format(udev, program, sizeof(program));
+				if (run_program(program, udev->dev->subsystem, NULL, 0, NULL,
 						(udev_log_priority >= LOG_INFO)))
 					retval = -1;
+			}
 		}
 	}
 

@@ -105,7 +105,7 @@ struct udev_rules {
 extern int udev_rules_init(struct udev_rules *rules, int resolve_names);
 extern void udev_rules_cleanup(struct udev_rules *rules);
 
-extern void udev_apply_format(struct udevice *udev, char *string, size_t maxsize);
+extern void apply_format(struct udevice *udev, char *string, size_t maxsize);
 
 extern void udev_rules_iter_init(struct udev_rules *rules);
 extern struct udev_rule *udev_rules_iter_next(struct udev_rules *rules);

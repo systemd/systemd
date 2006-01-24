@@ -362,7 +362,7 @@ static int wait_for_sysfs(struct udevice *udev, const char *file, int timeout)
 	return -1;
 }
 
-static void apply_format(struct udevice *udev, char *string, size_t maxsize)
+void apply_format(struct udevice *udev, char *string, size_t maxsize)
 {
 	char temp[PATH_SIZE];
 	char temp2[PATH_SIZE];
@@ -1017,7 +1017,6 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 					name_list_cleanup(&udev->run_list);
 				}
 				strlcpy(program, key_val(rule, &rule->run), sizeof(program));
-				apply_format(udev, program, sizeof(program));
 				dbg("add run '%s'", program);
 				name_list_add(&udev->run_list, program, 0);
 			}
