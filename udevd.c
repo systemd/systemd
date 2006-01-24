@@ -621,7 +621,7 @@ static struct uevent_msg *get_netlink_msg(void)
 	struct uevent_msg *msg;
 	int bufpos;
 	ssize_t size;
-	static char buffer[UEVENT_BUFFER_SIZE + 512];
+	static char buffer[UEVENT_BUFFER_SIZE+512];
 	char *pos;
 
 	size = recv(uevent_netlink_sock, &buffer, sizeof(buffer), 0);

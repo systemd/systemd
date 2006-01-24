@@ -38,8 +38,8 @@
 #define UDEVD_MAX_CHILDS_RUNNING	16
 
 /* environment buffer, should match the kernel's size in lib/kobject_uevent.h */
-#define UEVENT_BUFFER_SIZE		1024
-#define UEVENT_NUM_ENVP			32
+#define UEVENT_BUFFER_SIZE		2048
+#define UEVENT_NUM_ENVP			64
 
 enum udevd_msg_type {
 	UDEVD_UNKNOWN,
