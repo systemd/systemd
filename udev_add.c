@@ -135,16 +135,14 @@ static int create_node(struct udevice *udev)
 			gid = lookup_group(udev->group);
 	}
 
-	if (!udev->test_run) {
-		info("creating device node '%s'", filename);
+	info("creating device node '%s', major = '%d', minor = '%d', " "mode = '%#o', uid = '%d', gid = '%d'",
+	     filename, major(udev->devt), minor(udev->devt), udev->mode, uid, gid);
+
+	if (!udev->test_run)
 		if (udev_make_node(udev, filename, udev->devt, udev->mode, uid, gid) != 0)
 			goto error;
-		setenv("DEVNAME", filename, 1);
-	} else {
-		info("creating device node '%s', major = '%d', minor = '%d', "
-		     "mode = '%#o', uid = '%d', gid = '%d'", filename,
-		     major(udev->devt), minor(udev->devt), udev->mode, uid, gid);
-	}
+
+	setenv("DEVNAME", filename, 1);
 
 	/* create all_partitions if requested */
 	if (udev->partitions) {

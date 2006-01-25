@@ -113,11 +113,16 @@ int main(int argc, char *argv[], char *envp[])
 
 	info("looking at device '%s' from subsystem '%s'", udev->dev->devpath, udev->dev->subsystem);
 	retval = udev_device_event(&rules, udev);
-	if (retval == 0) {
+	if (retval == 0 && !udev->ignore_device && udev_run) {
 		struct name_entry *name_loop;
 
-		list_for_each_entry(name_loop, &udev->run_list, node)
-			info("run: '%s'", name_loop->name);
+		list_for_each_entry(name_loop, &udev->run_list, node) {
+			char program[PATH_SIZE];
+
+			strlcpy(program, name_loop->name, sizeof(program));
+			udev_rules_apply_format(udev, program, sizeof(program));
+			info("run: '%s'", program);
+		}
 	}
 
 exit:
