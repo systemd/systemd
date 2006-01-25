@@ -105,13 +105,13 @@ struct udev_rules {
 extern int udev_rules_init(struct udev_rules *rules, int resolve_names);
 extern void udev_rules_cleanup(struct udev_rules *rules);
 
-extern void apply_format(struct udevice *udev, char *string, size_t maxsize);
-
 extern void udev_rules_iter_init(struct udev_rules *rules);
 extern struct udev_rule *udev_rules_iter_next(struct udev_rules *rules);
 extern struct udev_rule *udev_rules_iter_label(struct udev_rules *rules, const char *label);
 
 extern int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev);
 extern int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev);
+
+extern void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize);
 
 #endif

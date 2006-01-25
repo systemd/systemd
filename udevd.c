@@ -127,7 +127,7 @@ static int udev_event_process(struct uevent_msg *msg)
 				char program[PATH_SIZE];
 
 				strlcpy(program, name_loop->name, sizeof(program));
-				apply_format(udev, program, sizeof(program));
+				udev_rules_apply_format(udev, program, sizeof(program));
 				if (run_program(program, udev->dev->subsystem, NULL, 0, NULL,
 						(udev_log_priority >= LOG_INFO)))
 					retval = -1;

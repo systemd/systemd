@@ -362,7 +362,7 @@ static int wait_for_sysfs(struct udevice *udev, const char *file, int timeout)
 	return -1;
 }
 
-void apply_format(struct udevice *udev, char *string, size_t maxsize)
+void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 {
 	char temp[PATH_SIZE];
 	char temp2[PATH_SIZE];
@@ -818,7 +818,7 @@ try_parent:
 		char result[PATH_SIZE];
 
 		strlcpy(program, key_val(rule, &rule->program), sizeof(program));
-		apply_format(udev, program, sizeof(program));
+		udev_rules_apply_format(udev, program, sizeof(program));
 		if (run_program(program, udev->dev->subsystem, result, sizeof(result), NULL, (udev_log_priority >= LOG_INFO)) != 0) {
 			dbg("PROGRAM is false");
 			udev->program_result[0] = '\0';
@@ -851,7 +851,7 @@ try_parent:
 		int rc = -1;
 
 		strlcpy(import, key_val(rule, &rule->import), sizeof(import));
-		apply_format(udev, import, sizeof(import));
+		udev_rules_apply_format(udev, import, sizeof(import));
 		dbg("check for IMPORT import='%s'", import);
 		if (rule->import_type == IMPORT_PROGRAM) {
 			rc = import_program_into_env(udev, import);
@@ -941,14 +941,14 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 				if (rule->owner.operation == KEY_OP_ASSIGN_FINAL)
 					udev->owner_final = 1;
 				strlcpy(udev->owner, key_val(rule, &rule->owner), sizeof(udev->owner));
-				apply_format(udev, udev->owner, sizeof(udev->owner));
+				udev_rules_apply_format(udev, udev->owner, sizeof(udev->owner));
 				dbg("applied owner='%s' to '%s'", udev->owner, udev->dev->kernel_name);
 			}
 			if (!udev->group_final && rule->group.operation != KEY_OP_UNSET) {
 				if (rule->group.operation == KEY_OP_ASSIGN_FINAL)
 					udev->group_final = 1;
 				strlcpy(udev->group, key_val(rule, &rule->group), sizeof(udev->group));
-				apply_format(udev, udev->group, sizeof(udev->group));
+				udev_rules_apply_format(udev, udev->group, sizeof(udev->group));
 				dbg("applied group='%s' to '%s'", udev->group, udev->dev->kernel_name);
 			}
 
@@ -965,7 +965,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 					name_list_cleanup(&udev->symlink_list);
 				}
 				strlcpy(temp, key_val(rule, &rule->symlink), sizeof(temp));
-				apply_format(udev, temp, sizeof(temp));
+				udev_rules_apply_format(udev, temp, sizeof(temp));
 				count = replace_untrusted_chars(temp);
 				if (count)
 					info("%i untrusted character(s) replaced" , count);
@@ -996,7 +996,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 				int count;
 				name_set = 1;
 				strlcpy(udev->name, key_val(rule, &rule->name), sizeof(udev->name));
-				apply_format(udev, udev->name, sizeof(udev->name));
+				udev_rules_apply_format(udev, udev->name, sizeof(udev->name));
 				count = replace_untrusted_chars(udev->name);
 				if (count)
 					info("%i untrusted character(s) replaced", count);
@@ -1082,7 +1082,7 @@ int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev)
 					name_list_cleanup(&udev->run_list);
 				}
 				strlcpy(program, key_val(rule, &rule->run), sizeof(program));
-				apply_format(udev, program, sizeof(program));
+				udev_rules_apply_format(udev, program, sizeof(program));
 				dbg("add run '%s'", program);
 				name_list_add(&udev->run_list, program, 0);
 				if (rule->run.operation == KEY_OP_ASSIGN_FINAL)

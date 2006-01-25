@@ -165,7 +165,7 @@ int main(int argc, char *argv[], char *envp[])
 				char program[PATH_SIZE];
 
 				strlcpy(program, name_loop->name, sizeof(program));
-				apply_format(udev, program, sizeof(program));
+				udev_rules_apply_format(udev, program, sizeof(program));
 				run_program(program, udev->dev->subsystem, NULL, 0, NULL, (udev_log_priority >= LOG_INFO));
 			}
 		}
