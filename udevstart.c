@@ -108,6 +108,7 @@ static int add_device(const char *devpath)
 {
 	struct sysfs_device *dev;
 	struct udevice *udev;
+	int retval;
 
 	/* clear and set environment for next event */
 	clearenv();
@@ -146,14 +147,14 @@ static int add_device(const char *devpath)
 		dbg("device event will be ignored");
 		goto exit;
 	}
-	if (udev->name[0] == '\0') {
-		dbg("device node creation supressed");
-		goto run;
+	if (udev->name[0] != '\0')
+		retval = udev_add_device(udev);
+	else {
+		info("device node creation supressed");
+		goto exit;
 	}
 
-	udev_add_device(udev);
-run:
-	if (udev_run && !list_empty(&udev->run_list)) {
+	if (retval == 0 && !udev->ignore_device && udev_run) {
 		struct name_entry *name_loop;
 
 		dbg("executing run list");
@@ -169,9 +170,9 @@ run:
 			}
 		}
 	}
+
 exit:
 	udev_device_cleanup(udev);
-
 	return 0;
 }
 

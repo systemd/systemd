@@ -88,14 +88,14 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 		udev_rules_get_name(rules, udev);
 		if (udev->ignore_device) {
 			info("device event will be ignored");
-			return -1;
+			return 0;
 		}
 		/* create node, store in db */
 		if (udev->name[0] != '\0')
 			retval = udev_add_device(udev);
 		else
 			info("device node creation supressed");
-		return 0;
+		return retval;
 	}
 
 	if (major(udev->devt) != 0 && strcmp(udev->action, "remove") == 0) {
@@ -104,7 +104,7 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 		udev_rules_get_run(rules, udev);
 		if (udev->ignore_device) {
 			info("device event will be ignored");
-			return -1;
+			return 0;
 		}
 		/* get data from db, remove db-entry, delete node */
 		retval = udev_remove_device(udev);
@@ -112,15 +112,13 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 		/* restore stored persistent data */
 		list_for_each_entry(name_loop, &udev->env_list, node)
 			putenv(name_loop->name);
-		return 0;
+		return retval;
 	}
 
-	/* default devices */
+	/* default devices without a node */
 	udev_rules_get_run(rules, udev);
-	if (udev->ignore_device) {
+	if (udev->ignore_device)
 		info("device event will be ignored");
-		return -1;
-	}
 
 	return retval;
 }

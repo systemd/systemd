@@ -154,7 +154,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	retval = udev_device_event(&rules, udev);
 
-	if (!retval && udev_run && !list_empty(&udev->run_list)) {
+	if (retval == 0 && !udev->ignore_device && udev_run) {
 		struct name_entry *name_loop;
 
 		dbg("executing run list");
@@ -178,5 +178,7 @@ fail:
 
 exit:
 	logging_close();
-	return retval;
+	if (retval != 0)
+		return 1;
+	return 0;
 }

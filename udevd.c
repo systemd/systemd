@@ -117,9 +117,10 @@ static int udev_event_process(struct uevent_msg *msg)
 	retval = udev_device_event(&rules, udev);
 
 	/* run programs collected by RUN-key*/
-	if (retval == 0) {
+	if (retval == 0 && !udev->ignore_device && udev_run) {
 		struct name_entry *name_loop;
 
+		dbg("executing run list");
 		list_for_each_entry(name_loop, &udev->run_list, node) {
 			if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0)
 				pass_env_to_socket(&name_loop->name[strlen("socket:")], msg->devpath, msg->action);
