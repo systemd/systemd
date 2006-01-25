@@ -1,3 +1,30 @@
+Summary of changes from v081 to v082
+============================================
+
+Andrey Borzenkov:
+      substitute format chars in RUN after rule matching
+
+Kay Sievers:
+      scsi_id, usb_id: request device parent by subsystem
+      path_id: work with "all devices in /sys/devices"
+      ignore all messages with missing devpath or action
+      Makefile: remove dynamic config file generation
+      path_id: handle fiber channel (Hannes Reinecke <hare@suse.de>)
+      usb_id: don't fail on other subsytems than "scsi"
+      don't do RUN if "ignore_device" is given
+      increase kernel uevent buffer size
+      move udev(8) manpage to udev(7)
+      recreate man pages from xml source
+      remove udev, udevstart, udevsend from the default installation
+      update SUSE rules
+      rename apply_format() cause it is public now
+      udevtest: add udev_rules_apply_format() to RUN keys
+      let "ignore_device" always return the event successfully
+
+Olivier Blin:
+      fixes udev build with -fpie
+
+
 Summary of changes from v080 to v081
 ============================================
 

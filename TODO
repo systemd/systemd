@@ -15,7 +15,7 @@ udev version:
   o remove MODALIAS + $modalias
     (ENV{MODALIAS}, $env{MODALIAS}, $sysfs{modalias} will do it)
 
-  o remove udevstart, udevsend
+  o remove udevsend, udevstart and their man pages
     (we rely on the kernel "uevent" triggers of kernel 2.6.15 and no longer
      want to guess event properties from sysfs like udevstart is doing it)
 

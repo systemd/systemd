@@ -1,3 +1,38 @@
+udev 082
+========
+The udev man page has moced to udev(7) as it doesnot describe a command
+anymore. The programs udev, udevstart and udevsend are no longer installed
+by default and must be copied manually, if they should be installed or
+included in a package.
+
+Fix a bug where "ignore_device" could run earlier collected RUN keys before
+the ignore rule was applied.
+
+More preparation for future sysfs changes. usb_id and scsi_id no longer
+depend on a magic order of devices in the /devices chain. Specific devices
+should be requested by their subsytem.
+
+This will always find the scsi parent device without depending on a specific
+path position:
+  dev = sysfs_device_get(devpath);
+  dev_usb = sysfs_device_get_parent_with_subsystem(dev, "scsi");
+
+The "device" link in the current sysfs layout will be automatically
+_resolved_ as a parent and in the new sysfs layout it will just _be_ the
+parent in the devpath. If a device is requested by it's symlink, like all
+class devices in the new sysfs layout will look like, it gets automatically
+resolved and substituted with the real devpath and not the symlink path.
+
+Note:
+A similar logic must be applied to _all_ sysfs users, including
+scripts, that search along parent devices in sysfs. The explicit use of
+the "device" link must be avoided. With the future sysfs layout all
+DEVPATH's will start with /devices/ and have a "subsystem" symlink poiting
+back to the "class" or the "bus". The layout of the parent devices in
+/devices is not necessarily expected to be stable across kernel releases and
+searching for parents by their subsystem should make sysfs users tolerant
+for changed parent chains.
+
 udev 081
 ========
 Prepare udev to work with the experimental kernel patch, that moves
