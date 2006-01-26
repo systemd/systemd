@@ -108,7 +108,7 @@ static int add_device(const char *devpath)
 {
 	struct sysfs_device *dev;
 	struct udevice *udev;
-	int retval;
+	int retval = 0;
 
 	/* clear and set environment for next event */
 	clearenv();
