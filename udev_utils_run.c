@@ -84,16 +84,18 @@ int run_program(const char *command, const char *subsystem,
 	int devnull;
 	int i;
 
+	/* build argv from comand */
 	strlcpy(arg, command, sizeof(arg));
 	i = 0;
-	if (strchr(arg, ' ')) {
+	if (strchr(arg, ' ') != NULL) {
 		char *pos = arg;
+
 		while (pos != NULL) {
 			if (pos[0] == '\'') {
 				/* don't separate if in apostrophes */
 				pos++;
 				argv[i] = strsep(&pos, "\'");
-				while (pos && pos[0] == ' ')
+				while (pos != NULL && pos[0] == ' ')
 					pos++;
 			} else {
 				argv[i] = strsep(&pos, " ");
@@ -102,13 +104,11 @@ int run_program(const char *command, const char *subsystem,
 			i++;
 		}
 		argv[i] = NULL;
-		info("'%s'", command);
 	} else {
 		argv[0] = arg;
-		argv[1] = (char *) subsystem;
-		argv[2] = NULL;
-		info("'%s' '%s'", arg, argv[1]);
+		argv[1] = NULL;
 	}
+	info("'%s'", command);
 
 	/* prepare pipes from child to parent */
 	if (result || log) {

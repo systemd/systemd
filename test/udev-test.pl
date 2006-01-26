@@ -301,15 +301,6 @@ BUS=="scsi", PROGRAM=="/bin/echo -n special-device", RESULT=="special-*", NAME="
 EOF
 	},
 	{
-		desc		=> "program result substitution (no argument should be subsystem)",
-		subsys		=> "block",
-		devpath		=> "/block/sda/sda3",
-		exp_name	=> "subsys_block" ,
-		rules		=> <<EOF
-BUS=="scsi", PROGRAM=="/bin/echo", RESULT=="block", NAME="subsys_block"
-EOF
-	},
-	{
 		desc		=> "program result substitution (newline removal)",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda3",

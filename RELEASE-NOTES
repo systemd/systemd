@@ -1,3 +1,15 @@
+udev 083
+========
+Fix a bug where NAME="" would prevent RUN from beeing executed.
+
+RUN="/bin/program" does no longer automatically add the subsystem
+as the first parameter. This is from the days of /sbin/hotplug
+which is dead now and it's just confusing to need to add space at the
+end of the program name to prevent this. If you use rules that
+depend on this, like the old "udev_run_hotlugd" and "udev_run_devd",
+switch them to: RUN+="/bin/program $env{SUBSYSTEM}", otherwise
+they will no longer work as expected.
+
 udev 082
 ========
 The udev man page has moced to udev(7) as it doesnot describe a command
