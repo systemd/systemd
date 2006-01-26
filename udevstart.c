@@ -149,12 +149,10 @@ static int add_device(const char *devpath)
 	}
 	if (udev->name[0] != '\0')
 		retval = udev_add_device(udev);
-	else {
+	else
 		info("device node creation supressed");
-		goto exit;
-	}
 
-	if (retval == 0 && !udev->ignore_device && udev_run) {
+	if (retval == 0 && udev_run) {
 		struct name_entry *name_loop;
 
 		dbg("executing run list");
