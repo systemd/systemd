@@ -164,10 +164,13 @@ The
 \fBNAME\fR,
 \fBSYMLINK\fR,
 \fBPROGRAM\fR,
-\fBOWNER\fR
-and
+\fBOWNER\fR,
 \fBGROUP\fR
-fields support simple printf\-like string substitutions:
+and
+\fBRUN\fR
+fields support simple printf\-like string substitutions. The
+\fBRUN\fR
+format chars gets applied after all rules have been processed, right before the program is executed. It allows the use of the complete environment set by earlier matching rules. For all other fields, substitutions are applied while the individual rule is being processed. The available substitutions are:
 .TP
 \fB$kernel\fR, \fB%k\fR
 The kernel name for this device.

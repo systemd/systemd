@@ -353,8 +353,12 @@
           </variablelist>
 
           <para>The <option>NAME</option>, <option>SYMLINK</option>, <option>PROGRAM</option>,
-          <option>OWNER</option>  and  <option>GROUP</option>  fields  support  simple
-          printf-like string substitutions:</para>
+          <option>OWNER</option>, <option>GROUP</option>  and  <option>RUN</option>
+          fields support simple printf-like string substitutions. The <option>RUN</option>
+          format chars gets applied after all rules have been processed, right before the program
+          is executed. It allows the use of the complete environment set by earlier matching
+          rules. For all other fields, substitutions are applied while the individual rule is
+          being processed. The available substitutions are:</para>
           <variablelist>
             <varlistentry>
               <term><option>$kernel</option>, <option>%k</option></term>
