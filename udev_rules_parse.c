@@ -366,6 +366,16 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 				pos = strchr(file, ' ');
 				if (pos)
 					pos[0] = '\0';
+
+				/* allow programs in /lib/udev called without the path */
+				if (strchr(file, '/') == NULL) {
+					strlcpy(file, "/lib/udev/", sizeof(file));
+					strlcat(file, value, sizeof(file));
+					pos = strchr(file, ' ');
+					if (pos)
+						pos[0] = '\0';
+				}
+
 				dbg("IMPORT auto mode for '%s'", file);
 				if (!lstat(file, &stats) && (stats.st_mode & S_IXUSR)) {
 					dbg("IMPORT is executable, will be executed (autotype)");
