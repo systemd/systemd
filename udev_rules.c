@@ -994,6 +994,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 			/* set name, later rules with name set will be ignored */
 			if (rule->name.operation != KEY_OP_UNSET) {
 				int count;
+
 				name_set = 1;
 				strlcpy(udev->name, key_val(rule, &rule->name), sizeof(udev->name));
 				udev_rules_apply_format(udev, udev->name, sizeof(udev->name));
@@ -1008,17 +1009,14 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 			}
 
 			if (!udev->run_final && rule->run.operation != KEY_OP_UNSET) {
-				char program[PATH_SIZE];
-
 				if (rule->run.operation == KEY_OP_ASSIGN_FINAL)
 					udev->run_final = 1;
 				if (rule->run.operation == KEY_OP_ASSIGN || rule->run.operation == KEY_OP_ASSIGN_FINAL) {
 					info("reset run list");
 					name_list_cleanup(&udev->run_list);
 				}
-				strlcpy(program, key_val(rule, &rule->run), sizeof(program));
-				dbg("add run '%s'", program);
-				name_list_add(&udev->run_list, program, 0);
+				dbg("add run '%s'", key_val(rule, &rule->run));
+				name_list_add(&udev->run_list, key_val(rule, &rule->run), 0);
 			}
 
 			if (rule->last_rule) {
@@ -1075,16 +1073,12 @@ int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev)
 			}
 
 			if (!udev->run_final && rule->run.operation != KEY_OP_UNSET) {
-				char program[PATH_SIZE];
-
 				if (rule->run.operation == KEY_OP_ASSIGN || rule->run.operation == KEY_OP_ASSIGN_FINAL) {
 					info("reset run list");
 					name_list_cleanup(&udev->run_list);
 				}
-				strlcpy(program, key_val(rule, &rule->run), sizeof(program));
-				udev_rules_apply_format(udev, program, sizeof(program));
-				dbg("add run '%s'", program);
-				name_list_add(&udev->run_list, program, 0);
+				dbg("add run '%s'", key_val(rule, &rule->run));
+				name_list_add(&udev->run_list, key_val(rule, &rule->run), 0);
 				if (rule->run.operation == KEY_OP_ASSIGN_FINAL)
 					break;
 			}
