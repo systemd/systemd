@@ -1,3 +1,7 @@
+udev 084
+========
+CROSS changed to CROSS_COMPILE to match the kernel build.
+
 udev 083
 ========
 Fix a bug where NAME="" would prevent RUN from beeing executed.

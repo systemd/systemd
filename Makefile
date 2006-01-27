@@ -109,13 +109,13 @@ INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 PWD = $(shell pwd)
 
-CROSS =
-CC = $(CROSS)gcc
-LD = $(CROSS)gcc
-AR = $(CROSS)ar
-RANLIB = $(CROSS)ranlib
+CROSS_COMPILE =
+CC = $(CROSS_COMPILE)gcc
+LD = $(CROSS_COMPILE)gcc
+AR = $(CROSS_COMPILE)ar
+RANLIB = $(CROSS_COMPILE)ranlib
 HOSTCC = gcc
-STRIP = $(CROSS)strip
+STRIP = $(CROSS_COMPILE)strip
 STRIPCMD = $(STRIP) -s
 
 CFLAGS		= -g -Wall -pipe -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
@@ -145,7 +145,7 @@ ifeq ($(strip $(USE_GCOV)),true)
 endif
 
 ifeq ($(strip $(USE_KLIBC)),true)
-	KLCC		= /usr/bin/$(CROSS)klcc
+	KLCC		= /usr/bin/$(CROSS_COMPILE)klcc
 	CC		= $(KLCC)
 	LD		= $(KLCC)
 	V = true
