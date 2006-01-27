@@ -1,3 +1,17 @@
+Summary of changes from v082 to v083
+============================================
+
+Andrey Borzenkov:
+      man page: document when substitutions are applied for RUN and other keys
+      check for ignore_device in loop looks redundant
+
+Kay Sievers:
+      udevstart: fix NAME="" which prevents RUN from being executed
+      find programs in /lib/udev for IMPORT if {program} is not given
+      don't add $SUBSYSTEM automatically as $1 to programs
+      remove redundant substitution of RUN key
+
+
 Summary of changes from v081 to v082
 ============================================
 
