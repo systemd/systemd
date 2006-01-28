@@ -527,7 +527,6 @@ static struct uevent_msg *get_msg_from_envbuf(const char *buf, int buf_size)
 		free(msg);
 		return NULL;
 	}
-
 	return msg;
 }
 
@@ -581,7 +580,6 @@ static struct uevent_msg *get_udevd_msg(void)
 
 	switch (usend_msg.type) {
 	case UDEVD_UEVENT_UDEVSEND:
-	case UDEVD_UEVENT_INITSEND:
 		info("udevd event message received");
 		envbuf_size = size - offsetof(struct udevd_msg, envbuf);
 		dbg("envbuf_size=%i", envbuf_size);
