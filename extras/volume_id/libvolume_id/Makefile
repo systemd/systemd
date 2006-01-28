@@ -53,14 +53,18 @@ all: $(LIBVOLUME_ID)
 .DEFAULT: all
 
 %.o: %.c
-	$(QUIET) $(CC) -c $(CFLAGS) $< -o $@
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
 $(LIBVOLUME_ID): $(HEADERS) $(OBJS)
-	@rm -f $@
-	$(QUIET) $(AR) cq $@ $(OBJS)
-	$(QUIET) $(RANLIB) $@
+	$(Q) rm -f $@
+	$(E) "  AR      " $@
+	$(Q) $(AR) cq $@ $(OBJS)
+	$(E) "  RANLIB  " $@
+	$(Q) $(RANLIB) $@
 
 clean:
-	rm -f $(LIBVOLUME_ID) $(OBJS)
+	$(E) "  CLEAN   "
+	$(Q) rm -f $(LIBVOLUME_ID) $(OBJS)
 .PHONY: clean
 

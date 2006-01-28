@@ -30,21 +30,26 @@ all: $(PROG) $(MAN_PAGES)
 .DEFAULT: all
 
 %.o: %.c $(GEN_HEADERS)
-	$(QUIET) $(CC) -c $(CFLAGS) $< -o $@
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
 $(PROG): %: $(HEADERS) %.o $(OBJS)
-	$(QUIET) $(LD) $(LDFLAGS) $@.o $(OBJS) -o $@ $(LIBUDEV) $(LIB_OBJS)
+	$(E) "  LD      " $@
+	$(Q) $(LD) $(LDFLAGS) $@.o $(OBJS) -o $@ $(LIBUDEV) $(LIB_OBJS)
 ifneq ($(strip $(STRIPCMD)),)
-	$(QUIET) $(STRIPCMD) $@
+	$(E) "  STRIP   " $@
+	$(Q) $(STRIPCMD) $@
 endif
 
 # man pages
 %.8: %.xml
-	xmlto man $?
+	$(E) "  XMLTO   " $@
+	$(Q) xmlto man $?
 .PRECIOUS: %.8
 
 clean:
-	rm -f $(PROG) $(OBJS) $(GEN_HEADERS)
+	$(E) "  CLEAN   "
+	$(Q) rm -f $(PROG) $(OBJS) $(GEN_HEADERS)
 .PHONY: clean
 
 install-bin: all

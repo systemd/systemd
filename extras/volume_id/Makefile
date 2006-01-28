@@ -29,25 +29,30 @@ all: $(PROG) $(MAN_PAGES)
 .DEFAULT: all
 
 %.o: %.c $(GEN_HEADERS)
-	$(QUIET) $(CC) -c $(CFLAGS) $< -o $@
+	$(E) "  CC      " $@
+	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
 $(LIBVOLUME_ID):
-	$(MAKE) -C libvolume_id
+	$(Q) $(MAKE) -C libvolume_id
 
 $(PROG): %: $(HEADERS) %.o $(LIBVOLUME_ID)
-	$(QUIET) $(LD) $(LDFLAGS) $@.o $(LIBVOLUME_ID) -o $@ $(LIBUDEV) $(LIB_OBJS)
+	$(E) "  LD      " $@
+	$(Q) $(LD) $(LDFLAGS) $@.o $(LIBVOLUME_ID) -o $@ $(LIBUDEV) $(LIB_OBJS)
 ifneq ($(strip $(STRIPCMD)),)
-	$(QUIET) $(STRIPCMD) $@
+	$(E) "  STRIP   " $@
+	$(Q) $(STRIPCMD) $@
 endif
 
 # man pages
 %.8: %.xml
-	xmlto man $?
+	$(E) "  XMLTO   " $@
+	$(Q) xmlto man $?
 .PRECIOUS: %.8
 
 clean:
-	rm -f $(PROG) $(OBJS) $(GEN_HEADERS)
-	$(MAKE) -C libvolume_id clean
+	$(E) "  CLEAN   "
+	$(Q) rm -f $(PROG) $(OBJS) $(GEN_HEADERS)
+	$(Q) $(MAKE) -C libvolume_id clean
 .PHONY: clean
 
 install-bin: all
