@@ -217,7 +217,7 @@ udev_version.h:
 	$(Q) echo \#define UDEV_RULES_FILE		\"$(configdir)/rules.d\" >> $@
 
 # man pages
-%.8 %.7: docs/%.xml
+%.8 %.7: %.xml
 	$(E) "  XMLTO   " $@
 	$(Q) xmlto man $?
 .PRECIOUS: %.8
