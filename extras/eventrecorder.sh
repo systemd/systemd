@@ -1,4 +1,4 @@
 #!/bin/sh
 
 [ -d /events ] || exit 0
-set > /events/debug.$SEQNUM.$1.$ACTION.$$
+set > /events/debug.$SEQNUM.$SUBSYSTEM.$ACTION.$$
