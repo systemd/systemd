@@ -54,6 +54,7 @@ struct udev_rules;
 
 struct sysfs_device {
 	struct list_head node;			/* for device cache */
+	struct sysfs_device *parent;		/* already cached parent*/
 	char devpath[PATH_SIZE];
 	char subsystem[NAME_SIZE];		/* $class/$bus/"drivers" */
 	char kernel_name[NAME_SIZE];		/* device instance name */
