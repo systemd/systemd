@@ -348,14 +348,14 @@ static int wait_for_sysfs(struct udevice *udev, const char *file, int timeout)
 
 	snprintf(filename, sizeof(filename), "%s%s/%s", sysfs_path, udev->dev->devpath, file);
 	filename[sizeof(filename)-1] = '\0';
-	dbg("wait %i sec for '%s'", timeout, filename);
+	dbg("will wait %i sec for '%s'", timeout, filename);
 
 	while (--loop) {
 		if (stat(filename, &stats) == 0) {
 			info("file '%s' appeared after %i loops", filename, (timeout * WAIT_LOOP_PER_SECOND) - loop-1);
 			return 0;
 		}
-		info("wait for %i mseconds", 1000 / WAIT_LOOP_PER_SECOND);
+		info("wait for '%s' for %i mseconds", filename, 1000 / WAIT_LOOP_PER_SECOND);
 		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
 	}
 	err("waiting for '%s' failed", filename);
@@ -781,6 +781,8 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 				size_t len;
 
 				value = sysfs_attr_get_value(udev->dev_parent->devpath, key_name);
+				if (value == NULL)
+					value = sysfs_attr_get_value(udev->dev->devpath, key_name);
 				if (value == NULL)
 					goto try_parent;
 				strlcpy(val, value, sizeof(val));
