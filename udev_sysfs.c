@@ -175,7 +175,7 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 	}
 
 	/* it is a new device */
-	dbg("'%s'", devpath_real);
+	dbg("new uncached device '%s'", devpath_real);
 	dev = malloc(sizeof(struct sysfs_device));
 	if (dev == NULL)
 		return NULL;
@@ -253,6 +253,9 @@ struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
 	int len;
 	int back;
 
+	dbg("open '%s'", dev->devpath);
+
+	/* look if we already know the parent */
 	if (dev->parent != NULL)
 		return dev->parent;
 
@@ -271,7 +274,7 @@ struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
 		return NULL;
 	pos[0] = '\0';
 
-	/* are we at the top level */
+	/* are we at the top level of /devices */
 	if (strcmp(parent_devpath, "/devices") == 0) {
 		dbg("/devices top level");
 		return NULL;
@@ -289,6 +292,7 @@ struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
 			goto device_link;
 		}
 	}
+	/* get parent and remember it */
 	dev->parent = sysfs_device_get(parent_devpath);
 	return dev->parent;
 
@@ -316,6 +320,7 @@ device_link:
 	strlcat(parent_devpath, "/", sizeof(parent_devpath));
 	strlcat(parent_devpath, &device_link_target[back * 3], sizeof(parent_devpath));
 
+	/* get parent and remember it */
 	dev->parent = sysfs_device_get(parent_devpath);
 	return dev->parent;
 }
@@ -344,6 +349,7 @@ char *sysfs_attr_get_value(const char *devpath, const char *attr_name)
 	ssize_t size;
 	size_t sysfs_len;
 
+	dbg("open '%s'/'%s'", devpath, attr_name);
 	sysfs_len = strlcpy(path_full, sysfs_path, sizeof(path_full));
 	path = &path_full[sysfs_len];
 	strlcat(path_full, devpath, sizeof(path_full));
@@ -359,18 +365,21 @@ char *sysfs_attr_get_value(const char *devpath, const char *attr_name)
 	}
 
 	/* store attribute in cache (also negatives are kept in cache) */
+	dbg("new uncached attribute '%s'", path_full);
 	attr = malloc(sizeof(struct sysfs_attr));
 	if (attr == NULL)
 		return NULL;
 	memset(attr, 0x00, sizeof(struct sysfs_attr));
 	strlcpy(attr->path, path, sizeof(attr->path));
-	dbg("add to cache '%s' '%s'", attr->path, attr->value);
+	dbg("add to cache '%s'", path_full);
 	list_add(&attr->node, &attr_list);
 
 	/* read attribute value */
 	fd = open(path_full, O_RDONLY);
-	if (fd < 0)
+	if (fd < 0) {
+		dbg("attribute '%s' does not exist", path_full);
 		goto out;
+	}
 	size = read(fd, value, sizeof(value));
 	close(fd);
 	if (size < 0)
@@ -381,6 +390,7 @@ char *sysfs_attr_get_value(const char *devpath, const char *attr_name)
 	/* got a valid value, store and return it */
 	value[size] = '\0';
 	remove_trailing_chars(value, '\n');
+	dbg("cache '%s' with value '%s'", path_full, value);
 	strlcpy(attr->value_local, value, sizeof(attr->value_local));
 	attr->value = attr->value_local;
 
