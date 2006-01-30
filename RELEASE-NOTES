@@ -1,6 +1,12 @@
 udev 084
 ========
-CROSS changed to CROSS_COMPILE to match the kernel build.
+If BUS== and SYSFS{}== have been used in the same rule, the sysfs
+attributes are only checked at the parent device that matched the
+by BUS requested subsystem. Fix t to also look at the device we
+received the event for.
+
+Build variable CROSS has changed to CROSS_COMPILE to match the kernel
+build name.
 
 udev 083
 ========

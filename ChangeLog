@@ -1,3 +1,19 @@
+Summary of changes from v083 to v084
+============================================
+
+Kay Sievers:
+      update SUSE rules
+      switch CROSS to CROSS_COMPILE
+      replace fancy silent build program by simple kernel build like logic
+      move manpages to top level
+      remove UDEVD_UEVENT_INITSEND
+      whitespace fixes
+      scsi_id: remove dead files
+      optimize sysfs device and attribute cache
+      let SYSFS{} look at the device, not only the parent device
+      add debug output to sysfs operations
+
+
 Summary of changes from v082 to v083
 ============================================
 
