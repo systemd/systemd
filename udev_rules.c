@@ -733,19 +733,13 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 	}
 
 	if (rule->wait_for_sysfs.operation != KEY_OP_UNSET) {
-		int match;
+		int found;
 
-		match = (wait_for_sysfs(udev, key_val(rule, &rule->wait_for_sysfs), 3) == 0);
-		if (match && (rule->wait_for_sysfs.operation != KEY_OP_NOMATCH)) {
-			dbg("WAIT_FOR_SYSFS is true (matching value)");
-			return 0;
+		found = (wait_for_sysfs(udev, key_val(rule, &rule->wait_for_sysfs), 3) == 0);
+		if (!found && (rule->wait_for_sysfs.operation != KEY_OP_NOMATCH)) {
+			dbg("WAIT_FOR_SYSFS failed");
+			goto nomatch;
 		}
-		if (!match && (rule->wait_for_sysfs.operation == KEY_OP_NOMATCH)) {
-			dbg("WAIT_FOR_SYSFS is true, (non matching value)");
-			return 0;
-		}
-		dbg("WAIT_FOR_SYSFS is false");
-		return -1;
 	}
 
 	/* walk up the chain of parent devices and find a match */
