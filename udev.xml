@@ -315,7 +315,7 @@
             <varlistentry>
               <term><option>GOTO</option></term>
               <listitem>
-                <para>Jumps to the next LABEL with a matching gname</para>
+                <para>Jumps to the next LABEL with a matching name</para>
               </listitem>
             </varlistentry>
 
