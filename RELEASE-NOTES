@@ -1,8 +1,8 @@
 udev 084
 ========
 If BUS== and SYSFS{}== have been used in the same rule, the sysfs
-attributes are only checked at the parent device that matched the
-by BUS requested subsystem. Fix t to also look at the device we
+attributes were only checked at the parent device that matched the
+by BUS requested subsystem. Fix it to also look at the device we
 received the event for.
 
 Build variable CROSS has changed to CROSS_COMPILE to match the kernel
@@ -22,7 +22,7 @@ to the key like RUN+="/bin/program $env{SUBSYSTEM}".
 
 udev 082
 ========
-The udev man page has moced to udev(7) as it doesnot describe a command
+The udev man page has moved to udev(7) as it does not describe a command
 anymore. The programs udev, udevstart and udevsend are no longer installed
 by default and must be copied manually, if they should be installed or
 included in a package.
