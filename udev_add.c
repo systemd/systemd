@@ -26,11 +26,12 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include <grp.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <grp.h>
-#include <net/if.h>
+#include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <net/if.h>
 #include <linux/sockios.h>
 
 #include "udev.h"
