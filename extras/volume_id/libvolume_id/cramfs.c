@@ -52,7 +52,7 @@ int volume_id_probe_cramfs(struct volume_id *id, uint64_t off)
 	if (cs == NULL)
 		return -1;
 
-	if (memcmp(cs->magic, "\x45\x3d\xcd\x28", 4) == 0) {
+	if (memcmp(cs->magic, "\x45\x3d\xcd\x28", 4) == 0 || memcmp(cs->magic, "\x28\xcd\x3d\x45", 4) == 0) {
 		volume_id_set_label_raw(id, cs->name, 16);
 		volume_id_set_label_string(id, cs->name, 16);
 
