@@ -1,0 +1,20 @@
+ACTION!="add", GOTO="persistent_input_end"
+SUBSYSTEM!="input", GOTO="persistent_input_end"
+KERNEL=="input[0-9]*", GOTO="persistent_input_end"
+
+# usb devices
+BUS=="usb", IMPORT{program}="/sbin/usb_id -x"
+BUS=="usb", SYSFS{bInterfaceClass}="03", SYSFS{bInterfaceProtocol}="01", ENV{ID_CLASS}="kbd"
+BUS=="usb", SYSFS{bInterfaceClass}="03", SYSFS{bInterfaceProtocol}="02", ENV{ID_CLASS}="mouse"
+
+# by-id links
+KERNEL=="mouse*", ENV{ID_BUS}=="?*", ENV{ID_SERIAL}=="?*", ENV{ID_CLASS}=="?*", SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-$env{ID_CLASS}"
+KERNEL=="event*", ENV{ID_BUS}=="?*", ENV{ID_SERIAL}=="?*", ENV{ID_CLASS}=="?*", SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-event-$env{ID_CLASS}"
+
+# by-path
+IMPORT{program}="/sbin/path_id %p"
+ENV{ID_PATH}=="?*", KERNEL=="mouse*", SYMLINK+="input/by-path/$env{ID_PATH}-$env{ID_CLASS}"
+ENV{ID_PATH}=="?*", KERNEL=="event*", SYMLINK+="input/by-path/$env{ID_PATH}-$env{ID_CLASS}"
+
+LABEL="persistent_input_end"
+
