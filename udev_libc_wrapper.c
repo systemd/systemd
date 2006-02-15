@@ -25,6 +25,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <fcntl.h>
+#include <errno.h>
 #include <sys/types.h>
 
 #include "udev.h"
