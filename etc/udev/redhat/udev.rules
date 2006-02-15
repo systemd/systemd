@@ -3,6 +3,7 @@
 #
 # default is OWNER="root" GROUP="root", MODE="0600"
 #
+
 KERNEL="*", OWNER="root" GROUP="root", MODE="0600"
 
 # all block devices
@@ -10,40 +11,44 @@ SUBSYSTEM=="block",		GROUP="disk", MODE="0640"
 KERNEL=="root",			GROUP="disk", MODE="0640"
 
 # console devices
-KERNEL=="tty",			MODE="0666", OPTIONS="last_rule"
-KERNEL=="console",		MODE="0600", OPTIONS="last_rule"
-KERNEL=="tty[0-9]",		GROUP="tty", MODE="0660", OPTIONS="last_rule"
-KERNEL=="tty[0-9][0-9]*",	GROUP="tty", MODE="0660", OPTIONS="last_rule"
-KERNEL=="vc/[0-9]*",		GROUP="tty", MODE="0660", OPTIONS="last_rule"
+KERNEL=="tty",			NAME="%k", GROUP="tty", MODE="0666", OPTIONS="last_rule"
+KERNEL=="console",              NAME="%k", MODE="0600", OPTIONS="last_rule"
+KERNEL=="tty[0-9]*",            NAME="%k", GROUP="tty", MODE="0660", OPTIONS="last_rule"
+KERNEL=="vc/[0-9]*",		NAME="%k", GROUP="tty", MODE="0660", OPTIONS="last_rule"
 
 # pty devices
 #  Set this to 0660 if you only want users belonging to tty group
 #  to be able to allocate PTYs
-KERNEL=="ptmx",			GROUP="tty", MODE="0666", OPTIONS="last_rule"
-KERNEL=="pty[p-za-e][0-9a-f]*",	GROUP="tty", MODE="0660", OPTIONS="last_rule"
-KERNEL=="tty[p-za-e][0-9a-f]*",	GROUP="tty", MODE="0660", OPTIONS="last_rule"
-KERNEL=="pty/m*",		GROUP="tty", MODE="0660", OPTIONS="last_rule"
-KERNEL=="vc/s*",		GROUP="tty", MODE="0660", OPTIONS="last_rule"
+KERNEL=="ptmx",                 NAME="%k", GROUP="tty", MODE="666", OPTIONS="last_rule"
+KERNEL=="pty[pqrstuvwxyzabcdef][0123456789abcdef]", NAME="%k", GROUP="tty", MODE="660", OPTIONS="last_rule"
+KERNEL=="tty[pqrstuvwxyzabcdef][0123456789abcdef]", NAME="%k", GROUP="tty", MODE="660", OPTIONS="last_rule"
+KERNEL=="pty/m*",		NAME="%k", GROUP="tty", MODE="0660", OPTIONS="last_rule"
 
 # serial+dialup devices
-KERNEL=="ttyS*",		GROUP="uucp", MODE="0660", OPTIONS="last_rule"
-KERNEL=="ttyACM*",		GROUP="uucp", MODE="0660", OPTIONS="last_rule"
-KERNEL=="ttyUSB*",		GROUP="uucp", MODE="0660", OPTIONS="last_rule"
-KERNEL=="ippp*",		MODE="0660"
-KERNEL=="isdn*",		MODE="0660"
-KERNEL=="isdnctrl*",		MODE="0660"
-KERNEL=="capi*",		MODE="0660"
-KERNEL=="dcbri*",		MODE="0660"
-KERNEL=="ircomm*",		GROUP="uucp", MODE="0660"
-KERNEL=="tts/[0-9]*",		GROUP="uucp", MODE="0660"
-KERNEL=="tts/USB[0-9]*",	GROUP="uucp", MODE="0660"
+KERNEL=="ippp*",		NAME="%k", MODE="0660"
+KERNEL=="isdn*",		NAME="%k", MODE="0660"
+KERNEL=="isdnctrl*",		NAME="%k", MODE="0660"
+KERNEL=="capi*",		NAME="%k", MODE="0660"
+KERNEL=="dcbri*",		NAME="%k", MODE="0660"
+KERNEL=="ircomm*",		NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL=="tts/[0-9]*",		NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL=="tts/USB[0-9]*",	NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL=="tty[A-Z]*",            NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL=="pppox*",               NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL=="ircomm*",              NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL=="modems/mwave*",        NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL=="hvc*",                 NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL=="hvsi*",                NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL=="iseries/vtty*",        NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL=="ttyUSB*", SYSFS{product}=="Palm Handheld*", SYMLINK+="pilot"
+KERNEL=="ttyUSB*", SYSFS{product}=="palmOne Handheld*", SYMLINK+="pilot"
 
 # vc devices
-KERNEL=="vcs",			OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
-KERNEL=="vcs[0-9]*",		OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
-KERNEL=="vcsa",			OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
-KERNEL=="vcsa[0-9]*",		OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
-KERNEL=="vcc/*",		OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
+KERNEL=="vcs",			NAME="%k", OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
+KERNEL=="vcs[0-9]*",		NAME="%k", OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
+KERNEL=="vcsa",			NAME="%k", OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
+KERNEL=="vcsa[0-9]*",		NAME="%k", OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
+KERNEL=="vcc/*",		NAME="%k", OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
 
 # memory devices
 KERNEL=="random",		MODE="0666", OPTIONS="last_rule"
@@ -54,6 +59,8 @@ KERNEL=="port",			GROUP="kmem", MODE="0640", OPTIONS="last_rule"
 KERNEL=="full",			MODE="0666", OPTIONS="last_rule"
 KERNEL=="null",			MODE="0666", OPTIONS="last_rule"
 KERNEL=="zero",			MODE="0666", OPTIONS="last_rule"
+# 183 = /dev/hwrng        Generic random number generator
+KERNEL=="hw_random",            NAME="hwrng", SYMLINK+="%k"
 
 # misc devices
 KERNEL=="nvram",		MODE="0660"
@@ -61,6 +68,10 @@ KERNEL=="rtc",			MODE="0644"
 
 # floppy devices
 KERNEL=="fd[01]*",		GROUP="floppy", MODE="0660"
+# fix floppy devices
+KERNEL=="nvram", ACTION=="add", RUN+="load_floppy_module.sh"
+KERNEL=="fd[0-9]*", ACTION=="add", SYSFS{device/cmos}=="*", RUN+="create_floppy_devices -c -t $sysfs{device/cmos} -m %M /dev/%k"
+KERNEL=="fd[0-9]*", ACTION=="remove", RUN+="/bin/sh -c 'rm -f /dev/%k*'"
 
 # audio devices
 KERNEL=="dsp*",			MODE="0660"
@@ -209,7 +220,7 @@ KERNEL=="pcd[0-9]*",		SYMLINK+="cdrom%e"
 KERNEL=="fd[0-9]*",		SYMLINK+="floppy%e"
 KERNEL=="nst[0-9]", BUS=="scsi", 	SYMLINK+="tape%e", MODE="0660"
 KERNEL=="nosst[0-9]", BUS=="scsi", 	SYMLINK+="tape%e", MODE="0660"
-KERNEL=="sg[0-9]*", BUS="scsi", SYSFS{type}=="6", SYMLINK+="scanner%e", MODE="0660"
+KERNEL=="sg[0-9]*", BUS="scsi", SYSFS{type}=="[36]", SYMLINK+="scanner%e", MODE="0660"
 
 KERNEL=="umad*", 		NAME="infiniband/%k"
 KERNEL=="issm*", 		NAME="infiniband/%k"
@@ -224,24 +235,25 @@ KERNEL=="zap[0-9]*",  		NAME="zap/%n"
 BUS=="scsi", KERNEL=="sg[0-9]*", SYSFS{type}=="6", NAME="%k", SYMLINK="scanner%e", MODE="0660"
 
 # do not seperate the next 2 lines!!
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="/lib/udev/ide-media.sh %k", RESULT=="floppy", SYMLINK+="floppy%e", NAME{ignore_remove, all_partitions}="%k"
+KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="ide-media.sh %k", RESULT=="floppy", SYMLINK+="floppy%e", NAME{ignore_remove, all_partitions}="%k"
 
 KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", RESULT=="cdrom", SYMLINK+="cdrom%e"
 
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="/lib/udev/check-cdrom.sh %k DVD", SYMLINK+="dvd%e"
-KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="/lib/udev/check-cdrom.sh %k DVD", SYMLINK+="dvd%e"
+KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="check-cdrom.sh %k DVD", SYMLINK+="dvd%e"
+KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k DVD", SYMLINK+="dvd%e"
 
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="/lib/udev/check-cdrom.sh %k CD-R", SYMLINK+="cdwriter%e"
-KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="/lib/udev/check-cdrom.sh %k CD-R", SYMLINK+="cdwriter%e"
+KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="check-cdrom.sh %k CD-R", SYMLINK+="cdwriter%e"
+KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k CD-R", SYMLINK+="cdwriter%e"
 
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM="/lib/udev/check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter%e"
-KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="/lib/udev/check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter%e"
+KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM="check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter%e"
+KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter%e"
 
 # rename sr* to scd*
 KERNEL=="sr[0-9]*", BUS=="scsi", NAME="scd%n"
 KERNEL=="hd[a-z]*", BUS=="ide", SYSFS{removable}=="1", NAME{ignore_remove}="%k"
 
-KERNEL=="dvb*", PROGRAM=="/lib/udev/dvb.sh %k", NAME="%c"
+# dvb
+SUBSYSTEM=="dvb", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}'", NAME="%c"
 
 #######################################
 # Persistent block device stuff - begin
@@ -297,37 +309,31 @@ LABEL="persistent_end"
 # Persistent block device stuff - end
 #####################################
 
-ACTION=="add", SUBSYSTEM=="usb_device", PROGRAM="/bin/sh -c 'X=%k X=$${X#usbdev} B=$${X%%%%.*} D=$${X#*.}; echo bus/usb/$$B/$$D'", SYMLINK+="%c"
-
+ACTION=="add", SUBSYSTEM=="usb_device", PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", NAME="%c", MODE="0644"
 
 # Perhaps this should just be for all subsystems?
+ACTION=="add", SUBSYSTEM=="?*", MODALIAS=="?*", RUN+="/sbin/modprobe $modalias"
 
-ACTION=="add", SUBSYSTEM=="pci", MODALIAS=="*", \
-	RUN+="/sbin/modprobe $modalias"
-ACTION=="add", SUBSYSTEM=="usb", MODALIAS=="*", \
-	RUN+="/sbin/modprobe $modalias"
-ACTION=="add", SUBSYSTEM=="pcmcia", MODALIAS=="*", \
-	RUN+="/sbin/modprobe $modalias"
 ACTION=="add", SUBSYSTEM=="pcmcia", MODALIAS=="*", \
         RUN+="/bin/sh -c 'echo 1 > /sys/$DEVPATH/allow_func_id_match'"
 
-ACTION=="add", SUBSYSTEM=="ieee1394", MODALIAS=="*", \
-	RUN+="/sbin/modprobe $modalias"
+# sd:           0 TYPE_DISK, 7 TYPE_MOD, 14 TYPE_RBC
+# sr:           4 TYPE_WORM, 5 TYPE_ROM
+# st/osst:      1 TYPE_TAPE
+ACTION=="add", SUBSYSTEM="scsi" , SYSFS{type}=="0|7|14", RUN+="/bin/sh -c 'echo 60 > /sys$$DEVPATH/timeout'"
+ACTION=="add", SUBSYSTEM="scsi" , SYSFS{type}=="1", RUN+="/bin/sh -c 'echo 900 > /sys$$DEVPATH/timeout'"
 
-ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="[07]", \
+ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="0|7|14", \
 	RUN+="/sbin/modprobe sd_mod"
-ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="14", \
-	RUN+="/sbin/modprobe sd_mod"
-ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="[45]", \
+ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="[45]", \
 	RUN+="/sbin/modprobe sr_mod"
-ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="1", SYSFS{vendor}=="On[sS]tream", \
+ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="1", SYSFS{device/vendor}=="On[sS]tream", \
 	SYSFS{model}!="ADR*", RUN+="/sbin/modprobe osst"
-ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="1", SYSFS{vendor}=="On[sS]tream", \
+ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="1", SYSFS{device/vendor}=="On[sS]tream", \
 	SYSFS{model}=="ADR*", RUN+="/sbin/modprobe st"
-ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="1", SYSFS{vendor}!="On[sS]tream", \
+ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="1", SYSFS{device/vendor}!="On[sS]tream", \
 	RUN+="/sbin/modprobe st"
-ACTION=="add", SUBSYSTEM=="scsi", SYSFS{type}=="[23689]", \
-	RUN+="/sbin/modprobe sg"
+ACTION=="add", SUBSYSTEM=="scsi_device"	RUN+="/sbin/modprobe sg"
 
-ACTION=="add", SUBSYSTEM=="firmware", ENV{FIRMWARE}=="*", \
-        RUN+="/sbin/firmware_helper"
+RUN+="socket:/org/kernel/udev/monitor"
+
