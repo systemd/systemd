@@ -229,7 +229,7 @@ handle_block_scsi () {
 		;;
 		# PARISC devices
 		*parisc*)
-		adapter="${controler_dev##*/}"
+		adapter="${controller_dev##*/}"
 		bus=parisc;
 		;;
 		*)
