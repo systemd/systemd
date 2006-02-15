@@ -1,3 +1,24 @@
+Summary of changes from v084 to v085
+============================================
+
+Andrey Borzenkov:
+      Fix trivial spelling errors in RELEASE-NOTES
+
+Jeroen Roovers:
+      fix typo in parisc support to path_id
+
+Kay Sievers:
+      make WAIT_FOR_SYSFS usable in non "wait-only" rules
+      fix typo in man page
+      include sys/socket.h for klibc build
+      cramfs detection for bigendian
+      exit WAIT_FOR_SYSFS if the whole device goes away
+      update SUSE rules
+      update Red Hat rules
+      update Gentoo rules
+      include errno.h in udev_libc_wrapper.c
+
+
 Summary of changes from v083 to v084
 ============================================
 

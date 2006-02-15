@@ -1,3 +1,10 @@
+udev 085
+========
+Fix cramfs detection on big endian.
+
+Make WAIT_FOR_SYSFS usable in "normal" rules and silent if the whole
+device goes away.
+
 udev 084
 ========
 If BUS== and SYSFS{}== have been used in the same rule, the sysfs
