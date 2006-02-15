@@ -342,23 +342,33 @@ out:
 #define WAIT_LOOP_PER_SECOND		50
 static int wait_for_sysfs(struct udevice *udev, const char *file, int timeout)
 {
-	char filename[PATH_SIZE];
+	char devicepath[PATH_SIZE];
+	char filepath[PATH_SIZE];
 	struct stat stats;
 	int loop = timeout * WAIT_LOOP_PER_SECOND;
 
-	snprintf(filename, sizeof(filename), "%s%s/%s", sysfs_path, udev->dev->devpath, file);
-	filename[sizeof(filename)-1] = '\0';
-	dbg("will wait %i sec for '%s'", timeout, filename);
+	strlcpy(devicepath, sysfs_path, sizeof(devicepath));
+	strlcat(devicepath, udev->dev->devpath, sizeof(devicepath));
+	strlcpy(filepath, devicepath, sizeof(filepath));
+	strlcat(filepath, "/", sizeof(filepath));
+	strlcat(filepath, file, sizeof(filepath));
 
+	dbg("will wait %i sec for '%s'", timeout, filepath);
 	while (--loop) {
-		if (stat(filename, &stats) == 0) {
-			info("file '%s' appeared after %i loops", filename, (timeout * WAIT_LOOP_PER_SECOND) - loop-1);
+		/* lookup file */
+		if (stat(filepath, &stats) == 0) {
+			info("file '%s' appeared after %i loops", filepath, (timeout * WAIT_LOOP_PER_SECOND) - loop-1);
 			return 0;
 		}
-		info("wait for '%s' for %i mseconds", filename, 1000 / WAIT_LOOP_PER_SECOND);
+		/* make sure the device does not have disappeared in the meantime */
+		if (stat(devicepath, &stats) != 0) {
+			info("device disappeared while waiting for '%s'", filepath);
+			return -2;
+		}
+		info("wait for '%s' for %i mseconds", filepath, 1000 / WAIT_LOOP_PER_SECOND);
 		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
 	}
-	err("waiting for '%s' failed", filename);
+	err("waiting for '%s' failed", filepath);
 	return -1;
 }
 
