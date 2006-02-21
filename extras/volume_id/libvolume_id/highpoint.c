@@ -30,11 +30,11 @@
 struct hpt37x_meta {
 	uint8_t		filler1[32];
 	uint32_t	magic;
-} __attribute__((packed));
+} PACKED;
 
 struct hpt45x_meta {
 	uint32_t	magic;
-} __attribute__((packed));
+} PACKED;
 
 #define HPT37X_CONFIG_OFF		0x1200
 #define HPT37X_MAGIC_OK			0x5a7816f0

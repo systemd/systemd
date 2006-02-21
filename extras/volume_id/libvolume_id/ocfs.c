@@ -56,7 +56,7 @@ struct ocfs1_super_block_header {
 	uint64_t	new_cfg_off;
 	uint32_t	prot_bits;
 	int32_t		excl_mount;
-} __attribute__((__packed__));
+} PACKED;
 
 struct ocfs1_super_block_label {
 	struct ocfs1_disk_lock {
@@ -69,14 +69,14 @@ struct ocfs1_super_block_label {
 		uint32_t	reader_node_num;
 		uint64_t	oin_node_map;
 		uint64_t	dlock_seq_num;
-	} disk_lock __attribute__((__packed__));
+	} PACKED disk_lock;
 	uint8_t		label[64];
 	uint16_t	label_len;
 	uint8_t		vol_id[16];
 	uint16_t	vol_id_len;
 	uint8_t		cluster_name[64];
 	uint16_t	cluster_name_len;
-} __attribute__((__packed__));
+} PACKED;
 
 struct ocfs2_super_block {
 	uint8_t		i_signature[8];
@@ -125,7 +125,7 @@ struct ocfs2_super_block {
 	uint64_t	s_first_cluster_group;
 	uint8_t		s_label[64];
 	uint8_t		s_uuid[16];
-} __attribute__((__packed__));
+} PACKED;
 
 int volume_id_probe_ocfs1(struct volume_id *id, uint64_t off)
 {

@@ -56,7 +56,7 @@ struct sysv_super
 	uint32_t	s_state;
 	uint32_t	s_magic;
 	uint32_t	s_type;
-} __attribute__((__packed__));
+} PACKED;
 
 #define XENIX_NICINOD				100
 #define XENIX_NICFREE				100
@@ -82,7 +82,7 @@ struct xenix_super {
 	uint8_t		s_fill[371];
 	uint32_t	s_magic;
 	uint32_t	s_type;
-} __attribute__((__packed__));
+} PACKED;
 
 #define SYSV_SUPERBLOCK_BLOCK			0x01
 #define SYSV_MAGIC				0xfd187e20

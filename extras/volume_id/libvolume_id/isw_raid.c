@@ -33,7 +33,7 @@ struct isw_meta {
 	uint32_t	mpb_size;
 	uint32_t	family_num;
 	uint32_t	generation_num;
-} __attribute__((packed));
+} PACKED;
 
 #define ISW_SIGNATURE		"Intel Raid ISM Cfg Sig. "
 

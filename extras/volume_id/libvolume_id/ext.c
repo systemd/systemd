@@ -61,7 +61,7 @@ struct ext2_super_block {
 	uint32_t	s_feature_ro_compat;
 	uint8_t		s_uuid[16];
 	uint8_t		s_volume_name[16];
-} __attribute__((__packed__));
+} PACKED;
 
 #define EXT_SUPER_MAGIC				0xEF53
 #define EXT3_FEATURE_COMPAT_HAS_JOURNAL		0x00000004

@@ -34,7 +34,7 @@ struct swap_header_v1_2 {
 	uint32_t	nr_badpages;
 	uint8_t		uuid[16];
 	uint8_t		volume_name[16];
-} __attribute__((__packed__)) *sw;
+} PACKED *sw;
 
 #define LARGEST_PAGESIZE			0x4000
 

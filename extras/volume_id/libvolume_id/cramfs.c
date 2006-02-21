@@ -38,9 +38,9 @@ struct cramfs_super {
 		uint32_t	edition;
 		uint32_t	blocks;
 		uint32_t	files;
-	} __attribute__((__packed__)) info;
+	} PACKED info;
 	uint8_t		name[16];
-} __attribute__((__packed__));
+} PACKED;
 
 int volume_id_probe_cramfs(struct volume_id *id, uint64_t off)
 {

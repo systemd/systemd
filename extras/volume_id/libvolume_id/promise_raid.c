@@ -29,7 +29,7 @@
 
 struct promise_meta {
 	uint8_t	sig[24];
-} __attribute__((packed));
+} PACKED;
 
 #define PDC_CONFIG_OFF		0x1200
 #define PDC_SIGNATURE		"Promise Technology, Inc."

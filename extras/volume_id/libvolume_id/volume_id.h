@@ -16,6 +16,10 @@
 
 #define VOLUME_ID_VERSION		56
 
+#ifndef PACKED
+#define PACKED				__attribute__((packed))
+#endif
+
 #define VOLUME_ID_LABEL_SIZE		64
 #define VOLUME_ID_UUID_SIZE		36
 #define VOLUME_ID_FORMAT_SIZE		32

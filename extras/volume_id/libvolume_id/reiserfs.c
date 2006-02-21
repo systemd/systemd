@@ -42,7 +42,7 @@ struct reiserfs_super_block {
 	uint32_t	dummy4[5];
 	uint8_t		uuid[16];
 	uint8_t		label[16];
-} __attribute__((__packed__));
+} PACKED;
 
 struct reiser4_super_block {
 	uint8_t		magic[16];
@@ -50,7 +50,7 @@ struct reiser4_super_block {
 	uint8_t		uuid[16];
 	uint8_t		label[16];
 	uint64_t	dummy2;
-} __attribute__((__packed__));
+} PACKED;
 
 #define REISERFS1_SUPERBLOCK_OFFSET		0x2000
 #define REISERFS_SUPERBLOCK_OFFSET		0x10000

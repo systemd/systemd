@@ -80,7 +80,7 @@ struct ufs_super_block {
 		uint32_t	cs_nbfree;
 		uint32_t	cs_nifree;
 		uint32_t	cs_nffree;
-	} __attribute__((__packed__)) fs_cstotal;
+	} PACKED fs_cstotal;
 	int8_t		fs_fmod;
 	int8_t		fs_clean;
 	int8_t		fs_ronly;
@@ -93,7 +93,7 @@ struct ufs_super_block {
 			uint32_t	fs_maxcluster;
 			uint32_t	fs_cpc;
 			uint16_t	fs_opostbl[16][8];
-		} __attribute__((__packed__)) fs_u1;
+		} PACKED fs_u1;
 		struct {
 			int8_t		fs_fsmnt[468];
 			uint8_t		fs_volname[32];
@@ -116,17 +116,17 @@ struct ufs_super_block {
 				uint64_t	cs_nffree;
 				uint64_t	cs_numclusters;
 				uint64_t	cs_spare[3];
-			} __attribute__((__packed__)) fs_cstotal;
+			} PACKED fs_cstotal;
 			struct ufs_timeval {
 				int32_t		tv_sec;
 				int32_t		tv_usec;
-			} __attribute__((__packed__)) fs_time;
+			} PACKED fs_time;
 			int64_t		fs_size;
 			int64_t		fs_dsize;
 			uint64_t	fs_csaddr;
 			int64_t		fs_pendingblocks;
 			int32_t		fs_pendinginodes;
-		} __attribute__((__packed__)) fs_u2;
+		} PACKED fs_u2;
 	}  fs_u11;
 	union {
 		struct {
@@ -136,7 +136,7 @@ struct ufs_super_block {
 			int32_t		fs_state;
 			uint32_t	fs_qbmask[2];
 			uint32_t	fs_qfmask[2];
-		} __attribute__((__packed__)) fs_sun;
+		} PACKED fs_sun;
 		struct {
 			int32_t		fs_sparecon[53];
 			int32_t		fs_reclaim;
@@ -144,7 +144,7 @@ struct ufs_super_block {
 			uint32_t	fs_npsect;
 			uint32_t	fs_qbmask[2];
 			uint32_t	fs_qfmask[2];
-		} __attribute__((__packed__)) fs_sunx86;
+		} PACKED fs_sunx86;
 		struct {
 			int32_t		fs_sparecon[50];
 			int32_t		fs_contigsumsize;
@@ -154,7 +154,7 @@ struct ufs_super_block {
 			uint32_t	fs_qbmask[2];
 			uint32_t	fs_qfmask[2];
 			int32_t		fs_state;
-		} __attribute__((__packed__)) fs_44;
+		} PACKED fs_44;
 	} fs_u2;
 	int32_t		fs_postblformat;
 	int32_t		fs_nrpos;
@@ -162,7 +162,7 @@ struct ufs_super_block {
 	int32_t		fs_rotbloff;
 	uint32_t	fs_magic;
 	uint8_t		fs_space[1];
-} __attribute__((__packed__));
+} PACKED;
 
 #define UFS_MAGIC			0x00011954
 #define UFS2_MAGIC			0x19540119

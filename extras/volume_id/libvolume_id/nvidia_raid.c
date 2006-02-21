@@ -32,7 +32,7 @@ struct nvidia_meta {
 	uint32_t	size;
 	uint32_t	chksum;
 	uint16_t	version;
-} __attribute__((packed));
+} PACKED;
 
 #define NVIDIA_SIGNATURE		"NVIDIA"
 

@@ -38,7 +38,7 @@ struct jfs_super_block {
 	uint8_t		uuid[16];
 	uint8_t		label[16];
 	uint8_t		loguuid[16];
-} __attribute__((__packed__));
+} PACKED;
 
 #define JFS_SUPERBLOCK_OFFSET			0x8000
 

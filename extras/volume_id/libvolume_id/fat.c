@@ -58,7 +58,7 @@ struct vfat_super_block {
 			uint8_t		magic[8];
 			uint8_t		dummy2[192];
 			uint8_t		pmagic[2];
-		} __attribute__((__packed__)) fat;
+		} PACKED fat;
 		struct fat32_super_block {
 			uint32_t	fat32_length;
 			uint16_t	flags;
@@ -73,9 +73,9 @@ struct vfat_super_block {
 			uint8_t		magic[8];
 			uint8_t		dummy2[164];
 			uint8_t		pmagic[2];
-		} __attribute__((__packed__)) fat32;
-	} __attribute__((__packed__)) type;
-} __attribute__((__packed__));
+		} PACKED fat32;
+	} PACKED type;
+} PACKED;
 
 struct vfat_dir_entry {
 	uint8_t		name[11];
@@ -89,7 +89,7 @@ struct vfat_dir_entry {
 	uint16_t	date_write;
 	uint16_t	cluster_low;
 	uint32_t	size;
-} __attribute__((__packed__));
+} PACKED;
 
 static uint8_t *get_attr_volume_id(struct vfat_dir_entry *dir, unsigned int count)
 {

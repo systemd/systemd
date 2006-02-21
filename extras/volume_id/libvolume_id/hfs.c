@@ -35,7 +35,7 @@ struct hfs_finder_info{
 	uint32_t	reserved;
 	uint32_t	osx_folder;
 	uint8_t		id[8];
-} __attribute__((__packed__));
+} PACKED;
 
 struct hfs_mdb {
 	uint8_t		signature[2];
@@ -65,7 +65,7 @@ struct hfs_mdb {
 	uint8_t		embed_sig[2];
 	uint16_t	embed_startblock;
 	uint16_t	embed_blockcount;
-} __attribute__((__packed__)) *hfs;
+} PACKED *hfs;
 
 struct hfsplus_bnode_descriptor {
 	uint32_t	next;
@@ -74,7 +74,7 @@ struct hfsplus_bnode_descriptor {
 	uint8_t		height;
 	uint16_t	num_recs;
 	uint16_t	reserved;
-} __attribute__((__packed__));
+} PACKED;
 
 struct hfsplus_bheader_record {
 	uint16_t	depth;
@@ -83,19 +83,19 @@ struct hfsplus_bheader_record {
 	uint32_t	leaf_head;
 	uint32_t	leaf_tail;
 	uint16_t	node_size;
-} __attribute__((__packed__));
+} PACKED;
 
 struct hfsplus_catalog_key {
 	uint16_t	key_len;
 	uint32_t	parent_id;
 	uint16_t	unicode_len;
 	uint8_t		unicode[255 * 2];
-} __attribute__((__packed__));
+} PACKED;
 
 struct hfsplus_extent {
 	uint32_t	start_block;
 	uint32_t	block_count;
-} __attribute__((__packed__));
+} PACKED;
 
 #define HFSPLUS_EXTENT_COUNT		8
 struct hfsplus_fork {
@@ -103,7 +103,7 @@ struct hfsplus_fork {
 	uint32_t	clump_size;
 	uint32_t	total_blocks;
 	struct hfsplus_extent extents[HFSPLUS_EXTENT_COUNT];
-} __attribute__((__packed__));
+} PACKED;
 
 struct hfsplus_vol_header {
 	uint8_t		signature[2];
@@ -132,7 +132,7 @@ struct hfsplus_vol_header {
 	struct hfsplus_fork cat_file;
 	struct hfsplus_fork attr_file;
 	struct hfsplus_fork start_file;
-} __attribute__((__packed__)) *hfsplus;
+} PACKED *hfsplus;
 
 #define HFS_SUPERBLOCK_OFFSET		0x400
 #define HFS_NODE_LEAF			0xff

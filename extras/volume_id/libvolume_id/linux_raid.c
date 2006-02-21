@@ -44,7 +44,7 @@ struct mdp_super_block {
 	uint32_t	set_uuid1;
 	uint32_t	set_uuid2;
 	uint32_t	set_uuid3;
-} __attribute__((packed)) *mdp;
+} PACKED *mdp;
 
 #define MD_RESERVED_BYTES		0x10000
 #define MD_MAGIC			0xa92b4efc

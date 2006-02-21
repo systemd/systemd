@@ -39,7 +39,7 @@ struct minix_super_block
 	uint16_t	s_magic;
 	uint16_t	s_state;
 	uint32_t	s_zones;
-} __attribute__((__packed__));
+} PACKED;
 
 #define MINIX_SUPERBLOCK_OFFSET			0x400
 

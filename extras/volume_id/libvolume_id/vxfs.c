@@ -32,7 +32,7 @@
 struct vxfs_super {
 	uint32_t		vs_magic;
 	int32_t			vs_version;
-} __attribute__((__packed__));
+} PACKED;
 
 int volume_id_probe_vxfs(struct volume_id *id, uint64_t off)
 {

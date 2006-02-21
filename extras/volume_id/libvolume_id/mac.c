@@ -31,7 +31,7 @@ struct mac_driver_desc {
 	uint8_t		signature[2];
 	uint16_t	block_size;
 	uint32_t	block_count;
-} __attribute__((__packed__));
+} PACKED;
 
 struct mac_partition {
 	uint8_t		signature[2];
@@ -41,7 +41,7 @@ struct mac_partition {
 	uint32_t	block_count;
 	uint8_t		name[32];
 	uint8_t		type[32];
-} __attribute__((__packed__));
+} PACKED;
 
 int volume_id_probe_mac_partition_map(struct volume_id *id, uint64_t off)
 {

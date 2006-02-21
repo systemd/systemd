@@ -32,7 +32,7 @@ struct romfs_super {
 	uint32_t size;
 	uint32_t checksum;
 	uint8_t name[0];
-} __attribute__((__packed__));
+} PACKED;
 
 int volume_id_probe_romfs(struct volume_id *id, uint64_t off)
 {

@@ -45,14 +45,14 @@ struct iso_volume_descriptor {
 	uint8_t		unused[8];
 	uint8_t		space_size[8];
 	uint8_t		escape_sequences[8];
-} __attribute__((__packed__));
+} PACKED;
 
 struct high_sierra_volume_descriptor {
 	uint8_t		foo[8];
 	uint8_t		type;
 	uint8_t		id[4];
 	uint8_t		version;
-} __attribute__((__packed__));
+} PACKED;
 
 int volume_id_probe_iso9660(struct volume_id *id, uint64_t off)
 {

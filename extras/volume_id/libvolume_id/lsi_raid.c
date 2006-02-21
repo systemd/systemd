@@ -29,7 +29,7 @@
 
 struct lsi_meta {
 	uint8_t		sig[6];
-} __attribute__((packed));
+} PACKED;
 
 #define LSI_SIGNATURE		"$XIDE$"
 
