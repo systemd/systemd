@@ -113,7 +113,7 @@ As your own rules will effectively mask out the udev defaults which create the b
 
 In rule files, lines starting with a "#" are treated as comments. Every uncommented line in the file corresponds to a rule.<br /><br />
 
-Rules are composed of keys. Keys are seperated by commas. Some keys are used for reading and matching information, others are used for assigning information and performing actions.
+Rules are composed of keys. Keys are seperated by commas. Some keys are used for reading and matching information, others are used for assigning information and performing actions. Matches and assignments are carried out with the expected operators (= and ==).
 
 <ol>
 <li>At least one <i>identification key</i> should be provided, which will match the rule to any number of devices in the system. These are listed in the later section: <a href="#identify-keys">Identifying devices through basic keys</a>.</li>
@@ -123,7 +123,7 @@ Rules are composed of keys. Keys are seperated by commas. Some keys are used for
 Common rules will use basic identification keys to determine the device to name, and then have a <i>NAME</i> assignement key to define the device node name. udev will only create one node for one device, so if you want it to be accessible through multiple nodes, then you have to specify the other nodes in the <i>SYMLINK</i> assignment key.<br /><br />
 
 I'll take a slightly modified udev example rule to illustrate this:
-<blockquote><pre>BUS="usb", SYSFS{serial}="HXOLL0012202323480", NAME="lp_epson", SYMLINK="printers/epson_stylus"</pre></blockquote>
+<blockquote><pre>BUS=="usb", SYSFS{serial}=="HXOLL0012202323480", NAME="lp_epson", SYMLINK="printers/epson_stylus"</pre></blockquote>
 
 The identification keys here are <i>BUS</i> and <i>SYSFS{serial}</i>. The assignment keys here are <i>NAME</i> and <i>SYMLINK</i>. udev will match this rule against a device that is connected through the USB bus <u>and</u> with a serial number of HXOLL0012202323480. <b>Note that <u>all</u> (as opposed to any) specified keys must be matched for udev to use the rule to name a device.</b><br />
 
@@ -140,7 +140,7 @@ In the NAME and SYMLINK parameters of your rules, you are able to use basic oper
 
 There are a number of operators which can compose some or all of your NAME/SYMLINK parameters. These operators refer to kernel-data relating to the device. Take this example:
 
-<blockquote><pre>BUS="usb", SYSFS{vendor}="FUJIFILM", SYSFS{model}="M100", NAME="camera%n"</pre></blockquote>
+<blockquote><pre>BUS=="usb", SYSFS{vendor}=="FUJIFILM", SYSFS{model}=="M100", NAME="camera%n"</pre></blockquote>
 
 The <i>%n</i> operator will be replaced with the "kernel number" for the camera device, to produce a NAME such as camera0, camera1, etc.<br /><br />
 
@@ -153,7 +153,7 @@ Another common operator is <i>%k</i>. This represents what the kernel would name
 
 You can use shell style pattern matching to provide even more flexibility when writing keys. Taking a default udev rule:
 
-<blockquote><pre>KERNEL="ts*", NAME="input/%k"</pre></blockquote>
+<blockquote><pre>KERNEL=="ts*", NAME="input/%k"</pre></blockquote>
 
 The * operator is used here, which matches literally anything - zero, one, or more characters of any kind. The rule literally says:<br />
 
@@ -166,7 +166,7 @@ You can also use square brackets [ ] to match any single character. Direct quote
 
 You can also specify ranges that can be matched, e.g. [0-9] would match any single digit. Using an example rule from a default udev installation:
 
-<blockquote><pre>KERNEL="fd[0-9]*", NAME="floppy/%n"</pre></blockquote>
+<blockquote><pre>KERNEL=="fd[0-9]*", NAME="floppy/%n"</pre></blockquote>
 
 This rule says:<br />
 
@@ -208,7 +208,7 @@ The ID and PLACE keys do have their uses, but they are not commonly used in rule
 <font size="2">Background information: SYSFS stores many small files under a tree of directories which provide information about your hardware. One file typically contains just one "data item" - e.g. device name, manufacturer, or product ID.<br /><br />
 Note that SYSFS{...} keys can be combined with the basic keys described in the previous section.</font><br /><br />
 
-You can use keys in the format SYSFS{<i>filename</i>} to match specific info from SYSFS, where <i>filename</i> corresponds to a file in your SYSFS tree.  For example, when my camera is connected, there is a file located at <i>/sys/block/sda/device/model</i> which contains "USB 2.0M DSC". To match this, I could use the following key: SYSFS{model} = "USB 2.0M DSC"<br /><br />
+You can use keys in the format SYSFS{<i>filename</i>} to match specific info from SYSFS, where <i>filename</i> corresponds to a file in your SYSFS tree.  For example, when my camera is connected, there is a file located at <i>/sys/block/sda/device/model</i> which contains "USB 2.0M DSC". To match this, I could use the following key: SYSFS{model} == "USB 2.0M DSC"<br /><br />
 
 <b>Note that <u>any</u> file in sysfs can be matched in this manner, but if you match more than one file (through multiple keys), then you must only match files that exist in the same directory.</b> Typically, there will be several directories giving information about one device. You cannot mix and match (as shown by example below).<br /><br />
 
@@ -237,42 +237,42 @@ Moving on to rule-writing, some snipped output of the results of my "udevinfo -a
 <pre><font color="#003300">
 follow the class device's "device"
   looking at the device chain at '/sys/devices/pci0000:00/0000:00:02.1/usb3/3-3/3-3:1.0/host0/0:0:0:0':
-    BUS="scsi"
-    ID="0:0:0:0"
-    SYSFS{detach_state}="0"
-    SYSFS{type}="0"
-    SYSFS{max_sectors}="240"
-    SYSFS{device_blocked}="0"
-    SYSFS{queue_depth}="1"
-    SYSFS{scsi_level}="3"
-    SYSFS{vendor}="        "
-    SYSFS{model}="USB 2.0M DSC    "
-    SYSFS{rev}="1.00"
-    SYSFS{online}="1"</font>
+    BUS=="scsi"
+    ID=="0:0:0:0"
+    SYSFS{detach_state}=="0"
+    SYSFS{type}=="0"
+    SYSFS{max_sectors}=="240"
+    SYSFS{device_blocked}=="0"
+    SYSFS{queue_depth}=="1"
+    SYSFS{scsi_level}=="3"
+    SYSFS{vendor}=="        "
+    SYSFS{model}=="USB 2.0M DSC    "
+    SYSFS{rev}=="1.00"
+    SYSFS{online}=="1"</font>
 <font color="#0000FF">
   looking at the device chain at '/sys/devices/pci0000:00/0000:00:02.1/usb3/3-3':
-    BUS="usb"
-    ID="3-3"
-    SYSFS{detach_state}="0"
-    SYSFS{bNumInterfaces}=" 1"
-    SYSFS{bConfigurationValue}="1"
-    SYSFS{bmAttributes}="c0"
-    SYSFS{bMaxPower}="  0mA"
-    SYSFS{idVendor}="052b"
-    SYSFS{idProduct}="1514"
-    SYSFS{bcdDevice}="0100"
-    SYSFS{bDeviceClass}="00"
-    SYSFS{bDeviceSubClass}="00"
-    SYSFS{bDeviceProtocol}="00"
-    SYSFS{bNumConfigurations}="1"
-    SYSFS{speed}="12"
-    SYSFS{manufacturer}="Tekom Technologies, Inc"
-    SYSFS{product}="USB 2.0M DSC"</font>
+    BUS=="usb"
+    ID=="3-3"
+    SYSFS{detach_state}=="0"
+    SYSFS{bNumInterfaces}==" 1"
+    SYSFS{bConfigurationValue}=="1"
+    SYSFS{bmAttributes}=="c0"
+    SYSFS{bMaxPower}=="  0mA"
+    SYSFS{idVendor}=="052b"
+    SYSFS{idProduct}=="1514"
+    SYSFS{bcdDevice}=="0100"
+    SYSFS{bDeviceClass}=="00"
+    SYSFS{bDeviceSubClass}=="00"
+    SYSFS{bDeviceProtocol}=="00"
+    SYSFS{bNumConfigurations}=="1"
+    SYSFS{speed}=="12"
+    SYSFS{manufacturer}=="Tekom Technologies, Inc"
+    SYSFS{product}=="USB 2.0M DSC"</font>
 </pre>
 
 The <i>udevinfo</i> tool provides a lot of information which you can simply copy-paste as udev rules. The reason that I have colour coded the above output is to point out that <b>you generally cannot mix and match information from different parts of the udevinfo output</b>. In the above output, I could not combine information from the different coloured sections - this is because each section of output refers to a different directory in SYSFS. For example, the following rule would not work:
-<blockquote><pre><font color="#003300">BUS="scsi"</font>, <font color="#0000FF">SYSFS{manufacturer}="Tekom Technologies, Inc"</font>, NAME="%k"</pre></blockquote>
-This rule would not work because I am combining information found in the section beginning with BUS="scsi" (green) with information only found in the blue section. The rule would work if I used BUS="usb", sticking only to information found in the blue section above.<br /><br />
+<blockquote><pre><font color="#003300">BUS=="scsi"</font>, <font color="#0000FF">SYSFS{manufacturer}=="Tekom Technologies, Inc"</font>, NAME="%k"</pre></blockquote>
+This rule would not work because I am combining information found in the section beginning with BUS=="scsi" (green) with information only found in the blue section. The rule would work if I used BUS=="usb", sticking only to information found in the blue section above.<br /><br />
 
 You will notice that a lot of information is not relevant for writing basic rules (there is so much of it!), you should generally be looking for information that you recognise and know will not change (e.g. model name).<br /><br />
 
@@ -293,7 +293,7 @@ The behaviour of your own rules masking the defaults can be overcome if you writ
 Another recent feature is the ability to write rules that do not specify a <i>NAME</i>, but instead they simply specify <i>SYMLINK</i> keys. This allows you to avoid the issue where your own rules effectively mask the udev defaults.<br /><br />
 
 Take the rule:<br />
-<blockquote><pre>KERNEL="hdc", SYMLINK="dvd"</pre></blockquote>
+<blockquote><pre>KERNEL=="hdc", SYMLINK="dvd"</pre></blockquote>
 
 When udev finds this rule, it will take a mental note of it. Upon finding another rule matching the same device which also includes a <i>NAME</i> parameter, udev will create the node as specified by the <i>NAME</i> parameter, plus symbolic links as specified by the <i>SYMLINK</i> parameters of both rules.<br />
 To put it into practical terms, when udev is naming nodes for my <i>hdc</i> device, it will use the default rules for block devices as usual, with the addition of my personal symlink "dvd".<br /><br />
@@ -307,23 +307,23 @@ As well as controlling the naming of the device nodes which are created, udev ru
 
 The <i>GROUP</i> key allows you to define which unix group should own the device node. Here's an example from the udev defaults, which defines that the <i>video</i> group will own framebuffer (fb) devices:
 
-<blockquote><pre>KERNEL="fb[0-9]*", NAME="fb/%n", SYMLINK="%k", GROUP="video"</pre></blockquote>
+<blockquote><pre>KERNEL=="fb[0-9]*", NAME="fb/%n", SYMLINK="%k", GROUP="video"</pre></blockquote>
 
 The <i>OWNER</i> key, perhaps less useful, allows you to define which unix user should own the device node. Assuming the slightly odd situation where you would want "john" to own your floppy devices, you could use:
 
-<blockquote><pre>KERNEL="fd[0-9]*", OWNER="john"</pre></blockquote>
+<blockquote><pre>KERNEL=="fd[0-9]*", OWNER="john"</pre></blockquote>
 
 You'll notice in the above rule that we didn't specify any <i>NAME</i> or <i>SYMLINK</i> keys. This is similar to the <a href="#multiple-symlink">multiple symlink style</a> where udev will take a mental note that we want john to own floppy nodes, and will apply that ownership once it finds a rule which defines a <i>NAME</i> for the floppy device nodes.<br /><br />
 
 Building on the style mentioned above, you can do even more flashy things. The udev defaults use the following rule to define that all the sound device nodes shall be owned by the "audio" group:
 
-<blockquote><pre>SUBSYSTEM="sound", GROUP="audio"</pre></blockquote>
+<blockquote><pre>SUBSYSTEM=="sound", GROUP="audio"</pre></blockquote>
 
-This prevents the need to excessively provide a <i>GROUP="audio"</i> key on every following rule which names sound devices.<br /><br />
+This prevents the need to excessively provide a <i>GROUP=="audio"</i> key on every following rule which names sound devices.<br /><br />
 
 udev defaults to creating nodes with unix permissions of 0660 (read/write to owner and group). There may be some situations where you do not want to use the default permissions on your device node. Fortunately, you can easily override the permissions in your rules using the <i>MODE</i> assignment key. As an example, the following rule defines that the inotify node shall be readable and writable to everyone:
 
-<blockquote><pre>KERNEL="inotify", NAME="misc/%k", SYMLINK="%k", MODE="0666"</pre></blockquote>
+<blockquote><pre>KERNEL=="inotify", NAME="misc/%k", SYMLINK="%k", MODE="0666"</pre></blockquote>
 
 <a name="example-printer"></a>
 <h2>Example: Writing a rule for my USB printer</h2>
@@ -337,14 +337,14 @@ After plugging in my printer, I started looking around some /sys directories for
 Running "udevinfo -a -p /sys/class/usb/lp0" provided me with a heap of info, as usual. I picked out the relevant bits for unique device identification:
 <blockquote><pre>
 looking at the device chain at '/sys/devices/pci0000:00/0000:00:02.1/usb3/3-3':
-BUS="usb"
-SYSFS{manufacturer}="EPSON"
-SYSFS{product}="USB Printer"
-SYSFS{serial}="L72010011070626380"
+BUS=="usb"
+SYSFS{manufacturer}=="EPSON"
+SYSFS{product}=="USB Printer"
+SYSFS{serial}=="L72010011070626380"
 </pre></blockquote>
 
 My udev rule becomes:
-<blockquote><pre>BUS="usb", SYSFS{serial}="L72010011070626380", NAME="%k", SYMLINK="epson_680"</pre></blockquote>
+<blockquote><pre>BUS=="usb", SYSFS{serial}=="L72010011070626380", NAME="%k", SYMLINK="epson_680"</pre></blockquote>
 
 And my printer nodes exist at <i>/dev/lp0</i> (or <i>/dev/lp1</i> if another printer was plugged in beforehand) and <i>/dev/epson_680</i> <b>always</b> points at the device node for that particular printer.<br /><br />
 
@@ -357,7 +357,7 @@ This one is a bit tricky. Several nodes are created by default when my camera is
 
 sda1 is the node that I would like as my <i>/dev/camera</i>, as that is what gets mounted. udevinfo did not point out any useful differences between sda, sda1, and sg1. I decided that a reliable way to differentiate between these 3 nodes would be to look at the <i>KERNEL</i> name.<br /><br />
 
-A key such as <i>KERNEL="sd?1"</i> would match KERNEL names such as "sda1", "sdb1", "sdc1", and equally importantly, it will <b>not</b> match KERNEL names such as sda, sdb, or sg1. The purpose of this key is to ignore the <i>/dev/sda</i> and <i>/dev/sg1</i> nodes. The device is a digital camera - I would not dream of fdisking it or anything like that, so these 2 nodes are pretty useless to me. The key attempts to capture the <i>/dev/sda1</i> node, which is mountable and therefore useful!<br /><br />
+A key such as <i>KERNEL=="sd?1"</i> would match KERNEL names such as "sda1", "sdb1", "sdc1", and equally importantly, it will <b>not</b> match KERNEL names such as sda, sdb, or sg1. The purpose of this key is to ignore the <i>/dev/sda</i> and <i>/dev/sg1</i> nodes. The device is a digital camera - I would not dream of fdisking it or anything like that, so these 2 nodes are pretty useless to me. The key attempts to capture the <i>/dev/sda1</i> node, which is mountable and therefore useful!<br /><br />
 
 As this node (sda1) is treated as a block device, looking in <i>/sys/block</i> would be a good place to start.<br /><br />
 
@@ -366,10 +366,10 @@ In my <i>/sys/block</i>, I have a directory named <i>sda</i>. In my <i>/sys/bloc
 <blockquote><pre># udevinfo -a -p /sys/block/sda/sda1</pre></blockquote>
 
 In the udevinfo output, I also noticed this bit of useful and understandable information:
-<blockquote><pre>SYSFS{product}="USB 2.0M DSC"</pre></blockquote>
+<blockquote><pre>SYSFS{product}=="USB 2.0M DSC"</pre></blockquote>
 
 So that gives me my rule. For completeness, I also include a BUS key (this was also found in the udevinfo output).
-<blockquote><pre>BUS="usb", SYSFS{product}="USB 2.0M DSC", KERNEL="sd?1", NAME="%k", SYMLINK="camera"</pre></blockquote>
+<blockquote><pre>BUS=="usb", SYSFS{product}=="USB 2.0M DSC", KERNEL=="sd?1", NAME="%k", SYMLINK="camera"</pre></blockquote>
 
 Now, when my camera is plugged in, it will be named <i>/dev/sda1</i> (or, if sda1 isnt available, it might be called <i>/dev/sdb1</i>) and will <b>always</b> be correctly linked to from <i>/dev/camera</i>. The /dev/sda (or sdb) node still appears as normal, but the important thing is that my custom persistent "camera" symlink points to the mountable partition.<br /><br />
 
@@ -379,7 +379,7 @@ Now, when my camera is plugged in, it will be named <i>/dev/sda1</i> (or, if sda
 <i>Carl Streeter</i>, the owner of a large USB hard disk, wrote to me and explained that unlike in my digital camera example, the <i>/dev/sda</i> node is useful to him. He pointed out that he does occasionally need to use tools such as <i>fdisk</i> and <i>hdparm</i> on that node.<br /><br />
 
 Carl's rule is:
-<blockquote><pre>BUS="usb", KERNEL="sd*", SYSFS{product}="USB 2.0 Storage Device", NAME="%k", SYMLINK="usbhd%n"</pre></blockquote>
+<blockquote><pre>BUS=="usb", KERNEL=="sd*", SYSFS{product}=="USB 2.0 Storage Device", NAME="%k", SYMLINK="usbhd%n"</pre></blockquote>
 
 This rule creates symlinks such as:
 <ul>
@@ -396,7 +396,7 @@ This problem also applies to other USB disks - e.g. if you create a new partitio
 
 udev provides a solution here - it is able to create nodes for all partitions of a block device. For every rule that you specify, the block device will have all 16 partition nodes created. To achieve this, you can simply modify the NAME key, as shown below:<br />
 
-<blockquote><pre>BUS="usb", SYSFS{product}="USB 2.0 Storage Device", NAME{all_partitions}="usbhd"</pre></blockquote>
+<blockquote><pre>BUS=="usb", SYSFS{product}=="USB 2.0 Storage Device", NAME{all_partitions}="usbhd"</pre></blockquote>
 
 You will now have nodes named: usbhd, usbhd1, usbhd2, usbhd3, ..., usbhd15.<br /><br />
 
@@ -407,8 +407,8 @@ I have two CD drives in my PC - a DVD reader, and a CD rewriter. My DVD is hdc a
 Still, some people (myself included) like to have nodes such as <i>/dev/dvd</i> and <i>/dev/cdrw</i> for convenience. Since we know the "hdX" values for these drives, writing rules is simple. The examples below should be self explanatory.
 
 <blockquote><pre>
-BUS="ide", KERNEL="hdc", NAME="%k", SYMLINK="dvd cdroms/cdrom%n"
-BUS="ide", KERNEL="hdd", NAME="%k", SYMLINK="cdrw cdroms/cdrom%n"
+BUS=="ide", KERNEL=="hdc", NAME="%k", SYMLINK="dvd cdroms/cdrom%n"
+BUS=="ide", KERNEL=="hdd", NAME="%k", SYMLINK="cdrw cdroms/cdrom%n"
 </pre></blockquote>
 
 <font size="2">You may have noticed that the default 50-udev.rules file contains a rule which runs a script to produces names for block devices. Do not be confused by this - as usual, because your own rules are located in a file which is processed <b>before</b> the default rules, the defaults will not be used when naming the hardware you have written rules for.</font><br /><br />
@@ -418,7 +418,7 @@ BUS="ide", KERNEL="hdd", NAME="%k", SYMLINK="cdrw cdroms/cdrom%n"
 
 These devices work as USB-serial devices, so by default, you only get the <i>ttyUSB1</i> node. The user-space palm utilities rely on <i>/dev/pilot</i>, so you need to use a rule to create this. The following rule will do the job:<br /><br />
 
-<blockquote><pre>BUS="usb", SYSFS{product}="Palm Handheld", KERNEL="ttyUSB*", SYMLINK="pilot"</pre></blockquote>
+<blockquote><pre>BUS=="usb", SYSFS{product}=="Palm Handheld", KERNEL=="ttyUSB*", SYMLINK="pilot"</pre></blockquote>
 
 This was adapted from <a href="http://www.clasohm.com/blog/one-entry?entry%5fid=12096">Carsten Clasohm's blog entry</a>, which includes a useful discussion of the situation. You may also wish to add <a href="#mode-owner-group">ownership and permission keys</a> to the rule to suit your setup.<br /><br />
 
@@ -431,14 +431,14 @@ As usual, udevinfo comes to our aid in rule-writing. In my example, I wish to re
 <blockquote><pre>
 # udevinfo -a -p /sys/class/net/eth0/
   looking at class device '/sys/class/net/eth0':
-    SYSFS{address}="00:52:8b:d5:04:48"
+    SYSFS{address}=="00:52:8b:d5:04:48"
 </pre></blockquote>
 
 Every network adapter has its own unique MAC-address, so I chose to use this when writing my rule. This will not change, unless you change your network card. There is one caveat here: make sure you use the MAC address you obtain from udevinfo (as above), because it is case sensitive. Be careful when using utilities such as <i>ifconfig</i> as they will capitalize the letters.<br /><br />
 
 An example rule is shown below:
 
-<blockquote><pre>KERNEL="eth*", SYSFS{address}="00:52:8b:d5:04:48", NAME="lan"</pre></blockquote>
+<blockquote><pre>KERNEL=="eth*", SYSFS{address}=="00:52:8b:d5:04:48", NAME="lan"</pre></blockquote>
 
 You will need to reload the net driver for this rule to take effect. You can either unload and reload the module, or simply reboot the system. You will also need to reconfigure your system to use "lan" rather than "eth0". I had some troubles getting this going (the interface wasn't being renamed) until I had completely dropped all references to eth0.<br />
 After that, you should be able to use "lan" instead of "eth0" in any calls to <i>ifconfig</i> or similar utilities.<br /><br />
@@ -452,7 +452,7 @@ After that, you should be able to use "lan" instead of "eth0" in any calls to <i
 <li>Always use udevinfo to assist the rule-writing process. Always use udevinfo to look under /sys/block or /sys/class (it will not start reading a chain from anywhere else).</li>
 <li>If you get totally stuck, use the following command to find all "dev" files under /sys (udevinfo can work on directories containing this file): find /sys -iname dev</li>
 <li>If your device is a flash-card reader, usb flash-drive, or digital camera that acts as usb-storage, that is created as /dev/sdX, then start looking in /sys/block/sdX.</li>
-<li>If applicable, make sure you identify the difference between sdX and sdX1 in the above situation. This can be done with the key <i>KERNEL="sd?1"</i> to match sdX1, or <i>KERNEL="sd?"</i> to match sdX.</li>
+<li>If applicable, make sure you identify the difference between sdX and sdX1 in the above situation. This can be done with the key <i>KERNEL="sd?1"</i> to match sdX1, or <i>KERNEL=="sd?"</i> to match sdX.</li>
 <li>For USB printers that are created as /dev/lpX, then you should start looking in /sys/class/usb/lpX.</li>
 
 <li>The usb scanner driver has recently been removed from the kernel and re-implemented in userspace (as part of the SANE package). You do not (and can not) write rules for this hardware as it does not rely on specific kernel drivers.</li>
