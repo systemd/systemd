@@ -14,7 +14,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define VOLUME_ID_VERSION		57
+#define VOLUME_ID_VERSION		58
 
 #ifndef PACKED
 #define PACKED				__attribute__((packed))
