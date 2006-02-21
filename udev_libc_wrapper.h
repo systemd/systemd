@@ -135,7 +135,11 @@ static inline int inotify_add_watch(int fd, const char *name, uint32_t mask)
 #endif
 
 #ifndef SO_RCVBUFFORCE
+#if defined(__alpha__) || defined(__hppa__) || defined(__sparc__) || defined(__sparc_v9__)
+#define SO_RCVBUFFORCE 0x100b
+#else
 #define SO_RCVBUFFORCE 33
+#endif
 #endif
 
 extern uid_t lookup_user(const char *user);
