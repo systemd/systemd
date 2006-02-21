@@ -14,7 +14,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define VOLUME_ID_VERSION		56
+#define VOLUME_ID_VERSION		57
 
 #ifndef PACKED
 #define PACKED				__attribute__((packed))
@@ -73,6 +73,8 @@ struct volume_id {
 extern struct volume_id *volume_id_open_fd(int fd);
 extern struct volume_id *volume_id_open_node(const char *path);
 extern int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size);
+extern int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size);
+extern int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size);
 extern void volume_id_close(struct volume_id *id);
 
 /* filesystems */

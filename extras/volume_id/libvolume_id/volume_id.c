@@ -31,7 +31,7 @@
 #include "util.h"
 
 
-int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size)
+int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	if (id == NULL)
 		return -EINVAL;
@@ -71,6 +71,17 @@ int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size)
 
 	if (volume_id_probe_highpoint_37x_raid(id, off) == 0)
 		goto exit;
+
+exit:
+	/* If recognized, we free the allocated buffers */
+	volume_id_free_buffer(id);
+	return 0;
+}
+
+int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size)
+{
+	if (id == NULL)
+		return -EINVAL;
 
 	if (volume_id_probe_luks(id, off) == 0)
 		goto exit;
@@ -139,11 +150,23 @@ int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size)
 	return -1;
 
 exit:
-	/* If the filestystem in recognized, we free the allocated buffers,
-	   otherwise they will stay in place for the possible next probe call */
+	/* If recognized, we free the allocated buffers */
 	volume_id_free_buffer(id);
-
 	return 0;
+}
+
+int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size)
+{
+	if (id == NULL)
+		return -EINVAL;
+
+	if (volume_id_probe_raid(id, off, size) == 0)
+		return 0;
+
+	if (volume_id_probe_filesystem(id, off, size) == 0)
+		return 0;
+
+	return -1;
 }
 
 /* open volume by already open file descriptor */
