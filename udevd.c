@@ -200,6 +200,10 @@ static void export_event_state(struct uevent_msg *msg, enum event_state state)
 			if (loop_msg->devpath && strcmp(loop_msg->devpath, msg->devpath) == 0)
 				return;
 
+		list_for_each_entry(loop_msg, &exec_list, node)
+			if (loop_msg->devpath && strcmp(loop_msg->devpath, msg->devpath) == 0)
+				return;
+
 		/* move failed events to the failed directory */
 		if (state == EVENT_FAILED) {
 			create_path(filename_failed);
