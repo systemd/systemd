@@ -1,5 +1,10 @@
 udev 085
 ========
+Fix queue export, which wasn't correct for subsequent add/remove
+events for the same device.
+
+udev 085
+========
 Fix cramfs detection on big endian.
 
 Make WAIT_FOR_SYSFS usable in "normal" rules and silent if the whole

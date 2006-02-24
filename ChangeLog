@@ -1,3 +1,19 @@
+Summary of changes from v085 to v086
+============================================
+
+Kay Sievers:
+      volume_id: replace __packed__ by PACKED macro
+      volume_id: split raid and filesystem detection
+      volume_id: add missing return
+      udevd: fix queue export for multiple events for the same device
+
+Kyle McMartin:
+      workaround missing kernel headers for some architectures
+
+Nix:
+      update to udev-084/doc/writing_udev_rules
+
+
 Summary of changes from v084 to v085
 ============================================
 
