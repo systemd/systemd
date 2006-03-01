@@ -288,6 +288,48 @@ handle_block_fc () {
 	RESULT=0
 }
 
+handle_block_sas () {
+    : handle_block_sas $*
+	local DEV=$1
+	local cil adapter controller_dev
+	# SAS device
+	sas_host_path="${DEV%%/phy*}"
+	sas_phy_path="${DEV#*/host*/}"
+	sas_phy_path="${sas_phy_path%%/target*}"
+	sas_phy_id="${sas_phy_path%%/*}"
+	sas_rphy_id="${sas_phy_path##*/}"
+	sas_phy_dev="${sas_host_path}/${sas_phy_id}/sas_phy:${sas_phy_id}"
+	if [ -e "$sas_phy_dev/sas_address" ]; then
+	    read phy_address < $sas_phy_dev/sas_address
+	    read phy_port < $sas_phy_dev/port_identifier
+	    read phy_id < $sas_phy_dev/phy_identifier
+	fi
+	if [ -z "$phy_address" ] ; then
+	    : no initiator address
+	    RESULT=1
+	    return
+	fi
+	sas_phy_address="$phy_address:$phy_port:$phy_id"
+	sas_rphy_dev="${sas_host_path}/${sas_phy_id}/${sas_rphy_id}/sas_rphy:${sas_rphy_id}"
+	if [ -e "$sas_rphy_dev/sas_address" ]; then
+	    read rphy_address < $sas_rphy_dev/sas_address
+	    read rphy_id < $sas_rphy_dev/phy_identifier
+	fi
+	if [ -z "$rphy_address" ] ; then
+	    : no initiator address
+	    RESULT=1
+	    return
+	fi
+	sas_rphy_address="$rphy_address:$rphy_id"
+
+	controller_dev="${sas_host_path%/host[0-9]*}"
+	adapter="${controller_dev##*/}"
+	bus="pci"
+	d="$bus-$adapter"
+	d="${d}-sas-${sas_phy_address}-${sas_rphy_address}"
+	RESULT=0
+}
+
 handle_block_usb_storage () {
 : handle_block_usb_storage $*
 	local DEV=$1
@@ -395,6 +437,9 @@ handle_block () {
 	;;
 	*/rport-[0-9]*:[0-9]*-[0-9]*/*)
 	handle_block_fc "$D"
+	;;
+	*/phy-[0-9]*:[0-9]*/*)
+	handle_block_sas "$D"
 	;;
 	*/host[0-9]*/[0-9]*:[0-9]*:[0-9]*:[0-9]*)
 	# check for ieee1394 sbp2 
