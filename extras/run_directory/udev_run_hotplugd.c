@@ -68,7 +68,7 @@ int main(int argc, char *argv[], char *envp[])
 		close(fd);
 	}
 
-	dbg("running dev.d directory");
+	dbg("running hotplug.d directory");
 
 	sprintf(dirname, "/etc/hotplug.d/%s", subsystem);
 	run_directory(dirname, ".hotplug", subsystem);
