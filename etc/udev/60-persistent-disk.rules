@@ -1,14 +1,15 @@
 # persistent disk links: /dev/disk/{by-id,by-uuid,by-label,by-path}
 # scheme based on "Linux persistent device names", 2004, Hannes Reinecke <hare@suse.de>
 
-ACTION!="add", GOTO="persistent_end"
-SUBSYSTEM!="block", GOTO="persistent_end"
+ACTION!="add", GOTO="persistent_disk_end"
+SUBSYSTEM!="block", GOTO="persistent_disk_end"
 
 # skip rules for inappropriate block devices
-KERNEL=="ram*|loop*|fd*|nbd*", GOTO="persistent_end"
+KERNEL=="ram*|loop*|fd*|nbd*", GOTO="persistent_disk_end"
 
 # never access removable ide devices, the drivers are causing event loops on open()
-BUS=="ide", DRIVER!="ide-cdrom", SYSFS{removable}="1", GOTO="persistent_end"
+KERNEL=="hd*[!0-9]", SYSFS{removable}=="1", DRIVER!="ide-cdrom", GOTO="persistent_disk_end"
+KERNEL=="hd*[0-9]", SYSFS{../removable}=="1", DRIVER!="ide-cdrom", GOTO="persistent_disk_end"
 
 # by-id (hardware serial number)
 KERNEL=="hd*[!0-9]", IMPORT{program}="/sbin/ata_id --export $tempnode"
@@ -28,12 +29,12 @@ KERNEL=="sd*[0-9]|dasd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{I
 
 # by-path (shortest physical path)
 KERNEL=="*[!0-9]|sr*", ENV{ID_TYPE}=="?*", IMPORT{program}="/sbin/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
-KERNEL=="sr*", GOTO="persistent_end"
+KERNEL=="sr*", GOTO="persistent_disk_end"
 KERNEL=="*[0-9]", IMPORT{parent}=="ID_*"
 KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 
 # by-label/by-uuid (filesystem properties)
-KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_end"
+KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_disk_end"
 IMPORT{program}="/sbin/vol_id --export $tempnode"
 ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
 ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
@@ -45,4 +46,4 @@ KERNEL=="*[0-9]", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}-part%
 
 KERNEL=="dm-[0-9]*", ACTION=="add", PROGRAM="/sbin/dmsetup info -c --noopencount --noheadings -o name -j %M -m %m", SYMLINK="disk/by-name/%c"
 
-LABEL="persistent_end"
+LABEL="persistent_disk_end"
