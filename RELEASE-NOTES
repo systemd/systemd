@@ -1,4 +1,10 @@
-udev 085
+udev 087
+========
+Fix persistent disk rules to exclude removable IDE drives.
+
+Warn if %e, $modalias or MODALIAS is used.
+
+udev 086
 ========
 Fix queue export, which wasn't correct for subsequent add/remove
 events for the same device.

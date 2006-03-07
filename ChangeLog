@@ -1,3 +1,18 @@
+Summary of changes from v086 to v087
+============================================
+
+Hannes Reinecke:
+      path_id: support SAS devices
+
+Kay Sievers:
+      fix persistent disk rules to exclude removable IDE drives
+      warn about %e, MODALIAS, $modalias
+      remove devfs rules and scripts
+
+Masatake YAMATO:
+      typo in debug text in udev_run_hotplugd.c
+
+
 Summary of changes from v085 to v086
 ============================================
 
