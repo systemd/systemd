@@ -290,6 +290,12 @@ static int find_free_number(const char *base, const char *devpath)
 	char filename[PATH_SIZE];
 	struct udevice *udev_db;
 	int num = 0;
+	static int warn = 1;
+
+	if (warn) {
+		err("%%e is deprecated, will be removed and is unlikey to work correctly. Don't use it.");
+		warn = 0;
+	}
 
 	/* check if the device already owns a matching name */
 	udev_db = udev_device_init();
@@ -616,6 +622,13 @@ found:
 		case SUBST_MODALIAS:
 			{
 				const char *value;
+				static int warn = 1;
+
+				if (warn) {
+					err("$modalias is deprecated, use $env{MODALIAS} or "
+					    "$sysfs{modalias} instead.");
+					warn = 0;
+				}
 
 				value = sysfs_attr_get_value(udev->dev->devpath, "modalias");
 				if (value != NULL) {
@@ -715,6 +728,12 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 
 	if (rule->modalias.operation != KEY_OP_UNSET) {
 		const char *value;
+		static int warn = 1;
+
+		if (warn) {
+			err("MODALIAS is deprecated, use ENV{MODALIAS} or SYSFS{modalias} instead.");
+			warn = 0;
+		}
 
 		value = sysfs_attr_get_value(udev->dev->devpath, "modalias");
 		if (value == NULL) {
