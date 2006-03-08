@@ -14,7 +14,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define VOLUME_ID_VERSION		58
+#define VOLUME_ID_VERSION		59
 
 #ifndef PACKED
 #define PACKED				__attribute__((packed))
@@ -96,6 +96,7 @@ extern int volume_id_probe_udf(struct volume_id *id, uint64_t off);
 extern int volume_id_probe_ufs(struct volume_id *id, uint64_t off);
 extern int volume_id_probe_vxfs(struct volume_id *id, uint64_t off);
 extern int volume_id_probe_xfs(struct volume_id *id, uint64_t off);
+extern int volume_id_probe_squashfs(struct volume_id *id, uint64_t off);
 
 /* special formats */
 extern int volume_id_probe_linux_swap(struct volume_id *id, uint64_t off);

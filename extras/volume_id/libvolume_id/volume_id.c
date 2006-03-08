@@ -149,6 +149,9 @@ int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size
 	if (volume_id_probe_vxfs(id, off) == 0)
 		goto found;
 
+	if (volume_id_probe_squashfs(id, off) == 0)
+		goto found;
+
 	return -1;
 
 found:
