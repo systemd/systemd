@@ -921,12 +921,24 @@ int main(int argc, char *argv[], char *envp[])
 		err("error getting pipes: %s", strerror(errno));
 		goto exit;
 	}
-	retval = fcntl(signal_pipe[READ_END], F_SETFL, O_NONBLOCK);
+
+	retval = fcntl(signal_pipe[READ_END], F_GETFL, 0);
 	if (retval < 0) {
 		err("error fcntl on read pipe: %s", strerror(errno));
 		goto exit;
 	}
-	retval = fcntl(signal_pipe[WRITE_END], F_SETFL, O_NONBLOCK);
+	retval = fcntl(signal_pipe[READ_END], F_SETFL, retval | O_NONBLOCK);
+	if (retval < 0) {
+		err("error fcntl on read pipe: %s", strerror(errno));
+		goto exit;
+	}
+
+	retval = fcntl(signal_pipe[WRITE_END], F_GETFL, 0);
+	if (retval < 0) {
+		err("error fcntl on write pipe: %s", strerror(errno));
+		goto exit;
+	}
+	retval = fcntl(signal_pipe[WRITE_END], F_SETFL, retval | O_NONBLOCK);
 	if (retval < 0) {
 		err("error fcntl on write pipe: %s", strerror(errno));
 		goto exit;
