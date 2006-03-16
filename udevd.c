@@ -100,6 +100,13 @@ static int udev_event_process(struct uevent_msg *msg)
 	act.sa_flags = 0;
 	sigaction(SIGALRM, &act, NULL);
 
+	/* reset to default */
+	act.sa_handler = SIG_DFL;
+	sigaction(SIGINT, &act, NULL);
+	sigaction(SIGTERM, &act, NULL);
+	sigaction(SIGCHLD, &act, NULL);
+	sigaction(SIGHUP, &act, NULL);
+
 	/* trigger timeout to prevent hanging processes */
 	alarm(UDEV_ALARM_TIMEOUT);
 
