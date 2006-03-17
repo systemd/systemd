@@ -241,7 +241,7 @@ int replace_untrusted_chars(char *str)
 		if ((str[i] >= '0' && str[i] <= '9') ||
 		    (str[i] >= 'A' && str[i] <= 'Z') ||
 		    (str[i] >= 'a' && str[i] <= 'z') ||
-		    strchr(" #$%+-./:=?@_", str[i])) {
+		    strchr(" #$%+-./:=?@_,", str[i])) {
 			i++;
 			continue;
 		}
