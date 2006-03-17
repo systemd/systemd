@@ -1,0 +1,90 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<article>
+  <articleinfo>
+    <title>xmlto</title>
+    <author>
+      <firstname>Kay</firstname>
+      <surname>Sievers</surname>
+      <email>kay.sievers@vrfy.org</email>
+    </author>
+    <copyright>
+      <year>2006</year>
+      <holder>Kay Sievers</holder>
+    </copyright>
+  </articleinfo>
+
+  <section>
+    <title>udevtrigger</title>
+    <refentry>
+      <refentryinfo>
+        <title>udevtrigger</title>
+        <date>March 2006</date>
+        <productname>udev</productname>
+      </refentryinfo>
+
+      <refmeta>
+        <refentrytitle>udevtrigger</refentrytitle>
+        <manvolnum>8</manvolnum>
+      </refmeta>
+
+      <refnamediv>
+        <refname>udevtrigger</refname><refpurpose>request kernel devices events for coldplug</refpurpose>
+      </refnamediv>
+
+      <refsynopsisdiv>
+        <cmdsynopsis>
+          <command>udevtrigger</command>
+          <arg><option>--verbose</option></arg>
+          <arg><option>--dry-run</option></arg>
+        </cmdsynopsis>
+      </refsynopsisdiv>
+
+      <refsect1><title>DESCRIPTION</title>
+        <para>Trigger kernel device uevents to replay missing events at system coldplug.</para>
+      </refsect1>
+
+      <refsect1><title>OPTIONS</title>
+        <variablelist>
+          <varlistentry>
+            <term><option>--verbose</option></term>
+            <listitem>
+              <para>print out the devices found in sysfs.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--dry-run</option></term>
+            <listitem>
+              <para>don't actually trigger the event.</para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+      </refsect1>
+
+      <refsect1><title>ENVIRONMENT</title>
+        <variablelist>
+          <varlistentry>
+            <term><option>UDEV_LOG</option></term>
+            <listitem>
+              <para>Overrides the syslog priority specified in the config file.</para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+     </refsect1>
+
+      <refsect1><title>AUTHOR</title>
+        <para>Written by Kay Sievers <email>kay.sievers@vrfy.org</email> and
+        Hannes Reinecke <email>hare@suse.de</email>.</para>
+      </refsect1>
+
+      <refsect1>
+        <title>SEE ALSO</title>
+        <para><citerefentry>
+            <refentrytitle>udev</refentrytitle><manvolnum>8</manvolnum>
+        </citerefentry></para>
+      </refsect1>
+    </refentry>
+  </section>
+</article>

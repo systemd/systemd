@@ -49,6 +49,7 @@ V =
 PROGRAMS = \
 	udev				\
 	udevd				\
+	udevtrigger			\
 	udevsend			\
 	udevcontrol			\
 	udevmonitor			\
@@ -84,6 +85,7 @@ MAN_PAGES = \
 	udev.7				\
 	udevmonitor.8			\
 	udevd.8				\
+	udevtrigger.8			\
 	udevsend.8			\
 	udevtest.8			\
 	udevinfo.8			\
@@ -265,6 +267,7 @@ install-man:
 	$(INSTALL_DATA) -D udevinfo.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
 	$(INSTALL_DATA) -D udevtest.8 $(DESTDIR)$(mandir)/man8/udevtest.8
 	$(INSTALL_DATA) -D udevd.8 $(DESTDIR)$(mandir)/man8/udevd.8
+	$(INSTALL_DATA) -D udevtrigger.8 $(DESTDIR)$(mandir)/man8/udevtrigger.8
 	$(INSTALL_DATA) -D udevmonitor.8 $(DESTDIR)$(mandir)/man8/udevmonitor.8
 	- ln -f -s udevd.8 $(DESTDIR)$(mandir)/man8/udevcontrol.8
 	@extras="$(EXTRAS)"; for target in $$extras; do \
@@ -277,6 +280,7 @@ uninstall-man:
 	- rm -f $(DESTDIR)$(mandir)/man8/udevinfo.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevtest.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevd.8
+	- rm -f $(DESTDIR)$(mandir)/man8/udevtrigger.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevmonitor.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevcontrol.8
 	@ extras="$(EXTRAS)"; for target in $$extras; do \
@@ -287,6 +291,7 @@ uninstall-man:
 install-bin:
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
 	$(INSTALL_PROGRAM) -D udevd $(DESTDIR)$(sbindir)/udevd
+	$(INSTALL_PROGRAM) -D udevtrigger $(DESTDIR)$(sbindir)/udevtrigger
 	$(INSTALL_PROGRAM) -D udevcontrol $(DESTDIR)$(sbindir)/udevcontrol
 	$(INSTALL_PROGRAM) -D udevmonitor $(DESTDIR)$(usrsbindir)/udevmonitor
 	$(INSTALL_PROGRAM) -D udevinfo $(DESTDIR)$(usrbindir)/udevinfo
@@ -303,6 +308,7 @@ endif
 
 uninstall-bin:
 	- rm -f $(DESTDIR)$(sbindir)/udevd
+	- rm -f $(DESTDIR)$(sbindir)/udevtrigger
 	- rm -f $(DESTDIR)$(sbindir)/udevcontrol
 	- rm -f $(DESTDIR)$(usrsbindir)/udevmonitor
 	- rm -f $(DESTDIR)$(usrbindir)/udevinfo
