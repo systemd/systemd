@@ -104,7 +104,7 @@ case "$DEVPATH" in
 	;;
 esac
 
-get_port () {
+get_port_offset () {
     local type offset port
     type=$1
     offset=$2
@@ -113,9 +113,28 @@ get_port () {
 	port="${i#$type}"
 	if [ "$port" -lt "$offset" ] ; then offset=$port ; fi
     done
-    if [ "$port" != "0" ] ; then
-	echo $(($2 - $offset))
-    fi
+    echo $offset
+}
+
+handle_pci () {
+    local DEV=$1
+    cd -P $1
+    DEV=${PWD}
+    pci_id=${DEV##*/}
+
+    host_dev_path=$DEV
+    while [ ! -z "$host_dev_path" ] ; do
+	case "$host_dev_path" in
+	    */pci[0-9]*)
+                host_dev_path=${host_dev_path%/*}
+		;;
+	    *) break;;
+	esac
+    done
+
+    d="pci-$pci_id-$d"
+    D="$host_dev_path"
+    RESULT=0
 }
 
 handle_block_ide () {
@@ -124,42 +143,15 @@ handle_block_ide () {
 	local port idedev idecontroller
 	# IDE
 	: DEV $DEV
-	d=$DEV
-	case "$DEV" in
-	# remove ide-scsi part, leave only channel info
-		*/ide[0-9]*/host[0-9]*)
-		while [ ! -z "$d" ] ; do
-			case "$d" in
-				*/host[0-9]*)
-				d="${d%/*}"
-				continue
-				;;
-				*)
-				break
-				;;
-			esac
-		done
-		;;
-	esac
-	idedev=$d
-	while [ ! -z "$d" ] ; do
-		case "$d" in
-			*/ide[0-9]*)
-			port="${d##*/}"
-			d="${d%/*}"
-			continue
-			;;
-			*)
-			break
-			;;
-		esac
-	done
-	idecontroller=$d
+
+	port=${DEV##*/}
+	idedev=${DEV%/*}
+	idecontroller=${idedev%/*}
 	# port info if the controller has more than one interface
 	port="${port#ide}"
 	: port $port d $d
 	: idedev $idedev kernel_port $port
-	case "${idedev##*.}" in
+	case "${port#*.}" in
 		 0)
 		 channel=0
 		 ;;
@@ -169,83 +161,80 @@ handle_block_ide () {
 		 *)
 		 echo "Error: $idedev is neither master or slave" >&2
 	esac
-	case "$d" in
-		*:mac-io/*)
-		: mac-io: $d
-		d="`echo $d | sed -e 's@^.*:mac-io[^:]\+:\([^/]\+\).*@mac-io_\1@'`"
-		;;
-		/sys/devices)
-		# PCMCIA devices
-		ifname=${full_sysfs_path##*/}
-		set -- `sed -n "/$ifname/p" /var/lib/pcmcia/stab`
-		d="pcmcia-$1"
-		;;
-		*)
-		d="pci-${d##*/}"
-		# d="`echo $d | sed -e 's@^.*/\([^/]\{1,\}\)/.@pci-\1@'`"
-		;;
-	esac
 
 	cd $idecontroller
-	port="`get_port ide $port`"
+	offset="`get_port_offset ide ${port%.*}`"
 	cd "$OPWD"
-	:  hardware_port $port
-	if [ -z "$port" ] ; then
-		d="${d}-ide-0:$channel"
+	:  port offset $offset
+	port=$((${port%.*} - $offset))
+	if [ "$d" ] ; then
+	    d="ide-${port}:$channel-$d"
 	else
-		d="${d}-ide-${port}:$channel"
+	    d="ide-${port}:$channel"
 	fi
+	D=$idecontroller
 	RESULT=0
 }
 
 handle_block_scsi () {
-: handle_block_scsi $*
+    : handle_block_scsi $*
 	local DEV=$1
 	local cil controller_port controller_dev
 	# SCSI device
 	cil="${DEV##*/}"
 	cil="${cil#*:}"
-	controller_dev=$DEV
-	while [ ! -z "$controller_dev" ] ; do
-		case "$controller_dev" in
-			*/host[0-9]*)
-			controller_port=$controller_dev
-			controller_dev="${controller_dev%/*}"
-			;;
-			*) break ;;
-		esac
+	target_dev=${DEV%/*}
+	target_id=${target_dev##*/target}
+	cd "$target_dev"
+	target_num=0
+	for tid in ${target_id}* ; do
+	    target_num=$(( $target_num + 1 ))
 	done
+
+	controller_port=${target_dev%/*}
+	controller_dev="${controller_port%/*}"
+
 	: controller_dev $controller_dev
 	: controller_port $controller_port
 	# a host controller may have more than one interface/port
-	controller_port="${controller_port##*/}"
-	controller_port="${controller_port##host}"
+	controller_port="${controller_port##*/host}"
 	#
-	case "$controller_dev" in
-		# grand central, old powermacs
-		*:gc/*)
-		adapter="`echo $controller_dev |  sed -e 's@/[^/]\{1,\}$@@;s@^.*/@@;s@^.*:@@'`"
-		bus="gc"
-		;;
-		# PARISC devices
-		*parisc*)
-		adapter="${controller_dev##*/}"
-		bus=parisc;
-		;;
-		*)
-		adapter="${controller_dev##*/}"
-		bus="pci"
-		;;
-	esac
 	cd "$controller_dev"
-	controller_port="`get_port host $controller_port`"
+	controller_offset=$(get_port_offset host $controller_port)
 	cd "$OPWD"
-	d="$bus-$adapter"
-	if [ -z "$controller_port" ] ; then
-		controller_port=0
+	controller_port=$(( $controller_port - $controller_offset))
+	scsi_id="scsi-${controller_port}:${cil}"
+
+	if [ "$d" ] ; then
+	    d="${scsi_id}-$d"
+	else
+	    d="$scsi_id"
 	fi
-	d="${d}-scsi-${controller_port}:${cil}"
+
+	D="$controller_dev"
 	RESULT=0
+}
+
+handle_block_firewire () {
+    :handle_block_firewire $*
+    local DEV=$1
+
+    if [ -f "$D/ieee1394_id" ] ; then
+	read ieee1394_id < $D/ieee1394_id
+    fi
+    
+    if [ -z "$ieee1394_id" ] ; then
+	: no IEEE1394 ID
+	RESULT=1
+	return
+    fi
+
+    fw_host_dev=${DEV%/fw-host*}
+    # IEEE1394 devices are always endpoints
+    d="ieee1394-0x$ieee1394_id"
+    D="$fw_host_dev"
+
+    RESULT=0
 }
 
 handle_block_fc () {
@@ -278,13 +267,10 @@ handle_block_fc () {
 	    lun="0x${tmp_lun3}${tmp_lun2}${tmp_lun1}${tmp_lun0}"
 	fi
 	controller_dev="${fc_tgt_path%/host[0-9]*}"
-	adapter="${controller_dev##*/}"
-	bus="pci"
-	d="$bus-$adapter"
-	if [ -z "$controller_port" ] ; then
-		controller_port=0
-	fi
-	d="${d}-fc-${wwpn}:${lun}"
+
+	# FC devices are always endpoints
+	d="fc-${wwpn}:${lun}"
+	D="$controller_dev"
 	RESULT=0
 }
 
@@ -323,57 +309,46 @@ handle_block_sas () {
 	sas_rphy_address="$rphy_address:$rphy_id"
 
 	controller_dev="${sas_host_path%/host[0-9]*}"
-	adapter="${controller_dev##*/}"
-	bus="pci"
-	d="$bus-$adapter"
-	d="${d}-sas-${sas_phy_address}-${sas_rphy_address}"
+
+	# SAS devices are always endpoints
+	d="sas-${sas_phy_address}-${sas_rphy_address}"
+	D="$controller_dev"
+
 	RESULT=0
 }
 
-handle_block_usb_storage () {
-: handle_block_usb_storage $*
+handle_usb () {
+: handle_usb $*
 	local DEV=$1
-	cil="${DEV##*/}"
-	cil="${cil#*:}"
-	controller_dev=$DEV
-	while [ ! -z "$controller_dev" ] ; do
-		case "$controller_dev" in
-			*/host[0-9]*)
-			controller_dev="${controller_dev%/*}"
+	cd -P $1
+	DEV=${PWD}
+	port_id=${DEV##*/}
+	port_num=${port_id#*-}
+	host_dev_path=$DEV
+	while [ ! -z "$host_dev_path" ] ; do
+		case "$host_dev_path" in
+			*/usb*)
+			usb_host_path=$host_dev_path
+			host_dev_path="${host_dev_path%/*}"
 			;;
 			*) break ;;
 		esac
 	done
-	: controller_dev $controller_dev
-	#
-	# usb-storage devs have a serial number, hopefully unique
-	serial=
-	if [ -f $controller_dev/../serial ] ; then
-		serial="`sed -e 's@^[ -]\{1,\}\|[ -]\{1,\}$@@g;s@[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789-]@@g' < $controller_dev/../serial`"
-		: serial XXX_${serial}_XXX
-		d="usb-$serial"
-		serial="`echo $serial | sed -e 's@[ 0]\{1,\}@@g'`"
+	: host_dev_path $host_dev_path
+	usb_host_num=${usb_host_path##*/usb}
+
+	cd "$host_dev_path"
+	usb_host_offset=$(get_port_offset usb $usb_host_num)
+	usb_host_port=$(($usb_host_num - $usb_host_offset))
+	cd "$OPWD"
+
+	if [ "$d" ] ; then
+	    d="usb-$usb_host_port:$port_num-${d}"
+	else
+	    d="usb-$usb_host_port:$port_num"
 	fi
-	if [ -z "$serial" ] ; then
-		# no serial, broken device
-		# has eventually binary junk in vpd
-		identifier=
-		if [ -f $controller_dev/../product ] ; then
-		product="`sed -e 's@^[ -]\{1,\}\|[ -]\{1,\}$@@g;s@[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789-]@@g' < $controller_dev/../product`"
-		fi
-		if [ -f $controller_dev/../manufacturer ] ; then
-		manufacturer="`sed -e 's@^[ -]\{1,\}\|[ -]\{1,\}$@@g;s@[^abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789-]@@g' < $controller_dev/../manufacturer`"
-		fi
-		if [ -z "$product" -o -z "$manufacturer" ] ; then
-			read idvendor < $controller_dev/../idVendor
-			read idproduct < $controller_dev/../idProduct
-			identifier="0x${idvendor}-0x${idproduct}"
-		else
-			identifier="${manufacturer}-${product}"
-		fi
-		d="usb-${identifier}"
-	fi
-	d="$d:$cil"
+
+	D="$host_dev_path"
 	RESULT=0
 }
 
@@ -406,12 +381,10 @@ handle_block () {
     full_sysfs_device_path="`pwd -P`"
     cd "$OPWD"
     D=$full_sysfs_device_path
+    while [ ! -z "$D" ] ; do
     case "$D" in
 	*/ide[0-9]/[0-9].[0-9]*|*/ide[0-9][0-9]/[0-9][0-9].[0-9]*)
 	handle_block_ide "$D"
-	;;
-	*/usb[0-9]*/[0-9]*/host[0-9]*/[0-9]*:[0-9]*:[0-9]*:[0-9]*)
-	handle_block_usb_storage "$D"
 	;;
 	*/css0/*)
 	if [ -r $full_sysfs_device_path/wwpn ]; then
@@ -434,6 +407,7 @@ handle_block () {
 	    d="$bus-$adapter"
 	    RESULT=0
 	fi
+	D=
 	;;
 	*/rport-[0-9]*:[0-9]*-[0-9]*/*)
 	handle_block_fc "$D"
@@ -441,15 +415,20 @@ handle_block () {
 	*/phy-[0-9]*:[0-9]*/*)
 	handle_block_sas "$D"
 	;;
+	*/fw-host[0-9]*/*)
+	handle_block_firewire "$D"
+	;;
 	*/host[0-9]*/[0-9]*:[0-9]*:[0-9]*:[0-9]*)
-	# check for ieee1394 sbp2 
-	if test -f $D/ieee1394_id ; then
-	    read ieee1394_id < $D/ieee1394_id
-	    d="`echo ieee1394-${ieee1394_id} | sed -e 's@:@-@g'`"
-	    RESULT=0
-	else
-	    handle_block_scsi "$D"
-	fi
+	handle_block_scsi "$D"
+	;;
+	*/usb[0-9]*/[0-9]*/*)
+	handle_usb "$D"
+	;;
+	*/pci[0-9]*:[0-9]*)
+	handle_pci "$D"
+	;;
+	*/devices)
+	D=
 	;;
 	*)
 	: not handled
@@ -457,14 +436,44 @@ handle_block () {
 	return
 	;;
     esac
+    done
+
+    if [ "$TYPE" == "scsi_tape" ] ; then
+	devname=${full_sysfs_path##*/}
+	rewind="${devname%%st*}"
+	mode="${devname##*st}"
+	case "$mode" in
+	    *l)
+		mode="l"
+		;;
+	    *m)
+		mode="m"
+		;;
+	    *a)
+		mode="a"
+		;;
+	    *)
+		mode=""
+		;;
+	esac
+	if [ "$d" ]; then
+	    d="$d-${rewind}st${mode}"
+	fi
+    fi
     echo "ID_PATH=$d"
 }
 
 case "$TYPE" in
-	block)
+    block)
 	handle_block
 	;;
-	*)
+    scsi_tape)
+	handle_block
+	;;
+    input)
+	handle_usb $SYSFS$DEVPATH/device
+	;;
+    *)
 	RESULT=1
 	;;
 esac
