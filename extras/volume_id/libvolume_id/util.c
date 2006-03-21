@@ -68,8 +68,6 @@ static char *usage_to_string(enum volume_id_usage usage_id)
 	switch (usage_id) {
 	case VOLUME_ID_FILESYSTEM:
 		return "filesystem";
-	case VOLUME_ID_PARTITIONTABLE:
-		return "partitiontable";
 	case VOLUME_ID_OTHER:
 		return "other";
 	case VOLUME_ID_RAID:
@@ -84,12 +82,6 @@ static char *usage_to_string(enum volume_id_usage usage_id)
 		return "unused";
 	}
 	return NULL;
-}
-
-void volume_id_set_usage_part(struct volume_id_partition *part, enum volume_id_usage usage_id)
-{
-	part->usage_id = usage_id;
-	part->usage = usage_to_string(usage_id);
 }
 
 void volume_id_set_usage(struct volume_id *id, enum volume_id_usage usage_id)

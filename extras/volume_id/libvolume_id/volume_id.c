@@ -1,5 +1,5 @@
 /*
- * volume_id - reads filesystem label and uuid
+ * volume_id - reads volume label and uuid
  *
  * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
  *
@@ -220,9 +220,6 @@ void volume_id_close(struct volume_id *id)
 		close(id->fd);
 
 	volume_id_free_buffer(id);
-
-	if (id->partitions != NULL)
-		free(id->partitions);
 
 	free(id);
 }

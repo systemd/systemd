@@ -1,15 +1,15 @@
-vol_id - partition, filesystem, disklabel reader
+vol_id - volume, filesystem, disklabel reader
 
 This program is normally called from a udev rule, to provide udev with the
-name, uuid or the filesystem type of a partition to name a device node.
+name, uuid or the filesystem type of a volume to name a device node.
 vol_id opens the blockdevice node specified at the commandline.
 The following commandline switches are supported to specify what vol_id
 should print:
 
   --export prints all values
   -h       prints help text
-  -l       prints the label of the partition
-  -u       prints the uuid of the partition
+  -l       prints the label of the volume
+  -u       prints the uuid of the volume
 
 vol_id will only return successful if the string asked for, is not
 empty. All trailing whitespace will be removed, spaces replaced by underscore

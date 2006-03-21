@@ -1,5 +1,5 @@
 /*
- * volume_id - reads partition label and uuid
+ * volume_id - reads volume label and uuid
  *
  * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
  *
@@ -31,19 +31,9 @@ enum volume_id_usage {
 	VOLUME_ID_UNPROBED,
 	VOLUME_ID_OTHER,
 	VOLUME_ID_FILESYSTEM,
-	VOLUME_ID_PARTITIONTABLE,
 	VOLUME_ID_RAID,
 	VOLUME_ID_DISKLABEL,
 	VOLUME_ID_CRYPTO,
-};
-
-struct volume_id_partition {
-	enum		volume_id_usage usage_id;
-	char		*usage;
-	char		*type;
-	uint64_t	off;
-	uint64_t	len;
-	uint8_t		partition_type_raw;
 };
 
 struct volume_id {
@@ -57,9 +47,6 @@ struct volume_id {
 	char		*usage;
 	char		*type;
 	char		type_version[VOLUME_ID_FORMAT_SIZE];
-
-	struct volume_id_partition *partitions;
-	size_t		partition_count;
 
 	int		fd;
 	uint8_t		*sbbuf;
