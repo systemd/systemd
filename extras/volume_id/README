@@ -36,6 +36,7 @@ sysv                   *      *      -     *
 luks                   *      -      *     -
 hpfs                   *      -      -     -
 romfs                  *
+squashfs               *
 minix                  *
 highpoint              *
 isw_raid               *
@@ -44,29 +45,26 @@ nvidia_raid            *
 promise_raid           *
 silicon_raid           *
 via_raid               *
-mac partitons          *
-msdos partitions       *
 
-
-The following rule will create a symlink named with the label string:
-  KERNEL=="[hs]d*", PROGRAM=="/sbin/vol_id -l %N", SYMLINK+="%c"
 
 If no label is found vol_id exits with nonzero and the rule will be
 ignored.
 
 To give it a try, you may call it on the commandline:
-  [root@pim udev.kay]# extras/volume_id/vol_id /dev/hda3
-  T:ext3
-  L:Music Store
-  N:Music_Store
-  U:d2da42b5-bbd9-44eb-a72c-cc4542fcb71e
+  $ extras/volume_id/vol_id --export /dev/sda6
+  ID_FS_USAGE=filesystem
+  ID_FS_TYPE=ext3
+  ID_FS_VERSION=1.0
+  ID_FS_UUID=3e999973-00c9-4917-9442-b7633bd95b9e
+  ID_FS_LABEL=devel
+  ID_FS_LABEL_SAFE=devel
 
-  [root@pim udev.kay]# extras/volume_id/vol_id -l /dev/hda3
-  Music_Store
+  $ extras/volume_id/vol_id -l /dev/sda6
+  devel
 
-  [root@pim udev.kay]# extras/volume_id/vol_id -t /dev/hda3
-  swap
+  $ extras/volume_id/vol_id -t /dev/sda6
+  ext3
 
 
 Any comment/questions/concerns to me:
-Kay Sievers <kay.sievers@vrfy.org>
+  Kay Sievers <kay.sievers@vrfy.org>

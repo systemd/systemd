@@ -23,8 +23,6 @@ OBJS=				\
 	linux_raid.o		\
 	linux_swap.o		\
 	lvm.o			\
-	mac.o			\
-	msdos.o			\
 	ntfs.o			\
 	reiserfs.o		\
 	udf.o			\

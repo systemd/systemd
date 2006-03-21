@@ -14,7 +14,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define VOLUME_ID_VERSION		59
+#define VOLUME_ID_VERSION		60
 
 #ifndef PACKED
 #define PACKED				__attribute__((packed))
@@ -116,9 +116,5 @@ extern int volume_id_probe_nvidia_raid(struct volume_id *id, uint64_t off, uint6
 extern int volume_id_probe_promise_fasttrack_raid(struct volume_id *id, uint64_t off, uint64_t size);
 extern int volume_id_probe_silicon_medley_raid(struct volume_id *id, uint64_t off, uint64_t size);
 extern int volume_id_probe_via_raid(struct volume_id *id, uint64_t off, uint64_t size);
-
-/* partition tables */
-extern int volume_id_probe_msdos_part_table(struct volume_id *id, uint64_t off);
-extern int volume_id_probe_mac_partition_map(struct volume_id *id, uint64_t off);
 
 #endif
