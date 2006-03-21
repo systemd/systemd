@@ -10,8 +10,6 @@ udev version:
   o remove broken %e enumeration
     (simple enumerations can't work and should go)
 
-  o remove devfs naming scheme rules and scripts
-
   o remove MODALIAS + $modalias
     (ENV{MODALIAS}, $env{MODALIAS}, $sysfs{modalias} will do it)
 
@@ -19,3 +17,4 @@ udev version:
     (we rely on the kernel "uevent" triggers of kernel 2.6.15 and no longer
      want to guess event properties from sysfs like udevstart is doing it)
 
+  o remove use of "device" link in path_id

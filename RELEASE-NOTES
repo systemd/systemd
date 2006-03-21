@@ -1,3 +1,15 @@
+udev 088
+========
+Add persistent links for SCSI tapes. The rules file is renamed
+to 60-persistent-storage.rules.
+
+Create persistent path for usb devices. Can be used for all sorts
+of devices that can't be distinguished by other properties like
+multiple identical keyboards and mice connected to the same box.
+
+Provide "udevtrigger" program to request events on coldplug. The
+shell script is much too slow with thousends of devices.
+
 udev 087
 ========
 Fix persistent disk rules to exclude removable IDE drives.

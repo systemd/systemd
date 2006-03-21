@@ -1,3 +1,22 @@
+Summary of changes from v087 to v088
+============================================
+
+Hannes Reinecke:
+      persistent links: add scsi tape links and usb path support
+
+Kay Sievers:
+      volume_id: add squashfs detection
+      reset signal handler in event process
+      correct use of fcntl()
+      add udevtrigger to request events for coldplug
+      add ',' to trusted chars
+      volume_id: remove partition table parsing code
+      volume_id: remove all partition table support
+      fix spelling error in debug string
+      rename "persistent disk" to "persistent storage"
+      fix output for USB path
+
+
 Summary of changes from v086 to v087
 ============================================
 
