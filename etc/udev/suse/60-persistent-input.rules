@@ -14,7 +14,7 @@ KERNEL=="event*", ENV{ID_BUS}=="?*", ENV{ID_SERIAL}=="?*", ENV{ID_CLASS}=="?*", 
 # by-path
 IMPORT{program}="/sbin/path_id %p"
 ENV{ID_PATH}=="?*", KERNEL=="mouse*", SYMLINK+="input/by-path/$env{ID_PATH}-$env{ID_CLASS}"
-ENV{ID_PATH}=="?*", KERNEL=="event*", SYMLINK+="input/by-path/$env{ID_PATH}-$env{ID_CLASS}"
+ENV{ID_PATH}=="?*", KERNEL=="event*", SYMLINK+="input/by-path/$env{ID_PATH}-event-$env{ID_CLASS}"
 
 LABEL="persistent_input_end"
 

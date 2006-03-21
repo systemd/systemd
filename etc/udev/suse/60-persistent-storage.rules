@@ -1,26 +1,28 @@
-# persistent disk links: /dev/disk/{by-id,by-uuid,by-label,by-path}
+# persistent storage links: /dev/{disk,tape}/{by-id,by-uuid,by-label,by-path,by-name}
 # scheme based on "Linux persistent device names", 2004, Hannes Reinecke <hare@suse.de>
 
-ACTION!="add", GOTO="persistent_disk_end"
-SUBSYSTEM!="block", GOTO="persistent_disk_end"
+ACTION!="add", GOTO="persistent_storage_end"
+SUBSYSTEM!="block", GOTO="persistent_storage_end"
 
 # skip rules for inappropriate block devices
-KERNEL=="ram*|loop*|fd*|nbd*", GOTO="persistent_disk_end"
+KERNEL=="ram*|loop*|fd*|nbd*", GOTO="persistent_storage_end"
 
 # never access removable ide devices, the drivers are causing event loops on open()
-BUS=="ide", DRIVER!="ide-cdrom", SYSFS{removable}="1", GOTO="persistent_disk_end"
+KERNEL=="hd*[!0-9]", SYSFS{removable}=="1", DRIVER!="ide-cdrom", GOTO="persistent_storage_end"
+KERNEL=="hd*[0-9]", SYSFS{../removable}=="1", DRIVER!="ide-cdrom", GOTO="persistent_storage_end"
 
 # by-id (hardware serial number)
 KERNEL=="hd*[!0-9]", IMPORT{program}="/sbin/ata_id --export $tempnode"
 KERNEL=="hd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
 KERNEL=="hd*[0-9]", IMPORT{parent}=="ID_*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
 
-KERNEL=="sd*[!0-9]|sr*", SYSFS{ieee1394_id}=="*", ENV{ID_SERIAL}="$sysfs{ieee1394_id}", ENV{ID_BUS}="ieee1394"
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/usb_id -x"
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/scsi_id -g -x -s %p -d $tempnode"
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/scsi_id -g -x -a -s %p -d $tempnode"
+KERNEL=="sd*[!0-9]|sr*|st*", SYSFS{ieee1394_id}=="*", ENV{ID_SERIAL}="$sysfs{ieee1394_id}", ENV{ID_BUS}="ieee1394"
+KERNEL=="sd*[!0-9]|sr*|st*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/usb_id -x"
+KERNEL=="sd*[!0-9]|sr*|st*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/scsi_id -g -x -s %p -d $tempnode"
+KERNEL=="sd*[!0-9]|sr*|st*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/scsi_id -g -x -a -s %p -d $tempnode"
 KERNEL=="dasd*[!0-9]", IMPORT{program}="/sbin/dasd_id --export $tempnode"
 KERNEL=="sd*[!0-9]|sr*|dasd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
+KERNEL=="st*", ENV{ID_SERIAL}=="?*", SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 
 # for partitions import parent information
 KERNEL=="sd*[0-9]|dasd*[0-9]", IMPORT{parent}=="ID_*"
@@ -28,12 +30,13 @@ KERNEL=="sd*[0-9]|dasd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{I
 
 # by-path (shortest physical path)
 KERNEL=="*[!0-9]|sr*", ENV{ID_TYPE}=="?*", IMPORT{program}="/sbin/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
-KERNEL=="sr*", GOTO="persistent_disk_end"
+KERNEL=="st*", ENV{ID_TYPE}=="?*", IMPORT{program}="/sbin/path_id %p", SYMLINK+="tape/by-path/$env{ID_PATH}"
+KERNEL=="sr*|st*", GOTO="persistent_storage_end"
 KERNEL=="*[0-9]", IMPORT{parent}=="ID_*"
 KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 
 # by-label/by-uuid (filesystem properties)
-KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_disk_end"
+KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_storage_end"
 IMPORT{program}="/sbin/vol_id --export $tempnode"
 ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
 ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
@@ -45,4 +48,4 @@ KERNEL=="*[0-9]", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}-part%
 
 KERNEL=="dm-[0-9]*", ACTION=="add", PROGRAM="/sbin/dmsetup info -c --noopencount --noheadings -o name -j %M -m %m", SYMLINK="disk/by-name/%c"
 
-LABEL="persistent_disk_end"
+LABEL="persistent_storage_end"

@@ -1,9 +1,5 @@
 ENV{SYSCONFIG}=="no|off|0", GOTO="sysconfig_end"
 
-# SUSE network device handling
-SUBSYSTEM=="net", ACTION=="add", RUN+="/sbin/ifup $env{INTERFACE} -o hotplug"
-SUBSYSTEM=="net", ACTION=="remove", RUN+="/sbin/ifdown %k -o hotplug"
-
 # SUSE system integration
 SUBSYSTEM=="pci", ACTION=="add", RUN+="/sbin/hwup bus-pci-%k -o hotplug"
 SUBSYSTEM=="usb", ACTION=="add", RUN+="/sbin/hwup usb-devpath-%p -o hotplug"
