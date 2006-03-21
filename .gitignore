@@ -4,6 +4,7 @@ ccdv
 udev
 udevd
 udevcontrol
+udevtrigger
 udevsend
 udevinfo
 udevmonitor

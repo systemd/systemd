@@ -421,7 +421,7 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 				}
 			}
 			if (value[0] == '\0')
-				dbg("name empty, not creation supressed");
+				dbg("name empty, node creation supressed");
 			add_rule_key(rule, &rule->name, operation, value);
 			continue;
 		}
