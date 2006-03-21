@@ -460,18 +460,20 @@ handle_block () {
 	    d="$d-${rewind}st${mode}"
 	fi
     fi
-    echo "ID_PATH=$d"
 }
 
 case "$TYPE" in
     block)
 	handle_block
+	echo "ID_PATH=$d"
 	;;
     scsi_tape)
 	handle_block
+	echo "ID_PATH=$d"
 	;;
     input)
 	handle_usb $SYSFS$DEVPATH/device
+	echo "ID_PATH=$d"
 	;;
     *)
 	RESULT=1
