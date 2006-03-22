@@ -8,8 +8,11 @@ SUBSYSTEM!="block", GOTO="persistent_storage_end"
 KERNEL=="ram*|loop*|fd*|nbd*", GOTO="persistent_storage_end"
 
 # never access removable ide devices, the drivers are causing event loops on open()
-KERNEL=="hd*[!0-9]", SYSFS{removable}=="1", DRIVER!="ide-cdrom", GOTO="persistent_storage_end"
-KERNEL=="hd*[0-9]", SYSFS{../removable}=="1", DRIVER!="ide-cdrom", GOTO="persistent_storage_end"
+KERNEL=="hd*[!0-9]", SYSFS{removable}=="1", DRIVER=="ide-cs|ide-floppy", GOTO="persistent_storage_end"
+KERNEL=="hd*[0-9]", SYSFS{../removable}=="1", GOTO="persistent_storage_end"
+
+# for partitions import parent information
+KERNEL=="*[0-9]", IMPORT{parent}=="ID_*"
 
 # by-id (hardware serial number)
 KERNEL=="hd*[!0-9]", IMPORT{program}="/sbin/ata_id --export $tempnode"
@@ -22,20 +25,18 @@ KERNEL=="sd*[!0-9]|sr*|st*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/scsi_id 
 KERNEL=="sd*[!0-9]|sr*|st*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/scsi_id -g -x -a -s %p -d $tempnode"
 KERNEL=="dasd*[!0-9]", IMPORT{program}="/sbin/dasd_id --export $tempnode"
 KERNEL=="sd*[!0-9]|sr*|dasd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
+KERNEL=="sd*[0-9]|dasd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
 KERNEL=="st*", ENV{ID_SERIAL}=="?*", SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 
-# for partitions import parent information
-KERNEL=="sd*[0-9]|dasd*[0-9]", IMPORT{parent}=="ID_*"
-KERNEL=="sd*[0-9]|dasd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
-
 # by-path (shortest physical path)
-KERNEL=="*[!0-9]|sr*|st*", ENV{ID_TYPE}=="?*", IMPORT{program}="/sbin/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
-KERNEL=="sr*|st*", GOTO="persistent_storage_end"
-KERNEL=="*[0-9]", IMPORT{parent}=="ID_*"
+KERNEL=="*[!0-9]|sr*", IMPORT{program}="/sbin/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
 KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
+KERNEL=="st*", IMPORT{program}="/sbin/path_id %p", SYMLINK+="tape/by-path/$env{ID_PATH}"
+
+KERNEL=="sr*|st*", GOTO="persistent_storage_end"
+KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_storage_end"
 
 # by-label/by-uuid (filesystem properties)
-KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_storage_end"
 IMPORT{program}="/sbin/vol_id --export $tempnode"
 ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
 ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
