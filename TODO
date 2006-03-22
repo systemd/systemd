@@ -17,4 +17,3 @@ udev version:
     (we rely on the kernel "uevent" triggers of kernel 2.6.15 and no longer
      want to guess event properties from sysfs like udevstart is doing it)
 
-  o remove use of "device" link in path_id

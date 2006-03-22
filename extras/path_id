@@ -1,9 +1,9 @@
 #!/bin/sh
 
-# provide the shortest possible unique hardware path to a block device
-# for the udev persistent disk device naming scheme
+# provide the shortest possible unique hardware path to a device
+# for the Linux Persistent Device Naming scheme
 #
-# Copyright (C) 2005 SUSE Linux Products GmbH
+# Copyright (C) 2005-2006 SUSE Linux Products GmbH
 # Author:
 #	Hannes Reinecke <hare@suse.de>
 #
@@ -12,52 +12,11 @@
 #	Free Software Foundation version 2 of the License.
 #
 # to be called from a udev rule to return the name for a symlink
-#	DEVPATH=/block/sda/sda3 path_id
+#	DEVPATH=<devpath>; path_id
 #	path_id <devpath>
 
 # examples for all block devices on a system:
 #	for i in `find /sys/class/block`; do DEVPATH="`echo $i | sed -e 's@^/sys\|/dev@@g'`"; path_id; done
-
-# SCSI cdrom
-# /class/block/sr0 -> /devices/pci0002:30/0002:30:0c.0/host0/target0:0:0/0:0:1:0
-# pci-0002:30:0c.0-scsi-0:0:1:0
-#
-# SCSI disk
-# /class/block/sda -> /devices/pci0002:30/0002:30:0c.0/host0/target0:0:0/0:0:4:0
-# pci-0002:30:0c.0-scsi-0:0:4:0
-#
-# SATA disk, 4 channels per controller
-# /class/block/sda -> /devices/pci0001:00/0001:00:07.0/0001:05:0c.0/host0/target0:0:0/0:0:0:0
-# pci-0001:05:0c.0-scsi-0:0:0:0
-#
-# IDE disk
-# /class/block/hda -> /devices/pci0002:02/0002:02:0d.0/ide0/0.0
-# pci-0002:02:0d.0-ide-0.0
-#
-# IDE cdrom on a Mac ASIC:
-# /class/block/hdc -> /devices/pci0001:01/0001:01:17.0/0.80000000:mac-io/0.00020000:ata-3/ide1/1.0
-# mac-io_ata-3_master
-#
-# IDE cdrom on a Mac ASIC, with ide-scsi:
-# /class/block/sr0 -> /devices/pci0001:01/0001:01:17.0/0.80000000:mac-io/0.0001f000:ata-4/ide0/0.1/host2/target2:0:0/2:0:0:0
-# mac-io_ata-4_slave
-
-# USB CDrom drive without 'serial' number:
-# reusing 'product' and 'manufacturer' string, if available
-# /class/block/sr0 -> /devices/pci0001:00/0001:00:04.0/0001:02:0b.0/usb4/4-2/4-2:1.0/host4/4:0:0:0
-# usb-storage-odd-Freecom-USIDERev930:0:0:0
-
-# devices may have several interfaces on one PCI device, like IDE:
-# pci-0001:00:04.0_ide1-master
-# pci-0001:00:04.0_ide2-master
-# pci-0001:00:04.0_ide2-slave
-# they are marked as ports, it is expected that the driver shows
-# ide1 even if there is nothing connected to either master or slave
-# interface
-#
-# match order is important.
-# first IDE to find ide-scsi devices, then SCSI
-# first usb-storage, then firewire sbp2, then the rest
 
 SYSFS=/sys
 RESULT=1
@@ -67,83 +26,82 @@ full_sysfs_path=
 full_sysfs_device_path=
 
 if [ -z "$DEVPATH" -a -z "$1" ] ; then
-    exit 1
+	exit 1
 fi
 
 if [ -z "$DEVPATH" ] ; then
-    case "$1" in
-	$SYSFS/*)
-	    DEVPATH="${1#$SYSFS}"
-	    ;;
-	*)
-	    DEVPATH=$1
-	    ;;
-    esac
+	case "$1" in
+		$SYSFS/*)
+			DEVPATH="${1#$SYSFS}"
+			;;
+		*)
+			DEVPATH=$1
+			;;
+	esac
 fi
 
 if [ ! -e $SYSFS$DEVPATH/dev ] ; then
-    exit 1
+	exit 1
 fi
 
 case "$DEVPATH" in
-    /devices/*)
-	cd "$SYSFS$DEVPATH/subsystem";
-	TYPE="`pwd -P`"
-	cd "$OPWD"
-	TYPE="${TYPE##*/}"
-	;;
-    /class/*)
-	TYPE="${DEVPATH#/class/}"
-	TYPE="${TYPE%%/*}"
-	;;
-    /block/*)
-	TYPE=block
-	;;
-    *)
-	exit 1
-	;;
+	/devices/*)
+		cd "$SYSFS$DEVPATH/subsystem";
+		TYPE="`pwd -P`"
+		cd "$OPWD"
+		TYPE="${TYPE##*/}"
+		;;
+	/class/*)
+		TYPE="${DEVPATH#/class/}"
+		TYPE="${TYPE%%/*}"
+		;;
+	/block/*)
+		TYPE=block
+		;;
+	*)
+		exit 1
+		;;
 esac
 
 get_port_offset () {
-    local type offset port
-    type=$1
-    offset=$2
-    for i in $type[0-9]* ; do
-	: i $i
-	port="${i#$type}"
-	if [ "$port" -lt "$offset" ] ; then offset=$port ; fi
-    done
-    echo $offset
+	local type offset port
+	type=$1
+	offset=$2
+	for i in $type[0-9]* ; do
+		: i $i
+		port="${i#$type}"
+		if [ "$port" -lt "$offset" ] ; then offset=$port ; fi
+	done
+	echo $offset
 }
 
 handle_pci () {
-    local DEV=$1
-    cd -P $1
-    DEV=${PWD}
-    pci_id=${DEV##*/}
-
-    host_dev_path=$DEV
-    while [ ! -z "$host_dev_path" ] ; do
-	case "$host_dev_path" in
-	    */pci[0-9]*)
-                host_dev_path=${host_dev_path%/*}
-		;;
-	    *) break;;
-	esac
-    done
-
-    d="pci-$pci_id-$d"
-    D="$host_dev_path"
-    RESULT=0
+	local DEV=$1
+	cd -P $1
+	DEV=${PWD}
+	pci_id=${DEV##*/}
+	host_dev_path=$DEV
+	while [ ! -z "$host_dev_path" ] ; do
+		case "$host_dev_path" in
+			*/pci[0-9]*)
+				host_dev_path=${host_dev_path%/*}
+				;;
+			*)
+				break
+				;;
+		esac
+	done
+	d="pci-$pci_id-$d"
+	D="$host_dev_path"
+	RESULT=0
 }
 
-handle_block_ide () {
-: handle_block_ide $*
+handle_ide () {
+	: handle_ide $*
 	local DEV=$1
 	local port idedev idecontroller
 	# IDE
 	: DEV $DEV
-
 	port=${DEV##*/}
 	idedev=${DEV%/*}
 	idecontroller=${idedev%/*}
@@ -152,32 +110,32 @@ handle_block_ide () {
 	: port $port d $d
 	: idedev $idedev kernel_port $port
 	case "${port#*.}" in
-		 0)
-		 channel=0
-		 ;;
-		 1)
-		 channel=1
-		 ;;
-		 *)
-		 echo "Error: $idedev is neither master or slave" >&2
+		0)
+			channel=0
+			;;
+		1)
+			channel=1
+			;;
+		*)
+			echo "Error: $idedev is neither master or slave" >&2
+			;;
 	esac
-
 	cd $idecontroller
 	offset="`get_port_offset ide ${port%.*}`"
 	cd "$OPWD"
 	:  port offset $offset
 	port=$((${port%.*} - $offset))
 	if [ "$d" ] ; then
-	    d="ide-${port}:$channel-$d"
+		d="ide-${port}:$channel-$d"
 	else
-	    d="ide-${port}:$channel"
+		d="ide-${port}:$channel"
 	fi
 	D=$idecontroller
 	RESULT=0
 }
 
-handle_block_scsi () {
-    : handle_block_scsi $*
+handle_scsi () {
+	: handle_scsi $*
 	local DEV=$1
 	local cil controller_port controller_dev
 	# SCSI device
@@ -188,12 +146,10 @@ handle_block_scsi () {
 	cd "$target_dev"
 	target_num=0
 	for tid in ${target_id}* ; do
-	    target_num=$(( $target_num + 1 ))
+		target_num=$(( $target_num + 1 ))
 	done
-
 	controller_port=${target_dev%/*}
 	controller_dev="${controller_port%/*}"
-
 	: controller_dev $controller_dev
 	: controller_port $controller_port
 	# a host controller may have more than one interface/port
@@ -204,41 +160,35 @@ handle_block_scsi () {
 	cd "$OPWD"
 	controller_port=$(( $controller_port - $controller_offset))
 	scsi_id="scsi-${controller_port}:${cil}"
-
 	if [ "$d" ] ; then
-	    d="${scsi_id}-$d"
+		d="${scsi_id}-$d"
 	else
-	    d="$scsi_id"
+		d="$scsi_id"
 	fi
-
 	D="$controller_dev"
 	RESULT=0
 }
 
-handle_block_firewire () {
-    :handle_block_firewire $*
-    local DEV=$1
-
-    if [ -f "$D/ieee1394_id" ] ; then
-	read ieee1394_id < $D/ieee1394_id
-    fi
-    
-    if [ -z "$ieee1394_id" ] ; then
-	: no IEEE1394 ID
-	RESULT=1
-	return
-    fi
-
-    fw_host_dev=${DEV%/fw-host*}
-    # IEEE1394 devices are always endpoints
-    d="ieee1394-0x$ieee1394_id"
-    D="$fw_host_dev"
-
-    RESULT=0
+handle_firewire () {
+	:handle_firewire $*
+	local DEV=$1
+	if [ -f "$D/ieee1394_id" ] ; then
+		read ieee1394_id < $D/ieee1394_id
+	fi
+	if [ -z "$ieee1394_id" ] ; then
+		: no IEEE1394 ID
+		RESULT=1
+		return
+	fi
+	fw_host_dev=${DEV%/fw-host*}
+	# IEEE1394 devices are always endpoints
+	d="ieee1394-0x$ieee1394_id"
+	D="$fw_host_dev"
+	RESULT=0
 }
 
-handle_block_fc () {
-: handle_block_fc $*
+handle_fc () {
+	: handle_fc $*
 	local DEV=$1
 	local cil controller_port controller_dev
 	# SCSI-FC device
@@ -248,34 +198,32 @@ handle_block_fc () {
 	fc_tgt_num="${fc_tgt_path##*/}"
 	fc_tgt_dev="${fc_tgt_path}/fc_transport:${fc_tgt_num}"
 	if [ -e "$fc_tgt_dev/port_name" ]; then
-	    read wwpn < $fc_tgt_dev/port_name
+		read wwpn < $fc_tgt_dev/port_name
 	fi
 	if [ -z "$wwpn" ] ; then
-	    : no WWPN
-	    RESULT=1
-	    return
+		: no WWPN
+		RESULT=1
+		return
 	fi
 	# Linux currently knows about 32bit luns
 	tmp_lun3=$(printf "%04x" $(($fc_tgt_lun & 0xFFFF)))
 	tmp_lun2=$(printf "%04x" $(( ($fc_tgt_lun >> 16) & 0xFFFF)))
 	tmp_lun1="0000"
 	tmp_lun0="0000"
-
 	if (($fc_tgt_lun == 0)) ; then
-	    lun="0x0000000000000000"
+		lun="0x0000000000000000"
 	else
-	    lun="0x${tmp_lun3}${tmp_lun2}${tmp_lun1}${tmp_lun0}"
+		lun="0x${tmp_lun3}${tmp_lun2}${tmp_lun1}${tmp_lun0}"
 	fi
 	controller_dev="${fc_tgt_path%/host[0-9]*}"
-
 	# FC devices are always endpoints
 	d="fc-${wwpn}:${lun}"
 	D="$controller_dev"
 	RESULT=0
 }
 
-handle_block_sas () {
-    : handle_block_sas $*
+handle_sas () {
+	: handle_sas $*
 	local DEV=$1
 	local cil adapter controller_dev
 	# SAS device
@@ -286,34 +234,31 @@ handle_block_sas () {
 	sas_rphy_id="${sas_phy_path##*/}"
 	sas_phy_dev="${sas_host_path}/${sas_phy_id}/sas_phy:${sas_phy_id}"
 	if [ -e "$sas_phy_dev/sas_address" ]; then
-	    read phy_address < $sas_phy_dev/sas_address
-	    read phy_port < $sas_phy_dev/port_identifier
-	    read phy_id < $sas_phy_dev/phy_identifier
+		read phy_address < $sas_phy_dev/sas_address
+		read phy_port < $sas_phy_dev/port_identifier
+		read phy_id < $sas_phy_dev/phy_identifier
 	fi
 	if [ -z "$phy_address" ] ; then
-	    : no initiator address
-	    RESULT=1
-	    return
+		: no initiator address
+		RESULT=1
+		return
 	fi
 	sas_phy_address="$phy_address:$phy_port:$phy_id"
 	sas_rphy_dev="${sas_host_path}/${sas_phy_id}/${sas_rphy_id}/sas_rphy:${sas_rphy_id}"
 	if [ -e "$sas_rphy_dev/sas_address" ]; then
-	    read rphy_address < $sas_rphy_dev/sas_address
-	    read rphy_id < $sas_rphy_dev/phy_identifier
+		read rphy_address < $sas_rphy_dev/sas_address
+		read rphy_id < $sas_rphy_dev/phy_identifier
 	fi
 	if [ -z "$rphy_address" ] ; then
-	    : no initiator address
-	    RESULT=1
-	    return
+		: no initiator address
+		RESULT=1
+		return
 	fi
 	sas_rphy_address="$rphy_address:$rphy_id"
-
 	controller_dev="${sas_host_path%/host[0-9]*}"
-
 	# SAS devices are always endpoints
 	d="sas-${sas_phy_address}-${sas_rphy_address}"
 	D="$controller_dev"
-
 	RESULT=0
 }
 
@@ -328,10 +273,12 @@ handle_usb () {
 	while [ ! -z "$host_dev_path" ] ; do
 		case "$host_dev_path" in
 			*/usb*)
-			usb_host_path=$host_dev_path
-			host_dev_path="${host_dev_path%/*}"
-			;;
-			*) break ;;
+				usb_host_path=$host_dev_path
+				host_dev_path="${host_dev_path%/*}"
+				;;
+			*)
+				break
+				;;
 		esac
 	done
 	: host_dev_path $host_dev_path
@@ -341,142 +288,140 @@ handle_usb () {
 	usb_host_offset=$(get_port_offset usb $usb_host_num)
 	usb_host_port=$(($usb_host_num - $usb_host_offset))
 	cd "$OPWD"
-
 	if [ "$d" ] ; then
-	    d="usb-$usb_host_port:$port_num-${d}"
+		d="usb-$usb_host_port:$port_num-${d}"
 	else
-	    d="usb-$usb_host_port:$port_num"
+		d="usb-$usb_host_port:$port_num"
 	fi
-
 	D="$host_dev_path"
 	RESULT=0
 }
 
-handle_block () {
-    full_sysfs_path="$SYSFS$DEVPATH"
-    if [ -L $full_sysfs_path/subsystem ]; then
-	# new sysfs block layout
-	full_sysfs_path="${full_sysfs_path%/*}"
-	cd "$full_sysfs_path/subsystem";
-	subsys="`pwd -P`"
-	cd "$OPWD"
-	subsys="${subsys##*/}"
-	if [ "$subsys" == "block" ]; then
-	    # parent is "block", it's a partition, move one up
-	    full_sysfs_path="${full_sysfs_path%/*}"
-	fi
-	cd $full_sysfs_path
-    else
-	# old sysfs block layout
-	if [ ! -L $full_sysfs_path/device ] ; then
-	    if [ -f $full_sysfs_path/range ] ; then return ; fi
-	    full_sysfs_path="${full_sysfs_path%/*}"
-	    : full_sysfs_path "$full_sysfs_path"
-	    if [ ! -L $full_sysfs_path/device -o ! -f $full_sysfs_path/dev ] ; then
-		return
-	    fi
-        fi
-	cd $full_sysfs_path/device
-    fi
-    full_sysfs_device_path="`pwd -P`"
-    cd "$OPWD"
-    D=$full_sysfs_device_path
-    while [ ! -z "$D" ] ; do
-    case "$D" in
-	*/ide[0-9]/[0-9].[0-9]*|*/ide[0-9][0-9]/[0-9][0-9].[0-9]*)
-	handle_block_ide "$D"
-	;;
-	*/css0/*)
-	if [ -r $full_sysfs_device_path/wwpn ]; then
-	    read wwpn < $full_sysfs_device_path/wwpn
-	fi
-	if [ -r $full_sysfs_device_path/fcp_lun ]; then
-	    read lun < $full_sysfs_device_path/fcp_lun
-	fi
-	if [ -r $full_sysfs_device_path/hba_id ]; then
-	    read bus_id < $full_sysfs_device_path/hba_id
-	fi
-	if [ "$bus_id" -a "$wwpn" -a "$lun" ]; then
-	    # S/390 zfcp adapter
-	    d="ccw-$bus_id-zfcp-$wwpn:$lun"
-	    RESULT=0
+handle_device () {
+	full_sysfs_path="$SYSFS$DEVPATH"
+	if [ -L $full_sysfs_path/subsystem ]; then
+		# new sysfs block layout
+		full_sysfs_path="${full_sysfs_path%/*}"
+		cd "$full_sysfs_path/subsystem";
+		subsys="`pwd -P`"
+		cd "$OPWD"
+		subsys="${subsys##*/}"
+		if [ "$subsys" == "block" ]; then
+			# parent is "block", it's a partition, move one up
+			full_sysfs_path="${full_sysfs_path%/*}"
+		fi
+		cd $full_sysfs_path
 	else
-	    # DASD devices
-	    bus="ccw"
-	    adapter=${D##*/}
-	    d="$bus-$adapter"
-	    RESULT=0
+		# old sysfs block layout
+		if [ ! -L $full_sysfs_path/device ] ; then
+			if [ -f $full_sysfs_path/range ] ; then return ; fi
+			full_sysfs_path="${full_sysfs_path%/*}"
+			: full_sysfs_path "$full_sysfs_path"
+			if [ ! -L $full_sysfs_path/device -o ! -f $full_sysfs_path/dev ] ; then
+				return
+			fi
+		fi
+		cd $full_sysfs_path/device
 	fi
-	D=
-	;;
-	*/rport-[0-9]*:[0-9]*-[0-9]*/*)
-	handle_block_fc "$D"
-	;;
-	*/phy-[0-9]*:[0-9]*/*)
-	handle_block_sas "$D"
-	;;
-	*/fw-host[0-9]*/*)
-	handle_block_firewire "$D"
-	;;
-	*/host[0-9]*/[0-9]*:[0-9]*:[0-9]*:[0-9]*)
-	handle_block_scsi "$D"
-	;;
-	*/usb[0-9]*/[0-9]*/*)
-	handle_usb "$D"
-	;;
-	*/pci[0-9]*:[0-9]*)
-	handle_pci "$D"
-	;;
-	*/devices)
-	D=
-	;;
-	*)
-	: not handled
-	RESULT=1
-	return
-	;;
-    esac
-    done
-
-    if [ "$TYPE" == "scsi_tape" ] ; then
-	devname=${full_sysfs_path##*/}
-	rewind="${devname%%st*}"
-	mode="${devname##*st}"
-	case "$mode" in
-	    *l)
-		mode="l"
-		;;
-	    *m)
-		mode="m"
-		;;
-	    *a)
-		mode="a"
-		;;
-	    *)
-		mode=""
-		;;
-	esac
-	if [ "$d" ]; then
-	    d="$d-${rewind}st${mode}"
+	full_sysfs_device_path="`pwd -P`"
+	cd "$OPWD"
+	D=$full_sysfs_device_path
+	while [ ! -z "$D" ] ; do
+		case "$D" in
+			*/ide[0-9]/[0-9].[0-9]*|*/ide[0-9][0-9]/[0-9][0-9].[0-9]*)
+				handle_ide "$D"
+				;;
+			*/css0/*)
+				if [ -r $full_sysfs_device_path/wwpn ]; then
+					read wwpn < $full_sysfs_device_path/wwpn
+				fi
+				if [ -r $full_sysfs_device_path/fcp_lun ]; then
+					read lun < $full_sysfs_device_path/fcp_lun
+				fi
+				if [ -r $full_sysfs_device_path/hba_id ]; then
+					read bus_id < $full_sysfs_device_path/hba_id
+				fi
+				if [ "$bus_id" -a "$wwpn" -a "$lun" ]; then
+					# S/390 zfcp adapter
+					d="ccw-$bus_id-zfcp-$wwpn:$lun"
+					RESULT=0
+				else
+					# DASD devices
+					bus="ccw"
+					adapter=${D##*/}
+					d="$bus-$adapter"
+					RESULT=0
+				fi
+				D=
+				;;
+			*/rport-[0-9]*:[0-9]*-[0-9]*/*)
+				handle_fc "$D"
+				;;
+			*/phy-[0-9]*:[0-9]*/*)
+				handle_sas "$D"
+				;;
+			*/fw-host[0-9]*/*)
+				handle_firewire "$D"
+				;;
+			*/host[0-9]*/[0-9]*:[0-9]*:[0-9]*:[0-9]*)
+				handle_scsi "$D"
+				;;
+			*/usb[0-9]*/[0-9]*/*)
+				handle_usb "$D"
+				;;
+			*/pci[0-9]*:[0-9]*)
+				handle_pci "$D"
+				;;
+			*/devices)
+				D=
+				;;
+			*)
+				: not handled
+				RESULT=1
+				return
+				;;
+		esac
+	done
+	if [ "$TYPE" == "scsi_tape" ] ; then
+		devname=${full_sysfs_path##*/}
+		rewind="${devname%%st*}"
+		mode="${devname##*st}"
+		case "$mode" in
+			*l)
+				mode="l"
+				;;
+			*m)
+				mode="m"
+				;;
+			*a)
+				mode="a"
+				;;
+			*)
+				mode=""
+			   ;;
+		esac
+		if [ "$d" ]; then
+			d="$d-${rewind}st${mode}"
+		fi
 	fi
-    fi
 }
 
 case "$TYPE" in
-    block)
-	handle_block
-	echo "ID_PATH=$d"
-	;;
-    scsi_tape)
-	handle_block
-	echo "ID_PATH=$d"
-	;;
-    input)
-	handle_usb $SYSFS$DEVPATH/device
-	echo "ID_PATH=$d"
-	;;
-    *)
-	RESULT=1
-	;;
+	block)
+		handle_device
+		echo "ID_PATH=$d"
+		;;
+	scsi_tape)
+		handle_device
+		echo "ID_PATH=$d"
+		;;
+	input)
+		handle_device
+		echo "ID_PATH=$d"
+		;;
+	*)
+		RESULT=1
+		;;
 esac
+
 exit $RESULT
