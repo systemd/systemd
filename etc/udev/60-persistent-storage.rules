@@ -38,8 +38,8 @@ KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_storage_end"
 
 # by-label/by-uuid (filesystem properties)
 IMPORT{program}="/sbin/vol_id --export $tempnode"
-ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
-ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
+ENV{ID_FS_USAGE}=="filesystem|other", ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
+ENV{ID_FS_USAGE}=="filesystem|other", ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
 
 # BIOS Enhanced Disk Device
 KERNEL=="*[!0-9]", IMPORT{program}="/sbin/edd_id --export $tempnode"
