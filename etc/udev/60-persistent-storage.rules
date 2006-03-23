@@ -30,13 +30,12 @@ KERNEL=="st*", ENV{ID_SERIAL}=="?*", SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_S
 
 # by-path (shortest physical path)
 KERNEL=="*[!0-9]|sr*", IMPORT{program}="/sbin/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
-KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 KERNEL=="st*", IMPORT{program}="/sbin/path_id %p", SYMLINK+="tape/by-path/$env{ID_PATH}"
-
 KERNEL=="sr*|st*", GOTO="persistent_storage_end"
-KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_storage_end"
+KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 
 # by-label/by-uuid (filesystem properties)
+KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_storage_end"
 IMPORT{program}="/sbin/vol_id --export $tempnode"
 ENV{ID_FS_USAGE}=="filesystem|other", ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
 ENV{ID_FS_USAGE}=="filesystem|other", ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
