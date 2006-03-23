@@ -1,12 +1,11 @@
 # Makefile for udev extra invoked from the udev main Makefile
 #
-# Copyright (C) 2004-2005 Kay Sievers <kay.sievers@vrfy.org>
+# Copyright (C) 2004-2006 Kay Sievers <kay.sievers@vrfy.org>
 #
 # Released under the GNU General Public License, version 2.
 #
 
 PROG = vol_id
-LIBVOLUME_ID = libvolume_id/libvolume_id.a
 GEN_HEADERS =
 MAN_PAGES =
 
@@ -32,12 +31,12 @@ all: $(PROG) $(MAN_PAGES)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
-$(LIBVOLUME_ID):
+libvolume_id/libvolume_id.a:
 	$(Q) $(MAKE) -C libvolume_id
 
-$(PROG): %: $(HEADERS) %.o $(LIBVOLUME_ID)
+$(PROG): %: $(HEADERS) %.o libvolume_id/libvolume_id.a
 	$(E) "  LD      " $@
-	$(Q) $(LD) $(LDFLAGS) $@.o $(LIBVOLUME_ID) -o $@ $(LIBUDEV) $(LIB_OBJS)
+	$(Q) $(LD) $(LDFLAGS) -o $@ $@.o $(LIBUDEV) libvolume_id/libvolume_id.a $(LIB_OBJS)
 ifneq ($(strip $(STRIPCMD)),)
 	$(E) "  STRIP   " $@
 	$(Q) $(STRIPCMD) $@
@@ -56,11 +55,13 @@ clean:
 .PHONY: clean
 
 install-bin: all
-	$(INSTALL_PROGRAM) $(PROG) $(DESTDIR)$(sbindir)/$(PROG)
+	$(INSTALL_PROGRAM) -D $(PROG) $(DESTDIR)$(sbindir)/$(PROG)
+	$(MAKE) -C libvolume_id install
 .PHONY: install-bin
 
 uninstall-bin:
 	- rm $(DESTDIR)$(sbindir)/$(PROG)
+	$(MAKE) -C libvolume_id uninstall
 .PHONY: uninstall-bin
 
 install-man:

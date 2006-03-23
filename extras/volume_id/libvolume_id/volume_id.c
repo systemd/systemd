@@ -26,7 +26,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
-#include "volume_id.h"
+#include "libvolume_id.h"
 #include "logging.h"
 #include "util.h"
 

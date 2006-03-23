@@ -8,13 +8,11 @@
  *	Free Software Foundation version 2 of the License.
  */
 
-#ifndef _VOLUME_ID_H_
-#define _VOLUME_ID_H_
+#ifndef _LIBVOLUME_ID_H_
+#define _LIBVOLUME_ID_H_
 
 #include <stdint.h>
 #include <stddef.h>
-
-#define VOLUME_ID_VERSION		60
 
 #ifndef PACKED
 #define PACKED				__attribute__((packed))

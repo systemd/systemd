@@ -23,7 +23,7 @@
 #include <errno.h>
 #include <ctype.h>
 
-#include "volume_id.h"
+#include "libvolume_id.h"
 #include "logging.h"
 #include "util.h"
 
