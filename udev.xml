@@ -301,7 +301,10 @@
               <term><option>RUN</option></term>
               <listitem>
                 <para>Add a program to the list of programs to be executed for a specific
-                device.</para>
+                device. This can only be used for very short running tasks. Running an
+                event process for a long period of time may block all further events for
+                this or a dependent device. Long running tasks need to be immediately
+                detached from the event process itself.</para>
               </listitem>
             </varlistentry>
 
@@ -471,39 +474,6 @@
           insert the first three characters of the sysfs attribute</para>
         </refsect2>
       </refsect1>
-
-      <refsect1><title>ENVIRONMENT</title>
-        <variablelist>
-          <varlistentry>
-            <term><option>ACTION</option></term>
-            <listitem>
-              <para><replaceable>add</replaceable> or <replaceable>remove</replaceable> signifies
-              the addition or the removal of a device.</para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><option>DEVPATH</option></term>
-            <listitem>
-              <para>The sysfs devpath without the mountpoint but a leading slash.</para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><option>SUBSYSTEM</option></term>
-            <listitem>
-              <para>The kernel subsystem the device belongs to.</para>
-            </listitem>
-          </varlistentry>
-
-          <varlistentry>
-            <term><option>UDEV_LOG</option></term>
-            <listitem>
-              <para>Overrides the syslog priority specified in the config file.</para>
-            </listitem>
-          </varlistentry>
-        </variablelist>
-     </refsect1>
 
       <refsect1><title>AUTHOR</title>
         <para>Written by Greg Kroah-Hartman <email>greg@kroah.com</email> and

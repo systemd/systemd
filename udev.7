@@ -132,7 +132,7 @@ The permissions for the device node. Every specified value overwrites the compil
 Export a variable to the environment. This key can also be used to match against an environment variable.
 .TP
 \fBRUN\fR
-Add a program to the list of programs to be executed for a specific device.
+Add a program to the list of programs to be executed for a specific device. This can only be used for very short running tasks. Running an event process for a long period of time may block all further events for this or a dependent device. Long running tasks need to be immediately detached from the event process itself.
 .TP
 \fBLABEL\fR
 Named label where a GOTO can jump to.
@@ -221,22 +221,6 @@ The '%' character itself.
 The '$' character itself.
 .PP
 The count of characters to be substituted may be limited by specifying the format length value. For example, '%3s{file}' will only insert the first three characters of the sysfs attribute
-.SH "ENVIRONMENT"
-.TP
-\fBACTION\fR
-\fIadd\fR
-or
-\fIremove\fR
-signifies the addition or the removal of a device.
-.TP
-\fBDEVPATH\fR
-The sysfs devpath without the mountpoint but a leading slash.
-.TP
-\fBSUBSYSTEM\fR
-The kernel subsystem the device belongs to.
-.TP
-\fBUDEV_LOG\fR
-Overrides the syslog priority specified in the config file.
 .SH "AUTHOR"
 .PP
 Written by Greg Kroah\-Hartman
