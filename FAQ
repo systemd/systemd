@@ -51,7 +51,7 @@ A: Yes, udev can create /dev nodes using the devfs naming policy.  A
    to the devfs names.  See the  udev.rules.devfs file in the udev
    release.
    Note that the devfs scheme is not recommended or officially supported
-   cause it is a really stupid idea to simply enumerate devices in a world
+   because it is a really stupid idea to simply enumerate devices in a world
    where devices can come and go at any time. These numbers give you nothing
    but problems, and are not useful to identify a device. Have a look at the
    persistent disk rules for an example how to do it correctly in userspace

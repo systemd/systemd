@@ -42,7 +42,7 @@ int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size)
 	if (id == NULL)
 		return -EINVAL;
 
-	/* probe for raid first, cause fs probes may be successful on raid members */
+	/* probe for raid first, because fs probes may be successful on raid members */
 	if (size) {
 		if (volume_id_probe_linux_raid(id, off, size) == 0)
 			goto found;

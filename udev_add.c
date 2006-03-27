@@ -54,7 +54,7 @@ int udev_make_node(struct udevice *udev, const char *file, dev_t devt, mode_t mo
 
 	/* preserve node with already correct numbers, to prevent changing the inode number */
 	if ((stats.st_mode & S_IFMT) == (mode & S_IFMT) && (stats.st_rdev == devt)) {
-		info("preserve file '%s', cause it has correct dev_t", file);
+		info("preserve file '%s', because it has correct dev_t", file);
 		selinux_setfilecon(file, udev->dev->kernel_name, stats.st_mode);
 		goto perms;
 	}
@@ -279,7 +279,7 @@ int udev_add_device(struct udevice *udev)
 				goto exit;
 
 			info("renamed netif to '%s'", udev->name);
-			/* we've changed the name, now fake the devpath, cause the
+			/* we've changed the name, now fake the devpath, because the
 			 * original kernel name sleeps with the fishes and we don't
 			 * get an event from the kernel with the new name
 			 */

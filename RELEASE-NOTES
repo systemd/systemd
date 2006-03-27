@@ -237,7 +237,7 @@ udev 069
 A bunch of mostly trivial bugfixes. From now on no node name or
 symlink name can contain any character than plain whitelisted ascii
 characters or validated utf8 byte-streams. This is needed for the
-/dev/disk/by-label/* links, cause we import untrusted data and
+/dev/disk/by-label/* links, because we import untrusted data and
 export it to the filesystem.
 
 udev 068
@@ -249,7 +249,7 @@ situations.
 udev 067
 ========
 Bugfix. udevstart event ordering was broken for a long time.
-The new run_program() uncovered it, cause /dev/null was not
+The new run_program() uncovered it, because /dev/null was not
 available while we try to run external programs.
 Now udevstart should create it before we run anything.
 
@@ -274,7 +274,7 @@ Mostly bugfixes and see ChangeLog.
 The test for the existence of an environment value should be
 switched from:
   ENV{KEY}=="*" to ENV{KEY}=="?*"
-cause "*" will not fail anymore, if the key does not exist or
+because "*" will not fail anymore, if the key does not exist or
 is empty.
 
 udev 063
@@ -447,7 +447,7 @@ We support an unlimited count of symlinks now.
 If USE_STATIC=true is passed to a glibc build, we link statically and use
 a built-in userdb parser to resolve user and group names.
 
-The PLACE= key is gone. It can be replaced by an ID= for a long time, cause
+The PLACE= key is gone. It can be replaced by an ID= for a long time, because
 we walk up the chain of physical devices to find a match.
 
 The KEY="<value>" format supports '=', '==', '!=,' , '+=' now. This makes it
@@ -462,5 +462,5 @@ but existing rules should be converted if possible, to be better readable.
 We have new ENV{}== key now, to match against a maximum of 5 environment
 variables.
 
-udevstart is its own binary again, cause we don't need co carry this araound
+udevstart is its own binary again, because we don't need co carry this araound
 with every forked event.
