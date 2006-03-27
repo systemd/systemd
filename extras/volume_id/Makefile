@@ -31,12 +31,12 @@ all: $(PROG) $(MAN_PAGES)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
-libvolume_id/libvolume_id.a:
-	$(Q) $(MAKE) -C libvolume_id
+lib/libvolume_id.a:
+	$(Q) $(MAKE) -C lib
 
-$(PROG): %: $(HEADERS) %.o libvolume_id/libvolume_id.a
+$(PROG): %: $(HEADERS) %.o lib/libvolume_id.a
 	$(E) "  LD      " $@
-	$(Q) $(LD) $(LDFLAGS) -o $@ $@.o $(LIBUDEV) libvolume_id/libvolume_id.a $(LIB_OBJS)
+	$(Q) $(LD) $(LDFLAGS) -o $@ $@.o $(LIBUDEV) lib/libvolume_id.a $(LIB_OBJS)
 ifneq ($(strip $(STRIPCMD)),)
 	$(E) "  STRIP   " $@
 	$(Q) $(STRIPCMD) $@
@@ -51,17 +51,17 @@ endif
 clean:
 	$(E) "  CLEAN   "
 	$(Q) rm -f $(PROG) $(OBJS) $(GEN_HEADERS)
-	$(Q) $(MAKE) -C libvolume_id clean
+	$(Q) $(MAKE) -C lib clean
 .PHONY: clean
 
 install-bin: all
 	$(INSTALL_PROGRAM) -D $(PROG) $(DESTDIR)$(sbindir)/$(PROG)
-	$(MAKE) -C libvolume_id install
+	$(MAKE) -C lib install
 .PHONY: install-bin
 
 uninstall-bin:
 	- rm $(DESTDIR)$(sbindir)/$(PROG)
-	$(MAKE) -C libvolume_id uninstall
+	$(MAKE) -C lib uninstall
 .PHONY: uninstall-bin
 
 install-man:
