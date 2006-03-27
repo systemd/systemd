@@ -27,9 +27,15 @@
 #include <sys/stat.h>
 
 #include "libvolume_id.h"
-#include "logging.h"
 #include "util.h"
 
+/* the user can overwrite this log function */
+static void default_log(int priority, const char *file, int line, const char *format, ...)
+{
+	return;
+}
+
+volume_id_log_fn volume_id_log = default_log;
 
 int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {

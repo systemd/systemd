@@ -60,6 +60,18 @@ void log_message(int priority, const char *format, ...)
 }
 #endif
 
+static void vid_log(int priority, const char *file, int line, const char *format, ...)
+{
+#ifdef USE_LOG
+	va_list args;
+
+	va_start(args, format);
+	log_message(priority, format, args);
+	va_end(args);
+#endif
+	return;
+}
+
 static void set_str(char *to, const char *from, size_t count)
 {
 	size_t i, j, len;
@@ -116,6 +128,9 @@ int main(int argc, char *argv[])
 	int rc = 0;
 
 	logging_init("vol_id");
+
+	/* hook in our debug into libvolume_id */
+	volume_id_log = vid_log;
 
 	for (i = 1 ; i < argc; i++) {
 		char *arg = argv[i];

@@ -26,7 +26,6 @@
 #include <sys/stat.h>
 
 #include "libvolume_id.h"
-#include "logging.h"
 #include "util.h"
 
 void volume_id_set_unicode16(char *str, size_t len, const uint8_t *buf, enum endian endianess, size_t count)

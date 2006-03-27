@@ -25,7 +25,6 @@
 
 #include "libvolume_id.h"
 #include "util.h"
-#include "logging.h"
 
 struct ext2_super_block {
 	uint32_t	s_inodes_count;

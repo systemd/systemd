@@ -18,6 +18,12 @@
 #define PACKED				__attribute__((packed))
 #endif
 
+
+typedef void (*volume_id_log_fn)(int priority, const char *file, int line, const char *format, ...)
+	     __attribute__ ((format(printf, 4, 5)));
+
+extern volume_id_log_fn volume_id_log;
+
 #define VOLUME_ID_LABEL_SIZE		64
 #define VOLUME_ID_UUID_SIZE		36
 #define VOLUME_ID_FORMAT_SIZE		32

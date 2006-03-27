@@ -1,7 +1,7 @@
 /*
  * volume_id - reads filesystem label and uuid
  *
- * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005-2006 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -21,6 +21,15 @@
 
 #include <endian.h>
 #include <byteswap.h>
+#include <syslog.h>
+
+#define err(format, arg...)	volume_id_log(LOG_ERR, __FILE__, __LINE__, format, ##arg)
+#define info(format, arg...)	volume_id_log(LOG_INFO, __FILE__, __LINE__, format, ##arg)
+#ifdef DEBUG
+#define dbg(format, arg...)	volume_id_log(LOG_DEBUG, __FILE__, __LINE__, format, ##arg)
+#else
+#define dbg(format, arg...)	do { } while (0)
+#endif
 
 /* size of superblock buffer, reiserfs block is at 64k */
 #define SB_BUFFER_SIZE				0x11000

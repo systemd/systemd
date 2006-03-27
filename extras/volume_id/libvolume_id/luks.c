@@ -25,7 +25,6 @@
 
 #include "libvolume_id.h"
 #include "util.h"
-#include "logging.h"
 
 #define SECTOR_SHIFT			9
 #define SECTOR_SIZE			(1 << SECTOR_SHIFT)

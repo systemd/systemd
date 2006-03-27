@@ -24,7 +24,6 @@
 #include <ctype.h>
 
 #include "libvolume_id.h"
-#include "logging.h"
 #include "util.h"
 
 #define ISO_SUPERBLOCK_OFFSET		0x8000
