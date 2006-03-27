@@ -36,7 +36,11 @@ lib/libvolume_id.a:
 
 $(PROG): %: $(HEADERS) %.o lib/libvolume_id.a
 	$(E) "  LD      " $@
+ifeq ($(strip $(VOLUME_ID_STATIC)),true)
 	$(Q) $(LD) $(LDFLAGS) -o $@ $@.o $(LIBUDEV) lib/libvolume_id.a $(LIB_OBJS)
+else
+	$(Q) $(LD) $(LDFLAGS) -o $@ $@.o $(LIBUDEV) -Llib -lvolume_id $(LIB_OBJS)
+endif
 ifneq ($(strip $(STRIPCMD)),)
 	$(E) "  STRIP   " $@
 	$(Q) $(STRIPCMD) $@
