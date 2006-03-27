@@ -26,7 +26,7 @@
 #include "libvolume_id.h"
 #include "util.h"
 
-struct ntfs_super_block {
+static struct ntfs_super_block {
 	uint8_t		jump[3];
 	uint8_t		oem_id[8];
 	uint16_t	bytes_per_sector;
@@ -53,7 +53,7 @@ struct ntfs_super_block {
 	uint16_t	checksum;
 } PACKED *ns;
 
-struct master_file_table_record {
+static struct master_file_table_record {
 	uint8_t		magic[4];
 	uint16_t	usa_ofs;
 	uint16_t	usa_count;
@@ -66,7 +66,7 @@ struct master_file_table_record {
 	uint32_t	bytes_allocated;
 } PACKED *mftr;
 
-struct file_attribute {
+static struct file_attribute {
 	uint32_t	type;
 	uint32_t	len;
 	uint8_t		non_resident;
@@ -78,7 +78,7 @@ struct file_attribute {
 	uint16_t	value_offset;
 } PACKED *attr;
 
-struct volume_info {
+static struct volume_info {
 	uint64_t	reserved;
 	uint8_t		major_ver;
 	uint8_t		minor_ver;

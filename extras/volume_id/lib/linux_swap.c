@@ -26,7 +26,7 @@
 #include "libvolume_id.h"
 #include "util.h"
 
-struct swap_header_v1_2 {
+static struct swap_header_v1_2 {
 	uint8_t		bootbits[1024];
 	uint32_t	version;
 	uint32_t	last_page;

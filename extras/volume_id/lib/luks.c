@@ -36,7 +36,7 @@
 #define LUKS_SALTSIZE			32
 #define LUKS_NUMKEYS			8
 
-const uint8_t LUKS_MAGIC[] = {'L','U','K','S', 0xba, 0xbe};
+static const uint8_t LUKS_MAGIC[] = {'L','U','K','S', 0xba, 0xbe};
 #define LUKS_MAGIC_L 6
 #define LUKS_PHDR_SIZE (sizeof(struct luks_phdr)/SECTOR_SIZE+1)
 #define UUID_STRING_L 40

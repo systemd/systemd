@@ -26,7 +26,7 @@
 #include "libvolume_id.h"
 #include "util.h"
 
-struct mdp_super_block {
+static struct mdp_super_block {
 	uint32_t	md_magic;
 	uint32_t	major_version;
 	uint32_t	minor_version;

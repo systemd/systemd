@@ -36,7 +36,7 @@ struct hfs_finder_info{
 	uint8_t		id[8];
 } PACKED;
 
-struct hfs_mdb {
+static struct hfs_mdb {
 	uint8_t		signature[2];
 	uint32_t	cr_date;
 	uint32_t	ls_Mod;
@@ -104,7 +104,7 @@ struct hfsplus_fork {
 	struct hfsplus_extent extents[HFSPLUS_EXTENT_COUNT];
 } PACKED;
 
-struct hfsplus_vol_header {
+static struct hfsplus_vol_header {
 	uint8_t		signature[2];
 	uint16_t	version;
 	uint32_t	attributes;
