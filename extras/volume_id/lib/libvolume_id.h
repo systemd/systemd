@@ -19,10 +19,10 @@
 #endif
 
 
-typedef void (*volume_id_log_fn)(int priority, const char *file, int line, const char *format, ...)
+typedef void (*volume_id_log_fn_t)(int priority, const char *file, int line, const char *format, ...)
 	     __attribute__ ((format(printf, 4, 5)));
 
-extern volume_id_log_fn volume_id_log;
+extern volume_id_log_fn_t volume_id_log_fn;
 
 #define VOLUME_ID_LABEL_SIZE		64
 #define VOLUME_ID_UUID_SIZE		36

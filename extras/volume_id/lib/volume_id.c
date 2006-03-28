@@ -35,7 +35,7 @@ static void default_log(int priority, const char *file, int line, const char *fo
 	return;
 }
 
-volume_id_log_fn volume_id_log = default_log;
+volume_id_log_fn_t volume_id_log_fn = default_log;
 
 int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {

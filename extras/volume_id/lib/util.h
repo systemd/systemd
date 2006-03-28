@@ -23,10 +23,10 @@
 #include <byteswap.h>
 #include <syslog.h>
 
-#define err(format, arg...)	volume_id_log(LOG_ERR, __FILE__, __LINE__, format, ##arg)
-#define info(format, arg...)	volume_id_log(LOG_INFO, __FILE__, __LINE__, format, ##arg)
+#define err(format, arg...)	volume_id_log_fn(LOG_ERR, __FILE__, __LINE__, format, ##arg)
+#define info(format, arg...)	volume_id_log_fn(LOG_INFO, __FILE__, __LINE__, format, ##arg)
 #ifdef DEBUG
-#define dbg(format, arg...)	volume_id_log(LOG_DEBUG, __FILE__, __LINE__, format, ##arg)
+#define dbg(format, arg...)	volume_id_log_fn(LOG_DEBUG, __FILE__, __LINE__, format, ##arg)
 #else
 #define dbg(format, arg...)	do { } while (0)
 #endif

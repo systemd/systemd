@@ -1,7 +1,7 @@
 /*
- * vol_id - udev callout to read filesystem label and uuid
+ * vol_id - read filesystem label and uuid
  *
- * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005-2006 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
 	logging_init("vol_id");
 
 	/* hook in our debug into libvolume_id */
-	volume_id_log = vid_log;
+	volume_id_log_fn = vid_log;
 
 	for (i = 1 ; i < argc; i++) {
 		char *arg = argv[i];
