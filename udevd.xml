@@ -100,7 +100,7 @@
       <refsect1>
         <title>SEE ALSO</title>
         <para><citerefentry>
-            <refentrytitle>udev</refentrytitle><manvolnum>8</manvolnum>
+            <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
         </citerefentry></para>
       </refsect1>
     </refentry>
