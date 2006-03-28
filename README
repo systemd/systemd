@@ -66,9 +66,6 @@ Compile Options:
   	If set to 'true', very verbose debugging messages will be compiled
   	into the udev binaries. The actual level of debugging is specified
   	in the udev config file.
-  STRIPCMD
-  	If udev is compiled for packaging an empty string can be passed
-  	to disable the stripping of the binaries.
   USE_SELINUX
   	If set to 'true', udev will be built with SELinux support
   	enabled.  This is disabled by default.

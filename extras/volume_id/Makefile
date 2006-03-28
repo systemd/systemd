@@ -41,10 +41,6 @@ ifeq ($(strip $(VOLUME_ID_STATIC)),true)
 else
 	$(Q) $(LD) $(LDFLAGS) -o $@ $@.o $(LIBUDEV) -Llib -lvolume_id $(LIB_OBJS)
 endif
-ifneq ($(strip $(STRIPCMD)),)
-	$(E) "  STRIP   " $@
-	$(Q) $(STRIPCMD) $@
-endif
 
 # man pages
 %.8: %.xml

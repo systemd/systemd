@@ -39,10 +39,6 @@ all: $(PROG) $(MAN_PAGES)
 $(PROG): %: $(HEADERS) %.o $(OBJS)
 	$(E) "  LD      " $@
 	$(Q) $(LD) $(LDFLAGS) $@.o $(OBJS) -o $@ $(LIBUDEV) $(LIB_OBJS)
-ifneq ($(STRIPCMD),)
-	$(E) "  STRIP   " $@
-	$(Q) $(STRIPCMD) $@
-endif
 
 scsi_id_version.h:
 	$(E) "  GENHDR  " $@

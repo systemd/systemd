@@ -117,8 +117,6 @@ LD = $(CROSS_COMPILE)gcc
 AR = $(CROSS_COMPILE)ar
 RANLIB = $(CROSS_COMPILE)ranlib
 HOSTCC = gcc
-STRIP = $(CROSS_COMPILE)strip
-STRIPCMD = $(STRIP) -s
 
 CFLAGS		= -g -Wall -pipe -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
 WARNINGS	= -Wstrict-prototypes -Wsign-compare -Wshadow \
@@ -138,7 +136,6 @@ endif
 # if DEBUG is enabled, then we do not strip
 ifeq ($(strip $(DEBUG)),true)
 	CFLAGS  += -DDEBUG
-	STRIPCMD =
 endif
 
 ifeq ($(strip $(USE_GCOV)),true)
@@ -178,7 +175,6 @@ all: $(PROGRAMS) $(MAN_PAGES)
 			CFLAGS="$(CFLAGS)" \
 			LD="$(LD)" \
 			LDFLAGS="$(LDFLAGS)" \
-			STRIPCMD="$(STRIPCMD)" \
 			LIB_OBJS="$(LIB_OBJS)" \
 			LIBUDEV="$(PWD)/$(LIBUDEV)" \
 			-C $$target $@ || exit 1; \
@@ -198,10 +194,6 @@ all: $(PROGRAMS) $(MAN_PAGES)
 $(PROGRAMS): %: $(HEADERS) $(GEN_HEADERS) $(LIBUDEV) %.o
 	$(E) "  LD      " $@
 	$(Q) $(LD) $(LDFLAGS) $@.o -o $@ $(LIBUDEV) $(LIB_OBJS)
-ifneq ($(STRIPCMD),)
-	$(E) "  STRIP   " $@
-	$(Q) $(STRIPCMD) $@
-endif
 
 $(LIBUDEV): $(HEADERS) $(GEN_HEADERS) $(UDEV_OBJS)
 	$(Q) rm -f $@
@@ -349,7 +341,7 @@ ChangeLog: Makefile
 	@ rm $@.tmp
 
 gcov-all:
-	$(MAKE) clean all STRIPCMD= USE_GCOV=true
+	$(MAKE) clean all USE_GCOV=true
 	@ echo
 	@ echo "binaries built with gcov support."
 	@ echo "run the tests and analyze with 'make udev_gcov.txt'"
