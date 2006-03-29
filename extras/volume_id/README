@@ -1,10 +1,9 @@
-vol_id - volume, filesystem, disklabel reader
+vol_id - probe filesystem and read label and uuid
 
 This program is normally called from a udev rule, to provide udev with the
-name, uuid or the filesystem type of a volume to name a device node.
-vol_id opens the blockdevice node specified at the commandline.
-The following commandline switches are supported to specify what vol_id
-should print:
+filesystem type of a volume and the label and uuid to name a device node.
+vol_id opens the blockdevice node specified at the commandline. The following
+commandline switches are supported to specify what vol_id should print:
 
   --export prints all values
   -h       prints help text
@@ -17,6 +16,7 @@ and slashes ignored.
 
 fstype                 probe  label  uuid  fsversion
 ----------------------------------------------------
+linux swap             *      *      *     *
 ext                    *      *      *     *
 reiserfs jr/3.5/3.6/4  *      *      *     *
 fat (12, 16, 32)       *      *      *     *
@@ -25,26 +25,30 @@ jfs                    *      *      *     -
 xfs                    *      *      *     -
 hfs (plus, wrapped)    *      *      *     -
 udf                    *      *      -     -
-iso9660                *      *      n/a   -
+iso9660                *      *      -     -
 ufs                    *      -      -     -
-linux swap             *      *      *     *
-LVM 1                  *      -      -     -
-LVM 2                  *      -      -     *
-linux raid             *      -      *     *
 cramfs                 *      *      -     -
 sysv                   *      *      -     *
 luks                   *      -      *     -
 hpfs                   *      -      -     -
-romfs                  *
-squashfs               *
-minix                  *
-highpoint              *
-isw_raid               *
-lsi_raid               *
-nvidia_raid            *
-promise_raid           *
-silicon_raid           *
-via_raid               *
+romfs                  *      *      -     -
+squashfs               *      -      -     -
+minix                  *      -      -     *
+ocfs (1, 2)            *      *      *     *
+vxfs                   *      -      -     *
+
+Raid members are detected to prevent the probing for a filesystem
+-----------------------------------------------------------------
+linux raid             *      -      *     *
+LVM 1                  *      -      -     -
+LVM 2                  *      -      -     *
+highpoint              *      -      -     -
+isw_raid               *      -      -     -
+lsi_raid               *      -      -     -
+nvidia_raid            *      -      -     -
+promise_raid           *      -      -     -
+silicon_raid           *      -      -     -
+via_raid               *      -      -     -
 
 
 If no label is found vol_id exits with nonzero and the rule will be
