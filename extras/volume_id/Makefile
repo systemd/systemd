@@ -55,12 +55,12 @@ clean:
 .PHONY: clean
 
 install-bin: all
-	$(INSTALL_PROGRAM) -D $(PROG) $(DESTDIR)$(sbindir)/$(PROG)
+	$(INSTALL_PROGRAM) -D $(PROG) $(DESTDIR)$(libudevdir)/$(PROG)
 	$(MAKE) -C lib install
 .PHONY: install-bin
 
 uninstall-bin:
-	- rm $(DESTDIR)$(sbindir)/$(PROG)
+	- rm $(DESTDIR)$(libudevdir)/$(PROG)
 	$(MAKE) -C lib uninstall
 .PHONY: uninstall-bin
 

@@ -1,6 +1,7 @@
 #/bin/sh
 
 EXTRAS="\
+	extras/path_id \
 	extras/scsi_id \
 	extras/ata_id \
 	extras/volume_id \
