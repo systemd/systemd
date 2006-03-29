@@ -18,15 +18,15 @@ BUS=="ide", KERNEL=="hd[a-z]", SYSFS{removable}=="1", \
 	ENV{ID_MODEL}=="IOMEGA_ZIP*",	NAME="%k", OPTIONS+="all_partitions"
 
 # IDE devices
-BUS=="ide", KERNEL=="hd[a-z]*", PROGRAM="/lib/udev/ide-devfs.sh %k %b %n", \
+BUS=="ide", KERNEL=="hd[a-z]*", PROGRAM="ide-devfs.sh %k %b %n", \
 					NAME="%c{1}", SYMLINK+="%k %c{2}"
 
 # SCSI devices
-BUS=="scsi", PROGRAM="/lib/udev/scsi-devfs.sh %k %b %n", \
+BUS=="scsi", PROGRAM="scsi-devfs.sh %k %b %n", \
 					NAME="%c{1}", SYMLINK+="%k %c{2}"
 
 # RAID controllers
-KERNEL=="cciss!*|ida!*|rd!*", PROGRAM="/lib/udev/raid-devfs.sh %k", \
+KERNEL=="cciss!*|ida!*|rd!*", PROGRAM="raid-devfs.sh %k", \
 					NAME="%c{1}", SYMLINK+="%k"
 
 # other block devices
@@ -41,11 +41,12 @@ BUS=="usb", KERNEL=="dabusb*",		NAME="usb/%k"
 BUS=="usb", KERNEL=="hiddev*",		NAME="usb/%k"
 BUS=="usb", KERNEL=="legousbtower*",	NAME="usb/%k"
 BUS=="usb", KERNEL=="lp[0-9]*",		NAME="usb/%k"
-BUS=="usb", KERNEL=="ttyUSB*", SYSFS{product}=="Palm Handheld*", \
+BUS=="usb", KERNEL=="ttyUSB*", \
+	SYSFS{product}=="Palm Handheld*|Handspring Visor", \
 					SYMLINK+="pilot"
 
 # usbfs-like devices
-SUBSYSTEM=="usb_device",	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; B=$${K%%%%.*}; D=$${K#*.}; echo bus/usb/$$B/$$D'", \
+SUBSYSTEM=="usb_device",	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", \
 				NAME="%c"
 
 # serial devices
@@ -67,7 +68,7 @@ KERNEL=="video[0-9]*",		NAME="v4l/%k"
 KERNEL=="radio[0-9]*",		NAME="v4l/%k"
 KERNEL=="vbi[0-9]*",		NAME="v4l/%k"
 KERNEL=="vtx[0-9]*",		NAME="v4l/%k"
-KERNEL=="dvb*",			PROGRAM="/bin/sh -c 'KNAME=%k; KNAME=$${KNAME#dvb}; A=$${KNAME%%%%.*}; D=$${KNAME#*.}; echo dvb/adapter$$A/$$D'", \
+KERNEL=="dvb*",			PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}", \
 				NAME="%c"
 KERNEL=="fb[0-9]*",		NAME="fb/%n"
 KERNEL=="card[0-9]*",		NAME="dri/%k"
@@ -141,6 +142,7 @@ KERNEL=="zap[0-9]*",		NAME="zap/%n"
 SUBSYSTEM=="aoe", KERNEL=="discover",	NAME="etherd/%k"
 SUBSYSTEM=="aoe", KERNEL=="err",	NAME="etherd/%k"
 SUBSYSTEM=="aoe", KERNEL=="interfaces",	NAME="etherd/%k"
+SUBSYSTEM=="aoe", KERNEL=="revalidate",	NAME="etherd/%k"
 
 # device mapper creates its own device nodes, so ignore these
 KERNEL=="dm-[0-9]*",		NAME=""

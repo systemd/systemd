@@ -27,11 +27,12 @@ BUS=="usb", KERNEL=="dabusb*",		NAME="usb/%k"
 BUS=="usb", KERNEL=="hiddev*",		NAME="usb/%k"
 BUS=="usb", KERNEL=="legousbtower*",	NAME="usb/%k"
 BUS=="usb", KERNEL=="lp[0-9]*",		NAME="usb/%k"
-BUS=="usb", KERNEL=="ttyUSB*", SYSFS{product}=="Palm Handheld*", \
+BUS=="usb", KERNEL=="ttyUSB*", \
+	SYSFS{product}=="Palm Handheld*|Handspring Visor", \
 					SYMLINK+="pilot"
 
 # usbfs-like devices
-SUBSYSTEM=="usb_device",	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; B=$${K%%%%.*}; D=$${K#*.}; echo bus/usb/$$B/$$D'", \
+SUBSYSTEM=="usb_device",	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", \
 				NAME="%c"
 
 # serial devices
@@ -39,7 +40,7 @@ KERNEL=="capi",			NAME="capi20", SYMLINK+="isdn/capi20"
 KERNEL=="capi[0-9]*",		NAME="capi/%n"
 
 # video devices
-KERNEL=="dvb*",			PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; A=$${K%%%%.*}; D=$${K#*.}; echo dvb/adapter$$A/$$D'", \
+KERNEL=="dvb*",			PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}", \
 				NAME="%c"
 KERNEL=="card[0-9]*",		NAME="dri/%k"
 
@@ -91,6 +92,7 @@ KERNEL=="zap[0-9]*",		NAME="zap/%n"
 SUBSYSTEM=="aoe", KERNEL=="discover",	NAME="etherd/%k"
 SUBSYSTEM=="aoe", KERNEL=="err",	NAME="etherd/%k"
 SUBSYSTEM=="aoe", KERNEL=="interfaces",	NAME="etherd/%k"
+SUBSYSTEM=="aoe", KERNEL=="revalidate",	NAME="etherd/%k"
 
 # device mapper creates its own device nodes, so ignore these
 KERNEL=="dm-[0-9]*",		NAME=""

@@ -3,7 +3,6 @@ SUBSYSTEM=="drivers",	OPTIONS="last_rule"
 SUBSYSTEM=="module",	OPTIONS="last_rule"
 
 # compatibility support for the obsolete hotplug.d and dev.d directories
-# do not run the hotplug.d scripts when started from udevstart
-ENV{UDEVD_EVENT}=="1",	RUN+="/lib/udev/udev_run_hotplugd"
-RUN+="/lib/udev/udev_run_devd"
+RUN+="udev_run_hotplugd $env{SUBSYSTEM}"
+RUN+="udev_run_devd $env{SUBSYSTEM}"
 

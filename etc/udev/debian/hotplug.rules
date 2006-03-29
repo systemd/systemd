@@ -1,23 +1,24 @@
 ACTION!="add", GOTO="hotplug_not_add_event"
 
 # check if the device has already been claimed by a driver
-ENV{PHYSDEVDRIVER}=="?*", GOTO="hotplug_driver_loaded"
+ENV{PHYSDEVDRIVER}=="?*", SUBSYSTEM!="input", GOTO="hotplug_driver_loaded"
 
 # workarounds for kernels which lack $MODALIAS support
-SUBSYSTEM=="ieee1394",	ENV{MODALIAS}!="?*", \
-	IMPORT{program}="/lib/udev/modalias_ieee1394"
-SUBSYSTEM=="serio",	ENV{MODALIAS}!="?*", \
-	IMPORT{program}="/lib/udev/modalias_serio"
+SUBSYSTEM=="ieee1394",	ENV{MODALIAS}!="?*", IMPORT{program}="modalias_ieee1394"
+SUBSYSTEM=="serio",	ENV{MODALIAS}!="?*", IMPORT{program}="modalias_serio"
 
 # load the drivers
 ENV{MODALIAS}=="?*",	RUN+="/sbin/modprobe $env{MODALIAS}"
-SUBSYSTEM=="ide",	ENV{MODALIAS}!="?*",	RUN+="/lib/udev/ide.agent"
-#SUBSYSTEM=="input",	ENV{MODALIAS}!="?*",	RUN+="/lib/udev/input.agent"
-SUBSYSTEM=="vio",	ENV{MODALIAS}!="?*",	RUN+="/lib/udev/vio.agent"
+SUBSYSTEM=="ide",	ENV{MODALIAS}!="?*",	RUN+="ide.agent"
+SUBSYSTEM=="vio",	ENV{MODALIAS}!="?*",	RUN+="vio.agent"
 
 SUBSYSTEM=="pnp",	ENV{MODALIAS}!="?*",	RUN+="/bin/sh -c 'while read id; do /sbin/modprobe pnp:d$$id; done < /sys$devpath/id'"
 
 SUBSYSTEM=="pcmcia_socket",			RUN+="/sbin/modprobe pcmcia"
+
+# rules for subsystems which lack proper hotplug support
+#SUBSYSTEM=="i2o",				RUN+="/sbin/modprobe i2o-block"
+#SUBSYSTEM=="mmc",				RUN+="/sbin/modprobe mmc-block"
 
 SUBSYSTEM=="scsi_device", SYSFS{type}=="0|7|14", RUN+="/sbin/modprobe sd_mod"
 SUBSYSTEM=="scsi_device", SYSFS{type}=="1",	RUN+="/sbin/modprobe osst", \
@@ -26,7 +27,7 @@ SUBSYSTEM=="scsi_device", SYSFS{type}=="1",	RUN+="/sbin/modprobe st", \
 	SYSFS{vendor}=="Onstream", SYSFS{model}=="ADR*"
 SUBSYSTEM=="scsi_device", SYSFS{type}=="1",	RUN+="/sbin/modprobe st", \
 	SYSFS{vendor}!="Onstream"
-SUBSYSTEM=="scsi_device", SYSFS{type}=="[345]",	RUN+="/sbin/modprobe sr_mod"
+SUBSYSTEM=="scsi_device", SYSFS{type}=="[45]",	RUN+="/sbin/modprobe sr_mod"
 SUBSYSTEM=="scsi_device", SYSFS{type}=="[235689]", RUN+="/sbin/modprobe sg"
 
 # From here on follows the hotplug agents which do not load modules
@@ -34,14 +35,14 @@ LABEL="hotplug_driver_loaded"
 
 # FIXME: does a sane default exist?
 #SUBSYSTEM=="scsi_device", SYSFS{idVendor}=="...", \
-#	RUN+="/lib/udev/scsi-re-add"
+#	RUN+="scsi-re-add"
 
-SUBSYSTEM=="firmware",		RUN+="/lib/udev/firmware.agent"
+SUBSYSTEM=="firmware",		RUN+="firmware.agent"
 
 LABEL="hotplug_not_add_event"
 
 SUBSYSTEM=="net",		RUN+="/bin/sh -c '/lib/udev/net.agent &'"
 
 # Log every event to /dev/hotplug.log (for debugging).
-#RUN+="/lib/udev/logger.agent"
+#RUN+="logger.agent"
 

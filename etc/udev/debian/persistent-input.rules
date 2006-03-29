@@ -1,0 +1,29 @@
+SUBSYSTEM!="input",			GOTO="persistent_input_end"
+ACTION!="add",				GOTO="persistent_input_end"
+# ignore the mid-level drivers
+KERNEL=="input[0-9]*",			GOTO="persistent_input_end"
+
+# usb devices
+BUS=="usb",				IMPORT{program}="usb_id -x"
+BUS=="usb", SYSFS{bInterfaceClass}="03", SYSFS{bInterfaceProtocol}="01", \
+					ENV{ID_CLASS}="kbd"
+BUS=="usb", SYSFS{bInterfaceClass}="03", SYSFS{bInterfaceProtocol}="02", \
+					ENV{ID_CLASS}="mouse"
+
+# by-id links, generic and for the event devices
+KERNEL=="mouse*", \
+	ENV{ID_BUS}=="?*", ENV{ID_SERIAL}=="?*", ENV{ID_CLASS}=="?*", \
+	SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-$env{ID_CLASS}"
+KERNEL=="event*", \
+	ENV{ID_BUS}=="?*", ENV{ID_SERIAL}=="?*", ENV{ID_CLASS}=="?*", \
+	SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-event-$env{ID_CLASS}"
+
+# by-path links
+IMPORT{program}="path_id %p"
+KERNEL=="mouse*", ENV{ID_PATH}=="?*", \
+	SYMLINK+="input/by-path/$env{ID_PATH}-$env{ID_CLASS}"
+KERNEL=="event*", ENV{ID_PATH}=="?*", \
+	SYMLINK+="input/by-path/$env{ID_PATH}-event-$env{ID_CLASS}"
+
+LABEL="persistent_input_end"
+

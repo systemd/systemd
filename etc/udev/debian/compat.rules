@@ -27,9 +27,9 @@ KERNEL=="rtc",		SYMLINK+="%k"
 #KERNEL=="i2c-[0-9]*",	SYMLINK+="%k"
 #KERNEL=="lp[0-9]*",	SYMLINK+="%k"
 
-KERNEL=="audio*"	SYMLINK+="%k"
-KERNEL=="dsp*"		SYMLINK+="%k"
-KERNEL=="mixer*"	SYMLINK+="%k"
+KERNEL=="audio*",	SYMLINK+="%k"
+KERNEL=="dsp*",		SYMLINK+="%k"
+KERNEL=="mixer*",	SYMLINK+="%k"
 
 #KERNEL=="fb[0-9]*",	SYMLINK+="%k"
 #KERNEL=="fd[0-9]*",	SYMLINK+="%k"
