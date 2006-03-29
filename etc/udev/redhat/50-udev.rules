@@ -4,7 +4,7 @@
 # default is OWNER="root" GROUP="root", MODE="0600"
 #
 
-KERNEL="*", OWNER="root" GROUP="root", MODE="0600"
+KERNEL=="*", OWNER="root" GROUP="root", MODE="0600"
 
 # all block devices
 SUBSYSTEM=="block",		GROUP="disk", MODE="0640"
@@ -142,7 +142,7 @@ KERNEL=="gpmctl",		MODE="0700"
 # dri devices
 KERNEL=="nvidia*",		MODE="0660"
 KERNEL=="3dfx*",		MODE="0660"
-KERNEL=="dri/*",		MODE="0666"
+KERNEL=="card[0-9]*",		NAME="dri/%k", MODE="0666"
 
 # usb devices
 KERNEL=="usb/dabusb*",		MODE="0660"
@@ -153,16 +153,14 @@ KERNEL=="usb/rio500",		MODE="0660"
 KERNEL=="z90crypt",		MODE="0666"
 
 # DVB
-KERNEL=="dvb/*",		MODE="0660"
 KERNEL=="dvb",			MODE="0660"
-KERNEL=="dvb/adapter*",		MODE="0660"
+SUBSYSTEM=="dvb", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}'", \
+	NAME="%c", MODE="0660"
 
 # create a symlink named after the device map name
 # note devmap_name comes with extras/multipath
 #KERNEL=="dm-[0-9]*", PROGRAM="/sbin/devmap_name %M %m", NAME="%k", SYMLINK+="%c"
 
-# DRI devices always go into a subdirectory (as per the LSB spec)
-KERNEL=="card*",		NAME="dri/card%n"
 
 # alsa devices
 KERNEL=="controlC[0-9]*",	NAME="snd/%k"
@@ -190,8 +188,8 @@ KERNEL=="lp[0-9]*",		SYMLINK+="par%n"
 BUS=="usb", KERNEL=="lp[0-9]*",	NAME="usb/%k"
 
 KERNEL=="microcode",		NAME="cpu/%k"
-KERNEL="msr[0-9]*",     	NAME="cpu/%n/msr"
-KERNEL="cpu[0-9]*",     	NAME="cpu/%n/cpuid"
+KERNEL=="msr[0-9]*",     	NAME="cpu/%n/msr"
+KERNEL=="cpu[0-9]*",     	NAME="cpu/%n/cpuid"
 
 KERNEL=="ram1",			SYMLINK+="ram"
 KERNEL=="video0",		SYMLINK+="video"
@@ -214,13 +212,12 @@ KERNEL=="tun",			NAME="net/%k"
 KERNEL=="device-mapper",	NAME="mapper/control"
 
 # old compat symlinks with enumeration
-KERNEL=="sr[0-9]*",		SYMLINK+="cdrom%e"
-KERNEL=="scd[0-9]*",		SYMLINK+="cdrom%e"
-KERNEL=="pcd[0-9]*",		SYMLINK+="cdrom%e"
-KERNEL=="fd[0-9]*",		SYMLINK+="floppy%e"
-KERNEL=="nst[0-9]", BUS=="scsi", 	SYMLINK+="tape%e", MODE="0660"
-KERNEL=="nosst[0-9]", BUS=="scsi", 	SYMLINK+="tape%e", MODE="0660"
-KERNEL=="sg[0-9]*", BUS="scsi", SYSFS{type}=="[36]", SYMLINK+="scanner%e", MODE="0660"
+KERNEL=="sr[0-9]*",		SYMLINK+="cdrom cdrom-%k"
+KERNEL=="scd[0-9]*",		SYMLINK+="cdrom cdrom-%k"
+KERNEL=="pcd[0-9]*",		SYMLINK+="cdrom cdrom-%k"
+KERNEL=="fd[0-9]*",		SYMLINK+="floppy-%k"
+KERNEL=="nst[0-9]", BUS=="scsi", 	SYMLINK+="tape-%k", MODE="0660"
+KERNEL=="nosst[0-9]", BUS=="scsi", 	SYMLINK+="tape-%k", MODE="0660"
 
 KERNEL=="umad*", 		NAME="infiniband/%k"
 KERNEL=="issm*", 		NAME="infiniband/%k"
@@ -232,28 +229,30 @@ KERNEL=="zapchannel", 		NAME="zap/channel"
 KERNEL=="zappseudo",  		NAME="zap/pseudo"
 KERNEL=="zap[0-9]*",  		NAME="zap/%n"
 
-BUS=="scsi", KERNEL=="sg[0-9]*", SYSFS{type}=="6", NAME="%k", SYMLINK="scanner%e", MODE="0660"
+KERNEL=="pktcdvd", NAME="%k/control"
 
-# do not seperate the next 2 lines!!
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="ide-media.sh %k", RESULT=="floppy", SYMLINK+="floppy%e", NAME{ignore_remove, all_partitions}="%k"
 
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", RESULT=="cdrom", SYMLINK+="cdrom%e"
 
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="check-cdrom.sh %k DVD", SYMLINK+="dvd%e"
-KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k DVD", SYMLINK+="dvd%e"
+KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", \
+	SYSFS{device/media}=="floppy", \
+	SYMLINK+="floppy floppy-%k", OPTIONS+="ignore_remove, all_partitions"
 
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="check-cdrom.sh %k CD-R", SYMLINK+="cdwriter%e"
-KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k CD-R", SYMLINK+="cdwriter%e"
+KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", SYSFS{device/media}=="cdrom", SYMLINK+="cdrom cdrom-%k"
 
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM="check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter%e"
-KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter%e"
+KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="check-cdrom.sh %k DVD", SYMLINK+="dvd dvd-%k"
+KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k DVD", SYMLINK+="dvd dvd-%k"
+
+KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="check-cdrom.sh %k CD-R", SYMLINK+="cdwriter cdwriter-%k cdrw cdrw-%k"
+KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k CD-R", SYMLINK+="cdwriter cdwriter-%k cdrw cdrw-%k"
+
+KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM="check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter dvdwriter-%k dvdrw dvdrw-%k"
+KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter dvdwriter-%k dvdrw dvdrw-%k"
 
 # rename sr* to scd*
 KERNEL=="sr[0-9]*", BUS=="scsi", NAME="scd%n"
-KERNEL=="hd[a-z]*", BUS=="ide", SYSFS{removable}=="1", NAME{ignore_remove}="%k"
+KERNEL=="hd*[0-9]", BUS=="ide", SYSFS{../removable}=="1", \
+	OPTIONS+="ignore_remove"
 
-# dvb
-SUBSYSTEM=="dvb", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}'", NAME="%c"
 
 #######################################
 # Persistent block device stuff - begin
@@ -268,7 +267,8 @@ SUBSYSTEM!="block", GOTO="persistent_end"
 KERNEL=="ram*|loop*|fd*|nbd*", GOTO="persistent_end"
 
 # never access removable ide devices, the drivers are causing event loops on open()
-BUS=="ide", DRIVER!="ide-cdrom", SYSFS{removable}="1", GOTO="persistent_end"
+BUS=="ide", DRIVER!="ide-cdrom", SYSFS{removable}=="1",	GOTO="persistent_end"
+BUS=="ide", KERNEL=="hd*[0-9]", SYSFS{../removable}=="1", GOTO="persistent_end"
 
 # by-id (hardware serial number)
 KERNEL=="hd*[!0-9]", IMPORT{program}="/sbin/ata_id --export $tempnode"
@@ -309,31 +309,43 @@ LABEL="persistent_end"
 # Persistent block device stuff - end
 #####################################
 
-ACTION=="add", SUBSYSTEM=="usb_device", PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", NAME="%c", MODE="0644"
+ACTION=="add", SUBSYSTEM=="usb_device", \
+	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", \
+	NAME="%c", MODE="0644"
 
-# Perhaps this should just be for all subsystems?
-ACTION=="add", SUBSYSTEM=="?*", MODALIAS=="?*", RUN+="/sbin/modprobe $modalias"
+ACTION=="add", SUBSYSTEM=="?*", ENV{MODALIAS}=="?*", RUN+="/sbin/modprobe $env{MODALIAS}"
 
-ACTION=="add", SUBSYSTEM=="pcmcia", MODALIAS=="*", \
+ACTION=="add", SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="*", \
         RUN+="/bin/sh -c 'echo 1 > /sys/$DEVPATH/allow_func_id_match'"
 
 # sd:           0 TYPE_DISK, 7 TYPE_MOD, 14 TYPE_RBC
 # sr:           4 TYPE_WORM, 5 TYPE_ROM
 # st/osst:      1 TYPE_TAPE
-ACTION=="add", SUBSYSTEM="scsi" , SYSFS{type}=="0|7|14", RUN+="/bin/sh -c 'echo 60 > /sys$$DEVPATH/timeout'"
-ACTION=="add", SUBSYSTEM="scsi" , SYSFS{type}=="1", RUN+="/bin/sh -c 'echo 900 > /sys$$DEVPATH/timeout'"
+# sg: 		8 changer, [36] scanner
+ACTION=="add", SUBSYSTEM="scsi" , SYSFS{type}=="0|7|14", \
+	RUN+="/bin/sh -c 'echo 60 > /sys$$DEVPATH/timeout'"
+ACTION=="add", SUBSYSTEM="scsi" , SYSFS{type}=="1", \
+	RUN+="/bin/sh -c 'echo 900 > /sys$$DEVPATH/timeout'"
 
+
+ACTION=="add", SUBSYSTEM=="scsi_device"	RUN+="/sbin/modprobe sg"
 ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="0|7|14", \
 	RUN+="/sbin/modprobe sd_mod"
 ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="[45]", \
 	RUN+="/sbin/modprobe sr_mod"
+
+ACTION=="add", KERNEL=="sg[0-9]*", BUS=="scsi", SYSFS{type}=="[36]", \
+	SYMLINK+="scanner scanner-%k", MODE="0660"
+
+ACTION=="add", KERNEL=="sg[0-9]*", BUS=="scsi", SYSFS{type}=="8", \
+	SYMLINK+="changer changer-%k", MODE="0660", GROUP="disk"
+
 ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="1", SYSFS{device/vendor}=="On[sS]tream", \
 	SYSFS{model}!="ADR*", RUN+="/sbin/modprobe osst"
 ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="1", SYSFS{device/vendor}=="On[sS]tream", \
 	SYSFS{model}=="ADR*", RUN+="/sbin/modprobe st"
 ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="1", SYSFS{device/vendor}!="On[sS]tream", \
 	RUN+="/sbin/modprobe st"
-ACTION=="add", SUBSYSTEM=="scsi_device"	RUN+="/sbin/modprobe sg"
 
 RUN+="socket:/org/kernel/udev/monitor"
 
