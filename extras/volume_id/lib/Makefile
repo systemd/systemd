@@ -54,9 +54,6 @@ HEADERS=			\
 	libvolume_id.h		\
 	util.h
 
-AR = $(CROSS)ar
-RANLIB = $(CROSS)ranlib
-
 all: libvolume_id.a $(SHLIB) libvolume_id.pc
 .PHONY: all
 .DEFAULT: all

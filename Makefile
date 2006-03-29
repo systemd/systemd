@@ -116,7 +116,6 @@ CC = $(CROSS_COMPILE)gcc
 LD = $(CROSS_COMPILE)gcc
 AR = $(CROSS_COMPILE)ar
 RANLIB = $(CROSS_COMPILE)ranlib
-HOSTCC = gcc
 
 CFLAGS		= -g -Wall -pipe -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
 WARNINGS	= -Wstrict-prototypes -Wsign-compare -Wshadow \
@@ -175,6 +174,8 @@ all: $(PROGRAMS) $(MAN_PAGES)
 			CFLAGS="$(CFLAGS)" \
 			LD="$(LD)" \
 			LDFLAGS="$(LDFLAGS)" \
+			AR="$(AR)" \
+			RANLIB="$(RANLIB)" \
 			LIB_OBJS="$(LIB_OBJS)" \
 			LIBUDEV="$(PWD)/$(LIBUDEV)" \
 			-C $$target $@ || exit 1; \
