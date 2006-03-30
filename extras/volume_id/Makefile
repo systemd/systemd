@@ -7,7 +7,7 @@
 
 PROG = vol_id
 GEN_HEADERS =
-MAN_PAGES =
+MAN_PAGES = vol_id.8
 
 prefix =
 etcdir =	${prefix}/etc

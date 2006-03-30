@@ -1,41 +1,48 @@
-.TH VOL_ID 8 "November 2005" "" "Linux Administrator's Manual"
-.SH NAME
+.\" ** You probably do not want to edit this file directly **
+.\" It was generated using the DocBook XSL Stylesheets (version 1.69.1).
+.\" Instead of manually editing it, you probably should edit the DocBook XML
+.\" source for it and then use the DocBook XSL Stylesheets to regenerate it.
+.TH "VOL_ID" "8" "March 2006" "volume_id" "vol_id"
+.\" disable hyphenation
+.nh
+.\" disable justification (adjust text to left margin only)
+.ad l
+.SH "NAME"
 vol_id \- probe filesystem type and read label and uuid
-.SH SYNOPSIS
-.BI vol_id
-[\fI--export\fP|\fI-t\fP|\fI-l\fP|\fI-u\fP] \fIblockdevice\fP
+.SH "SYNOPSIS"
+.HP 7
+\fBvol_id\fR [\fB\-\-export\fR] [\fB\-t\fR] [\fB\-l\fR] [\fB\-u\fR] [\fIdevice\fR]
 .SH "DESCRIPTION"
-.B vol_id
-is normally called from a udev rule, to provide udev with the
-label and uuid of a filesystem. vol_id supports all common
-filesystem formats and detects various raid setups to prevent
-the recognition of raid members as a filesystem.
-.SH USAGE
-.B vol_id
-opens the device node specified at the commandline.
-.SH OPTIONS
-The following commandline switches are supported to specify what vol_id
-should print:
+.PP
+\fBvol_id\fR
+is usually called from a udev rule, to provide udev with the filesystem type, the label and the uuid of a volume.
+\fBvol_id\fR
+supports all common filesystem formats and detects various raid setups to prevent the recognition of raid members as a volume with a filesystem.
+.SH "OPTIONS"
 .TP
-.BI --export
+\fB\-\-export\fR
 print all values in key/value format to import them into the environment.
 .TP
-.BI -l
-print the label of the volume
+\fB\-t\fR
+print the filesystem type
 .TP
-.BI -t
-print the type of the volume
+\fB\-l\fR
+print the label of a volume
 .TP
-.BI -u
-print the uuid of the volume
-.RE
-.SH EXIT STATUS
-.B vol_id
-will only return successful if the string asked for is not empty.
-All trailing whitespace will be removed, spaces replaced by underscore
-and slashes ignored.
-.SH SEE ALSO
-.BR udev (7)
-.SH AUTHORS
-Developed by Kay Sievers <kay.sievers@vrfy.org>.
-
+\fB\-u\fR
+print the uuid of a volume
+.SH "ENVIRONMENT"
+.TP
+\fBUDEV_LOG\fR
+Set the syslog priority.
+.SH "EXIT STATUS"
+.PP
+\fBvol_id\fR
+will only return successful if the value asked for is not empty. All trailing whitespace will be removed, spaces replaced by underscore and slashes ignored.
+.SH "AUTHOR"
+.PP
+Written by Kay Sievers
+<kay.sievers@vrfy.org>
+.SH "SEE ALSO"
+.PP
+\fBudev\fR(7)

@@ -1,0 +1,115 @@
+<?xml version='1.0'?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<article>
+  <articleinfo>
+    <title>xmlto</title>
+    <author>
+      <firstname>Kay</firstname>
+      <surname>Sievers</surname>
+      <email>kay.sievers@vrfy.org</email>
+    </author>
+    <copyright>
+      <year>2006</year>
+      <holder>Kay Sievers</holder>
+    </copyright>
+  </articleinfo>
+
+  <section>
+    <title>vol_id</title>
+    <refentry>
+      <refentryinfo>
+        <title>vol_id</title>
+        <date>March 2006</date>
+        <productname>volume_id</productname>
+      </refentryinfo>
+
+      <refmeta>
+        <refentrytitle>vol_id</refentrytitle>
+        <manvolnum>8</manvolnum>
+      </refmeta>
+
+      <refnamediv>
+        <refname>vol_id</refname><refpurpose>probe filesystem type and read label and uuid</refpurpose>
+      </refnamediv>
+
+      <refsynopsisdiv>
+        <cmdsynopsis>
+          <command>vol_id</command>
+          <arg><option>--export</option></arg>
+          <arg><option>-t</option></arg>
+          <arg><option>-l</option></arg>
+          <arg><option>-u</option></arg>
+          <arg><replaceable>device</replaceable></arg>
+        </cmdsynopsis>
+      </refsynopsisdiv>
+
+      <refsect1><title>DESCRIPTION</title>
+        <para><command>vol_id</command> is usually called from a udev rule, to
+        provide udev with the filesystem type, the label and the uuid of a
+        volume. <command>vol_id</command> supports all common filesystem formats
+        and detects various raid setups to prevent the recognition of raid members
+        as a volume with a filesystem.</para>
+      </refsect1>
+
+      <refsect1><title>OPTIONS</title>
+        <variablelist>
+          <varlistentry>
+            <term><option>--export</option></term>
+            <listitem>
+              <para>print all values in key/value format to import them into the
+              environment.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>-t</option></term>
+            <listitem>
+              <para>print the filesystem type</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>-l</option></term>
+            <listitem>
+              <para>print the label of a volume</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>-u</option></term>
+            <listitem>
+              <para>print the uuid of a volume</para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+      </refsect1>
+
+      <refsect1><title>ENVIRONMENT</title>
+        <variablelist>
+          <varlistentry>
+            <term><option>UDEV_LOG</option></term>
+            <listitem>
+              <para>Set the syslog priority.</para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
+      </refsect1>
+
+      <refsect1><title>EXIT STATUS</title>
+        <para><command>vol_id</command> will only return successful if the
+        value asked for is not empty. All trailing whitespace will be removed,
+        spaces replaced by underscore and slashes ignored.</para>
+     </refsect1>
+
+      <refsect1><title>AUTHOR</title>
+        <para>Written by Kay Sievers <email>kay.sievers@vrfy.org</email></para>
+      </refsect1>
+
+      <refsect1>
+        <title>SEE ALSO</title>
+        <para><citerefentry>
+            <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
+        </citerefentry></para>
+      </refsect1>
+    </refentry>
+  </section>
+</article>
