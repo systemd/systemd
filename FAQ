@@ -84,7 +84,7 @@ A: udev can be placed in initramfs and run for every device that is found.
 Q: Can I use udev to automount a USB device when I connect it?
 A: Technically, yes, but udev is not intended for this. All major distributions
    use HAL (http://freedesktop.org/wiki/Software_2fhal) for this, which also
-   watches devices with removable media and integrates into the desktop software.
+   watches devices with removable media and integrates the Desktop environment.
 
    Alternatively, it is easy to add the following to fstab:
      /dev/disk/by-label/PENDRIVE /media/PENDRIVE  vfat user,noauto 0 0
@@ -106,13 +106,12 @@ A: When using dynamic device numbers, a given pair of major/minor numbers may
    (The same problem exists when using PAM to change permissions on login.)
 
    The simplest solution is to prevent the creation of hard links by putting
-   /dev in a separate filesystem like tmpfs.
+   /dev on a separate filesystem like tmpfs.
 
 Q: I have other questions about udev, where do I ask them?
 A: The linux-hotplug-devel mailing list is the proper place for it.  The
-   address for it is linux-hotplug-devel@lists.sourceforge.net
-   Information on joining can be found at
-      <https://lists.sourceforge.net/lists/listinfo/linux-hotplug-devel>
-   Archives of the mailing list can be found at:
-      <http://marc.theaimsgroup.com/?l=linux-hotplug-devel>
+   address for it is:
+      linux-hotplug-devel@lists.sourceforge.net
+   Information on joining can be found at:
+      https://lists.sourceforge.net/lists/listinfo/linux-hotplug-devel
 

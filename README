@@ -4,13 +4,12 @@ For more information see the files in the docs/ directory.
 
 Important Note:
   Integrating udev in the system is a whole lot of work, has complex dependencies
-  and differs a lot from distro to distro. All reasonable distros depend on udev
-  these days and the system will not work without it.
-
-  The upstream udev project does not support or recomend to replace a distro's udev
-  installation with the upstream version. The installation of a unmodified upstream
-  version may render your system unusable! There is no "default" setup or a set
-  of "default" rules provided by the upstream udev version.
+  and differs a lot from distro to distro. All major distros depend on udev these
+  days and the system may not work without a proper installed version. The upstream
+  udev project does not support or recomend to replace a distro's udev installation
+  with the upstream version. The installation of a unmodified upstream version may
+  render your system unusable. Until now, there is no "default" setup or a set of
+  "default" rules provided by the upstream udev version.
 
 Requirements:
   - 2.6.x version of the Linux kernel. See the RELEASE-NOTES file in the
@@ -19,7 +18,7 @@ Requirements:
 
   - The kernel must have sysfs and unix domain socket enabled.
     (unix domain sockets (CONFIG_UNIX) as a loadable kernel module may work,
-     but it is completely silly, don't complain if anything goes wrong.)
+     but it is completely silly - don't complain if anything goes wrong.)
 
   - The proc filesystem must be mounted on /proc.
 
@@ -31,9 +30,9 @@ Operation:
   Udev creates and removes device nodes in /dev, based on events the kernel
   sends out on device discovery or removal.
 
-  - Early in the boot process, /dev should get a tmpfs filesystem
-    mounted, which is populated from scratch by udev. Created nodes or
-    changed permissions will not survive a reboot, which is intentional.
+  - Early in the boot process, the /dev directory should get a tmpfs
+    filesystem mounted, which is populated from scratch by udev. Created nodes
+    or changed permissions will not survive a reboot, which is intentional.
 
   - The content of /lib/udev/devices directory which contains the nodes,
     symlinks and directories, which are always expected to be in /dev, should
@@ -50,8 +49,9 @@ Operation:
   - All kernel events are matched against a set of specified rules in
     /etc/udev/rules.d/ which make it possible to hook into the event
     processing to load required kernel modules and setup devices. For all
-    devices the kernel requests a device node, udev will create one with
-    the default name or the one specified by a matching udev rules.
+    devices the kernel exports a major/minor number, udev will create a
+    device node with the default kernel name or the one specified by a
+    matching udev rule.
 
 
 Compile Options:
@@ -74,16 +74,13 @@ Compile Options:
   	Default value is 'false'. KLCC specifies the klibc compiler
   	wrapper, usually located at /usr/bin/klcc.
   EXTRAS
-  	If set, will build the "extra" helper programs as specified
-  	as listed (see below for an example).
-
-If you want to build the udev helper programs:
-  make EXTRAS="extras/cdrom_id extras/scsi_id extras/volume_id"
+  	list of helper programs in extras/ to build.
+        make EXTRAS="extras/cdrom_id extras/scsi_id extras/volume_id"
 
 
 Installation:
   - The install target intalls the udev binaries in the default locations,
-    All at boot time reqired binaries will be installed in /sbin.
+    All at boot time reqired binaries will be installed in /lib/udev or /sbin.
 
   - The default location for scripts and binaries that are called from
     rules is /lib/udev. Other packages who install udev rules, should use
@@ -94,12 +91,12 @@ Installation:
     That way, nodes for broken subsystems or devices which can't be
     detected automatically by the kernel, will always be available.
 
-  - Copies of the rules files for all major distros are in the etc/udev
-    directory (you may look there how others distros are doing it).
+  - Copies of the rules files for the major distros are provided as examples
+    in the etc/udev directory.
 
-  - The persistent disk links in /dev/disk are the de facto standard
-    on Linux and should be installed with every default udev installation.
-    The devfs naming scheme rules are not recommended and not supported.
+  - The persistent device naming links in /dev/disk/ are required by other
+    software that depends on the data udev has collected from the devices
+    and should be installed by default with every udev installation.
 
 Please direct any comment/question/concern to the linux-hotplug-devel mailing list at:
   linux-hotplug-devel@lists.sourceforge.net
