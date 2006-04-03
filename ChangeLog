@@ -1,3 +1,34 @@
+Summary of changes from v088 to v089
+============================================
+
+Hannes Reinecke:
+      path_id: add bus to USB path
+
+Kay Sievers:
+      change rule to skip removable IDE devices
+      don't create uuid/label links for raid members
+      volume_id: provide library
+      fix rule order for persistent tape links
+      update man page
+      volume_id: provide a custom debug function
+      volume_id: rename subdirectory
+      volume_id: use shared library by default
+      because is better than cause
+      volume_id: remove some global symbols
+      volume_id: define exported symbols
+      remove all stripping code
+      man pages: mention udev(7) not udev(8)
+      update Debian rules
+      move all *_id programs to /lib/udev/
+      update Red Hat rules
+      update SUSE rules
+      pass CROSS_COMPILE to AR and RANLIB down to extras/
+      volume_id: update README
+      volume_id: generate man page from xml source
+      update README
+      fix symlink targets in Makefiles
+
+
 Summary of changes from v087 to v088
 ============================================
 

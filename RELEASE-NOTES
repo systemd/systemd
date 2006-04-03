@@ -1,3 +1,19 @@
+udev 089
+========
+Fix rule to skip persistent rules for removable IDE devices, which
+also skipped optical IDE drives.
+
+All *_id program are installed in /lib/udev/ by default now.
+
+No binary is stripped anymore as this should be done in the
+packaging process and not at build time.
+
+libvolume_id is provided as a shared library now and vol_id is
+linked against it. Also one of the next HAL versions will require
+this library, and the HAL build process will also require the
+header file to be installed. The copy of the same code in HAL will
+be removed to have only a single copy left on the system.
+
 udev 088
 ========
 Add persistent links for SCSI tapes. The rules file is renamed
