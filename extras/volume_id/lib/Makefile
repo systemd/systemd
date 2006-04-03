@@ -100,8 +100,8 @@ install: all
 	$(INSTALL_DATA) -D libvolume_id.h $(DESTDIR)$(includedir)/libvolume_id.h
 	$(INSTALL_LIB) -D libvolume_id.a $(DESTDIR)$(usrlibdir)/libvolume_id.a
 	$(INSTALL_LIB) -D $(SHLIB) $(DESTDIR)$(libdir)/$(SHLIB)
-	ln -sf $(DESTDIR)$(libdir)/$(SHLIB) $(DESTDIR)$(libdir)/libvolume_id.so.$(SHLIB_CUR)
-	ln -sf $(DESTDIR)$(libdir)/$(SHLIB) $(DESTDIR)$(usrlibdir)/libvolume_id.so
+	ln -sf $(SHLIB) $(DESTDIR)$(libdir)/libvolume_id.so.$(SHLIB_CUR)
+	ln -sf $(libdir)/$(SHLIB) $(DESTDIR)$(usrlibdir)/libvolume_id.so
 	$(INSTALL_DATA) -D libvolume_id.pc $(DESTDIR)$(usrlibdir)/pkgconfig/libvolume_id.pc
 .PHONY: install
 

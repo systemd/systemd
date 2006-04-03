@@ -59,7 +59,7 @@ clean:
 
 install-bin: all
 	$(INSTALL_PROGRAM) -D $(PROG) $(DESTDIR)$(libudevdir)/$(PROG)
-	ln -sf $(DESTDIR)$(libudevdir)/$(PROG) $(DESTDIR)$(sbindir)/$(PROG)
+	ln -sf $(libudevdir)/$(PROG) $(DESTDIR)$(sbindir)/$(PROG)
 .PHONY: install-bin
 
 uninstall-bin:
