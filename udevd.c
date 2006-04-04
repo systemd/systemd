@@ -279,7 +279,22 @@ static void udev_event_run(struct uevent_msg *msg)
 
 static void msg_queue_insert(struct uevent_msg *msg)
 {
+	char filename[PATH_SIZE];
+	int fd;
+
 	msg->queue_time = time(NULL);
+
+	strlcpy(filename, udev_root, sizeof(filename));
+	strlcat(filename, "/" EVENT_SEQNUM, sizeof(filename));
+	fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+	if (fd > 0) {
+		char str[32];
+		int len;
+
+		len = sprintf(str, "%llu\n", msg->seqnum);
+		write(fd, str, len);
+		close(fd);
+	}
 
 	export_event_state(msg, EVENT_QUEUED);
 

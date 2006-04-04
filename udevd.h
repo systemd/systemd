@@ -31,6 +31,7 @@
 
 #define EVENT_QUEUE_DIR			".udev/queue"
 #define EVENT_FAILED_DIR		".udev/failed"
+#define EVENT_SEQNUM			".udev/uevent_seqnum"
 
 /* maximum limit of forked childs */
 #define UDEVD_MAX_CHILDS		64
