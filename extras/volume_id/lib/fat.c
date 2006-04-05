@@ -321,7 +321,7 @@ fat32:
 			goto found;
 
 		/* set next cluster */
-		next = le32_to_cpu(*((uint32_t *) buf) & 0x0fffffff);
+		next = le32_to_cpu(*((uint32_t *) buf)) & 0x0fffffff;
 		if (next == 0)
 			break;
 	}
