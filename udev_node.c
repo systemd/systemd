@@ -1,5 +1,5 @@
 /*
- * udev-add.c
+ * udev-node.c - device node handling
  *
  * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
  * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
@@ -29,17 +29,13 @@
 #include <grp.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <net/if.h>
-#include <linux/sockios.h>
 
 #include "udev.h"
 #include "udev_rules.h"
 #include "udev_selinux.h"
 
 
-int udev_make_node(struct udevice *udev, const char *file, dev_t devt, mode_t mode, uid_t uid, gid_t gid)
+int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t mode, uid_t uid, gid_t gid)
 {
 	struct stat stats;
 	int retval = 0;
@@ -94,7 +90,7 @@ exit:
 	return retval;
 }
 
-static int create_node(struct udevice *udev)
+int udev_node_add(struct udevice *udev)
 {
 	char filename[PATH_SIZE];
 	struct name_entry *name_loop;
@@ -102,6 +98,9 @@ static int create_node(struct udevice *udev)
 	gid_t gid;
 	int tail;
 	int i;
+	int retval = 0;
+
+	selinux_init();
 
 	snprintf(filename, sizeof(filename), "%s/%s", udev_root, udev->name);
 	filename[sizeof(filename)-1] = '\0';
@@ -140,8 +139,10 @@ static int create_node(struct udevice *udev)
 	     filename, major(udev->devt), minor(udev->devt), udev->mode, uid, gid);
 
 	if (!udev->test_run)
-		if (udev_make_node(udev, filename, udev->devt, udev->mode, uid, gid) != 0)
-			goto error;
+		if (udev_node_mknod(udev, filename, udev->devt, udev->mode, uid, gid) != 0) {
+			retval = -1;
+			goto exit;
+		}
 
 	setenv("DEVNAME", filename, 1);
 
@@ -166,7 +167,7 @@ static int create_node(struct udevice *udev)
 				snprintf(partitionname, sizeof(partitionname), "%s%d", filename, i);
 				partitionname[sizeof(partitionname)-1] = '\0';
 				part_devt = makedev(major(udev->devt), minor(udev->devt) + i);
-				udev_make_node(udev, partitionname, part_devt, udev->mode, uid, gid);
+				udev_node_mknod(udev, partitionname, part_devt, udev->mode, uid, gid);
 			}
 		}
 	}
@@ -176,7 +177,6 @@ static int create_node(struct udevice *udev)
 		char symlinks[512] = "";
 
 		list_for_each_entry(name_loop, &udev->symlink_list, node) {
-			int retval;
 			char linktarget[PATH_SIZE];
 
 			snprintf(filename, sizeof(filename), "%s/%s", udev_root, name_loop->name);
@@ -208,11 +208,9 @@ static int create_node(struct udevice *udev)
 			if (!udev->test_run) {
 				unlink(filename);
 				selinux_setfscreatecon(filename, NULL, S_IFLNK);
-				retval = symlink(linktarget, filename);
+				if (symlink(linktarget, filename) != 0)
+					err("symlink(%s, %s) failed: %s", linktarget, filename, strerror(errno));
 				selinux_resetfscreatecon();
-				if (retval != 0)
-					err("symlink(%s, %s) failed: %s",
-					    linktarget, filename, strerror(errno));
 			}
 
 			strlcat(symlinks, filename, sizeof(symlinks));
@@ -223,78 +221,87 @@ static int create_node(struct udevice *udev)
 		setenv("DEVLINKS", symlinks, 1);
 	}
 
-	return 0;
-error:
-	return -1;
-}
-
-static int rename_net_if(struct udevice *udev)
-{
-	int sk;
-	struct ifreq ifr;
-	int retval;
-
-	info("changing net interface name from '%s' to '%s'", udev->dev->kernel_name, udev->name);
-	if (udev->test_run)
-		return 0;
-
-	sk = socket(PF_INET, SOCK_DGRAM, 0);
-	if (sk < 0) {
-		err("error opening socket: %s", strerror(errno));
-		return -1;
-	}
-
-	memset(&ifr, 0x00, sizeof(struct ifreq));
-	strlcpy(ifr.ifr_name, udev->dev->kernel_name, IFNAMSIZ);
-	strlcpy(ifr.ifr_newname, udev->name, IFNAMSIZ);
-
-	retval = ioctl(sk, SIOCSIFNAME, &ifr);
-	if (retval != 0)
-		err("error changing net interface name: %s", strerror(errno));
-	close(sk);
-
+exit:
+	selinux_exit();
 	return retval;
 }
 
-int udev_add_device(struct udevice *udev)
+int udev_node_remove(struct udevice *udev)
 {
-	char *pos;
-	int retval = 0;
+	char filename[PATH_SIZE];
+	char partitionname[PATH_SIZE];
+	struct name_entry *name_loop;
+	struct stat stats;
+	int retval;
+	int i;
+	int num;
 
-	dbg("adding name='%s'", udev->name);
-	selinux_init();
+	if (!list_empty(&udev->symlink_list)) {
+		char symlinks[512] = "";
 
-	if (major(udev->devt)) {
-		retval = create_node(udev);
-		if (retval != 0)
-			goto exit;
+		list_for_each_entry(name_loop, &udev->symlink_list, node) {
+			snprintf(filename, sizeof(filename), "%s/%s", udev_root, name_loop->name);
+			filename[sizeof(filename)-1] = '\0';
 
-		if (udev_db_add_device(udev) != 0)
-			dbg("udev_db_add_dev failed, remove might not work for custom names");
-	} else if (strcmp(udev->dev->subsystem, "net") == 0) {
-		/* look if we want to change the name of the netif */
-		if (strcmp(udev->name, udev->dev->kernel_name) != 0) {
-			retval = rename_net_if(udev);
-			if (retval != 0)
-				goto exit;
-
-			info("renamed netif to '%s'", udev->name);
-			/* we've changed the name, now fake the devpath, because the
-			 * original kernel name sleeps with the fishes and we don't
-			 * get an event from the kernel with the new name
-			 */
-			pos = strrchr(udev->dev->devpath, '/');
-			if (pos != NULL) {
-				pos[1] = '\0';
-				strlcat(udev->dev->devpath, udev->name, sizeof(udev->dev->devpath));
-				strlcpy(udev->dev->kernel_name, udev->name, sizeof(udev->dev->kernel_name));
-				setenv("DEVPATH", udev->dev->devpath, 1);
-				setenv("INTERFACE", udev->name, 1);
+			if (stat(filename, &stats) != 0) {
+				dbg("symlink '%s' not found", filename);
+				continue;
 			}
+			if (udev->devt && stats.st_rdev != udev->devt) {
+				info("symlink '%s' points to a different device, skip removal", filename);
+				continue;
+			}
+
+			info("removing symlink '%s'", filename);
+			unlink(filename);
+
+			if (strchr(filename, '/'))
+				delete_path(filename);
+
+			strlcat(symlinks, filename, sizeof(symlinks));
+			strlcat(symlinks, " ", sizeof(symlinks));
+		}
+
+		remove_trailing_chars(symlinks, ' ');
+		if (symlinks[0] != '\0')
+			setenv("DEVLINKS", symlinks, 1);
+	}
+
+	snprintf(filename, sizeof(filename), "%s/%s", udev_root, udev->name);
+	filename[sizeof(filename)-1] = '\0';
+
+	if (stat(filename, &stats) != 0) {
+		dbg("device node '%s' not found", filename);
+		return -1;
+	}
+	if (udev->devt && stats.st_rdev != udev->devt) {
+		info("device node '%s' points to a different device, skip removal", filename);
+		return -1;
+	}
+
+	info("removing device node '%s'", filename);
+	retval = unlink_secure(filename);
+	if (retval)
+		return retval;
+
+	setenv("DEVNAME", filename, 1);
+
+	num = udev->partitions;
+	if (num > 0) {
+		info("removing all_partitions '%s[1-%i]'", filename, num);
+		if (num > 255) {
+			info("garbage from udev database, skip all_partitions removal");
+			return -1;
+		}
+		for (i = 1; i <= num; i++) {
+			snprintf(partitionname, sizeof(partitionname), "%s%d", filename, i);
+			partitionname[sizeof(partitionname)-1] = '\0';
+			unlink_secure(partitionname);
 		}
 	}
 
-exit:
-	selinux_exit();
+	if (strchr(udev->name, '/'))
+		delete_path(filename);
+
 	return retval;
 }

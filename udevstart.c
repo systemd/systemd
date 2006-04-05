@@ -130,7 +130,6 @@ static int add_device(const char *devpath)
 	/* override built-in sysfs device */
 	udev->dev = dev;
 	strcpy(udev->action, "add");
-	udev->devt = udev_device_get_devt(udev);
 
 	if (strcmp(udev->dev->subsystem, "net") != 0) {
 		udev->devt = udev_device_get_devt(udev);
@@ -148,7 +147,7 @@ static int add_device(const char *devpath)
 		goto exit;
 	}
 	if (udev->name[0] != '\0')
-		retval = udev_add_device(udev);
+		retval = udev_device_event(&rules, udev);
 	else
 		info("device node creation supressed");
 

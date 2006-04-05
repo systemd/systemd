@@ -1,7 +1,7 @@
 /*
- * udev_utils.c - generic stuff used by udev
+ * udev_device.c - main udev data object
  *
- * Copyright (C) 2004, 2005 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2004-2006 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -26,6 +26,9 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <ctype.h>
+#include <stropts.h>
+#include <net/if.h>
+#include <linux/sockios.h>
 
 #include "udev.h"
 #include "udev_rules.h"
@@ -77,48 +80,122 @@ dev_t udev_device_get_devt(struct udevice *udev)
 	return makedev(0, 0);
 }
 
+static int rename_net_if(struct udevice *udev)
+{
+	int sk;
+	struct ifreq ifr;
+	int retval;
+
+	info("changing net interface name from '%s' to '%s'", udev->dev->kernel_name, udev->name);
+	if (udev->test_run)
+		return 0;
+
+	sk = socket(PF_INET, SOCK_DGRAM, 0);
+	if (sk < 0) {
+		err("error opening socket: %s", strerror(errno));
+		return -1;
+	}
+
+	memset(&ifr, 0x00, sizeof(struct ifreq));
+	strlcpy(ifr.ifr_name, udev->dev->kernel_name, IFNAMSIZ);
+	strlcpy(ifr.ifr_newname, udev->name, IFNAMSIZ);
+
+	retval = ioctl(sk, SIOCSIFNAME, &ifr);
+	if (retval != 0)
+		err("error changing net interface name: %s", strerror(errno));
+	close(sk);
+
+	return retval;
+}
+
 int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 {
 	int retval = 0;
 
-	/* device node or netif */
-	if ((major(udev->devt) != 0 || strcmp(udev->dev->subsystem, "net") == 0) &&
-	    strcmp(udev->action, "add") == 0) {
-		dbg("device node or netif add '%s'", udev->dev->devpath);
+	/* add device node */
+	if (major(udev->devt) != 0 && strcmp(udev->action, "add") == 0) {
+		dbg("device node add '%s'", udev->dev->devpath);
 		udev_rules_get_name(rules, udev);
 		if (udev->ignore_device) {
 			info("device event will be ignored");
-			return 0;
+			goto exit;
+		}
+		if (udev->name[0] == '\0') {
+			info("device node creation supressed");
+			goto exit;
 		}
 		/* create node, store in db */
-		if (udev->name[0] != '\0')
-			retval = udev_add_device(udev);
-		else
-			info("device node creation supressed");
-		return retval;
+		retval = udev_node_add(udev);
+		if (retval == 0)
+			udev_db_add_device(udev);
+		goto exit;
 	}
 
+	/* add netif */
+	if (strcmp(udev->dev->subsystem, "net") == 0 && strcmp(udev->action, "add") == 0) {
+		dbg("netif add '%s'", udev->dev->devpath);
+		udev_rules_get_name(rules, udev);
+		if (udev->ignore_device) {
+			info("device event will be ignored");
+			goto exit;
+		}
+
+		/* look if we want to change the name of the netif */
+		if (strcmp(udev->name, udev->dev->kernel_name) != 0) {
+			char *pos;
+
+			retval = rename_net_if(udev);
+			if (retval != 0)
+				goto exit;
+			info("renamed netif to '%s'", udev->name);
+
+			/* now fake the devpath, because the kernel name changed silently */
+			pos = strrchr(udev->dev->devpath, '/');
+			if (pos != NULL) {
+				pos[1] = '\0';
+				strlcat(udev->dev->devpath, udev->name, sizeof(udev->dev->devpath));
+				strlcpy(udev->dev->kernel_name, udev->name, sizeof(udev->dev->kernel_name));
+				setenv("DEVPATH", udev->dev->devpath, 1);
+				setenv("INTERFACE", udev->name, 1);
+			}
+		}
+		goto exit;
+	}
+
+	/* remove device node */
 	if (major(udev->devt) != 0 && strcmp(udev->action, "remove") == 0) {
 		struct name_entry *name_loop;
+
+		/* import and delete database entry */
+		if (udev_db_get_device(udev, udev->dev->devpath) == 0) {
+			udev_db_delete_device(udev);
+			if (udev->ignore_remove) {
+				dbg("remove event for '%s' requested to be ignored by rule", udev->name);
+				return 0;
+			}
+			/* restore stored persistent data */
+			list_for_each_entry(name_loop, &udev->env_list, node)
+				putenv(name_loop->name);
+		} else {
+			dbg("'%s' not found in database, using kernel name '%s'", udev->dev->devpath, udev->dev->kernel_name);
+			strlcpy(udev->name, udev->dev->kernel_name, sizeof(udev->name));
+		}
 
 		udev_rules_get_run(rules, udev);
 		if (udev->ignore_device) {
 			info("device event will be ignored");
-			return 0;
+			goto exit;
 		}
-		/* get data from db, remove db-entry, delete node */
-		retval = udev_remove_device(udev);
 
-		/* restore stored persistent data */
-		list_for_each_entry(name_loop, &udev->env_list, node)
-			putenv(name_loop->name);
-		return retval;
+		retval = udev_node_remove(udev);
+		goto exit;
 	}
 
-	/* default devices without a node */
+	/* default devices */
 	udev_rules_get_run(rules, udev);
 	if (udev->ignore_device)
 		info("device event will be ignored");
 
+exit:
 	return retval;
 }

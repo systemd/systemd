@@ -610,7 +610,7 @@ found:
 				snprintf(udev->tmp_node, sizeof(udev->tmp_node), "%s/.tmp-%u-%u",
 					 udev_root, major(udev->devt), minor(udev->devt));
 				udev->tmp_node[sizeof(udev->tmp_node)-1] = '\0';
-				udev_make_node(udev, udev->tmp_node, udev->devt, 0600, 0, 0);
+				udev_node_mknod(udev, udev->tmp_node, udev->devt, 0600, 0, 0);
 			}
 			strlcat(string, udev->tmp_node, maxsize);
 			dbg("substitute temporary device node name '%s'", udev->tmp_node);

@@ -69,8 +69,7 @@ HEADERS = \
 UDEV_OBJS = \
 	udev_device.o			\
 	udev_config.o			\
-	udev_add.o			\
-	udev_remove.o			\
+	udev_node.o			\
 	udev_db.o			\
 	udev_sysfs.o			\
 	udev_rules.o			\
