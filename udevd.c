@@ -971,8 +971,12 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* watch rules directory */
 	inotify_fd = inotify_init();
-	if (inotify_fd > 0)
+	if (inotify_fd >= 0)
 		inotify_add_watch(inotify_fd, udev_rules_filename, IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
+	else if (errno == ENOSYS)
+		err("the kernel does not support inotify, udevd can't monitor configuration file changes");
+	else
+		err("inotify_init failed: %s", strerror(errno));
 
 	/* maximum limit of forked childs */
 	value = getenv("UDEVD_MAX_CHILDS");
