@@ -149,6 +149,9 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 				goto exit;
 			info("renamed netif to '%s'", udev->name);
 
+			/* export old name */
+			setenv("INTERFACE_OLD", udev->dev->kernel_name, 1);
+
 			/* now fake the devpath, because the kernel name changed silently */
 			pos = strrchr(udev->dev->devpath, '/');
 			if (pos != NULL) {
