@@ -130,7 +130,7 @@ static int udev_event_process(struct uevent_msg *msg)
 		dbg("executing run list");
 		list_for_each_entry(name_loop, &udev->run_list, node) {
 			if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0)
-				pass_env_to_socket(&name_loop->name[strlen("socket:")], msg->devpath, msg->action);
+				pass_env_to_socket(&name_loop->name[strlen("socket:")], udev->dev->devpath, udev->action);
 			else {
 				char program[PATH_SIZE];
 
