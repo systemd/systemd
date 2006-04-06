@@ -33,6 +33,7 @@
 #include "udev.h"
 #include "udevd.h"
 
+#define DEFAULT_TIMEOUT			180
 #define LOOP_PER_SECOND			20
 
 static const char *udev_log_str;
@@ -60,7 +61,7 @@ int main(int argc, char *argv[], char *envp[])
 	char seqnum[32];
 	int fd;
 	ssize_t len;
-	int timeout = 30;
+	int timeout = DEFAULT_TIMEOUT;
 	int loop;
 	int i;
 	int rc = 1;
