@@ -74,16 +74,17 @@ LIST_HEAD(device_last_list);
 static int device_list_insert(const char *path)
 {
 	struct list_head *device_list = &device_default_list;
+	const char *devpath = &path[strlen(sysfs_path)];
 	int i;
 
 	for (i = 0; first_list[i] != NULL; i++) {
-		if (strncmp(path, first_list[i], strlen(first_list[i])) == 0) {
+		if (strncmp(devpath, first_list[i], strlen(first_list[i])) == 0) {
 			device_list = &device_first_list;
 			break;
 		}
 	}
 	for (i = 0; last_list[i] != NULL; i++) {
-		if (strncmp(path, last_list[i], strlen(last_list[i])) == 0) {
+		if (strncmp(devpath, last_list[i], strlen(last_list[i])) == 0) {
 			device_list = &device_last_list;
 			break;
 		}
