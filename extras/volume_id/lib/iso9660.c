@@ -59,7 +59,7 @@ int volume_id_probe_iso9660(struct volume_id *id, uint64_t off)
 	struct iso_volume_descriptor *is;
 	struct high_sierra_volume_descriptor *hs;
 
-	dbg("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx", (unsigned long long) off);
 
 	buf = volume_id_get_buffer(id, off + ISO_SUPERBLOCK_OFFSET, 0x200);
 	if (buf == NULL)

@@ -38,7 +38,7 @@ int volume_id_probe_hpfs(struct volume_id *id, uint64_t off)
 {
 	struct hpfs_super *hs;
 
-	dbg("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx", (unsigned long long) off);
 
 	hs = (struct hpfs_super *) volume_id_get_buffer(id, off + HPFS_SUPERBLOCK_OFFSET, 0x200);
 	if (hs == NULL)

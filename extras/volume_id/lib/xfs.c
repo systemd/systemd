@@ -45,7 +45,7 @@ int volume_id_probe_xfs(struct volume_id *id, uint64_t off)
 {
 	struct xfs_super_block *xs;
 
-	dbg("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx", (unsigned long long) off);
 
 	xs = (struct xfs_super_block *) volume_id_get_buffer(id, off, 0x200);
 	if (xs == NULL)

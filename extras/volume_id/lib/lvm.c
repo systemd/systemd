@@ -46,7 +46,7 @@ int volume_id_probe_lvm1(struct volume_id *id, uint64_t off)
 	const uint8_t *buf;
 	struct lvm1_super_block *lvm;
 
-	dbg("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx", (unsigned long long) off);
 
 	buf = volume_id_get_buffer(id, off + LVM1_SB_OFF, 0x800);
 	if (buf == NULL)

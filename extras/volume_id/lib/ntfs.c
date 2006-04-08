@@ -105,7 +105,7 @@ int volume_id_probe_ntfs(struct volume_id *id, uint64_t off)
 	const uint8_t *buf;
 	const uint8_t *val;
 
-	dbg("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx", (unsigned long long) off);
 
 	ns = (struct ntfs_super_block *) volume_id_get_buffer(id, off, 0x200);
 	if (ns == NULL)

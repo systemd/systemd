@@ -72,7 +72,7 @@ int volume_id_probe_udf(struct volume_id *id, uint64_t off)
 	unsigned int loc;
 	unsigned int clen;
 
-	dbg("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx", (unsigned long long) off);
 
 	vsd = (struct volume_structure_descriptor *) volume_id_get_buffer(id, off + UDF_VSD_OFFSET, 0x200);
 	if (vsd == NULL)

@@ -75,7 +75,7 @@ int volume_id_probe_ext(struct volume_id *id, uint64_t off)
 	struct ext2_super_block *es;
 	size_t bsize;
 
-	dbg("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx", (unsigned long long) off);
 
 	es = (struct ext2_super_block *) volume_id_get_buffer(id, off + EXT_SUPERBLOCK_OFFSET, 0x200);
 	if (es == NULL)

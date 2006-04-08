@@ -49,7 +49,7 @@ int volume_id_probe_highpoint_37x_raid(struct volume_id *id, uint64_t off)
 	struct hpt37x_meta *hpt;
 	uint32_t magic;
 
-	dbg("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx", (unsigned long long) off);
 
 	buf = volume_id_get_buffer(id, off + HPT37X_CONFIG_OFF, 0x200);
 	if (buf == NULL)

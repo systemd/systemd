@@ -41,7 +41,7 @@ int volume_id_probe_nvidia_raid(struct volume_id *id, uint64_t off, uint64_t siz
 	uint64_t meta_off;
 	struct nvidia_meta *nv;
 
-	dbg("probing at offset 0x%llx, size 0x%llx",
+	info("probing at offset 0x%llx, size 0x%llx",
 	    (unsigned long long) off, (unsigned long long) size);
 
 	if (size < 0x10000)
