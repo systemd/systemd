@@ -293,7 +293,7 @@ static int find_free_number(const char *base, const char *devpath)
 	static int warn = 1;
 
 	if (warn) {
-		err("%%e is deprecated, will be removed and is unlikey to work correctly. Don't use it.");
+		err("%%e is deprecated, will be removed and is unlikely to work correctly. Don't use it.");
 		warn = 0;
 	}
 
