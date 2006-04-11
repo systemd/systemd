@@ -61,7 +61,6 @@ static char type_str[16];
 static int use_usb_info;
 static int use_num_info;
 static int export;
-static int debug;
 
 static void set_str(char *to, const char *from, size_t count)
 {
@@ -371,14 +370,6 @@ int main(int argc, char **argv)
 
 	dbg("argc is %d", argc);
 
-	/* sysfs path can be overridden for testing */
-	env = getenv("SYSFS_PATH");
-	if (env) {
-		strlcpy(sysfs_path, env, sizeof(sysfs_path));
-		remove_trailing_chars(sysfs_path, '/');
-	} else
-		strcpy(sysfs_path, "/sys");
-
 	while ((option = getopt(argc, argv, "dnux")) != -1 ) {
 		if (optarg)
 			dbg("option '%c' arg '%s'", option, optarg);
@@ -386,9 +377,6 @@ int main(int argc, char **argv)
 			dbg("option '%c'", option);
 
 		switch (option) {
-		case 'd':
-			debug = 1;
-			break;
 		case 'n':
 			use_num_info = 1;
 			use_usb_info = 1;
