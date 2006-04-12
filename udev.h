@@ -119,7 +119,8 @@ extern char *sysfs_attr_get_value(const char *devpath, const char *attr_name);
 
 /* udev_node.c */
 extern int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t mode, uid_t uid, gid_t gid);
-extern int udev_node_add(struct udevice *udev);
+extern int udev_node_add(struct udevice *udev, struct udevice *udev_old);
+extern void udev_node_remove_symlinks(struct udevice *udev);
 extern int udev_node_remove(struct udevice *udev);
 
 /* udev_db.c */

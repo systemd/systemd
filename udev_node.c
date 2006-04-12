@@ -90,7 +90,7 @@ exit:
 	return retval;
 }
 
-int udev_node_add(struct udevice *udev)
+int udev_node_add(struct udevice *udev, struct udevice *udev_old)
 {
 	char filename[PATH_SIZE];
 	struct name_entry *name_loop;
@@ -226,15 +226,12 @@ exit:
 	return retval;
 }
 
-int udev_node_remove(struct udevice *udev)
+void udev_node_remove_symlinks(struct udevice *udev)
 {
 	char filename[PATH_SIZE];
-	char partitionname[PATH_SIZE];
 	struct name_entry *name_loop;
 	struct stat stats;
 	int retval;
-	int i;
-	int num;
 
 	if (!list_empty(&udev->symlink_list)) {
 		char symlinks[512] = "";
@@ -266,6 +263,17 @@ int udev_node_remove(struct udevice *udev)
 		if (symlinks[0] != '\0')
 			setenv("DEVLINKS", symlinks, 1);
 	}
+}
+
+int udev_node_remove(struct udevice *udev)
+{
+	char filename[PATH_SIZE];
+	char partitionname[PATH_SIZE];
+	struct stat stats;
+	int retval;
+	int num;
+
+	udev_node_remove_symlinks(udev);
 
 	snprintf(filename, sizeof(filename), "%s/%s", udev_root, udev->name);
 	filename[sizeof(filename)-1] = '\0';
@@ -288,6 +296,8 @@ int udev_node_remove(struct udevice *udev)
 
 	num = udev->partitions;
 	if (num > 0) {
+		int i;
+
 		info("removing all_partitions '%s[1-%i]'", filename, num);
 		if (num > 255) {
 			info("garbage from udev database, skip all_partitions removal");

@@ -5,6 +5,7 @@ udev
 udevd
 udevcontrol
 udevtrigger
+udevsettle
 udevsend
 udevinfo
 udevmonitor

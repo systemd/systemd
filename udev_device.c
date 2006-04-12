@@ -114,7 +114,10 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 
 	/* add device node */
 	if (major(udev->devt) != 0 && strcmp(udev->action, "add") == 0) {
+		struct udevice *udev_old;
+
 		dbg("device node add '%s'", udev->dev->devpath);
+
 		udev_rules_get_name(rules, udev);
 		if (udev->ignore_device) {
 			info("device event will be ignored");
@@ -124,8 +127,19 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 			info("device node creation supressed");
 			goto exit;
 		}
-		/* create node, store in db */
-		retval = udev_node_add(udev);
+
+		/* read current database entry, we may want to cleanup symlinks */
+		udev_old = udev_device_init();
+		if (udev_old != NULL) {
+			if (udev_db_get_device(udev_old, udev->dev->devpath) == 0) {
+				info("device '%s' already known, remove possible symlinks", udev->dev->devpath);
+				udev_node_remove_symlinks(udev_old);
+			}
+			udev_device_cleanup(udev_old);
+		}
+
+		/* create node and symlinks, store record in database */
+		retval = udev_node_add(udev, udev_old);
 		if (retval == 0)
 			udev_db_add_device(udev);
 		goto exit;
