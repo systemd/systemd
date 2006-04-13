@@ -244,7 +244,7 @@ handle_sas () {
 		return
 	fi
 	sas_phy_address="$phy_address:$phy_port:$phy_id"
-	sas_rphy_dev="${sas_host_path}/${sas_phy_id}/${sas_rphy_id}/sas_rphy:${sas_rphy_id}"
+	sas_rphy_dev="${sas_host_path}/${sas_phy_path}/sas_rphy:${sas_rphy_id}"
 	if [ -e "$sas_rphy_dev/sas_address" ]; then
 		read rphy_address < $sas_rphy_dev/sas_address
 		read rphy_id < $sas_rphy_dev/phy_identifier
