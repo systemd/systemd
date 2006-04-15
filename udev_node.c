@@ -231,7 +231,6 @@ void udev_node_remove_symlinks(struct udevice *udev)
 	char filename[PATH_SIZE];
 	struct name_entry *name_loop;
 	struct stat stats;
-	int retval;
 
 	if (!list_empty(&udev->symlink_list)) {
 		char symlinks[512] = "";

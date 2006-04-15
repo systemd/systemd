@@ -903,10 +903,13 @@ try_parent:
 		if (pair->key.operation == KEY_OP_ASSIGN) {
 			const char *key_name = key_pair_name(rule, pair);
 			const char *value = key_val(rule, &pair->key);
+			char *key_value = name_list_key_add(&udev->env_list, key_name, value);
+			if (key_value == NULL)
+				break;
 
-			name_list_key_add(&udev->env_list, key_name, value);
-			setenv(key_name, value, 1);
-			dbg("export ENV '%s=%s'", key_name, value);
+			udev_rules_apply_format(udev, key_value, NAME_SIZE);
+			putenv(key_value);
+			dbg("export ENV '%s'", key_value);
 		}
 	}
 

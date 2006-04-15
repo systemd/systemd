@@ -53,7 +53,7 @@ int log_priority(const char *priority)
 	return 0;
 }
 
-int name_list_add(struct list_head *name_list, const char *name, int sort)
+char *name_list_add(struct list_head *name_list, const char *name, int sort)
 {
 	struct name_entry *loop_name;
 	struct name_entry *new_name;
@@ -62,7 +62,7 @@ int name_list_add(struct list_head *name_list, const char *name, int sort)
 		/* avoid doubles */
 		if (strcmp(loop_name->name, name) == 0) {
 			dbg("'%s' is already in the list", name);
-			return 0;
+			return loop_name->name;
 		}
 	}
 
@@ -73,19 +73,17 @@ int name_list_add(struct list_head *name_list, const char *name, int sort)
 		}
 
 	new_name = malloc(sizeof(struct name_entry));
-	if (new_name == NULL) {
-		dbg("error malloc");
-		return -ENOMEM;
-	}
+	if (new_name == NULL)
+		return NULL;
 
 	strlcpy(new_name->name, name, sizeof(new_name->name));
 	dbg("adding '%s'", new_name->name);
 	list_add_tail(&new_name->node, &loop_name->node);
 
-	return 0;
+	return new_name->name;
 }
 
-int name_list_key_add(struct list_head *name_list, const char *key, const char *value)
+char *name_list_key_add(struct list_head *name_list, const char *key, const char *value)
 {
 	struct name_entry *loop_name;
 	struct name_entry *new_name;
@@ -95,22 +93,20 @@ int name_list_key_add(struct list_head *name_list, const char *key, const char *
 			dbg("key already present '%s', replace it", loop_name->name);
 			snprintf(loop_name->name, sizeof(loop_name->name), "%s=%s", key, value);
 			loop_name->name[sizeof(loop_name->name)-1] = '\0';
-			return 0;
+			return loop_name->name;
 		}
 	}
 
 	new_name = malloc(sizeof(struct name_entry));
-	if (new_name == NULL) {
-		dbg("error malloc");
-		return -ENOMEM;
-	}
+	if (new_name == NULL)
+		return NULL;
 
 	snprintf(new_name->name, sizeof(new_name->name), "%s=%s", key, value);
 	new_name->name[sizeof(new_name->name)-1] = '\0';
 	dbg("adding '%s'", new_name->name);
 	list_add_tail(&new_name->node, &loop_name->node);
 
-	return 0;
+	return new_name->name;
 }
 
 void name_list_cleanup(struct list_head *name_list)

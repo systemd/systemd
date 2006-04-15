@@ -136,8 +136,8 @@ struct name_entry {
 	char name[PATH_SIZE];
 };
 extern int log_priority(const char *priority);
-extern int name_list_add(struct list_head *name_list, const char *name, int sort);
-extern int name_list_key_add(struct list_head *name_list, const char *key, const char *value);
+extern char *name_list_add(struct list_head *name_list, const char *name, int sort);
+extern char *name_list_key_add(struct list_head *name_list, const char *key, const char *value);
 extern void name_list_cleanup(struct list_head *name_list);
 extern int add_matching_files(struct list_head *name_list, const char *dirname, const char *suffix);
 
