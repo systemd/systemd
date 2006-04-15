@@ -1,3 +1,27 @@
+Summary of changes from v089 to v090
+============================================
+
+Kay Sievers:
+      udevd: export current seqnum and add udevsettle
+      volume_id: fix endianess conversion typo for FAT32
+      merge device event handling and make database content available on "remove"
+      set default udevsettle timeout to 3 minutes
+      export INTERFACE_OLD if we renamed a netif
+      let udevmonitor show the possibly renamed devpath
+      volume_id: move some debug to info level
+      udevtrigger: fix event order
+      usb_id: remove uneeded code
+      remove old symlinks before creating current ones
+      path_id: fix loop for SAS devices
+      apply format char to variables exported by ENV
+
+Marco d'Itri:
+      add inotify support for hppa and MIPS and log if inotify is not available
+
+Matt Kraai:
+      fix typo in error message
+
+
 Summary of changes from v088 to v089
 ============================================
 

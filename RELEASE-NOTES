@@ -1,3 +1,10 @@
+udev 090
+========
+Provide "udevsettle" to wait for all current udev events to finish.
+It also watches the current kernel netlink queue by comparing the
+even sequence number to make sure that there are no current pending
+events that have not already arrived in the daemon.
+
 udev 089
 ========
 Fix rule to skip persistent rules for removable IDE devices, which
