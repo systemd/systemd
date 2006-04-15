@@ -249,10 +249,12 @@ void udev_node_remove_symlinks(struct udevice *udev)
 			}
 
 			info("removing symlink '%s'", filename);
-			unlink(filename);
+			if (!udev->test_run) {
+				unlink(filename);
 
-			if (strchr(filename, '/'))
-				delete_path(filename);
+				if (strchr(filename, '/'))
+					delete_path(filename);
+			}
 
 			strlcat(symlinks, filename, sizeof(symlinks));
 			strlcat(symlinks, " ", sizeof(symlinks));
