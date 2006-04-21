@@ -232,7 +232,7 @@ handle_sas () {
 	sas_phy_path="${sas_phy_path%%/target*}"
 	sas_phy_id="${sas_phy_path%%/*}"
 	sas_rphy_id="${sas_phy_path##*/}"
-	sas_phy_dev="${sas_host_path}/${sas_phy_id}/sas_phy:${sas_phy_id}"
+	sas_phy_dev="/sys/class/sas_phy/${sas_phy_id}"
 	if [ -e "$sas_phy_dev/sas_address" ]; then
 		read phy_address < $sas_phy_dev/sas_address
 		read phy_port < $sas_phy_dev/port_identifier
@@ -244,7 +244,7 @@ handle_sas () {
 		return
 	fi
 	sas_phy_address="$phy_address:$phy_port:$phy_id"
-	sas_rphy_dev="${sas_host_path}/${sas_phy_path}/sas_rphy:${sas_rphy_id}"
+	sas_rphy_dev="/sys/class/sas_device/${sas_rphy_id}"
 	if [ -e "$sas_rphy_dev/sas_address" ]; then
 		read rphy_address < $sas_rphy_dev/sas_address
 		read rphy_id < $sas_rphy_dev/phy_identifier
