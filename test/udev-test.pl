@@ -387,7 +387,7 @@ EOF
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "Major:8-minor:3-kernelnumber:3-id:0:0:0:0",
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="Major:\$major-minor:%m-kernelnumber:\$number-id:\$id"
+BUS=="scsi", ID=="0:0:0:0", DEVPATH=="*/sda/*", NAME="Major:\$major-minor:%m-kernelnumber:\$number-id:\$id"
 EOF
 	},
 	{
@@ -396,7 +396,7 @@ EOF
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "830:0:0:03" ,
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="%M%m%b%n"
+BUS=="scsi", ID=="0:0:0:0", DEVPATH=="*/sda/*", NAME="%M%m%b%n"
 EOF
 	},
 	{
@@ -405,7 +405,7 @@ EOF
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "833" ,
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="\$major\$minor\$number"
+BUS=="scsi", ID=="0:0:0:0", DEVPATH=="*/sda/*", NAME="\$major\$minor\$number"
 EOF
 	},
 	{
@@ -414,7 +414,7 @@ EOF
 		devpath		=> "/block/sda/sda3",
 		exp_name	=> "8330:0:0:0" ,
 		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", DEVPATH="*/sda/*", NAME="\$major%m%n\$id"
+BUS=="scsi", ID=="0:0:0:0", DEVPATH=="*/sda/*", NAME="\$major%m%n\$id"
 EOF
 	},
 	{
@@ -1291,8 +1291,8 @@ EOF
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "part",
 		rules		=> <<EOF
-SUBSYSTEM=="block", KERNEL="*[0-9]", ENV{PARTITION}="true", ENV{MAINDEVICE}="false"
-SUBSYSTEM=="block", KERNEL="*[!0-9]", ENV{PARTITION}="false", ENV{MAINDEVICE}="true"
+SUBSYSTEM=="block", KERNEL=="*[0-9]", ENV{PARTITION}="true", ENV{MAINDEVICE}="false"
+SUBSYSTEM=="block", KERNEL=="*[!0-9]", ENV{PARTITION}="false", ENV{MAINDEVICE}="true"
 ENV{MAINDEVICE}=="true", NAME="disk"
 ENV{PARTITION}=="true", NAME="part"
 NAME="bad"
@@ -1528,6 +1528,43 @@ KERNEL=="sda1", NAME="wrong"
 KERNEL=="sda1", NAME="", LABEL="NO"
 KERNEL=="sda1", NAME="right", LABEL="TEST"
 KERNEL=="sda1", NAME="wrong2"
+EOF
+	},
+	{
+		desc		=> "NAME compare test",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "link",
+		exp_target	=> "node",
+		not_exp_name	=> "wronglink",
+		rules		=> <<EOF
+KERNEL=="sda1", NAME="node"
+KERNEL=="sda2", NAME="wrong"
+KERNEL=="sda1", NAME=="wrong*", SYMLINK+="wronglink"
+KERNEL=="sda1", NAME=="?*", SYMLINK+="link"
+KERNEL=="sda1", NAME=="node*", SYMLINK+="link2"
+EOF
+	},
+	{
+		desc		=> "NAME compare test 2",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "link2",
+		exp_target	=> "sda1",
+		not_exp_name	=> "link",
+		rules		=> <<EOF
+KERNEL=="sda1", NAME=="?*", SYMLINK+="link"
+KERNEL=="sda1", NAME!="?*", SYMLINK+="link2"
+EOF
+	},
+	{
+		desc		=> "invalid key operation",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "yes",
+		rules		=> <<EOF
+KERNEL="sda1", NAME=="no"
+KERNEL=="sda1", NAME="yes"
 EOF
 	},
 );

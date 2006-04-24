@@ -680,7 +680,8 @@ static int match_key(const char *key_name, struct udev_rule *rule, struct key *k
 	char *key_value;
 	char *pos;
 
-	if (key->operation == KEY_OP_UNSET)
+	if (key->operation != KEY_OP_MATCH &&
+	    key->operation != KEY_OP_NOMATCH)
 		return 0;
 
 	strlcpy(value, rule->buf + key->val_off, sizeof(value));
@@ -726,6 +727,10 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 	if (match_key("DEVPATH", rule, &rule->devpath, udev->dev->devpath))
 		goto nomatch;
 
+	/* compare NAME against a previously assigned value */
+	if (match_key("NAME", rule, &rule->name, udev->name))
+		goto nomatch;
+
 	if (rule->modalias.operation != KEY_OP_UNSET) {
 		const char *value;
 		static int warn = 1;
@@ -748,7 +753,8 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 		struct key_pair *pair = &rule->env.keys[i];
 
 		/* we only check for matches, assignments will be handled later */
-		if (pair->key.operation != KEY_OP_ASSIGN) {
+		if (pair->key.operation == KEY_OP_MATCH ||
+		    pair->key.operation == KEY_OP_NOMATCH) {
 			const char *key_name = key_pair_name(rule, pair);
 			const char *value = getenv(key_name);
 
@@ -775,22 +781,16 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 	udev->dev_parent = udev->dev;
 	while (1) {
 		/* check for matching driver */
-		if (rule->driver.operation != KEY_OP_UNSET) {
-			if (match_key("DRIVER", rule, &rule->driver, udev->dev_parent->driver))
-				goto try_parent;
-		}
+		if (match_key("DRIVER", rule, &rule->driver, udev->dev_parent->driver))
+			goto try_parent;
 
 		/* check for matching subsystem/bus value */
-		if (rule->bus.operation != KEY_OP_UNSET) {
-			if (match_key("BUS", rule, &rule->bus, udev->dev_parent->subsystem))
-				goto try_parent;
-		}
+		if (match_key("BUS", rule, &rule->bus, udev->dev_parent->subsystem))
+			goto try_parent;
 
 		/* check for matching bus id (device name) */
-		if (rule->id.operation != KEY_OP_UNSET) {
-			if (match_key("ID", rule, &rule->id, udev->dev_parent->kernel_name))
-				goto try_parent;
-		}
+		if (match_key("ID", rule, &rule->id, udev->dev_parent->kernel_name))
+			goto try_parent;
 
 		/* check for matching sysfs pairs */
 		if (rule->sysfs.count) {
@@ -934,7 +934,10 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 		if (rule == NULL)
 			break;
 
-		if (name_set && rule->name.operation != KEY_OP_UNSET) {
+		if (name_set &&
+		    (rule->name.operation == KEY_OP_ASSIGN ||
+		     rule->name.operation == KEY_OP_ASSIGN_FINAL ||
+		     rule->name.operation == KEY_OP_ADD)) {
 			dbg("node name already set, rule ignored");
 			continue;
 		}
@@ -1020,7 +1023,9 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 			}
 
 			/* set name, later rules with name set will be ignored */
-			if (rule->name.operation != KEY_OP_UNSET) {
+			if (rule->name.operation == KEY_OP_ASSIGN ||
+			    rule->name.operation == KEY_OP_ASSIGN_FINAL ||
+			    rule->name.operation == KEY_OP_ADD) {
 				int count;
 
 				name_set = 1;

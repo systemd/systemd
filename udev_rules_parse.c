@@ -235,7 +235,7 @@ static int add_rule_key_pair(struct udev_rule *rule, struct key_pairs *pairs,
 	return 0;
 }
 
-static int add_to_rules(struct udev_rules *rules, char *line)
+static int add_to_rules(struct udev_rules *rules, char *line, const char *filename, unsigned int lineno)
 {
 	struct udev_rule *rule;
 	size_t rule_size;
@@ -276,36 +276,66 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 		}
 
 		if (strcasecmp(key, "KERNEL") == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid KERNEL operation");
+				goto invalid;
+			}
 			add_rule_key(rule, &rule->kernel_name, operation, value);
 			valid = 1;
 			continue;
 		}
 
 		if (strcasecmp(key, "SUBSYSTEM") == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid SUBSYSTEM operation");
+				goto invalid;
+			}
 			add_rule_key(rule, &rule->subsystem, operation, value);
 			valid = 1;
 			continue;
 		}
 
 		if (strcasecmp(key, "ACTION") == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid ACTION operation");
+				goto invalid;
+			}
 			add_rule_key(rule, &rule->action, operation, value);
 			valid = 1;
 			continue;
 		}
 
 		if (strcasecmp(key, "DEVPATH") == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid DEVPATH operation");
+				goto invalid;
+			}
 			add_rule_key(rule, &rule->devpath, operation, value);
 			valid = 1;
 			continue;
 		}
 
 		if (strcasecmp(key, "BUS") == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid BUS operation");
+				goto invalid;
+			}
 			add_rule_key(rule, &rule->bus, operation, value);
 			valid = 1;
 			continue;
 		}
 
 		if (strcasecmp(key, "ID") == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid ID operation");
+				goto invalid;
+			}
 			add_rule_key(rule, &rule->id, operation, value);
 			valid = 1;
 			continue;
@@ -504,14 +534,12 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 			continue;
 		}
 
-		err("unknown key '%s', in '%s'", key, line);
+		err("unknown key '%s'", key);
 	}
 
 	/* skip line if not any valid key was found */
-	if (!valid) {
-		err("invalid rule '%s'", line);
-		goto exit;
-	}
+	if (!valid)
+		goto invalid;
 
 	/* grow buffer and add rule */
 	rule_size = sizeof(struct udev_rule) + rule->bufsize;
@@ -531,13 +559,18 @@ static int add_to_rules(struct udev_rules *rules, char *line)
 exit:
 	free(rule);
 	return 0;
+
+invalid:
+	free(rule);
+	err("invalid rule '%s:%u'", filename, lineno);
+	return -1;
 }
 
 static int parse_file(struct udev_rules *rules, const char *filename)
 {
 	char line[LINE_SIZE];
 	char *bufline;
-	int lineno;
+	unsigned int lineno;
 	char *buf;
 	size_t bufsize;
 	size_t cur;
@@ -562,7 +595,7 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 		lineno++;
 
 		if (count >= sizeof(line)) {
-			info("line too long, rule skipped %s, line %d", filename, lineno);
+			err("line too long, rule skipped '%s:%u'", filename, lineno);
 			continue;
 		}
 
@@ -588,7 +621,7 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 		line[j] = '\0';
 
 		dbg("read '%s'", line);
-		add_to_rules(rules, line);
+		add_to_rules(rules, line, filename, lineno);
 	}
 
 	file_unmap(buf, bufsize);
