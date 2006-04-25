@@ -45,6 +45,6 @@ KERNEL=="*[!0-9]", IMPORT{program}="/sbin/edd_id --export $tempnode"
 KERNEL=="*[!0-9]", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}"
 KERNEL=="*[0-9]", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}-part%n"
 
-KERNEL=="dm-[0-9]*", ACTION=="add", PROGRAM="/sbin/dmsetup info -c --noopencount --noheadings -o name -j %M -m %m", SYMLINK="disk/by-name/%c"
+KERNEL=="dm-[0-9]*", ACTION=="add", PROGRAM="/sbin/dmsetup info -c --noopencount --noheadings -o name -j %M -m %m", SYMLINK+="disk/by-name/%c"
 
 LABEL="persistent_storage_end"

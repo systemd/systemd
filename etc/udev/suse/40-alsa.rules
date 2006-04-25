@@ -1,5 +1,5 @@
-SUBSYSTEM="sound",		GROUP="audio"
-SUBSYSTEM="snd",		GROUP="audio"
+SUBSYSTEM=="sound",		GROUP="audio"
+SUBSYSTEM=="snd",		GROUP="audio"
 KERNEL=="controlC[0-9]*",	NAME="snd/%k"
 KERNEL=="hwC[D0-9]*",		NAME="snd/%k"
 KERNEL=="pcmC[D0-9cp]*",	NAME="snd/%k"
@@ -14,3 +14,4 @@ SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="1604/8005/*", RUN+="/sbin/startp
 SUBSYSTEM=="sound", KERNEL=="controlC?", RUN+="/usr/sbin/alsactl -F restore %n"
 SUBSYSTEM=="sound", KERNEL=="hwC?D2", DRIVER=="EMU10K1_Audigy", RUN+="/etc/alsa.d/udev-soundfont"
 
+0
