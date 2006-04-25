@@ -250,7 +250,7 @@ static void udev_event_run(struct uevent_msg *msg)
 		/* child */
 		close(uevent_netlink_sock);
 		close(udevd_sock);
-		if (inotify_fd > 0)
+		if (inotify_fd >= 0)
 			close(inotify_fd);
 		close(signal_pipe[READ_END]);
 		close(signal_pipe[WRITE_END]);
@@ -287,7 +287,7 @@ static void msg_queue_insert(struct uevent_msg *msg)
 	strlcpy(filename, udev_root, sizeof(filename));
 	strlcat(filename, "/" EVENT_SEQNUM, sizeof(filename));
 	fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
-	if (fd > 0) {
+	if (fd >= 0) {
 		char str[32];
 		int len;
 
@@ -821,6 +821,33 @@ static int init_uevent_netlink_sock(void)
 	return 0;
 }
 
+static void export_initial_seqnum(void)
+{
+	char filename[PATH_SIZE];
+	int fd;
+	char seqnum[32];
+	ssize_t len = 0;
+
+	strlcpy(filename, sysfs_path, sizeof(filename));
+	strlcat(filename, "/kernel/uevent_seqnum", sizeof(filename));
+	fd = open(filename, O_RDONLY);
+	if (fd >= 0) {
+		len = read(fd, seqnum, sizeof(seqnum)-1);
+		close(fd);
+	}
+	if (len <= 0) {
+		strcpy(seqnum, "0\n");
+		len = 3;
+	}
+	strlcpy(filename, udev_root, sizeof(filename));
+	strlcat(filename, "/" EVENT_SEQNUM, sizeof(filename));
+	fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+	if (fd >= 0) {
+		write(fd, seqnum, len);
+		close(fd);
+	}
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	int retval;
@@ -892,6 +919,8 @@ int main(int argc, char *argv[], char *envp[])
 	/* parse the rules and keep it in memory */
 	sysfs_init();
 	udev_rules_init(&rules, 1);
+
+	export_initial_seqnum();
 
 	if (daemonize) {
 		pid_t pid;
@@ -1014,7 +1043,7 @@ int main(int argc, char *argv[], char *envp[])
 		FD_SET(signal_pipe[READ_END], &readfds);
 		FD_SET(udevd_sock, &readfds);
 		FD_SET(uevent_netlink_sock, &readfds);
-		if (inotify_fd > 0)
+		if (inotify_fd >= 0)
 			FD_SET(inotify_fd, &readfds);
 
 		fdcount = select(maxfd+1, &readfds, NULL, NULL, NULL);
@@ -1046,7 +1075,7 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		/* rules directory inotify watch */
-		if ((inotify_fd > 0) && FD_ISSET(inotify_fd, &readfds)) {
+		if ((inotify_fd >= 0) && FD_ISSET(inotify_fd, &readfds)) {
 			int nbytes;
 
 			/* discard all possible events, we can just reload the config */
@@ -1089,16 +1118,16 @@ exit:
 	udev_rules_cleanup(&rules);
 	sysfs_cleanup();
 
-	if (signal_pipe[READ_END] > 0)
+	if (signal_pipe[READ_END] >= 0)
 		close(signal_pipe[READ_END]);
-	if (signal_pipe[WRITE_END] > 0)
+	if (signal_pipe[WRITE_END] >= 0)
 		close(signal_pipe[WRITE_END]);
 
-	if (udevd_sock > 0)
+	if (udevd_sock >= 0)
 		close(udevd_sock);
-	if (inotify_fd > 0)
+	if (inotify_fd >= 0)
 		close(inotify_fd);
-	if (uevent_netlink_sock > 0)
+	if (uevent_netlink_sock >= 0)
 		close(uevent_netlink_sock);
 
 	logging_close();
