@@ -1,3 +1,11 @@
+udev 091
+========
+Some more keys require the correct use of '==' and '=' depending
+on the kind of operation beeing an assignment or a match. Rules
+with invalid operations are skipped and logged to syslog. Please
+test with udevtest if the parsing of your rules throws errors and
+fix possibly broken rules.
+
 udev 090
 ========
 Provide "udevsettle" to wait for all current udev events to finish.

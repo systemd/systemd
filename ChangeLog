@@ -1,3 +1,16 @@
+Summary of changes from v090 to v091
+============================================
+
+Hannes Reinecke:
+      path_id: fix SAS device path generation
+
+Kay Sievers:
+      udevtest: don't try to delete symlinks
+      persistent rules: fix typo in dm rule
+      allow NAME=="value" to check for already assigned value
+      udevd: export initial sequence number on startup
+
+
 Summary of changes from v089 to v090
 ============================================
 
