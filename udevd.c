@@ -841,6 +841,7 @@ static void export_initial_seqnum(void)
 	}
 	strlcpy(filename, udev_root, sizeof(filename));
 	strlcat(filename, "/" EVENT_SEQNUM, sizeof(filename));
+	create_path(filename);
 	fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
 	if (fd >= 0) {
 		write(fd, seqnum, len);
