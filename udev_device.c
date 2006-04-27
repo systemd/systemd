@@ -26,7 +26,8 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <ctype.h>
-#include <stropts.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <net/if.h>
 #include <linux/sockios.h>
 
