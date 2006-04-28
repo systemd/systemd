@@ -63,10 +63,13 @@ void log_message(int priority, const char *format, ...)
 static void vid_log(int priority, const char *file, int line, const char *format, ...)
 {
 #ifdef USE_LOG
+	char log_str[1024];
 	va_list args;
 
 	va_start(args, format);
-	log_message(priority, format, args);
+	vsnprintf(log_str, sizeof(log_str), format, args);
+	log_str[sizeof(log_str)-1] = '\0';
+	log_message(priority, "%s:%i %s", file, line, log_str);
 	va_end(args);
 #endif
 	return;

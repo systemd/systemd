@@ -2,17 +2,17 @@
  * udev_rules.c
  *
  * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
- * Copyright (C) 2003-2005 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2003-2006 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
  *	Free Software Foundation version 2 of the License.
- * 
+ *
  *	This program is distributed in the hope that it will be useful, but
  *	WITHOUT ANY WARRANTY; without even the implied warranty of
  *	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  *	General Public License for more details.
- * 
+ *
  *	You should have received a copy of the GNU General Public License along
  *	with this program; if not, write to the Free Software Foundation, Inc.,
  *	675 Mass Ave, Cambridge, MA 02139, USA.
@@ -451,8 +451,7 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 						goto found;
 					}
 				}
-			}
-			else if (head[0] == '%') {
+			} else if (head[0] == '%') {
 				/* substitute format char */
 				if (head[1] == '\0')
 					break;
