@@ -4,8 +4,8 @@ KERNEL=="input[0-9]*", GOTO="persistent_input_end"
 
 # usb devices
 BUS=="usb", IMPORT{program}="/sbin/usb_id -x"
-BUS=="usb", SYSFS{bInterfaceClass}="03", SYSFS{bInterfaceProtocol}="01", ENV{ID_CLASS}="kbd"
-BUS=="usb", SYSFS{bInterfaceClass}="03", SYSFS{bInterfaceProtocol}="02", ENV{ID_CLASS}="mouse"
+BUS=="usb", SYSFS{bInterfaceClass}=="03", SYSFS{bInterfaceProtocol}=="01", ENV{ID_CLASS}="kbd"
+BUS=="usb", SYSFS{bInterfaceClass}=="03", SYSFS{bInterfaceProtocol}=="02", ENV{ID_CLASS}="mouse"
 
 # by-id links
 KERNEL=="mouse*", ENV{ID_BUS}=="?*", ENV{ID_SERIAL}=="?*", ENV{ID_CLASS}=="?*", SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-$env{ID_CLASS}"
