@@ -342,6 +342,11 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 		}
 
 		if (strncasecmp(key, "SYSFS", sizeof("SYSFS")-1) == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid SYSFS operation");
+				goto invalid;
+			}
 			attr = get_key_attribute(key + sizeof("SYSFS")-1);
 			if (attr == NULL) {
 				err("error parsing SYSFS attribute in '%s'", line);
@@ -421,12 +426,22 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 		}
 
 		if (strcasecmp(key, "DRIVER") == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid DRIVER operation");
+				goto invalid;
+			}
 			add_rule_key(rule, &rule->driver, operation, value);
 			valid = 1;
 			continue;
 		}
 
 		if (strcasecmp(key, "RESULT") == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid RESULT operation");
+				goto invalid;
+			}
 			add_rule_key(rule, &rule->result, operation, value);
 			valid = 1;
 			continue;
