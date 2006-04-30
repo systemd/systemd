@@ -14,4 +14,3 @@ SUBSYSTEM=="usb", ACTION=="add", ENV{PRODUCT}=="1604/8005/*", RUN+="/sbin/startp
 SUBSYSTEM=="sound", KERNEL=="controlC?", RUN+="/usr/sbin/alsactl -F restore %n"
 SUBSYSTEM=="sound", KERNEL=="hwC?D2", DRIVER=="EMU10K1_Audigy", RUN+="/etc/alsa.d/udev-soundfont"
 
-0
