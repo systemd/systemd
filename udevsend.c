@@ -30,7 +30,6 @@
 #include <sys/socket.h>
 #include <sys/wait.h>
 #include <sys/un.h>
-#include <linux/stddef.h>
 
 #include "udev.h"
 #include "udevd.h"

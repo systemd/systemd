@@ -18,10 +18,6 @@
  *
  */
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/wait.h>
-#include <sys/un.h>
 #include <time.h>
 #include <errno.h>
 #include <stdio.h>
@@ -29,7 +25,10 @@
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
-#include <linux/stddef.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
+#include <sys/un.h>
 
 #include "udev.h"
 #include "udevd.h"
