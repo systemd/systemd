@@ -5,6 +5,8 @@ DEVPATH=="/devices/*", ENV{PHYSDEVBUS}=="?*",	WAIT_FOR_SYSFS="bus"
 SUBSYSTEM=="scsi",				WAIT_FOR_SYSFS="ioerr_cnt"
 # only needed for kernels < 2.6.16
 SUBSYSTEM=="net",				WAIT_FOR_SYSFS="address"
+# only needed for kernels < 2.6.17
+SUBSYSTEM=="net", ENV{PHYSDEVDRIVER}=="?*",	WAIT_FOR_SYSFS="device/driver"
 
 # default permissions for block devices
 SUBSYSTEM=="block",				GROUP="disk"

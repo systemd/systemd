@@ -33,8 +33,7 @@ KERNEL=="*[!0-9]", \
 	IMPORT{program}="edd_id --export $tempnode"
 
 # find the physical path of the device
-KERNEL=="*[!0-9]|sr*|st*",		ENV{ID_TYPE}=="?*", \
-	IMPORT{program}="path_id $devpath"
+KERNEL=="*[!0-9]|sr*|st*",		IMPORT{program}="path_id $devpath"
 
 # import the variables of partitions from the parent disks
 KERNEL=="*[0-9]",			IMPORT{parent}="ID_*"

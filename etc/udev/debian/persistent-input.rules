@@ -5,9 +5,9 @@ KERNEL=="input[0-9]*",			GOTO="persistent_input_end"
 
 # usb devices
 BUS=="usb",				IMPORT{program}="usb_id -x"
-BUS=="usb", SYSFS{bInterfaceClass}="03", SYSFS{bInterfaceProtocol}="01", \
+BUS=="usb", SYSFS{bInterfaceClass}=="03", SYSFS{bInterfaceProtocol}=="01", \
 					ENV{ID_CLASS}="kbd"
-BUS=="usb", SYSFS{bInterfaceClass}="03", SYSFS{bInterfaceProtocol}="02", \
+BUS=="usb", SYSFS{bInterfaceClass}=="03", SYSFS{bInterfaceProtocol}=="02", \
 					ENV{ID_CLASS}="mouse"
 
 # by-id links, generic and for the event devices
