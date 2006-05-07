@@ -54,7 +54,7 @@ static char *get_media(const char *devname, int mode)
 	int size;
 	char *media = NULL;
 
-	if (!(mode && S_IFBLK))
+	if (!(mode & S_IFBLK))
 		return NULL;
 
 	snprintf(procfile, PATH_MAX, "/proc/ide/%s/media", devname);
