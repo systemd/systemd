@@ -356,7 +356,7 @@ handle_device () {
 		subsys="`pwd -P`"
 		cd "$OPWD"
 		subsys="${subsys##*/}"
-		if [ "$subsys" == "block" ]; then
+		if [ "$subsys" = "block" ]; then
 			# parent is "block", it's a partition, move one up
 			full_sysfs_path="${full_sysfs_path%/*}"
 		fi
@@ -438,7 +438,7 @@ handle_device () {
 				;;
 		esac
 	done
-	if [ "$TYPE" == "scsi_tape" ] ; then
+	if [ "$TYPE" = "scsi_tape" ] ; then
 		devname=${full_sysfs_path##*/}
 		rewind="${devname%%st*}"
 		mode="${devname##*st}"
