@@ -47,6 +47,7 @@ OBJS=				\
 	ocfs.o			\
 	vxfs.o			\
 	squashfs.o		\
+	netware.o		\
 	volume_id.o		\
 	util.o
 

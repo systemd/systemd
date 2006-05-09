@@ -26,6 +26,7 @@
 	volume_id_probe_vxfs;
 	volume_id_probe_xfs;
 	volume_id_probe_squashfs;
+	volume_id_probe_netware;
 
 	volume_id_probe_linux_raid;
 	volume_id_probe_lvm1;
