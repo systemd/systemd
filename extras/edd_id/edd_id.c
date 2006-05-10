@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 	int sysfs_fd;
 	DIR *dir = NULL;
 	int rc = 1;
-	char *match = NULL;
+	char match[NAME_MAX] = "";
 
 	logging_init("edd_id");
 
@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
 		} else
 			node = arg;
 	}
-	if (!node) {
+	if (node == NULL) {
 		err("no node specified");
 		fprintf(stderr, "no node specified\n");
 		goto exit;
@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 
 	/* check for kernel support */
 	dir = opendir("/sys/firmware/edd");
-	if (!dir) {
+	if (dir == NULL) {
 		info("no kernel EDD support");
 		fprintf(stderr, "no kernel EDD support\n");
 		rc = 2;
@@ -156,32 +156,36 @@ int main(int argc, char *argv[])
 
 		size = read(sysfs_fd, sysfs_id_buf, sizeof(sysfs_id_buf)-1);
 		close(sysfs_fd);
-		if (size < 0) {
+		if (size <= 0) {
 			info("read sysfs '%s' failed", file);
 			continue;
 		}
 		sysfs_id_buf[size] = '\0';
 		info("read '%s' from '%s'", sysfs_id_buf, file);
-
 		sysfs_id = strtoul(sysfs_id_buf, NULL, 16);
+
+		/* look for matching value, that appears only once */
 		if (disk_id == sysfs_id) {
-			if (!match) {
-				match = dent->d_name;
+			if (match[0] == '\0') {
+				/* store id */
+				strlcpy(match, dent->d_name, sizeof(match));
 			} else {
+				/* error, same signature for another device */
 				info("'%s' does not have a unique signature", node);
 				fprintf(stderr, "'%s' does not have a unique signature\n", node);
-				rc=10;
+				rc = 10;
 				goto exit;
 			}
 		}
-
 	}
 
-			if (export)
-		printf("ID_EDD=%s\n", match);
-			else
-		printf("%s\n", match);
-			rc = 0;
+	if (match[0] != '\0') {
+		if (export)
+			printf("ID_EDD=%s\n", match);
+		else
+			printf("%s\n", match);
+		rc = 0;
+	}
 
 close:
 	close(disk_fd);
