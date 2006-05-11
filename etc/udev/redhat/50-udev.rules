@@ -40,8 +40,9 @@ KERNEL=="modems/mwave*",        NAME="%k", GROUP="uucp", MODE="0660"
 KERNEL=="hvc*",                 NAME="%k", GROUP="uucp", MODE="0660"
 KERNEL=="hvsi*",                NAME="%k", GROUP="uucp", MODE="0660"
 KERNEL=="iseries/vtty*",        NAME="%k", GROUP="uucp", MODE="0660"
-KERNEL=="ttyUSB*", SYSFS{product}=="Palm Handheld*", SYMLINK+="pilot"
-KERNEL=="ttyUSB*", SYSFS{product}=="palmOne Handheld*", SYMLINK+="pilot"
+KERNEL=="ttyUSB*", SYSFS{product}=="Palm Handheld*", SYMLINK+="pilot", GROUP="uucp", MODE="0660"
+KERNEL=="ttyUSB*", SYSFS{product}=="palmOne Handheld*", SYMLINK+="pilot", GROUP="uucp", MODE="0660"
+KERNEL=="ttyUSB*", SYSFS{product}=="Handspring Visor*", SYMLINK+="pilot", GROUP="uucp", MODE="0660"
 
 # vc devices
 KERNEL=="vcs",			NAME="%k", OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
@@ -89,9 +90,6 @@ KERNEL=="amidi*",		MODE="0660"
 KERNEL=="dmfm*",		MODE="0660"
 KERNEL=="dmmidi*",		MODE="0660"
 KERNEL=="sndstat",		MODE="0660"
-
-# pilot/palm devices
-KERNEL=="pilot",		GROUP="uucp", MODE="0660"
 
 # lp devices
 KERNEL=="lp*",			GROUP="lp", MODE="0660"
@@ -271,15 +269,15 @@ BUS=="ide", DRIVER!="ide-cdrom", SYSFS{removable}=="1",	GOTO="persistent_end"
 BUS=="ide", KERNEL=="hd*[0-9]", SYSFS{../removable}=="1", GOTO="persistent_end"
 
 # by-id (hardware serial number)
-KERNEL=="hd*[!0-9]", IMPORT{program}="/sbin/ata_id --export $tempnode"
+KERNEL=="hd*[!0-9]", IMPORT{program}="/lib/udev/ata_id --export $tempnode"
 KERNEL=="hd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
 KERNEL=="hd*[0-9]", IMPORT{parent}=="ID_*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
 
 KERNEL=="sd*[!0-9]|sr*", SYSFS{ieee1394_id}=="*", ENV{ID_SERIAL}="$sysfs{ieee1394_id}", ENV{ID_BUS}="ieee1394"
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/usb_id -x"
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/scsi_id -g -x -s %p -d $tempnode"
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/sbin/scsi_id -g -x -a -s %p -d $tempnode"
-KERNEL=="dasd*[!0-9]", IMPORT{program}="/sbin/dasd_id --export $tempnode"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/lib/udev/usb_id -x"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/lib/udev/scsi_id -g -x -s %p -d $tempnode"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/lib/udev/scsi_id -g -x -a -s %p -d $tempnode"
+KERNEL=="dasd*[!0-9]", IMPORT{program}="/lib/udev/dasd_id --export $tempnode"
 KERNEL=="sd*[!0-9]|sr*|dasd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 
 # for partitions import parent information
@@ -287,19 +285,19 @@ KERNEL=="sd*[0-9]|dasd*[0-9]", IMPORT{parent}=="ID_*"
 KERNEL=="sd*[0-9]|dasd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
 
 # by-path (shortest physical path)
-KERNEL=="*[!0-9]|sr*", ENV{ID_TYPE}=="?*", IMPORT{program}="/sbin/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
+KERNEL=="*[!0-9]|sr*", ENV{ID_TYPE}=="?*", IMPORT{program}="/lib/udev/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
 KERNEL=="sr*", GOTO="persistent_end"
 KERNEL=="*[0-9]", IMPORT{parent}=="ID_*"
 KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 
 # by-label/by-uuid (filesystem properties)
 KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_end"
-IMPORT{program}="/sbin/vol_id --export $tempnode"
+IMPORT{program}="/lib/udev/vol_id --export $tempnode"
 ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
 ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
 
 # BIOS Enhanced Disk Device
-KERNEL=="*[!0-9]", IMPORT{program}="/sbin/edd_id --export $tempnode"
+KERNEL=="*[!0-9]", IMPORT{program}="/lib/udev/edd_id --export $tempnode"
 KERNEL=="*[!0-9]", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}"
 KERNEL=="*[0-9]", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}-part%n"
 
@@ -309,22 +307,22 @@ LABEL="persistent_end"
 # Persistent block device stuff - end
 #####################################
 
+
 ACTION=="add", SUBSYSTEM=="usb_device", \
 	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", \
 	NAME="%c", MODE="0644"
 
 ACTION=="add", SUBSYSTEM=="?*", ENV{MODALIAS}=="?*", RUN+="/sbin/modprobe $env{MODALIAS}"
 
-ACTION=="add", SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="*", \
-        RUN+="/bin/sh -c 'echo 1 > /sys/$DEVPATH/allow_func_id_match'"
+ACTION=="add", SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="?*", RUN+="/bin/sh -c 'echo 1 > /sys/$DEVPATH/allow_func_id_match'"
 
 # sd:           0 TYPE_DISK, 7 TYPE_MOD, 14 TYPE_RBC
 # sr:           4 TYPE_WORM, 5 TYPE_ROM
 # st/osst:      1 TYPE_TAPE
 # sg: 		8 changer, [36] scanner
-ACTION=="add", SUBSYSTEM="scsi" , SYSFS{type}=="0|7|14", \
+ACTION=="add", SUBSYSTEM=="scsi" , SYSFS{type}=="0|7|14", \
 	RUN+="/bin/sh -c 'echo 60 > /sys$$DEVPATH/timeout'"
-ACTION=="add", SUBSYSTEM="scsi" , SYSFS{type}=="1", \
+ACTION=="add", SUBSYSTEM=="scsi" , SYSFS{type}=="1", \
 	RUN+="/bin/sh -c 'echo 900 > /sys$$DEVPATH/timeout'"
 
 
