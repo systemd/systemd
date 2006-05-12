@@ -1,3 +1,7 @@
+udev 092
+========
+Bugfix release.
+
 udev 091
 ========
 Some more keys require the correct use of '==' and '=' depending

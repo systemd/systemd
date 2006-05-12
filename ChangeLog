@@ -1,3 +1,28 @@
+Summary of changes from v091 to v092
+============================================
+
+Kay Sievers:
+      don't include stropts.h, some libc's don't like it
+      udevd: create leading directories for /dev/.udev/uevent_seqnum
+      vol_id: fix logging from libvolume_id's log function
+      update SUSE rules
+      update SUSE rules
+      add more warnings for invalid key operations
+      fix offsetof() build issue with recent glibc
+      selinux: fix typo in block device node selection
+      vol_id: add NetWare volume detection
+      edd_id: fix "(null)" output if "mbr_signature" does not exist
+      update Fedora rules
+      libvolume_id: nss - use different uuid
+
+Libor Klepac:
+      path_id: add platform and serio support
+
+Marco d'Itri:
+      update Debian rules
+      path_id: fix bashism
+
+
 Summary of changes from v090 to v091
 ============================================
 
