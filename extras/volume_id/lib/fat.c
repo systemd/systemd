@@ -63,7 +63,7 @@ struct vfat_super_block {
 			uint16_t	flags;
 			uint8_t		version[2];
 			uint32_t	root_cluster;
-			uint16_t	insfo_sector;
+			uint16_t	fsinfo_sector;
 			uint16_t	backup_boot;
 			uint16_t	reserved2[6];
 			uint8_t		unknown[3];
@@ -74,6 +74,15 @@ struct vfat_super_block {
 			uint8_t		pmagic[2];
 		} PACKED fat32;
 	} PACKED type;
+} PACKED;
+
+struct fat32_fsinfo {
+	uint8_t signature1[4];
+	uint32_t reserved1[120];
+	uint8_t signature2[4];
+	uint32_t free_clusters;
+	uint32_t next_cluster;
+	uint32_t reserved2[4];
 } PACKED;
 
 struct vfat_dir_entry {
@@ -128,6 +137,7 @@ int volume_id_probe_vfat(struct volume_id *id, uint64_t off)
 {
 	struct vfat_super_block *vs;
 	struct vfat_dir_entry *dir;
+	struct fat32_fsinfo *fsinfo;
 	uint16_t sector_size;
 	uint16_t dir_entries;
 	uint32_t sect_count;
@@ -141,6 +151,7 @@ int volume_id_probe_vfat(struct volume_id *id, uint64_t off)
 	uint64_t root_start;
 	uint32_t start_data_sect;
 	uint16_t root_dir_entries;
+	uint16_t fsinfo_sect;
 	uint8_t *buf;
 	uint32_t buf_size;
 	uint8_t *label = NULL;
@@ -149,16 +160,19 @@ int volume_id_probe_vfat(struct volume_id *id, uint64_t off)
 
 	info("probing at offset 0x%llx", (unsigned long long) off);
 
-	vs = (struct vfat_super_block *) volume_id_get_buffer(id, off, 0x200);
-	if (vs == NULL)
+	buf = volume_id_get_buffer(id, off, 0x400);
+	if (buf == NULL)
 		return -1;
 
-	/* believe only that's fat, don't trust the version
-	 * the cluster_count will tell us
-	 */
+	/* check signature */
+	if (buf[510] != 0x55 || buf[511] != 0xaa)
+		return -1;
+
+	vs = (struct vfat_super_block *) buf;
 	if (memcmp(vs->sysid, "NTFS", 4) == 0)
 		return -1;
 
+	/* believe only that's fat, don't trust the version */
 	if (memcmp(vs->type.fat32.magic, "MSWIN", 5) == 0)
 		goto magic;
 
@@ -174,9 +188,7 @@ int volume_id_probe_vfat(struct volume_id *id, uint64_t off)
 	if (memcmp(vs->type.fat.magic, "FAT12   ", 8) == 0)
 		goto magic;
 
-	/* some old floppies don't have a magic, so we expect the boot code to match */
-
-	/* boot jump address check */
+	/* some old floppies don't have a magic, expect the boot jump address to match */
 	if ((vs->boot_jump[0] != 0xeb || vs->boot_jump[2] != 0x90) &&
 	     vs->boot_jump[0] != 0xe9)
 		return -1;
@@ -280,6 +292,21 @@ magic:
 	goto found;
 
 fat32:
+	/* FAT32 should have a valid signature in the fsinfo block */
+	fsinfo_sect = le16_to_cpu(vs->type.fat32.fsinfo_sector);
+	buf = volume_id_get_buffer(id, off + (fsinfo_sect * sector_size), 0x200);
+	if (buf == NULL)
+		return -1;
+	fsinfo = (struct fat32_fsinfo *) buf;
+	if (memcmp(fsinfo->signature1, "\x52\x52\x61\x41", 4) != 0)
+		return -1;
+	if (memcmp(fsinfo->signature2, "\x72\x72\x41\x61", 4) != 0)
+		return -1 ;
+
+	vs = (struct vfat_super_block *) volume_id_get_buffer(id, off, 0x200);
+	if (vs == NULL)
+		return -1;
+
 	strcpy(id->type_version, "FAT32");
 
 	/* FAT32 root dir is a cluster chain like any other directory */

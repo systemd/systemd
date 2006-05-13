@@ -99,7 +99,6 @@ int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size
 	if (volume_id_probe_luks(id, off) == 0)
 		goto found;
 
-	/* signature in the first block, only small buffer needed */
 	if (volume_id_probe_vfat(id, off) == 0)
 		goto found;
 
