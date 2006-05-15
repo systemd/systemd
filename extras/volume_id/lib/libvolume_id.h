@@ -108,5 +108,7 @@ extern int volume_id_probe_nvidia_raid(struct volume_id *id, uint64_t off, uint6
 extern int volume_id_probe_promise_fasttrack_raid(struct volume_id *id, uint64_t off, uint64_t size);
 extern int volume_id_probe_silicon_medley_raid(struct volume_id *id, uint64_t off, uint64_t size);
 extern int volume_id_probe_via_raid(struct volume_id *id, uint64_t off, uint64_t size);
+extern int volume_id_probe_adaptec_raid(struct volume_id *id, uint64_t off, uint64_t size);
+extern int volume_id_probe_jmicron_raid(struct volume_id *id, uint64_t off, uint64_t size);
 
 #endif

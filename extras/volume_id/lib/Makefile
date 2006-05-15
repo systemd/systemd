@@ -13,7 +13,7 @@ INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_LIB = ${INSTALL} -m 755
 
 SHLIB_CUR = 0
-SHLIB_REV = 64
+SHLIB_REV = 65
 SHLIB_AGE = 0
 SHLIB = libvolume_id.so.$(SHLIB_CUR).$(SHLIB_REV).$(SHLIB_AGE)
 
@@ -28,6 +28,8 @@ OBJS=				\
 	silicon_raid.o		\
 	nvidia_raid.o		\
 	promise_raid.o		\
+	adaptec_raid.o		\
+	jmicron_raid.o		\
 	iso9660.o		\
 	jfs.o			\
 	linux_raid.o		\

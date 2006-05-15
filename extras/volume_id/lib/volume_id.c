@@ -69,6 +69,12 @@ int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size)
 
 		if (volume_id_probe_highpoint_45x_raid(id, off, size) == 0)
 			goto found;
+
+		if (volume_id_probe_adaptec_raid(id, off, size) == 0)
+			goto found;
+
+		if (volume_id_probe_jmicron_raid(id, off, size) == 0)
+			goto found;
 	}
 
 	if (volume_id_probe_lvm1(id, off) == 0)
