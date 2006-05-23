@@ -312,6 +312,61 @@ handle_sas () {
 	RESULT=0
 }
 
+handle_iscsi() {
+	local DEV=$1
+	local iscsi_session_dir
+	local iscsi_session iscsi_session_path
+	local iscsi_connection iscsi_connection_path
+	# iSCSI device
+	iscsi_session_dir="${DEV%%/target*}"
+	iscsi_session="${iscsi_session_dir##*/}"
+	iscsi_session_path=/sys/class/iscsi_session/${iscsi_session}
+	if [ ! -d "$iscsi_session_path" ] ; then
+	    : no iSCSI session path
+	    RESULT=1
+	    return
+	fi
+	# Currently we're not doing MC/S
+	for conn in ${iscsi_session_dir}/connection* ; do
+	    iscsi_conn_num=${conn##*:}
+	    if [ "$iscsi_conn_num" = '0' ] ; then
+		iscsi_connection=$(basename $conn)
+	    fi
+	done
+	if [ -z "$iscsi_connection" ] ; then
+	    : no iSCSI connection found
+	    RESULT=1
+	    return
+	fi
+	iscsi_connection_path=/sys/class/iscsi_connection/${iscsi_connection}
+	if [ ! -d "$iscsi_connection_path" ] ; then
+	    : no iSCSI connection path
+	    RESULT=1
+	    return
+	fi
+	if [ -e "${iscsi_session_path}/targetname" ]; then
+	    read iscsi_tgtname < ${iscsi_session_path}/targetname
+	fi
+	if [ -z "$iscsi_tgtname" ] ; then
+	    : No iSCSI Targetname
+	    RESULT=1
+	    return
+	fi
+	if [ -e "${iscsi_connection_path}/persistent_address" ] ; then
+	    read iscsi_address < ${iscsi_connection_path}/persistent_address
+	fi
+	if [ -z "$iscsi_address" ] ; then
+	    : No iSCSI Target address
+	    RESULT=1
+	    return
+	fi
+	if [ -e "${iscsi_connection_path}/persistent_port" ] ; then
+	    read iscsi_port < ${iscsi_connection_path}/persistent_port
+	fi
+	d="ip-${iscsi_address}:${iscsi_port}-iscsi-${iscsi_tgtname}"
+	RESULT=0
+}
+
 handle_usb () {
 : handle_usb $*
 	local DEV=$1
@@ -412,6 +467,10 @@ handle_device () {
 				;;
 			*/fw-host[0-9]*/*)
 				handle_firewire "$D"
+				;;
+			*/session[0-9]*/*)
+				handle_iscsi "$D"
+				D=
 				;;
 			*/host[0-9]*/[0-9]*:[0-9]*:[0-9]*:[0-9]*)
 				handle_scsi "$D"
