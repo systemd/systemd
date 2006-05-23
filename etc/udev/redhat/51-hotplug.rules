@@ -1,8 +1,8 @@
 # do not call hotplug.d and dev.d for "drivers" and "module" events
 SUBSYSTEM=="drivers",   GOTO="hotplug_end"
 SUBSYSTEM=="module",    GOTO="hotplug_end"
-ACTION="add",           GOTO="hotplug_comp"
-ACTION="remove",        GOTO="hotplug_comp"
+ACTION=="add",           GOTO="hotplug_comp"
+ACTION=="remove",        GOTO="hotplug_comp"
 
 GOTO="hotplug_end"
 
