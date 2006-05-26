@@ -252,6 +252,7 @@ handle_fc () {
 	fi
 	if [ -z "$wwpn" ] ; then
 		: no WWPN
+		D=
 		RESULT=1
 		return
 	fi
@@ -290,6 +291,7 @@ handle_sas () {
 	fi
 	if [ -z "$phy_address" ] ; then
 		: no initiator address
+		D=
 		RESULT=1
 		return
 	fi
@@ -301,6 +303,7 @@ handle_sas () {
 	fi
 	if [ -z "$rphy_address" ] ; then
 		: no initiator address
+		D=
 		RESULT=1
 		return
 	fi
