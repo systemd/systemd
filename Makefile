@@ -51,7 +51,6 @@ PROGRAMS = \
 	udevd				\
 	udevtrigger			\
 	udevsettle			\
-	udevsend			\
 	udevcontrol			\
 	udevmonitor			\
 	udevinfo			\
@@ -87,7 +86,6 @@ MAN_PAGES = \
 	udevd.8				\
 	udevtrigger.8			\
 	udevsettle.8			\
-	udevsend.8			\
 	udevtest.8			\
 	udevinfo.8			\
 	udevstart.8

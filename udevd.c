@@ -559,19 +559,17 @@ static struct uevent_msg *get_msg_from_envbuf(const char *buf, int buf_size)
 /* receive the udevd message from userspace */
 static struct uevent_msg *get_udevd_msg(void)
 {
-	static struct udevd_msg usend_msg;
-	struct uevent_msg *msg;
+	static struct udevd_msg ctrl_msg;
 	ssize_t size;
 	struct msghdr smsg;
 	struct cmsghdr *cmsg;
 	struct iovec iov;
 	struct ucred *cred;
 	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
-	int envbuf_size;
 	int *intval;
 
-	memset(&usend_msg, 0x00, sizeof(struct udevd_msg));
-	iov.iov_base = &usend_msg;
+	memset(&ctrl_msg, 0x00, sizeof(struct udevd_msg));
+	iov.iov_base = &ctrl_msg;
 	iov.iov_len = sizeof(struct udevd_msg);
 
 	memset(&smsg, 0x00, sizeof(struct msghdr));
@@ -599,21 +597,12 @@ static struct uevent_msg *get_udevd_msg(void)
 		return NULL;
 	}
 
-	if (strncmp(usend_msg.magic, UDEV_MAGIC, sizeof(UDEV_MAGIC)) != 0 ) {
-		err("message magic '%s' doesn't match, ignore it", usend_msg.magic);
+	if (strncmp(ctrl_msg.magic, UDEV_MAGIC, sizeof(UDEV_MAGIC)) != 0 ) {
+		err("message magic '%s' doesn't match, ignore it", ctrl_msg.magic);
 		return NULL;
 	}
 
-	switch (usend_msg.type) {
-	case UDEVD_UEVENT_UDEVSEND:
-		info("udevd event message received");
-		envbuf_size = size - offsetof(struct udevd_msg, envbuf);
-		dbg("envbuf_size=%i", envbuf_size);
-		msg = get_msg_from_envbuf(usend_msg.envbuf, envbuf_size);
-		if (msg == NULL)
-			return NULL;
-		msg->type = usend_msg.type;
-		return msg;
+	switch (ctrl_msg.type) {
 	case UDEVD_STOP_EXEC_QUEUE:
 		info("udevd message (STOP_EXEC_QUEUE) received");
 		stop_exec_q = 1;
@@ -624,14 +613,14 @@ static struct uevent_msg *get_udevd_msg(void)
 		msg_queue_manager();
 		break;
 	case UDEVD_SET_LOG_LEVEL:
-		intval = (int *) usend_msg.envbuf;
+		intval = (int *) ctrl_msg.envbuf;
 		info("udevd message (SET_LOG_PRIORITY) received, udev_log_priority=%i", *intval);
 		udev_log_priority = *intval;
 		sprintf(udev_log, "UDEV_LOG=%i", udev_log_priority);
 		putenv(udev_log);
 		break;
 	case UDEVD_SET_MAX_CHILDS:
-		intval = (int *) usend_msg.envbuf;
+		intval = (int *) ctrl_msg.envbuf;
 		info("udevd message (UDEVD_SET_MAX_CHILDS) received, max_childs=%i", *intval);
 		max_childs = *intval;
 		break;
