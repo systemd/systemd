@@ -1,14 +1,11 @@
 # Makefile for udev extra invoked from the udev main Makefile
 #
-# Copyright (C) 2004-2005 Kay Sievers <kay.sievers@vrfy.org>
+# Copyright (C) 2004-2006 Kay Sievers <kay.sievers@vrfy.org>
 #
 # Released under the GNU General Public License, version 2.
 #
 
-PROG = firmware_helper
-OBJ =
-HEADERS =
-GEN_HEADERS =
+PROG = firmware.sh
 MAN_PAGES =
 
 prefix =
@@ -29,14 +26,6 @@ all: $(PROG) $(MAN_PAGES)
 .PHONY: all
 .DEFAULT: all
 
-%.o: %.c $(GEN_HEADERS)
-	$(E) "  CC      " $@
-	$(Q) $(CC) -c $(CFLAGS) $< -o $@
-
-$(PROG): %: $(HEADERS) %.o $(OBJS)
-	$(E) "  LD      " $@
-	$(Q) $(LD) $(LDFLAGS) $@.o $(OBJS) -o $@ $(LIBUDEV) $(LIB_OBJS)
-
 # man pages
 %.8: %.xml
 	$(E) "  XMLTO   " $@
@@ -45,7 +34,6 @@ $(PROG): %: $(HEADERS) %.o $(OBJS)
 
 clean:
 	$(E) "  CLEAN   "
-	$(Q) rm -f $(PROG) $(OBJS) $(GEN_HEADERS)
 .PHONY: clean
 
 install-bin: all
@@ -67,3 +55,4 @@ uninstall-man:
 install-config:
 	@echo "no config file to install"
 .PHONY: install-config
+
