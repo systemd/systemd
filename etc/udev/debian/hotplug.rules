@@ -3,14 +3,9 @@ ACTION!="add", GOTO="hotplug_not_add_event"
 # check if the device has already been claimed by a driver
 ENV{PHYSDEVDRIVER}=="?*", SUBSYSTEM!="input", GOTO="hotplug_driver_loaded"
 
-# workarounds for kernels which lack $MODALIAS support
-SUBSYSTEM=="ieee1394",	ENV{MODALIAS}!="?*", IMPORT{program}="modalias_ieee1394"
-SUBSYSTEM=="serio",	ENV{MODALIAS}!="?*", IMPORT{program}="modalias_serio"
-
 # load the drivers
 ENV{MODALIAS}=="?*",	RUN+="/sbin/modprobe $env{MODALIAS}"
 SUBSYSTEM=="ide",	ENV{MODALIAS}!="?*",	RUN+="ide.agent"
-SUBSYSTEM=="vio",	ENV{MODALIAS}!="?*",	RUN+="vio.agent"
 
 SUBSYSTEM=="pnp",	ENV{MODALIAS}!="?*",	RUN+="/bin/sh -c 'while read id; do /sbin/modprobe pnp:d$$id; done < /sys$devpath/id'"
 
