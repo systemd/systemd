@@ -1,3 +1,8 @@
+udev 093
+========
+The binary firmware helper is replaced by the usual simple
+shell script. Udevsend is removed from the tree.
+
 udev 092
 ========
 Bugfix release.

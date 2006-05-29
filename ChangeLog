@@ -1,3 +1,19 @@
+Summary of changes from v092 to v093
+============================================
+
+Hannes Reinecke:
+      path_id: add support for iSCSI devices
+
+Kay Sievers:
+      libvolume_id: fat - check for signature at end of sector
+      libvolume_id: add more software raid signatures
+      update Fedora rules
+      path_id: prevent endless loop for SAS devices on older kernels
+      remove udevsend
+      replace binary firmware helper with shell script
+      skip device mapper devices for persistent links
+
+
 Summary of changes from v091 to v092
 ============================================
 
