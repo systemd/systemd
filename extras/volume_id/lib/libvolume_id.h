@@ -89,6 +89,8 @@ extern int volume_id_probe_vxfs(struct volume_id *id, uint64_t off);
 extern int volume_id_probe_xfs(struct volume_id *id, uint64_t off);
 extern int volume_id_probe_squashfs(struct volume_id *id, uint64_t off);
 extern int volume_id_probe_netware(struct volume_id *id, uint64_t off);
+extern int volume_id_probe_gfs(struct volume_id *id, uint64_t off);
+extern int volume_id_probe_gfs2(struct volume_id *id, uint64_t off);
 
 /* special formats */
 extern int volume_id_probe_linux_swap(struct volume_id *id, uint64_t off);

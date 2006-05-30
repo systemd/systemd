@@ -13,7 +13,7 @@ INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_LIB = ${INSTALL} -m 755
 
 SHLIB_CUR = 0
-SHLIB_REV = 65
+SHLIB_REV = 66
 SHLIB_AGE = 0
 SHLIB = libvolume_id.so.$(SHLIB_CUR).$(SHLIB_REV).$(SHLIB_AGE)
 
@@ -45,6 +45,7 @@ OBJS=				\
 	romfs.o			\
 	sysv.o			\
 	minix.o			\
+	gfs.o			\
 	luks.o			\
 	ocfs.o			\
 	vxfs.o			\

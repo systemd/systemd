@@ -171,6 +171,12 @@ int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size
 	if (volume_id_probe_netware(id, off) == 0)
 		goto found;
 
+	if (volume_id_probe_gfs(id, off) == 0)
+		goto found;
+
+	if (volume_id_probe_gfs2(id, off) == 0)
+		goto found;
+
 	return -1;
 
 found:
