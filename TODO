@@ -10,9 +10,6 @@ udev version:
   o remove broken %e enumeration
     (simple enumerations can't work and should go)
 
-  o remove MODALIAS + $modalias
-    (ENV{MODALIAS}, $env{MODALIAS}, $sysfs{modalias} will do it)
-
   o remove udevstart
     (we rely on the kernel "uevent" triggers of kernel 2.6.15 and no longer
      want to guess event properties from sysfs like udevstart is doing it)

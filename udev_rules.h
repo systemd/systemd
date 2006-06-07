@@ -71,7 +71,6 @@ struct udev_rule {
 	struct key driver;
 	struct key program;
 	struct key result;
-	struct key modalias;
 	struct key import;
 	enum import_type import_type;
 	struct key wait_for_sysfs;

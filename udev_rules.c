@@ -401,7 +401,6 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 		SUBST_PARENT,
 		SUBST_TEMP_NODE,
 		SUBST_ROOT,
-		SUBST_MODALIAS,
 		SUBST_ENV,
 	};
 	static const struct subst_map {
@@ -421,7 +420,6 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 		{ .name = "parent",		.fmt = 'P',	.type = SUBST_PARENT },
 		{ .name = "tempnode",		.fmt = 'N',	.type = SUBST_TEMP_NODE },
 		{ .name = "root",		.fmt = 'r',	.type = SUBST_ROOT },
-		{ .name = "modalias",		.fmt = 'A',	.type = SUBST_MODALIAS },
 		{ .name = "env",		.fmt = 'E',	.type = SUBST_ENV },
 		{ NULL, '\0', 0 }
 	};
@@ -618,24 +616,6 @@ found:
 			strlcat(string, udev_root, maxsize);
 			dbg("substitute udev_root '%s'", udev_root);
 			break;
-		case SUBST_MODALIAS:
-			{
-				const char *value;
-				static int warn = 1;
-
-				if (warn) {
-					err("$modalias is deprecated, use $env{MODALIAS} or "
-					    "$sysfs{modalias} instead.");
-					warn = 0;
-				}
-
-				value = sysfs_attr_get_value(udev->dev->devpath, "modalias");
-				if (value != NULL) {
-					strlcat(string, value, maxsize);
-					dbg("substitute MODALIAS '%s'", temp2);
-				}
-			}
-			break;
 		case SUBST_ENV:
 			if (attr == NULL) {
 				dbg("missing attribute");
@@ -729,24 +709,6 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 	/* compare NAME against a previously assigned value */
 	if (match_key("NAME", rule, &rule->name, udev->name))
 		goto nomatch;
-
-	if (rule->modalias.operation != KEY_OP_UNSET) {
-		const char *value;
-		static int warn = 1;
-
-		if (warn) {
-			err("MODALIAS is deprecated, use ENV{MODALIAS} or SYSFS{modalias} instead.");
-			warn = 0;
-		}
-
-		value = sysfs_attr_get_value(udev->dev->devpath, "modalias");
-		if (value == NULL) {
-			dbg("MODALIAS value not found");
-			goto nomatch;
-		}
-		if (match_key("MODALIAS", rule, &rule->modalias, value))
-			goto nomatch;
-	}
 
 	for (i = 0; i < rule->env.count; i++) {
 		struct key_pair *pair = &rule->env.keys[i];

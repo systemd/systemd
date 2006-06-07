@@ -374,12 +374,6 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			continue;
 		}
 
-		if (strcasecmp(key, "MODALIAS") == 0) {
-			add_rule_key(rule, &rule->modalias, operation, value);
-			valid = 1;
-			continue;
-		}
-
 		if (strncasecmp(key, "IMPORT", sizeof("IMPORT")-1) == 0) {
 			attr = get_key_attribute(key + sizeof("IMPORT")-1);
 			if (attr && strstr(attr, "program")) {
