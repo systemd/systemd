@@ -8,7 +8,7 @@ These things are deprecated and scheduled for removal in a future
 udev version:
 
   o remove broken %e enumeration
-    (simple enumerations can't work and should go)
+    (simple enumerations can't work reliably and should go)
 
   o remove udevstart
     (we rely on the kernel "uevent" triggers of kernel 2.6.15 and no longer

@@ -1,3 +1,18 @@
+Summary of changes from v093 to v094
+============================================
+
+Daniel Drake:
+      update "writing udev rules"
+
+Kay Sievers:
+      libvolume_id: gfs + gfs2 support
+      remove MODALIAS key and substitution
+      add persistent-input.rules
+
+Marco d'Itri:
+      update Debian rules
+
+
 Summary of changes from v092 to v093
 ============================================
 

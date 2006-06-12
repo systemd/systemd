@@ -1,3 +1,7 @@
+udev 094
+========
+The built-in MODALIAS key and substitution is removed.
+
 udev 093
 ========
 The binary firmware helper is replaced by the usual simple
