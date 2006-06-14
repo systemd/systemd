@@ -114,7 +114,8 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 	int retval = 0;
 
 	/* add device node */
-	if (major(udev->devt) != 0 && strcmp(udev->action, "add") == 0) {
+	if (major(udev->devt) != 0 &&
+	    (strcmp(udev->action, "add") == 0 || strcmp(udev->action, "online") == 0)) {
 		struct udevice *udev_old;
 
 		dbg("device node add '%s'", udev->dev->devpath);
