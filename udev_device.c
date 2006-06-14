@@ -132,17 +132,38 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 		/* read current database entry, we may want to cleanup symlinks */
 		udev_old = udev_device_init();
 		if (udev_old != NULL) {
-			if (udev_db_get_device(udev_old, udev->dev->devpath) == 0) {
-				info("device '%s' already known, remove possible symlinks", udev->dev->devpath);
-				udev_node_remove_symlinks(udev_old);
-			}
-			udev_device_cleanup(udev_old);
+			if (udev_db_get_device(udev_old, udev->dev->devpath) != 0) {
+				udev_device_cleanup(udev_old);
+				udev_old = NULL;
+			} else
+				info("device '%s' already in database, validate currently present symlinks",
+				     udev->dev->devpath);
 		}
 
-		/* create node and symlinks, store record in database */
+		/* create node and symlinks */
 		retval = udev_node_add(udev, udev_old);
-		if (retval == 0)
+		if (retval == 0) {
+			/* store record in database */
 			udev_db_add_device(udev);
+
+			/* remove possibly left-over symlinks */
+			if (udev_old != NULL) {
+				struct name_entry *link_loop;
+				struct name_entry *link_old_loop;
+				struct name_entry *link_old_tmp_loop;
+
+				/* remove still valid symlinks from old list */
+				list_for_each_entry_safe(link_old_loop, link_old_tmp_loop, &udev_old->symlink_list, node)
+					list_for_each_entry(link_loop, &udev->symlink_list, node)
+						if (strcmp(link_old_loop->name, link_loop->name) == 0) {
+							dbg("symlink '%s' still valid, keep it", link_old_loop->name);
+							list_del(&link_old_loop->node);
+							free(link_old_loop);
+						}
+				udev_node_remove_symlinks(udev_old);
+				udev_device_cleanup(udev_old);
+			}
+		}
 		goto exit;
 	}
 

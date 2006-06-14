@@ -862,6 +862,7 @@ EOF
 		devpath		=> "/class/tty/tty0",
 		exp_name	=> "link",
 		exp_target	=> "link",
+		exp_add_error	=> "yes",
 		exp_rem_error	=> "yes",
 		option		=> "clean",
 		rules		=> <<EOF

@@ -90,6 +90,36 @@ exit:
 	return retval;
 }
 
+static int udev_node_symlink(struct udevice *udev, const char *linktarget, const char *filename)
+{
+	char target[PATH_SIZE];
+	int len;
+
+	/* look if symlink already exists */
+	len = readlink(filename, target, sizeof(target));
+	if (len > 0) {
+		target[len] = '\0';
+		if (strcmp(linktarget, target) == 0) {
+			info("preserving symlink '%s' to '%s'", filename, linktarget);
+			selinux_setfilecon(filename, NULL, S_IFLNK);
+			goto exit;
+		} else {
+			info("link '%s' points to different target '%s', delete it", filename, target);
+			unlink(filename);
+		}
+	}
+
+	/* create link */
+	info("creating symlink '%s' to '%s'", filename, linktarget);
+	selinux_setfscreatecon(filename, NULL, S_IFLNK);
+	if (symlink(linktarget, filename) != 0)
+		err("symlink(%s, %s) failed: %s", linktarget, filename, strerror(errno));
+	selinux_resetfscreatecon();
+
+exit:
+	return 0;
+}
+
 int udev_node_add(struct udevice *udev, struct udevice *udev_old)
 {
 	char filename[PATH_SIZE];
@@ -205,13 +235,8 @@ int udev_node_add(struct udevice *udev, struct udevice *udev_old)
 			strlcat(linktarget, &udev->name[tail], sizeof(linktarget));
 
 			info("creating symlink '%s' to '%s'", filename, linktarget);
-			if (!udev->test_run) {
-				unlink(filename);
-				selinux_setfscreatecon(filename, NULL, S_IFLNK);
-				if (symlink(linktarget, filename) != 0)
-					err("symlink(%s, %s) failed: %s", linktarget, filename, strerror(errno));
-				selinux_resetfscreatecon();
-			}
+			if (!udev->test_run)
+				udev_node_symlink(udev, linktarget, filename);
 
 			strlcat(symlinks, filename, sizeof(symlinks));
 			strlcat(symlinks, " ", sizeof(symlinks));
