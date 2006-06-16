@@ -91,11 +91,11 @@ static int print_device_chain(const char *devpath)
 	struct sysfs_device *dev;
 
 	printf("\n"
-	       "udevinfo starts with the device the node belongs to and then walks up the\n"
-	       "device chain, to print for every device found, all possibly useful attributes\n"
-	       "in the udev key format.\n"
-	       "Only attributes within one device section may be used together in one rule,\n"
-	       "to match the device for which the node will be created.\n"
+	       "Udevinfo starts with the device specified by the devpath and then\n"
+	       "walks up the chain of parent devices. It prints for every device\n"
+	       "found, all possible attributes in the udev rules key format.\n"
+	       "A rule to match, can be composed by the attributes of the device\n"
+	       "and the attributes from one single parent device.\n"
 	       "\n");
 
 	dev = sysfs_device_get(devpath);
@@ -112,7 +112,7 @@ static int print_device_chain(const char *devpath)
 		dev = sysfs_device_get_parent(dev);
 		if (dev == NULL)
 			break;
-		printf("  looking at device '%s':\n", dev->devpath);
+		printf("  looking at parent device '%s':\n", dev->devpath);
 		printf("    ID==\"%s\"\n", dev->kernel_name);
 		printf("    BUS==\"%s\"\n", dev->subsystem);
 		printf("    DRIVER==\"%s\"\n", dev->driver);
