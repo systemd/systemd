@@ -33,7 +33,6 @@
 #include "udev.h"
 #include "udevd.h"
 
-/* global variables */
 static int sock = -1;
 static int udev_log = 0;
 
@@ -51,6 +50,16 @@ void log_message (int priority, const char *format, ...)
 }
 #endif
 
+static void usage(void)
+{
+	printf("Usage: udevcontrol COMMAND\n"
+		"  log_priority=<level> set the udev log level for the daemon\n"
+		"  stop_exec_queue      keep udevd from executing events, queue only\n"
+		"  start_exec_queue     execute events, flush queue\n"
+		"  reload_rules         reloads the rules files\n"
+		"  max_childs=<N>       maximum number of childs running at the same time\n"
+		"  --help               print this help text\n\n");
+}
 
 int main(int argc, char *argv[], char *envp[])
 {
@@ -72,6 +81,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (argc < 2) {
 		fprintf(stderr, "missing command\n\n");
+		usage();
 		goto exit;
 	}
 
@@ -100,23 +110,18 @@ int main(int argc, char *argv[], char *envp[])
 			*intval = atoi(val);
 			info("send max_childs=%i", *intval);
 		} else if (strcmp(arg, "help") == 0  || strcmp(arg, "--help") == 0  || strcmp(arg, "-h") == 0) {
-			printf("Usage: udevcontrol COMMAND\n"
-				"  log_priority=<level> set the udev log level for the daemon\n"
-				"  stop_exec_queue      keep udevd from executing events, queue only\n"
-				"  start_exec_queue     execute events, flush queue\n"
-				"  reload_rules         reloads the rules files\n"
-				"  max_childs=<N>       maximum number of childs running at the same time\n"
-				"  --help               print this help text\n\n");
-			exit(0);
+			usage();
+			goto exit;
 		} else {
 			fprintf(stderr, "unknown option\n\n");
-			exit(1);
+			usage();
+			goto exit;
 		}
 	}
 
 	if (getuid() != 0) {
 		fprintf(stderr, "need to be root, exit\n\n");
-		exit(1);
+		goto exit;
 	}
 
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
@@ -131,7 +136,6 @@ int main(int argc, char *argv[], char *envp[])
 	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
 	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 
-
 	retval = sendto(sock, &usend_msg, sizeof(usend_msg), 0, (struct sockaddr *)&saddr, addrlen);
 	if (retval == -1) {
 		err("error sending message: %s", strerror(errno));
@@ -142,9 +146,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	close(sock);
-
 exit:
 	logging_close();
-
 	return retval;
 }
