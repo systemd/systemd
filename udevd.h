@@ -32,7 +32,7 @@
 #define EVENT_SEQNUM			".udev/uevent_seqnum"
 
 /* maximum limit of forked childs */
-#define UDEVD_MAX_CHILDS		64
+#define UDEVD_MAX_CHILDS		256
 /* start to throttle forking if maximum number of running childs in our session is reached */
 #define UDEVD_MAX_CHILDS_RUNNING	16
 

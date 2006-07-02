@@ -66,7 +66,7 @@ int volume_id_probe_reiserfs(struct volume_id *id, uint64_t off)
 	if (buf == NULL)
 		return -1;
 
-	rs = (struct reiserfs_super_block *) buf;;
+	rs = (struct reiserfs_super_block *) buf;
 	if (memcmp(rs->magic, "ReIsErFs", 8) == 0) {
 		strcpy(id->type_version, "3.5");
 		id->type = "reiserfs";
