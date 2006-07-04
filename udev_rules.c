@@ -263,88 +263,6 @@ static int import_parent_into_env(struct udevice *udev, const char *filter)
 	return rc;
 }
 
-static int match_name_and_get_number(const char *base, const char *devname)
-{
-	size_t baselen;
-	char *endptr;
-	int num;
-
-	baselen = strlen(base);
-	if (strncmp(base, devname, baselen) != 0)
-		return -1;
-	if (devname[baselen] == '\0')
-		return 0;
-	if (!isdigit(devname[baselen]))
-		return -1;
-	num = strtoul(&devname[baselen], &endptr, 10);
-	if (endptr[0] != '\0')
-		return -1;
-	return num;
-}
-
-/* finds the lowest positive device number such that <name>N isn't present in the udevdb
- * if <name> doesn't exist, 0 is returned, N otherwise */
-static int find_free_number(const char *base, const char *devpath)
-{
-	char db_devpath[PATH_SIZE];
-	char filename[PATH_SIZE];
-	struct udevice *udev_db;
-	int num = 0;
-	static int warn = 1;
-
-	if (warn) {
-		err("%%e is deprecated, will be removed and is unlikely to work correctly. Don't use it.");
-		warn = 0;
-	}
-
-	/* check if the device already owns a matching name */
-	udev_db = udev_device_init();
-	if (udev_db == NULL)
-		return -1;
-	if (udev_db_get_device(udev_db, devpath) == 0) {
-		struct name_entry *name_loop;
-		int devnum;
-
-		devnum = match_name_and_get_number(base, udev_db->name);
-		if (devnum >= 0) {
-			num = devnum;
-			dbg("device '%s', already has the node '%s' with num %u, use it", devpath, base, num);
-			goto out;
-		}
-		list_for_each_entry(name_loop, &udev_db->symlink_list, node) {
-			devnum = match_name_and_get_number(base, name_loop->name);
-			if (devnum >= 0) {
-				num = devnum;
-				dbg("device '%s', already has a symlink '%s' with num %u, use it", devpath, base, num);
-				goto out;
-			}
-		}
-	}
-
-	/* just search the database again and again until a free name is found */
-	strlcpy(filename, base, sizeof(filename));
-	while (1) {
-		dbg("look for existing node '%s'", filename);
-		if (udev_db_lookup_name(filename, db_devpath, sizeof(db_devpath)) != 0) {
-			dbg("free num=%d", num);
-			break;
-		}
-
-		num++;
-		if (num > 100000) {
-			err("find_free_number aborted at num=%d", num);
-			num = -1;
-			break;
-		}
-		snprintf(filename, sizeof(filename), "%s%d", base, num);
-		filename[sizeof(filename)-1] = '\0';
-	}
-
-out:
-	udev_device_cleanup(udev_db);
-	return num;
-}
-
 #define WAIT_LOOP_PER_SECOND		50
 static int wait_for_sysfs(struct udevice *udev, const char *file, int timeout)
 {
@@ -386,7 +304,6 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 	int len;
 	int i;
 	int count;
-	unsigned int next_free_number;
 	enum subst_type {
 		SUBST_UNKNOWN,
 		SUBST_DEVPATH,
@@ -397,7 +314,6 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 		SUBST_MINOR,
 		SUBST_RESULT,
 		SUBST_SYSFS,
-		SUBST_ENUM,
 		SUBST_PARENT,
 		SUBST_TEMP_NODE,
 		SUBST_ROOT,
@@ -416,7 +332,6 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 		{ .name = "minor",		.fmt = 'm',	.type = SUBST_MINOR },
 		{ .name = "result",		.fmt = 'c',	.type = SUBST_RESULT },
 		{ .name = "sysfs",		.fmt = 's',	.type = SUBST_SYSFS },
-		{ .name = "enum",		.fmt = 'e',	.type = SUBST_ENUM },
 		{ .name = "parent",		.fmt = 'P',	.type = SUBST_PARENT },
 		{ .name = "tempnode",		.fmt = 'N',	.type = SUBST_TEMP_NODE },
 		{ .name = "root",		.fmt = 'r',	.type = SUBST_ROOT },
@@ -570,13 +485,6 @@ found:
 					info("%i untrusted character(s) replaced" , count);
 				strlcat(string, temp2, maxsize);
 				dbg("substitute sysfs value '%s'", temp2);
-			}
-			break;
-		case SUBST_ENUM:
-			next_free_number = find_free_number(string, udev->dev->devpath);
-			if (next_free_number > 0) {
-				sprintf(temp2, "%d", next_free_number);
-				strlcat(string, temp2, maxsize);
 			}
 			break;
 		case SUBST_PARENT:

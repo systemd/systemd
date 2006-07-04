@@ -101,7 +101,7 @@ And now for udev:
        want to deviate away from this standard (for example when naming
        some devices in a persistent manner), it is easily possible to do
        so.
-    3) udev is small (49Kb binary) and is entirely in userspace, which
+    3) udev is small and is entirely in userspace, which
        is swapable, and doesn't have to be running at all times.
 
 Nice, 7 out of 7 for udev.  Makes you think the problems and constraints
@@ -146,7 +146,7 @@ So, how well does udev solve its goals:
     As the above scenarios show, both desktop users and big iron users
     both need to not worry about which device is assigned to what
     major/minor device.
-   
+
     udev doesn't care what major/minor number is assigned to a device.
     It merely takes the numbers that the kernel says it assigned to the
     device and creates a device node based on it, which the user can
@@ -174,7 +174,7 @@ So, how well does udev solve its goals:
     For more information on how to create udev rules to name devices,
     please see the udev man page, and look at the example udev rules
     that ship with the tarball.
- 
+
 
 So, convinced already why you should use udev instead of devfs?  No.
 Ok, fine, I'm not forcing you to abandon your bloated, stifling policy,

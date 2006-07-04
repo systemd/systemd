@@ -14,7 +14,7 @@ A: udev works entirely in userspace, using hotplug events the kernel sends
    All device naming policy permission control and event handling is done in
    userspace. devfs is operated from within the kernel.
 
-Q: Why was devfs marked OBSOLETE/removed if udev can't do everthing devfs did?
+Q: Why was devfs removed if udev can't do everthing devfs did?
 A: To quote Al Viro (Linux VFS kernel maintainer):
      - it was determined that the same thing could be done in userspace
      - devfs had been shoved into the tree in hope that its quality will
@@ -46,31 +46,25 @@ A: The devfs approach caused a lot of spurious modprobe attempts as
    spurious.
 
 Q: I really like the devfs naming scheme, will udev do that?
-A: Yes, udev can create /dev nodes using the devfs naming policy.  A
-   configuration file needs to be created to map the kernel default names
-   to the devfs names.  See the  udev.rules.devfs file in the udev
-   release.
-   Note that the devfs scheme is not recommended or officially supported
-   because it is a really stupid idea to simply enumerate devices in a world
-   where devices can come and go at any time. These numbers give you nothing
-   but problems, and are not useful to identify a device. Have a look at the
-   persistent disk rules for an example how to do it correctly in userspace
-   without any stupid device enumeration.
+A: Yes, udev can create /dev nodes using the devfs naming policy. But you
+   will need a custom configuration and scripts that enumerate your devices
+   sequentially while events run in parallel, without a predictable order.
+   The devfs scheme is not recommended or supported because it is a stupid
+   idea to simply enumerate devices in a world where devices can come and go
+   at any time. These numbers give you nothing but problems, and are not
+   useful to identify a device. Have a look at the persistent rules for
+   examples how to create persistent device names in userspace without any
+   device enumeration depending on the device probing order.
 
 Q: What kinds of devices does udev create nodes for?
-A: All devices that are shown in sysfs will work with udev.  If more
-   support is added for devices to the kernel, udev will automatically
-   start working for them.  All block devices are currently supported, and
-   almost all major char devices are supported.  Kernel developers are
-   working on adding support for all char devices at this time.  See the
-   linux-kernel mailing list for patches and status of these patches.
+A: All devices that are shown in the kernel's sysfs tree will work with udev.
 
 Q: Will udev remove the limit on the number of anonymous devices?
 A: udev is entirely in userspace.  If the kernel supports a greater number
    of anonymous devices, udev will support it.
 
-Q: Will udev support symlinks?
-A: Yes, It now does.  Multiple symlinks per device node are supported.
+Q: Does udev support symlinks?
+A: Yes, multiple symlinks per device node are supported.
 
 Q: How will udev handle the /dev filesystem?
 A: /dev is recomended to be a tmpfs filesystem that is recreated on every reboot.
