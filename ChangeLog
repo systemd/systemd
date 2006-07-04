@@ -1,3 +1,19 @@
+Summary of changes from v094 to v095
+============================================
+
+Kay Sievers:
+      update SUSE rules
+      don't remove symlinks if they are already there
+      allow "online" events to create/update symlinks
+      udevinfo: clarify parent device attribute use
+      update SUSE rules
+      netif rename: optimistic loop for the name to become free
+      remove broken %e enumeration
+
+Tobias Klauser:
+      print usage of udevcontrol when no or invalid command is given
+
+
 Summary of changes from v093 to v094
 ============================================
 

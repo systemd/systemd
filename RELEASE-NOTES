@@ -1,3 +1,10 @@
+udev 095
+========
+%e is finaly gone.
+
+Added support for swapping network interface names, by temporarily
+renaming the device and wait for the target name to become free.
+
 udev 094
 ========
 The built-in MODALIAS key and substitution is removed.
