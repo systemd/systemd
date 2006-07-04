@@ -46,7 +46,7 @@ uninstall-bin:
 
 install-man:
 	@echo "Please create a man page for this tool."
-.PHONY: uninstall-man
+.PHONY: install-man
 
 uninstall-man:
 	@echo "Please create a man page for this tool."

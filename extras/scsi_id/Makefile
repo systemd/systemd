@@ -69,7 +69,7 @@ uninstall-bin:
 
 install-man:
 	$(INSTALL_DATA) -D scsi_id.8 $(DESTDIR)$(mandir)/man8/scsi_id.8
-.PHONY: uninstall-man
+.PHONY: install-man
 
 uninstall-man:
 	-rm -f $(DESTDIR)$(mandir)/man8/scsi_id.8
