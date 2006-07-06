@@ -33,10 +33,8 @@
 #define COMMENT_CHARACTER			'#'
 #define PATH_TO_NAME_CHAR			'@'
 #define LINE_SIZE				512
+#define PATH_SIZE				512
 #define NAME_SIZE				128
-#define PATH_SIZE				256
-#define USER_SIZE				32
-#define SEQNUM_SIZE				32
 #define VALUE_SIZE				128
 
 #define DEFAULT_PARTITIONS_COUNT		15
@@ -73,9 +71,9 @@ struct udevice {
 	char name[PATH_SIZE];
 	struct list_head symlink_list;
 	int symlink_final;
-	char owner[USER_SIZE];
+	char owner[NAME_SIZE];
 	int owner_final;
-	char group[USER_SIZE];
+	char group[NAME_SIZE];
 	int group_final;
 	mode_t mode;
 	int mode_final;
