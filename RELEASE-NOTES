@@ -1,3 +1,7 @@
+udev 096
+========
+fix path_id for recent kernels
+
 udev 095
 ========
 %e is finaly gone.
