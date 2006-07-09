@@ -407,30 +407,35 @@ handle_usb () {
 
 handle_device () {
 	full_sysfs_path="$SYSFS$DEVPATH"
-	if [ -L $full_sysfs_path/subsystem ]; then
-		# new sysfs block layout
-		full_sysfs_path="${full_sysfs_path%/*}"
-		cd "$full_sysfs_path/subsystem";
-		subsys="`pwd -P`"
-		cd "$OPWD"
-		subsys="${subsys##*/}"
-		if [ "$subsys" = "block" ]; then
-			# parent is "block", it's a partition, move one up
-			full_sysfs_path="${full_sysfs_path%/*}"
-		fi
-		cd $full_sysfs_path
-	else
-		# old sysfs block layout
-		if [ ! -L $full_sysfs_path/device ] ; then
-			if [ -f $full_sysfs_path/range ] ; then return ; fi
-			full_sysfs_path="${full_sysfs_path%/*}"
-			: full_sysfs_path "$full_sysfs_path"
-			if [ ! -L $full_sysfs_path/device -o ! -f $full_sysfs_path/dev ] ; then
-				return
+	case "$DEVPATH" in
+		/devices/*)
+			# new sysfs layout
+			if [ -L $full_sysfs_path/subsystem ]; then
+				full_sysfs_path="${full_sysfs_path%/*}"
+				cd "$full_sysfs_path/subsystem";
+				subsys="`pwd -P`"
+				cd "$OPWD"
+				subsys="${subsys##*/}"
+				if [ "$subsys" = "block" ]; then
+					# parent is "block", it's a partition, move one up
+				full_sysfs_path="${full_sysfs_path%/*}"
+				fi
+				cd $full_sysfs_path
 			fi
-		fi
-		cd $full_sysfs_path/device
-	fi
+			;;
+		*)
+			# old sysfs layout
+			if [ ! -L $full_sysfs_path/device ] ; then
+				if [ -f $full_sysfs_path/range ] ; then return ; fi
+				full_sysfs_path="${full_sysfs_path%/*}"
+				: full_sysfs_path "$full_sysfs_path"
+				if [ ! -L $full_sysfs_path/device -o ! -f $full_sysfs_path/dev ] ; then
+					return
+				fi
+			fi
+			cd $full_sysfs_path/device
+			;;
+	esac
 	full_sysfs_device_path="`pwd -P`"
 	cd "$OPWD"
 	D=$full_sysfs_device_path
