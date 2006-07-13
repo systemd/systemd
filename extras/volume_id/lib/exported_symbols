@@ -7,6 +7,8 @@
 	volume_id_probe_raid;
 	volume_id_close;
 
+	volume_id_probe_linux_swap;
+	volume_id_probe_luks;
 	volume_id_probe_cramfs;
 	volume_id_probe_ext;
 	volume_id_probe_vfat;
@@ -41,6 +43,8 @@
 	volume_id_probe_promise_fasttrack_raid;
 	volume_id_probe_silicon_medley_raid;
 	volume_id_probe_via_raid;
+	volume_id_probe_adaptec_raid;
+	volume_id_probe_jmicron_raid;
 local:
 	*;
 };

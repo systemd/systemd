@@ -102,19 +102,19 @@ int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size
 	info("probing at offset 0x%llx, size 0x%llx",
 	    (unsigned long long) off, (unsigned long long) size);
 
-	if (volume_id_probe_luks(id, off) == 0)
-		goto found;
-
 	if (volume_id_probe_vfat(id, off) == 0)
-		goto found;
-
-	if (volume_id_probe_xfs(id, off) == 0)
 		goto found;
 
 	/* fill buffer with maximum */
 	volume_id_get_buffer(id, 0, SB_BUFFER_SIZE);
 
 	if (volume_id_probe_linux_swap(id, off) == 0)
+		goto found;
+
+	if (volume_id_probe_luks(id, off) == 0)
+		goto found;
+
+	if (volume_id_probe_xfs(id, off) == 0)
 		goto found;
 
 	if (volume_id_probe_ext(id, off) == 0)
