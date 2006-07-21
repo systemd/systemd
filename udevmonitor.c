@@ -82,7 +82,7 @@ static int init_uevent_netlink_sock(void)
 	memset(&snl, 0x00, sizeof(struct sockaddr_nl));
 	snl.nl_family = AF_NETLINK;
 	snl.nl_pid = getpid();
-	snl.nl_groups = 0xffffffff;
+	snl.nl_groups = 1;
 
 	uevent_netlink_sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
 	if (uevent_netlink_sock == -1) {
