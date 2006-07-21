@@ -313,7 +313,7 @@ static void msg_queue_insert(struct uevent_msg *msg)
 static int running_processes(void)
 {
 	int f;
-	static char buf[4096];
+	static char buf[32768];
 	int len;
 	int running;
 	const char *pos;
