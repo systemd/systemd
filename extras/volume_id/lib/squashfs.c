@@ -32,7 +32,7 @@ struct squashfs_super {
 	uint32_t		s_magic;
 } PACKED;
 
-int volume_id_probe_squashfs(struct volume_id *id, uint64_t off)
+int volume_id_probe_squashfs(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct squashfs_super *sqs;
 

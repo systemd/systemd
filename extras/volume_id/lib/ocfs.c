@@ -126,7 +126,7 @@ struct ocfs2_super_block {
 	uint8_t		s_uuid[16];
 } PACKED;
 
-int volume_id_probe_ocfs1(struct volume_id *id, uint64_t off)
+int volume_id_probe_ocfs1(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	const uint8_t *buf;
 	struct ocfs1_super_block_header *osh;
@@ -164,7 +164,7 @@ int volume_id_probe_ocfs1(struct volume_id *id, uint64_t off)
 #define OCFS2_MAX_BLOCKSIZE		0x1000
 #define OCFS2_SUPER_BLOCK_BLKNO		2
 
-int volume_id_probe_ocfs2(struct volume_id *id, uint64_t off)
+int volume_id_probe_ocfs2(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	const uint8_t *buf;
 	struct ocfs2_super_block *os;

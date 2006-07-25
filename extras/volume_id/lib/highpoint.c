@@ -43,7 +43,7 @@ struct hpt45x_meta {
 #define HPT45X_MAGIC_BAD		0x5a7816fd
 
 
-int volume_id_probe_highpoint_37x_raid(struct volume_id *id, uint64_t off)
+int volume_id_probe_highpoint_37x_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	const uint8_t *buf;
 	struct hpt37x_meta *hpt;

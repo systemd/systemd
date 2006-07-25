@@ -213,53 +213,53 @@ int main(int argc, char *argv[])
 			printf("%s\n", vid->type);
 		if (volume_id_probe_jmicron_raid(vid, 0, size) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_vfat(vid, 0) == 0)
+		if (volume_id_probe_vfat(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_linux_swap(vid, 0) == 0)
+		if (volume_id_probe_linux_swap(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_luks(vid, 0) == 0)
+		if (volume_id_probe_luks(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_xfs(vid, 0) == 0)
+		if (volume_id_probe_xfs(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_ext(vid, 0) == 0)
+		if (volume_id_probe_ext(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_reiserfs(vid, 0) == 0)
+		if (volume_id_probe_reiserfs(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_jfs(vid, 0) == 0)
+		if (volume_id_probe_jfs(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_udf(vid, 0) == 0)
+		if (volume_id_probe_udf(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_iso9660(vid, 0) == 0)
+		if (volume_id_probe_iso9660(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_hfs_hfsplus(vid, 0) == 0)
+		if (volume_id_probe_hfs_hfsplus(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_ufs(vid, 0) == 0)
+		if (volume_id_probe_ufs(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_ntfs(vid, 0)  == 0)
+		if (volume_id_probe_ntfs(vid, 0, 0)  == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_cramfs(vid, 0) == 0)
+		if (volume_id_probe_cramfs(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_romfs(vid, 0) == 0)
+		if (volume_id_probe_romfs(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_hpfs(vid, 0) == 0)
+		if (volume_id_probe_hpfs(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_sysv(vid, 0) == 0)
+		if (volume_id_probe_sysv(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_minix(vid, 0) == 0)
+		if (volume_id_probe_minix(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_ocfs1(vid, 0) == 0)
+		if (volume_id_probe_ocfs1(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_ocfs2(vid, 0) == 0)
+		if (volume_id_probe_ocfs2(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_vxfs(vid, 0) == 0)
+		if (volume_id_probe_vxfs(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_squashfs(vid, 0) == 0)
+		if (volume_id_probe_squashfs(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_netware(vid, 0) == 0)
+		if (volume_id_probe_netware(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_gfs(vid, 0) == 0)
+		if (volume_id_probe_gfs(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
-		if (volume_id_probe_gfs2(vid, 0) == 0)
+		if (volume_id_probe_gfs2(vid, 0, 0) == 0)
 			printf("%s\n", vid->type);
 
 		goto exit;

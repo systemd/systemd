@@ -78,7 +78,7 @@ struct netware_super_block {
 	uint32_t	reserved2[64-(2+46)];
 } PACKED;
 
-int volume_id_probe_netware(struct volume_id *id, uint64_t off)
+int volume_id_probe_netware(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct netware_super_block *nw;
 

@@ -133,7 +133,7 @@ static uint8_t *get_attr_volume_id(struct vfat_dir_entry *dir, unsigned int coun
 	return NULL;
 }
 
-int volume_id_probe_vfat(struct volume_id *id, uint64_t off)
+int volume_id_probe_vfat(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct vfat_super_block *vs;
 	struct vfat_dir_entry *dir;

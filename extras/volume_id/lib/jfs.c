@@ -41,7 +41,7 @@ struct jfs_super_block {
 
 #define JFS_SUPERBLOCK_OFFSET			0x8000
 
-int volume_id_probe_jfs(struct volume_id *id, uint64_t off)
+int volume_id_probe_jfs(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct jfs_super_block *js;
 

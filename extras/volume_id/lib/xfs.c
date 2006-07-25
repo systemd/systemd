@@ -41,7 +41,7 @@ struct xfs_super_block {
 	uint64_t	fdblocks;
 } PACKED;
 
-int volume_id_probe_xfs(struct volume_id *id, uint64_t off)
+int volume_id_probe_xfs(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct xfs_super_block *xs;
 

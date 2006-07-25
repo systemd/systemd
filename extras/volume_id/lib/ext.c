@@ -70,7 +70,7 @@ struct ext2_super_block {
 #define EXT3_MIN_BLOCK_SIZE			0x400
 #define EXT3_MAX_BLOCK_SIZE			0x1000
 
-int volume_id_probe_ext(struct volume_id *id, uint64_t off)
+int volume_id_probe_ext(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct ext2_super_block *es;
 	size_t bsize;

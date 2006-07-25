@@ -168,7 +168,7 @@ struct ufs_super_block {
 #define UFS_MAGIC_FEA			0x00195612
 #define UFS_MAGIC_LFN			0x00095014
 
-int volume_id_probe_ufs(struct volume_id *id, uint64_t off)
+int volume_id_probe_ufs(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	uint32_t magic;
 	int i;

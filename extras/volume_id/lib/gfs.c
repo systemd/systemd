@@ -109,12 +109,12 @@ static int volume_id_probe_gfs_generic(struct volume_id *id, uint64_t off, int v
 	return -1;
 }
 
-int volume_id_probe_gfs(struct volume_id *id, uint64_t off)
+int volume_id_probe_gfs(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	return volume_id_probe_gfs_generic(id, off, 1);
 }
 
-int volume_id_probe_gfs2(struct volume_id *id, uint64_t off)
+int volume_id_probe_gfs2(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	return volume_id_probe_gfs_generic(id, off, 2);
 }

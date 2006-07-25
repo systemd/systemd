@@ -33,7 +33,7 @@ struct vxfs_super {
 	int32_t			vs_version;
 } PACKED;
 
-int volume_id_probe_vxfs(struct volume_id *id, uint64_t off)
+int volume_id_probe_vxfs(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct vxfs_super *vxs;
 

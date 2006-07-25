@@ -62,7 +62,7 @@ struct luks_phdr {
 	} keyblock[LUKS_NUMKEYS];
 };
 
-int volume_id_probe_luks(struct volume_id *id, uint64_t off)
+int volume_id_probe_luks(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct luks_phdr *header;
 

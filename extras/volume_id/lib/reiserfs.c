@@ -54,7 +54,7 @@ struct reiser4_super_block {
 #define REISERFS1_SUPERBLOCK_OFFSET		0x2000
 #define REISERFS_SUPERBLOCK_OFFSET		0x10000
 
-int volume_id_probe_reiserfs(struct volume_id *id, uint64_t off)
+int volume_id_probe_reiserfs(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct reiserfs_super_block *rs;
 	struct reiser4_super_block *rs4;

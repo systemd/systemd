@@ -37,7 +37,7 @@ static struct swap_header_v1_2 {
 
 #define LARGEST_PAGESIZE			0x4000
 
-int volume_id_probe_linux_swap(struct volume_id *id, uint64_t off)
+int volume_id_probe_linux_swap(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	const uint8_t *buf;
 	unsigned int page;

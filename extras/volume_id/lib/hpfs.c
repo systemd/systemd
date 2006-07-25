@@ -34,7 +34,7 @@ struct hpfs_super
 
 #define HPFS_SUPERBLOCK_OFFSET			0x2000
 
-int volume_id_probe_hpfs(struct volume_id *id, uint64_t off)
+int volume_id_probe_hpfs(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct hpfs_super *hs;
 

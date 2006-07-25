@@ -61,7 +61,7 @@ struct volume_structure_descriptor {
 
 #define UDF_VSD_OFFSET			0x8000
 
-int volume_id_probe_udf(struct volume_id *id, uint64_t off)
+int volume_id_probe_udf(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct volume_descriptor *vd;
 	struct volume_structure_descriptor *vsd;

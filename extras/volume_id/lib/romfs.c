@@ -33,7 +33,7 @@ struct romfs_super {
 	uint8_t name[0];
 } PACKED;
 
-int volume_id_probe_romfs(struct volume_id *id, uint64_t off)
+int volume_id_probe_romfs(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct romfs_super *rfs;
 

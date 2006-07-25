@@ -42,7 +42,7 @@ struct minix_super_block
 
 #define MINIX_SUPERBLOCK_OFFSET			0x400
 
-int volume_id_probe_minix(struct volume_id *id, uint64_t off)
+int volume_id_probe_minix(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct minix_super_block *ms;
 
