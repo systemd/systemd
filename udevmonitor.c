@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
 	       "and the event which udev sends out after rule processing [UDEV]\n\n");
 
 	while (!udev_exit) {
-		static char buf[UEVENT_BUFFER_SIZE*2];
+		char buf[UEVENT_BUFFER_SIZE*2];
 		ssize_t buflen;
 		int fdcount;
 		struct timeval tv;

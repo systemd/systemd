@@ -258,6 +258,7 @@ static void udev_event_run(struct uevent_msg *msg)
 
 		logging_init("udevd-event");
 		setpriority(PRIO_PROCESS, 0, UDEV_PRIORITY);
+
 		retval = udev_event_process(msg);
 		info("seq %llu finished", msg->seqnum);
 
@@ -313,7 +314,7 @@ static void msg_queue_insert(struct uevent_msg *msg)
 static int running_processes(void)
 {
 	int f;
-	static char buf[32768];
+	char buf[32768];
 	int len;
 	int running;
 	const char *pos;
@@ -557,9 +558,9 @@ static struct uevent_msg *get_msg_from_envbuf(const char *buf, int buf_size)
 }
 
 /* receive the udevd message from userspace */
-static struct uevent_msg *get_udevd_msg(void)
+static void get_udevd_msg(void)
 {
-	static struct udevd_msg ctrl_msg;
+	struct udevd_msg ctrl_msg;
 	ssize_t size;
 	struct msghdr smsg;
 	struct cmsghdr *cmsg;
@@ -582,24 +583,24 @@ static struct uevent_msg *get_udevd_msg(void)
 	if (size <  0) {
 		if (errno != EINTR)
 			err("unable to receive user udevd message: %s", strerror(errno));
-		return NULL;
+		return;
 	}
 	cmsg = CMSG_FIRSTHDR(&smsg);
 	cred = (struct ucred *) CMSG_DATA(cmsg);
 
 	if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
 		err("no sender credentials received, message ignored");
-		return NULL;
+		return;
 	}
 
 	if (cred->uid != 0) {
 		err("sender uid=%i, message ignored", cred->uid);
-		return NULL;
+		return;
 	}
 
 	if (strncmp(ctrl_msg.magic, UDEV_MAGIC, sizeof(UDEV_MAGIC)) != 0 ) {
 		err("message magic '%s' doesn't match, ignore it", ctrl_msg.magic);
-		return NULL;
+		return;
 	}
 
 	switch (ctrl_msg.type) {
@@ -631,7 +632,6 @@ static struct uevent_msg *get_udevd_msg(void)
 	default:
 		dbg("unknown message type");
 	}
-	return NULL;
 }
 
 /* receive the kernel user event message and do some sanity checks */
@@ -1044,11 +1044,8 @@ int main(int argc, char *argv[], char *envp[])
 		}
 
 		/* get user socket message */
-		if (FD_ISSET(udevd_sock, &readfds)) {
-			msg = get_udevd_msg();
-			if (msg)
-				msg_queue_insert(msg);
-		}
+		if (FD_ISSET(udevd_sock, &readfds))
+			get_udevd_msg();
 
 		/* get kernel netlink message */
 		if (FD_ISSET(uevent_netlink_sock, &readfds)) {
