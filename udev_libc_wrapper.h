@@ -58,9 +58,9 @@
 # define __NR_inotify_add_watch	152
 # define __NR_inotify_rm_watch	156
 #elif defined (__arm__)
-# define __NR_inotify_init	316
-# define __NR_inotify_add_watch	317
-# define __NR_inotify_rm_watch	318
+# define __NR_inotify_init	__NR_SYSCALL_BASE+316
+# define __NR_inotify_add_watch	__NR_SYSCALL_BASE+317
+# define __NR_inotify_rm_watch	__NR_SYSCALL_BASE+318
 #elif defined (__sh__)
 # define __NR_inotify_init	290
 # define __NR_inotify_add_watch	291
