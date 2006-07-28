@@ -220,7 +220,7 @@ handle_scsi () {
 }
 
 handle_firewire () {
-	:handle_firewire $*
+	: handle_firewire $*
 	local DEV=$1
 	if [ -f "$D/ieee1394_id" ] ; then
 		read ieee1394_id < $D/ieee1394_id
