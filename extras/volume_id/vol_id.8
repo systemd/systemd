@@ -1,7 +1,10 @@
-.\" ** You probably do not want to edit this file directly **
-.\" It was generated using the DocBook XSL Stylesheets (version 1.69.1).
-.\" Instead of manually editing it, you probably should edit the DocBook XML
-.\" source for it and then use the DocBook XSL Stylesheets to regenerate it.
+.\"     Title: vol_id
+.\"    Author: 
+.\" Generator: DocBook XSL Stylesheets v1.70.1 <http://docbook.sf.net/>
+.\"      Date: March 2006
+.\"    Manual: vol_id
+.\"    Source: volume_id
+.\"
 .TH "VOL_ID" "8" "March 2006" "volume_id" "vol_id"
 .\" disable hyphenation
 .nh
@@ -19,26 +22,20 @@ is usually called from a udev rule, to provide udev with the filesystem type, th
 \fBvol_id\fR
 supports all common filesystem formats and detects various raid setups to prevent the recognition of raid members as a volume with a filesystem.
 .SH "OPTIONS"
-.TP
+.TP 3n
 \fB\-\-export\fR
 print all values in key/value format to import them into the environment.
-.TP
+.TP 3n
 \fB\-t\fR
 print the filesystem type
-.TP
+.TP 3n
 \fB\-l\fR
 print the label of a volume
-.TP
+.TP 3n
 \fB\-u\fR
 print the uuid of a volume
-.TP
-\fB\-\-skip-raid\fR
-skip probing for raid signatures
-.TP
-\fB\-\-probe-all\fR
-probe for all known signatures to detect possible conflicts
 .SH "ENVIRONMENT"
-.TP
+.TP 3n
 \fBUDEV_LOG\fR
 Set the syslog priority.
 .SH "EXIT STATUS"
