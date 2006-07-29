@@ -1,7 +1,10 @@
-.\" ** You probably do not want to edit this file directly **
-.\" It was generated using the DocBook XSL Stylesheets (version 1.69.1).
-.\" Instead of manually editing it, you probably should edit the DocBook XML
-.\" source for it and then use the DocBook XSL Stylesheets to regenerate it.
+.\"     Title: udevmonitor
+.\"    Author: 
+.\" Generator: DocBook XSL Stylesheets v1.70.1 <http://docbook.sf.net/>
+.\"      Date: August 2005
+.\"    Manual: udevmonitor
+.\"    Source: udev
+.\"
 .TH "UDEVMONITOR" "8" "August 2005" "udev" "udevmonitor"
 .\" disable hyphenation
 .nh
@@ -16,7 +19,7 @@ udevmonitor \- print the kernel and udev event sequence to the console
 .PP
 udevmonitor listens to the kernel uevents and events send out by a udev rule and prints the devpath of the event to the console. It can be used analyze to the event timing by comparing the timestamps of the kernel uevent with the udev event.
 .SH "OPTIONS"
-.TP
+.TP 3n
 \fB\-\-env\fR
 Print the complete environment for all events. Can be used to compare the kernel supplied and the udev added environment values.
 .SH "AUTHOR"

@@ -1,7 +1,10 @@
-.\" ** You probably do not want to edit this file directly **
-.\" It was generated using the DocBook XSL Stylesheets (version 1.69.1).
-.\" Instead of manually editing it, you probably should edit the DocBook XML
-.\" source for it and then use the DocBook XSL Stylesheets to regenerate it.
+.\"     Title: udevsettle
+.\"    Author: 
+.\" Generator: DocBook XSL Stylesheets v1.70.1 <http://docbook.sf.net/>
+.\"      Date: March 2006
+.\"    Manual: udevsettle
+.\"    Source: udev
+.\"
 .TH "UDEVSETTLE" "8" "March 2006" "udev" "udevsettle"
 .\" disable hyphenation
 .nh
@@ -16,11 +19,11 @@ udevsettle \- wait until queued kernel/udev events are handled
 .PP
 Waits watching the udev event queue and exits if all current events are handled.
 .SH "OPTIONS"
-.TP
+.TP 3n
 \fB\-\-timeout=\fR\fB\fIseconds\fR\fR
 maximum seconds to wait for the queue to become empty.
 .SH "ENVIRONMENT"
-.TP
+.TP 3n
 \fBUDEV_LOG\fR
 Overrides the syslog priority specified in the config file.
 .SH "AUTHOR"

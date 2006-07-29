@@ -1,7 +1,10 @@
-.\" ** You probably do not want to edit this file directly **
-.\" It was generated using the DocBook XSL Stylesheets (version 1.69.1).
-.\" Instead of manually editing it, you probably should edit the DocBook XML
-.\" source for it and then use the DocBook XSL Stylesheets to regenerate it.
+.\"     Title: udevinfo
+.\"    Author: 
+.\" Generator: DocBook XSL Stylesheets v1.70.1 <http://docbook.sf.net/>
+.\"      Date: August 2005
+.\"    Manual: udevinfo
+.\"    Source: udev
+.\"
 .TH "UDEVINFO" "8" "August 2005" "udev" "udevinfo"
 .\" disable hyphenation
 .nh
@@ -11,12 +14,12 @@
 udevinfo \- query device information from the udev database
 .SH "SYNOPSIS"
 .HP 9
-\fBudevinfo\fR [\fB\-q\ \fR\fB\fIquery\-type\fR\fR] [\fB\-a\ \fR] [\fB\-p\ \fR\fB\fIdevice\-path\fR\fR] [\fB\-n\ \fR\fB\fInode\-name\fR\fR] [\fB\-r\fR] [\fB\-e\fR] [\fB\-V\fR] [\fB\-h\fR]
+\fBudevinfo\fR [\fB\-q\ \fR\fB\fIquery\-type\fR\fR] [\fB\-a\ \fR] [\fB\-p\ \fR\fB\fIdevpath\fR\fR] [\fB\-n\ \fR\fB\fInode\fR\fR] [\fB\-r\fR] [\fB\-e\fR] [\fB\-V\fR] [\fB\-h\fR]
 .SH "DESCRIPTION"
 .PP
 udevinfo queries the udev database for device information stored in the udev database. It can also query the properties of a device from its sysfs representation to help creating udev rules that match this device.
 .SH "OPTIONS"
-.TP
+.TP 3n
 \fB\-q\fR
 Query the database for specified type of device data. It needs the
 \fB\-p\fR
@@ -28,16 +31,16 @@ to identify the specified device. Valid queries are:
 \fBpath\fR,
 \fBenv\fR,
 \fBall\fR.
-.TP
+.TP 3n
 \fB\-a\fR
 Print all sysfs properties of the specified device that can be used in udev rules to match the specified device. It prints all devices along the chain, up to the root of sysfs that can be used in udev rules.
-.TP
-\fB\-p \fR\fB\fIdevice\-path\fR\fR
-The sysfs path of the device to query.
-.TP
-\fB\-n \fR\fB\fInode\-name\fR\fR
+.TP 3n
+\fB\-p \fR\fB\fIdevpath\fR\fR
+The devpath of the device to query.
+.TP 3n
+\fB\-n \fR\fB\fInode\fR\fR
 The name of the device node or a symlink to query
-.TP
+.TP 3n
 \fB\-r\fR
 The udev root directory:
 \fI/dev\fR. If used in conjunction with a
@@ -45,10 +48,10 @@ The udev root directory:
 or
 \fBsymlink\fR
 query, the query returns the absolute path.
-.TP
+.TP 3n
 \fB\-e\fR
 Export the content of the udev database.
-.TP
+.TP 3n
 \fB\-h\fR
 Print help text.
 .SH "AUTHOR"

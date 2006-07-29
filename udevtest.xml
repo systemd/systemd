@@ -3,19 +3,6 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 
 <article>
-  <articleinfo>
-    <title>xmlto</title>
-    <author>
-      <firstname>Kay</firstname>
-      <surname>Sievers</surname>
-      <email>kay.sievers@vrfy.org</email>
-    </author>
-    <copyright>
-      <year>2005</year>
-      <holder>Kay Sievers</holder>
-    </copyright>
-  </articleinfo>
-
   <section>
     <title>udevtest</title>
     <refentry>
@@ -28,6 +15,7 @@
       <refmeta>
         <refentrytitle>udevtest</refentrytitle>
         <manvolnum>8</manvolnum>
+        <refmiscinfo class="version"></refmiscinfo>
       </refmeta>
 
       <refnamediv>

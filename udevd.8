@@ -1,7 +1,10 @@
-.\" ** You probably do not want to edit this file directly **
-.\" It was generated using the DocBook XSL Stylesheets (version 1.69.1).
-.\" Instead of manually editing it, you probably should edit the DocBook XML
-.\" source for it and then use the DocBook XSL Stylesheets to regenerate it.
+.\"     Title: udevd
+.\"    Author: 
+.\" Generator: DocBook XSL Stylesheets v1.70.1 <http://docbook.sf.net/>
+.\"      Date: August 2005
+.\"    Manual: udevd, udevcontrol
+.\"    Source: udev
+.\"
 .TH "UDEVD" "8" "August 2005" "udev" "udevd, udevcontrol"
 .\" disable hyphenation
 .nh
@@ -18,24 +21,24 @@ udevd \- event managing daemon
 .PP
 udevd listens to kernel uevents and passes the incoming events to udev. It ensures the right event order and takes care, that events for child devices are delayed until the parent has finished the device handling.
 .SH "OPTIONS"
-.TP
+.TP 3n
 \fB\-\-daemon\fR
 Detach and run in the background.
-.TP
+.TP 3n
 \fBlog_priority=\fR\fB\fIvalue\fR\fR
 udevcontrol can dynamically set the log level of udevd. Valid values are the numerical syslog priorities or their textual representations:
 \fBerr\fR,
 \fBinfo\fR
 and
 \fBdebug\fR.
-.TP
+.TP 3n
 \fBstop_exec_queue\fR
 udevcontrol stops the execution of events from udevd.
-.TP
+.TP 3n
 \fBstart_exec_queue\fR
 udevcontrol starts the execution of events from udevd.
 .SH "ENVIRONMENT"
-.TP
+.TP 3n
 \fBUDEV_LOG\fR
 Overrides the syslog priority specified in the config file.
 .SH "AUTHOR"

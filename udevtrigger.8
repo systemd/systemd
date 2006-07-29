@@ -1,7 +1,10 @@
-.\" ** You probably do not want to edit this file directly **
-.\" It was generated using the DocBook XSL Stylesheets (version 1.69.1).
-.\" Instead of manually editing it, you probably should edit the DocBook XML
-.\" source for it and then use the DocBook XSL Stylesheets to regenerate it.
+.\"     Title: udevtrigger
+.\"    Author: 
+.\" Generator: DocBook XSL Stylesheets v1.70.1 <http://docbook.sf.net/>
+.\"      Date: March 2006
+.\"    Manual: udevtrigger
+.\"    Source: udev
+.\"
 .TH "UDEVTRIGGER" "8" "March 2006" "udev" "udevtrigger"
 .\" disable hyphenation
 .nh
@@ -16,14 +19,14 @@ udevtrigger \- request kernel devices events for coldplug
 .PP
 Trigger kernel device uevents to replay missing events at system coldplug.
 .SH "OPTIONS"
-.TP
+.TP 3n
 \fB\-\-verbose\fR
 print out the devices found in sysfs.
-.TP
+.TP 3n
 \fB\-\-dry\-run\fR
 don't actually trigger the event.
 .SH "ENVIRONMENT"
-.TP
+.TP 3n
 \fBUDEV_LOG\fR
 Overrides the syslog priority specified in the config file.
 .SH "AUTHOR"
