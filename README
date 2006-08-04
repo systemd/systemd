@@ -69,10 +69,6 @@ Compile Options:
   USE_SELINUX
   	If set to 'true', udev will be built with SELinux support
   	enabled.  This is disabled by default.
-  USE_KLIBC
-  	If set to 'true', udev is built and linked against klibc.
-  	Default value is 'false'. KLCC specifies the klibc compiler
-  	wrapper, usually located at /usr/bin/klcc.
   EXTRAS
   	list of helper programs in extras/ to build.
         make EXTRAS="extras/cdrom_id extras/scsi_id extras/volume_id"

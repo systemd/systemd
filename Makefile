@@ -33,9 +33,6 @@ USE_GCOV = false
 # include Security-Enhanced Linux support
 USE_SELINUX = false
 
-# comile with klibc instead of glibc
-USE_KLIBC = false
-
 # set this to create statically linked binaries
 USE_STATIC = false
 
@@ -140,12 +137,6 @@ endif
 ifeq ($(strip $(USE_GCOV)),true)
 	CFLAGS += -fprofile-arcs -ftest-coverage
 	LDFLAGS += -fprofile-arcs
-endif
-
-ifeq ($(strip $(USE_KLIBC)),true)
-	KLCC		= /usr/bin/$(CROSS_COMPILE)klcc
-	CC		= $(KLCC)
-	LD		= $(KLCC)
 endif
 
 ifeq ($(strip $(USE_SELINUX)),true)

@@ -105,7 +105,7 @@ static inline int inotify_add_watch(int fd, const char *name, uint32_t mask)
 }
 #else
 /* needed until /usr/include/sys/inotify.h is working */
-#ifdef __KLIBC__
+#ifndef __GLIBC__
 #include <sys/inotify.h>
 #else
 static inline int inotify_init(void)
@@ -117,7 +117,7 @@ static inline int inotify_add_watch(int fd, const char *name, uint32_t mask)
 {
 	return syscall(__NR_inotify_add_watch, fd, name, mask);
 }
-#endif /* __KLIBC__ */
+#endif /* __GLIBC__ */
 #endif /* __NR_inotify_init */
 
 #ifndef IN_CREATE

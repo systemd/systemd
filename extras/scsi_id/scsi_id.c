@@ -402,8 +402,7 @@ static int set_options(int argc, char **argv, const char *short_opts,
 	/*
 	 * optind is a global extern used by getopt. Since we can call
 	 * set_options twice (once for command line, and once for config
-	 * file) we have to reset this back to 1. [Note glibc handles
-	 * setting this to 0, but klibc does not.]
+	 * file) we have to reset this back to 1.
 	 */
 	optind = 1;
 	while (1) {

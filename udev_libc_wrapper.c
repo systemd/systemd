@@ -30,7 +30,7 @@
 
 #include "udev.h"
 
-#ifdef __KLIBC__
+#ifndef __GLIBC__
 #define __OWN_USERDB_PARSER__
 #endif
 
