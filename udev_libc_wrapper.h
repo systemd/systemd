@@ -137,7 +137,7 @@ static inline int inotify_add_watch(int fd, const char *name, uint32_t mask)
 #define asmlinkage
 #endif /* __i386__ */
 
-/* headers are broken on some lazy platforms */
+/* headers are broken on some architectures */
 #ifndef __FD_SET
 #define __FD_SET(d, set) ((set)->fds_bits[__FDELT(d)] |= __FDMASK(d))
 #endif
@@ -151,9 +151,8 @@ static inline int inotify_add_watch(int fd, const char *name, uint32_t mask)
 #define __FD_ZERO(set) ((void) memset ((void*) (set), 0, sizeof (fd_set)))
 #endif
 
-/* missing in some lazy distros */
 #ifndef NETLINK_KOBJECT_UEVENT
-#define NETLINK_KOBJECT_UEVENT 15
+#define NETLINK_KOBJECT_UEVENT	15
 #endif
 
 #ifndef SO_RCVBUFFORCE

@@ -59,6 +59,7 @@ PROGRAMS = \
 
 HEADERS = \
 	udev.h				\
+	udevd.h				\
 	udev_rules.h			\
 	logging.h			\
 	udev_libc_wrapper.h		\
