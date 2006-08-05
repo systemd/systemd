@@ -63,7 +63,7 @@ static void usage(void)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	static struct udevd_msg usend_msg;
+	static struct udevd_ctrl_msg ctrl_msg;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
 	const char *env;
@@ -85,28 +85,28 @@ int main(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 
-	memset(&usend_msg, 0x00, sizeof(struct udevd_msg));
-	strcpy(usend_msg.magic, UDEV_MAGIC);
+	memset(&ctrl_msg, 0x00, sizeof(struct udevd_ctrl_msg));
+	strcpy(ctrl_msg.magic, UDEVD_CTRL_MAGIC);
 
 	for (i = 1 ; i < argc; i++) {
 		char *arg = argv[i];
 
 		if (!strcmp(arg, "stop_exec_queue"))
-			usend_msg.type = UDEVD_STOP_EXEC_QUEUE;
+			ctrl_msg.type = UDEVD_CTRL_STOP_EXEC_QUEUE;
 		else if (!strcmp(arg, "start_exec_queue"))
-			usend_msg.type = UDEVD_START_EXEC_QUEUE;
+			ctrl_msg.type = UDEVD_CTRL_START_EXEC_QUEUE;
 		else if (!strcmp(arg, "reload_rules"))
-			usend_msg.type = UDEVD_RELOAD_RULES;
+			ctrl_msg.type = UDEVD_CTRL_RELOAD_RULES;
 		else if (!strncmp(arg, "log_priority=", strlen("log_priority="))) {
-			intval = (int *) usend_msg.envbuf;
+			intval = (int *) ctrl_msg.buf;
 			val = &arg[strlen("log_priority=")];
-			usend_msg.type = UDEVD_SET_LOG_LEVEL;
+			ctrl_msg.type = UDEVD_CTRL_SET_LOG_LEVEL;
 			*intval = log_priority(val);
 			info("send log_priority=%i", *intval);
 		} else if (!strncmp(arg, "max_childs=", strlen("max_childs="))) {
-			intval = (int *) usend_msg.envbuf;
+			intval = (int *) ctrl_msg.buf;
 			val = &arg[strlen("max_childs=")];
-			usend_msg.type = UDEVD_SET_MAX_CHILDS;
+			ctrl_msg.type = UDEVD_CTRL_SET_MAX_CHILDS;
 			*intval = atoi(val);
 			info("send max_childs=%i", *intval);
 		} else if (strcmp(arg, "help") == 0  || strcmp(arg, "--help") == 0  || strcmp(arg, "-h") == 0) {
@@ -133,15 +133,15 @@ int main(int argc, char *argv[], char *envp[])
 	memset(&saddr, 0x00, sizeof(struct sockaddr_un));
 	saddr.sun_family = AF_LOCAL;
 	/* use abstract namespace for socket path */
-	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
+	strcpy(&saddr.sun_path[1], UDEVD_CTRL_SOCK_PATH);
 	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 
-	retval = sendto(sock, &usend_msg, sizeof(usend_msg), 0, (struct sockaddr *)&saddr, addrlen);
+	retval = sendto(sock, &ctrl_msg, sizeof(ctrl_msg), 0, (struct sockaddr *)&saddr, addrlen);
 	if (retval == -1) {
 		err("error sending message: %s", strerror(errno));
 		retval = 1;
 	} else {
-		dbg("sent message type=0x%02x, %u bytes sent", usend_msg.type, retval);
+		dbg("sent message type=0x%02x, %u bytes sent", ctrl_msg.type, retval);
 		retval = 0;
 	}
 

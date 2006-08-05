@@ -21,9 +21,6 @@
 
 #include "list.h"
 
-#define UDEV_MAGIC			"udevd_" UDEV_VERSION
-#define UDEVD_SOCK_PATH			"/org/kernel/udev/udevd"
-
 #define UDEVD_PRIORITY			-4
 #define UDEV_PRIORITY			-2
 
@@ -36,29 +33,29 @@
 /* start to throttle forking if maximum number of running childs in our session is reached */
 #define UDEVD_MAX_CHILDS_RUNNING	16
 
-/* environment buffer, should match the kernel's size in lib/kobject_uevent.h */
+/* linux/include/linux/kobject.h */
 #define UEVENT_BUFFER_SIZE		2048
-#define UEVENT_NUM_ENVP			64
+#define UEVENT_NUM_ENVP			32
 
-enum udevd_msg_type {
-	UDEVD_UNKNOWN,
-	UDEVD_UEVENT_NETLINK,
-	UDEVD_STOP_EXEC_QUEUE,
-	UDEVD_START_EXEC_QUEUE,
-	UDEVD_SET_LOG_LEVEL,
-	UDEVD_SET_MAX_CHILDS,
-	UDEVD_RELOAD_RULES,
+#define UDEVD_CTRL_SOCK_PATH		"/org/kernel/udev/udevd"
+#define UDEVD_CTRL_MAGIC		"udevd_" UDEV_VERSION
+
+enum udevd_ctrl_msg_type {
+	UDEVD_CTRL_UNKNOWN,
+	UDEVD_CTRL_STOP_EXEC_QUEUE,
+	UDEVD_CTRL_START_EXEC_QUEUE,
+	UDEVD_CTRL_SET_LOG_LEVEL,
+	UDEVD_CTRL_SET_MAX_CHILDS,
+	UDEVD_CTRL_RELOAD_RULES,
 };
 
-
-struct udevd_msg {
+struct udevd_ctrl_msg {
 	char magic[32];
-	enum udevd_msg_type type;
-	char envbuf[UEVENT_BUFFER_SIZE+512];
+	enum udevd_ctrl_msg_type type;
+	char buf[256];
 };
 
-struct uevent_msg {
-	enum udevd_msg_type type;
+struct udevd_uevent_msg {
 	struct list_head node;
 	pid_t pid;
 	int exitstatus;

@@ -1,7 +1,7 @@
 /*
  * udevd.c - event listener and serializer
  *
- * Copyright (C) 2004-2005 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2004-2006 Kay Sievers <kay.sievers@vrfy.org>
  * Copyright (C) 2004 Chris Friesen <chris_friesen@sympatico.ca>
  *
  *
@@ -86,7 +86,7 @@ static void asmlinkage udev_event_sig_handler(int signum)
 		exit(1);
 }
 
-static int udev_event_process(struct uevent_msg *msg)
+static int udev_event_process(struct udevd_uevent_msg *msg)
 {
 	struct sigaction act;
 	struct udevice *udev;
@@ -153,13 +153,13 @@ enum event_state {
 	EVENT_FAILED,
 };
 
-static void export_event_state(struct uevent_msg *msg, enum event_state state)
+static void export_event_state(struct udevd_uevent_msg *msg, enum event_state state)
 {
 	char filename[PATH_SIZE];
 	char filename_failed[PATH_SIZE];
 	char target[PATH_SIZE];
 	size_t start, end, i;
-	struct uevent_msg *loop_msg;
+	struct udevd_uevent_msg *loop_msg;
 
 	/* add location of queue files */
 	strlcpy(filename, udev_root, sizeof(filename));
@@ -226,7 +226,7 @@ static void export_event_state(struct uevent_msg *msg, enum event_state state)
 	}
 }
 
-static void msg_queue_delete(struct uevent_msg *msg)
+static void msg_queue_delete(struct udevd_uevent_msg *msg)
 {
 	list_del(&msg->node);
 
@@ -239,7 +239,7 @@ static void msg_queue_delete(struct uevent_msg *msg)
 	free(msg);
 }
 
-static void udev_event_run(struct uevent_msg *msg)
+static void udev_event_run(struct udevd_uevent_msg *msg)
 {
 	pid_t pid;
 	int retval;
@@ -278,7 +278,7 @@ static void udev_event_run(struct uevent_msg *msg)
 	}
 }
 
-static void msg_queue_insert(struct uevent_msg *msg)
+static void msg_queue_insert(struct udevd_uevent_msg *msg)
 {
 	char filename[PATH_SIZE];
 	int fd;
@@ -431,9 +431,9 @@ static int compare_devpath(const char *running, const char *waiting)
 }
 
 /* returns still running task for the same device, its parent or its physical device */
-static int running_with_devpath(struct uevent_msg *msg, int limit)
+static int running_with_devpath(struct udevd_uevent_msg *msg, int limit)
 {
-	struct uevent_msg *loop_msg;
+	struct udevd_uevent_msg *loop_msg;
 	int childs_count = 0;
 
 	list_for_each_entry(loop_msg, &running_list, node) {
@@ -464,8 +464,8 @@ static int running_with_devpath(struct uevent_msg *msg, int limit)
 /* exec queue management routine executes the events and serializes events in the same sequence */
 static void msg_queue_manager(void)
 {
-	struct uevent_msg *loop_msg;
-	struct uevent_msg *tmp_msg;
+	struct udevd_uevent_msg *loop_msg;
+	struct udevd_uevent_msg *tmp_msg;
 	int running;
 
 	if (list_empty(&exec_list))
@@ -501,18 +501,18 @@ static void msg_queue_manager(void)
 	}
 }
 
-static struct uevent_msg *get_msg_from_envbuf(const char *buf, int buf_size)
+static struct udevd_uevent_msg *get_msg_from_envbuf(const char *buf, int buf_size)
 {
 	int bufpos;
 	int i;
-	struct uevent_msg *msg;
+	struct udevd_uevent_msg *msg;
 	int major = 0;
 	int minor = 0;
 
-	msg = malloc(sizeof(struct uevent_msg) + buf_size);
+	msg = malloc(sizeof(struct udevd_uevent_msg) + buf_size);
 	if (msg == NULL)
 		return NULL;
-	memset(msg, 0x00, sizeof(struct uevent_msg) + buf_size);
+	memset(msg, 0x00, sizeof(struct udevd_uevent_msg) + buf_size);
 
 	/* copy environment buffer and reconstruct envp */
 	memcpy(msg->envbuf, buf, buf_size);
@@ -558,9 +558,9 @@ static struct uevent_msg *get_msg_from_envbuf(const char *buf, int buf_size)
 }
 
 /* receive the udevd message from userspace */
-static void get_udevd_msg(void)
+static void get_ctrl_msg(void)
 {
-	struct udevd_msg ctrl_msg;
+	struct udevd_ctrl_msg ctrl_msg;
 	ssize_t size;
 	struct msghdr smsg;
 	struct cmsghdr *cmsg;
@@ -569,9 +569,9 @@ static void get_udevd_msg(void)
 	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
 	int *intval;
 
-	memset(&ctrl_msg, 0x00, sizeof(struct udevd_msg));
+	memset(&ctrl_msg, 0x00, sizeof(struct udevd_ctrl_msg));
 	iov.iov_base = &ctrl_msg;
-	iov.iov_len = sizeof(struct udevd_msg);
+	iov.iov_len = sizeof(struct udevd_ctrl_msg);
 
 	memset(&smsg, 0x00, sizeof(struct msghdr));
 	smsg.msg_iov = &iov;
@@ -598,34 +598,34 @@ static void get_udevd_msg(void)
 		return;
 	}
 
-	if (strncmp(ctrl_msg.magic, UDEV_MAGIC, sizeof(UDEV_MAGIC)) != 0 ) {
+	if (strncmp(ctrl_msg.magic, UDEVD_CTRL_MAGIC, sizeof(UDEVD_CTRL_MAGIC)) != 0 ) {
 		err("message magic '%s' doesn't match, ignore it", ctrl_msg.magic);
 		return;
 	}
 
 	switch (ctrl_msg.type) {
-	case UDEVD_STOP_EXEC_QUEUE:
+	case UDEVD_CTRL_STOP_EXEC_QUEUE:
 		info("udevd message (STOP_EXEC_QUEUE) received");
 		stop_exec_q = 1;
 		break;
-	case UDEVD_START_EXEC_QUEUE:
+	case UDEVD_CTRL_START_EXEC_QUEUE:
 		info("udevd message (START_EXEC_QUEUE) received");
 		stop_exec_q = 0;
 		msg_queue_manager();
 		break;
-	case UDEVD_SET_LOG_LEVEL:
-		intval = (int *) ctrl_msg.envbuf;
+	case UDEVD_CTRL_SET_LOG_LEVEL:
+		intval = (int *) ctrl_msg.buf;
 		info("udevd message (SET_LOG_PRIORITY) received, udev_log_priority=%i", *intval);
 		udev_log_priority = *intval;
 		sprintf(udev_log, "UDEV_LOG=%i", udev_log_priority);
 		putenv(udev_log);
 		break;
-	case UDEVD_SET_MAX_CHILDS:
-		intval = (int *) ctrl_msg.envbuf;
+	case UDEVD_CTRL_SET_MAX_CHILDS:
+		intval = (int *) ctrl_msg.buf;
 		info("udevd message (UDEVD_SET_MAX_CHILDS) received, max_childs=%i", *intval);
 		max_childs = *intval;
 		break;
-	case UDEVD_RELOAD_RULES:
+	case UDEVD_CTRL_RELOAD_RULES:
 		info("udevd message (RELOAD_RULES) received");
 		reload_config = 1;
 		break;
@@ -635,9 +635,9 @@ static void get_udevd_msg(void)
 }
 
 /* receive the kernel user event message and do some sanity checks */
-static struct uevent_msg *get_netlink_msg(void)
+static struct udevd_uevent_msg *get_netlink_msg(void)
 {
-	struct uevent_msg *msg;
+	struct udevd_uevent_msg *msg;
 	int bufpos;
 	ssize_t size;
 	static char buffer[UEVENT_BUFFER_SIZE+512];
@@ -660,7 +660,6 @@ static struct uevent_msg *get_netlink_msg(void)
 	msg = get_msg_from_envbuf(&buffer[bufpos], size-bufpos);
 	if (msg == NULL)
 		return NULL;
-	msg->type = UDEVD_UEVENT_NETLINK;
 
 	/* validate message */
 	pos = strchr(buffer, '@');
@@ -709,7 +708,7 @@ static void asmlinkage sig_handler(int signum)
 static void udev_done(int pid, int exitstatus)
 {
 	/* find msg associated with pid and delete it */
-	struct uevent_msg *msg;
+	struct udevd_uevent_msg *msg;
 
 	list_for_each_entry(msg, &running_list, node) {
 		if (msg->pid == pid) {
@@ -755,7 +754,7 @@ static int init_udevd_socket(void)
 	memset(&saddr, 0x00, sizeof(saddr));
 	saddr.sun_family = AF_LOCAL;
 	/* use abstract namespace for socket path */
-	strcpy(&saddr.sun_path[1], UDEVD_SOCK_PATH);
+	strcpy(&saddr.sun_path[1], UDEVD_CTRL_SOCK_PATH);
 	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 
 	udevd_sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
@@ -1026,7 +1025,7 @@ int main(int argc, char *argv[], char *envp[])
 	maxfd = UDEV_MAX(maxfd, inotify_fd);
 
 	while (!udev_exit) {
-		struct uevent_msg *msg;
+		struct udevd_uevent_msg *msg;
 		int fdcount;
 
 		FD_ZERO(&readfds);
@@ -1043,11 +1042,11 @@ int main(int argc, char *argv[], char *envp[])
 			continue;
 		}
 
-		/* get user socket message */
+		/* get control message */
 		if (FD_ISSET(udevd_sock, &readfds))
-			get_udevd_msg();
+			get_ctrl_msg();
 
-		/* get kernel netlink message */
+		/* get netlink message */
 		if (FD_ISSET(uevent_netlink_sock, &readfds)) {
 			msg = get_netlink_msg();
 			if (msg)
