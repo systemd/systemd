@@ -47,9 +47,9 @@
 #include "udevd.h"
 
 static struct udev_rules rules;
-static int udevd_sock;
-static int uevent_netlink_sock;
-static int inotify_fd;
+static int udevd_sock = -1;
+static int uevent_netlink_sock = -1;
+static int inotify_fd = -1;
 static pid_t sid;
 
 static int signal_pipe[2] = {-1, -1};
@@ -770,6 +770,8 @@ static int init_udevd_socket(void)
 	retval = bind(udevd_sock, (struct sockaddr *) &saddr, addrlen);
 	if (retval < 0) {
 		err("bind failed: %s", strerror(errno));
+		close(udevd_sock);
+		udevd_sock = -1;
 		return -1;
 	}
 

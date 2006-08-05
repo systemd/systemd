@@ -1,7 +1,7 @@
 /*
  * udevmonitor.c
  *
- * Copyright (C) 2004-2005 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2004-2006 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -36,8 +36,8 @@
 #include "udev.h"
 #include "udevd.h"
 
-static int uevent_netlink_sock;
-static int udev_monitor_sock;
+static int uevent_netlink_sock = -1;
+static int udev_monitor_sock = -1;
 static volatile int udev_exit;
 
 static int init_udev_monitor_socket(void)
@@ -148,6 +148,7 @@ int main(int argc, char *argv[])
 	retval = init_udev_monitor_socket();
 	if (retval)
 		goto out;
+
 	retval = init_uevent_netlink_sock();
 	if (retval)
 		goto out;
@@ -165,9 +166,9 @@ int main(int argc, char *argv[])
 
 		buflen = 0;
 		FD_ZERO(&readfds);
-		if (uevent_netlink_sock > 0)
+		if (uevent_netlink_sock >= 0)
 			FD_SET(uevent_netlink_sock, &readfds);
-		if (udev_monitor_sock > 0)
+		if (udev_monitor_sock >= 0)
 			FD_SET(udev_monitor_sock, &readfds);
 
 		fdcount = select(UDEV_MAX(uevent_netlink_sock, udev_monitor_sock)+1, &readfds, NULL, NULL, NULL);
@@ -183,7 +184,7 @@ int main(int argc, char *argv[])
 		} else
 			timestr[0] = '\0';
 
-		if ((uevent_netlink_sock > 0) && FD_ISSET(uevent_netlink_sock, &readfds)) {
+		if ((uevent_netlink_sock >= 0) && FD_ISSET(uevent_netlink_sock, &readfds)) {
 			buflen = recv(uevent_netlink_sock, &buf, sizeof(buf), 0);
 			if (buflen <=  0) {
 				fprintf(stderr, "error receiving uevent message: %s\n", strerror(errno));
@@ -192,7 +193,7 @@ int main(int argc, char *argv[])
 			printf("UEVENT[%s] %s\n", timestr, buf);
 		}
 
-		if ((udev_monitor_sock > 0) && FD_ISSET(udev_monitor_sock, &readfds)) {
+		if ((udev_monitor_sock >= 0) && FD_ISSET(udev_monitor_sock, &readfds)) {
 			buflen = recv(udev_monitor_sock, &buf, sizeof(buf), 0);
 			if (buflen <=  0) {
 				fprintf(stderr, "error receiving udev message: %s\n", strerror(errno));
@@ -227,9 +228,9 @@ int main(int argc, char *argv[])
 	}
 
 out:
-	if (uevent_netlink_sock > 0)
+	if (uevent_netlink_sock >= 0)
 		close(uevent_netlink_sock);
-	if (udev_monitor_sock > 0)
+	if (udev_monitor_sock >= 0)
 		close(udev_monitor_sock);
 
 	if (retval)
