@@ -883,10 +883,6 @@ int main(int argc, char *argv[], char *envp[])
 			info("will daemonize");
 			daemonize = 1;
 		}
-		if (strcmp(arg, "--stop-exec-queue") == 0) {
-			info("will not execute events until START_EXEC_QUEUE is received");
-			stop_exec_q = 1;
-		}
 	}
 
 	/* init sockets to receive events */
