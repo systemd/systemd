@@ -6,31 +6,29 @@ Important Note:
   Integrating udev in the system is a whole lot of work, has complex dependencies
   and differs a lot from distro to distro. All major distros depend on udev these
   days and the system may not work without a proper installed version. The upstream
-  udev project does not support or recomend to replace a distro's udev installation
+  udev project does not support or recommend to replace a distro's udev installation
   with the upstream version. The installation of a unmodified upstream version may
   render your system unusable. Until now, there is no "default" setup or a set of
   "default" rules provided by the upstream udev version.
 
 Requirements:
-  - 2.6.x version of the Linux kernel. See the RELEASE-NOTES file in the
-    udev tree and the Documentation/Changes in the kernel source tree for
-    the actual dependency.
+  - Version 2.6.15 of the Linux kernel for reliable operation of this release of
+    udev. The kernel may have a requirement on udev too, see Documentation/Changes
+    in the kernel source tree for the actual dependency.
 
-  - The kernel must have sysfs and unix domain socket enabled.
+  - The kernel must have sysfs, unix domain sockets and networking enabled.
     (unix domain sockets (CONFIG_UNIX) as a loadable kernel module may work,
-     but it is completely silly - don't complain if anything goes wrong.)
+    but it is completely silly - don't complain if anything goes wrong.)
 
-  - The proc filesystem must be mounted on /proc.
-
-  - The sysfs filesystem must be mounted at /sys. No other location
-    will be supported by udev.
+  - The proc filesystem must be mounted on /proc, the sysfs filesystem must
+    be mounted at /sys. No other location will be supported by udev.
 
 
 Operation:
   Udev creates and removes device nodes in /dev, based on events the kernel
   sends out on device discovery or removal.
 
-  - Early in the boot process, the /dev directory should get a tmpfs
+  - Very early in the boot process, the /dev directory should get a 'tmpfs'
     filesystem mounted, which is populated from scratch by udev. Created nodes
     or changed permissions will not survive a reboot, which is intentional.
 
@@ -39,12 +37,12 @@ Operation:
     be copied over to the tmpfs mounted /dev, to provide the required nodes
     to initialize udev and continue booting.
 
-  - The udevd daemon must be started by an init script to receive netlink
-    uevents from the kernel driver core.
+  - The old hotplug helper /sbin/hotplug should be disabled on bootup, before
+    actions like loading kernel modules are taken, which may cause a lot of
+    events.
 
-  - From kernel version 2.6.15 on, the hotplug helper /sbin/hotplug should
-    be disabled with an init script before actions like loading kernel
-    modules are taken, which may cause a lot of events.
+  - The udevd daemon must be started on bootup to receive netlink uevents
+    from the kernel driver core.
 
   - All kernel events are matched against a set of specified rules in
     /etc/udev/rules.d/ which make it possible to hook into the event
