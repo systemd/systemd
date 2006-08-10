@@ -53,12 +53,13 @@ void log_message (int priority, const char *format, ...)
 static void usage(void)
 {
 	printf("Usage: udevcontrol COMMAND\n"
-		"  log_priority=<level> set the udev log level for the daemon\n"
-		"  stop_exec_queue      keep udevd from executing events, queue only\n"
-		"  start_exec_queue     execute events, flush queue\n"
-		"  reload_rules         reloads the rules files\n"
-		"  max_childs=<N>       maximum number of childs running at the same time\n"
-		"  --help               print this help text\n\n");
+		"  log_priority=<level>   set the udev log level for the daemon\n"
+		"  stop_exec_queue        keep udevd from executing events, queue only\n"
+		"  start_exec_queue       execute events, flush queue\n"
+		"  reload_rules           reloads the rules files\n"
+		"  max_childs=<N>         maximum number of childs\n"
+		"  max_childs_running=<N> maximum number of childs running at the same time\n"
+		"  --help                 print this help text\n\n");
 }
 
 int main(int argc, char *argv[], char *envp[])
@@ -104,11 +105,33 @@ int main(int argc, char *argv[], char *envp[])
 			*intval = log_priority(val);
 			info("send log_priority=%i", *intval);
 		} else if (!strncmp(arg, "max_childs=", strlen("max_childs="))) {
+			char *endp;
+			int count;
+
 			intval = (int *) ctrl_msg.buf;
 			val = &arg[strlen("max_childs=")];
 			ctrl_msg.type = UDEVD_CTRL_SET_MAX_CHILDS;
-			*intval = atoi(val);
+			count = strtoul(val, &endp, 0);
+			if (endp[0] != '\0' || count < 1) {
+				fprintf(stderr, "invalid number\n");
+				goto exit;
+			}
+			*intval = count;
 			info("send max_childs=%i", *intval);
+		} else if (!strncmp(arg, "max_childs_running=", strlen("max_childs_running="))) {
+			char *endp;
+			int count;
+
+			intval = (int *) ctrl_msg.buf;
+			val = &arg[strlen("max_childs_running=")];
+			ctrl_msg.type = UDEVD_CTRL_SET_MAX_CHILDS_RUNNING;
+			count = strtoul(val, &endp, 0);
+			if (endp[0] != '\0' || count < 1) {
+				fprintf(stderr, "invalid number\n");
+				goto exit;
+			}
+			*intval = count;
+			info("send max_childs_running=%i", *intval);
 		} else if (strcmp(arg, "help") == 0  || strcmp(arg, "--help") == 0  || strcmp(arg, "-h") == 0) {
 			usage();
 			goto exit;

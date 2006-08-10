@@ -310,7 +310,68 @@ static void msg_queue_insert(struct udevd_uevent_msg *msg)
 	run_exec_q = 1;
 }
 
-/* runs event and removes event from run queue when finished */
+static int mem_size_mb(void)
+{
+	int f;
+	char buf[8192];
+	long int len;
+	const char *pos;
+	long int memsize;
+
+	f = open("/proc/meminfo", O_RDONLY);
+	if (f == -1)
+		return -1;
+
+	len = read(f, buf, sizeof(buf)-1);
+	close(f);
+
+	if (len <= 0)
+		return -1;
+	buf[len] = '\0';
+
+	pos = strstr(buf, "MemTotal: ");
+	if (pos == NULL)
+		return -1;
+
+	if (sscanf(pos, "MemTotal: %ld kB", &memsize) != 1)
+		return -1;
+
+	return memsize / 1024;
+}
+
+static int cpu_count(void)
+{
+	int f;
+	char buf[32768];
+	int len;
+	const char *pos;
+	int count = 0;
+
+	f = open("/proc/stat", O_RDONLY);
+	if (f == -1)
+		return -1;
+
+	len = read(f, buf, sizeof(buf)-1);
+	close(f);
+	if (len <= 0)
+		return -1;
+	buf[len] = '\0';
+
+	pos = strstr(buf, "cpu");
+	if (pos == NULL)
+		return -1;
+
+	while (pos != NULL) {
+		if (strncmp(pos, "cpu", 3) == 0 &&isdigit(pos[3]))
+			count++;
+		pos = strstr(&pos[3], "cpu");
+	}
+
+	if (count == 0)
+		return -1;
+	return count;
+}
+
 static int running_processes(void)
 {
 	int f;
@@ -325,11 +386,9 @@ static int running_processes(void)
 
 	len = read(f, buf, sizeof(buf)-1);
 	close(f);
-
 	if (len <= 0)
 		return -1;
-	else
-		buf[len] = '\0';
+	buf[len] = '\0';
 
 	pos = strstr(buf, "procs_running ");
 	if (pos == NULL)
@@ -625,12 +684,17 @@ static void get_ctrl_msg(void)
 		info("udevd message (UDEVD_SET_MAX_CHILDS) received, max_childs=%i", *intval);
 		max_childs = *intval;
 		break;
+	case UDEVD_CTRL_SET_MAX_CHILDS_RUNNING:
+		intval = (int *) ctrl_msg.buf;
+		info("udevd message (UDEVD_SET_MAX_CHILDS_RUNNING) received, max_childs=%i", *intval);
+		max_childs_running = *intval;
+		break;
 	case UDEVD_CTRL_RELOAD_RULES:
 		info("udevd message (RELOAD_RULES) received");
 		reload_config = 1;
 		break;
 	default:
-		dbg("unknown message type");
+		err("unknown control message type");
 	}
 }
 
@@ -998,16 +1062,26 @@ int main(int argc, char *argv[], char *envp[])
 	value = getenv("UDEVD_MAX_CHILDS");
 	if (value)
 		max_childs = strtoul(value, NULL, 10);
-	else
-		max_childs = UDEVD_MAX_CHILDS;
+	else {
+		int memsize = mem_size_mb();
+		if (memsize > 0)
+			max_childs = 128 + (memsize / 4);
+		else
+			max_childs = UDEVD_MAX_CHILDS;
+	}
 	info("initialize max_childs to %u", max_childs);
 
 	/* start to throttle forking if maximum number of _running_ childs is reached */
 	value = getenv("UDEVD_MAX_CHILDS_RUNNING");
 	if (value)
 		max_childs_running = strtoull(value, NULL, 10);
-	else
-		max_childs_running = UDEVD_MAX_CHILDS_RUNNING;
+	else {
+		int cpus = cpu_count();
+		if (cpus > 0)
+			max_childs_running = 8 + (8 * cpus);
+		else
+			max_childs_running = UDEVD_MAX_CHILDS_RUNNING;
+	}
 	info("initialize max_childs_running to %u", max_childs_running);
 
 	/* clear environment for forked event processes */
