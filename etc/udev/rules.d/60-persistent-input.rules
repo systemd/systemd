@@ -12,6 +12,7 @@ DRIVER=="pcspkr", ENV{ID_CLASS}="spkr"
 DRIVER=="atkbd", ENV{ID_CLASS}="kbd"
 DRIVER=="psmouse", ENV{ID_CLASS}="mouse"
 SYSFS{name}=="*dvb*|*DVB*|* IR *", ENV{ID_CLASS}="ir"
+SYSFS{modalias}=="input:*-*a[068],*|input:*-*a*,[68],*m*", SYSFS{modalias}!="input:*-*k*14A,*r*", ENV{ID_CLASS}="joystick"
 
 ENV{ID_SERIAL}=="", ENV{ID_SERIAL}="noserial"
 
