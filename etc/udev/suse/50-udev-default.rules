@@ -112,7 +112,7 @@ SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{type}=="1", RUN+="/sbin/modprobe 
 SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{type}=="[45]", RUN+="/sbin/modprobe sr_mod"
 SUBSYSTEM=="scsi_device", ACTION=="add", RUN+="/sbin/modprobe sg"
 KERNEL=="hd*", BUS=="ide", SYSFS{media}=="floppy", OPTIONS+="all_partitions"
-SUBSYTEM=="ide", ACTION=="add", SYSFS{media}=="tape", RUN+="/sbin/modprobe ide-scsi"
+SUBSYSTEM=="ide", ACTION=="add", SYSFS{media}=="tape", RUN+="/sbin/modprobe ide-scsi"
 
 # misc storage devices (non-block)
 KERNEL=="sg*",			GROUP="disk", MODE="640"
