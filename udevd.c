@@ -118,7 +118,7 @@ static int udev_event_process(struct udevd_uevent_msg *msg)
 	if (udev == NULL)
 		return -1;
 	strlcpy(udev->action, msg->action, sizeof(udev->action));
-	sysfs_device_set_values(udev->dev, msg->devpath, msg->subsystem);
+	sysfs_device_set_values(udev->dev, msg->devpath, msg->subsystem, msg->driver);
 	udev->devt = msg->devt;
 
 	retval = udev_device_event(&rules, udev);
@@ -593,6 +593,8 @@ static struct udevd_uevent_msg *get_msg_from_envbuf(const char *buf, int buf_siz
 			msg->devpath = &key[8];
 		else if (strncmp(key, "SUBSYSTEM=", 10) == 0)
 			msg->subsystem = &key[10];
+		else if (strncmp(key, "DRIVER=", 7) == 0)
+			msg->driver = &key[7];
 		else if (strncmp(key, "SEQNUM=", 7) == 0)
 			msg->seqnum = strtoull(&key[7], NULL, 10);
 		else if (strncmp(key, "PHYSDEVPATH=", 12) == 0)

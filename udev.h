@@ -109,7 +109,8 @@ extern dev_t udev_device_get_devt(struct udevice *udev);
 extern char sysfs_path[PATH_SIZE];
 extern int sysfs_init(void);
 extern void sysfs_cleanup(void);
-extern void sysfs_device_set_values(struct sysfs_device *dev, const char *devpath, const char *subsystem);
+extern void sysfs_device_set_values(struct sysfs_device *dev, const char *devpath,
+				    const char *subsystem, const char *driver);
 extern struct sysfs_device *sysfs_device_get(const char *devpath);
 extern struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev);
 extern struct sysfs_device *sysfs_device_get_parent_with_subsystem(struct sysfs_device *dev, const char *subsystem);

@@ -64,6 +64,7 @@ struct udevd_uevent_msg {
 	char *action;
 	char *devpath;
 	char *subsystem;
+	char *driver;
 	dev_t devt;
 	unsigned long long seqnum;
 	char *physdevpath;

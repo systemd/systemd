@@ -79,13 +79,16 @@ void sysfs_cleanup(void)
 	}
 }
 
-void sysfs_device_set_values(struct sysfs_device *dev, const char *devpath, const char *subsystem)
+void sysfs_device_set_values(struct sysfs_device *dev, const char *devpath,
+			     const char *subsystem, const char *driver)
 {
 	char *pos;
 
 	strlcpy(dev->devpath, devpath, sizeof(dev->devpath));
 	if (subsystem != NULL)
 		strlcpy(dev->subsystem, subsystem, sizeof(dev->subsystem));
+	if (driver != NULL)
+		strlcpy(dev->driver, driver, sizeof(dev->driver));
 
 	/* set kernel name */
 	pos = strrchr(dev->devpath, '/');
@@ -181,7 +184,7 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 		return NULL;
 	memset(dev, 0x00, sizeof(struct sysfs_device));
 
-	sysfs_device_set_values(dev, devpath_real, NULL);
+	sysfs_device_set_values(dev, devpath_real, NULL, NULL);
 
 	/* get subsystem */
 	if (strncmp(dev->devpath, "/class/", 7) == 0) {
