@@ -1,6 +1,10 @@
+udev 097
+========
+Bugfixes and small improvements.
+
 udev 096
 ========
-fix path_id for recent kernels
+Fix path_id for recent kernels.
 
 udev 095
 ========

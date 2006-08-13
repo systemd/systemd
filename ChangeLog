@@ -1,3 +1,51 @@
+Summary of changes from v096 to v097
+============================================
+
+Anssi Hannula:
+      add joystick support to persistent input rules
+
+Kay Sievers:
+      firmware.sh: remove needless '/'
+      vol_id: add --skip-raid and --probe-all option
+      switch uevent netlink socket to group 1 only
+      increase /proc/stat read buffer
+      use "change" instead of "online" events
+      remove 'static' from local variable
+      libvolume_id: add parameter 'size' to all probe functions
+      man pages: replace 'device-path' by 'devpath'
+      man pages: work around xmlto which tries to be smart
+      refresh vol_id man page
+      udevinfo: add DRIVER==
+      Makefile: fix dependency
+      libvolume_id: read ufs2 label
+      switch ifdef __KLIBC__ to ifndef __GLIBC__
+      report failing getpwnam/getgrnam as error
+      rename udevcontrol message types and variables
+      initialize unused sockets to -1
+      udevd: remove useless udevinitsend parameter
+      update README
+      udevd: autotune max_childs/max_childs_running
+      update frugalware rules
+      update SUSE rules
+      move default rules to etc/udev/rules.d/
+      add 'crypto' devices to persistent storage rules
+      add late.rules to default rules
+      update Fedora rules
+      don't report an error on overlong comment lines
+      update SUSE rules
+      udevd: read DRIVER from the environment
+
+Marco d'Itri:
+      make rename_netif() error messages useful
+      path_id: fix an harmless syntax error
+
+Piter PUNK:
+      update slackware rules
+
+Richard Purdie:
+      Fix inotify syscalls on ARM
+
+
 Summary of changes from v095 to v096
 ============================================
 
