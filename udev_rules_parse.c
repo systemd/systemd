@@ -543,7 +543,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			continue;
 		}
 
-		err("unknown key '%s'", key);
+		err("unknown key '%s' in %s:%u", key, filename, lineno);
 	}
 
 	/* skip line if not any valid key was found */
@@ -603,11 +603,6 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 		cur += count+1;
 		lineno++;
 
-		if (count >= sizeof(line)) {
-			err("line too long, rule skipped '%s:%u'", filename, lineno);
-			continue;
-		}
-
 		/* eat the whitespace */
 		while ((count > 0) && isspace(bufline[0])) {
 			bufline++;
@@ -620,7 +615,12 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 		if (bufline[0] == COMMENT_CHARACTER)
 			continue;
 
-		/* skip backslash and newline from multi line rules */
+		if (count >= sizeof(line)) {
+			err("line too long, rule skipped '%s:%u'", filename, lineno);
+			continue;
+		}
+
+		/* skip backslash and newline from multiline rules */
 		for (i = j = 0; i < count; i++) {
 			if (bufline[i] == '\\' && bufline[i+1] == '\n')
 				continue;
