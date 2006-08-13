@@ -28,7 +28,8 @@ KERNEL=="pty/m*",		NAME="%k", GROUP="tty", MODE="0660", OPTIONS="last_rule"
 KERNEL=="ippp*",		NAME="%k", MODE="0660"
 KERNEL=="isdn*",		NAME="%k", MODE="0660"
 KERNEL=="isdnctrl*",		NAME="%k", MODE="0660"
-KERNEL=="capi*",		NAME="%k", MODE="0660"
+KERNEL=="capi",                 NAME="capi20", GROUP="uucp", MODE="0660"
+KERNEL=="capi*",                NAME="capi/%n", GROUP="uucp", MODE="0660"
 KERNEL=="dcbri*",		NAME="%k", MODE="0660"
 KERNEL=="ircomm*",		NAME="%k", GROUP="uucp", MODE="0660"
 KERNEL=="tts/[0-9]*",		NAME="%k", GROUP="uucp", MODE="0660"
@@ -217,8 +218,11 @@ KERNEL=="fd[0-9]*",		SYMLINK+="floppy-%k"
 KERNEL=="nst[0-9]", BUS=="scsi", 	SYMLINK+="tape-%k", MODE="0660"
 KERNEL=="nosst[0-9]", BUS=="scsi", 	SYMLINK+="tape-%k", MODE="0660"
 
-KERNEL=="umad*", 		NAME="infiniband/%k"
-KERNEL=="issm*", 		NAME="infiniband/%k"
+KERNEL=="umad*", 		NAME="infiniband/%k", MODE="0660"
+KERNEL=="issm*", 		NAME="infiniband/%k", MODE="0660"
+KERNEL=="uverbs*",              NAME="infiniband/%k", MODE="0660"
+KERNEL=="ucm*",                 NAME="infiniband/%k", MODE="0660"
+KERNEL=="rdma_cm",              NAME="infiniband/%k", MODE="0660"
 
 # Section for zaptel device
 KERNEL=="zapctl",     		NAME="zap/ctl"
@@ -228,8 +232,6 @@ KERNEL=="zappseudo",  		NAME="zap/pseudo"
 KERNEL=="zap[0-9]*",  		NAME="zap/%n"
 
 KERNEL=="pktcdvd", NAME="%k/control"
-
-
 
 KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", \
 	SYSFS{device/media}=="floppy", \
