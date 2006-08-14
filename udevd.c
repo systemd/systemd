@@ -812,7 +812,6 @@ static void reap_sigchilds(void)
 static int init_udevd_socket(void)
 {
 	struct sockaddr_un saddr;
-	const int buffersize = 16 * 1024 * 1024;
 	socklen_t addrlen;
 	const int feature_on = 1;
 	int retval;
@@ -828,9 +827,6 @@ static int init_udevd_socket(void)
 		err("error getting socket: %s", strerror(errno));
 		return -1;
 	}
-
-	/* set receive buffersize */
-	setsockopt(udevd_sock, SOL_SOCKET, SO_RCVBUFFORCE, &buffersize, sizeof(buffersize));
 
 	/* the bind takes care of ensuring only one copy running */
 	retval = bind(udevd_sock, (struct sockaddr *) &saddr, addrlen);
