@@ -110,7 +110,7 @@
             <varlistentry>
               <term><option>=</option></term>
               <listitem>
-                <para>Asign a value to a key. Keys that represent a list, are reset
+                <para>Assign a value to a key. Keys that represent a list, are reset
                 and only this single value is assigned.</para>
               </listitem>
             </varlistentry>
@@ -337,8 +337,9 @@
                 <option>ignore_device</option> will ignore this event completely.
                 <option>ignore_remove</option> will ignore  any  later  remove  event  for  this
                 device. This may be useful as a workaround for broken device drivers.
-                <option>all_partitions</option> will create device nodes for all available partitions of
-                a block device. This may be useful for removable media.</para>
+                <option>all_partitions</option> will create the device nodes for all available
+                partitions of a block device. This may be useful for removable media devices where
+                media changes are not detected.</para>
               </listitem>
             </varlistentry>
           </variablelist>

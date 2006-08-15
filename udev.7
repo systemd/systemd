@@ -63,7 +63,7 @@ Compare for equality.
 Compare for non\-equality.
 .TP 3n
 \fB=\fR
-Asign a value to a key. Keys that represent a list, are reset and only this single value is assigned.
+Assign a value to a key. Keys that represent a list, are reset and only this single value is assigned.
 .TP 3n
 \fB+=\fR
 Add the value to a key that holds a list of entries.
@@ -162,7 +162,7 @@ will ignore this event completely.
 \fBignore_remove\fR
 will ignore any later remove event for this device. This may be useful as a workaround for broken device drivers.
 \fBall_partitions\fR
-will create device nodes for all available partitions of a block device. This may be useful for removable media.
+will create the device nodes for all available partitions of a block device. This may be useful for removable media devices where media changes are not detected.
 .PP
 The
 \fBNAME\fR,
