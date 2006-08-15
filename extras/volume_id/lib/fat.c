@@ -349,7 +349,7 @@ fat32:
 
 		/* set next cluster */
 		next = le32_to_cpu(*((uint32_t *) buf)) & 0x0fffffff;
-		if (next == 0)
+		if (next < 2 || next >= 0x0ffffff0)
 			break;
 	}
 	if (maxloop == 0)
