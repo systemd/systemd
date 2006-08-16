@@ -1,9 +1,8 @@
 /*
- * udev_libc_wrapper - wrapping of functions missing in a specific libc
- *		       or not working in a statically compiled binary
+ * udev_sysdeps.c - wrapping of libc features and kernel defines
  *
  * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
- * Copyright (C) 2005 Kay Sievers <kay@vrfy.org>
+ * Copyright (C) 2005-2006 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the

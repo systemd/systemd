@@ -1,8 +1,7 @@
 /*
- * udev_libc_wrapper - wrapping of functions missing in a specific libc
- *		       or not working in a statically compiled binary
+ * udev_sysdeps.h - wrapping of libc features and kernel defines
  *
- * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005-2006 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -19,8 +18,8 @@
  *
  */
 
-#ifndef _UDEV_LIBC_WRAPPER_H_
-#define _UDEV_LIBC_WRAPPER_H_
+#ifndef _UDEV_SYSDEPS_H_
+#define _UDEV_SYSDEPS_H_
 
 #include <string.h>
 #include <unistd.h>
@@ -169,4 +168,4 @@ extern gid_t lookup_group(const char *group);
 extern size_t strlcpy(char *dst, const char *src, size_t size);
 extern size_t strlcat(char *dst, const char *src, size_t size);
 
-#endif /* _UDEV_LIBC_WRAPPER_H_ */
+#endif

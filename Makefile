@@ -59,7 +59,7 @@ HEADERS = \
 	udevd.h				\
 	udev_rules.h			\
 	logging.h			\
-	udev_libc_wrapper.h		\
+	udev_sysdeps.h			\
 	udev_selinux.h			\
 	list.h
 
@@ -75,7 +75,7 @@ UDEV_OBJS = \
 	udev_utils_string.o		\
 	udev_utils_file.o		\
 	udev_utils_run.o		\
-	udev_libc_wrapper.o
+	udev_sysdeps.o
 LIBUDEV = libudev.a
 
 MAN_PAGES = \

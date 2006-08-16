@@ -27,7 +27,7 @@
 
 #include "list.h"
 #include "logging.h"
-#include "udev_libc_wrapper.h"
+#include "udev_sysdeps.h"
 #include "udev_version.h"
 
 #define COMMENT_CHARACTER			'#'
