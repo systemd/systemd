@@ -52,7 +52,7 @@ and
 .PP
 The udev rules are read from the files located in the
 \fI/etc/udev/rules.d\fR
-directory or at the location specified value in the configuraton file. Every line in the rules file contains at least one key value pair. There are two kind of keys, match and assignement keys. If all match keys are matching against its value, the rule gets applied and the assign keys get the specified value assigned. A matching rule may specify the name of the device node, add a symlink pointing to the node, or run a specified program as part of the event handling. If no matching rule is found, the default device node name is used.
+directory or at the location specified value in the configuration file. Every line in the rules file contains at least one key value pair. There are two kind of keys, match and assignment keys. If all match keys are matching against its value, the rule gets applied and the assign keys get the specified value assigned. A matching rule may specify the name of the device node, add a symlink pointing to the node, or run a specified program as part of the event handling. If no matching rule is found, the default device node name is used.
 .PP
 A rule may consists of a list of one or more key value pairs separated by a comma. Each key has a distinct operation, depending on the used operator. Valid operators are:
 .TP 3n
@@ -119,7 +119,7 @@ Matches zero, or any number of characters.
 Matches any single character.
 .TP 3n
 \fB[]\fR
-Matches any single character specified within the brackets. example, the pattern string 'tty[SR]' would match either 'ttyS' or 'ttyR'. Ranges are also supported within this match with the '\-' character. For example, to match on the range of all digits, the pattern [0\-9] would be used. If the first character following the '[' is a '!', any characters not enclosed are matched.
+Matches any single character specified within the brackets. For example, the pattern string 'tty[SR]' would match either 'ttyS' or 'ttyR'. Ranges are also supported within this match with the '\-' character. For example, to match on the range of all digits, the pattern [0\-9] would be used. If the first character following the '[' is a '!', any characters not enclosed are matched.
 .PP
 The following keys can get values assigned:
 .TP 3n
@@ -149,7 +149,7 @@ Import the printed result or the value of a file in environment key format into 
 \fBprogram\fR
 will execute an external program and read its output.
 \fBfile\fR
-will inport a text file. If no option is given, udev will determine it from the executable bit of of the file permissions.
+will import a text file. If no option is given, udev will determine it from the executable bit of of the file permissions.
 .TP 3n
 \fBWAIT_FOR_SYSFS\fR
 Wait for the specified sysfs file of the device to be created. Can be used to fight against kernel sysfs timing issues.

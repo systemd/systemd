@@ -32,7 +32,7 @@
       <refsect1><title>DESCRIPTION</title>
         <para>udevtest simulates a udev run for the given device and prints out the
         name of the node udev would have created, or the name of the network interface,
-        that would have been renamend.</para>
+        that would have been renamed.</para>
       </refsect1>
 
       <refsect1><title>AUTHOR</title>
