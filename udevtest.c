@@ -64,6 +64,7 @@ int main(int argc, char *argv[], char *envp[])
 	udev_config_init();
 	if (udev_log_priority < LOG_INFO)
 		udev_log_priority = LOG_INFO;
+	sysfs_init();
 
 	if (argc != 2) {
 		info("Usage: udevtest <devpath>");
@@ -82,7 +83,6 @@ int main(int argc, char *argv[], char *envp[])
 		} else
 			devpath = argv[1];
 
-	sysfs_init();
 	udev_rules_init(&rules, 0);
 
 	dev = sysfs_device_get(devpath);
