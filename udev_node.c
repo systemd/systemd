@@ -130,8 +130,6 @@ int udev_node_add(struct udevice *udev, struct udevice *udev_old)
 	int i;
 	int retval = 0;
 
-	selinux_init();
-
 	snprintf(filename, sizeof(filename), "%s/%s", udev_root, udev->name);
 	filename[sizeof(filename)-1] = '\0';
 

@@ -45,6 +45,7 @@
 #include "udev.h"
 #include "udev_rules.h"
 #include "udevd.h"
+#include "udev_selinux.h"
 
 static struct udev_rules rules;
 static int udevd_sock = -1;
@@ -931,6 +932,7 @@ int main(int argc, char *argv[], char *envp[])
 		err("fatal, could not open /dev/null: %s", strerror(errno));
 
 	udev_config_init();
+	selinux_init();
 	dbg("version %s", UDEV_VERSION);
 
 	if (getuid() != 0) {

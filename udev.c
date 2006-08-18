@@ -32,6 +32,7 @@
 
 #include "udev.h"
 #include "udev_rules.h"
+#include "udev_selinux.h"
 
 #ifdef USE_LOG
 void log_message(int priority, const char *format, ...)
@@ -93,6 +94,7 @@ int main(int argc, char *argv[], char *envp[])
 	if (devnull < 0)
 		err("fatal, could not open /dev/null: %s", strerror(errno));
 	udev_config_init();
+	selinux_init();
 	dbg("version %s", UDEV_VERSION);
 
 	/* set signal handlers */

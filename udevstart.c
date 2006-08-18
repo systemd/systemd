@@ -40,6 +40,7 @@
 
 #include "udev.h"
 #include "udev_rules.h"
+#include "udev_selinux.h"
 
 static const char *udev_run_str;
 static const char *udev_log_str;
@@ -339,6 +340,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	logging_init("udevstart");
 	udev_config_init();
+	selinux_init();
 	dbg("version %s", UDEV_VERSION);
 
 	udev_run_str = getenv("UDEV_RUN");
