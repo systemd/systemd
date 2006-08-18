@@ -52,7 +52,6 @@ int main(int argc, char *argv[], char *envp[])
 {
 	struct udev_rules rules;
 	char *devpath;
-	char temp[PATH_SIZE];
 	struct udevice *udev;
 	struct sysfs_device *dev;
 	int retval;
@@ -64,24 +63,19 @@ int main(int argc, char *argv[], char *envp[])
 	udev_config_init();
 	if (udev_log_priority < LOG_INFO)
 		udev_log_priority = LOG_INFO;
-	sysfs_init();
 
 	if (argc != 2) {
 		info("Usage: udevtest <devpath>");
 		return 1;
 	}
 
-	/* remove sysfs_path if given */
+	sysfs_init();
+
+	/* remove /sys if given */
 	if (strncmp(argv[1], sysfs_path, strlen(sysfs_path)) == 0)
 		devpath = &argv[1][strlen(sysfs_path)];
 	else
-		if (argv[1][0] != '/') {
-			/* prepend '/' if missing */
-			snprintf(temp, sizeof(temp), "/%s", argv[1]);
-			temp[sizeof(temp)-1] = '\0';
-			devpath = temp;
-		} else
-			devpath = argv[1];
+		devpath = argv[1];
 
 	udev_rules_init(&rules, 0);
 

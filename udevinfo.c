@@ -209,9 +209,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	char path[PATH_SIZE] = "";
 	char name[PATH_SIZE] = "";
-	char temp[PATH_SIZE];
 	struct name_entry *name_loop;
-	char *pos;
 	int rc = 0;
 
 	logging_init("udevinfo");
@@ -234,16 +232,20 @@ int main(int argc, char *argv[], char *envp[])
 		dbg("option '%c'", option);
 		switch (option) {
 		case 'n':
-			dbg("udev name: %s\n", optarg);
-			strlcpy(name, optarg, sizeof(name));
+			/* remove /dev if given */
+			if (strncmp(optarg, udev_root, strlen(udev_root)) == 0)
+				strlcpy(name, &optarg[strlen(udev_root)+1], sizeof(name));
+			else
+				strlcpy(name, optarg, sizeof(name));
+			dbg("name: %s\n", name);
 			break;
 		case 'p':
-			dbg("udev path: %s\n", optarg);
-			/* remove sysfs mountpoint if not given */
+			/* remove /sys if given */
 			if (strncmp(optarg, sysfs_path, strlen(sysfs_path)) == 0)
 				strlcpy(path, &optarg[strlen(sysfs_path)], sizeof(path));
 			else
 				strlcpy(path, optarg, sizeof(path));
+			dbg("path: %s\n", path);
 			break;
 		case 'q':
 			dbg("udev query: %s\n", optarg);
@@ -299,40 +301,19 @@ int main(int argc, char *argv[], char *envp[])
 	/* run action */
 	switch (action) {
 	case ACTION_QUERY:
-		/* need devpath or node/symlink name for query */
+		/* needs devpath or node/symlink name for query */
 		if (path[0] != '\0') {
-			/* remove sysfs_path if given */
-			if (strncmp(path, sysfs_path, strlen(sysfs_path)) == 0) {
-				pos = path + strlen(sysfs_path);
-			} else {
-				if (path[0] != '/') {
-					/* prepend '/' if missing */
-					strcpy(temp, "/");
-					strlcpy(temp, path, sizeof(temp));
-					pos = temp;
-				} else {
-					pos = path;
-				}
-			}
-			if (udev_db_get_device(udev, pos) != 0) {
-				fprintf(stderr, "no record for '%s' in database\n", pos);
+			if (udev_db_get_device(udev, path) != 0) {
+				fprintf(stderr, "no record for '%s' in database\n", path);
 				rc = 3;
 				goto exit;
 			}
 		} else if (name[0] != '\0') {
 			char devpath[PATH_SIZE];
-			int len;
 
-			/* remove udev_root if given */
-			len = strlen(udev_root);
-			if (strncmp(name, udev_root, len) == 0) {
-				pos = &name[len+1];
-			} else
-				pos = name;
-
-			if (udev_db_lookup_name(pos, devpath, sizeof(devpath)) != 0) {
-				fprintf(stderr, "no record for '%s' in database\n", pos);
-				rc = 3;
+			if (udev_db_lookup_name(name, devpath, sizeof(devpath)) != 0) {
+				fprintf(stderr, "node name not found\n");
+				rc = 4;
 				goto exit;
 			}
 			udev_db_get_device(udev, devpath);

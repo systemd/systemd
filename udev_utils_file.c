@@ -49,7 +49,7 @@ int create_path(const char *path)
 	pos[0] = '\0';
 
 	dbg("stat '%s'\n", p);
-	if (stat (p, &stats) == 0 && (stats.st_mode & S_IFMT) == S_IFDIR)
+	if (stat(p, &stats) == 0 && (stats.st_mode & S_IFMT) == S_IFDIR)
 		return 0;
 
 	if (create_path (p) != 0)
