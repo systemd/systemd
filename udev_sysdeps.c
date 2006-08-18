@@ -98,9 +98,12 @@ uid_t lookup_user(const char *user)
 	uid_t uid = 0;
 
 	pw = getpwnam(user);
-	if (pw == NULL)
-		err("error resolving user '%s': %s", user, strerror(errno));
-	else
+	if (pw == NULL) {
+		if (errno == 0)
+			err("specified user unknown '%s'", user);
+		else
+			err("error resolving user '%s': %s", user, strerror(errno));
+	} else
 		uid = pw->pw_uid;
 
 	return uid;
@@ -112,9 +115,12 @@ gid_t lookup_group(const char *group)
 	gid_t gid = 0;
 
 	gr = getgrnam(group);
-	if (gr == NULL)
-		err("error resolving group '%s': %s", group, strerror(errno));
-	else
+	if (gr == NULL) {
+		if (errno == 0)
+			err("specified group unknown '%s'", group);
+		else
+			err("error resolving group '%s': %s", group, strerror(errno));
+	} else
 		gid = gr->gr_gid;
 
 	return gid;
