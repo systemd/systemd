@@ -376,12 +376,22 @@ int main(int argc, char *argv[], char *envp[])
 		}
 		break;
 	case ACTION_ATTRIBUTE_WALK:
-		if (path[0] == '\0') {
-			fprintf(stderr, "attribute walk on device chain needs path(-p) specified\n");
-			rc = 4;
-			goto exit;
-		} else
+		if (path[0] != '\0') {
 			print_device_chain(path);
+		} else if (name[0] != '\0') {
+			char devpath[PATH_SIZE];
+
+			if (udev_db_lookup_name(name, devpath, sizeof(devpath)) != 0) {
+				fprintf(stderr, "node name not found\n");
+				rc = 4;
+				goto exit;
+			}
+			print_device_chain(devpath);
+		} else {
+			fprintf(stderr, "attribute walk needs device path(-p) or node name(-n) specified\n");
+			rc = 5;
+			goto exit;
+		}
 		break;
 	case ACTION_ROOT:
 		printf("%s\n", udev_root);
