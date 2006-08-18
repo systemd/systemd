@@ -70,49 +70,55 @@ static int db_file_to_devpath(const char *filename, char *devpath, size_t len)
 int udev_db_add_device(struct udevice *udev)
 {
 	char filename[PATH_SIZE];
-	struct name_entry *name_loop;
-	FILE *f;
 
 	if (udev->test_run)
 		return 0;
 
-	/* don't write anything if udev created only the node with the
-	 * kernel name without any interesting data to remember
+	devpath_to_db_path(udev->dev->devpath, filename, sizeof(filename));
+	create_path(filename);
+
+	/*
+	 * create only a symlink with the name as the target
+	 * if we don't have any interesting data to remember
 	 */
 	if (strcmp(udev->name, udev->dev->kernel_name) == 0 &&
 	    list_empty(&udev->symlink_list) && list_empty(&udev->env_list) &&
 	    !udev->partitions && !udev->ignore_remove) {
-		dbg("nothing interesting to store in udevdb, skip");
-		goto exit;
+		dbg("nothing interesting to store, create symlink");
+		unlink(filename);
+		if (symlink(udev->name, filename) != 0) {
+			err("unable to create db link '%s': %s", filename, strerror(errno));
+			return -1;
+		}
+	} else {
+		struct name_entry *name_loop;
+		FILE *f;
+
+		f = fopen(filename, "w");
+		if (f == NULL) {
+			err("unable to create db file '%s': %s", filename, strerror(errno));
+			return -1;
+		}
+		dbg("storing data for device '%s' in '%s'", udev->dev->devpath, filename);
+
+		fprintf(f, "N:%s\n", udev->name);
+		list_for_each_entry(name_loop, &udev->symlink_list, node)
+			fprintf(f, "S:%s\n", name_loop->name);
+		fprintf(f, "M:%u:%u\n", major(udev->devt), minor(udev->devt));
+		if (udev->partitions)
+			fprintf(f, "A:%u\n", udev->partitions);
+		if (udev->ignore_remove)
+			fprintf(f, "R:%u\n", udev->ignore_remove);
+		list_for_each_entry(name_loop, &udev->env_list, node)
+			fprintf(f, "E:%s\n", name_loop->name);
+		fclose(f);
 	}
-
-	devpath_to_db_path(udev->dev->devpath, filename, sizeof(filename));
-	create_path(filename);
-	f = fopen(filename, "w");
-	if (f == NULL) {
-		err("unable to create db file '%s': %s", filename, strerror(errno));
-		return -1;
-	}
-	dbg("storing data for device '%s' in '%s'", udev->dev->devpath, filename);
-
-	fprintf(f, "N:%s\n", udev->name);
-	list_for_each_entry(name_loop, &udev->symlink_list, node)
-		fprintf(f, "S:%s\n", name_loop->name);
-	fprintf(f, "M:%u:%u\n", major(udev->devt), minor(udev->devt));
-	if (udev->partitions)
-		fprintf(f, "A:%u\n", udev->partitions);
-	if (udev->ignore_remove)
-		fprintf(f, "R:%u\n", udev->ignore_remove);
-	list_for_each_entry(name_loop, &udev->env_list, node)
-		fprintf(f, "E:%s\n", name_loop->name);
-	fclose(f);
-
-exit:
 	return 0;
 }
 
 int udev_db_get_device(struct udevice *udev, const char *devpath)
 {
+	struct stat stats;
 	char filename[PATH_SIZE];
 	char line[PATH_SIZE];
 	unsigned int major, minor;
@@ -122,13 +128,35 @@ int udev_db_get_device(struct udevice *udev, const char *devpath)
 	size_t cur;
 	size_t count;
 
+	strlcpy(udev->dev->devpath, devpath, sizeof(udev->dev->devpath));
 	devpath_to_db_path(devpath, filename, sizeof(filename));
-	if (file_map(filename, &buf, &bufsize) != 0) {
+
+	if (lstat(filename, &stats) != 0) {
 		info("no db file to read %s: %s", filename, strerror(errno));
 		return -1;
 	}
+	if ((stats.st_mode & S_IFMT) == S_IFLNK) {
+		char target[NAME_SIZE];
+		int target_len;
 
-	strlcpy(udev->dev->devpath, devpath, sizeof(udev->dev->devpath));
+		info("found a symlink as db file");
+		target_len = readlink(filename, target, sizeof(target));
+		if (target_len > 0)
+			target[target_len] = '\0';
+		else {
+			info("error reading db link %s: %s", filename, strerror(errno));
+			return -1;
+		}
+		dbg("db link points to '%s'", target);
+		strlcpy(udev->name, target, sizeof(udev->name));
+		return 0;
+	}
+
+	if (file_map(filename, &buf, &bufsize) != 0) {
+		info("error reading db file %s: %s", filename, strerror(errno));
+		return -1;
+	}
+
 	cur = 0;
 	while (cur < bufsize) {
 		count = buf_get_line(buf, bufsize, cur);
@@ -216,6 +244,7 @@ int udev_db_lookup_name(const char *name, char *devpath, size_t len)
 		struct dirent *ent;
 		char filename[PATH_SIZE];
 		char nodename[PATH_SIZE];
+		struct stat stats;
 		char *bufline;
 		char *buf;
 		size_t bufsize;
@@ -232,8 +261,32 @@ int udev_db_lookup_name(const char *name, char *devpath, size_t len)
 		filename[sizeof(filename)-1] = '\0';
 		dbg("looking at '%s'", filename);
 
+		if (lstat(filename, &stats) != 0) {
+			info("unable to read %s: %s", filename, strerror(errno));
+			continue;
+		}
+		if ((stats.st_mode & S_IFMT) == S_IFLNK) {
+			char target[NAME_SIZE];
+			int target_len;
+
+			info("found a symlink as db file");
+			target_len = readlink(filename, target, sizeof(target));
+			if (target_len > 0)
+				target[target_len] = '\0';
+			else {
+				info("error reading db link %s: %s", filename, strerror(errno));
+				return -1;
+			}
+			dbg("db link points to '%s'", target);
+			if (strcmp(name, target) == 0) {
+				db_file_to_devpath(ent->d_name, devpath, len);
+				found =1;
+			}
+			continue;
+		}
+
 		if (file_map(filename, &buf, &bufsize) != 0) {
-			err("unable to read db file '%s': %s", filename, strerror(errno));
+			info("unable to read db file '%s': %s", filename, strerror(errno));
 			continue;
 		}
 
