@@ -141,52 +141,69 @@
             </varlistentry>
 
             <varlistentry>
-              <term><option>KERNEL</option></term>
+              <term><option>DEVPATH</option></term>
               <listitem>
-                <para>Match the name of the device.</para>
+                <para>Match the devpath of the event device.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
-              <term><option>DEVPATH</option></term>
+              <term><option>KERNEL</option></term>
               <listitem>
-                <para>Match the devpath of the device.</para>
+                <para>Match the name of the event device.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
               <term><option>SUBSYSTEM</option></term>
               <listitem>
-                <para>Match the subsystem of the device.</para>
+                <para>Match the subsystem of the event device.</para>
               </listitem>
             </varlistentry>
-
-            <varlistentry>
-              <term><option>BUS</option></term>
-              <listitem>
-                <para>Search the devpath upwards for a matching device subsystem name.</para>
-              </listitem>
-            </varlistentry>
-
+<!--
             <varlistentry>
               <term><option>DRIVER</option></term>
               <listitem>
-                <para>Search the devpath upwards for a matching device driver name.</para>
+                <para>Match the driver name of the event device. Only set for devices created by a bus driver.</para>
+              </listitem>
+            </varlistentry>
+-->
+            <varlistentry>
+              <term><option>ATTR{<replaceable>filename</replaceable>}</option></term>
+              <listitem>
+                <para>Match sysfs attribute values of the event device. Up to five
+                <option>ATTR</option> keys can be specified per rule. Trailing
+                whitespace in the attribute values is ignored, if the specified match
+                value does not contain trailing whitespace itself.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
-              <term><option>ID</option></term>
+              <term><option>KERNELS</option></term>
               <listitem>
                 <para>Search the devpath upwards for a matching device name.</para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
-              <term><option>SYSFS{<replaceable>filename</replaceable>}</option></term>
+              <term><option>SUBSYSTEMS</option></term>
+              <listitem>
+                <para>Search the devpath upwards for a matching device subsystem name.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><option>DRIVERS</option></term>
+              <listitem>
+                <para>Search the devpath upwards for a matching device driver name.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><option>ATTRS{<replaceable>filename</replaceable>}</option></term>
               <listitem>
                 <para>Search the devpath upwards for a device with matching sysfs attribute values.
-                Up to five <option>SYSFS</option> keys can be specified per rule. All attributes
+                Up to five <option>ATTRS</option> keys can be specified per rule. All attributes
                 must match on the same device. Trailing whitespace in the attribute values is ignored,
                 if the specified match value does not contain trailing whitespace itself.</para>
               </listitem>
@@ -378,13 +395,13 @@
               <term><option>$id</option>, <option>%b</option></term>
               <listitem>
                 <para>The name of the device matched while searching the devpath upwards for
-                  <option>BUS</option>, <option>ID</option> <option>DRIVER</option> and <option>SYSFS</option>.
+                  <option>SUBSYSTEMS</option>, <option>KERNELS</option> <option>DRIVERS</option> and <option>ATTRS</option>.
                 </para>
               </listitem>
             </varlistentry>
 
             <varlistentry>
-              <term><option>$sysfs{<replaceable>file</replaceable>}</option>, <option>%s{<replaceable>file</replaceable>}</option></term>
+              <term><option>$attr{<replaceable>file</replaceable>}</option>, <option>%s{<replaceable>file</replaceable>}</option></term>
               <listitem>
                 <para>The value of a sysfs attribute found at the current or a parent device.</para>
               </listitem>

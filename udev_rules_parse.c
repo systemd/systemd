@@ -263,40 +263,6 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 		if (retval)
 			break;
 
-		if (strcasecmp(key, "LABEL") == 0) {
-			add_rule_key(rule, &rule->label, operation, value);
-			valid = 1;
-			continue;
-		}
-
-		if (strcasecmp(key, "GOTO") == 0) {
-			add_rule_key(rule, &rule->goto_label, operation, value);
-			valid = 1;
-			continue;
-		}
-
-		if (strcasecmp(key, "KERNEL") == 0) {
-			if (operation != KEY_OP_MATCH &&
-			    operation != KEY_OP_NOMATCH) {
-				err("invalid KERNEL operation");
-				goto invalid;
-			}
-			add_rule_key(rule, &rule->kernel_name, operation, value);
-			valid = 1;
-			continue;
-		}
-
-		if (strcasecmp(key, "SUBSYSTEM") == 0) {
-			if (operation != KEY_OP_MATCH &&
-			    operation != KEY_OP_NOMATCH) {
-				err("invalid SUBSYSTEM operation");
-				goto invalid;
-			}
-			add_rule_key(rule, &rule->subsystem, operation, value);
-			valid = 1;
-			continue;
-		}
-
 		if (strcasecmp(key, "ACTION") == 0) {
 			if (operation != KEY_OP_MATCH &&
 			    operation != KEY_OP_NOMATCH) {
@@ -319,46 +285,106 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			continue;
 		}
 
-		if (strcasecmp(key, "BUS") == 0) {
+		if (strcasecmp(key, "KERNEL") == 0) {
 			if (operation != KEY_OP_MATCH &&
 			    operation != KEY_OP_NOMATCH) {
-				err("invalid BUS operation");
+				err("invalid KERNEL operation");
 				goto invalid;
 			}
-			add_rule_key(rule, &rule->bus, operation, value);
+			add_rule_key(rule, &rule->kernel, operation, value);
 			valid = 1;
 			continue;
 		}
 
-		if (strcasecmp(key, "ID") == 0) {
+		if (strcasecmp(key, "SUBSYSTEM") == 0) {
 			if (operation != KEY_OP_MATCH &&
 			    operation != KEY_OP_NOMATCH) {
-				err("invalid ID operation");
+				err("invalid SUBSYSTEM operation");
 				goto invalid;
 			}
-			add_rule_key(rule, &rule->id, operation, value);
+			add_rule_key(rule, &rule->subsystem, operation, value);
 			valid = 1;
 			continue;
 		}
 
-		if (strncasecmp(key, "SYSFS", sizeof("SYSFS")-1) == 0) {
+		if (strcasecmp(key, "DRIVER") == 0) {
 			if (operation != KEY_OP_MATCH &&
 			    operation != KEY_OP_NOMATCH) {
-				err("invalid SYSFS operation");
+				err("invalid DRIVER operation");
 				goto invalid;
 			}
-			attr = get_key_attribute(key + sizeof("SYSFS")-1);
+			err("DRIVER== will change in a future relase, "
+			    "please use DRIVERS== in %s:%u", filename, lineno);
+			/* FIXME: this should be rule->driver to match only the event device */
+			add_rule_key(rule, &rule->drivers, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strncasecmp(key, "ATTR", sizeof("ATTR")-1) == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid ATTR operation");
+				goto invalid;
+			}
+			attr = get_key_attribute(key + sizeof("ATTR")-1);
 			if (attr == NULL) {
-				err("error parsing SYSFS attribute in '%s'", line);
+				err("error parsing ATTR attribute in '%s'", line);
 				continue;
 			}
-			add_rule_key_pair(rule, &rule->sysfs, operation, attr, value);
+			add_rule_key_pair(rule, &rule->attr, operation, attr, value);
 			valid = 1;
 			continue;
 		}
 
-		if (strcasecmp(key, "WAIT_FOR_SYSFS") == 0) {
-			add_rule_key(rule, &rule->wait_for_sysfs, operation, value);
+		if (strcasecmp(key, "KERNELS") == 0 ||
+		    strcasecmp(key, "ID") == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid KERNELS operation");
+				goto invalid;
+			}
+			add_rule_key(rule, &rule->kernels, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "SUBSYTEMS") == 0 ||
+		    strcasecmp(key, "BUS") == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid SUBSYSTEMS operation");
+				goto invalid;
+			}
+			add_rule_key(rule, &rule->subsystems, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "DRIVERS") == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid DRIVERS operation");
+				goto invalid;
+			}
+			add_rule_key(rule, &rule->drivers, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strncasecmp(key, "ATTRS", sizeof("ATTRS")-1) == 0 ||
+		    strncasecmp(key, "SYSFS", sizeof("SYSFS")-1) == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid ATTRSS operation");
+				goto invalid;
+			}
+			attr = get_key_attribute(key + sizeof("ATTRS")-1);
+			if (attr == NULL) {
+				err("error parsing ATTRS attribute in '%s'", line);
+				continue;
+			}
+			add_rule_key_pair(rule, &rule->attrs, operation, attr, value);
 			valid = 1;
 			continue;
 		}
@@ -370,6 +396,23 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 				continue;
 			}
 			add_rule_key_pair(rule, &rule->env, operation, attr, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "PROGRAM") == 0) {
+			add_rule_key(rule, &rule->program, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "RESULT") == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid RESULT operation");
+				goto invalid;
+			}
+			add_rule_key(rule, &rule->result, operation, value);
 			valid = 1;
 			continue;
 		}
@@ -419,30 +462,26 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			continue;
 		}
 
-		if (strcasecmp(key, "DRIVER") == 0) {
-			if (operation != KEY_OP_MATCH &&
-			    operation != KEY_OP_NOMATCH) {
-				err("invalid DRIVER operation");
-				goto invalid;
-			}
-			add_rule_key(rule, &rule->driver, operation, value);
+		if (strcasecmp(key, "RUN") == 0) {
+			add_rule_key(rule, &rule->run, operation, value);
 			valid = 1;
 			continue;
 		}
 
-		if (strcasecmp(key, "RESULT") == 0) {
-			if (operation != KEY_OP_MATCH &&
-			    operation != KEY_OP_NOMATCH) {
-				err("invalid RESULT operation");
-				goto invalid;
-			}
-			add_rule_key(rule, &rule->result, operation, value);
+		if (strcasecmp(key, "WAIT_FOR_SYSFS") == 0) {
+			add_rule_key(rule, &rule->wait_for_sysfs, operation, value);
 			valid = 1;
 			continue;
 		}
 
-		if (strcasecmp(key, "PROGRAM") == 0) {
-			add_rule_key(rule, &rule->program, operation, value);
+		if (strcasecmp(key, "LABEL") == 0) {
+			add_rule_key(rule, &rule->label, operation, value);
+			valid = 1;
+			continue;
+		}
+
+		if (strcasecmp(key, "GOTO") == 0) {
+			add_rule_key(rule, &rule->goto_label, operation, value);
 			valid = 1;
 			continue;
 		}
@@ -512,12 +551,6 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 		if (strcasecmp(key, "MODE") == 0) {
 			rule->mode = strtol(value, NULL, 8);
 			rule->mode_operation = operation;
-			valid = 1;
-			continue;
-		}
-
-		if (strcasecmp(key, "RUN") == 0) {
-			add_rule_key(rule, &rule->run, operation, value);
 			valid = 1;
 			continue;
 		}

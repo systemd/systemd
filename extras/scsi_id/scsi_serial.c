@@ -179,7 +179,7 @@ static int scsi_dump_sense(struct sysfs_device *dev_scsi, struct sg_io_hdr *io)
 
 	sb_len = io->sb_len_wr;
 	if (sb_len < 1) {
-		info("%s: sense buffer empty", dev_scsi->kernel_name);
+		info("%s: sense buffer empty", dev_scsi->kernel);
 		return -1;
 	}
 
@@ -194,7 +194,7 @@ static int scsi_dump_sense(struct sysfs_device *dev_scsi, struct sg_io_hdr *io)
 		s = sense_buffer[7] + 8;
 		if (sb_len < s) {
 			info("%s: sense buffer too small %d bytes, %d bytes too short",
-			    dev_scsi->kernel_name, sb_len, s - sb_len);
+			    dev_scsi->kernel, sb_len, s - sb_len);
 			return -1;
 		}
 		if ((code == 0x0) || (code == 0x1)) {
@@ -205,7 +205,7 @@ static int scsi_dump_sense(struct sysfs_device *dev_scsi, struct sg_io_hdr *io)
 				 * Possible?
 				 */
 				info("%s: sense result too" " small %d bytes",
-				    dev_scsi->kernel_name, s);
+				    dev_scsi->kernel, s);
 				return -1;
 			}
 			asc = sense_buffer[12];
@@ -217,25 +217,25 @@ static int scsi_dump_sense(struct sysfs_device *dev_scsi, struct sg_io_hdr *io)
 			ascq = sense_buffer[3];
 		} else {
 			info("%s: invalid sense code 0x%x",
-			    dev_scsi->kernel_name, code);
+			    dev_scsi->kernel, code);
 			return -1;
 		}
 		info("%s: sense key 0x%x ASC 0x%x ASCQ 0x%x",
-		    dev_scsi->kernel_name, sense_key, asc, ascq);
+		    dev_scsi->kernel, sense_key, asc, ascq);
 	} else {
 		if (sb_len < 4) {
 			info("%s: sense buffer too small %d bytes, %d bytes too short",
-			    dev_scsi->kernel_name, sb_len, 4 - sb_len);
+			    dev_scsi->kernel, sb_len, 4 - sb_len);
 			return -1;
 		}
 
 		if (sense_buffer[0] < 15)
-			info("%s: old sense key: 0x%x", dev_scsi->kernel_name, sense_buffer[0] & 0x0f);
+			info("%s: old sense key: 0x%x", dev_scsi->kernel, sense_buffer[0] & 0x0f);
 		else
 			info("%s: sense = %2x %2x",
-			    dev_scsi->kernel_name, sense_buffer[0], sense_buffer[2]);
+			    dev_scsi->kernel, sense_buffer[0], sense_buffer[2]);
 		info("%s: non-extended sense class %d code 0x%0x",
-		    dev_scsi->kernel_name, sense_class, code);
+		    dev_scsi->kernel, sense_class, code);
 
 	}
 
@@ -247,8 +247,8 @@ static int scsi_dump_sense(struct sysfs_device *dev_scsi, struct sg_io_hdr *io)
 		out_buffer[j++] = ' ';
 	}
 	out_buffer[j] = '\0';
-	info("%s: sense dump:", dev_scsi->kernel_name);
-	info("%s: %s", dev_scsi->kernel_name, out_buffer);
+	info("%s: sense dump:", dev_scsi->kernel);
+	info("%s: %s", dev_scsi->kernel, out_buffer);
 
 #endif
 	return -1;
@@ -266,7 +266,7 @@ static int scsi_dump(struct sysfs_device *dev_scsi, struct sg_io_hdr *io)
 	}
 
 	info("%s: sg_io failed status 0x%x 0x%x 0x%x 0x%x",
-	    dev_scsi->kernel_name, io->driver_status, io->host_status, io->msg_status, io->status);
+	    dev_scsi->kernel, io->driver_status, io->host_status, io->msg_status, io->status);
 	if (io->status == SCSI_CHECK_CONDITION)
 		return scsi_dump_sense(dev_scsi, io);
 	else
@@ -290,7 +290,7 @@ static int scsi_inquiry(struct sysfs_device *dev_scsi, int fd,
 	}
 
 resend:
-	dbg("%s evpd %d, page 0x%x\n", dev_scsi->kernel_name, evpd, page);
+	dbg("%s evpd %d, page 0x%x\n", dev_scsi->kernel, evpd, page);
 
 	memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
 	io_hdr.interface_id = 'S';
@@ -304,7 +304,7 @@ resend:
 	io_hdr.timeout = DEF_TIMEOUT;
 
 	if (ioctl(fd, SG_IO, &io_hdr) < 0) {
-		info("%s: ioctl failed: %s", dev_scsi->kernel_name, strerror(errno));
+		info("%s: ioctl failed: %s", dev_scsi->kernel, strerror(errno));
 		retval = -1;
 		goto error;
 	}
@@ -328,7 +328,7 @@ resend:
 		retval = buflen;
 	} else if (retval > 0) {
 		if (--retry > 0) {
-			dbg("%s: Retrying ...\n", dev_scsi->kernel_name);
+			dbg("%s: Retrying ...\n", dev_scsi->kernel);
 			goto resend;
 		}
 		retval = -1;
@@ -337,7 +337,7 @@ resend:
 error:
 	if (retval < 0)
 		info("%s: Unable to get INQUIRY vpd %d page 0x%x.",
-		    dev_scsi->kernel_name, evpd, page);
+		    dev_scsi->kernel, evpd, page);
 
 	return retval;
 }
@@ -355,11 +355,11 @@ static int do_scsi_page0_inquiry(struct sysfs_device *dev_scsi, int fd,
 		return 1;
 
 	if (buffer[1] != 0) {
-		info("%s: page 0 not available.", dev_scsi->kernel_name);
+		info("%s: page 0 not available.", dev_scsi->kernel);
 		return 1;
 	}
 	if (buffer[3] > len) {
-		info("%s: page 0 buffer too long %d", dev_scsi->kernel_name,  buffer[3]);
+		info("%s: page 0 buffer too long %d", dev_scsi->kernel,  buffer[3]);
 		return 1;
 	}
 
@@ -377,11 +377,11 @@ static int do_scsi_page0_inquiry(struct sysfs_device *dev_scsi, int fd,
 		 */
 		vendor = sysfs_attr_get_value(dev_scsi->devpath, "vendor");
 		if (!vendor) {
-			info("%s: cannot get model attribute", dev_scsi->kernel_name);
+			info("%s: cannot get model attribute", dev_scsi->kernel);
 			return 1;
 		}
 		if (!strncmp((char *)&buffer[VENDOR_LENGTH], vendor, VENDOR_LENGTH)) {
-			info("%s: invalid page0 data", dev_scsi->kernel_name);
+			info("%s: invalid page0 data", dev_scsi->kernel);
 			return 1;
 		}
 	}
@@ -399,7 +399,7 @@ static int prepend_vendor_model(struct sysfs_device *dev_scsi, char *serial)
 
 	attr = sysfs_attr_get_value(dev_scsi->devpath, "vendor");
 	if (!attr) {
-		info("%s: cannot get vendor attribute", dev_scsi->kernel_name);
+		info("%s: cannot get vendor attribute", dev_scsi->kernel);
 		return 1;
 	}
 	strncpy(serial, attr, VENDOR_LENGTH);
@@ -407,7 +407,7 @@ static int prepend_vendor_model(struct sysfs_device *dev_scsi, char *serial)
 
 	attr = sysfs_attr_get_value(dev_scsi->devpath, "model");
 	if (!attr) {
-		info("%s: cannot get model attribute", dev_scsi->kernel_name);
+		info("%s: cannot get model attribute", dev_scsi->kernel);
 		return 1;
 	}
 	strncat(serial, attr, MODEL_LENGTH);
@@ -420,7 +420,7 @@ static int prepend_vendor_model(struct sysfs_device *dev_scsi, char *serial)
 	 */
 	if (ind != (VENDOR_LENGTH + MODEL_LENGTH)) {
 		info("%s: expected length %d, got length %d",
-		     dev_scsi->kernel_name, (VENDOR_LENGTH + MODEL_LENGTH), ind);
+		     dev_scsi->kernel, (VENDOR_LENGTH + MODEL_LENGTH), ind);
 		return 1;
 	}
 	return ind;
@@ -478,7 +478,7 @@ static int check_fill_0x83_id(struct sysfs_device *dev_scsi,
 
 	if (max_len < len) {
 		info("%s: length %d too short - need %d",
-		    dev_scsi->kernel_name, max_len, len);
+		    dev_scsi->kernel, max_len, len);
 		return 1;
 	}
 
@@ -534,7 +534,7 @@ static int check_fill_0x83_prespc3(struct sysfs_device *dev_scsi,
 		serial[j++] = hex_str[(page_83[4+i] & 0xf0) >> 4];
 		serial[j++] = hex_str[ page_83[4+i] & 0x0f];
 	}
-	dbg("using pre-spc3-83 for %s.\n", dev_scsi->kernel_name);
+	dbg("using pre-spc3-83 for %s.\n", dev_scsi->kernel);
 	return 0;
 }
 
@@ -554,7 +554,7 @@ static int do_scsi_page83_inquiry(struct sysfs_device *dev_scsi, int fd,
 		return 1;
 
 	if (page_83[1] != PAGE_83) {
-		info("%s: Invalid page 0x83", dev_scsi->kernel_name);
+		info("%s: Invalid page 0x83", dev_scsi->kernel);
 		return 1;
 	}
 	
@@ -605,7 +605,7 @@ static int do_scsi_page83_inquiry(struct sysfs_device *dev_scsi, int fd,
 			retval = check_fill_0x83_id(dev_scsi, &page_83[j],
 						    &id_search_list[id_ind],
 						    serial, len);
-			dbg("%s id desc %d/%d/%d\n", dev_scsi->kernel_name,
+			dbg("%s id desc %d/%d/%d\n", dev_scsi->kernel,
 				id_search_list[id_ind].id_type,
 				id_search_list[id_ind].naa_type,
 				id_search_list[id_ind].code_set);
@@ -643,7 +643,7 @@ static int do_scsi_page83_prespc3_inquiry(struct sysfs_device *dev_scsi, int fd,
 		return 1;
 
 	if (page_83[1] != PAGE_83) {
-		info("%s: Invalid page 0x83", dev_scsi->kernel_name);
+		info("%s: Invalid page 0x83", dev_scsi->kernel);
 		return 1;
 	}
 	/*
@@ -687,7 +687,7 @@ static int do_scsi_page83_prespc3_inquiry(struct sysfs_device *dev_scsi, int fd,
 		serial[j++] = hex_str[page_83[i] & 0x0f];
 		i++;
 	}
-	dbg("using pre-spc3-83 for %s.\n", dev_scsi->kernel_name);
+	dbg("using pre-spc3-83 for %s.\n", dev_scsi->kernel);
 	return 0;
 }
 
@@ -707,14 +707,14 @@ static int do_scsi_page80_inquiry(struct sysfs_device *dev_scsi, int fd,
 		return retval;
 
 	if (buf[1] != PAGE_80) {
-		info("%s: Invalid page 0x80", dev_scsi->kernel_name);
+		info("%s: Invalid page 0x80", dev_scsi->kernel);
 		return 1;
 	}
 
 	len = 1 + VENDOR_LENGTH + MODEL_LENGTH + buf[3];
 	if (max_len < len) {
 		info("%s: length %d too short - need %d",
-		    dev_scsi->kernel_name, max_len, len);
+		    dev_scsi->kernel, max_len, len);
 		return 1;
 	}
 	/*
@@ -744,7 +744,7 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 	fd = open(devname, O_RDONLY | O_NONBLOCK);
 	if (fd < 0) {
 		info("%s: cannot open %s: %s",
-		    dev_scsi->kernel_name, devname, strerror(errno));
+		    dev_scsi->kernel, devname, strerror(errno));
 		return 1;
 	}
 
@@ -790,7 +790,7 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 			goto completed;
 		}
 	} else if (page_code != 0x00) {
-		info("%s: unsupported page code 0x%d", dev_scsi->kernel_name, page_code);
+		info("%s: unsupported page code 0x%d", dev_scsi->kernel, page_code);
 		return 1;
 	}
 
@@ -808,7 +808,7 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 		goto completed;
 	}
 
-	dbg("%s: Checking page0\n", dev_scsi->kernel_name);
+	dbg("%s: Checking page0\n", dev_scsi->kernel);
 
 	for (ind = 4; ind <= page0[3] + 3; ind++)
 		if (page0[ind] == PAGE_83)
@@ -834,6 +834,6 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 	retval = 1;
 completed:
 	if (close(fd) < 0)
-		info("%s: close failed: %s", dev_scsi->kernel_name, strerror(errno));
+		info("%s: close failed: %s", dev_scsi->kernel, strerror(errno));
 	return retval;
 }

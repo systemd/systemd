@@ -87,7 +87,7 @@ static int rename_netif(struct udevice *udev)
 	struct ifreq ifr;
 	int retval;
 
-	info("changing net interface name from '%s' to '%s'", udev->dev->kernel_name, udev->name);
+	info("changing net interface name from '%s' to '%s'", udev->dev->kernel, udev->name);
 	if (udev->test_run)
 		return 0;
 
@@ -98,7 +98,7 @@ static int rename_netif(struct udevice *udev)
 	}
 
 	memset(&ifr, 0x00, sizeof(struct ifreq));
-	strlcpy(ifr.ifr_name, udev->dev->kernel_name, IFNAMSIZ);
+	strlcpy(ifr.ifr_name, udev->dev->kernel, IFNAMSIZ);
 	strlcpy(ifr.ifr_newname, udev->name, IFNAMSIZ);
 	retval = ioctl(sk, SIOCSIFNAME, &ifr);
 	if (retval != 0) {
@@ -111,7 +111,7 @@ static int rename_netif(struct udevice *udev)
 		}
 
 		/* free our own name, another process may wait for us */
-		strlcpy(ifr.ifr_newname, udev->dev->kernel_name, IFNAMSIZ);
+		strlcpy(ifr.ifr_newname, udev->dev->kernel, IFNAMSIZ);
 		strlcat(ifr.ifr_newname, "_rename", IFNAMSIZ);
 		retval = ioctl(sk, SIOCSIFNAME, &ifr);
 		if (retval != 0) {
@@ -211,7 +211,7 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 		}
 
 		/* look if we want to change the name of the netif */
-		if (strcmp(udev->name, udev->dev->kernel_name) != 0) {
+		if (strcmp(udev->name, udev->dev->kernel) != 0) {
 			char *pos;
 
 			retval = rename_netif(udev);
@@ -220,14 +220,14 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 			info("renamed netif to '%s'", udev->name);
 
 			/* export old name */
-			setenv("INTERFACE_OLD", udev->dev->kernel_name, 1);
+			setenv("INTERFACE_OLD", udev->dev->kernel, 1);
 
 			/* now fake the devpath, because the kernel name changed silently */
 			pos = strrchr(udev->dev->devpath, '/');
 			if (pos != NULL) {
 				pos[1] = '\0';
 				strlcat(udev->dev->devpath, udev->name, sizeof(udev->dev->devpath));
-				strlcpy(udev->dev->kernel_name, udev->name, sizeof(udev->dev->kernel_name));
+				strlcpy(udev->dev->kernel, udev->name, sizeof(udev->dev->kernel));
 				setenv("DEVPATH", udev->dev->devpath, 1);
 				setenv("INTERFACE", udev->name, 1);
 			}
@@ -250,8 +250,8 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 			list_for_each_entry(name_loop, &udev->env_list, node)
 				putenv(name_loop->name);
 		} else {
-			dbg("'%s' not found in database, using kernel name '%s'", udev->dev->devpath, udev->dev->kernel_name);
-			strlcpy(udev->name, udev->dev->kernel_name, sizeof(udev->name));
+			dbg("'%s' not found in database, using kernel name '%s'", udev->dev->devpath, udev->dev->kernel);
+			strlcpy(udev->name, udev->dev->kernel, sizeof(udev->name));
 		}
 
 		udev_rules_get_run(rules, udev);

@@ -76,27 +76,32 @@ The following key names can be used to match against device properties:
 \fBACTION\fR
 Match the name of the event action.
 .TP 3n
-\fBKERNEL\fR
-Match the name of the device.
-.TP 3n
 \fBDEVPATH\fR
-Match the devpath of the device.
+Match the devpath of the event device.
+.TP 3n
+\fBKERNEL\fR
+Match the name of the event device.
 .TP 3n
 \fBSUBSYSTEM\fR
-Match the subsystem of the device.
+Match the subsystem of the event device.
 .TP 3n
-\fBBUS\fR
-Search the devpath upwards for a matching device subsystem name.
+\fBATTR{\fR\fB\fIfilename\fR\fR\fB}\fR
+Match sysfs attribute values of the event device. Up to five
+\fBATTR\fR
+keys can be specified per rule. Trailing whitespace in the attribute values is ignored, if the specified match value does not contain trailing whitespace itself.
 .TP 3n
-\fBDRIVER\fR
-Search the devpath upwards for a matching device driver name.
-.TP 3n
-\fBID\fR
+\fBKERNELS\fR
 Search the devpath upwards for a matching device name.
 .TP 3n
-\fBSYSFS{\fR\fB\fIfilename\fR\fR\fB}\fR
+\fBSUBSYSTEMS\fR
+Search the devpath upwards for a matching device subsystem name.
+.TP 3n
+\fBDRIVERS\fR
+Search the devpath upwards for a matching device driver name.
+.TP 3n
+\fBATTRS{\fR\fB\fIfilename\fR\fR\fB}\fR
 Search the devpath upwards for a device with matching sysfs attribute values. Up to five
-\fBSYSFS\fR
+\fBATTRS\fR
 keys can be specified per rule. All attributes must match on the same device. Trailing whitespace in the attribute values is ignored, if the specified match value does not contain trailing whitespace itself.
 .TP 3n
 \fBENV{\fR\fB\fIkey\fR\fR\fB}\fR
@@ -187,13 +192,13 @@ The devpath of the device.
 .TP 3n
 \fB$id\fR, \fB%b\fR
 The name of the device matched while searching the devpath upwards for
-\fBBUS\fR,
-\fBID\fR
-\fBDRIVER\fR
+\fBSUBSYSTEMS\fR,
+\fBKERNELS\fR
+\fBDRIVERS\fR
 and
-\fBSYSFS\fR.
+\fBATTRS\fR.
 .TP 3n
-\fB$sysfs{\fR\fB\fIfile\fR\fR\fB}\fR, \fB%s{\fR\fB\fIfile\fR\fR\fB}\fR
+\fB$attr{\fR\fB\fIfile\fR\fR\fB}\fR, \fB%s{\fR\fB\fIfile\fR\fR\fB}\fR
 The value of a sysfs attribute found at the current or a parent device.
 .TP 3n
 \fB$env{\fR\fB\fIkey\fR\fR\fB}\fR, \fB%E{\fR\fB\fIkey\fR\fR\fB}\fR

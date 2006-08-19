@@ -45,7 +45,7 @@ void log_message (int priority, const char *format, ...)
 }
 #endif
 
-static void print_all_attributes(const char *devpath)
+static void print_all_attributes(const char *devpath, const char *key)
 {
 	char path[PATH_SIZE];
 	DIR *dir;
@@ -80,7 +80,7 @@ static void print_all_attributes(const char *devpath)
 			}
 
 			replace_untrusted_chars(value);
-			printf("    SYSFS{%s}==\"%s\"\n", dent->d_name, value);
+			printf("    %s{%s}==\"%s\"\n", key, dent->d_name, value);
 		}
 	}
 	printf("\n");
@@ -103,10 +103,10 @@ static int print_device_chain(const char *devpath)
 		return -1;
 
 	printf("  looking at device '%s':\n", dev->devpath);
-	printf("    KERNEL==\"%s\"\n", dev->kernel_name);
+	printf("    KERNEL==\"%s\"\n", dev->kernel);
 	printf("    SUBSYSTEM==\"%s\"\n", dev->subsystem);
 	printf("    DRIVER==\"%s\"\n", dev->driver);
-	print_all_attributes(dev->devpath);
+	print_all_attributes(dev->devpath, "ATTR");
 
 	/* walk up the chain of devices */
 	while (1) {
@@ -114,11 +114,11 @@ static int print_device_chain(const char *devpath)
 		if (dev == NULL)
 			break;
 		printf("  looking at parent device '%s':\n", dev->devpath);
-		printf("    ID==\"%s\"\n", dev->kernel_name);
-		printf("    BUS==\"%s\"\n", dev->subsystem);
-		printf("    DRIVER==\"%s\"\n", dev->driver);
+		printf("    KERNELS==\"%s\"\n", dev->kernel);
+		printf("    SUBSYTEMS==\"%s\"\n", dev->subsystem);
+		printf("    DRIVERS==\"%s\"\n", dev->driver);
 
-		print_all_attributes(dev->devpath);
+		print_all_attributes(dev->devpath, "ATTRS");
 	}
 
 	return 0;

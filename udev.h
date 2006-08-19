@@ -54,8 +54,8 @@ struct sysfs_device {
 	struct list_head node;			/* for device cache */
 	struct sysfs_device *parent;		/* already cached parent*/
 	char devpath[PATH_SIZE];
-	char subsystem[NAME_SIZE];		/* $class/$bus/"drivers" */
-	char kernel_name[NAME_SIZE];		/* device instance name */
+	char subsystem[NAME_SIZE];		/* $class, $bus, drivers, module */
+	char kernel[NAME_SIZE];			/* device instance name */
 	char kernel_number[NAME_SIZE];
 	char driver[NAME_SIZE];			/* device driver name */
 };

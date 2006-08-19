@@ -1075,13 +1075,13 @@ BUS=="scsi", KERNEL=="sda", NAME="should_not_match2", SUBSYSTEM=="vc"
 EOF
 	},
 	{
-		desc		=> "DRIVER match test",
+		desc		=> "DRIVERS match test",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
 		exp_name	=> "node",
 		rules		=> <<EOF
-BUS=="scsi", KERNEL=="sda", NAME="should_not_match", DRIVER=="sd-wrong"
-BUS=="scsi", KERNEL=="sda", NAME="node", DRIVER=="sd"
+BUS=="scsi", KERNEL=="sda", NAME="should_not_match", DRIVERS=="sd-wrong"
+BUS=="scsi", KERNEL=="sda", NAME="node", DRIVERS=="sd"
 EOF
 	},
 	{

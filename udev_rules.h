@@ -60,30 +60,34 @@ enum import_type {
 };
 
 struct udev_rule {
-	struct key label;
-	struct key goto_label;
-	struct key kernel_name;
-	struct key subsystem;
 	struct key action;
 	struct key devpath;
-	struct key bus;
-	struct key id;
+	struct key kernel;
+	struct key subsystem;
 	struct key driver;
+	struct key_pairs attr;
+
+	struct key kernels;
+	struct key subsystems;
+	struct key drivers;
+	struct key_pairs attrs;
+
+	struct key_pairs env;
 	struct key program;
 	struct key result;
 	struct key import;
 	enum import_type import_type;
+	struct key run;
 	struct key wait_for_sysfs;
-	struct key_pairs sysfs;
-	struct key_pairs env;
+	struct key label;
+	struct key goto_label;
 
 	struct key name;
 	struct key symlink;
-	struct key run;
 	struct key owner;
 	struct key group;
-	enum key_operation mode_operation;
 	mode_t mode;
+	enum key_operation mode_operation;
 
 	unsigned int partitions;
 	unsigned int last_rule:1,

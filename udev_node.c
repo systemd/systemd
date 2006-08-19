@@ -51,7 +51,7 @@ int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t m
 	/* preserve node with already correct numbers, to prevent changing the inode number */
 	if ((stats.st_mode & S_IFMT) == (mode & S_IFMT) && (stats.st_rdev == devt)) {
 		info("preserve file '%s', because it has correct dev_t", file);
-		selinux_setfilecon(file, udev->dev->kernel_name, stats.st_mode);
+		selinux_setfilecon(file, udev->dev->kernel, stats.st_mode);
 		goto perms;
 	}
 
@@ -61,7 +61,7 @@ int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t m
 		dbg("already present file '%s' unlinked", file);
 
 create:
-	selinux_setfscreatecon(file, udev->dev->kernel_name, mode);
+	selinux_setfscreatecon(file, udev->dev->kernel, mode);
 	retval = mknod(file, mode, devt);
 	selinux_resetfscreatecon();
 	if (retval != 0) {

@@ -95,11 +95,11 @@ void sysfs_device_set_values(struct sysfs_device *dev, const char *devpath,
 	if (pos == NULL)
 		return;
 
-	strlcpy(dev->kernel_name, &pos[1], sizeof(dev->kernel_name));
-	dbg("kernel_name='%s'", dev->kernel_name);
+	strlcpy(dev->kernel, &pos[1], sizeof(dev->kernel));
+	dbg("kernel='%s'", dev->kernel);
 
 	/* some devices have '!' in their name, change that to '/' */
-	pos = dev->kernel_name;
+	pos = dev->kernel;
 	while (pos[0] != '\0') {
 		if (pos[0] == '!')
 			pos[0] = '/';
@@ -107,7 +107,7 @@ void sysfs_device_set_values(struct sysfs_device *dev, const char *devpath,
 	}
 
 	/* get kernel number */
-	pos = &dev->kernel_name[strlen(dev->kernel_name)];
+	pos = &dev->kernel[strlen(dev->kernel)];
 	while (isdigit(pos[-1]))
 		pos--;
 	strlcpy(dev->kernel_number, pos, sizeof(dev->kernel_number));

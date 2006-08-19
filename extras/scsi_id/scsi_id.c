@@ -679,7 +679,7 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 			if (reformat_serial)
 				format_serial(serial);
 			if (display_bus_id)
-				printf("%s: ", dev_scsi->kernel_name);
+				printf("%s: ", dev_scsi->kernel);
 			printf("%s\n", serial);
 		}
 		dbg("%s\n", serial);

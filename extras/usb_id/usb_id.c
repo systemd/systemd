@@ -255,7 +255,7 @@ static int usb_id(const char *devpath)
 
 	if_class = sysfs_attr_get_value(dev_interface->devpath, "bInterfaceClass");
 	if (!if_class) {
-		info("%s: cannot get bInterfaceClass attribute", dev_interface->kernel_name);
+		info("%s: cannot get bInterfaceClass attribute", dev_interface->kernel);
 		return 1;
 	}
 	if_class_num = strtoul(if_class, NULL, 16);
@@ -289,28 +289,28 @@ static int usb_id(const char *devpath)
 		/* Generic SPC-2 device */
 		scsi_vendor = sysfs_attr_get_value(dev_scsi->devpath, "vendor");
 		if (!scsi_vendor) {
-			info("%s: cannot get SCSI vendor attribute", dev_scsi->kernel_name);
+			info("%s: cannot get SCSI vendor attribute", dev_scsi->kernel);
 			goto fallback;
 		}
 		set_str(vendor_str, scsi_vendor, sizeof(vendor_str)-1);
 
 		scsi_model = sysfs_attr_get_value(dev_scsi->devpath, "model");
 		if (!scsi_model) {
-			info("%s: cannot get SCSI model attribute", dev_scsi->kernel_name);
+			info("%s: cannot get SCSI model attribute", dev_scsi->kernel);
 			goto fallback;
 		}
 		set_str(model_str, scsi_model, sizeof(model_str)-1);
 
 		scsi_type = sysfs_attr_get_value(dev_scsi->devpath, "type");
 		if (!scsi_type) {
-			info("%s: cannot get SCSI type attribute", dev_scsi->kernel_name);
+			info("%s: cannot get SCSI type attribute", dev_scsi->kernel);
 			goto fallback;
 		}
 		set_scsi_type(type_str, scsi_type, sizeof(type_str)-1);
 
 		scsi_rev = sysfs_attr_get_value(dev_scsi->devpath, "rev");
 		if (!scsi_rev) {
-			info("%s: cannot get SCSI revision attribute", dev_scsi->kernel_name);
+			info("%s: cannot get SCSI revision attribute", dev_scsi->kernel);
 			goto fallback;
 		}
 		set_str(revision_str, scsi_rev, sizeof(revision_str)-1);
