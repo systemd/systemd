@@ -27,6 +27,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
+#include <pwd.h>
 #include <grp.h>
 #include <sys/ioctl.h>
 
@@ -131,8 +133,7 @@ int main(int argc, char *argv[])
 	int skip_raid = 0;
 	int probe_all = 0;
 	const char *node = NULL;
-	uid_t nobody_uid;
-	gid_t nobody_gid;
+	struct passwd *pw;
 	int retval;
 	int rc = 0;
 
@@ -180,13 +181,14 @@ int main(int argc, char *argv[])
 		size = 0;
 	dbg("BLKGETSIZE64=%llu", size);
 
-	/* drop all privileges */
-	nobody_uid = lookup_user("nobody");
-	nobody_gid = lookup_group("nogroup");
-	if (nobody_uid > 0 && nobody_gid > 0) {
+	/* try to drop all privileges before reading disk content */
+	pw = getpwnam ("nobody");
+	if (pw != NULL && pw->pw_uid > 0 && pw->pw_gid > 0) {
+		dbg("dropping privileges to %u:%u", (unsigned int)pw->pw_uid, (unsigned int)pw->pw_gid);
 		if (setgroups(0, NULL) != 0 ||
-		    setgid(nobody_gid) != 0 ||
-		    setuid(nobody_uid) != 0) {
+		    setgid(pw->pw_gid) != 0 ||
+		    setuid(pw->pw_uid) != 0) {
+			fprintf(stderr, "error dropping privileges: %s\n", strerror(errno));
 			rc = 3;
 			goto exit;
 		}
