@@ -219,7 +219,7 @@ static int add_rule_key_pair(struct udev_rule *rule, struct key_pairs *pairs,
 	size_t key_len = strnlen(key, PATH_SIZE);
 
 	if (pairs->count >= PAIRS_MAX) {
-		err("skip, too many keys in a single rule");
+		err("skip, too many keys of the same type in a single rule");
 		return -1;
 	}
 
@@ -322,11 +322,6 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 		}
 
 		if (strncasecmp(key, "ATTR", sizeof("ATTR")-1) == 0) {
-			if (operation != KEY_OP_MATCH &&
-			    operation != KEY_OP_NOMATCH) {
-				err("invalid ATTR operation");
-				goto invalid;
-			}
 			attr = get_key_attribute(key + sizeof("ATTR")-1);
 			if (attr == NULL) {
 				err("error parsing ATTR attribute");
@@ -375,11 +370,6 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 
 		if (strncasecmp(key, "ATTRS", sizeof("ATTRS")-1) == 0 ||
 		    strncasecmp(key, "SYSFS", sizeof("SYSFS")-1) == 0) {
-			if (operation != KEY_OP_MATCH &&
-			    operation != KEY_OP_NOMATCH) {
-				err("invalid ATTRSS operation");
-				goto invalid;
-			}
 			attr = get_key_attribute(key + sizeof("ATTRS")-1);
 			if (attr == NULL) {
 				err("error parsing ATTRS attribute");

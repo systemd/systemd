@@ -644,17 +644,16 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 		int found;
 
 		found = (wait_for_sysfs(udev, key_val(rule, &rule->wait_for_sysfs), 3) == 0);
-		if (!found && (rule->wait_for_sysfs.operation != KEY_OP_NOMATCH)) {
-			dbg("WAIT_FOR_SYSFS failed");
+		if (!found && (rule->wait_for_sysfs.operation != KEY_OP_NOMATCH))
 			goto nomatch;
-		}
 	}
 
-	/* check for matching sysfs attrubute pairs */
-	if (rule->attr.count) {
-		dbg("check %i ATTR keys", rule->attr.count);
-		for (i = 0; i < rule->attr.count; i++) {
-			struct key_pair *pair = &rule->attr.keys[i];
+	/* check for matching sysfs attribute pairs */
+	for (i = 0; i < rule->attr.count; i++) {
+		struct key_pair *pair = &rule->attr.keys[i];
+
+		if (pair->key.operation == KEY_OP_MATCH ||
+		    pair->key.operation == KEY_OP_NOMATCH) {
 			const char *key_name = key_pair_name(rule, pair);
 			const char *key_value = key_val(rule, &pair->key);
 			const char *value;
@@ -678,7 +677,6 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 			if (match_key("ATTR", rule, &pair->key, val))
 				goto nomatch;
 		}
-		dbg("all %i ATTR keys matched", rule->attr.count);
 	}
 
 	/* walk up the chain of parent devices and find a match */
@@ -697,10 +695,11 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 			goto try_parent;
 
 		/* check for matching sysfs attrubute pairs */
-		if (rule->attrs.count) {
-			dbg("check %i ATTRS keys", rule->attrs.count);
-			for (i = 0; i < rule->attrs.count; i++) {
-				struct key_pair *pair = &rule->attrs.keys[i];
+		for (i = 0; i < rule->attrs.count; i++) {
+			struct key_pair *pair = &rule->attrs.keys[i];
+
+			if (pair->key.operation == KEY_OP_MATCH ||
+			    pair->key.operation == KEY_OP_NOMATCH) {
 				const char *key_name = key_pair_name(rule, pair);
 				const char *key_value = key_val(rule, &pair->key);
 				const char *value;
@@ -726,7 +725,6 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 				if (match_key("ATTRS", rule, &pair->key, val))
 					goto try_parent;
 			}
-			dbg("all %i ATTRS keys matched", rule->attrs.count);
 		}
 
 		/* found matching device  */
@@ -817,6 +815,30 @@ try_parent:
 		}
 	}
 
+	/* if we have ATTR assignements write value to sysfs file */
+	for (i = 0; i < rule->attr.count; i++) {
+		struct key_pair *pair = &rule->attr.keys[i];
+
+		if (pair->key.operation == KEY_OP_ASSIGN) {
+			const char *key_name = key_pair_name(rule, pair);
+			const char *key_value = key_val(rule, &pair->key);
+			char attr[PATH_SIZE];
+			FILE *f;
+
+			strlcpy(attr, sysfs_path, sizeof(attr));
+			strlcat(attr, udev->dev->devpath, sizeof(attr));
+			strlcat(attr, "/", sizeof(attr));
+			strlcat(attr, key_name, sizeof(attr));
+			dbg("write '%s' to '%s'", key_value, attr);
+			f = fopen(attr, "w");
+			if (f != NULL) {
+				if (fprintf(f, "%s\n", key_value) <= 0)
+					err("error writing ATTR{%s}: %s", attr, strerror(errno));
+				fclose(f);
+			} else
+				err("error opening ATTR{%s} for writing: %s", attr, strerror(errno));
+		}
+	}
 	return 0;
 
 nomatch:
