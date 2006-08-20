@@ -15,8 +15,8 @@ KERNEL=="ircomm*",		GROUP="uucp"
 KERNEL=="modems/mwave*",	GROUP="uucp"
 KERNEL=="hvc*|hvsi*",		GROUP="uucp"
 KERNEL=="iseries/vtty*",	GROUP="uucp"
-KERNEL=="ttyUSB*", SYSFS{product}=="[Pp]alm*Handheld*", SYMLINK+="pilot"
-KERNEL=="ttyUSB*", SYSFS{product}=="[Hh]andspring*Treo*|[Hh]andspring*Visor*", SYMLINK+="pilot"
+KERNEL=="ttyUSB*", ATTRS{product}=="[Pp]alm*Handheld*", SYMLINK+="pilot"
+KERNEL=="ttyUSB*", ATTRS{product}=="[Hh]andspring*Treo*|[Hh]andspring*Visor*", SYMLINK+="pilot"
 
 # video/graphics
 SUBSYSTEM=="video4linux",	GROUP="video"
@@ -95,7 +95,7 @@ KERNEL=="pktcdvd[0-9]*",	NAME="pktcdvd/%k"
 
 # fix floppy devices
 KERNEL=="nvram", ACTION=="add", RUN+="load_floppy_module.sh"
-KERNEL=="fd[0-9]*", ACTION=="add", SYSFS{cmos}=="*", RUN+="create_floppy_devices -c -t $sysfs{cmos} -m %M /dev/%k"
+KERNEL=="fd[0-9]*", ACTION=="add", ATTRS{cmos}=="*", RUN+="create_floppy_devices -c -t $attr{cmos} -m %M $root/%k"
 KERNEL=="fd[0-9]*", ACTION=="remove", RUN+="/bin/rm -f $root/%k*"
 
 # block devices
@@ -104,15 +104,15 @@ SUBSYSTEM=="block", GROUP="disk", MODE="0640"
 # sd:		0 TYPE_DISK, 7 TYPE_MOD, 14 TYPE_RBC
 # sr:		4 TYPE_WORM, 5 TYPE_ROM
 # st/osst:	1 TYPE_TAPE
-SUBSYSTEM=="scsi", ACTION=="add", SYSFS{type}=="0|7|14", RUN+="/bin/sh -c 'echo 60 > /sys$$DEVPATH/timeout'"
-SUBSYSTEM=="scsi", ACTION=="add", SYSFS{type}=="1", RUN+="/bin/sh -c 'echo 900 > /sys$$DEVPATH/timeout'"
-SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{type}=="0|7|14", RUN+="/sbin/modprobe sd_mod"
-SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{type}=="1", SYSFS{vendor}=="On[sS]tream", RUN+="/sbin/modprobe osst"
-SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{type}=="1", RUN+="/sbin/modprobe st"
-SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{type}=="[45]", RUN+="/sbin/modprobe sr_mod"
+SUBSYSTEM=="scsi", ACTION=="add", ATTR{type}=="0|7|14", ATTR{timeout}="60"
+SUBSYSTEM=="scsi", ACTION=="add", ATTR{type}=="1", ATTR{timeout}="900"
+SUBSYSTEM=="scsi_device", ACTION=="add", ATTR{type}=="0|7|14", RUN+="/sbin/modprobe sd_mod"
+SUBSYSTEM=="scsi_device", ACTION=="add", ATTR{type}=="1", ATTR{vendor}=="On[sS]tream", RUN+="/sbin/modprobe osst"
+SUBSYSTEM=="scsi_device", ACTION=="add", ATTR{type}=="1", RUN+="/sbin/modprobe st"
+SUBSYSTEM=="scsi_device", ACTION=="add", ATTR{type}=="[45]", RUN+="/sbin/modprobe sr_mod"
 SUBSYSTEM=="scsi_device", ACTION=="add", RUN+="/sbin/modprobe sg"
-KERNEL=="hd*", BUS=="ide", SYSFS{media}=="floppy", OPTIONS+="all_partitions"
-SUBSYSTEM=="ide", ACTION=="add", SYSFS{media}=="tape", RUN+="/sbin/modprobe ide-scsi"
+KERNEL=="hd*", SUBSYSTEMS=="ide", ATTRS{media}=="floppy", OPTIONS+="all_partitions"
+SUBSYSTEM=="ide", ACTION=="add", ATTR{media}=="tape", RUN+="/sbin/modprobe ide-scsi"
 
 # misc storage devices (non-block)
 KERNEL=="sg*",			GROUP="disk", MODE="640"
