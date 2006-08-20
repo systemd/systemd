@@ -99,7 +99,7 @@ uid_t lookup_user(const char *user)
 
 	pw = getpwnam(user);
 	if (pw == NULL) {
-		if (errno == 0)
+		if (errno == 0 || errno == ENOENT || errno == ESRCH)
 			err("specified user unknown '%s'", user);
 		else
 			err("error resolving user '%s': %s", user, strerror(errno));
@@ -116,7 +116,7 @@ gid_t lookup_group(const char *group)
 
 	gr = getgrnam(group);
 	if (gr == NULL) {
-		if (errno == 0)
+		if (errno == 0 || errno == ENOENT || errno == ESRCH)
 			err("specified group unknown '%s'", group);
 		else
 			err("error resolving group '%s': %s", group, strerror(errno));
