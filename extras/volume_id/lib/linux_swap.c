@@ -26,14 +26,14 @@
 #include "libvolume_id.h"
 #include "util.h"
 
-static struct swap_header_v1_2 {
+struct swap_header_v1_2 {
 	uint8_t		bootbits[1024];
 	uint32_t	version;
 	uint32_t	last_page;
 	uint32_t	nr_badpages;
 	uint8_t		uuid[16];
 	uint8_t		volume_name[16];
-} PACKED *sw;
+} PACKED;
 
 #define LARGEST_PAGESIZE			0x4000
 
@@ -41,10 +41,11 @@ int volume_id_probe_linux_swap(struct volume_id *id, uint64_t off, uint64_t size
 {
 	const uint8_t *buf;
 	unsigned int page;
+	struct swap_header_v1_2 *sw;
 
 	info("probing at offset 0x%llx", (unsigned long long) off);
 
-	/* the swap signature is at the end of the PAGE_SIZE */
+	/* eek, the swap signature is at the end of the PAGE_SIZE */
 	for (page = 0x1000; page <= LARGEST_PAGESIZE; page <<= 1) {
 			buf = volume_id_get_buffer(id, off + page-10, 10);
 			if (buf == NULL)
@@ -56,21 +57,34 @@ int volume_id_probe_linux_swap(struct volume_id *id, uint64_t off, uint64_t size
 			}
 
 			if (memcmp(buf, "SWAPSPACE2", 10) == 0) {
-				sw = (struct swap_header_v1_2 *) volume_id_get_buffer(id, off, sizeof(struct swap_header_v1_2));
-				if (sw == NULL)
-					return -1;
+				id->type = "swap";
 				strcpy(id->type_version, "2");
-				volume_id_set_label_raw(id, sw->volume_name, 16);
-				volume_id_set_label_string(id, sw->volume_name, 16);
-				volume_id_set_uuid(id, sw->uuid, UUID_DCE);
-				goto found;
+				goto found_label;
+			}
+
+			if (memcmp(buf, "S1SUSPEND", 9) == 0) {
+				id->type = "suspend";
+				strcpy(id->type_version, "s1suspend");
+				goto found_label;
+			}
+
+			if (memcmp(buf, "ULSUSPEND", 9) == 0) {
+				id->type = "suspend";
+				strcpy(id->type_version, "ulsuspend");
+				goto found_label;
 			}
 	}
 	return -1;
 
+found_label:
+	sw = (struct swap_header_v1_2 *) volume_id_get_buffer(id, off, sizeof(struct swap_header_v1_2));
+	if (sw != NULL) {
+		volume_id_set_label_raw(id, sw->volume_name, 16);
+		volume_id_set_label_string(id, sw->volume_name, 16);
+		volume_id_set_uuid(id, sw->uuid, UUID_DCE);
+	}
+
 found:
 	volume_id_set_usage(id, VOLUME_ID_OTHER);
-	id->type = "swap";
-
 	return 0;
 }

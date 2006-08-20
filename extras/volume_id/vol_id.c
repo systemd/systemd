@@ -291,15 +291,14 @@ int main(int argc, char *argv[])
 		printf("%s\n", vid->type);
 		break;
 	case PRINT_LABEL:
-		if (name[0] == '\0' ||
-		    (vid->usage_id != VOLUME_ID_FILESYSTEM && vid->usage_id != VOLUME_ID_DISKLABEL)) {
+		if (name[0] == '\0' || vid->usage_id == VOLUME_ID_RAID) {
 			rc = 3;
 			goto exit;
 		}
 		printf("%s\n", name);
 		break;
 	case PRINT_UUID:
-		if (vid->uuid[0] == '\0' || vid->usage_id != VOLUME_ID_FILESYSTEM) {
+		if (vid->uuid[0] == '\0' || vid->usage_id == VOLUME_ID_RAID) {
 			rc = 4;
 			goto exit;
 		}
