@@ -79,7 +79,7 @@ EOF
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "boot_disk1" ,
 		rules		=> <<EOF
-BUS=="scsi", SYSFS{vendor}=="IBM-ESXS", SYSFS{model}=="ST336605LW    !#", SYSFS{scsi_level}=="4", SYSFS{rev}=="B245", SYSFS{type}=="2", SYSFS{queue_depth}=="32", NAME="boot_diskXX%n"
+BUS=="scsi", SYSFS{vendor}=="IBM-ESXS", SYSFS{model}=="ST336605LW    !#", SYSFS{scsi_level}=="4", SYSFS{rev}=="B245", SYSFS{type}=="0", SYSFS{queue_depth}=="32", NAME="boot_diskXX%n"
 BUS=="scsi", SYSFS{vendor}=="IBM-ESXS", SYSFS{model}=="ST336605LW    !#", SYSFS{scsi_level}=="4", SYSFS{rev}=="B245", SYSFS{type}=="0", NAME="boot_disk%n"
 EOF
 	},

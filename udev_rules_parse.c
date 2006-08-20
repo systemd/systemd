@@ -329,10 +329,11 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			}
 			attr = get_key_attribute(key + sizeof("ATTR")-1);
 			if (attr == NULL) {
-				err("error parsing ATTR attribute in '%s'", line);
-				continue;
+				err("error parsing ATTR attribute");
+				goto invalid;
 			}
-			add_rule_key_pair(rule, &rule->attr, operation, attr, value);
+			if (add_rule_key_pair(rule, &rule->attr, operation, attr, value) != 0)
+				goto invalid;
 			valid = 1;
 			continue;
 		}
@@ -381,10 +382,11 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			}
 			attr = get_key_attribute(key + sizeof("ATTRS")-1);
 			if (attr == NULL) {
-				err("error parsing ATTRS attribute in '%s'", line);
-				continue;
+				err("error parsing ATTRS attribute");
+				goto invalid;
 			}
-			add_rule_key_pair(rule, &rule->attrs, operation, attr, value);
+			if (add_rule_key_pair(rule, &rule->attrs, operation, attr, value) != 0)
+				goto invalid;
 			valid = 1;
 			continue;
 		}
@@ -393,9 +395,10 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			attr = get_key_attribute(key + sizeof("ENV")-1);
 			if (attr == NULL) {
 				err("error parsing ENV attribute");
-				continue;
+				goto invalid;
 			}
-			add_rule_key_pair(rule, &rule->env, operation, attr, value);
+			if (add_rule_key_pair(rule, &rule->env, operation, attr, value) != 0)
+				goto invalid;
 			valid = 1;
 			continue;
 		}
