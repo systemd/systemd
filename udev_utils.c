@@ -28,6 +28,9 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <syslog.h>
+#include <pwd.h>
+#include <grp.h>
+#include <sys/types.h>
 #include <sys/utsname.h>
 
 #include "udev.h"
@@ -161,3 +164,40 @@ int add_matching_files(struct list_head *name_list, const char *dirname, const c
 	closedir(dir);
 	return 0;
 }
+
+uid_t lookup_user(const char *user)
+{
+	struct passwd *pw;
+	uid_t uid = 0;
+
+	errno = 0;
+	pw = getpwnam(user);
+	if (pw == NULL) {
+		if (errno == 0 || errno == ENOENT || errno == ESRCH)
+			err("specified user unknown '%s'", user);
+		else
+			err("error resolving user '%s': %s", user, strerror(errno));
+	} else
+		uid = pw->pw_uid;
+
+	return uid;
+}
+
+extern gid_t lookup_group(const char *group)
+{
+	struct group *gr;
+	gid_t gid = 0;
+
+	errno = 0;
+	gr = getgrnam(group);
+	if (gr == NULL) {
+		if (errno == 0 || errno == ENOENT || errno == ESRCH)
+			err("specified group unknown '%s'", group);
+		else
+			err("error resolving group '%s': %s", group, strerror(errno));
+	} else
+		gid = gr->gr_gid;
+
+	return gid;
+}
+

@@ -139,6 +139,8 @@ extern char *name_list_add(struct list_head *name_list, const char *name, int so
 extern char *name_list_key_add(struct list_head *name_list, const char *key, const char *value);
 extern void name_list_cleanup(struct list_head *name_list);
 extern int add_matching_files(struct list_head *name_list, const char *dirname, const char *suffix);
+extern uid_t lookup_user(const char *user);
+extern gid_t lookup_group(const char *group);
 
 /* udev_utils_string.c */
 extern int strcmp_pattern(const char *p, const char *s);

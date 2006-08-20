@@ -162,9 +162,6 @@ static inline int inotify_add_watch(int fd, const char *name, uint32_t mask)
 #endif
 #endif
 
-extern uid_t lookup_user(const char *user);
-extern gid_t lookup_group(const char *group);
-
 extern size_t strlcpy(char *dst, const char *src, size_t size);
 extern size_t strlcat(char *dst, const char *src, size_t size);
 
