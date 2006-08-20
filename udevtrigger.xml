@@ -27,6 +27,7 @@
           <command>udevtrigger</command>
           <arg><option>--verbose</option></arg>
           <arg><option>--dry-run</option></arg>
+          <arg><option>--retry-failed</option></arg>
         </cmdsynopsis>
       </refsynopsisdiv>
 
@@ -39,13 +40,19 @@
           <varlistentry>
             <term><option>--verbose</option></term>
             <listitem>
-              <para>print out the devices found in sysfs.</para>
+              <para>Print the list of devices found in sysfs.</para>
             </listitem>
           </varlistentry>
           <varlistentry>
             <term><option>--dry-run</option></term>
             <listitem>
-              <para>don't actually trigger the event.</para>
+              <para>Do not actually trigger the event.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--retry-failed</option></term>
+            <listitem>
+              <para>Trigger events which are failed during a previous run.</para>
             </listitem>
           </varlistentry>
         </variablelist>

@@ -32,8 +32,8 @@
 #include <sys/types.h>
 
 #include "udev.h"
+#include "udevd.h"
 
-static const char *udev_log_str;
 static int verbose;
 static int dry_run;
 
@@ -166,7 +166,7 @@ static int is_device(const char *path)
 	return 1;
 }
 
-static void udev_scan_bus(void)
+static void scan_bus(void)
 {
 	char base[PATH_SIZE];
 	DIR *dir;
@@ -213,7 +213,7 @@ static void udev_scan_bus(void)
 	}
 }
 
-static void udev_scan_block(void)
+static void scan_block(void)
 {
 	char base[PATH_SIZE];
 	DIR *dir;
@@ -272,7 +272,7 @@ static void udev_scan_block(void)
 	}
 }
 
-static void udev_scan_class(void)
+static void scan_class(void)
 {
 	char base[PATH_SIZE];
 	DIR *dir;
@@ -318,6 +318,44 @@ static void udev_scan_class(void)
 	}
 }
 
+static void scan_failed(void)
+{
+	char base[PATH_SIZE];
+	DIR *dir;
+	struct dirent *dent;
+
+	strlcpy(base, udev_root, sizeof(base));
+	strlcat(base, "/", sizeof(base));
+	strlcat(base, EVENT_FAILED_DIR, sizeof(base));
+
+	dir = opendir(base);
+	if (dir != NULL) {
+		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+			char linkname[PATH_SIZE];
+			char target[PATH_SIZE];
+			int len;
+
+			if (dent->d_name[0] == '.')
+				continue;
+
+			strlcpy(linkname, base, sizeof(linkname));
+			strlcat(linkname, "/", sizeof(linkname));
+			strlcat(linkname, dent->d_name, sizeof(linkname));
+
+			len = readlink(linkname, target, sizeof(target));
+			if (len <= 0)
+				continue;
+			target[len] = '\0';
+
+			if (is_device(target))
+				device_list_insert(target);
+			else
+				continue;
+		}
+		closedir(dir);
+	}
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
 	int i;
@@ -325,31 +363,33 @@ int main(int argc, char *argv[], char *envp[])
 	logging_init("udevtrigger");
 	udev_config_init();
 	dbg("version %s", UDEV_VERSION);
-
-	udev_log_str = getenv("UDEV_LOG");
+	sysfs_init();
 
 	for (i = 1 ; i < argc; i++) {
 		char *arg = argv[i];
 
-		if (strcmp(arg, "--verbose") == 0 || strcmp(arg, "-v") == 0)
+		if (strcmp(arg, "--verbose") == 0 || strcmp(arg, "-v") == 0) {
 			verbose = 1;
-		else if (strcmp(arg, "--dry-run") == 0 || strcmp(arg, "-n") == 0)
+		} else if (strcmp(arg, "--dry-run") == 0 || strcmp(arg, "-n") == 0) {
 			dry_run = 1;
-		else {
-			fprintf(stderr, "Usage: udevtrigger [--verbose] [--dry-run]\n");
+		} else if (strcmp(arg, "--retry-failed") == 0 || strcmp(arg, "-F") == 0) {
+			scan_failed();
+			exec_lists();
+			goto exit;
+		} else {
+			fprintf(stderr, "Usage: udevtrigger [--verbose] [--dry-run] [--retry-failed]\n");
 			goto exit;
 		}
 	}
 
-	sysfs_init();
-
-	udev_scan_bus();
-	udev_scan_class();
-	udev_scan_block();
+	/* default action */
+	scan_bus();
+	scan_class();
+	scan_block();
 	exec_lists();
 
-	sysfs_cleanup();
 exit:
+	sysfs_cleanup();
 	logging_close();
 	return 0;
 }

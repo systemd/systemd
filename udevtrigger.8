@@ -14,17 +14,20 @@
 udevtrigger \- request kernel devices events for coldplug
 .SH "SYNOPSIS"
 .HP 12
-\fBudevtrigger\fR [\fB\-\-verbose\fR] [\fB\-\-dry\-run\fR]
+\fBudevtrigger\fR [\fB\-\-verbose\fR] [\fB\-\-dry\-run\fR] [\fB\-\-retry\-failed\fR]
 .SH "DESCRIPTION"
 .PP
 Trigger kernel device uevents to replay missing events at system coldplug.
 .SH "OPTIONS"
 .TP 3n
 \fB\-\-verbose\fR
-print out the devices found in sysfs.
+Print the list of devices found in sysfs.
 .TP 3n
 \fB\-\-dry\-run\fR
-don't actually trigger the event.
+Do not actually trigger the event.
+.TP 3n
+\fB\-\-retry\-failed\fR
+Trigger events which are failed during a previous run.
 .SH "ENVIRONMENT"
 .TP 3n
 \fBUDEV_LOG\fR
