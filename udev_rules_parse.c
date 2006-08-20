@@ -345,7 +345,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			continue;
 		}
 
-		if (strcasecmp(key, "SUBSYTEMS") == 0 ||
+		if (strcasecmp(key, "SUBSYSTEMS") == 0 ||
 		    strcasecmp(key, "BUS") == 0) {
 			if (operation != KEY_OP_MATCH &&
 			    operation != KEY_OP_NOMATCH) {
