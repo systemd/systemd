@@ -321,7 +321,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			continue;
 		}
 
-		if (strncasecmp(key, "ATTR", sizeof("ATTR")-1) == 0) {
+		if (strncasecmp(key, "ATTR{", sizeof("ATTR{")-1) == 0) {
 			attr = get_key_attribute(key + sizeof("ATTR")-1);
 			if (attr == NULL) {
 				err("error parsing ATTR attribute");
@@ -368,8 +368,8 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			continue;
 		}
 
-		if (strncasecmp(key, "ATTRS", sizeof("ATTRS")-1) == 0 ||
-		    strncasecmp(key, "SYSFS", sizeof("SYSFS")-1) == 0) {
+		if (strncasecmp(key, "ATTRS{", sizeof("ATTRS{")-1) == 0 ||
+		    strncasecmp(key, "SYSFS{", sizeof("SYSFS{")-1) == 0) {
 			attr = get_key_attribute(key + sizeof("ATTRS")-1);
 			if (attr == NULL) {
 				err("error parsing ATTRS attribute");
@@ -381,7 +381,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			continue;
 		}
 
-		if (strncasecmp(key, "ENV", sizeof("ENV")-1) == 0) {
+		if (strncasecmp(key, "ENV{", sizeof("ENV{")-1) == 0) {
 			attr = get_key_attribute(key + sizeof("ENV")-1);
 			if (attr == NULL) {
 				err("error parsing ENV attribute");
