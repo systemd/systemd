@@ -566,6 +566,7 @@ static struct udevd_uevent_msg *get_msg_from_envbuf(const char *buf, int buf_siz
 	int bufpos;
 	int i;
 	struct udevd_uevent_msg *msg;
+	char *physdevdriver_key = NULL;
 	int major = 0;
 	int minor = 0;
 
@@ -600,6 +601,8 @@ static struct udevd_uevent_msg *get_msg_from_envbuf(const char *buf, int buf_siz
 			msg->seqnum = strtoull(&key[7], NULL, 10);
 		else if (strncmp(key, "PHYSDEVPATH=", 12) == 0)
 			msg->physdevpath = &key[12];
+		else if (strncmp(key, "PHYSDEVDRIVER=", 14) == 0)
+			physdevdriver_key = key;
 		else if (strncmp(key, "MAJOR=", 6) == 0)
 			major = strtoull(&key[6], NULL, 10);
 		else if (strncmp(key, "MINOR=", 6) == 0)
@@ -609,6 +612,13 @@ static struct udevd_uevent_msg *get_msg_from_envbuf(const char *buf, int buf_siz
 	}
 	msg->devt = makedev(major, minor);
 	msg->envp[i++] = "UDEVD_EVENT=1";
+
+	if (msg->driver == NULL && msg->physdevpath == NULL && physdevdriver_key != NULL) {
+		/* for older kernels DRIVER is empty for a bus device, export PHYSDEVDRIVER as DRIVER */
+		msg->envp[i++] = &physdevdriver_key[7];
+		msg->driver = &physdevdriver_key[14];
+	}
+
 	msg->envp[i] = NULL;
 
 	if (msg->devpath == NULL || msg->action == NULL) {
