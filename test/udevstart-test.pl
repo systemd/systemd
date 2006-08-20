@@ -22,8 +22,6 @@ my $udev_rules  = "udev-test.rules";
 # set env
 $ENV{SYSFS_PATH} = $sysfs;
 $ENV{UDEV_CONFIG_FILE} = $udev_conf;
-$ENV{UDEV_NO_DEVD} = "yes";
-$ENV{UDEV_NO_HOTPLUGD} = "yes";
 
 # due to mknod restrictions
 if (!($<==0)) {
