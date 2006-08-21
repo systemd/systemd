@@ -2,6 +2,7 @@
  * udevtest.c
  *
  * Copyright (C) 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
+ * Copyright (C) 2004-2006 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -50,45 +51,52 @@ void log_message (int priority, const char *format, ...)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	struct udev_rules rules;
-	char *devpath;
+	struct udev_rules rules = {};
+	char *devpath = NULL;
 	struct udevice *udev;
 	struct sysfs_device *dev;
+	int i;
 	int retval;
 	int rc = 0;
 
 	info("version %s", UDEV_VERSION);
-
-	/* initialize our configuration */
 	udev_config_init();
 	if (udev_log_priority < LOG_INFO)
 		udev_log_priority = LOG_INFO;
 
-	if (argc != 2) {
-		info("Usage: udevtest <devpath>");
-		return 1;
+	for (i = 1 ; i < argc; i++) {
+		char *arg = argv[i];
+
+		if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
+			printf("Usage: udevtest [--help] <devpath>\n");
+			goto exit;
+		} else
+			devpath = arg;
+	}
+
+	if (devpath == NULL) {
+		fprintf(stderr, "devpath parameter missing\n");
+		rc = 1;
+		goto exit;
 	}
 
 	sysfs_init();
+	udev_rules_init(&rules, 0);
 
 	/* remove /sys if given */
-	if (strncmp(argv[1], sysfs_path, strlen(sysfs_path)) == 0)
-		devpath = &argv[1][strlen(sysfs_path)];
-	else
-		devpath = argv[1];
-
-	udev_rules_init(&rules, 0);
+	if (strncmp(devpath, sysfs_path, strlen(sysfs_path)) == 0)
+		devpath = &devpath[strlen(sysfs_path)];
 
 	dev = sysfs_device_get(devpath);
 	if (dev == NULL) {
-		info("unable to open '%s'", devpath);
+		fprintf(stderr, "unable to open device '%s'\n", devpath);
 		rc = 2;
 		goto exit;
 	}
 
 	udev = udev_device_init();
 	if (udev == NULL) {
-		info("can't open device");
+		fprintf(stderr, "error initializing device\n");
 		rc = 3;
 		goto exit;
 	}

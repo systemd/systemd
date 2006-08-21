@@ -1,7 +1,7 @@
 /*
  * udevcontrol.c
  *
- * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005-2006 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -50,18 +50,6 @@ void log_message (int priority, const char *format, ...)
 }
 #endif
 
-static void usage(void)
-{
-	printf("Usage: udevcontrol COMMAND\n"
-		"  log_priority=<level>   set the udev log level for the daemon\n"
-		"  stop_exec_queue        keep udevd from executing events, queue only\n"
-		"  start_exec_queue       execute events, flush queue\n"
-		"  reload_rules           reloads the rules files\n"
-		"  max_childs=<N>         maximum number of childs\n"
-		"  max_childs_running=<N> maximum number of childs running at the same time\n"
-		"  --help                 print this help text\n\n");
-}
-
 int main(int argc, char *argv[], char *envp[])
 {
 	static struct udevd_ctrl_msg ctrl_msg;
@@ -82,7 +70,6 @@ int main(int argc, char *argv[], char *envp[])
 
 	if (argc < 2) {
 		fprintf(stderr, "missing command\n\n");
-		usage();
 		goto exit;
 	}
 
@@ -133,17 +120,23 @@ int main(int argc, char *argv[], char *envp[])
 			*intval = count;
 			info("send max_childs_running=%i", *intval);
 		} else if (strcmp(arg, "help") == 0  || strcmp(arg, "--help") == 0  || strcmp(arg, "-h") == 0) {
-			usage();
+			printf("Usage: udevcontrol COMMAND\n"
+				"  log_priority=<level>   set the udev log level for the daemon\n"
+				"  stop_exec_queue        keep udevd from executing events, queue only\n"
+				"  start_exec_queue       execute events, flush queue\n"
+				"  reload_rules           reloads the rules files\n"
+				"  max_childs=<N>         maximum number of childs\n"
+				"  max_childs_running=<N> maximum number of childs running at the same time\n"
+				"  --help                 print this help text\n\n");
 			goto exit;
 		} else {
-			fprintf(stderr, "unknown option\n\n");
-			usage();
+			fprintf(stderr, "unrecognized command '%s'\n", arg);
 			goto exit;
 		}
 	}
 
 	if (getuid() != 0) {
-		fprintf(stderr, "need to be root, exit\n\n");
+		fprintf(stderr, "root privileges required\n");
 		goto exit;
 	}
 

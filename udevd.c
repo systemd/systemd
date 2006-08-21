@@ -921,63 +921,56 @@ int main(int argc, char *argv[], char *envp[])
 	const char *value;
 	int daemonize = 0;
 	int i;
-	int rc = 0;
+	int rc = 1;
 	int maxfd;
 
-	/* redirect std fd's, if the kernel forks us, we don't have them at all */
-	fd = open("/dev/null", O_RDWR);
-	if (fd >= 0) {
-		if (fd != STDIN_FILENO)
-			dup2(fd, STDIN_FILENO);
-		if (fd != STDOUT_FILENO)
-			dup2(fd, STDOUT_FILENO);
-		if (fd != STDERR_FILENO)
-			dup2(fd, STDERR_FILENO);
-		if (fd > STDERR_FILENO)
-			close(fd);
-	}
-
 	logging_init("udevd");
-	if (fd < 0)
-		err("fatal, could not open /dev/null: %s", strerror(errno));
-
 	udev_config_init();
 	selinux_init();
 	dbg("version %s", UDEV_VERSION);
 
 	if (getuid() != 0) {
-		err("need to be root, exit");
+		fprintf(stderr, "root privileges required\n");
+		err("root privileges required");
 		goto exit;
 	}
 
 	/* parse commandline options */
 	for (i = 1 ; i < argc; i++) {
 		char *arg = argv[i];
-		if (strcmp(arg, "--daemon") == 0 || strcmp(arg, "-d") == 0) {
-			info("will daemonize");
+		if (strcmp(arg, "--daemon") == 0 || strcmp(arg, "-d") == 0)
 			daemonize = 1;
+		else if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
+			printf("Usage: udevd [--help] [--daemon]\n");
+			goto exit;
+		} else {
+			fprintf(stderr, "unrecognized option '%s'\n", arg);
+			err("unrecognized option '%s'\n", arg);
 		}
 	}
 
 	/* init sockets to receive events */
 	if (init_udevd_socket() < 0) {
 		if (errno == EADDRINUSE) {
-			err("another udevd running, exit");
+			fprintf(stderr, "another udev daemon already running\n");
+			err("another udev daemon already running");
 			rc = 1;
 		} else {
-			err("error initializing udevd socket: %s", strerror(errno));
+			fprintf(stderr, "error initializing udevd socket\n");
+			err("error initializing udevd socket");
 			rc = 2;
 		}
 		goto exit;
 	}
 
 	if (init_uevent_netlink_sock() < 0) {
-		err("uevent socket not available");
+		fprintf(stderr, "error initializing netlink socket\n");
+		err("error initializing netlink socket");
 		rc = 3;
 		goto exit;
 	}
 
-	/* parse the rules and keep it in memory */
+	/* parse the rules and keep them in memory */
 	sysfs_init();
 	udev_rules_init(&rules, 1);
 
@@ -1000,6 +993,17 @@ int main(int argc, char *argv[], char *envp[])
 			goto exit;
 		}
 	}
+
+	/* redirect std fd's */
+	fd = open("/dev/null", O_RDWR);
+	if (fd >= 0) {
+		dup2(fd, STDIN_FILENO);
+		dup2(fd, STDOUT_FILENO);
+		dup2(fd, STDERR_FILENO);
+		if (fd > STDERR_FILENO)
+			close(fd);
+	} else
+		err("error opening /dev/null: %s", strerror(errno));
 
 	/* set scheduling priority for the daemon */
 	setpriority(PRIO_PROCESS, 0, UDEVD_PRIORITY);
@@ -1162,7 +1166,7 @@ int main(int argc, char *argv[], char *envp[])
 			}
 		}
 
-		/* rules changed, set by inotify or a signal*/
+		/* rules changed, set by inotify or a HUP signal */
 		if (reload_config) {
 			reload_config = 0;
 			udev_rules_cleanup(&rules);
@@ -1181,6 +1185,7 @@ int main(int argc, char *argv[], char *envp[])
 				msg_queue_manager();
 		}
 	}
+	rc = 0;
 
 exit:
 	udev_rules_cleanup(&rules);

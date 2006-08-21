@@ -118,22 +118,21 @@ int main(int argc, char *argv[])
 
 	for (i = 1 ; i < argc; i++) {
 		char *arg = argv[i];
-		if (strcmp(arg, "--env") == 0 || strcmp(arg, "-e") == 0) {
+		if (strcmp(arg, "--env") == 0 || strcmp(arg, "-e") == 0)
 			env = 1;
-		}
 		else if (strcmp(arg, "--help") == 0  || strcmp(arg, "-h") == 0){
-			printf("Usage: udevmonitor [--env]\n"
+			printf("Usage: udevmonitor [--help] [--env]\n"
 				"  --env    print the whole event environment\n"
 				"  --help   print this help text\n\n");
 			exit(0);
 		} else {
-			fprintf(stderr, "unknown option\n\n");
+			fprintf(stderr, "unrecognized option '%s'\n", arg);
 			exit(1);
 		}
 	}
 
 	if (getuid() != 0) {
-		fprintf(stderr, "need to be root, exit\n\n");
+		fprintf(stderr, "root privileges required\n");
 		exit(2);
 	}
 

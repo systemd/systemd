@@ -77,7 +77,7 @@ int main(int argc, char *argv[], char *envp[])
 		exit(0);
 	}
 
-	/* set std fd's to /dev/null, if the kernel forks us, we don't have them at all */
+	/* set std fd's to /dev/null, /sbin/hotplug forks us, we don't have them at all */
 	devnull = open("/dev/null", O_RDWR);
 	if (devnull >= 0)  {
 		if (devnull != STDIN_FILENO)
@@ -92,7 +92,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	logging_init("udev");
 	if (devnull < 0)
-		err("fatal, could not open /dev/null: %s", strerror(errno));
+		err("open /dev/null failed: %s", strerror(errno));
 	udev_config_init();
 	selinux_init();
 	dbg("version %s", UDEV_VERSION);

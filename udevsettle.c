@@ -36,7 +36,6 @@
 #define DEFAULT_TIMEOUT			180
 #define LOOP_PER_SECOND			20
 
-static const char *udev_log_str;
 
 #ifdef USE_LOG
 void log_message(int priority, const char *format, ...)
@@ -69,28 +68,30 @@ int main(int argc, char *argv[], char *envp[])
 	logging_init("udevsettle");
 	udev_config_init();
 	dbg("version %s", UDEV_VERSION);
-
-	udev_log_str = getenv("UDEV_LOG");
+	sysfs_init();
 
 	for (i = 1 ; i < argc; i++) {
 		char *arg = argv[i];
 
 		if (strncmp(arg, "--timeout=", 10) == 0) {
 			char *str = &arg[10];
+			int seconds;
 
-			timeout = atoi(str);
+			seconds = atoi(str);
+			if (seconds > 0)
+				timeout = seconds;
+			else
+				fprintf(stderr, "invalid timeout value\n");
 			dbg("timeout=%i", timeout);
-			if (timeout <= 0) {
-				fprintf(stderr, "Invalid timeout value.\n");
-				goto exit;
-			}
-		} else {
-			fprintf(stderr, "Usage: udevsettle [--timeout=<seconds>]\n");
+		} else if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
+			printf("Usage: udevsettle [--help] [--timeout=<seconds>]\n");
 			goto exit;
+		} else {
+			fprintf(stderr, "unrecognized option '%s'\n", arg);
+			err("unrecognized option '%s'\n", arg);
 		}
 	}
 
-	sysfs_init();
 	strlcpy(queuename, udev_root, sizeof(queuename));
 	strlcat(queuename, "/" EVENT_QUEUE_DIR, sizeof(queuename));
 

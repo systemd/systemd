@@ -359,6 +359,7 @@ static void scan_failed(void)
 int main(int argc, char *argv[], char *envp[])
 {
 	int i;
+	int failed = 0;
 
 	logging_init("udevtrigger");
 	udev_config_init();
@@ -373,19 +374,24 @@ int main(int argc, char *argv[], char *envp[])
 		} else if (strcmp(arg, "--dry-run") == 0 || strcmp(arg, "-n") == 0) {
 			dry_run = 1;
 		} else if (strcmp(arg, "--retry-failed") == 0 || strcmp(arg, "-F") == 0) {
-			scan_failed();
-			exec_lists();
+			failed = 1;
+		} else if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
+			printf("Usage: udevtrigger [--help] [--verbose] [--dry-run] [--retry-failed]\n");
 			goto exit;
 		} else {
-			fprintf(stderr, "Usage: udevtrigger [--verbose] [--dry-run] [--retry-failed]\n");
-			goto exit;
+			fprintf(stderr, "unrecognized option '%s'\n", arg);
+			err("unrecognized option '%s'\n", arg);
 		}
 	}
 
-	/* default action */
-	scan_bus();
-	scan_class();
-	scan_block();
+	if (failed)
+		scan_failed();
+	else {
+		/* default action */
+		scan_bus();
+		scan_class();
+		scan_block();
+	}
 	exec_lists();
 
 exit:
