@@ -174,7 +174,9 @@
                 <para>Match sysfs attribute values of the event device. Up to five
                 <option>ATTR</option> keys can be specified per rule. Trailing
                 whitespace in the attribute values is ignored, if the specified match
-                value does not contain trailing whitespace itself.</para>
+                value does not contain trailing whitespace itself. Depending on the type
+                of operator, this key is also used to set the value of a sysfs attribute.
+                </para>
               </listitem>
             </varlistentry>
 
@@ -213,8 +215,8 @@
               <term><option>ENV{<replaceable>key</replaceable>}</option></term>
               <listitem>
                 <para>Match against the value of an environment variable. Up to five <option>ENV</option>
-                keys can be specified per rule. This key can also be used to export a variable to
-                the environment.</para>
+                keys can be specified per rule. Depending on the type of operator, this key is also used
+                to export a variable to the environment.</para>
               </listitem>
             </varlistentry>
 
@@ -295,10 +297,19 @@
             </varlistentry>
 
             <varlistentry>
+              <term><option>ATTR{<replaceable>key</replaceable>}</option></term>
+              <listitem>
+                <para>The value that should be written to a sysfs attribute of the
+                event device. Depending on the type of operator, this key is also
+                used to match against the value of a sysfs attribute.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
               <term><option>ENV{<replaceable>key</replaceable>}</option></term>
               <listitem>
-                <para>Export a variable to the environment. This key can also be used to match
-                against an environment variable.</para>
+                <para>Export a variable to the environment. Depending on the type of operator,
+                this key is also to match against an environment variable.</para>
               </listitem>
             </varlistentry>
 

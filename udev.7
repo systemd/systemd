@@ -88,7 +88,7 @@ Match the subsystem of the event device.
 \fBATTR{\fR\fB\fIfilename\fR\fR\fB}\fR
 Match sysfs attribute values of the event device. Up to five
 \fBATTR\fR
-keys can be specified per rule. Trailing whitespace in the attribute values is ignored, if the specified match value does not contain trailing whitespace itself.
+keys can be specified per rule. Trailing whitespace in the attribute values is ignored, if the specified match value does not contain trailing whitespace itself. Depending on the type of operator, this key is also used to set the value of a sysfs attribute.
 .TP 3n
 \fBKERNELS\fR
 Search the devpath upwards for a matching device name.
@@ -107,7 +107,7 @@ keys can be specified per rule. All attributes must match on the same device. Tr
 \fBENV{\fR\fB\fIkey\fR\fR\fB}\fR
 Match against the value of an environment variable. Up to five
 \fBENV\fR
-keys can be specified per rule. This key can also be used to export a variable to the environment.
+keys can be specified per rule. Depending on the type of operator, this key is also used to export a variable to the environment.
 .TP 3n
 \fBPROGRAM\fR
 Execute external program. The key is true, if the program returns without exit code zero. The whole event environment is available to the executed program. The program's output printed to stdout is available for the RESULT key.
@@ -137,8 +137,11 @@ The name of a symlink targeting the node. Every matching rule can add this value
 \fBOWNER, GROUP, MODE\fR
 The permissions for the device node. Every specified value overwrites the compiled\-in default value.
 .TP 3n
+\fBATTR{\fR\fB\fIkey\fR\fR\fB}\fR
+The value that should be written to a sysfs attribute of the event device. Depending on the type of operator, this key is also used to match against the value of a sysfs attribute.
+.TP 3n
 \fBENV{\fR\fB\fIkey\fR\fR\fB}\fR
-Export a variable to the environment. This key can also be used to match against an environment variable.
+Export a variable to the environment. Depending on the type of operator, this key is also to match against an environment variable.
 .TP 3n
 \fBRUN\fR
 Add a program to the list of programs to be executed for a specific device. This can only be used for very short running tasks. Running an event process for a long period of time may block all further events for this or a dependent device. Long running tasks need to be immediately detached from the event process itself.
