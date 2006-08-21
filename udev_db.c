@@ -81,8 +81,7 @@ int udev_db_add_device(struct udevice *udev)
 	 * create only a symlink with the name as the target
 	 * if we don't have any interesting data to remember
 	 */
-	if (strcmp(udev->name, udev->dev->kernel) == 0 &&
-	    list_empty(&udev->symlink_list) && list_empty(&udev->env_list) &&
+	if (list_empty(&udev->symlink_list) && list_empty(&udev->env_list) &&
 	    !udev->partitions && !udev->ignore_remove) {
 		dbg("nothing interesting to store, create symlink");
 		unlink(filename);
