@@ -990,6 +990,7 @@ int main(int argc, char *argv[], char *envp[])
 			goto exit;
 		default:
 			dbg("child [%u] running, parent exits", pid);
+			rc = 0;
 			goto exit;
 		}
 	}
