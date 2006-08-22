@@ -3,7 +3,6 @@
 #
 # %n the "kernel number" of the device.
 #    For example, 'sda3' has a "kernel number" of '3'
-# %e the smallest number for that name which does not matches an existing node
 # %k the kernel name for the device
 # %M the kernel major number for the device
 # %m the kernel minor number for the device
@@ -14,15 +13,17 @@
 #
 
 # workaround for devices which do not report media changes
-BUS=="ide", KERNEL=="hd[a-z]", SYSFS{removable}=="1", \
+SUBSYSTEMS=="ide", KERNEL=="hd[a-z]", ATTRS{removable}=="1", \
 	ENV{ID_MODEL}=="IOMEGA_ZIP*",	NAME="%k", OPTIONS+="all_partitions"
+SUBSYSTEMS=="ide", KERNEL=="hd[a-z]", ATTRS{media}=="floppy", \
+	OPTIONS+="all_partitions"
 
 # IDE devices
-BUS=="ide", KERNEL=="hd[a-z]*", PROGRAM="ide-devfs.sh %k %b %n", \
+SUBSYSTEMS=="ide", KERNEL=="hd[a-z]*", PROGRAM="ide-devfs.sh %k %b %n", \
 					NAME="%c{1}", SYMLINK+="%k %c{2}"
 
 # SCSI devices
-BUS=="scsi", PROGRAM="scsi-devfs.sh %k %b %n", \
+SUBSYSTEMS=="scsi", PROGRAM="scsi-devfs.sh %k %b %n", \
 					NAME="%c{1}", SYMLINK+="%k %c{2}"
 
 # RAID controllers
@@ -35,15 +36,15 @@ KERNEL=="loop[0-9]*",			NAME="loop/%n"
 KERNEL=="ram[0-9]*",			NAME="rd/%n"
 
 # USB devices
-BUS=="usb", KERNEL=="auer[0-9]*",	NAME="usb/%k"
-BUS=="usb", KERNEL=="cpad[0-9]*",	NAME="usb/%k"
-BUS=="usb", KERNEL=="dabusb*",		NAME="usb/%k"
-BUS=="usb", KERNEL=="hiddev*",		NAME="usb/%k"
-BUS=="usb", KERNEL=="legousbtower*",	NAME="usb/%k"
-BUS=="usb", KERNEL=="lp[0-9]*",		NAME="usb/%k"
-BUS=="usb", KERNEL=="ttyUSB*", \
-	SYSFS{product}=="Palm Handheld*|Handspring Visor", \
-					SYMLINK+="pilot"
+SUBSYSTEMS=="usb", KERNEL=="auer[0-9]*",	NAME="usb/%k"
+SUBSYSTEMS=="usb", KERNEL=="cpad[0-9]*",	NAME="usb/%k"
+SUBSYSTEMS=="usb", KERNEL=="dabusb*",		NAME="usb/%k"
+SUBSYSTEMS=="usb", KERNEL=="hiddev*",		NAME="usb/%k"
+SUBSYSTEMS=="usb", KERNEL=="legousbtower*",	NAME="usb/%k"
+SUBSYSTEMS=="usb", KERNEL=="lp[0-9]*",		NAME="usb/%k"
+SUBSYSTEMS=="usb", KERNEL=="ttyUSB*", \
+	ATTRS{product}=="Palm Handheld*|Handspring Visor|palmOne Handheld", \
+						SYMLINK+="pilot"
 
 # usbfs-like devices
 SUBSYSTEM=="usb_device",	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", \
@@ -81,6 +82,7 @@ KERNEL=="nvram",		NAME="misc/%k"
 KERNEL=="psaux",		NAME="misc/%k"
 KERNEL=="rtc",			NAME="misc/%k"
 KERNEL=="tun",			NAME="net/%k"
+KERNEL=="evtchn",		NAME="xen/%k"
 
 # printers and parallel devices
 KERNEL=="lp[0-9]*",		NAME="printers/%n"

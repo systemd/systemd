@@ -4,26 +4,30 @@ ACTION!="add",				GOTO="persistent_input_end"
 KERNEL=="input[0-9]*",			GOTO="persistent_input_end"
 
 # usb devices
-BUS=="usb",				IMPORT{program}="usb_id -x"
-BUS=="usb", SYSFS{bInterfaceClass}=="03", SYSFS{bInterfaceProtocol}=="01", \
+SUBSYSTEMS=="usb",			IMPORT{program}="usb_id -x"
+SUBSYSTEMS=="usb", \
+	ATTRS{bInterfaceClass}=="03", ATTRS{bInterfaceProtocol}=="01", \
 					ENV{ID_CLASS}="kbd"
-BUS=="usb", SYSFS{bInterfaceClass}=="03", SYSFS{bInterfaceProtocol}=="02", \
+SUBSYSTEMS=="usb", \
+	ATTRS{bInterfaceClass}=="03", ATTRS{bInterfaceProtocol}=="02", \
 					ENV{ID_CLASS}="mouse"
 
 # other devices
-DRIVER=="pcspkr",			ENV{ID_CLASS}="spkr"
-DRIVER=="atkbd",			ENV{ID_CLASS}="kbd"
-DRIVER=="psmouse",			ENV{ID_CLASS}="mouse"
-SYSFS{name}=="*dvb*|*DVB*|* IR *",	ENV{ID_CLASS}="ir"
+DRIVERS=="pcspkr",			ENV{ID_CLASS}="spkr"
+DRIVERS=="atkbd",			ENV{ID_CLASS}="kbd"
+DRIVERS=="psmouse",			ENV{ID_CLASS}="mouse"
+ATTRS{name}=="*dvb*|*DVB*|* IR *",	ENV{ID_CLASS}="ir"
+# this means (ABS_X || ABS_WHEEL || ABS_THROTTLE) && !BTN_TOUCH
+ATTRS{modalias}=="input:*-*a[068],*|input:*-*a*,[68],*m*", \
+	ATTRS{modalias}!="input:*-*k*14A,*r*", \
+					ENV{ID_CLASS}="joystick"
 
 ENV{ID_SERIAL}=="",			ENV{ID_SERIAL}="noserial"
 
 # by-id links, generic and for the event devices
-KERNEL=="mouse*", \
-	ENV{ID_BUS}=="?*", ENV{ID_SERIAL}=="?*", ENV{ID_CLASS}=="?*", \
+KERNEL=="mouse*", ENV{ID_BUS}=="?*", ENV{ID_CLASS}=="?*", \
 	SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-$env{ID_CLASS}"
-KERNEL=="event*", \
-	ENV{ID_BUS}=="?*", ENV{ID_SERIAL}=="?*", ENV{ID_CLASS}=="?*", \
+KERNEL=="event*", ENV{ID_BUS}=="?*", ENV{ID_CLASS}=="?*", \
 	SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-event-$env{ID_CLASS}"
 
 # by-path links

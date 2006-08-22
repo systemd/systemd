@@ -3,7 +3,6 @@
 #
 # %n the "kernel number" of the device.
 #    For example, 'sda3' has a "kernel number" of '3'
-# %e the smallest number for that name which does not matches an existing node
 # %k the kernel name for the device
 # %M the kernel major number for the device
 # %m the kernel minor number for the device
@@ -14,21 +13,23 @@
 #
 
 # workaround for devices which do not report media changes
-BUS=="ide", KERNEL=="hd[a-z]", SYSFS{removable}=="1", \
+SUBSYSTEMS=="ide", KERNEL=="hd[a-z]", ATTRS{removable}=="1", \
 	ENV{ID_MODEL}=="IOMEGA_ZIP*",	NAME="%k", OPTIONS+="all_partitions"
+SUBSYSTEMS=="ide", KERNEL=="hd[a-z]", ATTRS{media}=="floppy", \
+	OPTIONS+="all_partitions"
 
 # SCSI devices
-BUS=="scsi", KERNEL=="sr[0-9]*",	NAME="scd%n", SYMLINK+="sr%n"
+SUBSYSTEMS=="scsi", KERNEL=="sr[0-9]*",	NAME="scd%n", SYMLINK+="sr%n"
 
 # USB devices
-BUS=="usb", KERNEL=="auer[0-9]*",	NAME="usb/%k"
-BUS=="usb", KERNEL=="cpad[0-9]*",	NAME="usb/%k"
-BUS=="usb", KERNEL=="dabusb*",		NAME="usb/%k"
-BUS=="usb", KERNEL=="hiddev*",		NAME="usb/%k"
-BUS=="usb", KERNEL=="legousbtower*",	NAME="usb/%k"
-BUS=="usb", KERNEL=="lp[0-9]*",		NAME="usb/%k"
-BUS=="usb", KERNEL=="ttyUSB*", \
-	SYSFS{product}=="Palm Handheld*|Handspring Visor", \
+SUBSYSTEMS=="usb", KERNEL=="auer[0-9]*",	NAME="usb/%k"
+SUBSYSTEMS=="usb", KERNEL=="cpad[0-9]*",	NAME="usb/%k"
+SUBSYSTEMS=="usb", KERNEL=="dabusb*",		NAME="usb/%k"
+SUBSYSTEMS=="usb", KERNEL=="hiddev*",		NAME="usb/%k"
+SUBSYSTEMS=="usb", KERNEL=="legousbtower*",	NAME="usb/%k"
+SUBSYSTEMS=="usb", KERNEL=="lp[0-9]*",		NAME="usb/%k"
+SUBSYSTEMS=="usb", KERNEL=="ttyUSB*", \
+	ATTRS{product}=="Palm Handheld*|Handspring Visor|palmOne Handheld", \
 					SYMLINK+="pilot"
 
 # usbfs-like devices
@@ -47,6 +48,7 @@ KERNEL=="card[0-9]*",		NAME="dri/%k"
 # misc devices
 KERNEL=="hw_random",		NAME="hwrng"
 KERNEL=="tun",			NAME="net/%k"
+KERNEL=="evtchn",		NAME="xen/%k"
 
 KERNEL=="cdemu[0-9]*",		NAME="cdemu/%n"
 KERNEL=="pktcdvd[0-9]*",	NAME="pktcdvd/%n"

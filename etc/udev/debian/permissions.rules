@@ -1,6 +1,7 @@
 ACTION!="add", GOTO="permissions_end"
 
 # workarounds needed to synchronize with sysfs
+# only needed for kernels < v2.6.18-rc1
 DEVPATH=="/devices/*", ENV{PHYSDEVBUS}=="?*",	WAIT_FOR_SYSFS="bus"
 SUBSYSTEM=="scsi",				WAIT_FOR_SYSFS="ioerr_cnt"
 # only needed for kernels < 2.6.16
@@ -10,31 +11,32 @@ SUBSYSTEM=="net", ENV{PHYSDEVDRIVER}=="?*",	WAIT_FOR_SYSFS="device/driver"
 
 # default permissions for block devices
 SUBSYSTEM=="block",				GROUP="disk"
-SUBSYSTEM=="block", SYSFS{removable}=="1",	GROUP="floppy"
+SUBSYSTEM=="block", ATTRS{removable}=="1",	GROUP="floppy"
 
 # IDE devices
-BUS=="ide", KERNEL=="hd[a-z]|pcd[0-9]*", DRIVER=="ide-cdrom|pcd", \
+KERNEL=="hd[a-z]|pcd[0-9]*", 			DRIVERS=="ide-cdrom|pcd", \
 	IMPORT{program}="cdrom_id --export $tempnode"
 ENV{ID_CDROM}=="?*",				GROUP="cdrom"
-BUS=="ide", KERNEL=="ht[0-9]*",			GROUP="tape"
-BUS=="ide", KERNEL=="nht[0-9]*",		GROUP="tape"
+KERNEL=="ht[0-9]*", 				GROUP="tape"
+KERNEL=="nht[0-9]*", 				GROUP="tape"
 
 # SCSI devices
-BUS=="scsi", SYSFS{type}=="1",			GROUP="tape"
-BUS=="scsi", SYSFS{type}=="3", SYSFS{vendor}=="HP", GROUP="scanner"
-BUS=="scsi", SYSFS{type}=="5",			GROUP="cdrom"
-BUS=="scsi", SYSFS{type}=="6",			GROUP="scanner"
+SUBSYSTEMS=="scsi", ATTRS{type}=="1",				GROUP="tape"
+SUBSYSTEMS=="scsi", ATTRS{type}=="3", ATTRS{vendor}=="HP",	GROUP="scanner"
+SUBSYSTEMS=="scsi", ATTRS{type}=="3", ATTRS{vendor}=="Epson",	GROUP="scanner"
+SUBSYSTEMS=="scsi", ATTRS{type}=="5",				GROUP="cdrom"
+SUBSYSTEMS=="scsi", ATTRS{type}=="6",				GROUP="scanner"
 
 # USB devices
-BUS=="usb", KERNEL=="legousbtower*", MODE="0666"
-BUS=="usb", KERNEL=="lp[0-9]*",			GROUP="lp"
+KERNEL=="legousbtower*",	MODE="0666"
+KERNEL=="lp[0-9]*", SUBSYSTEMS=="usb",		GROUP="lp"
 
 # usbfs-like devices
 SUBSYSTEM=="usb_device",	MODE="0664"
 
 # iRiver music players
 SUBSYSTEM=="usb_device",			GROUP="plugdev", \
-	SYSFS{idVendor}=="4102", SYSFS{idProduct}=="10[01][135789]"
+	ATTRS{idVendor}=="4102", ATTRS{idProduct}=="10[01][135789]"
 
 # serial devices
 SUBSYSTEM=="tty",				GROUP="dialout"
@@ -74,6 +76,7 @@ KERNEL=="nvram",				GROUP="nvram"
 KERNEL=="rtc",					GROUP="audio"
 KERNEL=="tpm*",			MODE="0600",	OWNER="tss", GROUP="tss"
 KERNEL=="fuse",					GROUP="fuse"
+KERNEL=="kqemu",		MODE="0666"
 
 KERNEL=="cdemu[0-9]*",				GROUP="cdrom"
 KERNEL=="pktcdvd[0-9]*",			GROUP="cdrom"
@@ -85,6 +88,7 @@ KERNEL=="ucm*",					GROUP="rdma"
 # printers and parallel devices
 SUBSYSTEM=="printer",				GROUP="lp"
 SUBSYSTEM=="ppdev",				GROUP="lp"
+KERNEL=="irlpt*",				GROUP="lp"
 KERNEL=="pt[0-9]*",				GROUP="tape"
 KERNEL=="pht[0-9]*",				GROUP="tape"
 
@@ -97,7 +101,7 @@ KERNEL=="dv1394*",				GROUP="video"
 KERNEL=="video1394*",				GROUP="video"
 
 # input devices
-KERNEL=="event[0-9]*", SYSFS{name}=="*dvb*|*DVB*|* IR *" \
+KERNEL=="event[0-9]*", ATTRS{name}=="*dvb*|*DVB*|* IR *" \
 				MODE="0664",	GROUP="video"
 KERNEL=="js[0-9]*",		MODE="0664"
 
