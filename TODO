@@ -1,13 +1,38 @@
-These things need to be done, or would be nice to have:
-
-  o Log the relationship of the kernel name and the persistent disk name
+These things would be nice to have:
+  o log the relationship of the kernel name and the persistent disk name
     to syslog, so any error logged from the kernel can be associated with
-    any of the links at that time.
+    any of the links at that time
+
+These things will change in future udev versions:
+  o remove /sys prefix from symlinks in /dev/.udev/{queue,failed}
+    (broken tools search /dev for files and get lost following to /sys
+     and stat() sysfs files million times)
+
+  o make DRIVER== to match only the event device
+    (DRIVERS must be used, we currently translate it to DRIVERS and print
+     an error if DRIVER is used)
+
+  o switch to fnmatch() instead of our own implementation
+
+  o warn if PHYSDEV* keys are used in ENV keys
+    (they are deprecated and will be removed from a future kernel)
+
+  o warn if "/device/" is used in a ATTR, ATTRS, $sysfs key
+    (the device link must not be used in rules or tools, udev resolves
+     the link and makes the devices available as parents, which can
+     be matched with the normal keys)
+
+  o warn if BUS, ID, SYSFS are used as keys
+    (they are SUBSYSTEMS, KERNELS, ATTRS now)
 
 These things are deprecated and scheduled for removal in a future
 udev version:
+  o remove old udevdb dump 'udevinfo -d'
+    (-e exports everything)
 
   o remove udevstart
     (we rely on the kernel "uevent" triggers of kernel 2.6.15 and no longer
      want to guess event properties from sysfs like udevstart is doing it)
 
+  o remove extra for /etc/dev.d/ /etc/hotplug.d/
+    (that inefficient stuff should finally go away)

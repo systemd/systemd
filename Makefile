@@ -1,6 +1,6 @@
 # Makefile for udev
 #
-# Copyright (C) 2003,2004 Greg Kroah-Hartman <greg@kroah.com>
+# Copyright (C) 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
 # Copyright (C) 2004-2006 Kay Sievers <kay.sievers@vrfy.org>
 #
 # This program is free software; you can redistribute it and/or modify
@@ -17,7 +17,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 #
 
-VERSION = 097
+VERSION = 098
 
 # set this to make use of syslog
 USE_LOG = true
@@ -91,7 +91,7 @@ MAN_PAGES = \
 GEN_HEADERS = \
 	udev_version.h
 
-prefix =
+prefix ?=
 etcdir =	${prefix}/etc
 sbindir =	${prefix}/sbin
 usrbindir =	${prefix}/usr/bin
@@ -108,7 +108,7 @@ INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL_PROGRAM}
 PWD = $(shell pwd)
 
-CROSS_COMPILE =
+CROSS_COMPILE ?=
 CC = $(CROSS_COMPILE)gcc
 LD = $(CROSS_COMPILE)gcc
 AR = $(CROSS_COMPILE)ar

@@ -1,3 +1,60 @@
+udev 098
+========
+Bugfixes.
+
+Renaming of some key names (the old names still work):
+BUS -> SUBSYSTEMS, ID -> KERNELS, SYSFS -> ATTRS, DRIVER -> DRIVERS.
+(The behavior of the key DRIVER will change soon in one of the next
+releases, to match only the event device, please switch to DRIVERS
+instead. If DRIVER is used, it will behave like DRIVERS, but an error
+is logged.
+With the new key names, we have a more consistent and simpler scheme.
+We can match the properties of the event device only, with: KERNEL,
+SUBSYSTEM, ATTR, DRIVER. Or include all the parent devices in the match,
+with: KERNELS, SUBSYSTEMS, ATTRS, DRIVERS. ID, BUS, SYSFS, DRIVER are no
+longer mentioned in the man page and should be switched in the rule
+files.
+
+ATTR{file}="value" can be used now, to write to a sysfs file of the
+event device. Instead of:
+  ..., SYSFS{type}=="0|7|14", RUN+="/bin/sh -c 'echo 60 > /sys$$DEVPATH/timeout'"
+we now can do:
+  ..., ATTR{type}=="0|7|14", ATTR{timeout}="60"
+
+All the PHYSDEV* keys are deprecated and will be removed from a
+future kernel:
+  PHYDEVPATH -    is the path of a parent device and should not be
+                  needed at all.
+  PHYSDEVBUS -    is just a SUBSYSTEM value of a parent, and can be
+                  matched with SUBSYSTEMS==
+  PHYSDEVDRIVER - for bus devices it is available as ENV{DRIVER}.
+                  Newer kernels will have DRIVER in the environment,
+                  for older kernels udev puts in. Class device will
+                  no longer carry this property of a parent and
+                  DRIVERS== can be used to match such a parent value.
+Note that ENV{DRIVER} is only available for a few bus devices, where
+the driver is already bound at device event time. On coldplug, the
+events for a lot devices are already bound to a driver, and they will have
+that value set. But on hotplug, at the time the kernel creates the device,
+it can't know what driver may claim the device after that, therefore
+in most cases it will be empty.
+
+Failed events should now be re-triggered with:
+   udevtrigger --retry-failed.
+Please switch to this command, so we keep the details of the /dev/.udev/failed/
+files private to the udev tools. We may need to switch the current symlink
+target, cause some obviously broken tools try to scan all files in /dev
+including /dev/.udev/, find the links to /sys and end up stat()'ing sysfs files
+million times. This takes ages on slow boxes.
+
+The udevinfo attribute walk (-a) now works with giving a device node
+name (-n) instead of a devpath (-p). The query now always works, also when
+no database file was created by udev.
+
+The built-in /etc/passwd /etc/group parser is removed, we always depend on
+getpwnam() and getgrnam() now. One of the next releases will depend on
+fnmatch() and may use getopt_long().
+
 udev 097
 ========
 Bugfixes and small improvements.
@@ -8,7 +65,7 @@ Fix path_id for recent kernels.
 
 udev 095
 ========
-%e is finaly gone.
+%e is finally gone.
 
 Added support for swapping network interface names, by temporarily
 renaming the device and wait for the target name to become free.
