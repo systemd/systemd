@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <syslog.h>
+#include <fnmatch.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 
@@ -246,7 +247,7 @@ static int import_parent_into_env(struct udevice *udev, const char *filter)
 				if (pos) {
 					pos[0] = '\0';
 					pos++;
-					if (strcmp_pattern(filter, name) == 0) {
+					if (fnmatch(filter, name, 0) == 0) {
 						dbg("import key '%s'", name_loop->name);
 						name_list_add(&udev->env_list, name_loop->name, 0);
 						setenv(name, pos, 1);
@@ -583,7 +584,7 @@ static int match_key(const char *key_name, struct udev_rule *rule, struct key *k
 			pos++;
 		}
 		dbg("match %s '%s' <-> '%s'", key_name, key_value, val);
-		match = (strcmp_pattern(key_value, val) == 0);
+		match = (fnmatch(key_value, val, 0) == 0);
 		if (match && (key->operation != KEY_OP_NOMATCH)) {
 			dbg("%s is true (matching value)", key_name);
 			return 0;

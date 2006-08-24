@@ -143,7 +143,6 @@ extern uid_t lookup_user(const char *user);
 extern gid_t lookup_group(const char *group);
 
 /* udev_utils_string.c */
-extern int strcmp_pattern(const char *p, const char *s);
 extern int string_is_true(const char *str);
 extern void remove_trailing_chars(char *path, char c);
 extern int utf8_encoded_valid_unichar(const char *str);

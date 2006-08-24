@@ -32,59 +32,6 @@
 
 #include "udev.h"
 
-/* compare string with pattern (like fnmatch(), supports * ? [0-9] [!A-Z]) */
-int strcmp_pattern(const char *p, const char *s)
-{
-	if (s[0] == '\0') {
-		while (p[0] == '*')
-			p++;
-		return (p[0] != '\0');
-	}
-	switch (p[0]) {
-	case '[':
-		{
-			int not = 0;
-			p++;
-			if (p[0] == '!') {
-				not = 1;
-				p++;
-			}
-			while ((p[0] != '\0') && (p[0] != ']')) {
-				int match = 0;
-				if (p[1] == '-') {
-					if ((s[0] >= p[0]) && (s[0] <= p[2]))
-						match = 1;
-					p += 3;
-				} else {
-					match = (p[0] == s[0]);
-					p++;
-				}
-				if (match ^ not) {
-					while ((p[0] != '\0') && (p[0] != ']'))
-						p++;
-					if (p[0] == ']')
-						return strcmp_pattern(p+1, s+1);
-				}
-			}
-		}
-		break;
-	case '*':
-		if (strcmp_pattern(p, s+1))
-			return strcmp_pattern(p+1, s);
-		return 0;
-	case '\0':
-		if (s[0] == '\0') {
-			return 0;
-		}
-		break;
-	default:
-		if ((p[0] == s[0]) || (p[0] == '?'))
-			return strcmp_pattern(p+1, s+1);
-		break;
-	}
-	return 1;
-}
-
 int string_is_true(const char *str)
 {
 	if (strcasecmp(str, "true") == 0)
