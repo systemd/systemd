@@ -122,7 +122,7 @@ int udev_db_get_device(struct udevice *udev, const char *devpath)
 	struct stat stats;
 	char filename[PATH_SIZE];
 	char line[PATH_SIZE];
-	unsigned int major, minor;
+	unsigned int maj, min;
 	char *bufline;
 	char *buf;
 	size_t bufsize;
@@ -176,8 +176,8 @@ int udev_db_get_device(struct udevice *udev, const char *devpath)
 				count = sizeof(line);
 			memcpy(line, &bufline[2], count-2);
 			line[count-2] = '\0';
-			sscanf(line, "%u:%u", &major, &minor);
-			udev->devt = makedev(major, minor);
+			sscanf(line, "%u:%u", &maj, &min);
+			udev->devt = makedev(maj, min);
 			break;
 		case 'S':
 			if (count > sizeof(line))

@@ -70,13 +70,13 @@ void udev_device_cleanup(struct udevice *udev)
 dev_t udev_device_get_devt(struct udevice *udev)
 {
 	const char *attr;
-	unsigned int major, minor;
+	unsigned int maj, min;
 
 	/* read it from sysfs  */
 	attr = sysfs_attr_get_value(udev->dev->devpath, "dev");
 	if (attr != NULL) {
-		if (sscanf(attr, "%u:%u", &major, &minor) == 2)
-			return makedev(major, minor);
+		if (sscanf(attr, "%u:%u", &maj, &min) == 2)
+			return makedev(maj, min);
 	}
 	return makedev(0, 0);
 }

@@ -567,8 +567,8 @@ static struct udevd_uevent_msg *get_msg_from_envbuf(const char *buf, int buf_siz
 	int i;
 	struct udevd_uevent_msg *msg;
 	char *physdevdriver_key = NULL;
-	int major = 0;
-	int minor = 0;
+	int maj = 0;
+	int min = 0;
 
 	msg = malloc(sizeof(struct udevd_uevent_msg) + buf_size);
 	if (msg == NULL)
@@ -604,13 +604,13 @@ static struct udevd_uevent_msg *get_msg_from_envbuf(const char *buf, int buf_siz
 		else if (strncmp(key, "PHYSDEVDRIVER=", 14) == 0)
 			physdevdriver_key = key;
 		else if (strncmp(key, "MAJOR=", 6) == 0)
-			major = strtoull(&key[6], NULL, 10);
+			maj = strtoull(&key[6], NULL, 10);
 		else if (strncmp(key, "MINOR=", 6) == 0)
-			minor = strtoull(&key[6], NULL, 10);
+			min = strtoull(&key[6], NULL, 10);
 		else if (strncmp(key, "TIMEOUT=", 8) == 0)
 			msg->timeout = strtoull(&key[8], NULL, 10);
 	}
-	msg->devt = makedev(major, minor);
+	msg->devt = makedev(maj, min);
 	msg->envp[i++] = "UDEVD_EVENT=1";
 
 	if (msg->driver == NULL && msg->physdevpath == NULL && physdevdriver_key != NULL) {
