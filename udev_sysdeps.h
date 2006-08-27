@@ -1,5 +1,5 @@
 /*
- * udev_sysdeps.h - wrapping of libc features and kernel defines
+ * wrapping of libc features and kernel interfaces
  *
  * Copyright (C) 2005-2006 Kay Sievers <kay.sievers@vrfy.org>
  *
@@ -14,7 +14,7 @@
  * 
  *	You should have received a copy of the GNU General Public License along
  *	with this program; if not, write to the Free Software Foundation, Inc.,
- *	675 Mass Ave, Cambridge, MA 02139, USA.
+ *	51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  */
 

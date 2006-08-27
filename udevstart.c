@@ -1,13 +1,9 @@
 /*
- * udevstart.c
+ * quick and dirty way to populate a /dev directory
  *
+ * Copyright (C) 2004 Harald Hoyer <harald@redhat.com>
  * Copyright (C) 2004 Greg Kroah-Hartman <greg@kroah.com>
- * Copyright (C) 2004 Kay Sievers <kay@vrfy.org>
- *
- * Quick and dirty way to populate a /dev with udev if your system
- * does not have access to a shell.  Based originally on a patch
- * from:
- *	Harald Hoyer <harald@redhat.com>
+ * Copyright (C) 2004-2006 Kay Sievers <kay@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -20,7 +16,7 @@
  * 
  *	You should have received a copy of the GNU General Public License along
  *	with this program; if not, write to the Free Software Foundation, Inc.,
- *	675 Mass Ave, Cambridge, MA 02139, USA.
+ *	51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  *
  */
 
