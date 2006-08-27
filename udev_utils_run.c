@@ -151,10 +151,14 @@ int run_program(const char *command, const char *subsystem,
 			close(devnull);
 		} else
 			err("open /dev/null failed: %s", strerror(errno));
-		if (outpipe[WRITE_END] > 0)
+		if (outpipe[WRITE_END] > 0) {
 			dup2(outpipe[WRITE_END], STDOUT_FILENO);
-		if (errpipe[WRITE_END] > 0)
+			close(outpipe[WRITE_END]);
+		}
+		if (errpipe[WRITE_END] > 0) {
 			dup2(errpipe[WRITE_END], STDERR_FILENO);
+			close(errpipe[WRITE_END]);
+		}
 		execv(argv[0], argv);
 
 		/* we should never reach this */
