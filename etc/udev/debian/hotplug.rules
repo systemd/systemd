@@ -1,7 +1,7 @@
 ACTION!="add", GOTO="hotplug_not_add_event"
 
 # check if the device has already been claimed by a driver
-ENV{PHYSDEVDRIVER}=="?*", SUBSYSTEM!="input", GOTO="hotplug_driver_loaded"
+ENV{DRIVER}=="?*", SUBSYSTEM!="input", GOTO="hotplug_driver_loaded"
 
 # load the drivers
 ENV{MODALIAS}=="?*",	RUN+="/sbin/modprobe $env{MODALIAS}"
@@ -25,7 +25,7 @@ SUBSYSTEM=="scsi_device", ATTRS{type}=="1",	RUN+="/sbin/modprobe st", \
 SUBSYSTEM=="scsi_device", ATTRS{type}=="[45]",	RUN+="/sbin/modprobe sr_mod"
 SUBSYSTEM=="scsi_device", ATTRS{type}=="[235689]", RUN+="/sbin/modprobe sg"
 
-SUBSYSTEM=="ide", ATTRS{media}=="tape",		RUN+="/sbin/modprobe ide-scsi"
+SUBSYSTEM=="ide", ATTR{media}=="tape",		RUN+="/sbin/modprobe ide-scsi"
 
 # From here on follows the hotplug agents which do not load modules
 LABEL="hotplug_driver_loaded"
@@ -34,11 +34,11 @@ LABEL="hotplug_driver_loaded"
 #SUBSYSTEM=="scsi_device", ATTRS{idVendor}=="...", \
 #	RUN+="scsi-re-add"
 
-SUBSYSTEM=="firmware",		RUN+="firmware.agent"
+SUBSYSTEM=="firmware",				RUN+="firmware.agent"
 
 LABEL="hotplug_not_add_event"
 
-SUBSYSTEM=="net",		RUN+="/bin/sh -c '/lib/udev/net.agent &'"
+SUBSYSTEM=="net",				RUN+="net.agent"
 
 # Log every event to /dev/hotplug.log (for debugging).
 #RUN+="logger.agent"

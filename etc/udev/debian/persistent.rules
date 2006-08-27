@@ -8,9 +8,9 @@ ACTION!="add",				GOTO="no_volume_id"
 KERNEL=="ram*|loop*|fd*|nbd*|dm-*",	GOTO="no_volume_id"
 
 # skip removable ide devices, because open(2) on them causes an events loop
-KERNEL=="hd*[!0-9]",   ATTRS{removable}=="1", DRIVERS=="ide-cs|ide-floppy", \
+KERNEL=="hd*[!0-9]",   ATTR{removable}=="1", DRIVERS=="ide-cs|ide-floppy", \
 	GOTO="no_volume_id"
-KERNEL=="hd*[0-9]", ATTRS{../removable}=="1", \
+KERNEL=="hd*[0-9]", ATTR{../removable}=="1", \
 	GOTO="no_volume_id"
 
 # skip xen virtual hard disks
@@ -21,7 +21,7 @@ KERNEL=="hd*[!0-9]", \
 	IMPORT{program}="ata_id --export $tempnode"
 
 KERNEL=="sd*[!0-9]|sr*|st*",		ATTRS{ieee1394_id}=="?*", \
-	ENV{ID_BUS}="ieee1394", ENV{ID_SERIAL}="$sysfs{ieee1394_id}"
+	ENV{ID_BUS}="ieee1394", ENV{ID_SERIAL}="$attr{ieee1394_id}"
 KERNEL=="sd*[!0-9]|sr*|st*",		ENV{ID_SERIAL}=="", \
 	IMPORT{program}="usb_id -x"
 KERNEL=="sd*[!0-9]|sr*|st*",		ENV{ID_SERIAL}=="", \
@@ -67,7 +67,7 @@ KERNEL=="*[0-9]",			ENV{ID_PATH}=="?*", \
 	SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 
 # UUID and volume label
-KERNEL=="*[!0-9]", ATTRS{removable}=="1", GOTO="no_volume_id"
+KERNEL=="*[!0-9]", ATTR{removable}=="1", GOTO="no_volume_id"
 IMPORT{program}="vol_id --export $tempnode"
 ENV{ID_FS_UUID}=="?*",		ENV{ID_FS_USAGE}=="filesystem|other|crypto", \
 	SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"

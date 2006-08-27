@@ -13,7 +13,7 @@
 #
 
 # workaround for devices which do not report media changes
-SUBSYSTEMS=="ide", KERNEL=="hd[a-z]", ATTRS{removable}=="1", \
+SUBSYSTEMS=="ide", KERNEL=="hd[a-z]", ATTR{removable}=="1", \
 	ENV{ID_MODEL}=="IOMEGA_ZIP*",	NAME="%k", OPTIONS+="all_partitions"
 SUBSYSTEMS=="ide", KERNEL=="hd[a-z]", ATTRS{media}=="floppy", \
 	OPTIONS+="all_partitions"

@@ -2,16 +2,16 @@ ACTION!="add", GOTO="permissions_end"
 
 # workarounds needed to synchronize with sysfs
 # only needed for kernels < v2.6.18-rc1
-DEVPATH=="/devices/*", ENV{PHYSDEVBUS}=="?*",	WAIT_FOR_SYSFS="bus"
+ENV{PHYSDEVPATH}!="?*", ENV{PHYSDEVBUS}=="?*",	WAIT_FOR_SYSFS="bus"
 SUBSYSTEM=="scsi",				WAIT_FOR_SYSFS="ioerr_cnt"
 # only needed for kernels < 2.6.16
 SUBSYSTEM=="net",				WAIT_FOR_SYSFS="address"
 # only needed for kernels < 2.6.17
-SUBSYSTEM=="net", ENV{PHYSDEVDRIVER}=="?*",	WAIT_FOR_SYSFS="device/driver"
+SUBSYSTEM=="net", ENV{DRIVER}=="?*",		WAIT_FOR_SYSFS="device/driver"
 
 # default permissions for block devices
 SUBSYSTEM=="block",				GROUP="disk"
-SUBSYSTEM=="block", ATTRS{removable}=="1",	GROUP="floppy"
+SUBSYSTEM=="block", ATTR{removable}=="1",	GROUP="floppy"
 
 # IDE devices
 KERNEL=="hd[a-z]|pcd[0-9]*", 			DRIVERS=="ide-cdrom|pcd", \
@@ -21,6 +21,7 @@ KERNEL=="ht[0-9]*", 				GROUP="tape"
 KERNEL=="nht[0-9]*", 				GROUP="tape"
 
 # SCSI devices
+KERNEL=="sr[0-9]*", IMPORT{program}="cdrom_id --export $tempnode"
 SUBSYSTEMS=="scsi", ATTRS{type}=="1",				GROUP="tape"
 SUBSYSTEMS=="scsi", ATTRS{type}=="3", ATTRS{vendor}=="HP",	GROUP="scanner"
 SUBSYSTEMS=="scsi", ATTRS{type}=="3", ATTRS{vendor}=="Epson",	GROUP="scanner"
