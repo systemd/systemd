@@ -111,6 +111,11 @@ int main(int argc, char *argv[], char *envp[])
 	setenv("SUBSYSTEM", udev->dev->subsystem, 1);
 	setenv("ACTION", "add", 1);
 
+	printf("This program is for debugging only, it does not create any node,\n"
+	       "or run any program specified by a RUN key. It may show incorrect results,\n"
+	       "if rules match against subsystem specfic kernel event variables.\n"
+	       "\n");
+
 	info("looking at device '%s' from subsystem '%s'", udev->dev->devpath, udev->dev->subsystem);
 	retval = udev_device_event(&rules, udev);
 	if (retval == 0 && !udev->ignore_device && udev_run) {
