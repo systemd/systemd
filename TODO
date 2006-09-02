@@ -4,20 +4,18 @@ These things would be nice to have:
     any of the links at that time
 
 These things will change in future udev versions:
-  o remove /sys prefix from symlinks in /dev/.udev/{queue,failed}
+  o use zero sized files instead of symlinks in /dev/.udev/{queue,failed}
     (broken tools search /dev for files and get lost following to /sys
      and stat() sysfs files million times)
 
   o make DRIVER== to match only the event device
     (DRIVERS must be used, we currently translate it to DRIVERS and print
-     an error if DRIVER is used)
-
-  o switch to fnmatch() instead of our own implementation
+     a warning if DRIVER is used)
 
   o warn if PHYSDEV* keys are used in ENV keys
     (they are deprecated and will be removed from a future kernel)
 
-  o warn if "/device/" is used in a ATTR, ATTRS, $sysfs key
+  o warn if "device/" is used in a ATTR{}, ATTRS{}, $attr{} key
     (the device link must not be used in rules or tools, udev resolves
      the link and makes the devices available as parents, which can
      be matched with the normal keys)

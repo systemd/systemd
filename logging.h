@@ -1,5 +1,5 @@
 /*
- * Simple logging functions that can be compiled away into nothing.
+ * simple logging functions that can be expanded into nothing
  *
  * Copyright (C) 2003-2004 Greg Kroah-Hartman <greg@kroah.com>
  * Copyright (C) 2004-2006 Kay Sievers <kay.sievers@vrfy.org>
