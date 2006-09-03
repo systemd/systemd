@@ -168,7 +168,7 @@ int main(int argc, char *argv[], char *envp[])
 	struct udevice *udev;
 	int root = 0;
 
-	struct option options[] = {
+	static const struct option options[] = {
 		{ "name", 1, NULL, 'n' },
 		{ "path", 1, NULL, 'p' },
 		{ "query", 1, NULL, 'q' },

@@ -468,7 +468,7 @@ int main(int argc, char *argv[], char *envp[])
 {
 	int failed = 0;
 	int option;
-	struct option options[] = {
+	static const struct option options[] = {
 		{ "verbose", 0, NULL, 'v' },
 		{ "dry-run", 0, NULL, 'n' },
 		{ "retry-failed", 0, NULL, 'F' },
