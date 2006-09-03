@@ -26,10 +26,10 @@
         <cmdsynopsis>
           <command>udevinfo</command>
           <arg><option>--query=<replaceable>query-type</replaceable></option></arg>
-          <arg><option>--attribute-walk</option></arg>
           <arg><option>--path=<replaceable>devpath</replaceable></option></arg>
           <arg><option>--name=<replaceable>node</replaceable></option></arg>
           <arg><option>--root</option></arg>
+          <arg><option>--attribute-walk</option></arg>
           <arg><option>--export-db</option></arg>
           <arg><option>--version</option></arg>
           <arg><option>--help</option></arg>
