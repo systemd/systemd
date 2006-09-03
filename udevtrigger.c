@@ -71,8 +71,8 @@ LIST_HEAD(device_first_list);
 LIST_HEAD(device_default_list);
 LIST_HEAD(device_last_list);
 
-LIST_HEAD(filter_subsytem_match_list);
-LIST_HEAD(filter_subsytem_nomatch_list);
+LIST_HEAD(filter_subsystem_match_list);
+LIST_HEAD(filter_subsystem_nomatch_list);
 LIST_HEAD(filter_attr_match_list);
 LIST_HEAD(filter_attr_nomatch_list);
 
@@ -176,13 +176,13 @@ static int subsystem_filtered(const char *subsystem)
 	struct name_entry *loop_name;
 
 	/* skip devices matching the listed subsystems */
-	list_for_each_entry(loop_name, &filter_subsytem_nomatch_list, node)
+	list_for_each_entry(loop_name, &filter_subsystem_nomatch_list, node)
 		if (fnmatch(loop_name->name, subsystem, 0) == 0)
 			return 1;
 
 	/* skip devices not matching the listed subsystems */
-	if (!list_empty(&filter_subsytem_match_list)) {
-		list_for_each_entry(loop_name, &filter_subsytem_match_list, node)
+	if (!list_empty(&filter_subsystem_match_list)) {
+		list_for_each_entry(loop_name, &filter_subsystem_match_list, node)
 			if (fnmatch(loop_name->name, subsystem, 0) == 0)
 				return 0;
 		return 1;
@@ -501,10 +501,10 @@ int main(int argc, char *argv[], char *envp[])
 			failed = 1;
 			break;
 		case 's':
-			name_list_add(&filter_subsytem_match_list, optarg, 0);
+			name_list_add(&filter_subsystem_match_list, optarg, 0);
 			break;
 		case 'S':
-			name_list_add(&filter_subsytem_nomatch_list, optarg, 0);
+			name_list_add(&filter_subsystem_nomatch_list, optarg, 0);
 			break;
 		case 'a':
 			name_list_add(&filter_attr_match_list, optarg, 0);
@@ -542,8 +542,8 @@ int main(int argc, char *argv[], char *envp[])
 	exec_lists();
 
 exit:
-	name_list_cleanup(&filter_subsytem_match_list);
-	name_list_cleanup(&filter_subsytem_nomatch_list);
+	name_list_cleanup(&filter_subsystem_match_list);
+	name_list_cleanup(&filter_subsystem_nomatch_list);
 	name_list_cleanup(&filter_attr_match_list);
 	name_list_cleanup(&filter_attr_nomatch_list);
 
