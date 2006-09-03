@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
+#include <getopt.h>
 
 #include "udev.h"
 
@@ -167,6 +168,18 @@ int main(int argc, char *argv[], char *envp[])
 	struct udevice *udev;
 	int root = 0;
 
+	struct option options[] = {
+		{ "name", 1, NULL, 'n' },
+		{ "path", 1, NULL, 'p' },
+		{ "query", 1, NULL, 'q' },
+		{ "attribute-walk", 0, NULL, 'a' },
+		{ "export-db", 0, NULL, 'e' },
+		{ "root", 0, NULL, 'r' },
+		{ "version", 0, NULL, 'V' },
+		{ "help", 0, NULL, 'h' },
+		{}
+	};
+
 	enum action_type {
 		ACTION_NONE,
 		ACTION_QUERY,
@@ -199,9 +212,8 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	/* get command line options */
-	opterr = 0;
 	while (1) {
-		option = getopt(argc, argv, ":aden:p:q:rVh");
+		option = getopt_long(argc, argv, "aden:p:q:rVh", options, NULL);
 		if (option == -1)
 			break;
 
@@ -267,30 +279,25 @@ int main(int argc, char *argv[], char *envp[])
 			printf("udevinfo, version %s\n", UDEV_VERSION);
 			goto exit;
 		case 'h':
-			printf("Usage: udevinfo [-anpqrVh]\n"
-			       "  -q TYPE  query database for the specified value:\n"
-			       "             'name'    name of device node\n"
-			       "             'symlink' pointing to node\n"
-			       "             'path'    sysfs device path\n"
-			       "             'env'     the device related imported environment\n"
-			       "             'all'     all values\n"
+			printf("Usage: udevinfo OPTIONS\n"
+			       "  --query=<type>    query database for the specified value:\n"
+			       "    name            name of device node\n"
+			       "    symlink         pointing to node\n"
+			       "    path            sysfs device path\n"
+			       "    env             the device related imported environment\n"
+			       "    all             all values\n"
 			       "\n"
-			       "  -p PATH  sysfs device path used for query or chain\n"
-			       "  -n NAME  node/symlink name used for query\n"
+			       "  --path=<devpath>  sysfs device path used for query or chain\n"
+			       "  --name=<name>     node or symlink name used for query\n"
 			       "\n"
-			       "  -r       prepend to query result or print udev_root\n"
-			       "  -a       print all SYSFS_attributes along the device chain\n"
-			       "  -e       export the content of the udev database\n"
-			       "  -V       print udev version\n"
-			       "  -h       print this help text\n"
+			       "  --root            prepend to query result or print udev_root\n"
+			       "  --attribute-walk  print all SYSFS_attributes along the device chain\n"
+			       "  --export-db       export the content of the udev database\n"
+			       "  --verision        print udev version\n"
+			       "  --help            print this text\n"
 			       "\n");
 			goto exit;
-		case ':':
-			fprintf(stderr, "missing argument for '%c'\n", optopt);
-			goto exit;
-		case '?':
 		default:
-			fprintf(stderr, "unrecognized option '%c'\n", optopt);
 			goto exit;
 		}
 	}
@@ -315,7 +322,7 @@ int main(int argc, char *argv[], char *envp[])
 			}
 			udev_db_get_device(udev, devpath);
 		} else {
-			fprintf(stderr, "query needs device path(-p) or node name(-n) specified\n");
+			fprintf(stderr, "query needs --path or node --name specified\n");
 			rc = 4;
 			goto exit;
 		}
@@ -366,7 +373,7 @@ int main(int argc, char *argv[], char *envp[])
 			}
 			print_device_chain(devpath);
 		} else {
-			fprintf(stderr, "attribute walk needs device path(-p) or node name(-n) specified\n");
+			fprintf(stderr, "attribute walk needs --path or node --name specified\n");
 			rc = 5;
 			goto exit;
 		}
