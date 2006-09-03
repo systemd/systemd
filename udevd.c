@@ -155,9 +155,9 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 {
 	char filename[PATH_SIZE];
 	char filename_failed[PATH_SIZE];
-	char target[PATH_SIZE];
 	size_t start, end, i;
 	struct udevd_uevent_msg *loop_msg;
+	int fd;
 
 	/* add location of queue files */
 	strlcpy(filename, udev_root, sizeof(filename));
@@ -189,11 +189,10 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 	case EVENT_QUEUED:
 		unlink(filename_failed);
 		delete_path(filename_failed);
-
-		strlcpy(target, sysfs_path, sizeof(target));
-		strlcat(target, msg->devpath, sizeof(target));
 		create_path(filename);
-		symlink(target, filename);
+		fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+		if (fd > 0)
+			close(fd);
 		return;
 	case EVENT_FINISHED:
 	case EVENT_FAILED:

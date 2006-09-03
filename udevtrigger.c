@@ -433,30 +433,30 @@ static void scan_failed(void)
 	struct dirent *dent;
 
 	strlcpy(base, udev_root, sizeof(base));
-	strlcat(base, "/", sizeof(base));
-	strlcat(base, EVENT_FAILED_DIR, sizeof(base));
+	strlcat(base, "/" EVENT_FAILED_DIR, sizeof(base));
 
 	dir = opendir(base);
 	if (dir != NULL) {
 		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-			char linkname[PATH_SIZE];
-			char target[PATH_SIZE];
-			int len;
+			char device[PATH_SIZE];
+			size_t start, end, i;
 
 			if (dent->d_name[0] == '.')
 				continue;
 
-			strlcpy(linkname, base, sizeof(linkname));
-			strlcat(linkname, "/", sizeof(linkname));
-			strlcat(linkname, dent->d_name, sizeof(linkname));
+			strlcpy(device, sysfs_path, sizeof(device));
+			start = strlcat(device, "/", sizeof(device));
+			end = strlcat(device, dent->d_name, sizeof(device));
+			if (end > sizeof(device))
+				end = sizeof(device);
 
-			len = readlink(linkname, target, sizeof(target));
-			if (len <= 0)
-				continue;
-			target[len] = '\0';
+			/* replace PATH_TO_NAME_CHAR with '/' */
+			for (i = start; i < end; i++)
+				if (device[i] == PATH_TO_NAME_CHAR)
+					device[i] = '/';
 
-			if (is_device(target))
-				device_list_insert(target);
+			if (is_device(device))
+				device_list_insert(device);
 			else
 				continue;
 		}

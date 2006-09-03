@@ -4,10 +4,6 @@ These things would be nice to have:
     any of the links at that time
 
 These things will change in future udev versions:
-  o use zero sized files instead of symlinks in /dev/.udev/{queue,failed}
-    (broken tools search /dev for files and get lost following to /sys
-     and stat() sysfs files million times)
-
   o make DRIVER== to match only the event device
     (DRIVERS must be used, we currently translate it to DRIVERS and print
      a warning if DRIVER is used)
