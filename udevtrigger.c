@@ -177,13 +177,13 @@ static int subsystem_filtered(const char *subsystem)
 
 	/* skip devices matching the listed subsystems */
 	list_for_each_entry(loop_name, &filter_subsytem_nomatch_list, node)
-		if (fnmatch(subsystem, loop_name->name, 0) == 0)
+		if (fnmatch(loop_name->name, subsystem, 0) == 0)
 			return 1;
 
 	/* skip devices not matching the listed subsystems */
 	if (!list_empty(&filter_subsytem_match_list)) {
 		list_for_each_entry(loop_name, &filter_subsytem_match_list, node)
-			if (fnmatch(subsystem, loop_name->name, 0) == 0)
+			if (fnmatch(loop_name->name, subsystem, 0) == 0)
 				return 0;
 		return 1;
 	}
@@ -514,14 +514,17 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 'h':
 			printf("Usage: udevtrigger OPTIONS\n"
-			       "  --verbose                        print the list of devices which will be triggered\n"
-			       "  --dry-run                        do not actually trigger the event\n"
-			       "  --retry-failed                   trigger only the events which are failed during a previous run\n"
-			       "  --subsystem-match=<subsystem>    select only devices from the specified subystem\n"
-			       "  --subsystem-nomatch=<subsystem>  exclude devices from the specified subystem\n"
-			       "  --attr-match=<file[=<value>]>    select only devices with a matching sysfs attribute\n"
-			       "  --attr-nomatch=<file[=<value>]>  exclude devices with a matching sysfs attribute\n"
-			       "  --help                           print this text\n"
+			       "  --verbose                       print the list of devices while running\n"
+			       "  --dry-run                       do not actually trigger the events\n"
+			       "  --retry-failed                  trigger only the events which have been\n"
+			       "                                  marked as failed during a previous run\n"
+			       "  --subsystem-match=<subsystem>   trigger devices from a matching subystem\n"
+			       "  --subsystem-nomatch=<subsystem> exclude devices from a matching subystem\n"
+			       "  --attr-match=<file[=<value>]>   trigger devices with a matching sysfs\n"
+			       "                                  attribute\n"
+			       "  --attr-nomatch=<file[=<value>]> exclude devices with a matching sysfs\n"
+			       "                                  attribute\n"
+			       "  --help                          print this text\n"
 			       "\n");
 			goto exit;
 		default:
