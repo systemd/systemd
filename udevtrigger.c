@@ -468,7 +468,6 @@ int main(int argc, char *argv[], char *envp[])
 {
 	int failed = 0;
 	int option;
-	int longindex;
 	struct option options[] = {
 		{ "verbose", 0, NULL, 'v' },
 		{ "dry-run", 0, NULL, 'n' },
@@ -487,7 +486,7 @@ int main(int argc, char *argv[], char *envp[])
 	sysfs_init();
 
 	while (1) {
-		option = getopt_long(argc, argv, "vnFhs:S:a:A:", options, &longindex);
+		option = getopt_long(argc, argv, "vnFhs:S:a:A:", options, NULL);
 		if (option == -1)
 			break;
 
@@ -518,8 +517,8 @@ int main(int argc, char *argv[], char *envp[])
 			       "  --verbose                        print the list of devices which will be triggered\n"
 			       "  --dry-run                        do not actually trigger the event\n"
 			       "  --retry-failed                   trigger only the events which are failed during a previous run\n"
-			       "  --subsystem-match                select only devices from the specified subystem\n"
-			       "  --subsystem-nomatch              exclude devices from the specified subystem\n"
+			       "  --subsystem-match=<subsystem>    select only devices from the specified subystem\n"
+			       "  --subsystem-nomatch=<subsystem>  exclude devices from the specified subystem\n"
 			       "  --attr-match=<file[=<value>]>    select only devices with a matching sysfs attribute\n"
 			       "  --attr-nomatch=<file[=<value>]>  exclude devices with a matching sysfs attribute\n"
 			       "  --help                           print this text\n"
