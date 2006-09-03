@@ -22,18 +22,17 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <errno.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <syslog.h>
+#include <fnmatch.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
 #include "udev.h"
 #include "udevd.h"
-
-static int verbose;
-static int dry_run;
 
 #ifdef USE_LOG
 void log_message(int priority, const char *format, ...)
@@ -48,6 +47,9 @@ void log_message(int priority, const char *format, ...)
 	va_end(args);
 }
 #endif
+
+static int verbose;
+static int dry_run;
 
 /* list of devices that we should run last due to any one of a number of reasons */
 static char *last_list[] = {
@@ -68,6 +70,11 @@ static char *first_list[] = {
 LIST_HEAD(device_first_list);
 LIST_HEAD(device_default_list);
 LIST_HEAD(device_last_list);
+
+LIST_HEAD(filter_subsytem_match_list);
+LIST_HEAD(filter_subsytem_nomatch_list);
+LIST_HEAD(filter_attr_match_list);
+LIST_HEAD(filter_attr_nomatch_list);
 
 static int device_list_insert(const char *path)
 {
@@ -164,6 +171,93 @@ static int is_device(const char *path)
 	return 1;
 }
 
+static int subsystem_filtered(const char *subsystem)
+{
+	struct name_entry *loop_name;
+
+	/* skip devices matching the listed subsystems */
+	list_for_each_entry(loop_name, &filter_subsytem_nomatch_list, node)
+		if (fnmatch(subsystem, loop_name->name, 0) == 0)
+			return 1;
+
+	/* skip devices not matching the listed subsystems */
+	if (!list_empty(&filter_subsytem_match_list)) {
+		list_for_each_entry(loop_name, &filter_subsytem_match_list, node)
+			if (fnmatch(subsystem, loop_name->name, 0) == 0)
+				return 0;
+		return 1;
+	}
+
+	return 0;
+}
+
+static int attr_match(const char *path, const char *attr_value)
+{
+	char attr[NAME_SIZE];
+	char file[PATH_SIZE];
+	char *match_value;
+
+	strlcpy(attr, attr_value, sizeof(attr));
+
+	/* separate attr and match value */
+	match_value = strchr(attr, '=');
+	if (match_value != NULL) {
+		match_value[0] = '\0';
+		match_value = &match_value[1];
+	}
+
+	strlcpy(file, path, sizeof(file));
+	strlcat(file, "/", sizeof(file));
+	strlcat(file, attr, sizeof(file));
+
+	if (match_value != NULL) {
+		/* match file content */
+		char value[NAME_SIZE];
+		int fd;
+		ssize_t size;
+
+		fd = open(file, O_RDONLY);
+		if (fd < 0)
+			return 0;
+		size = read(fd, value, sizeof(value));
+		close(fd);
+		if (size < 0)
+			return 0;
+		value[size] = '\0';
+		remove_trailing_chars(value, '\n');
+
+		/* match if attribute value matches */
+		if (fnmatch(match_value, value, 0) == 0)
+			return 1;
+	} else {
+		/* match if attribute exists */
+		struct stat statbuf;
+
+		if (stat(file, &statbuf) == 0)
+			return 1;
+	}
+	return 0;
+}
+
+static int attr_filtered(const char *path)
+{
+	struct name_entry *loop_name;
+
+	/* skip devices matching the listed sysfs attributes */
+	list_for_each_entry(loop_name, &filter_attr_nomatch_list, node)
+		if (attr_match(path, loop_name->name))
+			return 1;
+
+	/* skip devices not matching the listed sysfs attributes */
+	if (!list_empty(&filter_attr_match_list)) {
+		list_for_each_entry(loop_name, &filter_attr_match_list, node)
+			if (attr_match(path, loop_name->name))
+				return 0;
+		return 1;
+	}
+	return 0;
+}
+
 static void scan_bus(void)
 {
 	char base[PATH_SIZE];
@@ -183,6 +277,9 @@ static void scan_bus(void)
 			if (dent->d_name[0] == '.')
 				continue;
 
+			if (subsystem_filtered(dent->d_name))
+				continue;
+
 			strlcpy(dirname, base, sizeof(dirname));
 			strlcat(dirname, "/", sizeof(dirname));
 			strlcat(dirname, dent->d_name, sizeof(dirname));
@@ -200,7 +297,8 @@ static void scan_bus(void)
 					strlcpy(dirname2, dirname, sizeof(dirname2));
 					strlcat(dirname2, "/", sizeof(dirname2));
 					strlcat(dirname2, dent2->d_name, sizeof(dirname2));
-
+					if (attr_filtered(dirname2))
+						continue;
 					if (is_device(dirname2))
 						device_list_insert(dirname2);
 				}
@@ -224,6 +322,9 @@ static void scan_block(void)
 	if (stat(base, &statbuf) == 0)
 		return;
 
+	if (subsystem_filtered("block"))
+		return;
+
 	strlcpy(base, sysfs_path, sizeof(base));
 	strlcat(base, "/block", sizeof(base));
 
@@ -240,6 +341,8 @@ static void scan_block(void)
 			strlcpy(dirname, base, sizeof(dirname));
 			strlcat(dirname, "/", sizeof(dirname));
 			strlcat(dirname, dent->d_name, sizeof(dirname));
+			if (attr_filtered(dirname))
+				continue;
 			if (is_device(dirname))
 				device_list_insert(dirname);
 			else
@@ -260,6 +363,8 @@ static void scan_block(void)
 					strlcpy(dirname2, dirname, sizeof(dirname2));
 					strlcat(dirname2, "/", sizeof(dirname2));
 					strlcat(dirname2, dent2->d_name, sizeof(dirname2));
+					if (attr_filtered(dirname2))
+						continue;
 					if (is_device(dirname2))
 						device_list_insert(dirname2);
 				}
@@ -289,6 +394,9 @@ static void scan_class(void)
 			if (dent->d_name[0] == '.')
 				continue;
 
+			if (subsystem_filtered(dent->d_name))
+				continue;
+
 			strlcpy(dirname, base, sizeof(dirname));
 			strlcat(dirname, "/", sizeof(dirname));
 			strlcat(dirname, dent->d_name, sizeof(dirname));
@@ -306,6 +414,8 @@ static void scan_class(void)
 					strlcpy(dirname2, dirname, sizeof(dirname2));
 					strlcat(dirname2, "/", sizeof(dirname2));
 					strlcat(dirname2, dent2->d_name, sizeof(dirname2));
+					if (attr_filtered(dirname2))
+						continue;
 					if (is_device(dirname2))
 						device_list_insert(dirname2);
 				}
@@ -356,36 +466,73 @@ static void scan_failed(void)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	int i;
 	int failed = 0;
+	int option;
+	int longindex;
+	struct option options[] = {
+		{ "verbose", 0, NULL, 'v' },
+		{ "dry-run", 0, NULL, 'n' },
+		{ "retry-failed", 0, NULL, 'F' },
+		{ "help", 0, NULL, 'h' },
+		{ "subsystem-match", 1, NULL, 's' },
+		{ "subsystem-nomatch", 1, NULL, 'S' },
+		{ "attr-match", 1, NULL, 'a' },
+		{ "attr-nomatch", 1, NULL, 'A' },
+		{}
+	};
 
 	logging_init("udevtrigger");
 	udev_config_init();
 	dbg("version %s", UDEV_VERSION);
 	sysfs_init();
 
-	for (i = 1 ; i < argc; i++) {
-		char *arg = argv[i];
+	while (1) {
+		option = getopt_long(argc, argv, "vnFhs:S:a:A:", options, &longindex);
+		if (option == -1)
+			break;
 
-		if (strcmp(arg, "--verbose") == 0 || strcmp(arg, "-v") == 0) {
+		switch (option) {
+		case 'v':
 			verbose = 1;
-		} else if (strcmp(arg, "--dry-run") == 0 || strcmp(arg, "-n") == 0) {
+			break;
+		case 'n':
 			dry_run = 1;
-		} else if (strcmp(arg, "--retry-failed") == 0 || strcmp(arg, "-F") == 0) {
+			break;
+		case 'F':
 			failed = 1;
-		} else if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
-			printf("Usage: udevtrigger [--help] [--verbose] [--dry-run] [--retry-failed]\n");
+			break;
+		case 's':
+			name_list_add(&filter_subsytem_match_list, optarg, 0);
+			break;
+		case 'S':
+			name_list_add(&filter_subsytem_nomatch_list, optarg, 0);
+			break;
+		case 'a':
+			name_list_add(&filter_attr_match_list, optarg, 0);
+			break;
+		case 'A':
+			name_list_add(&filter_attr_nomatch_list, optarg, 0);
+			break;
+		case 'h':
+			printf("Usage: udevtrigger OPTIONS\n"
+			       "  --verbose                        print the list of devices which will be triggered\n"
+			       "  --dry-run                        do not actually trigger the event\n"
+			       "  --retry-failed                   trigger only the events which are failed during a previous run\n"
+			       "  --subsystem-match                select only devices from the specified subystem\n"
+			       "  --subsystem-nomatch              exclude devices from the specified subystem\n"
+			       "  --attr-match=<file[=<value>]>    select only devices with a matching sysfs attribute\n"
+			       "  --attr-nomatch=<file[=<value>]>  exclude devices with a matching sysfs attribute\n"
+			       "  --help                           print this text\n"
+			       "\n");
 			goto exit;
-		} else {
-			fprintf(stderr, "unrecognized option '%s'\n", arg);
-			err("unrecognized option '%s'\n", arg);
+		default:
+			goto exit;
 		}
 	}
 
 	if (failed)
 		scan_failed();
 	else {
-		/* default action */
 		scan_bus();
 		scan_class();
 		scan_block();
@@ -393,6 +540,11 @@ int main(int argc, char *argv[], char *envp[])
 	exec_lists();
 
 exit:
+	name_list_cleanup(&filter_subsytem_match_list);
+	name_list_cleanup(&filter_subsytem_nomatch_list);
+	name_list_cleanup(&filter_attr_match_list);
+	name_list_cleanup(&filter_attr_nomatch_list);
+
 	sysfs_cleanup();
 	logging_close();
 	return 0;

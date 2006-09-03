@@ -926,12 +926,6 @@ int main(int argc, char *argv[], char *envp[])
 	selinux_init();
 	dbg("version %s", UDEV_VERSION);
 
-	if (getuid() != 0) {
-		fprintf(stderr, "root privileges required\n");
-		err("root privileges required");
-		goto exit;
-	}
-
 	/* parse commandline options */
 	for (i = 1 ; i < argc; i++) {
 		char *arg = argv[i];
@@ -944,6 +938,12 @@ int main(int argc, char *argv[], char *envp[])
 			fprintf(stderr, "unrecognized option '%s'\n", arg);
 			err("unrecognized option '%s'\n", arg);
 		}
+	}
+
+	if (getuid() != 0) {
+		fprintf(stderr, "root privileges required\n");
+		err("root privileges required");
+		goto exit;
 	}
 
 	/* init sockets to receive events */

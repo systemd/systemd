@@ -14,20 +14,32 @@
 udevtrigger \- request kernel devices events for coldplug
 .SH "SYNOPSIS"
 .HP 12
-\fBudevtrigger\fR [\fB\-\-verbose\fR] [\fB\-\-dry\-run\fR] [\fB\-\-retry\-failed\fR]
+\fBudevtrigger\fR [\fB\-\-verbose\fR] [\fB\-\-dry\-run\fR] [\fB\-\-retry\-failed\fR] [\fB\-\-help\fR] [\fB\-\-subsystem\-match=\fR\fB\fIsubsystem\fR\fR] [\fB\-\-subsystem\-nomatch=\fR\fB\fIsubsystem\fR\fR] [\fB\-\-attr\-match=\fR\fB\fIattribute=value\fR\fR] [\fB\-\-attr\-nomatch=\fR\fB\fIattribute=value\fR\fR]
 .SH "DESCRIPTION"
 .PP
 Trigger kernel device uevents to replay missing events at system coldplug.
 .SH "OPTIONS"
 .TP 3n
 \fB\-\-verbose\fR
-Print the list of devices found in sysfs.
+Print the list of devices which will be triggered.
 .TP 3n
 \fB\-\-dry\-run\fR
 Do not actually trigger the event.
 .TP 3n
 \fB\-\-retry\-failed\fR
-Trigger events which are failed during a previous run.
+Trigger only the events which are failed during a previous run.
+.TP 3n
+\fB\-\-subsystem\-match=\fR\fB\fIsubsystem\fR\fR
+Trigger events for devices which belong to a matching subsystem. This option can be specified multiple times and supports shell style pattern matching.
+.TP 3n
+\fB\-\-subsystem\-nomatch=\fR\fB\fIsubsystem\fR\fR
+Do not trigger events for devices which belong to a matching subsystem. This option can be specified multiple times and supports shell style pattern matching.
+.TP 3n
+\fB\-\-attr\-match=\fR\fB\fIattribute=value\fR\fR
+Trigger events for devices with a matching sysfs attribute. If a value is specified along with the attribute name, the content of the attribute is matched against the given value using shell style pattern matching. If no value is specified, the existence of the sysfs attribute is checked. This option can be specified multiple times.
+.TP 3n
+\fB\-\-attr\-nomatch\fR\fB\fIattribute=value\fR\fR
+Do not trigger events for devices with a matching sysfs attribute. If a value is specified along with the attribute name, the content of the attribute is matched against the given value using shell style pattern matching. If no value is specified, the existence of the sysfs attribute is checked. This option can be specified multiple times.
 .SH "ENVIRONMENT"
 .TP 3n
 \fBUDEV_LOG\fR
