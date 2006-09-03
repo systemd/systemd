@@ -114,7 +114,7 @@ static int print_device_chain(const char *devpath)
 			break;
 		printf("  looking at parent device '%s':\n", dev->devpath);
 		printf("    KERNELS==\"%s\"\n", dev->kernel);
-		printf("    SUBSYTEMS==\"%s\"\n", dev->subsystem);
+		printf("    SUBSYSTEMS==\"%s\"\n", dev->subsystem);
 		printf("    DRIVERS==\"%s\"\n", dev->driver);
 
 		print_all_attributes(dev->devpath, "ATTRS");
