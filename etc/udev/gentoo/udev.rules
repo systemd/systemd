@@ -33,14 +33,14 @@ KERNEL=="ircomm*",	NAME="%k", GROUP="tty"
 SUBSYSTEM=="block", GROUP="disk"
 
 # cdrom symlinks and other good cdrom naming
-BUS=="ide",	KERNEL=="hd[a-z]", ACTION=="add", IMPORT="/sbin/cdrom_id --export $tempnode"
-BUS=="scsi",	KERNEL="sr[0-9]*", ACTION=="add", IMPORT="/sbin/cdrom_id --export $tempnode"
-BUS=="scsi",	KERNEL="scd[a-z]", ACTION=="add", IMPORT="/sbin/cdrom_id --export $tempnode"
-BUS=="scsi",	KERNEL="sg[0-9]*", ACTION=="add", DRIVER=="sr", GROUP="cdrom"
-ENV{ID_CDROM}=="?*",		SYMLINK+="cdrom%e", GROUP="cdrom"
-ENV{ID_CDROM_CD_RW}=="?*",	SYMLINK+="cdrw%e"
-ENV{ID_CDROM_DVD}=="?*",	SYMLINK+="dvd%e"
-ENV{ID_CDROM_DVD_R}=="?*",	SYMLINK+="dvdrw%e"
+BUS=="ide",	KERNEL=="hd[a-z]", ACTION=="add", IMPORT="cdrom_id --export $tempnode"
+BUS=="scsi",	KERNEL=="sr[0-9]*", ACTION=="add", IMPORT="cdrom_id --export $tempnode"
+BUS=="scsi",	KERNEL=="scd[a-z]", ACTION=="add", IMPORT="cdrom_id --export $tempnode"
+BUS=="scsi",	KERNEL=="sg[0-9]*", ACTION=="add", DRIVERS=="sr", GROUP="cdrom"
+ENV{ID_CDROM}=="?*",		PROGRAM="seq_node.sh %r %k cdrom", SYMLINK+="%c", GROUP="cdrom"
+ENV{ID_CDROM_CD_RW}=="?*",	PROGRAM="seq_node.sh %r %k cdrw",  SYMLINK+="%c"
+ENV{ID_CDROM_DVD}=="?*",	PROGRAM="seq_node.sh %r %k dvd",   SYMLINK+="%c"
+ENV{ID_CDROM_DVD_R}=="?*",	PROGRAM="seq_node.sh %r %k dvdrw", SYMLINK+="%c"
 
 # disk devices
 KERNEL=="sd*",		NAME="%k", GROUP="disk"
@@ -48,11 +48,11 @@ KERNEL=="dasd*",	NAME="%k", GROUP="disk"
 KERNEL=="ataraid*",	NAME="%k", GROUP="disk"
 
 # compaq smart array
-KERNEL=="cciss*",	PROGRAM="raid-devfs.sh %k", NAME="%c{1}", SYMLINK+="%k"
-KERNEL=="ida*",		PROGRAM="raid-devfs.sh %k", NAME="%c{1}", SYMLINK+="%k"
+KERNEL=="cciss*",	NAME="%k"
+KERNEL=="ida*",		NAME="%k"
 
 # mylex
-KERNEL=="rd*",		PROGRAM="raid-devfs.sh %k", NAME="%c{1}", SYMLINK+="%k"
+KERNEL=="rd*",		NAME="%k"
 
 # dri devices
 KERNEL=="card*",	NAME="dri/card%n", GROUP="video"
@@ -242,68 +242,42 @@ KERNEL=="pktcdvd[0-9]*",	NAME="pktcdvd/pktcdvd%n", GROUP="cdrw", MODE="0660"
 KERNEL=="umad*",	NAME="infiniband/%k"
 KERNEL=="issm*",	NAME="infiniband/%k"
 
-# tpm devices
-KERNEL=="tpm*",	NAME="%k", OWNER="tss", GROUP="tss", MODE="0600"
-
-#######################################
-# Persistant block device stuff - begin
-#######################################
-
-# Skip all of this if we are not adding a block device
-ACTION!="add",		GOTO="persistent_end"
-SUBSYSTEM!="block",	GOTO="persistent_end"
-KERNEL=="ram*|loop*|fd*|nbd*",	GOTO="persistent_end"
-
-# skip accessing removable ide devices, cause the ide drivers are horrible broken
-BUS=="ide", SYSFS{removable}="1", GOTO="no_volume_id"
-BUS=="ide", SYSFS{../removable}="1", GOTO="no_volume_id"
-
-# persistent disk device links /dev/disk/
-KERNEL=="hd*[!0-9]", IMPORT="/sbin/ata_id --export $tempnode"
-KERNEL=="hd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
-KERNEL=="hd*[0-9]", IMPORT{parent}=="ID_*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
-
-KERNEL=="sd*[!0-9]", SYSFS{ieee1394_id}=="*", IMPORT="/bin/echo -e 'ID_SERIAL=$sysfs{ieee1394_id}\nID_BUS=ieee1394'"
-KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="", IMPORT="/sbin/usb_id -x"
-KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="", IMPORT="/sbin/scsi_id -g -x -s %p -d %N"
-KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="", IMPORT="/sbin/scsi_id -g -x -a -s %p -d %N"
-KERNEL=="sd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
-KERNEL=="sd*[0-9]", IMPORT{parent}=="ID_*"
-KERNEL=="sd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
-
-# Skip id for ram / loop / fd
-KERNEL=="ram*", GOTO="no_volume_id"
-KERNEL=="loop*", GOTO="no_volume_id"
-KERNEL=="fd*", GOTO="no_volume_id"
-
-KERNEL=="*[!0-9]", ENV{ID_TYPE}=="?*", IMPORT="/sbin/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
-KERNEL=="*[0-9]", IMPORT{parent}=="ID_*"
-KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
-
-# volume-label/uuid
-KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="no_volume_id"
-KERNEL=="sr*", GOTO="no_volume_id"
-KERNEL=="*[0-9]", IMPORT="/sbin/vol_id --export $tempnode"
-KERNEL=="*[0-9]", ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
-KERNEL=="*[0-9]", ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
-LABEL="no_volume_id"
-
-LABEL="persistent_end"
-
-#####################################
-# Persistant block device stuff - end
-#####################################
 
 # usbfs-like device nodes
 SUBSYSTEM=="usb_device", PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", NAME="%c", MODE="0644"
 
 
+# Module autoloading
+
+# Autoload modules that lack aliases but have them defined inutoload modules
+SYSFS{modalias}=="?*", ACTION=="add", RUN+="/sbin/modprobe $env{MODALIAS}"
+
+# /etc/modprobe.conf.
+SUBSYSTEM=="pnp", ENV{MODALIAS}!="?*", RUN+="/bin/sh -c 'while read id; do /sbin/modprobe pnp:d$$id; done < /sys$devpath/id'"
+# If you have problems with some pnp modules being loaded, please enter the
+# following aliases into the modprobe configuration files.  These are needed by
+# udev to autoload some modules
+# alias pnp:dPNP0510 irtty-sir
+# alias pnp:dPNP0511 irtty-sir
+# alias pnp:dPNP0700 floppy
+# alias pnp:dPNP0800 pcspkr
+# alias pnp:dPNP0b00 rtc
+# alias pnp:dPNP0303 atkbd
+# alias pnp:dPNP0f13 psmouse
+# alias pnp:dPNPb02f analog
+
+
+
+# Load firmware
+SUBSYSTEM=="firmware", ACTION=="add", RUN+="firmware.sh"
+
+
 # be backward compatible for a while with the /etc/dev.d and /etc/hotplug.d/ systems
 # run /etc/hotplug.d/ stuff only if we came from a hotplug event, not for udevstart
-ENV{UDEVD_EVENT}=="1", RUN+="/sbin/udev_run_hotplugd $env{SUBSYSTEM}"
+ENV{UDEVD_EVENT}=="1", RUN+="udev_run_hotplugd $env{SUBSYSTEM}"
 
 # always run /etc/dev.d/ stuff for now.
-RUN+="/sbin/udev_run_devd $env{SUBSYSTEM}"
+RUN+="udev_run_devd $env{SUBSYSTEM}"
 
 # debugging monitor
 RUN+="socket:/org/kernel/udev/monitor"
