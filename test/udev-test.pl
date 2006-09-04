@@ -1248,6 +1248,19 @@ SUBSYSTEMS=="scsi", KERNEL=="sda1", NAME="bad"
 EOF
 	},
 	{
+		desc		=> "ENV{} test (assign 2 times)",
+		subsys		=> "block",
+		devpath		=> "/block/sda/sda1",
+		exp_name	=> "true",
+		rules		=> <<EOF
+SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}="true"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}="absolutely-\$env{ASSIGN}"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}=="yes", NAME="no"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}=="absolutely-true", NAME="true"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", NAME="bad"
+EOF
+	},
+	{
 		desc		=> "ENV{} test (assign2)",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",

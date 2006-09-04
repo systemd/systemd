@@ -802,13 +802,19 @@ try_parent:
 		struct key_pair *pair = &rule->env.keys[i];
 
 		if (pair->key.operation == KEY_OP_ASSIGN) {
+			char temp_value[NAME_SIZE];
 			const char *key_name = key_pair_name(rule, pair);
 			const char *value = key_val(rule, &pair->key);
-			char *key_value = name_list_key_add(&udev->env_list, key_name, value);
+			char *key_value;
+
+			/* make sure we don't write to the same string we possibly read from */
+			strlcpy(temp_value, value, sizeof(temp_value));
+			udev_rules_apply_format(udev, temp_value, NAME_SIZE);
+
+			key_value = name_list_key_add(&udev->env_list, key_name, temp_value);
 			if (key_value == NULL)
 				break;
 
-			udev_rules_apply_format(udev, key_value, NAME_SIZE);
 			putenv(key_value);
 			dbg("export ENV '%s'", key_value);
 		}
