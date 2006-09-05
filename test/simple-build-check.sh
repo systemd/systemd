@@ -11,7 +11,9 @@ EXTRAS="\
 	extras/edd_id \
 	extras/floppy \
 	extras/run_directory \
-	extras/firmware"
+	extras/firmware \
+	extras/path_id \
+	extras/rule_generator"
 
 # with debug
 make clean EXTRAS="$EXTRAS" >/dev/null
