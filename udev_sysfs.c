@@ -397,27 +397,36 @@ char *sysfs_attr_get_value(const char *devpath, const char *attr_name)
 				attr->value = attr->value_local;
 			}
 		}
-	} else {
-		/* read attribute value */
-		fd = open(path_full, O_RDONLY);
-		if (fd < 0) {
-			dbg("attribute '%s' does not exist", path_full);
-			goto out;
-		}
-		size = read(fd, value, sizeof(value));
-		close(fd);
-		if (size < 0)
-			goto out;
-		if (size == sizeof(value))
-			goto out;
-
-		/* got a valid value, store and return it */
-		value[size] = '\0';
-		remove_trailing_chars(value, '\n');
-		dbg("cache '%s' with attribute value '%s'", path_full, value);
-		strlcpy(attr->value_local, value, sizeof(attr->value_local));
-		attr->value = attr->value_local;
+		goto out;
 	}
+
+	/* skip directories */
+	if (S_ISDIR(statbuf.st_mode))
+		goto out;
+
+	/* skip non-readable files */
+	if ((statbuf.st_mode & S_IRUSR) == 0)
+		goto out;
+
+	/* read attribute value */
+	fd = open(path_full, O_RDONLY);
+	if (fd < 0) {
+		dbg("attribute '%s' does not exist", path_full);
+		goto out;
+	}
+	size = read(fd, value, sizeof(value));
+	close(fd);
+	if (size < 0)
+		goto out;
+	if (size == sizeof(value))
+		goto out;
+
+	/* got a valid value, store and return it */
+	value[size] = '\0';
+	remove_trailing_chars(value, '\n');
+	dbg("cache '%s' with attribute value '%s'", path_full, value);
+	strlcpy(attr->value_local, value, sizeof(attr->value_local));
+	attr->value = attr->value_local;
 
 out:
 	return attr->value;

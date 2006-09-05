@@ -26,6 +26,8 @@
 #include <dirent.h>
 #include <errno.h>
 #include <getopt.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "udev.h"
 
@@ -56,9 +58,22 @@ static void print_all_attributes(const char *devpath, const char *key)
 	dir = opendir(path);
 	if (dir != NULL) {
 		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+			struct stat statbuf;
+			char filename[PATH_SIZE];
 			char *attr_value;
 			char value[NAME_SIZE];
 			size_t len;
+
+			if (dent->d_name[0] == '.')
+				continue;
+
+			strlcpy(filename, path, sizeof(filename));
+			strlcat(filename, "/", sizeof(filename));
+			strlcat(filename, dent->d_name, sizeof(filename));
+			if (lstat(filename, &statbuf) != 0)
+				continue;
+			if (S_ISLNK(statbuf.st_mode))
+				continue;
 
 			attr_value = sysfs_attr_get_value(devpath, dent->d_name);
 			if (attr_value == NULL)
