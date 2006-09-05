@@ -346,6 +346,7 @@ char *sysfs_attr_get_value(const char *devpath, const char *attr_name)
 	char value[NAME_SIZE];
 	struct sysfs_attr *attr_loop;
 	struct sysfs_attr *attr;
+	struct stat statbuf;
 	int fd;
 	ssize_t size;
 	size_t sysfs_len;
@@ -375,25 +376,48 @@ char *sysfs_attr_get_value(const char *devpath, const char *attr_name)
 	dbg("add to cache '%s'", path_full);
 	list_add(&attr->node, &attr_list);
 
-	/* read attribute value */
-	fd = open(path_full, O_RDONLY);
-	if (fd < 0) {
-		dbg("attribute '%s' does not exist", path_full);
+	if (lstat(path_full, &statbuf) != 0) {
+		dbg("stat '%s' failed: %s", path_full, strerror(errno));
 		goto out;
 	}
-	size = read(fd, value, sizeof(value));
-	close(fd);
-	if (size < 0)
-		goto out;
-	if (size == sizeof(value))
-		goto out;
 
-	/* got a valid value, store and return it */
-	value[size] = '\0';
-	remove_trailing_chars(value, '\n');
-	dbg("cache '%s' with value '%s'", path_full, value);
-	strlcpy(attr->value_local, value, sizeof(attr->value_local));
-	attr->value = attr->value_local;
+	if (S_ISLNK(statbuf.st_mode)) {
+		/* links return the last element of the target path */
+		char link_target[PATH_SIZE];
+		int len;
+		const char *pos;
+
+		len = readlink(path_full, link_target, sizeof(link_target));
+		if (len > 0) {
+			link_target[len] = '\0';
+			pos = strrchr(link_target, '/');
+			if (pos != NULL) {
+				dbg("cache '%s' with link value '%s'", path_full, value);
+				strlcpy(attr->value_local, &pos[1], sizeof(attr->value_local));
+				attr->value = attr->value_local;
+			}
+		}
+	} else {
+		/* read attribute value */
+		fd = open(path_full, O_RDONLY);
+		if (fd < 0) {
+			dbg("attribute '%s' does not exist", path_full);
+			goto out;
+		}
+		size = read(fd, value, sizeof(value));
+		close(fd);
+		if (size < 0)
+			goto out;
+		if (size == sizeof(value))
+			goto out;
+
+		/* got a valid value, store and return it */
+		value[size] = '\0';
+		remove_trailing_chars(value, '\n');
+		dbg("cache '%s' with attribute value '%s'", path_full, value);
+		strlcpy(attr->value_local, value, sizeof(attr->value_local));
+		attr->value = attr->value_local;
+	}
 
 out:
 	return attr->value;

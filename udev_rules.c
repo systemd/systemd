@@ -458,30 +458,42 @@ found:
 			}
 			break;
 		case SUBST_ATTR:
-			if (attr == NULL) {
-				dbg("missing attribute");
-				break;
-			} else {
-				struct sysfs_device *dev_parent;
-				const char *value;
+			if (attr == NULL)
+				err("missing file parameter for attr");
+			else {
+				const char *value = NULL;
+				size_t size;
 
-				dev_parent = udev->dev;
-				do {
-					dbg("looking at '%s'", dev_parent->devpath);
-					value = sysfs_attr_get_value(dev_parent->devpath, attr);
-					if (value != NULL) {
-						strlcpy(temp2, value, sizeof(temp2));
-						break;
-					}
-					dev_parent = sysfs_device_get_parent(dev_parent);
-				} while (dev_parent != NULL);
+				/* first try the current device, other matches may have selected */
+				if (udev->dev_parent != NULL && udev->dev_parent != udev->dev)
+					value = sysfs_attr_get_value(udev->dev_parent->devpath, attr);
 
-				/* strip trailing whitespace of sysfs value */
-				i = strlen(temp2);
-				while (i > 0 && isspace(temp2[i-1]))
-					temp2[--i] = '\0';
+				/* look at all devices along the chain of parents */
+				if (value == NULL) {
+					struct sysfs_device *dev_parent = udev->dev;
+
+					do {
+						dbg("looking at '%s'", dev_parent->devpath);
+						value = sysfs_attr_get_value(dev_parent->devpath, attr);
+						if (value != NULL) {
+							strlcpy(temp2, value, sizeof(temp2));
+							break;
+						}
+						dev_parent = sysfs_device_get_parent(dev_parent);
+					} while (dev_parent != NULL);
+				}
+
+				if (value == NULL)
+					break;
+
+				/* strip trailing whitespace and replace untrusted characters of sysfs value */
+				size = strlcpy(temp2, value, sizeof(temp2));
+				if (size >= sizeof(temp2))
+					size = sizeof(temp2)-1;
+				while (size > 0 && isspace(temp2[size-1]))
+					temp2[--size] = '\0';
 				count = replace_untrusted_chars(temp2);
-				if (count)
+				if (count > 0)
 					info("%i untrusted character(s) replaced" , count);
 				strlcat(string, temp2, maxsize);
 				dbg("substitute sysfs value '%s'", temp2);
@@ -693,7 +705,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 		if (match_key("DRIVERS", rule, &rule->drivers, udev->dev_parent->driver))
 			goto try_parent;
 
-		/* check for matching sysfs attrubute pairs */
+		/* check for matching sysfs attribute pairs */
 		for (i = 0; i < rule->attrs.count; i++) {
 			struct key_pair *pair = &rule->attrs.keys[i];
 

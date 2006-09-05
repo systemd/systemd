@@ -582,6 +582,24 @@ SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", NAME="bad"
 EOF
 	},
 	{
+		desc		=> "substitute attr with link target value (first match)",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "driver-is-sd",
+		rules		=> <<EOF
+SUBSYSTEMS=="scsi", NAME="driver-is-\$attr{driver}"
+EOF
+	},
+	{
+		desc		=> "substitute attr with link target value (currently selected device)",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "driver-is-aic7xxx",
+		rules		=> <<EOF
+SUBSYSTEMS=="pci", NAME="driver-is-\$attr{driver}"
+EOF
+	},
+	{
 		desc		=> "ignore ATTRS attribute whitespace",
 		subsys		=> "block",
 		devpath		=> "/block/sda",
