@@ -1,0 +1,3 @@
+# import optical drive properties
+
+KERNEL=="sr[0-9]*|hd[a-z]|pcd[0-9]*", IMPORT{program}="cdrom_id --export $tempnode"
