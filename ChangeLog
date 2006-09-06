@@ -1,11 +1,48 @@
-Summary of changes from v097 to v098
+Summary of changes from v098 to v099
 ============================================
-
-Alex Merry:
-      udevtest: allow /sys in the devpath paramter
 
 Greg KH:
       update Gentoo rules
+
+Kay Sievers:
+      udev_db.c: include <sys/stat.h>
+      use fnmatch() instead of our own pattern match code
+      rename major/minor variable to maj/min to avoid warning
+      update source file headers
+      udevtest: print header that ENV{} can't work
+      update TODO
+      udevtrigger: options to filter by subsystem and sysfs attribute
+      udevtrigger: remove unused longindex
+      udevinfo: use long options
+      udevd: use files instead of symlinks for /dev/.udev/queue,failed
+      udevtrigger: fix pattern match
+      reorder options in udevinfo man page
+      udevinfo: fix SUBSYTEMS spelling error
+      fix ENV{TEST}="Test: $env{TEST}"
+      let $attr{symlink} return the last element of the path
+      cdrom_id: add rules file to call cdrom_id
+      udevinfo: do not show symlinks as attributes in --attribute-walk
+      remove broken name_cdrom.pl
+      release 099
+
+Marco d'Itri:
+      update Debian rules
+      run_program: close pipe fd's which are connected to child process
+      add persistent rules generator for net devices and optical drives
+
+MUNEDA Takahiro:
+      changes rules for ata disk from '_' to '-'
+
+Sergey Vlasov:
+      make struct option arrays static const
+      fix "subsytem" typo
+
+Summary of changes from v097 to v098
+============================================
+
+
+Alex Merry:
+      udevtest: allow /sys in the devpath paramter
 
 Harald Hoyer:
       selinux: init once in the daemon, not in every event process
@@ -35,24 +72,6 @@ Kay Sievers:
       db: don't create a db file for only a node name to store
       man: add ATTR{file}="value" assignment
       098 release
-      udev_db.c: include <sys/stat.h>
-      use fnmatch() instead of our own pattern match code
-      rename major/minor variable to maj/min to avoid warning
-      update source file headers
-      udevtest: print header that ENV{} can't work
-      update TODO
-      udevtrigger: options to filter by subsystem and sysfs attribute
-      udevtrigger: remove unused longindex
-      udevinfo: use long options
-      udevd: use files instead of symlinks for /dev/.udev/queue,failed
-      udevtrigger: fix pattern match
-      reorder options in udevinfo man page
-      udevinfo: fix SUBSYTEMS spelling error
-      fix ENV{TEST}="Test: $env{TEST}"
-      let $attr{symlink} return the last element of the path
-      cdrom_id: add rules file to call cdrom_id
-      udevinfo: do not show symlinks as attributes in --attribute-walk
-      remove broken name_cdrom.pl
 
 Lennart Poettering:
       volume_id: fix fat32 cluster chain traversal
@@ -61,19 +80,9 @@ Marco d'Itri:
       fix 'unknow user' error from getpwnam/getgrnam
       fix rc when using udev --daemon
       update Debian rules
-      update Debian rules
-      run_program: close pipe fd's which are connected to child process
-      add persistent rules generator for net devices and optical drives
 
 Micha≈Ç Bartoszkiewicz:
       man pages: fix typos
-
-MUNEDA Takahiro:
-      changes rules for ata disk from '_' to '-'
-
-Sergey Vlasov:
-      make struct option arrays static const
-      fix "subsytem" typo
 
 
 Summary of changes from v096 to v097
@@ -653,7 +662,7 @@ Greg Kroah-Hartman:
   fix nbd error messages with a gentoo rule hack
   fix scsi_id rule in gentoo config file
 
-J¸rg Billeter:
+J√ºrg Billeter:
   EXTRAS/Makefile: fix install targets to match main Makefile
 
 Kay Sievers:
@@ -866,7 +875,7 @@ Kay Sievers:
   ata_id: check for empty serial number
   compile dasd only on s390
 
-Ville Skytt‰:
+Ville Skytt√§:
   correct default mode documentation in udev
 
 
@@ -1236,7 +1245,7 @@ Summary of changes from v050 to v051
 <tklauser:access.unizh.chbk>:
   o I tried to compile udev 050plus with the GCC 4.0 snapshot 200412119 and got two errors about possibly uninitialized structs, so I fixed this. 
 
-Christian Borntr‰ger:
+Christian Borntr√§ger:
   o udev_volume_id: fix -d option
 
 Greg Kroah-Hartman:
