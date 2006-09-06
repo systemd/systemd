@@ -7,9 +7,9 @@ SUBSYSTEM!="block", GOTO="persistent_storage_end"
 # skip rules for inappropriate block devices
 KERNEL=="ram*|loop*|fd*|nbd*|dm-*", GOTO="persistent_storage_end"
 
-# never access removable ide devices, the drivers are causing event loops on open()
+# never access non-cdrom removable ide devices, the drivers are causing event loops on open()
 KERNEL=="hd*[!0-9]", ATTRS{removable}=="1", DRIVERS=="ide-cs|ide-floppy", GOTO="persistent_storage_end"
-KERNEL=="hd*[0-9]", ATTRS{../removable}=="1", GOTO="persistent_storage_end"
+KERNEL=="hd*[0-9]", ATTRS{removable}=="1", GOTO="persistent_storage_end"
 
 # for partitions import parent information
 KERNEL=="*[0-9]", IMPORT{parent}=="ID_*"
@@ -35,7 +35,7 @@ KERNEL=="sr*|st*", GOTO="persistent_storage_end"
 KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 
 # by-label/by-uuid (filesystem properties)
-KERNEL=="*[!0-9]", ATTRS{removable}=="1", GOTO="persistent_storage_end"
+KERNEL=="*[!0-9]", ATTR{removable}=="1", GOTO="persistent_storage_end"
 IMPORT{program}="vol_id --export $tempnode"
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
 ENV{ID_FS_USAGE}=="filesystem|other", ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
