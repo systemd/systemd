@@ -11,10 +11,11 @@ These things will change in future udev versions:
   o warn if PHYSDEV* keys are used in ENV keys
     (they are deprecated and will be removed from a future kernel)
 
-  o warn if "device/" is used in a ATTR{}, ATTRS{}, $attr{} key
-    (the device link must not be used in rules or tools, udev resolves
-     the link and makes the devices available as parents, which can
-     be matched with the normal keys)
+  o warn if any path component is used in a ATTR{}, ATTRS{},
+    $attr{} key, like ATTR{device/<file>}==
+    (parent attributes must not referenced directly in rules or tools,
+     udev finds the parents and makes them available, which can be matched
+     with the normal keys)
 
   o warn if BUS, ID, SYSFS are used as keys
     (they are SUBSYSTEMS, KERNELS, ATTRS now)

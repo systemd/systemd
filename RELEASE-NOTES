@@ -1,3 +1,24 @@
+udev 099
+========
+Bugfixes.
+
+Udevtrigger can now filter the list of devices to be triggered. Matches
+for subsystems or sysfs attributes can be specified.
+
+The entries in /dev/.udev/queue and /dev/.udev/failed have changed to
+zero-sized files to avoid pointing to /sys and confuse broken tools which
+scan the /dev directory. To retry failed events, udevtrigger --retry-failed
+should be used now.
+
+The rules and scripts to create udev rules for persistent network
+devices and optical drives are in the extras/rules_generator directory
+now. If you use something similar, please consider replacing your own
+version with this, to share the support effort. The rule_generator
+installs its own rules into /etc/udev/rules.d.
+
+The cdrom_id tool installs its own rule now in /etc/udev/rules.d, cause
+the rule_generator depends on cdrom_id to be called in an earlier rule.
+
 udev 098
 ========
 Bugfixes.

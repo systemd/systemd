@@ -1,3 +1,81 @@
+Summary of changes from v097 to v098
+============================================
+
+Alex Merry:
+      udevtest: allow /sys in the devpath paramter
+
+Greg KH:
+      update Gentoo rules
+
+Harald Hoyer:
+      selinux: init once in the daemon, not in every event process
+
+Kay Sievers:
+      udevd: remove huge socket buffer on the control socket
+      man page: fix typo
+      rename udev_libc_wrapper -> udev_sysdeps
+      db: store devpath - node relationship for all devices
+      udevinfo: allow -a -n <node>
+      udevinfo, udevtest: simplify '/sys' stripping from devpath argument
+      lookup_user, lookup_group: report "unknown user" and "lookup failed"
+      consistent key naming to match only the event device or include all parent devices
+      skip rule, if too may keys of the same type are used
+      introduce ATTR{file}="value" to set sysfs attributes
+      update SUSE rules
+      update default rules
+      export DRIVER for older kernels as a replacement for PHYSDEVDRIVER
+      fix typo in SUBSYSTEMS key parsing
+      udevtrigger: add --retry-failed
+      volume_id: add suspend partition detection
+      vol_id: use primary group of 'nobody' instead of 'nogroup'
+      remove built-in /etc/passwd /etc/group parser
+      always expect KEY{value} on ATTR, ATTRS, ENV keys
+      use new key names in test programs
+      cleanup commandline argument handling
+      db: don't create a db file for only a node name to store
+      man: add ATTR{file}="value" assignment
+      098 release
+      udev_db.c: include <sys/stat.h>
+      use fnmatch() instead of our own pattern match code
+      rename major/minor variable to maj/min to avoid warning
+      update source file headers
+      udevtest: print header that ENV{} can't work
+      update TODO
+      udevtrigger: options to filter by subsystem and sysfs attribute
+      udevtrigger: remove unused longindex
+      udevinfo: use long options
+      udevd: use files instead of symlinks for /dev/.udev/queue,failed
+      udevtrigger: fix pattern match
+      reorder options in udevinfo man page
+      udevinfo: fix SUBSYTEMS spelling error
+      fix ENV{TEST}="Test: $env{TEST}"
+      let $attr{symlink} return the last element of the path
+      cdrom_id: add rules file to call cdrom_id
+      udevinfo: do not show symlinks as attributes in --attribute-walk
+      remove broken name_cdrom.pl
+
+Lennart Poettering:
+      volume_id: fix fat32 cluster chain traversal
+
+Marco d'Itri:
+      fix 'unknow user' error from getpwnam/getgrnam
+      fix rc when using udev --daemon
+      update Debian rules
+      update Debian rules
+      run_program: close pipe fd's which are connected to child process
+      add persistent rules generator for net devices and optical drives
+
+Michał Bartoszkiewicz:
+      man pages: fix typos
+
+MUNEDA Takahiro:
+      changes rules for ata disk from '_' to '-'
+
+Sergey Vlasov:
+      make struct option arrays static const
+      fix "subsytem" typo
+
+
 Summary of changes from v096 to v097
 ============================================
 
