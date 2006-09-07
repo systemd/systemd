@@ -196,13 +196,13 @@ The devpath of the device.
 \fB$id\fR, \fB%b\fR
 The name of the device matched while searching the devpath upwards for
 \fBSUBSYSTEMS\fR,
-\fBKERNELS\fR
+\fBKERNELS\fR,
 \fBDRIVERS\fR
 and
 \fBATTRS\fR.
 .TP 3n
 \fB$attr{\fR\fB\fIfile\fR\fR\fB}\fR, \fB%s{\fR\fB\fIfile\fR\fR\fB}\fR
-The value of a sysfs attribute found at the current or a parent device.
+The value of a sysfs attribute found at the device, where all keys of the rule have matched. If the matching device does not have such an attribute, all devices along the chain of parents are searched for a matching attribute. If the attribute is a symlink, the last element of the symlink target is returned as the value.
 .TP 3n
 \fB$env{\fR\fB\fIkey\fR\fR\fB}\fR, \fB%E{\fR\fB\fIkey\fR\fR\fB}\fR
 The value of an environment variable.

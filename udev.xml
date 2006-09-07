@@ -406,7 +406,7 @@
               <term><option>$id</option>, <option>%b</option></term>
               <listitem>
                 <para>The name of the device matched while searching the devpath upwards for
-                  <option>SUBSYSTEMS</option>, <option>KERNELS</option> <option>DRIVERS</option> and <option>ATTRS</option>.
+                  <option>SUBSYSTEMS</option>, <option>KERNELS</option>, <option>DRIVERS</option> and <option>ATTRS</option>.
                 </para>
               </listitem>
             </varlistentry>
@@ -414,7 +414,12 @@
             <varlistentry>
               <term><option>$attr{<replaceable>file</replaceable>}</option>, <option>%s{<replaceable>file</replaceable>}</option></term>
               <listitem>
-                <para>The value of a sysfs attribute found at the current or a parent device.</para>
+                <para>The value of a sysfs attribute found at the device, where
+                all keys of the rule have matched. If the matching device does not have
+                such an attribute, all devices along the chain of parents are searched
+                for a matching attribute.
+                If the attribute is a symlink, the last element of the symlink target is
+                returned as the value.</para>
               </listitem>
             </varlistentry>
 
