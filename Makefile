@@ -326,10 +326,10 @@ buildtest:
 
 ChangeLog: Makefile
 	@ mv $@ $@.tmp
-	@ echo "Summary of changes from v$(shell printf '%03i' $$(expr $(VERSION) - 1)) to v$(VERSION)" >> $@
+	@ echo "Summary of changes from v$(shell echo $$(($(VERSION) - 1))) to v$(VERSION)" >> $@
 	@ echo "============================================" >> $@
 	@ echo >> $@
-	@ git log --pretty=short $(shell printf '%03i' $$(expr $(VERSION) - 1))..HEAD | git shortlog  >> $@
+	@ git log --pretty=short $(shell echo $$(($(VERSION) - 1)))..HEAD | git shortlog  >> $@
 	@ echo >> $@
 	@ cat $@
 	@ cat $@.tmp >> $@
