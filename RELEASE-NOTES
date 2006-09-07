@@ -1,3 +1,7 @@
+udev 100
+========
+Revert persistent-storage ata-serial '_' '-' replacement.
+
 udev 099
 ========
 Bugfixes.

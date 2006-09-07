@@ -1,3 +1,13 @@
+Summary of changes from v099 to v100
+============================================
+
+Kay Sievers:
+      update SUSE rules
+      fix messed up ChangeLog from release 099
+      man: add $attr{} section about symlinks
+      revert persistent-storage ata-serial '_' '-' replacement
+
+
 Summary of changes from v098 to v099
 ============================================
 
@@ -23,7 +33,6 @@ Kay Sievers:
       cdrom_id: add rules file to call cdrom_id
       udevinfo: do not show symlinks as attributes in --attribute-walk
       remove broken name_cdrom.pl
-      release 099
 
 Marco d'Itri:
       update Debian rules
@@ -37,9 +46,9 @@ Sergey Vlasov:
       make struct option arrays static const
       fix "subsytem" typo
 
+
 Summary of changes from v097 to v098
 ============================================
-
 
 Alex Merry:
       udevtest: allow /sys in the devpath paramter
@@ -71,7 +80,6 @@ Kay Sievers:
       cleanup commandline argument handling
       db: don't create a db file for only a node name to store
       man: add ATTR{file}="value" assignment
-      098 release
 
 Lennart Poettering:
       volume_id: fix fat32 cluster chain traversal
