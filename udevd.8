@@ -14,7 +14,7 @@
 udevd \- event managing daemon
 .SH "SYNOPSIS"
 .HP 6
-\fBudevd\fR [\fB\-\-daemon\fR]
+\fBudevd\fR [\fB\-\-daemon\fR] [\fB\-\-help\fR]
 .HP 20
 \fBudevcontrol \fR\fB\fIcommand\fR\fR
 .SH "DESCRIPTION"
@@ -24,6 +24,9 @@ udevd listens to kernel uevents and passes the incoming events to udev. It ensur
 .TP 3n
 \fB\-\-daemon\fR
 Detach and run in the background.
+.TP 3n
+\fB\-\-help\fR
+Print usage.
 .TP 3n
 \fBlog_priority=\fR\fB\fIvalue\fR\fR
 udevcontrol can dynamically set the log level of udevd. Valid values are the numerical syslog priorities or their textual representations:

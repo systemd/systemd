@@ -29,6 +29,7 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <time.h>
+#include <getopt.h>
 #include <sys/select.h>
 #include <sys/wait.h>
 #include <sys/types.h>
@@ -76,6 +77,7 @@ void log_message(int priority, const char *format, ...)
 	vsyslog(priority, format, args);
 	va_end(args);
 }
+
 #endif
 
 static void asmlinkage udev_event_sig_handler(int signum)
@@ -916,7 +918,12 @@ int main(int argc, char *argv[], char *envp[])
 	fd_set readfds;
 	const char *value;
 	int daemonize = 0;
-	int i;
+	int option;
+	static const struct option options[] = {
+		{ "daemon", 0, NULL, 'd' },
+		{ "help", 0, NULL, 'h' },
+		{}
+	};
 	int rc = 1;
 	int maxfd;
 
@@ -926,16 +933,20 @@ int main(int argc, char *argv[], char *envp[])
 	dbg("version %s", UDEV_VERSION);
 
 	/* parse commandline options */
-	for (i = 1 ; i < argc; i++) {
-		char *arg = argv[i];
-		if (strcmp(arg, "--daemon") == 0 || strcmp(arg, "-d") == 0)
+	while (1) {
+		option = getopt_long(argc, argv, "dtvh", options, NULL);
+		if (option == -1)
+			break;
+
+		switch (option) {
+		case 'd':
 			daemonize = 1;
-		else if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
+			break;
+		case 'h':
 			printf("Usage: udevd [--help] [--daemon]\n");
 			goto exit;
-		} else {
-			fprintf(stderr, "unrecognized option '%s'\n", arg);
-			err("unrecognized option '%s'\n", arg);
+		default:
+			goto exit;
 		}
 	}
 

@@ -26,6 +26,7 @@
         <cmdsynopsis>
           <command>udevd</command>
           <arg><option>--daemon</option></arg>
+          <arg><option>--help</option></arg>
         </cmdsynopsis>
         <cmdsynopsis>
           <command>udevcontrol <replaceable>command</replaceable></command>
@@ -44,6 +45,12 @@
             <term><option>--daemon</option></term>
             <listitem>
               <para>Detach and run in the background.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--help</option></term>
+            <listitem>
+              <para>Print usage.</para>
             </listitem>
           </varlistentry>
           <varlistentry>
