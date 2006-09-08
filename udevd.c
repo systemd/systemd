@@ -45,6 +45,8 @@
 #include "udevd.h"
 #include "udev_selinux.h"
 
+static int verbose;
+
 static struct udev_rules rules;
 static int udevd_sock = -1;
 static int uevent_netlink_sock = -1;
@@ -76,6 +78,13 @@ void log_message(int priority, const char *format, ...)
 	va_start(args, format);
 	vsyslog(priority, format, args);
 	va_end(args);
+
+	if (verbose) {
+		va_start(args, format);
+		vprintf(format, args);
+		va_end(args);
+		printf("\n");
+	}
 }
 
 #endif
@@ -921,6 +930,7 @@ int main(int argc, char *argv[], char *envp[])
 	int option;
 	static const struct option options[] = {
 		{ "daemon", 0, NULL, 'd' },
+		{ "verbose", 0, NULL, 'v' },
 		{ "help", 0, NULL, 'h' },
 		{}
 	};
@@ -942,8 +952,13 @@ int main(int argc, char *argv[], char *envp[])
 		case 'd':
 			daemonize = 1;
 			break;
+		case 'v':
+			verbose = 1;
+			if (udev_log_priority < LOG_INFO)
+				udev_log_priority = LOG_INFO;
+			break;
 		case 'h':
-			printf("Usage: udevd [--help] [--daemon]\n");
+			printf("Usage: udevd [--help] [--daemon] [--verbose]\n");
 			goto exit;
 		default:
 			goto exit;
@@ -1006,7 +1021,8 @@ int main(int argc, char *argv[], char *envp[])
 	fd = open("/dev/null", O_RDWR);
 	if (fd >= 0) {
 		dup2(fd, STDIN_FILENO);
-		dup2(fd, STDOUT_FILENO);
+		if (!verbose)
+			dup2(fd, STDOUT_FILENO);
 		dup2(fd, STDERR_FILENO);
 		if (fd > STDERR_FILENO)
 			close(fd);

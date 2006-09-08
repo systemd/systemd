@@ -26,6 +26,7 @@
         <cmdsynopsis>
           <command>udevd</command>
           <arg><option>--daemon</option></arg>
+          <arg><option>--verbose</option></arg>
           <arg><option>--help</option></arg>
         </cmdsynopsis>
         <cmdsynopsis>
@@ -45,6 +46,12 @@
             <term><option>--daemon</option></term>
             <listitem>
               <para>Detach and run in the background.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--verbose</option></term>
+            <listitem>
+              <para>Print log messages to stdout.</para>
             </listitem>
           </varlistentry>
           <varlistentry>
