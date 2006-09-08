@@ -45,6 +45,7 @@
 #include "udevd.h"
 #include "udev_selinux.h"
 
+static int debug_trace;
 static int verbose;
 
 static struct udev_rules rules;
@@ -306,6 +307,15 @@ static void msg_queue_insert(struct udevd_uevent_msg *msg)
 	}
 
 	export_event_state(msg, EVENT_QUEUED);
+
+	/* run one event after the other in debug mode */
+	if (debug_trace) {
+		list_add_tail(&msg->node, &running_list);
+		udev_event_run(msg);
+		waitpid(msg->pid, NULL, 0);
+		msg_queue_delete(msg);
+		return;
+	}
 
 	/* run all events with a timeout set immediately */
 	if (msg->timeout != 0) {
@@ -930,6 +940,7 @@ int main(int argc, char *argv[], char *envp[])
 	int option;
 	static const struct option options[] = {
 		{ "daemon", 0, NULL, 'd' },
+		{ "debug-trace", 0, NULL, 't' },
 		{ "verbose", 0, NULL, 'v' },
 		{ "help", 0, NULL, 'h' },
 		{}
@@ -952,13 +963,16 @@ int main(int argc, char *argv[], char *envp[])
 		case 'd':
 			daemonize = 1;
 			break;
+		case 't':
+			debug_trace = 1;
+			break;
 		case 'v':
 			verbose = 1;
 			if (udev_log_priority < LOG_INFO)
 				udev_log_priority = LOG_INFO;
 			break;
 		case 'h':
-			printf("Usage: udevd [--help] [--daemon] [--verbose]\n");
+			printf("Usage: udevd [--help] [--daemon] [--debug-trace] [--verbose]\n");
 			goto exit;
 		default:
 			goto exit;
@@ -1128,6 +1142,8 @@ int main(int argc, char *argv[], char *envp[])
 	/* export log_priority , as called programs may want to follow that setting */
 	sprintf(udev_log, "UDEV_LOG=%i", udev_log_priority);
 	putenv(udev_log);
+	if (debug_trace)
+		putenv("DEBUG=1");
 
 	maxfd = udevd_sock;
 	maxfd = UDEV_MAX(maxfd, uevent_netlink_sock);

@@ -26,6 +26,7 @@
         <cmdsynopsis>
           <command>udevd</command>
           <arg><option>--daemon</option></arg>
+          <arg><option>--debug-trace</option></arg>
           <arg><option>--verbose</option></arg>
           <arg><option>--help</option></arg>
         </cmdsynopsis>
@@ -46,6 +47,15 @@
             <term><option>--daemon</option></term>
             <listitem>
               <para>Detach and run in the background.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--debug-trace</option></term>
+            <listitem>
+              <para>Run all events completely serialized. This may be useful if udev triggers
+              actions or loads kernel modules which cause problems and a slow but continiuous
+              operation is needed, where no events are processed in parallel.
+              </para>
             </listitem>
           </varlistentry>
           <varlistentry>
