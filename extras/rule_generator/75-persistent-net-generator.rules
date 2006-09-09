@@ -1,16 +1,19 @@
 # these rules generate rules for persistent network device naming
 
-ACTION=="add", SUBSYSTEM=="net", NAME!="?*", DRIVERS=="?*", GOTO="persistent_net_generator_do"
+ACTION=="add", SUBSYSTEM=="net", KERNEL=="eth*|ath*|wlan*|ra*|sta*" \
+	NAME!="?*", DRIVERS=="?*", GOTO="persistent_net_generator_do"
+
 GOTO="persistent_net_generator_end"
-
 LABEL="persistent_net_generator_do"
-# export device description to comment the generated rule
-SUBSYSTEMS=="pci", ENV{COMMENT}="PCI Device: $attr{vendor}:$attr{device} ($attr{driver})"
-SUBSYSTEMS=="usb", ENV{COMMENT}="USB Device: 0x$attr{idVendor}:0x$attr{idProduct} ($attr{driver})"
-SUBSYSTEMS=="ieee1394", ENV{COMMENT}="Firewire Device: $attr{host_id} ($attr{driver})"
-SUBSYSTEMS=="xen", ENV{COMMENT}="Xen virtual device"
 
-KERNEL=="eth*|ath*|wlan*|ra*|sta*", IMPORT{program}="write_net_rules $attr{address}"
+# build device description string to add a comment the generated rule
+SUBSYSTEMS=="pci", ENV{COMMENT}="PCI device $attr{vendor}:$attr{device} ($attr{driver})"
+SUBSYSTEMS=="usb", ENV{COMMENT}="USB device 0x$attr{idVendor}:0x$attr{idProduct} ($attr{driver})"
+SUBSYSTEMS=="ieee1394", ENV{COMMENT}="Firewire device $attr{host_id})"
+SUBSYSTEMS=="xen", ENV{COMMENT}="Xen virtual device"
+ENV{COMMENT}=="", ENV{COMMENT}="$env{SUBSYSTEM} device ($attr{driver})"
+
+IMPORT{program}="write_net_rules $attr{address}"
 ENV{INTERFACE_NEW}=="?*", NAME="$env{INTERFACE_NEW}"
 
 LABEL="persistent_net_generator_end"
