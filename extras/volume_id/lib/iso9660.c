@@ -35,9 +35,9 @@
 #define ISO_VD_MAX			16
 
 struct iso_volume_descriptor {
-	uint8_t		vd_type;
-	uint8_t		vd_id[5];
-	uint8_t		vd_version;
+	uint8_t		type;
+	uint8_t		id[5];
+	uint8_t		version;
 	uint8_t		flags;
 	uint8_t		system_id[32];
 	uint8_t		volume_id[32];
@@ -49,7 +49,7 @@ struct iso_volume_descriptor {
 struct high_sierra_volume_descriptor {
 	uint8_t		foo[8];
 	uint8_t		type;
-	uint8_t		id[4];
+	uint8_t		id[5];
 	uint8_t		version;
 } PACKED;
 
@@ -67,7 +67,7 @@ int volume_id_probe_iso9660(struct volume_id *id, uint64_t off, uint64_t size)
 
 	is = (struct iso_volume_descriptor *) buf;
 
-	if (memcmp(is->vd_id, "CD001", 5) == 0) {
+	if (memcmp(is->id, "CD001", 5) == 0) {
 		int vd_offset;
 		int i;
 
@@ -81,9 +81,9 @@ int volume_id_probe_iso9660(struct volume_id *id, uint64_t off, uint64_t size)
 			uint8_t svd_label[64];
 
 			is = (struct iso_volume_descriptor *) volume_id_get_buffer(id, off + vd_offset, 0x200);
-			if (is == NULL || is->vd_type == ISO_VD_END)
+			if (is == NULL || is->type == ISO_VD_END)
 				break;
-			if (is->vd_type != ISO_VD_SUPPLEMENTARY)
+			if (is->type != ISO_VD_SUPPLEMENTARY)
 				continue;
 
 			dbg("found SVD at offset 0x%llx", (unsigned long long) (off + vd_offset));
