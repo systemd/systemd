@@ -373,6 +373,12 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 				err("error parsing ATTRS attribute");
 				goto invalid;
 			}
+			if (strncmp(attr, "device/", 7) == 0)
+				err("the 'device' link is deprecated and will be removed from a future kernel, "
+				    "please fix it in %s:%u", filename, lineno);
+			else if (strchr(attr, '/') != NULL)
+				err("do not reference parent sysfs directories directly, that may break with a future kernel, "
+				    "please fix it in %s:%u", filename, lineno);
 			if (add_rule_key_pair(rule, &rule->attrs, operation, attr, value) != 0)
 				goto invalid;
 			valid = 1;
@@ -385,6 +391,9 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 				err("error parsing ENV attribute");
 				goto invalid;
 			}
+			if (strncmp(attr, "PHYSDEV", 7) == 0)
+				err("PHYSDEV* values are deprected and will be removed from a future kernel, "
+				    "please fix it in %s:%u", filename, lineno);
 			if (add_rule_key_pair(rule, &rule->env, operation, attr, value) != 0)
 				goto invalid;
 			valid = 1;
