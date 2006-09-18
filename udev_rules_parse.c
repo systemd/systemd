@@ -241,6 +241,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 	char *linepos;
 	char *attr;
 	size_t padding;
+	int physdev = 0;
 	int retval;
 
 	/* get all the keys */
@@ -392,8 +393,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 				goto invalid;
 			}
 			if (strncmp(attr, "PHYSDEV", 7) == 0)
-				err("PHYSDEV* values are deprected and will be removed from a future kernel, "
-				    "please fix it in %s:%u", filename, lineno);
+				physdev = 1;
 			if (add_rule_key_pair(rule, &rule->env, operation, attr, value) != 0)
 				goto invalid;
 			valid = 1;
@@ -578,6 +578,10 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 
 		err("unknown key '%s' in %s:%u", key, filename, lineno);
 	}
+
+	if (physdev && rule->wait_for_sysfs.operation == KEY_OP_UNSET)
+		err("PHYSDEV* values are deprected and will be removed from a future kernel, "
+		    "please fix it in %s:%u", filename, lineno);
 
 	/* skip line if not any valid key was found */
 	if (!valid)
