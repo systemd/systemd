@@ -113,6 +113,7 @@ extern struct sysfs_device *sysfs_device_get(const char *devpath);
 extern struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev);
 extern struct sysfs_device *sysfs_device_get_parent_with_subsystem(struct sysfs_device *dev, const char *subsystem);
 extern char *sysfs_attr_get_value(const char *devpath, const char *attr_name);
+extern int sysfs_resolve_link(char *path, size_t size);
 
 /* udev_node.c */
 extern int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t mode, uid_t uid, gid_t gid);

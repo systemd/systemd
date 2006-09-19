@@ -112,6 +112,38 @@ void sysfs_device_set_values(struct sysfs_device *dev, const char *devpath,
 	dbg("kernel_number='%s'", dev->kernel_number);
 }
 
+int sysfs_resolve_link(char *devpath, size_t size)
+{
+	char link_path[PATH_SIZE];
+	char link_target[PATH_SIZE];
+	int len;
+	int i;
+	int back;
+
+	strlcpy(link_path, sysfs_path, sizeof(link_path));
+	strlcat(link_path, devpath, sizeof(link_path));
+	len = readlink(link_path, link_target, sizeof(link_target));
+	if (len <= 0)
+		return -1;
+	link_target[len] = '\0';
+	dbg("path link '%s' points to '%s'", devpath, link_target);
+
+	for (back = 0; strncmp(&link_target[back * 3], "../", 3) == 0; back++)
+		;
+	dbg("base '%s', tail '%s', back %i", devpath, &link_target[back * 3], back);
+	for (i = 0; i <= back; i++) {
+		char *pos = strrchr(devpath, '/');
+
+		if (pos == NULL)
+			return -1;
+		pos[0] = '\0';
+	}
+	dbg("after moving back '%s'", devpath);
+	strlcat(devpath, "/", size);
+	strlcat(devpath, &link_target[back * 3], size);
+	return 0;
+}
+
 struct sysfs_device *sysfs_device_get(const char *devpath)
 {
 	char path[PATH_SIZE];
@@ -144,27 +176,8 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 		return NULL;
 	}
 	if (S_ISLNK(statbuf.st_mode)) {
-		int i;
-		int back;
-
-		len = readlink(path, link_target, sizeof(link_target));
-		if (len <= 0)
+		if (sysfs_resolve_link(devpath_real, sizeof(devpath_real)) != 0)
 			return NULL;
-		link_target[len] = '\0';
-		dbg("devpath link '%s' points to '%s'", path, link_target);
-
-		for (back = 0; strncmp(&link_target[back * 3], "../", 3) == 0; back++)
-			;
-		dbg("base '%s', tail '%s', back %i", devpath_real, &link_target[back * 3], back);
-		for (i = 0; i <= back; i++) {
-			pos = strrchr(devpath_real, '/');
-			if (pos == NULL)
-				return NULL;
-			pos[0] = '\0';
-		}
-		dbg("after moving back '%s'", devpath_real);
-		strlcat(devpath_real, "/", sizeof(devpath_real));
-		strlcat(devpath_real, &link_target[back * 3], sizeof(devpath_real));
 
 		/* now look for device in cache after path translation */
 		list_for_each_entry(dev_loop, &dev_list, node) {
@@ -247,12 +260,7 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
 {
 	char parent_devpath[PATH_SIZE];
-	char device_link[PATH_SIZE];
-	char device_link_target[PATH_SIZE];
 	char *pos;
-	int i;
-	int len;
-	int back;
 
 	dbg("open '%s'", dev->devpath);
 
@@ -298,28 +306,10 @@ struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
 	return dev->parent;
 
 device_link:
-	strlcpy(device_link, sysfs_path, sizeof(device_link));
-	strlcat(device_link, dev->devpath, sizeof(device_link));
-	strlcat(device_link, "/device", sizeof(device_link));
-	len = readlink(device_link, device_link_target, sizeof(device_link_target));
-	if (len < 0)
-		return NULL;
-	device_link_target[len] = '\0';
-	dbg("device link '%s' points to '%s'", device_link, device_link_target);
-
-	for (back = 0; strncmp(&device_link_target[back * 3], "../", 3) == 0; back++)
-		;
 	strlcpy(parent_devpath, dev->devpath, sizeof(parent_devpath));
-	dbg("base='%s', tail='%s', back=%i", parent_devpath, &device_link_target[back * 3], back);
-	for (i = 0; i < back; i++) {
-		pos = strrchr(parent_devpath, '/');
-		if (pos == NULL)
-			return NULL;
-		pos[0] = '\0';
-	}
-	dbg("after moving back '%s'", parent_devpath);
-	strlcat(parent_devpath, "/", sizeof(parent_devpath));
-	strlcat(parent_devpath, &device_link_target[back * 3], sizeof(parent_devpath));
+	strlcat(parent_devpath, "/device", sizeof(parent_devpath));
+	if (sysfs_resolve_link(parent_devpath, sizeof(parent_devpath)) != 0)
+		return NULL;
 
 	/* get parent and remember it */
 	dev->parent = sysfs_device_get(parent_devpath);
