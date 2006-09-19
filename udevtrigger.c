@@ -34,6 +34,14 @@
 #include "udev.h"
 #include "udevd.h"
 
+static int verbose;
+static int dry_run;
+LIST_HEAD(device_list);
+LIST_HEAD(filter_subsystem_match_list);
+LIST_HEAD(filter_subsystem_nomatch_list);
+LIST_HEAD(filter_attr_match_list);
+LIST_HEAD(filter_attr_nomatch_list);
+
 #ifdef USE_LOG
 void log_message(int priority, const char *format, ...)
 {
@@ -48,69 +56,62 @@ void log_message(int priority, const char *format, ...)
 }
 #endif
 
-static int verbose;
-static int dry_run;
-
-/* list of devices that we should run last due to any one of a number of reasons */
-static char *last_list[] = {
-	"/class/block/md",
-	"/class/block/dm-",
-	"/block/md",
-	"/block/dm-",
-	NULL
-};
-
-/* list of devices that we should run first due to any one of a number of reasons */
-static char *first_list[] = {
-	"/class/mem",
-	"/class/tty",
-	NULL
-};
-
-LIST_HEAD(device_first_list);
-LIST_HEAD(device_default_list);
-LIST_HEAD(device_last_list);
-
-LIST_HEAD(filter_subsystem_match_list);
-LIST_HEAD(filter_subsystem_nomatch_list);
-LIST_HEAD(filter_attr_match_list);
-LIST_HEAD(filter_attr_nomatch_list);
-
-static int device_list_insert(const char *path)
+/* devices that should run last cause of their dependencies */
+static int delay_device(const char *devpath)
 {
-	struct list_head *device_list = &device_default_list;
-	const char *devpath = &path[strlen(sysfs_path)];
+	static const char *delay_device_list[] = {
+		"*/md*",
+		"*/dm-*",
+		NULL
+	};
 	int i;
 
-	for (i = 0; first_list[i] != NULL; i++) {
-		if (strncmp(devpath, first_list[i], strlen(first_list[i])) == 0) {
-			device_list = &device_first_list;
-			break;
-		}
-	}
-	for (i = 0; last_list[i] != NULL; i++) {
-		if (strncmp(devpath, last_list[i], strlen(last_list[i])) == 0) {
-			device_list = &device_last_list;
-			break;
-		}
-	}
-
-	dbg("add '%s'" , path);
-	/* double entries will be ignored */
-	name_list_add(device_list, path, 0);
+	for (i = 0; delay_device_list[i] != NULL; i++)
+		if (fnmatch(delay_device_list[i], devpath, 0) == 0)
+			return 1;
 	return 0;
 }
 
-static void trigger_uevent(const char *path)
+static int device_list_insert(const char *path)
+{
+	char filename[PATH_SIZE];
+	char devpath[PATH_SIZE];
+	struct stat statbuf;
+
+	dbg("add '%s'" , path);
+
+	/* we only have a device, if we have an uevent file */
+	strlcpy(filename, path, sizeof(filename));
+	strlcat(filename, "/uevent", sizeof(filename));
+	if (stat(filename, &statbuf) < 0)
+		return -1;
+	if (!(statbuf.st_mode & S_IWUSR))
+		return -1;
+
+	strlcpy(devpath, &path[strlen(sysfs_path)], sizeof(devpath));
+
+	/* resolve possible link to real target */
+	if (lstat(path, &statbuf) < 0)
+		return -1;
+	if (S_ISLNK(statbuf.st_mode))
+		if (sysfs_resolve_link(devpath, sizeof(devpath)) != 0)
+			return -1;
+
+	name_list_add(&device_list, devpath, 1);
+	return 0;
+}
+
+static void trigger_uevent(const char *devpath)
 {
 	char filename[PATH_SIZE];
 	int fd;
 
-	strlcpy(filename, path, sizeof(filename));
+	strlcpy(filename, sysfs_path, sizeof(filename));
+	strlcat(filename, devpath, sizeof(filename));
 	strlcat(filename, "/uevent", sizeof(filename));
 
 	if (verbose)
-		printf("%s\n", path);
+		printf("%s\n", devpath);
 
 	if (dry_run)
 		return;
@@ -127,48 +128,26 @@ static void trigger_uevent(const char *path)
 	close(fd);
 }
 
-static void exec_lists(void)
+static void exec_list(void)
 {
 	struct name_entry *loop_device;
 	struct name_entry *tmp_device;
 
-	/* handle the devices on the "first" list first */
-	list_for_each_entry_safe(loop_device, tmp_device, &device_first_list, node) {
+	list_for_each_entry_safe(loop_device, tmp_device, &device_list, node) {
+		if (delay_device(loop_device->name))
+			continue;
+
 		trigger_uevent(loop_device->name);
 		list_del(&loop_device->node);
 		free(loop_device);
 	}
 
-	/* handle the devices on the "default" list next */
-	list_for_each_entry_safe(loop_device, tmp_device, &device_default_list, node) {
+	/* trigger remaining delayed devices */
+	list_for_each_entry_safe(loop_device, tmp_device, &device_list, node) {
 		trigger_uevent(loop_device->name);
 		list_del(&loop_device->node);
 		free(loop_device);
 	}
-
-	/* handle devices on the "last" list, if any */
-	list_for_each_entry_safe(loop_device, tmp_device, &device_last_list, node) {
-		trigger_uevent(loop_device->name);
-		list_del(&loop_device->node);
-		free(loop_device);
-	}
-}
-
-static int is_device(const char *path)
-{
-	char filename[PATH_SIZE];
-	struct stat statbuf;
-
-	/* look for the uevent file of the kobject */
-	strlcpy(filename, path, sizeof(filename));
-	strlcat(filename, "/uevent", sizeof(filename));
-	if (stat(filename, &statbuf) < 0)
-		return 0;
-
-	if (!(statbuf.st_mode & S_IWUSR))
-		return 0;
-
-	return 1;
 }
 
 static int subsystem_filtered(const char *subsystem)
@@ -299,8 +278,7 @@ static void scan_bus(void)
 					strlcat(dirname2, dent2->d_name, sizeof(dirname2));
 					if (attr_filtered(dirname2))
 						continue;
-					if (is_device(dirname2))
-						device_list_insert(dirname2);
+					device_list_insert(dirname2);
 				}
 				closedir(dir2);
 			}
@@ -343,9 +321,7 @@ static void scan_block(void)
 			strlcat(dirname, dent->d_name, sizeof(dirname));
 			if (attr_filtered(dirname))
 				continue;
-			if (is_device(dirname))
-				device_list_insert(dirname);
-			else
+			if (device_list_insert(dirname) != 0);
 				continue;
 
 			/* look for partitions */
@@ -365,8 +341,7 @@ static void scan_block(void)
 					strlcat(dirname2, dent2->d_name, sizeof(dirname2));
 					if (attr_filtered(dirname2))
 						continue;
-					if (is_device(dirname2))
-						device_list_insert(dirname2);
+					device_list_insert(dirname2);
 				}
 				closedir(dir2);
 			}
@@ -416,8 +391,7 @@ static void scan_class(void)
 					strlcat(dirname2, dent2->d_name, sizeof(dirname2));
 					if (attr_filtered(dirname2))
 						continue;
-					if (is_device(dirname2))
-						device_list_insert(dirname2);
+					device_list_insert(dirname2);
 				}
 				closedir(dir2);
 			}
@@ -455,10 +429,7 @@ static void scan_failed(void)
 				if (device[i] == PATH_TO_NAME_CHAR)
 					device[i] = '/';
 
-			if (is_device(device))
-				device_list_insert(device);
-			else
-				continue;
+			device_list_insert(device);
 		}
 		closedir(dir);
 	}
@@ -539,7 +510,7 @@ int main(int argc, char *argv[], char *envp[])
 		scan_class();
 		scan_block();
 	}
-	exec_lists();
+	exec_list();
 
 exit:
 	name_list_cleanup(&filter_subsystem_match_list);
