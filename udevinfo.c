@@ -104,6 +104,10 @@ static int print_device_chain(const char *devpath)
 {
 	struct sysfs_device *dev;
 
+	dev = sysfs_device_get(devpath);
+	if (dev == NULL)
+		return -1;
+
 	printf("\n"
 	       "Udevinfo starts with the device specified by the devpath and then\n"
 	       "walks up the chain of parent devices. It prints for every device\n"
@@ -111,10 +115,6 @@ static int print_device_chain(const char *devpath)
 	       "A rule to match, can be composed by the attributes of the device\n"
 	       "and the attributes from one single parent device.\n"
 	       "\n");
-
-	dev = sysfs_device_get(devpath);
-	if (dev == NULL)
-		return -1;
 
 	printf("  looking at device '%s':\n", dev->devpath);
 	printf("    KERNEL==\"%s\"\n", dev->kernel);
@@ -377,7 +377,11 @@ int main(int argc, char *argv[], char *envp[])
 		break;
 	case ACTION_ATTRIBUTE_WALK:
 		if (path[0] != '\0') {
-			print_device_chain(path);
+			if (print_device_chain(path) != 0) {
+				fprintf(stderr, "device not found\n");
+				rc = 4;
+				goto exit;
+			}
 		} else if (name[0] != '\0') {
 			char devpath[PATH_SIZE];
 
@@ -386,7 +390,11 @@ int main(int argc, char *argv[], char *envp[])
 				rc = 4;
 				goto exit;
 			}
-			print_device_chain(devpath);
+			if (print_device_chain(devpath) != 0) {
+				fprintf(stderr, "device not found\n");
+				rc = 4;
+				goto exit;
+			}
 		} else {
 			fprintf(stderr, "attribute walk needs --path or node --name specified\n");
 			rc = 5;
