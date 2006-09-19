@@ -1,157 +1,198 @@
-# console
-KERNEL=="pty[pqrstuvwxyzabcdef][0123456789abcdef]", NAME="%k", GROUP="tty", MODE="666", OPTIONS="last_rule"
-KERNEL=="tty[pqrstuvwxyzabcdef][0123456789abcdef]", NAME="%k", GROUP="tty", MODE="666", OPTIONS="last_rule"
-KERNEL=="vcs*",			NAME="%k", GROUP="tty", MODE="620", OPTIONS="last_rule"
-KERNEL=="vcsa*",		NAME="%k", GROUP="tty", MODE="620", OPTIONS="last_rule"
-KERNEL=="tty",			NAME="%k", GROUP="tty", MODE="666", OPTIONS="last_rule"
-KERNEL=="tty[0-9]*",		NAME="%k", GROUP="tty", MODE="620", OPTIONS="last_rule"
-KERNEL=="console",		NAME="%k", MODE="600", OPTIONS="last_rule"
-KERNEL=="ptmx",			NAME="%k", GROUP="tty", MODE="666", OPTIONS="last_rule"
+# There are a number of modifiers that are allowed to be used in some of the
+# fields.  See the udev man page for a full description of them.
+#
+# See the udev.rules.examples file for more examples of how to create rules
+#
 
-# serial devices
-KERNEL=="tty[A-Z]*",		NAME="%k", GROUP="uucp"
-KERNEL=="pppox*",		NAME="%k", GROUP="uucp"
-KERNEL=="ircomm*",		NAME="%k", GROUP="uucp"
-KERNEL=="modems/mwave*",	NAME="%k", GROUP="uucp"
-KERNEL=="hvc*",			NAME="%k", GROUP="uucp"
-KERNEL=="hvsi*",		NAME="%k", GROUP="uucp"
-KERNEL=="iseries/vtty*",	NAME="%k", GROUP="uucp"
-KERNEL=="ttyUSB*", SYSFS{product}=="[Pp]alm*Handheld*", SYMLINK+="pilot"
-KERNEL=="ttyUSB*", SYSFS{product}=="[Hh]andspring*Treo*|[Hh]andspring*Visor*", SYMLINK+="pilot"
+# permissions for IDE CD devices
+SUBSYSTEMS=="ide", KERNEL=="*[!0-9]", PROGRAM="/bin/cat /proc/ide/%k/media", RESULT=="cdrom*", NAME="%k", GROUP="cdrom", MODE="0660"
 
-# video/graphics
-SUBSYSTEM=="video4linux",	GROUP="video"
-SUBSYSTEM=="graphics"		GROUP="video"
-KERNEL=="vtx*",			NAME="%k", GROUP="video"
-KERNEL=="vbi*",			NAME="%k", GROUP="video"
-KERNEL=="winradio*",		NAME="%k", GROUP="video"
-KERNEL=="vttuner*",		NAME="%k", GROUP="video"
-KERNEL=="nvidia*",		NAME="%k", GROUP="video"
-KERNEL=="nvidiactl*",		NAME="%k", GROUP="video"
-KERNEL=="video0",		SYMLINK+="video"
-KERNEL=="radio0",		SYMLINK+="radio"
-KERNEL=="vbi0",			SYMLINK+="vbi"
-KERNEL=="pmu",			GROUP="video"
+# permissions for SCSI cd/sg/tape devices
+SUBSYSTEMS=="scsi", KERNEL=="s[grt][0-9]*", ATTRS{type}=="5", NAME="%k", GROUP="cdrom", MODE="0660"
 
-# dvb
-SUBSYSTEM=="dvb", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}'", NAME="%c", GROUP="video"
+# USB devices
+KERNEL=="hiddev*",	NAME="usb/%k"
+KERNEL=="auer*",		NAME="usb/%k"
+KERNEL=="legousbtower*",	NAME="usb/%k"
+KERNEL=="dabusb*",	NAME="usb/%k"
+SUBSYSTEMS=="usb", KERNEL=="lp[0-9]*",	NAME="usb/%k", GROUP="lp"
 
-# input devices
-KERNEL=="mice",			NAME="input/%k", MODE="0640"
-KERNEL=="mouse*",		NAME="input/%k", MODE="0640"
-KERNEL=="event*",		NAME="input/%k", MODE="0640"
-KERNEL=="js*",			NAME="input/%k", MODE="0644"
-KERNEL=="ts*",			NAME="input/%k", MODE="0600"
-KERNEL=="uinput",		NAME="input/%k", MODE="0600"
-KERNEL=="lirc0",		NAME="%k", SYMLINK+="lirc"
+# CAPI devices
+KERNEL=="capi",		NAME="capi20", SYMLINK="isdn/capi20"
+KERNEL=="capi*",		NAME="capi/%n"
 
-# printer
-SUBSYSTEM=="usb",		KERNEL=="lp*", NAME="usb/%k", SYMLINK+="usb%k", GROUP="lp"
-SUBSYSTEM=="printer",		KERNEL=="lp*", NAME="%k", GROUP="lp"
-KERNEL=="irlpt*",		NAME="%k", GROUP="lp"
+# Network devices
+KERNEL=="tun",		NAME="net/%k"
 
-# cpu devices
-KERNEL=="cpu[0-9]*",		NAME="cpu/%n/cpuid"
-KERNEL=="msr[0-9]*",		NAME="cpu/%n/msr"
-KERNEL=="microcode",		NAME="cpu/microcode", MODE="0600"
+# permissions
+KERNEL=="pl2303",        NAME="%k", OWNER="500",  GROUP="500",  MODE="0666"
+KERNEL=="visor",         NAME="%k", OWNER="root", GROUP="uucp", MODE="0666"
+KERNEL=="camera*"        NAME="%k", OWNER="root",  GROUP="camera",  MODE="0666"
 
-# IEEE1394 devices
-KERNEL=="raw1394*",		NAME="%k", GROUP="video"
-KERNEL=="dv1394*",		NAME="%k", SYMLINK+="dv1394/%n", GROUP="video"
-KERNEL=="video1394*",		NAME="%k", SYMLINK+="video1394/%n", GROUP="video"
+# console devices
+KERNEL=="console"        NAME="%k", OWNER="root", GROUP="tty",  MODE="0600"
+KERNEL=="tty",           NAME="%k", OWNER="root", GROUP="tty",  MODE="0666"
+KERNEL=="tty[0-9]*",     NAME="%k", OWNER="root", GROUP="tty",  MODE="0660"
+KERNEL=="vcs*",          NAME="%k", OWNER="root", GROUP="tty",  MODE="0620"
+KERNEL=="tty[CIS]*",     NAME="%k", OWNER="root", GROUP="uucp", MODE="0660"
+KERNEL=="ttyUB[0-9]",    NAME="%k", OWNER="root", GROUP="uucp", MODE="0660"
+KERNEL=="ttyUSB0",       NAME="%k", OWNER="root", GROUP="uucp", MODE="0660"
+KERNEL=="ttyUSB1",       NAME="%k", OWNER="root"  GROUP="uucp", MODE="0666"
 
-# 183 = /dev/hwrng        Generic random number generator
-KERNEL=="hw_random",		NAME="hwrng", SYMLINK+="%k"
-# 219 /dev/modems/mwave MWave modem firmware upload
-KERNEL=="mwave",		NAME="modems/%k"
-# 169 /dev/specialix_rioctl Specialix RIO serial control
-KERNEL=="rioctl",		NAME="specialix_rioctl", SYMLINK+="%k"
-# 167 /dev/specialix_sxctl Specialix serial control
-KERNEL=="sxctl",		NAME="specialix_sxctl", SYMLINK+="%k"
+# pty devices
+KERNEL=="ptmx"           NAME="%k", OWNER="root", GROUP="tty",  MODE="0666"
+KERNEL=="pty[p-za-e][0-9a-f]*" NAME="%k", OWNER="root", GROUP="tty",  MODE="0666"
+KERNEL=="tty[p-za-e][0-9a-f]*" NAME="%k", OWNER="root", GROUP="tty",  MODE="0666"
+KERNEL=="cu[abiu]*"      NAME="%k", OWNER="root", GROUP="uucp",  MODE="0660"
 
-# network
-KERNEL=="tun", NAME="net/%k", MODE="0600"
+# sound devices
+KERNEL=="audio*"         NAME="%k", OWNER="root", GROUP="audio",  MODE="0666"
+KERNEL=="beep"           NAME="%k", OWNER="root", GROUP="audio", MODE="0644"
+KERNEL=="dsp*"           NAME="%k", OWNER="root", GROUP="audio",  MODE="0666"
+KERNEL=="midi*"          NAME="%k", OWNER="root", GROUP="audio",  MODE="0666"
+KERNEL=="mixer*"         NAME="%k", OWNER="root", GROUP="audio",  MODE="0666"
+KERNEL=="music"          NAME="%k", OWNER="root", GROUP="audio",  MODE="0666"
+KERNEL=="sequencer*"     NAME="%k", OWNER="root", GROUP="audio",  MODE="0666"
+KERNEL=="controlC[0-9]*", NAME="snd/%k", OWNER="root", GROUP="audio",  MODE="0666"
+KERNEL=="hw[CD0-9]*",     NAME="snd/%k", OWNER="root", GROUP="audio",  MODE="0666"
+KERNEL=="pcm[CD0-9cp]*",  NAME="snd/%k", OWNER="root", GROUP="audio",  MODE="0666"
+KERNEL=="midiC[D0-9]*",   NAME="snd/%k", OWNER="root", GROUP="audio",  MODE="0666"
+KERNEL=="timer",          NAME="snd/%k", OWNER="root", GROUP="audio",  MODE="0666"
+KERNEL=="seq",            NAME="snd/%k", OWNER="root", GROUP="audio",  MODE="0666"
+KERNEL=="sndstat"        NAME="%k", OWNER="root", GROUP="audio",  MODE="0666"
+KERNEL=="speaker"        NAME="%k", OWNER="root", GROUP="audio", MODE="0644"
+KERNEL=="sound/*"        NAME="%k", OWNER="root", GROUP="audio", MODE="0666"
+KERNEL=="admmidi*"       NAME="%k", OWNER="root", GROUP="audio", MODE="0666"
+KERNEL=="adsp*"          NAME="%k", OWNER="root", GROUP="audio", MODE="0666"
+KERNEL=="aload*"         NAME="%k", OWNER="root", GROUP="audio",  MODE="0666"
+KERNEL=="amidi*"         NAME="%k", OWNER="root", GROUP="audio", MODE="0666"
+KERNEL=="amixer*"        NAME="%k", OWNER="root", GROUP="audio", MODE="0666"
 
-# misc devices
-KERNEL=="mem",			NAME="%k", GROUP="kmem", MODE="640"
-KERNEL=="kmem",			NAME="%k", GROUP="kmem", MODE="640"
-KERNEL=="port",			NAME="%k", GROUP="kmem", MODE="640"
-KERNEL=="nvram",		NAME="%k", GROUP="kmem", MODE="600"
-KERNEL=="null",			NAME="%k", MODE="666"
-KERNEL=="zero",			NAME="%k", MODE="666"
-KERNEL=="full",			NAME="%k", MODE="622"
-KERNEL=="random",		NAME="%k", MODE="666"
-KERNEL=="urandom",		NAME="%k", MODE="644"
-KERNEL=="rtc",			MODE="600"
-KERNEL=="sonypi",		MODE="0666"
-KERNEL=="agpgart",		MODE="0600", GROUP="video"
-KERNEL=="djs*",			NAME="%k", MODE="644"
-KERNEL=="sgi_*",		NAME="%k", MODE="666"
-KERNEL=="rrom*",		NAME="%k", MODE="400"
-KERNEL=="rflash*",		NAME="%k", MODE="400"
-KERNEL=="usbscanner*",		NAME="%k", MODE="644"
-KERNEL=="3270/ttycons*",	NAME="%k", MODE="600"
-KERNEL=="3270/tub*",		NAME="%k", MODE="666"
-KERNEL=="3270/tubcons*",	NAME="%k", MODE="600"
-KERNEL=="ica",			NAME="%k", MODE="666"
-KERNEL=="z90crypt",		NAME="%k", MODE="666"
-KERNEL=="mmtimer",		NAME="%k", MODE="644"
-KERNEL=="auer[0-9]*"		NAME="usb/%k"
+# input devices (mouse, joystick, etc)
+KERNEL=="mice",		NAME="input/%k", OWNER="root", GROUP="root", MODE="0644"
+KERNEL=="mouse*",	NAME="input/%k", OWNER="root", GROUP="root", MODE="0644"
+KERNEL=="event*",	NAME="input/%k", OWNER="root", GROUP="root", MODE="0644"
+KERNEL=="js*",		NAME="input/%k", OWNER="root", GROUP="root", MODE="0644"
+KERNEL=="ts*",		NAME="input/%k", OWNER="root", GROUP="root", MODE="0644"
+KERNEL=="input/js*"      NAME="%k", OWNER="root", GROUP="games",0 MODE="0666"
+KERNEL=="djs[0-3]"       NAME="%k", OWNER="root", GROUP="games", MODE="0660"
+KERNEL=="psaux"          NAME="%k", OWNER="root", GROUP="sys",  MODE="0660"
+KERNEL=="crash"          NAME="%k", OWNER="root", GROUP="root", MODE="0660"
+KERNEL=="logibm"         NAME="%k", OWNER="root", GROUP="sys",  MODE="0660"
+KERNEL=="jbm"            NAME="%k", OWNER="root", GROUP="sys",  MODE="0660"
+KERNEL=="hwtrap"         NAME="%k", OWNER="root", GROUP="root", MODE="0644"
+KERNEL=="inportbm"       NAME="%k", OWNER="root", GROUP="sys",  MODE="0660"
+KERNEL=="sexec"          NAME="%k", OWNER="root", GROUP="root", MODE="0660"
+KERNEL=="jsflash"        NAME="%k", OWNER="root", GROUP="root", MODE="0660"
 
-# packet writing interface
-KERNEL=="pktcdvd",		NAME="pktcdvd/control"
-KERNEL=="pktcdvd[0-9]*",	NAME="pktcdvd/%k"
+# power manager device
+KERNEL=="apm_bios"        NAME="%k", OWNER="root", GROUP="root", MODE="0644"
 
-# fix floppy devices
-KERNEL=="nvram", ACTION=="add", RUN+="load_floppy_module.sh"
-KERNEL=="fd[0-9]*", ACTION=="add", SYSFS{cmos}=="*", RUN+="create_floppy_devices -c -t $sysfs{cmos} -m %M /dev/%k"
-KERNEL=="fd[0-9]*", ACTION=="remove", RUN+="/bin/rm -f $root/%k*"
+# printer device
+KERNEL=="lp[0-9]"         NAME="%k", OWNER="root", GROUP="lp", MODE="0660"
+KERNEL=="parport*"        NAME="%k", OWNER="root", GROUP="lp", MODE="0660"
 
-# block devices
-SUBSYSTEM=="block", GROUP="disk", MODE="0640"
+# video devices
+KERNEL=="card*"        NAME="dri/card%n", OWNER="root", GROUP="video", MODE="0666"
+KERNEL=="fb[0-9]"         NAME="%k", OWNER="root", GROUP="video",  MODE="0660"
+KERNEL=="agpgart"         NAME="%k", OWNER="root", GROUP="video", MODE="0660"
+KERNEL=="nvidia*"         NAME="%k", OWNER="root", GROUP="video", MODE="0666"
+KERNEL=="video*"          NAME="%k", OWNER="root", GROUP="video",  MODE="0660"
+KERNEL=="vbi*"            NAME="%k", OWNER="root", GROUP="video", MODE="0660"
+KERNEL=="dvb*",	PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; A=$${K%%%%.*}; D=$${K#*.}; echo dvb/adapter$$A/$$D'", NAME="%c", GROUP="video", MODE="0660"
 
-# sd:		0 TYPE_DISK, 7 TYPE_MOD, 14 TYPE_RBC
-# sr:		4 TYPE_WORM, 5 TYPE_ROM
-# st/osst:	1 TYPE_TAPE
-ACTION=="add", SUBSYSTEM=="scsi" , SYSFS{type}=="0|7|14", RUN+="/bin/sh -c 'echo 60 > /sys$$DEVPATH/timeout'"
-ACTION=="add", SUBSYSTEM=="scsi" , SYSFS{type}=="1", RUN+="/bin/sh -c 'echo 900 > /sys$$DEVPATH/timeout'"
-SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{type}=="0|7|14", RUN+="/sbin/modprobe sd_mod"
-SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{type}=="1", SYSFS{vendor}=="On[sS]tream", RUN+="/sbin/modprobe osst"
-SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{type}=="1", RUN+="/sbin/modprobe st"
-SUBSYSTEM=="scsi_device", ACTION=="add", SYSFS{type}=="[45]", RUN+="/sbin/modprobe sr_mod"
-SUBSYSTEM=="scsi_device", ACTION=="add", RUN+="/sbin/modprobe sg"
+# DISK devices
+KERNEL=="ed[ab]*"         NAME="%k", OWNER="root", GROUP="disk", MODE="0640"
+KERNEL=="gscd0"           NAME="%k", OWNER="root", GROUP="disk", MODE="0640"
+KERNEL=="initrd"          NAME="%k", OWNER="root", GROUP="disk", MODE="0640"
+KERNEL=="lmscd"           NAME="%k", OWNER="root", GROUP="disk", MODE="0640"
+KERNEL=="mcd*"            NAME="%k", OWNER="root", GROUP="disk", MODE="0640"
+KERNEL=="md*"             NAME="%k", OWNER="root", GROUP="disk", MODE="0640"
+KERNEL=="mtd*"            NAME="%k", OWNER="root", GROUP="disk", MODE="0640"
+KERNEL=="userdma"         NAME="%k", OWNER="root", GROUP="root", MODE="0660"
 
-# device mapper
-KERNEL=="device-mapper", NAME="%k", SYMLINK+="mapper/control"
+# floppy devices
+KERNEL=="fd[0-3]*"        NAME="%k", OWNER="root", GROUP="floppy", MODE="0660"
+KERNEL=="fd0"             SYMLINK="floppy"
 
-# misc storage devices (non-block)
-KERNEL=="sg*",			NAME="%k", GROUP="disk", MODE="640"
-KERNEL=="st*",			NAME="%k", GROUP="disk"
-KERNEL=="nst*",			NAME="%k", GROUP="disk"
-KERNEL=="initrd",		NAME="%k", GROUP="disk"
-KERNEL=="qft*",			NAME="%k", GROUP="disk"
-KERNEL=="nqft*",		NAME="%k", GROUP="disk"
-KERNEL=="zqft*",		NAME="%k", GROUP="disk"
-KERNEL=="nzqft*",		NAME="%k", GROUP="disk"
-KERNEL=="rawqft*",		NAME="%k", GROUP="disk"
-KERNEL=="nrawqft*",		NAME="%k", GROUP="disk"
-KERNEL=="pf*",			NAME="%k", GROUP="disk"
-KERNEL=="sch*",			NAME="%k", GROUP="disk"
-KERNEL=="pt*",			NAME="%k", GROUP="disk"
-KERNEL=="npt*",			NAME="%k", GROUP="disk"
-KERNEL=="pg*",			NAME="%k", GROUP="disk"
-KERNEL=="evms/block_device*",	NAME="%k", GROUP="disk"
-KERNEL=="rawctl*",		NAME="raw/%k", GROUP="disk"
-KERNEL=="raw[0-9]*",		NAME="raw/%k", GROUP="disk"
-KERNEL=="osst*",		NAME="%k", GROUP="disk"
-KERNEL=="nosst*",		NAME="%k", GROUP="disk"
-KERNEL=="iseries/vt*",		NAME="%k", GROUP="disk"
-KERNEL=="iseries/nvt*",		NAME="%k", GROUP="disk"
-KERNEL=="iseries/ibmsis*",	NAME="%k", GROUP="disk"
+# permissions for removable devices like cardreaders or sticks
+KERNEL=="sd*", ATTRS{scsi_level}=="3", ATTRS{type}=="0", NAME="%k", GROUP="storage"
 
-# libusb device access
-SUBSYSTEM=="usb_device", PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", NAME="%c", MODE="0644"
+# permissions for firewire external drives
+KERNEL=="sd*", ATTRS{scsi_level}=="5", NAME="%k", GROUP="storage"
 
-# kernel firmware loader
-SUBSYSTEM=="firmware", ACTION=="add", RUN+="firmware.sh"
+# permissions for usb to scsi external adapters
+KERNEL=="sd*", ATTRS{scsi_level}=="3", ATTRS{type}=="7", NAME="%k", GROUP="storage"
 
+# IDE devices (hd, cdrom)
+KERNEL=="hd*"             NAME="%k", OWNER="root", GROUP="disk",   MODE="0660"
+KERNEL=="ht0"             NAME="%k", OWNER="root", GROUP="disk",   MODE="0640"
+
+# RAID IDE
+KERNEL=="ataraid[0-9]*"   NAME="%k", OWNER="root", GROUP="disk",   MODE="0660"
+KERNEL=="ataraid/*"       NAME="%k", OWNER="root", GROUP="disk",   MODE="0660"
+
+# SCSI devices
+KERNEL=="scsi/*/cd"       NAME="%k", OWNER="root", GROUP="disk",   MODE="0660"
+KERNEL=="scsi/*"          NAME="%k", OWNER="root", GROUP="disk",   MODE="0660"
+KERNEL=="sd[a-h]*"        NAME="%k", OWNER="root", GROUP="disk",   MODE="0640"
+KERNEL=="s[rt][0-9]*"     NAME="%k", OWNER="root", GROUP="disk",   MODE="0640"
+KERNEL=="scd*"            NAME="%k", OWNER="root", GROUP="disk",   MODE="0660"
+
+# generic scsi devices
+KERNEL=="sg*"             NAME="%k", OWNER="root", GROUP="root",   MODE="0600"
+
+# old CD-ROM
+KERNEL=="sbpcd*"          NAME="%k", OWNER="root", GROUP="disk",   MODE="0640"
+
+# loop devices
+KERNEL=="loop[0-9]*"      NAME="%k", OWNER="root", GROUP="disk",   MODE="0660"
+
+# network block devices
+KERNEL=="nb[0-7]"         NAME="%k", OWNER="root", GROUP="disk",   MODE="0660"
+KERNEL=="nht0"            NAME="%k", OWNER="root", GROUP="disk",   MODE="0640"
+KERNEL=="npt[0-3]"        NAME="%k", OWNER="root", GROUP="disk",   MODE="0660"
+KERNEL=="n[qrs]*"         NAME="%k", OWNER="root", GROUP="disk",   MODE="0640"
+
+# memory access devices
+KERNEL=="kmem"         NAME="%k", OWNER="root", GROUP="kmem",   MODE="0640"
+KERNEL=="mem"          NAME="%k", OWNER="root", GROUP="kmem",   MODE="0640"
+KERNEL=="null"         NAME="%k", OWNER="root", GROUP="sys",    MODE="0666"
+KERNEL=="nvram"        NAME="%k", OWNER="root", GROUP="root",   MODE="0640"
+KERNEL=="port"         NAME="%k", OWNER="root", GROUP="kmem",   MODE="0640"
+KERNEL=="ram[0-9]*"    NAME="%k", OWNER="root", GROUP="disk",   MODE="0640"
+KERNEL=="random"       NAME="%k", OWNER="root", GROUP="root",   MODE="0644"
+KERNEL=="rtc"          NAME="%k", OWNER="root", GROUP="root",   MODE="0444"
+KERNEL=="urandom"      NAME="%k", OWNER="root", GROUP="root",   MODE="0644"
+KERNEL=="full"         NAME="%k", OWNER="root", GROUP="sys",    MODE="0666"
+KERNEL=="zero"         NAME="%k", OWNER="root", GROUP="root",   MODE="0666"
+KERNEL=="raw[0-9]*"    NAME="raw/%k", OWNER="root", GROUP="disk", MODE="0660"
+KERNEL=="modreq"       NAME="%k", OWNER="root", GROUP="root",   MODE="0644"
+KERNEL=="msr"          NAME="%k", OWNER="root", GROUP="root",   MODE="0660"
+KERNEL=="profile*"     NAME="%k", OWNER="root", GROUP="root",   MODE="0640"
+
+# ISDN devices
+KERNEL=="isdn*"        NAME="%k", OWNER="root", GROUP="tty",    MODE="0660"
+
+# net devices
+KERNEL=="ippp*"        NAME="%k", OWNER="root", GROUP="root",   MODE="0644"
+KERNEL=="ipstate*"     NAME="%k", OWNER="root", GROUP="root",   MODE="0660"
+KERNEL=="spx"          NAME="%k", OWNER="root", GROUP="root",   MODE="0644"
+KERNEL=="fwmonitor*"   NAME="%k", OWNER="root", GROUP="root",   MODE="0660"
+
+# hotplug rules - module autoloading for different buses
+ACTION=="add", SUBSYSTEM=="pci", ENV{MODALIAS}=="*", RUN+="/sbin/modprobe $env{MODALIAS}"
+ACTION=="add", SUBSYSTEM=="usb", ENV{MODALIAS}=="*", RUN+="/sbin/modprobe $env{MODALIAS}"
+ACTION=="add", SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="*", RUN+="/sbin/modprobe $env{MODALIAS}"
+ACTION=="add", SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="*", RUN+="/bin/sh -c 'echo 1 > /sys/$DEVPATH/allow_func_id_match'"
+ACTION=="add", SUBSYSTEM=="ieee1394", ENV{MODALIAS}=="*", RUN+="/sbin/modprobe $env{MODALIAS}"
+ACTION=="add", SUBSYSTEM=="scsi", ATTRS{type}=="[07]", RUN+="/sbin/modprobe sd_mod"
+ACTION=="add", SUBSYSTEM=="scsi", ATTRS{type}=="14", RUN+="/sbin/modprobe sd_mod"
+ACTION=="add", SUBSYSTEM=="scsi", ATTRS{type}=="[45]", RUN+="/sbin/modprobe sr_mod"
+ACTION=="add", SUBSYSTEM=="scsi", ATTRS{type}=="1", ATTRS{vendor}=="Onstream", ATTRS{model}!="ADR*", RUN+="/sbin/modprobe osst"
+ACTION=="add", SUBSYSTEM=="scsi", ATTRS{type}=="1", ATTRS{vendor}=="Onstream", ATTRS{model}=="ADR*", RUN+="/sbin/modprobe st"
+ACTION=="add", SUBSYSTEM=="scsi", ATTRS{type}=="1", ATTRS{vendor}!="Onstream", RUN+="/sbin/modprobe st"
+ACTION=="add", SUBSYSTEM=="scsi", ATTRS{type}=="[23689]", RUN+="/sbin/modprobe sg"
+
+# firmware
+ACTION=="add", SUBSYSTEM=="firmware", ENV{FIRMWARE}=="*", RUN+="/lib/udev/firmware.sh"
