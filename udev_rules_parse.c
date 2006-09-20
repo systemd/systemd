@@ -580,7 +580,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 	}
 
 	if (physdev && rule->wait_for_sysfs.operation == KEY_OP_UNSET)
-		err("PHYSDEV* values are deprected and will be removed from a future kernel, "
+		err("PHYSDEV* values are deprecated and will be removed from a future kernel, "
 		    "please fix it in %s:%u", filename, lineno);
 
 	/* skip line if not any valid key was found */
