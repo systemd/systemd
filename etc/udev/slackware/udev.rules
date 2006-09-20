@@ -15,8 +15,12 @@ ACTION=="add", SUBSYSTEM=="net", WAIT_FOR_SYSFS="address"
 # all block devices
 SUBSYSTEM=="block", GROUP="disk"
 
-# permissions for IDE CD devices
-BUS=="ide", KERNEL=="*[!0-9]", ENV{PHYSDEVDRIVER}=="ide-cdrom", NAME="%k", GROUP="cdrom", MODE="0660", RUN+="/lib/udev/cdrom-symlinks.sh %k"
+# permissions for IDE CD devices (without symbolic link creation)
+BUS=="ide", KERNEL=="*[!0-9]", ENV{PHYSDEVDRIVER}=="ide-cdrom", NAME="%k", GROUP="cdrom", MODE="0660"
+
+# permissions for IDE CD devices (with symbolic link creation)
+# THIS RULE COMMENTED OUT BY DEFAULT:  read /lib/udev/rc.optical-symlinks for more information...
+#BUS=="ide", KERNEL=="*[!0-9]", ENV{PHYSDEVDRIVER}=="ide-cdrom", NAME="%k", GROUP="cdrom", MODE="0660", RUN+="/lib/udev/cdrom-symlinks.sh %k"
 
 # permissions for IDE floppy devices
 BUS=="ide", KERNEL=="*[!0-9]", ENV{PHYSDEVDRIVER}=="ide-floppy*", NAME="%k", GROUP="floppy", MODE="0660"
@@ -81,8 +85,8 @@ KERNEL=="*[!0-9]", IMPORT{program}="/lib/udev/edd_id --export $tempnode"
 KERNEL=="*[!0-9]", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}"
 KERNEL=="*[0-9]", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}-part%n"
 
-# No dmsetup in slackware by default (LVM2 is in testing)
-#KERNEL=="dm-[0-9]*", ACTION=="add", PROGRAM="/sbin/dmsetup info -c --noopencount --noheadings -o name -j %M -m %m", SYMLINK+="disk/by-name/%c"
+# LVM2 dmsetup
+KERNEL=="dm-[0-9]*", ACTION=="add", PROGRAM="/sbin/dmsetup info -c --noopencount --noheadings -o name -j %M -m %m", SYMLINK+="disk/by-name/%c"
 
 LABEL="persistent_end"
 
@@ -128,7 +132,7 @@ KERNEL=="i2c-[0-9]*",	NAME="i2c/%n", SYMLINK+="%k"
 # input devices
 KERNEL=="mice",		NAME="input/%k", MODE="0644", SYMLINK+="mouse"
 KERNEL=="mouse*",	NAME="input/%k", MODE="0644"
-KERNEL=="event*",	NAME="input/%k", MODE="0600"
+KERNEL=="event*",	NAME="input/%k", MODE="0640"
 KERNEL=="js*",		NAME="input/%k", MODE="664"
 KERNEL=="ts*",		NAME="input/%k", MODE="0600"
 SUBSYSTEM=="input[0-9]*", RUN+="/lib/udev/input_device.sh"
@@ -183,7 +187,7 @@ KERNEL=="console",	NAME="%k", GROUP="tty", MODE="0600"
 KERNEL=="tty",		NAME="%k", GROUP="tty", MODE="0666"
 KERNEL=="tty[0-9]*",	NAME="vc/%n",  SYMLINK+="%k", GROUP="tty"
 KERNEL=="ttyS[0-9]*",	NAME="tts/%n", SYMLINK+="%k", GROUP="tty"
-KERNEL=="ttyUSB[0-9]*",	NAME="tts/USB%n", GROUP="tty", MODE="0600"
+KERNEL=="ttyUSB[0-9]*",	NAME="tts/USB%n", GROUP="tty", MODE="0660"
 KERNEL=="ippp0",	NAME="%k", GROUP="tty"
 KERNEL=="isdn*",	NAME="%k", GROUP="tty"
 KERNEL=="dcbri*",	NAME="%k", GROUP="tty"
