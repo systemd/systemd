@@ -321,7 +321,7 @@ static void scan_block(void)
 			strlcat(dirname, dent->d_name, sizeof(dirname));
 			if (attr_filtered(dirname))
 				continue;
-			if (device_list_insert(dirname) != 0);
+			if (device_list_insert(dirname) != 0)
 				continue;
 
 			/* look for partitions */
