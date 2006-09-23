@@ -1,6 +1,6 @@
 .\"     Title: udevtrigger
 .\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.70.1 <http://docbook.sf.net/>
+.\" Generator: DocBook XSL Stylesheets v1.71.0 <http://docbook.sf.net/>
 .\"      Date: March 2006
 .\"    Manual: udevtrigger
 .\"    Source: udev
@@ -19,31 +19,47 @@ udevtrigger \- request kernel devices events for coldplug
 .PP
 Trigger kernel device uevents to replay missing events at system coldplug.
 .SH "OPTIONS"
-.TP 3n
+.PP
 \fB\-\-verbose\fR
+.RS 3n
 Print the list of devices which will be triggered.
-.TP 3n
+.RE
+.PP
 \fB\-\-dry\-run\fR
+.RS 3n
 Do not actually trigger the event.
-.TP 3n
+.RE
+.PP
 \fB\-\-retry\-failed\fR
+.RS 3n
 Trigger only the events which are failed during a previous run.
-.TP 3n
+.RE
+.PP
 \fB\-\-subsystem\-match=\fR\fB\fIsubsystem\fR\fR
+.RS 3n
 Trigger events for devices which belong to a matching subsystem. This option can be specified multiple times and supports shell style pattern matching.
-.TP 3n
+.RE
+.PP
 \fB\-\-subsystem\-nomatch=\fR\fB\fIsubsystem\fR\fR
+.RS 3n
 Do not trigger events for devices which belong to a matching subsystem. This option can be specified multiple times and supports shell style pattern matching.
-.TP 3n
+.RE
+.PP
 \fB\-\-attr\-match=\fR\fB\fIattribute=value\fR\fR
+.RS 3n
 Trigger events for devices with a matching sysfs attribute. If a value is specified along with the attribute name, the content of the attribute is matched against the given value using shell style pattern matching. If no value is specified, the existence of the sysfs attribute is checked. This option can be specified multiple times.
-.TP 3n
+.RE
+.PP
 \fB\-\-attr\-nomatch\fR\fB\fIattribute=value\fR\fR
+.RS 3n
 Do not trigger events for devices with a matching sysfs attribute. If a value is specified along with the attribute name, the content of the attribute is matched against the given value using shell style pattern matching. If no value is specified, the existence of the sysfs attribute is checked. This option can be specified multiple times.
+.RE
 .SH "ENVIRONMENT"
-.TP 3n
+.PP
 \fBUDEV_LOG\fR
+.RS 3n
 Overrides the syslog priority specified in the config file.
+.RE
 .SH "AUTHOR"
 .PP
 Written by Kay Sievers

@@ -1,6 +1,6 @@
 .\"     Title: vol_id
 .\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.70.1 <http://docbook.sf.net/>
+.\" Generator: DocBook XSL Stylesheets v1.71.0 <http://docbook.sf.net/>
 .\"      Date: March 2006
 .\"    Manual: vol_id
 .\"    Source: volume_id
@@ -22,22 +22,32 @@ is usually called from a udev rule, to provide udev with the filesystem type, th
 \fBvol_id\fR
 supports all common filesystem formats and detects various raid setups to prevent the recognition of raid members as a volume with a filesystem.
 .SH "OPTIONS"
-.TP 3n
+.PP
 \fB\-\-export\fR
+.RS 3n
 print all values in key/value format to import them into the environment.
-.TP 3n
+.RE
+.PP
 \fB\-t\fR
+.RS 3n
 print the filesystem type
-.TP 3n
+.RE
+.PP
 \fB\-l\fR
+.RS 3n
 print the label of a volume
-.TP 3n
+.RE
+.PP
 \fB\-u\fR
+.RS 3n
 print the uuid of a volume
+.RE
 .SH "ENVIRONMENT"
-.TP 3n
+.PP
 \fBUDEV_LOG\fR
+.RS 3n
 Set the syslog priority.
+.RE
 .SH "EXIT STATUS"
 .PP
 \fBvol_id\fR

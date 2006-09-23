@@ -341,11 +341,37 @@
             <varlistentry>
               <term><option>IMPORT{<replaceable>type</replaceable>}</option></term>
               <listitem>
-                <para>Import the printed result or the value of a file in environment key
-                format into the event environment. <option>program</option> will execute an
-                external program and read its output. <option>file</option> will import a
-                text file. If no option is given, udev will determine it from the  executable
-                bit of of the file permissions.</para>
+                <para>Import a set of variables into the event environment,
+                depending on <replaceable>type</replaceable>:</para>
+                <variablelist>
+                  <varlistentry>
+                    <term><option>program</option></term>
+                    <listitem>
+                      <para>Execute an external program specified as the assigned value and
+                      import its output, which must be in environment key format.</para>
+                    </listitem>
+                  </varlistentry>
+                  <varlistentry>
+                    <term><option>file</option></term>
+                    <listitem>
+                      <para>Import a text file specified as the assigned value, which must be in
+                      environment key format.</para>
+                    </listitem>
+                  </varlistentry>
+                  <varlistentry>
+                    <term><option>parent</option></term>
+                    <listitem>
+                      <para>Import the stored keys from the parent device by reading
+                      the database entry of the parent device. The value assigned to
+                      <option>IMPORT{parent}</option> is used as a filter of key names
+                      to import (with the same shell-style pattern matching used for
+                      comparisons).</para>
+                    </listitem>
+                  </varlistentry>
+                </variablelist>
+                <para>If no option is given, udev will choose between <option>program</option>
+                and <option>file</option> based on the executable bit of of the file
+                permissions.</para>
               </listitem>
             </varlistentry>
 

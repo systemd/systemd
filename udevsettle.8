@@ -1,6 +1,6 @@
 .\"     Title: udevsettle
 .\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.70.1 <http://docbook.sf.net/>
+.\" Generator: DocBook XSL Stylesheets v1.71.0 <http://docbook.sf.net/>
 .\"      Date: March 2006
 .\"    Manual: udevsettle
 .\"    Source: udev
@@ -19,13 +19,17 @@ udevsettle \- wait until queued kernel/udev events are handled
 .PP
 Waits watching the udev event queue and exits if all current events are handled.
 .SH "OPTIONS"
-.TP 3n
+.PP
 \fB\-\-timeout=\fR\fB\fIseconds\fR\fR
+.RS 3n
 maximum seconds to wait for the queue to become empty.
+.RE
 .SH "ENVIRONMENT"
-.TP 3n
+.PP
 \fBUDEV_LOG\fR
+.RS 3n
 Overrides the syslog priority specified in the config file.
+.RE
 .SH "AUTHOR"
 .PP
 Written by Kay Sievers

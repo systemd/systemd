@@ -1,6 +1,6 @@
 .\"     Title: udevinfo
 .\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.70.1 <http://docbook.sf.net/>
+.\" Generator: DocBook XSL Stylesheets v1.71.0 <http://docbook.sf.net/>
 .\"      Date: August 2005
 .\"    Manual: udevinfo
 .\"    Source: udev
@@ -19,8 +19,9 @@ udevinfo \- query device information from the udev database
 .PP
 udevinfo queries the udev database for device information stored in the udev database. It can also query the properties of a device from its sysfs representation to help creating udev rules that match this device.
 .SH "OPTIONS"
-.TP 3n
+.PP
 \fB\-\-query=\fR\fB\fItype\fR\fR
+.RS 3n
 Query the database for specified type of device data. It needs the
 \fB\-\-path\fR
 or
@@ -31,29 +32,42 @@ to identify the specified device. Valid queries are:
 \fBpath\fR,
 \fBenv\fR,
 \fBall\fR.
-.TP 3n
+.RE
+.PP
 \fB\-\-path=\fR\fB\fIdevpath\fR\fR
+.RS 3n
 The devpath of the device to query.
-.TP 3n
+.RE
+.PP
 \fB\-\-name=\fR\fB\fInode\fR\fR
+.RS 3n
 The name of the device node or a symlink to query
-.TP 3n
+.RE
+.PP
 \fB\-\-root\fR
+.RS 3n
 The udev root directory:
 \fI/dev\fR. If used in conjunction with a
 \fBname\fR
 or
 \fBsymlink\fR
 query, the query returns the absolute path including the root directory.
-.TP 3n
+.RE
+.PP
 \fB\-\-attribute\-walk\fR
+.RS 3n
 Print all sysfs properties of the specified device that can be used in udev rules to match the specified device. It prints all devices along the chain, up to the root of sysfs that can be used in udev rules.
-.TP 3n
+.RE
+.PP
 \fB\-\-export\fR
+.RS 3n
 Export the content of the udev database.
-.TP 3n
+.RE
+.PP
 \fB\-\-help\fR
+.RS 3n
 Print help text.
+.RE
 .SH "AUTHOR"
 .PP
 Written by Kay Sievers
