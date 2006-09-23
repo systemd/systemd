@@ -12,14 +12,14 @@ KERNEL=="hd*[!0-9]", ATTRS{removable}=="1", DRIVERS=="ide-cs|ide-floppy", GOTO="
 KERNEL=="hd*[0-9]", ATTRS{removable}=="1", GOTO="persistent_storage_end"
 
 # for partitions import parent information
-KERNEL=="*[0-9]", IMPORT{parent}=="ID_*"
+KERNEL=="*[0-9]", IMPORT{parent}="ID_*"
 
 # by-id (hardware serial number)
 KERNEL=="hd*[!0-9]", IMPORT{program}="ata_id --export $tempnode"
 KERNEL=="hd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
 KERNEL=="hd*[0-9]", IMPORT{parent}=="ID_*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
 
-KERNEL=="sd*[!0-9]|sr*|st*", ATTRS{ieee1394_id}=="*", ENV{ID_SERIAL}="$attr{ieee1394_id}", ENV{ID_BUS}="ieee1394"
+KERNEL=="sd*[!0-9]|sr*|st*", ATTRS{ieee1394_id}=="?*", ENV{ID_SERIAL}="$attr{ieee1394_id}", ENV{ID_BUS}="ieee1394"
 KERNEL=="sd*[!0-9]|sr*|st*", ENV{ID_SERIAL}=="", IMPORT{program}="usb_id -x"
 KERNEL=="sd*[!0-9]|sr*|st*", ENV{ID_SERIAL}=="", IMPORT{program}="scsi_id -g -x -s %p -d $tempnode"
 KERNEL=="sd*[!0-9]|sr*|st*", ENV{ID_SERIAL}=="", IMPORT{program}="scsi_id -g -x -a -s %p -d $tempnode"
