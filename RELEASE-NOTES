@@ -1,3 +1,19 @@
+udev 101
+========
+The udev daemon can be started with --debug-trace now, which will
+execute all events serialized to get a chance to catch a possible
+action that crashes the box.
+
+A warning is logged, if PHYSDEV* keys, the "device" link, or a parent
+device attribute like $attr{../file} is used, only WAIT_FOR_SYSFS rules
+are excluded from the warning. Referencing parent attributes directly
+may break when something in the kernel driver model changes. Udev will
+just find the attribute by walking up the parent chain.
+
+Udevtrigger now sorts the list of devices depending on the device
+dependency, so a "usb" device is triggered after the parent "pci"
+device.
+
 udev 100
 ========
 Revert persistent-storage ata-serial '_' '-' replacement.
