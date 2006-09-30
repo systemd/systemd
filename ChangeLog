@@ -1,3 +1,41 @@
+Summary of changes from v100 to v101
+============================================
+
+Arjan Opmeer:
+      fix udevinfo help text typo
+
+Bryan Kadzban:
+      cleanup default rules
+      add IMPORT operations to the udev man page
+
+Kay Sievers:
+      remove Makefile magic for leading '0' in version
+      udevd: use getopt_long()
+      udevd: add --verbose option to log also to stdout
+      udevd: add --debug-trace option
+      rule_generator: improve net rule comment generation
+      volume_id: correct iso9660 high sierra header
+      warn if a PHYSEDV* key, the "device" link, or a parent attribute is used
+      don't print PHYSDEV* warnings for old WAIT_FOR_SYSFS rules
+      udevinfo: print error in --attribute-walk
+      udev_sysfs: unify symlink resolving
+      udevtrigger: trigger devices sorted by their dependency
+      fix spelling in deprecation warning
+      release 101
+
+Michał Bartoszkiewicz:
+      udevtrigger: fix typo that prevents partition events
+
+Miles Lane:
+      clarify "specified user/group unknown" error
+
+Piter PUNK:
+      update slackware rules
+
+VMiklos:
+      update Frugalware rules
+
+
 Summary of changes from v099 to v100
 ============================================
 
