@@ -16,7 +16,7 @@
 
 <h1>Writing udev rules</h1>
 by Daniel Drake (dsd)<br />
-Version 0.7<br /><br />
+Version 0.72<br /><br />
 
 The most recent version of this document can always be found at: <br />
 
@@ -112,6 +112,7 @@ This document uses various examples (many of which are entirely fictional) to il
 <h3>History</h3>
 
 <ul>
+<ul>October 2nd 2006 v0.72: Fixed a typo in one of the example rules.</li>
 <li>June 10th 2006 v0.71: Misc changes based on recent feedback - thanks!</li>
 <li>June 3rd 2006 v0.7: Complete rework, to be more suited for the modern-day udev.</li>
 <li>May 9th 2005 v0.6: Misc updates, including information about udevinfo, groups and permissions, logging, and udevtest.</li>
@@ -671,7 +672,7 @@ To get around this, you simply need to think about what differs between sdb and 
 My rule:
 </p>
 
-<blockquote><pre>NAME=="sd?1", BUS=="scsi", SYSFS{model}=="X250,D560Z,C350Z", SYMLINK+="camera"</pre></blockquote>
+<blockquote><pre>KERNEL=="sd?1", BUS=="scsi", SYSFS{model}=="X250,D560Z,C350Z", SYMLINK+="camera"</pre></blockquote>
 
 <a name="example-usbhdd"></a>
 <h3>USB Hard Disk</h3>
