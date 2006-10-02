@@ -278,15 +278,17 @@ handle_sas () {
 	local DEV=$1
 	local cil adapter controller_dev
 	# SAS device
-	sas_host_path="${DEV%%/phy*}"
+	sas_host_path="${DEV%%/port*}"
 	sas_phy_path="${DEV#*/host*/}"
 	sas_phy_path="${sas_phy_path%%/target*}"
 	sas_phy_id="${sas_phy_path%%/*}"
-	sas_rphy_id="${sas_phy_path##*/}"
-	sas_phy_dev="/sys/class/sas_phy/${sas_phy_id}"
+	sas_phy_id="${sas_phy_id##*port-}"
+	sas_port_id="${sas_phy_path%%/end_device*}"
+	sas_port_id="${sas_port_id##*port-}"
+	sas_end_id="${sas_phy_path##*end_device-}"
+	sas_phy_dev="/sys/class/sas_phy/phy-${sas_phy_id}"
 	if [ -e "$sas_phy_dev/sas_address" ]; then
 		read phy_address < $sas_phy_dev/sas_address
-		read phy_port < $sas_phy_dev/port_identifier
 		read phy_id < $sas_phy_dev/phy_identifier
 	fi
 	if [ -z "$phy_address" ] ; then
@@ -295,22 +297,32 @@ handle_sas () {
 		RESULT=1
 		return
 	fi
-	sas_phy_address="$phy_address:$phy_port:$phy_id"
-	sas_rphy_dev="/sys/class/sas_device/${sas_rphy_id}"
-	if [ -e "$sas_rphy_dev/sas_address" ]; then
-		read rphy_address < $sas_rphy_dev/sas_address
-		read rphy_id < $sas_rphy_dev/phy_identifier
+	sas_port_dev="/sys/class/sas_port/port-${sas_port_id}"
+	if [ -e "$sas_port_dev/num_phys" ] ; then
+		read phy_port < $sas_port_dev/num_phys
 	fi
-	if [ -z "$rphy_address" ] ; then
+	if [ -z "$phy_port" ] ; then
 		: no initiator address
 		D=
 		RESULT=1
 		return
 	fi
-	sas_rphy_address="$rphy_address:$rphy_id"
+	sas_phy_address="$phy_address:$phy_port:$phy_id"
+	sas_end_dev="/sys/class/sas_device/end_device-${sas_end_id}"
+	if [ -e "$sas_end_dev/sas_address" ]; then
+		read end_address < $sas_end_dev/sas_address
+		read end_id < $sas_end_dev/phy_identifier
+	fi
+	if [ -z "$end_address" ] ; then
+		: no initiator address
+		D=
+		RESULT=1
+		return
+	fi
+	sas_end_address="$end_address:$end_id"
 	controller_dev="${sas_host_path%/host[0-9]*}"
 	# SAS devices are always endpoints
-	d="sas-${sas_phy_address}-${sas_rphy_address}"
+	d="sas-${sas_phy_address}-${sas_end_address}"
 	D="$controller_dev"
 	RESULT=0
 }
@@ -470,7 +482,7 @@ handle_device () {
 			*/rport-[0-9]*:[0-9]*-[0-9]*/*)
 				handle_fc "$D"
 				;;
-			*/phy-[0-9]*:[0-9]*/*)
+			*/end_device-[0-9]*:[0-9]*:[0-9]*/*)
 				handle_sas "$D"
 				;;
 			*/fw-host[0-9]*/*)
