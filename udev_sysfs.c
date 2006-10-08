@@ -197,8 +197,20 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 
 	sysfs_device_set_values(dev, devpath_real, NULL, NULL);
 
-	/* get subsystem */
-	if (strncmp(dev->devpath, "/class/", 7) == 0) {
+	/* get subsystem name */
+	strlcpy(link_path, sysfs_path, sizeof(link_path));
+	strlcat(link_path, dev->devpath, sizeof(link_path));
+	strlcat(link_path, "/subsystem", sizeof(link_path));
+	len = readlink(link_path, link_target, sizeof(link_target));
+	if (len > 0) {
+		/* get subsystem from "subsystem" link */
+		link_target[len] = '\0';
+		dbg("subsystem link '%s' points to '%s'", link_path, link_target);
+		pos = strrchr(link_target, '/');
+		if (pos != NULL)
+			strlcpy(dev->subsystem, &pos[1], sizeof(dev->subsystem));
+	} else if (strncmp(dev->devpath, "/class/", 7) == 0) {
+		/* get subsystem from class dir */
 		strlcpy(dev->subsystem, &dev->devpath[7], sizeof(dev->subsystem));
 		pos = strchr(dev->subsystem, '/');
 		if (pos != NULL)
@@ -219,36 +231,24 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 			pos = strrchr(link_target, '/');
 			if (pos != NULL)
 				strlcpy(dev->subsystem, &pos[1], sizeof(dev->subsystem));
-		} else {
-			/* get subsystem from "subsystem" link */
-			strlcpy(link_path, sysfs_path, sizeof(link_path));
-			strlcat(link_path, dev->devpath, sizeof(link_path));
-			strlcat(link_path, "/subsystem", sizeof(link_path));
-			len = readlink(link_path, link_target, sizeof(link_target));
-			if (len > 0) {
-				link_target[len] = '\0';
-				dbg("subsystem link '%s' points to '%s'", link_path, link_target);
-				pos = strrchr(link_target, '/');
-				if (pos != NULL)
-					strlcpy(dev->subsystem, &pos[1], sizeof(dev->subsystem));
-			}
 		}
-		/* get driver name */
-		strlcpy(link_path, sysfs_path, sizeof(link_path));
-		strlcat(link_path, dev->devpath, sizeof(link_path));
-		strlcat(link_path, "/driver", sizeof(link_path));
-		len = readlink(link_path, link_target, sizeof(link_target));
-		if (len > 0) {
-			link_target[len] = '\0';
-			dbg("driver link '%s' points to '%s'", link_path, link_target);
-			pos = strrchr(link_target, '/');
-			if (pos != NULL)
-				strlcpy(dev->driver, &pos[1], sizeof(dev->driver));
-		}
-	} else if (strncmp(dev->devpath, "/bus/", 5) == 0 && strstr(dev->devpath, "/drivers/")) {
+	} else if (strstr(dev->devpath, "/drivers/") != NULL) {
 		strlcpy(dev->subsystem, "drivers", sizeof(dev->subsystem));
 	} else if (strncmp(dev->devpath, "/module/", 8) == 0) {
 		strlcpy(dev->subsystem, "module", sizeof(dev->subsystem));
+	}
+
+	/* get driver name */
+	strlcpy(link_path, sysfs_path, sizeof(link_path));
+	strlcat(link_path, dev->devpath, sizeof(link_path));
+	strlcat(link_path, "/driver", sizeof(link_path));
+	len = readlink(link_path, link_target, sizeof(link_target));
+	if (len > 0) {
+		link_target[len] = '\0';
+		dbg("driver link '%s' points to '%s'", link_path, link_target);
+		pos = strrchr(link_target, '/');
+		if (pos != NULL)
+			strlcpy(dev->driver, &pos[1], sizeof(dev->driver));
 	}
 
 	dbg("add to cache 'devpath=%s', subsystem='%s', driver='%s'", dev->devpath, dev->subsystem, dev->driver);
@@ -270,6 +270,7 @@ struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
 
 	/* requesting a parent is only valid for devices */
 	if ((strncmp(dev->devpath, "/devices/", 9) != 0) &&
+	    (strncmp(dev->devpath, "/subsystem/", 11) != 0) &&
 	    (strncmp(dev->devpath, "/class/", 7) != 0) &&
 	    (strncmp(dev->devpath, "/block/", 7) != 0))
 		return NULL;
@@ -289,10 +290,13 @@ struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
 		return NULL;
 	}
 
-	/* at the top level of class/block we want to follow the "device" link */
-	if (strcmp(parent_devpath, "/block") == 0) {
-		dbg("/block top level, look for device link");
-		goto device_link;
+	/* at the subsystems top level we want to follow the old-style "device" link */
+	if (strncmp(parent_devpath, "/subsystem", 10) == 0) {
+		pos = strrchr(parent_devpath, '/');
+		if (pos == &parent_devpath[10] || pos == parent_devpath || strcmp(pos, "/devices") == 0) {
+			dbg("/subsystem top level, look for device link");
+			goto device_link;
+		}
 	}
 	if (strncmp(parent_devpath, "/class", 6) == 0) {
 		pos = strrchr(parent_devpath, '/');
@@ -301,6 +305,11 @@ struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
 			goto device_link;
 		}
 	}
+	if (strcmp(parent_devpath, "/block") == 0) {
+		dbg("/block top level, look for device link");
+		goto device_link;
+	}
+
 	/* get parent and remember it */
 	dev->parent = sysfs_device_get(parent_devpath);
 	return dev->parent;
