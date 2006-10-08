@@ -237,14 +237,15 @@ static int attr_filtered(const char *path)
 	return 0;
 }
 
-static void scan_bus(void)
+static void scan_subsystem(const char *subsys)
 {
 	char base[PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
 
 	strlcpy(base, sysfs_path, sizeof(base));
-	strlcat(base, "/bus", sizeof(base));
+	strlcat(base, "/", sizeof(base));
+	strlcat(base, subsys, sizeof(base));
 
 	dir = opendir(base);
 	if (dir != NULL) {
@@ -292,13 +293,6 @@ static void scan_block(void)
 	char base[PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
-	struct stat statbuf;
-
-	/* skip if "block" is already a "class" */
-	strlcpy(base, sysfs_path, sizeof(base));
-	strlcat(base, "/class/block", sizeof(base));
-	if (stat(base, &statbuf) == 0)
-		return;
 
 	if (subsystem_filtered("block"))
 		return;
@@ -506,9 +500,24 @@ int main(int argc, char *argv[], char *envp[])
 	if (failed)
 		scan_failed();
 	else {
-		scan_bus();
-		scan_class();
-		scan_block();
+		char base[PATH_SIZE];
+		struct stat statbuf;
+
+		/* if we have /sys/subsystem, forget all the old stuff */
+		strlcpy(base, sysfs_path, sizeof(base));
+		strlcat(base, "/subsystem", sizeof(base));
+		if (stat(base, &statbuf) == 0)
+			scan_subsystem("subsystem");
+		else {
+			scan_subsystem("bus");
+			scan_class();
+
+			/* scan "block" if it isn't a "class" */
+			strlcpy(base, sysfs_path, sizeof(base));
+			strlcat(base, "/class/block", sizeof(base));
+			if (stat(base, &statbuf) != 0)
+				scan_block();
+		}
 	}
 	exec_list();
 
