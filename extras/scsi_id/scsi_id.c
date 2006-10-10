@@ -614,11 +614,12 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 {
 	int retval;
 	int dev_type = 0;
-	char *serial, *unaligned_buf;
 	struct sysfs_device *dev;
 	struct sysfs_device *dev_scsi;
 	int good_dev;
 	int page_code;
+	char serial[MAX_SERIAL_LEN];
+	char serial_short[MAX_SERIAL_LEN];
 
 	dbg("devpath %s\n", devpath);
 
@@ -650,29 +651,25 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 	retval = per_dev_options(dev_scsi, &good_dev, &page_code);
 	dbg("per dev options: good %d; page code 0x%x", good_dev, page_code);
 
-#define ALIGN   512
-	unaligned_buf = malloc(MAX_SERIAL_LEN + ALIGN);
-	serial = (char*) (((unsigned long) unaligned_buf + (ALIGN - 1))
-			  & ~(ALIGN - 1));
-	dbg("buffer unaligned 0x%p; aligned 0x%p\n", unaligned_buf, serial);
-#undef ALIGN
-
 	if (!good_dev) {
 		retval = 1;
 	} else if (scsi_get_serial(dev_scsi, maj_min_dev, page_code,
-				   serial, MAX_SERIAL_LEN)) {
+				   serial, serial_short, MAX_SERIAL_LEN)) {
 		retval = always_info?0:1;
 	} else {
 		retval = 0;
 	}
 	if (!retval) {
 		if (export) {
-			static char serial_str[64];
+			char serial_str[MAX_SERIAL_LEN];
+
 			printf("ID_VENDOR=%s\n", vendor_str);
 			printf("ID_MODEL=%s\n", model_str);
 			printf("ID_REVISION=%s\n", revision_str);
 			set_str(serial_str, serial, sizeof(serial_str));
 			printf("ID_SERIAL=%s\n", serial_str);
+			set_str(serial_str, serial_short, sizeof(serial_str));
+			printf("ID_SERIAL_SHORT=%s\n", serial_str);
 			printf("ID_TYPE=%s\n", type_str);
 			printf("ID_BUS=scsi\n");
 		} else {

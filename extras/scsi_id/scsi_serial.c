@@ -433,9 +433,9 @@ static int prepend_vendor_model(struct sysfs_device *dev_scsi, char *serial)
 static int check_fill_0x83_id(struct sysfs_device *dev_scsi,
 			      unsigned char *page_83,
 			      const struct scsi_id_search_values
-			      *id_search, char *serial, int max_len)
+			      *id_search, char *serial, char *serial_short, int max_len)
 {
-	int i, j, len;
+	int i, j, s, len;
 
 	/*
 	 * ASSOCIATION must be with the device (value 0)
@@ -469,7 +469,7 @@ static int check_fill_0x83_id(struct sysfs_device *dev_scsi,
 		 */
 		len *= 2;
 
-       	/*
+	/*
 	 * Add one byte for the NUL termination, and one for the id_type.
 	 */
 	len += 2;
@@ -497,7 +497,7 @@ static int check_fill_0x83_id(struct sysfs_device *dev_scsi,
 		}
 
 	i = 4; /* offset to the start of the identifier */
-	j = strlen(serial);
+	s = j = strlen(serial);
 	if ((page_83[0] & 0x0f) == SCSI_ID_ASCII) {
 		/*
 		 * ASCII descriptor.
@@ -515,6 +515,8 @@ static int check_fill_0x83_id(struct sysfs_device *dev_scsi,
 			i++;
 		}
 	}
+
+	strcpy(serial_short, &serial[s]);
 	return 0;
 }
 
@@ -522,10 +524,11 @@ static int check_fill_0x83_id(struct sysfs_device *dev_scsi,
 static int check_fill_0x83_prespc3(struct sysfs_device *dev_scsi,
 			           unsigned char *page_83,
 			           const struct scsi_id_search_values
-			           *id_search, char *serial, int max_len)
+			           *id_search, char *serial, char *serial_short, int max_len)
 {
 	int i, j;
-	
+
+	dbg("using pre-spc3-83 for %s.\n", dev_scsi->kernel);
 	serial[0] = hex_str[id_search->id_type];
 	/* serial has been memset to zero before */
 	j = strlen(serial);	/* j = 1; */
@@ -534,14 +537,14 @@ static int check_fill_0x83_prespc3(struct sysfs_device *dev_scsi,
 		serial[j++] = hex_str[(page_83[4+i] & 0xf0) >> 4];
 		serial[j++] = hex_str[ page_83[4+i] & 0x0f];
 	}
-	dbg("using pre-spc3-83 for %s.\n", dev_scsi->kernel);
+	strcpy(serial_short, serial);
 	return 0;
 }
 
 
 /* Get device identification VPD page */
 static int do_scsi_page83_inquiry(struct sysfs_device *dev_scsi, int fd,
-				  char *serial, int len)
+				  char *serial, char *serial_short, int len)
 {
 	int retval;
 	unsigned int id_ind, j;
@@ -588,8 +591,8 @@ static int do_scsi_page83_inquiry(struct sysfs_device *dev_scsi, int fd,
 	 */
 	
 	if (page_83[6] != 0) 
-		return check_fill_0x83_prespc3(dev_scsi, page_83, 
-					       id_search_list, serial, len);
+		return check_fill_0x83_prespc3(dev_scsi, page_83, id_search_list,
+					       serial, serial_short, len);
 
 	/*
 	 * Search for a match in the prioritized id_search_list.
@@ -604,7 +607,7 @@ static int do_scsi_page83_inquiry(struct sysfs_device *dev_scsi, int fd,
 		for (j = 4; j <= (unsigned int)page_83[3] + 3; j += page_83[j + 3] + 4) {
 			retval = check_fill_0x83_id(dev_scsi, &page_83[j],
 						    &id_search_list[id_ind],
-						    serial, len);
+						    serial, serial_short, len);
 			dbg("%s id desc %d/%d/%d\n", dev_scsi->kernel,
 				id_search_list[id_ind].id_type,
 				id_search_list[id_ind].naa_type,
@@ -631,7 +634,7 @@ static int do_scsi_page83_inquiry(struct sysfs_device *dev_scsi, int fd,
  * conformant to the SCSI-2 format.
  */
 static int do_scsi_page83_prespc3_inquiry(struct sysfs_device *dev_scsi, int fd,
-				          char *serial, int len)
+				          char *serial, char *serial_short, int len)
 {
 	int retval;
 	int i, j;
@@ -693,7 +696,7 @@ static int do_scsi_page83_prespc3_inquiry(struct sysfs_device *dev_scsi, int fd,
 
 /* Get unit serial number VPD page */
 static int do_scsi_page80_inquiry(struct sysfs_device *dev_scsi, int fd,
-				  char *serial, int max_len)
+				  char *serial, char *serial_short, int max_len)
 {
 	int retval;
 	int ser_ind;
@@ -728,11 +731,12 @@ static int do_scsi_page80_inquiry(struct sysfs_device *dev_scsi, int fd,
 	len = buf[3];
 	for (i = 4; i < len + 4; i++, ser_ind++)
 		serial[ser_ind] = buf[i];
+	memcpy(serial_short, &buf[4], len);
 	return 0;
 }
 
 int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
-		     int page_code, char *serial, int len)
+		     int page_code, char *serial, char *serial_short, int len)
 {
 	unsigned char page0[SCSI_INQ_BUFF_LEN];
 	int fd;
@@ -749,7 +753,7 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 	}
 
 	if (page_code == PAGE_80) {
-		if (do_scsi_page80_inquiry(dev_scsi, fd, serial, len)) {
+		if (do_scsi_page80_inquiry(dev_scsi, fd, serial, serial_short, len)) {
 			retval = 1;
 			goto completed;
 		} else  {
@@ -757,7 +761,7 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 			goto completed;
 		}
 	} else if (page_code == PAGE_83) {
-		if (do_scsi_page83_inquiry(dev_scsi, fd, serial, len)) {
+		if (do_scsi_page83_inquiry(dev_scsi, fd, serial, serial_short, len)) {
 			retval = 1;
 			goto completed;
 		} else  {
@@ -765,7 +769,7 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 			goto completed;
 		}
 	} else if (page_code == PAGE_83_PRE_SPC3) {
-		retval = do_scsi_page83_prespc3_inquiry(dev_scsi, fd, serial, len);
+		retval = do_scsi_page83_prespc3_inquiry(dev_scsi, fd, serial, serial_short, len);
 		if (retval) {
 			/*
 			 * Fallback to servicing a SPC-2/3 compliant page 83
@@ -773,7 +777,7 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 			 * conform to pre-SPC3 expectations.
 			 */
 			if (retval == 2) {
-				if (do_scsi_page83_inquiry(dev_scsi, fd, serial, len)) {
+				if (do_scsi_page83_inquiry(dev_scsi, fd, serial, serial_short, len)) {
 					retval = 1;
 					goto completed;
 				} else  {
@@ -812,8 +816,8 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 
 	for (ind = 4; ind <= page0[3] + 3; ind++)
 		if (page0[ind] == PAGE_83)
-			if (!do_scsi_page83_inquiry(dev_scsi, fd, serial,
-						    len)) {
+			if (!do_scsi_page83_inquiry(dev_scsi, fd,
+						    serial, serial_short, len)) {
 				/*
 				 * Success
 				 */
@@ -823,8 +827,8 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 
 	for (ind = 4; ind <= page0[3] + 3; ind++)
 		if (page0[ind] == PAGE_80)
-			if (!do_scsi_page80_inquiry(dev_scsi, fd, serial,
-						    len)) {
+			if (!do_scsi_page80_inquiry(dev_scsi, fd,
+						    serial, serial_short, len)) {
 				/*
 				 * Success
 				 */
