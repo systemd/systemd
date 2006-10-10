@@ -1,3 +1,22 @@
+Summary of changes from v101 to v102
+============================================
+
+Daniel Drake:
+      writing_udev_rules: fix typo in example rule
+
+Kay Sievers:
+      create missing ChangeLog for version 101
+      update SUSE rules
+      update default rules
+      first try "subsystem" link at a parent device, before guessing
+      if /sys/subsystem exists, skip class, bus, block scanning
+      scsi_id: export ID_SERIAL_SHORT without vendor/product
+      update SUSE rules
+
+MUNEDA Takahiro:
+      path_id: fix SAS disk handling
+
+
 Summary of changes from v100 to v101
 ============================================
 

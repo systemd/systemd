@@ -1,3 +1,7 @@
+udev 102
+========
+Fix path_id for SAS devices.
+
 udev 101
 ========
 The udev daemon can be started with --debug-trace now, which will
