@@ -3,6 +3,9 @@
  *
  * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
  *
+ * Based on information taken from dmraid:
+ * Copyright (C) 2004-2006 Heinz Mauelshagen, Red Hat GmbH
+ *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
  *	Free Software Foundation version 2 of the License.
@@ -30,7 +33,7 @@ struct via_meta {
 	uint16_t	signature;
 	uint8_t		version_number;
 	struct via_array {
-		uint16_t	disk_bits;
+		uint16_t	disk_bit_mask;
 		uint8_t		disk_array_ex;
 		uint32_t	capacity_low;
 		uint32_t	capacity_high;
@@ -41,6 +44,18 @@ struct via_meta {
 } PACKED;
 
 #define VIA_SIGNATURE		0xAA55
+
+/* 8 bit checksum on first 50 bytes of metadata. */
+static uint8_t meta_checksum(struct via_meta *via)
+{
+	uint8_t i = 50, sum = 0;
+
+	while (i--)
+		sum += ((uint8_t*) via)[i];
+
+	return sum == via->checksum;
+}
+
 
 int volume_id_probe_via_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
@@ -65,6 +80,9 @@ int volume_id_probe_via_raid(struct volume_id *id, uint64_t off, uint64_t size)
 		return -1;
 
 	if (via->version_number > 1)
+		return -1;
+
+	if (!meta_checksum(via))
 		return -1;
 
 	volume_id_set_usage(id, VOLUME_ID_RAID);
