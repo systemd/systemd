@@ -114,6 +114,8 @@ SUBSYSTEM=="scsi_device", ACTION=="add", RUN+="/sbin/modprobe sg"
 KERNEL=="hd*", SUBSYSTEMS=="ide", ATTRS{media}=="floppy", OPTIONS+="all_partitions"
 SUBSYSTEM=="ide", ACTION=="add", ATTR{media}=="tape", RUN+="/sbin/modprobe ide-scsi"
 
+SUBSYSTEM=="mmc", RUN+="/sbin/modprobe mmc_block"
+
 # misc storage devices (non-block)
 KERNEL=="sg*",			GROUP="disk", MODE="640"
 KERNEL=="st*|nst*",		GROUP="disk"

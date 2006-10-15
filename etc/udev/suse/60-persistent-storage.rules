@@ -5,7 +5,7 @@ ACTION!="add", GOTO="persistent_storage_end"
 SUBSYSTEM!="block", GOTO="persistent_storage_end"
 
 # skip rules for inappropriate block devices
-KERNEL=="ram*|loop*|fd*|nbd*|dm-*", GOTO="persistent_storage_end"
+KERNEL=="ram*|loop*|fd*|nbd*|gnbd*|dm-*", GOTO="persistent_storage_end"
 
 # never access non-cdrom removable ide devices, the drivers are causing event loops on open()
 KERNEL=="hd*[!0-9]", ATTRS{removable}=="1", DRIVERS=="ide-cs|ide-floppy", GOTO="persistent_storage_end"
@@ -29,6 +29,9 @@ KERNEL=="sd*[0-9]|dasd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{I
 KERNEL=="sd*[!0-9]|sr*|dasd*[!0-9]", ENV{ID_SERIAL}=="?*", ENV{ID_VENDOR}=="ATA", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL_SHORT}"
 KERNEL=="sd*[0-9]|dasd*[0-9]", ENV{ID_SERIAL}=="?*", ENV{ID_VENDOR}=="ATA", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL_SHORT}-part%n"
 KERNEL=="st*", ENV{ID_SERIAL}=="?*", SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
+
+KERNEL=="mmcblk[0-9]", ATTR{name}=="?*", ATTR{serial}=="?*", ENV{ID_NAME}="$attr{name}", ENV{ID_SERIAL}="$attr{serial}", SYMLINK+="disk/by-id/mmc-$env{ID_NAME}_$env{ID_SERIAL}"
+KERNEL=="mmcblk[0-9]p[0-9]", ATTR{name}=="?*", ATTR{serial}=="?*", ENV{ID_NAME}="$attr{name}", ENV{ID_SERIAL}="$attr{serial}", SYMLINK+="disk/by-id/mmc-$env{ID_NAME}_$env{ID_SERIAL}-part%n"
 
 # by-path (shortest physical path)
 KERNEL=="*[!0-9]|sr*", IMPORT{program}="path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
