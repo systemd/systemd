@@ -137,6 +137,32 @@ static struct hfsplus_vol_header {
 #define HFS_NODE_LEAF			0xff
 #define HFSPLUS_POR_CNID		1
 
+static void hfsid_set_uuid(struct volume_id *id, const uint8_t *hfs_id)
+{
+#if 0
+	MD5_CTX md5c;
+	static const uint8_t hash_init[16] = {
+		0xb3, 0xe2, 0x0f, 0x39, 0xf2, 0x92, 0x11, 0xd6,
+		0x97, 0xa4, 0x00, 0x30, 0x65, 0x43, 0xec, 0xac
+	};
+	uint8_t uuid[16];
+
+	if (*((uint64_t *)hfs_id) == 0)
+		return;
+
+	MD5_Init(&md5c);
+	MD5_Update(&md5c, &hash_init, 16);
+	MD5_Update(&md5c, hfs_id, 8);
+	MD5_Final(uuid, &md5c);
+
+	uuid[6] = 0x30 | (uuid[6] & 0x0f);
+	uuid[8] = 0x80 | (uuid[8] & 0x3f);
+	volume_id_set_uuid(id, uuid, UUID_DCE);
+#endif
+
+	volume_id_set_uuid(id, hfs_id, UUID_HFS);
+}
+
 int volume_id_probe_hfs_hfsplus(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	unsigned int blocksize;
@@ -196,7 +222,7 @@ int volume_id_probe_hfs_hfsplus(struct volume_id *id, uint64_t off, uint64_t siz
 		volume_id_set_label_string(id, hfs->label, hfs->label_len) ;
 	}
 
-	volume_id_set_uuid(id, hfs->finder_info.id, UUID_HFS);
+	hfsid_set_uuid(id, hfs->finder_info.id);
 
 	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
 	id->type = "hfs";
@@ -212,7 +238,7 @@ checkplus:
 	return -1;
 
 hfsplus:
-	volume_id_set_uuid(id, hfsplus->finder_info.id, UUID_HFS);
+	hfsid_set_uuid(id, hfsplus->finder_info.id);
 
 	blocksize = be32_to_cpu(hfsplus->blocksize);
 	dbg("blocksize %u", blocksize);
