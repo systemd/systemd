@@ -150,16 +150,14 @@ KERNEL=="usb/rio500",		MODE="0660"
 
 # s390 devices
 KERNEL=="z90crypt",		MODE="0666"
+KERNEL=="slram[0-9]*", 		SYMLINK+="xpram%n"
 
 # DVB
 KERNEL=="dvb",			MODE="0660"
 SUBSYSTEM=="dvb", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}'", \
 	NAME="%c", MODE="0660"
 
-# create a symlink named after the device map name
-# note devmap_name comes with extras/multipath
-#KERNEL=="dm-[0-9]*", PROGRAM="/sbin/devmap_name %M %m", NAME="%k", SYMLINK+="%c"
-
+KERNEL=="dm-[0-9]*",            OPTIONS+="ignore_device"
 
 # alsa devices
 KERNEL=="controlC[0-9]*",	NAME="snd/%k"
@@ -264,7 +262,7 @@ ACTION!="add", GOTO="persistent_end"
 SUBSYSTEM!="block", GOTO="persistent_end"
 
 # skip rules for inappropriate block devices
-KERNEL=="ram*|loop*|fd*|nbd*", GOTO="persistent_end"
+KERNEL=="ram*|loop*|fd*|nbd*|gnbd*", GOTO="persistent_end"
 
 # never access removable ide devices, the drivers are causing event loops on open()
 BUS=="ide", DRIVER!="ide-cdrom", SYSFS{removable}=="1",	GOTO="persistent_end"
@@ -346,6 +344,9 @@ ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="1", SYSFS{device/vendor}=
 	SYSFS{model}=="ADR*", RUN+="/sbin/modprobe st"
 ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="1", SYSFS{device/vendor}!="On[sS]tream", \
 	RUN+="/sbin/modprobe st"
+
+# mmc block devices
+ACTION=="add", SUBSYSTEM=="mmc", RUN+="/sbin/modprobe mmc_block"
 
 RUN+="socket:/org/kernel/udev/monitor"
 
