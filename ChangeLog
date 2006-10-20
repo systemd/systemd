@@ -1,3 +1,14 @@
+Summary of changes from v102 to v103
+============================================
+
+Kay Sievers:
+      persistent storage rules: skip gnbd devices
+      volume_id: add checksum check to via_raid
+      volume_id: add comment about hfs uuid conversion
+      update SUSE rules
+      update Fedora rules
+
+
 Summary of changes from v101 to v102
 ============================================
 

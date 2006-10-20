@@ -1,3 +1,9 @@
+udev 103
+========
+Add additional check to volume_id detection of via_raid, cause
+some company decided to put a matching pattern all over the empty
+storage area of their music players.
+
 udev 102
 ========
 Fix path_id for SAS devices.
