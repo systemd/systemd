@@ -1,5 +1,5 @@
-# device mapper links hook into "online" event, when the dm table
-# is available, while some table types must be ignored
+# device mapper links hook into "change" events, when the dm table
+# becomes available; some table-types must be ignored
 
 KERNEL=="device-mapper", SYMLINK+="mapper/control"
 

@@ -9,12 +9,10 @@ KERNEL=="console",		MODE="600", OPTIONS="last_rule"
 KERNEL=="ptmx",			GROUP="tty", MODE="666", OPTIONS="last_rule"
 
 # serial devices
-KERNEL=="tty[A-Z]*",		GROUP="uucp"
-KERNEL=="pppox*",		GROUP="uucp"
-KERNEL=="ircomm*",		GROUP="uucp"
-KERNEL=="modems/mwave*",	GROUP="uucp"
+KERNEL=="tty[A-Z]*|pppox*|ircomm*|noz*", GROUP="uucp"
 KERNEL=="hvc*|hvsi*",		GROUP="uucp"
 KERNEL=="iseries/vtty*",	GROUP="uucp"
+KERNEL=="mwave",		NAME="modems/%k", GROUP="uucp"
 KERNEL=="ttyUSB*", ATTRS{product}=="[Pp]alm*Handheld*", SYMLINK+="pilot"
 KERNEL=="ttyUSB*", ATTRS{product}=="[Hh]andspring*Treo*|[Hh]andspring*Visor*", SYMLINK+="pilot"
 
@@ -57,7 +55,6 @@ KERNEL=="dv1394*",		SYMLINK+="dv1394/%n", GROUP="video"
 KERNEL=="video1394*",		SYMLINK+="video1394/%n", GROUP="video"
 
 KERNEL=="hw_random",		NAME="hwrng", SYMLINK+="%k"
-KERNEL=="mwave",		NAME="modems/%k"
 KERNEL=="rioctl",		NAME="specialix_rioctl", SYMLINK+="%k"
 KERNEL=="sxctl",		NAME="specialix_sxctl", SYMLINK+="%k"
 
@@ -113,8 +110,7 @@ SUBSYSTEM=="scsi_device", ACTION=="add", ATTRS{type}=="[45]", RUN+="/sbin/modpro
 SUBSYSTEM=="scsi_device", ACTION=="add", RUN+="/sbin/modprobe sg"
 KERNEL=="hd*", SUBSYSTEMS=="ide", ATTRS{media}=="floppy", OPTIONS+="all_partitions"
 SUBSYSTEM=="ide", ACTION=="add", ATTR{media}=="tape", RUN+="/sbin/modprobe ide-scsi"
-
-SUBSYSTEM=="mmc", RUN+="/sbin/modprobe mmc_block"
+SUBSYSTEM=="mmc", ACTION=="add", RUN+="/sbin/modprobe mmc_block"
 
 # misc storage devices (non-block)
 KERNEL=="sg*",			GROUP="disk", MODE="640"
