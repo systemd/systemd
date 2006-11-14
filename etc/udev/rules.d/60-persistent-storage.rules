@@ -5,10 +5,10 @@ ACTION!="add", GOTO="persistent_storage_end"
 SUBSYSTEM!="block", GOTO="persistent_storage_end"
 
 # skip rules for inappropriate block devices
-KERNEL=="ram*|loop*|fd*|nbd*|gnbd*|dm-*", GOTO="persistent_storage_end"
+KERNEL=="ram*|loop*|fd*|nbd*|gnbd*|dm-*|md*", GOTO="persistent_storage_end"
 
 # never access non-cdrom removable ide devices, the drivers are causing event loops on open()
-KERNEL=="hd*[!0-9]", ATTRS{removable}=="1", DRIVERS=="ide-cs|ide-floppy", GOTO="persistent_storage_end"
+KERNEL=="hd*[!0-9]", ATTR{removable}=="1", DRIVERS=="ide-cs|ide-floppy", GOTO="persistent_storage_end"
 KERNEL=="hd*[0-9]", ATTRS{removable}=="1", GOTO="persistent_storage_end"
 
 # for partitions import parent information
