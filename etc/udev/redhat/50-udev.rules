@@ -41,9 +41,9 @@ KERNEL=="modems/mwave*",        NAME="%k", GROUP="uucp", MODE="0660"
 KERNEL=="hvc*",                 NAME="%k", GROUP="uucp", MODE="0660"
 KERNEL=="hvsi*",                NAME="%k", GROUP="uucp", MODE="0660"
 KERNEL=="iseries/vtty*",        NAME="%k", GROUP="uucp", MODE="0660"
-KERNEL=="ttyUSB*", SYSFS{product}=="Palm Handheld*", SYMLINK+="pilot", GROUP="uucp", MODE="0660"
-KERNEL=="ttyUSB*", SYSFS{product}=="palmOne Handheld*", SYMLINK+="pilot", GROUP="uucp", MODE="0660"
-KERNEL=="ttyUSB*", SYSFS{product}=="Handspring Visor*", SYMLINK+="pilot", GROUP="uucp", MODE="0660"
+KERNEL=="ttyUSB*", ATTRS{product}=="Palm Handheld*", SYMLINK+="pilot", GROUP="uucp", MODE="0660"
+KERNEL=="ttyUSB*", ATTRS{product}=="palmOne Handheld*", SYMLINK+="pilot", GROUP="uucp", MODE="0660"
+KERNEL=="ttyUSB*", ATTRS{product}=="Handspring Visor*", SYMLINK+="pilot", GROUP="uucp", MODE="0660"
 
 # vc devices
 KERNEL=="vcs",			NAME="%k", OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
@@ -72,7 +72,7 @@ KERNEL=="rtc",			MODE="0644"
 KERNEL=="fd[01]*",		GROUP="floppy", MODE="0660"
 # fix floppy devices
 KERNEL=="nvram", ACTION=="add", RUN+="load_floppy_module.sh"
-KERNEL=="fd[0-9]*", ACTION=="add", SYSFS{device/cmos}=="*", RUN+="create_floppy_devices -c -t $sysfs{device/cmos} -m %M /dev/%k"
+KERNEL=="fd[0-9]*", ACTION=="add", ATTRS{cmos}=="*", RUN+="create_floppy_devices -c -t $attr{cmos} -m %M /dev/%k"
 KERNEL=="fd[0-9]*", ACTION=="remove", RUN+="/bin/sh -c 'rm -f /dev/%k*'"
 
 # audio devices
@@ -231,24 +231,24 @@ KERNEL=="zap[0-9]*",  		NAME="zap/%n"
 
 KERNEL=="pktcdvd", NAME="%k/control"
 
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", \
-	SYSFS{device/media}=="floppy", \
+KERNEL=="hd[a-z]", BUS=="ide", ATTRS{removable}=="1", \
+	ATTRS{media}=="floppy", \
 	SYMLINK+="floppy floppy-%k", OPTIONS+="ignore_remove, all_partitions"
 
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", SYSFS{device/media}=="cdrom", SYMLINK+="cdrom cdrom-%k"
+KERNEL=="hd[a-z]", BUS=="ide", ATTRS{removable}=="1", ATTRS{media}=="cdrom", SYMLINK+="cdrom cdrom-%k"
 
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="check-cdrom.sh %k DVD", SYMLINK+="dvd dvd-%k"
+KERNEL=="hd[a-z]", BUS=="ide", ATTRS{removable}=="1", PROGRAM=="check-cdrom.sh %k DVD", SYMLINK+="dvd dvd-%k"
 KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k DVD", SYMLINK+="dvd dvd-%k"
 
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM=="check-cdrom.sh %k CD-R", SYMLINK+="cdwriter cdwriter-%k cdrw cdrw-%k"
+KERNEL=="hd[a-z]", BUS=="ide", ATTRS{removable}=="1", PROGRAM=="check-cdrom.sh %k CD-R", SYMLINK+="cdwriter cdwriter-%k cdrw cdrw-%k"
 KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k CD-R", SYMLINK+="cdwriter cdwriter-%k cdrw cdrw-%k"
 
-KERNEL=="hd[a-z]", BUS=="ide", SYSFS{removable}=="1", PROGRAM="check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter dvdwriter-%k dvdrw dvdrw-%k"
+KERNEL=="hd[a-z]", BUS=="ide", ATTRS{removable}=="1", PROGRAM="check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter dvdwriter-%k dvdrw dvdrw-%k"
 KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter dvdwriter-%k dvdrw dvdrw-%k"
 
 # rename sr* to scd*
 KERNEL=="sr[0-9]*", BUS=="scsi", NAME="scd%n"
-KERNEL=="hd*[0-9]", BUS=="ide", SYSFS{../removable}=="1", \
+KERNEL=="hd*[0-9]", BUS=="ide", ATTRS{removable}=="1", \
 	OPTIONS+="ignore_remove"
 
 
@@ -265,15 +265,15 @@ SUBSYSTEM!="block", GOTO="persistent_end"
 KERNEL=="ram*|loop*|fd*|nbd*|gnbd*", GOTO="persistent_end"
 
 # never access removable ide devices, the drivers are causing event loops on open()
-BUS=="ide", DRIVER!="ide-cdrom", SYSFS{removable}=="1",	GOTO="persistent_end"
-BUS=="ide", KERNEL=="hd*[0-9]", SYSFS{../removable}=="1", GOTO="persistent_end"
+BUS=="ide", DRIVER!="ide-cdrom", ATTRS{removable}=="1",	GOTO="persistent_end"
+BUS=="ide", KERNEL=="hd*[0-9]", ATTRS{removable}=="1", GOTO="persistent_end"
 
 # by-id (hardware serial number)
 KERNEL=="hd*[!0-9]", IMPORT{program}="/lib/udev/ata_id --export $tempnode"
 KERNEL=="hd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
 KERNEL=="hd*[0-9]", IMPORT{parent}=="ID_*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
 
-KERNEL=="sd*[!0-9]|sr*", SYSFS{ieee1394_id}=="*", ENV{ID_SERIAL}="$sysfs{ieee1394_id}", ENV{ID_BUS}="ieee1394"
+KERNEL=="sd*[!0-9]|sr*", ATTRS{ieee1394_id}=="*", ENV{ID_SERIAL}="$attr{ieee1394_id}", ENV{ID_BUS}="ieee1394"
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/lib/udev/usb_id -x"
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/lib/udev/scsi_id -g -x -s %p -d $tempnode"
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/lib/udev/scsi_id -g -x -a -s %p -d $tempnode"
@@ -291,7 +291,7 @@ KERNEL=="*[0-9]", IMPORT{parent}=="ID_*"
 KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 
 # by-label/by-uuid (filesystem properties)
-KERNEL=="*[!0-9]", SYSFS{removable}=="1", GOTO="persistent_end"
+KERNEL=="*[!0-9]", ATTRS{removable}=="1", GOTO="persistent_end"
 IMPORT{program}="/lib/udev/vol_id --export $tempnode"
 ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
 ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
@@ -320,29 +320,29 @@ ACTION=="add", SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="?*", RUN+="/bin/sh -c 'echo 
 # sr:           4 TYPE_WORM, 5 TYPE_ROM
 # st/osst:      1 TYPE_TAPE
 # sg: 		8 changer, [36] scanner
-ACTION=="add", SUBSYSTEM=="scsi" , SYSFS{type}=="0|7|14", \
+ACTION=="add", SUBSYSTEM=="scsi" , ATTRS{type}=="0|7|14", \
 	RUN+="/bin/sh -c 'echo 60 > /sys$$DEVPATH/timeout'"
-ACTION=="add", SUBSYSTEM=="scsi" , SYSFS{type}=="1", \
+ACTION=="add", SUBSYSTEM=="scsi" , ATTRS{type}=="1", \
 	RUN+="/bin/sh -c 'echo 900 > /sys$$DEVPATH/timeout'"
 
 
 ACTION=="add", SUBSYSTEM=="scsi_device"	RUN+="/sbin/modprobe sg"
-ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="0|7|14", \
+ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="0|7|14", \
 	RUN+="/sbin/modprobe sd_mod"
-ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="[45]", \
+ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="[45]", \
 	RUN+="/sbin/modprobe sr_mod"
 
-ACTION=="add", KERNEL=="sg[0-9]*", BUS=="scsi", SYSFS{type}=="[36]", \
+ACTION=="add", KERNEL=="sg[0-9]*", BUS=="scsi", ATTRS{type}=="[36]", \
 	SYMLINK+="scanner scanner-%k", MODE="0660"
 
-ACTION=="add", KERNEL=="sg[0-9]*", BUS=="scsi", SYSFS{type}=="8", \
+ACTION=="add", KERNEL=="sg[0-9]*", BUS=="scsi", ATTRS{type}=="8", \
 	SYMLINK+="changer changer-%k", MODE="0660", GROUP="disk"
 
-ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="1", SYSFS{device/vendor}=="On[sS]tream", \
-	SYSFS{model}!="ADR*", RUN+="/sbin/modprobe osst"
-ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="1", SYSFS{device/vendor}=="On[sS]tream", \
-	SYSFS{model}=="ADR*", RUN+="/sbin/modprobe st"
-ACTION=="add", SUBSYSTEM=="scsi_device", SYSFS{type}=="1", SYSFS{device/vendor}!="On[sS]tream", \
+ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="1", ATTRS{vendor}=="On[sS]tream", \
+	ATTRS{model}!="ADR*", RUN+="/sbin/modprobe osst"
+ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="1", ATTRS{vendor}=="On[sS]tream", \
+	ATTRS{model}=="ADR*", RUN+="/sbin/modprobe st"
+ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="1", ATTRS{vendor}!="On[sS]tream", \
 	RUN+="/sbin/modprobe st"
 
 # mmc block devices
