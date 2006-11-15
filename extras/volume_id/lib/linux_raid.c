@@ -27,7 +27,7 @@
 #include "util.h"
 
 static struct mdp_super_block {
-	uint32_t	md_magic;
+	uint8_t		md_magic[4];
 	uint32_t	major_version;
 	uint32_t	minor_version;
 	uint32_t	patch_version;
@@ -46,7 +46,7 @@ static struct mdp_super_block {
 } PACKED *mdp;
 
 #define MD_RESERVED_BYTES		0x10000
-#define MD_MAGIC			0xa92b4efc
+#define MD_MAGIC			"\xa9\x2b\x4e\xfc"
 
 int volume_id_probe_linux_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
@@ -56,7 +56,6 @@ int volume_id_probe_linux_raid(struct volume_id *id, uint64_t off, uint64_t size
 
 	info("probing at offset 0x%llx, size 0x%llx",
 	    (unsigned long long) off, (unsigned long long) size);
-
 	if (size < 0x10000)
 		return -1;
 
@@ -64,24 +63,20 @@ int volume_id_probe_linux_raid(struct volume_id *id, uint64_t off, uint64_t size
 	buf = volume_id_get_buffer(id, off + sboff, 0x800);
 	if (buf == NULL)
 		return -1;
-
 	mdp = (struct mdp_super_block *) buf;
 
-	if (le32_to_cpu(mdp->md_magic) != MD_MAGIC)
+	if (memcmp(mdp->md_magic, MD_MAGIC, 4) != 0)
 		return -1;
 
 	memcpy(uuid, &mdp->set_uuid0, 4);
 	memcpy(&uuid[4], &mdp->set_uuid1, 12);
 	volume_id_set_uuid(id, uuid, UUID_DCE);
-
 	snprintf(id->type_version, sizeof(id->type_version)-1, "%u.%u.%u",
 		 le32_to_cpu(mdp->major_version),
 		 le32_to_cpu(mdp->minor_version),
 		 le32_to_cpu(mdp->patch_version));
-
 	dbg("found raid signature");
 	volume_id_set_usage(id, VOLUME_ID_RAID);
 	id->type = "linux_raid_member";
-
 	return 0;
 }
