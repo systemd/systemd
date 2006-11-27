@@ -31,9 +31,9 @@
       </refsynopsisdiv>
 
       <refsect1><title>DESCRIPTION</title>
-        <para>udevmonitor listens to the kernel uevents and events send out by a udev rule
-        and prints the devpath of the event to the console. It can be used analyze to the
-        event timing by comparing the timestamps of the kernel uevent with the udev event.
+        <para>udevmonitor listens to the kernel uevents and events sent out by a udev rule
+        and prints the devpath of the event to the console. It can be used to analyze the
+        event timing, by comparing the timestamps of the kernel uevent and the udev event.
         </para>
       </refsect1>
 
