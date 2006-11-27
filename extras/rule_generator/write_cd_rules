@@ -50,6 +50,38 @@ if [ -z "$ID_CDROM" ]; then
 	exit 1
 fi
 
+if [ "$1" ]; then
+	METHOD="$1"
+else
+	METHOD='by-path'
+fi
+
+case "$METHOD" in
+	by-path)
+	if [ -z "$ID_PATH" ]; then
+		echo "$DEVPATH not supported by path_id. by-id may work." >&2
+		exit 1
+	fi
+	RULE="ENV{ID_PATH}==\"$ID_PATH\""
+	;;
+
+	by-id)
+	if [ "$ID_SERIAL" ]; then
+		RULE="ENV{ID_SERIAL}==\"$ID_SERIAL\""
+	elif [ "$ID_MODEL" -a "$ID_REVISION" ]; then
+		RULE="ENV{ID_MODEL}==\"$ID_MODEL\", ENV{ID_REVISION}==\"$ID_REVISION\""
+	else
+		echo "$DEVPATH not supported by ata_id. by-path may work." >&2
+		exit 1
+	fi
+	;;
+
+	*)
+	echo "Invalid argument (must be either by-path or by-id)." >&2
+	exit 1
+	;;
+esac
+
 # Prevent concurrent processes from modifying the file at the same time.
 lock_rules_file
 
@@ -58,7 +90,7 @@ choose_rules_file
 
 link_num=$(find_next_available 'cdrom[0-9]*')
 
-match="ENV{ID_CDROM}==\"?*\", ENV{ID_PATH}==\"$ID_PATH\""
+match="ENV{ID_CDROM}==\"?*\", $RULE"
 
 comment="$ID_MODEL ($ID_PATH)"
 
