@@ -732,6 +732,7 @@ static int do_scsi_page80_inquiry(struct sysfs_device *dev_scsi, int fd,
 	for (i = 4; i < len + 4; i++, ser_ind++)
 		serial[ser_ind] = buf[i];
 	memcpy(serial_short, &buf[4], len);
+	serial_short[len] = '\0';
 	return 0;
 }
 
