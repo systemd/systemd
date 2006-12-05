@@ -90,10 +90,13 @@ void selinux_setfilecon(const char *file, const char *devname, unsigned int mode
 		char *media;
 		int ret = -1;
 
-		media = get_media(devname, mode);
-		if (media) {
-			ret = matchmediacon(media, &scontext);
-			free(media);
+		if(devname)
+		{
+			media = get_media(devname, mode);
+			if (media) {
+				ret = matchmediacon(media, &scontext);
+				free(media);
+			}
 		}
 
 		if (ret < 0)
@@ -102,7 +105,7 @@ void selinux_setfilecon(const char *file, const char *devname, unsigned int mode
 				return;
 			} 
 
-		if (setfilecon(file, scontext) < 0)
+		if (lsetfilecon(file, scontext) < 0)
 			err("setfilecon %s failed: %s", file, strerror(errno));
 
 		freecon(scontext);
