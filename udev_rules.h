@@ -24,7 +24,7 @@
 #include "list.h"
 
 #define PAIRS_MAX		5
-#define RULEFILE_SUFFIX		".rules"
+#define RULESFILE_SUFFIX	".rules"
 
 enum key_operation {
 	KEY_OP_UNSET,

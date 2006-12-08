@@ -199,7 +199,7 @@ udev_version.h:
 	$(Q) echo \#define UDEV_VERSION		\"$(VERSION)\" >> $@
 	$(Q) echo \#define UDEV_ROOT		\"$(udevdir)\" >> $@
 	$(Q) echo \#define UDEV_CONFIG_FILE	\"$(configdir)/udev.conf\" >> $@
-	$(Q) echo \#define UDEV_RULES_FILE	\"$(configdir)/rules.d\" >> $@
+	$(Q) echo \#define UDEV_RULES_DIR	\"$(configdir)/rules.d\" >> $@
 
 # man pages
 %.8 %.7: %.xml

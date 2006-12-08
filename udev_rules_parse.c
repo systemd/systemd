@@ -627,7 +627,7 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 		err("can't open '%s' as rules file: %s", filename, strerror(errno));
 		return -1;
 	}
-	dbg("reading '%s' as rules file", filename);
+	info("reading '%s' as rules file", filename);
 
 	/* loop through the whole file */
 	cur = 0;
@@ -683,18 +683,18 @@ int udev_rules_init(struct udev_rules *rules, int resolve_names)
 	rules->resolve_names = resolve_names;
 
 	/* parse rules file or all matching files in directory */
-	if (stat(udev_rules_filename, &stats) != 0)
+	if (stat(udev_rules_dir, &stats) != 0)
 		return -1;
 
 	if ((stats.st_mode & S_IFMT) != S_IFDIR) {
-		dbg("parse single rules file '%s'", udev_rules_filename);
-		retval = parse_file(rules, udev_rules_filename);
+		dbg("parse single rules file '%s'", udev_rules_dir);
+		retval = parse_file(rules, udev_rules_dir);
 	} else {
 		struct name_entry *name_loop, *name_tmp;
 		LIST_HEAD(name_list);
 
-		dbg("parse rules directory '%s'", udev_rules_filename);
-		retval = add_matching_files(&name_list, udev_rules_filename, RULEFILE_SUFFIX);
+		dbg("parse rules directory '%s'", udev_rules_dir);
+		retval = add_matching_files(&name_list, udev_rules_dir, RULESFILE_SUFFIX);
 
 		list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
 			if (stat(name_loop->name, &stats) == 0) {

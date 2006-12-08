@@ -126,7 +126,6 @@ int add_matching_files(struct list_head *name_list, const char *dirname, const c
 {
 	struct dirent *ent;
 	DIR *dir;
-	char *ext;
 	char filename[PATH_SIZE];
 
 	dbg("open directory '%s'", dirname);
@@ -145,14 +144,16 @@ int add_matching_files(struct list_head *name_list, const char *dirname, const c
 			continue;
 
 		/* look for file matching with specified suffix */
-		ext = strrchr(ent->d_name, '.');
-		if (ext == NULL)
-			continue;
+		if (suffix != NULL) {
+			const char *ext;
 
-		if (strcmp(ext, suffix) != 0)
-			continue;
-
-		dbg("put file '%s/%s' in list", dirname, ent->d_name);
+			ext = strrchr(ent->d_name, '.');
+			if (ext == NULL)
+				continue;
+			if (strcmp(ext, suffix) != 0)
+				continue;
+		}
+		dbg("put file '%s/%s' into list", dirname, ent->d_name);
 
 		snprintf(filename, sizeof(filename), "%s/%s", dirname, ent->d_name);
 		filename[sizeof(filename)-1] = '\0';

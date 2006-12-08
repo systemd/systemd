@@ -92,7 +92,7 @@ struct udevice {
 /* udev_config.c */
 extern char udev_root[PATH_SIZE];
 extern char udev_config_filename[PATH_SIZE];
-extern char udev_rules_filename[PATH_SIZE];
+extern char udev_rules_dir[PATH_SIZE];
 extern int udev_log_priority;
 extern int udev_run;
 extern void udev_config_init(void);
