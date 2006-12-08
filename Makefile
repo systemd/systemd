@@ -43,7 +43,6 @@ EXTRAS =
 V =
 
 PROGRAMS = \
-	udev				\
 	udevd				\
 	udevtrigger			\
 	udevsettle			\
@@ -51,6 +50,7 @@ PROGRAMS = \
 	udevmonitor			\
 	udevinfo			\
 	udevtest			\
+	test-udev			\
 	udevstart
 
 HEADERS = \

@@ -1,7 +1,5 @@
 *.o
 *.a
-ccdv
-udev
 udevd
 udevcontrol
 udevtrigger
@@ -12,4 +10,5 @@ udevmonitor
 udevstart
 udevtest
 udev_version.h
+test-udev
 
