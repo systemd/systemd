@@ -1,3 +1,31 @@
+Summary of changes from v103 to v104
+============================================
+
+Kay Sievers (12):
+      update Fedora rules
+      update example rules
+      update SUSE rules
+      update SUSE rules
+      volume_id: fix endianess bug in linux_raid detection
+      man: fix udevmonitor text
+      man: recreate from xml
+      rename config "filename" to "dir"
+      remove outdated documentation
+      rename "udev.c" to "test-udev.c" - it is only for testing
+      update Fedora rules
+      use git-archive instead of git-tar-tree
+
+Kazuhiro Inaoka (1):
+      inotify syscall definitions for M32R
+
+Marco d'Itri (2):
+      write_cd_rules: identity-based persistence
+      scsi_id: remove trailing garbage from ID_SERIAL_SHORT
+
+Russell Coker (1):
+      SELinux: label created symlink instead of node
+
+
 Summary of changes from v102 to v103
 ============================================
 
