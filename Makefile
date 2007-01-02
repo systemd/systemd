@@ -226,8 +226,8 @@ clean:
 .PHONY: clean
 
 release:
-	git-tar-tree HEAD udev-$(VERSION) | gzip -9v > udev-$(VERSION).tar.gz
-	git-tar-tree HEAD udev-$(VERSION) | bzip2 -9v > udev-$(VERSION).tar.bz2
+	git-archive --format=tar --prefix=udev-104/ HEAD | gzip -9v > udev-$(VERSION).tar.gz
+	git-archive --format=tar --prefix=udev-104/ HEAD | bzip2 -9v > udev-$(VERSION).tar.bz2
 .PHONY: release
 
 install-config:
