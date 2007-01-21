@@ -101,10 +101,10 @@ configdir =	${etcdir}/udev
 udevdir =	/dev
 DESTDIR =
 
-INSTALL = /usr/bin/install -c
+INSTALL = install -c
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA = ${INSTALL} -m 644
-INSTALL_SCRIPT = ${INSTALL_PROGRAM}
+INSTALL_SCRIPT = ${INSTALL}
 PWD = $(shell pwd)
 
 CROSS_COMPILE ?=

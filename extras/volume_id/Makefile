@@ -18,10 +18,10 @@ libudevdir =	${prefix}/lib/udev
 mandir =	${prefix}/usr/share/man
 configdir =	${etcdir}/udev/
 
-INSTALL = /usr/bin/install -c
+INSTALL = install -c
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA  = ${INSTALL} -m 644
-INSTALL_SCRIPT = ${INSTALL_PROGRAM}
+INSTALL_SCRIPT = ${INSTALL}
 
 all: $(PROG) $(MAN_PAGES)
 .PHONY: all

@@ -8,7 +8,7 @@ includedir = 	${prefix}/usr/include
 libdir =	${prefix}/lib
 usrlibdir =	${prefix}/usr/lib
 
-INSTALL = /usr/bin/install -c
+INSTALL = install -c
 INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_LIB = ${INSTALL} -m 755
 

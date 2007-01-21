@@ -17,10 +17,10 @@ libudevdir =	${prefix}/lib/udev
 mandir =	${prefix}/usr/share/man
 configdir =	${etcdir}/udev
 
-INSTALL = /usr/bin/install -c
+INSTALL = install -c
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA  = ${INSTALL} -m 644
-INSTALL_SCRIPT = ${INSTALL_PROGRAM}
+INSTALL_SCRIPT = ${INSTALL}
 
 all: $(PROG) $(MAN_PAGES)
 .PHONY: all
@@ -37,9 +37,9 @@ clean:
 .PHONY: clean
 
 install-bin: all
-	$(INSTALL_PROGRAM) -D rule_generator.functions $(DESTDIR)$(libudevdir)/rule_generator.functions
-	$(INSTALL_PROGRAM) -D write_cd_rules $(DESTDIR)$(libudevdir)/write_cd_rules
-	$(INSTALL_PROGRAM) -D write_net_rules $(DESTDIR)$(libudevdir)/write_net_rules
+	$(INSTALL_SCRIPT) -D rule_generator.functions $(DESTDIR)$(libudevdir)/rule_generator.functions
+	$(INSTALL_SCRIPT) -D write_cd_rules $(DESTDIR)$(libudevdir)/write_cd_rules
+	$(INSTALL_SCRIPT) -D write_net_rules $(DESTDIR)$(libudevdir)/write_net_rules
 	$(INSTALL_DATA) -D 75-cd-aliases-generator.rules \
 		$(DESTDIR)$(configdir)/rules.d/75-cd-aliases-generator.rules
 	$(INSTALL_DATA) -D 75-persistent-net-generator.rules \

@@ -17,10 +17,10 @@ libudevdir =	${prefix}/lib/udev
 mandir =	${prefix}/usr/share/man
 configdir =	${etcdir}/udev/
 
-INSTALL = /usr/bin/install -c
+INSTALL = install -c
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA  = ${INSTALL} -m 644
-INSTALL_SCRIPT = ${INSTALL_PROGRAM}
+INSTALL_SCRIPT = ${INSTALL}
 
 all: $(PROG) $(MAN_PAGES)
 .PHONY: all
@@ -37,7 +37,7 @@ clean:
 .PHONY: clean
 
 install-bin: all
-	$(INSTALL_PROGRAM) -D $(PROG) $(DESTDIR)$(libudevdir)/$(PROG)
+	$(INSTALL_SCRIPT) -D $(PROG) $(DESTDIR)$(libudevdir)/$(PROG)
 .PHONY: install-bin
 
 uninstall-bin:
