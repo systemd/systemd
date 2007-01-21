@@ -116,6 +116,7 @@ int main(int argc, char *argv[])
 			    "  -t             filesystem type\n"
 			    "  -l             filesystem label\n"
 			    "  -u             filesystem uuid\n"
+			    "  -L             raw label\n"
 			    " --skip-raid     don't probe for raid\n"
 			    " --probe-all     find possibly conflicting signatures\n"
 			    " --help\n"
@@ -125,6 +126,7 @@ int main(int argc, char *argv[])
 		PRINT_TYPE,
 		PRINT_LABEL,
 		PRINT_UUID,
+		PRINT_RAW_LABEL,
 	} print = PRINT_EXPORT;
 	struct volume_id *vid = NULL;
 	static char name[VOLUME_ID_LABEL_SIZE];
@@ -153,6 +155,8 @@ int main(int argc, char *argv[])
 			print = PRINT_LABEL;
 		} else if (strcmp(arg, "-u") == 0) {
 			print = PRINT_UUID;
+		} else if (strcmp(arg, "-L") == 0) {
+			print = PRINT_RAW_LABEL;
 		} else if (strcmp(arg, "--skip-raid") == 0) {
 			skip_raid = 1;
 		} else if (strcmp(arg, "--probe-all") == 0) {
@@ -305,6 +309,13 @@ int main(int argc, char *argv[])
 			goto exit;
 		}
 		printf("%s\n", vid->uuid);
+		break;
+	case PRINT_RAW_LABEL:
+		if (vid->label[0] == '\0' || vid->usage_id == VOLUME_ID_RAID) {
+			rc = 3;
+			goto exit;
+		}
+		printf("%s\n", vid->label);
 		break;
 	}
 
