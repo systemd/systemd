@@ -59,13 +59,24 @@
           <varlistentry>
             <term><option>-l</option></term>
             <listitem>
-              <para>print the label of a volume</para>
+	      <para>
+		print the safe version of volume label suitable for
+		use as filename. Use <option>-L</option> to print literal label
+	      </para>
             </listitem>
           </varlistentry>
           <varlistentry>
             <term><option>-u</option></term>
             <listitem>
               <para>print the uuid of a volume</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>-L</option></term>
+            <listitem>
+	      <para>
+		print raw volume label
+	      </para>
             </listitem>
           </varlistentry>
         </variablelist>
