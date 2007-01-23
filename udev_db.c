@@ -93,6 +93,7 @@ int udev_db_add_device(struct udevice *udev)
 		struct name_entry *name_loop;
 		FILE *f;
 
+		unlink(filename);
 		f = fopen(filename, "w");
 		if (f == NULL) {
 			err("unable to create db file '%s': %s", filename, strerror(errno));
