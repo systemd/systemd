@@ -122,16 +122,17 @@ static int rename_netif(struct udevice *udev)
 		strlcpy(ifr.ifr_newname, udev->name, IFNAMSIZ);
 		loop = 30 * 20;
 		while (loop--) {
-			retval = ioctl(sk, SIOCSIFNAME, &ifr);	
-			if (retval != 0) {
-				if (errno != EEXIST) {
-					err("error changing net interface name %s to %s: %s",
-					    ifr.ifr_name, ifr.ifr_newname, strerror(errno));
-					break;
-				}
-				dbg("wait for netif '%s' to become free, loop=%i", udev->name, (30 * 20) - loop);
-				usleep(1000 * 1000 / 20);
+			retval = ioctl(sk, SIOCSIFNAME, &ifr);
+			if (retval == 0)
+				break;
+
+			if (errno != EEXIST) {
+				err("error changing net interface name %s to %s: %s",
+				    ifr.ifr_name, ifr.ifr_newname, strerror(errno));
+				break;
 			}
+			dbg("wait for netif '%s' to become free, loop=%i", udev->name, (30 * 20) - loop);
+			usleep(1000 * 1000 / 20);
 		}
 	}
 
