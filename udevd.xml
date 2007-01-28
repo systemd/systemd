@@ -53,7 +53,7 @@
             <term><option>--debug-trace</option></term>
             <listitem>
               <para>Run all events completely serialized. This may be useful if udev triggers
-              actions or loads kernel modules which cause problems and a slow but continiuous
+              actions or loads kernel modules which cause problems and a slow but continuous
               operation is needed, where no events are processed in parallel.
               </para>
             </listitem>
