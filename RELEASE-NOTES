@@ -1,3 +1,9 @@
+udev 105
+========
+Bugfixes. DRIVER== will match only for devices that actually have
+a driver. DRIVERS== must be used, to include the parent devices
+in the match.
+
 udev 104
 ========
 Bugfixes.

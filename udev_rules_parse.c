@@ -307,15 +307,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 		}
 
 		if (strcasecmp(key, "DRIVER") == 0) {
-			if (operation != KEY_OP_MATCH &&
-			    operation != KEY_OP_NOMATCH) {
-				err("invalid DRIVER operation");
-				goto invalid;
-			}
-			err("DRIVER== will change in a future relase, "
-			    "please use DRIVERS== in %s:%u", filename, lineno);
-			/* FIXME: this should be rule->driver to match only the event device */
-			add_rule_key(rule, &rule->drivers, operation, value);
+			add_rule_key(rule, &rule->driver, operation, value);
 			valid = 1;
 			continue;
 		}
@@ -369,6 +361,11 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 
 		if (strncasecmp(key, "ATTRS{", sizeof("ATTRS{")-1) == 0 ||
 		    strncasecmp(key, "SYSFS{", sizeof("SYSFS{")-1) == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid ATTRS operation");
+				goto invalid;
+			}
 			attr = get_key_attribute(key + sizeof("ATTRS")-1);
 			if (attr == NULL) {
 				err("error parsing ATTRS attribute");
