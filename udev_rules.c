@@ -364,6 +364,8 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 						goto found;
 					}
 				}
+				head[0] = '$';
+				err("unknown format variable '%s'", head);
 			} else if (head[0] == '%') {
 				/* substitute format char */
 				if (head[1] == '\0')
@@ -385,6 +387,8 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 						goto found;
 					}
 				}
+				head[0] = '%';
+				err("unknown format char '%c'", tail[0]);
 			}
 			head++;
 		}
@@ -554,7 +558,7 @@ found:
 			break;
 		}
 		/* possibly truncate to format-char specified length */
-		if (len != -1) {
+		if (len >= 0 && len < (int)strlen(head)) {
 			head[len] = '\0';
 			dbg("truncate to %i chars, subtitution string becomes '%s'", len, head);
 		}
