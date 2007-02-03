@@ -46,7 +46,8 @@ static struct mdp_super_block {
 } PACKED *mdp;
 
 #define MD_RESERVED_BYTES		0x10000
-#define MD_MAGIC			"\xa9\x2b\x4e\xfc"
+#define MD_MAGIC			"\xfc\x4e\x2b\xa9"
+#define MD_MAGIC_SWAP			"\xa9\x2b\x4e\xfc"
 
 int volume_id_probe_linux_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
@@ -65,7 +66,8 @@ int volume_id_probe_linux_raid(struct volume_id *id, uint64_t off, uint64_t size
 		return -1;
 	mdp = (struct mdp_super_block *) buf;
 
-	if (memcmp(mdp->md_magic, MD_MAGIC, 4) != 0)
+	if ((memcmp(mdp->md_magic, MD_MAGIC, 4) != 0) &&
+	    (memcmp(mdp->md_magic, MD_MAGIC_SWAP, 4) != 0))
 		return -1;
 
 	memcpy(uuid, &mdp->set_uuid0, 4);
