@@ -16,7 +16,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 
-VERSION = 104
+VERSION = 105
 
 # set this to make use of syslog
 USE_LOG = true
@@ -226,8 +226,8 @@ clean:
 .PHONY: clean
 
 release:
-	git-archive --format=tar --prefix=udev-104/ HEAD | gzip -9v > udev-$(VERSION).tar.gz
-	git-archive --format=tar --prefix=udev-104/ HEAD | bzip2 -9v > udev-$(VERSION).tar.bz2
+	git-archive --format=tar --prefix=udev-$(VERSION)/ HEAD | gzip -9v > udev-$(VERSION).tar.gz
+	git-archive --format=tar --prefix=udev-$(VERSION)/ HEAD | bzip2 -9v > udev-$(VERSION).tar.bz2
 .PHONY: release
 
 install-config:

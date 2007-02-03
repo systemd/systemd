@@ -1,3 +1,30 @@
+Summary of changes from v104 to v105
+============================================
+
+A. Costa (1):
+      man: fix typos in scsi_id and udevd
+
+Andrey Borzenkov (2):
+      vol_id: add -L to print raw partition label
+      vol_id: document -L
+
+Kay Sievers (2):
+      exclude parent devices from DRIVER== match
+      volume_id: really fix endianess bug in linux_raid detection
+
+Matthias Schwarzott (2):
+      correct typo in extras/scsi_id/scsi_id.conf
+      fix retry-loop in netif-rename code
+
+Peter Breitenlohner (1):
+      fix INSTALL_PROGRAM vs. INSTALL_SCRIPT
+
+Sergey Vlasov (3):
+      udevd: init signal pipe before daemonizing
+      unlink old database file before creating a new one
+      fix %c $string substitution
+
+
 Summary of changes from v103 to v104
 ============================================
 

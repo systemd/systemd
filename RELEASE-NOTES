@@ -1,8 +1,12 @@
 udev 105
 ========
-Bugfixes. DRIVER== will match only for devices that actually have
-a driver. DRIVERS== must be used, to include the parent devices
-in the match.
+Bugfixes.
+
+DRIVER== will match only for devices that actually have a real
+driver. DRIVERS== must be used, if parent devices should be
+included in the match.
+
+Libvolume_id's "linux_raid" detection needed another fix.
 
 udev 104
 ========
