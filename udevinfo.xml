@@ -84,7 +84,7 @@
             </listitem>
           </varlistentry>
           <varlistentry>
-            <term><option>--export</option></term>
+            <term><option>--export-db</option></term>
             <listitem>
               <para>Export the content of the udev database.</para>
             </listitem>
