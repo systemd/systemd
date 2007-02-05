@@ -332,6 +332,7 @@ handle_iscsi() {
 	local iscsi_session_dir
 	local iscsi_session iscsi_session_path
 	local iscsi_connection iscsi_connection_path
+	local iscsi_scsi_lun
 	# iSCSI device
 	iscsi_session_dir="${DEV%%/target*}"
 	iscsi_session="${iscsi_session_dir##*/}"
@@ -378,7 +379,8 @@ handle_iscsi() {
 	if [ -e "${iscsi_connection_path}/persistent_port" ] ; then
 	    read iscsi_port < ${iscsi_connection_path}/persistent_port
 	fi
-	d="ip-${iscsi_address}:${iscsi_port}-iscsi-${iscsi_tgtname}"
+	iscsi_scsi_lun="${DEV##*:}"
+	d="ip-${iscsi_address}:${iscsi_port}-iscsi-${iscsi_tgtname}-lun-${iscsi_scsi_lun}"
 	RESULT=0
 }
 
