@@ -90,8 +90,7 @@ void selinux_setfilecon(const char *file, const char *devname, unsigned int mode
 		char *media;
 		int ret = -1;
 
-		if(devname)
-		{
+		if (devname) {
 			media = get_media(devname, mode);
 			if (media) {
 				ret = matchmediacon(media, &scontext);
