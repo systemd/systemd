@@ -68,12 +68,17 @@ KERNEL=="hw_random",            NAME="hwrng", SYMLINK+="%k"
 KERNEL=="nvram",		MODE="0660"
 KERNEL=="rtc",			MODE="0644"
 
+# pnp devices
+ACTION=="add", SUBSYSTEM=="pnp", RUN+="/bin/sh -c 'while read id; do /lib/udev/modprobe pnp:d$$id; done < /sys/$devpath/id'"
+
 # floppy devices
 KERNEL=="fd[01]*",		GROUP="floppy", MODE="0660"
 # fix floppy devices
 KERNEL=="nvram", ACTION=="add", RUN+="load_floppy_module.sh"
 KERNEL=="fd[0-9]*", ACTION=="add", ATTRS{cmos}=="*", RUN+="create_floppy_devices -c -t $attr{cmos} -m %M /dev/%k"
 KERNEL=="fd[0-9]*", ACTION=="remove", RUN+="/bin/sh -c 'rm -f /dev/%k*'"
+
+BUS=="usb", KERNEL=="sd*", SYSFS{bInterfaceClass}=="08", SYSFS{bInterfaceSubClass}=="04", GROUP="floppy", MODE="0660", SYMLINK+="floppy floppy-%k"
 
 # audio devices
 KERNEL=="dsp*",			MODE="0660"
@@ -100,6 +105,8 @@ KERNEL=="usblp*",		GROUP="lp", MODE="0660"
 KERNEL=="usb/lp*",		GROUP="lp", MODE="0660"
 
 # tape devices
+SUBSYSTEM=="ide", SYSFS{media}=="tape", ACTION=="add", \
+		RUN+="modprobe ide-scsi idescsi_nocd=1"
 KERNEL=="ht*",			GROUP="disk", MODE="0660"
 KERNEL=="nht*",			GROUP="disk", MODE="0660"
 KERNEL=="pt[0-9]*",		GROUP="disk", MODE="0660"
@@ -157,7 +164,7 @@ KERNEL=="dvb",			MODE="0660"
 SUBSYSTEM=="dvb", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}'", \
 	NAME="%c", MODE="0660"
 
-KERNEL=="dm-[0-9]*",            OPTIONS+="ignore_device"
+KERNEL=="dm-[0-9]*", ACTION=="add",           OPTIONS+="ignore_device"
 
 # alsa devices
 KERNEL=="controlC[0-9]*",	NAME="snd/%k"
@@ -173,6 +180,7 @@ KERNEL=="mouse*",		NAME="input/%k"
 KERNEL=="event*",		NAME="input/%k"
 KERNEL=="js*",			NAME="input/%k", SYMLINK+="%k"
 KERNEL=="ts*",			NAME="input/%k"
+KERNEL=="uinput",          	NAME="input/%k"
 
 # IEEE1394 (firewire) devices (must be before raw devices below)
 KERNEL=="raw1394",      	NAME="%k"
@@ -212,15 +220,9 @@ KERNEL=="device-mapper",	NAME="mapper/control"
 KERNEL=="sr[0-9]*",		SYMLINK+="cdrom cdrom-%k"
 KERNEL=="scd[0-9]*",		SYMLINK+="cdrom cdrom-%k"
 KERNEL=="pcd[0-9]*",		SYMLINK+="cdrom cdrom-%k"
-KERNEL=="fd[0-9]*",		SYMLINK+="floppy-%k"
-KERNEL=="nst[0-9]", BUS=="scsi", 	SYMLINK+="tape-%k", MODE="0660"
-KERNEL=="nosst[0-9]", BUS=="scsi", 	SYMLINK+="tape-%k", MODE="0660"
-
-KERNEL=="umad*", 		NAME="infiniband/%k", MODE="0660"
-KERNEL=="issm*", 		NAME="infiniband/%k", MODE="0660"
-KERNEL=="uverbs*",              NAME="infiniband/%k", MODE="0660"
-KERNEL=="ucm*",                 NAME="infiniband/%k", MODE="0660"
-KERNEL=="rdma_cm",              NAME="infiniband/%k", MODE="0660"
+KERNEL=="fd[0-9]*",		SYMLINK+="floppy floppy-%k"
+KERNEL=="nst[0-9]", BUS=="scsi", 	SYMLINK+="tape tape-%k", MODE="0660"
+KERNEL=="nosst[0-9]", BUS=="scsi", 	SYMLINK+="tape tape-%k", MODE="0660"
 
 # Section for zaptel device
 KERNEL=="zapctl",     		NAME="zap/ctl"
@@ -231,9 +233,10 @@ KERNEL=="zap[0-9]*",  		NAME="zap/%n"
 
 KERNEL=="pktcdvd", NAME="%k/control"
 
-KERNEL=="hd[a-z]", BUS=="ide", ATTRS{removable}=="1", \
-	ATTRS{media}=="floppy", \
+KERNEL=="hd*[!0-9]", ATTR{removable}=="1", \
+	ATTR{media}=="floppy", \
 	SYMLINK+="floppy floppy-%k", OPTIONS+="ignore_remove, all_partitions"
+KERNEL=="hd*[0-9]", ATTRS{media}=="floppy", ATTRS{removable}=="1", SYMLINK+="floppy-%k"
 
 KERNEL=="hd[a-z]", BUS=="ide", ATTRS{removable}=="1", ATTRS{media}=="cdrom", SYMLINK+="cdrom cdrom-%k"
 
@@ -265,8 +268,8 @@ SUBSYSTEM!="block", GOTO="persistent_end"
 KERNEL=="ram*|loop*|fd*|nbd*|gnbd*", GOTO="persistent_end"
 
 # never access removable ide devices, the drivers are causing event loops on open()
-BUS=="ide", DRIVERS!="ide-cdrom", ATTRS{removable}=="1",	GOTO="persistent_end"
-BUS=="ide", KERNEL=="hd*[0-9]", ATTRS{removable}=="1", GOTO="persistent_end"
+KERNEL=="hd*[!0-9]", ATTR{removable}=="1", DRIVERS=="ide-cs|ide-floppy", GOTO="persistent_end"
+KERNEL=="hd*[0-9]", ATTRS{removable}=="1", GOTO="persistent_end"
 
 # by-id (hardware serial number)
 KERNEL=="hd*[!0-9]", IMPORT{program}="/lib/udev/ata_id --export $tempnode"
@@ -312,7 +315,7 @@ ACTION=="add", SUBSYSTEM=="usb_device", \
 	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", \
 	NAME="%c", MODE="0644"
 
-ACTION=="add", SUBSYSTEM=="?*", ENV{MODALIAS}=="?*", RUN+="/sbin/modprobe $env{MODALIAS}"
+ACTION=="add", SUBSYSTEM=="?*", ENV{MODALIAS}=="?*", RUN+="modprobe $env{MODALIAS}"
 
 ACTION=="add", SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="?*", RUN+="/bin/sh -c 'echo 1 > /sys/$DEVPATH/allow_func_id_match'"
 
@@ -326,11 +329,11 @@ ACTION=="add", SUBSYSTEM=="scsi" , ATTRS{type}=="1", \
 	RUN+="/bin/sh -c 'echo 900 > /sys$$DEVPATH/timeout'"
 
 
-ACTION=="add", SUBSYSTEM=="scsi_device"	RUN+="/sbin/modprobe sg"
+ACTION=="add", SUBSYSTEM=="scsi_device"	RUN+="modprobe sg"
 ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="0|7|14", \
-	RUN+="/sbin/modprobe sd_mod"
+	RUN+="modprobe sd_mod"
 ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="[45]", \
-	RUN+="/sbin/modprobe sr_mod"
+	RUN+="modprobe sr_mod"
 
 ACTION=="add", KERNEL=="sg[0-9]*", BUS=="scsi", ATTRS{type}=="[36]", \
 	SYMLINK+="scanner scanner-%k", MODE="0660"
@@ -339,14 +342,14 @@ ACTION=="add", KERNEL=="sg[0-9]*", BUS=="scsi", ATTRS{type}=="8", \
 	SYMLINK+="changer changer-%k", MODE="0660", GROUP="disk"
 
 ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="1", ATTRS{vendor}=="On[sS]tream", \
-	ATTRS{model}!="ADR*", RUN+="/sbin/modprobe osst"
+	ATTRS{model}!="ADR*", RUN+="modprobe osst"
 ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="1", ATTRS{vendor}=="On[sS]tream", \
-	ATTRS{model}=="ADR*", RUN+="/sbin/modprobe st"
+	ATTRS{model}=="ADR*", RUN+="modprobe st"
 ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="1", ATTRS{vendor}!="On[sS]tream", \
-	RUN+="/sbin/modprobe st"
+	RUN+="modprobe st"
 
 # mmc block devices
-ACTION=="add", SUBSYSTEM=="mmc", RUN+="/sbin/modprobe mmc_block"
+ACTION=="add", SUBSYSTEM=="mmc", RUN+="modprobe mmc_block"
 
 RUN+="socket:/org/kernel/udev/monitor"
 
