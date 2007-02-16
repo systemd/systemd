@@ -842,18 +842,20 @@ try_parent:
 
 		if (pair->key.operation == KEY_OP_ASSIGN) {
 			const char *key_name = key_pair_name(rule, pair);
-			const char *key_value = key_val(rule, &pair->key);
 			char attr[PATH_SIZE];
+			char value[NAME_SIZE];
 			FILE *f;
 
 			strlcpy(attr, sysfs_path, sizeof(attr));
 			strlcat(attr, udev->dev->devpath, sizeof(attr));
 			strlcat(attr, "/", sizeof(attr));
 			strlcat(attr, key_name, sizeof(attr));
-			dbg("write '%s' to '%s'", key_value, attr);
+			strlcpy(value, key_val(rule, &pair->key), sizeof(value));
+			udev_rules_apply_format(udev, value, sizeof(value));
+			info("writing '%s' to sysfs file '%s'", value, attr);
 			f = fopen(attr, "w");
 			if (f != NULL) {
-				if (fprintf(f, "%s\n", key_value) <= 0)
+				if (fprintf(f, "%s", value) <= 0)
 					err("error writing ATTR{%s}: %s", attr, strerror(errno));
 				fclose(f);
 			} else
