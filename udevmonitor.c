@@ -106,6 +106,26 @@ static void asmlinkage sig_handler(int signum)
 		udev_exit = 1;
 }
 
+static const char *search_key(const char *searchkey, const char *buf, size_t buflen)
+{
+	size_t bufpos = 0;
+	size_t searchkeylen = strlen(searchkey);
+
+	while (bufpos < buflen) {
+		const char *key;
+		int keylen;
+
+		key = &buf[bufpos];
+		keylen = strlen(key);
+		if (keylen == 0)
+			break;
+		 if ((strncmp(searchkey, key, searchkeylen) == 0) && key[searchkeylen] == '=')
+			return &key[searchkeylen + 1];
+		bufpos += keylen + 1;
+	}
+	return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	struct sigaction act;
@@ -156,10 +176,14 @@ int main(int argc, char *argv[])
 	while (!udev_exit) {
 		char buf[UEVENT_BUFFER_SIZE*2];
 		ssize_t buflen;
+		ssize_t bufpos;
+		ssize_t keys;
 		int fdcount;
 		struct timeval tv;
 		struct timezone tz;
 		char timestr[64];
+		const char *source = NULL;
+		const char *devpath, *action, *subsys;
 
 		buflen = 0;
 		FD_ZERO(&readfds);
@@ -183,33 +207,35 @@ int main(int argc, char *argv[])
 
 		if ((uevent_netlink_sock >= 0) && FD_ISSET(uevent_netlink_sock, &readfds)) {
 			buflen = recv(uevent_netlink_sock, &buf, sizeof(buf), 0);
-			if (buflen <=  0) {
+			if (buflen <= 0) {
 				fprintf(stderr, "error receiving uevent message: %s\n", strerror(errno));
 				continue;
 			}
-			printf("UEVENT[%s] %s\n", timestr, buf);
+			source = "UEVENT";
 		}
 
 		if ((udev_monitor_sock >= 0) && FD_ISSET(udev_monitor_sock, &readfds)) {
 			buflen = recv(udev_monitor_sock, &buf, sizeof(buf), 0);
-			if (buflen <=  0) {
+			if (buflen <= 0) {
 				fprintf(stderr, "error receiving udev message: %s\n", strerror(errno));
 				continue;
 			}
-			printf("UDEV  [%s] %s\n", timestr, buf);
+			source = "UDEV  ";
 		}
 
 		if (buflen == 0)
 			continue;
 
+		keys = strlen(buf) + 1; /* start of payload */
+		devpath = search_key("DEVPATH", &buf[keys], buflen);
+		action = search_key("ACTION", &buf[keys], buflen);
+		subsys = search_key("SUBSYSTEM", &buf[keys], buflen);
+		printf("%s[%s] %-8s %s (%s)\n", source, timestr, action, devpath, subsys);
+
 		/* print environment */
+		bufpos = keys;
 		if (env) {
-			size_t bufpos;
-
-			/* start of payload */
-			bufpos = strlen(buf) + 1;
-
-			while (bufpos < (size_t)buflen) {
+			while (bufpos < buflen) {
 				int keylen;
 				char *key;
 
