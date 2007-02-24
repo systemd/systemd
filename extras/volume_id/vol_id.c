@@ -188,7 +188,8 @@ int main(int argc, char *argv[])
 	/* try to drop all privileges before reading disk content */
 	pw = getpwnam ("nobody");
 	if (pw != NULL && pw->pw_uid > 0 && pw->pw_gid > 0) {
-		dbg("dropping privileges to %u:%u", (unsigned int)pw->pw_uid, (unsigned int)pw->pw_gid);
+		dbg("dropping privileges to %u:%u",
+		    (unsigned int)pw->pw_uid, (unsigned int)pw->pw_gid);
 		if (setgroups(0, NULL) != 0 ||
 		    setgid(pw->pw_gid) != 0 ||
 		    setuid(pw->pw_uid) != 0) {

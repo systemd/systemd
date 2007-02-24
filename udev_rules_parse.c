@@ -307,6 +307,11 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 		}
 
 		if (strcasecmp(key, "DRIVER") == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid DRIVER operation");
+				goto invalid;
+			}
 			add_rule_key(rule, &rule->driver, operation, value);
 			valid = 1;
 			continue;

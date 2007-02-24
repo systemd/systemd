@@ -4,10 +4,6 @@ These things would be nice to have:
     any of the links at that time
 
 These things will change in future udev versions:
-  o make DRIVER== to match only the event device
-    (DRIVERS must be used, we currently translate it to DRIVERS and print
-     a warning if DRIVER is used)
-
   o warn if BUS, ID, SYSFS are used as keys
     (they are SUBSYSTEMS, KERNELS, ATTRS now)
 
