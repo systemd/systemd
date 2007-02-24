@@ -308,7 +308,6 @@ int main(int argc, char *argv[], char *envp[])
 			       "  --root            prepend to query result or print udev_root\n"
 			       "  --attribute-walk  print all SYSFS_attributes along the device chain\n"
 			       "  --export-db       export the content of the udev database\n"
-			       "  --version        print udev version\n"
 			       "  --help            print this text\n"
 			       "\n");
 			goto exit;

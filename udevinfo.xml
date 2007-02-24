@@ -19,7 +19,8 @@
       </refmeta>
 
       <refnamediv>
-        <refname>udevinfo</refname><refpurpose>query device information from the udev database</refpurpose>
+        <refname>udevinfo</refname>
+        <refpurpose>query udev device information</refpurpose>
       </refnamediv>
 
       <refsynopsisdiv>
@@ -31,7 +32,6 @@
           <arg><option>--root</option></arg>
           <arg><option>--attribute-walk</option></arg>
           <arg><option>--export-db</option></arg>
-          <arg><option>--version</option></arg>
           <arg><option>--help</option></arg>
         </cmdsynopsis>
       </refsynopsisdiv>
