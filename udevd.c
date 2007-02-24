@@ -943,6 +943,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "debug-trace", 0, NULL, 't' },
 		{ "verbose", 0, NULL, 'v' },
 		{ "help", 0, NULL, 'h' },
+		{ "version", 0, NULL, 'V' },
 		{}
 	};
 	int rc = 1;
@@ -955,7 +956,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* parse commandline options */
 	while (1) {
-		option = getopt_long(argc, argv, "dtvh", options, NULL);
+		option = getopt_long(argc, argv, "dtvhV", options, NULL);
 		if (option == -1)
 			break;
 
@@ -972,7 +973,10 @@ int main(int argc, char *argv[], char *envp[])
 				udev_log_priority = LOG_INFO;
 			break;
 		case 'h':
-			printf("Usage: udevd [--help] [--daemon] [--debug-trace] [--verbose]\n");
+			printf("Usage: udevd [--help] [--daemon] [--debug-trace] [--verbose] [--version]\n");
+			goto exit;
+		case 'V':
+			printf("%s\n", UDEV_VERSION);
 			goto exit;
 		default:
 			goto exit;

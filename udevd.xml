@@ -28,6 +28,7 @@
           <arg><option>--daemon</option></arg>
           <arg><option>--debug-trace</option></arg>
           <arg><option>--verbose</option></arg>
+          <arg><option>--version</option></arg>
           <arg><option>--help</option></arg>
         </cmdsynopsis>
         <cmdsynopsis>
@@ -62,6 +63,12 @@
             <term><option>--verbose</option></term>
             <listitem>
               <para>Print log messages to stdout.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--version</option></term>
+            <listitem>
+              <para>Print version number.</para>
             </listitem>
           </varlistentry>
           <varlistentry>
