@@ -377,11 +377,11 @@ static int get_file_options(const char *vendor, const char *model,
 				/*
 				 * argv[0] at 0 is skipped by getopt, but
 				 * store the buffer address there for
-				 * alter freeing.
+				 * later freeing
 				 */
 				(*newargv)[c] = buffer;
 				for (c = 1; c < *argc; c++)
-					(*newargv)[c] = strsep(&buffer, " ");
+					(*newargv)[c] = strsep(&buffer, " \t");
 			}
 		} else {
 			/* No matches  */

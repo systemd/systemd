@@ -154,7 +154,7 @@ of 312345:
 
 .sp
 .nf
-BUS=="scsi", PROGRAM=="/sbin/scsi_id -d %N -s %p", RESULT=="312345", NAME="disk%n"
+SUBSYSTEMS=="scsi", PROGRAM=="/sbin/scsi_id -d %N -s %p", RESULT=="312345", NAME="disk%n"
 .fi
 .P
 
