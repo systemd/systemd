@@ -3,9 +3,11 @@ These things would be nice to have:
     to syslog, so any error logged from the kernel can be associated with
     any of the links at that time
 
+
 These things will change in future udev versions:
   o warn if BUS, ID, SYSFS are used as keys
     (they are SUBSYSTEMS, KERNELS, ATTRS now)
+
 
 These things are deprecated and scheduled for removal in a future
 udev version:

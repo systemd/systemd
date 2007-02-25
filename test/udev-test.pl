@@ -1556,8 +1556,17 @@ EOF
 		devpath		=> "/block/sda/sda1",
 		exp_name	=> "yes",
 		rules		=> <<EOF
-KERNEL="sda1", NAME=="no"
+KERNEL="sda1", NAME="no"
 KERNEL=="sda1", NAME="yes"
+EOF
+	},
+	{
+		desc		=> "operator chars in attribute",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "yes",
+		rules		=> <<EOF
+KERNEL=="sda", ATTR{test:colon+plus}=="?*", NAME="yes"
 EOF
 	},
 	{
