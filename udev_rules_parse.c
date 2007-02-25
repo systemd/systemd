@@ -104,12 +104,9 @@ static int get_key(char **line, char **key, enum key_operation *operation, char 
 			break;
 		if (linepos[0] == '=')
 			break;
-		if (linepos[0] == '+')
-			break;
-		if (linepos[0] == '!')
-			break;
-		if (linepos[0] == ':')
-			break;
+		if ((linepos[0] == '+') || (linepos[0] == '!') || (linepos[0] == ':'))
+			if (linepos[1] == '=')
+				break;
 	}
 
 	/* remember end of key */
