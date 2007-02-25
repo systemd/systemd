@@ -57,7 +57,9 @@ and
 .PP
 The udev rules are read from the files located in the
 \fI/etc/udev/rules.d\fR
-directory or at the location specified value in the configuration file. Every line in the rules file contains at least one key value pair. There are two kind of keys, match and assignment keys. If all match keys are matching against its value, the rule gets applied and the assign keys get the specified value assigned. A matching rule may specify the name of the device node, add a symlink pointing to the node, or run a specified program as part of the event handling. If no matching rule is found, the default device node name is used.
+directory or at the location specified value in the configuration file. Every line in the rules file contains at least one key value pair. There are two kind of keys, match and assignment keys. If all match keys are matching against its value, the rule gets applied and the assign keys get the specified value assigned.
+.PP
+A matching rule may specify the name of the device node, add a symlink pointing to the node, or run a specified program as part of the event handling. If no matching rule is found, the default device node name is used.
 .PP
 A rule may consists of a list of one or more key value pairs separated by a comma. Each key has a distinct operation, depending on the used operator. Valid operators are:
 .PP
@@ -86,7 +88,7 @@ Add the value to a key that holds a list of entries.
 Assign a value to a key finally; disallow any later changes, which may be used to prevent changes by any later rules.
 .RE
 .PP
-The following key names can be used to match against device properties:
+The following key names can be used to match against device properties. Some of the keys also match against properties of the parent devices in sysfs, not only the device that has generated the event. If multiple keys that match a parent device are specified in a single rule, all these keys must match at one and the same parent device.
 .PP
 \fBACTION\fR
 .RS 4
@@ -106,6 +108,11 @@ Match the name of the event device.
 \fBSUBSYSTEM\fR
 .RS 4
 Match the subsystem of the event device.
+.RE
+.PP
+\fBDRIVER\fR
+.RS 4
+Match the driver name of the event device. Only set for devices which are bound to a driver at the time the event is generated.
 .RE
 .PP
 \fBATTR{\fR\fB\fIfilename\fR\fR\fB}\fR
@@ -134,7 +141,7 @@ Search the devpath upwards for a matching device driver name.
 .RS 4
 Search the devpath upwards for a device with matching sysfs attribute values. Up to five
 \fBATTRS\fR
-keys can be specified per rule. All attributes must match on the same device. Trailing whitespace in the attribute values is ignored, if the specified match value does not contain trailing whitespace itself.
+keys can be specified per rule, but all of them must match on the same device. Trailing whitespace in the attribute values is ignored, if the specified match value does not contain trailing whitespace itself.
 .RE
 .PP
 \fBENV{\fR\fB\fIkey\fR\fR\fB}\fR

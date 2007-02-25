@@ -84,10 +84,11 @@
           value in the configuration file. Every line in the rules file contains at least
           one key value pair. There are two kind of keys, match and assignment keys.
           If all match keys are matching against its value, the rule gets applied and the
-          assign keys get the specified value assigned. A matching rule may specify the
-          name of the device node, add a symlink pointing to the node, or run a specified
-          program as part of the event handling. If no matching rule is found, the default
-          device node name is used.</para>
+          assign keys get the specified value assigned.</para>
+
+          <para>A matching rule may specify the name of the device node, add a symlink
+          pointing to the node, or run a specified program as part of the event handling.
+          If no matching rule is found, the default device node name is used.</para>
 
           <para>A rule may consists of a list of one or more key value pairs separated by
           a comma. Each key has a distinct operation, depending on the used operator. Valid
@@ -131,7 +132,11 @@
             </varlistentry>
           </variablelist>
 
-          <para>The following key names can be used to match against device properties:</para>
+          <para>The following key names can be used to match against device properties.
+          Some of the keys also match against properties of the parent devices in sysfs,
+          not only the device that has generated the event. If multiple keys that match
+          a parent device are specified in a single rule, all these keys must match at
+          one and the same parent device.</para>
           <variablelist>
             <varlistentry>
               <term><option>ACTION</option></term>
@@ -160,14 +165,13 @@
                 <para>Match the subsystem of the event device.</para>
               </listitem>
             </varlistentry>
-<!--
             <varlistentry>
               <term><option>DRIVER</option></term>
               <listitem>
-                <para>Match the driver name of the event device. Only set for devices created by a bus driver.</para>
+                <para>Match the driver name of the event device. Only set for devices
+                which are bound to a driver at the time the event is generated.</para>
               </listitem>
             </varlistentry>
--->
             <varlistentry>
               <term><option>ATTR{<replaceable>filename</replaceable>}</option></term>
               <listitem>
@@ -205,7 +209,7 @@
               <term><option>ATTRS{<replaceable>filename</replaceable>}</option></term>
               <listitem>
                 <para>Search the devpath upwards for a device with matching sysfs attribute values.
-                Up to five <option>ATTRS</option> keys can be specified per rule. All attributes
+                Up to five <option>ATTRS</option> keys can be specified per rule, but all of them
                 must match on the same device. Trailing whitespace in the attribute values is ignored,
                 if the specified match value does not contain trailing whitespace itself.</para>
               </listitem>
