@@ -49,7 +49,7 @@ Print usage.
 .PP
 \fBlog_priority=\fR\fB\fIvalue\fR\fR
 .RS 4
-udevcontrol can dynamically set the log level of udevd. Valid values are the numerical syslog priorities or their textual representations:
+Set the internal log level of udevd. Valid values are the numerical syslog priorities or their textual representations:
 \fBerr\fR,
 \fBinfo\fR
 and
@@ -58,12 +58,32 @@ and
 .PP
 \fBstop_exec_queue\fR
 .RS 4
-udevcontrol stops the execution of events from udevd.
+Signal udevd to stop executing new events. Incoming events will be queued.
 .RE
 .PP
 \fBstart_exec_queue\fR
 .RS 4
-udevcontrol starts the execution of events from udevd.
+Signal udevd to enable the execution of events.
+.RE
+.PP
+\fBreload_rules\fR
+.RS 4
+Signal udevd to reload the rules from the config.
+.RE
+.PP
+\fBmax_childs\fR
+.RS 4
+Set the maximum number of events, udevd will handle at the same time.
+.RE
+.PP
+\fBmax_childs_running\fR
+.RS 4
+Set the maximum number of events, which are allowed to run at the same time.
+.RE
+.PP
+\fBhelp\fR
+.RS 4
+Print help text.
 .RE
 .SH "ENVIRONMENT"
 .PP

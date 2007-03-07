@@ -80,22 +80,48 @@
           <varlistentry>
             <term><option>log_priority=<replaceable>value</replaceable></option></term>
             <listitem>
-              <para>udevcontrol can dynamically set the log level of udevd.
-              Valid values are the numerical syslog priorities or their textual
-              representations: <option>err</option>, <option>info</option>
-              and <option>debug</option>.</para>
+              <para>Set the internal log level of udevd. Valid values are the numerical
+              syslog priorities or their textual representations: <option>err</option>,
+              <option>info</option> and <option>debug</option>.</para>
             </listitem>
           </varlistentry>
           <varlistentry>
             <term><option>stop_exec_queue</option></term>
             <listitem>
-              <para>udevcontrol stops the execution of events from udevd.</para>
+              <para>Signal udevd to stop executing new events. Incoming events
+              will be queued.</para>
             </listitem>
           </varlistentry>
           <varlistentry>
             <term><option>start_exec_queue</option></term>
             <listitem>
-              <para>udevcontrol starts the execution of events from udevd.</para>
+              <para>Signal udevd to enable the execution of events.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>reload_rules</option></term>
+            <listitem>
+              <para>Signal udevd to reload the rules from the config.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>max_childs</option></term>
+            <listitem>
+              <para>Set the maximum number of events, udevd will handle at the
+              same time.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>max_childs_running</option></term>
+            <listitem>
+              <para>Set the maximum number of events, which are allowed to run at the
+              same time. </para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>help</option></term>
+            <listitem>
+              <para>Print help text.</para>
             </listitem>
           </varlistentry>
         </variablelist>

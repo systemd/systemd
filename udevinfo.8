@@ -14,7 +14,7 @@
 udevinfo \- query udev device information
 .SH "SYNOPSIS"
 .HP 9
-\fBudevinfo\fR [\fB\-\-query=\fR\fB\fIquery\-type\fR\fR] [\fB\-\-path=\fR\fB\fIdevpath\fR\fR] [\fB\-\-name=\fR\fB\fInode\fR\fR] [\fB\-\-root\fR] [\fB\-\-attribute\-walk\fR] [\fB\-\-export\-db\fR] [\fB\-\-help\fR]
+\fBudevinfo\fR [\fB\-\-query=\fR\fB\fIquery\-type\fR\fR] [\fB\-\-path=\fR\fB\fIdevpath\fR\fR] [\fB\-\-name=\fR\fB\fInode\fR\fR] [\fB\-\-root\fR] [\fB\-\-attribute\-walk\fR] [\fB\-\-export\-db\fR] [\fB\-\-version\fR] [\fB\-\-help\fR]
 .SH "DESCRIPTION"
 .PP
 udevinfo queries the udev database for device information stored in the udev database. It can also query the properties of a device from its sysfs representation to help creating udev rules that match this device.
@@ -62,6 +62,11 @@ Print all sysfs properties of the specified device that can be used in udev rule
 \fB\-\-export\-db\fR
 .RS 4
 Export the content of the udev database.
+.RE
+.PP
+\fB\-\-version\fR
+.RS 4
+Print version.
 .RE
 .PP
 \fB\-\-help\fR

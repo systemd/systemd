@@ -32,6 +32,7 @@
           <arg><option>--root</option></arg>
           <arg><option>--attribute-walk</option></arg>
           <arg><option>--export-db</option></arg>
+          <arg><option>--version</option></arg>
           <arg><option>--help</option></arg>
         </cmdsynopsis>
       </refsynopsisdiv>
@@ -87,6 +88,13 @@
             <term><option>--export-db</option></term>
             <listitem>
               <para>Export the content of the udev database.</para>
+            </listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>--version</option></term>
+            <listitem>
+              <para>Print version.</para>
             </listitem>
           </varlistentry>
 

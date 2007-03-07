@@ -190,7 +190,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "attribute-walk", 0, NULL, 'a' },
 		{ "export-db", 0, NULL, 'e' },
 		{ "root", 0, NULL, 'r' },
-		{ "version", 0, NULL, 'V' },
+		{ "version", 0, NULL, 1 }, /* -V outputs braindead format */
 		{ "help", 0, NULL, 'h' },
 		{}
 	};
@@ -289,6 +289,9 @@ int main(int argc, char *argv[], char *envp[])
 			goto exit;
 		case 'e':
 			export_db(export_record);
+			goto exit;
+		case 1:
+			printf("%s\n", UDEV_VERSION);
 			goto exit;
 		case 'V':
 			printf("udevinfo, version %s\n", UDEV_VERSION);

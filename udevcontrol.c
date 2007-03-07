@@ -125,7 +125,7 @@ int main(int argc, char *argv[], char *envp[])
 				"  reload_rules           reloads the rules files\n"
 				"  max_childs=<N>         maximum number of childs\n"
 				"  max_childs_running=<N> maximum number of childs running at the same time\n"
-				"  --help                 print this help text\n\n");
+				"  help                   print this help text\n\n");
 			goto exit;
 		} else {
 			fprintf(stderr, "unrecognized command '%s'\n", arg);
