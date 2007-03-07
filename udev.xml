@@ -228,8 +228,8 @@
               <term><option>PROGRAM</option></term>
               <listitem>
                 <para>Execute external program. The key is true, if the program returns
-                without exit code zero. The whole event environment is available to the
-                executed program. The program's output printed to stdout is available for
+                with exit code zero. The whole event environment is available to the
+                executed program. The program's output printed to stdout, is available in
                 the RESULT key.</para>
               </listitem>
             </varlistentry>
