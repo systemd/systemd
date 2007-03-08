@@ -74,7 +74,7 @@ int main(int argc, char **argv)
 	int major = 2, minor;
 	uid_t uid = 0;
 	gid_t gid = 0;
-	mode_t mode = 0;
+	mode_t mode = 0660;
 	int create_nodes = 0;
 	int print_nodes = 0;
 	int unlink_nodes = 0;
@@ -165,10 +165,11 @@ int main(int argc, char **argv)
 			printf("%s b %d %d %d\n", node, mode, major, minor);
 		if (create_nodes) {
 			unlink(node);
-			selinux_setfscreatecon(node, NULL, mode);
+			selinux_setfscreatecon(node, NULL, S_IFBLK | mode);
 			mknod(node, S_IFBLK | mode, makedev(major,minor));
 			selinux_resetfscreatecon();
 			chown(node, uid, gid);
+			chmod(node, S_IFBLK | mode);
 		}
 		i++;
 	}
