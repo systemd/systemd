@@ -30,11 +30,11 @@
 
         <para>Usually udev runs as <citerefentry><refentrytitle>udevd</refentrytitle>
         <manvolnum>8</manvolnum></citerefentry> and receives uevents directly from the
-        kernel if a device is added or removed form the system.</para>
+        kernel if a device is added or removed from the system.</para>
 
         <para>If udev receives a device event, it matches its configured rules
         against the available device attributes provided in sysfs to identify the device.
-        Rules that match, may provide additional device information or specify a device
+        Rules that match may provide additional device information or specify a device
         node name and multiple symlink names and instruct udev to run additional programs
         as part of the device event handling.</para>
       </refsect1>
@@ -90,7 +90,7 @@
           pointing to the node, or run a specified program as part of the event handling.
           If no matching rule is found, the default device node name is used.</para>
 
-          <para>A rule may consists of a list of one or more key value pairs separated by
+          <para>A rule may consist of a list of one or more key value pairs separated by
           a comma. Each key has a distinct operation, depending on the used operator. Valid
           operators are:</para>
           <variablelist>
@@ -374,7 +374,7 @@
                   </varlistentry>
                 </variablelist>
                 <para>If no option is given, udev will choose between <option>program</option>
-                and <option>file</option> based on the executable bit of of the file
+                and <option>file</option> based on the executable bit of the file
                 permissions.</para>
               </listitem>
             </varlistentry>
@@ -468,7 +468,7 @@
             </varlistentry>
 
             <varlistentry>
-              <term><option>$minor</option> <option>%m</option></term>
+              <term><option>$minor</option>, <option>%m</option></term>
               <listitem>
                 <para>The kernel minor number for the device.</para>
               </listitem>

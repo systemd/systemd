@@ -20,9 +20,9 @@ directory, or it renames network interfaces.
 .PP
 Usually udev runs as
 \fBudevd\fR(8)
-and receives uevents directly from the kernel if a device is added or removed form the system.
+and receives uevents directly from the kernel if a device is added or removed from the system.
 .PP
-If udev receives a device event, it matches its configured rules against the available device attributes provided in sysfs to identify the device. Rules that match, may provide additional device information or specify a device node name and multiple symlink names and instruct udev to run additional programs as part of the device event handling.
+If udev receives a device event, it matches its configured rules against the available device attributes provided in sysfs to identify the device. Rules that match may provide additional device information or specify a device node name and multiple symlink names and instruct udev to run additional programs as part of the device event handling.
 .SH "CONFIGURATION"
 .PP
 All udev configuration files are placed in
@@ -61,7 +61,7 @@ directory or at the location specified value in the configuration file. Every li
 .PP
 A matching rule may specify the name of the device node, add a symlink pointing to the node, or run a specified program as part of the event handling. If no matching rule is found, the default device node name is used.
 .PP
-A rule may consists of a list of one or more key value pairs separated by a comma. Each key has a distinct operation, depending on the used operator. Valid operators are:
+A rule may consist of a list of one or more key value pairs separated by a comma. Each key has a distinct operation, depending on the used operator. Valid operators are:
 .PP
 \fB==\fR
 .RS 4
@@ -248,7 +248,7 @@ If no option is given, udev will choose between
 \fBprogram\fR
 and
 \fBfile\fR
-based on the executable bit of of the file permissions.
+based on the executable bit of the file permissions.
 .RE
 .PP
 \fBWAIT_FOR_SYSFS\fR
@@ -320,7 +320,7 @@ The value of an environment variable.
 The kernel major number for the device.
 .RE
 .PP
-\fB$minor\fR \fB%m\fR
+\fB$minor\fR, \fB%m\fR
 .RS 4
 The kernel minor number for the device.
 .RE
