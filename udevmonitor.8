@@ -14,15 +14,30 @@
 udevmonitor \- print the kernel and udev event sequence to the console
 .SH "SYNOPSIS"
 .HP 12
-\fBudevmonitor\fR [\fB\-\-env\fR]
+\fBudevmonitor\fR [\fB\-\-environment\fR] [\fB\-\-kernel\fR] [\fB\-\-udev\fR] [\fB\-\-help\fR]
 .SH "DESCRIPTION"
 .PP
 udevmonitor listens to the kernel uevents and events sent out by a udev rule and prints the devpath of the event to the console. It can be used to analyze the event timing, by comparing the timestamps of the kernel uevent and the udev event.
 .SH "OPTIONS"
 .PP
-\fB\-\-env\fR
+\fB\-\-environment\fR
 .RS 4
 Print the complete environment for all events. Can be used to compare the kernel supplied and the udev added environment values.
+.RE
+.PP
+\fB\-\-kernel\fR
+.RS 4
+Print the kernel uevents.
+.RE
+.PP
+\fB\-\-udev\fR
+.RS 4
+Print the udev event after the rule processing.
+.RE
+.PP
+\fB\-\-help\fR
+.RS 4
+Print usage.
 .RE
 .SH "AUTHOR"
 .PP

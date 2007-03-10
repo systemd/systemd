@@ -26,7 +26,10 @@
       <refsynopsisdiv>
         <cmdsynopsis>
           <command>udevmonitor</command>
-          <arg><option>--env</option></arg>
+          <arg><option>--environment</option></arg>
+          <arg><option>--kernel</option></arg>
+          <arg><option>--udev</option></arg>
+          <arg><option>--help</option></arg>
         </cmdsynopsis>
       </refsynopsisdiv>
 
@@ -40,10 +43,28 @@
       <refsect1><title>OPTIONS</title>
         <variablelist>
           <varlistentry>
-            <term><option>--env</option></term>
+            <term><option>--environment</option></term>
             <listitem>
               <para>Print the complete environment for all events. Can be used to compare the
               kernel supplied and the udev added environment values.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--kernel</option></term>
+            <listitem>
+              <para>Print the kernel uevents.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--udev</option></term>
+            <listitem>
+              <para>Print the udev event after the rule processing.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--help</option></term>
+            <listitem>
+              <para>Print usage.</para>
             </listitem>
           </varlistentry>
         </variablelist>

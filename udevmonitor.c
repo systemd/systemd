@@ -24,6 +24,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <signal.h>
+#include <getopt.h>
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -129,29 +130,55 @@ static const char *search_key(const char *searchkey, const char *buf, size_t buf
 int main(int argc, char *argv[])
 {
 	struct sigaction act;
+	int option;
 	int env = 0;
+	int kernel = 0;
+	int udev = 0;
 	fd_set readfds;
-	int i;
 	int retval = 0;
 
-	for (i = 1 ; i < argc; i++) {
-		char *arg = argv[i];
-		if (strcmp(arg, "--env") == 0 || strcmp(arg, "-e") == 0)
+	static const struct option options[] = {
+		{ "environment", 0, NULL, 'e' },
+		{ "kernel", 0, NULL, 'k' },
+		{ "udev", 0, NULL, 'u' },
+		{ "help", 0, NULL, 'h' },
+		{}
+	};
+
+	while (1) {
+		option = getopt_long(argc, argv, "ekuh", options, NULL);
+		if (option == -1)
+			break;
+
+		switch (option) {
+		case 'e':
 			env = 1;
-		else if (strcmp(arg, "--help") == 0  || strcmp(arg, "-h") == 0){
-			printf("Usage: udevmonitor [--help] [--env]\n"
-				"  --env    print the whole event environment\n"
-				"  --help   print this help text\n\n");
-			exit(0);
-		} else {
-			fprintf(stderr, "unrecognized option '%s'\n", arg);
-			exit(1);
+			break;
+		case 'k':
+			kernel = 1;
+			break;
+		case 'u':
+			udev = 1;
+			break;
+		case 'h':
+			printf("Usage: udevmonitor [--environment] [--kernel] [--udev] [--help]\n"
+			       "  --env    print the whole event environment\n"
+			       "  --kernel print kernel uevents\n"
+			       "  --udev   print udev events\n"
+			       "  --help   print this help text\n\n");
+		default:
+			goto out;
 		}
 	}
 
-	if (getuid() != 0) {
-		fprintf(stderr, "root privileges required\n");
-		exit(2);
+	if (!kernel && !udev) {
+		kernel = 1;
+		udev =1;
+	}
+
+	if (getuid() != 0 && kernel) {
+		fprintf(stderr, "root privileges needed to subscribe to kernel events\n");
+		goto out;
 	}
 
 	/* set signal handlers */
@@ -162,16 +189,20 @@ int main(int argc, char *argv[])
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGTERM, &act, NULL);
 
-	retval = init_udev_monitor_socket();
-	if (retval)
-		goto out;
-
-	retval = init_uevent_netlink_sock();
-	if (retval)
-		goto out;
-
-	printf("udevmonitor prints the received event from the kernel [UEVENT]\n"
-	       "and the event which udev sends out after rule processing [UDEV]\n\n");
+	printf("udevmonitor will print the received events for:\n");
+	if (udev) {
+		retval = init_udev_monitor_socket();
+		if (retval)
+			goto out;
+		printf("UEVENT the kernel uevent\n");
+	}
+	if (kernel) {
+		retval = init_uevent_netlink_sock();
+		if (retval)
+			goto out;
+		printf("UDEV the event which udev sends out after rule processing\n");
+	}
+	printf("\n");
 
 	while (!udev_exit) {
 		char buf[UEVENT_BUFFER_SIZE*2];
@@ -257,6 +288,6 @@ out:
 		close(udev_monitor_sock);
 
 	if (retval)
-		return 3;
+		return 1;
 	return 0;
 }
