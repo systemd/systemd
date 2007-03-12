@@ -41,9 +41,6 @@ KERNEL=="modems/mwave*",        NAME="%k", GROUP="uucp", MODE="0660"
 KERNEL=="hvc*",                 NAME="%k", GROUP="uucp", MODE="0660"
 KERNEL=="hvsi*",                NAME="%k", GROUP="uucp", MODE="0660"
 KERNEL=="iseries/vtty*",        NAME="%k", GROUP="uucp", MODE="0660"
-KERNEL=="ttyUSB*", ATTRS{product}=="Palm Handheld*", SYMLINK+="pilot", GROUP="uucp", MODE="0660"
-KERNEL=="ttyUSB*", ATTRS{product}=="palmOne Handheld*", SYMLINK+="pilot", GROUP="uucp", MODE="0660"
-KERNEL=="ttyUSB*", ATTRS{product}=="Handspring Visor*", SYMLINK+="pilot", GROUP="uucp", MODE="0660"
 
 # vc devices
 KERNEL=="vcs",			NAME="%k", OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
@@ -280,7 +277,6 @@ KERNEL=="sd*[!0-9]|sr*", ATTRS{ieee1394_id}=="*", ENV{ID_SERIAL}="$attr{ieee1394
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/lib/udev/usb_id -x"
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/lib/udev/scsi_id -g -x -s %p -d $tempnode"
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/lib/udev/scsi_id -g -x -a -s %p -d $tempnode"
-KERNEL=="dasd*[!0-9]", IMPORT{program}="/lib/udev/dasd_id --export $tempnode"
 KERNEL=="sd*[!0-9]|sr*|dasd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 
 # for partitions import parent information
