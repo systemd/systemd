@@ -6,7 +6,6 @@ EXTRAS="\
 	extras/ata_id \
 	extras/volume_id \
 	extras/usb_id \
-	extras/dasd_id \
 	extras/cdrom_id \
 	extras/edd_id \
 	extras/floppy \
