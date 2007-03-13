@@ -9,6 +9,10 @@
 # file that can be run before this one.
 #
 
+# Net devices can have arbitrary names, even
+# ones set by the user. Not try to match normal
+# rules on net devices (Bug #166652)
+SUBSYSTEM=="net", GOTO="gentoo_device_rules_end"
 
 # console
 KERNEL=="pty[pqrstuvwxyzabcdef][0123456789abcdef]", NAME="%k", GROUP="tty",	OPTIONS="last_rule"
@@ -22,25 +26,22 @@ KERNEL=="console",		NAME="%k", GROUP="tty", MODE="0600"
 KERNEL=="ptmx",			NAME="%k", GROUP="tty", MODE="0666"
 
 # tty devices
-KERNEL=="ttyS[0-9]*",	NAME="%k", SYMLINK="tts/%n", GROUP="tty"
-KERNEL=="ttyUSB[0-9]*",	NAME="%k", SYMLINK="tts/USB%n", GROUP="tty", MODE="0660"
-KERNEL=="ippp0",	NAME="%k", GROUP="tty"
-KERNEL=="isdn*"		NAME="%k", GROUP="tty"
-KERNEL=="dcbri*",	NAME="%k", GROUP="tty"
-KERNEL=="ircomm*",	NAME="%k", GROUP="tty"
+KERNEL=="ttyS[0-9]*",	NAME="%k", SYMLINK="tts/%n", GROUP="uucp", MODE="0660"
+KERNEL=="ttyUSB[0-9]*",	NAME="%k", SYMLINK="tts/USB%n", GROUP="uucp", MODE="0660"
+KERNEL=="ippp0",	NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL=="isdn*"		NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL=="dcbri*",	NAME="%k", GROUP="uucp", MODE="0660"
+KERNEL=="ircomm*",	NAME="%k", GROUP="uucp", MODE="0660"
 
 # all block devices
 SUBSYSTEM=="block", GROUP="disk"
 
 # cdrom symlinks and other good cdrom naming
-BUS=="ide",	KERNEL=="hd[a-z]", ACTION=="add", IMPORT="cdrom_id --export $tempnode"
-BUS=="scsi",	KERNEL=="sr[0-9]*", ACTION=="add", IMPORT="cdrom_id --export $tempnode"
-BUS=="scsi",	KERNEL=="scd[a-z]", ACTION=="add", IMPORT="cdrom_id --export $tempnode"
-BUS=="scsi",	KERNEL=="sg[0-9]*", ACTION=="add", DRIVERS=="sr", GROUP="cdrom"
-ENV{ID_CDROM}=="?*",		PROGRAM="seq_node.sh %r %k cdrom", SYMLINK+="%c", GROUP="cdrom"
-ENV{ID_CDROM_CD_RW}=="?*",	PROGRAM="seq_node.sh %r %k cdrw",  SYMLINK+="%c"
-ENV{ID_CDROM_DVD}=="?*",	PROGRAM="seq_node.sh %r %k dvd",   SYMLINK+="%c"
-ENV{ID_CDROM_DVD_R}=="?*",	PROGRAM="seq_node.sh %r %k dvdrw", SYMLINK+="%c"
+KERNEL=="sr[0-9]*|hd[a-z]|pcd[0-9]*", ACTION=="add", IMPORT{program}="cdrom_id --export $tempnode"
+ENV{ID_CDROM}=="?*", GROUP="cdrom"
+
+# assign cdrom-permission also to associated generic device (for cd-burning ...)
+KERNEL=="sg[0-9]*", ACTION=="add", ATTRS{type}=="4|5", GROUP="cdrom"
 
 # disk devices
 KERNEL=="sd*",		NAME="%k", GROUP="disk"
@@ -69,26 +70,29 @@ KERNEL=="timer",		NAME="snd/%k"
 KERNEL=="seq",			NAME="snd/%k"
 
 # capi devices
-KERNEL=="capi",		NAME="capi20", SYMLINK+="isdn/capi20", GROUP="dialout"
-KERNEL=="capi*",	NAME="capi/%n", GROUP="dialout"
+KERNEL=="capi",		NAME="capi20", SYMLINK+="isdn/capi20", GROUP="uucp", MODE="0660"
+KERNEL=="capi*",	NAME="capi/%n", GROUP="uucp", MODE="0660"
 
 # cpu devices
 KERNEL=="cpu[0-9]*",	NAME="cpu/%n/cpuid"
 KERNEL=="msr[0-9]*",	NAME="cpu/%n/msr"
 KERNEL=="microcode",	NAME="cpu/microcode"
 
-# dm devices (ignore them)
-KERNEL=="dm-[0-9]*",	OPTIONS="ignore_device"
-# create a symlink named after the device map name
-# note devmap_name comes with extras/multipath
-#KERNEL=="dm-[0-9]*",	PROGRAM="/sbin/devmap_name %M %m", NAME="%k", SYMLINK+="%c"
+# dm devices
+# lookup device name and create device in /dev/mapper
+# use dmsetup, until devmap_name is provided by sys-fs/device-mapper
+ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="dm-*", \
+	PROGRAM="/sbin/dmsetup -j %M -m %m --noopencount --noheadings -c -o name info", \
+	NAME="mapper/%c"
 KERNEL=="device-mapper",	NAME="mapper/control"
 
 # fb devices
 KERNEL=="fb[0-9]*",	NAME="fb/%n", SYMLINK+="%k", GROUP="video"
 
 # floppy devices
-KERNEL=="fd[0-9]*",	NAME="floppy/%n", SYMLINK+="%k", GROUP="floppy"
+KERNEL=="fd[0-9]*",	NAME="floppy/%k", SYMLINK+="%k", GROUP="floppy"
+KERNEL=="fd[0-9]*", ACTION=="add", ATTRS{cmos}=="*", RUN+="create_floppy_devices -c -t $attr{cmos} -m %M -M 0660 -G floppy $root/floppy/%k"
+KERNEL=="fd[0-9]*", ACTION=="remove", RUN+="/bin/sh -c 'rm -f $root/floppy/%k?*'"
 
 # i2c devices
 KERNEL=="i2c-[0-9]*",	NAME="i2c/%n", SYMLINK+="%k"
@@ -144,7 +148,7 @@ KERNEL=="dv1394*",	NAME="dv1394/%n",	GROUP="video"
 KERNEL=="video1394*",	NAME="video1394/%n",	GROUP="video"
 
 # raw devices
-KERNEL=="raw[0-9]*",	NAME="raw/%k", GROUP="disk"
+SUBSYSTEM=="raw",	KERNEL=="raw[0-9]*",	NAME="raw/%k", GROUP="disk"
 KERNEL=="ram*",		NAME="%k", GROUP="disk"
 
 # sound devices
@@ -244,37 +248,70 @@ KERNEL=="issm*",	NAME="infiniband/%k"
 
 
 # usbfs-like device nodes
-SUBSYSTEM=="usb_device", PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", NAME="%c", MODE="0644"
+SUBSYSTEM=="usb_device", PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", NAME="%c", GROUP="usb", MODE="0664"
+
+
+# Setting timeout for tape-devices to 900 seconds
+# if you need timeouts for other devices add a similar rule
+# with correct type-value, or open a bug on bugs.gentoo.org.
+ACTION=="add", SUBSYSTEM=="scsi" , ATTRS{type}=="1", \
+	RUN+="/bin/sh -c 'echo 900 > /sys$$DEVPATH/timeout'"
 
 
 # Module autoloading
+ACTION!="add", GOTO="hotplug_no_add_event"
+
+# check if the device has already been claimed by a driver
+ENV{DRIVER}=="?*", SUBSYSTEM!="input", GOTO="hotplug_load_end"
+
+# this driver is broken and should not be loaded automatically
+SUBSYSTEM=="platform", ENV{MODALIAS}=="i82365", GOTO="hotplug_load_end"
 
 # Autoload modules that lack aliases but have them defined inutoload modules
-SYSFS{modalias}=="?*", ACTION=="add", RUN+="/sbin/modprobe $env{MODALIAS}"
+ENV{MODALIAS}=="?*", RUN+="modprobe.sh $env{MODALIAS}"
 
 # /etc/modprobe.conf.
-SUBSYSTEM=="pnp", ENV{MODALIAS}!="?*", RUN+="/bin/sh -c 'while read id; do /sbin/modprobe pnp:d$$id; done < /sys$devpath/id'"
-# If you have problems with some pnp modules being loaded, please enter the
-# following aliases into the modprobe configuration files.  These are needed by
-# udev to autoload some modules
-# alias pnp:dPNP0510 irtty-sir
-# alias pnp:dPNP0511 irtty-sir
-# alias pnp:dPNP0700 floppy
-# alias pnp:dPNP0800 pcspkr
-# alias pnp:dPNP0b00 rtc
-# alias pnp:dPNP0303 atkbd
-# alias pnp:dPNP0f13 psmouse
-# alias pnp:dPNPb02f analog
+SUBSYSTEM=="pnp", ENV{MODALIAS}!="?*", RUN+="/bin/sh -c 'while read id; do /lib/udev/modprobe.sh pnp:d$$id; done < /sys$devpath/id'"
+# needed aliases are defined in /etc/modprobe.d/pnp-aliases
 
+
+SUBSYSTEM=="i2o", RUN+="modprobe.sh i2o_block"
+SUBSYSTEM=="mmc", RUN+="modprobe.sh mmc_block"
+
+# Parts taken from redhat-rules
+# sd:           0 TYPE_DISK, 7 TYPE_MOD, 14 TYPE_RBC
+# sr:           4 TYPE_WORM, 5 TYPE_ROM
+# st/osst:      1 TYPE_TAPE
+
+# Load driver for scsi-device
+SUBSYSTEM!="scsi_device", GOTO="hotplug_scsi_end"
+ATTRS{type}=="?*",	RUN+="modprobe.sh sg"
+ATTRS{type}=="0|7|14",	RUN+="modprobe.sh sd_mod"
+ATTRS{type}=="4|5",	RUN+="modprobe.sh sr_mod"
+ATTRS{type}=="8",	RUN+="modprobe.sh ch"
+
+ATTRS{type}=="1", ENV{ID_SCSI_TAPE_DRIVER}="st"
+ATTRS{type}=="1", ATTRS{vendor}=="On[sS]tream", \
+	ATTRS{model}!="ADR*", ENV{ID_SCSI_TAPE_DRIVER}="osst"
+ENV{ID_SCSI_TAPE_DRIVER}=="?*", RUN+="modprobe.sh $env{ID_SCSI_TAPE_DRIVER}"
+LABEL="hotplug_scsi_end"
+
+
+SUBSYSTEM=="ide", ATTR{media}=="tape", RUN+="modprobe.sh ide-scsi"
+
+LABEL="hotplug_load_end"
 
 
 # Load firmware
-SUBSYSTEM=="firmware", ACTION=="add", RUN+="firmware.sh"
+SUBSYSTEM=="firmware", RUN+="firmware.sh"
 
+LABEL="hotplug_no_add_event"
+
+LABEL="gentoo_device_rules_end"
 
 # be backward compatible for a while with the /etc/dev.d and /etc/hotplug.d/ systems
 # run /etc/hotplug.d/ stuff only if we came from a hotplug event, not for udevstart
-ENV{UDEVD_EVENT}=="1", RUN+="udev_run_hotplugd $env{SUBSYSTEM}"
+#ENV{UDEVD_EVENT}=="1", RUN+="udev_run_hotplugd $env{SUBSYSTEM}"
 
 # always run /etc/dev.d/ stuff for now.
 RUN+="udev_run_devd $env{SUBSYSTEM}"
