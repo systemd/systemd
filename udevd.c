@@ -989,6 +989,19 @@ int main(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 
+	/* make sure std{in,out,err} fd's are in a sane state */
+	fd = open("/dev/null", O_RDWR);
+	if (fd < 0) {
+		fprintf(stderr, "cannot open /dev/null\n");
+		err("cannot open /dev/null");
+	}
+	if (fd > STDIN_FILENO)
+		dup2(fd, STDIN_FILENO);
+	if (write(STDOUT_FILENO, 0, 0) < 0)
+		dup2(fd, STDOUT_FILENO);
+	if (write(STDERR_FILENO, 0, 0) < 0)
+		dup2(fd, STDERR_FILENO);
+
 	/* init sockets to receive events */
 	if (init_udevd_socket() < 0) {
 		if (errno == EADDRINUSE) {
@@ -1064,17 +1077,12 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}
 
-	/* redirect std fd's */
-	fd = open("/dev/null", O_RDWR);
-	if (fd >= 0) {
-		dup2(fd, STDIN_FILENO);
-		if (!verbose)
-			dup2(fd, STDOUT_FILENO);
-		dup2(fd, STDERR_FILENO);
-		if (fd > STDERR_FILENO)
-			close(fd);
-	} else
-		err("error opening /dev/null: %s", strerror(errno));
+	/* redirect std{out,err} fd's */
+	if (!verbose)
+		dup2(fd, STDOUT_FILENO);
+	dup2(fd, STDERR_FILENO);
+	if (fd > STDERR_FILENO)
+		close(fd);
 
 	/* set scheduling priority for the daemon */
 	setpriority(PRIO_PROCESS, 0, UDEVD_PRIORITY);
