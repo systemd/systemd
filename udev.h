@@ -29,7 +29,6 @@
 #include "udev_version.h"
 
 #define COMMENT_CHARACTER			'#'
-#define PATH_TO_NAME_CHAR			'@'
 #define LINE_SIZE				512
 #define PATH_SIZE				512
 #define NAME_SIZE				128
@@ -144,6 +143,8 @@ extern gid_t lookup_group(const char *group);
 /* udev_utils_string.c */
 extern int string_is_true(const char *str);
 extern void remove_trailing_chars(char *path, char c);
+extern size_t path_encode(char *s, size_t len);
+extern size_t path_decode(char *s);
 extern int utf8_encoded_valid_unichar(const char *str);
 extern int replace_untrusted_chars(char *str);
 

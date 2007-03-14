@@ -50,6 +50,49 @@ void remove_trailing_chars(char *path, char c)
 		path[--len] = '\0';
 }
 
+size_t path_encode(char *s, size_t len)
+{
+	char t[(len * 3)+1];
+	size_t i, j;
+
+	t[0] = '\0';
+	for (i = 0, j = 0; s[i] != '\0'; i++) {
+		if (s[i] == '/') {
+			memcpy(&t[j], "%2f", 3);
+			j += 3;
+		} else if (s[i] == '%') {
+			memcpy(&t[j], "%25", 3);
+			j += 3;
+		} else {
+			t[j] = s[i];
+			j++;
+		}
+	}
+	t[j] = '\0';
+	strncpy(s, t, len);
+	return j;
+}
+
+size_t path_decode(char *s)
+{
+	size_t i, j;
+
+	for (i = 0, j = 0; s[i] != '\0'; j++) {
+		if (memcmp(&s[i], "%2f", 3) == 0) {
+			s[j] = '/';
+			i += 3;
+		}else if (memcmp(&s[i], "%25", 3) == 0) {
+			s[j] = '%';
+			i += 3;
+		} else {
+			s[j] = s[i];
+			i++;
+		}
+	}
+	s[j] = '\0';
+	return j;
+}
+
 /* count of characters used to encode one unicode char */
 static int utf8_encoded_expected_len(const char *str)
 {

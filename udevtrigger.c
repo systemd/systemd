@@ -407,22 +407,15 @@ static void scan_failed(void)
 	if (dir != NULL) {
 		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
 			char device[PATH_SIZE];
-			size_t start, end, i;
+			size_t start;
 
 			if (dent->d_name[0] == '.')
 				continue;
 
 			strlcpy(device, sysfs_path, sizeof(device));
 			start = strlcat(device, "/", sizeof(device));
-			end = strlcat(device, dent->d_name, sizeof(device));
-			if (end > sizeof(device))
-				end = sizeof(device);
-
-			/* replace PATH_TO_NAME_CHAR with '/' */
-			for (i = start; i < end; i++)
-				if (device[i] == PATH_TO_NAME_CHAR)
-					device[i] = '/';
-
+			strlcat(device, dent->d_name, sizeof(device));
+			path_decode(&device[start]);
 			device_list_insert(device);
 		}
 		closedir(dir);

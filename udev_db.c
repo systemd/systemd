@@ -33,38 +33,22 @@
 #include "udev.h"
 
 
-static int devpath_to_db_path(const char *devpath, char *filename, size_t len)
+static size_t devpath_to_db_path(const char *devpath, char *filename, size_t len)
 {
-	size_t start, end, i;
+	size_t start;
 
 	/* add location of db files */
 	strlcpy(filename, udev_root, len);
 	start = strlcat(filename, "/"DB_DIR, len);
-	end = strlcat(filename, devpath, len);
-	if (end > len)
-		end = len;
-
-	/* replace '/' to transform path into a filename */
-	for (i = start+1; i < end; i++)
-		if (filename[i] == '/')
-			filename[i] = PATH_TO_NAME_CHAR;
-
-	return 0;
+	strlcat(filename, devpath, len);
+	return path_encode(&filename[start+1], len - (start+1));
 }
 
 static int db_file_to_devpath(const char *filename, char *devpath, size_t len)
 {
-	size_t end, i;
-
 	strlcpy(devpath, "/", len);
-	end = strlcat(devpath, filename, len);
-
-	/* replace PATH_TO_NAME_CHAR to transform name into devpath */
-	for (i = 1; i < end; i++)
-		if (devpath[i] == PATH_TO_NAME_CHAR)
-			devpath[i] = '/';
-
-	return 0;
+	strlcat(devpath, filename, len);
+	return path_decode(devpath);
 }
 
 int udev_db_add_device(struct udevice *udev)
@@ -338,8 +322,7 @@ int udev_db_get_all_entries(struct list_head *name_list)
 
 	while (1) {
 		struct dirent *ent;
-		char filename[PATH_SIZE] = "/";
-		size_t end, i;
+		char device[PATH_SIZE];
 
 		ent = readdir(dir);
 		if (ent == NULL || ent->d_name[0] == '\0')
@@ -347,12 +330,9 @@ int udev_db_get_all_entries(struct list_head *name_list)
 		if (ent->d_name[0] == '.')
 			continue;
 
-		end = strlcat(filename, ent->d_name, sizeof(filename));
-		for (i = 1; i < end; i++)
-			if (filename[i] == PATH_TO_NAME_CHAR)
-				filename[i] = '/';
-		name_list_add(name_list, filename, 1);
-		dbg("added '%s'", filename);
+		db_file_to_devpath(ent->d_name, device, sizeof(device));
+		name_list_add(name_list, device, 1);
+		dbg("added '%s'", device);
 	}
 
 	closedir(dir);

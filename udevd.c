@@ -167,7 +167,7 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 {
 	char filename[PATH_SIZE];
 	char filename_failed[PATH_SIZE];
-	size_t start, end, i;
+	size_t start;
 	struct udevd_uevent_msg *loop_msg;
 	int fd;
 
@@ -175,27 +175,15 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 	strlcpy(filename, udev_root, sizeof(filename));
 	strlcat(filename, "/", sizeof(filename));
 	start = strlcat(filename, EVENT_QUEUE_DIR, sizeof(filename));
-	end = strlcat(filename, msg->devpath, sizeof(filename));
-	if (end > sizeof(filename))
-		end = sizeof(filename);
-
-	/* replace '/' to transform path into a filename */
-	for (i = start+1; i < end; i++)
-		if (filename[i] == '/')
-			filename[i] = PATH_TO_NAME_CHAR;
+	strlcat(filename, msg->devpath, sizeof(filename));
+	path_encode(&filename[start+1], sizeof(filename) - (start+1));
 
 	/* add location of failed files */
 	strlcpy(filename_failed, udev_root, sizeof(filename_failed));
 	strlcat(filename_failed, "/", sizeof(filename_failed));
 	start = strlcat(filename_failed, EVENT_FAILED_DIR, sizeof(filename_failed));
-	end = strlcat(filename_failed, msg->devpath, sizeof(filename_failed));
-	if (end > sizeof(filename_failed))
-		end = sizeof(filename_failed);
-
-	/* replace '/' to transform path into a filename */
-	for (i = start+1; i < end; i++)
-		if (filename_failed[i] == '/')
-			filename_failed[i] = PATH_TO_NAME_CHAR;
+	strlcat(filename_failed, msg->devpath, sizeof(filename_failed));
+	path_encode(&filename_failed[start+1], sizeof(filename) - (start+1));
 
 	switch (state) {
 	case EVENT_QUEUED:
