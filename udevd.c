@@ -348,7 +348,7 @@ static int mem_size_mb(void)
 static int cpu_count(void)
 {
 	int f;
-	char buf[32768];
+	char buf[65536];
 	int len;
 	const char *pos;
 	int count = 0;
