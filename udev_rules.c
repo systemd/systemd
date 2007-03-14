@@ -186,7 +186,13 @@ static int import_keys_into_env(struct udevice *udev, const char *buf, size_t bu
 		linepos = line;
 		if (get_key(&linepos, &variable, &value) == 0) {
 			dbg("import '%s=%s'", variable, value);
-			name_list_key_add(&udev->env_list, variable, value);
+
+			/* handle device, renamed by external tool, returning new path */
+			if (strcmp(variable, "DEVPATH") == 0) {
+				info("updating devpath from '%s' to '%s'", udev->dev->devpath, value);
+				sysfs_device_set_values(udev->dev, value, NULL, NULL);
+			} else
+				name_list_key_add(&udev->env_list, variable, value);
 			setenv(variable, value, 1);
 		}
 	}

@@ -208,6 +208,10 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 			info("device event will be ignored");
 			goto exit;
 		}
+		if (udev->name[0] == '\0') {
+			info("device renaming supressed");
+			goto exit;
+		}
 
 		/* look if we want to change the name of the netif */
 		if (strcmp(udev->name, udev->dev->kernel) != 0) {
