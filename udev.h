@@ -44,6 +44,7 @@
 #define WRITE_END				1
 
 #define DB_DIR					".udev/db"
+#define DB_NAME_INDEX_DIR			".udev/names"
 
 struct udev_rules;
 

@@ -44,11 +44,44 @@ static size_t devpath_to_db_path(const char *devpath, char *filename, size_t len
 	return path_encode(&filename[start+1], len - (start+1));
 }
 
-static int db_file_to_devpath(const char *filename, char *devpath, size_t len)
+static size_t db_file_to_devpath(const char *filename, char *devpath, size_t len)
 {
 	strlcpy(devpath, "/", len);
 	strlcat(devpath, filename, len);
 	return path_decode(devpath);
+}
+
+
+/* reverse mapping from the device file name to the devpath */
+static int name_index(const char *devpath, const char *name, int add)
+{
+	char device[PATH_SIZE];
+	char filename[PATH_SIZE * 2];
+	size_t start;
+	int fd;
+
+	/* directory with device name */
+	strlcpy(filename, udev_root, sizeof(filename));
+	start = strlcat(filename, "/"DB_NAME_INDEX_DIR"/", sizeof(filename));
+	strlcat(filename, name, sizeof(filename));
+	path_encode(&filename[start+1], sizeof(filename) - (start+1));
+	/* entry with the devpath */
+	strlcpy(device, devpath, sizeof(device));
+	path_encode(&device[1], sizeof(device)-1);
+	strlcat(filename, device, sizeof(filename));
+
+	if (add) {
+		dbg("creating: '%s'", filename);
+		create_path(filename);
+		fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
+		if (fd > 0)
+			close(fd);
+	} else {
+		dbg("removing: '%s'", filename);
+		unlink(filename);
+		delete_path(filename);
+	}
+	return 0;
 }
 
 int udev_db_add_device(struct udevice *udev)
@@ -60,6 +93,7 @@ int udev_db_add_device(struct udevice *udev)
 
 	devpath_to_db_path(udev->dev->devpath, filename, sizeof(filename));
 	create_path(filename);
+	name_index(udev->dev->devpath, udev->name, 1);
 
 	/*
 	 * create only a symlink with the name as the target
@@ -86,8 +120,10 @@ int udev_db_add_device(struct udevice *udev)
 		dbg("storing data for device '%s' in '%s'", udev->dev->devpath, filename);
 
 		fprintf(f, "N:%s\n", udev->name);
-		list_for_each_entry(name_loop, &udev->symlink_list, node)
+		list_for_each_entry(name_loop, &udev->symlink_list, node) {
 			fprintf(f, "S:%s\n", name_loop->name);
+			name_index(udev->dev->devpath, name_loop->name, 1);
+		}
 		fprintf(f, "M:%u:%u\n", major(udev->devt), minor(udev->devt));
 		if (udev->partitions)
 			fprintf(f, "A:%u\n", udev->partitions);
@@ -203,37 +239,42 @@ int udev_db_get_device(struct udevice *udev, const char *devpath)
 int udev_db_delete_device(struct udevice *udev)
 {
 	char filename[PATH_SIZE];
+	struct name_entry *name_loop;
 
 	devpath_to_db_path(udev->dev->devpath, filename, sizeof(filename));
 	unlink(filename);
+
+	name_index(udev->dev->devpath, udev->name, 0);
+	list_for_each_entry(name_loop, &udev->symlink_list, node)
+		name_index(udev->dev->devpath, name_loop->name, 0);
 
 	return 0;
 }
 
 int udev_db_lookup_name(const char *name, char *devpath, size_t len)
 {
-	char dbpath[PATH_MAX];
+	char dirname[PATH_MAX];
+	size_t start;
 	DIR *dir;
 	int found = 0;
 
-	strlcpy(dbpath, udev_root, sizeof(dbpath));
-	strlcat(dbpath, "/"DB_DIR, sizeof(dbpath));
-	dir = opendir(dbpath);
+	strlcpy(dirname, udev_root, sizeof(dirname));
+	start = strlcat(dirname, "/"DB_NAME_INDEX_DIR"/", sizeof(dirname));
+	strlcat(dirname, name, sizeof(dirname));
+	path_encode(&dirname[start+1], sizeof(dirname) - (start+1));
+
+	dir = opendir(dirname);
 	if (dir == NULL) {
-		info("no udev_db available '%s': %s", dbpath, strerror(errno));
+		info("no index directory '%s': %s", dirname, strerror(errno));
 		return -1;
 	}
 
+	info("found index directory '%s'", dirname);
 	while (!found) {
 		struct dirent *ent;
+		char device[PATH_SIZE];
 		char filename[PATH_SIZE];
-		char nodename[PATH_SIZE];
-		struct stat stats;
-		char *bufline;
-		char *buf;
-		size_t bufsize;
-		size_t cur;
-		size_t count;
+		struct stat statbuf;
 
 		ent = readdir(dir);
 		if (ent == NULL || ent->d_name[0] == '\0')
@@ -241,63 +282,18 @@ int udev_db_lookup_name(const char *name, char *devpath, size_t len)
 		if (ent->d_name[0] == '.')
 			continue;
 
-		snprintf(filename, sizeof(filename), "%s/%s", dbpath, ent->d_name);
-		filename[sizeof(filename)-1] = '\0';
-		dbg("looking at '%s'", filename);
+		strlcpy(device, "/", len);
+		strlcat(device, ent->d_name, sizeof(device));
+		path_decode(device);
 
-		if (lstat(filename, &stats) != 0) {
-			info("unable to read %s: %s", filename, strerror(errno));
-			continue;
+		dbg("looking at '%s'", device);
+		strlcpy(filename, sysfs_path, sizeof(filename));
+		strlcat(filename, device, sizeof(filename));
+		if (stat(filename, &statbuf) == 0) {
+			strlcpy(devpath, device, len);
+			found = 1;
+			break;
 		}
-		if ((stats.st_mode & S_IFMT) == S_IFLNK) {
-			char target[NAME_SIZE];
-			int target_len;
-
-			info("found a symlink as db file");
-			target_len = readlink(filename, target, sizeof(target));
-			if (target_len > 0)
-				target[target_len] = '\0';
-			else {
-				info("error reading db link %s: %s", filename, strerror(errno));
-				return -1;
-			}
-			dbg("db link points to '%s'", target);
-			if (strcmp(name, target) == 0) {
-				db_file_to_devpath(ent->d_name, devpath, len);
-				found =1;
-			}
-			continue;
-		}
-
-		if (file_map(filename, &buf, &bufsize) != 0) {
-			info("unable to read db file '%s': %s", filename, strerror(errno));
-			continue;
-		}
-
-		cur = 0;
-		while (cur < bufsize && !found) {
-			count = buf_get_line(buf, bufsize, cur);
-			bufline = &buf[cur];
-			cur += count+1;
-
-			switch(bufline[0]) {
-			case 'N':
-			case 'S':
-				if (count > sizeof(nodename))
-					count = sizeof(nodename);
-				memcpy(nodename, &bufline[2], count-2);
-				nodename[count-2] = '\0';
-				dbg("compare '%s' '%s'", nodename, name);
-				if (strcmp(nodename, name) == 0) {
-					db_file_to_devpath(ent->d_name, devpath, len);
-					found = 1;
-				}
-				break;
-			default:
-				continue;
-			}
-		}
-		file_unmap(buf, bufsize);
 	}
 
 	closedir(dir);
