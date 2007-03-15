@@ -194,13 +194,13 @@ int main(int argc, char *argv[])
 		retval = init_udev_monitor_socket();
 		if (retval)
 			goto out;
-		printf("UEVENT the kernel uevent\n");
+		printf("UDEV the event which udev sends out after rule processing\n");
 	}
 	if (kernel) {
 		retval = init_uevent_netlink_sock();
 		if (retval)
 			goto out;
-		printf("UDEV the event which udev sends out after rule processing\n");
+		printf("UEVENT the kernel uevent\n");
 	}
 	printf("\n");
 
