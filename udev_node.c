@@ -88,30 +88,45 @@ exit:
 	return retval;
 }
 
-static int udev_node_symlink(struct udevice *udev, const char *linktarget, const char *filename)
+static int node_symlink(const char *node, const char *slink)
 {
-	char target[PATH_SIZE];
+	char target[PATH_SIZE] = "";
+	char buf[PATH_SIZE];
+	int i = 0;
+	int tail = 0;
 	int len;
 
+	/* use relative link */
+	while (node[i] && (node[i] == slink[i])) {
+		if (node[i] == '/')
+			tail = i+1;
+		i++;
+	}
+	while (slink[i] != '\0') {
+		if (slink[i] == '/')
+			strlcat(target, "../", sizeof(target));
+		i++;
+	}
+	strlcat(target, &node[tail], sizeof(target));
+
 	/* look if symlink already exists */
-	len = readlink(filename, target, sizeof(target));
+	len = readlink(slink, buf, sizeof(buf));
 	if (len > 0) {
-		target[len] = '\0';
-		if (strcmp(linktarget, target) == 0) {
-			info("preserving symlink '%s' to '%s'", filename, linktarget);
-			selinux_setfilecon(filename, NULL, S_IFLNK);
+		buf[len] = '\0';
+		if (strcmp(target, buf) == 0) {
+			info("preserving symlink '%s' to '%s'", slink, target);
+			selinux_setfilecon(slink, NULL, S_IFLNK);
 			goto exit;
-		} else {
-			info("link '%s' points to different target '%s', delete it", filename, target);
-			unlink(filename);
 		}
+		info("link '%s' points to different target '%s', delete it", slink, buf);
+		unlink(slink);
 	}
 
 	/* create link */
-	info("creating symlink '%s' to '%s'", filename, linktarget);
-	selinux_setfscreatecon(filename, NULL, S_IFLNK);
-	if (symlink(linktarget, filename) != 0)
-		err("symlink(%s, %s) failed: %s", linktarget, filename, strerror(errno));
+	info("creating symlink '%s' to '%s'", slink, target);
+	selinux_setfscreatecon(slink, NULL, S_IFLNK);
+	if (symlink(target, slink) != 0)
+		err("symlink(%s, %s) failed: %s", target, slink, strerror(errno));
 	selinux_resetfscreatecon();
 
 exit:
@@ -121,10 +136,8 @@ exit:
 int udev_node_add(struct udevice *udev, struct udevice *udev_old)
 {
 	char filename[PATH_SIZE];
-	struct name_entry *name_loop;
 	uid_t uid;
 	gid_t gid;
-	int tail;
 	int i;
 	int retval = 0;
 
@@ -132,8 +145,7 @@ int udev_node_add(struct udevice *udev, struct udevice *udev_old)
 	filename[sizeof(filename)-1] = '\0';
 
 	/* create parent directories if needed */
-	if (strchr(udev->name, '/'))
-		create_path(filename);
+	create_path(filename);
 
 	if (strcmp(udev->owner, "root") == 0)
 		uid = 0;
@@ -200,41 +212,23 @@ int udev_node_add(struct udevice *udev, struct udevice *udev_old)
 
 	/* create symlink(s) if requested */
 	if (!list_empty(&udev->symlink_list)) {
-		char symlinks[512] = "";
+		struct name_entry *name_loop;
+		char symlinks[PATH_SIZE] = "";
 
 		list_for_each_entry(name_loop, &udev->symlink_list, node) {
-			char linktarget[PATH_SIZE];
+			char slink[PATH_SIZE];
 
-			snprintf(filename, sizeof(filename), "%s/%s", udev_root, name_loop->name);
-			filename[sizeof(filename)-1] = '\0';
+			strlcpy(slink, udev_root, sizeof(slink));
+			strlcat(slink, "/", sizeof(slink));
+			strlcat(slink, name_loop->name, sizeof(slink));
 
-			dbg("symlink '%s' to node '%s' requested", filename, udev->name);
-			if (!udev->test_run)
-				if (strchr(filename, '/'))
-					create_path(filename);
-
-			/* optimize relative link */
-			linktarget[0] = '\0';
-			i = 0;
-			tail = 0;
-			while (udev->name[i] && (udev->name[i] == name_loop->name[i])) {
-				if (udev->name[i] == '/')
-					tail = i+1;
-				i++;
-			}
-			while (name_loop->name[i] != '\0') {
-				if (name_loop->name[i] == '/')
-					strlcat(linktarget, "../", sizeof(linktarget));
-				i++;
+			info("creating symlink '%s' to node '%s'", slink, filename);
+			if (!udev->test_run) {
+				create_path(slink);
+				node_symlink(filename, slink);
 			}
 
-			strlcat(linktarget, &udev->name[tail], sizeof(linktarget));
-
-			info("creating symlink '%s' to '%s'", filename, linktarget);
-			if (!udev->test_run)
-				udev_node_symlink(udev, linktarget, filename);
-
-			strlcat(symlinks, filename, sizeof(symlinks));
+			strlcat(symlinks, slink, sizeof(symlinks));
 			strlcat(symlinks, " ", sizeof(symlinks));
 		}
 
@@ -254,9 +248,11 @@ void udev_node_remove_symlinks(struct udevice *udev)
 	struct stat stats;
 
 	if (!list_empty(&udev->symlink_list)) {
-		char symlinks[512] = "";
+		char symlinks[PATH_SIZE] = "";
 
 		list_for_each_entry(name_loop, &udev->symlink_list, node) {
+			char devpath[PATH_SIZE];
+
 			snprintf(filename, sizeof(filename), "%s/%s", udev_root, name_loop->name);
 			filename[sizeof(filename)-1] = '\0';
 
@@ -272,9 +268,32 @@ void udev_node_remove_symlinks(struct udevice *udev)
 			info("removing symlink '%s'", filename);
 			if (!udev->test_run) {
 				unlink(filename);
+				delete_path(filename);
+			}
 
-				if (strchr(filename, '/'))
-					delete_path(filename);
+			/* see if another device wants this symlink */
+			if (udev_db_lookup_name(name_loop->name, devpath, sizeof(devpath)) == 0) {
+				struct udevice *old;
+
+				info("found overwritten symlink '%s' of '%s'", name_loop->name, devpath);
+				old = udev_device_init();
+				if (old != NULL) {
+					if (udev_db_get_device(old, devpath) == 0) {
+						char slink[PATH_SIZE];
+						char node[PATH_SIZE];
+
+						strlcpy(slink, udev_root, sizeof(slink));
+						strlcat(slink, "/", sizeof(slink));
+						strlcat(slink, name_loop->name, sizeof(slink));
+						strlcpy(node, udev_root, sizeof(node));
+						strlcat(node, "/", sizeof(node));
+						strlcat(node, old->name, sizeof(node));
+						info("restore symlink '%s' to '%s'", slink, node);
+						if (!udev->test_run)
+							node_symlink(node, slink);
+					}
+					udev_device_cleanup(old);
+				}
 			}
 
 			strlcat(symlinks, filename, sizeof(symlinks));
@@ -299,7 +318,6 @@ int udev_node_remove(struct udevice *udev)
 
 	snprintf(filename, sizeof(filename), "%s/%s", udev_root, udev->name);
 	filename[sizeof(filename)-1] = '\0';
-
 	if (stat(filename, &stats) != 0) {
 		dbg("device node '%s' not found", filename);
 		return -1;
@@ -315,7 +333,6 @@ int udev_node_remove(struct udevice *udev)
 		return retval;
 
 	setenv("DEVNAME", filename, 1);
-
 	num = udev->partitions;
 	if (num > 0) {
 		int i;
@@ -331,9 +348,6 @@ int udev_node_remove(struct udevice *udev)
 			unlink_secure(partitionname);
 		}
 	}
-
-	if (strchr(udev->name, '/'))
-		delete_path(filename);
-
+	delete_path(filename);
 	return retval;
 }

@@ -65,6 +65,9 @@ int delete_path(const char *path)
 
 	strcpy (p, path);
 	pos = strrchr(p, '/');
+	if (pos == p || pos == NULL)
+		return 0;
+
 	while (1) {
 		*pos = '\0';
 		pos = strrchr(p, '/');
