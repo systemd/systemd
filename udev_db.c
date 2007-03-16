@@ -39,18 +39,10 @@ static size_t devpath_to_db_path(const char *devpath, char *filename, size_t len
 
 	/* add location of db files */
 	strlcpy(filename, udev_root, len);
-	start = strlcat(filename, "/"DB_DIR, len);
+	start = strlcat(filename, "/"DB_DIR"/", len);
 	strlcat(filename, devpath, len);
-	return path_encode(&filename[start+1], len - (start+1));
+	return path_encode(&filename[start], len - start);
 }
-
-static size_t db_file_to_devpath(const char *filename, char *devpath, size_t len)
-{
-	strlcpy(devpath, "/", len);
-	strlcat(devpath, filename, len);
-	return path_decode(devpath);
-}
-
 
 /* reverse mapping from the device file name to the devpath */
 static int name_index(const char *devpath, const char *name, int add)
@@ -64,10 +56,11 @@ static int name_index(const char *devpath, const char *name, int add)
 	strlcpy(filename, udev_root, sizeof(filename));
 	start = strlcat(filename, "/"DB_NAME_INDEX_DIR"/", sizeof(filename));
 	strlcat(filename, name, sizeof(filename));
-	path_encode(&filename[start+1], sizeof(filename) - (start+1));
+	path_encode(&filename[start], sizeof(filename) - start);
 	/* entry with the devpath */
 	strlcpy(device, devpath, sizeof(device));
-	path_encode(&device[1], sizeof(device)-1);
+	path_encode(device, sizeof(device));
+	strlcat(filename, "/", sizeof(filename));
 	strlcat(filename, device, sizeof(filename));
 
 	if (add) {
@@ -261,7 +254,7 @@ int udev_db_lookup_name(const char *name, char *devpath, size_t len)
 	strlcpy(dirname, udev_root, sizeof(dirname));
 	start = strlcat(dirname, "/"DB_NAME_INDEX_DIR"/", sizeof(dirname));
 	strlcat(dirname, name, sizeof(dirname));
-	path_encode(&dirname[start+1], sizeof(dirname) - (start+1));
+	path_encode(&dirname[start], sizeof(dirname) - start);
 
 	dir = opendir(dirname);
 	if (dir == NULL) {
@@ -282,8 +275,7 @@ int udev_db_lookup_name(const char *name, char *devpath, size_t len)
 		if (ent->d_name[0] == '.')
 			continue;
 
-		strlcpy(device, "/", len);
-		strlcat(device, ent->d_name, sizeof(device));
+		strlcpy(device, ent->d_name, sizeof(device));
 		path_decode(device);
 
 		dbg("looking at '%s'", device);
@@ -326,7 +318,8 @@ int udev_db_get_all_entries(struct list_head *name_list)
 		if (ent->d_name[0] == '.')
 			continue;
 
-		db_file_to_devpath(ent->d_name, device, sizeof(device));
+		strlcpy(device, ent->d_name, sizeof(device));
+		path_decode(device);
 		name_list_add(name_list, device, 1);
 		dbg("added '%s'", device);
 	}

@@ -174,16 +174,16 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 	/* add location of queue files */
 	strlcpy(filename, udev_root, sizeof(filename));
 	strlcat(filename, "/", sizeof(filename));
-	start = strlcat(filename, EVENT_QUEUE_DIR, sizeof(filename));
+	start = strlcat(filename, EVENT_QUEUE_DIR"/", sizeof(filename));
 	strlcat(filename, msg->devpath, sizeof(filename));
-	path_encode(&filename[start+1], sizeof(filename) - (start+1));
+	path_encode(&filename[start], sizeof(filename) - start);
 
 	/* add location of failed files */
 	strlcpy(filename_failed, udev_root, sizeof(filename_failed));
 	strlcat(filename_failed, "/", sizeof(filename_failed));
-	start = strlcat(filename_failed, EVENT_FAILED_DIR, sizeof(filename_failed));
+	start = strlcat(filename_failed, EVENT_FAILED_DIR"/", sizeof(filename_failed));
 	strlcat(filename_failed, msg->devpath, sizeof(filename_failed));
-	path_encode(&filename_failed[start+1], sizeof(filename) - (start+1));
+	path_encode(&filename_failed[start], sizeof(filename) - start);
 
 	switch (state) {
 	case EVENT_QUEUED:

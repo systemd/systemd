@@ -412,8 +412,7 @@ static void scan_failed(void)
 			if (dent->d_name[0] == '.')
 				continue;
 
-			strlcpy(device, sysfs_path, sizeof(device));
-			start = strlcat(device, "/", sizeof(device));
+			start = strlcpy(device, sysfs_path, sizeof(device));
 			strlcat(device, dent->d_name, sizeof(device));
 			path_decode(&device[start]);
 			device_list_insert(device);
