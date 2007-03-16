@@ -337,10 +337,8 @@ int udev_node_remove(struct udevice *udev)
 		int i;
 
 		info("removing all_partitions '%s[1-%i]'", filename, num);
-		if (num > 255) {
-			info("garbage from udev database, skip all_partitions removal");
+		if (num > 255)
 			return -1;
-		}
 		for (i = 1; i <= num; i++) {
 			snprintf(partitionname, sizeof(partitionname), "%s%d", filename, i);
 			partitionname[sizeof(partitionname)-1] = '\0';
