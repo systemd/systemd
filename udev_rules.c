@@ -909,6 +909,10 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 				udev->ignore_remove = 1;
 				dbg("remove event should be ignored");
 			}
+			if (rule->link_priority) {
+				udev->link_priority = rule->link_priority;
+				info("link_priority=%i", udev->link_priority);
+			}
 			/* apply all_partitions option only at a main block device */
 			if (rule->partitions &&
 			    strcmp(udev->dev->subsystem, "block") == 0 && udev->dev->kernel_number[0] == '\0') {

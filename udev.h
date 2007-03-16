@@ -86,6 +86,7 @@ struct udevice {
 	int ignore_device;
 	int ignore_remove;
 	char program_result[PATH_SIZE];
+	int link_priority;
 	int test_run;
 };
 

@@ -87,6 +87,7 @@ struct udev_rule {
 	mode_t mode;
 	enum key_operation mode_operation;
 
+	unsigned int link_priority;
 	unsigned int partitions;
 	unsigned int last_rule:1,
 		     ignore_device:1,

@@ -118,6 +118,8 @@ int udev_db_add_device(struct udevice *udev)
 			name_index(udev->dev->devpath, name_loop->name, 1);
 		}
 		fprintf(f, "M:%u:%u\n", major(udev->devt), minor(udev->devt));
+		if (udev->link_priority)
+			fprintf(f, "L:%u\n", udev->link_priority);
 		if (udev->partitions)
 			fprintf(f, "A:%u\n", udev->partitions);
 		if (udev->ignore_remove)
@@ -197,6 +199,13 @@ int udev_db_get_device(struct udevice *udev, const char *devpath)
 			memcpy(line, &bufline[2], count-2);
 			line[count-2] = '\0';
 			name_list_add(&udev->symlink_list, line, 0);
+			break;
+		case 'L':
+			if (count > sizeof(line))
+				count =  sizeof(line);
+			memcpy(line, &bufline[2], count-2);
+			line[count-2] = '\0';
+			udev->link_priority = atoi(line);
 			break;
 		case 'A':
 			if (count > sizeof(line))

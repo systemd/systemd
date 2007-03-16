@@ -555,6 +555,8 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 		}
 
 		if (strcasecmp(key, "OPTIONS") == 0) {
+			const char *pos;
+
 			if (strstr(value, "last_rule") != NULL) {
 				dbg("last rule to be applied");
 				rule->last_rule = 1;
@@ -566,6 +568,11 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			if (strstr(value, "ignore_remove") != NULL) {
 				dbg("remove event should be ignored");
 				rule->ignore_remove = 1;
+			}
+			pos = strstr(value, "link_priority=");
+			if (pos != NULL) {
+				rule->link_priority = atoi(&pos[strlen("link_priority=")]);
+				info("link priority=%i", rule->link_priority);
 			}
 			if (strstr(value, "all_partitions") != NULL) {
 				dbg("creation of partition nodes requested");
