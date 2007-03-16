@@ -64,13 +64,13 @@ static int name_index(const char *devpath, const char *name, int add)
 	strlcat(filename, device, sizeof(filename));
 
 	if (add) {
-		dbg("creating: '%s'", filename);
+		info("creating index: '%s'", filename);
 		create_path(filename);
 		fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
 		if (fd > 0)
 			close(fd);
 	} else {
-		dbg("removing: '%s'", filename);
+		info("removing index: '%s'", filename);
 		unlink(filename);
 		delete_path(filename);
 	}
@@ -86,25 +86,23 @@ int udev_db_add_device(struct udevice *udev)
 
 	devpath_to_db_path(udev->dev->devpath, filename, sizeof(filename));
 	create_path(filename);
-	name_index(udev->dev->devpath, udev->name, 1);
+	unlink(filename);
 
 	/*
-	 * create only a symlink with the name as the target
-	 * if we don't have any interesting data to remember
+	 * don't waste tmpfs memory pages, if we don't have any data to store
+	 * create fake db-file; store the node-name in a symlink target
 	 */
 	if (list_empty(&udev->symlink_list) && list_empty(&udev->env_list) &&
 	    !udev->partitions && !udev->ignore_remove) {
 		dbg("nothing interesting to store, create symlink");
-		unlink(filename);
 		if (symlink(udev->name, filename) != 0) {
 			err("unable to create db link '%s': %s", filename, strerror(errno));
 			return -1;
 		}
 	} else {
-		struct name_entry *name_loop;
 		FILE *f;
+		struct name_entry *name_loop;
 
-		unlink(filename);
 		f = fopen(filename, "w");
 		if (f == NULL) {
 			err("unable to create db file '%s': %s", filename, strerror(errno));
@@ -115,6 +113,7 @@ int udev_db_add_device(struct udevice *udev)
 		fprintf(f, "N:%s\n", udev->name);
 		list_for_each_entry(name_loop, &udev->symlink_list, node) {
 			fprintf(f, "S:%s\n", name_loop->name);
+			/* add symlink-name to index */
 			name_index(udev->dev->devpath, name_loop->name, 1);
 		}
 		fprintf(f, "M:%u:%u\n", major(udev->devt), minor(udev->devt));
@@ -128,6 +127,10 @@ int udev_db_add_device(struct udevice *udev)
 			fprintf(f, "E:%s\n", name_loop->name);
 		fclose(f);
 	}
+
+	/* add name to index */
+	name_index(udev->dev->devpath, udev->name, 1);
+
 	return 0;
 }
 
