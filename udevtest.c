@@ -59,8 +59,13 @@ int main(int argc, char *argv[], char *envp[])
 
 	info("version %s", UDEV_VERSION);
 	udev_config_init();
-	if (udev_log_priority < LOG_INFO)
+	if (udev_log_priority < LOG_INFO) {
+		char priority[32];
+
 		udev_log_priority = LOG_INFO;
+		sprintf(priority, "%i", udev_log_priority);
+		setenv("UDEV_LOG", priority, 1);
+	}
 
 	for (i = 1 ; i < argc; i++) {
 		char *arg = argv[i];
