@@ -237,7 +237,6 @@ int udev_node_add(struct udevice *udev, struct udevice *udev_old)
 	}
 
 exit:
-	selinux_exit();
 	return retval;
 }
 

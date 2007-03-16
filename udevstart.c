@@ -367,6 +367,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	udev_rules_cleanup(&rules);
 	sysfs_cleanup();
+	selinux_exit();
 	logging_close();
 	return 0;
 }

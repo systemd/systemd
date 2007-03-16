@@ -175,6 +175,7 @@ int main(int argc, char *argv[], char *envp[])
 fail:
 	udev_rules_cleanup(&rules);
 	sysfs_cleanup();
+	selinux_exit();
 
 exit:
 	logging_close();

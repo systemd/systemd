@@ -1230,6 +1230,7 @@ int main(int argc, char *argv[], char *envp[])
 exit:
 	udev_rules_cleanup(&rules);
 	sysfs_cleanup();
+	selinux_exit();
 
 	if (signal_pipe[READ_END] >= 0)
 		close(signal_pipe[READ_END]);
