@@ -120,7 +120,7 @@ static int add_device(const char *devpath)
 	if (dev == NULL)
 		return -1;
 
-	udev = udev_device_init();
+	udev = udev_device_init(NULL);
 	if (udev == NULL)
 		return -1;
 

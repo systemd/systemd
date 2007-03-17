@@ -236,7 +236,7 @@ static int import_parent_into_env(struct udevice *udev, const char *filter)
 		struct name_entry *name_loop;
 
 		dbg("found parent '%s', get the node name", dev_parent->devpath);
-		udev_parent = udev_device_init();
+		udev_parent = udev_device_init(NULL);
 		if (udev_parent == NULL)
 			return -1;
 		/* import the udev_db of the parent */
@@ -518,7 +518,7 @@ found:
 					struct udevice *udev_parent;
 
 					dbg("found parent '%s', get the node name", dev_parent->devpath);
-					udev_parent = udev_device_init();
+					udev_parent = udev_device_init(NULL);
 					if (udev_parent != NULL) {
 						/* lookup the name in the udev_db with the DEVPATH of the parent */
 						if (udev_db_get_device(udev_parent, dev_parent->devpath) == 0) {

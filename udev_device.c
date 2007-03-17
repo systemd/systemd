@@ -33,11 +33,10 @@
 #include "udev_rules.h"
 
 
-struct udevice *udev_device_init(void)
+struct udevice *udev_device_init(struct udevice *udev)
 {
-	struct udevice *udev;
-
-	udev = malloc(sizeof(struct udevice));
+	if (udev == NULL)
+		udev = malloc(sizeof(struct udevice));
 	if (udev == NULL)
 		return NULL;
 	memset(udev, 0x00, sizeof(struct udevice));
@@ -162,8 +161,8 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 			goto exit;
 		}
 
-		/* read current database entry, we may need to cleanup */
-		udev_old = udev_device_init();
+		/* read current database entry; cleanup, if it is known device */
+		udev_old = udev_device_init(NULL);
 		if (udev_old != NULL) {
 			if (udev_db_get_device(udev_old, udev->dev->devpath) == 0) {
 				info("device '%s' already in database, cleanup", udev->dev->devpath);
@@ -241,7 +240,7 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 	if (major(udev->devt) != 0 && strcmp(udev->action, "remove") == 0) {
 		struct name_entry *name_loop;
 
-		/* import and delete database entry */
+		/* import database entry, and delete it */
 		if (udev_db_get_device(udev, udev->dev->devpath) == 0) {
 			udev_db_delete_device(udev);
 			if (udev->ignore_remove) {

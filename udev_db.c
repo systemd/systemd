@@ -77,6 +77,46 @@ static int name_index(const char *devpath, const char *name, int add)
 	return 0;
 }
 
+int udev_db_get_devices_by_name(const char *name, struct list_head *name_list)
+{
+	char dirname[PATH_MAX];
+	size_t start;
+	DIR *dir;
+	int rc = 0;
+
+	strlcpy(dirname, udev_root, sizeof(dirname));
+	start = strlcat(dirname, "/"DB_NAME_INDEX_DIR"/", sizeof(dirname));
+	strlcat(dirname, name, sizeof(dirname));
+	path_encode(&dirname[start], sizeof(dirname) - start);
+
+	dir = opendir(dirname);
+	if (dir == NULL) {
+		info("no index directory '%s': %s", dirname, strerror(errno));
+		rc = -1;
+		goto out;
+	}
+
+	info("found index directory '%s'", dirname);
+	while (1) {
+		struct dirent *ent;
+		char device[PATH_SIZE];
+
+		ent = readdir(dir);
+		if (ent == NULL || ent->d_name[0] == '\0')
+			break;
+		if (ent->d_name[0] == '.')
+			continue;
+
+		strlcpy(device, ent->d_name, sizeof(device));
+		path_decode(device);
+		name_list_add(name_list, device, 0);
+		rc++;
+	}
+	closedir(dir);
+out:
+	return rc;
+}
+
 int udev_db_add_device(struct udevice *udev)
 {
 	char filename[PATH_SIZE];
@@ -288,7 +328,7 @@ int udev_db_lookup_name(const char *name, char *devpath, size_t len)
 
 		strlcpy(device, ent->d_name, sizeof(device));
 		path_decode(device);
-		udev = udev_device_init();
+		udev = udev_device_init(NULL);
 		if (udev == NULL)
 			break;
 		if (udev_db_get_device(udev, device) == 0) {

@@ -167,7 +167,7 @@ static void export_db(void fnct(struct udevice *udev)) {
 	list_for_each_entry(name_loop, &name_list, node) {
 		struct udevice *udev_db;
 
-		udev_db = udev_device_init();
+		udev_db = udev_device_init(NULL);
 		if (udev_db == NULL)
 			continue;
 		if (udev_db_get_device(udev_db, name_loop->name) == 0)
@@ -175,6 +175,41 @@ static void export_db(void fnct(struct udevice *udev)) {
 		udev_device_cleanup(udev_db);
 	}
 	name_list_cleanup(&name_list);
+}
+
+static int lookup_device_by_name(struct udevice *udev, const char *name)
+{
+	LIST_HEAD(name_list);
+	struct name_entry *device;
+	int rc  = -1;
+
+	if (udev_db_get_devices_by_name(name, &name_list) <= 0)
+		goto out;
+
+	/* select the device that matches the dev_t of name */
+	list_for_each_entry(device, &name_list, node) {
+		char filename[PATH_SIZE];
+		struct stat statbuf;
+
+		udev_device_init(udev);
+		if (udev_db_get_device(udev, device->name) != 0)
+			continue;
+		info("found db entry '%s'", device->name);
+
+		strlcpy(filename, udev_root, sizeof(filename));
+		strlcat(filename, "/", sizeof(filename));
+		strlcat(filename, name, sizeof(filename));
+		if (stat(filename, &statbuf) != 0)
+			continue;
+		if (statbuf.st_rdev == udev->devt) {
+			info("found '%s', dev_t matches", udev->name);
+			rc = 0;
+			break;
+		}
+	}
+out:
+	name_list_cleanup(&name_list);
+	return rc;
 }
 
 int main(int argc, char *argv[], char *envp[])
@@ -220,7 +255,7 @@ int main(int argc, char *argv[], char *envp[])
 	udev_config_init();
 	sysfs_init();
 
-	udev = udev_device_init();
+	udev = udev_device_init(NULL);
 	if (udev == NULL) {
 		rc = 1;
 		goto exit;
@@ -330,14 +365,11 @@ int main(int argc, char *argv[], char *envp[])
 				goto exit;
 			}
 		} else if (name[0] != '\0') {
-			char devpath[PATH_SIZE];
-
-			if (udev_db_lookup_name(name, devpath, sizeof(devpath)) != 0) {
+			if (lookup_device_by_name(udev, name) != 0) {
 				fprintf(stderr, "node name not found\n");
 				rc = 4;
 				goto exit;
 			}
-			udev_db_get_device(udev, devpath);
 		} else {
 			fprintf(stderr, "query needs --path or node --name specified\n");
 			rc = 4;
@@ -385,14 +417,12 @@ int main(int argc, char *argv[], char *envp[])
 				goto exit;
 			}
 		} else if (name[0] != '\0') {
-			char devpath[PATH_SIZE];
-
-			if (udev_db_lookup_name(name, devpath, sizeof(devpath)) != 0) {
+			if (lookup_device_by_name(udev, name) != 0) {
 				fprintf(stderr, "node name not found\n");
 				rc = 4;
 				goto exit;
 			}
-			if (print_device_chain(devpath) != 0) {
+			if (print_device_chain(udev->dev->devpath) != 0) {
 				fprintf(stderr, "device not found\n");
 				rc = 4;
 				goto exit;

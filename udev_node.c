@@ -275,7 +275,7 @@ void udev_node_remove_symlinks(struct udevice *udev)
 				struct udevice *old;
 
 				info("found overwritten symlink '%s' of '%s'", name_loop->name, devpath);
-				old = udev_device_init();
+				old = udev_device_init(NULL);
 				if (old != NULL) {
 					if (udev_db_get_device(old, devpath) == 0) {
 						char slink[PATH_SIZE];

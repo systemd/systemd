@@ -136,7 +136,7 @@ int main(int argc, char *argv[], char *envp[])
 		goto fail;
 	}
 
-	udev = udev_device_init();
+	udev = udev_device_init(NULL);
 	if (udev == NULL)
 		goto fail;
 

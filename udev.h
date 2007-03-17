@@ -99,7 +99,7 @@ extern int udev_run;
 extern void udev_config_init(void);
 
 /* udev_device.c */
-extern struct udevice *udev_device_init(void);
+extern struct udevice *udev_device_init(struct udevice *udev);
 extern void udev_device_cleanup(struct udevice *udev);
 extern int udev_device_event(struct udev_rules *rules, struct udevice *udev);
 extern dev_t udev_device_get_devt(struct udevice *udev);
@@ -127,6 +127,7 @@ extern int udev_db_add_device(struct udevice *dev);
 extern int udev_db_delete_device(struct udevice *dev);
 extern int udev_db_get_device(struct udevice *udev, const char *devpath);
 extern int udev_db_lookup_name(const char *name, char *devpath, size_t len);
+extern int udev_db_get_devices_by_name(const char *name, struct list_head *name_list);
 extern int udev_db_get_all_entries(struct list_head *name_list);
 
 /* udev_utils.c */

@@ -124,7 +124,7 @@ static int udev_event_process(struct udevd_uevent_msg *msg)
 	for (i = 0; msg->envp[i]; i++)
 		putenv(msg->envp[i]);
 
-	udev = udev_device_init();
+	udev = udev_device_init(NULL);
 	if (udev == NULL)
 		return -1;
 	strlcpy(udev->action, msg->action, sizeof(udev->action));
