@@ -150,16 +150,7 @@ static void print_record(struct udevice *udev)
 		printf("E: %s\n", name_loop->name);
 }
 
-static void export_name_devpath(struct udevice *udev) {
-	printf("%s=%s/%s\n", udev->dev->devpath, udev_root, udev->name);
-}
-
-static void export_record(struct udevice *udev) {
-	print_record(udev);
-	printf("\n");
-}
-
-static void export_db(void fnct(struct udevice *udev)) {
+static void export_db(void) {
 	LIST_HEAD(name_list);
 	struct name_entry *name_loop;
 
@@ -171,7 +162,8 @@ static void export_db(void fnct(struct udevice *udev)) {
 		if (udev_db == NULL)
 			continue;
 		if (udev_db_get_device(udev_db, name_loop->name) == 0)
-			fnct(udev_db);
+			print_record(udev_db);
+			printf("\n");
 		udev_device_cleanup(udev_db);
 	}
 	name_list_cleanup(&name_list);
@@ -263,7 +255,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* get command line options */
 	while (1) {
-		option = getopt_long(argc, argv, "aden:p:q:rVh", options, NULL);
+		option = getopt_long(argc, argv, "aen:p:q:rVh", options, NULL);
 		if (option == -1)
 			break;
 
@@ -319,11 +311,8 @@ int main(int argc, char *argv[], char *envp[])
 		case 'a':
 			action = ACTION_ATTRIBUTE_WALK;
 			break;
-		case 'd':
-			export_db(export_name_devpath);
-			goto exit;
 		case 'e':
-			export_db(export_record);
+			export_db();
 			goto exit;
 		case 1:
 			printf("%s\n", UDEV_VERSION);
