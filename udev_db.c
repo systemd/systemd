@@ -296,68 +296,6 @@ int udev_db_delete_device(struct udevice *udev)
 	return 0;
 }
 
-int udev_db_lookup_name(const char *name, char *devpath, size_t len)
-{
-	char dirname[PATH_MAX];
-	size_t start;
-	DIR *dir;
-	int found = 0;
-
-	strlcpy(dirname, udev_root, sizeof(dirname));
-	start = strlcat(dirname, "/"DB_NAME_INDEX_DIR"/", sizeof(dirname));
-	strlcat(dirname, name, sizeof(dirname));
-	path_encode(&dirname[start], sizeof(dirname) - start);
-
-	dir = opendir(dirname);
-	if (dir == NULL) {
-		info("no index directory '%s': %s", dirname, strerror(errno));
-		return -1;
-	}
-
-	info("found index directory '%s'", dirname);
-	while (!found) {
-		struct dirent *ent;
-		char device[PATH_SIZE];
-		struct udevice *udev;
-
-		ent = readdir(dir);
-		if (ent == NULL || ent->d_name[0] == '\0')
-			break;
-		if (ent->d_name[0] == '.')
-			continue;
-
-		strlcpy(device, ent->d_name, sizeof(device));
-		path_decode(device);
-		udev = udev_device_init(NULL);
-		if (udev == NULL)
-			break;
-		if (udev_db_get_device(udev, device) == 0) {
-			char filename[PATH_SIZE];
-			struct stat statbuf;
-
-			info("found db entry '%s'", device);
-			strlcpy(filename, udev_root, sizeof(filename));
-			strlcat(filename, "/", sizeof(filename));
-			strlcat(filename, name, sizeof(filename));
-			/* make sure device entry matches dev_t */
-			if (stat(filename, &statbuf) == 0) {
-				if (statbuf.st_rdev == udev->devt) {
-					info("node '%s' matches dev_t", udev->name);
-					strlcpy(devpath, device, len);
-					found = 1;
-				}
-			}
-		}
-		udev_device_cleanup(udev);
-	}
-
-	closedir(dir);
-	if (found)
-		return 0;
-	else
-		return -1;
-}
-
 int udev_db_get_all_entries(struct list_head *name_list)
 {
 	char dbpath[PATH_MAX];

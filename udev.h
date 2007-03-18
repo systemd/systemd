@@ -118,15 +118,14 @@ extern int sysfs_resolve_link(char *path, size_t size);
 
 /* udev_node.c */
 extern int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t mode, uid_t uid, gid_t gid);
-extern int udev_node_add(struct udevice *udev, struct udevice *udev_old);
-extern void udev_node_remove_symlinks(struct udevice *udev);
+extern void udev_node_update_symlinks(struct udevice *udev, struct udevice *udev_old);
+extern int udev_node_add(struct udevice *udev);
 extern int udev_node_remove(struct udevice *udev);
 
 /* udev_db.c */
 extern int udev_db_add_device(struct udevice *dev);
 extern int udev_db_delete_device(struct udevice *dev);
 extern int udev_db_get_device(struct udevice *udev, const char *devpath);
-extern int udev_db_lookup_name(const char *name, char *devpath, size_t len);
 extern int udev_db_get_devices_by_name(const char *name, struct list_head *name_list);
 extern int udev_db_get_all_entries(struct list_head *name_list);
 

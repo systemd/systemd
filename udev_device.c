@@ -173,28 +173,19 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 			}
 		}
 
-		/* create node and symlinks */
-		retval = udev_node_add(udev, udev_old);
-		if (retval == 0)
-			udev_db_add_device(udev);
+		/* create node */
+		retval = udev_node_add(udev);
+		if (retval != 0)
+			goto exit;
 
-		/* remove possibly left-over symlinks */
-		if (udev_old != NULL) {
-			struct name_entry *link_loop;
-			struct name_entry *link_old_loop;
-			struct name_entry *link_old_tmp_loop;
+		/* store in database */
+		udev_db_add_device(udev);
 
-			/* remove still valid symlinks from old list */
-			list_for_each_entry_safe(link_old_loop, link_old_tmp_loop, &udev_old->symlink_list, node)
-				list_for_each_entry(link_loop, &udev->symlink_list, node)
-					if (strcmp(link_old_loop->name, link_loop->name) == 0) {
-						dbg("symlink '%s' still valid, keep it", link_old_loop->name);
-						list_del(&link_old_loop->node);
-						free(link_old_loop);
-					}
-			udev_node_remove_symlinks(udev_old);
+		/* create, replace, delete symlinks according to priority */
+		udev_node_update_symlinks(udev, udev_old);
+
+		if (udev_old != NULL)
 			udev_device_cleanup(udev_old);
-		}
 		goto exit;
 	}
 
@@ -251,7 +242,8 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 			list_for_each_entry(name_loop, &udev->env_list, node)
 				putenv(name_loop->name);
 		} else {
-			dbg("'%s' not found in database, using kernel name '%s'", udev->dev->devpath, udev->dev->kernel);
+			dbg("'%s' not found in database, using kernel name '%s'",
+			    udev->dev->devpath, udev->dev->kernel);
 			strlcpy(udev->name, udev->dev->kernel, sizeof(udev->name));
 		}
 
@@ -261,7 +253,11 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 			goto exit;
 		}
 
+		/* remove the node */
 		retval = udev_node_remove(udev);
+
+		/* delete or restore symlinks according to priority */
+		udev_node_update_symlinks(udev, NULL);
 		goto exit;
 	}
 
