@@ -183,7 +183,7 @@ int main(int argc, char *argv[])
 
 	if (ioctl(vid->fd, BLKGETSIZE64, &size) != 0)
 		size = 0;
-	dbg("BLKGETSIZE64=%llu", size);
+	dbg("BLKGETSIZE64=%llu", (unsigned long long)size);
 
 	/* try to drop all privileges before reading disk content */
 	pw = getpwnam ("nobody");
