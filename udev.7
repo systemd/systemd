@@ -258,14 +258,34 @@ Wait for the specified sysfs file of the device to be created. Can be used to fi
 .PP
 \fBOPTIONS\fR
 .RS 4
+Rule and device options:
+.RS 4
+.PP
 \fBlast_rule\fR
-stops further rules application. No later rules will have any effect.
+.RS 4
+Stops further rules application. No later rules will have any effect.
+.RE
+.PP
 \fBignore_device\fR
-will ignore this event completely.
+.RS 4
+Ignore this event completely.
+.RE
+.PP
 \fBignore_remove\fR
-will ignore any later remove event for this device. This may be useful as a workaround for broken device drivers.
+.RS 4
+Ignore any later remove event for this device. This may be useful as a workaround for broken device drivers.
+.RE
+.PP
+\fBlink_priority=\fR\fB\fIvalue\fR\fR
+.RS 4
+Specify the priority of the created symlinks. Devices with higher priorities overwrite existing symlinks of other devices.
+.RE
+.PP
 \fBall_partitions\fR
-will create the device nodes for all available partitions of a block device. This may be useful for removable media devices where media changes are not detected.
+.RS 4
+Create the device nodes for all available partitions of a block device. This may be useful for removable media devices where media changes are not detected.
+.RE
+.RE
 .RE
 .PP
 The
