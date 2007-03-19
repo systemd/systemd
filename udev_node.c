@@ -44,7 +44,7 @@ int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t m
 	else
 		mode |= S_IFCHR;
 
-	if (stat(file, &stats) != 0)
+	if (lstat(file, &stats) != 0)
 		goto create;
 
 	/* preserve node with already correct numbers, to prevent changing the inode number */
@@ -255,6 +255,9 @@ void udev_node_update_symlinks(struct udevice *udev, struct udevice *udev_old)
 				update_link(udev, link_old_loop->name);
 			}
 		}
+
+		/* the old node is gone, maybe we have a device with a symlink now */
+		update_link(udev, udev_old->name);
 	}
 }
 
