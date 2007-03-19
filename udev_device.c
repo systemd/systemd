@@ -204,6 +204,7 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 
 		/* look if we want to change the name of the netif */
 		if (strcmp(udev->name, udev->dev->kernel) != 0) {
+			char devpath[PATH_MAX];
 			char *pos;
 
 			retval = rename_netif(udev);
@@ -214,14 +215,16 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 			/* export old name */
 			setenv("INTERFACE_OLD", udev->dev->kernel, 1);
 
-			/* now fake the devpath, because the kernel name changed silently */
-			pos = strrchr(udev->dev->devpath, '/');
+			/* now change the devpath, because the kernel device name has changed */
+			strlcpy(devpath, udev->dev->devpath, sizeof(devpath));
+			pos = strrchr(devpath, '/');
 			if (pos != NULL) {
 				pos[1] = '\0';
-				strlcat(udev->dev->devpath, udev->name, sizeof(udev->dev->devpath));
-				strlcpy(udev->dev->kernel, udev->name, sizeof(udev->dev->kernel));
+				strlcat(devpath, udev->name, sizeof(devpath));
+				sysfs_device_set_values(udev->dev, devpath, NULL, NULL);
 				setenv("DEVPATH", udev->dev->devpath, 1);
 				setenv("INTERFACE", udev->name, 1);
+				info("changed devpath to '%s'", udev->dev->devpath);
 			}
 		}
 		goto exit;

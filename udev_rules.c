@@ -289,7 +289,7 @@ static int wait_for_sysfs(struct udevice *udev, const char *file, int timeout)
 			info("file '%s' appeared after %i loops", filepath, (timeout * WAIT_LOOP_PER_SECOND) - loop-1);
 			return 0;
 		}
-		/* make sure the device does not have disappeared in the meantime */
+		/* make sure, the device did not disappear in the meantime */
 		if (stat(devicepath, &stats) != 0) {
 			info("device disappeared while waiting for '%s'", filepath);
 			return -2;

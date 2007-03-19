@@ -92,7 +92,6 @@ void sysfs_device_set_values(struct sysfs_device *dev, const char *devpath,
 	pos = strrchr(dev->devpath, '/');
 	if (pos == NULL)
 		return;
-
 	strlcpy(dev->kernel, &pos[1], sizeof(dev->kernel));
 	dbg("kernel='%s'", dev->kernel);
 
