@@ -3,17 +3,20 @@ ACTION!="add", GOTO="hotplug_not_add_event"
 # check if the device has already been claimed by a driver
 ENV{DRIVER}=="?*", SUBSYSTEM!="input", GOTO="hotplug_driver_loaded"
 
+# this driver is broken and should not be loaded automatically (see #398962)
+SUBSYSTEM=="platform", ENV{MODALIAS}=="i82365", GOTO="hotplug_driver_loaded"
+
 # load the drivers
-ENV{MODALIAS}=="?*",	RUN+="/sbin/modprobe $env{MODALIAS}"
+ENV{MODALIAS}=="?*",	RUN+="/sbin/modprobe --use-blacklist $env{MODALIAS}"
 SUBSYSTEM=="ide",	ENV{MODALIAS}!="?*",	RUN+="ide.agent"
 
-SUBSYSTEM=="pnp",	ENV{MODALIAS}!="?*",	RUN+="/bin/sh -c 'while read id; do /sbin/modprobe pnp:d$$id; done < /sys$devpath/id'"
+SUBSYSTEM=="pnp",	ENV{MODALIAS}!="?*",	RUN+="/bin/sh -c 'while read id; do /sbin/modprobe --use-blacklist pnp:d$$id; done < /sys$devpath/id'"
 
 SUBSYSTEM=="pcmcia_socket",			RUN+="/sbin/modprobe pcmcia"
 
 # rules for subsystems which lack proper hotplug support
-SUBSYSTEM=="i2o",				RUN+="/sbin/modprobe i2o-block"
-#SUBSYSTEM=="mmc",				RUN+="/sbin/modprobe mmc-block"
+SUBSYSTEM=="i2o",				RUN+="/sbin/modprobe i2o_block"
+SUBSYSTEM=="mmc",				RUN+="/sbin/modprobe mmc_block"
 
 SUBSYSTEM=="scsi_device", ATTRS{type}=="0|7|14", RUN+="/sbin/modprobe sd_mod"
 SUBSYSTEM=="scsi_device", ATTRS{type}=="1",	RUN+="/sbin/modprobe osst", \
@@ -23,6 +26,7 @@ SUBSYSTEM=="scsi_device", ATTRS{type}=="1",	RUN+="/sbin/modprobe st", \
 SUBSYSTEM=="scsi_device", ATTRS{type}=="1",	RUN+="/sbin/modprobe st", \
 	ATTRS{vendor}!="Onstream"
 SUBSYSTEM=="scsi_device", ATTRS{type}=="[45]",	RUN+="/sbin/modprobe sr_mod"
+SUBSYSTEM=="scsi_device", ATTRS{type}=="8",	RUN+="/sbin/modprobe ch"
 SUBSYSTEM=="scsi_device", ATTRS{type}=="[235689]", RUN+="/sbin/modprobe sg"
 
 SUBSYSTEM=="ide", ATTR{media}=="tape",		RUN+="/sbin/modprobe ide-scsi"

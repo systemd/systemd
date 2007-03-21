@@ -20,14 +20,15 @@ SUBSYSTEMS=="ide", KERNEL=="hd[a-z]", ATTRS{media}=="floppy", \
 
 # IDE devices
 SUBSYSTEMS=="ide", KERNEL=="hd[a-z]*", PROGRAM="ide-devfs.sh %k %b %n", \
+					ACTION=="add", \
 					NAME="%c{1}", SYMLINK+="%k %c{2}"
 
 # SCSI devices
-SUBSYSTEMS=="scsi", PROGRAM="scsi-devfs.sh %k %b %n", \
+SUBSYSTEMS=="scsi", PROGRAM="scsi-devfs.sh %k %b %n", ACTION=="add", \
 					NAME="%c{1}", SYMLINK+="%k %c{2}"
 
 # RAID controllers
-KERNEL=="cciss!*|ida!*|rd!*", PROGRAM="raid-devfs.sh %k", \
+KERNEL=="cciss!*|ida!*|rd!*", PROGRAM="raid-devfs.sh %k", ACTION=="add", \
 					NAME="%c{1}", SYMLINK+="%k"
 
 # other block devices
@@ -47,7 +48,7 @@ SUBSYSTEMS=="usb", KERNEL=="ttyUSB*", \
 						SYMLINK+="pilot"
 
 # usbfs-like devices
-SUBSYSTEM=="usb_device",	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", \
+SUBSYSTEM=="usb_device",	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", ACTION=="add", \
 				NAME="%c"
 
 # serial devices
@@ -69,7 +70,7 @@ KERNEL=="video[0-9]*",		NAME="v4l/%k"
 KERNEL=="radio[0-9]*",		NAME="v4l/%k"
 KERNEL=="vbi[0-9]*",		NAME="v4l/%k"
 KERNEL=="vtx[0-9]*",		NAME="v4l/%k"
-KERNEL=="dvb*",			PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}", \
+KERNEL=="dvb*",			PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}", ACTION=="add", \
 				NAME="%c"
 KERNEL=="fb[0-9]*",		NAME="fb/%n"
 KERNEL=="card[0-9]*",		NAME="dri/%k"
@@ -147,6 +148,5 @@ SUBSYSTEM=="aoe", KERNEL=="interfaces",	NAME="etherd/%k"
 SUBSYSTEM=="aoe", KERNEL=="revalidate",	NAME="etherd/%k"
 
 # device mapper creates its own device nodes, so ignore these
-KERNEL=="dm-[0-9]*",		NAME=""
 KERNEL=="device-mapper",	NAME="mapper/control"
 

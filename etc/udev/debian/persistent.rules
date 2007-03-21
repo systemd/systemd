@@ -5,12 +5,12 @@ SUBSYSTEM!="block",			GOTO="no_volume_id"
 ACTION!="add",				GOTO="no_volume_id"
 
 # and we can safely ignore these kinds of devices
-KERNEL=="ram*|loop*|fd*|nbd*|dm-*",	GOTO="no_volume_id"
+KERNEL=="ram*|loop*|fd*|nbd*|gnbd*|dm-*|md*", GOTO="no_volume_id"
 
 # skip removable ide devices, because open(2) on them causes an events loop
 KERNEL=="hd*[!0-9]",   ATTR{removable}=="1", DRIVERS=="ide-cs|ide-floppy", \
 	GOTO="no_volume_id"
-KERNEL=="hd*[0-9]", ATTR{../removable}=="1", \
+KERNEL=="hd*[0-9]", ATTRS{removable}=="1", \
 	GOTO="no_volume_id"
 
 # skip xen virtual hard disks
@@ -20,13 +20,17 @@ DRIVERS=="vbd",				GOTO="no_hardware_id"
 KERNEL=="hd*[!0-9]", \
 	IMPORT{program}="ata_id --export $tempnode"
 
-KERNEL=="sd*[!0-9]|sr*|st*",		ATTRS{ieee1394_id}=="?*", \
+KERNEL=="sd*[!0-9]|sr*|st*|nst*",	ATTRS{ieee1394_id}=="?*", \
 	ENV{ID_BUS}="ieee1394", ENV{ID_SERIAL}="$attr{ieee1394_id}"
-KERNEL=="sd*[!0-9]|sr*|st*",		ENV{ID_SERIAL}=="", \
+KERNEL=="sd*[!0-9]|sr*|st*|nst*",	ENV{ID_SERIAL}=="", \
 	IMPORT{program}="usb_id -x"
-KERNEL=="sd*[!0-9]|sr*|st*",		ENV{ID_SERIAL}=="", \
+KERNEL=="sd*[!0-9]|sr*|st*|nst*",	ENV{ID_SERIAL}=="", \
 	IMPORT{program}="scsi_id -g -x -s $devpath -d $tempnode"
-KERNEL=="sd*[!0-9]|sr*|st*",		ENV{ID_SERIAL}=="", \
+KERNEL=="sd*[!0-9]|sr*|st*|nst*",	ENV{ID_SERIAL}=="", \
+	IMPORT{program}="scsi_id -g -x -a -s $devpath -d $tempnode"
+KERNEL=="sg*", ATTRS{type}=="8",	ENV{ID_SERIAL}=="", \
+	IMPORT{program}="scsi_id -g -x -s $devpath -d $tempnode"
+KERNEL=="sg*", ATTRS{type}=="8",	ENV{ID_SERIAL}=="", \
 	IMPORT{program}="scsi_id -g -x -a -s $devpath -d $tempnode"
 
 KERNEL=="dasd*[!0-9]", \
@@ -47,16 +51,35 @@ KERNEL=="hd*[!0-9]",			ENV{ID_SERIAL}=="?*", \
 	SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
 KERNEL=="hd*[0-9]",			ENV{ID_SERIAL}=="?*", \
 	SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
+KERNEL=="sd*[!0-9]|sr*",		ENV{ID_SERIAL_SHORT}=="?*", \
+	ENV{ID_VENDOR}=="ATA", \
+	SYMLINK+="disk/by-id/ata-$env{ID_MODEL}-$env{ID_SERIAL_SHORT}"
+KERNEL=="sd*[0-9]",			ENV{ID_SERIAL_SHORT}=="?*", \
+	ENV{ID_VENDOR}=="ATA", \
+	SYMLINK+="disk/by-id/ata-$env{ID_MODEL}-$env{ID_SERIAL_SHORT}-part%n"
+
+KERNEL=="mmcblk[0-9]", ATTR{name}=="?*", ATTR{serial}=="?*", \
+	ENV{ID_NAME}="$attr{name}", ENV{ID_SERIAL}="$attr{serial}", \
+	SYMLINK+="disk/by-id/mmc-$env{ID_NAME}_$env{ID_SERIAL}"
+KERNEL=="mmcblk[0-9]p[0-9]", ATTR{name}=="?*", ATTR{serial}=="?*", \
+	ENV{ID_NAME}="$attr{name}", ENV{ID_SERIAL}="$attr{serial}", \
+	SYMLINK+="disk/by-id/mmc-$env{ID_NAME}_$env{ID_SERIAL}-part%n"
+
+KERNEL=="*[!0-9]",			ENV{ID_EDD}=="?*", \
+	SYMLINK+="disk/by-id/edd-$env{ID_EDD}"
+KERNEL=="*[0-9]",			ENV{ID_EDD}=="?*", \
+	SYMLINK+="disk/by-id/edd-$env{ID_EDD}-part%n"
+
 KERNEL=="sd*[!0-9]|dasd[!0-9]*|sr*",	ENV{ID_SERIAL}=="?*", \
 	SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 KERNEL=="sd*[0-9]|dasd*[0-9]",		ENV{ID_SERIAL}=="?*", \
 	SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
 KERNEL=="st*",				ENV{ID_SERIAL}=="?*", \
 	SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
-KERNEL=="*[!0-9]",			ENV{ID_EDD}=="?*", \
-	SYMLINK+="disk/by-id/edd-$env{ID_EDD}"
-KERNEL=="*[0-9]",			ENV{ID_EDD}=="?*", \
-	SYMLINK+="disk/by-id/edd-$env{ID_EDD}-part%n"
+KERNEL=="nst*",				ENV{ID_SERIAL}=="?*", \
+	SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SERIAL}-nst"
+KERNEL=="sg*", ATTRS{type}=="8",	ENV{ID_SERIAL}=="?*", \
+	SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 
 KERNEL=="*[!0-9]|sr*",			ENV{ID_PATH}=="?*", \
 	SYMLINK+="disk/by-path/$env{ID_PATH}"

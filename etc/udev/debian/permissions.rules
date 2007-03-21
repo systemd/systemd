@@ -11,7 +11,11 @@ SUBSYSTEM=="net", ENV{DRIVER}=="?*",		WAIT_FOR_SYSFS="device/driver"
 
 # default permissions for block devices
 SUBSYSTEM=="block",				GROUP="disk"
-SUBSYSTEM=="block", ATTR{removable}=="1",	GROUP="floppy"
+# the aacraid driver is broken and reports that disks removable (see #404927)
+SUBSYSTEM=="block", ATTRS{removable}=="1", \
+	DRIVERS!="aacraid",			GROUP="floppy"
+# all block devices on these buses are "removable"
+SUBSYSTEM=="block", SUBSYSTEMS=="usb|ieee1394|mmc|pcmcia", GROUP="floppy"
 
 # IDE devices
 KERNEL=="hd[a-z]|pcd[0-9]*", 			DRIVERS=="ide-cdrom|pcd", \
@@ -25,8 +29,10 @@ KERNEL=="sr[0-9]*", IMPORT{program}="cdrom_id --export $tempnode"
 SUBSYSTEMS=="scsi", ATTRS{type}=="1",				GROUP="tape"
 SUBSYSTEMS=="scsi", ATTRS{type}=="3", ATTRS{vendor}=="HP",	GROUP="scanner"
 SUBSYSTEMS=="scsi", ATTRS{type}=="3", ATTRS{vendor}=="Epson",	GROUP="scanner"
+SUBSYSTEMS=="scsi", ATTRS{type}=="3", ATTRS{vendor}=="EPSON",	GROUP="scanner"
 SUBSYSTEMS=="scsi", ATTRS{type}=="5",				GROUP="cdrom"
 SUBSYSTEMS=="scsi", ATTRS{type}=="6",				GROUP="scanner"
+SUBSYSTEMS=="scsi", ATTRS{type}=="8",				GROUP="tape"
 
 # USB devices
 KERNEL=="legousbtower*",	MODE="0666"
@@ -74,10 +80,12 @@ KERNEL=="sgi_fetchop",		MODE="0666"
 KERNEL=="sonypi",		MODE="0666"
 KERNEL=="agpgart",				GROUP="video"
 KERNEL=="nvram",				GROUP="nvram"
-KERNEL=="rtc",					GROUP="audio"
+KERNEL=="rtc|rtc[0-9]*",			GROUP="audio"
 KERNEL=="tpm*",			MODE="0600",	OWNER="tss", GROUP="tss"
 KERNEL=="fuse",					GROUP="fuse"
 KERNEL=="kqemu",		MODE="0666"
+KERNEL=="kvm",					GROUP="kvm"
+KERNEL=="tun",			MODE="0666"
 
 KERNEL=="cdemu[0-9]*",				GROUP="cdrom"
 KERNEL=="pktcdvd[0-9]*",			GROUP="cdrom"
@@ -105,6 +113,7 @@ KERNEL=="video1394*",				GROUP="video"
 KERNEL=="event[0-9]*", ATTRS{name}=="*dvb*|*DVB*|* IR *" \
 				MODE="0664",	GROUP="video"
 KERNEL=="js[0-9]*",		MODE="0664"
+KERNEL=="lirc[0-9]*",				GROUP="video"
 
 # AOE character devices
 SUBSYSTEM=="aoe",		MODE="0220",	GROUP="disk"

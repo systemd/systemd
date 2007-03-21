@@ -33,7 +33,7 @@ SUBSYSTEMS=="usb", KERNEL=="ttyUSB*", \
 					SYMLINK+="pilot"
 
 # usbfs-like devices
-SUBSYSTEM=="usb_device",	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", \
+SUBSYSTEM=="usb_device",	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", ACTION=="add", \
 				NAME="%c"
 
 # serial devices
@@ -41,7 +41,7 @@ KERNEL=="capi",			NAME="capi20", SYMLINK+="isdn/capi20"
 KERNEL=="capi[0-9]*",		NAME="capi/%n"
 
 # video devices
-KERNEL=="dvb*",			PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}", \
+KERNEL=="dvb*",			PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}", ACTION=="add", \
 				NAME="%c"
 KERNEL=="card[0-9]*",		NAME="dri/%k"
 
@@ -97,6 +97,5 @@ SUBSYSTEM=="aoe", KERNEL=="interfaces",	NAME="etherd/%k"
 SUBSYSTEM=="aoe", KERNEL=="revalidate",	NAME="etherd/%k"
 
 # device mapper creates its own device nodes, so ignore these
-KERNEL=="dm-[0-9]*",		NAME=""
 KERNEL=="device-mapper",	NAME="mapper/control"
 
