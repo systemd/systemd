@@ -144,6 +144,7 @@ static void print_record(struct udevice *udev)
 
 	printf("P: %s\n", udev->dev->devpath);
 	printf("N: %s\n", udev->name);
+	printf("L: %i\n", udev->link_priority);
 	list_for_each_entry(name_loop, &udev->symlink_list, node)
 		printf("S: %s\n", name_loop->name);
 	list_for_each_entry(name_loop, &udev->env_list, node)
