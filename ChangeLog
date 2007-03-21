@@ -1,4 +1,53 @@
-Summary of changes from v104 to v105
+Summary of changes from v106 to v107
+============================================
+
+Jean Tourrilhes (1):
+      udevtest: export UDEV_LOG if we changed it
+
+Kay Sievers (33):
+      man: add missing options to various man pages
+      man: fix typo
+      create_floppy_devices: apply specified mode without umask
+      man: spelling fixes
+      udevmonitor: add switch for kernel and udev events
+      default rules: wait for 0:0:0:0 scsi devices only
+      update Fedora rules
+      delete dasd_id, it moved to s390-tools
+      update Gentoo rules
+      encode db-file names, instead of just replacing '/'
+      update internal variables if we see $DEVPATH during IMPORT
+      increase /proc/stat buffer
+      maintain index over device-names to devpath relation
+      restore overwritten symlinks when the device goes away
+      store devpath with the usual leading slash
+      add link_priority to rule options, and store it in database
+      pick actual valid device in udev_db_lookup_name
+      cleanup already existing db-entries and db-index on device update
+      selinux: move selinux_exit() to the main programs
+      remove old error message
+      read list of devices from index, make index private to database
+      priority based symlink handling
+      volume_id: get rid of compiler warning
+      udevinfo: remove -d option
+      update %n on netif name change
+      if a node goes away, possibly restore a waiting symlink
+      update TODO
+      man: add "link_priority" option
+      update SUSE rules
+      udevtest: add --force mode
+      udevinfo: print link priority
+      usb_id: append target:lun to storage device serial
+      run_directory: add final warning before removal
+
+Marco d'Itri (1):
+      update Debian rules
+
+Matthias Schwarzott (2):
+      udevd: cleanup std{in,our,err} on startup
+      udevmonitor: fix swapped event switch descriptions
+
+
+Summary of changes from v105 to v106
 ============================================
 
 A. Costa (1):

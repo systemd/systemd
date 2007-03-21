@@ -1,3 +1,39 @@
+udev 107
+========
+Bugfixes.
+
+Symlinks can have priorities now, the priority is assigned to the device
+and specified with OPTIONS="link_priority=100". Devices with higher
+priorities overwrite the symlinks of devices with lower priorities.
+If the device that currently owns the link, goes away, the symlink
+will be removed, and recreated, pointing to the next device with the
+highest actual priority. This should make /dev/disk/by-{label,uuid,id}
+more reliable, if multiple devices contain the same metadata and overwrite
+these symlinks.
+
+The dasd_id program is removed from the udev tree, and dasdinfo, with the
+needed rules, are part of the s390-tools now.
+
+Please add KERNEL=="[0-9]*:[0-9]*" to the scsi wait-for-sysfs rule,
+we may get the scsi sysfs mess fixed some day, and this will only catch
+the devices we are looking for.
+
+USB serial numbers for storage devices have the target:lun now appended,
+to make it possibble to distinguish broken multi-lun devices with all
+the same SCSI identifiers.
+
+Note: The extra "run_directory" which searches and executes stuff in
+/etc/hotplug.d/ and /etc/dev.d/ is long deprecated, and will be removed
+with the next release. Make sure, that you don't use it anymore, or
+provides your own implementation of that inefficient stuff.
+We are tired of reports about a "slow udev", because these directories
+contain stuff, that runs with _every_ event, instead of using rules,
+that run programs only for the matching events.
+
+udev 106
+========
+Bugfixes.
+
 udev 105
 ========
 Bugfixes.
