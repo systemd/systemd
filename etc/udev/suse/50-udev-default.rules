@@ -90,10 +90,9 @@ KERNEL=="auer[0-9]*"		NAME="usb/%k"
 KERNEL=="pktcdvd",		NAME="pktcdvd/control"
 KERNEL=="pktcdvd[0-9]*",	NAME="pktcdvd/%k"
 
-# fix floppy devices
+# additional floppy devices (no sysfs entries)
 KERNEL=="nvram", ACTION=="add", RUN+="load_floppy_module.sh"
 KERNEL=="fd[0-9]*", ACTION=="add", ATTRS{cmos}=="?*", RUN+="create_floppy_devices -c -t $attr{cmos} -m %M -M 0640 -G disk $root/%k"
-KERNEL=="fd[0-9]*", ACTION=="remove", RUN+="/bin/rm -f $root/%k*"
 
 # block devices
 SUBSYSTEM=="block", GROUP="disk", MODE="0640"
