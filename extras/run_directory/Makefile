@@ -33,6 +33,7 @@ all: $(PROG) $(MAN_PAGES)
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
 $(PROG): %: $(HEADERS) %.o $(OBJS)
+	@echo $@ "is DEPRECATED and will be removed, don't use it"
 	$(E) "  LD      " $@
 	$(Q) $(LD) $(LDFLAGS) $@.o $(OBJS) -o $@ $(LIBUDEV) $(LIB_OBJS)
 
@@ -48,6 +49,7 @@ clean:
 .PHONY: clean
 
 install-bin: all
+	@echo $@ "is DEPRECATED and will be removed, don't use it"
 	$(INSTALL_PROGRAM) -D udev_run_devd $(DESTDIR)$(libudevdir)/udev_run_devd
 	$(INSTALL_PROGRAM) -D udev_run_hotplugd $(DESTDIR)$(libudevdir)/udev_run_hotplugd
 .PHONY: install-bin
