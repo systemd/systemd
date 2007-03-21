@@ -153,7 +153,7 @@ static int update_link(struct udevice *udev, const char *name)
 	count = udev_db_get_devices_by_name(name, &name_list);
 	info("found %i devices with name '%s'", count, name);
 
-	/* if we don't have any reference, we can delete the link */
+	/* if we don't have a reference, delete it */
 	if (count <= 0) {
 		info("no reference left, remove '%s'", name);
 		if (!udev->test_run) {
@@ -236,11 +236,10 @@ void udev_node_update_symlinks(struct udevice *udev, struct udevice *udev_old)
 	if (udev_old != NULL) {
 		struct name_entry *link_loop;
 		struct name_entry *link_old_loop;
-		struct name_entry *link_old_tmp_loop;
 		int found;
 
 		/* remove current symlinks from old list */
-		list_for_each_entry_safe(link_old_loop, link_old_tmp_loop, &udev_old->symlink_list, node) {
+		list_for_each_entry(link_old_loop, &udev_old->symlink_list, node) {
 			found = 0;
 			list_for_each_entry(link_loop, &udev->symlink_list, node) {
 				if (strcmp(link_old_loop->name, link_loop->name) == 0) {
@@ -256,8 +255,12 @@ void udev_node_update_symlinks(struct udevice *udev, struct udevice *udev_old)
 			}
 		}
 
-		/* the old node is gone, maybe we have a device with a symlink now */
-		update_link(udev, udev_old->name);
+		/*
+		 * if the node name has changed, delete the node,
+		 * or possibly restore a symlink of another device
+		 */
+		if (strcmp(udev->name, udev_old->name) != 0)
+			update_link(udev, udev_old->name);
 	}
 }
 
@@ -345,7 +348,7 @@ int udev_node_remove(struct udevice *udev)
 	char filename[PATH_SIZE];
 	char partitionname[PATH_SIZE];
 	struct stat stats;
-	int retval;
+	int retval = 0;
 	int num;
 
 	strlcpy(filename, udev_root, sizeof(filename));
@@ -361,7 +364,8 @@ int udev_node_remove(struct udevice *udev)
 	}
 
 	info("removing device node '%s'", filename);
-	retval = unlink_secure(filename);
+	if (!udev->test_run)
+		retval = unlink_secure(filename);
 	if (retval)
 		return retval;
 
@@ -376,7 +380,8 @@ int udev_node_remove(struct udevice *udev)
 		for (i = 1; i <= num; i++) {
 			snprintf(partitionname, sizeof(partitionname), "%s%d", filename, i);
 			partitionname[sizeof(partitionname)-1] = '\0';
-			unlink_secure(partitionname);
+			if (!udev->test_run)
+				unlink_secure(partitionname);
 		}
 	}
 	delete_path(filename);

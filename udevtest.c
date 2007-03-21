@@ -26,6 +26,7 @@
 #include <ctype.h>
 #include <signal.h>
 #include <syslog.h>
+#include <getopt.h>
 
 #include "udev.h"
 #include "udev_rules.h"
@@ -49,13 +50,21 @@ void log_message (int priority, const char *format, ...)
 
 int main(int argc, char *argv[], char *envp[])
 {
+	int force = 0;
+	char *action = "add";
 	struct udev_rules rules = {};
 	char *devpath = NULL;
 	struct udevice *udev;
 	struct sysfs_device *dev;
-	int i;
 	int retval;
 	int rc = 0;
+
+	static const struct option options[] = {
+		{ "action", 1, NULL, 'a' },
+		{ "force", 0, NULL, 'f' },
+		{ "help", 0, NULL, 'h' },
+		{}
+	};
 
 	info("version %s", UDEV_VERSION);
 	udev_config_init();
@@ -67,15 +76,32 @@ int main(int argc, char *argv[], char *envp[])
 		setenv("UDEV_LOG", priority, 1);
 	}
 
-	for (i = 1 ; i < argc; i++) {
-		char *arg = argv[i];
+	while (1) {
+		int option;
 
-		if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
-			printf("Usage: udevtest [--help] <devpath>\n");
-			goto exit;
-		} else
-			devpath = arg;
+		option = getopt_long(argc, argv, "a:fh", options, NULL);
+		if (option == -1)
+			break;
+
+		dbg("option '%c'", option);
+		switch (option) {
+		case 'a':
+			action = optarg;
+			break;
+		case 'f':
+			force = 1;
+			break;
+		case 'h':
+			printf("Usage: udevtest [--action=<string>] [--force] [--help] <devpath>\n"
+			       "  --action=<string>   set action string\n"
+			       "  --force             don't skip node/link creation\n"
+			       "  --help              print this help text\n\n");
+			exit(0);
+		default:
+			exit(1);
+		}
 	}
+	devpath = argv[optind];
 
 	if (devpath == NULL) {
 		fprintf(stderr, "devpath parameter missing\n");
@@ -106,19 +132,20 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* override built-in sysfs device */
 	udev->dev = dev;
-	strcpy(udev->action, "add");
+	strcpy(udev->action, action);
 	udev->devt = udev_device_get_devt(udev);
 
 	/* simulate node creation with test flag */
-	udev->test_run = 1;
+	if (!force)
+		udev->test_run = 1;
 
 	setenv("DEVPATH", udev->dev->devpath, 1);
 	setenv("SUBSYSTEM", udev->dev->subsystem, 1);
 	setenv("ACTION", "add", 1);
 
-	printf("This program is for debugging only, it does not create any node,\n"
-	       "or run any program specified by a RUN key. It may show incorrect results,\n"
-	       "if rules match against subsystem specfic kernel event variables.\n"
+	printf("This program is for debugging only, it does not run any program,\n"
+	       "specified by a RUN key. It may show incorrect results, if rules\n"
+	       "match against subsystem specfic kernel event variables.\n"
 	       "\n");
 
 	info("looking at device '%s' from subsystem '%s'", udev->dev->devpath, udev->dev->subsystem);

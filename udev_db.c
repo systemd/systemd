@@ -286,6 +286,9 @@ int udev_db_delete_device(struct udevice *udev)
 	char filename[PATH_SIZE];
 	struct name_entry *name_loop;
 
+	if (udev->test_run)
+		return 0;
+
 	devpath_to_db_path(udev->dev->devpath, filename, sizeof(filename));
 	unlink(filename);
 
