@@ -20,6 +20,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
+#include <getopt.h>
 
 #include "../../udev.h"
 
@@ -55,12 +56,12 @@ void log_message(int priority, const char *format, ...)
 static char vendor_str[64];
 static char model_str[64];
 static char serial_str[MAX_SERIAL_LEN];
-static char revision_str[16];
-static char type_str[16];
+static char revision_str[64];
+static char type_str[64];
+static char instance_str[64];
 
 static int use_usb_info;
 static int use_num_info;
-static int export;
 
 static void set_str(char *to, const char *from, size_t count)
 {
@@ -115,7 +116,7 @@ static void set_usb_iftype(char *to, int if_class_num, size_t len)
 		type = "printer";
 		break;
 	case 8:
-		type = "disk";
+		type = "storage";
 		break;
 	case 2: /* CDC-Control */
 	case 5: /* Physical */
@@ -164,48 +165,40 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
 			break;
 		}
 	}
-	strncpy(to, type, len);
-	to[len-1] = '\0';
+	strlcpy(to, type, len);
 
 	return type_num;
 }
 
-static void set_scsi_type(char *to, const char *from, int count)
+static void set_scsi_type(char *to, const char *from, size_t len)
 {
 	int type_num;
 	char *eptr;
+	char *type = "generic";
 
 	type_num = strtoul(from, &eptr, 0);
 	if (eptr != from) {
 		switch (type_num) {
 		case 0:
-			sprintf(to, "disk");
+		case 0xe:
+			type = "disk";
 			break;
 		case 1:
-			sprintf(to, "tape");
+			type = "tape";
 			break;
 		case 4:
-			sprintf(to, "optical");
+		case 7:
+		case 0xf:
+			type = "optical";
 			break;
 		case 5:
-			sprintf(to, "cd");
-			break;
-		case 7:
-			sprintf(to, "optical");
-			break;
-		case 0xe:
-			sprintf(to, "disk");
-			break;
-		case 0xf:
-			sprintf(to, "optical");
+			type = "cd";
 			break;
 		default:
-			sprintf(to, "generic");
 			break;
 		}
-	} else {
-		sprintf(to, "generic");
 	}
+	strlcpy(to, type, len);
 }
 
 /*
@@ -278,11 +271,16 @@ static int usb_id(const char *devpath)
 	/* mass storage */
 	if (protocol == 6 && !use_usb_info) {
 		struct sysfs_device *dev_scsi;
+		int host, bus, target, lun;
 
 		/* get scsi device */
 		dev_scsi = sysfs_device_get_parent_with_subsystem(dev, "scsi");
 		if (dev_scsi == NULL) {
 			info("unable to find parent 'scsi' device of '%s'", devpath);
+			goto fallback;
+		}
+		if (sscanf(dev_scsi->kernel, "%d:%d:%d:%d", &host, &bus, &target, &lun) != 4) {
+			info("invalid scsi device '%s'", dev_scsi->kernel);
 			goto fallback;
 		}
 
@@ -314,6 +312,12 @@ static int usb_id(const char *devpath)
 			goto fallback;
 		}
 		set_str(revision_str, scsi_rev, sizeof(revision_str)-1);
+
+		/*
+		 * some broken devices have the same identifiers
+		 * for all luns, export the target:lun number
+		 */
+		sprintf(instance_str, "%d:%d", target, lun);
 	}
 
 fallback:
@@ -363,18 +367,25 @@ int main(int argc, char **argv)
 	int retval = 0;
 	const char *env;
 	char devpath[MAX_PATH_LEN];
-	int option;
+	static int export;
 
 	logging_init("usb_id");
 	sysfs_init();
 
-	dbg("argc is %d", argc);
+	static const struct option options[] = {
+		{ "usb-info", 0, NULL, 'u' },
+		{ "num-info", 0, NULL, 'n' },
+		{ "export", 0, NULL, 'x' },
+		{ "help", 0, NULL, 'h' },
+		{}
+	};
 
-	while ((option = getopt(argc, argv, "dnux")) != -1 ) {
-		if (optarg)
-			dbg("option '%c' arg '%s'", option, optarg);
-		else
-			dbg("option '%c'", option);
+	while (1) {
+		int option;
+
+		option = getopt_long(argc, argv, "nuxh", options, NULL);
+		if (option == -1)
+			break;
 
 		switch (option) {
 		case 'n':
@@ -387,10 +398,15 @@ int main(int argc, char **argv)
 		case 'x':
 			export = 1;
 			break;
+		case 'h':
+			printf("Usage: usb_id [--usb-info] [--num-info] [--export] [--help]\n"
+			       "  --usb-info  use usb strings instead\n"
+			       "  --num-info  use numerical values\n"
+			       "  --export    print values as environemt keys\n"
+			       "  --help      print this help text\n\n");
 		default:
-			info("Unknown or bad option '%c' (0x%x)", option, option);
 			retval = 1;
-			break;
+			goto exit;
 		}
 	}
 
@@ -398,7 +414,7 @@ int main(int argc, char **argv)
 	if (env != NULL)
 		strlcpy(devpath, env, sizeof(devpath));
 	else {
-		if (optind == argc) {
+		if (argv[optind] == NULL) {
 			fprintf(stderr, "No device specified\n");
 			retval = 1;
 			goto exit;
@@ -409,28 +425,33 @@ int main(int argc, char **argv)
 	retval = usb_id(devpath);
 
 	if (retval == 0) {
+		char serial[256];
+
+		strlcpy(serial, vendor_str, sizeof(serial));
+		strlcat(serial, "_", sizeof(serial));
+		strlcat(serial, model_str, sizeof(serial));
+		if (serial_str[0] != '\0') {
+			strlcat(serial, "_", sizeof(serial));
+			strlcat(serial, serial_str, sizeof(serial));
+		}
+		if (instance_str[0] != '\0') {
+			strlcat(serial, "-", sizeof(serial));
+			strlcat(serial, instance_str, sizeof(serial));
+		}
+
 		if (export) {
 			printf("ID_VENDOR=%s\n", vendor_str);
 			printf("ID_MODEL=%s\n", model_str);
 			printf("ID_REVISION=%s\n", revision_str);
-			if (serial_str[0] == '\0') {
-				printf("ID_SERIAL=%s_%s\n", 
-				       vendor_str, model_str);
-			} else {
-				printf("ID_SERIAL=%s_%s_%s\n", 
-				       vendor_str, model_str, serial_str);
-			}
+			printf("ID_SERIAL=%s\n", serial);
+			if (serial_str[0] != '\0')
+				printf("ID_SERIAL_SHORT=%s\n", serial_str);
 			printf("ID_TYPE=%s\n", type_str);
+			if (instance_str[0] != '\0')
+				printf("ID_INSTANCE=%s\n", instance_str);
 			printf("ID_BUS=usb\n");
-		} else {
-			if (serial_str[0] == '\0') {
-				printf("%s_%s\n", 
-				       vendor_str, model_str);
-			} else {
-				printf("%s_%s_%s\n", 
-				       vendor_str, model_str, serial_str);
-			}
-		}
+		} else
+			printf("%s\n", serial);
 	}
 
 exit:
