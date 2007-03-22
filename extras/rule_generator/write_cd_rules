@@ -53,7 +53,15 @@ fi
 if [ "$1" ]; then
 	METHOD="$1"
 else
-	METHOD='by-path'
+	case "$ID_BUS" in
+		usb|ieee1394)
+		METHOD='by-id'
+		;;
+
+		*)
+		METHOD='by-path'
+		;;
+	esac
 fi
 
 case "$METHOD" in
