@@ -110,20 +110,6 @@ int main(int argc, char *argv[], char *envp[])
 			goto exit;
 		}
 
-		/* read current kernel seqnum */
-		strlcpy(filename, sysfs_path, sizeof(filename));
-		strlcat(filename, "/kernel/uevent_seqnum", sizeof(filename));
-		fd = open(filename, O_RDONLY);
-		if (fd < 0)
-			goto exit;
-		len = read(fd, seqnum, sizeof(seqnum)-1);
-		close(fd);
-		if (len <= 0)
-			goto exit;
-		seqnum[len] = '\0';
-		seq_kernel = strtoull(seqnum, NULL, 10);
-		info("kernel seqnum = %llu", seq_kernel);
-
 		/* read current udev seqnum */
 		strlcpy(filename, udev_root, sizeof(filename));
 		strlcat(filename, "/" EVENT_SEQNUM, sizeof(filename));
@@ -137,6 +123,20 @@ int main(int argc, char *argv[], char *envp[])
 		seqnum[len] = '\0';
 		seq_udev = strtoull(seqnum, NULL, 10);
 		info("udev seqnum = %llu", seq_udev);
+
+		/* read current kernel seqnum */
+		strlcpy(filename, sysfs_path, sizeof(filename));
+		strlcat(filename, "/kernel/uevent_seqnum", sizeof(filename));
+		fd = open(filename, O_RDONLY);
+		if (fd < 0)
+			goto exit;
+		len = read(fd, seqnum, sizeof(seqnum)-1);
+		close(fd);
+		if (len <= 0)
+			goto exit;
+		seqnum[len] = '\0';
+		seq_kernel = strtoull(seqnum, NULL, 10);
+		info("kernel seqnum = %llu", seq_kernel);
 
 		/* make sure all kernel events have arrived in the queue */
 		if (seq_udev >= seq_kernel) {
