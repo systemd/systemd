@@ -173,13 +173,17 @@ static void export_db(void) {
 static int lookup_device_by_name(struct udevice *udev, const char *name)
 {
 	LIST_HEAD(name_list);
+	int count;
 	struct name_entry *device;
 	int rc  = -1;
 
-	if (udev_db_get_devices_by_name(name, &name_list) <= 0)
+	count = udev_db_get_devices_by_name(name, &name_list);
+	if (count <= 0)
 		goto out;
 
-	/* select the device that matches the dev_t of name */
+	info("found %i devices for '%s'", count, name);
+
+	/* select the device that seems to match */
 	list_for_each_entry(device, &name_list, node) {
 		char filename[PATH_SIZE];
 		struct stat statbuf;
@@ -189,16 +193,18 @@ static int lookup_device_by_name(struct udevice *udev, const char *name)
 			continue;
 		info("found db entry '%s'", device->name);
 
+		/* make sure, we don't get a link of a differnt device */
 		strlcpy(filename, udev_root, sizeof(filename));
 		strlcat(filename, "/", sizeof(filename));
 		strlcat(filename, name, sizeof(filename));
 		if (stat(filename, &statbuf) != 0)
 			continue;
-		if (statbuf.st_rdev == udev->devt) {
-			info("found '%s', dev_t matches", udev->name);
-			rc = 0;
-			break;
+		if (major(udev->devt) > 0 && udev->devt != statbuf.st_rdev) {
+			info("skip '%s', dev_t doesn't match", udev->name);
+			continue;
 		}
+		rc = 0;
+		break;
 	}
 out:
 	name_list_cleanup(&name_list);

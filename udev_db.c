@@ -186,7 +186,7 @@ int udev_db_get_device(struct udevice *udev, const char *devpath)
 	size_t cur;
 	size_t count;
 
-	strlcpy(udev->dev->devpath, devpath, sizeof(udev->dev->devpath));
+	sysfs_device_set_values(udev->dev, devpath, NULL, NULL);
 	devpath_to_db_path(devpath, filename, sizeof(filename));
 
 	if (lstat(filename, &stats) != 0) {
