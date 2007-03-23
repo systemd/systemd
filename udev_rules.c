@@ -861,8 +861,9 @@ try_parent:
 			info("writing '%s' to sysfs file '%s'", value, attr);
 			f = fopen(attr, "w");
 			if (f != NULL) {
-				if (fprintf(f, "%s", value) <= 0)
-					err("error writing ATTR{%s}: %s", attr, strerror(errno));
+				if (!udev->test_run)
+					if (fprintf(f, "%s", value) <= 0)
+						err("error writing ATTR{%s}: %s", attr, strerror(errno));
 				fclose(f);
 			} else
 				err("error opening ATTR{%s} for writing: %s", attr, strerror(errno));
