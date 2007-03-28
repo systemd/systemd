@@ -1,2 +1,0 @@
-#!/bin/sh -e
-exec /usr/sbin/alsactl restore 0
