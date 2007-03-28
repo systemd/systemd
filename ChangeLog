@@ -1,3 +1,19 @@
+Summary of changes from v107 to v108
+============================================
+
+Kay Sievers (3):
+      udevinfo: relax check for the correct device if looked up by name
+      don't write to sysfs files during test run
+      finally remove the directory event-multiplexer crap
+
+Matthias Schwarzott (2):
+      write_cd_rules: set default link type to "by-id" for usb and ieee1394 devices
+      update Gentoo rules
+
+Pozsar Balazs (1):
+      udevsettle: read udev not kernel seqnum first
+
+
 Summary of changes from v106 to v107
 ============================================
 

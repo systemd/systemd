@@ -1,3 +1,10 @@
+udev 108
+========
+Bugfixes.
+
+The directory multiplexer for dev.d/ and hotplug.d are finally removed
+from the udev package.
+
 udev 107
 ========
 Bugfixes.
