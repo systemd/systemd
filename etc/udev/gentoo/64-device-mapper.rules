@@ -1,0 +1,31 @@
+# device mapper links hook into "change" events, when the dm table
+# becomes available; some table-types must be ignored
+
+KERNEL=="device-mapper",	NAME="mapper/control"
+
+KERNEL=="dm-*", ACTION=="add|change", GOTO="device_mapper_do"
+GOTO="device_mapper_end"
+LABEL="device_mapper_do"
+
+# lookup device name
+# use dmsetup, until devmap_name is provided by sys-fs/device-mapper
+PROGRAM=="/sbin/dmsetup -j %M -m %m --noopencount --noheadings -c -o name info",
+	ENV{ID_DM_NAME}="%c"
+
+# do not do anything if dmsetup does not provide a name
+ENV{ID_DM_NAME}=="", NAME="", OPTIONS="ignore_device"
+
+# ignore luks crypt devices while not fully up
+ENV{ID_DM_NAME}=="temporary-cryptsetup-*", NAME="", OPTIONS="ignore_device"
+
+# use queried name
+ENV{ID_DM_NAME}=="?*", NAME="mapper/$env{ID_DM_NAME}"
+
+PROGRAM!="/sbin/dmsetup status -j %M -m %m", GOTO="device_mapper_end"
+RESULT=="|*snapshot*|*error*", GOTO="device_mapper_end"
+
+IMPORT{program}="vol_id --export $tempnode"
+ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}", OPTIONS="link_priority=50"
+ENV{ID_FS_USAGE}=="filesystem|other", ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}", OPTIONS="link_priority=50"
+
+LABEL="device_mapper_end"

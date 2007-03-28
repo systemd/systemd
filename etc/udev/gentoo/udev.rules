@@ -78,14 +78,6 @@ KERNEL=="cpu[0-9]*",	NAME="cpu/%n/cpuid"
 KERNEL=="msr[0-9]*",	NAME="cpu/%n/msr"
 KERNEL=="microcode",	NAME="cpu/microcode"
 
-# dm devices
-# lookup device name and create device in /dev/mapper
-# use dmsetup, until devmap_name is provided by sys-fs/device-mapper
-ACTION=="add|change", SUBSYSTEM=="block", KERNEL=="dm-*", \
-	PROGRAM="/sbin/dmsetup -j %M -m %m --noopencount --noheadings -c -o name info", \
-	NAME="mapper/%c"
-KERNEL=="device-mapper",	NAME="mapper/control"
-
 # fb devices
 KERNEL=="fb[0-9]*",	NAME="fb/%n", SYMLINK+="%k", GROUP="video"
 
@@ -101,7 +93,7 @@ KERNEL=="i2c-[0-9]*",	NAME="i2c/%n", SYMLINK+="%k"
 KERNEL=="mice",		NAME="input/%k", MODE="0644"
 KERNEL=="mouse*",	NAME="input/%k", MODE="0644"
 KERNEL=="event*",	NAME="input/%k", MODE="0600"
-KERNEL=="js*",		NAME="input/%k", MODE="664"
+KERNEL=="js*",		NAME="input/%k", MODE="0664"
 KERNEL=="ts*",		NAME="input/%k", MODE="0600"
 
 # loop devices
@@ -308,13 +300,3 @@ SUBSYSTEM=="firmware", RUN+="firmware.sh"
 LABEL="hotplug_no_add_event"
 
 LABEL="gentoo_device_rules_end"
-
-# be backward compatible for a while with the /etc/dev.d and /etc/hotplug.d/ systems
-# run /etc/hotplug.d/ stuff only if we came from a hotplug event, not for udevstart
-#ENV{UDEVD_EVENT}=="1", RUN+="udev_run_hotplugd $env{SUBSYSTEM}"
-
-# always run /etc/dev.d/ stuff for now.
-RUN+="udev_run_devd $env{SUBSYSTEM}"
-
-# debugging monitor
-RUN+="socket:/org/kernel/udev/monitor"
