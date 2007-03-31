@@ -584,18 +584,18 @@ static char *key_pair_name(struct udev_rule *rule, struct key_pair *pair)
 
 static int match_key(const char *key_name, struct udev_rule *rule, struct key *key, const char *val)
 {
-	int match;
 	char value[PATH_SIZE];
 	char *key_value;
 	char *pos;
+	int match = 0;
 
 	if (key->operation != KEY_OP_MATCH &&
 	    key->operation != KEY_OP_NOMATCH)
 		return 0;
 
+	/* look for a matching string, parts are separated by '|' */
 	strlcpy(value, rule->buf + key->val_off, sizeof(value));
 	key_value = value;
-
 	dbg("key %s value='%s'", key_name, key_value);
 	while (key_value) {
 		pos = strchr(key_value, '|');
@@ -603,19 +603,23 @@ static int match_key(const char *key_name, struct udev_rule *rule, struct key *k
 			pos[0] = '\0';
 			pos++;
 		}
+
 		dbg("match %s '%s' <-> '%s'", key_name, key_value, val);
 		match = (fnmatch(key_value, val, 0) == 0);
-		if (match && (key->operation != KEY_OP_NOMATCH)) {
-			dbg("%s is true (matching value)", key_name);
-			return 0;
-		}
-		if (!match && (key->operation == KEY_OP_NOMATCH)) {
-			dbg("%s is true (non-matching value)", key_name);
-			return 0;
-		}
+		if (match)
+			break;
+
 		key_value = pos;
 	}
-	dbg("%s is false", key_name);
+
+	if (match && (key->operation == KEY_OP_MATCH)) {
+		dbg("%s is true (matching value)", key_name);
+		return 0;
+	}
+	if (!match && (key->operation == KEY_OP_NOMATCH)) {
+		dbg("%s is true (non-matching value)", key_name);
+		return 0;
+	}
 	return -1;
 }
 
