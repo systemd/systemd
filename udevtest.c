@@ -141,7 +141,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	setenv("DEVPATH", udev->dev->devpath, 1);
 	setenv("SUBSYSTEM", udev->dev->subsystem, 1);
-	setenv("ACTION", "add", 1);
+	setenv("ACTION", udev->action, 1);
 
 	printf("This program is for debugging only, it does not run any program,\n"
 	       "specified by a RUN key. It may show incorrect results, if rules\n"
