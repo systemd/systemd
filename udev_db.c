@@ -157,9 +157,9 @@ int udev_db_add_device(struct udevice *udev)
 			name_index(udev->dev->devpath, name_loop->name, 1);
 		}
 		fprintf(f, "M:%u:%u\n", major(udev->devt), minor(udev->devt));
-		if (udev->link_priority)
+		if (udev->link_priority != 0)
 			fprintf(f, "L:%u\n", udev->link_priority);
-		if (udev->partitions)
+		if (udev->partitions != 0)
 			fprintf(f, "A:%u\n", udev->partitions);
 		if (udev->ignore_remove)
 			fprintf(f, "R:%u\n", udev->ignore_remove);

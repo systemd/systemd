@@ -144,9 +144,14 @@ static void print_record(struct udevice *udev)
 
 	printf("P: %s\n", udev->dev->devpath);
 	printf("N: %s\n", udev->name);
-	printf("L: %i\n", udev->link_priority);
 	list_for_each_entry(name_loop, &udev->symlink_list, node)
 		printf("S: %s\n", name_loop->name);
+	if (udev->link_priority != 0)
+		printf("L: %i\n", udev->link_priority);
+	if (udev->partitions != 0)
+		printf("A:%u\n", udev->partitions);
+	if (udev->ignore_remove)
+		printf("R:%u\n", udev->ignore_remove);
 	list_for_each_entry(name_loop, &udev->env_list, node)
 		printf("E: %s\n", name_loop->name);
 }

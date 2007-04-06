@@ -914,7 +914,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 				udev->ignore_remove = 1;
 				dbg("remove event should be ignored");
 			}
-			if (rule->link_priority) {
+			if (rule->link_priority != 0) {
 				udev->link_priority = rule->link_priority;
 				info("link_priority=%i", udev->link_priority);
 			}
