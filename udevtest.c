@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <ctype.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <syslog.h>
 #include <getopt.h>
@@ -47,6 +48,45 @@ void log_message (int priority, const char *format, ...)
 		printf("\n");
 }
 #endif
+
+static int import_uevent_var(const char *devpath)
+{
+	char path[PATH_SIZE];
+	static char value[4096]; /* must stay, used with putenv */
+	ssize_t size;
+	int fd;
+	char *key;
+	char *next;
+	int rc = -1;
+
+	/* read uevent file */
+	strlcpy(path, sysfs_path, sizeof(path));
+	strlcat(path, devpath, sizeof(path));
+	strlcat(path, "/uevent", sizeof(path));
+	fd = open(path, O_RDONLY);
+	if (fd < 0)
+		goto out;
+	size = read(fd, value, sizeof(value));
+	close(fd);
+	if (size < 0)
+		goto out;
+	value[size] = '\0';
+
+	/* import keys into environment */
+	key = value;
+	while (key[0] != '\0') {
+		next = strchr(key, '\n');
+		if (next == NULL)
+			goto out;
+		next[0] = '\0';
+		info("import into environment: '%s'", key);
+		putenv(key);
+		key = &next[1];
+	}
+	rc = 0;
+out:
+	return rc;
+}
 
 int main(int argc, char *argv[], char *envp[])
 {
@@ -142,10 +182,11 @@ int main(int argc, char *argv[], char *envp[])
 	setenv("DEVPATH", udev->dev->devpath, 1);
 	setenv("SUBSYSTEM", udev->dev->subsystem, 1);
 	setenv("ACTION", udev->action, 1);
+	import_uevent_var(udev->dev->devpath);
 
 	printf("This program is for debugging only, it does not run any program,\n"
-	       "specified by a RUN key. It may show incorrect results, if rules\n"
-	       "match against subsystem specfic kernel event variables.\n"
+	       "specified by a RUN key. It may show incorrect results, because\n"
+	       "some values may be different, or not available at a simulation run.\n"
 	       "\n");
 
 	info("looking at device '%s' from subsystem '%s'", udev->dev->devpath, udev->dev->subsystem);
