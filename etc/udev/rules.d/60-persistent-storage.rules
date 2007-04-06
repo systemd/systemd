@@ -36,6 +36,11 @@ KERNEL=="sd*[!0-9]|sr*|st*", ENV{ID_SERIAL}=="", IMPORT{program}="scsi_id -g -x 
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 KERNEL=="sd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
 
+# libata compat (links like hd*)
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_VENDOR}=="ATA", PROGRAM="ata_id $tempnode", ENV{ID_ATA_COMPAT}="$result"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_ATA_COMPAT}=="?*", SYMLINK+="disk/by-id/ata-$env{ID_ATA_COMPAT}"
+KERNEL=="sd*[0-9]", ENV{ID_ATA_COMPAT}=="?*", SYMLINK+="disk/by-id/ata-$env{ID_ATA_COMPAT}-part%n"
+
 KERNEL=="mmcblk[0-9]", ATTR{name}=="?*", ATTR{serial}=="?*", ENV{ID_NAME}="$attr{name}", ENV{ID_SERIAL}="$attr{serial}", SYMLINK+="disk/by-id/mmc-$env{ID_NAME}_$env{ID_SERIAL}"
 KERNEL=="mmcblk[0-9]p[0-9]", ATTR{name}=="?*", ATTR{serial}=="?*", ENV{ID_NAME}="$attr{name}", ENV{ID_SERIAL}="$attr{serial}", SYMLINK+="disk/by-id/mmc-$env{ID_NAME}_$env{ID_SERIAL}-part%n"
 

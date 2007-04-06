@@ -14,7 +14,8 @@ DRIVERS=="psmouse", ENV{ID_CLASS}="mouse"
 ATTRS{name}=="*dvb*|*DVB*|* IR *", ENV{ID_CLASS}="ir"
 ATTRS{modalias}=="input:*-*a[068],*|input:*-*a*,[68],*m*", ATTRS{modalias}!="input:*-*k*14A,*r*", ENV{ID_CLASS}="joystick"
 
-ENV{ID_SERIAL}=="", ENV{ID_SERIAL}="noserial"
+# fill empty serial number
+ENV{ID_CLASS}=="?*", ENV{ID_SERIAL}=="", ENV{ID_SERIAL}="noserial"
 
 # by-id links
 KERNEL=="mouse*", ENV{ID_BUS}=="?*", ENV{ID_CLASS}=="?*", SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-$env{ID_CLASS}"
