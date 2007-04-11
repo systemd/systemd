@@ -118,10 +118,12 @@ void selinux_setfscreatecon(const char *file, const char *devname, unsigned int 
 		char *media;
 		int ret = -1;
 
-		media = get_media(devname, mode);
-		if (media) {
-			ret = matchmediacon(media, &scontext);
-			free(media);
+		if (devname) {
+			media = get_media(devname, mode);
+			if (media) {
+				ret = matchmediacon(media, &scontext);
+				free(media);
+			}
 		}
 
 		if (ret < 0)
@@ -152,6 +154,8 @@ void selinux_init(void)
 	 * restoration creation purposes.
 	 */
 	if (is_selinux_running()) {
+		if (!udev_root[0])
+			err("selinux_init: udev_root not set\n");
 		matchpathcon_init_prefix(NULL, udev_root);
 		if (getfscreatecon(&prev_scontext) < 0) {
 			err("getfscreatecon failed\n");

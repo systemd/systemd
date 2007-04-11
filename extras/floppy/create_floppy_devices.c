@@ -155,6 +155,7 @@ int main(int argc, char **argv)
 	if (type == 0)
 		return 0;
 
+	udev_config_init();
 	selinux_init();
 
 	i = 0;
