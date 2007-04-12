@@ -36,14 +36,13 @@ int create_path(const char *path)
 	char *pos;
 	struct stat stats;
 
-	strcpy (p, path);
+	strlcpy(p, path, sizeof(p));
 	pos = strrchr(p, '/');
 	if (pos == p || pos == NULL)
 		return 0;
 
 	while (pos[-1] == '/')
 		pos--;
-
 	pos[0] = '\0';
 
 	dbg("stat '%s'\n", p);
@@ -54,7 +53,12 @@ int create_path(const char *path)
 		return -1;
 
 	dbg("mkdir '%s'\n", p);
-	return mkdir(p, 0755);
+	if (mkdir(p, 0755) == 0)
+		return 0;
+	if (errno == EEXIST)
+		if (stat(p, &stats) == 0 && (stats.st_mode & S_IFMT) == S_IFDIR)
+			return 0;
+	return -1;
 }
 
 int delete_path(const char *path)
