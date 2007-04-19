@@ -495,26 +495,49 @@ static int compare_devpath(const char *running, const char *waiting)
 	return 0;
 }
 
-/* returns still running task for the same device, its parent or its physical device */
-static int running_with_devpath(struct udevd_uevent_msg *msg, int limit)
+/* lookup event for identical, parent, child, or physical device */
+static int devpath_busy(struct udevd_uevent_msg *msg, int limit)
 {
 	struct udevd_uevent_msg *loop_msg;
 	int childs_count = 0;
 
-	list_for_each_entry(loop_msg, &running_list, node) {
-		if (limit && childs_count++ > limit) {
-			dbg("%llu, maximum number (%i) of child reached", msg->seqnum, childs_count);
-			return 1;
-		}
+	/* check exec-queue which may still contain delayed events we depend on */
+	list_for_each_entry(loop_msg, &exec_list, node) {
+		/* skip ourself and all later events */
+		if (loop_msg->seqnum >= msg->seqnum)
+			break;
 
-		/* return running parent/child device event */
+		/* check identical, parent, or child device event */
 		if (compare_devpath(loop_msg->devpath, msg->devpath) != 0) {
-			dbg("%llu, child device event still running %llu (%s)",
+			dbg("%llu, device event still pending %llu (%s)",
 			    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
 			return 2;
 		}
 
-		/* return running physical device event */
+		/* check physical device event (special case of parent) */
+		if (msg->physdevpath && msg->action && strcmp(msg->action, "add") == 0)
+			if (compare_devpath(loop_msg->devpath, msg->physdevpath) != 0) {
+				dbg("%llu, physical device event still pending %llu (%s)",
+				    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
+				return 3;
+			}
+	}
+
+	/* check runing-queue for still running events */
+	list_for_each_entry(loop_msg, &running_list, node) {
+		if (limit && childs_count++ > limit) {
+			dbg("%llu, maximum number (%i) of childs reached", msg->seqnum, childs_count);
+			return 1;
+		}
+
+		/* check identical, parent, or child device event */
+		if (compare_devpath(loop_msg->devpath, msg->devpath) != 0) {
+			dbg("%llu, device event still running %llu (%s)",
+			    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
+			return 2;
+		}
+
+		/* check physical device event (special case of parent) */
 		if (msg->physdevpath && msg->action && strcmp(msg->action, "add") == 0)
 			if (compare_devpath(loop_msg->devpath, msg->physdevpath) != 0) {
 				dbg("%llu, physical device event still running %llu (%s)",
@@ -522,11 +545,10 @@ static int running_with_devpath(struct udevd_uevent_msg *msg, int limit)
 				return 3;
 			}
 	}
-
 	return 0;
 }
 
-/* exec queue management routine executes the events and serializes events in the same sequence */
+/* serializes events for the identical and parent and child devices */
 static void msg_queue_manager(void)
 {
 	struct udevd_uevent_msg *loop_msg;
@@ -552,8 +574,8 @@ static void msg_queue_manager(void)
 			}
 		}
 
-		/* don't run two processes for the same devpath and wait for the parent*/
-		if (running_with_devpath(loop_msg, max_childs)) {
+		/* serialize and wait for parent or child events */
+		if (devpath_busy(loop_msg, max_childs) != 0) {
 			dbg("delay seq %llu (%s)", loop_msg->seqnum, loop_msg->devpath);
 			continue;
 		}
