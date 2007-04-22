@@ -1,25 +1,14 @@
 .TH PATH_ID 8 "April 2007" "" "Linux Administrator's Manual"
 .SH NAME
-path_id \- udev callout to provide the shortest possible unique hardware path
-to a device for the Linux Persistent Device Naming scheme
+path_id \- udev callout to create a device path based unique name
+for a device to implement the Linux Persistent Device Naming scheme
 .SH SYNOPSIS
-DEVPATH=<devpath>; path_id
-
 path_id <devpath>
 .SH "DESCRIPTION"
 .B path_id
-is normally called from a udev rule, to provide udev a unique hardware path for
-a device. Udev can use this information to create symlinks in /dev/ to the real
-device node.
-.SH EXAMPLES
-For all block devices on a system:
-
-.nf
-for i in `find /sys/class/block`
-do
-	DEVPATH="`echo $i | sed -e 's@^/sys\|/dev@@g'`"; path_id
-done
-.fi
+is normally called from a udev rule, to create a unique name, based on
+the device properties along the chain of parent devices. Udev uses this
+information to create a persistent symlink to the real device node.
 .SH SEE ALSO
 .BR udev (7)
 .SH AUTHORS
