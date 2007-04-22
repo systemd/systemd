@@ -45,7 +45,7 @@ uninstall-bin:
 .PHONY: uninstall-bin
 
 install-man:
-	@echo "Please create a man page for this tool."
+	$(INSTALL_DATA) -D $(PROG).8 $(DESTDIR)$(mandir)/man8/$(PROG).8
 .PHONY: install-man
 
 uninstall-man:
