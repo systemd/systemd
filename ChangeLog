@@ -1,3 +1,30 @@
+Summary of changes from v108 to v109
+============================================
+
+Harald Hoyer (1):
+      create_floppy_devices: create nodes with correct selinux context
+
+Kay Sievers (11):
+      udevtest: export ACTION string if given as option
+      update SUSE rules
+      make ACTION!="add|change" working
+      udevtest: import uevent variables if possible
+      udevinfo: export all information stored in database
+      default rules: add libata compat links
+      create_path: don't fail if something else created the directory
+      udevd: fix serialization of events
+      path_id: remove broken example
+      libvolume_id: do not install static library
+      update SUSE rules
+
+Matthias Schwarzott (2):
+      update Gentoo rules
+      persistent device naming: add joystick links
+
+VMiklos (1):
+      path_id: add man page
+
+
 Summary of changes from v107 to v108
 ============================================
 
