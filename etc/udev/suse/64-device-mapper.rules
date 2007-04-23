@@ -3,14 +3,15 @@
 
 KERNEL=="device-mapper", SYMLINK+="mapper/control"
 
-KERNEL=="dm-*", ACTION=="add|change", GOTO="device_mapper_do"
-GOTO="device_mapper_end"
+KERNEL!="dm-*", GOTO="device_mapper_end"
+ACTION!="add|change", GOTO="device_mapper_end"
 
-LABEL="device_mapper_do"
+# skip snapshot and error tables
 PROGRAM!="/sbin/dmsetup status -j %M -m %m", GOTO="device_mapper_end"
 RESULT=="|*snapshot*|*error*", GOTO="device_mapper_end"
 
 IMPORT{program}="vol_id --export $tempnode"
+OPTIONS="link_priority=-100"
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
 ENV{ID_FS_USAGE}=="filesystem|other", ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
 

@@ -91,7 +91,6 @@ KERNEL=="pktcdvd",		NAME="pktcdvd/control"
 KERNEL=="pktcdvd[0-9]*",	NAME="pktcdvd/%k"
 
 # additional floppy devices (no sysfs entries)
-KERNEL=="nvram", ACTION=="add", RUN+="load_floppy_module.sh"
 KERNEL=="fd[0-9]*", ACTION=="add", ATTRS{cmos}=="?*", RUN+="create_floppy_devices -c -t $attr{cmos} -m %M -M 0640 -G disk $root/%k"
 
 # block devices
@@ -130,6 +129,7 @@ KERNEL=="iseries/ibmsis*",	NAME="%k", GROUP="disk"
 
 # libusb device access
 SUBSYSTEM=="usb_device", ACTION=="add", PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", NAME="%c", MODE="0644"
+#SUBSYSTEM=="usb", ACTION=="add", ENV{DEVTYPE}=="usb_device", NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", MODE="0644"
 
 # kernel firmware loader
 SUBSYSTEM=="firmware", ACTION=="add", RUN+="firmware.sh"
