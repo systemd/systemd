@@ -137,6 +137,7 @@ struct name_entry {
 extern int log_priority(const char *priority);
 extern char *name_list_add(struct list_head *name_list, const char *name, int sort);
 extern char *name_list_key_add(struct list_head *name_list, const char *key, const char *value);
+extern int name_list_key_remove(struct list_head *name_list, const char *key);
 extern void name_list_cleanup(struct list_head *name_list);
 extern int add_matching_files(struct list_head *name_list, const char *dirname, const char *suffix);
 extern uid_t lookup_user(const char *user);

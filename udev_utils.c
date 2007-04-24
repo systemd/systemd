@@ -110,6 +110,26 @@ char *name_list_key_add(struct list_head *name_list, const char *key, const char
 	return new_name->name;
 }
 
+int name_list_key_remove(struct list_head *name_list, const char *key)
+{
+	struct name_entry *name_loop;
+	struct name_entry *temp_loop;
+	size_t keylen = strlen(key);
+	int retval = 0;
+
+	list_for_each_entry_safe(name_loop, temp_loop, name_list, node) {
+		if (strncmp(name_loop->name, key, keylen) != 0)
+			continue;
+		if (name_loop->name[keylen] != '=')
+			continue;
+		list_del(&name_loop->node);
+		free(name_loop);
+		retval = 1;
+		break;
+	}
+	return retval;
+}
+
 void name_list_cleanup(struct list_head *name_list)
 {
 	struct name_entry *name_loop;
