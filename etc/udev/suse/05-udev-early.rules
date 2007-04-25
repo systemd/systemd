@@ -1,3 +1,0 @@
-# sysfs is populated after the event is sent
-ACTION=="add", KERNEL=="[0-9]*:[0-9]*", SUBSYSTEM=="scsi", WAIT_FOR_SYSFS="ioerr_cnt"
-
