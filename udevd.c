@@ -667,6 +667,7 @@ static void get_ctrl_msg(void)
 	struct ucred *cred;
 	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
 	int *intval;
+	char *pos;
 
 	memset(&ctrl_msg, 0x00, sizeof(struct udevd_ctrl_msg));
 	iov.iov_base = &ctrl_msg;
@@ -703,6 +704,21 @@ static void get_ctrl_msg(void)
 	}
 
 	switch (ctrl_msg.type) {
+	case UDEVD_CTRL_ENV:
+		pos = strchr(ctrl_msg.buf, '=');
+		if (pos == NULL) {
+			err("wrong key format '%s'", ctrl_msg.buf);
+			break;
+		}
+		pos[0] = '\0';
+		if (pos[1] == '\0') {
+			info("udevd message (ENV) received, unset '%s'", ctrl_msg.buf);
+			unsetenv(ctrl_msg.buf);
+		} else {
+			info("udevd message (ENV) received, set '%s=%s'", ctrl_msg.buf, &pos[1]);
+			setenv(ctrl_msg.buf, &pos[1], 1);
+		}
+		break;
 	case UDEVD_CTRL_STOP_EXEC_QUEUE:
 		info("udevd message (STOP_EXEC_QUEUE) received");
 		stop_exec_q = 1;

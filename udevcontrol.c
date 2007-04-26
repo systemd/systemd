@@ -54,9 +54,9 @@ int main(int argc, char *argv[], char *envp[])
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
 	const char *env;
+	const char *arg;
 	const char *val;
 	int *intval;
-	int i;
 	int retval = 1;
 
 	env = getenv("UDEV_LOG");
@@ -70,67 +70,73 @@ int main(int argc, char *argv[], char *envp[])
 		fprintf(stderr, "missing command\n\n");
 		goto exit;
 	}
-
 	memset(&ctrl_msg, 0x00, sizeof(struct udevd_ctrl_msg));
 	strcpy(ctrl_msg.magic, UDEVD_CTRL_MAGIC);
+	arg = argv[1];
 
-	for (i = 1 ; i < argc; i++) {
-		char *arg = argv[i];
+	if (!strcmp(arg, "stop_exec_queue"))
+		ctrl_msg.type = UDEVD_CTRL_STOP_EXEC_QUEUE;
+	else if (!strcmp(arg, "start_exec_queue"))
+		ctrl_msg.type = UDEVD_CTRL_START_EXEC_QUEUE;
+	else if (!strcmp(arg, "reload_rules"))
+		ctrl_msg.type = UDEVD_CTRL_RELOAD_RULES;
+	else if (!strncmp(arg, "log_priority=", strlen("log_priority="))) {
+		intval = (int *) ctrl_msg.buf;
+		val = &arg[strlen("log_priority=")];
+		ctrl_msg.type = UDEVD_CTRL_SET_LOG_LEVEL;
+		*intval = log_priority(val);
+		info("send log_priority=%i", *intval);
+	} else if (!strncmp(arg, "max_childs=", strlen("max_childs="))) {
+		char *endp;
+		int count;
 
-		if (!strcmp(arg, "stop_exec_queue"))
-			ctrl_msg.type = UDEVD_CTRL_STOP_EXEC_QUEUE;
-		else if (!strcmp(arg, "start_exec_queue"))
-			ctrl_msg.type = UDEVD_CTRL_START_EXEC_QUEUE;
-		else if (!strcmp(arg, "reload_rules"))
-			ctrl_msg.type = UDEVD_CTRL_RELOAD_RULES;
-		else if (!strncmp(arg, "log_priority=", strlen("log_priority="))) {
-			intval = (int *) ctrl_msg.buf;
-			val = &arg[strlen("log_priority=")];
-			ctrl_msg.type = UDEVD_CTRL_SET_LOG_LEVEL;
-			*intval = log_priority(val);
-			info("send log_priority=%i", *intval);
-		} else if (!strncmp(arg, "max_childs=", strlen("max_childs="))) {
-			char *endp;
-			int count;
-
-			intval = (int *) ctrl_msg.buf;
-			val = &arg[strlen("max_childs=")];
-			ctrl_msg.type = UDEVD_CTRL_SET_MAX_CHILDS;
-			count = strtoul(val, &endp, 0);
-			if (endp[0] != '\0' || count < 1) {
-				fprintf(stderr, "invalid number\n");
-				goto exit;
-			}
-			*intval = count;
-			info("send max_childs=%i", *intval);
-		} else if (!strncmp(arg, "max_childs_running=", strlen("max_childs_running="))) {
-			char *endp;
-			int count;
-
-			intval = (int *) ctrl_msg.buf;
-			val = &arg[strlen("max_childs_running=")];
-			ctrl_msg.type = UDEVD_CTRL_SET_MAX_CHILDS_RUNNING;
-			count = strtoul(val, &endp, 0);
-			if (endp[0] != '\0' || count < 1) {
-				fprintf(stderr, "invalid number\n");
-				goto exit;
-			}
-			*intval = count;
-			info("send max_childs_running=%i", *intval);
-		} else if (strcmp(arg, "help") == 0  || strcmp(arg, "--help") == 0  || strcmp(arg, "-h") == 0) {
-			printf("Usage: udevcontrol COMMAND\n"
-				"  log_priority=<level>   set the udev log level for the daemon\n"
-				"  stop_exec_queue        keep udevd from executing events, queue only\n"
-				"  start_exec_queue       execute events, flush queue\n"
-				"  reload_rules           reloads the rules files\n"
-				"  max_childs=<N>         maximum number of childs\n"
-				"  max_childs_running=<N> maximum number of childs running at the same time\n"
-				"  help                   print this help text\n\n");
-			goto exit;
-		} else {
-			fprintf(stderr, "unrecognized command '%s'\n", arg);
+		intval = (int *) ctrl_msg.buf;
+		val = &arg[strlen("max_childs=")];
+		ctrl_msg.type = UDEVD_CTRL_SET_MAX_CHILDS;
+		count = strtoul(val, &endp, 0);
+		if (endp[0] != '\0' || count < 1) {
+			fprintf(stderr, "invalid number\n");
 			goto exit;
 		}
+		*intval = count;
+		info("send max_childs=%i", *intval);
+	} else if (!strncmp(arg, "max_childs_running=", strlen("max_childs_running="))) {
+		char *endp;
+		int count;
+
+		intval = (int *) ctrl_msg.buf;
+		val = &arg[strlen("max_childs_running=")];
+		ctrl_msg.type = UDEVD_CTRL_SET_MAX_CHILDS_RUNNING;
+		count = strtoul(val, &endp, 0);
+		if (endp[0] != '\0' || count < 1) {
+			fprintf(stderr, "invalid number\n");
+			goto exit;
+		}
+		*intval = count;
+		info("send max_childs_running=%i", *intval);
+	} else if (!strncmp(arg, "env", strlen("env"))) {
+		val = argv[2];
+		if (val == NULL) {
+			fprintf(stderr, "missing key\n");
+			goto exit;
+		}
+		ctrl_msg.type = UDEVD_CTRL_ENV;
+		strlcpy(ctrl_msg.buf, val, sizeof(ctrl_msg.buf));
+		info("send env '%s'", val);
+	} else if (strcmp(arg, "help") == 0  || strcmp(arg, "--help") == 0  || strcmp(arg, "-h") == 0) {
+		printf("Usage: udevcontrol COMMAND\n"
+			"  log_priority=<level>   set the udev log level for the daemon\n"
+			"  stop_exec_queue        keep udevd from executing events, queue only\n"
+			"  start_exec_queue       execute events, flush queue\n"
+			"  reload_rules           reloads the rules files\n"
+			"  env <var>=<value>      set a global environment variable\n"
+			"  max_childs=<N>         maximum number of childs\n"
+			"  max_childs_running=<N> maximum number of childs running at the same time\n"
+			"  help                   print this help text\n\n");
+		goto exit;
+	} else {
+		fprintf(stderr, "unrecognized command '%s'\n", arg);
+		goto exit;
 	}
 
 	if (getuid() != 0) {

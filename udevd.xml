@@ -105,6 +105,12 @@
             </listitem>
           </varlistentry>
           <varlistentry>
+            <term><option>env <replaceable>var</replaceable>=<replaceable>value</replaceable></option></term>
+            <listitem>
+              <para>Set global variable.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
             <term><option>max_childs</option></term>
             <listitem>
               <para>Set the maximum number of events, udevd will handle at the

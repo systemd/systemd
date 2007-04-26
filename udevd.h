@@ -46,6 +46,7 @@ enum udevd_ctrl_msg_type {
 	UDEVD_CTRL_SET_MAX_CHILDS,
 	UDEVD_CTRL_SET_MAX_CHILDS_RUNNING,
 	UDEVD_CTRL_RELOAD_RULES,
+	UDEVD_CTRL_ENV,
 };
 
 struct udevd_ctrl_msg {
