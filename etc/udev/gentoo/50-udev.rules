@@ -170,7 +170,7 @@ KERNEL=="hiddev*",		NAME="usb/%k"
 KERNEL=="auer*",		NAME="usb/%k"
 KERNEL=="legousbtower*",	NAME="usb/%k", GROUP="usb"
 KERNEL=="dabusb*",		NAME="usb/%k"
-BUS=="usb", KERNEL=="lp[0-9]*",	NAME="usb/%k", GROUP="lp"
+KERNEL=="lp[0-9]*",	SUBSYSTEM=="usb",	NAME="usb/%k", GROUP="lp"
 
 # v4l devices
 KERNEL=="video[0-9]*",	NAME="v4l/video%n", SYMLINK+="video%n", GROUP="video"

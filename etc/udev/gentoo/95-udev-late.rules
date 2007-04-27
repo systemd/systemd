@@ -13,9 +13,6 @@
 SUBSYSTEM=="net", ACTION=="add",    RUN+="net.sh %k start"
 SUBSYSTEM=="net", ACTION=="remove", RUN+="net.sh %k stop"
 
-# debug events to /events, but not on default udev_log="err"
-ENV{UDEV_LOG}=="[4-9]", RUN+="eventrecorder.sh"
-
 # event to be catched by udevmonitor
 RUN+="socket:/org/kernel/udev/monitor"
 
