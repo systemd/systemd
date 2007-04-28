@@ -65,9 +65,6 @@ KERNEL=="hw_random",            NAME="hwrng", SYMLINK+="%k"
 KERNEL=="nvram",		MODE="0660"
 KERNEL=="rtc",			MODE="0644"
 
-# pnp devices
-ACTION=="add", SUBSYSTEM=="pnp", RUN+="/bin/sh -c 'while read id; do /lib/udev/modprobe pnp:d$$id; done < /sys/$devpath/id'"
-
 # floppy devices
 KERNEL=="fd[01]*",		GROUP="floppy", MODE="0660"
 # fix floppy devices
@@ -230,6 +227,7 @@ KERNEL=="zap[0-9]*",  		NAME="zap/%n"
 
 KERNEL=="pktcdvd", NAME="%k/control"
 
+
 KERNEL=="hd*[!0-9]", ATTR{removable}=="1", \
 	ATTR{media}=="floppy", \
 	SYMLINK+="floppy floppy-%k", OPTIONS+="ignore_remove, all_partitions"
@@ -250,6 +248,7 @@ KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k DVD-R", SYMLINK+="d
 KERNEL=="sr[0-9]*", BUS=="scsi", NAME="scd%n"
 KERNEL=="hd*[0-9]", BUS=="ide", ATTRS{removable}=="1", \
 	OPTIONS+="ignore_remove"
+
 
 
 #######################################
@@ -311,9 +310,6 @@ ACTION=="add", SUBSYSTEM=="usb_device", \
 	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", \
 	NAME="%c", MODE="0644"
 
-ACTION=="add", SUBSYSTEM=="?*", ENV{MODALIAS}=="?*", RUN+="modprobe $env{MODALIAS}"
-
-ACTION=="add", SUBSYSTEM=="pcmcia", ENV{MODALIAS}=="?*", RUN+="/bin/sh -c 'echo 1 > /sys/$DEVPATH/allow_func_id_match'"
 
 # sd:           0 TYPE_DISK, 7 TYPE_MOD, 14 TYPE_RBC
 # sr:           4 TYPE_WORM, 5 TYPE_ROM
@@ -346,6 +342,7 @@ ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="1", ATTRS{vendor}!="On[sS
 
 # mmc block devices
 ACTION=="add", SUBSYSTEM=="mmc", RUN+="modprobe mmc_block"
+
 
 RUN+="socket:/org/kernel/udev/monitor"
 
