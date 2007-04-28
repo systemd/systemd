@@ -120,8 +120,13 @@ int main(int argc, char *argv[])
 	}
 
 	if (ioctl(fd, HDIO_GET_IDENTITY, &id)) {
-		err("HDIO_GET_IDENTITY failed for '%s'", node);
-		rc = 3;
+		if (errno == ENOTTY) {
+			info("HDIO_GET_IDENTITY unsupported for '%s'", node);
+			rc = 2;
+		} else {
+			err("HDIO_GET_IDENTITY failed for '%s'", node);
+			rc = 3;
+		}
 		goto close;
 	}
 
