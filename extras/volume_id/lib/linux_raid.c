@@ -78,9 +78,15 @@ static int volume_id_probe_linux_raid0(struct volume_id *id, uint64_t off, uint6
 
 	if (le32_to_cpu(mdp0->md_magic) == MD_SB_MAGIC) {
 		uuid.ints[0] = bswap_32(mdp0->set_uuid0);
-		uuid.ints[1] = bswap_32(mdp0->set_uuid1);
-		uuid.ints[2] = bswap_32(mdp0->set_uuid2);
-		uuid.ints[3] = bswap_32(mdp0->set_uuid3);
+		if (le32_to_cpu(mdp0->minor_version >= 90)) {
+			uuid.ints[1] = bswap_32(mdp0->set_uuid1);
+			uuid.ints[2] = bswap_32(mdp0->set_uuid2);
+			uuid.ints[3] = bswap_32(mdp0->set_uuid3);
+		} else {
+			uuid.ints[1] = 0;
+			uuid.ints[2] = 0;
+			uuid.ints[3] = 0;
+		}
 		volume_id_set_uuid(id, uuid.bytes, UUID_DCE);
 		snprintf(id->type_version, sizeof(id->type_version)-1, "%u.%u.%u",
 			 le32_to_cpu(mdp0->major_version),
@@ -88,9 +94,15 @@ static int volume_id_probe_linux_raid0(struct volume_id *id, uint64_t off, uint6
 			 le32_to_cpu(mdp0->patch_version));
 	} else if (be32_to_cpu(mdp0->md_magic) == MD_SB_MAGIC) {
 		uuid.ints[0] = mdp0->set_uuid0;
-		uuid.ints[1] = mdp0->set_uuid1;
-		uuid.ints[2] = mdp0->set_uuid2;
-		uuid.ints[3] = mdp0->set_uuid3;
+		if (be32_to_cpu(mdp0->minor_version >= 90)) {
+			uuid.ints[1] = mdp0->set_uuid1;
+			uuid.ints[2] = mdp0->set_uuid2;
+			uuid.ints[3] = mdp0->set_uuid3;
+		} else {
+			uuid.ints[1] = 0;
+			uuid.ints[2] = 0;
+			uuid.ints[3] = 0;
+		}
 		volume_id_set_uuid(id, uuid.bytes, UUID_DCE);
 		snprintf(id->type_version, sizeof(id->type_version)-1, "%u.%u.%u",
 			 be32_to_cpu(mdp0->major_version),
