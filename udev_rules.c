@@ -532,7 +532,7 @@ found:
 			}
 			break;
 		case SUBST_TEMP_NODE:
-			if (udev->tmp_node[0] == '\0') {
+			if (udev->tmp_node[0] == '\0' && major(udev->devt) > 0) {
 				dbg("create temporary device node for callout");
 				snprintf(udev->tmp_node, sizeof(udev->tmp_node), "%s/.tmp-%u-%u",
 					 udev_root, major(udev->devt), minor(udev->devt));
