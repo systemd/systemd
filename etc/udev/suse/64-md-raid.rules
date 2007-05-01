@@ -1,5 +1,6 @@
 # md links hook into "change" events, when the array becomes available
 
+SUBSYSTEM!="block", GOTO="md_end"
 KERNEL!="md[0-9]*", GOTO="md_end"
 ACTION!="add|change", GOTO="md_end"
 
