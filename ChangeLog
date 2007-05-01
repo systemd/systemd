@@ -1,3 +1,30 @@
+Summary of changes from v109 to v110
+============================================
+
+Harald Hoyer (1):
+      udevcontrol: allow to set global variables in udevd
+
+Kay Sievers (13):
+      remove eventrecorder.sh
+      update SUSE rules
+      volume_id: add md metadata 1.0, 1.1, 1.2 support
+      unset variable with ENV{VAR}=""
+      delete copies of default rules in SUSE rules
+      volume_id: ext - fix endianess in version number
+      rules: Fedora update
+      volume_id: old md metadata has only 32 bit for the uuid
+      volume_id: minix version 3 support
+      don't create $tempnode for devices without major
+      usb_id: add <devpath> to help text
+      ata_id: use getopt_long()
+      rules: SUSE update
+
+Matthias Schwarzott (3):
+      Makefile: respect CFLAGS/LDFLAGS
+      rules: Gentoo update
+      ata_id: don't log error for libata devices on older kernels
+
+
 Summary of changes from v108 to v109
 ============================================
 
