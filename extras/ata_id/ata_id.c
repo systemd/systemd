@@ -19,6 +19,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <errno.h>
+#include <getopt.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -91,22 +92,40 @@ int main(int argc, char *argv[])
 	char serial[21];
 	char revision[9];
 	const char *node = NULL;
-	int i;
 	int export = 0;
 	int fd;
 	int rc = 0;
+	static const struct option options[] = {
+		{ "export", 0, NULL, 'x' },
+		{ "help", 0, NULL, 'h' },
+		{}
+	};
 
 	logging_init("ata_id");
 
-	for (i = 1 ; i < argc; i++) {
-		char *arg = argv[i];
+	while (1) {
+		int option;
 
-		if (strcmp(arg, "--export") == 0) {
+		option = getopt_long(argc, argv, "xh", options, NULL);
+		if (option == -1)
+			break;
+
+		switch (option) {
+		case 'x':
 			export = 1;
-		} else
-			node = arg;
+			break;
+		case 'h':
+			printf("Usage: ata_id [--export] [--help] <device>\n"
+			       "  --export    print values as environemt keys\n"
+			       "  --help      print this help text\n\n");
+		default:
+			rc = 1;
+			goto exit;
+		}
 	}
-	if (!node) {
+
+	node = argv[optind];
+	if (node == NULL) {
 		err("no node specified");
 		rc = 1;
 		goto exit;
