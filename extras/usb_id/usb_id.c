@@ -368,10 +368,6 @@ int main(int argc, char **argv)
 	const char *env;
 	char devpath[MAX_PATH_LEN];
 	static int export;
-
-	logging_init("usb_id");
-	sysfs_init();
-
 	static const struct option options[] = {
 		{ "usb-info", 0, NULL, 'u' },
 		{ "num-info", 0, NULL, 'n' },
@@ -379,6 +375,9 @@ int main(int argc, char **argv)
 		{ "help", 0, NULL, 'h' },
 		{}
 	};
+
+	logging_init("usb_id");
+	sysfs_init();
 
 	while (1) {
 		int option;
@@ -399,7 +398,7 @@ int main(int argc, char **argv)
 			export = 1;
 			break;
 		case 'h':
-			printf("Usage: usb_id [--usb-info] [--num-info] [--export] [--help]\n"
+			printf("Usage: usb_id [--usb-info] [--num-info] [--export] [--help] <devpath>\n"
 			       "  --usb-info  use usb strings instead\n"
 			       "  --num-info  use numerical values\n"
 			       "  --export    print values as environemt keys\n"
