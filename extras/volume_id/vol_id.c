@@ -31,6 +31,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <getopt.h>
+#include <fcntl.h>
 #include <sys/ioctl.h>
 
 #include "../../udev.h"
@@ -133,12 +134,14 @@ int main(int argc, char *argv[])
 	} print = PRINT_EXPORT;
 
 	struct volume_id *vid = NULL;
-	static char name[VOLUME_ID_LABEL_SIZE];
+	char name[128];
 	uint64_t size;
 	int skip_raid = 0;
 	int probe_all = 0;
 	const char *node;
 	struct passwd *pw;
+	int fd;
+	const char *label, *uuid, *type, *type_version, *usage;
 	int retval;
 	int rc = 0;
 
@@ -201,14 +204,20 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	vid = volume_id_open_node(node);
-	if (vid == NULL) {
-		fprintf(stderr, "%s: error open volume\n", node);
+	fd = open(node, O_RDONLY);
+	if (fd < 0) {
+		fprintf(stderr, "%s: error opening volume\n", node);
 		rc = 2;
 		goto exit;
 	}
 
-	if (ioctl(vid->fd, BLKGETSIZE64, &size) != 0)
+	vid = volume_id_open_fd(fd);
+	if (vid == NULL) {
+		rc = 2;
+		goto exit;
+	}
+
+	if (ioctl(fd, BLKGETSIZE64, &size) != 0)
 		size = 0;
 	dbg("BLKGETSIZE64=%llu", (unsigned long long)size);
 
@@ -228,74 +237,107 @@ int main(int argc, char *argv[])
 
 	if (probe_all) {
 		if (volume_id_probe_linux_raid(vid, 0, size) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_intel_software_raid(vid, 0, size) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_lsi_mega_raid(vid, 0, size) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_via_raid(vid, 0, size) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_silicon_medley_raid(vid, 0, size) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_nvidia_raid(vid, 0, size) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_promise_fasttrack_raid(vid, 0, size) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_highpoint_45x_raid(vid, 0, size) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_adaptec_raid(vid, 0, size) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_jmicron_raid(vid, 0, size) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_vfat(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_linux_swap(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_luks(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_xfs(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_ext(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_reiserfs(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_jfs(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_udf(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_iso9660(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_hfs_hfsplus(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_ufs(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_ntfs(vid, 0, 0)  == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_cramfs(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_romfs(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_hpfs(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_sysv(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_minix(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_ocfs1(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_ocfs2(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_vxfs(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_squashfs(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_netware(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_gfs(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		if (volume_id_probe_gfs2(vid, 0, 0) == 0)
-			printf("%s\n", vid->type);
-
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
 		goto exit;
 	}
 
@@ -309,41 +351,49 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	set_str(name, vid->label, sizeof(vid->label));
+	if (!volume_id_get_label(vid, &label) ||
+	    !volume_id_get_usage(vid, &usage) ||
+	    !volume_id_get_type(vid, &type) ||
+	    !volume_id_get_type_version(vid, &type_version) ||
+	    !volume_id_get_uuid(vid, &uuid)) {
+		rc = 4;
+		goto exit;
+	}
+	set_str(name, label, sizeof(name));
 	replace_untrusted_chars(name);
 
 	switch (print) {
 	case PRINT_EXPORT:
-		printf("ID_FS_USAGE=%s\n", vid->usage);
-		printf("ID_FS_TYPE=%s\n", vid->type);
-		printf("ID_FS_VERSION=%s\n", vid->type_version);
-		printf("ID_FS_UUID=%s\n", vid->uuid);
-		printf("ID_FS_LABEL=%s\n", vid->label);
+		printf("ID_FS_USAGE=%s\n", usage);
+		printf("ID_FS_TYPE=%s\n", type);
+		printf("ID_FS_VERSION=%s\n", type_version);
+		printf("ID_FS_UUID=%s\n", uuid);
+		printf("ID_FS_LABEL=%s\n", label);
 		printf("ID_FS_LABEL_SAFE=%s\n", name);
 		break;
 	case PRINT_TYPE:
-		printf("%s\n", vid->type);
+		printf("%s\n", type);
 		break;
 	case PRINT_LABEL:
-		if (name[0] == '\0' || vid->usage_id == VOLUME_ID_RAID) {
+		if (name[0] == '\0' || strcmp(usage, "raid") == 0) {
 			rc = 3;
 			goto exit;
 		}
 		printf("%s\n", name);
 		break;
 	case PRINT_UUID:
-		if (vid->uuid[0] == '\0' || vid->usage_id == VOLUME_ID_RAID) {
+		if (uuid[0] == '\0' || strcmp(usage, "raid") == 0) {
 			rc = 4;
 			goto exit;
 		}
-		printf("%s\n", vid->uuid);
+		printf("%s\n", uuid);
 		break;
 	case PRINT_LABEL_RAW:
-		if (vid->label[0] == '\0' || vid->usage_id == VOLUME_ID_RAID) {
+		if (label[0] == '\0' || strcmp(usage, "raid") == 0) {
 			rc = 3;
 			goto exit;
 		}
-		printf("%s\n", vid->label);
+		printf("%s\n", label);
 		break;
 	}
 
