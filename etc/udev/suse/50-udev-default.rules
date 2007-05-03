@@ -71,6 +71,7 @@ KERNEL=="full",			MODE="622"
 KERNEL=="random",		MODE="666"
 KERNEL=="urandom",		MODE="644"
 KERNEL=="rtc",			MODE="600"
+KERNEL=="fuse",			MODE="0666"
 KERNEL=="sonypi",		MODE="0666"
 KERNEL=="agpgart",		MODE="0600", GROUP="video"
 KERNEL=="djs*",			MODE="644"
@@ -128,8 +129,8 @@ KERNEL=="iseries/nvt*",		NAME="%k", GROUP="disk"
 KERNEL=="iseries/ibmsis*",	NAME="%k", GROUP="disk"
 
 # libusb device access
+SUBSYSTEM=="usb", ACTION=="add", ENV{DEVTYPE}=="usb_device", NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", MODE="0644"
 SUBSYSTEM=="usb_device", ACTION=="add", PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", NAME="%c", MODE="0644"
-#SUBSYSTEM=="usb", ACTION=="add", ENV{DEVTYPE}=="usb_device", NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", MODE="0644"
 
 # kernel firmware loader
 SUBSYSTEM=="firmware", ACTION=="add", RUN+="firmware.sh"
