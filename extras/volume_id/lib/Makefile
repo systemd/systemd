@@ -69,7 +69,7 @@ all: libvolume_id.a $(SHLIB) libvolume_id.pc
 .shlib:
 	$(Q) mkdir .shlib
 
-.shlib/%.o: %.c
+.shlib/%.o: %.c .shlib
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) -fPIC $< -o $@
 
