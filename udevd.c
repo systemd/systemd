@@ -318,61 +318,42 @@ static void msg_queue_insert(struct udevd_uevent_msg *msg)
 
 static int mem_size_mb(void)
 {
-	int f;
-	char buf[8192];
-	long int len;
-	const char *pos;
-	long int memsize;
+	FILE* f;
+	char buf[4096];
+	long int memsize = -1;
 
-	f = open("/proc/meminfo", O_RDONLY);
-	if (f == -1)
+	f = fopen("/proc/meminfo", "r");
+	if (f == NULL)
 		return -1;
 
-	len = read(f, buf, sizeof(buf)-1);
-	close(f);
+	while (fgets(buf, sizeof(buf), f) != NULL) {
+		long int value;
 
-	if (len <= 0)
-		return -1;
-	buf[len] = '\0';
+		if (sscanf(buf, "MemTotal: %ld kB", &value) == 1) {
+			memsize = value / 1024;
+			break;
+		}
+	}
 
-	pos = strstr(buf, "MemTotal: ");
-	if (pos == NULL)
-		return -1;
-
-	if (sscanf(pos, "MemTotal: %ld kB", &memsize) != 1)
-		return -1;
-
-	return memsize / 1024;
+	return memsize;
 }
 
 static int cpu_count(void)
 {
-	int f;
-	char buf[65536];
-	int len;
-	const char *pos;
+	FILE* f;
+	char buf[4096];
 	int count = 0;
 
-	f = open("/proc/stat", O_RDONLY);
-	if (f == -1)
+	f = fopen("/proc/stat", "r");
+	if (f == NULL)
 		return -1;
 
-	len = read(f, buf, sizeof(buf)-1);
-	close(f);
-	if (len <= 0)
-		return -1;
-	buf[len] = '\0';
-
-	pos = strstr(buf, "cpu");
-	if (pos == NULL)
-		return -1;
-
-	while (pos != NULL) {
-		if (strncmp(pos, "cpu", 3) == 0 &&isdigit(pos[3]))
+	while (fgets(buf, sizeof(buf), f) != NULL) {
+		if (strncmp(buf, "cpu", 3) == 0 && isdigit(buf[3]))
 			count++;
-		pos = strstr(&pos[3], "cpu");
 	}
 
+	fclose(f);
 	if (count == 0)
 		return -1;
 	return count;
@@ -380,29 +361,24 @@ static int cpu_count(void)
 
 static int running_processes(void)
 {
-	int f;
-	char buf[32768];
-	int len;
-	int running;
-	const char *pos;
+	FILE* f;
+	char buf[4096];
+	int running = -1;
 
-	f = open("/proc/stat", O_RDONLY);
-	if (f == -1)
+	f = fopen("/proc/stat", "r");
+	if (f == NULL)
 		return -1;
 
-	len = read(f, buf, sizeof(buf)-1);
-	close(f);
-	if (len <= 0)
-		return -1;
-	buf[len] = '\0';
+	while (fgets(buf, sizeof(buf), f) != NULL) {
+		int value;
 
-	pos = strstr(buf, "procs_running ");
-	if (pos == NULL)
-		return -1;
+		if (sscanf(buf, "procs_running %u", &value) == 1) {
+			running = value;
+			break;
+		}
+	}
 
-	if (sscanf(pos, "procs_running %u", &running) != 1)
-		return -1;
-
+	fclose(f);
 	return running;
 }
 
