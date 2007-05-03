@@ -5,13 +5,15 @@ SUBSYSTEM=="drivers",		OPTIONS="ignore_device"
 SUBSYSTEM=="module",		OPTIONS="ignore_device"
 
 
-ACTION=="add", SUBSYSTEM=="?*", ENV{MODALIAS}=="?*", RUN+="modprobe $env{MODALIAS}", OPTIONS="last_rule"
+ACTION=="add", SUBSYSTEM=="?*", ENV{MODALIAS}=="?*", RUN+="modprobe $env{MODALIAS}", GOTO="skip_wait"
 
 # pnp devices
-ACTION=="add", SUBSYSTEM=="pnp", RUN+="/bin/sh -c 'while read id; do /lib/udev/modprobe pnp:d$$id; done < /sys/$devpath/id'", OPTIONS="last_rule"
+ACTION=="add", SUBSYSTEM=="pnp", RUN+="/bin/sh -c 'while read id; do /lib/udev/modprobe pnp:d$$id; done < /sys/$devpath/id'"
 
 ACTION=="add", SUBSYSTEM=="net", WAIT_FOR_SYSFS="address"
 
 ACTION=="add", SUBSYSTEM=="scsi", WAIT_FOR_SYSFS="ioerr_cnt"
+
+LABEL="skip_wait"
 
 ACTION=="add", SUBSYSTEM=="firmware", ENV{FIRMWARE}=="*", RUN="/sbin/firmware_helper", OPTIONS="last_rule"

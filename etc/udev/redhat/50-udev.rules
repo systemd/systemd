@@ -206,7 +206,7 @@ KERNEL=="tty0",			SYMLINK+="systty"
 KERNEL=="vbi0",			SYMLINK+="vbi"
 KERNEL=="null",			SYMLINK+="XOR"
 
-KERNEL=="tun",			NAME="net/%k"
+KERNEL=="tun",			NAME="net/%k", MODE="0666"
 
 KERNEL=="device-mapper",	NAME="mapper/control"
 
