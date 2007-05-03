@@ -26,9 +26,13 @@
         <cmdsynopsis>
           <command>vol_id</command>
           <arg><option>--export</option></arg>
-          <arg><option>-t</option></arg>
-          <arg><option>-l</option></arg>
-          <arg><option>-u</option></arg>
+          <arg><option>--type</option></arg>
+          <arg><option>--label</option></arg>
+          <arg><option>--label-raw</option></arg>
+          <arg><option>--uuid</option></arg>
+          <arg><option>--skip-raid</option></arg>
+          <arg><option>--probe-all</option></arg>
+          <arg><option>--help</option></arg>
           <arg><replaceable>device</replaceable></arg>
         </cmdsynopsis>
       </refsynopsisdiv>
@@ -36,8 +40,8 @@
       <refsect1><title>DESCRIPTION</title>
         <para><command>vol_id</command> is usually called from a udev rule, to
         provide udev with the filesystem type, the label and the uuid of a
-        volume. <command>vol_id</command> supports all common filesystem formats
-        and detects various raid setups to prevent the recognition of raid members
+        volume. It supports most of the common filesystem formats and detects
+        various raid setups to prevent the recognition of raid members
         as a volume with a filesystem.</para>
       </refsect1>
 
@@ -46,37 +50,55 @@
           <varlistentry>
             <term><option>--export</option></term>
             <listitem>
-              <para>print all values in key/value format to import them into the
+              <para>Print all values in key/value format to import them into the
               environment.</para>
             </listitem>
           </varlistentry>
           <varlistentry>
-            <term><option>-t</option></term>
+            <term><option>--type</option></term>
             <listitem>
-              <para>print the filesystem type</para>
+              <para>Print the filesystem type.</para>
             </listitem>
           </varlistentry>
           <varlistentry>
-            <term><option>-l</option></term>
+            <term><option>--label</option></term>
             <listitem>
-	      <para>
-		print the safe version of volume label suitable for
-		use as filename. Use <option>-L</option> to print literal label
-	      </para>
+              <para>
+                Print the safe version of volume label suitable for
+                use as filename.
+              </para>
             </listitem>
           </varlistentry>
           <varlistentry>
-            <term><option>-u</option></term>
+            <term><option>--label-raw</option></term>
             <listitem>
-              <para>print the uuid of a volume</para>
+              <para>
+                Print the raw volume label.
+              </para>
             </listitem>
           </varlistentry>
           <varlistentry>
-            <term><option>-L</option></term>
+            <term><option>--uuid</option></term>
             <listitem>
-	      <para>
-		print raw volume label
-	      </para>
+              <para>Print the uuid of a volume.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--skip-raid</option></term>
+            <listitem>
+              <para>Skip detection of raid metadata.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--probe-all</option></term>
+            <listitem>
+              <para>Probe for all types and print all matches.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--help</option></term>
+            <listitem>
+              <para>Print usage.</para>
             </listitem>
           </varlistentry>
         </variablelist>

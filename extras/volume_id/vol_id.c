@@ -30,6 +30,7 @@
 #include <errno.h>
 #include <pwd.h>
 #include <grp.h>
+#include <getopt.h>
 #include <sys/ioctl.h>
 
 #include "../../udev.h"
@@ -111,30 +112,32 @@ static void set_str(char *to, const char *from, size_t count)
 
 int main(int argc, char *argv[])
 {
-	const char help[] = "Usage: vol_id [options] <device>\n"
-			    " --export        export key/value pairs\n"
-			    "  -t             filesystem type\n"
-			    "  -l             filesystem label\n"
-			    "  -u             filesystem uuid\n"
-			    "  -L             raw label\n"
-			    " --skip-raid     don't probe for raid\n"
-			    " --probe-all     find possibly conflicting signatures\n"
-			    " --help\n"
-			    "\n";
+	static const struct option options[] = {
+		{ "label", 0, NULL, 'l' },
+		{ "label-raw", 0, NULL, 'L' },
+		{ "uuid", 0, NULL, 'u' },
+		{ "type", 0, NULL, 't' },
+		{ "export", 0, NULL, 'x' },
+		{ "skip-raid", 0, NULL, 's' },
+		{ "probe-all", 0, NULL, 'a' },
+		{ "help", 0, NULL, 'h' },
+		{}
+	};
+
 	enum print_type {
 		PRINT_EXPORT,
 		PRINT_TYPE,
 		PRINT_LABEL,
 		PRINT_UUID,
-		PRINT_RAW_LABEL,
+		PRINT_LABEL_RAW,
 	} print = PRINT_EXPORT;
+
 	struct volume_id *vid = NULL;
 	static char name[VOLUME_ID_LABEL_SIZE];
-	int i;
 	uint64_t size;
 	int skip_raid = 0;
 	int probe_all = 0;
-	const char *node = NULL;
+	const char *node;
 	struct passwd *pw;
 	int retval;
 	int rc = 0;
@@ -144,32 +147,56 @@ int main(int argc, char *argv[])
 	/* hook in our debug into libvolume_id */
 	volume_id_log_fn = vid_log;
 
-	for (i = 1 ; i < argc; i++) {
-		char *arg = argv[i];
+	while (1) {
+		int option;
 
-		if (strcmp(arg, "--export") == 0) {
-			print = PRINT_EXPORT;
-		} else if (strcmp(arg, "-t") == 0) {
-			print = PRINT_TYPE;
-		} else if (strcmp(arg, "-l") == 0) {
+		option = getopt_long(argc, argv, "lLutxsah", options, NULL);
+		if (option == -1)
+			break;
+
+		switch (option) {
+		case 'l':
 			print = PRINT_LABEL;
-		} else if (strcmp(arg, "-u") == 0) {
+			break;
+		case 'L':
+			print = PRINT_LABEL_RAW;
+			break;
+		case 'u':
 			print = PRINT_UUID;
-		} else if (strcmp(arg, "-L") == 0) {
-			print = PRINT_RAW_LABEL;
-		} else if (strcmp(arg, "--skip-raid") == 0) {
+			break;
+		case 't':
+			print = PRINT_TYPE;
+			break;
+		case 'x':
+			print = PRINT_EXPORT;
+			break;
+		case 's':
 			skip_raid = 1;
-		} else if (strcmp(arg, "--probe-all") == 0) {
+			break;
+		case 'a':
 			probe_all = 1;
-		} else if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
-			printf(help);
+			break;
+		case 'h':
+			printf("Usage: vol_id [options] <device>\n"
+			    " --export        export key/value pairs\n"
+			    " --type          filesystem type\n"
+			    " --label         filesystem label\n"
+			    " --label-raw     raw label\n"
+			    " --uuid          filesystem uuid\n"
+			    " --skip-raid     don't probe for raid\n"
+			    " --probe-all     find possibly conflicting signatures\n"
+			    " --help\n\n");
 			goto exit;
-		} else
-			node = arg;
+		default:
+			retval = 1;
+			goto exit;
+		}
 	}
+
+	node = argv[optind];
 	if (!node) {
-		err("no node specified");
-		fprintf(stderr, help);
+		err("no device");
+		fprintf(stderr, "no device\n");
 		rc = 1;
 		goto exit;
 	}
@@ -311,7 +338,7 @@ int main(int argc, char *argv[])
 		}
 		printf("%s\n", vid->uuid);
 		break;
-	case PRINT_RAW_LABEL:
+	case PRINT_LABEL_RAW:
 		if (vid->label[0] == '\0' || vid->usage_id == VOLUME_ID_RAID) {
 			rc = 3;
 			goto exit;

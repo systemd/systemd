@@ -14,40 +14,51 @@
 vol_id \- probe filesystem type and read label and uuid
 .SH "SYNOPSIS"
 .HP 7
-\fBvol_id\fR [\fB\-\-export\fR] [\fB\-t\fR] [\fB\-l\fR] [\fB\-u\fR] [\fIdevice\fR]
+\fBvol_id\fR [\fB\-\-export\fR] [\fB\-\-type\fR] [\fB\-\-label\fR] [\fB\-\-label\-raw\fR] [\fB\-\-uuid\fR] [\fB\-\-skip\-raid\fR] [\fB\-\-probe\-all\fR] [\fB\-\-help\fR] [\fIdevice\fR]
 .SH "DESCRIPTION"
 .PP
 \fBvol_id\fR
-is usually called from a udev rule, to provide udev with the filesystem type, the label and the uuid of a volume.
-\fBvol_id\fR
-supports all common filesystem formats and detects various raid setups to prevent the recognition of raid members as a volume with a filesystem.
+is usually called from a udev rule, to provide udev with the filesystem type, the label and the uuid of a volume. It supports most of the common filesystem formats and detects various raid setups to prevent the recognition of raid members as a volume with a filesystem.
 .SH "OPTIONS"
 .PP
 \fB\-\-export\fR
 .RS 4
-print all values in key/value format to import them into the environment.
+Print all values in key/value format to import them into the environment.
 .RE
 .PP
-\fB\-t\fR
+\fB\-\-type\fR
 .RS 4
-print the filesystem type
+Print the filesystem type.
 .RE
 .PP
-\fB\-l\fR
+\fB\-\-label\fR
 .RS 4
-print the safe version of volume label suitable for use as filename. Use
-\fB\-L\fR
-to print literal label
+Print the safe version of volume label suitable for use as filename.
 .RE
 .PP
-\fB\-u\fR
+\fB\-\-label\-raw\fR
 .RS 4
-print the uuid of a volume
+Print the raw volume label.
 .RE
 .PP
-\fB\-L\fR
+\fB\-\-uuid\fR
 .RS 4
-print raw volume label
+Print the uuid of a volume.
+.RE
+.PP
+\fB\-\-skip\-raid\fR
+.RS 4
+Skip detection of raid metadata.
+.RE
+.PP
+\fB\-\-probe\-all\fR
+.RS 4
+Probe for all types and print all matches.
+.RE
+.PP
+\fB\-\-help\fR
+.RS 4
+Print usage.
 .RE
 .SH "ENVIRONMENT"
 .PP
