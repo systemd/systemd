@@ -1,5 +1,14 @@
 { global:
 	volume_id_log_fn;
+
+	volume_id_get_label;
+	volume_id_get_label_raw;
+	volume_id_get_uuid;
+	volume_id_get_uuid_raw;
+	volume_id_get_usage;
+	volume_id_get_type;
+	volume_id_get_type_version;
+
 	volume_id_open_fd;
 	volume_id_open_node;
 	volume_id_probe_all;

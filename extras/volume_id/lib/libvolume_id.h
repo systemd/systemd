@@ -1,7 +1,7 @@
 /*
  * volume_id - reads volume label and uuid
  *
- * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005-2007 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -13,11 +13,6 @@
 
 #include <stdint.h>
 #include <stddef.h>
-
-#ifndef PACKED
-#define PACKED				__attribute__((packed))
-#endif
-
 
 typedef void (*volume_id_log_fn_t)(int priority, const char *file, int line, const char *format, ...)
 	     __attribute__ ((format(printf, 4, 5)));
@@ -60,6 +55,14 @@ struct volume_id {
 	size_t		seekbuf_len;
 	int		fd_close:1;
 };
+
+extern int volume_id_get_label(struct volume_id *id, const char **label);
+extern int volume_id_get_label_raw(struct volume_id *id, const uint8_t **label, size_t *len);
+extern int volume_id_get_uuid(struct volume_id *id, const char **uuid);
+extern int volume_id_get_uuid_raw(struct volume_id *id, const uint8_t **uuid, size_t *len);
+extern int volume_id_get_usage(struct volume_id *id, const char **usage);
+extern int volume_id_get_type(struct volume_id *id, const char **type);
+extern int volume_id_get_type_version(struct volume_id *id, const char **type_version);
 
 extern struct volume_id *volume_id_open_fd(int fd);
 extern struct volume_id *volume_id_open_node(const char *path);

@@ -23,6 +23,10 @@
 #include <byteswap.h>
 #include <syslog.h>
 
+#ifndef PACKED
+#define PACKED				__attribute__((packed))
+#endif
+
 #define err(format, arg...)	volume_id_log_fn(LOG_ERR, __FILE__, __LINE__, format, ##arg)
 #define info(format, arg...)	volume_id_log_fn(LOG_INFO, __FILE__, __LINE__, format, ##arg)
 #ifdef DEBUG

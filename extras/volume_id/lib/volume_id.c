@@ -1,7 +1,7 @@
 /*
  * volume_id - reads volume label and uuid
  *
- * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005-2007 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -35,6 +35,103 @@ static void default_log(int priority, const char *file, int line, const char *fo
 }
 
 volume_id_log_fn_t volume_id_log_fn = default_log;
+
+int volume_id_get_label(struct volume_id *id, const char **label)
+{
+	if (id == NULL)
+		return -EINVAL;
+	if (label == NULL)
+		return -EINVAL;
+	if (id->usage_id == VOLUME_ID_UNUSED)
+		return 0;
+
+	*label = id->label;
+	return 1;
+}
+
+int volume_id_get_label_raw(struct volume_id *id, const uint8_t **label, size_t *len)
+{
+	if (id == NULL)
+		return -EINVAL;
+	if (label == NULL)
+		return -EINVAL;
+	if (len == NULL)
+		return -EINVAL;
+	if (id->usage_id == VOLUME_ID_UNUSED)
+		return 0;
+
+	*label = id->label_raw;
+	*len = id->label_raw_len;
+	return 1;
+}
+
+int volume_id_get_uuid(struct volume_id *id, const char **uuid)
+{
+	if (id == NULL)
+		return -EINVAL;
+	if (uuid == NULL)
+		return -EINVAL;
+	if (id->usage_id == VOLUME_ID_UNUSED)
+		return 0;
+
+	*uuid = id->uuid;
+	return 1;
+}
+
+int volume_id_get_uuid_raw(struct volume_id *id, const uint8_t **uuid, size_t *len)
+{
+	if (id == NULL)
+		return -EINVAL;
+	if (uuid == NULL)
+		return -EINVAL;
+	if (len == NULL)
+		return -EINVAL;
+	if (id->usage_id == VOLUME_ID_UNUSED)
+		return 0;
+
+	*uuid = id->uuid_raw;
+	*len = id->uuid_raw_len;
+	return 1;
+}
+
+int volume_id_get_usage(struct volume_id *id, const char **usage)
+{
+	if (id == NULL)
+		return -EINVAL;
+	if (usage == NULL)
+		return -EINVAL;
+	if (id->usage_id == VOLUME_ID_UNUSED)
+		return 0;
+
+	*usage = id->usage;
+	return 1;
+}
+
+int volume_id_get_type(struct volume_id *id, const char **type)
+{
+	if (id == NULL)
+		return -EINVAL;
+	if (type == NULL)
+		return -EINVAL;
+	if (id->usage_id == VOLUME_ID_UNUSED)
+		return 0;
+
+	*type = id->type;
+	return 1;
+}
+
+int volume_id_get_type_version(struct volume_id *id, const char **type_version)
+{
+	if (id == NULL)
+		return -EINVAL;
+	if (type_version == NULL)
+		return -EINVAL;
+	if (id->usage_id == VOLUME_ID_UNUSED)
+		return 0;
+
+	*type_version = id->type_version;
+	return 1;
+}
 
 int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
