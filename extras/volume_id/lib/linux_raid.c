@@ -87,7 +87,7 @@ static int volume_id_probe_linux_raid0(struct volume_id *id, uint64_t off, uint6
 			uuid.ints[2] = 0;
 			uuid.ints[3] = 0;
 		}
-		volume_id_set_uuid(id, uuid.bytes, UUID_DCE);
+		volume_id_set_uuid(id, uuid.bytes, UUID_FOURINT);
 		snprintf(id->type_version, sizeof(id->type_version)-1, "%u.%u.%u",
 			 le32_to_cpu(mdp0->major_version),
 			 le32_to_cpu(mdp0->minor_version),
@@ -103,7 +103,7 @@ static int volume_id_probe_linux_raid0(struct volume_id *id, uint64_t off, uint6
 			uuid.ints[2] = 0;
 			uuid.ints[3] = 0;
 		}
-		volume_id_set_uuid(id, uuid.bytes, UUID_DCE);
+		volume_id_set_uuid(id, uuid.bytes, UUID_FOURINT);
 		snprintf(id->type_version, sizeof(id->type_version)-1, "%u.%u.%u",
 			 be32_to_cpu(mdp0->major_version),
 			 be32_to_cpu(mdp0->minor_version),
@@ -131,7 +131,7 @@ static int volume_id_probe_linux_raid1(struct volume_id *id, uint64_t off, uint6
 	if (le32_to_cpu(mdp1->magic) != MD_SB_MAGIC)
 		return -1;
 
-	volume_id_set_uuid(id, mdp1->set_uuid, UUID_DCE);
+	volume_id_set_uuid(id, mdp1->set_uuid, UUID_FOURINT);
 	volume_id_set_label_raw(id, mdp1->set_name, 32);
 	volume_id_set_label_string(id, mdp1->set_name, 32);
 	snprintf(id->type_version, sizeof(id->type_version)-1, "%u", le32_to_cpu(mdp1->major_version));

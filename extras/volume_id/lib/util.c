@@ -134,6 +134,9 @@ void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, enum uuid_form
 	case UUID_DCE_STRING:
 		count = 36;
 		break;
+	case UUID_FOURINT:
+		count = 35;
+		break;
 	}
 	memcpy(id->uuid_raw, buf, count);
 	id->uuid_raw_len = count;
@@ -172,6 +175,14 @@ set:
 	case UUID_DCE_STRING:
 		memcpy(id->uuid, buf, count);
 		id->uuid[count] = '\0';
+		break;
+	case UUID_FOURINT:
+		sprintf(id->uuid,
+			"%02x%02x%02x%02x:%02x%02x%02x%02x:%02x%02x%02x%02x:%02x%02x%02x%02x",
+			buf[0], buf[1], buf[2], buf[3],
+			buf[4], buf[5], buf[6], buf[7],
+			buf[8], buf[9], buf[10], buf[11],
+			buf[12], buf[13], buf[14],buf[15]);
 		break;
 	}
 }

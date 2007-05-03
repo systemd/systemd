@@ -64,6 +64,7 @@ enum uuid_format {
 	UUID_DOS,
 	UUID_NTFS,
 	UUID_HFS,
+	UUID_FOURINT,
 };
 
 enum endian {
