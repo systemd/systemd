@@ -36,10 +36,10 @@
 #define LUKS_SALTSIZE			32
 #define LUKS_NUMKEYS			8
 
+#define LUKS_MAGIC_L			6
+#define LUKS_PHDR_SIZE			(sizeof(struct luks_phdr)/SECTOR_SIZE+1)
+#define UUID_STRING_L			40
 static const uint8_t LUKS_MAGIC[] = {'L','U','K','S', 0xba, 0xbe};
-#define LUKS_MAGIC_L 6
-#define LUKS_PHDR_SIZE (sizeof(struct luks_phdr)/SECTOR_SIZE+1)
-#define UUID_STRING_L 40
 
 struct luks_phdr {
 	uint8_t		magic[LUKS_MAGIC_L];
@@ -74,9 +74,7 @@ int volume_id_probe_luks(struct volume_id *id, uint64_t off, uint64_t size)
 		return -1;
 
 	volume_id_set_usage(id, VOLUME_ID_CRYPTO);
-	volume_id_set_uuid(id, header->uuid, UUID_DCE_STRING);
-
+	volume_id_set_uuid(id, header->uuid, 36, UUID_HEX_STRING);
 	id->type = "crypto_LUKS";
-
 	return 0;
 }

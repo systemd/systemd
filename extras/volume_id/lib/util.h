@@ -63,7 +63,8 @@
 #endif /* __BYTE_ORDER */
 
 enum uuid_format {
-	UUID_DCE_STRING,
+	UUID_HEX_STRING,
+	UUID_STRING,
 	UUID_DCE,
 	UUID_DOS,
 	UUID_NTFS,
@@ -81,7 +82,7 @@ extern void volume_id_set_usage(struct volume_id *id, enum volume_id_usage usage
 extern void volume_id_set_label_raw(struct volume_id *id, const uint8_t *buf, size_t count);
 extern void volume_id_set_label_string(struct volume_id *id, const uint8_t *buf, size_t count);
 extern void volume_id_set_label_unicode16(struct volume_id *id, const uint8_t *buf, enum endian endianess, size_t count);
-extern void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, enum uuid_format format);
+extern void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, size_t len, enum uuid_format format);
 extern uint8_t *volume_id_get_buffer(struct volume_id *id, uint64_t off, size_t len);
 extern void volume_id_free_buffer(struct volume_id *id);
 

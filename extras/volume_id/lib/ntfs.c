@@ -114,7 +114,7 @@ int volume_id_probe_ntfs(struct volume_id *id, uint64_t off, uint64_t size)
 	if (memcmp(ns->oem_id, "NTFS", 4) != 0)
 		return -1;
 
-	volume_id_set_uuid(id, ns->volume_serial, UUID_NTFS);
+	volume_id_set_uuid(id, ns->volume_serial, 0, UUID_NTFS);
 
 	sector_size = le16_to_cpu(ns->bytes_per_sector);
 	cluster_size = ns->sectors_per_cluster * sector_size;

@@ -56,7 +56,7 @@ int volume_id_probe_xfs(struct volume_id *id, uint64_t off, uint64_t size)
 
 	volume_id_set_label_raw(id, xs->fname, 12);
 	volume_id_set_label_string(id, xs->fname, 12);
-	volume_id_set_uuid(id, xs->uuid, UUID_DCE);
+	volume_id_set_uuid(id, xs->uuid, 0, UUID_DCE);
 
 	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
 	id->type = "xfs";

@@ -156,7 +156,7 @@ int volume_id_probe_ocfs1(struct volume_id *id, uint64_t off, uint64_t size)
 		volume_id_set_label_string(id, osl->label, 64);
 	}
 	if (osl->vol_id_len == 16)
-		volume_id_set_uuid(id, osl->vol_id, UUID_DCE);
+		volume_id_set_uuid(id, osl->vol_id, 0, UUID_DCE);
 	id->type = "ocfs";
 	return 0;
 }
@@ -184,7 +184,7 @@ int volume_id_probe_ocfs2(struct volume_id *id, uint64_t off, uint64_t size)
 		volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
 		volume_id_set_label_raw(id, os->s_label, 64);
 		volume_id_set_label_string(id, os->s_label, 64);
-		volume_id_set_uuid(id, os->s_uuid, UUID_DCE);
+		volume_id_set_uuid(id, os->s_uuid, 0, UUID_DCE);
 		snprintf(id->type_version, sizeof(id->type_version)-1,
 			 "%u.%u", os->s_major_rev_level, os->s_minor_rev_level);
 		id->type = "ocfs2";

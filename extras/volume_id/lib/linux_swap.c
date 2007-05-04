@@ -81,7 +81,7 @@ found_label:
 	if (sw != NULL) {
 		volume_id_set_label_raw(id, sw->volume_name, 16);
 		volume_id_set_label_string(id, sw->volume_name, 16);
-		volume_id_set_uuid(id, sw->uuid, UUID_DCE);
+		volume_id_set_uuid(id, sw->uuid, 0, UUID_DCE);
 	}
 
 found:

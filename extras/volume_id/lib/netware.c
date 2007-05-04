@@ -91,7 +91,7 @@ int volume_id_probe_netware(struct volume_id *id, uint64_t off, uint64_t size)
 	if (memcmp(nw->SBH_Signature, "SPB5", 4) != 0)
 		return -1;
 
-	volume_id_set_uuid(id, nw->SBH_PoolID, UUID_DCE);
+	volume_id_set_uuid(id, nw->SBH_PoolID, 0, UUID_DCE);
 
 	snprintf(id->type_version, sizeof(id->type_version)-1, "%u.%02u",
 		 le16_to_cpu(nw->SBH_VersionMediaMajor), le16_to_cpu(nw->SBH_VersionMediaMinor));

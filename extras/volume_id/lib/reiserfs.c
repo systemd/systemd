@@ -88,7 +88,7 @@ int volume_id_probe_reiserfs(struct volume_id *id, uint64_t off, uint64_t size)
 		strcpy(id->type_version, "4");
 		volume_id_set_label_raw(id, rs4->label, 16);
 		volume_id_set_label_string(id, rs4->label, 16);
-		volume_id_set_uuid(id, rs4->uuid, UUID_DCE);
+		volume_id_set_uuid(id, rs4->uuid, 0, UUID_DCE);
 		id->type = "reiser4";
 		goto found;
 	}
@@ -109,7 +109,7 @@ int volume_id_probe_reiserfs(struct volume_id *id, uint64_t off, uint64_t size)
 found_label:
 	volume_id_set_label_raw(id, rs->label, 16);
 	volume_id_set_label_string(id, rs->label, 16);
-	volume_id_set_uuid(id, rs->uuid, UUID_DCE);
+	volume_id_set_uuid(id, rs->uuid, 0, UUID_DCE);
 
 found:
 	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);

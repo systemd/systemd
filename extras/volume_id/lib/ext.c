@@ -93,7 +93,7 @@ int volume_id_probe_ext(struct volume_id *id, uint64_t off, uint64_t size)
 
 	volume_id_set_label_raw(id, es->s_volume_name, 16);
 	volume_id_set_label_string(id, es->s_volume_name, 16);
-	volume_id_set_uuid(id, es->s_uuid, UUID_DCE);
+	volume_id_set_uuid(id, es->s_uuid, 0, UUID_DCE);
 	snprintf(id->type_version, sizeof(id->type_version)-1, "%u.%u",
 		 le32_to_cpu(es->s_rev_level), le16_to_cpu(es->s_minor_rev_level));
 

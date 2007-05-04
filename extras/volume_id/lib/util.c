@@ -115,10 +115,13 @@ void volume_id_set_label_unicode16(struct volume_id *id, const uint8_t *buf, enu
 	 volume_id_set_unicode16(id->label, sizeof(id->label), buf, endianess, count);
 }
 
-void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, enum uuid_format format)
+void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, size_t len, enum uuid_format format)
 {
 	unsigned int i;
 	unsigned int count = 0;
+
+	if (len > sizeof(id->uuid_raw))
+		len = sizeof(id->uuid_raw);
 
 	switch(format) {
 	case UUID_DOS:
@@ -131,8 +134,11 @@ void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, enum uuid_form
 	case UUID_DCE:
 		count = 16;
 		break;
-	case UUID_DCE_STRING:
-		count = 36;
+	case UUID_HEX_STRING:
+		count = len;
+		break;
+	case UUID_STRING:
+		count = len;
 		break;
 	case UUID_FOURINT:
 		count = 35;
@@ -172,7 +178,12 @@ set:
 			buf[8], buf[9],
 			buf[10], buf[11], buf[12], buf[13], buf[14],buf[15]);
 		break;
-	case UUID_DCE_STRING:
+	case UUID_HEX_STRING:
+		for (i = 0; i < count; i++)
+			id->uuid[i] = tolower(buf[i]);
+		id->uuid[count] = '\0';
+		break;
+	case UUID_STRING:
 		memcpy(id->uuid, buf, count);
 		id->uuid[count] = '\0';
 		break;
