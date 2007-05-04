@@ -1,7 +1,7 @@
 /*
  * volume_id - reads filesystem label and uuid
  *
- * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2007 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -26,6 +26,8 @@
 
 #include "libvolume_id.h"
 #include "util.h"
+
+/* http://www.snia.org/standards/home */
 
 #define DDF_HEADER			0xDE11DE11
 #define DDF_GUID_LENGTH			24

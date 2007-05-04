@@ -4,18 +4,21 @@ This program is normally called from a udev rule, to provide udev with the
 filesystem type of a volume and the label and uuid to name a device node.
 vol_id opens the blockdevice node specified at the commandline. The following
 commandline switches are supported to specify what vol_id should print:
-
-  --export prints all values
-  -h       prints help text
-  -l       prints the label of the volume
-  -u       prints the uuid of the volume
+  --export        export key/value pairs
+  --type          filesystem type
+  --label         filesystem label
+  --label-raw     raw label
+  --uuid          filesystem uuid
+  --skip-raid     don't probe for raid
+  --probe-all     find possibly conflicting signatures
+  --help
 
 vol_id will only return successful if the string asked for, is not
 empty. All trailing whitespace will be removed, spaces replaced by underscore
 and slashes ignored.
 
-fstype                 probe  label  uuid  fsversion
-----------------------------------------------------
+fstype                 probe  label  uuid  version
+--------------------------------------------------
 linux swap             *      *      *     *
 ext                    *      *      *     *
 reiserfs jr/3.5/3.6/4  *      *      *     *
@@ -41,9 +44,10 @@ gfs, gfs2              *      -      -     -
 
 Raid members are detected to prevent the probing for a filesystem
 -----------------------------------------------------------------
-linux raid             *      -      *     *
+linux raid (md)        *      *      *     *
 LVM 1                  *      -      -     -
 LVM 2                  *      -      -     *
+ddf                    *      -      *     *
 highpoint              *      -      -     -
 isw_raid               *      -      -     -
 lsi_raid               *      -      -     -
@@ -54,9 +58,6 @@ via_raid               *      -      -     -
 jmicron                *      -      -     -
 adaptec                *      -      -     -
 
-If no label is found vol_id exits with nonzero and the rule will be
-ignored.
-
 To give it a try, you may call it on the commandline:
   $ extras/volume_id/vol_id --export /dev/sda6
   ID_FS_USAGE=filesystem
@@ -66,10 +67,10 @@ To give it a try, you may call it on the commandline:
   ID_FS_LABEL=devel
   ID_FS_LABEL_SAFE=devel
 
-  $ extras/volume_id/vol_id -l /dev/sda6
+  $ extras/volume_id/vol_id --label /dev/sda6
   devel
 
-  $ extras/volume_id/vol_id -t /dev/sda6
+  $ extras/volume_id/vol_id --type /dev/sda6
   ext3
 
 
