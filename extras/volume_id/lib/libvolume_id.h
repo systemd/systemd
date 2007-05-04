@@ -103,6 +103,7 @@ extern int volume_id_probe_luks(struct volume_id *id, uint64_t off, uint64_t siz
 extern int volume_id_probe_linux_raid(struct volume_id *id, uint64_t off, uint64_t size);
 extern int volume_id_probe_lvm1(struct volume_id *id, uint64_t off, uint64_t size);
 extern int volume_id_probe_lvm2(struct volume_id *id, uint64_t off, uint64_t size);
+extern int volume_id_probe_ddf_raid(struct volume_id *id, uint64_t off, uint64_t size);
 
 /* bios raid */
 extern int volume_id_probe_intel_software_raid(struct volume_id *id, uint64_t off, uint64_t size);

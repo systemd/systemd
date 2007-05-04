@@ -30,6 +30,7 @@ OBJS=				\
 	promise_raid.o		\
 	adaptec_raid.o		\
 	jmicron_raid.o		\
+	ddf_raid.o		\
 	iso9660.o		\
 	jfs.o			\
 	linux_raid.o		\

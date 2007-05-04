@@ -44,6 +44,7 @@
 	volume_id_probe_linux_raid;
 	volume_id_probe_lvm1;
 	volume_id_probe_lvm2;
+	volume_id_probe_ddf_raid;
 	volume_id_probe_intel_software_raid;
 	volume_id_probe_highpoint_37x_raid;
 	volume_id_probe_highpoint_45x_raid;
