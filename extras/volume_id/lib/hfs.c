@@ -160,7 +160,7 @@ static void hfsid_set_uuid(struct volume_id *id, const uint8_t *hfs_id)
 	volume_id_set_uuid(id, uuid, UUID_DCE);
 #endif
 
-	volume_id_set_uuid(id, hfs_id, 0, UUID_HFS);
+	volume_id_set_uuid(id, hfs_id, 0, UUID_64BIT_BE);
 }
 
 int volume_id_probe_hfs_hfsplus(struct volume_id *id, uint64_t off, uint64_t size)

@@ -1,7 +1,7 @@
 /*
  * volume_id - reads filesystem label and uuid
  *
- * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005-2007 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -124,21 +124,21 @@ void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, size_t len, en
 		len = sizeof(id->uuid_raw);
 
 	switch(format) {
-	case UUID_DOS:
-		count = 4;
-		break;
-	case UUID_NTFS:
-	case UUID_HFS:
-		count = 8;
-		break;
-	case UUID_DCE:
-		count = 16;
+	case UUID_STRING:
+		count = len;
 		break;
 	case UUID_HEX_STRING:
 		count = len;
 		break;
-	case UUID_STRING:
-		count = len;
+	case UUID_DOS:
+		count = 4;
+		break;
+	case UUID_64BIT_LE:
+	case UUID_64BIT_BE:
+		count = 8;
+		break;
+	case UUID_DCE:
+		count = 16;
 		break;
 	case UUID_FOURINT:
 		count = 35;
@@ -159,12 +159,12 @@ set:
 		sprintf(id->uuid, "%02X%02X-%02X%02X",
 			buf[3], buf[2], buf[1], buf[0]);
 		break;
-	case UUID_NTFS:
+	case UUID_64BIT_LE:
 		sprintf(id->uuid,"%02X%02X%02X%02X%02X%02X%02X%02X",
 			buf[7], buf[6], buf[5], buf[4],
 			buf[3], buf[2], buf[1], buf[0]);
 		break;
-	case UUID_HFS:
+	case UUID_64BIT_BE:
 		sprintf(id->uuid,"%02X%02X%02X%02X%02X%02X%02X%02X",
 			buf[0], buf[1], buf[2], buf[3],
 			buf[4], buf[5], buf[6], buf[7]);
@@ -179,8 +179,11 @@ set:
 			buf[10], buf[11], buf[12], buf[13], buf[14],buf[15]);
 		break;
 	case UUID_HEX_STRING:
+		/* translate A..F to a..f */
+		memcpy(id->uuid, buf, count);
 		for (i = 0; i < count; i++)
-			id->uuid[i] = tolower(buf[i]);
+			if (id->uuid[i] >= 'A' && id->uuid[i] <= 'F')
+				id->uuid[i] = (id->uuid[i] - 'A') + 'a';
 		id->uuid[count] = '\0';
 		break;
 	case UUID_STRING:
