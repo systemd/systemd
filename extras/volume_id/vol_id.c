@@ -134,7 +134,8 @@ int main(int argc, char *argv[])
 	} print = PRINT_EXPORT;
 
 	struct volume_id *vid = NULL;
-	char name[128];
+	char label_safe[128];
+	char uuid_safe[128];
 	uint64_t size;
 	int skip_raid = 0;
 	int probe_all = 0;
@@ -237,6 +238,9 @@ int main(int argc, char *argv[])
 
 	if (probe_all) {
 		if (volume_id_probe_linux_raid(vid, 0, size) == 0)
+			if (volume_id_get_type(vid, &type))
+				printf("%s\n", type);
+		if (volume_id_probe_ddf_raid(vid, 0, 0) == 0)
 			if (volume_id_get_type(vid, &type))
 				printf("%s\n", type);
 		if (volume_id_probe_intel_software_raid(vid, 0, size) == 0)
@@ -359,8 +363,11 @@ int main(int argc, char *argv[])
 		rc = 4;
 		goto exit;
 	}
-	set_str(name, label, sizeof(name));
-	replace_untrusted_chars(name);
+
+	set_str(label_safe, label, sizeof(label_safe));
+	replace_untrusted_chars(label_safe);
+	set_str(uuid_safe, uuid, sizeof(uuid_safe));
+	replace_untrusted_chars(uuid_safe);
 
 	switch (print) {
 	case PRINT_EXPORT:
@@ -368,25 +375,26 @@ int main(int argc, char *argv[])
 		printf("ID_FS_TYPE=%s\n", type);
 		printf("ID_FS_VERSION=%s\n", type_version);
 		printf("ID_FS_UUID=%s\n", uuid);
+		printf("ID_FS_UUID_SAFE=%s\n", uuid_safe);
 		printf("ID_FS_LABEL=%s\n", label);
-		printf("ID_FS_LABEL_SAFE=%s\n", name);
+		printf("ID_FS_LABEL_SAFE=%s\n", label_safe);
 		break;
 	case PRINT_TYPE:
 		printf("%s\n", type);
 		break;
 	case PRINT_LABEL:
-		if (name[0] == '\0' || strcmp(usage, "raid") == 0) {
+		if (label_safe[0] == '\0' || strcmp(usage, "raid") == 0) {
 			rc = 3;
 			goto exit;
 		}
-		printf("%s\n", name);
+		printf("%s\n", label_safe);
 		break;
 	case PRINT_UUID:
-		if (uuid[0] == '\0' || strcmp(usage, "raid") == 0) {
+		if (uuid_safe[0] == '\0' || strcmp(usage, "raid") == 0) {
 			rc = 4;
 			goto exit;
 		}
-		printf("%s\n", uuid);
+		printf("%s\n", uuid_safe);
 		break;
 	case PRINT_LABEL_RAW:
 		if (label[0] == '\0' || strcmp(usage, "raid") == 0) {
