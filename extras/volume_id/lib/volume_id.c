@@ -28,6 +28,57 @@
 #include "libvolume_id.h"
 #include "util.h"
 
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
+struct prober {
+	const char *type;
+	volume_id_probe_fn_t prober;
+};
+
+static const struct prober prober_raid[] = {
+	{"linux_raid_member", volume_id_probe_linux_raid },
+	{"ddf_raid_member", volume_id_probe_ddf_raid },
+	{"isw_raid_member", volume_id_probe_intel_software_raid },
+	{"lsi_mega_raid_member", volume_id_probe_lsi_mega_raid },
+	{"via_raid_member", volume_id_probe_via_raid },
+	{"silicon_medley_raid_member", volume_id_probe_silicon_medley_raid },
+	{"nvidia_raid_member", volume_id_probe_nvidia_raid },
+	{"promise_fasttrack_raid_member", volume_id_probe_promise_fasttrack_raid },
+	{"highpoint_raid_member", volume_id_probe_highpoint_45x_raid },
+	{"adaptec_raid_member", volume_id_probe_adaptec_raid },
+	{"jmicron_raid_member", volume_id_probe_jmicron_raid },
+	{"LVM1_member", volume_id_probe_lvm1 },
+	{"LVM2_member", volume_id_probe_lvm2 },
+	{"highpoint_raid_member", volume_id_probe_highpoint_37x_raid },
+};
+
+static const struct prober prober_filesystem[] = {
+	{ "vfat", volume_id_probe_vfat },
+	{ "linux_swap", volume_id_probe_linux_swap },
+	{ "luks", volume_id_probe_luks },
+	{ "xfs", volume_id_probe_xfs },
+	{ "ext", volume_id_probe_ext },
+	{ "reiserfs", volume_id_probe_reiserfs },
+	{ "jfs", volume_id_probe_jfs },
+	{ "udf", volume_id_probe_udf },
+	{ "iso9660", volume_id_probe_iso9660 },
+	{ "hfs", volume_id_probe_hfs_hfsplus },
+	{ "ufs", volume_id_probe_ufs },
+	{ "ntfs", volume_id_probe_ntfs },
+	{ "cramfs", volume_id_probe_cramfs },
+	{ "romfs", volume_id_probe_romfs },
+	{ "hpfs", volume_id_probe_hpfs },
+	{ "sysv", volume_id_probe_sysv },
+	{ "minix", volume_id_probe_minix },
+	{ "ocfs1", volume_id_probe_ocfs1 },
+	{ "ocfs2", volume_id_probe_ocfs2 },
+	{ "vxfs", volume_id_probe_vxfs },
+	{ "squashfs", volume_id_probe_squashfs },
+	{ "netware", volume_id_probe_netware },
+	{ "gfs", volume_id_probe_gfs },
+	{ "gfs2", volume_id_probe_gfs2 },
+};
+
 /* the user can overwrite this log function */
 static void default_log(int priority, const char *file, int line, const char *format, ...)
 {
@@ -35,6 +86,19 @@ static void default_log(int priority, const char *file, int line, const char *fo
 }
 
 volume_id_log_fn_t volume_id_log_fn = default_log;
+
+const volume_id_probe_fn_t *volume_id_get_prober_by_type(const char *type)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(prober_raid); i++)
+		if (strcmp(type, prober_raid[i].type) == 0)
+			return &prober_raid[i].prober;
+	for (i = 0; i < ARRAY_SIZE(prober_filesystem); i++)
+		if (strcmp(type, prober_filesystem[i].type) == 0)
+			return &prober_filesystem[i].prober;
+	return NULL;
+}
 
 int volume_id_get_label(struct volume_id *id, const char **label)
 {
@@ -135,57 +199,17 @@ int volume_id_get_type_version(struct volume_id *id, const char **type_version)
 
 int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
+	unsigned int i;
+
 	if (id == NULL)
 		return -EINVAL;
 
 	info("probing at offset 0x%llx, size 0x%llx",
 	    (unsigned long long) off, (unsigned long long) size);
 
-	/* probe for raid first, because fs probes may be successful on raid members */
-	if (size) {
-		if (volume_id_probe_linux_raid(id, off, size) == 0)
+	for (i = 0; i < ARRAY_SIZE(prober_raid); i++)
+		if (prober_raid[i].prober(id, off, size) == 0)
 			goto found;
-
-		if (volume_id_probe_ddf_raid(id, off, size) == 0)
-			goto found;
-
-		if (volume_id_probe_intel_software_raid(id, off, size) == 0)
-			goto found;
-
-		if (volume_id_probe_lsi_mega_raid(id, off, size) == 0)
-			goto found;
-
-		if (volume_id_probe_via_raid(id, off, size) == 0)
-			goto found;
-
-		if (volume_id_probe_silicon_medley_raid(id, off, size) == 0)
-			goto found;
-
-		if (volume_id_probe_nvidia_raid(id, off, size) == 0)
-			goto found;
-
-		if (volume_id_probe_promise_fasttrack_raid(id, off, size) == 0)
-			goto found;
-
-		if (volume_id_probe_highpoint_45x_raid(id, off, size) == 0)
-			goto found;
-
-		if (volume_id_probe_adaptec_raid(id, off, size) == 0)
-			goto found;
-
-		if (volume_id_probe_jmicron_raid(id, off, size) == 0)
-			goto found;
-	}
-
-	if (volume_id_probe_lvm1(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_lvm2(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_highpoint_37x_raid(id, off, size) == 0)
-		goto found;
-
 	return -1;
 
 found:
@@ -196,87 +220,17 @@ found:
 
 int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size)
 {
+	unsigned int i;
+
 	if (id == NULL)
 		return -EINVAL;
 
 	info("probing at offset 0x%llx, size 0x%llx",
 	    (unsigned long long) off, (unsigned long long) size);
 
-	if (volume_id_probe_vfat(id, off, size) == 0)
-		goto found;
-
-	/* fill buffer with maximum */
-	volume_id_get_buffer(id, 0, SB_BUFFER_SIZE);
-
-	if (volume_id_probe_linux_swap(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_luks(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_xfs(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_ext(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_reiserfs(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_jfs(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_udf(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_iso9660(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_hfs_hfsplus(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_ufs(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_ntfs(id, off, size)  == 0)
-		goto found;
-
-	if (volume_id_probe_cramfs(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_romfs(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_hpfs(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_sysv(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_minix(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_ocfs1(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_ocfs2(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_vxfs(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_squashfs(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_netware(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_gfs(id, off, size) == 0)
-		goto found;
-
-	if (volume_id_probe_gfs2(id, off, size) == 0)
-		goto found;
-
+	for (i = 0; i < ARRAY_SIZE(prober_filesystem); i++)
+		if (prober_filesystem[i].prober(id, off, size) == 0)
+			goto found;
 	return -1;
 
 found:
@@ -290,6 +244,7 @@ int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size)
 	if (id == NULL)
 		return -EINVAL;
 
+	/* probe for raid first, because fs probes may be successful on raid members */
 	if (volume_id_probe_raid(id, off, size) == 0)
 		return 0;
 
@@ -297,6 +252,25 @@ int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size)
 		return 0;
 
 	return -1;
+}
+
+void volume_id_all_probers(all_probers_fn_t all_probers_fn,
+			   struct volume_id *id, uint64_t off, uint64_t size,
+			   void *data)
+{
+	unsigned int i;
+
+	if (all_probers_fn == NULL)
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(prober_raid); i++)
+		if (all_probers_fn(prober_raid[i].prober, id, off, size, data) != 0)
+			goto out;
+	for (i = 0; i < ARRAY_SIZE(prober_filesystem); i++)
+		if (all_probers_fn(prober_filesystem[i].prober, id, off, size, data) != 0)
+			goto out;
+out:
+	return;
 }
 
 /* open volume by already open file descriptor */

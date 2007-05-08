@@ -16,8 +16,37 @@
 
 typedef void (*volume_id_log_fn_t)(int priority, const char *file, int line, const char *format, ...)
 	     __attribute__ ((format(printf, 4, 5)));
-
 extern volume_id_log_fn_t volume_id_log_fn;
+
+struct volume_id;
+typedef int (*volume_id_probe_fn_t)(struct volume_id *id, uint64_t off, uint64_t size);
+typedef int (*all_probers_fn_t)(volume_id_probe_fn_t probe_fn,
+				struct volume_id *id, uint64_t off, uint64_t size,
+				void *data);
+
+extern struct volume_id *volume_id_open_fd(int fd);
+extern void volume_id_close(struct volume_id *id);
+extern int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size);
+extern int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size);
+extern int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size);
+extern const volume_id_probe_fn_t *volume_id_get_prober_by_type(const char *type);
+extern void volume_id_all_probers(all_probers_fn_t all_probers_fn,
+				  struct volume_id *id, uint64_t off, uint64_t size,
+				  void *data);
+extern int volume_id_get_label(struct volume_id *id, const char **label);
+extern int volume_id_get_label_raw(struct volume_id *id, const uint8_t **label, size_t *len);
+extern int volume_id_get_uuid(struct volume_id *id, const char **uuid);
+extern int volume_id_get_uuid_raw(struct volume_id *id, const uint8_t **uuid, size_t *len);
+extern int volume_id_get_usage(struct volume_id *id, const char **usage);
+extern int volume_id_get_type(struct volume_id *id, const char **type);
+extern int volume_id_get_type_version(struct volume_id *id, const char **type_version);
+
+/*
+ * Note: everything below will be made private or removed from
+ * a future version, and a new major release of libvolume_id
+ */
+
+extern struct volume_id *volume_id_open_node(const char *path);
 
 #define VOLUME_ID_LABEL_SIZE		64
 #define VOLUME_ID_UUID_SIZE		36
@@ -55,21 +84,6 @@ struct volume_id {
 	size_t		seekbuf_len;
 	int		fd_close:1;
 };
-
-extern int volume_id_get_label(struct volume_id *id, const char **label);
-extern int volume_id_get_label_raw(struct volume_id *id, const uint8_t **label, size_t *len);
-extern int volume_id_get_uuid(struct volume_id *id, const char **uuid);
-extern int volume_id_get_uuid_raw(struct volume_id *id, const uint8_t **uuid, size_t *len);
-extern int volume_id_get_usage(struct volume_id *id, const char **usage);
-extern int volume_id_get_type(struct volume_id *id, const char **type);
-extern int volume_id_get_type_version(struct volume_id *id, const char **type_version);
-
-extern struct volume_id *volume_id_open_fd(int fd);
-extern struct volume_id *volume_id_open_node(const char *path);
-extern int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size);
-extern int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size);
-extern int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size);
-extern void volume_id_close(struct volume_id *id);
 
 /* filesystems */
 extern int volume_id_probe_cramfs(struct volume_id *id, uint64_t off, uint64_t size);
