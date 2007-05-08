@@ -111,6 +111,19 @@ static void set_str(char *to, const char *from, size_t count)
 	to[j] = '\0';
 }
 
+static int all_probers(volume_id_probe_fn_t probe_fn,
+		       struct volume_id *id, uint64_t off, uint64_t size,
+		       void *data)
+{
+	const char *type;
+
+	if (probe_fn(id, off, size) == 0)
+		if (volume_id_get_type(id, &type))
+			printf("%s\n", type);
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	static const struct option options[] = {
@@ -237,111 +250,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (probe_all) {
-		if (volume_id_probe_linux_raid(vid, 0, size) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_ddf_raid(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_intel_software_raid(vid, 0, size) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_lsi_mega_raid(vid, 0, size) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_via_raid(vid, 0, size) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_silicon_medley_raid(vid, 0, size) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_nvidia_raid(vid, 0, size) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_promise_fasttrack_raid(vid, 0, size) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_highpoint_45x_raid(vid, 0, size) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_adaptec_raid(vid, 0, size) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_jmicron_raid(vid, 0, size) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_vfat(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_linux_swap(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_luks(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_xfs(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_ext(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_reiserfs(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_jfs(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_udf(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_iso9660(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_hfs_hfsplus(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_ufs(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_ntfs(vid, 0, 0)  == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_cramfs(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_romfs(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_hpfs(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_sysv(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_minix(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_ocfs1(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_ocfs2(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_vxfs(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_squashfs(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_netware(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_gfs(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
-		if (volume_id_probe_gfs2(vid, 0, 0) == 0)
-			if (volume_id_get_type(vid, &type))
-				printf("%s\n", type);
+		volume_id_all_probers(all_probers, vid, 0, size, NULL);
 		goto exit;
 	}
 
