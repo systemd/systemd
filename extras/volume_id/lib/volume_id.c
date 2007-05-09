@@ -31,52 +31,50 @@
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 struct prober {
-	const char *type;
 	volume_id_probe_fn_t prober;
+	const char *name[4];
 };
 
 static const struct prober prober_raid[] = {
-	{"linux_raid_member", volume_id_probe_linux_raid },
-	{"ddf_raid_member", volume_id_probe_ddf_raid },
-	{"isw_raid_member", volume_id_probe_intel_software_raid },
-	{"lsi_mega_raid_member", volume_id_probe_lsi_mega_raid },
-	{"via_raid_member", volume_id_probe_via_raid },
-	{"silicon_medley_raid_member", volume_id_probe_silicon_medley_raid },
-	{"nvidia_raid_member", volume_id_probe_nvidia_raid },
-	{"promise_fasttrack_raid_member", volume_id_probe_promise_fasttrack_raid },
-	{"highpoint_raid_member", volume_id_probe_highpoint_45x_raid },
-	{"adaptec_raid_member", volume_id_probe_adaptec_raid },
-	{"jmicron_raid_member", volume_id_probe_jmicron_raid },
-	{"LVM1_member", volume_id_probe_lvm1 },
-	{"LVM2_member", volume_id_probe_lvm2 },
-	{"highpoint_raid_member", volume_id_probe_highpoint_37x_raid },
+	{ volume_id_probe_linux_raid, { "linux_raid", } },
+	{ volume_id_probe_ddf_raid, { "ddf_raid", } },
+	{ volume_id_probe_intel_software_raid, { "isw_raid", } },
+	{ volume_id_probe_lsi_mega_raid, { "lsi_mega_raid", } },
+	{ volume_id_probe_via_raid, { "via_raid", } },
+	{ volume_id_probe_silicon_medley_raid, { "silicon_medley_raid", } },
+	{ volume_id_probe_nvidia_raid, { "nvidia_raid", } },
+	{ volume_id_probe_promise_fasttrack_raid, { "promise_fasttrack_raid", } },
+	{ volume_id_probe_highpoint_45x_raid, { "highpoint_raid", } },
+	{ volume_id_probe_adaptec_raid, { "adaptec_raid", } },
+	{ volume_id_probe_jmicron_raid, { "jmicron_raid", } },
+	{ volume_id_probe_lvm1, { "lvm1", } },
+	{ volume_id_probe_lvm2, { "lvm2", } },
+	{ volume_id_probe_highpoint_37x_raid, { "highpoint_raid", } },
 };
 
 static const struct prober prober_filesystem[] = {
-	{ "vfat", volume_id_probe_vfat },
-	{ "linux_swap", volume_id_probe_linux_swap },
-	{ "luks", volume_id_probe_luks },
-	{ "xfs", volume_id_probe_xfs },
-	{ "ext", volume_id_probe_ext },
-	{ "reiserfs", volume_id_probe_reiserfs },
-	{ "jfs", volume_id_probe_jfs },
-	{ "udf", volume_id_probe_udf },
-	{ "iso9660", volume_id_probe_iso9660 },
-	{ "hfs", volume_id_probe_hfs_hfsplus },
-	{ "ufs", volume_id_probe_ufs },
-	{ "ntfs", volume_id_probe_ntfs },
-	{ "cramfs", volume_id_probe_cramfs },
-	{ "romfs", volume_id_probe_romfs },
-	{ "hpfs", volume_id_probe_hpfs },
-	{ "sysv", volume_id_probe_sysv },
-	{ "minix", volume_id_probe_minix },
-	{ "ocfs1", volume_id_probe_ocfs1 },
-	{ "ocfs2", volume_id_probe_ocfs2 },
-	{ "vxfs", volume_id_probe_vxfs },
-	{ "squashfs", volume_id_probe_squashfs },
-	{ "netware", volume_id_probe_netware },
-	{ "gfs", volume_id_probe_gfs },
-	{ "gfs2", volume_id_probe_gfs2 },
+	{ volume_id_probe_vfat, { "vfat", } },
+	{ volume_id_probe_linux_swap, { "swap", } },
+	{ volume_id_probe_luks, { "luks", } },
+	{ volume_id_probe_xfs, { "xfs", } },
+	{ volume_id_probe_ext, { "ext2", "ext3", "jbd", } },
+	{ volume_id_probe_reiserfs, { "reiserfs", "reiser4", } },
+	{ volume_id_probe_jfs, { "jfs", } },
+	{ volume_id_probe_udf, { "udf", } },
+	{ volume_id_probe_iso9660, { "iso9660", } },
+	{ volume_id_probe_hfs_hfsplus, { "hfs", "hfsplus", } },
+	{ volume_id_probe_ufs, { "ufs", } },
+	{ volume_id_probe_ntfs, { "ntfs", } },
+	{ volume_id_probe_cramfs, { "cramfs", } },
+	{ volume_id_probe_romfs, { "romfs", } },
+	{ volume_id_probe_hpfs, { "hpfs", } },
+	{ volume_id_probe_sysv, { "sysv", "xenix", } },
+	{ volume_id_probe_minix, { "minix",  } },
+	{ volume_id_probe_ocfs1, { "ocfs1", } },
+	{ volume_id_probe_ocfs2, { "ocfs2", } },
+	{ volume_id_probe_vxfs, { "vxfs", } },
+	{ volume_id_probe_squashfs, { "squashfs", } },
+	{ volume_id_probe_netware, { "netware", } },
 };
 
 /* the user can overwrite this log function */
@@ -89,14 +87,19 @@ volume_id_log_fn_t volume_id_log_fn = default_log;
 
 const volume_id_probe_fn_t *volume_id_get_prober_by_type(const char *type)
 {
-	unsigned int i;
+	unsigned int p, n;
 
-	for (i = 0; i < ARRAY_SIZE(prober_raid); i++)
-		if (strcmp(type, prober_raid[i].type) == 0)
-			return &prober_raid[i].prober;
-	for (i = 0; i < ARRAY_SIZE(prober_filesystem); i++)
-		if (strcmp(type, prober_filesystem[i].type) == 0)
-			return &prober_filesystem[i].prober;
+	if (type == NULL)
+		return NULL;
+
+	for (p = 0; p < ARRAY_SIZE(prober_raid); p++)
+		for (n = 0; prober_raid[p].name[n] !=  NULL; n++)
+			if (strcmp(type, prober_raid[p].name[n]) == 0)
+				return &prober_raid[p].prober;
+	for (p = 0; p < ARRAY_SIZE(prober_filesystem); p++)
+		for (n = 0; prober_filesystem[p].name[n] !=  NULL; n++)
+			if (strcmp(type, prober_filesystem[p].name[n]) == 0)
+				return &prober_filesystem[p].prober;
 	return NULL;
 }
 
