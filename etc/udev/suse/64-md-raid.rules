@@ -6,7 +6,7 @@ ACTION!="add|change", GOTO="md_end"
 
 ATTR{md/array_state}=="|clear|inactive", GOTO="md_end"
 
-#IMPORT{program}="/sbin/mdadm -D --export $tempnode"
+IMPORT{program}="/sbin/mdadm -D --export $tempnode"
 ENV{MD_NAME}=="?*", SYMLINK+="disk/by-id/md-name-$env{MD_NAME}"
 ENV{MD_UUID}=="?*", SYMLINK+="disk/by-id/md-uuid-$env{MD_UUID}"
 
