@@ -1,3 +1,32 @@
+Summary of changes from v110 to v111
+============================================
+
+Kay Sievers (19):
+      rules: SUSE update
+      rules: Fedora update
+      volume_id: use md native uuid format
+      vol_id: use long options
+      volume_id: add volume_id_get_* functions
+      vol_id: use volume_id_get_*
+      udevd: use fgets() to read /proc files
+      volume_id: add internal UUID_STRING
+      volume_id: add DDF support
+      vol_id: README update
+      volume_id: rename UUID_64BIT_LE/BE
+      vol_id: add ID_FS_UUID_SAFE
+      rules: use ID_FS_UUID_SAFE
+      rules: SUSE update
+      volume_id: give access to list of all available probers
+      vol_id: use libvolume_id prober list for --probe-all
+      volume_id: add remaining names for prober lookup by type
+      rules: SUSE update
+      volume_id: vol_id depends on libvolume_id
+
+Matthias Schwarzott (2):
+      volume_id: fix Makefile for parallel make
+      rules: Gentoo update
+
+
 Summary of changes from v109 to v110
 ============================================
 

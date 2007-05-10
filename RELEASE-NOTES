@@ -1,3 +1,16 @@
+udev 111
+========
+Bugfixes.
+
+In the future, we may see uuid's which are just simple character
+strings (see the DDF Raid Specification). For that reason vol_id now
+exports ID_UUID_SAFE, just like ID_LABEL_SAFE. For things like
+the creation of symlinks, the *_SAFE values ensure, that no control
+or whitespace characters are used in the filename.
+
+Possible users of libvolume_id, please use the volume_id_get_* functions.
+The public struct will go away in a future release of the library.
+
 udev 110
 ========
 Bugfixes.
