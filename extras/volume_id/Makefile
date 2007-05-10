@@ -23,16 +23,21 @@ INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_SCRIPT = ${INSTALL}
 
-all: $(PROG) $(MAN_PAGES)
+all: lib $(PROG) $(MAN_PAGES)
 .PHONY: all
 .DEFAULT: all
+
+.SUFFIXES:
 
 %.o: %.c $(GEN_HEADERS)
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
-lib/libvolume_id.a:
-	$(Q) $(MAKE) -C lib
+lib:
+	$(Q) $(MAKE) -C $@
+.PHONY: lib
+
+lib/libvolume_id.a: lib
 
 $(PROG): %: $(HEADERS) %.o lib/libvolume_id.a
 	$(E) "  LD      " $@

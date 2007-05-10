@@ -63,15 +63,15 @@ all: libvolume_id.a $(SHLIB) libvolume_id.pc
 .PHONY: all
 .DEFAULT: all
 
+.SUFFIXES:
+
 %.o: %.c
 	$(E) "  CC      " $@
 	$(Q) $(CC) -c $(CFLAGS) $< -o $@
 
-.shlib:
-	$(Q) mkdir .shlib
-
-.shlib/%.o: %.c .shlib
+.shlib/%.o: %.c
 	$(E) "  CC      " $@
+	$(Q) mkdir -p $(dir $@)
 	$(Q) $(CC) -c $(CFLAGS) -fPIC $< -o $@
 
 libvolume_id.a: $(HEADERS) $(OBJS)
@@ -81,7 +81,7 @@ libvolume_id.a: $(HEADERS) $(OBJS)
 	$(E) "  RANLIB  " $@
 	$(Q) $(RANLIB) $@
 
-$(SHLIB): $(HEADERS) .shlib $(addprefix .shlib/,$(OBJS))
+$(SHLIB): $(HEADERS) $(addprefix .shlib/,$(OBJS))
 	$(E) "  CC      " $@
 	$(Q) $(CC) -shared $(CFLAGS) -o $@ \
 		-Wl,-soname,libvolume_id.so.$(SHLIB_CUR),--version-script,exported_symbols \
