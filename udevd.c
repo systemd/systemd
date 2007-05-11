@@ -335,6 +335,7 @@ static int mem_size_mb(void)
 		}
 	}
 
+	fclose(f);
 	return memsize;
 }
 
