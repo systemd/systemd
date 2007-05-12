@@ -1,0 +1,35 @@
+.TH CREATE_FLOPPY_DEVICES 8 "May 2007" "" "Linux Administrator's Manual"
+.SH NAME
+create_floppy_devices \- udev callout to create all possible floppy device
+based on the CMOS type.
+.SH SYNOPSIS
+create_floppy_devices [options] device
+.SH OPTIONS
+.TP
+\fB\-c\fR
+Create nodes.
+.TP
+\fB\-u\fR
+Unlink nodes.
+.TP
+\fB\-d\fR
+Print nodes.
+.TP
+\fB\-m\fR <number>
+Set major number.
+.TP
+\fB\-U\fR <owner>
+Set user ownership.
+.TP
+\fB\-G\fR <owner>
+Set group ownership.
+.TP
+\fB\-M\fR <mode>
+Set device node mode.
+.TP
+\fB\-t\fR <number>
+Sed floppy type number.
+.SH SEE ALSO
+.BR udev (7)
+.SH AUTHORS
+Developed by Hannes Reinecke <hare@suse.de>.
