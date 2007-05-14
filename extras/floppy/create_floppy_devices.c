@@ -77,18 +77,12 @@ int main(int argc, char **argv)
 	mode_t mode = 0660;
 	int create_nodes = 0;
 	int print_nodes = 0;
-	int unlink_nodes = 0;
 	int is_err = 0;
 
 	while ((c = getopt(argc, argv, "cudm:U:G:M:t:")) != -1) {
 		switch (c) {
 		case 'c':
 			create_nodes = 1;
-			unlink_nodes = 0;
-			break;
-		case 'u':
-			unlink_nodes = 1;
-			create_nodes = 0;
 			break;
 		case 'd':
 			print_nodes = 1;
