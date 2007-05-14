@@ -85,6 +85,14 @@ static void default_log(int priority, const char *file, int line, const char *fo
 
 volume_id_log_fn_t volume_id_log_fn = default_log;
 
+/**
+ * volume_id_get_label:
+ * @type: Type string.
+ *
+ * Lookup the probing function for a specific type.
+ *
+ * Returns: The probing function for the given type, #NULL otherwise.
+ **/
 const volume_id_probe_fn_t *volume_id_get_prober_by_type(const char *type)
 {
 	unsigned int p, n;
@@ -103,12 +111,22 @@ const volume_id_probe_fn_t *volume_id_get_prober_by_type(const char *type)
 	return NULL;
 }
 
+/**
+ * volume_id_get_label:
+ * @id: Probing context.
+ * @label: Label string. Must not be freed by the caller.
+ *
+ * Get the label string after a successful probe. Unicode
+ * is translated to UTF-8.
+ *
+ * Returns: 1 if the value was set, 0 otherwise.
+ **/
 int volume_id_get_label(struct volume_id *id, const char **label)
 {
 	if (id == NULL)
-		return -EINVAL;
+		return 0;
 	if (label == NULL)
-		return -EINVAL;
+		return 0;
 	if (id->usage_id == VOLUME_ID_UNUSED)
 		return 0;
 
@@ -116,14 +134,25 @@ int volume_id_get_label(struct volume_id *id, const char **label)
 	return 1;
 }
 
+/**
+ * volume_id_get_label_raw:
+ * @id: Probing context.
+ * @label: Label byte array. Must not be freed by the caller.
+ * @len: Length of raw label byte array.
+ *
+ * Get the raw label byte array after a successful probe. It may
+ * contain undecoded multibyte character streams.
+ *
+ * Returns: 1 if the value was set, 0 otherwise.
+ **/
 int volume_id_get_label_raw(struct volume_id *id, const uint8_t **label, size_t *len)
 {
 	if (id == NULL)
-		return -EINVAL;
+		return 0;
 	if (label == NULL)
-		return -EINVAL;
+		return 0;
 	if (len == NULL)
-		return -EINVAL;
+		return 0;
 	if (id->usage_id == VOLUME_ID_UNUSED)
 		return 0;
 
@@ -132,12 +161,21 @@ int volume_id_get_label_raw(struct volume_id *id, const uint8_t **label, size_t 
 	return 1;
 }
 
+/**
+ * volume_id_get_uuid:
+ * @id: Probing context.
+ * @uuid: UUID string. Must not be freed by the caller.
+ *
+ * Get the raw UUID string after a successful probe.
+ *
+ * Returns: 1 if the value was set, 0 otherwise.
+ **/
 int volume_id_get_uuid(struct volume_id *id, const char **uuid)
 {
 	if (id == NULL)
-		return -EINVAL;
+		return 0;
 	if (uuid == NULL)
-		return -EINVAL;
+		return 0;
 	if (id->usage_id == VOLUME_ID_UNUSED)
 		return 0;
 
@@ -145,14 +183,25 @@ int volume_id_get_uuid(struct volume_id *id, const char **uuid)
 	return 1;
 }
 
+/**
+ * volume_id_get_uuid_raw:
+ * @id: Probing context.
+ * @uuid: UUID byte array. Must not be freed by the caller.
+ * @len: Length of raw UUID byte array.
+ *
+ * Get the raw UUID byte array after a successful probe. It may
+ * contain unconverted endianes values.
+ *
+ * Returns: 1 if the value was set, 0 otherwise.
+ **/
 int volume_id_get_uuid_raw(struct volume_id *id, const uint8_t **uuid, size_t *len)
 {
 	if (id == NULL)
-		return -EINVAL;
+		return 0;
 	if (uuid == NULL)
-		return -EINVAL;
+		return 0;
 	if (len == NULL)
-		return -EINVAL;
+		return 0;
 	if (id->usage_id == VOLUME_ID_UNUSED)
 		return 0;
 
@@ -161,12 +210,21 @@ int volume_id_get_uuid_raw(struct volume_id *id, const uint8_t **uuid, size_t *l
 	return 1;
 }
 
+/**
+ * volume_id_get_usage:
+ * @id: Probing context.
+ * @usage: Usage string. Must not be freed by the caller.
+ *
+ * Get the usage string after a successful probe.
+ *
+ * Returns: 1 if the value was set, 0 otherwise.
+ **/
 int volume_id_get_usage(struct volume_id *id, const char **usage)
 {
 	if (id == NULL)
-		return -EINVAL;
+		return 0;
 	if (usage == NULL)
-		return -EINVAL;
+		return 0;
 	if (id->usage_id == VOLUME_ID_UNUSED)
 		return 0;
 
@@ -174,12 +232,21 @@ int volume_id_get_usage(struct volume_id *id, const char **usage)
 	return 1;
 }
 
+/**
+ * volume_id_get_type:
+ * @id: Probing context
+ * @type: Type string. Must not be freed by the caller.
+ *
+ * Get the type string after a successful probe.
+ *
+ * Returns: 1 if the value was set, 0 otherwise.
+ **/
 int volume_id_get_type(struct volume_id *id, const char **type)
 {
 	if (id == NULL)
-		return -EINVAL;
+		return 0;
 	if (type == NULL)
-		return -EINVAL;
+		return 0;
 	if (id->usage_id == VOLUME_ID_UNUSED)
 		return 0;
 
@@ -187,12 +254,21 @@ int volume_id_get_type(struct volume_id *id, const char **type)
 	return 1;
 }
 
+/**
+ * volume_id_get_type_version:
+ * @id: Probing context.
+ * @type_version: Type version string. Must not be freed by the caller.
+ *
+ * Get the Type version string after a successful probe.
+ *
+ * Returns: 1 if the value was set, 0 otherwise.
+ **/
 int volume_id_get_type_version(struct volume_id *id, const char **type_version)
 {
 	if (id == NULL)
-		return -EINVAL;
+		return 0;
 	if (type_version == NULL)
-		return -EINVAL;
+		return 0;
 	if (id->usage_id == VOLUME_ID_UNUSED)
 		return 0;
 
@@ -200,6 +276,16 @@ int volume_id_get_type_version(struct volume_id *id, const char **type_version)
 	return 1;
 }
 
+/**
+ * volume_id_probe_raid:
+ * @id: Probing context.
+ * @off: Probing offset relative to the start of the device.
+ * @size: Total size of the device.
+ *
+ * Probe device for all known raid signatures.
+ *
+ * Returns: 0 on successful probe, otherwise negative value.
+ **/
 int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	unsigned int i;
@@ -221,6 +307,16 @@ found:
 	return 0;
 }
 
+/**
+ * volume_id_probe_filesystem:
+ * @id: Probing context.
+ * @off: Probing offset relative to the start of the device.
+ * @size: Total size of the device.
+ *
+ * Probe device for all known filesystem signatures.
+ *
+ * Returns: 0 on successful probe, otherwise negative value.
+ **/
 int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	unsigned int i;
@@ -242,6 +338,16 @@ found:
 	return 0;
 }
 
+/**
+ * volume_id_probe_all:
+ * @id: Probing context.
+ * @off: Probing offset relative to the start of the device.
+ * @size: Total size of the device.
+ *
+ * Probe device for all known raid and filesystem signatures.
+ *
+ * Returns: 0 on successful probe, otherwise negative value.
+ **/
 int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	if (id == NULL)
@@ -257,6 +363,16 @@ int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size)
 	return -1;
 }
 
+/**
+ * volume_id_probe_raid:
+ * @all_probers_fn: prober function to called for all known probing routines.
+ * @id: Context passed to prober function.
+ * @off: Offset value passed to prober function.
+ * @size: Size value passed to prober function.
+ * @data: Arbitrary data passed to the prober function.
+ *
+ * Run a custom function for all known probing routines.
+ **/
 void volume_id_all_probers(all_probers_fn_t all_probers_fn,
 			   struct volume_id *id, uint64_t off, uint64_t size,
 			   void *data)
@@ -276,7 +392,15 @@ out:
 	return;
 }
 
-/* open volume by already open file descriptor */
+/**
+ * volume_id_open_fd:
+ * @id: Probing context.
+ * @fd: Open file descriptor of device to read from.
+ *
+ * Create the context for probing.
+ *
+ * Returns: Probing context, or #NULL on failure.
+ **/
 struct volume_id *volume_id_open_fd(int fd)
 {
 	struct volume_id *id;
@@ -291,7 +415,6 @@ struct volume_id *volume_id_open_fd(int fd)
 	return id;
 }
 
-/* open volume by device node */
 struct volume_id *volume_id_open_node(const char *path)
 {
 	struct volume_id *id;
@@ -313,6 +436,12 @@ struct volume_id *volume_id_open_node(const char *path)
 	return id;
 }
 
+/**
+ * volume_id_close:
+ * @id: Probing context.
+ *
+ * Release probing context and free all associated data.
+ */
 void volume_id_close(struct volume_id *id)
 {
 	if (id == NULL)
