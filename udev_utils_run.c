@@ -158,9 +158,13 @@ int run_program(const char *command, const char *subsystem,
 			close(errpipe[WRITE_END]);
 		}
 		execv(argv[0], argv);
-
-		/* we should never reach this */
-		err("exec of program '%s' failed", argv[0]);
+		if ((errno == ENOENT) || (errno = ENOTDIR)) {
+			/* may be on a filesytem which is not mounted right now */
+			info("program '%s' not found", argv[0]);
+		} else {
+			/* other problems */
+			err("exec of program '%s' failed", argv[0]);
+		}
 		_exit(1);
 	case -1:
 		err("fork of '%s' failed: %s", argv[0], strerror(errno));
