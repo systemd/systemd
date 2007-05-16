@@ -229,19 +229,29 @@ int replace_untrusted_chars(char *str)
 		if ((str[i] >= '0' && str[i] <= '9') ||
 		    (str[i] >= 'A' && str[i] <= 'Z') ||
 		    (str[i] >= 'a' && str[i] <= 'z') ||
-		    strchr(" #$%+-./:=?@_,", str[i])) {
+		    strchr("#$%+-./:=?@_,", str[i])) {
 			i++;
 			continue;
 		}
+
 		/* hex encoding */
 		if (str[i] == '\\' && str[i+1] == 'x') {
 			i += 2;
 			continue;
 		}
+
 		/* valid utf8 is accepted */
 		len = utf8_encoded_valid_unichar(&str[i]);
 		if (len > 1) {
 			i += len;
+			continue;
+		}
+
+		/* whitespace replaced with ordinary space */
+		if (isspace(str[i])) {
+			str[i] = ' ';
+			i++;
+			replaced++;
 			continue;
 		}
 
