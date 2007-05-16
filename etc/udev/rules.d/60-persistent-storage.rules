@@ -21,6 +21,9 @@ KERNEL=="ram*|loop*|fd*|nbd*|gnbd*|dm-*|md*", GOTO="persistent_storage_end"
 KERNEL=="hd*[!0-9]", ATTR{removable}=="1", DRIVERS=="ide-cs|ide-floppy", GOTO="persistent_storage_end"
 KERNEL=="hd*[0-9]", ATTRS{removable}=="1", GOTO="persistent_storage_end"
 
+# ignore partitions that span the entire disk
+ATTR{whole_disk}=="", GOTO="persistent_storage_end"
+
 # for partitions import parent information
 KERNEL=="*[0-9]", IMPORT{parent}="ID_*"
 
