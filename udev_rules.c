@@ -79,13 +79,8 @@ static int get_key(char **line, char **key, char **value)
 	char *temp;
 
 	linepos = *line;
-	if (!linepos)
+	if (linepos == NULL)
 		return -1;
-
-	if (strchr(linepos, '\\')) {
-		dbg("escaped characters are not supported, skip");
-		return -1;
-	}
 
 	/* skip whitespace */
 	while (isspace(linepos[0]))
@@ -217,7 +212,7 @@ static int import_file_into_env(struct udevice *udev, const char *filename)
 
 static int import_program_into_env(struct udevice *udev, const char *program)
 {
-	char result[1024];
+	char result[2048];
 	size_t reslen;
 
 	if (run_program(program, udev->dev->subsystem, result, sizeof(result), &reslen, (udev_log_priority >= LOG_INFO)) != 0)
@@ -851,7 +846,7 @@ try_parent:
 		}
 	}
 
-	/* if we have ATTR assignements write value to sysfs file */
+	/* if we have ATTR assignments, write value to sysfs file */
 	for (i = 0; i < rule->attr.count; i++) {
 		struct key_pair *pair = &rule->attr.keys[i];
 

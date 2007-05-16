@@ -31,7 +31,7 @@
 #define COMMENT_CHARACTER			'#'
 #define LINE_SIZE				512
 #define PATH_SIZE				512
-#define NAME_SIZE				128
+#define NAME_SIZE				256
 #define VALUE_SIZE				128
 
 #define DEFAULT_PARTITIONS_COUNT		15
