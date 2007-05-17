@@ -274,9 +274,9 @@ int main(int argc, char *argv[])
 	}
 
 	set_str(label_safe, label, sizeof(label_safe));
-	replace_untrusted_chars(label_safe);
+	replace_chars(label_safe, ALLOWED_CHARS_INPUT);
 	set_str(uuid_safe, uuid, sizeof(uuid_safe));
-	replace_untrusted_chars(uuid_safe);
+	replace_chars(uuid_safe, ALLOWED_CHARS_INPUT);
 
 	switch (print) {
 	case PRINT_EXPORT:

@@ -34,6 +34,10 @@
 #define NAME_SIZE				256
 #define VALUE_SIZE				128
 
+#define ALLOWED_CHARS				"#+-.:=@_%"
+#define ALLOWED_CHARS_FILE			ALLOWED_CHARS "/"
+#define ALLOWED_CHARS_INPUT			ALLOWED_CHARS " $/?,"
+
 #define DEFAULT_PARTITIONS_COUNT		15
 #define UDEV_ALARM_TIMEOUT			180
 
@@ -149,7 +153,7 @@ extern void remove_trailing_chars(char *path, char c);
 extern size_t path_encode(char *s, size_t len);
 extern size_t path_decode(char *s);
 extern int utf8_encoded_valid_unichar(const char *str);
-extern int replace_untrusted_chars(char *str);
+extern int replace_chars(char *str, const char *white);
 
 /* udev_utils_file.c */
 extern int create_path(const char *path);

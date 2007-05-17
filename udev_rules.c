@@ -491,15 +491,15 @@ found:
 				if (value == NULL)
 					break;
 
-				/* strip trailing whitespace and replace untrusted characters of sysfs value */
+				/* strip trailing whitespace, and replace unwanted characters */
 				size = strlcpy(temp2, value, sizeof(temp2));
 				if (size >= sizeof(temp2))
 					size = sizeof(temp2)-1;
 				while (size > 0 && isspace(temp2[size-1]))
 					temp2[--size] = '\0';
-				count = replace_untrusted_chars(temp2);
+				count = replace_chars(temp2, ALLOWED_CHARS_INPUT);
 				if (count > 0)
-					info("%i untrusted character(s) replaced" , count);
+					info("%i character(s) replaced" , count);
 				strlcat(string, temp2, maxsize);
 				dbg("substitute sysfs value '%s'", temp2);
 			}
@@ -776,9 +776,9 @@ try_parent:
 
 			dbg("PROGRAM matches");
 			remove_trailing_chars(result, '\n');
-			count = replace_untrusted_chars(result);
+			count = replace_chars(result, ALLOWED_CHARS_INPUT);
 			if (count)
-				info("%i untrusted character(s) replaced" , count);
+				info("%i character(s) replaced" , count);
 			dbg("result is '%s'", result);
 			strlcpy(udev->program_result, result, sizeof(udev->program_result));
 			dbg("PROGRAM returned successful");
@@ -959,14 +959,13 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 					info("reset symlink list");
 					name_list_cleanup(&udev->symlink_list);
 				}
+				/* allow  multiple symlinks separated by spaces */
 				strlcpy(temp, key_val(rule, &rule->symlink), sizeof(temp));
 				udev_rules_apply_format(udev, temp, sizeof(temp));
-				count = replace_untrusted_chars(temp);
+				count = replace_chars(temp, ALLOWED_CHARS_FILE " ");
 				if (count)
-					info("%i untrusted character(s) replaced" , count);
+					info("%i character(s) replaced" , count);
 				dbg("rule applied, added symlink(s) '%s'", temp);
-
-				/* add multiple symlinks separated by spaces */
 				pos = temp;
 				while (isspace(pos[0]))
 					pos++;
@@ -995,9 +994,9 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 				name_set = 1;
 				strlcpy(udev->name, key_val(rule, &rule->name), sizeof(udev->name));
 				udev_rules_apply_format(udev, udev->name, sizeof(udev->name));
-				count = replace_untrusted_chars(udev->name);
+				count = replace_chars(udev->name, ALLOWED_CHARS_FILE);
 				if (count)
-					info("%i untrusted character(s) replaced", count);
+					info("%i character(s) replaced", count);
 
 				info("rule applied, '%s' becomes '%s'", udev->dev->kernel, udev->name);
 				if (strcmp(udev->dev->subsystem, "net") != 0)

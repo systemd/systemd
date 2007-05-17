@@ -216,8 +216,8 @@ int utf8_encoded_valid_unichar(const char *str)
 	return len;
 }
 
-/* replace everything but whitelisted plain ascii and valid utf8 */
-int replace_untrusted_chars(char *str)
+/* allow chars in whitelist, plain ascii, hex-escaping and valid utf8 */
+int replace_chars(char *str, const char *white)
 {
 	size_t i = 0;
 	int replaced = 0;
@@ -225,37 +225,42 @@ int replace_untrusted_chars(char *str)
 	while (str[i] != '\0') {
 		int len;
 
-		/* valid printable ascii char */
-		if ((str[i] >= '0' && str[i] <= '9') ||
-		    (str[i] >= 'A' && str[i] <= 'Z') ||
-		    (str[i] >= 'a' && str[i] <= 'z') ||
-		    strchr("#$%+-./:=?@_,", str[i])) {
+		/* accept whitelist */
+		if (white != NULL && strchr(white, str[i]) != NULL) {
 			i++;
 			continue;
 		}
 
-		/* hex encoding */
+		/* accept plain ascii char */
+		if ((str[i] >= '0' && str[i] <= '9') ||
+		    (str[i] >= 'A' && str[i] <= 'Z') ||
+		    (str[i] >= 'a' && str[i] <= 'z')) {
+			i++;
+			continue;
+		}
+
+		/* accept hex encoding */
 		if (str[i] == '\\' && str[i+1] == 'x') {
 			i += 2;
 			continue;
 		}
 
-		/* valid utf8 is accepted */
+		/* accept valid utf8 */
 		len = utf8_encoded_valid_unichar(&str[i]);
 		if (len > 1) {
 			i += len;
 			continue;
 		}
 
-		/* whitespace replaced with ordinary space */
-		if (isspace(str[i])) {
+		/* if space is allowed, replace whitespace with ordinary space */
+		if (isspace(str[i]) && strchr(white, ' ') != NULL) {
 			str[i] = ' ';
 			i++;
 			replaced++;
 			continue;
 		}
 
-		/* everything else is garbage */
+		/* everything else is replaced with '_' */
 		str[i] = '_';
 		i++;
 		replaced++;
