@@ -16,6 +16,7 @@
 	volume_id_probe_raid;
 	volume_id_all_probers;
 	volume_id_get_prober_by_type;
+	volume_id_encode_string;
 
 	volume_id_open_node;
 

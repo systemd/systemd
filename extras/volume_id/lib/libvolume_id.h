@@ -40,6 +40,7 @@ extern int volume_id_get_uuid_raw(struct volume_id *id, const uint8_t **uuid, si
 extern int volume_id_get_usage(struct volume_id *id, const char **usage);
 extern int volume_id_get_type(struct volume_id *id, const char **type);
 extern int volume_id_get_type_version(struct volume_id *id, const char **type_version);
+extern int volume_id_encode_string(const char *str, char *str_enc, size_t len);
 
 /*
  * Note: everything below will be made private or removed from

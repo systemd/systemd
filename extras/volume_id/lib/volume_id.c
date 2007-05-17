@@ -276,6 +276,60 @@ int volume_id_get_type_version(struct volume_id *id, const char **type_version)
 	return 1;
 }
 
+static int needs_encoding(const char c)
+{
+	if ((c >= '0' && c <= '9') ||
+	    (c >= 'A' && c <= 'Z') ||
+	    (c >= 'a' && c <= 'z') ||
+	    strchr(ALLOWED_CHARS, c))
+		return 0;
+	return 1;
+}
+
+/**
+ * volume_id_encode_string:
+ * @str: Input string to be encoded.
+ * @str_enc: Target string to store the encoded input.
+ * @len: Location to store the encoded string. The target string,
+ * which may be four times as long as the input string.
+ *
+ * Encode all potentially unsafe characters of a string to the
+ * corresponding hex value prefixed by '\x'.
+ *
+ * Returns: 1 if the entire string was copied, 0 otherwise.
+ **/
+int volume_id_encode_string(const char *str, char *str_enc, size_t len)
+{
+	size_t i, j;
+
+	if (str == NULL || str_enc == NULL || len == 0)
+		return 0;
+
+	str_enc[0] = '\0';
+	for (i = 0, j = 0; str[i] != '\0'; i++) {
+		int seqlen;
+
+		seqlen = volume_id_utf8_encoded_valid_unichar(&str[i]);
+		if (seqlen > 1) {
+			memcpy(&str_enc[j], &str[i], seqlen);
+			j += seqlen;
+			i += (seqlen-1);
+		} else if (str[i] == '\\' || needs_encoding(str[i])) {
+			sprintf(&str_enc[j], "\\x%02x", (unsigned char) str[i]);
+			j += 4;
+		} else {
+			str_enc[j] = str[i];
+			j++;
+		}
+		if (j+3 >= len)
+			goto err;
+	}
+	str_enc[j] = '\0';
+	return 1;
+err:
+	return 0;
+}
+
 /**
  * volume_id_probe_raid:
  * @id: Probing context.

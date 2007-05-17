@@ -13,7 +13,7 @@ INSTALL_DATA  = ${INSTALL} -m 644
 INSTALL_LIB = ${INSTALL} -m 755
 
 SHLIB_CUR = 0
-SHLIB_REV = 77
+SHLIB_REV = 78
 SHLIB_AGE = 0
 SHLIB = libvolume_id.so.$(SHLIB_CUR).$(SHLIB_REV).$(SHLIB_AGE)
 
@@ -81,7 +81,7 @@ libvolume_id.a: $(HEADERS) $(OBJS)
 	$(E) "  RANLIB  " $@
 	$(Q) $(RANLIB) $@
 
-$(SHLIB): $(HEADERS) $(addprefix .shlib/,$(OBJS))
+$(SHLIB): $(HEADERS) exported_symbols $(addprefix .shlib/,$(OBJS))
 	$(E) "  CC      " $@
 	$(Q) $(CC) -shared $(CFLAGS) -o $@ \
 		-Wl,-soname,libvolume_id.so.$(SHLIB_CUR),--version-script,exported_symbols \
