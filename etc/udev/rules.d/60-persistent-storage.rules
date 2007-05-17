@@ -56,8 +56,8 @@ KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%
 # by-label/by-uuid (filesystem properties)
 KERNEL=="*[!0-9]", ATTR{removable}=="1", GOTO="persistent_storage_end"
 IMPORT{program}="vol_id --export $tempnode"
-ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_SAFE}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_SAFE}"
-ENV{ID_FS_USAGE}=="filesystem|other", ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
+ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"
+ENV{ID_FS_USAGE}=="filesystem|other", ENV{ID_FS_LABEL_ENC}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_ENC}"
 
 # BIOS Enhanced Disk Device
 KERNEL=="*[!0-9]", IMPORT{program}="edd_id --export $tempnode"
