@@ -25,6 +25,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <syslog.h>
+#include <getopt.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -60,33 +61,37 @@ int main(int argc, char *argv[], char *envp[])
 	ssize_t len;
 	int timeout = DEFAULT_TIMEOUT;
 	int loop;
-	int i;
+	static const struct option options[] = {
+		{ "timeout", 1, NULL, 't' },
+		{ "help", 0, NULL, 'h' },
+		{}
+	};
+	int option;
 	int rc = 1;
+	int seconds;
 
 	logging_init("udevsettle");
 	udev_config_init();
 	dbg("version %s", UDEV_VERSION);
 	sysfs_init();
 
-	for (i = 1 ; i < argc; i++) {
-		char *arg = argv[i];
+	while (1) {
+		option = getopt_long(argc, argv, "t:h", options, NULL);
+		if (option == -1)
+			break;
 
-		if (strncmp(arg, "--timeout=", 10) == 0) {
-			char *str = &arg[10];
-			int seconds;
-
-			seconds = atoi(str);
+		switch (option) {
+		case 't':
+			seconds = atoi(optarg);
 			if (seconds > 0)
 				timeout = seconds;
 			else
 				fprintf(stderr, "invalid timeout value\n");
 			dbg("timeout=%i", timeout);
-		} else if (strcmp(arg, "--help") == 0 || strcmp(arg, "-h") == 0) {
-			printf("Usage: udevsettle [--help] [--timeout=<seconds>]\n");
+			break;
+		case 'h':
+			printf("Usage: udevsettle [--help] [--timeout=<seconds>]\n\n");
 			goto exit;
-		} else {
-			fprintf(stderr, "unrecognized option '%s'\n", arg);
-			err("unrecognized option '%s'\n", arg);
 		}
 	}
 
