@@ -87,54 +87,29 @@ static int get_key(char **line, char **key, char **value)
 		linepos++;
 
 	/* get the key */
+	temp = strchr(linepos, '=');
+	if (temp == NULL || temp == linepos)
+		return -1;
+	temp[0] = '\0';
 	*key = linepos;
-	while (1) {
-		linepos++;
-		if (linepos[0] == '\0')
-			return -1;
-		if (isspace(linepos[0]))
-			break;
-		if (linepos[0] == '=')
-			break;
+	linepos = &temp[1];
+
+	/* get a quoted value */
+	if (linepos[0] == '"' || linepos[0] == '\'') {
+		temp = strchr(&linepos[1], linepos[0]);
+		if (temp != NULL) {
+			temp[0] = '\0';
+			*value = &linepos[1];
+			goto out;
+		}
 	}
-
-	/* terminate key */
-	linepos[0] = '\0';
-	linepos++;
-
-	/* skip whitespace */
-	while (isspace(linepos[0]))
-		linepos++;
 
 	/* get the value*/
-	if (linepos[0] == '"') {
-		linepos++;
-		temp = strchr(linepos, '"');
-		if (!temp) {
-			dbg("missing closing quote");
-			return -1;
-		}
-		dbg("value is quoted");
+	temp = strchr(linepos, '\n');
+	if (temp != NULL)
 		temp[0] = '\0';
-	} else if (linepos[0] == '\'') {
-		linepos++;
-		temp = strchr(linepos, '\'');
-		if (!temp) {
-			dbg("missing closing quote");
-			return -1;
-		}
-		dbg("value is quoted");
-		temp[0] = '\0';
-	} else if (linepos[0] == '\0') {
-		dbg("value is empty");
-	} else {
-		temp = linepos;
-		while (temp[0] && !isspace(temp[0]))
-			temp++;
-		temp[0] = '\0';
-	}
 	*value = linepos;
-
+out:
 	return 0;
 }
 
