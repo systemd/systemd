@@ -34,9 +34,9 @@
 #define NAME_SIZE				256
 #define VALUE_SIZE				128
 
-#define ALLOWED_CHARS				"#+-.:=@_%"
+#define ALLOWED_CHARS				"#+-.:=@_"
 #define ALLOWED_CHARS_FILE			ALLOWED_CHARS "/"
-#define ALLOWED_CHARS_INPUT			ALLOWED_CHARS " $/?,"
+#define ALLOWED_CHARS_INPUT			ALLOWED_CHARS_FILE " $%?,"
 
 #define DEFAULT_PARTITIONS_COUNT		15
 #define UDEV_ALARM_TIMEOUT			180

@@ -302,7 +302,7 @@ EOF
 		devpath		=> "/block/sda",
 		exp_name	=> "node12345678",
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", IMPORT="/bin/echo -e \' TEST_KEY=12345678  \\n  TEST_key2=98765 \'", NAME="node\$env{TEST_KEY}"
+SUBSYSTEMS=="scsi", IMPORT="/bin/echo -e \' TEST_KEY=12345678\\n  TEST_key2=98765\'", NAME="node\$env{TEST_KEY}"
 KERNEL=="ttyUSB0", NAME="visor"
 EOF
 	},
@@ -1015,26 +1015,6 @@ EOF
 		exp_target	=> "ttyUSB0",
 		rules		=> <<EOF
 KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK+="%3s{dev}"
-EOF
-	},
-	{
-		desc		=> "symlink with '%' in name",
-		subsys		=> "tty",
-		devpath		=> "/class/tty/ttyUSB0",
-		exp_name	=> "percent%sign",
-		exp_target	=> "ttyUSB0",
-		rules		=> <<EOF
-KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK+="percent%%sign"
-EOF
-	},
-	{
-		desc		=> "symlink with '%' in name",
-		subsys		=> "tty",
-		devpath		=> "/class/tty/ttyUSB0",
-		exp_name	=> "%ttyUSB0_name",
-		exp_target	=> "ttyUSB0",
-		rules		=> <<EOF
-KERNEL=="ttyUSB[0-9]*", NAME="ttyUSB%n", SYMLINK+="%%%k_name"
 EOF
 	},
 	{
