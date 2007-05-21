@@ -23,7 +23,7 @@
 #include <byteswap.h>
 #include <syslog.h>
 
-#define ALLOWED_CHARS				"#+-.:=@_%"
+#define ALLOWED_CHARS				"#+-.:=@_"
 
 #ifndef PACKED
 #define PACKED				__attribute__((packed))
