@@ -149,6 +149,11 @@ int main(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 
+	printf("This program is for debugging only, it does not run any program,\n"
+	       "specified by a RUN key. It may show incorrect results, because\n"
+	       "some values may be different, or not available at a simulation run.\n"
+	       "\n");
+
 	sysfs_init();
 	udev_rules_init(&rules, 0);
 
@@ -183,11 +188,6 @@ int main(int argc, char *argv[], char *envp[])
 	setenv("SUBSYSTEM", udev->dev->subsystem, 1);
 	setenv("ACTION", udev->action, 1);
 	import_uevent_var(udev->dev->devpath);
-
-	printf("This program is for debugging only, it does not run any program,\n"
-	       "specified by a RUN key. It may show incorrect results, because\n"
-	       "some values may be different, or not available at a simulation run.\n"
-	       "\n");
 
 	info("looking at device '%s' from subsystem '%s'", udev->dev->devpath, udev->dev->subsystem);
 	retval = udev_device_event(&rules, udev);
