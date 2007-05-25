@@ -24,6 +24,7 @@
 #include <syslog.h>
 #include <stdarg.h>
 #include <ctype.h>
+#include <getopt.h>
 #include <sys/stat.h>
 
 #include "../../udev.h"
@@ -34,7 +35,25 @@
 #define TMP_DIR		"/dev"
 #define TMP_PREFIX	"tmp-scsi"
 
-static const char short_options[] = "abd:f:ginp:s:uvVx";
+static const struct option options[] = {
+	{ "device", 1, NULL, 'd' },
+	{ "config", 1, NULL, 'f' },
+	{ "page", 1, NULL, 'p' },
+	{ "devpath", 1, NULL, 's' },
+	{ "fallback-to-sysfs", 0, NULL, 'a' },
+	{ "blacklisted", 0, NULL, 'b' },
+	{ "whitelisted", 0, NULL, 'g' },
+	{ "prefix-bus-id", 0, NULL, 'i' },
+	{ "replace-whitespace", 0, NULL, 'u' },
+	{ "ignore-sysfs", 0, NULL, 'n' },
+	{ "verbose", 0, NULL, 'v' },
+	{ "version", 0, NULL, 'V' },
+	{ "export", 0, NULL, 'x' },
+	{ "help", 0, NULL, 'h' },
+	{}
+};
+
+static const char short_options[] = "abd:f:ghinp:s:uvVx";
 static const char dev_short_options[] = "bgp:";
 
 static int all_good;
@@ -407,7 +426,7 @@ static int set_options(int argc, char **argv, const char *short_opts,
 	 */
 	optind = 1;
 	while (1) {
-		option = getopt(argc, argv, short_opts);
+		option = getopt_long(argc, argv, short_opts, options, NULL);
 		if (option == -1)
 			break;
 
@@ -442,6 +461,24 @@ static int set_options(int argc, char **argv, const char *short_opts,
 		case 'g':
 			all_good = 1;
 			break;
+
+		case 'h':
+			printf("Usage: scsi_id OPTIONS <device>\n"
+			       "  --device               device node for SG_IO commands\n"
+			       "  --devpath              sysfs devpath\n"
+			       "  --config               location of config file\n"
+			       "  --page                 SCSI page (0x80, 0x83, pre-spc3-83)\n"
+			       "  --fallback-to-sysfs    print sysfs values if inquiry fails\n"
+			       "  --ignore-sysfs         ignore sysfs entries\n"
+			       "  --blacklisted          threat device as blacklisted\n"
+			       "  --whitelisted          threat device as whitelisted\n"
+			       "  --prefix-bus-id        prefix SCSI bus id\n"
+			       "  --replace-whitespace   replace all whitespaces by underscores\n"
+			       "  --verbose              verbose logging\n"
+			       "  --version              print version\n"
+			       "  --export               print values as environemt keys\n"
+			       "  --help                 print this help text\n\n");
+			exit(0);
 
 		case 'i':
 			display_bus_id = 1;
@@ -483,13 +520,12 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			break;
 
 		case 'V':
-			info("scsi_id version: %s\n", SCSI_ID_VERSION);
+			printf("%s\n", SCSI_ID_VERSION);
 			exit(0);
 			break;
 
 		default:
-			info("Unknown or bad option '%c' (0x%x)", option, option);
-			return -1;
+			exit(1);
 		}
 	}
 	return 0;
@@ -509,7 +545,7 @@ static int per_dev_options(struct sysfs_device *dev_scsi, int *good_bad, int *pa
 
 	optind = 1; /* reset this global extern */
 	while (retval == 0) {
-		option = getopt(newargc, newargv, dev_short_options);
+		option = getopt_long(newargc, newargv, dev_short_options, options, NULL);
 		if (option == -1)
 			break;
 
@@ -648,7 +684,7 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 	int page_code;
 	char serial[MAX_SERIAL_LEN];
 	char serial_short[MAX_SERIAL_LEN];
-	char bus_str[8];
+	const char *bus_str = NULL;
 
 	dbg("devpath %s\n", devpath);
 
@@ -663,15 +699,6 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 	else
 		dev_type = S_IFCHR;
 
-	if (!ignore_sysfs) {
-		/* get scsi parent device */
-		dev_scsi = sysfs_device_get_parent_with_subsystem(dev, "scsi");
-		if (dev_scsi == NULL) {
-			err("unable to access parent device of '%s'", devpath);
-			return 1;
-		}
-	}
-
 	/* mknod a temp dev to communicate with the device */
 	if (!dev_specified && create_tmp_dev(dev->devpath, maj_min_dev, dev_type)) {
 		dbg("create_tmp_dev failed\n");
@@ -679,12 +706,17 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 	}
 
 	if (!ignore_sysfs) {
+		/* get scsi parent device */
+		dev_scsi = sysfs_device_get_parent_with_subsystem(dev, "scsi");
+		if (dev_scsi == NULL) {
+			err("unable to access parent device of '%s'", devpath);
+			return 1;
+		}
 		set_sysfs_values(dev_scsi);
-		strcpy(bus_str,"scsi");
+		bus_str = "scsi";
 	} else {
 		dev_scsi = dev;
 		set_inq_values(dev_scsi, maj_min_dev);
-		strcpy(bus_str,"cciss");
 	}
 
 	/* get per device (vendor + model) options from the config file */
@@ -711,7 +743,8 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 			set_str(serial_str, serial_short, sizeof(serial_str));
 			printf("ID_SERIAL_SHORT=%s\n", serial_str);
 			printf("ID_TYPE=%s\n", type_str);
-			printf("ID_BUS=%s\n", bus_str);
+			if (bus_str != NULL)
+				printf("ID_BUS=%s\n", bus_str);
 		} else {
 			if (reformat_serial)
 				format_serial(serial);

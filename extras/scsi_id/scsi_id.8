@@ -17,7 +17,7 @@ with a non\-zero value.
 \fBscsi_id\fP is primarily for use by other utilities such as \fBudev\fP
 that require a unique SCSI identifier.
 
-By default all devices are assume black listed, the \fB\-g\fP option must
+By default all devices are assume black listed, the \fB\-\-whitelisted\fP option must
 be specified on the command line or in the config file for any useful
 behaviour.
 
@@ -33,7 +33,7 @@ by page 0x80. For example:
 
 .sp
 .nf
-# scsi_id -p 0x80 -s /block/sdg
+# scsi_id --page=0x80 --devpath=/block/sdg
 SIBM     3542           1T05078453
 .fi
 .P
@@ -45,28 +45,26 @@ identifier starts with the NAA value of 6):
 
 .sp
 .nf
-# /sbin/scsi_id -p 0x83 -s /block/sdg
+# /sbin/scsi_id --page=0x83 --devpath=/block/sdg
 3600a0b80000b174b000000d63efc5c8c
 .fi
 .P
 
 .SH OPTIONS
 .TP
-.BI subsystem
-Deprecated method: when called with only a single argument without a
-leading \-, runs in a hotplug mode, and expects the environment variable
-DEVPATH to specify the corresponding sysfs device. See section below on
-usage with \fBudev\fP.
-.TP
-.BI \-a
+.BI \-\-fallback-to-sysfs
 Always print information (model, vendor strings) about the device even
 if it does not support VPD pages.
 .TP
-.BI \-b
+.BI \-\-ignore-sysfs
+Ignore sysfs entries. Used for devices which are not represented as SCSI
+devices, but understand SG_IO commands.
+.TP
+.BI \-\-blacklisted
 The default behaviour \- treat the device as black listed, and do nothing
 unless a white listed device is found in the scsi_id config\-file.
 .TP
-.BI \-d "\| device\^"
+.BI \-\-device=\| device\^
 Instead
 of determining and creating a device node based on a sysfs dev
 entry as done for the \fB\-s\fP, send SG_IO commands to 
@@ -74,24 +72,24 @@ entry as done for the \fB\-s\fP, send SG_IO commands to
 This argument should also be used when invoked via udev to avoid problems
 with creation of temporary files on not-yet writable directories.
 .TP
-.BI \-f "\| config\-file"
+.BI \-\-config=\| config\-file
 Read configuration and black/white list entries from
 .B config\-file 
 rather than the default
 .B /etc/scsi_id.config
 file.
 .TP
-.BI \-g
-Treat the device as white listed. The \fB\-g\fP option must be specified
+.BI \-\-whitelisted
+Treat the device as white listed. The \fB\-\-whitelisted\fP option must be specified
 on the command line or in the scsi_id configuration file for 
 .B scsi_id
 to generate any output.
 .TP
-.BI \-i
+.BI \-\-prefix-bus-id
 Prefix the identification string with the  driver model (sysfs) bus id of
 the SCSI device.
 .TP
-.BI \-p "\| 0x80 | 0x83 | pre-spc3-83"
+.BI \-\-page=\| 0x80 | 0x83 | pre-spc3-83
 Use SCSI INQUIRY VPD page code 0x80, 0x83, or pre-spc3-83.
 .sp
 The default
@@ -104,58 +102,29 @@ option is used for older model 4, 5, and 6 EMC Symmetrix devices, its
 use with SPC-2 or SPC-3 compliant devices will fallback to the page 83
 format supported by these devices.
 .TP
-.BI \-s "\| sysfs\-device"
+.BI \-\-devpath=\| sysfs\-devpath
 Generate an id for the
-.B sysfs\-device.
-The sysfs mount point must not be included. For example, use /block/sd,
-not /sys/block/sd.
+.B sysfs\-devpath.
+The sysfs mount point must not be included.
 .TP
-.BI \-u
+.BI \-\-replace-whitespace
 Reformat the output : replace all whitespaces by underscores.
 .TP
-.BI \-x
+.BI \-\-export
 Export all data in KEY=<value> format used to import in other programs.
 .TP
-.BI \-v
+.BI \-\-verbose
 Generate verbose debugging output.
 .TP
-.BI \-V
+.BI \-\-version
 Display version number and exit.
 .RE
 
-.SH USAGE WITH UDEV 
-
-If \fBscsi_id\fP is invoked with one argument without a leading \-, it
-assumes it is called for a hotplug event, and looks for the sysfs device
-in the DEVPATH environment variable. This mode is deprecated, but
-available for backwards compatibility.
+.SH ENVIRONMENT
 
 If the DEVPATH environment variable is set, scsi_id assumes it has been
 invoked via udev (or some other hotplug program), and all errors or
 warnings are sent using syslog.
-
-To determine the specific value needed in a RESULT key, use the \-s option,
-for example:
-
-.sp
-.nf
-/sbin/scsi_id -s /block/sda
-.fi
-.P
-
-\fBscsi_id\fP is one of the tools used in the "Linux Persistent Device Names"
-scheme that creates persistent device links in /dev/disk. It is called with
-the -x option which will print all values in a defined format to let udev
-import it into its own environment for later event processing.
-.sp
-An example custom \fBudev\fP rule using \fBscsi_id\fP, that will name a block
-device and any partitions for the device matching the \fBscsi_id\fP output
-of 312345:
-
-.sp
-.nf
-SUBSYSTEMS=="scsi", PROGRAM=="/sbin/scsi_id -d %N -s %p", RESULT=="312345", NAME="disk%n"
-.fi
 .P
 
 .SH "FILES"
