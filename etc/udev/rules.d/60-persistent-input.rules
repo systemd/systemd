@@ -3,7 +3,7 @@ SUBSYSTEM!="input", GOTO="persistent_input_end"
 KERNEL=="input[0-9]*", GOTO="persistent_input_end"
 
 # usb devices
-SUBSYSTEMS=="usb", IMPORT{program}="usb_id -x"
+SUBSYSTEMS=="usb", IMPORT{program}="usb_id --export"
 SUBSYSTEMS=="usb", ATTRS{bInterfaceClass}=="03", ATTRS{bInterfaceProtocol}=="01", ENV{ID_CLASS}="kbd"
 SUBSYSTEMS=="usb", ATTRS{bInterfaceClass}=="03", ATTRS{bInterfaceProtocol}=="02", ENV{ID_CLASS}="mouse"
 
