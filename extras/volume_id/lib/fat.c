@@ -1,7 +1,8 @@
 /*
  * volume_id - reads filesystem label and uuid
  *
- * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2004-2007 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2007 Ryan Lortie <desrt@desrt.ca>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -33,6 +34,13 @@
 #define FAT_ATTR_LONG_NAME		0x0f
 #define FAT_ATTR_MASK			0x3f
 #define FAT_ENTRY_FREE			0xe5
+
+#define VFAT_LFN_SEQ_MASK		0x3f
+#define VFAT_LFN_SEQ_LAST		0x40
+#define VFAT_LFN_SEQ_MAX		20
+#define VFAT_LFN_CHARS_PER_ENTRY	(5 + 6 + 2)
+#define VFAT_LOWERCASE_NAME		0x10
+#define VFAT_LOWERCASE_EXT		0x08
 
 struct vfat_super_block {
 	uint8_t		boot_jump[3];
@@ -88,9 +96,10 @@ struct fat32_fsinfo {
 struct vfat_dir_entry {
 	uint8_t		name[11];
 	uint8_t		attr;
+	uint8_t		lowercase;
+	uint8_t		fine_time_creat;
 	uint16_t	time_creat;
 	uint16_t	date_creat;
-	uint16_t	time_acc;
 	uint16_t	date_acc;
 	uint16_t	cluster_high;
 	uint16_t	time_write;
@@ -99,7 +108,109 @@ struct vfat_dir_entry {
 	uint32_t	size;
 } PACKED;
 
-static uint8_t *get_attr_volume_id(struct vfat_dir_entry *dir, unsigned int count)
+
+struct vfat_lfn_entry {
+	uint8_t		seq;
+	uint16_t	name0[5];
+	uint8_t		attr;
+	uint8_t		reserved;
+	uint8_t		cksum;
+	uint16_t	name1[6];
+	uint16_t	cluster;
+	uint16_t	name2[2];
+} PACKED;
+
+static uint8_t fat_lfn_checksum(const uint8_t name[11])
+{
+	uint8_t cksum = 0;
+	int i;
+
+	/* http://en.wikipedia.org/wiki/File_Allocation_Table */
+	for (i = 0; i < 11; i++)
+		cksum = ((cksum & 1) ? 0x80 : 0) + (cksum >> 1) + name[i];
+
+	return cksum;
+}
+
+static size_t fat_read_lfn(uint8_t *filename, size_t fnsize,
+			   struct vfat_dir_entry *dir,
+			   struct vfat_dir_entry *entry)
+{
+	uint8_t buffer[VFAT_LFN_SEQ_MAX * VFAT_LFN_CHARS_PER_ENTRY * 2];
+	uint8_t expected_seq = 1;
+	uint8_t cksum;
+	size_t len = 0;
+	size_t fnlen = 0;
+
+	cksum = fat_lfn_checksum(entry->name);
+
+	while (--entry >= dir) {
+		struct vfat_lfn_entry *lfn = (struct vfat_lfn_entry *) entry;
+
+		if (expected_seq > VFAT_LFN_SEQ_MAX)
+			break;
+
+		if ((lfn->attr & FAT_ATTR_MASK) != FAT_ATTR_LONG_NAME)
+			break;
+
+		if (lfn->cksum != cksum)
+			break;
+
+		if ((lfn->seq & VFAT_LFN_SEQ_MASK) != expected_seq++)
+			break;
+
+		if (lfn->cluster != 0)
+			break;
+
+		/* extra paranoia -- should never happen */
+		if (len + sizeof(lfn->name0) + sizeof(lfn->name1) +
+		    sizeof(lfn->name2) > sizeof(buffer))
+			break;
+
+		memcpy (&buffer[len], lfn->name0, sizeof(lfn->name0));
+		len += sizeof(lfn->name0);
+		memcpy (&buffer[len], lfn->name1, sizeof(lfn->name1));
+		len += sizeof(lfn->name1);
+		memcpy (&buffer[len], lfn->name2, sizeof(lfn->name2));
+		len += sizeof(lfn->name2);
+
+		if (lfn->seq & VFAT_LFN_SEQ_LAST) {
+			fnlen = volume_id_set_unicode16(filename, fnsize, buffer, LE, len);
+			break;
+		}
+	}
+
+	return fnlen;
+}
+
+static size_t fat_read_filename(uint8_t *filename, size_t fnsize,
+				struct vfat_dir_entry *dir, struct vfat_dir_entry *entry)
+{
+	size_t len;
+	int i;
+
+	/* check if maybe we have LFN entries */
+	len = fat_read_lfn(filename, fnsize, dir, entry);
+	if (len > 0)
+		goto out;
+
+	/* else, read the normal 8.3 name */
+	for (i = 0; i < 11; i++) {
+		if (entry->lowercase & ((i < 8) ? VFAT_LOWERCASE_NAME : VFAT_LOWERCASE_EXT))
+			filename[i] = tolower(entry->name[i]);
+		else
+			filename[i] = entry->name[i];
+	}
+	len = 11;
+
+out:
+	filename[len] = '\0';
+	return len;
+}
+
+/* fills filename, returns string length */
+static size_t get_fat_attr_volume_id(uint8_t *filename, size_t fnsize,
+				     struct vfat_dir_entry *dir, unsigned int count)
 {
 	unsigned int i;
 
@@ -124,17 +235,18 @@ static uint8_t *get_attr_volume_id(struct vfat_dir_entry *dir, unsigned int coun
 				continue;
 
 			dbg("found ATTR_VOLUME_ID id in root dir");
-			return dir[i].name;
+			return fat_read_filename(filename, fnsize, dir, &dir[i]);
 		}
 
 		dbg("skip dir entry");
 	}
 
-	return NULL;
+	return 0;
 }
 
 int volume_id_probe_vfat(struct volume_id *id, uint64_t off, uint64_t size)
 {
+	uint8_t filename[255 * 3];
 	struct vfat_super_block *vs;
 	struct vfat_dir_entry *dir;
 	struct fat32_fsinfo *fsinfo;
@@ -154,9 +266,9 @@ int volume_id_probe_vfat(struct volume_id *id, uint64_t off, uint64_t size)
 	uint16_t fsinfo_sect;
 	uint8_t *buf;
 	uint32_t buf_size;
-	uint8_t *label = NULL;
 	uint32_t next;
 	int maxloop;
+	size_t fnlen;
 
 	info("probing at offset 0x%llx", (unsigned long long) off);
 
@@ -275,15 +387,15 @@ magic:
 
 	dir = (struct vfat_dir_entry*) buf;
 
-	label = get_attr_volume_id(dir, root_dir_entries);
+	fnlen = get_fat_attr_volume_id(filename, sizeof(filename), dir, root_dir_entries);
 
 	vs = (struct vfat_super_block *) volume_id_get_buffer(id, off, 0x200);
 	if (vs == NULL)
 		return -1;
 
-	if (label != NULL && memcmp(label, "NO NAME    ", 11) != 0) {
-		volume_id_set_label_raw(id, label, 11);
-		volume_id_set_label_string(id, label, 11);
+	if (fnlen > 0 && memcmp(filename, "NO NAME    ", 11) != 0) {
+		volume_id_set_label_raw(id, filename, fnlen);
+		volume_id_set_label_string(id, filename, fnlen);
 	} else if (memcmp(vs->type.fat.label, "NO NAME    ", 11) != 0) {
 		volume_id_set_label_raw(id, vs->type.fat.label, 11);
 		volume_id_set_label_string(id, vs->type.fat.label, 11);
@@ -337,8 +449,8 @@ fat32:
 		count = buf_size / sizeof(struct vfat_dir_entry);
 		dbg("expected entries 0x%x", count);
 
-		label = get_attr_volume_id(dir, count);
-		if (label)
+		fnlen = get_fat_attr_volume_id(filename, sizeof(filename), dir, count);
+		if (fnlen > 0)
 			break;
 
 		/* get FAT entry */
@@ -359,9 +471,9 @@ fat32:
 	if (vs == NULL)
 		return -1;
 
-	if (label != NULL && memcmp(label, "NO NAME    ", 11) != 0) {
-		volume_id_set_label_raw(id, label, 11);
-		volume_id_set_label_string(id, label, 11);
+	if (fnlen > 0 && memcmp(filename, "NO NAME    ", 11) != 0) {
+		volume_id_set_label_raw(id, filename, fnlen);
+		volume_id_set_label_string(id, filename, fnlen);
 	} else if (memcmp(vs->type.fat32.label, "NO NAME    ", 11) != 0) {
 		volume_id_set_label_raw(id, vs->type.fat32.label, 11);
 		volume_id_set_label_string(id, vs->type.fat32.label, 11);
