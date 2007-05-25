@@ -736,6 +736,37 @@ static int do_scsi_page80_inquiry(struct sysfs_device *dev_scsi, int fd,
 	return 0;
 }
 
+int scsi_std_inquiry(struct sysfs_device *dev_scsi, const char *devname,
+		     char *vendor, char *model, char *rev, char *type)
+{
+	int retval;
+	int fd;
+	unsigned char buf[SCSI_INQ_BUFF_LEN];
+
+	dbg("opening %s\n", devname);
+	fd = open(devname, O_RDONLY | O_NONBLOCK);
+	if (fd < 0) {
+		info("%s: cannot open %s: %s",
+		    dev_scsi->kernel, devname, strerror(errno));
+		return 1;
+	}
+
+	memset(buf, 0, SCSI_INQ_BUFF_LEN);
+	retval = scsi_inquiry(dev_scsi, fd, 0, 0, buf, SCSI_INQ_BUFF_LEN);
+	if (retval < 0)
+		return retval;
+
+	memcpy(vendor, buf + 8, 8);
+	memcpy(model, buf + 16, 16);
+	memcpy(rev, buf + 32, 4);
+	sprintf(type,"%x", buf[0] & 0x1f);
+
+	if (close(fd) < 0)
+		info("%s: close failed: %s", dev_scsi->kernel, strerror(errno));
+
+	return 0;
+}
+
 int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 		     int page_code, char *serial, char *serial_short, int len)
 {

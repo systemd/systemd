@@ -74,6 +74,17 @@ handle_pci () {
 	DEV=${PWD}
 	pci_id=${DEV##*/}
 	host_dev_path=$DEV
+
+	# cciss devices don't have a separate sysfs node
+	for blk_link in block*; do
+	    if [ -L "$blk_link" ]; then
+		case "$blk_link" in
+		    *cciss*)
+			d=cciss-${blk_link#*cciss\!}
+			;;
+		esac
+	    fi
+	done
 	while [ ! -z "$host_dev_path" ] ; do
 		case "$host_dev_path" in
 			*/pci[0-9]*)

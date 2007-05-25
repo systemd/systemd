@@ -34,7 +34,7 @@
 #define TMP_DIR		"/dev"
 #define TMP_PREFIX	"tmp-scsi"
 
-static const char short_options[] = "abd:f:gip:s:uvVx";
+static const char short_options[] = "abd:f:ginp:s:uvVx";
 static const char dev_short_options[] = "bgp:";
 
 static int all_good;
@@ -48,6 +48,7 @@ static int use_stderr;
 static int debug;
 static int hotplug_mode;
 static int reformat_serial;
+static int ignore_sysfs;
 static int export;
 static char vendor_str[64];
 static char model_str[64];
@@ -459,6 +460,10 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			}
 			break;
 
+		case 'n':
+			ignore_sysfs = 1;
+			break;
+
 		case 's':
 			sys_specified = 1;
 			strncpy(target, optarg, MAX_PATH_LEN);
@@ -495,41 +500,12 @@ static int per_dev_options(struct sysfs_device *dev_scsi, int *good_bad, int *pa
 	int retval;
 	int newargc;
 	char **newargv = NULL;
-	const char *vendor, *model, *type;
 	int option;
 
 	*good_bad = all_good;
 	*page_code = default_page_code;
 
-	vendor = sysfs_attr_get_value(dev_scsi->devpath, "vendor");
-	if (!vendor) {
-		info("%s: cannot get vendor attribute", dev_scsi->devpath);
-		return -1;
-	}
-	set_str(vendor_str, vendor, sizeof(vendor_str)-1);
-
-	model = sysfs_attr_get_value(dev_scsi->devpath, "model");
-	if (!model) {
-		info("%s: cannot get model attribute\n", dev_scsi->devpath);
-		return -1;
-	}
-	set_str(model_str, model, sizeof(model_str)-1);
-
-	type = sysfs_attr_get_value(dev_scsi->devpath, "type");
-	if (!type) {
-		info("%s: cannot get type attribute", dev_scsi->devpath);
-		return -1;
-	}
-	set_type(type_str, type, sizeof(type_str));
-
-	type = sysfs_attr_get_value(dev_scsi->devpath, "rev");
-	if (!type) {
-		info("%s: cannot get type attribute\n", dev_scsi->devpath);
-		return -1;
-	}
-	set_str(revision_str, type, sizeof(revision_str)-1);
-
-	retval = get_file_options(vendor, model, &newargc, &newargv);
+	retval = get_file_options(vendor_str, model_str, &newargc, &newargv);
 
 	optind = 1; /* reset this global extern */
 	while (retval == 0) {
@@ -578,6 +554,58 @@ static int per_dev_options(struct sysfs_device *dev_scsi, int *good_bad, int *pa
 	return retval;
 }
 
+static int set_sysfs_values(struct sysfs_device *dev_scsi)
+{
+	const char *vendor, *model, *type;
+
+	vendor = sysfs_attr_get_value(dev_scsi->devpath, "vendor");
+	if (!vendor) {
+		info("%s: cannot get vendor attribute", dev_scsi->devpath);
+		return -1;
+	}
+	set_str(vendor_str, vendor, sizeof(vendor_str)-1);
+
+	model = sysfs_attr_get_value(dev_scsi->devpath, "model");
+	if (!model) {
+		info("%s: cannot get model attribute\n", dev_scsi->devpath);
+		return -1;
+	}
+	set_str(model_str, model, sizeof(model_str)-1);
+
+	type = sysfs_attr_get_value(dev_scsi->devpath, "type");
+	if (!type) {
+		info("%s: cannot get type attribute", dev_scsi->devpath);
+		return -1;
+	}
+	set_type(type_str, type, sizeof(type_str));
+
+	type = sysfs_attr_get_value(dev_scsi->devpath, "rev");
+	if (!type) {
+		info("%s: cannot get type attribute\n", dev_scsi->devpath);
+		return -1;
+	}
+	set_str(revision_str, type, sizeof(revision_str)-1);
+
+	return 0;
+}
+
+static int set_inq_values(struct sysfs_device *dev_scsi, const char *path)
+{
+	int retval;
+	char vendor[8], model[16], type[4], rev[4];
+
+	retval = scsi_std_inquiry(dev_scsi, path, vendor, model, rev, type);
+	if (retval)
+	    return retval;
+
+	set_str(vendor_str, vendor, 8);
+	set_str(model_str, model, 16);
+	set_type(type_str, type, sizeof(type_str) - 1);
+	set_str(revision_str, rev, sizeof(revision_str) -1);
+
+	return 0;
+}
+
 /*
  * format_serial: replace to whitespaces by underscores for calling
  * programs that use the serial for device naming (multipath, Suse
@@ -615,11 +643,12 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 	int retval;
 	int dev_type = 0;
 	struct sysfs_device *dev;
-	struct sysfs_device *dev_scsi;
+	struct sysfs_device *dev_scsi = NULL;
 	int good_dev;
 	int page_code;
 	char serial[MAX_SERIAL_LEN];
 	char serial_short[MAX_SERIAL_LEN];
+	char bus_str[8];
 
 	dbg("devpath %s\n", devpath);
 
@@ -634,17 +663,28 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 	else
 		dev_type = S_IFCHR;
 
-	/* get scsi parent device */
-	dev_scsi = sysfs_device_get_parent_with_subsystem(dev, "scsi");
-	if (dev_scsi == NULL) {
-		err("unable to access parent device of '%s'", devpath);
-		return 1;
+	if (!ignore_sysfs) {
+		/* get scsi parent device */
+		dev_scsi = sysfs_device_get_parent_with_subsystem(dev, "scsi");
+		if (dev_scsi == NULL) {
+			err("unable to access parent device of '%s'", devpath);
+			return 1;
+		}
 	}
 
 	/* mknod a temp dev to communicate with the device */
 	if (!dev_specified && create_tmp_dev(dev->devpath, maj_min_dev, dev_type)) {
 		dbg("create_tmp_dev failed\n");
 		return 1;
+	}
+
+	if (!ignore_sysfs) {
+		set_sysfs_values(dev_scsi);
+		strcpy(bus_str,"scsi");
+	} else {
+		dev_scsi = dev;
+		set_inq_values(dev_scsi, maj_min_dev);
+		strcpy(bus_str,"cciss");
 	}
 
 	/* get per device (vendor + model) options from the config file */
@@ -671,7 +711,7 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 			set_str(serial_str, serial_short, sizeof(serial_str));
 			printf("ID_SERIAL_SHORT=%s\n", serial_str);
 			printf("ID_TYPE=%s\n", type_str);
-			printf("ID_BUS=scsi\n");
+			printf("ID_BUS=%s\n", bus_str);
 		} else {
 			if (reformat_serial)
 				format_serial(serial);

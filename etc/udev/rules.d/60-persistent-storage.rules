@@ -36,8 +36,9 @@ KERNEL=="sd*[!0-9]|sr*|st*", ATTRS{ieee1394_id}=="?*", ENV{ID_SERIAL}="$attr{iee
 KERNEL=="sd*[!0-9]|sr*|st*", ENV{ID_SERIAL}=="", IMPORT{program}="usb_id -x"
 KERNEL=="sd*[!0-9]|sr*|st*", ENV{ID_SERIAL}=="", IMPORT{program}="scsi_id -g -x -s %p -d $tempnode"
 KERNEL=="sd*[!0-9]|sr*|st*", ENV{ID_SERIAL}=="", IMPORT{program}="scsi_id -g -x -a -s %p -d $tempnode"
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
-KERNEL=="sd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
+KERNEL=="cciss?c[0-9]d[0-9]", ENV{ID_SERIAL}=="", IMPORT{program}="scsi_id -n -g -x -s %p -d $tempnode"
+KERNEL=="sd*[!0-9]|sr*|cciss?c[0-9]d[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
+KERNEL=="sd*[0-9]|cciss*p[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
 
 # libata compat (links like hd*)
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_VENDOR}=="ATA", PROGRAM="ata_id $tempnode", ENV{ID_ATA_COMPAT}="$result"
@@ -48,10 +49,10 @@ KERNEL=="mmcblk[0-9]", ATTR{name}=="?*", ATTR{serial}=="?*", ENV{ID_NAME}="$attr
 KERNEL=="mmcblk[0-9]p[0-9]", ATTR{name}=="?*", ATTR{serial}=="?*", ENV{ID_NAME}="$attr{name}", ENV{ID_SERIAL}="$attr{serial}", SYMLINK+="disk/by-id/mmc-$env{ID_NAME}_$env{ID_SERIAL}-part%n"
 
 # by-path (shortest physical path)
-KERNEL=="*[!0-9]|sr*", IMPORT{program}="path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
+KERNEL=="*[!0-9]|sr*|cciss?c[0-9]d[0-9]", IMPORT{program}="path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
+KERNEL=="*[0-9]|cciss*p[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 KERNEL=="st*", IMPORT{program}="path_id %p", SYMLINK+="tape/by-path/$env{ID_PATH}"
 KERNEL=="sr*|st*", GOTO="persistent_storage_end"
-KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 
 # by-label/by-uuid (filesystem properties)
 KERNEL=="*[!0-9]", ATTR{removable}=="1", GOTO="persistent_storage_end"
