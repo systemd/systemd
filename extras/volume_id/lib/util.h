@@ -80,7 +80,7 @@ enum endian {
 };
 
 extern int volume_id_utf8_encoded_valid_unichar(const char *str);
-extern void volume_id_set_unicode16(char *str, size_t len, const uint8_t *buf, enum endian endianess, size_t count);
+extern size_t volume_id_set_unicode16(uint8_t *str, size_t len, const uint8_t *buf, enum endian endianess, size_t count);
 extern void volume_id_set_usage(struct volume_id *id, enum volume_id_usage usage_id);
 extern void volume_id_set_label_raw(struct volume_id *id, const uint8_t *buf, size_t count);
 extern void volume_id_set_label_string(struct volume_id *id, const uint8_t *buf, size_t count);

@@ -151,9 +151,9 @@ int volume_id_utf8_encoded_valid_unichar(const char *str)
 	return len;
 }
 
-void volume_id_set_unicode16(char *str, size_t len, const uint8_t *buf, enum endian endianess, size_t count)
+size_t volume_id_set_unicode16(uint8_t *str, size_t len, const uint8_t *buf, enum endian endianess, size_t count)
 {
-	unsigned int i, j;
+	size_t i, j;
 	uint16_t c;
 
 	j = 0;
@@ -183,6 +183,7 @@ void volume_id_set_unicode16(char *str, size_t len, const uint8_t *buf, enum end
 		}
 	}
 	str[j] = '\0';
+	return j;
 }
 
 static char *usage_to_string(enum volume_id_usage usage_id)
@@ -214,15 +215,22 @@ void volume_id_set_usage(struct volume_id *id, enum volume_id_usage usage_id)
 
 void volume_id_set_label_raw(struct volume_id *id, const uint8_t *buf, size_t count)
 {
+	if (count > sizeof(id->label))
+		count = sizeof(id->label);
+
 	memcpy(id->label_raw, buf, count);
 	id->label_raw_len = count;
 }
 
 void volume_id_set_label_string(struct volume_id *id, const uint8_t *buf, size_t count)
 {
-	unsigned int i;
+	size_t i;
+
+	if (count >= sizeof(id->label))
+		count = sizeof(id->label)-1;
 
 	memcpy(id->label, buf, count);
+	id->label[count] = '\0';
 
 	/* remove trailing whitespace */
 	i = strnlen(id->label, count);
@@ -235,7 +243,10 @@ void volume_id_set_label_string(struct volume_id *id, const uint8_t *buf, size_t
 
 void volume_id_set_label_unicode16(struct volume_id *id, const uint8_t *buf, enum endian endianess, size_t count)
 {
-	 volume_id_set_unicode16(id->label, sizeof(id->label), buf, endianess, count);
+	if (count >= sizeof(id->label))
+		count = sizeof(id->label)-1;
+
+	 volume_id_set_unicode16((uint8_t *)id->label, sizeof(id->label), buf, endianess, count);
 }
 
 void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, size_t len, enum uuid_format format)

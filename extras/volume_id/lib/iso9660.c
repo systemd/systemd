@@ -91,7 +91,7 @@ int volume_id_probe_iso9660(struct volume_id *id, uint64_t off, uint64_t size)
 			    memcmp(is->escape_sequences, "%/C", 3) == 0||
 			    memcmp(is->escape_sequences, "%/E", 3) == 0) {
 				dbg("Joliet extension found");
-				volume_id_set_unicode16((char *)svd_label, sizeof(svd_label), is->volume_id, BE, 32);
+				volume_id_set_unicode16(svd_label, sizeof(svd_label), is->volume_id, BE, 32);
 				if (memcmp(id->label, svd_label, 16) == 0) {
 					dbg("SVD label is identical, use the possibly longer PVD one");
 					break;
