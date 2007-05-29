@@ -476,7 +476,7 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			       "  --replace-whitespace   replace all whitespaces by underscores\n"
 			       "  --verbose              verbose logging\n"
 			       "  --version              print version\n"
-			       "  --export               print values as environemt keys\n"
+			       "  --export               print values as environment keys\n"
 			       "  --help                 print this help text\n\n");
 			exit(0);
 
@@ -817,7 +817,7 @@ int main(int argc, char **argv)
 		exit(1);
 
 	if (!sys_specified) {
-		info("-s must be specified\n");
+		info("--devpath=<path> must be specified\n");
 		retval = 1;
 		goto exit;
 	}
