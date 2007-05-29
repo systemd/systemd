@@ -6,14 +6,14 @@ KERNEL=="device-mapper", SYMLINK+="mapper/control"
 KERNEL!="dm-*", GOTO="device_mapper_end"
 ACTION!="add|change", GOTO="device_mapper_end"
 
-# skip snapshot and error tables
 IMPORT{program}="/sbin/dmsetup export -j%M -m%m"
-ENV{DM_STATE}!="ACTIVE", GOTO="device_mapper_end"
-ENV{DM_TARGET_TYPES}=="|*snapshot*|*error*", GOTO="device_mapper_end"
+ENV{DM_NAME}!="?*", GOTO="device_mapper_end"
 
 SYMLINK+="disk/by-id/dm-name-$env{DM_NAME}"
 ENV{DM_UUID}=="?*", SYMLINK+="disk/by-id/dm-uuid-$env{DM_UUID}"
 
+ENV{DM_STATE}!="ACTIVE", GOTO="device_mapper_end"
+ENV{DM_TARGET_TYPES}=="|*snapshot*|*error*", GOTO="device_mapper_end"
 IMPORT{program}="vol_id --export $tempnode"
 OPTIONS="link_priority=-100"
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"
