@@ -427,27 +427,32 @@ handle_device () {
 	full_sysfs_path="$SYSFS$DEVPATH"
 	case "$DEVPATH" in
 		/devices/*)
-			# new sysfs layout
+			full_sysfs_path="${full_sysfs_path%/*}"
+			# skip parent device of the same subsystem
 			if [ -L $full_sysfs_path/subsystem ]; then
-				full_sysfs_path="${full_sysfs_path%/*}"
 				cd "$full_sysfs_path/subsystem";
 				subsys="`pwd -P`"
 				cd "$OPWD"
 				subsys="${subsys##*/}"
-				if [ "$subsys" = "block" ]; then
-					# parent is "block", it's a partition, move one up
-				full_sysfs_path="${full_sysfs_path%/*}"
+				if [ "$subsys" = "$TYPE" ]; then
+					: skip same subsystem parent
+					full_sysfs_path="${full_sysfs_path%/*}"
 				fi
-				cd $full_sysfs_path
 			fi
+			# skip subsystem directory
+			subsys="${full_sysfs_path##*/}"
+			if [ "$subsys" = "$TYPE" ]; then
+				: skip subsystem directory
+				full_sysfs_path="${full_sysfs_path%/*}"
+			fi
+			cd $full_sysfs_path
 			;;
 		*)
 			# old sysfs layout
-			if [ ! -L $full_sysfs_path/device ] ; then
-				if [ -f $full_sysfs_path/range ] ; then return ; fi
+			if [ ! -L $full_sysfs_path/device ]; then
 				full_sysfs_path="${full_sysfs_path%/*}"
 				: full_sysfs_path "$full_sysfs_path"
-				if [ ! -L $full_sysfs_path/device -o ! -f $full_sysfs_path/dev ] ; then
+				if [ ! -L $full_sysfs_path/device -o ! -f $full_sysfs_path/dev ]; then
 					return
 				fi
 			fi
@@ -456,6 +461,7 @@ handle_device () {
 	esac
 	full_sysfs_device_path="`pwd -P`"
 	cd "$OPWD"
+
 	D=$full_sysfs_device_path
 	while [ ! -z "$D" ] ; do
 		case "$D" in
