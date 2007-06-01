@@ -376,7 +376,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			if (strncmp(attr, "device/", 7) == 0)
 				err("the 'device' link is deprecated and will be removed from a future kernel, "
 				    "please fix it in %s:%u", filename, lineno);
-			else if (strchr(attr, '/') != NULL)
+			else if (strstr(attr, "../") != NULL)
 				err("do not reference parent sysfs directories directly, that may break with a future kernel, "
 				    "please fix it in %s:%u", filename, lineno);
 			if (add_rule_key_pair(rule, &rule->attrs, operation, attr, value) != 0)
