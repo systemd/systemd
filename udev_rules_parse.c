@@ -298,7 +298,16 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 				err("invalid SUBSYSTEM operation");
 				goto invalid;
 			}
-			add_rule_key(rule, &rule->subsystem, operation, value);
+			/* bus, class, subsystem events should all be the same */
+			if (strcmp(value, "subsystem") == 0 ||
+			    strcmp(value, "bus") == 0 ||
+			    strcmp(value, "class") == 0) {
+				if (strcmp(value, "bus") == 0 || strcmp(value, "class") == 0)
+					err("'%s' must be specified as 'subsystem' "
+					    "please fix it in %s:%u", value, filename, lineno);
+				add_rule_key(rule, &rule->subsystem, operation, "subsystem|class|bus");
+			} else
+				add_rule_key(rule, &rule->subsystem, operation, value);
 			valid = 1;
 			continue;
 		}
