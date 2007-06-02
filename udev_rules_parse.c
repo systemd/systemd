@@ -470,6 +470,15 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			continue;
 		}
 
+		if (strncasecmp(key, "TEST", sizeof("TEST")-1) == 0) {
+			attr = get_key_attribute(key + sizeof("TEST")-1);
+			if (attr != NULL)
+				rule->test_mode_mask = strtol(attr, NULL, 8);
+			add_rule_key(rule, &rule->test, operation, value);
+			valid = 1;
+			continue;
+		}
+
 		if (strcasecmp(key, "RUN") == 0) {
 			add_rule_key(rule, &rule->run, operation, value);
 			valid = 1;

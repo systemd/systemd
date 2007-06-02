@@ -322,7 +322,7 @@ int udev_node_add(struct udevice *udev)
 
 		/* take the maximum registered minor range */
 		attr = sysfs_attr_get_value(udev->dev->devpath, "range");
-		if (attr) {
+		if (attr != NULL) {
 			range = atoi(attr);
 			if (range > 1)
 				udev->partitions = range-1;

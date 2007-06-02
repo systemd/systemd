@@ -225,6 +225,14 @@
             </varlistentry>
 
             <varlistentry>
+              <term><option>TEST{<replaceable>octal mode mask</replaceable>}</option></term>
+              <listitem>
+                <para>Test the existence of a file. An octal mode mask can be specified
+                if needed.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
               <term><option>PROGRAM</option></term>
               <listitem>
                 <para>Execute external program. The key is true, if the program returns

@@ -75,6 +75,8 @@ struct udev_rule {
 	struct key result;
 	struct key import;
 	enum import_type import_type;
+	struct key test;
+	mode_t test_mode_mask;
 	struct key run;
 	struct key wait_for_sysfs;
 	struct key label;

@@ -641,6 +641,29 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 		}
 	}
 
+	if (rule->test.operation != KEY_OP_UNSET) {
+		char filename[PATH_SIZE];
+		struct stat statbuf;
+		int match;
+
+		strlcpy(filename, key_val(rule, &rule->test), sizeof(filename));
+		udev_rules_apply_format(udev, filename, sizeof(filename));
+
+		match = (stat(filename, &statbuf) == 0);
+		info("'%s' %s", filename, match ? "exists" : "does not exist");
+		if (match && rule->test_mode_mask > 0) {
+			match = ((statbuf.st_mode & rule->test_mode_mask) > 0);
+			info("'%s' has mode=%#o and %s %#o", filename, statbuf.st_mode,
+			     match ? "matches" : "does not match",
+			     rule->test_mode_mask);
+		}
+		if (match && rule->test.operation == KEY_OP_NOMATCH)
+			goto nomatch;
+		if (!match && rule->test.operation == KEY_OP_MATCH)
+			goto nomatch;
+		dbg("TEST key is true");
+	}
+
 	if (rule->wait_for_sysfs.operation != KEY_OP_UNSET) {
 		int found;
 
@@ -1037,7 +1060,8 @@ int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev)
 
 		dbg("process rule");
 		if (rule->name.operation != KEY_OP_UNSET || rule->symlink.operation != KEY_OP_UNSET ||
-		    rule->mode_operation != KEY_OP_UNSET || rule->owner.operation != KEY_OP_UNSET || rule->group.operation != KEY_OP_UNSET) {
+		    rule->mode_operation != KEY_OP_UNSET || rule->owner.operation != KEY_OP_UNSET ||
+		    rule->group.operation != KEY_OP_UNSET) {
 			dbg("skip rule that names a device");
 			continue;
 		}
@@ -1050,7 +1074,8 @@ int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev)
 			}
 
 			if (!udev->run_final && rule->run.operation != KEY_OP_UNSET) {
-				if (rule->run.operation == KEY_OP_ASSIGN || rule->run.operation == KEY_OP_ASSIGN_FINAL) {
+				if (rule->run.operation == KEY_OP_ASSIGN ||
+				    rule->run.operation == KEY_OP_ASSIGN_FINAL) {
 					info("reset run list");
 					name_list_cleanup(&udev->run_list);
 				}

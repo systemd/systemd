@@ -151,6 +151,11 @@ Match against the value of an environment variable. Up to five
 keys can be specified per rule. Depending on the type of operator, this key is also used to export a variable to the environment.
 .RE
 .PP
+\fBTEST{\fR\fB\fIoctal mode mask\fR\fR\fB}\fR
+.RS 4
+Test the existence of a file. An octal mode mask can be specified if needed.
+.RE
+.PP
 \fBPROGRAM\fR
 .RS 4
 Execute external program. The key is true, if the program returns with exit code zero. The whole event environment is available to the executed program. The program's output printed to stdout, is available in the RESULT key.
