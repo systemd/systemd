@@ -92,15 +92,17 @@ int main(int argc, char *argv[], char *envp[])
 {
 	int force = 0;
 	char *action = "add";
-	struct udev_rules rules = {};
+	char *subsystem = NULL;
 	char *devpath = NULL;
 	struct udevice *udev;
 	struct sysfs_device *dev;
+	struct udev_rules rules = {};
 	int retval;
 	int rc = 0;
 
 	static const struct option options[] = {
 		{ "action", 1, NULL, 'a' },
+		{ "subsystem", 1, NULL, 's' },
 		{ "force", 0, NULL, 'f' },
 		{ "help", 0, NULL, 'h' },
 		{}
@@ -119,7 +121,7 @@ int main(int argc, char *argv[], char *envp[])
 	while (1) {
 		int option;
 
-		option = getopt_long(argc, argv, "a:fh", options, NULL);
+		option = getopt_long(argc, argv, "a:s:fh", options, NULL);
 		if (option == -1)
 			break;
 
@@ -128,14 +130,18 @@ int main(int argc, char *argv[], char *envp[])
 		case 'a':
 			action = optarg;
 			break;
+		case 's':
+			subsystem = optarg;
+			break;
 		case 'f':
 			force = 1;
 			break;
 		case 'h':
-			printf("Usage: udevtest [--action=<string>] [--force] [--help] <devpath>\n"
-			       "  --action=<string>   set action string\n"
-			       "  --force             don't skip node/link creation\n"
-			       "  --help              print this help text\n\n");
+			printf("Usage: udevtest OPTIONS <devpath>\n"
+			       "  --action=<string>     set action string\n"
+			       "  --subsystem=<string>  set subsystem string\n"
+			       "  --force               don't skip node/link creation\n"
+			       "  --help                print this help text\n\n");
 			exit(0);
 		default:
 			exit(1);
@@ -175,9 +181,12 @@ int main(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 
+	if (subsystem != NULL)
+		strlcpy(dev->subsystem, subsystem, sizeof(dev->subsystem));
+
 	/* override built-in sysfs device */
 	udev->dev = dev;
-	strcpy(udev->action, action);
+	strlcpy(udev->action, action, sizeof(udev->action));
 	udev->devt = udev_device_get_devt(udev);
 
 	/* simulate node creation with test flag */
