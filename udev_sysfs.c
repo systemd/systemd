@@ -446,16 +446,16 @@ int sysfs_lookup_devpath_by_subsys_id(char *devpath_full, size_t len, const char
 		if (stat(path_full, &statbuf) == 0)
 			goto found;
 
-		strlcpy(path, "/class/", sizeof(path_full) - sysfs_len);
-		strlcat(path, id, sizeof(path_full) - sysfs_len);
-		if (stat(path_full, &statbuf) == 0)
-			goto found;
-
 		strlcpy(path, "/bus/", sizeof(path_full) - sysfs_len);
 		strlcat(path, id, sizeof(path_full) - sysfs_len);
 		if (stat(path_full, &statbuf) == 0)
 			goto found;
 		goto out;
+
+		strlcpy(path, "/class/", sizeof(path_full) - sysfs_len);
+		strlcat(path, id, sizeof(path_full) - sysfs_len);
+		if (stat(path_full, &statbuf) == 0)
+			goto found;
 	}
 
 	if (strcmp(subsystem, "module") == 0) {
@@ -499,22 +499,21 @@ int sysfs_lookup_devpath_by_subsys_id(char *devpath_full, size_t len, const char
 	if (stat(path_full, &statbuf) == 0)
 		goto found;
 
-	strlcpy(path, "/class/", sizeof(path_full) - sysfs_len);
-	strlcat(path, subsystem, sizeof(path_full) - sysfs_len);
-	strlcat(path, "/", sizeof(path_full) - sysfs_len);
-	strlcat(path, id, sizeof(path_full) - sysfs_len);
-	if (stat(path_full, &statbuf) == 0)
-		goto found;
-
 	strlcpy(path, "/bus/", sizeof(path_full) - sysfs_len);
 	strlcat(path, subsystem, sizeof(path_full) - sysfs_len);
 	strlcat(path, "/devices/", sizeof(path_full) - sysfs_len);
 	strlcat(path, id, sizeof(path_full) - sysfs_len);
 	if (stat(path_full, &statbuf) == 0)
 		goto found;
+
+	strlcpy(path, "/class/", sizeof(path_full) - sysfs_len);
+	strlcat(path, subsystem, sizeof(path_full) - sysfs_len);
+	strlcat(path, "/", sizeof(path_full) - sysfs_len);
+	strlcat(path, id, sizeof(path_full) - sysfs_len);
+	if (stat(path_full, &statbuf) == 0)
+		goto found;
 out:
 	return 0;
-
 found:
 	if (S_ISLNK(statbuf.st_mode))
 		sysfs_resolve_link(path, sizeof(path_full) - sysfs_len);
