@@ -292,6 +292,7 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 		SUBST_PARENT,
 		SUBST_TEMP_NODE,
 		SUBST_ROOT,
+		SUBST_SYS,
 		SUBST_ENV,
 	};
 	static const struct subst_map {
@@ -311,6 +312,7 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 		{ .name = "parent",	.fmt = 'P',	.type = SUBST_PARENT },
 		{ .name = "tempnode",	.fmt = 'N',	.type = SUBST_TEMP_NODE },
 		{ .name = "root",	.fmt = 'r',	.type = SUBST_ROOT },
+		{ .name = "sys",	.fmt = 'S',	.type = SUBST_SYS },
 		{ .name = "env",	.fmt = 'E',	.type = SUBST_ENV },
 		{ NULL, '\0', 0 }
 	};
@@ -515,6 +517,10 @@ found:
 		case SUBST_ROOT:
 			strlcat(string, udev_root, maxsize);
 			dbg("substitute udev_root '%s'", udev_root);
+			break;
+		case SUBST_SYS:
+			strlcat(string, sysfs_path, maxsize);
+			dbg("substitute sysfs_path '%s'", sysfs_path);
 			break;
 		case SUBST_ENV:
 			if (attr == NULL) {

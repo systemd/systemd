@@ -530,6 +530,13 @@
             </varlistentry>
 
             <varlistentry>
+              <term><option>$sys</option>, <option>%S</option></term>
+              <listitem>
+                <para>The sysfs mount point.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
               <term><option>$tempnode</option>, <option>%N</option></term>
               <listitem>
                 <para>The name of a created temporary device node to provide access to
