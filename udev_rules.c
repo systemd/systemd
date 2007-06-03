@@ -267,8 +267,46 @@ static int wait_for_sysfs(struct udevice *udev, const char *file, int timeout)
 		info("wait for '%s' for %i mseconds", filepath, 1000 / WAIT_LOOP_PER_SECOND);
 		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
 	}
-	err("waiting for '%s' failed", filepath);
+	info("waiting for '%s' failed", filepath);
 	return -1;
+}
+
+/* handle "[$SUBSYSTEM/$KERNEL]<attribute>" lookup */
+static int attr_get_by_subsys_id(const char *attrstr, char *devpath, size_t len, char **attr)
+{
+	char subsys[NAME_SIZE];
+	char *attrib;
+	char *id;
+	int found = 0;
+
+	if (attrstr[0] != '[')
+		goto out;
+
+	strlcpy(subsys, &attrstr[1], sizeof(subsys));
+
+	attrib = strchr(subsys, ']');
+	if (attrib == NULL)
+		goto out;
+	attrib[0] = '\0';
+	attrib = &attrib[1];
+
+	id = strchr(subsys, '/');
+	if (id == NULL)
+		goto out;
+	id[0] = '\0';
+	id = &id[1];
+
+	if (sysfs_lookup_devpath_by_subsys_id(devpath, len, subsys, id)) {
+		if (attr != NULL) {
+			if (attrib[0] != '\0')
+				*attr = attrib;
+			else
+				*attr = NULL;
+		}
+		found = 1;
+	}
+out:
+	return found;
 }
 
 void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
@@ -443,11 +481,20 @@ found:
 			if (attr == NULL)
 				err("missing file parameter for attr");
 			else {
+				char devpath[PATH_SIZE];
+				char *attrib;
 				const char *value = NULL;
 				size_t size;
 
-				/* first try the current device, other matches may have selected */
-				if (udev->dev_parent != NULL && udev->dev_parent != udev->dev)
+				if (attr_get_by_subsys_id(attr, devpath, sizeof(devpath), &attrib)) {
+					if (attrib != NULL)
+						value = sysfs_attr_get_value(devpath, attrib);
+					else
+						break;
+				}
+
+				/* try the current device, other matches may have selected */
+				if (value == NULL && udev->dev_parent != NULL && udev->dev_parent != udev->dev)
 					value = sysfs_attr_get_value(udev->dev_parent->devpath, attr);
 
 				/* look at all devices along the chain of parents */
@@ -643,11 +690,22 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 
 	if (rule->test.operation != KEY_OP_UNSET) {
 		char filename[PATH_SIZE];
+		char devpath[PATH_SIZE];
+		char *attr;
 		struct stat statbuf;
 		int match;
 
 		strlcpy(filename, key_val(rule, &rule->test), sizeof(filename));
 		udev_rules_apply_format(udev, filename, sizeof(filename));
+
+		if (attr_get_by_subsys_id(filename, devpath, sizeof(devpath), &attr)) {
+			strlcpy(filename, sysfs_path, sizeof(filename));
+			strlcat(filename, devpath, sizeof(filename));
+			if (attr != NULL) {
+				strlcat(filename, "/", sizeof(filename));
+				strlcat(filename, attr, sizeof(filename));
+			}
+		}
 
 		match = (stat(filename, &statbuf) == 0);
 		info("'%s' %s", filename, match ? "exists" : "does not exist");
@@ -680,11 +738,20 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 		    pair->key.operation == KEY_OP_NOMATCH) {
 			const char *key_name = key_pair_name(rule, pair);
 			const char *key_value = key_val(rule, &pair->key);
-			const char *value;
+			char devpath[PATH_SIZE];
+			char *attrib;
+			const char *value = NULL;
 			char val[VALUE_SIZE];
 			size_t len;
 
-			value = sysfs_attr_get_value(udev->dev->devpath, key_name);
+			if (attr_get_by_subsys_id(key_name, devpath, sizeof(devpath), &attrib)) {
+				if (attrib != NULL)
+					value = sysfs_attr_get_value(devpath, attrib);
+				else
+					goto nomatch;
+			}
+			if (value == NULL)
+				value = sysfs_attr_get_value(udev->dev->devpath, key_name);
 			if (value == NULL)
 				goto nomatch;
 			strlcpy(val, value, sizeof(val));

@@ -1561,6 +1561,15 @@ KERNEL="sda1", NAME=="no"
 KERNEL=="sda1", NAME="yes"
 EOF
 	},
+	{
+		desc		=> "magic subsys/kernel lookup",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "00:e0:00:fb:04:e1",
+		rules		=> <<EOF
+KERNEL=="sda", NAME="\$attr{[net/eth0]address}"
+EOF
+	},
 );
 
 # set env
