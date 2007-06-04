@@ -1,10 +1,27 @@
+udev 112
+========
+Bugfixes.
+
+Control characters in filesystem label strings are no longer silenty
+removed, but hex-encoded, to be able to uniquely identify the device
+by its symlink in /dev/disk/by-label/.
+If libvolume_id is used by mount(8), LABEL= will work as expected,
+if slashes or other characters are used in the label string.
+
+To test the existence of a file, TEST=="<file>" and TEST!="<file>"
+can be specified now. The TEST key accepts an optional mode mask
+TEST{0100}=="<is executable file>".
+
+Scsi_id now supports a mode without expecting scsi-specific sysfs
+entries to allow the extraction of cciss-device persistent properties.
+
 udev 111
 ========
 Bugfixes.
 
 In the future, we may see uuid's which are just simple character
 strings (see the DDF Raid Specification). For that reason vol_id now
-exports ID_UUID_SAFE, just like ID_LABEL_SAFE. For things like
+exports ID_FS_UUID_SAFE, just like ID_FS_LABEL_SAFE. For things like
 the creation of symlinks, the *_SAFE values ensure, that no control
 or whitespace characters are used in the filename.
 
