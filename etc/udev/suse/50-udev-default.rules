@@ -93,13 +93,10 @@ SUBSYSTEM=="block", GROUP="disk", MODE="0640"
 # sd:		0 TYPE_DISK, 7 TYPE_MOD, 14 TYPE_RBC
 # sr:		4 TYPE_WORM, 5 TYPE_ROM
 # st/osst:	1 TYPE_TAPE
-SUBSYSTEM=="scsi", ACTION=="add", ATTR{type}=="0|7|14", ATTR{timeout}="60"
-SUBSYSTEM=="scsi", ACTION=="add", ATTR{type}=="1", ATTR{timeout}="900"
-SUBSYSTEM=="scsi_device", ACTION=="add", ATTRS{type}=="0|7|14", RUN+="/sbin/modprobe sd_mod"
+SUBSYSTEM=="scsi", KERNEL=="[0-9]*:[0-9]*", ACTION=="add", ATTR{type}=="0|7|14", ATTR{timeout}="60"
+SUBSYSTEM=="scsi", KERNEL=="[0-9]*:[0-9]*", ACTION=="add", ATTR{type}=="1", ATTR{timeout}="900"
 SUBSYSTEM=="scsi_device", ACTION=="add", ATTRS{type}=="1", ATTR{vendor}=="On[sS]tream", RUN+="/sbin/modprobe osst"
-SUBSYSTEM=="scsi_device", ACTION=="add", ATTRS{type}=="1", RUN+="/sbin/modprobe st"
-SUBSYSTEM=="scsi_device", ACTION=="add", ATTRS{type}=="[45]", RUN+="/sbin/modprobe sr_mod"
-SUBSYSTEM=="scsi_device", ACTION=="add", RUN+="/sbin/modprobe sg"
+SUBSYSTEM=="scsi_device", ACTION=="add", TEST!="[module/sg]", RUN+="/sbin/modprobe sg"
 KERNEL=="hd*", SUBSYSTEMS=="ide", ATTRS{media}=="floppy", OPTIONS+="all_partitions"
 SUBSYSTEM=="ide", ACTION=="add", ATTR{media}=="tape", RUN+="/sbin/modprobe ide-scsi"
 SUBSYSTEM=="mmc", ACTION=="add", RUN+="/sbin/modprobe mmc_block"
@@ -123,7 +120,6 @@ KERNEL=="iseries/ibmsis*",	NAME="%k", GROUP="disk"
 
 # libusb device access
 SUBSYSTEM=="usb", ACTION=="add", ENV{DEVTYPE}=="usb_device", NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", MODE="0644"
-SUBSYSTEM=="usb_device", ACTION=="add", PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", NAME="%c", MODE="0644"
 
 # kernel firmware loader
 SUBSYSTEM=="firmware", ACTION=="add", RUN+="firmware.sh"
