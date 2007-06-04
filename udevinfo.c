@@ -413,7 +413,7 @@ int main(int argc, char *argv[], char *envp[])
 	case ACTION_ATTRIBUTE_WALK:
 		if (path[0] != '\0') {
 			if (print_device_chain(path) != 0) {
-				fprintf(stderr, "device not found\n");
+				fprintf(stderr, "no valid sysfs device found\n");
 				rc = 4;
 				goto exit;
 			}
@@ -424,7 +424,7 @@ int main(int argc, char *argv[], char *envp[])
 				goto exit;
 			}
 			if (print_device_chain(udev->dev->devpath) != 0) {
-				fprintf(stderr, "device not found\n");
+				fprintf(stderr, "no valid sysfs device found\n");
 				rc = 4;
 				goto exit;
 			}

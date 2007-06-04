@@ -155,9 +155,21 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 	int len;
 	char *pos;
 
+	/* we handle only these devpathes */
+	if (devpath != NULL &&
+	    strncmp(devpath, "/devices/", 9) != 0 &&
+	    strncmp(devpath, "/subsystem/", 11) != 0 &&
+	    strncmp(devpath, "/module/", 8) != 0 &&
+	    strncmp(devpath, "/bus/", 5) != 0 &&
+	    strncmp(devpath, "/class/", 7) != 0 &&
+	    strncmp(devpath, "/block/", 7) != 0)
+		return NULL;
+
 	dbg("open '%s'", devpath);
 	strlcpy(devpath_real, devpath, sizeof(devpath_real));
 	remove_trailing_chars(devpath_real, '/');
+	if (devpath[0] == '\0' )
+		return NULL;
 
 	/* look for device already in cache (we never put an untranslated path in the cache) */
 	list_for_each_entry(dev_loop, &dev_list, node) {
@@ -274,14 +286,6 @@ struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
 	/* look if we already know the parent */
 	if (dev->parent != NULL)
 		return dev->parent;
-
-	/* requesting a parent is only valid for these devpathes */
-	if ((strncmp(dev->devpath, "/devices/", 9) != 0) &&
-	    (strncmp(dev->devpath, "/subsystem/", 11) != 0) &&
-	    (strncmp(dev->devpath, "/bus/", 5) != 0) &&
-	    (strncmp(dev->devpath, "/class/", 7) != 0) &&
-	    (strncmp(dev->devpath, "/block/", 7) != 0))
-		return NULL;
 
 	strlcpy(parent_devpath, dev->devpath, sizeof(parent_devpath));
 	dbg("'%s'", parent_devpath);
