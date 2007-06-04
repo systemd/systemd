@@ -1,3 +1,60 @@
+Summary of changes from v111 to v112
+============================================
+
+Fabio Massimo Di Nitto (1):
+      rules: ignore partitons that span the entire disk
+
+Hannes Reinecke (1):
+      cciss device support
+
+Kay Sievers (34):
+      udevd: close /proc/meminfo after reading
+      create_floppy_devices: remove dead "unlink" code
+      volume_id: add function documentation
+      udev_db: escape path names with \x00 instead of %00
+      udevsettle: use long options
+      replace_chars: replace spaces in node name
+      volume_id: add and export string encoding function
+      vol_id: export encoded strings
+      rules: use encoded strings instead of skipping characters
+      udevtest: print message before log output
+      volume_id: escape % character
+      replace_chars: replace % character
+      IMPORT: do not mangle whitespace
+      scsi_id: do not install symlink in /sbin
+      rules: SUSE update
+      volume_id: terminate overlong label strings
+      scsi_id: add long options
+      rules: use long options for scsi_id
+      path_id: skip subsystem directory
+      rules: fix cciss rule
+      rules: SUSE update
+      scsi_id: fix typo in help text
+      fix "do not access parent" warning for ATTR{}
+      sysfs: add device lookup by $SUBSYSYTEM:$KERNEL
+      events for "bus" and "class" registration must be matched as "subsystem"
+      udevtest: add --subsystem option
+      sysfs: change order of subsystem lookup
+      add $sys substitution
+      add TEST=="<file>" key
+      add "[$SUBSYSTEM/$KERNEL]<attribute>" lookup
+      sysfs: handle bus/class top-level directories
+      sysfs: skip unknown sysfs directories
+      rules: SUSE update
+      release 112
+
+Miklos Vajna (2):
+      create_floppy_devices: add man page
+      path_id: remove on make uninstall
+
+Ryan Lortie (1):
+      volume_id: support for long-filename based labels
+
+Scott James Remnant (2):
+      replace_untrusted_chars: replace all whitespace with space
+      run_program: log "info" not "error" if program is missing
+
+
 Summary of changes from v110 to v111
 ============================================
 
