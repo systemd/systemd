@@ -215,7 +215,7 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 		if (pos != NULL)
 			pos[0] = '\0';
 		else
-			dev->subsystem[0] = '\0';
+			strlcpy(dev->subsystem, "subsystem", sizeof(dev->subsystem));
 	} else if (strncmp(dev->devpath, "/block/", 7) == 0) {
 		strlcpy(dev->subsystem, "block", sizeof(dev->subsystem));
 	} else if (strncmp(dev->devpath, "/devices/", 9) == 0) {
@@ -235,6 +235,14 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 		strlcpy(dev->subsystem, "drivers", sizeof(dev->subsystem));
 	} else if (strncmp(dev->devpath, "/module/", 8) == 0) {
 		strlcpy(dev->subsystem, "module", sizeof(dev->subsystem));
+	} else if (strncmp(dev->devpath, "/subsystem/", 11) == 0) {
+		pos = strrchr(dev->devpath, '/');
+		if (pos == &dev->devpath[10])
+			strlcpy(dev->subsystem, "subsystem", sizeof(dev->subsystem));
+	} else if (strncmp(dev->devpath, "/bus/", 5) == 0) {
+		pos = strrchr(dev->devpath, '/');
+		if (pos == &dev->devpath[4])
+			strlcpy(dev->subsystem, "subsystem", sizeof(dev->subsystem));
 	}
 
 	/* get driver name */
@@ -267,9 +275,10 @@ struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
 	if (dev->parent != NULL)
 		return dev->parent;
 
-	/* requesting a parent is only valid for devices */
+	/* requesting a parent is only valid for these devpathes */
 	if ((strncmp(dev->devpath, "/devices/", 9) != 0) &&
 	    (strncmp(dev->devpath, "/subsystem/", 11) != 0) &&
+	    (strncmp(dev->devpath, "/bus/", 5) != 0) &&
 	    (strncmp(dev->devpath, "/class/", 7) != 0) &&
 	    (strncmp(dev->devpath, "/block/", 7) != 0))
 		return NULL;
@@ -283,20 +292,6 @@ struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
 		return NULL;
 	pos[0] = '\0';
 
-	/* are we at the top level of /devices */
-	if (strcmp(parent_devpath, "/devices") == 0) {
-		dbg("/devices top level");
-		return NULL;
-	}
-
-	/* at the subsystems top level we want to follow the old-style "device" link */
-	if (strncmp(parent_devpath, "/subsystem", 10) == 0) {
-		pos = strrchr(parent_devpath, '/');
-		if (pos == &parent_devpath[10] || pos == parent_devpath || strcmp(pos, "/devices") == 0) {
-			dbg("/subsystem top level, look for device link");
-			goto device_link;
-		}
-	}
 	if (strncmp(parent_devpath, "/class", 6) == 0) {
 		pos = strrchr(parent_devpath, '/');
 		if (pos == &parent_devpath[6] || pos == parent_devpath) {
@@ -308,6 +303,11 @@ struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
 		dbg("/block top level, look for device link");
 		goto device_link;
 	}
+
+	/* are we at the top level? */
+	pos = strrchr(parent_devpath, '/');
+	if (pos == NULL || pos == parent_devpath)
+		return NULL;
 
 	/* get parent and remember it */
 	dev->parent = sysfs_device_get(parent_devpath);
