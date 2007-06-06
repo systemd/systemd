@@ -154,7 +154,6 @@ int main(int argc, char *argv[])
 	int skip_raid = 0;
 	int probe_all = 0;
 	const char *node;
-	struct passwd *pw;
 	int fd;
 	const char *label, *uuid, *type, *type_version, *usage;
 	int retval;
@@ -237,16 +236,15 @@ int main(int argc, char *argv[])
 	dbg("BLKGETSIZE64=%llu", (unsigned long long)size);
 
 	/* try to drop all privileges before reading disk content */
-	pw = getpwnam ("nobody");
-	if (pw != NULL && pw->pw_uid > 0 && pw->pw_gid > 0) {
-		dbg("dropping privileges to %u:%u",
-		    (unsigned int)pw->pw_uid, (unsigned int)pw->pw_gid);
-		if (setgroups(0, NULL) != 0 ||
-		    setgid(pw->pw_gid) != 0 ||
-		    setuid(pw->pw_uid) != 0) {
-			fprintf(stderr, "error dropping privileges: %s\n", strerror(errno));
-			rc = 3;
-			goto exit;
+	if (getuid() == 0) {
+		struct passwd *pw;
+
+		pw = getpwnam("nobody");
+		if (pw != NULL && pw->pw_uid > 0 && pw->pw_gid > 0) {
+			if (setgroups(0, NULL) != 0 ||
+			    setgid(pw->pw_gid) != 0 ||
+			    setuid(pw->pw_uid) != 0)
+				info("unable to drop privileges: %s\n", strerror(errno));
 		}
 	}
 
