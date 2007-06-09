@@ -158,7 +158,7 @@ int run_program(const char *command, const char *subsystem,
 			close(errpipe[WRITE_END]);
 		}
 		execv(argv[0], argv);
-		if ((errno == ENOENT) || (errno = ENOTDIR)) {
+		if (errno == ENOENT || errno == ENOTDIR) {
 			/* may be on a filesytem which is not mounted right now */
 			info("program '%s' not found", argv[0]);
 		} else {
