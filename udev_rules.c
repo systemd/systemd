@@ -923,14 +923,28 @@ try_parent:
 
 		if (pair->key.operation == KEY_OP_ASSIGN) {
 			const char *key_name = key_pair_name(rule, pair);
-			char attr[PATH_SIZE];
+			char devpath[PATH_SIZE];
+			char *attrib;
+			char attr[PATH_SIZE] = "";
 			char value[NAME_SIZE];
 			FILE *f;
 
-			strlcpy(attr, sysfs_path, sizeof(attr));
-			strlcat(attr, udev->dev->devpath, sizeof(attr));
-			strlcat(attr, "/", sizeof(attr));
-			strlcat(attr, key_name, sizeof(attr));
+			if (attr_get_by_subsys_id(key_name, devpath, sizeof(devpath), &attrib)) {
+				if (attrib != NULL) {
+					strlcpy(attr, sysfs_path, sizeof(attr));
+					strlcat(attr, devpath, sizeof(attr));
+					strlcat(attr, "/", sizeof(attr));
+					strlcat(attr, attrib, sizeof(attr));
+				}
+			}
+
+			if (attr[0] == '\0') {
+				strlcpy(attr, sysfs_path, sizeof(attr));
+				strlcat(attr, udev->dev->devpath, sizeof(attr));
+				strlcat(attr, "/", sizeof(attr));
+				strlcat(attr, key_name, sizeof(attr));
+			}
+
 			strlcpy(value, key_val(rule, &pair->key), sizeof(value));
 			udev_rules_apply_format(udev, value, sizeof(value));
 			info("writing '%s' to sysfs file '%s'", value, attr);
