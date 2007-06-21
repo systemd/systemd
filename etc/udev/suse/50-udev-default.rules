@@ -13,6 +13,7 @@ KERNEL=="iseries/vtty*",	GROUP="uucp"
 KERNEL=="mwave",		NAME="modems/%k", GROUP="uucp"
 KERNEL=="ttyUSB*", ATTRS{product}=="[Pp]alm*Handheld*", SYMLINK+="pilot"
 KERNEL=="ttyUSB*", ATTRS{product}=="[Hh]andspring*Treo*|[Hh]andspring*Visor*", SYMLINK+="pilot"
+KERNEL=="ppp",			MODE="0600", OPTIONS+="ignore_remove"
 
 # video/graphics
 SUBSYSTEM=="video4linux",	GROUP="video"
@@ -55,7 +56,7 @@ KERNEL=="rioctl",		NAME="specialix_rioctl", SYMLINK+="%k"
 KERNEL=="sxctl",		NAME="specialix_sxctl", SYMLINK+="%k"
 
 # network
-KERNEL=="tun",			NAME="net/%k", MODE="0666"
+KERNEL=="tun",			NAME="net/%k", MODE="0666", OPTIONS+="ignore_remove"
 
 # misc devices
 KERNEL=="mem|kmem|port",	GROUP="kmem", MODE="0640"
