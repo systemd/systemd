@@ -225,11 +225,6 @@ clean:
 	done;
 .PHONY: clean
 
-release:
-	git-archive --format=tar --prefix=udev-$(VERSION)/ HEAD | gzip -9v > udev-$(VERSION).tar.gz
-	git-archive --format=tar --prefix=udev-$(VERSION)/ HEAD | bzip2 -9v > udev-$(VERSION).tar.bz2
-.PHONY: release
-
 install-config:
 	$(INSTALL) -d $(DESTDIR)$(configdir)/rules.d
 	@ if [ ! -r $(DESTDIR)$(configdir)/udev.conf ]; then \
@@ -324,7 +319,8 @@ buildtest:
 	test/simple-build-check.sh
 .PHONY: buildtest
 
-ChangeLog: Makefile
+ChangeLog:
+	head -1 $@ | grep -q "to v$(shell echo $$(($(VERSION) - 1)))"
 	@ mv $@ $@.tmp
 	@ echo "Summary of changes from v$(shell echo $$(($(VERSION) - 1))) to v$(VERSION)" >> $@
 	@ echo "============================================" >> $@
@@ -334,6 +330,21 @@ ChangeLog: Makefile
 	@ cat $@
 	@ cat $@.tmp >> $@
 	@ rm $@.tmp
+	head -1 $@ | grep -q "to v$(VERSION)"
+.PHONY: ChangeLog
+.PRECIOUS: ChangeLog
+
+release:
+	$(Q) - rm -f udev-$(VERSION).tar.gz
+	$(Q) - rm -f udev-$(VERSION).tar.bz2
+	head -1 ChangeLog | grep -q "to v$(VERSION)"
+	head -1 RELEASE-NOTES | grep -q "udev $(VERSION)"
+	git commit -a -m "release $(VERSION)"
+	cat .git/refs/heads/master > .git/refs/tags/$(VERSION)
+	@ echo
+	git-archive --format=tar --prefix=udev-$(VERSION)/ HEAD | gzip -9v > udev-$(VERSION).tar.gz
+	git-archive --format=tar --prefix=udev-$(VERSION)/ HEAD | bzip2 -9v > udev-$(VERSION).tar.bz2
+.PHONY: release
 
 gcov-all:
 	$(MAKE) clean all USE_GCOV=true
