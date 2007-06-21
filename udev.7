@@ -290,6 +290,11 @@ Specify the priority of the created symlinks. Devices with higher priorities ove
 .RS 4
 Create the device nodes for all available partitions of a block device. This may be useful for removable media devices where media changes are not detected.
 .RE
+.PP
+\fBstring_escape=\fR\fB\fInone|replace\fR\fR
+.RS 4
+Usually control and other possibly unsafe characters are replaced in strings used for device naming. The mode of replacement can be specified with this option.
+.RE
 .RE
 .RE
 .PP

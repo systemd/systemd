@@ -435,6 +435,14 @@
                       detected.</para>
                     </listitem>
                   </varlistentry>
+                  <varlistentry>
+                    <term><option>string_escape=<replaceable>none|replace</replaceable></option></term>
+                    <listitem>
+                      <para>Usually control and other possibly unsafe characters are replaced
+                      in strings used for device naming. The mode of replacement can be specified
+                      with this option.</para>
+                    </listitem>
+                  </varlistentry>
                 </variablelist>
               </listitem>
             </varlistentry>

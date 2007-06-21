@@ -211,6 +211,7 @@ int main(int argc, char *argv[], char *envp[])
 			info("run: '%s'", program);
 		}
 	}
+	udev_device_cleanup(udev);
 
 exit:
 	udev_rules_cleanup(&rules);

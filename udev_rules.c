@@ -837,7 +837,8 @@ try_parent:
 
 		strlcpy(program, key_val(rule, &rule->program), sizeof(program));
 		udev_rules_apply_format(udev, program, sizeof(program));
-		if (run_program(program, udev->dev->subsystem, result, sizeof(result), NULL, (udev_log_priority >= LOG_INFO)) != 0) {
+		if (run_program(program, udev->dev->subsystem, result, sizeof(result),
+				NULL, (udev_log_priority >= LOG_INFO)) != 0) {
 			dbg("PROGRAM is false");
 			udev->program_result[0] = '\0';
 			if (rule->program.operation != KEY_OP_NOMATCH)
@@ -847,9 +848,12 @@ try_parent:
 
 			dbg("PROGRAM matches");
 			remove_trailing_chars(result, '\n');
-			count = replace_chars(result, ALLOWED_CHARS_INPUT);
-			if (count)
-				info("%i character(s) replaced" , count);
+			if (rule->string_escape == ESCAPE_UNSET ||
+			    rule->string_escape == ESCAPE_REPLACE) {
+				count = replace_chars(result, ALLOWED_CHARS_INPUT);
+				if (count > 0)
+					info("%i character(s) replaced" , count);
+			}
 			dbg("result is '%s'", result);
 			strlcpy(udev->program_result, result, sizeof(udev->program_result));
 			dbg("PROGRAM returned successful");
@@ -1047,9 +1051,12 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 				/* allow  multiple symlinks separated by spaces */
 				strlcpy(temp, key_val(rule, &rule->symlink), sizeof(temp));
 				udev_rules_apply_format(udev, temp, sizeof(temp));
-				count = replace_chars(temp, ALLOWED_CHARS_FILE " ");
-				if (count)
-					info("%i character(s) replaced" , count);
+				if (rule->string_escape == ESCAPE_UNSET ||
+				    rule->string_escape == ESCAPE_REPLACE) {
+					count = replace_chars(temp, ALLOWED_CHARS_FILE " ");
+					if (count > 0)
+						info("%i character(s) replaced" , count);
+				}
 				dbg("rule applied, added symlink(s) '%s'", temp);
 				pos = temp;
 				while (isspace(pos[0]))
@@ -1079,9 +1086,12 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 				name_set = 1;
 				strlcpy(udev->name, key_val(rule, &rule->name), sizeof(udev->name));
 				udev_rules_apply_format(udev, udev->name, sizeof(udev->name));
-				count = replace_chars(udev->name, ALLOWED_CHARS_FILE);
-				if (count)
-					info("%i character(s) replaced", count);
+				if (rule->string_escape == ESCAPE_UNSET ||
+				    rule->string_escape == ESCAPE_REPLACE) {
+					count = replace_chars(udev->name, ALLOWED_CHARS_FILE);
+					if (count > 0)
+						info("%i character(s) replaced", count);
+				}
 
 				info("rule applied, '%s' becomes '%s'", udev->dev->kernel, udev->name);
 				if (strcmp(udev->dev->subsystem, "net") != 0)

@@ -232,6 +232,7 @@ static int add_rule_key_pair(struct udev_rule *rule, struct key_pairs *pairs,
 
 static int add_to_rules(struct udev_rules *rules, char *line, const char *filename, unsigned int lineno)
 {
+	char buf[sizeof(struct udev_rule) + LINE_SIZE];
 	struct udev_rule *rule;
 	size_t rule_size;
 	int valid;
@@ -241,15 +242,12 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 	int physdev = 0;
 	int retval;
 
-	/* get all the keys */
-	rule = calloc(1, sizeof (struct udev_rule) + LINE_SIZE);
-	if (!rule) {
-		err("malloc failed");
-		return -1;
-	}
+	memset(buf, 0x00, sizeof(buf));
+	rule = (struct udev_rule *) buf;
 	linepos = line;
 	valid = 0;
 
+	/* get all the keys */
 	while (1) {
 		char *key;
 		char *value;
@@ -592,6 +590,14 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 				rule->link_priority = atoi(&pos[strlen("link_priority=")]);
 				info("link priority=%i", rule->link_priority);
 			}
+			pos = strstr(value, "string_escape=");
+			if (pos != NULL) {
+				pos = &pos[strlen("string_escape=")];
+				if (strncmp(pos, "none", strlen("none")) == 0)
+					rule->string_escape = ESCAPE_NONE;
+				else if (strncmp(pos, "replace", strlen("replace")) == 0)
+					rule->string_escape = ESCAPE_REPLACE;
+			}
 			if (strstr(value, "all_partitions") != NULL) {
 				dbg("creation of partition nodes requested");
 				rule->partitions = DEFAULT_PARTITIONS_COUNT;
@@ -627,11 +633,9 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 	memcpy(rules->buf + rules->bufsize, rule, rule_size);
 	rules->bufsize += rule_size;
 exit:
-	free(rule);
 	return 0;
 
 invalid:
-	free(rule);
 	err("invalid rule '%s:%u'", filename, lineno);
 	return -1;
 }

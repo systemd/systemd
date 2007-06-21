@@ -57,6 +57,12 @@ enum import_type {
 	IMPORT_PARENT,
 };
 
+enum escape_type {
+	ESCAPE_UNSET,
+	ESCAPE_NONE,
+	ESCAPE_REPLACE,
+};
+
 struct udev_rule {
 	struct key action;
 	struct key devpath;
@@ -88,6 +94,7 @@ struct udev_rule {
 	struct key group;
 	mode_t mode;
 	enum key_operation mode_operation;
+	enum escape_type string_escape;
 
 	unsigned int link_priority;
 	unsigned int partitions;
