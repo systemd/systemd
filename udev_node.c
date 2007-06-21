@@ -46,20 +46,19 @@ int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t m
 	else
 		mode |= S_IFCHR;
 
-	/* preserve node with already correct numbers, to prevent changing the inode number */
 	if (lstat(file, &stats) == 0) {
 		if ((stats.st_mode & S_IFMT) == (mode & S_IFMT) && (stats.st_rdev == devt)) {
 			info("preserve file '%s', because it has correct dev_t", file);
 			selinux_setfilecon(file, udev->dev->kernel, stats.st_mode);
 			goto perms;
 		}
+	} else {
+		selinux_setfscreatecon(file, udev->dev->kernel, mode);
+		retval = mknod(file, mode, devt);
+		selinux_resetfscreatecon();
+		if (retval == 0)
+			goto perms;
 	}
-
-	selinux_setfscreatecon(file, udev->dev->kernel, mode);
-	retval = mknod(file, mode, devt);
-	selinux_resetfscreatecon();
-	if (retval == 0)
-		goto perms;
 
 	info("atomically replace '%s'", file);
 	strlcpy(file_tmp, file, sizeof(file_tmp));
@@ -151,14 +150,14 @@ static int node_symlink(const char *node, const char *slink)
 				}
 			}
 		}
+	} else {
+		info("creating symlink '%s' to '%s'", slink, target);
+		selinux_setfscreatecon(slink, NULL, S_IFLNK);
+		retval = symlink(target, slink);
+		selinux_resetfscreatecon();
+		if (retval == 0)
+			goto exit;
 	}
-
-	info("creating symlink '%s' to '%s'", slink, target);
-	selinux_setfscreatecon(slink, NULL, S_IFLNK);
-	retval = symlink(target, slink);
-	selinux_resetfscreatecon();
-	if (retval == 0)
-		goto exit;
 
 	info("atomically replace '%s'", slink);
 	strlcpy(slink_tmp, slink, sizeof(slink_tmp));
