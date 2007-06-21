@@ -33,9 +33,11 @@
 #include "udev_rules.h"
 #include "udev_selinux.h"
 
+#define TMP_FILE_EXT		".udev-tmp"
 
 int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t mode, uid_t uid, gid_t gid)
 {
+	char file_tmp[PATH_SIZE + sizeof(TMP_FILE_EXT)];
 	struct stat stats;
 	int retval = 0;
 
@@ -44,28 +46,37 @@ int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t m
 	else
 		mode |= S_IFCHR;
 
-	if (lstat(file, &stats) != 0)
-		goto create;
-
 	/* preserve node with already correct numbers, to prevent changing the inode number */
-	if ((stats.st_mode & S_IFMT) == (mode & S_IFMT) && (stats.st_rdev == devt)) {
-		info("preserve file '%s', because it has correct dev_t", file);
-		selinux_setfilecon(file, udev->dev->kernel, stats.st_mode);
-		goto perms;
+	if (lstat(file, &stats) == 0) {
+		if ((stats.st_mode & S_IFMT) == (mode & S_IFMT) && (stats.st_rdev == devt)) {
+			info("preserve file '%s', because it has correct dev_t", file);
+			selinux_setfilecon(file, udev->dev->kernel, stats.st_mode);
+			goto perms;
+		}
 	}
 
-	if (unlink(file) != 0)
-		err("unlink(%s) failed: %s", file, strerror(errno));
-	else
-		dbg("already present file '%s' unlinked", file);
-
-create:
 	selinux_setfscreatecon(file, udev->dev->kernel, mode);
 	retval = mknod(file, mode, devt);
 	selinux_resetfscreatecon();
+	if (retval == 0)
+		goto perms;
+
+	info("atomically replace '%s'", file);
+	strlcpy(file_tmp, file, sizeof(file_tmp));
+	strlcat(file_tmp, TMP_FILE_EXT, sizeof(file_tmp));
+	selinux_setfscreatecon(file_tmp, udev->dev->kernel, mode);
+	retval = mknod(file_tmp, mode, devt);
+	selinux_resetfscreatecon();
 	if (retval != 0) {
 		err("mknod(%s, %#o, %u, %u) failed: %s",
-		    file, mode, major(devt), minor(devt), strerror(errno));
+		    file_tmp, mode, major(devt), minor(devt), strerror(errno));
+		goto exit;
+	}
+	retval = rename(file_tmp, file);
+	if (retval != 0) {
+		err("rename(%s, %s) failed: %s",
+		    file_tmp, file, strerror(errno));
+		unlink(file_tmp);
 		goto exit;
 	}
 
@@ -84,18 +95,19 @@ perms:
 			goto exit;
 		}
 	}
-
 exit:
 	return retval;
 }
 
 static int node_symlink(const char *node, const char *slink)
 {
+	struct stat stats;
 	char target[PATH_SIZE] = "";
-	char buf[PATH_SIZE];
+	char slink_tmp[PATH_SIZE + sizeof(TMP_FILE_EXT)];
 	int i = 0;
 	int tail = 0;
 	int len;
+	int retval = 0;
 
 	/* use relative link */
 	while (node[i] && (node[i] == slink[i])) {
@@ -110,28 +122,62 @@ static int node_symlink(const char *node, const char *slink)
 	}
 	strlcat(target, &node[tail], sizeof(target));
 
-	/* look if symlink already exists */
-	len = readlink(slink, buf, sizeof(buf));
-	if (len > 0) {
-		buf[len] = '\0';
-		if (strcmp(target, buf) == 0) {
-			info("preserve already existing symlink '%s' to '%s'", slink, target);
-			selinux_setfilecon(slink, NULL, S_IFLNK);
-			goto exit;
+	/* preserve link with correct target, do not replace node of other device */
+	if (lstat(slink, &stats) == 0) {
+		if (S_ISBLK(stats.st_mode) || S_ISCHR(stats.st_mode)) {
+			struct stat stats2;
+
+			info("found existing node instead of symlink '%s'", slink);
+			if (lstat(node, &stats2) == 0) {
+				if ((stats.st_mode & S_IFMT) == (stats2.st_mode & S_IFMT) &&
+				    stats.st_rdev == stats2.st_rdev) {
+					info("replace device node '%s' with symlink to our node '%s'", slink, node);
+				} else {
+					err("device node '%s' already exists, link '%s' will not overwrite it", node, slink);
+					goto exit;
+				}
+			}
+		} else if (S_ISLNK(stats.st_mode)) {
+			char buf[PATH_SIZE];
+
+			info("found existing symlink '%s'", slink);
+			len = readlink(slink, buf, sizeof(buf));
+			if (len > 0) {
+				buf[len] = '\0';
+				if (strcmp(target, buf) == 0) {
+					info("preserve already existing symlink '%s' to '%s'", slink, target);
+					selinux_setfilecon(slink, NULL, S_IFLNK);
+					goto exit;
+				}
+			}
 		}
-		info("link '%s' points to different target '%s', delete it", slink, buf);
-		unlink(slink);
 	}
 
-	/* create link */
 	info("creating symlink '%s' to '%s'", slink, target);
 	selinux_setfscreatecon(slink, NULL, S_IFLNK);
-	if (symlink(target, slink) != 0)
-		err("symlink(%s, %s) failed: %s", target, slink, strerror(errno));
+	retval = symlink(target, slink);
 	selinux_resetfscreatecon();
+	if (retval == 0)
+		goto exit;
 
+	info("atomically replace '%s'", slink);
+	strlcpy(slink_tmp, slink, sizeof(slink_tmp));
+	strlcat(slink_tmp, TMP_FILE_EXT, sizeof(slink_tmp));
+	selinux_setfscreatecon(slink_tmp, NULL, S_IFLNK);
+	retval = symlink(target, slink_tmp);
+	selinux_resetfscreatecon();
+	if (retval != 0) {
+		err("symlink(%s, %s) failed: %s", target, slink_tmp, strerror(errno));
+		goto exit;
+	}
+	retval = rename(slink_tmp, slink);
+	if (retval != 0) {
+		err("rename(%s, %s) failed: %s", slink_tmp, slink, strerror(errno));
+		unlink(slink_tmp);
+		goto exit;
+	}
 exit:
-	return 0;
+	return retval;
 }
 
 static int update_link(struct udevice *udev, const char *name)
@@ -303,7 +349,7 @@ int udev_node_add(struct udevice *udev)
 			gid = lookup_group(udev->group);
 	}
 
-	info("creating device node '%s', major = '%d', minor = '%d', " "mode = '%#o', uid = '%d', gid = '%d'",
+	info("creating device node '%s', major=%d, minor=%d, mode=%#o, uid=%d, gid=%d",
 	     filename, major(udev->devt), minor(udev->devt), udev->mode, uid, gid);
 
 	if (!udev->test_run)
