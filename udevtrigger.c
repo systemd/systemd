@@ -118,12 +118,12 @@ static void trigger_uevent(const char *devpath)
 
 	fd = open(filename, O_WRONLY);
 	if (fd < 0) {
-		dbg("error on opening %s: %s\n", filename, strerror(errno));
+		dbg("error on opening %s: %s", filename, strerror(errno));
 		return;
 	}
 
 	if (write(fd, "add", 3) < 0)
-		info("error on triggering %s: %s\n", filename, strerror(errno));
+		info("error on triggering %s: %s", filename, strerror(errno));
 
 	close(fd);
 }

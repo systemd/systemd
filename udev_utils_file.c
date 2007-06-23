@@ -45,14 +45,14 @@ int create_path(const char *path)
 		pos--;
 	pos[0] = '\0';
 
-	dbg("stat '%s'\n", p);
+	dbg("stat '%s'", p);
 	if (stat(p, &stats) == 0 && (stats.st_mode & S_IFMT) == S_IFDIR)
 		return 0;
 
 	if (create_path (p) != 0)
 		return -1;
 
-	dbg("mkdir '%s'\n", p);
+	dbg("mkdir '%s'", p);
 	if (mkdir(p, 0755) == 0)
 		return 0;
 	if (errno == EEXIST)

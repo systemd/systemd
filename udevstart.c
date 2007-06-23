@@ -68,7 +68,7 @@ static int device_list_insert(const char *path, struct list_head *device_list)
 	struct device *new_device;
 	const char *devpath = &path[strlen(sysfs_path)];
 
-	dbg("insert: '%s'\n", devpath);
+	dbg("insert: '%s'", devpath);
 
 	list_for_each_entry(loop_device, device_list, node) {
 		if (strcmp(loop_device->path, devpath) > 0) {

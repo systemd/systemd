@@ -957,7 +957,6 @@ int main(int argc, char *argv[], char *envp[])
 	selinux_init();
 	dbg("version %s", UDEV_VERSION);
 
-	/* parse commandline options */
 	while (1) {
 		option = getopt_long(argc, argv, "dtvhV", options, NULL);
 		if (option == -1)

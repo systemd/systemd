@@ -44,8 +44,7 @@ void log_message (int priority, const char *format, ...)
 	va_start(args, format);
 	vprintf(format, args);
 	va_end(args);
-	if (format[strlen(format)-1] != '\n')
-		printf("\n");
+	printf("\n");
 }
 #endif
 

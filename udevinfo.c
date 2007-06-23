@@ -265,7 +265,6 @@ int main(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 
-	/* get command line options */
 	while (1) {
 		option = getopt_long(argc, argv, "aen:p:q:rVh", options, NULL);
 		if (option == -1)
@@ -279,7 +278,7 @@ int main(int argc, char *argv[], char *envp[])
 				strlcpy(name, &optarg[strlen(udev_root)+1], sizeof(name));
 			else
 				strlcpy(name, optarg, sizeof(name));
-			dbg("name: %s\n", name);
+			dbg("name: %s", name);
 			break;
 		case 'p':
 			/* remove /sys if given */
@@ -287,10 +286,9 @@ int main(int argc, char *argv[], char *envp[])
 				strlcpy(path, &optarg[strlen(sysfs_path)], sizeof(path));
 			else
 				strlcpy(path, optarg, sizeof(path));
-			dbg("path: %s\n", path);
+			dbg("path: %s", path);
 			break;
 		case 'q':
-			dbg("udev query: %s\n", optarg);
 			action = ACTION_QUERY;
 			if (strcmp(optarg, "name") == 0) {
 				query = QUERY_NAME;

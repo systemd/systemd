@@ -75,7 +75,7 @@ static char *get_media(const char *devname, int mode)
 	}
 
 	media = strdup(mediabuf);
-	info("selinux_get_media(%s)='%s'\n", devname, media);
+	info("selinux_get_media(%s)='%s'", devname, media);
 
 close_out:
 	fclose(fp);
@@ -100,7 +100,7 @@ void selinux_setfilecon(const char *file, const char *devname, unsigned int mode
 
 		if (ret < 0)
 			if (matchpathcon(file, mode, &scontext) < 0) {
-				err("matchpathcon(%s) failed\n", file);
+				err("matchpathcon(%s) failed", file);
 				return;
 			} 
 
@@ -128,7 +128,7 @@ void selinux_setfscreatecon(const char *file, const char *devname, unsigned int 
 
 		if (ret < 0)
 			if (matchpathcon(file, mode, &scontext) < 0) {
-				err("matchpathcon(%s) failed\n", file);
+				err("matchpathcon(%s) failed", file);
 				return;
 			}
 
@@ -155,10 +155,10 @@ void selinux_init(void)
 	 */
 	if (is_selinux_running()) {
 		if (!udev_root[0])
-			err("selinux_init: udev_root not set\n");
+			err("selinux_init: udev_root not set");
 		matchpathcon_init_prefix(NULL, udev_root);
 		if (getfscreatecon(&prev_scontext) < 0) {
-			err("getfscreatecon failed\n");
+			err("getfscreatecon failed");
 			prev_scontext = NULL;
 		}
 	}
