@@ -1,3 +1,27 @@
+Summary of changes from v112 to v113
+============================================
+
+David Zeuthen (1):
+      vol_id: do not fail if unable to drop privileges
+
+Kay Sievers (12):
+      add missing ChangeLog
+      make ATTR{[$SUBSYSTEM/$KERNEL]<attr>}="<value>" working
+      rules: recognize partitions and disk devices properly
+      rules: SUSE update
+      atomically replace existing nodes and symlinks
+      do not try to create existing file
+      info() for ignore_remove
+      rules: SUSE update
+      Makefile: check for missing ChangeLog or RELEASE-NOTES at release
+      allow to disable the replacement of unusual characters
+      no newline in log messages
+      udevd: do not use syslog if --verbose (debugging) is used
+
+Tobias Klauser (1):
+      fix typo in udev_utils_run.c
+
+
 Summary of changes from v111 to v112
 ============================================
 
