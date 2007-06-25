@@ -63,6 +63,7 @@ int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t m
 	info("atomically replace '%s'", file);
 	strlcpy(file_tmp, file, sizeof(file_tmp));
 	strlcat(file_tmp, TMP_FILE_EXT, sizeof(file_tmp));
+	unlink(file_tmp);
 	selinux_setfscreatecon(file_tmp, udev->dev->kernel, mode);
 	retval = mknod(file_tmp, mode, devt);
 	selinux_resetfscreatecon();
@@ -162,6 +163,7 @@ static int node_symlink(const char *node, const char *slink)
 	info("atomically replace '%s'", slink);
 	strlcpy(slink_tmp, slink, sizeof(slink_tmp));
 	strlcat(slink_tmp, TMP_FILE_EXT, sizeof(slink_tmp));
+	unlink(slink_tmp);
 	selinux_setfscreatecon(slink_tmp, NULL, S_IFLNK);
 	retval = symlink(target, slink_tmp);
 	selinux_resetfscreatecon();
