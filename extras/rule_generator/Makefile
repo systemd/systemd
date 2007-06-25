@@ -37,7 +37,7 @@ clean:
 .PHONY: clean
 
 install-bin: all
-	$(INSTALL_SCRIPT) -D rule_generator.functions $(DESTDIR)$(libudevdir)/rule_generator.functions
+	$(INSTALL_DATA) -D rule_generator.functions $(DESTDIR)$(libudevdir)/rule_generator.functions
 	$(INSTALL_SCRIPT) -D write_cd_rules $(DESTDIR)$(libudevdir)/write_cd_rules
 	$(INSTALL_SCRIPT) -D write_net_rules $(DESTDIR)$(libudevdir)/write_net_rules
 	$(INSTALL_DATA) -D 75-cd-aliases-generator.rules \
