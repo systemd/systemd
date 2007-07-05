@@ -1,0 +1,13 @@
+ACTION!="add", GOTO="drivers_end"
+
+DRIVER!="?*", ENV{MODALIAS}=="?*", RUN+="/sbin/modprobe --quiet $env{MODALIAS}"
+
+SUBSYSTEM=="pnp", ENV{MODALIAS}!="?*", RUN+="/bin/sh -c 'while read id; do /sbin/modprobe --quiet pnp:d$$id; done < /sys$devpath/id'"
+
+SUBSYSTEM=="tifm", RUN+="/sbin/modprobe --quiet -all tifm_sd tifm_ms"
+SUBSYSTEM=="mmc", RUN+="/sbin/modprobe mmc_block"
+SUBSYSTEM=="ide", ATTR{media}=="tape", RUN+="/sbin/modprobe ide-scsi"
+SUBSYSTEM=="scsi_device", ATTRS{type}=="1", ATTR{vendor}=="On[sS]tream", RUN+="/sbin/modprobe osst"
+SUBSYSTEM=="scsi_device", TEST!="[module/sg]", RUN+="/sbin/modprobe sg"
+
+LABEL="drivers_end"
