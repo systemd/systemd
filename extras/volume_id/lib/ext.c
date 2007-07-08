@@ -63,8 +63,12 @@ struct ext2_super_block {
 } PACKED;
 
 #define EXT_SUPER_MAGIC				0xEF53
-#define EXT3_FEATURE_COMPAT_HAS_JOURNAL		0x00000004
-#define EXT3_FEATURE_INCOMPAT_JOURNAL_DEV	0x00000008
+#define EXT3_FEATURE_COMPAT_HAS_JOURNAL		0x0004
+#define EXT3_FEATURE_INCOMPAT_JOURNAL_DEV	0x0008
+#define EXT3_FEATURE_INCOMPAT_EXTENTS		0x0040
+#define EXT4_FEATURE_INCOMPAT_64BIT		0x0080
+#define EXT4_FEATURE_INCOMPAT_MMP		0x0100
+
 #define EXT_SUPERBLOCK_OFFSET			0x400
 
 #define EXT3_MIN_BLOCK_SIZE			0x400
@@ -74,6 +78,8 @@ int volume_id_probe_ext(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct ext2_super_block *es;
 	size_t bsize;
+	uint32_t feature_compat;
+	uint32_t feature_incompat;
 
 	info("probing at offset 0x%llx", (unsigned long long) off);
 
@@ -97,19 +103,32 @@ int volume_id_probe_ext(struct volume_id *id, uint64_t off, uint64_t size)
 	snprintf(id->type_version, sizeof(id->type_version)-1, "%u.%u",
 		 le32_to_cpu(es->s_rev_level), le16_to_cpu(es->s_minor_rev_level));
 
+	feature_compat = le32_to_cpu(es->s_feature_compat);
+	feature_incompat = le32_to_cpu(es->s_feature_incompat);
+
 	/* check for external journal device */
-	if ((le32_to_cpu(es->s_feature_incompat) & EXT3_FEATURE_INCOMPAT_JOURNAL_DEV) != 0) {
+	if ((feature_incompat & EXT3_FEATURE_INCOMPAT_JOURNAL_DEV) != 0) {
 		volume_id_set_usage(id, VOLUME_ID_OTHER);
 		id->type = "jbd";
-		return 0;
+		goto out;
 	}
 
-	/* check for ext2 / ext3 */
 	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
-	if ((le32_to_cpu(es->s_feature_compat) & EXT3_FEATURE_COMPAT_HAS_JOURNAL) != 0)
-		id->type = "ext3";
-	else
-		id->type = "ext2";
 
+	if ((feature_incompat & EXT3_FEATURE_INCOMPAT_EXTENTS) != 0 ||
+	    (feature_incompat & EXT4_FEATURE_INCOMPAT_64BIT) != 0 ||
+	    (feature_incompat & EXT4_FEATURE_INCOMPAT_MMP) != 0) {
+		id->type = "ext4";
+		goto out;
+	}
+
+	if ((feature_compat & EXT3_FEATURE_COMPAT_HAS_JOURNAL) != 0) {
+		id->type = "ext3";
+		goto out;
+	}
+
+	id->type = "ext2";
+
+out:
 	return 0;
 }
