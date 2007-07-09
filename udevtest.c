@@ -90,9 +90,9 @@ out:
 int main(int argc, char *argv[], char *envp[])
 {
 	int force = 0;
-	char *action = "add";
-	char *subsystem = NULL;
-	char *devpath = NULL;
+	const char *action = "add";
+	const char *subsystem = NULL;
+	const char *devpath = NULL;
 	struct udevice *udev;
 	struct sysfs_device *dev;
 	struct udev_rules rules = {};

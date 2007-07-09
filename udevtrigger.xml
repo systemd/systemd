@@ -29,6 +29,7 @@
           <arg><option>--dry-run</option></arg>
           <arg><option>--retry-failed</option></arg>
           <arg><option>--help</option></arg>
+          <arg><option>--action=<replaceable>action</replaceable></option></arg>
           <arg><option>--subsystem-match=<replaceable>subsystem</replaceable></option></arg>
           <arg><option>--subsystem-nomatch=<replaceable>subsystem</replaceable></option></arg>
           <arg><option>--attr-match=<replaceable>attribute=value</replaceable></option></arg>
@@ -58,6 +59,12 @@
             <term><option>--retry-failed</option></term>
             <listitem>
               <para>Trigger only the events which are failed during a previous run.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--action=<replaceable>action</replaceable></option></term>
+            <listitem>
+              <para>Type of event to be triggered. The default value is "add".</para>
             </listitem>
           </varlistentry>
           <varlistentry>

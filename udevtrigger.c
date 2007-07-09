@@ -101,7 +101,7 @@ static int device_list_insert(const char *path)
 	return 0;
 }
 
-static void trigger_uevent(const char *devpath)
+static void trigger_uevent(const char *devpath, const char *action)
 {
 	char filename[PATH_SIZE];
 	int fd;
@@ -122,13 +122,13 @@ static void trigger_uevent(const char *devpath)
 		return;
 	}
 
-	if (write(fd, "add", 3) < 0)
-		info("error on triggering %s: %s", filename, strerror(errno));
+	if (write(fd, action, strlen(action)) < 0)
+		info("error writing '%s' to '%s': %s", action, filename, strerror(errno));
 
 	close(fd);
 }
 
-static void exec_list(void)
+static void exec_list(const char *action)
 {
 	struct name_entry *loop_device;
 	struct name_entry *tmp_device;
@@ -137,14 +137,14 @@ static void exec_list(void)
 		if (delay_device(loop_device->name))
 			continue;
 
-		trigger_uevent(loop_device->name);
+		trigger_uevent(loop_device->name, action);
 		list_del(&loop_device->node);
 		free(loop_device);
 	}
 
 	/* trigger remaining delayed devices */
 	list_for_each_entry_safe(loop_device, tmp_device, &device_list, node) {
-		trigger_uevent(loop_device->name);
+		trigger_uevent(loop_device->name, action);
 		list_del(&loop_device->node);
 		free(loop_device);
 	}
@@ -425,11 +425,13 @@ int main(int argc, char *argv[], char *envp[])
 {
 	int failed = 0;
 	int option;
+	const char *action = "add";
 	static const struct option options[] = {
 		{ "verbose", 0, NULL, 'v' },
 		{ "dry-run", 0, NULL, 'n' },
 		{ "retry-failed", 0, NULL, 'F' },
 		{ "help", 0, NULL, 'h' },
+		{ "action", 1, NULL, 'c' },
 		{ "subsystem-match", 1, NULL, 's' },
 		{ "subsystem-nomatch", 1, NULL, 'S' },
 		{ "attr-match", 1, NULL, 'a' },
@@ -443,7 +445,7 @@ int main(int argc, char *argv[], char *envp[])
 	sysfs_init();
 
 	while (1) {
-		option = getopt_long(argc, argv, "vnFhs:S:a:A:", options, NULL);
+		option = getopt_long(argc, argv, "vnFhc:s:S:a:A:", options, NULL);
 		if (option == -1)
 			break;
 
@@ -456,6 +458,9 @@ int main(int argc, char *argv[], char *envp[])
 			break;
 		case 'F':
 			failed = 1;
+			break;
+		case 'c':
+			action = optarg;
 			break;
 		case 's':
 			name_list_add(&filter_subsystem_match_list, optarg, 0);
@@ -511,7 +516,7 @@ int main(int argc, char *argv[], char *envp[])
 				scan_block();
 		}
 	}
-	exec_list();
+	exec_list(action);
 
 exit:
 	name_list_cleanup(&filter_subsystem_match_list);

@@ -14,7 +14,7 @@
 udevtrigger \- request kernel devices events for coldplug
 .SH "SYNOPSIS"
 .HP 12
-\fBudevtrigger\fR [\fB\-\-verbose\fR] [\fB\-\-dry\-run\fR] [\fB\-\-retry\-failed\fR] [\fB\-\-help\fR] [\fB\-\-subsystem\-match=\fR\fB\fIsubsystem\fR\fR] [\fB\-\-subsystem\-nomatch=\fR\fB\fIsubsystem\fR\fR] [\fB\-\-attr\-match=\fR\fB\fIattribute=value\fR\fR] [\fB\-\-attr\-nomatch=\fR\fB\fIattribute=value\fR\fR]
+\fBudevtrigger\fR [\fB\-\-verbose\fR] [\fB\-\-dry\-run\fR] [\fB\-\-retry\-failed\fR] [\fB\-\-help\fR] [\fB\-\-action=\fR\fB\fIaction\fR\fR] [\fB\-\-subsystem\-match=\fR\fB\fIsubsystem\fR\fR] [\fB\-\-subsystem\-nomatch=\fR\fB\fIsubsystem\fR\fR] [\fB\-\-attr\-match=\fR\fB\fIattribute=value\fR\fR] [\fB\-\-attr\-nomatch=\fR\fB\fIattribute=value\fR\fR]
 .SH "DESCRIPTION"
 .PP
 Trigger kernel device uevents to replay missing events at system coldplug.
@@ -33,6 +33,11 @@ Do not actually trigger the event.
 \fB\-\-retry\-failed\fR
 .RS 4
 Trigger only the events which are failed during a previous run.
+.RE
+.PP
+\fB\-\-action=\fR\fB\fIaction\fR\fR
+.RS 4
+Type of event to be triggered. The default value is "add".
 .RE
 .PP
 \fB\-\-subsystem\-match=\fR\fB\fIsubsystem\fR\fR
