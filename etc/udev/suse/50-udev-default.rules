@@ -90,6 +90,7 @@ KERNEL=="fd[0-9]*", ACTION=="add", ATTRS{cmos}=="?*", RUN+="create_floppy_device
 
 # block devices
 SUBSYSTEM=="block", GROUP="disk", MODE="0640"
+SUBSYSTEM=="block", KERNEL=="sr[0-9]*", SYMLINK+="scd%n"
 
 # sd:		0 TYPE_DISK, 7 TYPE_MOD, 14 TYPE_RBC
 # sr:		4 TYPE_WORM, 5 TYPE_ROM
