@@ -147,8 +147,7 @@ static int udev_event_process(struct udevd_uevent_msg *msg)
 
 				strlcpy(program, name_loop->name, sizeof(program));
 				udev_rules_apply_format(udev, program, sizeof(program));
-				if (run_program(program, udev->dev->subsystem, NULL, 0, NULL,
-						(udev_log_priority >= LOG_INFO)) != 0)
+				if (run_program(program, udev->dev->subsystem, NULL, 0, NULL) != 0)
 					if (!name_loop->ignore_error)
 						retval = -1;
 			}

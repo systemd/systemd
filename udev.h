@@ -169,6 +169,6 @@ extern size_t buf_get_line(const char *buf, size_t buflen, size_t cur);
 /* udev_utils_run.c */
 extern int pass_env_to_socket(const char *name, const char *devpath, const char *action);
 extern int run_program(const char *command, const char *subsystem,
-		       char *result, size_t ressize, size_t *reslen, int log);
+		       char *result, size_t ressize, size_t *reslen);
 
 #endif

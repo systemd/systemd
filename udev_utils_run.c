@@ -24,6 +24,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <ctype.h>
+#include <syslog.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>
@@ -69,9 +70,8 @@ int pass_env_to_socket(const char *sockname, const char *devpath, const char *ac
 }
 
 int run_program(const char *command, const char *subsystem,
-		char *result, size_t ressize, size_t *reslen, int log)
+		char *result, size_t ressize, size_t *reslen)
 {
-	int retval = 0;
 	int status;
 	int outpipe[2] = {-1, -1};
 	int errpipe[2] = {-1, -1};
@@ -81,6 +81,7 @@ int run_program(const char *command, const char *subsystem,
 	char *argv[(sizeof(arg) / 2) + 1];
 	int devnull;
 	int i;
+	int retval = 0;
 
 	/* build argv from comand */
 	strlcpy(arg, command, sizeof(arg));
@@ -109,13 +110,13 @@ int run_program(const char *command, const char *subsystem,
 	info("'%s'", command);
 
 	/* prepare pipes from child to parent */
-	if (result || log) {
+	if (result != NULL || udev_log_priority >= LOG_INFO) {
 		if (pipe(outpipe) != 0) {
 			err("pipe failed: %s", strerror(errno));
 			return -1;
 		}
 	}
-	if (log) {
+	if (udev_log_priority >= LOG_INFO) {
 		if (pipe(errpipe) != 0) {
 			err("pipe failed: %s", strerror(errno));
 			return -1;

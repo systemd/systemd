@@ -190,7 +190,7 @@ static int import_program_into_env(struct udevice *udev, const char *program)
 	char result[2048];
 	size_t reslen;
 
-	if (run_program(program, udev->dev->subsystem, result, sizeof(result), &reslen, (udev_log_priority >= LOG_INFO)) != 0)
+	if (run_program(program, udev->dev->subsystem, result, sizeof(result), &reslen) != 0)
 		return -1;
 	return import_keys_into_env(udev, result, reslen);
 }
@@ -837,8 +837,7 @@ try_parent:
 
 		strlcpy(program, key_val(rule, &rule->program), sizeof(program));
 		udev_rules_apply_format(udev, program, sizeof(program));
-		if (run_program(program, udev->dev->subsystem, result, sizeof(result),
-				NULL, (udev_log_priority >= LOG_INFO)) != 0) {
+		if (run_program(program, udev->dev->subsystem, result, sizeof(result), NULL) != 0) {
 			dbg("PROGRAM is false");
 			udev->program_result[0] = '\0';
 			if (rule->program.operation != KEY_OP_NOMATCH)

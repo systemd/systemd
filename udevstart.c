@@ -160,7 +160,7 @@ static int add_device(const char *devpath)
 
 				strlcpy(program, name_loop->name, sizeof(program));
 				udev_rules_apply_format(udev, program, sizeof(program));
-				run_program(program, udev->dev->subsystem, NULL, 0, NULL, (udev_log_priority >= LOG_INFO));
+				run_program(program, udev->dev->subsystem, NULL, 0, NULL);
 			}
 		}
 	}
