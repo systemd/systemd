@@ -73,7 +73,6 @@ UDEV_OBJS = \
 	udev_utils.o			\
 	udev_utils_string.o		\
 	udev_utils_file.o		\
-	udev_utils_run.o		\
 	udev_sysdeps.o
 LIBUDEV = libudev.a
 
@@ -220,6 +219,7 @@ clean:
 	$(Q) - rm -f core $(PROGRAMS) $(GEN_HEADERS)
 	$(Q) - rm -f udev-$(VERSION).tar.gz
 	$(Q) - rm -f udev-$(VERSION).tar.bz2
+	$(Q) - rm -f udev-git-HEAD.patch
 	@ extras="$(EXTRAS)"; for target in $$extras; do \
 		$(MAKE) -C $$target $@ || exit 1; \
 	done;
@@ -345,6 +345,10 @@ release:
 	git-archive --format=tar --prefix=udev-$(VERSION)/ HEAD | gzip -9v > udev-$(VERSION).tar.gz
 	git-archive --format=tar --prefix=udev-$(VERSION)/ HEAD | bzip2 -9v > udev-$(VERSION).tar.bz2
 .PHONY: release
+
+patch:
+	git diff $(shell echo $$(($(VERSION) - 1))) HEAD > udev-git-HEAD.patch
+.PHONY: patch
 
 gcov-all:
 	$(MAKE) clean all USE_GCOV=true
