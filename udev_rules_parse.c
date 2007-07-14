@@ -477,7 +477,10 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			continue;
 		}
 
-		if (strcasecmp(key, "RUN") == 0) {
+		if (strncasecmp(key, "RUN", sizeof("RUN")-1) == 0) {
+			attr = get_key_attribute(key + sizeof("RUN")-1);
+			if (attr && strstr(attr, "ignore_error"))
+				rule->run_ignore_error = 1;
 			add_rule_key(rule, &rule->run, operation, value);
 			valid = 1;
 			continue;

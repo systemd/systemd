@@ -911,12 +911,13 @@ try_parent:
 				unsetenv(key_name);
 				info("unset ENV '%s'", key_name);
 			} else {
-				char *key_value = name_list_key_add(&udev->env_list, key_name, temp_value);
+				struct name_entry *entry;
 
-				if (key_value == NULL)
+				entry = name_list_key_add(&udev->env_list, key_name, temp_value);
+				if (entry == NULL)
 					break;
-				putenv(key_value);
-				info("set ENV '%s'", key_value);
+				putenv(entry->name);
+				info("set ENV '%s'", entry->name);
 			}
 		}
 	}
@@ -1100,6 +1101,8 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 			}
 
 			if (!udev->run_final && rule->run.operation != KEY_OP_UNSET) {
+				struct name_entry *entry;
+
 				if (rule->run.operation == KEY_OP_ASSIGN_FINAL)
 					udev->run_final = 1;
 				if (rule->run.operation == KEY_OP_ASSIGN || rule->run.operation == KEY_OP_ASSIGN_FINAL) {
@@ -1107,7 +1110,9 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 					name_list_cleanup(&udev->run_list);
 				}
 				dbg("add run '%s'", key_val(rule, &rule->run));
-				name_list_add(&udev->run_list, key_val(rule, &rule->run), 0);
+				entry = name_list_add(&udev->run_list, key_val(rule, &rule->run), 0);
+				if (rule->run_ignore_error)
+					entry->ignore_error = 1;
 			}
 
 			if (rule->last_rule) {
@@ -1165,13 +1170,17 @@ int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev)
 			}
 
 			if (!udev->run_final && rule->run.operation != KEY_OP_UNSET) {
+				struct name_entry *entry;
+
 				if (rule->run.operation == KEY_OP_ASSIGN ||
 				    rule->run.operation == KEY_OP_ASSIGN_FINAL) {
 					info("reset run list");
 					name_list_cleanup(&udev->run_list);
 				}
 				dbg("add run '%s'", key_val(rule, &rule->run));
-				name_list_add(&udev->run_list, key_val(rule, &rule->run), 0);
+				entry = name_list_add(&udev->run_list, key_val(rule, &rule->run), 0);
+				if (rule->run_ignore_error)
+					entry->ignore_error = 1;
 				if (rule->run.operation == KEY_OP_ASSIGN_FINAL)
 					break;
 			}

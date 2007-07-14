@@ -138,10 +138,12 @@ extern int udev_db_get_all_entries(struct list_head *name_list);
 struct name_entry {
 	struct list_head node;
 	char name[PATH_SIZE];
+	unsigned int ignore_error:1;
 };
+
 extern int log_priority(const char *priority);
-extern char *name_list_add(struct list_head *name_list, const char *name, int sort);
-extern char *name_list_key_add(struct list_head *name_list, const char *key, const char *value);
+extern struct name_entry *name_list_add(struct list_head *name_list, const char *name, int sort);
+extern struct name_entry *name_list_key_add(struct list_head *name_list, const char *key, const char *value);
 extern int name_list_key_remove(struct list_head *name_list, const char *key);
 extern void name_list_cleanup(struct list_head *name_list);
 extern int add_matching_files(struct list_head *name_list, const char *dirname, const char *suffix);

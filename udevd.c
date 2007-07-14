@@ -148,8 +148,9 @@ static int udev_event_process(struct udevd_uevent_msg *msg)
 				strlcpy(program, name_loop->name, sizeof(program));
 				udev_rules_apply_format(udev, program, sizeof(program));
 				if (run_program(program, udev->dev->subsystem, NULL, 0, NULL,
-						(udev_log_priority >= LOG_INFO)))
-					retval = -1;
+						(udev_log_priority >= LOG_INFO)) != 0)
+					if (!name_loop->ignore_error)
+						retval = -1;
 			}
 		}
 	}
@@ -258,7 +259,7 @@ static void udev_event_run(struct udevd_uevent_msg *msg)
 		setpriority(PRIO_PROCESS, 0, UDEV_PRIORITY);
 
 		retval = udev_event_process(msg);
-		info("seq %llu finished", msg->seqnum);
+		info("seq %llu finished with %i", msg->seqnum, retval);
 
 		logging_close();
 		if (retval)

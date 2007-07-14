@@ -54,7 +54,7 @@ int log_priority(const char *priority)
 	return 0;
 }
 
-char *name_list_add(struct list_head *name_list, const char *name, int sort)
+struct name_entry *name_list_add(struct list_head *name_list, const char *name, int sort)
 {
 	struct name_entry *loop_name;
 	struct name_entry *new_name;
@@ -63,7 +63,7 @@ char *name_list_add(struct list_head *name_list, const char *name, int sort)
 		/* avoid doubles */
 		if (strcmp(loop_name->name, name) == 0) {
 			dbg("'%s' is already in the list", name);
-			return loop_name->name;
+			return loop_name;
 		}
 	}
 
@@ -81,10 +81,10 @@ char *name_list_add(struct list_head *name_list, const char *name, int sort)
 	dbg("adding '%s'", new_name->name);
 	list_add_tail(&new_name->node, &loop_name->node);
 
-	return new_name->name;
+	return new_name;
 }
 
-char *name_list_key_add(struct list_head *name_list, const char *key, const char *value)
+struct name_entry *name_list_key_add(struct list_head *name_list, const char *key, const char *value)
 {
 	struct name_entry *loop_name;
 	struct name_entry *new_name;
@@ -94,7 +94,7 @@ char *name_list_key_add(struct list_head *name_list, const char *key, const char
 			dbg("key already present '%s', replace it", loop_name->name);
 			snprintf(loop_name->name, sizeof(loop_name->name), "%s=%s", key, value);
 			loop_name->name[sizeof(loop_name->name)-1] = '\0';
-			return loop_name->name;
+			return loop_name;
 		}
 	}
 
@@ -107,7 +107,7 @@ char *name_list_key_add(struct list_head *name_list, const char *key, const char
 	dbg("adding '%s'", new_name->name);
 	list_add_tail(&new_name->node, &loop_name->node);
 
-	return new_name->name;
+	return new_name;
 }
 
 int name_list_key_remove(struct list_head *name_list, const char *key)

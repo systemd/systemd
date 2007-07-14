@@ -99,6 +99,7 @@ struct udev_rule {
 	unsigned int link_priority;
 	unsigned int partitions;
 	unsigned int last_rule:1,
+		     run_ignore_error:1,
 		     ignore_device:1,
 		     ignore_remove:1;
 
