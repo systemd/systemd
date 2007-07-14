@@ -135,24 +135,8 @@ static int udev_event_process(struct udevd_uevent_msg *msg)
 	retval = udev_device_event(&rules, udev);
 
 	/* run programs collected by RUN-key*/
-	if (retval == 0 && !udev->ignore_device && udev_run) {
-		struct name_entry *name_loop;
-
-		dbg("executing run list");
-		list_for_each_entry(name_loop, &udev->run_list, node) {
-			if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0)
-				pass_env_to_socket(&name_loop->name[strlen("socket:")], udev->dev->devpath, udev->action);
-			else {
-				char program[PATH_SIZE];
-
-				strlcpy(program, name_loop->name, sizeof(program));
-				udev_rules_apply_format(udev, program, sizeof(program));
-				if (run_program(program, udev->dev->subsystem, NULL, 0, NULL) != 0)
-					if (!name_loop->ignore_error)
-						retval = -1;
-			}
-		}
-	}
+	if (retval == 0 && !udev->ignore_device && udev_run)
+		retval = udev_rules_run(udev);
 
 	udev_device_cleanup(udev);
 	return retval;

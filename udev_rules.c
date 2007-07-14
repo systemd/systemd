@@ -238,6 +238,29 @@ static int import_parent_into_env(struct udevice *udev, const char *filter)
 	return rc;
 }
 
+int udev_rules_run(struct udevice *udev)
+{
+	struct name_entry *name_loop;
+	int retval = 0;
+
+	dbg("executing run list");
+	list_for_each_entry(name_loop, &udev->run_list, node) {
+		if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0) {
+			pass_env_to_socket(&name_loop->name[strlen("socket:")], udev->dev->devpath, udev->action);
+		} else {
+			char program[PATH_SIZE];
+
+			strlcpy(program, name_loop->name, sizeof(program));
+			udev_rules_apply_format(udev, program, sizeof(program));
+			if (run_program(program, udev->dev->subsystem, NULL, 0, NULL) != 0)
+				if (!name_loop->ignore_error)
+					retval = -1;
+		}
+	}
+
+	return retval;
+}
+
 #define WAIT_LOOP_PER_SECOND		50
 static int wait_for_sysfs(struct udevice *udev, const char *file, int timeout)
 {

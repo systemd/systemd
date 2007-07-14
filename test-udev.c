@@ -154,22 +154,8 @@ int main(int argc, char *argv[], char *envp[])
 
 	retval = udev_device_event(&rules, udev);
 
-	if (retval == 0 && !udev->ignore_device && udev_run) {
-		struct name_entry *name_loop;
-
-		dbg("executing run list");
-		list_for_each_entry(name_loop, &udev->run_list, node) {
-			if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0)
-				pass_env_to_socket(&name_loop->name[strlen("socket:")], devpath, action);
-			else {
-				char program[PATH_SIZE];
-
-				strlcpy(program, name_loop->name, sizeof(program));
-				udev_rules_apply_format(udev, program, sizeof(program));
-				run_program(program, udev->dev->subsystem, NULL, 0, NULL);
-			}
-		}
-	}
+	if (retval == 0 && !udev->ignore_device && udev_run)
+		udev_rules_run(udev);
 
 	udev_device_cleanup(udev);
 fail:

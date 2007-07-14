@@ -123,6 +123,7 @@ extern struct udev_rule *udev_rules_iter_label(struct udev_rules *rules, const c
 
 extern int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev);
 extern int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev);
+extern int udev_rules_run(struct udevice *udev);
 
 extern void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize);
 

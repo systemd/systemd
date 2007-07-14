@@ -148,22 +148,8 @@ static int add_device(const char *devpath)
 	else
 		info("device node creation supressed");
 
-	if (retval == 0 && udev_run) {
-		struct name_entry *name_loop;
-
-		dbg("executing run list");
-		list_for_each_entry(name_loop, &udev->run_list, node) {
-			if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0)
-				pass_env_to_socket(&name_loop->name[strlen("socket:")], udev->dev->devpath, "add");
-			else {
-				char program[PATH_SIZE];
-
-				strlcpy(program, name_loop->name, sizeof(program));
-				udev_rules_apply_format(udev, program, sizeof(program));
-				run_program(program, udev->dev->subsystem, NULL, 0, NULL);
-			}
-		}
-	}
+	if (retval == 0 && udev_run)
+		udev_rules_run(udev);
 
 exit:
 	udev_device_cleanup(udev);
