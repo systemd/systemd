@@ -56,68 +56,68 @@ int log_priority(const char *priority)
 
 struct name_entry *name_list_add(struct list_head *name_list, const char *name, int sort)
 {
-	struct name_entry *loop_name;
-	struct name_entry *new_name;
+	struct name_entry *name_loop;
+	struct name_entry *name_new;
 
-	list_for_each_entry(loop_name, name_list, node) {
-		/* avoid doubles */
-		if (strcmp(loop_name->name, name) == 0) {
+	/* avoid duplicate entries */
+	list_for_each_entry(name_loop, name_list, node) {
+		if (strcmp(name_loop->name, name) == 0) {
 			dbg("'%s' is already in the list", name);
-			return loop_name;
+			return name_loop;
 		}
 	}
 
 	if (sort)
-		list_for_each_entry(loop_name, name_list, node) {
-			if (sort && strcmp(loop_name->name, name) > 0)
+		list_for_each_entry(name_loop, name_list, node) {
+			if (strcmp(name_loop->name, name) > 0)
 				break;
 		}
 
-	new_name = malloc(sizeof(struct name_entry));
-	if (new_name == NULL)
+	name_new = malloc(sizeof(struct name_entry));
+	if (name_new == NULL)
 		return NULL;
 
-	strlcpy(new_name->name, name, sizeof(new_name->name));
-	dbg("adding '%s'", new_name->name);
-	list_add_tail(&new_name->node, &loop_name->node);
+	strlcpy(name_new->name, name, sizeof(name_new->name));
+	dbg("adding '%s'", name_new->name);
+	list_add_tail(&name_new->node, &name_loop->node);
 
-	return new_name;
+	return name_new;
 }
 
 struct name_entry *name_list_key_add(struct list_head *name_list, const char *key, const char *value)
 {
-	struct name_entry *loop_name;
-	struct name_entry *new_name;
+	struct name_entry *name_loop;
+	struct name_entry *name_new;
 
-	list_for_each_entry(loop_name, name_list, node) {
-		if (strncmp(loop_name->name, key, strlen(key)) == 0) {
-			dbg("key already present '%s', replace it", loop_name->name);
-			snprintf(loop_name->name, sizeof(loop_name->name), "%s=%s", key, value);
-			loop_name->name[sizeof(loop_name->name)-1] = '\0';
-			return loop_name;
+	list_for_each_entry(name_loop, name_list, node) {
+		if (strncmp(name_loop->name, key, strlen(key)) == 0) {
+			dbg("key already present '%s', replace it", name_loop->name);
+			snprintf(name_loop->name, sizeof(name_loop->name), "%s=%s", key, value);
+			name_loop->name[sizeof(name_loop->name)-1] = '\0';
+			return name_loop;
 		}
 	}
 
-	new_name = malloc(sizeof(struct name_entry));
-	if (new_name == NULL)
+	name_new = malloc(sizeof(struct name_entry));
+	if (name_new == NULL)
 		return NULL;
 
-	snprintf(new_name->name, sizeof(new_name->name), "%s=%s", key, value);
-	new_name->name[sizeof(new_name->name)-1] = '\0';
-	dbg("adding '%s'", new_name->name);
-	list_add_tail(&new_name->node, &loop_name->node);
+	snprintf(name_new->name, sizeof(name_new->name), "%s=%s", key, value);
+	name_new->name[sizeof(name_new->name)-1] = '\0';
+	dbg("adding '%s'", name_new->name);
+	list_add_tail(&name_new->node, &name_loop->node);
 
-	return new_name;
+	return name_new;
 }
 
 int name_list_key_remove(struct list_head *name_list, const char *key)
 {
 	struct name_entry *name_loop;
-	struct name_entry *temp_loop;
+	struct name_entry *name_tmp;
 	size_t keylen = strlen(key);
 	int retval = 0;
 
-	list_for_each_entry_safe(name_loop, temp_loop, name_list, node) {
+	list_for_each_entry_safe(name_loop, name_tmp, name_list, node) {
 		if (strncmp(name_loop->name, key, keylen) != 0)
 			continue;
 		if (name_loop->name[keylen] != '=')
@@ -133,9 +133,9 @@ int name_list_key_remove(struct list_head *name_list, const char *key)
 void name_list_cleanup(struct list_head *name_list)
 {
 	struct name_entry *name_loop;
-	struct name_entry *temp_loop;
+	struct name_entry *name_tmp;
 
-	list_for_each_entry_safe(name_loop, temp_loop, name_list, node) {
+	list_for_each_entry_safe(name_loop, name_tmp, name_list, node) {
 		list_del(&name_loop->node);
 		free(name_loop);
 	}
