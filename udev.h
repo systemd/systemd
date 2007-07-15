@@ -49,6 +49,7 @@
 
 #define DB_DIR					".udev/db"
 #define DB_NAME_INDEX_DIR			".udev/names"
+#define RULES_DYN_DIR				".udev/rules.d"
 
 struct udev_rules;
 

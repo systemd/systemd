@@ -1102,10 +1102,17 @@ int main(int argc, char *argv[], char *envp[])
 
 	/* watch rules directory */
 	inotify_fd = inotify_init();
-	if (inotify_fd >= 0)
+	if (inotify_fd >= 0) {
+		char filename[PATH_MAX];
+
 		inotify_add_watch(inotify_fd, udev_rules_dir, IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
-	else if (errno == ENOSYS)
-		err("the kernel does not support inotify, udevd can't monitor configuration file changes");
+
+		/* watch dynamic rules directory */
+		strlcpy(filename, udev_root, sizeof(filename));
+		strlcat(filename, "/"RULES_DYN_DIR, sizeof(filename));
+		inotify_add_watch(inotify_fd, filename, IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
+	} else if (errno == ENOSYS)
+		err("the kernel does not support inotify, udevd can't monitor rules file changes");
 	else
 		err("inotify_init failed: %s", strerror(errno));
 
@@ -1190,12 +1197,12 @@ int main(int argc, char *argv[], char *envp[])
 			int nbytes;
 
 			/* discard all possible events, we can just reload the config */
-			if ((ioctl(inotify_fd, FIONREAD, &nbytes) == 0) && nbytes) {
+			if ((ioctl(inotify_fd, FIONREAD, &nbytes) == 0) && nbytes > 0) {
 				char *buf;
 
 				reload_config = 1;
 				buf = malloc(nbytes);
-				if (!buf) {
+				if (buf != NULL) {
 					err("error getting buffer for inotify, disable watching");
 					close(inotify_fd);
 					inotify_fd = -1;

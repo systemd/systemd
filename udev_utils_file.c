@@ -49,7 +49,7 @@ int create_path(const char *path)
 	if (stat(p, &stats) == 0 && (stats.st_mode & S_IFMT) == S_IFDIR)
 		return 0;
 
-	if (create_path (p) != 0)
+	if (create_path(p) != 0)
 		return -1;
 
 	dbg("mkdir '%s'", p);

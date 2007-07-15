@@ -438,7 +438,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 				/* figure it out if it is executable */
 				char file[PATH_SIZE];
 				char *pos;
-				struct stat stats;
+				struct stat statbuf;
 
 				strlcpy(file, value, sizeof(file));
 				pos = strchr(file, ' ');
@@ -455,7 +455,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 				}
 
 				dbg("IMPORT auto mode for '%s'", file);
-				if (!lstat(file, &stats) && (stats.st_mode & S_IXUSR)) {
+				if (!lstat(file, &statbuf) && (statbuf.st_mode & S_IXUSR)) {
 					dbg("IMPORT is executable, will be executed (autotype)");
 					rule->import_type  = IMPORT_PROGRAM;
 				} else {
@@ -593,7 +593,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			pos = strstr(value, "link_priority=");
 			if (pos != NULL) {
 				rule->link_priority = atoi(&pos[strlen("link_priority=")]);
-				info("link priority=%i", rule->link_priority);
+				dbg("link priority=%i", rule->link_priority);
 			}
 			pos = strstr(value, "string_escape=");
 			if (pos != NULL) {
@@ -709,37 +709,68 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 
 int udev_rules_init(struct udev_rules *rules, int resolve_names)
 {
-	struct stat stats;
-	int retval;
+	struct stat statbuf;
+	char filename[PATH_MAX];
+	LIST_HEAD(name_list);
+	LIST_HEAD(dyn_list);
+	struct name_entry *name_loop, *name_tmp;
+	struct name_entry *dyn_loop, *dyn_tmp;
+	int retval = 0;
 
 	memset(rules, 0x00, sizeof(struct udev_rules));
 	rules->resolve_names = resolve_names;
 
-	/* parse rules file or all matching files in directory */
-	if (stat(udev_rules_dir, &stats) != 0)
+	/* read main config from single file or all files in a directory */
+	if (stat(udev_rules_dir, &statbuf) != 0)
 		return -1;
-
-	if ((stats.st_mode & S_IFMT) != S_IFDIR) {
+	if ((statbuf.st_mode & S_IFMT) != S_IFDIR) {
 		dbg("parse single rules file '%s'", udev_rules_dir);
-		retval = parse_file(rules, udev_rules_dir);
+		name_list_add(&name_list, udev_rules_dir, 1);
 	} else {
-		struct name_entry *name_loop, *name_tmp;
-		LIST_HEAD(name_list);
-
 		dbg("parse rules directory '%s'", udev_rules_dir);
 		retval = add_matching_files(&name_list, udev_rules_dir, RULESFILE_SUFFIX);
+	}
+
+	/* read dynamic rules directory */
+	strlcpy(filename, udev_root, sizeof(filename));
+	strlcat(filename, "/"RULES_DYN_DIR, sizeof(filename));
+	if (stat(filename, &statbuf) != 0) {
+		create_path(filename);
+		mkdir(filename, 0755);
+	}
+	add_matching_files(&dyn_list, filename, RULESFILE_SUFFIX);
+
+	/* sort dynamic rules files by basename into list of files */
+	list_for_each_entry_safe(dyn_loop, dyn_tmp, &dyn_list, node) {
+		const char *dyn_base = strrchr(dyn_loop->name, '/');
+
+		if (dyn_base == NULL)
+			continue;
 
 		list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
-			if (stat(name_loop->name, &stats) == 0) {
-				if (stats.st_size)
-					parse_file(rules, name_loop->name);
-				else
-					dbg("empty rules file '%s'", name_loop->name);
-			} else
-				err("could not read '%s': %s", name_loop->name, strerror(errno));
-			list_del(&name_loop->node);
-			free(name_loop);
+			const char *name_base = strrchr(name_loop->name, '/');
+
+			if (name_base == NULL)
+				continue;
+
+			if (strcmp(name_base, dyn_base) > 0) {
+				list_move_tail(&dyn_loop->node, &name_loop->node);
+				break;
+			}
 		}
+	}
+
+	/* parse list of files */
+	list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
+		if (stat(name_loop->name, &statbuf) == 0) {
+			if (statbuf.st_size)
+				parse_file(rules, name_loop->name);
+			else
+				dbg("empty rules file '%s'", name_loop->name);
+		} else
+			err("could not read '%s': %s", name_loop->name, strerror(errno));
+		list_del(&name_loop->node);
+		free(name_loop);
 	}
 
 	return retval;
