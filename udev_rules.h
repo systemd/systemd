@@ -90,6 +90,7 @@ struct udev_rule {
 
 	struct key name;
 	struct key symlink;
+	struct key symlink_match;
 	struct key owner;
 	struct key group;
 	mode_t mode;

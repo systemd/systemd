@@ -1519,18 +1519,6 @@ KERNEL=="sda1", NAME=="node*", SYMLINK+="link2"
 EOF
 	},
 	{
-		desc		=> "NAME compare test 2",
-		subsys		=> "block",
-		devpath		=> "/block/sda/sda1",
-		exp_name	=> "link2",
-		exp_target	=> "sda1",
-		not_exp_name	=> "link",
-		rules		=> <<EOF
-KERNEL=="sda1", NAME=="?*", SYMLINK+="link"
-KERNEL=="sda1", NAME!="?*", SYMLINK+="link2"
-EOF
-	},
-	{
 		desc		=> "invalid key operation",
 		subsys		=> "block",
 		devpath		=> "/block/sda/sda1",

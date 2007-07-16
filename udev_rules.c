@@ -940,9 +940,24 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 	if (match_key("DRIVER", rule, &rule->driver, udev->dev->driver))
 		goto nomatch;
 
-	/* match NAME against a value assigned by an earlier rule */
 	if (match_key("NAME", rule, &rule->name, udev->name))
 		goto nomatch;
+
+	/* match against current list of symlinks */
+	if (rule->symlink_match.operation == KEY_OP_MATCH ||
+	    rule->symlink_match.operation == KEY_OP_NOMATCH) {
+		struct name_entry *name_loop;
+		int match = 0;
+
+		list_for_each_entry(name_loop, &udev->symlink_list, node) {
+			if (match_key("SYMLINK", rule, &rule->symlink_match, name_loop->name) == 0) {
+				match = 1;
+				break;
+			}
+		}
+		if (!match)
+			goto nomatch;
+	}
 
 	for (i = 0; i < rule->env.count; i++) {
 		struct key_pair *pair = &rule->env.keys[i];
@@ -1250,6 +1265,9 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 	dbg("udev->dev->devpath='%s'", udev->dev->devpath);
 	dbg("udev->dev->kernel='%s'", udev->dev->kernel);
 
+	/* use kernel name as default node name */
+	strlcpy(udev->name, udev->dev->kernel, sizeof(udev->name));
+
 	/* look for a matching rule to apply */
 	udev_rules_iter_init(rules);
 	while (1) {
@@ -1311,14 +1329,18 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 			}
 
 			/* collect symlinks */
-			if (!udev->symlink_final && rule->symlink.operation != KEY_OP_UNSET) {
+			if (!udev->symlink_final &&
+			    (rule->symlink.operation == KEY_OP_ASSIGN ||
+			     rule->symlink.operation == KEY_OP_ASSIGN_FINAL ||
+			     rule->symlink.operation == KEY_OP_ADD)) {
 				char temp[PATH_SIZE];
 				char *pos, *next;
 				int count;
 
 				if (rule->symlink.operation == KEY_OP_ASSIGN_FINAL)
 					udev->symlink_final = 1;
-				if (rule->symlink.operation == KEY_OP_ASSIGN || rule->symlink.operation == KEY_OP_ASSIGN_FINAL) {
+				if (rule->symlink.operation == KEY_OP_ASSIGN ||
+				    rule->symlink.operation == KEY_OP_ASSIGN_FINAL) {
 					info("reset symlink list");
 					name_list_cleanup(&udev->symlink_list);
 				}
@@ -1400,10 +1422,8 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 		}
 	}
 
-	if (!name_set) {
-		strlcpy(udev->name, udev->dev->kernel, sizeof(udev->name));
+	if (!name_set)
 		info("no node name set, will use kernel name '%s'", udev->name);
-	}
 
 	if (udev->tmp_node[0] != '\0') {
 		dbg("removing temporary device node");

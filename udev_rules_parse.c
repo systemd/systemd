@@ -525,7 +525,11 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 		}
 
 		if (strcasecmp(key, "SYMLINK") == 0) {
-			add_rule_key(rule, &rule->symlink, operation, value);
+			if (operation == KEY_OP_MATCH ||
+			    operation == KEY_OP_NOMATCH)
+				add_rule_key(rule, &rule->symlink_match, operation, value);
+			else
+				add_rule_key(rule, &rule->symlink, operation, value);
 			valid = 1;
 			continue;
 		}
