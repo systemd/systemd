@@ -346,6 +346,11 @@ release:
 	git-archive --format=tar --prefix=udev-$(VERSION)/ HEAD | bzip2 -9v > udev-$(VERSION).tar.bz2
 .PHONY: release
 
+dist:
+	git-archive --format=tar --prefix=udev-$(VERSION)/ HEAD | gzip -9v > udev-$(VERSION).tar.gz
+	git-archive --format=tar --prefix=udev-$(VERSION)/ HEAD | bzip2 -9v > udev-$(VERSION).tar.bz2
+.PHONY: dist
+
 patch:
 	git diff $(shell echo $$(($(VERSION) - 1))) HEAD > udev-git-HEAD.patch
 .PHONY: patch
