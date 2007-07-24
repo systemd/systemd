@@ -39,6 +39,7 @@ SUBSYSTEM=="block", GROUP="disk"
 # cdrom symlinks and other good cdrom naming
 KERNEL=="sr[0-9]*|hd[a-z]|pcd[0-9]*", ACTION=="add", IMPORT{program}="cdrom_id --export $tempnode"
 ENV{ID_CDROM}=="?*", GROUP="cdrom"
+SUBSYSTEM=="block", KERNEL=="sr[0-9]*", SYMLINK+="scd%n"
 
 # assign cdrom-permission also to associated generic device (for cd-burning ...)
 KERNEL=="sg[0-9]*", ACTION=="add", ATTRS{type}=="4|5", GROUP="cdrom"
@@ -129,7 +130,8 @@ KERNEL=="dnrtmsg",	NAME="netlink/%k"
 KERNEL=="tap*",		NAME="netlink/%k"
 
 # network devices
-KERNEL=="tun",		NAME="net/%k",	MODE="0600"
+KERNEL=="tun",		NAME="net/%k",	MODE="0660", OPTIONS+="ignore_remove"
+KERNEL=="ppp",		MODE="0600", OPTIONS+="ignore_remove"
 
 # ramdisk devices
 KERNEL=="ram[0-9]*",	NAME="rd/%n", SYMLINK+="%k"
@@ -240,15 +242,18 @@ KERNEL=="issm*",	NAME="infiniband/%k"
 
 
 # usbfs-like device nodes
+# the way to go up to kernel 2.6.21 (and above if setting USB_DEVICE_CLASS=y)
 SUBSYSTEM=="usb_device", PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", NAME="%c", GROUP="usb", MODE="0664"
+# starting from kernel 2.6.22 use this rule
+SUBSYSTEM=="usb", ACTION=="add", ENV{DEVTYPE}=="usb_device", \
+	NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", GROUP="usb", MODE="0664" 
 
-
-# Setting timeout for tape-devices to 900 seconds
+# Setting timeout for tape-devices (type 1) to 900 seconds
+# and 60 seconds for device types 0, 7 and 14
 # if you need timeouts for other devices add a similar rule
 # with correct type-value, or open a bug on bugs.gentoo.org.
-ACTION=="add", SUBSYSTEM=="scsi" , ATTRS{type}=="1", \
-	RUN+="/bin/sh -c 'echo 900 > /sys$$DEVPATH/timeout'"
-
+SUBSYSTEM=="scsi", KERNEL=="[0-9]*:[0-9]*", ACTION=="add", ATTR{type}=="0|7|14", ATTR{timeout}="60"
+SUBSYSTEM=="scsi", KERNEL=="[0-9]*:[0-9]*", ACTION=="add", ATTR{type}=="1", ATTR{timeout}="900"
 
 # Module autoloading
 ACTION!="add", GOTO="hotplug_no_add_event"
@@ -260,10 +265,10 @@ ENV{DRIVER}=="?*", SUBSYSTEM!="input", GOTO="hotplug_load_end"
 SUBSYSTEM=="platform", ENV{MODALIAS}=="i82365", GOTO="hotplug_load_end"
 
 # Autoload modules that lack aliases but have them defined inutoload modules
-ENV{MODALIAS}=="?*", RUN+="modprobe.sh $env{MODALIAS}"
+ENV{MODALIAS}=="?*", RUN{ignore_error}+="modprobe.sh $env{MODALIAS}"
 
 # /etc/modprobe.conf.
-SUBSYSTEM=="pnp", ENV{MODALIAS}!="?*", RUN+="/bin/sh -c 'while read id; do /lib/udev/modprobe.sh pnp:d$$id; done < /sys$devpath/id'"
+SUBSYSTEM=="pnp", ENV{MODALIAS}!="?*", RUN{ignore_error}+="/bin/sh -c 'while read id; do /lib/udev/modprobe.sh pnp:d$$id; done < /sys$devpath/id'"
 # needed aliases are defined in /etc/modprobe.d/pnp-aliases
 
 
@@ -277,7 +282,7 @@ SUBSYSTEM=="mmc", RUN+="modprobe.sh mmc_block"
 
 # Load driver for scsi-device
 SUBSYSTEM!="scsi_device", GOTO="hotplug_scsi_end"
-ATTRS{type}=="?*",	RUN+="modprobe.sh sg"
+ATTRS{type}=="?*",	TEST!="[module/sg]", RUN+="modprobe.sh sg"
 ATTRS{type}=="0|7|14",	RUN+="modprobe.sh sd_mod"
 ATTRS{type}=="4|5",	RUN+="modprobe.sh sr_mod"
 ATTRS{type}=="8",	RUN+="modprobe.sh ch"
