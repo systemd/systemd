@@ -11,6 +11,7 @@ EXTRAS="\
 	extras/floppy \
 	extras/firmware \
 	extras/path_id \
+	extras/collect \
 	extras/rule_generator"
 
 # with debug
