@@ -597,6 +597,7 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 		SUBST_KERNEL,
 		SUBST_KERNEL_NUMBER,
 		SUBST_ID,
+		SUBST_DRIVER,
 		SUBST_MAJOR,
 		SUBST_MINOR,
 		SUBST_RESULT,
@@ -616,6 +617,7 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 		{ .name = "number",	.fmt = 'n',	.type = SUBST_KERNEL_NUMBER },
 		{ .name = "kernel",	.fmt = 'k',	.type = SUBST_KERNEL },
 		{ .name = "id",		.fmt = 'b',	.type = SUBST_ID },
+		{ .name = "driver",	.fmt = 'd',	.type = SUBST_DRIVER },
 		{ .name = "major",	.fmt = 'M',	.type = SUBST_MAJOR },
 		{ .name = "minor",	.fmt = 'm',	.type = SUBST_MINOR },
 		{ .name = "result",	.fmt = 'c',	.type = SUBST_RESULT },
@@ -705,6 +707,12 @@ found:
 			if (udev->dev_parent != NULL) {
 				strlcat(string, udev->dev_parent->kernel, maxsize);
 				dbg("substitute id '%s'", udev->dev_parent->kernel);
+			}
+			break;
+		case SUBST_DRIVER:
+			if (udev->dev_parent != NULL) {
+				strlcat(string, udev->dev_parent->driver, maxsize);
+				dbg("substitute driver '%s'", udev->dev_parent->driver);
 			}
 			break;
 		case SUBST_MAJOR:

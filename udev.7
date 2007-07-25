@@ -335,6 +335,16 @@ and
 \fBATTRS\fR.
 .RE
 .PP
+\fB$driver\fR, \fB%d\fR
+.RS 4
+The driver name of the device matched while searching the devpath upwards for
+\fBSUBSYSTEMS\fR,
+\fBKERNELS\fR,
+\fBDRIVERS\fR
+and
+\fBATTRS\fR.
+.RE
+.PP
 \fB$attr{\fR\fB\fIfile\fR\fR\fB}\fR, \fB%s{\fR\fB\fIfile\fR\fR\fB}\fR
 .RS 4
 The value of a sysfs attribute found at the device, where all keys of the rule have matched. If the matching device does not have such an attribute, all devices along the chain of parents are searched for a matching attribute. If the attribute is a symlink, the last element of the symlink target is returned as the value.

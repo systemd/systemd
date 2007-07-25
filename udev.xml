@@ -488,6 +488,15 @@
             </varlistentry>
 
             <varlistentry>
+              <term><option>$driver</option>, <option>%d</option></term>
+              <listitem>
+                <para>The driver name of the device matched while searching the devpath upwards for
+                  <option>SUBSYSTEMS</option>, <option>KERNELS</option>, <option>DRIVERS</option> and <option>ATTRS</option>.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
               <term><option>$attr{<replaceable>file</replaceable>}</option>, <option>%s{<replaceable>file</replaceable>}</option></term>
               <listitem>
                 <para>The value of a sysfs attribute found at the device, where
