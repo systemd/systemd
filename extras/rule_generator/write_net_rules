@@ -69,7 +69,7 @@ if [ "$1" = "all_interfaces" ]; then
 
 	for INTERFACE in *; do
 		case $INTERFACE in
-		eth*|ath*|wlan*|ra*|sta*) ;;
+		eth*|ath*|wlan*|ra*|sta*|ctc*|hsi*) ;;
 		*) continue ;;
 		esac
 
@@ -86,18 +86,42 @@ if [ -z "$INTERFACE" ]; then
 fi
 
 if [ "$1" ]; then
-	MAC_ADDR="$1"
+    while [ "$*" ] ; do
+	case $1 in
+	    --mac)
+		shift
+		MAC_ADDR=$1
+		shift
+		;;
+	    --driver)
+		shift
+		DRIVER=$1
+		shift
+		;;
+	    --id)
+		shift
+		ID=$1
+		shift
+		;;
+	    *)
+		MAC_ADDR=$1
+		shift
+		;;
+	esac
+    done
 else
-	MAC_ADDR=$(sysread address)
+    MAC_ADDR=$(sysread address)
 fi
 
-if [ -z "$MAC_ADDR" ]; then
+if [ -z "$DRIVER" ] && [ -z "$ID" ] ; then
+    if [ -z "$MAC_ADDR" ]; then
 	echo "No MAC address for $INTERFACE." >&2
 	exit 1
-fi
-if [ "$MAC_ADDR" = "00:00:00:00:00:00" ]; then
+    fi
+    if [ "$MAC_ADDR" = "00:00:00:00:00:00" ]; then
 	echo "NULL MAC address for $INTERFACE." >&2
 	exit 1
+    fi
 fi
 
 # Prevent concurrent processes from modifying the file at the same time.
@@ -117,7 +141,11 @@ if interface_name_taken; then
 fi
 
 # the DRIVERS key is needed to not match bridges and VLAN sub-interfaces
-match="DRIVERS==\"?*\", ATTRS{address}==\"$MAC_ADDR\""
+if [ "$MAC_ADDR" ] ; then
+    match="DRIVERS==\"?*\", ATTRS{address}==\"$MAC_ADDR\""
+else
+    match="DRIVERS==\"$DRIVER\", KERNELS==\"$ID\""
+fi
 if [ $basename = "ath" -o $basename = "wlan" ]; then
 	match="$match, ATTRS{type}==\"1\"" # do not match the wifi* interfaces
 fi
