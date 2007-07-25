@@ -9,6 +9,7 @@ LABEL="persistent_net_generator_do"
 # build device description string to add a comment the generated rule
 SUBSYSTEMS=="pci", ENV{COMMENT}="PCI device $attr{vendor}:$attr{device} ($driver)"
 SUBSYSTEMS=="usb", ENV{COMMENT}="USB device 0x$attr{idVendor}:0x$attr{idProduct} ($driver)"
+SUBSYSTEMS=="pcmcia", ENV{COMMENT}="PCMCIA device $attr{card_id}:$attr{manf_id} ($driver)"
 SUBSYSTEMS=="ccwgroup", ENV{COMMENT}="S/390 $driver device at $id", ENV{NETDEV}="$id", ENV{NETDRV}="$driver"
 SUBSYSTEMS=="ieee1394", ENV{COMMENT}="Firewire device $attr{host_id})"
 SUBSYSTEMS=="xen", ENV{COMMENT}="Xen virtual device"
