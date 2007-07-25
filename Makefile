@@ -118,7 +118,7 @@ WARNINGS	= -Wstrict-prototypes -Wsign-compare -Wshadow \
 		  -Wpointer-arith -Wcast-align -Wsign-compare -Wmissing-prototypes
 CFLAGS		+= $(WARNINGS)
 
-LDFLAGS += -Wl,-warn-common
+LDFLAGS += -Wl,-warn-common,--as-needed
 
 OPTFLAGS = -Os
 CFLAGS += $(OPTFLAGS)
