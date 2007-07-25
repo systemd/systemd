@@ -948,6 +948,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 	if (match_key("DRIVER", rule, &rule->driver, udev->dev->driver))
 		goto nomatch;
 
+	/* match NAME against a value assigned by an earlier rule */
 	if (match_key("NAME", rule, &rule->name, udev->name))
 		goto nomatch;
 
@@ -1273,9 +1274,6 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 	dbg("udev->dev->devpath='%s'", udev->dev->devpath);
 	dbg("udev->dev->kernel='%s'", udev->dev->kernel);
 
-	/* use kernel name as default node name */
-	strlcpy(udev->name, udev->dev->kernel, sizeof(udev->name));
-
 	/* look for a matching rule to apply */
 	udev_rules_iter_init(rules);
 	while (1) {
@@ -1430,8 +1428,10 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 		}
 	}
 
-	if (!name_set)
+	if (!name_set) {
 		info("no node name set, will use kernel name '%s'", udev->name);
+		strlcpy(udev->name, udev->dev->kernel, sizeof(udev->name));
+	}
 
 	if (udev->tmp_node[0] != '\0') {
 		dbg("removing temporary device node");
