@@ -1202,7 +1202,7 @@ int main(int argc, char *argv[], char *envp[])
 
 				reload_config = 1;
 				buf = malloc(nbytes);
-				if (buf != NULL) {
+				if (buf == NULL) {
 					err("error getting buffer for inotify, disable watching");
 					close(inotify_fd);
 					inotify_fd = -1;
