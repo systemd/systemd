@@ -4,25 +4,25 @@
 # default is OWNER="root" GROUP="root", MODE="0600"
 #
 
-KERNEL=="*", OWNER="root" GROUP="root", MODE="0600"
+KERNEL=="*", OWNER="root", GROUP="root", MODE="0600"
 
 # all block devices
 SUBSYSTEM=="block",		GROUP="disk", MODE="0640"
 KERNEL=="root",			GROUP="disk", MODE="0640"
 
 # console devices
-KERNEL=="tty",			NAME="%k", GROUP="tty", MODE="0666", OPTIONS="last_rule"
-KERNEL=="console",              NAME="%k", MODE="0600", OPTIONS="last_rule"
-KERNEL=="tty[0-9]*",            NAME="%k", GROUP="tty", MODE="0660", OPTIONS="last_rule"
-KERNEL=="vc/[0-9]*",		NAME="%k", GROUP="tty", MODE="0660", OPTIONS="last_rule"
+KERNEL=="tty",			NAME="%k", GROUP="tty", MODE="0666"
+KERNEL=="console",              NAME="%k", MODE="0600" 
+KERNEL=="tty[0-9]*",            NAME="%k", GROUP="tty", MODE="0660"
+KERNEL=="vc/[0-9]*",		NAME="%k", GROUP="tty", MODE="0660"
 
 # pty devices
 #  Set this to 0660 if you only want users belonging to tty group
 #  to be able to allocate PTYs
-KERNEL=="ptmx",                 NAME="%k", GROUP="tty", MODE="666", OPTIONS="last_rule"
-KERNEL=="pty[pqrstuvwxyzabcdef][0123456789abcdef]", NAME="%k", GROUP="tty", MODE="660", OPTIONS="last_rule"
-KERNEL=="tty[pqrstuvwxyzabcdef][0123456789abcdef]", NAME="%k", GROUP="tty", MODE="660", OPTIONS="last_rule"
-KERNEL=="pty/m*",		NAME="%k", GROUP="tty", MODE="0660", OPTIONS="last_rule"
+KERNEL=="ptmx",                 NAME="%k", GROUP="tty", MODE="666"
+KERNEL=="pty[pqrstuvwxyzabcdef][0123456789abcdef]", NAME="%k", GROUP="tty", MODE="660"
+KERNEL=="tty[pqrstuvwxyzabcdef][0123456789abcdef]", NAME="%k", GROUP="tty", MODE="660"
+KERNEL=="pty/m*",		NAME="%k", GROUP="tty", MODE="0660"
 
 # serial+dialup devices
 KERNEL=="ippp*",		NAME="%k", MODE="0660"
@@ -43,21 +43,21 @@ KERNEL=="hvsi*",                NAME="%k", GROUP="uucp", MODE="0660"
 KERNEL=="iseries/vtty*",        NAME="%k", GROUP="uucp", MODE="0660"
 
 # vc devices
-KERNEL=="vcs",			NAME="%k", OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
-KERNEL=="vcs[0-9]*",		NAME="%k", OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
-KERNEL=="vcsa",			NAME="%k", OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
-KERNEL=="vcsa[0-9]*",		NAME="%k", OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
-KERNEL=="vcc/*",		NAME="%k", OWNER="vcsa", GROUP="tty", OPTIONS="last_rule"
+KERNEL=="vcs",			NAME="%k", OWNER="vcsa", GROUP="tty"
+KERNEL=="vcs[0-9]*",		NAME="%k", OWNER="vcsa", GROUP="tty"
+KERNEL=="vcsa",			NAME="%k", OWNER="vcsa", GROUP="tty"
+KERNEL=="vcsa[0-9]*",		NAME="%k", OWNER="vcsa", GROUP="tty"
+KERNEL=="vcc/*",		NAME="%k", OWNER="vcsa", GROUP="tty"
 
 # memory devices
-KERNEL=="random",		MODE="0666", OPTIONS="last_rule"
-KERNEL=="urandom",		MODE="0444", OPTIONS="last_rule"
-KERNEL=="mem",			GROUP="kmem", MODE="0640", OPTIONS="last_rule"
-KERNEL=="kmem",			GROUP="kmem", MODE="0640", OPTIONS="last_rule"
-KERNEL=="port",			GROUP="kmem", MODE="0640", OPTIONS="last_rule"
-KERNEL=="full",			MODE="0666", OPTIONS="last_rule"
-KERNEL=="null",			MODE="0666", OPTIONS="last_rule"
-KERNEL=="zero",			MODE="0666", OPTIONS="last_rule"
+KERNEL=="random",		MODE="0666"
+KERNEL=="urandom",		MODE="0444"
+KERNEL=="mem",			GROUP="kmem", MODE="0640"
+KERNEL=="kmem",			GROUP="kmem", MODE="0640"
+KERNEL=="port",			GROUP="kmem", MODE="0640"
+KERNEL=="full",			MODE="0666"
+KERNEL=="null",			MODE="0666"
+KERNEL=="zero",			MODE="0666"
 # 183 = /dev/hwrng        Generic random number generator
 KERNEL=="hw_random",            NAME="hwrng", SYMLINK+="%k"
 
@@ -67,12 +67,18 @@ KERNEL=="rtc",			MODE="0644"
 
 # floppy devices
 KERNEL=="fd[01]*",		GROUP="floppy", MODE="0660"
+
 # fix floppy devices
 KERNEL=="nvram", ACTION=="add", RUN+="load_floppy_module.sh"
-KERNEL=="fd[0-9]*", ACTION=="add", ATTRS{cmos}=="*", RUN+="create_floppy_devices -c -t $attr{cmos} -m %M /dev/%k"
+
+KERNEL=="fd[0-9]*", ACTION=="add", ATTRS{cmos}=="*", \
+	RUN+="create_floppy_devices -c -t $attr{cmos} -m %M /dev/%k"
+
 KERNEL=="fd[0-9]*", ACTION=="remove", RUN+="/bin/sh -c 'rm -f /dev/%k*'"
 
-BUS=="usb", KERNEL=="sd*", SYSFS{bInterfaceClass}=="08", SYSFS{bInterfaceSubClass}=="04", GROUP="floppy", MODE="0660", SYMLINK+="floppy floppy-%k"
+BUS=="usb", KERNEL=="sd*", ATTRS{bInterfaceClass}=="08", \
+	ATTRS{bInterfaceSubClass}=="04", GROUP="floppy", MODE="0660", \
+	SYMLINK+="floppy floppy-%k"
 
 # audio devices
 KERNEL=="dsp*",			MODE="0660"
@@ -99,8 +105,8 @@ KERNEL=="usblp*",		GROUP="lp", MODE="0660"
 KERNEL=="usb/lp*",		GROUP="lp", MODE="0660"
 
 # tape devices
-SUBSYSTEM=="ide", SYSFS{media}=="tape", ACTION=="add", \
-		RUN+="modprobe ide-scsi idescsi_nocd=1"
+SUBSYSTEM=="ide", ATTRS{media}=="tape", ACTION=="add", \
+		RUN+="/sbin/modprobe ide-scsi idescsi_nocd=1"
 KERNEL=="ht*",			GROUP="disk", MODE="0660"
 KERNEL=="nht*",			GROUP="disk", MODE="0660"
 KERNEL=="pt[0-9]*",		GROUP="disk", MODE="0660"
@@ -155,7 +161,8 @@ KERNEL=="slram[0-9]*", 		SYMLINK+="xpram%n"
 
 # DVB
 KERNEL=="dvb",			MODE="0660"
-SUBSYSTEM=="dvb", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}'", \
+SUBSYSTEM=="dvb", \
+	PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}'", \
 	NAME="%c", MODE="0660"
 
 KERNEL=="dm-[0-9]*", ACTION=="add",           OPTIONS+="ignore_device"
@@ -180,6 +187,8 @@ KERNEL=="uinput",          	NAME="input/%k"
 KERNEL=="raw1394",      	NAME="%k"
 KERNEL=="dv1394*",      	NAME="dv1394/%n"
 KERNEL=="video1394*",   	NAME="video1394/%n"
+
+KERNEL=="fw*", PROGRAM="fw_unit_symlinks.sh %k %n", SYMLINK+="$result"
 
 KERNEL=="raw[0-9]*",		NAME="raw/%k"
 
@@ -227,89 +236,51 @@ KERNEL=="zap[0-9]*",  		NAME="zap/%n"
 
 KERNEL=="pktcdvd", NAME="%k/control"
 
-
 KERNEL=="hd*[!0-9]", ATTR{removable}=="1", \
 	ATTR{media}=="floppy", \
 	SYMLINK+="floppy floppy-%k", OPTIONS+="ignore_remove, all_partitions"
-KERNEL=="hd*[0-9]", ATTRS{media}=="floppy", ATTRS{removable}=="1", SYMLINK+="floppy-%k"
 
-KERNEL=="hd[a-z]", BUS=="ide", ATTRS{removable}=="1", ATTRS{media}=="cdrom", SYMLINK+="cdrom cdrom-%k"
+KERNEL=="hd*[0-9]", ATTRS{media}=="floppy", ATTRS{removable}=="1", \
+	SYMLINK+="floppy-%k"
 
-KERNEL=="hd[a-z]", BUS=="ide", ATTRS{removable}=="1", PROGRAM=="check-cdrom.sh %k DVD", SYMLINK+="dvd dvd-%k"
-KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k DVD", SYMLINK+="dvd dvd-%k"
+KERNEL=="hd[a-z]", BUS=="ide", ATTRS{removable}=="1", ATTRS{media}=="cdrom", \
+	SYMLINK+="cdrom cdrom-%k"
 
-KERNEL=="hd[a-z]", BUS=="ide", ATTRS{removable}=="1", PROGRAM=="check-cdrom.sh %k CD-R", SYMLINK+="cdwriter cdwriter-%k cdrw cdrw-%k"
-KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k CD-R", SYMLINK+="cdwriter cdwriter-%k cdrw cdrw-%k"
+KERNEL=="hd[a-z]", BUS=="ide", ATTRS{removable}=="1", \
+	PROGRAM=="check-cdrom.sh %k DVD", SYMLINK+="dvd dvd-%k"
+KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k DVD", \
+	SYMLINK+="dvd dvd-%k"
 
-KERNEL=="hd[a-z]", BUS=="ide", ATTRS{removable}=="1", PROGRAM="check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter dvdwriter-%k dvdrw dvdrw-%k"
-KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k DVD-R", SYMLINK+="dvdwriter dvdwriter-%k dvdrw dvdrw-%k"
+KERNEL=="hd[a-z]", BUS=="ide", ATTRS{removable}=="1", \
+	PROGRAM=="check-cdrom.sh %k CD-R", \
+	SYMLINK+="cdwriter cdwriter-%k cdrw cdrw-%k"
+
+KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k CD-R", \
+	SYMLINK+="cdwriter cdwriter-%k cdrw cdrw-%k"
+
+KERNEL=="hd[a-z]", BUS=="ide", ATTRS{removable}=="1", \
+	PROGRAM="check-cdrom.sh %k DVD-R", \
+	SYMLINK+="dvdwriter dvdwriter-%k dvdrw dvdrw-%k"
+
+KERNEL=="sr[0-9]*", BUS=="scsi", PROGRAM=="check-cdrom.sh %k DVD-R", \
+	SYMLINK+="dvdwriter dvdwriter-%k dvdrw dvdrw-%k"
 
 # rename sr* to scd*
 KERNEL=="sr[0-9]*", BUS=="scsi", NAME="scd%n"
 KERNEL=="hd*[0-9]", BUS=="ide", ATTRS{removable}=="1", \
 	OPTIONS+="ignore_remove"
 
-
-
-#######################################
-# Persistent block device stuff - begin
-#######################################
-# persistent disk links: /dev/disk/{by-id,by-uuid,by-label,by-path}
-# scheme based on "Linux persistent device names", 2004, Hannes Reinecke <hare@suse.de>
-
-ACTION!="add", GOTO="persistent_end"
-SUBSYSTEM!="block", GOTO="persistent_end"
-
-# skip rules for inappropriate block devices
-KERNEL=="ram*|loop*|fd*|nbd*|gnbd*", GOTO="persistent_end"
-
-# never access removable ide devices, the drivers are causing event loops on open()
-KERNEL=="hd*[!0-9]", ATTR{removable}=="1", DRIVERS=="ide-cs|ide-floppy", GOTO="persistent_end"
-KERNEL=="hd*[0-9]", ATTRS{removable}=="1", GOTO="persistent_end"
-
-# by-id (hardware serial number)
-KERNEL=="hd*[!0-9]", IMPORT{program}="/lib/udev/ata_id --export $tempnode"
-KERNEL=="hd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
-KERNEL=="hd*[0-9]", IMPORT{parent}=="ID_*", SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
-
-KERNEL=="sd*[!0-9]|sr*", ATTRS{ieee1394_id}=="*", ENV{ID_SERIAL}="$attr{ieee1394_id}", ENV{ID_BUS}="ieee1394"
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/lib/udev/usb_id -x"
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/lib/udev/scsi_id -g -x -s %p -d $tempnode"
-KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}=="", IMPORT{program}="/lib/udev/scsi_id -g -x -a -s %p -d $tempnode"
-KERNEL=="sd*[!0-9]|sr*|dasd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
-
-# for partitions import parent information
-KERNEL=="sd*[0-9]|dasd*[0-9]", IMPORT{parent}=="ID_*"
-KERNEL=="sd*[0-9]|dasd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
-
-# by-path (shortest physical path)
-KERNEL=="*[!0-9]|sr*", ENV{ID_TYPE}=="?*", IMPORT{program}="/lib/udev/path_id %p", SYMLINK+="disk/by-path/$env{ID_PATH}"
-KERNEL=="sr*", GOTO="persistent_end"
-KERNEL=="*[0-9]", IMPORT{parent}=="ID_*"
-KERNEL=="*[0-9]", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
-
-# by-label/by-uuid (filesystem properties)
-KERNEL=="*[!0-9]", ATTRS{removable}=="1", GOTO="persistent_end"
-IMPORT{program}="/lib/udev/vol_id --export $tempnode"
-ENV{ID_FS_UUID}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
-ENV{ID_FS_LABEL_SAFE}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
-
-# BIOS Enhanced Disk Device
-KERNEL=="*[!0-9]", IMPORT{program}="/lib/udev/edd_id --export $tempnode"
-KERNEL=="*[!0-9]", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}"
-KERNEL=="*[0-9]", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}-part%n"
-
-LABEL="persistent_end"
-
-#####################################
-# Persistent block device stuff - end
-#####################################
-
+SUBSYSTEM=="usb", ACTION=="add", ENV{DEVTYPE}=="usb_device", \
+	NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", MODE="0644"
 
 ACTION=="add", SUBSYSTEM=="usb_device", \
 	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", \
 	NAME="%c", MODE="0644"
 
+ACTION=="add", SUBSYSTEM=="usb_endpoint", \
+	ATTR{bEndpointAddress}=="?*", ATTRS{devnum}=="?*", ATTRS{busnum}=="?*", \
+	NAME="bus/usb/$attr{busnum}/$attr{devnum}_ep/$attr{bEndpointAddress}", \
+	MODE="0644", SYMLINK+="%k"
 
 # sd:           0 TYPE_DISK, 7 TYPE_MOD, 14 TYPE_RBC
 # sr:           4 TYPE_WORM, 5 TYPE_ROM
@@ -321,11 +292,11 @@ ACTION=="add", SUBSYSTEM=="scsi" , ATTRS{type}=="1", \
 	RUN+="/bin/sh -c 'echo 900 > /sys$$DEVPATH/timeout'"
 
 
-ACTION=="add", SUBSYSTEM=="scsi_device"	RUN+="modprobe sg"
+ACTION=="add", SUBSYSTEM=="scsi_device"	RUN+="/sbin/modprobe sg"
 ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="0|7|14", \
-	RUN+="modprobe sd_mod"
+	RUN+="/sbin/modprobe sd_mod"
 ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="[45]", \
-	RUN+="modprobe sr_mod"
+	RUN+="/sbin/modprobe sr_mod"
 
 ACTION=="add", KERNEL=="sg[0-9]*", BUS=="scsi", ATTRS{type}=="[36]", \
 	SYMLINK+="scanner scanner-%k", MODE="0660"
@@ -333,15 +304,18 @@ ACTION=="add", KERNEL=="sg[0-9]*", BUS=="scsi", ATTRS{type}=="[36]", \
 ACTION=="add", KERNEL=="sg[0-9]*", BUS=="scsi", ATTRS{type}=="8", \
 	SYMLINK+="changer changer-%k", MODE="0660", GROUP="disk"
 
-ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="1", ATTRS{vendor}=="On[sS]tream", \
-	ATTRS{model}!="ADR*", RUN+="modprobe osst"
-ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="1", ATTRS{vendor}=="On[sS]tream", \
-	ATTRS{model}=="ADR*", RUN+="modprobe st"
-ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="1", ATTRS{vendor}!="On[sS]tream", \
-	RUN+="modprobe st"
+ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="1", \
+	ATTRS{vendor}=="On[sS]tream", \
+	ATTRS{model}!="ADR*", RUN+="/sbin/modprobe osst"
+ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="1", \
+	ATTRS{vendor}=="On[sS]tream", \
+	ATTRS{model}=="ADR*", RUN+="/sbin/modprobe st"
+ACTION=="add", SUBSYSTEM=="scsi_device", ATTRS{type}=="1", \
+	ATTRS{vendor}!="On[sS]tream", \
+	RUN+="/sbin/modprobe st"
 
 # mmc block devices
-ACTION=="add", SUBSYSTEM=="mmc", RUN+="modprobe mmc_block"
+ACTION=="add", SUBSYSTEM=="mmc", RUN+="/sbin/modprobe mmc_block"
 
 
 RUN+="socket:/org/kernel/udev/monitor"
