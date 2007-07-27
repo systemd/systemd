@@ -237,11 +237,24 @@ static int attr_filtered(const char *path)
 	return 0;
 }
 
-static void scan_subsystem(const char *subsys)
+enum scan_type {
+	SCAN_DEVICES,
+	SCAN_SUBSYSTEM,
+};
+
+static void scan_subsystem(const char *subsys, enum scan_type scan)
 {
 	char base[PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
+	const char *subdir;
+
+	if (scan == SCAN_DEVICES)
+		subdir = "/devices";
+	else if (scan == SCAN_SUBSYSTEM)
+		subdir = "/drivers";
+	else
+		return;
 
 	strlcpy(base, sysfs_path, sizeof(base));
 	strlcat(base, "/", sizeof(base));
@@ -257,15 +270,24 @@ static void scan_subsystem(const char *subsys)
 			if (dent->d_name[0] == '.')
 				continue;
 
-			if (subsystem_filtered(dent->d_name))
-				continue;
+			if (scan == SCAN_DEVICES)
+				if (subsystem_filtered(dent->d_name))
+					continue;
 
 			strlcpy(dirname, base, sizeof(dirname));
 			strlcat(dirname, "/", sizeof(dirname));
 			strlcat(dirname, dent->d_name, sizeof(dirname));
-			strlcat(dirname, "/devices", sizeof(dirname));
 
-			/* look for devices */
+			if (scan == SCAN_SUBSYSTEM) {
+				if (!subsystem_filtered("subsystem"))
+					device_list_insert(dirname);
+				if (subsystem_filtered("drivers"))
+					continue;
+			}
+
+			strlcat(dirname, subdir, sizeof(dirname));
+
+			/* look for devices/drivers */
 			dir2 = opendir(dirname);
 			if (dir2 != NULL) {
 				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
@@ -494,19 +516,25 @@ int main(int argc, char *argv[], char *envp[])
 		}
 	}
 
-	if (failed)
+	if (failed) {
 		scan_failed();
-	else {
+		exec_list(action);
+	} else {
 		char base[PATH_SIZE];
 		struct stat statbuf;
 
 		/* if we have /sys/subsystem, forget all the old stuff */
 		strlcpy(base, sysfs_path, sizeof(base));
 		strlcat(base, "/subsystem", sizeof(base));
-		if (stat(base, &statbuf) == 0)
-			scan_subsystem("subsystem");
-		else {
-			scan_subsystem("bus");
+		if (stat(base, &statbuf) == 0) {
+			scan_subsystem("subsystem", SCAN_SUBSYSTEM);
+			exec_list(action);
+			scan_subsystem("subsystem", SCAN_DEVICES);
+			exec_list(action);
+		} else {
+			scan_subsystem("bus", SCAN_SUBSYSTEM);
+			exec_list(action);
+			scan_subsystem("bus", SCAN_DEVICES);
 			scan_class();
 
 			/* scan "block" if it isn't a "class" */
@@ -514,9 +542,9 @@ int main(int argc, char *argv[], char *envp[])
 			strlcat(base, "/class/block", sizeof(base));
 			if (stat(base, &statbuf) != 0)
 				scan_block();
+			exec_list(action);
 		}
 	}
-	exec_list(action);
 
 exit:
 	name_list_cleanup(&filter_subsystem_match_list);
