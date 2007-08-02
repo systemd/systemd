@@ -1,0 +1,54 @@
+# /etc/udev/rules/80-hotplug.rules:  module loading rules for udev
+#
+# Gentoo specific rules
+#
+# There are a number of modifiers that are allowed to be used in some of the
+# fields.  See the udev man page for a full description of them.
+#
+# Try not to modify this file, if you wish to change things, create a new rule
+# file that can be run before this one.
+#
+
+# Module autoloading
+ACTION!="add", GOTO="hotplug_load_end"
+
+# check if the device has already been claimed by a driver
+ENV{DRIVER}=="?*", SUBSYSTEM!="input", GOTO="hotplug_load_end"
+
+# this driver is broken and should not be loaded automatically
+SUBSYSTEM=="platform", ENV{MODALIAS}=="i82365", GOTO="hotplug_load_end"
+
+# Autoload modules that lack aliases but have them defined in autoload modules
+ENV{MODALIAS}=="?*", RUN{ignore_error}+="modprobe.sh $env{MODALIAS}"
+
+# /etc/modprobe.conf.
+SUBSYSTEM=="pnp", ENV{MODALIAS}!="?*", RUN{ignore_error}+="/bin/sh -c 'while read id; do /lib/udev/modprobe.sh pnp:d$$id; done < /sys$devpath/id'"
+# needed aliases are defined in /etc/modprobe.d/pnp-aliases
+
+
+SUBSYSTEM=="i2o",  RUN+="modprobe.sh i2o_block"
+SUBSYSTEM=="mmc",  RUN+="modprobe.sh mmc_block"
+SUBSYSTEM=="tifm", RUN+="modprobe.sh tifm_sd"
+SUBSYSTEM=="tifm", RUN+="modprobe.sh tifm_ms"
+SUBSYSTEM=="ide",  ATTR{media}=="tape", RUN+="modprobe.sh ide-scsi"
+
+# Load driver for scsi-device
+SUBSYSTEM!="scsi_device", GOTO="hotplug_scsi_end"
+
+	# Parts taken from redhat-rules
+	# sd:           0 TYPE_DISK, 7 TYPE_MOD, 14 TYPE_RBC
+	# sr:           4 TYPE_WORM, 5 TYPE_ROM
+	# st/osst:      1 TYPE_TAPE
+
+	ATTRS{type}=="?*",	TEST!="[module/sg]", RUN+="modprobe.sh sg"
+	ATTRS{type}=="0|7|14",	RUN+="modprobe.sh sd_mod"
+	ATTRS{type}=="4|5",	RUN+="modprobe.sh sr_mod"
+	ATTRS{type}=="8",	RUN+="modprobe.sh ch"
+
+	ATTRS{type}=="1", ATTRS{vendor}=="On[sS]tream", \
+		ATTRS{model}!="ADR*", RUN+="modprobe.sh osst", GOTO="hotplug_scsi_end"
+	ATTRS{type}=="1", RUN+="modprobe.sh st"
+LABEL="hotplug_scsi_end"
+
+LABEL="hotplug_load_end"
+
