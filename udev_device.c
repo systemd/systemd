@@ -78,6 +78,26 @@ dev_t udev_device_get_devt(struct udevice *udev)
 	return makedev(0, 0);
 }
 
+static void kernel_log(struct ifreq ifr)
+{
+	int klog;
+	FILE *f;
+
+	klog = open("/dev/kmsg", O_WRONLY);
+	if (klog < 0)
+		return;
+
+	f = fdopen(klog, "w");
+	if (f == NULL) {
+		close(klog);
+		return;
+	}
+
+	fprintf(f, "<6>udev: renamed network interface %s to %s\n",
+		ifr.ifr_name, ifr.ifr_newname);
+	fclose(f);
+}
+
 static int rename_netif(struct udevice *udev)
 {
 	int sk;
@@ -98,7 +118,9 @@ static int rename_netif(struct udevice *udev)
 	strlcpy(ifr.ifr_name, udev->dev->kernel, IFNAMSIZ);
 	strlcpy(ifr.ifr_newname, udev->name, IFNAMSIZ);
 	retval = ioctl(sk, SIOCSIFNAME, &ifr);
-	if (retval != 0) {
+	if (retval == 0)
+		kernel_log(ifr);
+	else {
 		int loop;
 
 		/* see if the destination interface name already exists */
@@ -122,8 +144,10 @@ static int rename_netif(struct udevice *udev)
 		loop = 30 * 20;
 		while (loop--) {
 			retval = ioctl(sk, SIOCSIFNAME, &ifr);
-			if (retval == 0)
+			if (retval == 0) {
+				kernel_log(ifr);
 				break;
+			}
 
 			if (errno != EEXIST) {
 				err("error changing net interface name %s to %s: %s",
