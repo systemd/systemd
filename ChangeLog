@@ -1,3 +1,46 @@
+Summary of changes from v113 to v114
+============================================
+
+Hannes Reinecke (3):
+      collect: extra to synchronize actions across events
+      add $driver subtitution
+      rules_generator: add S/390 persistent network support
+
+Kay Sievers (24):
+      rules_generator: remove executable flag from include file
+      always unlink temporary file before creating new one
+      rules: SUSE update
+      volume_id: ext4 detection
+      udevtrigger: allow to specify action string
+      add option to RUN key to ignore the return value of the program
+      use global udev_log variable instead of parameter in run_program
+      add udev_rules_run() to handle RUN list
+      move udev_utils_run.c into udev_rules.c
+      rules: SUSE update
+      name_list: rename loop_name -> name_loop
+      handle dynamic rules created in /dev/.udev/rules.d/
+      allow SYMLINK== match
+      libvolume_id: use /usr/$libdir in pc file
+      Makefile: add --as-needed flag to ld
+      restore behavior of NAME==
+      rules_generator: remove "installation" function
+      udevtrigger: trigger "driver" events
+      rules: update SUSE
+      rules: Fedora update
+      rules: add "do not edit" comment
+      rules: Fedora update
+      rules_generator: skip random MAC addresses
+      write changed network interface names to the kernel log
+
+Matthias Schwarzott (3):
+      rules: Gentoo update
+      fix inotify to work not only once
+      rules: Gentoo update
+
+Richard Hughes (1):
+      Makefile: add "make dist" for nightly snapshots
+
+
 Summary of changes from v112 to v113
 ============================================
 

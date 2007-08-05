@@ -1,3 +1,17 @@
+udev 114
+========
+Bugfixes.
+
+Dynamic rules can be created in /dev/.udev/rules.d/ to trigger
+actions by dynamically created rules.
+
+SYMLINK=="<value>" matches agains the entries in the list of
+currently defined symlinks. The links are not created in the
+filesystem at that point in time, but the values can be matched.
+
+RUN{ignore_error}+="<program>" will ignore any exit code from the
+program and not record as a failed event.
+
 udev 113
 ========
 Bugfixes.
