@@ -7,16 +7,20 @@ ENV{DRIVER}=="?*", SUBSYSTEM!="input", GOTO="hotplug_driver_loaded"
 SUBSYSTEM=="platform", ENV{MODALIAS}=="i82365", GOTO="hotplug_driver_loaded"
 
 # load the drivers
-ENV{MODALIAS}=="?*",	RUN+="/sbin/modprobe --use-blacklist $env{MODALIAS}"
+ENV{MODALIAS}=="?*", \
+	RUN+="/sbin/modprobe --use-blacklist $env{MODALIAS}"
 SUBSYSTEM=="ide",	ENV{MODALIAS}!="?*",	RUN+="ide.agent"
 
-SUBSYSTEM=="pnp",	ENV{MODALIAS}!="?*",	RUN+="/bin/sh -c 'while read id; do /sbin/modprobe --use-blacklist pnp:d$$id; done < /sys$devpath/id'"
+SUBSYSTEM=="pnp",	ENV{MODALIAS}!="?*", \
+	RUN+="/bin/sh -c 'while read id; do /sbin/modprobe --use-blacklist pnp:d$$id; done < /sys$devpath/id'"
 
 SUBSYSTEM=="pcmcia_socket",			RUN+="/sbin/modprobe pcmcia"
 
 # rules for subsystems which lack proper hotplug support
 SUBSYSTEM=="i2o",				RUN+="/sbin/modprobe i2o_block"
 SUBSYSTEM=="mmc",				RUN+="/sbin/modprobe mmc_block"
+SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="SD",	RUN+="/sbin/modprobe tifm_sd"
+SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="MS",	RUN+="/sbin/modprobe tifm_ms"
 
 SUBSYSTEM=="scsi_device", ATTRS{type}=="0|7|14", RUN+="/sbin/modprobe sd_mod"
 SUBSYSTEM=="scsi_device", ATTRS{type}=="1",	RUN+="/sbin/modprobe osst", \

@@ -1,17 +1,20 @@
 # This file contains the rules needed to create persistent device names.
 
 # we are only interested in add actions for block devices
-SUBSYSTEM!="block",			GOTO="no_volume_id"
-ACTION!="add",				GOTO="no_volume_id"
+ACTION!="add",				GOTO="persistent_storage_end"
+SUBSYSTEM!="block",			GOTO="persistent_storage_end"
 
 # and we can safely ignore these kinds of devices
-KERNEL=="ram*|loop*|fd*|nbd*|gnbd*|dm-*|md*", GOTO="no_volume_id"
+KERNEL=="ram*|loop*|fd*|nbd*|gnbd*|dm-*|md*", GOTO="persistent_storage_end"
 
 # skip removable ide devices, because open(2) on them causes an events loop
 KERNEL=="hd*[!0-9]",   ATTR{removable}=="1", DRIVERS=="ide-cs|ide-floppy", \
-	GOTO="no_volume_id"
+	GOTO="persistent_storage_end"
 KERNEL=="hd*[0-9]", ATTRS{removable}=="1", \
-	GOTO="no_volume_id"
+	GOTO="persistent_storage_end"
+
+# ignore partitions that span the entire disk
+ATTR{whole_disk}=="*",			GOTO="persistent_storage_end"
 
 # skip xen virtual hard disks
 DRIVERS=="vbd",				GOTO="no_hardware_id"
@@ -28,6 +31,8 @@ KERNEL=="sd*[!0-9]|sr*|st*|nst*",	ENV{ID_SERIAL}=="", \
 	IMPORT{program}="scsi_id -g -x -s $devpath -d $tempnode"
 KERNEL=="sd*[!0-9]|sr*|st*|nst*",	ENV{ID_SERIAL}=="", \
 	IMPORT{program}="scsi_id -g -x -a -s $devpath -d $tempnode"
+KERNEL=="cciss?c[0-9]d[0-9]",		ENV{ID_SERIAL}=="",
+	IMPORT{program}="scsi_id -g -x -n -s $devpath -d $tempnode"
 KERNEL=="sg*", ATTRS{type}=="8",	ENV{ID_SERIAL}=="", \
 	IMPORT{program}="scsi_id -g -x -s $devpath -d $tempnode"
 KERNEL=="sg*", ATTRS{type}=="8",	ENV{ID_SERIAL}=="", \
@@ -51,10 +56,10 @@ KERNEL=="hd*[!0-9]",			ENV{ID_SERIAL}=="?*", \
 	SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
 KERNEL=="hd*[0-9]",			ENV{ID_SERIAL}=="?*", \
 	SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
-KERNEL=="sd*[!0-9]|sr*",		ENV{ID_SERIAL_SHORT}=="?*", \
+KERNEL=="sd*[!0-9]|sr*|cciss?c[0-9]d[0-9]", ENV{ID_SERIAL_SHORT}=="?*", \
 	ENV{ID_VENDOR}=="ATA", \
 	SYMLINK+="disk/by-id/ata-$env{ID_MODEL}-$env{ID_SERIAL_SHORT}"
-KERNEL=="sd*[0-9]",			ENV{ID_SERIAL_SHORT}=="?*", \
+KERNEL=="sd*[0-9]|cciss*p[0-9]",	ENV{ID_SERIAL_SHORT}=="?*", \
 	ENV{ID_VENDOR}=="ATA", \
 	SYMLINK+="disk/by-id/ata-$env{ID_MODEL}-$env{ID_SERIAL_SHORT}-part%n"
 
@@ -81,22 +86,22 @@ KERNEL=="nst*",				ENV{ID_SERIAL}=="?*", \
 KERNEL=="sg*", ATTRS{type}=="8",	ENV{ID_SERIAL}=="?*", \
 	SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 
-KERNEL=="*[!0-9]|sr*",			ENV{ID_PATH}=="?*", \
+KERNEL=="*[!0-9]|sr*|cciss?c[0-9]d[0-9]", ENV{ID_PATH}=="?*", \
 	SYMLINK+="disk/by-path/$env{ID_PATH}"
+KERNEL=="*[0-9]|cciss*p[0-9]",		ENV{ID_PATH}=="?*", \
+	SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 KERNEL=="st*",				ENV{ID_PATH}=="?*", \
 	SYMLINK+="tape/by-path/$env{ID_PATH}"
-KERNEL=="sr*|st*",			GOTO="no_volume_id"
-KERNEL=="*[0-9]",			ENV{ID_PATH}=="?*", \
-	SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
+KERNEL=="sr*|st*",			GOTO="persistent_storage_end"
 
 # UUID and volume label
-KERNEL=="*[!0-9]", ATTR{removable}=="1", GOTO="no_volume_id"
+KERNEL=="hd*[!0-9]", ATTR{removable}=="1", GOTO="persistent_storage_end"
 IMPORT{program}="vol_id --export $tempnode"
-ENV{ID_FS_UUID}=="?*",		ENV{ID_FS_USAGE}=="filesystem|other|crypto", \
-	SYMLINK+="disk/by-uuid/$env{ID_FS_UUID}"
-ENV{ID_FS_LABEL_SAFE}=="?*",	ENV{ID_FS_USAGE}=="filesystem|other", \
-	SYMLINK+="disk/by-label/$env{ID_FS_LABEL_SAFE}"
+ENV{ID_FS_UUID_ENC}=="?*",	ENV{ID_FS_USAGE}=="filesystem|other|crypto", \
+	SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"
+ENV{ID_FS_LABEL_ENC}=="?*",	ENV{ID_FS_USAGE}=="filesystem|other", \
+	SYMLINK+="disk/by-label/$env{ID_FS_LABEL_ENC}"
 
 # end of processing
-LABEL="no_volume_id"
+LABEL="persistent_storage_end"
 

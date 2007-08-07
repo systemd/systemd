@@ -50,6 +50,7 @@ SUBSYSTEMS=="usb", KERNEL=="ttyUSB*", \
 # usbfs-like devices
 SUBSYSTEM=="usb_device",	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", ACTION=="add", \
 				NAME="%c"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device",	NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}"
 
 # serial devices
 KERNEL=="ttyS[0-9]*",		NAME="tts/%n"
@@ -104,6 +105,7 @@ KERNEL=="umad*",		NAME="infiniband/%k"
 KERNEL=="issm*",		NAME="infiniband/%k"
 KERNEL=="uverbs*",		NAME="infiniband/%k"
 KERNEL=="ucm*",			NAME="infiniband/%k"
+KERNEL=="rdma_ucm",		NAME="infiniband/%k"
 
 # sound devices
 KERNEL=="controlC[0-9]*",	NAME="snd/%k"

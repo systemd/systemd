@@ -1,8 +1,0 @@
-# do not call hotplug.d and dev.d for "drivers" and "module" events
-SUBSYSTEM=="drivers",	OPTIONS="last_rule"
-SUBSYSTEM=="module",	OPTIONS="last_rule"
-
-# compatibility support for the obsolete hotplug.d and dev.d directories
-RUN+="udev_run_hotplugd $env{SUBSYSTEM}"
-RUN+="udev_run_devd $env{SUBSYSTEM}"
-

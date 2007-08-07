@@ -1,0 +1,48 @@
+# These rules generate rules to keep network interface names unchanged
+# across reboots write them to /etc/udev/rules.d/z25_persistent-net.rules.
+#
+# The default name for this file is z45_persistent-net-generator.rules.
+
+ACTION!="add",				GOTO="persistent_net_generator_end"
+SUBSYSTEM!="net",			GOTO="persistent_net_generator_end"
+
+# ignore the interface if a name has already been set
+NAME=="?*",				GOTO="persistent_net_generator_end"
+
+# ignore Xen virtual interfaces
+SUBSYSTEMS=="xen",			GOTO="persistent_net_generator_end"
+
+# ignore UML virtual interfaces
+DRIVERS=="uml-netdev",			GOTO="persistent_net_generator_end"
+
+# ignore VMWare virtual interfaces
+ATTR{address}=="00:0c:29:*|00:50:56:*",	GOTO="persistent_net_generator_end"
+
+# ignore interfaces with random MAC addresses
+ATTR{address}=="?[2367abef]:*",		GOTO="persistent_net_generator_end"
+
+# ignore "secondary" raw interfaces of the madwifi driver
+KERNEL=="ath*", ATTRS{type}=="802",	GOTO="persistent_net_generator_end"
+
+# provide nice comments for the generated rules
+SUBSYSTEMS=="pci", \
+ ENV{COMMENT}="PCI device $attr{vendor}:$attr{device}"
+SUBSYSTEMS=="usb", \
+ ENV{COMMENT}="USB device $attr{idVendor}:$attr{idProduct}"
+SUBSYSTEMS=="ccwgroup", \
+ ENV{COMMENT}="S/390 device at $id",
+SUBSYSTEMS=="ieee1394", \
+ ENV{COMMENT}="Firewire device $attr{host_id}"
+ENV{COMMENT}=="", \
+ ENV{COMMENT}="Unknown $env{SUBSYSTEM} device ($env{DEVPATH})"
+ATTRS{driver}=="?*", \
+ ENV{COMMENT}="$env{COMMENT} ($attr{driver})"
+
+# ignore interfaces without a driver link like bridges and VLANs
+KERNEL=="eth*|ath*|wlan*|ra*|sta*|ctc*|lcs*|hsi*", DRIVERS=="?*",\
+	IMPORT{program}="write_net_rules $attr{address}"
+
+ENV{INTERFACE_NEW}=="?*", NAME="$env{INTERFACE_NEW}"
+
+LABEL="persistent_net_generator_end"
+

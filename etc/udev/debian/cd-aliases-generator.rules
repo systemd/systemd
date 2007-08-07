@@ -1,0 +1,13 @@
+# These rules generate rules for the /dev/{cdrom,dvd,...} symlinks and
+# write them to /etc/udev/rules.d/z20_persistent-cd.rules.
+#
+# The default name for this file is z75_cd-aliases-generator.rules.
+
+ACTION=="add", SUBSYSTEM=="block", ENV{GENERATED}!="?*", ENV{ID_CDROM}=="?*", \
+	SUBSYSTEMS!="usb|ieee1394", \
+	PROGRAM="write_cd_rules", SYMLINK+="%c"
+
+ACTION=="add", SUBSYSTEM=="block", ENV{GENERATED}!="?*", ENV{ID_CDROM}=="?*", \
+	SUBSYSTEMS=="usb|ieee1394", \
+	PROGRAM="write_cd_rules by-id", SYMLINK+="%c"
+
