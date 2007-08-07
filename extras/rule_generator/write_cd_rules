@@ -16,7 +16,7 @@ RULES_FILE="/etc/udev/rules.d/70-persistent-cd.rules"
 . /lib/udev/rule_generator.functions
 
 find_next_available() {
-	raw_find_next_available "$(find_all_rules 'SYMLINK+=' $1)"
+	raw_find_next_available "$(find_all_rules 'SYMLINK+=' "$1")"
 }
 
 write_rule() {
