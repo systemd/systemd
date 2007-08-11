@@ -59,7 +59,7 @@ KERNEL=="sr*|st*", GOTO="persistent_storage_end"
 KERNEL=="hd*[!0-9]", ATTR{removable}=="1", GOTO="persistent_storage_end"
 
 # by-label/by-uuid (filesystem properties)
-IMPORT{program}="vol_id --export $tempnode"
+ENV{DEVTYPE}=="partition", IMPORT{program}="vol_id --export $tempnode"
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"
 ENV{ID_FS_USAGE}=="filesystem|other", ENV{ID_FS_LABEL_ENC}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_ENC}"
 
