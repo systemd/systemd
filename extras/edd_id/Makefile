@@ -50,10 +50,12 @@ clean:
 
 install-bin: all
 	$(INSTALL_PROGRAM) -D $(PROG) $(DESTDIR)$(libudevdir)/$(PROG)
+	$(INSTALL_DATA) -D 61-persistent-storage-edd.rules $(DESTDIR)$(configdir)/rules.d/61-persistent-storage-edd.rules
 .PHONY: install-bin
 
 uninstall-bin:
 	- rm $(DESTDIR)$(libudevdir)/$(PROG)
+	- rm $(DESTDIR)$(configdir)/rules.d/61-persistent-storage-edd.rules
 .PHONY: uninstall-bin
 
 install-man:

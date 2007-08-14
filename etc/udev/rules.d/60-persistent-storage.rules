@@ -63,9 +63,4 @@ ENV{DEVTYPE}=="partition", IMPORT{program}="vol_id --export $tempnode"
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"
 ENV{ID_FS_USAGE}=="filesystem|other", ENV{ID_FS_LABEL_ENC}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_ENC}"
 
-# BIOS Enhanced Disk Device
-ENV{DEVTYPE}=="disk", IMPORT{program}="edd_id --export $tempnode"
-ENV{DEVTYPE}=="disk", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}"
-ENV{DEVTYPE}=="partition", ENV{ID_EDD}=="?*", SYMLINK+="disk/by-id/edd-$env{ID_EDD}-part%n"
-
 LABEL="persistent_storage_end"
