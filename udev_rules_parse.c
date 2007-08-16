@@ -757,11 +757,10 @@ int udev_rules_init(struct udev_rules *rules, int resolve_names)
 			if (name_base == NULL)
 				continue;
 
-			if (strcmp(name_base, dyn_base) > 0) {
-				list_move_tail(&dyn_loop->node, &name_loop->node);
+			if (strcmp(name_base, dyn_base) > 0)
 				break;
-			}
 		}
+		list_move_tail(&dyn_loop->node, &name_loop->node);
 	}
 
 	/* parse list of files */
@@ -787,3 +786,4 @@ void udev_rules_cleanup(struct udev_rules *rules)
 		rules->buf = NULL;
 	}
 }
+
