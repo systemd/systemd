@@ -101,4 +101,5 @@ KERNEL=="sbpcd0",		SYMLINK+="sbpcd"
 KERNEL=="slram[0-9]*", 		SYMLINK+="xpram%n"
 KERNEL=="sxctl",		NAME="specialix_sxctl", SYMLINK+="%k"
 KERNEL=="rioctl",		NAME="specialix_rioctl", SYMLINK+="%k"
+KERNEL=="iowarrior[0-9]*",	NAME="usb/%k"
 
