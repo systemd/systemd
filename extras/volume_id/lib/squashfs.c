@@ -29,7 +29,15 @@
 #define SQUASHFS_MAGIC		0x73717368
 
 struct squashfs_super {
-	uint32_t		s_magic;
+	uint32_t	s_magic;
+	uint32_t	inodes;
+	uint32_t	bytes_used_2;
+	uint32_t	uid_start_2;
+	uint32_t	guid_start_2;
+	uint32_t	inode_table_start_2;
+	uint32_t	directory_table_start_2;
+	uint16_t	s_major;
+	uint16_t	s_minor;
 } PACKED;
 
 int volume_id_probe_squashfs(struct volume_id *id, uint64_t off, uint64_t size)
@@ -38,15 +46,25 @@ int volume_id_probe_squashfs(struct volume_id *id, uint64_t off, uint64_t size)
 
 	info("probing at offset 0x%llx", (unsigned long long) off);
 
-	sqs = (struct squashfs_super *) volume_id_get_buffer(id, off + 0x200, 0x200);
+	sqs = (struct squashfs_super *) volume_id_get_buffer(id, off, 0x200);
 	if (sqs == NULL)
 		return -1;
 
-	if (sqs->s_magic == SQUASHFS_MAGIC || sqs->s_magic == bswap_32(SQUASHFS_MAGIC)) {
-		volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
-		id->type = "squashfs";
-		return 0;
+	if (sqs->s_magic == SQUASHFS_MAGIC) {
+		snprintf(id->type_version, sizeof(id->type_version), "%u.%u",
+			 sqs->s_major, sqs->s_minor);
+		goto found;
+	}
+	if (sqs->s_magic == bswap_32(SQUASHFS_MAGIC)) {
+		snprintf(id->type_version, sizeof(id->type_version), "%u.%u",
+			 bswap_16(sqs->s_major), bswap_16(sqs->s_minor));
+		goto found;
 	}
 
 	return -1;
+
+found:
+	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
+	id->type = "squashfs";
+	return 0;
 }
