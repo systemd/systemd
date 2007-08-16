@@ -1003,6 +1003,14 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 				strlcat(filename, "/", sizeof(filename));
 				strlcat(filename, attr, sizeof(filename));
 			}
+		} else if (filename[0] != '/') {
+			char tmp[PATH_SIZE];
+
+			strlcpy(tmp, sysfs_path, sizeof(tmp));
+			strlcat(tmp, udev->dev->devpath, sizeof(tmp));
+			strlcat(tmp, "/", sizeof(tmp));
+			strlcat(tmp, filename, sizeof(tmp));
+			strlcpy(filename, tmp, sizeof(filename));
 		}
 
 		match = (stat(filename, &statbuf) == 0);

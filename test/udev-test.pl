@@ -1570,6 +1570,34 @@ EOF
 KERNEL=="sda", NAME="\$attr{[net/eth0]address}"
 EOF
 	},
+	{
+		desc		=> "TEST absolute path",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "there",
+		rules		=> <<EOF
+TEST=="/etc/hosts", NAME="there"
+NAME="notthere"
+EOF
+	},
+	{
+		desc		=> "TEST subsys/kernel lookup",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "yes",
+		rules		=> <<EOF
+KERNEL=="sda", TEST=="[net/eth0]", NAME="yes"
+EOF
+	},
+	{
+		desc		=> "TEST relative path",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "relative",
+		rules		=> <<EOF
+KERNEL=="sda", TEST=="size", NAME="relative"
+EOF
+	},
 );
 
 # set env
