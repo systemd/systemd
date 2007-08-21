@@ -22,12 +22,12 @@ SUBSYSTEMS=="ccwgroup", ENV{COMMENT}="S/390 $driver device at $id", ENV{NETDEV}=
 SUBSYSTEMS=="ieee1394", ENV{COMMENT}="Firewire device $attr{host_id})"
 ENV{COMMENT}=="", ENV{COMMENT}="$env{SUBSYSTEM} device ($driver)"
 
-DRIVERS!="?*", ENV{NETDEV}=="?*", IMPORT{program}="write_net_rules --driver $env{NETDRV} --id $env{NETDEV}"
+DRIVERS=="?*", ENV{NETDEV}=="?*", IMPORT{program}="write_net_rules --driver $env{NETDRV} --id $env{NETDEV}"
 
 # skip "locally administered" MAC addresses
 ATTR{address}=="?[2367abef]:*", GOTO="persistent_net_generator_end"
 
-DRIVERS!="?*", ENV{NETDEV}!="?*", IMPORT{program}="write_net_rules $attr{address}"
+DRIVERS=="?*", ENV{NETDEV}!="?*", IMPORT{program}="write_net_rules $attr{address}"
 ENV{INTERFACE_NEW}=="?*", NAME="$env{INTERFACE_NEW}"
 
 LABEL="persistent_net_generator_end"
