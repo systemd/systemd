@@ -1,3 +1,32 @@
+Summary of changes from v114 to v115
+============================================
+
+Harald Hoyer (1):
+      rules: fix typo in 80-drivers.rules
+
+Kay Sievers (15):
+      rules: add default rules
+      rules: update SUSE rules
+      rules: add packages rules
+      rules: add ia64 rules
+      rules: move md-raid rules to packages dir
+      rules: run vol_id only for partitions
+      rules: update Fedora rules
+      edd_id: move persistent rules to its own file
+      accept relative path for TEST
+      rules: add iowarrior rule
+      volume_id: fix sqashfs detection
+      do not ignore dynamic rule if it is the last one in the list
+      rule_generator: fix wrong DRIVERS!= logic
+      rules: update Fedora
+      Makefile: install default rules
+
+Marco d'Itri (3):
+      rules_generator: remove policy from write_cd_rules
+      rules_generator: fix write_cd_rules when similar names exist in the root directory
+      rules: Debian update
+
+
 Summary of changes from v113 to v114
 ============================================
 

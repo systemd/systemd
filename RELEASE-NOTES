@@ -1,3 +1,15 @@
+udev 115
+========
+Bugfixes.
+
+The etc/udev/rules.d/ directory now contains a default set of basic
+udev rules. This initial version is the result of a rules file merge
+of Fedora and openSUSE. For these both distros only a few specific
+rules are left in their own file, named after the distro. Rules which
+are optionally installed, because they are only valid for a specific
+architecture, or rules for subsystems which are not always used are
+in etc/udev/packages/.
+
 udev 114
 ========
 Bugfixes.
