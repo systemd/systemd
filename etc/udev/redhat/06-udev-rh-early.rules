@@ -1,8 +1,0 @@
-# sysfs is populated after the event is sent
-ACTION=="add", DEVPATH=="/devices/*", ENV{PHYSDEVBUS}=="?*", WAIT_FOR_SYSFS="bus"
-ACTION=="add", SUBSYSTEM=="net", WAIT_FOR_SYSFS="address"
-
-ACTION=="add", SUBSYSTEM=="?*", ENV{MODALIAS}=="?*", RUN+="/sbin/modprobe $env{MODALIAS}"
-# pnp devices
-ACTION=="add", SUBSYSTEM=="pnp", ATTR{id}=="?*", RUN+="/sbin/modprobe pnp:d$attr{id}"
-ACTION=="add", SUBSYSTEM=="firmware", ENV{FIRMWARE}=="*", RUN="/sbin/firmware_helper", OPTIONS="last_rule"
