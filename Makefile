@@ -230,11 +230,11 @@ install-config:
 	@ if [ ! -r $(DESTDIR)$(configdir)/udev.conf ]; then \
 		$(INSTALL_DATA) etc/udev/udev.conf $(DESTDIR)$(configdir); \
 	fi
-	@ if [ ! -r $(DESTDIR)$(configdir)/rules.d/50-udev.rules ]; then \
-		echo; \
-		echo "pick a udev rules file from the etc/udev directory that matches your distribution"; \
-		echo; \
-	fi
+	@ for i in $(shell ls -1 etc/udev/rules.d); do \
+		if [ ! -r $(DESTDIR)$(configdir)/rules.d/$$i ]; then \
+			$(INSTALL_DATA) etc/udev/rules.d/$$i $(DESTDIR)$(configdir)/rules.d; \
+		fi \
+	done
 	@ extras="$(EXTRAS)"; for target in $$extras; do \
 		$(MAKE) -C $$target $@ || exit 1; \
 	done;
