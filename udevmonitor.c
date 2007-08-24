@@ -43,7 +43,6 @@ static int init_udev_monitor_socket(void)
 {
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
-	const int feature_on = 1;
 	int retval;
 
 	memset(&saddr, 0x00, sizeof(saddr));
@@ -66,9 +65,6 @@ static int init_udev_monitor_socket(void)
 		udev_monitor_sock = -1;
 		return -1;
 	}
-
-	/* enable receiving of the sender credentials */
-	setsockopt(udev_monitor_sock, SOL_SOCKET, SO_PASSCRED, &feature_on, sizeof(feature_on));
 
 	return 0;
 }

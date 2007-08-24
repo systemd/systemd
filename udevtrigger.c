@@ -435,6 +435,8 @@ static void scan_failed(void)
 				continue;
 
 			start = strlcpy(device, sysfs_path, sizeof(device));
+			if(start >= sizeof(device))
+				start = sizeof(device) - 1;
 			strlcat(device, dent->d_name, sizeof(device));
 			path_decode(&device[start]);
 			device_list_insert(device);

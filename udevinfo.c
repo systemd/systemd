@@ -79,6 +79,8 @@ static void print_all_attributes(const char *devpath, const char *key)
 			if (attr_value == NULL)
 				continue;
 			len = strlcpy(value, attr_value, sizeof(value));
+			if(len >= sizeof(value))
+				len = sizeof(value) - 1;
 			dbg("attr '%s'='%s'(%zi)", dent->d_name, value, len);
 
 			/* remove trailing newlines */

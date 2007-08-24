@@ -475,10 +475,12 @@ static int pass_env_to_socket(const char *sockname, const char *devpath, const c
 
 	bufpos = snprintf(buf, sizeof(buf)-1, "%s@%s", action, devpath);
 	bufpos++;
-	for (i = 0; environ[i] != NULL && bufpos < sizeof(buf); i++) {
+	for (i = 0; environ[i] != NULL && bufpos < (sizeof(buf)-1); i++) {
 		bufpos += strlcpy(&buf[bufpos], environ[i], sizeof(buf) - bufpos-1);
 		bufpos++;
 	}
+	if (bufpos > sizeof(buf))
+		bufpos = sizeof(buf);
 
 	count = sendto(sock, &buf, bufpos, 0, (struct sockaddr *)&saddr, addrlen);
 	if (count < 0)
