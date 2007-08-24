@@ -58,7 +58,7 @@ SUBSYSTEM=="usb", ACTION=="add", ENV{DEVTYPE}=="usb_device", NAME="bus/usb/$env{
 KERNEL=="parport[0-9]*",	GROUP="lp"
 SUBSYSTEM=="printer",		KERNEL=="lp*", GROUP="lp"
 SUBSYSTEM=="usb",		KERNEL=="lp*", NAME="usb/%k", SYMLINK+="usb%k", GROUP="lp"
-KERNEL=="lp[0-9]*",		GROUP="lp" SYMLINK+="par%n"
+KERNEL=="lp[0-9]*",		GROUP="lp", SYMLINK+="par%n"
 KERNEL=="irlpt[0-9]*",		GROUP="lp"
 
 # block, tapes, block-releated
@@ -71,7 +71,7 @@ KERNEL=="fd[0-9]",		GROUP="floppy"
 KERNEL=="fd[0-9]", ACTION=="add", ATTRS{cmos}=="?*", RUN+="create_floppy_devices -c -t $attr{cmos} -m %M -M 0640 -G floppy $root/%k"
 KERNEL=="sch[0-9]*",		GROUP="disk"
 KERNEL=="sg[0-9]*",		GROUP="disk", MODE="0640"
-KERNEL=="ht[0-9]*|nht[0-9]*",	GROUP="disk""
+KERNEL=="ht[0-9]*|nht[0-9]*",	GROUP="disk"
 KERNEL=="pg[0-9]*",		GROUP="disk"
 KERNEL=="pt[0-9]*|npt[0-9]*",	GROUP="disk"
 KERNEL=="qft[0-9]*|nqft[0-9]*|zqft[0-9]*|nzqft[0-9]*|rawqft[0-9]*|nrawqft[0-9]*", GROUP="disk"
