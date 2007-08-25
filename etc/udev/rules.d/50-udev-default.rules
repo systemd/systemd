@@ -17,18 +17,16 @@ KERNEL=="hvc*|hvsi*",		GROUP="uucp"
 KERNEL=="lirc0",		SYMLINK+="lirc"
 
 # mem
-KERNEL=="null|zero|random",	MODE="0666"
+KERNEL=="null|zero|full|random|urandom", MODE="0666"
 KERNEL=="null",			SYMLINK+="XOR"
 KERNEL=="mem|kmem|port",	GROUP="kmem", MODE="0640"
 KERNEL=="nvram",		GROUP="kmem", MODE="0600"
 KERNEL=="ram0",			SYMLINK+="ramdisk"
 KERNEL=="ram1",			SYMLINK+="ram"
-KERNEL=="urandom",		MODE="0644"
-KERNEL=="full",			MODE="0666"
 
 # input
 KERNEL=="mouse*|mice|event*",	NAME="input/%k", MODE="0640"
-KERNEL=="ts[0-9]*|uinput",		NAME="input/%k", MODE="0600"
+KERNEL=="ts[0-9]*|uinput",	NAME="input/%k", MODE="0600"
 KERNEL=="js[0-9]*",		NAME="input/%k", MODE="0644", SYMLINK+="%k"
 
 # video4linux
