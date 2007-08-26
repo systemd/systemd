@@ -117,6 +117,16 @@ out:
 	return rc;
 }
 
+int udev_db_rename(const char *devpath_old, const char *devpath)
+{
+	char filename[PATH_SIZE];
+	char filename_old[PATH_SIZE];
+
+	devpath_to_db_path(devpath_old, filename_old, sizeof(filename_old));
+	devpath_to_db_path(devpath, filename, sizeof(filename));
+	return rename(filename_old, filename);
+}
+
 int udev_db_add_device(struct udevice *udev)
 {
 	char filename[PATH_SIZE];

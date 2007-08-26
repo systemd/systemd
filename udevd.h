@@ -66,6 +66,7 @@ struct udevd_uevent_msg {
 	char *driver;
 	dev_t devt;
 	unsigned long long seqnum;
+	char *devpath_old;
 	char *physdevpath;
 	unsigned int timeout;
 	char *envp[UEVENT_NUM_ENVP+1];

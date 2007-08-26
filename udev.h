@@ -69,6 +69,7 @@ struct udevice {
 	struct sysfs_device dev_local;
 	struct sysfs_device *dev_parent;	/* current parent device used for matching */
 	char action[NAME_SIZE];
+	char *devpath_old;
 
 	/* node */
 	char name[PATH_SIZE];
@@ -131,6 +132,7 @@ extern int udev_node_remove(struct udevice *udev);
 /* udev_db.c */
 extern int udev_db_add_device(struct udevice *dev);
 extern int udev_db_delete_device(struct udevice *dev);
+extern int udev_db_rename(const char *devpath_old, const char *devpath);
 extern int udev_db_get_device(struct udevice *udev, const char *devpath);
 extern int udev_db_get_devices_by_name(const char *name, struct list_head *name_list);
 extern int udev_db_get_all_entries(struct list_head *name_list);

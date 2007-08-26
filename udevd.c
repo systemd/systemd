@@ -130,6 +130,7 @@ static int udev_event_process(struct udevd_uevent_msg *msg)
 		return -1;
 	strlcpy(udev->action, msg->action, sizeof(udev->action));
 	sysfs_device_set_values(udev->dev, msg->devpath, msg->subsystem, msg->driver);
+	udev->devpath_old = msg->devpath_old;
 	udev->devt = msg->devt;
 
 	retval = udev_device_event(&rules, udev);
@@ -156,14 +157,14 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 	struct udevd_uevent_msg *loop_msg;
 	int fd;
 
-	/* add location of queue files */
+	/* location of queue file */
 	strlcpy(filename, udev_root, sizeof(filename));
 	strlcat(filename, "/", sizeof(filename));
 	start = strlcat(filename, EVENT_QUEUE_DIR"/", sizeof(filename));
 	strlcat(filename, msg->devpath, sizeof(filename));
 	path_encode(&filename[start], sizeof(filename) - start);
 
-	/* add location of failed files */
+	/* location of failed file */
 	strlcpy(filename_failed, udev_root, sizeof(filename_failed));
 	strlcat(filename_failed, "/", sizeof(filename_failed));
 	start = strlcat(filename_failed, EVENT_FAILED_DIR"/", sizeof(filename_failed));
@@ -174,6 +175,7 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 	case EVENT_QUEUED:
 		unlink(filename_failed);
 		delete_path(filename_failed);
+
 		create_path(filename);
 		fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
 		if (fd > 0)
@@ -181,10 +183,25 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 		return;
 	case EVENT_FINISHED:
 	case EVENT_FAILED:
-		unlink(filename_failed);
-		delete_path(filename_failed);
+		if (msg->devpath_old != NULL) {
+			/* "move" event - rename failed file to current name, do not delete failed */
+			char filename_failed_old[PATH_SIZE];
 
-		/* don't remove, if events for the same path are still pending */
+			strlcpy(filename_failed_old, udev_root, sizeof(filename_failed_old));
+			strlcat(filename_failed_old, "/", sizeof(filename_failed_old));
+			start = strlcat(filename_failed_old, EVENT_FAILED_DIR"/", sizeof(filename_failed_old));
+			strlcat(filename_failed_old, msg->devpath_old, sizeof(filename_failed_old));
+			path_encode(&filename_failed_old[start], sizeof(filename) - start);
+
+			if (rename(filename_failed_old, filename_failed) == 0)
+				info("renamed devpath, moved failed state of '%s' to %s'",
+				     msg->devpath_old, msg->devpath);
+		} else {
+			unlink(filename_failed);
+			delete_path(filename_failed);
+		}
+
+		/* skip if events for the same path are still pending */
 		list_for_each_entry(loop_msg, &running_list, node)
 			if (loop_msg->devpath && strcmp(loop_msg->devpath, msg->devpath) == 0)
 				return;
@@ -193,7 +210,7 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 			if (loop_msg->devpath && strcmp(loop_msg->devpath, msg->devpath) == 0)
 				return;
 
-		/* move failed events to the failed directory */
+		/* move failed event to the failed directory */
 		if (state == EVENT_FAILED) {
 			create_path(filename_failed);
 			rename(filename, filename_failed);
@@ -201,7 +218,7 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 			unlink(filename);
 		}
 
-		/* clean up the queue directory */
+		/* clean up possibly empty queue directory */
 		delete_path(filename);
 
 		return;
@@ -212,7 +229,7 @@ static void msg_queue_delete(struct udevd_uevent_msg *msg)
 {
 	list_del(&msg->node);
 
-	/* mark as failed, if add event returns non-zero */
+	/* mark as failed, if "add" event returns non-zero */
 	if (msg->exitstatus && strcmp(msg->action, "add") == 0)
 		export_event_state(msg, EVENT_FAILED);
 	else
@@ -280,6 +297,7 @@ static void msg_queue_insert(struct udevd_uevent_msg *msg)
 	}
 
 	export_event_state(msg, EVENT_QUEUED);
+	info("seq %llu forked, '%s' '%s'", msg->seqnum, msg->action, msg->subsystem);
 
 	/* run one event after the other in debug mode */
 	if (debug_trace) {
@@ -469,11 +487,16 @@ static int devpath_busy(struct udevd_uevent_msg *msg, int limit)
 		if (loop_msg->seqnum >= msg->seqnum)
 			break;
 
+		/* check our old name */
+		if (msg->devpath_old != NULL)
+			if (strcmp(loop_msg->devpath , msg->devpath_old) == 0)
+				return 2;
+
 		/* check identical, parent, or child device event */
 		if (compare_devpath(loop_msg->devpath, msg->devpath) != 0) {
 			dbg("%llu, device event still pending %llu (%s)",
 			    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
-			return 2;
+			return 3;
 		}
 
 		/* check physical device event (special case of parent) */
@@ -481,7 +504,7 @@ static int devpath_busy(struct udevd_uevent_msg *msg, int limit)
 			if (compare_devpath(loop_msg->devpath, msg->physdevpath) != 0) {
 				dbg("%llu, physical device event still pending %llu (%s)",
 				    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
-				return 3;
+				return 4;
 			}
 	}
 
@@ -492,11 +515,16 @@ static int devpath_busy(struct udevd_uevent_msg *msg, int limit)
 			return 1;
 		}
 
+		/* check our old name */
+		if (msg->devpath_old != NULL)
+			if (strcmp(loop_msg->devpath , msg->devpath_old) == 0)
+				return 2;
+
 		/* check identical, parent, or child device event */
 		if (compare_devpath(loop_msg->devpath, msg->devpath) != 0) {
 			dbg("%llu, device event still running %llu (%s)",
 			    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
-			return 2;
+			return 3;
 		}
 
 		/* check physical device event (special case of parent) */
@@ -504,7 +532,7 @@ static int devpath_busy(struct udevd_uevent_msg *msg, int limit)
 			if (compare_devpath(loop_msg->devpath, msg->physdevpath) != 0) {
 				dbg("%llu, physical device event still running %llu (%s)",
 				    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
-				return 3;
+				return 4;
 			}
 	}
 	return 0;
@@ -588,6 +616,8 @@ static struct udevd_uevent_msg *get_msg_from_envbuf(const char *buf, int buf_siz
 			msg->driver = &key[7];
 		else if (strncmp(key, "SEQNUM=", 7) == 0)
 			msg->seqnum = strtoull(&key[7], NULL, 10);
+		else if (strncmp(key, "DEVPATH_OLD=", 12) == 0)
+			msg->devpath_old = &key[12];
 		else if (strncmp(key, "PHYSDEVPATH=", 12) == 0)
 			msg->physdevpath = &key[12];
 		else if (strncmp(key, "PHYSDEVDRIVER=", 14) == 0)

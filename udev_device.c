@@ -168,6 +168,10 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 {
 	int retval = 0;
 
+	if (udev->devpath_old != NULL)
+		if (udev_db_rename(udev->devpath_old, udev->dev->devpath) == 0)
+			info("moved database from '%s' to '%s'", udev->devpath_old, udev->dev->devpath);
+
 	/* add device node */
 	if (major(udev->devt) != 0 &&
 	    (strcmp(udev->action, "add") == 0 || strcmp(udev->action, "change") == 0)) {
