@@ -1,6 +1,6 @@
 .\"     Title: udevinfo
 .\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.72.0 <http://docbook.sf.net/>
+.\" Generator: DocBook XSL Stylesheets v1.73.1 <http://docbook.sf.net/>
 .\"      Date: August 2005
 .\"    Manual: udevinfo
 .\"    Source: udev
@@ -11,32 +11,32 @@
 .\" disable justification (adjust text to left margin only)
 .ad l
 .SH "NAME"
-udevinfo \- query udev device information
+udevinfo - query udev device information
 .SH "SYNOPSIS"
 .HP 9
 \fBudevinfo\fR [\fB\-\-query=\fR\fB\fIquery\-type\fR\fR] [\fB\-\-path=\fR\fB\fIdevpath\fR\fR] [\fB\-\-name=\fR\fB\fInode\fR\fR] [\fB\-\-root\fR] [\fB\-\-attribute\-walk\fR] [\fB\-\-export\-db\fR] [\fB\-\-version\fR] [\fB\-\-help\fR]
 .SH "DESCRIPTION"
 .PP
-udevinfo queries the udev database for device information stored in the udev database. It can also query the properties of a device from its sysfs representation to help creating udev rules that match this device.
+udevinfo queries the udev database for device information stored in the udev database\. It can also query the properties of a device from its sysfs representation to help creating udev rules that match this device\.
 .SH "OPTIONS"
 .PP
 \fB\-\-query=\fR\fB\fItype\fR\fR
 .RS 4
-Query the database for specified type of device data. It needs the
+Query the database for specified type of device data\. It needs the
 \fB\-\-path\fR
 or
 \fB\-\-name\fR
-to identify the specified device. Valid queries are:
+to identify the specified device\. Valid queries are:
 \fBname\fR,
 \fBsymlink\fR,
 \fBpath\fR,
 \fBenv\fR,
-\fBall\fR.
+\fBall\fR\.
 .RE
 .PP
 \fB\-\-path=\fR\fB\fIdevpath\fR\fR
 .RS 4
-The devpath of the device to query.
+The devpath of the device to query\.
 .RE
 .PP
 \fB\-\-name=\fR\fB\fInode\fR\fR
@@ -47,36 +47,36 @@ The name of the device node or a symlink to query
 \fB\-\-root\fR
 .RS 4
 The udev root directory:
-\fI/dev\fR. If used in conjunction with a
+\fI/dev\fR\. If used in conjunction with a
 \fBname\fR
 or
 \fBsymlink\fR
-query, the query returns the absolute path including the root directory.
+query, the query returns the absolute path including the root directory\.
 .RE
 .PP
 \fB\-\-attribute\-walk\fR
 .RS 4
-Print all sysfs properties of the specified device that can be used in udev rules to match the specified device. It prints all devices along the chain, up to the root of sysfs that can be used in udev rules.
+Print all sysfs properties of the specified device that can be used in udev rules to match the specified device\. It prints all devices along the chain, up to the root of sysfs that can be used in udev rules\.
 .RE
 .PP
 \fB\-\-export\-db\fR
 .RS 4
-Export the content of the udev database.
+Export the content of the udev database\.
 .RE
 .PP
 \fB\-\-version\fR
 .RS 4
-Print version.
+Print version\.
 .RE
 .PP
 \fB\-\-help\fR
 .RS 4
-Print help text.
+Print help text\.
 .RE
 .SH "AUTHOR"
 .PP
 Written by Kay Sievers
-<kay.sievers@vrfy.org>.
+<kay\.sievers@vrfy\.org>\.
 .SH "SEE ALSO"
 .PP
 \fBudev\fR(7)

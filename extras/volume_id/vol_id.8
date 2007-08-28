@@ -1,6 +1,6 @@
 .\"     Title: vol_id
 .\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.72.0 <http://docbook.sf.net/>
+.\" Generator: DocBook XSL Stylesheets v1.73.1 <http://docbook.sf.net/>
 .\"      Date: March 2006
 .\"    Manual: vol_id
 .\"    Source: volume_id
@@ -11,69 +11,69 @@
 .\" disable justification (adjust text to left margin only)
 .ad l
 .SH "NAME"
-vol_id \- probe filesystem type and read label and uuid
+vol_id - probe filesystem type and read label and uuid
 .SH "SYNOPSIS"
 .HP 7
 \fBvol_id\fR [\fB\-\-export\fR] [\fB\-\-type\fR] [\fB\-\-label\fR] [\fB\-\-label\-raw\fR] [\fB\-\-uuid\fR] [\fB\-\-skip\-raid\fR] [\fB\-\-probe\-all\fR] [\fB\-\-help\fR] [\fIdevice\fR]
 .SH "DESCRIPTION"
 .PP
 \fBvol_id\fR
-is usually called from a udev rule, to provide udev with the filesystem type, the label and the uuid of a volume. It supports most of the common filesystem formats and detects various raid setups to prevent the recognition of raid members as a volume with a filesystem.
+is usually called from a udev rule, to provide udev with the filesystem type, the label and the uuid of a volume\. It supports most of the common filesystem formats and detects various raid setups to prevent the recognition of raid members as a volume with a filesystem\.
 .SH "OPTIONS"
 .PP
 \fB\-\-export\fR
 .RS 4
-Print all values in key/value format to import them into the environment.
+Print all values in key/value format to import them into the environment\.
 .RE
 .PP
 \fB\-\-type\fR
 .RS 4
-Print the filesystem type.
+Print the filesystem type\.
 .RE
 .PP
 \fB\-\-label\fR
 .RS 4
-Print the safe version of volume label suitable for use as filename.
+Print the safe version of volume label suitable for use as filename\.
 .RE
 .PP
 \fB\-\-label\-raw\fR
 .RS 4
-Print the raw volume label.
+Print the raw volume label\.
 .RE
 .PP
 \fB\-\-uuid\fR
 .RS 4
-Print the uuid of a volume.
+Print the uuid of a volume\.
 .RE
 .PP
 \fB\-\-skip\-raid\fR
 .RS 4
-Skip detection of raid metadata.
+Skip detection of raid metadata\.
 .RE
 .PP
 \fB\-\-probe\-all\fR
 .RS 4
-Probe for all types and print all matches.
+Probe for all types and print all matches\.
 .RE
 .PP
 \fB\-\-help\fR
 .RS 4
-Print usage.
+Print usage\.
 .RE
 .SH "ENVIRONMENT"
 .PP
 \fBUDEV_LOG\fR
 .RS 4
-Set the syslog priority.
+Set the syslog priority\.
 .RE
 .SH "EXIT STATUS"
 .PP
 \fBvol_id\fR
-will only return successful if the value asked for is not empty. All trailing whitespace will be removed, spaces replaced by underscore and slashes ignored.
+will only return successful if the value asked for is not empty\. All trailing whitespace will be removed, spaces replaced by underscore and slashes ignored\.
 .SH "AUTHOR"
 .PP
 Written by Kay Sievers
-<kay.sievers@vrfy.org>
+<kay\.sievers@vrfy\.org>
 .SH "SEE ALSO"
 .PP
 \fBudev\fR(7)
