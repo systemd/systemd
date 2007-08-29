@@ -331,7 +331,7 @@ and
 \fBATTRS\fR\.
 .RE
 .PP
-\fB$driver\fR, \fB%d\fR
+\fB$driver\fR
 .RS 4
 The driver name of the device matched while searching the devpath upwards for
 \fBSUBSYSTEMS\fR,
@@ -371,6 +371,11 @@ The string returned by the external program requested with PROGRAM\. A single pa
 \fB$parent\fR, \fB%P\fR
 .RS 4
 The node name of the parent device\.
+.RE
+.PP
+\fB$name\fR
+.RS 4
+The name of the device node\. The value is only set if an earlier rule assigned a value, or during a remove events\.
 .RE
 .PP
 \fB$root\fR, \fB%r\fR

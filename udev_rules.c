@@ -606,6 +606,7 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 		SUBST_ATTR,
 		SUBST_PARENT,
 		SUBST_TEMP_NODE,
+		SUBST_NAME,
 		SUBST_ROOT,
 		SUBST_SYS,
 		SUBST_ENV,
@@ -627,6 +628,7 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 		{ .name = "sysfs",	.fmt = 's',	.type = SUBST_ATTR },
 		{ .name = "parent",	.fmt = 'P',	.type = SUBST_PARENT },
 		{ .name = "tempnode",	.fmt = 'N',	.type = SUBST_TEMP_NODE },
+		{ .name = "name",	.fmt = 'D',	.type = SUBST_NAME },
 		{ .name = "root",	.fmt = 'r',	.type = SUBST_ROOT },
 		{ .name = "sys",	.fmt = 'S',	.type = SUBST_SYS },
 		{ .name = "env",	.fmt = 'E',	.type = SUBST_ENV },
@@ -844,6 +846,10 @@ found:
 			}
 			strlcat(string, udev->tmp_node, maxsize);
 			dbg("substitute temporary device node name '%s'", udev->tmp_node);
+			break;
+		case SUBST_NAME:
+			strlcat(string, udev->name, maxsize);
+			dbg("substitute udev->name '%s'", udev->name);
 			break;
 		case SUBST_ROOT:
 			strlcat(string, udev_root, maxsize);

@@ -488,7 +488,7 @@
             </varlistentry>
 
             <varlistentry>
-              <term><option>$driver</option>, <option>%d</option></term>
+              <term><option>$driver</option></term>
               <listitem>
                 <para>The driver name of the device matched while searching the devpath upwards for
                   <option>SUBSYSTEMS</option>, <option>KERNELS</option>, <option>DRIVERS</option> and <option>ATTRS</option>.
@@ -544,6 +544,14 @@
               <term><option>$parent</option>, <option>%P</option></term>
               <listitem>
                 <para>The node name of the parent device.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
+              <term><option>$name</option></term>
+              <listitem>
+                <para>The name of the device node. The value is only set if an earlier
+                rule assigned a value, or during a remove events.</para>
               </listitem>
             </varlistentry>
 

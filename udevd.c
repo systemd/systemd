@@ -508,7 +508,7 @@ static int devpath_busy(struct udevd_uevent_msg *msg, int limit)
 			}
 	}
 
-	/* check runing-queue for still running events */
+	/* check run queue for still running events */
 	list_for_each_entry(loop_msg, &running_list, node) {
 		if (limit && childs_count++ > limit) {
 			dbg("%llu, maximum number (%i) of childs reached", msg->seqnum, childs_count);
