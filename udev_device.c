@@ -266,10 +266,6 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 		/* import database entry, and delete it */
 		if (udev_db_get_device(udev, udev->dev->devpath) == 0) {
 			udev_db_delete_device(udev);
-			if (udev->ignore_remove) {
-				info("ignore_remove for '%s'", udev->name);
-				goto exit;
-			}
 			/* restore stored persistent data */
 			list_for_each_entry(name_loop, &udev->env_list, node)
 				putenv(name_loop->name);
@@ -285,6 +281,10 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 			goto exit;
 		}
 
+		if (udev->ignore_remove) {
+			info("ignore_remove for '%s'", udev->name);
+			goto exit;
+		}
 		/* remove the node */
 		retval = udev_node_remove(udev);
 

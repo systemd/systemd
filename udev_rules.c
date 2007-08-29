@@ -1472,9 +1472,14 @@ int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev)
 			break;
 
 		dbg("process rule");
-		if (rule->name.operation != KEY_OP_UNSET || rule->symlink.operation != KEY_OP_UNSET ||
-		    rule->mode_operation != KEY_OP_UNSET || rule->owner.operation != KEY_OP_UNSET ||
-		    rule->group.operation != KEY_OP_UNSET) {
+		if (rule->name.operation == KEY_OP_ASSIGN ||
+		    rule->name.operation == KEY_OP_ASSIGN_FINAL ||
+		    rule->name.operation == KEY_OP_ADD ||
+		    rule->symlink.operation == KEY_OP_ASSIGN ||
+		    rule->symlink.operation == KEY_OP_ASSIGN_FINAL ||
+		    rule->symlink.operation == KEY_OP_ADD ||
+		    rule->mode_operation != KEY_OP_UNSET ||
+		    rule->owner.operation != KEY_OP_UNSET || rule->group.operation != KEY_OP_UNSET) {
 			dbg("skip rule that names a device");
 			continue;
 		}
@@ -1484,6 +1489,10 @@ int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev)
 				info("rule applied, '%s' is ignored", udev->dev->kernel);
 				udev->ignore_device = 1;
 				return 0;
+			}
+			if (rule->ignore_remove) {
+				udev->ignore_remove = 1;
+				dbg("remove event should be ignored");
 			}
 
 			if (!udev->run_final && rule->run.operation != KEY_OP_UNSET) {
