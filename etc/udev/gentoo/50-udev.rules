@@ -237,10 +237,6 @@ KERNEL=="umad*",	NAME="infiniband/%k"
 KERNEL=="issm*",	NAME="infiniband/%k"
 
 
-# usbfs-like device nodes
-# the way to go up to kernel 2.6.21 (and above if setting USB_DEVICE_CLASS=y)
-SUBSYSTEM=="usb_device", PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", NAME="%c", GROUP="usb", MODE="0664"
-# starting from kernel 2.6.22 use this rule
 SUBSYSTEM=="usb", ACTION=="add", ENV{DEVTYPE}=="usb_device", \
 	NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", GROUP="usb", MODE="0664" 
 
