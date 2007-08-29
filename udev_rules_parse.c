@@ -469,6 +469,11 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 		}
 
 		if (strncasecmp(key, "TEST", sizeof("TEST")-1) == 0) {
+			if (operation != KEY_OP_MATCH &&
+			    operation != KEY_OP_NOMATCH) {
+				err("invalid TEST operation");
+				goto invalid;
+			}
 			attr = get_key_attribute(key + sizeof("TEST")-1);
 			if (attr != NULL)
 				rule->test_mode_mask = strtol(attr, NULL, 8);

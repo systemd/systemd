@@ -994,7 +994,8 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 		}
 	}
 
-	if (rule->test.operation != KEY_OP_UNSET) {
+	if (rule->test.operation == KEY_OP_MATCH ||
+	    rule->test.operation == KEY_OP_NOMATCH) {
 		char filename[PATH_SIZE];
 		char devpath[PATH_SIZE];
 		char *attr;
