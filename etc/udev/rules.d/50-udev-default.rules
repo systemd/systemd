@@ -101,3 +101,6 @@ KERNEL=="sxctl",		NAME="specialix_sxctl", SYMLINK+="%k"
 KERNEL=="rioctl",		NAME="specialix_rioctl", SYMLINK+="%k"
 KERNEL=="iowarrior[0-9]*",	NAME="usb/%k"
 
+# do not delete static device nodes
+ACTION=="remove", NAME=="?*", TEST=="/lib/udev/devices/$name", OPTIONS+="ignore_remove"
+
