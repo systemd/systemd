@@ -133,7 +133,7 @@ static int node_symlink(const char *node, const char *slink)
 				    stats.st_rdev == stats2.st_rdev) {
 					info("replace device node '%s' with symlink to our node '%s'", slink, node);
 				} else {
-					err("device node '%s' already exists, link '%s' will not overwrite it", node, slink);
+					err("device node '%s' already exists, link to '%s' will not overwrite it", slink, node);
 					goto exit;
 				}
 			}

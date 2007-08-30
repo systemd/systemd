@@ -88,7 +88,8 @@ KERNEL=="microcode",		NAME="cpu/microcode", MODE="0600"
 
 # miscellaneous
 KERNEL=="fuse",			MODE="0666"
-KERNEL=="rtc",			MODE="0644"
+KERNEL=="rtc|rtc0",		MODE="0644"
+KERNEL=="rtc0",			SYMLINK+="rtc"
 KERNEL=="auer[0-9]*"		NAME="usb/%k"
 KERNEL=="hw_random",		NAME="hwrng", SYMLINK+="%k"
 KERNEL=="mmtimer",		MODE="0644"
