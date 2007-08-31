@@ -1040,7 +1040,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 	if (rule->wait_for_sysfs.operation != KEY_OP_UNSET) {
 		int found;
 
-		found = (wait_for_sysfs(udev, key_val(rule, &rule->wait_for_sysfs), 3) == 0);
+		found = (wait_for_sysfs(udev, key_val(rule, &rule->wait_for_sysfs), 10) == 0);
 		if (!found && (rule->wait_for_sysfs.operation != KEY_OP_NOMATCH))
 			goto nomatch;
 	}
