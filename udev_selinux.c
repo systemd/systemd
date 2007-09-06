@@ -24,8 +24,8 @@
 #include <fcntl.h>
 #include <ctype.h>
 #include <limits.h>
-#include <libgen.h>
 #include <errno.h>
+#include <sys/stat.h>
 #include <selinux/selinux.h>
 
 #include "udev.h"
