@@ -456,7 +456,11 @@ handle_device () {
 					return
 				fi
 			fi
-			cd $full_sysfs_path/device
+			if [ -L $full_sysfs_path/device/device ]; then
+				cd $full_sysfs_path/device/device
+			else
+				cd $full_sysfs_path/device
+			fi
 			;;
 	esac
 	full_sysfs_device_path="`pwd -P`"
