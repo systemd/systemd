@@ -230,9 +230,9 @@ install-config:
 	@ if [ ! -r $(DESTDIR)$(configdir)/udev.conf ]; then \
 		$(INSTALL_DATA) etc/udev/udev.conf $(DESTDIR)$(configdir); \
 	fi
-	@ for i in $(shell ls -1 etc/udev/rules.d); do \
-		if [ ! -r $(DESTDIR)$(configdir)/rules.d/$$i ]; then \
-			$(INSTALL_DATA) etc/udev/rules.d/$$i $(DESTDIR)$(configdir)/rules.d; \
+	@ for i in etc/udev/rules.d/*.rules; do \
+		if [ ! -r $(DESTDIR)$(configdir)/rules.d/$$(basename $$i) ]; then \
+			$(INSTALL_DATA) $$i $(DESTDIR)$(configdir)/rules.d; \
 		fi \
 	done
 	@ extras="$(EXTRAS)"; for target in $$extras; do \
