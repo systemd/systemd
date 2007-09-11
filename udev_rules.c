@@ -349,11 +349,6 @@ static int import_keys_into_env(struct udevice *udev, const char *buf, size_t bu
 		cur += count+1;
 		lineno++;
 
-		if (count >= sizeof(line)) {
-			err("line too long, conf line skipped %s, line %d", udev_config_filename, lineno);
-			continue;
-		}
-
 		/* eat the whitespace */
 		while ((count > 0) && isspace(bufline[0])) {
 			bufline++;
@@ -365,6 +360,11 @@ static int import_keys_into_env(struct udevice *udev, const char *buf, size_t bu
 		/* see if this is a comment */
 		if (bufline[0] == COMMENT_CHARACTER)
 			continue;
+
+		if (count >= sizeof(line)) {
+			err("line too long, conf line skipped %s, line %d", udev_config_filename, lineno);
+			continue;
+		}
 
 		memcpy(line, bufline, count);
 		line[count] = '\0';

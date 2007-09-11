@@ -111,11 +111,6 @@ static int parse_config_file(void)
 		cur += count+1;
 		lineno++;
 
-		if (count >= sizeof(line)) {
-			err("line too long, conf line skipped %s, line %d", udev_config_filename, lineno);
-			continue;
-		}
-
 		/* eat the whitespace */
 		while ((count > 0) && isspace(bufline[0])) {
 			bufline++;
@@ -127,6 +122,11 @@ static int parse_config_file(void)
 		/* see if this is a comment */
 		if (bufline[0] == COMMENT_CHARACTER)
 			continue;
+
+		if (count >= sizeof(line)) {
+			err("line too long, conf line skipped %s, line %d", udev_config_filename, lineno);
+			continue;
+		}
 
 		memcpy(line, bufline, count);
 		line[count] = '\0';
