@@ -230,11 +230,15 @@ static int update_link(struct udevice *udev, const char *name)
 		if (udev_db == NULL)
 			continue;
 		if (udev_db_get_device(udev_db, device->name) == 0) {
-			info("compare priority of '%s' %i > %i",
-			     udev_db->dev->devpath, udev_db->link_priority, priority);
-			if (target[0] == '\0' || udev_db->link_priority > priority) {
-				priority = udev_db->link_priority;
-				strlcpy(target, udev_db->name, sizeof(target));
+			if (strcmp(udev_db->name, name) == 0) {
+				info("'%s' is a device node of '%s', skip link update", udev_db->name, device->name);
+			} else {
+				info("compare priority of '%s' %i > %i",
+				     udev_db->dev->devpath, udev_db->link_priority, priority);
+				if (target[0] == '\0' || udev_db->link_priority > priority) {
+					priority = udev_db->link_priority;
+					strlcpy(target, udev_db->name, sizeof(target));
+				}
 			}
 		}
 		udev_device_cleanup(udev_db);
@@ -242,8 +246,8 @@ static int update_link(struct udevice *udev, const char *name)
 	name_list_cleanup(&name_list);
 
 	if (target[0] == '\0') {
-		err("missing target for '%s'", name);
-		rc = -1;
+		info("no current target for '%s' found", name);
+		rc = 1;
 		goto out;
 	}
 
