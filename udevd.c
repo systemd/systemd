@@ -154,22 +154,16 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 	char filename[PATH_SIZE];
 	char filename_failed[PATH_SIZE];
 	size_t start;
-	struct udevd_uevent_msg *loop_msg;
-	int fd;
 
 	/* location of queue file */
-	strlcpy(filename, udev_root, sizeof(filename));
-	strlcat(filename, "/", sizeof(filename));
-	start = strlcat(filename, EVENT_QUEUE_DIR"/", sizeof(filename));
-	strlcat(filename, msg->devpath, sizeof(filename));
-	path_encode(&filename[start], sizeof(filename) - start);
+	snprintf(filename, sizeof(filename), "%s/"EVENT_QUEUE_DIR"/%llu", udev_root, msg->seqnum);
 
 	/* location of failed file */
 	strlcpy(filename_failed, udev_root, sizeof(filename_failed));
 	strlcat(filename_failed, "/", sizeof(filename_failed));
 	start = strlcat(filename_failed, EVENT_FAILED_DIR"/", sizeof(filename_failed));
 	strlcat(filename_failed, msg->devpath, sizeof(filename_failed));
-	path_encode(&filename_failed[start], sizeof(filename) - start);
+	path_encode(&filename_failed[start], sizeof(filename_failed) - start);
 
 	switch (state) {
 	case EVENT_QUEUED:
@@ -177,12 +171,9 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 		delete_path(filename_failed);
 
 		create_path(filename);
-		fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
-		if (fd > 0)
-			close(fd);
-		return;
+		symlink(msg->devpath, filename);
+		break;
 	case EVENT_FINISHED:
-	case EVENT_FAILED:
 		if (msg->devpath_old != NULL) {
 			/* "move" event - rename failed file to current name, do not delete failed */
 			char filename_failed_old[PATH_SIZE];
@@ -201,28 +192,20 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 			delete_path(filename_failed);
 		}
 
-		/* skip if events for the same path are still pending */
-		list_for_each_entry(loop_msg, &running_list, node)
-			if (loop_msg->devpath && strcmp(loop_msg->devpath, msg->devpath) == 0)
-				return;
-
-		list_for_each_entry(loop_msg, &exec_list, node)
-			if (loop_msg->devpath && strcmp(loop_msg->devpath, msg->devpath) == 0)
-				return;
-
+		unlink(filename);
+		delete_path(filename);
+		break;
+	case EVENT_FAILED:
 		/* move failed event to the failed directory */
-		if (state == EVENT_FAILED) {
-			create_path(filename_failed);
-			rename(filename, filename_failed);
-		} else {
-			unlink(filename);
-		}
+		create_path(filename_failed);
+		rename(filename, filename_failed);
 
 		/* clean up possibly empty queue directory */
 		delete_path(filename);
-
-		return;
+		break;
 	}
+
+	return;
 }
 
 static void msg_queue_delete(struct udevd_uevent_msg *msg)
@@ -297,7 +280,7 @@ static void msg_queue_insert(struct udevd_uevent_msg *msg)
 	}
 
 	export_event_state(msg, EVENT_QUEUED);
-	info("seq %llu forked, '%s' '%s'", msg->seqnum, msg->action, msg->subsystem);
+	info("seq %llu queued, '%s' '%s'", msg->seqnum, msg->action, msg->subsystem);
 
 	/* run one event after the other in debug mode */
 	if (debug_trace) {
