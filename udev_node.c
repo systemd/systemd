@@ -218,14 +218,16 @@ static int update_link(struct udevice *udev, const char *name)
 		if (strcmp(udev->dev->devpath, device->name) == 0) {
 			info("compare (our own) priority of '%s' %i >= %i",
 			     udev->dev->devpath, udev->link_priority, priority);
-			if (target[0] == '\0' || udev->link_priority >= priority) {
+			if (strcmp(udev->name, name) == 0) {
+				info("'%s' is our device node, database inconsistent, skip link update", udev->name);
+			} else if (target[0] == '\0' || udev->link_priority >= priority) {
 				priority = udev->link_priority;
 				strlcpy(target, udev->name, sizeof(target));
 			}
 			continue;
 		}
 
-		/* or something else, then read priority from database */
+		/* another device, read priority from database */
 		udev_db = udev_device_init(NULL);
 		if (udev_db == NULL)
 			continue;
