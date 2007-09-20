@@ -389,10 +389,16 @@ int main(int argc, char *argv[], char *envp[])
 				goto exit;
 			if (root)
 				list_for_each_entry(name_loop, &udev->symlink_list, node)
-					printf("%s/%s ", udev_root, name_loop->name);
+					if (name_loop->node.next != &udev->symlink_list)
+						printf("%s/%s ", udev_root, name_loop->name);
+					else
+						printf("%s/%s", udev_root, name_loop->name);
 			else
 				list_for_each_entry(name_loop, &udev->symlink_list, node)
-					printf("%s ", name_loop->name);
+					if (name_loop->node.next != &udev->symlink_list)
+						printf("%s ", name_loop->name);
+					else
+						printf("%s", name_loop->name);
 			printf("\n");
 			break;
 		case QUERY_PATH:
