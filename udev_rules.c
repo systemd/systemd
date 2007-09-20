@@ -1446,7 +1446,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 	}
 
 	if (!name_set) {
-		info("no node name set, will use kernel name '%s'", udev->name);
+		info("no node name set, will use kernel name '%s'", udev->dev->kernel);
 		strlcpy(udev->name, udev->dev->kernel, sizeof(udev->name));
 	}
 
