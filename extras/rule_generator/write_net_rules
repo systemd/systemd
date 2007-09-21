@@ -1,20 +1,25 @@
 #!/bin/sh -e
 #
-# This script is run if the interface (recognized by its MAC address) lacks
-# a rule for persistent naming.
-#
-# If there is already a persistent rule with that interface name then the
-# current interface needs to be renamed.
-#
-# If the interface needs to be renamed, a NAME=value pair will be printed
-# on stdout to allow udev to IMPORT it. Then a rule for the MAC address and
-# interface name is written.
-#
-# (C) 2006 Marco d'Itri <md@Linux.IT>
+# Copyright (C) 2006 Marco d'Itri <md@Linux.IT>
+# Copyright (C) 2007 Kay Sievers <kay.sievers@vrfy.org>
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
 # Free Software Foundation version 2 of the License.
+#
+# This script is run to create persistent network device naming rules
+# based on properties of the device.
+# If the interface needs to be renamed, INTERFACE_NEW=<name> will be printed
+# on stdout to allow udev to IMPORT it.
+
+# variables used to communicate:
+#   MATCHADDR             MAC address used for the match
+#   MATCHID               bus_id used for the match
+#   MATCHDRV              driver name used for the match
+#   MATCHIFTYPE           interface type match
+#   COMMENT               comment to add to the generated rule
+#   INTERFACE_NAME        requested name supplied by external tool
+#   INTERFACE_NEW         new interface name returned by rule writer
 
 RULES_FILE='/etc/udev/rules.d/70-persistent-net.rules'
 
@@ -49,52 +54,13 @@ write_rule() {
 
 	echo ""
 	[ "$comment" ] && echo "# $comment"
-	echo "SUBSYSTEM==\"net\", $match, NAME=\"$name\""
+	echo "SUBSYSTEM==\"net\", ACTION==\"add\"$match, NAME=\"$name\""
 	} >> $RULES_FILE
 }
 
 if [ -z "$INTERFACE" ]; then
-	echo "Missing \$INTERFACE." >&2
+	echo "missing \$INTERFACE" >&2
 	exit 1
-fi
-
-if [ "$1" ]; then
-    while [ "$*" ] ; do
-	case $1 in
-	    --mac)
-		shift
-		MAC_ADDR=$1
-		shift
-		;;
-	    --driver)
-		shift
-		DRIVER=$1
-		shift
-		;;
-	    --id)
-		shift
-		ID=$1
-		shift
-		;;
-	    *)
-		MAC_ADDR=$1
-		shift
-		;;
-	esac
-    done
-else
-    MAC_ADDR=$(sysread address)
-fi
-
-if [ -z "$DRIVER" ] && [ -z "$ID" ] ; then
-    if [ -z "$MAC_ADDR" ]; then
-	echo "No MAC address for $INTERFACE." >&2
-	exit 1
-    fi
-    if [ "$MAC_ADDR" = "00:00:00:00:00:00" ]; then
-	echo "NULL MAC address for $INTERFACE." >&2
-	exit 1
-    fi
 fi
 
 # Prevent concurrent processes from modifying the file at the same time.
@@ -103,24 +69,42 @@ lock_rules_file
 # Check if the rules file is writeable.
 choose_rules_file
 
-# If a rule using the current name already exists then find a new name and
-# report it to udev which will rename the interface.
-basename=${INTERFACE%%[0-9]*}
-if interface_name_taken; then
-	INTERFACE="$basename$(find_next_available "$basename[0-9]*")"
-	if [ ! -t 1 ]; then
-		echo "INTERFACE_NEW=$INTERFACE"
-	fi
+# the DRIVERS key is needed to not match bridges and VLAN sub-interfaces
+if [ "$MATCHADDR" ]; then
+	match="$match, DRIVERS==\"?*\", ATTR{address}==\"$MATCHADDR\""
 fi
 
-# the DRIVERS key is needed to not match bridges and VLAN sub-interfaces
-if [ "$MAC_ADDR" ] ; then
-    match="DRIVERS==\"?*\", ATTR{address}==\"$MAC_ADDR\""
-else
-    match="DRIVERS==\"$DRIVER\", KERNELS==\"$ID\""
+if [ "$MATCHDRV" ]; then
+	match="$match, DRIVERS==\"$MATCHDRV\""
 fi
-if [ $basename = "ath" -o $basename = "wlan" ]; then
-	match="$match, ATTR{type}==\"1\"" # do not match the wifi* interfaces
+
+if [ "$MATCHID" ]; then
+	match="$match, KERNELS==\"$MATCHID\""
+fi
+
+if [ "$MATCHIFTYPE" ]; then
+	match="$match, ATTR{type}==\"$MATCHIFTYPE\""
+fi
+
+if [ -z "$match" ]; then
+	echo "missing valid match" >&2
+	exit 1
+fi
+
+if [ "$INTERFACE_NAME" ]; then
+	# external tools may request a custom name
+	COMMENT="$COMMENT (custom name provided by external tool)"
+	if [ "$INTERFACE_NAME" != "$INTERFACE" ]; then
+		INTERFACE=$INTERFACE_NAME;
+		echo "INTERFACE_NEW=$INTERFACE"
+	fi
+else
+	# if a rule using the current name already exists, find a new name
+	basename=${INTERFACE%%[0-9]*}
+	if interface_name_taken; then
+		INTERFACE="$basename$(find_next_available "$basename[0-9]*")"
+		echo "INTERFACE_NEW=$INTERFACE"
+	fi
 fi
 
 write_rule "$match" "$INTERFACE" "$COMMENT"
@@ -128,4 +112,3 @@ write_rule "$match" "$INTERFACE" "$COMMENT"
 unlock_rules_file
 
 exit 0
-
