@@ -3,13 +3,10 @@ udev - userspace device management
 For more information see the files in the docs/ directory.
 
 Important Note:
-  Integrating udev in the system is a whole lot of work, has complex dependencies
-  and differs a lot from distro to distro. All major distros depend on udev these
-  days and the system may not work without a proper installed version. The upstream
-  udev project does not support or recommend to replace a distro's udev installation
-  with the upstream version. The installation of a unmodified upstream version may
-  render your system unusable. Until now, there is no "default" setup or a set of
-  "default" rules provided by the upstream udev version.
+  Integrating udev in the system has complex dependencies and differs from distro
+  to distro. All major distros depend on udev these days and the system may not
+  work without a properly installed version. The upstream udev project does not
+  recommend to replace a distro's udev installation with the upstream version.
 
 Requirements:
   - Version 2.6.15 of the Linux kernel for reliable operation of this release of
@@ -21,7 +18,7 @@ Requirements:
     but it is completely silly - don't complain if anything goes wrong.)
 
   - The proc filesystem must be mounted on /proc, the sysfs filesystem must
-    be mounted at /sys. No other location will be supported by udev.
+    be mounted at /sys. No other location is supported by udev.
 
 
 Operation:
