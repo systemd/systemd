@@ -34,13 +34,13 @@ SUBSYSTEM!="scsi_device", GOTO="kernel_compat_end"
 	# sr:           4 TYPE_WORM, 5 TYPE_ROM
 	# st/osst:      1 TYPE_TAPE
 
-	ATTRS{type}=="0|7|14",	RUN+="modprobe.sh sd_mod"
-	ATTRS{type}=="4|5",	RUN+="modprobe.sh sr_mod"
-	ATTRS{type}=="8",	RUN+="modprobe.sh ch"
+	ATTRS{type}=="0|7|14",	RUN+="/sbin/modprobe sd_mod"
+	ATTRS{type}=="4|5",	RUN+="/sbin/modprobe sr_mod"
+	ATTRS{type}=="8",	RUN+="/sbin/modprobe ch"
 
 	ATTRS{type}=="1", ATTRS{vendor}=="On[sS]tream", \
-		ATTRS{model}!="ADR*", RUN+="modprobe.sh osst", GOTO="kernel_compat_end"
-	ATTRS{type}=="1", RUN+="modprobe.sh st"
+		ATTRS{model}!="ADR*", RUN+="/sbin/modprobe osst", GOTO="kernel_compat_end"
+	ATTRS{type}=="1", RUN+="/sbin/modprobe st"
 
 LABEL="kernel_compat_end"
 
