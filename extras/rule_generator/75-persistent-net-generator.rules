@@ -20,14 +20,14 @@ NAME=="?*", GOTO="persistent_net_generator_end"
 # device name whitelist
 KERNEL!="eth*|ath*|wlan*[0-9]|ra*|sta*|ctc*|lcs*|hsi*", GOTO="persistent_net_generator_end"
 
-# add interface type match for some devices
-KERNEL=="wlan*|ath*", ENV{MATCHIFTYPE}="1"
-
 # ignore Xen virtual interfaces
 SUBSYSTEMS=="xen", GOTO="persistent_net_generator_end"
 
 # read MAC address
 ENV{MATCHADDR}="$attr{address}"
+
+# match interface type
+ENV{MATCHIFTYPE}="$attr{type}"
 
 # do not use "locally administered" MAC address
 ENV{MATCHADDR}=="?[2367abef]:*", ENV{MATCHADDR}=""
