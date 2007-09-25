@@ -415,7 +415,7 @@ char *sysfs_attr_get_value(const char *devpath, const char *attr_name)
 	/* read attribute value */
 	fd = open(path_full, O_RDONLY);
 	if (fd < 0) {
-		dbg("attribute '%s' does not exist", path_full);
+		dbg("attribute '%s' can not be opened", path_full);
 		goto out;
 	}
 	size = read(fd, value, sizeof(value));
