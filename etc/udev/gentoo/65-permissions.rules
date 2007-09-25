@@ -18,3 +18,5 @@ SUBSYSTEMS=="scsi", KERNEL=="sg[0-9]*", ATTRS{type}=="[18]", GROUP="tape", MODE=
 KERNEL=="ippp*|isdn*|dcbri*", GROUP="uucp"
 KERNEL=="pilot",	GROUP="uucp"
 
+# sound devices (sound=alsa, snd=oss)
+SUBSYSTEM=="sound|snd",	GROUP="audio"
