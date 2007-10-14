@@ -1,3 +1,57 @@
+Summary of changes from v115 to v116
+============================================
+
+Bryan Kadzban (1):
+      rules: fix typos
+
+Harald Hoyer (3):
+      check line length after comment check and whitespace strip
+      only install *.rules
+      remove extra space from udevinfo symlink output
+
+Kay Sievers (29):
+      rules: fix two trivial typos
+      rules: random and urandom are 0666
+      rules: add REMOVE_CMD rule
+      track "move" events to rename database and failed files
+      rules: Gentoo update
+      rules: add i2o driver rule
+      man: recreate man pages
+      volume_id: fix linux_raid metadata version 1.0 detection
+      add $name substitution
+      do not delete the device node with ignore_remove, but handle the event
+      print warning for invalid TEST operations
+      rules: do not delete /lib/udev/devices/ nodes on "remove"
+      rules: remove broken nvram group assignment without any permission
+      add /dev/rtc symlink if new rtc drivers are used
+      increase WAIT_FOR_SYSFS timeout to 10 seconds
+      rules: put bsd nodes in /dev/bsd/ directory
+      path_id: fix for stacked class devices
+      ignore device node names while restoring symlinks from the stack
+      use SEQNUM in /dev/.udev/queue/ instead of devpath
+      rules: add memstick module loading
+      udevinfo: simplify symlink printing logic
+      prevent wrong symlink creation if database disagress with current rules
+      fix wrong variable used in logged string
+      update README
+      rule_generator: move all policy from write_net_rules to the rules file
+      rules: call usb_id only for SUBSYSTEMS=="usb"
+      rules: split out and fix persistent tape rules
+      fix debug output string
+      rule_generator: always match netif type in generated rule
+
+Matthias Schwarzott (3):
+      rules: Gentoo update
+      rules: Gentoo update
+      rules: Gentoo update
+
+Michael Morony (1):
+      set buffer size if strlcpy/strlcat indicate truncation
+
+maximilian attems (1):
+      correct includes in udev_selinux.c
+
+
 Summary of changes from v114 to v115
 ============================================
 
