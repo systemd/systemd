@@ -4,8 +4,8 @@ FIRMWARE_DIRS="/lib/firmware /usr/local/lib/firmware"
 
 err() {
     echo "$@" >&2
-    if [ -x /bin/logger ]; then
-	/bin/logger -t "${0##*/}[$$]" "$@"
+    if type logger >/dev/null; then
+	logger -t "${0##*/}[$$]" "$@"
     fi
 }
 
