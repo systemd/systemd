@@ -1,7 +1,5 @@
 /*
- * usb_id.c
- *
- * Identify an USB (block) device
+ * usb_id - identify an USB device
  *
  * Copyright (c) 2005 SUSE Linux Products GmbH, Germany
  *
@@ -224,8 +222,6 @@ static int usb_id(const char *devpath)
 	struct sysfs_device *dev;
 	struct sysfs_device *dev_interface;
 	struct sysfs_device *dev_usb;
-	const char *scsi_model, *scsi_vendor, *scsi_type, *scsi_rev;
-	const char *usb_model = NULL, *usb_vendor = NULL, *usb_rev, *usb_serial;
 	const char *if_class, *if_subclass;
 	int if_class_num;
 	int protocol = 0;
@@ -271,6 +267,7 @@ static int usb_id(const char *devpath)
 	/* mass storage */
 	if (protocol == 6 && !use_usb_info) {
 		struct sysfs_device *dev_scsi;
+		const char *scsi_model, *scsi_vendor, *scsi_type, *scsi_rev;
 		int host, bus, target, lun;
 
 		/* get scsi device */
@@ -321,40 +318,50 @@ static int usb_id(const char *devpath)
 	}
 
 fallback:
-	/* Fallback to USB vendor & device */
+	/* fallback to USB vendor & device */
 	if (vendor_str[0] == '\0') {
+		const char *usb_vendor = NULL;
+
 		if (!use_num_info)
-			if (!(usb_vendor = sysfs_attr_get_value(dev_usb->devpath, "manufacturer")))
-				dbg("No USB vendor string found, using idVendor");
+			usb_vendor = sysfs_attr_get_value(dev_usb->devpath, "manufacturer");
+
+		if (!usb_vendor)
+			usb_vendor = sysfs_attr_get_value(dev_usb->devpath, "idVendor");
 
 		if (!usb_vendor) {
-			if (!(usb_vendor = sysfs_attr_get_value(dev_usb->devpath, "idVendor"))) {
-				dbg("No USB vendor information available\n");
-				sprintf(vendor_str,"0000");
-			}
+			info("No USB vendor information available");
+			return 1;
 		}
-		set_str(vendor_str,usb_vendor, sizeof(vendor_str) - 1);
+		set_str(vendor_str, usb_vendor, sizeof(vendor_str)-1);
 	}
-	
+
 	if (model_str[0] == '\0') {
+		const char *usb_model = NULL;
+
 		if (!use_num_info)
-			if (!(usb_model = sysfs_attr_get_value(dev_usb->devpath, "product")))
-				dbg("No USB model string found, using idProduct");
-		
+			usb_model = sysfs_attr_get_value(dev_usb->devpath, "product");
+
+		if (!usb_model)
+			usb_model = sysfs_attr_get_value(dev_usb->devpath, "idProduct");
+
 		if (!usb_model) {
-			if (!(usb_model = sysfs_attr_get_value(dev_usb->devpath, "idProduct")))
-				dbg("No USB model information available\n"); sprintf(model_str,"0000");
+			dbg("No USB model information available");
+			return 1;
 		}
-		set_str(model_str, usb_model, sizeof(model_str) - 1);
+		set_str(model_str, usb_model, sizeof(model_str)-1);
 	}
 
 	if (revision_str[0] == '\0') {
+		const char *usb_rev;
+
 		usb_rev = sysfs_attr_get_value(dev_usb->devpath, "bcdDevice");
 		if (usb_rev)
 			set_str(revision_str, usb_rev, sizeof(revision_str)-1);
 	}
 
 	if (serial_str[0] == '\0') {
+		const char *usb_serial;
+
 		usb_serial = sysfs_attr_get_value(dev_usb->devpath, "serial");
 		if (usb_serial)
 			set_str(serial_str, usb_serial, sizeof(serial_str)-1);
