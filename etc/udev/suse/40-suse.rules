@@ -8,7 +8,7 @@ KERNEL=="vttuner*",		GROUP="video"
 KERNEL=="vtx*|vbi*",		GROUP="video"
 KERNEL=="winradio*",		GROUP="video"
 SUBSYSTEM=="dvb",		GROUP="video"
-SUBSYSTEM=="graphics"		GROUP="video"
+SUBSYSTEM=="graphics",		GROUP="video"
 SUBSYSTEM=="video4linux",	GROUP="video"
 KERNEL=="agpgart",		GROUP="video"
 
