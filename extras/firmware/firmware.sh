@@ -3,23 +3,21 @@
 FIRMWARE_DIRS="/lib/firmware /usr/local/lib/firmware"
 
 err() {
-    echo "$@" >&2
-    if type logger >/dev/null; then
-	logger -t "${0##*/}[$$]" "$@"
-    fi
+	echo "$@" >&2
+	logger -t "${0##*/}[$$]" "$@" 2>/dev/null || true
 }
 
 if [ ! -e /sys$DEVPATH/loading ]; then
-    err "udev firmware loader misses sysfs directory"
-    exit 1
+	err "udev firmware loader misses sysfs directory"
+	exit 1
 fi
 
 for DIR in $FIRMWARE_DIRS; do
-    [ -e "$DIR/$FIRMWARE" ] || continue
-    echo 1 > /sys$DEVPATH/loading
-    cat "$DIR/$FIRMWARE" > /sys$DEVPATH/data
-    echo 0 > /sys$DEVPATH/loading
-    exit 0
+	[ -e "$DIR/$FIRMWARE" ] || continue
+	echo 1 > /sys$DEVPATH/loading
+	cat "$DIR/$FIRMWARE" > /sys$DEVPATH/data
+	echo 0 > /sys$DEVPATH/loading
+	exit 0
 done
 
 echo -1 > /sys$DEVPATH/loading
