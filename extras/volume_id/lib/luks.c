@@ -75,6 +75,7 @@ int volume_id_probe_luks(struct volume_id *id, uint64_t off, uint64_t size)
 
 	volume_id_set_usage(id, VOLUME_ID_CRYPTO);
 	volume_id_set_uuid(id, header->uuid, 36, UUID_HEX_STRING);
+	snprintf(id->type_version, sizeof(header->version), "%u", le16_to_cpu(header->version));
 	id->type = "crypto_LUKS";
 	return 0;
 }
