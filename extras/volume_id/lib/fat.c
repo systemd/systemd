@@ -310,7 +310,7 @@ magic:
 	if (!vs->reserved)
 		return -1;
 
-	/* fat count*/
+	/* fat count */
 	if (!vs->fats)
 		return -1;
 
@@ -318,15 +318,14 @@ magic:
 	if (vs->media < 0xf8 && vs->media != 0xf0)
 		return -1;
 
-	/* cluster size check*/	
+	/* cluster size check */
 	if (vs->sectors_per_cluster == 0 ||
 	    (vs->sectors_per_cluster & (vs->sectors_per_cluster-1)))
 		return -1;
 
 	/* sector size check */
 	sector_size = le16_to_cpu(vs->sector_size);
-	if (sector_size != 0x200 && sector_size != 0x400 &&
-	    sector_size != 0x800 && sector_size != 0x1000)
+	if (sector_size == 0 || ((sector_size & (sector_size-1)) != 0))
 		return -1;
 
 	dbg("sector_size 0x%x", sector_size);
