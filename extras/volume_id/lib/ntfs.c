@@ -117,6 +117,9 @@ int volume_id_probe_ntfs(struct volume_id *id, uint64_t off, uint64_t size)
 	volume_id_set_uuid(id, ns->volume_serial, 0, UUID_64BIT_LE);
 
 	sector_size = le16_to_cpu(ns->bytes_per_sector);
+	if (sector_size < 0x200)
+		return -1;
+
 	cluster_size = ns->sectors_per_cluster * sector_size;
 	mft_cluster = le64_to_cpu(ns->mft_cluster_location);
 	mft_off = mft_cluster * cluster_size;
@@ -137,13 +140,12 @@ int volume_id_probe_ntfs(struct volume_id *id, uint64_t off, uint64_t size)
 	buf = volume_id_get_buffer(id, off + mft_off + (MFT_RECORD_VOLUME * mft_record_size),
 			 mft_record_size);
 	if (buf == NULL)
-		goto found;
+		return -1;
 
 	mftr = (struct master_file_table_record*) buf;
-
 	dbg("mftr->magic '%c%c%c%c'", mftr->magic[0], mftr->magic[1], mftr->magic[2], mftr->magic[3]);
 	if (memcmp(mftr->magic, "FILE", 4) != 0)
-		goto found;
+		return -1;
 
 	attr_off = le16_to_cpu(mftr->attrs_offset);
 	dbg("file $Volume's attributes are at offset %i", attr_off);
@@ -186,7 +188,6 @@ int volume_id_probe_ntfs(struct volume_id *id, uint64_t off, uint64_t size)
 		}
 	}
 
-found:
 	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
 	id->type = "ntfs";
 
