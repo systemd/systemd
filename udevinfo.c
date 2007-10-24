@@ -67,6 +67,9 @@ static void print_all_attributes(const char *devpath, const char *key)
 			if (dent->d_name[0] == '.')
 				continue;
 
+			if (strcmp(dent->d_name, "uevent") == 0)
+				continue;
+
 			strlcpy(filename, path, sizeof(filename));
 			strlcat(filename, "/", sizeof(filename));
 			strlcat(filename, dent->d_name, sizeof(filename));
