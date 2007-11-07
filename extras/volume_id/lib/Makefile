@@ -105,7 +105,11 @@ install: all
 	$(INSTALL_LIB) -D $(SHLIB) $(DESTDIR)$(libdir)/$(SHLIB)
 	mkdir -p $(DESTDIR)$(usrlibdir)/
 	ln -sf $(SHLIB) $(DESTDIR)$(libdir)/libvolume_id.so.$(SHLIB_CUR)
+ifeq ($(libdir),$(usrlibdir))
+	ln -sf $(SHLIB) $(DESTDIR)$(usrlibdir)/libvolume_id.so
+else
 	ln -sf $(libdir)/$(SHLIB) $(DESTDIR)$(usrlibdir)/libvolume_id.so
+endif
 	$(INSTALL_DATA) -D libvolume_id.pc $(DESTDIR)$(usrlibdir)/pkgconfig/libvolume_id.pc
 .PHONY: install
 
