@@ -31,21 +31,6 @@
 
 #include "udev.h"
 
-
-#ifdef USE_LOG
-void log_message (int priority, const char *format, ...)
-{
-	va_list	args;
-
-	if (priority > udev_log_priority)
-		return;
-
-	va_start(args, format);
-	vsyslog(priority, format, args);
-	va_end(args);
-}
-#endif
-
 static void print_all_attributes(const char *devpath, const char *key)
 {
 	char path[PATH_SIZE];
@@ -221,7 +206,7 @@ out:
 	return rc;
 }
 
-int main(int argc, char *argv[], char *envp[])
+int udevinfo(int argc, char *argv[], char *envp[])
 {
 	int option;
 	struct udevice *udev;
@@ -336,7 +321,7 @@ int main(int argc, char *argv[], char *envp[])
 			printf("udevinfo, version %s\n", UDEV_VERSION);
 			goto exit;
 		case 'h':
-			printf("Usage: udevinfo OPTIONS\n"
+			printf("Usage: udevadm info OPTIONS\n"
 			       "  --query=<type>    query database for the specified value:\n"
 			       "    name            name of device node\n"
 			       "    symlink         pointing to node\n"

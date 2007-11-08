@@ -16,7 +16,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 
-VERSION = 116
+VERSION = 118
 
 # set this to make use of syslog
 USE_LOG = true
@@ -44,14 +44,9 @@ V =
 
 PROGRAMS = \
 	udevd				\
-	udevtrigger			\
-	udevsettle			\
-	udevcontrol			\
-	udevmonitor			\
-	udevinfo			\
-	udevtest			\
-	test-udev			\
-	udevstart
+	udevadm				\
+	udevstart			\
+	test-udev
 
 HEADERS = \
 	udev.h				\
@@ -73,18 +68,19 @@ UDEV_OBJS = \
 	udev_utils.o			\
 	udev_utils_string.o		\
 	udev_utils_file.o		\
+	udevmonitor.o			\
+	udevinfo.o			\
+	udevcontrol.o			\
+	udevtrigger.o			\
+	udevsettle.o			\
+	udevtest.o			\
 	udev_sysdeps.o
 LIBUDEV = libudev.a
 
 MAN_PAGES = \
 	udev.7				\
-	udevmonitor.8			\
 	udevd.8				\
-	udevtrigger.8			\
-	udevsettle.8			\
-	udevtest.8			\
-	udevinfo.8			\
-	udevstart.8
+	udevadm.8
 
 GEN_HEADERS = \
 	udev_version.h
@@ -242,13 +238,14 @@ install-config:
 
 install-man:
 	$(INSTALL_DATA) -D udev.7 $(DESTDIR)$(mandir)/man7/udev.7
-	$(INSTALL_DATA) -D udevinfo.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
-	$(INSTALL_DATA) -D udevtest.8 $(DESTDIR)$(mandir)/man8/udevtest.8
 	$(INSTALL_DATA) -D udevd.8 $(DESTDIR)$(mandir)/man8/udevd.8
-	$(INSTALL_DATA) -D udevtrigger.8 $(DESTDIR)$(mandir)/man8/udevtrigger.8
-	$(INSTALL_DATA) -D udevsettle.8 $(DESTDIR)$(mandir)/man8/udevsettle.8
-	$(INSTALL_DATA) -D udevmonitor.8 $(DESTDIR)$(mandir)/man8/udevmonitor.8
-	- ln -f -s udevd.8 $(DESTDIR)$(mandir)/man8/udevcontrol.8
+	$(INSTALL_DATA) -D udevadm.8 $(DESTDIR)$(mandir)/man8/udevadm.8
+	ln -f -s udevadm.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
+	ln -f -s udevadm.8 $(DESTDIR)$(mandir)/man8/udevtest.8
+	ln -f -s udevadm.8 $(DESTDIR)$(mandir)/man8/udevtrigger.8
+	ln -f -s udevadm.8 $(DESTDIR)$(mandir)/man8/udevsettle.8
+	ln -f -s udevadm.8 $(DESTDIR)$(mandir)/man8/udevmonitor.8
+	ln -f -s udevadm.8 $(DESTDIR)$(mandir)/man8/udevcontrol.8
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		$(MAKE) -C $$target $@ || exit 1; \
 	done;
@@ -256,6 +253,7 @@ install-man:
 
 uninstall-man:
 	- rm -f $(DESTDIR)$(mandir)/man7/udev.7
+	- rm -f $(DESTDIR)$(mandir)/man8/udevadm.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevinfo.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevtest.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevd.8
@@ -271,12 +269,15 @@ uninstall-man:
 install-bin:
 	$(INSTALL) -d $(DESTDIR)$(udevdir)
 	$(INSTALL_PROGRAM) -D udevd $(DESTDIR)$(sbindir)/udevd
-	$(INSTALL_PROGRAM) -D udevtrigger $(DESTDIR)$(sbindir)/udevtrigger
-	$(INSTALL_PROGRAM) -D udevsettle $(DESTDIR)$(sbindir)/udevsettle
-	$(INSTALL_PROGRAM) -D udevcontrol $(DESTDIR)$(sbindir)/udevcontrol
-	$(INSTALL_PROGRAM) -D udevmonitor $(DESTDIR)$(usrsbindir)/udevmonitor
-	$(INSTALL_PROGRAM) -D udevinfo $(DESTDIR)$(usrbindir)/udevinfo
-	$(INSTALL_PROGRAM) -D udevtest $(DESTDIR)$(usrbindir)/udevtest
+	$(INSTALL_PROGRAM) -D udevadm $(DESTDIR)$(sbindir)/udevadm
+	ln -f -s udevadm $(DESTDIR)$(sbindir)/udevtrigger
+	ln -f -s udevadm $(DESTDIR)$(sbindir)/udevsettle
+	ln -f -s udevadm $(DESTDIR)$(sbindir)/udevcontrol
+	mkdir -p -m 0755 $(DESTDIR)$(usrsbindir)
+	ln -f -s $(sbindir)/udevadm $(DESTDIR)$(usrsbindir)/udevmonitor
+	mkdir -p -m 0755 $(DESTDIR)$(usrbindir)
+	ln -f -s $(sbindir)/udevadm $(DESTDIR)$(usrbindir)/udevinfo
+	ln -f -s $(sbindir)/udevadm $(DESTDIR)$(usrbindir)/udevtest
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		$(MAKE) -C $$target $@ || exit 1; \
 	done;
@@ -289,6 +290,7 @@ endif
 
 uninstall-bin:
 	- rm -f $(DESTDIR)$(sbindir)/udevd
+	- rm -f $(DESTDIR)$(sbindir)/udevadm
 	- rm -f $(DESTDIR)$(sbindir)/udevtrigger
 	- rm -f $(DESTDIR)$(sbindir)/udevsettle
 	- rm -f $(DESTDIR)$(sbindir)/udevcontrol

@@ -34,21 +34,7 @@
 static int sock = -1;
 static int udev_log = 0;
 
-#ifdef USE_LOG
-void log_message (int priority, const char *format, ...)
-{
-	va_list	args;
-
-	if (priority > udev_log)
-		return;
-
-	va_start(args, format);
-	vsyslog(priority, format, args);
-	va_end(args);
-}
-#endif
-
-int main(int argc, char *argv[], char *envp[])
+int udevcontrol(int argc, char *argv[], char *envp[])
 {
 	static struct udevd_ctrl_msg ctrl_msg;
 	struct sockaddr_un saddr;
@@ -124,7 +110,7 @@ int main(int argc, char *argv[], char *envp[])
 		strlcpy(ctrl_msg.buf, val, sizeof(ctrl_msg.buf));
 		info("send env '%s'", val);
 	} else if (strcmp(arg, "help") == 0  || strcmp(arg, "--help") == 0  || strcmp(arg, "-h") == 0) {
-		printf("Usage: udevcontrol COMMAND\n"
+		printf("Usage: udevadm control COMMAND\n"
 			"  log_priority=<level>   set the udev log level for the daemon\n"
 			"  stop_exec_queue        keep udevd from executing events, queue only\n"
 			"  start_exec_queue       execute events, flush queue\n"

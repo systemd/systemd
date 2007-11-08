@@ -42,20 +42,6 @@ LIST_HEAD(filter_subsystem_nomatch_list);
 LIST_HEAD(filter_attr_match_list);
 LIST_HEAD(filter_attr_nomatch_list);
 
-#ifdef USE_LOG
-void log_message(int priority, const char *format, ...)
-{
-	va_list args;
-
-	if (priority > udev_log_priority)
-		return;
-
-	va_start(args, format);
-	vsyslog(priority, format, args);
-	va_end(args);
-}
-#endif
-
 /* devices that should run last cause of their dependencies */
 static int delay_device(const char *devpath)
 {
@@ -445,7 +431,7 @@ static void scan_failed(void)
 	}
 }
 
-int main(int argc, char *argv[], char *envp[])
+int udevtrigger(int argc, char *argv[], char *envp[])
 {
 	int failed = 0;
 	int option;
@@ -499,7 +485,7 @@ int main(int argc, char *argv[], char *envp[])
 			name_list_add(&filter_attr_nomatch_list, optarg, 0);
 			break;
 		case 'h':
-			printf("Usage: udevtrigger OPTIONS\n"
+			printf("Usage: udevadm trigger OPTIONS\n"
 			       "  --verbose                       print the list of devices while running\n"
 			       "  --dry-run                       do not actually trigger the events\n"
 			       "  --retry-failed                  trigger only the events which have been\n"

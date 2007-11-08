@@ -76,17 +76,14 @@ void log_message(int priority, const char *format, ...)
 	if (priority > udev_log_priority)
 		return;
 
+	va_start(args, format);
 	if (verbose) {
 		printf("[%d] ", (int) getpid());
-		va_start(args, format);
 		vprintf(format, args);
-		va_end(args);
 		printf("\n");
-	} else {
-		va_start(args, format);
+	} else
 		vsyslog(priority, format, args);
-		va_end(args);
-	}
+	va_end(args);
 }
 
 #endif

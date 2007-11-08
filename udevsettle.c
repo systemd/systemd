@@ -35,22 +35,7 @@
 #define DEFAULT_TIMEOUT			180
 #define LOOP_PER_SECOND			20
 
-
-#ifdef USE_LOG
-void log_message(int priority, const char *format, ...)
-{
-	va_list args;
-
-	if (priority > udev_log_priority)
-		return;
-
-	va_start(args, format);
-	vsyslog(priority, format, args);
-	va_end(args);
-}
-#endif
-
-int main(int argc, char *argv[], char *envp[])
+int udevsettle(int argc, char *argv[], char *envp[])
 {
 	char queuename[PATH_SIZE];
 	char filename[PATH_SIZE];
@@ -90,7 +75,7 @@ int main(int argc, char *argv[], char *envp[])
 			dbg("timeout=%i", timeout);
 			break;
 		case 'h':
-			printf("Usage: udevsettle [--help] [--timeout=<seconds>]\n\n");
+			printf("Usage: udevadm settle [--help] [--timeout=<seconds>]\n\n");
 			goto exit;
 		}
 	}

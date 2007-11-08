@@ -1,3 +1,12 @@
+udev 117
+========
+Bugfixes.
+
+All udev tools are merged into a single binary called udevadm now.
+The old names of the binary are commands for udevadm now. Symlinks
+provide the functionality of the standalone tools. There is only a
+single udevadm.8 man page for all tools left.
+
 udev 116
 ========
 Bugfixes.

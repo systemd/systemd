@@ -32,22 +32,6 @@
 #include "udev.h"
 #include "udev_rules.h"
 
-
-#ifdef USE_LOG
-void log_message (int priority, const char *format, ...)
-{
-	va_list args;
-
-	if (priority > udev_log_priority)
-		return;
-
-	va_start(args, format);
-	vprintf(format, args);
-	va_end(args);
-	printf("\n");
-}
-#endif
-
 static int import_uevent_var(const char *devpath)
 {
 	char path[PATH_SIZE];
@@ -87,7 +71,7 @@ out:
 	return rc;
 }
 
-int main(int argc, char *argv[], char *envp[])
+int udevtest(int argc, char *argv[], char *envp[])
 {
 	int force = 0;
 	const char *action = "add";
@@ -136,7 +120,7 @@ int main(int argc, char *argv[], char *envp[])
 			force = 1;
 			break;
 		case 'h':
-			printf("Usage: udevtest OPTIONS <devpath>\n"
+			printf("Usage: udevadm test OPTIONS <devpath>\n"
 			       "  --action=<string>     set action string\n"
 			       "  --subsystem=<string>  set subsystem string\n"
 			       "  --force               don't skip node/link creation\n"

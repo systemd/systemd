@@ -609,10 +609,7 @@
             <refentrytitle>udevd</refentrytitle><manvolnum>8</manvolnum>
           </citerefentry>, 
           <citerefentry>
-            <refentrytitle>udevinfo</refentrytitle><manvolnum>8</manvolnum>
-          </citerefentry>, 
-          <citerefentry>
-            <refentrytitle>udevmonitor</refentrytitle><manvolnum>8</manvolnum>
+            <refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum>
         </citerefentry></para>
       </refsect1>
     </refentry>

@@ -123,7 +123,7 @@ static const char *search_key(const char *searchkey, const char *buf, size_t buf
 	return NULL;
 }
 
-int main(int argc, char *argv[])
+int udevmonitor(int argc, char *argv[], char *envp[])
 {
 	struct sigaction act;
 	int option;
@@ -157,7 +157,7 @@ int main(int argc, char *argv[])
 			udev = 1;
 			break;
 		case 'h':
-			printf("Usage: udevmonitor [--environment] [--kernel] [--udev] [--help]\n"
+			printf("Usage: udevadm monitor [--environment] [--kernel] [--udev] [--help]\n"
 			       "  --env    print the whole event environment\n"
 			       "  --kernel print kernel uevents\n"
 			       "  --udev   print udev events\n"

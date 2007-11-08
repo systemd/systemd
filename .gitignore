@@ -1,14 +1,8 @@
 *.o
 *.a
 udevd
-udevcontrol
-udevtrigger
-udevsettle
-udevsend
-udevinfo
-udevmonitor
+udevadm
 udevstart
-udevtest
 udev_version.h
 test-udev
 
