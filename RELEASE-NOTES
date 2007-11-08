@@ -2,10 +2,14 @@ udev 117
 ========
 Bugfixes.
 
-All udev tools are merged into a single binary called udevadm now.
-The old names of the binary are commands for udevadm now. Symlinks
-provide the functionality of the standalone tools. There is only a
-single udevadm.8 man page for all tools left.
+All udev tools are merged into a single binary called udevadm.
+The old names of the tools are built-in commands in udevadm now.
+Symlinks to udevadm, with the names of the old tools, provide
+the same functionality as the standalone tools. There is also
+only a single udevadm.8 man page left for all tools.
+
+Tools like mkinitramfs should be checked, if they need to include
+udevadm in the list of files.
 
 udev 116
 ========

@@ -65,7 +65,7 @@ static int help(int argc, char *argv[], char *envp[])
 {
 	const struct command *cmd;
 
-	printf("Usage: udev COMMAND [OPTIONS]\n");
+	printf("Usage: udevadm COMMAND [OPTIONS]\n");
 	for (cmd = cmds; cmd->name != NULL; cmd++)
 		printf("  %-12s %s\n", cmd->name, cmd->help);
 	printf("\n");
@@ -145,8 +145,12 @@ int main(int argc, char *argv[], char *envp[])
 		argc--;
 	}
 
-	if (command == NULL || command[0] == '\0')
+	if (command == NULL)
 		goto err_unknown;
+
+	/* allow command to be specified as an option */
+	if (strncmp(command, "--", 2) == 0)
+		command += 2;
 
 	/* find and execute command */
 	for (cmd = cmds; cmd->name != NULL; cmd++) {
