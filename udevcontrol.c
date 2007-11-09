@@ -60,6 +60,10 @@ int udevcontrol(int argc, char *argv[], char *envp[])
 	strcpy(ctrl_msg.magic, UDEVD_CTRL_MAGIC);
 	arg = argv[1];
 
+	/* allow instructions passed as options */
+	if (strncmp(arg, "--", 2) == 0)
+		arg += 2;
+
 	if (!strcmp(arg, "stop_exec_queue"))
 		ctrl_msg.type = UDEVD_CTRL_STOP_EXEC_QUEUE;
 	else if (!strcmp(arg, "start_exec_queue"))
@@ -109,16 +113,16 @@ int udevcontrol(int argc, char *argv[], char *envp[])
 		ctrl_msg.type = UDEVD_CTRL_ENV;
 		strlcpy(ctrl_msg.buf, val, sizeof(ctrl_msg.buf));
 		info("send env '%s'", val);
-	} else if (strcmp(arg, "help") == 0  || strcmp(arg, "--help") == 0  || strcmp(arg, "-h") == 0) {
+	} else if (strcmp(arg, "help") == 0  || strcmp(arg, "-h") == 0) {
 		printf("Usage: udevadm control COMMAND\n"
-			"  log_priority=<level>   set the udev log level for the daemon\n"
-			"  stop_exec_queue        keep udevd from executing events, queue only\n"
-			"  start_exec_queue       execute events, flush queue\n"
-			"  reload_rules           reloads the rules files\n"
-			"  env <var>=<value>      set a global environment variable\n"
-			"  max_childs=<N>         maximum number of childs\n"
-			"  max_childs_running=<N> maximum number of childs running at the same time\n"
-			"  help                   print this help text\n\n");
+			"  --log_priority=<level>   set the udev log level for the daemon\n"
+			"  --stop_exec_queue        keep udevd from executing events, queue only\n"
+			"  --start_exec_queue       execute events, flush queue\n"
+			"  --reload_rules           reloads the rules files\n"
+			"  --env <var>=<value>      set a global environment variable\n"
+			"  --max_childs=<N>         maximum number of childs\n"
+			"  --max_childs_running=<N> maximum number of childs running at the same time\n"
+			"  --help                   print this help text\n\n");
 		goto exit;
 	} else {
 		fprintf(stderr, "unrecognized command '%s'\n", arg);
