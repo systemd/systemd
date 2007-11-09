@@ -213,9 +213,6 @@ static int stat_device(const char *name)
 	if (stat(name, &statbuf) != 0)
 		return -1;
 
-	if (major(statbuf.st_dev) == 0)
-		return -1;
-
 	printf("%d %d\n", major(statbuf.st_dev), minor(statbuf.st_dev));
 	return 0;
 }
