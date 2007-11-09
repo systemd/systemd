@@ -51,7 +51,7 @@
 
       <refsect1><title>DESCRIPTION</title>
         <para>udevadm expects a command and command specific options.  It
-        controls the runtime behavior of udev, request kernel events,
+        controls the runtime behavior of udev, requests kernel events,
         manages the event queue, and provides simple debugging mechanisms.</para>
       </refsect1>
 
