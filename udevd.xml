@@ -4,7 +4,7 @@
 
 <article>
   <section>
-    <title>udevd, udevcontrol</title>
+    <title>udevd</title>
     <refentry>
       <refentryinfo>
         <title>udevd</title>
@@ -31,15 +31,14 @@
           <arg><option>--version</option></arg>
           <arg><option>--help</option></arg>
         </cmdsynopsis>
-        <cmdsynopsis>
-          <command>udevcontrol <replaceable>command</replaceable></command>
-        </cmdsynopsis>
       </refsynopsisdiv>
 
       <refsect1><title>DESCRIPTION</title>
         <para>udevd listens to kernel uevents and passes the incoming events to
-        udev. It ensures the right event order and takes care, that events for child
-        devices are delayed until the parent has finished the device handling. </para>
+        udev. It ensures the correct event order and takes care, that events for child
+        devices are delayed until the parent event has finished the device handling.
+        The behavior of the running daemon can be changed with
+        <command>udevadm control</command>.</para>
       </refsect1>
 
       <refsect1><title>OPTIONS</title>
@@ -69,59 +68,6 @@
             <term><option>--version</option></term>
             <listitem>
               <para>Print version number.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><option>--help</option></term>
-            <listitem>
-              <para>Print usage.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><option>log_priority=<replaceable>value</replaceable></option></term>
-            <listitem>
-              <para>Set the internal log level of udevd. Valid values are the numerical
-              syslog priorities or their textual representations: <option>err</option>,
-              <option>info</option> and <option>debug</option>.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><option>stop_exec_queue</option></term>
-            <listitem>
-              <para>Signal udevd to stop executing new events. Incoming events
-              will be queued.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><option>start_exec_queue</option></term>
-            <listitem>
-              <para>Signal udevd to enable the execution of events.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><option>reload_rules</option></term>
-            <listitem>
-              <para>Signal udevd to reload the rules from the config.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><option>env <replaceable>var</replaceable>=<replaceable>value</replaceable></option></term>
-            <listitem>
-              <para>Set global variable.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><option>max_childs</option></term>
-            <listitem>
-              <para>Set the maximum number of events, udevd will handle at the
-              same time.</para>
-            </listitem>
-          </varlistentry>
-          <varlistentry>
-            <term><option>max_childs_running</option></term>
-            <listitem>
-              <para>Set the maximum number of events, which are allowed to run at the
-              same time. </para>
             </listitem>
           </varlistentry>
           <varlistentry>

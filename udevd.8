@@ -2,10 +2,10 @@
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets v1.73.1 <http://docbook.sf.net/>
 .\"      Date: August 2005
-.\"    Manual: udevd, udevcontrol
+.\"    Manual: udevd
 .\"    Source: udev
 .\"
-.TH "UDEVD" "8" "August 2005" "udev" "udevd, udevcontrol"
+.TH "UDEVD" "8" "August 2005" "udev" "udevd"
 .\" disable hyphenation
 .nh
 .\" disable justification (adjust text to left margin only)
@@ -15,11 +15,10 @@ udevd - event managing daemon
 .SH "SYNOPSIS"
 .HP 6
 \fBudevd\fR [\fB\-\-daemon\fR] [\fB\-\-debug\-trace\fR] [\fB\-\-verbose\fR] [\fB\-\-version\fR] [\fB\-\-help\fR]
-.HP 20
-\fBudevcontrol \fR\fB\fIcommand\fR\fR
 .SH "DESCRIPTION"
 .PP
-udevd listens to kernel uevents and passes the incoming events to udev\. It ensures the right event order and takes care, that events for child devices are delayed until the parent has finished the device handling\.
+udevd listens to kernel uevents and passes the incoming events to udev\. It ensures the correct event order and takes care, that events for child devices are delayed until the parent event has finished the device handling\. The behavior of the running daemon can be changed with
+\fBudevadm control\fR\.
 .SH "OPTIONS"
 .PP
 \fB\-\-daemon\fR
@@ -40,50 +39,6 @@ Print log messages to stdout\.
 \fB\-\-version\fR
 .RS 4
 Print version number\.
-.RE
-.PP
-\fB\-\-help\fR
-.RS 4
-Print usage\.
-.RE
-.PP
-\fBlog_priority=\fR\fB\fIvalue\fR\fR
-.RS 4
-Set the internal log level of udevd\. Valid values are the numerical syslog priorities or their textual representations:
-\fBerr\fR,
-\fBinfo\fR
-and
-\fBdebug\fR\.
-.RE
-.PP
-\fBstop_exec_queue\fR
-.RS 4
-Signal udevd to stop executing new events\. Incoming events will be queued\.
-.RE
-.PP
-\fBstart_exec_queue\fR
-.RS 4
-Signal udevd to enable the execution of events\.
-.RE
-.PP
-\fBreload_rules\fR
-.RS 4
-Signal udevd to reload the rules from the config\.
-.RE
-.PP
-\fBenv \fR\fB\fIvar\fR\fR\fB=\fR\fB\fIvalue\fR\fR
-.RS 4
-Set global variable\.
-.RE
-.PP
-\fBmax_childs\fR
-.RS 4
-Set the maximum number of events, udevd will handle at the same time\.
-.RE
-.PP
-\fBmax_childs_running\fR
-.RS 4
-Set the maximum number of events, which are allowed to run at the same time\.
 .RE
 .PP
 \fBhelp\fR
