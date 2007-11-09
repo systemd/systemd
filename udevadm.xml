@@ -80,7 +80,7 @@
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><option>--name=<replaceable>node</replaceable></option></term>
+              <term><option>--name=<replaceable>file</replaceable></option></term>
               <listitem>
                 <para>The name of the device node or a symlink to query</para>
               </listitem>
@@ -99,6 +99,13 @@
                 <para>Print all sysfs properties of the specified device that can be used
                 in udev rules to match the specified device. It prints all devices
                 along the chain, up to the root of sysfs that can be used in udev rules.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>--device-id-of-file=<replaceable>file</replaceable></option></term>
+              <listitem>
+                <para>Print major/minor numbers of the underlying device, where the file
+                lives on.</para>
               </listitem>
             </varlistentry>
             <varlistentry>

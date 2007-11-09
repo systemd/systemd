@@ -206,6 +206,20 @@ out:
 	return rc;
 }
 
+static int stat_device(const char *name)
+{
+	struct stat statbuf;
+
+	if (stat(name, &statbuf) != 0)
+		return -1;
+
+	if (major(statbuf.st_dev) == 0)
+		return -1;
+
+	printf("%d %d\n", major(statbuf.st_dev), minor(statbuf.st_dev));
+	return 0;
+}
+
 int udevinfo(int argc, char *argv[], char *envp[])
 {
 	int option;
@@ -219,6 +233,7 @@ int udevinfo(int argc, char *argv[], char *envp[])
 		{ "attribute-walk", 0, NULL, 'a' },
 		{ "export-db", 0, NULL, 'e' },
 		{ "root", 0, NULL, 'r' },
+		{ "device-id-of-file", 1, NULL, 'd' },
 		{ "version", 0, NULL, 1 }, /* -V outputs braindead format */
 		{ "help", 0, NULL, 'h' },
 		{}
@@ -229,6 +244,7 @@ int udevinfo(int argc, char *argv[], char *envp[])
 		ACTION_QUERY,
 		ACTION_ATTRIBUTE_WALK,
 		ACTION_ROOT,
+		ACTION_DEVICE_ID_FILE,
 	} action = ACTION_NONE;
 
 	enum query_type {
@@ -256,7 +272,7 @@ int udevinfo(int argc, char *argv[], char *envp[])
 	}
 
 	while (1) {
-		option = getopt_long(argc, argv, "aen:p:q:rVh", options, NULL);
+		option = getopt_long(argc, argv, "aed:n:p:q:rVh", options, NULL);
 		if (option == -1)
 			break;
 
@@ -308,6 +324,10 @@ int udevinfo(int argc, char *argv[], char *envp[])
 				action = ACTION_ROOT;
 			root = 1;
 			break;
+		case 'd':
+			action = ACTION_DEVICE_ID_FILE;
+			strlcpy(name, optarg, sizeof(name));
+			break;
 		case 'a':
 			action = ACTION_ATTRIBUTE_WALK;
 			break;
@@ -322,20 +342,20 @@ int udevinfo(int argc, char *argv[], char *envp[])
 			goto exit;
 		case 'h':
 			printf("Usage: udevadm info OPTIONS\n"
-			       "  --query=<type>    query database for the specified value:\n"
-			       "    name            name of device node\n"
-			       "    symlink         pointing to node\n"
-			       "    path            sysfs device path\n"
-			       "    env             the device related imported environment\n"
-			       "    all             all values\n"
-			       "\n"
-			       "  --path=<devpath>  sysfs device path used for query or chain\n"
-			       "  --name=<name>     node or symlink name used for query\n"
-			       "\n"
-			       "  --root            prepend to query result or print udev_root\n"
-			       "  --attribute-walk  print all SYSFS_attributes along the device chain\n"
-			       "  --export-db       export the content of the udev database\n"
-			       "  --help            print this text\n"
+			       "  --query=<type>             query database for the specified value:\n"
+			       "      name                     name of device node\n"
+			       "      symlink                  pointing to node\n"
+			       "      path                     sysfs device path\n"
+			       "      env                      the device related imported environment\n"
+			       "      all                      all values\n"
+			       "  --path=<devpath>           sysfs device path used for query or chain\n"
+			       "  --name=<name>              node or symlink name used for query\n"
+			       "  --root                     prepend to query result or print udev_root\n"
+			       "  --attribute-walk           print all key matches while walking along chain\n"
+			       "                             of parent devices\n"
+			       "  --device-id-of-file=<file> print major/minor of underlying device\n"
+			       "  --export-db                export the content of the udev database\n"
+			       "  --help                     print this text\n"
 			       "\n");
 			goto exit;
 		default:
@@ -420,6 +440,10 @@ int udevinfo(int argc, char *argv[], char *envp[])
 			rc = 5;
 			goto exit;
 		}
+		break;
+	case ACTION_DEVICE_ID_FILE:
+		if (stat_device(name) != 0)
+			rc = 6;
 		break;
 	case ACTION_ROOT:
 		printf("%s\n", udev_root);

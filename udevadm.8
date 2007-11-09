@@ -31,7 +31,7 @@ udevadm - udev management tool
 \fBudevadm help\fR
 .SH "DESCRIPTION"
 .PP
-udevadm expects a command and command specific options\. It controls the runtime behavior of udev, request kernel events, manages the event queue, and provides simple debugging mechanisms\.
+udevadm expects a command and command specific options\. It controls the runtime behavior of udev, requests kernel events, manages the event queue, and provides simple debugging mechanisms\.
 .SH "OPTIONS"
 .SS "udevadm info"
 .PP
@@ -56,7 +56,7 @@ to identify the specified device\. Valid queries are:
 The devpath of the device to query\.
 .RE
 .PP
-\fB\-\-name=\fR\fB\fInode\fR\fR
+\fB\-\-name=\fR\fB\fIfile\fR\fR
 .RS 4
 The name of the device node or a symlink to query
 .RE
@@ -74,6 +74,11 @@ query, the query returns the absolute path including the root directory\.
 \fB\-\-attribute\-walk\fR
 .RS 4
 Print all sysfs properties of the specified device that can be used in udev rules to match the specified device\. It prints all devices along the chain, up to the root of sysfs that can be used in udev rules\.
+.RE
+.PP
+\fB\-\-device\-id\-of\-file=\fR\fB\fIfile\fR\fR
+.RS 4
+Print major/minor numbers of the underlying device, where the file lives on\.
 .RE
 .PP
 \fB\-\-export\-db\fR
