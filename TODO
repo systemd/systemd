@@ -8,10 +8,6 @@ These things will change in future udev versions:
 
 These things are deprecated and scheduled for removal in a future
 udev version:
-  o remove udevstart
-    (we rely on the kernel "uevent"-triggers of kernel 2.6.15 and no longer
-     want to guess event-properties from sysfs like udevstart is doing it)
-
   o remove man page symlinks for old tool names
 
   o some day, remove the symlinks to udevadm

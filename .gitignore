@@ -2,7 +2,6 @@
 *.a
 udevd
 udevadm
-udevstart
 udev_version.h
 test-udev
 

@@ -45,7 +45,6 @@ V =
 PROGRAMS = \
 	udevd				\
 	udevadm				\
-	udevstart			\
 	test-udev
 
 HEADERS = \
@@ -314,7 +313,6 @@ uninstall: uninstall-bin uninstall-man
 
 test tests: all
 	@ cd test && ./udev-test.pl
-	@ cd test && ./udevstart-test.pl
 .PHONY: test tests
 
 buildtest:

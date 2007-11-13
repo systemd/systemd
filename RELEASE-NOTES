@@ -1,3 +1,8 @@
+udev 118
+========
+udevstart is removed from the tree, it did not get installed for
+a long time now and is long replaced by trigger and settle.
+
 udev 117
 ========
 Bugfixes.
