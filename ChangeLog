@@ -1,3 +1,38 @@
+Summary of changes from v116 to v117
+============================================
+
+Dan Nicholson (2):
+      extras: ignore built and generated files
+      volume_id: create relative symlink when $(libdir) = $(usrlibdir)
+
+Kay Sievers (15):
+      usb_id: fail if vendor/product can not be retrieved
+      rules: SUSE update
+      firmware: do not print error if logger is missing
+      volume_id: vfat - allow all possible sector sizes
+      volume_id: LUKS - export version
+      volume_id: ntfs - rely on valid master file table
+      volume_id: bump version
+      udevinfo: exclude "uevent" file from --attribute-walk
+      udevadm: merge all udev tools into a single binary
+      udevadm: accept command as option, like --help, --version
+      udevadm: add info option --device-id-of-file=<file>
+      Makefile: fix bogus version number than got committed
+      udevadm: also return major==0 results for --device-id-of-file
+      man: udevd.8 - remove udevcontrol section
+      udevadm: control - allow command to be passed as option
+
+MUNEDA Takahiro (1):
+      man: fix udevadm.8 typo
+
+Matthias Schwarzott (2):
+      firmware: remove hardcoded path to logger
+      rules: Gentoo update
+
+VMiklos (1):
+      rules: Frugalware update
+
+
 Summary of changes from v115 to v116
 ============================================
 
