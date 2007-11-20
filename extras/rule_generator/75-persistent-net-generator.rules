@@ -44,6 +44,9 @@ SUBSYSTEMS=="ieee1394", ENV{COMMENT}="Firewire device $attr{host_id})"
 # S/390 uses id matches only, do not use MAC address match
 SUBSYSTEMS=="ccwgroup", ENV{COMMENT}="S/390 $driver device at $id", ENV{MATCHID}="$id", ENV{MATCHDRV}="$driver", ENV{MATCHADDR}=""
 
+# see if we got enough data to create a rule
+ENV{MATCHADDR}=="", ENV{MATCHID}=="", ENV{INTERFACE_NAME}=="", GOTO="persistent_net_generator_end"
+
 # default comment
 ENV{COMMENT}=="", ENV{COMMENT}="$env{SUBSYSTEM} device"
 
