@@ -197,7 +197,8 @@
             <varlistentry>
               <term><option>--timeout=<replaceable>seconds</replaceable></option></term>
               <listitem>
-                <para>Maximum seconds to wait for the queue to become empty.</para>
+                <para>Maximum number of seconds to wait for the event queue to become empty.
+                The default value is 180 seconds.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
