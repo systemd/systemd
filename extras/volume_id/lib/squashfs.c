@@ -27,7 +27,7 @@
 #include "util.h"
 
 #define SQUASHFS_MAGIC		0x73717368
-#define SQUASHFS_MAGIC_LZMA	0x73687371
+#define SQUASHFS_MAGIC_LZMA	0x71736873
 
 struct squashfs_super {
 	uint32_t	s_magic;
@@ -51,19 +51,14 @@ int volume_id_probe_squashfs(struct volume_id *id, uint64_t off, uint64_t size)
 	if (sqs == NULL)
 		return -1;
 
-	if (sqs->s_magic == SQUASHFS_MAGIC) {
+	if (sqs->s_magic == SQUASHFS_MAGIC || sqs->s_magic == SQUASHFS_MAGIC_LZMA) {
 		snprintf(id->type_version, sizeof(id->type_version), "%u.%u",
 			 sqs->s_major, sqs->s_minor);
 		goto found;
 	}
-	if (sqs->s_magic == bswap_32(SQUASHFS_MAGIC)) {
+	if (sqs->s_magic == bswap_32(SQUASHFS_MAGIC) || sqs->s_magic == bswap_32(SQUASHFS_MAGIC_LZMA)) {
 		snprintf(id->type_version, sizeof(id->type_version), "%u.%u",
 			 bswap_16(sqs->s_major), bswap_16(sqs->s_minor));
-		goto found;
-	}
-	if (sqs->s_magic == bswap_32(SQUASHFS_MAGIC_LZMA)) {
-		snprintf(id->type_version, sizeof(id->type_version), "%u.%u",
-		sqs->s_major, sqs->s_minor);
 		goto found;
 	}
 
