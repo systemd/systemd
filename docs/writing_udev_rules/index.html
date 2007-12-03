@@ -7,6 +7,7 @@
 <!--
 	.green { color: #003300; }
 	.blue  { color: #0000CC; }
+	.maroon { color: maroon; }
 //-->
 </style>
 <title>Writing udev rules</title>
@@ -16,7 +17,7 @@
 
 <h1>Writing udev rules</h1>
 by Daniel Drake (dsd)<br />
-Version 0.72<br /><br />
+Version 0.73<br /><br />
 
 The most recent version of this document can always be found at: <br />
 
@@ -43,6 +44,7 @@ The most recent version of this document can always be found at: <br />
 	<li><a href="#syntax">Rule syntax</a></li>
 	<li><a href="#basic">Basic rules</a></li>
 	<li><a href="#sysfsmatch">Matching sysfs attributes</a></li>
+	<li><a href="#hierarchy">Device hierarchy</a></li>
 	<li><a href="#strsubst">String substitutions</a></li>
 	<li><a href="#strmatch">String matching</a></li>
 	</ul>
@@ -68,7 +70,7 @@ The most recent version of this document can always be found at: <br />
 	<li><a href="#example-printer">USB Printer</a></li>
 	<li><a href="#example-camera">USB Camera</a></li>
 	<li><a href="#example-usbhdd">USB Hard Disk</a></li>
-	<li><a href="#example-usbcardreader">USB Hard Disk</a></li>
+	<li><a href="#example-usbcardreader">USB Card Reader</a></li>
 	<li><a href="#example-pilot">USB Palm Pilot</a></li>
 	<li><a href="#example-cdrom">CD/DVD drives</a></li>
 	<li><a href="#example-netif">Network interfaces</a></li>
@@ -112,7 +114,8 @@ This document uses various examples (many of which are entirely fictional) to il
 <h3>History</h3>
 
 <ul>
-<ul>October 2nd 2006 v0.72: Fixed a typo in one of the example rules.</li>
+<li>December 3rd 2007 v0.73: Update for new udev versions, and some miscellaneous improvements.</li>
+<li>October 2nd 2006 v0.72: Fixed a typo in one of the example rules.</li>
 <li>June 10th 2006 v0.71: Misc changes based on recent feedback - thanks!</li>
 <li>June 3rd 2006 v0.7: Complete rework, to be more suited for the modern-day udev.</li>
 <li>May 9th 2005 v0.6: Misc updates, including information about udevinfo, groups and permissions, logging, and udevtest.</li>
@@ -238,6 +241,10 @@ Here is an example rule to illustrate the above:
 The above rule includes one match key (<em>KERNEL</em>) and one assignment key (<em>NAME</em>). The semantics of these keys and their properties will be detailed later. It is important to note that the match key is related to its value through the equality operator (==), whereas the assignment key is related to its value through the assignment operator (=).
 </p>
 
+<p>
+Be aware that udev does not support any form of line continuation. Do not insert any line breaks in your rules, as this will cause udev to see your one rule as multiple rules and will not work as expected.
+</p>
+
 <a name="basic"></a>
 <h3>Basic Rules</h3>
 
@@ -248,7 +255,7 @@ udev provides several different match keys which can be used to write rules whic
 <ul>
 <li><b>KERNEL</b> - match against the kernel name for the device</li>
 <li><b>SUBSYSTEM</b> - match against the subsystem of the device</li>
-<li><b>DRIVER</b> - match against the driver name for the device</li>
+<li><b>DRIVER</b> - match against the name of the driver backing the device</li>
 </ul>
 
 <p>
@@ -290,18 +297,38 @@ The match keys introduced so far only provide limited matching capabilities. Rea
 </p>
 
 <p>
-Many drivers export information like this into sysfs, and udev allows us to incorporate sysfs-matching into our rules, using the <em>SYSFS</em> key with a slightly different syntax.
+Many drivers export information like this into sysfs, and udev allows us to incorporate sysfs-matching into our rules, using the <em>ATTR</em> key with a slightly different syntax.
 </p>
 
 <p>
-Here are some examples of rules which match data from sysfs. Further detail will be provided later in this document which will aid you in writing rules based on sysfs attributes.
+Here is an example rule which matches a single attribute from sysfs. Further detail will be provided later in this document which will aid you in writing rules based on sysfs attributes.
 </p>
 
 <blockquote><pre>
-KERNEL=="sda", SYSFS{model}=="ST3120827AS", SYMLINK+="my_hard_disk"
-SUBSYSTEM=="block", SYSFS{size}=="234441648", SYMLINK+="my_disk"
-BUS=="usb", SYSFS{manufacturer}=="OLYMPUS", SYSFS{product}=="X250,D560Z,C350Z", SYMLINK+="camera"
+SUBSYSTEM=="block", ATTR{size}=="234441648", SYMLINK+="my_disk"
 </pre></blockquote>
+
+<a name="hierarchy"></a>
+<h3>Device hierarchy</h3>
+
+<p>
+The Linux kernel actually represents devices in a tree-like structure, and this information is exposed through sysfs and useful when writing rules. For example, the device representation of my hard disk device is a child of the SCSI disk device, which is in turn a child of the Serial ATA controller device, which is in turn a child of the PCI bus device. It is likely that you will find yourself needing to refer to information from a parent of the device in question, for example the serial number of my hard disk device is not exposed at the device level, it is exposed by its direct parent at the SCSI disk level.
+</p>
+
+<p>
+The four main match keys introduced so far (KERNEL/SUBSYSTEM/DRIVER/ATTR) only match against values corresponding to the device in question, and do not match values from parent devices. udev provides variants of the match keys that will search upwards through the tree:
+</p>
+
+<ul>
+<li><b>KERNELS</b> - match against the kernel name for the device, or the kernel name for any of the parent devices</li>
+<li><b>SUBSYSTEMS</b> - match against the subsystem of the device, or the subsystem of any of the parent devices</li>
+<li><b>DRIVERS</b> - match against the name of the driver backing the device, or the name of the driver backing any of the parent devices</li>
+<li><b>ATTRS</b> - match a sysfs attribute of the device, or a sysfs attribute of any of the parent devices</li>
+</ul>
+
+<p>
+With hierarchy considerations in mind, you may feel that rule writing is becoming a little complicated. Rest assured that there are tools that help out here, which will be introduced later.
+</p>
 
 <a name="strsubst"></a>
 <h3>String substitutions</h3>
@@ -371,17 +398,17 @@ The concept of using interesting information from sysfs was briefly touched upon
 </p>
 
 <p>
-sysfs is actually a very simple structure. It is logically divided into directories. Each directory contains a number of files (<em>attributes</em>) which typically contain just one value. Some symbolic links are present, which link various parts of the tree together.
+sysfs is actually a very simple structure. It is logically divided into directories. Each directory contains a number of files (<em>attributes</em>) which typically contain just one value. Some symbolic links are present, which link devices to their parents. The hierarchical structure was touched upon above.
 </p>
 
 <p>
-Some directories are referred to as <em>top-level device paths</em>. These directories act as the top-level glue which chain other parts of sysfs to the device in question. Top-level device paths can be classified as sysfs directories which contain a <em>dev</em> file, the following command will list these for you:
+Some directories are referred to as <em>top-level device paths</em>. These directories represent actual devices that have corresponding device nodes. Top-level device paths can be classified as sysfs directories which contain a <em>dev</em> file, the following command will list these for you:
 </p>
 
 <blockquote><pre># find /sys -name dev</pre></blockquote>
 
 <p>
-For example, on my system, the <em>/sys/block/sda</em> directory is the device path for my hard disk. It is chained to the controller through the <em>/sys/block/sda/device/</em> symbolic link, which is in turn chained to the device driver through the <em>/sys/block/sda/device/driver/</em> symbolic link.
+For example, on my system, the <em>/sys/block/sda</em> directory is the device path for my hard disk. It is linked to it's parent, the SCSI disk device, through the <em>/sys/block/sda/device</em> symbolic link.
 </p>
 
 <p>
@@ -394,7 +421,7 @@ When you write rules based on sysfs information, you are simply matching attribu
 </pre></blockquote>
 
 <p>
-In a udev rule, I could use SYSFS{size}=="234441648" to identify this disk. As udev iterates through the entire device chain, I could alternatively opt to match attributes in another part of the chain (e.g. attributes in <em>/sys/class/block/sda/device/</em>), however there are some caveats when dealing with different parts of the chain which are described later.
+In a udev rule, I could use ATTR{size}=="234441648" to identify this disk. As udev iterates through the entire device chain, I could alternatively opt to match attributes in another part of the chain (e.g. attributes in <em>/sys/class/block/sda/device/</em>) using <em>ATTRS</em>, however there are some caveats when dealing with different parts of the chain which are described later.
 </p>
 
 <p>
@@ -414,30 +441,37 @@ Enter <em>udevinfo</em>, which is probably the most straightforward tool you can
 <span class="green">  looking at device '/block/sda':
     KERNEL=="sda"
     SUBSYSTEM=="block"
-    SYSFS{stat}=="  128535     2246  2788977   766188    73998   317300  3132216  5735004        0   516516  6503316"
-    SYSFS{size}=="234441648"
-    SYSFS{removable}=="0"
-    SYSFS{range}=="16"
-    SYSFS{dev}=="8:0"</span>
+    ATTR{stat}=="  128535     2246  2788977   766188    73998   317300  3132216  5735004        0   516516  6503316"
+    ATTR{size}=="234441648"
+    ATTR{removable}=="0"
+    ATTR{range}=="16"
+    ATTR{dev}=="8:0"</span>
 
-<span class="blue">  looking at device '/devices/pci0000:00/0000:00:07.0/host0/target0:0:0/0:0:0:0':
-    ID=="0:0:0:0"
-    BUS=="scsi"
-    DRIVER=="sd"
-    SYSFS{ioerr_cnt}=="0x0"
-    SYSFS{iodone_cnt}=="0x31737"
-    SYSFS{iorequest_cnt}=="0x31737"
-    SYSFS{iocounterbits}=="32"
-    SYSFS{timeout}=="30"
-    SYSFS{state}=="running"
-    SYSFS{rev}=="3.42"
-    SYSFS{model}=="ST3120827AS     "
-    SYSFS{vendor}=="ATA     "
-    SYSFS{scsi_level}=="6"
-    SYSFS{type}=="0"
-    SYSFS{queue_type}=="none"
-    SYSFS{queue_depth}=="1"
-    SYSFS{device_blocked}=="0"</span>
+<span class="blue">  looking at parent device '/devices/pci0000:00/0000:00:07.0/host0/target0:0:0/0:0:0:0':
+    KERNELS=="0:0:0:0"
+    SUBSYSTEMS=="scsi"
+    DRIVERS=="sd"
+    ATTRS{ioerr_cnt}=="0x0"
+    ATTRS{iodone_cnt}=="0x31737"
+    ATTRS{iorequest_cnt}=="0x31737"
+    ATTRS{iocounterbits}=="32"
+    ATTRS{timeout}=="30"
+    ATTRS{state}=="running"
+    ATTRS{rev}=="3.42"
+    ATTRS{model}=="ST3120827AS     "
+    ATTRS{vendor}=="ATA     "
+    ATTRS{scsi_level}=="6"
+    ATTRS{type}=="0"
+    ATTRS{queue_type}=="none"
+    ATTRS{queue_depth}=="1"
+    ATTRS{device_blocked}=="0"</span>
+
+<span class="maroon">  looking at parent device '/devices/pci0000:00/0000:00:07.0':
+    KERNELS=="0000:00:07.0"
+    SUBSYSTEMS=="pci"
+    DRIVERS=="sata_nv"
+    ATTRS{vendor}=="0x10de"
+    ATTRS{device}=="0x037f"</span>
 </pre></blockquote>
 
 <p>
@@ -445,18 +479,22 @@ As you can see, udevinfo simply produces a list of attributes you can use as-is 
 </p>
 
 <blockquote><pre>
-SUBSYSTEM=="block", <span class="green">SYSFS{size}=="234441648",</span> NAME="my_hard_disk"
-BUS=="scsi", <span class="blue">SYSFS{model}=="ST3120827AS",</span> NAME="my_hard_disk"</pre></blockquote>
+<span class="green">SUBSYSTEM=="block"</span>, <span class="green">ATTR{size}=="234441648",</span> NAME="my_hard_disk"
+<span class="green">SUBSYSTEM="block"</span>, <span class="blue">SUBSYSTEMS=="scsi"</span>, <span class="blue">ATTRS{model}=="ST3120827AS",</span> NAME="my_hard_disk"</pre></blockquote>
 
 <p>
-You may have noted the use of colour in the above examples. This is to demonstrate that you generally can <em>not</em> mix-and-match attributes from different sections of the udevinfo output - your rule will not work. For example, the following rule is <em>invalid</em>:
+You may have noted the use of colour in the above examples. This is to demonstrate that while it is legal to combine the attributes from the device in question and a <em>single</em> parent device, you cannot mix-and-match attributes from multiple parent devices - your rule will not work. For example, the following rule is <em>invalid</em> as it attempts to match attributes from two parent devices:
 </p>
 
 <blockquote><pre>
-SUBSYSTEM=="block", <span class="green">SYSFS{size}=="234441648",</span> <span class="blue">SYSFS{model}=="ST3120827AS",</span> NAME="my_hard_disk"</pre></blockquote>
+<span class="green">SUBSYSTEM=="block"</span>, <span class="blue">ATTRS{model}=="ST3120827AS"</span>, <span class="maroon">DRIVERS=="sata_nv"</span>, NAME="my_hard_disk"</pre></blockquote>
 
 <p>
-You are usually provided with a large number of attributes, and you must pick a number of them (from the same section) to construct your rule. In general, you want to choose attributes which identify your device in a persistent and human-recognisable way. In the examples above, I chose the size of my disk and its model number. I did not use meaningless numbers such as SYSFS{iodone_cnt}=="0x31737".
+You are usually provided with a large number of attributes, and you must pick a number of them to construct your rule. In general, you want to choose attributes which identify your device in a persistent and human-recognisable way. In the examples above, I chose the size of my disk and its model number. I did not use meaningless numbers such as ATTRS{iodone_cnt}=="0x31737".
+</p>
+
+<p>
+Observe the effects of hierarchy in the udevinfo output. The <span class="green">green</span> section corresponding to the device in question uses the standard match keys such as KERNEL and ATTR. The <span class="blue">blue</span> and <span class="maroon">maroon</span> sections corresponding to parent devices use the parent-traversing variants such as SUBSYSTEMS and ATTRS. This is why the complexity introduced by the hierarchical structure is actually quite easy to deal with, just be sure to use the exact values that udevinfo suggests.
 </p>
 
 <p>
@@ -567,6 +605,10 @@ Here is an example rule which demonstrates the use of the <em>RUN</em> list assi
 When <em>/usr/bin/my_program</em> is executed, various parts of the udev environment are available as environment variables, including key values such as <em>SUBSYSTEM</em>. You can also use the <em>ACTION</em> environment variable to detect whether the device is being connected or disconnected - ACTION will be either "add" or "remove" respectively.
 </p>
 
+<p>
+udev does not run these programs on any active terminal, and it does not execute them under the context of a shell. Be sure to ensure your program is marked executable, if it is a shell script ensure it starts with an appropriate <a href="http://en.wikipedia.org/wiki/Shebang_(Unix)">shebang</a> (e.g. <code>#!/bin/sh</code>), and do not expect any standard output to appear on your terminal.
+</p>
+
 <a name="env"></a>
 <h3>Environment interaction</h3>
 
@@ -621,18 +663,24 @@ I power on my printer, and it is assigned device node <em>/dev/lp0</em>. Not sat
 
 <blockquote><pre>
 # udevinfo -a -p $(udevinfo -q path -n /dev/lp0)
-looking at the device chain at '/sys/devices/pci0000:00/0000:00:02.1/usb3/3-3':
-BUS=="usb"
-SYSFS{manufacturer}=="EPSON"
-SYSFS{product}=="USB Printer"
-SYSFS{serial}=="L72010011070626380"
+  looking at device '/class/usb/lp0':
+    KERNEL=="lp0"
+    SUBSYSTEM=="usb"
+    DRIVER==""
+    ATTR{dev}=="180:0"
+
+  looking at parent device '/devices/pci0000:00/0000:00:1d.0/usb1/1-1':
+    SUBSYSTEMS=="usb"
+    ATTRS{manufacturer}=="EPSON"
+    ATTRS{product}=="USB Printer"
+    ATTRS{serial}=="L72010011070626380"
 </pre></blockquote>
 
 <p>
 My rule becomes:
 </p>
 
-<blockquote><pre>BUS=="usb", SYSFS{serial}=="L72010011070626380", SYMLINK+="epson_680"</pre></blockquote>
+<blockquote><pre>SUBSYSTEM=="usb", ATTRS{serial}=="L72010011070626380", SYMLINK+="epson_680"</pre></blockquote>
 
 <a name="example-camera"></a>
 <h3>USB Camera</h3>
@@ -655,22 +703,26 @@ To get around this, you simply need to think about what differs between sdb and 
 
 <blockquote><pre>
 # udevinfo -a -p $(udevinfo -q path -n /dev/sdb1)
-  looking at device '/devices/pci0000:00/0000:00:02.0/usb2/2-1/2-1:1.0/host6/target6:0:0/6:0:0:0':
-    ID=="6:0:0:0"
-    BUS=="scsi"
-    DRIVER=="sd"
-    SYSFS{rev}=="1.00"
-    SYSFS{model}=="X250,D560Z,C350Z"
-    SYSFS{vendor}=="OLYMPUS "
-    SYSFS{scsi_level}=="3"
-    SYSFS{type}=="0"
+  looking at device '/block/sdb/sdb1':
+    KERNEL=="sdb1"
+    SUBSYSTEM=="block"
+
+  looking at parent device '/devices/pci0000:00/0000:00:02.1/usb1/1-1/1-1:1.0/host6/target6:0:0/6:0:0:0':
+    KERNELS=="6:0:0:0"
+    SUBSYSTEMS=="scsi"
+    DRIVERS=="sd"
+    ATTRS{rev}=="1.00"
+    ATTRS{model}=="X250,D560Z,C350Z"
+    ATTRS{vendor}=="OLYMPUS "
+    ATTRS{scsi_level}=="3"
+    ATTRS{type}=="0"
 </pre></blockquote>
 
 <p>
 My rule:
 </p>
 
-<blockquote><pre>KERNEL=="sd?1", BUS=="scsi", SYSFS{model}=="X250,D560Z,C350Z", SYMLINK+="camera"</pre></blockquote>
+<blockquote><pre>KERNEL=="sd?1", SUBSYSTEMS=="scsi", ATTRS{model}=="X250,D560Z,C350Z", SYMLINK+="camera"</pre></blockquote>
 
 <a name="example-usbhdd"></a>
 <h3>USB Hard Disk</h3>
@@ -683,7 +735,7 @@ A USB hard disk is comparable to the USB camera I described above, however typic
 Of course, if you have a 100GB USB hard disk, it is perfectly understandable that you might want to partition it, in which case we can take advantage of udev's string substitutions:
 </p>
 
-<blockquote><pre>BUS=="usb", KERNEL=="sd*", SYSFS{product}=="USB 2.0 Storage Device", NAME="%k", SYMLINK+="usbhd%n"</pre></blockquote>
+<blockquote><pre>KERNEL=="sd*", SUBSYSTEMS="scsi", ATTRS{model}=="USB 2.0 Storage Device", SYMLINK+="usbhd%n"</pre></blockquote>
 
 <p>
 This rule creates symlinks such as:
@@ -710,7 +762,7 @@ These devices typically do not inform the host computer upon media change. So, i
 One possible solution is to take advantage of the <em>all_partitions</em> option, which will create 16 partition nodes for every block device that the rule matches:
 </p>
 
-<blockquote><pre>BUS=="usb", SYSFS{product}=="USB 2.0 CompactFlash Reader", SYMLINK+="cfrdr%n", OPTIONS+="all_partitions"</pre></blockquote>
+<blockquote><pre>KERNEL="sd*", SUBSYSTEMS=="scsi", ATTRS{model}=="USB 2.0 CompactFlash Reader", SYMLINK+="cfrdr%n", OPTIONS+="all_partitions"</pre></blockquote>
 
 You will now have nodes named: cfrdr, cfrdr1, cfrdr2, cfrdr3, ..., cfrdr15.
 
@@ -725,7 +777,7 @@ These devices work as USB-serial devices, so by default, you only get the <em>tt
 <a href="http://www.clasohm.com/blog/one-entry?entry%5fid=12096">Carsten Clasohm's blog post</a> appears to be the definitive source for this. Carsten's rule is shown below:
 </p>
 
-<blockquote><pre>BUS=="usb", SYSFS{product}=="Palm Handheld", KERNEL=="ttyUSB*", SYMLINK+="pilot"</pre></blockquote>
+<blockquote><pre>SUBSYSTEMS=="usb", ATTRS{product}=="Palm Handheld", KERNEL=="ttyUSB*", SYMLINK+="pilot"</pre></blockquote>
 
 <p>
 Note that the product string seems to vary from product to product, so make sure that you check (using udevinfo) which one applies to you.
@@ -743,8 +795,8 @@ As we know the KERNEL names for these devices, rule writing is simple. Here are 
 </p>
 
 <blockquote><pre>
-BUS=="ide", KERNEL=="hdc", SYMLINK+="dvd", GROUP="cdrom"
-BUS=="ide", KERNEL=="hdd", SYMLINK+="dvdrw", GROUP="cdrom"
+SUBSYSTEM=="block", KERNEL=="hdc", SYMLINK+="dvd", GROUP="cdrom"
+SUBSYSTEM=="block", KERNEL=="hdd", SYMLINK+="dvdrw", GROUP="cdrom"
 </pre></blockquote>
 
 <a name="example-netif"></a>
@@ -761,14 +813,15 @@ It makes sense to simply match the MAC address of your interface in the rule, as
 <blockquote><pre>
 # udevinfo -a -p /sys/class/net/eth0
   looking at class device '/sys/class/net/eth0':
-    SYSFS{address}=="00:52:8b:d5:04:48"
+    KERNEL=="eth0"
+    ATTR{address}=="00:52:8b:d5:04:48"
 </pre></blockquote>
 
 <p>
 Here is my rule:
 </p>
 
-<blockquote><pre>KERNEL=="eth*", SYSFS{address}=="00:52:8b:d5:04:48", NAME="lan"</pre></blockquote>
+<blockquote><pre>KERNEL=="eth*", ATTR{address}=="00:52:8b:d5:04:48", NAME="lan"</pre></blockquote>
 
 <p>
 You will need to reload the net driver for this rule to take effect. You can either unload and reload the module, or simply reboot the system. You will also need to reconfigure your system to use "lan" rather than "eth0". I had some troubles getting this going (the interface wasn't being renamed) until I had completely dropped all references to eth0.
@@ -830,7 +883,7 @@ For support, you should mail the linux-hotplug mailing list: <a href="mailto:lin
 
 <p>
 Copyright (C) 2003-2006 Daniel Drake.<br />
-This document is licensed under the <a href="http://www.gnu.org/licenses/gpl.html">GNU General Public License, Version 2</a>.
+This document is licensed under the <a href="http://www.gnu.org/licenses/old-licenses/gpl-2.0.html">GNU General Public License, Version 2</a>.
 </p>
 
 </body>
