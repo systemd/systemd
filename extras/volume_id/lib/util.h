@@ -71,7 +71,8 @@ enum uuid_format {
 	UUID_DOS,
 	UUID_64BIT_LE,
 	UUID_64BIT_BE,
-	UUID_FOURINT,
+	UUID_MD,
+	UUID_LVM,
 };
 
 enum endian {

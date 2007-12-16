@@ -38,6 +38,11 @@ struct lvm2_super_block {
 	uint8_t		type[8];
 } PACKED;
 
+struct lvm2_pv_header {
+	uint8_t		id[32];
+	uint64_t	devsize_xl;
+} PACKED;
+
 #define LVM1_SB_OFF			0x400
 #define LVM1_MAGIC			"HM"
 
@@ -71,6 +76,7 @@ int volume_id_probe_lvm2(struct volume_id *id, uint64_t off, uint64_t size)
 	const uint8_t *buf;
 	unsigned int soff;
 	struct lvm2_super_block *lvm;
+	struct lvm2_pv_header *pvhdr;
 
 	dbg("probing at offset 0x%llx", (unsigned long long) off);
 
@@ -89,8 +95,13 @@ int volume_id_probe_lvm2(struct volume_id *id, uint64_t off, uint64_t size)
 	return -1;
 
 found:
+	dbg("found at offset 0x%x (pv hdr offset 0x%x)",
+	    soff, cpu_to_le32(lvm->offset_xl));
+	soff += cpu_to_le32(lvm->offset_xl);
+	pvhdr = (struct lvm2_pv_header *) &buf[soff];
 	memcpy(id->type_version, lvm->type, 8);
 	volume_id_set_usage(id, VOLUME_ID_RAID);
+	volume_id_set_uuid(id, pvhdr->id, 0, UUID_LVM);
 	id->type = "LVM2_member";
 
 	return 0;
