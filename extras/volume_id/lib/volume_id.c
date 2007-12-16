@@ -347,6 +347,10 @@ int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size)
 	if (id == NULL)
 		return -EINVAL;
 
+	/* run only once into a timeout for unreadable devices */
+	if (volume_id_get_buffer(id, 0x00, 0x200) == NULL)
+		return -1;
+
 	info("probing at offset 0x%llx, size 0x%llx",
 	    (unsigned long long) off, (unsigned long long) size);
 
@@ -377,6 +381,10 @@ int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size
 
 	if (id == NULL)
 		return -EINVAL;
+
+	/* run only once into a timeout for unreadable devices */
+	if (volume_id_get_buffer(id, 0x00, 0x200) == NULL)
+		return -1;
 
 	info("probing at offset 0x%llx, size 0x%llx",
 	    (unsigned long long) off, (unsigned long long) size);
