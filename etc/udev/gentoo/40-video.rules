@@ -13,10 +13,10 @@ KERNEL=="card*",	GROUP="video"
 KERNEL=="nvidia*",	GROUP="video"
 KERNEL=="3dfx*",	GROUP="video"
 
+# svgalib
+KERNEL=="svga*", GROUP="video"
+
 # Framebuffer
-# do we need /dev/fb/0 really?
-# it conflicts with symlink /dev/fb -> /dev/fb0 upstream rules create
-#KERNEL=="fb[0-9]*",	NAME="fb/%n", SYMLINK+="%k", GROUP="video"
 KERNEL=="fb[0-9]*", GROUP="video"
 
 # IEEE1394 (firewire) devices
