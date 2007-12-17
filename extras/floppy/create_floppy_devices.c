@@ -69,6 +69,7 @@ void log_message(int priority, const char *format, ...)
 int main(int argc, char **argv)
 {
 	char *dev;
+	char *devname;
 	char node[64];
 	int type = 0, i, fdnum, c;
 	int major = 2, minor;
@@ -123,12 +124,17 @@ int main(int argc, char **argv)
 	}
 
 	dev = argv[optind];
-	if (dev[strlen(dev) - 3] != 'f' || dev[strlen(dev) -2 ] != 'd') {
+	devname = strrchr(dev, '/');
+	if (devname != NULL)
+		devname = &devname[1];
+	else
+		devname = dev;
+	if (strncmp(devname, "fd", 2) != 0) {
 		fprintf(stderr,"Device '%s' is not a floppy device\n", dev);
 		return 1;
 	}
 
-	fdnum = strtol(dev + 2, NULL, 10);
+	fdnum = strtol(&devname[2], NULL, 10);
 	if (fdnum < 0 || fdnum > 7) {
 		fprintf(stderr,"Floppy device number %d out of range (0-7)\n", fdnum);
 		return 1;
