@@ -1,3 +1,30 @@
+Summary of changes from v117 to v118
+============================================
+
+Daniel Drake (1):
+      doc: update "writing udev rules"
+
+Hannes Reinecke (1):
+      volume_id: LVM - add uuid
+
+Kay Sievers (9):
+      remove udevstart
+      rules_generator: do not create rules with insufficient matches
+      man: udevadm settle - mention 180 seconds default timeout
+      libvolume_id: squashfs - add endianess support for LZMA compression
+      rules: add AOE rule
+      volume_id: md - add metadata minor version
+      volume_id: run only once into a timeout for unreadable devices
+      create_floppy_devices: fix logic for more than one floppy device
+      volume_id: also add readable check to probe_all()
+
+Matthias Schwarzott (1):
+      rules: Gentoo update
+
+Michael Prokop (1):
+      libvolume_id: squashfs+LZMA compression detection
+
+
 Summary of changes from v116 to v117
 ============================================
 
