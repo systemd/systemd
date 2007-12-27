@@ -90,5 +90,5 @@ Installation:
     and should be installed by default with every udev installation.
 
 Please direct any comment/question/concern to the linux-hotplug-devel mailing list at:
-  linux-hotplug-devel@lists.sourceforge.net
+  linux-hotplug@vger.kernel.org
 

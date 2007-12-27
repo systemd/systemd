@@ -105,7 +105,7 @@ A: When using dynamic device numbers, a given pair of major/minor numbers may
 Q: I have other questions about udev, where do I ask them?
 A: The linux-hotplug-devel mailing list is the proper place for it.  The
    address for it is:
-      linux-hotplug-devel@lists.sourceforge.net
+      linux-hotplug@vger.kernel.org
    Information on joining can be found at:
-      https://lists.sourceforge.net/lists/listinfo/linux-hotplug-devel
+      http://vger.kernel.org/vger-lists.html
 
