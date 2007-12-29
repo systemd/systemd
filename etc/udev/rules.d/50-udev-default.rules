@@ -7,7 +7,6 @@ KERNEL=="tty",			GROUP="tty", MODE="0666", OPTIONS="last_rule"
 KERNEL=="tty[0-9]*",		GROUP="tty", MODE="0620", OPTIONS="last_rule"
 KERNEL=="vcs|vcs[0-9]*|vcsa|vcsa[0-9]*", GROUP="tty", OPTIONS="last_rule"
 KERNEL=="console",		MODE="0600", OPTIONS="last_rule"
-KERNEL=="tty0",			SYMLINK+="systty"
 
 # serial
 KERNEL=="tty[A-Z]*|pppox*|ircomm*|noz*", GROUP="uucp"
