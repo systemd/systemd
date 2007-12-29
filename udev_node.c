@@ -408,8 +408,8 @@ int udev_node_remove(struct udevice *udev)
 	strlcat(filename, "/", sizeof(filename));
 	strlcat(filename, udev->name, sizeof(filename));
 	if (stat(filename, &stats) != 0) {
-		dbg("device node '%s' not found", filename);
-		return -1;
+		info("device node '%s' not found", filename);
+		return 0;
 	}
 	if (udev->devt && stats.st_rdev != udev->devt) {
 		info("device node '%s' points to a different device, skip removal", filename);
