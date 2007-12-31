@@ -88,6 +88,7 @@ fi
 
 if [ -z "$match" ]; then
 	echo "missing valid match" >&2
+	unlock_rules_file
 	exit 1
 fi
 
