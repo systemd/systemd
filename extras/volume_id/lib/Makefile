@@ -91,6 +91,8 @@ $(SHLIB): $(HEADERS) exported_symbols $(addprefix .shlib/,$(OBJS))
 
 libvolume_id.pc:
 	$(E) "  GENPC   " $@
+	$(Q) echo "prefix=${prefix}/usr" >> $@
+	$(Q) echo "exec_prefix=\$${prefix}" >> $@
 	$(Q) echo "libdir=${usrlibdir}" >> $@
 	$(Q) echo "includedir=${includedir}" >> $@
 	$(Q) echo "" >> $@
