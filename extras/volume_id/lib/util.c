@@ -215,8 +215,8 @@ void volume_id_set_usage(struct volume_id *id, enum volume_id_usage usage_id)
 
 void volume_id_set_label_raw(struct volume_id *id, const uint8_t *buf, size_t count)
 {
-	if (count > sizeof(id->label))
-		count = sizeof(id->label);
+	if (count > sizeof(id->label_raw))
+		count = sizeof(id->label_raw);
 
 	memcpy(id->label_raw, buf, count);
 	id->label_raw_len = count;
