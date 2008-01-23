@@ -86,7 +86,7 @@ static void default_log(int priority, const char *file, int line, const char *fo
 volume_id_log_fn_t volume_id_log_fn = default_log;
 
 /**
- * volume_id_get_label:
+ * volume_id_get_prober_by_type:
  * @type: Type string.
  *
  * Lookup the probing function for a specific type.
