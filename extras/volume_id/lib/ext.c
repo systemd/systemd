@@ -1,7 +1,10 @@
 /*
  * volume_id - reads filesystem label and uuid
  *
- * Copyright (C) 2004 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2004-2008 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008 Theodore Ts'o <tytso@mit.edu>
+ *
+ * The probe logic is based on libblkid from e2fsutils.
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -60,17 +63,63 @@ struct ext2_super_block {
 	uint32_t	s_feature_ro_compat;
 	uint8_t		s_uuid[16];
 	uint8_t		s_volume_name[16];
+	uint8_t		s_last_mounted[64];
+	uint32_t	s_algorithm_usage_bitmap;
+	uint8_t		s_prealloc_blocks;
+	uint8_t		s_prealloc_dir_blocks;
+	uint16_t	s_reserved_gdt_blocks;
+	uint8_t		s_journal_uuid[16];
+	uint32_t	s_journal_inum;
+	uint32_t	s_journal_dev;
+	uint32_t	s_last_orphan;
+	uint32_t	s_hash_seed[4];
+	uint8_t		s_def_hash_version;
+	uint8_t		s_jnl_backup_type;
+	uint16_t	s_reserved_word_pad;
+	uint32_t	s_default_mount_opts;
+	uint32_t	s_first_meta_bg;
+	uint32_t	s_mkfs_time;
+	uint32_t	s_jnl_blocks[17];
+	uint32_t	s_blocks_count_hi;
+	uint32_t	s_r_blocks_count_hi;
+	uint32_t	s_free_blocks_hi;
+	uint16_t	s_min_extra_isize;
+	uint16_t	s_want_extra_isize;
+	uint32_t	s_flags;
 } PACKED;
 
 #define EXT_SUPER_MAGIC				0xEF53
+#define EXT2_FLAGS_TEST_FILESYS			0x0004
+#define EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER	0x0001
+#define EXT2_FEATURE_RO_COMPAT_LARGE_FILE	0x0002
+#define EXT2_FEATURE_RO_COMPAT_BTREE_DIR	0x0004
+#define EXT2_FEATURE_INCOMPAT_FILETYPE		0x0002
+#define EXT2_FEATURE_INCOMPAT_META_BG		0x0010
 #define EXT3_FEATURE_COMPAT_HAS_JOURNAL		0x0004
 #define EXT3_FEATURE_INCOMPAT_JOURNAL_DEV	0x0008
-#define EXT3_FEATURE_INCOMPAT_EXTENTS		0x0040
-#define EXT4_FEATURE_INCOMPAT_64BIT		0x0080
-#define EXT4_FEATURE_INCOMPAT_MMP		0x0100
+#define EXT3_FEATURE_INCOMPAT_RECOVER		0x0004
+
+
+#define EXT2_FEATURE_RO_COMPAT_SUPP	(EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER| \
+					 EXT2_FEATURE_RO_COMPAT_LARGE_FILE| \
+					 EXT2_FEATURE_RO_COMPAT_BTREE_DIR)
+#define EXT2_FEATURE_RO_COMPAT_UNSUPPORTED	~EXT2_FEATURE_RO_COMPAT_SUPP
+
+#define EXT2_FEATURE_INCOMPAT_SUPP	(EXT2_FEATURE_INCOMPAT_FILETYPE| \
+					 EXT2_FEATURE_INCOMPAT_META_BG)
+#define EXT2_FEATURE_INCOMPAT_UNSUPPORTED	~EXT2_FEATURE_INCOMPAT_SUPP
+
+#define EXT3_FEATURE_RO_COMPAT_SUPP	(EXT2_FEATURE_RO_COMPAT_SPARSE_SUPER| \
+					 EXT2_FEATURE_RO_COMPAT_LARGE_FILE| \
+					 EXT2_FEATURE_RO_COMPAT_BTREE_DIR)
+#define EXT3_FEATURE_RO_COMPAT_UNSUPPORTED	~EXT3_FEATURE_RO_COMPAT_SUPP
+
+#define EXT3_FEATURE_INCOMPAT_SUPP	(EXT2_FEATURE_INCOMPAT_FILETYPE| \
+					 EXT3_FEATURE_INCOMPAT_RECOVER| \
+					 EXT2_FEATURE_INCOMPAT_META_BG)
+#define EXT3_FEATURE_INCOMPAT_UNSUPPORTED	~EXT3_FEATURE_INCOMPAT_SUPP
 
 #define EXT_SUPERBLOCK_OFFSET			0x400
-
 #define EXT3_MIN_BLOCK_SIZE			0x400
 #define EXT3_MAX_BLOCK_SIZE			0x1000
 
@@ -79,7 +128,9 @@ int volume_id_probe_ext(struct volume_id *id, uint64_t off, uint64_t size)
 	struct ext2_super_block *es;
 	size_t bsize;
 	uint32_t feature_compat;
+	uint32_t feature_ro_compat;
 	uint32_t feature_incompat;
+	uint32_t flags;
 
 	info("probing at offset 0x%llx", (unsigned long long) off);
 
@@ -97,38 +148,53 @@ int volume_id_probe_ext(struct volume_id *id, uint64_t off, uint64_t size)
 		return -1;
 	}
 
+	feature_compat = le32_to_cpu(es->s_feature_compat);
+	feature_ro_compat = le32_to_cpu(es->s_feature_ro_compat);
+	feature_incompat = le32_to_cpu(es->s_feature_incompat);
+	flags = le32_to_cpu(es->s_flags);
+
+	/* external journal device is jbd */
+	if ((feature_incompat & EXT3_FEATURE_INCOMPAT_JOURNAL_DEV) != 0) {
+		volume_id_set_usage(id, VOLUME_ID_OTHER);
+		id->type = "jbd";
+		goto found;
+	}
+
+	/* has journal */
+	if ((feature_compat & EXT3_FEATURE_COMPAT_HAS_JOURNAL) != 0) {
+		/* "use on development code" is ext4dev */
+		if ((flags & EXT2_FLAGS_TEST_FILESYS) != 0) {
+			id->type = "ext4dev";
+			goto found;
+		}
+
+		/* incompatible ext3 features is ext4 */
+		if ((feature_ro_compat & EXT3_FEATURE_RO_COMPAT_UNSUPPORTED) != 0 ||
+		    (feature_incompat & EXT3_FEATURE_INCOMPAT_UNSUPPORTED) != 0) {
+			id->type = "ext4";
+			goto found;
+		}
+
+		id->type = "ext3";
+		goto found;
+	} else {
+		/* no incompatible ext2 feature is ext2 */
+		if ((feature_ro_compat & EXT2_FEATURE_RO_COMPAT_UNSUPPORTED) == 0 &&
+		    (feature_incompat & EXT2_FEATURE_INCOMPAT_UNSUPPORTED) == 0) {
+			id->type = "ext2";
+			goto found;
+		}
+	}
+
+	return -1;
+
+found:
 	volume_id_set_label_raw(id, es->s_volume_name, 16);
 	volume_id_set_label_string(id, es->s_volume_name, 16);
 	volume_id_set_uuid(id, es->s_uuid, 0, UUID_DCE);
 	snprintf(id->type_version, sizeof(id->type_version)-1, "%u.%u",
 		 le32_to_cpu(es->s_rev_level), le16_to_cpu(es->s_minor_rev_level));
 
-	feature_compat = le32_to_cpu(es->s_feature_compat);
-	feature_incompat = le32_to_cpu(es->s_feature_incompat);
-
-	/* check for external journal device */
-	if ((feature_incompat & EXT3_FEATURE_INCOMPAT_JOURNAL_DEV) != 0) {
-		volume_id_set_usage(id, VOLUME_ID_OTHER);
-		id->type = "jbd";
-		goto out;
-	}
-
 	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
-
-	if ((feature_incompat & EXT3_FEATURE_INCOMPAT_EXTENTS) != 0 ||
-	    (feature_incompat & EXT4_FEATURE_INCOMPAT_64BIT) != 0 ||
-	    (feature_incompat & EXT4_FEATURE_INCOMPAT_MMP) != 0) {
-		id->type = "ext4";
-		goto out;
-	}
-
-	if ((feature_compat & EXT3_FEATURE_COMPAT_HAS_JOURNAL) != 0) {
-		id->type = "ext3";
-		goto out;
-	}
-
-	id->type = "ext2";
-
-out:
 	return 0;
 }
