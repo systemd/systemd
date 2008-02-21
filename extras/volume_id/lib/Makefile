@@ -83,7 +83,7 @@ libvolume_id.a: $(HEADERS) $(OBJS)
 
 $(SHLIB): $(HEADERS) exported_symbols $(addprefix .shlib/,$(OBJS))
 	$(E) "  CC      " $@
-	$(Q) $(CC) -shared $(CFLAGS) -o $@ \
+	$(Q) $(CC) -shared $(CFLAGS) $(LDFLAGS) -o $@ \
 		-Wl,-soname,libvolume_id.so.$(SHLIB_CUR),--version-script,exported_symbols \
 		$(addprefix .shlib/,$(OBJS))
 	$(Q) ln -sf $@ libvolume_id.so.$(SHLIB_CUR)
