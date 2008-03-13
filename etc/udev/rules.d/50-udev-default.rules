@@ -66,7 +66,7 @@ KERNEL=="hd*", SUBSYSTEMS=="ide", ATTRS{media}=="floppy", OPTIONS+="all_partitio
 KERNEL=="fd[0-9]",		GROUP="floppy"
 KERNEL=="fd[0-9]", ACTION=="add", ATTRS{cmos}=="?*", RUN+="create_floppy_devices -c -t $attr{cmos} -m %M -M 0640 -G floppy $root/%k"
 KERNEL=="sch[0-9]*",		GROUP="disk"
-KERNEL=="sg[0-9]*",		GROUP="disk", MODE="0640"
+KERNEL=="sg[0-9]*",		ATTRS{type}!="3|6", GROUP="disk", MODE="0640"
 KERNEL=="ht[0-9]*|nht[0-9]*",	GROUP="disk"
 KERNEL=="pg[0-9]*",		GROUP="disk"
 KERNEL=="pt[0-9]*|npt[0-9]*",	GROUP="disk"
