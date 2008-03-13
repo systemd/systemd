@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <syslog.h>
+#include <dirent.h>
 #include <fnmatch.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -1243,6 +1244,7 @@ try_parent:
 		if (pair->key.operation == KEY_OP_ASSIGN) {
 			const char *key_name = key_pair_name(rule, pair);
 			char devpath[PATH_SIZE];
+			char *pos;
 			char *attrib;
 			char attr[PATH_SIZE] = "";
 			char value[NAME_SIZE];
@@ -1262,6 +1264,28 @@ try_parent:
 				strlcat(attr, udev->dev->devpath, sizeof(attr));
 				strlcat(attr, "/", sizeof(attr));
 				strlcat(attr, key_name, sizeof(attr));
+			}
+
+			pos = strstr(attr, "/*/");
+			if (pos != NULL) {
+				char str[PATH_SIZE];
+				DIR *dir;
+
+				pos[1] = '\0';
+				strlcpy(str, &pos[2], sizeof(str));
+				dir = opendir(attr);
+				if (dir != NULL) {
+					struct dirent *dent;
+
+					for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+						if (dent->d_name[0] == '.')
+							continue;
+						strlcat(attr, dent->d_name, sizeof(attr));
+						break;
+					}
+					closedir(dir);
+				}
+				strlcat(attr, str, sizeof(attr));
 			}
 
 			strlcpy(value, key_val(rule, &pair->key), sizeof(value));
