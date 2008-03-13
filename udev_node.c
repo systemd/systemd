@@ -164,7 +164,7 @@ static int node_symlink(const char *node, const char *slink)
 	strlcpy(slink_tmp, slink, sizeof(slink_tmp));
 	strlcat(slink_tmp, TMP_FILE_EXT, sizeof(slink_tmp));
 	unlink(slink_tmp);
-	selinux_setfscreatecon(slink_tmp, NULL, S_IFLNK);
+	selinux_setfscreatecon(slink, NULL, S_IFLNK);
 	retval = symlink(target, slink_tmp);
 	selinux_resetfscreatecon();
 	if (retval != 0) {
