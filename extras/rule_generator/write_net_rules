@@ -102,6 +102,7 @@ if [ "$INTERFACE_NAME" ]; then
 else
 	# if a rule using the current name already exists, find a new name
 	basename=${INTERFACE%%[0-9]*}
+	match="$match, KERNEL==\"$basename*\""
 	if interface_name_taken; then
 		INTERFACE="$basename$(find_next_available "$basename[0-9]*")"
 		echo "INTERFACE_NEW=$INTERFACE"
