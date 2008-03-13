@@ -5,11 +5,9 @@ KERNEL=="hd*[0-9]", ATTRS{media}=="floppy", ATTRS{removable}=="1", SYMLINK+="flo
 
 KERNEL=="fw*", PROGRAM="fw_unit_symlinks.sh %k %n", SYMLINK+="$result"
 
-ACTION=="add", KERNEL=="sg[0-9]*", BUS=="scsi", ATTRS{type}=="[36]", SYMLINK+="scanner scanner-%k", MODE="0660"
+ACTION=="add", KERNEL=="sg[0-9]*", BUS=="scsi", ATTRS{type}=="3|6", SYMLINK+="scanner scanner-%k", MODE="0660"
 
 ACTION=="add", KERNEL=="sg[0-9]*", BUS=="scsi", ATTRS{type}=="8", SYMLINK+="changer changer-%k", MODE="0660", GROUP="disk"
-
-ACTION=="add", SUBSYSTEM=="usb_device", PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", NAME="%c", MODE="0644"
 
 BUS=="usb", KERNEL=="sd*", ATTRS{bInterfaceClass}=="08", ATTRS{bInterfaceSubClass}=="04", GROUP="floppy", MODE="0660", 	SYMLINK+="floppy floppy-%k"
 
