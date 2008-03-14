@@ -220,29 +220,6 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 		pos = strrchr(link_target, '/');
 		if (pos != NULL)
 			strlcpy(dev->subsystem, &pos[1], sizeof(dev->subsystem));
-	} else if (strncmp(dev->devpath, "/class/", 7) == 0) {
-		/* get subsystem from class dir */
-		strlcpy(dev->subsystem, &dev->devpath[7], sizeof(dev->subsystem));
-		pos = strchr(dev->subsystem, '/');
-		if (pos != NULL)
-			pos[0] = '\0';
-		else
-			strlcpy(dev->subsystem, "subsystem", sizeof(dev->subsystem));
-	} else if (strncmp(dev->devpath, "/block/", 7) == 0) {
-		strlcpy(dev->subsystem, "block", sizeof(dev->subsystem));
-	} else if (strncmp(dev->devpath, "/devices/", 9) == 0) {
-		/* get subsystem from "bus" link */
-		strlcpy(link_path, sysfs_path, sizeof(link_path));
-		strlcat(link_path, dev->devpath, sizeof(link_path));
-		strlcat(link_path, "/bus", sizeof(link_path));
-		len = readlink(link_path, link_target, sizeof(link_target));
-		if (len > 0) {
-			link_target[len] = '\0';
-			dbg("bus link '%s' points to '%s'", link_path, link_target);
-			pos = strrchr(link_target, '/');
-			if (pos != NULL)
-				strlcpy(dev->subsystem, &pos[1], sizeof(dev->subsystem));
-		}
 	} else if (strstr(dev->devpath, "/drivers/") != NULL) {
 		strlcpy(dev->subsystem, "drivers", sizeof(dev->subsystem));
 	} else if (strncmp(dev->devpath, "/module/", 8) == 0) {
@@ -250,6 +227,10 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 	} else if (strncmp(dev->devpath, "/subsystem/", 11) == 0) {
 		pos = strrchr(dev->devpath, '/');
 		if (pos == &dev->devpath[10])
+			strlcpy(dev->subsystem, "subsystem", sizeof(dev->subsystem));
+	} else if (strncmp(dev->devpath, "/class/", 7) == 0) {
+		pos = strrchr(dev->devpath, '/');
+		if (pos == &dev->devpath[6])
 			strlcpy(dev->subsystem, "subsystem", sizeof(dev->subsystem));
 	} else if (strncmp(dev->devpath, "/bus/", 5) == 0) {
 		pos = strrchr(dev->devpath, '/');
