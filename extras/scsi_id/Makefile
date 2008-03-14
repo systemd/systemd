@@ -58,7 +58,8 @@ clean:
 .PHONY: clean
 
 install-bin: all
-	$(INSTALL_PROGRAM) -D $(PROG) $(DESTDIR)$(libudevdir)/$(PROG)
+	$(INSTALL) -d $(DESTDIR)$(libudevdir)
+	$(INSTALL_PROGRAM) $(PROG) $(DESTDIR)$(libudevdir)/$(PROG)
 .PHONY: install-bin
 
 uninstall-bin:
@@ -66,7 +67,8 @@ uninstall-bin:
 .PHONY: uninstall-bin
 
 install-man:
-	$(INSTALL_DATA) -D scsi_id.8 $(DESTDIR)$(mandir)/man8/scsi_id.8
+	$(INSTALL) -d $(DESTDIR)$(mandir)/man8
+	$(INSTALL_DATA) scsi_id.8 $(DESTDIR)$(mandir)/man8/scsi_id.8
 .PHONY: install-man
 
 uninstall-man:
@@ -75,8 +77,10 @@ uninstall-man:
 
 install-config:
 	@ if [ ! -r $(DESTDIR)$(etcdir)/scsi_id.config ]; then \
-		echo $(INSTALL_DATA) -D ./scsi_id.config  $(DESTDIR)$(etcdir); \
-		$(INSTALL_DATA) -D ./scsi_id.config $(DESTDIR)$(etcdir)/scsi_id.config; \
+		echo $(INSTALL) -d $(DESTDIR)$(etcdir); \
+		echo $(INSTALL_DATA) ./scsi_id.config  $(DESTDIR)$(etcdir); \
+		$(INSTALL) -d $(DESTDIR)$(etcdir); \
+		$(INSTALL_DATA) ./scsi_id.config $(DESTDIR)$(etcdir)/scsi_id.config; \
 	fi
 .PHONY: install-config
 

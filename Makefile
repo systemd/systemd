@@ -236,9 +236,11 @@ install-config:
 .PHONY: install-config
 
 install-man:
-	$(INSTALL_DATA) -D udev.7 $(DESTDIR)$(mandir)/man7/udev.7
-	$(INSTALL_DATA) -D udevd.8 $(DESTDIR)$(mandir)/man8/udevd.8
-	$(INSTALL_DATA) -D udevadm.8 $(DESTDIR)$(mandir)/man8/udevadm.8
+	$(INSTALL) -d $(DESTDIR)$(mandir)/man7
+	$(INSTALL_DATA) udev.7 $(DESTDIR)$(mandir)/man7/udev.7
+	$(INSTALL) -d $(DESTDIR)$(mandir)/man8
+	$(INSTALL_DATA) udevd.8 $(DESTDIR)$(mandir)/man8/udevd.8
+	$(INSTALL_DATA) udevadm.8 $(DESTDIR)$(mandir)/man8/udevadm.8
 	ln -f -s udevadm.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
 	ln -f -s udevadm.8 $(DESTDIR)$(mandir)/man8/udevtest.8
 	ln -f -s udevadm.8 $(DESTDIR)$(mandir)/man8/udevtrigger.8
@@ -266,13 +268,13 @@ uninstall-man:
 .PHONY: uninstall-man
 
 install-bin:
-	$(INSTALL) -d $(DESTDIR)$(udevdir)
-	$(INSTALL_PROGRAM) -D udevd $(DESTDIR)$(sbindir)/udevd
-	$(INSTALL_PROGRAM) -D udevadm $(DESTDIR)$(sbindir)/udevadm
+	$(INSTALL) -d $(DESTDIR)$(sbindir)
+	$(INSTALL_PROGRAM) udevd $(DESTDIR)$(sbindir)/udevd
+	$(INSTALL_PROGRAM) udevadm $(DESTDIR)$(sbindir)/udevadm
 	ln -f -s udevadm $(DESTDIR)$(sbindir)/udevtrigger
 	ln -f -s udevadm $(DESTDIR)$(sbindir)/udevsettle
 	ln -f -s udevadm $(DESTDIR)$(sbindir)/udevcontrol
-	mkdir -p -m 0755 $(DESTDIR)$(usrsbindir)
+	$(INSTALL) -d $(DESTDIR)$(usrsbindir)
 	ln -f -s $(sbindir)/udevadm $(DESTDIR)$(usrsbindir)/udevmonitor
 	mkdir -p -m 0755 $(DESTDIR)$(usrbindir)
 	ln -f -s $(sbindir)/udevadm $(DESTDIR)$(usrbindir)/udevinfo

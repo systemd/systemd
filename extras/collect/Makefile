@@ -44,7 +44,8 @@ clean:
 .PHONY: clean
 
 install-bin: all
-	$(INSTALL_PROGRAM) -D $(PROG) $(DESTDIR)$(libudevdir)/$(PROG)
+	$(INSTALL) -d $(DESTDIR)$(libudevdir)
+	$(INSTALL_PROGRAM) $(PROG) $(DESTDIR)$(libudevdir)/$(PROG)
 .PHONY: install-bin
 
 uninstall-bin:

@@ -103,16 +103,19 @@ libvolume_id.pc:
 	$(Q) echo "Cflags: -I\$${includedir}" >> $@
 
 install: all
-	$(INSTALL_DATA) -D libvolume_id.h $(DESTDIR)$(includedir)/libvolume_id.h
-	$(INSTALL_LIB) -D $(SHLIB) $(DESTDIR)$(libdir)/$(SHLIB)
-	mkdir -p $(DESTDIR)$(usrlibdir)/
+	$(INSTALL) -d $(DESTDIR)$(includedir)
+	$(INSTALL_DATA) libvolume_id.h $(DESTDIR)$(includedir)/libvolume_id.h
+	$(INSTALL) -d $(DESTDIR)$(libdir)
+	$(INSTALL_LIB) $(SHLIB) $(DESTDIR)$(libdir)/$(SHLIB)
+	$(INSTALL) -d $(DESTDIR)$(usrlibdir)
 	ln -sf $(SHLIB) $(DESTDIR)$(libdir)/libvolume_id.so.$(SHLIB_CUR)
 ifeq ($(libdir),$(usrlibdir))
 	ln -sf $(SHLIB) $(DESTDIR)$(usrlibdir)/libvolume_id.so
 else
 	ln -sf $(libdir)/$(SHLIB) $(DESTDIR)$(usrlibdir)/libvolume_id.so
 endif
-	$(INSTALL_DATA) -D libvolume_id.pc $(DESTDIR)$(usrlibdir)/pkgconfig/libvolume_id.pc
+	$(INSTALL) -d $(DESTDIR)$(usrlibdir)/pkgconfig
+	$(INSTALL_DATA) libvolume_id.pc $(DESTDIR)$(usrlibdir)/pkgconfig/libvolume_id.pc
 .PHONY: install
 
 uninstall:
