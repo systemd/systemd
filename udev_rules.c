@@ -586,6 +586,44 @@ out:
 	return found;
 }
 
+static int attr_subst_subdir(char *attr, size_t len)
+{
+	char *pos;
+	int found = 0;
+
+	pos = strstr(attr, "/*/");
+	if (pos != NULL) {
+		char str[PATH_SIZE];
+		DIR *dir;
+
+		pos[1] = '\0';
+		strlcpy(str, &pos[2], sizeof(str));
+		dir = opendir(attr);
+		if (dir != NULL) {
+			struct dirent *dent;
+
+			for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+				struct stat stats;
+
+				if (dent->d_name[0] == '.')
+					continue;
+				strlcat(attr, dent->d_name, len);
+				strlcat(attr, str, len);
+				if (stat(attr, &stats) == 0) {
+					found = 1;
+					break;
+				}
+				pos[1] = '\0';
+			}
+			closedir(dir);
+		}
+		if (!found)
+			strlcat(attr, str, len);
+	}
+
+	return found;
+}
+
 void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 {
 	char temp[PATH_SIZE];
@@ -1023,6 +1061,8 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 			strlcpy(filename, tmp, sizeof(filename));
 		}
 
+		attr_subst_subdir(filename, sizeof(filename));
+
 		match = (stat(filename, &statbuf) == 0);
 		info("'%s' %s", filename, match ? "exists" : "does not exist");
 		if (match && rule->test_mode_mask > 0) {
@@ -1244,7 +1284,6 @@ try_parent:
 		if (pair->key.operation == KEY_OP_ASSIGN) {
 			const char *key_name = key_pair_name(rule, pair);
 			char devpath[PATH_SIZE];
-			char *pos;
 			char *attrib;
 			char attr[PATH_SIZE] = "";
 			char value[NAME_SIZE];
@@ -1266,27 +1305,7 @@ try_parent:
 				strlcat(attr, key_name, sizeof(attr));
 			}
 
-			pos = strstr(attr, "/*/");
-			if (pos != NULL) {
-				char str[PATH_SIZE];
-				DIR *dir;
-
-				pos[1] = '\0';
-				strlcpy(str, &pos[2], sizeof(str));
-				dir = opendir(attr);
-				if (dir != NULL) {
-					struct dirent *dent;
-
-					for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-						if (dent->d_name[0] == '.')
-							continue;
-						strlcat(attr, dent->d_name, sizeof(attr));
-						break;
-					}
-					closedir(dir);
-				}
-				strlcat(attr, str, sizeof(attr));
-			}
+			attr_subst_subdir(attr, sizeof(attr));
 
 			strlcpy(value, key_val(rule, &pair->key), sizeof(value));
 			udev_rules_apply_format(udev, value, sizeof(value));

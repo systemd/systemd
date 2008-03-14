@@ -1598,6 +1598,15 @@ EOF
 KERNEL=="sda", TEST=="size", NAME="relative"
 EOF
 	},
+	{
+		desc		=> "TEST wildcard substitution (find queue/nr_requests)",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "found-subdir",
+		rules		=> <<EOF
+KERNEL=="sda", TEST=="*/nr_requests", NAME="found-subdir"
+EOF
+	},
 );
 
 # set env
