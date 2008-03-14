@@ -3,7 +3,7 @@
 # persistent storage links: /dev/disk/{by-id,by-uuid,by-label,by-path}
 # scheme based on "Linux persistent device names", 2004, Hannes Reinecke <hare@suse.de>
 
-ACTION!="add", GOTO="persistent_storage_end"
+ACTION!="add|change", GOTO="persistent_storage_end"
 SUBSYSTEM!="block", GOTO="persistent_storage_end"
 
 # skip rules for inappropriate block devices

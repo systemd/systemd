@@ -2,7 +2,7 @@
 
 # persistent storage links: /dev/tape/{by-id,by-path}
 
-ACTION!="add", GOTO="persistent_storage_tape_end"
+ACTION!="add|change", GOTO="persistent_storage_tape_end"
 
 KERNEL=="nst[0-9]", SUBSYSTEMS=="scsi", IMPORT{program}="scsi_id --export --whitelisted --fallback-to-sysfs -s %p -d $tempnode", SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SERIAL}-nst"
 
