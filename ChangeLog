@@ -1,3 +1,42 @@
+Summary of changes from v118 to v119
+============================================
+
+Anthony L. Awtrey (1):
+      do not skip RUN execution if device node removal fails
+
+Harald Hoyer (2):
+      rules: Fedora update
+      rules: do not set GROUP="disk" for scanners
+
+Jiri Slaby (1):
+      rules_generator: add missing write_net_rules unlock
+
+Karel Zak (2):
+      volume_id: fix UUID raw buffer usage
+      volume_id: fix typo in function documentation
+
+Kay Sievers (10):
+      switch mailing lists to linux-hotplug@vger.kernel.org
+      rules: remove tty rule which can never run because of an earlier "last_rule"
+      volume_id: update ext detection
+      selinux: set context for real file name not the temp name
+      hack to allow ATTR{block/*/uevent}="change"
+      rules_generator: add KERNEL=="<netifname>*" to generated rules
+      persistent device naming: also run on "change" event
+      test: add "subsystem" links to all devices
+      sysfs: depend on "subsystem" link
+      extend hack to allow TEST=="*/start"
+
+Matthias Schwarzott (1):
+      volume_id: respect LDFLAGS
+
+Neil Williams (1):
+      volume_id: add prefix=, exec_prefix=
+
+Roy Marples (1):
+      Makefile: do not require GNU install
+
+
 Summary of changes from v117 to v118
 ============================================
 

@@ -9,16 +9,16 @@ Important Note:
   recommend to replace a distro's udev installation with the upstream version.
 
 Requirements:
-  - Version 2.6.15 of the Linux kernel for reliable operation of this release of
+  - Version 2.6.18 of the Linux kernel for reliable operation of this release of
     udev. The kernel may have a requirement on udev too, see Documentation/Changes
     in the kernel source tree for the actual dependency.
 
   - The kernel must have sysfs, unix domain sockets and networking enabled.
     (unix domain sockets (CONFIG_UNIX) as a loadable kernel module may work,
-    but it is completely silly - don't complain if anything goes wrong.)
+    but it does not make any sense - don't complain if anything goes wrong.)
 
   - The proc filesystem must be mounted on /proc, the sysfs filesystem must
-    be mounted at /sys. No other location is supported by udev.
+    be mounted at /sys. No other locations are supported by udev.
 
 
 Operation:
@@ -45,7 +45,7 @@ Operation:
     /etc/udev/rules.d/ which make it possible to hook into the event
     processing to load required kernel modules and setup devices. For all
     devices the kernel exports a major/minor number, udev will create a
-    device node with the default kernel name or the one specified by a
+    device node with the default kernel name, or the one specified by a
     matching udev rule.
 
 
@@ -71,22 +71,19 @@ Compile Options:
 
 Installation:
   - The install target intalls the udev binaries in the default locations,
-    All at boot time reqired binaries will be installed in /lib/udev or /sbin.
+    All binaries will be installed in /lib/udev or /sbin.
 
   - The default location for scripts and binaries that are called from
-    rules is /lib/udev. Other packages who install udev rules, should use
+    rules is /lib/udev. Other packages who install udev rules, may use
     that directory too.
 
-  - It is recommended to use the /lib/udev/devices directory to place
+  - It is recommended to use the /lib/udev/devices/ directory to place
     device nodes and symlinks in, which are copied to /dev at every boot.
     That way, nodes for broken subsystems or devices which can't be
     detected automatically by the kernel, will always be available.
 
-  - Copies of the rules files for the major distros are provided as examples
-    in the etc/udev directory.
-
-  - The persistent device naming links in /dev/disk/ are required by other
-    software that depends on the data udev has collected from the devices
+  - Default udev rules and persistent device naming rules are required by other
+    software that depends on the data udev collects from the devices,
     and should be installed by default with every udev installation.
 
 Please direct any comment/question/concern to the linux-hotplug-devel mailing list at:
