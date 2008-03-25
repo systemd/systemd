@@ -10,7 +10,8 @@ SUBSYSTEM=="memstick", RUN+="/sbin/modprobe --all ms_block mspro_block"
 SUBSYSTEM=="mmc", RUN+="/sbin/modprobe mmc_block"
 SUBSYSTEM=="i2o", RUN+="/sbin/modprobe i2o_block"
 SUBSYSTEM=="ide", ATTR{media}=="tape", RUN+="/sbin/modprobe ide-scsi"
-SUBSYSTEM=="scsi_device", TEST!="[module/sg]", RUN+="/sbin/modprobe sg"
+SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST!="[module/sg]", RUN+="/sbin/modprobe sg"
+SUBSYSTEM=="module", KERNEL=="parport_pc", RUN+="/sbin/modprobe ppdev"
 
 LABEL="drivers_end"
 
