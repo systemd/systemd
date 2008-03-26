@@ -30,9 +30,12 @@
 #include <fnmatch.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #include "udev.h"
 #include "udevd.h"
+#include "udev_rules.h"
 
 static int verbose;
 static int dry_run;
@@ -41,6 +44,9 @@ LIST_HEAD(filter_subsystem_match_list);
 LIST_HEAD(filter_subsystem_nomatch_list);
 LIST_HEAD(filter_attr_match_list);
 LIST_HEAD(filter_attr_nomatch_list);
+static int sock = -1;
+static struct sockaddr_un saddr;
+static socklen_t saddrlen;
 
 /* devices that should run last cause of their dependencies */
 static int delay_device(const char *devpath)
@@ -114,6 +120,113 @@ static void trigger_uevent(const char *devpath, const char *action)
 	close(fd);
 }
 
+static int pass_to_socket(const char *devpath, const char *action)
+{
+	struct udevice udev;
+	struct name_entry *name_loop;
+	char buf[4096];
+	size_t bufpos = 0;
+	ssize_t count;
+	char path[PATH_SIZE];
+	int fd;
+	char link_target[PATH_SIZE];
+	int len;
+	int err = 0;
+
+	udev_device_init(&udev);
+	udev_db_get_device(&udev, devpath);
+
+	/* add header */
+	bufpos = snprintf(buf, sizeof(buf)-1, "%s@%s", action, devpath);
+	bufpos++;
+
+	/* add standard keys */
+	bufpos += snprintf(&buf[bufpos], sizeof(buf)-1, "DEVPATH=%s", devpath);
+	bufpos++;
+	bufpos += snprintf(&buf[bufpos], sizeof(buf)-1, "ACTION=%s", action);
+	bufpos++;
+
+	/* add subsystem */
+	strlcpy(path, sysfs_path, sizeof(path));
+	strlcat(path, devpath, sizeof(path));
+	strlcat(path, "/subsystem", sizeof(path));
+	len = readlink(path, link_target, sizeof(link_target));
+	if (len > 0) {
+		char *pos;
+
+		link_target[len] = '\0';
+		pos = strrchr(link_target, '/');
+		if (pos != NULL) {
+			bufpos += snprintf(&buf[bufpos], sizeof(buf)-1, "SUBSYSTEM=%s", &pos[1]);
+			bufpos++;
+		}
+	}
+
+	/* add symlinks and node name */
+	path[0] = '\0';
+	list_for_each_entry(name_loop, &udev.symlink_list, node) {
+		strlcat(path, udev_root, sizeof(path));
+		strlcat(path, "/", sizeof(path));
+		strlcat(path, name_loop->name, sizeof(path));
+		strlcat(path, " ", sizeof(path));
+	}
+	remove_trailing_chars(path, ' ');
+	if (path[0] != '\0') {
+		bufpos += snprintf(&buf[bufpos], sizeof(buf)-1, "DEVLINKS=%s", path);
+		bufpos++;
+	}
+	if (udev.name[0] != '\0') {
+		strlcpy(path, udev_root, sizeof(path));
+		strlcat(path, "/", sizeof(path));
+		strlcat(path, udev.name, sizeof(path));
+		bufpos += snprintf(&buf[bufpos], sizeof(buf)-1, "DEVNAME=%s", path);
+		bufpos++;
+	}
+
+	/* add keys from device "uevent" file */
+	strlcpy(path, sysfs_path, sizeof(path));
+	strlcat(path, devpath, sizeof(path));
+	strlcat(path, "/uevent", sizeof(path));
+	fd = open(path, O_RDONLY);
+	if (fd >= 0) {
+		char value[4096];
+
+		count = read(fd, value, sizeof(value));
+		close(fd);
+		if (count > 0) {
+			char *key;
+
+			value[count] = '\0';
+			key = value;
+			while (key[0] != '\0') {
+				char *next;
+
+				next = strchr(key, '\n');
+				if (next == NULL)
+					break;
+				next[0] = '\0';
+				bufpos += strlcpy(&buf[bufpos], key, sizeof(buf) - bufpos-1);
+				bufpos++;
+				key = &next[1];
+			}
+		}
+	}
+
+	/* add keys from database */
+	list_for_each_entry(name_loop, &udev.env_list, node) {
+		bufpos += strlcpy(&buf[bufpos], name_loop->name, sizeof(buf) - bufpos-1);
+		bufpos++;
+	}
+	if (bufpos > sizeof(buf))
+		bufpos = sizeof(buf);
+
+	count = sendto(sock, &buf, bufpos, 0, (struct sockaddr *)&saddr, saddrlen);
+	if (count < 0)
+		err = -1;
+
+	return err;
+}
+
 static void exec_list(const char *action)
 {
 	struct name_entry *loop_device;
@@ -122,15 +235,20 @@ static void exec_list(const char *action)
 	list_for_each_entry_safe(loop_device, tmp_device, &device_list, node) {
 		if (delay_device(loop_device->name))
 			continue;
-
-		trigger_uevent(loop_device->name, action);
+		if (sock)
+			pass_to_socket(loop_device->name, action);
+		else
+			trigger_uevent(loop_device->name, action);
 		list_del(&loop_device->node);
 		free(loop_device);
 	}
 
 	/* trigger remaining delayed devices */
 	list_for_each_entry_safe(loop_device, tmp_device, &device_list, node) {
-		trigger_uevent(loop_device->name, action);
+		if (sock)
+			pass_to_socket(loop_device->name, action);
+		else
+			trigger_uevent(loop_device->name, action);
 		list_del(&loop_device->node);
 		free(loop_device);
 	}
@@ -434,12 +552,14 @@ static void scan_failed(void)
 int udevtrigger(int argc, char *argv[], char *envp[])
 {
 	int failed = 0;
+	const char *sockpath = NULL;
 	int option;
 	const char *action = "add";
 	static const struct option options[] = {
 		{ "verbose", 0, NULL, 'v' },
 		{ "dry-run", 0, NULL, 'n' },
 		{ "retry-failed", 0, NULL, 'F' },
+		{ "socket", 1, NULL, 'o' },
 		{ "help", 0, NULL, 'h' },
 		{ "action", 1, NULL, 'c' },
 		{ "subsystem-match", 1, NULL, 's' },
@@ -455,7 +575,7 @@ int udevtrigger(int argc, char *argv[], char *envp[])
 	sysfs_init();
 
 	while (1) {
-		option = getopt_long(argc, argv, "vnFhc:s:S:a:A:", options, NULL);
+		option = getopt_long(argc, argv, "vnFo:hc:s:S:a:A:", options, NULL);
 		if (option == -1)
 			break;
 
@@ -468,6 +588,9 @@ int udevtrigger(int argc, char *argv[], char *envp[])
 			break;
 		case 'F':
 			failed = 1;
+			break;
+		case 'o':
+			sockpath = optarg;
 			break;
 		case 'c':
 			action = optarg;
@@ -502,6 +625,15 @@ int udevtrigger(int argc, char *argv[], char *envp[])
 		default:
 			goto exit;
 		}
+	}
+
+	if (sockpath != NULL) {
+		sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
+		memset(&saddr, 0x00, sizeof(struct sockaddr_un));
+		saddr.sun_family = AF_LOCAL;
+		/* abstract namespace only */
+		strlcpy(&saddr.sun_path[1], sockpath, sizeof(saddr.sun_path)-1);
+		saddrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
 	}
 
 	if (failed) {
@@ -540,6 +672,8 @@ exit:
 	name_list_cleanup(&filter_attr_match_list);
 	name_list_cleanup(&filter_attr_nomatch_list);
 
+	if (sock >= 0)
+		close(sock);
 	sysfs_cleanup();
 	logging_close();
 	return 0;
