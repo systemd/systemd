@@ -235,7 +235,7 @@ static void exec_list(const char *action)
 	list_for_each_entry_safe(loop_device, tmp_device, &device_list, node) {
 		if (delay_device(loop_device->name))
 			continue;
-		if (sock)
+		if (sock >= 0)
 			pass_to_socket(loop_device->name, action);
 		else
 			trigger_uevent(loop_device->name, action);
@@ -245,7 +245,7 @@ static void exec_list(const char *action)
 
 	/* trigger remaining delayed devices */
 	list_for_each_entry_safe(loop_device, tmp_device, &device_list, node) {
-		if (sock)
+		if (sock >= 0)
 			pass_to_socket(loop_device->name, action);
 		else
 			trigger_uevent(loop_device->name, action);
