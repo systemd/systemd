@@ -281,6 +281,7 @@ int udevinfo(int argc, char *argv[], char *envp[])
 				strlcpy(name, &optarg[strlen(udev_root)+1], sizeof(name));
 			else
 				strlcpy(name, optarg, sizeof(name));
+			remove_trailing_chars(name, '/');
 			dbg("name: %s", name);
 			break;
 		case 'p':
@@ -289,6 +290,27 @@ int udevinfo(int argc, char *argv[], char *envp[])
 				strlcpy(path, &optarg[strlen(sysfs_path)], sizeof(path));
 			else
 				strlcpy(path, optarg, sizeof(path));
+			remove_trailing_chars(path, '/');
+
+			/* possibly resolve to real devpath */
+			if (sysfs_resolve_link(path, sizeof(path)) != 0) {
+				char temp[PATH_SIZE];
+				char *pos;
+
+				/* also check if the parent is a link */
+				strlcpy(temp, path, sizeof(temp));
+				pos = strrchr(temp, '/');
+				if (pos != 0) {
+					char tail[PATH_SIZE];
+
+					strlcpy(tail, pos, sizeof(tail));
+					pos[0] = '\0';
+					if (sysfs_resolve_link(temp, sizeof(temp)) == 0) {
+						strlcpy(path, temp, sizeof(path));
+						strlcat(path, tail, sizeof(path));
+					}
+				}
+			}
 			dbg("path: %s", path);
 			break;
 		case 'q':

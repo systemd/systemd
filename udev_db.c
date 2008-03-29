@@ -37,7 +37,7 @@ static size_t devpath_to_db_path(const char *devpath, char *filename, size_t len
 {
 	size_t start;
 
-	/* add location of db files */
+	/* translate to location of db file */
 	strlcpy(filename, udev_root, len);
 	start = strlcat(filename, "/"DB_DIR"/", len);
 	strlcat(filename, devpath, len);
