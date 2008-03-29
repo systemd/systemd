@@ -133,6 +133,9 @@ static int pass_to_socket(const char *devpath, const char *action)
 	int len;
 	int err = 0;
 
+	if (verbose)
+		printf("%s\n", devpath);
+
 	udev_device_init(&udev);
 	udev_db_get_device(&udev, devpath);
 
