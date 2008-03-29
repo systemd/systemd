@@ -88,7 +88,6 @@ prefix ?=
 etcdir =	${prefix}/etc
 sbindir =	${prefix}/sbin
 usrbindir =	${prefix}/usr/bin
-usrsbindir =	${prefix}/usr/sbin
 libudevdir =	${prefix}/lib/udev
 mandir =	${prefix}/usr/share/man
 configdir =	${etcdir}/udev
@@ -241,12 +240,6 @@ install-man:
 	$(INSTALL) -d $(DESTDIR)$(mandir)/man8
 	$(INSTALL_DATA) udevd.8 $(DESTDIR)$(mandir)/man8/udevd.8
 	$(INSTALL_DATA) udevadm.8 $(DESTDIR)$(mandir)/man8/udevadm.8
-	ln -f -s udevadm.8 $(DESTDIR)$(mandir)/man8/udevinfo.8
-	ln -f -s udevadm.8 $(DESTDIR)$(mandir)/man8/udevtest.8
-	ln -f -s udevadm.8 $(DESTDIR)$(mandir)/man8/udevtrigger.8
-	ln -f -s udevadm.8 $(DESTDIR)$(mandir)/man8/udevsettle.8
-	ln -f -s udevadm.8 $(DESTDIR)$(mandir)/man8/udevmonitor.8
-	ln -f -s udevadm.8 $(DESTDIR)$(mandir)/man8/udevcontrol.8
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		$(MAKE) -C $$target $@ || exit 1; \
 	done;
@@ -255,13 +248,7 @@ install-man:
 uninstall-man:
 	- rm -f $(DESTDIR)$(mandir)/man7/udev.7
 	- rm -f $(DESTDIR)$(mandir)/man8/udevadm.8
-	- rm -f $(DESTDIR)$(mandir)/man8/udevinfo.8
-	- rm -f $(DESTDIR)$(mandir)/man8/udevtest.8
 	- rm -f $(DESTDIR)$(mandir)/man8/udevd.8
-	- rm -f $(DESTDIR)$(mandir)/man8/udevtrigger.8
-	- rm -f $(DESTDIR)$(mandir)/man8/udevsettle.8
-	- rm -f $(DESTDIR)$(mandir)/man8/udevmonitor.8
-	- rm -f $(DESTDIR)$(mandir)/man8/udevcontrol.8
 	@ extras="$(EXTRAS)"; for target in $$extras; do \
 		$(MAKE) -C $$target $@ || exit 1; \
 	done;
@@ -274,11 +261,8 @@ install-bin:
 	ln -f -s udevadm $(DESTDIR)$(sbindir)/udevtrigger
 	ln -f -s udevadm $(DESTDIR)$(sbindir)/udevsettle
 	ln -f -s udevadm $(DESTDIR)$(sbindir)/udevcontrol
-	$(INSTALL) -d $(DESTDIR)$(usrsbindir)
-	ln -f -s $(sbindir)/udevadm $(DESTDIR)$(usrsbindir)/udevmonitor
-	mkdir -p -m 0755 $(DESTDIR)$(usrbindir)
+	$(INSTALL) -d $(DESTDIR)$(usrbindir)
 	ln -f -s $(sbindir)/udevadm $(DESTDIR)$(usrbindir)/udevinfo
-	ln -f -s $(sbindir)/udevadm $(DESTDIR)$(usrbindir)/udevtest
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		$(MAKE) -C $$target $@ || exit 1; \
 	done;
@@ -295,9 +279,7 @@ uninstall-bin:
 	- rm -f $(DESTDIR)$(sbindir)/udevtrigger
 	- rm -f $(DESTDIR)$(sbindir)/udevsettle
 	- rm -f $(DESTDIR)$(sbindir)/udevcontrol
-	- rm -f $(DESTDIR)$(usrsbindir)/udevmonitor
 	- rm -f $(DESTDIR)$(usrbindir)/udevinfo
-	- rm -f $(DESTDIR)$(usrbindir)/udevtest
 ifndef DESTDIR
 	- killall udevd
 	- rm -rf /dev/.udev
