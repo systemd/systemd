@@ -4,5 +4,5 @@
 ACTION=="remove", ENV{REMOVE_CMD}!="", RUN+="$env{REMOVE_CMD}"
 
 # event to be catched by udevmonitor
-RUN+="socket:/org/kernel/udev/monitor"
+RUN+="socket:@/org/kernel/udev/monitor"
 

@@ -130,7 +130,7 @@
         </refsect2>
 
         <refsect2><title>udevadm trigger <optional>options</optional></title>
-          <para>Request kernel device uevents, usually used to replay events at system coldplug.</para>
+          <para>Request device uevents, usually used to replay events at system coldplug.</para>
           <variablelist>
             <varlistentry>
               <term><option>--verbose</option></term>
@@ -186,6 +186,16 @@
                 specified along with the attribute name, the content of the attribute is matched against
                 the given value using shell style pattern matching. If no value is specified, the existence
                 of the sysfs attribute is checked. This option can be specified multiple times.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>--socket<replaceable>path</replaceable></option></term>
+              <listitem>
+                <para>Pass the synthesized events to the specified socket, instead of triggering
+                a global kernel event. All available event values will be send in the same format
+                the kernel sends an uevent, or <option>RUN+="socket:<replaceable>path</replaceable>"</option>
+                sends a message. If the first character of the specified path is an @ character,
+                an abstract namespace socket is used, instead of an existing socket file.</para>
               </listitem>
             </varlistentry>
           </variablelist>

@@ -1,6 +1,6 @@
 .\"     Title: udev
 .\"    Author: 
-.\" Generator: DocBook XSL Stylesheets v1.73.1 <http://docbook.sf.net/>
+.\" Generator: DocBook XSL Stylesheets v1.73.2 <http://docbook.sf.net/>
 .\"      Date: August 2005
 .\"    Manual: udev
 .\"    Source: udev
@@ -213,6 +213,9 @@ Export a variable to the environment\. Depending on the type of operator, this k
 \fBRUN\fR
 .RS 4
 Add a program to the list of programs to be executed for a specific device\. This can only be used for very short running tasks\. Running an event process for a long period of time may block all further events for this or a dependent device\. Long running tasks need to be immediately detached from the event process itself\.
+.sp
+If the specifiefd string starts with
+\fBsocket:\fR\fB\fIpath\fR\fR, all current event values will be passed to the specified socket, as a message in the same format the kernel sends an uevent\. If the first character of the specified path is an @ character, an abstract namespace socket is used, instead of an existing socket file\.
 .RE
 .PP
 \fBLABEL\fR
@@ -409,9 +412,7 @@ The count of characters to be substituted may be limited by specifying the forma
 Written by Greg Kroah\-Hartman
 <greg@kroah\.com>
 and Kay Sievers
-<kay\.sievers@vrfy\.org>\. With much help from Dan Stekloff
-<dsteklof@us\.ibm\.com>
-and many others\.
+<kay\.sievers@vrfy\.org>\. With much help from Dan Stekloff and many others\.
 .SH "SEE ALSO"
 .PP
 \fBudevd\fR(8),

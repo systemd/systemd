@@ -862,7 +862,7 @@ static int init_udevd_socket(void)
 	saddr.sun_family = AF_LOCAL;
 	/* use abstract namespace for socket path */
 	strcpy(&saddr.sun_path[1], UDEVD_CTRL_SOCK_PATH);
-	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
+	addrlen = offsetof(struct sockaddr_un, sun_path) + 1 + strlen(&saddr.sun_path[1]);
 
 	udevd_sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (udevd_sock == -1) {

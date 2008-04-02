@@ -455,24 +455,35 @@ static int import_parent_into_env(struct udevice *udev, const char *filter)
 	return rc;
 }
 
-static int pass_env_to_socket(const char *sockname, const char *devpath, const char *action)
+static int pass_env_to_socket(const char *sockpath, const char *devpath, const char *action)
 {
 	int sock;
 	struct sockaddr_un saddr;
-	socklen_t addrlen;
+	socklen_t saddrlen;
+	struct stat stats;
 	char buf[2048];
 	size_t bufpos = 0;
 	int i;
 	ssize_t count;
 	int retval = 0;
 
-	dbg("pass environment to socket '%s'", sockname);
+	dbg("pass environment to socket '%s'", sockpath);
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	memset(&saddr, 0x00, sizeof(struct sockaddr_un));
 	saddr.sun_family = AF_LOCAL;
-	/* abstract namespace only */
-	strcpy(&saddr.sun_path[1], sockname);
-	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
+	if (sockpath[0] == '@') {
+		/* abstract namespace socket requested */
+		strlcpy(&saddr.sun_path[1], &sockpath[1], sizeof(saddr.sun_path)-1);
+		saddrlen = offsetof(struct sockaddr_un, sun_path) + 1 + strlen(&saddr.sun_path[1]);
+	} else if (stat(sockpath, &stats) == 0 && S_ISSOCK(stats.st_mode)) {
+		/* existing socket file */
+		strlcpy(saddr.sun_path, sockpath, sizeof(saddr.sun_path));
+		saddrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path);
+	} else {
+		/* no socket file, assume abstract namespace socket */
+		strlcpy(&saddr.sun_path[1], sockpath, sizeof(saddr.sun_path)-1);
+		saddrlen = offsetof(struct sockaddr_un, sun_path) + 1 + strlen(&saddr.sun_path[1]);
+	}
 
 	bufpos = snprintf(buf, sizeof(buf)-1, "%s@%s", action, devpath);
 	bufpos++;
@@ -483,10 +494,10 @@ static int pass_env_to_socket(const char *sockname, const char *devpath, const c
 	if (bufpos > sizeof(buf))
 		bufpos = sizeof(buf);
 
-	count = sendto(sock, &buf, bufpos, 0, (struct sockaddr *)&saddr, addrlen);
+	count = sendto(sock, &buf, bufpos, 0, (struct sockaddr *)&saddr, saddrlen);
 	if (count < 0)
 		retval = -1;
-	info("passed %zi bytes to socket '%s', ", count, sockname);
+	info("passed %zi bytes to socket '%s', ", count, sockpath);
 
 	close(sock);
 	return retval;

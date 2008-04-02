@@ -49,7 +49,7 @@ static int init_udev_monitor_socket(void)
 	saddr.sun_family = AF_LOCAL;
 	/* use abstract namespace for socket path */
 	strcpy(&saddr.sun_path[1], "/org/kernel/udev/monitor");
-	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
+	addrlen = offsetof(struct sockaddr_un, sun_path) + 1 + strlen(&saddr.sun_path[1]);
 
 	udev_monitor_sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (udev_monitor_sock == -1) {

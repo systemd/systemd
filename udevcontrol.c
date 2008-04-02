@@ -144,7 +144,7 @@ int udevcontrol(int argc, char *argv[], char *envp[])
 	saddr.sun_family = AF_LOCAL;
 	/* use abstract namespace for socket path */
 	strcpy(&saddr.sun_path[1], UDEVD_CTRL_SOCK_PATH);
-	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
+	addrlen = offsetof(struct sockaddr_un, sun_path) + 1 + strlen(&saddr.sun_path[1]);
 
 	retval = sendto(sock, &ctrl_msg, sizeof(ctrl_msg), 0, (struct sockaddr *)&saddr, addrlen);
 	if (retval == -1) {

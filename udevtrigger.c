@@ -631,12 +631,24 @@ int udevtrigger(int argc, char *argv[], char *envp[])
 	}
 
 	if (sockpath != NULL) {
+		struct stat stats;
+
 		sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 		memset(&saddr, 0x00, sizeof(struct sockaddr_un));
 		saddr.sun_family = AF_LOCAL;
-		/* abstract namespace only */
-		strlcpy(&saddr.sun_path[1], sockpath, sizeof(saddr.sun_path)-1);
-		saddrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path+1) + 1;
+		if (sockpath[0] == '@') {
+			/* abstract namespace socket requested */
+			strlcpy(&saddr.sun_path[1], &sockpath[1], sizeof(saddr.sun_path)-1);
+			saddrlen = offsetof(struct sockaddr_un, sun_path) + 1 + strlen(&saddr.sun_path[1]);
+		} else if (stat(sockpath, &stats) == 0 && S_ISSOCK(stats.st_mode)) {
+			/* existing socket file */
+			strlcpy(saddr.sun_path, sockpath, sizeof(saddr.sun_path));
+			saddrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path);
+		} else {
+			/* no socket file, assume abstract namespace socket */
+			strlcpy(&saddr.sun_path[1], sockpath, sizeof(saddr.sun_path)-1);
+			saddrlen = offsetof(struct sockaddr_un, sun_path) + 1 + strlen(&saddr.sun_path[1]);
+		}
 	}
 
 	if (failed) {
