@@ -479,12 +479,20 @@ static int devpath_busy(struct udevd_uevent_msg *msg, int limit)
 			return 3;
 		}
 
+		/* check for our major:minor number */
+		if (msg->devt && loop_msg->devt == msg->devt &&
+		    strcmp(msg->subsystem, loop_msg->subsystem) == 0) {
+			dbg("%llu, device event still pending %llu (%d:%d)", msg->seqnum,
+			    loop_msg->seqnum, major(loop_msg->devt), minor(loop_msg->devt));
+			return 4;
+		}
+
 		/* check physical device event (special case of parent) */
 		if (msg->physdevpath && msg->action && strcmp(msg->action, "add") == 0)
 			if (compare_devpath(loop_msg->devpath, msg->physdevpath) != 0) {
 				dbg("%llu, physical device event still pending %llu (%s)",
 				    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
-				return 4;
+				return 5;
 			}
 	}
 
@@ -507,12 +515,20 @@ static int devpath_busy(struct udevd_uevent_msg *msg, int limit)
 			return 3;
 		}
 
+		/* check for our major:minor number */
+		if (msg->devt && loop_msg->devt == msg->devt &&
+		    strcmp(msg->subsystem, loop_msg->subsystem) == 0) {
+			dbg("%llu, device event still running %llu (%d:%d)", msg->seqnum,
+			    loop_msg->seqnum, major(loop_msg->devt), minor(loop_msg->devt));
+			return 4;
+		}
+
 		/* check physical device event (special case of parent) */
 		if (msg->physdevpath && msg->action && strcmp(msg->action, "add") == 0)
 			if (compare_devpath(loop_msg->devpath, msg->physdevpath) != 0) {
 				dbg("%llu, physical device event still running %llu (%s)",
 				    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
-				return 4;
+				return 5;
 			}
 	}
 	return 0;
