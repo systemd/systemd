@@ -1,3 +1,19 @@
+udev 120
+========
+Bugfixes.
+
+The last WAIT_FOR_SYSFS rule is removed from the default rules.
+
+The symlinks to udevadm for the debugging tools: udevmonitor and
+udevtest are no longer created.
+
+The symlinks to the udevadm man page for the old tool names are
+no longer created.
+
+Abstract namespace sockets paths in RUN+="socket:@<path>" rules,
+should be prefixed with '@' to indicate that the path is not a
+real file.
+
 udev 119
 ========
 Bugfixes.

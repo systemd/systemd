@@ -1,3 +1,21 @@
+Summary of changes from v119 to v120
+============================================
+
+Kay Sievers (9):
+      test: remove duplicated EXTRA entry
+      rules: remove last WAIT_FOR_SYSFS, load ppdev, switch scsi_device
+      udevadm: trigger - option to synthesize events and pass them to a socket
+      udevadm: info - resolve devpath if symlink is given
+      udevadm: remove old man page links and compat links for debugging tools
+      udevadm: trigger - fix broken socket option check
+      udevadm: trigger - fix --socket== + --verbose
+      also accept real socket files for RUN+="socket:<path>"
+      persistent device naming: cleanup storage rules
+
+Michael Kralka (1):
+      udevd: serialize events if they refer to the same major:minor number
+
+
 Summary of changes from v118 to v119
 ============================================
 

@@ -1,12 +1,6 @@
 These things would be nice to have:
 
-
 These things will change in future udev versions:
-  o warn if BUS, ID, SYSFS are used as keys
-    (they are SUBSYSTEMS, KERNELS, ATTRS now)
 
-  o warn if links to udevadm are used
-
-These things are deprecated and scheduled for removal in a future
-udev version:
-  o some day, remove all symlinks to udevadm
+These things are deprecated and scheduled for removal in a future udev version:
+  o the installation of symlinks to udevadm
