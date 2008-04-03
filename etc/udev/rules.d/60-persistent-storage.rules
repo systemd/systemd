@@ -14,7 +14,7 @@ KERNEL=="hd*[!0-9]", ATTR{removable}=="1", DRIVERS=="ide-cs|ide-floppy", GOTO="p
 KERNEL=="hd*[0-9]", ATTRS{removable}=="1", GOTO="persistent_storage_end"
 
 # ignore partitions that span the entire disk
-ATTR{whole_disk}=="*", GOTO="persistent_storage_end"
+TEST=="whole_disk", GOTO="persistent_storage_end"
 
 # /sys/class/block will export this
 ENV{DEVTYPE}!="?*", ATTR{range}=="?*", ENV{DEVTYPE}="disk"
@@ -46,9 +46,6 @@ KERNEL=="mmcblk[0-9]p[0-9]", ENV{ID_NAME}=="?*", ENV{ID_SERIAL}=="?*", SYMLINK+=
 ENV{DEVTYPE}=="disk", IMPORT{program}="path_id %p"
 ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}"
 ENV{DEVTYPE}=="partition", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
-
-KERNEL=="sr*", GOTO="persistent_storage_end"
-KERNEL=="hd*[!0-9]", ATTR{removable}=="1", GOTO="persistent_storage_end"
 
 # by-label/by-uuid (filesystem properties)
 ENV{DEVTYPE}=="partition", IMPORT{program}="vol_id --export $tempnode"
