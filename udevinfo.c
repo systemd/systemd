@@ -83,7 +83,6 @@ static void print_all_attributes(const char *devpath, const char *key)
 				continue;
 			}
 
-			replace_chars(value, ALLOWED_CHARS_INPUT);
 			printf("    %s{%s}==\"%s\"\n", key, dent->d_name, value);
 		}
 	}
