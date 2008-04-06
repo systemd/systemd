@@ -17,7 +17,7 @@
 
 <h1>Writing udev rules</h1>
 by Daniel Drake (dsd)<br />
-Version 0.73<br /><br />
+Version 0.74<br /><br />
 
 The most recent version of this document can always be found at: <br />
 
@@ -114,6 +114,7 @@ This document uses various examples (many of which are entirely fictional) to il
 <h3>History</h3>
 
 <ul>
+<li>April 5th 2008 v0.74: Typo fixes.</li>
 <li>December 3rd 2007 v0.73: Update for new udev versions, and some miscellaneous improvements.</li>
 <li>October 2nd 2006 v0.72: Fixed a typo in one of the example rules.</li>
 <li>June 10th 2006 v0.71: Misc changes based on recent feedback - thanks!</li>
@@ -480,7 +481,7 @@ As you can see, udevinfo simply produces a list of attributes you can use as-is 
 
 <blockquote><pre>
 <span class="green">SUBSYSTEM=="block"</span>, <span class="green">ATTR{size}=="234441648",</span> NAME="my_hard_disk"
-<span class="green">SUBSYSTEM="block"</span>, <span class="blue">SUBSYSTEMS=="scsi"</span>, <span class="blue">ATTRS{model}=="ST3120827AS",</span> NAME="my_hard_disk"</pre></blockquote>
+<span class="green">SUBSYSTEM=="block"</span>, <span class="blue">SUBSYSTEMS=="scsi"</span>, <span class="blue">ATTRS{model}=="ST3120827AS",</span> NAME="my_hard_disk"</pre></blockquote>
 
 <p>
 You may have noted the use of colour in the above examples. This is to demonstrate that while it is legal to combine the attributes from the device in question and a <em>single</em> parent device, you cannot mix-and-match attributes from multiple parent devices - your rule will not work. For example, the following rule is <em>invalid</em> as it attempts to match attributes from two parent devices:
@@ -735,7 +736,7 @@ A USB hard disk is comparable to the USB camera I described above, however typic
 Of course, if you have a 100GB USB hard disk, it is perfectly understandable that you might want to partition it, in which case we can take advantage of udev's string substitutions:
 </p>
 
-<blockquote><pre>KERNEL=="sd*", SUBSYSTEMS="scsi", ATTRS{model}=="USB 2.0 Storage Device", SYMLINK+="usbhd%n"</pre></blockquote>
+<blockquote><pre>KERNEL=="sd*", SUBSYSTEMS=="scsi", ATTRS{model}=="USB 2.0 Storage Device", SYMLINK+="usbhd%n"</pre></blockquote>
 
 <p>
 This rule creates symlinks such as:
