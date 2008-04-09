@@ -134,6 +134,7 @@ int main(int argc, char *argv[])
 		{ "export", 0, NULL, 'x' },
 		{ "skip-raid", 0, NULL, 's' },
 		{ "probe-all", 0, NULL, 'a' },
+		{ "offset", 1, NULL, 'o' },
 		{ "help", 0, NULL, 'h' },
 		{}
 	};
@@ -153,6 +154,7 @@ int main(int argc, char *argv[])
 	uint64_t size;
 	int skip_raid = 0;
 	int probe_all = 0;
+	uint64_t offset = 0;
 	const char *node;
 	int fd;
 	const char *label, *uuid, *type, *type_version, *usage;
@@ -167,7 +169,7 @@ int main(int argc, char *argv[])
 	while (1) {
 		int option;
 
-		option = getopt_long(argc, argv, "lLutxsah", options, NULL);
+		option = getopt_long(argc, argv, "lLutxsaoh", options, NULL);
 		if (option == -1)
 			break;
 
@@ -193,6 +195,9 @@ int main(int argc, char *argv[])
 		case 'a':
 			probe_all = 1;
 			break;
+		case 'o':
+			offset = strtoull(optarg, NULL, 0);
+			break;
 		case 'h':
 			printf("Usage: vol_id [options] <device>\n"
 			    " --export        export key/value pairs\n"
@@ -202,6 +207,7 @@ int main(int argc, char *argv[])
 			    " --uuid          filesystem uuid\n"
 			    " --skip-raid     don't probe for raid\n"
 			    " --probe-all     find possibly conflicting signatures\n"
+			    " --offset        skip given number of bytes of input\n"
 			    " --help\n\n");
 			goto exit;
 		default:
@@ -249,14 +255,14 @@ int main(int argc, char *argv[])
 	}
 
 	if (probe_all) {
-		volume_id_all_probers(all_probers, vid, 0, size, NULL);
+		volume_id_all_probers(all_probers, vid, offset, size, NULL);
 		goto exit;
 	}
 
 	if (skip_raid)
-		retval = volume_id_probe_filesystem(vid, 0, size);
+		retval = volume_id_probe_filesystem(vid, offset, size);
 	else
-		retval = volume_id_probe_all(vid, 0, size);
+		retval = volume_id_probe_all(vid, offset, size);
 	if (retval != 0) {
 		fprintf(stderr, "%s: unknown volume type\n", node);
 		rc = 4;

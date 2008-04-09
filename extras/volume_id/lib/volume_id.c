@@ -331,9 +331,9 @@ err:
 }
 
 /* run only once into a timeout for unreadable devices */
-static int device_is_readable(struct volume_id *id)
+static int device_is_readable(struct volume_id *id, uint64_t off)
 {
-	if (volume_id_get_buffer(id, 0x00, 0x200) != NULL)
+	if (volume_id_get_buffer(id, off, 0x200) != NULL)
 		return 1;
 	return 0;
 }
@@ -355,7 +355,7 @@ int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size)
 	if (id == NULL)
 		return -EINVAL;
 
-	if (!device_is_readable(id))
+	if (!device_is_readable(id, off))
 		return -1;
 
 	info("probing at offset 0x%llx, size 0x%llx",
@@ -389,7 +389,7 @@ int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size
 	if (id == NULL)
 		return -EINVAL;
 
-	if (!device_is_readable(id))
+	if (!device_is_readable(id, off))
 		return -1;
 
 	info("probing at offset 0x%llx, size 0x%llx",
@@ -421,7 +421,7 @@ int volume_id_probe_all(struct volume_id *id, uint64_t off, uint64_t size)
 	if (id == NULL)
 		return -EINVAL;
 
-	if (!device_is_readable(id))
+	if (!device_is_readable(id, off))
 		return -1;
 
 	/* probe for raid first, because fs probes may be successful on raid members */
