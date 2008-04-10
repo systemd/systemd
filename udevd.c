@@ -1116,6 +1116,14 @@ int main(int argc, char *argv[], char *envp[])
 		close(fd);
 	}
 
+	fd = open("/dev/kmsg", O_WRONLY);
+	if (fd > 0) {
+		const char *str = "<6>udevd version " UDEV_VERSION " started\n";
+
+		write(fd, str, strlen(str));
+		close(fd);
+	}
+
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(struct sigaction));
 	act.sa_handler = (void (*)(int)) sig_handler;
