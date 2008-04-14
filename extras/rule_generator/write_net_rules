@@ -92,6 +92,9 @@ if [ -z "$match" ]; then
 	exit 1
 fi
 
+basename=${INTERFACE%%[0-9]*}
+match="$match, KERNEL==\"$basename*\""
+
 if [ "$INTERFACE_NAME" ]; then
 	# external tools may request a custom name
 	COMMENT="$COMMENT (custom name provided by external tool)"
@@ -101,8 +104,6 @@ if [ "$INTERFACE_NAME" ]; then
 	fi
 else
 	# if a rule using the current name already exists, find a new name
-	basename=${INTERFACE%%[0-9]*}
-	match="$match, KERNEL==\"$basename*\""
 	if interface_name_taken; then
 		INTERFACE="$basename$(find_next_available "$basename[0-9]*")"
 		echo "INTERFACE_NEW=$INTERFACE"

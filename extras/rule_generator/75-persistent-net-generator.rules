@@ -18,7 +18,7 @@ SUBSYSTEM!="net", GOTO="persistent_net_generator_end"
 NAME=="?*", GOTO="persistent_net_generator_end"
 
 # device name whitelist
-KERNEL!="eth*|ath*|wlan*[0-9]|ra*|sta*|ctc*|lcs*|hsi*", GOTO="persistent_net_generator_end"
+KERNEL!="eth*|ath*|wlan*[0-9]|msh*|ra*|sta*|ctc*|lcs*|hsi*", GOTO="persistent_net_generator_end"
 
 # ignore Xen virtual interfaces
 SUBSYSTEMS=="xen", GOTO="persistent_net_generator_end"
