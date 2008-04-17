@@ -29,6 +29,7 @@
 #include <sys/mman.h>
 
 #include "udev.h"
+#include "udev_selinux.h"
 
 int create_path(const char *path)
 {

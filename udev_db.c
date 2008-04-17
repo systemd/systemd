@@ -31,6 +31,7 @@
 #include <sys/types.h>
 
 #include "udev.h"
+#include "udev_selinux.h"
 
 
 static size_t devpath_to_db_path(const char *devpath, char *filename, size_t len)

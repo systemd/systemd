@@ -28,6 +28,7 @@
 
 #include "udev.h"
 #include "udev_rules.h"
+#include "udev_selinux.h"
 
 
 void udev_rules_iter_init(struct udev_rules *rules)
