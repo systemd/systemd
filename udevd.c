@@ -168,7 +168,9 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 		delete_path(filename_failed);
 
 		create_path(filename);
+ 	        selinux_setfscreatecon(filename, NULL, S_IFLNK);	
 		symlink(msg->devpath, filename);
+ 	        selinux_resetfscreatecon();
 		break;
 	case EVENT_FINISHED:
 		if (msg->devpath_old != NULL) {

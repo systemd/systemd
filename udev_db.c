@@ -144,8 +144,12 @@ int udev_db_add_device(struct udevice *udev)
 	 */
 	if (list_empty(&udev->symlink_list) && list_empty(&udev->env_list) &&
 	    !udev->partitions && !udev->ignore_remove) {
+		int ret;
 		dbg("nothing interesting to store, create symlink");
-		if (symlink(udev->name, filename) != 0) {
+		selinux_setfscreatecon(filename, NULL, S_IFLNK);	
+		ret = symlink(udev->name, filename);
+		selinux_resetfscreatecon();
+		if (ret != 0) {
 			err("unable to create db link '%s': %s", filename, strerror(errno));
 			return -1;
 		}

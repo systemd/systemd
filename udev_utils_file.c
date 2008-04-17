@@ -35,6 +35,7 @@ int create_path(const char *path)
 	char p[PATH_SIZE];
 	char *pos;
 	struct stat stats;
+	int ret;
 
 	strlcpy(p, path, sizeof(p));
 	pos = strrchr(p, '/');
@@ -53,8 +54,12 @@ int create_path(const char *path)
 		return -1;
 
 	dbg("mkdir '%s'", p);
-	if (mkdir(p, 0755) == 0)
+ 	selinux_setfscreatecon(p, NULL, S_IFDIR|0755);
+	ret = mkdir(p, 0755);
+ 	selinux_resetfscreatecon();
+	if (ret == 0)
 		return 0;
+
 	if (errno == EEXIST)
 		if (stat(p, &stats) == 0 && (stats.st_mode & S_IFMT) == S_IFDIR)
 			return 0;

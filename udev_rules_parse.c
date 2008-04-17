@@ -745,7 +745,9 @@ int udev_rules_init(struct udev_rules *rules, int resolve_names)
 	strlcat(filename, "/"RULES_DYN_DIR, sizeof(filename));
 	if (stat(filename, &statbuf) != 0) {
 		create_path(filename);
+		selinux_setfscreatecon(filename, NULL, S_IFDIR|0755);
 		mkdir(filename, 0755);
+		selinux_resetfscreatecon();
 	}
 	add_matching_files(&dyn_list, filename, RULESFILE_SUFFIX);
 
