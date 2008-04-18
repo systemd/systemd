@@ -1607,6 +1607,16 @@ EOF
 KERNEL=="sda", TEST=="*/nr_requests", NAME="found-subdir"
 EOF
 	},
+	{
+		desc		=> "TEST MODE=0000",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "sda",
+		exp_perms	=> "0:0:0000",
+		rules		=> <<EOF
+KERNEL=="sda", MODE="0000"
+EOF
+	},
 );
 
 # set env

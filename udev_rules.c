@@ -1385,11 +1385,11 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 			}
 
 			/* apply permissions */
-			if (!udev->mode_final && rule->mode != 0000) {
-				if (rule->mode_operation == KEY_OP_ASSIGN_FINAL)
+			if (!udev->mode_final && rule->mode.operation != KEY_OP_UNSET) {
+				if (rule->mode.operation == KEY_OP_ASSIGN_FINAL)
 					udev->mode_final = 1;
-				udev->mode = rule->mode;
-				dbg("applied mode=%#o to '%s'", rule->mode, udev->dev->kernel);
+				udev->mode = strtol(key_val(rule, &rule->mode), NULL, 8);
+				dbg("applied mode=%#o to '%s'", udev->mode, udev->dev->kernel);
 			}
 			if (!udev->owner_final && rule->owner.operation != KEY_OP_UNSET) {
 				if (rule->owner.operation == KEY_OP_ASSIGN_FINAL)
@@ -1534,7 +1534,7 @@ int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev)
 		    rule->symlink.operation == KEY_OP_ASSIGN ||
 		    rule->symlink.operation == KEY_OP_ASSIGN_FINAL ||
 		    rule->symlink.operation == KEY_OP_ADD ||
-		    rule->mode_operation != KEY_OP_UNSET ||
+		    rule->mode.operation != KEY_OP_UNSET ||
 		    rule->owner.operation != KEY_OP_UNSET || rule->group.operation != KEY_OP_UNSET) {
 			dbg("skip rule that names a device");
 			continue;

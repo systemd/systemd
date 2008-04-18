@@ -579,8 +579,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 		}
 
 		if (strcasecmp(key, "MODE") == 0) {
-			rule->mode = strtol(value, NULL, 8);
-			rule->mode_operation = operation;
+			add_rule_key(rule, &rule->mode, operation, value);
 			valid = 1;
 			continue;
 		}

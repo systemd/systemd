@@ -93,8 +93,7 @@ struct udev_rule {
 	struct key symlink_match;
 	struct key owner;
 	struct key group;
-	mode_t mode;
-	enum key_operation mode_operation;
+	struct key mode;
 	enum escape_type string_escape;
 
 	unsigned int link_priority;
