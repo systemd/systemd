@@ -549,7 +549,7 @@ handle_device () {
 				;;
 			*)
 				mode=""
-			   ;;
+				;;
 		esac
 		if [ "$d" ]; then
 			d="$d-${rewind}st${mode}"
@@ -557,22 +557,9 @@ handle_device () {
 	fi
 }
 
-case "$TYPE" in
-	block)
-		handle_device
-		echo "ID_PATH=$d"
-		;;
-	scsi_tape)
-		handle_device
-		echo "ID_PATH=$d"
-		;;
-	input)
-		handle_device
-		echo "ID_PATH=$d"
-		;;
-	*)
-		RESULT=1
-		;;
-esac
-
-exit $RESULT
+handle_device
+if [ -z "$d" ]; then
+	exit 1
+fi
+echo "ID_PATH=$d"
+exit 0
