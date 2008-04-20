@@ -132,7 +132,7 @@ int volume_id_probe_ext(struct volume_id *id, uint64_t off, uint64_t size)
 	uint32_t feature_incompat;
 	uint32_t flags;
 
-	info("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx\n", (unsigned long long) off);
 
 	es = (struct ext2_super_block *) volume_id_get_buffer(id, off + EXT_SUPERBLOCK_OFFSET, 0x200);
 	if (es == NULL)
@@ -142,9 +142,9 @@ int volume_id_probe_ext(struct volume_id *id, uint64_t off, uint64_t size)
 		return -1;
 
 	bsize = 0x400 << le32_to_cpu(es->s_log_block_size);
-	dbg("ext blocksize 0x%zx", bsize);
+	dbg("ext blocksize 0x%zx\n", bsize);
 	if (bsize < EXT3_MIN_BLOCK_SIZE || bsize > EXT3_MAX_BLOCK_SIZE) {
-		dbg("invalid ext blocksize");
+		dbg("invalid ext blocksize\n");
 		return -1;
 	}
 

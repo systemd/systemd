@@ -43,7 +43,7 @@ int volume_id_probe_linux_swap(struct volume_id *id, uint64_t off, uint64_t size
 	unsigned int page;
 	struct swap_header_v1_2 *sw;
 
-	info("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx\n", (unsigned long long) off);
 
 	/* eek, the swap signature is at the end of the PAGE_SIZE */
 	for (page = 0x1000; page <= LARGEST_PAGESIZE; page <<= 1) {

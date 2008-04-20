@@ -69,7 +69,7 @@ static void print_all_attributes(const char *devpath, const char *key)
 			len = strlcpy(value, attr_value, sizeof(value));
 			if(len >= sizeof(value))
 				len = sizeof(value) - 1;
-			dbg("attr '%s'='%s'(%zi)", dent->d_name, value, len);
+			dbg("attr '%s'='%s'(%zi)\n", dent->d_name, value, len);
 
 			/* remove trailing newlines */
 			while (len && value[len-1] == '\n')
@@ -79,7 +79,7 @@ static void print_all_attributes(const char *devpath, const char *key)
 			while (len && isprint(value[len-1]))
 				len--;
 			if (len) {
-				dbg("attribute value of '%s' non-printable, skip", dent->d_name);
+				dbg("attribute value of '%s' non-printable, skip\n", dent->d_name);
 				continue;
 			}
 
@@ -175,7 +175,7 @@ static int lookup_device_by_name(struct udevice *udev, const char *name)
 	if (count <= 0)
 		goto out;
 
-	info("found %i devices for '%s'", count, name);
+	info("found %i devices for '%s'\n", count, name);
 
 	/* select the device that seems to match */
 	list_for_each_entry(device, &name_list, node) {
@@ -185,7 +185,7 @@ static int lookup_device_by_name(struct udevice *udev, const char *name)
 		udev_device_init(udev);
 		if (udev_db_get_device(udev, device->name) != 0)
 			continue;
-		info("found db entry '%s'", device->name);
+		info("found db entry '%s'\n", device->name);
 
 		/* make sure, we don't get a link of a differnt device */
 		strlcpy(filename, udev_root, sizeof(filename));
@@ -194,7 +194,7 @@ static int lookup_device_by_name(struct udevice *udev, const char *name)
 		if (stat(filename, &statbuf) != 0)
 			continue;
 		if (major(udev->devt) > 0 && udev->devt != statbuf.st_rdev) {
-			info("skip '%s', dev_t doesn't match", udev->name);
+			info("skip '%s', dev_t doesn't match\n", udev->name);
 			continue;
 		}
 		rc = 0;
@@ -272,7 +272,7 @@ int udevinfo(int argc, char *argv[], char *envp[])
 		if (option == -1)
 			break;
 
-		dbg("option '%c'", option);
+		dbg("option '%c'\n", option);
 		switch (option) {
 		case 'n':
 			/* remove /dev if given */
@@ -281,7 +281,7 @@ int udevinfo(int argc, char *argv[], char *envp[])
 			else
 				strlcpy(name, optarg, sizeof(name));
 			remove_trailing_chars(name, '/');
-			dbg("name: %s", name);
+			dbg("name: %s\n", name);
 			break;
 		case 'p':
 			/* remove /sys if given */
@@ -310,7 +310,7 @@ int udevinfo(int argc, char *argv[], char *envp[])
 					}
 				}
 			}
-			dbg("path: %s", path);
+			dbg("path: %s\n", path);
 			break;
 		case 'q':
 			action = ACTION_QUERY;

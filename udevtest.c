@@ -62,7 +62,7 @@ static int import_uevent_var(const char *devpath)
 		if (next == NULL)
 			goto out;
 		next[0] = '\0';
-		info("import into environment: '%s'", key);
+		info("import into environment: '%s'\n", key);
 		putenv(key);
 		key = &next[1];
 	}
@@ -91,7 +91,7 @@ int udevtest(int argc, char *argv[], char *envp[])
 		{}
 	};
 
-	info("version %s", UDEV_VERSION);
+	info("version %s\n", UDEV_VERSION);
 	udev_config_init();
 	if (udev_log_priority < LOG_INFO) {
 		char priority[32];
@@ -108,7 +108,7 @@ int udevtest(int argc, char *argv[], char *envp[])
 		if (option == -1)
 			break;
 
-		dbg("option '%c'", option);
+		dbg("option '%c'\n", option);
 		switch (option) {
 		case 'a':
 			action = optarg;
@@ -181,7 +181,7 @@ int udevtest(int argc, char *argv[], char *envp[])
 	setenv("ACTION", udev->action, 1);
 	import_uevent_var(udev->dev->devpath);
 
-	info("looking at device '%s' from subsystem '%s'", udev->dev->devpath, udev->dev->subsystem);
+	info("looking at device '%s' from subsystem '%s'\n", udev->dev->devpath, udev->dev->subsystem);
 	retval = udev_device_event(&rules, udev);
 	if (retval == 0 && !udev->ignore_device && udev_run) {
 		struct name_entry *name_loop;
@@ -191,7 +191,7 @@ int udevtest(int argc, char *argv[], char *envp[])
 
 			strlcpy(program, name_loop->name, sizeof(program));
 			udev_rules_apply_format(udev, program, sizeof(program));
-			info("run: '%s'", program);
+			info("run: '%s'\n", program);
 		}
 	}
 	udev_device_cleanup(udev);

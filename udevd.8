@@ -14,7 +14,7 @@
 udevd - event managing daemon
 .SH "SYNOPSIS"
 .HP 6
-\fBudevd\fR [\fB\-\-daemon\fR] [\fB\-\-debug\-trace\fR] [\fB\-\-verbose\fR] [\fB\-\-version\fR] [\fB\-\-help\fR]
+\fBudevd\fR [\fB\-\-daemon\fR] [\fB\-\-debug\-trace\fR] [\fB\-\-debug\fR] [\fB\-\-version\fR] [\fB\-\-help\fR]
 .SH "DESCRIPTION"
 .PP
 udevd listens to kernel uevents and passes the incoming events to udev\. It ensures the correct event order and takes care, that events for child devices are delayed until the parent event has finished the device handling\. The behavior of the running daemon can be changed with
@@ -31,7 +31,7 @@ Detach and run in the background\.
 Run all events completely serialized\. This may be useful if udev triggers actions or loads kernel modules which cause problems and a slow but continuous operation is needed, where no events are processed in parallel\.
 .RE
 .PP
-\fB\-\-verbose\fR
+\fB\-\-debug\fR
 .RS 4
 Print log messages to stdout\.
 .RE

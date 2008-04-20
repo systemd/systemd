@@ -65,13 +65,13 @@ static int name_index(const char *devpath, const char *name, int add)
 	strlcat(filename, device, sizeof(filename));
 
 	if (add) {
-		info("creating index: '%s'", filename);
+		info("creating index: '%s'\n", filename);
 		create_path(filename);
 		fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
 		if (fd > 0)
 			close(fd);
 	} else {
-		info("removing index: '%s'", filename);
+		info("removing index: '%s'\n", filename);
 		unlink(filename);
 		delete_path(filename);
 	}
@@ -92,12 +92,12 @@ int udev_db_get_devices_by_name(const char *name, struct list_head *name_list)
 
 	dir = opendir(dirname);
 	if (dir == NULL) {
-		info("no index directory '%s': %s", dirname, strerror(errno));
+		info("no index directory '%s': %s\n", dirname, strerror(errno));
 		rc = -1;
 		goto out;
 	}
 
-	info("found index directory '%s'", dirname);
+	info("found index directory '%s'\n", dirname);
 	while (1) {
 		struct dirent *ent;
 		char device[PATH_SIZE];
@@ -146,12 +146,12 @@ int udev_db_add_device(struct udevice *udev)
 	if (list_empty(&udev->symlink_list) && list_empty(&udev->env_list) &&
 	    !udev->partitions && !udev->ignore_remove) {
 		int ret;
-		dbg("nothing interesting to store, create symlink");
+		dbg("nothing interesting to store, create symlink\n");
 		selinux_setfscreatecon(filename, NULL, S_IFLNK);	
 		ret = symlink(udev->name, filename);
 		selinux_resetfscreatecon();
 		if (ret != 0) {
-			err("unable to create db link '%s': %s", filename, strerror(errno));
+			err("unable to create db link '%s': %s\n", filename, strerror(errno));
 			return -1;
 		}
 	} else {
@@ -160,10 +160,10 @@ int udev_db_add_device(struct udevice *udev)
 
 		f = fopen(filename, "w");
 		if (f == NULL) {
-			err("unable to create db file '%s': %s", filename, strerror(errno));
+			err("unable to create db file '%s': %s\n", filename, strerror(errno));
 			return -1;
 		}
-		dbg("storing data for device '%s' in '%s'", udev->dev->devpath, filename);
+		dbg("storing data for device '%s' in '%s'\n", udev->dev->devpath, filename);
 
 		fprintf(f, "N:%s\n", udev->name);
 		list_for_each_entry(name_loop, &udev->symlink_list, node) {
@@ -205,28 +205,28 @@ int udev_db_get_device(struct udevice *udev, const char *devpath)
 	devpath_to_db_path(devpath, filename, sizeof(filename));
 
 	if (lstat(filename, &stats) != 0) {
-		info("no db file to read %s: %s", filename, strerror(errno));
+		info("no db file to read %s: %s\n", filename, strerror(errno));
 		return -1;
 	}
 	if ((stats.st_mode & S_IFMT) == S_IFLNK) {
 		char target[NAME_SIZE];
 		int target_len;
 
-		info("found a symlink as db file");
+		info("found a symlink as db file\n");
 		target_len = readlink(filename, target, sizeof(target));
 		if (target_len > 0)
 			target[target_len] = '\0';
 		else {
-			info("error reading db link %s: %s", filename, strerror(errno));
+			info("error reading db link %s: %s\n", filename, strerror(errno));
 			return -1;
 		}
-		dbg("db link points to '%s'", target);
+		dbg("db link points to '%s'\n", target);
 		strlcpy(udev->name, target, sizeof(udev->name));
 		return 0;
 	}
 
 	if (file_map(filename, &buf, &bufsize) != 0) {
-		info("error reading db file %s: %s", filename, strerror(errno));
+		info("error reading db file %s: %s\n", filename, strerror(errno));
 		return -1;
 	}
 
@@ -323,7 +323,7 @@ int udev_db_get_all_entries(struct list_head *name_list)
 	strlcat(dbpath, "/"DB_DIR, sizeof(dbpath));
 	dir = opendir(dbpath);
 	if (dir == NULL) {
-		info("no udev_db available '%s': %s", dbpath, strerror(errno));
+		info("no udev_db available '%s': %s\n", dbpath, strerror(errno));
 		return -1;
 	}
 
@@ -340,7 +340,7 @@ int udev_db_get_all_entries(struct list_head *name_list)
 		strlcpy(device, ent->d_name, sizeof(device));
 		path_decode(device);
 		name_list_add(name_list, device, 1);
-		dbg("added '%s'", device);
+		dbg("added '%s'\n", device);
 	}
 
 	closedir(dir);

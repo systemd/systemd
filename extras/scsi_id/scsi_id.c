@@ -174,25 +174,25 @@ static int create_tmp_dev(const char *devpath, char *tmpdev, int dev_type)
 	unsigned int maj, min;
 	const char *attr;
 
-	dbg("%s", devpath);
+	dbg("%s\n", devpath);
 	attr = sysfs_attr_get_value(devpath, "dev");
 	if (attr == NULL) {
-		dbg("%s: could not get dev attribute: %s", devpath, strerror(errno));
+		dbg("%s: could not get dev attribute: %s\n", devpath, strerror(errno));
 		return -1;
 	}
 
-	dbg("dev value %s", attr);
+	dbg("dev value %s\n", attr);
 	if (sscanf(attr, "%u:%u", &maj, &min) != 2) {
-		err("%s: invalid dev major/minor", devpath);
+		err("%s: invalid dev major/minor\n", devpath);
 		return -1;
 	}
 
 	snprintf(tmpdev, MAX_PATH_LEN, "%s/%s-maj%d-min%d-%u",
 		 TMP_DIR, TMP_PREFIX, maj, min, getpid());
 
-	dbg("tmpdev '%s'", tmpdev);
+	dbg("tmpdev '%s'\n", tmpdev);
 	if (mknod(tmpdev, 0600 | dev_type, makedev(maj, min))) {
-		err("mknod failed: %s", strerror(errno));
+		err("mknod failed: %s\n", strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -273,7 +273,7 @@ static int get_file_options(const char *vendor, const char *model,
 		if (errno == ENOENT) {
 			return 1;
 		} else {
-			err("can't open %s: %s", config_file, strerror(errno));
+			err("can't open %s: %s\n", config_file, strerror(errno));
 			return -1;
 		}
 	}
@@ -285,7 +285,7 @@ static int get_file_options(const char *vendor, const char *model,
 	 */
 	buffer = malloc(MAX_BUFFER_LEN);
 	if (!buffer) {
-		err("Can't allocate memory.");
+		err("can't allocate memory\n");
 		return -1;
 	}
 
@@ -299,7 +299,7 @@ static int get_file_options(const char *vendor, const char *model,
 			break;
 		lineno++;
 		if (buf[strlen(buffer) - 1] != '\n') {
-			info("Config file line %d too long.\n", lineno);
+			info("Config file line %d too long\n", lineno);
 			break;
 		}
 
@@ -344,14 +344,14 @@ static int get_file_options(const char *vendor, const char *model,
 			}
 			options_in = str1;
 		}
-		dbg("config file line %d:"
+		dbg("config file line %d:\n"
 			" vendor '%s'; model '%s'; options '%s'\n",
 			lineno, vendor_in, model_in, options_in);
 		/*
 		 * Only allow: [vendor=foo[,model=bar]]options=stuff
 		 */
 		if (!options_in || (!vendor_in && model_in)) {
-			info("Error parsing config file line %d '%s'", lineno, buffer);
+			info("Error parsing config file line %d '%s'\n", lineno, buffer);
 			retval = -1;
 			break;
 		}
@@ -389,7 +389,7 @@ static int get_file_options(const char *vendor, const char *model,
 			c = argc_count(buffer) + 2;
 			*newargv = calloc(c, sizeof(**newargv));
 			if (!*newargv) {
-				err("Can't allocate memory.");
+				err("can't allocate memory\n");
 				retval = -1;
 			} else {
 				*argc = c;
@@ -492,7 +492,7 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			} else if (strcmp(optarg, "pre-spc3-83") == 0) {
 				default_page_code = PAGE_83_PRE_SPC3; 
 			} else {
-				info("Unknown page code '%s'", optarg);
+				info("Unknown page code '%s'\n", optarg);
 				return -1;
 			}
 			break;
@@ -571,13 +571,13 @@ static int per_dev_options(struct sysfs_device *dev_scsi, int *good_bad, int *pa
 			} else if (strcmp(optarg, "pre-spc3-83") == 0) {
 				*page_code = PAGE_83_PRE_SPC3; 
 			} else {
-				info("Unknown page code '%s'", optarg);
+				info("Unknown page code '%s'\n", optarg);
 				retval = -1;
 			}
 			break;
 
 		default:
-			info("Unknown or bad option '%c' (0x%x)", option, option);
+			info("Unknown or bad option '%c' (0x%x)\n", option, option);
 			retval = -1;
 			break;
 		}
@@ -596,7 +596,7 @@ static int set_sysfs_values(struct sysfs_device *dev_scsi)
 
 	vendor = sysfs_attr_get_value(dev_scsi->devpath, "vendor");
 	if (!vendor) {
-		info("%s: cannot get vendor attribute", dev_scsi->devpath);
+		info("%s: cannot get vendor attribute\n", dev_scsi->devpath);
 		return -1;
 	}
 	set_str(vendor_str, vendor, sizeof(vendor_str)-1);
@@ -610,7 +610,7 @@ static int set_sysfs_values(struct sysfs_device *dev_scsi)
 
 	type = sysfs_attr_get_value(dev_scsi->devpath, "type");
 	if (!type) {
-		info("%s: cannot get type attribute", dev_scsi->devpath);
+		info("%s: cannot get type attribute\n", dev_scsi->devpath);
 		return -1;
 	}
 	set_type(type_str, type, sizeof(type_str));
@@ -690,7 +690,7 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 
 	dev = sysfs_device_get(devpath);
 	if (dev == NULL) {
-		err("unable to access '%s'", devpath);
+		err("unable to access '%s'\n", devpath);
 		return 1;
 	}
 
@@ -709,7 +709,7 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 		/* get scsi parent device */
 		dev_scsi = sysfs_device_get_parent_with_subsystem(dev, "scsi");
 		if (dev_scsi == NULL) {
-			err("unable to access parent device of '%s'", devpath);
+			err("unable to access parent device of '%s'\n", devpath);
 			return 1;
 		}
 		set_sysfs_values(dev_scsi);
@@ -721,7 +721,7 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 
 	/* get per device (vendor + model) options from the config file */
 	retval = per_dev_options(dev_scsi, &good_dev, &page_code);
-	dbg("per dev options: good %d; page code 0x%x", good_dev, page_code);
+	dbg("per dev options: good %d; page code 0x%x\n", good_dev, page_code);
 
 	if (!good_dev) {
 		retval = 1;

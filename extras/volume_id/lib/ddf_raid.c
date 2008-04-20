@@ -45,7 +45,7 @@ int volume_id_probe_ddf_raid(struct volume_id *id, uint64_t off, uint64_t size)
 	uint64_t ddf_off = ((size / 0x200)-1) * 0x200;
 	const uint8_t *buf;
 
-	info("probing at offset 0x%llx, size 0x%llx",
+	info("probing at offset 0x%llx, size 0x%llx\n",
 	    (unsigned long long) off, (unsigned long long) size);
 	if (size < 0x10000)
 		return -1;

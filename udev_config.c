@@ -98,7 +98,7 @@ static int parse_config_file(void)
 	int retval = 0;
 
 	if (file_map(udev_config_filename, &buf, &bufsize) != 0) {
-		err("can't open '%s' as config file: %s", udev_config_filename, strerror(errno));
+		err("can't open '%s' as config file: %s\n", udev_config_filename, strerror(errno));
 		return -ENODEV;
 	}
 
@@ -124,7 +124,7 @@ static int parse_config_file(void)
 			continue;
 
 		if (count >= sizeof(line)) {
-			err("line too long, conf line skipped %s, line %d", udev_config_filename, lineno);
+			err("line too long, conf line skipped %s, line %d\n", udev_config_filename, lineno);
 			continue;
 		}
 
@@ -134,7 +134,7 @@ static int parse_config_file(void)
 		linepos = line;
 		retval = get_key(&linepos, &variable, &value);
 		if (retval != 0) {
-			err("error parsing %s, line %d:%d", udev_config_filename, lineno, (int)(linepos-line));
+			err("error parsing %s, line %d:%d\n", udev_config_filename, lineno, (int)(linepos-line));
 			continue;
 		}
 
@@ -193,8 +193,8 @@ void udev_config_init(void)
 	if (env)
 		udev_log_priority = log_priority(env);
 
-	dbg("UDEV_CONFIG_FILE='%s'", udev_config_filename);
-	dbg("udev_root='%s'", udev_root);
-	dbg("udev_rules='%s'", udev_rules_dir);
-	dbg("udev_log=%d", udev_log_priority);
+	dbg("UDEV_CONFIG_FILE='%s'\n", udev_config_filename);
+	dbg("udev_root='%s'\n", udev_root);
+	dbg("udev_rules='%s'\n", udev_rules_dir);
+	dbg("udev_log=%d\n", udev_log_priority);
 }

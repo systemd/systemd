@@ -126,24 +126,24 @@ int main(int argc, char *argv[])
 
 	node = argv[optind];
 	if (node == NULL) {
-		err("no node specified");
+		err("no node specified\n");
 		rc = 1;
 		goto exit;
 	}
 
 	fd = open(node, O_RDONLY|O_NONBLOCK);
 	if (fd < 0) {
-		err("unable to open '%s'", node);
+		err("unable to open '%s'\n", node);
 		rc = 1;
 		goto exit;
 	}
 
 	if (ioctl(fd, HDIO_GET_IDENTITY, &id)) {
 		if (errno == ENOTTY) {
-			info("HDIO_GET_IDENTITY unsupported for '%s'", node);
+			info("HDIO_GET_IDENTITY unsupported for '%s'\n", node);
 			rc = 2;
 		} else {
-			err("HDIO_GET_IDENTITY failed for '%s'", node);
+			err("HDIO_GET_IDENTITY failed for '%s'\n", node);
 			rc = 3;
 		}
 		goto close;

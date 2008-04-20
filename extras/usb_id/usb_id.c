@@ -231,20 +231,20 @@ static int usb_id(const char *devpath)
 	/* get all usb specific information: dev_interface, if_class, dev_usb */
 	dev = sysfs_device_get(devpath);
 	if (dev == NULL) {
-		err("unable to access '%s'", devpath);
+		err("unable to access '%s'\n", devpath);
 		return 1;
 	}
 
 	/* usb interface directory */
 	dev_interface = sysfs_device_get_parent_with_subsystem(dev, "usb");
 	if (dev_interface == NULL) {
-		info("unable to access usb_interface device of '%s'", devpath);
+		info("unable to access usb_interface device of '%s'\n", devpath);
 		return 1;
 	}
 
 	if_class = sysfs_attr_get_value(dev_interface->devpath, "bInterfaceClass");
 	if (!if_class) {
-		info("%s: cannot get bInterfaceClass attribute", dev_interface->kernel);
+		info("%s: cannot get bInterfaceClass attribute\n", dev_interface->kernel);
 		return 1;
 	}
 	if_class_num = strtoul(if_class, NULL, 16);
@@ -260,7 +260,7 @@ static int usb_id(const char *devpath)
 	/* usb device directory */
 	dev_usb = sysfs_device_get_parent_with_subsystem(dev_interface, "usb");
 	if (!dev_usb) {
-		info("unable to find parent 'usb' device of '%s'", devpath);
+		info("unable to find parent 'usb' device of '%s'\n", devpath);
 		return 1;
 	}
 
@@ -273,39 +273,39 @@ static int usb_id(const char *devpath)
 		/* get scsi device */
 		dev_scsi = sysfs_device_get_parent_with_subsystem(dev, "scsi");
 		if (dev_scsi == NULL) {
-			info("unable to find parent 'scsi' device of '%s'", devpath);
+			info("unable to find parent 'scsi' device of '%s'\n", devpath);
 			goto fallback;
 		}
 		if (sscanf(dev_scsi->kernel, "%d:%d:%d:%d", &host, &bus, &target, &lun) != 4) {
-			info("invalid scsi device '%s'", dev_scsi->kernel);
+			info("invalid scsi device '%s'\n", dev_scsi->kernel);
 			goto fallback;
 		}
 
 		/* Generic SPC-2 device */
 		scsi_vendor = sysfs_attr_get_value(dev_scsi->devpath, "vendor");
 		if (!scsi_vendor) {
-			info("%s: cannot get SCSI vendor attribute", dev_scsi->kernel);
+			info("%s: cannot get SCSI vendor attribute\n", dev_scsi->kernel);
 			goto fallback;
 		}
 		set_str(vendor_str, scsi_vendor, sizeof(vendor_str)-1);
 
 		scsi_model = sysfs_attr_get_value(dev_scsi->devpath, "model");
 		if (!scsi_model) {
-			info("%s: cannot get SCSI model attribute", dev_scsi->kernel);
+			info("%s: cannot get SCSI model attribute\n", dev_scsi->kernel);
 			goto fallback;
 		}
 		set_str(model_str, scsi_model, sizeof(model_str)-1);
 
 		scsi_type = sysfs_attr_get_value(dev_scsi->devpath, "type");
 		if (!scsi_type) {
-			info("%s: cannot get SCSI type attribute", dev_scsi->kernel);
+			info("%s: cannot get SCSI type attribute\n", dev_scsi->kernel);
 			goto fallback;
 		}
 		set_scsi_type(type_str, scsi_type, sizeof(type_str)-1);
 
 		scsi_rev = sysfs_attr_get_value(dev_scsi->devpath, "rev");
 		if (!scsi_rev) {
-			info("%s: cannot get SCSI revision attribute", dev_scsi->kernel);
+			info("%s: cannot get SCSI revision attribute\n", dev_scsi->kernel);
 			goto fallback;
 		}
 		set_str(revision_str, scsi_rev, sizeof(revision_str)-1);
@@ -329,7 +329,7 @@ fallback:
 			usb_vendor = sysfs_attr_get_value(dev_usb->devpath, "idVendor");
 
 		if (!usb_vendor) {
-			info("No USB vendor information available");
+			info("No USB vendor information available\n");
 			return 1;
 		}
 		set_str(vendor_str, usb_vendor, sizeof(vendor_str)-1);
@@ -345,7 +345,7 @@ fallback:
 			usb_model = sysfs_attr_get_value(dev_usb->devpath, "idProduct");
 
 		if (!usb_model) {
-			dbg("No USB model information available");
+			dbg("No USB model information available\n");
 			return 1;
 		}
 		set_str(model_str, usb_model, sizeof(model_str)-1);

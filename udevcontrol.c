@@ -50,7 +50,7 @@ int udevcontrol(int argc, char *argv[], char *envp[])
 		udev_log = log_priority(env);
 
 	logging_init("udevcontrol");
-	dbg("version %s", UDEV_VERSION);
+	dbg("version %s\n", UDEV_VERSION);
 
 	if (argc < 2) {
 		fprintf(stderr, "missing command\n\n");
@@ -75,7 +75,7 @@ int udevcontrol(int argc, char *argv[], char *envp[])
 		val = &arg[strlen("log_priority=")];
 		ctrl_msg.type = UDEVD_CTRL_SET_LOG_LEVEL;
 		*intval = log_priority(val);
-		info("send log_priority=%i", *intval);
+		info("send log_priority=%i\n", *intval);
 	} else if (!strncmp(arg, "max_childs=", strlen("max_childs="))) {
 		char *endp;
 		int count;
@@ -89,7 +89,7 @@ int udevcontrol(int argc, char *argv[], char *envp[])
 			goto exit;
 		}
 		*intval = count;
-		info("send max_childs=%i", *intval);
+		info("send max_childs=%i\n", *intval);
 	} else if (!strncmp(arg, "max_childs_running=", strlen("max_childs_running="))) {
 		char *endp;
 		int count;
@@ -103,7 +103,7 @@ int udevcontrol(int argc, char *argv[], char *envp[])
 			goto exit;
 		}
 		*intval = count;
-		info("send max_childs_running=%i", *intval);
+		info("send max_childs_running=%i\n", *intval);
 	} else if (!strncmp(arg, "env", strlen("env"))) {
 		val = argv[2];
 		if (val == NULL) {
@@ -112,7 +112,7 @@ int udevcontrol(int argc, char *argv[], char *envp[])
 		}
 		ctrl_msg.type = UDEVD_CTRL_ENV;
 		strlcpy(ctrl_msg.buf, val, sizeof(ctrl_msg.buf));
-		info("send env '%s'", val);
+		info("send env '%s'\n", val);
 	} else if (strcmp(arg, "help") == 0  || strcmp(arg, "-h") == 0) {
 		printf("Usage: udevadm control COMMAND\n"
 			"  --log_priority=<level>   set the udev log level for the daemon\n"
@@ -136,7 +136,7 @@ int udevcontrol(int argc, char *argv[], char *envp[])
 
 	sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (sock == -1) {
-		err("error getting socket: %s", strerror(errno));
+		err("error getting socket: %s\n", strerror(errno));
 		goto exit;
 	}
 
@@ -148,10 +148,10 @@ int udevcontrol(int argc, char *argv[], char *envp[])
 
 	retval = sendto(sock, &ctrl_msg, sizeof(ctrl_msg), 0, (struct sockaddr *)&saddr, addrlen);
 	if (retval == -1) {
-		err("error sending message: %s", strerror(errno));
+		err("error sending message: %s\n", strerror(errno));
 		retval = 1;
 	} else {
-		dbg("sent message type=0x%02x, %u bytes sent", ctrl_msg.type, retval);
+		dbg("sent message type=0x%02x, %u bytes sent\n", ctrl_msg.type, retval);
 		retval = 0;
 	}
 

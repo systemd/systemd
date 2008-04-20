@@ -57,7 +57,7 @@ int udevsettle(int argc, char *argv[], char *envp[])
 
 	logging_init("udevsettle");
 	udev_config_init();
-	dbg("version %s", UDEV_VERSION);
+	dbg("version %s\n", UDEV_VERSION);
 	sysfs_init();
 
 	while (1) {
@@ -72,7 +72,7 @@ int udevsettle(int argc, char *argv[], char *envp[])
 				timeout = seconds;
 			else
 				fprintf(stderr, "invalid timeout value\n");
-			dbg("timeout=%i", timeout);
+			dbg("timeout=%i\n", timeout);
 			break;
 		case 'h':
 			printf("Usage: udevadm settle [--help] [--timeout=<seconds>]\n\n");
@@ -90,13 +90,13 @@ int udevsettle(int argc, char *argv[], char *envp[])
 			struct stat statbuf;
 
 			if (stat(queuename, &statbuf) < 0) {
-				info("queue is empty");
+				info("queue is empty\n");
 				break;
 			}
 			usleep(1000 * 1000 / LOOP_PER_SECOND);
 		}
 		if (loop <= 0) {
-			info("timeout waiting for queue");
+			info("timeout waiting for queue\n");
 			goto exit;
 		}
 
@@ -112,7 +112,7 @@ int udevsettle(int argc, char *argv[], char *envp[])
 			goto exit;
 		seqnum[len] = '\0';
 		seq_udev = strtoull(seqnum, NULL, 10);
-		info("udev seqnum = %llu", seq_udev);
+		info("udev seqnum = %llu\n", seq_udev);
 
 		/* read current kernel seqnum */
 		strlcpy(filename, sysfs_path, sizeof(filename));
@@ -126,16 +126,16 @@ int udevsettle(int argc, char *argv[], char *envp[])
 			goto exit;
 		seqnum[len] = '\0';
 		seq_kernel = strtoull(seqnum, NULL, 10);
-		info("kernel seqnum = %llu", seq_kernel);
+		info("kernel seqnum = %llu\n", seq_kernel);
 
 		/* make sure all kernel events have arrived in the queue */
 		if (seq_udev >= seq_kernel) {
-			info("queue is empty and no pending events left");
+			info("queue is empty and no pending events left\n");
 			rc = 0;
 			goto exit;
 		}
 		usleep(1000 * 1000 / LOOP_PER_SECOND);
-		info("queue is empty, but events still pending");
+		info("queue is empty, but events still pending\n");
 	}
 
 exit:

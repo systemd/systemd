@@ -78,7 +78,7 @@ static int volume_id_probe_gfs_generic(struct volume_id *id, uint64_t off, int v
 {
 	struct gfs2_sb *sbd;
 
-	info("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx\n", (unsigned long long) off);
 
 	sbd = (struct gfs2_sb *)
 		volume_id_get_buffer(id, off + GFS_SUPERBLOCK_OFFSET, sizeof(struct gfs2_sb));

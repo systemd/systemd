@@ -62,7 +62,7 @@ struct name_entry *name_list_add(struct list_head *name_list, const char *name, 
 	/* avoid duplicate entries */
 	list_for_each_entry(name_loop, name_list, node) {
 		if (strcmp(name_loop->name, name) == 0) {
-			dbg("'%s' is already in the list", name);
+			dbg("'%s' is already in the list\n", name);
 			return name_loop;
 		}
 	}
@@ -78,7 +78,7 @@ struct name_entry *name_list_add(struct list_head *name_list, const char *name, 
 		return NULL;
 
 	strlcpy(name_new->name, name, sizeof(name_new->name));
-	dbg("adding '%s'", name_new->name);
+	dbg("adding '%s'\n", name_new->name);
 	list_add_tail(&name_new->node, &name_loop->node);
 
 	return name_new;
@@ -91,7 +91,7 @@ struct name_entry *name_list_key_add(struct list_head *name_list, const char *ke
 
 	list_for_each_entry(name_loop, name_list, node) {
 		if (strncmp(name_loop->name, key, strlen(key)) == 0) {
-			dbg("key already present '%s', replace it", name_loop->name);
+			dbg("key already present '%s', replace it\n", name_loop->name);
 			snprintf(name_loop->name, sizeof(name_loop->name), "%s=%s", key, value);
 			name_loop->name[sizeof(name_loop->name)-1] = '\0';
 			return name_loop;
@@ -104,7 +104,7 @@ struct name_entry *name_list_key_add(struct list_head *name_list, const char *ke
 
 	snprintf(name_new->name, sizeof(name_new->name), "%s=%s", key, value);
 	name_new->name[sizeof(name_new->name)-1] = '\0';
-	dbg("adding '%s'", name_new->name);
+	dbg("adding '%s'\n", name_new->name);
 	list_add_tail(&name_new->node, &name_loop->node);
 
 	return name_new;
@@ -148,10 +148,10 @@ int add_matching_files(struct list_head *name_list, const char *dirname, const c
 	DIR *dir;
 	char filename[PATH_SIZE];
 
-	dbg("open directory '%s'", dirname);
+	dbg("open directory '%s'\n", dirname);
 	dir = opendir(dirname);
 	if (dir == NULL) {
-		err("unable to open '%s': %s", dirname, strerror(errno));
+		err("unable to open '%s': %s\n", dirname, strerror(errno));
 		return -1;
 	}
 
@@ -173,7 +173,7 @@ int add_matching_files(struct list_head *name_list, const char *dirname, const c
 			if (strcmp(ext, suffix) != 0)
 				continue;
 		}
-		dbg("put file '%s/%s' into list", dirname, ent->d_name);
+		dbg("put file '%s/%s' into list\n", dirname, ent->d_name);
 
 		snprintf(filename, sizeof(filename), "%s/%s", dirname, ent->d_name);
 		filename[sizeof(filename)-1] = '\0';
@@ -193,9 +193,9 @@ uid_t lookup_user(const char *user)
 	pw = getpwnam(user);
 	if (pw == NULL) {
 		if (errno == 0 || errno == ENOENT || errno == ESRCH)
-			err("specified user '%s' unknown", user);
+			err("specified user '%s' unknown\n", user);
 		else
-			err("error resolving user '%s': %s", user, strerror(errno));
+			err("error resolving user '%s': %s\n", user, strerror(errno));
 	} else
 		uid = pw->pw_uid;
 
@@ -211,9 +211,9 @@ extern gid_t lookup_group(const char *group)
 	gr = getgrnam(group);
 	if (gr == NULL) {
 		if (errno == 0 || errno == ENOENT || errno == ESRCH)
-			err("specified group '%s' unknown", group);
+			err("specified group '%s' unknown\n", group);
 		else
-			err("error resolving group '%s': %s", group, strerror(errno));
+			err("error resolving group '%s': %s\n", group, strerror(errno));
 	} else
 		gid = gr->gr_gid;
 

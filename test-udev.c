@@ -90,10 +90,10 @@ int main(int argc, char *argv[], char *envp[])
 
 	logging_init("udev");
 	if (devnull < 0)
-		err("open /dev/null failed: %s", strerror(errno));
+		err("open /dev/null failed: %s\n", strerror(errno));
 	udev_config_init();
 	selinux_init();
-	dbg("version %s", UDEV_VERSION);
+	dbg("version %s\n", UDEV_VERSION);
 
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(act));
@@ -115,7 +115,7 @@ int main(int argc, char *argv[], char *envp[])
 		subsystem = argv[1];
 
 	if (action == NULL || subsystem == NULL || devpath == NULL) {
-		err("action, subsystem or devpath missing");
+		err("action, subsystem or devpath missing\n");
 		goto exit;
 	}
 
@@ -132,7 +132,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	dev = sysfs_device_get(devpath);
 	if (dev == NULL) {
-		info("unable to open '%s'", devpath);
+		info("unable to open '%s'\n", devpath);
 		goto fail;
 	}
 

@@ -72,7 +72,7 @@ int volume_id_probe_udf(struct volume_id *id, uint64_t off, uint64_t size)
 	unsigned int loc;
 	unsigned int clen;
 
-	info("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx\n", (unsigned long long) off);
 
 	vsd = (struct volume_structure_descriptor *) volume_id_get_buffer(id, off + UDF_VSD_OFFSET, 0x200);
 	if (vsd == NULL)
@@ -100,7 +100,7 @@ blocksize:
 		vsd = (struct volume_structure_descriptor *) volume_id_get_buffer(id, off + UDF_VSD_OFFSET + bs, 0x800);
 		if (vsd == NULL)
 			return -1;
-		dbg("test for blocksize: 0x%x", bs);
+		dbg("test for blocksize: 0x%x\n", bs);
 		if (vsd->id[0] != '\0')
 			goto nsr;
 	}
@@ -113,7 +113,7 @@ nsr:
 		if (vsd == NULL)
 			return -1;
 
-		dbg("vsd: %c%c%c%c%c",
+		dbg("vsd: %c%c%c%c%c\n",
 		    vsd->id[0], vsd->id[1], vsd->id[2], vsd->id[3], vsd->id[4]);
 
 		if (vsd->id[0] == '\0')
@@ -138,7 +138,7 @@ anchor:
 	/* get desriptor list address and block count */
 	count = le32_to_cpu(vd->type.anchor.length) / bs;
 	loc = le32_to_cpu(vd->type.anchor.location);
-	dbg("0x%x descriptors starting at logical secor 0x%x", count, loc);
+	dbg("0x%x descriptors starting at logical secor 0x%x\n", count, loc);
 
 	/* pick the primary descriptor from the list */
 	for (b = 0; b < count; b++) {
@@ -147,7 +147,7 @@ anchor:
 			return -1;
 
 		type = le16_to_cpu(vd->tag.id);
-		dbg("descriptor type %i", type);
+		dbg("descriptor type %i\n", type);
 
 		/* check validity */
 		if (type == 0)
@@ -164,7 +164,7 @@ pvd:
 	volume_id_set_label_raw(id, &(vd->type.primary.ident.clen), 32);
 
 	clen = vd->type.primary.ident.clen;
-	dbg("label string charsize=%i bit", clen);
+	dbg("label string charsize=%i bit\n", clen);
 	if (clen == 8)
 		volume_id_set_label_string(id, vd->type.primary.ident.c, 31);
 	else if (clen == 16)

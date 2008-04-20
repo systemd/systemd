@@ -26,7 +26,7 @@
 
 #include "udev.h"
 
-static int verbose;
+static int debug;
 
 #ifdef USE_LOG
 void log_message(int priority, const char *format, ...)
@@ -37,9 +37,8 @@ void log_message(int priority, const char *format, ...)
 		return;
 
 	va_start(args, format);
-	if (verbose) {
+	if (debug) {
 		vprintf(format, args);
-		printf("\n");
 	} else
 		vsyslog(priority, format, args);
 	va_end(args);
@@ -50,7 +49,7 @@ struct command {
 	const char *name;
 	int (*cmd)(int argc, char *argv[], char *envp[]);
 	const char *help;
-	int verbose;
+	int debug;
 };
 
 static const struct command cmds[];
@@ -102,7 +101,7 @@ static const struct command cmds[] = {
 		.name = "test",
 		.cmd = udevtest,
 		.help = "simulation run",
-		.verbose = 1,
+		.debug = 1,
 	},
 	{
 		.name = "version",
@@ -155,7 +154,7 @@ int main(int argc, char *argv[], char *envp[])
 	/* find and execute command */
 	for (cmd = cmds; cmd->name != NULL; cmd++) {
 		if (strcmp(cmd->name, command) == 0) {
-			verbose = cmd->verbose;
+			debug = cmd->debug;
 			rc = cmd->cmd(argc, argv, envp);
 			goto out;
 		}

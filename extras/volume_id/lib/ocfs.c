@@ -132,7 +132,7 @@ int volume_id_probe_ocfs1(struct volume_id *id, uint64_t off, uint64_t size)
 	struct ocfs1_super_block_header *osh;
 	struct ocfs1_super_block_label *osl;
 
-	info("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx\n", (unsigned long long) off);
 
 	buf = volume_id_get_buffer(id, off, 0x200);
 	if (buf == NULL)
@@ -144,7 +144,7 @@ int volume_id_probe_ocfs1(struct volume_id *id, uint64_t off, uint64_t size)
 	snprintf(id->type_version, sizeof(id->type_version)-1,
 		 "%u.%u", osh->major_version, osh->minor_version);
 
-	dbg("found OracleCFS signature, now reading label");
+	dbg("found OracleCFS signature, now reading label\n");
 	buf = volume_id_get_buffer(id, off + 0x200, 0x200);
 	if (buf == NULL)
 		return -1;
@@ -170,7 +170,7 @@ int volume_id_probe_ocfs2(struct volume_id *id, uint64_t off, uint64_t size)
 	struct ocfs2_super_block *os;
 	size_t blksize;
 
-	info("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx\n", (unsigned long long) off);
 
 	for (blksize = 0x200; blksize <= OCFS2_MAX_BLOCKSIZE; blksize <<= 1) {
 		buf = volume_id_get_buffer(id, off + OCFS2_SUPER_BLOCK_BLKNO * blksize, 0x200);

@@ -175,20 +175,20 @@ int volume_id_probe_ufs(struct volume_id *id, uint64_t off, uint64_t size)
 	struct ufs_super_block *ufs;
 	int offsets[] = {0, 8, 64, 256, -1};
 
-	info("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx\n", (unsigned long long) off);
 
 	for (i = 0; offsets[i] >= 0; i++) {	
 		ufs = (struct ufs_super_block *) volume_id_get_buffer(id, off + (offsets[i] * 0x400), 0x800);
 		if (ufs == NULL)
 			return -1;
 
-		dbg("offset 0x%x", offsets[i] * 0x400);
+		dbg("offset 0x%x\n", offsets[i] * 0x400);
 		magic = be32_to_cpu(ufs->fs_magic);
 		if ((magic == UFS_MAGIC) ||
 		    (magic == UFS2_MAGIC) ||
 		    (magic == UFS_MAGIC_FEA) ||
 		    (magic == UFS_MAGIC_LFN)) {
-			dbg("magic 0x%08x(be)", magic);
+			dbg("magic 0x%08x(be)\n", magic);
 			goto found;
 		}
 		magic = le32_to_cpu(ufs->fs_magic);
@@ -196,7 +196,7 @@ int volume_id_probe_ufs(struct volume_id *id, uint64_t off, uint64_t size)
 		    (magic == UFS2_MAGIC) ||
 		    (magic == UFS_MAGIC_FEA) ||
 		    (magic == UFS_MAGIC_LFN)) {
-			dbg("magic 0x%08x(le)", magic);
+			dbg("magic 0x%08x(le)\n", magic);
 			goto found;
 		}
 	}

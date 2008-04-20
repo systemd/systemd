@@ -48,7 +48,7 @@ int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t m
 
 	if (lstat(file, &stats) == 0) {
 		if ((stats.st_mode & S_IFMT) == (mode & S_IFMT) && (stats.st_rdev == devt)) {
-			info("preserve file '%s', because it has correct dev_t", file);
+			info("preserve file '%s', because it has correct dev_t\n", file);
 			selinux_setfilecon(file, udev->dev->kernel, stats.st_mode);
 			goto perms;
 		}
@@ -60,7 +60,7 @@ int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t m
 			goto perms;
 	}
 
-	info("atomically replace '%s'", file);
+	info("atomically replace '%s'\n", file);
 	strlcpy(file_tmp, file, sizeof(file_tmp));
 	strlcat(file_tmp, TMP_FILE_EXT, sizeof(file_tmp));
 	unlink(file_tmp);
@@ -68,29 +68,29 @@ int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t m
 	retval = mknod(file_tmp, mode, devt);
 	selinux_resetfscreatecon();
 	if (retval != 0) {
-		err("mknod(%s, %#o, %u, %u) failed: %s",
+		err("mknod(%s, %#o, %u, %u) failed: %s\n",
 		    file_tmp, mode, major(devt), minor(devt), strerror(errno));
 		goto exit;
 	}
 	retval = rename(file_tmp, file);
 	if (retval != 0) {
-		err("rename(%s, %s) failed: %s",
+		err("rename(%s, %s) failed: %s\n",
 		    file_tmp, file, strerror(errno));
 		unlink(file_tmp);
 		goto exit;
 	}
 
 perms:
-	dbg("chmod(%s, %#o)", file, mode);
+	dbg("chmod(%s, %#o)\n", file, mode);
 	if (chmod(file, mode) != 0) {
-		err("chmod(%s, %#o) failed: %s", file, mode, strerror(errno));
+		err("chmod(%s, %#o) failed: %s\n", file, mode, strerror(errno));
 		goto exit;
 	}
 
 	if (uid != 0 || gid != 0) {
-		dbg("chown(%s, %u, %u)", file, uid, gid);
+		dbg("chown(%s, %u, %u)\n", file, uid, gid);
 		if (chown(file, uid, gid) != 0) {
-			err("chown(%s, %u, %u) failed: %s",
+			err("chown(%s, %u, %u) failed: %s\n",
 			    file, uid, gid, strerror(errno));
 			goto exit;
 		}
@@ -127,32 +127,32 @@ static int node_symlink(const char *node, const char *slink)
 		if (S_ISBLK(stats.st_mode) || S_ISCHR(stats.st_mode)) {
 			struct stat stats2;
 
-			info("found existing node instead of symlink '%s'", slink);
+			info("found existing node instead of symlink '%s'\n", slink);
 			if (lstat(node, &stats2) == 0) {
 				if ((stats.st_mode & S_IFMT) == (stats2.st_mode & S_IFMT) &&
 				    stats.st_rdev == stats2.st_rdev) {
-					info("replace device node '%s' with symlink to our node '%s'", slink, node);
+					info("replace device node '%s' with symlink to our node '%s'\n", slink, node);
 				} else {
-					err("device node '%s' already exists, link to '%s' will not overwrite it", slink, node);
+					err("device node '%s' already exists, link to '%s' will not overwrite it\n", slink, node);
 					goto exit;
 				}
 			}
 		} else if (S_ISLNK(stats.st_mode)) {
 			char buf[PATH_SIZE];
 
-			info("found existing symlink '%s'", slink);
+			info("found existing symlink '%s'\n", slink);
 			len = readlink(slink, buf, sizeof(buf));
 			if (len > 0) {
 				buf[len] = '\0';
 				if (strcmp(target, buf) == 0) {
-					info("preserve already existing symlink '%s' to '%s'", slink, target);
+					info("preserve already existing symlink '%s' to '%s'\n", slink, target);
 					selinux_setfilecon(slink, NULL, S_IFLNK);
 					goto exit;
 				}
 			}
 		}
 	} else {
-		info("creating symlink '%s' to '%s'", slink, target);
+		info("creating symlink '%s' to '%s'\n", slink, target);
 		selinux_setfscreatecon(slink, NULL, S_IFLNK);
 		retval = symlink(target, slink);
 		selinux_resetfscreatecon();
@@ -160,7 +160,7 @@ static int node_symlink(const char *node, const char *slink)
 			goto exit;
 	}
 
-	info("atomically replace '%s'", slink);
+	info("atomically replace '%s'\n", slink);
 	strlcpy(slink_tmp, slink, sizeof(slink_tmp));
 	strlcat(slink_tmp, TMP_FILE_EXT, sizeof(slink_tmp));
 	unlink(slink_tmp);
@@ -168,12 +168,12 @@ static int node_symlink(const char *node, const char *slink)
 	retval = symlink(target, slink_tmp);
 	selinux_resetfscreatecon();
 	if (retval != 0) {
-		err("symlink(%s, %s) failed: %s", target, slink_tmp, strerror(errno));
+		err("symlink(%s, %s) failed: %s\n", target, slink_tmp, strerror(errno));
 		goto exit;
 	}
 	retval = rename(slink_tmp, slink);
 	if (retval != 0) {
-		err("rename(%s, %s) failed: %s", slink_tmp, slink, strerror(errno));
+		err("rename(%s, %s) failed: %s\n", slink_tmp, slink, strerror(errno));
 		unlink(slink_tmp);
 		goto exit;
 	}
@@ -198,11 +198,11 @@ static int update_link(struct udevice *udev, const char *name)
 	strlcat(slink, name, sizeof(slink));
 
 	count = udev_db_get_devices_by_name(name, &name_list);
-	info("found %i devices with name '%s'", count, name);
+	info("found %i devices with name '%s'\n", count, name);
 
 	/* if we don't have a reference, delete it */
 	if (count <= 0) {
-		info("no reference left, remove '%s'", name);
+		info("no reference left, remove '%s'\n", name);
 		if (!udev->test_run) {
 			unlink(slink);
 			delete_path(slink);
@@ -212,14 +212,14 @@ static int update_link(struct udevice *udev, const char *name)
 
 	/* find the device with the highest priority */
 	list_for_each_entry(device, &name_list, node) {
-		info("found '%s' for '%s'", device->name, name);
+		info("found '%s' for '%s'\n", device->name, name);
 
 		/* did we find ourself? we win, if we have the same priority */
 		if (strcmp(udev->dev->devpath, device->name) == 0) {
-			info("compare (our own) priority of '%s' %i >= %i",
+			info("compare (our own) priority of '%s' %i >= %i\n",
 			     udev->dev->devpath, udev->link_priority, priority);
 			if (strcmp(udev->name, name) == 0) {
-				info("'%s' is our device node, database inconsistent, skip link update", udev->name);
+				info("'%s' is our device node, database inconsistent, skip link update\n", udev->name);
 			} else if (target[0] == '\0' || udev->link_priority >= priority) {
 				priority = udev->link_priority;
 				strlcpy(target, udev->name, sizeof(target));
@@ -233,9 +233,9 @@ static int update_link(struct udevice *udev, const char *name)
 			continue;
 		if (udev_db_get_device(udev_db, device->name) == 0) {
 			if (strcmp(udev_db->name, name) == 0) {
-				info("'%s' is a device node of '%s', skip link update", udev_db->name, device->name);
+				info("'%s' is a device node of '%s', skip link update\n", udev_db->name, device->name);
 			} else {
-				info("compare priority of '%s' %i > %i",
+				info("compare priority of '%s' %i > %i\n",
 				     udev_db->dev->devpath, udev_db->link_priority, priority);
 				if (target[0] == '\0' || udev_db->link_priority > priority) {
 					priority = udev_db->link_priority;
@@ -248,7 +248,7 @@ static int update_link(struct udevice *udev, const char *name)
 	name_list_cleanup(&name_list);
 
 	if (target[0] == '\0') {
-		info("no current target for '%s' found", name);
+		info("no current target for '%s' found\n", name);
 		rc = 1;
 		goto out;
 	}
@@ -257,7 +257,7 @@ static int update_link(struct udevice *udev, const char *name)
 	strlcpy(node, udev_root, sizeof(node));
 	strlcat(node, "/", sizeof(node));
 	strlcat(node, target, sizeof(node));
-	info("'%s' with target '%s' has the highest priority %i, create it", name, target, priority);
+	info("'%s' with target '%s' has the highest priority %i, create it\n", name, target, priority);
 	if (!udev->test_run) {
 		create_path(slink);
 		node_symlink(node, slink);
@@ -272,7 +272,7 @@ void udev_node_update_symlinks(struct udevice *udev, struct udevice *udev_old)
 	char symlinks[PATH_SIZE] = "";
 
 	list_for_each_entry(name_loop, &udev->symlink_list, node) {
-		info("update symlink '%s' of '%s'", name_loop->name, udev->dev->devpath);
+		info("update symlink '%s' of '%s'\n", name_loop->name, udev->dev->devpath);
 		update_link(udev, name_loop->name);
 		strlcat(symlinks, udev_root, sizeof(symlinks));
 		strlcat(symlinks, "/", sizeof(symlinks));
@@ -302,7 +302,7 @@ void udev_node_update_symlinks(struct udevice *udev, struct udevice *udev_old)
 			}
 			if (!found) {
 				/* link does no longer belong to this device */
-				info("update old symlink '%s' no longer belonging to '%s'",
+				info("update old symlink '%s' no longer belonging to '%s'\n",
 				     link_old_loop->name, udev->dev->devpath);
 				update_link(udev, link_old_loop->name);
 			}
@@ -356,7 +356,7 @@ int udev_node_add(struct udevice *udev)
 			gid = lookup_group(udev->group);
 	}
 
-	info("creating device node '%s', major=%d, minor=%d, mode=%#o, uid=%d, gid=%d",
+	info("creating device node '%s', major=%d, minor=%d, mode=%#o, uid=%d, gid=%d\n",
 	     filename, major(udev->devt), minor(udev->devt), udev->mode, uid, gid);
 
 	if (!udev->test_run)
@@ -380,7 +380,7 @@ int udev_node_add(struct udevice *udev)
 			if (range > 1)
 				udev->partitions = range-1;
 		}
-		info("creating device partition nodes '%s[1-%i]'", filename, udev->partitions);
+		info("creating device partition nodes '%s[1-%i]'\n", filename, udev->partitions);
 		if (!udev->test_run) {
 			for (i = 1; i <= udev->partitions; i++) {
 				dev_t part_devt;
@@ -408,15 +408,15 @@ int udev_node_remove(struct udevice *udev)
 	strlcat(filename, "/", sizeof(filename));
 	strlcat(filename, udev->name, sizeof(filename));
 	if (stat(filename, &stats) != 0) {
-		info("device node '%s' not found", filename);
+		info("device node '%s' not found\n", filename);
 		return 0;
 	}
 	if (udev->devt && stats.st_rdev != udev->devt) {
-		info("device node '%s' points to a different device, skip removal", filename);
+		info("device node '%s' points to a different device, skip removal\n", filename);
 		return -1;
 	}
 
-	info("removing device node '%s'", filename);
+	info("removing device node '%s'\n", filename);
 	if (!udev->test_run)
 		retval = unlink_secure(filename);
 	if (retval)
@@ -427,7 +427,7 @@ int udev_node_remove(struct udevice *udev)
 	if (num > 0) {
 		int i;
 
-		info("removing all_partitions '%s[1-%i]'", filename, num);
+		info("removing all_partitions '%s[1-%i]'\n", filename, num);
 		if (num > 255)
 			return -1;
 		for (i = 1; i <= num; i++) {

@@ -70,7 +70,7 @@ static int device_list_insert(const char *path)
 	char devpath[PATH_SIZE];
 	struct stat statbuf;
 
-	dbg("add '%s'" , path);
+	dbg("add '%s'\n" , path);
 
 	/* we only have a device, if we have an uevent file */
 	strlcpy(filename, path, sizeof(filename));
@@ -110,12 +110,12 @@ static void trigger_uevent(const char *devpath, const char *action)
 
 	fd = open(filename, O_WRONLY);
 	if (fd < 0) {
-		dbg("error on opening %s: %s", filename, strerror(errno));
+		dbg("error on opening %s: %s\n", filename, strerror(errno));
 		return;
 	}
 
 	if (write(fd, action, strlen(action)) < 0)
-		info("error writing '%s' to '%s': %s", action, filename, strerror(errno));
+		info("error writing '%s' to '%s': %s\n", action, filename, strerror(errno));
 
 	close(fd);
 }
@@ -574,7 +574,7 @@ int udevtrigger(int argc, char *argv[], char *envp[])
 
 	logging_init("udevtrigger");
 	udev_config_init();
-	dbg("version %s", UDEV_VERSION);
+	dbg("version %s\n", UDEV_VERSION);
 	sysfs_init();
 
 	while (1) {

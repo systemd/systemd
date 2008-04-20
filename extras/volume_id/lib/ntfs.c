@@ -105,7 +105,7 @@ int volume_id_probe_ntfs(struct volume_id *id, uint64_t off, uint64_t size)
 	const uint8_t *buf;
 	const uint8_t *val;
 
-	info("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx\n", (unsigned long long) off);
 
 	ns = (struct ntfs_super_block *) volume_id_get_buffer(id, off, 0x200);
 	if (ns == NULL)
@@ -130,12 +130,12 @@ int volume_id_probe_ntfs(struct volume_id *id, uint64_t off, uint64_t size)
 	else
 		mft_record_size = ns->cluster_per_mft_record * cluster_size;
 
-	dbg("sectorsize  0x%x", sector_size);
-	dbg("clustersize 0x%x", cluster_size);
-	dbg("mftcluster  %llu", (unsigned long long) mft_cluster);
-	dbg("mftoffset  0x%llx", (unsigned long long) mft_off);
-	dbg("cluster per mft_record  %i", ns->cluster_per_mft_record);
-	dbg("mft record size  %i", mft_record_size);
+	dbg("sectorsize  0x%x\n", sector_size);
+	dbg("clustersize 0x%x\n", cluster_size);
+	dbg("mftcluster  %llu\n", (unsigned long long) mft_cluster);
+	dbg("mftoffset  0x%llx\n", (unsigned long long) mft_off);
+	dbg("cluster per mft_record  %i\n", ns->cluster_per_mft_record);
+	dbg("mft record size  %i\n", mft_record_size);
 
 	buf = volume_id_get_buffer(id, off + mft_off + (MFT_RECORD_VOLUME * mft_record_size),
 			 mft_record_size);
@@ -143,12 +143,12 @@ int volume_id_probe_ntfs(struct volume_id *id, uint64_t off, uint64_t size)
 		return -1;
 
 	mftr = (struct master_file_table_record*) buf;
-	dbg("mftr->magic '%c%c%c%c'", mftr->magic[0], mftr->magic[1], mftr->magic[2], mftr->magic[3]);
+	dbg("mftr->magic '%c%c%c%c'\n", mftr->magic[0], mftr->magic[1], mftr->magic[2], mftr->magic[3]);
 	if (memcmp(mftr->magic, "FILE", 4) != 0)
 		return -1;
 
 	attr_off = le16_to_cpu(mftr->attrs_offset);
-	dbg("file $Volume's attributes are at offset %i", attr_off);
+	dbg("file $Volume's attributes are at offset %i\n", attr_off);
 
 	while (1) {
 		attr = (struct file_attribute*) &buf[attr_off];
@@ -167,18 +167,18 @@ int volume_id_probe_ntfs(struct volume_id *id, uint64_t off, uint64_t size)
 		if (attr_type == MFT_RECORD_ATTR_END)
 			break;
 
-		dbg("found attribute type 0x%x, len %i, at offset %i",
+		dbg("found attribute type 0x%x, len %i, at offset %i\n",
 		    attr_type, attr_len, attr_off);
 
 		if (attr_type == MFT_RECORD_ATTR_VOLUME_INFO) {
-			dbg("found info, len %i", val_len);
+			dbg("found info, len %i\n", val_len);
 			info = (struct volume_info*) (((uint8_t *) attr) + val_off);
 			snprintf(id->type_version, sizeof(id->type_version)-1,
 				 "%u.%u", info->major_ver, info->minor_ver);
 		}
 
 		if (attr_type == MFT_RECORD_ATTR_VOLUME_NAME) {
-			dbg("found label, len %i", val_len);
+			dbg("found label, len %i\n", val_len);
 			if (val_len > VOLUME_ID_LABEL_SIZE)
 				val_len = VOLUME_ID_LABEL_SIZE;
 

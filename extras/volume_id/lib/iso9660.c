@@ -59,7 +59,7 @@ int volume_id_probe_iso9660(struct volume_id *id, uint64_t off, uint64_t size)
 	struct iso_volume_descriptor *is;
 	struct high_sierra_volume_descriptor *hs;
 
-	info("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx\n", (unsigned long long) off);
 
 	buf = volume_id_get_buffer(id, off + ISO_SUPERBLOCK_OFFSET, 0x200);
 	if (buf == NULL)
@@ -71,11 +71,11 @@ int volume_id_probe_iso9660(struct volume_id *id, uint64_t off, uint64_t size)
 		int vd_offset;
 		int i;
 
-		dbg("read label from PVD");
+		dbg("read label from PVD\n");
 		volume_id_set_label_raw(id, is->volume_id, 32);
 		volume_id_set_label_string(id, is->volume_id, 32);
 
-		dbg("looking for SVDs");
+		dbg("looking for SVDs\n");
 		vd_offset = ISO_VD_OFFSET;
 		for (i = 0; i < ISO_VD_MAX; i++) {
 			uint8_t svd_label[64];
@@ -86,14 +86,14 @@ int volume_id_probe_iso9660(struct volume_id *id, uint64_t off, uint64_t size)
 			if (is->type != ISO_VD_SUPPLEMENTARY)
 				continue;
 
-			dbg("found SVD at offset 0x%llx", (unsigned long long) (off + vd_offset));
+			dbg("found SVD at offset 0x%llx\n", (unsigned long long) (off + vd_offset));
 			if (memcmp(is->escape_sequences, "%/@", 3) == 0||
 			    memcmp(is->escape_sequences, "%/C", 3) == 0||
 			    memcmp(is->escape_sequences, "%/E", 3) == 0) {
-				dbg("Joliet extension found");
+				dbg("Joliet extension found\n");
 				volume_id_set_unicode16(svd_label, sizeof(svd_label), is->volume_id, BE, 32);
 				if (memcmp(id->label, svd_label, 16) == 0) {
-					dbg("SVD label is identical, use the possibly longer PVD one");
+					dbg("SVD label is identical, use the possibly longer PVD one\n");
 					break;
 				}
 

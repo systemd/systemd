@@ -45,7 +45,7 @@ int volume_id_probe_squashfs(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct squashfs_super *sqs;
 
-	info("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx\n", (unsigned long long) off);
 
 	sqs = (struct squashfs_super *) volume_id_get_buffer(id, off, 0x200);
 	if (sqs == NULL)

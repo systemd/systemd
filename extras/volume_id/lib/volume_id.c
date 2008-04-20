@@ -358,7 +358,7 @@ int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size)
 	if (!device_is_readable(id, off))
 		return -1;
 
-	info("probing at offset 0x%llx, size 0x%llx",
+	info("probing at offset 0x%llx, size 0x%llx\n",
 	    (unsigned long long) off, (unsigned long long) size);
 
 	for (i = 0; i < ARRAY_SIZE(prober_raid); i++)
@@ -392,7 +392,7 @@ int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size
 	if (!device_is_readable(id, off))
 		return -1;
 
-	info("probing at offset 0x%llx, size 0x%llx",
+	info("probing at offset 0x%llx, size 0x%llx\n",
 	    (unsigned long long) off, (unsigned long long) size);
 
 	for (i = 0; i < ARRAY_SIZE(prober_filesystem); i++)
@@ -493,7 +493,7 @@ struct volume_id *volume_id_open_node(const char *path)
 
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
-		dbg("unable to open '%s'", path);
+		dbg("unable to open '%s'\n", path);
 		return NULL;
 	}
 

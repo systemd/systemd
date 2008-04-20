@@ -40,7 +40,7 @@ static int is_selinux_running(void)
 	if (selinux_enabled == -1) 
 		selinux_enabled = (is_selinux_enabled() > 0);
 
-	dbg("selinux=%i", selinux_enabled);
+	dbg("selinux=%i\n", selinux_enabled);
 	return selinux_enabled;
 }
 
@@ -75,7 +75,7 @@ static char *get_media(const char *devname, int mode)
 	}
 
 	media = strdup(mediabuf);
-	info("selinux_get_media(%s)='%s'", devname, media);
+	info("selinux_get_media(%s)='%s'\n", devname, media);
 
 close_out:
 	fclose(fp);
@@ -100,12 +100,12 @@ void selinux_setfilecon(const char *file, const char *devname, unsigned int mode
 
 		if (ret < 0)
 			if (matchpathcon(file, mode, &scontext) < 0) {
-				err("matchpathcon(%s) failed", file);
+				err("matchpathcon(%s) failed\n", file);
 				return;
 			} 
 
 		if (lsetfilecon(file, scontext) < 0)
-			err("setfilecon %s failed: %s", file, strerror(errno));
+			err("setfilecon %s failed: %s\n", file, strerror(errno));
 
 		freecon(scontext);
 	}
@@ -128,12 +128,12 @@ void selinux_setfscreatecon(const char *file, const char *devname, unsigned int 
 
 		if (ret < 0)
 			if (matchpathcon(file, mode, &scontext) < 0) {
-				err("matchpathcon(%s) failed", file);
+				err("matchpathcon(%s) failed\n", file);
 				return;
 			}
 
 		if (setfscreatecon(scontext) < 0)
-			err("setfscreatecon %s failed: %s", file, strerror(errno));
+			err("setfscreatecon %s failed: %s\n", file, strerror(errno));
 
 		freecon(scontext);
 	}
@@ -143,7 +143,7 @@ void selinux_resetfscreatecon(void)
 {
 	if (is_selinux_running()) {
 		if (setfscreatecon(prev_scontext) < 0)
-			err("setfscreatecon failed: %s", strerror(errno));
+			err("setfscreatecon failed: %s\n", strerror(errno));
 	}
 }
 
@@ -155,10 +155,10 @@ void selinux_init(void)
 	 */
 	if (is_selinux_running()) {
 		if (!udev_root[0])
-			err("selinux_init: udev_root not set");
+			err("selinux_init: udev_root not set\n");
 		matchpathcon_init_prefix(NULL, udev_root);
 		if (getfscreatecon(&prev_scontext) < 0) {
-			err("getfscreatecon failed");
+			err("getfscreatecon failed\n");
 			prev_scontext = NULL;
 		}
 	}

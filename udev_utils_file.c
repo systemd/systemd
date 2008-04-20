@@ -47,14 +47,14 @@ int create_path(const char *path)
 		pos--;
 	pos[0] = '\0';
 
-	dbg("stat '%s'", p);
+	dbg("stat '%s'\n", p);
 	if (stat(p, &stats) == 0 && (stats.st_mode & S_IFMT) == S_IFDIR)
 		return 0;
 
 	if (create_path(p) != 0)
 		return -1;
 
-	dbg("mkdir '%s'", p);
+	dbg("mkdir '%s'\n", p);
  	selinux_setfscreatecon(p, NULL, S_IFDIR|0755);
 	ret = mkdir(p, 0755);
  	selinux_resetfscreatecon();
@@ -93,10 +93,10 @@ int delete_path(const char *path)
 		if (retval) {
 			if (errno == ENOTEMPTY)
 				return 0;
-			err("rmdir(%s) failed: %s", p, strerror(errno));
+			err("rmdir(%s) failed: %s\n", p, strerror(errno));
 			break;
 		}
-		dbg("removed '%s'", p);
+		dbg("removed '%s'\n", p);
 	}
 	return 0;
 }
@@ -110,18 +110,18 @@ int unlink_secure(const char *filename)
 
 	retval = chown(filename, 0, 0);
 	if (retval)
-		err("chown(%s, 0, 0) failed: %s", filename, strerror(errno));
+		err("chown(%s, 0, 0) failed: %s\n", filename, strerror(errno));
 
 	retval = chmod(filename, 0000);
 	if (retval)
-		err("chmod(%s, 0000) failed: %s", filename, strerror(errno));
+		err("chmod(%s, 0000) failed: %s\n", filename, strerror(errno));
 
 	retval = unlink(filename);
 	if (errno == ENOENT)
 		retval = 0;
 
 	if (retval)
-		err("unlink(%s) failed: %s", filename, strerror(errno));
+		err("unlink(%s) failed: %s\n", filename, strerror(errno));
 
 	return retval;
 }

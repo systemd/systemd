@@ -53,7 +53,7 @@ int volume_id_probe_silicon_medley_raid(struct volume_id *id, uint64_t off, uint
 	uint64_t meta_off;
 	struct silicon_meta *sil;
 
-	info("probing at offset 0x%llx, size 0x%llx",
+	info("probing at offset 0x%llx, size 0x%llx\n",
 	    (unsigned long long) off, (unsigned long long) size);
 
 	if (size < 0x10000)

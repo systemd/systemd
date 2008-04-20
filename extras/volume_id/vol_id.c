@@ -218,7 +218,7 @@ int main(int argc, char *argv[])
 
 	node = argv[optind];
 	if (!node) {
-		err("no device");
+		err("no device\n");
 		fprintf(stderr, "no device\n");
 		rc = 1;
 		goto exit;
@@ -239,7 +239,7 @@ int main(int argc, char *argv[])
 
 	if (ioctl(fd, BLKGETSIZE64, &size) != 0)
 		size = 0;
-	dbg("BLKGETSIZE64=%llu", (unsigned long long)size);
+	dbg("BLKGETSIZE64=%llu\n", (unsigned long long)size);
 
 	/* try to drop all privileges before reading disk content */
 	if (getuid() == 0) {
@@ -250,7 +250,7 @@ int main(int argc, char *argv[])
 			if (setgroups(0, NULL) != 0 ||
 			    setgid(pw->pw_gid) != 0 ||
 			    setuid(pw->pw_uid) != 0)
-				info("unable to drop privileges: %s\n", strerror(errno));
+				info("unable to drop privileges: %s\n\n", strerror(errno));
 		}
 	}
 

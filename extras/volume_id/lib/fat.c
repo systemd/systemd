@@ -217,7 +217,7 @@ static size_t get_fat_attr_volume_id(uint8_t *filename, size_t fnsize,
 	for (i = 0; i < count; i++) {
 		/* end marker */
 		if (dir[i].name[0] == 0x00) {
-			dbg("end of dir");
+			dbg("end of dir\n");
 			break;
 		}
 
@@ -234,11 +234,11 @@ static size_t get_fat_attr_volume_id(uint8_t *filename, size_t fnsize,
 			if (dir[i].cluster_high != 0 || dir[i].cluster_low != 0)
 				continue;
 
-			dbg("found ATTR_VOLUME_ID id in root dir");
+			dbg("found ATTR_VOLUME_ID id in root dir\n");
 			return fat_read_filename(filename, fnsize, dir, &dir[i]);
 		}
 
-		dbg("skip dir entry");
+		dbg("skip dir entry\n");
 	}
 
 	return 0;
@@ -270,7 +270,7 @@ int volume_id_probe_vfat(struct volume_id *id, uint64_t off, uint64_t size)
 	int maxloop;
 	size_t fnlen;
 
-	info("probing at offset 0x%llx", (unsigned long long) off);
+	info("probing at offset 0x%llx\n", (unsigned long long) off);
 
 	buf = volume_id_get_buffer(id, off, 0x400);
 	if (buf == NULL)
@@ -328,22 +328,22 @@ magic:
 	if (sector_size == 0 || ((sector_size & (sector_size-1)) != 0))
 		return -1;
 
-	dbg("sector_size 0x%x", sector_size);
-	dbg("sectors_per_cluster 0x%x", vs->sectors_per_cluster);
+	dbg("sector_size 0x%x\n", sector_size);
+	dbg("sectors_per_cluster 0x%x\n", vs->sectors_per_cluster);
 
 	dir_entries = le16_to_cpu(vs->dir_entries);
 	reserved = le16_to_cpu(vs->reserved);
-	dbg("reserved 0x%x", reserved);
+	dbg("reserved 0x%x\n", reserved);
 
 	sect_count = le16_to_cpu(vs->sectors);
 	if (sect_count == 0)
 		sect_count = le32_to_cpu(vs->total_sect);
-	dbg("sect_count 0x%x", sect_count);
+	dbg("sect_count 0x%x\n", sect_count);
 
 	fat_length = le16_to_cpu(vs->fat_length);
-	dbg("fat_length 0x%x", fat_length);
+	dbg("fat_length 0x%x\n", fat_length);
 	fat32_length = le32_to_cpu(vs->type.fat32.fat32_length);
-	dbg("fat32_length 0x%x", fat32_length);
+	dbg("fat32_length 0x%x\n", fat32_length);
 
 	if (fat_length)
 		fat_size = fat_length * vs->fats;
@@ -351,15 +351,15 @@ magic:
 		fat_size = fat32_length * vs->fats;
 	else
 		return -1;
-	dbg("fat_size 0x%x", fat_size);
+	dbg("fat_size 0x%x\n", fat_size);
 
 	dir_size = ((dir_entries * sizeof(struct vfat_dir_entry)) +
 			(sector_size-1)) / sector_size;
-	dbg("dir_size 0x%x", dir_size);
+	dbg("dir_size 0x%x\n", dir_size);
 
 	cluster_count = sect_count - (reserved + fat_size + dir_size);
 	cluster_count /= vs->sectors_per_cluster;
-	dbg("cluster_count 0x%x", cluster_count);
+	dbg("cluster_count 0x%x\n", cluster_count);
 
 	/* must be FAT32 */
 	if (!fat_length && fat32_length)
@@ -375,9 +375,9 @@ magic:
 
 	/* the label may be an attribute in the root directory */
 	root_start = (reserved + fat_size) * sector_size;
-	dbg("root dir start 0x%llx", (unsigned long long) root_start);
+	dbg("root dir start 0x%llx\n", (unsigned long long) root_start);
 	root_dir_entries = le16_to_cpu(vs->dir_entries);
-	dbg("expected entries 0x%x", root_dir_entries);
+	dbg("expected entries 0x%x\n", root_dir_entries);
 
 	buf_size = root_dir_entries * sizeof(struct vfat_dir_entry);
 	buf = volume_id_get_buffer(id, off + root_start, buf_size);
@@ -423,7 +423,7 @@ fat32:
 	/* FAT32 root dir is a cluster chain like any other directory */
 	buf_size = vs->sectors_per_cluster * sector_size;
 	root_cluster = le32_to_cpu(vs->type.fat32.root_cluster);
-	dbg("root dir cluster %u", root_cluster);
+	dbg("root dir cluster %u\n", root_cluster);
 	start_data_sect = reserved + fat_size;
 
 	next = root_cluster;
@@ -434,10 +434,10 @@ fat32:
 		uint64_t fat_entry_off;
 		int count;
 
-		dbg("next cluster %u", next);
+		dbg("next cluster %u\n", next);
 		next_sect_off = (next - 2) * vs->sectors_per_cluster;
 		next_off = (start_data_sect + next_sect_off) * sector_size;
-		dbg("cluster offset 0x%llx", (unsigned long long) next_off);
+		dbg("cluster offset 0x%llx\n", (unsigned long long) next_off);
 
 		/* get cluster */
 		buf = volume_id_get_buffer(id, off + next_off, buf_size);
@@ -446,7 +446,7 @@ fat32:
 
 		dir = (struct vfat_dir_entry*) buf;
 		count = buf_size / sizeof(struct vfat_dir_entry);
-		dbg("expected entries 0x%x", count);
+		dbg("expected entries 0x%x\n", count);
 
 		fnlen = get_fat_attr_volume_id(filename, sizeof(filename), dir, count);
 		if (fnlen > 0)
@@ -464,7 +464,7 @@ fat32:
 			break;
 	}
 	if (maxloop == 0)
-		dbg("reached maximum follow count of root cluster chain, give up");
+		dbg("reached maximum follow count of root cluster chain, give up\n");
 
 	vs = (struct vfat_super_block *) volume_id_get_buffer(id, off, 0x200);
 	if (vs == NULL)

@@ -27,7 +27,7 @@
           <command>udevd</command>
           <arg><option>--daemon</option></arg>
           <arg><option>--debug-trace</option></arg>
-          <arg><option>--verbose</option></arg>
+          <arg><option>--debug</option></arg>
           <arg><option>--version</option></arg>
           <arg><option>--help</option></arg>
         </cmdsynopsis>
@@ -59,7 +59,7 @@
             </listitem>
           </varlistentry>
           <varlistentry>
-            <term><option>--verbose</option></term>
+            <term><option>--debug</option></term>
             <listitem>
               <para>Print log messages to stdout.</para>
             </listitem>
