@@ -3,6 +3,9 @@
 # persistent storage links: /dev/disk/{by-id,by-uuid,by-label,by-path}
 # scheme based on "Linux persistent device names", 2004, Hannes Reinecke <hare@suse.de>
 
+# forward scsi device event to corresponding block device
+ACTION=="change", SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST=="block", ATTR{block/*/uevent}="change"
+
 ACTION!="add|change", GOTO="persistent_storage_end"
 SUBSYSTEM!="block", GOTO="persistent_storage_end"
 
@@ -47,8 +50,13 @@ ENV{DEVTYPE}=="disk", IMPORT{program}="path_id %p"
 ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}"
 ENV{DEVTYPE}=="partition", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
 
-# by-label/by-uuid (filesystem properties)
-ENV{DEVTYPE}=="partition", IMPORT{program}="vol_id --export $tempnode"
+# skip unpartitioned removable media devices from drivers which do not send "change" events
+ENV{DEVTYPE}=="disk", KERNEL!="sd*|sr*", ATTR{removable}=="1", GOTO="persistent_storage_end"
+
+# import filesystem metadata
+IMPORT{program}="vol_id --export $tempnode"
+
+# by-label/by-uuid links (filesystem metadata)
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"
 ENV{ID_FS_USAGE}=="filesystem|other", ENV{ID_FS_LABEL_ENC}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_ENC}"
 
