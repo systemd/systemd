@@ -682,8 +682,8 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 	struct sysfs_device *dev_scsi = NULL;
 	int good_dev;
 	int page_code;
-	char serial[MAX_SERIAL_LEN];
-	char serial_short[MAX_SERIAL_LEN];
+	char serial[MAX_SERIAL_LEN] = "";
+	char serial_short[MAX_SERIAL_LEN] = "";
 	const char *bus_str = NULL;
 
 	dbg("devpath %s\n", devpath);
