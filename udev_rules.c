@@ -658,6 +658,7 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 		SUBST_PARENT,
 		SUBST_TEMP_NODE,
 		SUBST_NAME,
+		SUBST_LINKS,
 		SUBST_ROOT,
 		SUBST_SYS,
 		SUBST_ENV,
@@ -680,6 +681,7 @@ void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize)
 		{ .name = "parent",	.fmt = 'P',	.type = SUBST_PARENT },
 		{ .name = "tempnode",	.fmt = 'N',	.type = SUBST_TEMP_NODE },
 		{ .name = "name",	.fmt = 'D',	.type = SUBST_NAME },
+		{ .name = "links",	.fmt = 'L',	.type = SUBST_LINKS },
 		{ .name = "root",	.fmt = 'r',	.type = SUBST_ROOT },
 		{ .name = "sys",	.fmt = 'S',	.type = SUBST_SYS },
 		{ .name = "env",	.fmt = 'E',	.type = SUBST_ENV },
@@ -899,8 +901,26 @@ found:
 			dbg("substitute temporary device node name '%s'\n", udev->tmp_node);
 			break;
 		case SUBST_NAME:
-			strlcat(string, udev->name, maxsize);
-			dbg("substitute udev->name '%s'\n", udev->name);
+			if (udev->name[0] == '\0') {
+				strlcat(string, udev->dev->kernel, maxsize);
+				dbg("substitute udev->kernel '%s'\n", udev->name);
+			} else {
+				strlcat(string, udev->name, maxsize);
+				dbg("substitute udev->name '%s'\n", udev->name);
+			}
+			break;
+		case SUBST_LINKS:
+			if (!list_empty(&udev->symlink_list)) {
+				struct name_entry *name_loop;
+				char symlinks[PATH_SIZE] = "";
+
+				list_for_each_entry(name_loop, &udev->symlink_list, node) {
+					strlcat(symlinks, name_loop->name, sizeof(symlinks));
+					strlcat(symlinks, " ", sizeof(symlinks));
+				}
+				remove_trailing_chars(symlinks, ' ');
+				strlcat(string, symlinks, maxsize);
+			}
 			break;
 		case SUBST_ROOT:
 			strlcat(string, udev_root, maxsize);

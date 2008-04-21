@@ -378,7 +378,12 @@ The node name of the parent device\.
 .PP
 \fB$name\fR
 .RS 4
-The name of the device node\. The value is only set if an earlier rule assigned a value, or during a remove events\.
+The current name of the device node\. If not changed by a rule, it is the name of the kernel device\.
+.RE
+.PP
+\fB$links\fR
+.RS 4
+The current list of symlinks, separated by a space character\. The value is only set if an earlier rule assigned a value, or during a remove events\.
 .RE
 .PP
 \fB$root\fR, \fB%r\fR
