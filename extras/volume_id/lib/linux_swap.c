@@ -73,6 +73,12 @@ int volume_id_probe_linux_swap(struct volume_id *id, uint64_t off, uint64_t size
 				strcpy(id->type_version, "ulsuspend");
 				goto found_label;
 			}
+
+			if (memcmp(buf, "\xed\xc3\x02\xe9\x98\x56\xe5\x0c", 8) == 0) {
+				id->type = "suspend";
+				strcpy(id->type_version, "tuxonice");
+				goto found_label;
+			}
 	}
 	return -1;
 
