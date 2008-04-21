@@ -538,8 +538,9 @@ int main(int argc, char *argv[])
 			break;
 		case 'h':
 			printf("Usage: cdrom_id [options] <device>\n"
-			    " --export        export key/value pairs\n"
-			    " --help\n\n");
+			       "  --export        export key/value pairs\n"
+			       "  --debug         debug to stderr\n"
+			       "  --help          print this help text\n\n");
 			goto exit;
 		default:
 			rc = 1;
