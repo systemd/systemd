@@ -183,6 +183,10 @@ int udevtest(int argc, char *argv[], char *envp[])
 
 	info("looking at device '%s' from subsystem '%s'\n", udev->dev->devpath, udev->dev->subsystem);
 	retval = udev_device_event(&rules, udev);
+
+	if (udev->event_timeout >= 0)
+		info("custom event timeout: %i\n", udev->event_timeout);
+
 	if (retval == 0 && !udev->ignore_device && udev_run) {
 		struct name_entry *name_loop;
 

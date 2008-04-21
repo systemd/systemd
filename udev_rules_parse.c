@@ -245,6 +245,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 
 	memset(buf, 0x00, sizeof(buf));
 	rule = (struct udev_rule *) buf;
+	rule->event_timeout = -1;
 	linepos = line;
 	valid = 0;
 
@@ -603,6 +604,11 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			if (pos != NULL) {
 				rule->link_priority = atoi(&pos[strlen("link_priority=")]);
 				dbg("link priority=%i\n", rule->link_priority);
+			}
+			pos = strstr(value, "event_timeout=");
+			if (pos != NULL) {
+				rule->event_timeout = atoi(&pos[strlen("event_timeout=")]);
+				dbg("event timout=%i\n", rule->event_timeout);
 			}
 			pos = strstr(value, "string_escape=");
 			if (pos != NULL) {

@@ -53,6 +53,8 @@ struct udevice *udev_device_init(struct udevice *udev)
 	strcpy(udev->owner, "root");
 	strcpy(udev->group, "root");
 
+	udev->event_timeout = -1;
+
 	return udev;
 }
 

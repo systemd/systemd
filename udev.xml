@@ -442,6 +442,13 @@
                     </listitem>
                   </varlistentry>
                   <varlistentry>
+                    <term><option>event_timeout=</option></term>
+                    <listitem>
+                      <para>Number of seconds an event will wait for operations to finish, before it
+                      will terminate itself.</para>
+                    </listitem>
+                  </varlistentry>
+                  <varlistentry>
                     <term><option>string_escape=<replaceable>none|replace</replaceable></option></term>
                     <listitem>
                       <para>Usually control and other possibly unsafe characters are replaced

@@ -1397,6 +1397,10 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 				udev->link_priority = rule->link_priority;
 				info("link_priority=%i\n", udev->link_priority);
 			}
+			if (rule->event_timeout >= 0) {
+				udev->event_timeout = rule->event_timeout;
+				info("event_timeout=%i\n", udev->event_timeout);
+			}
 			/* apply all_partitions option only at a main block device */
 			if (rule->partitions &&
 			    strcmp(udev->dev->subsystem, "block") == 0 && udev->dev->kernel_number[0] == '\0') {

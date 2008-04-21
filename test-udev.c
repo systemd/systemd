@@ -105,7 +105,7 @@ int main(int argc, char *argv[], char *envp[])
 	sigaction(SIGTERM, &act, NULL);
 
 	/* trigger timeout to prevent hanging processes */
-	alarm(UDEV_ALARM_TIMEOUT);
+	alarm(UDEV_EVENT_TIMEOUT);
 
 	action = getenv("ACTION");
 	devpath = getenv("DEVPATH");
@@ -153,6 +153,10 @@ int main(int argc, char *argv[], char *envp[])
 		udev->devt = udev_device_get_devt(udev);
 
 	retval = udev_device_event(&rules, udev);
+
+	/* rules may change/disable the timeout */
+	if (udev->event_timeout >= 0)
+		alarm(udev->event_timeout);
 
 	if (retval == 0 && !udev->ignore_device && udev_run)
 		udev_rules_run(udev);

@@ -39,7 +39,7 @@
 #define ALLOWED_CHARS_INPUT			ALLOWED_CHARS_FILE " $%?,"
 
 #define DEFAULT_PARTITIONS_COUNT		15
-#define UDEV_ALARM_TIMEOUT			180
+#define UDEV_EVENT_TIMEOUT			180
 
 #define UDEV_MAX(a,b) ((a) > (b) ? (a) : (b))
 
@@ -93,6 +93,7 @@ struct udevice {
 	int ignore_remove;
 	char program_result[PATH_SIZE];
 	int link_priority;
+	int event_timeout;
 	int test_run;
 };
 

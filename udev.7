@@ -291,6 +291,11 @@ Specify the priority of the created symlinks\. Devices with higher priorities ov
 Create the device nodes for all available partitions of a block device\. This may be useful for removable media devices where media changes are not detected\.
 .RE
 .PP
+\fBevent_timeout=\fR
+.RS 4
+Number of seconds an event will wait for operations to finish, before it will terminate itself\.
+.RE
+.PP
 \fBstring_escape=\fR\fB\fInone|replace\fR\fR
 .RS 4
 Usually control and other possibly unsafe characters are replaced in strings used for device naming\. The mode of replacement can be specified with this option\.

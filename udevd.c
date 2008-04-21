@@ -115,7 +115,7 @@ static int udev_event_process(struct udevd_uevent_msg *msg)
 	sigaction(SIGHUP, &act, NULL);
 
 	/* trigger timeout to prevent hanging processes */
-	alarm(UDEV_ALARM_TIMEOUT);
+	alarm(UDEV_EVENT_TIMEOUT);
 
 	/* reconstruct event environment from message */
 	for (i = 0; msg->envp[i]; i++)
@@ -130,6 +130,10 @@ static int udev_event_process(struct udevd_uevent_msg *msg)
 	udev->devt = msg->devt;
 
 	retval = udev_device_event(&rules, udev);
+
+	/* rules may change/disable the timeout */
+	if (udev->event_timeout >= 0)
+		alarm(udev->event_timeout);
 
 	/* run programs collected by RUN-key*/
 	if (retval == 0 && !udev->ignore_device && udev_run)

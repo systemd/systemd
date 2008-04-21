@@ -97,6 +97,7 @@ struct udev_rule {
 	enum escape_type string_escape;
 
 	unsigned int link_priority;
+	int event_timeout;
 	unsigned int partitions;
 	unsigned int last_rule:1,
 		     run_ignore_error:1,
