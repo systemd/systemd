@@ -11,7 +11,8 @@ EXTRAS="\
 	extras/floppy \
 	extras/firmware \
 	extras/collect \
-	extras/rule_generator"
+	extras/rule_generator \
+	extras/fstab_import"
 
 # with debug
 make clean EXTRAS="$EXTRAS" >/dev/null

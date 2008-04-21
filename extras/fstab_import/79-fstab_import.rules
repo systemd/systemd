@@ -1,0 +1,2 @@
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_FS_USAGE}=="filesystem|other", IMPORT="fstab_import --root=$root $name $links mapper/$env{DM_NAME}"
+
