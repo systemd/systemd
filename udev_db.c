@@ -174,6 +174,8 @@ int udev_db_add_device(struct udevice *udev)
 		fprintf(f, "M:%u:%u\n", major(udev->devt), minor(udev->devt));
 		if (udev->link_priority != 0)
 			fprintf(f, "L:%u\n", udev->link_priority);
+		if (udev->event_timeout >= 0)
+			fprintf(f, "T:%u\n", udev->event_timeout);
 		if (udev->partitions != 0)
 			fprintf(f, "A:%u\n", udev->partitions);
 		if (udev->ignore_remove)
@@ -236,54 +238,35 @@ int udev_db_get_device(struct udevice *udev, const char *devpath)
 		bufline = &buf[cur];
 		cur += count+1;
 
+		if (count > sizeof(line))
+			count = sizeof(line);
+		memcpy(line, &bufline[2], count-2);
+		line[count-2] = '\0';
+
 		switch(bufline[0]) {
 		case 'N':
-			if (count > sizeof(udev->name))
-				count = sizeof(udev->name);
-			memcpy(udev->name, &bufline[2], count-2);
-			udev->name[count-2] = '\0';
+			strlcpy(udev->name, line, sizeof(udev->name));
 			break;
 		case 'M':
-			if (count > sizeof(line))
-				count = sizeof(line);
-			memcpy(line, &bufline[2], count-2);
-			line[count-2] = '\0';
 			sscanf(line, "%u:%u", &maj, &min);
 			udev->devt = makedev(maj, min);
 			break;
 		case 'S':
-			if (count > sizeof(line))
-				count =  sizeof(line);
-			memcpy(line, &bufline[2], count-2);
-			line[count-2] = '\0';
 			name_list_add(&udev->symlink_list, line, 0);
 			break;
 		case 'L':
-			if (count > sizeof(line))
-				count =  sizeof(line);
-			memcpy(line, &bufline[2], count-2);
-			line[count-2] = '\0';
 			udev->link_priority = atoi(line);
 			break;
+		case 'T':
+			udev->event_timeout = atoi(line);
+			break;
 		case 'A':
-			if (count > sizeof(line))
-				count =  sizeof(line);
-			memcpy(line, &bufline[2], count-2);
-			line[count-2] = '\0';
 			udev->partitions = atoi(line);
 			break;
 		case 'R':
-			if (count > sizeof(line))
-				count =  sizeof(line);
-			memcpy(line, &bufline[2], count-2);
-			line[count-2] = '\0';
 			udev->ignore_remove = atoi(line);
 			break;
 		case 'E':
-			if (count > sizeof(line))
-				count =  sizeof(line);
-			memcpy(line, &bufline[2], count-2);
-			line[count-2] = '\0';
 			name_list_add(&udev->env_list, line, 0);
 			break;
 		}
