@@ -105,7 +105,10 @@ int udevcontrol(int argc, char *argv[], char *envp[])
 		*intval = count;
 		info("send max_childs_running=%i\n", *intval);
 	} else if (!strncmp(arg, "env", strlen("env"))) {
-		val = argv[2];
+		if (!strncmp(arg, "env=", strlen("env=")))
+			val = &arg[strlen("env=")];
+		else
+			val = argv[2];
 		if (val == NULL) {
 			fprintf(stderr, "missing key\n");
 			goto exit;
@@ -119,7 +122,7 @@ int udevcontrol(int argc, char *argv[], char *envp[])
 			"  --stop_exec_queue        keep udevd from executing events, queue only\n"
 			"  --start_exec_queue       execute events, flush queue\n"
 			"  --reload_rules           reloads the rules files\n"
-			"  --env <var>=<value>      set a global environment variable\n"
+			"  --env=<KEY>=<value>      set a global environment variable\n"
 			"  --max_childs=<N>         maximum number of childs\n"
 			"  --max_childs_running=<N> maximum number of childs running at the same time\n"
 			"  --help                   print this help text\n\n");

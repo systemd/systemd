@@ -129,12 +129,12 @@ Trigger events for devices which belong to a matching subsystem\. This option ca
 Do not trigger events for devices which belong to a matching subsystem\. This option can be specified multiple times and supports shell style pattern matching\.
 .RE
 .PP
-\fB\-\-attr\-match=\fR\fB\fIattribute=value\fR\fR
+\fB\-\-attr\-match=\fR\fB\fIattribute\fR\fR\fB=\fR\fB\fIvalue\fR\fR
 .RS 4
 Trigger events for devices with a matching sysfs attribute\. If a value is specified along with the attribute name, the content of the attribute is matched against the given value using shell style pattern matching\. If no value is specified, the existence of the sysfs attribute is checked\. This option can be specified multiple times\.
 .RE
 .PP
-\fB\-\-attr\-nomatch=\fR\fB\fIattribute=value\fR\fR
+\fB\-\-attr\-nomatch=\fR\fB\fIattribute\fR\fR\fB=\fR\fB\fIvalue\fR\fR
 .RS 4
 Do not trigger events for devices with a matching sysfs attribute\. If a value is specified along with the attribute name, the content of the attribute is matched against the given value using shell style pattern matching\. If no value is specified, the existence of the sysfs attribute is checked\. This option can be specified multiple times\.
 .RE
@@ -191,17 +191,17 @@ Signal udevd to enable the execution of events\.
 Signal udevd to reload the rules from the config\.
 .RE
 .PP
-\fB\-\-env \fR\fB\fIvar\fR\fR\fB=\fR\fB\fIvalue\fR\fR
+\fB\-\-env=\fR\fB\fIKEY\fR\fR\fB=\fR\fB\fIvalue\fR\fR
 .RS 4
 Set global variable\.
 .RE
 .PP
-\fB\-\-max_childs\fR
+\fB\-\-max_childs=\fR\fIvalue\fR
 .RS 4
 Set the maximum number of events, udevd will handle at the same time\.
 .RE
 .PP
-\fB\-\-max_childs_running\fR
+\fB\-\-max_childs_running=\fR\fB\fIvalue\fR\fR
 .RS 4
 Set the maximum number of events, which are allowed to run at the same time\.
 .RE
