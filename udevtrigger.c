@@ -120,7 +120,7 @@ static void trigger_uevent(const char *devpath, const char *action)
 	close(fd);
 }
 
-static int pass_to_socket(const char *devpath, const char *action)
+static int pass_to_socket(const char *devpath, const char *action, const char *env)
 {
 	struct udevice udev;
 	struct name_entry *name_loop;
@@ -142,6 +142,12 @@ static int pass_to_socket(const char *devpath, const char *action)
 	/* add header */
 	bufpos = snprintf(buf, sizeof(buf)-1, "%s@%s", action, devpath);
 	bufpos++;
+
+	/* add cookie */
+	if (env != NULL) {
+		bufpos += snprintf(&buf[bufpos], sizeof(buf)-1, "%s", env);
+		bufpos++;
+	}
 
 	/* add standard keys */
 	bufpos += snprintf(&buf[bufpos], sizeof(buf)-1, "DEVPATH=%s", devpath);
@@ -230,7 +236,7 @@ static int pass_to_socket(const char *devpath, const char *action)
 	return err;
 }
 
-static void exec_list(const char *action)
+static void exec_list(const char *action, const char *env)
 {
 	struct name_entry *loop_device;
 	struct name_entry *tmp_device;
@@ -239,7 +245,7 @@ static void exec_list(const char *action)
 		if (delay_device(loop_device->name))
 			continue;
 		if (sock >= 0)
-			pass_to_socket(loop_device->name, action);
+			pass_to_socket(loop_device->name, action, env);
 		else
 			trigger_uevent(loop_device->name, action);
 		list_del(&loop_device->node);
@@ -249,7 +255,7 @@ static void exec_list(const char *action)
 	/* trigger remaining delayed devices */
 	list_for_each_entry_safe(loop_device, tmp_device, &device_list, node) {
 		if (sock >= 0)
-			pass_to_socket(loop_device->name, action);
+			pass_to_socket(loop_device->name, action, env);
 		else
 			trigger_uevent(loop_device->name, action);
 		list_del(&loop_device->node);
@@ -558,6 +564,7 @@ int udevtrigger(int argc, char *argv[], char *envp[])
 	const char *sockpath = NULL;
 	int option;
 	const char *action = "add";
+	const char *env = NULL;
 	static const struct option options[] = {
 		{ "verbose", 0, NULL, 'v' },
 		{ "dry-run", 0, NULL, 'n' },
@@ -569,6 +576,7 @@ int udevtrigger(int argc, char *argv[], char *envp[])
 		{ "subsystem-nomatch", 1, NULL, 'S' },
 		{ "attr-match", 1, NULL, 'a' },
 		{ "attr-nomatch", 1, NULL, 'A' },
+		{ "env", 1, NULL, 'e' },
 		{}
 	};
 
@@ -578,7 +586,7 @@ int udevtrigger(int argc, char *argv[], char *envp[])
 	sysfs_init();
 
 	while (1) {
-		option = getopt_long(argc, argv, "vnFo:hc:s:S:a:A:", options, NULL);
+		option = getopt_long(argc, argv, "vnFo:hce::s:S:a:A:", options, NULL);
 		if (option == -1)
 			break;
 
@@ -598,6 +606,10 @@ int udevtrigger(int argc, char *argv[], char *envp[])
 		case 'c':
 			action = optarg;
 			break;
+		case 'e':
+			if (strchr(optarg, '=') != NULL)
+				env = optarg;
+			break;
 		case 's':
 			name_list_add(&filter_subsystem_match_list, optarg, 0);
 			break;
@@ -616,6 +628,8 @@ int udevtrigger(int argc, char *argv[], char *envp[])
 			       "  --dry-run                       do not actually trigger the events\n"
 			       "  --retry-failed                  trigger only the events which have been\n"
 			       "                                  marked as failed during a previous run\n"
+			       "  --socket=<socket path>          pass events to socket instead of triggering kernel events\n"
+			       "  --env=<KEY>=<value>             pass an additional key (works only with --socket=)\n"
 			       "  --subsystem-match=<subsystem>   trigger devices from a matching subystem\n"
 			       "  --subsystem-nomatch=<subsystem> exclude devices from a matching subystem\n"
 			       "  --attr-match=<file[=<value>]>   trigger devices with a matching sysfs\n"
@@ -649,11 +663,14 @@ int udevtrigger(int argc, char *argv[], char *envp[])
 			strlcpy(&saddr.sun_path[1], sockpath, sizeof(saddr.sun_path)-1);
 			saddrlen = offsetof(struct sockaddr_un, sun_path) + 1 + strlen(&saddr.sun_path[1]);
 		}
+	} else if (env != NULL) {
+		fprintf(stderr, "error: --env= only valid with --socket= option\n");
+		goto exit;
 	}
 
 	if (failed) {
 		scan_failed();
-		exec_list(action);
+		exec_list(action, env);
 	} else {
 		char base[PATH_SIZE];
 		struct stat statbuf;
@@ -663,12 +680,12 @@ int udevtrigger(int argc, char *argv[], char *envp[])
 		strlcat(base, "/subsystem", sizeof(base));
 		if (stat(base, &statbuf) == 0) {
 			scan_subsystem("subsystem", SCAN_SUBSYSTEM);
-			exec_list(action);
+			exec_list(action, env);
 			scan_subsystem("subsystem", SCAN_DEVICES);
-			exec_list(action);
+			exec_list(action, env);
 		} else {
 			scan_subsystem("bus", SCAN_SUBSYSTEM);
-			exec_list(action);
+			exec_list(action, env);
 			scan_subsystem("bus", SCAN_DEVICES);
 			scan_class();
 
@@ -677,7 +694,7 @@ int udevtrigger(int argc, char *argv[], char *envp[])
 			strlcat(base, "/class/block", sizeof(base));
 			if (stat(base, &statbuf) != 0)
 				scan_block();
-			exec_list(action);
+			exec_list(action, env);
 		}
 	}
 

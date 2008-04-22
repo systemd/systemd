@@ -134,16 +134,21 @@ Do not trigger events for devices which belong to a matching subsystem\. This op
 Trigger events for devices with a matching sysfs attribute\. If a value is specified along with the attribute name, the content of the attribute is matched against the given value using shell style pattern matching\. If no value is specified, the existence of the sysfs attribute is checked\. This option can be specified multiple times\.
 .RE
 .PP
-\fB\-\-attr\-nomatch\fR\fB\fIattribute=value\fR\fR
+\fB\-\-attr\-nomatch=\fR\fB\fIattribute=value\fR\fR
 .RS 4
 Do not trigger events for devices with a matching sysfs attribute\. If a value is specified along with the attribute name, the content of the attribute is matched against the given value using shell style pattern matching\. If no value is specified, the existence of the sysfs attribute is checked\. This option can be specified multiple times\.
 .RE
 .PP
-\fB\-\-socket\fR\fB\fIpath\fR\fR
+\fB\-\-socket=\fR\fB\fIpath\fR\fR
 .RS 4
 Pass the synthesized events to the specified socket, instead of triggering a global kernel event\. All available event values will be send in the same format the kernel sends an uevent, or
 \fBRUN+="socket:\fR\fB\fIpath\fR\fR\fB"\fR
 sends a message\. If the first character of the specified path is an @ character, an abstract namespace socket is used, instead of an existing socket file\.
+.RE
+.PP
+\fB\-\-env=\fR\fB\fIKEY\fR\fR\fB=\fR\fB\fIvalue\fR\fR
+.RS 4
+Pass an additional environemt key to the event\. This works only with the \-\-socket option\.
 .RE
 .SS "udevadm settle [options]"
 .PP

@@ -180,7 +180,7 @@
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><option>--attr-nomatch<replaceable>attribute=value</replaceable></option></term>
+              <term><option>--attr-nomatch=<replaceable>attribute=value</replaceable></option></term>
               <listitem>
                 <para>Do not trigger events for devices with a matching sysfs attribute. If a value is
                 specified along with the attribute name, the content of the attribute is matched against
@@ -189,13 +189,20 @@
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><option>--socket<replaceable>path</replaceable></option></term>
+              <term><option>--socket=<replaceable>path</replaceable></option></term>
               <listitem>
                 <para>Pass the synthesized events to the specified socket, instead of triggering
                 a global kernel event. All available event values will be send in the same format
                 the kernel sends an uevent, or <option>RUN+="socket:<replaceable>path</replaceable>"</option>
                 sends a message. If the first character of the specified path is an @ character,
                 an abstract namespace socket is used, instead of an existing socket file.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>--env=<replaceable>KEY</replaceable>=<replaceable>value</replaceable></option></term>
+              <listitem>
+                <para>Pass an additional environemt key to the event. This works only with the
+                --socket option.</para>
               </listitem>
             </varlistentry>
           </variablelist>
