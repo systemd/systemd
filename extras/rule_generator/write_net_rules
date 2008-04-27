@@ -15,6 +15,7 @@
 # variables used to communicate:
 #   MATCHADDR             MAC address used for the match
 #   MATCHID               bus_id used for the match
+#   MATCHDEVID            dev_id used for the match
 #   MATCHDRV              driver name used for the match
 #   MATCHIFTYPE           interface type match
 #   COMMENT               comment to add to the generated rule
@@ -76,6 +77,10 @@ fi
 
 if [ "$MATCHDRV" ]; then
 	match="$match, DRIVERS==\"$MATCHDRV\""
+fi
+
+if [ "$MATCHDEVID" ]; then
+	match="$match, ATTR{dev_id}==\"$MATCHDEVID\""
 fi
 
 if [ "$MATCHID" ]; then
