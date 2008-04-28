@@ -54,6 +54,8 @@ static void print_all_attributes(const char *devpath, const char *key)
 
 			if (strcmp(dent->d_name, "uevent") == 0)
 				continue;
+			if (strcmp(dent->d_name, "dev") == 0)
+				continue;
 
 			strlcpy(filename, path, sizeof(filename));
 			strlcat(filename, "/", sizeof(filename));
