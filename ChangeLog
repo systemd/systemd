@@ -1,3 +1,42 @@
+Summary of changes from v120 to v121
+============================================
+
+Damjan Georgievski (1):
+      libvolume_id: recognize swap partitions with a tuxonice hibernate image
+
+Daniel Drake (1):
+      writing udev rules: fix rule typos
+
+David Woodhouse (1):
+      rules_generator: net rules - add "dev_id" value to generated rules
+
+Harald Hoyer (1):
+      selinux: more context settings
+
+Kay Sievers (21):
+      udevinfo: do not replace chars when printing ATTR== matches
+      vol_id: add --offset option
+      cdrom_id: replace with version which also exports media properties
+      udevd: at startup write message including version number to kernel log
+      rules_generator: net rules - always add KERNEL== match to generated rules
+      selinux: fix missing includes
+      allow setting of MODE="0000"
+      path_id: remove subsystem whitelist
+      logging: add trailing newline to all strings
+      scsi_id: initialize serial strings
+      persistent device naming: also read unpartitioned media
+      cdrom_id: add more help text
+      add $links substitution
+      fstab_import: add program to IMPORT matching fstab entry
+      add OPTIONS+="event_timeout=<seconds>"
+      write "event_timeout" to db
+      udevadm: trigger - add --env= option
+      udevadm: control - fix --env key to accept --env=<KEY>=<value>
+      udevadm: info - do not print ATTR{dev}==
+      persistent device naming: update tape rules
+      rules: update md rules
+
+
 Summary of changes from v119 to v120
 ============================================
 
