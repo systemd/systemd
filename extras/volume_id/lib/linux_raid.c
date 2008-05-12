@@ -27,7 +27,7 @@
 #include "libvolume_id.h"
 #include "util.h"
 
-static struct mdp0_super_block {
+struct mdp0_super_block {
 	uint32_t	md_magic;
 	uint32_t	major_version;
 	uint32_t	minor_version;
@@ -44,7 +44,7 @@ static struct mdp0_super_block {
 	uint32_t	set_uuid1;
 	uint32_t	set_uuid2;
 	uint32_t	set_uuid3;
-} PACKED *mdp0;
+} PACKED;
 
 struct mdp1_super_block {
 	uint32_t	magic;
@@ -53,7 +53,7 @@ struct mdp1_super_block {
 	uint32_t	pad0;
 	uint8_t		set_uuid[16];
 	uint8_t		set_name[32];
-} PACKED *mdp1;
+} PACKED;
 
 #define MD_RESERVED_BYTES		0x10000
 #define MD_SB_MAGIC			0xa92b4efc
@@ -61,6 +61,7 @@ struct mdp1_super_block {
 static int volume_id_probe_linux_raid0(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	const uint8_t *buf;
+	struct mdp0_super_block *mdp0;
 	union {
 		uint32_t ints[4];
 		uint8_t bytes[16];
@@ -119,6 +120,7 @@ static int volume_id_probe_linux_raid0(struct volume_id *id, uint64_t off, uint6
 static int volume_id_probe_linux_raid1(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	const uint8_t *buf;
+	struct mdp1_super_block *mdp1;
 
 	info("probing at offset 0x%llx, size 0x%llx\n",
 	    (unsigned long long) off, (unsigned long long) size);
@@ -153,22 +155,19 @@ int volume_id_probe_linux_raid(struct volume_id *id, uint64_t off, uint64_t size
 
 	/* version 1.0 at the end of the device */
 	sboff = (size & ~(0x1000 - 1)) - 0x2000;
-	if (volume_id_probe_linux_raid1(id, off + sboff, size) == 0) {
+	if (volume_id_probe_linux_raid1(id, off + sboff, size) == 0)
 		strcpy(id->type_version, "1.0");
-		return 0;
-	}
 
 	/* version 1.1 at the start of the device */
-	if (volume_id_probe_linux_raid1(id, off, size) == 0) {
+	else if (volume_id_probe_linux_raid1(id, off, size) == 0)
 		strcpy(id->type_version, "1.1");
-		return 0;
-	}
 
 	/* version 1.2 at 4k offset from the start */
-	if (volume_id_probe_linux_raid1(id, off + 0x1000, size) == 0) {
+	else if (volume_id_probe_linux_raid1(id, off + 0x1000, size) == 0)
 		strcpy(id->type_version, "1.2");
-		return 0;
-	}
 
-	return -1;
+	else
+		return -1;
+
+	return 0;
 }
