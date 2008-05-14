@@ -37,7 +37,6 @@ static const struct option options[] = {
 	{ "page", 1, NULL, 'p' },
 	{ "blacklisted", 0, NULL, 'b' },
 	{ "whitelisted", 0, NULL, 'g' },
-	{ "prefix-bus-id", 0, NULL, 'i' },
 	{ "replace-whitespace", 0, NULL, 'u' },
 	{ "verbose", 0, NULL, 'v' },
 	{ "version", 0, NULL, 'V' },
@@ -52,7 +51,6 @@ static const char dev_short_options[] = "bgp:";
 static int all_good;
 static int dev_specified;
 static char config_file[MAX_PATH_LEN] = SCSI_ID_CONFIG_FILE;
-static int display_bus_id;
 static enum page_code default_page_code;
 static int use_stderr;
 static int debug;
@@ -426,17 +424,12 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			       "  --page                 SCSI page (0x80, 0x83, pre-spc3-83)\n"
 			       "  --blacklisted          threat device as blacklisted\n"
 			       "  --whitelisted          threat device as whitelisted\n"
-			       "  --prefix-bus-id        prefix SCSI bus id\n"
 			       "  --replace-whitespace   replace all whitespaces by underscores\n"
 			       "  --verbose              verbose logging\n"
 			       "  --version              print version\n"
 			       "  --export               print values as environment keys\n"
 			       "  --help                 print this help text\n\n");
 			exit(0);
-
-		case 'i':
-			display_bus_id = 1;
-			break;
 
 		case 'p':
 			if (strcmp(optarg, "0x80") == 0) {
