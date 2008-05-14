@@ -5,14 +5,14 @@
 ACTION!="add|change", GOTO="persistent_storage_tape_end"
 
 # type 8 devices are "Medium Changers"
-KERNEL=="sg[0-9]*", SUBSYSTEMS=="scsi", ATTRS{type}=="8", IMPORT{program}="scsi_id --export --whitelisted --fallback-to-sysfs -s %p -d $tempnode", SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
+KERNEL=="sg[0-9]*", SUBSYSTEMS=="scsi", ATTRS{type}=="8", IMPORT{program}="scsi_id --export --whitelisted -d $tempnode", SYMLINK+="tape/by-id/scsi-$env{ID_SERIAL}"
 
 SUBSYSTEM!="scsi_tape", GOTO="persistent_storage_tape_end"
 
 KERNEL=="st*[0-9]", ATTRS{ieee1394_id}=="?*", ENV{ID_SERIAL}="$attr{ieee1394_id}", ENV{ID_BUS}="ieee1394"
 KERNEL=="st*[0-9]", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="usb", IMPORT{program}="usb_id --export %p"
 
-KERNEL=="st*[0-9]|nst*[0-9]",  ENV{ID_SERIAL}!="?*", IMPORT{program}="scsi_id --export --whitelisted --fallback-to-sysfs -s %p -d $tempnode"
+KERNEL=="st*[0-9]|nst*[0-9]",  ENV{ID_SERIAL}!="?*", IMPORT{program}="scsi_id --export --whitelisted -d $tempnode", ENV{ID_BUS}="scsi"
 KERNEL=="st*[0-9]",  ENV{ID_SERIAL}=="?*", SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 KERNEL=="nst*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="tape/by-id/$env{ID_BUS}-$env{ID_SERIAL}-nst"
 
