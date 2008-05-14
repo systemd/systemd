@@ -469,6 +469,8 @@ static int cd_media_toc(int fd)
 	info("READ TOC: len: %d\n", len);
 	if (len > sizeof(toc))
 		return -1;
+	if (len < 8)
+		return -1;
 
 	/* check if we have a data track */
 	info("ctl %02x (0x04 is data/audio)\n", header[5]);
