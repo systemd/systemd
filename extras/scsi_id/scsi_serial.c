@@ -803,12 +803,14 @@ int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname)
 		return retval;
 
 	memcpy(dev_scsi->vendor, buf + 8, 8);
+	dev_scsi->vendor[8] = '\0';
 	memcpy(dev_scsi->model, buf + 16, 16);
+	dev_scsi->model[16] = '\0';
 	memcpy(dev_scsi->revision, buf + 32, 4);
+	dev_scsi->revision[4] = '\0';
 	sprintf(dev_scsi->type,"%x", buf[0] & 0x1f);
 
-	if (close(fd) < 0)
-		info("%s: close failed: %s\n", dev_scsi->kernel, strerror(errno));
+	close(fd);
 
 	return 0;
 }

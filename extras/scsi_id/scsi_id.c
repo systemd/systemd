@@ -38,6 +38,7 @@ static const struct option options[] = {
 	{ "blacklisted", 0, NULL, 'b' },
 	{ "whitelisted", 0, NULL, 'g' },
 	{ "replace-whitespace", 0, NULL, 'u' },
+	{ "sg-version", 1, NULL, 's' },
 	{ "verbose", 0, NULL, 'v' },
 	{ "version", 0, NULL, 'V' },
 	{ "export", 0, NULL, 'x' },
@@ -52,6 +53,7 @@ static int all_good;
 static int dev_specified;
 static char config_file[MAX_PATH_LEN] = SCSI_ID_CONFIG_FILE;
 static enum page_code default_page_code;
+static int sg_version = 4;
 static int use_stderr;
 static int debug;
 static int reformat_serial;
@@ -257,7 +259,7 @@ static int get_file_options(const char *vendor, const char *model,
 			break;
 		lineno++;
 		if (buf[strlen(buffer) - 1] != '\n') {
-			info("Config file line %d too long\n", lineno);
+			err("Config file line %d too long\n", lineno);
 			break;
 		}
 
@@ -309,7 +311,7 @@ static int get_file_options(const char *vendor, const char *model,
 		 * Only allow: [vendor=foo[,model=bar]]options=stuff
 		 */
 		if (!options_in || (!vendor_in && model_in)) {
-			info("Error parsing config file line %d '%s'\n", lineno, buffer);
+			err("Error parsing config file line %d '%s'\n", lineno, buffer);
 			retval = -1;
 			break;
 		}
@@ -419,16 +421,17 @@ static int set_options(int argc, char **argv, const char *short_opts,
 
 		case 'h':
 			printf("Usage: scsi_id OPTIONS <device>\n"
-			       "  --device               device node for SG_IO commands\n"
-			       "  --config               location of config file\n"
-			       "  --page                 SCSI page (0x80, 0x83, pre-spc3-83)\n"
-			       "  --blacklisted          threat device as blacklisted\n"
-			       "  --whitelisted          threat device as whitelisted\n"
-			       "  --replace-whitespace   replace all whitespaces by underscores\n"
-			       "  --verbose              verbose logging\n"
-			       "  --version              print version\n"
-			       "  --export               print values as environment keys\n"
-			       "  --help                 print this help text\n\n");
+			       "  --device=                     device node for SG_IO commands\n"
+			       "  --config=                     location of config file\n"
+			       "  --page=0x80|0x83|pre-spc3-83  SCSI page (0x80, 0x83, pre-spc3-83)\n"
+			       "  --sg-version=3|4              use SGv3 or SGv4\n"
+			       "  --blacklisted                 threat device as blacklisted\n"
+			       "  --whitelisted                 threat device as whitelisted\n"
+			       "  --replace-whitespace          replace all whitespaces by underscores\n"
+			       "  --verbose                     verbose logging\n"
+			       "  --version                     print version\n"
+			       "  --export                      print values as environment keys\n"
+			       "  --help                        print this help text\n\n");
 			exit(0);
 
 		case 'p':
@@ -439,7 +442,15 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			} else if (strcmp(optarg, "pre-spc3-83") == 0) {
 				default_page_code = PAGE_83_PRE_SPC3; 
 			} else {
-				info("Unknown page code '%s'\n", optarg);
+				err("Unknown page code '%s'\n", optarg);
+				return -1;
+			}
+			break;
+
+		case 's':
+			sg_version = atoi(optarg);
+			if (sg_version < 3 || sg_version > 4) {
+				err("Unknown SG version '%s'\n", optarg);
 				return -1;
 			}
 			break;
@@ -513,13 +524,13 @@ static int per_dev_options(struct scsi_id_device *dev_scsi, int *good_bad, int *
 			} else if (strcmp(optarg, "pre-spc3-83") == 0) {
 				*page_code = PAGE_83_PRE_SPC3; 
 			} else {
-				info("Unknown page code '%s'\n", optarg);
+				err("Unknown page code '%s'\n", optarg);
 				retval = -1;
 			}
 			break;
 
 		default:
-			info("Unknown or bad option '%c' (0x%x)\n", option, option);
+			err("Unknown or bad option '%c' (0x%x)\n", option, option);
 			retval = -1;
 			break;
 		}
@@ -536,16 +547,16 @@ static int set_inq_values(struct scsi_id_device *dev_scsi, const char *path)
 {
 	int retval;
 
-	dev_scsi->use_sg = 4;
+	dev_scsi->use_sg = sg_version;
 
 	retval = scsi_std_inquiry(dev_scsi, path);
 	if (retval)
 	    return retval;
 
-	set_str(vendor_str, dev_scsi->vendor, 8);
-	set_str(model_str, dev_scsi->model, 16);
-	set_type(type_str, dev_scsi->type, sizeof(type_str) - 1);
-	set_str(revision_str, dev_scsi->revision, sizeof(revision_str) -1);
+	set_str(vendor_str, dev_scsi->vendor, sizeof(vendor_str));
+	set_str(model_str, dev_scsi->model, sizeof(model_str));
+	set_type(type_str, dev_scsi->type, sizeof(type_str));
+	set_str(revision_str, dev_scsi->revision, sizeof(revision_str));
 
 	return 0;
 }
@@ -662,7 +673,7 @@ int main(int argc, char **argv)
 		exit(1);
 
 	if (!dev_specified) {
-		info("no device specified\n");
+		err("no device specified\n");
 		retval = 1;
 		goto exit;
 	}
