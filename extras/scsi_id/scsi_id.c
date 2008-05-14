@@ -543,6 +543,8 @@ static int set_inq_values(struct scsi_id_device *dev_scsi, const char *path)
 {
 	int retval;
 
+	dev_scsi->use_sg = 4;
+
 	retval = scsi_std_inquiry(dev_scsi, path);
 	if (retval)
 	    return retval;

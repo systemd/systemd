@@ -6,11 +6,11 @@
 # Released under the GNU General Public License, version 2.
 #
 
-SCSI_ID_VERSION = 0.9
+SCSI_ID_VERSION = 2.0
 
 PROG = scsi_id
 OBJS= scsi_serial.o
-HEADERS = scsi_id.h scsi.h scsi_id_version.h
+HEADERS = scsi_id.h scsi.h scsi_id_version.h bsg.h
 GEN_HEADERS = scsi_id_version.h
 MAN_PAGES = scsi_id.8
 

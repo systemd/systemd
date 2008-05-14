@@ -22,7 +22,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <syslog.h>
+#include <inttypes.h>
+#include <scsi/scsi.h>
 #include <scsi/sg.h>
+#include <linux/types.h>
+/* #include <linux/bsg.h> */
+#include "bsg.h"
 
 #include "../../udev.h"
 #include "scsi.h"
@@ -94,10 +99,7 @@ static int sg_err_category_new(int scsi_status, int msg_status, int
 	 * XXX change to return only two values - failed or OK.
 	 */
 
-	/*
-	 * checks msg_status
-	 */
-	if (!scsi_status && !msg_status && !host_status && !driver_status)
+	if (!scsi_status && !host_status && !driver_status)
 		return SG_ERR_CAT_CLEAN;
 
 	if ((scsi_status == SCSI_CHECK_CONDITION) ||
@@ -148,11 +150,18 @@ static int sg_err_category3(struct sg_io_hdr *hp)
 				   hp->sbp, hp->sb_len_wr);
 }
 
-static int scsi_dump_sense(struct scsi_id_device *dev_scsi, struct sg_io_hdr *io)
+static int sg_err_category4(struct sg_io_v4 *hp)
 {
-	unsigned char *sense_buffer;
+	return sg_err_category_new(hp->device_status, 0,
+				   hp->transport_status, hp->driver_status,
+				   (unsigned char *)hp->response,
+				   hp->response_len);
+}
+
+static int scsi_dump_sense(struct scsi_id_device *dev_scsi,
+			   unsigned char *sense_buffer, int sb_len)
+{
 	int s;
-	int sb_len;
 	int code;
 	int sense_class;
 	int sense_key;
@@ -177,13 +186,11 @@ static int scsi_dump_sense(struct scsi_id_device *dev_scsi, struct sg_io_hdr *io
 
 	dbg("got check condition\n");
 
-	sb_len = io->sb_len_wr;
 	if (sb_len < 1) {
 		info("%s: sense buffer empty\n", dev_scsi->kernel);
 		return -1;
 	}
 
-	sense_buffer = io->sbp;
 	sense_class = (sense_buffer[0] >> 4) & 0x07;
 	code = sense_buffer[0] & 0xf;
 
@@ -268,7 +275,28 @@ static int scsi_dump(struct scsi_id_device *dev_scsi, struct sg_io_hdr *io)
 	info("%s: sg_io failed status 0x%x 0x%x 0x%x 0x%x\n",
 	    dev_scsi->kernel, io->driver_status, io->host_status, io->msg_status, io->status);
 	if (io->status == SCSI_CHECK_CONDITION)
-		return scsi_dump_sense(dev_scsi, io);
+		return scsi_dump_sense(dev_scsi, io->sbp, io->sb_len_wr);
+	else
+		return -1;
+}
+
+static int scsi_dump_v4(struct scsi_id_device *dev_scsi, struct sg_io_v4 *io)
+{
+	if (!io->device_status && !io->transport_status &&
+	    !io->driver_status) {
+		/*
+		 * Impossible, should not be called.
+		 */
+		info("%s: called with no error\n", __FUNCTION__);
+		return -1;
+	}
+
+	info("%s: sg_io failed status 0x%x 0x%x 0x%x\n",
+	    dev_scsi->kernel, io->driver_status, io->transport_status,
+	     io->device_status);
+	if (io->device_status == SCSI_CHECK_CONDITION)
+		return scsi_dump_sense(dev_scsi, (unsigned char *)io->response,
+				       io->response_len);
 	else
 		return -1;
 }
@@ -281,6 +309,8 @@ static int scsi_inquiry(struct scsi_id_device *dev_scsi, int fd,
 		{ INQUIRY_CMD, evpd, page, 0, buflen, 0 };
 	unsigned char sense[SENSE_BUFF_LEN];
 	struct sg_io_hdr io_hdr;
+	struct sg_io_v4 io_v4;
+	void *io_buf;
 	int retval;
 	int retry = 3; /* rather random */
 
@@ -292,24 +322,46 @@ static int scsi_inquiry(struct scsi_id_device *dev_scsi, int fd,
 resend:
 	dbg("%s evpd %d, page 0x%x\n", dev_scsi->kernel, evpd, page);
 
-	memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
-	io_hdr.interface_id = 'S';
-	io_hdr.cmd_len = sizeof(inq_cmd);
-	io_hdr.mx_sb_len = sizeof(sense);
-	io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
-	io_hdr.dxfer_len = buflen;
-	io_hdr.dxferp = buf;
-	io_hdr.cmdp = inq_cmd;
-	io_hdr.sbp = sense;
-	io_hdr.timeout = DEF_TIMEOUT;
+	if (dev_scsi->use_sg == 4) {
+		memset(&io_v4, 0, sizeof(struct sg_io_v4));
+		io_v4.guard = 'Q';
+		io_v4.protocol = BSG_PROTOCOL_SCSI;
+		io_v4.subprotocol = BSG_SUB_PROTOCOL_SCSI_CMD;
+		io_v4.request_len = sizeof(inq_cmd);
+		io_v4.request = (uintptr_t)inq_cmd;
+		io_v4.max_response_len = sizeof(sense);
+		io_v4.response = (uintptr_t)sense;
+		io_v4.din_xfer_len = buflen;
+		io_v4.din_xferp = (uintptr_t)buf;
+		io_buf = (void *)&io_v4;
+	} else {
+		memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
+		io_hdr.interface_id = 'S';
+		io_hdr.cmd_len = sizeof(inq_cmd);
+		io_hdr.mx_sb_len = sizeof(sense);
+		io_hdr.dxfer_direction = SG_DXFER_FROM_DEV;
+		io_hdr.dxfer_len = buflen;
+		io_hdr.dxferp = buf;
+		io_hdr.cmdp = inq_cmd;
+		io_hdr.sbp = sense;
+		io_hdr.timeout = DEF_TIMEOUT;
+		io_buf = (void *)&io_hdr;
+	}
 
-	if (ioctl(fd, SG_IO, &io_hdr) < 0) {
+	if (ioctl(fd, SG_IO, io_buf) < 0) {
+		if (errno == EINVAL && dev_scsi->use_sg == 4) {
+			dev_scsi->use_sg = 3;
+			goto resend;
+		}
 		info("%s: ioctl failed: %s\n", dev_scsi->kernel, strerror(errno));
 		retval = -1;
 		goto error;
 	}
 
-	retval = sg_err_category3(&io_hdr);
+	if (dev_scsi->use_sg == 4)
+		retval = sg_err_category4(io_buf);
+	else
+		retval = sg_err_category3(io_buf);
 
 	switch (retval) {
 		case SG_ERR_CAT_NOTSUPPORTED:
@@ -321,7 +373,10 @@ resend:
 			break;
 
 		default:
-			retval = scsi_dump(dev_scsi, &io_hdr);
+			if (dev_scsi->use_sg == 4)
+				retval = scsi_dump_v4(dev_scsi, io_buf);
+			else
+				retval = scsi_dump(dev_scsi, io_buf);
 	}
 
 	if (!retval) {

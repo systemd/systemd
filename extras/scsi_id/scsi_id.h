@@ -37,6 +37,7 @@ struct scsi_id_device {
 	char type[33];
 	char kernel[64];
 	char serial[MAX_SERIAL_LEN];
+	int use_sg;
 };
 
 extern int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname);
