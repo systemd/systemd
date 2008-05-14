@@ -45,7 +45,7 @@ identifier starts with the NAA value of 6):
 
 .sp
 .nf
-# /sbin/scsi_id --page=0x83 --devpath=/block/sdg
+# scsi_id --page=0x83 --devpath=/block/sdg
 3600a0b80000b174b000000d63efc5c8c
 .fi
 .P
@@ -131,7 +131,10 @@ warnings are sent using syslog.
 .nf
 .ft B
 .ft
-/etc/scsi_id.config                  configuration and black/white list entries
+.TP
+\fI/etc/scsi_id.config\fP
+configuration and black/white list entries
+.RE
 .fi
 .LP
 .SH "SEE ALSO"
