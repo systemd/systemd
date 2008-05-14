@@ -31,21 +31,14 @@
 #include "scsi_id.h"
 #include "scsi_id_version.h"
 
-/* temporary names for mknod  */
-#define TMP_DIR		"/dev"
-#define TMP_PREFIX	"tmp-scsi"
-
 static const struct option options[] = {
 	{ "device", 1, NULL, 'd' },
 	{ "config", 1, NULL, 'f' },
 	{ "page", 1, NULL, 'p' },
-	{ "devpath", 1, NULL, 's' },
-	{ "fallback-to-sysfs", 0, NULL, 'a' },
 	{ "blacklisted", 0, NULL, 'b' },
 	{ "whitelisted", 0, NULL, 'g' },
 	{ "prefix-bus-id", 0, NULL, 'i' },
 	{ "replace-whitespace", 0, NULL, 'u' },
-	{ "ignore-sysfs", 0, NULL, 'n' },
 	{ "verbose", 0, NULL, 'v' },
 	{ "version", 0, NULL, 'V' },
 	{ "export", 0, NULL, 'x' },
@@ -53,21 +46,17 @@ static const struct option options[] = {
 	{}
 };
 
-static const char short_options[] = "abd:f:ghinp:s:uvVx";
+static const char short_options[] = "d:f:ghip:uvVx";
 static const char dev_short_options[] = "bgp:";
 
 static int all_good;
-static int always_info;
 static int dev_specified;
-static int sys_specified;
 static char config_file[MAX_PATH_LEN] = SCSI_ID_CONFIG_FILE;
 static int display_bus_id;
 static enum page_code default_page_code;
 static int use_stderr;
 static int debug;
-static int hotplug_mode;
 static int reformat_serial;
-static int ignore_sysfs;
 static int export;
 static char vendor_str[64];
 static char model_str[64];
@@ -167,35 +156,6 @@ static void set_type(char *to, const char *from, size_t len)
 	}
 	strncpy(to, type, len);
 	to[len-1] = '\0';
-}
-
-static int create_tmp_dev(const char *devpath, char *tmpdev, int dev_type)
-{
-	unsigned int maj, min;
-	const char *attr;
-
-	dbg("%s\n", devpath);
-	attr = sysfs_attr_get_value(devpath, "dev");
-	if (attr == NULL) {
-		dbg("%s: could not get dev attribute: %s\n", devpath, strerror(errno));
-		return -1;
-	}
-
-	dbg("dev value %s\n", attr);
-	if (sscanf(attr, "%u:%u", &maj, &min) != 2) {
-		err("%s: invalid dev major/minor\n", devpath);
-		return -1;
-	}
-
-	snprintf(tmpdev, MAX_PATH_LEN, "%s/%s-maj%d-min%d-%u",
-		 TMP_DIR, TMP_PREFIX, maj, min, getpid());
-
-	dbg("tmpdev '%s'\n", tmpdev);
-	if (mknod(tmpdev, 0600 | dev_type, makedev(maj, min))) {
-		err("mknod failed: %s\n", strerror(errno));
-		return -1;
-	}
-	return 0;
 }
 
 /*
@@ -415,7 +375,7 @@ static int get_file_options(const char *vendor, const char *model,
 }
 
 static int set_options(int argc, char **argv, const char *short_opts,
-		       char *target, char *maj_min_dev)
+		       char *maj_min_dev)
 {
 	int option;
 
@@ -436,9 +396,6 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			dbg("option '%c'\n", option);
 
 		switch (option) {
-		case 'a':
-			always_info = 1;
-			break;
 		case 'b':
 			all_good = 0;
 			break;
@@ -465,11 +422,8 @@ static int set_options(int argc, char **argv, const char *short_opts,
 		case 'h':
 			printf("Usage: scsi_id OPTIONS <device>\n"
 			       "  --device               device node for SG_IO commands\n"
-			       "  --devpath              sysfs devpath\n"
 			       "  --config               location of config file\n"
 			       "  --page                 SCSI page (0x80, 0x83, pre-spc3-83)\n"
-			       "  --fallback-to-sysfs    print sysfs values if inquiry fails\n"
-			       "  --ignore-sysfs         ignore sysfs entries\n"
 			       "  --blacklisted          threat device as blacklisted\n"
 			       "  --whitelisted          threat device as whitelisted\n"
 			       "  --prefix-bus-id        prefix SCSI bus id\n"
@@ -497,16 +451,6 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			}
 			break;
 
-		case 'n':
-			ignore_sysfs = 1;
-			break;
-
-		case 's':
-			sys_specified = 1;
-			strncpy(target, optarg, MAX_PATH_LEN);
-			target[MAX_PATH_LEN-1] = '\0';
-			break;
-
 		case 'u':
 			reformat_serial = 1;
 			break;
@@ -528,10 +472,15 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			exit(1);
 		}
 	}
+	if (optind < argc && !dev_specified) {
+		dev_specified = 1;
+		strncpy(maj_min_dev, argv[optind], MAX_PATH_LEN);
+		maj_min_dev[MAX_PATH_LEN-1] = '\0';
+	}
 	return 0;
 }
 
-static int per_dev_options(struct sysfs_device *dev_scsi, int *good_bad, int *page_code)
+static int per_dev_options(struct scsi_id_device *dev_scsi, int *good_bad, int *page_code)
 {
 	int retval;
 	int newargc;
@@ -590,54 +539,18 @@ static int per_dev_options(struct sysfs_device *dev_scsi, int *good_bad, int *pa
 	return retval;
 }
 
-static int set_sysfs_values(struct sysfs_device *dev_scsi)
-{
-	const char *vendor, *model, *type;
-
-	vendor = sysfs_attr_get_value(dev_scsi->devpath, "vendor");
-	if (!vendor) {
-		info("%s: cannot get vendor attribute\n", dev_scsi->devpath);
-		return -1;
-	}
-	set_str(vendor_str, vendor, sizeof(vendor_str)-1);
-
-	model = sysfs_attr_get_value(dev_scsi->devpath, "model");
-	if (!model) {
-		info("%s: cannot get model attribute\n", dev_scsi->devpath);
-		return -1;
-	}
-	set_str(model_str, model, sizeof(model_str)-1);
-
-	type = sysfs_attr_get_value(dev_scsi->devpath, "type");
-	if (!type) {
-		info("%s: cannot get type attribute\n", dev_scsi->devpath);
-		return -1;
-	}
-	set_type(type_str, type, sizeof(type_str));
-
-	type = sysfs_attr_get_value(dev_scsi->devpath, "rev");
-	if (!type) {
-		info("%s: cannot get type attribute\n", dev_scsi->devpath);
-		return -1;
-	}
-	set_str(revision_str, type, sizeof(revision_str)-1);
-
-	return 0;
-}
-
-static int set_inq_values(struct sysfs_device *dev_scsi, const char *path)
+static int set_inq_values(struct scsi_id_device *dev_scsi, const char *path)
 {
 	int retval;
-	char vendor[8], model[16], type[4], rev[4];
 
-	retval = scsi_std_inquiry(dev_scsi, path, vendor, model, rev, type);
+	retval = scsi_std_inquiry(dev_scsi, path);
 	if (retval)
 	    return retval;
 
-	set_str(vendor_str, vendor, 8);
-	set_str(model_str, model, 16);
-	set_type(type_str, type, sizeof(type_str) - 1);
-	set_str(revision_str, rev, sizeof(revision_str) -1);
+	set_str(vendor_str, dev_scsi->vendor, 8);
+	set_str(model_str, dev_scsi->model, 16);
+	set_type(type_str, dev_scsi->type, sizeof(type_str) - 1);
+	set_str(revision_str, dev_scsi->revision, sizeof(revision_str) -1);
 
 	return 0;
 }
@@ -674,60 +587,25 @@ static void format_serial(char *serial)
  * memory etc. return 2, and return 1 for expected cases (like broken
  * device found) that do not print an id.
  */
-static int scsi_id(const char *devpath, char *maj_min_dev)
+static int scsi_id(char *maj_min_dev)
 {
 	int retval;
-	int dev_type = 0;
-	struct sysfs_device *dev;
-	struct sysfs_device *dev_scsi = NULL;
+	struct scsi_id_device dev_scsi;
 	int good_dev;
 	int page_code;
-	char serial[MAX_SERIAL_LEN] = "";
 	char serial_short[MAX_SERIAL_LEN] = "";
-	const char *bus_str = NULL;
 
-	dbg("devpath %s\n", devpath);
-
-	dev = sysfs_device_get(devpath);
-	if (dev == NULL) {
-		err("unable to access '%s'\n", devpath);
-		return 1;
-	}
-
-	if (strcmp(dev->subsystem, "block") == 0)
-		dev_type = S_IFBLK;
-	else
-		dev_type = S_IFCHR;
-
-	/* mknod a temp dev to communicate with the device */
-	if (!dev_specified && create_tmp_dev(dev->devpath, maj_min_dev, dev_type)) {
-		dbg("create_tmp_dev failed\n");
-		return 1;
-	}
-
-	if (!ignore_sysfs) {
-		/* get scsi parent device */
-		dev_scsi = sysfs_device_get_parent_with_subsystem(dev, "scsi");
-		if (dev_scsi == NULL) {
-			err("unable to access parent device of '%s'\n", devpath);
-			return 1;
-		}
-		set_sysfs_values(dev_scsi);
-		bus_str = "scsi";
-	} else {
-		dev_scsi = dev;
-		set_inq_values(dev_scsi, maj_min_dev);
-	}
+	set_inq_values(&dev_scsi, maj_min_dev);
 
 	/* get per device (vendor + model) options from the config file */
-	retval = per_dev_options(dev_scsi, &good_dev, &page_code);
+	retval = per_dev_options(&dev_scsi, &good_dev, &page_code);
 	dbg("per dev options: good %d; page code 0x%x\n", good_dev, page_code);
 
 	if (!good_dev) {
 		retval = 1;
-	} else if (scsi_get_serial(dev_scsi, maj_min_dev, page_code,
-				   serial, serial_short, MAX_SERIAL_LEN)) {
-		retval = always_info?0:1;
+	} else if (scsi_get_serial(&dev_scsi, maj_min_dev, page_code,
+				   serial_short, MAX_SERIAL_LEN)) {
+		retval = 1;
 	} else {
 		retval = 0;
 	}
@@ -738,26 +616,19 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 			printf("ID_VENDOR=%s\n", vendor_str);
 			printf("ID_MODEL=%s\n", model_str);
 			printf("ID_REVISION=%s\n", revision_str);
-			set_str(serial_str, serial, sizeof(serial_str));
+			set_str(serial_str, dev_scsi.serial, sizeof(serial_str));
 			printf("ID_SERIAL=%s\n", serial_str);
 			set_str(serial_str, serial_short, sizeof(serial_str));
 			printf("ID_SERIAL_SHORT=%s\n", serial_str);
 			printf("ID_TYPE=%s\n", type_str);
-			if (bus_str != NULL)
-				printf("ID_BUS=%s\n", bus_str);
 		} else {
 			if (reformat_serial)
-				format_serial(serial);
-			if (display_bus_id)
-				printf("%s: ", dev_scsi->kernel);
-			printf("%s\n", serial);
+				format_serial(dev_scsi.serial);
+			printf("%s\n", dev_scsi.serial);
 		}
-		dbg("%s\n", serial);
+		dbg("%s\n", dev_scsi.serial);
 		retval = 0;
 	}
-
-	if (!dev_specified)
-		unlink(maj_min_dev);
 
 	return retval;
 }
@@ -765,31 +636,12 @@ static int scsi_id(const char *devpath, char *maj_min_dev)
 int main(int argc, char **argv)
 {
 	int retval = 0;
-	char devpath[MAX_PATH_LEN];
 	char maj_min_dev[MAX_PATH_LEN];
 	int newargc;
-	const char *env;
 	char **newargv;
 
 	logging_init("scsi_id");
-	sysfs_init();
 	dbg("argc is %d\n", argc);
-
-	/* sysfs path can be overridden for testing */
-	env = getenv("SYSFS_PATH");
-	if (env) {
-		strncpy(sysfs_path, env, sizeof(sysfs_path));
-		sysfs_path[sizeof(sysfs_path)-1] = '\0';
-	} else
-		strcpy(sysfs_path, "/sys");
-
-	env = getenv("DEVPATH");
-	if (env) {
-		hotplug_mode = 1;
-		sys_specified = 1;
-		strncpy(devpath, env, MAX_PATH_LEN);
-		devpath[sizeof(devpath)-1] = '\0';
-	}
 
 	/*
 	 * Get config file options.
@@ -801,8 +653,7 @@ int main(int argc, char **argv)
 		goto exit;
 	}
 	if (newargv && (retval == 0)) {
-		if (set_options(newargc, newargv, short_options, devpath,
-				maj_min_dev) < 0) {
+		if (set_options(newargc, newargv, short_options, maj_min_dev) < 0) {
 			retval = 2;
 			goto exit;
 		}
@@ -810,22 +661,20 @@ int main(int argc, char **argv)
 	}
 
 	/*
-	 * Get command line options (overriding any config file or DEVPATH
-	 * settings).
+	 * Get command line options (overriding any config file settings).
 	 */
-	if (set_options(argc, argv, short_options, devpath, maj_min_dev) < 0)
+	if (set_options(argc, argv, short_options, maj_min_dev) < 0)
 		exit(1);
 
-	if (!sys_specified) {
-		info("--devpath=<path> must be specified\n");
+	if (!dev_specified) {
+		info("no device specified\n");
 		retval = 1;
 		goto exit;
 	}
 
-	retval = scsi_id(devpath, maj_min_dev);
+	retval = scsi_id(maj_min_dev);
 
 exit:
-	sysfs_cleanup();
 	logging_close();
 	return retval;
 }

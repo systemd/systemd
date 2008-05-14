@@ -148,7 +148,7 @@ static int sg_err_category3(struct sg_io_hdr *hp)
 				   hp->sbp, hp->sb_len_wr);
 }
 
-static int scsi_dump_sense(struct sysfs_device *dev_scsi, struct sg_io_hdr *io)
+static int scsi_dump_sense(struct scsi_id_device *dev_scsi, struct sg_io_hdr *io)
 {
 	unsigned char *sense_buffer;
 	int s;
@@ -254,7 +254,7 @@ static int scsi_dump_sense(struct sysfs_device *dev_scsi, struct sg_io_hdr *io)
 	return -1;
 }
 
-static int scsi_dump(struct sysfs_device *dev_scsi, struct sg_io_hdr *io)
+static int scsi_dump(struct scsi_id_device *dev_scsi, struct sg_io_hdr *io)
 {
 	if (!io->status && !io->host_status && !io->msg_status &&
 	    !io->driver_status) {
@@ -273,7 +273,7 @@ static int scsi_dump(struct sysfs_device *dev_scsi, struct sg_io_hdr *io)
 		return -1;
 }
 
-static int scsi_inquiry(struct sysfs_device *dev_scsi, int fd,
+static int scsi_inquiry(struct scsi_id_device *dev_scsi, int fd,
 			unsigned char evpd, unsigned char page,
 			unsigned char *buf, unsigned int buflen)
 {
@@ -343,11 +343,10 @@ error:
 }
 
 /* Get list of supported EVPD pages */
-static int do_scsi_page0_inquiry(struct sysfs_device *dev_scsi, int fd,
+static int do_scsi_page0_inquiry(struct scsi_id_device *dev_scsi, int fd,
 				 unsigned char *buffer, unsigned int len)
 {
 	int retval;
-	const char *vendor;
 
 	memset(buffer, 0, len);
 	retval = scsi_inquiry(dev_scsi, fd, 1, 0x0, buffer, len);
@@ -375,12 +374,7 @@ static int do_scsi_page0_inquiry(struct sysfs_device *dev_scsi, int fd,
 		 * If the vendor id appears in the page assume the page is
 		 * invalid.
 		 */
-		vendor = sysfs_attr_get_value(dev_scsi->devpath, "vendor");
-		if (!vendor) {
-			info("%s: cannot get model attribute\n", dev_scsi->kernel);
-			return 1;
-		}
-		if (!strncmp((char *)&buffer[VENDOR_LENGTH], vendor, VENDOR_LENGTH)) {
+		if (!strncmp((char *)&buffer[VENDOR_LENGTH], dev_scsi->vendor, VENDOR_LENGTH)) {
 			info("%s: invalid page0 data\n", dev_scsi->kernel);
 			return 1;
 		}
@@ -392,25 +386,14 @@ static int do_scsi_page0_inquiry(struct sysfs_device *dev_scsi, int fd,
  * The caller checks that serial is long enough to include the vendor +
  * model.
  */
-static int prepend_vendor_model(struct sysfs_device *dev_scsi, char *serial)
+static int prepend_vendor_model(struct scsi_id_device *dev_scsi, char *serial)
 {
-	const char *attr;
 	int ind;
 
-	attr = sysfs_attr_get_value(dev_scsi->devpath, "vendor");
-	if (!attr) {
-		info("%s: cannot get vendor attribute\n", dev_scsi->kernel);
-		return 1;
-	}
-	strncpy(serial, attr, VENDOR_LENGTH);
+	strncpy(serial, dev_scsi->vendor, VENDOR_LENGTH);
 	ind = strlen(serial) - 1;
 
-	attr = sysfs_attr_get_value(dev_scsi->devpath, "model");
-	if (!attr) {
-		info("%s: cannot get model attribute\n", dev_scsi->kernel);
-		return 1;
-	}
-	strncat(serial, attr, MODEL_LENGTH);
+	strncat(serial, dev_scsi->model, MODEL_LENGTH);
 	ind = strlen(serial) - 1;
 	ind++;
 
@@ -430,7 +413,7 @@ static int prepend_vendor_model(struct sysfs_device *dev_scsi, char *serial)
  * check_fill_0x83_id - check the page 0x83 id, if OK allocate and fill
  * serial number.
  **/
-static int check_fill_0x83_id(struct sysfs_device *dev_scsi,
+static int check_fill_0x83_id(struct scsi_id_device *dev_scsi,
 			      unsigned char *page_83,
 			      const struct scsi_id_search_values
 			      *id_search, char *serial, char *serial_short, int max_len)
@@ -521,7 +504,7 @@ static int check_fill_0x83_id(struct sysfs_device *dev_scsi,
 }
 
 /* Extract the raw binary from VPD 0x83 pre-SPC devices */
-static int check_fill_0x83_prespc3(struct sysfs_device *dev_scsi,
+static int check_fill_0x83_prespc3(struct scsi_id_device *dev_scsi,
 			           unsigned char *page_83,
 			           const struct scsi_id_search_values
 			           *id_search, char *serial, char *serial_short, int max_len)
@@ -543,7 +526,7 @@ static int check_fill_0x83_prespc3(struct sysfs_device *dev_scsi,
 
 
 /* Get device identification VPD page */
-static int do_scsi_page83_inquiry(struct sysfs_device *dev_scsi, int fd,
+static int do_scsi_page83_inquiry(struct scsi_id_device *dev_scsi, int fd,
 				  char *serial, char *serial_short, int len)
 {
 	int retval;
@@ -633,7 +616,7 @@ static int do_scsi_page83_inquiry(struct sysfs_device *dev_scsi, int fd,
  * Return the hard coded error code value 2 if the page 83 reply is not
  * conformant to the SCSI-2 format.
  */
-static int do_scsi_page83_prespc3_inquiry(struct sysfs_device *dev_scsi, int fd,
+static int do_scsi_page83_prespc3_inquiry(struct scsi_id_device *dev_scsi, int fd,
 				          char *serial, char *serial_short, int len)
 {
 	int retval;
@@ -695,7 +678,7 @@ static int do_scsi_page83_prespc3_inquiry(struct sysfs_device *dev_scsi, int fd,
 }
 
 /* Get unit serial number VPD page */
-static int do_scsi_page80_inquiry(struct sysfs_device *dev_scsi, int fd,
+static int do_scsi_page80_inquiry(struct scsi_id_device *dev_scsi, int fd,
 				  char *serial, char *serial_short, int max_len)
 {
 	int retval;
@@ -736,30 +719,38 @@ static int do_scsi_page80_inquiry(struct sysfs_device *dev_scsi, int fd,
 	return 0;
 }
 
-int scsi_std_inquiry(struct sysfs_device *dev_scsi, const char *devname,
-		     char *vendor, char *model, char *rev, char *type)
+int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname)
 {
 	int retval;
 	int fd;
 	unsigned char buf[SCSI_INQ_BUFF_LEN];
+	struct stat statbuf;
 
 	dbg("opening %s\n", devname);
 	fd = open(devname, O_RDONLY | O_NONBLOCK);
 	if (fd < 0) {
-		info("%s: cannot open %s: %s\n",
-		    dev_scsi->kernel, devname, strerror(errno));
+		info("scsi_id: cannot open %s: %s\n",
+		     devname, strerror(errno));
 		return 1;
 	}
+
+	if (fstat(fd, &statbuf) < 0) {
+		info("scsi_id: cannot stat %s: %s\n",
+		     devname, strerror(errno));
+		return 2;
+	}
+	sprintf(dev_scsi->kernel,"%d:%d", major(statbuf.st_rdev),
+		minor(statbuf.st_rdev));
 
 	memset(buf, 0, SCSI_INQ_BUFF_LEN);
 	retval = scsi_inquiry(dev_scsi, fd, 0, 0, buf, SCSI_INQ_BUFF_LEN);
 	if (retval < 0)
 		return retval;
 
-	memcpy(vendor, buf + 8, 8);
-	memcpy(model, buf + 16, 16);
-	memcpy(rev, buf + 32, 4);
-	sprintf(type,"%x", buf[0] & 0x1f);
+	memcpy(dev_scsi->vendor, buf + 8, 8);
+	memcpy(dev_scsi->model, buf + 16, 16);
+	memcpy(dev_scsi->revision, buf + 32, 4);
+	sprintf(dev_scsi->type,"%x", buf[0] & 0x1f);
 
 	if (close(fd) < 0)
 		info("%s: close failed: %s\n", dev_scsi->kernel, strerror(errno));
@@ -767,15 +758,15 @@ int scsi_std_inquiry(struct sysfs_device *dev_scsi, const char *devname,
 	return 0;
 }
 
-int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
-		     int page_code, char *serial, char *serial_short, int len)
+int scsi_get_serial (struct scsi_id_device *dev_scsi, const char *devname,
+		     int page_code, char *serial_short, int len)
 {
 	unsigned char page0[SCSI_INQ_BUFF_LEN];
 	int fd;
 	int ind;
 	int retval;
 
-	memset(serial, 0, len);
+	memset(dev_scsi->serial, 0, len);
 	dbg("opening %s\n", devname);
 	fd = open(devname, O_RDONLY | O_NONBLOCK);
 	if (fd < 0) {
@@ -785,7 +776,7 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 	}
 
 	if (page_code == PAGE_80) {
-		if (do_scsi_page80_inquiry(dev_scsi, fd, serial, serial_short, len)) {
+		if (do_scsi_page80_inquiry(dev_scsi, fd, dev_scsi->serial, serial_short, len)) {
 			retval = 1;
 			goto completed;
 		} else  {
@@ -793,7 +784,7 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 			goto completed;
 		}
 	} else if (page_code == PAGE_83) {
-		if (do_scsi_page83_inquiry(dev_scsi, fd, serial, serial_short, len)) {
+		if (do_scsi_page83_inquiry(dev_scsi, fd, dev_scsi->serial, serial_short, len)) {
 			retval = 1;
 			goto completed;
 		} else  {
@@ -801,7 +792,7 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 			goto completed;
 		}
 	} else if (page_code == PAGE_83_PRE_SPC3) {
-		retval = do_scsi_page83_prespc3_inquiry(dev_scsi, fd, serial, serial_short, len);
+		retval = do_scsi_page83_prespc3_inquiry(dev_scsi, fd, dev_scsi->serial, serial_short, len);
 		if (retval) {
 			/*
 			 * Fallback to servicing a SPC-2/3 compliant page 83
@@ -809,7 +800,7 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 			 * conform to pre-SPC3 expectations.
 			 */
 			if (retval == 2) {
-				if (do_scsi_page83_inquiry(dev_scsi, fd, serial, serial_short, len)) {
+				if (do_scsi_page83_inquiry(dev_scsi, fd, dev_scsi->serial, serial_short, len)) {
 					retval = 1;
 					goto completed;
 				} else  {
@@ -849,7 +840,7 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 	for (ind = 4; ind <= page0[3] + 3; ind++)
 		if (page0[ind] == PAGE_83)
 			if (!do_scsi_page83_inquiry(dev_scsi, fd,
-						    serial, serial_short, len)) {
+						    dev_scsi->serial, serial_short, len)) {
 				/*
 				 * Success
 				 */
@@ -860,7 +851,7 @@ int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
 	for (ind = 4; ind <= page0[3] + 3; ind++)
 		if (page0[ind] == PAGE_80)
 			if (!do_scsi_page80_inquiry(dev_scsi, fd,
-						    serial, serial_short, len)) {
+						    dev_scsi->serial, serial_short, len)) {
 				/*
 				 * Success
 				 */

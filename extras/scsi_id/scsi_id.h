@@ -30,13 +30,21 @@
  */
 #define MAX_BUFFER_LEN	256
 
-extern int scsi_std_inquiry(struct sysfs_device *dev_scsi, const char *devname,
-			    char *vendor, char *model, char *rev, char *type);
-extern int scsi_get_serial (struct sysfs_device *dev_scsi, const char *devname,
-			    int page_code, char *serial, char *serial_short, int len);
+struct scsi_id_device {
+	char vendor[9];
+	char model[17];
+	char revision[5];
+	char type[33];
+	char kernel[64];
+	char serial[MAX_SERIAL_LEN];
+};
+
+extern int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname);
+extern int scsi_get_serial (struct scsi_id_device *dev_scsi, const char *devname,
+			    int page_code, char *serial_short, int len);
 
 /*
- * Page code values. 
+ * Page code values.
  */
 enum page_code {
 		PAGE_83_PRE_SPC3 = -0x83,
@@ -44,3 +52,4 @@ enum page_code {
 		PAGE_80		 = 0x80,
 		PAGE_83		 = 0x83,
 };
+
