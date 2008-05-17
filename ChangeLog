@@ -1,3 +1,31 @@
+Summary of changes from v121 to v122
+============================================
+
+Hannes Reinecke (2):
+      scsi_id: remove all sysfs dependencies
+      scsi_id: add SGv4 support
+
+Karel Zak (1):
+      volume_id: clean up linux_raid code
+
+Kay Sievers (8):
+      scsi_id:  update man page
+      scsi_id: remove bus_id option
+      scsi_id: add --sg-version= option
+      rules: adapt to new scsi_id
+      rules: adapt tape rules to new scsi_id
+      scsi_id: add bsg.h
+      volume_id: bump version
+      Makefile: do not create udevcontrol, udevtrigger symlinks
+
+MUNEDA Takahiro (2):
+      man: udevd- fix udev(8) reference
+      man: scsi_id
+
+Matthias Schwarzott (1):
+      cdrom_id: fix segfault
+
+
 Summary of changes from v120 to v121
 ============================================
 

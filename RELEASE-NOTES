@@ -1,3 +1,15 @@
+udev 122
+========
+Bugfixes.
+
+The symlinks udevcontrol and udevtrigger are no longer installed by
+the Makefile.
+
+The scsi_id program does not depend on sysfs anymore. It can speak
+SGv4 now, so /dev/bsg/* device nodes can be used, to query SCSI device
+data, which should solve some old problems with tape devices, where
+we better do not open all tape device nodes to identify the device.
+
 udev 121
 ========
 Many bugfixes.
