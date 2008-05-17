@@ -258,9 +258,7 @@ install-bin:
 	$(INSTALL) -d $(DESTDIR)$(sbindir)
 	$(INSTALL_PROGRAM) udevd $(DESTDIR)$(sbindir)/udevd
 	$(INSTALL_PROGRAM) udevadm $(DESTDIR)$(sbindir)/udevadm
-	ln -f -s udevadm $(DESTDIR)$(sbindir)/udevtrigger
 	ln -f -s udevadm $(DESTDIR)$(sbindir)/udevsettle
-	ln -f -s udevadm $(DESTDIR)$(sbindir)/udevcontrol
 	$(INSTALL) -d $(DESTDIR)$(usrbindir)
 	ln -f -s $(sbindir)/udevadm $(DESTDIR)$(usrbindir)/udevinfo
 	@extras="$(EXTRAS)"; for target in $$extras; do \
@@ -276,9 +274,7 @@ endif
 uninstall-bin:
 	- rm -f $(DESTDIR)$(sbindir)/udevd
 	- rm -f $(DESTDIR)$(sbindir)/udevadm
-	- rm -f $(DESTDIR)$(sbindir)/udevtrigger
 	- rm -f $(DESTDIR)$(sbindir)/udevsettle
-	- rm -f $(DESTDIR)$(sbindir)/udevcontrol
 	- rm -f $(DESTDIR)$(usrbindir)/udevinfo
 ifndef DESTDIR
 	- killall udevd
