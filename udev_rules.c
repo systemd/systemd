@@ -1412,7 +1412,10 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev)
 			if (!udev->mode_final && rule->mode.operation != KEY_OP_UNSET) {
 				if (rule->mode.operation == KEY_OP_ASSIGN_FINAL)
 					udev->mode_final = 1;
-				udev->mode = strtol(key_val(rule, &rule->mode), NULL, 8);
+				char buf[20];
+				strlcpy(buf, key_val(rule, &rule->mode), sizeof(buf));
+				udev_rules_apply_format(udev, buf, sizeof(buf));
+				udev->mode = strtol(buf, NULL, 8);
 				dbg("applied mode=%#o to '%s'\n", udev->mode, udev->dev->kernel);
 			}
 			if (!udev->owner_final && rule->owner.operation != KEY_OP_UNSET) {

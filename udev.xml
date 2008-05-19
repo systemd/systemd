@@ -462,7 +462,7 @@
           </variablelist>
 
           <para>The <option>NAME</option>, <option>SYMLINK</option>, <option>PROGRAM</option>,
-          <option>OWNER</option>, <option>GROUP</option>  and  <option>RUN</option>
+          <option>OWNER</option>, <option>GROUP</option>, <option>MODE</option>  and  <option>RUN</option>
           fields support simple printf-like string substitutions. The <option>RUN</option>
           format chars gets applied after all rules have been processed, right before the program
           is executed. It allows the use of the complete environment set by earlier matching

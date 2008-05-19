@@ -1617,6 +1617,27 @@ EOF
 KERNEL=="sda", MODE="0000"
 EOF
 	},
+	{
+		desc		=> "TEST PROGRAM feeds MODE",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "sda",
+		exp_perms	=> "0:0:0400",
+		rules		=> <<EOF
+KERNEL=="sda", PROGRAM=="/bin/echo 0 0 0400", OWNER="%c{1}", GROUP="%c{2}", MODE="%c{3}"
+EOF
+	},
+	{
+		desc		=> "TEST PROGRAM feeds MODE with overflow",
+		subsys		=> "block",
+		devpath		=> "/block/sda",
+		exp_name	=> "sda",
+		exp_perms	=> "0:0:0400",
+		rules		=> <<EOF
+KERNEL=="sda", PROGRAM=="/bin/echo 0 0 0400letsdoabuffferoverflow0123456789012345789012345678901234567890", OWNER="%c{1}", GROUP="%c{2}", MODE="%c{3}"
+EOF
+	},
+
 );
 
 # set env
@@ -1732,6 +1753,15 @@ sub symlink_test {
 	}
 }
 
+sub make_udev_root {
+	system("rm -rf $udev_root");
+	mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
+	# setting group and mode of udev_root ensures the tests work
+	# even if the parent directory has setgid bit enabled.
+	chown (0, 0, $udev_root) || die "unable to chown $udev_root\n";
+	chmod (0755, $udev_root) || die "unable to chmod $udev_root\n";
+}
+
 sub run_test {
 	my ($rules, $number) = @_;
 
@@ -1804,8 +1834,7 @@ sub run_test {
 	print "\n";
 
 	if (defined($rules->{option}) && $rules->{option} eq "clean") {
-		system("rm -rf $udev_root");
-		mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
+		make_udev_root ();
 	}
 
 }
@@ -1818,8 +1847,7 @@ if (!($<==0)) {
 }
 
 # prepare
-system("rm -rf $udev_root");
-mkdir($udev_root) || die "unable to create udev_root: $udev_root\n";
+make_udev_root ();
 
 # create config file
 open CONF, ">$udev_conf" || die "unable to create config file: $udev_conf";
