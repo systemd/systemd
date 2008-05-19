@@ -266,7 +266,7 @@ install-bin:
 	done;
 ifndef DESTDIR
 	- killall udevd
-	- rm -rf /dev/.udev
+	- rm -rf $(udevdir)/.udev
 	- $(sbindir)/udevd --daemon
 endif
 .PHONY: install-bin
@@ -278,7 +278,7 @@ uninstall-bin:
 	- rm -f $(DESTDIR)$(usrbindir)/udevinfo
 ifndef DESTDIR
 	- killall udevd
-	- rm -rf /dev/.udev
+	- rm -rf $(udevdir)/.udev
 endif
 	@extras="$(EXTRAS)"; for target in $$extras; do \
 		$(MAKE) -C $$target $@ || exit 1; \
