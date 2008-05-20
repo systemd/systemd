@@ -495,8 +495,8 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 			continue;
 		}
 
-		if (strcasecmp(key, "WAIT_FOR_SYSFS") == 0) {
-			add_rule_key(rule, &rule->wait_for_sysfs, operation, value);
+		if (strcasecmp(key, "WAIT_FOR") == 0 || strcasecmp(key, "WAIT_FOR_SYSFS") == 0) {
+			add_rule_key(rule, &rule->wait_for, operation, value);
 			valid = 1;
 			continue;
 		}
@@ -629,7 +629,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 		err("unknown key '%s' in %s:%u\n", key, filename, lineno);
 	}
 
-	if (physdev && rule->wait_for_sysfs.operation == KEY_OP_UNSET)
+	if (physdev && rule->wait_for.operation == KEY_OP_UNSET)
 		err("PHYSDEV* values are deprecated and will be removed from a future kernel, \n"
 		    "please fix it in %s:%u", filename, lineno);
 

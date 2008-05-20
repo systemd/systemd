@@ -528,35 +528,40 @@ int udev_rules_run(struct udevice *udev)
 }
 
 #define WAIT_LOOP_PER_SECOND		50
-static int wait_for_sysfs(struct udevice *udev, const char *file, int timeout)
+static int wait_for_file(struct udevice *udev, const char *file, int timeout)
 {
-	char devicepath[PATH_SIZE];
 	char filepath[PATH_SIZE];
+	char devicepath[PATH_SIZE] = "";
 	struct stat stats;
 	int loop = timeout * WAIT_LOOP_PER_SECOND;
 
-	strlcpy(devicepath, sysfs_path, sizeof(devicepath));
-	strlcat(devicepath, udev->dev->devpath, sizeof(devicepath));
-	strlcpy(filepath, devicepath, sizeof(filepath));
-	strlcat(filepath, "/", sizeof(filepath));
-	strlcat(filepath, file, sizeof(filepath));
+	/* a relative path is a device attribute */
+	if (file[0] != '/') {
+		strlcpy(devicepath, sysfs_path, sizeof(devicepath));
+		strlcat(devicepath, udev->dev->devpath, sizeof(devicepath));
 
-	dbg("will wait %i sec for '%s'\n", timeout, filepath);
+		strlcpy(filepath, devicepath, sizeof(filepath));
+		strlcat(filepath, "/", sizeof(filepath));
+		strlcat(filepath, file, sizeof(filepath));
+		file = filepath;
+	}
+
+	dbg("will wait %i sec for '%s'\n", timeout, file);
 	while (--loop) {
 		/* lookup file */
-		if (stat(filepath, &stats) == 0) {
-			info("file '%s' appeared after %i loops\n", filepath, (timeout * WAIT_LOOP_PER_SECOND) - loop-1);
+		if (stat(file, &stats) == 0) {
+			info("file '%s' appeared after %i loops\n", file, (timeout * WAIT_LOOP_PER_SECOND) - loop-1);
 			return 0;
 		}
 		/* make sure, the device did not disappear in the meantime */
-		if (stat(devicepath, &stats) != 0) {
-			info("device disappeared while waiting for '%s'\n", filepath);
+		if (devicepath[0] != '\0' && stat(devicepath, &stats) != 0) {
+			info("device disappeared while waiting for '%s'\n", file);
 			return -2;
 		}
-		info("wait for '%s' for %i mseconds\n", filepath, 1000 / WAIT_LOOP_PER_SECOND);
+		info("wait for '%s' for %i mseconds\n", file, 1000 / WAIT_LOOP_PER_SECOND);
 		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
 	}
-	info("waiting for '%s' failed\n", filepath);
+	info("waiting for '%s' failed\n", file);
 	return -1;
 }
 
@@ -1110,11 +1115,14 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 		dbg("TEST key is true\n");
 	}
 
-	if (rule->wait_for_sysfs.operation != KEY_OP_UNSET) {
+	if (rule->wait_for.operation != KEY_OP_UNSET) {
+		char filename[PATH_SIZE];
 		int found;
 
-		found = (wait_for_sysfs(udev, key_val(rule, &rule->wait_for_sysfs), 10) == 0);
-		if (!found && (rule->wait_for_sysfs.operation != KEY_OP_NOMATCH))
+		strlcpy(filename, key_val(rule, &rule->wait_for), sizeof(filename));
+		udev_rules_apply_format(udev, filename, sizeof(filename));
+		found = (wait_for_file(udev, filename, 10) == 0);
+		if (!found && (rule->wait_for.operation != KEY_OP_NOMATCH))
 			goto nomatch;
 	}
 
