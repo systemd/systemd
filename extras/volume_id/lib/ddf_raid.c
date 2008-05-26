@@ -33,17 +33,18 @@
 #define DDF_GUID_LENGTH			24
 #define DDF_REV_LENGTH			8
 
-static struct ddf_header {
+struct ddf_header {
 	uint32_t	signature;
 	uint32_t	crc;
 	uint8_t		guid[DDF_GUID_LENGTH];
 	uint8_t		ddf_rev[DDF_REV_LENGTH];
-} PACKED *ddf;
+} PACKED;
 
 int volume_id_probe_ddf_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	uint64_t ddf_off = ((size / 0x200)-1) * 0x200;
 	const uint8_t *buf;
+	struct ddf_header *ddf;
 
 	info("probing at offset 0x%llx, size 0x%llx\n",
 	    (unsigned long long) off, (unsigned long long) size);
