@@ -29,9 +29,6 @@ ENV{MATCHADDR}="$attr{address}"
 # match interface type
 ENV{MATCHIFTYPE}="$attr{type}"
 
-# match interface dev_id
-ATTR{dev_id}=="?*", ENV{MATCHDEVID}="$attr{dev_id}"
-
 # do not use "locally administered" MAC address
 ENV{MATCHADDR}=="?[2367abef]:*", ENV{MATCHADDR}=""
 
@@ -44,6 +41,9 @@ SUBSYSTEMS=="usb", ENV{COMMENT}="USB device 0x$attr{idVendor}:0x$attr{idProduct}
 SUBSYSTEMS=="pcmcia", ENV{COMMENT}="PCMCIA device $attr{card_id}:$attr{manf_id} ($driver)"
 SUBSYSTEMS=="ieee1394", ENV{COMMENT}="Firewire device $attr{host_id})"
 
+# ibmveth likes to use "locally administered" MAC addresses
+DRIVERS=="ibmveth", ENV{MATCHADDR}="$attr{address}", ENV{COMMENT}="ibmveth ($id)"
+
 # S/390 uses id matches only, do not use MAC address match
 SUBSYSTEMS=="ccwgroup", ENV{COMMENT}="S/390 $driver device at $id", ENV{MATCHID}="$id", ENV{MATCHDRV}="$driver", ENV{MATCHADDR}=""
 
@@ -51,7 +51,7 @@ SUBSYSTEMS=="ccwgroup", ENV{COMMENT}="S/390 $driver device at $id", ENV{MATCHID}
 ENV{MATCHADDR}=="", ENV{MATCHID}=="", ENV{INTERFACE_NAME}=="", GOTO="persistent_net_generator_end"
 
 # default comment
-ENV{COMMENT}=="", ENV{COMMENT}="$env{SUBSYSTEM} device"
+ENV{COMMENT}=="", ENV{COMMENT}="net device ($attr{driver})"
 
 # write rule
 DRIVERS=="?*", IMPORT{program}="write_net_rules"

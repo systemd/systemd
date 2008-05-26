@@ -1101,7 +1101,7 @@ static int match_rule(struct udevice *udev, struct udev_rule *rule)
 		attr_subst_subdir(filename, sizeof(filename));
 
 		match = (stat(filename, &statbuf) == 0);
-		info("'%s' %s", filename, match ? "exists" : "does not exist\n");
+		info("'%s' %s", filename, match ? "exists\n" : "does not exist\n");
 		if (match && rule->test_mode_mask > 0) {
 			match = ((statbuf.st_mode & rule->test_mode_mask) > 0);
 			info("'%s' has mode=%#o and %s %#o\n", filename, statbuf.st_mode,
