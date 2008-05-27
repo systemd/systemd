@@ -271,7 +271,11 @@ static int missing(int fd)
 		if (him->state == STATE_NONE) {
 			ret++;
 		} else {
-			sprintf(buf, "%s ", him->name);
+			while (strlen(him->name)+1 >= bufsize) {
+				bufsize = bufsize << 1;
+				buf = realloc(buf, bufsize);
+			}
+			snprintf(buf, strlen(him->name)+2, "%s ", him->name);
 			write(fd, buf, strlen(buf));
 		}
 	}
