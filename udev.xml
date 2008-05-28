@@ -160,6 +160,15 @@
             </varlistentry>
 
             <varlistentry>
+              <term><option>NAME</option></term>
+              <listitem>
+                <para>Match the name of the node or network interface. It can
+                be used once the NAME key has been set in one of the preceding
+                rules.</para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
               <term><option>SUBSYSTEM</option></term>
               <listitem>
                 <para>Match the subsystem of the event device.</para>
