@@ -86,8 +86,7 @@ static int volume_id_probe_gfs_generic(struct volume_id *id, uint64_t off, int v
 		return -1;
 
 	if (be32_to_cpu(sbd->sb_header.mh_magic) == GFS_MAGIC &&
-		be32_to_cpu(sbd->sb_header.mh_type) == GFS_METATYPE_SB &&
-		be32_to_cpu(sbd->sb_header.mh_format) == GFS_FORMAT_SB) {
+		be32_to_cpu(sbd->sb_header.mh_type) == GFS_METATYPE_SB) {
 		if (vers == 1) {
 			if (be32_to_cpu(sbd->sb_fs_format) != GFS_FORMAT_FS ||
 				be32_to_cpu(sbd->sb_multihost_format) != GFS_FORMAT_MULTI)
@@ -102,6 +101,13 @@ static int volume_id_probe_gfs_generic(struct volume_id *id, uint64_t off, int v
 		}
 		else
 			return -1;
+
+		if (strlen(sbd->sb_locktable)) {
+			uint8_t *label = (uint8_t *) sbd->sb_locktable;
+
+			volume_id_set_label_raw(id, label, GFS_LOCKNAME_LEN);
+			volume_id_set_label_string(id, label, GFS_LOCKNAME_LEN);
+		}
 		strcpy(id->type_version, "1");
 		volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
 		return 0;

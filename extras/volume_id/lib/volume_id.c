@@ -70,6 +70,8 @@ static const struct prober prober_filesystem[] = {
 	{ volume_id_probe_hpfs, { "hpfs", } },
 	{ volume_id_probe_sysv, { "sysv", "xenix", } },
 	{ volume_id_probe_minix, { "minix",  } },
+	{ volume_id_probe_gfs, { "gfs", } },
+	{ volume_id_probe_gfs2, { "gfs2", } },
 	{ volume_id_probe_ocfs1, { "ocfs1", } },
 	{ volume_id_probe_ocfs2, { "ocfs2", } },
 	{ volume_id_probe_vxfs, { "vxfs", } },
