@@ -269,6 +269,9 @@ static void msg_queue_insert(struct udevd_uevent_msg *msg)
 
 	msg->queue_time = time(NULL);
 
+	export_event_state(msg, EVENT_QUEUED);
+	info("seq %llu queued, '%s' '%s'\n", msg->seqnum, msg->action, msg->subsystem);
+
 	strlcpy(filename, udev_root, sizeof(filename));
 	strlcat(filename, "/" EVENT_SEQNUM, sizeof(filename));
 	fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
@@ -280,9 +283,6 @@ static void msg_queue_insert(struct udevd_uevent_msg *msg)
 		write(fd, str, len);
 		close(fd);
 	}
-
-	export_event_state(msg, EVENT_QUEUED);
-	info("seq %llu queued, '%s' '%s'\n", msg->seqnum, msg->action, msg->subsystem);
 
 	/* run one event after the other in debug mode */
 	if (debug_trace) {
