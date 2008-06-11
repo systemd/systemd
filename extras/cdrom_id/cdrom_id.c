@@ -122,10 +122,11 @@ static unsigned int cd_media_mrw;
 static unsigned int cd_media_mrw_w;
 
 static const char *cd_media_state;
-static unsigned int cd_media_has_audio;
 static unsigned int cd_media_session_next;
 static unsigned int cd_media_session_count;
 static unsigned int cd_media_track_count;
+static unsigned int cd_media_track_count_data;
+static unsigned int cd_media_track_count_audio;
 static unsigned long long int cd_media_session_last_offset;
 
 #define ERRCODE(s)	((((s)[2] & 0x0F) << 16) | ((s)[12] << 8) | ((s)[13]))
@@ -472,10 +473,6 @@ static int cd_media_toc(int fd)
 	if (len < 8)
 		return -1;
 
-	/* check if we have a data track */
-	info("ctl %02x (0x04 is data/audio)\n", header[5]);
-	cd_media_has_audio = (header[5] & 0x04) == 0;
-
 	scsi_cmd_set(&sc, 0, 0x43);
 	scsi_cmd_set(&sc, 6, header[2]); /* First Track/Session Number */
 	scsi_cmd_set(&sc, 7, len >> 8);
@@ -489,9 +486,18 @@ static int cd_media_toc(int fd)
 
 	for (p = toc+4, i = 4; i < len-8; i += 8, p += 8) {
 		unsigned int block;
+		unsigned int is_data_track;
+
+		is_data_track = (p[1] & 0x04) != 0;
 
 		block = p[4] << 24 | p[5] << 16 | p[6] << 8 | p[7];
-		info("track %u starts at block %u\n", p[2], block);
+		info("track=%u info=0x%x(%s) start_block=%u\n",
+		     p[2], p[1] & 0x0f, is_data_track ? "data":"audio", block);
+
+		if (is_data_track)
+			cd_media_track_count_data++;
+		else
+			cd_media_track_count_audio++;
 	}
 
 	scsi_cmd_set(&sc, 0, 0x43);
@@ -676,14 +682,16 @@ print:
 
 	if (cd_media_state != NULL)
 		printf("ID_CDROM_MEDIA_STATE=%s\n", cd_media_state);
-	if (cd_media_has_audio)
-		printf("ID_CDROM_MEDIA_HAS_AUDIO=1\n");
 	if (cd_media_session_next > 0)
 		printf("ID_CDROM_MEDIA_SESSION_NEXT=%d\n", cd_media_session_next);
 	if (cd_media_session_count > 0)
 		printf("ID_CDROM_MEDIA_SESSION_COUNT=%d\n", cd_media_session_count);
 	if (cd_media_track_count > 0)
 		printf("ID_CDROM_MEDIA_TRACK_COUNT=%d\n", cd_media_track_count);
+	if (cd_media_track_count_audio)
+		printf("ID_CDROM_MEDIA_TRACK_COUNT_AUDIO=%d\n", cd_media_track_count_audio);
+	if (cd_media_track_count_data)
+		printf("ID_CDROM_MEDIA_TRACK_COUNT_DATA=%d\n", cd_media_track_count_data);
 	if (cd_media_session_last_offset)
 		printf("ID_CDROM_MEDIA_SESSION_LAST_OFFSET=%llu\n", cd_media_session_last_offset);
 exit:
