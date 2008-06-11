@@ -52,6 +52,7 @@ OBJS=				\
 	vxfs.o			\
 	squashfs.o		\
 	netware.o		\
+	oracleasm.o		\
 	volume_id.o		\
 	util.o
 

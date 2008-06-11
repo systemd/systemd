@@ -41,6 +41,7 @@ ocfs (1, 2)            *      *      *     *
 vxfs                   *      -      -     *
 nss (netware)          *             *     *
 gfs, gfs2              *      *      -     -
+oracleasm              *      *      -     -
 
 Raid members are detected to prevent the probing for a filesystem
 -----------------------------------------------------------------
