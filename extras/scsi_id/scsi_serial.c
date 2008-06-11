@@ -819,18 +819,24 @@ int scsi_get_serial (struct scsi_id_device *dev_scsi, const char *devname,
 		     int page_code, char *serial_short, int len)
 {
 	unsigned char page0[SCSI_INQ_BUFF_LEN];
-	int fd;
+	int fd = -1;
+	int cnt = 10;
 	int ind;
 	int retval;
 
 	memset(dev_scsi->serial, 0, len);
 	dbg("opening %s\n", devname);
-	fd = open(devname, O_RDONLY | O_NONBLOCK);
-	if (fd < 0) {
-		info("%s: cannot open %s: %s\n",
-		    dev_scsi->kernel, devname, strerror(errno));
-		return 1;
+	while (--cnt) {
+		fd = open(devname, O_RDONLY | O_NONBLOCK);
+		if (fd >= 0)
+			break;
+		info("%s: cannot open %s: %s\n", dev_scsi->kernel, devname, strerror(errno));
+		if (errno != EBUSY)
+			break;
+		usleep(500000 + (rand() % 100000) );
 	}
+	if (fd < 0)
+		return 1;
 
 	if (page_code == PAGE_80) {
 		if (do_scsi_page80_inquiry(dev_scsi, fd, dev_scsi->serial, serial_short, len)) {
