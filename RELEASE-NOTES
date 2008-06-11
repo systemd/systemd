@@ -1,3 +1,10 @@
+udev 123
+========
+Bugfixes.
+
+Tape drive id-data is queried from /dev/bsg/* instead of the tape
+nodes. This avoids rewinding tapes on open().
+
 udev 122
 ========
 Bugfixes.

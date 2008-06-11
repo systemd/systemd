@@ -16,7 +16,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 
-VERSION = 122
+VERSION = 123
 
 # set this to make use of syslog
 USE_LOG = true

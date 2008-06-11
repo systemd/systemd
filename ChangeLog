@@ -1,3 +1,33 @@
+Summary of changes from v122 to v123
+============================================
+
+Erik van Konijnenburg (3):
+      add substitution in MODE= field
+      Makefile: use udevdir in "make install"
+      volume_id: support for oracleasm
+
+Harald Hoyer (1):
+      scsi_id: retry open() on -EBUSY
+
+Karel Zak (2):
+      volume_id: remove unnecessary global variable
+      volume_id: enable GFS probing code, add LABEL support
+
+Kay Sievers (5):
+      edd_id: call it only for sd* and hd*
+      rename WAIT_FOR_SYSFS to WAIT_FOR and accept an absolute path
+      rules: tape rules - use bsg device nodes for SG_IO
+      rules: persistent net - handle "locally administered" ibmveth MAC addresses
+      cdrom_id: export ID_CDROM_MEDIA_TRACK_COUNT_AUDIO=, ID_CDROM_MEDIA_TRACK_COUNT_DATA=
+
+Michal Soltys (1):
+      man: add NAME== match entry
+
+Xinwei Hu (2):
+      collect: realloc buffer, if needed
+      udevd: export .udev/queue/$seqnum before .udev/uevent_seqnum
+
+
 Summary of changes from v121 to v122
 ============================================
 
