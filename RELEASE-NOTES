@@ -1,3 +1,7 @@
+udev 124
+========
+Fix cdrom_id to properly recognize blank media.
+
 udev 123
 ========
 Bugfixes.

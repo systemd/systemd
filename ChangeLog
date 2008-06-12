@@ -1,3 +1,10 @@
+Summary of changes from v123 to v124
+============================================
+
+Kay Sievers (1):
+      cdrom_id: fix recognition of blank media
+
+
 Summary of changes from v122 to v123
 ============================================
 
