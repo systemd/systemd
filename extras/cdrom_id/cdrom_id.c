@@ -470,8 +470,12 @@ static int cd_media_toc(int fd)
 	info("READ TOC: len: %d\n", len);
 	if (len > sizeof(toc))
 		return -1;
-	if (len < 8)
+	if (len < 2)
 		return -1;
+
+	/* empty media has no tracks */
+	if (len < 8)
+		return 0;
 
 	scsi_cmd_set(&sc, 0, 0x43);
 	scsi_cmd_set(&sc, 6, header[2]); /* First Track/Session Number */
