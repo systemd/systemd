@@ -53,7 +53,7 @@ static LIST_HEAD(bunch);
 static int debug;
 
 /* This can increase dynamically */
-static int bufsize = BUFSIZE;
+static size_t bufsize = BUFSIZE;
 
 static void sig_alrm(int signo)
 {
@@ -272,8 +272,15 @@ static int missing(int fd)
 			ret++;
 		} else {
 			while (strlen(him->name)+1 >= bufsize) {
+				char *tmpbuf;
+
 				bufsize = bufsize << 1;
-				buf = realloc(buf, bufsize);
+				tmpbuf = realloc(buf, bufsize);
+				if (!tmpbuf) {
+					free(buf);
+					return -1;
+				}
+				buf = tmpbuf;
 			}
 			snprintf(buf, strlen(him->name)+2, "%s ", him->name);
 			write(fd, buf, strlen(buf));
