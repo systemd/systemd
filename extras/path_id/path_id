@@ -95,7 +95,11 @@ handle_pci () {
 				;;
 		esac
 	done
-	d="pci-$pci_id-$d"
+	if [ "$d" ]; then
+		d="pci-$pci_id-$d"
+	else
+		d="pci-$pci_id"
+	fi
 	D="$host_dev_path"
 	RESULT=0
 }
