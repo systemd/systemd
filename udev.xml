@@ -522,8 +522,8 @@
               <listitem>
                 <para>The value of a sysfs attribute found at the device, where
                 all keys of the rule have matched. If the matching device does not have
-                such an attribute, all devices along the chain of parents are searched
-                for a matching attribute.
+                such an attribute, follow the chain of parent devices and use the value
+                of the first attribute that matches.
                 If the attribute is a symlink, the last element of the symlink target is
                 returned as the value.</para>
               </listitem>
