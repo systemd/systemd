@@ -308,8 +308,6 @@ static int scsi_inquiry(struct scsi_id_device *dev_scsi, int fd,
 	unsigned char inq_cmd[INQUIRY_CMDLEN] =
 		{ INQUIRY_CMD, evpd, page, 0, buflen, 0 };
 	unsigned char sense[SENSE_BUFF_LEN];
-	struct sg_io_hdr io_hdr;
-	struct sg_io_v4 io_v4;
 	void *io_buf;
 	int retval;
 	int retry = 3; /* rather random */
@@ -323,6 +321,8 @@ resend:
 	dbg("%s evpd %d, page 0x%x\n", dev_scsi->kernel, evpd, page);
 
 	if (dev_scsi->use_sg == 4) {
+		struct sg_io_v4 io_v4;
+
 		memset(&io_v4, 0, sizeof(struct sg_io_v4));
 		io_v4.guard = 'Q';
 		io_v4.protocol = BSG_PROTOCOL_SCSI;
@@ -335,6 +335,8 @@ resend:
 		io_v4.din_xferp = (uintptr_t)buf;
 		io_buf = (void *)&io_v4;
 	} else {
+		struct sg_io_hdr io_hdr;
+
 		memset(&io_hdr, 0, sizeof(struct sg_io_hdr));
 		io_hdr.interface_id = 'S';
 		io_hdr.cmd_len = sizeof(inq_cmd);
@@ -349,7 +351,7 @@ resend:
 	}
 
 	if (ioctl(fd, SG_IO, io_buf) < 0) {
-		if (errno == EINVAL && dev_scsi->use_sg == 4) {
+		if ((errno == EINVAL || errno == ENOSYS) && dev_scsi->use_sg == 4) {
 			dev_scsi->use_sg = 3;
 			goto resend;
 		}
@@ -776,10 +778,10 @@ static int do_scsi_page80_inquiry(struct scsi_id_device *dev_scsi, int fd,
 
 int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname)
 {
-	int retval;
 	int fd;
 	unsigned char buf[SCSI_INQ_BUFF_LEN];
 	struct stat statbuf;
+	int err = 0;
 
 	dbg("opening %s\n", devname);
 	fd = open(devname, O_RDONLY | O_NONBLOCK);
@@ -792,15 +794,16 @@ int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname)
 	if (fstat(fd, &statbuf) < 0) {
 		info("scsi_id: cannot stat %s: %s\n",
 		     devname, strerror(errno));
-		return 2;
+		err = 2;
+		goto out;
 	}
 	sprintf(dev_scsi->kernel,"%d:%d", major(statbuf.st_rdev),
 		minor(statbuf.st_rdev));
 
 	memset(buf, 0, SCSI_INQ_BUFF_LEN);
-	retval = scsi_inquiry(dev_scsi, fd, 0, 0, buf, SCSI_INQ_BUFF_LEN);
-	if (retval < 0)
-		return retval;
+	err = scsi_inquiry(dev_scsi, fd, 0, 0, buf, SCSI_INQ_BUFF_LEN);
+	if (err < 0)
+		goto out;
 
 	memcpy(dev_scsi->vendor, buf + 8, 8);
 	dev_scsi->vendor[8] = '\0';
@@ -810,9 +813,9 @@ int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname)
 	dev_scsi->revision[4] = '\0';
 	sprintf(dev_scsi->type,"%x", buf[0] & 0x1f);
 
+out:
 	close(fd);
-
-	return 0;
+	return err;
 }
 
 int scsi_get_serial (struct scsi_id_device *dev_scsi, const char *devname,
@@ -922,8 +925,8 @@ int scsi_get_serial (struct scsi_id_device *dev_scsi, const char *devname,
 				goto completed;
 			}
 	retval = 1;
+
 completed:
-	if (close(fd) < 0)
-		info("%s: close failed: %s\n", dev_scsi->kernel, strerror(errno));
+	close(fd);
 	return retval;
 }
