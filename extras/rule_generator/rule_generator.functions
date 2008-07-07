@@ -92,6 +92,10 @@ find_all_rules() {
 	local linkre="$2"
 	local match="$3"
 
-	local search='.*[[:space:],]'"$key"'"\('"$linkre"'\)"[[:space:]]*\(,.*\|\\\|\)$'
-	echo $(sed -n -e "${match}s/${search}/\1/p" $RO_RULES_FILE $RULES_FILE 2>/dev/null)
+	local search='[[:space:],]'"$key"'"('"$linkre"')"[[:space:]]*(,.*|\\|)$'
+
+	echo $(sed -n -r -e 's/^#.*//' -e "${match}s/${search}/\1/p" \
+		$RO_RULES_FILE \
+		$([ -e $RULES_FILE ] && echo $RULES_FILE) \
+		2>/dev/null)
 }
