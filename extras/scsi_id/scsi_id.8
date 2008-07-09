@@ -33,7 +33,7 @@ by page 0x80. For example:
 
 .sp
 .nf
-# scsi_id --page=0x80 --devpath=/block/sdg
+# /lib/udev/scsi_id \-\-page=0x80 \-\-whitelisted \-\-device=/dev/sda
 SIBM     3542           1T05078453
 .fi
 .P
@@ -45,7 +45,7 @@ identifier starts with the NAA value of 6):
 
 .sp
 .nf
-# scsi_id --page=0x83 --devpath=/block/sdg
+# /lib/udev/scsi_id \-\-page=0x83 \-\-whitelisted \-\-device=/dev/sda
 3600a0b80000b174b000000d63efc5c8c
 .fi
 .P
