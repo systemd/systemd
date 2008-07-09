@@ -438,7 +438,7 @@
                     <term><option>link_priority=<replaceable>value</replaceable></option></term>
                     <listitem>
                       <para>Specify the priority of the created symlinks. Devices with higher
-                      priorities overwrite existing symlinks of other devices.</para>
+                      priorities overwrite existing symlinks of other devices. The default is 0.</para>
                     </listitem>
                   </varlistentry>
                   <varlistentry>
