@@ -35,6 +35,38 @@
 #define DEFAULT_TIMEOUT			180
 #define LOOP_PER_SECOND			20
 
+static void print_queue(const char *dir)
+{
+	LIST_HEAD(files);
+	struct name_entry *item;
+
+	if (add_matching_files(&files, dir, NULL) < 0)
+		return;
+
+	printf("\n\nAfter the udevadm settle timeout, the events queue contains:\n\n");
+
+	list_for_each_entry(item, &files, node) {
+		char target[NAME_SIZE];
+		size_t len;
+		const char *filename = strrchr(item->name, '/');
+
+		if (filename == NULL)
+			continue;
+		filename++;
+		if (*filename == '\0')
+			continue;
+
+		len = readlink(item->name, target, sizeof(target));
+		if (len < 0)
+			continue;
+		target[len] = '\0';
+
+		printf("%s: %s\n", filename, target);
+	}
+
+	printf("\n\n");
+}
+
 int udevsettle(int argc, char *argv[], char *envp[])
 {
 	char queuename[PATH_SIZE];
@@ -97,6 +129,7 @@ int udevsettle(int argc, char *argv[], char *envp[])
 		}
 		if (loop <= 0) {
 			info("timeout waiting for queue\n");
+			print_queue(queuename);
 			goto exit;
 		}
 
