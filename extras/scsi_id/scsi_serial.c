@@ -351,13 +351,13 @@ resend:
 		io_buf = (void *)&io_hdr;
 	}
 
-	if (ioctl(fd, SG_IO, io_buf) < 0) {
+	retval = ioctl(fd, SG_IO, io_buf);
+	if (retval < 0) {
 		if ((errno == EINVAL || errno == ENOSYS) && dev_scsi->use_sg == 4) {
 			dev_scsi->use_sg = 3;
 			goto resend;
 		}
 		info("%s: ioctl failed: %s\n", dev_scsi->kernel, strerror(errno));
-		retval = -1;
 		goto error;
 	}
 
@@ -806,6 +806,7 @@ int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname)
 	if (err < 0)
 		goto out;
 
+	err = 0;
 	memcpy(dev_scsi->vendor, buf + 8, 8);
 	dev_scsi->vendor[8] = '\0';
 	memcpy(dev_scsi->model, buf + 16, 16);

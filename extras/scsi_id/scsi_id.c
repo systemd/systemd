@@ -551,7 +551,7 @@ static int set_inq_values(struct scsi_id_device *dev_scsi, const char *path)
 
 	retval = scsi_std_inquiry(dev_scsi, path);
 	if (retval)
-	    return retval;
+		return retval;
 
 	set_str(vendor_str, dev_scsi->vendor, sizeof(vendor_str));
 	set_str(model_str, dev_scsi->model, sizeof(model_str));
