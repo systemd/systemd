@@ -39,7 +39,8 @@ int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t m
 {
 	char file_tmp[PATH_SIZE + sizeof(TMP_FILE_EXT)];
 	struct stat stats;
-	int retval = 0;
+	int preserve = 0;
+	int err = 0;
 
 	if (major(devt) != 0 && strcmp(udev->dev->subsystem, "block") == 0)
 		mode |= S_IFBLK;
@@ -47,56 +48,61 @@ int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t m
 		mode |= S_IFCHR;
 
 	if (lstat(file, &stats) == 0) {
-		if ((stats.st_mode & S_IFMT) == (mode & S_IFMT) && (stats.st_rdev == devt)) {
+		if (((stats.st_mode & S_IFMT) == (mode & S_IFMT)) && (stats.st_rdev == devt)) {
 			info("preserve file '%s', because it has correct dev_t\n", file);
-			selinux_setfilecon(file, udev->dev->kernel, stats.st_mode);
-			goto perms;
+			preserve = 1;
+			selinux_setfilecon(file, udev->dev->kernel, mode);
+		} else {
+			info("atomically replace existing file '%s'\n", file);
+			strlcpy(file_tmp, file, sizeof(file_tmp));
+			strlcat(file_tmp, TMP_FILE_EXT, sizeof(file_tmp));
+			unlink(file_tmp);
+			selinux_setfscreatecon(file_tmp, udev->dev->kernel, mode);
+			err = mknod(file_tmp, mode, devt);
+			selinux_resetfscreatecon();
+			if (err != 0) {
+				err("mknod(%s, %#o, %u, %u) failed: %s\n",
+				    file_tmp, mode, major(devt), minor(devt), strerror(errno));
+				goto exit;
+			}
+			err = rename(file_tmp, file);
+			if (err != 0) {
+				err("rename(%s, %s) failed: %s\n",
+				    file_tmp, file, strerror(errno));
+				unlink(file_tmp);
+			}
 		}
 	} else {
+		info("mknod(%s, %#o, (%u,%u))\n", file, mode, major(devt), minor(devt));
 		selinux_setfscreatecon(file, udev->dev->kernel, mode);
-		retval = mknod(file, mode, devt);
+		err = mknod(file, mode, devt);
 		selinux_resetfscreatecon();
-		if (retval == 0)
-			goto perms;
+		if (err != 0) {
+			err("mknod(%s, %#o, (%u,%u) failed: %s\n",
+			    file, mode, major(devt), minor(devt), strerror(errno));
+			goto exit;
+		}
 	}
 
-	info("atomically replace '%s'\n", file);
-	strlcpy(file_tmp, file, sizeof(file_tmp));
-	strlcat(file_tmp, TMP_FILE_EXT, sizeof(file_tmp));
-	unlink(file_tmp);
-	selinux_setfscreatecon(file_tmp, udev->dev->kernel, mode);
-	retval = mknod(file_tmp, mode, devt);
-	selinux_resetfscreatecon();
-	if (retval != 0) {
-		err("mknod(%s, %#o, %u, %u) failed: %s\n",
-		    file_tmp, mode, major(devt), minor(devt), strerror(errno));
-		goto exit;
-	}
-	retval = rename(file_tmp, file);
-	if (retval != 0) {
-		err("rename(%s, %s) failed: %s\n",
-		    file_tmp, file, strerror(errno));
-		unlink(file_tmp);
-		goto exit;
+	if (!preserve || stats.st_mode != mode) {
+		info("chmod(%s, %#o)\n", file, mode);
+		err = chmod(file, mode);
+		if (err != 0) {
+			err("chmod(%s, %#o) failed: %s\n", file, mode, strerror(errno));
+			goto exit;
+		}
 	}
 
-perms:
-	dbg("chmod(%s, %#o)\n", file, mode);
-	if (chmod(file, mode) != 0) {
-		err("chmod(%s, %#o) failed: %s\n", file, mode, strerror(errno));
-		goto exit;
-	}
-
-	if (uid != 0 || gid != 0) {
-		dbg("chown(%s, %u, %u)\n", file, uid, gid);
-		if (chown(file, uid, gid) != 0) {
-			err("chown(%s, %u, %u) failed: %s\n",
-			    file, uid, gid, strerror(errno));
+	if (!preserve || stats.st_uid != uid || stats.st_gid != gid) {
+		info("chown(%s, %u, %u)\n", file, uid, gid);
+		err = chown(file, uid, gid);
+		if (err != 0) {
+			err("chown(%s, %u, %u) failed: %s\n", file, uid, gid, strerror(errno));
 			goto exit;
 		}
 	}
 exit:
-	return retval;
+	return err;
 }
 
 static int node_symlink(const char *node, const char *slink)
