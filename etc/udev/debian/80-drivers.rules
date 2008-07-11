@@ -3,25 +3,27 @@ ACTION!="add", GOTO="hotplug_not_add_event"
 # check if the device has already been claimed by a driver
 ENV{DRIVER}=="?*", SUBSYSTEM!="input", GOTO="hotplug_driver_loaded"
 
-# this driver is broken and should not be loaded automatically (see #398962)
+# this driver is broken and should not be loaded automatically on kernels
+# < 2.6.21 (see #398962)
 SUBSYSTEM=="platform", ENV{MODALIAS}=="i82365", GOTO="hotplug_driver_loaded"
 
 # load the drivers
 ENV{MODALIAS}=="?*", \
 	RUN+="/sbin/modprobe --use-blacklist $env{MODALIAS}"
-SUBSYSTEM=="ide",	ENV{MODALIAS}!="?*",	RUN+="ide.agent"
 
 SUBSYSTEM=="pnp",	ENV{MODALIAS}!="?*", \
-	RUN+="/bin/sh -c 'while read id; do /sbin/modprobe --use-blacklist pnp:d$$id; done < /sys$devpath/id'"
+	RUN+="/bin/sh -c '/sbin/modprobe --use-blacklist --all $$(while read id; do echo pnp:d$$id; done < /sys$devpath/id)'"
 
 SUBSYSTEM=="pcmcia_socket",			RUN+="/sbin/modprobe pcmcia"
 
 # rules for subsystems which lack proper hotplug support
 SUBSYSTEM=="i2o",				RUN+="/sbin/modprobe i2o_block"
 SUBSYSTEM=="mmc",				RUN+="/sbin/modprobe mmc_block"
+SUBSYSTEM=="memstick",	RUN+="/sbin/modprobe --all ms_block mspro_block"
 SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="SD",	RUN+="/sbin/modprobe tifm_sd"
 SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="MS",	RUN+="/sbin/modprobe tifm_ms"
 
+# needed for kernels < 2.6.22
 SUBSYSTEM=="scsi_device", ATTRS{type}=="0|7|14", RUN+="/sbin/modprobe sd_mod"
 SUBSYSTEM=="scsi_device", ATTRS{type}=="1",	RUN+="/sbin/modprobe osst", \
 	ATTRS{vendor}=="Onstream", ATTRS{model}!="ADR*"
@@ -31,7 +33,9 @@ SUBSYSTEM=="scsi_device", ATTRS{type}=="1",	RUN+="/sbin/modprobe st", \
 	ATTRS{vendor}!="Onstream"
 SUBSYSTEM=="scsi_device", ATTRS{type}=="[45]",	RUN+="/sbin/modprobe sr_mod"
 SUBSYSTEM=="scsi_device", ATTRS{type}=="8",	RUN+="/sbin/modprobe ch"
-SUBSYSTEM=="scsi_device", ATTRS{type}=="[235689]", RUN+="/sbin/modprobe sg"
+
+SUBSYSTEM=="scsi_device", ATTRS{type}=="[235689]", TEST!="[module/sg]", \
+						RUN+="/sbin/modprobe sg"
 
 SUBSYSTEM=="ide", ATTR{media}=="tape",		RUN+="/sbin/modprobe ide-scsi"
 

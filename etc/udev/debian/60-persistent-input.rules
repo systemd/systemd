@@ -1,5 +1,5 @@
 SUBSYSTEM!="input",			GOTO="persistent_input_end"
-ACTION!="add",				GOTO="persistent_input_end"
+ACTION!="add|change",			GOTO="persistent_input_end"
 # ignore the mid-level drivers
 KERNEL=="input[0-9]*",			GOTO="persistent_input_end"
 
@@ -22,7 +22,7 @@ ATTRS{modalias}=="input:*-*a[068],*|input:*-*a*,[68],*m*", \
 	ATTRS{modalias}!="input:*-*k*14A,*r*", \
 					ENV{ID_CLASS}="joystick"
 
-ENV{ID_SERIAL}=="",			ENV{ID_SERIAL}="noserial"
+ENV{ID_CLASS}=="?*", ENV{ID_SERIAL}=="", ENV{ID_SERIAL}="noserial"
 
 # by-id links, generic and for the event devices
 KERNEL=="mouse*|js*", ENV{ID_BUS}=="?*", ENV{ID_CLASS}=="?*", \
@@ -31,7 +31,7 @@ KERNEL=="event*", ENV{ID_BUS}=="?*", ENV{ID_CLASS}=="?*", \
 	SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-event-$env{ID_CLASS}"
 
 # by-path links
-IMPORT{program}="path_id %p"
+IMPORT{program}="path_id $devpath"
 KERNEL=="mouse*|js*", ENV{ID_PATH}=="?*", \
 	SYMLINK+="input/by-path/$env{ID_PATH}-$env{ID_CLASS}"
 KERNEL=="event*", ENV{ID_PATH}=="?*", \

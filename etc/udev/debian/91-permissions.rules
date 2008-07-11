@@ -1,14 +1,5 @@
 ACTION!="add", GOTO="permissions_end"
 
-# workarounds needed to synchronize with sysfs
-# only needed for kernels < v2.6.18-rc1
-ENV{PHYSDEVPATH}!="?*", ENV{PHYSDEVBUS}=="?*",	WAIT_FOR_SYSFS="bus"
-SUBSYSTEM=="scsi", KERNEL=="[0-9]*:[0-9]*",	WAIT_FOR_SYSFS="ioerr_cnt"
-# only needed for kernels < 2.6.16
-SUBSYSTEM=="net",				WAIT_FOR_SYSFS="address"
-# only needed for kernels < 2.6.17
-SUBSYSTEM=="net", ENV{DRIVER}=="?*",		WAIT_FOR_SYSFS="device/driver"
-
 # devices needed to load the drivers providing them
 KERNEL=="tun",					OPTIONS+="ignore_remove"
 KERNEL=="ppp",					OPTIONS+="ignore_remove"
@@ -22,15 +13,14 @@ SUBSYSTEM=="block", ATTRS{removable}=="1", \
 # all block devices on these buses are "removable"
 SUBSYSTEM=="block", SUBSYSTEMS=="usb|ieee1394|mmc|pcmcia", GROUP="floppy"
 
+KERNEL=="cbm",					GROUP="floppy"
+
 # IDE devices
-KERNEL=="hd[a-z]|pcd[0-9]*", 			DRIVERS=="ide-cdrom|pcd", \
-	IMPORT{program}="cdrom_id --export $tempnode"
 ENV{ID_CDROM}=="?*",				GROUP="cdrom"
 KERNEL=="ht[0-9]*", 				GROUP="tape"
 KERNEL=="nht[0-9]*", 				GROUP="tape"
 
 # SCSI devices
-KERNEL=="sr[0-9]*", IMPORT{program}="cdrom_id --export $tempnode"
 SUBSYSTEMS=="scsi", ATTRS{type}=="1",				GROUP="tape"
 SUBSYSTEMS=="scsi", ATTRS{type}=="3", ATTRS{vendor}=="HP",	GROUP="scanner"
 SUBSYSTEMS=="scsi", ATTRS{type}=="3", ATTRS{vendor}=="Epson",	GROUP="scanner"
@@ -45,6 +35,7 @@ KERNEL=="legousbtower*",	MODE="0666"
 KERNEL=="lp[0-9]*", SUBSYSTEMS=="usb",		GROUP="lp"
 
 # usbfs-like devices
+SUBSYSTEM=="usb_device",	MODE="0664"
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", \
 				MODE="0664"
 
@@ -83,7 +74,6 @@ KERNEL=="full",			MODE="0666"
 KERNEL=="null",			MODE="0666"
 KERNEL=="zero",			MODE="0666"
 KERNEL=="inotify",		MODE="0666"
-KERNEL=="sgi_fetchop",		MODE="0666"
 KERNEL=="sonypi",		MODE="0666"
 KERNEL=="agpgart",				GROUP="video"
 KERNEL=="nvram",				GROUP="nvram"
@@ -92,7 +82,7 @@ KERNEL=="tpm*",			MODE="0600",	OWNER="tss", GROUP="tss"
 KERNEL=="fuse",					GROUP="fuse"
 KERNEL=="kqemu",		MODE="0666"
 KERNEL=="kvm",					GROUP="kvm"
-KERNEL=="tun",			MODE="0666",
+KERNEL=="tun",			MODE="0666"
 
 KERNEL=="cdemu[0-9]*",				GROUP="cdrom"
 KERNEL=="pktcdvd[0-9]*",			GROUP="cdrom"
@@ -100,7 +90,7 @@ KERNEL=="pktcdvd",		MODE="0644"
 
 KERNEL=="uverbs*",				GROUP="rdma"
 KERNEL=="ucm*",					GROUP="rdma"
-KERNEL=="rdma_ucm",				GROUP="rdma"
+KERNEL=="rdma_cm",				GROUP="rdma"
 
 # printers and parallel devices
 SUBSYSTEM=="printer",				GROUP="lp"
@@ -112,7 +102,7 @@ KERNEL=="pht[0-9]*",				GROUP="tape"
 # sound devices
 SUBSYSTEM=="sound",				GROUP="audio"
 
-# ieee1394 devices       
+# ieee1394 devices
 KERNEL=="raw1394",				GROUP="disk"
 KERNEL=="dv1394*",				GROUP="video"
 KERNEL=="video1394*",				GROUP="video"
@@ -121,11 +111,20 @@ KERNEL=="video1394*",				GROUP="video"
 KERNEL=="event[0-9]*", ATTRS{name}=="*dvb*|*DVB*|* IR *" \
 				MODE="0664",	GROUP="video"
 KERNEL=="js[0-9]*",		MODE="0664"
+KERNEL=="event[0-9]*", ENV{ID_CLASS}=="joystick", \
+				MODE="0664",	GROUP="audio"
 KERNEL=="lirc[0-9]*",				GROUP="video"
+
+KERNEL=="sgi_*",		MODE="0666"
+KERNEL=="z90crypt",		MODE="0666"
+KERNEL=="iseries/ibmsis*",			GROUP="disk"
+KERNEL=="iseries/nvt*",				GROUP="disk"
+KERNEL=="iseries/vt*",				GROUP="disk"
+KERNEL=="iseries/vtty*",			GROUP="dialout"
 
 # AOE character devices
 SUBSYSTEM=="aoe",		MODE="0220",	GROUP="disk"
-SUBSYSTEM=="aoe", KERNEL=="err", MODE="0440"
+SUBSYSTEM=="aoe", KERNEL=="err", MODE="0440",	GROUP="disk"
 
 LABEL="permissions_end"
 

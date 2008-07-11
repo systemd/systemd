@@ -1,0 +1,109 @@
+# This file contains the rules needed to create persistent device names.
+
+# forward scsi device events to the corresponding block device
+ACTION=="change", SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", \
+	TEST=="block",			ATTR{block/*/uevent}="change"
+
+# we are only interested in add and change actions for block devices
+ACTION!="add|change",			GOTO="persistent_storage_end"
+SUBSYSTEM!="block",			GOTO="persistent_storage_end"
+
+# and we can safely ignore these kinds of devices
+KERNEL=="ram*|loop*|fd*|nbd*|gnbd*|dm-*|md*", GOTO="persistent_storage_end"
+
+# skip removable ide devices, because open(2) on them causes an events loop
+KERNEL=="hd*[!0-9]", ATTR{removable}=="1", DRIVERS=="ide-cs|ide-floppy", \
+					GOTO="persistent_storage_end"
+KERNEL=="hd*[0-9]", ATTRS{removable}=="1", \
+					GOTO="persistent_storage_end"
+
+# ignore partitions that span the entire disk
+TEST=="whole_disk",			GOTO="persistent_storage_end"
+
+# skip xen virtual hard disks
+DRIVERS=="vbd",				GOTO="no_hardware_id"
+
+# check these attributes of /sys/class/block nodes
+ENV{DEVTYPE}!="?*", ATTR{range}=="?*",	ENV{DEVTYPE}="disk"
+ENV{DEVTYPE}!="?*", ATTR{start}=="?*",	ENV{DEVTYPE}="partition"
+
+# look for different kinds of unique identificators
+KERNEL=="hd*[!0-9]", \
+	IMPORT{program}="ata_id --export $tempnode"
+
+KERNEL=="sd*[!0-9]|sr*",		ATTRS{ieee1394_id}=="?*", \
+	ENV{ID_BUS}="ieee1394", ENV{ID_SERIAL}="$attr{ieee1394_id}"
+KERNEL=="sd*[!0-9]|sr*",		ENV{ID_SERIAL}!="?*", \
+	SUBSYSTEMS=="usb", \
+	IMPORT{program}="usb_id --export $devpath"
+KERNEL=="sd*[!0-9]|sr*",		ENV{ID_SERIAL}!="?*", \
+	ENV{ID_BUS}="scsi", \
+	IMPORT{program}="scsi_id --export --whitelisted --device=$tempnode"
+KERNEL=="cciss?c[0-9]d[0-9]*",		ENV{ID_SERIAL}!="?*", \
+	ENV{ID_BUS}="cciss", \
+	IMPORT{program}="scsi_id --export --whitelisted --device=$tempnode"
+
+KERNEL=="dasd*[!0-9]", \
+	IMPORT{program}="dasd_id --export $tempnode"
+
+KERNEL=="sd*[!0-9]|hd*[!0-9]", \
+	IMPORT{program}="edd_id --export $tempnode"
+
+KERNEL=="sd*[!0-9]|sr*",		ENV{ID_VENDOR}=="ATA", \
+	PROGRAM="ata_id $tempnode", RESULT=="?*", ENV{ID_ATA_COMPAT}="$result"
+
+# find the physical path of the device
+ENV{DEVTYPE}=="disk",			IMPORT{program}="path_id $devpath"
+
+LABEL="no_hardware_id"
+
+# import the variables of partitions from the parent disks
+ENV{DEVTYPE}=="partition",		IMPORT{parent}="ID_*"
+
+# obsolete PATA driver
+KERNEL=="hd*[!0-9]",			ENV{ID_SERIAL}=="?*", \
+	SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}"
+KERNEL=="hd*[0-9]",			ENV{ID_SERIAL}=="?*", \
+	SYMLINK+="disk/by-id/ata-$env{ID_MODEL}_$env{ID_SERIAL}-part%n"
+# hd*-like compatibility links for libata and PATA devices
+KERNEL=="sd*[!0-9]|sr*",		ENV{ID_ATA_COMPAT}=="?*", \
+	SYMLINK+="disk/by-id/ata-$env{ID_ATA_COMPAT}"
+KERNEL=="sd*[0-9]",			ENV{ID_ATA_COMPAT}=="?*", \
+	SYMLINK+="disk/by-id/ata-$env{ID_ATA_COMPAT}-part%n"
+
+KERNEL=="mmcblk[0-9]", ATTR{name}=="?*", ATTR{serial}=="?*", \
+	ENV{ID_NAME}="$attr{name}", ENV{ID_SERIAL}="$attr{serial}", \
+	SYMLINK+="disk/by-id/mmc-$env{ID_NAME}_$env{ID_SERIAL}"
+KERNEL=="mmcblk[0-9]p[0-9]", ATTR{name}=="?*", ATTR{serial}=="?*", \
+	ENV{ID_NAME}="$attr{name}", ENV{ID_SERIAL}="$attr{serial}", \
+	SYMLINK+="disk/by-id/mmc-$env{ID_NAME}_$env{ID_SERIAL}-part%n"
+
+ENV{DEVTYPE}=="disk",			ENV{ID_EDD}=="?*", \
+	SYMLINK+="disk/by-id/edd-$env{ID_EDD}"
+ENV{DEVTYPE}=="partition",		ENV{ID_EDD}=="?*", \
+	SYMLINK+="disk/by-id/edd-$env{ID_EDD}-part%n"
+
+KERNEL=="sd*[!0-9]|sr*|dasd[!0-9]*|cciss?c[0-9]d[0-9]*", ENV{ID_SERIAL}=="?*", \
+	SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
+KERNEL=="sd*[0-9]|dasd*[0-9]|cciss*p[0-9]*",		ENV{ID_SERIAL}=="?*", \
+	SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
+
+ENV{DEVTYPE}=="disk",			ENV{ID_PATH}=="?*", \
+	SYMLINK+="disk/by-path/$env{ID_PATH}"
+ENV{DEVTYPE}=="partition",		ENV{ID_PATH}=="?*", \
+	SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
+
+# skip unpartitioned removable media devices from drivers which do not send
+# "change" events
+ENV{DEVTYPE}=="disk", KERNEL!="sd*|sr*", ATTR{removable}=="1", \
+					GOTO="persistent_storage_end"
+
+# UUID and volume label
+IMPORT{program}="vol_id --export $tempnode"
+ENV{ID_FS_UUID_ENC}=="?*",	ENV{ID_FS_USAGE}=="filesystem|other|crypto", \
+	SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"
+ENV{ID_FS_LABEL_ENC}=="?*",	ENV{ID_FS_USAGE}=="filesystem|other", \
+	SYMLINK+="disk/by-label/$env{ID_FS_LABEL_ENC}"
+
+LABEL="persistent_storage_end"
+

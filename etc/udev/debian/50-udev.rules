@@ -1,25 +1,20 @@
-# There are a number of modifiers that are allowed to be used in some
-# of the different fields. They provide the following subsitutions:
-#
-# %n the "kernel number" of the device.
-#    For example, 'sda3' has a "kernel number" of '3'
-# %k the kernel name for the device
-# %M the kernel major number for the device
-# %m the kernel minor number for the device
-# %b the bus id for the device
-# %c the string returned by the PROGRAM
-# %s{filename} the content of a sysfs attribute
-# %% the '%' char itself
-#
+# import the properties of optical drives
+KERNEL=="hd[a-z]|pcd[0-9]*", ACTION=="add|change", DRIVERS=="ide-cdrom|pcd", \
+	IMPORT{program}="cdrom_id --export $tempnode"
+KERNEL=="sr[0-9]*", ACTION=="add|change", \
+	IMPORT{program}="cdrom_id --export $tempnode"
 
-# workaround for devices which do not report media changes
-SUBSYSTEMS=="ide", KERNEL=="hd[a-z]", ATTR{removable}=="1", \
-	ENV{ID_MODEL}=="IOMEGA_ZIP*",	NAME="%k", OPTIONS+="all_partitions"
-SUBSYSTEMS=="ide", KERNEL=="hd[a-z]", ATTRS{media}=="floppy", \
-	OPTIONS+="all_partitions"
+# workarounds for devices which do not report media changes
+SUBSYSTEMS=="ide",  KERNEL=="hd[a-z]", ATTR{removable}=="1", \
+	ATTRS{model}=="IOMEGA_ZIP*|ZIP *",	OPTIONS+="all_partitions"
+SUBSYSTEMS=="scsi", KERNEL=="sd[a-z]", ATTR{removable}=="1", \
+	ATTRS{model}=="IOMEGA_ZIP*|ZIP *",	OPTIONS+="all_partitions"
+SUBSYSTEMS=="ide", KERNEL=="hd[a-z]", \
+	ATTRS{media}=="floppy",			OPTIONS+="all_partitions"
 
 # SCSI devices
-SUBSYSTEMS=="scsi", KERNEL=="sr[0-9]*",	NAME="scd%n", SYMLINK+="sr%n"
+SUBSYSTEMS=="scsi", KERNEL=="sr[0-9]*",		NAME="scd%n", SYMLINK+="sr%n"
+SUBSYSTEM=="bsg",				NAME="bsg/%k"
 
 # USB devices
 SUBSYSTEMS=="usb", KERNEL=="auer[0-9]*",	NAME="usb/%k"
@@ -28,13 +23,15 @@ SUBSYSTEMS=="usb", KERNEL=="dabusb*",		NAME="usb/%k"
 SUBSYSTEMS=="usb", KERNEL=="hiddev*",		NAME="usb/%k"
 SUBSYSTEMS=="usb", KERNEL=="legousbtower*",	NAME="usb/%k"
 SUBSYSTEMS=="usb", KERNEL=="lp[0-9]*",		NAME="usb/%k"
+SUBSYSTEMS=="usb", KERNEL=="iowarrior[0-9]*",	NAME="usb/%k"
 SUBSYSTEMS=="usb", KERNEL=="ttyUSB*", \
-	ATTRS{product}=="Palm Handheld*|Handspring Visor|palmOne Handheld", \
-					SYMLINK+="pilot"
+	ATTRS{product}=="[Hh]andspring*Treo*|[Hh]andspring*Visor*|[Pp]alm*Handheld*", \
+						SYMLINK+="pilot"
 
 # usbfs-like devices
-SUBSYSTEM=="usb_device",	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", ACTION=="add", \
-				NAME="%c"
+SUBSYSTEM=="usb_device", ACTION=="add", \
+	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", ACTION=="add", \
+				NAME="$result"
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device",	NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}"
 
 # serial devices
@@ -43,13 +40,14 @@ KERNEL=="capi[0-9]*",		NAME="capi/%n"
 
 # video devices
 KERNEL=="dvb*",			PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}", ACTION=="add", \
-				NAME="%c"
+				NAME="$result"
 KERNEL=="card[0-9]*",		NAME="dri/%k"
 
 # misc devices
 KERNEL=="hw_random",		NAME="hwrng"
 KERNEL=="tun",			NAME="net/%k"
 KERNEL=="evtchn",		NAME="xen/%k"
+KERNEL=="rtc0",			SYMLINK+="rtc"
 
 KERNEL=="cdemu[0-9]*",		NAME="cdemu/%n"
 KERNEL=="pktcdvd[0-9]*",	NAME="pktcdvd/%n"
@@ -63,7 +61,7 @@ KERNEL=="umad*",		NAME="infiniband/%k"
 KERNEL=="issm*",		NAME="infiniband/%k"
 KERNEL=="uverbs*",		NAME="infiniband/%k"
 KERNEL=="ucm*",			NAME="infiniband/%k"
-KERNEL=="rdma_ucm",		NAME="infiniband/%k"
+KERNEL=="rdma_cm",		NAME="infiniband/%k"
 
 # ALSA devices
 KERNEL=="controlC[0-9]*",	NAME="snd/%k"
@@ -73,7 +71,7 @@ KERNEL=="midiC[D0-9]*",		NAME="snd/%k"
 KERNEL=="timer",		NAME="snd/%k"
 KERNEL=="seq",			NAME="snd/%k"
 
-# ieee1394 devices       
+# ieee1394 devices
 KERNEL=="dv1394*",		NAME="dv1394/%n"
 KERNEL=="video1394*",		NAME="video1394/%n"
 
@@ -87,17 +85,14 @@ KERNEL=="uinput",		NAME="input/%k"
 
 # Zaptel
 KERNEL=="zapctl",		NAME="zap/ctl"
-KERNEL=="zaptimer",		NAME="zap/timer"
 KERNEL=="zapchannel",		NAME="zap/channel"
 KERNEL=="zappseudo",		NAME="zap/pseudo"
+KERNEL=="zaptimer",		NAME="zap/timer"
+KERNEL=="transcode",		NAME="zap/transcode"
 KERNEL=="zap[0-9]*",		NAME="zap/%n"
 
 # AOE character devices
-SUBSYSTEM=="aoe", KERNEL=="discover",	NAME="etherd/%k"
-SUBSYSTEM=="aoe", KERNEL=="err",	NAME="etherd/%k"
-SUBSYSTEM=="aoe", KERNEL=="interfaces",	NAME="etherd/%k"
-SUBSYSTEM=="aoe", KERNEL=="revalidate",	NAME="etherd/%k"
+SUBSYSTEM=="aoe",		NAME="etherd/%k"
 
-# device mapper creates its own device nodes, so ignore these
 KERNEL=="device-mapper",	NAME="mapper/control"
 
