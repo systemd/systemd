@@ -5,12 +5,12 @@
 ACTION!="add|change", GOTO="persistent_storage_tape_end"
 
 # type 8 devices are "Medium Changers"
-KERNEL=="sg[0-9]*", SUBSYSTEMS=="scsi", ATTRS{type}=="8", IMPORT{program}="scsi_id --export --whitelisted -d $tempnode", SYMLINK+="tape/by-id/scsi-$env{ID_SERIAL}"
+KERNEL=="sg[0-9]*", SUBSYSTEMS=="scsi", ATTRS{type}=="8", IMPORT{program}="scsi_id --sg-version=3 --export --whitelisted -d $tempnode", SYMLINK+="tape/by-id/scsi-$env{ID_SERIAL}"
 
 SUBSYSTEM!="scsi_tape", GOTO="persistent_storage_tape_end"
 
-KERNEL=="st*[0-9]", ATTRS{ieee1394_id}=="?*", ENV{ID_SERIAL}="$attr{ieee1394_id}", ENV{ID_BUS}="ieee1394"
-KERNEL=="st*[0-9]", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="usb", IMPORT{program}="usb_id --export %p"
+KERNEL=="st*[0-9]|nst*[0-9]", ATTRS{ieee1394_id}=="?*", ENV{ID_SERIAL}="$attr{ieee1394_id}", ENV{ID_BUS}="ieee1394"
+KERNEL=="st*[0-9]|nst*[0-9]", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="usb", IMPORT{program}="usb_id --export %p"
 
 KERNEL=="st*[0-9]|nst*[0-9]", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="scsi", KERNELS=="[0-9]*:*[0-9]", ENV{BSG_DEV}="$root/bsg/$id"
 KERNEL=="st*[0-9]|nst*[0-9]", ENV{ID_SERIAL}!="?*", WAIT_FOR="$env{BSG_DEV}", IMPORT="scsi_id --whitelisted --export --device=$env{BSG_DEV}", ENV{ID_BUS}="scsi"
