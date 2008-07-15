@@ -207,14 +207,22 @@ out:
 	return rc;
 }
 
-static int stat_device(const char *name)
+static int stat_device(const char *name, int export, const char *prefix)
 {
 	struct stat statbuf;
 
 	if (stat(name, &statbuf) != 0)
 		return -1;
 
-	printf("%d %d\n", major(statbuf.st_dev), minor(statbuf.st_dev));
+	if (export) {
+		if (prefix == NULL)
+			prefix = "INFO_";
+		printf("%sMAJOR=%d\n"
+		       "%sMINOR=%d\n",
+		       prefix, major(statbuf.st_dev),
+		       prefix, minor(statbuf.st_dev));
+	} else
+		printf("%d %d\n", major(statbuf.st_dev), minor(statbuf.st_dev));
 	return 0;
 }
 
@@ -223,6 +231,8 @@ int udevinfo(int argc, char *argv[], char *envp[])
 	int option;
 	struct udevice *udev;
 	int root = 0;
+	int export = 0;
+	const char *export_prefix = NULL;
 
 	static const struct option options[] = {
 		{ "name", 1, NULL, 'n' },
@@ -232,6 +242,8 @@ int udevinfo(int argc, char *argv[], char *envp[])
 		{ "export-db", 0, NULL, 'e' },
 		{ "root", 0, NULL, 'r' },
 		{ "device-id-of-file", 1, NULL, 'd' },
+		{ "export", 0, NULL, 'x' },
+		{ "export-prefix", 1, NULL, 'P' },
 		{ "version", 0, NULL, 1 }, /* -V outputs braindead format */
 		{ "help", 0, NULL, 'h' },
 		{}
@@ -270,7 +282,7 @@ int udevinfo(int argc, char *argv[], char *envp[])
 	}
 
 	while (1) {
-		option = getopt_long(argc, argv, "aed:n:p:q:rVh", options, NULL);
+		option = getopt_long(argc, argv, "aed:n:p:q:rxPVh", options, NULL);
 		if (option == -1)
 			break;
 
@@ -354,6 +366,12 @@ int udevinfo(int argc, char *argv[], char *envp[])
 		case 'e':
 			export_db();
 			goto exit;
+		case 'x':
+			export = 1;
+			break;
+		case 'P':
+			export_prefix = optarg;
+			break;
 		case 1:
 			printf("%s\n", UDEV_VERSION);
 			goto exit;
@@ -462,7 +480,7 @@ int udevinfo(int argc, char *argv[], char *envp[])
 		}
 		break;
 	case ACTION_DEVICE_ID_FILE:
-		if (stat_device(name) != 0)
+		if (stat_device(name, export, export_prefix) != 0)
 			rc = 6;
 		break;
 	case ACTION_ROOT:
