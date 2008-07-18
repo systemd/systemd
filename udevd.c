@@ -1142,14 +1142,23 @@ int main(int argc, char *argv[], char *envp[])
 	/* watch rules directory */
 	inotify_fd = inotify_init();
 	if (inotify_fd >= 0) {
-		char filename[PATH_MAX];
+		if (udev_rules_dir[0] != '\0') {
+			inotify_add_watch(inotify_fd, udev_rules_dir,
+					  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
+		} else {
+			char filename[PATH_MAX];
 
-		inotify_add_watch(inotify_fd, udev_rules_dir, IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
+			inotify_add_watch(inotify_fd, RULES_LIB_DIR,
+					  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
+			inotify_add_watch(inotify_fd, RULES_ETC_DIR,
+					  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
 
-		/* watch dynamic rules directory */
-		strlcpy(filename, udev_root, sizeof(filename));
-		strlcat(filename, "/"RULES_DYN_DIR, sizeof(filename));
-		inotify_add_watch(inotify_fd, filename, IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
+			/* watch dynamic rules directory */
+			strlcpy(filename, udev_root, sizeof(filename));
+			strlcat(filename, "/"RULES_DYN_DIR, sizeof(filename));
+			inotify_add_watch(inotify_fd, filename,
+					  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
+		}
 	} else if (errno == ENOSYS)
 		err("the kernel does not support inotify, udevd can't monitor rules file changes\n");
 	else

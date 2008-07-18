@@ -50,12 +50,12 @@ clean:
 
 install-bin: all
 	$(INSTALL_PROGRAM) -D $(PROG) $(DESTDIR)$(libudevdir)/$(PROG)
-	$(INSTALL_DATA) 79-fstab_import.rules $(DESTDIR)$(configdir)/rules.d/79-fstab_import.rules
+	$(INSTALL_DATA) 79-fstab_import.rules $(DESTDIR)$(libudevdir)/rules.d/79-fstab_import.rules
 .PHONY: install-bin
 
 uninstall-bin:
 	- rm $(DESTDIR)$(libudevdir)/$(PROG)
-	- rm $(DESTDIR)$(configdir)/rules.d/79-fstab_import.rules
+	- rm $(DESTDIR)$(libudevdir)/rules.d/79-fstab_import.rules
 .PHONY: uninstall-bin
 
 install-man:

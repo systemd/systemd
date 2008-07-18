@@ -25,8 +25,10 @@ and receives uevents directly from the kernel if a device is added or removed fr
 If udev receives a device event, it matches its configured rules against the available device attributes provided in sysfs to identify the device\. Rules that match may provide additional device information or specify a device node name and multiple symlink names and instruct udev to run additional programs as part of the device event handling\.
 .SH "CONFIGURATION"
 .PP
-All udev configuration files are placed in
-\fI/etc/udev/*\fR\. Every file consists of a set of lines of text\. All empty lines or lines beginning with \'#\' will be ignored\.
+udev configuration files are placed in
+\fI/etc/udev/\fR
+and
+\fI/lib/udev/\fR\. All empty lines, or lines beginning with \'#\' will be ignored\.
 .SS "Configuration file"
 .PP
 udev expects its main configuration file at
@@ -36,13 +38,6 @@ udev expects its main configuration file at
 .RS 4
 Specifies where to place the device nodes in the filesystem\. The default value is
 \fI/dev\fR\.
-.RE
-.PP
-\fBudev_rules\fR
-.RS 4
-The name of the udev rules file or directory to look for files with the suffix
-\fI\.rules\fR\. Multiple rule files are read in lexical order\. The default value is
-\fI/etc/udev/rules\.d\fR\.
 .RE
 .PP
 \fBudev_log\fR
@@ -55,9 +50,11 @@ and
 .RE
 .SS "Rules files"
 .PP
-The udev rules are read from the files located in the
-\fI/etc/udev/rules\.d\fR
-directory or at the location specified value in the configuration file\. Every line in the rules file contains at least one key value pair\. There are two kind of keys, match and assignment keys\. If all match keys are matching against its value, the rule gets applied and the assign keys get the specified value assigned\.
+The udev rules are read from the files located in the default rules directory
+\fI/lib/udev/rules\.d/\fR, the custom rules directory
+\fI/etc/udev/rules\.d/\fR
+and the temporary rules directory
+\fI/dev/\.udev/rules\.d/\fR\. All rule files are sorted and processed in lexical order, regardless in which of these directories they live\. Every line in the rules file contains at least one key value pair\. There are two kind of keys, match and assignment keys\. If all match keys are matching against its value, the rule gets applied and the assign keys get the specified value assigned\.
 .PP
 A matching rule may specify the name of the device node, add a symlink pointing to the node, or run a specified program as part of the event handling\. If no matching rule is found, the default device node name is used\.
 .PP

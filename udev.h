@@ -47,9 +47,12 @@
 #define READ_END				0
 #define WRITE_END				1
 
+#define UDEV_ROOT				"/dev"
 #define DB_DIR					".udev/db"
 #define DB_NAME_INDEX_DIR			".udev/names"
+#define RULES_LIB_DIR				"/lib/udev/rules.d"
 #define RULES_DYN_DIR				".udev/rules.d"
+#define RULES_ETC_DIR				"/etc/udev/rules.d"
 
 struct udev_rules;
 

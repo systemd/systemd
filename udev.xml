@@ -40,9 +40,9 @@
       </refsect1>
 
       <refsect1><title>CONFIGURATION</title>
-        <para>All udev configuration files are placed in <filename>/etc/udev/*</filename>.
-        Every file consists of a set of lines of text. All empty lines or lines beginning
-        with '#' will be ignored.</para>
+        <para>udev configuration files are placed in <filename>/etc/udev/</filename>
+        and <filename>/lib/udev/</filename>. All empty lines, or lines beginning with
+        '#' will be ignored.</para>
 
         <refsect2><title>Configuration file</title>
           <para>udev expects its main configuration file at <filename>/etc/udev/udev.conf</filename>.
@@ -54,16 +54,6 @@
               <listitem>
                 <para>Specifies where to place the device nodes in the filesystem.
                 The default value is <filename>/dev</filename>.</para>
-              </listitem>
-            </varlistentry>
-
-            <varlistentry>
-              <term><option>udev_rules</option></term>
-              <listitem>
-                <para>The name of the udev rules file or directory to look for files
-                with the suffix <filename>.rules</filename>. Multiple rule files are
-                read in lexical order. The default value is
-                <filename>/etc/udev/rules.d</filename>.</para>
               </listitem>
             </varlistentry>
 
@@ -80,8 +70,11 @@
 
         <refsect2><title>Rules files</title>
           <para>The udev rules are read from the files located in the
-          <filename>/etc/udev/rules.d</filename> directory or at the location specified
-          value in the configuration file. Every line in the rules file contains at least
+          default rules directory <filename>/lib/udev/rules.d/</filename>,
+          the custom rules directory <filename>/etc/udev/rules.d/</filename>
+          and the temporary rules directory <filename>/dev/.udev/rules.d/</filename>.
+          All rule files are sorted and processed in lexical order, regardless
+          in which of these directories they live. Every line in the rules file contains at least
           one key value pair. There are two kind of keys, match and assignment keys.
           If all match keys are matching against its value, the rule gets applied and the
           assign keys get the specified value assigned.</para>

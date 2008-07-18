@@ -23,7 +23,7 @@ use strict;
 my $PWD		= $ENV{PWD};
 my $sysfs	= "sys/";
 my $udev_bin	= "../test-udev";
-my $udev_root	= "udev-root/"; # !!! directory will be removed !!!
+my $udev_root	= "udev-root/";
 my $udev_conf	= "udev-test.conf";
 my $udev_rules	= "udev-test.rules";
 
@@ -1847,12 +1847,12 @@ if (!($<==0)) {
 }
 
 # prepare
-make_udev_root ();
+make_udev_root();
 
 # create config file
 open CONF, ">$udev_conf" || die "unable to create config file: $udev_conf";
 print CONF "udev_root=\"$udev_root\"\n";
-print CONF "udev_rules=\"$udev_rules\"\n";
+print CONF "udev_rules=\"$PWD\"\n";
 print CONF "udev_log=\"info\"\n";
 close CONF;
 

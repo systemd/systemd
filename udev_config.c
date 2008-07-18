@@ -164,9 +164,9 @@ void udev_config_init(void)
 {
 	const char *env;
 
-	strcpy(udev_root, UDEV_ROOT);
 	strcpy(udev_config_filename, UDEV_CONFIG_FILE);
-	strcpy(udev_rules_dir, UDEV_RULES_DIR);
+	strcpy(udev_root, UDEV_ROOT);
+	udev_rules_dir[0] = '\0';
 	udev_log_priority = LOG_ERR;
 	udev_run = 1;
 
@@ -195,6 +195,6 @@ void udev_config_init(void)
 
 	dbg("UDEV_CONFIG_FILE='%s'\n", udev_config_filename);
 	dbg("udev_root='%s'\n", udev_root);
-	dbg("udev_rules='%s'\n", udev_rules_dir);
+	dbg("udev_rules_dir='%s'\n", udev_rules_dir);
 	dbg("udev_log=%d\n", udev_log_priority);
 }

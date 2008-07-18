@@ -51,13 +51,13 @@ clean:
 install-bin: all
 	$(INSTALL) -d $(DESTDIR)$(libudevdir)
 	$(INSTALL_PROGRAM) $(PROG) $(DESTDIR)$(libudevdir)/$(PROG)
-	$(INSTALL) -d $(DESTDIR)$(configdir)/rules.d
-	$(INSTALL_DATA) 60-cdrom_id.rules $(DESTDIR)$(configdir)/rules.d/60-cdrom_id.rules
+	$(INSTALL) -d $(DESTDIR)$(libudevdir)/rules.d
+	$(INSTALL_DATA) 60-cdrom_id.rules $(DESTDIR)$(libudevdir)/rules.d/60-cdrom_id.rules
 .PHONY: install-bin
 
 uninstall-bin:
 	- rm $(DESTDIR)$(libudevdir)/$(PROG)
-	- rm $(DESTDIR)$(configdir)/rules.d/60-cdrom_id.rules
+	- rm $(DESTDIR)$(libudevdir)/rules.d/60-cdrom_id.rules
 .PHONY: uninstall-bin
 
 install-man:

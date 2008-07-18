@@ -727,53 +727,53 @@ int udev_rules_init(struct udev_rules *rules, int resolve_names)
 	struct stat statbuf;
 	char filename[PATH_MAX];
 	LIST_HEAD(name_list);
-	LIST_HEAD(dyn_list);
+	LIST_HEAD(sort_list);
 	struct name_entry *name_loop, *name_tmp;
-	struct name_entry *dyn_loop, *dyn_tmp;
+	struct name_entry *sort_loop, *sort_tmp;
 	int retval = 0;
 
 	memset(rules, 0x00, sizeof(struct udev_rules));
 	rules->resolve_names = resolve_names;
 
-	/* read main config from single file or all files in a directory */
-	if (stat(udev_rules_dir, &statbuf) != 0)
-		return -1;
-	if ((statbuf.st_mode & S_IFMT) != S_IFDIR) {
-		dbg("parse single rules file '%s'\n", udev_rules_dir);
-		name_list_add(&name_list, udev_rules_dir, 1);
+	if (udev_rules_dir[0] != '\0') {
+		/* custom rules location for testing */
+		add_matching_files(&name_list, udev_rules_dir, RULESFILE_SUFFIX);
 	} else {
-		dbg("parse rules directory '%s'\n", udev_rules_dir);
-		retval = add_matching_files(&name_list, udev_rules_dir, RULESFILE_SUFFIX);
-	}
+		/* read default rules */
+		add_matching_files(&name_list, RULES_LIB_DIR, RULESFILE_SUFFIX);
 
-	/* read dynamic rules directory */
-	strlcpy(filename, udev_root, sizeof(filename));
-	strlcat(filename, "/"RULES_DYN_DIR, sizeof(filename));
-	if (stat(filename, &statbuf) != 0) {
-		create_path(filename);
-		selinux_setfscreatecon(filename, NULL, S_IFDIR|0755);
-		mkdir(filename, 0755);
-		selinux_resetfscreatecon();
-	}
-	add_matching_files(&dyn_list, filename, RULESFILE_SUFFIX);
+		/* read user/custom rules */
+		add_matching_files(&sort_list, RULES_ETC_DIR, RULESFILE_SUFFIX);
 
-	/* sort dynamic rules files by basename into list of files */
-	list_for_each_entry_safe(dyn_loop, dyn_tmp, &dyn_list, node) {
-		const char *dyn_base = strrchr(dyn_loop->name, '/');
+		/* read dynamic/temporary rules */
+		strlcpy(filename, udev_root, sizeof(filename));
+		strlcat(filename, "/"RULES_DYN_DIR, sizeof(filename));
+		if (stat(filename, &statbuf) != 0) {
+			create_path(filename);
+			selinux_setfscreatecon(filename, NULL, S_IFDIR|0755);
+			mkdir(filename, 0755);
+			selinux_resetfscreatecon();
+		}
+		add_matching_files(&sort_list, filename, RULESFILE_SUFFIX);
 
-		if (dyn_base == NULL)
-			continue;
+		/* sort all rules files by basename into list of files */
+		list_for_each_entry_safe(sort_loop, sort_tmp, &sort_list, node) {
+			const char *sort_base = strrchr(sort_loop->name, '/');
 
-		list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
-			const char *name_base = strrchr(name_loop->name, '/');
-
-			if (name_base == NULL)
+			if (sort_base == NULL)
 				continue;
 
-			if (strcmp(name_base, dyn_base) > 0)
-				break;
+			list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
+				const char *name_base = strrchr(name_loop->name, '/');
+
+				if (name_base == NULL)
+					continue;
+
+				if (strcmp(name_base, sort_base) > 0)
+					break;
+			}
+			list_move_tail(&sort_loop->node, &name_loop->node);
 		}
-		list_move_tail(&dyn_loop->node, &name_loop->node);
 	}
 
 	/* parse list of files */

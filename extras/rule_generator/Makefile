@@ -41,11 +41,11 @@ install-bin: all
 	$(INSTALL_DATA) rule_generator.functions $(DESTDIR)$(libudevdir)/rule_generator.functions
 	$(INSTALL_SCRIPT) write_cd_rules $(DESTDIR)$(libudevdir)/write_cd_rules
 	$(INSTALL_SCRIPT) write_net_rules $(DESTDIR)$(libudevdir)/write_net_rules
-	$(INSTALL) -d  $(DESTDIR)$(configdir)/rules.d
+	$(INSTALL) -d  $(DESTDIR)$(libudevdir)/rules.d
 	$(INSTALL_DATA) 75-cd-aliases-generator.rules \
-		$(DESTDIR)$(configdir)/rules.d/75-cd-aliases-generator.rules
+		$(DESTDIR)$(libudevdir)/rules.d/75-cd-aliases-generator.rules
 	$(INSTALL_DATA) 75-persistent-net-generator.rules \
-		$(DESTDIR)$(configdir)/rules.d/75-persistent-net-generator.rules
+		$(DESTDIR)$(libudevdir)/rules.d/75-persistent-net-generator.rules
 .PHONY: install-bin
 
 uninstall-bin:
