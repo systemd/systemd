@@ -1,6 +1,7 @@
 These things would be nice to have:
 
 These things will change in future udev versions:
+  o --device-id-of-file will print '5:8' instead of '5 8'
 
 These things are deprecated and scheduled for removal in a future udev version:
   o the installation of symlinks to udevadm

@@ -1,3 +1,44 @@
+Summary of changes from v124 to v125
+============================================
+
+John Huttley (1):
+      rules: tape rules - add nst to usb and 1394 links
+
+Karl O. Pinc (1):
+      man: clarify $attr{} parent searching
+
+Kay Sievers (14):
+      collect: fix size_t printf
+      path_id: suppress trailing '-' like 'ID_PATH=pci-0000:05:01.0-'
+      rules: add v4l persistent links
+      docs: update some docs and delete outdated stuff
+      scsi_id: fix fallback to sg v3 for sg nodes
+      rules: fix cciss rules for partition numbers > 9
+      udev.conf: udevcontrol -> udevadm control
+      rules: use consistently OPTIONS+=
+      scsi_id: the fallback fix broke error handling
+      man: rebuild from xml
+      do not touch node ownership and permissions, if already correct
+      rules: tape rules - add nst to by-path/ links
+      udevadm: info - add --export format to --device-id-of-file=
+      move default rules from /etc/udev/rules.d/ to /lib/udev/rules.d/
+
+Marco d'Itri (7):
+      rules_generator: net rules - do not print error if file is missing and ignore commented rules
+      man: add link_priority default value
+      scsi_id: man page fix
+      udevadm: settle - add verbose output when running into timeout
+      rules: Debian update
+      rules: Debian update
+      ignore rule with GOTO to a non-existent label
+
+Thomas Koeller (1):
+      scsi_id: include sys/stat.h
+
+Tobias Klauser (1):
+      collect: check realloc return value
+
+
 Summary of changes from v123 to v124
 ============================================
 

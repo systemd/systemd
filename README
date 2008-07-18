@@ -42,7 +42,7 @@ Operation:
     from the kernel driver core.
 
   - All kernel events are matched against a set of specified rules in
-    /etc/udev/rules.d/ which make it possible to hook into the event
+    /lib/udev/rules.d/ which make it possible to hook into the event
     processing to load required kernel modules and setup devices. For all
     devices the kernel exports a major/minor number, udev will create a
     device node with the default kernel name, or the one specified by a

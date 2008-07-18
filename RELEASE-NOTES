@@ -1,3 +1,26 @@
+udev 125
+========
+Bugfixes.
+
+Default udev rules, which are not supposed to be edited by the user, should
+be placed in /lib/udev/rules.d/ now, to make it clear that they are private to
+the udev package and will be replaced with an update. Udev will pick up rule
+files from:
+  /lib/udev/rules.d/  - default installed rules
+  /etc/udev/rules.d/  - user rules + on-the-fly generated rules
+  /dev/.udev/rules.d/ - temporary non-persistent rules created after bootup
+It does not matter in which directory a rule file lives, all files are sorted
+in lexical order.
+
+To help creating /dev/root, we have now:
+  $ udevadm info --export --export-prefix="ROOT_" --device-id-of-file=/
+  ROOT_MAJOR=8
+  ROOT_MINOR=5
+In case the current --device-id-of-file is already used, please switch to
+the --export format version, it saves the output parsing and the old
+format will be changed to use ':' as a separator, like the format in the
+sysfs 'dev' file.
+
 udev 124
 ========
 Fix cdrom_id to properly recognize blank media.
