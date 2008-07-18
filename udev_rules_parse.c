@@ -60,11 +60,13 @@ struct udev_rule *udev_rules_iter_next(struct udev_rules *rules)
 struct udev_rule *udev_rules_iter_label(struct udev_rules *rules, const char *label)
 {
 	static struct udev_rule *rule;
+	size_t start = rules->current;
 
 next:
 	dbg("current=%zi\n", rules->current);
 	if (rules->current >= rules->bufsize) {
-		dbg("no more rules\n");
+		err("LABEL='%s' not found, GOTO will be ignored\n", label);
+		rules->current = start;
 		return NULL;
 	}
 	rule = (struct udev_rule *) (rules->buf + rules->current);
