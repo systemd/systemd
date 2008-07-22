@@ -5,8 +5,9 @@
 # Released under the GNU General Public License, version 2.
 #
 includedir = 	${prefix}/usr/include
-libdir =	${prefix}/lib
-usrlibdir =	${prefix}/usr/lib
+oslibdir =	$(shell $(CC) $(CFLAGS) -print-multi-os-directory)
+libdir =	$(realpath ${prefix}/lib/$(oslibdir))
+usrlibdir =	$(realpath ${prefix}/usr/lib/$(oslibdir))
 
 INSTALL = install -c
 INSTALL_DATA  = ${INSTALL} -m 644
