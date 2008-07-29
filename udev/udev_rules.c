@@ -174,7 +174,7 @@ static int run_program(const char *command, const char *subsystem,
 
 	/* allow programs in /lib/udev called without the path */
 	if (strchr(argv[0], '/') == NULL) {
-		strlcpy(program, "/lib/udev/", sizeof(program));
+		strlcpy(program, UDEV_PREFIX "/lib/udev/", sizeof(program));
 		strlcat(program, argv[0], sizeof(program));
 		argv[0] = program;
 	}

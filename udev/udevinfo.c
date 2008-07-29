@@ -16,6 +16,8 @@
  *
  */
 
+#include "config.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -373,10 +375,10 @@ int udevinfo(int argc, char *argv[], char *envp[])
 			export_prefix = optarg;
 			break;
 		case 1:
-			printf("%s\n", UDEV_VERSION);
+			printf("%s\n", VERSION);
 			goto exit;
 		case 'V':
-			printf("udevinfo, version %s\n", UDEV_VERSION);
+			printf("udevinfo, version %s\n", VERSION);
 			goto exit;
 		case 'h':
 			printf("Usage: udevadm info OPTIONS\n"

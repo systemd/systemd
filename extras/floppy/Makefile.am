@@ -1,0 +1,29 @@
+udevhomedir = $(udev_prefix)/lib/udev
+udevhome_PROGRAMS = \
+	create_floppy_devices
+
+AM_CPPFLAGS = \
+	-DSYSCONFDIR=\""$(sysconfdir)"\" \
+	-DUDEV_PREFIX=\""$(udev_prefix)"\"
+
+create_floppy_devices_SOURCES = \
+	create_floppy_devices.c \
+	../../udev/udev_config.c \
+	../../udev/udev_sysdeps.c \
+	../../udev/udev_utils.c \
+	../../udev/udev_utils_string.c \
+	../../udev/udev_utils_file.c
+if USE_SELINUX
+create_floppy_devices_SOURCES += \
+	../../udev/udev_selinux.c
+
+create_floppy_devices_LDADD = \
+	$(SELINUX_LIBS)
+endif
+
+dist_man_MANS = \
+	create_floppy_devices.8
+
+distclean-local:
+	rm -f Makefile.in
+

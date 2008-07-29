@@ -17,6 +17,8 @@
  *
  */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -71,7 +73,7 @@ int main(int argc, char *argv[], char *envp[])
 	int retval = -EINVAL;
 
 	if (argc == 2 && strcmp(argv[1], "-V") == 0) {
-		printf("%s\n", UDEV_VERSION);
+		printf("%s\n", VERSION);
 		exit(0);
 	}
 
@@ -93,7 +95,7 @@ int main(int argc, char *argv[], char *envp[])
 		err("open /dev/null failed: %s\n", strerror(errno));
 	udev_config_init();
 	selinux_init();
-	dbg("version %s\n", UDEV_VERSION);
+	dbg("version %s\n", VERSION);
 
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(act));

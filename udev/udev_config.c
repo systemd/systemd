@@ -164,8 +164,8 @@ void udev_config_init(void)
 {
 	const char *env;
 
-	strcpy(udev_config_filename, UDEV_CONFIG_FILE);
-	strcpy(udev_root, UDEV_ROOT);
+	strcpy(udev_config_filename, SYSCONFDIR "/udev/udev.conf");
+	strcpy(udev_root, UDEV_PREFIX "/dev");
 	udev_rules_dir[0] = '\0';
 	udev_log_priority = LOG_ERR;
 	udev_run = 1;

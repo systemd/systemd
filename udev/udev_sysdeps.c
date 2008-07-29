@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
- * Copyright (C) 2005-2006 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005-2008 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -20,14 +19,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
-#include <fcntl.h>
-#include <errno.h>
 #include <sys/types.h>
 
-#include "udev.h"
-
-#ifdef __GLIBC__
+#ifndef HAVE_STRLCPY
 size_t strlcpy(char *dst, const char *src, size_t size)
 {
 	size_t bytes = 0;
@@ -70,4 +64,4 @@ size_t strlcat(char *dst, const char *src, size_t size)
 	*q = '\0';
 	return bytes;
 }
-#endif /* __GLIBC__ */
+#endif /* HAVE_STRLCPY */

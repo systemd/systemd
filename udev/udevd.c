@@ -17,6 +17,8 @@
  *
  */
 
+#include "config.h"
+
 #include <stddef.h>
 #include <signal.h>
 #include <unistd.h>
@@ -39,6 +41,9 @@
 #include <sys/ioctl.h>
 #include <linux/types.h>
 #include <linux/netlink.h>
+#ifdef HAVE_INOTIFY
+#include <sys/inotify.h>
+#endif
 
 #include "udev.h"
 #include "udev_rules.h"
@@ -156,12 +161,12 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 	size_t start;
 
 	/* location of queue file */
-	snprintf(filename, sizeof(filename), "%s/"EVENT_QUEUE_DIR"/%llu", udev_root, msg->seqnum);
+	snprintf(filename, sizeof(filename), "%s/.udev/queue/%llu", udev_root, msg->seqnum);
 
 	/* location of failed file */
 	strlcpy(filename_failed, udev_root, sizeof(filename_failed));
 	strlcat(filename_failed, "/", sizeof(filename_failed));
-	start = strlcat(filename_failed, EVENT_FAILED_DIR"/", sizeof(filename_failed));
+	start = strlcat(filename_failed, ".udev/failed/", sizeof(filename_failed));
 	strlcat(filename_failed, msg->devpath, sizeof(filename_failed));
 	path_encode(&filename_failed[start], sizeof(filename_failed) - start);
 
@@ -182,7 +187,7 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 
 			strlcpy(filename_failed_old, udev_root, sizeof(filename_failed_old));
 			strlcat(filename_failed_old, "/", sizeof(filename_failed_old));
-			start = strlcat(filename_failed_old, EVENT_FAILED_DIR"/", sizeof(filename_failed_old));
+			start = strlcat(filename_failed_old, ".udev/failed/", sizeof(filename_failed_old));
 			strlcat(filename_failed_old, msg->devpath_old, sizeof(filename_failed_old));
 			path_encode(&filename_failed_old[start], sizeof(filename) - start);
 
@@ -273,7 +278,7 @@ static void msg_queue_insert(struct udevd_uevent_msg *msg)
 	info("seq %llu queued, '%s' '%s'\n", msg->seqnum, msg->action, msg->subsystem);
 
 	strlcpy(filename, udev_root, sizeof(filename));
-	strlcat(filename, "/" EVENT_SEQNUM, sizeof(filename));
+	strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
 	fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
 	if (fd >= 0) {
 		char str[32];
@@ -939,7 +944,7 @@ static void export_initial_seqnum(void)
 		len = 3;
 	}
 	strlcpy(filename, udev_root, sizeof(filename));
-	strlcat(filename, "/" EVENT_SEQNUM, sizeof(filename));
+	strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
 	create_path(filename);
 	fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
 	if (fd >= 0) {
@@ -971,7 +976,7 @@ int main(int argc, char *argv[], char *envp[])
 	logging_init("udevd");
 	udev_config_init();
 	selinux_init();
-	dbg("version %s\n", UDEV_VERSION);
+	dbg("version %s\n", VERSION);
 
 	while (1) {
 		option = getopt_long(argc, argv, "dDthV", options, NULL);
@@ -994,7 +999,7 @@ int main(int argc, char *argv[], char *envp[])
 			printf("Usage: udevd [--help] [--daemon] [--debug-trace] [--debug] [--version]\n");
 			goto exit;
 		case 'V':
-			printf("%s\n", UDEV_VERSION);
+			printf("%s\n", VERSION);
 			goto exit;
 		default:
 			goto exit;
@@ -1123,7 +1128,7 @@ int main(int argc, char *argv[], char *envp[])
 
 	fd = open("/dev/kmsg", O_WRONLY);
 	if (fd > 0) {
-		const char *str = "<6>udevd version " UDEV_VERSION " started\n";
+		const char *str = "<6>udevd version " VERSION " started\n";
 
 		write(fd, str, strlen(str));
 		close(fd);
@@ -1148,14 +1153,14 @@ int main(int argc, char *argv[], char *envp[])
 		} else {
 			char filename[PATH_MAX];
 
-			inotify_add_watch(inotify_fd, RULES_LIB_DIR,
+			inotify_add_watch(inotify_fd, UDEV_PREFIX "/lib/udev/rules.d",
 					  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
-			inotify_add_watch(inotify_fd, RULES_ETC_DIR,
+			inotify_add_watch(inotify_fd, SYSCONFDIR "/udev/rules.d",
 					  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
 
 			/* watch dynamic rules directory */
 			strlcpy(filename, udev_root, sizeof(filename));
-			strlcat(filename, "/"RULES_DYN_DIR, sizeof(filename));
+			strlcat(filename, "/.udev/rules.d", sizeof(filename));
 			inotify_add_watch(inotify_fd, filename,
 					  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
 		}

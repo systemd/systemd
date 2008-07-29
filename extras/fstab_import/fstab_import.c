@@ -24,7 +24,7 @@
 #include <mntent.h>
 #include <sys/stat.h>
 
-#include "../../udev.h"
+#include "../../udev/udev.h"
 
 static int debug;
 static char root[PATH_SIZE] = "/dev";

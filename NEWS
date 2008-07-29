@@ -1,3 +1,27 @@
+udev 126
+========
+We use ./configure now. See INSTALL for details. Current
+options are:
+    --prefix=
+        "/usr" - prefix for man pages, include files
+    --exec-prefix=
+        "" - the root filesystem, prefix for libs and binaries
+    --sysconfdir=
+        "/etc"
+    --with-libdir-name=
+        "lib" - directory name for libraries, not a path name
+        multilib 64bit systems may use "lib64" instead of "lib"
+    --enable-debug
+        compile-in verbose debug messages
+    --disable-logging
+        disable all logging and compile-out all log strings
+    --enable-selinux
+        link against SELInux libraries to set the expected context
+        for created files
+
+No symlinks to udevadm are installed anymore, if still neded, the
+package should create them.
+
 udev 125
 ========
 Bugfixes.

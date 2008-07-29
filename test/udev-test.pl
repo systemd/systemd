@@ -22,7 +22,7 @@ use strict;
 
 my $PWD		= $ENV{PWD};
 my $sysfs	= "sys/";
-my $udev_bin	= "../test-udev";
+my $udev_bin	= "../udev/test-udev";
 my $udev_root	= "udev-root/";
 my $udev_conf	= "udev-test.conf";
 my $udev_rules	= "udev-test.rules";

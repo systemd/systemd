@@ -30,10 +30,9 @@
 /* #include <linux/bsg.h> */
 #include "bsg.h"
 
-#include "../../udev.h"
+#include "../../udev/udev.h"
 #include "scsi.h"
 #include "scsi_id.h"
-#include "scsi_id_version.h"
 
 /*
  * A priority based list of id, naa, and binary/ascii for the identifier

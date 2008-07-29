@@ -16,6 +16,8 @@
  *
  */
 
+#include "config.h"
+
 #include <time.h>
 #include <errno.h>
 #include <stdio.h>
@@ -50,7 +52,7 @@ int udevcontrol(int argc, char *argv[], char *envp[])
 		udev_log = log_priority(env);
 
 	logging_init("udevcontrol");
-	dbg("version %s\n", UDEV_VERSION);
+	dbg("version %s\n", VERSION);
 
 	if (argc < 2) {
 		fprintf(stderr, "missing command\n\n");

@@ -89,7 +89,7 @@ int udevsettle(int argc, char *argv[], char *envp[])
 
 	logging_init("udevsettle");
 	udev_config_init();
-	dbg("version %s\n", UDEV_VERSION);
+	dbg("version %s\n", VERSION);
 	sysfs_init();
 
 	while (1) {
@@ -113,7 +113,7 @@ int udevsettle(int argc, char *argv[], char *envp[])
 	}
 
 	strlcpy(queuename, udev_root, sizeof(queuename));
-	strlcat(queuename, "/" EVENT_QUEUE_DIR, sizeof(queuename));
+	strlcat(queuename, "/.udev/queue", sizeof(queuename));
 
 	loop = timeout * LOOP_PER_SECOND;
 	while (loop--) {
@@ -135,7 +135,7 @@ int udevsettle(int argc, char *argv[], char *envp[])
 
 		/* read current udev seqnum */
 		strlcpy(filename, udev_root, sizeof(filename));
-		strlcat(filename, "/" EVENT_SEQNUM, sizeof(filename));
+		strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
 		fd = open(filename, O_RDONLY);
 		if (fd < 0)
 			goto exit;

@@ -24,8 +24,8 @@
 #include <pwd.h>
 #include <grp.h>
 
-#include "../../udev.h"
-#include "../../udev_selinux.h"
+#include "../../udev/udev.h"
+#include "../../udev/udev_selinux.h"
 
 static char *table[] = {
 	"", "d360", "h1200", "u360", "u720", "h360", "h720",

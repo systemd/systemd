@@ -22,10 +22,6 @@
 #define UDEVD_PRIORITY			-4
 #define UDEV_PRIORITY			-2
 
-#define EVENT_QUEUE_DIR			".udev/queue"
-#define EVENT_FAILED_DIR		".udev/failed"
-#define EVENT_SEQNUM			".udev/uevent_seqnum"
-
 /* maximum limit of forked childs */
 #define UDEVD_MAX_CHILDS		256
 /* start to throttle forking if maximum number of running childs in our session is reached */
@@ -35,8 +31,8 @@
 #define UEVENT_BUFFER_SIZE		2048
 #define UEVENT_NUM_ENVP			32
 
-#define UDEVD_CTRL_SOCK_PATH		"/org/kernel/udev/udevd"
-#define UDEVD_CTRL_MAGIC		"udevd_" UDEV_VERSION
+#define UDEVD_CTRL_SOCK_PATH		UDEV_PREFIX "/org/kernel/udev/udevd"
+#define UDEVD_CTRL_MAGIC		"udevd_" VERSION
 
 enum udevd_ctrl_msg_type {
 	UDEVD_CTRL_UNKNOWN,

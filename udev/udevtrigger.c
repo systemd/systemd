@@ -536,7 +536,7 @@ static void scan_failed(void)
 	struct dirent *dent;
 
 	strlcpy(base, udev_root, sizeof(base));
-	strlcat(base, "/" EVENT_FAILED_DIR, sizeof(base));
+	strlcat(base, "/.udev/failed", sizeof(base));
 
 	dir = opendir(base);
 	if (dir != NULL) {
@@ -582,7 +582,7 @@ int udevtrigger(int argc, char *argv[], char *envp[])
 
 	logging_init("udevtrigger");
 	udev_config_init();
-	dbg("version %s\n", UDEV_VERSION);
+	dbg("version %s\n", VERSION);
 	sysfs_init();
 
 	while (1) {

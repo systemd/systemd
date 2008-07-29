@@ -22,6 +22,8 @@
 #ifndef LOGGING_H
 #define LOGGING_H
 
+#include "config.h"
+
 #define err(format, arg...)		do { } while (0)
 #define info(format, arg...)		do { } while (0)
 #define dbg(format, arg...)		do { } while (0)

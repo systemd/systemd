@@ -40,7 +40,7 @@ static size_t devpath_to_db_path(const char *devpath, char *filename, size_t len
 
 	/* translate to location of db file */
 	strlcpy(filename, udev_root, len);
-	start = strlcat(filename, "/"DB_DIR"/", len);
+	start = strlcat(filename, "/.udev/db/", len);
 	strlcat(filename, devpath, len);
 	return path_encode(&filename[start], len - start);
 }
@@ -55,7 +55,7 @@ static int name_index(const char *devpath, const char *name, int add)
 
 	/* directory with device name */
 	strlcpy(filename, udev_root, sizeof(filename));
-	start = strlcat(filename, "/"DB_NAME_INDEX_DIR"/", sizeof(filename));
+	start = strlcat(filename, "/.udev/names/", sizeof(filename));
 	strlcat(filename, name, sizeof(filename));
 	path_encode(&filename[start], sizeof(filename) - start);
 	/* entry with the devpath */
@@ -86,7 +86,7 @@ int udev_db_get_devices_by_name(const char *name, struct list_head *name_list)
 	int rc = 0;
 
 	strlcpy(dirname, udev_root, sizeof(dirname));
-	start = strlcat(dirname, "/"DB_NAME_INDEX_DIR"/", sizeof(dirname));
+	start = strlcat(dirname, "/.udev/names/", sizeof(dirname));
 	strlcat(dirname, name, sizeof(dirname));
 	path_encode(&dirname[start], sizeof(dirname) - start);
 
@@ -303,7 +303,7 @@ int udev_db_get_all_entries(struct list_head *name_list)
 	DIR *dir;
 
 	strlcpy(dbpath, udev_root, sizeof(dbpath));
-	strlcat(dbpath, "/"DB_DIR, sizeof(dbpath));
+	strlcat(dbpath, "/.udev/db", sizeof(dbpath));
 	dir = opendir(dbpath);
 	if (dir == NULL) {
 		info("no udev_db available '%s': %s\n", dbpath, strerror(errno));

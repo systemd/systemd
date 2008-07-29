@@ -451,7 +451,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 
 				/* allow programs in /lib/udev called without the path */
 				if (strchr(file, '/') == NULL) {
-					strlcpy(file, "/lib/udev/", sizeof(file));
+					strlcpy(file, UDEV_PREFIX "/lib/udev/", sizeof(file));
 					strlcat(file, value, sizeof(file));
 					pos = strchr(file, ' ');
 					if (pos)
@@ -739,24 +739,24 @@ int udev_rules_init(struct udev_rules *rules, int resolve_names)
 
 	if (udev_rules_dir[0] != '\0') {
 		/* custom rules location for testing */
-		add_matching_files(&name_list, udev_rules_dir, RULESFILE_SUFFIX);
+		add_matching_files(&name_list, udev_rules_dir, ".rules");
 	} else {
 		/* read default rules */
-		add_matching_files(&name_list, RULES_LIB_DIR, RULESFILE_SUFFIX);
+		add_matching_files(&name_list, UDEV_PREFIX "/lib/udev/rules.d", ".rules");
 
 		/* read user/custom rules */
-		add_matching_files(&sort_list, RULES_ETC_DIR, RULESFILE_SUFFIX);
+		add_matching_files(&sort_list, SYSCONFDIR "/udev/rules.d", ".rules");
 
 		/* read dynamic/temporary rules */
 		strlcpy(filename, udev_root, sizeof(filename));
-		strlcat(filename, "/"RULES_DYN_DIR, sizeof(filename));
+		strlcat(filename, "/.udev/rules.d", sizeof(filename));
 		if (stat(filename, &statbuf) != 0) {
 			create_path(filename);
 			selinux_setfscreatecon(filename, NULL, S_IFDIR|0755);
 			mkdir(filename, 0755);
 			selinux_resetfscreatecon();
 		}
-		add_matching_files(&sort_list, filename, RULESFILE_SUFFIX);
+		add_matching_files(&sort_list, filename, ".rules");
 
 		/* sort all rules files by basename into list of files */
 		list_for_each_entry_safe(sort_loop, sort_tmp, &sort_list, node) {

@@ -16,6 +16,8 @@
  *
  */
 
+#include "config.h"
+
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,9 +39,9 @@ void log_message(int priority, const char *format, ...)
 		return;
 
 	va_start(args, format);
-	if (debug) {
+	if (debug)
 		vprintf(format, args);
-	} else
+	else
 		vsyslog(priority, format, args);
 	va_end(args);
 }
@@ -56,7 +58,7 @@ static const struct command cmds[];
 
 static int version(int argc, char *argv[], char *envp[])
 {
-	printf("%s\n", UDEV_VERSION);
+	printf("%s\n", VERSION);
 	return 0;
 }
 

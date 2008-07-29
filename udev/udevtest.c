@@ -91,7 +91,7 @@ int udevtest(int argc, char *argv[], char *envp[])
 		{}
 	};
 
-	info("version %s\n", UDEV_VERSION);
+	info("version %s\n", VERSION);
 	udev_config_init();
 	if (udev_log_priority < LOG_INFO) {
 		char priority[32];

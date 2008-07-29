@@ -14,6 +14,8 @@
  *	Free Software Foundation version 2 of the License.
  */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -27,9 +29,8 @@
 #include <getopt.h>
 #include <sys/stat.h>
 
-#include "../../udev.h"
+#include "../../udev/udev.h"
 #include "scsi_id.h"
-#include "scsi_id_version.h"
 
 static const struct option options[] = {
 	{ "device", 1, NULL, 'd' },
@@ -51,7 +52,7 @@ static const char dev_short_options[] = "bgp:";
 
 static int all_good;
 static int dev_specified;
-static char config_file[MAX_PATH_LEN] = SCSI_ID_CONFIG_FILE;
+static char config_file[MAX_PATH_LEN] = SYSCONFDIR "/scsi_id.config";
 static enum page_code default_page_code;
 static int sg_version = 4;
 static int use_stderr;
@@ -468,7 +469,7 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			break;
 
 		case 'V':
-			printf("%s\n", SCSI_ID_VERSION);
+			printf("%s\n", VERSION);
 			exit(0);
 			break;
 

@@ -20,7 +20,7 @@
 #include <errno.h>
 #include <getopt.h>
 
-#include "../../udev.h"
+#include "../../udev/udev.h"
 
 #define MAX_PATH_LEN			512
 #define MAX_SERIAL_LEN			256

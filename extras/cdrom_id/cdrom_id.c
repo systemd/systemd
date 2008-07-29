@@ -37,7 +37,8 @@
 #include <sys/time.h>
 #include <sys/ioctl.h>
 #include <linux/cdrom.h>
-#include "../../udev.h"
+
+#include "../../udev/udev.h"
 
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))

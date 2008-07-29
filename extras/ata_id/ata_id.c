@@ -26,7 +26,7 @@
 #include <linux/types.h>
 #include <linux/hdreg.h>
 
-#include "../../udev.h"
+#include "../../udev/udev.h"
 
 #ifdef USE_LOG
 void log_message(int priority, const char *format, ...)
