@@ -23,3 +23,5 @@ KERNEL=="vcs[0-9]*",           OWNER="vcsa", GROUP="tty"
 KERNEL=="vcsa",                OWNER="vcsa", GROUP="tty"
 KERNEL=="vcsa[0-9]*",          OWNER="vcsa", GROUP="tty"
 KERNEL=="vcc/*",               OWNER="vcsa", GROUP="tty"
+
+KERNEL=="event*", ATTRS{idVendor}=="03f0", ATTRS{interface}=="Virtual Mouse", ATTRS{bInterfaceProtocol}=="02", SYMLINK+="input/hp_ilo_mouse"
