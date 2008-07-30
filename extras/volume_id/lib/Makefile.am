@@ -53,8 +53,9 @@ libvolume_id_la_LDFLAGS = \
 install-data-hook:
 	rm  $(DESTDIR)$(rootlibdir)/libvolume_id.la
 	if test "$(prefix)" != "$(exec_prefix)"; then \
-		rm $(DESTDIR)$(rootlibdir)/libvolume_id.so; \
 		mkdir -p $(DESTDIR)$(prefix)/$(libdir_name); \
+		mv $(DESTDIR)$(rootlibdir)/libvolume_id.a $(DESTDIR)$(prefix)/$(libdir_name)/; \
+		rm $(DESTDIR)$(rootlibdir)/libvolume_id.so; \
 		ln -sf $(rootlibdir)/libvolume_id.so.$(VOLID_LT_CURRENT).$(VOLID_LT_AGE).$(VOLID_LT_REVISION) \
 			$(DESTDIR)$(prefix)/$(libdir_name)/libvolume_id.so; \
 	fi
