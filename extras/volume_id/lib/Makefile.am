@@ -55,8 +55,10 @@ install-data-hook:
 	if test "$(prefix)" != "$(exec_prefix)"; then \
 		mkdir -p $(DESTDIR)$(prefix)/$(libdir_name); \
 		mv $(DESTDIR)$(rootlibdir)/libvolume_id.a $(DESTDIR)$(prefix)/$(libdir_name)/; \
+		so_img_name=$$(readlink $(DESTDIR)$(rootlibdir)/libvolume_id.so); \
 		rm $(DESTDIR)$(rootlibdir)/libvolume_id.so; \
-		ln -sf $(rootlibdir)/libvolume_id.so.$(VOLID_LT_CURRENT).$(VOLID_LT_AGE).$(VOLID_LT_REVISION) \
+		so_img_rel_target_prefix=$$(echo $(prefix)/$(libdir_name) | sed 's,\(^/\|\)[^/][^/]*,..,g'); \
+		ln -sf  $$so_img_rel_target_prefix$(exec_prefix)/$(libdir_name)/$$so_img_name \
 			$(DESTDIR)$(prefix)/$(libdir_name)/libvolume_id.so; \
 	fi
 
