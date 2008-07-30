@@ -1,11 +1,13 @@
 Summary of changes from v125 to v126
 ============================================
 
-Kay Sievers (4):
+Kay Sievers (6):
       delete all Makefiles and move udev source to udev/
       use autotools
       rules: mode 0660 for group "disk"
       rules: update Fedora rules
+      update ChangeLog
+      INSTALL: --enable-selinux not --with-selinux
 
 Thomas Koeller (1):
       use proper directory lib/lib64 for libvolume_id

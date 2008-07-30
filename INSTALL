@@ -12,7 +12,7 @@
         compile-in verbose debug messages
     --disable-logging
         disable all logging and compile-out all log strings
-    --enable-selinux
+    --with-selinux
         link against SELInux libraries to set the expected context
         for created files
 
