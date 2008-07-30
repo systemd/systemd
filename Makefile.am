@@ -20,16 +20,17 @@ distclean-local:
 	rm -rf udev-test-install
 	rm -f udev-$(VERSION).tar.gz udev-$(VERSION).tar.bz2
 
-ChangeLog:
-	@ mv $@ $@.tmp
-	@ echo "Summary of changes from v$(shell echo $$(($(VERSION) - 1))) to v$(VERSION)" >> $@
-	@ echo "============================================" >> $@
-	@ echo >> $@
-	@ git log --pretty=short $(shell echo $$(($(VERSION) - 1)))..HEAD | git shortlog  >> $@
-	@ echo >> $@
-	@ cat $@
-	@ cat $@.tmp >> $@
-	@ rm $@.tmp
+changelog:
+	@ head -1 ChangeLog | grep -q "to v$(shell echo $$(($(VERSION) - 1)))"
+	@ mv ChangeLog ChangeLog.tmp
+	@ echo "Summary of changes from v$(shell echo $$(($(VERSION) - 1))) to v$(VERSION)" >> ChangeLog
+	@ echo "============================================" >> ChangeLog
+	@ echo >> ChangeLog
+	@ git log --pretty=short $(shell echo $$(($(VERSION) - 1)))..HEAD | git shortlog  >> ChangeLog
+	@ echo >> ChangeLog
+	@ cat ChangeLog
+	@ cat ChangeLog.tmp >> ChangeLog
+	@ rm ChangeLog.tmp
 
 test-run:
 	cd test && ./udev-test.pl
