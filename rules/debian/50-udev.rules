@@ -29,8 +29,8 @@ SUBSYSTEMS=="usb", KERNEL=="ttyUSB*", \
 						SYMLINK+="pilot"
 
 # usbfs-like devices
-SUBSYSTEM=="usb_device", ACTION=="add", \
-	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", ACTION=="add", \
+SUBSYSTEM=="usb_device", ACTION=="add|change", \
+	PROGRAM="/bin/sh -c 'K=%k; K=$${K#usbdev}; printf bus/usb/%%03i/%%03i $${K%%%%.*} $${K#*.}'", ACTION=="add|change", \
 				NAME="$result"
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device",	NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}"
 
@@ -39,7 +39,7 @@ KERNEL=="capi",			NAME="capi20", SYMLINK+="isdn/capi20"
 KERNEL=="capi[0-9]*",		NAME="capi/%n"
 
 # video devices
-KERNEL=="dvb*",			PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}", ACTION=="add", \
+KERNEL=="dvb*",			PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}", ACTION=="add|change", \
 				NAME="$result"
 KERNEL=="card[0-9]*",		NAME="dri/%k"
 

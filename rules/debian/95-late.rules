@@ -14,5 +14,5 @@ ACTION=="remove", NAME=="?*", TEST=="/lib/udev/devices/$name", \
 						OPTIONS+="ignore_remove"
 
 # debugging monitor
-RUN+="socket:/org/kernel/udev/monitor"
+RUN+="socket:@/org/kernel/udev/monitor"
 

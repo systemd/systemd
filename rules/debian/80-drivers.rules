@@ -52,6 +52,8 @@ LABEL="hotplug_not_add_event"
 
 SUBSYSTEM=="net",				RUN+="net.agent"
 
+SUBSYSTEM=="atm",				RUN+="dsl-modem.agent"
+
 # Log every event to /dev/hotplug.log (for debugging).
 #RUN+="logger.agent"
 

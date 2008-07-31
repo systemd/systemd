@@ -1,4 +1,4 @@
-ACTION!="add", GOTO="permissions_end"
+ACTION!="add|change", GOTO="permissions_end"
 
 # devices needed to load the drivers providing them
 KERNEL=="tun",					OPTIONS+="ignore_remove"

@@ -1,5 +1,5 @@
 # These rules generate rules to keep network interface names unchanged
-# across reboots write them to /etc/udev/rules.d/70-persistent-net.rules.
+# across reboots and write them to /etc/udev/rules.d/70-persistent-net.rules.
 
 # variables used to communicate:
 #   MATCHADDR		MAC address used for the match
@@ -15,9 +15,6 @@ SUBSYSTEM!="net",			GOTO="persistent_net_generator_end"
 
 # ignore the interface if a name has already been set
 NAME=="?*",				GOTO="persistent_net_generator_end"
-
-# ignore interfaces without a driver link like bridges and VLANs
-DRIVERS!="?*",				GOTO="persistent_net_generator_end"
 
 # device name whitelist
 KERNEL!="eth*|ath*|wlan*[0-9]|msh*|ra*|sta*|ctc*|lcs*|hsi*", \
@@ -76,8 +73,9 @@ ATTRS{driver}=="?*", \
  ENV{COMMENT}="$env{COMMENT} ($attr{driver})"
 
 
+# ignore interfaces without a driver link like bridges and VLANs, otherwise
 # generate and write the rule
-IMPORT{program}="write_net_rules"
+DRIVERS=="?*", IMPORT{program}="write_net_rules"
 
 # rename the interface if requested
 ENV{INTERFACE_NEW}=="?*", NAME="$env{INTERFACE_NEW}"
