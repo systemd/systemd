@@ -1,13 +1,19 @@
 Summary of changes from v125 to v126
 ============================================
 
-Kay Sievers (6):
+Kay Sievers (9):
       delete all Makefiles and move udev source to udev/
       use autotools
       rules: mode 0660 for group "disk"
       rules: update Fedora rules
       update ChangeLog
       INSTALL: --enable-selinux not --with-selinux
+      volume_id: move static lib to $prefix
+      volume_id: create relative links
+      rules: run vol_id on opticals only if media is found
+
+Marco d'Itri (1):
+      rules: Debian update
 
 Thomas Koeller (1):
       use proper directory lib/lib64 for libvolume_id

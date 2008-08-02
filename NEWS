@@ -16,11 +16,15 @@ options are:
     --disable-logging
         disable all logging and compile-out all log strings
     --with-selinux
-        link against SELInux libraries to set the expected context
+        link against SELInux libraries, to set the expected context
         for created files
 
-No symlinks to udevadm are installed anymore, if still neded, the
-package should create them.
+In the default rules, the group "disk" gets permissions 0660 instead
+of 0640. One small step closer to unify distro rules. Some day, all
+distros hopefully end up with the same set of rules.
+
+No symlinks to udevadm are installed anymore, if they are still needed,
+they should be provided by the package.
 
 udev 125
 ========

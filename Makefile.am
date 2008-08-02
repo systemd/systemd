@@ -40,3 +40,11 @@ test-install:
 	make DESTDIR=$(PWD)/udev-test-install install
 	tree $(PWD)/udev-test-install/
 
+git-release:
+	head -1 ChangeLog | grep -q "to v$(VERSION)"
+	head -1 NEWS | grep -q "udev $(VERSION)"
+	git commit -a -m "release $(VERSION)"
+	cat .git/refs/heads/master > .git/refs/tags/$(VERSION)
+	git gc
+	git prune
+	git-update-server-info
