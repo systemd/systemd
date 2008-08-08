@@ -41,6 +41,12 @@ static inline int inotify_add_watch(int fd, const char *name, uint32_t mask)
 {
 	return -1;
 }
+
+#define IN_CREATE	0
+#define IN_DELETE	0
+#define IN_MOVE		0
+#define IN_CLOSE_WRITE	0
+
 #endif
 
 #ifndef HAVE_STRLCPY
