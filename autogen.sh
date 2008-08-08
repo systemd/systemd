@@ -1,11 +1,5 @@
 #!/bin/sh -e
 
-(autopoint --version) < /dev/null > /dev/null 2>&1 || {
-	echo
-	echo "You must have autopoint installed to generate the build system.."
-	echo
-	exit 1
-}
 (autoconf --version) < /dev/null > /dev/null 2>&1 || {
 	echo
 	echo "You must have autoconf installed to generate the build system."
