@@ -392,6 +392,8 @@ static void scan_subsystem(const char *subsys, enum scan_type scan)
 			strlcat(dirname, dent->d_name, sizeof(dirname));
 
 			if (scan == SCAN_SUBSYSTEM) {
+				if (attr_filtered(dirname))
+					continue;
 				if (!subsystem_filtered("subsystem"))
 					device_list_insert(dirname);
 				if (subsystem_filtered("drivers"))
