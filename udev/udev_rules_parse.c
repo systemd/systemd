@@ -741,11 +741,8 @@ int udev_rules_init(struct udev_rules *rules, int resolve_names)
 		/* custom rules location for testing */
 		add_matching_files(&name_list, udev_rules_dir, ".rules");
 	} else {
-		/* read default rules */
-		add_matching_files(&name_list, UDEV_PREFIX "/lib/udev/rules.d", ".rules");
-
 		/* read user/custom rules */
-		add_matching_files(&sort_list, SYSCONFDIR "/udev/rules.d", ".rules");
+		add_matching_files(&name_list, SYSCONFDIR "/udev/rules.d", ".rules");
 
 		/* read dynamic/temporary rules */
 		strlcpy(filename, udev_root, sizeof(filename));
@@ -757,6 +754,9 @@ int udev_rules_init(struct udev_rules *rules, int resolve_names)
 			selinux_resetfscreatecon();
 		}
 		add_matching_files(&sort_list, filename, ".rules");
+
+		/* read default rules */
+		add_matching_files(&sort_list, UDEV_PREFIX "/lib/udev/rules.d", ".rules");
 
 		/* sort all rules files by basename into list of files */
 		list_for_each_entry_safe(sort_loop, sort_tmp, &sort_list, node) {
@@ -771,10 +771,20 @@ int udev_rules_init(struct udev_rules *rules, int resolve_names)
 				if (name_base == NULL)
 					continue;
 
+				if (strcmp(name_base, sort_base) == 0) {
+					info("rule file '%s' already added, ignoring '%s'\n",
+					     name_loop->name, sort_loop->name);
+					list_del(&sort_loop->node);
+					free(sort_loop);
+					sort_loop = NULL;
+					continue;
+				}
+
 				if (strcmp(name_base, sort_base) > 0)
 					break;
 			}
-			list_move_tail(&sort_loop->node, &name_loop->node);
+			if (sort_loop != NULL)
+				list_move_tail(&sort_loop->node, &name_loop->node);
 		}
 	}
 
