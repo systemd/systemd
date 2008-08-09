@@ -1,4 +1,5 @@
 These things would be nice to have:
+  o get all distros to agree on a default set of rules
 
 These things will change in future udev versions:
   o --device-id-of-file will print '5:8' instead of '5 8'

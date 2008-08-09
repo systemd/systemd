@@ -1,12 +1,12 @@
 *.o
 *.lo
 *.la
-.libs/
-.deps/
+.libs
+.deps
 Makefile
 Makefile.in
 aclocal.m4
-autom4te.cache/
+autom4te.cache
 config.h
 config.h.in
 config.log
@@ -20,4 +20,4 @@ missing
 configure
 stamp-h1
 depcomp
-udev-test-install/
+udev-test-install
