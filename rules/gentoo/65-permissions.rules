@@ -15,7 +15,7 @@ KERNEL=="st[0-9]*|nst[0-9]*|ht[0-9]*|nht[0-9]*|pt[0-9]*|npt[0-9]*", \
 SUBSYSTEMS=="scsi", KERNEL=="sg[0-9]*", ATTRS{type}=="[18]", GROUP="tape", MODE="660"
 
 # dialout devices
-KERNEL=="ippp*|isdn*|dcbri*|capi*", GROUP="uucp"
+KERNEL=="ippp*|isdn*|dcbri*|capi*|rfcomm*|ttyACM[0-9]*", GROUP="uucp"
 KERNEL=="pilot",	GROUP="uucp"
 
 # sound devices (sound=alsa, snd=oss)
