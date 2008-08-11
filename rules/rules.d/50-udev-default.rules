@@ -18,7 +18,7 @@ KERNEL=="lirc0",		SYMLINK+="lirc"
 # mem
 KERNEL=="null|zero|full|random|urandom", MODE="0666"
 KERNEL=="null",			SYMLINK+="XOR"
-KERNEL=="mem|kmem|port",	GROUP="kmem", MODE="0640"
+KERNEL=="mem|kmem|port|nvram",	GROUP="kmem", MODE="0640"
 KERNEL=="ram0",			SYMLINK+="ramdisk"
 KERNEL=="ram1",			SYMLINK+="ram"
 
