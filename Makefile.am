@@ -12,6 +12,8 @@ EXTRA_DIST = \
 	docs \
 	autogen.sh
 
+PREVIOUS_VERSION = `expr $(VERSION) - 1`
+
 distclean-local:
 	rm -f *~
 	rm -rf autom4te.cache
@@ -21,12 +23,12 @@ distclean-local:
 	rm -f udev-$(VERSION).tar.gz udev-$(VERSION).tar.bz2
 
 changelog:
-	@ head -1 ChangeLog | grep -q "to v$(shell echo $$(($(VERSION) - 1)))"
+	@ head -1 ChangeLog | grep -q "to $(PREVIOUS_VERSION)"
 	@ mv ChangeLog ChangeLog.tmp
-	@ echo "Summary of changes from v$(shell echo $$(($(VERSION) - 1))) to v$(VERSION)" >> ChangeLog
+	@ echo "Summary of changes from v$(PREVIOUS_VERSION) to v$(VERSION)" >> ChangeLog
 	@ echo "============================================" >> ChangeLog
 	@ echo >> ChangeLog
-	@ git log --pretty=short $(shell echo $$(($(VERSION) - 1)))..HEAD | git shortlog  >> ChangeLog
+	@ git log --pretty=short $(PREVIOUS_VERSION)..HEAD | git shortlog  >> ChangeLog
 	@ echo >> ChangeLog
 	@ cat ChangeLog
 	@ cat ChangeLog.tmp >> ChangeLog
