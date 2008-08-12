@@ -11,6 +11,8 @@
  *	Free Software Foundation version 2 of the License.
  */
 
+#include <config.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>

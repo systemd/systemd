@@ -21,6 +21,8 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include "udev_sysdeps.h"
+
 #ifndef HAVE_STRLCPY
 size_t strlcpy(char *dst, const char *src, size_t size)
 {
