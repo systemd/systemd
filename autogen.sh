@@ -43,6 +43,11 @@ automake --add-missing
 
 if test -z "$@"; then
 	args="--prefix=/usr --exec-prefix= --sysconfdir=/etc"
+	export CFLAGS="-g -Wall \
+-Wmissing-declarations -Wmissing-prototypes \
+-Wnested-externs -Wpointer-arith \
+-Wpointer-arith -Wsign-compare -Wchar-subscripts \
+-Wstrict-prototypes -Wshadow"
 else
 	args=$@
 fi

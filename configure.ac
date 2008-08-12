@@ -3,7 +3,7 @@ AC_INIT([udev],
 	[kay.sievers@vrfy.org])
 AC_PREREQ(2.60)
 AC_CONFIG_SRCDIR([udev/udevd.c])
-AM_INIT_AUTOMAKE([check-news foreign -Wall 1.9 dist-bzip2])
+AM_INIT_AUTOMAKE([check-news foreign 1.9 dist-bzip2])
 AC_GNU_SOURCE
 AC_DISABLE_STATIC
 AC_SYS_LARGEFILE
