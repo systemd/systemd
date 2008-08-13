@@ -13,12 +13,9 @@ install-data-local:
 
 EXTRA_DIST = \
 	packages \
-	debian \
 	redhat \
 	suse \
-	gentoo \
-	slackware \
-	frugalware
+	gentoo
 
 
 distclean-local:
