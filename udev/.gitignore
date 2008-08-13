@@ -1,6 +1,3 @@
-*.o
-*.a
 udevd
 udevadm
 test-udev
-.deps/
