@@ -23,7 +23,7 @@ distclean-local:
 	rm -f udev-$(VERSION).tar.gz udev-$(VERSION).tar.bz2
 
 changelog:
-	@ head -1 ChangeLog | grep -q "to $(PREVIOUS_VERSION)"
+	@ head -1 ChangeLog | grep -q "to v$(PREVIOUS_VERSION)"
 	@ mv ChangeLog ChangeLog.tmp
 	@ echo "Summary of changes from v$(PREVIOUS_VERSION) to v$(VERSION)" >> ChangeLog
 	@ echo "============================================" >> ChangeLog
