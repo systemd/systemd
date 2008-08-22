@@ -38,7 +38,7 @@ KERNEL=="cciss?c[0-9]d[0-9]*", ENV{ID_SERIAL}!="?*", IMPORT{program}="scsi_id --
 KERNEL=="sd*[!0-9]|sr*|cciss?c[0-9]d[0-9]*", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
 KERNEL=="sd*[0-9]|cciss*p[0-9]*", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/$env{ID_BUS}-$env{ID_SERIAL}-part%n"
 
-# libata compat (links like hd*)
+# libata compat (ata-* links, like old hd* devices did create)
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_VENDOR}=="ATA", PROGRAM="ata_id $tempnode", RESULT=="?*", ENV{ID_ATA_COMPAT}="$result", SYMLINK+="disk/by-id/ata-$env{ID_ATA_COMPAT}"
 KERNEL=="sd*[0-9]", ENV{ID_ATA_COMPAT}=="?*", SYMLINK+="disk/by-id/ata-$env{ID_ATA_COMPAT}-part%n"
 
@@ -52,11 +52,12 @@ ENV{DEVTYPE}=="partition", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PA
 
 # skip unpartitioned removable media devices from drivers which do not send "change" events
 ENV{DEVTYPE}=="disk", KERNEL!="sd*|sr*", ATTR{removable}=="1", GOTO="persistent_storage_end"
-# skip optical drives without media
-ENV{DEVTYPE}=="disk", KERNEL=="sr*", ENV{ID_CDROM_MEDIA_TRACK_COUNT}!="?*", GOTO="persistent_storage_end"
 
-# import filesystem metadata
-IMPORT{program}="vol_id --export $tempnode"
+# probe filesystem metadata of optical drives which have a media inserted
+KERNEL=="sr*", ENV{ID_CDROM_MEDIA_TRACK_COUNT}=="?*", IMPORT{program}="vol_id --export --skip-raid --offset=$env{ID_CDROM_MEDIA_SESSION_LAST_OFFSET} $tempnode"
+
+# probe filesystem metadata of disks
+KERNEL!="sr*", IMPORT{program}="vol_id --export $tempnode"
 
 # by-label/by-uuid links (filesystem metadata)
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"
