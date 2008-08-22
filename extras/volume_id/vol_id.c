@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 		{ "export", 0, NULL, 'x' },
 		{ "skip-raid", 0, NULL, 's' },
 		{ "probe-all", 0, NULL, 'a' },
-		{ "offset", 1, NULL, 'o' },
+		{ "offset", 2, NULL, 'o' },
 		{ "help", 0, NULL, 'h' },
 		{}
 	};
@@ -196,7 +196,8 @@ int main(int argc, char *argv[])
 			probe_all = 1;
 			break;
 		case 'o':
-			offset = strtoull(optarg, NULL, 0);
+			if (optarg[0] != '\0')
+				offset = strtoull(optarg, NULL, 0);
 			break;
 		case 'h':
 			printf("Usage: vol_id [options] <device>\n"
