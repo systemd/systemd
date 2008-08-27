@@ -9,6 +9,14 @@ AC_DISABLE_STATIC
 AC_SYS_LARGEFILE
 AC_PROG_LIBTOOL
 
+dnl /* libudev version */
+LIBUDEV_LT_CURRENT=0
+LIBUDEV_LT_REVISION=0
+LIBUDEV_LT_AGE=0
+AC_SUBST(LIBUDEV_LT_CURRENT)
+AC_SUBST(LIBUDEV_LT_REVISION)
+AC_SUBST(LIBUDEV_LT_AGE)
+
 dnl /* libvolume_id version */
 VOLID_LT_CURRENT=0
 VOLID_LT_REVISION=86
@@ -74,6 +82,8 @@ AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([
 	Makefile
 	udev/Makefile
+	udev/lib/Makefile
+	udev/lib/libudev.pc
 	rules/Makefile
 	extras/Makefile
 	extras/ata_id/Makefile

@@ -1,3 +1,6 @@
+SUBDIRS = \
+	lib
+
 sbin_PROGRAMS = \
 	udevd \
 	udevadm
