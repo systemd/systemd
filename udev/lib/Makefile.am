@@ -21,6 +21,9 @@ include_HEADERS =\
 libudev_la_SOURCES =\
 	libudev-private.h \
 	libudev.c \
+	libudev-utils.c \
+	libudev-device.c \
+	libudev-enumerate.c \
 	../list.h \
 	../udev.h \
 	../udev_utils.c \

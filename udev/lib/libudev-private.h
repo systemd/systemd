@@ -57,4 +57,6 @@ static inline void udev_log(struct udev *udev,
 	      __attribute__ ((format(printf, 6, 7))) {}
 #endif
 
+extern ssize_t util_get_sys_subsystem(struct udev *udev, const char *devpath, char *subsystem, size_t size);
+
 #endif
