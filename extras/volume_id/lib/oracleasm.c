@@ -24,6 +24,7 @@
 #include <ctype.h>
 
 #include "libvolume_id.h"
+#include "libvolume_id-private.h"
 #include "util.h"
 
 struct oracleasm_super_block {

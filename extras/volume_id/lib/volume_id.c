@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 
 #include "libvolume_id.h"
+#include "libvolume_id-private.h"
 #include "util.h"
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
@@ -485,27 +486,6 @@ struct volume_id *volume_id_open_fd(int fd)
 	memset(id, 0x00, sizeof(struct volume_id));
 
 	id->fd = fd;
-
-	return id;
-}
-
-struct volume_id *volume_id_open_node(const char *path)
-{
-	struct volume_id *id;
-	int fd;
-
-	fd = open(path, O_RDONLY);
-	if (fd < 0) {
-		dbg("unable to open '%s'\n", path);
-		return NULL;
-	}
-
-	id = volume_id_open_fd(fd);
-	if (id == NULL)
-		return NULL;
-
-	/* close fd on device close */
-	id->fd_close = 1;
 
 	return id;
 }

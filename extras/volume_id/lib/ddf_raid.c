@@ -25,6 +25,7 @@
 #include <byteswap.h>
 
 #include "libvolume_id.h"
+#include "libvolume_id-private.h"
 #include "util.h"
 
 /* http://www.snia.org/standards/home */

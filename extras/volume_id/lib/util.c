@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 
 #include "libvolume_id.h"
+#include "libvolume_id-private.h"
 #include "util.h"
 
 /* count of characters used to encode one unicode char */

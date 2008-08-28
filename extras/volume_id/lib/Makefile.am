@@ -6,6 +6,7 @@ include_HEADERS =\
 	libvolume_id.h
 
 libvolume_id_la_SOURCES =\
+	libvolume_id-private.h \
 	ext.c \
 	fat.c \
 	hfs.c \
