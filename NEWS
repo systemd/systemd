@@ -2,6 +2,13 @@ udev 127
 ========
 Bugfixes.
 
+A shared library "libudev" will be installed now, to access udev
+device information. DeviceKit, the successor of HAL, will need this
+library to access the udev database and search sysfs for devices.
+The library is currently in an experimental state, also the API is
+expected to change, as long as the DeviceKit integration isn't
+finished.
+
 udev 126
 ========
 We use ./configure now. See INSTALL for details. Current

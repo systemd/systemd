@@ -15,3 +15,9 @@ udev_device_get_subsystem
 udev_device_get_devlinks
 udev_device_get_properties
 udev_devices_enumerate
+udev_monitor_new_from_socket
+udev_monitor_ref
+udev_monitor_unref
+udev_monitor_get_udev
+udev_monitor_get_fd
+udev_monitor_get_device

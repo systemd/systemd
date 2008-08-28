@@ -32,6 +32,13 @@
 #include "libudev-private.h"
 #include "../udev.h"
 
+struct udev {
+	int refcount;
+	void (*log_fn)(struct udev *udev,
+		       int priority, const char *file, int line, const char *fn,
+		       const char *format, va_list args);
+};
+
 void udev_log(struct udev *udev,
 	      int priority, const char *file, int line, const char *fn,
 	      const char *format, ...)
@@ -110,6 +117,8 @@ struct udev *udev_new(void)
  **/
 struct udev *udev_ref(struct udev *udev)
 {
+	if (udev == NULL)
+		return NULL;
 	udev->refcount++;
 	return udev;
 }
@@ -124,6 +133,8 @@ struct udev *udev_ref(struct udev *udev)
  **/
 void udev_unref(struct udev *udev)
 {
+	if (udev == NULL)
+		return;
 	udev->refcount--;
 	if (udev->refcount > 0)
 		return;
@@ -164,6 +175,8 @@ void udev_set_log_fn(struct udev *udev,
  **/
 const char *udev_get_sys_path(struct udev *udev)
 {
+	if (udev == NULL)
+		return NULL;
 	return sysfs_path;
 }
 
@@ -179,5 +192,7 @@ const char *udev_get_sys_path(struct udev *udev)
  **/
 const char *udev_get_dev_path(struct udev *udev)
 {
+	if (udev == NULL)
+		return NULL;
 	return udev_root;
 }

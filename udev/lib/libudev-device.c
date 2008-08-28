@@ -32,9 +32,12 @@
 #include "libudev-private.h"
 #include "../udev.h"
 
-static struct udev_device *device_init(struct udev *udev)
+struct udev_device *device_init(struct udev *udev)
 {
 	struct udev_device *udev_device;
+
+	if (udev == NULL)
+		return NULL;
 
 	udev_device = malloc(sizeof(struct udev_device));
 	if (udev_device == NULL)
@@ -42,6 +45,9 @@ static struct udev_device *device_init(struct udev *udev)
 	memset(udev_device, 0x00, sizeof(struct udev_device));
 	udev_device->refcount = 1;
 	udev_device->udev = udev;
+	INIT_LIST_HEAD(&udev_device->link_list);
+	INIT_LIST_HEAD(&udev_device->env_list);
+	log_info(udev_device->udev, "udev_device: %p created\n", udev_device);
 	return udev_device;
 }
 
@@ -64,7 +70,14 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
 	char path[PATH_SIZE];
 	struct stat statbuf;
 	struct udev_device *udev_device;
+	struct udevice *udevice;
+	struct name_entry *name_loop;
 	int err;
+
+	if (udev == NULL)
+		return NULL;
+	if (devpath == NULL)
+		return NULL;
 
 	strlcpy(path, udev_get_sys_path(udev), sizeof(path));
 	strlcat(path, devpath, sizeof(path));
@@ -77,20 +90,38 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
 	if (udev_device == NULL)
 		return NULL;
 
-	udev_device->udevice = udev_device_init(NULL);
-	if (udev_device->udevice == NULL) {
+	udevice = udev_device_init(NULL);
+	if (udevice == NULL) {
 		free(udev_device);
 		return NULL;
 	}
-	log_info(udev, "device %p created\n", udev_device);
 
+	/* resolve possible symlink to real path */
 	strlcpy(path, devpath, sizeof(path));
 	sysfs_resolve_link(path, sizeof(path));
+	udev_device->devpath = strdup(path);
+	log_info(udev, "device %p has devpath '%s'\n", udev_device, udev_device_get_devpath(udev_device));
 
-	err = udev_db_get_device(udev_device->udevice, path);
+	err = udev_db_get_device(udevice, path);
 	if (err >= 0)
 		log_info(udev, "device %p filled with udev database data\n", udev_device);
-	log_info(udev, "device %p filled with %s data\n", udev_device, udev_device_get_devpath(udev_device));
+
+	if (udevice->name[0] != '\0')
+		asprintf(&udev_device->devname, "%s/%s", udev_get_dev_path(udev), udevice->name);
+
+	list_for_each_entry(name_loop, &udevice->symlink_list, node) {
+		char name[PATH_SIZE];
+
+		strlcpy(name, udev_get_dev_path(udev), sizeof(name));
+		strlcat(name, "/", sizeof(name));
+		strlcat(name, name_loop->name, sizeof(name));
+		name_list_add(&udev_device->link_list, name, 0);
+	}
+
+	list_for_each_entry(name_loop, &udevice->env_list, node)
+		name_list_add(&udev_device->env_list, name_loop->name, 0);
+
+	udev_device_cleanup(udevice);
 	return udev_device;
 }
 
@@ -103,6 +134,8 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
  **/
 struct udev *udev_device_get_udev(struct udev_device *udev_device)
 {
+	if (udev_device == NULL)
+		return NULL;
 	return udev_device->udev;
 }
 
@@ -116,6 +149,8 @@ struct udev *udev_device_get_udev(struct udev_device *udev_device)
  **/
 struct udev_device *udev_device_ref(struct udev_device *udev_device)
 {
+	if (udev_device == NULL)
+		return NULL;
 	udev_device->refcount++;
 	return udev_device;
 }
@@ -130,10 +165,17 @@ struct udev_device *udev_device_ref(struct udev_device *udev_device)
  **/
 void udev_device_unref(struct udev_device *udev_device)
 {
+	if (udev_device == NULL)
+		return;
 	udev_device->refcount--;
 	if (udev_device->refcount > 0)
 		return;
-	udev_device_cleanup(udev_device->udevice);
+	free(udev_device->devpath);
+	free(udev_device->devname);
+	free(udev_device->subsystem);
+	name_list_cleanup(&udev_device->link_list);
+	name_list_cleanup(&udev_device->env_list);
+	log_info(udev_device->udev, "udev_device: %p released\n", udev_device);
 	free(udev_device);
 }
 
@@ -148,7 +190,9 @@ void udev_device_unref(struct udev_device *udev_device)
  **/
 const char *udev_device_get_devpath(struct udev_device *udev_device)
 {
-	return udev_device->udevice->dev->devpath;
+	if (udev_device == NULL)
+		return NULL;
+	return udev_device->devpath;
 }
 
 /**
@@ -156,16 +200,15 @@ const char *udev_device_get_devpath(struct udev_device *udev_device)
  * @udev_device: udev device
  *
  * Retrieve the device node file name belonging to the udev device.
- * The path does not contain the device directory, and does not contain
- * a leading '/'.
+ * The path is an absolute path, and starts with the device directory.
  *
  * Returns: the device node file name of the udev device, or #NULL if no device node exists
  **/
 const char *udev_device_get_devname(struct udev_device *udev_device)
 {
-	if (udev_device->udevice->name[0] == '\0')
+	if (udev_device == NULL)
 		return NULL;
-	return udev_device->udevice->name;
+	return udev_device->devname;
 }
 
 /**
@@ -179,13 +222,16 @@ const char *udev_device_get_devname(struct udev_device *udev_device)
  **/
 const char *udev_device_get_subsystem(struct udev_device *udev_device)
 {
-	struct sysfs_device *dev = udev_device->udevice->dev;
-	if (dev->subsystem[0] != '\0')
-		return dev->subsystem;
-	if (util_get_sys_subsystem(udev_device->udev, dev->devpath,
-			  dev->subsystem, sizeof(dev->subsystem)) < 2)
+	char subsystem[NAME_SIZE];
+
+	if (udev_device == NULL)
 		return NULL;
-	return dev->subsystem;
+	if (udev_device->subsystem != NULL)
+		return udev_device->subsystem;
+	if (util_get_sys_subsystem(udev_device->udev, udev_device->devpath, subsystem, sizeof(subsystem)) < 2)
+		return NULL;
+	udev_device->subsystem = strdup(subsystem);
+	return udev_device->subsystem;
 }
 
 /**
@@ -196,10 +242,9 @@ const char *udev_device_get_subsystem(struct udev_device *udev_device)
  *
  * Retrieve the device links pointing to the device file of the
  * udev device. For every device link, the passed function will be
- * called with the device link string. If the function returns 1,
- * remaning device links will be ignored. The device link path
- * does not contain the device directory, and does not contain
- * a leading '/'.
+ * called with the device link string.
+ * The path is an absolute path, and starts with the device directory.
+ * If the function returns 1, remaning device links will be ignored.
  *
  * Returns: the number of device links passed to the caller, or a negative value on error
  **/
@@ -210,7 +255,9 @@ int udev_device_get_devlinks(struct udev_device *udev_device,
 	struct name_entry *name_loop;
 	int count = 0;
 
-	list_for_each_entry(name_loop, &udev_device->udevice->symlink_list, node) {
+	if (udev_device == NULL)
+		return -1;
+	list_for_each_entry(name_loop, &udev_device->link_list, node) {
 		count++;
 		if (cb(udev_device, name_loop->name, data) != 0)
 			break;
@@ -238,7 +285,9 @@ int udev_device_get_properties(struct udev_device *udev_device,
 	struct name_entry *name_loop;
 	int count = 0;
 
-	list_for_each_entry(name_loop, &udev_device->udevice->env_list, node) {
+	if (udev_device == NULL)
+		return -1;
+	list_for_each_entry(name_loop, &udev_device->env_list, node) {
 		char name[PATH_SIZE];
 		char *val;
 
@@ -249,6 +298,7 @@ int udev_device_get_properties(struct udev_device *udev_device,
 			continue;
 		val[0] = '\0';
 		val = &val[1];
+		count++;
 		if (cb(udev_device, name, val, data) != 0)
 			break;
 	}

@@ -24,6 +24,7 @@ libudev_la_SOURCES =\
 	libudev-utils.c \
 	libudev-device.c \
 	libudev-enumerate.c \
+	libudev-monitor.c \
 	../list.h \
 	../udev.h \
 	../udev_utils.c \

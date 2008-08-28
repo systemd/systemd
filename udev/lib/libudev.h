@@ -22,6 +22,7 @@
 
 struct udev;
 struct udev_device;
+struct udev_monitor;
 
 extern struct udev *udev_new(void);
 extern struct udev *udev_ref(struct udev *udev);
@@ -53,5 +54,12 @@ extern int udev_devices_enumerate(struct udev *udev, const char *subsystem,
 				  int (*cb)(struct udev *udev,
 					    const char *devpath, const char *subsystem, const char *name, void *data),
 				  void *data);
+
+extern struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path);
+extern struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor);
+extern void udev_monitor_unref(struct udev_monitor *udev_monitor);
+extern struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor);
+extern int udev_monitor_get_fd(struct udev_monitor *udev_monitor);
+extern struct udev_device *udev_monitor_get_device(struct udev_monitor *udev_monitor);
 
 #endif
