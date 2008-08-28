@@ -1,36 +1,49 @@
+Usual options for udev installed in the root filesystem are:
   ./configure
-    --prefix=
-        "/usr" - prefix for man pages, include files
+    --prefix=/usr
     --exec-prefix=
-        "" - the root filesystem, prefix for libs and binaries
-    --sysconfdir=
-        "/etc"
-    --with-libdir-name=
-        "lib" - directory name for libraries, not a path name
-        multilib 64bit systems may use "lib64" instead of "lib"
-    --enable-debug
-        compile-in verbose debug messages
-    --disable-logging
-        disable all logging and compile-out all log strings
+    --sysconfdir=/etc
+For 64bit multilib-installations also:
+    --with-libdir-name=lib64
+For SELinux support:
     --with-selinux
-        link against SELInux libraries to set the expected context
-        for created files
 
-The installation directories are controlled by $prefix, $exec_prefix
-$sysconfdir and $libdir-name. Documentation, development files are
-installed below $prefix, binaries are installed below $exec_prefix,
-libraries below $exec_prefix/$libdir-name.
+All options:
+  --prefix=
+      Prefix for man pages, include files.
+  --exec-prefix=
+      Prefix for libs, binaries, usually the root filesystem.
+  --with-udev-prefix=
+      Prefix for internal udev path names, like /dev/, /lib/udev/.
+      Only useful for testing and development installations. The
+      value is copied from exec-prefix, if not specified otherwise.
+  --sysconfdir=
+      Usually /etc.
+  --with-libdir-name=
+      Directory name for libraries. This is not a path name.
+  --enable-debug
+      Compile-in verbose debug messages. Usually not needed,
+      it increases the size of the binaries.
+  --disable-logging
+      Disable all logging and compile-out all log strings. This
+      is not recommended, as it makes it almost impossible to debug
+      udev in the running system.
+  --with-selinux
+      Link against SELInux libraries to set the expected context
+      for created files.
 
-The default configuration for a RPM spec file may look like:
+The options used in a RPM spec file usually look like:
   --prefix=%{_prefix}
-  --exec-prefix=""
+  --exec-prefix=
   --sysconfdir=%{_sysconfdir}
   --with-libdir-name=%{_lib}
+  --with-selinux
 
-The well defined location for scripts and binaries which are called
-from rules is /lib/udev/ on all systems and architectures, anything
-else is broken. Other packages who use udev, may use the /lib/udev/
-directory to install their rule helper and udev rule files.
+The defined location for scripts and binaries which are called
+from rules is /lib/udev/ on all systems and architectures. Any
+other location will break other packages, who rightfully expect
+the /lib/udev/ directory, to install their rule helper and udev
+rule files.
 
 It is recommended to use the /lib/udev/devices/ directory to place
 device nodes, directories and symlinks, which are copied to /dev/

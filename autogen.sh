@@ -43,6 +43,7 @@ automake --add-missing
 
 if test -z "$@"; then
 	args="--prefix=/usr --exec-prefix= --sysconfdir=/etc"
+	args="$args --with-libdir-name=$(basename $(gcc -print-multi-os-directory))"
 	export CFLAGS="-g -Wall \
 -Wmissing-declarations -Wmissing-prototypes \
 -Wnested-externs -Wpointer-arith \
