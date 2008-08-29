@@ -20,6 +20,11 @@
 #ifndef _LIBUDEV_H_
 #define _LIBUDEV_H_
 
+/* this will stay as long as the DeviceKit integration of udev is work in progress */
+#if !defined LIBUDEV_COMPILATION && !defined LIBUDEV_I_KNOW_THE_API_IS_SUBJECT_TO_CHANGE
+#error "#define LIBUDEV_I_KNOW_THE_API_IS_SUBJECT_TO_CHANGE is needed to use this experimental library version"
+#endif
+
 struct udev;
 struct udev_device;
 struct udev_monitor;

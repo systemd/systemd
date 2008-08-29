@@ -14,6 +14,7 @@ DRIVERS=="pcspkr", ENV{ID_CLASS}="spkr"
 DRIVERS=="atkbd", ENV{ID_CLASS}="kbd"
 DRIVERS=="psmouse", ENV{ID_CLASS}="mouse"
 ATTRS{name}=="*dvb*|*DVB*|* IR *", ENV{ID_CLASS}="ir"
+# joystick (ABS_X || ABS_WHEEL || ABS_THROTTLE) && !BTN_TOUCH
 ATTRS{modalias}=="input:*-*a[068],*|input:*-*a*,[68],*m*", ATTRS{modalias}!="input:*-*k*14A,*r*", ENV{ID_CLASS}="joystick"
 
 # fill empty serial number

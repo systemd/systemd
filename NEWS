@@ -2,11 +2,20 @@ udev 127
 ========
 Bugfixes.
 
-A shared library "libudev" will be installed now, to access udev
-device information. DeviceKit, the successor of HAL, will need this
-library to access the udev database and search sysfs for devices.
+Optical drives media is no longer probed for raid signatures,
+reading the end of the device causes some devices to malfunction. 
+Also the offset of the last session is used to probe for the
+filesystem
+
+The volume_id library got a major version number update to 1,
+some deprecated functions are removed.
+
+A shared library "libudev" gets installed now, to provide access
+to udev device information. DeviceKit, the successor of HAL, will
+need this library to access the udev database and search sysfs for
+devices.
 The library is currently in an experimental state, also the API is
-expected to change, as long as the DeviceKit integration isn't
+expected to change, as long as the DeviceKit integration is not
 finished.
 
 udev 126
