@@ -31,17 +31,24 @@ libudev_la_SOURCES =\
 	../udev_utils_string.c \
 	../udev_utils_file.c \
 	../udev_sysfs.c \
-	../udev_node.c \
 	../udev_device.c \
 	../udev_config.c \
-	../udev_rules.c \
-	../udev_rules_parse.c \
 	../udev_db.c \
 	../udev_sysdeps.c
+
+if USE_SELINUX
+libudev_la_SOURCES += \
+	../udev_selinux.c
+endif
 
 libudev_la_LDFLAGS = \
 	-version-info $(LIBUDEV_LT_CURRENT):$(LIBUDEV_LT_REVISION):$(LIBUDEV_LT_AGE) \
 	-export-symbols $(top_srcdir)/udev/lib/exported_symbols
+
+if USE_SELINUX
+libudev_la_LIBADD = \
+	-lselinux
+endif
 
 pkgconfigdir = $(prefix)/$(libdir_name)/pkgconfig
 pkgconfig_DATA = libudev.pc
