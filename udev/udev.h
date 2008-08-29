@@ -103,8 +103,10 @@ extern void udev_config_init(void);
 /* udev_device.c */
 extern struct udevice *udev_device_init(struct udevice *udev);
 extern void udev_device_cleanup(struct udevice *udev);
-extern int udev_device_event(struct udev_rules *rules, struct udevice *udev);
 extern dev_t udev_device_get_devt(struct udevice *udev);
+
+/* udev_device_event.c */
+extern int udev_device_event(struct udev_rules *rules, struct udevice *udev);
 
 /* udev_sysfs.c */
 extern char sysfs_path[PATH_SIZE];
