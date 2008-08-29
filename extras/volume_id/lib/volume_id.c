@@ -501,9 +501,6 @@ void volume_id_close(struct volume_id *id)
 	if (id == NULL)
 		return;
 
-	if (id->fd_close != 0)
-		close(id->fd);
-
 	volume_id_free_buffer(id);
 
 	free(id);

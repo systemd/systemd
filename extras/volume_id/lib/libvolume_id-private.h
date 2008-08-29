@@ -50,7 +50,6 @@ struct volume_id {
 	uint8_t		*seekbuf;
 	uint64_t	seekbuf_off;
 	size_t		seekbuf_len;
-	int		fd_close:1;
 };
 
 /* filesystems */
