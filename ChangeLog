@@ -1,3 +1,42 @@
+Summary of changes from v126 to v127
+============================================
+
+Karel Zak (2):
+      build-sys: don't duplicate file names
+      build-sys: remove non-POSIX variable names
+
+Kay Sievers (26):
+      add inotify dummy definitions if inotify is not available
+      build: remove autopoint check
+      udevadm: trigger - add missing attr filter to synthesized "subsystem" register events
+      ignore duplicated rules file names
+      fix .gitignore
+      rules: delete all distro rules which do not use default rules
+      rules: add nvram
+      rules: add isdn rules
+      rules: Gentoo update
+      add missing includes
+      add some warnings
+      update .gitignore
+      add missing 'v' for "make changelog"
+      build: fix "make dist"
+      vol_id: make the --offset= argument optional
+      rules: optical drives - probe at last session offset, do not probe for raid
+      libudev: add library to access udev information
+      libudev: split source files
+      update INSTALL
+      libudev: add udev event monitor API
+      volume_id: remove deprecated functions and bump major version
+      volume_id: remove left-over fd close()
+      split udev_device.c to leave out rules handling from libudev
+      libudev: link against selinux if needed
+      firmware.sh: lookup lookup kernel provided firmware directory
+      libudev: require LIBUDEV_I_KNOW_THE_API_IS_SUBJECT_TO_CHANGE
+
+Michal Soltys (1):
+      rules: fix md rules for partitioned devices
+
+
 Summary of changes from v125 to v126
 ============================================
 

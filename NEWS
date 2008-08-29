@@ -2,15 +2,15 @@ udev 127
 ========
 Bugfixes.
 
-Optical drives media is no longer probed for raid signatures,
-reading the end of the device causes some devices to malfunction. 
-Also the offset of the last session is used to probe for the
-filesystem
+Optical drive's media is no longer probed for raid signatures,
+reading the end of the device causes some devices to malfunction.
+Also the offset of the last session found is used now to probe
+for the filesystem.
 
 The volume_id library got a major version number update to 1,
 some deprecated functions are removed.
 
-A shared library "libudev" gets installed now, to provide access
+A shared library "libudev" gets installed now to provide access
 to udev device information. DeviceKit, the successor of HAL, will
 need this library to access the udev database and search sysfs for
 devices.
