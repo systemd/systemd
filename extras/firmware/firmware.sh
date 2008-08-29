@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-FIRMWARE_DIRS="/lib/firmware /usr/local/lib/firmware"
+FIRMWARE_DIRS="/lib/firmware/$(uname -r) /lib/firmware"
 
 err() {
 	echo "$@" >&2
