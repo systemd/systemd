@@ -1,7 +1,7 @@
 AM_CPPFLAGS = \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DUDEV_PREFIX=\""$(udev_prefix)"\" \
-	-DLIBUDEV_COMPILATION
+	-D_LIBUDEV_COMPILATION
 
 noinst_PROGRAMS = \
 	test-libudev

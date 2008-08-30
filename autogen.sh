@@ -42,7 +42,7 @@ echo "   automake:   $(automake --version | head -1)"
 automake --add-missing
 
 if test -z "$@"; then
-	args="--prefix=/usr --exec-prefix= --sysconfdir=/etc"
+	args="--prefix=/usr --exec-prefix= --sysconfdir=/etc --with-selinux"
 	args="$args --with-libdir-name=$(basename $(gcc -print-multi-os-directory))"
 	export CFLAGS="-g -Wall \
 -Wmissing-declarations -Wmissing-prototypes \
