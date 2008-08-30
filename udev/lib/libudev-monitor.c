@@ -40,6 +40,23 @@ struct udev_monitor {
 	int socket;
 };
 
+/**
+ * udev_monitor_new_from_socket:
+ * @udev: udev library context
+ * @socket_path: unix socket path
+ *
+ * Create new udev monitor, setup and connect to a specified socket. The
+ * path to a socket can point to an existing socket file, or it will be
+ * created if needed. If neccessary, the permissions adjustment as well as
+ * the later cleanup of the socket file, needs to be done by the caller.
+ * If the socket path starts with a '@' character, an abstract namespace
+ * socket will be used.
+ *
+ * The initial refcount is 1, and needs to be decremented to
+ * release the ressources of the udev monitor.
+ *
+ * Returns: a new udev monitor, or #NULL, in case of an error
+ **/
 struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path)
 {
 	struct udev_monitor *udev_monitor;
@@ -88,6 +105,14 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 	return udev_monitor;
 }
 
+/**
+ * udev_monitor_ref:
+ * @udev_monitor: udev monitor
+ *
+ * Take a reference of a udev monitor.
+ *
+ * Returns: the passed udev monitor
+ **/
 struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor)
 {
 	if (udev_monitor == NULL)
@@ -96,6 +121,15 @@ struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor)
 	return udev_monitor;
 }
 
+/**
+ * udev_monitor_unref:
+ * @udev_monitor: udev monitor
+ *
+ * Drop a reference of a udev monitor. If the refcount reaches zero,
+ * the bound socket will be closed, and the ressources of the monitor
+ * will be released.
+ *
+ **/
 void udev_monitor_unref(struct udev_monitor *udev_monitor)
 {
 	if (udev_monitor == NULL)
@@ -108,6 +142,14 @@ void udev_monitor_unref(struct udev_monitor *udev_monitor)
 	free(udev_monitor);
 }
 
+/**
+ * udev_monitor_get_udev:
+ * @udev_monitor: udev monitor
+ *
+ * Retrieve the udev library context the device was created with.
+ *
+ * Returns: the udev library context
+ **/
 struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor)
 {
 	if (udev_monitor == NULL)
@@ -115,6 +157,14 @@ struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor)
 	return udev_monitor->udev;
 }
 
+/**
+ * udev_monitor_get_fd:
+ * @udev_monitor: udev monitor
+ *
+ * Retrieve the socket file descriptor associated with the monitor.
+ *
+ * Returns: the socket file descriptor
+ **/
 int udev_monitor_get_fd(struct udev_monitor *udev_monitor)
 {
 	if (udev_monitor == NULL)
@@ -122,6 +172,22 @@ int udev_monitor_get_fd(struct udev_monitor *udev_monitor)
 	return udev_monitor->socket;
 }
 
+/**
+ * udev_monitor_get_device:
+ * @udev_monitor: udev monitor
+ *
+ * Retrieve data from the udev monitor socket, allocate a new udev
+ * device, and fill in the received data, and return the device.
+ *
+ * Only socket connections with uid=0 are accepted. The caller
+ * need to make sure, that there is data to read from the socket,
+ * the call will block until the socket becomes readable.
+ *
+ * The initial refcount is 1, and needs to be decremented to
+ * release the ressources of the udev device.
+ *
+ * Returns: a new udev device, or #NULL, in case of an error
+ **/
 struct udev_device *udev_monitor_get_device(struct udev_monitor *udev_monitor)
 {
 	struct udev_device *udev_device;

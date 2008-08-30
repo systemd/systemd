@@ -127,6 +127,7 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
 
 /**
  * udev_device_get_udev:
+ * @udev_device: udev device
  *
  * Retrieve the udev library context the device was created with.
  *
