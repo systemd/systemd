@@ -23,16 +23,6 @@
 #include "libudev.h"
 #include "../udev.h"
 
-struct udev_device {
-	int refcount;
-	struct udev *udev;
-	char *devpath;
-	char *devname;
-	char *subsystem;
-	struct list_head link_list;
-	struct list_head env_list;
-};
-
 #ifdef USE_LOG
 #define log_dbg(udev, arg...) \
 	udev_log(udev, LOG_DEBUG, __FILE__, __LINE__, __FUNCTION__, ## arg)
@@ -48,13 +38,21 @@ void udev_log(struct udev *udev,
 	      const char *format, ...)
 	      __attribute__ ((format(printf, 6, 7)));
 #else
-static inline void udev_log(struct udev *udev,
-	      int priority, const char *file, int line, const char *fn,
-	      const char *format, ...)
-	      __attribute__ ((format(printf, 6, 7))) {}
+#define log_dbg(format, arg...) do { } while (0)
+#define log_info(format, arg...) do { } while (0)
+#define log_err(format, arg...) do { } while (0)
 #endif
+
+struct udev_device {
+	int refcount;
+	struct udev *udev;
+	char *devpath;
+	char *devname;
+	char *subsystem;
+	struct list_head link_list;
+	struct list_head env_list;
+};
 
 extern struct udev_device *device_init(struct udev *udev);
 extern ssize_t util_get_sys_subsystem(struct udev *udev, const char *devpath, char *subsystem, size_t size);
-
 #endif
