@@ -26,6 +26,7 @@
 #include "libvolume_id.h"
 #include "libvolume_id-private.h"
 #include "util.h"
+#include "md5.h"
 
 struct hfs_finder_info{
 	uint32_t	boot_folder;
@@ -140,8 +141,7 @@ static struct hfsplus_vol_header {
 
 static void hfsid_set_uuid(struct volume_id *id, const uint8_t *hfs_id)
 {
-#if 0
-	MD5_CTX md5c;
+	struct md5_ctx md5c;
 	static const uint8_t hash_init[16] = {
 		0xb3, 0xe2, 0x0f, 0x39, 0xf2, 0x92, 0x11, 0xd6,
 		0x97, 0xa4, 0x00, 0x30, 0x65, 0x43, 0xec, 0xac
@@ -151,17 +151,14 @@ static void hfsid_set_uuid(struct volume_id *id, const uint8_t *hfs_id)
 	if (*((uint64_t *)hfs_id) == 0)
 		return;
 
-	MD5_Init(&md5c);
-	MD5_Update(&md5c, &hash_init, 16);
-	MD5_Update(&md5c, hfs_id, 8);
-	MD5_Final(uuid, &md5c);
+	md5_init(&md5c);
+	md5_update(&md5c, hash_init, 16);
+	md5_update(&md5c, hfs_id, 8);
+	md5_final(&md5c, uuid);
 
 	uuid[6] = 0x30 | (uuid[6] & 0x0f);
 	uuid[8] = 0x80 | (uuid[8] & 0x3f);
-	volume_id_set_uuid(id, uuid, UUID_DCE);
-#endif
-
-	volume_id_set_uuid(id, hfs_id, 0, UUID_64BIT_BE);
+	volume_id_set_uuid(id, uuid, 0, UUID_DCE);
 }
 
 int volume_id_probe_hfs_hfsplus(struct volume_id *id, uint64_t off, uint64_t size)

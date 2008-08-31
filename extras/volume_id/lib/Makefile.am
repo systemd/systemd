@@ -7,6 +7,11 @@ include_HEADERS =\
 
 libvolume_id_la_SOURCES =\
 	libvolume_id-private.h \
+	volume_id.c \
+	util.h \
+	util.c \
+	md5.h \
+	md5.c \
 	ext.c \
 	fat.c \
 	hfs.c \
@@ -41,10 +46,7 @@ libvolume_id_la_SOURCES =\
 	vxfs.c \
 	squashfs.c \
 	netware.c \
-	oracleasm.c \
-	volume_id.c \
-	util.h \
-	util.c
+	oracleasm.c
 
 libvolume_id_la_LDFLAGS = \
 	-version-info $(VOLID_LT_CURRENT):$(VOLID_LT_REVISION):$(VOLID_LT_AGE) \
