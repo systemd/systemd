@@ -41,7 +41,7 @@ void udev_rules_iter_init(struct udev_rules *rules)
 
 struct udev_rule *udev_rules_iter_next(struct udev_rules *rules)
 {
-	static struct udev_rule *rule;
+	struct udev_rule *rule;
 
 	if (!rules)
 		return NULL;
@@ -61,7 +61,7 @@ struct udev_rule *udev_rules_iter_next(struct udev_rules *rules)
 
 struct udev_rule *udev_rules_iter_label(struct udev_rules *rules, const char *label)
 {
-	static struct udev_rule *rule;
+	struct udev_rule *rule;
 	size_t start = rules->current;
 
 next:
