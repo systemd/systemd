@@ -20,16 +20,16 @@
 use warnings;
 use strict;
 
-my $PWD		= $ENV{PWD};
-my $sysfs	= "sys/";
-my $udev_bin	= "../udev/test-udev";
-my $udev_root	= "udev-root/";
-my $udev_conf	= "udev-test.conf";
-my $udev_rules	= "udev-test.rules";
+my $PWD			= $ENV{PWD};
+my $sysfs		= "sys/";
+my $udev_bin		= "../udev/test-udev";
+my $valgrind		= 0;
+my $udev_bin_valgrind	= "valgrind --tool=memcheck --leak-check=yes --quiet $udev_bin";
+my $udev_root		= "udev-root/";
+my $udev_conf		= "udev-test.conf";
+my $udev_rules		= "udev-test.rules";
 
 # uncomment following line to run udev with valgrind.
-# Should make this a runtime option to the script someday...
-#my $udev_bin  = "valgrind --tool=memcheck --leak-check=yes   ../udev";
 
 my @tests = (
 	{
@@ -1656,7 +1656,11 @@ sub udev {
 	close CONF;
 
 	$ENV{ACTION} = $action;
-	system("$udev_bin $subsys");
+	if ($valgrind > 0) {
+		system("$udev_bin_valgrind $subsys");
+	} else {
+		system("$udev_bin $subsys");
+	}
 }
 
 my $error = 0;
@@ -1857,16 +1861,25 @@ print CONF "udev_log=\"info\"\n";
 close CONF;
 
 my $test_num = 1;
+my @list;
 
-if ($ARGV[0]) {
-	# only run one test
-	$test_num = $ARGV[0];
-
-	if (defined($tests[$test_num-1]->{desc})) {
-		print "udev-test will run test number $test_num only:\n\n";
-		run_test($tests[$test_num-1], $test_num);
+foreach my $arg (@ARGV) {
+	if ($arg =~ m/--valgrind/) {
+		$valgrind = 1;
+		printf("using valgrind\n");
 	} else {
-		print "test does not exist.\n";
+		push(@list, $arg);
+	}
+}
+
+if ($list[0]) {
+	foreach my $arg (@list) {
+		if (defined($tests[$arg-1]->{desc})) {
+			print "udev-test will run test number $arg:\n\n";
+			run_test($tests[$arg-1], $arg);
+		} else {
+			print "test does not exist.\n";
+		}
 	}
 } else {
 	# test all
