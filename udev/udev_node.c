@@ -234,7 +234,7 @@ static int update_link(struct udevice *udev, const char *name)
 		}
 
 		/* another device, read priority from database */
-		udev_db = udev_device_init(NULL);
+		udev_db = udev_device_init();
 		if (udev_db == NULL)
 			continue;
 		if (udev_db_get_device(udev_db, device->name) == 0) {

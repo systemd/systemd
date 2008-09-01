@@ -1,6 +1,5 @@
 These things would be nice to have:
   o get all distros to agree on a default set of rules
-  o fix (non important) memleak in udevinfo at udev_device_init() loop
   o rework rules to a match-action list, instead of a rules array
 
 These things will change in future udev versions:

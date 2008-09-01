@@ -157,7 +157,7 @@ static void export_db(void) {
 	list_for_each_entry(name_loop, &name_list, node) {
 		struct udevice *udev_db;
 
-		udev_db = udev_device_init(NULL);
+		udev_db = udev_device_init();
 		if (udev_db == NULL)
 			continue;
 		if (udev_db_get_device(udev_db, name_loop->name) == 0)
@@ -168,7 +168,7 @@ static void export_db(void) {
 	name_list_cleanup(&name_list);
 }
 
-static int lookup_device_by_name(struct udevice *udev, const char *name)
+static int lookup_device_by_name(struct udevice **udev, const char *name)
 {
 	LIST_HEAD(name_list);
 	int count;
@@ -183,26 +183,32 @@ static int lookup_device_by_name(struct udevice *udev, const char *name)
 
 	/* select the device that seems to match */
 	list_for_each_entry(device, &name_list, node) {
+		struct udevice *udev_loop;
 		char filename[PATH_SIZE];
 		struct stat statbuf;
 
-		udev_device_init(udev);
-		if (udev_db_get_device(udev, device->name) != 0)
-			continue;
+		udev_loop = udev_device_init();
+		if (udev_loop == NULL)
+			break;
+		if (udev_db_get_device(udev_loop, device->name) != 0)
+			goto next;
 		info("found db entry '%s'\n", device->name);
 
-		/* make sure, we don't get a link of a differnt device */
+		/* make sure, we don't get a link of a different device */
 		strlcpy(filename, udev_root, sizeof(filename));
 		strlcat(filename, "/", sizeof(filename));
 		strlcat(filename, name, sizeof(filename));
 		if (stat(filename, &statbuf) != 0)
-			continue;
-		if (major(udev->devt) > 0 && udev->devt != statbuf.st_rdev) {
-			info("skip '%s', dev_t doesn't match\n", udev->name);
-			continue;
+			goto next;
+		if (major(udev_loop->devt) > 0 && udev_loop->devt != statbuf.st_rdev) {
+			info("skip '%s', dev_t doesn't match\n", udev_loop->name);
+			goto next;
 		}
 		rc = 0;
+		*udev = udev_loop;
 		break;
+next:
+		udev_device_cleanup(udev_loop);
 	}
 out:
 	name_list_cleanup(&name_list);
@@ -231,7 +237,7 @@ static int stat_device(const char *name, int export, const char *prefix)
 int udevinfo(int argc, char *argv[], char *envp[])
 {
 	int option;
-	struct udevice *udev;
+	struct udevice *udev = NULL;
 	int root = 0;
 	int export = 0;
 	const char *export_prefix = NULL;
@@ -276,12 +282,6 @@ int udevinfo(int argc, char *argv[], char *envp[])
 	logging_init("udevinfo");
 	udev_config_init();
 	sysfs_init();
-
-	udev = udev_device_init(NULL);
-	if (udev == NULL) {
-		rc = 1;
-		goto exit;
-	}
 
 	while (1) {
 		option = getopt_long(argc, argv, "aed:n:p:q:rxPVh", options, NULL);
@@ -408,13 +408,18 @@ int udevinfo(int argc, char *argv[], char *envp[])
 	case ACTION_QUERY:
 		/* needs devpath or node/symlink name for query */
 		if (path[0] != '\0') {
+			udev = udev_device_init();
+			if (udev == NULL) {
+				rc = 1;
+				goto exit;
+			}
 			if (udev_db_get_device(udev, path) != 0) {
 				fprintf(stderr, "no record for '%s' in database\n", path);
 				rc = 3;
 				goto exit;
 			}
 		} else if (name[0] != '\0') {
-			if (lookup_device_by_name(udev, name) != 0) {
+			if (lookup_device_by_name(&udev, name) != 0) {
 				fprintf(stderr, "node name not found\n");
 				rc = 4;
 				goto exit;
@@ -465,7 +470,7 @@ int udevinfo(int argc, char *argv[], char *envp[])
 				goto exit;
 			}
 		} else if (name[0] != '\0') {
-			if (lookup_device_by_name(udev, name) != 0) {
+			if (lookup_device_by_name(&udev, name) != 0) {
 				fprintf(stderr, "node name not found\n");
 				rc = 4;
 				goto exit;

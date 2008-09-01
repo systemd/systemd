@@ -34,10 +34,11 @@
 #include "udev_rules.h"
 
 
-struct udevice *udev_device_init(struct udevice *udev)
+struct udevice *udev_device_init(void)
 {
-	if (udev == NULL)
-		udev = malloc(sizeof(struct udevice));
+	struct udevice *udev;
+
+	udev = malloc(sizeof(struct udevice));
 	if (udev == NULL)
 		return NULL;
 	memset(udev, 0x00, sizeof(struct udevice));
@@ -55,12 +56,13 @@ struct udevice *udev_device_init(struct udevice *udev)
 	strcpy(udev->group, "root");
 
 	udev->event_timeout = -1;
-
 	return udev;
 }
 
 void udev_device_cleanup(struct udevice *udev)
 {
+	if (udev == NULL)
+		return;
 	name_list_cleanup(&udev->symlink_list);
 	name_list_cleanup(&udev->run_list);
 	name_list_cleanup(&udev->env_list);

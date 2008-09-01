@@ -122,7 +122,7 @@ static void trigger_uevent(const char *devpath, const char *action)
 
 static int pass_to_socket(const char *devpath, const char *action, const char *env)
 {
-	struct udevice udev;
+	struct udevice *udev;
 	struct name_entry *name_loop;
 	char buf[4096];
 	size_t bufpos = 0;
@@ -136,8 +136,10 @@ static int pass_to_socket(const char *devpath, const char *action, const char *e
 	if (verbose)
 		printf("%s\n", devpath);
 
-	udev_device_init(&udev);
-	udev_db_get_device(&udev, devpath);
+	udev = udev_device_init();
+	if (udev == NULL)
+		return -1;
+	udev_db_get_device(udev, devpath);
 
 	/* add header */
 	bufpos = snprintf(buf, sizeof(buf)-1, "%s@%s", action, devpath);
@@ -173,7 +175,7 @@ static int pass_to_socket(const char *devpath, const char *action, const char *e
 
 	/* add symlinks and node name */
 	path[0] = '\0';
-	list_for_each_entry(name_loop, &udev.symlink_list, node) {
+	list_for_each_entry(name_loop, &udev->symlink_list, node) {
 		strlcat(path, udev_root, sizeof(path));
 		strlcat(path, "/", sizeof(path));
 		strlcat(path, name_loop->name, sizeof(path));
@@ -184,10 +186,10 @@ static int pass_to_socket(const char *devpath, const char *action, const char *e
 		bufpos += snprintf(&buf[bufpos], sizeof(buf)-1, "DEVLINKS=%s", path);
 		bufpos++;
 	}
-	if (udev.name[0] != '\0') {
+	if (udev->name[0] != '\0') {
 		strlcpy(path, udev_root, sizeof(path));
 		strlcat(path, "/", sizeof(path));
-		strlcat(path, udev.name, sizeof(path));
+		strlcat(path, udev->name, sizeof(path));
 		bufpos += snprintf(&buf[bufpos], sizeof(buf)-1, "DEVNAME=%s", path);
 		bufpos++;
 	}
@@ -222,7 +224,7 @@ static int pass_to_socket(const char *devpath, const char *action, const char *e
 	}
 
 	/* add keys from database */
-	list_for_each_entry(name_loop, &udev.env_list, node) {
+	list_for_each_entry(name_loop, &udev->env_list, node) {
 		bufpos += strlcpy(&buf[bufpos], name_loop->name, sizeof(buf) - bufpos-1);
 		bufpos++;
 	}

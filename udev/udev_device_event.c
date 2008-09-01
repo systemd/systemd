@@ -146,7 +146,7 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udev)
 		}
 
 		/* read current database entry; cleanup, if it is known device */
-		udev_old = udev_device_init(NULL);
+		udev_old = udev_device_init();
 		if (udev_old != NULL) {
 			udev_old->test_run = udev->test_run;
 			if (udev_db_get_device(udev_old, udev->dev->devpath) == 0) {

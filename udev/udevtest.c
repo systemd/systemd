@@ -157,7 +157,7 @@ int udevtest(int argc, char *argv[], char *envp[])
 		goto exit;
 	}
 
-	udev = udev_device_init(NULL);
+	udev = udev_device_init();
 	if (udev == NULL) {
 		fprintf(stderr, "error initializing device\n");
 		rc = 3;

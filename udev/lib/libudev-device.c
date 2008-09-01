@@ -101,7 +101,7 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
 	if (udev_device == NULL)
 		return NULL;
 
-	udevice = udev_device_init(NULL);
+	udevice = udev_device_init();
 	if (udevice == NULL) {
 		free(udev_device);
 		return NULL;

@@ -29,6 +29,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <syslog.h>
+#include <grp.h>
 
 #include "udev.h"
 #include "udev_rules.h"
@@ -138,7 +139,7 @@ int main(int argc, char *argv[], char *envp[])
 		goto fail;
 	}
 
-	udev = udev_device_init(NULL);
+	udev = udev_device_init();
 	if (udev == NULL)
 		goto fail;
 
@@ -171,6 +172,7 @@ fail:
 
 exit:
 	logging_close();
+	endgrent();
 	if (retval != 0)
 		return 1;
 	return 0;
