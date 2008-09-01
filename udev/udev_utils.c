@@ -77,7 +77,7 @@ struct name_entry *name_list_add(struct list_head *name_list, const char *name, 
 	name_new = malloc(sizeof(struct name_entry));
 	if (name_new == NULL)
 		return NULL;
-
+	memset(name_new, 0x00, sizeof(struct name_entry));
 	strlcpy(name_new->name, name, sizeof(name_new->name));
 	dbg("adding '%s'\n", name_new->name);
 	list_add_tail(&name_new->node, &name_loop->node);
@@ -102,7 +102,7 @@ struct name_entry *name_list_key_add(struct list_head *name_list, const char *ke
 	name_new = malloc(sizeof(struct name_entry));
 	if (name_new == NULL)
 		return NULL;
-
+	memset(name_new, 0x00, sizeof(struct name_entry));
 	snprintf(name_new->name, sizeof(name_new->name), "%s=%s", key, value);
 	name_new->name[sizeof(name_new->name)-1] = '\0';
 	dbg("adding '%s'\n", name_new->name);
