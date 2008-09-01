@@ -58,6 +58,8 @@ static void print_device(struct udev_device *device)
 	printf("devpath:   '%s'\n", str);
 	str = udev_device_get_subsystem(device);
 	printf("subsystem: '%s'\n", str);
+	str = udev_device_get_syspath(device);
+	printf("syspath:   '%s'\n", str);
 	str = udev_device_get_devname(device);
 	printf("devname:   '%s'\n", str);
 	count = udev_device_get_devlinks(device, print_devlinks_cb, NULL);

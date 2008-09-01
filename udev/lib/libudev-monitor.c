@@ -257,25 +257,25 @@ struct udev_device *udev_monitor_get_device(struct udev_monitor *udev_monitor)
 		bufpos += keylen + 1;
 
 		if (strncmp(key, "DEVPATH=", 8) == 0) {
-			udev_device->devpath = strdup(&key[8]);
+			device_set_devpath(udev_device, &key[8]);
 		} else if (strncmp(key, "SUBSYSTEM=", 10) == 0) {
-			udev_device->subsystem = strdup(&key[10]);
+			device_set_subsystem(udev_device, &key[10]);
 		} else if (strncmp(key, "DEVNAME=", 8) == 0) {
-			udev_device->devname = strdup(&key[8]);
+			device_set_devname(udev_device, &key[8]);
 		} else if (strncmp(key, "DEVLINKS=", 9) == 0) {
 			char *slink = &key[9];
 			char *next = strchr(slink, ' ');
 
 			while (next != NULL) {
 				next[0] = '\0';
-				name_list_add(&udev_device->link_list, slink, 0);
+				device_add_devlink(udev_device, slink);
 				slink = &next[1];
 				next = strchr(slink, ' ');
 			}
 			if (slink[0] != '\0')
-				name_list_add(&udev_device->link_list, slink, 0);
+				device_add_devlink(udev_device, slink);
 		}
-		name_list_add(&udev_device->env_list, key, 0);
+		device_add_property(udev_device, key);
 	}
 
 	return udev_device;

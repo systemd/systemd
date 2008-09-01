@@ -32,6 +32,17 @@
 #include "libudev-private.h"
 #include "../udev.h"
 
+struct udev_device {
+	int refcount;
+	struct udev *udev;
+	char *devpath;
+	char *syspath;
+	char *devname;
+	char *subsystem;
+	struct list_head link_list;
+	struct list_head env_list;
+};
+
 struct udev_device *device_init(struct udev *udev)
 {
 	struct udev_device *udev_device;
@@ -99,7 +110,7 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
 	/* resolve possible symlink to real path */
 	strlcpy(path, devpath, sizeof(path));
 	sysfs_resolve_link(path, sizeof(path));
-	udev_device->devpath = strdup(path);
+	device_set_devpath(udev_device, devpath);
 	log_info(udev, "device %p has devpath '%s'\n", udev_device, udev_device_get_devpath(udev_device));
 
 	err = udev_db_get_device(udevice, path);
@@ -171,7 +182,7 @@ void udev_device_unref(struct udev_device *udev_device)
 	udev_device->refcount--;
 	if (udev_device->refcount > 0)
 		return;
-	free(udev_device->devpath);
+	free(udev_device->syspath);
 	free(udev_device->devname);
 	free(udev_device->subsystem);
 	name_list_cleanup(&udev_device->link_list);
@@ -184,16 +195,32 @@ void udev_device_unref(struct udev_device *udev_device)
  * udev_device_get_devpath:
  * @udev_device: udev device
  *
- * Retrieve the sys path of the udev device. The path does not contain
- * the sys mount point.
+ * Retrieve the kernel devpath value of the udev device. The path
+ * does not contain the sys mount point, and starts with a '/'.
  *
- * Returns: the sys path of the udev device
+ * Returns: the devpath of the udev device
  **/
 const char *udev_device_get_devpath(struct udev_device *udev_device)
 {
 	if (udev_device == NULL)
 		return NULL;
 	return udev_device->devpath;
+}
+
+/**
+ * udev_device_get_syspath:
+ * @udev_device: udev device
+ *
+ * Retrieve the sys path of the udev device. The path is an
+ * absolute path and starts with the sys mount point.
+ *
+ * Returns: the sys path of the udev device
+ **/
+const char *udev_device_get_syspath(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return NULL;
+	return udev_device->syspath;
 }
 
 /**
@@ -304,4 +331,42 @@ int udev_device_get_properties(struct udev_device *udev_device,
 			break;
 	}
 	return count;
+}
+
+int device_set_devpath(struct udev_device *udev_device, const char *devpath)
+{
+	if (asprintf(&udev_device->syspath, "%s%s", udev_get_sys_path(udev_device->udev), devpath) < 0)
+		return -ENOMEM;
+	udev_device->devpath = &udev_device->syspath[strlen(udev_get_sys_path(udev_device->udev))];
+	return 0;
+}
+
+int device_set_subsystem(struct udev_device *udev_device, const char *subsystem)
+{
+	udev_device->subsystem = strdup(subsystem);
+	if (udev_device->subsystem == NULL)
+		return -1;
+	return 0;
+}
+
+int device_set_devname(struct udev_device *udev_device, const char *devname)
+{
+	udev_device->devname = strdup(devname);
+	if (udev_device->devname == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+int device_add_devlink(struct udev_device *udev_device, const char *devlink)
+{
+	if (name_list_add(&udev_device->link_list, devlink, 0) == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+int device_add_property(struct udev_device *udev_device, const char *property)
+{
+	if (name_list_add(&udev_device->env_list, property, 0) == NULL)
+		return -ENOMEM;
+	return 0;
 }

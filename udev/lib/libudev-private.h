@@ -43,16 +43,16 @@ void udev_log(struct udev *udev,
 #define log_err(format, arg...) do { } while (0)
 #endif
 
-struct udev_device {
-	int refcount;
-	struct udev *udev;
-	char *devpath;
-	char *devname;
-	char *subsystem;
-	struct list_head link_list;
-	struct list_head env_list;
-};
-
+/* libudev */
 extern struct udev_device *device_init(struct udev *udev);
+
+/* libudev-device */
+extern int device_set_devpath(struct udev_device *udev_device, const char *devpath);
+extern int device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
+extern int device_set_devname(struct udev_device *udev_device, const char *devname);
+extern int device_add_devlink(struct udev_device *udev_device, const char *devlink);
+extern int device_add_property(struct udev_device *udev_device, const char *property);
+
+/* libudev-utils */
 extern ssize_t util_get_sys_subsystem(struct udev *udev, const char *devpath, char *subsystem, size_t size);
 #endif

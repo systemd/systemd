@@ -44,8 +44,9 @@ extern struct udev_device *udev_device_ref(struct udev_device *udev_device);
 extern void udev_device_unref(struct udev_device *udev_device);
 extern struct udev *udev_device_get_udev(struct udev_device *udev_device);
 extern const char *udev_device_get_devpath(struct udev_device *udev_device);
-extern const char *udev_device_get_devname(struct udev_device *udev_device);
 extern const char *udev_device_get_subsystem(struct udev_device *udev_device);
+extern const char *udev_device_get_syspath(struct udev_device *udev_device);
+extern const char *udev_device_get_devname(struct udev_device *udev_device);
 extern int udev_device_get_devlinks(struct udev_device *udev_device,
 				    int (*cb)(struct udev_device *udev_device,
 					      const char *value, void *data),
