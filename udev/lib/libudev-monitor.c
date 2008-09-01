@@ -146,7 +146,7 @@ void udev_monitor_unref(struct udev_monitor *udev_monitor)
  * udev_monitor_get_udev:
  * @udev_monitor: udev monitor
  *
- * Retrieve the udev library context the device was created with.
+ * Retrieve the udev library context the monitor was created with.
  *
  * Returns: the udev library context
  **/
@@ -177,10 +177,10 @@ int udev_monitor_get_fd(struct udev_monitor *udev_monitor)
  * @udev_monitor: udev monitor
  *
  * Retrieve data from the udev monitor socket, allocate a new udev
- * device, and fill in the received data, and return the device.
+ * device, fill in the received data, and return the device.
  *
  * Only socket connections with uid=0 are accepted. The caller
- * need to make sure, that there is data to read from the socket,
+ * needs to make sure, that there is data to read from the socket,
  * the call will block until the socket becomes readable.
  *
  * The initial refcount is 1, and needs to be decremented to
