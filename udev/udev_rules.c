@@ -569,27 +569,29 @@ static int wait_for_file(struct udevice *udev, const char *file, int timeout)
 static int attr_get_by_subsys_id(const char *attrstr, char *devpath, size_t len, char **attr)
 {
 	char subsys[NAME_SIZE];
-	char *attrib;
+	char *pos;
 	char *id;
+	char *attrib;
 	int found = 0;
 
 	if (attrstr[0] != '[')
 		goto out;
 
-	strlcpy(subsys, &attrstr[1], sizeof(subsys));
-
-	attrib = strchr(subsys, ']');
+	attrib = strchr(&attrstr[1], ']');
 	if (attrib == NULL)
 		goto out;
-	attrib[0] = '\0';
 	attrib = &attrib[1];
 
+	strlcpy(subsys, &attrstr[1], sizeof(subsys));
+	pos = strchr(subsys, ']');
+	if (pos == NULL)
+		goto out;
+	pos[0] = '\0';
 	id = strchr(subsys, '/');
 	if (id == NULL)
 		goto out;
 	id[0] = '\0';
 	id = &id[1];
-
 	if (sysfs_lookup_devpath_by_subsys_id(devpath, len, subsys, id)) {
 		if (attr != NULL) {
 			if (attrib[0] != '\0')
