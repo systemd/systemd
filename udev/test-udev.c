@@ -60,7 +60,7 @@ static void asmlinkage sig_handler(int signum)
 	}
 }
 
-int main(int argc, char *argv[], char *envp[])
+int main(int argc, char *argv[])
 {
 	struct sysfs_device *dev;
 	struct udevice *udev;

@@ -123,7 +123,7 @@ static const char *search_key(const char *searchkey, const char *buf, size_t buf
 	return NULL;
 }
 
-int udevmonitor(int argc, char *argv[], char *envp[])
+int udevmonitor(int argc, char *argv[])
 {
 	struct sigaction act;
 	int option;

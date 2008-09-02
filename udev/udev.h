@@ -168,11 +168,11 @@ extern int unlink_secure(const char *filename);
 extern size_t buf_get_line(const char *buf, size_t buflen, size_t cur);
 
 /* udev commands */
-extern int udevmonitor(int argc, char *argv[], char *envp[]);
-extern int udevinfo(int argc, char *argv[], char *envp[]);
-extern int udevcontrol(int argc, char *argv[], char *envp[]);
-extern int udevtrigger(int argc, char *argv[], char *envp[]);
-extern int udevsettle(int argc, char *argv[], char *envp[]);
-extern int udevtest(int argc, char *argv[], char *envp[]);
+extern int udevmonitor(int argc, char *argv[]);
+extern int udevinfo(int argc, char *argv[]);
+extern int udevcontrol(int argc, char *argv[]);
+extern int udevtrigger(int argc, char *argv[]);
+extern int udevsettle(int argc, char *argv[]);
+extern int udevtest(int argc, char *argv[]);
 
 #endif

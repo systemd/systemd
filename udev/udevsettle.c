@@ -67,7 +67,7 @@ static void print_queue(const char *dir)
 	printf("\n\n");
 }
 
-int udevsettle(int argc, char *argv[], char *envp[])
+int udevsettle(int argc, char *argv[])
 {
 	char queuename[PATH_SIZE];
 	char filename[PATH_SIZE];

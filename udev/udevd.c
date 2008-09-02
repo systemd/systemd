@@ -953,7 +953,7 @@ static void export_initial_seqnum(void)
 	}
 }
 
-int main(int argc, char *argv[], char *envp[])
+int main(int argc, char *argv[])
 {
 	int retval;
 	int fd;

@@ -36,7 +36,7 @@
 static int sock = -1;
 static int udev_log = 0;
 
-int udevcontrol(int argc, char *argv[], char *envp[])
+int udevcontrol(int argc, char *argv[])
 {
 	static struct udevd_ctrl_msg ctrl_msg;
 	struct sockaddr_un saddr;

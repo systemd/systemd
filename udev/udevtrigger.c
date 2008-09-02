@@ -562,7 +562,7 @@ static void scan_failed(void)
 	}
 }
 
-int udevtrigger(int argc, char *argv[], char *envp[])
+int udevtrigger(int argc, char *argv[])
 {
 	int failed = 0;
 	const char *sockpath = NULL;

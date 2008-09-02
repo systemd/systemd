@@ -49,20 +49,20 @@ void log_message(int priority, const char *format, ...)
 
 struct command {
 	const char *name;
-	int (*cmd)(int argc, char *argv[], char *envp[]);
+	int (*cmd)(int argc, char *argv[]);
 	const char *help;
 	int debug;
 };
 
 static const struct command cmds[];
 
-static int version(int argc, char *argv[], char *envp[])
+static int version(int argc, char *argv[])
 {
 	printf("%s\n", VERSION);
 	return 0;
 }
 
-static int help(int argc, char *argv[], char *envp[])
+static int help(int argc, char *argv[])
 {
 	const struct command *cmd;
 
@@ -118,7 +118,7 @@ static const struct command cmds[] = {
 	{}
 };
 
-int main(int argc, char *argv[], char *envp[])
+int main(int argc, char *argv[])
 {
 	const char *command;
 	const char *pos;
@@ -157,7 +157,7 @@ int main(int argc, char *argv[], char *envp[])
 	for (cmd = cmds; cmd->name != NULL; cmd++) {
 		if (strcmp(cmd->name, command) == 0) {
 			debug = cmd->debug;
-			rc = cmd->cmd(argc, argv, envp);
+			rc = cmd->cmd(argc, argv);
 			goto out;
 		}
 	}
