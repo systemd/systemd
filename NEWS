@@ -1,3 +1,11 @@
+udev 128
+========
+Bugfixes.
+
+The udevadm info --device-id-of-file= output has changed to use
+the obvious format. Possible current users should use the --export
+option which is not affected.
+
 udev 127
 ========
 Bugfixes.

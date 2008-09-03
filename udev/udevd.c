@@ -664,7 +664,6 @@ static void get_ctrl_msg(void)
 	struct iovec iov;
 	struct ucred *cred;
 	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
-	int *intval;
 	char *pos;
 
 	memset(&ctrl_msg, 0x00, sizeof(struct udevd_ctrl_msg));
@@ -727,21 +726,18 @@ static void get_ctrl_msg(void)
 		msg_queue_manager();
 		break;
 	case UDEVD_CTRL_SET_LOG_LEVEL:
-		intval = (int *) ctrl_msg.buf;
-		info("udevd message (SET_LOG_PRIORITY) received, udev_log_priority=%i\n", *intval);
-		udev_log_priority = *intval;
+		info("udevd message (SET_LOG_PRIORITY) received, udev_log_priority=%i\n", ctrl_msg.intval);
+		udev_log_priority =  ctrl_msg.intval;
 		sprintf(udev_log, "UDEV_LOG=%i", udev_log_priority);
 		putenv(udev_log);
 		break;
 	case UDEVD_CTRL_SET_MAX_CHILDS:
-		intval = (int *) ctrl_msg.buf;
-		info("udevd message (UDEVD_SET_MAX_CHILDS) received, max_childs=%i\n", *intval);
-		max_childs = *intval;
+		info("udevd message (UDEVD_SET_MAX_CHILDS) received, max_childs=%i\n", ctrl_msg.intval);
+		max_childs = ctrl_msg.intval;
 		break;
 	case UDEVD_CTRL_SET_MAX_CHILDS_RUNNING:
-		intval = (int *) ctrl_msg.buf;
-		info("udevd message (UDEVD_SET_MAX_CHILDS_RUNNING) received, max_childs=%i\n", *intval);
-		max_childs_running = *intval;
+		info("udevd message (UDEVD_SET_MAX_CHILDS_RUNNING) received, max_childs_running=%i\n", ctrl_msg.intval);
+		max_childs_running = ctrl_msg.intval;
 		break;
 	case UDEVD_CTRL_RELOAD_RULES:
 		info("udevd message (RELOAD_RULES) received\n");
@@ -870,9 +866,11 @@ static int init_udevd_socket(void)
 
 	memset(&saddr, 0x00, sizeof(saddr));
 	saddr.sun_family = AF_LOCAL;
-	/* use abstract namespace for socket path */
-	strcpy(&saddr.sun_path[1], UDEVD_CTRL_SOCK_PATH);
-	addrlen = offsetof(struct sockaddr_un, sun_path) + 1 + strlen(&saddr.sun_path[1]);
+	strcpy(saddr.sun_path, UDEVD_CTRL_SOCK_PATH);
+	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path);
+	/* translate leading '@' to abstract namespace */
+	if (saddr.sun_path[0] == '@')
+		saddr.sun_path[0] = '\0';
 
 	udevd_sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (udevd_sock == -1) {

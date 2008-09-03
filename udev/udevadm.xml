@@ -231,7 +231,7 @@
           <para>Modify the internal state of the running udev daemon.</para>
           <variablelist>
             <varlistentry>
-              <term><option>--log_priority=<replaceable>value</replaceable></option></term>
+              <term><option>--log-priority=<replaceable>value</replaceable></option></term>
               <listitem>
                 <para>Set the internal log level of udevd. Valid values are the numerical
                 syslog priorities or their textual representations: <option>err</option>,
@@ -239,20 +239,20 @@
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><option>--stop_exec_queue</option></term>
+              <term><option>--stop-exec-queue</option></term>
               <listitem>
                 <para>Signal udevd to stop executing new events. Incoming events
                 will be queued.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><option>--start_exec_queue</option></term>
+              <term><option>--start-exec-queue</option></term>
               <listitem>
                 <para>Signal udevd to enable the execution of events.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><option>--reload_rules</option></term>
+              <term><option>--reload-rules</option></term>
               <listitem>
                 <para>Signal udevd to reload the rules from the config.</para>
               </listitem>
@@ -264,14 +264,14 @@
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><option>--max_childs=</option><replaceable>value</replaceable></term>
+              <term><option>--max-childs=</option><replaceable>value</replaceable></term>
               <listitem>
                 <para>Set the maximum number of events, udevd will handle at the
                 same time.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><option>--max_childs_running=<replaceable>value</replaceable></option></term>
+              <term><option>--max-childs-running=<replaceable>value</replaceable></option></term>
               <listitem>
                 <para>Set the maximum number of events, which are allowed to run at the
                 same time.</para>

@@ -31,24 +31,27 @@
 #define UEVENT_BUFFER_SIZE		2048
 #define UEVENT_NUM_ENVP			32
 
-#define UDEVD_CTRL_SOCK_PATH		UDEV_PREFIX "/org/kernel/udev/udevd"
+#define UDEVD_CTRL_SOCK_PATH		"@" UDEV_PREFIX "/org/kernel/udev/udevd"
 #define UDEVD_CTRL_MAGIC		"udevd_" VERSION
 
 enum udevd_ctrl_msg_type {
 	UDEVD_CTRL_UNKNOWN,
+	UDEVD_CTRL_SET_LOG_LEVEL,
 	UDEVD_CTRL_STOP_EXEC_QUEUE,
 	UDEVD_CTRL_START_EXEC_QUEUE,
-	UDEVD_CTRL_SET_LOG_LEVEL,
-	UDEVD_CTRL_SET_MAX_CHILDS,
-	UDEVD_CTRL_SET_MAX_CHILDS_RUNNING,
 	UDEVD_CTRL_RELOAD_RULES,
 	UDEVD_CTRL_ENV,
+	UDEVD_CTRL_SET_MAX_CHILDS,
+	UDEVD_CTRL_SET_MAX_CHILDS_RUNNING,
 };
 
 struct udevd_ctrl_msg {
 	char magic[32];
 	enum udevd_ctrl_msg_type type;
-	char buf[256];
+	union {
+		int intval;
+		char buf[256];
+	};
 };
 
 struct udevd_uevent_msg {
