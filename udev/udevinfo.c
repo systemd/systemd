@@ -230,7 +230,7 @@ static int stat_device(const char *name, int export, const char *prefix)
 		       prefix, major(statbuf.st_dev),
 		       prefix, minor(statbuf.st_dev));
 	} else
-		printf("%d %d\n", major(statbuf.st_dev), minor(statbuf.st_dev));
+		printf("%d:%d\n", major(statbuf.st_dev), minor(statbuf.st_dev));
 	return 0;
 }
 
