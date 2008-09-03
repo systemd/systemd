@@ -120,49 +120,52 @@ static const struct command cmds[] = {
 
 int main(int argc, char *argv[])
 {
-	const char *command;
+	const char *command = argv[1];
+	int i;
 	const char *pos;
-	const struct command *cmd;
 	int rc;
 
-	/* get binary or symlink name */
-	pos = strrchr(argv[0], '/');
+	/* find command */
+	if (command != NULL)
+		for (i = 0; cmds[i].cmd != NULL; i++) {
+			if (strcmp(cmds[i].name, command) == 0) {
+				debug = cmds[i].debug;
+				rc = cmds[i].cmd(argc-1, &argv[1]);
+				goto out;
+			}
+		}
+
+	/* try to find compat link, will be removed in a future release */
+	command = argv[0];
+	pos = strrchr(command, '/');
 	if (pos != NULL)
 		command = &pos[1];
-	else
-		command = argv[0];
 
-	/* the trailing part of the binary or symlink name is the command */
+	/* the trailing part of the binary or link name is the command */
 	if (strncmp(command, "udev", 4) == 0)
 		command = &command[4];
 
-	if (command == NULL || command[0] == '\0')
-		goto err_unknown;
+	for (i = 0; cmds[i].cmd != NULL; i++) {
+		if (strcmp(cmds[i].name, command) == 0) {
+			char path[128];
+			char prog[512];
+			ssize_t len;
 
-	/* udevadm itself needs to strip its name from the passed options */
-	if (strcmp(command, "adm") == 0) {
-		command = argv[1];
-		argv++;
-		argc--;
-	}
-
-	if (command == NULL)
-		goto err_unknown;
-
-	/* allow command to be specified as an option */
-	if (strncmp(command, "--", 2) == 0)
-		command += 2;
-
-	/* find and execute command */
-	for (cmd = cmds; cmd->name != NULL; cmd++) {
-		if (strcmp(cmd->name, command) == 0) {
-			debug = cmd->debug;
-			rc = cmd->cmd(argc, argv);
+			snprintf(path, sizeof(path), "/proc/%lu/exe", (unsigned long) getppid());
+			len = readlink(path, prog, sizeof(prog));
+			if (len > 0) {
+				prog[len] = '\0';
+				fprintf(stderr, "the program '%s' called '%s', it should use 'udevadm %s <options>', "
+				       "this will stop working in a future release\n", prog, argv[0], command);
+				info("the program '%s' called '%s', it should use 'udevadm %s <options>', "
+				     "this will stop working in a future release\n", prog, argv[0], command);
+			}
+			debug = cmds[i].debug;
+			rc = cmds[i].cmd(argc, argv);
 			goto out;
 		}
 	}
 
-err_unknown:
 	fprintf(stderr, "unknown command, try help\n\n");
 	rc = 2;
 out:

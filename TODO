@@ -3,7 +3,9 @@ These things would be nice to have:
   o rework rules to a match-action list, instead of a rules array
 
 These things will change in future udev versions:
-  o --device-id-of-file will print '5:8' instead of '5 8'
 
 These things are deprecated and scheduled for removal in a future udev version:
   o DEVTYPE for disks is set by the kernel, remove it from the rules
+  o "udevadm control" commands will only accept the --<command> syntax
+  o symlink names to udevadm will no longer be resolved to old command names
+
