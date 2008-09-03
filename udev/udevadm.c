@@ -76,32 +76,32 @@ static int help(int argc, char *argv[])
 static const struct command cmds[] = {
 	{
 		.name = "info",
-		.cmd = udevinfo,
+		.cmd = udevadm_info,
 		.help = "query sysfs or the udev database",
 	},
 	{
 		.name = "trigger",
-		.cmd = udevtrigger,
+		.cmd = udevadm_trigger,
 		.help = "request events from the kernel",
 	},
 	{
 		.name = "settle",
-		.cmd = udevsettle, "",
+		.cmd = udevadm_settle, "",
 		.help = "wait for the event queue to finish",
 	},
 	{
 		.name = "control",
-		.cmd = udevcontrol,
+		.cmd = udevadm_control,
 		.help = "control the udev daemon",
 	},
 	{
 		.name = "monitor",
-		.cmd = udevmonitor,
+		.cmd = udevadm_monitor,
 		.help = "listen to kernel and udev events",
 	},
 	{
 		.name = "test",
-		.cmd = udevtest,
+		.cmd = udevadm_test,
 		.help = "simulation run",
 		.debug = 1,
 	},

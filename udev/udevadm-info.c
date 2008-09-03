@@ -234,7 +234,7 @@ static int stat_device(const char *name, int export, const char *prefix)
 	return 0;
 }
 
-int udevinfo(int argc, char *argv[])
+int udevadm_info(int argc, char *argv[])
 {
 	int option;
 	struct udevice *udev = NULL;

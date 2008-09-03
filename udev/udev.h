@@ -167,12 +167,12 @@ extern void file_unmap(void *buf, size_t bufsize);
 extern int unlink_secure(const char *filename);
 extern size_t buf_get_line(const char *buf, size_t buflen, size_t cur);
 
-/* udev commands */
-extern int udevmonitor(int argc, char *argv[]);
-extern int udevinfo(int argc, char *argv[]);
-extern int udevcontrol(int argc, char *argv[]);
-extern int udevtrigger(int argc, char *argv[]);
-extern int udevsettle(int argc, char *argv[]);
-extern int udevtest(int argc, char *argv[]);
+/* udevadm commands */
+extern int udevadm_monitor(int argc, char *argv[]);
+extern int udevadm_info(int argc, char *argv[]);
+extern int udevadm_control(int argc, char *argv[]);
+extern int udevadm_trigger(int argc, char *argv[]);
+extern int udevadm_settle(int argc, char *argv[]);
+extern int udevadm_test(int argc, char *argv[]);
 
 #endif

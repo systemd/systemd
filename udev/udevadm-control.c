@@ -148,7 +148,7 @@ int udev_ctrl_set_max_childs_running(struct udev_ctrl *uctrl, int count)
 	return 0;
 }
 
-int udevcontrol(int argc, char *argv[])
+int udevadm_control(int argc, char *argv[])
 {
 	struct udev_ctrl *uctrl;
 	const char *env;

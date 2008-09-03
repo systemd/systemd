@@ -71,7 +71,7 @@ out:
 	return rc;
 }
 
-int udevtest(int argc, char *argv[])
+int udevadm_test(int argc, char *argv[])
 {
 	int force = 0;
 	const char *action = "add";
