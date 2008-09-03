@@ -29,8 +29,6 @@ my $udev_root		= "udev-root/";
 my $udev_conf		= "udev-test.conf";
 my $udev_rules		= "udev-test.rules";
 
-# uncomment following line to run udev with valgrind.
-
 my @tests = (
 	{
 		desc		=> "label test of scsi disc (old key names)",
