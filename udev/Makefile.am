@@ -54,6 +54,7 @@ udevd_LDADD = \
 
 udevadm_SOURCES = \
 	$(common_files) \
+	udev-control.c \
 	udevadm.c \
 	udevadm-info.c \
 	udevadm-control.c \

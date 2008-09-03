@@ -175,4 +175,16 @@ extern int udevadm_trigger(int argc, char *argv[]);
 extern int udevadm_settle(int argc, char *argv[]);
 extern int udevadm_test(int argc, char *argv[]);
 
+/* udev_ctrl - daemon runtime setup */
+struct udev_ctrl;
+extern struct udev_ctrl *udev_ctrl_new_from_socket(const char *socket_path);
+extern void udev_ctrl_unref(struct udev_ctrl *uctrl);
+extern int udev_ctrl_set_log_level(struct udev_ctrl *uctrl, int priority);
+extern int udev_ctrl_stop_exec_queue(struct udev_ctrl *uctrl);
+extern int udev_ctrl_start_exec_queue(struct udev_ctrl *uctrl);
+extern int udev_ctrl_reload_rules(struct udev_ctrl *uctrl);
+extern int udev_ctrl_set_env(struct udev_ctrl *uctrl, const char *key);
+extern int udev_ctrl_set_max_childs(struct udev_ctrl *uctrl, int count);
+extern int udev_ctrl_set_max_childs_running(struct udev_ctrl *uctrl, int count);
+
 #endif
