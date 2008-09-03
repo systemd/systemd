@@ -32,7 +32,7 @@
 #define UEVENT_NUM_ENVP			32
 
 #define UDEVD_CTRL_SOCK_PATH		"@" UDEV_PREFIX "/org/kernel/udev/udevd"
-#define UDEVD_CTRL_MAGIC		"udevd_" VERSION
+#define UDEVD_CTRL_MAGIC		"udevd-128"
 
 enum udevd_ctrl_msg_type {
 	UDEVD_CTRL_UNKNOWN,

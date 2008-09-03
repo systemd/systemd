@@ -55,12 +55,12 @@ udevd_LDADD = \
 udevadm_SOURCES = \
 	$(common_files) \
 	udevadm.c \
-	udevinfo.c \
-	udevcontrol.c \
-	udevtest.c \
-	udevmonitor.c \
-	udevsettle.c \
-	udevtrigger.c
+	udevadm-info.c \
+	udevadm-control.c \
+	udevadm-test.c \
+	udevadm-monitor.c \
+	udevadm-settle.c \
+	udevadm-trigger.c
 
 udevadm_LDADD = \
 	$(common_ldadd)
