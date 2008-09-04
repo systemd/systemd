@@ -87,10 +87,7 @@ int udevadm_settle(int argc, char *argv[])
 	int rc = 1;
 	int seconds;
 
-	logging_init("udevsettle");
-	udev_config_init();
 	dbg("version %s\n", VERSION);
-	sysfs_init();
 
 	while (1) {
 		option = getopt_long(argc, argv, "t:h", options, NULL);
@@ -172,7 +169,5 @@ int udevadm_settle(int argc, char *argv[])
 	}
 
 exit:
-	sysfs_cleanup();
-	logging_close();
 	return rc;
 }

@@ -584,10 +584,7 @@ int udevadm_trigger(int argc, char *argv[])
 		{}
 	};
 
-	logging_init("udevtrigger");
-	udev_config_init();
 	dbg("version %s\n", VERSION);
-	sysfs_init();
 
 	while (1) {
 		option = getopt_long(argc, argv, "vnFo:hce::s:S:a:A:", options, NULL);
@@ -710,7 +707,5 @@ exit:
 
 	if (sock >= 0)
 		close(sock);
-	sysfs_cleanup();
-	logging_close();
 	return 0;
 }

@@ -92,7 +92,6 @@ int udevadm_test(int argc, char *argv[])
 	};
 
 	info("version %s\n", VERSION);
-	udev_config_init();
 	if (udev_log_priority < LOG_INFO) {
 		char priority[32];
 
@@ -143,7 +142,6 @@ int udevadm_test(int argc, char *argv[])
 	       "some values may be different, or not available at a simulation run.\n"
 	       "\n");
 
-	sysfs_init();
 	udev_rules_init(&rules, 0);
 
 	/* remove /sys if given */
@@ -202,6 +200,5 @@ int udevadm_test(int argc, char *argv[])
 
 exit:
 	udev_rules_cleanup(&rules);
-	sysfs_cleanup();
 	return rc;
 }

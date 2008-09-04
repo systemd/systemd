@@ -279,10 +279,6 @@ int udevadm_info(int argc, char *argv[])
 	struct name_entry *name_loop;
 	int rc = 0;
 
-	logging_init("udevinfo");
-	udev_config_init();
-	sysfs_init();
-
 	while (1) {
 		option = getopt_long(argc, argv, "aed:n:p:q:rxPVh", options, NULL);
 		if (option == -1)
@@ -501,7 +497,5 @@ int udevadm_info(int argc, char *argv[])
 
 exit:
 	udev_device_cleanup(udev);
-	sysfs_cleanup();
-	logging_close();
 	return rc;
 }

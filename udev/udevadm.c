@@ -125,6 +125,10 @@ int main(int argc, char *argv[])
 	const char *pos;
 	int rc;
 
+	logging_init("udevadm");
+	udev_config_init();
+	sysfs_init();
+
 	/* find command */
 	if (command != NULL)
 		for (i = 0; cmds[i].cmd != NULL; i++) {
@@ -169,5 +173,7 @@ int main(int argc, char *argv[])
 	fprintf(stderr, "unknown command, try help\n\n");
 	rc = 2;
 out:
+	sysfs_cleanup();
+	logging_close();
 	return rc;
 }
