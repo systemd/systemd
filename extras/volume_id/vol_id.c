@@ -1,7 +1,7 @@
 /*
  * vol_id - read filesystem label and uuid
  *
- * Copyright (C) 2005-2006 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005-2008 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -39,11 +39,18 @@
 
 #define BLKGETSIZE64 _IOR(0x12,114,size_t)
 
+static int debug;
+
 static void log_fn(struct udev *udev, int priority,
 		   const char *file, int line, const char *fn,
 		   const char *format, va_list args)
 {
-	vsyslog(priority, format, args);
+	if (debug) {
+		fprintf(stderr, "%s: ", fn != NULL ? fn : file);
+		vfprintf(stderr, format, args);
+	} else {
+		vsyslog(priority, format, args);
+	}
 }
 
 static void vid_log(int priority, const char *file, int line, const char *format, ...)
@@ -113,6 +120,7 @@ int main(int argc, char *argv[])
 		{ "skip-raid", 0, NULL, 's' },
 		{ "probe-all", 0, NULL, 'a' },
 		{ "offset", 2, NULL, 'o' },
+		{ "debug", 0, NULL, 'd' },
 		{ "help", 0, NULL, 'h' },
 		{}
 	};
@@ -151,11 +159,16 @@ int main(int argc, char *argv[])
 	while (1) {
 		int option;
 
-		option = getopt_long(argc, argv, "lLutxsaoh", options, NULL);
+		option = getopt_long(argc, argv, "lLutxsaodh", options, NULL);
 		if (option == -1)
 			break;
 
 		switch (option) {
+		case 'd':
+			debug = 1;
+			if (udev_get_log_priority(udev) < LOG_INFO)
+				udev_set_log_priority(udev, LOG_INFO);
+			break;
 		case 'l':
 			print = PRINT_LABEL;
 			break;
@@ -183,14 +196,15 @@ int main(int argc, char *argv[])
 			break;
 		case 'h':
 			printf("Usage: vol_id [options] <device>\n"
-			    " --export        export key/value pairs\n"
-			    " --type          filesystem type\n"
-			    " --label         filesystem label\n"
-			    " --label-raw     raw label\n"
-			    " --uuid          filesystem uuid\n"
-			    " --skip-raid     don't probe for raid\n"
-			    " --probe-all     find possibly conflicting signatures\n"
-			    " --offset        skip given number of bytes of input\n"
+			    " --export         export key/value pairs\n"
+			    " --type           filesystem type\n"
+			    " --label          filesystem label\n"
+			    " --label-raw      raw label\n"
+			    " --uuid           filesystem uuid\n"
+			    " --skip-raid      don't probe for raid\n"
+			    " --probe-all      find possibly conflicting signatures\n"
+			    " --offset=<bytes> probe at the given offset\n"
+			    " --debug          print debug output to stderr\n"
 			    " --help\n\n");
 			goto exit;
 		default:
@@ -222,7 +236,7 @@ int main(int argc, char *argv[])
 
 	if (ioctl(fd, BLKGETSIZE64, &size) != 0)
 		size = 0;
-	dbg(udev, "BLKGETSIZE64=%llu\n", (unsigned long long)size);
+	info(udev, "BLKGETSIZE64=%llu (%lluGB)\n", (unsigned long long)size, (unsigned long long)size >> 30);
 
 	/* try to drop all privileges before reading disk content */
 	if (getuid() == 0) {

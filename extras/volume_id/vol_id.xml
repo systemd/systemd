@@ -32,6 +32,8 @@
           <arg><option>--uuid</option></arg>
           <arg><option>--skip-raid</option></arg>
           <arg><option>--probe-all</option></arg>
+          <arg><option>--offset=<replaceable>bytes</replaceable></option></arg>
+          <arg><option>--debug</option></arg>
           <arg><option>--help</option></arg>
           <arg><replaceable>device</replaceable></arg>
         </cmdsynopsis>
@@ -93,6 +95,19 @@
             <term><option>--probe-all</option></term>
             <listitem>
               <para>Probe for all types and print all matches.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--offset=<replaceable>bytes</replaceable></option></term>
+            <listitem>
+              <para>Probing at the given offset, instead of the start of the volume.
+              The offset value is specified in bytes.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--debug</option></term>
+            <listitem>
+              <para>Print debug output to stderr.</para>
             </listitem>
           </varlistentry>
           <varlistentry>
