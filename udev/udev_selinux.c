@@ -35,18 +35,18 @@
 
 static security_context_t prev_scontext = NULL;
 
-static int is_selinux_running(void)
+static int is_selinux_running(struct udev *udev)
 {
 	static int selinux_enabled = -1;
 
 	if (selinux_enabled == -1) 
 		selinux_enabled = (is_selinux_enabled() > 0);
 
-	dbg("selinux=%i\n", selinux_enabled);
+	dbg(udev, "selinux=%i\n", selinux_enabled);
 	return selinux_enabled;
 }
 
-static char *get_media(const char *devname, int mode)
+static char *get_media(struct udev *udev, const char *devname, int mode)
 {
 	FILE *fp;
 	char procfile[PATH_MAX];
@@ -77,7 +77,7 @@ static char *get_media(const char *devname, int mode)
 	}
 
 	media = strdup(mediabuf);
-	info("selinux_get_media(%s)='%s'\n", devname, media);
+	info(udev, "selinux_get_media(%s)='%s'\n", devname, media);
 
 close_out:
 	fclose(fp);
@@ -85,15 +85,15 @@ out:
 	return media;
 }
 
-void selinux_setfilecon(const char *file, const char *devname, unsigned int mode)
+void selinux_setfilecon(struct udev *udev, const char *file, const char *devname, unsigned int mode)
 {
-	if (is_selinux_running()) {
+	if (is_selinux_running(udev)) {
 		security_context_t scontext = NULL;
 		char *media;
 		int ret = -1;
 
 		if (devname) {
-			media = get_media(devname, mode);
+			media = get_media(udev, devname, mode);
 			if (media) {
 				ret = matchmediacon(media, &scontext);
 				free(media);
@@ -102,26 +102,26 @@ void selinux_setfilecon(const char *file, const char *devname, unsigned int mode
 
 		if (ret < 0)
 			if (matchpathcon(file, mode, &scontext) < 0) {
-				err("matchpathcon(%s) failed\n", file);
+				err(udev, "matchpathcon(%s) failed\n", file);
 				return;
 			} 
 
 		if (lsetfilecon(file, scontext) < 0)
-			err("setfilecon %s failed: %s\n", file, strerror(errno));
+			err(udev, "setfilecon %s failed: %s\n", file, strerror(errno));
 
 		freecon(scontext);
 	}
 }
 
-void selinux_setfscreatecon(const char *file, const char *devname, unsigned int mode)
+void selinux_setfscreatecon(struct udev *udev, const char *file, const char *devname, unsigned int mode)
 {
-	if (is_selinux_running()) {
+	if (is_selinux_running(udev)) {
 		security_context_t scontext = NULL;
 		char *media;
 		int ret = -1;
 
 		if (devname) {
-			media = get_media(devname, mode);
+			media = get_media(udev, devname, mode);
 			if (media) {
 				ret = matchmediacon(media, &scontext);
 				free(media);
@@ -130,45 +130,45 @@ void selinux_setfscreatecon(const char *file, const char *devname, unsigned int 
 
 		if (ret < 0)
 			if (matchpathcon(file, mode, &scontext) < 0) {
-				err("matchpathcon(%s) failed\n", file);
+				err(udev, "matchpathcon(%s) failed\n", file);
 				return;
 			}
 
 		if (setfscreatecon(scontext) < 0)
-			err("setfscreatecon %s failed: %s\n", file, strerror(errno));
+			err(udev, "setfscreatecon %s failed: %s\n", file, strerror(errno));
 
 		freecon(scontext);
 	}
 }
 
-void selinux_resetfscreatecon(void)
+void selinux_resetfscreatecon(struct udev *udev)
 {
-	if (is_selinux_running()) {
+	if (is_selinux_running(udev)) {
 		if (setfscreatecon(prev_scontext) < 0)
-			err("setfscreatecon failed: %s\n", strerror(errno));
+			err(udev, "setfscreatecon failed: %s\n", strerror(errno));
 	}
 }
 
-void selinux_init(void)
+void selinux_init(struct udev *udev)
 {
 	/*
 	 * record the present security context, for file-creation
 	 * restoration creation purposes.
 	 */
-	if (is_selinux_running()) {
-		if (!udev_root[0])
-			err("selinux_init: udev_root not set\n");
-		matchpathcon_init_prefix(NULL, udev_root);
+	if (is_selinux_running(udev)) {
+		if (!udev_get_dev_path(udev)[0])
+			err(udev, "selinux_init: udev_root not set\n");
+		matchpathcon_init_prefix(NULL, udev_get_dev_path(udev));
 		if (getfscreatecon(&prev_scontext) < 0) {
-			err("getfscreatecon failed\n");
+			err(udev, "getfscreatecon failed\n");
 			prev_scontext = NULL;
 		}
 	}
 }
 
-void selinux_exit(void)
+void selinux_exit(struct udev *udev)
 {
-	if (is_selinux_running() && prev_scontext) {
+	if (is_selinux_running(udev) && prev_scontext) {
 		freecon(prev_scontext);
 		prev_scontext = NULL;
 	}

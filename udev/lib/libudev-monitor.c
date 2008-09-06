@@ -86,13 +86,13 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 
 	udev_monitor->socket = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (udev_monitor->socket == -1) {
-		log_err(udev, "error getting socket: %s\n", strerror(errno));
+		err(udev, "error getting socket: %s\n", strerror(errno));
 		free(udev_monitor);
 		return NULL;
 	}
 
 	if (bind(udev_monitor->socket, (struct sockaddr *) &saddr, addrlen) < 0) {
-		log_err(udev, "bind failed: %s\n", strerror(errno));
+		err(udev, "bind failed: %s\n", strerror(errno));
 		close(udev_monitor->socket);
 		free(udev_monitor);
 		return NULL;
@@ -100,7 +100,7 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 
 	/* enable receiving of the sender credentials */
 	setsockopt(udev_monitor->socket, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
-	log_info(udev_monitor->udev, "udev_monitor: %p created\n", udev_monitor);
+	info(udev_monitor->udev, "udev_monitor: %p created\n", udev_monitor);
 
 	return udev_monitor;
 }
@@ -138,7 +138,7 @@ void udev_monitor_unref(struct udev_monitor *udev_monitor)
 	if (udev_monitor->refcount > 0)
 		return;
 	close(udev_monitor->socket);
-	log_info(udev_monitor->udev, "udev_monitor: %p released\n", udev_monitor);
+	info(udev_monitor->udev, "udev_monitor: %p released\n", udev_monitor);
 	free(udev_monitor);
 }
 
@@ -212,32 +212,32 @@ struct udev_device *udev_monitor_get_device(struct udev_monitor *udev_monitor)
 
 	if (recvmsg(udev_monitor->socket, &smsg, 0) < 0) {
 		if (errno != EINTR)
-			log_info(udev_monitor->udev, "unable to receive message");
+			info(udev_monitor->udev, "unable to receive message");
 		return NULL;
 	}
 	cmsg = CMSG_FIRSTHDR(&smsg);
 	cred = (struct ucred *)CMSG_DATA (cmsg);
 
 	if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
-		log_info(udev_monitor->udev, "no sender credentials received, message ignored");
+		info(udev_monitor->udev, "no sender credentials received, message ignored");
 		return NULL;
 	}
 
 	if (cred->uid != 0) {
-		log_info(udev_monitor->udev, "sender uid=%d, message ignored", cred->uid);
+		info(udev_monitor->udev, "sender uid=%d, message ignored", cred->uid);
 		return NULL;
 	}
 
 	/* skip header */
 	bufpos = strlen(buf) + 1;
 	if (bufpos < sizeof("a@/d") || bufpos >= sizeof(buf)) {
-		log_info(udev_monitor->udev, "invalid message length");
+		info(udev_monitor->udev, "invalid message length");
 		return NULL;
 	}
 
 	/* check message header */
 	if (strstr(buf, "@/") == NULL) {
-		log_info(udev_monitor->udev, "unrecognized message header");
+		info(udev_monitor->udev, "unrecognized message header");
 		return NULL;
 	}
 

@@ -32,7 +32,7 @@
 #include "udev.h"
 #include "udev_rules.h"
 
-static int import_uevent_var(const char *devpath)
+static int import_uevent_var(struct udev *udev, const char *devpath)
 {
 	char path[PATH_SIZE];
 	static char value[4096]; /* must stay, used with putenv */
@@ -43,7 +43,7 @@ static int import_uevent_var(const char *devpath)
 	int rc = -1;
 
 	/* read uevent file */
-	strlcpy(path, sysfs_path, sizeof(path));
+	strlcpy(path, udev_get_sys_path(udev), sizeof(path));
 	strlcat(path, devpath, sizeof(path));
 	strlcat(path, "/uevent", sizeof(path));
 	fd = open(path, O_RDONLY);
@@ -62,7 +62,7 @@ static int import_uevent_var(const char *devpath)
 		if (next == NULL)
 			goto out;
 		next[0] = '\0';
-		info("import into environment: '%s'\n", key);
+		info(udev, "import into environment: '%s'\n", key);
 		putenv(key);
 		key = &next[1];
 	}
@@ -71,13 +71,13 @@ out:
 	return rc;
 }
 
-int udevadm_test(int argc, char *argv[])
+int udevadm_test(struct udev *udev, int argc, char *argv[])
 {
 	int force = 0;
 	const char *action = "add";
 	const char *subsystem = NULL;
 	const char *devpath = NULL;
-	struct udevice *udev;
+	struct udevice *udevice;
 	struct sysfs_device *dev;
 	struct udev_rules rules = {};
 	int retval;
@@ -91,12 +91,13 @@ int udevadm_test(int argc, char *argv[])
 		{}
 	};
 
-	info("version %s\n", VERSION);
-	if (udev_log_priority < LOG_INFO) {
+	info(udev, "version %s\n", VERSION);
+
+	/* export log priority to executed programs */
+	if (udev_get_log_priority(udev) > 0) {
 		char priority[32];
 
-		udev_log_priority = LOG_INFO;
-		sprintf(priority, "%i", udev_log_priority);
+		sprintf(priority, "%i", udev_get_log_priority(udev));
 		setenv("UDEV_LOG", priority, 1);
 	}
 
@@ -107,7 +108,7 @@ int udevadm_test(int argc, char *argv[])
 		if (option == -1)
 			break;
 
-		dbg("option '%c'\n", option);
+		dbg(udev, "option '%c'\n", option);
 		switch (option) {
 		case 'a':
 			action = optarg;
@@ -142,21 +143,21 @@ int udevadm_test(int argc, char *argv[])
 	       "some values may be different, or not available at a simulation run.\n"
 	       "\n");
 
-	udev_rules_init(&rules, 0);
+	udev_rules_init(udev, &rules, 0);
 
 	/* remove /sys if given */
-	if (strncmp(devpath, sysfs_path, strlen(sysfs_path)) == 0)
-		devpath = &devpath[strlen(sysfs_path)];
+	if (strncmp(devpath, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) == 0)
+		devpath = &devpath[strlen(udev_get_sys_path(udev))];
 
-	dev = sysfs_device_get(devpath);
+	dev = sysfs_device_get(udev, devpath);
 	if (dev == NULL) {
 		fprintf(stderr, "unable to open device '%s'\n", devpath);
 		rc = 2;
 		goto exit;
 	}
 
-	udev = udev_device_init();
-	if (udev == NULL) {
+	udevice = udev_device_init(udev);
+	if (udevice == NULL) {
 		fprintf(stderr, "error initializing device\n");
 		rc = 3;
 		goto exit;
@@ -166,37 +167,37 @@ int udevadm_test(int argc, char *argv[])
 		strlcpy(dev->subsystem, subsystem, sizeof(dev->subsystem));
 
 	/* override built-in sysfs device */
-	udev->dev = dev;
-	strlcpy(udev->action, action, sizeof(udev->action));
-	udev->devt = udev_device_get_devt(udev);
+	udevice->dev = dev;
+	strlcpy(udevice->action, action, sizeof(udevice->action));
+	udevice->devt = udev_device_get_devt(udevice);
 
 	/* simulate node creation with test flag */
 	if (!force)
-		udev->test_run = 1;
+		udevice->test_run = 1;
 
-	setenv("DEVPATH", udev->dev->devpath, 1);
-	setenv("SUBSYSTEM", udev->dev->subsystem, 1);
-	setenv("ACTION", udev->action, 1);
-	import_uevent_var(udev->dev->devpath);
+	setenv("DEVPATH", udevice->dev->devpath, 1);
+	setenv("SUBSYSTEM", udevice->dev->subsystem, 1);
+	setenv("ACTION", udevice->action, 1);
+	import_uevent_var(udev, udevice->dev->devpath);
 
-	info("looking at device '%s' from subsystem '%s'\n", udev->dev->devpath, udev->dev->subsystem);
-	retval = udev_device_event(&rules, udev);
+	info(udev, "looking at device '%s' from subsystem '%s'\n", udevice->dev->devpath, udevice->dev->subsystem);
+	retval = udev_device_event(&rules, udevice);
 
-	if (udev->event_timeout >= 0)
-		info("custom event timeout: %i\n", udev->event_timeout);
+	if (udevice->event_timeout >= 0)
+		info(udev, "custom event timeout: %i\n", udevice->event_timeout);
 
-	if (retval == 0 && !udev->ignore_device && udev_run) {
+	if (retval == 0 && !udevice->ignore_device && udev_get_run(udev)) {
 		struct name_entry *name_loop;
 
-		list_for_each_entry(name_loop, &udev->run_list, node) {
+		list_for_each_entry(name_loop, &udevice->run_list, node) {
 			char program[PATH_SIZE];
 
 			strlcpy(program, name_loop->name, sizeof(program));
-			udev_rules_apply_format(udev, program, sizeof(program));
-			info("run: '%s'\n", program);
+			udev_rules_apply_format(udevice, program, sizeof(program));
+			info(udev, "run: '%s'\n", program);
 		}
 	}
-	udev_device_cleanup(udev);
+	udev_device_cleanup(udevice);
 
 exit:
 	udev_rules_cleanup(&rules);

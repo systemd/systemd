@@ -58,8 +58,8 @@ static int devices_scan_subsystem(struct udev *udev,
 		strlcpy(devpath, &path[len], sizeof(devpath));
 		strlcat(devpath, "/", sizeof(devpath));
 		strlcat(devpath, dent->d_name, sizeof(devpath));
-		sysfs_resolve_link(devpath, sizeof(devpath));
-		name_list_add(device_list, devpath, 1);
+		sysfs_resolve_link(udev, devpath, sizeof(devpath));
+		name_list_add(udev, device_list, devpath, 1);
 	}
 	closedir(dir);
 	return 0;
@@ -101,7 +101,7 @@ static int devices_delay(struct udev *udev, const char *devpath)
 
 	for (i = 0; delay_device_list[i] != NULL; i++) {
 		if (strstr(devpath, delay_device_list[i]) != NULL) {
-			log_info(udev, "delaying: %s\n", devpath);
+			info(udev, "delaying: %s\n", devpath);
 			return 1;
 		}
 	}
@@ -158,7 +158,7 @@ int udev_devices_enumerate(struct udev *udev, const char *subsystem,
 	INIT_LIST_HEAD(&device_list);
 
 	/* if we have /sys/subsystem/, forget all the old stuff */
-	strlcpy(base, sysfs_path, sizeof(base));
+	strlcpy(base, udev_get_sys_path(udev), sizeof(base));
 	strlcat(base, "/subsystem", sizeof(base));
 	if (stat(base, &statbuf) == 0) {
 		devices_scan_subsystems(udev, "/subsystem", subsystem, "/devices", &device_list);

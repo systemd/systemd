@@ -108,13 +108,14 @@ struct udev_rule {
 };
 
 struct udev_rules {
+	struct udev *udev;
 	char *buf;
 	size_t bufsize;
 	size_t current;
 	int resolve_names;
 };
 
-extern int udev_rules_init(struct udev_rules *rules, int resolve_names);
+extern int udev_rules_init(struct udev *udev, struct udev_rules *rules, int resolve_names);
 extern void udev_rules_cleanup(struct udev_rules *rules);
 
 extern void udev_rules_iter_init(struct udev_rules *rules);

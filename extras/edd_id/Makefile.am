@@ -8,10 +8,14 @@ dist_udevrules_DATA = \
 
 AM_CPPFLAGS = \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DUDEV_PREFIX=\""$(udev_prefix)"\"
+	-DUDEV_PREFIX=\""$(udev_prefix)"\" \
+	-D_LIBUDEV_COMPILATION
 
 edd_id_SOURCES = \
 	edd_id.c \
+	../../udev/lib/libudev.h \
+	../../udev/lib/libudev.c \
+	../../udev/udev_sysfs.c \
 	../../udev/udev_sysdeps.c \
 	../../udev/udev_utils.c \
 	../../udev/udev_utils_string.c

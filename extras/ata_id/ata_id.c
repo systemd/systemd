@@ -1,7 +1,7 @@
 /*
  * ata_id - reads product/serial number from ATA drives
  *
- * Copyright (C) 2005 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2005-2008 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -28,30 +28,12 @@
 
 #include "../../udev/udev.h"
 
-#ifdef USE_LOG
-void log_message(int priority, const char *format, ...)
+static void log_fn(struct udev *udev, int priority,
+		   const char *file, int line, const char *fn,
+		   const char *format, va_list args)
 {
-	va_list args;
-	static int udev_log = -1;
-
-	if (udev_log == -1) {
-		const char *value;
-
-		value = getenv("UDEV_LOG");
-		if (value)
-			udev_log = log_priority(value);
-		else
-			udev_log = LOG_ERR;
-	}
-
-	if (priority > udev_log)
-		return;
-
-	va_start(args, format);
 	vsyslog(priority, format, args);
-	va_end(args);
 }
-#endif
 
 static void set_str(char *to, const char *from, size_t count)
 {
@@ -87,6 +69,7 @@ static void set_str(char *to, const char *from, size_t count)
 
 int main(int argc, char *argv[])
 {
+	struct udev *udev;
 	struct hd_driveid id;
 	char model[41];
 	char serial[21];
@@ -101,7 +84,12 @@ int main(int argc, char *argv[])
 		{}
 	};
 
+	udev = udev_new();
+	if (udev == NULL)
+		goto exit;
+
 	logging_init("ata_id");
+	udev_set_log_fn(udev, log_fn);
 
 	while (1) {
 		int option;
@@ -126,24 +114,24 @@ int main(int argc, char *argv[])
 
 	node = argv[optind];
 	if (node == NULL) {
-		err("no node specified\n");
+		err(udev, "no node specified\n");
 		rc = 1;
 		goto exit;
 	}
 
 	fd = open(node, O_RDONLY|O_NONBLOCK);
 	if (fd < 0) {
-		err("unable to open '%s'\n", node);
+		err(udev, "unable to open '%s'\n", node);
 		rc = 1;
 		goto exit;
 	}
 
 	if (ioctl(fd, HDIO_GET_IDENTITY, &id)) {
 		if (errno == ENOTTY) {
-			info("HDIO_GET_IDENTITY unsupported for '%s'\n", node);
+			info(udev, "HDIO_GET_IDENTITY unsupported for '%s'\n", node);
 			rc = 2;
 		} else {
-			err("HDIO_GET_IDENTITY failed for '%s'\n", node);
+			err(udev, "HDIO_GET_IDENTITY failed for '%s'\n", node);
 			rc = 3;
 		}
 		goto close;
@@ -190,6 +178,7 @@ int main(int argc, char *argv[])
 close:
 	close(fd);
 exit:
+	udev_unref(udev);
 	logging_close();
 	return rc;
 }

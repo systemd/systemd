@@ -34,12 +34,9 @@
 #include "udev.h"
 #include "udevd.h"
 
-static int udev_log = 0;
-
-int udevadm_control(int argc, char *argv[])
+int udevadm_control(struct udev *udev, int argc, char *argv[])
 {
 	struct udev_ctrl *uctrl;
-	const char *env;
 	int rc = 1;
 
 	/* compat values with '_' will be removed in a future release */
@@ -61,19 +58,12 @@ int udevadm_control(int argc, char *argv[])
 		{}
 	};
 
-	env = getenv("UDEV_LOG");
-	if (env)
-		udev_log = log_priority(env);
-
-	logging_init("udevcontrol");
-	dbg("version %s\n", VERSION);
-
 	if (getuid() != 0) {
 		fprintf(stderr, "root privileges required\n");
 		goto exit;
 	}
 
-	uctrl = udev_ctrl_new_from_socket(UDEVD_CTRL_SOCK_PATH);
+	uctrl = udev_ctrl_new_from_socket(udev, UDEVD_CTRL_SOCK_PATH);
 	if (uctrl == NULL)
 		goto exit;
 
@@ -87,7 +77,7 @@ int udevadm_control(int argc, char *argv[])
 			break;
 
 		if (option > 255) {
-			info("udevadm control expects commands without underscore, "
+			info(udev, "udevadm control expects commands without underscore, "
 			    "this will stop working in a future release\n");
 			fprintf(stderr, "udevadm control expects commands without underscore, "
 				"this will stop working in a future release\n");
@@ -140,7 +130,6 @@ int udevadm_control(int argc, char *argv[])
 			}
 			udev_ctrl_set_max_childs_running(uctrl, i);
 			break;
-			break;
 		case 'h':
 			printf("Usage: udevadm control COMMAND\n"
 				"  --log-priority=<level>   set the udev log level for the daemon\n"
@@ -163,7 +152,7 @@ int udevadm_control(int argc, char *argv[])
 
 		fprintf(stderr, "udevadm control commands requires the --<command> format, "
 			"this will stop working in a future release\n");
-		err("udevadm control commands requires the --<command> format, "
+		err(udev, "udevadm control commands requires the --<command> format, "
 		    "this will stop working in a future release\n");
 
 		if (!strncmp(arg, "log_priority=", strlen("log_priority="))) {
@@ -182,11 +171,10 @@ int udevadm_control(int argc, char *argv[])
 			udev_ctrl_set_env(uctrl, &arg[strlen("env=")]);
 		} else {
 			fprintf(stderr, "unrecognized command '%s'\n", arg);
-			err("unrecognized command '%s'\n", arg);
+			err(udev, "unrecognized command '%s'\n", arg);
 		}
 	}
 exit:
 	udev_ctrl_unref(uctrl);
-	logging_close();
 	return rc;
 }

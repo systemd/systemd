@@ -33,7 +33,6 @@ libudev_la_SOURCES =\
 	../udev_utils_file.c \
 	../udev_sysfs.c \
 	../udev_device.c \
-	../udev_config.c \
 	../udev_db.c \
 	../udev_sysdeps.c
 

@@ -10,7 +10,8 @@ noinst_PROGRAMS = \
 
 AM_CPPFLAGS = \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DUDEV_PREFIX=\""$(udev_prefix)"\"
+	-DUDEV_PREFIX=\""$(udev_prefix)"\" \
+	-D_LIBUDEV_COMPILATION
 
 common_ldadd =
 
@@ -21,7 +22,6 @@ common_files = \
 	udev_rules.h \
 	udev_selinux.h \
 	udev_sysdeps.h \
-	udev_config.c \
 	udev_db.c \
 	udev_device.c \
 	udev_device_event.c \
@@ -32,7 +32,11 @@ common_files = \
 	udev_sysfs.c \
 	udev_utils.c \
 	udev_utils_file.c \
-	udev_utils_string.c
+	udev_utils_string.c \
+	lib/libudev.h \
+	lib/libudev-private.h \
+	lib/libudev.c \
+	lib/libudev-utils.c
 
 
 if USE_SELINUX

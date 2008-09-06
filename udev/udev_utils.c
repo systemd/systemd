@@ -55,7 +55,7 @@ int log_priority(const char *priority)
 	return 0;
 }
 
-struct name_entry *name_list_add(struct list_head *name_list, const char *name, int sort)
+struct name_entry *name_list_add(struct udev *udev, struct list_head *name_list, const char *name, int sort)
 {
 	struct name_entry *name_loop;
 	struct name_entry *name_new;
@@ -63,7 +63,7 @@ struct name_entry *name_list_add(struct list_head *name_list, const char *name, 
 	/* avoid duplicate entries */
 	list_for_each_entry(name_loop, name_list, node) {
 		if (strcmp(name_loop->name, name) == 0) {
-			dbg("'%s' is already in the list\n", name);
+			dbg(udev, "'%s' is already in the list\n", name);
 			return name_loop;
 		}
 	}
@@ -79,20 +79,20 @@ struct name_entry *name_list_add(struct list_head *name_list, const char *name, 
 		return NULL;
 	memset(name_new, 0x00, sizeof(struct name_entry));
 	strlcpy(name_new->name, name, sizeof(name_new->name));
-	dbg("adding '%s'\n", name_new->name);
+	dbg(udev, "adding '%s'\n", name_new->name);
 	list_add_tail(&name_new->node, &name_loop->node);
 
 	return name_new;
 }
 
-struct name_entry *name_list_key_add(struct list_head *name_list, const char *key, const char *value)
+struct name_entry *name_list_key_add(struct udev *udev, struct list_head *name_list, const char *key, const char *value)
 {
 	struct name_entry *name_loop;
 	struct name_entry *name_new;
 
 	list_for_each_entry(name_loop, name_list, node) {
 		if (strncmp(name_loop->name, key, strlen(key)) == 0) {
-			dbg("key already present '%s', replace it\n", name_loop->name);
+			dbg(udev, "key already present '%s', replace it\n", name_loop->name);
 			snprintf(name_loop->name, sizeof(name_loop->name), "%s=%s", key, value);
 			name_loop->name[sizeof(name_loop->name)-1] = '\0';
 			return name_loop;
@@ -105,13 +105,13 @@ struct name_entry *name_list_key_add(struct list_head *name_list, const char *ke
 	memset(name_new, 0x00, sizeof(struct name_entry));
 	snprintf(name_new->name, sizeof(name_new->name), "%s=%s", key, value);
 	name_new->name[sizeof(name_new->name)-1] = '\0';
-	dbg("adding '%s'\n", name_new->name);
+	dbg(udev, "adding '%s'\n", name_new->name);
 	list_add_tail(&name_new->node, &name_loop->node);
 
 	return name_new;
 }
 
-int name_list_key_remove(struct list_head *name_list, const char *key)
+int name_list_key_remove(struct udev *udev, struct list_head *name_list, const char *key)
 {
 	struct name_entry *name_loop;
 	struct name_entry *name_tmp;
@@ -131,7 +131,7 @@ int name_list_key_remove(struct list_head *name_list, const char *key)
 	return retval;
 }
 
-void name_list_cleanup(struct list_head *name_list)
+void name_list_cleanup(struct udev *udev, struct list_head *name_list)
 {
 	struct name_entry *name_loop;
 	struct name_entry *name_tmp;
@@ -143,16 +143,16 @@ void name_list_cleanup(struct list_head *name_list)
 }
 
 /* calls function for every file found in specified directory */
-int add_matching_files(struct list_head *name_list, const char *dirname, const char *suffix)
+int add_matching_files(struct udev *udev, struct list_head *name_list, const char *dirname, const char *suffix)
 {
 	struct dirent *ent;
 	DIR *dir;
 	char filename[PATH_SIZE];
 
-	dbg("open directory '%s'\n", dirname);
+	dbg(udev, "open directory '%s'\n", dirname);
 	dir = opendir(dirname);
 	if (dir == NULL) {
-		err("unable to open '%s': %s\n", dirname, strerror(errno));
+		err(udev, "unable to open '%s': %s\n", dirname, strerror(errno));
 		return -1;
 	}
 
@@ -174,18 +174,18 @@ int add_matching_files(struct list_head *name_list, const char *dirname, const c
 			if (strcmp(ext, suffix) != 0)
 				continue;
 		}
-		dbg("put file '%s/%s' into list\n", dirname, ent->d_name);
+		dbg(udev, "put file '%s/%s' into list\n", dirname, ent->d_name);
 
 		snprintf(filename, sizeof(filename), "%s/%s", dirname, ent->d_name);
 		filename[sizeof(filename)-1] = '\0';
-		name_list_add(name_list, filename, 1);
+		name_list_add(udev, name_list, filename, 1);
 	}
 
 	closedir(dir);
 	return 0;
 }
 
-uid_t lookup_user(const char *user)
+uid_t lookup_user(struct udev *udev, const char *user)
 {
 	struct passwd *pw;
 	uid_t uid = 0;
@@ -194,16 +194,16 @@ uid_t lookup_user(const char *user)
 	pw = getpwnam(user);
 	if (pw == NULL) {
 		if (errno == 0 || errno == ENOENT || errno == ESRCH)
-			err("specified user '%s' unknown\n", user);
+			err(udev, "specified user '%s' unknown\n", user);
 		else
-			err("error resolving user '%s': %s\n", user, strerror(errno));
+			err(udev, "error resolving user '%s': %s\n", user, strerror(errno));
 	} else
 		uid = pw->pw_uid;
 
 	return uid;
 }
 
-extern gid_t lookup_group(const char *group)
+extern gid_t lookup_group(struct udev *udev, const char *group)
 {
 	struct group *gr;
 	gid_t gid = 0;
@@ -212,9 +212,9 @@ extern gid_t lookup_group(const char *group)
 	gr = getgrnam(group);
 	if (gr == NULL) {
 		if (errno == 0 || errno == ENOENT || errno == ESRCH)
-			err("specified group '%s' unknown\n", group);
+			err(udev, "specified group '%s' unknown\n", group);
 		else
-			err("error resolving group '%s': %s\n", group, strerror(errno));
+			err(udev, "error resolving group '%s': %s\n", group, strerror(errno));
 	} else
 		gid = gr->gr_gid;
 

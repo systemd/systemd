@@ -41,33 +41,16 @@ static int t1200[] = { 2, 5, 6, 10, 12, 14, 16, 18, 20, 23, 0 };
 static int t3in[] = { 8, 9, 26, 27, 28, 7, 11, 15, 19, 24, 25, 29, 31, 3, 4, 13, 17, 21, 22, 30, 0 };
 static int *table_sup[] = { NULL, t360, t1200, t3in+5+8, t3in+5, t3in, t3in };
 
-#ifdef USE_LOG
-void log_message(int priority, const char *format, ...)
+static void log_fn(struct udev *udev, int priority,
+		   const char *file, int line, const char *fn,
+		   const char *format, va_list args)
 {
-	va_list args;
-	static int udev_log = -1;
-
-	if (udev_log == -1) {
-		const char *value;
-
-		value = getenv("UDEV_LOG");
-		if (value)
-			udev_log = log_priority(value);
-		else
-			udev_log = LOG_ERR;
-	}
-
-	if (priority > udev_log)
-		return;
-
-	va_start(args, format);
 	vsyslog(priority, format, args);
-	va_end(args);
 }
-#endif
 
 int main(int argc, char **argv)
 {
+	struct udev *udev;
 	char *dev;
 	char *devname;
 	char node[64];
@@ -80,6 +63,13 @@ int main(int argc, char **argv)
 	int print_nodes = 0;
 	int is_err = 0;
 
+	udev = udev_new();
+	if (udev == NULL)
+		goto exit;
+
+	logging_init("create_floppy_devices");
+	udev_set_log_fn(udev, log_fn);
+
 	while ((c = getopt(argc, argv, "cudm:U:G:M:t:")) != -1) {
 		switch (c) {
 		case 'c':
@@ -89,10 +79,10 @@ int main(int argc, char **argv)
 			print_nodes = 1;
 			break;
 		case 'U':
-			uid = lookup_user(optarg);
+			uid = lookup_user(udev, optarg);
 			break;
 		case 'G':
-			gid = lookup_group(optarg);
+			gid = lookup_group(udev, optarg);
 			break;
 		case 'M':
 			mode = strtol(optarg, NULL, 0);
@@ -155,8 +145,7 @@ int main(int argc, char **argv)
 	if (type == 0)
 		return 0;
 
-	udev_config_init();
-	selinux_init();
+	selinux_init(udev);
 
 	i = 0;
 	while (table_sup[type][i]) {
@@ -166,15 +155,17 @@ int main(int argc, char **argv)
 			printf("%s b %d %d %d\n", node, mode, major, minor);
 		if (create_nodes) {
 			unlink(node);
-			selinux_setfscreatecon(node, NULL, S_IFBLK | mode);
+			selinux_setfscreatecon(udev, node, NULL, S_IFBLK | mode);
 			mknod(node, S_IFBLK | mode, makedev(major,minor));
-			selinux_resetfscreatecon();
+			selinux_resetfscreatecon(udev);
 			chown(node, uid, gid);
 			chmod(node, S_IFBLK | mode);
 		}
 		i++;
 	}
 
-	selinux_exit();
+	selinux_exit(udev);
+	udev_unref(udev);
+exit:
 	return 0;
 }

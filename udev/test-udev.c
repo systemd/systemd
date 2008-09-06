@@ -35,20 +35,6 @@
 #include "udev_rules.h"
 #include "udev_selinux.h"
 
-#ifdef USE_LOG
-void log_message(int priority, const char *format, ...)
-{
-	va_list args;
-
-	if (priority > udev_log_priority)
-		return;
-
-	va_start(args, format);
-	vsyslog(priority, format, args);
-	va_end(args);
-}
-#endif
-
 static void asmlinkage sig_handler(int signum)
 {
 	switch (signum) {
@@ -62,8 +48,9 @@ static void asmlinkage sig_handler(int signum)
 
 int main(int argc, char *argv[])
 {
+	struct udev *udev;
 	struct sysfs_device *dev;
-	struct udevice *udev;
+	struct udevice *udevice;
 	const char *maj, *min;
 	struct udev_rules rules;
 	const char *action;
@@ -73,10 +60,11 @@ int main(int argc, char *argv[])
 	int devnull;
 	int retval = -EINVAL;
 
-	if (argc == 2 && strcmp(argv[1], "-V") == 0) {
-		printf("%s\n", VERSION);
-		exit(0);
-	}
+	udev = udev_new();
+	if (udev == NULL)
+		exit(1);
+	dbg(udev, "version %s\n", VERSION);
+	selinux_init(udev);
 
 	/* set std fd's to /dev/null, /sbin/hotplug forks us, we don't have them at all */
 	devnull = open("/dev/null", O_RDWR);
@@ -89,14 +77,9 @@ int main(int argc, char *argv[])
 			dup2(devnull, STDERR_FILENO);
 		if (devnull > STDERR_FILENO)
 			close(devnull);
+	} else {
+		err(udev, "open /dev/null failed: %s\n", strerror(errno));
 	}
-
-	logging_init("udev");
-	if (devnull < 0)
-		err("open /dev/null failed: %s\n", strerror(errno));
-	udev_config_init();
-	selinux_init();
-	dbg("version %s\n", VERSION);
 
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(act));
@@ -118,61 +101,59 @@ int main(int argc, char *argv[])
 		subsystem = argv[1];
 
 	if (action == NULL || subsystem == NULL || devpath == NULL) {
-		err("action, subsystem or devpath missing\n");
+		err(udev, "action, subsystem or devpath missing\n");
 		goto exit;
 	}
 
 	/* export log_priority , as called programs may want to do the same as udev */
-	if (udev_log_priority) {
+	if (udev_get_log_priority(udev) > 0) {
 		char priority[32];
 
-		sprintf(priority, "%i", udev_log_priority);
+		sprintf(priority, "%i", udev_get_log_priority(udev));
 		setenv("UDEV_LOG", priority, 1);
 	}
 
 	sysfs_init();
-	udev_rules_init(&rules, 0);
+	udev_rules_init(udev, &rules, 0);
 
-	dev = sysfs_device_get(devpath);
+	dev = sysfs_device_get(udev, devpath);
 	if (dev == NULL) {
-		info("unable to open '%s'\n", devpath);
+		info(udev, "unable to open '%s'\n", devpath);
 		goto fail;
 	}
 
-	udev = udev_device_init();
-	if (udev == NULL)
+	udevice = udev_device_init(udev);
+	if (udevice == NULL)
 		goto fail;
 
 	/* override built-in sysfs device */
-	udev->dev = dev;
-	strlcpy(udev->action, action, sizeof(udev->action));
+	udevice->dev = dev;
+	strlcpy(udevice->action, action, sizeof(udevice->action));
 
 	/* get dev_t from environment, which is needed for "remove" to work, "add" works also from sysfs */
 	maj = getenv("MAJOR");
 	min = getenv("MINOR");
 	if (maj != NULL && min != NULL)
-		udev->devt = makedev(atoi(maj), atoi(min));
+		udevice->devt = makedev(atoi(maj), atoi(min));
 	else
-		udev->devt = udev_device_get_devt(udev);
+		udevice->devt = udev_device_get_devt(udevice);
 
-	retval = udev_device_event(&rules, udev);
+	retval = udev_device_event(&rules, udevice);
 
 	/* rules may change/disable the timeout */
-	if (udev->event_timeout >= 0)
-		alarm(udev->event_timeout);
+	if (udevice->event_timeout >= 0)
+		alarm(udevice->event_timeout);
 
-	if (retval == 0 && !udev->ignore_device && udev_run)
-		udev_rules_run(udev);
+	if (retval == 0 && !udevice->ignore_device && udev_get_run(udev))
+		udev_rules_run(udevice);
 
-	udev_device_cleanup(udev);
+	udev_device_cleanup(udevice);
 fail:
 	udev_rules_cleanup(&rules);
 	sysfs_cleanup();
-	selinux_exit();
+	selinux_exit(udev);
 
 exit:
-	logging_close();
-	endgrent();
 	if (retval != 0)
 		return 1;
 	return 0;

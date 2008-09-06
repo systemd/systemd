@@ -13,6 +13,8 @@
 #define _GNU_SOURCE 1
 #endif
 
+#include "config.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -27,54 +29,32 @@
 #include "../../udev/udev.h"
 
 static int debug;
-static char root[PATH_SIZE] = "/dev";
-static char **devices;
 
-#ifdef USE_LOG
-void log_message(int priority, const char *format, ...)
+static void log_fn(struct udev *udev, int priority,
+		   const char *file, int line, const char *fn,
+		   const char *format, va_list args)
 {
-	va_list args;
-	static int udev_log = -1;
-
-	if (udev_log == -1) {
-		const char *value;
-
-		value = getenv("UDEV_LOG");
-		if (value)
-			udev_log = log_priority(value);
-		else
-			udev_log = LOG_ERR;
-
-		if (debug && udev_log < LOG_INFO)
-			udev_log = LOG_INFO;
-	}
-
-	if (priority > udev_log)
-		return;
-
-	va_start(args, format);
 	if (debug) {
-		fprintf(stderr, "[%d] ", (int) getpid());
+		fprintf(stderr, "%s: ", fn);
 		vfprintf(stderr, format, args);
-	} else
+	} else {
 		vsyslog(priority, format, args);
-	va_end(args);
+	}
 }
-#endif
 
-static int matches_device_list(const char *name)
+static int matches_device_list(struct udev *udev, char **devices, const char *name)
 {
 	int i;
 
 	for (i = 0; devices[i] != NULL; i++) {
-		info("compare '%s' == '%s'\n", name, devices[i]);
+		info(udev, "compare '%s' == '%s'\n", name, devices[i]);
 		if (strcmp(devices[i], name) == 0)
 			return 1;
 	}
 	return 0;
 }
 
-static void print_fstab_entry(struct mntent *mnt)
+static void print_fstab_entry(struct udev *udev, struct mntent *mnt)
 {
 	printf("FSTAB_NAME=%s\n", mnt->mnt_fsname);
 	printf("FSTAB_DIR=%s\n", mnt->mnt_dir);
@@ -86,42 +66,48 @@ static void print_fstab_entry(struct mntent *mnt)
 
 int main(int argc, char *argv[])
 {
+	struct udev *udev;
 	static const struct option options[] = {
 		{ "export", 0, NULL, 'x' },
-		{ "root", 1, NULL, 'r' },
 		{ "debug", 0, NULL, 'd' },
 		{ "help", 0, NULL, 'h' },
 		{}
 	};
-
+	char **devices;
 	FILE *fp;
 	struct mntent *mnt;
-	int rc = 0;
+	int rc = 1;
+
+	udev = udev_new();
+	if (udev == NULL)
+		goto exit;
 
 	logging_init("fstab_id");
+	udev_set_log_fn(udev, log_fn);
 
 	while (1) {
 		int option;
 
-		option = getopt_long(argc, argv, "dr:xh", options, NULL);
+		option = getopt_long(argc, argv, "dxh", options, NULL);
 		if (option == -1)
 			break;
 
 		switch (option) {
-		case 'r':
-			strlcpy(root, optarg, sizeof(root));
-			break;
 		case 'd':
 			debug = 1;
+			if (udev_get_log_priority(udev) < LOG_INFO)
+				udev_set_log_priority(udev, LOG_INFO);
 			break;
 		case 'h':
 			printf("Usage: fstab_id [OPTIONS] name [...]\n"
 			       "  --export        print environment keys\n"
-			       "  --root          device node root (default /dev)\n"
 			       "  --debug         debug to stderr\n"
 			       "  --help          print this help text\n\n");
+			goto exit;
+		case 'x':
+			break;
 		default:
-			rc = 1;
+			rc = 2;
 			goto exit;
 		}
 	}
@@ -129,14 +115,14 @@ int main(int argc, char *argv[])
 	devices = &argv[optind];
 	if (devices[0] == NULL) {
 		fprintf(stderr, "error: missing device(s) to match\n");
-		rc = 2;
+		rc = 3;
 		goto exit;
 	}
 
 	fp = setmntent ("/etc/fstab", "r");
 	if (fp == NULL) {
 		fprintf(stderr, "error: opening fstab: %s\n", strerror(errno));
-		rc = 2;
+		rc = 4;
 		goto exit;
 	}
 
@@ -144,6 +130,8 @@ int main(int argc, char *argv[])
 		mnt = getmntent(fp);
 		if (mnt == NULL)
 			break;
+
+		info(udev, "found '%s'@'%s'\n", mnt->mnt_fsname, mnt->mnt_dir);
 
 		/* skip root device */
 		if (strcmp(mnt->mnt_dir, "/") == 0)
@@ -165,8 +153,9 @@ int main(int argc, char *argv[])
 				pos[0] = '\0';
 				label = str;
 			}
-			if (matches_device_list(str)) {
-				print_fstab_entry(mnt);
+			if (matches_device_list(udev, devices, str)) {
+				print_fstab_entry(udev, mnt);
+				rc = 0;
 				break;
 			}
 			continue;
@@ -188,26 +177,28 @@ int main(int argc, char *argv[])
 				pos[0] = '\0';
 				uuid = str;
 			}
-			if (matches_device_list(str)) {
-				print_fstab_entry(mnt);
+			if (matches_device_list(udev, devices, str)) {
+				print_fstab_entry(udev, mnt);
+				rc = 0;
 				break;
 			}
 			continue;
 		}
 
 		/* only devices */
-		if (strncmp(mnt->mnt_fsname, root, strlen(root)) != 0)
+		if (strncmp(mnt->mnt_fsname, udev_get_dev_path(udev), strlen(udev_get_dev_path(udev))) != 0)
 			continue;
 
-		if (matches_device_list(&mnt->mnt_fsname[strlen(root)+1])) {
-			print_fstab_entry(mnt);
+		if (matches_device_list(udev, devices, &mnt->mnt_fsname[strlen(udev_get_dev_path(udev))+1])) {
+			print_fstab_entry(udev, mnt);
+			rc = 0;
 			break;
 		}
 	}
-
 	endmntent(fp);
 
 exit:
+	udev_unref(udev);
 	logging_close();
 	return rc;
 }

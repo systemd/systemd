@@ -32,7 +32,7 @@
 #include "udev.h"
 #include "udev_selinux.h"
 
-int create_path(const char *path)
+int create_path(struct udev *udev, const char *path)
 {
 	char p[PATH_SIZE];
 	char *pos;
@@ -48,17 +48,17 @@ int create_path(const char *path)
 		pos--;
 	pos[0] = '\0';
 
-	dbg("stat '%s'\n", p);
+	dbg(udev, "stat '%s'\n", p);
 	if (stat(p, &stats) == 0 && (stats.st_mode & S_IFMT) == S_IFDIR)
 		return 0;
 
-	if (create_path(p) != 0)
+	if (create_path(udev, p) != 0)
 		return -1;
 
-	dbg("mkdir '%s'\n", p);
- 	selinux_setfscreatecon(p, NULL, S_IFDIR|0755);
+	dbg(udev, "mkdir '%s'\n", p);
+ 	selinux_setfscreatecon(udev, p, NULL, S_IFDIR|0755);
 	ret = mkdir(p, 0755);
- 	selinux_resetfscreatecon();
+ 	selinux_resetfscreatecon(udev);
 	if (ret == 0)
 		return 0;
 
@@ -68,7 +68,7 @@ int create_path(const char *path)
 	return -1;
 }
 
-int delete_path(const char *path)
+int delete_path(struct udev *udev, const char *path)
 {
 	char p[PATH_SIZE];
 	char *pos;
@@ -94,10 +94,10 @@ int delete_path(const char *path)
 		if (retval) {
 			if (errno == ENOTEMPTY)
 				return 0;
-			err("rmdir(%s) failed: %s\n", p, strerror(errno));
+			err(udev, "rmdir(%s) failed: %s\n", p, strerror(errno));
 			break;
 		}
-		dbg("removed '%s'\n", p);
+		dbg(udev, "removed '%s'\n", p);
 	}
 	return 0;
 }
@@ -105,24 +105,24 @@ int delete_path(const char *path)
 /* Reset permissions on the device node, before unlinking it to make sure,
  * that permisions of possible hard links will be removed too.
  */
-int unlink_secure(const char *filename)
+int unlink_secure(struct udev *udev, const char *filename)
 {
 	int retval;
 
 	retval = chown(filename, 0, 0);
 	if (retval)
-		err("chown(%s, 0, 0) failed: %s\n", filename, strerror(errno));
+		err(udev, "chown(%s, 0, 0) failed: %s\n", filename, strerror(errno));
 
 	retval = chmod(filename, 0000);
 	if (retval)
-		err("chmod(%s, 0000) failed: %s\n", filename, strerror(errno));
+		err(udev, "chmod(%s, 0000) failed: %s\n", filename, strerror(errno));
 
 	retval = unlink(filename);
 	if (errno == ENOENT)
 		retval = 0;
 
 	if (retval)
-		err("unlink(%s) failed: %s\n", filename, strerror(errno));
+		err(udev, "unlink(%s) failed: %s\n", filename, strerror(errno));
 
 	return retval;
 }

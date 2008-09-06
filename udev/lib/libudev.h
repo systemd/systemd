@@ -20,6 +20,8 @@
 #ifndef _LIBUDEV_H_
 #define _LIBUDEV_H_
 
+#include <stdarg.h>
+
 /* this will stay as long as the DeviceKit integration of udev is work in progress */
 #if !defined _LIBUDEV_COMPILATION && !defined LIBUDEV_I_KNOW_THE_API_IS_SUBJECT_TO_CHANGE
 #error "#define LIBUDEV_I_KNOW_THE_API_IS_SUBJECT_TO_CHANGE is needed to use this experimental library version"
@@ -36,6 +38,8 @@ extern void udev_set_log_fn(struct udev *udev,
 			    void (*log_fn)(struct udev *udev,
 					   int priority, const char *file, int line, const char *fn,
 					   const char *format, va_list args));
+extern int udev_get_log_priority(struct udev *udev);
+extern void udev_set_log_priority(struct udev *udev, int priority);
 extern const char *udev_get_sys_path(struct udev *udev);
 extern const char *udev_get_dev_path(struct udev *udev);
 

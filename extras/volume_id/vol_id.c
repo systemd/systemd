@@ -39,43 +39,20 @@
 
 #define BLKGETSIZE64 _IOR(0x12,114,size_t)
 
-#ifdef USE_LOG
-void log_message(int priority, const char *format, ...)
+static void log_fn(struct udev *udev, int priority,
+		   const char *file, int line, const char *fn,
+		   const char *format, va_list args)
 {
-	va_list args;
-	static int udev_log = -1;
-
-	if (udev_log == -1) {
-		const char *value;
-
-		value = getenv("UDEV_LOG");
-		if (value)
-			udev_log = log_priority(value);
-		else
-			udev_log = LOG_ERR;
-	}
-
-	if (priority > udev_log)
-		return;
-
-	va_start(args, format);
 	vsyslog(priority, format, args);
-	va_end(args);
 }
-#endif
 
 static void vid_log(int priority, const char *file, int line, const char *format, ...)
 {
-#ifdef USE_LOG
-	char log_str[1024];
 	va_list args;
 
 	va_start(args, format);
-	vsnprintf(log_str, sizeof(log_str), format, args);
-	log_str[sizeof(log_str)-1] = '\0';
-	log_message(priority, "%s:%i %s", file, line, log_str);
+	log_fn(NULL, priority, file, line, NULL, format, args);
 	va_end(args);
-#endif
 	return;
 }
 
@@ -126,6 +103,7 @@ static int all_probers(volume_id_probe_fn_t probe_fn,
 
 int main(int argc, char *argv[])
 {
+	struct udev *udev;
 	static const struct option options[] = {
 		{ "label", 0, NULL, 'l' },
 		{ "label-raw", 0, NULL, 'L' },
@@ -161,7 +139,11 @@ int main(int argc, char *argv[])
 	int retval;
 	int rc = 0;
 
+	udev = udev_new();
+	if (udev == NULL)
+		goto exit;
 	logging_init("vol_id");
+	udev_set_log_fn(udev, log_fn);
 
 	/* hook in our debug into libvolume_id */
 	volume_id_log_fn = vid_log;
@@ -219,7 +201,7 @@ int main(int argc, char *argv[])
 
 	node = argv[optind];
 	if (!node) {
-		err("no device\n");
+		err(udev, "no device\n");
 		fprintf(stderr, "no device\n");
 		rc = 1;
 		goto exit;
@@ -240,7 +222,7 @@ int main(int argc, char *argv[])
 
 	if (ioctl(fd, BLKGETSIZE64, &size) != 0)
 		size = 0;
-	dbg("BLKGETSIZE64=%llu\n", (unsigned long long)size);
+	dbg(udev, "BLKGETSIZE64=%llu\n", (unsigned long long)size);
 
 	/* try to drop all privileges before reading disk content */
 	if (getuid() == 0) {
@@ -251,7 +233,7 @@ int main(int argc, char *argv[])
 			if (setgroups(0, NULL) != 0 ||
 			    setgid(pw->pw_gid) != 0 ||
 			    setuid(pw->pw_uid) != 0)
-				info("unable to drop privileges: %s\n\n", strerror(errno));
+				info(udev, "unable to drop privileges: %s\n\n", strerror(errno));
 		}
 	}
 
@@ -325,7 +307,7 @@ int main(int argc, char *argv[])
 exit:
 	if (vid != NULL)
 		volume_id_close(vid);
-
+	udev_unref(udev);
 	logging_close();
 	return rc;
 }

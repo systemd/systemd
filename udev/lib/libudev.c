@@ -26,8 +26,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#include <dirent.h>
-#include <sys/stat.h>
+#include <ctype.h>
 
 #include "libudev.h"
 #include "libudev-private.h"
@@ -38,6 +37,11 @@ struct udev {
 	void (*log_fn)(struct udev *udev,
 		       int priority, const char *file, int line, const char *fn,
 		       const char *format, va_list args);
+	char *sys_path;
+	char *dev_path;
+	char *rules_path;
+	int log_priority;
+	int run:1;
 };
 
 void udev_log(struct udev *udev,
@@ -45,6 +49,9 @@ void udev_log(struct udev *udev,
 	      const char *format, ...)
 {
 	va_list args;
+
+	if (priority > udev->log_priority)
+		return;
 
 	va_start(args, format);
 	udev->log_fn(udev, priority, file, line, fn, format, args);
@@ -55,32 +62,9 @@ static void log_stderr(struct udev *udev,
 		       int priority, const char *file, int line, const char *fn,
 		       const char *format, va_list args)
 {
-	static int log = -1;
-
-	if (log == -1) {
-		if (getenv("LIBUDEV_DEBUG") != NULL)
-			log = 1;
-		else
-			log = 0;
-	}
-
-	if (log == 1) {
-		fprintf(stderr, "libudev: %s: ", fn);
-		vfprintf(stderr, format, args);
-	}
+	fprintf(stderr, "libudev: %s: ", fn);
+	vfprintf(stderr, format, args);
 }
-
-/* glue to udev logging, needed until udev logging code is "fixed" */
-#ifdef USE_LOG
-void log_message(int priority, const char *format, ...)
-{
-	va_list args;
-
-	va_start(args, format);
-	log_stderr(NULL, priority, NULL, 0, "", format, args);
-	va_end(args);
-}
-#endif
 
 /**
  * udev_new:
@@ -95,17 +79,159 @@ void log_message(int priority, const char *format, ...)
 struct udev *udev_new(void)
 {
 	struct udev *udev;
+	const char *env;
+	char *config_file;
+	FILE *f;
 
 	udev = malloc(sizeof(struct udev));
 	if (udev == NULL)
 		return NULL;
 	memset(udev, 0x00, (sizeof(struct udev)));
+
+	sysfs_init();
+
+	/* defaults */
+	config_file = NULL;
 	udev->refcount = 1;
 	udev->log_fn = log_stderr;
-	udev_config_init();
-	sysfs_init();
-	log_info(udev, "context %p created\n", udev);
+	udev->log_priority = LOG_ERR;
+	udev->run = 1;
+	udev->dev_path = strdup(UDEV_PREFIX "/dev");
+	udev->sys_path = strdup("/sys");
+	config_file = strdup(SYSCONFDIR "/udev/udev.conf");
+
+	if (udev->dev_path == NULL || udev->sys_path == NULL)
+		goto err;
+
+	/* settings by environment and config file */
+	env = getenv("SYSFS_PATH");
+	if (env != NULL) {
+		free(udev->sys_path);
+		udev->sys_path = strdup(env);
+		remove_trailing_chars(udev->sys_path, '/');
+	}
+
+	env = getenv("UDEV_RUN");
+	if (env != NULL && !string_is_true(env))
+		udev->run = 0;
+
+	env = getenv("UDEV_CONFIG_FILE");
+	if (env != NULL) {
+		free(config_file);
+		config_file = strdup(env);
+		remove_trailing_chars(config_file, '/');
+	}
+	if (config_file == NULL)
+		goto err;
+	f = fopen(config_file, "r");
+	if (f != NULL) {
+		char line[LINE_SIZE];
+		int line_nr = 0;
+
+		while (fgets(line, sizeof(line), f)) {
+			size_t len;
+			char *key;
+			char *val;
+
+			line_nr++;
+
+			/* find key */
+			key = line;
+			while (isspace(key[0]))
+				key++;
+
+			/* comment or empty line */
+			if (key[0] == '#' || key[0] == '\0')
+				continue;
+
+			/* split key/value */
+			val = strchr(key, '=');
+			if (val == NULL) {
+				err(udev, "missing <key>=<value> in '%s'[%i], skip line\n", config_file, line_nr);
+				continue;
+			}
+			val[0] = '\0';
+			val++;
+
+			/* find value */
+			while (isspace(val[0]))
+				val++;
+
+			/* terminate key */
+			len = strlen(key);
+			if (len == 0)
+				continue;
+			while (isspace(key[len-1]))
+				len--;
+			key[len] = '\0';
+
+			/* terminate value */
+			len = strlen(val);
+			if (len == 0)
+				continue;
+			while (isspace(val[len-1]))
+				len--;
+			val[len] = '\0';
+
+			if (len == 0)
+				continue;
+
+			/* unquote */
+			if (val[0] == '"' || val[0] == '\'') {
+				if (val[len-1] != val[0]) {
+					err(udev, "inconsistent quoting in '%s'[%i], skip line\n", config_file, line_nr);
+					continue;
+				}
+				val[len-1] = '\0';
+				val++;
+			}
+
+			if (strcasecmp(key, "udev_log") == 0) {
+				udev->log_priority = log_priority(val);
+				continue;
+			}
+			if (strcasecmp(key, "udev_root") == 0) {
+				free(udev->dev_path);
+				udev->dev_path = strdup(val);
+				remove_trailing_chars(udev->dev_path, '/');
+				continue;
+			}
+			if (strcasecmp(key, "udev_rules") == 0) {
+				free(udev->rules_path);
+				udev->rules_path = strdup(val);
+				remove_trailing_chars(udev->rules_path, '/');
+				continue;
+			}
+		}
+		fclose(f);
+	}
+	free(config_file);
+
+	env = getenv("UDEV_ROOT");
+	if (env != NULL) {
+		free(udev->dev_path);
+		udev->dev_path = strdup(env);
+		remove_trailing_chars(udev->dev_path, '/');
+	}
+
+	env = getenv("UDEV_LOG");
+	if (env != NULL)
+		udev->log_priority = log_priority(env);
+
+	if (udev->dev_path == NULL || udev->sys_path == NULL)
+		goto err;
+
+	info(udev, "context %p created\n", udev);
+	info(udev, "log_priority=%d\n", udev->log_priority);
+	info(udev, "dev_path='%s'\n", udev->dev_path);
+	if (udev->rules_path != NULL)
+		info(udev, "rules_path='%s'\n", udev->rules_path);
+
 	return udev;
+err:
+	err(udev, "context creation failed\n");
+	udev_unref(udev);
+	return NULL;
 }
 
 /**
@@ -140,7 +266,9 @@ void udev_unref(struct udev *udev)
 	if (udev->refcount > 0)
 		return;
 	sysfs_cleanup();
-	log_info(udev, "context %p released\n", udev);
+	free(udev->dev_path);
+	free(udev->sys_path);
+	info(udev, "context %p released\n", udev);
 	free(udev);
 }
 
@@ -161,7 +289,27 @@ void udev_set_log_fn(struct udev *udev,
 				    const char *format, va_list args))
 {
 	udev->log_fn = log_fn;
-	log_info(udev, "custom logging function %p registered\n", udev);
+	info(udev, "custom logging function %p registered\n", udev);
+}
+
+int udev_get_log_priority(struct udev *udev)
+{
+	return udev->log_priority;
+}
+
+void udev_set_log_priority(struct udev *udev, int priority)
+{
+	udev->log_priority = priority;
+}
+
+const char *udev_get_rules_path(struct udev *udev)
+{
+	return udev->rules_path;
+}
+
+int udev_get_run(struct udev *udev)
+{
+	return udev->run;
 }
 
 /**
@@ -178,7 +326,7 @@ const char *udev_get_sys_path(struct udev *udev)
 {
 	if (udev == NULL)
 		return NULL;
-	return sysfs_path;
+	return udev->sys_path;
 }
 
 /**
@@ -195,5 +343,5 @@ const char *udev_get_dev_path(struct udev *udev)
 {
 	if (udev == NULL)
 		return NULL;
-	return udev_root;
+	return udev->dev_path;
 }

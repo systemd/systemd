@@ -64,30 +64,12 @@ static char model_str[64];
 static char revision_str[16];
 static char type_str[16];
 
-#ifdef USE_LOG
-void log_message(int priority, const char *format, ...)
+static void log_fn(struct udev *udev, int priority,
+		   const char *file, int line, const char *fn,
+		   const char *format, va_list args)
 {
-	va_list args;
-	static int udev_log = -1;
-
-	if (udev_log == -1) {
-		const char *value;
-
-		value = getenv("UDEV_LOG");
-		if (value)
-			udev_log = log_priority(value);
-		else
-			udev_log = LOG_ERR;
-	}
-
-	if (priority > udev_log)
-		return;
-
-	va_start(args, format);
 	vsyslog(priority, format, args);
-	va_end(args);
 }
-#endif
 
 static void set_str(char *to, const char *from, size_t count)
 {
@@ -215,7 +197,8 @@ static int argc_count(char *opts)
  *
  * vendor and model can end in '\n'.
  */
-static int get_file_options(const char *vendor, const char *model,
+static int get_file_options(struct udev *udev,
+			    const char *vendor, const char *model,
 			    int *argc, char ***newargv)
 {
 	char *buffer;
@@ -227,14 +210,14 @@ static int get_file_options(const char *vendor, const char *model,
 	int c;
 	int retval = 0;
 
-	dbg("vendor='%s'; model='%s'\n", vendor, model);
+	dbg(udev, "vendor='%s'; model='%s'\n", vendor, model);
 	fd = fopen(config_file, "r");
 	if (fd == NULL) {
-		dbg("can't open %s\n", config_file);
+		dbg(udev, "can't open %s\n", config_file);
 		if (errno == ENOENT) {
 			return 1;
 		} else {
-			err("can't open %s: %s\n", config_file, strerror(errno));
+			err(udev, "can't open %s: %s\n", config_file, strerror(errno));
 			return -1;
 		}
 	}
@@ -246,7 +229,7 @@ static int get_file_options(const char *vendor, const char *model,
 	 */
 	buffer = malloc(MAX_BUFFER_LEN);
 	if (!buffer) {
-		err("can't allocate memory\n");
+		err(udev, "can't allocate memory\n");
 		return -1;
 	}
 
@@ -260,7 +243,7 @@ static int get_file_options(const char *vendor, const char *model,
 			break;
 		lineno++;
 		if (buf[strlen(buffer) - 1] != '\n') {
-			err("Config file line %d too long\n", lineno);
+			err(udev, "Config file line %d too long\n", lineno);
 			break;
 		}
 
@@ -312,7 +295,7 @@ static int get_file_options(const char *vendor, const char *model,
 		 * Only allow: [vendor=foo[,model=bar]]options=stuff
 		 */
 		if (!options_in || (!vendor_in && model_in)) {
-			err("Error parsing config file line %d '%s'\n", lineno, buffer);
+			err(udev, "Error parsing config file line %d '%s'\n", lineno, buffer);
 			retval = -1;
 			break;
 		}
@@ -350,7 +333,7 @@ static int get_file_options(const char *vendor, const char *model,
 			c = argc_count(buffer) + 2;
 			*newargv = calloc(c, sizeof(**newargv));
 			if (!*newargv) {
-				err("can't allocate memory\n");
+				err(udev, "can't allocate memory\n");
 				retval = -1;
 			} else {
 				*argc = c;
@@ -375,7 +358,8 @@ static int get_file_options(const char *vendor, const char *model,
 	return retval;
 }
 
-static int set_options(int argc, char **argv, const char *short_opts,
+static int set_options(struct udev *udev,
+		       int argc, char **argv, const char *short_opts,
 		       char *maj_min_dev)
 {
 	int option;
@@ -392,9 +376,9 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			break;
 
 		if (optarg)
-			dbg("option '%c' arg '%s'\n", option, optarg);
+			dbg(udev, "option '%c' arg '%s'\n", option, optarg);
 		else
-			dbg("option '%c'\n", option);
+			dbg(udev, "option '%c'\n", option);
 
 		switch (option) {
 		case 'b':
@@ -443,7 +427,7 @@ static int set_options(int argc, char **argv, const char *short_opts,
 			} else if (strcmp(optarg, "pre-spc3-83") == 0) {
 				default_page_code = PAGE_83_PRE_SPC3; 
 			} else {
-				err("Unknown page code '%s'\n", optarg);
+				err(udev, "Unknown page code '%s'\n", optarg);
 				return -1;
 			}
 			break;
@@ -451,7 +435,7 @@ static int set_options(int argc, char **argv, const char *short_opts,
 		case 's':
 			sg_version = atoi(optarg);
 			if (sg_version < 3 || sg_version > 4) {
-				err("Unknown SG version '%s'\n", optarg);
+				err(udev, "Unknown SG version '%s'\n", optarg);
 				return -1;
 			}
 			break;
@@ -485,7 +469,8 @@ static int set_options(int argc, char **argv, const char *short_opts,
 	return 0;
 }
 
-static int per_dev_options(struct scsi_id_device *dev_scsi, int *good_bad, int *page_code)
+static int per_dev_options(struct udev *udev,
+			   struct scsi_id_device *dev_scsi, int *good_bad, int *page_code)
 {
 	int retval;
 	int newargc;
@@ -495,7 +480,7 @@ static int per_dev_options(struct scsi_id_device *dev_scsi, int *good_bad, int *
 	*good_bad = all_good;
 	*page_code = default_page_code;
 
-	retval = get_file_options(vendor_str, model_str, &newargc, &newargv);
+	retval = get_file_options(udev, vendor_str, model_str, &newargc, &newargv);
 
 	optind = 1; /* reset this global extern */
 	while (retval == 0) {
@@ -504,9 +489,9 @@ static int per_dev_options(struct scsi_id_device *dev_scsi, int *good_bad, int *
 			break;
 
 		if (optarg)
-			dbg("option '%c' arg '%s'\n", option, optarg);
+			dbg(udev, "option '%c' arg '%s'\n", option, optarg);
 		else
-			dbg("option '%c'\n", option);
+			dbg(udev, "option '%c'\n", option);
 
 		switch (option) {
 		case 'b':
@@ -525,13 +510,13 @@ static int per_dev_options(struct scsi_id_device *dev_scsi, int *good_bad, int *
 			} else if (strcmp(optarg, "pre-spc3-83") == 0) {
 				*page_code = PAGE_83_PRE_SPC3; 
 			} else {
-				err("Unknown page code '%s'\n", optarg);
+				err(udev, "Unknown page code '%s'\n", optarg);
 				retval = -1;
 			}
 			break;
 
 		default:
-			err("Unknown or bad option '%c' (0x%x)\n", option, option);
+			err(udev, "Unknown or bad option '%c' (0x%x)\n", option, option);
 			retval = -1;
 			break;
 		}
@@ -544,13 +529,13 @@ static int per_dev_options(struct scsi_id_device *dev_scsi, int *good_bad, int *
 	return retval;
 }
 
-static int set_inq_values(struct scsi_id_device *dev_scsi, const char *path)
+static int set_inq_values(struct udev *udev, struct scsi_id_device *dev_scsi, const char *path)
 {
 	int retval;
 
 	dev_scsi->use_sg = sg_version;
 
-	retval = scsi_std_inquiry(dev_scsi, path);
+	retval = scsi_std_inquiry(udev, dev_scsi, path);
 	if (retval)
 		return retval;
 
@@ -594,7 +579,7 @@ static void format_serial(char *serial)
  * memory etc. return 2, and return 1 for expected cases (like broken
  * device found) that do not print an id.
  */
-static int scsi_id(char *maj_min_dev)
+static int scsi_id(struct udev *udev, char *maj_min_dev)
 {
 	int retval;
 	struct scsi_id_device dev_scsi;
@@ -602,15 +587,16 @@ static int scsi_id(char *maj_min_dev)
 	int page_code;
 	char serial_short[MAX_SERIAL_LEN] = "";
 
-	set_inq_values(&dev_scsi, maj_min_dev);
+	set_inq_values(udev, &dev_scsi, maj_min_dev);
 
 	/* get per device (vendor + model) options from the config file */
-	retval = per_dev_options(&dev_scsi, &good_dev, &page_code);
+	retval = per_dev_options(udev, &dev_scsi, &good_dev, &page_code);
 	dbg("per dev options: good %d; page code 0x%x\n", good_dev, page_code);
 
 	if (!good_dev) {
 		retval = 1;
-	} else if (scsi_get_serial(&dev_scsi, maj_min_dev, page_code,
+	} else if (scsi_get_serial(udev,
+				   &dev_scsi, maj_min_dev, page_code,
 				   serial_short, MAX_SERIAL_LEN)) {
 		retval = 1;
 	} else {
@@ -642,25 +628,30 @@ static int scsi_id(char *maj_min_dev)
 
 int main(int argc, char **argv)
 {
+	struct udev *udev;
 	int retval = 0;
 	char maj_min_dev[MAX_PATH_LEN];
 	int newargc;
 	char **newargv;
 
+	udev = udev_new();
+	if (udev == NULL)
+		goto exit;
+
 	logging_init("scsi_id");
-	dbg("argc is %d\n", argc);
+	udev_set_log_fn(udev, log_fn);
 
 	/*
 	 * Get config file options.
 	 */
 	newargv = NULL;
-	retval = get_file_options(NULL, NULL, &newargc, &newargv);
+	retval = get_file_options(udev, NULL, NULL, &newargc, &newargv);
 	if (retval < 0) {
 		retval = 1;
 		goto exit;
 	}
 	if (newargv && (retval == 0)) {
-		if (set_options(newargc, newargv, short_options, maj_min_dev) < 0) {
+		if (set_options(udev, newargc, newargv, short_options, maj_min_dev) < 0) {
 			retval = 2;
 			goto exit;
 		}
@@ -670,18 +661,19 @@ int main(int argc, char **argv)
 	/*
 	 * Get command line options (overriding any config file settings).
 	 */
-	if (set_options(argc, argv, short_options, maj_min_dev) < 0)
+	if (set_options(udev, argc, argv, short_options, maj_min_dev) < 0)
 		exit(1);
 
 	if (!dev_specified) {
-		err("no device specified\n");
+		err(udev, "no device specified\n");
 		retval = 1;
 		goto exit;
 	}
 
-	retval = scsi_id(maj_min_dev);
+	retval = scsi_id(udev, maj_min_dev);
 
 exit:
+	udev_unref(udev);
 	logging_close();
 	return retval;
 }

@@ -54,20 +54,3 @@ struct udevd_ctrl_msg {
 	};
 };
 
-struct udevd_uevent_msg {
-	struct list_head node;
-	pid_t pid;
-	int exitstatus;
-	time_t queue_time;
-	char *action;
-	char *devpath;
-	char *subsystem;
-	char *driver;
-	dev_t devt;
-	unsigned long long seqnum;
-	char *devpath_old;
-	char *physdevpath;
-	unsigned int timeout;
-	char *envp[UEVENT_NUM_ENVP+1];
-	char envbuf[];
-};

@@ -32,12 +32,13 @@
 #include "udevd.h"
 
 struct udev_ctrl {
+	struct udev *udev;
 	int sock;
 	struct sockaddr_un saddr;
 	socklen_t addrlen;
 };
 
-struct udev_ctrl *udev_ctrl_new_from_socket(const char *socket_path)
+struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path)
 {
 	struct udev_ctrl *uctrl;
 
@@ -45,10 +46,11 @@ struct udev_ctrl *udev_ctrl_new_from_socket(const char *socket_path)
 	if (uctrl == NULL)
 		return NULL;
 	memset(uctrl, 0x00, sizeof(struct udev_ctrl));
+	uctrl->udev = udev;
 
 	uctrl->sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (uctrl->sock < 0) {
-		err("error getting socket: %s\n", strerror(errno));
+		err(udev, "error getting socket: %s\n", strerror(errno));
 		free(uctrl);
 		return NULL;
 	}
@@ -85,7 +87,7 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udevd_ctrl_msg_type type, int
 
 	err = sendto(uctrl->sock, &ctrl_msg, sizeof(ctrl_msg), 0, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
 	if (err == -1) {
-		err("error sending message: %s\n", strerror(errno));
+		err(uctrl->udev, "error sending message: %s\n", strerror(errno));
 	}
 	return err;
 }

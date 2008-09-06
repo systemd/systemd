@@ -20,12 +20,16 @@
 #ifndef _UDEV_H_
 #define _UDEV_H_
 
+#include "config.h"
+
 #include <sys/types.h>
 #include <sys/param.h>
 
 #include "list.h"
-#include "logging.h"
 #include "udev_sysdeps.h"
+#define LIBUDEV_I_KNOW_THE_API_IS_SUBJECT_TO_CHANGE 1
+#include "lib/libudev.h"
+#include "lib/libudev-private.h"
 
 #define COMMENT_CHARACTER			'#'
 #define LINE_SIZE				512
@@ -59,6 +63,8 @@ struct sysfs_device {
 };
 
 struct udevice {
+	struct udev *udev;
+
 	/* device event */
 	struct sysfs_device *dev;		/* points to dev_local by default */
 	struct sysfs_device dev_local;
@@ -92,48 +98,57 @@ struct udevice {
 	int test_run;
 };
 
-/* udev_config.c */
-extern char udev_root[PATH_SIZE];
-extern char udev_config_filename[PATH_SIZE];
-extern char udev_rules_dir[PATH_SIZE];
-extern int udev_log_priority;
-extern int udev_run;
-extern void udev_config_init(void);
+static inline void logging_init(const char *program_name)
+{
+	openlog(program_name, LOG_PID | LOG_CONS, LOG_DAEMON);
+}
+
+static inline void logging_msg(struct udev *udev, int priority,
+			  const char *file, int line, const char *fn,
+			  const char *format, va_list args)
+{
+	vsyslog(priority, format, args);
+}
+
+static inline void logging_close(void)
+{
+	closelog();
+}
 
 /* udev_device.c */
-extern struct udevice *udev_device_init(void);
-extern void udev_device_cleanup(struct udevice *udev);
-extern dev_t udev_device_get_devt(struct udevice *udev);
+extern struct udevice *udev_device_init(struct udev *udev);
+extern void udev_device_cleanup(struct udevice *udevice);
+extern dev_t udev_device_get_devt(struct udevice *udevice);
 
 /* udev_device_event.c */
-extern int udev_device_event(struct udev_rules *rules, struct udevice *udev);
+extern int udev_device_event(struct udev_rules *rules, struct udevice *udevice);
 
 /* udev_sysfs.c */
-extern char sysfs_path[PATH_SIZE];
 extern int sysfs_init(void);
 extern void sysfs_cleanup(void);
-extern void sysfs_device_set_values(struct sysfs_device *dev, const char *devpath,
+extern void sysfs_device_set_values(struct udev *udev,
+				    struct sysfs_device *dev, const char *devpath,
 				    const char *subsystem, const char *driver);
-extern struct sysfs_device *sysfs_device_get(const char *devpath);
-extern struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev);
-extern struct sysfs_device *sysfs_device_get_parent_with_subsystem(struct sysfs_device *dev, const char *subsystem);
-extern char *sysfs_attr_get_value(const char *devpath, const char *attr_name);
-extern int sysfs_resolve_link(char *path, size_t size);
-extern int sysfs_lookup_devpath_by_subsys_id(char *devpath, size_t len, const char *subsystem, const char *id);
+extern struct sysfs_device *sysfs_device_get(struct udev *udev, const char *devpath);
+extern struct sysfs_device *sysfs_device_get_parent(struct udev *udev, struct sysfs_device *dev);
+extern struct sysfs_device *sysfs_device_get_parent_with_subsystem(struct udev *udev, struct sysfs_device *dev, const char *subsystem);
+extern char *sysfs_attr_get_value(struct udev *udev, const char *devpath, const char *attr_name);
+extern int sysfs_resolve_link(struct udev *udev, char *path, size_t size);
+extern int sysfs_lookup_devpath_by_subsys_id(struct udev *udev, char *devpath, size_t len, const char *subsystem, const char *id);
 
 /* udev_node.c */
-extern int udev_node_mknod(struct udevice *udev, const char *file, dev_t devt, mode_t mode, uid_t uid, gid_t gid);
-extern void udev_node_update_symlinks(struct udevice *udev, struct udevice *udev_old);
-extern int udev_node_add(struct udevice *udev);
-extern int udev_node_remove(struct udevice *udev);
+extern int udev_node_mknod(struct udevice *udevice, const char *file, dev_t devt, mode_t mode, uid_t uid, gid_t gid);
+extern void udev_node_update_symlinks(struct udevice *udevice, struct udevice *udev_old);
+extern int udev_node_add(struct udevice *udevice);
+extern int udev_node_remove(struct udevice *udevice);
 
 /* udev_db.c */
-extern int udev_db_add_device(struct udevice *dev);
-extern int udev_db_delete_device(struct udevice *dev);
-extern int udev_db_rename(const char *devpath_old, const char *devpath);
-extern int udev_db_get_device(struct udevice *udev, const char *devpath);
-extern int udev_db_get_devices_by_name(const char *name, struct list_head *name_list);
-extern int udev_db_get_all_entries(struct list_head *name_list);
+extern int udev_db_add_device(struct udevice *udevice);
+extern int udev_db_delete_device(struct udevice *udevice);
+extern int udev_db_rename(struct udev *udev, const char *devpath_old, const char *devpath);
+extern int udev_db_get_device(struct udevice *udevice, const char *devpath);
+extern int udev_db_get_devices_by_name(struct udev *udev, const char *name, struct list_head *name_list);
+extern int udev_db_get_all_entries(struct udev *udevconst, struct list_head *name_list);
 
 /* udev_utils.c */
 struct name_entry {
@@ -143,13 +158,13 @@ struct name_entry {
 };
 
 extern int log_priority(const char *priority);
-extern struct name_entry *name_list_add(struct list_head *name_list, const char *name, int sort);
-extern struct name_entry *name_list_key_add(struct list_head *name_list, const char *key, const char *value);
-extern int name_list_key_remove(struct list_head *name_list, const char *key);
-extern void name_list_cleanup(struct list_head *name_list);
-extern int add_matching_files(struct list_head *name_list, const char *dirname, const char *suffix);
-extern uid_t lookup_user(const char *user);
-extern gid_t lookup_group(const char *group);
+extern struct name_entry *name_list_add(struct udev *udev, struct list_head *name_list, const char *name, int sort);
+extern struct name_entry *name_list_key_add(struct udev *udev, struct list_head *name_list, const char *key, const char *value);
+extern int name_list_key_remove(struct udev *udev, struct list_head *name_list, const char *key);
+extern void name_list_cleanup(struct udev *udev, struct list_head *name_list);
+extern int add_matching_files(struct udev *udev, struct list_head *name_list, const char *dirname, const char *suffix);
+extern uid_t lookup_user(struct udev *udev, const char *user);
+extern gid_t lookup_group(struct udev *udev, const char *group);
 
 /* udev_utils_string.c */
 extern int string_is_true(const char *str);
@@ -160,24 +175,24 @@ extern int utf8_encoded_valid_unichar(const char *str);
 extern int replace_chars(char *str, const char *white);
 
 /* udev_utils_file.c */
-extern int create_path(const char *path);
-extern int delete_path(const char *path);
+extern int create_path(struct udev *udev, const char *path);
+extern int delete_path(struct udev *udev, const char *path);
+extern int unlink_secure(struct udev *udev, const char *filename);
 extern int file_map(const char *filename, char **buf, size_t *bufsize);
 extern void file_unmap(void *buf, size_t bufsize);
-extern int unlink_secure(const char *filename);
 extern size_t buf_get_line(const char *buf, size_t buflen, size_t cur);
 
 /* udevadm commands */
-extern int udevadm_monitor(int argc, char *argv[]);
-extern int udevadm_info(int argc, char *argv[]);
-extern int udevadm_control(int argc, char *argv[]);
-extern int udevadm_trigger(int argc, char *argv[]);
-extern int udevadm_settle(int argc, char *argv[]);
-extern int udevadm_test(int argc, char *argv[]);
+extern int udevadm_monitor(struct udev *udev, int argc, char *argv[]);
+extern int udevadm_info(struct udev *udev, int argc, char *argv[]);
+extern int udevadm_control(struct udev *udev, int argc, char *argv[]);
+extern int udevadm_trigger(struct udev *udev, int argc, char *argv[]);
+extern int udevadm_settle(struct udev *udev, int argc, char *argv[]);
+extern int udevadm_test(struct udev *udev, int argc, char *argv[]);
 
 /* udev_ctrl - daemon runtime setup */
 struct udev_ctrl;
-extern struct udev_ctrl *udev_ctrl_new_from_socket(const char *socket_path);
+extern struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path);
 extern void udev_ctrl_unref(struct udev_ctrl *uctrl);
 extern int udev_ctrl_set_log_level(struct udev_ctrl *uctrl, int priority);
 extern int udev_ctrl_stop_exec_queue(struct udev_ctrl *uctrl);

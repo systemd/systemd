@@ -123,13 +123,13 @@ static const char *search_key(const char *searchkey, const char *buf, size_t buf
 	return NULL;
 }
 
-int udevadm_monitor(int argc, char *argv[])
+int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 {
 	struct sigaction act;
 	int option;
 	int env = 0;
-	int kernel = 0;
-	int udev = 0;
+	int print_kernel = 0;
+	int print_udev = 0;
 	fd_set readfds;
 	int retval = 0;
 
@@ -151,10 +151,10 @@ int udevadm_monitor(int argc, char *argv[])
 			env = 1;
 			break;
 		case 'k':
-			kernel = 1;
+			print_kernel = 1;
 			break;
 		case 'u':
-			udev = 1;
+			print_udev = 1;
 			break;
 		case 'h':
 			printf("Usage: udevadm monitor [--environment] [--kernel] [--udev] [--help]\n"
@@ -167,12 +167,12 @@ int udevadm_monitor(int argc, char *argv[])
 		}
 	}
 
-	if (!kernel && !udev) {
-		kernel = 1;
-		udev =1;
+	if (!print_kernel && !print_udev) {
+		print_kernel = 1;
+		print_udev =1;
 	}
 
-	if (getuid() != 0 && kernel) {
+	if (getuid() != 0 && print_kernel) {
 		fprintf(stderr, "root privileges needed to subscribe to kernel events\n");
 		goto out;
 	}
@@ -185,14 +185,14 @@ int udevadm_monitor(int argc, char *argv[])
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGTERM, &act, NULL);
 
-	printf("udevmonitor will print the received events for:\n");
-	if (udev) {
+	printf("monitor will print the received events for:\n");
+	if (print_udev) {
 		retval = init_udev_monitor_socket();
 		if (retval)
 			goto out;
 		printf("UDEV the event which udev sends out after rule processing\n");
 	}
-	if (kernel) {
+	if (print_kernel) {
 		retval = init_uevent_netlink_sock();
 		if (retval)
 			goto out;

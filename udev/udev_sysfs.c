@@ -29,13 +29,12 @@
 
 #include "udev.h"
 
-char sysfs_path[PATH_SIZE];
-
 /* device cache */
 static LIST_HEAD(dev_list);
 
 /* attribute value cache */
 static LIST_HEAD(attr_list);
+
 struct sysfs_attr {
 	struct list_head node;
 	char path[PATH_SIZE];
@@ -45,16 +44,6 @@ struct sysfs_attr {
 
 int sysfs_init(void)
 {
-	const char *env;
-
-	env = getenv("SYSFS_PATH");
-	if (env) {
-		strlcpy(sysfs_path, env, sizeof(sysfs_path));
-		remove_trailing_chars(sysfs_path, '/');
-	} else
-		strlcpy(sysfs_path, "/sys", sizeof(sysfs_path));
-	dbg("sysfs_path='%s'\n", sysfs_path);
-
 	INIT_LIST_HEAD(&dev_list);
 	INIT_LIST_HEAD(&attr_list);
 	return 0;
@@ -78,7 +67,8 @@ void sysfs_cleanup(void)
 	}
 }
 
-void sysfs_device_set_values(struct sysfs_device *dev, const char *devpath,
+void sysfs_device_set_values(struct udev *udev,
+			     struct sysfs_device *dev, const char *devpath,
 			     const char *subsystem, const char *driver)
 {
 	char *pos;
@@ -94,7 +84,7 @@ void sysfs_device_set_values(struct sysfs_device *dev, const char *devpath,
 	if (pos == NULL)
 		return;
 	strlcpy(dev->kernel, &pos[1], sizeof(dev->kernel));
-	dbg("kernel='%s'\n", dev->kernel);
+	dbg(udev, "kernel='%s'\n", dev->kernel);
 
 	/* some devices have '!' in their name, change that to '/' */
 	pos = dev->kernel;
@@ -109,10 +99,10 @@ void sysfs_device_set_values(struct sysfs_device *dev, const char *devpath,
 	while (isdigit(pos[-1]))
 		pos--;
 	strlcpy(dev->kernel_number, pos, sizeof(dev->kernel_number));
-	dbg("kernel_number='%s'\n", dev->kernel_number);
+	dbg(udev, "kernel_number='%s'\n", dev->kernel_number);
 }
 
-int sysfs_resolve_link(char *devpath, size_t size)
+int sysfs_resolve_link(struct udev *udev, char *devpath, size_t size)
 {
 	char link_path[PATH_SIZE];
 	char link_target[PATH_SIZE];
@@ -120,17 +110,17 @@ int sysfs_resolve_link(char *devpath, size_t size)
 	int i;
 	int back;
 
-	strlcpy(link_path, sysfs_path, sizeof(link_path));
+	strlcpy(link_path, udev_get_sys_path(udev), sizeof(link_path));
 	strlcat(link_path, devpath, sizeof(link_path));
 	len = readlink(link_path, link_target, sizeof(link_target));
 	if (len <= 0)
 		return -1;
 	link_target[len] = '\0';
-	dbg("path link '%s' points to '%s'\n", devpath, link_target);
+	dbg(udev, "path link '%s' points to '%s'\n", devpath, link_target);
 
 	for (back = 0; strncmp(&link_target[back * 3], "../", 3) == 0; back++)
 		;
-	dbg("base '%s', tail '%s', back %i\n", devpath, &link_target[back * 3], back);
+	dbg(udev, "base '%s', tail '%s', back %i\n", devpath, &link_target[back * 3], back);
 	for (i = 0; i <= back; i++) {
 		char *pos = strrchr(devpath, '/');
 
@@ -138,13 +128,13 @@ int sysfs_resolve_link(char *devpath, size_t size)
 			return -1;
 		pos[0] = '\0';
 	}
-	dbg("after moving back '%s'\n", devpath);
+	dbg(udev, "after moving back '%s'\n", devpath);
 	strlcat(devpath, "/", size);
 	strlcat(devpath, &link_target[back * 3], size);
 	return 0;
 }
 
-struct sysfs_device *sysfs_device_get(const char *devpath)
+struct sysfs_device *sysfs_device_get(struct udev *udev, const char *devpath)
 {
 	char path[PATH_SIZE];
 	char devpath_real[PATH_SIZE];
@@ -166,7 +156,7 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 	    strncmp(devpath, "/block/", 7) != 0)
 		return NULL;
 
-	dbg("open '%s'\n", devpath);
+	dbg(udev, "open '%s'\n", devpath);
 	strlcpy(devpath_real, devpath, sizeof(devpath_real));
 	remove_trailing_chars(devpath_real, '/');
 	if (devpath[0] == '\0' )
@@ -175,49 +165,49 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 	/* look for device already in cache (we never put an untranslated path in the cache) */
 	list_for_each_entry(dev_loop, &dev_list, node) {
 		if (strcmp(dev_loop->devpath, devpath_real) == 0) {
-			dbg("found in cache '%s'\n", dev_loop->devpath);
+			dbg(udev, "found in cache '%s'\n", dev_loop->devpath);
 			return dev_loop;
 		}
 	}
 
 	/* if we got a link, resolve it to the real device */
-	strlcpy(path, sysfs_path, sizeof(path));
+	strlcpy(path, udev_get_sys_path(udev), sizeof(path));
 	strlcat(path, devpath_real, sizeof(path));
 	if (lstat(path, &statbuf) != 0) {
-		dbg("stat '%s' failed: %s\n", path, strerror(errno));
+		dbg(udev, "stat '%s' failed: %s\n", path, strerror(errno));
 		return NULL;
 	}
 	if (S_ISLNK(statbuf.st_mode)) {
-		if (sysfs_resolve_link(devpath_real, sizeof(devpath_real)) != 0)
+		if (sysfs_resolve_link(udev, devpath_real, sizeof(devpath_real)) != 0)
 			return NULL;
 
 		/* now look for device in cache after path translation */
 		list_for_each_entry(dev_loop, &dev_list, node) {
 			if (strcmp(dev_loop->devpath, devpath_real) == 0) {
-				dbg("found in cache '%s'\n", dev_loop->devpath);
+				dbg(udev, "found in cache '%s'\n", dev_loop->devpath);
 				return dev_loop;
 			}
 		}
 	}
 
 	/* it is a new device */
-	dbg("new uncached device '%s'\n", devpath_real);
+	dbg(udev, "new uncached device '%s'\n", devpath_real);
 	dev = malloc(sizeof(struct sysfs_device));
 	if (dev == NULL)
 		return NULL;
 	memset(dev, 0x00, sizeof(struct sysfs_device));
 
-	sysfs_device_set_values(dev, devpath_real, NULL, NULL);
+	sysfs_device_set_values(udev, dev, devpath_real, NULL, NULL);
 
 	/* get subsystem name */
-	strlcpy(link_path, sysfs_path, sizeof(link_path));
+	strlcpy(link_path, udev_get_sys_path(udev), sizeof(link_path));
 	strlcat(link_path, dev->devpath, sizeof(link_path));
 	strlcat(link_path, "/subsystem", sizeof(link_path));
 	len = readlink(link_path, link_target, sizeof(link_target));
 	if (len > 0) {
 		/* get subsystem from "subsystem" link */
 		link_target[len] = '\0';
-		dbg("subsystem link '%s' points to '%s'\n", link_path, link_target);
+		dbg(udev, "subsystem link '%s' points to '%s'\n", link_path, link_target);
 		pos = strrchr(link_target, '/');
 		if (pos != NULL)
 			strlcpy(dev->subsystem, &pos[1], sizeof(dev->subsystem));
@@ -240,37 +230,37 @@ struct sysfs_device *sysfs_device_get(const char *devpath)
 	}
 
 	/* get driver name */
-	strlcpy(link_path, sysfs_path, sizeof(link_path));
+	strlcpy(link_path, udev_get_sys_path(udev), sizeof(link_path));
 	strlcat(link_path, dev->devpath, sizeof(link_path));
 	strlcat(link_path, "/driver", sizeof(link_path));
 	len = readlink(link_path, link_target, sizeof(link_target));
 	if (len > 0) {
 		link_target[len] = '\0';
-		dbg("driver link '%s' points to '%s'\n", link_path, link_target);
+		dbg(udev, "driver link '%s' points to '%s'\n", link_path, link_target);
 		pos = strrchr(link_target, '/');
 		if (pos != NULL)
 			strlcpy(dev->driver, &pos[1], sizeof(dev->driver));
 	}
 
-	dbg("add to cache 'devpath=%s', subsystem='%s', driver='%s'\n", dev->devpath, dev->subsystem, dev->driver);
+	dbg(udev, "add to cache 'devpath=%s', subsystem='%s', driver='%s'\n", dev->devpath, dev->subsystem, dev->driver);
 	list_add(&dev->node, &dev_list);
 
 	return dev;
 }
 
-struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
+struct sysfs_device *sysfs_device_get_parent(struct udev *udev, struct sysfs_device *dev)
 {
 	char parent_devpath[PATH_SIZE];
 	char *pos;
 
-	dbg("open '%s'\n", dev->devpath);
+	dbg(udev, "open '%s'\n", dev->devpath);
 
 	/* look if we already know the parent */
 	if (dev->parent != NULL)
 		return dev->parent;
 
 	strlcpy(parent_devpath, dev->devpath, sizeof(parent_devpath));
-	dbg("'%s'\n", parent_devpath);
+	dbg(udev, "'%s'\n", parent_devpath);
 
 	/* strip last element */
 	pos = strrchr(parent_devpath, '/');
@@ -281,12 +271,12 @@ struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
 	if (strncmp(parent_devpath, "/class", 6) == 0) {
 		pos = strrchr(parent_devpath, '/');
 		if (pos == &parent_devpath[6] || pos == parent_devpath) {
-			dbg("/class top level, look for device link\n");
+			dbg(udev, "/class top level, look for device link\n");
 			goto device_link;
 		}
 	}
 	if (strcmp(parent_devpath, "/block") == 0) {
-		dbg("/block top level, look for device link\n");
+		dbg(udev, "/block top level, look for device link\n");
 		goto device_link;
 	}
 
@@ -296,34 +286,34 @@ struct sysfs_device *sysfs_device_get_parent(struct sysfs_device *dev)
 		return NULL;
 
 	/* get parent and remember it */
-	dev->parent = sysfs_device_get(parent_devpath);
+	dev->parent = sysfs_device_get(udev, parent_devpath);
 	return dev->parent;
 
 device_link:
 	strlcpy(parent_devpath, dev->devpath, sizeof(parent_devpath));
 	strlcat(parent_devpath, "/device", sizeof(parent_devpath));
-	if (sysfs_resolve_link(parent_devpath, sizeof(parent_devpath)) != 0)
+	if (sysfs_resolve_link(udev, parent_devpath, sizeof(parent_devpath)) != 0)
 		return NULL;
 
 	/* get parent and remember it */
-	dev->parent = sysfs_device_get(parent_devpath);
+	dev->parent = sysfs_device_get(udev, parent_devpath);
 	return dev->parent;
 }
 
-struct sysfs_device *sysfs_device_get_parent_with_subsystem(struct sysfs_device *dev, const char *subsystem)
+struct sysfs_device *sysfs_device_get_parent_with_subsystem(struct udev *udev, struct sysfs_device *dev, const char *subsystem)
 {
 	struct sysfs_device *dev_parent;
 
-	dev_parent = sysfs_device_get_parent(dev);
+	dev_parent = sysfs_device_get_parent(udev, dev);
 	while (dev_parent != NULL) {
 		if (strcmp(dev_parent->subsystem, subsystem) == 0)
 			return dev_parent;
-		dev_parent = sysfs_device_get_parent(dev_parent);
+		dev_parent = sysfs_device_get_parent(udev, dev_parent);
 	}
 	return NULL;
 }
 
-char *sysfs_attr_get_value(const char *devpath, const char *attr_name)
+char *sysfs_attr_get_value(struct udev *udev, const char *devpath, const char *attr_name)
 {
 	char path_full[PATH_SIZE];
 	const char *path;
@@ -335,8 +325,8 @@ char *sysfs_attr_get_value(const char *devpath, const char *attr_name)
 	ssize_t size;
 	size_t sysfs_len;
 
-	dbg("open '%s'/'%s'\n", devpath, attr_name);
-	sysfs_len = strlcpy(path_full, sysfs_path, sizeof(path_full));
+	dbg(udev, "open '%s'/'%s'\n", devpath, attr_name);
+	sysfs_len = strlcpy(path_full, udev_get_sys_path(udev), sizeof(path_full));
 	if(sysfs_len >= sizeof(path_full))
 		sysfs_len = sizeof(path_full) - 1;
 	path = &path_full[sysfs_len];
@@ -347,23 +337,23 @@ char *sysfs_attr_get_value(const char *devpath, const char *attr_name)
 	/* look for attribute in cache */
 	list_for_each_entry(attr_loop, &attr_list, node) {
 		if (strcmp(attr_loop->path, path) == 0) {
-			dbg("found in cache '%s'\n", attr_loop->path);
+			dbg(udev, "found in cache '%s'\n", attr_loop->path);
 			return attr_loop->value;
 		}
 	}
 
 	/* store attribute in cache (also negatives are kept in cache) */
-	dbg("new uncached attribute '%s'\n", path_full);
+	dbg(udev, "new uncached attribute '%s'\n", path_full);
 	attr = malloc(sizeof(struct sysfs_attr));
 	if (attr == NULL)
 		return NULL;
 	memset(attr, 0x00, sizeof(struct sysfs_attr));
 	strlcpy(attr->path, path, sizeof(attr->path));
-	dbg("add to cache '%s'\n", path_full);
+	dbg(udev, "add to cache '%s'\n", path_full);
 	list_add(&attr->node, &attr_list);
 
 	if (lstat(path_full, &statbuf) != 0) {
-		dbg("stat '%s' failed: %s\n", path_full, strerror(errno));
+		dbg(udev, "stat '%s' failed: %s\n", path_full, strerror(errno));
 		goto out;
 	}
 
@@ -378,7 +368,7 @@ char *sysfs_attr_get_value(const char *devpath, const char *attr_name)
 			link_target[len] = '\0';
 			pos = strrchr(link_target, '/');
 			if (pos != NULL) {
-				dbg("cache '%s' with link value '%s'\n", path_full, value);
+				dbg(udev, "cache '%s' with link value '%s'\n", path_full, value);
 				strlcpy(attr->value_local, &pos[1], sizeof(attr->value_local));
 				attr->value = attr->value_local;
 			}
@@ -397,7 +387,7 @@ char *sysfs_attr_get_value(const char *devpath, const char *attr_name)
 	/* read attribute value */
 	fd = open(path_full, O_RDONLY);
 	if (fd < 0) {
-		dbg("attribute '%s' can not be opened\n", path_full);
+		dbg(udev, "attribute '%s' can not be opened\n", path_full);
 		goto out;
 	}
 	size = read(fd, value, sizeof(value));
@@ -410,7 +400,7 @@ char *sysfs_attr_get_value(const char *devpath, const char *attr_name)
 	/* got a valid value, store and return it */
 	value[size] = '\0';
 	remove_trailing_chars(value, '\n');
-	dbg("cache '%s' with attribute value '%s'\n", path_full, value);
+	dbg(udev, "cache '%s' with attribute value '%s'\n", path_full, value);
 	strlcpy(attr->value_local, value, sizeof(attr->value_local));
 	attr->value = attr->value_local;
 
@@ -418,14 +408,14 @@ out:
 	return attr->value;
 }
 
-int sysfs_lookup_devpath_by_subsys_id(char *devpath_full, size_t len, const char *subsystem, const char *id)
+int sysfs_lookup_devpath_by_subsys_id(struct udev *udev, char *devpath_full, size_t len, const char *subsystem, const char *id)
 {
 	size_t sysfs_len;
 	char path_full[PATH_SIZE];
 	char *path;
 	struct stat statbuf;
 
-	sysfs_len = strlcpy(path_full, sysfs_path, sizeof(path_full));
+	sysfs_len = strlcpy(path_full, udev_get_sys_path(udev), sizeof(path_full));
 	path = &path_full[sysfs_len];
 
 	if (strcmp(subsystem, "subsystem") == 0) {
@@ -504,7 +494,7 @@ out:
 	return 0;
 found:
 	if (S_ISLNK(statbuf.st_mode))
-		sysfs_resolve_link(path, sizeof(path_full) - sysfs_len);
+		sysfs_resolve_link(udev, path, sizeof(path_full) - sysfs_len);
 	strlcpy(devpath_full, path, len);
 	return 1;
 }

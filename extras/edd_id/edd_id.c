@@ -25,33 +25,16 @@
 
 #include "../../udev/udev.h"
 
-#ifdef USE_LOG
-void log_message(int priority, const char *format, ...)
+static void log_fn(struct udev *udev, int priority,
+		   const char *file, int line, const char *fn,
+		   const char *format, va_list args)
 {
-	va_list args;
-	static int udev_log = -1;
-
-	if (udev_log == -1) {
-		const char *value;
-
-		value = getenv("UDEV_LOG");
-		if (value)
-			udev_log = log_priority(value);
-		else
-			udev_log = LOG_ERR;
-	}
-
-	if (priority > udev_log)
-		return;
-
-	va_start(args, format);
 	vsyslog(priority, format, args);
-	va_end(args);
 }
-#endif
 
 int main(int argc, char *argv[])
 {
+	struct udev *udev;
 	const char *node = NULL;
 	int i;
 	int export = 0;
@@ -64,7 +47,12 @@ int main(int argc, char *argv[])
 	int rc = 1;
 	char match[NAME_MAX] = "";
 
+		udev = udev_new();
+	if (udev == NULL)
+		goto exit;
+
 	logging_init("edd_id");
+	udev_set_log_fn(udev, log_fn);
 
 	for (i = 1 ; i < argc; i++) {
 		char *arg = argv[i];
@@ -75,7 +63,7 @@ int main(int argc, char *argv[])
 			node = arg;
 	}
 	if (node == NULL) {
-		err("no node specified\n");
+		err(udev, "no node specified\n");
 		fprintf(stderr, "no node specified\n");
 		goto exit;
 	}
@@ -83,7 +71,7 @@ int main(int argc, char *argv[])
 	/* check for kernel support */
 	dir = opendir("/sys/firmware/edd");
 	if (dir == NULL) {
-		info("no kernel EDD support\n");
+		info(udev, "no kernel EDD support\n");
 		fprintf(stderr, "no kernel EDD support\n");
 		rc = 2;
 		goto exit;
@@ -91,7 +79,7 @@ int main(int argc, char *argv[])
 
 	disk_fd = open(node, O_RDONLY);
 	if (disk_fd < 0) {
-		info("unable to open '%s'\n", node);
+		info(udev, "unable to open '%s'\n", node);
 		fprintf(stderr, "unable to open '%s'\n", node);
 		rc = 3;
 		goto closedir;
@@ -99,38 +87,38 @@ int main(int argc, char *argv[])
 
 	/* check for valid MBR signature */
 	if (lseek(disk_fd, 510, SEEK_SET) < 0) {
-		info("seek to MBR validity failed '%s'\n", node);
+		info(udev, "seek to MBR validity failed '%s'\n", node);
 		rc = 4;
 		goto close;
 	}
 	if (read(disk_fd, &mbr_valid, sizeof(mbr_valid)) != sizeof(mbr_valid)) {
-		info("read MBR validity failed '%s'\n", node);
+		info(udev, "read MBR validity failed '%s'\n", node);
 		rc = 5;
 		goto close;
 	}
 	if (mbr_valid != 0xAA55) {
 		fprintf(stderr, "no valid MBR signature '%s'\n", node);
-		info("no valid MBR signature '%s'\n", node);
+		info(udev, "no valid MBR signature '%s'\n", node);
 		rc=6;
 		goto close;
 	}
 
 	/* read EDD signature */
 	if (lseek(disk_fd, 440, SEEK_SET) < 0) {
-		info("seek to signature failed '%s'\n", node);
+		info(udev, "seek to signature failed '%s'\n", node);
 		rc = 7;
 		goto close;
 	}
 	if (read(disk_fd, &disk_id, sizeof(disk_id)) != sizeof(disk_id)) {
-		info("read signature failed '%s'\n", node);
+		info(udev, "read signature failed '%s'\n", node);
 		rc = 8;
 		goto close;
 	}
 	/* all zero is invalid */
-	info("read id 0x%08x from '%s'\n", disk_id, node);
+	info(udev, "read id 0x%08x from '%s'\n", disk_id, node);
 	if (disk_id == 0) {
 		fprintf(stderr, "no EDD signature '%s'\n", node);
-		info("'%s' signature is zero\n", node);
+		info(udev, "'%s' signature is zero\n", node);
 		rc = 9;
 		goto close;
 	}
@@ -150,18 +138,18 @@ int main(int argc, char *argv[])
 
 		sysfs_fd = open(file, O_RDONLY);
 		if (sysfs_fd < 0) {
-			info("unable to open sysfs '%s'\n", file);
+			info(udev, "unable to open sysfs '%s'\n", file);
 			continue;
 		}
 
 		size = read(sysfs_fd, sysfs_id_buf, sizeof(sysfs_id_buf)-1);
 		close(sysfs_fd);
 		if (size <= 0) {
-			info("read sysfs '%s' failed\n", file);
+			info(udev, "read sysfs '%s' failed\n", file);
 			continue;
 		}
 		sysfs_id_buf[size] = '\0';
-		info("read '%s' from '%s'\n", sysfs_id_buf, file);
+		info(udev, "read '%s' from '%s'\n", sysfs_id_buf, file);
 		sysfs_id = strtoul(sysfs_id_buf, NULL, 16);
 
 		/* look for matching value, that appears only once */
@@ -171,7 +159,7 @@ int main(int argc, char *argv[])
 				strlcpy(match, dent->d_name, sizeof(match));
 			} else {
 				/* error, same signature for another device */
-				info("'%s' does not have a unique signature\n", node);
+				info(udev, "'%s' does not have a unique signature\n", node);
 				fprintf(stderr, "'%s' does not have a unique signature\n", node);
 				rc = 10;
 				goto exit;
@@ -192,6 +180,7 @@ close:
 closedir:
 	closedir(dir);
 exit:
+	udev_unref(udev);
 	logging_close();
 	return rc;
 }

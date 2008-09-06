@@ -33,7 +33,7 @@
           <command>udevadm settle <optional>options</optional></command>
         </cmdsynopsis>
         <cmdsynopsis>
-          <command>udevadm control <optional>options</optional> <replaceable>instruction</replaceable></command>
+          <command>udevadm control <replaceable>command</replaceable></command>
         </cmdsynopsis>
         <cmdsynopsis>
           <command>udevadm monitor <optional>options</optional></command>

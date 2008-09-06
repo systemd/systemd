@@ -20,31 +20,39 @@
 #ifndef _LIBUDEV_PRIVATE_H_
 #define _LIBUDEV_PRIVATE_H_
 
+#include "config.h"
+
+#include <syslog.h>
 #include "libudev.h"
 #include "../udev.h"
 
 #ifdef USE_LOG
-#define log_dbg(udev, arg...) \
+#ifdef USE_DEBUG
+#define dbg(udev, arg...) \
 	udev_log(udev, LOG_DEBUG, __FILE__, __LINE__, __FUNCTION__, ## arg)
+#else
+#define dbg(format, arg...) do { } while (0)
+#endif /* USE_DEBUG */
 
-#define log_info(udev, arg...) \
+#define info(udev, arg...) \
 	udev_log(udev, LOG_INFO, __FILE__, __LINE__, __FUNCTION__, ## arg)
 
-#define log_err(udev, arg...) \
+#define err(udev, arg...) \
 	udev_log(udev, LOG_ERR, __FILE__, __LINE__, __FUNCTION__, ## arg)
+#else
+#define dbg(format, arg...) do { } while (0)
+#define info(format, arg...) do { } while (0)
+#define err(format, arg...) do { } while (0)
+#endif
 
+/* libudev */
 void udev_log(struct udev *udev,
 	      int priority, const char *file, int line, const char *fn,
 	      const char *format, ...)
 	      __attribute__ ((format(printf, 6, 7)));
-#else
-#define log_dbg(format, arg...) do { } while (0)
-#define log_info(format, arg...) do { } while (0)
-#define log_err(format, arg...) do { } while (0)
-#endif
-
-/* libudev */
 extern struct udev_device *device_init(struct udev *udev);
+extern const char *udev_get_rules_path(struct udev *udev);
+extern int udev_get_run(struct udev *udev);
 
 /* libudev-device */
 extern int device_set_devpath(struct udev_device *udev_device, const char *devpath);

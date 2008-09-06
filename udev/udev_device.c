@@ -34,48 +34,50 @@
 #include "udev_rules.h"
 
 
-struct udevice *udev_device_init(void)
+struct udevice *udev_device_init(struct udev *udev)
 {
-	struct udevice *udev;
+	struct udevice *udevice;
 
-	udev = malloc(sizeof(struct udevice));
-	if (udev == NULL)
+	udevice = malloc(sizeof(struct udevice));
+	if (udevice == NULL)
 		return NULL;
-	memset(udev, 0x00, sizeof(struct udevice));
+	memset(udevice, 0x00, sizeof(struct udevice));
 
-	INIT_LIST_HEAD(&udev->symlink_list);
-	INIT_LIST_HEAD(&udev->run_list);
-	INIT_LIST_HEAD(&udev->env_list);
+	udevice->udev = udev;
+
+	INIT_LIST_HEAD(&udevice->symlink_list);
+	INIT_LIST_HEAD(&udevice->run_list);
+	INIT_LIST_HEAD(&udevice->env_list);
 
 	/* set sysfs device to local storage, can be overridden if needed */
-	udev->dev = &udev->dev_local;
+	udevice->dev = &udevice->dev_local;
 
 	/* default node permissions */
-	udev->mode = 0660;
-	strcpy(udev->owner, "root");
-	strcpy(udev->group, "root");
+	udevice->mode = 0660;
+	strcpy(udevice->owner, "root");
+	strcpy(udevice->group, "root");
 
-	udev->event_timeout = -1;
-	return udev;
+	udevice->event_timeout = -1;
+	return udevice;
 }
 
-void udev_device_cleanup(struct udevice *udev)
+void udev_device_cleanup(struct udevice *udevice)
 {
-	if (udev == NULL)
+	if (udevice == NULL)
 		return;
-	name_list_cleanup(&udev->symlink_list);
-	name_list_cleanup(&udev->run_list);
-	name_list_cleanup(&udev->env_list);
-	free(udev);
+	name_list_cleanup(udevice->udev, &udevice->symlink_list);
+	name_list_cleanup(udevice->udev, &udevice->run_list);
+	name_list_cleanup(udevice->udev, &udevice->env_list);
+	free(udevice);
 }
 
-dev_t udev_device_get_devt(struct udevice *udev)
+dev_t udev_device_get_devt(struct udevice *udevice)
 {
 	const char *attr;
 	unsigned int maj, min;
 
 	/* read it from sysfs  */
-	attr = sysfs_attr_get_value(udev->dev->devpath, "dev");
+	attr = sysfs_attr_get_value(udevice->udev, udevice->dev->devpath, "dev");
 	if (attr != NULL) {
 		if (sscanf(attr, "%u:%u", &maj, &min) == 2)
 			return makedev(maj, min);

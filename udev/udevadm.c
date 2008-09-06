@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2007-2008 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the
@@ -30,43 +30,38 @@
 
 static int debug;
 
-#ifdef USE_LOG
-void log_message(int priority, const char *format, ...)
+static void log_fn(struct udev *udev, int priority,
+		   const char *file, int line, const char *fn,
+		   const char *format, va_list args)
 {
-	va_list	args;
-
-	if (priority > udev_log_priority)
-		return;
-
-	va_start(args, format);
-	if (debug)
-		vprintf(format, args);
-	else
+	if (debug) {
+		fprintf(stderr, "%s: ", fn);
+		vfprintf(stderr, format, args);
+	} else {
 		vsyslog(priority, format, args);
-	va_end(args);
+	}
 }
-#endif
 
 struct command {
 	const char *name;
-	int (*cmd)(int argc, char *argv[]);
+	int (*cmd)(struct udev *udev, int argc, char *argv[]);
 	const char *help;
 	int debug;
 };
 
 static const struct command cmds[];
 
-static int version(int argc, char *argv[])
+static int version(struct udev *udev, int argc, char *argv[])
 {
 	printf("%s\n", VERSION);
 	return 0;
 }
 
-static int help(int argc, char *argv[])
+static int help(struct udev *udev, int argc, char *argv[])
 {
 	const struct command *cmd;
 
-	printf("Usage: udevadm COMMAND [OPTIONS]\n");
+	printf("Usage: udevadm [--help] [--version] [--debug] COMMAND [COMMAND OPTIONS]\n");
 	for (cmd = cmds; cmd->name != NULL; cmd++)
 		printf("  %-12s %s\n", cmd->name, cmd->help);
 	printf("\n");
@@ -118,28 +113,40 @@ static const struct command cmds[] = {
 	{}
 };
 
+static int run_command(struct udev *udev, const struct command *cmd, int argc, char *argv[])
+{
+	if (cmd->debug) {
+		debug = 1;
+		if (udev_get_log_priority(udev) < LOG_INFO)
+			udev_set_log_priority(udev, LOG_INFO);
+	}
+	info(udev, "calling: %s\n", cmd->name);
+	return cmd->cmd(udev, argc, argv);
+}
+
 int main(int argc, char *argv[])
 {
-	const char *command = argv[1];
+	struct udev *udev;
+	static const struct option options[] = {
+		{ "debug", 0, NULL, 'd' },
+		{ "help", 0, NULL, 'h' },
+		{ "version", 0, NULL, 'V' },
+		{}
+	};
+	const char *command;
 	int i;
 	const char *pos;
-	int rc;
+	int rc = 1;
+
+	udev = udev_new();
+	if (udev == NULL)
+		goto out;
 
 	logging_init("udevadm");
-	udev_config_init();
+	udev_set_log_fn(udev, log_fn);
 	sysfs_init();
 
-	/* find command */
-	if (command != NULL)
-		for (i = 0; cmds[i].cmd != NULL; i++) {
-			if (strcmp(cmds[i].name, command) == 0) {
-				debug = cmds[i].debug;
-				rc = cmds[i].cmd(argc-1, &argv[1]);
-				goto out;
-			}
-		}
-
-	/* try to find compat link, will be removed in a future release */
+	/* see if we are a compat link, this will be removed in a future release */
 	command = argv[0];
 	pos = strrchr(command, '/');
 	if (pos != NULL)
@@ -161,19 +168,53 @@ int main(int argc, char *argv[])
 				prog[len] = '\0';
 				fprintf(stderr, "the program '%s' called '%s', it should use 'udevadm %s <options>', "
 				       "this will stop working in a future release\n", prog, argv[0], command);
-				info("the program '%s' called '%s', it should use 'udevadm %s <options>', "
+				info(udev, "the program '%s' called '%s', it should use 'udevadm %s <options>', "
 				     "this will stop working in a future release\n", prog, argv[0], command);
 			}
-			debug = cmds[i].debug;
-			rc = cmds[i].cmd(argc, argv);
+			rc = run_command(udev, &cmds[i], argc, argv);
 			goto out;
 		}
 	}
 
-	fprintf(stderr, "unknown command, try help\n\n");
+	while (1) {
+		int option;
+
+		option = getopt_long(argc, argv, "+dhV", options, NULL);
+		if (option == -1)
+			break;
+
+		switch (option) {
+		case 'd':
+			debug = 1;
+			if (udev_get_log_priority(udev) < LOG_INFO)
+				udev_set_log_priority(udev, LOG_INFO);
+			break;
+		case 'h':
+			rc = help(udev, argc, argv);
+			goto out;
+		case 'V':
+			rc = version(udev, argc, argv);
+			goto out;
+		default:
+			goto out;
+		}
+	}
+	command = argv[optind];
+
+	if (command != NULL)
+		for (i = 0; cmds[i].cmd != NULL; i++) {
+			if (strcmp(cmds[i].name, command) == 0) {
+				optind++;
+				rc = run_command(udev, &cmds[i], argc, argv);
+				goto out;
+			}
+		}
+
+	fprintf(stderr, "unknown command, try udevadm help\n\n");
 	rc = 2;
 out:
 	sysfs_cleanup();
+	udev_unref(udev);
 	logging_close();
 	return rc;
 }

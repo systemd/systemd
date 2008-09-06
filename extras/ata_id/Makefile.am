@@ -4,10 +4,14 @@ udevhome_PROGRAMS = \
 
 AM_CPPFLAGS = \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DUDEV_PREFIX=\""$(udev_prefix)"\"
+	-DUDEV_PREFIX=\""$(udev_prefix)"\" \
+	-D_LIBUDEV_COMPILATION
 
 ata_id_SOURCES = \
 	ata_id.c \
+	../../udev/lib/libudev.h \
+	../../udev/lib/libudev.c \
+	../../udev/udev_sysfs.c \
 	../../udev/udev_sysdeps.c \
 	../../udev/udev_utils.c \
 	../../udev/udev_utils_string.c

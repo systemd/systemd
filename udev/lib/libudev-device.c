@@ -58,7 +58,7 @@ struct udev_device *device_init(struct udev *udev)
 	udev_device->udev = udev;
 	INIT_LIST_HEAD(&udev_device->link_list);
 	INIT_LIST_HEAD(&udev_device->env_list);
-	log_info(udev_device->udev, "udev_device: %p created\n", udev_device);
+	info(udev_device->udev, "udev_device: %p created\n", udev_device);
 	return udev_device;
 }
 
@@ -101,7 +101,7 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
 	if (udev_device == NULL)
 		return NULL;
 
-	udevice = udev_device_init();
+	udevice = udev_device_init(udev);
 	if (udevice == NULL) {
 		free(udev_device);
 		return NULL;
@@ -109,13 +109,13 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
 
 	/* resolve possible symlink to real path */
 	strlcpy(path, devpath, sizeof(path));
-	sysfs_resolve_link(path, sizeof(path));
+	sysfs_resolve_link(udev, path, sizeof(path));
 	device_set_devpath(udev_device, devpath);
-	log_info(udev, "device %p has devpath '%s'\n", udev_device, udev_device_get_devpath(udev_device));
+	info(udev, "device %p has devpath '%s'\n", udev_device, udev_device_get_devpath(udev_device));
 
 	err = udev_db_get_device(udevice, path);
 	if (err >= 0)
-		log_info(udev, "device %p filled with udev database data\n", udev_device);
+		info(udev, "device %p filled with udev database data\n", udev_device);
 
 	if (udevice->name[0] != '\0')
 		asprintf(&udev_device->devname, "%s/%s", udev_get_dev_path(udev), udevice->name);
@@ -126,11 +126,11 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
 		strlcpy(name, udev_get_dev_path(udev), sizeof(name));
 		strlcat(name, "/", sizeof(name));
 		strlcat(name, name_loop->name, sizeof(name));
-		name_list_add(&udev_device->link_list, name, 0);
+		name_list_add(udev, &udev_device->link_list, name, 0);
 	}
 
 	list_for_each_entry(name_loop, &udevice->env_list, node)
-		name_list_add(&udev_device->env_list, name_loop->name, 0);
+		name_list_add(udev_device->udev, &udev_device->env_list, name_loop->name, 0);
 
 	udev_device_cleanup(udevice);
 	return udev_device;
@@ -185,9 +185,9 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->syspath);
 	free(udev_device->devname);
 	free(udev_device->subsystem);
-	name_list_cleanup(&udev_device->link_list);
-	name_list_cleanup(&udev_device->env_list);
-	log_info(udev_device->udev, "udev_device: %p released\n", udev_device);
+	name_list_cleanup(udev_device->udev, &udev_device->link_list);
+	name_list_cleanup(udev_device->udev, &udev_device->env_list);
+	info(udev_device->udev, "udev_device: %p released\n", udev_device);
 	free(udev_device);
 }
 
@@ -359,14 +359,14 @@ int device_set_devname(struct udev_device *udev_device, const char *devname)
 
 int device_add_devlink(struct udev_device *udev_device, const char *devlink)
 {
-	if (name_list_add(&udev_device->link_list, devlink, 0) == NULL)
+	if (name_list_add(udev_device->udev, &udev_device->link_list, devlink, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }
 
 int device_add_property(struct udev_device *udev_device, const char *property)
 {
-	if (name_list_add(&udev_device->env_list, property, 0) == NULL)
+	if (name_list_add(udev_device->udev, &udev_device->env_list, property, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }

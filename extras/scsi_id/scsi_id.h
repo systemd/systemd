@@ -40,8 +40,8 @@ struct scsi_id_device {
 	int use_sg;
 };
 
-extern int scsi_std_inquiry(struct scsi_id_device *dev_scsi, const char *devname);
-extern int scsi_get_serial (struct scsi_id_device *dev_scsi, const char *devname,
+extern int scsi_std_inquiry(struct udev *udev, struct scsi_id_device *dev_scsi, const char *devname);
+extern int scsi_get_serial (struct udev *udev, struct scsi_id_device *dev_scsi, const char *devname,
 			    int page_code, char *serial_short, int len);
 
 /*
