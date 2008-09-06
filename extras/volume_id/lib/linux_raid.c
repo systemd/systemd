@@ -149,26 +149,31 @@ int volume_id_probe_linux_raid(struct volume_id *id, uint64_t off, uint64_t size
 {
 	uint64_t sboff;
 
-	/* version 0 at the end of the device */
-	sboff = (size & ~(MD_RESERVED_BYTES - 1)) - MD_RESERVED_BYTES;
-	if (volume_id_probe_linux_raid0(id, off + sboff, size) == 0)
-		return 0;
+	if (size > MD_RESERVED_BYTES) {
+		/* version 0 at the end of the device */
+		sboff = (size & ~(MD_RESERVED_BYTES - 1)) - MD_RESERVED_BYTES;
+		if (volume_id_probe_linux_raid0(id, off + sboff, size) == 0)
+			return 0;
 
-	/* version 1.0 at the end of the device */
-	sboff = (size & ~(0x1000 - 1)) - 0x2000;
-	if (volume_id_probe_linux_raid1(id, off + sboff, size) == 0)
-		strcpy(id->type_version, "1.0");
+		/* version 1.0 at the end of the device */
+		sboff = (size & ~(0x1000 - 1)) - 0x2000;
+		if (volume_id_probe_linux_raid1(id, off + sboff, size) == 0) {
+			strcpy(id->type_version, "1.0");
+			return 0;
+		}
+	}
 
 	/* version 1.1 at the start of the device */
-	else if (volume_id_probe_linux_raid1(id, off, size) == 0)
+	if (volume_id_probe_linux_raid1(id, off, size) == 0) {
 		strcpy(id->type_version, "1.1");
+		return 0;
+	}
 
 	/* version 1.2 at 4k offset from the start */
-	else if (volume_id_probe_linux_raid1(id, off + 0x1000, size) == 0)
+	if (volume_id_probe_linux_raid1(id, off + 0x1000, size) == 0) {
 		strcpy(id->type_version, "1.2");
+		return 0;
+	}
 
-	else
-		return -1;
-
-	return 0;
+	return -1;
 }
