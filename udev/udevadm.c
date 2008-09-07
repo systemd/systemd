@@ -63,7 +63,8 @@ static int help(struct udev *udev, int argc, char *argv[])
 
 	printf("Usage: udevadm [--help] [--version] [--debug] COMMAND [COMMAND OPTIONS]\n");
 	for (cmd = cmds; cmd->name != NULL; cmd++)
-		printf("  %-12s %s\n", cmd->name, cmd->help);
+		if (cmd->help != NULL)
+			printf("  %-12s %s\n", cmd->name, cmd->help);
 	printf("\n");
 	return 0;
 }
@@ -103,12 +104,10 @@ static const struct command cmds[] = {
 	{
 		.name = "version",
 		.cmd = version,
-		.help = "print the version number",
 	},
 	{
 		.name = "help",
 		.cmd = help,
-		.help = "print this help text",
 	},
 	{}
 };
@@ -210,7 +209,8 @@ int main(int argc, char *argv[])
 			}
 		}
 
-	fprintf(stderr, "unknown command, try udevadm help\n\n");
+	fprintf(stderr, "missing or unknown command\n\n");
+	help(udev, argc, argv);
 	rc = 2;
 out:
 	sysfs_cleanup();

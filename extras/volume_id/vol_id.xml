@@ -107,7 +107,7 @@
           <varlistentry>
             <term><option>--debug</option></term>
             <listitem>
-              <para>Print debug output to stderr.</para>
+              <para>Print debug messages to stderr.</para>
             </listitem>
           </varlistentry>
           <varlistentry>

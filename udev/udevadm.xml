@@ -24,7 +24,13 @@
 
       <refsynopsisdiv>
         <cmdsynopsis>
-          <command>udevadm info <optional>options</optional></command>
+          <command>udevadm</command>
+            <arg><option>--debug</option></arg>
+            <arg><option>--version</option></arg>
+            <arg><option>--help</option></arg>
+        </cmdsynopsis>
+        <cmdsynopsis>
+          <command>udevadm info <replaceable>options</replaceable></command>
         </cmdsynopsis>
         <cmdsynopsis>
           <command>udevadm trigger <optional>options</optional></command>
@@ -41,12 +47,6 @@
         <cmdsynopsis>
           <command>udevadm test <optional>options</optional> <replaceable>devpath</replaceable></command>
         </cmdsynopsis>
-        <cmdsynopsis>
-          <command>udevadm version</command>
-        </cmdsynopsis>
-        <cmdsynopsis>
-          <command>udevadm help</command>
-        </cmdsynopsis>
       </refsynopsisdiv>
 
       <refsect1><title>DESCRIPTION</title>
@@ -56,6 +56,26 @@
       </refsect1>
 
       <refsect1><title>OPTIONS</title>
+        <variablelist>
+          <varlistentry>
+            <term><option>--debug</option></term>
+            <listitem>
+              <para>Print debug messages to stderr.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--version</option></term>
+            <listitem>
+              <para>Print version number.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--help</option></term>
+            <listitem>
+              <para>Print help text.</para>
+            </listitem>
+          </varlistentry>
+        </variablelist>
 
         <refsect2><title>udevadm info <replaceable>options</replaceable></title>
           <para>Queries the udev database for device information
@@ -350,14 +370,6 @@
               </listitem>
             </varlistentry>
           </variablelist>
-        </refsect2>
-
-        <refsect2><title>udevadm version</title>
-          <para>Print version number.</para>
-        </refsect2>
-
-        <refsect2><title>udevadm help</title>
-          <para>Print help text.</para>
         </refsect2>
       </refsect1>
 

@@ -61,7 +61,7 @@
           <varlistentry>
             <term><option>--debug</option></term>
             <listitem>
-              <para>Print log messages to stdout.</para>
+              <para>Print debug messages to stderr.</para>
             </listitem>
           </varlistentry>
           <varlistentry>
@@ -71,7 +71,7 @@
             </listitem>
           </varlistentry>
           <varlistentry>
-            <term><option>help</option></term>
+            <term><option>--help</option></term>
             <listitem>
               <para>Print help text.</para>
             </listitem>
