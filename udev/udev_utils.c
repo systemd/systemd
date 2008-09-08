@@ -89,14 +89,17 @@ struct name_entry *name_list_key_add(struct udev *udev, struct list_head *name_l
 {
 	struct name_entry *name_loop;
 	struct name_entry *name_new;
+	size_t keylen = strlen(key);
 
 	list_for_each_entry(name_loop, name_list, node) {
-		if (strncmp(name_loop->name, key, strlen(key)) == 0) {
-			dbg(udev, "key already present '%s', replace it\n", name_loop->name);
-			snprintf(name_loop->name, sizeof(name_loop->name), "%s=%s", key, value);
-			name_loop->name[sizeof(name_loop->name)-1] = '\0';
-			return name_loop;
-		}
+		if (strncmp(name_loop->name, key, keylen) != 0)
+			continue;
+		if (name_loop->name[keylen] != '=')
+			continue;
+		dbg(udev, "key already present '%s', replace it\n", name_loop->name);
+		snprintf(name_loop->name, sizeof(name_loop->name), "%s=%s", key, value);
+		name_loop->name[sizeof(name_loop->name)-1] = '\0';
+		return name_loop;
 	}
 
 	name_new = malloc(sizeof(struct name_entry));
