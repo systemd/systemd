@@ -66,21 +66,6 @@ int main(int argc, char *argv[])
 	dbg(udev, "version %s\n", VERSION);
 	selinux_init(udev);
 
-	/* set std fd's to /dev/null, /sbin/hotplug forks us, we don't have them at all */
-	devnull = open("/dev/null", O_RDWR);
-	if (devnull >= 0)  {
-		if (devnull != STDIN_FILENO)
-			dup2(devnull, STDIN_FILENO);
-		if (devnull != STDOUT_FILENO)
-			dup2(devnull, STDOUT_FILENO);
-		if (devnull != STDERR_FILENO)
-			dup2(devnull, STDERR_FILENO);
-		if (devnull > STDERR_FILENO)
-			close(devnull);
-	} else {
-		err(udev, "open /dev/null failed: %s\n", strerror(errno));
-	}
-
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(act));
 	act.sa_handler = (void (*)(int)) sig_handler;
@@ -152,8 +137,8 @@ fail:
 	udev_rules_cleanup(&rules);
 	sysfs_cleanup();
 	selinux_exit(udev);
-
 exit:
+	udev_unref(udev);
 	if (retval != 0)
 		return 1;
 	return 0;

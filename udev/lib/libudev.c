@@ -91,7 +91,6 @@ struct udev *udev_new(void)
 	sysfs_init();
 
 	/* defaults */
-	config_file = NULL;
 	udev->refcount = 1;
 	udev->log_fn = log_stderr;
 	udev->log_priority = LOG_ERR;
@@ -100,7 +99,9 @@ struct udev *udev_new(void)
 	udev->sys_path = strdup("/sys");
 	config_file = strdup(SYSCONFDIR "/udev/udev.conf");
 
-	if (udev->dev_path == NULL || udev->sys_path == NULL)
+	if (udev->dev_path == NULL ||
+	    udev->sys_path == NULL ||
+	    config_file == NULL)
 		goto err;
 
 	/* settings by environment and config file */
@@ -205,7 +206,6 @@ struct udev *udev_new(void)
 		}
 		fclose(f);
 	}
-	free(config_file);
 
 	env = getenv("UDEV_ROOT");
 	if (env != NULL) {
@@ -223,12 +223,16 @@ struct udev *udev_new(void)
 
 	info(udev, "context %p created\n", udev);
 	info(udev, "log_priority=%d\n", udev->log_priority);
+	info(udev, "config_file='%s'\n", config_file);
 	info(udev, "dev_path='%s'\n", udev->dev_path);
+	info(udev, "sys_path='%s'\n", udev->sys_path);
 	if (udev->rules_path != NULL)
 		info(udev, "rules_path='%s'\n", udev->rules_path);
 
+	free(config_file);
 	return udev;
 err:
+	free(config_file);
 	err(udev, "context creation failed\n");
 	udev_unref(udev);
 	return NULL;
@@ -268,6 +272,7 @@ void udev_unref(struct udev *udev)
 	sysfs_cleanup();
 	free(udev->dev_path);
 	free(udev->sys_path);
+	free(udev->rules_path);
 	info(udev, "context %p released\n", udev);
 	free(udev);
 }
