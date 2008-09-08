@@ -33,49 +33,53 @@
 #include "udev_selinux.h"
 
 
-void udev_rules_iter_init(struct udev_rules *rules)
+void udev_rules_iter_init(struct udev_rules_iter *iter, struct udev_rules *rules)
 {
-	dbg(rules->udev, "bufsize=%zi\n", rules->bufsize);
-	rules->current = 0;
+	dbg(iter->rules->udev, "bufsize=%zi\n", rules->bufsize);
+	iter->rules = rules;
+	iter->current = 0;
 }
 
-struct udev_rule *udev_rules_iter_next(struct udev_rules *rules)
+struct udev_rule *udev_rules_iter_next(struct udev_rules_iter *iter)
 {
+	struct udev_rules *rules;
 	struct udev_rule *rule;
 
+	rules = iter->rules;
 	if (!rules)
 		return NULL;
 
-	dbg(rules->udev, "current=%zi\n", rules->current);
-	if (rules->current >= rules->bufsize) {
-		dbg(rules->udev, "no more rules\n");
+	dbg(iter->rules->udev, "current=%zi\n", iter->current);
+	if (iter->current >= rules->bufsize) {
+		dbg(iter->rules->udev, "no more rules\n");
 		return NULL;
 	}
 
 	/* get next rule */
-	rule = (struct udev_rule *) (rules->buf + rules->current);
-	rules->current += sizeof(struct udev_rule) + rule->bufsize;
+	rule = (struct udev_rule *) (rules->buf + iter->current);
+	iter->current += sizeof(struct udev_rule) + rule->bufsize;
 
 	return rule;
 }
 
-struct udev_rule *udev_rules_iter_label(struct udev_rules *rules, const char *label)
+struct udev_rule *udev_rules_iter_label(struct udev_rules_iter *iter, const char *label)
 {
 	struct udev_rule *rule;
-	size_t start = rules->current;
+	struct udev_rules *rules = iter->rules;
+	size_t start = iter->current;
 
 next:
-	dbg(rules->udev, "current=%zi\n", rules->current);
-	if (rules->current >= rules->bufsize) {
+	dbg(iter->rules->udev, "current=%zi\n", iter->current);
+	if (iter->current >= rules->bufsize) {
 		err(rules->udev, "LABEL='%s' not found, GOTO will be ignored\n", label);
-		rules->current = start;
+		iter->current = start;
 		return NULL;
 	}
-	rule = (struct udev_rule *) (rules->buf + rules->current);
+	rule = (struct udev_rule *) (rules->buf + iter->current);
 
 	if (strcmp(&rule->buf[rule->label.val_off], label) != 0) {
 		dbg(rules->udev, "moving forward, looking for label '%s'\n", label);
-		rules->current += sizeof(struct udev_rule) + rule->bufsize;
+		iter->current += sizeof(struct udev_rule) + rule->bufsize;
 		goto next;
 	}
 

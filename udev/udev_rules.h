@@ -111,16 +111,20 @@ struct udev_rules {
 	struct udev *udev;
 	char *buf;
 	size_t bufsize;
-	size_t current;
 	int resolve_names;
+};
+
+struct udev_rules_iter {
+	struct udev_rules *rules;
+	size_t current;
 };
 
 extern int udev_rules_init(struct udev *udev, struct udev_rules *rules, int resolve_names);
 extern void udev_rules_cleanup(struct udev_rules *rules);
 
-extern void udev_rules_iter_init(struct udev_rules *rules);
-extern struct udev_rule *udev_rules_iter_next(struct udev_rules *rules);
-extern struct udev_rule *udev_rules_iter_label(struct udev_rules *rules, const char *label);
+extern void udev_rules_iter_init(struct udev_rules_iter *iter, struct udev_rules *rules);
+extern struct udev_rule *udev_rules_iter_next(struct udev_rules_iter *iter);
+extern struct udev_rule *udev_rules_iter_label(struct udev_rules_iter *iter, const char *label);
 
 extern int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev);
 extern int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev);

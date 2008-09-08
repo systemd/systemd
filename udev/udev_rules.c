@@ -1368,6 +1368,7 @@ nomatch:
 
 int udev_rules_get_name(struct udev_rules *rules, struct udevice *udevice)
 {
+	struct udev_rules_iter iter;
 	struct udev_rule *rule;
 	int name_set = 0;
 
@@ -1375,9 +1376,9 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udevice)
 	dbg(udevice->udev, "udevice->dev->kernel='%s'\n", udevice->dev->kernel);
 
 	/* look for a matching rule to apply */
-	udev_rules_iter_init(rules);
+	udev_rules_iter_init(&iter, rules);
 	while (1) {
-		rule = udev_rules_iter_next(rules);
+		rule = udev_rules_iter_next(&iter);
 		if (rule == NULL)
 			break;
 
@@ -1530,7 +1531,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udevice)
 
 			if (rule->goto_label.operation != KEY_OP_UNSET) {
 				dbg(udevice->udev, "moving forward to label '%s'\n", key_val(rule, &rule->goto_label));
-				udev_rules_iter_label(rules, key_val(rule, &rule->goto_label));
+				udev_rules_iter_label(&iter, key_val(rule, &rule->goto_label));
 			}
 		}
 	}
@@ -1551,14 +1552,15 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udevice)
 
 int udev_rules_get_run(struct udev_rules *rules, struct udevice *udevice)
 {
+	struct udev_rules_iter iter;
 	struct udev_rule *rule;
 
 	dbg(udevice->udev, "udevice->kernel='%s'\n", udevice->dev->kernel);
 
 	/* look for a matching rule to apply */
-	udev_rules_iter_init(rules);
+	udev_rules_iter_init(&iter, rules);
 	while (1) {
-		rule = udev_rules_iter_next(rules);
+		rule = udev_rules_iter_next(&iter);
 		if (rule == NULL)
 			break;
 
@@ -1609,7 +1611,7 @@ int udev_rules_get_run(struct udev_rules *rules, struct udevice *udevice)
 
 			if (rule->goto_label.operation != KEY_OP_UNSET) {
 				dbg(udevice->udev, "moving forward to label '%s'\n", key_val(rule, &rule->goto_label));
-				udev_rules_iter_label(rules, key_val(rule, &rule->goto_label));
+				udev_rules_iter_label(&iter, key_val(rule, &rule->goto_label));
 			}
 		}
 	}
