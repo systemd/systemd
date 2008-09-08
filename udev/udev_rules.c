@@ -486,10 +486,10 @@ static int pass_env_to_socket(struct udev *udev, const char *sockpath, const cha
 		saddrlen = offsetof(struct sockaddr_un, sun_path) + 1 + strlen(&saddr.sun_path[1]);
 	}
 
-	bufpos = snprintf(buf, sizeof(buf)-1, "%s@%s", action, devpath);
+	bufpos = snprintf(buf, sizeof(buf), "%s@%s", action, devpath);
 	bufpos++;
-	for (i = 0; environ[i] != NULL && bufpos < (sizeof(buf)-1); i++) {
-		bufpos += strlcpy(&buf[bufpos], environ[i], sizeof(buf) - bufpos-1);
+	for (i = 0; environ[i] != NULL && bufpos < (sizeof(buf)); i++) {
+		bufpos += strlcpy(&buf[bufpos], environ[i], sizeof(buf) - bufpos);
 		bufpos++;
 	}
 	if (bufpos > sizeof(buf))
