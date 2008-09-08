@@ -850,10 +850,8 @@ found:
 					do {
 						dbg(udevice->udev, "looking at '%s'\n", dev_parent->devpath);
 						value = sysfs_attr_get_value(udevice->udev, dev_parent->devpath, attr);
-						if (value != NULL) {
-							strlcpy(temp2, value, sizeof(temp2));
+						if (value != NULL)
 							break;
-						}
 						dev_parent = sysfs_device_get_parent(udevice->udev, dev_parent);
 					} while (dev_parent != NULL);
 				}
