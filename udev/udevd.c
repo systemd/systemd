@@ -47,8 +47,15 @@
 
 #include "udev.h"
 #include "udev_rules.h"
-#include "udevd.h"
 #include "udev_selinux.h"
+
+#define UDEVD_PRIORITY			-4
+#define UDEV_PRIORITY			-2
+
+/* maximum limit of forked childs */
+#define UDEVD_MAX_CHILDS		256
+/* start to throttle forking if maximum number of running childs in our session is reached */
+#define UDEVD_MAX_CHILDS_RUNNING	16
 
 static int debug;
 
@@ -85,7 +92,7 @@ struct udevd_uevent_msg {
 
 static int debug_trace;
 static struct udev_rules rules;
-static int udevd_sock = -1;
+static struct udev_ctrl *udev_ctrl;
 static int uevent_netlink_sock = -1;
 static int inotify_fd = -1;
 static pid_t sid;
@@ -248,7 +255,7 @@ static void udev_event_run(struct udevd_uevent_msg *msg)
 	case 0:
 		/* child */
 		close(uevent_netlink_sock);
-		close(udevd_sock);
+		udev_ctrl_unref(udev_ctrl);
 		if (inotify_fd >= 0)
 			close(inotify_fd);
 		close(signal_pipe[READ_END]);
@@ -665,97 +672,76 @@ static struct udevd_uevent_msg *get_msg_from_envbuf(struct udev *udev, const cha
 }
 
 /* receive the udevd message from userspace */
-static void get_ctrl_msg(struct udev *udev)
+static void handle_ctrl_msg(struct udev_ctrl *uctrl)
 {
-	struct udevd_ctrl_msg ctrl_msg;
-	ssize_t size;
-	struct msghdr smsg;
-	struct cmsghdr *cmsg;
-	struct iovec iov;
-	struct ucred *cred;
-	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
-	char *pos;
+	struct udev *udev = udev_ctrl_get_udev(uctrl);
+	struct udev_ctrl_msg *ctrl_msg;
+	const char *str;
+	int i;
 
-	memset(&ctrl_msg, 0x00, sizeof(struct udevd_ctrl_msg));
-	iov.iov_base = &ctrl_msg;
-	iov.iov_len = sizeof(struct udevd_ctrl_msg);
-
-	memset(&smsg, 0x00, sizeof(struct msghdr));
-	smsg.msg_iov = &iov;
-	smsg.msg_iovlen = 1;
-	smsg.msg_control = cred_msg;
-	smsg.msg_controllen = sizeof(cred_msg);
-
-	size = recvmsg(udevd_sock, &smsg, 0);
-	if (size <  0) {
-		if (errno != EINTR)
-			err(udev, "unable to receive user udevd message: %s\n", strerror(errno));
+	ctrl_msg = udev_ctrl_receive_msg(uctrl);
+	if (ctrl_msg == NULL)
 		return;
-	}
-	cmsg = CMSG_FIRSTHDR(&smsg);
-	cred = (struct ucred *) CMSG_DATA(cmsg);
 
-	if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
-		err(udev, "no sender credentials received, message ignored\n");
-		return;
+	i = udev_ctrl_get_set_log_level(ctrl_msg);
+	if (i >= 0) {
+		info(udev, "udevd message (SET_LOG_PRIORITY) received, log_priority=%i\n", i);
+		udev_set_log_priority(udev, i);
+		sprintf(udev_log_env, "UDEV_LOG=%i", i);
+		putenv(udev_log_env);
 	}
 
-	if (cred->uid != 0) {
-		err(udev, "sender uid=%i, message ignored\n", cred->uid);
-		return;
-	}
-
-	if (strncmp(ctrl_msg.magic, UDEVD_CTRL_MAGIC, sizeof(UDEVD_CTRL_MAGIC)) != 0 ) {
-		err(udev, "message magic '%s' doesn't match, ignore it\n", ctrl_msg.magic);
-		return;
-	}
-
-	switch (ctrl_msg.type) {
-	case UDEVD_CTRL_ENV:
-		pos = strchr(ctrl_msg.buf, '=');
-		if (pos == NULL) {
-			err(udev, "wrong key format '%s'\n", ctrl_msg.buf);
-			break;
-		}
-		pos[0] = '\0';
-		if (pos[1] == '\0') {
-			info(udev, "udevd message (ENV) received, unset '%s'\n", ctrl_msg.buf);
-			unsetenv(ctrl_msg.buf);
-		} else {
-			info(udev, "udevd message (ENV) received, set '%s=%s'\n", ctrl_msg.buf, &pos[1]);
-			setenv(ctrl_msg.buf, &pos[1], 1);
-		}
-		break;
-	case UDEVD_CTRL_STOP_EXEC_QUEUE:
+	if (udev_ctrl_get_stop_exec_queue(ctrl_msg) > 0) {
 		info(udev, "udevd message (STOP_EXEC_QUEUE) received\n");
 		stop_exec_q = 1;
-		break;
-	case UDEVD_CTRL_START_EXEC_QUEUE:
+	}
+
+	if (udev_ctrl_get_start_exec_queue(ctrl_msg) > 0) {
 		info(udev, "udevd message (START_EXEC_QUEUE) received\n");
 		stop_exec_q = 0;
 		msg_queue_manager(udev);
-		break;
-	case UDEVD_CTRL_SET_LOG_LEVEL:
-		info(udev, "udevd message (SET_LOG_PRIORITY) received, log_priority=%i\n", ctrl_msg.intval);
-		udev_set_log_priority(udev, ctrl_msg.intval);
-		sprintf(udev_log_env, "UDEV_LOG=%i", udev_get_log_priority(udev));
-		putenv(udev_log_env);
-		break;
-	case UDEVD_CTRL_SET_MAX_CHILDS:
-		info(udev, "udevd message (UDEVD_SET_MAX_CHILDS) received, max_childs=%i\n", ctrl_msg.intval);
-		max_childs = ctrl_msg.intval;
-		break;
-	case UDEVD_CTRL_SET_MAX_CHILDS_RUNNING:
-		info(udev, "udevd message (UDEVD_SET_MAX_CHILDS_RUNNING) received, max_childs_running=%i\n", ctrl_msg.intval);
-		max_childs_running = ctrl_msg.intval;
-		break;
-	case UDEVD_CTRL_RELOAD_RULES:
+	}
+
+	if (udev_ctrl_get_reload_rules(ctrl_msg) > 0) {
 		info(udev, "udevd message (RELOAD_RULES) received\n");
 		reload_config = 1;
-		break;
-	default:
-		err(udev, "unknown control message type\n");
 	}
+
+	str = udev_ctrl_get_set_env(ctrl_msg);
+	if (str != NULL) {
+		char *key = strdup(str);
+		char *val;
+
+		val = strchr(str, '=');
+		if (val != NULL) {
+			val[0] = '\0';
+			val = &val[1];
+			if (val[0] == '\0') {
+				info(udev, "udevd message (ENV) received, unset '%s'\n", key);
+				unsetenv(str);
+			} else {
+				info(udev, "udevd message (ENV) received, set '%s=%s'\n", key, val);
+				setenv(key, val, 1);
+			}
+		} else {
+			err(udev, "wrong key format '%s'\n", key);
+		}
+		free(key);
+	}
+
+	i = udev_ctrl_get_set_max_childs(ctrl_msg);
+	if (i >= 0) {
+		info(udev, "udevd message (SET_MAX_CHILDS) received, max_childs=%i\n", i);
+		max_childs = i;
+	}
+
+	i = udev_ctrl_get_set_max_childs_running(ctrl_msg);
+	if (i > 0) {
+		info(udev, "udevd message (SET_MAX_CHILDS_RUNNING) received, max_childs_running=%i\n", i);
+		max_childs_running = i;
+	}
+
+	udev_ctrl_msg_unref(ctrl_msg);
 }
 
 /* receive the kernel user event message and do some sanity checks */
@@ -865,42 +851,6 @@ static void reap_sigchilds(void)
 			status = 0;
 		udev_done(pid, status);
 	}
-}
-
-static int init_udevd_socket(struct udev *udev)
-{
-	struct sockaddr_un saddr;
-	socklen_t addrlen;
-	const int feature_on = 1;
-	int retval;
-
-	memset(&saddr, 0x00, sizeof(saddr));
-	saddr.sun_family = AF_LOCAL;
-	strcpy(saddr.sun_path, UDEVD_CTRL_SOCK_PATH);
-	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path);
-	/* translate leading '@' to abstract namespace */
-	if (saddr.sun_path[0] == '@')
-		saddr.sun_path[0] = '\0';
-
-	udevd_sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
-	if (udevd_sock == -1) {
-		err(udev, "error getting socket: %s\n", strerror(errno));
-		return -1;
-	}
-
-	/* the bind takes care of ensuring only one copy running */
-	retval = bind(udevd_sock, (struct sockaddr *) &saddr, addrlen);
-	if (retval < 0) {
-		err(udev, "bind failed: %s\n", strerror(errno));
-		close(udevd_sock);
-		udevd_sock = -1;
-		return -1;
-	}
-
-	/* enable receiving of the sender credentials */
-	setsockopt(udevd_sock, SOL_SOCKET, SO_PASSCRED, &feature_on, sizeof(feature_on));
-
-	return 0;
 }
 
 static int init_uevent_netlink_sock(struct udev *udev)
@@ -1040,17 +990,19 @@ int main(int argc, char *argv[])
 	if (write(STDERR_FILENO, 0, 0) < 0)
 		dup2(fd, STDERR_FILENO);
 
-	/* init sockets to receive events */
-	if (init_udevd_socket(udev) < 0) {
-		if (errno == EADDRINUSE) {
-			fprintf(stderr, "another udev daemon already running\n");
-			err(udev, "another udev daemon already running\n");
-			rc = 1;
-		} else {
-			fprintf(stderr, "error initializing udevd socket\n");
-			err(udev, "error initializing udevd socket\n");
-			rc = 2;
-		}
+	/* init control socket, bind() ensures, that only one udevd instance is running */
+	udev_ctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
+	if (udev_ctrl == NULL) {
+		fprintf(stderr, "error initializing control socket");
+		err(udev, "error initializing udevd socket");
+		rc = 1;
+		goto exit;
+	}
+
+	if (udev_ctrl_enable_receiving(udev_ctrl) < 0) {
+		fprintf(stderr, "error binding control socket, seems udevd is already running\n");
+		err(udev, "error binding control socket, seems udevd is already running\n");
+		rc = 1;
 		goto exit;
 	}
 
@@ -1061,7 +1013,6 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	/* setup signal handler pipe */
 	retval = pipe(signal_pipe);
 	if (retval < 0) {
 		err(udev, "error getting pipes: %s\n", strerror(errno));
@@ -1115,10 +1066,11 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	/* redirect std{out,err} fd's */
-	if (!debug)
+	/* redirect std{out,err} */
+	if (!debug) {
 		dup2(fd, STDOUT_FILENO);
-	dup2(fd, STDERR_FILENO);
+		dup2(fd, STDERR_FILENO);
+	}
 	if (fd > STDERR_FILENO)
 		close(fd);
 
@@ -1219,7 +1171,7 @@ int main(int argc, char *argv[])
 	if (debug_trace)
 		putenv("DEBUG=1");
 
-	maxfd = udevd_sock;
+	maxfd = udev_ctrl_get_fd(udev_ctrl);
 	maxfd = UDEV_MAX(maxfd, uevent_netlink_sock);
 	maxfd = UDEV_MAX(maxfd, signal_pipe[READ_END]);
 	maxfd = UDEV_MAX(maxfd, inotify_fd);
@@ -1230,7 +1182,7 @@ int main(int argc, char *argv[])
 
 		FD_ZERO(&readfds);
 		FD_SET(signal_pipe[READ_END], &readfds);
-		FD_SET(udevd_sock, &readfds);
+		FD_SET(udev_ctrl_get_fd(udev_ctrl), &readfds);
 		FD_SET(uevent_netlink_sock, &readfds);
 		if (inotify_fd >= 0)
 			FD_SET(inotify_fd, &readfds);
@@ -1243,8 +1195,8 @@ int main(int argc, char *argv[])
 		}
 
 		/* get control message */
-		if (FD_ISSET(udevd_sock, &readfds))
-			get_ctrl_msg(udev);
+		if (FD_ISSET(udev_ctrl_get_fd(udev_ctrl), &readfds))
+			handle_ctrl_msg(udev_ctrl);
 
 		/* get netlink message */
 		if (FD_ISSET(uevent_netlink_sock, &readfds)) {
@@ -1311,8 +1263,7 @@ exit:
 	if (signal_pipe[WRITE_END] >= 0)
 		close(signal_pipe[WRITE_END]);
 
-	if (udevd_sock >= 0)
-		close(udevd_sock);
+	udev_ctrl_unref(udev_ctrl);
 	if (inotify_fd >= 0)
 		close(inotify_fd);
 	if (uevent_netlink_sock >= 0)

@@ -37,7 +37,9 @@
 struct udev_monitor {
 	struct udev *udev;
 	int refcount;
-	int socket;
+	int sock;
+	struct sockaddr_un saddr;
+	socklen_t addrlen;
 };
 
 /**
@@ -60,9 +62,6 @@ struct udev_monitor {
 struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path)
 {
 	struct udev_monitor *udev_monitor;
-	struct sockaddr_un saddr;
-	socklen_t addrlen;
-	const int on = 1;
 
 	if (udev == NULL)
 		return NULL;
@@ -75,34 +74,38 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 	udev_monitor->refcount = 1;
 	udev_monitor->udev = udev;
 
-	memset(&saddr, 0x00, sizeof(saddr));
-	saddr.sun_family = AF_LOCAL;
-	strcpy(saddr.sun_path, socket_path);
-	addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path);
+	udev_monitor->saddr.sun_family = AF_LOCAL;
+	strcpy(udev_monitor->saddr.sun_path, socket_path);
+	udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(udev_monitor->saddr.sun_path);
 
 	/* translate leading '@' to abstract namespace */
-	if (saddr.sun_path[0] == '@')
-		saddr.sun_path[0] = '\0';
+	if (udev_monitor->saddr.sun_path[0] == '@')
+		udev_monitor->saddr.sun_path[0] = '\0';
 
-	udev_monitor->socket = socket(AF_LOCAL, SOCK_DGRAM, 0);
-	if (udev_monitor->socket == -1) {
+	udev_monitor->sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
+	if (udev_monitor->sock == -1) {
 		err(udev, "error getting socket: %s\n", strerror(errno));
 		free(udev_monitor);
 		return NULL;
 	}
+	return udev_monitor;
+}
 
-	if (bind(udev_monitor->socket, (struct sockaddr *) &saddr, addrlen) < 0) {
-		err(udev, "bind failed: %s\n", strerror(errno));
-		close(udev_monitor->socket);
-		free(udev_monitor);
-		return NULL;
+int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
+{
+	int err;
+	const int on = 1;
+
+	err = bind(udev_monitor->sock, (struct sockaddr *) &udev_monitor->saddr, udev_monitor->addrlen);
+	if (err < 0) {
+		err(udev_monitor->udev, "bind failed: %s\n", strerror(errno));
+		return err;
 	}
 
 	/* enable receiving of the sender credentials */
-	setsockopt(udev_monitor->socket, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+	setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 	info(udev_monitor->udev, "udev_monitor: %p created\n", udev_monitor);
-
-	return udev_monitor;
+	return 0;
 }
 
 /**
@@ -125,7 +128,7 @@ struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor)
  * udev_monitor_unref:
  * @udev_monitor: udev monitor
  *
- * Drop a reference of a udev monitor. If the refcount reaches zero,
+ * Drop a reference ofa udev monitor. If the refcount reaches zero,
  * the bound socket will be closed, and the ressources of the monitor
  * will be released.
  *
@@ -137,7 +140,8 @@ void udev_monitor_unref(struct udev_monitor *udev_monitor)
 	udev_monitor->refcount--;
 	if (udev_monitor->refcount > 0)
 		return;
-	close(udev_monitor->socket);
+	if (udev_monitor->sock >= 0)
+		close(udev_monitor->sock);
 	info(udev_monitor->udev, "udev_monitor: %p released\n", udev_monitor);
 	free(udev_monitor);
 }
@@ -169,14 +173,14 @@ int udev_monitor_get_fd(struct udev_monitor *udev_monitor)
 {
 	if (udev_monitor == NULL)
 		return -1;
-	return udev_monitor->socket;
+	return udev_monitor->sock;
 }
 
 /**
- * udev_monitor_get_device:
+ * udev_monitor_receive_device:
  * @udev_monitor: udev monitor
  *
- * Retrieve data from the udev monitor socket, allocate a new udev
+ * Receive data from the udev monitor socket, allocate a new udev
  * device, fill in the received data, and return the device.
  *
  * Only socket connections with uid=0 are accepted. The caller
@@ -188,7 +192,7 @@ int udev_monitor_get_fd(struct udev_monitor *udev_monitor)
  *
  * Returns: a new udev device, or #NULL, in case of an error
  **/
-struct udev_device *udev_monitor_get_device(struct udev_monitor *udev_monitor)
+struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monitor)
 {
 	struct udev_device *udev_device;
 	struct msghdr smsg;
@@ -210,7 +214,7 @@ struct udev_device *udev_monitor_get_device(struct udev_monitor *udev_monitor)
 	smsg.msg_control = cred_msg;
 	smsg.msg_controllen = sizeof(cred_msg);
 
-	if (recvmsg(udev_monitor->socket, &smsg, 0) < 0) {
+	if (recvmsg(udev_monitor->sock, &smsg, 0) < 0) {
 		if (errno != EINTR)
 			info(udev_monitor->udev, "unable to receive message");
 		return NULL;

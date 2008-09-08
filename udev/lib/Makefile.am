@@ -20,11 +20,13 @@ include_HEADERS =\
 	libudev.h
 
 libudev_la_SOURCES =\
+	exported_symbools \
 	libudev-private.h \
 	libudev.c \
 	libudev-utils.c \
 	libudev-device.c \
 	libudev-enumerate.c \
+	libudev-ctrl.c \
 	libudev-monitor.c \
 	../list.h \
 	../udev.h \

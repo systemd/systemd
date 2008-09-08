@@ -28,9 +28,6 @@
 #endif
 
 struct udev;
-struct udev_device;
-struct udev_monitor;
-
 extern struct udev *udev_new(void);
 extern struct udev *udev_ref(struct udev *udev);
 extern void udev_unref(struct udev *udev);
@@ -43,6 +40,7 @@ extern void udev_set_log_priority(struct udev *udev, int priority);
 extern const char *udev_get_sys_path(struct udev *udev);
 extern const char *udev_get_dev_path(struct udev *udev);
 
+struct udev_device;
 extern struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *devpath);
 extern struct udev_device *udev_device_ref(struct udev_device *udev_device);
 extern void udev_device_unref(struct udev_device *udev_device);
@@ -65,11 +63,13 @@ extern int udev_devices_enumerate(struct udev *udev, const char *subsystem,
 					    const char *devpath, const char *subsystem, const char *name, void *data),
 				  void *data);
 
+struct udev_monitor;
 extern struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path);
+extern int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor);
 extern struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor);
 extern void udev_monitor_unref(struct udev_monitor *udev_monitor);
 extern struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor);
 extern int udev_monitor_get_fd(struct udev_monitor *udev_monitor);
-extern struct udev_device *udev_monitor_get_device(struct udev_monitor *udev_monitor);
+extern struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monitor);
 
 #endif

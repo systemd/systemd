@@ -34,7 +34,6 @@
 #include <sys/un.h>
 
 #include "udev.h"
-#include "udevd.h"
 #include "udev_rules.h"
 
 static int verbose;

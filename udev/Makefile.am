@@ -36,7 +36,8 @@ common_files = \
 	lib/libudev.h \
 	lib/libudev-private.h \
 	lib/libudev.c \
-	lib/libudev-utils.c
+	lib/libudev-utils.c \
+	lib/libudev-ctrl.c
 
 
 if USE_SELINUX
@@ -49,7 +50,6 @@ endif
 
 udevd_SOURCES = \
 	$(common_files) \
-	udevd.h \
 	udevd.c
 
 udevd_LDADD = \
@@ -58,7 +58,6 @@ udevd_LDADD = \
 
 udevadm_SOURCES = \
 	$(common_files) \
-	udev-control.c \
 	udevadm.c \
 	udevadm-info.c \
 	udevadm-control.c \

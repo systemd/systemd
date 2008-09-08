@@ -33,7 +33,6 @@
 #include <linux/netlink.h>
 
 #include "udev.h"
-#include "udevd.h"
 
 static int uevent_netlink_sock = -1;
 static int udev_monitor_sock = -1;

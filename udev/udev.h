@@ -44,6 +44,12 @@
 #define DEFAULT_PARTITIONS_COUNT		15
 #define UDEV_EVENT_TIMEOUT			180
 
+/* linux/include/linux/kobject.h */
+#define UEVENT_BUFFER_SIZE			2048
+#define UEVENT_NUM_ENVP				32
+
+#define UDEV_CTRL_SOCK_PATH			"@" UDEV_PREFIX "/org/kernel/udev/udevd"
+
 #define UDEV_MAX(a,b) ((a) > (b) ? (a) : (b))
 
 /* pipes */
@@ -189,17 +195,5 @@ extern int udevadm_control(struct udev *udev, int argc, char *argv[]);
 extern int udevadm_trigger(struct udev *udev, int argc, char *argv[]);
 extern int udevadm_settle(struct udev *udev, int argc, char *argv[]);
 extern int udevadm_test(struct udev *udev, int argc, char *argv[]);
-
-/* udev_ctrl - daemon runtime setup */
-struct udev_ctrl;
-extern struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path);
-extern void udev_ctrl_unref(struct udev_ctrl *uctrl);
-extern int udev_ctrl_set_log_level(struct udev_ctrl *uctrl, int priority);
-extern int udev_ctrl_stop_exec_queue(struct udev_ctrl *uctrl);
-extern int udev_ctrl_start_exec_queue(struct udev_ctrl *uctrl);
-extern int udev_ctrl_reload_rules(struct udev_ctrl *uctrl);
-extern int udev_ctrl_set_env(struct udev_ctrl *uctrl, const char *key);
-extern int udev_ctrl_set_max_childs(struct udev_ctrl *uctrl, int count);
-extern int udev_ctrl_set_max_childs_running(struct udev_ctrl *uctrl, int count);
 
 #endif

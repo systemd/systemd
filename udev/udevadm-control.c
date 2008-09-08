@@ -32,11 +32,23 @@
 #include <sys/un.h>
 
 #include "udev.h"
-#include "udevd.h"
+
+static void print_help(void)
+{
+	printf("Usage: udevadm control COMMAND\n"
+		"  --log-priority=<level>   set the udev log level for the daemon\n"
+		"  --stop-exec-queue        keep udevd from executing events, queue only\n"
+		"  --start-exec-queue       execute events, flush queue\n"
+		"  --reload-rules           reloads the rules files\n"
+		"  --env=<KEY>=<value>      set a global environment variable\n"
+		"  --max-childs=<N>         maximum number of childs\n"
+		"  --max-childs-running=<N> maximum number of childs running at the same time\n"
+		"  --help                   print this help text\n\n");
+}
 
 int udevadm_control(struct udev *udev, int argc, char *argv[])
 {
-	struct udev_ctrl *uctrl;
+	struct udev_ctrl *uctrl = NULL;
 	int rc = 1;
 
 	/* compat values with '_' will be removed in a future release */
@@ -63,7 +75,7 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 		goto exit;
 	}
 
-	uctrl = udev_ctrl_new_from_socket(udev, UDEVD_CTRL_SOCK_PATH);
+	uctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
 	if (uctrl == NULL)
 		goto exit;
 
@@ -91,26 +103,31 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 				fprintf(stderr, "invalid number '%s'\n", optarg);
 				goto exit;
 			}
-			udev_ctrl_set_log_level(uctrl, log_priority(optarg));
+			udev_ctrl_send_set_log_level(uctrl, log_priority(optarg));
+			rc = 0;
 			break;
 		case 's':
 		case 's' + 256:
-			udev_ctrl_stop_exec_queue(uctrl);
+			udev_ctrl_send_stop_exec_queue(uctrl);
+			rc = 0;
 			break;
 		case 'S':
 		case 'S' + 256:
-			udev_ctrl_start_exec_queue(uctrl);
+			udev_ctrl_send_start_exec_queue(uctrl);
+			rc = 0;
 			break;
 		case 'R':
 		case 'R' + 256:
-			udev_ctrl_reload_rules(uctrl);
+			udev_ctrl_send_reload_rules(uctrl);
+			rc = 0;
 			break;
 		case 'e':
 			if (strchr(optarg, '=') == NULL) {
 				fprintf(stderr, "expect <KEY>=<valaue> instead of '%s'\n", optarg);
 				goto exit;
 			}
-			udev_ctrl_set_env(uctrl, optarg);
+			udev_ctrl_send_set_env(uctrl, optarg);
+			rc = 0;
 			break;
 		case 'm':
 		case 'm' + 256:
@@ -119,7 +136,8 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 				fprintf(stderr, "invalid number '%s'\n", optarg);
 				goto exit;
 			}
-			udev_ctrl_set_max_childs(uctrl, i);
+			udev_ctrl_send_set_max_childs(uctrl, i);
+			rc = 0;
 			break;
 		case 'M':
 		case 'M' + 256:
@@ -128,18 +146,12 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 				fprintf(stderr, "invalid number '%s'\n", optarg);
 				goto exit;
 			}
-			udev_ctrl_set_max_childs_running(uctrl, i);
+			udev_ctrl_send_set_max_childs_running(uctrl, i);
+			rc = 0;
 			break;
 		case 'h':
-			printf("Usage: udevadm control COMMAND\n"
-				"  --log-priority=<level>   set the udev log level for the daemon\n"
-				"  --stop-exec-queue        keep udevd from executing events, queue only\n"
-				"  --start-exec-queue       execute events, flush queue\n"
-				"  --reload-rules           reloads the rules files\n"
-				"  --env=<KEY>=<value>      set a global environment variable\n"
-				"  --max-childs=<N>         maximum number of childs\n"
-				"  --max-childs-running=<N> maximum number of childs running at the same time\n"
-				"  --help                   print this help text\n\n");
+			print_help();
+			rc = 0;
 			goto exit;
 		default:
 			goto exit;
@@ -156,23 +168,39 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 		    "this will stop working in a future release\n");
 
 		if (!strncmp(arg, "log_priority=", strlen("log_priority="))) {
-			udev_ctrl_set_log_level(uctrl, log_priority(&arg[strlen("log_priority=")]));
+			udev_ctrl_send_set_log_level(uctrl, log_priority(&arg[strlen("log_priority=")]));
+			rc = 0;
+			goto exit;
 		} else if (!strcmp(arg, "stop_exec_queue")) {
-			udev_ctrl_stop_exec_queue(uctrl);
+			udev_ctrl_send_stop_exec_queue(uctrl);
+			rc = 0;
+			goto exit;
 		} else if (!strcmp(arg, "start_exec_queue")) {
-			udev_ctrl_start_exec_queue(uctrl);
+			udev_ctrl_send_start_exec_queue(uctrl);
+			rc = 0;
+			goto exit;
 		} else if (!strcmp(arg, "reload_rules")) {
-			udev_ctrl_reload_rules(uctrl);
+			udev_ctrl_send_reload_rules(uctrl);
+			rc = 0;
+			goto exit;
 		} else if (!strncmp(arg, "max_childs=", strlen("max_childs="))) {
-			udev_ctrl_set_max_childs(uctrl, strtoul(&arg[strlen("max_childs=")], NULL, 0));
+			udev_ctrl_send_set_max_childs(uctrl, strtoul(&arg[strlen("max_childs=")], NULL, 0));
+			rc = 0;
+			goto exit;
 		} else if (!strncmp(arg, "max_childs_running=", strlen("max_childs_running="))) {
-			udev_ctrl_set_max_childs_running(uctrl, strtoul(&arg[strlen("max_childs_running=")], NULL, 0));
+			udev_ctrl_send_set_max_childs_running(uctrl, strtoul(&arg[strlen("max_childs_running=")], NULL, 0));
+			rc = 0;
+			goto exit;
 		} else if (!strncmp(arg, "env", strlen("env"))) {
-			udev_ctrl_set_env(uctrl, &arg[strlen("env=")]);
-		} else {
-			fprintf(stderr, "unrecognized command '%s'\n", arg);
-			err(udev, "unrecognized command '%s'\n", arg);
+			udev_ctrl_send_set_env(uctrl, &arg[strlen("env=")]);
+			rc = 0;
+			goto exit;
 		}
+	}
+
+	if (rc != 0) {
+		fprintf(stderr, "unrecognized command\n");
+		err(udev, "unrecognized command\n");
 	}
 exit:
 	udev_ctrl_unref(uctrl);

@@ -30,7 +30,6 @@
 #include <sys/types.h>
 
 #include "udev.h"
-#include "udevd.h"
 
 #define DEFAULT_TIMEOUT			180
 #define LOOP_PER_SECOND			20

@@ -112,6 +112,10 @@ static int test_monitor(struct udev *udev, const char *socket_path)
 		printf("no socket\n");
 		return -1;
 	}
+	if (udev_monitor_enable_receiving(udev_monitor) < 0) {
+		printf("bind failed\n");
+		return -1;
+	}
 
 	fd = udev_monitor_get_fd(udev_monitor);
 	FD_ZERO(&readfds);
@@ -128,7 +132,7 @@ static int test_monitor(struct udev *udev, const char *socket_path)
 		printf("select fd count: %i\n", fdcount);
 
 		if (FD_ISSET(fd, &readfds)) {
-			device = udev_monitor_get_device(udev_monitor);
+			device = udev_monitor_receive_device(udev_monitor);
 			if (device == NULL) {
 				printf("no device from socket\n");
 				continue;
