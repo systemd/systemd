@@ -75,10 +75,6 @@ static void print_all_attributes(struct udev *udev, const char *devpath, const c
 				len = sizeof(value) - 1;
 			dbg(udev, "attr '%s'='%s'(%zi)\n", dent->d_name, value, len);
 
-			/* remove trailing newlines */
-			while (len && value[len-1] == '\n')
-				value[--len] = '\0';
-
 			/* skip nonprintable attributes */
 			while (len && isprint(value[len-1]))
 				len--;
