@@ -57,7 +57,6 @@ int main(int argc, char *argv[])
 	const char *devpath;
 	const char *subsystem;
 	struct sigaction act;
-	int devnull;
 	int retval = -EINVAL;
 
 	udev = udev_new();
