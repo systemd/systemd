@@ -41,6 +41,12 @@ struct udev_device {
 	char *subsystem;
 	struct list_head link_list;
 	struct list_head env_list;
+	char *action;
+	char *driver;
+	char *devpath_old;
+	char *physdevpath;
+	int timeout;
+	dev_t devnum;
 };
 
 struct udev_device *device_init(struct udev *udev)
@@ -333,6 +339,27 @@ int udev_device_get_properties(struct udev_device *udev_device,
 	return count;
 }
 
+const char *udev_device_get_driver(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return NULL;
+	return udev_device->driver;
+}
+
+dev_t udev_device_get_devnum(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return makedev(0, 0);
+	return udev_device->devnum;
+}
+
+const char *udev_device_get_action(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return NULL;
+	return udev_device->action;
+}
+
 int device_set_devpath(struct udev_device *udev_device, const char *devpath)
 {
 	if (asprintf(&udev_device->syspath, "%s%s", udev_get_sys_path(udev_device->udev), devpath) < 0)
@@ -368,5 +395,70 @@ int device_add_property(struct udev_device *udev_device, const char *property)
 {
 	if (name_list_add(udev_device->udev, &udev_device->env_list, property, 0) == NULL)
 		return -ENOMEM;
+	return 0;
+}
+
+int device_set_action(struct udev_device *udev_device, const char *action)
+{
+	udev_device->action = strdup(action);
+	if (udev_device->action == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+int device_set_driver(struct udev_device *udev_device, const char *driver)
+{
+	udev_device->driver = strdup(driver);
+	if (udev_device->driver == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+const char *device_get_devpath_old(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return NULL;
+	return udev_device->devpath_old;
+}
+
+int device_set_devpath_old(struct udev_device *udev_device, const char *devpath_old)
+{
+	udev_device->devpath_old = strdup(devpath_old);
+	if (udev_device->devpath_old == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+const char *device_get_physdevpath(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return NULL;
+	return udev_device->physdevpath;
+}
+
+int device_set_physdevpath(struct udev_device *udev_device, const char *physdevpath)
+{
+	udev_device->physdevpath = strdup(physdevpath);
+	if (udev_device->physdevpath == NULL)
+		return -ENOMEM;
+	return 0;
+}
+
+int device_get_timeout(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return -1;
+	return udev_device->timeout;
+}
+
+int device_set_timeout(struct udev_device *udev_device, int timeout)
+{
+	udev_device->timeout = timeout;
+	return 0;
+}
+
+int device_set_devnum(struct udev_device *udev_device, dev_t devnum)
+{
+	udev_device->devnum = devnum;
 	return 0;
 }

@@ -21,6 +21,7 @@
 #define _LIBUDEV_H_
 
 #include <stdarg.h>
+#include <sys/stat.h>
 
 /* this will stay as long as the DeviceKit integration of udev is work in progress */
 #if !defined _LIBUDEV_COMPILATION && !defined LIBUDEV_I_KNOW_THE_API_IS_SUBJECT_TO_CHANGE
@@ -57,6 +58,9 @@ extern int udev_device_get_properties(struct udev_device *udev_device,
 				      int (*cb)(struct udev_device *udev_device,
 						const char *key, const char *value, void *data),
 				      void *data);
+extern const char *udev_device_get_driver(struct udev_device *udev_device);
+extern dev_t udev_device_get_devnum(struct udev_device *udev_device);
+extern const char *udev_device_get_action(struct udev_device *udev_device);
 
 extern int udev_devices_enumerate(struct udev *udev, const char *subsystem,
 				  int (*cb)(struct udev *udev,

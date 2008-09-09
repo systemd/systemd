@@ -17,6 +17,9 @@ udev_device_get_devname
 udev_device_get_subsystem
 udev_device_get_devlinks
 udev_device_get_properties
+udev_device_get_action
+udev_device_get_driver
+udev_device_get_devnum
 udev_devices_enumerate
 udev_monitor_new_from_socket
 udev_monitor_enable_receiving

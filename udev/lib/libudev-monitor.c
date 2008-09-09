@@ -88,6 +88,7 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 		free(udev_monitor);
 		return NULL;
 	}
+	info(udev, "monitor %p created with '%s'\n", udev_monitor, socket_path);
 	return udev_monitor;
 }
 
@@ -96,7 +97,7 @@ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 	int err;
 	const int on = 1;
 
-	err = bind(udev_monitor->sock, (struct sockaddr *) &udev_monitor->saddr, udev_monitor->addrlen);
+	err = bind(udev_monitor->sock, (struct sockaddr *)&udev_monitor->saddr, udev_monitor->addrlen);
 	if (err < 0) {
 		err(udev_monitor->udev, "bind failed: %s\n", strerror(errno));
 		return err;
@@ -104,7 +105,7 @@ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 
 	/* enable receiving of the sender credentials */
 	setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
-	info(udev_monitor->udev, "udev_monitor: %p created\n", udev_monitor);
+	info(udev_monitor->udev, "monitor %p listening\n", udev_monitor);
 	return 0;
 }
 
@@ -142,7 +143,7 @@ void udev_monitor_unref(struct udev_monitor *udev_monitor)
 		return;
 	if (udev_monitor->sock >= 0)
 		close(udev_monitor->sock);
-	info(udev_monitor->udev, "udev_monitor: %p released\n", udev_monitor);
+	info(udev_monitor->udev, "monitor %p released\n", udev_monitor);
 	free(udev_monitor);
 }
 
