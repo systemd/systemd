@@ -38,11 +38,6 @@ libudev_la_SOURCES =\
 	../udev_db.c \
 	../udev_sysdeps.c
 
-if USE_SELINUX
-libudev_la_SOURCES += \
-	../udev_selinux.c
-endif
-
 libudev_la_LDFLAGS = \
 	-version-info $(LIBUDEV_LT_CURRENT):$(LIBUDEV_LT_REVISION):$(LIBUDEV_LT_AGE) \
 	-export-symbols $(top_srcdir)/udev/lib/exported_symbols

@@ -40,6 +40,9 @@ extern int udev_get_log_priority(struct udev *udev);
 extern void udev_set_log_priority(struct udev *udev, int priority);
 extern const char *udev_get_sys_path(struct udev *udev);
 extern const char *udev_get_dev_path(struct udev *udev);
+extern void udev_selinux_resetfscreatecon(struct udev *udev);
+extern void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode);
+extern void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode);
 
 struct udev_device;
 extern struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *devpath);

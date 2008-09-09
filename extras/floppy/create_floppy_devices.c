@@ -25,7 +25,6 @@
 #include <grp.h>
 
 #include "../../udev/udev.h"
-#include "../../udev/udev_selinux.h"
 
 static char *table[] = {
 	"", "d360", "h1200", "u360", "u720", "h360", "h720",
@@ -145,8 +144,6 @@ int main(int argc, char **argv)
 	if (type == 0)
 		return 0;
 
-	selinux_init(udev);
-
 	i = 0;
 	while (table_sup[type][i]) {
 		sprintf(node, "%s%s", dev, table[table_sup[type][i]]);
@@ -155,16 +152,15 @@ int main(int argc, char **argv)
 			printf("%s b %d %d %d\n", node, mode, major, minor);
 		if (create_nodes) {
 			unlink(node);
-			selinux_setfscreatecon(udev, node, NULL, S_IFBLK | mode);
+			udev_selinux_setfscreatecon(udev, node, S_IFBLK | mode);
 			mknod(node, S_IFBLK | mode, makedev(major,minor));
-			selinux_resetfscreatecon(udev);
+			udev_selinux_resetfscreatecon(udev);
 			chown(node, uid, gid);
 			chmod(node, S_IFBLK | mode);
 		}
 		i++;
 	}
 
-	selinux_exit(udev);
 	udev_unref(udev);
 exit:
 	return 0;

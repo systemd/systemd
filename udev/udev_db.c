@@ -31,8 +31,6 @@
 #include <sys/types.h>
 
 #include "udev.h"
-#include "udev_selinux.h"
-
 
 static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *filename, size_t len)
 {
@@ -147,9 +145,9 @@ int udev_db_add_device(struct udevice *udevice)
 	    !udevice->partitions && !udevice->ignore_remove) {
 		int ret;
 		dbg(udevice->udev, "nothing interesting to store, create symlink\n");
-		selinux_setfscreatecon(udevice->udev, filename, NULL, S_IFLNK);
+		udev_selinux_setfscreatecon(udevice->udev, filename, S_IFLNK);
 		ret = symlink(udevice->name, filename);
-		selinux_resetfscreatecon(udevice->udev);
+		udev_selinux_resetfscreatecon(udevice->udev);
 		if (ret != 0) {
 			err(udevice->udev, "unable to create db link '%s': %s\n", filename, strerror(errno));
 			return -1;

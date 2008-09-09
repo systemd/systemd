@@ -33,7 +33,6 @@
 
 #include "udev.h"
 #include "udev_rules.h"
-#include "udev_selinux.h"
 
 static void asmlinkage sig_handler(int signum)
 {
@@ -63,7 +62,6 @@ int main(int argc, char *argv[])
 	if (udev == NULL)
 		exit(1);
 	dbg(udev, "version %s\n", VERSION);
-	selinux_init(udev);
 
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(act));
@@ -135,7 +133,6 @@ int main(int argc, char *argv[])
 fail:
 	udev_rules_cleanup(&rules);
 	sysfs_cleanup();
-	selinux_exit(udev);
 exit:
 	udev_unref(udev);
 	if (retval != 0)

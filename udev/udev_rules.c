@@ -35,7 +35,6 @@
 
 #include "udev.h"
 #include "udev_rules.h"
-#include "udev_selinux.h"
 
 extern char **environ;
 

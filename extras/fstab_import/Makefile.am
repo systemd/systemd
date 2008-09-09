@@ -20,6 +20,11 @@ fstab_import_SOURCES = \
 	../../udev/udev_utils.c \
 	../../udev/udev_utils_string.c
 
+if USE_SELINUX
+fstab_import_LDADD = \
+	$(SELINUX_LIBS)
+endif
+
 distclean-local:
 	rm -f Makefile.in
 

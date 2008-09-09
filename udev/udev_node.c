@@ -31,7 +31,6 @@
 
 #include "udev.h"
 #include "udev_rules.h"
-#include "udev_selinux.h"
 
 #define TMP_FILE_EXT		".udev-tmp"
 
@@ -51,15 +50,15 @@ int udev_node_mknod(struct udevice *udevice, const char *file, dev_t devt, mode_
 		if (((stats.st_mode & S_IFMT) == (mode & S_IFMT)) && (stats.st_rdev == devt)) {
 			info(udevice->udev, "preserve file '%s', because it has correct dev_t\n", file);
 			preserve = 1;
-			selinux_setfilecon(udevice->udev, file, udevice->dev->kernel, mode);
+			udev_selinux_lsetfilecon(udevice->udev, file, mode);
 		} else {
 			info(udevice->udev, "atomically replace existing file '%s'\n", file);
 			strlcpy(file_tmp, file, sizeof(file_tmp));
 			strlcat(file_tmp, TMP_FILE_EXT, sizeof(file_tmp));
 			unlink(file_tmp);
-			selinux_setfscreatecon(udevice->udev, file_tmp, udevice->dev->kernel, mode);
+			udev_selinux_setfscreatecon(udevice->udev, file_tmp, mode);
 			err = mknod(file_tmp, mode, devt);
-			selinux_resetfscreatecon(udevice->udev);
+			udev_selinux_resetfscreatecon(udevice->udev);
 			if (err != 0) {
 				err(udevice->udev, "mknod(%s, %#o, %u, %u) failed: %s\n",
 				    file_tmp, mode, major(devt), minor(devt), strerror(errno));
@@ -73,9 +72,9 @@ int udev_node_mknod(struct udevice *udevice, const char *file, dev_t devt, mode_
 		}
 	} else {
 		info(udevice->udev, "mknod(%s, %#o, (%u,%u))\n", file, mode, major(devt), minor(devt));
-		selinux_setfscreatecon(udevice->udev, file, udevice->dev->kernel, mode);
+		udev_selinux_setfscreatecon(udevice->udev, file, mode);
 		err = mknod(file, mode, devt);
-		selinux_resetfscreatecon(udevice->udev);
+		udev_selinux_resetfscreatecon(udevice->udev);
 		if (err != 0) {
 			err(udevice->udev, "mknod(%s, %#o, (%u,%u) failed: %s\n",
 			    file, mode, major(devt), minor(devt), strerror(errno));
@@ -151,16 +150,16 @@ static int node_symlink(struct udevice *udevice, const char *node, const char *s
 				buf[len] = '\0';
 				if (strcmp(target, buf) == 0) {
 					info(udevice->udev, "preserve already existing symlink '%s' to '%s'\n", slink, target);
-					selinux_setfilecon(udevice->udev, slink, NULL, S_IFLNK);
+					udev_selinux_lsetfilecon(udevice->udev, slink, S_IFLNK);
 					goto exit;
 				}
 			}
 		}
 	} else {
 		info(udevice->udev, "creating symlink '%s' to '%s'\n", slink, target);
-		selinux_setfscreatecon(udevice->udev, slink, NULL, S_IFLNK);
+		udev_selinux_setfscreatecon(udevice->udev, slink, S_IFLNK);
 		retval = symlink(target, slink);
-		selinux_resetfscreatecon(udevice->udev);
+		udev_selinux_resetfscreatecon(udevice->udev);
 		if (retval == 0)
 			goto exit;
 	}
@@ -169,9 +168,9 @@ static int node_symlink(struct udevice *udevice, const char *node, const char *s
 	strlcpy(slink_tmp, slink, sizeof(slink_tmp));
 	strlcat(slink_tmp, TMP_FILE_EXT, sizeof(slink_tmp));
 	unlink(slink_tmp);
-	selinux_setfscreatecon(udevice->udev, slink, NULL, S_IFLNK);
+	udev_selinux_setfscreatecon(udevice->udev, slink, S_IFLNK);
 	retval = symlink(target, slink_tmp);
-	selinux_resetfscreatecon(udevice->udev);
+	udev_selinux_resetfscreatecon(udevice->udev);
 	if (retval != 0) {
 		err(udevice->udev, "symlink(%s, %s) failed: %s\n", target, slink_tmp, strerror(errno));
 		goto exit;

@@ -5,7 +5,8 @@ udevhome_PROGRAMS = \
 AM_CPPFLAGS = \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DUDEV_PREFIX=\""$(udev_prefix)"\" \
-	-D_LIBUDEV_COMPILATION
+	-D_LIBUDEV_COMPILATION \
+	-UUSE_SELINUX
 
 ata_id_SOURCES = \
 	ata_id.c \
@@ -16,9 +17,13 @@ ata_id_SOURCES = \
 	../../udev/udev_utils.c \
 	../../udev/udev_utils_string.c
 
+if USE_SELINUX
+ata_id_LDADD = \
+	$(SELINUX_LIBS)
+endif
+
 dist_man_MANS = \
 	ata_id.8
 
 distclean-local:
 	rm -f Makefile.in
-

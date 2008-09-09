@@ -30,7 +30,6 @@
 
 #include "udev.h"
 #include "udev_rules.h"
-#include "udev_selinux.h"
 
 
 void udev_rules_iter_init(struct udev_rules_iter *iter, struct udev_rules *rules)
@@ -756,9 +755,9 @@ int udev_rules_init(struct udev *udev, struct udev_rules *rules, int resolve_nam
 		strlcat(filename, "/.udev/rules.d", sizeof(filename));
 		if (stat(filename, &statbuf) != 0) {
 			create_path(udev, filename);
-			selinux_setfscreatecon(udev, filename, NULL, S_IFDIR|0755);
+			udev_selinux_setfscreatecon(udev, filename, S_IFDIR|0755);
 			mkdir(filename, 0755);
-			selinux_resetfscreatecon(udev);
+			udev_selinux_resetfscreatecon(udev);
 		}
 		add_matching_files(udev, &sort_list, filename, ".rules");
 

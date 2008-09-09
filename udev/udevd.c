@@ -47,7 +47,6 @@
 
 #include "udev.h"
 #include "udev_rules.h"
-#include "udev_selinux.h"
 
 #define UDEVD_PRIORITY			-4
 #define UDEV_PRIORITY			-2
@@ -189,9 +188,9 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 		unlink(filename_failed);
 		delete_path(msg->udev, filename_failed);
 		create_path(msg->udev, filename);
-		selinux_setfscreatecon(msg->udev, filename, NULL, S_IFLNK);
+		udev_selinux_setfscreatecon(msg->udev, filename, S_IFLNK);
 		symlink(msg->devpath, filename);
-		selinux_resetfscreatecon(msg->udev);
+		udev_selinux_resetfscreatecon(msg->udev);
 		break;
 	case EVENT_FINISHED:
 		if (msg->devpath_old != NULL) {
@@ -804,8 +803,6 @@ int main(int argc, char *argv[])
 
 	logging_init("udevd");
 	udev_set_log_fn(udev, log_fn);
-
-	selinux_init(udev);
 	dbg(udev, "version %s\n", VERSION);
 
 	while (1) {
@@ -1107,7 +1104,6 @@ int main(int argc, char *argv[])
 exit:
 	udev_rules_cleanup(&rules);
 	sysfs_cleanup();
-	selinux_exit(udev);
 
 	if (signal_pipe[READ_END] >= 0)
 		close(signal_pipe[READ_END]);

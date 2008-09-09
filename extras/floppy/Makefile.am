@@ -16,10 +16,8 @@ create_floppy_devices_SOURCES = \
 	../../udev/udev_utils.c \
 	../../udev/udev_utils_string.c \
 	../../udev/udev_utils_file.c
-if USE_SELINUX
-create_floppy_devices_SOURCES += \
-	../../udev/udev_selinux.c
 
+if USE_SELINUX
 create_floppy_devices_LDADD = \
 	$(SELINUX_LIBS)
 endif
@@ -29,4 +27,3 @@ dist_man_MANS = \
 
 distclean-local:
 	rm -f Makefile.in
-

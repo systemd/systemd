@@ -20,9 +20,13 @@ cdrom_id_SOURCES = \
 	../../udev/udev_utils.c \
 	../../udev/udev_utils_string.c
 
+if USE_SELINUX
+cdrom_id_LDADD = \
+	$(SELINUX_LIBS)
+endif
+
 dist_man_MANS = \
 	cdrom_id.8
 
 distclean-local:
 	rm -f Makefile.in
-

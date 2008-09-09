@@ -20,7 +20,6 @@ common_files = \
 	logging.h \
 	udev.h \
 	udev_rules.h \
-	udev_selinux.h \
 	udev_sysdeps.h \
 	udev_db.c \
 	udev_device.c \
@@ -41,11 +40,7 @@ common_files = \
 	lib/libudev-utils.c \
 	lib/libudev-ctrl.c
 
-
 if USE_SELINUX
-common_files += \
-	udev_selinux.c
-
 common_ldadd += \
 	$(SELINUX_LIBS)
 endif

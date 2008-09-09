@@ -20,6 +20,11 @@ scsi_id_SOURCES = \
 	../../udev/udev_utils.c \
 	../../udev/udev_utils_string.c
 
+if USE_SELINUX
+scsi_id_LDADD = \
+	$(SELINUX_LIBS)
+endif
+
 dist_sysconf_DATA = \
 	scsi_id.config
 

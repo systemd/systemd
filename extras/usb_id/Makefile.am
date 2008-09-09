@@ -16,6 +16,11 @@ usb_id_SOURCES = \
 	../../udev/udev_utils.c \
 	../../udev/udev_utils_string.c
 
+if USE_SELINUX
+usb_id_LDADD = \
+	$(SELINUX_LIBS)
+endif
+
 distclean-local:
 	rm -f Makefile.in
 

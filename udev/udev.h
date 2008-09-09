@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2003 Greg Kroah-Hartman <greg@kroah.com>
- * Copyright (C) 2003-2006 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2003-2008 Kay Sievers <kay.sievers@vrfy.org>
  *
  *	This program is free software; you can redistribute it and/or modify it
  *	under the terms of the GNU General Public License as published by the

@@ -30,7 +30,6 @@
 #include <sys/mman.h>
 
 #include "udev.h"
-#include "udev_selinux.h"
 
 int create_path(struct udev *udev, const char *path)
 {
@@ -56,9 +55,9 @@ int create_path(struct udev *udev, const char *path)
 		return -1;
 
 	dbg(udev, "mkdir '%s'\n", p);
- 	selinux_setfscreatecon(udev, p, NULL, S_IFDIR|0755);
+	udev_selinux_setfscreatecon(udev, p, S_IFDIR|0755);
 	ret = mkdir(p, 0755);
- 	selinux_resetfscreatecon(udev);
+	udev_selinux_resetfscreatecon(udev);
 	if (ret == 0)
 		return 0;
 
