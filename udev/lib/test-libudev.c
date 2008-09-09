@@ -58,6 +58,8 @@ static void print_device(struct udev_device *device)
 	printf("devpath:   '%s'\n", str);
 	str = udev_device_get_subsystem(device);
 	printf("subsystem: '%s'\n", str);
+	str = udev_device_get_driver(device);
+	printf("driver:    '%s'\n", str);
 	str = udev_device_get_syspath(device);
 	printf("syspath:   '%s'\n", str);
 	str = udev_device_get_devname(device);

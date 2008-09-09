@@ -346,8 +346,15 @@ int udev_device_get_properties(struct udev_device *udev_device,
 
 const char *udev_device_get_driver(struct udev_device *udev_device)
 {
+	char driver[NAME_SIZE];
+
 	if (udev_device == NULL)
 		return NULL;
+	if (udev_device->driver != NULL)
+		return udev_device->driver;
+	if (util_get_sys_driver(udev_device->udev, udev_device->devpath, driver, sizeof(driver)) < 2)
+		return NULL;
+	udev_device->driver = strdup(driver);
 	return udev_device->driver;
 }
 

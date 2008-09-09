@@ -32,7 +32,7 @@
 #include "libudev-private.h"
 #include "../udev.h"
 
-ssize_t util_get_sys_subsystem(struct udev *udev, const char *devpath, char *subsystem, size_t size)
+static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *devpath, char *subsystem, size_t size)
 {
 	char path[PATH_SIZE];
 	ssize_t len;
@@ -40,7 +40,8 @@ ssize_t util_get_sys_subsystem(struct udev *udev, const char *devpath, char *sub
 
 	strlcpy(path, udev_get_sys_path(udev), sizeof(path));
 	strlcat(path, devpath, sizeof(path));
-	strlcat(path, "/subsystem", sizeof(path));
+	strlcat(path, "/", sizeof(path));
+	strlcat(path, slink, sizeof(path));
 	len = readlink(path, path, sizeof(path));
 	if (len < 0 || len >= (ssize_t) sizeof(path))
 		return -1;
@@ -51,3 +52,14 @@ ssize_t util_get_sys_subsystem(struct udev *udev, const char *devpath, char *sub
 	pos = &pos[1];
 	return strlcpy(subsystem, pos, size);
 }
+
+ssize_t util_get_sys_subsystem(struct udev *udev, const char *devpath, char *subsystem, size_t size)
+{
+	return get_sys_link(udev, "subsystem", devpath, subsystem, size);
+}
+
+ssize_t util_get_sys_driver(struct udev *udev, const char *devpath, char *driver, size_t size)
+{
+	return get_sys_link(udev, "driver", devpath, driver, size);
+}
+

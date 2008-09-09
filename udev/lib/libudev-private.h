@@ -99,4 +99,5 @@ extern int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg);
 
 /* libudev-utils */
 extern ssize_t util_get_sys_subsystem(struct udev *udev, const char *devpath, char *subsystem, size_t size);
+extern ssize_t util_get_sys_driver(struct udev *udev, const char *devpath, char *driver, size_t size);
 #endif
