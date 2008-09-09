@@ -201,12 +201,6 @@ int udev_ctrl_send_set_max_childs(struct udev_ctrl *uctrl, int count)
 	return 0;
 }
 
-int udev_ctrl_send_set_max_childs_running(struct udev_ctrl *uctrl, int count)
-{
-	ctrl_send(uctrl, UDEV_CTRL_SET_MAX_CHILDS_RUNNING, count, NULL);
-	return 0;
-}
-
 struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl)
 {
 	struct udev_ctrl_msg *uctrl_msg;
@@ -320,13 +314,6 @@ const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg)
 int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg)
 {
 	if (ctrl_msg->ctrl_msg.type == UDEV_CTRL_SET_MAX_CHILDS)
-		return ctrl_msg->ctrl_msg.intval;
-	return -1;
-}
-
-int udev_ctrl_get_set_max_childs_running(struct udev_ctrl_msg *ctrl_msg)
-{
-	if (ctrl_msg->ctrl_msg.type == UDEV_CTRL_SET_MAX_CHILDS_RUNNING)
 		return ctrl_msg->ctrl_msg.intval;
 	return -1;
 }

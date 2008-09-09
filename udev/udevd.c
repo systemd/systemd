@@ -54,8 +54,6 @@
 
 /* maximum limit of forked childs */
 #define UDEVD_MAX_CHILDS		256
-/* start to throttle forking if maximum number of running childs in our session is reached */
-#define UDEVD_MAX_CHILDS_RUNNING	16
 
 static int debug;
 
@@ -95,7 +93,6 @@ static struct udev_rules rules;
 static struct udev_ctrl *udev_ctrl;
 static int uevent_netlink_sock = -1;
 static int inotify_fd = -1;
-static pid_t sid;
 
 static int signal_pipe[2] = {-1, -1};
 static volatile int sigchilds_waiting;
@@ -104,7 +101,6 @@ static volatile int reload_config;
 static int run_exec_q;
 static int stop_exec_q;
 static int max_childs;
-static int max_childs_running;
 static char udev_log_env[32];
 
 static LIST_HEAD(exec_list);
@@ -348,114 +344,6 @@ static int mem_size_mb(void)
 	return memsize;
 }
 
-static int cpu_count(void)
-{
-	FILE* f;
-	char buf[4096];
-	int count = 0;
-
-	f = fopen("/proc/stat", "r");
-	if (f == NULL)
-		return -1;
-
-	while (fgets(buf, sizeof(buf), f) != NULL) {
-		if (strncmp(buf, "cpu", 3) == 0 && isdigit(buf[3]))
-			count++;
-	}
-
-	fclose(f);
-	if (count == 0)
-		return -1;
-	return count;
-}
-
-static int running_processes(void)
-{
-	FILE* f;
-	char buf[4096];
-	int running = -1;
-
-	f = fopen("/proc/stat", "r");
-	if (f == NULL)
-		return -1;
-
-	while (fgets(buf, sizeof(buf), f) != NULL) {
-		int value;
-
-		if (sscanf(buf, "procs_running %u", &value) == 1) {
-			running = value;
-			break;
-		}
-	}
-
-	fclose(f);
-	return running;
-}
-
-/* return the number of process es in our session, count only until limit */
-static int running_processes_in_session(pid_t session, int limit)
-{
-	DIR *dir;
-	struct dirent *dent;
-	int running = 0;
-
-	dir = opendir("/proc");
-	if (!dir)
-		return -1;
-
-	/* read process info from /proc */
-	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-		int f;
-		char procdir[64];
-		char line[256];
-		const char *pos;
-		char state;
-		pid_t ppid, pgrp, sess;
-		int len;
-
-		if (!isdigit(dent->d_name[0]))
-			continue;
-
-		snprintf(procdir, sizeof(procdir), "/proc/%s/stat", dent->d_name);
-		procdir[sizeof(procdir)-1] = '\0';
-
-		f = open(procdir, O_RDONLY);
-		if (f == -1)
-			continue;
-
-		len = read(f, line, sizeof(line)-1);
-		close(f);
-
-		if (len <= 0)
-			continue;
-		else
-			line[len] = '\0';
-
-		/* skip ugly program name */
-		pos = strrchr(line, ')') + 2;
-		if (pos == NULL)
-			continue;
-
-		if (sscanf(pos, "%c %d %d %d ", &state, &ppid, &pgrp, &sess) != 4)
-			continue;
-
-		/* count only processes in our session */
-		if (sess != session)
-			continue;
-
-		/* count only running, no sleeping processes */
-		if (state != 'R')
-			continue;
-
-		running++;
-		if (limit > 0 && running >= limit)
-			break;
-	}
-	closedir(dir);
-
-	return running;
-}
-
 static int compare_devpath(const char *running, const char *waiting)
 {
 	int i;
@@ -524,8 +412,10 @@ static int devpath_busy(struct udevd_uevent_msg *msg, int limit)
 
 	/* check run queue for still running events */
 	list_for_each_entry(loop_msg, &running_list, node) {
-		if (limit && childs_count++ > limit) {
-			dbg(msg->udev, "%llu, maximum number (%i) of childs reached\n", msg->seqnum, childs_count);
+		childs_count++;
+
+		if (childs_count++ >= limit) {
+			info(msg->udev, "%llu, maximum number (%i) of childs reached\n", msg->seqnum, childs_count);
 			return 1;
 		}
 
@@ -565,27 +455,11 @@ static void msg_queue_manager(struct udev *udev)
 {
 	struct udevd_uevent_msg *loop_msg;
 	struct udevd_uevent_msg *tmp_msg;
-	int running;
 
 	if (list_empty(&exec_list))
 		return;
 
-	running = running_processes();
-	dbg(udev, "%d processes runnning on system\n", running);
-	if (running < 0)
-		running = max_childs_running;
-
 	list_for_each_entry_safe(loop_msg, tmp_msg, &exec_list, node) {
-		/* check running processes in our session and possibly throttle */
-		if (running >= max_childs_running) {
-			running = running_processes_in_session(sid, max_childs_running+10);
-			dbg(udev, "at least %d processes running in session\n", running);
-			if (running >= max_childs_running) {
-				dbg(udev, "delay seq %llu, too many processes already running\n", loop_msg->seqnum);
-				return;
-			}
-		}
-
 		/* serialize and wait for parent or child events */
 		if (devpath_busy(loop_msg, max_childs) != 0) {
 			dbg(udev, "delay seq %llu (%s)\n", loop_msg->seqnum, loop_msg->devpath);
@@ -595,7 +469,6 @@ static void msg_queue_manager(struct udev *udev)
 		/* move event to run list */
 		list_move_tail(&loop_msg->node, &running_list);
 		udev_event_run(loop_msg);
-		running++;
 		dbg(udev, "moved seq %llu to running list\n", loop_msg->seqnum);
 	}
 }
@@ -733,12 +606,6 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl)
 	if (i >= 0) {
 		info(udev, "udevd message (SET_MAX_CHILDS) received, max_childs=%i\n", i);
 		max_childs = i;
-	}
-
-	i = udev_ctrl_get_set_max_childs_running(ctrl_msg);
-	if (i > 0) {
-		info(udev, "udevd message (SET_MAX_CHILDS_RUNNING) received, max_childs_running=%i\n", i);
-		max_childs_running = i;
 	}
 
 	udev_ctrl_msg_unref(ctrl_msg);
@@ -1079,10 +946,7 @@ int main(int argc, char *argv[])
 
 	chdir("/");
 	umask(022);
-
-	/* become session leader */
-	sid = setsid();
-	dbg(udev, "our session is %d\n", sid);
+	setsid();
 
 	/* OOM_DISABLE == -17 */
 	fd = open("/proc/self/oom_adj", O_RDWR);
@@ -1148,19 +1012,6 @@ int main(int argc, char *argv[])
 			max_childs = UDEVD_MAX_CHILDS;
 	}
 	info(udev, "initialize max_childs to %u\n", max_childs);
-
-	/* start to throttle forking if maximum number of _running_ childs is reached */
-	value = getenv("UDEVD_MAX_CHILDS_RUNNING");
-	if (value)
-		max_childs_running = strtoull(value, NULL, 10);
-	else {
-		int cpus = cpu_count();
-		if (cpus > 0)
-			max_childs_running = 8 + (8 * cpus);
-		else
-			max_childs_running = UDEVD_MAX_CHILDS_RUNNING;
-	}
-	info(udev, "initialize max_childs_running to %u\n", max_childs_running);
 
 	/* clear environment for forked event processes */
 	clearenv();

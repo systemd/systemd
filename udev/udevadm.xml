@@ -291,13 +291,6 @@
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><option>--max-childs-running=<replaceable>value</replaceable></option></term>
-              <listitem>
-                <para>Set the maximum number of events, which are allowed to run at the
-                same time.</para>
-              </listitem>
-            </varlistentry>
-            <varlistentry>
               <term><option>--help</option></term>
               <listitem>
                 <para>Print help text.</para>

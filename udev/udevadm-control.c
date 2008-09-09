@@ -42,7 +42,6 @@ static void print_help(void)
 		"  --reload-rules           reloads the rules files\n"
 		"  --env=<KEY>=<value>      set a global environment variable\n"
 		"  --max-childs=<N>         maximum number of childs\n"
-		"  --max-childs-running=<N> maximum number of childs running at the same time\n"
 		"  --help                   print this help text\n\n");
 }
 
@@ -64,8 +63,6 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 		{ "env", 1, NULL, 'e' },
 		{ "max-childs", 1, NULL, 'm' },
 		{ "max_childs", 1, NULL, 'm' + 256},
-		{ "max-childs-running", 1, NULL, 'M' },
-		{ "max_childs_running", 1, NULL, 'M' + 256},
 		{ "help", 0, NULL, 'h' },
 		{}
 	};
@@ -139,16 +136,6 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 			udev_ctrl_send_set_max_childs(uctrl, i);
 			rc = 0;
 			break;
-		case 'M':
-		case 'M' + 256:
-			i = strtoul(optarg, &endp, 0);
-			if (endp[0] != '\0' || i < 1) {
-				fprintf(stderr, "invalid number '%s'\n", optarg);
-				goto exit;
-			}
-			udev_ctrl_send_set_max_childs_running(uctrl, i);
-			rc = 0;
-			break;
 		case 'h':
 			print_help();
 			rc = 0;
@@ -185,10 +172,6 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 			goto exit;
 		} else if (!strncmp(arg, "max_childs=", strlen("max_childs="))) {
 			udev_ctrl_send_set_max_childs(uctrl, strtoul(&arg[strlen("max_childs=")], NULL, 0));
-			rc = 0;
-			goto exit;
-		} else if (!strncmp(arg, "max_childs_running=", strlen("max_childs_running="))) {
-			udev_ctrl_send_set_max_childs_running(uctrl, strtoul(&arg[strlen("max_childs_running=")], NULL, 0));
 			rc = 0;
 			goto exit;
 		} else if (!strncmp(arg, "env", strlen("env"))) {

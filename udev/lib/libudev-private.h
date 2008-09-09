@@ -85,7 +85,6 @@ extern int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl);
 extern int udev_ctrl_send_reload_rules(struct udev_ctrl *uctrl);
 extern int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key);
 extern int udev_ctrl_send_set_max_childs(struct udev_ctrl *uctrl, int count);
-extern int udev_ctrl_send_set_max_childs_running(struct udev_ctrl *uctrl, int count);
 struct udev_ctrl_msg;
 extern struct udev_ctrl_msg *udev_ctrl_msg(struct udev_ctrl *uctrl);
 extern struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl);
@@ -97,7 +96,6 @@ extern int udev_ctrl_get_start_exec_queue(struct udev_ctrl_msg *ctrl_msg);
 extern int udev_ctrl_get_reload_rules(struct udev_ctrl_msg *ctrl_msg);
 extern const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg);
 extern int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg);
-extern int udev_ctrl_get_set_max_childs_running(struct udev_ctrl_msg *ctrl_msg);
 
 /* libudev-utils */
 extern ssize_t util_get_sys_subsystem(struct udev *udev, const char *devpath, char *subsystem, size_t size);
