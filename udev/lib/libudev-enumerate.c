@@ -130,7 +130,7 @@ static int devices_call(struct udev *udev, const char *devpath,
 }
 
 /**
- * udev_devices_enumerate:
+ * udev_enumerate_devices:
  * @udev_device: udev device
  * @cb: function to be called for every property found
  * @data: data to be passed to the function
@@ -142,7 +142,7 @@ static int devices_call(struct udev *udev, const char *devpath,
  *
  * Returns: the number of properties passed to the caller, or a negative value on error
  **/
-int udev_devices_enumerate(struct udev *udev, const char *subsystem,
+int udev_enumerate_devices(struct udev *udev, const char *subsystem,
 			   int (*cb)(struct udev *udev,
 				     const char *devpath, const char *subsystem, const char *name, void *data),
 			   void *data)

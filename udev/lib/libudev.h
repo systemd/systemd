@@ -63,7 +63,7 @@ extern dev_t udev_device_get_devnum(struct udev_device *udev_device);
 extern const char *udev_device_get_action(struct udev_device *udev_device);
 extern unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device);
 
-extern int udev_devices_enumerate(struct udev *udev, const char *subsystem,
+extern int udev_enumerate_devices(struct udev *udev, const char *subsystem,
 				  int (*cb)(struct udev *udev,
 					    const char *devpath, const char *subsystem, const char *name, void *data),
 				  void *data);

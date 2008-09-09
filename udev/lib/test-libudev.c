@@ -98,7 +98,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem)
 {
 	int count;
 
-	count = udev_devices_enumerate(udev, subsystem, devices_enum_cb, NULL);
+	count = udev_enumerate_devices(udev, subsystem, devices_enum_cb, NULL);
 	printf("found %i devices\n\n", count);
 	return count;
 }
