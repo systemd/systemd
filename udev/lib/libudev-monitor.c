@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <linux/netlink.h>
 
 #include "libudev.h"
 #include "libudev-private.h"
@@ -38,7 +39,8 @@ struct udev_monitor {
 	struct udev *udev;
 	int refcount;
 	int sock;
-	struct sockaddr_un saddr;
+	struct sockaddr_nl snl;
+	struct sockaddr_un sun;
 	socklen_t addrlen;
 };
 
@@ -74,13 +76,13 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 	udev_monitor->refcount = 1;
 	udev_monitor->udev = udev;
 
-	udev_monitor->saddr.sun_family = AF_LOCAL;
-	strcpy(udev_monitor->saddr.sun_path, socket_path);
-	udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(udev_monitor->saddr.sun_path);
+	udev_monitor->sun.sun_family = AF_LOCAL;
+	strcpy(udev_monitor->sun.sun_path, socket_path);
+	udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(udev_monitor->sun.sun_path);
 
 	/* translate leading '@' to abstract namespace */
-	if (udev_monitor->saddr.sun_path[0] == '@')
-		udev_monitor->saddr.sun_path[0] = '\0';
+	if (udev_monitor->sun.sun_path[0] == '@')
+		udev_monitor->sun.sun_path[0] = '\0';
 
 	udev_monitor->sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (udev_monitor->sock == -1) {
@@ -92,20 +94,56 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 	return udev_monitor;
 }
 
+struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev)
+{
+	struct udev_monitor *udev_monitor;
+
+	if (udev == NULL)
+		return NULL;
+	udev_monitor = malloc(sizeof(struct udev_monitor));
+	if (udev_monitor == NULL)
+		return NULL;
+	memset(udev_monitor, 0x00, sizeof(struct udev_monitor));
+	udev_monitor->refcount = 1;
+	udev_monitor->udev = udev;
+
+	udev_monitor->sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
+	if (udev_monitor->sock == -1) {
+		err(udev, "error getting socket: %s\n", strerror(errno));
+		free(udev_monitor);
+		return NULL;
+	}
+
+	udev_monitor->snl.nl_family = AF_NETLINK;
+	udev_monitor->snl.nl_pid = getpid();
+	udev_monitor->snl.nl_groups = 1;
+
+	info(udev, "monitor %p created with NETLINK_KOBJECT_UEVENT\n", udev_monitor);
+	return udev_monitor;
+}
+
 int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 {
 	int err;
 	const int on = 1;
 
-	err = bind(udev_monitor->sock, (struct sockaddr *)&udev_monitor->saddr, udev_monitor->addrlen);
-	if (err < 0) {
-		err(udev_monitor->udev, "bind failed: %s\n", strerror(errno));
-		return err;
+	if (udev_monitor->snl.nl_family != 0) {
+		err = bind(udev_monitor->sock, (struct sockaddr *)&udev_monitor->snl, sizeof(struct sockaddr_nl));
+		if (err < 0) {
+			err(udev_monitor->udev, "bind failed: %s\n", strerror(errno));
+			return err;
+		}
+		info(udev_monitor->udev, "monitor %p listening on netlink\n", udev_monitor);
+	} else if (udev_monitor->sun.sun_family != 0) {
+		err = bind(udev_monitor->sock, (struct sockaddr *)&udev_monitor->sun, udev_monitor->addrlen);
+		if (err < 0) {
+			err(udev_monitor->udev, "bind failed: %s\n", strerror(errno));
+			return err;
+		}
+		/* enable receiving of the sender credentials */
+		setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
+		info(udev_monitor->udev, "monitor %p listening on socket\n", udev_monitor);
 	}
-
-	/* enable receiving of the sender credentials */
-	setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
-	info(udev_monitor->udev, "monitor %p listening\n", udev_monitor);
 	return 0;
 }
 
@@ -197,9 +235,7 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 {
 	struct udev_device *udev_device;
 	struct msghdr smsg;
-	struct cmsghdr *cmsg;
 	struct iovec iov;
-	struct ucred *cred;
 	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
 	char buf[4096];
 	size_t bufpos;
@@ -222,17 +258,20 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 			info(udev_monitor->udev, "unable to receive message");
 		return NULL;
 	}
-	cmsg = CMSG_FIRSTHDR(&smsg);
-	cred = (struct ucred *)CMSG_DATA (cmsg);
 
-	if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
-		info(udev_monitor->udev, "no sender credentials received, message ignored");
-		return NULL;
-	}
+	if (udev_monitor->sun.sun_family != 0) {
+		struct cmsghdr *cmsg = CMSG_FIRSTHDR(&smsg);
+		struct ucred *cred = (struct ucred *)CMSG_DATA (cmsg);
 
-	if (cred->uid != 0) {
-		info(udev_monitor->udev, "sender uid=%d, message ignored", cred->uid);
-		return NULL;
+		if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
+			info(udev_monitor->udev, "no sender credentials received, message ignored");
+			return NULL;
+		}
+
+		if (cred->uid != 0) {
+			info(udev_monitor->udev, "sender uid=%d, message ignored", cred->uid);
+			return NULL;
+		}
 	}
 
 	/* skip header */

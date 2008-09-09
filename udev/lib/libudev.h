@@ -70,6 +70,7 @@ extern int udev_devices_enumerate(struct udev *udev, const char *subsystem,
 
 struct udev_monitor;
 extern struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path);
+extern struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev);
 extern int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor);
 extern struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor);
 extern void udev_monitor_unref(struct udev_monitor *udev_monitor);

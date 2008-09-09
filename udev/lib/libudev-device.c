@@ -194,6 +194,10 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->subsystem);
 	name_list_cleanup(udev_device->udev, &udev_device->link_list);
 	name_list_cleanup(udev_device->udev, &udev_device->env_list);
+	free(udev_device->action);
+	free(udev_device->driver);
+	free(udev_device->devpath_old);
+	free(udev_device->physdevpath);
 	info(udev_device->udev, "udev_device: %p released\n", udev_device);
 	free(udev_device);
 }
