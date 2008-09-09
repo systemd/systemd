@@ -167,8 +167,8 @@ int main(int argc, char *argv[])
 				prog[len] = '\0';
 				fprintf(stderr, "the program '%s' called '%s', it should use 'udevadm %s <options>', "
 				       "this will stop working in a future release\n", prog, argv[0], command);
-				info(udev, "the program '%s' called '%s', it should use 'udevadm %s <options>', "
-				     "this will stop working in a future release\n", prog, argv[0], command);
+				err(udev, "the program '%s' called '%s', it should use 'udevadm %s <options>', "
+				    "this will stop working in a future release\n", prog, argv[0], command);
 			}
 			rc = run_command(udev, &cmds[i], argc, argv);
 			goto out;

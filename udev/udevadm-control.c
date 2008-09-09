@@ -89,10 +89,10 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 			break;
 
 		if (option > 255) {
-			info(udev, "udevadm control expects commands without underscore, "
-			    "this will stop working in a future release\n");
 			fprintf(stderr, "udevadm control expects commands without underscore, "
 				"this will stop working in a future release\n");
+			err(udev, "udevadm control expects commands without underscore, "
+			    "this will stop working in a future release\n");
 		}
 
 		switch (option) {
