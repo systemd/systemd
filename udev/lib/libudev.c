@@ -81,6 +81,7 @@ static void selinux_init(struct udev *udev)
 	 * restoration creation purposes.
 	 */
 	udev->selinux_enabled = (is_selinux_enabled() > 0);
+	info(udev, "selinux=%i\n", udev->selinux_enabled);
 	if (udev->selinux_enabled) {
 		matchpathcon_init_prefix(NULL, udev_get_dev_path(udev));
 		if (getfscreatecon(&udev->selinux_prev_scontext) < 0) {
@@ -166,9 +167,6 @@ struct udev *udev_new(void)
 	if (udev == NULL)
 		return NULL;
 	memset(udev, 0x00, (sizeof(struct udev)));
-
-	selinux_init(udev);
-	sysfs_init();
 	udev->refcount = 1;
 	udev->log_fn = log_stderr;
 	udev->log_priority = LOG_ERR;
@@ -176,7 +174,6 @@ struct udev *udev_new(void)
 	udev->dev_path = strdup(UDEV_PREFIX "/dev");
 	udev->sys_path = strdup("/sys");
 	config_file = strdup(SYSCONFDIR "/udev/udev.conf");
-
 	if (udev->dev_path == NULL ||
 	    udev->sys_path == NULL ||
 	    config_file == NULL)
@@ -298,6 +295,9 @@ struct udev *udev_new(void)
 
 	if (udev->dev_path == NULL || udev->sys_path == NULL)
 		goto err;
+
+	selinux_init(udev);
+	sysfs_init();
 
 	info(udev, "context %p created\n", udev);
 	info(udev, "log_priority=%d\n", udev->log_priority);
