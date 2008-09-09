@@ -34,36 +34,7 @@
 
 #include "udev.h"
 
-static int uevent_netlink_sock = -1;
 static int udev_exit;
-
-static int init_uevent_netlink_sock(void)
-{
-	struct sockaddr_nl snl;
-	int err;
-
-	memset(&snl, 0x00, sizeof(struct sockaddr_nl));
-	snl.nl_family = AF_NETLINK;
-	snl.nl_pid = getpid();
-	snl.nl_groups = 1;
-
-	uevent_netlink_sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
-	if (uevent_netlink_sock == -1) {
-		fprintf(stderr, "error getting socket: %s\n", strerror(errno));
-		return -1;
-	}
-
-	err = bind(uevent_netlink_sock, (struct sockaddr *) &snl,
-		      sizeof(struct sockaddr_nl));
-	if (err < 0) {
-		fprintf(stderr, "bind failed: %s\n", strerror(errno));
-		close(uevent_netlink_sock);
-		uevent_netlink_sock = -1;
-		return -1;
-	}
-
-	return 0;
-}
 
 static void asmlinkage sig_handler(int signum)
 {
@@ -71,24 +42,16 @@ static void asmlinkage sig_handler(int signum)
 		udev_exit = 1;
 }
 
-static const char *search_key(const char *searchkey, const char *buf, size_t buflen)
+static int print_properties_cb(struct udev_device *udev_device, const char *key, const char *value, void *data)
 {
-	size_t bufpos = 0;
-	size_t searchkeylen = strlen(searchkey);
+	printf("%s=%s\n", key, value);
+	return 0;
+}
 
-	while (bufpos < buflen) {
-		const char *key;
-		int keylen;
-
-		key = &buf[bufpos];
-		keylen = strlen(key);
-		if (keylen == 0)
-			break;
-		 if ((strncmp(searchkey, key, searchkeylen) == 0) && key[searchkeylen] == '=')
-			return &key[searchkeylen + 1];
-		bufpos += keylen + 1;
-	}
-	return NULL;
+static void print_properties(struct udev_device *device)
+{
+	udev_device_get_properties(device, print_properties_cb, NULL);
+	printf("\n");
 }
 
 int udevadm_monitor(struct udev *udev, int argc, char *argv[])
@@ -99,6 +62,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 	int print_kernel = 0;
 	int print_udev = 0;
 	struct udev_monitor *udev_monitor = NULL;
+	struct udev_monitor *kernel_monitor = NULL;
 	fd_set readfds;
 	int rc = 0;
 
@@ -168,8 +132,13 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 		printf("UDEV the event which udev sends out after rule processing\n");
 	}
 	if (print_kernel) {
-		if (init_uevent_netlink_sock() < 0) {
+		kernel_monitor = udev_monitor_new_from_netlink(udev);
+		if (kernel_monitor == NULL) {
 			rc = 3;
+			goto out;
+		}
+		if (udev_monitor_enable_receiving(kernel_monitor) < 0) {
+			rc = 4;
 			goto out;
 		}
 		printf("UEVENT the kernel uevent\n");
@@ -177,25 +146,18 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 	printf("\n");
 
 	while (!udev_exit) {
-		char buf[UEVENT_BUFFER_SIZE*2];
-		ssize_t buflen;
-		ssize_t bufpos;
-		ssize_t keys;
 		int fdcount;
 		struct timeval tv;
 		struct timezone tz;
 		char timestr[64];
-		const char *source = NULL;
-		const char *devpath, *action, *subsys;
 
-		buflen = 0;
 		FD_ZERO(&readfds);
-		if (uevent_netlink_sock >= 0)
-			FD_SET(uevent_netlink_sock, &readfds);
+		if (kernel_monitor != NULL)
+			FD_SET(udev_monitor_get_fd(kernel_monitor), &readfds);
 		if (udev_monitor != NULL)
 			FD_SET(udev_monitor_get_fd(udev_monitor), &readfds);
 
-		fdcount = select(UDEV_MAX(uevent_netlink_sock, udev_monitor_get_fd(udev_monitor))+1,
+		fdcount = select(UDEV_MAX(udev_monitor_get_fd(kernel_monitor), udev_monitor_get_fd(udev_monitor))+1,
 				 &readfds, NULL, NULL, NULL);
 		if (fdcount < 0) {
 			if (errno != EINTR)
@@ -209,55 +171,35 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 		} else
 			timestr[0] = '\0';
 
-		if ((uevent_netlink_sock >= 0) && FD_ISSET(uevent_netlink_sock, &readfds)) {
-			buflen = recv(uevent_netlink_sock, &buf, sizeof(buf), 0);
-			if (buflen <= 0) {
-				fprintf(stderr, "error receiving uevent message: %s\n", strerror(errno));
+		if ((kernel_monitor != NULL) && FD_ISSET(udev_monitor_get_fd(kernel_monitor), &readfds)) {
+			struct udev_device *device = udev_monitor_receive_device(kernel_monitor);
+			if (device == NULL)
 				continue;
-			}
-			source = "UEVENT";
+			printf("UEVENT[%s] %-8s %s (%s)\n", timestr,
+			       udev_device_get_action(device),
+			       udev_device_get_devpath(device),
+			       udev_device_get_subsystem(device));
+			if (env)
+				print_properties(device);
+			udev_device_unref(device);
 		}
 
 		if ((udev_monitor != NULL) && FD_ISSET(udev_monitor_get_fd(udev_monitor), &readfds)) {
-			buflen = recv(udev_monitor_get_fd(udev_monitor), &buf, sizeof(buf), 0);
-			if (buflen <= 0) {
-				fprintf(stderr, "error receiving udev message: %s\n", strerror(errno));
+			struct udev_device *device = udev_monitor_receive_device(udev_monitor);
+			if (device == NULL)
 				continue;
-			}
-			source = "UDEV  ";
-		}
-
-		if (buflen == 0)
-			continue;
-
-		keys = strlen(buf) + 1; /* start of payload */
-		devpath = search_key("DEVPATH", &buf[keys], buflen);
-		action = search_key("ACTION", &buf[keys], buflen);
-		subsys = search_key("SUBSYSTEM", &buf[keys], buflen);
-		printf("%s[%s] %-8s %s (%s)\n", source, timestr, action, devpath, subsys);
-
-		/* print environment */
-		bufpos = keys;
-		if (env) {
-			while (bufpos < buflen) {
-				int keylen;
-				char *key;
-
-				key = &buf[bufpos];
-				keylen = strlen(key);
-				if (keylen == 0)
-					break;
-				printf("%s\n", key);
-				bufpos += keylen + 1;
-			}
-			printf("\n");
+			printf("UDEV  [%s] %-8s %s (%s)\n", timestr,
+			       udev_device_get_action(device),
+			       udev_device_get_devpath(device),
+			       udev_device_get_subsystem(device));
+			if (env)
+				print_properties(device);
+			udev_device_unref(device);
 		}
 	}
 
 out:
 	udev_monitor_unref(udev_monitor);
-	if (uevent_netlink_sock >= 0)
-		close(uevent_netlink_sock);
-
+	udev_monitor_unref(kernel_monitor);
 	return rc;
 }
