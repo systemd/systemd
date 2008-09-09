@@ -9,7 +9,7 @@ Important Note:
   recommend to replace a distro's udev installation with the upstream version.
 
 Requirements:
-  - Version 2.6.18 of the Linux kernel for reliable operation of this release of
+  - Version 2.6.19 of the Linux kernel for reliable operation of this release of
     udev. The kernel may have a requirement on udev too, see Documentation/Changes
     in the kernel source tree for the actual dependency.
 

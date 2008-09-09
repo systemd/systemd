@@ -47,6 +47,7 @@ struct udev_device {
 	char *physdevpath;
 	int timeout;
 	dev_t devnum;
+	long long int seqnum;
 };
 
 struct udev_device *device_init(struct udev *udev)
@@ -360,6 +361,13 @@ const char *udev_device_get_action(struct udev_device *udev_device)
 	return udev_device->action;
 }
 
+unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return 0;
+	return udev_device->seqnum;
+}
+
 int device_set_devpath(struct udev_device *udev_device, const char *devpath)
 {
 	if (asprintf(&udev_device->syspath, "%s%s", udev_get_sys_path(udev_device->udev), devpath) < 0)
@@ -454,6 +462,12 @@ int device_get_timeout(struct udev_device *udev_device)
 int device_set_timeout(struct udev_device *udev_device, int timeout)
 {
 	udev_device->timeout = timeout;
+	return 0;
+}
+
+int device_set_seqnum(struct udev_device *udev_device, unsigned long long int seqnum)
+{
+	udev_device->seqnum = seqnum;
 	return 0;
 }
 

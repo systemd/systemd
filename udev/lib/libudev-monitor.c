@@ -203,6 +203,8 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
 	char buf[4096];
 	size_t bufpos;
+	int maj = 0;
+	int min = 0;
 
 	if (udev_monitor == NULL)
 		return NULL;
@@ -279,9 +281,26 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 			}
 			if (slink[0] != '\0')
 				device_add_devlink(udev_device, slink);
+		} else if (strncmp(key, "DRIVER=", 7) == 0) {
+			device_set_driver(udev_device, &key[7]);
+		} else if (strncmp(key, "ACTION=", 7) == 0) {
+			device_set_action(udev_device, &key[7]);
+		} else if (strncmp(key, "MAJOR=", 6) == 0) {
+			maj = strtoull(&key[6], NULL, 10);
+		} else if (strncmp(key, "MINOR=", 6) == 0) {
+			min = strtoull(&key[6], NULL, 10);
+		} else if (strncmp(key, "DEVPATH_OLD=", 12) == 0) {
+			device_set_devpath_old(udev_device, &key[12]);
+		} else if (strncmp(key, "PHYSDEVPATH=", 12) == 0) {
+			device_set_physdevpath(udev_device, &key[12]);
+		} else if (strncmp(key, "SEQNUM=", 7) == 0) {
+			device_set_seqnum(udev_device, strtoull(&key[7], NULL, 10));
+		} else if (strncmp(key, "TIMEOUT=", 8) == 0) {
+			device_set_timeout(udev_device, strtoull(&key[8], NULL, 10));
 		}
 		device_add_property(udev_device, key);
 	}
+	device_set_devnum(udev_device, makedev(maj, min));
 
 	return udev_device;
 }

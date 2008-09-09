@@ -69,6 +69,7 @@ extern int device_set_physdevpath(struct udev_device *udev_device, const char *p
 extern int device_get_timeout(struct udev_device *udev_device);
 extern int device_set_timeout(struct udev_device *udev_device, int timeout);
 extern int device_set_devnum(struct udev_device *udev_device, dev_t devnum);
+extern int device_set_seqnum(struct udev_device *udev_device, unsigned long long int seqnum);
 
 /* udev_ctrl - daemon runtime setup */
 struct udev_ctrl;
