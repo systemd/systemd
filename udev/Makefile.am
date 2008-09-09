@@ -36,6 +36,8 @@ common_files = \
 	lib/libudev.h \
 	lib/libudev-private.h \
 	lib/libudev.c \
+	lib/libudev-device.c \
+	lib/libudev-monitor.c \
 	lib/libudev-utils.c \
 	lib/libudev-ctrl.c
 

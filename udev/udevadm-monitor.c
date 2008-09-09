@@ -35,43 +35,12 @@
 #include "udev.h"
 
 static int uevent_netlink_sock = -1;
-static int udev_monitor_sock = -1;
-static volatile int udev_exit;
-
-static int init_udev_monitor_socket(void)
-{
-	struct sockaddr_un saddr;
-	socklen_t addrlen;
-	int retval;
-
-	memset(&saddr, 0x00, sizeof(saddr));
-	saddr.sun_family = AF_LOCAL;
-	/* use abstract namespace for socket path */
-	strcpy(&saddr.sun_path[1], "/org/kernel/udev/monitor");
-	addrlen = offsetof(struct sockaddr_un, sun_path) + 1 + strlen(&saddr.sun_path[1]);
-
-	udev_monitor_sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
-	if (udev_monitor_sock == -1) {
-		fprintf(stderr, "error getting socket: %s\n", strerror(errno));
-		return -1;
-	}
-
-	/* the bind takes care of ensuring only one copy running */
-	retval = bind(udev_monitor_sock, (struct sockaddr *) &saddr, addrlen);
-	if (retval < 0) {
-		fprintf(stderr, "bind failed: %s\n", strerror(errno));
-		close(udev_monitor_sock);
-		udev_monitor_sock = -1;
-		return -1;
-	}
-
-	return 0;
-}
+static int udev_exit;
 
 static int init_uevent_netlink_sock(void)
 {
 	struct sockaddr_nl snl;
-	int retval;
+	int err;
 
 	memset(&snl, 0x00, sizeof(struct sockaddr_nl));
 	snl.nl_family = AF_NETLINK;
@@ -84,9 +53,9 @@ static int init_uevent_netlink_sock(void)
 		return -1;
 	}
 
-	retval = bind(uevent_netlink_sock, (struct sockaddr *) &snl,
+	err = bind(uevent_netlink_sock, (struct sockaddr *) &snl,
 		      sizeof(struct sockaddr_nl));
-	if (retval < 0) {
+	if (err < 0) {
 		fprintf(stderr, "bind failed: %s\n", strerror(errno));
 		close(uevent_netlink_sock);
 		uevent_netlink_sock = -1;
@@ -129,8 +98,9 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 	int env = 0;
 	int print_kernel = 0;
 	int print_udev = 0;
+	struct udev_monitor *udev_monitor = NULL;
 	fd_set readfds;
-	int retval = 0;
+	int rc = 0;
 
 	static const struct option options[] = {
 		{ "environment", 0, NULL, 'e' },
@@ -186,15 +156,22 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 
 	printf("monitor will print the received events for:\n");
 	if (print_udev) {
-		retval = init_udev_monitor_socket();
-		if (retval)
+		udev_monitor = udev_monitor_new_from_socket(udev, "@/org/kernel/udev/monitor");
+		if (udev_monitor == NULL) {
+			rc = 1;
 			goto out;
+		}
+		if (udev_monitor_enable_receiving(udev_monitor) < 0) {
+			rc = 2;
+			goto out;
+		}
 		printf("UDEV the event which udev sends out after rule processing\n");
 	}
 	if (print_kernel) {
-		retval = init_uevent_netlink_sock();
-		if (retval)
+		if (init_uevent_netlink_sock() < 0) {
+			rc = 3;
 			goto out;
+		}
 		printf("UEVENT the kernel uevent\n");
 	}
 	printf("\n");
@@ -215,10 +192,11 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 		FD_ZERO(&readfds);
 		if (uevent_netlink_sock >= 0)
 			FD_SET(uevent_netlink_sock, &readfds);
-		if (udev_monitor_sock >= 0)
-			FD_SET(udev_monitor_sock, &readfds);
+		if (udev_monitor != NULL)
+			FD_SET(udev_monitor_get_fd(udev_monitor), &readfds);
 
-		fdcount = select(UDEV_MAX(uevent_netlink_sock, udev_monitor_sock)+1, &readfds, NULL, NULL, NULL);
+		fdcount = select(UDEV_MAX(uevent_netlink_sock, udev_monitor_get_fd(udev_monitor))+1,
+				 &readfds, NULL, NULL, NULL);
 		if (fdcount < 0) {
 			if (errno != EINTR)
 				fprintf(stderr, "error receiving uevent message: %s\n", strerror(errno));
@@ -240,8 +218,8 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			source = "UEVENT";
 		}
 
-		if ((udev_monitor_sock >= 0) && FD_ISSET(udev_monitor_sock, &readfds)) {
-			buflen = recv(udev_monitor_sock, &buf, sizeof(buf), 0);
+		if ((udev_monitor != NULL) && FD_ISSET(udev_monitor_get_fd(udev_monitor), &readfds)) {
+			buflen = recv(udev_monitor_get_fd(udev_monitor), &buf, sizeof(buf), 0);
 			if (buflen <= 0) {
 				fprintf(stderr, "error receiving udev message: %s\n", strerror(errno));
 				continue;
@@ -277,12 +255,9 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 	}
 
 out:
+	udev_monitor_unref(udev_monitor);
 	if (uevent_netlink_sock >= 0)
 		close(uevent_netlink_sock);
-	if (udev_monitor_sock >= 0)
-		close(udev_monitor_sock);
 
-	if (retval)
-		return 1;
-	return 0;
+	return rc;
 }
