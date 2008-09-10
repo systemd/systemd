@@ -107,8 +107,8 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		}
 	}
 
-	strlcpy(queuename, udev_get_dev_path(udev), sizeof(queuename));
-	strlcat(queuename, "/.udev/queue", sizeof(queuename));
+	util_strlcpy(queuename, udev_get_dev_path(udev), sizeof(queuename));
+	util_strlcat(queuename, "/.udev/queue", sizeof(queuename));
 
 	loop = timeout * LOOP_PER_SECOND;
 	while (loop--) {
@@ -129,8 +129,8 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		}
 
 		/* read current udev seqnum */
-		strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
-		strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
+		util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
+		util_strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
 		fd = open(filename, O_RDONLY);
 		if (fd < 0)
 			goto exit;
@@ -143,8 +143,8 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		info(udev, "udev seqnum = %llu\n", seq_udev);
 
 		/* read current kernel seqnum */
-		strlcpy(filename, udev_get_sys_path(udev), sizeof(filename));
-		strlcat(filename, "/kernel/uevent_seqnum", sizeof(filename));
+		util_strlcpy(filename, udev_get_sys_path(udev), sizeof(filename));
+		util_strlcat(filename, "/kernel/uevent_seqnum", sizeof(filename));
 		fd = open(filename, O_RDONLY);
 		if (fd < 0)
 			goto exit;

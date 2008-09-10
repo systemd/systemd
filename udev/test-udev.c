@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
 
 	/* override built-in sysfs device */
 	udevice->dev = dev;
-	strlcpy(udevice->action, action, sizeof(udevice->action));
+	util_strlcpy(udevice->action, action, sizeof(udevice->action));
 
 	/* get dev_t from environment, which is needed for "remove" to work, "add" works also from sysfs */
 	maj = getenv("MAJOR");

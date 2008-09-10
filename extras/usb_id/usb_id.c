@@ -147,7 +147,7 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
 			break;
 		}
 	}
-	strlcpy(to, type, len);
+	util_strlcpy(to, type, len);
 
 	return type_num;
 }
@@ -180,7 +180,7 @@ static void set_scsi_type(char *to, const char *from, size_t len)
 			break;
 		}
 	}
-	strlcpy(to, type, len);
+	util_strlcpy(to, type, len);
 }
 
 /*
@@ -408,14 +408,14 @@ int main(int argc, char **argv)
 
 	env = getenv("DEVPATH");
 	if (env != NULL)
-		strlcpy(devpath, env, sizeof(devpath));
+		util_strlcpy(devpath, env, sizeof(devpath));
 	else {
 		if (argv[optind] == NULL) {
 			fprintf(stderr, "No device specified\n");
 			retval = 1;
 			goto exit;
 		}
-		strlcpy(devpath, argv[optind], sizeof(devpath));
+		util_strlcpy(devpath, argv[optind], sizeof(devpath));
 	}
 
 	retval = usb_id(udev, devpath);
@@ -423,16 +423,16 @@ int main(int argc, char **argv)
 	if (retval == 0) {
 		char serial[256];
 
-		strlcpy(serial, vendor_str, sizeof(serial));
-		strlcat(serial, "_", sizeof(serial));
-		strlcat(serial, model_str, sizeof(serial));
+		util_strlcpy(serial, vendor_str, sizeof(serial));
+		util_strlcat(serial, "_", sizeof(serial));
+		util_strlcat(serial, model_str, sizeof(serial));
 		if (serial_str[0] != '\0') {
-			strlcat(serial, "_", sizeof(serial));
-			strlcat(serial, serial_str, sizeof(serial));
+			util_strlcat(serial, "_", sizeof(serial));
+			util_strlcat(serial, serial_str, sizeof(serial));
 		}
 		if (instance_str[0] != '\0') {
-			strlcat(serial, "-", sizeof(serial));
-			strlcat(serial, instance_str, sizeof(serial));
+			util_strlcat(serial, "-", sizeof(serial));
+			util_strlcat(serial, instance_str, sizeof(serial));
 		}
 
 		if (export) {

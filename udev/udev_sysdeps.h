@@ -46,11 +46,5 @@ static inline int inotify_add_watch(int fd, const char *name, uint32_t mask)
 #define IN_MOVE		0
 #define IN_CLOSE_WRITE	0
 
-#endif
-
-#ifndef HAVE_STRLCPY
-extern size_t strlcpy(char *dst, const char *src, size_t size);
-extern size_t strlcat(char *dst, const char *src, size_t size);
-#endif
-
+#endif /* HAVE_INOTIFY */
 #endif

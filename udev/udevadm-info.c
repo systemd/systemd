@@ -38,8 +38,8 @@ static void print_all_attributes(struct udev *udev, const char *devpath, const c
 	DIR *dir;
 	struct dirent *dent;
 
-	strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-	strlcat(path, devpath, sizeof(path));
+	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
+	util_strlcat(path, devpath, sizeof(path));
 
 	dir = opendir(path);
 	if (dir != NULL) {
@@ -58,9 +58,9 @@ static void print_all_attributes(struct udev *udev, const char *devpath, const c
 			if (strcmp(dent->d_name, "dev") == 0)
 				continue;
 
-			strlcpy(filename, path, sizeof(filename));
-			strlcat(filename, "/", sizeof(filename));
-			strlcat(filename, dent->d_name, sizeof(filename));
+			util_strlcpy(filename, path, sizeof(filename));
+			util_strlcat(filename, "/", sizeof(filename));
+			util_strlcat(filename, dent->d_name, sizeof(filename));
 			if (lstat(filename, &statbuf) != 0)
 				continue;
 			if (S_ISLNK(statbuf.st_mode))
@@ -69,7 +69,7 @@ static void print_all_attributes(struct udev *udev, const char *devpath, const c
 			attr_value = sysfs_attr_get_value(udev, devpath, dent->d_name);
 			if (attr_value == NULL)
 				continue;
-			len = strlcpy(value, attr_value, sizeof(value));
+			len = util_strlcpy(value, attr_value, sizeof(value));
 			if(len >= sizeof(value))
 				len = sizeof(value) - 1;
 			dbg(udev, "attr '%s'='%s'(%zi)\n", dent->d_name, value, len);
@@ -191,9 +191,9 @@ static int lookup_device_by_name(struct udev *udev, struct udevice **udevice, co
 		info(udev, "found db entry '%s'\n", device->name);
 
 		/* make sure, we don't get a link of a different device */
-		strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
-		strlcat(filename, "/", sizeof(filename));
-		strlcat(filename, name, sizeof(filename));
+		util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
+		util_strlcat(filename, "/", sizeof(filename));
+		util_strlcat(filename, name, sizeof(filename));
 		if (stat(filename, &statbuf) != 0)
 			goto next;
 		if (major(udevice_loop->devt) > 0 && udevice_loop->devt != statbuf.st_rdev) {
@@ -286,18 +286,18 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		case 'n':
 			/* remove /dev if given */
 			if (strncmp(optarg, udev_get_dev_path(udev), strlen(udev_get_dev_path(udev))) == 0)
-				strlcpy(name, &optarg[strlen(udev_get_dev_path(udev))+1], sizeof(name));
+				util_strlcpy(name, &optarg[strlen(udev_get_dev_path(udev))+1], sizeof(name));
 			else
-				strlcpy(name, optarg, sizeof(name));
+				util_strlcpy(name, optarg, sizeof(name));
 			util_remove_trailing_chars(name, '/');
 			dbg(udev, "name: %s\n", name);
 			break;
 		case 'p':
 			/* remove /sys if given */
 			if (strncmp(optarg, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) == 0)
-				strlcpy(path, &optarg[strlen(udev_get_sys_path(udev))], sizeof(path));
+				util_strlcpy(path, &optarg[strlen(udev_get_sys_path(udev))], sizeof(path));
 			else
-				strlcpy(path, optarg, sizeof(path));
+				util_strlcpy(path, optarg, sizeof(path));
 			util_remove_trailing_chars(path, '/');
 
 			/* possibly resolve to real devpath */
@@ -306,16 +306,16 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 				char *pos;
 
 				/* also check if the parent is a link */
-				strlcpy(temp, path, sizeof(temp));
+				util_strlcpy(temp, path, sizeof(temp));
 				pos = strrchr(temp, '/');
 				if (pos != 0) {
 					char tail[PATH_SIZE];
 
-					strlcpy(tail, pos, sizeof(tail));
+					util_strlcpy(tail, pos, sizeof(tail));
 					pos[0] = '\0';
 					if (sysfs_resolve_link(udev, temp, sizeof(temp)) == 0) {
-						strlcpy(path, temp, sizeof(path));
-						strlcat(path, tail, sizeof(path));
+						util_strlcpy(path, temp, sizeof(path));
+						util_strlcat(path, tail, sizeof(path));
 					}
 				}
 			}
@@ -353,7 +353,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 			break;
 		case 'd':
 			action = ACTION_DEVICE_ID_FILE;
-			strlcpy(name, optarg, sizeof(name));
+			util_strlcpy(name, optarg, sizeof(name));
 			break;
 		case 'a':
 			action = ACTION_ATTRIBUTE_WALK;

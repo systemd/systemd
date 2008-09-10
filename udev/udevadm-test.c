@@ -42,9 +42,9 @@ static int import_uevent_var(struct udev *udev, const char *devpath)
 	int rc = -1;
 
 	/* read uevent file */
-	strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-	strlcat(path, devpath, sizeof(path));
-	strlcat(path, "/uevent", sizeof(path));
+	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
+	util_strlcat(path, devpath, sizeof(path));
+	util_strlcat(path, "/uevent", sizeof(path));
 	fd = open(path, O_RDONLY);
 	if (fd < 0)
 		goto out;
@@ -163,11 +163,11 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 	}
 
 	if (subsystem != NULL)
-		strlcpy(dev->subsystem, subsystem, sizeof(dev->subsystem));
+		util_strlcpy(dev->subsystem, subsystem, sizeof(dev->subsystem));
 
 	/* override built-in sysfs device */
 	udevice->dev = dev;
-	strlcpy(udevice->action, action, sizeof(udevice->action));
+	util_strlcpy(udevice->action, action, sizeof(udevice->action));
 	udevice->devt = udev_device_get_devt(udevice);
 
 	/* simulate node creation with test flag */
@@ -191,7 +191,7 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 		list_for_each_entry(name_loop, &udevice->run_list, node) {
 			char program[PATH_SIZE];
 
-			strlcpy(program, name_loop->name, sizeof(program));
+			util_strlcpy(program, name_loop->name, sizeof(program));
 			udev_rules_apply_format(udevice, program, sizeof(program));
 			info(udev, "run: '%s'\n", program);
 		}

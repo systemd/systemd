@@ -36,7 +36,7 @@ int create_path(struct udev *udev, const char *path)
 	struct stat stats;
 	int ret;
 
-	strlcpy(p, path, sizeof(p));
+	util_strlcpy(p, path, sizeof(p));
 	pos = strrchr(p, '/');
 	if (pos == p || pos == NULL)
 		return 0;

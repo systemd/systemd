@@ -35,9 +35,9 @@ static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *f
 	size_t start;
 
 	/* translate to location of db file */
-	strlcpy(filename, udev_get_dev_path(udev), len);
-	start = strlcat(filename, "/.udev/db/", len);
-	strlcat(filename, devpath, len);
+	util_strlcpy(filename, udev_get_dev_path(udev), len);
+	start = util_strlcat(filename, "/.udev/db/", len);
+	util_strlcat(filename, devpath, len);
 	return util_path_encode(&filename[start], len - start);
 }
 
@@ -50,15 +50,15 @@ static int name_index(struct udev *udev, const char *devpath, const char *name, 
 	int fd;
 
 	/* directory with device name */
-	strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
-	start = strlcat(filename, "/.udev/names/", sizeof(filename));
-	strlcat(filename, name, sizeof(filename));
+	util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
+	start = util_strlcat(filename, "/.udev/names/", sizeof(filename));
+	util_strlcat(filename, name, sizeof(filename));
 	util_path_encode(&filename[start], sizeof(filename) - start);
 	/* entry with the devpath */
-	strlcpy(device, devpath, sizeof(device));
+	util_strlcpy(device, devpath, sizeof(device));
 	util_path_encode(device, sizeof(device));
-	strlcat(filename, "/", sizeof(filename));
-	strlcat(filename, device, sizeof(filename));
+	util_strlcat(filename, "/", sizeof(filename));
+	util_strlcat(filename, device, sizeof(filename));
 
 	if (add) {
 		info(udev, "creating index: '%s'\n", filename);
@@ -81,9 +81,9 @@ int udev_db_get_devices_by_name(struct udev *udev, const char *name, struct list
 	DIR *dir;
 	int rc = 0;
 
-	strlcpy(dirname, udev_get_dev_path(udev), sizeof(dirname));
-	start = strlcat(dirname, "/.udev/names/", sizeof(dirname));
-	strlcat(dirname, name, sizeof(dirname));
+	util_strlcpy(dirname, udev_get_dev_path(udev), sizeof(dirname));
+	start = util_strlcat(dirname, "/.udev/names/", sizeof(dirname));
+	util_strlcat(dirname, name, sizeof(dirname));
 	util_path_encode(&dirname[start], sizeof(dirname) - start);
 
 	dir = opendir(dirname);
@@ -104,7 +104,7 @@ int udev_db_get_devices_by_name(struct udev *udev, const char *name, struct list
 		if (ent->d_name[0] == '.')
 			continue;
 
-		strlcpy(device, ent->d_name, sizeof(device));
+		util_strlcpy(device, ent->d_name, sizeof(device));
 		util_path_decode(device);
 		name_list_add(udev, name_list, device, 0);
 		rc++;
@@ -219,7 +219,7 @@ int udev_db_get_device(struct udevice *udevice, const char *devpath)
 			return -1;
 		}
 		dbg(udevice->udev, "db link points to '%s'\n", target);
-		strlcpy(udevice->name, target, sizeof(udevice->name));
+		util_strlcpy(udevice->name, target, sizeof(udevice->name));
 		return 0;
 	}
 
@@ -241,7 +241,7 @@ int udev_db_get_device(struct udevice *udevice, const char *devpath)
 
 		switch(bufline[0]) {
 		case 'N':
-			strlcpy(udevice->name, line, sizeof(udevice->name));
+			util_strlcpy(udevice->name, line, sizeof(udevice->name));
 			break;
 		case 'M':
 			sscanf(line, "%u:%u", &maj, &min);
@@ -298,8 +298,8 @@ int udev_db_get_all_entries(struct udev *udev, struct list_head *name_list)
 	char dbpath[PATH_MAX];
 	DIR *dir;
 
-	strlcpy(dbpath, udev_get_dev_path(udev), sizeof(dbpath));
-	strlcat(dbpath, "/.udev/db", sizeof(dbpath));
+	util_strlcpy(dbpath, udev_get_dev_path(udev), sizeof(dbpath));
+	util_strlcat(dbpath, "/.udev/db", sizeof(dbpath));
 	dir = opendir(dbpath);
 	if (dir == NULL) {
 		info(udev, "no udev_db available '%s': %s\n", dbpath, strerror(errno));
@@ -316,7 +316,7 @@ int udev_db_get_all_entries(struct udev *udev, struct list_head *name_list)
 		if (ent->d_name[0] == '.')
 			continue;
 
-		strlcpy(device, ent->d_name, sizeof(device));
+		util_strlcpy(device, ent->d_name, sizeof(device));
 		util_path_decode(device);
 		name_list_add(udev, name_list, device, 1);
 		dbg(udev, "added '%s'\n", device);

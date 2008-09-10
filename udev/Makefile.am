@@ -25,7 +25,6 @@ common_files = \
 	udev_node.c \
 	udev_rules.c \
 	udev_rules_parse.c \
-	udev_sysdeps.c \
 	udev_sysfs.c \
 	udev_utils.c \
 	udev_utils_file.c \

@@ -55,7 +55,7 @@ struct name_entry *name_list_add(struct udev *udev, struct list_head *name_list,
 	if (name_new == NULL)
 		return NULL;
 	memset(name_new, 0x00, sizeof(struct name_entry));
-	strlcpy(name_new->name, name, sizeof(name_new->name));
+	util_strlcpy(name_new->name, name, sizeof(name_new->name));
 	dbg(udev, "adding '%s'\n", name_new->name);
 	list_add_tail(&name_new->node, &name_loop->node);
 

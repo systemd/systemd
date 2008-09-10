@@ -31,7 +31,6 @@
 #include "udev.h"
 #include "udev_rules.h"
 
-
 static void kernel_log(struct ifreq ifr)
 {
 	int klog;
@@ -69,8 +68,8 @@ static int rename_netif(struct udevice *udevice)
 	}
 
 	memset(&ifr, 0x00, sizeof(struct ifreq));
-	strlcpy(ifr.ifr_name, udevice->dev->kernel, IFNAMSIZ);
-	strlcpy(ifr.ifr_newname, udevice->name, IFNAMSIZ);
+	util_strlcpy(ifr.ifr_name, udevice->dev->kernel, IFNAMSIZ);
+	util_strlcpy(ifr.ifr_newname, udevice->name, IFNAMSIZ);
 	retval = ioctl(sk, SIOCSIFNAME, &ifr);
 	if (retval == 0)
 		kernel_log(ifr);
@@ -79,22 +78,24 @@ static int rename_netif(struct udevice *udevice)
 
 		/* see if the destination interface name already exists */
 		if (errno != EEXIST) {
-			err(udevice->udev, "error changing netif name %s to %s: %s\n", ifr.ifr_name, ifr.ifr_newname, strerror(errno));
+			err(udevice->udev, "error changing netif name %s to %s: %s\n",
+			    ifr.ifr_name, ifr.ifr_newname, strerror(errno));
 			goto exit;
 		}
 
 		/* free our own name, another process may wait for us */
-		strlcpy(ifr.ifr_newname, udevice->dev->kernel, IFNAMSIZ);
-		strlcat(ifr.ifr_newname, "_rename", IFNAMSIZ);
+		util_strlcpy(ifr.ifr_newname, udevice->dev->kernel, IFNAMSIZ);
+		util_strlcat(ifr.ifr_newname, "_rename", IFNAMSIZ);
 		retval = ioctl(sk, SIOCSIFNAME, &ifr);
 		if (retval != 0) {
-			err(udevice->udev, "error changing netif name %s to %s: %s\n", ifr.ifr_name, ifr.ifr_newname, strerror(errno));
+			err(udevice->udev, "error changing netif name %s to %s: %s\n",
+			    ifr.ifr_name, ifr.ifr_newname, strerror(errno));
 			goto exit;
 		}
 
 		/* wait 30 seconds for our target to become available */
-		strlcpy(ifr.ifr_name, ifr.ifr_newname, IFNAMSIZ);
-		strlcpy(ifr.ifr_newname, udevice->name, IFNAMSIZ);
+		util_strlcpy(ifr.ifr_name, ifr.ifr_newname, IFNAMSIZ);
+		util_strlcpy(ifr.ifr_newname, udevice->name, IFNAMSIZ);
 		loop = 30 * 20;
 		while (loop--) {
 			retval = ioctl(sk, SIOCSIFNAME, &ifr);
@@ -108,7 +109,8 @@ static int rename_netif(struct udevice *udevice)
 				    ifr.ifr_name, ifr.ifr_newname, strerror(errno));
 				break;
 			}
-			dbg(udevice->udev, "wait for netif '%s' to become free, loop=%i\n", udevice->name, (30 * 20) - loop);
+			dbg(udevice->udev, "wait for netif '%s' to become free, loop=%i\n",
+			    udevice->name, (30 * 20) - loop);
 			usleep(1000 * 1000 / 20);
 		}
 	}
@@ -199,11 +201,11 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udevice)
 			setenv("INTERFACE_OLD", udevice->dev->kernel, 1);
 
 			/* now change the devpath, because the kernel device name has changed */
-			strlcpy(devpath, udevice->dev->devpath, sizeof(devpath));
+			util_strlcpy(devpath, udevice->dev->devpath, sizeof(devpath));
 			pos = strrchr(devpath, '/');
 			if (pos != NULL) {
 				pos[1] = '\0';
-				strlcat(devpath, udevice->name, sizeof(devpath));
+				util_strlcat(devpath, udevice->name, sizeof(devpath));
 				sysfs_device_set_values(udevice->udev, udevice->dev, devpath, NULL, NULL);
 				setenv("DEVPATH", udevice->dev->devpath, 1);
 				setenv("INTERFACE", udevice->name, 1);
@@ -226,7 +228,7 @@ int udev_device_event(struct udev_rules *rules, struct udevice *udevice)
 		} else {
 			dbg(udevice->udev, "'%s' not found in database, using kernel name '%s'\n",
 			    udevice->dev->devpath, udevice->dev->kernel);
-			strlcpy(udevice->name, udevice->dev->kernel, sizeof(udevice->name));
+			util_strlcpy(udevice->name, udevice->dev->kernel, sizeof(udevice->name));
 		}
 
 		udev_rules_get_run(rules, udevice);

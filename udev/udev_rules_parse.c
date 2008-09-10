@@ -209,7 +209,7 @@ static int add_rule_key(struct udev_rule *rule, struct key *key,
 	key->operation = operation;
 
 	key->val_off = rule->bufsize;
-	strlcpy(rule->buf + rule->bufsize, value, val_len+1);
+	util_strlcpy(rule->buf + rule->bufsize, value, val_len+1);
 	rule->bufsize += val_len+1;
 
 	return 0;
@@ -229,7 +229,7 @@ static int add_rule_key_pair(struct udev_rules *rules, struct udev_rule *rule, s
 
 	/* add the key-name of the pair */
 	pairs->keys[pairs->count].key_name_off = rule->bufsize;
-	strlcpy(rule->buf + rule->bufsize, key, key_len+1);
+	util_strlcpy(rule->buf + rule->bufsize, key, key_len+1);
 	rule->bufsize += key_len+1;
 
 	pairs->count++;
@@ -448,15 +448,15 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 				char *pos;
 				struct stat statbuf;
 
-				strlcpy(file, value, sizeof(file));
+				util_strlcpy(file, value, sizeof(file));
 				pos = strchr(file, ' ');
 				if (pos)
 					pos[0] = '\0';
 
 				/* allow programs in /lib/udev called without the path */
 				if (strchr(file, '/') == NULL) {
-					strlcpy(file, UDEV_PREFIX "/lib/udev/", sizeof(file));
-					strlcat(file, value, sizeof(file));
+					util_strlcpy(file, UDEV_PREFIX "/lib/udev/", sizeof(file));
+					util_strlcat(file, value, sizeof(file));
 					pos = strchr(file, ' ');
 					if (pos)
 						pos[0] = '\0';
@@ -750,8 +750,8 @@ int udev_rules_init(struct udev *udev, struct udev_rules *rules, int resolve_nam
 		add_matching_files(udev, &name_list, SYSCONFDIR "/udev/rules.d", ".rules");
 
 		/* read dynamic/temporary rules */
-		strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
-		strlcat(filename, "/.udev/rules.d", sizeof(filename));
+		util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
+		util_strlcat(filename, "/.udev/rules.d", sizeof(filename));
 		if (stat(filename, &statbuf) != 0) {
 			create_path(udev, filename);
 			udev_selinux_setfscreatecon(udev, filename, S_IFDIR|0755);

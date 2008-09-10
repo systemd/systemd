@@ -71,14 +71,14 @@ static int device_list_insert(struct udev *udev, const char *path)
 	dbg(udev, "add '%s'\n" , path);
 
 	/* we only have a device, if we have an uevent file */
-	strlcpy(filename, path, sizeof(filename));
-	strlcat(filename, "/uevent", sizeof(filename));
+	util_strlcpy(filename, path, sizeof(filename));
+	util_strlcat(filename, "/uevent", sizeof(filename));
 	if (stat(filename, &statbuf) < 0)
 		return -1;
 	if (!(statbuf.st_mode & S_IWUSR))
 		return -1;
 
-	strlcpy(devpath, &path[strlen(udev_get_sys_path(udev))], sizeof(devpath));
+	util_strlcpy(devpath, &path[strlen(udev_get_sys_path(udev))], sizeof(devpath));
 
 	/* resolve possible link to real target */
 	if (lstat(path, &statbuf) < 0)
@@ -96,9 +96,9 @@ static void trigger_uevent(struct udev *udev, const char *devpath, const char *a
 	char filename[PATH_SIZE];
 	int fd;
 
-	strlcpy(filename, udev_get_sys_path(udev), sizeof(filename));
-	strlcat(filename, devpath, sizeof(filename));
-	strlcat(filename, "/uevent", sizeof(filename));
+	util_strlcpy(filename, udev_get_sys_path(udev), sizeof(filename));
+	util_strlcat(filename, devpath, sizeof(filename));
+	util_strlcat(filename, "/uevent", sizeof(filename));
 
 	if (verbose)
 		printf("%s\n", devpath);
@@ -156,9 +156,9 @@ static int pass_to_socket(struct udev *udev, const char *devpath, const char *ac
 	bufpos++;
 
 	/* add subsystem */
-	strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-	strlcat(path, devpath, sizeof(path));
-	strlcat(path, "/subsystem", sizeof(path));
+	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
+	util_strlcat(path, devpath, sizeof(path));
+	util_strlcat(path, "/subsystem", sizeof(path));
 	len = readlink(path, link_target, sizeof(link_target));
 	if (len > 0) {
 		char *pos;
@@ -174,10 +174,10 @@ static int pass_to_socket(struct udev *udev, const char *devpath, const char *ac
 	/* add symlinks and node name */
 	path[0] = '\0';
 	list_for_each_entry(name_loop, &udevice->symlink_list, node) {
-		strlcat(path, udev_get_dev_path(udev), sizeof(path));
-		strlcat(path, "/", sizeof(path));
-		strlcat(path, name_loop->name, sizeof(path));
-		strlcat(path, " ", sizeof(path));
+		util_strlcat(path, udev_get_dev_path(udev), sizeof(path));
+		util_strlcat(path, "/", sizeof(path));
+		util_strlcat(path, name_loop->name, sizeof(path));
+		util_strlcat(path, " ", sizeof(path));
 	}
 	util_remove_trailing_chars(path, ' ');
 	if (path[0] != '\0') {
@@ -185,17 +185,17 @@ static int pass_to_socket(struct udev *udev, const char *devpath, const char *ac
 		bufpos++;
 	}
 	if (udevice->name[0] != '\0') {
-		strlcpy(path, udev_get_dev_path(udev), sizeof(path));
-		strlcat(path, "/", sizeof(path));
-		strlcat(path, udevice->name, sizeof(path));
+		util_strlcpy(path, udev_get_dev_path(udev), sizeof(path));
+		util_strlcat(path, "/", sizeof(path));
+		util_strlcat(path, udevice->name, sizeof(path));
 		bufpos += snprintf(&buf[bufpos], sizeof(buf)-1, "DEVNAME=%s", path);
 		bufpos++;
 	}
 
 	/* add keys from device "uevent" file */
-	strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-	strlcat(path, devpath, sizeof(path));
-	strlcat(path, "/uevent", sizeof(path));
+	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
+	util_strlcat(path, devpath, sizeof(path));
+	util_strlcat(path, "/uevent", sizeof(path));
 	fd = open(path, O_RDONLY);
 	if (fd >= 0) {
 		char value[4096];
@@ -214,7 +214,7 @@ static int pass_to_socket(struct udev *udev, const char *devpath, const char *ac
 				if (next == NULL)
 					break;
 				next[0] = '\0';
-				bufpos += strlcpy(&buf[bufpos], key, sizeof(buf) - bufpos-1);
+				bufpos += util_strlcpy(&buf[bufpos], key, sizeof(buf) - bufpos-1);
 				bufpos++;
 				key = &next[1];
 			}
@@ -223,7 +223,7 @@ static int pass_to_socket(struct udev *udev, const char *devpath, const char *ac
 
 	/* add keys from database */
 	list_for_each_entry(name_loop, &udevice->env_list, node) {
-		bufpos += strlcpy(&buf[bufpos], name_loop->name, sizeof(buf) - bufpos-1);
+		bufpos += util_strlcpy(&buf[bufpos], name_loop->name, sizeof(buf) - bufpos-1);
 		bufpos++;
 	}
 	if (bufpos > sizeof(buf))
@@ -289,7 +289,7 @@ static int attr_match(const char *path, const char *attr_value)
 	char file[PATH_SIZE];
 	char *match_value;
 
-	strlcpy(attr, attr_value, sizeof(attr));
+	util_strlcpy(attr, attr_value, sizeof(attr));
 
 	/* separate attr and match value */
 	match_value = strchr(attr, '=');
@@ -298,9 +298,9 @@ static int attr_match(const char *path, const char *attr_value)
 		match_value = &match_value[1];
 	}
 
-	strlcpy(file, path, sizeof(file));
-	strlcat(file, "/", sizeof(file));
-	strlcat(file, attr, sizeof(file));
+	util_strlcpy(file, path, sizeof(file));
+	util_strlcat(file, "/", sizeof(file));
+	util_strlcat(file, attr, sizeof(file));
 
 	if (match_value != NULL) {
 		/* match file content */
@@ -369,9 +369,9 @@ static void scan_subsystem(struct udev *udev, const char *subsys, enum scan_type
 	else
 		return;
 
-	strlcpy(base, udev_get_sys_path(udev), sizeof(base));
-	strlcat(base, "/", sizeof(base));
-	strlcat(base, subsys, sizeof(base));
+	util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
+	util_strlcat(base, "/", sizeof(base));
+	util_strlcat(base, subsys, sizeof(base));
 
 	dir = opendir(base);
 	if (dir != NULL) {
@@ -387,9 +387,9 @@ static void scan_subsystem(struct udev *udev, const char *subsys, enum scan_type
 				if (subsystem_filtered(dent->d_name))
 					continue;
 
-			strlcpy(dirname, base, sizeof(dirname));
-			strlcat(dirname, "/", sizeof(dirname));
-			strlcat(dirname, dent->d_name, sizeof(dirname));
+			util_strlcpy(dirname, base, sizeof(dirname));
+			util_strlcat(dirname, "/", sizeof(dirname));
+			util_strlcat(dirname, dent->d_name, sizeof(dirname));
 
 			if (scan == SCAN_SUBSYSTEM) {
 				if (attr_filtered(dirname))
@@ -400,7 +400,7 @@ static void scan_subsystem(struct udev *udev, const char *subsys, enum scan_type
 					continue;
 			}
 
-			strlcat(dirname, subdir, sizeof(dirname));
+			util_strlcat(dirname, subdir, sizeof(dirname));
 
 			/* look for devices/drivers */
 			dir2 = opendir(dirname);
@@ -411,9 +411,9 @@ static void scan_subsystem(struct udev *udev, const char *subsys, enum scan_type
 					if (dent2->d_name[0] == '.')
 						continue;
 
-					strlcpy(dirname2, dirname, sizeof(dirname2));
-					strlcat(dirname2, "/", sizeof(dirname2));
-					strlcat(dirname2, dent2->d_name, sizeof(dirname2));
+					util_strlcpy(dirname2, dirname, sizeof(dirname2));
+					util_strlcat(dirname2, "/", sizeof(dirname2));
+					util_strlcat(dirname2, dent2->d_name, sizeof(dirname2));
 					if (attr_filtered(dirname2))
 						continue;
 					device_list_insert(udev, dirname2);
@@ -434,8 +434,8 @@ static void scan_block(struct udev *udev)
 	if (subsystem_filtered("block"))
 		return;
 
-	strlcpy(base, udev_get_sys_path(udev), sizeof(base));
-	strlcat(base, "/block", sizeof(base));
+	util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
+	util_strlcat(base, "/block", sizeof(base));
 
 	dir = opendir(base);
 	if (dir != NULL) {
@@ -447,9 +447,9 @@ static void scan_block(struct udev *udev)
 			if (dent->d_name[0] == '.')
 				continue;
 
-			strlcpy(dirname, base, sizeof(dirname));
-			strlcat(dirname, "/", sizeof(dirname));
-			strlcat(dirname, dent->d_name, sizeof(dirname));
+			util_strlcpy(dirname, base, sizeof(dirname));
+			util_strlcat(dirname, "/", sizeof(dirname));
+			util_strlcat(dirname, dent->d_name, sizeof(dirname));
 			if (attr_filtered(dirname))
 				continue;
 			if (device_list_insert(udev, dirname) != 0)
@@ -467,9 +467,9 @@ static void scan_block(struct udev *udev)
 					if (!strcmp(dent2->d_name,"device"))
 						continue;
 
-					strlcpy(dirname2, dirname, sizeof(dirname2));
-					strlcat(dirname2, "/", sizeof(dirname2));
-					strlcat(dirname2, dent2->d_name, sizeof(dirname2));
+					util_strlcpy(dirname2, dirname, sizeof(dirname2));
+					util_strlcat(dirname2, "/", sizeof(dirname2));
+					util_strlcat(dirname2, dent2->d_name, sizeof(dirname2));
 					if (attr_filtered(dirname2))
 						continue;
 					device_list_insert(udev, dirname2);
@@ -487,8 +487,8 @@ static void scan_class(struct udev *udev)
 	DIR *dir;
 	struct dirent *dent;
 
-	strlcpy(base, udev_get_sys_path(udev), sizeof(base));
-	strlcat(base, "/class", sizeof(base));
+	util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
+	util_strlcat(base, "/class", sizeof(base));
 
 	dir = opendir(base);
 	if (dir != NULL) {
@@ -503,9 +503,9 @@ static void scan_class(struct udev *udev)
 			if (subsystem_filtered(dent->d_name))
 				continue;
 
-			strlcpy(dirname, base, sizeof(dirname));
-			strlcat(dirname, "/", sizeof(dirname));
-			strlcat(dirname, dent->d_name, sizeof(dirname));
+			util_strlcpy(dirname, base, sizeof(dirname));
+			util_strlcat(dirname, "/", sizeof(dirname));
+			util_strlcat(dirname, dent->d_name, sizeof(dirname));
 			dir2 = opendir(dirname);
 			if (dir2 != NULL) {
 				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
@@ -517,9 +517,9 @@ static void scan_class(struct udev *udev)
 					if (!strcmp(dent2->d_name, "device"))
 						continue;
 
-					strlcpy(dirname2, dirname, sizeof(dirname2));
-					strlcat(dirname2, "/", sizeof(dirname2));
-					strlcat(dirname2, dent2->d_name, sizeof(dirname2));
+					util_strlcpy(dirname2, dirname, sizeof(dirname2));
+					util_strlcat(dirname2, "/", sizeof(dirname2));
+					util_strlcat(dirname2, dent2->d_name, sizeof(dirname2));
 					if (attr_filtered(dirname2))
 						continue;
 					device_list_insert(udev, dirname2);
@@ -537,8 +537,8 @@ static void scan_failed(struct udev *udev)
 	DIR *dir;
 	struct dirent *dent;
 
-	strlcpy(base, udev_get_dev_path(udev), sizeof(base));
-	strlcat(base, "/.udev/failed", sizeof(base));
+	util_strlcpy(base, udev_get_dev_path(udev), sizeof(base));
+	util_strlcat(base, "/.udev/failed", sizeof(base));
 
 	dir = opendir(base);
 	if (dir != NULL) {
@@ -549,10 +549,10 @@ static void scan_failed(struct udev *udev)
 			if (dent->d_name[0] == '.')
 				continue;
 
-			start = strlcpy(device, udev_get_sys_path(udev), sizeof(device));
+			start = util_strlcpy(device, udev_get_sys_path(udev), sizeof(device));
 			if(start >= sizeof(device))
 				start = sizeof(device) - 1;
-			strlcat(device, dent->d_name, sizeof(device));
+			util_strlcat(device, dent->d_name, sizeof(device));
 			util_path_decode(&device[start]);
 			device_list_insert(udev, device);
 		}
@@ -651,15 +651,15 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 		saddr.sun_family = AF_LOCAL;
 		if (sockpath[0] == '@') {
 			/* abstract namespace socket requested */
-			strlcpy(&saddr.sun_path[1], &sockpath[1], sizeof(saddr.sun_path)-1);
+			util_strlcpy(&saddr.sun_path[1], &sockpath[1], sizeof(saddr.sun_path)-1);
 			saddrlen = offsetof(struct sockaddr_un, sun_path) + 1 + strlen(&saddr.sun_path[1]);
 		} else if (stat(sockpath, &stats) == 0 && S_ISSOCK(stats.st_mode)) {
 			/* existing socket file */
-			strlcpy(saddr.sun_path, sockpath, sizeof(saddr.sun_path));
+			util_strlcpy(saddr.sun_path, sockpath, sizeof(saddr.sun_path));
 			saddrlen = offsetof(struct sockaddr_un, sun_path) + strlen(saddr.sun_path);
 		} else {
 			/* no socket file, assume abstract namespace socket */
-			strlcpy(&saddr.sun_path[1], sockpath, sizeof(saddr.sun_path)-1);
+			util_strlcpy(&saddr.sun_path[1], sockpath, sizeof(saddr.sun_path)-1);
 			saddrlen = offsetof(struct sockaddr_un, sun_path) + 1 + strlen(&saddr.sun_path[1]);
 		}
 	} else if (env != NULL) {
@@ -675,8 +675,8 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 		struct stat statbuf;
 
 		/* if we have /sys/subsystem, forget all the old stuff */
-		strlcpy(base, udev_get_sys_path(udev), sizeof(base));
-		strlcat(base, "/subsystem", sizeof(base));
+		util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
+		util_strlcat(base, "/subsystem", sizeof(base));
 		if (stat(base, &statbuf) == 0) {
 			scan_subsystem(udev, "subsystem", SCAN_SUBSYSTEM);
 			exec_list(udev, action, env);
@@ -689,8 +689,8 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 			scan_class(udev);
 
 			/* scan "block" if it isn't a "class" */
-			strlcpy(base, udev_get_sys_path(udev), sizeof(base));
-			strlcat(base, "/class/block", sizeof(base));
+			util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
+			util_strlcat(base, "/class/block", sizeof(base));
 			if (stat(base, &statbuf) != 0)
 				scan_block(udev);
 			exec_list(udev, action, env);
