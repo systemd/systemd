@@ -8,7 +8,6 @@ include_HEADERS =\
 libvolume_id_la_SOURCES =\
 	libvolume_id-private.h \
 	volume_id.c \
-	util.h \
 	util.c \
 	md5.h \
 	md5.c \
