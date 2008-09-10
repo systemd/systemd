@@ -37,7 +37,7 @@ common_files = \
 	lib/libudev.c \
 	lib/libudev-device.c \
 	lib/libudev-monitor.c \
-	lib/libudev-utils.c \
+	lib/libudev-util.c \
 	lib/libudev-ctrl.c
 
 if USE_SELINUX

@@ -23,7 +23,7 @@ libudev_la_SOURCES =\
 	exported_symbools \
 	libudev-private.h \
 	libudev.c \
-	libudev-utils.c \
+	libudev-util.c \
 	libudev-device.c \
 	libudev-enumerate.c \
 	libudev-ctrl.c \
