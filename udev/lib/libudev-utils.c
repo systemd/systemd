@@ -63,3 +63,34 @@ ssize_t util_get_sys_driver(struct udev *udev, const char *devpath, char *driver
 	return get_sys_link(udev, "driver", devpath, driver, size);
 }
 
+int util_resolve_sys_link(struct udev *udev, char *devpath, size_t size)
+{
+	char link_path[PATH_SIZE];
+	char link_target[PATH_SIZE];
+	int len;
+	int i;
+	int back;
+
+	strlcpy(link_path, udev_get_sys_path(udev), sizeof(link_path));
+	strlcat(link_path, devpath, sizeof(link_path));
+	len = readlink(link_path, link_target, sizeof(link_target));
+	if (len <= 0)
+		return -1;
+	link_target[len] = '\0';
+	dbg(udev, "path link '%s' points to '%s'\n", devpath, link_target);
+
+	for (back = 0; strncmp(&link_target[back * 3], "../", 3) == 0; back++)
+		;
+	dbg(udev, "base '%s', tail '%s', back %i\n", devpath, &link_target[back * 3], back);
+	for (i = 0; i <= back; i++) {
+		char *pos = strrchr(devpath, '/');
+
+		if (pos == NULL)
+			return -1;
+		pos[0] = '\0';
+	}
+	dbg(udev, "after moving back '%s'\n", devpath);
+	strlcat(devpath, "/", size);
+	strlcat(devpath, &link_target[back * 3], size);
+	return 0;
+}

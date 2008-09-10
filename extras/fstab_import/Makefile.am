@@ -15,7 +15,6 @@ fstab_import_SOURCES = \
 	fstab_import.c \
 	../../udev/lib/libudev.h \
 	../../udev/lib/libudev.c \
-	../../udev/udev_sysfs.c \
 	../../udev/udev_sysdeps.c \
 	../../udev/udev_utils.c \
 	../../udev/udev_utils_string.c

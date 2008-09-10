@@ -58,7 +58,7 @@ static int devices_scan_subsystem(struct udev *udev,
 		strlcpy(devpath, &path[len], sizeof(devpath));
 		strlcat(devpath, "/", sizeof(devpath));
 		strlcat(devpath, dent->d_name, sizeof(devpath));
-		sysfs_resolve_link(udev, devpath, sizeof(devpath));
+		util_resolve_sys_link(udev, devpath, sizeof(devpath));
 		name_list_add(udev, device_list, devpath, 1);
 	}
 	closedir(dir);

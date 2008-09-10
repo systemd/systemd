@@ -205,7 +205,7 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
 
 	/* resolve possible symlink to real path */
 	strlcpy(path, devpath, sizeof(path));
-	sysfs_resolve_link(udev, path, sizeof(path));
+	util_resolve_sys_link(udev, path, sizeof(path));
 	device_set_devpath(udev_device, path);
 	info(udev, "device %p has devpath '%s'\n", udev_device, udev_device_get_devpath(udev_device));
 

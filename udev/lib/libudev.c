@@ -295,10 +295,7 @@ struct udev *udev_new(void)
 
 	if (udev->dev_path == NULL || udev->sys_path == NULL)
 		goto err;
-
 	selinux_init(udev);
-	sysfs_init();
-
 	info(udev, "context %p created\n", udev);
 	info(udev, "log_priority=%d\n", udev->log_priority);
 	info(udev, "config_file='%s'\n", config_file);
@@ -306,7 +303,6 @@ struct udev *udev_new(void)
 	info(udev, "sys_path='%s'\n", udev->sys_path);
 	if (udev->rules_path != NULL)
 		info(udev, "rules_path='%s'\n", udev->rules_path);
-
 	free(config_file);
 	return udev;
 err:
@@ -347,7 +343,6 @@ void udev_unref(struct udev *udev)
 	udev->refcount--;
 	if (udev->refcount > 0)
 		return;
-	sysfs_cleanup();
 	selinux_exit(udev);
 	free(udev->dev_path);
 	free(udev->sys_path);
