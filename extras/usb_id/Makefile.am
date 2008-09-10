@@ -14,8 +14,7 @@ usb_id_SOURCES = \
 	../../udev/lib/libudev-util.c \
 	../../udev/udev_sysdeps.c \
 	../../udev/udev_sysfs.c \
-	../../udev/udev_utils.c \
-	../../udev/udev_utils_string.c
+	../../udev/udev_utils.c
 
 if USE_SELINUX
 usb_id_LDADD = \

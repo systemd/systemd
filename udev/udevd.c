@@ -180,7 +180,7 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 	strlcat(filename_failed, "/", sizeof(filename_failed));
 	start = strlcat(filename_failed, ".udev/failed/", sizeof(filename_failed));
 	strlcat(filename_failed, msg->devpath, sizeof(filename_failed));
-	path_encode(&filename_failed[start], sizeof(filename_failed) - start);
+	util_path_encode(&filename_failed[start], sizeof(filename_failed) - start);
 
 	switch (state) {
 	case EVENT_QUEUED:
@@ -200,7 +200,7 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 			strlcat(filename_failed_old, "/", sizeof(filename_failed_old));
 			start = strlcat(filename_failed_old, ".udev/failed/", sizeof(filename_failed_old));
 			strlcat(filename_failed_old, msg->devpath_old, sizeof(filename_failed_old));
-			path_encode(&filename_failed_old[start], sizeof(filename) - start);
+			util_path_encode(&filename_failed_old[start], sizeof(filename) - start);
 
 			if (rename(filename_failed_old, filename_failed) == 0)
 				info(msg->udev, "renamed devpath, moved failed state of '%s' to %s'\n",

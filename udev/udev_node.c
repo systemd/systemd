@@ -283,7 +283,7 @@ void udev_node_update_symlinks(struct udevice *udevice, struct udevice *udevice_
 	}
 
 	/* export symlinks to environment */
-	remove_trailing_chars(symlinks, ' ');
+	util_remove_trailing_chars(symlinks, ' ');
 	if (symlinks[0] != '\0')
 		setenv("DEVLINKS", symlinks, 1);
 

@@ -91,12 +91,12 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 		switch (option) {
 		case 'l':
 		case 'l' + 256:
-			i = log_priority(optarg);
+			i = util_log_priority(optarg);
 			if (i < 0) {
 				fprintf(stderr, "invalid number '%s'\n", optarg);
 				goto exit;
 			}
-			udev_ctrl_send_set_log_level(uctrl, log_priority(optarg));
+			udev_ctrl_send_set_log_level(uctrl, util_log_priority(optarg));
 			rc = 0;
 			break;
 		case 's':
@@ -151,7 +151,7 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 		    "this will stop working in a future release\n");
 
 		if (!strncmp(arg, "log_priority=", strlen("log_priority="))) {
-			udev_ctrl_send_set_log_level(uctrl, log_priority(&arg[strlen("log_priority=")]));
+			udev_ctrl_send_set_log_level(uctrl, util_log_priority(&arg[strlen("log_priority=")]));
 			rc = 0;
 			goto exit;
 		} else if (!strcmp(arg, "stop_exec_queue")) {

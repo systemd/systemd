@@ -179,7 +179,7 @@ static int pass_to_socket(struct udev *udev, const char *devpath, const char *ac
 		strlcat(path, name_loop->name, sizeof(path));
 		strlcat(path, " ", sizeof(path));
 	}
-	remove_trailing_chars(path, ' ');
+	util_remove_trailing_chars(path, ' ');
 	if (path[0] != '\0') {
 		bufpos += snprintf(&buf[bufpos], sizeof(buf)-1, "DEVLINKS=%s", path);
 		bufpos++;
@@ -316,7 +316,7 @@ static int attr_match(const char *path, const char *attr_value)
 		if (size < 0)
 			return 0;
 		value[size] = '\0';
-		remove_trailing_chars(value, '\n');
+		util_remove_trailing_chars(value, '\n');
 
 		/* match if attribute value matches */
 		if (fnmatch(match_value, value, 0) == 0)
@@ -553,7 +553,7 @@ static void scan_failed(struct udev *udev)
 			if(start >= sizeof(device))
 				start = sizeof(device) - 1;
 			strlcat(device, dent->d_name, sizeof(device));
-			path_decode(&device[start]);
+			util_path_decode(&device[start]);
 			device_list_insert(udev, device);
 		}
 		closedir(dir);

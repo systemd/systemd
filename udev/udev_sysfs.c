@@ -156,7 +156,7 @@ struct sysfs_device *sysfs_device_get(struct udev *udev, const char *devpath)
 
 	dbg(udev, "open '%s'\n", devpath);
 	strlcpy(devpath_real, devpath, sizeof(devpath_real));
-	remove_trailing_chars(devpath_real, '/');
+	util_remove_trailing_chars(devpath_real, '/');
 	if (devpath[0] == '\0' )
 		return NULL;
 
@@ -397,7 +397,7 @@ char *sysfs_attr_get_value(struct udev *udev, const char *devpath, const char *a
 
 	/* got a valid value, store and return it */
 	value[size] = '\0';
-	remove_trailing_chars(value, '\n');
+	util_remove_trailing_chars(value, '\n');
 	dbg(udev, "cache '%s' with attribute value '%s'\n", path_full, value);
 	strlcpy(attr->value_local, value, sizeof(attr->value_local));
 	attr->value = attr->value_local;

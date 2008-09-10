@@ -289,7 +289,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 				strlcpy(name, &optarg[strlen(udev_get_dev_path(udev))+1], sizeof(name));
 			else
 				strlcpy(name, optarg, sizeof(name));
-			remove_trailing_chars(name, '/');
+			util_remove_trailing_chars(name, '/');
 			dbg(udev, "name: %s\n", name);
 			break;
 		case 'p':
@@ -298,7 +298,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 				strlcpy(path, &optarg[strlen(udev_get_sys_path(udev))], sizeof(path));
 			else
 				strlcpy(path, optarg, sizeof(path));
-			remove_trailing_chars(path, '/');
+			util_remove_trailing_chars(path, '/');
 
 			/* possibly resolve to real devpath */
 			if (sysfs_resolve_link(udev, path, sizeof(path)) != 0) {

@@ -863,7 +863,7 @@ found:
 					size = sizeof(temp2)-1;
 				while (size > 0 && isspace(temp2[size-1]))
 					temp2[--size] = '\0';
-				count = replace_chars(temp2, ALLOWED_CHARS_INPUT);
+				count = util_replace_chars(temp2, ALLOWED_CHARS_INPUT);
 				if (count > 0)
 					info(udevice->udev, "%i character(s) replaced\n" , count);
 				strlcat(string, temp2, maxsize);
@@ -921,7 +921,7 @@ found:
 					strlcat(symlinks, name_loop->name, sizeof(symlinks));
 					strlcat(symlinks, " ", sizeof(symlinks));
 				}
-				remove_trailing_chars(symlinks, ' ');
+				util_remove_trailing_chars(symlinks, ' ');
 				strlcat(string, symlinks, maxsize);
 			}
 			break;
@@ -1240,10 +1240,10 @@ try_parent:
 			int count;
 
 			dbg(udevice->udev, "PROGRAM matches\n");
-			remove_trailing_chars(result, '\n');
+			util_remove_trailing_chars(result, '\n');
 			if (rule->string_escape == ESCAPE_UNSET ||
 			    rule->string_escape == ESCAPE_REPLACE) {
-				count = replace_chars(result, ALLOWED_CHARS_INPUT);
+				count = util_replace_chars(result, ALLOWED_CHARS_INPUT);
 				if (count > 0)
 					info(udevice->udev, "%i character(s) replaced\n" , count);
 			}
@@ -1461,7 +1461,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udevice)
 				udev_rules_apply_format(udevice, temp, sizeof(temp));
 				if (rule->string_escape == ESCAPE_UNSET ||
 				    rule->string_escape == ESCAPE_REPLACE) {
-					count = replace_chars(temp, ALLOWED_CHARS_FILE " ");
+					count = util_replace_chars(temp, ALLOWED_CHARS_FILE " ");
 					if (count > 0)
 						info(udevice->udev, "%i character(s) replaced\n" , count);
 				}
@@ -1496,7 +1496,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udevice)
 				udev_rules_apply_format(udevice, udevice->name, sizeof(udevice->name));
 				if (rule->string_escape == ESCAPE_UNSET ||
 				    rule->string_escape == ESCAPE_REPLACE) {
-					count = replace_chars(udevice->name, ALLOWED_CHARS_FILE);
+					count = util_replace_chars(udevice->name, ALLOWED_CHARS_FILE);
 					if (count > 0)
 						info(udevice->udev, "%i character(s) replaced\n", count);
 				}

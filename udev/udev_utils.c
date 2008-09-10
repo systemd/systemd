@@ -32,27 +32,6 @@
 
 #include "udev.h"
 
-
-int log_priority(const char *priority)
-{
-	char *endptr;
-	int prio;
-
-	prio = strtol(priority, &endptr, 10);
-	if (endptr[0] == '\0')
-		return prio;
-	if (strncasecmp(priority, "err", 3) == 0)
-		return LOG_ERR;
-	if (strcasecmp(priority, "info") == 0)
-		return LOG_INFO;
-	if (strcasecmp(priority, "debug") == 0)
-		return LOG_DEBUG;
-	if (string_is_true(priority))
-		return LOG_ERR;
-
-	return 0;
-}
-
 struct name_entry *name_list_add(struct udev *udev, struct list_head *name_list, const char *name, int sort)
 {
 	struct name_entry *name_loop;

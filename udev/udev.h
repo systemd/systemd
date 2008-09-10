@@ -171,13 +171,6 @@ extern int add_matching_files(struct udev *udev, struct list_head *name_list, co
 extern uid_t lookup_user(struct udev *udev, const char *user);
 extern gid_t lookup_group(struct udev *udev, const char *group);
 
-/* udev_utils_string.c */
-extern int string_is_true(const char *str);
-extern void remove_trailing_chars(char *path, char c);
-extern size_t path_encode(char *s, size_t len);
-extern size_t path_decode(char *s);
-extern int replace_chars(char *str, const char *white);
-
 /* udev_utils_file.c */
 extern int create_path(struct udev *udev, const char *path);
 extern int delete_path(struct udev *udev, const char *path);

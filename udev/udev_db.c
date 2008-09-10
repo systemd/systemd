@@ -38,7 +38,7 @@ static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *f
 	strlcpy(filename, udev_get_dev_path(udev), len);
 	start = strlcat(filename, "/.udev/db/", len);
 	strlcat(filename, devpath, len);
-	return path_encode(&filename[start], len - start);
+	return util_path_encode(&filename[start], len - start);
 }
 
 /* reverse mapping from the device file name to the devpath */
@@ -53,10 +53,10 @@ static int name_index(struct udev *udev, const char *devpath, const char *name, 
 	strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
 	start = strlcat(filename, "/.udev/names/", sizeof(filename));
 	strlcat(filename, name, sizeof(filename));
-	path_encode(&filename[start], sizeof(filename) - start);
+	util_path_encode(&filename[start], sizeof(filename) - start);
 	/* entry with the devpath */
 	strlcpy(device, devpath, sizeof(device));
-	path_encode(device, sizeof(device));
+	util_path_encode(device, sizeof(device));
 	strlcat(filename, "/", sizeof(filename));
 	strlcat(filename, device, sizeof(filename));
 
@@ -84,7 +84,7 @@ int udev_db_get_devices_by_name(struct udev *udev, const char *name, struct list
 	strlcpy(dirname, udev_get_dev_path(udev), sizeof(dirname));
 	start = strlcat(dirname, "/.udev/names/", sizeof(dirname));
 	strlcat(dirname, name, sizeof(dirname));
-	path_encode(&dirname[start], sizeof(dirname) - start);
+	util_path_encode(&dirname[start], sizeof(dirname) - start);
 
 	dir = opendir(dirname);
 	if (dir == NULL) {
@@ -105,7 +105,7 @@ int udev_db_get_devices_by_name(struct udev *udev, const char *name, struct list
 			continue;
 
 		strlcpy(device, ent->d_name, sizeof(device));
-		path_decode(device);
+		util_path_decode(device);
 		name_list_add(udev, name_list, device, 0);
 		rc++;
 	}
@@ -317,7 +317,7 @@ int udev_db_get_all_entries(struct udev *udev, struct list_head *name_list)
 			continue;
 
 		strlcpy(device, ent->d_name, sizeof(device));
-		path_decode(device);
+		util_path_decode(device);
 		name_list_add(udev, name_list, device, 1);
 		dbg(udev, "added '%s'\n", device);
 	}
