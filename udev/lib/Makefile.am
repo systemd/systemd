@@ -28,9 +28,7 @@ libudev_la_SOURCES =\
 	libudev-enumerate.c \
 	libudev-ctrl.c \
 	libudev-monitor.c \
-	../list.h \
-	../udev.h \
-	../udev_sysdeps.c
+	list.h
 
 libudev_la_LDFLAGS = \
 	-version-info $(LIBUDEV_LT_CURRENT):$(LIBUDEV_LT_REVISION):$(LIBUDEV_LT_AGE) \

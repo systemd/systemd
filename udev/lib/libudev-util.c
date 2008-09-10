@@ -30,18 +30,17 @@
 
 #include "libudev.h"
 #include "libudev-private.h"
-#include "../udev.h"
 
 static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *devpath, char *subsystem, size_t size)
 {
-	char path[PATH_SIZE];
+	char path[UTIL_PATH_SIZE];
 	ssize_t len;
 	const char *pos;
 
-	strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-	strlcat(path, devpath, sizeof(path));
-	strlcat(path, "/", sizeof(path));
-	strlcat(path, slink, sizeof(path));
+	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
+	util_strlcat(path, devpath, sizeof(path));
+	util_strlcat(path, "/", sizeof(path));
+	util_strlcat(path, slink, sizeof(path));
 	len = readlink(path, path, sizeof(path));
 	if (len < 0 || len >= (ssize_t) sizeof(path))
 		return -1;
@@ -50,7 +49,7 @@ static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *de
 	if (pos == NULL)
 		return -1;
 	pos = &pos[1];
-	return strlcpy(subsystem, pos, size);
+	return util_strlcpy(subsystem, pos, size);
 }
 
 ssize_t util_get_sys_subsystem(struct udev *udev, const char *devpath, char *subsystem, size_t size)
@@ -65,14 +64,15 @@ ssize_t util_get_sys_driver(struct udev *udev, const char *devpath, char *driver
 
 int util_resolve_sys_link(struct udev *udev, char *devpath, size_t size)
 {
-	char link_path[PATH_SIZE];
-	char link_target[PATH_SIZE];
+	char link_path[UTIL_PATH_SIZE];
+	char link_target[UTIL_PATH_SIZE];
+
 	int len;
 	int i;
 	int back;
 
-	strlcpy(link_path, udev_get_sys_path(udev), sizeof(link_path));
-	strlcat(link_path, devpath, sizeof(link_path));
+	util_strlcpy(link_path, udev_get_sys_path(udev), sizeof(link_path));
+	util_strlcat(link_path, devpath, sizeof(link_path));
 	len = readlink(link_path, link_target, sizeof(link_target));
 	if (len <= 0)
 		return -1;
@@ -90,16 +90,10 @@ int util_resolve_sys_link(struct udev *udev, char *devpath, size_t size)
 		pos[0] = '\0';
 	}
 	dbg(udev, "after moving back '%s'\n", devpath);
-	strlcat(devpath, "/", size);
-	strlcat(devpath, &link_target[back * 3], size);
+	util_strlcat(devpath, "/", size);
+	util_strlcat(devpath, &link_target[back * 3], size);
 	return 0;
 }
-
-struct util_name_entry {
-	struct list_head node;
-	char *name;
-	int *i;
-};
 
 struct util_name_entry *util_name_list_add(struct udev *udev, struct list_head *name_list,
 					   const char *name, int sort)
@@ -122,9 +116,15 @@ struct util_name_entry *util_name_list_add(struct udev *udev, struct list_head *
 		}
 	}
 
-	name_new->name = strdup(name);
-	if (name_new->name == NULL)
+	name_new = malloc(sizeof(struct util_name_entry));
+	if (name_new == NULL)
 		return NULL;
+	memset(name_new, 0x00, sizeof(struct util_name_entry));
+	name_new->name = strdup(name);
+	if (name_new->name == NULL) {
+		free(name_new);
+		return NULL;
+	}
 	dbg(udev, "adding '%s'\n", name_new->name);
 	list_add_tail(&name_new->node, &name_loop->node);
 	return name_new;
@@ -211,4 +211,47 @@ void util_remove_trailing_chars(char *path, char c)
 	len = strlen(path);
 	while (len > 0 && path[len-1] == c)
 		path[--len] = '\0';
+}
+
+size_t util_strlcpy(char *dst, const char *src, size_t size)
+{
+	size_t bytes = 0;
+	char *q = dst;
+	const char *p = src;
+	char ch;
+
+	while ((ch = *p++)) {
+		if (bytes+1 < size)
+			*q++ = ch;
+		bytes++;
+	}
+
+	/* If size == 0 there is no space for a final null... */
+	if (size)
+		*q = '\0';
+	return bytes;
+}
+
+size_t util_strlcat(char *dst, const char *src, size_t size)
+{
+	size_t bytes = 0;
+	char *q = dst;
+	const char *p = src;
+	char ch;
+
+	while (bytes < size && *q) {
+		q++;
+		bytes++;
+	}
+	if (bytes == size)
+		return (bytes + strlen(src));
+
+	while ((ch = *p++)) {
+		if (bytes+1 < size)
+		*q++ = ch;
+		bytes++;
+	}
+
+	*q = '\0';
+	return bytes;
 }

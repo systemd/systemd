@@ -33,7 +33,6 @@
 
 #include "libudev.h"
 #include "libudev-private.h"
-#include "../udev.h"
 
 struct udev {
 	int refcount;
@@ -201,7 +200,7 @@ struct udev *udev_new(void)
 		goto err;
 	f = fopen(config_file, "r");
 	if (f != NULL) {
-		char line[LINE_SIZE];
+		char line[UTIL_LINE_SIZE];
 		int line_nr = 0;
 
 		while (fgets(line, sizeof(line), f)) {

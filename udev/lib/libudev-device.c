@@ -30,7 +30,6 @@
 
 #include "libudev.h"
 #include "libudev-private.h"
-#include "../udev.h"
 
 struct udev_device {
 	int refcount;
@@ -58,17 +57,17 @@ static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *f
 	size_t start;
 
 	/* translate to location of db file */
-	strlcpy(filename, udev_get_dev_path(udev), len);
-	start = strlcat(filename, "/.udev/db/", len);
-	strlcat(filename, devpath, len);
+	util_strlcpy(filename, udev_get_dev_path(udev), len);
+	start = util_strlcat(filename, "/.udev/db/", len);
+	util_strlcat(filename, devpath, len);
 	return util_path_encode(&filename[start], len - start);
 }
 
 static int device_read_db(struct udev_device *udev_device)
 {
 	struct stat stats;
-	char filename[PATH_SIZE];
-	char line[PATH_SIZE];
+	char filename[UTIL_PATH_SIZE];
+	char line[UTIL_LINE_SIZE];
 	FILE *f;
 	int rc = 0;
 
@@ -79,7 +78,7 @@ static int device_read_db(struct udev_device *udev_device)
 		return -1;
 	}
 	if ((stats.st_mode & S_IFMT) == S_IFLNK) {
-		char target[NAME_SIZE];
+		char target[UTIL_PATH_SIZE];
 		int target_len;
 
 		info(udev_device->udev, "found a symlink as db file\n");
@@ -121,9 +120,9 @@ static int device_read_db(struct udev_device *udev_device)
 			device_set_devnum(udev_device, makedev(maj, min));
 			break;
 		case 'S':
-			strlcpy(filename, udev_get_dev_path(udev_device->udev), sizeof(filename));
-			strlcat(filename, "/", sizeof(filename));
-			strlcat(filename, val, sizeof(filename));
+			util_strlcpy(filename, udev_get_dev_path(udev_device->udev), sizeof(filename));
+			util_strlcat(filename, "/", sizeof(filename));
+			util_strlcat(filename, val, sizeof(filename));
 			device_add_devlink(udev_device, filename);
 			break;
 		case 'L':
@@ -183,7 +182,7 @@ struct udev_device *device_init(struct udev *udev)
  **/
 struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *devpath)
 {
-	char path[PATH_SIZE];
+	char path[UTIL_PATH_SIZE];
 	struct stat statbuf;
 	struct udev_device *udev_device;
 
@@ -192,8 +191,8 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
 	if (devpath == NULL)
 		return NULL;
 
-	strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-	strlcat(path, devpath, sizeof(path));
+	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
+	util_strlcat(path, devpath, sizeof(path));
 	if (stat(path, &statbuf) != 0)
 		return NULL;
 	if (!S_ISDIR(statbuf.st_mode))
@@ -204,7 +203,7 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
 		return NULL;
 
 	/* resolve possible symlink to real path */
-	strlcpy(path, devpath, sizeof(path));
+	util_strlcpy(path, devpath, sizeof(path));
 	util_resolve_sys_link(udev, path, sizeof(path));
 	device_set_devpath(udev_device, path);
 	info(udev, "device %p has devpath '%s'\n", udev_device, udev_device_get_devpath(udev_device));
@@ -333,7 +332,7 @@ const char *udev_device_get_devname(struct udev_device *udev_device)
  **/
 const char *udev_device_get_subsystem(struct udev_device *udev_device)
 {
-	char subsystem[NAME_SIZE];
+	char subsystem[UTIL_PATH_SIZE];
 
 	if (udev_device == NULL)
 		return NULL;
@@ -363,7 +362,7 @@ int udev_device_get_devlinks(struct udev_device *udev_device,
 			      int (*cb)(struct udev_device *udev_device, const char *value, void *data),
 			      void *data)
 {
-	struct name_entry *name_loop;
+	struct util_name_entry *name_loop;
 	int count = 0;
 
 	if (udev_device == NULL)
@@ -393,17 +392,16 @@ int udev_device_get_properties(struct udev_device *udev_device,
 				int (*cb)(struct udev_device *udev_device, const char *key, const char *value, void *data),
 				void *data)
 {
-	struct name_entry *name_loop;
+	struct util_name_entry *name_loop;
 	int count = 0;
 
 	if (udev_device == NULL)
 		return -1;
 	list_for_each_entry(name_loop, &udev_device->env_list, node) {
-		char name[PATH_SIZE];
+		char name[UTIL_PATH_SIZE];
 		char *val;
 
-		strncpy(name, name_loop->name, PATH_SIZE);
-		name[PATH_SIZE-1] = '\0';
+		strncpy(name, name_loop->name, sizeof(name));
 		val = strchr(name, '=');
 		if (val == NULL)
 			continue;
@@ -418,7 +416,7 @@ int udev_device_get_properties(struct udev_device *udev_device,
 
 const char *udev_device_get_driver(struct udev_device *udev_device)
 {
-	char driver[NAME_SIZE];
+	char driver[UTIL_PATH_SIZE];
 
 	if (udev_device == NULL)
 		return NULL;

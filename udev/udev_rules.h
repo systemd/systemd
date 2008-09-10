@@ -20,7 +20,6 @@
 #define UDEV_RULES_H
 
 #include "udev.h"
-#include "list.h"
 
 #define PAIRS_MAX		5
 

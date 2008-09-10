@@ -16,8 +16,6 @@ AM_CPPFLAGS = \
 common_ldadd =
 
 common_files = \
-	list.h \
-	logging.h \
 	udev.h \
 	udev_rules.h \
 	udev_sysdeps.h \
@@ -32,6 +30,7 @@ common_files = \
 	udev_utils.c \
 	udev_utils_file.c \
 	udev_utils_string.c \
+	lib/list.h \
 	lib/libudev.h \
 	lib/libudev-private.h \
 	lib/libudev.c \

@@ -30,34 +30,33 @@
 
 #include "libudev.h"
 #include "libudev-private.h"
-#include "../udev.h"
 
 static int devices_scan_subsystem(struct udev *udev,
 				  const char *basedir, const char *subsystem, const char *subdir,
 				  struct list_head *device_list)
 {
-	char path[PATH_SIZE];
+	char path[UTIL_PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
 	size_t len;
 
-	len = strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-	strlcat(path, basedir, sizeof(path));
-	strlcat(path, "/", sizeof(path));
-	strlcat(path, subsystem, sizeof(path));
+	len = util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
+	util_strlcat(path, basedir, sizeof(path));
+	util_strlcat(path, "/", sizeof(path));
+	util_strlcat(path, subsystem, sizeof(path));
 	if (subdir != NULL)
-		strlcat(path, subdir, sizeof(path));
+		util_strlcat(path, subdir, sizeof(path));
 	dir = opendir(path);
 	if (dir == NULL)
 		return -1;
 	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-		char devpath[PATH_SIZE];
+		char devpath[UTIL_PATH_SIZE];
 
 		if (dent->d_name[0] == '.')
 			continue;
-		strlcpy(devpath, &path[len], sizeof(devpath));
-		strlcat(devpath, "/", sizeof(devpath));
-		strlcat(devpath, dent->d_name, sizeof(devpath));
+		util_strlcpy(devpath, &path[len], sizeof(devpath));
+		util_strlcat(devpath, "/", sizeof(devpath));
+		util_strlcat(devpath, dent->d_name, sizeof(devpath));
 		util_resolve_sys_link(udev, devpath, sizeof(devpath));
 		util_name_list_add(udev, device_list, devpath, 1);
 	}
@@ -69,15 +68,15 @@ static int devices_scan_subsystems(struct udev *udev,
 				   const char *basedir, const char *subsystem, const char *subdir,
 				   struct list_head *device_list)
 {
-	char path[PATH_SIZE];
+	char path[UTIL_PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
 
 	if (subsystem != NULL)
 		return devices_scan_subsystem(udev, basedir, subsystem, subdir, device_list);
 
-	strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-	strlcat(path, basedir, sizeof(path));
+	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
+	util_strlcat(path, basedir, sizeof(path));
 	dir = opendir(path);
 	if (dir == NULL)
 		return -1;
@@ -115,7 +114,7 @@ static int devices_call(struct udev *udev, const char *devpath,
 			void *data,
 			int *cb_rc)
 {
-	char subsystem[NAME_SIZE];
+	char subsystem[UTIL_PATH_SIZE];
 	const char *name;
 
 	name = strrchr(devpath, '/');
@@ -147,19 +146,19 @@ int udev_enumerate_devices(struct udev *udev, const char *subsystem,
 				     const char *devpath, const char *subsystem, const char *name, void *data),
 			   void *data)
 {
-	char base[PATH_SIZE];
+	char base[UTIL_PATH_SIZE];
 	struct stat statbuf;
 	struct list_head device_list;
-	struct name_entry *loop_device;
-	struct name_entry *tmp_device;
+	struct util_name_entry *loop_device;
+	struct util_name_entry *tmp_device;
 	int cb_rc = 0;
 	int count = 0;
 
 	INIT_LIST_HEAD(&device_list);
 
 	/* if we have /sys/subsystem/, forget all the old stuff */
-	strlcpy(base, udev_get_sys_path(udev), sizeof(base));
-	strlcat(base, "/subsystem", sizeof(base));
+	util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
+	util_strlcat(base, "/subsystem", sizeof(base));
 	if (stat(base, &statbuf) == 0) {
 		devices_scan_subsystems(udev, "/subsystem", subsystem, "/devices", &device_list);
 	} else {
@@ -174,6 +173,7 @@ int udev_enumerate_devices(struct udev *udev, const char *subsystem,
 			if (devices_call(udev, loop_device->name, cb, data, &cb_rc) == 0)
 				count++;
 		list_del(&loop_device->node);
+		free(loop_device->name);
 		free(loop_device);
 	}
 
@@ -183,6 +183,7 @@ int udev_enumerate_devices(struct udev *udev, const char *subsystem,
 			if (devices_call(udev, loop_device->name, cb, data, &cb_rc) == 0)
 				count++;
 		list_del(&loop_device->node);
+		free(loop_device->name);
 		free(loop_device);
 	}
 

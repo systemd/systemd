@@ -31,7 +31,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "../../udev/list.h"
+#include "../../udev/lib/list.h"
 
 #define TMPFILE			UDEV_PREFIX "/dev/.udev/collect"
 #define BUFSIZE			16

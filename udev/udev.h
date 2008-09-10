@@ -24,11 +24,11 @@
 #include <sys/types.h>
 #include <sys/param.h>
 
-#include "list.h"
 #include "udev_sysdeps.h"
 #define LIBUDEV_I_KNOW_THE_API_IS_SUBJECT_TO_CHANGE 1
 #include "lib/libudev.h"
 #include "lib/libudev-private.h"
+#include "lib/list.h"
 
 #define COMMENT_CHARACTER			'#'
 #define LINE_SIZE				512

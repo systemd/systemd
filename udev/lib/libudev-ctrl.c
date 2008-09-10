@@ -29,7 +29,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "../udev.h"
 #include "libudev.h"
 #include "libudev-private.h"
 
@@ -155,7 +154,7 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
 	ctrl_msg.type = type;
 
 	if (buf != NULL)
-		strlcpy(ctrl_msg.buf, buf, sizeof(ctrl_msg.buf));
+		util_strlcpy(ctrl_msg.buf, buf, sizeof(ctrl_msg.buf));
 	else
 		ctrl_msg.intval = intval;
 

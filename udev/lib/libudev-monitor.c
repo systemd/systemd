@@ -33,7 +33,6 @@
 
 #include "libudev.h"
 #include "libudev-private.h"
-#include "../udev.h"
 
 struct udev_monitor {
 	struct udev *udev;
