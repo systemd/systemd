@@ -32,10 +32,7 @@ libudev_la_SOURCES =\
 	../udev.h \
 	../udev_utils.c \
 	../udev_utils_string.c \
-	../udev_utils_file.c \
 	../udev_sysfs.c \
-	../udev_device.c \
-	../udev_db.c \
 	../udev_sysdeps.c
 
 libudev_la_LDFLAGS = \
