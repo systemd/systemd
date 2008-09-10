@@ -44,7 +44,7 @@ static void print_queue(struct udev *udev, const char *dir)
 	printf("\n\nAfter the udevadm settle timeout, the events queue contains:\n\n");
 
 	list_for_each_entry(item, &files, node) {
-		char target[NAME_SIZE];
+		char target[UTIL_NAME_SIZE];
 		size_t len;
 		const char *filename = strrchr(item->name, '/');
 
@@ -67,8 +67,8 @@ static void print_queue(struct udev *udev, const char *dir)
 
 int udevadm_settle(struct udev *udev, int argc, char *argv[])
 {
-	char queuename[PATH_SIZE];
-	char filename[PATH_SIZE];
+	char queuename[UTIL_PATH_SIZE];
+	char filename[UTIL_PATH_SIZE];
 	unsigned long long seq_kernel;
 	unsigned long long seq_udev;
 	char seqnum[32];

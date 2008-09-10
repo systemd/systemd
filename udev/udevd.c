@@ -168,8 +168,8 @@ enum event_state {
 
 static void export_event_state(struct udevd_uevent_msg *msg, enum event_state state)
 {
-	char filename[PATH_SIZE];
-	char filename_failed[PATH_SIZE];
+	char filename[UTIL_PATH_SIZE];
+	char filename_failed[UTIL_PATH_SIZE];
 	size_t start;
 
 	/* location of queue file */
@@ -194,7 +194,7 @@ static void export_event_state(struct udevd_uevent_msg *msg, enum event_state st
 	case EVENT_FINISHED:
 		if (msg->devpath_old != NULL) {
 			/* "move" event - rename failed file to current name, do not delete failed */
-			char filename_failed_old[PATH_SIZE];
+			char filename_failed_old[UTIL_PATH_SIZE];
 
 			util_strlcpy(filename_failed_old, udev_get_dev_path(msg->udev), sizeof(filename_failed_old));
 			util_strlcat(filename_failed_old, "/", sizeof(filename_failed_old));
@@ -279,7 +279,7 @@ static void udev_event_run(struct udevd_uevent_msg *msg)
 
 static void msg_queue_insert(struct udevd_uevent_msg *msg)
 {
-	char filename[PATH_SIZE];
+	char filename[UTIL_PATH_SIZE];
 	int fd;
 
 	msg->queue_time = time(NULL);
@@ -346,7 +346,7 @@ static int compare_devpath(const char *running, const char *waiting)
 {
 	int i;
 
-	for (i = 0; i < PATH_SIZE; i++) {
+	for (i = 0; i < UTIL_PATH_SIZE; i++) {
 		/* identical device event found */
 		if (running[i] == '\0' && waiting[i] == '\0')
 			return 1;
@@ -750,7 +750,7 @@ static int init_uevent_netlink_sock(struct udev *udev)
 
 static void export_initial_seqnum(struct udev *udev)
 {
-	char filename[PATH_SIZE];
+	char filename[UTIL_PATH_SIZE];
 	int fd;
 	char seqnum[32];
 	ssize_t len = 0;

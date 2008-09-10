@@ -44,8 +44,8 @@ static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *f
 /* reverse mapping from the device file name to the devpath */
 static int name_index(struct udev *udev, const char *devpath, const char *name, int add)
 {
-	char device[PATH_SIZE];
-	char filename[PATH_SIZE * 2];
+	char device[UTIL_PATH_SIZE];
+	char filename[UTIL_PATH_SIZE * 2];
 	size_t start;
 	int fd;
 
@@ -96,7 +96,7 @@ int udev_db_get_devices_by_name(struct udev *udev, const char *name, struct list
 	info(udev, "found index directory '%s'\n", dirname);
 	while (1) {
 		struct dirent *ent;
-		char device[PATH_SIZE];
+		char device[UTIL_PATH_SIZE];
 
 		ent = readdir(dir);
 		if (ent == NULL || ent->d_name[0] == '\0')
@@ -116,8 +116,8 @@ out:
 
 int udev_db_rename(struct udev *udev, const char *devpath_old, const char *devpath)
 {
-	char filename[PATH_SIZE];
-	char filename_old[PATH_SIZE];
+	char filename[UTIL_PATH_SIZE];
+	char filename_old[UTIL_PATH_SIZE];
 
 	devpath_to_db_path(udev, devpath_old, filename_old, sizeof(filename_old));
 	devpath_to_db_path(udev, devpath, filename, sizeof(filename));
@@ -126,7 +126,7 @@ int udev_db_rename(struct udev *udev, const char *devpath_old, const char *devpa
 
 int udev_db_add_device(struct udevice *udevice)
 {
-	char filename[PATH_SIZE];
+	char filename[UTIL_PATH_SIZE];
 
 	if (udevice->test_run)
 		return 0;
@@ -190,8 +190,8 @@ int udev_db_add_device(struct udevice *udevice)
 int udev_db_get_device(struct udevice *udevice, const char *devpath)
 {
 	struct stat stats;
-	char filename[PATH_SIZE];
-	char line[PATH_SIZE];
+	char filename[UTIL_PATH_SIZE];
+	char line[UTIL_PATH_SIZE];
 	unsigned int maj, min;
 	char *bufline;
 	char *buf;
@@ -207,7 +207,7 @@ int udev_db_get_device(struct udevice *udevice, const char *devpath)
 		return -1;
 	}
 	if ((stats.st_mode & S_IFMT) == S_IFLNK) {
-		char target[NAME_SIZE];
+		char target[UTIL_NAME_SIZE];
 		int target_len;
 
 		info(udevice->udev, "found a symlink as db file\n");
@@ -277,7 +277,7 @@ int udev_db_get_device(struct udevice *udevice, const char *devpath)
 
 int udev_db_delete_device(struct udevice *udevice)
 {
-	char filename[PATH_SIZE];
+	char filename[UTIL_PATH_SIZE];
 	struct name_entry *name_loop;
 
 	if (udevice->test_run)
@@ -308,7 +308,7 @@ int udev_db_get_all_entries(struct udev *udev, struct list_head *name_list)
 
 	while (1) {
 		struct dirent *ent;
-		char device[PATH_SIZE];
+		char device[UTIL_PATH_SIZE];
 
 		ent = readdir(dir);
 		if (ent == NULL || ent->d_name[0] == '\0')

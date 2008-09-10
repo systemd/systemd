@@ -64,8 +64,8 @@ static int delay_device(const char *devpath)
 
 static int device_list_insert(struct udev *udev, const char *path)
 {
-	char filename[PATH_SIZE];
-	char devpath[PATH_SIZE];
+	char filename[UTIL_PATH_SIZE];
+	char devpath[UTIL_PATH_SIZE];
 	struct stat statbuf;
 
 	dbg(udev, "add '%s'\n" , path);
@@ -84,7 +84,7 @@ static int device_list_insert(struct udev *udev, const char *path)
 	if (lstat(path, &statbuf) < 0)
 		return -1;
 	if (S_ISLNK(statbuf.st_mode))
-		if (sysfs_resolve_link(udev, devpath, sizeof(devpath)) != 0)
+		if (util_resolve_sys_link(udev, devpath, sizeof(devpath)) != 0)
 			return -1;
 
 	name_list_add(udev, &device_list, devpath, 1);
@@ -93,7 +93,7 @@ static int device_list_insert(struct udev *udev, const char *path)
 
 static void trigger_uevent(struct udev *udev, const char *devpath, const char *action)
 {
-	char filename[PATH_SIZE];
+	char filename[UTIL_PATH_SIZE];
 	int fd;
 
 	util_strlcpy(filename, udev_get_sys_path(udev), sizeof(filename));
@@ -125,9 +125,9 @@ static int pass_to_socket(struct udev *udev, const char *devpath, const char *ac
 	char buf[4096];
 	size_t bufpos = 0;
 	ssize_t count;
-	char path[PATH_SIZE];
+	char path[UTIL_PATH_SIZE];
 	int fd;
-	char link_target[PATH_SIZE];
+	char link_target[UTIL_PATH_SIZE];
 	int len;
 	int err = 0;
 
@@ -285,8 +285,8 @@ static int subsystem_filtered(const char *subsystem)
 
 static int attr_match(const char *path, const char *attr_value)
 {
-	char attr[NAME_SIZE];
-	char file[PATH_SIZE];
+	char attr[UTIL_NAME_SIZE];
+	char file[UTIL_PATH_SIZE];
 	char *match_value;
 
 	util_strlcpy(attr, attr_value, sizeof(attr));
@@ -304,7 +304,7 @@ static int attr_match(const char *path, const char *attr_value)
 
 	if (match_value != NULL) {
 		/* match file content */
-		char value[NAME_SIZE];
+		char value[UTIL_NAME_SIZE];
 		int fd;
 		ssize_t size;
 
@@ -357,7 +357,7 @@ enum scan_type {
 
 static void scan_subsystem(struct udev *udev, const char *subsys, enum scan_type scan)
 {
-	char base[PATH_SIZE];
+	char base[UTIL_PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
 	const char *subdir;
@@ -376,7 +376,7 @@ static void scan_subsystem(struct udev *udev, const char *subsys, enum scan_type
 	dir = opendir(base);
 	if (dir != NULL) {
 		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-			char dirname[PATH_SIZE];
+			char dirname[UTIL_PATH_SIZE];
 			DIR *dir2;
 			struct dirent *dent2;
 
@@ -406,7 +406,7 @@ static void scan_subsystem(struct udev *udev, const char *subsys, enum scan_type
 			dir2 = opendir(dirname);
 			if (dir2 != NULL) {
 				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
-					char dirname2[PATH_SIZE];
+					char dirname2[UTIL_PATH_SIZE];
 
 					if (dent2->d_name[0] == '.')
 						continue;
@@ -427,7 +427,7 @@ static void scan_subsystem(struct udev *udev, const char *subsys, enum scan_type
 
 static void scan_block(struct udev *udev)
 {
-	char base[PATH_SIZE];
+	char base[UTIL_PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
 
@@ -440,7 +440,7 @@ static void scan_block(struct udev *udev)
 	dir = opendir(base);
 	if (dir != NULL) {
 		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-			char dirname[PATH_SIZE];
+			char dirname[UTIL_PATH_SIZE];
 			DIR *dir2;
 			struct dirent *dent2;
 
@@ -459,7 +459,7 @@ static void scan_block(struct udev *udev)
 			dir2 = opendir(dirname);
 			if (dir2 != NULL) {
 				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
-					char dirname2[PATH_SIZE];
+					char dirname2[UTIL_PATH_SIZE];
 
 					if (dent2->d_name[0] == '.')
 						continue;
@@ -483,7 +483,7 @@ static void scan_block(struct udev *udev)
 
 static void scan_class(struct udev *udev)
 {
-	char base[PATH_SIZE];
+	char base[UTIL_PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
 
@@ -493,7 +493,7 @@ static void scan_class(struct udev *udev)
 	dir = opendir(base);
 	if (dir != NULL) {
 		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-			char dirname[PATH_SIZE];
+			char dirname[UTIL_PATH_SIZE];
 			DIR *dir2;
 			struct dirent *dent2;
 
@@ -509,7 +509,7 @@ static void scan_class(struct udev *udev)
 			dir2 = opendir(dirname);
 			if (dir2 != NULL) {
 				for (dent2 = readdir(dir2); dent2 != NULL; dent2 = readdir(dir2)) {
-					char dirname2[PATH_SIZE];
+					char dirname2[UTIL_PATH_SIZE];
 
 					if (dent2->d_name[0] == '.')
 						continue;
@@ -533,7 +533,7 @@ static void scan_class(struct udev *udev)
 
 static void scan_failed(struct udev *udev)
 {
-	char base[PATH_SIZE];
+	char base[UTIL_PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
 
@@ -543,7 +543,7 @@ static void scan_failed(struct udev *udev)
 	dir = opendir(base);
 	if (dir != NULL) {
 		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-			char device[PATH_SIZE];
+			char device[UTIL_PATH_SIZE];
 			size_t start;
 
 			if (dent->d_name[0] == '.')
@@ -671,7 +671,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 		scan_failed(udev);
 		exec_list(udev, action, env);
 	} else {
-		char base[PATH_SIZE];
+		char base[UTIL_PATH_SIZE];
 		struct stat statbuf;
 
 		/* if we have /sys/subsystem, forget all the old stuff */

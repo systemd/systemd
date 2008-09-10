@@ -33,7 +33,7 @@
 
 static int import_uevent_var(struct udev *udev, const char *devpath)
 {
-	char path[PATH_SIZE];
+	char path[UTIL_PATH_SIZE];
 	static char value[4096]; /* must stay, used with putenv */
 	ssize_t size;
 	int fd;
@@ -189,7 +189,7 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 		struct name_entry *name_loop;
 
 		list_for_each_entry(name_loop, &udevice->run_list, node) {
-			char program[PATH_SIZE];
+			char program[UTIL_PATH_SIZE];
 
 			util_strlcpy(program, name_loop->name, sizeof(program));
 			udev_rules_apply_format(udevice, program, sizeof(program));

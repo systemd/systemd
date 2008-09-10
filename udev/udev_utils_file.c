@@ -31,7 +31,7 @@
 
 int create_path(struct udev *udev, const char *path)
 {
-	char p[PATH_SIZE];
+	char p[UTIL_PATH_SIZE];
 	char *pos;
 	struct stat stats;
 	int ret;
@@ -67,7 +67,7 @@ int create_path(struct udev *udev, const char *path)
 
 int delete_path(struct udev *udev, const char *path)
 {
-	char p[PATH_SIZE];
+	char p[UTIL_PATH_SIZE];
 	char *pos;
 	int retval;
 

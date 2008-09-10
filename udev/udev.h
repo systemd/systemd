@@ -30,12 +30,6 @@
 #include "lib/libudev-private.h"
 #include "lib/list.h"
 
-#define COMMENT_CHARACTER			'#'
-#define LINE_SIZE				512
-#define PATH_SIZE				512
-#define NAME_SIZE				256
-#define VALUE_SIZE				128
-
 #define ALLOWED_CHARS				"#+-.:=@_"
 #define ALLOWED_CHARS_FILE			ALLOWED_CHARS "/"
 #define ALLOWED_CHARS_INPUT			ALLOWED_CHARS_FILE " $%?,"
@@ -60,11 +54,11 @@ struct udev_rules;
 struct sysfs_device {
 	struct list_head node;			/* for device cache */
 	struct sysfs_device *parent;		/* already cached parent*/
-	char devpath[PATH_SIZE];
-	char subsystem[NAME_SIZE];		/* $class, $bus, drivers, module */
-	char kernel[NAME_SIZE];			/* device instance name */
-	char kernel_number[NAME_SIZE];
-	char driver[NAME_SIZE];			/* device driver name */
+	char devpath[UTIL_PATH_SIZE];
+	char subsystem[UTIL_NAME_SIZE];
+	char kernel[UTIL_NAME_SIZE];		/* device instance name */
+	char kernel_number[UTIL_NAME_SIZE];
+	char driver[UTIL_NAME_SIZE];
 };
 
 struct udevice {
@@ -74,16 +68,16 @@ struct udevice {
 	struct sysfs_device *dev;		/* points to dev_local by default */
 	struct sysfs_device dev_local;
 	struct sysfs_device *dev_parent;	/* current parent device used for matching */
-	char action[NAME_SIZE];
+	char action[UTIL_NAME_SIZE];
 	char *devpath_old;
 
 	/* node */
-	char name[PATH_SIZE];
+	char name[UTIL_PATH_SIZE];
 	struct list_head symlink_list;
 	int symlink_final;
-	char owner[NAME_SIZE];
+	char owner[UTIL_NAME_SIZE];
 	int owner_final;
-	char group[NAME_SIZE];
+	char group[UTIL_NAME_SIZE];
 	int group_final;
 	mode_t mode;
 	int mode_final;
@@ -93,11 +87,11 @@ struct udevice {
 	struct list_head run_list;
 	int run_final;
 	struct list_head env_list;
-	char tmp_node[PATH_SIZE];
+	char tmp_node[UTIL_PATH_SIZE];
 	int partitions;
 	int ignore_device;
 	int ignore_remove;
-	char program_result[PATH_SIZE];
+	char program_result[UTIL_PATH_SIZE];
 	int link_priority;
 	int event_timeout;
 	int test_run;
@@ -138,7 +132,6 @@ extern struct sysfs_device *sysfs_device_get(struct udev *udev, const char *devp
 extern struct sysfs_device *sysfs_device_get_parent(struct udev *udev, struct sysfs_device *dev);
 extern struct sysfs_device *sysfs_device_get_parent_with_subsystem(struct udev *udev, struct sysfs_device *dev, const char *subsystem);
 extern char *sysfs_attr_get_value(struct udev *udev, const char *devpath, const char *attr_name);
-extern int sysfs_resolve_link(struct udev *udev, char *path, size_t size);
 extern int sysfs_lookup_devpath_by_subsys_id(struct udev *udev, char *devpath, size_t len, const char *subsystem, const char *id);
 
 /* udev_node.c */
@@ -158,11 +151,9 @@ extern int udev_db_get_all_entries(struct udev *udevconst, struct list_head *nam
 /* udev_utils.c */
 struct name_entry {
 	struct list_head node;
-	char name[PATH_SIZE];
+	char name[UTIL_PATH_SIZE];
 	unsigned int ignore_error:1;
 };
-
-extern int log_priority(const char *priority);
 extern struct name_entry *name_list_add(struct udev *udev, struct list_head *name_list, const char *name, int sort);
 extern struct name_entry *name_list_key_add(struct udev *udev, struct list_head *name_list, const char *key, const char *value);
 extern int name_list_key_remove(struct udev *udev, struct list_head *name_list, const char *key);

@@ -31,10 +31,6 @@ AC_CHECK_LIB(c, inotify_init,
 	[AC_DEFINE([HAVE_INOTIFY], 1, [inotify available])],
 	[AC_MSG_WARN([inotify support disabled])])
 
-AC_CHECK_LIB(c, strlcpy,
-	[AC_DEFINE([HAVE_STRLCPY], 1, [strlcpy available])],
-	[])
-
 AC_ARG_WITH(udev-prefix,
 	AS_HELP_STRING([--with-udev-prefix=DIR], [add prefix to internal udev path names]),
 	[], [with_udev_prefix='${exec_prefix}'])

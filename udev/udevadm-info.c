@@ -34,7 +34,7 @@
 
 static void print_all_attributes(struct udev *udev, const char *devpath, const char *key)
 {
-	char path[PATH_SIZE];
+	char path[UTIL_PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
 
@@ -45,9 +45,9 @@ static void print_all_attributes(struct udev *udev, const char *devpath, const c
 	if (dir != NULL) {
 		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
 			struct stat statbuf;
-			char filename[PATH_SIZE];
+			char filename[UTIL_PATH_SIZE];
 			char *attr_value;
-			char value[NAME_SIZE];
+			char value[UTIL_NAME_SIZE];
 			size_t len;
 
 			if (dent->d_name[0] == '.')
@@ -180,7 +180,7 @@ static int lookup_device_by_name(struct udev *udev, struct udevice **udevice, co
 	/* select the device that seems to match */
 	list_for_each_entry(device, &name_list, node) {
 		struct udevice *udevice_loop;
-		char filename[PATH_SIZE];
+		char filename[UTIL_PATH_SIZE];
 		struct stat statbuf;
 
 		udevice_loop = udev_device_init(udev);
@@ -269,8 +269,8 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		QUERY_ALL,
 	} query = QUERY_NONE;
 
-	char path[PATH_SIZE] = "";
-	char name[PATH_SIZE] = "";
+	char path[UTIL_PATH_SIZE] = "";
+	char name[UTIL_PATH_SIZE] = "";
 	struct name_entry *name_loop;
 	int rc = 0;
 
@@ -301,19 +301,19 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 			util_remove_trailing_chars(path, '/');
 
 			/* possibly resolve to real devpath */
-			if (sysfs_resolve_link(udev, path, sizeof(path)) != 0) {
-				char temp[PATH_SIZE];
+			if (util_resolve_sys_link(udev, path, sizeof(path)) != 0) {
+				char temp[UTIL_PATH_SIZE];
 				char *pos;
 
 				/* also check if the parent is a link */
 				util_strlcpy(temp, path, sizeof(temp));
 				pos = strrchr(temp, '/');
 				if (pos != 0) {
-					char tail[PATH_SIZE];
+					char tail[UTIL_PATH_SIZE];
 
 					util_strlcpy(tail, pos, sizeof(tail));
 					pos[0] = '\0';
-					if (sysfs_resolve_link(udev, temp, sizeof(temp)) == 0) {
+					if (util_resolve_sys_link(udev, temp, sizeof(temp)) == 0) {
 						util_strlcpy(path, temp, sizeof(path));
 						util_strlcat(path, tail, sizeof(path));
 					}

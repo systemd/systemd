@@ -34,7 +34,7 @@
 
 int udev_node_mknod(struct udevice *udevice, const char *file, dev_t devt, mode_t mode, uid_t uid, gid_t gid)
 {
-	char file_tmp[PATH_SIZE + sizeof(TMP_FILE_EXT)];
+	char file_tmp[UTIL_PATH_SIZE + sizeof(TMP_FILE_EXT)];
 	struct stat stats;
 	int preserve = 0;
 	int err = 0;
@@ -104,8 +104,8 @@ exit:
 static int node_symlink(struct udevice *udevice, const char *node, const char *slink)
 {
 	struct stat stats;
-	char target[PATH_SIZE] = "";
-	char slink_tmp[PATH_SIZE + sizeof(TMP_FILE_EXT)];
+	char target[UTIL_PATH_SIZE] = "";
+	char slink_tmp[UTIL_PATH_SIZE + sizeof(TMP_FILE_EXT)];
 	int i = 0;
 	int tail = 0;
 	int len;
@@ -140,7 +140,7 @@ static int node_symlink(struct udevice *udevice, const char *node, const char *s
 				}
 			}
 		} else if (S_ISLNK(stats.st_mode)) {
-			char buf[PATH_SIZE];
+			char buf[UTIL_PATH_SIZE];
 
 			info(udevice->udev, "found existing symlink '%s'\n", slink);
 			len = readlink(slink, buf, sizeof(buf));
@@ -186,11 +186,11 @@ exit:
 static int update_link(struct udevice *udevice, const char *name)
 {
 	LIST_HEAD(name_list);
-	char slink[PATH_SIZE];
-	char node[PATH_SIZE];
+	char slink[UTIL_PATH_SIZE];
+	char node[UTIL_PATH_SIZE];
 	struct udevice *udevice_db;
 	struct name_entry *device;
-	char target[PATH_MAX] = "";
+	char target[UTIL_PATH_SIZE] = "";
 	int count;
 	int priority = 0;
 	int rc = 0;
@@ -271,7 +271,7 @@ out:
 void udev_node_update_symlinks(struct udevice *udevice, struct udevice *udevice_old)
 {
 	struct name_entry *name_loop;
-	char symlinks[PATH_SIZE] = "";
+	char symlinks[UTIL_PATH_SIZE] = "";
 
 	list_for_each_entry(name_loop, &udevice->symlink_list, node) {
 		info(udevice->udev, "update symlink '%s' of '%s'\n", name_loop->name, udevice->dev->devpath);
@@ -321,7 +321,7 @@ void udev_node_update_symlinks(struct udevice *udevice, struct udevice *udevice_
 
 int udev_node_add(struct udevice *udevice)
 {
-	char filename[PATH_SIZE];
+	char filename[UTIL_PATH_SIZE];
 	uid_t uid;
 	gid_t gid;
 	int i;
@@ -371,7 +371,7 @@ int udev_node_add(struct udevice *udevice)
 
 	/* create all_partitions if requested */
 	if (udevice->partitions) {
-		char partitionname[PATH_SIZE];
+		char partitionname[UTIL_PATH_SIZE];
 		char *attr;
 		int range;
 
@@ -400,8 +400,8 @@ exit:
 
 int udev_node_remove(struct udevice *udevice)
 {
-	char filename[PATH_SIZE];
-	char partitionname[PATH_SIZE];
+	char filename[UTIL_PATH_SIZE];
+	char partitionname[UTIL_PATH_SIZE];
 	struct stat stats;
 	int retval = 0;
 	int num;

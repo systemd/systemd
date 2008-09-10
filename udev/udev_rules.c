@@ -123,8 +123,8 @@ static int run_program(struct udev *udev, const char *command, const char *subsy
 	int outpipe[2] = {-1, -1};
 	int errpipe[2] = {-1, -1};
 	pid_t pid;
-	char arg[PATH_SIZE];
-	char program[PATH_SIZE];
+	char arg[UTIL_PATH_SIZE];
+	char program[UTIL_PATH_SIZE];
 	char *argv[(sizeof(arg) / 2) + 1];
 	int devnull;
 	int i;
@@ -331,7 +331,7 @@ static int run_program(struct udev *udev, const char *command, const char *subsy
 
 static int import_keys_into_env(struct udevice *udevice, const char *buf, size_t bufsize)
 {
-	char line[LINE_SIZE];
+	char line[UTIL_LINE_SIZE];
 	const char *bufline;
 	char *linepos;
 	char *variable;
@@ -358,7 +358,7 @@ static int import_keys_into_env(struct udevice *udevice, const char *buf, size_t
 			continue;
 
 		/* see if this is a comment */
-		if (bufline[0] == COMMENT_CHARACTER)
+		if (bufline[0] == '#')
 			continue;
 
 		if (count >= sizeof(line)) {
@@ -429,7 +429,7 @@ static int import_parent_into_env(struct udevice *udevice, const char *filter)
 		if (udev_db_get_device(udev_parent, dev_parent->devpath) == 0) {
 			dbg(udevice->udev, "import stored parent env '%s'\n", udev_parent->name);
 			list_for_each_entry(name_loop, &udev_parent->env_list, node) {
-				char name[NAME_SIZE];
+				char name[UTIL_NAME_SIZE];
 				char *pos;
 
 				util_strlcpy(name, name_loop->name, sizeof(name));
@@ -512,7 +512,7 @@ int udev_rules_run(struct udevice *udevice)
 		if (strncmp(name_loop->name, "socket:", strlen("socket:")) == 0) {
 			pass_env_to_socket(udevice->udev, &name_loop->name[strlen("socket:")], udevice->dev->devpath, udevice->action);
 		} else {
-			char program[PATH_SIZE];
+			char program[UTIL_PATH_SIZE];
 
 			util_strlcpy(program, name_loop->name, sizeof(program));
 			udev_rules_apply_format(udevice, program, sizeof(program));
@@ -528,8 +528,8 @@ int udev_rules_run(struct udevice *udevice)
 #define WAIT_LOOP_PER_SECOND		50
 static int wait_for_file(struct udevice *udevice, const char *file, int timeout)
 {
-	char filepath[PATH_SIZE];
-	char devicepath[PATH_SIZE] = "";
+	char filepath[UTIL_PATH_SIZE];
+	char devicepath[UTIL_PATH_SIZE] = "";
 	struct stat stats;
 	int loop = timeout * WAIT_LOOP_PER_SECOND;
 
@@ -566,7 +566,7 @@ static int wait_for_file(struct udevice *udevice, const char *file, int timeout)
 /* handle "[$SUBSYSTEM/$KERNEL]<attribute>" lookup */
 static int attr_get_by_subsys_id(struct udev *udev, const char *attrstr, char *devpath, size_t len, char **attr)
 {
-	char subsys[NAME_SIZE];
+	char subsys[UTIL_NAME_SIZE];
 	char *pos;
 	char *id;
 	char *attrib;
@@ -610,7 +610,7 @@ static int attr_subst_subdir(char *attr, size_t len)
 
 	pos = strstr(attr, "/*/");
 	if (pos != NULL) {
-		char str[PATH_SIZE];
+		char str[UTIL_PATH_SIZE];
 		DIR *dir;
 
 		pos[1] = '\0';
@@ -643,8 +643,8 @@ static int attr_subst_subdir(char *attr, size_t len)
 
 void udev_rules_apply_format(struct udevice *udevice, char *string, size_t maxsize)
 {
-	char temp[PATH_SIZE];
-	char temp2[PATH_SIZE];
+	char temp[UTIL_PATH_SIZE];
+	char temp2[UTIL_PATH_SIZE];
 	char *head, *tail, *pos, *cpos, *attr, *rest;
 	int len;
 	int i;
@@ -825,7 +825,7 @@ found:
 			if (attr == NULL)
 				err(udevice->udev, "missing file parameter for attr\n");
 			else {
-				char devpath[PATH_SIZE];
+				char devpath[UTIL_PATH_SIZE];
 				char *attrib;
 				const char *value = NULL;
 				size_t size;
@@ -915,7 +915,7 @@ found:
 		case SUBST_LINKS:
 			if (!list_empty(&udevice->symlink_list)) {
 				struct name_entry *name_loop;
-				char symlinks[PATH_SIZE] = "";
+				char symlinks[UTIL_PATH_SIZE] = "";
 
 				list_for_each_entry(name_loop, &udevice->symlink_list, node) {
 					util_strlcat(symlinks, name_loop->name, sizeof(symlinks));
@@ -971,7 +971,7 @@ static char *key_pair_name(struct udev_rule *rule, struct key_pair *pair)
 
 static int match_key(struct udev *udev, const char *key_name, struct udev_rule *rule, struct key *key, const char *val)
 {
-	char value[PATH_SIZE];
+	char value[UTIL_PATH_SIZE];
 	char *key_value;
 	char *pos;
 	int match = 0;
@@ -1070,8 +1070,8 @@ static int match_rule(struct udevice *udevice, struct udev_rule *rule)
 
 	if (rule->test.operation == KEY_OP_MATCH ||
 	    rule->test.operation == KEY_OP_NOMATCH) {
-		char filename[PATH_SIZE];
-		char devpath[PATH_SIZE];
+		char filename[UTIL_PATH_SIZE];
+		char devpath[UTIL_PATH_SIZE];
 		char *attr;
 		struct stat statbuf;
 		int match;
@@ -1087,7 +1087,7 @@ static int match_rule(struct udevice *udevice, struct udev_rule *rule)
 				util_strlcat(filename, attr, sizeof(filename));
 			}
 		} else if (filename[0] != '/') {
-			char tmp[PATH_SIZE];
+			char tmp[UTIL_PATH_SIZE];
 
 			util_strlcpy(tmp, udev_get_sys_path(udevice->udev), sizeof(tmp));
 			util_strlcat(tmp, udevice->dev->devpath, sizeof(tmp));
@@ -1114,7 +1114,7 @@ static int match_rule(struct udevice *udevice, struct udev_rule *rule)
 	}
 
 	if (rule->wait_for.operation != KEY_OP_UNSET) {
-		char filename[PATH_SIZE];
+		char filename[UTIL_PATH_SIZE];
 		int found;
 
 		util_strlcpy(filename, key_val(rule, &rule->wait_for), sizeof(filename));
@@ -1132,10 +1132,10 @@ static int match_rule(struct udevice *udevice, struct udev_rule *rule)
 		    pair->key.operation == KEY_OP_NOMATCH) {
 			const char *key_name = key_pair_name(rule, pair);
 			const char *key_value = key_val(rule, &pair->key);
-			char devpath[PATH_SIZE];
+			char devpath[UTIL_PATH_SIZE];
 			char *attrib;
 			const char *value = NULL;
-			char val[VALUE_SIZE];
+			char val[UTIL_NAME_SIZE];
 			size_t len;
 
 			if (attr_get_by_subsys_id(udevice->udev, key_name, devpath, sizeof(devpath), &attrib)) {
@@ -1188,7 +1188,7 @@ static int match_rule(struct udevice *udevice, struct udev_rule *rule)
 				const char *key_name = key_pair_name(rule, pair);
 				const char *key_value = key_val(rule, &pair->key);
 				const char *value;
-				char val[VALUE_SIZE];
+				char val[UTIL_NAME_SIZE];
 				size_t len;
 
 				value = sysfs_attr_get_value(udevice->udev, udevice->dev_parent->devpath, key_name);
@@ -1226,8 +1226,8 @@ try_parent:
 
 	/* execute external program */
 	if (rule->program.operation != KEY_OP_UNSET) {
-		char program[PATH_SIZE];
-		char result[PATH_SIZE];
+		char program[UTIL_PATH_SIZE];
+		char result[UTIL_PATH_SIZE];
 
 		util_strlcpy(program, key_val(rule, &rule->program), sizeof(program));
 		udev_rules_apply_format(udevice, program, sizeof(program));
@@ -1262,7 +1262,7 @@ try_parent:
 
 	/* import variables returned from program or or file into environment */
 	if (rule->import.operation != KEY_OP_UNSET) {
-		char import[PATH_SIZE];
+		char import[UTIL_PATH_SIZE];
 		int rc = -1;
 
 		util_strlcpy(import, key_val(rule, &rule->import), sizeof(import));
@@ -1291,13 +1291,13 @@ try_parent:
 		struct key_pair *pair = &rule->env.keys[i];
 
 		if (pair->key.operation == KEY_OP_ASSIGN) {
-			char temp_value[NAME_SIZE];
+			char temp_value[UTIL_NAME_SIZE];
 			const char *key_name = key_pair_name(rule, pair);
 			const char *value = key_val(rule, &pair->key);
 
 			/* make sure we don't write to the same string we possibly read from */
 			util_strlcpy(temp_value, value, sizeof(temp_value));
-			udev_rules_apply_format(udevice, temp_value, NAME_SIZE);
+			udev_rules_apply_format(udevice, temp_value, sizeof(temp_value));
 
 			if (temp_value[0] == '\0') {
 				name_list_key_remove(udevice->udev, &udevice->env_list, key_name);
@@ -1321,10 +1321,10 @@ try_parent:
 
 		if (pair->key.operation == KEY_OP_ASSIGN) {
 			const char *key_name = key_pair_name(rule, pair);
-			char devpath[PATH_SIZE];
+			char devpath[UTIL_PATH_SIZE];
 			char *attrib;
-			char attr[PATH_SIZE] = "";
-			char value[NAME_SIZE];
+			char attr[UTIL_PATH_SIZE] = "";
+			char value[UTIL_NAME_SIZE];
 			FILE *f;
 
 			if (attr_get_by_subsys_id(udevice->udev, key_name, devpath, sizeof(devpath), &attrib)) {
@@ -1445,7 +1445,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udevice)
 			    (rule->symlink.operation == KEY_OP_ASSIGN ||
 			     rule->symlink.operation == KEY_OP_ASSIGN_FINAL ||
 			     rule->symlink.operation == KEY_OP_ADD)) {
-				char temp[PATH_SIZE];
+				char temp[UTIL_PATH_SIZE];
 				char *pos, *next;
 				int count;
 

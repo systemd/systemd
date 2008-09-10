@@ -332,7 +332,7 @@ const char *udev_device_get_devname(struct udev_device *udev_device)
  **/
 const char *udev_device_get_subsystem(struct udev_device *udev_device)
 {
-	char subsystem[UTIL_PATH_SIZE];
+	char subsystem[UTIL_NAME_SIZE];
 
 	if (udev_device == NULL)
 		return NULL;
@@ -398,7 +398,7 @@ int udev_device_get_properties(struct udev_device *udev_device,
 	if (udev_device == NULL)
 		return -1;
 	list_for_each_entry(name_loop, &udev_device->env_list, node) {
-		char name[UTIL_PATH_SIZE];
+		char name[UTIL_NAME_SIZE];
 		char *val;
 
 		strncpy(name, name_loop->name, sizeof(name));
@@ -416,7 +416,7 @@ int udev_device_get_properties(struct udev_device *udev_device,
 
 const char *udev_device_get_driver(struct udev_device *udev_device)
 {
-	char driver[UTIL_PATH_SIZE];
+	char driver[UTIL_NAME_SIZE];
 
 	if (udev_device == NULL)
 		return NULL;

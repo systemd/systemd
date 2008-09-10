@@ -125,7 +125,7 @@ int main(int argc, char *argv[])
 
 	/* lookup signature in sysfs to determine the name */
 	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-		char file[PATH_SIZE];
+		char file[UTIL_PATH_SIZE];
 		char sysfs_id_buf[256];
 		uint32_t sysfs_id;
 		ssize_t size;

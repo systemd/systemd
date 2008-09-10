@@ -105,7 +105,8 @@ extern int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg);
 
 /* libudev-utils */
 #define UTIL_PATH_SIZE		1024
-#define UTIL_LINE_SIZE		1024
+#define UTIL_LINE_SIZE		2048
+#define UTIL_NAME_SIZE		512
 struct util_name_entry {
 	struct list_head node;
 	char *name;

@@ -127,7 +127,7 @@ int add_matching_files(struct udev *udev, struct list_head *name_list, const cha
 {
 	struct dirent *ent;
 	DIR *dir;
-	char filename[PATH_SIZE];
+	char filename[UTIL_PATH_SIZE];
 
 	dbg(udev, "open directory '%s'\n", dirname);
 	dir = opendir(dirname);
@@ -141,7 +141,7 @@ int add_matching_files(struct udev *udev, struct list_head *name_list, const cha
 		if (ent == NULL || ent->d_name[0] == '\0')
 			break;
 
-		if ((ent->d_name[0] == '.') || (ent->d_name[0] == COMMENT_CHARACTER))
+		if ((ent->d_name[0] == '.') || (ent->d_name[0] == '#'))
 			continue;
 
 		/* look for file matching with specified suffix */

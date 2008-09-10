@@ -204,7 +204,7 @@ static char *get_key_attribute(struct udev_rules *rules, char *str)
 static int add_rule_key(struct udev_rule *rule, struct key *key,
 			enum key_operation operation, const char *value)
 {
-	size_t val_len = strnlen(value, PATH_SIZE);
+	size_t val_len = strnlen(value, UTIL_PATH_SIZE);
 
 	key->operation = operation;
 
@@ -218,7 +218,7 @@ static int add_rule_key(struct udev_rule *rule, struct key *key,
 static int add_rule_key_pair(struct udev_rules *rules, struct udev_rule *rule, struct key_pairs *pairs,
 			     enum key_operation operation, const char *key, const char *value)
 {
-	size_t key_len = strnlen(key, PATH_SIZE);
+	size_t key_len = strnlen(key, UTIL_PATH_SIZE);
 
 	if (pairs->count >= PAIRS_MAX) {
 		err(rules->udev, "skip, too many keys of the same type in a single rule\n");
@@ -239,7 +239,7 @@ static int add_rule_key_pair(struct udev_rules *rules, struct udev_rule *rule, s
 
 static int add_to_rules(struct udev_rules *rules, char *line, const char *filename, unsigned int lineno)
 {
-	char buf[sizeof(struct udev_rule) + LINE_SIZE];
+	char buf[sizeof(struct udev_rule) + UTIL_LINE_SIZE];
 	struct udev_rule *rule;
 	size_t rule_size;
 	int valid;
@@ -444,7 +444,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 				rule->import_type = IMPORT_PARENT;
 			} else {
 				/* figure it out if it is executable */
-				char file[PATH_SIZE];
+				char file[UTIL_PATH_SIZE];
 				char *pos;
 				struct stat statbuf;
 
@@ -668,7 +668,7 @@ invalid:
 
 static int parse_file(struct udev_rules *rules, const char *filename)
 {
-	char line[LINE_SIZE];
+	char line[UTIL_LINE_SIZE];
 	char *bufline;
 	unsigned int lineno;
 	char *buf;
@@ -703,7 +703,7 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 			continue;
 
 		/* see if this is a comment */
-		if (bufline[0] == COMMENT_CHARACTER)
+		if (bufline[0] == '#')
 			continue;
 
 		if (count >= sizeof(line)) {
