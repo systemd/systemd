@@ -176,7 +176,6 @@ extern int string_is_true(const char *str);
 extern void remove_trailing_chars(char *path, char c);
 extern size_t path_encode(char *s, size_t len);
 extern size_t path_decode(char *s);
-extern int utf8_encoded_valid_unichar(const char *str);
 extern int replace_chars(char *str, const char *white);
 
 /* udev_utils_file.c */

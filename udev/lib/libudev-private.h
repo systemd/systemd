@@ -123,4 +123,5 @@ extern size_t util_path_decode(char *s);
 extern void util_remove_trailing_chars(char *path, char c);
 extern size_t util_strlcpy(char *dst, const char *src, size_t size);
 extern size_t util_strlcat(char *dst, const char *src, size_t size);
+extern int util_replace_chars(char *str, const char *white);
 #endif

@@ -275,7 +275,7 @@ int main(int argc, char *argv[])
 	}
 
 	set_str(label_safe, label, sizeof(label_safe));
-	replace_chars(label_safe, ALLOWED_CHARS_INPUT);
+	util_replace_chars(label_safe, ALLOWED_CHARS_INPUT);
 
 	volume_id_encode_string(label, label_enc, sizeof(label_enc));
 	volume_id_encode_string(uuid, uuid_enc, sizeof(uuid_enc));

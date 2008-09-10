@@ -185,7 +185,7 @@ static int utf8_unichar_valid_range(int unichar)
 }
 
 /* validate one encoded unicode char and return its length */
-int utf8_encoded_valid_unichar(const char *str)
+static int utf8_encoded_valid_unichar(const char *str)
 {
 	int len;
 	int unichar;

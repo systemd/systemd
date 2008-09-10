@@ -15,10 +15,7 @@ cdrom_id_SOURCES = \
 	cdrom_id.c \
 	../../udev/lib/libudev.h \
 	../../udev/lib/libudev.c \
-	../../udev/lib/libudev-util.c \
-	../../udev/udev_sysdeps.c \
-	../../udev/udev_utils.c \
-	../../udev/udev_utils_string.c
+	../../udev/lib/libudev-util.c
 
 if USE_SELINUX
 cdrom_id_LDADD = \
