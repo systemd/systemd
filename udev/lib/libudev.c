@@ -48,7 +48,7 @@ struct udev {
 	int selinux_enabled;
 	security_context_t selinux_prev_scontext;
 #endif
-	int run:1;
+	int run;
 };
 
 void udev_log(struct udev *udev,

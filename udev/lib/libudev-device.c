@@ -47,7 +47,10 @@ struct udev_device {
 	char *physdevpath;
 	int timeout;
 	dev_t devnum;
-	long long int seqnum;
+	unsigned long long int seqnum;
+	int num_fake_partitions;
+	int link_priority;
+	int ignore_remove;
 };
 
 struct udev_device *device_init(struct udev *udev)
@@ -486,4 +489,40 @@ int device_set_devnum(struct udev_device *udev_device, dev_t devnum)
 {
 	udev_device->devnum = devnum;
 	return 0;
+}
+
+int device_get_num_fake_partitions(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return -1;
+	return udev_device->num_fake_partitions;
+}
+
+int device_set_num_fake_partitions(struct udev_device *udev_device, int num)
+{
+	udev_device->num_fake_partitions = num;
+}
+
+int device_get_link_priority(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return -1;
+	return udev_device->link_priority;
+}
+
+int device_set_link_priority(struct udev_device *udev_device, int prio)
+{
+	 udev_device->link_priority = prio;
+}
+
+int device_get_ignore_remove(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return -1;
+	return udev_device->ignore_remove;
+}
+
+int device_set_ignore_remove(struct udev_device *udev_device, int ignore)
+{
+	 udev_device->ignore_remove = ignore;
 }

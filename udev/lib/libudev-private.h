@@ -70,6 +70,12 @@ extern int device_get_timeout(struct udev_device *udev_device);
 extern int device_set_timeout(struct udev_device *udev_device, int timeout);
 extern int device_set_devnum(struct udev_device *udev_device, dev_t devnum);
 extern int device_set_seqnum(struct udev_device *udev_device, unsigned long long int seqnum);
+extern int device_get_num_fake_partitions(struct udev_device *udev_device);
+extern int device_set_num_fake_partitions(struct udev_device *udev_device, int num);
+extern int device_get_link_priority(struct udev_device *udev_device);
+extern int device_set_link_priority(struct udev_device *udev_device, int prio);
+extern int device_get_ignore_remove(struct udev_device *udev_device);
+extern int device_set_ignore_remove(struct udev_device *udev_device, int ignore);
 
 /* udev_ctrl - daemon runtime setup */
 struct udev_ctrl;
