@@ -107,4 +107,11 @@ extern int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg);
 extern ssize_t util_get_sys_subsystem(struct udev *udev, const char *devpath, char *subsystem, size_t size);
 extern ssize_t util_get_sys_driver(struct udev *udev, const char *devpath, char *driver, size_t size);
 extern int util_resolve_sys_link(struct udev *udev, char *devpath, size_t size);
+extern struct util_name_entry *util_name_list_add(struct udev *udev, struct list_head *name_list,
+						  const char *name, int sort);
+extern void util_name_list_cleanup(struct udev *udev, struct list_head *name_list);
+extern int util_log_priority(const char *priority);
+extern size_t util_path_encode(char *s, size_t len);
+extern size_t util_path_decode(char *s);
+extern void util_remove_trailing_chars(char *path, char c);
 #endif

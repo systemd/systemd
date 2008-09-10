@@ -184,18 +184,18 @@ struct udev *udev_new(void)
 	if (env != NULL) {
 		free(udev->sys_path);
 		udev->sys_path = strdup(env);
-		remove_trailing_chars(udev->sys_path, '/');
+		util_remove_trailing_chars(udev->sys_path, '/');
 	}
 
 	env = getenv("UDEV_RUN");
-	if (env != NULL && !string_is_true(env))
+	if (env != NULL && strcmp(env, "0") == 0)
 		udev->run = 0;
 
 	env = getenv("UDEV_CONFIG_FILE");
 	if (env != NULL) {
 		free(config_file);
 		config_file = strdup(env);
-		remove_trailing_chars(config_file, '/');
+		util_remove_trailing_chars(config_file, '/');
 	}
 	if (config_file == NULL)
 		goto err;
@@ -263,19 +263,19 @@ struct udev *udev_new(void)
 			}
 
 			if (strcasecmp(key, "udev_log") == 0) {
-				udev->log_priority = log_priority(val);
+				udev->log_priority = util_log_priority(val);
 				continue;
 			}
 			if (strcasecmp(key, "udev_root") == 0) {
 				free(udev->dev_path);
 				udev->dev_path = strdup(val);
-				remove_trailing_chars(udev->dev_path, '/');
+				util_remove_trailing_chars(udev->dev_path, '/');
 				continue;
 			}
 			if (strcasecmp(key, "udev_rules") == 0) {
 				free(udev->rules_path);
 				udev->rules_path = strdup(val);
-				remove_trailing_chars(udev->rules_path, '/');
+				util_remove_trailing_chars(udev->rules_path, '/');
 				continue;
 			}
 		}
@@ -286,12 +286,12 @@ struct udev *udev_new(void)
 	if (env != NULL) {
 		free(udev->dev_path);
 		udev->dev_path = strdup(env);
-		remove_trailing_chars(udev->dev_path, '/');
+		util_remove_trailing_chars(udev->dev_path, '/');
 	}
 
 	env = getenv("UDEV_LOG");
 	if (env != NULL)
-		udev->log_priority = log_priority(env);
+		udev->log_priority = util_log_priority(env);
 
 	if (udev->dev_path == NULL || udev->sys_path == NULL)
 		goto err;

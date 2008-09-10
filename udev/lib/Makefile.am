@@ -30,8 +30,6 @@ libudev_la_SOURCES =\
 	libudev-monitor.c \
 	../list.h \
 	../udev.h \
-	../udev_utils.c \
-	../udev_utils_string.c \
 	../udev_sysdeps.c
 
 libudev_la_LDFLAGS = \

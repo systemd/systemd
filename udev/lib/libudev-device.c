@@ -61,7 +61,7 @@ static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *f
 	strlcpy(filename, udev_get_dev_path(udev), len);
 	start = strlcat(filename, "/.udev/db/", len);
 	strlcat(filename, devpath, len);
-	return path_encode(&filename[start], len - start);
+	return util_path_encode(&filename[start], len - start);
 }
 
 static int device_read_db(struct udev_device *udev_device)
@@ -264,8 +264,8 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->syspath);
 	free(udev_device->devname);
 	free(udev_device->subsystem);
-	name_list_cleanup(udev_device->udev, &udev_device->link_list);
-	name_list_cleanup(udev_device->udev, &udev_device->env_list);
+	util_name_list_cleanup(udev_device->udev, &udev_device->link_list);
+	util_name_list_cleanup(udev_device->udev, &udev_device->env_list);
 	free(udev_device->action);
 	free(udev_device->driver);
 	free(udev_device->devpath_old);
@@ -477,14 +477,14 @@ int device_set_devname(struct udev_device *udev_device, const char *devname)
 
 int device_add_devlink(struct udev_device *udev_device, const char *devlink)
 {
-	if (name_list_add(udev_device->udev, &udev_device->link_list, devlink, 0) == NULL)
+	if (util_name_list_add(udev_device->udev, &udev_device->link_list, devlink, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }
 
 int device_add_property(struct udev_device *udev_device, const char *property)
 {
-	if (name_list_add(udev_device->udev, &udev_device->env_list, property, 0) == NULL)
+	if (util_name_list_add(udev_device->udev, &udev_device->env_list, property, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }

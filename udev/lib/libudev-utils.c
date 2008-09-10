@@ -94,3 +94,121 @@ int util_resolve_sys_link(struct udev *udev, char *devpath, size_t size)
 	strlcat(devpath, &link_target[back * 3], size);
 	return 0;
 }
+
+struct util_name_entry {
+	struct list_head node;
+	char *name;
+	int *i;
+};
+
+struct util_name_entry *util_name_list_add(struct udev *udev, struct list_head *name_list,
+					   const char *name, int sort)
+{
+	struct util_name_entry *name_loop;
+	struct util_name_entry *name_new;
+
+	/* avoid duplicate entries */
+	list_for_each_entry(name_loop, name_list, node) {
+		if (strcmp(name_loop->name, name) == 0) {
+			dbg(udev, "'%s' is already in the list\n", name);
+			return name_loop;
+		}
+	}
+
+	if (sort) {
+		list_for_each_entry(name_loop, name_list, node) {
+			if (strcmp(name_loop->name, name) > 0)
+				break;
+		}
+	}
+
+	name_new->name = strdup(name);
+	if (name_new->name == NULL)
+		return NULL;
+	dbg(udev, "adding '%s'\n", name_new->name);
+	list_add_tail(&name_new->node, &name_loop->node);
+	return name_new;
+}
+
+void util_name_list_cleanup(struct udev *udev, struct list_head *name_list)
+{
+	struct util_name_entry *name_loop;
+	struct util_name_entry *name_tmp;
+
+	list_for_each_entry_safe(name_loop, name_tmp, name_list, node) {
+		list_del(&name_loop->node);
+		free(name_loop->name);
+		free(name_loop);
+	}
+}
+
+int util_log_priority(const char *priority)
+{
+	char *endptr;
+	int prio;
+
+	prio = strtol(priority, &endptr, 10);
+	if (endptr[0] == '\0')
+		return prio;
+	if (strncasecmp(priority, "err", 3) == 0)
+		return LOG_ERR;
+	if (strcasecmp(priority, "info") == 0)
+		return LOG_INFO;
+	if (strcasecmp(priority, "debug") == 0)
+		return LOG_DEBUG;
+	return 0;
+}
+
+size_t util_path_encode(char *s, size_t len)
+{
+	char t[(len * 3)+1];
+	size_t i, j;
+
+	t[0] = '\0';
+	for (i = 0, j = 0; s[i] != '\0'; i++) {
+		if (s[i] == '/') {
+			memcpy(&t[j], "\\x2f", 4);
+			j += 4;
+		} else if (s[i] == '\\') {
+			memcpy(&t[j], "\\x5c", 4);
+			j += 4;
+		} else {
+			t[j] = s[i];
+			j++;
+		}
+	}
+	t[j] = '\0';
+	strncpy(s, t, len);
+	return j;
+}
+
+size_t util_path_decode(char *s)
+{
+	size_t i, j;
+
+	for (i = 0, j = 0; s[i] != '\0'; j++) {
+		if (memcmp(&s[i], "\\x2f", 4) == 0) {
+			s[j] = '/';
+			i += 4;
+		}else if (memcmp(&s[i], "\\x5c", 4) == 0) {
+			s[j] = '\\';
+			i += 4;
+		} else {
+			s[j] = s[i];
+			i++;
+		}
+	}
+	s[j] = '\0';
+	return j;
+}
+
+void util_remove_trailing_chars(char *path, char c)
+{
+	size_t len;
+
+	if (path == NULL)
+		return;
+	len = strlen(path);
+	while (len > 0 && path[len-1] == c)
+		path[--len] = '\0';
+}

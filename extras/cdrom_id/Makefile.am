@@ -15,6 +15,7 @@ cdrom_id_SOURCES = \
 	cdrom_id.c \
 	../../udev/lib/libudev.h \
 	../../udev/lib/libudev.c \
+	../../udev/lib/libudev-utils.c \
 	../../udev/udev_sysdeps.c \
 	../../udev/udev_utils.c \
 	../../udev/udev_utils_string.c
