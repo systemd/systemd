@@ -6,9 +6,8 @@ The udevadm info --device-id-of-file= output has changed to use
 the obvious format. Possible current users should use the --export
 option which is not affected.
 
-The old udev commands symlinks to udevadm are not installed since
-a while, if these symlinks are used, a deprecation warning to stderr
-is printed.
+The old udev commands symlinks to udevadm are not installed, if
+these symlinks are used, a warning is printed.
 
 udev 127
 ========

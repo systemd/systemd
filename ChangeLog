@@ -1,3 +1,72 @@
+Summary of changes from v127 to v128
+============================================
+
+Alan Jenkins (8):
+      fix uninitialized name_list error::ignore_error
+      do not needlessly declare some local variables in udev_rules_parse.c as static
+      remove deprecated envp[] in main()
+      fix name compare bug name_list_key_add()
+      remove redundant string copy in udev_rules_apply_format()
+      remove redundant "remove trailing newlines" in udevadm info
+      threadsafe rules iteration
+      fix off-by-one in pass_env_to_socket()
+
+Kay Sievers (53):
+      libudev: add monitor documentation
+      libudev: fix --disable-log
+      autogen.sh: add --with-selinux
+      volume_id: hfs - calculate proper uuid
+      fix dangling pointer returned by attr_get_by_subsys_id()
+      udev-test.pl: add --valgrind option
+      libudev: libudev.pc add Libs.private
+      volume_id: fail on undefined __BYTE_ORDER
+      remove FAQ
+      libudev: fix monitor documentation
+      libudev: add udev_device_get_syspath()
+      udev_device_init() remove statically allocated device support
+      udevadm: info - fix broken --device-id-of-file=
+      udevadm: control - use getopt_long()
+      udevadm: print warning to stderr if udevadm is called by symlink
+      udev-test.pl: remove left-over comment from --valgrind option
+      udevadm: rename source files
+      udevadm: rename internal functions to udevadm_*
+      udevadm: split out control functions
+      udevadm: move init from commands to udevadm
+      autogen.sh: add debug
+      use libudev code, unify logging, pass udev context around everywhere
+      volume_id: linux_raid - fix logic for volumes with size == 0
+      vol_id: add --debug option
+      udevadm: add --version --help options to man page, hide them as commands
+      move udev_ctrl to libudev-private
+      udev-test.pl: set udev_log="err"
+      test-udev: cleanup libudev context and overridden rules file string
+      test-udev: remove unused var
+      add a bunch of private device properties to udev_device
+      udevadm: monitor - use libudev for udev monitor
+      libudev: monitor - add event properties to udev_device
+      udevadm: log message if udevadm link is used
+      udevd: remove max_childs_running logic
+      libudev: monitor- add netlink uevent support
+      udevadm: monitor - use libudev code to retrieve device data
+      libudev: udev_device - read "driver" value
+      libudev: rename enumerate function
+      libudev: add selinux
+      libudev: initialize selinux after logging
+      volume_id: merge util.h in libvolume_id-private.h
+      update file headers
+      libudev: udev_device - add more properties
+      libudev: do not use udev_db.c
+      libudev: get rid of udev_sysfs.c
+      libudev: get rid of udev_utils.c
+      libudev: rename libudev-utils.c libudev-util.c
+      libudev: do not use any udev source file
+      extras: use libudev code
+      convert to libudev and delete udev_utils_string.c
+      get rid of udev_sysdeps.c
+      use size definitions from libudev
+      udevadm: info - use "udev_device"
+
+
 Summary of changes from v126 to v127
 ============================================
 
