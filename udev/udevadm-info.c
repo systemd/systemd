@@ -84,16 +84,18 @@ static void print_all_attributes(struct udev *udev, const char *devpath, const c
 
 			printf("    %s{%s}==\"%s\"\n", key, dent->d_name, value);
 		}
+		closedir(dir);
 	}
 	printf("\n");
 }
 
 static int print_device_chain(struct udev *udev, const char *devpath)
 {
-	struct sysfs_device *dev;
+	struct udev_device *device;
+	const char *str;
 
-	dev = sysfs_device_get(udev, devpath);
-	if (dev == NULL)
+	device = udev_device_new_from_devpath(udev, devpath);
+	if (device == NULL)
 		return -1;
 
 	printf("\n"
@@ -104,23 +106,37 @@ static int print_device_chain(struct udev *udev, const char *devpath)
 	       "and the attributes from one single parent device.\n"
 	       "\n");
 
-	printf("  looking at device '%s':\n", dev->devpath);
-	printf("    KERNEL==\"%s\"\n", dev->kernel);
-	printf("    SUBSYSTEM==\"%s\"\n", dev->subsystem);
-	printf("    DRIVER==\"%s\"\n", dev->driver);
-	print_all_attributes(udev, dev->devpath, "ATTR");
+	printf("  looking at device '%s':\n", udev_device_get_devpath(device));
+	printf("    KERNEL==\"%s\"\n", udev_device_get_sysname(device));
+	str = udev_device_get_subsystem(device);
+	if (str == NULL)
+		str = "";
+	printf("    SUBSYSTEM==\"%s\"\n", str);
+	str = udev_device_get_driver(device);
+	if (str == NULL)
+		str = "";
+	printf("    DRIVER==\"%s\"\n", str);
+	print_all_attributes(udev, udev_device_get_devpath(device), "ATTR");
 
-	/* walk up the chain of devices */
-	while (1) {
-		dev = sysfs_device_get_parent(udev, dev);
-		if (dev == NULL)
+	while (device != NULL) {
+		struct udev_device *device_parent;
+
+		device_parent = udev_device_new_from_parent(device);
+		udev_device_unref(device);
+		if (device_parent == NULL)
 			break;
-		printf("  looking at parent device '%s':\n", dev->devpath);
-		printf("    KERNELS==\"%s\"\n", dev->kernel);
-		printf("    SUBSYSTEMS==\"%s\"\n", dev->subsystem);
-		printf("    DRIVERS==\"%s\"\n", dev->driver);
-
-		print_all_attributes(udev, dev->devpath, "ATTRS");
+		device = device_parent;
+		printf("  looking at parent device '%s':\n", udev_device_get_devpath(device));
+		printf("    KERNELS==\"%s\"\n", udev_device_get_sysname(device));
+		str = udev_device_get_subsystem(device);
+		if (str == NULL)
+			str = "";
+		printf("    SUBSYSTEMS==\"%s\"\n", str);
+		str = udev_device_get_driver(device);
+		if (str == NULL)
+			str = "";
+		printf("    DRIVERS==\"%s\"\n", str);
+		print_all_attributes(udev, udev_device_get_devpath(device), "ATTRS");
 	}
 
 	return 0;

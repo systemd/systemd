@@ -34,8 +34,9 @@
 struct udev_device {
 	int refcount;
 	struct udev *udev;
-	char *devpath;
 	char *syspath;
+	const char *devpath;
+	const char *sysname;
 	char *devname;
 	char *subsystem;
 	struct list_head link_list;
@@ -193,10 +194,11 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
 
 	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
 	util_strlcat(path, devpath, sizeof(path));
-	if (stat(path, &statbuf) != 0)
+	util_strlcat(path, "/uevent", sizeof(path));
+	if (stat(path, &statbuf) != 0) {
+		info(udev, "not a device :%s\n", path);
 		return NULL;
-	if (!S_ISDIR(statbuf.st_mode))
-		return NULL;
+	}
 
 	udev_device = device_init(udev);
 	if (udev_device == NULL)
@@ -212,6 +214,28 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
 		info(udev, "device %p filled with udev database data\n", udev_device);
 
 	return udev_device;
+}
+
+struct udev_device *udev_device_new_from_parent(struct udev_device *udev_device)
+{
+	struct udev_device *udev_device_parent = NULL;
+	char path[UTIL_PATH_SIZE];
+	char *pos;
+
+	if (udev_device == NULL)
+		return NULL;
+
+	util_strlcpy(path, udev_device_get_devpath(udev_device), sizeof(path));
+	while (1) {
+		pos = strrchr(path, '/');
+		if (pos == NULL)
+			break;
+		pos[0] = '\0';
+		udev_device_parent = udev_device_new_from_devpath(udev_device->udev, path);
+		if (udev_device_parent != NULL)
+			break;
+	}
+	return udev_device_parent;
 }
 
 /**
@@ -303,6 +327,13 @@ const char *udev_device_get_syspath(struct udev_device *udev_device)
 	if (udev_device == NULL)
 		return NULL;
 	return udev_device->syspath;
+}
+
+const char *udev_device_get_sysname(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return NULL;
+	return udev_device->sysname;
 }
 
 /**
@@ -454,6 +485,9 @@ int device_set_devpath(struct udev_device *udev_device, const char *devpath)
 	if (asprintf(&udev_device->syspath, "%s%s", udev_get_sys_path(udev_device->udev), devpath) < 0)
 		return -ENOMEM;
 	udev_device->devpath = &udev_device->syspath[strlen(udev_get_sys_path(udev_device->udev))];
+	udev_device->sysname = strrchr(udev_device->syspath, '/');
+	if (udev_device->sysname != NULL)
+		udev_device->sysname = &udev_device->sysname[1];
 	return 0;
 }
 

@@ -20,7 +20,6 @@ include_HEADERS =\
 	libudev.h
 
 libudev_la_SOURCES =\
-	exported_symbools \
 	libudev-private.h \
 	libudev.c \
 	libudev-util.c \

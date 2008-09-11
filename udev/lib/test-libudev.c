@@ -86,6 +86,23 @@ static int test_device(struct udev *udev, const char *devpath)
 	return 0;
 }
 
+static int test_device_parents(struct udev *udev, const char *devpath)
+{
+	struct udev_device *device;
+
+	printf("looking at device: %s\n", devpath);
+	device = udev_device_new_from_devpath(udev, devpath);
+	while (device != NULL) {
+		struct udev_device *device_parent;
+
+		print_device(device);
+		device_parent = udev_device_new_from_parent(device);
+		udev_device_unref(device);
+		device = device_parent;
+	}
+	return 0;
+}
+
 static int devices_enum_cb(struct udev *udev,
 			   const char *devpath, const char *subsystem, const char *name,
 			   void *data)
@@ -184,6 +201,7 @@ int main(int argc, char *argv[], char *envp[])
 	printf("dev_path: '%s'\n", str);
 
 	test_device(udev, devpath);
+	test_device_parents(udev, devpath);
 	test_enumerate(udev, subsystem);
 	test_monitor(udev, socket);
 
