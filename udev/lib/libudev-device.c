@@ -34,6 +34,7 @@
 struct udev_device {
 	int refcount;
 	struct udev *udev;
+	struct udev_device *parent_device;
 	char *syspath;
 	const char *devpath;
 	const char *sysname;
@@ -196,7 +197,7 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
 	util_strlcat(path, devpath, sizeof(path));
 	util_strlcat(path, "/uevent", sizeof(path));
 	if (stat(path, &statbuf) != 0) {
-		info(udev, "not a device :%s\n", path);
+		info(udev, "not a device :%s\n", devpath);
 		return NULL;
 	}
 
@@ -212,11 +213,10 @@ struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *
 
 	if (device_read_db(udev_device) >= 0)
 		info(udev, "device %p filled with udev database data\n", udev_device);
-
 	return udev_device;
 }
 
-struct udev_device *udev_device_new_from_parent(struct udev_device *udev_device)
+static struct udev_device *device_new_from_parent(struct udev_device *udev_device)
 {
 	struct udev_device *udev_device_parent = NULL;
 	char path[UTIL_PATH_SIZE];
@@ -228,7 +228,7 @@ struct udev_device *udev_device_new_from_parent(struct udev_device *udev_device)
 	util_strlcpy(path, udev_device_get_devpath(udev_device), sizeof(path));
 	while (1) {
 		pos = strrchr(path, '/');
-		if (pos == NULL)
+		if (pos == path || pos == NULL)
 			break;
 		pos[0] = '\0';
 		udev_device_parent = udev_device_new_from_devpath(udev_device->udev, path);
@@ -236,6 +236,13 @@ struct udev_device *udev_device_new_from_parent(struct udev_device *udev_device)
 			break;
 	}
 	return udev_device_parent;
+}
+
+struct udev_device *udev_device_get_parent(struct udev_device *udev_device)
+{
+	if (udev_device->parent_device == NULL)
+		udev_device->parent_device = device_new_from_parent(udev_device);
+	return udev_device->parent_device;
 }
 
 /**
@@ -284,6 +291,8 @@ void udev_device_unref(struct udev_device *udev_device)
 	udev_device->refcount--;
 	if (udev_device->refcount > 0)
 		return;
+	if (udev_device->parent_device != NULL)
+		udev_device_unref(udev_device->parent_device);
 	free(udev_device->syspath);
 	free(udev_device->devname);
 	free(udev_device->subsystem);

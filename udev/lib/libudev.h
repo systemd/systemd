@@ -46,7 +46,7 @@ extern void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsign
 
 struct udev_device;
 extern struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *devpath);
-extern struct udev_device *udev_device_new_from_parent(struct udev_device *udev_device);
+extern struct udev_device *udev_device_get_parent(struct udev_device *udev_device);
 extern struct udev_device *udev_device_ref(struct udev_device *udev_device);
 extern void udev_device_unref(struct udev_device *udev_device);
 extern struct udev *udev_device_get_udev(struct udev_device *udev_device);

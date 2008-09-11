@@ -92,6 +92,7 @@ static void print_all_attributes(struct udev *udev, const char *devpath, const c
 static int print_device_chain(struct udev *udev, const char *devpath)
 {
 	struct udev_device *device;
+	struct udev_device *device_parent;
 	const char *str;
 
 	device = udev_device_new_from_devpath(udev, devpath);
@@ -118,27 +119,25 @@ static int print_device_chain(struct udev *udev, const char *devpath)
 	printf("    DRIVER==\"%s\"\n", str);
 	print_all_attributes(udev, udev_device_get_devpath(device), "ATTR");
 
-	while (device != NULL) {
-		struct udev_device *device_parent;
-
-		device_parent = udev_device_new_from_parent(device);
-		udev_device_unref(device);
+	device_parent = device;
+	do {
+		device_parent = udev_device_get_parent(device_parent);
 		if (device_parent == NULL)
 			break;
-		device = device_parent;
-		printf("  looking at parent device '%s':\n", udev_device_get_devpath(device));
-		printf("    KERNELS==\"%s\"\n", udev_device_get_sysname(device));
-		str = udev_device_get_subsystem(device);
+		printf("  looking at parent device '%s':\n", udev_device_get_devpath(device_parent));
+		printf("    KERNELS==\"%s\"\n", udev_device_get_sysname(device_parent));
+		str = udev_device_get_subsystem(device_parent);
 		if (str == NULL)
 			str = "";
 		printf("    SUBSYSTEMS==\"%s\"\n", str);
-		str = udev_device_get_driver(device);
+		str = udev_device_get_driver(device_parent);
 		if (str == NULL)
 			str = "";
 		printf("    DRIVERS==\"%s\"\n", str);
-		print_all_attributes(udev, udev_device_get_devpath(device), "ATTRS");
-	}
+		print_all_attributes(udev, udev_device_get_devpath(device_parent), "ATTRS");
+	} while (device_parent != NULL);
 
+	udev_device_unref(device);
 	return 0;
 }
 

@@ -8,7 +8,7 @@ udev_set_log_priority
 udev_get_sys_path
 udev_get_dev_path
 udev_device_new_from_devpath
-udev_device_new_from_parent
+udev_device_get_parent
 udev_device_ref
 udev_device_unref
 udev_device_get_udev

@@ -24,6 +24,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <getopt.h>
+#include <syslog.h>
 #include <sys/select.h>
 
 #include "libudev.h"
@@ -89,17 +91,26 @@ static int test_device(struct udev *udev, const char *devpath)
 static int test_device_parents(struct udev *udev, const char *devpath)
 {
 	struct udev_device *device;
+	struct udev_device *device_parent;
 
 	printf("looking at device: %s\n", devpath);
 	device = udev_device_new_from_devpath(udev, devpath);
-	while (device != NULL) {
-		struct udev_device *device_parent;
+	if (device == NULL)
+		return -1;
 
-		print_device(device);
-		device_parent = udev_device_new_from_parent(device);
-		udev_device_unref(device);
-		device = device_parent;
-	}
+	device_parent = device;
+	do {
+		print_device(device_parent);
+		device_parent = udev_device_get_parent(device_parent);
+	} while (device_parent != NULL);
+
+	device_parent = device;
+	do {
+		print_device(device_parent);
+		device_parent = udev_device_get_parent(device_parent);
+	} while (device_parent != NULL);
+	udev_device_unref(device);
+
 	return 0;
 }
 
@@ -172,19 +183,20 @@ static int test_monitor(struct udev *udev, const char *socket_path)
 
 int main(int argc, char *argv[], char *envp[])
 {
-	struct udev *udev;
+	struct udev *udev = NULL;
+	static const struct option options[] = {
+		{ "devpath", 1, NULL, 'p' },
+		{ "subsystem", 1, NULL, 's' },
+		{ "socket", 1, NULL, 'S' },
+		{ "debug", 0, NULL, 'd' },
+		{ "help", 0, NULL, 'h' },
+		{ "version", 0, NULL, 'V' },
+		{}
+	};
 	const char *devpath = "/devices/virtual/mem/null";
 	const char *subsystem = NULL;
 	const char *socket = "@/org/kernel/udev/monitor";
 	const char *str;
-
-	if (argv[1] != NULL) {
-		devpath = argv[1];
-		if (argv[2] != NULL)
-			subsystem = argv[2];
-			if (argv[3] != NULL)
-				socket = argv[3];
-	}
 
 	udev = udev_new();
 	printf("context: %p\n", udev);
@@ -195,6 +207,38 @@ int main(int argc, char *argv[], char *envp[])
 	udev_set_log_fn(udev, log_fn);
 	printf("set log: %p\n", log_fn);
 
+	while (1) {
+		int option;
+
+		option = getopt_long(argc, argv, "+dhV", options, NULL);
+		if (option == -1)
+			break;
+
+		switch (option) {
+		case 'p':
+			devpath = optarg;
+			break;
+		case 's':
+			subsystem = optarg;
+			break;
+		case 'S':
+			socket = optarg;
+			break;
+		case 'd':
+			if (udev_get_log_priority(udev) < LOG_INFO)
+				udev_set_log_priority(udev, LOG_INFO);
+			break;
+		case 'h':
+			printf("--debug --devpath= --subsystem= --socket= --help\n");
+			goto out;
+		case 'V':
+			printf("%s\n", VERSION);
+			goto out;
+		default:
+			goto out;
+		}
+	}
+
 	str = udev_get_sys_path(udev);
 	printf("sys_path: '%s'\n", str);
 	str = udev_get_dev_path(udev);
@@ -204,7 +248,7 @@ int main(int argc, char *argv[], char *envp[])
 	test_device_parents(udev, devpath);
 	test_enumerate(udev, subsystem);
 	test_monitor(udev, socket);
-
+out:
 	udev_unref(udev);
 	return 0;
 }
