@@ -146,7 +146,6 @@ extern int udev_db_delete_device(struct udevice *udevice);
 extern int udev_db_rename(struct udev *udev, const char *devpath_old, const char *devpath);
 extern int udev_db_get_device(struct udevice *udevice, const char *devpath);
 extern int udev_db_get_devices_by_name(struct udev *udev, const char *name, struct list_head *name_list);
-extern int udev_db_get_all_entries(struct udev *udevconst, struct list_head *name_list);
 
 /* udev_utils.c */
 struct name_entry {

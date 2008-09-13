@@ -67,6 +67,7 @@ extern const char *udev_device_get_driver(struct udev_device *udev_device);
 extern dev_t udev_device_get_devnum(struct udev_device *udev_device);
 extern const char *udev_device_get_action(struct udev_device *udev_device);
 extern unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device);
+extern const char *udev_device_get_attr_value(struct udev_device *udev_device, const char *attr);
 
 extern int udev_enumerate_devices(struct udev *udev, const char *subsystem,
 				  int (*cb)(struct udev *udev,

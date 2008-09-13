@@ -110,13 +110,14 @@ extern int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg);
 struct util_name_entry {
 	struct list_head node;
 	char *name;
+	char *value;
 	int *i;
 };
 extern ssize_t util_get_sys_subsystem(struct udev *udev, const char *devpath, char *subsystem, size_t size);
 extern ssize_t util_get_sys_driver(struct udev *udev, const char *devpath, char *driver, size_t size);
 extern int util_resolve_sys_link(struct udev *udev, char *devpath, size_t size);
 extern struct util_name_entry *util_name_list_add(struct udev *udev, struct list_head *name_list,
-						  const char *name, int sort);
+						  const char *name, const char *value, int sort);
 extern void util_name_list_cleanup(struct udev *udev, struct list_head *name_list);
 extern int util_log_priority(const char *priority);
 extern size_t util_path_encode(char *s, size_t len);
@@ -125,4 +126,5 @@ extern void util_remove_trailing_chars(char *path, char c);
 extern size_t util_strlcpy(char *dst, const char *src, size_t size);
 extern size_t util_strlcat(char *dst, const char *src, size_t size);
 extern int util_replace_chars(char *str, const char *white);
+extern char *util_sysattr_get_value(struct udev *udev, const char *devpath, const char *attr_name);
 #endif

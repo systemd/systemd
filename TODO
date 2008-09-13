@@ -10,3 +10,7 @@ These things will change in future udev versions:
   o "udevadm control" commands will only accept the --<command> syntax
   o symlink names to udevadm will no longer be resolved to old command names
 
+before next release:
+  o handle old "device" link in get_parent (CONFIG_SYSFS_DEPRECATED*=y)
+  o handle "subsystem", "driver", as device
+  o switch libudev API to syspath instead of devpath

@@ -27,6 +27,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <ctype.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 
 #include "libudev.h"
@@ -97,7 +98,7 @@ int util_resolve_sys_link(struct udev *udev, char *devpath, size_t size)
 }
 
 struct util_name_entry *util_name_list_add(struct udev *udev, struct list_head *name_list,
-					   const char *name, int sort)
+					   const char *name, const char *value, int sort)
 {
 	struct util_name_entry *name_loop;
 	struct util_name_entry *name_new;
@@ -126,7 +127,14 @@ struct util_name_entry *util_name_list_add(struct udev *udev, struct list_head *
 		free(name_new);
 		return NULL;
 	}
-	dbg(udev, "adding '%s'\n", name_new->name);
+	if (value != NULL) {
+		name_new->value = strdup(value);
+		if (name_new->value == NULL) {
+			free(name_new);
+			return NULL;
+		}
+	}
+	dbg(udev, "adding '%s=%s'\n", name_new->name, name_new->value);
 	list_add_tail(&name_new->node, &name_loop->node);
 	return name_new;
 }
@@ -139,6 +147,7 @@ void util_name_list_cleanup(struct udev *udev, struct list_head *name_list)
 	list_for_each_entry_safe(name_loop, name_tmp, name_list, node) {
 		list_del(&name_loop->node);
 		free(name_loop->name);
+		free(name_loop->value);
 		free(name_loop);
 	}
 }

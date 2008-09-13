@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <string.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 
 #include "libudev.h"
@@ -52,6 +53,7 @@ struct udev_device {
 	int num_fake_partitions;
 	int devlink_priority;
 	int ignore_remove;
+	struct list_head attr_list;
 };
 
 static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *filename, size_t len)
@@ -164,6 +166,7 @@ struct udev_device *device_init(struct udev *udev)
 	udev_device->udev = udev;
 	INIT_LIST_HEAD(&udev_device->link_list);
 	INIT_LIST_HEAD(&udev_device->env_list);
+	INIT_LIST_HEAD(&udev_device->attr_list);
 	info(udev_device->udev, "udev_device: %p created\n", udev_device);
 	return udev_device;
 }
@@ -302,6 +305,7 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->driver);
 	free(udev_device->devpath_old);
 	free(udev_device->physdevpath);
+	util_name_list_cleanup(udev_device->udev, &udev_device->attr_list);
 	info(udev_device->udev, "udev_device: %p released\n", udev_device);
 	free(udev_device);
 }
@@ -489,6 +493,72 @@ unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device)
 	return udev_device->seqnum;
 }
 
+const char *udev_device_get_attr_value(struct udev_device *udev_device, const char *attr)
+{
+	char path[UTIL_PATH_SIZE];
+	char value[UTIL_NAME_SIZE];
+	struct stat statbuf;
+	int fd;
+	ssize_t size;
+	const char *val = NULL;
+
+	util_strlcpy(path, udev_device_get_syspath(udev_device), sizeof(path));
+	util_strlcat(path, "/", sizeof(path));
+	util_strlcat(path, attr, sizeof(path));
+
+	if (lstat(path, &statbuf) != 0) {
+		info(udev_device->udev, "stat '%s' failed: %s\n", path, strerror(errno));
+		goto out;
+	}
+
+	if (S_ISLNK(statbuf.st_mode)) {
+		/* links return the last element of the target path */
+		char target[UTIL_NAME_SIZE];
+		int len;
+		char *pos;
+
+		len = readlink(path, target, sizeof(target));
+		if (len > 0) {
+			target[len] = '\0';
+			pos = strrchr(target, '/');
+			if (pos != NULL) {
+				pos = &pos[1];
+				info(udev_device->udev, "cache '%s' with link value '%s'\n", attr, pos);
+				val = util_name_list_add(udev_device->udev, &udev_device->attr_list, attr, pos, 0)->value;
+			}
+		}
+		goto out;
+	}
+
+	/* skip directories */
+	if (S_ISDIR(statbuf.st_mode))
+		goto out;
+
+	/* skip non-readable files */
+	if ((statbuf.st_mode & S_IRUSR) == 0)
+		goto out;
+
+	/* read attribute value */
+	fd = open(path, O_RDONLY);
+	if (fd < 0) {
+		info(udev_device->udev, "attribute '%s' can not be opened\n", path);
+		goto out;
+	}
+	size = read(fd, value, sizeof(value));
+	close(fd);
+	if (size < 0)
+		goto out;
+	if (size == sizeof(value))
+		goto out;
+
+	/* got a valid value, store and return it */
+	value[size] = '\0';
+	util_remove_trailing_chars(value, '\n');
+	info(udev_device->udev, "'%s' has attribute value '%s'\n", path, value);
+	val = util_name_list_add(udev_device->udev, &udev_device->attr_list, attr, value, 0)->value;
+out:
+	return val;
+}
 int device_set_devpath(struct udev_device *udev_device, const char *devpath)
 {
 	if (asprintf(&udev_device->syspath, "%s%s", udev_get_sys_path(udev_device->udev), devpath) < 0)
@@ -518,14 +588,14 @@ int device_set_devname(struct udev_device *udev_device, const char *devname)
 
 int device_add_devlink(struct udev_device *udev_device, const char *devlink)
 {
-	if (util_name_list_add(udev_device->udev, &udev_device->link_list, devlink, 0) == NULL)
+	if (util_name_list_add(udev_device->udev, &udev_device->link_list, devlink, NULL, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }
 
 int device_add_property(struct udev_device *udev_device, const char *property)
 {
-	if (util_name_list_add(udev_device->udev, &udev_device->env_list, property, 0) == NULL)
+	if (util_name_list_add(udev_device->udev, &udev_device->env_list, property, NULL, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }

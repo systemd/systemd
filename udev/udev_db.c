@@ -292,36 +292,3 @@ int udev_db_delete_device(struct udevice *udevice)
 
 	return 0;
 }
-
-int udev_db_get_all_entries(struct udev *udev, struct list_head *name_list)
-{
-	char dbpath[PATH_MAX];
-	DIR *dir;
-
-	util_strlcpy(dbpath, udev_get_dev_path(udev), sizeof(dbpath));
-	util_strlcat(dbpath, "/.udev/db", sizeof(dbpath));
-	dir = opendir(dbpath);
-	if (dir == NULL) {
-		info(udev, "no udev_db available '%s': %s\n", dbpath, strerror(errno));
-		return -1;
-	}
-
-	while (1) {
-		struct dirent *ent;
-		char device[UTIL_PATH_SIZE];
-
-		ent = readdir(dir);
-		if (ent == NULL || ent->d_name[0] == '\0')
-			break;
-		if (ent->d_name[0] == '.')
-			continue;
-
-		util_strlcpy(device, ent->d_name, sizeof(device));
-		util_path_decode(device);
-		name_list_add(udev, name_list, device, 1);
-		dbg(udev, "added '%s'\n", device);
-	}
-
-	closedir(dir);
-	return 0;
-}
