@@ -59,7 +59,8 @@ extern int device_set_devpath(struct udev_device *udev_device, const char *devpa
 extern int device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
 extern int device_set_devname(struct udev_device *udev_device, const char *devname);
 extern int device_add_devlink(struct udev_device *udev_device, const char *devlink);
-extern int device_add_property(struct udev_device *udev_device, const char *property);
+extern int device_add_property(struct udev_device *udev_device, const char *key, const char *value);
+extern int device_add_property_from_string(struct udev_device *udev_device, const char *property);
 extern int device_set_action(struct udev_device *udev_device, const char *action);
 extern int device_set_driver(struct udev_device *udev_device, const char *driver);
 extern const char *device_get_devpath_old(struct udev_device *udev_device);

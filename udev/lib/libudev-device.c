@@ -142,7 +142,7 @@ static int device_read_db(struct udev_device *udev_device)
 			device_set_ignore_remove(udev_device, atoi(val));
 			break;
 		case 'E':
-			device_add_property(udev_device, val);
+			device_add_property_from_string(udev_device, val);
 			break;
 		}
 	}
@@ -236,15 +236,29 @@ static struct udev_device *device_new_from_parent(struct udev_device *udev_devic
 		pos[0] = '\0';
 		udev_device_parent = udev_device_new_from_devpath(udev_device->udev, path);
 		if (udev_device_parent != NULL)
-			break;
+			return udev_device_parent;
 	}
-	return udev_device_parent;
+
+	/* follow "device" link in deprecated sysfs /sys/class/ layout */
+	if (strncmp(udev_device->devpath, "/class/", 7) == 0) {
+		util_strlcpy(path, udev_device->devpath, sizeof(path));
+		util_strlcat(path, "/device", sizeof(path));
+		if (util_resolve_sys_link(udev_device->udev, path, sizeof(path)) == 0) {
+			udev_device_parent = udev_device_new_from_devpath(udev_device->udev, path);
+			if (udev_device_parent != NULL)
+				return udev_device_parent;
+		}
+	}
+	return NULL;
 }
 
 struct udev_device *udev_device_get_parent(struct udev_device *udev_device)
 {
-	if (udev_device->parent_device == NULL)
-		udev_device->parent_device = device_new_from_parent(udev_device);
+	if (udev_device->parent_device != NULL) {
+		info(udev_device->udev, "returning existing parent %p\n", udev_device->parent_device);
+		return udev_device->parent_device;
+	}
+	udev_device->parent_device = device_new_from_parent(udev_device);
 	return udev_device->parent_device;
 }
 
@@ -382,10 +396,29 @@ const char *udev_device_get_subsystem(struct udev_device *udev_device)
 		return NULL;
 	if (udev_device->subsystem != NULL)
 		return udev_device->subsystem;
-	if (util_get_sys_subsystem(udev_device->udev, udev_device->devpath, subsystem, sizeof(subsystem)) < 2)
-		return NULL;
-	udev_device->subsystem = strdup(subsystem);
-	return udev_device->subsystem;
+
+	/* read "subsytem" link */
+	if (util_get_sys_subsystem(udev_device->udev, udev_device->devpath, subsystem, sizeof(subsystem)) == 0) {
+		udev_device->subsystem = strdup(subsystem);
+		return udev_device->subsystem;
+	}
+
+	/* implicit names */
+	if (strncmp(udev_device->devpath, "/module/", 8) == 0) {
+		udev_device->subsystem = strdup("module");
+		return udev_device->subsystem;
+	}
+	if (strstr(udev_device->devpath, "/drivers/") != NULL) {
+		udev_device->subsystem = strdup("drivers");
+		return udev_device->subsystem;
+	}
+	if (strncmp(udev_device->devpath, "/subsystem/", 11) == 0 ||
+	    strncmp(udev_device->devpath, "/class/", 7) == 0 ||
+	    strncmp(udev_device->devpath, "/bus/", 5) == 0) {
+		udev_device->subsystem = strdup("subsystem");
+		return udev_device->subsystem;
+	}
+	return NULL;
 }
 
 /**
@@ -442,17 +475,8 @@ int udev_device_get_properties(struct udev_device *udev_device,
 	if (udev_device == NULL)
 		return -1;
 	list_for_each_entry(name_loop, &udev_device->env_list, node) {
-		char name[UTIL_NAME_SIZE];
-		char *val;
-
-		strncpy(name, name_loop->name, sizeof(name));
-		val = strchr(name, '=');
-		if (val == NULL)
-			continue;
-		val[0] = '\0';
-		val = &val[1];
 		count++;
-		if (cb(udev_device, name, val, data) != 0)
+		if (cb(udev_device, name_loop->name, name_loop->value, data) != 0)
 			break;
 	}
 	return count;
@@ -495,12 +519,21 @@ unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device)
 
 const char *udev_device_get_attr_value(struct udev_device *udev_device, const char *attr)
 {
+	struct util_name_entry *name_loop;
 	char path[UTIL_PATH_SIZE];
 	char value[UTIL_NAME_SIZE];
 	struct stat statbuf;
 	int fd;
 	ssize_t size;
 	const char *val = NULL;
+
+	/* look for possibly already cached result */
+	list_for_each_entry(name_loop, &udev_device->attr_list, node) {
+		if (strcmp(name_loop->name, attr) == 0) {
+			info(udev_device->udev, "'%s' in cache '%s'\n", attr, name_loop->value);
+			return name_loop->value;
+		}
+	}
 
 	util_strlcpy(path, udev_device_get_syspath(udev_device), sizeof(path));
 	util_strlcat(path, "/", sizeof(path));
@@ -551,7 +584,7 @@ const char *udev_device_get_attr_value(struct udev_device *udev_device, const ch
 	if (size == sizeof(value))
 		goto out;
 
-	/* got a valid value, store and return it */
+	/* got a valid value, store it in cache and return it */
 	value[size] = '\0';
 	util_remove_trailing_chars(value, '\n');
 	info(udev_device->udev, "'%s' has attribute value '%s'\n", path, value);
@@ -593,10 +626,27 @@ int device_add_devlink(struct udev_device *udev_device, const char *devlink)
 	return 0;
 }
 
-int device_add_property(struct udev_device *udev_device, const char *property)
+int device_add_property(struct udev_device *udev_device, const char *key, const char *value)
 {
-	if (util_name_list_add(udev_device->udev, &udev_device->env_list, property, NULL, 0) == NULL)
+	if (util_name_list_add(udev_device->udev, &udev_device->env_list, key, value, 0) == NULL)
 		return -ENOMEM;
+	return 0;
+}
+
+int device_add_property_from_string(struct udev_device *udev_device, const char *property)
+{
+	char name[UTIL_PATH_SIZE];
+	char *val;
+
+	strncpy(name, property, sizeof(name));
+	val = strchr(name, '=');
+	if (val == NULL)
+		return -1;
+	val[0] = '\0';
+	val = &val[1];
+	if (val[0] == '\0')
+		val = NULL;
+	device_add_property(udev_device, name, val);
 	return 0;
 }
 

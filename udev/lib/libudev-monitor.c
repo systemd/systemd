@@ -336,7 +336,7 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 		} else if (strncmp(key, "TIMEOUT=", 8) == 0) {
 			device_set_timeout(udev_device, strtoull(&key[8], NULL, 10));
 		}
-		device_add_property(udev_device, key);
+		device_add_property_from_string(udev_device, key);
 	}
 	device_set_devnum(udev_device, makedev(maj, min));
 
