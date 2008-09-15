@@ -182,12 +182,10 @@ static int export_all_cb(struct udev *udev,
 
 static struct udev_device *lookup_device_by_name(struct udev *udev, const char *name)
 {
-#if 0
-	/* FIXME */
+	struct udev_device *udev_device = NULL;
 	LIST_HEAD(name_list);
 	int count;
 	struct name_entry *device;
-	int rc  = -1;
 
 	count = udev_db_get_devices_by_name(udev, name, &name_list);
 	if (count <= 0)
@@ -195,7 +193,7 @@ static struct udev_device *lookup_device_by_name(struct udev *udev, const char *
 
 	info(udev, "found %i devices for '%s'\n", count, name);
 
-	/* select the device that seems to match */
+	/* select the device that matches */
 	list_for_each_entry(device, &name_list, node) {
 		struct udevice *udevice_loop;
 		char filename[UTIL_PATH_SIZE];
@@ -207,7 +205,6 @@ static struct udev_device *lookup_device_by_name(struct udev *udev, const char *
 		if (udev_db_get_device(udevice_loop, device->name) != 0)
 			goto next;
 		info(udev, "found db entry '%s'\n", device->name);
-
 		/* make sure, we don't get a link of a different device */
 		util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
 		util_strlcat(filename, "/", sizeof(filename));
@@ -218,17 +215,15 @@ static struct udev_device *lookup_device_by_name(struct udev *udev, const char *
 			info(udev, "skip '%s', dev_t doesn't match\n", udevice_loop->name);
 			goto next;
 		}
-		rc = 0;
-		*udevice = udevice_loop;
+		udev_device = udev_device_new_from_devpath(udev, udevice_loop->dev->devpath);
+		udev_device_cleanup(udevice_loop);
 		break;
 next:
 		udev_device_cleanup(udevice_loop);
 	}
 out:
 	name_list_cleanup(udev, &name_list);
-	return rc;
-#endif
-	return NULL;
+	return udev_device;
 }
 
 static int add_devlink_cb(struct udev_device *device, const char *value, void *data)
@@ -439,7 +434,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 	switch (action) {
 	case ACTION_QUERY:
 		if (device == NULL) {
-			fprintf(stderr, "query needs --path= or node --name= specified\n");
+			fprintf(stderr, "query needs a valid device specified by --path= or --name=\n");
 			rc = 4;
 			goto exit;
 		}
@@ -480,7 +475,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		break;
 	case ACTION_ATTRIBUTE_WALK:
 		if (device == NULL) {
-			fprintf(stderr, "attribute walk needs --path or node --name specified\n");
+			fprintf(stderr, "query needs a valid device specified by --path= or --name=\n");
 			rc = 5;
 			goto exit;
 		}
