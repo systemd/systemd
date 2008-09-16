@@ -47,7 +47,7 @@ static struct sockaddr_un saddr;
 static socklen_t saddrlen;
 
 /* devices that should run last cause of their dependencies */
-static int delay_device(const char *devpath)
+static int delay_device(const char *syspath)
 {
 	static const char *delay_device_list[] = {
 		"*/md*",
@@ -57,7 +57,7 @@ static int delay_device(const char *devpath)
 	int i;
 
 	for (i = 0; delay_device_list[i] != NULL; i++)
-		if (fnmatch(delay_device_list[i], devpath, 0) == 0)
+		if (fnmatch(delay_device_list[i], syspath, 0) == 0)
 			return 1;
 	return 0;
 }
@@ -89,17 +89,16 @@ static int device_list_insert(struct udev *udev, const char *path)
 	return 0;
 }
 
-static void trigger_uevent(struct udev *udev, const char *devpath, const char *action)
+static void trigger_uevent(struct udev *udev, const char *syspath, const char *action)
 {
 	char filename[UTIL_PATH_SIZE];
 	int fd;
 
-	util_strlcpy(filename, udev_get_sys_path(udev), sizeof(filename));
-	util_strlcat(filename, devpath, sizeof(filename));
+	util_strlcpy(filename, syspath, sizeof(filename));
 	util_strlcat(filename, "/uevent", sizeof(filename));
 
 	if (verbose)
-		printf("%s\n", devpath);
+		printf("%s\n", syspath);
 
 	if (dry_run)
 		return;
@@ -116,7 +115,7 @@ static void trigger_uevent(struct udev *udev, const char *devpath, const char *a
 	close(fd);
 }
 
-static int pass_to_socket(struct udev *udev, const char *devpath, const char *action, const char *env)
+static int pass_to_socket(struct udev *udev, const char *syspath, const char *action, const char *env)
 {
 	struct udevice *udevice;
 	struct name_entry *name_loop;
@@ -127,6 +126,7 @@ static int pass_to_socket(struct udev *udev, const char *devpath, const char *ac
 	int fd;
 	char link_target[UTIL_PATH_SIZE];
 	int len;
+	const char *devpath = syspath[strlen(udev_get_sys_path(udev))];
 	int err = 0;
 
 	if (verbose)
@@ -191,8 +191,7 @@ static int pass_to_socket(struct udev *udev, const char *devpath, const char *ac
 	}
 
 	/* add keys from device "uevent" file */
-	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-	util_strlcat(path, devpath, sizeof(path));
+	util_strlcpy(path, syspath, sizeof(path));
 	util_strlcat(path, "/uevent", sizeof(path));
 	fd = open(path, O_RDONLY);
 	if (fd >= 0) {
