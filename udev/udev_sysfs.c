@@ -40,6 +40,39 @@ struct sysfs_attr {
 	char value_local[UTIL_NAME_SIZE];
 };
 
+static int resolve_sys_link(struct udev *udev, char *path, size_t size)
+{
+	char link_path[UTIL_PATH_SIZE];
+	char link_target[UTIL_PATH_SIZE];
+
+	int len;
+	int i;
+	int back;
+
+	util_strlcpy(link_path, udev_get_sys_path(udev), sizeof(link_path));
+	util_strlcat(link_path, path, sizeof(link_path));
+	len = readlink(link_path, link_target, sizeof(link_target));
+	if (len <= 0)
+		return -1;
+	link_target[len] = '\0';
+	dbg(udev, "path link '%s' points to '%s'\n", path, link_target);
+
+	for (back = 0; strncmp(&link_target[back * 3], "../", 3) == 0; back++)
+		;
+	dbg(udev, "base '%s', tail '%s', back %i\n", path, &link_target[back * 3], back);
+	for (i = 0; i <= back; i++) {
+		char *pos = strrchr(path, '/');
+
+		if (pos == NULL)
+			return -1;
+		pos[0] = '\0';
+	}
+	dbg(udev, "after moving back '%s'\n", path);
+	util_strlcat(path, "/", size);
+	util_strlcat(path, &link_target[back * 3], size);
+	return 0;
+}
+
 int sysfs_init(void)
 {
 	INIT_LIST_HEAD(&dev_list);
@@ -144,7 +177,7 @@ struct sysfs_device *sysfs_device_get(struct udev *udev, const char *devpath)
 		return NULL;
 	}
 	if (S_ISLNK(statbuf.st_mode)) {
-		if (util_resolve_sys_link(udev, devpath_real, sizeof(devpath_real)) != 0)
+		if (resolve_sys_link(udev, devpath_real, sizeof(devpath_real)) != 0)
 			return NULL;
 
 		/* now look for device in cache after path translation */
@@ -258,7 +291,7 @@ struct sysfs_device *sysfs_device_get_parent(struct udev *udev, struct sysfs_dev
 device_link:
 	util_strlcpy(parent_devpath, dev->devpath, sizeof(parent_devpath));
 	util_strlcat(parent_devpath, "/device", sizeof(parent_devpath));
-	if (util_resolve_sys_link(udev, parent_devpath, sizeof(parent_devpath)) != 0)
+	if (resolve_sys_link(udev, parent_devpath, sizeof(parent_devpath)) != 0)
 		return NULL;
 
 	/* get parent and remember it */
@@ -460,7 +493,7 @@ out:
 	return 0;
 found:
 	if (S_ISLNK(statbuf.st_mode))
-		util_resolve_sys_link(udev, path, sizeof(path_full) - sysfs_len);
+		resolve_sys_link(udev, path, sizeof(path_full) - sysfs_len);
 	util_strlcpy(devpath_full, path, len);
 	return 1;
 }

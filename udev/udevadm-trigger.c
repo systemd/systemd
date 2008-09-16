@@ -65,7 +65,6 @@ static int delay_device(const char *devpath)
 static int device_list_insert(struct udev *udev, const char *path)
 {
 	char filename[UTIL_PATH_SIZE];
-	char devpath[UTIL_PATH_SIZE];
 	struct stat statbuf;
 
 	dbg(udev, "add '%s'\n" , path);
@@ -78,16 +77,15 @@ static int device_list_insert(struct udev *udev, const char *path)
 	if (!(statbuf.st_mode & S_IWUSR))
 		return -1;
 
-	util_strlcpy(devpath, &path[strlen(udev_get_sys_path(udev))], sizeof(devpath));
-
 	/* resolve possible link to real target */
-	if (lstat(path, &statbuf) < 0)
+	util_strlcpy(filename, path, sizeof(filename));
+	if (lstat(filename, &statbuf) < 0)
 		return -1;
 	if (S_ISLNK(statbuf.st_mode))
-		if (util_resolve_sys_link(udev, devpath, sizeof(devpath)) != 0)
+		if (util_resolve_sys_link(udev, filename, sizeof(filename)) != 0)
 			return -1;
 
-	name_list_add(udev, &device_list, devpath, 1);
+	name_list_add(udev, &device_list, filename, 1);
 	return 0;
 }
 
