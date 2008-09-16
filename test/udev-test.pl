@@ -1896,3 +1896,7 @@ system("rm -rf $udev_root");
 unlink($udev_rules);
 unlink($udev_conf);
 
+if ($error > 0) {
+    exit(1);
+}
+exit(0);
