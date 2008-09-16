@@ -1,7 +1,7 @@
-udev_log_fn
 udev_new
 udev_ref
 udev_unref
+udev_log
 udev_set_log_fn
 udev_get_log_priority
 udev_set_log_priority
