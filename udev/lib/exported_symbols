@@ -12,8 +12,8 @@ udev_device_get_parent
 udev_device_ref
 udev_device_unref
 udev_device_get_udev
-udev_device_get_devpath
 udev_device_get_syspath
+udev_device_get_devpath
 udev_device_get_devname
 udev_device_get_subsystem
 udev_device_get_devlinks

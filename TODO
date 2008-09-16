@@ -12,4 +12,3 @@ These things will change in future udev versions:
 
 before next release:
   o replace list.h with gpl or later version
-  o udev_* prefix for private methods (ctrl_*)?

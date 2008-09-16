@@ -56,6 +56,8 @@ static void print_device(struct udev_device *device)
 	int count;
 
 	printf("*** device: %p ***\n", device);
+	str = udev_device_get_action(device);
+	printf("action:    '%s'\n", str);
 	str = udev_device_get_syspath(device);
 	printf("syspath:   '%s'\n", str);
 	str = udev_device_get_devpath(device);

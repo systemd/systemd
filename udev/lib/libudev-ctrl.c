@@ -45,7 +45,7 @@ enum udev_ctrl_msg_type {
 	UDEV_CTRL_SET_MAX_CHILDS_RUNNING,
 };
 
-struct ctrl_msg {
+struct ctrl_msg_wire {
 	char magic[32];
 	enum udev_ctrl_msg_type type;
 	union {
@@ -57,7 +57,7 @@ struct ctrl_msg {
 struct udev_ctrl_msg {
 	int refcount;
 	struct udev_ctrl *uctrl;
-	struct ctrl_msg ctrl_msg;
+	struct ctrl_msg_wire ctrl_msg_wire;
 };
 
 struct udev_ctrl {
@@ -146,19 +146,19 @@ int udev_ctrl_get_fd(struct udev_ctrl *uctrl)
 
 static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int intval, const char *buf)
 {
-	struct ctrl_msg ctrl_msg;
+	struct ctrl_msg_wire ctrl_msg_wire;
 	int err;
 
-	memset(&ctrl_msg, 0x00, sizeof(struct ctrl_msg));
-	strcpy(ctrl_msg.magic, UDEV_CTRL_MAGIC);
-	ctrl_msg.type = type;
+	memset(&ctrl_msg_wire, 0x00, sizeof(struct ctrl_msg_wire));
+	strcpy(ctrl_msg_wire.magic, UDEV_CTRL_MAGIC);
+	ctrl_msg_wire.type = type;
 
 	if (buf != NULL)
-		util_strlcpy(ctrl_msg.buf, buf, sizeof(ctrl_msg.buf));
+		util_strlcpy(ctrl_msg_wire.buf, buf, sizeof(ctrl_msg_wire.buf));
 	else
-		ctrl_msg.intval = intval;
+		ctrl_msg_wire.intval = intval;
 
-	err = sendto(uctrl->sock, &ctrl_msg, sizeof(ctrl_msg), 0, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
+	err = sendto(uctrl->sock, &ctrl_msg_wire, sizeof(ctrl_msg_wire), 0, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
 	if (err == -1) {
 		err(uctrl->udev, "error sending message: %s\n", strerror(errno));
 	}
@@ -218,7 +218,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl)
 	uctrl_msg->refcount = 1;
 	uctrl_msg->uctrl = uctrl;
 
-	iov.iov_base = &uctrl_msg->ctrl_msg;
+	iov.iov_base = &uctrl_msg->ctrl_msg_wire;
 	iov.iov_len = sizeof(struct udev_ctrl_msg);
 
 	memset(&smsg, 0x00, sizeof(struct msghdr));
@@ -245,12 +245,12 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl)
 		goto err;
 	}
 
-	if (strncmp(uctrl_msg->ctrl_msg.magic, UDEV_CTRL_MAGIC, sizeof(UDEV_CTRL_MAGIC)) != 0 ) {
-		err(uctrl->udev, "message magic '%s' doesn't match, ignore it\n", uctrl_msg->ctrl_msg.magic);
+	if (strncmp(uctrl_msg->ctrl_msg_wire.magic, UDEV_CTRL_MAGIC, sizeof(UDEV_CTRL_MAGIC)) != 0 ) {
+		err(uctrl->udev, "message magic '%s' doesn't match, ignore it\n", uctrl_msg->ctrl_msg_wire.magic);
 		goto err;
 	}
 
-	info(uctrl->udev, "created ctrl_msg %p (%i)\n", uctrl_msg, uctrl_msg->ctrl_msg.type);
+	info(uctrl->udev, "created ctrl_msg %p (%i)\n", uctrl_msg, uctrl_msg->ctrl_msg_wire.type);
 	return uctrl_msg;
 err:
 	udev_ctrl_msg_unref(uctrl_msg);
@@ -278,42 +278,42 @@ void udev_ctrl_msg_unref(struct udev_ctrl_msg *ctrl_msg)
 
 int udev_ctrl_get_set_log_level(struct udev_ctrl_msg *ctrl_msg)
 {
-	if (ctrl_msg->ctrl_msg.type == UDEV_CTRL_SET_LOG_LEVEL)
-		return ctrl_msg->ctrl_msg.intval;
+	if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_SET_LOG_LEVEL)
+		return ctrl_msg->ctrl_msg_wire.intval;
 	return -1;
 }
 
 int udev_ctrl_get_stop_exec_queue(struct udev_ctrl_msg *ctrl_msg)
 {
-	if (ctrl_msg->ctrl_msg.type == UDEV_CTRL_STOP_EXEC_QUEUE)
+	if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_STOP_EXEC_QUEUE)
 		return 1;
 	return -1;
 }
 
 int udev_ctrl_get_start_exec_queue(struct udev_ctrl_msg *ctrl_msg)
 {
-	if (ctrl_msg->ctrl_msg.type == UDEV_CTRL_START_EXEC_QUEUE)
+	if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_START_EXEC_QUEUE)
 		return 1;
 	return -1;
 }
 
 int udev_ctrl_get_reload_rules(struct udev_ctrl_msg *ctrl_msg)
 {
-	if (ctrl_msg->ctrl_msg.type == UDEV_CTRL_RELOAD_RULES)
+	if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_RELOAD_RULES)
 		return 1;
 	return -1;
 }
 
 const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg)
 {
-	if (ctrl_msg->ctrl_msg.type == UDEV_CTRL_SET_ENV)
-		return ctrl_msg->ctrl_msg.buf;
+	if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_SET_ENV)
+		return ctrl_msg->ctrl_msg_wire.buf;
 	return NULL;
 }
 
 int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg)
 {
-	if (ctrl_msg->ctrl_msg.type == UDEV_CTRL_SET_MAX_CHILDS)
-		return ctrl_msg->ctrl_msg.intval;
+	if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_SET_MAX_CHILDS)
+		return ctrl_msg->ctrl_msg_wire.intval;
 	return -1;
 }
