@@ -56,14 +56,14 @@ static void print_device(struct udev_device *device)
 	int count;
 
 	printf("*** device: %p ***\n", device);
+	str = udev_device_get_syspath(device);
+	printf("syspath:   '%s'\n", str);
 	str = udev_device_get_devpath(device);
 	printf("devpath:   '%s'\n", str);
 	str = udev_device_get_subsystem(device);
 	printf("subsystem: '%s'\n", str);
 	str = udev_device_get_driver(device);
 	printf("driver:    '%s'\n", str);
-	str = udev_device_get_syspath(device);
-	printf("syspath:   '%s'\n", str);
 	str = udev_device_get_devname(device);
 	printf("devname:   '%s'\n", str);
 	count = udev_device_get_devlinks(device, print_devlinks_cb, NULL);
@@ -73,12 +73,12 @@ static void print_device(struct udev_device *device)
 	printf("\n");
 }
 
-static int test_device(struct udev *udev, const char *devpath)
+static int test_device(struct udev *udev, const char *syspath)
 {
 	struct udev_device *device;
 
-	printf("looking at device: %s\n", devpath);
-	device = udev_device_new_from_devpath(udev, devpath);
+	printf("looking at device: %s\n", syspath);
+	device = udev_device_new_from_syspath(udev, syspath);
 	if (device == NULL) {
 		printf("no device\n");
 		return -1;
@@ -88,13 +88,13 @@ static int test_device(struct udev *udev, const char *devpath)
 	return 0;
 }
 
-static int test_device_parents(struct udev *udev, const char *devpath)
+static int test_device_parents(struct udev *udev, const char *syspath)
 {
 	struct udev_device *device;
 	struct udev_device *device_parent;
 
-	printf("looking at device: %s\n", devpath);
-	device = udev_device_new_from_devpath(udev, devpath);
+	printf("looking at device: %s\n", syspath);
+	device = udev_device_new_from_syspath(udev, syspath);
 	if (device == NULL)
 		return -1;
 
@@ -185,7 +185,7 @@ int main(int argc, char *argv[], char *envp[])
 {
 	struct udev *udev = NULL;
 	static const struct option options[] = {
-		{ "devpath", 1, NULL, 'p' },
+		{ "syspath", 1, NULL, 'p' },
 		{ "subsystem", 1, NULL, 's' },
 		{ "socket", 1, NULL, 'S' },
 		{ "debug", 0, NULL, 'd' },
@@ -193,9 +193,10 @@ int main(int argc, char *argv[], char *envp[])
 		{ "version", 0, NULL, 'V' },
 		{}
 	};
-	const char *devpath = "/devices/virtual/mem/null";
+	const char *syspath = "/devices/virtual/mem/null";
 	const char *subsystem = NULL;
 	const char *socket = "@/org/kernel/udev/monitor";
+	char path[1024];
 	const char *str;
 
 	udev = udev_new();
@@ -216,7 +217,7 @@ int main(int argc, char *argv[], char *envp[])
 
 		switch (option) {
 		case 'p':
-			devpath = optarg;
+			syspath = optarg;
 			break;
 		case 's':
 			subsystem = optarg;
@@ -229,7 +230,7 @@ int main(int argc, char *argv[], char *envp[])
 				udev_set_log_priority(udev, LOG_INFO);
 			break;
 		case 'h':
-			printf("--debug --devpath= --subsystem= --socket= --help\n");
+			printf("--debug --syspath= --subsystem= --socket= --help\n");
 			goto out;
 		case 'V':
 			printf("%s\n", VERSION);
@@ -244,8 +245,14 @@ int main(int argc, char *argv[], char *envp[])
 	str = udev_get_dev_path(udev);
 	printf("dev_path: '%s'\n", str);
 
-	test_device(udev, devpath);
-	test_device_parents(udev, devpath);
+	/* add sys path if needed */
+	if (strncmp(syspath, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0) {
+		snprintf(path, sizeof(path), "%s%s", udev_get_sys_path(udev), syspath);
+		syspath = path;
+	}
+
+	test_device(udev, syspath);
+	test_device_parents(udev, syspath);
 	test_enumerate(udev, subsystem);
 	test_monitor(udev, socket);
 out:

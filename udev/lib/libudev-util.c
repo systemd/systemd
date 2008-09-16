@@ -33,14 +33,13 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
-static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *devpath, char *subsystem, size_t size)
+static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *syspath, char *subsystem, size_t size)
 {
 	char path[UTIL_PATH_SIZE];
 	ssize_t len;
 	const char *pos;
 
-	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-	util_strlcat(path, devpath, sizeof(path));
+	util_strlcpy(path, syspath, sizeof(path));
 	util_strlcat(path, "/", sizeof(path));
 	util_strlcat(path, slink, sizeof(path));
 	len = readlink(path, path, sizeof(path));
@@ -54,46 +53,43 @@ static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *de
 	return util_strlcpy(subsystem, pos, size);
 }
 
-ssize_t util_get_sys_subsystem(struct udev *udev, const char *devpath, char *subsystem, size_t size)
+ssize_t util_get_sys_subsystem(struct udev *udev, const char *syspath, char *subsystem, size_t size)
 {
-	return get_sys_link(udev, "subsystem", devpath, subsystem, size);
+	return get_sys_link(udev, "subsystem", syspath, subsystem, size);
 }
 
-ssize_t util_get_sys_driver(struct udev *udev, const char *devpath, char *driver, size_t size)
+ssize_t util_get_sys_driver(struct udev *udev, const char *syspath, char *driver, size_t size)
 {
-	return get_sys_link(udev, "driver", devpath, driver, size);
+	return get_sys_link(udev, "driver", syspath, driver, size);
 }
 
-int util_resolve_sys_link(struct udev *udev, char *devpath, size_t size)
+int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size)
 {
-	char link_path[UTIL_PATH_SIZE];
 	char link_target[UTIL_PATH_SIZE];
 
 	int len;
 	int i;
 	int back;
 
-	util_strlcpy(link_path, udev_get_sys_path(udev), sizeof(link_path));
-	util_strlcat(link_path, devpath, sizeof(link_path));
-	len = readlink(link_path, link_target, sizeof(link_target));
+	len = readlink(syspath, link_target, sizeof(link_target));
 	if (len <= 0)
 		return -1;
 	link_target[len] = '\0';
-	dbg(udev, "path link '%s' points to '%s'\n", devpath, link_target);
+	dbg(udev, "path link '%s' points to '%s'\n", syspath, link_target);
 
 	for (back = 0; strncmp(&link_target[back * 3], "../", 3) == 0; back++)
 		;
-	dbg(udev, "base '%s', tail '%s', back %i\n", devpath, &link_target[back * 3], back);
+	dbg(udev, "base '%s', tail '%s', back %i\n", syspath, &link_target[back * 3], back);
 	for (i = 0; i <= back; i++) {
-		char *pos = strrchr(devpath, '/');
+		char *pos = strrchr(syspath, '/');
 
 		if (pos == NULL)
 			return -1;
 		pos[0] = '\0';
 	}
-	dbg(udev, "after moving back '%s'\n", devpath);
-	util_strlcat(devpath, "/", size);
-	util_strlcat(devpath, &link_target[back * 3], size);
+	dbg(udev, "after moving back '%s'\n", syspath);
+	util_strlcat(syspath, "/", size);
+	util_strlcat(syspath, &link_target[back * 3], size);
 	return 0;
 }
 

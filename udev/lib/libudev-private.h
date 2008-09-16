@@ -55,7 +55,7 @@ extern const char *udev_get_rules_path(struct udev *udev);
 extern int udev_get_run(struct udev *udev);
 
 /* libudev-device */
-extern int device_set_devpath(struct udev_device *udev_device, const char *devpath);
+extern int device_set_syspath(struct udev_device *udev_device, const char *syspath);
 extern int device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
 extern int device_set_devname(struct udev_device *udev_device, const char *devname);
 extern int device_add_devlink(struct udev_device *udev_device, const char *devlink);
@@ -114,9 +114,9 @@ struct util_name_entry {
 	char *value;
 	int *i;
 };
-extern ssize_t util_get_sys_subsystem(struct udev *udev, const char *devpath, char *subsystem, size_t size);
-extern ssize_t util_get_sys_driver(struct udev *udev, const char *devpath, char *driver, size_t size);
-extern int util_resolve_sys_link(struct udev *udev, char *devpath, size_t size);
+extern ssize_t util_get_sys_subsystem(struct udev *udev, const char *syspath, char *subsystem, size_t size);
+extern ssize_t util_get_sys_driver(struct udev *udev, const char *syspath, char *driver, size_t size);
+extern int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size);
 extern struct util_name_entry *util_name_list_add(struct udev *udev, struct list_head *name_list,
 						  const char *name, const char *value, int sort);
 extern void util_name_list_cleanup(struct udev *udev, struct list_head *name_list);
@@ -127,5 +127,4 @@ extern void util_remove_trailing_chars(char *path, char c);
 extern size_t util_strlcpy(char *dst, const char *src, size_t size);
 extern size_t util_strlcat(char *dst, const char *src, size_t size);
 extern int util_replace_chars(char *str, const char *white);
-extern char *util_sysattr_get_value(struct udev *udev, const char *devpath, const char *attr_name);
 #endif

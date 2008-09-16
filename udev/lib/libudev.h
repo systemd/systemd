@@ -45,7 +45,7 @@ extern void udev_selinux_setfscreatecon(struct udev *udev, const char *file, uns
 extern void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode);
 
 struct udev_device;
-extern struct udev_device *udev_device_new_from_devpath(struct udev *udev, const char *devpath);
+extern struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *syspath);
 extern struct udev_device *udev_device_get_parent(struct udev_device *udev_device);
 extern struct udev_device *udev_device_ref(struct udev_device *udev_device);
 extern void udev_device_unref(struct udev_device *udev_device);
@@ -71,7 +71,7 @@ extern const char *udev_device_get_attr_value(struct udev_device *udev_device, c
 
 extern int udev_enumerate_devices(struct udev *udev, const char *subsystem,
 				  int (*cb)(struct udev *udev,
-					    const char *devpath, const char *subsystem, const char *name, void *data),
+					    const char *syspath, const char *subsystem, const char *name, void *data),
 				  void *data);
 
 struct udev_monitor;

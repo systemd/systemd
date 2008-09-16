@@ -302,7 +302,11 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 		bufpos += keylen + 1;
 
 		if (strncmp(key, "DEVPATH=", 8) == 0) {
-			device_set_devpath(udev_device, &key[8]);
+			char path[UTIL_PATH_SIZE];
+
+			util_strlcpy(path, udev_get_sys_path(udev_monitor->udev), sizeof(path));
+			util_strlcat(path, &key[8], sizeof(path));
+			device_set_syspath(udev_device, path);
 		} else if (strncmp(key, "SUBSYSTEM=", 10) == 0) {
 			device_set_subsystem(udev_device, &key[10]);
 		} else if (strncmp(key, "DEVNAME=", 8) == 0) {
@@ -336,6 +340,8 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 		} else if (strncmp(key, "TIMEOUT=", 8) == 0) {
 			device_set_timeout(udev_device, strtoull(&key[8], NULL, 10));
 		}
+		if (strncmp(key, "PHYSDEV", 7) == 0)
+			continue;
 		device_add_property_from_string(udev_device, key);
 	}
 	device_set_devnum(udev_device, makedev(maj, min));

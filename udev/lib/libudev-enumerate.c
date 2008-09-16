@@ -38,9 +38,8 @@ static int devices_scan_subsystem(struct udev *udev,
 	char path[UTIL_PATH_SIZE];
 	DIR *dir;
 	struct dirent *dent;
-	size_t len;
 
-	len = util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
+	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
 	util_strlcat(path, basedir, sizeof(path));
 	util_strlcat(path, "/", sizeof(path));
 	util_strlcat(path, subsystem, sizeof(path));
@@ -50,15 +49,15 @@ static int devices_scan_subsystem(struct udev *udev,
 	if (dir == NULL)
 		return -1;
 	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-		char devpath[UTIL_PATH_SIZE];
+		char syspath[UTIL_PATH_SIZE];
 
 		if (dent->d_name[0] == '.')
 			continue;
-		util_strlcpy(devpath, &path[len], sizeof(devpath));
-		util_strlcat(devpath, "/", sizeof(devpath));
-		util_strlcat(devpath, dent->d_name, sizeof(devpath));
-		util_resolve_sys_link(udev, devpath, sizeof(devpath));
-		util_name_list_add(udev, device_list, devpath, NULL, 1);
+		util_strlcpy(syspath, path, sizeof(syspath));
+		util_strlcat(syspath, "/", sizeof(syspath));
+		util_strlcat(syspath, dent->d_name, sizeof(syspath));
+		util_resolve_sys_link(udev, syspath, sizeof(syspath));
+		util_name_list_add(udev, device_list, syspath, NULL, 1);
 	}
 	closedir(dir);
 	return 0;
@@ -89,27 +88,30 @@ static int devices_scan_subsystems(struct udev *udev,
 	return 0;
 }
 
-static int devices_delay(struct udev *udev, const char *devpath)
+static int devices_delay(struct udev *udev, const char *syspath)
 {
 	static const char *delay_device_list[] = {
 		"/block/md",
 		"/block/dm-",
 		NULL
 	};
+	size_t len;
 	int i;
 
+	len = strlen(udev_get_sys_path(udev));
+
 	for (i = 0; delay_device_list[i] != NULL; i++) {
-		if (strstr(devpath, delay_device_list[i]) != NULL) {
-			info(udev, "delaying: %s\n", devpath);
+		if (strstr(&syspath[len], delay_device_list[i]) != NULL) {
+			info(udev, "delaying: %s\n", syspath);
 			return 1;
 		}
 	}
 	return 0;
 }
 
-static int devices_call(struct udev *udev, const char *devpath,
+static int devices_call(struct udev *udev, const char *syspath,
 			int (*cb)(struct udev *udev,
-				  const char *devpath, const char *subsystem, const char *name,
+				  const char *syspath, const char *subsystem, const char *name,
 				  void *data),
 			void *data,
 			int *cb_rc)
@@ -117,14 +119,14 @@ static int devices_call(struct udev *udev, const char *devpath,
 	char subsystem[UTIL_PATH_SIZE];
 	const char *name;
 
-	name = strrchr(devpath, '/');
+	name = strrchr(syspath, '/');
 	if (name == NULL)
 		return -1;
 	name++;
 
-	if (util_get_sys_subsystem(udev, devpath, subsystem, sizeof(subsystem)) < 2)
+	if (util_get_sys_subsystem(udev, syspath, subsystem, sizeof(subsystem)) < 2)
 		return -1;
-	*cb_rc = cb(udev, devpath, subsystem, name, data);
+	*cb_rc = cb(udev, syspath, subsystem, name, data);
 	return 0;
 }
 
@@ -143,7 +145,7 @@ static int devices_call(struct udev *udev, const char *devpath,
  **/
 int udev_enumerate_devices(struct udev *udev, const char *subsystem,
 			   int (*cb)(struct udev *udev,
-				     const char *devpath, const char *subsystem, const char *name, void *data),
+				     const char *syspath, const char *subsystem, const char *name, void *data),
 			   void *data)
 {
 	char base[UTIL_PATH_SIZE];

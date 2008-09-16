@@ -11,5 +11,5 @@ These things will change in future udev versions:
   o symlink names to udevadm will no longer be resolved to old command names
 
 before next release:
-  o switch libudev API to syspath instead of devpath
+  o replace list.h with gpl or later version
   o udev_* prefix for private methods (ctrl_*)?

@@ -166,12 +166,12 @@ static void print_record(struct udev_device *device)
 }
 
 static int export_all_cb(struct udev *udev,
-			 const char *devpath, const char *subsystem, const char *name,
+			 const char *syspath, const char *subsystem, const char *name,
 			 void *data)
 {
 	struct udev_device *device;
 
-	device = udev_device_new_from_devpath(udev, devpath);
+	device = udev_device_new_from_syspath(udev, syspath);
 	if (device == NULL)
 		return 0;
 	if (udev_device_get_devname(device) != NULL)
@@ -215,7 +215,9 @@ static struct udev_device *lookup_device_by_name(struct udev *udev, const char *
 			info(udev, "skip '%s', dev_t doesn't match\n", udevice_loop->name);
 			goto next;
 		}
-		udev_device = udev_device_new_from_devpath(udev, udevice_loop->dev->devpath);
+		util_strlcpy(filename, udev_get_sys_path(udev), sizeof(filename));
+		util_strlcat(filename,  udevice_loop->dev->devpath, sizeof(filename));
+		udev_device = udev_device_new_from_syspath(udev, filename);
 		udev_device_cleanup(udevice_loop);
 		break;
 next:
@@ -348,13 +350,15 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 				rc = 2;
 				goto exit;
 			}
-			/* remove /sys if given */
-			if (strncmp(optarg, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) == 0)
-				util_strlcpy(path, &optarg[strlen(udev_get_sys_path(udev))], sizeof(path));
-			else
+			/* add /sys if needed */
+			if (strncmp(optarg, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0) {
+				util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
+				util_strlcat(path, optarg, sizeof(path));
+			} else {
 				util_strlcpy(path, optarg, sizeof(path));
+			}
 			util_remove_trailing_chars(path, '/');
-			device = udev_device_new_from_devpath(udev, path);
+			device = udev_device_new_from_syspath(udev, path);
 			break;
 		case 'q':
 			action = ACTION_QUERY;
