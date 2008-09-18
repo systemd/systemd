@@ -50,6 +50,7 @@ static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *sy
 	if (pos == NULL)
 		return -1;
 	pos = &pos[1];
+	info(udev, "resolved link to: '%s'\n", pos);
 	return util_strlcpy(subsystem, pos, size);
 }
 

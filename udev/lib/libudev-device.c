@@ -397,7 +397,7 @@ const char *udev_device_get_subsystem(struct udev_device *udev_device)
 		return udev_device->subsystem;
 
 	/* read "subsytem" link */
-	if (util_get_sys_subsystem(udev_device->udev, udev_device->syspath, subsystem, sizeof(subsystem)) == 0) {
+	if (util_get_sys_subsystem(udev_device->udev, udev_device->syspath, subsystem, sizeof(subsystem)) > 0) {
 		udev_device->subsystem = strdup(subsystem);
 		return udev_device->subsystem;
 	}
