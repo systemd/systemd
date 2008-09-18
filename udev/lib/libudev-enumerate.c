@@ -109,43 +109,17 @@ static int devices_delay(struct udev *udev, const char *syspath)
 	return 0;
 }
 
-static int devices_call(struct udev *udev, const char *syspath,
-			int (*cb)(struct udev *udev,
-				  const char *syspath, const char *subsystem, const char *name,
-				  void *data),
-			void *data,
-			int *cb_rc)
-{
-	char subsystem[UTIL_PATH_SIZE];
-	const char *name;
-
-	name = strrchr(syspath, '/');
-	if (name == NULL)
-		return -1;
-	name++;
-
-	if (util_get_sys_subsystem(udev, syspath, subsystem, sizeof(subsystem)) < 2)
-		return -1;
-	*cb_rc = cb(udev, syspath, subsystem, name, data);
-	return 0;
-}
-
 /**
  * udev_enumerate_devices:
- * @udev_device: udev device
- * @cb: function to be called for every property found
+ * @udev: udev library context
+ * @subsystem: the subsystem to enumerate
+ * @cb: function to be called for every device found
  * @data: data to be passed to the function
  *
- * Retrieve the property key/value pairs belonging to the
- * udev device. For every key/value pair, the passed function will be
- * called. If the function returns 1, remaning properties will be
- * ignored.
- *
- * Returns: the number of properties passed to the caller, or a negative value on error
+ * Returns: the number of devices passed to the caller, or a negative value on error
  **/
 int udev_enumerate_devices(struct udev *udev, const char *subsystem,
-			   int (*cb)(struct udev *udev,
-				     const char *syspath, const char *subsystem, const char *name, void *data),
+			   int (*cb)(struct udev_device *udev_device, void *data),
 			   void *data)
 {
 	char base[UTIL_PATH_SIZE];
@@ -171,9 +145,16 @@ int udev_enumerate_devices(struct udev *udev, const char *subsystem,
 	list_for_each_entry_safe(loop_device, tmp_device, &device_list, node) {
 		if (devices_delay(udev, loop_device->name))
 			continue;
-		if (cb_rc == 0)
-			if (devices_call(udev, loop_device->name, cb, data, &cb_rc) == 0)
+		if (cb_rc == 0) {
+			struct udev_device *device;
+
+			device = udev_device_new_from_syspath(udev, loop_device->name);
+			if (device != NULL) {
+				cb_rc = cb(device, data);
 				count++;
+				udev_device_unref(device);
+			}
+		}
 		list_del(&loop_device->node);
 		free(loop_device->name);
 		free(loop_device);
@@ -181,9 +162,16 @@ int udev_enumerate_devices(struct udev *udev, const char *subsystem,
 
 	/* handle remaining delayed devices */
 	list_for_each_entry_safe(loop_device, tmp_device, &device_list, node) {
-		if (cb_rc == 0)
-			if (devices_call(udev, loop_device->name, cb, data, &cb_rc) == 0)
+		if (cb_rc == 0) {
+			struct udev_device *device;
+
+			device = udev_device_new_from_syspath(udev, loop_device->name);
+			if (device != NULL) {
+				cb_rc = cb(device, data);
 				count++;
+				udev_device_unref(device);
+			}
+		}
 		list_del(&loop_device->node);
 		free(loop_device->name);
 		free(loop_device);

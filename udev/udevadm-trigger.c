@@ -126,7 +126,7 @@ static int pass_to_socket(struct udev *udev, const char *syspath, const char *ac
 	int fd;
 	char link_target[UTIL_PATH_SIZE];
 	int len;
-	const char *devpath = syspath[strlen(udev_get_sys_path(udev))];
+	const char *devpath = &syspath[strlen(udev_get_sys_path(udev))];
 	int err = 0;
 
 	if (verbose)

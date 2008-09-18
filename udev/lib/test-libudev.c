@@ -116,11 +116,12 @@ static int test_device_parents(struct udev *udev, const char *syspath)
 	return 0;
 }
 
-static int devices_enum_cb(struct udev *udev,
-			   const char *devpath, const char *subsystem, const char *name,
-			   void *data)
+static int devices_enum_cb(struct udev_device *device, void *data)
 {
-	printf("device:    '%s' (%s) '%s'\n", devpath, subsystem, name);
+	printf("device:    '%s' (%s) '%s'\n",
+	       udev_device_get_syspath(device),
+	       udev_device_get_subsystem(device),
+	       udev_device_get_sysname(device));
 	return 0;
 }
 

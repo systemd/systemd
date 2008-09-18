@@ -70,8 +70,7 @@ extern unsigned long long int udev_device_get_seqnum(struct udev_device *udev_de
 extern const char *udev_device_get_attr_value(struct udev_device *udev_device, const char *attr);
 
 extern int udev_enumerate_devices(struct udev *udev, const char *subsystem,
-				  int (*cb)(struct udev *udev,
-					    const char *syspath, const char *subsystem, const char *name, void *data),
+				  int (*cb)(struct udev_device *udev_device, void *data),
 				  void *data);
 
 struct udev_monitor;

@@ -165,18 +165,10 @@ static void print_record(struct udev_device *device)
 	printf("\n");
 }
 
-static int export_all_cb(struct udev *udev,
-			 const char *syspath, const char *subsystem, const char *name,
-			 void *data)
+static int export_all_cb(struct udev_device *device, void *data)
 {
-	struct udev_device *device;
-
-	device = udev_device_new_from_syspath(udev, syspath);
-	if (device == NULL)
-		return 0;
 	if (udev_device_get_devname(device) != NULL)
 		print_record(device);
-	udev_device_unref(device);
 	return 0;
 }
 
