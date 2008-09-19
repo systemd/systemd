@@ -156,7 +156,7 @@ static int sg_err_category4(struct udev *udev, struct sg_io_v4 *hp)
 {
 	return sg_err_category_new(udev, hp->device_status, 0,
 				   hp->transport_status, hp->driver_status,
-				   (unsigned char *)hp->response,
+				   (unsigned char *)(uintptr_t)hp->response,
 				   hp->response_len);
 }
 
@@ -300,7 +300,7 @@ static int scsi_dump_v4(struct udev *udev,
 	    dev_scsi->kernel, io->driver_status, io->transport_status,
 	     io->device_status);
 	if (io->device_status == SCSI_CHECK_CONDITION)
-		return scsi_dump_sense(udev, dev_scsi, (unsigned char *)io->response,
+		return scsi_dump_sense(udev, dev_scsi, (unsigned char *)(uintptr_t)io->response,
 				       io->response_len);
 	else
 		return -1;
