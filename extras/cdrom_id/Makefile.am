@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.am.inc
+
 udevhomedir = $(udev_prefix)/lib/udev
 udevhome_PROGRAMS = \
 	cdrom_id
@@ -5,11 +7,6 @@ udevhome_PROGRAMS = \
 udevrulesdir = $(udev_prefix)/lib/udev/rules.d
 dist_udevrules_DATA = \
 	60-cdrom_id.rules
-
-AM_CPPFLAGS = \
-	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DUDEV_PREFIX=\""$(udev_prefix)"\" \
-	-D_LIBUDEV_COMPILATION
 
 cdrom_id_SOURCES = \
 	cdrom_id.c \

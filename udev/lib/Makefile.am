@@ -1,7 +1,4 @@
-AM_CPPFLAGS = \
-	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DUDEV_PREFIX=\""$(udev_prefix)"\" \
-	-D_LIBUDEV_COMPILATION
+include $(top_srcdir)/Makefile.am.inc
 
 noinst_PROGRAMS = \
 	test-libudev

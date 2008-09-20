@@ -1,14 +1,11 @@
+include $(top_srcdir)/Makefile.am.inc
+
 SUBDIRS = \
 	lib
 
 udevhomedir = $(udev_prefix)/lib/udev
 udevhome_PROGRAMS = \
 	vol_id
-
-AM_CPPFLAGS = \
-	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DUDEV_PREFIX=\""$(udev_prefix)"\" \
-	-D_LIBUDEV_COMPILATION
 
 vol_id_SOURCES = \
 	vol_id.c \

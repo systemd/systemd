@@ -20,8 +20,6 @@
 #ifndef _LIBUDEV_PRIVATE_H_
 #define _LIBUDEV_PRIVATE_H_
 
-#include "config.h"
-
 #include <syslog.h>
 #include "libudev.h"
 #include "list.h"

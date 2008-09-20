@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.am.inc
+
 udevhomedir = $(udev_prefix)/lib/udev
 udevhome_PROGRAMS = \
 	fstab_import
@@ -5,11 +7,6 @@ udevhome_PROGRAMS = \
 udevrulesdir = $(udev_prefix)/lib/udev/rules.d
 dist_udevrules_DATA = \
 	79-fstab_import.rules
-
-AM_CPPFLAGS = \
-	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DUDEV_PREFIX=\""$(udev_prefix)"\" \
-	-D_LIBUDEV_COMPILATION
 
 fstab_import_SOURCES = \
 	fstab_import.c \

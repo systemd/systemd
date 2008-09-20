@@ -1,11 +1,8 @@
+include $(top_srcdir)/Makefile.am.inc
+
 udevhomedir = $(udev_prefix)/lib/udev
 udevhome_PROGRAMS = \
 	usb_id
-
-AM_CPPFLAGS = \
-	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DUDEV_PREFIX=\""$(udev_prefix)"\" \
-	-D_LIBUDEV_COMPILATION
 
 usb_id_SOURCES = \
 	usb_id.c \

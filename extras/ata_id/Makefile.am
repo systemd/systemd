@@ -1,12 +1,8 @@
+include $(top_srcdir)/Makefile.am.inc
+
 udevhomedir = $(udev_prefix)/lib/udev
 udevhome_PROGRAMS = \
 	ata_id
-
-AM_CPPFLAGS = \
-	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DUDEV_PREFIX=\""$(udev_prefix)"\" \
-	-D_LIBUDEV_COMPILATION \
-	-UUSE_SELINUX
 
 ata_id_SOURCES = \
 	ata_id.c \

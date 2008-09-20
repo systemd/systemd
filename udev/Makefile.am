@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.am.inc
+
 SUBDIRS = \
 	lib
 
@@ -7,11 +9,6 @@ sbin_PROGRAMS = \
 
 noinst_PROGRAMS = \
 	test-udev
-
-AM_CPPFLAGS = \
-	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DUDEV_PREFIX=\""$(udev_prefix)"\" \
-	-D_LIBUDEV_COMPILATION
 
 common_ldadd =
 

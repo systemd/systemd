@@ -1,11 +1,8 @@
+include $(top_srcdir)/Makefile.am.inc
+
 udevhomedir = $(udev_prefix)/lib/udev
 udevhome_PROGRAMS = \
 	scsi_id
-
-AM_CPPFLAGS = \
-	-DSYSCONFDIR=\""$(sysconfdir)"\" \
-	-DUDEV_PREFIX=\""$(udev_prefix)"\" \
-	-D_LIBUDEV_COMPILATION
 
 scsi_id_SOURCES = \
 	scsi_id.c \

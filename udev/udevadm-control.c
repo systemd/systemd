@@ -12,8 +12,6 @@
  * GNU General Public License for more details.
  */
 
-#include "config.h"
-
 #include <time.h>
 #include <errno.h>
 #include <stdio.h>
