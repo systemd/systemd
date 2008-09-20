@@ -64,7 +64,7 @@ static void print_device(struct udev_device *device)
 	printf("subsystem: '%s'\n", str);
 	str = udev_device_get_driver(device);
 	printf("driver:    '%s'\n", str);
-	str = udev_device_get_devname(device);
+	str = udev_device_get_devnode(device);
 	printf("devname:   '%s'\n", str);
 	count = udev_device_get_devlinks(device, print_devlinks_cb, NULL);
 	printf("found %i links\n", count);

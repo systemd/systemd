@@ -148,7 +148,7 @@ static void print_record(struct udev_device *device)
 
 	printf("P: %s\n", udev_device_get_devpath(device));
 	len = strlen(udev_get_dev_path(udev_device_get_udev(device)));
-	printf("N: %s\n", &udev_device_get_devname(device)[len+1]);
+	printf("N: %s\n", &udev_device_get_devnode(device)[len+1]);
 	i = device_get_devlink_priority(device);
 	if (i != 0)
 		printf("L: %i\n", i);
@@ -165,7 +165,7 @@ static void print_record(struct udev_device *device)
 
 static int export_all_cb(struct udev_device *device, void *data)
 {
-	if (udev_device_get_devname(device) != NULL)
+	if (udev_device_get_devnode(device) != NULL)
 		print_record(device);
 	return 0;
 }
@@ -436,12 +436,12 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		switch(query) {
 		case QUERY_NAME:
 			if (root) {
-				printf("%s\n", udev_device_get_devname(device));
+				printf("%s\n", udev_device_get_devnode(device));
 			} else {
 				size_t len;
 
 				len = strlen(udev_get_dev_path(udev));
-				printf("%s\n", &udev_device_get_devname(device)[len+1]);
+				printf("%s\n", &udev_device_get_devnode(device)[len+1]);
 			}
 			break;
 		case QUERY_SYMLINK:

@@ -54,7 +54,7 @@ extern const char *udev_device_get_devpath(struct udev_device *udev_device);
 extern const char *udev_device_get_subsystem(struct udev_device *udev_device);
 extern const char *udev_device_get_syspath(struct udev_device *udev_device);
 extern const char *udev_device_get_sysname(struct udev_device *udev_device);
-extern const char *udev_device_get_devname(struct udev_device *udev_device);
+extern const char *udev_device_get_devnode(struct udev_device *udev_device);
 extern int udev_device_get_devlinks(struct udev_device *udev_device,
 				    int (*cb)(struct udev_device *udev_device,
 					      const char *value, void *data),

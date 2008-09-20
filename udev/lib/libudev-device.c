@@ -361,7 +361,7 @@ const char *udev_device_get_sysname(struct udev_device *udev_device)
 }
 
 /**
- * udev_device_get_devname:
+ * udev_device_get_devnode:
  * @udev_device: udev device
  *
  * Retrieve the device node file name belonging to the udev device.
@@ -369,7 +369,7 @@ const char *udev_device_get_sysname(struct udev_device *udev_device)
  *
  * Returns: the device node file name of the udev device, or #NULL if no device node exists
  **/
-const char *udev_device_get_devname(struct udev_device *udev_device)
+const char *udev_device_get_devnode(struct udev_device *udev_device)
 {
 	if (udev_device == NULL)
 		return NULL;
