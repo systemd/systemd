@@ -216,6 +216,20 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 	return udev_device;
 }
 
+struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, dev_t devnum)
+{
+	char path[UTIL_PATH_SIZE];
+
+	snprintf(path, sizeof(path), "%s/dev/%s/%u:%u",
+		 udev_get_sys_path(udev),
+		 type == 'b' ? "block" : "char",
+		 major(devnum), minor(devnum));
+	if (util_resolve_sys_link(udev, path, sizeof(path)) < 0)
+		return NULL;
+
+	return udev_device_new_from_syspath(udev, path);
+}
+
 static struct udev_device *device_new_from_parent(struct udev_device *udev_device)
 {
 	struct udev_device *udev_device_parent = NULL;

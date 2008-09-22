@@ -24,6 +24,7 @@
 #include <string.h>
 #include <getopt.h>
 #include <syslog.h>
+#include <fcntl.h>
 #include <sys/select.h>
 
 #include "libudev.h"
@@ -111,6 +112,20 @@ static int test_device_parents(struct udev *udev, const char *syspath)
 	} while (device_parent != NULL);
 	udev_device_unref(device);
 
+	return 0;
+}
+
+static int test_device_devnum(struct udev *udev)
+{
+	dev_t devnum = makedev(1, 3);
+	struct udev_device *device;
+
+	printf("looking up device: %u:%u\n", major(devnum), minor(devnum));
+	device = udev_device_new_from_devnum(udev, 'c', devnum);
+	if (device == NULL)
+		return -1;
+	print_device(device);
+	udev_device_unref(device);
 	return 0;
 }
 
@@ -253,6 +268,7 @@ int main(int argc, char *argv[], char *envp[])
 	}
 
 	test_device(udev, syspath);
+	test_device_devnum(udev);
 	test_device_parents(udev, syspath);
 	test_enumerate(udev, subsystem);
 	test_monitor(udev, socket);
