@@ -1,15 +1,15 @@
-These things would be nice to have:
+  o make udev_device_new_from_devnum() work with kernels without /sys/dev/
+  o enumerate() - add buses and drivers
+  o increase ressize buffer
+
+  o lazy init of selinux
+  o replace list.h with ccan list.h which is gpl-v2-or-later version
   o get all distros to agree on a default set of rules
   o rework rules to a match-action list, instead of a rules array
-
-These things will change in future udev versions:
   o log warning if the kernel uses CONFIG_SYSFS_DEPRECATED*=y,
-    which means that /sys/class/block/ does not exist
+    which means that /sys/class/block/ does not exist, but udev
+    will depend on it in a future release
   o DEVTYPE for disks is set by the kernel, they will be removed from
     the default rules
   o "udevadm control" commands will only accept the --<command> syntax
   o symlink names to udevadm will no longer be resolved to old command names
-
-before next release:
-  o replace list.h with gpl or later version
-  o increase ressize buffer

@@ -65,6 +65,32 @@ static size_t syspath_to_db_path(struct udev_device *udev_device, char *filename
 	return util_path_encode(&filename[start], len - start);
 }
 
+static int device_read_uevent_file(struct udev_device *udev_device)
+{
+	char filename[UTIL_PATH_SIZE];
+	FILE *f;
+	char line[UTIL_LINE_SIZE];
+
+	util_strlcpy(filename, udev_device->syspath, sizeof(filename));
+	util_strlcat(filename, "/uevent", sizeof(filename));
+	f = fopen(filename, "r");
+	if (f == NULL)
+		return -1;
+
+	while (fgets(line, sizeof(line), f)) {
+		char *pos;
+
+		pos = strchr(line, '\n');
+		if (pos == NULL)
+			continue;
+		pos[0] = '\0';
+		device_add_property_from_string(udev_device, line);
+	}
+
+	fclose(f);
+	return 0;
+}
+
 static int device_read_db(struct udev_device *udev_device)
 {
 	struct stat stats;
@@ -211,6 +237,7 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 	device_set_syspath(udev_device, path);
 	info(udev, "device %p has devpath '%s'\n", udev_device, udev_device_get_devpath(udev_device));
 
+	device_read_uevent_file(udev_device);
 	if (device_read_db(udev_device) >= 0)
 		info(udev, "device %p filled with udev database data\n", udev_device);
 	return udev_device;
@@ -219,11 +246,17 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, dev_t devnum)
 {
 	char path[UTIL_PATH_SIZE];
+	const char *type_str;
 
-	snprintf(path, sizeof(path), "%s/dev/%s/%u:%u",
-		 udev_get_sys_path(udev),
-		 type == 'b' ? "block" : "char",
-		 major(devnum), minor(devnum));
+	if (type == 'b')
+		type_str = "block";
+	else if (type == 'c')
+		type_str = "char";
+	else
+		return NULL;
+
+	snprintf(path, sizeof(path), "%s/dev/%s/%u:%u", udev_get_sys_path(udev),
+		 type_str, major(devnum), minor(devnum));
 	if (util_resolve_sys_link(udev, path, sizeof(path)) < 0)
 		return NULL;
 
