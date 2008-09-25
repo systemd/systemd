@@ -1,6 +1,6 @@
-  o make udev_device_new_from_devnum() work with kernels without /sys/dev/
   o enumerate() - add buses and drivers
   o increase ressize buffer
+  o set dev_t from "uevent" MAJOR/MINOR
 
   o add DVB variables to kernel, and drop shell script rule
   o add watershed extra

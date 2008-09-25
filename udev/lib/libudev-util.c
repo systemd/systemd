@@ -97,61 +97,6 @@ int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size)
 	return 0;
 }
 
-struct util_name_entry *util_name_list_add(struct udev *udev, struct list_head *name_list,
-					   const char *name, const char *value, int sort)
-{
-	struct util_name_entry *name_loop;
-	struct util_name_entry *name_new;
-
-	/* avoid duplicate entries */
-	list_for_each_entry(name_loop, name_list, node) {
-		if (strcmp(name_loop->name, name) == 0) {
-			dbg(udev, "'%s' is already in the list\n", name);
-			return name_loop;
-		}
-	}
-
-	if (sort) {
-		list_for_each_entry(name_loop, name_list, node) {
-			if (strcmp(name_loop->name, name) > 0)
-				break;
-		}
-	}
-
-	name_new = malloc(sizeof(struct util_name_entry));
-	if (name_new == NULL)
-		return NULL;
-	memset(name_new, 0x00, sizeof(struct util_name_entry));
-	name_new->name = strdup(name);
-	if (name_new->name == NULL) {
-		free(name_new);
-		return NULL;
-	}
-	if (value != NULL) {
-		name_new->value = strdup(value);
-		if (name_new->value == NULL) {
-			free(name_new);
-			return NULL;
-		}
-	}
-	dbg(udev, "adding '%s=%s'\n", name_new->name, name_new->value);
-	list_add_tail(&name_new->node, &name_loop->node);
-	return name_new;
-}
-
-void util_name_list_cleanup(struct udev *udev, struct list_head *name_list)
-{
-	struct util_name_entry *name_loop;
-	struct util_name_entry *name_tmp;
-
-	list_for_each_entry_safe(name_loop, name_tmp, name_list, node) {
-		list_del(&name_loop->node);
-		free(name_loop->name);
-		free(name_loop->value);
-		free(name_loop);
-	}
-}
-
 int util_log_priority(const char *priority)
 {
 	char *endptr;

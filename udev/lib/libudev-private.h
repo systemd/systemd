@@ -76,7 +76,7 @@ extern int device_set_devlink_priority(struct udev_device *udev_device, int prio
 extern int device_get_ignore_remove(struct udev_device *udev_device);
 extern int device_set_ignore_remove(struct udev_device *udev_device, int ignore);
 
-/* udev_ctrl - daemon runtime setup */
+/* libudev-ctrl - daemon runtime setup */
 struct udev_ctrl;
 extern struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path);
 extern int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl);
@@ -102,6 +102,13 @@ extern int udev_ctrl_get_reload_rules(struct udev_ctrl_msg *ctrl_msg);
 extern const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg);
 extern int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg);
 
+/* libudev-list */
+extern struct udev_list *list_insert(struct udev *udev, struct list_head *name_list,
+				     const char *name, const char *value, int sort);
+extern struct udev_list *list_get_entry(struct list_head *list);
+extern void list_move_to_end(struct udev_list *list_entry, struct list_head *list);
+extern void list_cleanup(struct udev *udev, struct list_head *name_list);
+
 /* libudev-utils */
 #define UTIL_PATH_SIZE		1024
 #define UTIL_LINE_SIZE		2048
@@ -115,9 +122,6 @@ struct util_name_entry {
 extern ssize_t util_get_sys_subsystem(struct udev *udev, const char *syspath, char *subsystem, size_t size);
 extern ssize_t util_get_sys_driver(struct udev *udev, const char *syspath, char *driver, size_t size);
 extern int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size);
-extern struct util_name_entry *util_name_list_add(struct udev *udev, struct list_head *name_list,
-						  const char *name, const char *value, int sort);
-extern void util_name_list_cleanup(struct udev *udev, struct list_head *name_list);
 extern int util_log_priority(const char *priority);
 extern size_t util_path_encode(char *s, size_t len);
 extern size_t util_path_decode(char *s);

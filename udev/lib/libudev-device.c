@@ -40,7 +40,7 @@ struct udev_device {
 	char *devname;
 	char *subsystem;
 	struct list_head link_list;
-	struct list_head env_list;
+	struct list_head properties_list;
 	char *action;
 	char *driver;
 	char *devpath_old;
@@ -189,7 +189,7 @@ struct udev_device *device_init(struct udev *udev)
 	udev_device->refcount = 1;
 	udev_device->udev = udev;
 	INIT_LIST_HEAD(&udev_device->link_list);
-	INIT_LIST_HEAD(&udev_device->env_list);
+	INIT_LIST_HEAD(&udev_device->properties_list);
 	INIT_LIST_HEAD(&udev_device->attr_list);
 	info(udev_device->udev, "udev_device: %p created\n", udev_device);
 	return udev_device;
@@ -247,6 +247,9 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 {
 	char path[UTIL_PATH_SIZE];
 	const char *type_str;
+	struct udev_enumerate *enumerate;
+	struct udev_list *list;
+	struct udev_device *device = NULL;
 
 	if (type == 'b')
 		type_str = "block";
@@ -255,12 +258,32 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 	else
 		return NULL;
 
+	/* /sys/dev/{block,char}/<maj>:<min> links */
 	snprintf(path, sizeof(path), "%s/dev/%s/%u:%u", udev_get_sys_path(udev),
 		 type_str, major(devnum), minor(devnum));
-	if (util_resolve_sys_link(udev, path, sizeof(path)) < 0)
-		return NULL;
+	if (util_resolve_sys_link(udev, path, sizeof(path)) == 0)
+		return udev_device_new_from_syspath(udev, path);
 
-	return udev_device_new_from_syspath(udev, path);
+	/* search all sys devices for the major/minor */
+	enumerate = udev_enumerate_new_from_subsystems(udev, NULL);
+	if (enumerate == NULL)
+		return NULL;
+	list = udev_enumerate_get_devices_list(enumerate);
+	while (list != NULL) {
+		struct udev_device *device_loop;
+
+		device_loop = udev_device_new_from_syspath(udev, udev_list_get_name(list));
+		if (device_loop != NULL) {
+			if (udev_device_get_devnum(device_loop) == devnum) {
+				device = device_loop;
+				break;
+			}
+			udev_device_unref(device_loop);
+		}
+		list = udev_list_get_next(list);
+	}
+	udev_enumerate_unref(enumerate);
+	return device;
 }
 
 static struct udev_device *device_new_from_parent(struct udev_device *udev_device)
@@ -357,13 +380,13 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->syspath);
 	free(udev_device->devname);
 	free(udev_device->subsystem);
-	util_name_list_cleanup(udev_device->udev, &udev_device->link_list);
-	util_name_list_cleanup(udev_device->udev, &udev_device->env_list);
+	list_cleanup(udev_device->udev, &udev_device->link_list);
+	list_cleanup(udev_device->udev, &udev_device->properties_list);
 	free(udev_device->action);
 	free(udev_device->driver);
 	free(udev_device->devpath_old);
 	free(udev_device->physdevpath);
-	util_name_list_cleanup(udev_device->udev, &udev_device->attr_list);
+	list_cleanup(udev_device->udev, &udev_device->attr_list);
 	info(udev_device->udev, "udev_device: %p released\n", udev_device);
 	free(udev_device);
 }
@@ -466,64 +489,38 @@ const char *udev_device_get_subsystem(struct udev_device *udev_device)
 }
 
 /**
- * udev_device_get_devlinks:
+ * udev_device_get_devlinks_list:
  * @udev_device: udev device
- * @cb: function to be called for every device link found
- * @data: data to be passed to the function
  *
- * Retrieve the device links pointing to the device file of the
- * udev device. For every device link, the passed function will be
- * called with the device link string.
- * The path is an absolute path, and starts with the device directory.
- * If the function returns 1, remaning device links will be ignored.
+ * Retrieve the list of device links pointing to the device file of
+ * the udev device. The next list entry can be retrieved with
+ * udev_list_next(), which returns #NULL if no more entries exist.
+ * The devlink path can be retrieved from the list entry by
+ * udev_list_get_name(). The path is an absolute path, and starts with
+ * the device directory.
  *
- * Returns: the number of device links passed to the caller, or a negative value on error
+ * Returns: the first entry of the device node link list
  **/
-int udev_device_get_devlinks(struct udev_device *udev_device,
-			      int (*cb)(struct udev_device *udev_device, const char *value, void *data),
-			      void *data)
+struct udev_list *udev_device_get_devlinks_list(struct udev_device *udev_device)
 {
-	struct util_name_entry *name_loop;
-	int count = 0;
-
-	if (udev_device == NULL)
-		return -1;
-	list_for_each_entry(name_loop, &udev_device->link_list, node) {
-		count++;
-		if (cb(udev_device, name_loop->name, data) != 0)
-			break;
-	}
-	return count;
+	return list_get_entry(&udev_device->link_list);
 }
 
 /**
- * udev_device_get_properties:
+ * udev_device_get_properties_list:
  * @udev_device: udev device
- * @cb: function to be called for every property found
- * @data: data to be passed to the function
  *
- * Retrieve the property key/value pairs belonging to the
- * udev device. For every key/value pair, the passed function will be
- * called. If the function returns 1, remaning properties will be
- * ignored.
+ * Retrieve the list of key/value device properties of the udev
+ * device. The next list entry can be retrieved with udev_list_next(),
+ * which returns #NULL if no more entries exist. The property name
+ * can be retrieved from the list entry by udev_list_get_name(),
+ * the property value by udev_list_get_value().
  *
- * Returns: the number of properties passed to the caller, or a negative value on error
+ * Returns: the first entry of the property list
  **/
-int udev_device_get_properties(struct udev_device *udev_device,
-				int (*cb)(struct udev_device *udev_device, const char *key, const char *value, void *data),
-				void *data)
+struct udev_list *udev_device_get_properties_list(struct udev_device *udev_device)
 {
-	struct util_name_entry *name_loop;
-	int count = 0;
-
-	if (udev_device == NULL)
-		return -1;
-	list_for_each_entry(name_loop, &udev_device->env_list, node) {
-		count++;
-		if (cb(udev_device, name_loop->name, name_loop->value, data) != 0)
-			break;
-	}
-	return count;
+	return list_get_entry(&udev_device->properties_list);
 }
 
 const char *udev_device_get_driver(struct udev_device *udev_device)
@@ -563,7 +560,7 @@ unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device)
 
 const char *udev_device_get_attr_value(struct udev_device *udev_device, const char *attr)
 {
-	struct util_name_entry *name_loop;
+	struct udev_list *list;
 	char path[UTIL_PATH_SIZE];
 	char value[UTIL_NAME_SIZE];
 	struct stat statbuf;
@@ -572,11 +569,13 @@ const char *udev_device_get_attr_value(struct udev_device *udev_device, const ch
 	const char *val = NULL;
 
 	/* look for possibly already cached result */
-	list_for_each_entry(name_loop, &udev_device->attr_list, node) {
-		if (strcmp(name_loop->name, attr) == 0) {
-			info(udev_device->udev, "'%s' in cache '%s'\n", attr, name_loop->value);
-			return name_loop->value;
+	list = list_get_entry(&udev_device->attr_list);
+	while (list != NULL) {
+		if (strcmp(udev_list_get_name(list), attr) == 0) {
+			info(udev_device->udev, "got '%s' (%s) from cache\n", attr, udev_list_get_value(list));
+			return udev_list_get_name(list);
 		}
+		list = udev_list_get_next(list);
 	}
 
 	util_strlcpy(path, udev_device_get_syspath(udev_device), sizeof(path));
@@ -601,7 +600,8 @@ const char *udev_device_get_attr_value(struct udev_device *udev_device, const ch
 			if (pos != NULL) {
 				pos = &pos[1];
 				info(udev_device->udev, "cache '%s' with link value '%s'\n", attr, pos);
-				val = util_name_list_add(udev_device->udev, &udev_device->attr_list, attr, pos, 0)->value;
+				list = list_insert(udev_device->udev, &udev_device->attr_list, attr, pos, 0);
+				val = udev_list_get_value(list);
 			}
 		}
 		goto out;
@@ -632,7 +632,8 @@ const char *udev_device_get_attr_value(struct udev_device *udev_device, const ch
 	value[size] = '\0';
 	util_remove_trailing_chars(value, '\n');
 	info(udev_device->udev, "'%s' has attribute value '%s'\n", path, value);
-	val = util_name_list_add(udev_device->udev, &udev_device->attr_list, attr, value, 0)->value;
+	list = list_insert(udev_device->udev, &udev_device->attr_list, attr, value, 0);
+	val = udev_list_get_value(list);
 out:
 	return val;
 }
@@ -669,14 +670,14 @@ int device_set_devname(struct udev_device *udev_device, const char *devname)
 
 int device_add_devlink(struct udev_device *udev_device, const char *devlink)
 {
-	if (util_name_list_add(udev_device->udev, &udev_device->link_list, devlink, NULL, 0) == NULL)
+	if (list_insert(udev_device->udev, &udev_device->link_list, devlink, NULL, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }
 
 int device_add_property(struct udev_device *udev_device, const char *key, const char *value)
 {
-	if (util_name_list_add(udev_device->udev, &udev_device->env_list, key, value, 0) == NULL)
+	if (list_insert(udev_device->udev, &udev_device->properties_list, key, value, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }

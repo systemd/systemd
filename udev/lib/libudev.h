@@ -29,7 +29,9 @@
 #endif
 
 struct udev;
+struct udev_list;
 struct udev_device;
+struct udev_enumerate;
 struct udev_monitor;
 
 /* library context */
@@ -52,6 +54,11 @@ extern void udev_selinux_resetfscreatecon(struct udev *udev);
 extern void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode);
 extern void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode);
 
+/* list iteration */
+extern struct udev_list *udev_list_get_next(struct udev_list *list_entry);
+extern const char *udev_list_get_name(struct udev_list *list_entry);
+extern const char *udev_list_get_value(struct udev_list *list_entry);
+
 /* sys devices */
 extern struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *syspath);
 extern struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, dev_t devnum);
@@ -64,14 +71,8 @@ extern const char *udev_device_get_subsystem(struct udev_device *udev_device);
 extern const char *udev_device_get_syspath(struct udev_device *udev_device);
 extern const char *udev_device_get_sysname(struct udev_device *udev_device);
 extern const char *udev_device_get_devnode(struct udev_device *udev_device);
-extern int udev_device_get_devlinks(struct udev_device *udev_device,
-				    int (*cb)(struct udev_device *udev_device,
-					      const char *value, void *data),
-				    void *data);
-extern int udev_device_get_properties(struct udev_device *udev_device,
-				      int (*cb)(struct udev_device *udev_device,
-						const char *key, const char *value, void *data),
-				      void *data);
+extern struct udev_list *udev_device_get_devlinks_list(struct udev_device *udev_device);
+extern struct udev_list *udev_device_get_properties_list(struct udev_device *udev_device);
 extern const char *udev_device_get_driver(struct udev_device *udev_device);
 extern dev_t udev_device_get_devnum(struct udev_device *udev_device);
 extern const char *udev_device_get_action(struct udev_device *udev_device);
@@ -79,9 +80,10 @@ extern unsigned long long int udev_device_get_seqnum(struct udev_device *udev_de
 extern const char *udev_device_get_attr_value(struct udev_device *udev_device, const char *attr);
 
 /* sys enumeration */
-extern int udev_enumerate_devices(struct udev *udev, const char *subsystem,
-				  int (*cb)(struct udev_device *udev_device, void *data),
-				  void *data);
+extern struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev, const char *subsystem);
+extern struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate);
+extern void udev_enumerate_unref(struct udev_enumerate *udev_enumerate);
+extern struct udev_list *udev_enumerate_get_devices_list(struct udev_enumerate *udev_enumerate);
 
 /* udev and kernel device events */
 extern struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path);

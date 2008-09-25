@@ -29,6 +29,38 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
+struct udev_enumerate {
+	struct udev *udev;
+	int refcount;
+	struct list_head devices_list;
+};
+
+struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate)
+{
+	if (udev_enumerate == NULL)
+		return NULL;
+	udev_enumerate->refcount++;
+	return udev_enumerate;
+}
+
+void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
+{
+	if (udev_enumerate == NULL)
+		return;
+	udev_enumerate->refcount--;
+	if (udev_enumerate->refcount > 0)
+		return;
+	list_cleanup(udev_enumerate->udev, &udev_enumerate->devices_list);
+	free(udev_enumerate);
+}
+
+struct udev_list *udev_enumerate_get_devices_list(struct udev_enumerate *udev_enumerate)
+{
+	if (udev_enumerate == NULL)
+		return NULL;
+	return list_get_entry(&udev_enumerate->devices_list);
+}
+
 static int devices_scan_subsystem(struct udev *udev,
 				  const char *basedir, const char *subsystem, const char *subdir,
 				  struct list_head *device_list)
@@ -55,7 +87,7 @@ static int devices_scan_subsystem(struct udev *udev,
 		util_strlcat(syspath, "/", sizeof(syspath));
 		util_strlcat(syspath, dent->d_name, sizeof(syspath));
 		util_resolve_sys_link(udev, syspath, sizeof(syspath));
-		util_name_list_add(udev, device_list, syspath, NULL, 1);
+		list_insert(udev, device_list, syspath, NULL, 1);
 	}
 	closedir(dir);
 	return 0;
@@ -108,72 +140,46 @@ static int devices_delay(struct udev *udev, const char *syspath)
 }
 
 /**
- * udev_enumerate_devices:
+ * udev_enumerate_new_from_subsystems:
  * @udev: udev library context
  * @subsystem: the subsystem to enumerate
- * @cb: function to be called for every device found
- * @data: data to be passed to the function
  *
- * Returns: the number of devices passed to the caller, or a negative value on error
+ * Returns: an enumeration context
  **/
-int udev_enumerate_devices(struct udev *udev, const char *subsystem,
-			   int (*cb)(struct udev_device *udev_device, void *data),
-			   void *data)
+struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev, const char *subsystem)
 {
+	struct udev_enumerate *udev_enumerate;
 	char base[UTIL_PATH_SIZE];
 	struct stat statbuf;
-	struct list_head device_list;
-	struct util_name_entry *loop_device;
-	struct util_name_entry *tmp_device;
-	int cb_rc = 0;
-	int count = 0;
+	struct udev_list *list;
 
-	INIT_LIST_HEAD(&device_list);
+	if (udev == NULL)
+		return NULL;
+
+	udev_enumerate = malloc(sizeof(struct udev_enumerate));
+	if (udev_enumerate == NULL)
+		return NULL;
+	memset(udev_enumerate, 0x00, (sizeof(struct udev_enumerate)));
+	udev_enumerate->refcount = 1;
+	udev_enumerate->udev = udev;
+	INIT_LIST_HEAD(&udev_enumerate->devices_list);
 
 	/* if we have /sys/subsystem/, forget all the old stuff */
 	util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
 	util_strlcat(base, "/subsystem", sizeof(base));
 	if (stat(base, &statbuf) == 0) {
-		devices_scan_subsystems(udev, "/subsystem", subsystem, "/devices", &device_list);
+		devices_scan_subsystems(udev, "/subsystem", subsystem, "/devices", &udev_enumerate->devices_list);
 	} else {
-		devices_scan_subsystems(udev, "/bus", subsystem, "/devices", &device_list);
-		devices_scan_subsystems(udev, "/class", subsystem, NULL, &device_list);
+		devices_scan_subsystems(udev, "/bus", subsystem, "/devices", &udev_enumerate->devices_list);
+		devices_scan_subsystems(udev, "/class", subsystem, NULL, &udev_enumerate->devices_list);
 	}
 
-	list_for_each_entry_safe(loop_device, tmp_device, &device_list, node) {
-		if (devices_delay(udev, loop_device->name))
-			continue;
-		if (cb_rc == 0) {
-			struct udev_device *device;
-
-			device = udev_device_new_from_syspath(udev, loop_device->name);
-			if (device != NULL) {
-				cb_rc = cb(device, data);
-				count++;
-				udev_device_unref(device);
-			}
-		}
-		list_del(&loop_device->node);
-		free(loop_device->name);
-		free(loop_device);
+	/* sort delayed devices to the end of the list */
+	list = list_get_entry(&udev_enumerate->devices_list);
+	while (list != NULL) {
+		if (devices_delay(udev, udev_list_get_name(list)))
+			list_move_to_end(list, &udev_enumerate->devices_list);
+		list = udev_list_get_next(list);
 	}
-
-	/* handle remaining delayed devices */
-	list_for_each_entry_safe(loop_device, tmp_device, &device_list, node) {
-		if (cb_rc == 0) {
-			struct udev_device *device;
-
-			device = udev_device_new_from_syspath(udev, loop_device->name);
-			if (device != NULL) {
-				cb_rc = cb(device, data);
-				count++;
-				udev_device_unref(device);
-			}
-		}
-		list_del(&loop_device->node);
-		free(loop_device->name);
-		free(loop_device);
-	}
-
-	return count;
+	return udev_enumerate;
 }

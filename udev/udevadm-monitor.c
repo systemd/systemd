@@ -41,18 +41,6 @@ static void asmlinkage sig_handler(int signum)
 		udev_exit = 1;
 }
 
-static int print_properties_cb(struct udev_device *udev_device, const char *key, const char *value, void *data)
-{
-	printf("%s=%s\n", key, value);
-	return 0;
-}
-
-static void print_properties(struct udev_device *device)
-{
-	udev_device_get_properties(device, print_properties_cb, NULL);
-	printf("\n");
-}
-
 int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 {
 	struct sigaction act;
@@ -178,8 +166,16 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			       udev_device_get_action(device),
 			       udev_device_get_devpath(device),
 			       udev_device_get_subsystem(device));
-			if (env)
-				print_properties(device);
+			if (env) {
+				struct udev_list *list;
+
+				list = udev_device_get_properties_list(device);
+				while (list != NULL) {
+					printf("%s=%s\n", udev_list_get_name(list), udev_list_get_value(list));
+					list = udev_list_get_next(list);
+				}
+				printf("\n");
+			}
 			udev_device_unref(device);
 		}
 
@@ -191,8 +187,16 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			       udev_device_get_action(device),
 			       udev_device_get_devpath(device),
 			       udev_device_get_subsystem(device));
-			if (env)
-				print_properties(device);
+			if (env) {
+				struct udev_list *list;
+
+				list = udev_device_get_properties_list(device);
+				while (list != NULL) {
+					printf("%s=%s\n", udev_list_get_name(list), udev_list_get_value(list));
+					list = udev_list_get_next(list);
+				}
+				printf("\n");
+			}
 			udev_device_unref(device);
 		}
 	}

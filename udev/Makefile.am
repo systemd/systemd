@@ -29,10 +29,11 @@ common_files = \
 	lib/libudev.h \
 	lib/libudev-private.h \
 	lib/libudev.c \
+	lib/libudev-list.c \
+	lib/libudev-util.c \
 	lib/libudev-device.c \
 	lib/libudev-monitor.c \
 	lib/libudev-enumerate.c \
-	lib/libudev-util.c \
 	lib/libudev-ctrl.c
 
 if USE_SELINUX
