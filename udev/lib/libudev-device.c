@@ -70,6 +70,8 @@ static int device_read_uevent_file(struct udev_device *udev_device)
 	char filename[UTIL_PATH_SIZE];
 	FILE *f;
 	char line[UTIL_LINE_SIZE];
+	int maj = 0;
+	int min = 0;
 
 	util_strlcpy(filename, udev_device->syspath, sizeof(filename));
 	util_strlcat(filename, "/uevent", sizeof(filename));
@@ -84,8 +86,16 @@ static int device_read_uevent_file(struct udev_device *udev_device)
 		if (pos == NULL)
 			continue;
 		pos[0] = '\0';
+
+		if (strncmp(line, "MAJOR=", 6) == 0)
+			maj = strtoull(&line[6], NULL, 10);
+		else if (strncmp(line, "MINOR=", 6) == 0)
+			min = strtoull(&line[6], NULL, 10);
+
 		device_add_property_from_string(udev_device, line);
 	}
+
+	udev_device->devnum = makedev(maj, min);
 
 	fclose(f);
 	return 0;
@@ -97,7 +107,6 @@ static int device_read_db(struct udev_device *udev_device)
 	char filename[UTIL_PATH_SIZE];
 	char line[UTIL_LINE_SIZE];
 	FILE *f;
-	int rc = 0;
 
 	syspath_to_db_path(udev_device, filename, sizeof(filename));
 
@@ -131,7 +140,6 @@ static int device_read_db(struct udev_device *udev_device)
 	while (fgets(line, sizeof(line), f)) {
 		ssize_t len;
 		const char *val;
-		unsigned int maj, min;
 
 		len = strlen(line);
 		if (len < 4)
@@ -143,10 +151,6 @@ static int device_read_db(struct udev_device *udev_device)
 		case 'N':
 			asprintf(&udev_device->devname, "%s/%s", udev_get_dev_path(udev_device->udev), val);
 			break;
-		case 'M':
-			sscanf(val, "%u:%u", &maj, &min);
-			device_set_devnum(udev_device, makedev(maj, min));
-			break;
 		case 'S':
 			util_strlcpy(filename, udev_get_dev_path(udev_device->udev), sizeof(filename));
 			util_strlcat(filename, "/", sizeof(filename));
@@ -157,7 +161,7 @@ static int device_read_db(struct udev_device *udev_device)
 			device_set_devlink_priority(udev_device, atoi(val));
 			break;
 		case 'T':
-			device_set_timeout(udev_device,  atoi(val));
+			device_set_timeout(udev_device, atoi(val));
 			break;
 		case 'A':
 			device_set_num_fake_partitions(udev_device, atoi(val));
@@ -172,7 +176,8 @@ static int device_read_db(struct udev_device *udev_device)
 	}
 	fclose(f);
 
-	return rc;
+	info(udev_device->udev, "device %p filled with udev database data\n", udev_device);
+	return 0;
 }
 
 struct udev_device *device_init(struct udev *udev)
@@ -238,8 +243,7 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 	info(udev, "device %p has devpath '%s'\n", udev_device, udev_device_get_devpath(udev_device));
 
 	device_read_uevent_file(udev_device);
-	if (device_read_db(udev_device) >= 0)
-		info(udev, "device %p filled with udev database data\n", udev_device);
+	device_read_db(udev_device);
 	return udev_device;
 }
 
@@ -264,7 +268,7 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 	if (util_resolve_sys_link(udev, path, sizeof(path)) == 0)
 		return udev_device_new_from_syspath(udev, path);
 
-	/* search all sys devices for the major/minor */
+	/* fallback to search all sys devices for the major/minor */
 	enumerate = udev_enumerate_new_from_subsystems(udev, NULL);
 	if (enumerate == NULL)
 		return NULL;

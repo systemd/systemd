@@ -1,6 +1,6 @@
   o enumerate() - add buses and drivers
   o increase ressize buffer
-  o set dev_t from "uevent" MAJOR/MINOR
+  o lazy loading of "uevent" and db
 
   o add DVB variables to kernel, and drop shell script rule
   o add watershed extra

@@ -40,6 +40,7 @@ static void log_fn(struct udev *udev,
 static void print_device(struct udev_device *device)
 {
 	const char *str;
+	dev_t devnum;
 	int count;
 	struct udev_list *list;
 
@@ -56,6 +57,8 @@ static void print_device(struct udev_device *device)
 	printf("driver:    '%s'\n", str);
 	str = udev_device_get_devnode(device);
 	printf("devname:   '%s'\n", str);
+	devnum = udev_device_get_devnum(device);
+	printf("devnum:    %u:%u\n", major(devnum), minor(devnum));
 
 	count = 0;
 	list = udev_device_get_devlinks_list(device);
