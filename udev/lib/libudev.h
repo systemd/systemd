@@ -29,6 +29,10 @@
 #endif
 
 struct udev;
+struct udev_device;
+struct udev_monitor;
+
+/* library context */
 extern struct udev *udev_new(void);
 extern struct udev *udev_ref(struct udev *udev);
 extern void udev_unref(struct udev *udev);
@@ -40,11 +44,15 @@ extern int udev_get_log_priority(struct udev *udev);
 extern void udev_set_log_priority(struct udev *udev, int priority);
 extern const char *udev_get_sys_path(struct udev *udev);
 extern const char *udev_get_dev_path(struct udev *udev);
+extern void *udev_get_userdata(struct udev *udev);
+extern void udev_set_userdata(struct udev *udev, void *userdata);
+
+/* selinux glue */
 extern void udev_selinux_resetfscreatecon(struct udev *udev);
 extern void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode);
 extern void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode);
 
-struct udev_device;
+/* sys devices */
 extern struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *syspath);
 extern struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, dev_t devnum);
 extern struct udev_device *udev_device_get_parent(struct udev_device *udev_device);
@@ -70,11 +78,12 @@ extern const char *udev_device_get_action(struct udev_device *udev_device);
 extern unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device);
 extern const char *udev_device_get_attr_value(struct udev_device *udev_device, const char *attr);
 
+/* sys enumeration */
 extern int udev_enumerate_devices(struct udev *udev, const char *subsystem,
 				  int (*cb)(struct udev_device *udev_device, void *data),
 				  void *data);
 
-struct udev_monitor;
+/* udev and kernel device events */
 extern struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path);
 extern struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev);
 extern int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor);

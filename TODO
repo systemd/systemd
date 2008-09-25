@@ -2,6 +2,8 @@
   o enumerate() - add buses and drivers
   o increase ressize buffer
 
+  o add DVB variables to kernel, and drop shell script rule
+  o add watershed extra
   o lazy init of selinux
   o replace list.h with ccan list.h which is gpl-v2-or-later version
   o get all distros to agree on a default set of rules

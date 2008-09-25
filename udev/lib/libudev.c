@@ -37,6 +37,7 @@ struct udev {
 	void (*log_fn)(struct udev *udev,
 		       int priority, const char *file, int line, const char *fn,
 		       const char *format, va_list args);
+	void *userdata;
 	char *sys_path;
 	char *dev_path;
 	char *rules_path;
@@ -87,6 +88,20 @@ static void selinux_init(struct udev *udev)
 		}
 	}
 #endif
+}
+
+void *udev_get_userdata(struct udev *udev)
+{
+	if (udev == NULL)
+		return NULL;
+	return udev->userdata;
+}
+
+void udev_set_userdata(struct udev *udev, void *userdata)
+{
+	if (udev == NULL)
+		return;
+	udev->userdata = userdata;
 }
 
 static void selinux_exit(struct udev *udev)
