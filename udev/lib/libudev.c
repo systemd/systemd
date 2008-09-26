@@ -43,6 +43,7 @@ struct udev {
 	char *rules_path;
 	int log_priority;
 #ifdef USE_SELINUX
+	int selinux_initialized;
 	int selinux_enabled;
 	security_context_t selinux_prev_scontext;
 #endif
@@ -87,6 +88,7 @@ static void selinux_init(struct udev *udev)
 			udev->selinux_prev_scontext = NULL;
 		}
 	}
+	udev->selinux_initialized = 1;
 #endif
 }
 
@@ -107,6 +109,8 @@ void udev_set_userdata(struct udev *udev, void *userdata)
 static void selinux_exit(struct udev *udev)
 {
 #ifdef USE_SELINUX
+	if (!udev->selinux_initialized)
+		return;
 	if (udev->selinux_enabled) {
 		freecon(udev->selinux_prev_scontext);
 		udev->selinux_prev_scontext = NULL;
@@ -117,6 +121,8 @@ static void selinux_exit(struct udev *udev)
 void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode)
 {
 #ifdef USE_SELINUX
+	if (!udev->selinux_initialized)
+		selinux_init(udev);
 	if (udev->selinux_enabled) {
 		security_context_t scontext = NULL;
 
@@ -134,6 +140,8 @@ void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int 
 void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode)
 {
 #ifdef USE_SELINUX
+	if (!udev->selinux_initialized)
+		selinux_init(udev);
 	if (udev->selinux_enabled) {
 		security_context_t scontext = NULL;
 
@@ -151,6 +159,8 @@ void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned i
 void udev_selinux_resetfscreatecon(struct udev *udev)
 {
 #ifdef USE_SELINUX
+	if (!udev->selinux_initialized)
+		selinux_init(udev);
 	if (udev->selinux_enabled) {
 		if (setfscreatecon(udev->selinux_prev_scontext) < 0)
 			err(udev, "setfscreatecon failed: %s\n", strerror(errno));
@@ -307,7 +317,6 @@ struct udev *udev_new(void)
 
 	if (udev->dev_path == NULL || udev->sys_path == NULL)
 		goto err;
-	selinux_init(udev);
 	info(udev, "context %p created\n", udev);
 	info(udev, "log_priority=%d\n", udev->log_priority);
 	info(udev, "config_file='%s'\n", config_file);
