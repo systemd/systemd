@@ -308,7 +308,7 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 		} else if (strncmp(key, "SUBSYSTEM=", 10) == 0) {
 			device_set_subsystem(udev_device, &key[10]);
 		} else if (strncmp(key, "DEVNAME=", 8) == 0) {
-			device_set_devname(udev_device, &key[8]);
+			device_set_devnode(udev_device, &key[8]);
 		} else if (strncmp(key, "DEVLINKS=", 9) == 0) {
 			char *slink = &key[9];
 			char *next = strchr(slink, ' ');
@@ -344,5 +344,6 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 	}
 	device_set_devnum(udev_device, makedev(maj, min));
 
+	device_set_info_loaded(udev_device);
 	return udev_device;
 }
