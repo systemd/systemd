@@ -3,7 +3,6 @@
 
   o add DVB variables to kernel, and drop shell script rule
   o add watershed extra
-  o replace list.h with ccan list.h which is gpl-v2-or-later version
   o get all distros to agree on a default set of rules
   o rework rules to a match-action list, instead of a rules array
   o log warning if the kernel uses CONFIG_SYSFS_DEPRECATED*=y,

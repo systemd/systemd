@@ -152,14 +152,14 @@ static void print_record(struct udev_device *device)
 	list = udev_device_get_devlinks_list(device);
 	while (list != NULL) {
 		len = strlen(udev_get_dev_path(udev_device_get_udev(device)));
-		printf("S: %s\n", &udev_list_get_name(list)[len+1]);
-		list = udev_list_get_next(list);
+		printf("S: %s\n", &udev_list_entry_get_name(list)[len+1]);
+		list = udev_list_entry_get_next(list);
 	}
 
 	list = udev_device_get_properties_list(device);
 	while (list != NULL) {
-		printf("E: %s=%s\n", udev_list_get_name(list), udev_list_get_value(list));
-		list = udev_list_get_next(list);
+		printf("E: %s=%s\n", udev_list_entry_get_name(list), udev_list_entry_get_value(list));
+		list = udev_list_entry_get_next(list);
 	}
 
 	printf("\n");
@@ -196,13 +196,13 @@ static int export_devices(struct udev *udev)
 	while (list != NULL) {
 		struct udev_device *device;
 
-		device = udev_device_new_from_syspath(udev, udev_list_get_name(list));
+		device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list));
 		if (device != NULL) {
 			if (udev_device_get_devnode(device) != NULL)
 				print_record(device);
 			udev_device_unref(device);
 		}
-		list = udev_list_get_next(list);
+		list = udev_list_entry_get_next(list);
 	}
 	udev_enumerate_unref(enumerate);
 	return 0;
@@ -419,14 +419,14 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 			list = udev_device_get_devlinks_list(device);
 			while (list != NULL) {
 				if (root) {
-					printf("%s", udev_list_get_name(list));
+					printf("%s", udev_list_entry_get_name(list));
 				} else {
 					size_t len;
 
 					len = strlen(udev_get_dev_path(udev_device_get_udev(device)));
-					printf("%s", &udev_list_get_name(list)[len+1]);
+					printf("%s", &udev_list_entry_get_name(list)[len+1]);
 				}
-				list = udev_list_get_next(list);
+				list = udev_list_entry_get_next(list);
 				if (list != NULL)
 					printf(" ");
 			}
@@ -438,8 +438,8 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		case QUERY_ENV:
 			list = udev_device_get_properties_list(device);
 			while (list != NULL) {
-				printf("%s=%s\n", udev_list_get_name(list), udev_list_get_value(list));
-				list = udev_list_get_next(list);
+				printf("%s=%s\n", udev_list_entry_get_name(list), udev_list_entry_get_value(list));
+				list = udev_list_entry_get_next(list);
 			}
 			break;
 		case QUERY_ALL:

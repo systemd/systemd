@@ -22,7 +22,6 @@
 
 #include <syslog.h>
 #include "libudev.h"
-#include "list.h"
 
 #ifdef USE_LOG
 #ifdef USE_DEBUG
@@ -106,22 +105,20 @@ extern const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg);
 extern int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg);
 
 /* libudev-list */
-extern struct udev_list *list_insert(struct udev *udev, struct list_head *name_list,
-				     const char *name, const char *value, int sort);
-extern struct udev_list *list_get_entry(struct list_head *list);
-extern void list_move_to_end(struct udev_list *list_entry, struct list_head *list);
-extern void list_cleanup(struct udev *udev, struct list_head *name_list);
+struct list_node {
+	struct list_node *next, *prev;
+};
+extern void list_init(struct list_node *list);
+extern struct udev_list *list_insert_entry(struct udev *udev, struct list_node *name_list,
+					   const char *name, const char *value, int sort);
+extern struct udev_list *list_get_entry(struct list_node *list);
+extern void list_move_entry_to_end(struct udev_list *list_entry, struct list_node *list);
+extern void list_cleanup(struct udev *udev, struct list_node *name_list);
 
 /* libudev-utils */
 #define UTIL_PATH_SIZE		1024
 #define UTIL_LINE_SIZE		2048
 #define UTIL_NAME_SIZE		512
-struct util_name_entry {
-	struct list_head node;
-	char *name;
-	char *value;
-	int *i;
-};
 extern ssize_t util_get_sys_subsystem(struct udev *udev, const char *syspath, char *subsystem, size_t size);
 extern ssize_t util_get_sys_driver(struct udev *udev, const char *syspath, char *driver, size_t size);
 extern int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size);

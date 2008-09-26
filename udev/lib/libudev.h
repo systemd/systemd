@@ -55,9 +55,9 @@ extern void udev_selinux_setfscreatecon(struct udev *udev, const char *file, uns
 extern void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode);
 
 /* list iteration */
-extern struct udev_list *udev_list_get_next(struct udev_list *list_entry);
-extern const char *udev_list_get_name(struct udev_list *list_entry);
-extern const char *udev_list_get_value(struct udev_list *list_entry);
+extern struct udev_list *udev_list_entry_get_next(struct udev_list *list_entry);
+extern const char *udev_list_entry_get_name(struct udev_list *list_entry);
+extern const char *udev_list_entry_get_value(struct udev_list *list_entry);
 
 /* sys devices */
 extern struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *syspath);

@@ -9,9 +9,9 @@ udev_get_userdata
 udev_set_userdata
 udev_get_sys_path
 udev_get_dev_path
-udev_list_get_next
-udev_list_get_name
-udev_list_get_value
+udev_list_entry_get_next
+udev_list_entry_get_name
+udev_list_entry_get_value
 udev_device_new_from_syspath
 udev_device_new_from_devnum
 udev_device_get_parent

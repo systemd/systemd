@@ -171,8 +171,8 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 
 				list = udev_device_get_properties_list(device);
 				while (list != NULL) {
-					printf("%s=%s\n", udev_list_get_name(list), udev_list_get_value(list));
-					list = udev_list_get_next(list);
+					printf("%s=%s\n", udev_list_entry_get_name(list), udev_list_entry_get_value(list));
+					list = udev_list_entry_get_next(list);
 				}
 				printf("\n");
 			}
@@ -192,8 +192,8 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 
 				list = udev_device_get_properties_list(device);
 				while (list != NULL) {
-					printf("%s=%s\n", udev_list_get_name(list), udev_list_get_value(list));
-					list = udev_list_get_next(list);
+					printf("%s=%s\n", udev_list_entry_get_name(list), udev_list_entry_get_value(list));
+					list = udev_list_entry_get_next(list);
 				}
 				printf("\n");
 			}
