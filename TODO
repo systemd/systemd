@@ -1,10 +1,11 @@
   o enumerate() - add buses and drivers
   o increase ressize buffer
+
   o lazy loading of "uevent" and db
+  o lazy init of selinux
 
   o add DVB variables to kernel, and drop shell script rule
   o add watershed extra
-  o lazy init of selinux
   o replace list.h with ccan list.h which is gpl-v2-or-later version
   o get all distros to agree on a default set of rules
   o rework rules to a match-action list, instead of a rules array

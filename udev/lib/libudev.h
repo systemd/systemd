@@ -83,7 +83,7 @@ extern const char *udev_device_get_attr_value(struct udev_device *udev_device, c
 extern struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev, const char *subsystem);
 extern struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate);
 extern void udev_enumerate_unref(struct udev_enumerate *udev_enumerate);
-extern struct udev_list *udev_enumerate_get_devices_list(struct udev_enumerate *udev_enumerate);
+extern struct udev_list *udev_enumerate_get_list(struct udev_enumerate *udev_enumerate);
 
 /* udev and kernel device events */
 extern struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path);

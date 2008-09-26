@@ -54,7 +54,7 @@ void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 	free(udev_enumerate);
 }
 
-struct udev_list *udev_enumerate_get_devices_list(struct udev_enumerate *udev_enumerate)
+struct udev_list *udev_enumerate_get_list(struct udev_enumerate *udev_enumerate)
 {
 	if (udev_enumerate == NULL)
 		return NULL;

@@ -192,7 +192,7 @@ static int export_devices(struct udev *udev)
 	enumerate = udev_enumerate_new_from_subsystems(udev, NULL);
 	if (enumerate == NULL)
 		return -1;
-	list = udev_enumerate_get_devices_list(enumerate);
+	list = udev_enumerate_get_list(enumerate);
 	while (list != NULL) {
 		struct udev_device *device;
 
@@ -375,18 +375,18 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 			goto exit;
 		case 'h':
 			printf("Usage: udevadm info OPTIONS\n"
-			       "  --query=<type>             query database for the specified value:\n"
+			       "  --query=<type>             query device information:\n"
 			       "      name                     name of device node\n"
 			       "      symlink                  pointing to node\n"
-			       "      path                     sysfs device path\n"
+			       "      path                     sys device path\n"
 			       "      env                      the device related imported environment\n"
 			       "      all                      all values\n"
-			       "  --path=<devpath>           sysfs device path used for query or chain\n"
-			       "  --name=<name>              node or symlink name used for query\n"
-			       "  --root                     prepend to query result or print udev_root\n"
-			       "  --attribute-walk           print all key matches while walking along chain\n"
+			       "  --path=<syspath>           sys device path used for query or attribute walk\n"
+			       "  --name=<name>              node or symlink name used for query or attribute walk\n"
+			       "  --root                     prepend dev directory to path names\n"
+			       "  --attribute-walk           print all key matches while walking along the chain\n"
 			       "                             of parent devices\n"
-			       "  --device-id-of-file=<file> print major/minor of underlying device\n"
+			       "  --device-id-of-file=<file> print major:minor of device containing this file\n"
 			       "  --export-db                export the content of the udev database\n"
 			       "  --help                     print this text\n"
 			       "\n");

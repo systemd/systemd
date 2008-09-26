@@ -118,7 +118,6 @@ static int device_read_db(struct udev_device *udev_device)
 		char target[UTIL_PATH_SIZE];
 		int target_len;
 
-		info(udev_device->udev, "found a symlink as db file\n");
 		target_len = readlink(filename, target, sizeof(target));
 		if (target_len > 0)
 			target[target_len] = '\0';
@@ -126,9 +125,9 @@ static int device_read_db(struct udev_device *udev_device)
 			info(udev_device->udev, "error reading db link %s: %s\n", filename, strerror(errno));
 			return -1;
 		}
-		dbg(udev_device->udev, "db link points to '%s'\n", target);
 		if (asprintf(&udev_device->devname, "%s/%s", udev_get_dev_path(udev_device->udev), target) < 0)
 			return -ENOMEM;
+		info(udev_device->udev, "device %p filled with db symlink data '%s'\n", udev_device, udev_device->devname);
 		return 0;
 	}
 
@@ -176,7 +175,7 @@ static int device_read_db(struct udev_device *udev_device)
 	}
 	fclose(f);
 
-	info(udev_device->udev, "device %p filled with udev database data\n", udev_device);
+	info(udev_device->udev, "device %p filled with db file data\n", udev_device);
 	return 0;
 }
 
@@ -272,7 +271,7 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 	enumerate = udev_enumerate_new_from_subsystems(udev, NULL);
 	if (enumerate == NULL)
 		return NULL;
-	list = udev_enumerate_get_devices_list(enumerate);
+	list = udev_enumerate_get_list(enumerate);
 	while (list != NULL) {
 		struct udev_device *device_loop;
 

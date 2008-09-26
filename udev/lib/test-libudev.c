@@ -150,7 +150,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem)
 	enumerate = udev_enumerate_new_from_subsystems(udev, NULL);
 	if (enumerate == NULL)
 		return -1;
-	list = udev_enumerate_get_devices_list(enumerate);
+	list = udev_enumerate_get_list(enumerate);
 	while (list != NULL) {
 		struct udev_device *device;
 
