@@ -130,7 +130,7 @@ static void print_record(struct udev_device *device)
 {
 	size_t len;
 	int i;
-	struct udev_list *list;
+	struct udev_list_entry *list_entry;
 
 	printf("P: %s\n", udev_device_get_devpath(device));
 
@@ -149,18 +149,15 @@ static void print_record(struct udev_device *device)
 	if (i != 0)
 		printf("R:%u\n", i);
 
-	list = udev_device_get_devlinks_list(device);
-	while (list != NULL) {
+	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(device)) {
 		len = strlen(udev_get_dev_path(udev_device_get_udev(device)));
-		printf("S: %s\n", &udev_list_entry_get_name(list)[len+1]);
-		list = udev_list_entry_get_next(list);
+		printf("S: %s\n", &udev_list_entry_get_name(list_entry)[len+1]);
 	}
 
-	list = udev_device_get_properties_list(device);
-	while (list != NULL) {
-		printf("E: %s=%s\n", udev_list_entry_get_name(list), udev_list_entry_get_value(list));
-		list = udev_list_entry_get_next(list);
-	}
+	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device))
+		printf("E: %s=%s\n",
+		       udev_list_entry_get_name(list_entry),
+		       udev_list_entry_get_value(list_entry));
 
 	printf("\n");
 }
@@ -187,22 +184,20 @@ static int stat_device(const char *name, int export, const char *prefix)
 static int export_devices(struct udev *udev)
 {
 	struct udev_enumerate *enumerate;
-	struct udev_list *list;
+	struct udev_list_entry *list_entry;
 
 	enumerate = udev_enumerate_new_from_subsystems(udev, NULL);
 	if (enumerate == NULL)
 		return -1;
-	list = udev_enumerate_get_list(enumerate);
-	while (list != NULL) {
+	udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(enumerate)) {
 		struct udev_device *device;
 
-		device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list));
+		device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list_entry));
 		if (device != NULL) {
 			if (udev_device_get_devnode(device) != NULL)
 				print_record(device);
 			udev_device_unref(device);
 		}
-		list = udev_list_entry_get_next(list);
 	}
 	udev_enumerate_unref(enumerate);
 	return 0;
@@ -216,7 +211,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 	const char *export_prefix = NULL;
 	char path[UTIL_PATH_SIZE];
 	char name[UTIL_PATH_SIZE];
-	struct udev_list *list;
+	struct udev_list_entry *list_entry;
 	int rc = 0;
 
 	static const struct option options[] = {
@@ -416,18 +411,18 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 			}
 			break;
 		case QUERY_SYMLINK:
-			list = udev_device_get_devlinks_list(device);
-			while (list != NULL) {
+			list_entry = udev_device_get_devlinks_list_entry(device);
+			while (list_entry != NULL) {
 				if (root) {
-					printf("%s", udev_list_entry_get_name(list));
+					printf("%s", udev_list_entry_get_name(list_entry));
 				} else {
 					size_t len;
 
 					len = strlen(udev_get_dev_path(udev_device_get_udev(device)));
-					printf("%s", &udev_list_entry_get_name(list)[len+1]);
+					printf("%s", &udev_list_entry_get_name(list_entry)[len+1]);
 				}
-				list = udev_list_entry_get_next(list);
-				if (list != NULL)
+				list_entry = udev_list_entry_get_next(list_entry);
+				if (list_entry != NULL)
 					printf(" ");
 			}
 			printf("\n");
@@ -436,10 +431,10 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 			printf("%s\n", udev_device_get_devpath(device));
 			goto exit;
 		case QUERY_ENV:
-			list = udev_device_get_properties_list(device);
-			while (list != NULL) {
-				printf("%s=%s\n", udev_list_entry_get_name(list), udev_list_entry_get_value(list));
-				list = udev_list_entry_get_next(list);
+			list_entry = udev_device_get_properties_list_entry(device);
+			while (list_entry != NULL) {
+				printf("%s=%s\n", udev_list_entry_get_name(list_entry), udev_list_entry_get_value(list_entry));
+				list_entry = udev_list_entry_get_next(list_entry);
 			}
 			break;
 		case QUERY_ALL:

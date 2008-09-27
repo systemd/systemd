@@ -23,8 +23,8 @@ udev_device_get_devpath
 udev_device_get_devnode
 udev_device_get_sysname
 udev_device_get_subsystem
-udev_device_get_devlinks_list
-udev_device_get_properties_list
+udev_device_get_devlinks_list_entry
+udev_device_get_properties_list_entry
 udev_device_get_action
 udev_device_get_driver
 udev_device_get_devnum
@@ -33,7 +33,7 @@ udev_device_get_attr_value
 udev_enumerate_new_from_subsystems
 udev_enumerate_ref
 udev_enumerate_unref
-udev_enumerate_get_list
+udev_enumerate_get_list_entry
 udev_monitor_new_from_socket
 udev_monitor_new_from_netlink
 udev_monitor_enable_receiving

@@ -28,13 +28,8 @@
 #error "#define LIBUDEV_I_KNOW_THE_API_IS_SUBJECT_TO_CHANGE is needed to use this experimental library version"
 #endif
 
-struct udev;
-struct udev_list;
-struct udev_device;
-struct udev_enumerate;
-struct udev_monitor;
-
 /* library context */
+struct udev;
 extern struct udev *udev_new(void);
 extern struct udev *udev_ref(struct udev *udev);
 extern void udev_unref(struct udev *udev);
@@ -55,11 +50,17 @@ extern void udev_selinux_setfscreatecon(struct udev *udev, const char *file, uns
 extern void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode);
 
 /* list iteration */
-extern struct udev_list *udev_list_entry_get_next(struct udev_list *list_entry);
-extern const char *udev_list_entry_get_name(struct udev_list *list_entry);
-extern const char *udev_list_entry_get_value(struct udev_list *list_entry);
+struct udev_list_entry;
+extern struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry *list_entry);
+extern const char *udev_list_entry_get_name(struct udev_list_entry *list_entry);
+extern const char *udev_list_entry_get_value(struct udev_list_entry *list_entry);
+#define udev_list_entry_foreach(entry, first) \
+	for (entry = first; \
+	     entry != NULL; \
+	     entry = udev_list_entry_get_next(entry))
 
 /* sys devices */
+struct udev_device;
 extern struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *syspath);
 extern struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, dev_t devnum);
 extern struct udev_device *udev_device_get_parent(struct udev_device *udev_device);
@@ -71,21 +72,16 @@ extern const char *udev_device_get_subsystem(struct udev_device *udev_device);
 extern const char *udev_device_get_syspath(struct udev_device *udev_device);
 extern const char *udev_device_get_sysname(struct udev_device *udev_device);
 extern const char *udev_device_get_devnode(struct udev_device *udev_device);
-extern struct udev_list *udev_device_get_devlinks_list(struct udev_device *udev_device);
-extern struct udev_list *udev_device_get_properties_list(struct udev_device *udev_device);
+extern struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev_device *udev_device);
+extern struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device *udev_device);
 extern const char *udev_device_get_driver(struct udev_device *udev_device);
 extern dev_t udev_device_get_devnum(struct udev_device *udev_device);
 extern const char *udev_device_get_action(struct udev_device *udev_device);
 extern unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device);
 extern const char *udev_device_get_attr_value(struct udev_device *udev_device, const char *attr);
 
-/* sys enumeration */
-extern struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev, const char *subsystem);
-extern struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate);
-extern void udev_enumerate_unref(struct udev_enumerate *udev_enumerate);
-extern struct udev_list *udev_enumerate_get_list(struct udev_enumerate *udev_enumerate);
-
 /* udev and kernel device events */
+struct udev_monitor;
 extern struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path);
 extern struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev);
 extern int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor);
@@ -94,5 +90,12 @@ extern void udev_monitor_unref(struct udev_monitor *udev_monitor);
 extern struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor);
 extern int udev_monitor_get_fd(struct udev_monitor *udev_monitor);
 extern struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monitor);
+
+/* sys enumeration */
+struct udev_enumerate;
+extern struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev, const char *subsystem);
+extern struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate);
+extern void udev_enumerate_unref(struct udev_enumerate *udev_enumerate);
+extern struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *udev_enumerate);
 
 #endif

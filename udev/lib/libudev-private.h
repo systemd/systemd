@@ -109,11 +109,18 @@ struct list_node {
 	struct list_node *next, *prev;
 };
 extern void list_init(struct list_node *list);
-extern struct udev_list *list_insert_entry(struct udev *udev, struct list_node *name_list,
-					   const char *name, const char *value, int sort);
-extern struct udev_list *list_get_entry(struct list_node *list);
-extern void list_move_entry_to_end(struct udev_list *list_entry, struct list_node *list);
 extern void list_cleanup(struct udev *udev, struct list_node *name_list);
+extern struct udev_list_entry *list_entry_add(struct udev *udev, struct list_node *list,
+					      const char *name, const char *value,
+					      int unique, int sort);
+extern void list_entry_remove(struct udev_list_entry *entry);
+extern struct udev_list_entry *list_get_entry(struct list_node *list);
+extern void list_entry_move_to_end(struct udev_list_entry *list_entry);
+#define list_entry_foreach_safe(entry, tmp, first) \
+	for (entry = first, \
+	     tmp = udev_list_entry_get_next(entry); \
+	     entry != NULL; \
+	     entry = tmp, tmp = udev_list_entry_get_next(tmp))
 
 /* libudev-utils */
 #define UTIL_PATH_SIZE		1024

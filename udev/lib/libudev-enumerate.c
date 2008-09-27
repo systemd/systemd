@@ -54,7 +54,7 @@ void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 	free(udev_enumerate);
 }
 
-struct udev_list *udev_enumerate_get_list(struct udev_enumerate *udev_enumerate)
+struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *udev_enumerate)
 {
 	if (udev_enumerate == NULL)
 		return NULL;
@@ -87,7 +87,7 @@ static int devices_scan_subsystem(struct udev *udev,
 		util_strlcat(syspath, "/", sizeof(syspath));
 		util_strlcat(syspath, dent->d_name, sizeof(syspath));
 		util_resolve_sys_link(udev, syspath, sizeof(syspath));
-		list_insert_entry(udev, device_list, syspath, NULL, 1);
+		list_entry_add(udev, device_list, syspath, NULL, 1, 1);
 	}
 	closedir(dir);
 	return 0;
@@ -151,7 +151,7 @@ struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev, con
 	struct udev_enumerate *udev_enumerate;
 	char base[UTIL_PATH_SIZE];
 	struct stat statbuf;
-	struct udev_list *list;
+	struct udev_list_entry *list_entry;
 
 	if (udev == NULL)
 		return NULL;
@@ -168,18 +168,19 @@ struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev, con
 	util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
 	util_strlcat(base, "/subsystem", sizeof(base));
 	if (stat(base, &statbuf) == 0) {
+		info(udev, "searching 'subsystem/*/devices/*' dir\n");
 		devices_scan_subsystems(udev, "/subsystem", subsystem, "/devices", &udev_enumerate->devices_list);
 	} else {
+		info(udev, "searching 'bus/*/devices/*' dir\n");
 		devices_scan_subsystems(udev, "/bus", subsystem, "/devices", &udev_enumerate->devices_list);
+		info(udev, "searching 'class/*' dir\n");
 		devices_scan_subsystems(udev, "/class", subsystem, NULL, &udev_enumerate->devices_list);
 	}
 
 	/* sort delayed devices to the end of the list */
-	list = list_get_entry(&udev_enumerate->devices_list);
-	while (list != NULL) {
-		if (devices_delay(udev, udev_list_entry_get_name(list)))
-			list_move_entry_to_end(list, &udev_enumerate->devices_list);
-		list = udev_list_entry_get_next(list);
+	udev_list_entry_foreach(list_entry, list_get_entry(&udev_enumerate->devices_list)) {
+		if (devices_delay(udev, udev_list_entry_get_name(list_entry)))
+			list_entry_move_to_end(list_entry);
 	}
 	return udev_enumerate;
 }

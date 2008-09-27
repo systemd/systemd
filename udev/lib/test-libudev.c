@@ -42,44 +42,60 @@ static void print_device(struct udev_device *device)
 	const char *str;
 	dev_t devnum;
 	int count;
-	struct udev_list *list;
+	struct udev_list_entry *list_entry;
 
 	printf("*** device: %p ***\n", device);
 	str = udev_device_get_action(device);
-	printf("action:    '%s'\n", str);
+	if (str != NULL)
+		printf("action:    '%s'\n", str);
+
 	str = udev_device_get_syspath(device);
 	printf("syspath:   '%s'\n", str);
+
 	str = udev_device_get_devpath(device);
 	printf("devpath:   '%s'\n", str);
+
 	str = udev_device_get_subsystem(device);
-	printf("subsystem: '%s'\n", str);
+	if (str != NULL)
+		printf("subsystem: '%s'\n", str);
+
 	str = udev_device_get_driver(device);
-	printf("driver:    '%s'\n", str);
+	if (str != NULL)
+		printf("driver:    '%s'\n", str);
+
 	str = udev_device_get_devnode(device);
-	printf("devname:   '%s'\n", str);
+	if (str != NULL)
+		printf("devname:   '%s'\n", str);
+
 	devnum = udev_device_get_devnum(device);
-	printf("devnum:    %u:%u\n", major(devnum), minor(devnum));
+	if (major(devnum) > 0)
+		printf("devnum:    %u:%u\n", major(devnum), minor(devnum));
 
 	count = 0;
-	list = udev_device_get_devlinks_list(device);
-	while (list != NULL) {
-		printf("link:      '%s'\n", udev_list_entry_get_name(list));
+	list_entry = udev_device_get_devlinks_list_entry(device);
+	while (list_entry != NULL) {
+		printf("link:      '%s'\n", udev_list_entry_get_name(list_entry));
 		count++;
-		list = udev_list_entry_get_next(list);
+		list_entry = udev_list_entry_get_next(list_entry);
 	}
-	printf("found %i links\n", count);
+	if (count > 0)
+		printf("found %i links\n", count);
 
 	count = 0;
-	list = udev_device_get_properties_list(device);
-	while (list != NULL) {
-		printf("property:  '%s=%s'\n", udev_list_entry_get_name(list), udev_list_entry_get_value(list));
+	list_entry = udev_device_get_properties_list_entry(device);
+	while (list_entry != NULL) {
+		printf("property:  '%s=%s'\n",
+		       udev_list_entry_get_name(list_entry),
+		       udev_list_entry_get_value(list_entry));
 		count++;
-		list = udev_list_entry_get_next(list);
+		list_entry = udev_list_entry_get_next(list_entry);
 	}
-	printf("found %i properties\n", count);
+	if (count > 0)
+		printf("found %i properties\n", count);
 
 	str = udev_device_get_attr_value(device, "dev");
-	printf("attr{dev}: '%s'\n", str);
+	if (str != NULL)
+		printf("attr{dev}: '%s'\n", str);
 
 	printf("\n");
 }
@@ -144,17 +160,17 @@ static int test_device_devnum(struct udev *udev)
 static int test_enumerate(struct udev *udev, const char *subsystem)
 {
 	struct udev_enumerate *enumerate;
-	struct udev_list *list;
+	struct udev_list_entry *list_entry;
 	int count = 0;
 
 	enumerate = udev_enumerate_new_from_subsystems(udev, NULL);
 	if (enumerate == NULL)
 		return -1;
-	list = udev_enumerate_get_list(enumerate);
-	while (list != NULL) {
+	list_entry = udev_enumerate_get_list_entry(enumerate);
+	while (list_entry != NULL) {
 		struct udev_device *device;
 
-		device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list));
+		device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list_entry));
 		if (device != NULL) {
 			printf("device:    '%s' (%s) '%s'\n",
 			       udev_device_get_syspath(device),
@@ -163,7 +179,7 @@ static int test_enumerate(struct udev *udev, const char *subsystem)
 			udev_device_unref(device);
 			count++;
 		}
-		list = udev_list_entry_get_next(list);
+		list_entry = udev_list_entry_get_next(list_entry);
 	}
 	udev_enumerate_unref(enumerate);
 	printf("found %i devices\n\n", count);

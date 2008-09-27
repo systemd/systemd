@@ -41,6 +41,29 @@ static void asmlinkage sig_handler(int signum)
 		udev_exit = 1;
 }
 
+static void print_device(struct udev_device *device, const char *source, int env)
+{
+	struct timeval tv;
+	struct timezone tz;
+
+	gettimeofday(&tv, &tz);
+	printf("%-6s[%llu.%06u] %-8s %s (%s)\n",
+	       source,
+	       (unsigned long long) tv.tv_sec, (unsigned int) tv.tv_usec,
+	       udev_device_get_action(device),
+	       udev_device_get_devpath(device),
+	       udev_device_get_subsystem(device));
+	if (env) {
+		struct udev_list_entry *list_entry;
+
+		udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device))
+			printf("%s=%s\n",
+			       udev_list_entry_get_name(list_entry),
+			       udev_list_entry_get_value(list_entry));
+		printf("\n");
+	}
+}
+
 int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 {
 	struct sigaction act;
@@ -134,9 +157,6 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 
 	while (!udev_exit) {
 		int fdcount;
-		struct timeval tv;
-		struct timezone tz;
-		char timestr[64];
 
 		FD_ZERO(&readfds);
 		if (kernel_monitor != NULL)
@@ -152,51 +172,23 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			continue;
 		}
 
-		if (gettimeofday(&tv, &tz) == 0) {
-			snprintf(timestr, sizeof(timestr), "%llu.%06u",
-				 (unsigned long long) tv.tv_sec, (unsigned int) tv.tv_usec);
-		} else
-			timestr[0] = '\0';
-
 		if ((kernel_monitor != NULL) && FD_ISSET(udev_monitor_get_fd(kernel_monitor), &readfds)) {
-			struct udev_device *device = udev_monitor_receive_device(kernel_monitor);
+			struct udev_device *device;
+
+			device = udev_monitor_receive_device(kernel_monitor);
 			if (device == NULL)
 				continue;
-			printf("UEVENT[%s] %-8s %s (%s)\n", timestr,
-			       udev_device_get_action(device),
-			       udev_device_get_devpath(device),
-			       udev_device_get_subsystem(device));
-			if (env) {
-				struct udev_list *list;
-
-				list = udev_device_get_properties_list(device);
-				while (list != NULL) {
-					printf("%s=%s\n", udev_list_entry_get_name(list), udev_list_entry_get_value(list));
-					list = udev_list_entry_get_next(list);
-				}
-				printf("\n");
-			}
+			print_device(device, "UEVENT", env);
 			udev_device_unref(device);
 		}
 
 		if ((udev_monitor != NULL) && FD_ISSET(udev_monitor_get_fd(udev_monitor), &readfds)) {
-			struct udev_device *device = udev_monitor_receive_device(udev_monitor);
+			struct udev_device *device;
+
+			device = udev_monitor_receive_device(udev_monitor);
 			if (device == NULL)
 				continue;
-			printf("UDEV  [%s] %-8s %s (%s)\n", timestr,
-			       udev_device_get_action(device),
-			       udev_device_get_devpath(device),
-			       udev_device_get_subsystem(device));
-			if (env) {
-				struct udev_list *list;
-
-				list = udev_device_get_properties_list(device);
-				while (list != NULL) {
-					printf("%s=%s\n", udev_list_entry_get_name(list), udev_list_entry_get_value(list));
-					list = udev_list_entry_get_next(list);
-				}
-				printf("\n");
-			}
+			print_device(device, "UDEV", env);
 			udev_device_unref(device);
 		}
 	}
