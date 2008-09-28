@@ -58,29 +58,40 @@ struct udev_rule *udev_rules_iter_next(struct udev_rules_iter *iter)
 	return rule;
 }
 
-struct udev_rule *udev_rules_iter_label(struct udev_rules_iter *iter, const char *label)
+struct udev_rule *udev_rules_iter_goto(struct udev_rules_iter *iter, size_t rule_off)
+{
+	struct udev_rules *rules = iter->rules;
+	struct udev_rule *rule;
+
+	dbg(rules->udev "current=%zi\n", iter->current);
+	iter->current = rule_off;
+	rule = (struct udev_rule *) (rules->buf + iter->current);
+
+	return rule;
+}
+
+static size_t find_label(const struct udev_rules_iter *iter, const char *label)
 {
 	struct udev_rule *rule;
 	struct udev_rules *rules = iter->rules;
-	size_t start = iter->current;
+	size_t current = iter->current;
 
 next:
-	dbg(rules->udev, "current=%zi\n", iter->current);
-	if (iter->current >= rules->bufsize) {
+	dbg(rules->udev, "current=%zi\n", current);
+	if (current >= rules->bufsize) {
 		err(rules->udev, "LABEL='%s' not found, GOTO will be ignored\n", label);
-		iter->current = start;
-		return NULL;
+		return iter->current;
 	}
-	rule = (struct udev_rule *) (rules->buf + iter->current);
+	rule = (struct udev_rule *) (rules->buf + current);
 
 	if (strcmp(&rule->buf[rule->label.val_off], label) != 0) {
 		dbg(rules->udev, "moving forward, looking for label '%s'\n", label);
-		iter->current += sizeof(struct udev_rule) + rule->bufsize;
+		current += sizeof(struct udev_rule) + rule->bufsize;
 		goto next;
 	}
 
 	dbg(rules->udev, "found label '%s'\n", label);
-	return rule;
+	return current;
 }
 
 static int get_key(struct udev_rules *rules, char **line, char **key, enum key_operation *operation, char **value)
@@ -674,6 +685,11 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 	size_t cur;
 	size_t count;
 	int retval = 0;
+	size_t start;
+	struct udev_rule *rule;
+	struct udev_rules_iter iter;
+
+	start = rules->bufsize;
 
 	if (file_map(filename, &buf, &bufsize) != 0) {
 		err(rules->udev, "can't open '%s' as rules file: %s\n", filename, strerror(errno));
@@ -720,6 +736,22 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 
 		dbg(rules->udev, "read '%s'\n", line);
 		add_to_rules(rules, line, filename, lineno);
+	}
+
+	/* Compute all goto targets within this file */
+	udev_rules_iter_init(&iter, rules);
+	udev_rules_iter_goto(&iter, start);
+	while((rule = udev_rules_iter_next(&iter))) {
+		if (rule->goto_label.operation != KEY_OP_UNSET) {
+			char *goto_label = &rule->buf[rule->goto_label.val_off];
+
+			dbg(rules->udev, "resolving goto label '%s'", goto_label);
+			rule->goto_rule_off = find_label(&iter, goto_label);
+			if (rule->goto_rule_off == iter.current) {
+				err(rules->udev, "goto nonexistent label '%s' in '%s'",
+				    goto_label, filename);
+			}
+		}
 	}
 
 	file_unmap(buf, bufsize);

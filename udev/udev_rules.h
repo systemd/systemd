@@ -84,6 +84,7 @@ struct udev_rule {
 	struct key wait_for;
 	struct key label;
 	struct key goto_label;
+	size_t goto_rule_off;
 
 	struct key name;
 	struct key symlink;
@@ -122,7 +123,7 @@ extern void udev_rules_cleanup(struct udev_rules *rules);
 
 extern void udev_rules_iter_init(struct udev_rules_iter *iter, struct udev_rules *rules);
 extern struct udev_rule *udev_rules_iter_next(struct udev_rules_iter *iter);
-extern struct udev_rule *udev_rules_iter_label(struct udev_rules_iter *iter, const char *label);
+extern struct udev_rule *udev_rules_iter_goto(struct udev_rules_iter *iter, size_t rule_off);
 
 extern int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev);
 extern int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev);

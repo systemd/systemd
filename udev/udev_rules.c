@@ -1529,7 +1529,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udevice)
 
 			if (rule->goto_label.operation != KEY_OP_UNSET) {
 				dbg(udevice->udev, "moving forward to label '%s'\n", key_val(rule, &rule->goto_label));
-				udev_rules_iter_label(&iter, key_val(rule, &rule->goto_label));
+				udev_rules_iter_goto(&iter, rule->goto_rule_off);
 			}
 		}
 	}
@@ -1609,7 +1609,7 @@ int udev_rules_get_run(struct udev_rules *rules, struct udevice *udevice)
 
 			if (rule->goto_label.operation != KEY_OP_UNSET) {
 				dbg(udevice->udev, "moving forward to label '%s'\n", key_val(rule, &rule->goto_label));
-				udev_rules_iter_label(&iter, key_val(rule, &rule->goto_label));
+				udev_rules_iter_goto(&iter, rule->goto_rule_off);
 			}
 		}
 	}
