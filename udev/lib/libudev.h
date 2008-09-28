@@ -52,6 +52,7 @@ extern void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsign
 /* list iteration */
 struct udev_list_entry;
 extern struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry *list_entry);
+extern struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list_entry, const char *name);
 extern const char *udev_list_entry_get_name(struct udev_list_entry *list_entry);
 extern const char *udev_list_entry_get_value(struct udev_list_entry *list_entry);
 #define udev_list_entry_foreach(entry, first) \
@@ -93,8 +94,10 @@ extern struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev
 
 /* sys enumeration */
 struct udev_enumerate;
-extern struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev, const char *subsystem);
+extern struct udev_enumerate *udev_enumerate_new_from_devices(struct udev *udev, const char *subsystem, ...);
+extern struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev);
 extern struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate);
+extern struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate);
 extern void udev_enumerate_unref(struct udev_enumerate *udev_enumerate);
 extern struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *udev_enumerate);
 

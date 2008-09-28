@@ -186,7 +186,7 @@ static int export_devices(struct udev *udev)
 	struct udev_enumerate *enumerate;
 	struct udev_list_entry *list_entry;
 
-	enumerate = udev_enumerate_new_from_subsystems(udev, NULL);
+	enumerate = udev_enumerate_new_from_devices(udev, NULL);
 	if (enumerate == NULL)
 		return -1;
 	udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(enumerate)) {
@@ -301,7 +301,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 				rc = 2;
 				goto exit;
 			}
-			/* add /sys if needed */
+			/* add sys dir if needed */
 			if (strncmp(optarg, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0) {
 				util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
 				util_strlcat(path, optarg, sizeof(path));

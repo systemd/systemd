@@ -1,13 +1,12 @@
-  o enumerate() - add buses and drivers
+  o libudev enumerate
+      add buses and drivers
+      add /sys/block/ scanning crap
       use enumerate for "trigger"
-
-  o add libudev interface for /dev/.udev/queue/ state
+  o libudev queue - interface for /dev/.udev/queue/ state
       use queue interface for "settle"
-
-  o use libudev in udev_rules.c
+  o use libudev device in udev_rules.c
       get rid of udevice, store rule matching state in rule iterator
   o rework rules to a match-action list, instead of a rules array
-
   o add DVB variables to kernel, and drop shell script rule
   o add watershed extra
   o log warning if the kernel uses CONFIG_SYSFS_DEPRECATED*=y,

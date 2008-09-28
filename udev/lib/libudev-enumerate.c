@@ -54,6 +54,13 @@ void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 	free(udev_enumerate);
 }
 
+struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate)
+{
+	if (udev_enumerate == NULL)
+		return NULL;
+	return udev_enumerate->udev;
+}
+
 struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *udev_enumerate)
 {
 	if (udev_enumerate == NULL)
@@ -63,7 +70,7 @@ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *ude
 
 static int devices_scan_subsystem(struct udev *udev,
 				  const char *basedir, const char *subsystem, const char *subdir,
-				  struct list_node *device_list)
+				  struct list_node *devices_list)
 {
 	char path[UTIL_PATH_SIZE];
 	DIR *dir;
@@ -87,34 +94,44 @@ static int devices_scan_subsystem(struct udev *udev,
 		util_strlcat(syspath, "/", sizeof(syspath));
 		util_strlcat(syspath, dent->d_name, sizeof(syspath));
 		util_resolve_sys_link(udev, syspath, sizeof(syspath));
-		list_entry_add(udev, device_list, syspath, NULL, 1, 1);
+		list_entry_add(udev, devices_list, syspath, NULL, 1, 1);
 	}
 	closedir(dir);
 	return 0;
 }
 
 static int devices_scan_subsystems(struct udev *udev,
-				   const char *basedir, const char *subsystem, const char *subdir,
-				   struct list_node *device_list)
+				   const char *basedir, const char *subdir,
+				   struct udev_list_entry *subsystem_include_list,
+				   struct udev_list_entry *subsystem_exclude_list,
+				   struct list_node *devices_list)
 {
-	char path[UTIL_PATH_SIZE];
-	DIR *dir;
-	struct dirent *dent;
+	if (subsystem_include_list != NULL) {
+		struct udev_list_entry *list_entry;
 
-	if (subsystem != NULL)
-		return devices_scan_subsystem(udev, basedir, subsystem, subdir, device_list);
+		/* if list of subsystems to scan is given, just use this list */
+		udev_list_entry_foreach(list_entry, subsystem_include_list)
+			devices_scan_subsystem(udev, basedir, udev_list_entry_get_name(list_entry), subdir, devices_list);
+	} else {
+		char path[UTIL_PATH_SIZE];
+		DIR *dir;
+		struct dirent *dent;
 
-	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-	util_strlcat(path, basedir, sizeof(path));
-	dir = opendir(path);
-	if (dir == NULL)
-		return -1;
-	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-		if (dent->d_name[0] == '.')
-			continue;
-		devices_scan_subsystem(udev, basedir, dent->d_name, subdir, device_list);
+		/* if no list of subsystems to scan is given, scan all, and possible exclude some subsystems */
+		util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
+		util_strlcat(path, basedir, sizeof(path));
+		dir = opendir(path);
+		if (dir == NULL)
+			return -1;
+		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+			if (dent->d_name[0] == '.')
+				continue;
+			if (udev_list_entry_get_by_name(subsystem_exclude_list, dent->d_name) != NULL)
+					continue;
+			devices_scan_subsystem(udev, basedir, dent->d_name, subdir, devices_list);
+		}
+		closedir(dir);
 	}
-	closedir(dir);
 	return 0;
 }
 
@@ -140,17 +157,21 @@ static int devices_delay(struct udev *udev, const char *syspath)
 }
 
 /**
- * udev_enumerate_new_from_subsystems:
+ * udev_enumerate_new_from_devices:
  * @udev: udev library context
- * @subsystem: the subsystem to enumerate
+ * @subsystem: the list of names of subsystems to look for devices
  *
  * Returns: an enumeration context
  **/
-struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev, const char *subsystem)
+struct udev_enumerate *udev_enumerate_new_from_devices(struct udev *udev, const char *subsystem, ...)
 {
 	struct udev_enumerate *udev_enumerate;
+	va_list vargs;
+	const char *arg;
 	char base[UTIL_PATH_SIZE];
 	struct stat statbuf;
+	struct list_node subsystem_include_list;
+	struct list_node subsystem_exclude_list;
 	struct udev_list_entry *list_entry;
 
 	if (udev == NULL)
@@ -164,18 +185,41 @@ struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev, con
 	udev_enumerate->udev = udev;
 	list_init(&udev_enumerate->devices_list);
 
+	va_start(vargs, subsystem);
+	list_init(&subsystem_include_list);
+	list_init(&subsystem_exclude_list);
+	for (arg = subsystem; arg != NULL; arg = va_arg(vargs, const char *)) {
+		if (arg[0] != '!')
+			list_entry_add(udev, &subsystem_include_list, arg, NULL, 1, 0);
+		else
+			list_entry_add(udev, &subsystem_exclude_list, &arg[1], NULL, 1, 0);
+	}
+	va_end(vargs);
+
 	/* if we have /sys/subsystem/, forget all the old stuff */
 	util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
 	util_strlcat(base, "/subsystem", sizeof(base));
 	if (stat(base, &statbuf) == 0) {
 		info(udev, "searching 'subsystem/*/devices/*' dir\n");
-		devices_scan_subsystems(udev, "/subsystem", subsystem, "/devices", &udev_enumerate->devices_list);
+		devices_scan_subsystems(udev, "/subsystem", "/devices",
+					list_get_entry(&subsystem_include_list),
+					list_get_entry(&subsystem_exclude_list),
+					&udev_enumerate->devices_list);
 	} else {
 		info(udev, "searching 'bus/*/devices/*' dir\n");
-		devices_scan_subsystems(udev, "/bus", subsystem, "/devices", &udev_enumerate->devices_list);
+		devices_scan_subsystems(udev, "/bus", "/devices",
+					list_get_entry(&subsystem_include_list),
+					list_get_entry(&subsystem_exclude_list),
+					&udev_enumerate->devices_list);
 		info(udev, "searching 'class/*' dir\n");
-		devices_scan_subsystems(udev, "/class", subsystem, NULL, &udev_enumerate->devices_list);
+		devices_scan_subsystems(udev, "/class", NULL,
+					list_get_entry(&subsystem_include_list),
+					list_get_entry(&subsystem_exclude_list),
+					&udev_enumerate->devices_list);
 	}
+
+	list_cleanup(udev, &subsystem_include_list);
+	list_cleanup(udev, &subsystem_exclude_list);
 
 	/* sort delayed devices to the end of the list */
 	udev_list_entry_foreach(list_entry, list_get_entry(&udev_enumerate->devices_list)) {
@@ -183,4 +227,9 @@ struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev, con
 			list_entry_move_to_end(list_entry);
 	}
 	return udev_enumerate;
+}
+
+struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev)
+{
+	return NULL;
 }

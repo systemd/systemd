@@ -10,6 +10,7 @@ udev_set_userdata
 udev_get_sys_path
 udev_get_dev_path
 udev_list_entry_get_next
+udev_list_entry_get_by_name
 udev_list_entry_get_name
 udev_list_entry_get_value
 udev_device_new_from_syspath
@@ -30,9 +31,11 @@ udev_device_get_driver
 udev_device_get_devnum
 udev_device_get_seqnum
 udev_device_get_attr_value
+udev_enumerate_new_from_devices
 udev_enumerate_new_from_subsystems
 udev_enumerate_ref
 udev_enumerate_unref
+udev_enumerate_get_udev
 udev_enumerate_get_list_entry
 udev_monitor_new_from_socket
 udev_monitor_new_from_netlink

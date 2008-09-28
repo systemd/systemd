@@ -192,6 +192,16 @@ struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry *list_en
 	return list_node_to_entry(next);
 }
 
+struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list_entry, const char *name)
+{
+	struct udev_list_entry *entry;
+
+	udev_list_entry_foreach(entry, list_entry)
+		if (strcmp(udev_list_entry_get_name(entry), name) == 0)
+			return entry;
+	return NULL;
+}
+
 const char *udev_list_entry_get_name(struct udev_list_entry *list_entry)
 {
 	if (list_entry == NULL)

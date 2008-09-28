@@ -252,7 +252,7 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 	subdir = &syspath[len+1];
 	pos = strrchr(subdir, '/');
 	if (pos == NULL || pos < &subdir[2]) {
-		info(udev, "not in subdir :%s\n", syspath);
+		info(udev, "not a subdir :%s\n", syspath);
 		return NULL;
 	}
 
@@ -312,8 +312,11 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 	if (util_resolve_sys_link(udev, path, sizeof(path)) == 0)
 		return udev_device_new_from_syspath(udev, path);
 
-	/* fallback to search all sys devices for the major/minor */
-	enumerate = udev_enumerate_new_from_subsystems(udev, NULL);
+	/* fallback to search sys devices for the major/minor */
+	if (type == 'b')
+		enumerate = udev_enumerate_new_from_devices(udev, "block", NULL);
+	else if (type == 'c')
+		enumerate = udev_enumerate_new_from_devices(udev, "!block", NULL);
 	if (enumerate == NULL)
 		return NULL;
 	udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(enumerate)) {
@@ -322,6 +325,13 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 		device_loop = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list_entry));
 		if (device_loop != NULL) {
 			if (udev_device_get_devnum(device_loop) == devnum) {
+				const char *subsystem;
+
+				subsystem = udev_device_get_subsystem(device_loop);
+				if (type == 'b' && strcmp(subsystem, "block") != 0)
+					continue;
+				if (type == 'c' && strcmp(subsystem, "block") == 0)
+					continue;
 				device = device_loop;
 				break;
 			}
