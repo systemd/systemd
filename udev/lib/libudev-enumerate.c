@@ -89,6 +89,7 @@ static int devices_scan_subsystem(struct udev *udev,
 		return -1;
 	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
 		char syspath[UTIL_PATH_SIZE];
+		char filename[UTIL_PATH_SIZE];
 		struct stat statbuf;
 
 		if (dent->d_name[0] == '.')
@@ -96,9 +97,9 @@ static int devices_scan_subsystem(struct udev *udev,
 		util_strlcpy(syspath, path, sizeof(syspath));
 		util_strlcat(syspath, "/", sizeof(syspath));
 		util_strlcat(syspath, dent->d_name, sizeof(syspath));
-		if (stat(syspath, &statbuf) != 0)
-			continue;
-		if (!S_ISDIR(statbuf.st_mode))
+		util_strlcpy(filename, syspath, sizeof(filename));
+		util_strlcat(filename, "/uevent", sizeof(filename));
+		if (stat(filename, &statbuf) != 0)
 			continue;
 		util_resolve_sys_link(udev, syspath, sizeof(syspath));
 		list_entry_add(udev, devices_list, syspath, NULL, 1, 1);
@@ -117,8 +118,11 @@ static int devices_scan_subsystems(struct udev *udev,
 		struct udev_list_entry *list_entry;
 
 		/* if list of subsystems to scan is given, just use this list */
-		udev_list_entry_foreach(list_entry, subsystem_include_list)
+		udev_list_entry_foreach(list_entry, subsystem_include_list) {
+			if (udev_list_entry_get_by_name(subsystem_exclude_list, udev_list_entry_get_name(list_entry)) != NULL)
+					continue;
 			devices_scan_subsystem(udev, basedir, udev_list_entry_get_name(list_entry), subdir, devices_list);
+		}
 	} else {
 		char path[UTIL_PATH_SIZE];
 		DIR *dir;
@@ -213,10 +217,10 @@ struct udev_enumerate *udev_enumerate_new_from_devices(struct udev *udev, const 
 	}
 	va_end(vargs);
 
-	/* if we have /sys/subsystem/, forget all the old stuff */
 	util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
 	util_strlcat(base, "/subsystem", sizeof(base));
 	if (stat(base, &statbuf) == 0) {
+		/* we have /subsystem/, forget all the old stuff */
 		info(udev, "searching '/subsystem/*/devices/*' dir\n");
 		devices_scan_subsystems(udev, "/subsystem", "/devices",
 					list_get_entry(&subsystem_include_list),
@@ -233,6 +237,25 @@ struct udev_enumerate *udev_enumerate_new_from_devices(struct udev *udev, const 
 					list_get_entry(&subsystem_include_list),
 					list_get_entry(&subsystem_exclude_list),
 					&udev_enumerate->devices_list);
+		/* if block isn't a class, scan /block/ */
+		util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
+		util_strlcat(base, "/class/block", sizeof(base));
+		if (stat(base, &statbuf) != 0) {
+			struct udev_list_entry *include_list = list_get_entry(&subsystem_include_list);
+			struct udev_list_entry *exclude_list = list_get_entry(&subsystem_exclude_list);
+			int include_block = (include_list == NULL || udev_list_entry_get_by_name(include_list, "block") != NULL);
+			int exclude_block = (udev_list_entry_get_by_name(exclude_list, "block") != NULL);
+
+			if (include_block && !exclude_block) {
+				info(udev, "searching '/block/*/*' dir\n");
+				/* scan disks */
+				devices_scan_subsystem(udev, "/block", NULL, NULL, &udev_enumerate->devices_list);
+				/* scan partitions */
+				devices_scan_subsystems(udev, "/block", NULL,
+							NULL, NULL,
+							&udev_enumerate->devices_list);
+			}
+		}
 	}
 
 	list_cleanup(udev, &subsystem_include_list);
