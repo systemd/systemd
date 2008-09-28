@@ -4,6 +4,7 @@
       use enumerate for "trigger"
   o libudev queue - interface for /dev/.udev/queue/ state
       use queue interface for "settle"
+  o relace test/sys/ with current sysfs layout
   o use libudev device in udev_rules.c
       get rid of udevice, store rule matching state in rule iterator
   o rework rules to a match-action list, instead of a rules array

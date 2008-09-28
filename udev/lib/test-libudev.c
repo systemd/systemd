@@ -333,6 +333,13 @@ int main(int argc, char *argv[], char *envp[])
 	test_enumerate_print_list(enumerate);
 	udev_enumerate_unref(enumerate);
 
+	printf("enumerate 'subsystem'\n");
+	enumerate = udev_enumerate_new_from_subsystems(udev);
+	if (enumerate == NULL)
+		return -1;
+	test_enumerate_print_list(enumerate);
+	udev_enumerate_unref(enumerate);
+
 	test_monitor(udev, socket);
 out:
 	udev_unref(udev);
