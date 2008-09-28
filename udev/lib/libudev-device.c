@@ -229,6 +229,9 @@ struct udev_device *device_init(struct udev *udev)
  **/
 struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *syspath)
 {
+	size_t len;
+	const char *subdir;
+	const char *pos;
 	char path[UTIL_PATH_SIZE];
 	struct stat statbuf;
 	struct udev_device *udev_device;
@@ -238,20 +241,50 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 	if (syspath == NULL)
 		return NULL;
 
-	util_strlcpy(path, syspath, sizeof(path));
-	util_strlcat(path, "/uevent", sizeof(path));
-	if (stat(path, &statbuf) != 0) {
-		info(udev, "not a device :%s\n", syspath);
+	/* path starts in sys */
+	len = strlen(udev_get_sys_path(udev));
+	if (strncmp(syspath, udev_get_sys_path(udev), len) != 0) {
+		info(udev, "not in sys :%s\n", syspath);
 		return NULL;
+	}
+
+	/* path is not a root directory */
+	subdir = &syspath[len+1];
+	pos = strrchr(subdir, '/');
+	if (pos == NULL || pos < &subdir[2]) {
+		info(udev, "not in subdir :%s\n", syspath);
+		return NULL;
+	}
+
+	/* resolve possible symlink to real path */
+	util_strlcpy(path, syspath, sizeof(path));
+	util_resolve_sys_link(udev, path, sizeof(path));
+
+	/* path exists in sys */
+	if (strncmp(&syspath[len], "/devices/", 9) == 0 ||
+	    strncmp(&syspath[len], "/class/", 7) == 0 ||
+	    strncmp(&syspath[len], "/block/", 7) == 0) {
+		char file[UTIL_PATH_SIZE];
+
+		/* all "devices" require a "uevent" file */
+		util_strlcpy(file, path, sizeof(file));
+		util_strlcat(file, "/uevent", sizeof(file));
+		if (stat(file, &statbuf) != 0) {
+			info(udev, "not a device: %s\n", syspath);
+			return NULL;
+		}
+	} else {
+		/* everything else just needs to be a directory */
+		if (stat(path, &statbuf) != 0 || !S_ISDIR(statbuf.st_mode)) {
+			info(udev, "directory not found: %s\n", syspath);
+			return NULL;
+		}
 	}
 
 	udev_device = device_init(udev);
 	if (udev_device == NULL)
 		return NULL;
 
-	/* resolve possible symlink to real path */
-	util_strlcpy(path, syspath, sizeof(path));
-	util_resolve_sys_link(udev, path, sizeof(path));
 	device_set_syspath(udev_device, path);
 	info(udev, "device %p has devpath '%s'\n", udev_device, udev_device_get_devpath(udev_device));
 
@@ -273,7 +306,7 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 	else
 		return NULL;
 
-	/* /sys/dev/{block,char}/<maj>:<min> links */
+	/* /sys/dev/{block,char}/<maj>:<min> link */
 	snprintf(path, sizeof(path), "%s/dev/%s/%u:%u", udev_get_sys_path(udev),
 		 type_str, major(devnum), minor(devnum));
 	if (util_resolve_sys_link(udev, path, sizeof(path)) == 0)
@@ -303,37 +336,39 @@ static struct udev_device *device_new_from_parent(struct udev_device *udev_devic
 {
 	struct udev_device *udev_device_parent = NULL;
 	char path[UTIL_PATH_SIZE];
-	char *pos;
+	const char *subdir;
 
-	if (udev_device == NULL)
-		return NULL;
+	/* follow "device" link in deprecated sys layout */
+	if (strncmp(udev_device->devpath, "/class/", 7) == 0 ||
+	    strncmp(udev_device->devpath, "/block/", 7) == 0) {
+		util_strlcpy(path, udev_device->syspath, sizeof(path));
+		util_strlcat(path, "/device", sizeof(path));
+		if (util_resolve_sys_link(udev_device->udev, path, sizeof(path)) == 0)
+			udev_device_parent = udev_device_new_from_syspath(udev_device->udev, path);
+		return udev_device_parent;
+	}
 
 	util_strlcpy(path, udev_device->syspath, sizeof(path));
+	subdir = &path[strlen(udev_get_sys_path(udev_device->udev))+1];
 	while (1) {
-		pos = strrchr(path, '/');
-		if (pos == path || pos == NULL)
+		char *pos;
+
+		pos = strrchr(subdir, '/');
+		if (pos == NULL || pos < &subdir[2])
 			break;
 		pos[0] = '\0';
 		udev_device_parent = udev_device_new_from_syspath(udev_device->udev, path);
 		if (udev_device_parent != NULL)
 			return udev_device_parent;
 	}
-
-	/* follow "device" link in deprecated sys /sys/class/ layout */
-	if (strncmp(udev_device->devpath, "/class/", 7) == 0) {
-		util_strlcpy(path, udev_device->syspath, sizeof(path));
-		util_strlcat(path, "/device", sizeof(path));
-		if (util_resolve_sys_link(udev_device->udev, path, sizeof(path)) == 0) {
-			udev_device_parent = udev_device_new_from_syspath(udev_device->udev, path);
-			if (udev_device_parent != NULL)
-				return udev_device_parent;
-		}
-	}
 	return NULL;
 }
 
 struct udev_device *udev_device_get_parent(struct udev_device *udev_device)
 {
+	if (udev_device == NULL)
+		return NULL;
+
 	if (udev_device->parent_device != NULL) {
 		info(udev_device->udev, "returning existing parent %p\n", udev_device->parent_device);
 		return udev_device->parent_device;

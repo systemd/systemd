@@ -1,10 +1,15 @@
   o enumerate() - add buses and drivers
-  o increase ressize buffer
+      use enumerate for "trigger"
+
+  o add libudev interface for /dev/.udev/queue/ state
+      use queue interface for "settle"
+
+  o use libudev in udev_rules.c
+      get rid of udevice, store rule matching state in rule iterator
+  o rework rules to a match-action list, instead of a rules array
 
   o add DVB variables to kernel, and drop shell script rule
   o add watershed extra
-  o get all distros to agree on a default set of rules
-  o rework rules to a match-action list, instead of a rules array
   o log warning if the kernel uses CONFIG_SYSFS_DEPRECATED*=y,
     which means that /sys/class/block/ does not exist, but udev
     will depend on it in a future release
@@ -12,3 +17,4 @@
     the default rules
   o "udevadm control" commands will only accept the --<command> syntax
   o symlink names to udevadm will no longer be resolved to old command names
+  o get distros to agree on a default set of rules
