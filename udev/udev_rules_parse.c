@@ -45,9 +45,9 @@ struct udev_rule *udev_rules_iter_next(struct udev_rules_iter *iter)
 	if (!rules)
 		return NULL;
 
-	dbg(iter->rules->udev, "current=%zi\n", iter->current);
+	dbg(rules->udev, "current=%zi\n", iter->current);
 	if (iter->current >= rules->bufsize) {
-		dbg(iter->rules->udev, "no more rules\n");
+		dbg(rules->udev, "no more rules\n");
 		return NULL;
 	}
 
@@ -65,7 +65,7 @@ struct udev_rule *udev_rules_iter_label(struct udev_rules_iter *iter, const char
 	size_t start = iter->current;
 
 next:
-	dbg(iter->rules->udev, "current=%zi\n", iter->current);
+	dbg(rules->udev, "current=%zi\n", iter->current);
 	if (iter->current >= rules->bufsize) {
 		err(rules->udev, "LABEL='%s' not found, GOTO will be ignored\n", label);
 		iter->current = start;
