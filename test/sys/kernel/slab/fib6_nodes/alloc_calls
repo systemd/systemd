@@ -1,3 +1,3 @@
-      3 fib6_add+0x112/0x6a0 [ipv6] age=69122/80098/100888 pid=8-2080 cpus=0-1
-      1 fib6_add+0x2a2/0x6a0 [ipv6] age=70286 pid=8 cpus=1
-      1 fib6_add+0x2b6/0x6a0 [ipv6] age=70286 pid=8 cpus=1
+      3 fib6_add+0x112/0x6a0 [ipv6] age=8328809/8339785/8360575 pid=8-2080 cpus=0-1
+      1 fib6_add+0x2a2/0x6a0 [ipv6] age=8329973 pid=8 cpus=1
+      1 fib6_add+0x2b6/0x6a0 [ipv6] age=8329973 pid=8 cpus=1

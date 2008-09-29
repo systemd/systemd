@@ -104,7 +104,7 @@ EOF
 	{
 		desc		=> "catch device by *",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "modem/0" ,
 		rules		=> <<EOF
 KERNEL=="ttyACM*", NAME="modem/%n"
@@ -113,7 +113,7 @@ EOF
 	{
 		desc		=> "catch device by * - take 2",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "modem/0" ,
 		rules		=> <<EOF
 KERNEL=="*ACM1", NAME="bad"
@@ -123,7 +123,7 @@ EOF
 	{
 		desc		=> "catch device by ?",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "modem/0" ,
 		rules		=> <<EOF
 KERNEL=="ttyACM??*", NAME="modem/%n-1"
@@ -134,7 +134,7 @@ EOF
 	{
 		desc		=> "catch device by character class",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "modem/0" ,
 		rules		=> <<EOF
 KERNEL=="ttyACM[A-Z]*", NAME="modem/%n-1"
@@ -145,7 +145,7 @@ EOF
 	{
 		desc		=> "replace kernel name",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "modem" ,
 		rules		=> <<EOF
 KERNEL=="ttyACM0", NAME="modem"
@@ -154,7 +154,7 @@ EOF
 	{
 		desc		=> "Handle comment lines in config file (and replace kernel name)",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "modem" ,
 		rules		=> <<EOF
 # this is a comment
@@ -165,7 +165,7 @@ EOF
 	{
 		desc		=> "Handle comment lines in config file with whitespace (and replace kernel name)",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "modem" ,
 		rules		=> <<EOF
  # this is a comment with whitespace before the comment 
@@ -176,7 +176,7 @@ EOF
 	{
 		desc		=> "Handle whitespace only lines (and replace kernel name)",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "whitespace" ,
 		rules		=> <<EOF
 
@@ -192,7 +192,7 @@ EOF
 	{
 		desc		=> "Handle empty lines in config file (and replace kernel name)",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "modem" ,
 		rules		=> <<EOF
 
@@ -203,7 +203,7 @@ EOF
 	{
 		desc		=> "Handle backslashed multi lines in config file (and replace kernel name)",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "modem" ,
 		rules		=> <<EOF
 KERNEL=="ttyACM0", \\
@@ -214,7 +214,7 @@ EOF
 	{
 		desc		=> "preserve backslashes, if they are not for a newline",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "aaa",
 		rules		=> <<EOF
 KERNEL=="ttyACM0", PROGRAM=="/bin/echo -e \\101", RESULT=="A", NAME="aaa"
@@ -223,7 +223,7 @@ EOF
 	{
 		desc		=> "Handle stupid backslashed multi lines in config file (and replace kernel name)",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "modem" ,
 		rules		=> <<EOF
 
@@ -242,7 +242,7 @@ EOF
 	{
 		desc		=> "subdirectory handling",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "sub/direct/ory/modem" ,
 		rules		=> <<EOF
 KERNEL=="ttyACM0", NAME="sub/direct/ory/modem"
@@ -498,7 +498,7 @@ EOF
 	{
 		desc		=> "sysfs parent hierarchy",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "modem" ,
 		rules		=> <<EOF
 ATTRS{idProduct}=="007b", NAME="modem"
@@ -690,7 +690,7 @@ EOF
 	{
 		desc		=> "permissions OWNER to 5000",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "ttyACM0",
 		exp_perms	=> "5000::",
 		rules		=> <<EOF
@@ -700,7 +700,7 @@ EOF
 	{
 		desc		=> "permissions GROUP to 100",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "ttyACM0",
 		exp_perms	=> ":100:0660",
 		rules		=> <<EOF
@@ -710,7 +710,7 @@ EOF
 	{
 		desc		=> "permissions MODE to 0060",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "ttyACM0",
 		exp_perms	=> "::0060",
 		rules		=> <<EOF
@@ -720,7 +720,7 @@ EOF
 	{
 		desc		=> "permissions OWNER, GROUP, MODE",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "ttyACM0",
 		exp_perms	=> "5000:100:0777",
 		rules		=> <<EOF
@@ -730,7 +730,7 @@ EOF
 	{
 		desc		=> "permissions only rule",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "ttyACM0",
 		exp_perms	=> "5000:100:0777",
 		rules		=> <<EOF
@@ -742,7 +742,7 @@ EOF
 	{
 		desc		=> "multiple permissions only rule",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "ttyACM0",
 		exp_perms	=> "3000:4000:0777",
 		rules		=> <<EOF
@@ -756,7 +756,7 @@ EOF
 	{
 		desc		=> "permissions only rule with override at NAME rule",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "ttyACM0",
 		exp_perms	=> "3000:8000:0777",
 		rules		=> <<EOF
@@ -800,7 +800,7 @@ EOF
 	{
 		desc		=> "multiple symlinks with format char",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "symlink2-ttyACM0",
 		exp_target	=> "ttyACM0",
 		rules		=> <<EOF
@@ -810,7 +810,7 @@ EOF
 	{
 		desc		=> "multiple symlinks with a lot of s p a c e s",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "one",
 		not_exp_name	=> " ",
 		exp_target	=> "ttyACM0",
@@ -821,7 +821,7 @@ EOF
 	{
 		desc		=> "symlink creation (same directory)",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "modem0",
 		exp_target	=> "ttyACM0",
 		rules		=> <<EOF
@@ -851,7 +851,7 @@ EOF
 	{
 		desc		=> "multiple symlinks",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "second-0" ,
 		exp_target	=> "modem" ,
 		rules		=> <<EOF
@@ -898,7 +898,7 @@ EOF
 	{
 		desc		=> "symlink %n substitution",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "symlink0",
 		exp_target	=> "ttyACM0",
 		rules		=> <<EOF
@@ -908,7 +908,7 @@ EOF
 	{
 		desc		=> "symlink %k substitution",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "symlink-ttyACM0",
 		exp_target	=> "ttyACM0",
 		rules		=> <<EOF
@@ -918,7 +918,7 @@ EOF
 	{
 		desc		=> "symlink %M:%m substitution",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "major-166:0",
 		exp_target	=> "ttyACM0",
 		rules		=> <<EOF
@@ -938,7 +938,7 @@ EOF
 	{
 		desc		=> "symlink %c substitution",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "test",
 		exp_target	=> "ttyACM0",
 		rules		=> <<EOF
@@ -948,7 +948,7 @@ EOF
 	{
 		desc		=> "symlink %c{N} substitution",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "test",
 		exp_target	=> "ttyACM0",
 		rules		=> <<EOF
@@ -958,7 +958,7 @@ EOF
 	{
 		desc		=> "symlink %c{N+} substitution",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "this",
 		exp_target	=> "ttyACM0",
 		rules		=> <<EOF
@@ -979,7 +979,7 @@ EOF
 	{
 		desc		=> "symlink %s{filename} substitution",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "166:0",
 		exp_target	=> "ttyACM0",
 		rules		=> <<EOF
@@ -989,7 +989,7 @@ EOF
 	{
 		desc		=> "symlink %Ns{filename} substitution",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "166",
 		exp_target	=> "ttyACM0",
 		rules		=> <<EOF
@@ -1280,7 +1280,7 @@ EOF
 	{
 		desc		=> "read sysfs value from device down in the chain",
 		subsys		=> "block",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "serial-354172020305000",
 		rules		=> <<EOF
 KERNEL=="ttyACM*", NAME="serial-%s{serial}"
@@ -1393,7 +1393,7 @@ EOF
 	{
 		desc		=> "reset list to current value",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "three",
 		not_exp_name	=> "two",
 		exp_target	=> "node",
@@ -1407,7 +1407,7 @@ EOF
 	{
 		desc		=> "test empty NAME",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "node",
 		not_exp_name	=> "wrong",
 		exp_add_error	=> "yes",
@@ -1419,7 +1419,7 @@ EOF
 	{
 		desc		=> "test empty NAME 2",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "right",
 		rules		=> <<EOF
 KERNEL=="ttyACM[0-9]*", NAME="right"
@@ -1430,7 +1430,7 @@ EOF
 	{
 		desc		=> "test multi matches",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "right",
 		rules		=> <<EOF
 KERNEL=="ttyACM*|nothing", NAME="right"
@@ -1440,7 +1440,7 @@ EOF
 	{
 		desc		=> "test multi matches 2",
 		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-1/5-1:1.0/tty/ttyACM0",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "right",
 		rules		=> <<EOF
 KERNEL=="dontknow*|*nothing", NAME="nomatch"

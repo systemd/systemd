@@ -1,47 +1,49 @@
-   6338 <not-available> age=4294787875 pid=0 cpus=0
-      1 iounmap+0xc2/0x100 age=120406 pid=1 cpus=0
-      1 memtype_get_idx+0x75/0xc0 age=472 pid=2890 cpus=0
-      2 __release_region+0xc6/0xd0 age=120243/120243/120243 pid=1 cpus=1
-      3 __request_region+0x86/0x120 age=120317/120317/120317 pid=1 cpus=0
-      1 generic_smp_call_function_single_interrupt+0xce/0xe0 age=95988 pid=0 cpus=1
-     53 __stop_machine+0x216/0x220 age=43548/108141/116788 pid=105-2754 cpus=0-1
-      2 free_irq+0xef/0x190 age=96791/108147/119504 pid=1-1541 cpus=0
-     32 __vunmap+0xcd/0x120 age=49614/106753/116787 pid=105-2711 cpus=0-1
-      8 __vunmap+0xe9/0x120 age=68946/104551/116557 pid=107-2578 cpus=0-1
-     13 do_sys_poll+0x32b/0x450 age=570/48723/75247 pid=1333-2262 cpus=0-1
-    179 d_callback+0x22/0x40 age=38389/106212/116948 pid=0-2156 cpus=0-1
-    105 free_fdtable_rcu+0x7a/0xb0 age=4819/96235/116860 pid=0-2888 cpus=0-1
-     98 free_fdtable_rcu+0x82/0xb0 age=4819/94663/117639 pid=0-2888 cpus=0-1
-     34 proc_reg_release+0x96/0x120 age=4054/104513/116556 pid=126-2586 cpus=0-1
-     15 proc_reg_open+0x138/0x170 age=60405/85433/108413 pid=1184-2676 cpus=0-1
-    521 free_rb_tree_fname+0x5c/0xb0 age=13382/89664/116891 pid=102-2881 cpus=0-1
-     61 ext3_htree_free_dir_info+0x19/0x20 age=13382/92904/116891 pid=102-2881 cpus=0-1
-     10 ext3_clear_inode+0xa5/0xb0 age=15264/59665/94793 pid=1253-2851 cpus=0-1
-      1 dynamic_kobj_release+0x2c/0x40 age=96680 pid=1541 cpus=0
-     67 kobject_uevent_env+0x11a/0x470 age=43545/108372/120444 pid=1-2754 cpus=0-1
-     15 acpi_ds_call_control_method+0xfe/0x180 age=2031/67925/120337 pid=1-2890 cpus=0
-      1 acpi_ev_execute_reg_method+0x129/0x13a age=120435 pid=1 cpus=0
-      1 acpi_ev_asynch_execute_gpe_method+0xcc/0x119 age=120394 pid=12 cpus=1
-     34 acpi_evaluate_object+0x1ea/0x1fc age=2026/78898/120444 pid=1-2890 cpus=0-1
-      4 acpi_get_object_info+0x1c4/0x1d4 age=120365/120377/120384 pid=1 cpus=0
-      1 acpi_walk_resources+0xa4/0xbd age=120244 pid=1 cpus=1
-     41 acpi_ut_evaluate_object+0x18d/0x19b age=119712/120350/120408 pid=1 cpus=0-1
-      4 acpi_ut_delete_internal_obj+0x15f/0x16f age=106905/113901/116233 pid=330-1358 cpus=0
-      7 acpi_bus_get_ejd+0x73/0x80 age=120444/120444/120444 pid=1 cpus=0
-     11 pnp_show_options+0x459/0x600 age=876/900/917 pid=2890 cpus=0
-     11 pnp_show_current_resources+0x16f/0x180 age=876/900/917 pid=2890 cpus=0
-     17 release_one_tty+0x53/0x190 age=93008/102081/110816 pid=55-2106 cpus=0-1
-     23 release_one_tty+0x60/0x190 age=92918/99197/110816 pid=55-2141 cpus=0-1
-      6 release_one_tty+0x167/0x190 age=92918/93713/95283 pid=1967-2141 cpus=0
-      4 devres_remove_group+0x9e/0xe0 age=119515/119802/120242 pid=1 cpus=0-1
-      1 ata_acpi_on_devcfg+0x385/0x6a0 age=119895 pid=25 cpus=0
-      3 serio_free_event+0x1d/0x30 age=118952/119301/119488 pid=17 cpus=0-1
-      5 input_register_device+0x17c/0x230 age=112781/115789/119472 pid=17-803 cpus=0-1
-      1 ip_cork_release+0x1f/0x50 age=74343 pid=2536 cpus=1
-     13 huft_free+0x1e/0x2f age=120293/120293/120293 pid=1 cpus=0
-      5 hub_port_init+0x522/0x740 [usbcore] age=43787/86949/114764 pid=419 cpus=0
-      1 usb_release_interface_cache+0x2c/0x60 [usbcore] age=114357 pid=419 cpus=0
-      1 usb_release_interface_cache+0x47/0x60 [usbcore] age=114357 pid=419 cpus=0
-      1 __param_str_act+0x16c/0xfffffffffffffb13 [thermal] age=115602 pid=383 cpus=0
-      4 snd_card_file_remove+0x73/0x130 [snd] age=73539/86679/113640 pid=786-2425 cpus=0
-      1 hid_probe+0x222/0xf30 [usbhid] age=112795 pid=803 cpus=0
+  13029 <not-available> age=4303047386 pid=0 cpus=0
+      1 iounmap+0xc2/0x100 age=8379917 pid=1 cpus=0
+      1 memtype_get_idx+0x75/0xc0 age=782 pid=13466 cpus=0
+      2 __release_region+0xc6/0xd0 age=8379754/8379754/8379754 pid=1 cpus=1
+      3 __request_region+0x86/0x120 age=8379828/8379828/8379828 pid=1 cpus=0
+      1 generic_smp_call_function_single_interrupt+0xce/0xe0 age=8355499 pid=0 cpus=1
+     53 __stop_machine+0x216/0x220 age=8303059/8367652/8376299 pid=105-2754 cpus=0-1
+      2 free_irq+0xef/0x190 age=8356302/8367658/8379015 pid=1-1541 cpus=0
+     28 __vunmap+0xcd/0x120 age=8309125/8366969/8376298 pid=105-2711 cpus=0-1
+      8 __vunmap+0xe9/0x120 age=8328457/8364062/8376068 pid=107-2578 cpus=0-1
+      1 percpu_free+0x2d/0x60 age=61987 pid=13295 cpus=0
+     10 do_sys_poll+0x32b/0x450 age=61481/7500944/8334758 pid=1333-2262 cpus=0-1
+    187 d_callback+0x22/0x40 age=22704/7997936/8376459 pid=0-2156 cpus=0-1
+    198 free_fdtable_rcu+0x7a/0xb0 age=1292/3883175/8376371 pid=0-13456 cpus=0-1
+    224 free_fdtable_rcu+0x82/0xb0 age=1292/3491449/8377150 pid=0-13456 cpus=0-1
+     42 proc_reg_release+0x96/0x120 age=3564/7013222/8376067 pid=126-2586 cpus=0-1
+     50 proc_reg_open+0x138/0x170 age=656297/2956669/8367924 pid=1184-12336 cpus=0-1
+   1046 free_rb_tree_fname+0x5c/0xb0 age=5905/4315279/8376402 pid=102-24701 cpus=0-1
+     79 ext3_htree_free_dir_info+0x19/0x20 age=5905/6235661/8376402 pid=102-24701 cpus=0-1
+     26 ext3_clear_inode+0xa5/0xb0 age=12954/2421572/8354304 pid=1253-8445 cpus=0-1
+      1 dynamic_kobj_release+0x2c/0x40 age=8356191 pid=1541 cpus=0
+     66 kobject_uevent_env+0x11a/0x470 age=22624/7608199/8379955 pid=1-2711 cpus=0-1
+     16 acpi_ds_call_control_method+0xfe/0x180 age=3020/4710292/8379848 pid=1-13466 cpus=0-1
+      1 acpi_ev_execute_reg_method+0x129/0x13a age=8379946 pid=1 cpus=0
+      1 acpi_ev_asynch_execute_gpe_method+0xcc/0x119 age=8379905 pid=12 cpus=1
+     33 acpi_evaluate_object+0x1ea/0x1fc age=3015/5838124/8379955 pid=1-13466 cpus=0-1
+      4 acpi_get_object_info+0x1c4/0x1d4 age=8379876/8379888/8379895 pid=1 cpus=0
+      1 acpi_walk_resources+0xa4/0xbd age=8379755 pid=1 cpus=1
+     41 acpi_ut_evaluate_object+0x18d/0x19b age=8379223/8379861/8379919 pid=1 cpus=0-1
+      4 acpi_ut_delete_internal_obj+0x15f/0x16f age=8366416/8373412/8375744 pid=330-1358 cpus=0
+      7 acpi_bus_get_ejd+0x73/0x80 age=8379955/8379955/8379955 pid=1 cpus=0
+     11 pnp_show_options+0x459/0x600 age=1578/1602/1627 pid=13466 cpus=0
+     11 pnp_show_current_resources+0x16f/0x180 age=1578/1603/1628 pid=13466 cpus=0
+     19 release_one_tty+0x53/0x190 age=804540/7566113/8370327 pid=55-2106 cpus=0-1
+     24 release_one_tty+0x60/0x190 age=804540/7729452/8370327 pid=55-2141 cpus=0-1
+      6 release_one_tty+0x167/0x190 age=8352429/8353224/8354794 pid=1967-2141 cpus=0
+      4 devres_remove_group+0x9e/0xe0 age=8379026/8379313/8379753 pid=1 cpus=0-1
+      1 ata_acpi_on_devcfg+0x385/0x6a0 age=8379406 pid=25 cpus=0
+      3 serio_free_event+0x1d/0x30 age=8378463/8378812/8378999 pid=17 cpus=0-1
+      6 input_register_device+0x17c/0x230 age=53514/6988336/8378983 pid=17-803 cpus=0-1
+      1 ip_cork_release+0x1f/0x50 age=8333854 pid=2536 cpus=1
+      1 unix_sock_destructor+0x75/0xd0 age=7217178 pid=2344 cpus=0
+     13 huft_free+0x1e/0x2f age=8379804/8379804/8379804 pid=1 cpus=0
+      6 hub_port_init+0x522/0x740 [usbcore] age=22825/4210550/8374275 pid=419 cpus=0-1
+      1 usb_release_interface_cache+0x2c/0x60 [usbcore] age=8373868 pid=419 cpus=0
+      1 usb_release_interface_cache+0x47/0x60 [usbcore] age=8373868 pid=419 cpus=0
+      1 __param_str_act+0x16c/0xfffffffffffffb13 [thermal] age=8375113 pid=383 cpus=0
+      3 snd_card_file_remove+0x73/0x130 [snd] age=8333050/8337203/8339297 pid=2400-2425 cpus=0
+      2 hid_probe+0x222/0xf30 [usbhid] age=53517/4212911/8372306 pid=419-803 cpus=0

@@ -1,5 +1,4 @@
-    316 <not-available> age=4294787827 pid=0 cpus=0
-     11 idr_destroy+0x2f/0x40 age=56002/56002/56002 pid=2406 cpus=1
-      5 idr_layer_rcu_free+0x17/0x20 age=55996/93526/117680 pid=0-1155 cpus=0-1
-     97 ida_get_new_above+0x141/0x210 age=38489/111897/120531 pid=0-2761 cpus=0-1
-      3 idr_remove+0x187/0x200 age=34268/47337/70659 pid=1738-2821 cpus=0-1
+    304 <not-available> age=4303047315 pid=0 cpus=0
+      3 idr_destroy+0x2f/0x40 age=104486/3178486/4715486 pid=13211-13803 cpus=0-1
+      4 idr_layer_rcu_free+0x17/0x20 age=8334501/8362397/8377168 pid=0-1155 cpus=0-1
+     95 ida_get_new_above+0x141/0x210 age=812584/8292482/8380019 pid=0-2593 cpus=0-1

@@ -1,2 +1,2 @@
-   7679 <not-available> age=4294787975 pid=0 cpus=0
-    102 __journal_remove_journal_head+0xcb/0x160 age=669/27324/77100 pid=32-2881 cpus=0-1
+   7589 <not-available> age=4303047557 pid=0 cpus=0
+     74 __journal_remove_journal_head+0xcb/0x160 age=1585/52253/654521 pid=32-13248 cpus=0-1

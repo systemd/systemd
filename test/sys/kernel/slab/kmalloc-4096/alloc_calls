@@ -1,23 +1,23 @@
-      1 load_module+0x18d5/0x1b30 age=116223 pid=330 cpus=0
-      1 __vmalloc_area_node+0xfb/0x140 age=112490 pid=867 cpus=0
-     24 __percpu_alloc_mask+0xbc/0x140 age=100605/103881/120249 pid=1-1549 cpus=0
-      1 seq_read+0x2f0/0x360 age=105770 pid=1371 cpus=0
-      2 ext3_fill_super+0x68/0x1a20 age=110106/114494/118882 pid=1-962 cpus=0
-      4 journal_init_revoke_table+0x4d/0xb0 age=110090/114440/118790 pid=1-962 cpus=0
-      2 journal_init_inode+0x8d/0x130 age=110090/114440/118790 pid=1-962 cpus=0
-      1 fat_fill_super+0x40/0xdd0 age=38126 pid=2817 cpus=1
-      7 scsi_host_alloc+0x35/0x360 age=43504/109092/120197 pid=1-2754 cpus=0-1
-      3 scsi_alloc_sdev+0x6a/0x270 age=38498/92598/119814 pid=1-2761 cpus=0-1
-      8 input_allocate_device+0x1a/0xb0 age=112751/116073/119438 pid=17-803 cpus=0-1
-      1 reqsk_queue_alloc+0x112/0x120 age=95042 pid=1920 cpus=0
-      3 alloc_netdev_mq+0x4f/0x180 age=114071/116178/120273 pid=1-126 cpus=0-1
-      1 pidmap_init+0x15/0x4e age=120535 pid=0 cpus=0
-      1 netlink_proto_init+0x47/0x16b age=120401 pid=1 cpus=0
-      2 acpi_processor_add+0x25/0x6d [processor] age=116160/116191/116222 pid=330 cpus=0
-      1 yenta_probe+0x38/0x6cd [yenta_socket] age=114273 pid=352 cpus=0
-    292 iwl3945_rx_allocate+0xd5/0x160 [iwl3945] age=1410/7094/12982 pid=733 cpus=0
-      1 skcipher_geniv_alloc+0x304/0x3f0 [crypto_blkcipher] age=114879 pid=215 cpus=1
-      2 bitmap_get_counter+0x153/0x220 [md_mod] age=110534/110536/110538 pid=916 cpus=0
-      1 bitmap_create+0x2bc/0xad0 [md_mod] age=110538 pid=916 cpus=0
-      6 __addrconf_sysctl_register+0x7b/0x140 [ipv6] age=100605/100606/100608 pid=1549 cpus=0
-      1 acm_probe+0x34c/0xa50 [cdc_acm] age=49570 pid=2711 cpus=1
+      1 load_module+0x18d5/0x1b30 age=8375716 pid=330 cpus=0
+      1 __vmalloc_area_node+0xfb/0x140 age=8371983 pid=867 cpus=0
+     24 __percpu_alloc_mask+0xbc/0x140 age=8360098/8363374/8379742 pid=1-1549 cpus=0
+      1 seq_read+0x2f0/0x360 age=8365263 pid=1371 cpus=0
+      2 ext3_fill_super+0x68/0x1a20 age=8369599/8373987/8378375 pid=1-962 cpus=0
+      4 journal_init_revoke_table+0x4d/0xb0 age=8369583/8373933/8378283 pid=1-962 cpus=0
+      2 journal_init_inode+0x8d/0x130 age=8369583/8373933/8378283 pid=1-962 cpus=0
+      1 fat_fill_super+0x40/0xdd0 age=61388 pid=13348 cpus=1
+      7 scsi_host_alloc+0x35/0x360 age=66976/7192011/8379690 pid=1-419 cpus=0-1
+      3 scsi_alloc_sdev+0x6a/0x270 age=61972/5606752/8379307 pid=1-13295 cpus=0-1
+      8 input_allocate_device+0x1a/0xb0 age=53455/7335718/8378931 pid=17-419 cpus=0-1
+      1 reqsk_queue_alloc+0x112/0x120 age=8354535 pid=1920 cpus=0
+      3 alloc_netdev_mq+0x4f/0x180 age=8373564/8375671/8379766 pid=1-126 cpus=0-1
+      1 pidmap_init+0x15/0x4e age=8380028 pid=0 cpus=0
+      1 netlink_proto_init+0x47/0x16b age=8379894 pid=1 cpus=0
+      2 acpi_processor_add+0x25/0x6d [processor] age=8375653/8375684/8375715 pid=330 cpus=0
+      1 yenta_probe+0x38/0x6cd [yenta_socket] age=8373766 pid=352 cpus=0
+    281 iwl3945_rx_allocate+0xd5/0x160 [iwl3945] age=2011/7577/13684 pid=733 cpus=0
+      1 skcipher_geniv_alloc+0x304/0x3f0 [crypto_blkcipher] age=8374372 pid=215 cpus=1
+      2 bitmap_get_counter+0x153/0x220 [md_mod] age=8370027/8370029/8370031 pid=916 cpus=0
+      1 bitmap_create+0x2bc/0xad0 [md_mod] age=8370031 pid=916 cpus=0
+      6 __addrconf_sysctl_register+0x7b/0x140 [ipv6] age=8360098/8360099/8360101 pid=1549 cpus=0
+      1 acm_probe+0x34c/0xa50 [cdc_acm] age=22641 pid=419 cpus=0

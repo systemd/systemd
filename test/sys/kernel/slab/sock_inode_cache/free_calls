@@ -1,2 +1,2 @@
-    282 <not-available> age=4294787638 pid=0 cpus=0
-    202 sock_destroy_inode+0x14/0x20 age=15358/84084/116905 pid=76-2851 cpus=0-1
+    276 <not-available> age=4303046961 pid=0 cpus=0
+    205 sock_destroy_inode+0x14/0x20 age=61348/8035806/8376228 pid=76-20292 cpus=0-1

@@ -1,51 +1,51 @@
-     23 __register_sysctl_paths+0x56/0x340 age=100613/109478/120266 pid=1-1549 cpus=0-1
-      5 param_sysfs_setup+0x87/0x140 age=96047/112423/120406 pid=1-1805 cpus=0-1
-      5 load_module+0x18d5/0x1b30 age=68904/105783/116261 pid=208-2578 cpus=0
-      2 __vmalloc_area_node+0xfb/0x140 age=100667/107844/115021 pid=107-1549 cpus=0
-      4 __percpu_alloc_mask+0xbc/0x140 age=120257/120257/120257 pid=1 cpus=0
-    114 alloc_pipe_info+0x25/0x60 age=15551/82744/117562 pid=1-2851 cpus=0-1
-      2 alloc_fdtable+0x81/0x160 age=97286/97286/97287 pid=1690 cpus=0
-      1 mb_cache_create+0xb6/0x1f0 age=120247 pid=1 cpus=1
-      1 mb_cache_create+0x11e/0x1f0 age=120247 pid=1 cpus=1
-      8 add_partition+0x45/0x250 age=38488/109550/119703 pid=1-2761 cpus=0
-      2 __crypto_alloc_tfm+0x43/0x1b0 age=68903/68903/68903 pid=1545 cpus=0
-      1 pci_create_bus+0x82/0x240 age=120328 pid=1 cpus=0
-     14 pcie_port_device_register+0x254/0x4a0 age=120243/120243/120245 pid=1 cpus=1
-      1 acpi_ev_create_gpe_block+0x10b/0x3bf age=120400 pid=1 cpus=0
-      1 acpi_tb_resize_root_table_list+0x66/0xdb age=116228 pid=330 cpus=0
-      1 tty_buffer_request_room+0x136/0x190 age=71250 pid=2262 cpus=0
-      1 tty_register_driver+0x1b3/0x2a0 age=49578 pid=2711 cpus=1
-     10 tty_write+0x160/0x280 age=62772/90642/118156 pid=34-2612 cpus=0-1
-      2 set_inverse_trans_unicode+0xce/0xf0 age=95511/107876/120242 pid=1-1898 cpus=1
-      1 uart_register_driver+0x31/0x1c0 age=120207 pid=1 cpus=1
-    166 device_create_vargs+0x8c/0x100 age=38482/112879/120408 pid=1-2761 cpus=0-1
-      8 platform_device_alloc+0x37/0x90 age=107669/117282/120408 pid=1-1285 cpus=0-1
-      3 scsi_alloc_target+0x63/0x2e0 age=38506/92606/119822 pid=1-2761 cpus=0-1
-      2 sd_probe+0x86/0x430 age=38501/79159/119818 pid=1-2761 cpus=0-1
-      1 ahci_port_start+0x34/0xe0 age=120205 pid=1 cpus=1
-      1 psmouse_connect+0x5b/0x2c0 age=119395 pid=17 cpus=1
-      2 thermal_cooling_device_register+0x7f/0x290 age=116140/116164/116189 pid=330 cpus=0-1
-      1 hid_add_field+0xcc/0x3a0 age=112759 pid=803 cpus=0
-      4 sock_alloc_send_skb+0x1cd/0x200 age=85272/89763/91423 pid=1738 cpus=0-1
-      3 __rtnl_register+0x79/0x90 age=100616/113763/120409 pid=1-1549 cpus=0
-      6 qdisc_alloc+0x34/0xd0 age=96540/96576/96754 pid=1541 cpus=0
-      1 dmi_id_init+0x2a4/0x30c age=120407 pid=1 cpus=0
-      5 hub_probe+0xdd/0x820 [usbcore] age=114496/114989/115342 pid=143-147 cpus=0-1
-      5 usb_create_hcd+0x39/0x150 [usbcore] age=114568/115023/115389 pid=143-147 cpus=0
-     26 usb_set_configuration+0x441/0x5f0 [usbcore] age=43635/76676/115354 pid=143-419 cpus=0-1
-     10 usb_get_configuration+0x92/0x1480 [usbcore] age=43637/100791/115362 pid=143-419 cpus=0-1
-     34 usb_create_ep_files+0x51/0x350 [usbcore] age=43632/94424/115229 pid=143-419 cpus=0-1
-      1 acpi_battery_add+0x29/0x1d3 [battery] age=116127 pid=396 cpus=0
-      1 snd_card_new+0x38/0x370 [snd] age=114633 pid=107 cpus=0
-      1 sta_info_alloc+0x3c/0x1d0 [mac80211] age=70020 pid=742 cpus=0
-      2 snd_pcm_new+0x47/0x130 [snd_pcm] age=114606/114606/114606 pid=107 cpus=1
-      1 rs_alloc_sta+0x25/0x120 [iwl3945] age=70020 pid=742 cpus=0
-      1 get_alloc_hash+0x9b/0x140 [snd_hda_intel] age=113605 pid=786 cpus=0
-      1 azx_probe+0xb3/0xc20 [snd_hda_intel] age=114626 pid=107 cpus=0
-      1 azx_probe+0x4a9/0xc20 [snd_hda_intel] age=114619 pid=107 cpus=0
-      1 snd_hda_codec_new+0x3e/0x559 [snd_hda_intel] age=114609 pid=107 cpus=1
-      1 md_probe+0xa1/0x360 [md_mod] age=110680 pid=916 cpus=0
-      8 loop_alloc+0x28/0x140 [loop] age=110136/110136/110136 pid=951 cpus=0
-      4 ipv6_add_dev+0x69/0x330 [ipv6] age=100613/100614/100616 pid=1549 cpus=0
-      1 ipv6_route_sysctl_init+0x22/0xb0 [ipv6] age=100612 pid=1549 cpus=0
-      2 snd_seq_create_port+0x35/0x180 [snd_seq] age=96046/96046/96046 pid=1805 cpus=0
+     23 __register_sysctl_paths+0x56/0x340 age=8360116/8368981/8379769 pid=1-1549 cpus=0-1
+      5 param_sysfs_setup+0x87/0x140 age=8355550/8371926/8379909 pid=1-1805 cpus=0-1
+      5 load_module+0x18d5/0x1b30 age=8328407/8365286/8375764 pid=208-2578 cpus=0
+      2 __vmalloc_area_node+0xfb/0x140 age=8360170/8367347/8374524 pid=107-1549 cpus=0
+      4 __percpu_alloc_mask+0xbc/0x140 age=8379760/8379760/8379760 pid=1 cpus=0
+    113 alloc_pipe_info+0x25/0x60 age=125624/8270722/8377065 pid=1-13212 cpus=0-1
+      2 alloc_fdtable+0x81/0x160 age=2417000/5386894/8356789 pid=1690 cpus=0-1
+      1 mb_cache_create+0xb6/0x1f0 age=8379750 pid=1 cpus=1
+      1 mb_cache_create+0x11e/0x1f0 age=8379750 pid=1 cpus=1
+      8 add_partition+0x45/0x250 age=61959/7339549/8379206 pid=1-13295 cpus=0
+      2 __crypto_alloc_tfm+0x43/0x1b0 age=3544684/3544684/3544684 pid=1545 cpus=0
+      1 pci_create_bus+0x82/0x240 age=8379831 pid=1 cpus=0
+     14 pcie_port_device_register+0x254/0x4a0 age=8379746/8379746/8379748 pid=1 cpus=1
+      1 acpi_ev_create_gpe_block+0x10b/0x3bf age=8379903 pid=1 cpus=0
+      1 acpi_tb_resize_root_table_list+0x66/0xdb age=8375731 pid=330 cpus=0
+      2 tty_buffer_request_room+0x136/0x190 age=8214639/8272696/8330753 pid=0-2262 cpus=0
+      1 tty_register_driver+0x1b3/0x2a0 age=8309081 pid=2711 cpus=1
+     10 tty_write+0x160/0x280 age=7214010/8238951/8377659 pid=34-2590 cpus=0-1
+      2 set_inverse_trans_unicode+0xce/0xf0 age=8355014/8367379/8379745 pid=1-1898 cpus=1
+      1 uart_register_driver+0x31/0x1c0 age=8379710 pid=1 cpus=1
+    166 device_create_vargs+0x8c/0x100 age=22658/8173620/8379911 pid=1-13295 cpus=0-1
+      8 platform_device_alloc+0x37/0x90 age=8367172/8376785/8379911 pid=1-1285 cpus=0-1
+      3 scsi_alloc_target+0x63/0x2e0 age=61990/5606770/8379325 pid=1-13295 cpus=0-1
+      2 sd_probe+0x86/0x430 age=61986/4220653/8379321 pid=1-13295 cpus=1
+      1 ahci_port_start+0x34/0xe0 age=8379708 pid=1 cpus=1
+      1 psmouse_connect+0x5b/0x2c0 age=8378898 pid=17 cpus=1
+      2 thermal_cooling_device_register+0x7f/0x290 age=8375643/8375667/8375692 pid=330 cpus=0-1
+      1 hid_add_field+0xcc/0x3a0 age=53473 pid=419 cpus=0
+      4 sock_alloc_send_skb+0x1cd/0x200 age=8344775/8349266/8350926 pid=1738 cpus=0-1
+      3 __rtnl_register+0x79/0x90 age=8360119/8373266/8379912 pid=1-1549 cpus=0
+      6 qdisc_alloc+0x34/0xd0 age=8356043/8356079/8356257 pid=1541 cpus=0
+      1 dmi_id_init+0x2a4/0x30c age=8379910 pid=1 cpus=0
+      5 hub_probe+0xdd/0x820 [usbcore] age=8373999/8374492/8374845 pid=143-147 cpus=0-1
+      5 usb_create_hcd+0x39/0x150 [usbcore] age=8374071/8374526/8374892 pid=143-147 cpus=0
+     26 usb_set_configuration+0x441/0x5f0 [usbcore] age=22663/3237429/8374857 pid=143-419 cpus=0-1
+     10 usb_get_configuration+0x92/0x1480 [usbcore] age=22667/5876069/8374865 pid=143-419 cpus=0-1
+     34 usb_create_ep_files+0x51/0x350 [usbcore] age=22579/5431762/8374732 pid=143-419 cpus=0-1
+      1 acpi_battery_add+0x29/0x1d3 [battery] age=8375630 pid=396 cpus=0
+      1 snd_card_new+0x38/0x370 [snd] age=8374136 pid=107 cpus=0
+      1 sta_info_alloc+0x3c/0x1d0 [mac80211] age=8329523 pid=742 cpus=0
+      2 snd_pcm_new+0x47/0x130 [snd_pcm] age=8374109/8374109/8374109 pid=107 cpus=1
+      1 rs_alloc_sta+0x25/0x120 [iwl3945] age=8329523 pid=742 cpus=0
+      1 get_alloc_hash+0x9b/0x140 [snd_hda_intel] age=8373108 pid=786 cpus=0
+      1 azx_probe+0xb3/0xc20 [snd_hda_intel] age=8374129 pid=107 cpus=0
+      1 azx_probe+0x4a9/0xc20 [snd_hda_intel] age=8374122 pid=107 cpus=0
+      1 snd_hda_codec_new+0x3e/0x559 [snd_hda_intel] age=8374112 pid=107 cpus=1
+      1 md_probe+0xa1/0x360 [md_mod] age=8370183 pid=916 cpus=0
+      8 loop_alloc+0x28/0x140 [loop] age=8369639/8369639/8369639 pid=951 cpus=0
+      4 ipv6_add_dev+0x69/0x330 [ipv6] age=8360116/8360117/8360119 pid=1549 cpus=0
+      1 ipv6_route_sysctl_init+0x22/0xb0 [ipv6] age=8360115 pid=1549 cpus=0
+      2 snd_seq_create_port+0x35/0x180 [snd_seq] age=8355549/8355549/8355549 pid=1805 cpus=0

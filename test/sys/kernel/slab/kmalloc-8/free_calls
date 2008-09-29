@@ -1,23 +1,25 @@
-   2776 <not-available> age=4294787898 pid=0 cpus=0
-      1 partition_sched_domains+0x285/0x300 age=74677 pid=2526 cpus=1
-      3 free_sect_attrs+0x2e/0x50 age=115544/115544/115544 pid=383 cpus=0
-      6 load_module+0x73f/0x1b30 age=115322/115787/116481 pid=143-332 cpus=0-1
-      1 free_module+0xb9/0xf0 age=115544 pid=383 cpus=0
-      1 krealloc+0x3a/0x60 age=116292 pid=330 cpus=0
-     45 __vunmap+0xe9/0x120 age=49634/110047/116797 pid=105-2711 cpus=0-1
-      1 vfs_rename+0x301/0x450 age=107654 pid=72 cpus=1
-    167 release_sysfs_dirent+0x8c/0xd0 age=92943/100063/120267 pid=1-2141 cpus=0-1
-     39 kobject_release+0xe1/0x140 age=92943/97943/118742 pid=1-2141 cpus=0-1
-      1 match_number+0x95/0xb0 age=76301 pid=2476 cpus=0
-      2 proc_bus_pci_release+0x18/0x30 age=96319/96483/96647 pid=1738 cpus=0
-     47 acpi_ds_create_operand+0x12c/0x209 age=46079/115801/120458 pid=1-1442 cpus=0-1
-    128 acpi_ns_get_node+0x92/0xa1 age=106927/119841/120467 pid=1-1358 cpus=0-1
-      2 acpi_ut_delete_internal_obj+0x15f/0x16f age=116147/116208/116270 pid=330-396 cpus=0
-      2 module_add_driver+0x66/0xd0 age=116467/116470/116474 pid=144 cpus=0
-      3 get_modalias+0xd4/0x120 age=96324/111312/120466 pid=1-1772 cpus=0-1
-      1 fib_hash_free+0x35/0x40 age=108388 pid=1185 cpus=0
-      3 sg_clean+0x3e/0x80 [usbcore] age=38548/38556/38564 pid=2760 cpus=0
-     56 usb_control_msg+0xef/0x110 [usbcore] age=43693/95647/115421 pid=143-2711 cpus=0-1
-      8 usb_set_configuration+0x338/0x5f0 [usbcore] age=43693/105671/115413 pid=143-419 cpus=0-1
-      1 usb_destroy_configuration+0x78/0x140 [usbcore] age=114380 pid=419 cpus=0
-      5 sr_media_change+0xeb/0x2a0 [sr_mod] age=66074/94513/115441 pid=558-1456 cpus=0-1
+   2657 <not-available> age=4303047420 pid=0 cpus=0
+      3 free_sect_attrs+0x2e/0x50 age=8375066/8375066/8375066 pid=383 cpus=0
+      6 load_module+0x73f/0x1b30 age=8374844/8375309/8376003 pid=143-332 cpus=0-1
+      1 free_module+0xb9/0xf0 age=8375066 pid=383 cpus=0
+      1 krealloc+0x3a/0x60 age=8375814 pid=330 cpus=0
+     41 __vunmap+0xe9/0x120 age=8355636/8372979/8376319 pid=105-1805 cpus=0-1
+      1 vfs_rename+0x301/0x450 age=8367176 pid=72 cpus=1
+    254 release_sysfs_dirent+0x8c/0xd0 age=125751/7762571/8379789 pid=1-3347 cpus=0-1
+     61 kobject_release+0xe1/0x140 age=125751/6939731/8378264 pid=1-3347 cpus=0-1
+      1 match_number+0x95/0xb0 age=8335823 pid=2476 cpus=0
+      2 proc_bus_pci_release+0x18/0x30 age=8355841/8356005/8356169 pid=1738 cpus=0
+     49 acpi_ds_create_operand+0x12c/0x209 age=125757/8029619/8379980 pid=1-1442 cpus=0-1
+    128 acpi_ns_get_node+0x92/0xa1 age=8366449/8379363/8379989 pid=1-1358 cpus=0-1
+      2 acpi_ut_delete_internal_obj+0x15f/0x16f age=8375669/8375730/8375792 pid=330-396 cpus=0
+      2 module_add_driver+0x66/0xd0 age=8375989/8375992/8375996 pid=144 cpus=0
+      2 sd_media_changed+0xca/0x210 age=7839601/7929600/8019600 pid=2796 cpus=0
+      3 get_modalias+0xd4/0x120 age=8355846/8370834/8379988 pid=1-1772 cpus=0-1
+      1 fib_hash_free+0x35/0x40 age=8367910 pid=1185 cpus=0
+      1 usb_release_dev+0x39/0x70 [usbcore] age=7833240 pid=419 cpus=1
+      2 usb_release_dev+0x45/0x70 [usbcore] age=7833240/7835719/7838199 pid=419 cpus=0-1
+      4 sg_clean+0x3e/0x80 [usbcore] age=62037/2121033/8297977 pid=2760-13294 cpus=0
+     59 usb_control_msg+0xef/0x110 [usbcore] age=22658/5520135/8374943 pid=143-419 cpus=0-1
+      7 usb_set_configuration+0x338/0x5f0 [usbcore] age=53566/5999072/8374935 pid=143-419 cpus=0-1
+      4 usb_destroy_configuration+0x78/0x140 [usbcore] age=7824401/7967435/8373902 pid=419 cpus=0-1
+      7 sr_media_change+0xeb/0x2a0 [sr_mod] age=53597/5984195/8374963 pid=558-1456 cpus=0-1

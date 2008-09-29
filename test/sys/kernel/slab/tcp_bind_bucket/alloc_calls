@@ -1,1 +1,1 @@
-      6 inet_bind_bucket_create+0x27/0x80 age=13273/41067/96896 pid=1690-2881 cpus=0
+      3 inet_bind_bucket_create+0x27/0x80 age=926731/5878918/8356133 pid=1206-1920 cpus=0

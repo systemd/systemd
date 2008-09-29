@@ -1,2 +1,2 @@
-      9 <not-available> age=4294787712 pid=0 cpus=0
-      4 bdev_destroy_inode+0x1f/0x30 age=38235/76874/115478 pid=488-2778 cpus=0-1
+      9 <not-available> age=4303047074 pid=0 cpus=0
+      4 bdev_destroy_inode+0x1f/0x30 age=61405/4218130/8374840 pid=488-13325 cpus=0-1

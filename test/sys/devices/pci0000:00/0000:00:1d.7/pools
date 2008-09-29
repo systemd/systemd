@@ -1,0 +1,9 @@
+poolinfo - 0.1
+ehci_sitd           0    0   96  0
+ehci_itd            0    0  192  0
+ehci_qh             5   25  160  1
+ehci_qtd            5   42   96  1
+buffer-2048        16   32 2048 16
+buffer-512          0    0  512  0
+buffer-128          2   32  128  1
+buffer-32           2  128   32  1

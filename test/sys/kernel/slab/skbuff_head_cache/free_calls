@@ -1,2 +1,2 @@
-    295 <not-available> age=4294787646 pid=0 cpus=0
-    264 __kfree_skb+0x3a/0xa0 age=1225/12909/96887 pid=0-2890 cpus=0-1
+    333 <not-available> age=4303046979 pid=0 cpus=0
+    217 __kfree_skb+0x3a/0xa0 age=1666/662694/8356220 pid=0-13466 cpus=0-1

@@ -1,7 +1,7 @@
-    200 <not-available> age=4294787831 pid=0 cpus=0
-      7 seq_release+0x18/0x30 age=8616/76360/115289 pid=107-2815 cpus=0-1
-      1 cryptomgr_probe+0x81/0xf0 age=114071 pid=745 cpus=0
-     30 kobject_uevent_env+0x122/0x470 age=43504/111192/120401 pid=1-2754 cpus=0-1
-      1 show_uevent+0xee/0x110 age=1412 pid=2890 cpus=0
-      1 input_dev_release+0x23/0x40 age=119420 pid=17 cpus=0
-    126 skb_release_data+0x85/0xd0 age=1410/8633/95042 pid=0-2890 cpus=0
+    187 <not-available> age=4303047324 pid=0 cpus=0
+      5 seq_release+0x18/0x30 age=61430/6709712/8374782 pid=107-1371 cpus=0-1
+      1 cryptomgr_probe+0x81/0xf0 age=8373564 pid=745 cpus=0
+     30 kobject_uevent_env+0x122/0x470 age=22643/7542644/8379894 pid=1-1549 cpus=0-1
+      1 show_uevent+0xee/0x110 age=2013 pid=13466 cpus=0
+      1 input_dev_release+0x23/0x40 age=8378913 pid=17 cpus=0
+    130 skb_release_data+0x85/0xd0 age=2011/73374/8354535 pid=0-13466 cpus=0-1

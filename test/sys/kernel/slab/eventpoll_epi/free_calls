@@ -1,2 +1,2 @@
-     63 <not-available> age=4294787533 pid=0 cpus=0
-      3 ep_remove+0xae/0xc0 age=80363/91441/96980 pid=1690-2073 cpus=0
+     61 <not-available> age=4303046803 pid=0 cpus=0
+      4 ep_remove+0xae/0xc0 age=2416461/6864194/8356250 pid=1690-2073 cpus=0-1
