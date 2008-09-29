@@ -83,7 +83,7 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 
 	udev_monitor->sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (udev_monitor->sock == -1) {
-		err(udev, "error getting socket: %s\n", strerror(errno));
+		err(udev, "error getting socket: %m\n");
 		free(udev_monitor);
 		return NULL;
 	}
@@ -106,7 +106,7 @@ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev)
 
 	udev_monitor->sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
 	if (udev_monitor->sock == -1) {
-		err(udev, "error getting socket: %s\n", strerror(errno));
+		err(udev, "error getting socket: %m\n");
 		free(udev_monitor);
 		return NULL;
 	}
@@ -127,14 +127,14 @@ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 	if (udev_monitor->snl.nl_family != 0) {
 		err = bind(udev_monitor->sock, (struct sockaddr *)&udev_monitor->snl, sizeof(struct sockaddr_nl));
 		if (err < 0) {
-			err(udev_monitor->udev, "bind failed: %s\n", strerror(errno));
+			err(udev_monitor->udev, "bind failed: %m\n");
 			return err;
 		}
 		info(udev_monitor->udev, "monitor %p listening on netlink\n", udev_monitor);
 	} else if (udev_monitor->sun.sun_family != 0) {
 		err = bind(udev_monitor->sock, (struct sockaddr *)&udev_monitor->sun, udev_monitor->addrlen);
 		if (err < 0) {
-			err(udev_monitor->udev, "bind failed: %s\n", strerror(errno));
+			err(udev_monitor->udev, "bind failed: %m\n");
 			return err;
 		}
 		/* enable receiving of the sender credentials */

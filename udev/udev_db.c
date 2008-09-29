@@ -88,7 +88,7 @@ int udev_db_get_devices_by_name(struct udev *udev, const char *name, struct list
 
 	dir = opendir(dirname);
 	if (dir == NULL) {
-		info(udev, "no index directory '%s': %s\n", dirname, strerror(errno));
+		info(udev, "no index directory '%s': %m\n", dirname);
 		rc = -1;
 		goto out;
 	}
@@ -147,7 +147,7 @@ int udev_db_add_device(struct udevice *udevice)
 		ret = symlink(udevice->name, filename);
 		udev_selinux_resetfscreatecon(udevice->udev);
 		if (ret != 0) {
-			err(udevice->udev, "unable to create db link '%s': %s\n", filename, strerror(errno));
+			err(udevice->udev, "unable to create db link '%s': %m\n", filename);
 			return -1;
 		}
 	} else {
@@ -156,7 +156,7 @@ int udev_db_add_device(struct udevice *udevice)
 
 		f = fopen(filename, "w");
 		if (f == NULL) {
-			err(udevice->udev, "unable to create db file '%s': %s\n", filename, strerror(errno));
+			err(udevice->udev, "unable to create db file '%s': %m\n", filename);
 			return -1;
 		}
 		dbg(udevice->udev, "storing data for device '%s' in '%s'\n", udevice->dev->devpath, filename);
@@ -203,7 +203,7 @@ int udev_db_get_device(struct udevice *udevice, const char *devpath)
 	devpath_to_db_path(udevice->udev, devpath, filename, sizeof(filename));
 
 	if (lstat(filename, &stats) != 0) {
-		info(udevice->udev, "no db file to read %s: %s\n", filename, strerror(errno));
+		info(udevice->udev, "no db file to read %s: %m\n", filename);
 		return -1;
 	}
 	if ((stats.st_mode & S_IFMT) == S_IFLNK) {
@@ -215,7 +215,7 @@ int udev_db_get_device(struct udevice *udevice, const char *devpath)
 		if (target_len > 0)
 			target[target_len] = '\0';
 		else {
-			info(udevice->udev, "error reading db link %s: %s\n", filename, strerror(errno));
+			info(udevice->udev, "error reading db link %s: %m\n", filename);
 			return -1;
 		}
 		dbg(udevice->udev, "db link points to '%s'\n", target);
@@ -224,7 +224,7 @@ int udev_db_get_device(struct udevice *udevice, const char *devpath)
 	}
 
 	if (file_map(filename, &buf, &bufsize) != 0) {
-		info(udevice->udev, "error reading db file %s: %s\n", filename, strerror(errno));
+		info(udevice->udev, "error reading db file %s: %m\n", filename);
 		return -1;
 	}
 

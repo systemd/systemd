@@ -91,7 +91,7 @@ int delete_path(struct udev *udev, const char *path)
 		if (retval) {
 			if (errno == ENOTEMPTY)
 				return 0;
-			err(udev, "rmdir(%s) failed: %s\n", p, strerror(errno));
+			err(udev, "rmdir(%s) failed: %m\n", p);
 			break;
 		}
 		dbg(udev, "removed '%s'\n", p);
@@ -108,18 +108,18 @@ int unlink_secure(struct udev *udev, const char *filename)
 
 	retval = chown(filename, 0, 0);
 	if (retval)
-		err(udev, "chown(%s, 0, 0) failed: %s\n", filename, strerror(errno));
+		err(udev, "chown(%s, 0, 0) failed: %m\n", filename);
 
 	retval = chmod(filename, 0000);
 	if (retval)
-		err(udev, "chmod(%s, 0000) failed: %s\n", filename, strerror(errno));
+		err(udev, "chmod(%s, 0000) failed: %m\n", filename);
 
 	retval = unlink(filename);
 	if (errno == ENOENT)
 		retval = 0;
 
 	if (retval)
-		err(udev, "unlink(%s) failed: %s\n", filename, strerror(errno));
+		err(udev, "unlink(%s) failed: %m\n", filename);
 
 	return retval;
 }

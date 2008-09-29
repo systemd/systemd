@@ -131,7 +131,7 @@ void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int 
 			return;
 		} 
 		if (lsetfilecon(file, scontext) < 0)
-			err(udev, "setfilecon %s failed: %s\n", file, strerror(errno));
+			err(udev, "setfilecon %s failed: %m\n", file);
 		freecon(scontext);
 	}
 #endif
@@ -150,7 +150,7 @@ void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned i
 			return;
 		}
 		if (setfscreatecon(scontext) < 0)
-			err(udev, "setfscreatecon %s failed: %s\n", file, strerror(errno));
+			err(udev, "setfscreatecon %s failed: %m\n", file);
 		freecon(scontext);
 	}
 #endif
@@ -163,7 +163,7 @@ void udev_selinux_resetfscreatecon(struct udev *udev)
 		selinux_init(udev);
 	if (udev->selinux_enabled) {
 		if (setfscreatecon(udev->selinux_prev_scontext) < 0)
-			err(udev, "setfscreatecon failed: %s\n", strerror(errno));
+			err(udev, "setfscreatecon failed: %m\n");
 	}
 #endif
 }

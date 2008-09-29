@@ -105,12 +105,12 @@ static void trigger_uevent(struct udev *udev, const char *syspath, const char *a
 
 	fd = open(filename, O_WRONLY);
 	if (fd < 0) {
-		dbg(udev, "error on opening %s: %s\n", filename, strerror(errno));
+		dbg(udev, "error on opening %s: %m\n", filename);
 		return;
 	}
 
 	if (write(fd, action, strlen(action)) < 0)
-		info(udev, "error writing '%s' to '%s': %s\n", action, filename, strerror(errno));
+		info(udev, "error writing '%s' to '%s': %m\n", action, filename);
 
 	close(fd);
 }

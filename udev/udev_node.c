@@ -58,13 +58,13 @@ int udev_node_mknod(struct udevice *udevice, const char *file, dev_t devt, mode_
 			err = mknod(file_tmp, mode, devt);
 			udev_selinux_resetfscreatecon(udevice->udev);
 			if (err != 0) {
-				err(udevice->udev, "mknod(%s, %#o, %u, %u) failed: %s\n",
-				    file_tmp, mode, major(devt), minor(devt), strerror(errno));
+				err(udevice->udev, "mknod(%s, %#o, %u, %u) failed: %m\n",
+				    file_tmp, mode, major(devt), minor(devt));
 				goto exit;
 			}
 			err = rename(file_tmp, file);
 			if (err != 0) {
-				err(udevice->udev, "rename(%s, %s) failed: %s\n", file_tmp, file, strerror(errno));
+				err(udevice->udev, "rename(%s, %s) failed: %m\n", file_tmp, file);
 				unlink(file_tmp);
 			}
 		}
@@ -74,8 +74,8 @@ int udev_node_mknod(struct udevice *udevice, const char *file, dev_t devt, mode_
 		err = mknod(file, mode, devt);
 		udev_selinux_resetfscreatecon(udevice->udev);
 		if (err != 0) {
-			err(udevice->udev, "mknod(%s, %#o, (%u,%u) failed: %s\n",
-			    file, mode, major(devt), minor(devt), strerror(errno));
+			err(udevice->udev, "mknod(%s, %#o, (%u,%u) failed: %m\n",
+			    file, mode, major(devt), minor(devt));
 			goto exit;
 		}
 	}
@@ -84,7 +84,7 @@ int udev_node_mknod(struct udevice *udevice, const char *file, dev_t devt, mode_
 		info(udevice->udev, "chmod(%s, %#o)\n", file, mode);
 		err = chmod(file, mode);
 		if (err != 0) {
-			err(udevice->udev, "chmod(%s, %#o) failed: %s\n", file, mode, strerror(errno));
+			err(udevice->udev, "chmod(%s, %#o) failed: %m\n", file, mode);
 			goto exit;
 		}
 	}
@@ -93,7 +93,7 @@ int udev_node_mknod(struct udevice *udevice, const char *file, dev_t devt, mode_
 		info(udevice->udev, "chown(%s, %u, %u)\n", file, uid, gid);
 		err = chown(file, uid, gid);
 		if (err != 0) {
-			err(udevice->udev, "chown(%s, %u, %u) failed: %s\n", file, uid, gid, strerror(errno));
+			err(udevice->udev, "chown(%s, %u, %u) failed: %m\n", file, uid, gid);
 			goto exit;
 		}
 	}
@@ -170,12 +170,12 @@ static int node_symlink(struct udevice *udevice, const char *node, const char *s
 	retval = symlink(target, slink_tmp);
 	udev_selinux_resetfscreatecon(udevice->udev);
 	if (retval != 0) {
-		err(udevice->udev, "symlink(%s, %s) failed: %s\n", target, slink_tmp, strerror(errno));
+		err(udevice->udev, "symlink(%s, %s) failed: %m\n", target, slink_tmp);
 		goto exit;
 	}
 	retval = rename(slink_tmp, slink);
 	if (retval != 0) {
-		err(udevice->udev, "rename(%s, %s) failed: %s\n", slink_tmp, slink, strerror(errno));
+		err(udevice->udev, "rename(%s, %s) failed: %m\n", slink_tmp, slink);
 		unlink(slink_tmp);
 		goto exit;
 	}

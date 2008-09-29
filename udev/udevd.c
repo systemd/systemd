@@ -264,7 +264,7 @@ static void udev_event_run(struct udevd_uevent_msg *msg)
 			exit(1);
 		exit(0);
 	case -1:
-		err(msg->udev, "fork of child failed: %s\n", strerror(errno));
+		err(msg->udev, "fork of child failed: %m\n");
 		msg_queue_delete(msg);
 		break;
 	default:
@@ -619,7 +619,7 @@ static struct udevd_uevent_msg *get_netlink_msg(struct udev *udev)
 	size = recv(uevent_netlink_sock, &buffer, sizeof(buffer), 0);
 	if (size <  0) {
 		if (errno != EINTR)
-			err(udev, "unable to receive kernel netlink message: %s\n", strerror(errno));
+			err(udev, "unable to receive kernel netlink message: %m\n");
 		return NULL;
 	}
 
@@ -729,7 +729,7 @@ static int init_uevent_netlink_sock(struct udev *udev)
 
 	uevent_netlink_sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
 	if (uevent_netlink_sock == -1) {
-		err(udev, "error getting socket: %s\n", strerror(errno));
+		err(udev, "error getting socket: %m\n");
 		return -1;
 	}
 
@@ -738,7 +738,7 @@ static int init_uevent_netlink_sock(struct udev *udev)
 
 	retval = bind(uevent_netlink_sock, (struct sockaddr *) &snl, sizeof(struct sockaddr_nl));
 	if (retval < 0) {
-		err(udev, "bind failed: %s\n", strerror(errno));
+		err(udev, "bind failed: %m\n");
 		close(uevent_netlink_sock);
 		uevent_netlink_sock = -1;
 		return -1;
@@ -876,29 +876,29 @@ int main(int argc, char *argv[])
 
 	retval = pipe(signal_pipe);
 	if (retval < 0) {
-		err(udev, "error getting pipes: %s\n", strerror(errno));
+		err(udev, "error getting pipes: %m\n");
 		goto exit;
 	}
 
 	retval = fcntl(signal_pipe[READ_END], F_GETFL, 0);
 	if (retval < 0) {
-		err(udev, "error fcntl on read pipe: %s\n", strerror(errno));
+		err(udev, "error fcntl on read pipe: %m\n");
 		goto exit;
 	}
 	retval = fcntl(signal_pipe[READ_END], F_SETFL, retval | O_NONBLOCK);
 	if (retval < 0) {
-		err(udev, "error fcntl on read pipe: %s\n", strerror(errno));
+		err(udev, "error fcntl on read pipe: %m\n");
 		goto exit;
 	}
 
 	retval = fcntl(signal_pipe[WRITE_END], F_GETFL, 0);
 	if (retval < 0) {
-		err(udev, "error fcntl on write pipe: %s\n", strerror(errno));
+		err(udev, "error fcntl on write pipe: %m\n");
 		goto exit;
 	}
 	retval = fcntl(signal_pipe[WRITE_END], F_SETFL, retval | O_NONBLOCK);
 	if (retval < 0) {
-		err(udev, "error fcntl on write pipe: %s\n", strerror(errno));
+		err(udev, "error fcntl on write pipe: %m\n");
 		goto exit;
 	}
 
@@ -917,7 +917,7 @@ int main(int argc, char *argv[])
 			dbg(udev, "daemonized fork running\n");
 			break;
 		case -1:
-			err(udev, "fork of daemon failed: %s\n", strerror(errno));
+			err(udev, "fork of daemon failed: %m\n");
 			rc = 4;
 			goto exit;
 		default:
@@ -945,7 +945,7 @@ int main(int argc, char *argv[])
 	/* OOM_DISABLE == -17 */
 	fd = open("/proc/self/oom_adj", O_RDWR);
 	if (fd < 0)
-		err(udev, "error disabling OOM: %s\n", strerror(errno));
+		err(udev, "error disabling OOM: %m\n");
 	else {
 		write(fd, "-17", 3);
 		close(fd);
@@ -992,7 +992,7 @@ int main(int argc, char *argv[])
 	} else if (errno == ENOSYS)
 		err(udev, "the kernel does not support inotify, udevd can't monitor rules file changes\n");
 	else
-		err(udev, "inotify_init failed: %s\n", strerror(errno));
+		err(udev, "inotify_init failed: %m\n");
 
 	/* maximum limit of forked childs */
 	value = getenv("UDEVD_MAX_CHILDS");
@@ -1035,7 +1035,7 @@ int main(int argc, char *argv[])
 		fdcount = select(maxfd+1, &readfds, NULL, NULL, NULL);
 		if (fdcount < 0) {
 			if (errno != EINTR)
-				err(udev, "error in select: %s\n", strerror(errno));
+				err(udev, "error in select: %m\n");
 			continue;
 		}
 

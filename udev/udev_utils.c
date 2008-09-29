@@ -132,7 +132,7 @@ int add_matching_files(struct udev *udev, struct list_head *name_list, const cha
 	dbg(udev, "open directory '%s'\n", dirname);
 	dir = opendir(dirname);
 	if (dir == NULL) {
-		err(udev, "unable to open '%s': %s\n", dirname, strerror(errno));
+		err(udev, "unable to open '%s': %m\n", dirname);
 		return -1;
 	}
 
@@ -176,7 +176,7 @@ uid_t lookup_user(struct udev *udev, const char *user)
 		if (errno == 0 || errno == ENOENT || errno == ESRCH)
 			err(udev, "specified user '%s' unknown\n", user);
 		else
-			err(udev, "error resolving user '%s': %s\n", user, strerror(errno));
+			err(udev, "error resolving user '%s': %m\n", user);
 	} else
 		uid = pw->pw_uid;
 
@@ -194,7 +194,7 @@ extern gid_t lookup_group(struct udev *udev, const char *group)
 		if (errno == 0 || errno == ENOENT || errno == ESRCH)
 			err(udev, "specified group '%s' unknown\n", group);
 		else
-			err(udev, "error resolving group '%s': %s\n", group, strerror(errno));
+			err(udev, "error resolving group '%s': %m\n", group);
 	} else
 		gid = gr->gr_gid;
 

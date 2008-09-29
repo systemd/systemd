@@ -168,7 +168,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 				 &readfds, NULL, NULL, NULL);
 		if (fdcount < 0) {
 			if (errno != EINTR)
-				fprintf(stderr, "error receiving uevent message: %s\n", strerror(errno));
+				fprintf(stderr, "error receiving uevent message: %m\n");
 			continue;
 		}
 

@@ -79,7 +79,7 @@ struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socke
 
 	uctrl->sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (uctrl->sock < 0) {
-		err(udev, "error getting socket: %s\n", strerror(errno));
+		err(udev, "error getting socket: %m\n");
 		udev_ctrl_unref(uctrl);
 		return NULL;
 	}
@@ -101,7 +101,7 @@ int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl)
 
 	err= bind(uctrl->sock, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
 	if (err < 0) {
-		err(uctrl->udev, "bind failed: %s\n", strerror(errno));
+		err(uctrl->udev, "bind failed: %m\n");
 		return err;
 	}
 
@@ -158,7 +158,7 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
 
 	err = sendto(uctrl->sock, &ctrl_msg_wire, sizeof(ctrl_msg_wire), 0, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
 	if (err == -1) {
-		err(uctrl->udev, "error sending message: %s\n", strerror(errno));
+		err(uctrl->udev, "error sending message: %m\n");
 	}
 	return err;
 }
@@ -227,7 +227,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl)
 
 	size = recvmsg(uctrl->sock, &smsg, 0);
 	if (size <  0) {
-		err(uctrl->udev, "unable to receive user udevd message: %s\n", strerror(errno));
+		err(uctrl->udev, "unable to receive user udevd message: %m\n");
 		goto err;
 	}
 	cmsg = CMSG_FIRSTHDR(&smsg);

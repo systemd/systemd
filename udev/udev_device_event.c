@@ -63,7 +63,7 @@ static int rename_netif(struct udevice *udevice)
 
 	sk = socket(PF_INET, SOCK_DGRAM, 0);
 	if (sk < 0) {
-		err(udevice->udev, "error opening socket: %s\n", strerror(errno));
+		err(udevice->udev, "error opening socket: %m\n");
 		return -1;
 	}
 
@@ -78,8 +78,8 @@ static int rename_netif(struct udevice *udevice)
 
 		/* see if the destination interface name already exists */
 		if (errno != EEXIST) {
-			err(udevice->udev, "error changing netif name %s to %s: %s\n",
-			    ifr.ifr_name, ifr.ifr_newname, strerror(errno));
+			err(udevice->udev, "error changing netif name %s to %s: %m\n",
+			    ifr.ifr_name, ifr.ifr_newname);
 			goto exit;
 		}
 
@@ -88,8 +88,8 @@ static int rename_netif(struct udevice *udevice)
 		util_strlcat(ifr.ifr_newname, "_rename", IFNAMSIZ);
 		retval = ioctl(sk, SIOCSIFNAME, &ifr);
 		if (retval != 0) {
-			err(udevice->udev, "error changing netif name %s to %s: %s\n",
-			    ifr.ifr_name, ifr.ifr_newname, strerror(errno));
+			err(udevice->udev, "error changing netif name %s to %s: %m\n",
+			    ifr.ifr_name, ifr.ifr_newname);
 			goto exit;
 		}
 
@@ -105,8 +105,8 @@ static int rename_netif(struct udevice *udevice)
 			}
 
 			if (errno != EEXIST) {
-				err(udevice->udev, "error changing net interface name %s to %s: %s\n",
-				    ifr.ifr_name, ifr.ifr_newname, strerror(errno));
+				err(udevice->udev, "error changing net interface name %s to %s: %m\n",
+				    ifr.ifr_name, ifr.ifr_newname);
 				break;
 			}
 			dbg(udevice->udev, "wait for netif '%s' to become free, loop=%i\n",

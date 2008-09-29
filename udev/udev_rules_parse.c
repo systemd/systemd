@@ -692,7 +692,7 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 	start = rules->bufsize;
 
 	if (file_map(filename, &buf, &bufsize) != 0) {
-		err(rules->udev, "can't open '%s' as rules file: %s\n", filename, strerror(errno));
+		err(rules->udev, "can't open '%s' as rules file: %m\n", filename);
 		return -1;
 	}
 	info(rules->udev, "reading '%s' as rules file\n", filename);
@@ -831,7 +831,7 @@ int udev_rules_init(struct udev *udev, struct udev_rules *rules, int resolve_nam
 			else
 				dbg(udev, "empty rules file '%s'\n", name_loop->name);
 		} else
-			err(udev, "could not read '%s': %s\n", name_loop->name, strerror(errno));
+			err(udev, "could not read '%s': %m\n", name_loop->name);
 		list_del(&name_loop->node);
 		free(name_loop);
 	}

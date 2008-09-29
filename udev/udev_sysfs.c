@@ -173,7 +173,7 @@ struct sysfs_device *sysfs_device_get(struct udev *udev, const char *devpath)
 	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
 	util_strlcat(path, devpath_real, sizeof(path));
 	if (lstat(path, &statbuf) != 0) {
-		dbg(udev, "stat '%s' failed: %s\n", path, strerror(errno));
+		dbg(udev, "stat '%s' failed: %m\n", path);
 		return NULL;
 	}
 	if (S_ISLNK(statbuf.st_mode)) {
@@ -352,7 +352,7 @@ char *sysfs_attr_get_value(struct udev *udev, const char *devpath, const char *a
 	list_add(&attr->node, &attr_list);
 
 	if (lstat(path_full, &statbuf) != 0) {
-		dbg(udev, "stat '%s' failed: %s\n", path_full, strerror(errno));
+		dbg(udev, "stat '%s' failed: %m\n", path_full);
 		goto out;
 	}
 

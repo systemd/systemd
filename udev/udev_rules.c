@@ -159,13 +159,13 @@ static int run_program(struct udev *udev, const char *command, const char *subsy
 	/* prepare pipes from child to parent */
 	if (result != NULL || udev_get_log_priority(udev) >= LOG_INFO) {
 		if (pipe(outpipe) != 0) {
-			err(udev, "pipe failed: %s\n", strerror(errno));
+			err(udev, "pipe failed: %m\n");
 			return -1;
 		}
 	}
 	if (udev_get_log_priority(udev) >= LOG_INFO) {
 		if (pipe(errpipe) != 0) {
-			err(udev, "pipe failed: %s\n", strerror(errno));
+			err(udev, "pipe failed: %m\n");
 			return -1;
 		}
 	}
@@ -196,7 +196,7 @@ static int run_program(struct udev *udev, const char *command, const char *subsy
 				dup2(devnull, STDERR_FILENO);
 			close(devnull);
 		} else
-			err(udev, "open /dev/null failed: %s\n", strerror(errno));
+			err(udev, "open /dev/null failed: %m\n");
 		if (outpipe[WRITE_END] > 0) {
 			dup2(outpipe[WRITE_END], STDOUT_FILENO);
 			close(outpipe[WRITE_END]);
@@ -215,7 +215,7 @@ static int run_program(struct udev *udev, const char *command, const char *subsy
 		}
 		_exit(1);
 	case -1:
-		err(udev, "fork of '%s' failed: %s\n", argv[0], strerror(errno));
+		err(udev, "fork of '%s' failed: %m\n", argv[0]);
 		return -1;
 	default:
 		/* read from child if requested */
@@ -258,7 +258,7 @@ static int run_program(struct udev *udev, const char *command, const char *subsy
 						close(outpipe[READ_END]);
 						outpipe[READ_END] = -1;
 						if (count < 0) {
-							err(udev, "stdin read failed: %s\n", strerror(errno));
+							err(udev, "stdin read failed: %m\n");
 							retval = -1;
 						}
 						continue;
@@ -292,7 +292,7 @@ static int run_program(struct udev *udev, const char *command, const char *subsy
 						close(errpipe[READ_END]);
 						errpipe[READ_END] = -1;
 						if (count < 0)
-							err(udev, "stderr read failed: %s\n", strerror(errno));
+							err(udev, "stderr read failed: %m\n");
 						continue;
 					}
 					errbuf[count] = '\0';
@@ -392,7 +392,7 @@ static int import_file_into_env(struct udevice *udevice, const char *filename)
 	size_t bufsize;
 
 	if (file_map(filename, &buf, &bufsize) != 0) {
-		err(udevice->udev, "can't open '%s': %s\n", filename, strerror(errno));
+		err(udevice->udev, "can't open '%s': %m\n", filename);
 		return -1;
 	}
 	import_keys_into_env(udevice, buf, bufsize);
@@ -1352,10 +1352,10 @@ try_parent:
 			if (f != NULL) {
 				if (!udevice->test_run)
 					if (fprintf(f, "%s", value) <= 0)
-						err(udevice->udev, "error writing ATTR{%s}: %s\n", attr, strerror(errno));
+						err(udevice->udev, "error writing ATTR{%s}: %m\n", attr);
 				fclose(f);
 			} else
-				err(udevice->udev, "error opening ATTR{%s} for writing: %s\n", attr, strerror(errno));
+				err(udevice->udev, "error opening ATTR{%s} for writing: %m\n", attr);
 		}
 	}
 	return 0;

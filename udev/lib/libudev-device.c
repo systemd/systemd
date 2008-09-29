@@ -77,7 +77,7 @@ static int device_read_db(struct udev_device *udev_device)
 	syspath_to_db_path(udev_device, filename, sizeof(filename));
 
 	if (lstat(filename, &stats) != 0) {
-		info(udev_device->udev, "no db file to read %s: %s\n", filename, strerror(errno));
+		info(udev_device->udev, "no db file to read %s: %m\n", filename);
 		return -1;
 	}
 	if ((stats.st_mode & S_IFMT) == S_IFLNK) {
@@ -88,7 +88,7 @@ static int device_read_db(struct udev_device *udev_device)
 		if (target_len > 0)
 			target[target_len] = '\0';
 		else {
-			info(udev_device->udev, "error reading db link %s: %s\n", filename, strerror(errno));
+			info(udev_device->udev, "error reading db link %s: %m\n", filename);
 			return -1;
 		}
 		if (asprintf(&udev_device->devnode, "%s/%s", udev_get_dev_path(udev_device->udev), target) < 0)
@@ -99,7 +99,7 @@ static int device_read_db(struct udev_device *udev_device)
 
 	f = fopen(filename, "r");
 	if (f == NULL) {
-		info(udev_device->udev, "error reading db file %s: %s\n", filename, strerror(errno));
+		info(udev_device->udev, "error reading db file %s: %m\n", filename);
 		return -1;
 	}
 	while (fgets(line, sizeof(line), f)) {
@@ -653,7 +653,7 @@ const char *udev_device_get_attr_value(struct udev_device *udev_device, const ch
 	util_strlcat(path, attr, sizeof(path));
 
 	if (lstat(path, &statbuf) != 0) {
-		info(udev_device->udev, "stat '%s' failed: %s\n", path, strerror(errno));
+		info(udev_device->udev, "stat '%s' failed: %m\n", path);
 		goto out;
 	}
 
