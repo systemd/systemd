@@ -31,8 +31,9 @@ udev_device_get_driver
 udev_device_get_devnum
 udev_device_get_seqnum
 udev_device_get_attr_value
-udev_enumerate_new_from_devices
-udev_enumerate_new_from_subsystems
+udev_enumerate_new
+udev_enumerate_scan_devices
+udev_enumerate_scan_subsystems
 udev_enumerate_ref
 udev_enumerate_unref
 udev_enumerate_get_udev

@@ -242,7 +242,7 @@ int main(int argc, char *argv[], char *envp[])
 		{ "version", 0, NULL, 'V' },
 		{}
 	};
-	struct udev_enumerate *enumerate;
+	struct udev_enumerate *udev_enumerate;
 	const char *syspath = "/devices/virtual/mem/null";
 	const char *subsystem = NULL;
 	const char *socket = "@/org/kernel/udev/monitor";
@@ -306,39 +306,44 @@ int main(int argc, char *argv[], char *envp[])
 	test_device_parents(udev, syspath);
 
 	printf("enumerate '%s'\n", subsystem == NULL ? "<all>" : subsystem);
-	enumerate = udev_enumerate_new_from_devices(udev, subsystem, NULL);
-	if (enumerate == NULL)
+	udev_enumerate = udev_enumerate_new(udev);
+	if (udev_enumerate == NULL)
 		return -1;
-	test_enumerate_print_list(enumerate);
-	udev_enumerate_unref(enumerate);
+	udev_enumerate_scan_devices(udev_enumerate, subsystem, NULL);
+	test_enumerate_print_list(udev_enumerate);
+	udev_enumerate_unref(udev_enumerate);
 
 	printf("enumerate 'block'\n");
-	enumerate = udev_enumerate_new_from_devices(udev, "block", NULL);
-	if (enumerate == NULL)
+	udev_enumerate = udev_enumerate_new(udev);
+	if (udev_enumerate == NULL)
 		return -1;
-	test_enumerate_print_list(enumerate);
-	udev_enumerate_unref(enumerate);
+	udev_enumerate_scan_devices(udev_enumerate, "block", NULL);
+	test_enumerate_print_list(udev_enumerate);
+	udev_enumerate_unref(udev_enumerate);
 
 	printf("enumerate '!block'\n");
-	enumerate = udev_enumerate_new_from_devices(udev, "!block", NULL);
-	if (enumerate == NULL)
+	udev_enumerate = udev_enumerate_new(udev);
+	if (udev_enumerate == NULL)
 		return -1;
-	test_enumerate_print_list(enumerate);
-	udev_enumerate_unref(enumerate);
+	udev_enumerate_scan_devices(udev_enumerate, "!block", NULL);
+	test_enumerate_print_list(udev_enumerate);
+	udev_enumerate_unref(udev_enumerate);
 
 	printf("enumerate 'pci, mem, vc'\n");
-	enumerate = udev_enumerate_new_from_devices(udev, "pci", "mem", "vc", NULL);
-	if (enumerate == NULL)
+	udev_enumerate = udev_enumerate_new(udev);
+	if (udev_enumerate == NULL)
 		return -1;
-	test_enumerate_print_list(enumerate);
-	udev_enumerate_unref(enumerate);
+	udev_enumerate_scan_devices(udev_enumerate, "pci", "mem", "vc", NULL);
+	test_enumerate_print_list(udev_enumerate);
+	udev_enumerate_unref(udev_enumerate);
 
 	printf("enumerate 'subsystem'\n");
-	enumerate = udev_enumerate_new_from_subsystems(udev);
-	if (enumerate == NULL)
+	udev_enumerate = udev_enumerate_new(udev);
+	if (udev_enumerate == NULL)
 		return -1;
-	test_enumerate_print_list(enumerate);
-	udev_enumerate_unref(enumerate);
+	udev_enumerate_scan_subsystems(udev_enumerate);
+	test_enumerate_print_list(udev_enumerate);
+	udev_enumerate_unref(udev_enumerate);
 
 	test_monitor(udev, socket);
 out:

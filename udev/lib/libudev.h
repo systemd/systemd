@@ -94,11 +94,12 @@ extern struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev
 
 /* sys enumeration */
 struct udev_enumerate;
-extern struct udev_enumerate *udev_enumerate_new_from_devices(struct udev *udev, const char *subsystem, ...);
-extern struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev);
+extern struct udev_enumerate *udev_enumerate_new(struct udev *udev);
 extern struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate);
 extern struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate);
 extern void udev_enumerate_unref(struct udev_enumerate *udev_enumerate);
+extern int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate, const char *subsystem, ...);
+extern int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerate);
 extern struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *udev_enumerate);
 
 #endif

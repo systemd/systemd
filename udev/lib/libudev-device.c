@@ -295,7 +295,7 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 {
 	char path[UTIL_PATH_SIZE];
 	const char *type_str;
-	struct udev_enumerate *enumerate;
+	struct udev_enumerate *udev_enumerate;
 	struct udev_list_entry *list_entry;
 	struct udev_device *device = NULL;
 
@@ -312,14 +312,16 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 	if (util_resolve_sys_link(udev, path, sizeof(path)) == 0)
 		return udev_device_new_from_syspath(udev, path);
 
+	udev_enumerate = udev_enumerate_new(udev);
+	if (udev_enumerate == NULL)
+		return NULL;
+
 	/* fallback to search sys devices for the major/minor */
 	if (type == 'b')
-		enumerate = udev_enumerate_new_from_devices(udev, "block", NULL);
+		udev_enumerate_scan_devices(udev_enumerate, "block", NULL);
 	else if (type == 'c')
-		enumerate = udev_enumerate_new_from_devices(udev, "!block", NULL);
-	if (enumerate == NULL)
-		return NULL;
-	udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(enumerate)) {
+		udev_enumerate_scan_devices(udev_enumerate, "!block", NULL);
+	udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(udev_enumerate)) {
 		struct udev_device *device_loop;
 
 		device_loop = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list_entry));
@@ -338,7 +340,7 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 			udev_device_unref(device_loop);
 		}
 	}
-	udev_enumerate_unref(enumerate);
+	udev_enumerate_unref(udev_enumerate);
 	return device;
 }
 

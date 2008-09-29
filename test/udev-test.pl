@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# udev-test
+# udev test
 #
 # Provides automated testing of the udev binary.
 # The whole test is self contained in this file, except the matching sysfs tree.
@@ -14,7 +14,7 @@
 # After creation and removal the result is checked against the
 # expected value and the result is printed.
 #
-# Copyright (C) 2004-2006 Kay Sievers <kay.sievers@vrfy.org>
+# Copyright (C) 2004-2008 Kay Sievers <kay.sievers@vrfy.org>
 # Copyright (C) 2004 Leann Ogasawara <ogasawara@osdl.org>
 
 use warnings;

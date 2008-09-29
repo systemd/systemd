@@ -167,7 +167,13 @@ static int devices_delay(struct udev *udev, const char *syspath)
 	return 0;
 }
 
-static struct udev_enumerate *enumerate_new(struct udev *udev)
+/**
+ * udev_enumerate_new:
+ * @udev: udev library context
+ *
+ * Returns: an enumeration context
+ **/
+struct udev_enumerate *udev_enumerate_new(struct udev *udev)
 {
 	struct udev_enumerate *udev_enumerate;
 
@@ -182,15 +188,15 @@ static struct udev_enumerate *enumerate_new(struct udev *udev)
 }
 
 /**
- * udev_enumerate_new_from_devices:
- * @udev: udev library context
+ * udev_enumerate_scan_devices:
+ * @udev_enumerate: udev enumeration context
  * @subsystem: the list of names of subsystems to look for devices
  *
- * Returns: an enumeration context
+ * Returns: 0 on success.
  **/
-struct udev_enumerate *udev_enumerate_new_from_devices(struct udev *udev, const char *subsystem, ...)
+int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate, const char *subsystem, ...)
 {
-	struct udev_enumerate *udev_enumerate;
+	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
 	va_list vargs;
 	const char *arg;
 	char base[UTIL_PATH_SIZE];
@@ -199,12 +205,8 @@ struct udev_enumerate *udev_enumerate_new_from_devices(struct udev *udev, const 
 	struct list_node subsystem_exclude_list;
 	struct udev_list_entry *list_entry;
 
-	if (udev == NULL)
-		return NULL;
-
-	udev_enumerate = enumerate_new(udev);
 	if (udev_enumerate == NULL)
-		return NULL;
+		return -EINVAL;
 
 	va_start(vargs, subsystem);
 	list_init(&subsystem_include_list);
@@ -247,10 +249,11 @@ struct udev_enumerate *udev_enumerate_new_from_devices(struct udev *udev, const 
 			int exclude_block = (udev_list_entry_get_by_name(exclude_list, "block") != NULL);
 
 			if (include_block && !exclude_block) {
-				info(udev, "searching '/block/*/*' dir\n");
+				info(udev, "searching '/block/*' dir\n");
 				/* scan disks */
 				devices_scan_subsystem(udev, "/block", NULL, NULL, &udev_enumerate->devices_list);
 				/* scan partitions */
+				info(udev, "searching '/block/*/*' dir\n");
 				devices_scan_subsystems(udev, "/block", NULL,
 							NULL, NULL,
 							&udev_enumerate->devices_list);
@@ -266,22 +269,24 @@ struct udev_enumerate *udev_enumerate_new_from_devices(struct udev *udev, const 
 		if (devices_delay(udev, udev_list_entry_get_name(list_entry)))
 			list_entry_move_to_end(list_entry);
 	}
-	return udev_enumerate;
+	return 0;
 }
 
-struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev)
+/**
+ * udev_enumerate_scan_subsystems:
+ * @udev_enumerate: udev enumeration context
+ *
+ * Returns: 0 on success.
+ **/
+int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerate)
 {
-	struct udev_enumerate *udev_enumerate;
+	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
 	char base[UTIL_PATH_SIZE];
 	struct stat statbuf;
 	const char *subsysdir;
 
-	if (udev == NULL)
-		return NULL;
-
-	udev_enumerate = enumerate_new(udev);
 	if (udev_enumerate == NULL)
-		return NULL;
+		return -EINVAL;
 
 	util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
 	util_strlcat(base, "/subsystem", sizeof(base));
@@ -295,5 +300,5 @@ struct udev_enumerate *udev_enumerate_new_from_subsystems(struct udev *udev)
 	devices_scan_subsystems(udev, subsysdir, "/drivers",
 				NULL, NULL,
 				&udev_enumerate->devices_list);
-	return udev_enumerate;
+	return 0;
 }
