@@ -1,0 +1,2 @@
+DRIVER=thinkpad_acpi
+MODALIAS=platform:thinkpad_acpi

@@ -1,0 +1,13 @@
+    391 <not-available> age=4294787849 pid=0 cpus=0
+      1 __vunmap+0xe9/0x120 age=115364 pid=107 cpus=1
+     34 do_execve+0x2b1/0x2d0 age=15569/97615/117574 pid=71-2851 cpus=0-1
+     52 seq_release+0x20/0x30 age=3957/100772/116688 pid=105-2851 cpus=0-1
+      1 inotify_destroy+0xcd/0xe0 age=56024 pid=2406 cpus=1
+      3 free_proc_entry+0x73/0x90 age=96765/110129/119478 pid=1-1541 cpus=0
+     10 __journal_drop_transaction+0xe6/0x170 age=12587/77011/106614 pid=32 cpus=0-1
+      1 acpi_pci_irq_add_prt+0xc2/0x324 age=120331 pid=1 cpus=0
+      2 acpi_pci_bind+0x26b/0x28d age=120330/120331/120332 pid=1 cpus=0
+      1 wireless_send_event+0x172/0x330 age=70024 pid=742 cpus=1
+      3 usb_string+0x17c/0x1e0 [usbcore] age=114853/115100/115372 pid=143 cpus=0
+      3 snd_ctl_release+0xf9/0x130 [snd] age=73513/77666/79760 pid=2400-2425 cpus=0
+      1 ieee80211_set_associated+0x421/0x520 [mac80211] age=70024 pid=742 cpus=1

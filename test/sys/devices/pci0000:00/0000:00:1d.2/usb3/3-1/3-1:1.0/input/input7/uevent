@@ -1,0 +1,9 @@
+PRODUCT=3/46d/c03e/110
+NAME="Logitech USB-PS/2 Optical Mouse"
+PHYS="usb-0000:00:1d.2-1/input0"
+UNIQ=""
+EV==17
+KEY==70000 0 0 0 0
+REL==103
+MSC==10
+MODALIAS=input:b0003v046DpC03Ee0110-e0,1,2,4,k110,111,112,r0,1,8,am4,lsfw

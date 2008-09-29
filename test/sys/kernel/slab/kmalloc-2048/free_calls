@@ -1,0 +1,15 @@
+    426 <not-available> age=4294787836 pid=0 cpus=0
+      1 __vunmap+0xe9/0x120 age=115015 pid=107 cpus=1
+     75 free_fdtable_rcu+0x71/0xb0 age=46779/105708/118057 pid=0-2139 cpus=0-1
+      2 show_stat+0x50e/0x530 age=4018/52316/100615 pid=1258-1868 cpus=0-1
+      4 acpi_add_single_object+0xc9a/0xd3c age=120326/120333/120341 pid=1 cpus=0
+     20 release_one_tty+0x145/0x190 age=92888/101277/110777 pid=55-2136 cpus=0-1
+      1 atkbd_connect+0x1ae/0x290 age=119425 pid=17 cpus=0
+      7 sk_free+0xcd/0x100 age=96516/98179/101484 pid=1533-1763 cpus=0-1
+     19 skb_release_data+0x85/0xd0 age=38212/80908/120252 pid=0-2812 cpus=0-1
+      4 __scm_destroy+0x41/0x50 age=66746/75662/92916 pid=2135-2593 cpus=0
+      1 huft_build+0x163/0x63e age=120254 pid=1 cpus=0
+      1 inflate_fixed+0x17c/0x193 age=120254 pid=1 cpus=0
+      1 acpi_processor_get_throttling_info+0x2e4/0x58c [processor] age=116146 pid=330 cpus=0
+      1 acpi_thermal_add+0x457/0x4bb [thermal] age=115330 pid=329 cpus=1
+      1 snd_ctl_ioctl+0x2cf/0x960 [snd] age=113601 pid=786 cpus=0

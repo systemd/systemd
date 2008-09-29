@@ -1,0 +1,3 @@
+RFKILL_NAME=tpacpi_bluetooth_sw
+RFKILL_TYPE=bluetooth
+RFKILL_STATE=1

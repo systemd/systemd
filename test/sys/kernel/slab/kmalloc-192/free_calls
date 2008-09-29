@@ -1,0 +1,15 @@
+    175 <not-available> age=4294787903 pid=0 cpus=0
+      4 free_sched_group+0x3b/0x80 age=98418/108735/115603 pid=0-1614 cpus=0-1
+      2 free_sched_group+0x50/0x80 age=98418/104439/110461 pid=0-1614 cpus=0
+      1 do_exit+0x713/0x960 age=73642 pid=2558 cpus=1
+      4 groups_free+0x56/0x60 age=60445/91673/110467 pid=0-1690 cpus=0
+      1 __vunmap+0xe9/0x120 age=96710 pid=1748 cpus=1
+      1 do_readv_writev+0xe4/0x1e0 age=71664 pid=2262 cpus=0
+      4 getxattr+0x8c/0x140 age=1/71510/98419 pid=1610-2890 cpus=0-1
+     24 sysfs_release+0x7c/0xa0 age=16075/92506/116933 pid=220-2765 cpus=0-1
+      1 ipc_immediate_free+0x9/0x10 age=70732 pid=2568 cpus=0
+      1 acpi_pci_irq_add_prt+0x30b/0x324 age=120384 pid=1 cpus=0
+      4 free_fib_info+0x34/0x60 age=108377/108382/108393 pid=1185-1197 cpus=0-1
+     14 urb_destroy+0x23/0x30 [usbcore] age=37330/98920/115394 pid=143-2760 cpus=0-1
+      1 0xffffffffa006521f age=96110 pid=1805 cpus=0
+      1 acpi_processor_get_throttling_info+0x50f/0x58c [processor] age=116261 pid=330 cpus=0

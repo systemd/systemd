@@ -1,0 +1,6 @@
+PRODUCT=19/0/3/0
+NAME="Sleep Button (CM)"
+PHYS="PNP0C0E/button/input0"
+EV==3
+KEY==4000 0 0
+MODALIAS=input:b0019v0000p0003e0000-e0,1,k8E,ramlsfw

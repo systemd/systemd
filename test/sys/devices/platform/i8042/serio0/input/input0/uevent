@@ -1,0 +1,8 @@
+PRODUCT=11/1/1/ab54
+NAME="AT Translated Set 2 keyboard"
+PHYS="isa0060/serio0/input0"
+EV==120013
+KEY==402000000 3803078f800d001 feffffdfffefffff fffffffffffffffe
+MSC==10
+LED==7
+MODALIAS=input:b0011v0001p0001eAB54-e0,1,4,11,14,k71,72,73,74,75,76,77,79,7A,7B,7C,7D,7E,7F,80,8C,8E,8F,9B,9C,9D,9E,9F,A3,A4,A5,A6,AC,AD,B7,B8,B9,D9,E2,ram4,l0,1,2,sfw

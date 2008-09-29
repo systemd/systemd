@@ -1,0 +1,2 @@
+DRIVER=button
+MODALIAS=acpi:PNP0C0E:

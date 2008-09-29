@@ -1,0 +1,6 @@
+PRODUCT=19/0/2/0
+NAME="Power Button (FF)"
+PHYS="LNXPWRBN/button/input0"
+EV==3
+KEY==10000000000000 0
+MODALIAS=input:b0019v0000p0002e0000-e0,1,k74,ramlsfw

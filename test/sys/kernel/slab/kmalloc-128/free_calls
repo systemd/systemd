@@ -1,0 +1,14 @@
+    216 <not-available> age=4294787863 pid=0 cpus=0
+      3 call_usermodehelper_freeinfo+0x27/0x30 age=100636/108439/114103 pid=745-1532 cpus=0
+      2 __vunmap+0xe9/0x120 age=115971/116373/116775 pid=105-169 cpus=0
+     25 d_callback+0x22/0x40 age=38470/99254/115952 pid=0-2778 cpus=0-1
+     50 load_elf_binary+0xaf/0x1e20 age=38383/102338/118076 pid=46-2792 cpus=0-1
+      2 free_rb_tree_fname+0x5c/0xb0 age=71751/89529/107307 pid=1274-2262 cpus=0
+      2 free_bitmap+0x29/0x80 age=108544/109515/110486 pid=55 cpus=0-1
+      1 acpi_evaluate_reference+0x100/0x117 age=115320 pid=329 cpus=0
+      6 acpi_get_object_info+0x1b6/0x1d4 age=120227/120332/120364 pid=1 cpus=0-1
+      4 do_acpi_find_child+0x48/0x51 age=119700/120149/120341 pid=1 cpus=0-1
+     20 con_release_unimap+0x4d/0xc0 age=95439/95449/95505 pid=1913-1944 cpus=0-1
+      1 unpack_to_rootfs+0x105/0xa39 age=120281 pid=1 cpus=0
+      1 acpi_processor_get_throttling_info+0x15e/0x58c [processor] age=116174 pid=330 cpus=0
+      1 acpi_battery_get_state+0xe5/0xf6 [battery] age=46035 pid=1371 cpus=0

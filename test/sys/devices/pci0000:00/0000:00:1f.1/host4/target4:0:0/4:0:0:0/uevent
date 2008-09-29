@@ -1,0 +1,3 @@
+DEVTYPE=scsi_device
+DRIVER=sr
+MODALIAS=scsi:t-0x05

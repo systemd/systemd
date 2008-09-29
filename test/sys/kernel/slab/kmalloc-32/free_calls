@@ -1,0 +1,23 @@
+    410 <not-available> age=4294787880 pid=0 cpus=0
+      4 __vunmap+0xe9/0x120 age=106910/113014/115304 pid=215-1358 cpus=0-1
+      1 vfs_rename+0x301/0x450 age=15253 pid=2851 cpus=0
+      6 do_sys_poll+0x32b/0x450 age=64982/70855/73793 pid=1333 cpus=0-1
+      1 seq_release_private+0x2d/0x60 age=92859 pid=2141 cpus=0
+      6 single_release+0x2e/0x40 age=44059/90095/107370 pid=1258-1868 cpus=0-1
+      1 setxattr+0xa6/0x130 age=96072 pid=1816 cpus=0
+      6 bio_free_map_data+0x25/0x30 age=38546/65872/116479 pid=0-318 cpus=0
+      7 remove_kevent+0x44/0x60 age=67905/71045/87094 pid=2271-2423 cpus=0-1
+     56 load_elf_binary+0xa72/0x1e20 age=16833/100749/117066 pid=102-2849 cpus=0-1
+      1 generic_acl_set+0x15e/0x1a0 age=96072 pid=1816 cpus=0
+     68 kobject_uevent_env+0x11a/0x470 age=38526/110314/120446 pid=1-2761 cpus=0-1
+      2 pci_get_subsys+0x74/0xa0 age=116209/116240/116271 pid=330 cpus=0
+      7 acpi_evaluate_integer+0xbf/0xd1 age=115144/116942/120369 pid=1-341 cpus=0
+      2 acpi_ds_create_operand+0x12c/0x209 age=115326/117848/120370 pid=1-329 cpus=0
+      3 acpi_ns_get_node+0x92/0xa1 age=114928/116769/120441 pid=1-215 cpus=0-1
+      5 acpi_ut_delete_internal_obj+0x15f/0x16f age=106909/114359/116252 pid=330-1358 cpus=0
+      3 acpi_pci_bind+0x277/0x28d age=120362/120362/120364 pid=1 cpus=0
+      1 get_modalias+0xd4/0x120 age=96306 pid=1772 cpus=0
+      1 pci_bus_assign_resources+0xfe/0x4d0 age=120317 pid=1 cpus=0
+      9 usb_get_device_descriptor+0x9b/0xa0 [usbcore] age=43678/99455/115403 pid=143-419 cpus=0-1
+      1 ieee80211_rx_bss_info+0x552/0xa20 [mac80211] age=10049 pid=742 cpus=0
+      2 ieee80211_rx_bss_info+0x5e1/0xa20 [mac80211] age=10049/53191/96334 pid=742-1772 cpus=0

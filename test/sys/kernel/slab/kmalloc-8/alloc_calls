@@ -1,0 +1,32 @@
+      1 cache_k8_northbridges+0x5f/0x130 age=120344 pid=1 cpus=0
+      1 pm_qos_add_requirement+0x51/0xe0 age=116580 pid=122 cpus=1
+      5 setup_modinfo_version+0x19/0x30 age=96471/111249/116816 pid=169-1766 cpus=0-1
+    379 load_module+0x1ac4/0x1b30 age=43571/109336/116810 pid=105-2754 cpus=0-1
+     57 strndup_user+0x6d/0xc0 age=43575/108714/116816 pid=105-2754 cpus=0-1
+      4 krealloc+0x1e/0x60 age=95750/102720/117621 pid=71-1849 cpus=0-1
+      5 __vmalloc_area_node+0xfb/0x140 age=114139/114930/115644 pid=181-754 cpus=0-1
+     17 alloc_vfsmnt+0x97/0x180 age=94582/117623/120602 pid=0-2064 cpus=0-1
+      1 proc_symlink+0x4d/0xb0 age=114643 pid=107 cpus=1
+   1954 sysfs_new_dirent+0x10c/0x120 age=38540/109788/120602 pid=0-2761 cpus=0-1
+    690 kvasprintf+0x55/0x90 age=38540/111445/120602 pid=0-2761 cpus=0-1
+      1 proc_bus_pci_open+0x1d/0x50 age=96318 pid=1738 cpus=0
+      5 pcie_port_device_register+0x25/0x4a0 age=120302/120303/120304 pid=1 cpus=1
+     19 acpi_ds_build_internal_buffer_obj+0xe1/0x121 age=120441/120450/120452 pid=1 cpus=0
+      9 acpi_ev_pci_config_region_setup+0x162/0x270 age=119736/120334/120427 pid=1-12 cpus=0-1
+      2 acpi_ut_copy_simple_object+0x8f/0x11c age=116158/116166/116174 pid=396 cpus=0
+     35 acpi_irq_stats_init+0x1bd/0x268 age=120459/120459/120459 pid=1 cpus=0
+      8 neigh_sysctl_register+0x1cd/0x330 age=100672/109261/120325 pid=1-1549 cpus=0-1
+      7 netlink_kernel_create+0xab/0x1a0 age=119467/120248/120468 pid=1 cpus=0-1
+      5 __devinet_sysctl_register+0xb8/0x120 age=114138/118342/120325 pid=1-126 cpus=0-1
+      1 fz_hash_alloc+0x4a/0x60 age=65005 pid=1541 cpus=0
+      1 init_vdso_vars+0x4c/0x24a age=120315 pid=1 cpus=1
+     30 netlink_proto_init+0xf1/0x16b age=120468/120468/120468 pid=1 cpus=0
+      5 hub_probe+0x20b/0x820 [usbcore] age=114555/115048/115401 pid=143-147 cpus=0-1
+      3 usb_cache_string+0x65/0xa0 [usbcore] age=43695/47750/49778 pid=419 cpus=0
+     10 usb_get_configuration+0xbd/0x1480 [usbcore] age=43696/100850/115421 pid=143-419 cpus=0-1
+     35 snd_info_create_entry+0x30/0xa0 [snd] age=95850/111135/115413 pid=107-1813 cpus=0-1
+      1 async_chainiv_givencrypt_first+0x56/0x80 [crypto_blkcipher] age=115060 pid=215 cpus=0
+      1 md_seq_open+0x2d/0x90 [md_mod] age=106615 pid=1371 cpus=0
+      1 bitmap_create+0x3aa/0xad0 [md_mod] age=110605 pid=916 cpus=0
+      5 __addrconf_sysctl_register+0xcd/0x140 [ipv6] age=100672/100673/100675 pid=1549 cpus=0
+      1 fib6_net_init+0x5d/0x130 [ipv6] age=100675 pid=1549 cpus=0

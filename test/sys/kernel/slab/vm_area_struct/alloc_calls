@@ -1,0 +1,7 @@
+   2751 dup_mm+0x194/0x390 age=76179/89364/117079 pid=71-2467 cpus=0-1
+     51 install_special_mapping+0x3d/0xe0 age=3731/82827/118675 pid=1-2890 cpus=0-1
+   4022 split_vma+0x61/0x140 age=3730/79432/106607 pid=1325-2890 cpus=0-1
+      6 copy_vma+0x125/0x1b0 age=12861/53719/94381 pid=1738-2881 cpus=0
+     53 do_brk+0x2ec/0x360 age=3729/83224/118688 pid=1-2890 cpus=0-1
+   5096 mmap_region+0x195/0x5c0 age=3727/78409/118688 pid=1-2890 cpus=0-1
+     51 bprm_mm_init+0xa0/0x1b0 age=3732/82898/118691 pid=1-2890 cpus=0-1

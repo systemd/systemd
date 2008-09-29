@@ -1,0 +1,41 @@
+      2 arch_acpi_processor_init_pdc+0x71/0x180 age=116222/116253/116284 pid=330 cpus=0
+      2 arch_acpi_processor_init_pdc+0xab/0x180 age=116222/116253/116284 pid=330 cpus=0
+      5 sched_create_group+0x40/0x220 age=92325/99809/107336 pid=1333-2177 cpus=0-1
+      5 sched_create_group+0x62/0x220 age=92325/99809/107336 pid=1333-2177 cpus=0-1
+      2 setup_modinfo_version+0x19/0x30 age=115115/115919/116723 pid=122-126 cpus=0-1
+    365 load_module+0x1ac4/0x1b30 age=43566/109983/116805 pid=105-2754 cpus=0-1
+     13 mempool_create_node+0x4b/0xf0 age=120344/120414/120459 pid=1 cpus=0
+      1 krealloc+0x1e/0x60 age=116287 pid=330 cpus=0
+      4 __vmalloc_area_node+0xfb/0x140 age=115186/115605/116318 pid=126-392 cpus=0
+      7 alloc_vfsmnt+0x97/0x180 age=38189/101712/120338 pid=1-2817 cpus=0-1
+      2 proc_symlink+0x4d/0xb0 age=120597/120597/120597 pid=0 cpus=0
+   1275 sysfs_new_dirent+0x10c/0x120 age=38535/111937/120464 pid=1-2761 cpus=0-1
+      2 ext3_fill_super+0x691/0x1a20 age=110156/114506/118856 pid=1-962 cpus=0
+    406 kvasprintf+0x55/0x90 age=38537/112458/120597 pid=0-2761 cpus=0-1
+      1 bit_cursor+0x223/0x6a0 age=96655 pid=7 cpus=0
+     12 acpi_ds_build_internal_package_obj+0xaf/0x1df age=120429/120431/120439 pid=1 cpus=0
+     14 acpi_ds_build_internal_buffer_obj+0xe1/0x121 age=120430/120440/120446 pid=1 cpus=0
+      2 acpi_ut_copy_simple_object+0x8f/0x11c age=116142/116150/116159 pid=396 cpus=0
+      5 acpi_irq_stats_init+0x1bd/0x268 age=120454/120454/120454 pid=1 cpus=0
+     14 pnp_add_id+0x1e/0xe0 age=120346/120348/120351 pid=1 cpus=0
+      9 reserve_range+0x39/0x130 age=120335/120335/120335 pid=1 cpus=0
+      1 trackpoint_detect+0x94/0x190 age=119217 pid=17 cpus=0
+      2 proto_register+0xf2/0x260 age=100684/110506/120329 pid=1-1549 cpus=0
+      2 neigh_sysctl_register+0x1cd/0x330 age=100668/107460/114253 pid=126-1549 cpus=0-1
+      1 nl_pid_hash_rehash+0x180/0x1a0 age=101542 pid=1533 cpus=0
+      1 genl_register_family+0x1b6/0x1e0 age=120338 pid=1 cpus=0
+      1 __devinet_sysctl_register+0xb8/0x120 age=114253 pid=126 cpus=1
+      1 pci_acpi_scan_root+0x3f/0x230 age=120382 pid=1 cpus=0
+      1 acpi_parse_mcfg+0x61/0x140 age=120461 pid=1 cpus=0
+      1 pci_mmcfg_arch_init+0x26/0x129 age=120461 pid=1 cpus=0
+      1 icmp_sk_init+0x32/0x13f age=120311 pid=1 cpus=0
+      5 hub_probe+0x26b/0x820 [usbcore] age=114550/115043/115396 pid=143-147 cpus=0-1
+     12 usb_cache_string+0x65/0xa0 [usbcore] age=43690/92354/115416 pid=143-419 cpus=0-1
+      1 usb_create_ep_files+0x283/0x350 [usbcore] age=115283 pid=143 cpus=0
+      1 0xffffffffa006595f age=100676 pid=1549 cpus=0
+     13 snd_info_create_entry+0x30/0xa0 [snd] age=96049/113228/114660 pid=107-1813 cpus=0-1
+      1 snd_oss_info_register+0x40/0xc0 [snd] age=115298 pid=107 cpus=1
+      1 async_chainiv_givencrypt+0xf9/0x110 [crypto_blkcipher] age=115055 pid=215 cpus=0
+      1 eseqiv_alloc+0x6d/0x80 [crypto_blkcipher] age=115055 pid=215 cpus=0
+      1 run+0xa9/0x500 [raid1] age=110609 pid=916 cpus=0
+      1 __addrconf_sysctl_register+0xcd/0x140 [ipv6] age=100668 pid=1549 cpus=0

@@ -1,0 +1,54 @@
+     14 __register_sysctl_paths+0x56/0x340 age=100617/113006/120280 pid=1-1549 cpus=0
+     14 param_sysfs_setup+0x87/0x140 age=95801/116155/120411 pid=1-1813 cpus=0-1
+     59 module_add_modinfo_attrs+0x25/0xf0 age=43517/108876/116756 pid=105-2754 cpus=0-1
+      2 __vmalloc_area_node+0xfb/0x140 age=115142/115788/116434 pid=126-144 cpus=0
+      1 dma_kmalloc_cache+0xca/0x150 age=116268 pid=163 cpus=0
+    107 kmem_cache_create+0x4e/0x2e0 age=100622/118194/120548 pid=0-1549 cpus=0-1
+      2 __percpu_alloc_mask+0xbc/0x140 age=120260/120260/120260 pid=1 cpus=1
+     19 sys_inotify_init1+0xaa/0x220 age=15228/82710/117133 pid=72-2851 cpus=0-1
+      4 sys_epoll_create1+0x41/0x100 age=95473/96627/97297 pid=1690-1920 cpus=0-1
+      2 __crypto_alloc_tfm+0x43/0x1b0 age=114084/114084/114084 pid=126 cpus=1
+      1 crypto_alloc_instance+0x2b/0xe0 age=114084 pid=745 cpus=0
+      3 elevator_alloc+0x67/0xc0 age=38511/92611/119827 pid=1-2761 cpus=0-1
+      3 cfq_init_queue+0x1b/0x120 age=38511/92611/119827 pid=1-2761 cpus=0-1
+      1 fb_alloc_cmap+0x66/0x150 age=120248 pid=1 cpus=1
+      1 fb_alloc_cmap+0x81/0x150 age=120248 pid=1 cpus=1
+      1 fb_alloc_cmap+0x9c/0x150 age=120248 pid=1 cpus=1
+      1 fbcon_startup+0xd6/0x2f0 age=120247 pid=1 cpus=1
+      1 acpi_ds_build_internal_buffer_obj+0xe1/0x121 age=120388 pid=1 cpus=0
+      1 make_acpi_ec+0x1a/0xcb age=120405 pid=1 cpus=0
+      1 acpi_irq_stats_init+0x83/0x268 age=120405 pid=1 cpus=0
+      1 acpi_irq_stats_init+0xa7/0x268 age=120405 pid=1 cpus=0
+      5 alloc_tty_driver+0x1c/0x40 age=49583/106087/120217 pid=1-2711 cpus=1
+      2 vt_ioctl+0x1874/0x1c30 age=97105/97105/97105 pid=1703 cpus=0
+      8 set_inverse_transl+0xa0/0xb0 age=95516/107881/120247 pid=1-1898 cpus=1
+      2 con_clear_unimap+0x2a/0xd0 age=95516/107881/120247 pid=1-1898 cpus=1
+      7 vc_allocate+0x99/0x1b0 age=97055/99240/108733 pid=1135-1729 cpus=0-1
+      1 hpet_alloc+0x6b/0x3c0 age=120290 pid=1 cpus=0
+      4 uart_open+0x36c/0x4b0 age=109337/109406/109612 pid=1059-1073 cpus=0-1
+     43 bus_add_driver+0x4f/0x280 age=43517/114334/120333 pid=1-2754 cpus=0-1
+      9 bus_register+0x35/0x290 age=113926/119187/120415 pid=1-770 cpus=0-1
+     30 __class_register+0x28/0x1e0 age=115015/118591/120414 pid=1-352 cpus=0-1
+      1 mousedev_open+0xc8/0x1d0 age=94761 pid=1738 cpus=0
+      1 cpufreq_add_dev+0x8f/0x5c0 age=106873 pid=1358 cpus=0
+      4 sock_alloc_send_skb+0x1cd/0x200 age=71255/83196/91238 pid=1738 cpus=0-1
+      1 alloc_netdev_mq+0x6c/0x180 age=114204 pid=126 cpus=1
+      4 inetdev_init+0x28/0x190 age=114084/116276/120271 pid=1-126 cpus=0-1
+      2 fib_hash_table+0x1c/0x80 age=120271/120271/120271 pid=1 cpus=0
+      1 ioapic_init_sysfs+0x74/0xcf age=120261 pid=1 cpus=1
+      3 snd_malloc_sgbuf_pages+0xbe/0x1f0 [snd_page_alloc] age=114611/114611/114611 pid=107 cpus=1
+      1 usb_get_configuration+0x18f/0x1480 [usbcore] age=49725 pid=419 cpus=0
+      1 usb_get_configuration+0x5f2/0x1480 [usbcore] age=113184 pid=419 cpus=0
+      2 acpi_processor_get_throttling_info+0x21f/0x58c [processor] age=116154/116178/116202 pid=330 cpus=0
+     48 snd_info_create_entry+0x1b/0xa0 [snd] age=95796/111649/115359 pid=107-1813 cpus=0-1
+      4 snd_timer_new+0x40/0x190 [snd_timer] age=114589/114754/115249 pid=107 cpus=1
+      2 ieee80211_key_alloc+0x37/0xe0 [mac80211] age=68908/68959/69011 pid=1545 cpus=0
+      3 snd_pcm_new_stream+0x161/0x520 [snd_pcm] age=114611/114611/114611 pid=107 cpus=1
+      1 snd_hda_bus_new+0x31/0xf4 [snd_hda_intel] age=114614 pid=107 cpus=1
+      1 crypto_blkcipher_type+0x54/0xffffffffffffff8e [crypto_blkcipher] age=114942 pid=215 cpus=0
+      1 md_import_device+0x32/0x290 [md_mod] age=110602 pid=916 cpus=0
+      1 bitmap_create+0x5e/0xad0 [md_mod] age=110558 pid=916 cpus=0
+      1 run+0x42/0x500 [raid1] age=110560 pid=916 cpus=0
+      1 ip6_route_net_init+0x4d/0xd0 [ipv6] age=100622 pid=1549 cpus=0
+      1 ipv6_sysctl_net_init+0x34/0xd0 [ipv6] age=100617 pid=1549 cpus=0
+      1 seq_create_client1+0x24/0x180 [snd_seq] age=96051 pid=1805 cpus=0

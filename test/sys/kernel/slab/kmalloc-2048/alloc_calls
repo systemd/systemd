@@ -1,0 +1,40 @@
+     53 load_module+0x18d5/0x1b30 age=43508/109019/116747 pid=105-2754 cpus=0-1
+      1 mempool_create_node+0x4b/0xf0 age=110551 pid=916 cpus=0
+     20 sget+0xc4/0x460 age=38130/110987/120539 pid=0-2817 cpus=0-1
+     13 alloc_fdtable+0x81/0x160 age=3786/78813/97733 pid=1532-2676 cpus=0-1
+      2 journal_init_common+0x1a/0x130 age=110094/114444/118794 pid=1-962 cpus=0
+     15 alloc_disk_node+0x1b/0x120 age=38479/102551/119814 pid=1-2761 cpus=0-1
+      1 pci_create_bus+0x3a/0x240 age=120324 pid=1 cpus=0
+     21 alloc_pci_dev+0x1a/0x40 age=120320/120322/120324 pid=1 cpus=0
+      1 framebuffer_alloc+0x3a/0x80 age=120239 pid=1 cpus=1
+     74 acpi_add_single_object+0x4e/0xd3c age=120325/120338/120354 pid=1 cpus=0
+      1 acpi_irq_stats_init+0xcb/0x268 age=120396 pid=1 cpus=0
+     11 pnp_alloc_dev+0x35/0x120 age=120288/120291/120293 pid=1 cpus=0
+     10 init_dev+0x12e/0x6f0 age=66746/94761/118634 pid=33-2593 cpus=0-1
+      2 init_dev+0x2aa/0x6f0 age=66746/85779/104812 pid=1258-2593 cpus=0
+      1 tty_register_driver+0x1b3/0x2a0 age=120208 pid=1 cpus=1
+      2 kobj_map_init+0x22/0xa0 age=120401/120470/120539 pid=0-1 cpus=0
+      3 mousedev_create+0x36/0x2d0 age=112741/117036/119449 pid=1-803 cpus=0
+      1 atkbd_connect+0x33/0x290 age=119442 pid=17 cpus=1
+      2 thermal_zone_device_register+0x6f/0x310 age=115292/115309/115327 pid=329 cpus=0-1
+     15 sk_prot_alloc+0x83/0xb0 age=68810/108007/120405 pid=1-2586 cpus=0-1
+      1 reqsk_queue_alloc+0x112/0x120 age=97288 pid=1690 cpus=0
+    255 __netdev_alloc_skb+0x1f/0x40 age=96802/96803/96805 pid=1541 cpus=0
+     10 neigh_sysctl_register+0x8d/0x330 age=100609/108839/120262 pid=1-1549 cpus=0-1
+      6 __devinet_sysctl_register+0x74/0x120 age=114075/117599/120262 pid=1-126 cpus=0-1
+      7 pci_add_new_bus+0x25/0x160 age=120320/120320/120322 pid=1 cpus=0
+      1 i8042_create_aux_port+0x36/0x10f age=119461 pid=1 cpus=0
+      1 i8042_probe+0x190/0x68d age=119461 pid=1 cpus=0
+      1 netdev_init+0x32/0xc2 age=120284 pid=1 cpus=0
+      1 netdev_init+0x66/0xc2 age=120284 pid=1 cpus=0
+      1 fib_net_init+0x21/0x14c age=120262 pid=1 cpus=0
+     10 usb_alloc_dev+0x36/0x2c0 [usbcore] age=43849/100909/115370 pid=143-419 cpus=0-1
+      2 acpi_thermal_add+0x36/0x4bb [thermal] age=115294/115311/115329 pid=329 cpus=0-1
+      5 evdev_open+0xaf/0x1e0 [evdev] age=104879/105429/105728 pid=1443 cpus=0-1
+      8 evdev_connect+0x54/0x1f0 [evdev] age=112736/115034/115504 pid=187-803 cpus=0-1
+      1 rtc_device_register+0xa4/0x260 [rtc_core] age=115209 pid=208 cpus=0
+      1 iwl3945_bg_request_scan+0x5d3/0x660 [iwl3945] age=96529 pid=733 cpus=0
+      1 iwl3945_pci_probe+0xd26/0x1020 [iwl3945] age=114202 pid=126 cpus=1
+      1 patch_ad1981+0x1b/0x1d0 [snd_hda_intel] age=114603 pid=107 cpus=1
+      1 rfkill_allocate+0x24/0xc0 [rfkill] age=114903 pid=215 cpus=0
+      1 fuse_fill_super+0x26d/0x6d0 [fuse] age=76238 pid=2476 cpus=0

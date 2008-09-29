@@ -1,0 +1,51 @@
+      1 mtrr_file_add+0xb0/0xe0 age=95993 pid=1738 cpus=0
+      2 arch_acpi_processor_init_pdc+0x8e/0x180 age=116209/116240/116271 pid=330 cpus=0
+      1 pm_qos_add_requirement+0x34/0xe0 age=116562 pid=122 cpus=1
+     59 setup_modinfo_srcversion+0x19/0x30 age=43557/108917/116798 pid=105-2754 cpus=0-1
+     42 load_module+0x1455/0x1b30 age=43557/106794/116314 pid=107-2754 cpus=0-1
+    151 load_module+0x1ac4/0x1b30 age=43553/109353/116792 pid=105-2754 cpus=0-1
+      3 mempool_create_node+0x4b/0xf0 age=38547/92647/119863 pid=1-2761 cpus=0-1
+      1 strndup_user+0x6d/0xc0 age=115407 pid=107 cpus=0
+     16 __vmalloc_area_node+0xfb/0x140 age=68946/106782/116568 pid=107-2578 cpus=0-1
+      1 do_kern_mount+0xca/0x110 age=76282 pid=2476 cpus=0
+      1 alloc_vfsmnt+0x97/0x180 age=76283 pid=2476 cpus=0
+      1 single_open+0x3c/0xb0 age=96298 pid=1738 cpus=0
+     66 sysfs_new_dirent+0x10c/0x120 age=100672/118408/120297 pid=1-1549 cpus=0-1
+     30 do_shmat+0x169/0x410 age=14643/70515/89098 pid=1738-2621 cpus=0-1
+     21 register_blkdev+0x60/0x150 age=110177/118235/120247 pid=1-951 cpus=0-1
+     39 kvasprintf+0x55/0x90 age=100672/118530/120296 pid=1-1549 cpus=0-1
+      7 pci_save_state+0x1a4/0x250 age=114119/118888/120285 pid=1-126 cpus=0-1
+      2 pcim_enable_device+0x86/0xb0 age=119737/119992/120247 pid=1 cpus=0-1
+     15 acpi_ds_build_internal_package_obj+0xaf/0x1df age=120414/120420/120429 pid=1 cpus=0
+     18 acpi_ds_build_internal_buffer_obj+0xe1/0x121 age=116237/119726/120431 pid=1-330 cpus=0
+      1 acpi_install_gpe_handler+0xa7/0x13a age=120441 pid=1 cpus=0
+      1 acpi_ev_create_gpe_block+0x282/0x3bf age=120441 pid=1 cpus=0
+      1 acpi_pci_bind_root+0x8d/0x13e age=120365 pid=1 cpus=0
+     18 acpi_pci_bind+0x85/0x28d age=120361/120361/120364 pid=1 cpus=0
+     15 rand_initialize_disk+0x1d/0x30 age=38524/102596/119859 pid=1-2761 cpus=0-1
+      1 ata_host_start+0xcb/0x1e0 age=120246 pid=1 cpus=1
+      1 hidinput_connect+0x2372/0x24e0 age=112800 pid=803 cpus=0
+      1 sock_kmalloc+0x5c/0x70 age=66000 pid=1849 cpus=1
+      2 proto_register+0x7c/0x260 age=100673/110494/120316 pid=1-1549 cpus=0
+      2 neigh_hash_alloc+0x42/0x50 age=65899/67894/69890 pid=0-1849 cpus=1
+      1 nl_pid_hash_rehash+0x180/0x1a0 age=96908 pid=1708 cpus=0
+     28 unix_bind+0xd8/0x3a0 age=96940/97659/107306 pid=1336-1738 cpus=0-1
+      3 ipc_init_proc_interface+0x2e/0x7c age=120287/120287/120287 pid=1 cpus=1
+     13 usb_cache_string+0x65/0xa0 [usbcore] age=49739/89474/115403 pid=143-419 cpus=0-1
+      6 usb_get_configuration+0x18f/0x1480 [usbcore] age=43678/103143/115403 pid=143-419 cpus=0-1
+      2 _snd_ctl_register_ioctl+0x2b/0x80 [snd] age=115157/115157/115157 pid=107 cpus=0
+      2 snd_oss_info_register+0x40/0xc0 [snd] age=95832/95934/96037 pid=1813 cpus=0
+      6 adjust_io+0xeb/0x120 [rsrc_nonstatic] age=113592/113664/114024 pid=352-800 cpus=0
+      5 adjust_memory+0xe5/0x1a0 [rsrc_nonstatic] age=113592/113760/114017 pid=352-800 cpus=0
+      1 ieee80211_sta_set_extra_ie+0x7d/0xe0 [mac80211] age=70079 pid=1545 cpus=0
+      2 ieee80211_rx_bss_info+0x4df/0xa20 [mac80211] age=70652/83265/95879 pid=0 cpus=0
+      2 ieee80211_rx_bss_info+0x568/0xa20 [mac80211] age=10049/52680/95311 pid=742-1951 cpus=0
+      2 ieee80211_rx_bss_info+0x5f7/0xa20 [mac80211] age=10049/53191/96334 pid=742-1772 cpus=0
+      1 rate_control_alloc+0x32/0x110 [mac80211] age=114239 pid=126 cpus=1
+      2 ieee80211_rate_control_register+0x72/0xf0 [mac80211] age=115062/115117/115172 pid=126 cpus=0-1
+      2 azx_probe+0x9a4/0xc20 [snd_hda_intel] age=114647/114647/114647 pid=107 cpus=1
+      1 async_chainiv_givencrypt+0x71/0x110 [crypto_blkcipher] age=115042 pid=215 cpus=0
+      1 run+0x66/0x500 [raid1] age=110596 pid=916 cpus=0
+      1 acpi_cpufreq_cpu_init+0x4d/0x45c [acpi_cpufreq] age=106909 pid=1358 cpus=0
+      1 fib6_net_init+0x39/0x130 [ipv6] age=100657 pid=1549 cpus=0
+      1 storage_probe+0x14e/0x760 [usb_storage] age=43551 pid=2754 cpus=1

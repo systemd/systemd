@@ -1,0 +1,27 @@
+      2 mempool_kmalloc+0x11/0x20 age=120415/120415/120415 pid=1 cpus=0
+      2 __vmalloc_area_node+0xfb/0x140 age=115072/115875/116679 pid=122-126 cpus=0-1
+     32 dma_pool_create+0x90/0x1e0 age=114561/114992/115392 pid=143-147 cpus=0-1
+     28 __percpu_alloc_mask+0xbc/0x140 age=100623/106237/120267 pid=1-1549 cpus=0
+      2 seq_open+0x84/0xa0 age=96267/101416/106566 pid=1371-1738 cpus=0
+     21 inotify_init+0x1b/0x90 age=15233/86291/120265 pid=1-2851 cpus=0-1
+      1 mounts_open_common+0x11e/0x210 age=106331 pid=1371 cpus=0
+    347 __proc_create+0xa5/0x150 age=95801/116341/120553 pid=0-1813 cpus=0-1
+      7 start_this_handle+0x3f5/0x410 age=3715/21705/38514 pid=21-2890 cpus=0-1
+      3 elevator_alloc+0x1b/0xc0 age=38516/92616/119832 pid=1-2761 cpus=0-1
+      2 acpi_ds_build_internal_buffer_obj+0xe1/0x121 age=120400/120401/120402 pid=1 cpus=0
+      1 find_dock+0x414/0x426 age=120418 pid=1 cpus=0
+      6 con_insert_unipair+0x96/0x110 age=95521/107886/120252 pid=1-1898 cpus=1
+      6 neigh_resolve_output+0x226/0x2e0 age=64934/69393/79713 pid=0-2401 cpus=0-1
+      1 genl_register_family+0x1b6/0x1e0 age=115501 pid=126 cpus=0
+      5 ip_mc_inc_group+0x6b/0x280 age=65969/92834/108339 pid=1185-1849 cpus=0-1
+      2 cache_add_dev+0x17b/0x546 age=120266/120266/120267 pid=1 cpus=0-1
+     10 audit_register_class+0x1e/0xa1 age=120266/120266/120266 pid=1 cpus=1
+      1 proc_net_ns_init+0x1b/0x81 age=120553 pid=0 cpus=0
+      3 snd_malloc_sgbuf_pages+0xfa/0x1f0 [snd_page_alloc] age=114616/114616/114616 pid=107 cpus=1
+      1 usb_get_configuration+0x18f/0x1480 [usbcore] age=113196 pid=419 cpus=0
+      1 acpi_ac_add+0x3a/0x1b1 [ac] age=116271 pid=392 cpus=0
+      1 acpi_processor_register_performance+0x2a0/0x3a6 [processor] age=106878 pid=1358 cpus=0
+      3 snd_ctl_open+0x8e/0x180 [snd] age=73513/77666/79760 pid=2400-2425 cpus=0
+      8 ieee80211_rx_bss_add+0x4e/0x140 [mac80211] age=95280/95944/96466 pid=0-1951 cpus=0
+      2 ipv6_add_addr+0x199/0x3c0 [ipv6] age=70023/85324/100625 pid=8-1549 cpus=0-1
+      5 ipv6_dev_mc_inc+0x141/0x3f0 [ipv6] age=70023/94503/100625 pid=8-1549 cpus=0-1
