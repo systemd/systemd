@@ -610,7 +610,7 @@ EOF
 	{
 		desc		=> "permissions USER=bad GROUP=name",
 		subsys		=> "tty",
-		devpath		=> "/class/tty/tty33",
+		devpath		=> "/devices/virtual/tty/tty33",
 		exp_name	=> "tty33",
 		exp_perms	=> "0:0:0660",
 		rules		=> <<EOF
@@ -885,7 +885,7 @@ EOF
 	{
 		desc		=> "symlink node to itself",
 		subsys		=> "tty",
-		devpath		=> "/class/tty/tty0",
+		devpath		=> "/devices/virtual/tty/tty0",
 		exp_name	=> "link",
 		exp_target	=> "link",
 		exp_add_error	=> "yes",

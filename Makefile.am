@@ -47,4 +47,5 @@ git-release:
 	head -1 NEWS | grep -q "udev $(VERSION)"
 	git commit -a -m "release $(VERSION)"
 	cat .git/refs/heads/master > .git/refs/tags/$(VERSION)
-	git gc --prune
+	git gc
+	git prune
