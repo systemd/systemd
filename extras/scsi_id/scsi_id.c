@@ -256,7 +256,7 @@ static int get_file_options(struct udev *udev,
 		if (*buf == '#')
 			continue;
 
-		dbg("lineno %d: '%s'\n", lineno, buf);
+		dbg(udev, "lineno %d: '%s'\n", lineno, buf);
 		str1 = strsep(&buf, "=");
 		if (str1 && strcasecmp(str1, "VENDOR") == 0) {
 			str1 = get_value(&buf);
@@ -286,7 +286,7 @@ static int get_file_options(struct udev *udev,
 			}
 			options_in = str1;
 		}
-		dbg("config file line %d:\n"
+		dbg(udev, "config file line %d:\n"
 			" vendor '%s'; model '%s'; options '%s'\n",
 			lineno, vendor_in, model_in, options_in);
 		/*
@@ -299,7 +299,7 @@ static int get_file_options(struct udev *udev,
 		}
 		if (vendor == NULL) {
 			if (vendor_in == NULL) {
-				dbg("matched global option\n");
+				dbg(udev, "matched global option\n");
 				break;
 			}
 		} else if ((vendor_in && strncmp(vendor, vendor_in,
@@ -313,10 +313,10 @@ static int get_file_options(struct udev *udev,
 				 * give a partial match (that is FOO
 				 * matches FOOBAR).
 				 */
-				dbg("matched vendor/model\n");
+				dbg(udev, "matched vendor/model\n");
 				break;
 		} else {
-			dbg("no match\n");
+			dbg(udev, "no match\n");
 		}
 	}
 
@@ -589,7 +589,7 @@ static int scsi_id(struct udev *udev, char *maj_min_dev)
 
 	/* get per device (vendor + model) options from the config file */
 	retval = per_dev_options(udev, &dev_scsi, &good_dev, &page_code);
-	dbg("per dev options: good %d; page code 0x%x\n", good_dev, page_code);
+	dbg(udev, "per dev options: good %d; page code 0x%x\n", good_dev, page_code);
 
 	if (!good_dev) {
 		retval = 1;
@@ -617,7 +617,7 @@ static int scsi_id(struct udev *udev, char *maj_min_dev)
 				format_serial(dev_scsi.serial);
 			printf("%s\n", dev_scsi.serial);
 		}
-		dbg("%s\n", dev_scsi.serial);
+		dbg(udev, "%s\n", dev_scsi.serial);
 		retval = 0;
 	}
 

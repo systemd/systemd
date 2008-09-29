@@ -208,7 +208,7 @@ static int usb_id(struct udev *udev, const char *devpath)
 	int if_class_num;
 	int protocol = 0;
 
-	dbg("devpath %s\n", devpath);
+	dbg(udev, "devpath %s\n", devpath);
 
 	/* get all usb specific information: dev_interface, if_class, dev_usb */
 	dev = sysfs_device_get(udev, devpath);
@@ -327,7 +327,7 @@ fallback:
 			usb_model = sysfs_attr_get_value(udev, dev_usb->devpath, "idProduct");
 
 		if (!usb_model) {
-			dbg("No USB model information available\n");
+			dbg(udev, "No USB model information available\n");
 			return 1;
 		}
 		set_str(model_str, usb_model, sizeof(model_str)-1);

@@ -32,6 +32,7 @@
 
 static void print_all_attributes(struct udev_device *device, const char *key)
 {
+	struct udev *udev = udev_device_get_udev(device);
 	DIR *dir;
 	struct dirent *dent;
 
@@ -69,7 +70,7 @@ static void print_all_attributes(struct udev_device *device, const char *key)
 			while (len > 0 && isprint(value[len-1]))
 				len--;
 			if (len > 0) {
-				dbg(info, "attribute value of '%s' non-printable, skip\n", dent->d_name);
+				dbg(udev, "attribute value of '%s' non-printable, skip\n", dent->d_name);
 				continue;
 			}
 
