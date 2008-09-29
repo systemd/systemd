@@ -1,3 +1,5 @@
 udevd
 udevadm
 test-udev
+*.[78]
+
