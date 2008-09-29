@@ -23,12 +23,17 @@
 #include <syslog.h>
 #include "libudev.h"
 
+static inline void __attribute__ ((format(printf, 2, 3)))
+log_null(struct udev *udev, const char *format, ...)
+{
+}
+
 #ifdef USE_LOG
 #ifdef USE_DEBUG
 #define dbg(udev, arg...) \
 	udev_log(udev, LOG_DEBUG, __FILE__, __LINE__, __FUNCTION__, ## arg)
 #else
-#define dbg(format, arg...) do { } while (0)
+#define dbg log_null
 #endif /* USE_DEBUG */
 
 #define info(udev, arg...) \
@@ -37,9 +42,9 @@
 #define err(udev, arg...) \
 	udev_log(udev, LOG_ERR, __FILE__, __LINE__, __FUNCTION__, ## arg)
 #else
-#define dbg(format, arg...) do { } while (0)
-#define info(format, arg...) do { } while (0)
-#define err(format, arg...) do { } while (0)
+#define dbg log_null
+#define info log_null
+#define err log_null
 #endif
 
 /* libudev */
