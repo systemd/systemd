@@ -63,7 +63,7 @@ struct udev_rule *udev_rules_iter_goto(struct udev_rules_iter *iter, size_t rule
 	struct udev_rules *rules = iter->rules;
 	struct udev_rule *rule;
 
-	dbg(rules->udev "current=%zi\n", iter->current);
+	dbg(rules->udev, "current=%zi\n", iter->current);
 	iter->current = rule_off;
 	rule = (struct udev_rule *) (rules->buf + iter->current);
 
@@ -745,10 +745,10 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 		if (rule->goto_label.operation != KEY_OP_UNSET) {
 			char *goto_label = &rule->buf[rule->goto_label.val_off];
 
-			dbg(rules->udev, "resolving goto label '%s'", goto_label);
+			dbg(rules->udev, "resolving goto label '%s'\n", goto_label);
 			rule->goto_rule_off = find_label(&iter, goto_label);
 			if (rule->goto_rule_off == iter.current) {
-				err(rules->udev, "goto nonexistent label '%s' in '%s'",
+				err(rules->udev, "goto nonexistent label '%s' in '%s'\n",
 				    goto_label, filename);
 			}
 		}
