@@ -100,7 +100,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 	static const struct option options[] = {
 		{ "verbose", 0, NULL, 'v' },
 		{ "dry-run", 0, NULL, 'n' },
-		{ "type", 0, NULL, 't' },
+		{ "type", 1, NULL, 't' },
 		{ "retry-failed", 0, NULL, 'F' },
 		{ "action", 1, NULL, 'c' },
 		{ "subsystem-match", 1, NULL, 's' },
