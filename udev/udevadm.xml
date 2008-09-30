@@ -150,7 +150,7 @@
         </refsect2>
 
         <refsect2><title>udevadm trigger <optional>options</optional></title>
-          <para>Request device uevents, usually used to replay events at system coldplug.</para>
+          <para>Request device events from the kernel. Usually used to replay events at system coldplug time.</para>
           <variablelist>
             <varlistentry>
               <term><option>--verbose</option></term>
@@ -165,15 +165,17 @@
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><option>--retry-failed</option></term>
+              <term><option>--type=<replaceable>type</replaceable></option></term>
               <listitem>
-                <para>Trigger only the events which are failed during a previous run.</para>
+                <para>Trigger a specific type of devices. Valid types are:
+                <command>devices</command>, <command>subsystems</command>, <command>failed</command>.
+                The default value is <command>devices</command>.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
               <term><option>--action=<replaceable>action</replaceable></option></term>
               <listitem>
-                <para>Type of event to be triggered. The default value is "add".</para>
+                <para>Type of event to be triggered. The default value is <command>add</command>.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
@@ -206,23 +208,6 @@
                 specified along with the attribute name, the content of the attribute is matched against
                 the given value using shell style pattern matching. If no value is specified, the existence
                 of the sysfs attribute is checked. This option can be specified multiple times.</para>
-              </listitem>
-            </varlistentry>
-            <varlistentry>
-              <term><option>--socket=<replaceable>path</replaceable></option></term>
-              <listitem>
-                <para>Pass the synthesized events to the specified socket, instead of triggering
-                a global kernel event. All available event values will be send in the same format
-                the kernel sends an uevent, or <option>RUN+="socket:<replaceable>path</replaceable>"</option>
-                sends a message. If the first character of the specified path is an @ character,
-                an abstract namespace socket is used, instead of an existing socket file.</para>
-              </listitem>
-            </varlistentry>
-            <varlistentry>
-              <term><option>--env=<replaceable>KEY</replaceable>=<replaceable>value</replaceable></option></term>
-              <listitem>
-                <para>Pass an additional environemt key to the event. This works only with the
-                --socket option.</para>
               </listitem>
             </varlistentry>
           </variablelist>

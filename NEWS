@@ -1,3 +1,8 @@
+udev 129
+========
+More libudev work. Most of udevadm's functionality comes from libudev
+now.
+
 udev 128
 ========
 Bugfixes.

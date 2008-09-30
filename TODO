@@ -1,6 +1,6 @@
-  o use enumerate for "trigger"
   o add libudev queue - interface for /dev/.udev/queue/ state
       use queue interface for "settle"
+      use queue interface for --type=failed
 #129
 
   o use libudev device in udev_rules.c
