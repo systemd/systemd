@@ -31,7 +31,7 @@
 
 void udev_rules_iter_init(struct udev_rules_iter *iter, struct udev_rules *rules)
 {
-	dbg(iter->rules->udev, "bufsize=%zi\n", rules->bufsize);
+	dbg(rules->udev, "bufsize=%zi\n", rules->bufsize);
 	iter->rules = rules;
 	iter->current = 0;
 }

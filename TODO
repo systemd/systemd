@@ -1,3 +1,4 @@
+  o test --type=failed
   o add libudev queue - interface for /dev/.udev/queue/ state
       use queue interface for "settle"
       use queue interface for --type=failed
