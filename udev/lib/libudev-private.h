@@ -24,27 +24,20 @@
 #include "libudev.h"
 
 static inline void __attribute__ ((format(printf, 2, 3)))
-log_null(struct udev *udev, const char *format, ...)
-{
-}
+log_null(struct udev *udev, const char *format, ...) {}
 
 #ifdef USE_LOG
-#ifdef USE_DEBUG
-#define dbg(udev, arg...) \
-	udev_log(udev, LOG_DEBUG, __FILE__, __LINE__, __FUNCTION__, ## arg)
+#  ifdef USE_DEBUG
+#    define dbg(udev, arg...) udev_log(udev, LOG_DEBUG, __FILE__, __LINE__, __FUNCTION__, ## arg)
+#  else
+#    define dbg log_null
+#  endif
+#  define info(udev, arg...) udev_log(udev, LOG_INFO, __FILE__, __LINE__, __FUNCTION__, ## arg)
+#  define err(udev, arg...) udev_log(udev, LOG_ERR, __FILE__, __LINE__, __FUNCTION__, ## arg)
 #else
-#define dbg log_null
-#endif /* USE_DEBUG */
-
-#define info(udev, arg...) \
-	udev_log(udev, LOG_INFO, __FILE__, __LINE__, __FUNCTION__, ## arg)
-
-#define err(udev, arg...) \
-	udev_log(udev, LOG_ERR, __FILE__, __LINE__, __FUNCTION__, ## arg)
-#else
-#define dbg log_null
-#define info log_null
-#define err log_null
+#  define dbg log_null
+#  define info log_null
+#  define err log_null
 #endif
 
 /* libudev */
@@ -52,7 +45,7 @@ void udev_log(struct udev *udev,
 	      int priority, const char *file, int line, const char *fn,
 	      const char *format, ...)
 	      __attribute__ ((format(printf, 6, 7)));
-extern struct udev_device *device_init(struct udev *udev);
+extern struct udev_device *device_new(struct udev *udev);
 extern const char *udev_get_rules_path(struct udev *udev);
 extern int udev_get_run(struct udev *udev);
 

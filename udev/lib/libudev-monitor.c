@@ -284,7 +284,7 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 		return NULL;
 	}
 
-	udev_device = device_init(udev_monitor->udev);
+	udev_device = device_new(udev_monitor->udev);
 	if (udev_device == NULL) {
 		return NULL;
 	}
