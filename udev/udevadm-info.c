@@ -190,7 +190,7 @@ static int export_devices(struct udev *udev)
 	udev_enumerate = udev_enumerate_new(udev);
 	if (udev_enumerate == NULL)
 		return -1;
-	udev_enumerate_scan_devices(udev_enumerate, NULL);
+	udev_enumerate_scan_devices(udev_enumerate);
 	udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(udev_enumerate)) {
 		struct udev_device *device;
 

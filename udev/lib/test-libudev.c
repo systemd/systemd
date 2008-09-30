@@ -309,7 +309,8 @@ int main(int argc, char *argv[], char *envp[])
 	udev_enumerate = udev_enumerate_new(udev);
 	if (udev_enumerate == NULL)
 		return -1;
-	udev_enumerate_scan_devices(udev_enumerate, subsystem, NULL);
+	udev_enumerate_add_match_subsystem(udev_enumerate, subsystem);
+	udev_enumerate_scan_devices(udev_enumerate);
 	test_enumerate_print_list(udev_enumerate);
 	udev_enumerate_unref(udev_enumerate);
 
@@ -317,7 +318,8 @@ int main(int argc, char *argv[], char *envp[])
 	udev_enumerate = udev_enumerate_new(udev);
 	if (udev_enumerate == NULL)
 		return -1;
-	udev_enumerate_scan_devices(udev_enumerate, "block", NULL);
+	udev_enumerate_add_match_subsystem(udev_enumerate,"block");
+	udev_enumerate_scan_devices(udev_enumerate);
 	test_enumerate_print_list(udev_enumerate);
 	udev_enumerate_unref(udev_enumerate);
 
@@ -325,7 +327,8 @@ int main(int argc, char *argv[], char *envp[])
 	udev_enumerate = udev_enumerate_new(udev);
 	if (udev_enumerate == NULL)
 		return -1;
-	udev_enumerate_scan_devices(udev_enumerate, "!block", NULL);
+	udev_enumerate_add_nomatch_subsystem(udev_enumerate, "block");
+	udev_enumerate_scan_devices(udev_enumerate);
 	test_enumerate_print_list(udev_enumerate);
 	udev_enumerate_unref(udev_enumerate);
 
@@ -333,7 +336,10 @@ int main(int argc, char *argv[], char *envp[])
 	udev_enumerate = udev_enumerate_new(udev);
 	if (udev_enumerate == NULL)
 		return -1;
-	udev_enumerate_scan_devices(udev_enumerate, "pci", "mem", "vc", NULL);
+	udev_enumerate_add_match_subsystem(udev_enumerate, "pci");
+	udev_enumerate_add_match_subsystem(udev_enumerate, "mem");
+	udev_enumerate_add_match_subsystem(udev_enumerate, "vc");
+	udev_enumerate_scan_devices(udev_enumerate);
 	test_enumerate_print_list(udev_enumerate);
 	udev_enumerate_unref(udev_enumerate);
 

@@ -318,21 +318,19 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 
 	/* fallback to search sys devices for the major/minor */
 	if (type == 'b')
-		udev_enumerate_scan_devices(udev_enumerate, "block", NULL);
+		udev_enumerate_add_match_subsystem(udev_enumerate, "block");
 	else if (type == 'c')
-		udev_enumerate_scan_devices(udev_enumerate, "!block", NULL);
+		udev_enumerate_add_nomatch_subsystem(udev_enumerate, "block");
+	udev_enumerate_scan_devices(udev_enumerate);
 	udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(udev_enumerate)) {
 		struct udev_device *device_loop;
 
 		device_loop = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list_entry));
 		if (device_loop != NULL) {
 			if (udev_device_get_devnum(device_loop) == devnum) {
-				const char *subsystem;
-
-				subsystem = udev_device_get_subsystem(device_loop);
-				if (type == 'b' && strcmp(subsystem, "block") != 0)
+				if (type == 'b' && strcmp(udev_device_get_subsystem(device_loop), "block") != 0)
 					continue;
-				if (type == 'c' && strcmp(subsystem, "block") == 0)
+				if (type == 'c' && strcmp(udev_device_get_subsystem(device_loop), "block") == 0)
 					continue;
 				device = device_loop;
 				break;

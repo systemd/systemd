@@ -98,7 +98,12 @@ extern struct udev_enumerate *udev_enumerate_new(struct udev *udev);
 extern struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate);
 extern struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate);
 extern void udev_enumerate_unref(struct udev_enumerate *udev_enumerate);
-extern int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate, const char *subsystem, ...);
+extern int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem);
+extern int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem);
+extern int udev_enumerate_add_match_attr(struct udev_enumerate *udev_enumerate, const char *attr, const char *value);
+extern int udev_enumerate_add_nomatch_attr(struct udev_enumerate *udev_enumerate, const char *attr, const char *value);
+extern int udev_enumerate_add_device(struct udev_enumerate *udev_enumerate, struct udev_device *udev_device);
+extern int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate);
 extern int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerate);
 extern struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *udev_enumerate);
 
