@@ -96,8 +96,8 @@ extern struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev
 struct udev_enumerate;
 extern struct udev_enumerate *udev_enumerate_new(struct udev *udev);
 extern struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate);
-extern struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate);
 extern void udev_enumerate_unref(struct udev_enumerate *udev_enumerate);
+extern struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate);
 extern int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem);
 extern int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem);
 extern int udev_enumerate_add_match_attr(struct udev_enumerate *udev_enumerate, const char *attr, const char *value);
@@ -107,4 +107,16 @@ extern int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate);
 extern int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerate);
 extern struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *udev_enumerate);
 
+/* event queue */
+struct udev_queue;
+extern struct udev_queue *udev_queue_new(struct udev *udev);
+extern struct udev_queue *udev_queue_ref(struct udev_queue *udev_queue);
+extern void udev_queue_unref(struct udev_queue *udev_queue);
+extern struct udev *udev_queue_get_udev(struct udev_queue *udev_queue);
+extern unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *udev_queue);
+extern unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *udev_queue);
+extern int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue);
+extern int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, unsigned long long int seqnum);
+extern struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue);
+extern struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev_queue);
 #endif

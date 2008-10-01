@@ -51,3 +51,13 @@ udev_monitor_unref
 udev_monitor_get_udev
 udev_monitor_get_fd
 udev_monitor_receive_device
+udev_queue_new
+udev_queue_ref
+udev_queue_unref
+udev_queue_get_udev
+udev_queue_get_kernel_seqnum
+udev_queue_get_udev_seqnum
+udev_queue_get_queue_is_empty
+udev_queue_get_seqnum_is_finished
+udev_queue_get_queued_list_entry
+udev_queue_get_failed_list_entry

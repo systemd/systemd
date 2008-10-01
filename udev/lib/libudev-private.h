@@ -120,6 +120,12 @@ extern void list_entry_move_to_end(struct udev_list_entry *list_entry);
 	     entry != NULL; \
 	     entry = tmp, tmp = udev_list_entry_get_next(tmp))
 
+/* libudev-queue */
+extern int queue_export_udev_seqnum(struct udev_queue *udev_queue, unsigned long long int seqnum);
+extern int queue_export_device_queued(struct udev_queue *udev_queue, struct udev_device *udev_device);
+extern int queue_export_device_finished(struct udev_queue *udev_queue, struct udev_device *udev_device);
+extern int queue_export_device_failed(struct udev_queue *udev_queue, struct udev_device *udev_device);
+
 /* libudev-utils */
 #define UTIL_PATH_SIZE		1024
 #define UTIL_LINE_SIZE		2048

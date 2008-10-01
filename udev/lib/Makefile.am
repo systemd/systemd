@@ -24,7 +24,8 @@ libudev_la_SOURCES =\
 	libudev-device.c \
 	libudev-enumerate.c \
 	libudev-ctrl.c \
-	libudev-monitor.c
+	libudev-monitor.c \
+	libudev-queue.c
 
 libudev_la_LDFLAGS = \
 	-version-info $(LIBUDEV_LT_CURRENT):$(LIBUDEV_LT_REVISION):$(LIBUDEV_LT_AGE) \
