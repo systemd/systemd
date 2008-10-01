@@ -366,7 +366,7 @@ int main(int argc, char *argv[], char *envp[])
 	test_enumerate_print_list(udev_enumerate);
 	udev_enumerate_unref(udev_enumerate);
 
-	printf("enumerate '!block'\n");
+	printf("enumerate 'not block'\n");
 	udev_enumerate = udev_enumerate_new(udev);
 	if (udev_enumerate == NULL)
 		return -1;

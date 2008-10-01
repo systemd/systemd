@@ -200,7 +200,8 @@ static int match_attr(struct udev_enumerate *udev_enumerate, const char *syspath
 	return 1;
 }
 
-static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate, const char *basedir, const char *subdir1, const char *subdir2)
+static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate,
+				    const char *basedir, const char *subdir1, const char *subdir2)
 {
 	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
 	char path[UTIL_PATH_SIZE];
@@ -231,11 +232,16 @@ static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate, const
 		util_strlcpy(syspath, path, sizeof(syspath));
 		util_strlcat(syspath, "/", sizeof(syspath));
 		util_strlcat(syspath, dent->d_name, sizeof(syspath));
+		if (lstat(syspath, &statbuf) != 0)
+			continue;
+		if (S_ISREG(statbuf.st_mode))
+			continue;
+		if (S_ISLNK(statbuf.st_mode))
+			util_resolve_sys_link(udev, syspath, sizeof(syspath));
 		util_strlcpy(filename, syspath, sizeof(filename));
 		util_strlcat(filename, "/uevent", sizeof(filename));
 		if (stat(filename, &statbuf) != 0)
 			continue;
-		util_resolve_sys_link(udev, syspath, sizeof(syspath));
 		if (!match_attr(udev_enumerate, syspath))
 			continue;
 		list_entry_add(udev, &udev_enumerate->devices_list, syspath, NULL, 1, 1);
@@ -262,7 +268,7 @@ static int match_subsystem(struct udev_enumerate *udev_enumerate, const char *su
 	return 1;
 }
 
-static int scan_dir(struct udev_enumerate *udev_enumerate, const char *basedir, const char *subdir, const char *match)
+static int scan_dir(struct udev_enumerate *udev_enumerate, const char *basedir, const char *subdir, const char *subsystem)
 {
 	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
 
@@ -279,7 +285,7 @@ static int scan_dir(struct udev_enumerate *udev_enumerate, const char *basedir, 
 	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
 		if (dent->d_name[0] == '.')
 			continue;
-		if (!match_subsystem(udev_enumerate, match != NULL ? match : dent->d_name))
+		if (!match_subsystem(udev_enumerate, subsystem != NULL ? subsystem : dent->d_name))
 			continue;
 		scan_dir_and_add_devices(udev_enumerate, basedir, dent->d_name, subdir);
 	}
@@ -400,7 +406,9 @@ int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerate)
 		info(udev, "searching '%s/*' dir\n", subsysdir);
 		scan_dir_and_add_devices(udev_enumerate, subsysdir, NULL, NULL);
 	}
-	info(udev, "searching '%s/*/drivers/*' dir\n", subsysdir);
-	scan_dir(udev_enumerate, subsysdir, "drivers", "drivers");
+	if (match_subsystem(udev_enumerate, "drivers")) {
+		info(udev, "searching '%s/*/drivers/*' dir\n", subsysdir);
+		scan_dir(udev_enumerate, subsysdir, "drivers", "drivers");
+	}
 	return 0;
 }

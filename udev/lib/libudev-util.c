@@ -64,17 +64,12 @@ ssize_t util_get_sys_driver(struct udev *udev, const char *syspath, char *driver
 
 int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size)
 {
-	struct stat statbuf;
 	char link_target[UTIL_PATH_SIZE];
 
 	int len;
 	int i;
 	int back;
 
-	if (lstat(syspath, &statbuf) < 0)
-		return -1;
-	if (!S_ISLNK(statbuf.st_mode))
-		return -1;
 	len = readlink(syspath, link_target, sizeof(link_target));
 	if (len <= 0)
 		return -1;
