@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.am.inc
+
 rootlibdir = $(exec_prefix)/$(libdir_name)
 rootlib_LTLIBRARIES = \
 	libvolume_id.la

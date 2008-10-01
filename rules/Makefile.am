@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.am.inc
+
 udevrulesdir = $(udev_prefix)/lib/udev/rules.d
 dist_udevrules_DATA = \
 	rules.d/50-udev-default.rules \

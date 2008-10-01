@@ -1,3 +1,5 @@
+include $(top_srcdir)/Makefile.am.inc
+
 SUBDIRS = \
 	ata_id \
 	cdrom_id \
