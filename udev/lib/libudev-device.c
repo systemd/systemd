@@ -231,8 +231,8 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 {
 	size_t len;
 	const char *subdir;
-	const char *pos;
 	char path[UTIL_PATH_SIZE];
+	char *pos;
 	struct stat statbuf;
 	struct udev_device *udev_device;
 
@@ -259,6 +259,23 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 	/* resolve possible symlink to real path */
 	util_strlcpy(path, syspath, sizeof(path));
 	util_resolve_sys_link(udev, path, sizeof(path));
+
+	/* try to resolve the silly block layout if needed */
+	if (strncmp(&path[len], "/block/", 7) == 0) {
+		char block[UTIL_PATH_SIZE];
+		char part[UTIL_PATH_SIZE];
+
+		util_strlcpy(block, path, sizeof(block));
+		pos = strrchr(block, '/');
+		if (pos == NULL)
+			return NULL;
+		util_strlcpy(part, pos, sizeof(part));
+		pos[0] = '\0';
+		if (util_resolve_sys_link(udev, block, sizeof(block)) == 0) {
+			util_strlcpy(path, block, sizeof(path));
+			util_strlcat(path, part, sizeof(path));
+		}
+	}
 
 	/* path exists in sys */
 	if (strncmp(&syspath[len], "/devices/", 9) == 0 ||

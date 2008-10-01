@@ -341,7 +341,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 				break;
 			}
 			fprintf(stderr, "unknown query type\n");
-			rc = 2;
+			rc = 3;
 			goto exit;
 		case 'r':
 			if (action == ACTION_NONE)
@@ -407,9 +407,16 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 				printf("%s\n", udev_device_get_devnode(device));
 			} else {
 				size_t len;
+				const char *node;
 
 				len = strlen(udev_get_dev_path(udev));
-				printf("%s\n", &udev_device_get_devnode(device)[len+1]);
+				node = udev_device_get_devnode(device);
+				if (node == NULL) {
+					fprintf(stderr, "no device node found\n");
+					rc = 5;
+					goto exit;
+				}
+					printf("%s\n", &udev_device_get_devnode(device)[len+1]);
 			}
 			break;
 		case QUERY_SYMLINK:
@@ -450,14 +457,14 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 	case ACTION_ATTRIBUTE_WALK:
 		if (device == NULL) {
 			fprintf(stderr, "query needs a valid device specified by --path= or --name=\n");
-			rc = 5;
+			rc = 4;
 			goto exit;
 		}
 		print_device_chain(device);
 		break;
 	case ACTION_DEVICE_ID_FILE:
 		if (stat_device(name, export, export_prefix) != 0)
-			rc = 6;
+			rc = 1;
 		break;
 	case ACTION_ROOT:
 		printf("%s\n", udev_get_dev_path(udev));
