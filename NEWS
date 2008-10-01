@@ -1,6 +1,14 @@
 udev 129
 ========
-More libudev work. Most of udevadm's functionality comes from libudev
+Fix recently introduced bug, which caused a compilation without large
+file support, where vol_id does not recognize raid signatures at the end
+of a volume.
+
+Firewire disks now create both, by-id/scsi-* and by-id/ieee-* links.
+Seems some kernel versions prevent the creation of the ieee-* links,
+so people used the scsi-* link which disappeared now.
+
+More libudev work. Almost all udevadm functionality comes from libudev
 now.
 
 udevadm trigger has a new option --type, which allows to trigger events

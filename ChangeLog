@@ -1,3 +1,64 @@
+Summary of changes from v128 to v129
+============================================
+
+Alan Jenkins (7):
+      udev-test.pl: set non-zero exitcode if tests fail
+      scsi_id: compiler warning on 32-bit
+      trivial cleanup in udev_rules_iter
+      avoid repeated scans for goto targets (udev_iter_find_label)
+      replace strerror() usage with threadsafe "%m" format string
+      fix messages (inc. debug compile failure) introduced when optimizing "goto"
+      allow compiler to check dbg() arguments on non-debug builds
+
+Kay Sievers (46):
+      libudev: switch to "udev_device_get_parent"
+      libudev: udev_device - add attribute cache
+      libudev: handle "device" link as parent, handle "class" "block" as "subsystem"
+      udevadm: info - fix lookup-by-name
+      libudev: switch API from devpath to syspath
+      libudev: rename ctrl_msg to ctrl_msg_wire
+      vol_id: fix lib logging glue
+      fix broken symlink resolving
+      fix udevadm trigger
+      libudev: pass udev_device in enumerate
+      libudev: fix "subsystem" value
+      always include config.h from Makefile
+      libudev: udev_device_get_devname -> udev_device_get_devnode
+      libudev: add udev_device_new_from_devnum()
+      libudev: also import "uevent" file when reading udev database
+      libudev: add userdata pointer
+      libudev: replace awkward callback list interfaces with list iterators
+      libudev: get devnum from uevent file
+      libudev: enumerate_get_devices_list -> enumerate_get_list
+      libudev: initialize selinux only when needed
+      libudev: device - read database only when needed
+      libudev: rework list handling
+      libudev: more list rework
+      lubudev: accept more sys directories as devices, and parent devices
+      libudev: enumerate - accept list of subsystems to scan, or skip
+      libudev: enumerate "subsystem"
+      libudev: enumerate - scan /sys/block/ if needed
+      libudev: enumerate - split new() and scan()
+      test: replace ancient sysfs tree with recent one
+      test: add missing pci directory because of .gitignore *.7
+      gitignore: move *.8 to subdirs
+      test: replace last reference of "/class/*" devpath
+      fix dbg() callers
+      libudev: enumerate - scan devices and subsystems, add subsystem and attribute filter
+      udevadm: trigger: use libudev
+      fix segfault caused by wrong pointer used in dbg()
+      libudev: device_init() -> device_new()
+      udevadm: trigger fix long option --type=
+      libudev: add queue interface
+      udevadm: settle - use libudev queue
+      libudev: device - handle /sys/block/<disk-device-link>/<partition>
+      libudev: enumerate - ignore regular files while scanning
+      udevadm: trigger --type=failed - use libudev queue
+      rules: ieee1394 - create both, by-id/scsi-* and by-id/ieee-* links
+      build: include Makefile.am.inc in all Makefile.am
+      udevd: print warning if CONFIG_SYSFS_DEPRECATED is used
+
+
 Summary of changes from v127 to v128
 ============================================
 
