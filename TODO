@@ -1,7 +1,3 @@
-  o use queue interface for --type=failed
-  o check "enumerate" on SYSFS_DEPRECATED
-#129
-
   o use libudev device in udev_rules.c
       get rid of udevice, store rule matching state in rule iterator
   o rework rules to a match-action list, instead of a rules array
