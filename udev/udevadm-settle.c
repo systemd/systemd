@@ -33,61 +33,24 @@
 #define DEFAULT_TIMEOUT			180
 #define LOOP_PER_SECOND			20
 
-static void print_queue(struct udev *udev, const char *dir)
-{
-	LIST_HEAD(files);
-	struct name_entry *item;
-
-	if (add_matching_files(udev, &files, dir, NULL) < 0)
-		return;
-
-	printf("\n\nAfter the udevadm settle timeout, the events queue contains:\n\n");
-
-	list_for_each_entry(item, &files, node) {
-		char target[UTIL_NAME_SIZE];
-		size_t len;
-		const char *filename = strrchr(item->name, '/');
-
-		if (filename == NULL)
-			continue;
-		filename++;
-		if (*filename == '\0')
-			continue;
-
-		len = readlink(item->name, target, sizeof(target));
-		if (len < 0)
-			continue;
-		target[len] = '\0';
-
-		printf("%s: %s\n", filename, target);
-	}
-
-	printf("\n\n");
-}
-
 int udevadm_settle(struct udev *udev, int argc, char *argv[])
 {
-	char queuename[UTIL_PATH_SIZE];
-	char filename[UTIL_PATH_SIZE];
-	unsigned long long seq_kernel;
-	unsigned long long seq_udev;
-	char seqnum[32];
-	int fd;
-	ssize_t len;
-	int timeout = DEFAULT_TIMEOUT;
-	int loop;
 	static const struct option options[] = {
 		{ "timeout", 1, NULL, 't' },
 		{ "help", 0, NULL, 'h' },
 		{}
 	};
-	int option;
-	int rc = 1;
-	int seconds;
+	int timeout = DEFAULT_TIMEOUT;
+	struct udev_queue *udev_queue;
+	int loop;
+	int rc = 0;
 
 	dbg(udev, "version %s\n", VERSION);
 
 	while (1) {
+		int option;
+		int seconds;
+
 		option = getopt_long(argc, argv, "t:h", options, NULL);
 		if (option == -1)
 			break;
@@ -107,65 +70,27 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		}
 	}
 
-	util_strlcpy(queuename, udev_get_dev_path(udev), sizeof(queuename));
-	util_strlcat(queuename, "/.udev/queue", sizeof(queuename));
-
+	udev_queue = udev_queue_new(udev);
+	if (udev_queue == NULL)
+		goto exit;
 	loop = timeout * LOOP_PER_SECOND;
 	while (loop--) {
-		/* wait for events in queue to finish */
-		while (loop--) {
-			struct stat statbuf;
-
-			if (stat(queuename, &statbuf) < 0) {
-				info(udev, "queue is empty\n");
-				break;
-			}
-			usleep(1000 * 1000 / LOOP_PER_SECOND);
-		}
-		if (loop <= 0) {
-			info(udev, "timeout waiting for queue\n");
-			print_queue(udev, queuename);
-			goto exit;
-		}
-
-		/* read current udev seqnum */
-		util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
-		util_strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
-		fd = open(filename, O_RDONLY);
-		if (fd < 0)
-			goto exit;
-		len = read(fd, seqnum, sizeof(seqnum)-1);
-		close(fd);
-		if (len <= 0)
-			goto exit;
-		seqnum[len] = '\0';
-		seq_udev = strtoull(seqnum, NULL, 10);
-		info(udev, "udev seqnum = %llu\n", seq_udev);
-
-		/* read current kernel seqnum */
-		util_strlcpy(filename, udev_get_sys_path(udev), sizeof(filename));
-		util_strlcat(filename, "/kernel/uevent_seqnum", sizeof(filename));
-		fd = open(filename, O_RDONLY);
-		if (fd < 0)
-			goto exit;
-		len = read(fd, seqnum, sizeof(seqnum)-1);
-		close(fd);
-		if (len <= 0)
-			goto exit;
-		seqnum[len] = '\0';
-		seq_kernel = strtoull(seqnum, NULL, 10);
-		info(udev, "kernel seqnum = %llu\n", seq_kernel);
-
-		/* make sure all kernel events have arrived in the queue */
-		if (seq_udev >= seq_kernel) {
-			info(udev, "queue is empty and no pending events left\n");
-			rc = 0;
-			goto exit;
-		}
+		if (udev_queue_get_queue_is_empty(udev_queue))
+			break;
 		usleep(1000 * 1000 / LOOP_PER_SECOND);
-		info(udev, "queue is empty, but events still pending\n");
 	}
+	if (loop <= 0) {
+		struct udev_list_entry *list_entry;
 
+		info(udev, "timeout waiting for udev queue\n");
+		printf("\ndevadm settle timeout of %i seconds reached, the event queue contains:\n", timeout);
+		udev_list_entry_foreach(list_entry, udev_queue_get_queued_list_entry(udev_queue))
+			printf("  '%s' [%s]\n",
+			       udev_list_entry_get_name(list_entry),
+			       udev_list_entry_get_value(list_entry));
+		rc = 1;
+	}
 exit:
+	udev_queue_unref(udev_queue);
 	return rc;
 }

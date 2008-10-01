@@ -4,7 +4,7 @@ More libudev work. Most of udevadm's functionality comes from libudev
 now.
 
 udevadm trigger has a new option --type, which allows to trigger events
-for "devices", for "subsystems" and "failed" devices. The old option
+for "devices", for "subsystems", or "failed" devices. The old option
 --retry-failed" still works, but is no longer mentioned in the man page.
 
 udev 128

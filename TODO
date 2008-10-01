@@ -1,7 +1,5 @@
-  o test --type=failed
-  o add libudev queue - interface for /dev/.udev/queue/ state
-      use queue interface for "settle"
-      use queue interface for --type=failed
+  o use queue interface for --type=failed
+  o check "enumerate" on SYSFS_DEPRECATED
 #129
 
   o use libudev device in udev_rules.c
@@ -15,4 +13,5 @@
     the default rules
   o "udevadm control" commands will only accept the --<command> syntax
   o symlink names to udevadm will no longer be resolved to old command names
+  o remove "udevinfo -V"
   o get distros to agree on a default set of rules

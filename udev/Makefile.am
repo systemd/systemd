@@ -34,6 +34,7 @@ common_files = \
 	lib/libudev-device.c \
 	lib/libudev-monitor.c \
 	lib/libudev-enumerate.c \
+	lib/libudev-queue.c \
 	lib/libudev-ctrl.c
 
 if USE_SELINUX
