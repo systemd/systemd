@@ -62,35 +62,24 @@ static void exec_list(struct udev_enumerate *udev_enumerate, const char *action)
 	}
 }
 
-static int enumerate_scan_failed(struct udev_enumerate *udev_enumerate)
+static int scan_failed(struct udev_enumerate *udev_enumerate)
 {
 	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
-	char base[UTIL_PATH_SIZE];
-	DIR *dir;
-	struct dirent *dent;
+	struct udev_queue *udev_queue;
+	struct udev_list_entry *list_entry;
 
-	util_strlcpy(base, udev_get_dev_path(udev), sizeof(base));
-	util_strlcat(base, "/.udev/failed", sizeof(base));
+	udev_queue = udev_queue_new(udev);
+	if (udev_queue == NULL)
+		return -1;
+	udev_list_entry_foreach(list_entry, udev_queue_get_failed_list_entry(udev_queue)) {
+		struct udev_device *device;
 
-	dir = opendir(base);
-	if (dir != NULL) {
-		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-			char syspath[UTIL_PATH_SIZE];
-			size_t start;
-			struct udev_device *device;
-
-			if (dent->d_name[0] == '.')
-				continue;
-			start = util_strlcpy(syspath, udev_get_sys_path(udev), sizeof(syspath));
-			util_strlcat(syspath, dent->d_name, sizeof(syspath));
-			util_path_decode(&syspath[start]);
-			device = udev_device_new_from_syspath(udev, syspath);
-			if (device == NULL)
-				continue;
-			udev_enumerate_add_device(udev_enumerate, device);
-			udev_device_unref(device);
-		}
-		closedir(dir);
+		device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list_entry));
+		if (device == NULL)
+			continue;
+		info(udev, "add '%s'\n", udev_device_get_syspath(device));
+		udev_enumerate_add_device(udev_enumerate, device);
+		udev_device_unref(device);
 	}
 	return 0;
 }
@@ -209,7 +198,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 
 	switch (device_type) {
 	case TYPE_FAILED:
-		enumerate_scan_failed(udev_enumerate);
+		scan_failed(udev_enumerate);
 		exec_list(udev_enumerate, action);
 		goto exit;
 	case TYPE_SUBSYSTEMS:
