@@ -953,9 +953,21 @@ int main(int argc, char *argv[])
 
 	fd = open("/dev/kmsg", O_WRONLY);
 	if (fd > 0) {
-		const char *str = "<6>udevd version " VERSION " started\n";
+		const char *ver_str = "<6>udev: starting version " VERSION "\n";
+		char path[UTIL_PATH_SIZE];
+		struct stat statbuf;
 
-		write(fd, str, strlen(str));
+		write(fd, ver_str, strlen(ver_str));
+		util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
+		util_strlcat(path, "/class/mem/null", sizeof(path));
+		if (lstat(path, &statbuf) == 0) {
+			if (S_ISDIR(statbuf.st_mode)) {
+				const char *depr_str = "<6>udev: deprecated sysfs layout "
+						       "(CONFIG_SYSFS_DEPRECATED) is unsupported\n";
+
+				write(fd, depr_str, strlen(depr_str));
+			}
+		}
 		close(fd);
 	}
 
