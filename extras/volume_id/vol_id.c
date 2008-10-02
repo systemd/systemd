@@ -111,16 +111,16 @@ static int all_probers(volume_id_probe_fn_t probe_fn,
 int main(int argc, char *argv[])
 {
 	static const struct option options[] = {
-		{ "label", 0, NULL, 'l' },
-		{ "label-raw", 0, NULL, 'L' },
-		{ "uuid", 0, NULL, 'u' },
-		{ "type", 0, NULL, 't' },
-		{ "export", 0, NULL, 'x' },
-		{ "skip-raid", 0, NULL, 's' },
-		{ "probe-all", 0, NULL, 'a' },
-		{ "offset", 2, NULL, 'o' },
-		{ "debug", 0, NULL, 'd' },
-		{ "help", 0, NULL, 'h' },
+		{ "label", no_argument, NULL, 'l' },
+		{ "label-raw", no_argument, NULL, 'L' },
+		{ "uuid", no_argument, NULL, 'u' },
+		{ "type", no_argument, NULL, 't' },
+		{ "export", no_argument, NULL, 'x' },
+		{ "skip-raid", no_argument, NULL, 's' },
+		{ "probe-all", no_argument, NULL, 'a' },
+		{ "offset", optional_argument, NULL, 'o' },
+		{ "debug", no_argument, NULL, 'd' },
+		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 

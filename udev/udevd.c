@@ -784,11 +784,11 @@ int main(int argc, char *argv[])
 	const char *value;
 	int daemonize = 0;
 	static const struct option options[] = {
-		{ "daemon", 0, NULL, 'd' },
-		{ "debug-trace", 0, NULL, 't' },
-		{ "debug", 0, NULL, 'D' },
-		{ "help", 0, NULL, 'h' },
-		{ "version", 0, NULL, 'V' },
+		{ "daemon", no_argument, NULL, 'd' },
+		{ "debug-trace", no_argument, NULL, 't' },
+		{ "debug", no_argument, NULL, 'D' },
+		{ "help", no_argument, NULL, 'h' },
+		{ "version", no_argument, NULL, 'V' },
 		{}
 	};
 	int rc = 1;

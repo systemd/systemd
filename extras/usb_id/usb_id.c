@@ -359,10 +359,10 @@ int main(int argc, char **argv)
 	char devpath[MAX_PATH_LEN];
 	static int export;
 	static const struct option options[] = {
-		{ "usb-info", 0, NULL, 'u' },
-		{ "num-info", 0, NULL, 'n' },
-		{ "export", 0, NULL, 'x' },
-		{ "help", 0, NULL, 'h' },
+		{ "usb-info", no_argument, NULL, 'u' },
+		{ "num-info", no_argument, NULL, 'n' },
+		{ "export", no_argument, NULL, 'x' },
+		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 

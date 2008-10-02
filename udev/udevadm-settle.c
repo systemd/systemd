@@ -36,8 +36,8 @@
 int udevadm_settle(struct udev *udev, int argc, char *argv[])
 {
 	static const struct option options[] = {
-		{ "timeout", 1, NULL, 't' },
-		{ "help", 0, NULL, 'h' },
+		{ "timeout", required_argument, NULL, 't' },
+		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 	int timeout = DEFAULT_TIMEOUT;

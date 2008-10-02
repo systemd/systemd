@@ -503,9 +503,9 @@ int main(int argc, char *argv[])
 {
 	struct udev *udev;
 	static const struct option options[] = {
-		{ "export", 0, NULL, 'x' },
-		{ "debug", 0, NULL, 'd' },
-		{ "help", 0, NULL, 'h' },
+		{ "export", no_argument, NULL, 'x' },
+		{ "debug", no_argument, NULL, 'd' },
+		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 	const char *node = NULL;

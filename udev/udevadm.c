@@ -124,9 +124,9 @@ int main(int argc, char *argv[])
 {
 	struct udev *udev;
 	static const struct option options[] = {
-		{ "debug", 0, NULL, 'd' },
-		{ "help", 0, NULL, 'h' },
-		{ "version", 0, NULL, 'V' },
+		{ "debug", no_argument, NULL, 'd' },
+		{ "help", no_argument, NULL, 'h' },
+		{ "version", no_argument, NULL, 'V' },
 		{}
 	};
 	const char *command;

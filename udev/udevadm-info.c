@@ -217,17 +217,17 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 	int rc = 0;
 
 	static const struct option options[] = {
-		{ "name", 1, NULL, 'n' },
-		{ "path", 1, NULL, 'p' },
-		{ "query", 1, NULL, 'q' },
-		{ "attribute-walk", 0, NULL, 'a' },
-		{ "export-db", 0, NULL, 'e' },
-		{ "root", 0, NULL, 'r' },
-		{ "device-id-of-file", 1, NULL, 'd' },
-		{ "export", 0, NULL, 'x' },
-		{ "export-prefix", 1, NULL, 'P' },
-		{ "version", 0, NULL, 1 }, /* -V outputs braindead format */
-		{ "help", 0, NULL, 'h' },
+		{ "name", required_argument, NULL, 'n' },
+		{ "path", required_argument, NULL, 'p' },
+		{ "query", required_argument, NULL, 'q' },
+		{ "attribute-walk", no_argument, NULL, 'a' },
+		{ "export-db", no_argument, NULL, 'e' },
+		{ "root", no_argument, NULL, 'r' },
+		{ "device-id-of-file", required_argument, NULL, 'd' },
+		{ "export", no_argument, NULL, 'x' },
+		{ "export-prefix", required_argument, NULL, 'P' },
+		{ "version", no_argument, NULL, 1 }, /* -V outputs braindead format */
+		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 

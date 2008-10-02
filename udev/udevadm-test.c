@@ -83,10 +83,10 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 	int rc = 0;
 
 	static const struct option options[] = {
-		{ "action", 1, NULL, 'a' },
-		{ "subsystem", 1, NULL, 's' },
-		{ "force", 0, NULL, 'f' },
-		{ "help", 0, NULL, 'h' },
+		{ "action", required_argument, NULL, 'a' },
+		{ "subsystem", required_argument, NULL, 's' },
+		{ "force", no_argument, NULL, 'f' },
+		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 

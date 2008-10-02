@@ -46,18 +46,18 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 
 	/* compat values with '_' will be removed in a future release */
 	static const struct option options[] = {
-		{ "log-priority", 1, NULL, 'l' },
-		{ "log_priority", 1, NULL, 'l' + 256 },
-		{ "stop-exec-queue", 0, NULL, 's' },
-		{ "stop_exec_queue", 0, NULL, 's' + 256 },
-		{ "start-exec-queue", 0, NULL, 'S' },
-		{ "start_exec_queue", 0, NULL, 'S' + 256},
-		{ "reload-rules", 0, NULL, 'R' },
-		{ "reload_rules", 0, NULL, 'R' + 256},
-		{ "env", 1, NULL, 'e' },
-		{ "max-childs", 1, NULL, 'm' },
-		{ "max_childs", 1, NULL, 'm' + 256},
-		{ "help", 0, NULL, 'h' },
+		{ "log-priority", required_argument, NULL, 'l' },
+		{ "log_priority", required_argument, NULL, 'l' + 256 },
+		{ "stop-exec-queue", no_argument, NULL, 's' },
+		{ "stop_exec_queue", no_argument, NULL, 's' + 256 },
+		{ "start-exec-queue", no_argument, NULL, 'S' },
+		{ "start_exec_queue", no_argument, NULL, 'S' + 256},
+		{ "reload-rules", no_argument, NULL, 'R' },
+		{ "reload_rules", no_argument, NULL, 'R' + 256},
+		{ "env", required_argument, NULL, 'e' },
+		{ "max-childs", required_argument, NULL, 'm' },
+		{ "max_childs", required_argument, NULL, 'm' + 256},
+		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 

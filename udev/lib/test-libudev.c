@@ -273,12 +273,12 @@ int main(int argc, char *argv[], char *envp[])
 {
 	struct udev *udev = NULL;
 	static const struct option options[] = {
-		{ "syspath", 1, NULL, 'p' },
-		{ "subsystem", 1, NULL, 's' },
-		{ "socket", 1, NULL, 'S' },
-		{ "debug", 0, NULL, 'd' },
-		{ "help", 0, NULL, 'h' },
-		{ "version", 0, NULL, 'V' },
+		{ "syspath", required_argument, NULL, 'p' },
+		{ "subsystem", required_argument, NULL, 's' },
+		{ "socket", required_argument, NULL, 'S' },
+		{ "debug", no_argument, NULL, 'd' },
+		{ "help", no_argument, NULL, 'h' },
+		{ "version", no_argument, NULL, 'V' },
 		{}
 	};
 	struct udev_enumerate *udev_enumerate;

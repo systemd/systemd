@@ -321,10 +321,10 @@ static void everybody(void)
 int main(int argc, char **argv)
 {
 	static const struct option options[] = {
-		{ "add", 0, NULL, 'a' },
-		{ "remove", 0, NULL, 'r' },
-		{ "debug", 0, NULL, 'd' },
-		{ "help", 0, NULL, 'h' },
+		{ "add", no_argument, NULL, 'a' },
+		{ "remove", no_argument, NULL, 'r' },
+		{ "debug", no_argument, NULL, 'd' },
+		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 	int argi;

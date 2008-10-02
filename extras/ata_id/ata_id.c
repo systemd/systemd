@@ -88,8 +88,8 @@ int main(int argc, char *argv[])
 	int fd;
 	int rc = 0;
 	static const struct option options[] = {
-		{ "export", 0, NULL, 'x' },
-		{ "help", 0, NULL, 'h' },
+		{ "export", no_argument, NULL, 'x' },
+		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 

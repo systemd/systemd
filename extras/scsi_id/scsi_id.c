@@ -31,17 +31,17 @@
 #include "scsi_id.h"
 
 static const struct option options[] = {
-	{ "device", 1, NULL, 'd' },
-	{ "config", 1, NULL, 'f' },
-	{ "page", 1, NULL, 'p' },
-	{ "blacklisted", 0, NULL, 'b' },
-	{ "whitelisted", 0, NULL, 'g' },
-	{ "replace-whitespace", 0, NULL, 'u' },
-	{ "sg-version", 1, NULL, 's' },
-	{ "verbose", 0, NULL, 'v' },
-	{ "version", 0, NULL, 'V' },
-	{ "export", 0, NULL, 'x' },
-	{ "help", 0, NULL, 'h' },
+	{ "device", required_argument, NULL, 'd' },
+	{ "config", required_argument, NULL, 'f' },
+	{ "page", required_argument, NULL, 'p' },
+	{ "blacklisted", no_argument, NULL, 'b' },
+	{ "whitelisted", no_argument, NULL, 'g' },
+	{ "replace-whitespace", no_argument, NULL, 'u' },
+	{ "sg-version", required_argument, NULL, 's' },
+	{ "verbose", no_argument, NULL, 'v' },
+	{ "version", no_argument, NULL, 'V' },
+	{ "export", no_argument, NULL, 'x' },
+	{ "help", no_argument, NULL, 'h' },
 	{}
 };
 

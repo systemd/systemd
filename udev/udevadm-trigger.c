@@ -79,16 +79,16 @@ static int scan_failed(struct udev_enumerate *udev_enumerate)
 int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 {
 	static const struct option options[] = {
-		{ "verbose", 0, NULL, 'v' },
-		{ "dry-run", 0, NULL, 'n' },
-		{ "type", 1, NULL, 't' },
-		{ "retry-failed", 0, NULL, 'F' },
-		{ "action", 1, NULL, 'c' },
-		{ "subsystem-match", 1, NULL, 's' },
-		{ "subsystem-nomatch", 1, NULL, 'S' },
-		{ "attr-match", 1, NULL, 'a' },
-		{ "attr-nomatch", 1, NULL, 'A' },
-		{ "help", 0, NULL, 'h' },
+		{ "verbose", no_argument, NULL, 'v' },
+		{ "dry-run", no_argument, NULL, 'n' },
+		{ "type", required_argument, NULL, 't' },
+		{ "retry-failed", no_argument, NULL, 'F' },
+		{ "action", required_argument, NULL, 'c' },
+		{ "subsystem-match", required_argument, NULL, 's' },
+		{ "subsystem-nomatch", required_argument, NULL, 'S' },
+		{ "attr-match", required_argument, NULL, 'a' },
+		{ "attr-nomatch", required_argument, NULL, 'A' },
+		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 	enum {

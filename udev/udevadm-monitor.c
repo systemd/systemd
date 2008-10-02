@@ -77,10 +77,10 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 	int rc = 0;
 
 	static const struct option options[] = {
-		{ "environment", 0, NULL, 'e' },
-		{ "kernel", 0, NULL, 'k' },
-		{ "udev", 0, NULL, 'u' },
-		{ "help", 0, NULL, 'h' },
+		{ "environment", no_argument, NULL, 'e' },
+		{ "kernel", no_argument, NULL, 'k' },
+		{ "udev", no_argument, NULL, 'u' },
+		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 
