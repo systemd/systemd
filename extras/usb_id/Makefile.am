@@ -8,9 +8,10 @@ usb_id_SOURCES = \
 	usb_id.c \
 	../../udev/lib/libudev.h \
 	../../udev/lib/libudev.c \
+	../../udev/lib/libudev-list.c \
 	../../udev/lib/libudev-util.c \
-	../../udev/udev_sysfs.c \
-	../../udev/udev_utils.c
+	../../udev/lib/libudev-device.c \
+	../../udev/lib/libudev-enumerate.c
 
 distclean-local:
 	rm -f Makefile.in

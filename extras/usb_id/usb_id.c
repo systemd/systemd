@@ -22,20 +22,23 @@
 
 #include "../../udev/udev.h"
 
-#define MAX_PATH_LEN			512
-#define MAX_SERIAL_LEN			256
-#define BLKGETSIZE64 _IOR(0x12,114,size_t)
+int debug;
 
 static void log_fn(struct udev *udev, int priority,
 		   const char *file, int line, const char *fn,
 		   const char *format, va_list args)
 {
-	vsyslog(priority, format, args);
+	if (debug) {
+		fprintf(stderr, "%s: ", fn != NULL ? fn : file);
+		vfprintf(stderr, format, args);
+	} else {
+		vsyslog(priority, format, args);
+	}
 }
 
 static char vendor_str[64];
 static char model_str[64];
-static char serial_str[MAX_SERIAL_LEN];
+static char serial_str[UTIL_NAME_SIZE];
 static char revision_str[64];
 static char type_str[64];
 static char instance_str[64];
@@ -199,95 +202,98 @@ static void set_scsi_type(char *to, const char *from, size_t len)
  * 6.) If the device supplies a serial number, this number
  *     is concatenated with the identification with an underscore '_'.
  */
-static int usb_id(struct udev *udev, const char *devpath)
+static int usb_id(struct udev_device *dev)
 {
-	struct sysfs_device *dev;
-	struct sysfs_device *dev_interface;
-	struct sysfs_device *dev_usb;
+	struct udev *udev = udev_device_get_udev(dev);
+	struct udev_device *dev_interface;
+	struct udev_device *dev_usb;
 	const char *if_class, *if_subclass;
 	int if_class_num;
 	int protocol = 0;
 
-	dbg(udev, "devpath %s\n", devpath);
-
-	/* get all usb specific information: dev_interface, if_class, dev_usb */
-	dev = sysfs_device_get(udev, devpath);
-	if (dev == NULL) {
-		err(udev, "unable to access '%s'\n", devpath);
-		return 1;
-	}
+	dbg(udev, "syspath %s\n", udev_device_get_syspath(dev));
 
 	/* usb interface directory */
-	dev_interface = sysfs_device_get_parent_with_subsystem(udev, dev, "usb");
+	dev_interface = udev_device_get_parent_with_subsystem(dev, "usb");
 	if (dev_interface == NULL) {
-		info(udev, "unable to access usb_interface device of '%s'\n", devpath);
+		info(udev, "unable to access usb_interface device of '%s'\n",
+		     udev_device_get_syspath(dev));
 		return 1;
 	}
 
-	if_class = sysfs_attr_get_value(udev, dev_interface->devpath, "bInterfaceClass");
+	if_class = udev_device_get_attr_value(dev_interface, "bInterfaceClass");
 	if (!if_class) {
-		info(udev, "%s: cannot get bInterfaceClass attribute\n", dev_interface->kernel);
+		info(udev, "%s: cannot get bInterfaceClass attribute\n",
+		     udev_device_get_sysname(dev));
 		return 1;
 	}
 	if_class_num = strtoul(if_class, NULL, 16);
 	if (if_class_num == 8) {
-		if_subclass = sysfs_attr_get_value(udev, dev_interface->devpath, "bInterfaceSubClass");
+		if_subclass = udev_device_get_attr_value(dev_interface, "bInterfaceSubClass");
 		if (if_subclass != NULL)
 			protocol = set_usb_mass_storage_ifsubtype(type_str, if_subclass, sizeof(type_str)-1);
-	} else
+	} else {
 		set_usb_iftype(type_str, if_class_num, sizeof(type_str)-1);
+	}
 
-	info(udev, "%s: if_class %d protocol %d\n", dev_interface->devpath, if_class_num, protocol);
+	info(udev, "%s: if_class %d protocol %d\n",
+	     udev_device_get_syspath(dev_interface), if_class_num, protocol);
 
 	/* usb device directory */
-	dev_usb = sysfs_device_get_parent_with_subsystem(udev, dev_interface, "usb");
+	dev_usb = udev_device_get_parent_with_subsystem(dev_interface, "usb");
 	if (!dev_usb) {
-		info(udev, "unable to find parent 'usb' device of '%s'\n", devpath);
+		info(udev, "unable to find parent 'usb' device of '%s'\n",
+		     udev_device_get_syspath(dev));
 		return 1;
 	}
 
 	/* mass storage */
 	if (protocol == 6 && !use_usb_info) {
-		struct sysfs_device *dev_scsi;
+		struct udev_device *dev_scsi;
 		const char *scsi_model, *scsi_vendor, *scsi_type, *scsi_rev;
 		int host, bus, target, lun;
 
 		/* get scsi device */
-		dev_scsi = sysfs_device_get_parent_with_subsystem(udev, dev, "scsi");
+		dev_scsi = udev_device_get_parent_with_subsystem(dev, "scsi");
 		if (dev_scsi == NULL) {
-			info(udev, "unable to find parent 'scsi' device of '%s'\n", devpath);
+			info(udev, "unable to find parent 'scsi' device of '%s'\n",
+			     udev_device_get_syspath(dev));
 			goto fallback;
 		}
-		if (sscanf(dev_scsi->kernel, "%d:%d:%d:%d", &host, &bus, &target, &lun) != 4) {
-			info(udev, "invalid scsi device '%s'\n", dev_scsi->kernel);
+		if (sscanf(udev_device_get_sysname(dev_scsi), "%d:%d:%d:%d", &host, &bus, &target, &lun) != 4) {
+			info(udev, "invalid scsi device '%s'\n", udev_device_get_sysname(dev_scsi));
 			goto fallback;
 		}
 
 		/* Generic SPC-2 device */
-		scsi_vendor = sysfs_attr_get_value(udev, dev_scsi->devpath, "vendor");
+		scsi_vendor = udev_device_get_attr_value(dev_scsi, "vendor");
 		if (!scsi_vendor) {
-			info(udev, "%s: cannot get SCSI vendor attribute\n", dev_scsi->kernel);
+			info(udev, "%s: cannot get SCSI vendor attribute\n",
+			     udev_device_get_sysname(dev_scsi));
 			goto fallback;
 		}
 		set_str(vendor_str, scsi_vendor, sizeof(vendor_str)-1);
 
-		scsi_model = sysfs_attr_get_value(udev, dev_scsi->devpath, "model");
+		scsi_model = udev_device_get_attr_value(dev_scsi, "model");
 		if (!scsi_model) {
-			info(udev, "%s: cannot get SCSI model attribute\n", dev_scsi->kernel);
+			info(udev, "%s: cannot get SCSI model attribute\n",
+			     udev_device_get_sysname(dev_scsi));
 			goto fallback;
 		}
 		set_str(model_str, scsi_model, sizeof(model_str)-1);
 
-		scsi_type = sysfs_attr_get_value(udev, dev_scsi->devpath, "type");
+		scsi_type = udev_device_get_attr_value(dev_scsi, "type");
 		if (!scsi_type) {
-			info(udev, "%s: cannot get SCSI type attribute\n", dev_scsi->kernel);
+			info(udev, "%s: cannot get SCSI type attribute\n",
+			     udev_device_get_sysname(dev_scsi));
 			goto fallback;
 		}
 		set_scsi_type(type_str, scsi_type, sizeof(type_str)-1);
 
-		scsi_rev = sysfs_attr_get_value(udev, dev_scsi->devpath, "rev");
+		scsi_rev = udev_device_get_attr_value(dev_scsi, "rev");
 		if (!scsi_rev) {
-			info(udev, "%s: cannot get SCSI revision attribute\n", dev_scsi->kernel);
+			info(udev, "%s: cannot get SCSI revision attribute\n",
+			     udev_device_get_sysname(dev_scsi));
 			goto fallback;
 		}
 		set_str(revision_str, scsi_rev, sizeof(revision_str)-1);
@@ -305,10 +311,10 @@ fallback:
 		const char *usb_vendor = NULL;
 
 		if (!use_num_info)
-			usb_vendor = sysfs_attr_get_value(udev, dev_usb->devpath, "manufacturer");
+			usb_vendor = udev_device_get_attr_value(dev_usb, "manufacturer");
 
 		if (!usb_vendor)
-			usb_vendor = sysfs_attr_get_value(udev, dev_usb->devpath, "idVendor");
+			usb_vendor = udev_device_get_attr_value(dev_usb, "idVendor");
 
 		if (!usb_vendor) {
 			info(udev, "No USB vendor information available\n");
@@ -321,10 +327,10 @@ fallback:
 		const char *usb_model = NULL;
 
 		if (!use_num_info)
-			usb_model = sysfs_attr_get_value(udev, dev_usb->devpath, "product");
+			usb_model = udev_device_get_attr_value(dev_usb, "product");
 
 		if (!usb_model)
-			usb_model = sysfs_attr_get_value(udev, dev_usb->devpath, "idProduct");
+			usb_model = udev_device_get_attr_value(dev_usb, "idProduct");
 
 		if (!usb_model) {
 			dbg(udev, "No USB model information available\n");
@@ -336,7 +342,7 @@ fallback:
 	if (revision_str[0] == '\0') {
 		const char *usb_rev;
 
-		usb_rev = sysfs_attr_get_value(udev, dev_usb->devpath, "bcdDevice");
+		usb_rev = udev_device_get_attr_value(dev_usb, "bcdDevice");
 		if (usb_rev)
 			set_str(revision_str, usb_rev, sizeof(revision_str)-1);
 	}
@@ -344,7 +350,7 @@ fallback:
 	if (serial_str[0] == '\0') {
 		const char *usb_serial;
 
-		usb_serial = sysfs_attr_get_value(udev, dev_usb->devpath, "serial");
+		usb_serial = udev_device_get_attr_value(dev_usb, "serial");
 		if (usb_serial)
 			set_str(serial_str, usb_serial, sizeof(serial_str)-1);
 	}
@@ -353,18 +359,20 @@ fallback:
 
 int main(int argc, char **argv)
 {
-	struct udev *udev;
-	int retval = 0;
-	const char *env;
-	char devpath[MAX_PATH_LEN];
-	static int export;
 	static const struct option options[] = {
 		{ "usb-info", no_argument, NULL, 'u' },
 		{ "num-info", no_argument, NULL, 'n' },
 		{ "export", no_argument, NULL, 'x' },
+		{ "debug", no_argument, NULL, 'd' },
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
+	struct udev *udev;
+	struct udev_device *dev;
+	char syspath[UTIL_PATH_SIZE];
+	const char *devpath;
+	static int export;
+	int retval = 0;
 
 	udev = udev_new();
 	if (udev == NULL)
@@ -372,16 +380,20 @@ int main(int argc, char **argv)
 
 	logging_init("usb_id");
 	udev_set_log_fn(udev, log_fn);
-	sysfs_init();
 
 	while (1) {
 		int option;
 
-		option = getopt_long(argc, argv, "nuxh", options, NULL);
+		option = getopt_long(argc, argv, "dnuxh", options, NULL);
 		if (option == -1)
 			break;
 
 		switch (option) {
+		case 'd':
+			debug = 1;
+			if (udev_get_log_priority(udev) < LOG_INFO)
+				udev_set_log_priority(udev, LOG_INFO);
+			break;
 		case 'n':
 			use_num_info = 1;
 			use_usb_info = 1;
@@ -404,20 +416,24 @@ int main(int argc, char **argv)
 		}
 	}
 
-	env = getenv("DEVPATH");
-	if (env != NULL)
-		util_strlcpy(devpath, env, sizeof(devpath));
-	else {
-		if (argv[optind] == NULL) {
-			fprintf(stderr, "No device specified\n");
-			retval = 1;
-			goto exit;
-		}
-		util_strlcpy(devpath, argv[optind], sizeof(devpath));
+	devpath = getenv("DEVPATH");
+	if (devpath == NULL)
+		devpath = argv[optind];
+	if (devpath == NULL) {
+		fprintf(stderr, "No device specified\n");
+		retval = 1;
+		goto exit;
 	}
 
-	retval = usb_id(udev, devpath);
+	util_strlcpy(syspath, udev_get_sys_path(udev), sizeof(syspath));
+	util_strlcat(syspath, devpath, sizeof(syspath));
+	dev = udev_device_new_from_syspath(udev, syspath);
+	if (dev == NULL) {
+		err(udev, "unable to access '%s'\n", devpath);
+		return 1;
+	}
 
+	retval = usb_id(dev);
 	if (retval == 0) {
 		char serial[256];
 
@@ -449,8 +465,8 @@ int main(int argc, char **argv)
 	}
 
 exit:
+	udev_device_unref(dev);
 	udev_unref(udev);
-	sysfs_cleanup();
 	logging_close();
 	return retval;
 }
