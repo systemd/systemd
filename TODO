@@ -1,4 +1,5 @@
   convert usb_id to libudev's udev_device
+  add DEVTYPE
 
   o handle spaces in SYMLINK+=, do not create multiple links
   o use libudev device in udev_rules.c
