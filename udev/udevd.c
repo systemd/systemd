@@ -801,6 +801,7 @@ int main(int argc, char *argv[])
 	logging_init("udevd");
 	udev_set_log_fn(udev, log_fn);
 	dbg(udev, "version %s\n", VERSION);
+	selinux_init(udev);
 
 	while (1) {
 		int option;
@@ -1125,6 +1126,8 @@ exit:
 	if (uevent_netlink_sock >= 0)
 		close(uevent_netlink_sock);
 
+	selinux_exit(udev);
+	udev_unref(udev);
 	logging_close();
 	return rc;
 }

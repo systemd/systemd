@@ -68,6 +68,7 @@ int main(int argc, char **argv)
 
 	logging_init("create_floppy_devices");
 	udev_set_log_fn(udev, log_fn);
+	selinux_init(udev);
 
 	while ((c = getopt(argc, argv, "cudm:U:G:M:t:")) != -1) {
 		switch (c) {
@@ -161,6 +162,7 @@ int main(int argc, char **argv)
 		i++;
 	}
 
+	selinux_exit(udev);
 	udev_unref(udev);
 exit:
 	return 0;

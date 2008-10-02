@@ -9,7 +9,8 @@ create_floppy_devices_SOURCES = \
 	../../udev/lib/libudev.h \
 	../../udev/lib/libudev.c \
 	../../udev/lib/libudev-util.c \
-	../../udev/udev_utils.c
+	../../udev/udev_utils.c \
+	../../udev/udev_selinux.c
 
 if USE_SELINUX
 create_floppy_devices_LDADD = \

@@ -14,11 +14,6 @@ edd_id_SOURCES = \
 	../../udev/lib/libudev.c \
 	../../udev/lib/libudev-util.c
 
-if USE_SELINUX
-edd_id_LDADD = \
-	$(SELINUX_LIBS)
-endif
-
 dist_man_MANS = \
 	edd_id.8
 

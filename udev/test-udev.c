@@ -59,6 +59,7 @@ int main(int argc, char *argv[])
 	if (udev == NULL)
 		exit(1);
 	dbg(udev, "version %s\n", VERSION);
+	selinux_init(udev);
 
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(act));
@@ -131,6 +132,7 @@ fail:
 	udev_rules_cleanup(&rules);
 	sysfs_cleanup();
 exit:
+	selinux_exit(udev);
 	udev_unref(udev);
 	if (retval != 0)
 		return 1;

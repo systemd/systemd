@@ -6,4 +6,5 @@ AM_CPPFLAGS = \
 
 AM_CFLAGS =
 
-AM_LDFLAGS =
+AM_LDFLAGS = \
+	-Wl,--as-needed

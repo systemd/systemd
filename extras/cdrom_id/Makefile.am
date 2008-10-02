@@ -14,11 +14,6 @@ cdrom_id_SOURCES = \
 	../../udev/lib/libudev.c \
 	../../udev/lib/libudev-util.c
 
-if USE_SELINUX
-cdrom_id_LDADD = \
-	$(SELINUX_LIBS)
-endif
-
 dist_man_MANS = \
 	cdrom_id.8
 

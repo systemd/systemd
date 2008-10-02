@@ -1,3 +1,5 @@
+  convert usb_id to libudev's udev_device
+
   o handle spaces in SYMLINK+=, do not create multiple links
   o use libudev device in udev_rules.c
       get rid of udevice, store rule matching state in rule iterator

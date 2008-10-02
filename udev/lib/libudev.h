@@ -44,11 +44,6 @@ extern const char *udev_get_dev_path(struct udev *udev);
 extern void *udev_get_userdata(struct udev *udev);
 extern void udev_set_userdata(struct udev *udev, void *userdata);
 
-/* selinux glue */
-extern void udev_selinux_resetfscreatecon(struct udev *udev);
-extern void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode);
-extern void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode);
-
 /* list iteration */
 struct udev_list_entry;
 extern struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry *list_entry);

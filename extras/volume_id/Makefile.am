@@ -16,11 +16,6 @@ vol_id_SOURCES = \
 vol_id_LDADD = \
 	lib/libvolume_id.la
 
-if USE_SELINUX
-vol_id_LDADD += \
-	$(SELINUX_LIBS)
-endif
-
 dist_man_MANS = \
 	vol_id.8
 

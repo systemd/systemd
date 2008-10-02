@@ -25,6 +25,7 @@ common_files = \
 	udev_sysfs.c \
 	udev_utils.c \
 	udev_utils_file.c \
+	udev_selinux.c \
 	list.h \
 	lib/libudev.h \
 	lib/libudev-private.h \
