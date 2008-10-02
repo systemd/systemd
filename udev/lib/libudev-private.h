@@ -30,14 +30,14 @@ log_null(struct udev *udev, const char *format, ...) {}
 #  ifdef USE_DEBUG
 #    define dbg(udev, arg...) udev_log(udev, LOG_DEBUG, __FILE__, __LINE__, __FUNCTION__, ## arg)
 #  else
-#    define dbg log_null
+#    define dbg(udev, arg...) log_null(udev, ## arg)
 #  endif
 #  define info(udev, arg...) udev_log(udev, LOG_INFO, __FILE__, __LINE__, __FUNCTION__, ## arg)
 #  define err(udev, arg...) udev_log(udev, LOG_ERR, __FILE__, __LINE__, __FUNCTION__, ## arg)
 #else
-#  define dbg log_null
-#  define info log_null
-#  define err log_null
+#  define dbg(udev, arg...) log_null(udev, ## arg)
+#  define info(udev, arg...) log_null(udev, ## arg)
+#  define err(udev, arg...) log_null(udev, ## arg)
 #endif
 
 /* libudev */
