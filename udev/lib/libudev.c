@@ -377,8 +377,7 @@ void udev_unref(struct udev *udev)
  * @udev: udev library context
  * @log_fn: function to be called for logging messages
  *
- * The built-in logging, which writes to stderr if the
- * LIBUDEV_DEBUG environment variable is set, can be
+ * The built-in logging, which writes to stderr, it can be
  * overridden by a custom function, to plug log messages
  * into the users logging functionality.
  *

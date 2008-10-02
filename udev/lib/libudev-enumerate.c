@@ -30,6 +30,8 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
+static int devices_sort(struct udev_enumerate *udev_enumerate);
+
 struct udev_enumerate {
 	struct udev *udev;
 	int refcount;
@@ -38,6 +40,7 @@ struct udev_enumerate {
 	struct list_node subsystem_match_list;
 	struct list_node subsystem_nomatch_list;
 	struct list_node devices_list;
+	int devices_sorted;
 };
 
 /**
@@ -98,6 +101,8 @@ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *ude
 {
 	if (udev_enumerate == NULL)
 		return NULL;
+	if (!udev_enumerate->devices_sorted)
+		devices_sort(udev_enumerate);
 	return list_get_entry(&udev_enumerate->devices_list);
 }
 
@@ -313,23 +318,35 @@ static int devices_delay(struct udev *udev, const char *syspath)
 	return 0;
 }
 
-int udev_enumerate_add_device(struct udev_enumerate *udev_enumerate, struct udev_device *udev_device)
+/* sort delayed devices to the end of the list */
+static int devices_sort(struct udev_enumerate *udev_enumerate)
+{
+	struct udev_list_entry *list_entry;
+
+	udev_list_entry_foreach(list_entry, list_get_entry(&udev_enumerate->devices_list)) {
+		if (devices_delay(udev_enumerate->udev, udev_list_entry_get_name(list_entry)))
+			list_entry_move_to_end(list_entry);
+	}
+	udev_enumerate->devices_sorted = 1;
+	return 0;
+}
+
+int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char *syspath)
 {
 	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
-	struct udev_list_entry *list_entry;
+	struct udev_device *udev_device;
 
 	if (udev_enumerate == NULL)
 		return -EINVAL;
-	if (udev_device == NULL)
+	if (syspath == NULL)
 		return 0;
-	list_entry_add(udev,
-		       &udev_enumerate->devices_list,
+	/* resolve to real syspath */
+	udev_device = udev_device_new_from_syspath(udev_enumerate->udev, syspath);
+	if (udev_device == NULL)
+		return -EINVAL;
+	list_entry_add(udev, &udev_enumerate->devices_list,
 		       udev_device_get_syspath(udev_device), NULL, 1, 1);
-	/* sort delayed devices to the end of the list */
-	udev_list_entry_foreach(list_entry, list_get_entry(&udev_enumerate->devices_list)) {
-		if (devices_delay(udev, udev_list_entry_get_name(list_entry)))
-			list_entry_move_to_end(list_entry);
-	}
+	udev_device_unref(udev_device);
 	return 0;
 }
 

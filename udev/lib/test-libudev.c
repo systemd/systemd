@@ -73,23 +73,19 @@ static void print_device(struct udev_device *device)
 		printf("devnum:    %u:%u\n", major(devnum), minor(devnum));
 
 	count = 0;
-	list_entry = udev_device_get_devlinks_list_entry(device);
-	while (list_entry != NULL) {
+	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(device)) {
 		printf("link:      '%s'\n", udev_list_entry_get_name(list_entry));
 		count++;
-		list_entry = udev_list_entry_get_next(list_entry);
 	}
 	if (count > 0)
 		printf("found %i links\n", count);
 
 	count = 0;
-	list_entry = udev_device_get_properties_list_entry(device);
-	while (list_entry != NULL) {
+	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device)) {
 		printf("property:  '%s=%s'\n",
 		       udev_list_entry_get_name(list_entry),
 		       udev_list_entry_get_value(list_entry));
 		count++;
-		list_entry = udev_list_entry_get_next(list_entry);
 	}
 	if (count > 0)
 		printf("found %i properties\n", count);

@@ -71,16 +71,8 @@ static int scan_failed(struct udev_enumerate *udev_enumerate)
 	udev_queue = udev_queue_new(udev);
 	if (udev_queue == NULL)
 		return -1;
-	udev_list_entry_foreach(list_entry, udev_queue_get_failed_list_entry(udev_queue)) {
-		struct udev_device *device;
-
-		device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list_entry));
-		if (device == NULL)
-			continue;
-		info(udev, "add '%s'\n", udev_device_get_syspath(device));
-		udev_enumerate_add_device(udev_enumerate, device);
-		udev_device_unref(device);
-	}
+	udev_list_entry_foreach(list_entry, udev_queue_get_failed_list_entry(udev_queue))
+		udev_enumerate_add_syspath(udev_enumerate, udev_list_entry_get_name(list_entry));
 	return 0;
 }
 
