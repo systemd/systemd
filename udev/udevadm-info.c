@@ -130,13 +130,16 @@ static int print_device_chain(struct udev_device *device)
 static void print_record(struct udev_device *device)
 {
 	size_t len;
+	const char *str;
 	int i;
 	struct udev_list_entry *list_entry;
 
 	printf("P: %s\n", udev_device_get_devpath(device));
 
 	len = strlen(udev_get_dev_path(udev_device_get_udev(device)));
-	printf("N: %s\n", &udev_device_get_devnode(device)[len+1]);
+	str = udev_device_get_devnode(device);
+	if (str != NULL)
+		printf("N: %s\n", &str[len+1]);
 
 	i = device_get_devlink_priority(device);
 	if (i != 0)
@@ -159,7 +162,6 @@ static void print_record(struct udev_device *device)
 		printf("E: %s=%s\n",
 		       udev_list_entry_get_name(list_entry),
 		       udev_list_entry_get_value(list_entry));
-
 	printf("\n");
 }
 

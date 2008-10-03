@@ -104,7 +104,7 @@ static int test_device(struct udev *udev, const char *syspath)
 	printf("looking at device: %s\n", syspath);
 	device = udev_device_new_from_syspath(udev, syspath);
 	if (device == NULL) {
-		printf("no device\n");
+		printf("no device found\n");
 		return -1;
 	}
 	print_device(device);
