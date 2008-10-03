@@ -47,7 +47,8 @@ libvolume_id_la_SOURCES =\
 	vxfs.c \
 	squashfs.c \
 	netware.c \
-	oracleasm.c
+	oracleasm.c \
+	btrfs.c
 
 libvolume_id_la_LDFLAGS = \
 	-version-info $(VOLID_LT_CURRENT):$(VOLID_LT_REVISION):$(VOLID_LT_AGE) \

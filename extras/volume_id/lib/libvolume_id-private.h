@@ -155,6 +155,7 @@ extern int volume_id_probe_squashfs(struct volume_id *id, uint64_t off, uint64_t
 extern int volume_id_probe_netware(struct volume_id *id, uint64_t off, uint64_t size);
 extern int volume_id_probe_gfs(struct volume_id *id, uint64_t off, uint64_t size);
 extern int volume_id_probe_gfs2(struct volume_id *id, uint64_t off, uint64_t size);
+extern int volume_id_probe_btrfs(struct volume_id *id, uint64_t off, uint64_t size);
 
 /* special formats */
 extern int volume_id_probe_linux_swap(struct volume_id *id, uint64_t off, uint64_t size);

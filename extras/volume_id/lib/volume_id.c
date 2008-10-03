@@ -83,6 +83,7 @@ static const struct prober prober_filesystem[] = {
 	{ volume_id_probe_squashfs, { "squashfs", } },
 	{ volume_id_probe_netware, { "netware", } },
 	{ volume_id_probe_oracleasm, { "oracleasm", } },
+	{ volume_id_probe_btrfs, { "btrfs", } },
 };
 
 /* the user can overwrite this log function */
