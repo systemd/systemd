@@ -138,7 +138,10 @@ int main(int argc, char *argv[])
 	struct volume_id *vid = NULL;
 	char label_safe[256];
 	char label_enc[256];
+	char uuid_safe[256];
 	char uuid_enc[256];
+	char type_enc[256];
+	char type_version_enc[256];
 	uint64_t size = 0;
 	int skip_raid = 0;
 	int probe_all = 0;
@@ -286,20 +289,24 @@ int main(int argc, char *argv[])
 
 	set_str(label_safe, label, sizeof(label_safe));
 	util_replace_chars(label_safe, ALLOWED_CHARS_INPUT);
-
 	volume_id_encode_string(label, label_enc, sizeof(label_enc));
+
+	set_str(uuid_safe, uuid, sizeof(uuid_safe));
+	util_replace_chars(uuid_safe, ALLOWED_CHARS_INPUT);
 	volume_id_encode_string(uuid, uuid_enc, sizeof(uuid_enc));
+
+	volume_id_encode_string(type, type_enc, sizeof(type_enc));
+	volume_id_encode_string(type_version, type_version_enc, sizeof(type_version_enc));
 
 	switch (print) {
 	case PRINT_EXPORT:
 		printf("ID_FS_USAGE=%s\n", usage);
-		printf("ID_FS_TYPE=%s\n", type);
-		printf("ID_FS_VERSION=%s\n", type_version);
-		printf("ID_FS_UUID=%s\n", uuid);
+		printf("ID_FS_TYPE=%s\n", type_enc);
+		printf("ID_FS_VERSION=%s\n", type_version_enc);
+		printf("ID_FS_UUID=%s\n", uuid_safe);
 		printf("ID_FS_UUID_ENC=%s\n", uuid_enc);
-		printf("ID_FS_LABEL=%s\n", label);
+		printf("ID_FS_LABEL=%s\n", label_safe);
 		printf("ID_FS_LABEL_ENC=%s\n", label_enc);
-		printf("ID_FS_LABEL_SAFE=%s\n", label_safe);
 		break;
 	case PRINT_TYPE:
 		printf("%s\n", type);
