@@ -34,12 +34,15 @@
 #define PACKED				__attribute__((packed))
 #endif
 
+static inline void __attribute__ ((format(printf, 1, 2)))
+log_null(const char *format, ...) {}
+
 #define err(format, arg...)	volume_id_log_fn(LOG_ERR, __FILE__, __LINE__, format, ##arg)
 #define info(format, arg...)	volume_id_log_fn(LOG_INFO, __FILE__, __LINE__, format, ##arg)
 #ifdef DEBUG
 #define dbg(format, arg...)	volume_id_log_fn(LOG_DEBUG, __FILE__, __LINE__, format, ##arg)
 #else
-#define dbg(format, arg...)	do { } while (0)
+#define dbg(format, arg...)	log_null(format, ##arg)
 #endif
 
 #if (__BYTE_ORDER == __LITTLE_ENDIAN)
