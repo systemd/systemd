@@ -57,8 +57,10 @@ static void vid_log(int priority, const char *file, int line, const char *format
 {
 	va_list args;
 
+	if (priority > udev_get_log_priority(udev_ctx))
+		return;
 	va_start(args, format);
-	udev_log(udev_ctx, priority, file, line, NULL, format, args);
+	log_fn(udev_ctx, priority, file, line, NULL, format, args);
 	va_end(args);
 	return;
 }
