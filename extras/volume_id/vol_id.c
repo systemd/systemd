@@ -117,6 +117,7 @@ int main(int argc, char *argv[])
 		{ "type", no_argument, NULL, 't' },
 		{ "export", no_argument, NULL, 'x' },
 		{ "skip-raid", no_argument, NULL, 's' },
+		{ "size", required_argument, NULL, 'S' },
 		{ "probe-all", no_argument, NULL, 'a' },
 		{ "offset", optional_argument, NULL, 'o' },
 		{ "debug", no_argument, NULL, 'd' },
@@ -136,7 +137,7 @@ int main(int argc, char *argv[])
 	char label_safe[256];
 	char label_enc[256];
 	char uuid_enc[256];
-	uint64_t size;
+	uint64_t size = 0;
 	int skip_raid = 0;
 	int probe_all = 0;
 	uint64_t offset = 0;
@@ -158,7 +159,7 @@ int main(int argc, char *argv[])
 	while (1) {
 		int option;
 
-		option = getopt_long(argc, argv, "lLutxsaodh", options, NULL);
+		option = getopt_long(argc, argv, "lLutxsS:aodh", options, NULL);
 		if (option == -1)
 			break;
 
@@ -189,6 +190,10 @@ int main(int argc, char *argv[])
 		case 'a':
 			probe_all = 1;
 			break;
+		case 'S':
+			if (optarg[0] != '\0')
+				size = strtoull(optarg, NULL, 0);
+			break;
 		case 'o':
 			if (optarg[0] != '\0')
 				offset = strtoull(optarg, NULL, 0);
@@ -203,6 +208,7 @@ int main(int argc, char *argv[])
 			    " --skip-raid      don't probe for raid\n"
 			    " --probe-all      find possibly conflicting signatures\n"
 			    " --offset=<bytes> probe at the given offset\n"
+			    " --size=<bytes>   overwrite device size\n"
 			    " --debug          print debug output to stderr\n"
 			    " --help\n\n");
 			goto exit;
@@ -233,9 +239,11 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	if (ioctl(fd, BLKGETSIZE64, &size) != 0)
-		size = 0;
-	info(udev_ctx, "BLKGETSIZE64=%llu (%lluGB)\n", (unsigned long long)size, (unsigned long long)size >> 30);
+	if (size == 0) {
+		if (ioctl(fd, BLKGETSIZE64, &size) != 0)
+			size = 0;
+		info(udev_ctx, "BLKGETSIZE64=%llu (%lluGB)\n", (unsigned long long)size, (unsigned long long)size >> 30);
+	}
 
 	/* try to drop all privileges before reading disk content */
 	if (getuid() == 0) {
