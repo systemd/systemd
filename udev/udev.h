@@ -168,11 +168,19 @@ extern void file_unmap(void *buf, size_t bufsize);
 extern size_t buf_get_line(const char *buf, size_t buflen, size_t cur);
 
 /* udev_selinux */
+#ifndef USE_SELINUX
+static inline void selinux_init(struct udev *udev) {}
+static inline void selinux_exit(struct udev *udev) {}
+static inline void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode) {}
+static inline void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode) {}
+static inline void udev_selinux_resetfscreatecon(struct udev *udev) {}
+#else
 extern void selinux_init(struct udev *udev);
 extern void selinux_exit(struct udev *udev);
 extern void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode);
 extern void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode);
 extern void udev_selinux_resetfscreatecon(struct udev *udev);
+#endif
 
 /* udevadm commands */
 extern int udevadm_monitor(struct udev *udev, int argc, char *argv[]);

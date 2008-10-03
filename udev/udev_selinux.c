@@ -22,17 +22,9 @@
 #include <stddef.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <selinux/selinux.h>
 
 #include "udev.h"
-
-#ifndef USE_SELINUX
-void selinux_init(struct udev *udev) {}
-void selinux_exit(struct udev *udev) {}
-void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode) {}
-void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode) {}
-void udev_selinux_resetfscreatecon(struct udev *udev) {}
-#else
-#include <selinux/selinux.h>
 
 static int selinux_enabled;
 security_context_t selinux_prev_scontext;
@@ -96,4 +88,3 @@ void udev_selinux_resetfscreatecon(struct udev *udev)
 	if (setfscreatecon(selinux_prev_scontext) < 0)
 		err(udev, "setfscreatecon failed: %m\n");
 }
-#endif

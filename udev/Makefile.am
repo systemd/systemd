@@ -25,7 +25,6 @@ common_files = \
 	udev_sysfs.c \
 	udev_utils.c \
 	udev_utils_file.c \
-	udev_selinux.c \
 	list.h \
 	lib/libudev.h \
 	lib/libudev-private.h \
@@ -39,6 +38,8 @@ common_files = \
 	lib/libudev-ctrl.c
 
 if USE_SELINUX
+common_files += \
+	udev_selinux.c
 common_ldadd += \
 	$(SELINUX_LIBS)
 endif
