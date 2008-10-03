@@ -50,7 +50,7 @@ int volume_id_probe_jfs(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct jfs_super_block *js;
 
-	info("probing at offset 0x%llx\n", (unsigned long long) off);
+	info("probing at offset 0x%" PRIx64 "\n", off);
 
 	js = (struct jfs_super_block *) volume_id_get_buffer(id, off + JFS_SUPERBLOCK_OFFSET, 0x200);
 	if (js == NULL)

@@ -56,7 +56,7 @@ int volume_id_probe_lvm1(struct volume_id *id, uint64_t off, uint64_t size)
 	const uint8_t *buf;
 	struct lvm1_super_block *lvm;
 
-	info("probing at offset 0x%llx\n", (unsigned long long) off);
+	info("probing at offset 0x%" PRIx64 "\n", off);
 
 	buf = volume_id_get_buffer(id, off + LVM1_SB_OFF, 0x800);
 	if (buf == NULL)
@@ -83,7 +83,7 @@ int volume_id_probe_lvm2(struct volume_id *id, uint64_t off, uint64_t size)
 	struct lvm2_super_block *lvm;
 	struct lvm2_pv_header *pvhdr;
 
-	dbg("probing at offset 0x%llx\n", (unsigned long long) off);
+	dbg("probing at offset 0x%" PRIx64 "\n", off);
 
 	buf = volume_id_get_buffer(id, off, LVM2LABEL_SCAN_SECTORS * 0x200);
 	if (buf == NULL)

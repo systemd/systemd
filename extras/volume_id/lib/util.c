@@ -352,7 +352,7 @@ uint8_t *volume_id_get_buffer(struct volume_id *id, uint64_t off, size_t len)
 {
 	ssize_t buf_len;
 
-	info("get buffer off 0x%llx(%llu), len 0x%zx\n", (unsigned long long) off, (unsigned long long) off, len);
+	info("get buffer off 0x%" PRIx64 "(%" PRIu64 "), len 0x%zx\n", off, off, len);
 	/* check if requested area fits in superblock buffer */
 	if (off + len <= SB_BUFFER_SIZE) {
 		if (id->sbbuf == NULL) {
@@ -365,7 +365,7 @@ uint8_t *volume_id_get_buffer(struct volume_id *id, uint64_t off, size_t len)
 
 		/* check if we need to read */
 		if ((off + len) > id->sbbuf_len) {
-			info("read sbbuf len:0x%llx\n", (unsigned long long) (off + len));
+			info("read sbbuf len:0x%" PRIx64 "\n", (off + len));
 			if (lseek(id->fd, 0, SEEK_SET) < 0) {
 				dbg("lseek failed (%s)\n", strerror(errno));
 				return NULL;
@@ -401,7 +401,7 @@ uint8_t *volume_id_get_buffer(struct volume_id *id, uint64_t off, size_t len)
 
 		/* check if we need to read */
 		if ((off < id->seekbuf_off) || ((off + len) > (id->seekbuf_off + id->seekbuf_len))) {
-			info("read seekbuf off:0x%llx len:0x%zx\n", (unsigned long long) off, len);
+			info("read seekbuf off:0x%" PRIx64 " len:0x%zx\n", off, len);
 			if (lseek(id->fd, off, SEEK_SET) < 0) {
 				dbg("lseek failed (%s)\n", strerror(errno));
 				return NULL;

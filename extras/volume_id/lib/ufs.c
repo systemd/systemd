@@ -180,7 +180,7 @@ int volume_id_probe_ufs(struct volume_id *id, uint64_t off, uint64_t size)
 	struct ufs_super_block *ufs;
 	int offsets[] = {0, 8, 64, 256, -1};
 
-	info("probing at offset 0x%llx\n", (unsigned long long) off);
+	info("probing at offset 0x%" PRIx64 "\n", off);
 
 	for (i = 0; offsets[i] >= 0; i++) {	
 		ufs = (struct ufs_super_block *) volume_id_get_buffer(id, off + (offsets[i] * 0x400), 0x800);

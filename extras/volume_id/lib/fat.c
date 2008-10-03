@@ -275,7 +275,7 @@ int volume_id_probe_vfat(struct volume_id *id, uint64_t off, uint64_t size)
 	int maxloop;
 	size_t fnlen;
 
-	info("probing at offset 0x%llx\n", (unsigned long long) off);
+	info("probing at offset 0x%" PRIx64 "\n", off);
 
 	buf = volume_id_get_buffer(id, off, 0x400);
 	if (buf == NULL)
@@ -380,7 +380,7 @@ magic:
 
 	/* the label may be an attribute in the root directory */
 	root_start = (reserved + fat_size) * sector_size;
-	dbg("root dir start 0x%llx\n", (unsigned long long) root_start);
+	dbg("root dir start 0x%" PRIx64 "\n", root_start);
 	root_dir_entries = le16_to_cpu(vs->dir_entries);
 	dbg("expected entries 0x%x\n", root_dir_entries);
 
@@ -442,7 +442,7 @@ fat32:
 		dbg("next cluster %u\n", next);
 		next_sect_off = (next - 2) * vs->sectors_per_cluster;
 		next_off = (start_data_sect + next_sect_off) * sector_size;
-		dbg("cluster offset 0x%llx\n", (unsigned long long) next_off);
+		dbg("cluster offset 0x%" PRIx64 "\n", next_off);
 
 		/* get cluster */
 		buf = volume_id_get_buffer(id, off + next_off, buf_size);

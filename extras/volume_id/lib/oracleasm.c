@@ -50,7 +50,7 @@ int volume_id_probe_oracleasm(struct volume_id *id, uint64_t off, uint64_t size)
 	const uint8_t *buf;
 	struct oracleasm_super_block *oracleasm;
 
-	info("probing at offset 0x%llx\n", (unsigned long long) off);
+	info("probing at offset 0x%" PRIx64 "\n", off);
 
 	buf = volume_id_get_buffer(id, off + ASM_SB_OFF, 0x800);
 	if (buf == NULL)

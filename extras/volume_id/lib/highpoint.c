@@ -54,7 +54,7 @@ int volume_id_probe_highpoint_37x_raid(struct volume_id *id, uint64_t off, uint6
 	struct hpt37x_meta *hpt;
 	uint32_t magic;
 
-	info("probing at offset 0x%llx\n", (unsigned long long) off);
+	info("probing at offset 0x%" PRIx64 "\n", off);
 
 	buf = volume_id_get_buffer(id, off + HPT37X_CONFIG_OFF, 0x200);
 	if (buf == NULL)
@@ -78,8 +78,7 @@ int volume_id_probe_highpoint_45x_raid(struct volume_id *id, uint64_t off, uint6
 	uint64_t meta_off;
 	uint32_t magic;
 
-	dbg("probing at offset 0x%llx, size 0x%llx\n",
-	    (unsigned long long) off, (unsigned long long) size);
+	dbg("probing at offset 0x%" PRIx64 ", size 0x%" PRIx64 "\n", off, size);
 
 	if (size < 0x10000)
 		return -1;

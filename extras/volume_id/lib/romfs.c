@@ -42,7 +42,7 @@ int volume_id_probe_romfs(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct romfs_super *rfs;
 
-	info("probing at offset 0x%llx\n", (unsigned long long) off);
+	info("probing at offset 0x%" PRIx64 "\n", off);
 
 	rfs = (struct romfs_super *) volume_id_get_buffer(id, off, 0x200);
 	if (rfs == NULL)

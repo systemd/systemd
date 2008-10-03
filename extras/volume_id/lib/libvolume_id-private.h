@@ -20,9 +20,10 @@
 #ifndef _LIBVOLUME_ID_PRIVATE_H_
 #define _LIBVOLUME_ID_PRIVATE_H_
 
-#include <stdint.h>
 #include <stddef.h>
 #include <endian.h>
+#include <stdint.h>
+#include <inttypes.h>
 #include <byteswap.h>
 #include <syslog.h>
 

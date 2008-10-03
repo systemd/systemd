@@ -75,7 +75,7 @@ int volume_id_probe_minix(struct volume_id *id, uint64_t off, uint64_t size)
 	struct minix_super_block *ms;
 	struct minix3_super_block *m3s;
 
-	info("probing at offset 0x%llx\n", (unsigned long long) off);
+	info("probing at offset 0x%" PRIx64 "\n", off);
 
 	buf = volume_id_get_buffer(id, off + MINIX_SUPERBLOCK_OFFSET, 0x200);
 	if (buf == NULL)

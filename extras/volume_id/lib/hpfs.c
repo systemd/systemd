@@ -80,7 +80,7 @@ int volume_id_probe_hpfs(struct volume_id *id, uint64_t off, uint64_t size)
 	struct hpfs_spare_super *hss;
 	struct hpfs_boot_block *hbb;
 
-	info("probing at offset 0x%llx\n", (unsigned long long) off);
+	info("probing at offset 0x%" PRIx64 "\n", off);
 
 	hs = (struct hpfs_super *) volume_id_get_buffer(id, off + HPFS_SUPERBLOCK_OFFSET, 0x400);
 	if (hs == NULL)

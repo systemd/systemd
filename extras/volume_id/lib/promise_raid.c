@@ -47,8 +47,7 @@ int volume_id_probe_promise_fasttrack_raid(struct volume_id *id, uint64_t off, u
 		63, 255, 256, 16, 399, 0
 	};
 
-	info("probing at offset 0x%llx, size 0x%llx\n",
-	    (unsigned long long) off, (unsigned long long) size);
+	info("probing at offset 0x%" PRIx64 ", size 0x%" PRIx64 "\n", off, size);
 
 	if (size < 0x40000)
 		return -1;

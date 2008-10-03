@@ -50,8 +50,7 @@ int volume_id_probe_ddf_raid(struct volume_id *id, uint64_t off, uint64_t size)
 	const uint8_t *buf;
 	struct ddf_header *ddf;
 
-	info("probing at offset 0x%llx, size 0x%llx\n",
-	     (unsigned long long)off, (unsigned long long)size);
+	info("probing at offset 0x%" PRIx64 ", size 0x%" PRIx64 "\n", off, size);
 	if (size < 0x30000)
 		return -1;
 
@@ -62,11 +61,11 @@ int volume_id_probe_ddf_raid(struct volume_id *id, uint64_t off, uint64_t size)
 		return -1;
 	ddf = (struct ddf_header *) buf;
 	if (memcmp(ddf->signature, "\x11\xde\x11\xde", 4) == 0) {
-		info("header (little endian) found at %llu\n", (unsigned long long)(off + ddf_off));
+		info("header (little endian) found at %" PRIu64 "\n", (off + ddf_off));
 		goto found;
 	}
 	if (memcmp(ddf->signature, "\xde\x11\xde\x11", 4) == 0) {
-		info("header (big endian) found at %llu\n", (unsigned long long)(off + ddf_off));
+		info("header (big endian) found at %" PRIu64 "\n", (off + ddf_off));
 		goto found;
 	}
 
@@ -77,11 +76,11 @@ int volume_id_probe_ddf_raid(struct volume_id *id, uint64_t off, uint64_t size)
 		return -1;
 	ddf = (struct ddf_header *) buf;
 	if (memcmp(ddf->signature, "\x11\xde\x11\xde", 4) == 0) {
-		info("header adaptec (little endian) found at %llu\n", (unsigned long long)(off + ddf_off));
+		info("header adaptec (little endian) found at %" PRIu64 "\n", (off + ddf_off));
 		goto found;
 	}
 	if (memcmp(ddf->signature, "\xde\x11\xde\x11", 4) == 0) {
-		info("header adaptec (big endian) found at %llu\n", (unsigned long long)(off + ddf_off));
+		info("header adaptec (big endian) found at %" PRIu64 "\n", (off + ddf_off));
 		goto found;
 	}
 

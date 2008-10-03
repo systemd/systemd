@@ -72,8 +72,7 @@ static int volume_id_probe_linux_raid0(struct volume_id *id, uint64_t off, uint6
 		uint8_t bytes[16];
 	} uuid;
 
-	info("probing at offset 0x%llx, size 0x%llx\n",
-	    (unsigned long long) off, (unsigned long long) size);
+	info("probing at offset 0x%" PRIx64 ", size 0x%" PRIx64 "\n", off, size);
 	if (size < 0x10000)
 		return -1;
 
@@ -127,8 +126,7 @@ static int volume_id_probe_linux_raid1(struct volume_id *id, uint64_t off, uint6
 	const uint8_t *buf;
 	struct mdp1_super_block *mdp1;
 
-	info("probing at offset 0x%llx, size 0x%llx\n",
-	    (unsigned long long) off, (unsigned long long) size);
+	info("probing at offset 0x%" PRIx64 ", size 0x%" PRIx64 "\n", off, size);
 
 	buf = volume_id_get_buffer(id, off, 0x800);
 	if (buf == NULL)

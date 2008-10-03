@@ -64,7 +64,7 @@ int volume_id_probe_iso9660(struct volume_id *id, uint64_t off, uint64_t size)
 	struct iso_volume_descriptor *is;
 	struct high_sierra_volume_descriptor *hs;
 
-	info("probing at offset 0x%llx\n", (unsigned long long) off);
+	info("probing at offset 0x%" PRIx64 "\n", off);
 
 	buf = volume_id_get_buffer(id, off + ISO_SUPERBLOCK_OFFSET, 0x200);
 	if (buf == NULL)
@@ -91,7 +91,7 @@ int volume_id_probe_iso9660(struct volume_id *id, uint64_t off, uint64_t size)
 			if (is->type != ISO_VD_SUPPLEMENTARY)
 				continue;
 
-			dbg("found SVD at offset 0x%llx\n", (unsigned long long) (off + vd_offset));
+			dbg("found SVD at offset 0x%" PRIx64 "\n", (off + vd_offset));
 			if (memcmp(is->escape_sequences, "%/@", 3) == 0||
 			    memcmp(is->escape_sequences, "%/C", 3) == 0||
 			    memcmp(is->escape_sequences, "%/E", 3) == 0) {

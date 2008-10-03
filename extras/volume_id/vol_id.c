@@ -31,6 +31,7 @@
 #include <grp.h>
 #include <getopt.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <sys/ioctl.h>
 
 #include "../../udev/udev.h"
@@ -247,7 +248,7 @@ int main(int argc, char *argv[])
 	if (size == 0) {
 		if (ioctl(fd, BLKGETSIZE64, &size) != 0)
 			size = 0;
-		info(udev_ctx, "BLKGETSIZE64=%llu (%lluGB)\n", (unsigned long long)size, (unsigned long long)size >> 30);
+		info(udev_ctx, "BLKGETSIZE64=%" PRIu64 " (%" PRIu64 "GB)\n", size, size >> 30);
 	}
 
 	/* try to drop all privileges before reading disk content */

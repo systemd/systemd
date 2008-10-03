@@ -43,8 +43,7 @@ int volume_id_probe_lsi_mega_raid(struct volume_id *id, uint64_t off, uint64_t s
 	uint64_t meta_off;
 	struct lsi_meta *lsi;
 
-	info("probing at offset 0x%llx, size 0x%llx\n",
-	    (unsigned long long) off, (unsigned long long) size);
+	info("probing at offset 0x%" PRIx64 ", size 0x%" PRIx64 "\n", off, size);
 
 	if (size < 0x10000)
 		return -1;

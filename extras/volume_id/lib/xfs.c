@@ -32,14 +32,14 @@
 #include "libvolume_id-private.h"
 
 struct xfs_super_block {
-	uint8_t	magic[4];
+	uint8_t		magic[4];
 	uint32_t	blocksize;
 	uint64_t	dblocks;
 	uint64_t	rblocks;
 	uint32_t	dummy1[2];
-	uint8_t	uuid[16];
+	uint8_t		uuid[16];
 	uint32_t	dummy2[15];
-	uint8_t	fname[12];
+	uint8_t		fname[12];
 	uint32_t	dummy3[2];
 	uint64_t	icount;
 	uint64_t	ifree;
@@ -50,7 +50,7 @@ int volume_id_probe_xfs(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct xfs_super_block *xs;
 
-	info("probing at offset 0x%llx\n", (unsigned long long) off);
+	info("probing at offset 0x%" PRIx64 "\n", off);
 
 	xs = (struct xfs_super_block *) volume_id_get_buffer(id, off, 0x200);
 	if (xs == NULL)

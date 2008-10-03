@@ -42,7 +42,7 @@ int volume_id_probe_vxfs(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct vxfs_super *vxs;
 
-	info("probing at offset 0x%llx\n", (unsigned long long) off);
+	info("probing at offset 0x%" PRIx64 "\n", off);
 
 	vxs = (struct vxfs_super *) volume_id_get_buffer(id, off + 0x200, 0x200);
 	if (vxs == NULL)

@@ -87,7 +87,7 @@ int volume_id_probe_netware(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	struct netware_super_block *nw;
 
-	info("probing at offset 0x%llx\n", (unsigned long long) off);
+	info("probing at offset 0x%" PRIx64 "\n", off);
 
 	nw = (struct netware_super_block *) volume_id_get_buffer(id, off + NW_SUPERBLOCK_OFFSET, 0x200);
 	if (nw == NULL)

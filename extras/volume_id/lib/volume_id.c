@@ -367,8 +367,7 @@ int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size)
 	if (!device_is_readable(id, off))
 		return -1;
 
-	info("probing at offset 0x%llx, size 0x%llx\n",
-	    (unsigned long long) off, (unsigned long long) size);
+	info("probing at offset 0x%" PRIx64 ", size 0x%" PRIx64 "\n", off, size);
 
 	for (i = 0; i < ARRAY_SIZE(prober_raid); i++)
 		if (prober_raid[i].prober(id, off, size) == 0)
@@ -401,8 +400,7 @@ int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size
 	if (!device_is_readable(id, off))
 		return -1;
 
-	info("probing at offset 0x%llx, size 0x%llx\n",
-	    (unsigned long long) off, (unsigned long long) size);
+	info("probing at offset 0x%" PRIx64 ", size 0x%" PRIx64 "\n", off, size);
 
 	for (i = 0; i < ARRAY_SIZE(prober_filesystem); i++)
 		if (prober_filesystem[i].prober(id, off, size) == 0)

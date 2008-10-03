@@ -75,8 +75,7 @@ int volume_id_probe_btrfs(struct volume_id *id, uint64_t off, uint64_t size)
 	const uint8_t *buf;
 	struct btrfs_super_block *bfs;
 
-	info("probing at offset 0x%llx, size 0x%llx\n",
-	     (unsigned long long)off, (unsigned long long)size);
+	info("probing at offset 0x%" PRIx64 ", size 0x%" PRIx64 "\n", off, size);
 
 	buf = volume_id_get_buffer(id, off + 0x4000, 0x200);
 	if (buf == NULL)

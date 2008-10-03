@@ -135,7 +135,7 @@ int volume_id_probe_ext(struct volume_id *id, uint64_t off, uint64_t size)
 	uint32_t feature_incompat;
 	uint32_t flags;
 
-	info("probing at offset 0x%llx\n", (unsigned long long) off);
+	info("probing at offset 0x%" PRIx64 "\n", off);
 
 	es = (struct ext2_super_block *) volume_id_get_buffer(id, off + EXT_SUPERBLOCK_OFFSET, 0x200);
 	if (es == NULL)
