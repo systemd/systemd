@@ -963,8 +963,9 @@ int main(int argc, char *argv[])
 		util_strlcat(path, "/class/mem/null", sizeof(path));
 		if (lstat(path, &statbuf) == 0) {
 			if (S_ISDIR(statbuf.st_mode)) {
-				const char *depr_str = "<6>udev: deprecated sysfs layout "
-						       "(CONFIG_SYSFS_DEPRECATED) is unsupported\n";
+				const char *depr_str = "<6>udev: deprecated sysfs layout (kernel too old, "
+							"or CONFIG_SYSFS_DEPRECATED) is unsupported, some "
+							"udev features may fail\n";
 
 				write(fd, depr_str, strlen(depr_str));
 			}
