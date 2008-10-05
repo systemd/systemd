@@ -79,8 +79,8 @@ static size_t find_label(const struct udev_rules_iter *iter, const char *label)
 next:
 	dbg(rules->udev, "current=%zi\n", current);
 	if (current >= rules->bufsize) {
-		err(rules->udev, "LABEL='%s' not found, GOTO will be ignored\n", label);
-		return iter->current;
+		dbg(rules->udev, "LABEL='%s' not found\n", label);
+		return 0;
 	}
 	rule = (struct udev_rule *) (rules->buf + current);
 
@@ -747,9 +747,10 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 
 			dbg(rules->udev, "resolving goto label '%s'\n", goto_label);
 			rule->goto_rule_off = find_label(&iter, goto_label);
-			if (rule->goto_rule_off == iter.current) {
-				err(rules->udev, "goto nonexistent label '%s' in '%s'\n",
+			if (rule->goto_rule_off == 0) {
+				err(rules->udev, "ignore goto to nonexistent label '%s' in '%s'\n",
 				    goto_label, filename);
+				rule->goto_rule_off = iter.current;
 			}
 		}
 	}
