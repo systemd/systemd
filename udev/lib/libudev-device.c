@@ -112,7 +112,7 @@ static int device_read_db(struct udev_device *udev_device)
 			}
 			util_strlcpy(linkname, udev_get_dev_path(udev_device->udev), sizeof(linkname));
 			util_strlcat(linkname, "/", sizeof(linkname));
-			util_strlcat(linkname, next, sizeof(linkname));
+			util_strlcat(linkname, lnk, sizeof(linkname));
 			device_add_devlink(udev_device, linkname);
 		}
 		info(udev_device->udev, "device %p filled with db symlink data '%s'\n", udev_device, udev_device->devnode);
