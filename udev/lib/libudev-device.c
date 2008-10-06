@@ -83,6 +83,7 @@ static int device_read_db(struct udev_device *udev_device)
 	if ((stats.st_mode & S_IFMT) == S_IFLNK) {
 		char target[UTIL_PATH_SIZE];
 		int target_len;
+		char *next;
 
 		target_len = readlink(filename, target, sizeof(target));
 		if (target_len > 0)
@@ -91,8 +92,29 @@ static int device_read_db(struct udev_device *udev_device)
 			info(udev_device->udev, "error reading db link %s: %m\n", filename);
 			return -1;
 		}
+
+		next = strchr(target, ' ');
+		if (next != NULL) {
+			next[0] = '\0';
+			next = &next[1];
+		}
 		if (asprintf(&udev_device->devnode, "%s/%s", udev_get_dev_path(udev_device->udev), target) < 0)
 			return -ENOMEM;
+		while (next != NULL) {
+			char linkname[UTIL_PATH_SIZE];
+			const char *lnk;
+
+			lnk = next;
+			next = strchr(next, ' ');
+			if (next != NULL) {
+				next[0] = '\0';
+				next = &next[1];
+			}
+			util_strlcpy(linkname, udev_get_dev_path(udev_device->udev), sizeof(linkname));
+			util_strlcat(linkname, "/", sizeof(linkname));
+			util_strlcat(linkname, next, sizeof(linkname));
+			device_add_devlink(udev_device, linkname);
+		}
 		info(udev_device->udev, "device %p filled with db symlink data '%s'\n", udev_device, udev_device->devnode);
 		return 0;
 	}

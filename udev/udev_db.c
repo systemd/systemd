@@ -127,6 +127,10 @@ int udev_db_rename(struct udev *udev, const char *devpath_old, const char *devpa
 int udev_db_add_device(struct udevice *udevice)
 {
 	char filename[UTIL_PATH_SIZE];
+	FILE *f;
+	struct name_entry *name_loop;
+	char target[232]; /* on 64bit, tmpfs inlines up to 239 bytes */
+	int ret;
 
 	if (udevice->test_run)
 		return 0;
@@ -135,55 +139,61 @@ int udev_db_add_device(struct udevice *udevice)
 	create_path(udevice->udev, filename);
 	unlink(filename);
 
-	/*
-	 * don't waste tmpfs memory pages, if we don't have any data to store
-	 * create fake db-file; store the node-name in a symlink target
-	 */
-	if (list_empty(&udevice->symlink_list) && list_empty(&udevice->env_list) &&
-	    !udevice->partitions && !udevice->ignore_remove) {
-		int ret;
-		dbg(udevice->udev, "nothing interesting to store, create symlink\n");
-		udev_selinux_setfscreatecon(udevice->udev, filename, S_IFLNK);
-		ret = symlink(udevice->name, filename);
-		udev_selinux_resetfscreatecon(udevice->udev);
-		if (ret != 0) {
-			err(udevice->udev, "unable to create db link '%s': %m\n", filename);
-			return -1;
-		}
-	} else {
-		FILE *f;
-		struct name_entry *name_loop;
+	if (!list_empty(&udevice->env_list))
+		goto file;
+	if (udevice->partitions || udevice->ignore_remove)
+		goto file;
+	/* try not to waste tmpfs memory, store values, if they fit, in a symlink target */
+	util_strlcpy(target, udevice->name, sizeof(target));
+	list_for_each_entry(name_loop, &udevice->symlink_list, node) {
+		size_t len;
 
-		f = fopen(filename, "w");
-		if (f == NULL) {
-			err(udevice->udev, "unable to create db file '%s': %m\n", filename);
-			return -1;
+		util_strlcat(target, " ", sizeof(target));
+		len = util_strlcat(target, name_loop->name, sizeof(target));
+		if (len >= sizeof(target)) {
+			info(udevice->udev, "size of links too large, create file\n");
+			goto file;
 		}
-		dbg(udevice->udev, "storing data for device '%s' in '%s'\n", udevice->dev->devpath, filename);
-
-		fprintf(f, "N:%s\n", udevice->name);
-		list_for_each_entry(name_loop, &udevice->symlink_list, node) {
-			fprintf(f, "S:%s\n", name_loop->name);
-			/* add symlink-name to index */
-			name_index(udevice->udev, udevice->dev->devpath, name_loop->name, 1);
-		}
-		fprintf(f, "M:%u:%u\n", major(udevice->devt), minor(udevice->devt));
-		if (udevice->link_priority != 0)
-			fprintf(f, "L:%u\n", udevice->link_priority);
-		if (udevice->event_timeout >= 0)
-			fprintf(f, "T:%u\n", udevice->event_timeout);
-		if (udevice->partitions != 0)
-			fprintf(f, "A:%u\n", udevice->partitions);
-		if (udevice->ignore_remove)
-			fprintf(f, "R:%u\n", udevice->ignore_remove);
-		list_for_each_entry(name_loop, &udevice->env_list, node)
-			fprintf(f, "E:%s\n", name_loop->name);
-		fclose(f);
 	}
+	/* add symlink names to index */
+	list_for_each_entry(name_loop, &udevice->symlink_list, node) {
+		name_index(udevice->udev, udevice->dev->devpath, name_loop->name, 1);
+	}
+	info(udevice->udev, "create db link (%s)\n", target);
+	udev_selinux_setfscreatecon(udevice->udev, filename, S_IFLNK);
+	ret = symlink(target, filename);
+	udev_selinux_resetfscreatecon(udevice->udev);
+	if (ret == 0)
+		goto out;
+file:
+	f = fopen(filename, "w");
+	if (f == NULL) {
+		err(udevice->udev, "unable to create db file '%s': %m\n", filename);
+		return -1;
+		}
+	info(udevice->udev, "created db file for '%s' in '%s'\n", udevice->dev->devpath, filename);
 
+	fprintf(f, "N:%s\n", udevice->name);
+	list_for_each_entry(name_loop, &udevice->symlink_list, node) {
+		fprintf(f, "S:%s\n", name_loop->name);
+		/* add symlink names to index */
+		name_index(udevice->udev, udevice->dev->devpath, name_loop->name, 1);
+	}
+	fprintf(f, "M:%u:%u\n", major(udevice->devt), minor(udevice->devt));
+	if (udevice->link_priority != 0)
+		fprintf(f, "L:%u\n", udevice->link_priority);
+	if (udevice->event_timeout >= 0)
+		fprintf(f, "T:%u\n", udevice->event_timeout);
+	if (udevice->partitions != 0)
+		fprintf(f, "A:%u\n", udevice->partitions);
+	if (udevice->ignore_remove)
+		fprintf(f, "R:%u\n", udevice->ignore_remove);
+	list_for_each_entry(name_loop, &udevice->env_list, node)
+		fprintf(f, "E:%s\n", name_loop->name);
+	fclose(f);
+out:
 	/* add name to index */
 	name_index(udevice->udev, udevice->dev->devpath, udevice->name, 1);
-
 	return 0;
 }
 
@@ -209,8 +219,9 @@ int udev_db_get_device(struct udevice *udevice, const char *devpath)
 	if ((stats.st_mode & S_IFMT) == S_IFLNK) {
 		char target[UTIL_NAME_SIZE];
 		int target_len;
+		char *next;
 
-		info(udevice->udev, "found a symlink as db file\n");
+		info(udevice->udev, "found db symlink\n");
 		target_len = readlink(filename, target, sizeof(target));
 		if (target_len > 0)
 			target[target_len] = '\0';
@@ -218,8 +229,25 @@ int udev_db_get_device(struct udevice *udevice, const char *devpath)
 			info(udevice->udev, "error reading db link %s: %m\n", filename);
 			return -1;
 		}
-		dbg(udevice->udev, "db link points to '%s'\n", target);
+		next = strchr(target, ' ');
+		if (next != NULL) {
+			next[0] = '\0';
+			next = &next[1];
+		}
+		info(udevice->udev, "got db link node: '%s'\n", target);
 		util_strlcpy(udevice->name, target, sizeof(udevice->name));
+		while (next != NULL) {
+			char *lnk;
+
+			lnk = next;
+			next = strchr(next, ' ');
+			if (next != NULL) {
+				next[0] = '\0';
+				next = &next[1];
+			}
+			info(udevice->udev, "got db link link: '%s'\n", lnk);
+			name_list_add(udevice->udev, &udevice->symlink_list, lnk, 0);
+		}
 		return 0;
 	}
 
