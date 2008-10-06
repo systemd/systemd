@@ -311,6 +311,7 @@ int volume_id_probe_vfat(struct volume_id *id, uint64_t off, uint64_t size)
 		return -1;
 
 magic:
+	info("magic found\n");
 	/* reserverd sector count */
 	if (!vs->reserved)
 		return -1;
@@ -333,6 +334,7 @@ magic:
 	if (sector_size == 0 || ((sector_size & (sector_size-1)) != 0))
 		return -1;
 
+	info("checks passed\n");
 	dbg("sector_size 0x%x\n", sector_size);
 	dbg("sectors_per_cluster 0x%x\n", vs->sectors_per_cluster);
 
@@ -356,7 +358,7 @@ magic:
 		fat_size = fat32_length * vs->fats;
 	else
 		return -1;
-	dbg("fat_size 0x%x\n", fat_size);
+	info("fat_size 0x%x\n", fat_size);
 
 	dir_size = ((dir_entries * sizeof(struct vfat_dir_entry)) +
 			(sector_size-1)) / sector_size;
@@ -364,7 +366,7 @@ magic:
 
 	cluster_count = sect_count - (reserved + fat_size + dir_size);
 	cluster_count /= vs->sectors_per_cluster;
-	dbg("cluster_count 0x%x\n", cluster_count);
+	info("cluster_count 0x%x\n", cluster_count);
 
 	/* must be FAT32 */
 	if (!fat_length && fat32_length)
@@ -408,16 +410,24 @@ magic:
 	goto found;
 
 fat32:
+	info("looking for FAT32\n");
 	/* FAT32 should have a valid signature in the fsinfo block */
 	fsinfo_sect = le16_to_cpu(vs->type.fat32.fsinfo_sector);
 	buf = volume_id_get_buffer(id, off + (fsinfo_sect * sector_size), 0x200);
 	if (buf == NULL)
 		return -1;
 	fsinfo = (struct fat32_fsinfo *) buf;
+	info("signature1: 0x%02x%02x%02x%02x\n",
+	     fsinfo->signature1[0], fsinfo->signature1[1],
+	     fsinfo->signature1[2], fsinfo->signature1[3]);
+	info("signature2: 0x%02x%02x%02x%02x\n",
+	     fsinfo->signature2[0], fsinfo->signature2[1],
+	     fsinfo->signature2[2], fsinfo->signature2[3]);
 	if (memcmp(fsinfo->signature1, "\x52\x52\x61\x41", 4) != 0)
 		return -1;
 	if (memcmp(fsinfo->signature2, "\x72\x72\x41\x61", 4) != 0)
 		return -1 ;
+	info("FAT32 signatures match\n");
 
 	vs = (struct vfat_super_block *) volume_id_get_buffer(id, off, 0x200);
 	if (vs == NULL)
