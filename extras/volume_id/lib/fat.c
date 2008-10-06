@@ -348,9 +348,9 @@ magic:
 	dbg("sect_count 0x%x\n", sect_count);
 
 	fat_length = le16_to_cpu(vs->fat_length);
-	dbg("fat_length 0x%x\n", fat_length);
+	info("fat_length 0x%x\n", fat_length);
 	fat32_length = le32_to_cpu(vs->type.fat32.fat32_length);
-	dbg("fat32_length 0x%x\n", fat32_length);
+	info("fat32_length 0x%x\n", fat32_length);
 
 	if (fat_length)
 		fat_size = fat_length * vs->fats;
@@ -362,7 +362,7 @@ magic:
 
 	dir_size = ((dir_entries * sizeof(struct vfat_dir_entry)) +
 			(sector_size-1)) / sector_size;
-	dbg("dir_size 0x%x\n", dir_size);
+	info("dir_size 0x%x\n", dir_size);
 
 	cluster_count = sect_count - (reserved + fat_size + dir_size);
 	cluster_count /= vs->sectors_per_cluster;
