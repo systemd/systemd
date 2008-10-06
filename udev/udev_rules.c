@@ -1447,7 +1447,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udevice)
 			     rule->symlink.operation == KEY_OP_ADD)) {
 				char temp[UTIL_PATH_SIZE];
 				char *pos, *next;
-				int count;
+				int count = 0;
 
 				if (rule->symlink.operation == KEY_OP_ASSIGN_FINAL)
 					udevice->symlink_final = 1;
@@ -1459,12 +1459,12 @@ int udev_rules_get_name(struct udev_rules *rules, struct udevice *udevice)
 				/* allow  multiple symlinks separated by spaces */
 				util_strlcpy(temp, key_val(rule, &rule->symlink), sizeof(temp));
 				udev_rules_apply_format(udevice, temp, sizeof(temp));
-				if (rule->string_escape == ESCAPE_UNSET ||
-				    rule->string_escape == ESCAPE_REPLACE) {
+				if (rule->string_escape == ESCAPE_UNSET)
 					count = util_replace_chars(temp, ALLOWED_CHARS_FILE " ");
-					if (count > 0)
-						info(udevice->udev, "%i character(s) replaced\n" , count);
-				}
+				else if (rule->string_escape == ESCAPE_REPLACE)
+					count = util_replace_chars(temp, ALLOWED_CHARS_FILE);
+				if (count > 0)
+					info(udevice->udev, "%i character(s) replaced\n" , count);
 				dbg(udevice->udev, "rule applied, added symlink(s) '%s'\n", temp);
 				pos = temp;
 				while (isspace(pos[0]))
