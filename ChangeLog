@@ -1,3 +1,35 @@
+Summary of changes from v129 to v130
+============================================
+
+Kay Sievers (26):
+      fix compile error with --disable-logging
+      libudev: enumerate - add_device() -> add_syspath()
+      volume_id: hpfs - read label and uuid
+      use no_argument, required_argument, optional_argument in longopts
+      libudev: get rid of selinux
+      libudev: device - add get_parent_with_subsystem()
+      usb_id: use libudev
+      udevadm: info - fix --query=all for devices without a device node
+      vol_id: add size= option
+      move selinux noops to udev.h
+      volume_id: add dbg() as noop to check for compile errors
+      vol_id: fix logging glue
+      vol_id: always use the safe string versions for unencoded label and uuid
+      volume_id: better DDF raid detection
+      volume_id: add btrfs
+      volume_id: use PRIu64i, PRIx64 macros
+      udevd: clarify deprecated sysfs layout warning
+      libudev: fix --enable-debug
+      don not print error if GOTO jumps just to next rule
+      volume_id: add more vfat debugging information
+      libudev: libudev.pc remove selinux
+      store node name and symlinks into db symlink target if they are small enough
+      volume_id: more fat debugging
+      libudev: fix typo in "multiple entries in symlink" handling
+      connect /sys and /dev with /sys/dev/{block,char}/<maj>:<min> and /dev/{block,char}/<maj>:<min>
+      replace spaces in dm and md name symlinks
+
+
 Summary of changes from v128 to v129
 ============================================
 

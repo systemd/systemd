@@ -2,6 +2,13 @@ udev 130
 ========
 Bugfixes.
 
+Kernel devices and device nodes are connected now by reverse indizes in
+/sys and /dev. A device number retrieved by a stat() or similar, the
+kernel device directory can be found by looking up:
+  /sys/dev/{block,char}/<maj>:<min>
+and the device node of the same device by looking up:
+  /dev/{block,char}/<maj>:<min>
+
 udev 129
 ========
 Fix recently introduced bug, which caused a compilation without large
