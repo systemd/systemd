@@ -381,6 +381,94 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 	return device;
 }
 
+struct udev_device *udev_device_new_from_subsystem_sysname(struct udev *udev, const char *subsystem, const char *sysname)
+{
+	size_t sys_path_len;
+	char path_full[UTIL_PATH_SIZE];
+	char *path;
+	struct stat statbuf;
+
+	sys_path_len = util_strlcpy(path_full, udev_get_sys_path(udev), sizeof(path_full));
+	path = &path_full[sys_path_len];
+
+	if (strcmp(subsystem, "subsystem") == 0) {
+		util_strlcpy(path, "/subsystem/", sizeof(path_full) - sys_path_len);
+		util_strlcat(path, sysname, sizeof(path_full) - sys_path_len);
+		if (stat(path_full, &statbuf) == 0)
+			goto found;
+
+		util_strlcpy(path, "/bus/", sizeof(path_full) - sys_path_len);
+		util_strlcat(path, sysname, sizeof(path_full) - sys_path_len);
+		if (stat(path_full, &statbuf) == 0)
+			goto found;
+
+		util_strlcpy(path, "/class/", sizeof(path_full) - sys_path_len);
+		util_strlcat(path, sysname, sizeof(path_full) - sys_path_len);
+		if (stat(path_full, &statbuf) == 0)
+			goto found;
+		goto out;
+	}
+
+	if (strcmp(subsystem, "module") == 0) {
+		util_strlcpy(path, "/module/", sizeof(path_full) - sys_path_len);
+		util_strlcat(path, sysname, sizeof(path_full) - sys_path_len);
+		if (stat(path_full, &statbuf) == 0)
+			goto found;
+		goto out;
+	}
+
+	if (strcmp(subsystem, "drivers") == 0) {
+		char subsys[UTIL_NAME_SIZE];
+		char *driver;
+
+		util_strlcpy(subsys, sysname, sizeof(subsys));
+		driver = strchr(subsys, ':');
+		if (driver != NULL) {
+			driver[0] = '\0';
+			driver = &driver[1];
+			util_strlcpy(path, "/subsystem/", sizeof(path_full) - sys_path_len);
+			util_strlcat(path, subsys, sizeof(path_full) - sys_path_len);
+			util_strlcat(path, "/drivers/", sizeof(path_full) - sys_path_len);
+			util_strlcat(path, driver, sizeof(path_full) - sys_path_len);
+			if (stat(path_full, &statbuf) == 0)
+				goto found;
+
+			util_strlcpy(path, "/bus/", sizeof(path_full) - sys_path_len);
+			util_strlcat(path, subsys, sizeof(path_full) - sys_path_len);
+			util_strlcat(path, "/drivers/", sizeof(path_full) - sys_path_len);
+			util_strlcat(path, driver, sizeof(path_full) - sys_path_len);
+			if (stat(path_full, &statbuf) == 0)
+				goto found;
+		}
+		goto out;
+	}
+
+	util_strlcpy(path, "/subsystem/", sizeof(path_full) - sys_path_len);
+	util_strlcat(path, subsystem, sizeof(path_full) - sys_path_len);
+	util_strlcat(path, "/devices/", sizeof(path_full) - sys_path_len);
+	util_strlcat(path, sysname, sizeof(path_full) - sys_path_len);
+	if (stat(path_full, &statbuf) == 0)
+		goto found;
+
+	util_strlcpy(path, "/bus/", sizeof(path_full) - sys_path_len);
+	util_strlcat(path, subsystem, sizeof(path_full) - sys_path_len);
+	util_strlcat(path, "/devices/", sizeof(path_full) - sys_path_len);
+	util_strlcat(path, sysname, sizeof(path_full) - sys_path_len);
+	if (stat(path_full, &statbuf) == 0)
+		goto found;
+
+	util_strlcpy(path, "/class/", sizeof(path_full) - sys_path_len);
+	util_strlcat(path, subsystem, sizeof(path_full) - sys_path_len);
+	util_strlcat(path, "/", sizeof(path_full) - sys_path_len);
+	util_strlcat(path, sysname, sizeof(path_full) - sys_path_len);
+	if (stat(path_full, &statbuf) == 0)
+		goto found;
+out:
+	return NULL;
+found:
+	return udev_device_new_from_syspath(udev, path_full);
+}
+
 static struct udev_device *device_new_from_parent(struct udev_device *udev_device)
 {
 	struct udev_device *udev_device_parent = NULL;

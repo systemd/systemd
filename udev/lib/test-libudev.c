@@ -154,6 +154,40 @@ static int test_device_devnum(struct udev *udev)
 	return 0;
 }
 
+static int test_device_subsys_name(struct udev *udev)
+{
+	struct udev_device *device;
+
+	printf("looking up device: 'block':'sda'\n");
+	device = udev_device_new_from_subsystem_sysname(udev, "block", "sda");
+	if (device == NULL)
+		return -1;
+	print_device(device);
+	udev_device_unref(device);
+
+	printf("looking up device: 'subsystem':'pci'\n");
+	device = udev_device_new_from_subsystem_sysname(udev, "subsystem", "pci");
+	if (device == NULL)
+		return -1;
+	print_device(device);
+	udev_device_unref(device);
+
+	printf("looking up device: 'drivers':'scsi:sd'\n");
+	device = udev_device_new_from_subsystem_sysname(udev, "drivers", "scsi:sd");
+	if (device == NULL)
+		return -1;
+	print_device(device);
+	udev_device_unref(device);
+
+	printf("looking up device: 'module':'printk'\n");
+	device = udev_device_new_from_subsystem_sysname(udev, "module", "printk");
+	if (device == NULL)
+		return -1;
+	print_device(device);
+	udev_device_unref(device);
+	return 0;
+}
+
 static int test_enumerate_print_list(struct udev_enumerate *enumerate)
 {
 	struct udev_list_entry *list_entry;
@@ -269,7 +303,59 @@ static int test_queue(struct udev *udev)
 	return 0;
 }
 
-int main(int argc, char *argv[], char *envp[])
+static int test_enumerate(struct udev *udev, const char *subsystem)
+{
+	struct udev_enumerate *udev_enumerate;
+
+	printf("enumerate '%s'\n", subsystem == NULL ? "<all>" : subsystem);
+	udev_enumerate = udev_enumerate_new(udev);
+	if (udev_enumerate == NULL)
+		return -1;
+	udev_enumerate_add_match_subsystem(udev_enumerate, subsystem);
+	udev_enumerate_scan_devices(udev_enumerate);
+	test_enumerate_print_list(udev_enumerate);
+	udev_enumerate_unref(udev_enumerate);
+
+	printf("enumerate 'block'\n");
+	udev_enumerate = udev_enumerate_new(udev);
+	if (udev_enumerate == NULL)
+		return -1;
+	udev_enumerate_add_match_subsystem(udev_enumerate,"block");
+	udev_enumerate_scan_devices(udev_enumerate);
+	test_enumerate_print_list(udev_enumerate);
+	udev_enumerate_unref(udev_enumerate);
+
+	printf("enumerate 'not block'\n");
+	udev_enumerate = udev_enumerate_new(udev);
+	if (udev_enumerate == NULL)
+		return -1;
+	udev_enumerate_add_nomatch_subsystem(udev_enumerate, "block");
+	udev_enumerate_scan_devices(udev_enumerate);
+	test_enumerate_print_list(udev_enumerate);
+	udev_enumerate_unref(udev_enumerate);
+
+	printf("enumerate 'pci, mem, vc'\n");
+	udev_enumerate = udev_enumerate_new(udev);
+	if (udev_enumerate == NULL)
+		return -1;
+	udev_enumerate_add_match_subsystem(udev_enumerate, "pci");
+	udev_enumerate_add_match_subsystem(udev_enumerate, "mem");
+	udev_enumerate_add_match_subsystem(udev_enumerate, "vc");
+	udev_enumerate_scan_devices(udev_enumerate);
+	test_enumerate_print_list(udev_enumerate);
+	udev_enumerate_unref(udev_enumerate);
+
+	printf("enumerate 'subsystem'\n");
+	udev_enumerate = udev_enumerate_new(udev);
+	if (udev_enumerate == NULL)
+		return -1;
+	udev_enumerate_scan_subsystems(udev_enumerate);
+	test_enumerate_print_list(udev_enumerate);
+	udev_enumerate_unref(udev_enumerate);
+	return 0;
+}
+
+int main(int argc, char *argv[])
 {
 	struct udev *udev = NULL;
 	static const struct option options[] = {
@@ -281,7 +367,6 @@ int main(int argc, char *argv[], char *envp[])
 		{ "version", no_argument, NULL, 'V' },
 		{}
 	};
-	struct udev_enumerate *udev_enumerate;
 	const char *syspath = "/devices/virtual/mem/null";
 	const char *subsystem = NULL;
 	const char *socket = "@/org/kernel/udev/monitor";
@@ -342,53 +427,10 @@ int main(int argc, char *argv[], char *envp[])
 
 	test_device(udev, syspath);
 	test_device_devnum(udev);
+	test_device_subsys_name(udev);
 	test_device_parents(udev, syspath);
 
-	printf("enumerate '%s'\n", subsystem == NULL ? "<all>" : subsystem);
-	udev_enumerate = udev_enumerate_new(udev);
-	if (udev_enumerate == NULL)
-		return -1;
-	udev_enumerate_add_match_subsystem(udev_enumerate, subsystem);
-	udev_enumerate_scan_devices(udev_enumerate);
-	test_enumerate_print_list(udev_enumerate);
-	udev_enumerate_unref(udev_enumerate);
-
-	printf("enumerate 'block'\n");
-	udev_enumerate = udev_enumerate_new(udev);
-	if (udev_enumerate == NULL)
-		return -1;
-	udev_enumerate_add_match_subsystem(udev_enumerate,"block");
-	udev_enumerate_scan_devices(udev_enumerate);
-	test_enumerate_print_list(udev_enumerate);
-	udev_enumerate_unref(udev_enumerate);
-
-	printf("enumerate 'not block'\n");
-	udev_enumerate = udev_enumerate_new(udev);
-	if (udev_enumerate == NULL)
-		return -1;
-	udev_enumerate_add_nomatch_subsystem(udev_enumerate, "block");
-	udev_enumerate_scan_devices(udev_enumerate);
-	test_enumerate_print_list(udev_enumerate);
-	udev_enumerate_unref(udev_enumerate);
-
-	printf("enumerate 'pci, mem, vc'\n");
-	udev_enumerate = udev_enumerate_new(udev);
-	if (udev_enumerate == NULL)
-		return -1;
-	udev_enumerate_add_match_subsystem(udev_enumerate, "pci");
-	udev_enumerate_add_match_subsystem(udev_enumerate, "mem");
-	udev_enumerate_add_match_subsystem(udev_enumerate, "vc");
-	udev_enumerate_scan_devices(udev_enumerate);
-	test_enumerate_print_list(udev_enumerate);
-	udev_enumerate_unref(udev_enumerate);
-
-	printf("enumerate 'subsystem'\n");
-	udev_enumerate = udev_enumerate_new(udev);
-	if (udev_enumerate == NULL)
-		return -1;
-	udev_enumerate_scan_subsystems(udev_enumerate);
-	test_enumerate_print_list(udev_enumerate);
-	udev_enumerate_unref(udev_enumerate);
+	test_enumerate(udev, subsystem);
 
 	test_queue(udev);
 
