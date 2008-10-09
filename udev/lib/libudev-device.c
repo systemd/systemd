@@ -39,8 +39,8 @@ struct udev_device {
 	const char *sysname;
 	char *devnode;
 	char *subsystem;
-	struct list_node devlink_list;
-	struct list_node properties_list;
+	struct udev_list_node devlink_list;
+	struct udev_list_node properties_list;
 	char *action;
 	int event_timeout;
 	char *driver;
@@ -52,7 +52,7 @@ struct udev_device {
 	int num_fake_partitions;
 	int devlink_priority;
 	int ignore_remove;
-	struct list_node attr_list;
+	struct udev_list_node attr_list;
 	int info_loaded;
 };
 
@@ -113,7 +113,7 @@ static int device_read_db(struct udev_device *udev_device)
 			util_strlcpy(linkname, udev_get_dev_path(udev_device->udev), sizeof(linkname));
 			util_strlcat(linkname, "/", sizeof(linkname));
 			util_strlcat(linkname, lnk, sizeof(linkname));
-			device_add_devlink(udev_device, linkname);
+			udev_device_add_devlink(udev_device, linkname);
 		}
 		info(udev_device->udev, "device %p filled with db symlink data '%s'\n", udev_device, udev_device->devnode);
 		return 0;
@@ -142,22 +142,22 @@ static int device_read_db(struct udev_device *udev_device)
 			util_strlcpy(filename, udev_get_dev_path(udev_device->udev), sizeof(filename));
 			util_strlcat(filename, "/", sizeof(filename));
 			util_strlcat(filename, val, sizeof(filename));
-			device_add_devlink(udev_device, filename);
+			udev_device_add_devlink(udev_device, filename);
 			break;
 		case 'L':
-			device_set_devlink_priority(udev_device, atoi(val));
+			udev_device_set_devlink_priority(udev_device, atoi(val));
 			break;
 		case 'T':
-			device_set_event_timeout(udev_device, atoi(val));
+			udev_device_set_event_timeout(udev_device, atoi(val));
 			break;
 		case 'A':
-			device_set_num_fake_partitions(udev_device, atoi(val));
+			udev_device_set_num_fake_partitions(udev_device, atoi(val));
 			break;
 		case 'R':
-			device_set_ignore_remove(udev_device, atoi(val));
+			udev_device_set_ignore_remove(udev_device, atoi(val));
 			break;
 		case 'E':
-			device_add_property_from_string(udev_device, val);
+			udev_device_add_property_from_string(udev_device, val);
 			break;
 		}
 	}
@@ -194,7 +194,7 @@ static int device_read_uevent_file(struct udev_device *udev_device)
 		else if (strncmp(line, "MINOR=", 6) == 0)
 			min = strtoull(&line[6], NULL, 10);
 
-		device_add_property_from_string(udev_device, line);
+		udev_device_add_property_from_string(udev_device, line);
 	}
 
 	udev_device->devnum = makedev(maj, min);
@@ -210,7 +210,7 @@ static void device_load_info(struct udev_device *device)
 	device->info_loaded = 1;
 }
 
-void device_set_info_loaded(struct udev_device *device)
+void udev_device_set_info_loaded(struct udev_device *device)
 {
 	device->info_loaded = 1;
 }
@@ -228,9 +228,9 @@ struct udev_device *device_new(struct udev *udev)
 	memset(udev_device, 0x00, sizeof(struct udev_device));
 	udev_device->refcount = 1;
 	udev_device->udev = udev;
-	list_init(&udev_device->devlink_list);
-	list_init(&udev_device->properties_list);
-	list_init(&udev_device->attr_list);
+	udev_list_init(&udev_device->devlink_list);
+	udev_list_init(&udev_device->properties_list);
+	udev_list_init(&udev_device->attr_list);
 	info(udev_device->udev, "udev_device: %p created\n", udev_device);
 	return udev_device;
 }
@@ -324,7 +324,7 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 	if (udev_device == NULL)
 		return NULL;
 
-	device_set_syspath(udev_device, path);
+	udev_device_set_syspath(udev_device, path);
 	info(udev, "device %p has devpath '%s'\n", udev_device, udev_device_get_devpath(udev_device));
 
 	return udev_device;
@@ -581,13 +581,13 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->syspath);
 	free(udev_device->devnode);
 	free(udev_device->subsystem);
-	list_cleanup(udev_device->udev, &udev_device->devlink_list);
-	list_cleanup(udev_device->udev, &udev_device->properties_list);
+	udev_list_cleanup(udev_device->udev, &udev_device->devlink_list);
+	udev_list_cleanup(udev_device->udev, &udev_device->properties_list);
 	free(udev_device->action);
 	free(udev_device->driver);
 	free(udev_device->devpath_old);
 	free(udev_device->physdevpath);
-	list_cleanup(udev_device->udev, &udev_device->attr_list);
+	udev_list_cleanup(udev_device->udev, &udev_device->attr_list);
 	info(udev_device->udev, "udev_device: %p released\n", udev_device);
 	free(udev_device);
 }
@@ -710,7 +710,7 @@ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev_device *
 		return NULL;
 	if (!udev_device->info_loaded)
 		device_load_info(udev_device);
-	return list_get_entry(&udev_device->devlink_list);
+	return udev_list_get_entry(&udev_device->devlink_list);
 }
 
 /**
@@ -731,7 +731,7 @@ struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device
 		return NULL;
 	if (!udev_device->info_loaded)
 		device_load_info(udev_device);
-	return list_get_entry(&udev_device->properties_list);
+	return udev_list_get_entry(&udev_device->properties_list);
 }
 
 const char *udev_device_get_driver(struct udev_device *udev_device)
@@ -782,7 +782,7 @@ const char *udev_device_get_attr_value(struct udev_device *udev_device, const ch
 	const char *val = NULL;
 
 	/* look for possibly already cached result */
-	udev_list_entry_foreach(list_entry, list_get_entry(&udev_device->attr_list)) {
+	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_device->attr_list)) {
 		if (strcmp(udev_list_entry_get_name(list_entry), attr) == 0) {
 			info(udev_device->udev, "got '%s' (%s) from cache\n", attr, udev_list_entry_get_value(list_entry));
 			return udev_list_entry_get_value(list_entry);
@@ -811,7 +811,7 @@ const char *udev_device_get_attr_value(struct udev_device *udev_device, const ch
 			if (pos != NULL) {
 				pos = &pos[1];
 				info(udev_device->udev, "cache '%s' with link value '%s'\n", attr, pos);
-				list_entry = list_entry_add(udev_device->udev, &udev_device->attr_list, attr, pos, 0, 0);
+				list_entry = udev_list_entry_add(udev_device->udev, &udev_device->attr_list, attr, pos, 0, 0);
 				val = udev_list_entry_get_value(list_entry);
 			}
 		}
@@ -843,15 +843,16 @@ const char *udev_device_get_attr_value(struct udev_device *udev_device, const ch
 	value[size] = '\0';
 	util_remove_trailing_chars(value, '\n');
 	info(udev_device->udev, "'%s' has attribute value '%s'\n", path, value);
-	list_entry = list_entry_add(udev_device->udev, &udev_device->attr_list, attr, value, 0, 0);
+	list_entry = udev_list_entry_add(udev_device->udev, &udev_device->attr_list, attr, value, 0, 0);
 	val = udev_list_entry_get_value(list_entry);
 out:
 	return val;
 }
-int device_set_syspath(struct udev_device *udev_device, const char *syspath)
+int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath)
 {
 	const char *pos;
 
+	free(udev_device->syspath);
 	udev_device->syspath = strdup(syspath);
 	if (udev_device->syspath ==  NULL)
 		return -ENOMEM;
@@ -863,7 +864,7 @@ int device_set_syspath(struct udev_device *udev_device, const char *syspath)
 	return 0;
 }
 
-int device_set_subsystem(struct udev_device *udev_device, const char *subsystem)
+int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem)
 {
 	udev_device->subsystem = strdup(subsystem);
 	if (udev_device->subsystem == NULL)
@@ -871,7 +872,7 @@ int device_set_subsystem(struct udev_device *udev_device, const char *subsystem)
 	return 0;
 }
 
-int device_set_devnode(struct udev_device *udev_device, const char *devnode)
+int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode)
 {
 	udev_device->devnode = strdup(devnode);
 	if (udev_device->devnode == NULL)
@@ -879,21 +880,21 @@ int device_set_devnode(struct udev_device *udev_device, const char *devnode)
 	return 0;
 }
 
-int device_add_devlink(struct udev_device *udev_device, const char *devlink)
+int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink)
 {
-	if (list_entry_add(udev_device->udev, &udev_device->devlink_list, devlink, NULL, 1, 0) == NULL)
+	if (udev_list_entry_add(udev_device->udev, &udev_device->devlink_list, devlink, NULL, 1, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }
 
-int device_add_property(struct udev_device *udev_device, const char *key, const char *value)
+int udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
 {
-	if (list_entry_add(udev_device->udev, &udev_device->properties_list, key, value, 1, 0) == NULL)
+	if (udev_list_entry_add(udev_device->udev, &udev_device->properties_list, key, value, 1, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }
 
-int device_add_property_from_string(struct udev_device *udev_device, const char *property)
+int udev_device_add_property_from_string(struct udev_device *udev_device, const char *property)
 {
 	char name[UTIL_PATH_SIZE];
 	char *val;
@@ -906,11 +907,11 @@ int device_add_property_from_string(struct udev_device *udev_device, const char 
 	val = &val[1];
 	if (val[0] == '\0')
 		val = NULL;
-	device_add_property(udev_device, name, val);
+	udev_device_add_property(udev_device, name, val);
 	return 0;
 }
 
-int device_set_action(struct udev_device *udev_device, const char *action)
+int udev_device_set_action(struct udev_device *udev_device, const char *action)
 {
 	udev_device->action = strdup(action);
 	if (udev_device->action == NULL)
@@ -918,7 +919,7 @@ int device_set_action(struct udev_device *udev_device, const char *action)
 	return 0;
 }
 
-int device_set_driver(struct udev_device *udev_device, const char *driver)
+int udev_device_set_driver(struct udev_device *udev_device, const char *driver)
 {
 	udev_device->driver = strdup(driver);
 	if (udev_device->driver == NULL)
@@ -926,12 +927,12 @@ int device_set_driver(struct udev_device *udev_device, const char *driver)
 	return 0;
 }
 
-const char *device_get_devpath_old(struct udev_device *udev_device)
+const char *udev_device_get_devpath_old(struct udev_device *udev_device)
 {
 	return udev_device->devpath_old;
 }
 
-int device_set_devpath_old(struct udev_device *udev_device, const char *devpath_old)
+int udev_device_set_devpath_old(struct udev_device *udev_device, const char *devpath_old)
 {
 	udev_device->devpath_old = strdup(devpath_old);
 	if (udev_device->devpath_old == NULL)
@@ -939,12 +940,12 @@ int device_set_devpath_old(struct udev_device *udev_device, const char *devpath_
 	return 0;
 }
 
-const char *device_get_physdevpath(struct udev_device *udev_device)
+const char *udev_device_get_physdevpath(struct udev_device *udev_device)
 {
 	return udev_device->physdevpath;
 }
 
-int device_set_physdevpath(struct udev_device *udev_device, const char *physdevpath)
+int udev_device_set_physdevpath(struct udev_device *udev_device, const char *physdevpath)
 {
 	udev_device->physdevpath = strdup(physdevpath);
 	if (udev_device->physdevpath == NULL)
@@ -952,75 +953,75 @@ int device_set_physdevpath(struct udev_device *udev_device, const char *physdevp
 	return 0;
 }
 
-int device_get_timeout(struct udev_device *udev_device)
+int udev_device_get_timeout(struct udev_device *udev_device)
 {
 	return udev_device->timeout;
 }
 
-int device_set_timeout(struct udev_device *udev_device, int timeout)
+int udev_device_set_timeout(struct udev_device *udev_device, int timeout)
 {
 	udev_device->timeout = timeout;
 	return 0;
 }
-int device_get_event_timeout(struct udev_device *udev_device)
+int udev_device_get_event_timeout(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
 		device_load_info(udev_device);
 	return udev_device->event_timeout;
 }
 
-int device_set_event_timeout(struct udev_device *udev_device, int event_timeout)
+int udev_device_set_event_timeout(struct udev_device *udev_device, int event_timeout)
 {
 	udev_device->event_timeout = event_timeout;
 	return 0;
 }
 
-int device_set_seqnum(struct udev_device *udev_device, unsigned long long int seqnum)
+int udev_device_set_seqnum(struct udev_device *udev_device, unsigned long long int seqnum)
 {
 	udev_device->seqnum = seqnum;
 	return 0;
 }
 
-int device_set_devnum(struct udev_device *udev_device, dev_t devnum)
+int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum)
 {
 	udev_device->devnum = devnum;
 	return 0;
 }
 
-int device_get_num_fake_partitions(struct udev_device *udev_device)
+int udev_device_get_num_fake_partitions(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
 		device_load_info(udev_device);
 	return udev_device->num_fake_partitions;
 }
 
-int device_set_num_fake_partitions(struct udev_device *udev_device, int num)
+int udev_device_set_num_fake_partitions(struct udev_device *udev_device, int num)
 {
 	udev_device->num_fake_partitions = num;
 	return 0;
 }
 
-int device_get_devlink_priority(struct udev_device *udev_device)
+int udev_device_get_devlink_priority(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
 		device_load_info(udev_device);
 	return udev_device->devlink_priority;
 }
 
-int device_set_devlink_priority(struct udev_device *udev_device, int prio)
+int udev_device_set_devlink_priority(struct udev_device *udev_device, int prio)
 {
 	 udev_device->devlink_priority = prio;
 	return 0;
 }
 
-int device_get_ignore_remove(struct udev_device *udev_device)
+int udev_device_get_ignore_remove(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
 		device_load_info(udev_device);
 	return udev_device->ignore_remove;
 }
 
-int device_set_ignore_remove(struct udev_device *udev_device, int ignore)
+int udev_device_set_ignore_remove(struct udev_device *udev_device, int ignore)
 {
 	udev_device->ignore_remove = ignore;
 	return 0;

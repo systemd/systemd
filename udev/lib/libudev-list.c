@@ -29,27 +29,27 @@
 
 struct udev_list_entry {
 	struct udev *udev;
-	struct list_node node;
-	struct list_node *list;
+	struct udev_list_node node;
+	struct udev_list_node *list;
 	char *name;
 	char *value;
 };
 
 /* list head point to itself if empty */
-void list_init(struct list_node *list)
+void udev_list_init(struct udev_list_node *list)
 {
 	list->next = list;
 	list->prev = list;
 }
 
-static int list_is_empty(struct list_node *list)
+static int list_is_empty(struct udev_list_node *list)
 {
 	return list->next == list;
 }
 
-static void list_node_insert_between(struct list_node *new,
-				     struct list_node *prev,
-				     struct list_node *next)
+static void list_node_insert_between(struct udev_list_node *new,
+				     struct udev_list_node *prev,
+				     struct udev_list_node *next)
 {
 	next->prev = new;
 	new->next = next;
@@ -57,10 +57,10 @@ static void list_node_insert_between(struct list_node *new,
 	prev->next = new;
 }
 
-static void list_node_remove(struct list_node *entry)
+static void list_node_remove(struct udev_list_node *entry)
 {
-	struct list_node *prev = entry->prev;
-	struct list_node *next = entry->next;
+	struct udev_list_node *prev = entry->prev;
+	struct udev_list_node *next = entry->next;
 
 	next->prev = prev;
 	prev->next = next;
@@ -70,7 +70,7 @@ static void list_node_remove(struct list_node *entry)
 }
 
 /* return list entry which embeds this node */
-static struct udev_list_entry *list_node_to_entry(struct list_node *node)
+static struct udev_list_entry *list_node_to_entry(struct udev_list_node *node)
 {
 	char *list;
 
@@ -80,7 +80,7 @@ static struct udev_list_entry *list_node_to_entry(struct list_node *node)
 }
 
 /* insert entry into a list as the last element  */
-static void list_entry_append(struct udev_list_entry *new, struct list_node *list)
+static void list_entry_append(struct udev_list_entry *new, struct udev_list_node *list)
 {
 	/* inserting before the list head make the node the last node in the list */
 	list_node_insert_between(&new->node, list->prev, list);
@@ -94,21 +94,21 @@ static void list_entry_insert_before(struct udev_list_entry *new, struct udev_li
 	new->list = entry->list;
 }
 
-void list_entry_remove(struct udev_list_entry *entry)
+void udev_list_entry_remove(struct udev_list_entry *entry)
 {
 	list_node_remove(&entry->node);
 	entry->list = NULL;
 }
 
-struct udev_list_entry *list_entry_add(struct udev *udev, struct list_node *list,
-				       const char *name, const char *value,
-				       int unique, int sort)
+struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_node *list,
+					    const char *name, const char *value,
+					    int unique, int sort)
 {
 	struct udev_list_entry *entry_loop = NULL;
 	struct udev_list_entry *entry_new;
 
 	if (unique)
-		udev_list_entry_foreach(entry_loop, list_get_entry(list)) {
+		udev_list_entry_foreach(entry_loop, udev_list_get_entry(list)) {
 			if (strcmp(entry_loop->name, name) == 0) {
 				info(udev, "'%s' is already in the list\n", name);
 				if (value != NULL) {
@@ -123,7 +123,7 @@ struct udev_list_entry *list_entry_add(struct udev *udev, struct list_node *list
 		}
 
 	if (sort)
-		udev_list_entry_foreach(entry_loop, list_get_entry(list)) {
+		udev_list_entry_foreach(entry_loop, udev_list_get_entry(list)) {
 			if (strcmp(entry_loop->name, name) > 0)
 				break;
 		}
@@ -153,26 +153,26 @@ struct udev_list_entry *list_entry_add(struct udev *udev, struct list_node *list
 	return entry_new;
 }
 
-void list_entry_move_to_end(struct udev_list_entry *list_entry)
+void udev_list_entry_move_to_end(struct udev_list_entry *list_entry)
 {
 	list_node_remove(&list_entry->node);
 	list_node_insert_between(&list_entry->node, list_entry->list->prev, list_entry->list);
 }
 
-void list_cleanup(struct udev *udev, struct list_node *list)
+void udev_list_cleanup(struct udev *udev, struct udev_list_node *list)
 {
 	struct udev_list_entry *entry_loop;
 	struct udev_list_entry *entry_tmp;
 
-	list_entry_foreach_safe(entry_loop, entry_tmp, list_get_entry(list)) {
-		list_entry_remove(entry_loop);
+	list_entry_foreach_safe(entry_loop, entry_tmp, udev_list_get_entry(list)) {
+		udev_list_entry_remove(entry_loop);
 		free(entry_loop->name);
 		free(entry_loop->value);
 		free(entry_loop);
 	}
 }
 
-struct udev_list_entry *list_get_entry(struct list_node *list)
+struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list)
 {
 	if (list_is_empty(list))
 		return NULL;
@@ -181,7 +181,7 @@ struct udev_list_entry *list_get_entry(struct list_node *list)
 
 struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry *list_entry)
 {
-	struct list_node *next;
+	struct udev_list_node *next;
 
 	if (list_entry == NULL)
 		return NULL;

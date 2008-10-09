@@ -35,11 +35,11 @@ static int devices_sort(struct udev_enumerate *udev_enumerate);
 struct udev_enumerate {
 	struct udev *udev;
 	int refcount;
-	struct list_node attr_match_list;
-	struct list_node attr_nomatch_list;
-	struct list_node subsystem_match_list;
-	struct list_node subsystem_nomatch_list;
-	struct list_node devices_list;
+	struct udev_list_node attr_match_list;
+	struct udev_list_node attr_nomatch_list;
+	struct udev_list_node subsystem_match_list;
+	struct udev_list_node subsystem_nomatch_list;
+	struct udev_list_node devices_list;
 	int devices_sorted;
 };
 
@@ -59,11 +59,11 @@ struct udev_enumerate *udev_enumerate_new(struct udev *udev)
 	memset(udev_enumerate, 0x00, (sizeof(struct udev_enumerate)));
 	udev_enumerate->refcount = 1;
 	udev_enumerate->udev = udev;
-	list_init(&udev_enumerate->devices_list);
-	list_init(&udev_enumerate->attr_match_list);
-	list_init(&udev_enumerate->attr_nomatch_list);
-	list_init(&udev_enumerate->subsystem_match_list);
-	list_init(&udev_enumerate->subsystem_nomatch_list);
+	udev_list_init(&udev_enumerate->devices_list);
+	udev_list_init(&udev_enumerate->attr_match_list);
+	udev_list_init(&udev_enumerate->attr_nomatch_list);
+	udev_list_init(&udev_enumerate->subsystem_match_list);
+	udev_list_init(&udev_enumerate->subsystem_nomatch_list);
 	return udev_enumerate;
 }
 
@@ -82,11 +82,11 @@ void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 	udev_enumerate->refcount--;
 	if (udev_enumerate->refcount > 0)
 		return;
-	list_cleanup(udev_enumerate->udev, &udev_enumerate->devices_list);
-	list_cleanup(udev_enumerate->udev, &udev_enumerate->attr_match_list);
-	list_cleanup(udev_enumerate->udev, &udev_enumerate->attr_nomatch_list);
-	list_cleanup(udev_enumerate->udev, &udev_enumerate->subsystem_match_list);
-	list_cleanup(udev_enumerate->udev, &udev_enumerate->subsystem_nomatch_list);
+	udev_list_cleanup(udev_enumerate->udev, &udev_enumerate->devices_list);
+	udev_list_cleanup(udev_enumerate->udev, &udev_enumerate->attr_match_list);
+	udev_list_cleanup(udev_enumerate->udev, &udev_enumerate->attr_nomatch_list);
+	udev_list_cleanup(udev_enumerate->udev, &udev_enumerate->subsystem_match_list);
+	udev_list_cleanup(udev_enumerate->udev, &udev_enumerate->subsystem_nomatch_list);
 	free(udev_enumerate);
 }
 
@@ -103,7 +103,7 @@ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *ude
 		return NULL;
 	if (!udev_enumerate->devices_sorted)
 		devices_sort(udev_enumerate);
-	return list_get_entry(&udev_enumerate->devices_list);
+	return udev_list_get_entry(&udev_enumerate->devices_list);
 }
 
 int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem)
@@ -112,8 +112,8 @@ int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumerate, co
 		return -EINVAL;
 	if (subsystem == NULL)
 		return 0;
-	if (list_entry_add(udev_enumerate_get_udev(udev_enumerate),
-			   &udev_enumerate->subsystem_match_list, subsystem, NULL, 1, 0) == NULL)
+	if (udev_list_entry_add(udev_enumerate_get_udev(udev_enumerate),
+				&udev_enumerate->subsystem_match_list, subsystem, NULL, 1, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -124,8 +124,8 @@ int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate, 
 		return -EINVAL;
 	if (subsystem == NULL)
 		return 0;
-	if (list_entry_add(udev_enumerate_get_udev(udev_enumerate),
-			   &udev_enumerate->subsystem_nomatch_list, subsystem, NULL, 1, 0) == NULL)
+	if (udev_list_entry_add(udev_enumerate_get_udev(udev_enumerate),
+				&udev_enumerate->subsystem_nomatch_list, subsystem, NULL, 1, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -136,7 +136,7 @@ int udev_enumerate_add_match_attr(struct udev_enumerate *udev_enumerate, const c
 		return -EINVAL;
 	if (attr == NULL)
 		return 0;
-	if (list_entry_add(udev_enumerate_get_udev(udev_enumerate),
+	if (udev_list_entry_add(udev_enumerate_get_udev(udev_enumerate),
 			   &udev_enumerate->attr_match_list, attr, value, 1, 0) == NULL)
 		return -ENOMEM;
 	return 0;
@@ -148,7 +148,7 @@ int udev_enumerate_add_nomatch_attr(struct udev_enumerate *udev_enumerate, const
 		return -EINVAL;
 	if (attr == NULL)
 		return 0;
-	if (list_entry_add(udev_enumerate_get_udev(udev_enumerate),
+	if (udev_list_entry_add(udev_enumerate_get_udev(udev_enumerate),
 			   &udev_enumerate->attr_nomatch_list, attr, value, 1, 0) == NULL)
 		return -ENOMEM;
 	return 0;
@@ -185,15 +185,15 @@ static int match_attr(struct udev_enumerate *udev_enumerate, const char *syspath
 	struct udev_list_entry *list_entry;
 
 	/* skip list */
-	udev_list_entry_foreach(list_entry, list_get_entry(&udev_enumerate->attr_nomatch_list)) {
+	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->attr_nomatch_list)) {
 		if (match_attr_value(udev, syspath,
 				     udev_list_entry_get_name(list_entry),
 				     udev_list_entry_get_value(list_entry)))
 			return 0;
 	}
 	/* include list */
-	if (list_get_entry(&udev_enumerate->attr_match_list) != NULL) {
-		udev_list_entry_foreach(list_entry, list_get_entry(&udev_enumerate->attr_match_list)) {
+	if (udev_list_get_entry(&udev_enumerate->attr_match_list) != NULL) {
+		udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->attr_match_list)) {
 			/* anything that does not match, will make it FALSE */
 			if (!match_attr_value(udev, syspath,
 					      udev_list_entry_get_name(list_entry),
@@ -249,7 +249,7 @@ static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate,
 			continue;
 		if (!match_attr(udev_enumerate, syspath))
 			continue;
-		list_entry_add(udev, &udev_enumerate->devices_list, syspath, NULL, 1, 1);
+		udev_list_entry_add(udev, &udev_enumerate->devices_list, syspath, NULL, 1, 1);
 	}
 	closedir(dir);
 	return 0;
@@ -259,12 +259,12 @@ static int match_subsystem(struct udev_enumerate *udev_enumerate, const char *su
 {
 	struct udev_list_entry *list_entry;
 
-	udev_list_entry_foreach(list_entry, list_get_entry(&udev_enumerate->subsystem_nomatch_list)) {
+	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->subsystem_nomatch_list)) {
 		if (fnmatch(udev_list_entry_get_name(list_entry), subsystem, 0) == 0)
 			return 0;
 	}
-	if (list_get_entry(&udev_enumerate->subsystem_match_list) != NULL) {
-		udev_list_entry_foreach(list_entry, list_get_entry(&udev_enumerate->subsystem_match_list)) {
+	if (udev_list_get_entry(&udev_enumerate->subsystem_match_list) != NULL) {
+		udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->subsystem_match_list)) {
 			if (fnmatch(udev_list_entry_get_name(list_entry), subsystem, 0) == 0)
 				return 1;
 		}
@@ -323,9 +323,9 @@ static int devices_sort(struct udev_enumerate *udev_enumerate)
 {
 	struct udev_list_entry *list_entry;
 
-	udev_list_entry_foreach(list_entry, list_get_entry(&udev_enumerate->devices_list)) {
+	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->devices_list)) {
 		if (devices_delay(udev_enumerate->udev, udev_list_entry_get_name(list_entry)))
-			list_entry_move_to_end(list_entry);
+			udev_list_entry_move_to_end(list_entry);
 	}
 	udev_enumerate->devices_sorted = 1;
 	return 0;
@@ -344,8 +344,8 @@ int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char
 	udev_device = udev_device_new_from_syspath(udev_enumerate->udev, syspath);
 	if (udev_device == NULL)
 		return -EINVAL;
-	list_entry_add(udev, &udev_enumerate->devices_list,
-		       udev_device_get_syspath(udev_device), NULL, 1, 1);
+	udev_list_entry_add(udev, &udev_enumerate->devices_list,
+			    udev_device_get_syspath(udev_device), NULL, 1, 1);
 	udev_device_unref(udev_device);
 	return 0;
 }
@@ -391,9 +391,9 @@ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
 		}
 	}
 	/* sort delayed devices to the end of the list */
-	udev_list_entry_foreach(list_entry, list_get_entry(&udev_enumerate->devices_list)) {
+	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->devices_list)) {
 		if (devices_delay(udev, udev_list_entry_get_name(list_entry)))
-			list_entry_move_to_end(list_entry);
+			udev_list_entry_move_to_end(list_entry);
 	}
 	return 0;
 }
