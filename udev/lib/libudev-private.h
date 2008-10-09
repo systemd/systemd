@@ -76,6 +76,9 @@ extern int udev_device_get_ignore_remove(struct udev_device *udev_device);
 extern int udev_device_set_ignore_remove(struct udev_device *udev_device, int ignore);
 extern void udev_device_set_info_loaded(struct udev_device *device);
 
+/* libudev-monitor - netlink/unix socket communication  */
+extern int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_device *udev_device);
+
 /* libudev-ctrl - daemon runtime setup */
 struct udev_ctrl;
 extern struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path);

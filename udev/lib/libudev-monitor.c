@@ -61,6 +61,7 @@ struct udev_monitor {
 struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path)
 {
 	struct udev_monitor *udev_monitor;
+	struct stat statbuf;
 
 	if (udev == NULL)
 		return NULL;
@@ -74,13 +75,20 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 	udev_monitor->udev = udev;
 
 	udev_monitor->sun.sun_family = AF_LOCAL;
-	strcpy(udev_monitor->sun.sun_path, socket_path);
-	udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(udev_monitor->sun.sun_path);
-
-	/* translate leading '@' to abstract namespace */
-	if (udev_monitor->sun.sun_path[0] == '@')
+	if (udev_monitor->sun.sun_path[0] == '@') {
+		/* translate leading '@' to abstract namespace */
+		util_strlcpy(udev_monitor->sun.sun_path, socket_path, sizeof(udev_monitor->sun.sun_path));
 		udev_monitor->sun.sun_path[0] = '\0';
-
+		udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(socket_path);
+	} else if (stat(udev_monitor->sun.sun_path, &statbuf) == 0 && S_ISSOCK(statbuf.st_mode)) {
+		/* existing socket file */
+		util_strlcpy(udev_monitor->sun.sun_path, socket_path, sizeof(udev_monitor->sun.sun_path));
+		udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(socket_path);
+	} else {
+		/* no socket file, assume abstract namespace socket */
+		util_strlcpy(&udev_monitor->sun.sun_path[1], socket_path, sizeof(udev_monitor->sun.sun_path)-1);
+		udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(socket_path)+1;
+	}
 	udev_monitor->sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
 	if (udev_monitor->sock == -1) {
 		err(udev, "error getting socket: %m\n");
@@ -346,4 +354,30 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 
 	udev_device_set_info_loaded(udev_device);
 	return udev_device;
+}
+
+int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_device *udev_device)
+{
+	const char *action;
+	struct udev_list_entry *list_entry;
+	char buf[4096];
+	size_t bufpos;
+	ssize_t count;
+
+	action = udev_device_get_action(udev_device);
+	if (action == NULL)
+		return -EINVAL;
+	bufpos = snprintf(buf, sizeof(buf), "%s@%s", action, udev_device_get_devpath(udev_device));
+	bufpos++;
+	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
+		bufpos += util_strlcpy(&buf[bufpos],
+				       udev_list_entry_get_name(list_entry),
+				       sizeof(buf) - bufpos);
+		bufpos++;
+	}
+	count = sendto(udev_monitor->sock,
+		       &buf, bufpos, 0,
+		       (struct sockaddr *)&udev_monitor->sun, udev_monitor->addrlen);
+	info(udev_monitor->udev, "passed %zi bytes to monitor %p, \n", count, udev_monitor);
+	return count;
 }

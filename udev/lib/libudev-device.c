@@ -913,6 +913,7 @@ int udev_device_add_property_from_string(struct udev_device *udev_device, const 
 
 int udev_device_set_action(struct udev_device *udev_device, const char *action)
 {
+	udev_device_add_property(udev_device, "ACTION", action);
 	udev_device->action = strdup(action);
 	if (udev_device->action == NULL)
 		return -ENOMEM;
