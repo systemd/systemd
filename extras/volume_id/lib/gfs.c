@@ -76,8 +76,21 @@ struct gfs2_sb {
 
 	char sb_lockproto[GFS_LOCKNAME_LEN];
 	char sb_locktable[GFS_LOCKNAME_LEN];
-	/* In gfs1, quota and license dinodes followed */
+
+	struct gfs2_inum __pad3; /* Was quota inode in gfs1 */
+	struct gfs2_inum __pad4; /* Was licence inode in gfs1 */
+	uint8_t sb_uuid[16]; /* The UUID maybe 0 for backwards compat */
 } PACKED;
+
+static int uuid_non_zero(const uint8_t *p)
+{
+	int i;
+	for (i = 0; i < 16; i++) {
+		if (p[i] != 0)
+			return 1;
+	}
+	return 0;
+}
 
 static int volume_id_probe_gfs_generic(struct volume_id *id, uint64_t off, int vers)
 {
@@ -113,6 +126,8 @@ static int volume_id_probe_gfs_generic(struct volume_id *id, uint64_t off, int v
 			volume_id_set_label_raw(id, label, GFS_LOCKNAME_LEN);
 			volume_id_set_label_string(id, label, GFS_LOCKNAME_LEN);
 		}
+		if (vers == 2 && uuid_non_zero(sbd->sb_uuid))
+			volume_id_set_uuid(id, sbd->sb_uuid, 0, UUID_DCE);
 		strcpy(id->type_version, "1");
 		volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
 		return 0;
