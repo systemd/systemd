@@ -33,6 +33,7 @@ struct udev_list_entry {
 	struct udev_list_node *list;
 	char *name;
 	char *value;
+	int flag;
 };
 
 /* list head point to itself if empty */
@@ -214,4 +215,18 @@ const char *udev_list_entry_get_value(struct udev_list_entry *list_entry)
 	if (list_entry == NULL)
 		return NULL;
 	return list_entry->value;
+}
+
+extern int udev_list_entry_get_flag(struct udev_list_entry *list_entry)
+{
+	if (list_entry == NULL)
+		return -EINVAL;
+	return list_entry->flag;
+}
+
+extern void udev_list_entry_set_flag(struct udev_list_entry *list_entry, int flag)
+{
+	if (list_entry == NULL)
+		return;
+	list_entry->flag = flag;
 }
