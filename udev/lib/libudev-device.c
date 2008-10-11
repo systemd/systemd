@@ -56,14 +56,14 @@ struct udev_device {
 	int info_loaded;
 };
 
-static size_t syspath_to_db_path(struct udev_device *udev_device, char *filename, size_t len)
+static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *filename, size_t len)
 {
 	size_t start;
 
 	/* translate to location of db file */
-	util_strlcpy(filename, udev_get_dev_path(udev_device->udev), len);
+	util_strlcpy(filename, udev_get_dev_path(udev), len);
 	start = util_strlcat(filename, "/.udev/db/", len);
-	util_strlcat(filename, udev_device->devpath, len);
+	util_strlcat(filename, devpath, len);
 	return util_path_encode(&filename[start], len - start);
 }
 
@@ -74,7 +74,7 @@ static int device_read_db(struct udev_device *udev_device)
 	char line[UTIL_LINE_SIZE];
 	FILE *f;
 
-	syspath_to_db_path(udev_device, filename, sizeof(filename));
+	devpath_to_db_path(udev_device->udev, udev_device->devpath, filename, sizeof(filename));
 
 	if (lstat(filename, &stats) != 0) {
 		info(udev_device->udev, "no db file to read %s: %m\n", filename);
@@ -857,6 +857,7 @@ int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath
 	if (udev_device->syspath ==  NULL)
 		return -ENOMEM;
 	udev_device->devpath = &udev_device->syspath[strlen(udev_get_sys_path(udev_device->udev))];
+	udev_device_add_property(udev_device, "DEVPATH", udev_device->devpath);
 	pos = strrchr(udev_device->syspath, '/');
 	if (pos == NULL)
 		return -EINVAL;
@@ -868,7 +869,8 @@ int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsy
 {
 	udev_device->subsystem = strdup(subsystem);
 	if (udev_device->subsystem == NULL)
-		return -1;
+		return -ENOMEM;
+	udev_device_add_property(udev_device, "SUBSYSTEM", udev_device->subsystem);
 	return 0;
 }
 
@@ -877,13 +879,26 @@ int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode
 	udev_device->devnode = strdup(devnode);
 	if (udev_device->devnode == NULL)
 		return -ENOMEM;
+	udev_device_add_property(udev_device, "DEVNODE", udev_device->devnode);
 	return 0;
 }
 
 int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink)
 {
+	char symlinks[UTIL_PATH_SIZE];
+	struct udev_list_entry *list_entry;
+
 	if (udev_list_entry_add(udev_device->udev, &udev_device->devlink_list, devlink, NULL, 1, 0) == NULL)
 		return -ENOMEM;
+
+	list_entry =  udev_device_get_devlinks_list_entry(udev_device);
+	util_strlcpy(symlinks, udev_list_entry_get_name(list_entry), sizeof(symlinks));
+	udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry)) {
+		util_strlcat(symlinks, " ", sizeof(symlinks));
+		util_strlcat(symlinks, udev_list_entry_get_name(list_entry), sizeof(symlinks));
+	}
+	udev_device_add_property(udev_device, "DEVLINKS", symlinks);
+
 	return 0;
 }
 
@@ -1027,4 +1042,3 @@ int udev_device_set_ignore_remove(struct udev_device *udev_device, int ignore)
 	udev_device->ignore_remove = ignore;
 	return 0;
 }
-
