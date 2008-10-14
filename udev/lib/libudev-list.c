@@ -197,9 +197,12 @@ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list
 {
 	struct udev_list_entry *entry;
 
-	udev_list_entry_foreach(entry, list_entry)
-		if (strcmp(udev_list_entry_get_name(entry), name) == 0)
+	udev_list_entry_foreach(entry, list_entry) {
+		if (strcmp(udev_list_entry_get_name(entry), name) == 0) {
+			dbg(entry->udev, "found '%s=%s'\n", entry->name, entry->value);
 			return entry;
+		}
+	}
 	return NULL;
 }
 

@@ -54,8 +54,8 @@ extern int udev_device_set_syspath(struct udev_device *udev_device, const char *
 extern int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
 extern int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode);
 extern int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink);
-extern int udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value);
-extern int udev_device_add_property_from_string(struct udev_device *udev_device, const char *property);
+extern struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value);
+extern struct udev_list_entry *udev_device_add_property_from_string(struct udev_device *udev_device, const char *property);
 extern int udev_device_set_action(struct udev_device *udev_device, const char *action);
 extern int udev_device_set_driver(struct udev_device *udev_device, const char *driver);
 extern const char *udev_device_get_devpath_old(struct udev_device *udev_device);

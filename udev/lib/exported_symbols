@@ -24,6 +24,7 @@ udev_device_get_syspath
 udev_device_get_devpath
 udev_device_get_devnode
 udev_device_get_sysname
+udev_device_get_sysnum
 udev_device_get_subsystem
 udev_device_get_devlinks_list_entry
 udev_device_get_properties_list_entry
