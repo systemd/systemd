@@ -1195,6 +1195,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
 		exp_name	=> "true",
 		rules		=> <<EOF
+ENV{ENV_KEY_TEST}="test"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="go", NAME="wrong"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="test", NAME="true"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="bad", NAME="bad"
@@ -1206,6 +1207,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
 		exp_name	=> "true",
 		rules		=> <<EOF
+ENV{ENV_KEY_TEST}="test"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="go", NAME="wrong"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="yes", ENV{ACTION}=="add", ENV{DEVPATH}=="/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sdax1", NAME="no"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="test", ENV{ACTION}=="add", ENV{DEVPATH}=="/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1", NAME="true"
@@ -1620,7 +1622,6 @@ EOF
 );
 
 # set env
-$ENV{ENV_KEY_TEST} = "test";
 $ENV{SYSFS_PATH} = $sysfs;
 $ENV{UDEV_CONFIG_FILE} = $udev_conf;
 
@@ -1635,10 +1636,11 @@ sub udev {
 	close CONF;
 
 	$ENV{ACTION} = $action;
+	$ENV{SUBSYSTEM} = $subsys;
 	if ($valgrind > 0) {
-		system("$udev_bin_valgrind $subsys");
+		system("$udev_bin_valgrind");
 	} else {
-		system("$udev_bin $subsys");
+		system("$udev_bin");
 	}
 }
 
