@@ -42,6 +42,7 @@ struct udev_device {
 	char *devnode;
 	char *subsystem;
 	struct udev_list_node devlinks_list;
+	int devlinks_uptodate;
 	struct udev_list_node properties_list;
 	char *envp[128];
 	int envp_uptodate;
@@ -176,7 +177,7 @@ static int device_read_db(struct udev_device *udev_device)
 	return 0;
 }
 
-static int device_read_uevent_file(struct udev_device *udev_device)
+int udev_device_read_uevent_file(struct udev_device *udev_device)
 {
 	char filename[UTIL_PATH_SIZE];
 	FILE *f;
@@ -215,7 +216,7 @@ static int device_read_uevent_file(struct udev_device *udev_device)
 static void device_load_info(struct udev_device *device)
 {
 	device->info_loaded = 1;
-	device_read_uevent_file(device);
+	udev_device_read_uevent_file(device);
 	device_read_db(device);
 }
 
@@ -737,6 +738,7 @@ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev_device *
 
 void udev_device_cleanup_devlinks_list(struct udev_device *udev_device)
 {
+	udev_device->devlinks_uptodate = 0;
 	udev_list_cleanup(udev_device->udev, &udev_device->devlinks_list);
 }
 
@@ -758,6 +760,21 @@ struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device
 		return NULL;
 	if (!udev_device->info_loaded)
 		device_load_info(udev_device);
+	if (!udev_device->devlinks_uptodate) {
+		char symlinks[UTIL_PATH_SIZE];
+		struct udev_list_entry *list_entry;
+
+		udev_device->devlinks_uptodate = 1;
+		list_entry = udev_device_get_devlinks_list_entry(udev_device);
+		if (list_entry != NULL) {
+			util_strlcpy(symlinks, udev_list_entry_get_name(list_entry), sizeof(symlinks));
+			udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry)) {
+				util_strlcat(symlinks, " ", sizeof(symlinks));
+				util_strlcat(symlinks, udev_list_entry_get_name(list_entry), sizeof(symlinks));
+			}
+			udev_device_add_property(udev_device, "DEVLINKS", symlinks);
+		}
+	}
 	return udev_list_get_entry(&udev_device->properties_list);
 }
 
@@ -929,6 +946,8 @@ int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode
 {
 	free(udev_device->devnode);
 	udev_device->devnode = strdup(devnode);
+	if (devnode == NULL)
+		return 0;
 	if (udev_device->devnode == NULL)
 		return -ENOMEM;
 	udev_device_add_property(udev_device, "DEVNAME", udev_device->devnode);
@@ -937,18 +956,9 @@ int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode
 
 int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink)
 {
-	char symlinks[UTIL_PATH_SIZE];
-	struct udev_list_entry *list_entry;
-
+	udev_device->devlinks_uptodate = 0;
 	if (udev_list_entry_add(udev_device->udev, &udev_device->devlinks_list, devlink, NULL, 1, 0) == NULL)
 		return -ENOMEM;
-	list_entry =  udev_device_get_devlinks_list_entry(udev_device);
-	util_strlcpy(symlinks, udev_list_entry_get_name(list_entry), sizeof(symlinks));
-	udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry)) {
-		util_strlcat(symlinks, " ", sizeof(symlinks));
-		util_strlcat(symlinks, udev_list_entry_get_name(list_entry), sizeof(symlinks));
-	}
-	udev_device_add_property(udev_device, "DEVLINKS", symlinks);
 	return 0;
 }
 
