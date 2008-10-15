@@ -75,12 +75,12 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 	udev_monitor->udev = udev;
 
 	udev_monitor->sun.sun_family = AF_LOCAL;
-	if (udev_monitor->sun.sun_path[0] == '@') {
+	if (socket_path[0] == '@') {
 		/* translate leading '@' to abstract namespace */
 		util_strlcpy(udev_monitor->sun.sun_path, socket_path, sizeof(udev_monitor->sun.sun_path));
 		udev_monitor->sun.sun_path[0] = '\0';
 		udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(socket_path);
-	} else if (stat(udev_monitor->sun.sun_path, &statbuf) == 0 && S_ISSOCK(statbuf.st_mode)) {
+	} else if (stat(socket_path, &statbuf) == 0 && S_ISSOCK(statbuf.st_mode)) {
 		/* existing socket file */
 		util_strlcpy(udev_monitor->sun.sun_path, socket_path, sizeof(udev_monitor->sun.sun_path));
 		udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(socket_path);
@@ -244,6 +244,7 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
 	char buf[4096];
 	size_t bufpos;
+	int devpath_set = 0;
 	int maj = 0;
 	int min = 0;
 
@@ -313,6 +314,7 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 			util_strlcpy(path, udev_get_sys_path(udev_monitor->udev), sizeof(path));
 			util_strlcat(path, &key[8], sizeof(path));
 			udev_device_set_syspath(udev_device, path);
+			devpath_set = 1;
 		} else if (strncmp(key, "SUBSYSTEM=", 10) == 0) {
 			udev_device_set_subsystem(udev_device, &key[10]);
 		} else if (strncmp(key, "DEVNAME=", 8) == 0) {
@@ -350,6 +352,11 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 			continue;
 		udev_device_add_property_from_string(udev_device, key);
 	}
+	if (!devpath_set) {
+		udev_device_unref(udev_device);
+		return NULL;
+	}
+
 	udev_device_set_devnum(udev_device, makedev(maj, min));
 
 	udev_device_set_info_loaded(udev_device);
@@ -370,9 +377,9 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_devi
 	bufpos = snprintf(buf, sizeof(buf), "%s@%s", action, udev_device_get_devpath(udev_device));
 	bufpos++;
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
-		bufpos += util_strlcpy(&buf[bufpos],
-				       udev_list_entry_get_name(list_entry),
-				       sizeof(buf) - bufpos);
+		bufpos += snprintf(&buf[bufpos], sizeof(buf) - bufpos, "%s=%s",
+				   udev_list_entry_get_name(list_entry),
+				   udev_list_entry_get_value(list_entry));
 		bufpos++;
 	}
 	count = sendto(udev_monitor->sock,
