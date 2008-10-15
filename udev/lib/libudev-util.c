@@ -31,7 +31,7 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
-static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *syspath, char *subsystem, size_t size)
+static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *syspath, char *value, size_t size)
 {
 	char path[UTIL_PATH_SIZE];
 	ssize_t len;
@@ -49,7 +49,7 @@ static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *sy
 		return -1;
 	pos = &pos[1];
 	info(udev, "resolved link to: '%s'\n", pos);
-	return util_strlcpy(subsystem, pos, size);
+	return util_strlcpy(value, pos, size);
 }
 
 ssize_t util_get_sys_subsystem(struct udev *udev, const char *syspath, char *subsystem, size_t size)

@@ -41,12 +41,14 @@ struct udev_device {
 	const char *sysnum;
 	char *devnode;
 	char *subsystem;
+	int subsystem_set;
 	struct udev_list_node devlinks_list;
 	int devlinks_uptodate;
 	struct udev_list_node properties_list;
 	char *envp[128];
 	int envp_uptodate;
 	char *driver;
+	int driver_set;
 	dev_t devnum;
 	char *action;
 	int event_timeout;
@@ -687,31 +689,30 @@ const char *udev_device_get_subsystem(struct udev_device *udev_device)
 
 	if (udev_device == NULL)
 		return NULL;
-	if (udev_device->subsystem != NULL)
-		return udev_device->subsystem;
-
-	/* read "subsytem" link */
-	if (util_get_sys_subsystem(udev_device->udev, udev_device->syspath, subsystem, sizeof(subsystem)) > 0) {
-		udev_device->subsystem = strdup(subsystem);
-		return udev_device->subsystem;
+	if (!udev_device->subsystem_set) {
+		udev_device->subsystem_set = 1;
+		/* read "subsytem" link */
+		if (util_get_sys_subsystem(udev_device->udev, udev_device->syspath, subsystem, sizeof(subsystem)) > 0) {
+			udev_device_set_subsystem(udev_device, subsystem);
+			return udev_device->subsystem;
+		}
+		/* implicit names */
+		if (strncmp(udev_device->devpath, "/module/", 8) == 0) {
+			udev_device_set_subsystem(udev_device, "module");
+			return udev_device->subsystem;
+		}
+		if (strstr(udev_device->devpath, "/drivers/") != NULL) {
+			udev_device_set_subsystem(udev_device, "drivers");
+			return udev_device->subsystem;
+		}
+		if (strncmp(udev_device->devpath, "/subsystem/", 11) == 0 ||
+		    strncmp(udev_device->devpath, "/class/", 7) == 0 ||
+		    strncmp(udev_device->devpath, "/bus/", 5) == 0) {
+			udev_device_set_subsystem(udev_device, "subsystem");
+			return udev_device->subsystem;
+		}
 	}
-
-	/* implicit names */
-	if (strncmp(udev_device->devpath, "/module/", 8) == 0) {
-		udev_device->subsystem = strdup("module");
-		return udev_device->subsystem;
-	}
-	if (strstr(udev_device->devpath, "/drivers/") != NULL) {
-		udev_device->subsystem = strdup("drivers");
-		return udev_device->subsystem;
-	}
-	if (strncmp(udev_device->devpath, "/subsystem/", 11) == 0 ||
-	    strncmp(udev_device->devpath, "/class/", 7) == 0 ||
-	    strncmp(udev_device->devpath, "/bus/", 5) == 0) {
-		udev_device->subsystem = strdup("subsystem");
-		return udev_device->subsystem;
-	}
-	return NULL;
+	return udev_device->subsystem;
 }
 
 /**
@@ -784,11 +785,11 @@ const char *udev_device_get_driver(struct udev_device *udev_device)
 
 	if (udev_device == NULL)
 		return NULL;
-	if (udev_device->driver != NULL)
-		return udev_device->driver;
-	if (util_get_sys_driver(udev_device->udev, udev_device->syspath, driver, sizeof(driver)) < 2)
-		return NULL;
-	udev_device->driver = strdup(driver);
+	if (!udev_device->driver_set) {
+		udev_device->driver_set = 1;
+		if (util_get_sys_driver(udev_device->udev, udev_device->syspath, driver, sizeof(driver)) > 0)
+			udev_device->driver = strdup(driver);
+	}
 	return udev_device->driver;
 }
 
@@ -844,7 +845,8 @@ const char *udev_device_get_attr_value(struct udev_device *udev_device, const ch
 	util_strlcat(path, attr, sizeof(path));
 
 	if (lstat(path, &statbuf) != 0) {
-		info(udev_device->udev, "stat '%s' failed: %m\n", path);
+		info(udev_device->udev, "no attribute '%s', keep negative entry\n", path);
+		udev_list_entry_add(udev_device->udev, &udev_device->attr_list, attr, NULL, 0, 0);
 		goto out;
 	}
 
@@ -938,6 +940,7 @@ int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsy
 	udev_device->subsystem = strdup(subsystem);
 	if (udev_device->subsystem == NULL)
 		return -ENOMEM;
+	udev_device->subsystem_set = 1;
 	udev_device_add_property(udev_device, "SUBSYSTEM", udev_device->subsystem);
 	return 0;
 }
@@ -1023,6 +1026,7 @@ int udev_device_set_driver(struct udev_device *udev_device, const char *driver)
 	udev_device->driver = strdup(driver);
 	if (udev_device->driver == NULL)
 		return -ENOMEM;
+	udev_device->driver_set = 1;
 	return 0;
 }
 
