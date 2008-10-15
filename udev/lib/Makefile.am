@@ -23,18 +23,12 @@ libudev_la_SOURCES =\
 	libudev-util.c \
 	libudev-device.c \
 	libudev-enumerate.c \
-	libudev-ctrl.c \
 	libudev-monitor.c \
 	libudev-queue.c
 
 libudev_la_LDFLAGS = \
 	-version-info $(LIBUDEV_LT_CURRENT):$(LIBUDEV_LT_REVISION):$(LIBUDEV_LT_AGE) \
 	-export-symbols $(top_srcdir)/udev/lib/exported_symbols
-
-if USE_SELINUX
-libudev_la_LIBADD = \
-	-lselinux
-endif
 
 pkgconfigdir = $(prefix)/$(libdir_name)/pkgconfig
 pkgconfig_DATA = libudev.pc
