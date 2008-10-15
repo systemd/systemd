@@ -43,13 +43,15 @@ struct udev_device {
 	char *subsystem;
 	struct udev_list_node devlinks_list;
 	struct udev_list_node properties_list;
+	char *envp[128];
+	int envp_uptodate;
+	char *driver;
+	dev_t devnum;
 	char *action;
 	int event_timeout;
-	char *driver;
 	char *devpath_old;
 	char *physdevpath;
 	int timeout;
-	dev_t devnum;
 	unsigned long long int seqnum;
 	int num_fake_partitions;
 	int devlink_priority;
@@ -238,6 +240,7 @@ struct udev_device *device_new(struct udev *udev)
 	udev_list_init(&udev_device->devlinks_list);
 	udev_list_init(&udev_device->properties_list);
 	udev_list_init(&udev_device->attr_list);
+	udev_device->event_timeout = -1;
 	info(udev_device->udev, "udev_device: %p created\n", udev_device);
 	return udev_device;
 }
@@ -578,6 +581,8 @@ struct udev_device *udev_device_ref(struct udev_device *udev_device)
  **/
 void udev_device_unref(struct udev_device *udev_device)
 {
+	unsigned int i;
+
 	if (udev_device == NULL)
 		return;
 	udev_device->refcount--;
@@ -596,6 +601,8 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->devpath_old);
 	free(udev_device->physdevpath);
 	udev_list_cleanup(udev_device->udev, &udev_device->attr_list);
+	for (i = 0; i < ARRAY_SIZE(udev_device->envp) && udev_device->envp[i] != NULL; i++)
+		free(udev_device->envp[i]);
 	info(udev_device->udev, "udev_device: %p released\n", udev_device);
 	free(udev_device);
 }
@@ -726,6 +733,11 @@ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev_device *
 	if (!udev_device->info_loaded)
 		device_load_info(udev_device);
 	return udev_list_get_entry(&udev_device->devlinks_list);
+}
+
+void udev_device_cleanup_devlinks_list(struct udev_device *udev_device)
+{
+	udev_list_cleanup(udev_device->udev, &udev_device->devlinks_list);
 }
 
 /**
@@ -905,6 +917,7 @@ int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath
 
 int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem)
 {
+	free(udev_device->subsystem);
 	udev_device->subsystem = strdup(subsystem);
 	if (udev_device->subsystem == NULL)
 		return -ENOMEM;
@@ -918,7 +931,7 @@ int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode
 	udev_device->devnode = strdup(devnode);
 	if (udev_device->devnode == NULL)
 		return -ENOMEM;
-	udev_device_add_property(udev_device, "DEVNODE", udev_device->devnode);
+	udev_device_add_property(udev_device, "DEVNAME", udev_device->devnode);
 	return 0;
 }
 
@@ -941,6 +954,7 @@ int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink
 
 struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
 {
+	udev_device->envp_uptodate = 0;
 	return udev_list_entry_add(udev_device->udev, &udev_device->properties_list, key, value, 1, 0);
 }
 
@@ -960,6 +974,29 @@ struct udev_list_entry *udev_device_add_property_from_string(struct udev_device 
 	return udev_device_add_property(udev_device, name, val);
 }
 
+char **udev_device_get_properties_envp(struct udev_device *udev_device)
+{
+	if (!udev_device->envp_uptodate) {
+		unsigned int i;
+		struct udev_list_entry *list_entry;
+
+		for (i = 0; i < ARRAY_SIZE(udev_device->envp) && udev_device->envp[i] != NULL; i++)
+			free(udev_device->envp[i]);
+		i = 0;
+		udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
+			asprintf(&udev_device->envp[i++], "%s=%s",
+				 udev_list_entry_get_name(list_entry),
+				 udev_list_entry_get_value(list_entry));
+			if (i+1 >= ARRAY_SIZE(udev_device->envp))
+				break;
+		}
+		udev_device->envp[i] = NULL;
+		info(udev_device->udev, "constructed envp from %u properties\n", i);
+		udev_device->envp_uptodate = 1;
+	}
+	return udev_device->envp;
+}
+
 int udev_device_set_action(struct udev_device *udev_device, const char *action)
 {
 	free(udev_device->action);
@@ -972,6 +1009,7 @@ int udev_device_set_action(struct udev_device *udev_device, const char *action)
 
 int udev_device_set_driver(struct udev_device *udev_device, const char *driver)
 {
+	free(udev_device->driver);
 	udev_device->driver = strdup(driver);
 	if (udev_device->driver == NULL)
 		return -ENOMEM;

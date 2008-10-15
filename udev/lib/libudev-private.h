@@ -23,6 +23,8 @@
 #include <syslog.h>
 #include "libudev.h"
 
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
 static inline void __attribute__ ((format(printf, 2, 3)))
 udev_log_null(struct udev *udev, const char *format, ...) {}
 
@@ -54,8 +56,10 @@ extern int udev_device_set_syspath(struct udev_device *udev_device, const char *
 extern int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
 extern int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode);
 extern int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink);
+extern void udev_device_cleanup_devlinks_list(struct udev_device *udev_device);
 extern struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value);
 extern struct udev_list_entry *udev_device_add_property_from_string(struct udev_device *udev_device, const char *property);
+extern char **udev_device_get_properties_envp(struct udev_device *udev_device);
 extern int udev_device_set_action(struct udev_device *udev_device, const char *action);
 extern int udev_device_set_driver(struct udev_device *udev_device, const char *driver);
 extern const char *udev_device_get_devpath_old(struct udev_device *udev_device);
