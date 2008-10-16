@@ -76,46 +76,6 @@ static int get_format_len(struct udev *udev, char **str)
 	return -1;
 }
 
-static int get_key(char **line, char **key, char **value)
-{
-	char *linepos;
-	char *temp;
-
-	linepos = *line;
-	if (linepos == NULL)
-		return -1;
-
-	/* skip whitespace */
-	while (isspace(linepos[0]))
-		linepos++;
-
-	/* get the key */
-	temp = strchr(linepos, '=');
-	if (temp == NULL || temp == linepos)
-		return -1;
-	temp[0] = '\0';
-	*key = linepos;
-	linepos = &temp[1];
-
-	/* get a quoted value */
-	if (linepos[0] == '"' || linepos[0] == '\'') {
-		temp = strchr(&linepos[1], linepos[0]);
-		if (temp != NULL) {
-			temp[0] = '\0';
-			*value = &linepos[1];
-			goto out;
-		}
-	}
-
-	/* get the value*/
-	temp = strchr(linepos, '\n');
-	if (temp != NULL)
-		temp[0] = '\0';
-	*value = linepos;
-out:
-	return 0;
-}
-
 static int run_program(struct udev_device *dev, const char *command,
 		       char *result, size_t ressize, size_t *reslen)
 {
@@ -333,106 +293,132 @@ static int run_program(struct udev_device *dev, const char *command,
 	return err;
 }
 
-static int import_keys_into_env(struct udev_event *event, const char *buf, size_t bufsize)
+static int import_property_from_string(struct udev_device *dev, char *line)
 {
-	struct udev_device *dev = event->dev;
-	char line[UTIL_LINE_SIZE];
-	const char *bufline;
-	char *linepos;
-	char *variable;
-	char *value;
-	size_t cur;
-	size_t count;
-	int lineno;
+	struct udev *udev = udev_device_get_udev(dev);
+	char *key;
+	char *val;
+	size_t len;
 
-	/* loop through the whole buffer */
-	lineno = 0;
-	cur = 0;
-	while (cur < bufsize) {
-		count = buf_get_line(buf, bufsize, cur);
-		bufline = &buf[cur];
-		cur += count+1;
-		lineno++;
+	/* find key */
+	key = line;
+	while (isspace(key[0]))
+		key++;
 
-		/* eat the whitespace */
-		while ((count > 0) && isspace(bufline[0])) {
-			bufline++;
-			count--;
-		}
-		if (count == 0)
-			continue;
-
-		/* see if this is a comment */
-		if (bufline[0] == '#')
-			continue;
-
-		if (count >= sizeof(line)) {
-			err(event->udev, "line too long, skipped\n");
-			continue;
-		}
-
-		memcpy(line, bufline, count);
-		line[count] = '\0';
-
-		linepos = line;
-		if (get_key(&linepos, &variable, &value) == 0) {
-			char syspath[UTIL_PATH_SIZE];
-
-			dbg(event->udev, "import '%s=%s'\n", variable, value);
-			/* handle device, renamed by external tool, returning new path */
-			if (strcmp(variable, "DEVPATH") == 0) {
-				info(event->udev, "updating devpath from '%s' to '%s'\n",
-				     udev_device_get_devpath(dev), value);
-				util_strlcpy(syspath, udev_get_sys_path(event->udev), sizeof(syspath));
-				util_strlcat(syspath, value, sizeof(syspath));
-				udev_device_set_syspath(dev, syspath);
-			} else {
-				struct udev_list_entry *entry;
-
-				entry = udev_device_add_property(dev, variable, value);
-				/* store in db */
-				udev_list_entry_set_flag(entry, 1);
-			}
-		}
-	}
-	return 0;
-}
-
-static int import_file_into_env(struct udev_event *event, const char *filename)
-{
-	char *buf;
-	size_t bufsize;
-
-	if (file_map(filename, &buf, &bufsize) != 0) {
-		err(event->udev, "can't open '%s': %m\n", filename);
+	/* comment or empty line */
+	if (key[0] == '#' || key[0] == '\0')
 		return -1;
-	}
-	import_keys_into_env(event, buf, bufsize);
-	file_unmap(buf, bufsize);
 
+	/* split key/value */
+	val = strchr(key, '=');
+	if (val == NULL)
+		return -1;
+	val[0] = '\0';
+	val++;
+
+	/* find value */
+	while (isspace(val[0]))
+		val++;
+
+	/* terminate key */
+	len = strlen(key);
+	if (len == 0)
+		return -1;
+	while (isspace(key[len-1]))
+		len--;
+	key[len] = '\0';
+
+	/* terminate value */
+	len = strlen(val);
+	if (len == 0)
+		return -1;
+	while (isspace(val[len-1]))
+		len--;
+	val[len] = '\0';
+
+	if (len == 0)
+		return -1;
+
+	/* unquote */
+	if (val[0] == '"' || val[0] == '\'') {
+		if (val[len-1] != val[0]) {
+			info(udev, "inconsistent quoting: '%s', skip\n", line);
+			return -1;
+		}
+		val[len-1] = '\0';
+		val++;
+	}
+
+	info(udev, "adding '%s'='%s'\n", key, val);
+
+	/* handle device, renamed by external tool, returning new path */
+	if (strcmp(key, "DEVPATH") == 0) {
+		char syspath[UTIL_PATH_SIZE];
+
+		info(udev, "updating devpath from '%s' to '%s'\n",
+		     udev_device_get_devpath(dev), val);
+		util_strlcpy(syspath, udev_get_sys_path(udev), sizeof(syspath));
+		util_strlcat(syspath, val, sizeof(syspath));
+		udev_device_set_syspath(dev, syspath);
+	} else {
+		struct udev_list_entry *entry;
+
+		entry = udev_device_add_property(dev, key, val);
+		/* store in db */
+		udev_list_entry_set_flag(entry, 1);
+	}
 	return 0;
 }
 
-static int import_program_into_env(struct udev_event *event, const char *program)
+static int import_file_into_env(struct udev_device *dev, const char *filename)
+{
+	FILE *f;
+	char line[UTIL_LINE_SIZE];
+
+	f = fopen(filename, "r");
+	if (f == NULL)
+		return -1;
+	while (fgets(line, sizeof(line), f))
+		import_property_from_string(dev, line);
+	fclose(f);
+	return 0;
+}
+
+static int import_program_into_env(struct udev_device *dev, const char *program)
 {
 	char result[2048];
 	size_t reslen;
+	char *line;
 
-	if (run_program(event->dev, program, result, sizeof(result), &reslen) != 0)
+	if (run_program(dev, program, result, sizeof(result), &reslen) != 0)
 		return -1;
-	return import_keys_into_env(event, result, reslen);
+
+	line = result;
+	while (line != NULL) {
+		char *pos;
+
+		pos = strchr(line, '\n');
+		if (pos != NULL) {
+			pos[0] = '\0';
+			pos = &pos[1];
+		}
+		import_property_from_string(dev, line);
+		line = pos;
+	}
+	return 0;
 }
 
-static int import_parent_into_env(struct udev_event *event, const char *filter)
+static int import_parent_into_env(struct udev_device *dev, const char *filter)
 {
+	struct udev *udev = udev_device_get_udev(dev);
 	struct udev_device *dev_parent;
 	struct udev_list_entry *list_entry;
 
-	dev_parent = udev_device_get_parent(event->dev);
+	dev_parent = udev_device_get_parent(dev);
 	if (dev_parent == NULL)
 		return -1;
 
-	dbg(event->udev, "found parent '%s', get the node name\n", udev_device_get_syspath(dev_parent));
+	dbg(udev, "found parent '%s', get the node name\n", udev_device_get_syspath(dev_parent));
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(dev_parent)) {
 		const char *key = udev_list_entry_get_name(list_entry);
 		const char *val = udev_list_entry_get_value(list_entry);
@@ -440,8 +426,8 @@ static int import_parent_into_env(struct udev_event *event, const char *filter)
 		if (fnmatch(filter, key, 0) == 0) {
 			struct udev_list_entry *entry;
 
-			dbg(event->udev, "import key '%s=%s'\n", key, val);
-			entry = udev_device_add_property(event->dev, key, val);
+			dbg(udev, "import key '%s=%s'\n", key, val);
+			entry = udev_device_add_property(dev, key, val);
 			/* store in db */
 			udev_list_entry_set_flag(entry, 1);
 		}
@@ -1270,13 +1256,13 @@ try_parent:
 		udev_rules_apply_format(event, import, sizeof(import));
 		dbg(event->udev, "check for IMPORT import='%s'\n", import);
 		if (rule->import_type == IMPORT_PROGRAM) {
-			rc = import_program_into_env(event, import);
+			rc = import_program_into_env(event->dev, import);
 		} else if (rule->import_type == IMPORT_FILE) {
 			dbg(event->udev, "import file import='%s'\n", import);
-			rc = import_file_into_env(event, import);
+			rc = import_file_into_env(event->dev, import);
 		} else if (rule->import_type == IMPORT_PARENT) {
 			dbg(event->udev, "import parent import='%s'\n", import);
-			rc = import_parent_into_env(event, import);
+			rc = import_parent_into_env(event->dev, import);
 		}
 		if (rc != 0) {
 			dbg(event->udev, "IMPORT failed\n");
