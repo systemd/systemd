@@ -245,6 +245,8 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 	char buf[4096];
 	size_t bufpos;
 	int devpath_set = 0;
+	int subsystem_set = 0;
+	int action_set = 0;
 	int maj = 0;
 	int min = 0;
 
@@ -317,6 +319,7 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 			devpath_set = 1;
 		} else if (strncmp(key, "SUBSYSTEM=", 10) == 0) {
 			udev_device_set_subsystem(udev_device, &key[10]);
+			subsystem_set = 1;
 		} else if (strncmp(key, "DEVNAME=", 8) == 0) {
 			udev_device_set_devnode(udev_device, &key[8]);
 		} else if (strncmp(key, "DEVLINKS=", 9) == 0) {
@@ -339,6 +342,7 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 			udev_device_set_driver(udev_device, &key[7]);
 		} else if (strncmp(key, "ACTION=", 7) == 0) {
 			udev_device_set_action(udev_device, &key[7]);
+			action_set = 1;
 		} else if (strncmp(key, "MAJOR=", 6) == 0) {
 			maj = strtoull(&key[6], NULL, 10);
 		} else if (strncmp(key, "MINOR=", 6) == 0) {
@@ -351,12 +355,15 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 			udev_device_set_seqnum(udev_device, strtoull(&key[7], NULL, 10));
 		} else if (strncmp(key, "TIMEOUT=", 8) == 0) {
 			udev_device_set_timeout(udev_device, strtoull(&key[8], NULL, 10));
-		}
-		if (strncmp(key, "PHYSDEV", 7) == 0)
+		} else if (strncmp(key, "PHYSDEV", 7) == 0) {
+			/* skip deprecated values */
 			continue;
-		udev_device_add_property_from_string(udev_device, key);
+		} else {
+			udev_device_add_property_from_string(udev_device, key);
+		}
 	}
-	if (!devpath_set) {
+	if (!devpath_set || !subsystem_set || !action_set) {
+		info(udev_monitor->udev, "missing values, skip\n");
 		udev_device_unref(udev_device);
 		return NULL;
 	}

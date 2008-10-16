@@ -35,6 +35,7 @@ struct udev_device {
 	int refcount;
 	struct udev *udev;
 	struct udev_device *parent_device;
+	int parent_set;
 	char *syspath;
 	const char *devpath;
 	char *sysname;
@@ -518,12 +519,12 @@ struct udev_device *udev_device_get_parent(struct udev_device *udev_device)
 {
 	if (udev_device == NULL)
 		return NULL;
-
-	if (udev_device->parent_device != NULL) {
-		info(udev_device->udev, "returning existing parent %p\n", udev_device->parent_device);
-		return udev_device->parent_device;
+	if (!udev_device->parent_set) {
+		udev_device->parent_set = 1;
+		udev_device->parent_device = device_new_from_parent(udev_device);
 	}
-	udev_device->parent_device = device_new_from_parent(udev_device);
+	if (udev_device->parent_device != NULL)
+		info(udev_device->udev, "returning existing parent %p\n", udev_device->parent_device);
 	return udev_device->parent_device;
 }
 
@@ -1016,7 +1017,7 @@ int udev_device_set_action(struct udev_device *udev_device, const char *action)
 	udev_device->action = strdup(action);
 	if (udev_device->action == NULL)
 		return -ENOMEM;
-	udev_device_add_property(udev_device, "ACTION", action);
+	udev_device_add_property(udev_device, "ACTION", udev_device->action);
 	return 0;
 }
 
@@ -1027,6 +1028,7 @@ int udev_device_set_driver(struct udev_device *udev_device, const char *driver)
 	if (udev_device->driver == NULL)
 		return -ENOMEM;
 	udev_device->driver_set = 1;
+	udev_device_add_property(udev_device, "DRIVER", udev_device->driver);
 	return 0;
 }
 
@@ -1040,6 +1042,7 @@ int udev_device_set_devpath_old(struct udev_device *udev_device, const char *dev
 	udev_device->devpath_old = strdup(devpath_old);
 	if (udev_device->devpath_old == NULL)
 		return -ENOMEM;
+	udev_device_add_property(udev_device, "DEVPATH_OLD", udev_device->devpath_old);
 	return 0;
 }
 
@@ -1081,13 +1084,24 @@ int udev_device_set_event_timeout(struct udev_device *udev_device, int event_tim
 
 int udev_device_set_seqnum(struct udev_device *udev_device, unsigned long long int seqnum)
 {
+	char num[32];
+
 	udev_device->seqnum = seqnum;
+	snprintf(num, sizeof(num), "%llu", seqnum);
+	udev_device_add_property(udev_device, "SEQNUM", num);
 	return 0;
 }
 
 int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum)
 {
+	char num[32];
+
 	udev_device->devnum = devnum;
+
+	snprintf(num, sizeof(num), "%u", major(devnum));
+	udev_device_add_property(udev_device, "MAJOR", num);
+	snprintf(num, sizeof(num), "%u", minor(devnum));
+	udev_device_add_property(udev_device, "MINOR", num);
 	return 0;
 }
 
