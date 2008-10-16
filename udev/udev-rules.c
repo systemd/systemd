@@ -138,9 +138,9 @@ static int run_program(struct udev_device *dev, const char *command,
 	if (strchr(arg, ' ') != NULL) {
 		char *pos = arg;
 
-		while (pos != NULL) {
+		while (pos != NULL && pos[0] != '\0') {
 			if (pos[0] == '\'') {
-				/* don't separate if in apostrophes */
+				/* do not separate quotes */
 				pos++;
 				argv[i] = strsep(&pos, "\'");
 				while (pos != NULL && pos[0] == ' ')
