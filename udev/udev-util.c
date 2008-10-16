@@ -23,103 +23,104 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <ctype.h>
-#include <dirent.h>
-#include <syslog.h>
 #include <pwd.h>
 #include <grp.h>
-#include <sys/types.h>
-#include <sys/utsname.h>
 
 #include "udev.h"
 
-struct name_entry *name_list_add(struct udev *udev, struct list_head *name_list, const char *name, int sort)
+int create_path(struct udev *udev, const char *path)
 {
-	struct name_entry *name_loop;
-	struct name_entry *name_new;
+	char p[UTIL_PATH_SIZE];
+	char *pos;
+	struct stat stats;
+	int ret;
 
-	/* avoid duplicate entries */
-	list_for_each_entry(name_loop, name_list, node) {
-		if (strcmp(name_loop->name, name) == 0) {
-			dbg(udev, "'%s' is already in the list\n", name);
-			return name_loop;
-		}
-	}
+	util_strlcpy(p, path, sizeof(p));
+	pos = strrchr(p, '/');
+	if (pos == p || pos == NULL)
+		return 0;
 
-	if (sort)
-		list_for_each_entry(name_loop, name_list, node) {
-			if (strcmp(name_loop->name, name) > 0)
-				break;
-		}
+	while (pos[-1] == '/')
+		pos--;
+	pos[0] = '\0';
 
-	name_new = malloc(sizeof(struct name_entry));
-	if (name_new == NULL)
-		return NULL;
-	memset(name_new, 0x00, sizeof(struct name_entry));
-	util_strlcpy(name_new->name, name, sizeof(name_new->name));
-	dbg(udev, "adding '%s'\n", name_new->name);
-	list_add_tail(&name_new->node, &name_loop->node);
+	dbg(udev, "stat '%s'\n", p);
+	if (stat(p, &stats) == 0 && (stats.st_mode & S_IFMT) == S_IFDIR)
+		return 0;
 
-	return name_new;
+	if (create_path(udev, p) != 0)
+		return -1;
+
+	dbg(udev, "mkdir '%s'\n", p);
+	udev_selinux_setfscreatecon(udev, p, S_IFDIR|0755);
+	ret = mkdir(p, 0755);
+	udev_selinux_resetfscreatecon(udev);
+	if (ret == 0)
+		return 0;
+
+	if (errno == EEXIST)
+		if (stat(p, &stats) == 0 && (stats.st_mode & S_IFMT) == S_IFDIR)
+			return 0;
+	return -1;
 }
 
-struct name_entry *name_list_key_add(struct udev *udev, struct list_head *name_list, const char *key, const char *value)
+int delete_path(struct udev *udev, const char *path)
 {
-	struct name_entry *name_loop;
-	struct name_entry *name_new;
-	size_t keylen = strlen(key);
+	char p[UTIL_PATH_SIZE];
+	char *pos;
+	int retval;
 
-	list_for_each_entry(name_loop, name_list, node) {
-		if (strncmp(name_loop->name, key, keylen) != 0)
-			continue;
-		if (name_loop->name[keylen] != '=')
-			continue;
-		dbg(udev, "key already present '%s', replace it\n", name_loop->name);
-		snprintf(name_loop->name, sizeof(name_loop->name), "%s=%s", key, value);
-		name_loop->name[sizeof(name_loop->name)-1] = '\0';
-		return name_loop;
+	strcpy (p, path);
+	pos = strrchr(p, '/');
+	if (pos == p || pos == NULL)
+		return 0;
+
+	while (1) {
+		*pos = '\0';
+		pos = strrchr(p, '/');
+
+		/* don't remove the last one */
+		if ((pos == p) || (pos == NULL))
+			break;
+
+		/* remove if empty */
+		retval = rmdir(p);
+		if (errno == ENOENT)
+			retval = 0;
+		if (retval) {
+			if (errno == ENOTEMPTY)
+				return 0;
+			err(udev, "rmdir(%s) failed: %m\n", p);
+			break;
+		}
+		dbg(udev, "removed '%s'\n", p);
 	}
-
-	name_new = malloc(sizeof(struct name_entry));
-	if (name_new == NULL)
-		return NULL;
-	memset(name_new, 0x00, sizeof(struct name_entry));
-	snprintf(name_new->name, sizeof(name_new->name), "%s=%s", key, value);
-	name_new->name[sizeof(name_new->name)-1] = '\0';
-	dbg(udev, "adding '%s'\n", name_new->name);
-	list_add_tail(&name_new->node, &name_loop->node);
-
-	return name_new;
+	return 0;
 }
 
-int name_list_key_remove(struct udev *udev, struct list_head *name_list, const char *key)
+/* Reset permissions on the device node, before unlinking it to make sure,
+ * that permisions of possible hard links will be removed too.
+ */
+int unlink_secure(struct udev *udev, const char *filename)
 {
-	struct name_entry *name_loop;
-	struct name_entry *name_tmp;
-	size_t keylen = strlen(key);
-	int retval = 0;
+	int retval;
 
-	list_for_each_entry_safe(name_loop, name_tmp, name_list, node) {
-		if (strncmp(name_loop->name, key, keylen) != 0)
-			continue;
-		if (name_loop->name[keylen] != '=')
-			continue;
-		list_del(&name_loop->node);
-		free(name_loop);
-		retval = 1;
-		break;
-	}
+	retval = chown(filename, 0, 0);
+	if (retval)
+		err(udev, "chown(%s, 0, 0) failed: %m\n", filename);
+
+	retval = chmod(filename, 0000);
+	if (retval)
+		err(udev, "chmod(%s, 0000) failed: %m\n", filename);
+
+	retval = unlink(filename);
+	if (errno == ENOENT)
+		retval = 0;
+
+	if (retval)
+		err(udev, "unlink(%s) failed: %m\n", filename);
+
 	return retval;
-}
-
-void name_list_cleanup(struct udev *udev, struct list_head *name_list)
-{
-	struct name_entry *name_loop;
-	struct name_entry *name_tmp;
-
-	list_for_each_entry_safe(name_loop, name_tmp, name_list, node) {
-		list_del(&name_loop->node);
-		free(name_loop);
-	}
 }
 
 uid_t lookup_user(struct udev *udev, const char *user)

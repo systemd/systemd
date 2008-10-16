@@ -102,22 +102,13 @@ extern int udev_node_remove(struct udev_device *dev, int test);
 extern void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old, int test);
 
 /* udev-util.c */
-struct name_entry {
-	struct list_head node;
-	char name[UTIL_PATH_SIZE];
-	unsigned int ignore_error:1;
-};
-extern struct name_entry *name_list_add(struct udev *udev, struct list_head *name_list, const char *name, int sort);
-extern struct name_entry *name_list_key_add(struct udev *udev, struct list_head *name_list, const char *key, const char *value);
-extern int name_list_key_remove(struct udev *udev, struct list_head *name_list, const char *key);
-extern void name_list_cleanup(struct udev *udev, struct list_head *name_list);
+extern int create_path(struct udev *udev, const char *path);
+extern int delete_path(struct udev *udev, const char *path);
+extern int unlink_secure(struct udev *udev, const char *filename);
 extern uid_t lookup_user(struct udev *udev, const char *user);
 extern gid_t lookup_group(struct udev *udev, const char *group);
 
 /* udev_utils_file.c */
-extern int create_path(struct udev *udev, const char *path);
-extern int delete_path(struct udev *udev, const char *path);
-extern int unlink_secure(struct udev *udev, const char *filename);
 extern int file_map(const char *filename, char **buf, size_t *bufsize);
 extern void file_unmap(void *buf, size_t bufsize);
 extern size_t buf_get_line(const char *buf, size_t buflen, size_t cur);
