@@ -30,6 +30,7 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
+/* last known version with this wire protocol */
 #define UDEV_CTRL_MAGIC				"udevd-128"
 
 enum udev_ctrl_msg_type {
@@ -189,7 +190,7 @@ int udev_ctrl_send_reload_rules(struct udev_ctrl *uctrl)
 
 int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key)
 {
-	ctrl_send(uctrl, UDEV_CTRL_SET_ENV, 0, optarg);
+	ctrl_send(uctrl, UDEV_CTRL_SET_ENV, 0, key);
 	return 0;
 }
 
