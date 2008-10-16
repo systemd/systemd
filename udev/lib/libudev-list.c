@@ -43,12 +43,12 @@ void udev_list_init(struct udev_list_node *list)
 	list->prev = list;
 }
 
-static int list_is_empty(struct udev_list_node *list)
+static int udev_list_is_empty(struct udev_list_node *list)
 {
 	return list->next == list;
 }
 
-static void list_node_insert_between(struct udev_list_node *new,
+static void udev_list_node_insert_between(struct udev_list_node *new,
 				     struct udev_list_node *prev,
 				     struct udev_list_node *next)
 {
@@ -58,7 +58,7 @@ static void list_node_insert_between(struct udev_list_node *new,
 	prev->next = new;
 }
 
-static void list_node_remove(struct udev_list_node *entry)
+static void udev_list_node_remove(struct udev_list_node *entry)
 {
 	struct udev_list_node *prev = entry->prev;
 	struct udev_list_node *next = entry->next;
@@ -84,14 +84,14 @@ static struct udev_list_entry *list_node_to_entry(struct udev_list_node *node)
 static void list_entry_append(struct udev_list_entry *new, struct udev_list_node *list)
 {
 	/* inserting before the list head make the node the last node in the list */
-	list_node_insert_between(&new->node, list->prev, list);
+	udev_list_node_insert_between(&new->node, list->prev, list);
 	new->list = list;
 }
 
 /* insert entry into a list, before a given existing entry */
 static void list_entry_insert_before(struct udev_list_entry *new, struct udev_list_entry *entry)
 {
-	list_node_insert_between(&new->node, entry->node.prev, &entry->node);
+	udev_list_node_insert_between(&new->node, entry->node.prev, &entry->node);
 	new->list = entry->list;
 }
 
@@ -154,7 +154,7 @@ struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_
 
 void udev_list_entry_remove(struct udev_list_entry *entry)
 {
-	list_node_remove(&entry->node);
+	udev_list_node_remove(&entry->node);
 	free(entry->name);
 	free(entry->value);
 	free(entry);
@@ -171,27 +171,20 @@ void udev_list_cleanup(struct udev *udev, struct udev_list_node *list)
 
 void udev_list_entry_move_to_end(struct udev_list_entry *list_entry)
 {
-	list_node_remove(&list_entry->node);
-	list_node_insert_between(&list_entry->node, list_entry->list->prev, list_entry->list);
-}
-
-void udev_list_entry_move_to_list(struct udev_list_entry *list_entry, struct udev_list_node *list)
-{
-	list_node_remove(&list_entry->node);
-	list_node_insert_between(&list_entry->node, list->prev, list);
-	list_entry->list = list;
+	udev_list_node_remove(&list_entry->node);
+	udev_list_node_insert_between(&list_entry->node, list_entry->list->prev, list_entry->list);
 }
 
 void udev_list_entry_move_before(struct udev_list_entry *list_entry, struct udev_list_entry *entry)
 {
-	list_node_remove(&list_entry->node);
-	list_node_insert_between(&list_entry->node, entry->node.prev, &entry->node);
+	udev_list_node_remove(&list_entry->node);
+	udev_list_node_insert_between(&list_entry->node, entry->node.prev, &entry->node);
 	list_entry->list = entry->list;
 }
 
 struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list)
 {
-	if (list_is_empty(list))
+	if (udev_list_is_empty(list))
 		return NULL;
 	return list_node_to_entry(list->next);
 }

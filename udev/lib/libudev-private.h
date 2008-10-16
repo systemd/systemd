@@ -130,7 +130,6 @@ extern struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct ude
 extern void udev_list_entry_remove(struct udev_list_entry *entry);
 extern struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list);
 extern void udev_list_entry_move_to_end(struct udev_list_entry *list_entry);
-extern void udev_list_entry_move_to_list(struct udev_list_entry *list_entry, struct udev_list_node *list);
 extern void udev_list_entry_move_before(struct udev_list_entry *list_entry, struct udev_list_entry *entry);
 extern int udev_list_entry_get_flag(struct udev_list_entry *list_entry);
 extern void udev_list_entry_set_flag(struct udev_list_entry *list_entry, int flag);
