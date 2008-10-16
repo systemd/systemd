@@ -854,20 +854,18 @@ int udev_rules_init(struct udev *udev, struct udev_rules *rules, int resolve_nam
 
 				if (file_base == NULL)
 					continue;
-
 				if (strcmp(file_base, sort_base) == 0) {
 					info(udev, "rule file basename '%s' already added, ignoring '%s'\n",
 					     file_name, sort_name);
 					udev_list_entry_remove(sort_loop);
 					sort_loop = NULL;
-					continue;
+					break;
 				}
-
 				if (strcmp(file_base, sort_base) > 0)
 					break;
 			}
 			if (sort_loop != NULL)
-				udev_list_entry_move_to_list(sort_loop, &file_list);
+				udev_list_entry_move_before(sort_loop, file_loop);
 		}
 	}
 
@@ -878,7 +876,7 @@ int udev_rules_init(struct udev *udev, struct udev_rules *rules, int resolve_nam
 		if (stat(file_name, &statbuf) == 0 && statbuf.st_size > 0)
 			parse_file(rules, file_name);
 		else
-			err(udev, "could not read '%s': %m\n", file_name);
+			info(udev, "can not read '%s'\n", file_name);
 		udev_list_entry_remove(file_loop);
 	}
 	return retval;

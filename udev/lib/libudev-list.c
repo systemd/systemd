@@ -148,7 +148,7 @@ struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_
 		list_entry_insert_before(entry_new, entry_loop);
 	else
 		list_entry_append(entry_new, list);
-	info(udev, "'%s=%s' added\n", entry_new->name, entry_new->value);
+	dbg(udev, "'%s=%s' added\n", entry_new->name, entry_new->value);
 	return entry_new;
 }
 
@@ -180,6 +180,13 @@ void udev_list_entry_move_to_list(struct udev_list_entry *list_entry, struct ude
 	list_node_remove(&list_entry->node);
 	list_node_insert_between(&list_entry->node, list->prev, list);
 	list_entry->list = list;
+}
+
+void udev_list_entry_move_before(struct udev_list_entry *list_entry, struct udev_list_entry *entry)
+{
+	list_node_remove(&list_entry->node);
+	list_node_insert_between(&list_entry->node, entry->node.prev, &entry->node);
+	list_entry->list = entry->list;
 }
 
 struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list)
