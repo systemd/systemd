@@ -231,6 +231,7 @@ void udev_device_set_info_loaded(struct udev_device *device)
 struct udev_device *device_new(struct udev *udev)
 {
 	struct udev_device *udev_device;
+	struct udev_list_entry *list_entry;
 
 	if (udev == NULL)
 		return NULL;
@@ -245,6 +246,11 @@ struct udev_device *device_new(struct udev *udev)
 	udev_list_init(&udev_device->properties_list);
 	udev_list_init(&udev_device->attr_list);
 	udev_device->event_timeout = -1;
+	/* copy global properties */
+	udev_list_entry_foreach(list_entry, udev_get_properties_list_entry(udev))
+		udev_device_add_property(udev_device,
+					 udev_list_entry_get_name(list_entry),
+					 udev_list_entry_get_value(list_entry));
 	info(udev_device->udev, "udev_device: %p created\n", udev_device);
 	return udev_device;
 }
@@ -969,6 +975,15 @@ int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink
 struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
 {
 	udev_device->envp_uptodate = 0;
+	if (value == NULL) {
+		struct udev_list_entry *list_entry;
+
+		list_entry = udev_device_get_properties_list_entry(udev_device);
+		list_entry = udev_list_entry_get_by_name(list_entry, key);
+		if (list_entry != NULL)
+			udev_list_entry_remove(list_entry);
+		return NULL;
+	}
 	return udev_list_entry_add(udev_device->udev, &udev_device->properties_list, key, value, 1, 0);
 }
 
