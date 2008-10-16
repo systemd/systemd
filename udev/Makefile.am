@@ -14,14 +14,14 @@ common_ldadd =
 
 common_files = \
 	udev.h \
-	udev_rules.h \
-	udev_sysdeps.h \
-	udev_device_event.c \
-	udev_node.c \
-	udev_rules.c \
-	udev_rules_parse.c \
-	udev_utils.c \
-	udev_utils_file.c \
+	udev-rules.h \
+	udev-sysdeps.h \
+	udev-event.c \
+	udev-node.c \
+	udev-rules.c \
+	udev-rules-parse.c \
+	udev-util.c \
+	udev-util-file.c \
 	list.h \
 	lib/libudev.h \
 	lib/libudev-private.h \
@@ -37,7 +37,7 @@ common_files = \
 
 if USE_SELINUX
 common_files += \
-	udev_selinux.c
+	udev-selinux.c
 common_ldadd += \
 	$(SELINUX_LIBS)
 endif

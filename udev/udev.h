@@ -22,7 +22,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 
-#include "udev_sysdeps.h"
+#include "udev-sysdeps.h"
 #include "lib/libudev.h"
 #include "lib/libudev-private.h"
 #include "list.h"

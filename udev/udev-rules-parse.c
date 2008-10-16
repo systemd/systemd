@@ -26,7 +26,7 @@
 #include <errno.h>
 
 #include "udev.h"
-#include "udev_rules.h"
+#include "udev-rules.h"
 
 
 void udev_rules_iter_init(struct udev_rules_iter *iter, struct udev_rules *rules)

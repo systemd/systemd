@@ -29,7 +29,7 @@
 #include <grp.h>
 
 #include "udev.h"
-#include "udev_rules.h"
+#include "udev-rules.h"
 
 static void asmlinkage sig_handler(int signum)
 {

@@ -33,7 +33,7 @@
 #include <sys/stat.h>
 
 #include "udev.h"
-#include "udev_rules.h"
+#include "udev-rules.h"
 
 extern char **environ;
 

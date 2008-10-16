@@ -29,7 +29,7 @@
 #include <linux/sockios.h>
 
 #include "udev.h"
-#include "udev_rules.h"
+#include "udev-rules.h"
 
 struct udev_event *udev_event_new(struct udev_device *dev)
 {
