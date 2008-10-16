@@ -227,7 +227,7 @@ exit:
 	return err;
 }
 
-static int get_devices_by_name(struct udev *udev, const char *name, struct list_head *name_list)
+static int name_index_get_devices(struct udev *udev, const char *name, struct udev_list_node *dev_list)
 {
 	char dirname[PATH_MAX];
 	size_t devlen = strlen(udev_get_dev_path(udev))+1;
@@ -239,15 +239,14 @@ static int get_devices_by_name(struct udev *udev, const char *name, struct list_
 	start = util_strlcat(dirname, "/.udev/names/", sizeof(dirname));
 	util_strlcat(dirname, &name[devlen], sizeof(dirname));
 	util_path_encode(&dirname[start], sizeof(dirname) - start);
-
 	dir = opendir(dirname);
 	if (dir == NULL) {
 		info(udev, "no index directory '%s': %m\n", dirname);
 		count = -1;
 		goto out;
 	}
-
 	info(udev, "found index directory '%s'\n", dirname);
+
 	while (1) {
 		struct dirent *ent;
 		char device[UTIL_PATH_SIZE];
@@ -261,7 +260,7 @@ static int get_devices_by_name(struct udev *udev, const char *name, struct list_
 		util_strlcpy(device, udev_get_sys_path(udev), sizeof(device));
 		util_strlcat(device, ent->d_name, sizeof(device));
 		util_path_decode(device);
-		name_list_add(udev, name_list, device, 0);
+		udev_list_entry_add(udev, dev_list, device, NULL, 1, 0);
 		count++;
 	}
 	closedir(dir);
@@ -272,8 +271,8 @@ out:
 static int update_link(struct udev_device *dev, const char *slink, int test)
 {
 	struct udev *udev = udev_device_get_udev(dev);
-	LIST_HEAD(name_list);
-	struct name_entry *device;
+	struct udev_list_node dev_list;
+	struct udev_list_entry *dev_entry;
 	char target[UTIL_PATH_SIZE] = "";
 	int count;
 	int priority = 0;
@@ -281,7 +280,8 @@ static int update_link(struct udev_device *dev, const char *slink, int test)
 
 	info(udev, "update symlink '%s' of '%s'\n", slink, udev_device_get_syspath(dev));
 
-	count = get_devices_by_name(udev, slink, &name_list);
+	udev_list_init(&dev_list);
+	count = name_index_get_devices(udev, slink, &dev_list);
 	info(udev, "found %i devices with name '%s'\n", count, slink);
 
 	/* if we don't have a reference, delete it */
@@ -295,14 +295,16 @@ static int update_link(struct udev_device *dev, const char *slink, int test)
 	}
 
 	/* find the device with the highest priority */
-	list_for_each_entry(device, &name_list, node) {
+	udev_list_entry_foreach(dev_entry, udev_list_get_entry(&dev_list)) {
+		const char *syspath;
 		struct udev_device *dev_db;
 		const char *devnode;
 
-		info(udev, "found '%s' for '%s'\n", device->name, slink);
+		syspath = udev_list_entry_get_name(dev_entry);
+		info(udev, "found '%s' for '%s'\n", syspath, slink);
 
 		/* did we find ourself? we win, if we have the same priority */
-		if (strcmp(udev_device_get_syspath(dev), device->name) == 0) {
+		if (strcmp(udev_device_get_syspath(dev), syspath) == 0) {
 			info(udev, "compare (our own) priority of '%s' %i >= %i\n",
 			     udev_device_get_devpath(dev), udev_device_get_devlink_priority(dev), priority);
 			if (strcmp(udev_device_get_devnode(dev), slink) == 0) {
@@ -316,14 +318,14 @@ static int update_link(struct udev_device *dev, const char *slink, int test)
 		}
 
 		/* another device, read priority from database */
-		dev_db = udev_device_new_from_syspath(udev, device->name);
+		dev_db = udev_device_new_from_syspath(udev, syspath);
 		if (dev_db == NULL)
 			continue;
 		devnode = udev_device_get_devnode(dev_db);
 		if (devnode != NULL) {
 			if (strcmp(devnode, slink) == 0) {
 				info(udev, "'%s' is a device node of '%s', skip link update\n",
-				     devnode, device->name);
+				     devnode, syspath);
 			} else {
 				info(udev, "compare priority of '%s' %i > %i\n",
 				     udev_device_get_devpath(dev_db),
@@ -337,7 +339,7 @@ static int update_link(struct udev_device *dev, const char *slink, int test)
 		}
 		udev_device_unref(dev_db);
 	}
-	name_list_cleanup(udev, &name_list);
+	udev_list_cleanup(udev, &dev_list);
 
 	if (target[0] == '\0') {
 		info(udev, "no current target for '%s' found\n", slink);
