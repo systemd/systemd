@@ -141,15 +141,15 @@ static void print_record(struct udev_device *device)
 	if (str != NULL)
 		printf("N: %s\n", &str[len+1]);
 
-	i = device_get_devlink_priority(device);
+	i = udev_device_get_devlink_priority(device);
 	if (i != 0)
 		printf("L: %i\n", i);
 
-	i = device_get_num_fake_partitions(device);
+	i = udev_device_get_num_fake_partitions(device);
 	if (i != 0)
 		printf("A:%u\n", i);
 
-	i = device_get_ignore_remove(device);
+	i = udev_device_get_ignore_remove(device);
 	if (i != 0)
 		printf("R:%u\n", i);
 

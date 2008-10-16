@@ -23,7 +23,6 @@
 #include <sys/param.h>
 
 #include "udev_sysdeps.h"
-#define LIBUDEV_I_KNOW_THE_API_IS_SUBJECT_TO_CHANGE 1
 #include "lib/libudev.h"
 #include "lib/libudev-private.h"
 #include "list.h"
@@ -49,52 +48,6 @@
 
 struct udev_rules;
 
-struct sysfs_device {
-	struct list_head node;			/* for device cache */
-	struct sysfs_device *parent;		/* already cached parent*/
-	char devpath[UTIL_PATH_SIZE];
-	char subsystem[UTIL_NAME_SIZE];
-	char kernel[UTIL_NAME_SIZE];		/* device instance name */
-	char kernel_number[UTIL_NAME_SIZE];
-	char driver[UTIL_NAME_SIZE];
-};
-
-struct udevice {
-	struct udev *udev;
-
-	/* device event */
-	struct sysfs_device *dev;		/* points to dev_local by default */
-	struct sysfs_device dev_local;
-	struct sysfs_device *dev_parent;	/* current parent device used for matching */
-	char action[UTIL_NAME_SIZE];
-	char *devpath_old;
-
-	/* node */
-	char name[UTIL_PATH_SIZE];
-	struct list_head symlink_list;
-	int symlink_final;
-	char owner[UTIL_NAME_SIZE];
-	int owner_final;
-	char group[UTIL_NAME_SIZE];
-	int group_final;
-	mode_t mode;
-	int mode_final;
-	dev_t devt;
-
-	/* event processing */
-	struct list_head run_list;
-	int run_final;
-	struct list_head env_list;
-	char tmp_node[UTIL_PATH_SIZE];
-	int partitions;
-	int ignore_device;
-	int ignore_remove;
-	char program_result[UTIL_PATH_SIZE];
-	int link_priority;
-	int event_timeout;
-	int test_run;
-};
-
 static inline void logging_init(const char *program_name)
 {
 	openlog(program_name, LOG_PID | LOG_CONS, LOG_DAEMON);
@@ -112,40 +65,48 @@ static inline void logging_close(void)
 	closelog();
 }
 
-/* udev_device.c */
-extern struct udevice *udev_device_init(struct udev *udev);
-extern void udev_device_cleanup(struct udevice *udevice);
-extern dev_t udev_device_get_devt(struct udevice *udevice);
+/* udev-event.c */
+struct udev_event {
+	struct udev *udev;
+	struct udev_device *dev;
+	struct udev_device *dev_parent;
+	int devlink_final;
+	int owner_final;
+	int group_final;
+	int mode_final;
+	char tmp_node[UTIL_PATH_SIZE];
+	char program_result[UTIL_PATH_SIZE];
+	int run_final;
 
-/* udev_device_event.c */
-extern int udev_device_event(struct udev_rules *rules, struct udevice *udevice);
+	char name[UTIL_PATH_SIZE];
+	mode_t mode;
+	char owner[UTIL_NAME_SIZE];
+	char group[UTIL_NAME_SIZE];
+	struct udev_list_node run_list;
+	int ignore_device;
+	int test;
 
-/* udev_sysfs.c */
-extern int sysfs_init(void);
-extern void sysfs_cleanup(void);
-extern void sysfs_device_set_values(struct udev *udev,
-				    struct sysfs_device *dev, const char *devpath,
-				    const char *subsystem, const char *driver);
-extern struct sysfs_device *sysfs_device_get(struct udev *udev, const char *devpath);
-extern struct sysfs_device *sysfs_device_get_parent(struct udev *udev, struct sysfs_device *dev);
-extern struct sysfs_device *sysfs_device_get_parent_with_subsystem(struct udev *udev, struct sysfs_device *dev, const char *subsystem);
-extern char *sysfs_attr_get_value(struct udev *udev, const char *devpath, const char *attr_name);
-extern int sysfs_lookup_devpath_by_subsys_id(struct udev *udev, char *devpath, size_t len, const char *subsystem, const char *id);
+	struct list_head node;
+	pid_t pid;
+	int exitstatus;
+	time_t queue_time;
+};
+extern struct udev_event *udev_event_new(struct udev_device *dev);
+extern void udev_event_unref(struct udev_event *event);
+extern int udev_event_run(struct udev_event *event, struct udev_rules *rules);
 
-/* udev_node.c */
-extern int udev_node_mknod(struct udevice *udevice, const char *file, dev_t devt, mode_t mode, uid_t uid, gid_t gid);
-extern void udev_node_update_symlinks(struct udevice *udevice, struct udevice *udev_old);
-extern int udev_node_add(struct udevice *udevice);
-extern int udev_node_remove(struct udevice *udevice);
+/* udev-node.c */
+extern int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mode_t mode, uid_t uid, gid_t gid);
+extern int udev_node_add(struct udev_device *dev, mode_t mode, const char *owner, const char *group, int test);
+extern int udev_node_remove(struct udev_device *dev, int test);
+extern void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old, int test);
 
-/* udev_db.c */
-extern int udev_db_add_device(struct udevice *udevice);
-extern int udev_db_delete_device(struct udevice *udevice);
-extern int udev_db_rename(struct udev *udev, const char *devpath_old, const char *devpath);
-extern int udev_db_get_device(struct udevice *udevice, const char *devpath);
-extern int udev_db_get_devices_by_name(struct udev *udev, const char *name, struct list_head *name_list);
+/* udev-device-db.c */
+extern int udev_device_update_db(struct udev_device *udev_device);
+extern int udev_device_delete_db(struct udev_device *udev_device);
+extern int udev_device_rename_db(struct udev_device *udev_device, const char *devpath);
 
-/* udev_utils.c */
+/* udev-util.c */
 struct name_entry {
 	struct list_head node;
 	char name[UTIL_PATH_SIZE];
@@ -167,7 +128,7 @@ extern int file_map(const char *filename, char **buf, size_t *bufsize);
 extern void file_unmap(void *buf, size_t bufsize);
 extern size_t buf_get_line(const char *buf, size_t buflen, size_t cur);
 
-/* udev_selinux */
+/* udev-selinux.c */
 #ifndef USE_SELINUX
 static inline void selinux_init(struct udev *udev) {}
 static inline void selinux_exit(struct udev *udev) {}
@@ -189,5 +150,4 @@ extern int udevadm_control(struct udev *udev, int argc, char *argv[]);
 extern int udevadm_trigger(struct udev *udev, int argc, char *argv[]);
 extern int udevadm_settle(struct udev *udev, int argc, char *argv[]);
 extern int udevadm_test(struct udev *udev, int argc, char *argv[]);
-
 #endif

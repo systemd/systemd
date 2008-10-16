@@ -45,20 +45,20 @@ static void asmlinkage sig_handler(int signum)
 int main(int argc, char *argv[])
 {
 	struct udev *udev;
-	struct sysfs_device *dev;
-	struct udevice *udevice;
-	const char *maj, *min;
+	struct udev_event *event;
+	struct udev_device *dev;
 	struct udev_rules rules;
-	const char *action;
+	char syspath[UTIL_PATH_SIZE];
 	const char *devpath;
+	const char *action;
 	const char *subsystem;
 	struct sigaction act;
-	int retval = -EINVAL;
+	int err = -EINVAL;
 
 	udev = udev_new();
 	if (udev == NULL)
 		exit(1);
-	dbg(udev, "version %s\n", VERSION);
+	info(udev, "version %s\n", VERSION);
 	selinux_init(udev);
 
 	/* set signal handlers */
@@ -76,65 +76,45 @@ int main(int argc, char *argv[])
 	action = getenv("ACTION");
 	devpath = getenv("DEVPATH");
 	subsystem = getenv("SUBSYSTEM");
-	/* older kernels passed the SUBSYSTEM only as argument */
-	if (subsystem == NULL && argc == 2)
-		subsystem = argv[1];
 
 	if (action == NULL || subsystem == NULL || devpath == NULL) {
 		err(udev, "action, subsystem or devpath missing\n");
 		goto exit;
 	}
 
-	/* export log_priority , as called programs may want to do the same as udev */
-	if (udev_get_log_priority(udev) > 0) {
-		char priority[32];
-
-		sprintf(priority, "%i", udev_get_log_priority(udev));
-		setenv("UDEV_LOG", priority, 1);
-	}
-
-	sysfs_init();
 	udev_rules_init(udev, &rules, 0);
 
-	dev = sysfs_device_get(udev, devpath);
+	util_strlcpy(syspath, udev_get_sys_path(udev), sizeof(syspath));
+	util_strlcat(syspath, devpath, sizeof(syspath));
+	dev = udev_device_new_from_syspath(udev, syspath);
 	if (dev == NULL) {
-		info(udev, "unable to open '%s'\n", devpath);
+		info(udev, "unknown device '%s'\n", devpath);
 		goto fail;
 	}
 
-	udevice = udev_device_init(udev);
-	if (udevice == NULL)
-		goto fail;
+	/* skip reading of db, but read kernel parameters */
+	udev_device_set_info_loaded(dev);
+	udev_device_read_uevent_file(dev);
 
-	/* override built-in sysfs device */
-	udevice->dev = dev;
-	util_strlcpy(udevice->action, action, sizeof(udevice->action));
-
-	/* get dev_t from environment, which is needed for "remove" to work, "add" works also from sysfs */
-	maj = getenv("MAJOR");
-	min = getenv("MINOR");
-	if (maj != NULL && min != NULL)
-		udevice->devt = makedev(atoi(maj), atoi(min));
-	else
-		udevice->devt = udev_device_get_devt(udevice);
-
-	retval = udev_device_event(&rules, udevice);
+	udev_device_set_action(dev, action);
+	event = udev_event_new(dev);
+	err = udev_event_run(event, &rules);
 
 	/* rules may change/disable the timeout */
-	if (udevice->event_timeout >= 0)
-		alarm(udevice->event_timeout);
+	if (udev_device_get_event_timeout(dev) >= 0)
+		alarm(udev_device_get_event_timeout(dev));
 
-	if (retval == 0 && !udevice->ignore_device && udev_get_run(udev))
-		udev_rules_run(udevice);
+	if (err == 0 && !event->ignore_device && udev_get_run(udev))
+		udev_rules_run(event);
 
-	udev_device_cleanup(udevice);
+	udev_event_unref(event);
+	udev_device_unref(dev);
 fail:
 	udev_rules_cleanup(&rules);
-	sysfs_cleanup();
 exit:
 	selinux_exit(udev);
 	udev_unref(udev);
-	if (retval != 0)
+	if (err != 0)
 		return 1;
 	return 0;
 }

@@ -17,12 +17,10 @@ common_files = \
 	udev_rules.h \
 	udev_sysdeps.h \
 	udev_db.c \
-	udev_device.c \
 	udev_device_event.c \
 	udev_node.c \
 	udev_rules.c \
 	udev_rules_parse.c \
-	udev_sysfs.c \
 	udev_utils.c \
 	udev_utils_file.c \
 	list.h \

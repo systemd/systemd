@@ -75,7 +75,7 @@ static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *f
 	return util_path_encode(&filename[start], len - start);
 }
 
-static int device_read_db(struct udev_device *udev_device)
+int udev_device_read_db(struct udev_device *udev_device)
 {
 	struct stat stats;
 	char filename[UTIL_PATH_SIZE];
@@ -220,7 +220,7 @@ static void device_load_info(struct udev_device *device)
 {
 	device->info_loaded = 1;
 	udev_device_read_uevent_file(device);
-	device_read_db(device);
+	udev_device_read_db(device);
 }
 
 void udev_device_set_info_loaded(struct udev_device *device)

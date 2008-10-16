@@ -33,11 +33,8 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/un.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
-#include <linux/types.h>
-#include <linux/netlink.h>
 #ifdef HAVE_INOTIFY
 #include <sys/inotify.h>
 #endif
@@ -65,29 +62,10 @@ static void log_fn(struct udev *udev, int priority,
 	}
 }
 
-struct udevd_uevent_msg {
-	struct udev *udev;
-	struct list_head node;
-	pid_t pid;
-	int exitstatus;
-	time_t queue_time;
-	char *action;
-	char *devpath;
-	char *subsystem;
-	char *driver;
-	dev_t devt;
-	unsigned long long seqnum;
-	char *devpath_old;
-	char *physdevpath;
-	unsigned int timeout;
-	char *envp[UEVENT_NUM_ENVP+1];
-	char envbuf[];
-};
-
 static int debug_trace;
 static struct udev_rules rules;
 static struct udev_ctrl *udev_ctrl;
-static int uevent_netlink_sock = -1;
+static struct udev_monitor *kernel_monitor;
 static int inotify_fd = -1;
 
 static int signal_pipe[2] = {-1, -1};
@@ -97,66 +75,9 @@ static volatile int reload_config;
 static int run_exec_q;
 static int stop_exec_q;
 static int max_childs;
-static char udev_log_env[32];
 
 static LIST_HEAD(exec_list);
 static LIST_HEAD(running_list);
-
-static void asmlinkage udev_event_sig_handler(int signum)
-{
-	if (signum == SIGALRM)
-		exit(1);
-}
-
-static int udev_event_process(struct udevd_uevent_msg *msg)
-{
-	struct sigaction act;
-	struct udevice *udevice;
-	int i;
-	int retval;
-
-	/* set signal handlers */
-	memset(&act, 0x00, sizeof(act));
-	act.sa_handler = (void (*)(int)) udev_event_sig_handler;
-	sigemptyset (&act.sa_mask);
-	act.sa_flags = 0;
-	sigaction(SIGALRM, &act, NULL);
-
-	/* reset to default */
-	act.sa_handler = SIG_DFL;
-	sigaction(SIGINT, &act, NULL);
-	sigaction(SIGTERM, &act, NULL);
-	sigaction(SIGCHLD, &act, NULL);
-	sigaction(SIGHUP, &act, NULL);
-
-	/* trigger timeout to prevent hanging processes */
-	alarm(UDEV_EVENT_TIMEOUT);
-
-	/* reconstruct event environment from message */
-	for (i = 0; msg->envp[i]; i++)
-		putenv(msg->envp[i]);
-
-	udevice = udev_device_init(msg->udev);
-	if (udevice == NULL)
-		return -1;
-	util_strlcpy(udevice->action, msg->action, sizeof(udevice->action));
-	sysfs_device_set_values(udevice->udev, udevice->dev, msg->devpath, msg->subsystem, msg->driver);
-	udevice->devpath_old = msg->devpath_old;
-	udevice->devt = msg->devt;
-
-	retval = udev_device_event(&rules, udevice);
-
-	/* rules may change/disable the timeout */
-	if (udevice->event_timeout >= 0)
-		alarm(udevice->event_timeout);
-
-	/* run programs collected by RUN-key*/
-	if (retval == 0 && !udevice->ignore_device && udev_get_run(msg->udev))
-		retval = udev_rules_run(udevice);
-
-	udev_device_cleanup(udevice);
-	return retval;
-}
 
 enum event_state {
 	EVENT_QUEUED,
@@ -164,89 +85,98 @@ enum event_state {
 	EVENT_FAILED,
 };
 
-static void export_event_state(struct udevd_uevent_msg *msg, enum event_state state)
+static void export_event_state(struct udev_event *event, enum event_state state)
 {
 	char filename[UTIL_PATH_SIZE];
 	char filename_failed[UTIL_PATH_SIZE];
 	size_t start;
 
 	/* location of queue file */
-	snprintf(filename, sizeof(filename), "%s/.udev/queue/%llu", udev_get_dev_path(msg->udev), msg->seqnum);
+	snprintf(filename, sizeof(filename), "%s/.udev/queue/%llu",
+		 udev_get_dev_path(event->udev), udev_device_get_seqnum(event->dev));
 
 	/* location of failed file */
-	util_strlcpy(filename_failed, udev_get_dev_path(msg->udev), sizeof(filename_failed));
+	util_strlcpy(filename_failed, udev_get_dev_path(event->udev), sizeof(filename_failed));
 	util_strlcat(filename_failed, "/", sizeof(filename_failed));
 	start = util_strlcat(filename_failed, ".udev/failed/", sizeof(filename_failed));
-	util_strlcat(filename_failed, msg->devpath, sizeof(filename_failed));
+	util_strlcat(filename_failed, udev_device_get_devpath(event->dev), sizeof(filename_failed));
 	util_path_encode(&filename_failed[start], sizeof(filename_failed) - start);
 
 	switch (state) {
 	case EVENT_QUEUED:
 		unlink(filename_failed);
-		delete_path(msg->udev, filename_failed);
-		create_path(msg->udev, filename);
-		udev_selinux_setfscreatecon(msg->udev, filename, S_IFLNK);
-		symlink(msg->devpath, filename);
-		udev_selinux_resetfscreatecon(msg->udev);
+		delete_path(event->udev, filename_failed);
+		create_path(event->udev, filename);
+		udev_selinux_setfscreatecon(event->udev, filename, S_IFLNK);
+		symlink(udev_device_get_devpath(event->dev), filename);
+		udev_selinux_resetfscreatecon(event->udev);
 		break;
 	case EVENT_FINISHED:
-		if (msg->devpath_old != NULL) {
+		if (udev_device_get_devpath_old(event->dev) != NULL) {
 			/* "move" event - rename failed file to current name, do not delete failed */
 			char filename_failed_old[UTIL_PATH_SIZE];
 
-			util_strlcpy(filename_failed_old, udev_get_dev_path(msg->udev), sizeof(filename_failed_old));
+			util_strlcpy(filename_failed_old, udev_get_dev_path(event->udev), sizeof(filename_failed_old));
 			util_strlcat(filename_failed_old, "/", sizeof(filename_failed_old));
 			start = util_strlcat(filename_failed_old, ".udev/failed/", sizeof(filename_failed_old));
-			util_strlcat(filename_failed_old, msg->devpath_old, sizeof(filename_failed_old));
+			util_strlcat(filename_failed_old, udev_device_get_devpath_old(event->dev), sizeof(filename_failed_old));
 			util_path_encode(&filename_failed_old[start], sizeof(filename) - start);
 
 			if (rename(filename_failed_old, filename_failed) == 0)
-				info(msg->udev, "renamed devpath, moved failed state of '%s' to %s'\n",
-				     msg->devpath_old, msg->devpath);
+				info(event->udev, "renamed devpath, moved failed state of '%s' to %s'\n",
+				     udev_device_get_devpath_old(event->dev), udev_device_get_devpath(event->dev));
 		} else {
 			unlink(filename_failed);
-			delete_path(msg->udev, filename_failed);
+			delete_path(event->udev, filename_failed);
 		}
 
 		unlink(filename);
-		delete_path(msg->udev, filename);
+		delete_path(event->udev, filename);
 		break;
 	case EVENT_FAILED:
 		/* move failed event to the failed directory */
-		create_path(msg->udev, filename_failed);
+		create_path(event->udev, filename_failed);
 		rename(filename, filename_failed);
 
 		/* clean up possibly empty queue directory */
-		delete_path(msg->udev, filename);
+		delete_path(event->udev, filename);
 		break;
 	}
 
 	return;
 }
 
-static void msg_queue_delete(struct udevd_uevent_msg *msg)
+static void event_queue_delete(struct udev_event *event)
 {
-	list_del(&msg->node);
+	list_del(&event->node);
 
 	/* mark as failed, if "add" event returns non-zero */
-	if (msg->exitstatus && strcmp(msg->action, "add") == 0)
-		export_event_state(msg, EVENT_FAILED);
+	if (event->exitstatus && strcmp(udev_device_get_action(event->dev), "add") == 0)
+		export_event_state(event, EVENT_FAILED);
 	else
-		export_event_state(msg, EVENT_FINISHED);
+		export_event_state(event, EVENT_FINISHED);
 
-	free(msg);
+	udev_device_unref(event->dev);
+	udev_event_unref(event);
 }
 
-static void udev_event_run(struct udevd_uevent_msg *msg)
+static void asmlinkage event_sig_handler(int signum)
+{
+	if (signum == SIGALRM)
+		exit(1);
+}
+
+static void event_fork(struct udev_event *event)
 {
 	pid_t pid;
-	int retval;
+	struct sigaction act;
+	int err;
 
 	pid = fork();
 	switch (pid) {
 	case 0:
 		/* child */
-		close(uevent_netlink_sock);
+		udev_monitor_unref(kernel_monitor);
 		udev_ctrl_unref(udev_ctrl);
 		if (inotify_fd >= 0)
 			close(inotify_fd);
@@ -256,64 +186,93 @@ static void udev_event_run(struct udevd_uevent_msg *msg)
 		logging_init("udevd-event");
 		setpriority(PRIO_PROCESS, 0, UDEV_PRIORITY);
 
-		retval = udev_event_process(msg);
-		info(msg->udev, "seq %llu finished with %i\n", msg->seqnum, retval);
+		/* set signal handlers */
+		memset(&act, 0x00, sizeof(act));
+		act.sa_handler = (void (*)(int)) event_sig_handler;
+		sigemptyset (&act.sa_mask);
+		act.sa_flags = 0;
+		sigaction(SIGALRM, &act, NULL);
 
+		/* reset to default */
+		act.sa_handler = SIG_DFL;
+		sigaction(SIGINT, &act, NULL);
+		sigaction(SIGTERM, &act, NULL);
+		sigaction(SIGCHLD, &act, NULL);
+		sigaction(SIGHUP, &act, NULL);
+
+		/* set timeout to prevent hanging processes */
+		alarm(UDEV_EVENT_TIMEOUT);
+
+		/* apply rules, create node, symlinks */
+		err = udev_event_run(event, &rules);
+
+		/* rules may change/disable the timeout */
+		if (udev_device_get_event_timeout(event->dev) >= 0)
+			alarm(udev_device_get_event_timeout(event->dev));
+
+		/* execute RUN= */
+		if (err == 0 && !event->ignore_device && udev_get_run(event->udev))
+			udev_rules_run(event);
+		info(event->udev, "seq %llu finished with %i\n", udev_device_get_seqnum(event->dev), err);
 		logging_close();
-		if (retval)
+		if (err != 0)
 			exit(1);
 		exit(0);
 	case -1:
-		err(msg->udev, "fork of child failed: %m\n");
-		msg_queue_delete(msg);
+		err(event->udev, "fork of child failed: %m\n");
+		event_queue_delete(event);
 		break;
 	default:
 		/* get SIGCHLD in main loop */
-		info(msg->udev, "seq %llu forked, pid [%d], '%s' '%s', %ld seconds old\n",
-		     msg->seqnum, pid,  msg->action, msg->subsystem, time(NULL) - msg->queue_time);
-		msg->pid = pid;
+		info(event->udev, "seq %llu forked, pid [%d], '%s' '%s', %ld seconds old\n",
+		     udev_device_get_seqnum(event->dev),
+		     pid,
+		     udev_device_get_action(event->dev),
+		     udev_device_get_subsystem(event->dev),
+		     time(NULL) - event->queue_time);
+		event->pid = pid;
 	}
 }
 
-static void msg_queue_insert(struct udevd_uevent_msg *msg)
+static void event_queue_insert(struct udev_event *event)
 {
 	char filename[UTIL_PATH_SIZE];
 	int fd;
 
-	msg->queue_time = time(NULL);
+	event->queue_time = time(NULL);
 
-	export_event_state(msg, EVENT_QUEUED);
-	info(msg->udev, "seq %llu queued, '%s' '%s'\n", msg->seqnum, msg->action, msg->subsystem);
+	export_event_state(event, EVENT_QUEUED);
+	info(event->udev, "seq %llu queued, '%s' '%s'\n", udev_device_get_seqnum(event->dev), udev_device_get_action(event->dev), udev_device_get_subsystem(event->dev));
 
-	util_strlcpy(filename, udev_get_dev_path(msg->udev), sizeof(filename));
+	util_strlcpy(filename, udev_get_dev_path(event->udev), sizeof(filename));
 	util_strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
 	fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
 	if (fd >= 0) {
 		char str[32];
 		int len;
 
-		len = sprintf(str, "%llu\n", msg->seqnum);
+		len = sprintf(str, "%llu\n", udev_device_get_seqnum(event->dev));
 		write(fd, str, len);
 		close(fd);
 	}
 
 	/* run one event after the other in debug mode */
 	if (debug_trace) {
-		list_add_tail(&msg->node, &running_list);
-		udev_event_run(msg);
-		waitpid(msg->pid, NULL, 0);
-		msg_queue_delete(msg);
+		list_add_tail(&event->node, &running_list);
+		event_fork(event);
+		waitpid(event->pid, NULL, 0);
+		event_queue_delete(event);
 		return;
 	}
 
 	/* run all events with a timeout set immediately */
-	if (msg->timeout != 0) {
-		list_add_tail(&msg->node, &running_list);
-		udev_event_run(msg);
+	if (udev_device_get_timeout(event->dev) > 0) {
+		list_add_tail(&event->node, &running_list);
+		event_fork(event);
 		return;
 	}
 
-	list_add_tail(&msg->node, &exec_list);
+	list_add_tail(&event->node, &exec_list);
 	run_exec_q = 1;
 }
 
@@ -366,80 +325,99 @@ static int compare_devpath(const char *running, const char *waiting)
 }
 
 /* lookup event for identical, parent, child, or physical device */
-static int devpath_busy(struct udevd_uevent_msg *msg, int limit)
+static int devpath_busy(struct udev_event *event, int limit)
 {
-	struct udevd_uevent_msg *loop_msg;
+	struct udev_event *loop_event;
 	int childs_count = 0;
 
 	/* check exec-queue which may still contain delayed events we depend on */
-	list_for_each_entry(loop_msg, &exec_list, node) {
+	list_for_each_entry(loop_event, &exec_list, node) {
 		/* skip ourself and all later events */
-		if (loop_msg->seqnum >= msg->seqnum)
+		if (udev_device_get_seqnum(loop_event->dev) >= udev_device_get_seqnum(event->dev))
 			break;
 
 		/* check our old name */
-		if (msg->devpath_old != NULL)
-			if (strcmp(loop_msg->devpath , msg->devpath_old) == 0)
+		if (udev_device_get_devpath_old(event->dev) != NULL)
+			if (strcmp(udev_device_get_devpath(loop_event->dev), udev_device_get_devpath_old(event->dev)) == 0)
 				return 2;
 
 		/* check identical, parent, or child device event */
-		if (compare_devpath(loop_msg->devpath, msg->devpath) != 0) {
-			dbg(msg->udev, "%llu, device event still pending %llu (%s)\n",
-			    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
+		if (compare_devpath(udev_device_get_devpath(loop_event->dev), udev_device_get_devpath(event->dev)) != 0) {
+			dbg(event->udev, "%llu, device event still pending %llu (%s)\n",
+			    udev_device_get_seqnum(event->dev),
+			    udev_device_get_seqnum(loop_event->dev),
+			    udev_device_get_devpath(loop_event->dev));
 			return 3;
 		}
 
 		/* check for our major:minor number */
-		if (msg->devt && loop_msg->devt == msg->devt &&
-		    strcmp(msg->subsystem, loop_msg->subsystem) == 0) {
-			dbg(msg->udev, "%llu, device event still pending %llu (%d:%d)\n", msg->seqnum,
-			    loop_msg->seqnum, major(loop_msg->devt), minor(loop_msg->devt));
+		if (major(udev_device_get_devnum(event->dev)) > 0 &&
+		    udev_device_get_devnum(loop_event->dev) == udev_device_get_devnum(event->dev) &&
+		    strcmp(udev_device_get_subsystem(event->dev), udev_device_get_subsystem(loop_event->dev)) == 0) {
+			dbg(event->udev, "%llu, device event still pending %llu (%d:%d)\n",
+			    udev_device_get_seqnum(event->dev),
+			    udev_device_get_seqnum(loop_event->dev),
+			    major(udev_device_get_devnum(loop_event->dev)), minor(udev_device_get_devnum(loop_event->dev)));
 			return 4;
 		}
 
 		/* check physical device event (special case of parent) */
-		if (msg->physdevpath && msg->action && strcmp(msg->action, "add") == 0)
-			if (compare_devpath(loop_msg->devpath, msg->physdevpath) != 0) {
-				dbg(msg->udev, "%llu, physical device event still pending %llu (%s)\n",
-				    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
+		if (udev_device_get_physdevpath(event->dev) != NULL &&
+		    strcmp(udev_device_get_action(event->dev), "add") == 0)
+			if (compare_devpath(udev_device_get_devpath(loop_event->dev),
+					    udev_device_get_physdevpath(event->dev)) != 0) {
+				dbg(event->udev, "%llu, physical device event still pending %llu (%s)\n",
+				    udev_device_get_seqnum(event->dev),
+				    udev_device_get_seqnum(loop_event->dev),
+				    udev_device_get_devpath(loop_event->dev));
 				return 5;
 			}
 	}
 
 	/* check run queue for still running events */
-	list_for_each_entry(loop_msg, &running_list, node) {
+	list_for_each_entry(loop_event, &running_list, node) {
 		childs_count++;
 
 		if (childs_count++ >= limit) {
-			info(msg->udev, "%llu, maximum number (%i) of childs reached\n", msg->seqnum, childs_count);
+			info(event->udev, "%llu, maximum number (%i) of childs reached\n",
+			     udev_device_get_seqnum(event->dev), childs_count);
 			return 1;
 		}
 
 		/* check our old name */
-		if (msg->devpath_old != NULL)
-			if (strcmp(loop_msg->devpath , msg->devpath_old) == 0)
+		if (udev_device_get_devpath_old(event->dev) != NULL)
+			if (strcmp(udev_device_get_devpath(loop_event->dev), udev_device_get_devpath_old(event->dev)) == 0)
 				return 2;
 
 		/* check identical, parent, or child device event */
-		if (compare_devpath(loop_msg->devpath, msg->devpath) != 0) {
-			dbg(msg->udev, "%llu, device event still running %llu (%s)\n",
-			    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
+		if (compare_devpath(udev_device_get_devpath(loop_event->dev), udev_device_get_devpath(event->dev)) != 0) {
+			dbg(event->udev, "%llu, device event still running %llu (%s)\n",
+			    udev_device_get_seqnum(event->dev),
+			    udev_device_get_seqnum(loop_event->dev),
+			    udev_device_get_devpath(loop_event->dev));
 			return 3;
 		}
 
 		/* check for our major:minor number */
-		if (msg->devt && loop_msg->devt == msg->devt &&
-		    strcmp(msg->subsystem, loop_msg->subsystem) == 0) {
-			dbg(msg->udev, "%llu, device event still running %llu (%d:%d)\n", msg->seqnum,
-			    loop_msg->seqnum, major(loop_msg->devt), minor(loop_msg->devt));
+		if (major(udev_device_get_devnum(event->dev)) > 0 &&
+		    udev_device_get_devnum(loop_event->dev) == udev_device_get_devnum(event->dev) &&
+		    strcmp(udev_device_get_subsystem(event->dev), udev_device_get_subsystem(loop_event->dev)) == 0) {
+			dbg(event->udev, "%llu, device event still pending %llu (%d:%d)\n",
+			    udev_device_get_seqnum(event->dev),
+			    udev_device_get_seqnum(loop_event->dev),
+			    major(udev_device_get_devnum(loop_event->dev)), minor(udev_device_get_devnum(loop_event->dev)));
 			return 4;
 		}
 
 		/* check physical device event (special case of parent) */
-		if (msg->physdevpath && msg->action && strcmp(msg->action, "add") == 0)
-			if (compare_devpath(loop_msg->devpath, msg->physdevpath) != 0) {
-				dbg(msg->udev, "%llu, physical device event still running %llu (%s)\n",
-				    msg->seqnum, loop_msg->seqnum, loop_msg->devpath);
+		if (udev_device_get_physdevpath(event->dev) != NULL &&
+		    strcmp(udev_device_get_action(event->dev), "add") == 0)
+			if (compare_devpath(udev_device_get_devpath(loop_event->dev),
+					    udev_device_get_physdevpath(event->dev)) != 0) {
+				dbg(event->udev, "%llu, physical device event still pending %llu (%s)\n",
+				    udev_device_get_seqnum(event->dev),
+				    udev_device_get_seqnum(loop_event->dev),
+				    udev_device_get_devpath(loop_event->dev));
 				return 5;
 			}
 	}
@@ -447,97 +425,28 @@ static int devpath_busy(struct udevd_uevent_msg *msg, int limit)
 }
 
 /* serializes events for the identical and parent and child devices */
-static void msg_queue_manager(struct udev *udev)
+static void event_queue_manager(struct udev *udev)
 {
-	struct udevd_uevent_msg *loop_msg;
-	struct udevd_uevent_msg *tmp_msg;
+	struct udev_event *loop_event;
+	struct udev_event *tmp_event;
 
 	if (list_empty(&exec_list))
 		return;
 
-	list_for_each_entry_safe(loop_msg, tmp_msg, &exec_list, node) {
+	list_for_each_entry_safe(loop_event, tmp_event, &exec_list, node) {
 		/* serialize and wait for parent or child events */
-		if (devpath_busy(loop_msg, max_childs) != 0) {
-			dbg(udev, "delay seq %llu (%s)\n", loop_msg->seqnum, loop_msg->devpath);
+		if (devpath_busy(loop_event, max_childs) != 0) {
+			dbg(udev, "delay seq %llu (%s)\n",
+			    udev_device_get_seqnum(loop_event->dev),
+			    udev_device_get_devpath(loop_event->dev));
 			continue;
 		}
 
 		/* move event to run list */
-		list_move_tail(&loop_msg->node, &running_list);
-		udev_event_run(loop_msg);
-		dbg(udev, "moved seq %llu to running list\n", loop_msg->seqnum);
+		list_move_tail(&loop_event->node, &running_list);
+		event_fork(loop_event);
+		dbg(udev, "moved seq %llu to running list\n", udev_device_get_seqnum(loop_event->dev));
 	}
-}
-
-static struct udevd_uevent_msg *get_msg_from_envbuf(struct udev *udev, const char *buf, int buf_size)
-{
-	int bufpos;
-	int i;
-	struct udevd_uevent_msg *msg;
-	char *physdevdriver_key = NULL;
-	int maj = 0;
-	int min = 0;
-
-	msg = malloc(sizeof(struct udevd_uevent_msg) + buf_size);
-	if (msg == NULL)
-		return NULL;
-	memset(msg, 0x00, sizeof(struct udevd_uevent_msg) + buf_size);
-	msg->udev = udev;
-
-	/* copy environment buffer and reconstruct envp */
-	memcpy(msg->envbuf, buf, buf_size);
-	bufpos = 0;
-	for (i = 0; (bufpos < buf_size) && (i < UEVENT_NUM_ENVP-2); i++) {
-		int keylen;
-		char *key;
-
-		key = &msg->envbuf[bufpos];
-		keylen = strlen(key);
-		msg->envp[i] = key;
-		bufpos += keylen + 1;
-		dbg(udev, "add '%s' to msg.envp[%i]\n", msg->envp[i], i);
-
-		/* remember some keys for further processing */
-		if (strncmp(key, "ACTION=", 7) == 0)
-			msg->action = &key[7];
-		else if (strncmp(key, "DEVPATH=", 8) == 0)
-			msg->devpath = &key[8];
-		else if (strncmp(key, "SUBSYSTEM=", 10) == 0)
-			msg->subsystem = &key[10];
-		else if (strncmp(key, "DRIVER=", 7) == 0)
-			msg->driver = &key[7];
-		else if (strncmp(key, "SEQNUM=", 7) == 0)
-			msg->seqnum = strtoull(&key[7], NULL, 10);
-		else if (strncmp(key, "DEVPATH_OLD=", 12) == 0)
-			msg->devpath_old = &key[12];
-		else if (strncmp(key, "PHYSDEVPATH=", 12) == 0)
-			msg->physdevpath = &key[12];
-		else if (strncmp(key, "PHYSDEVDRIVER=", 14) == 0)
-			physdevdriver_key = key;
-		else if (strncmp(key, "MAJOR=", 6) == 0)
-			maj = strtoull(&key[6], NULL, 10);
-		else if (strncmp(key, "MINOR=", 6) == 0)
-			min = strtoull(&key[6], NULL, 10);
-		else if (strncmp(key, "TIMEOUT=", 8) == 0)
-			msg->timeout = strtoull(&key[8], NULL, 10);
-	}
-	msg->devt = makedev(maj, min);
-	msg->envp[i++] = "UDEVD_EVENT=1";
-
-	if (msg->driver == NULL && msg->physdevpath == NULL && physdevdriver_key != NULL) {
-		/* for older kernels DRIVER is empty for a bus device, export PHYSDEVDRIVER as DRIVER */
-		msg->envp[i++] = &physdevdriver_key[7];
-		msg->driver = &physdevdriver_key[14];
-	}
-
-	msg->envp[i] = NULL;
-
-	if (msg->devpath == NULL || msg->action == NULL) {
-		info(udev, "DEVPATH or ACTION missing, ignore message\n");
-		free(msg);
-		return NULL;
-	}
-	return msg;
 }
 
 /* receive the udevd message from userspace */
@@ -556,8 +465,6 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl)
 	if (i >= 0) {
 		info(udev, "udevd message (SET_LOG_PRIORITY) received, log_priority=%i\n", i);
 		udev_set_log_priority(udev, i);
-		sprintf(udev_log_env, "UDEV_LOG=%i", i);
-		putenv(udev_log_env);
 	}
 
 	if (udev_ctrl_get_stop_exec_queue(ctrl_msg) > 0) {
@@ -568,7 +475,7 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl)
 	if (udev_ctrl_get_start_exec_queue(ctrl_msg) > 0) {
 		info(udev, "udevd message (START_EXEC_QUEUE) received\n");
 		stop_exec_q = 0;
-		msg_queue_manager(udev);
+		event_queue_manager(udev);
 	}
 
 	if (udev_ctrl_get_reload_rules(ctrl_msg) > 0) {
@@ -578,24 +485,28 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl)
 
 	str = udev_ctrl_get_set_env(ctrl_msg);
 	if (str != NULL) {
-		char *key = strdup(str);
-		char *val;
+		char *key;
 
-		val = strchr(str, '=');
-		if (val != NULL) {
-			val[0] = '\0';
-			val = &val[1];
-			if (val[0] == '\0') {
-				info(udev, "udevd message (ENV) received, unset '%s'\n", key);
-				unsetenv(str);
+		key = strdup(str);
+		if (key != NULL) {
+			char *val;
+
+			val = strchr(key, '=');
+			if (val != NULL) {
+				val[0] = '\0';
+				val = &val[1];
+				if (val[0] == '\0') {
+					info(udev, "udevd message (ENV) received, unset '%s'\n", key);
+					udev_add_property(udev, key, NULL);
+				} else {
+					info(udev, "udevd message (ENV) received, set '%s=%s'\n", key, val);
+					udev_add_property(udev, key, val);
+				}
 			} else {
-				info(udev, "udevd message (ENV) received, set '%s=%s'\n", key, val);
-				setenv(key, val, 1);
+				err(udev, "wrong key format '%s'\n", key);
 			}
-		} else {
-			err(udev, "wrong key format '%s'\n", key);
+			free(key);
 		}
-		free(key);
 	}
 
 	i = udev_ctrl_get_set_max_childs(ctrl_msg);
@@ -605,57 +516,6 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl)
 	}
 
 	udev_ctrl_msg_unref(ctrl_msg);
-}
-
-/* receive the kernel user event message and do some sanity checks */
-static struct udevd_uevent_msg *get_netlink_msg(struct udev *udev)
-{
-	struct udevd_uevent_msg *msg;
-	int bufpos;
-	ssize_t size;
-	static char buffer[UEVENT_BUFFER_SIZE+512];
-	char *pos;
-
-	size = recv(uevent_netlink_sock, &buffer, sizeof(buffer), 0);
-	if (size <  0) {
-		if (errno != EINTR)
-			err(udev, "unable to receive kernel netlink message: %m\n");
-		return NULL;
-	}
-
-	if ((size_t)size > sizeof(buffer)-1)
-		size = sizeof(buffer)-1;
-	buffer[size] = '\0';
-	dbg(udev, "uevent_size=%zi\n", size);
-
-	/* start of event payload */
-	bufpos = strlen(buffer)+1;
-	msg = get_msg_from_envbuf(udev, &buffer[bufpos], size-bufpos);
-	if (msg == NULL)
-		return NULL;
-
-	/* validate message */
-	pos = strchr(buffer, '@');
-	if (pos == NULL) {
-		err(udev, "invalid uevent '%s'\n", buffer);
-		free(msg);
-		return NULL;
-	}
-	pos[0] = '\0';
-
-	if (msg->action == NULL) {
-		info(udev, "no ACTION in payload found, skip event '%s'\n", buffer);
-		free(msg);
-		return NULL;
-	}
-
-	if (strcmp(msg->action, buffer) != 0) {
-		err(udev, "ACTION in payload does not match uevent, skip event '%s'\n", buffer);
-		free(msg);
-		return NULL;
-	}
-
-	return msg;
 }
 
 static void asmlinkage sig_handler(int signum)
@@ -680,15 +540,16 @@ static void asmlinkage sig_handler(int signum)
 
 static void udev_done(int pid, int exitstatus)
 {
-	/* find msg associated with pid and delete it */
-	struct udevd_uevent_msg *msg;
+	/* find event associated with pid and delete it */
+	struct udev_event *event;
 
-	list_for_each_entry(msg, &running_list, node) {
-		if (msg->pid == pid) {
-			info(msg->udev, "seq %llu, pid [%d] exit with %i, %ld seconds old\n", msg->seqnum, msg->pid,
-			     exitstatus, time(NULL) - msg->queue_time);
-			msg->exitstatus = exitstatus;
-			msg_queue_delete(msg);
+	list_for_each_entry(event, &running_list, node) {
+		if (event->pid == pid) {
+			info(event->udev, "seq %llu, pid [%d] exit with %i, %ld seconds old\n",
+			     udev_device_get_seqnum(event->dev), event->pid,
+			     exitstatus, time(NULL) - event->queue_time);
+			event->exitstatus = exitstatus;
+			event_queue_delete(event);
 
 			/* there may be events waiting with the same devpath */
 			run_exec_q = 1;
@@ -714,36 +575,6 @@ static void reap_sigchilds(void)
 			status = 0;
 		udev_done(pid, status);
 	}
-}
-
-static int init_uevent_netlink_sock(struct udev *udev)
-{
-	struct sockaddr_nl snl;
-	const int buffersize = 16 * 1024 * 1024;
-	int retval;
-
-	memset(&snl, 0x00, sizeof(struct sockaddr_nl));
-	snl.nl_family = AF_NETLINK;
-	snl.nl_pid = getpid();
-	snl.nl_groups = 1;
-
-	uevent_netlink_sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
-	if (uevent_netlink_sock == -1) {
-		err(udev, "error getting socket: %m\n");
-		return -1;
-	}
-
-	/* set receive buffersize */
-	setsockopt(uevent_netlink_sock, SOL_SOCKET, SO_RCVBUFFORCE, &buffersize, sizeof(buffersize));
-
-	retval = bind(uevent_netlink_sock, (struct sockaddr *) &snl, sizeof(struct sockaddr_nl));
-	if (retval < 0) {
-		err(udev, "bind failed: %m\n");
-		close(uevent_netlink_sock);
-		uevent_netlink_sock = -1;
-		return -1;
-	}
-	return 0;
 }
 
 static void export_initial_seqnum(struct udev *udev)
@@ -777,7 +608,7 @@ static void export_initial_seqnum(struct udev *udev)
 int main(int argc, char *argv[])
 {
 	struct udev *udev;
-	int retval;
+	int err;
 	int fd;
 	struct sigaction act;
 	fd_set readfds;
@@ -800,7 +631,7 @@ int main(int argc, char *argv[])
 
 	logging_init("udevd");
 	udev_set_log_fn(udev, log_fn);
-	dbg(udev, "version %s\n", VERSION);
+	info(udev, "version %s\n", VERSION);
 	selinux_init(udev);
 
 	while (1) {
@@ -868,45 +699,49 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	if (init_uevent_netlink_sock(udev) < 0) {
+	kernel_monitor = udev_monitor_new_from_netlink(udev);
+	if (kernel_monitor == NULL || udev_monitor_enable_receiving(kernel_monitor) < 0) {
 		fprintf(stderr, "error initializing netlink socket\n");
 		err(udev, "error initializing netlink socket\n");
 		rc = 3;
 		goto exit;
+	} else {
+		/* set receive buffersize */
+		const int buffersize = 32 * 1024 * 1024;
+
+		setsockopt(udev_monitor_get_fd(kernel_monitor),
+			   SOL_SOCKET, SO_RCVBUFFORCE, &buffersize, sizeof(buffersize));
 	}
 
-	retval = pipe(signal_pipe);
-	if (retval < 0) {
+	err = pipe(signal_pipe);
+	if (err < 0) {
 		err(udev, "error getting pipes: %m\n");
 		goto exit;
 	}
 
-	retval = fcntl(signal_pipe[READ_END], F_GETFL, 0);
-	if (retval < 0) {
+	err = fcntl(signal_pipe[READ_END], F_GETFL, 0);
+	if (err < 0) {
 		err(udev, "error fcntl on read pipe: %m\n");
 		goto exit;
 	}
-	retval = fcntl(signal_pipe[READ_END], F_SETFL, retval | O_NONBLOCK);
-	if (retval < 0) {
+	err = fcntl(signal_pipe[READ_END], F_SETFL, err | O_NONBLOCK);
+	if (err < 0) {
 		err(udev, "error fcntl on read pipe: %m\n");
 		goto exit;
 	}
 
-	retval = fcntl(signal_pipe[WRITE_END], F_GETFL, 0);
-	if (retval < 0) {
+	err = fcntl(signal_pipe[WRITE_END], F_GETFL, 0);
+	if (err < 0) {
 		err(udev, "error fcntl on write pipe: %m\n");
 		goto exit;
 	}
-	retval = fcntl(signal_pipe[WRITE_END], F_SETFL, retval | O_NONBLOCK);
-	if (retval < 0) {
+	err = fcntl(signal_pipe[WRITE_END], F_SETFL, err | O_NONBLOCK);
+	if (err < 0) {
 		err(udev, "error fcntl on write pipe: %m\n");
 		goto exit;
 	}
 
-	/* parse the rules and keep them in memory */
-	sysfs_init();
 	udev_rules_init(udev, &rules, 1);
-
 	export_initial_seqnum(udev);
 
 	if (daemonize) {
@@ -1021,28 +856,18 @@ int main(int argc, char *argv[])
 	}
 	info(udev, "initialize max_childs to %u\n", max_childs);
 
-	/* clear environment for forked event processes */
-	clearenv();
-
-	/* export log_priority , as called programs may want to follow that setting */
-	sprintf(udev_log_env, "UDEV_LOG=%i", udev_get_log_priority(udev));
-	putenv(udev_log_env);
-	if (debug_trace)
-		putenv("DEBUG=1");
-
 	maxfd = udev_ctrl_get_fd(udev_ctrl);
-	maxfd = UDEV_MAX(maxfd, uevent_netlink_sock);
+	maxfd = UDEV_MAX(maxfd, udev_monitor_get_fd(kernel_monitor));
 	maxfd = UDEV_MAX(maxfd, signal_pipe[READ_END]);
 	maxfd = UDEV_MAX(maxfd, inotify_fd);
 
 	while (!udev_exit) {
-		struct udevd_uevent_msg *msg;
 		int fdcount;
 
 		FD_ZERO(&readfds);
 		FD_SET(signal_pipe[READ_END], &readfds);
 		FD_SET(udev_ctrl_get_fd(udev_ctrl), &readfds);
-		FD_SET(uevent_netlink_sock, &readfds);
+		FD_SET(udev_monitor_get_fd(kernel_monitor), &readfds);
 		if (inotify_fd >= 0)
 			FD_SET(inotify_fd, &readfds);
 
@@ -1057,11 +882,20 @@ int main(int argc, char *argv[])
 		if (FD_ISSET(udev_ctrl_get_fd(udev_ctrl), &readfds))
 			handle_ctrl_msg(udev_ctrl);
 
-		/* get netlink message */
-		if (FD_ISSET(uevent_netlink_sock, &readfds)) {
-			msg = get_netlink_msg(udev);
-			if (msg)
-				msg_queue_insert(msg);
+		/* get kernel uevent */
+		if (FD_ISSET(udev_monitor_get_fd(kernel_monitor), &readfds)) {
+			struct udev_device *dev;
+
+			dev = udev_monitor_receive_device(kernel_monitor);
+			if (dev != NULL) {
+				struct udev_event *event;
+
+				event = udev_event_new(dev);
+				if (event != NULL)
+					event_queue_insert(event);
+				else
+					udev_device_unref(dev);
+			}
 		}
 
 		/* received a signal, clear our notification pipe */
@@ -1098,7 +932,6 @@ int main(int argc, char *argv[])
 			udev_rules_init(udev, &rules, 1);
 		}
 
-		/* forked child has returned */
 		if (sigchilds_waiting) {
 			sigchilds_waiting = 0;
 			reap_sigchilds();
@@ -1107,14 +940,13 @@ int main(int argc, char *argv[])
 		if (run_exec_q) {
 			run_exec_q = 0;
 			if (!stop_exec_q)
-				msg_queue_manager(udev);
+				event_queue_manager(udev);
 		}
 	}
 	rc = 0;
 
 exit:
 	udev_rules_cleanup(&rules);
-	sysfs_cleanup();
 
 	if (signal_pipe[READ_END] >= 0)
 		close(signal_pipe[READ_END]);
@@ -1124,8 +956,7 @@ exit:
 	udev_ctrl_unref(udev_ctrl);
 	if (inotify_fd >= 0)
 		close(inotify_fd);
-	if (uevent_netlink_sock >= 0)
-		close(uevent_netlink_sock);
+	udev_monitor_unref(kernel_monitor);
 
 	selinux_exit(udev);
 	udev_unref(udev);

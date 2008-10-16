@@ -125,10 +125,10 @@ extern void udev_rules_iter_init(struct udev_rules_iter *iter, struct udev_rules
 extern struct udev_rule *udev_rules_iter_next(struct udev_rules_iter *iter);
 extern struct udev_rule *udev_rules_iter_goto(struct udev_rules_iter *iter, size_t rule_off);
 
-extern int udev_rules_get_name(struct udev_rules *rules, struct udevice *udev);
-extern int udev_rules_get_run(struct udev_rules *rules, struct udevice *udev);
-extern int udev_rules_run(struct udevice *udev);
+extern int udev_rules_get_name(struct udev_rules *rules, struct udev_event *event);
+extern int udev_rules_get_run(struct udev_rules *rules, struct udev_event *event);
+extern int udev_rules_run(struct udev_event *event);
 
-extern void udev_rules_apply_format(struct udevice *udev, char *string, size_t maxsize);
+extern void udev_rules_apply_format(struct udev_event *event, char *string, size_t maxsize);
 
 #endif

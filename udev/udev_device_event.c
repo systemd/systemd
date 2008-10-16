@@ -31,6 +31,33 @@
 #include "udev.h"
 #include "udev_rules.h"
 
+struct udev_event *udev_event_new(struct udev_device *dev)
+{
+	struct udev_event *event;
+
+	event = malloc(sizeof(struct udev_event));
+	if (event == NULL)
+		return NULL;
+	memset(event, 0x00, sizeof(struct udev_event));
+
+	event->dev = dev;
+	event->udev = udev_device_get_udev(dev);
+	udev_list_init(&event->run_list);
+	event->mode = 0660;
+	util_strlcpy(event->owner, "0", sizeof(event->owner));
+	util_strlcpy(event->group, "0", sizeof(event->group));
+
+	dbg(event->udev, "allocated event %p\n", event);
+	return event;
+}
+
+void udev_event_unref(struct udev_event *event)
+{
+	udev_list_cleanup(event->udev, &event->run_list);
+	dbg(event->udev, "free event %p\n", event);
+	free(event);
+}
+
 static void kernel_log(struct ifreq ifr)
 {
 	int klog;
@@ -51,209 +78,209 @@ static void kernel_log(struct ifreq ifr)
 	fclose(f);
 }
 
-static int rename_netif(struct udevice *udevice)
+static int rename_netif(struct udev_event *event)
 {
+	struct udev_device *dev = event->dev;
 	int sk;
 	struct ifreq ifr;
-	int retval;
+	int err;
 
-	info(udevice->udev, "changing net interface name from '%s' to '%s'\n", udevice->dev->kernel, udevice->name);
-	if (udevice->test_run)
+	info(event->udev, "changing net interface name from '%s' to '%s'\n",
+	     udev_device_get_sysname(dev), event->name);
+	if (event->test)
 		return 0;
 
 	sk = socket(PF_INET, SOCK_DGRAM, 0);
 	if (sk < 0) {
-		err(udevice->udev, "error opening socket: %m\n");
+		err(event->udev, "error opening socket: %m\n");
 		return -1;
 	}
 
 	memset(&ifr, 0x00, sizeof(struct ifreq));
-	util_strlcpy(ifr.ifr_name, udevice->dev->kernel, IFNAMSIZ);
-	util_strlcpy(ifr.ifr_newname, udevice->name, IFNAMSIZ);
-	retval = ioctl(sk, SIOCSIFNAME, &ifr);
-	if (retval == 0)
+	util_strlcpy(ifr.ifr_name, udev_device_get_sysname(dev), IFNAMSIZ);
+	util_strlcpy(ifr.ifr_newname, event->name, IFNAMSIZ);
+	err = ioctl(sk, SIOCSIFNAME, &ifr);
+	if (err == 0)
 		kernel_log(ifr);
 	else {
 		int loop;
 
 		/* see if the destination interface name already exists */
 		if (errno != EEXIST) {
-			err(udevice->udev, "error changing netif name %s to %s: %m\n",
+			err(event->udev, "error changing netif name %s to %s: %m\n",
 			    ifr.ifr_name, ifr.ifr_newname);
 			goto exit;
 		}
 
 		/* free our own name, another process may wait for us */
-		util_strlcpy(ifr.ifr_newname, udevice->dev->kernel, IFNAMSIZ);
+		util_strlcpy(ifr.ifr_newname, udev_device_get_sysname(dev), IFNAMSIZ);
 		util_strlcat(ifr.ifr_newname, "_rename", IFNAMSIZ);
-		retval = ioctl(sk, SIOCSIFNAME, &ifr);
-		if (retval != 0) {
-			err(udevice->udev, "error changing netif name %s to %s: %m\n",
+		err = ioctl(sk, SIOCSIFNAME, &ifr);
+		if (err != 0) {
+			err(event->udev, "error changing netif name %s to %s: %m\n",
 			    ifr.ifr_name, ifr.ifr_newname);
 			goto exit;
 		}
 
 		/* wait 30 seconds for our target to become available */
 		util_strlcpy(ifr.ifr_name, ifr.ifr_newname, IFNAMSIZ);
-		util_strlcpy(ifr.ifr_newname, udevice->name, IFNAMSIZ);
+		util_strlcpy(ifr.ifr_newname, udev_device_get_devnode(dev), IFNAMSIZ);
 		loop = 30 * 20;
 		while (loop--) {
-			retval = ioctl(sk, SIOCSIFNAME, &ifr);
-			if (retval == 0) {
+			err = ioctl(sk, SIOCSIFNAME, &ifr);
+			if (err == 0) {
 				kernel_log(ifr);
 				break;
 			}
 
 			if (errno != EEXIST) {
-				err(udevice->udev, "error changing net interface name %s to %s: %m\n",
+				err(event->udev, "error changing net interface name %s to %s: %m\n",
 				    ifr.ifr_name, ifr.ifr_newname);
 				break;
 			}
-			dbg(udevice->udev, "wait for netif '%s' to become free, loop=%i\n",
-			    udevice->name, (30 * 20) - loop);
+			dbg(event->udev, "wait for netif '%s' to become free, loop=%i\n",
+			    udev_device_get_devnode(dev), (30 * 20) - loop);
 			usleep(1000 * 1000 / 20);
 		}
 	}
 
 exit:
 	close(sk);
-	return retval;
+	return err;
 }
 
-int udev_device_event(struct udev_rules *rules, struct udevice *udevice)
+int udev_event_run(struct udev_event *event, struct udev_rules *rules)
 {
-	int retval = 0;
+	struct udev_device *dev = event->dev;
+	int err = 0;
 
-	if (udevice->devpath_old != NULL)
-		if (udev_db_rename(udevice->udev, udevice->devpath_old, udevice->dev->devpath) == 0)
-			info(udevice->udev, "moved database from '%s' to '%s'\n", udevice->devpath_old, udevice->dev->devpath);
+	if (udev_device_get_devpath_old(dev) != NULL) {
+		if (udev_device_rename_db(dev, udev_device_get_devpath(dev)) == 0)
+			info(event->udev, "moved database from '%s' to '%s'\n",
+			     udev_device_get_devpath_old(dev), udev_device_get_devpath(dev));
+	}
 
 	/* add device node */
-	if (major(udevice->devt) != 0 &&
-	    (strcmp(udevice->action, "add") == 0 || strcmp(udevice->action, "change") == 0)) {
-		struct udevice *udevice_old;
+	if (major(udev_device_get_devnum(dev)) != 0 &&
+	    (strcmp(udev_device_get_action(dev), "add") == 0 || strcmp(udev_device_get_action(dev), "change") == 0)) {
+		char filename[UTIL_PATH_SIZE];
+		struct udev_device *dev_old;
 
-		dbg(udevice->udev, "device node add '%s'\n", udevice->dev->devpath);
+		dbg(event->udev, "device node add '%s'\n", udev_device_get_devpath(dev));
 
-		udev_rules_get_name(rules, udevice);
-		if (udevice->ignore_device) {
-			info(udevice->udev, "device event will be ignored\n");
+		udev_rules_get_name(rules, event);
+		if (event->ignore_device) {
+			info(event->udev, "device event will be ignored\n");
 			goto exit;
 		}
-		if (udevice->name[0] == '\0') {
-			info(udevice->udev, "device node creation supressed\n");
+
+		if (event->name[0] == '\0') {
+			info(event->udev, "device node creation supressed\n");
 			goto exit;
 		}
+
+		/* set device node name */
+		util_strlcpy(filename, udev_get_dev_path(event->udev), sizeof(filename));
+		util_strlcat(filename, "/", sizeof(filename));
+		util_strlcat(filename, event->name, sizeof(filename));
+		udev_device_set_devnode(dev, filename);
 
 		/* read current database entry; cleanup, if it is known device */
-		udevice_old = udev_device_init(udevice->udev);
-		if (udevice_old != NULL) {
-			udevice_old->test_run = udevice->test_run;
-			if (udev_db_get_device(udevice_old, udevice->dev->devpath) == 0) {
-				info(udevice->udev, "device '%s' already in database, cleanup\n", udevice->dev->devpath);
-				udev_db_delete_device(udevice_old);
-			} else {
-				udev_device_cleanup(udevice_old);
-				udevice_old = NULL;
-			}
+		dev_old = udev_device_new_from_syspath(event->udev, udev_device_get_syspath(dev));
+		if (dev_old != NULL) {
+			info(event->udev, "device '%s' already in database, updating\n",
+			     udev_device_get_devpath(dev));
+			udev_node_update_old_links(dev, dev_old, event->test);
+			udev_device_unref(dev_old);
 		}
 
-		/* create node */
-		retval = udev_node_add(udevice);
-		if (retval != 0)
+		udev_device_update_db(dev);
+
+		err = udev_node_add(dev, event->mode, event->owner, event->group, event->test);
+		if (err != 0)
 			goto exit;
 
-		/* store in database */
-		udev_db_add_device(udevice);
-
-		/* create, replace, delete symlinks according to priority */
-		udev_node_update_symlinks(udevice, udevice_old);
-
-		if (udevice_old != NULL)
-			udev_device_cleanup(udevice_old);
 		goto exit;
 	}
 
 	/* add netif */
-	if (strcmp(udevice->dev->subsystem, "net") == 0 && strcmp(udevice->action, "add") == 0) {
-		dbg(udevice->udev, "netif add '%s'\n", udevice->dev->devpath);
-		udev_rules_get_name(rules, udevice);
-		if (udevice->ignore_device) {
-			info(udevice->udev, "device event will be ignored\n");
+	if (strcmp(udev_device_get_subsystem(dev), "net") == 0 && strcmp(udev_device_get_action(dev), "add") == 0) {
+		dbg(event->udev, "netif add '%s'\n", udev_device_get_devpath(dev));
+
+		udev_rules_get_name(rules, event);
+		if (event->ignore_device) {
+			info(event->udev, "device event will be ignored\n");
 			goto exit;
 		}
-		if (udevice->name[0] == '\0') {
-			info(udevice->udev, "device renaming supressed\n");
+		if (event->name[0] == '\0') {
+			info(event->udev, "device renaming supressed\n");
 			goto exit;
 		}
 
 		/* look if we want to change the name of the netif */
-		if (strcmp(udevice->name, udevice->dev->kernel) != 0) {
-			char devpath[PATH_MAX];
+		if (strcmp(event->name, udev_device_get_sysname(dev)) != 0) {
+			char syspath[UTIL_PATH_SIZE];
 			char *pos;
 
-			retval = rename_netif(udevice);
-			if (retval != 0)
+			err = rename_netif(event);
+			if (err != 0)
 				goto exit;
-			info(udevice->udev, "renamed netif to '%s'\n", udevice->name);
+			info(event->udev, "renamed netif to '%s'\n", event->name);
 
-			/* export old name */
-			setenv("INTERFACE_OLD", udevice->dev->kernel, 1);
+			/* remember old name */
+			udev_device_add_property(dev, "INTERFACE_OLD", udev_device_get_sysname(dev));
 
 			/* now change the devpath, because the kernel device name has changed */
-			util_strlcpy(devpath, udevice->dev->devpath, sizeof(devpath));
-			pos = strrchr(devpath, '/');
+			util_strlcpy(syspath, udev_device_get_syspath(dev), sizeof(syspath));
+			pos = strrchr(syspath, '/');
 			if (pos != NULL) {
 				pos[1] = '\0';
-				util_strlcat(devpath, udevice->name, sizeof(devpath));
-				sysfs_device_set_values(udevice->udev, udevice->dev, devpath, NULL, NULL);
-				setenv("DEVPATH", udevice->dev->devpath, 1);
-				setenv("INTERFACE", udevice->name, 1);
-				info(udevice->udev, "changed devpath to '%s'\n", udevice->dev->devpath);
+				util_strlcat(syspath, event->name, sizeof(syspath));
+				udev_device_set_syspath(event->dev, syspath);
+				udev_device_add_property(dev, "INTERFACE", udev_device_get_sysname(dev));
+				info(event->udev, "changed devpath to '%s'\n", udev_device_get_devpath(dev));
 			}
 		}
 		goto exit;
 	}
 
 	/* remove device node */
-	if (major(udevice->devt) != 0 && strcmp(udevice->action, "remove") == 0) {
-		struct name_entry *name_loop;
+	if (major(udev_device_get_devnum(dev)) != 0 && strcmp(udev_device_get_action(dev), "remove") == 0) {
+		/* import database entry and delete it */
+		udev_device_read_db(dev);
+		if (!event->test)
+			udev_device_delete_db(dev);
 
-		/* import database entry, and delete it */
-		if (udev_db_get_device(udevice, udevice->dev->devpath) == 0) {
-			udev_db_delete_device(udevice);
-			/* restore stored persistent data */
-			list_for_each_entry(name_loop, &udevice->env_list, node)
-				putenv(name_loop->name);
-		} else {
-			dbg(udevice->udev, "'%s' not found in database, using kernel name '%s'\n",
-			    udevice->dev->devpath, udevice->dev->kernel);
-			util_strlcpy(udevice->name, udevice->dev->kernel, sizeof(udevice->name));
+		if (udev_device_get_devnode(dev) == NULL) {
+			char devnode[UTIL_PATH_SIZE];
+
+			info(event->udev, "'%s' not found in database, using kernel name '%s'\n",
+			     udev_device_get_syspath(dev), udev_device_get_sysname(dev));
+			util_strlcpy(devnode, udev_get_dev_path(event->udev), sizeof(devnode));
+			util_strlcat(devnode, "/", sizeof(devnode));
+			util_strlcat(devnode, udev_device_get_sysname(dev), sizeof(devnode));
+			udev_device_set_devnode(dev, devnode);
 		}
 
-		udev_rules_get_run(rules, udevice);
-		if (udevice->ignore_device) {
-			info(udevice->udev, "device event will be ignored\n");
+		udev_rules_get_run(rules, event);
+		if (event->ignore_device) {
+			info(event->udev, "device event will be ignored\n");
 			goto exit;
 		}
 
-		if (udevice->ignore_remove) {
-			info(udevice->udev, "ignore_remove for '%s'\n", udevice->name);
+		if (udev_device_get_ignore_remove(dev)) {
+			info(event->udev, "ignore_remove for '%s'\n", udev_device_get_devnode(dev));
 			goto exit;
 		}
-		/* remove the node */
-		retval = udev_node_remove(udevice);
 
-		/* delete or restore symlinks according to priority */
-		udev_node_update_symlinks(udevice, NULL);
+		err = udev_node_remove(dev, event->test);
 		goto exit;
 	}
 
 	/* default devices */
-	udev_rules_get_run(rules, udevice);
-	if (udevice->ignore_device)
-		info(udevice->udev, "device event will be ignored\n");
-
+	udev_rules_get_run(rules, event);
+	if (event->ignore_device)
+		info(event->udev, "device event will be ignored\n");
 exit:
-	return retval;
+	return err;
 }
