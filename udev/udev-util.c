@@ -122,49 +122,6 @@ void name_list_cleanup(struct udev *udev, struct list_head *name_list)
 	}
 }
 
-/* calls function for every file found in specified directory */
-int add_matching_files(struct udev *udev, struct list_head *name_list, const char *dirname, const char *suffix)
-{
-	struct dirent *ent;
-	DIR *dir;
-	char filename[UTIL_PATH_SIZE];
-
-	dbg(udev, "open directory '%s'\n", dirname);
-	dir = opendir(dirname);
-	if (dir == NULL) {
-		err(udev, "unable to open '%s': %m\n", dirname);
-		return -1;
-	}
-
-	while (1) {
-		ent = readdir(dir);
-		if (ent == NULL || ent->d_name[0] == '\0')
-			break;
-
-		if ((ent->d_name[0] == '.') || (ent->d_name[0] == '#'))
-			continue;
-
-		/* look for file matching with specified suffix */
-		if (suffix != NULL) {
-			const char *ext;
-
-			ext = strrchr(ent->d_name, '.');
-			if (ext == NULL)
-				continue;
-			if (strcmp(ext, suffix) != 0)
-				continue;
-		}
-		dbg(udev, "put file '%s/%s' into list\n", dirname, ent->d_name);
-
-		snprintf(filename, sizeof(filename), "%s/%s", dirname, ent->d_name);
-		filename[sizeof(filename)-1] = '\0';
-		name_list_add(udev, name_list, filename, 1);
-	}
-
-	closedir(dir);
-	return 0;
-}
-
 uid_t lookup_user(struct udev *udev, const char *user)
 {
 	struct passwd *pw;
@@ -200,4 +157,3 @@ extern gid_t lookup_group(struct udev *udev, const char *group)
 
 	return gid;
 }
-

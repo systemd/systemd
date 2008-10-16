@@ -111,7 +111,6 @@ extern struct name_entry *name_list_add(struct udev *udev, struct list_head *nam
 extern struct name_entry *name_list_key_add(struct udev *udev, struct list_head *name_list, const char *key, const char *value);
 extern int name_list_key_remove(struct udev *udev, struct list_head *name_list, const char *key);
 extern void name_list_cleanup(struct udev *udev, struct list_head *name_list);
-extern int add_matching_files(struct udev *udev, struct list_head *name_list, const char *dirname, const char *suffix);
 extern uid_t lookup_user(struct udev *udev, const char *user);
 extern gid_t lookup_group(struct udev *udev, const char *group);
 

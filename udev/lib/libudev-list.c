@@ -165,7 +165,7 @@ void udev_list_cleanup(struct udev *udev, struct udev_list_node *list)
 	struct udev_list_entry *entry_loop;
 	struct udev_list_entry *entry_tmp;
 
-	list_entry_foreach_safe(entry_loop, entry_tmp, udev_list_get_entry(list))
+	udev_list_entry_foreach_safe(entry_loop, entry_tmp, udev_list_get_entry(list))
 		udev_list_entry_remove(entry_loop);
 }
 
@@ -173,6 +173,13 @@ void udev_list_entry_move_to_end(struct udev_list_entry *list_entry)
 {
 	list_node_remove(&list_entry->node);
 	list_node_insert_between(&list_entry->node, list_entry->list->prev, list_entry->list);
+}
+
+void udev_list_entry_move_to_list(struct udev_list_entry *list_entry, struct udev_list_node *list)
+{
+	list_node_remove(&list_entry->node);
+	list_node_insert_between(&list_entry->node, list->prev, list);
+	list_entry->list = list;
 }
 
 struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list)

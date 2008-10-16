@@ -22,8 +22,9 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <unistd.h>
-#include <sys/stat.h>
+#include <dirent.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 #include "udev.h"
 #include "udev-rules.h"
@@ -759,26 +760,70 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 	return retval;
 }
 
+static int add_matching_files(struct udev *udev, struct udev_list_node *file_list, const char *dirname, const char *suffix)
+{
+	struct dirent *ent;
+	DIR *dir;
+	char filename[UTIL_PATH_SIZE];
+
+	dbg(udev, "open directory '%s'\n", dirname);
+	dir = opendir(dirname);
+	if (dir == NULL) {
+		err(udev, "unable to open '%s': %m\n", dirname);
+		return -1;
+	}
+
+	while (1) {
+		ent = readdir(dir);
+		if (ent == NULL || ent->d_name[0] == '\0')
+			break;
+
+		if ((ent->d_name[0] == '.') || (ent->d_name[0] == '#'))
+			continue;
+
+		/* look for file matching with specified suffix */
+		if (suffix != NULL) {
+			const char *ext;
+
+			ext = strrchr(ent->d_name, '.');
+			if (ext == NULL)
+				continue;
+			if (strcmp(ext, suffix) != 0)
+				continue;
+		}
+		dbg(udev, "put file '%s/%s' into list\n", dirname, ent->d_name);
+
+		snprintf(filename, sizeof(filename), "%s/%s", dirname, ent->d_name);
+		filename[sizeof(filename)-1] = '\0';
+		udev_list_entry_add(udev, file_list, filename, NULL, 1, 1);
+	}
+
+	closedir(dir);
+	return 0;
+}
+
 int udev_rules_init(struct udev *udev, struct udev_rules *rules, int resolve_names)
 {
 	struct stat statbuf;
 	char filename[PATH_MAX];
-	LIST_HEAD(name_list);
-	LIST_HEAD(sort_list);
-	struct name_entry *name_loop, *name_tmp;
-	struct name_entry *sort_loop, *sort_tmp;
+	struct udev_list_node file_list;
+	struct udev_list_entry *file_loop, *file_tmp;
 	int retval = 0;
 
 	memset(rules, 0x00, sizeof(struct udev_rules));
 	rules->udev = udev;
 	rules->resolve_names = resolve_names;
+	udev_list_init(&file_list);
 
 	if (udev_get_rules_path(udev) != NULL) {
 		/* custom rules location for testing */
-		add_matching_files(udev, &name_list, udev_get_rules_path(udev), ".rules");
+		add_matching_files(udev, &file_list, udev_get_rules_path(udev), ".rules");
 	} else {
+		struct udev_list_node sort_list;
+		struct udev_list_entry *sort_loop, *sort_tmp;
+
 		/* read user/custom rules */
-		add_matching_files(udev, &name_list, SYSCONFDIR "/udev/rules.d", ".rules");
+		add_matching_files(udev, &file_list, SYSCONFDIR "/udev/rules.d", ".rules");
 
 		/* read dynamic/temporary rules */
 		util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
@@ -789,54 +834,53 @@ int udev_rules_init(struct udev *udev, struct udev_rules *rules, int resolve_nam
 			mkdir(filename, 0755);
 			udev_selinux_resetfscreatecon(udev);
 		}
+		udev_list_init(&sort_list);
 		add_matching_files(udev, &sort_list, filename, ".rules");
 
 		/* read default rules */
 		add_matching_files(udev, &sort_list, UDEV_PREFIX "/lib/udev/rules.d", ".rules");
 
 		/* sort all rules files by basename into list of files */
-		list_for_each_entry_safe(sort_loop, sort_tmp, &sort_list, node) {
-			const char *sort_base = strrchr(sort_loop->name, '/');
+		udev_list_entry_foreach_safe(sort_loop, sort_tmp, udev_list_get_entry(&sort_list)) {
+			const char *sort_name = udev_list_entry_get_name(sort_loop);
+			const char *sort_base = strrchr(sort_name, '/');
 
 			if (sort_base == NULL)
 				continue;
 
-			list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
-				const char *name_base = strrchr(name_loop->name, '/');
+			udev_list_entry_foreach_safe(file_loop, file_tmp, udev_list_get_entry(&file_list)) {
+				const char *file_name = udev_list_entry_get_name(file_loop);
+				const char *file_base = strrchr(file_name, '/');
 
-				if (name_base == NULL)
+				if (file_base == NULL)
 					continue;
 
-				if (strcmp(name_base, sort_base) == 0) {
-					info(udev, "rule file '%s' already added, ignoring '%s'\n",
-					     name_loop->name, sort_loop->name);
-					list_del(&sort_loop->node);
-					free(sort_loop);
+				if (strcmp(file_base, sort_base) == 0) {
+					info(udev, "rule file basename '%s' already added, ignoring '%s'\n",
+					     file_name, sort_name);
+					udev_list_entry_remove(sort_loop);
 					sort_loop = NULL;
 					continue;
 				}
 
-				if (strcmp(name_base, sort_base) > 0)
+				if (strcmp(file_base, sort_base) > 0)
 					break;
 			}
 			if (sort_loop != NULL)
-				list_move_tail(&sort_loop->node, &name_loop->node);
+				udev_list_entry_move_to_list(sort_loop, &file_list);
 		}
 	}
 
 	/* parse list of files */
-	list_for_each_entry_safe(name_loop, name_tmp, &name_list, node) {
-		if (stat(name_loop->name, &statbuf) == 0) {
-			if (statbuf.st_size)
-				parse_file(rules, name_loop->name);
-			else
-				dbg(udev, "empty rules file '%s'\n", name_loop->name);
-		} else
-			err(udev, "could not read '%s': %m\n", name_loop->name);
-		list_del(&name_loop->node);
-		free(name_loop);
-	}
+	udev_list_entry_foreach_safe(file_loop, file_tmp, udev_list_get_entry(&file_list)) {
+		const char *file_name = udev_list_entry_get_name(file_loop);
 
+		if (stat(file_name, &statbuf) == 0 && statbuf.st_size > 0)
+			parse_file(rules, file_name);
+		else
+			err(udev, "could not read '%s': %m\n", file_name);
+		udev_list_entry_remove(file_loop);
+	}
 	return retval;
 }
 
