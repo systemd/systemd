@@ -378,7 +378,7 @@ static int import_file_into_env(struct udev_device *dev, const char *filename)
 	f = fopen(filename, "r");
 	if (f == NULL)
 		return -1;
-	while (fgets(line, sizeof(line), f))
+	while (fgets(line, sizeof(line), f) != NULL)
 		import_property_from_string(dev, line);
 	fclose(f);
 	return 0;

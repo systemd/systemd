@@ -139,29 +139,28 @@ static int get_key(struct udev_rules *rules, char **line, char **key, enum key_o
 	if (linepos[0] == '=' && linepos[1] == '=') {
 		*operation = KEY_OP_MATCH;
 		linepos += 2;
-		dbg(rules->udev, "operator=match\n");
+		dbg(rules->udev, "match:\n");
 	} else if (linepos[0] == '!' && linepos[1] == '=') {
 		*operation = KEY_OP_NOMATCH;
 		linepos += 2;
-		dbg(rules->udev, "operator=nomatch\n");
+		dbg(rules->udev, "nomatch:\n");
 	} else if (linepos[0] == '+' && linepos[1] == '=') {
 		*operation = KEY_OP_ADD;
 		linepos += 2;
-		dbg(rules->udev, "operator=add\n");
+		dbg(rules->udev, "add:\n");
 	} else if (linepos[0] == '=') {
 		*operation = KEY_OP_ASSIGN;
 		linepos++;
-		dbg(rules->udev, "operator=assign\n");
+		dbg(rules->udev, "assign:\n");
 	} else if (linepos[0] == ':' && linepos[1] == '=') {
 		*operation = KEY_OP_ASSIGN_FINAL;
 		linepos += 2;
-		dbg(rules->udev, "operator=assign_final\n");
+		dbg(rules->udev, "assign_final:\n");
 	} else
 		return -1;
 
 	/* terminate key */
 	temp[0] = '\0';
-	dbg(rules->udev, "key='%s'\n", *key);
 
 	/* skip whitespace after operator */
 	while (isspace(linepos[0]))
@@ -181,7 +180,7 @@ static int get_key(struct udev_rules *rules, char **line, char **key, enum key_o
 		return -1;
 	temp[0] = '\0';
 	temp++;
-	dbg(rules->udev, "value='%s'\n", *value);
+	dbg(rules->udev, "'%s'-'%s'\n", *key, *value);
 
 	/* move line to next key */
 	*line = temp;
@@ -678,68 +677,55 @@ invalid:
 
 static int parse_file(struct udev_rules *rules, const char *filename)
 {
+	FILE *f;
 	char line[UTIL_LINE_SIZE];
-	char *bufline;
-	unsigned int lineno;
-	char *buf;
-	size_t bufsize;
-	size_t cur;
-	size_t count;
-	int retval = 0;
 	size_t start;
 	struct udev_rule *rule;
 	struct udev_rules_iter iter;
 
 	start = rules->bufsize;
-
-	if (file_map(filename, &buf, &bufsize) != 0) {
-		err(rules->udev, "can't open '%s' as rules file: %m\n", filename);
-		return -1;
-	}
 	info(rules->udev, "reading '%s' as rules file\n", filename);
 
-	/* loop through the whole file */
-	cur = 0;
-	lineno = 0;
-	while (cur < bufsize) {
-		unsigned int i, j;
+	f = fopen(filename, "r");
+	if (f == NULL)
+		return -1;
 
-		count = buf_get_line(buf, bufsize, cur);
-		bufline = &buf[cur];
-		cur += count+1;
-		lineno++;
+	while(fgets(line, sizeof(line), f) != NULL) {
+		int line_nr = 0;
+		char *key;
+		size_t len;
 
-		/* eat the whitespace */
-		while ((count > 0) && isspace(bufline[0])) {
-			bufline++;
-			count--;
-		}
-		if (count == 0)
+		/* skip whitespace */
+		line_nr++;
+		key = line;
+		while (isspace(key[0]))
+			key++;
+
+		/* comment */
+		if (key[0] == '#')
 			continue;
 
-		/* see if this is a comment */
-		if (bufline[0] == '#')
+		len = strlen(line);
+		if (len < 3)
 			continue;
 
-		if (count >= sizeof(line)) {
-			err(rules->udev, "line too long, rule skipped '%s:%u'\n", filename, lineno);
+		/* continue reading if backslash+newline is found */
+		while (line[len-2] == '\\') {
+			if (fgets(&line[len-2], (sizeof(line)-len)+2, f) == NULL)
+				break;
+			line_nr++;
+			len = strlen(line);
+		}
+
+		if (len+1 >= sizeof(line)) {
+			err(rules->udev, "line too long '%s':%u, ignored\n", filename, line_nr);
 			continue;
 		}
-
-		/* skip backslash and newline from multiline rules */
-		for (i = j = 0; i < count; i++) {
-			if (bufline[i] == '\\' && bufline[i+1] == '\n')
-				continue;
-
-			line[j++] = bufline[i];
-		}
-		line[j] = '\0';
-
-		dbg(rules->udev, "read '%s'\n", line);
-		add_to_rules(rules, line, filename, lineno);
+		add_to_rules(rules, key, filename, line_nr);
 	}
+	fclose(f);
 
-	/* Compute all goto targets within this file */
+	/* compute all goto targets within this file */
 	udev_rules_iter_init(&iter, rules);
 	udev_rules_iter_goto(&iter, start);
 	while((rule = udev_rules_iter_next(&iter))) {
@@ -755,9 +741,7 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 			}
 		}
 	}
-
-	file_unmap(buf, bufsize);
-	return retval;
+	return 0;
 }
 
 static int add_matching_files(struct udev *udev, struct udev_list_node *file_list, const char *dirname, const char *suffix)
