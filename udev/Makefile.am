@@ -21,7 +21,6 @@ common_files = \
 	udev-rules.c \
 	udev-rules-parse.c \
 	udev-util.c \
-	udev-util-file.c \
 	list.h \
 	lib/libudev.h \
 	lib/libudev-private.h \
