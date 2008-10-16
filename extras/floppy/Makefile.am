@@ -8,6 +8,7 @@ create_floppy_devices_SOURCES = \
 	create_floppy_devices.c \
 	../../udev/lib/libudev.h \
 	../../udev/lib/libudev.c \
+	../../udev/lib/libudev-list.c \
 	../../udev/lib/libudev-util.c \
 	../../udev/udev_utils.c
 

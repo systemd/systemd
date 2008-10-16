@@ -50,6 +50,8 @@ void udev_log(struct udev *udev,
 extern struct udev_device *device_new(struct udev *udev);
 extern const char *udev_get_rules_path(struct udev *udev);
 extern int udev_get_run(struct udev *udev);
+extern struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value);
+extern struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev);
 
 /* libudev-device */
 extern int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath);

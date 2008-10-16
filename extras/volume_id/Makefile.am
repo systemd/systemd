@@ -11,6 +11,7 @@ vol_id_SOURCES = \
 	vol_id.c \
 	../../udev/lib/libudev.h \
 	../../udev/lib/libudev.c \
+	../../udev/lib/libudev-list.c \
 	../../udev/lib/libudev-util.c
 
 vol_id_LDADD = \

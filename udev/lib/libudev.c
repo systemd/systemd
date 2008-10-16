@@ -38,6 +38,7 @@ struct udev {
 	char *sys_path;
 	char *dev_path;
 	char *rules_path;
+	struct udev_list_node properties_list;
 	int log_priority;
 	int run;
 };
@@ -102,6 +103,7 @@ struct udev *udev_new(void)
 	udev->refcount = 1;
 	udev->log_fn = log_stderr;
 	udev->log_priority = LOG_ERR;
+	udev_list_init(&udev->properties_list);
 	udev->run = 1;
 	udev->dev_path = strdup(UDEV_PREFIX "/dev");
 	udev->sys_path = strdup("/sys");
@@ -117,6 +119,7 @@ struct udev *udev_new(void)
 		free(udev->sys_path);
 		udev->sys_path = strdup(env);
 		util_remove_trailing_chars(udev->sys_path, '/');
+		udev_add_property(udev, "SYSFS_PATH", udev->sys_path);
 	}
 
 	env = getenv("UDEV_RUN");
@@ -219,11 +222,12 @@ struct udev *udev_new(void)
 		free(udev->dev_path);
 		udev->dev_path = strdup(env);
 		util_remove_trailing_chars(udev->dev_path, '/');
+		udev_add_property(udev, "UDEV_ROOT", udev->dev_path);
 	}
 
 	env = getenv("UDEV_LOG");
 	if (env != NULL)
-		udev->log_priority = util_log_priority(env);
+		udev_set_log_priority(udev, util_log_priority(env));
 
 	if (udev->dev_path == NULL || udev->sys_path == NULL)
 		goto err;
@@ -274,6 +278,7 @@ void udev_unref(struct udev *udev)
 	udev->refcount--;
 	if (udev->refcount > 0)
 		return;
+	udev_list_cleanup(udev, &udev->properties_list);
 	free(udev->dev_path);
 	free(udev->sys_path);
 	free(udev->rules_path);
@@ -307,7 +312,11 @@ int udev_get_log_priority(struct udev *udev)
 
 void udev_set_log_priority(struct udev *udev, int priority)
 {
+	char num[32];
+
 	udev->log_priority = priority;
+	snprintf(num, sizeof(num), "%u", udev->log_priority);
+	udev_add_property(udev, "UDEV_LOG", num);
 }
 
 const char *udev_get_rules_path(struct udev *udev)
@@ -352,4 +361,23 @@ const char *udev_get_dev_path(struct udev *udev)
 	if (udev == NULL)
 		return NULL;
 	return udev->dev_path;
+}
+
+struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value)
+{
+	if (value == NULL) {
+		struct udev_list_entry *list_entry;
+
+		list_entry = udev_get_properties_list_entry(udev);
+		list_entry = udev_list_entry_get_by_name(list_entry, key);
+		if (list_entry != NULL)
+			udev_list_entry_remove(list_entry);
+		return NULL;
+	}
+	return udev_list_entry_add(udev, &udev->properties_list, key, value, 1, 0);
+}
+
+struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev)
+{
+	return udev_list_get_entry(&udev->properties_list);
 }

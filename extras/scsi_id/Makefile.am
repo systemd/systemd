@@ -12,6 +12,7 @@ scsi_id_SOURCES = \
 	bsg.h \
 	../../udev/lib/libudev.h \
 	../../udev/lib/libudev.c \
+	../../udev/lib/libudev-list.c \
 	../../udev/lib/libudev-util.c
 
 dist_sysconf_DATA = \
