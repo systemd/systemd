@@ -16,7 +16,6 @@ common_files = \
 	udev.h \
 	udev_rules.h \
 	udev_sysdeps.h \
-	udev_db.c \
 	udev_device_event.c \
 	udev_node.c \
 	udev_rules.c \
@@ -30,6 +29,7 @@ common_files = \
 	lib/libudev-list.c \
 	lib/libudev-util.c \
 	lib/libudev-device.c \
+	lib/libudev-device-db-write.c \
 	lib/libudev-monitor.c \
 	lib/libudev-enumerate.c \
 	lib/libudev-queue.c \

@@ -84,6 +84,11 @@ extern int udev_device_get_ignore_remove(struct udev_device *udev_device);
 extern int udev_device_set_ignore_remove(struct udev_device *udev_device, int ignore);
 extern void udev_device_set_info_loaded(struct udev_device *device);
 
+/* libudev-device-db-write.c */
+extern int udev_device_update_db(struct udev_device *udev_device);
+extern int udev_device_delete_db(struct udev_device *udev_device);
+extern int udev_device_rename_db(struct udev_device *udev_device, const char *devpath);
+
 /* libudev-monitor - netlink/unix socket communication  */
 extern int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_device *udev_device);
 

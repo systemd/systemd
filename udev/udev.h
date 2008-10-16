@@ -101,11 +101,6 @@ extern int udev_node_add(struct udev_device *dev, mode_t mode, const char *owner
 extern int udev_node_remove(struct udev_device *dev, int test);
 extern void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old, int test);
 
-/* udev-device-db.c */
-extern int udev_device_update_db(struct udev_device *udev_device);
-extern int udev_device_delete_db(struct udev_device *udev_device);
-extern int udev_device_rename_db(struct udev_device *udev_device, const char *devpath);
-
 /* udev-util.c */
 struct name_entry {
 	struct list_head node;
