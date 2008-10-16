@@ -95,12 +95,6 @@ static void list_entry_insert_before(struct udev_list_entry *new, struct udev_li
 	new->list = entry->list;
 }
 
-void udev_list_entry_remove(struct udev_list_entry *entry)
-{
-	list_node_remove(&entry->node);
-	entry->list = NULL;
-}
-
 struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_node *list,
 					    const char *name, const char *value,
 					    int unique, int sort)
@@ -112,13 +106,16 @@ struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_
 		udev_list_entry_foreach(entry_loop, udev_list_get_entry(list)) {
 			if (strcmp(entry_loop->name, name) == 0) {
 				info(udev, "'%s' is already in the list\n", name);
-				if (value != NULL) {
-					free(entry_loop->value);
-					entry_loop->value = strdup(value);
-					if (entry_loop->value == NULL)
-						return NULL;
-					info(udev, "'%s' value replaced with '%s'\n", name, value);
+				free(entry_loop->value);
+				if (value == NULL) {
+					entry_loop->value = NULL;
+					info(udev, "'%s' value unset\n", name);
+					return entry_loop;
 				}
+				entry_loop->value = strdup(value);
+				if (entry_loop->value == NULL)
+					return NULL;
+				info(udev, "'%s' value replaced with '%s'\n", name, value);
 				return entry_loop;
 			}
 		}
@@ -151,13 +148,16 @@ struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_
 		list_entry_insert_before(entry_new, entry_loop);
 	else
 		list_entry_append(entry_new, list);
+	info(udev, "'%s=%s' added\n", entry_new->name, entry_new->value);
 	return entry_new;
 }
 
-void udev_list_entry_move_to_end(struct udev_list_entry *list_entry)
+void udev_list_entry_remove(struct udev_list_entry *entry)
 {
-	list_node_remove(&list_entry->node);
-	list_node_insert_between(&list_entry->node, list_entry->list->prev, list_entry->list);
+	list_node_remove(&entry->node);
+	free(entry->name);
+	free(entry->value);
+	free(entry);
 }
 
 void udev_list_cleanup(struct udev *udev, struct udev_list_node *list)
@@ -165,12 +165,14 @@ void udev_list_cleanup(struct udev *udev, struct udev_list_node *list)
 	struct udev_list_entry *entry_loop;
 	struct udev_list_entry *entry_tmp;
 
-	list_entry_foreach_safe(entry_loop, entry_tmp, udev_list_get_entry(list)) {
+	list_entry_foreach_safe(entry_loop, entry_tmp, udev_list_get_entry(list))
 		udev_list_entry_remove(entry_loop);
-		free(entry_loop->name);
-		free(entry_loop->value);
-		free(entry_loop);
-	}
+}
+
+void udev_list_entry_move_to_end(struct udev_list_entry *list_entry)
+{
+	list_node_remove(&list_entry->node);
+	list_node_insert_between(&list_entry->node, list_entry->list->prev, list_entry->list);
 }
 
 struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list)
