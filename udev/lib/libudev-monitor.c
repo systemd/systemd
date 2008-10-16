@@ -367,7 +367,8 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 		udev_device_unref(udev_device);
 		return NULL;
 	}
-	udev_device_set_devnum(udev_device, makedev(maj, min));
+	if (maj > 0)
+		udev_device_set_devnum(udev_device, makedev(maj, min));
 	udev_device_set_info_loaded(udev_device);
 	return udev_device;
 }
