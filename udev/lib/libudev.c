@@ -198,7 +198,7 @@ struct udev *udev_new(void)
 			}
 
 			if (strcasecmp(key, "udev_log") == 0) {
-				udev->log_priority = util_log_priority(val);
+				udev_set_log_priority(udev, util_log_priority(val));
 				continue;
 			}
 			if (strcasecmp(key, "udev_root") == 0) {
