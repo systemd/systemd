@@ -25,7 +25,6 @@
 #include "udev-sysdeps.h"
 #include "lib/libudev.h"
 #include "lib/libudev-private.h"
-#include "list.h"
 
 #define ALLOWED_CHARS				"#+-.:=@_"
 #define ALLOWED_CHARS_FILE			ALLOWED_CHARS "/"
@@ -86,7 +85,7 @@ struct udev_event {
 	int ignore_device;
 	int test;
 
-	struct list_head node;
+	struct udev_list_node node;
 	pid_t pid;
 	int exitstatus;
 	time_t queue_time;

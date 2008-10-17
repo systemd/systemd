@@ -72,14 +72,23 @@ static int run_exec_q;
 static int stop_exec_q;
 static int max_childs;
 
-static LIST_HEAD(exec_list);
-static LIST_HEAD(running_list);
+static struct udev_list_node exec_list;
+static struct udev_list_node running_list;
 
 enum event_state {
 	EVENT_QUEUED,
 	EVENT_FINISHED,
 	EVENT_FAILED,
 };
+
+static struct udev_event *node_to_event(struct udev_list_node *node)
+{
+	char *event;
+
+	event = (char *)node;
+	event -= offsetof(struct udev_event, node);
+	return (struct udev_event *)event;
+}
 
 static void export_event_state(struct udev_event *event, enum event_state state)
 {
@@ -144,7 +153,7 @@ static void export_event_state(struct udev_event *event, enum event_state state)
 
 static void event_queue_delete(struct udev_event *event)
 {
-	list_del(&event->node);
+	udev_list_node_remove(&event->node);
 
 	/* mark as failed, if "add" event returns non-zero */
 	if (event->exitstatus && strcmp(udev_device_get_action(event->dev), "add") == 0)
@@ -255,7 +264,7 @@ static void event_queue_insert(struct udev_event *event)
 
 	/* run one event after the other in debug mode */
 	if (debug_trace) {
-		list_add_tail(&event->node, &running_list);
+		udev_list_node_append(&event->node, &running_list);
 		event_fork(event);
 		waitpid(event->pid, NULL, 0);
 		event_queue_delete(event);
@@ -264,12 +273,12 @@ static void event_queue_insert(struct udev_event *event)
 
 	/* run all events with a timeout set immediately */
 	if (udev_device_get_timeout(event->dev) > 0) {
-		list_add_tail(&event->node, &running_list);
+		udev_list_node_append(&event->node, &running_list);
 		event_fork(event);
 		return;
 	}
 
-	list_add_tail(&event->node, &exec_list);
+	udev_list_node_append(&event->node, &exec_list);
 	run_exec_q = 1;
 }
 
@@ -324,11 +333,13 @@ static int compare_devpath(const char *running, const char *waiting)
 /* lookup event for identical, parent, child, or physical device */
 static int devpath_busy(struct udev_event *event, int limit)
 {
-	struct udev_event *loop_event;
+	struct udev_list_node *loop;
 	int childs_count = 0;
 
 	/* check exec-queue which may still contain delayed events we depend on */
-	list_for_each_entry(loop_event, &exec_list, node) {
+	udev_list_node_foreach(loop, &exec_list) {
+		struct udev_event *loop_event = node_to_event(loop);
+
 		/* skip ourself and all later events */
 		if (udev_device_get_seqnum(loop_event->dev) >= udev_device_get_seqnum(event->dev))
 			break;
@@ -372,8 +383,8 @@ static int devpath_busy(struct udev_event *event, int limit)
 	}
 
 	/* check run queue for still running events */
-	list_for_each_entry(loop_event, &running_list, node) {
-		childs_count++;
+	udev_list_node_foreach(loop, &running_list) {
+		struct udev_event *loop_event = node_to_event(loop);
 
 		if (childs_count++ >= limit) {
 			info(event->udev, "%llu, maximum number (%i) of childs reached\n",
@@ -424,13 +435,15 @@ static int devpath_busy(struct udev_event *event, int limit)
 /* serializes events for the identical and parent and child devices */
 static void event_queue_manager(struct udev *udev)
 {
-	struct udev_event *loop_event;
-	struct udev_event *tmp_event;
+	struct udev_list_node *loop;
+	struct udev_list_node *tmp;
 
-	if (list_empty(&exec_list))
+	if (udev_list_is_empty(&exec_list))
 		return;
 
-	list_for_each_entry_safe(loop_event, tmp_event, &exec_list, node) {
+	udev_list_node_foreach_safe(loop, tmp, &exec_list) {
+		struct udev_event *loop_event = node_to_event(loop);
+
 		/* serialize and wait for parent or child events */
 		if (devpath_busy(loop_event, max_childs) != 0) {
 			dbg(udev, "delay seq %llu (%s)\n",
@@ -440,7 +453,8 @@ static void event_queue_manager(struct udev *udev)
 		}
 
 		/* move event to run list */
-		list_move_tail(&loop_event->node, &running_list);
+		udev_list_node_remove(&loop_event->node);
+		udev_list_node_append(&loop_event->node, &running_list);
 		event_fork(loop_event);
 		dbg(udev, "moved seq %llu to running list\n", udev_device_get_seqnum(loop_event->dev));
 	}
@@ -537,16 +551,18 @@ static void asmlinkage sig_handler(int signum)
 
 static void udev_done(int pid, int exitstatus)
 {
-	/* find event associated with pid and delete it */
-	struct udev_event *event;
+	struct udev_list_node *loop;
 
-	list_for_each_entry(event, &running_list, node) {
-		if (event->pid == pid) {
-			info(event->udev, "seq %llu cleanup, pid [%d], status %i, %ld seconds old\n",
-			     udev_device_get_seqnum(event->dev), event->pid,
-			     exitstatus, time(NULL) - event->queue_time);
-			event->exitstatus = exitstatus;
-			event_queue_delete(event);
+	/* find event associated with pid and delete it */
+	udev_list_node_foreach(loop, &running_list) {
+		struct udev_event *loop_event = node_to_event(loop);
+
+		if (loop_event->pid == pid) {
+			info(loop_event->udev, "seq %llu cleanup, pid [%d], status %i, %ld seconds old\n",
+			     udev_device_get_seqnum(loop_event->dev), loop_event->pid,
+			     exitstatus, time(NULL) - loop_event->queue_time);
+			loop_event->exitstatus = exitstatus;
+			event_queue_delete(loop_event);
 
 			/* there may be events waiting with the same devpath */
 			run_exec_q = 1;
@@ -733,6 +749,8 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
+	udev_list_init(&running_list);
+	udev_list_init(&exec_list);
 	udev_rules_init(udev, &rules, 1);
 	export_initial_seqnum(udev);
 
