@@ -24,15 +24,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <dirent.h>
 #include <fcntl.h>
-#include <syslog.h>
 #include <time.h>
 #include <getopt.h>
 #include <sys/select.h>
 #include <sys/wait.h>
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #ifdef HAVE_INOTIFY
@@ -213,7 +209,7 @@ static void event_fork(struct udev_event *event)
 		/* execute RUN= */
 		if (err == 0 && !event->ignore_device && udev_get_run(event->udev))
 			udev_rules_run(event);
-		info(event->udev, "seq %llu finished with %i\n", udev_device_get_seqnum(event->dev), err);
+		info(event->udev, "seq %llu exit with %i\n", udev_device_get_seqnum(event->dev), err);
 		logging_close();
 		if (err != 0)
 			exit(1);
@@ -242,7 +238,8 @@ static void event_queue_insert(struct udev_event *event)
 	event->queue_time = time(NULL);
 
 	export_event_state(event, EVENT_QUEUED);
-	info(event->udev, "seq %llu queued, '%s' '%s'\n", udev_device_get_seqnum(event->dev), udev_device_get_action(event->dev), udev_device_get_subsystem(event->dev));
+	info(event->udev, "seq %llu queued, '%s' '%s'\n", udev_device_get_seqnum(event->dev),
+	     udev_device_get_action(event->dev), udev_device_get_subsystem(event->dev));
 
 	util_strlcpy(filename, udev_get_dev_path(event->udev), sizeof(filename));
 	util_strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
@@ -545,7 +542,7 @@ static void udev_done(int pid, int exitstatus)
 
 	list_for_each_entry(event, &running_list, node) {
 		if (event->pid == pid) {
-			info(event->udev, "seq %llu, pid [%d] exit with %i, %ld seconds old\n",
+			info(event->udev, "seq %llu cleanup, pid [%d], status %i, %ld seconds old\n",
 			     udev_device_get_seqnum(event->dev), event->pid,
 			     exitstatus, time(NULL) - event->queue_time);
 			event->exitstatus = exitstatus;
@@ -705,13 +702,8 @@ int main(int argc, char *argv[])
 		err(udev, "error initializing netlink socket\n");
 		rc = 3;
 		goto exit;
-	} else {
-		/* set receive buffersize */
-		const int buffersize = 32 * 1024 * 1024;
-
-		setsockopt(udev_monitor_get_fd(kernel_monitor),
-			   SOL_SOCKET, SO_RCVBUFFORCE, &buffersize, sizeof(buffersize));
 	}
+	udev_monitor_set_receive_buffer_size(kernel_monitor, 128*1024*1024);
 
 	err = pipe(signal_pipe);
 	if (err < 0) {
@@ -860,7 +852,6 @@ int main(int argc, char *argv[])
 	maxfd = UDEV_MAX(maxfd, udev_monitor_get_fd(kernel_monitor));
 	maxfd = UDEV_MAX(maxfd, signal_pipe[READ_END]);
 	maxfd = UDEV_MAX(maxfd, inotify_fd);
-
 	while (!udev_exit) {
 		int fdcount;
 
@@ -870,7 +861,6 @@ int main(int argc, char *argv[])
 		FD_SET(udev_monitor_get_fd(kernel_monitor), &readfds);
 		if (inotify_fd >= 0)
 			FD_SET(inotify_fd, &readfds);
-
 		fdcount = select(maxfd+1, &readfds, NULL, NULL, NULL);
 		if (fdcount < 0) {
 			if (errno != EINTR)

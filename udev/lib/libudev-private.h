@@ -91,6 +91,7 @@ extern int udev_device_rename_db(struct udev_device *udev_device, const char *de
 
 /* libudev-monitor - netlink/unix socket communication  */
 extern int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_device *udev_device);
+extern int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_monitor, int size);
 
 /* libudev-ctrl - daemon runtime setup */
 struct udev_ctrl;

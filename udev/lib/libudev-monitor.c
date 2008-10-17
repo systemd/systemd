@@ -152,6 +152,13 @@ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 	return 0;
 }
 
+int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_monitor, int size)
+{
+	if (udev_monitor == NULL)
+		return -1;
+	return setsockopt(udev_monitor->sock, SOL_SOCKET, SO_RCVBUFFORCE, &size, sizeof(size));
+}
+
 /**
  * udev_monitor_ref:
  * @udev_monitor: udev monitor
