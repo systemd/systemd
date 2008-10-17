@@ -53,6 +53,13 @@ static void print_device(struct udev_device *device)
 	str = udev_device_get_syspath(device);
 	printf("syspath:   '%s'\n", str);
 
+	str = udev_device_get_sysname(device);
+	printf("sysname:   '%s'\n", str);
+
+	str = udev_device_get_sysnum(device);
+	if (str != NULL)
+		printf("sysnum:    '%s'\n", str);
+
 	str = udev_device_get_devpath(device);
 	printf("devpath:   '%s'\n", str);
 
