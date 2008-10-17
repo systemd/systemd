@@ -43,14 +43,14 @@ void udev_list_init(struct udev_list_node *list)
 	list->prev = list;
 }
 
-static int udev_list_is_empty(struct udev_list_node *list)
+int udev_list_is_empty(struct udev_list_node *list)
 {
 	return list->next == list;
 }
 
 static void udev_list_node_insert_between(struct udev_list_node *new,
-				     struct udev_list_node *prev,
-				     struct udev_list_node *next)
+					  struct udev_list_node *prev,
+					  struct udev_list_node *next)
 {
 	next->prev = new;
 	new->next = next;
@@ -58,7 +58,12 @@ static void udev_list_node_insert_between(struct udev_list_node *new,
 	prev->next = new;
 }
 
-static void udev_list_node_remove(struct udev_list_node *entry)
+void udev_list_node_append(struct udev_list_node *new, struct udev_list_node *list)
+{
+	udev_list_node_insert_between(new, list->prev, list);
+}
+
+void udev_list_node_remove(struct udev_list_node *entry)
 {
 	struct udev_list_node *prev = entry->prev;
 	struct udev_list_node *next = entry->next;

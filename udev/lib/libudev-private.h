@@ -124,19 +124,29 @@ struct udev_list_node {
 	struct udev_list_node *next, *prev;
 };
 extern void udev_list_init(struct udev_list_node *list);
-extern void udev_list_cleanup(struct udev *udev, struct udev_list_node *name_list);
+extern int udev_list_is_empty(struct udev_list_node *list);
+extern void udev_list_node_append(struct udev_list_node *new, struct udev_list_node *list);
+extern void udev_list_node_remove(struct udev_list_node *entry);
+#define udev_list_node_foreach(node, list) \
+	for (node = (list)->next; \
+	     node != list; \
+	     node = (node)->next)
+#define udev_list_node_foreach_safe(node, tmp, list) \
+	for (node = (list)->next, tmp = (node)->next; \
+	     node != list; \
+	     node = tmp, tmp = (tmp)->next)
 extern struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_node *list,
 						   const char *name, const char *value,
 						   int unique, int sort);
 extern void udev_list_entry_remove(struct udev_list_entry *entry);
+extern void udev_list_cleanup(struct udev *udev, struct udev_list_node *name_list);
 extern struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list);
 extern void udev_list_entry_move_to_end(struct udev_list_entry *list_entry);
 extern void udev_list_entry_move_before(struct udev_list_entry *list_entry, struct udev_list_entry *entry);
 extern int udev_list_entry_get_flag(struct udev_list_entry *list_entry);
 extern void udev_list_entry_set_flag(struct udev_list_entry *list_entry, int flag);
 #define udev_list_entry_foreach_safe(entry, tmp, first) \
-	for (entry = first, \
-	     tmp = udev_list_entry_get_next(entry); \
+	for (entry = first, tmp = udev_list_entry_get_next(entry); \
 	     entry != NULL; \
 	     entry = tmp, tmp = udev_list_entry_get_next(tmp))
 
