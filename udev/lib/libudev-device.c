@@ -936,8 +936,13 @@ int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath
 	}
 
 	/* trailing number */
-	while (isdigit(udev_device->sysname[--len]))
+	while (len > 0 && isdigit(udev_device->sysname[--len]))
 		udev_device->sysnum = &udev_device->sysname[len];
+
+	/* sysname is completely numeric */
+	if (len == 0)
+		udev_device->sysnum = NULL;
+
 	return 0;
 }
 
