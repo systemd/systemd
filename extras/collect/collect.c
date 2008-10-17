@@ -31,7 +31,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "../../udev/list.h"
+#include "../../udev/lib/libudev.h"
+#include "../../udev/lib/libudev-private.h"
 
 #define TMPFILE			UDEV_PREFIX "/dev/.udev/collect"
 #define BUFSIZE			16
@@ -44,16 +45,25 @@ enum collect_state {
 };
 
 struct _mate {
-	struct list_head node;
+	struct udev_list_node node;
 	char *name;
 	enum collect_state state;
 };
 
-static LIST_HEAD(bunch);
+static struct udev_list_node bunch;
 static int debug;
 
 /* This can increase dynamically */
 static size_t bufsize = BUFSIZE;
+
+static struct _mate *node_to_mate(struct udev_list_node *node)
+{
+	char *mate;
+
+	mate = (char *)node;
+	mate -= offsetof(struct _mate, node);
+	return (struct _mate *)mate;
+}
 
 static void sig_alrm(int signo)
 {
@@ -164,7 +174,7 @@ static int checkout(int fd)
 				him->name = malloc(strlen(word) + 1);
 				strcpy(him->name, word);
 				him->state = STATE_OLD;
-				list_add_tail(&him->node, &bunch);
+				udev_list_node_append(&him->node, &bunch);
 				word = NULL;
 			}
 		}
@@ -190,13 +200,15 @@ static int checkout(int fd)
  */
 static void invite(char *us)
 {
-	struct _mate *him, *who;
+	struct udev_list_node *him_node;
+	struct _mate *who = NULL;
 
 	if (debug)
 		fprintf(stderr, "Adding ID '%s'\n", us);
 
-	who = NULL;
-	list_for_each_entry(him, &bunch, node) {
+	udev_list_node_foreach(him_node, &bunch) {
+		struct _mate *him = node_to_mate(him_node);
+
 		if (!strcmp(him->name, us)) {
 			him->state = STATE_CONFIRMED;
 			who = him;
@@ -216,13 +228,15 @@ static void invite(char *us)
  */
 static void reject(char *us)
 {
-	struct _mate *him, *who;
+	struct udev_list_node *him_node;
+	struct _mate *who = NULL;
 
 	if (debug)
 		fprintf(stderr, "Removing ID '%s'\n", us);
 
-	who = NULL;
-	list_for_each_entry(him, &bunch, node) {
+	udev_list_node_foreach(him_node, &bunch) {
+		struct _mate *him = node_to_mate(him_node);
+
 		if (!strcmp(him->name, us)) {
 			him->state = STATE_NONE;
 			who = him;
@@ -230,7 +244,6 @@ static void reject(char *us)
 	}
 	if (debug && !who)
 		fprintf(stderr, "ID '%s' not in database\n", us);
-
 }
 
 /*
@@ -241,11 +254,14 @@ static void reject(char *us)
  */
 static void kickout(void)
 {
-	struct _mate *him, *them;
+	struct udev_list_node *him_node;
+	struct udev_list_node *tmp;
 
-	list_for_each_entry_safe(him, them, &bunch, node) {
+	udev_list_node_foreach_safe(him_node, tmp, &bunch) {
+		struct _mate *him = node_to_mate(him_node);
+
 		if (him->state == STATE_OLD) {
-			list_del(&him->node);
+			udev_list_node_remove(&him->node);
 			free(him->name);
 			free(him);
 		}
@@ -261,13 +277,15 @@ static int missing(int fd)
 {
 	char *buf;
 	int ret = 0;
-	struct _mate *him;
+	struct udev_list_node *him_node;
 
 	buf = malloc(bufsize);
 	if (!buf)
 		return -1;
 
-	list_for_each_entry(him, &bunch, node) {
+	udev_list_node_foreach(him_node, &bunch) {
+		struct _mate *him = node_to_mate(him_node);
+
 		if (him->state == STATE_NONE) {
 			ret++;
 		} else {
@@ -288,7 +306,6 @@ static int missing(int fd)
 	}
 
 	free(buf);
-
 	return ret;
 }
 
@@ -299,10 +316,12 @@ static int missing(int fd)
  */
 static void everybody(void)
 {
-	struct _mate *him;
+	struct udev_list_node *him_node;
 	const char *state = "";
 
-	list_for_each_entry(him, &bunch, node) {
+	udev_list_node_foreach(him_node, &bunch) {
+		struct _mate *him = node_to_mate(him_node);
+
 		switch (him->state) {
 		case STATE_NONE:
 			state = "none";
@@ -329,7 +348,6 @@ int main(int argc, char **argv)
 	};
 	int argi;
 	char *checkpoint, *us;
-	struct _mate *him, *who;
 	int fd;
 	int i;
 	int ret = 0;
@@ -376,7 +394,7 @@ int main(int argc, char **argv)
 		goto exit;
 	}
 
-	INIT_LIST_HEAD(&bunch);
+	udev_list_init(&bunch);
 
 	if (debug)
 		fprintf(stderr, "Using checkpoint '%s'\n", checkpoint);
@@ -393,19 +411,26 @@ int main(int argc, char **argv)
 	}
 
 	for (i = argi; i < argc; i++) {
+		struct udev_list_node *him_node;
+		struct _mate *who;
+
 		who = NULL;
-		list_for_each_entry(him, &bunch, node) {
+		udev_list_node_foreach(him_node, &bunch) {
+			struct _mate *him = node_to_mate(him_node);
+
 			if (!strcmp(him->name, argv[i]))
 				who = him;
 		}
 		if (!who) {
+			struct _mate *him;
+
 			if (debug)
 				fprintf(stderr, "ID %s: not in database\n", argv[i]);
 			him = malloc(sizeof (struct _mate));
 			him->name = malloc(strlen(argv[i]) + 1);
 			strcpy(him->name, argv[i]);
 			him->state = STATE_NONE;
-			list_add_tail(&him->node, &bunch);
+			udev_list_node_append(&him->node, &bunch);
 		} else {
 			if (debug)
 				fprintf(stderr, "ID %s: found in database\n", argv[i]);
