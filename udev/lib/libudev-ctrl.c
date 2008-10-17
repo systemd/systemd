@@ -31,7 +31,7 @@
 #include "libudev-private.h"
 
 /* last known version with this wire protocol */
-#define UDEV_CTRL_MAGIC				"udevd-128"
+#define UDEV_CTRL_MAGIC				0xdead1dea
 
 enum udev_ctrl_msg_type {
 	UDEV_CTRL_UNKNOWN,
@@ -44,8 +44,9 @@ enum udev_ctrl_msg_type {
 	UDEV_CTRL_SET_MAX_CHILDS_RUNNING,
 };
 
-struct ctrl_msg_wire {
-	char magic[32];
+struct udev_ctrl_msg_wire {
+	char version[16];
+	unsigned int magic;
 	enum udev_ctrl_msg_type type;
 	union {
 		int intval;
@@ -56,7 +57,7 @@ struct ctrl_msg_wire {
 struct udev_ctrl_msg {
 	int refcount;
 	struct udev_ctrl *uctrl;
-	struct ctrl_msg_wire ctrl_msg_wire;
+	struct udev_ctrl_msg_wire ctrl_msg_wire;
 };
 
 struct udev_ctrl {
@@ -145,11 +146,12 @@ int udev_ctrl_get_fd(struct udev_ctrl *uctrl)
 
 static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int intval, const char *buf)
 {
-	struct ctrl_msg_wire ctrl_msg_wire;
+	struct udev_ctrl_msg_wire ctrl_msg_wire;
 	int err;
 
-	memset(&ctrl_msg_wire, 0x00, sizeof(struct ctrl_msg_wire));
-	strcpy(ctrl_msg_wire.magic, UDEV_CTRL_MAGIC);
+	memset(&ctrl_msg_wire, 0x00, sizeof(struct udev_ctrl_msg_wire));
+	strcpy(ctrl_msg_wire.version, "udev-" VERSION);
+	ctrl_msg_wire.magic = UDEV_CTRL_MAGIC;
 	ctrl_msg_wire.type = type;
 
 	if (buf != NULL)
@@ -157,7 +159,8 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
 	else
 		ctrl_msg_wire.intval = intval;
 
-	err = sendto(uctrl->sock, &ctrl_msg_wire, sizeof(ctrl_msg_wire), 0, (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
+	err = sendto(uctrl->sock, &ctrl_msg_wire, sizeof(ctrl_msg_wire), 0,
+		     (struct sockaddr *)&uctrl->saddr, uctrl->addrlen);
 	if (err == -1) {
 		err(uctrl->udev, "error sending message: %m\n");
 	}
@@ -218,7 +221,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl)
 	uctrl_msg->uctrl = uctrl;
 
 	iov.iov_base = &uctrl_msg->ctrl_msg_wire;
-	iov.iov_len = sizeof(struct udev_ctrl_msg);
+	iov.iov_len = sizeof(struct udev_ctrl_msg_wire);
 
 	memset(&smsg, 0x00, sizeof(struct msghdr));
 	smsg.msg_iov = &iov;
@@ -244,8 +247,8 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl)
 		goto err;
 	}
 
-	if (strncmp(uctrl_msg->ctrl_msg_wire.magic, UDEV_CTRL_MAGIC, sizeof(UDEV_CTRL_MAGIC)) != 0 ) {
-		err(uctrl->udev, "message magic '%s' doesn't match, ignore it\n", uctrl_msg->ctrl_msg_wire.magic);
+	if (uctrl_msg->ctrl_msg_wire.magic != UDEV_CTRL_MAGIC) {
+		err(uctrl->udev, "message magic 0x%08x doesn't match, ignore it\n", uctrl_msg->ctrl_msg_wire.magic);
 		goto err;
 	}
 
