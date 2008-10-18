@@ -111,6 +111,8 @@ extern int delete_path(struct udev *udev, const char *path);
 extern int unlink_secure(struct udev *udev, const char *filename);
 extern uid_t lookup_user(struct udev *udev, const char *user);
 extern gid_t lookup_group(struct udev *udev, const char *group);
+extern int run_program(struct udev *udev, const char *command, char **envp,
+		       char *result, size_t ressize, size_t *reslen);
 
 /* udev_utils_file.c */
 extern int file_map(const char *filename, char **buf, size_t *bufsize);
