@@ -90,13 +90,13 @@ struct udev_rules;
 extern struct udev_event *udev_event_new(struct udev_device *dev);
 extern void udev_event_unref(struct udev_event *event);
 extern int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules);
+extern int udev_event_execute_run(struct udev_event *event);
 
 /* udev-rules.c */
 extern struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names);
 extern void udev_rules_unref(struct udev_rules *rules);
 extern int udev_rules_get_name(struct udev_rules *rules, struct udev_event *event);
 extern int udev_rules_get_run(struct udev_rules *rules, struct udev_event *event);
-extern int udev_rules_run(struct udev_event *event);
 extern void udev_rules_apply_format(struct udev_event *event, char *string, size_t maxsize);
 
 /* udev-node.c */

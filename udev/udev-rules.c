@@ -374,39 +374,6 @@ static int import_parent_into_env(struct udev_device *dev, const char *filter)
 	return 0;
 }
 
-int udev_rules_run(struct udev_event *event)
-{
-	struct udev_list_entry *list_entry;
-	int err = 0;
-
-	dbg(event->udev, "executing run list\n");
-	udev_list_entry_foreach(list_entry, udev_list_get_entry(&event->run_list)) {
-		const char *cmd = udev_list_entry_get_name(list_entry);
-
-		if (strncmp(cmd, "socket:", strlen("socket:")) == 0) {
-			struct udev_monitor *monitor;
-
-			monitor = udev_monitor_new_from_socket(event->udev, &cmd[strlen("socket:")]);
-			if (monitor == NULL)
-				continue;
-			udev_monitor_send_device(monitor, event->dev);
-			udev_monitor_unref(monitor);
-		} else {
-			char program[UTIL_PATH_SIZE];
-			char **envp;
-
-			util_strlcpy(program, cmd, sizeof(program));
-			udev_rules_apply_format(event, program, sizeof(program));
-			envp = udev_device_get_properties_envp(event->dev);
-			if (run_program(event->udev, program, envp, NULL, 0, NULL) != 0) {
-				if (!udev_list_entry_get_flag(list_entry))
-					err = -1;
-			}
-		}
-	}
-	return err;
-}
-
 #define WAIT_LOOP_PER_SECOND		50
 static int wait_for_file(struct udev_event *event, const char *file, int timeout)
 {

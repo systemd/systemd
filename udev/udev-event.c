@@ -282,3 +282,36 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 exit:
 	return err;
 }
+
+int udev_event_execute_run(struct udev_event *event)
+{
+	struct udev_list_entry *list_entry;
+	int err = 0;
+
+	dbg(event->udev, "executing run list\n");
+	udev_list_entry_foreach(list_entry, udev_list_get_entry(&event->run_list)) {
+		const char *cmd = udev_list_entry_get_name(list_entry);
+
+		if (strncmp(cmd, "socket:", strlen("socket:")) == 0) {
+			struct udev_monitor *monitor;
+
+			monitor = udev_monitor_new_from_socket(event->udev, &cmd[strlen("socket:")]);
+			if (monitor == NULL)
+				continue;
+			udev_monitor_send_device(monitor, event->dev);
+			udev_monitor_unref(monitor);
+		} else {
+			char program[UTIL_PATH_SIZE];
+			char **envp;
+
+			util_strlcpy(program, cmd, sizeof(program));
+			udev_rules_apply_format(event, program, sizeof(program));
+			envp = udev_device_get_properties_envp(event->dev);
+			if (run_program(event->udev, program, envp, NULL, 0, NULL) != 0) {
+				if (!udev_list_entry_get_flag(list_entry))
+					err = -1;
+			}
+		}
+	}
+	return err;
+}

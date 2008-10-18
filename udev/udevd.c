@@ -220,7 +220,7 @@ static void event_fork(struct udev_event *event)
 
 		/* execute RUN= */
 		if (err == 0 && !event->ignore_device && udev_get_run(event->udev))
-			udev_rules_run(event);
+			udev_event_execute_run(event);
 		info(event->udev, "seq %llu exit with %i\n", udev_device_get_seqnum(event->dev), err);
 		logging_close();
 		if (err != 0)
