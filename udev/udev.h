@@ -33,10 +33,6 @@
 #define DEFAULT_FAKE_PARTITIONS_COUNT		15
 #define UDEV_EVENT_TIMEOUT			180
 
-/* linux/include/linux/kobject.h */
-#define UEVENT_BUFFER_SIZE			2048
-#define UEVENT_NUM_ENVP				32
-
 #define UDEV_CTRL_SOCK_PATH			"@" UDEV_PREFIX "/org/kernel/udev/udevd"
 
 #define UDEV_MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -109,13 +105,13 @@ extern int udev_node_remove(struct udev_device *dev, int test);
 extern void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old, int test);
 
 /* udev-util.c */
-extern int create_path(struct udev *udev, const char *path);
-extern int delete_path(struct udev *udev, const char *path);
-extern int unlink_secure(struct udev *udev, const char *filename);
-extern uid_t lookup_user(struct udev *udev, const char *user);
-extern gid_t lookup_group(struct udev *udev, const char *group);
-extern int run_program(struct udev *udev, const char *command, char **envp,
-		       char *result, size_t ressize, size_t *reslen);
+extern int util_create_path(struct udev *udev, const char *path);
+extern int util_delete_path(struct udev *udev, const char *path);
+extern int util_unlink_secure(struct udev *udev, const char *filename);
+extern uid_t util_lookup_user(struct udev *udev, const char *user);
+extern gid_t util_lookup_group(struct udev *udev, const char *group);
+extern int util_run_program(struct udev *udev, const char *command, char **envp,
+			    char *result, size_t ressize, size_t *reslen);
 
 /* udev-selinux.c */
 #ifndef USE_SELINUX

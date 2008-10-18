@@ -732,7 +732,7 @@ int udev_event_execute_run(struct udev_event *event)
 			util_strlcpy(program, cmd, sizeof(program));
 			udev_event_apply_format(event, program, sizeof(program));
 			envp = udev_device_get_properties_envp(event->dev);
-			if (run_program(event->udev, program, envp, NULL, 0, NULL) != 0) {
+			if (util_run_program(event->udev, program, envp, NULL, 0, NULL) != 0) {
 				if (!udev_list_entry_get_flag(list_entry))
 					err = -1;
 			}

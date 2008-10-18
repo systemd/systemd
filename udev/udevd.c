@@ -109,8 +109,8 @@ static void export_event_state(struct udev_event *event, enum event_state state)
 	switch (state) {
 	case EVENT_QUEUED:
 		if(unlink(filename_failed) == 0)
-			delete_path(event->udev, filename_failed);
-		create_path(event->udev, filename);
+			util_delete_path(event->udev, filename_failed);
+		util_create_path(event->udev, filename);
 		udev_selinux_setfscreatecon(event->udev, filename, S_IFLNK);
 		symlink(udev_device_get_devpath(event->dev), filename);
 		udev_selinux_resetfscreatecon(event->udev);
@@ -131,23 +131,23 @@ static void export_event_state(struct udev_event *event, enum event_state state)
 				     udev_device_get_devpath_old(event->dev), udev_device_get_devpath(event->dev));
 		} else {
 			if (unlink(filename_failed) == 0)
-				delete_path(event->udev, filename_failed);
+				util_delete_path(event->udev, filename_failed);
 		}
 
 		unlink(filename);
 
 		/* clean up possibly empty queue directory */
 		if (udev_list_is_empty(&exec_list) && udev_list_is_empty(&running_list))
-			delete_path(event->udev, filename);
+			util_delete_path(event->udev, filename);
 		break;
 	case EVENT_FAILED:
 		/* move failed event to the failed directory */
-		create_path(event->udev, filename_failed);
+		util_create_path(event->udev, filename_failed);
 		rename(filename, filename_failed);
 
 		/* clean up possibly empty queue directory */
 		if (udev_list_is_empty(&exec_list) && udev_list_is_empty(&running_list))
-			delete_path(event->udev, filename);
+			util_delete_path(event->udev, filename);
 		break;
 	}
 
@@ -613,7 +613,7 @@ static void export_initial_seqnum(struct udev *udev)
 	}
 	util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
 	util_strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
-	create_path(udev, filename);
+	util_create_path(udev, filename);
 	fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
 	if (fd >= 0) {
 		write(fd, seqnum, len);

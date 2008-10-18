@@ -290,7 +290,7 @@ static int import_program_into_env(struct udev_device *dev, const char *program)
 	char *line;
 
 	envp = udev_device_get_properties_envp(dev);
-	if (run_program(udev, program, envp, result, sizeof(result), &reslen) != 0)
+	if (util_run_program(udev, program, envp, result, sizeof(result), &reslen) != 0)
 		return -1;
 
 	line = result;
@@ -690,7 +690,7 @@ try_parent:
 		util_strlcpy(program, key_val(rule, &rule->program), sizeof(program));
 		udev_event_apply_format(event, program, sizeof(program));
 		envp = udev_device_get_properties_envp(dev);
-		if (run_program(event->udev, program, envp, result, sizeof(result), NULL) != 0) {
+		if (util_run_program(event->udev, program, envp, result, sizeof(result), NULL) != 0) {
 			dbg(event->udev, "PROGRAM is false\n");
 			event->program_result[0] = '\0';
 			if (rule->program.operation != KEY_OP_NOMATCH)
@@ -999,7 +999,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udev_event *event)
 
 	if (event->tmp_node[0] != '\0') {
 		dbg(event->udev, "removing temporary device node\n");
-		unlink_secure(event->udev, event->tmp_node);
+		util_unlink_secure(event->udev, event->tmp_node);
 		event->tmp_node[0] = '\0';
 	}
 	return 0;
@@ -1541,7 +1541,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 				strtoul(value, &endptr, 10);
 				if (endptr[0] != '\0') {
 					char owner[32];
-					uid_t uid = lookup_user(rules->udev, value);
+					uid_t uid = util_lookup_user(rules->udev, value);
 					dbg(rules->udev, "replacing username='%s' by id=%i\n", value, uid);
 					sprintf(owner, "%u", (unsigned int) uid);
 					add_rule_key(rule, &rule->owner, operation, owner);
@@ -1560,7 +1560,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 				strtoul(value, &endptr, 10);
 				if (endptr[0] != '\0') {
 					char group[32];
-					gid_t gid = lookup_group(rules->udev, value);
+					gid_t gid = util_lookup_group(rules->udev, value);
 					dbg(rules->udev, "replacing groupname='%s' by id=%i\n", value, gid);
 					sprintf(group, "%u", (unsigned int) gid);
 					add_rule_key(rule, &rule->group, operation, group);
@@ -1794,7 +1794,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 		util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
 		util_strlcat(filename, "/.udev/rules.d", sizeof(filename));
 		if (stat(filename, &statbuf) != 0) {
-			create_path(udev, filename);
+			util_create_path(udev, filename);
 			udev_selinux_setfscreatecon(udev, filename, S_IFDIR|0755);
 			mkdir(filename, 0755);
 			udev_selinux_resetfscreatecon(udev);

@@ -29,7 +29,7 @@
 
 #include "udev.h"
 
-int create_path(struct udev *udev, const char *path)
+int util_create_path(struct udev *udev, const char *path)
 {
 	char p[UTIL_PATH_SIZE];
 	char *pos;
@@ -49,7 +49,7 @@ int create_path(struct udev *udev, const char *path)
 	if (stat(p, &stats) == 0 && (stats.st_mode & S_IFMT) == S_IFDIR)
 		return 0;
 
-	if (create_path(udev, p) != 0)
+	if (util_create_path(udev, p) != 0)
 		return -1;
 
 	dbg(udev, "mkdir '%s'\n", p);
@@ -65,7 +65,7 @@ int create_path(struct udev *udev, const char *path)
 	return -1;
 }
 
-int delete_path(struct udev *udev, const char *path)
+int util_delete_path(struct udev *udev, const char *path)
 {
 	char p[UTIL_PATH_SIZE];
 	char *pos;
@@ -102,7 +102,7 @@ int delete_path(struct udev *udev, const char *path)
 /* Reset permissions on the device node, before unlinking it to make sure,
  * that permisions of possible hard links will be removed too.
  */
-int unlink_secure(struct udev *udev, const char *filename)
+int util_unlink_secure(struct udev *udev, const char *filename)
 {
 	int retval;
 
@@ -124,7 +124,7 @@ int unlink_secure(struct udev *udev, const char *filename)
 	return retval;
 }
 
-uid_t lookup_user(struct udev *udev, const char *user)
+uid_t util_lookup_user(struct udev *udev, const char *user)
 {
 	struct passwd *pw;
 	uid_t uid = 0;
@@ -142,7 +142,7 @@ uid_t lookup_user(struct udev *udev, const char *user)
 	return uid;
 }
 
-extern gid_t lookup_group(struct udev *udev, const char *group)
+extern gid_t util_lookup_group(struct udev *udev, const char *group)
 {
 	struct group *gr;
 	gid_t gid = 0;
@@ -160,8 +160,8 @@ extern gid_t lookup_group(struct udev *udev, const char *group)
 	return gid;
 }
 
-int run_program(struct udev *udev, const char *command, char **envp,
-		       char *result, size_t ressize, size_t *reslen)
+int util_run_program(struct udev *udev, const char *command, char **envp,
+		     char *result, size_t ressize, size_t *reslen)
 {
 	int status;
 	int outpipe[2] = {-1, -1};

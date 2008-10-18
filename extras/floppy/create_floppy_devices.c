@@ -68,7 +68,7 @@ int main(int argc, char **argv)
 
 	logging_init("create_floppy_devices");
 	udev_set_log_fn(udev, log_fn);
-	selinux_init(udev);
+	udev_selinux_init(udev);
 
 	while ((c = getopt(argc, argv, "cudm:U:G:M:t:")) != -1) {
 		switch (c) {
@@ -79,10 +79,10 @@ int main(int argc, char **argv)
 			print_nodes = 1;
 			break;
 		case 'U':
-			uid = lookup_user(udev, optarg);
+			uid = util_lookup_user(udev, optarg);
 			break;
 		case 'G':
-			gid = lookup_group(udev, optarg);
+			gid = util_lookup_group(udev, optarg);
 			break;
 		case 'M':
 			mode = strtol(optarg, NULL, 0);
@@ -162,7 +162,7 @@ int main(int argc, char **argv)
 		i++;
 	}
 
-	selinux_exit(udev);
+	udev_selinux_exit(udev);
 	udev_unref(udev);
 exit:
 	return 0;

@@ -53,14 +53,14 @@ static int name_index(struct udev *udev, const char *devpath, const char *name, 
 
 	if (add) {
 		info(udev, "creating index: '%s'\n", filename);
-		create_path(udev, filename);
+		util_create_path(udev, filename);
 		fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
 		if (fd > 0)
 			close(fd);
 	} else {
 		info(udev, "removing index: '%s'\n", filename);
 		unlink(filename);
-		delete_path(udev, filename);
+		util_delete_path(udev, filename);
 	}
 	return 0;
 }
@@ -288,7 +288,7 @@ static int update_link(struct udev_device *dev, const char *slink, int test)
 		info(udev, "no reference left, remove '%s'\n", slink);
 		if (!test) {
 			unlink(slink);
-			delete_path(udev, slink);
+			util_delete_path(udev, slink);
 		}
 		goto out;
 	}
@@ -349,7 +349,7 @@ static int update_link(struct udev_device *dev, const char *slink, int test)
 	/* create symlink to the target with the highest priority */
 	info(udev, "'%s' with target '%s' has the highest priority %i, create it\n", slink, target, priority);
 	if (!test) {
-		create_path(udev, slink);
+		util_create_path(udev, slink);
 		node_symlink(udev, target, slink);
 	}
 out:
@@ -400,7 +400,7 @@ int udev_node_add(struct udev_device *dev, mode_t mode, const char *owner, const
 	struct udev_list_entry *list_entry;
 	int err = 0;
 
-	create_path(udev, udev_device_get_devnode(dev));
+	util_create_path(udev, udev_device_get_devnode(dev));
 
 	if (strcmp(owner, "root") == 0)
 		uid = 0;
@@ -412,7 +412,7 @@ int udev_node_add(struct udev_device *dev, mode_t mode, const char *owner, const
 		if (endptr[0] == '\0')
 			uid = (uid_t) id;
 		else
-			uid = lookup_user(udev, owner);
+			uid = util_lookup_user(udev, owner);
 	}
 
 	if (strcmp(group, "root") == 0)
@@ -425,7 +425,7 @@ int udev_node_add(struct udev_device *dev, mode_t mode, const char *owner, const
 		if (endptr[0] == '\0')
 			gid = (gid_t) id;
 		else
-			gid = lookup_group(udev, group);
+			gid = util_lookup_group(udev, group);
 	}
 
 	info(udev, "creating device node '%s', devnum=%d:%d, mode=%#o, uid=%d, gid=%d\n",
@@ -503,7 +503,7 @@ extern int udev_node_remove(struct udev_device *dev, int test)
 
 	info(udev, "removing device node '%s'\n", devnode);
 	if (!test)
-		err = unlink_secure(udev, devnode);
+		err = util_unlink_secure(udev, devnode);
 	if (err)
 		return err;
 
@@ -518,9 +518,9 @@ extern int udev_node_remove(struct udev_device *dev, int test)
 			snprintf(partitionname, sizeof(partitionname), "%s%d", devnode, i);
 			partitionname[sizeof(partitionname)-1] = '\0';
 			if (!test)
-				unlink_secure(udev, partitionname);
+				util_unlink_secure(udev, partitionname);
 		}
 	}
-	delete_path(udev, devnode);
+	util_delete_path(udev, devnode);
 	return err;
 }

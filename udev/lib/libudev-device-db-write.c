@@ -50,7 +50,7 @@ int udev_device_update_db(struct udev_device *udev_device)
 	devpath_to_db_path(udev,
 			   udev_device_get_devpath(udev_device),
 			   filename, sizeof(filename));
-	create_path(udev, filename);
+	util_create_path(udev, filename);
 	unlink(filename);
 
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device))
