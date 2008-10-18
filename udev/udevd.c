@@ -648,7 +648,7 @@ int main(int argc, char *argv[])
 	logging_init("udevd");
 	udev_set_log_fn(udev, log_fn);
 	info(udev, "version %s\n", VERSION);
-	selinux_init(udev);
+	udev_selinux_init(udev);
 
 	while (1) {
 		int option;
@@ -978,7 +978,7 @@ exit:
 		close(inotify_fd);
 	udev_monitor_unref(kernel_monitor);
 
-	selinux_exit(udev);
+	udev_selinux_exit(udev);
 	udev_unref(udev);
 	logging_close();
 	return rc;

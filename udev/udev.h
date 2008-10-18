@@ -119,14 +119,14 @@ extern int run_program(struct udev *udev, const char *command, char **envp,
 
 /* udev-selinux.c */
 #ifndef USE_SELINUX
-static inline void selinux_init(struct udev *udev) {}
-static inline void selinux_exit(struct udev *udev) {}
+static inline void udev_selinux_init(struct udev *udev) {}
+static inline void udev_selinux_exit(struct udev *udev) {}
 static inline void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode) {}
 static inline void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode) {}
 static inline void udev_selinux_resetfscreatecon(struct udev *udev) {}
 #else
-extern void selinux_init(struct udev *udev);
-extern void selinux_exit(struct udev *udev);
+extern void udev_selinux_init(struct udev *udev);
+extern void udev_selinux_exit(struct udev *udev);
 extern void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode);
 extern void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode);
 extern void udev_selinux_resetfscreatecon(struct udev *udev);

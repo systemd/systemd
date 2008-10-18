@@ -29,7 +29,7 @@
 static int selinux_enabled;
 security_context_t selinux_prev_scontext;
 
-void selinux_init(struct udev *udev)
+void udev_selinux_init(struct udev *udev)
 {
 	/* record the present security context */
 	selinux_enabled = (is_selinux_enabled() > 0);
@@ -43,7 +43,7 @@ void selinux_init(struct udev *udev)
 	}
 }
 
-void selinux_exit(struct udev *udev)
+void udev_selinux_exit(struct udev *udev)
 {
 	if (!selinux_enabled)
 		return;

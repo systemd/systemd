@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
 
 	logging_init("udevadm");
 	udev_set_log_fn(udev, log_fn);
-	selinux_init(udev);
+	udev_selinux_init(udev);
 
 	/* see if we are a compat link, this will be removed in a future release */
 	command = argv[0];
@@ -210,7 +210,7 @@ int main(int argc, char *argv[])
 	help(udev, argc, argv);
 	rc = 2;
 out:
-	selinux_exit(udev);
+	udev_selinux_exit(udev);
 	udev_unref(udev);
 	logging_close();
 	return rc;
