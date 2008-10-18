@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
 
 	udev_device_set_action(dev, action);
 	event = udev_event_new(dev);
-	err = udev_event_run(event, rules);
+	err = udev_event_execute_rules(event, rules);
 
 	/* rules may change/disable the timeout */
 	if (udev_device_get_event_timeout(dev) >= 0)

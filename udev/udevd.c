@@ -212,7 +212,7 @@ static void event_fork(struct udev_event *event)
 		alarm(UDEV_EVENT_TIMEOUT);
 
 		/* apply rules, create node, symlinks */
-		err = udev_event_run(event, rules);
+		err = udev_event_execute_rules(event, rules);
 
 		/* rules may change/disable the timeout */
 		if (udev_device_get_event_timeout(event->dev) >= 0)

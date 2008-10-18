@@ -142,13 +142,12 @@ static int rename_netif(struct udev_event *event)
 			usleep(1000 * 1000 / 20);
 		}
 	}
-
 exit:
 	close(sk);
 	return err;
 }
 
-int udev_event_run(struct udev_event *event, struct udev_rules *rules)
+int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 {
 	struct udev_device *dev = event->dev;
 	int err = 0;

@@ -121,7 +121,7 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 	if (!force)
 		event->test = 1;
 
-	err = udev_event_run(event, rules);
+	err = udev_event_execute_rules(event, rules);
 
 	if (udev_device_get_event_timeout(dev) >= 0)
 		info(udev, "custom event timeout: %i\n", udev_device_get_event_timeout(dev));
