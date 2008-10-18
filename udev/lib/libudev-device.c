@@ -604,13 +604,13 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->sysname);
 	free(udev_device->devnode);
 	free(udev_device->subsystem);
-	udev_list_cleanup(udev_device->udev, &udev_device->devlinks_list);
-	udev_list_cleanup(udev_device->udev, &udev_device->properties_list);
+	udev_list_cleanup_entries(udev_device->udev, &udev_device->devlinks_list);
+	udev_list_cleanup_entries(udev_device->udev, &udev_device->properties_list);
 	free(udev_device->action);
 	free(udev_device->driver);
 	free(udev_device->devpath_old);
 	free(udev_device->physdevpath);
-	udev_list_cleanup(udev_device->udev, &udev_device->attr_list);
+	udev_list_cleanup_entries(udev_device->udev, &udev_device->attr_list);
 	for (i = 0; i < ARRAY_SIZE(udev_device->envp) && udev_device->envp[i] != NULL; i++)
 		free(udev_device->envp[i]);
 	info(udev_device->udev, "udev_device: %p released\n", udev_device);
@@ -747,7 +747,7 @@ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev_device *
 void udev_device_cleanup_devlinks_list(struct udev_device *udev_device)
 {
 	udev_device->devlinks_uptodate = 0;
-	udev_list_cleanup(udev_device->udev, &udev_device->devlinks_list);
+	udev_list_cleanup_entries(udev_device->udev, &udev_device->devlinks_list);
 }
 
 /**

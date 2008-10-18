@@ -139,7 +139,7 @@ extern struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct ude
 						   const char *name, const char *value,
 						   int unique, int sort);
 extern void udev_list_entry_remove(struct udev_list_entry *entry);
-extern void udev_list_cleanup(struct udev *udev, struct udev_list_node *name_list);
+extern void udev_list_cleanup_entries(struct udev *udev, struct udev_list_node *name_list);
 extern struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list);
 extern void udev_list_entry_move_to_end(struct udev_list_entry *list_entry);
 extern void udev_list_entry_move_before(struct udev_list_entry *list_entry, struct udev_list_entry *entry);

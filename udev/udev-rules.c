@@ -970,7 +970,7 @@ int udev_rules_get_name(struct udev_rules *rules, struct udev_event *event)
 					event->run_final = 1;
 				if (rule->run.operation == KEY_OP_ASSIGN || rule->run.operation == KEY_OP_ASSIGN_FINAL) {
 					info(event->udev, "reset run list\n");
-					udev_list_cleanup(event->udev, &event->run_list);
+					udev_list_cleanup_entries(event->udev, &event->run_list);
 				}
 				dbg(event->udev, "add run '%s'\n", key_val(rule, &rule->run));
 				list_entry = udev_list_entry_add(event->udev, &event->run_list,
@@ -1050,7 +1050,7 @@ int udev_rules_get_run(struct udev_rules *rules, struct udev_event *event)
 				if (rule->run.operation == KEY_OP_ASSIGN ||
 				    rule->run.operation == KEY_OP_ASSIGN_FINAL) {
 					info(event->udev, "reset run list\n");
-					udev_list_cleanup(event->udev, &event->run_list);
+					udev_list_cleanup_entries(event->udev, &event->run_list);
 				}
 				dbg(event->udev, "add run '%s'\n", key_val(rule, &rule->run));
 				list_entry = udev_list_entry_add(event->udev, &event->run_list,

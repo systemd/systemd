@@ -278,7 +278,7 @@ void udev_unref(struct udev *udev)
 	udev->refcount--;
 	if (udev->refcount > 0)
 		return;
-	udev_list_cleanup(udev, &udev->properties_list);
+	udev_list_cleanup_entries(udev, &udev->properties_list);
 	free(udev->dev_path);
 	free(udev->sys_path);
 	free(udev->rules_path);

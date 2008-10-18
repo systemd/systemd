@@ -165,7 +165,7 @@ void udev_list_entry_remove(struct udev_list_entry *entry)
 	free(entry);
 }
 
-void udev_list_cleanup(struct udev *udev, struct udev_list_node *list)
+void udev_list_cleanup_entries(struct udev *udev, struct udev_list_node *list)
 {
 	struct udev_list_entry *entry_loop;
 	struct udev_list_entry *entry_tmp;

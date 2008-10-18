@@ -338,7 +338,7 @@ static int update_link(struct udev_device *dev, const char *slink, int test)
 		}
 		udev_device_unref(dev_db);
 	}
-	udev_list_cleanup(udev, &dev_list);
+	udev_list_cleanup_entries(udev, &dev_list);
 
 	if (target[0] == '\0') {
 		info(udev, "no current target for '%s' found\n", slink);

@@ -82,11 +82,11 @@ void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 	udev_enumerate->refcount--;
 	if (udev_enumerate->refcount > 0)
 		return;
-	udev_list_cleanup(udev_enumerate->udev, &udev_enumerate->devices_list);
-	udev_list_cleanup(udev_enumerate->udev, &udev_enumerate->attr_match_list);
-	udev_list_cleanup(udev_enumerate->udev, &udev_enumerate->attr_nomatch_list);
-	udev_list_cleanup(udev_enumerate->udev, &udev_enumerate->subsystem_match_list);
-	udev_list_cleanup(udev_enumerate->udev, &udev_enumerate->subsystem_nomatch_list);
+	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->devices_list);
+	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->attr_match_list);
+	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->attr_nomatch_list);
+	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->subsystem_match_list);
+	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->subsystem_nomatch_list);
 	free(udev_enumerate);
 }
 

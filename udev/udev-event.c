@@ -52,7 +52,7 @@ struct udev_event *udev_event_new(struct udev_device *dev)
 
 void udev_event_unref(struct udev_event *event)
 {
-	udev_list_cleanup(event->udev, &event->run_list);
+	udev_list_cleanup_entries(event->udev, &event->run_list);
 	dbg(event->udev, "free event %p\n", event);
 	free(event);
 }
