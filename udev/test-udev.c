@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 	struct udev *udev;
 	struct udev_event *event;
 	struct udev_device *dev;
-	struct udev_rules rules;
+	struct udev_rules *rules;
 	char syspath[UTIL_PATH_SIZE];
 	const char *devpath;
 	const char *action;
@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	udev_rules_init(udev, &rules, 0);
+	rules = udev_rules_new(udev, 0);
 
 	util_strlcpy(syspath, udev_get_sys_path(udev), sizeof(syspath));
 	util_strlcat(syspath, devpath, sizeof(syspath));
@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
 
 	udev_device_set_action(dev, action);
 	event = udev_event_new(dev);
-	err = udev_event_run(event, &rules);
+	err = udev_event_run(event, rules);
 
 	/* rules may change/disable the timeout */
 	if (udev_device_get_event_timeout(dev) >= 0)
@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
 	udev_event_unref(event);
 	udev_device_unref(dev);
 fail:
-	udev_rules_cleanup(&rules);
+	udev_rules_unref(rules);
 exit:
 	selinux_exit(udev);
 	udev_unref(udev);

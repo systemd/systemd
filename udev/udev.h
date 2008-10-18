@@ -92,14 +92,8 @@ extern void udev_event_unref(struct udev_event *event);
 extern int udev_event_run(struct udev_event *event, struct udev_rules *rules);
 
 /* udev-rules.c */
-struct udev_rules {
-	struct udev *udev;
-	char *buf;
-	size_t bufsize;
-	int resolve_names;
-};
-extern int udev_rules_init(struct udev *udev, struct udev_rules *rules, int resolve_names);
-extern void udev_rules_cleanup(struct udev_rules *rules);
+extern struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names);
+extern void udev_rules_unref(struct udev_rules *rules);
 extern int udev_rules_get_name(struct udev_rules *rules, struct udev_event *event);
 extern int udev_rules_get_run(struct udev_rules *rules, struct udev_event *event);
 extern int udev_rules_run(struct udev_event *event);

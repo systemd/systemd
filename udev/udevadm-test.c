@@ -38,7 +38,7 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 	const char *syspath = NULL;
 	struct udev_event *event;
 	struct udev_device *dev;
-	struct udev_rules rules = {};
+	struct udev_rules *rules = NULL;
 	int err;
 	int rc = 0;
 
@@ -89,7 +89,12 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 	       "some values may be different, or not available at a simulation run.\n"
 	       "\n");
 
-	udev_rules_init(udev, &rules, 0);
+	rules = udev_rules_new(udev, 0);
+	if (rules == NULL) {
+		fprintf(stderr, "error reading rules\n");
+		rc = 1;
+		goto exit;
+	}
 
 	/* add /sys if needed */
 	if (strncmp(syspath, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0) {
@@ -116,7 +121,7 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 	if (!force)
 		event->test = 1;
 
-	err = udev_event_run(event, &rules);
+	err = udev_event_run(event, rules);
 
 	if (udev_device_get_event_timeout(dev) >= 0)
 		info(udev, "custom event timeout: %i\n", udev_device_get_event_timeout(dev));
@@ -135,6 +140,6 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 	udev_event_unref(event);
 	udev_device_unref(dev);
 exit:
-	udev_rules_cleanup(&rules);
+	udev_rules_unref(rules);
 	return rc;
 }

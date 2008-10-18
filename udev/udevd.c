@@ -58,7 +58,7 @@ static void log_fn(struct udev *udev, int priority,
 }
 
 static int debug_trace;
-static struct udev_rules rules;
+static struct udev_rules *rules;
 static struct udev_ctrl *udev_ctrl;
 static struct udev_monitor *kernel_monitor;
 static int inotify_fd = -1;
@@ -208,7 +208,7 @@ static void event_fork(struct udev_event *event)
 		alarm(UDEV_EVENT_TIMEOUT);
 
 		/* apply rules, create node, symlinks */
-		err = udev_event_run(event, &rules);
+		err = udev_event_run(event, rules);
 
 		/* rules may change/disable the timeout */
 		if (udev_device_get_event_timeout(event->dev) >= 0)
@@ -748,9 +748,13 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
+	rules = udev_rules_new(udev, 1);
+	if (rules == NULL) {
+		err(udev, "error reading rules\n");
+		goto exit;
+	}
 	udev_list_init(&running_list);
 	udev_list_init(&exec_list);
-	udev_rules_init(udev, &rules, 1);
 	export_initial_seqnum(udev);
 
 	if (daemonize) {
@@ -934,9 +938,14 @@ int main(int argc, char *argv[])
 
 		/* rules changed, set by inotify or a HUP signal */
 		if (reload_config) {
+			struct udev_rules *rules_new;
+
 			reload_config = 0;
-			udev_rules_cleanup(&rules);
-			udev_rules_init(udev, &rules, 1);
+			rules_new = udev_rules_new(udev, 1);
+			if (rules_new != NULL) {
+				udev_rules_unref(rules);
+				rules = rules_new;
+			}
 		}
 
 		if (sigchilds_waiting) {
@@ -953,7 +962,7 @@ int main(int argc, char *argv[])
 	rc = 0;
 
 exit:
-	udev_rules_cleanup(&rules);
+	udev_rules_unref(rules);
 
 	if (signal_pipe[READ_END] >= 0)
 		close(signal_pipe[READ_END]);

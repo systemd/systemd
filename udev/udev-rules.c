@@ -34,7 +34,17 @@
 
 #include "udev.h"
 
-#define PAIRS_MAX		5
+struct udev_rules {
+	struct udev *udev;
+	char *buf;
+	size_t bufsize;
+	int resolve_names;
+};
+
+struct udev_rules_iter {
+	struct udev_rules *rules;
+	size_t current;
+};
 
 enum key_operation {
 	KEY_OP_UNSET,
@@ -55,6 +65,7 @@ struct key_pair {
 	size_t key_name_off;
 };
 
+#define PAIRS_MAX		5
 struct key_pairs {
 	int count;
 	struct key_pair keys[PAIRS_MAX];
@@ -117,11 +128,6 @@ struct udev_rule {
 
 	size_t bufsize;
 	char buf[];
-};
-
-struct udev_rules_iter {
-	struct udev_rules *rules;
-	size_t current;
 };
 
 static void udev_rules_iter_init(struct udev_rules_iter *iter, struct udev_rules *rules)
@@ -1860,7 +1866,6 @@ static int get_key(struct udev_rules *rules, char **line, char **key, enum key_o
 
 	/* move line to next key */
 	*line = temp;
-
 	return 0;
 }
 
@@ -1932,7 +1937,6 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 	char *attr;
 	size_t padding;
 	int physdev = 0;
-	int retval;
 
 	memset(buf, 0x00, sizeof(buf));
 	rule = (struct udev_rule *) buf;
@@ -1946,8 +1950,7 @@ static int add_to_rules(struct udev_rules *rules, char *line, const char *filena
 		char *value;
 		enum key_operation operation = KEY_OP_UNSET;
 
-		retval = get_key(rules, &linepos, &key, &operation, &value);
-		if (retval)
+		if (get_key(rules, &linepos, &key, &operation, &value) != 0)
 			break;
 
 		if (strcasecmp(key, "ACTION") == 0) {
@@ -2462,14 +2465,17 @@ static int add_matching_files(struct udev *udev, struct udev_list_node *file_lis
 	return 0;
 }
 
-int udev_rules_init(struct udev *udev, struct udev_rules *rules, int resolve_names)
+struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 {
+	struct udev_rules *rules;
 	struct stat statbuf;
 	char filename[PATH_MAX];
 	struct udev_list_node file_list;
 	struct udev_list_entry *file_loop, *file_tmp;
-	int retval = 0;
 
+	rules = malloc(sizeof(struct udev_rules));
+	if (rules == NULL)
+		return rules;
 	memset(rules, 0x00, sizeof(struct udev_rules));
 	rules->udev = udev;
 	rules->resolve_names = resolve_names;
@@ -2539,13 +2545,16 @@ int udev_rules_init(struct udev *udev, struct udev_rules *rules, int resolve_nam
 			info(udev, "can not read '%s'\n", file_name);
 		udev_list_entry_remove(file_loop);
 	}
-	return retval;
+	return rules;
 }
 
-void udev_rules_cleanup(struct udev_rules *rules)
+void udev_rules_unref(struct udev_rules *rules)
 {
+	if (rules == NULL)
+		return;
 	if (rules->buf) {
 		free(rules->buf);
 		rules->buf = NULL;
 	}
+	free(rules);
 }
