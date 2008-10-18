@@ -133,7 +133,7 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 			char program[UTIL_PATH_SIZE];
 
 			util_strlcpy(program, udev_list_entry_get_name(entry), sizeof(program));
-			udev_rules_apply_format(event, program, sizeof(program));
+			udev_event_apply_format(event, program, sizeof(program));
 			info(udev, "run: '%s'\n", program);
 		}
 	}

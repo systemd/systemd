@@ -60,7 +60,6 @@ static inline void logging_close(void)
 	closelog();
 }
 
-/* udev-event.c */
 struct udev_event {
 	struct udev *udev;
 	struct udev_device *dev;
@@ -86,18 +85,22 @@ struct udev_event {
 	int exitstatus;
 	time_t queue_time;
 };
-struct udev_rules;
-extern struct udev_event *udev_event_new(struct udev_device *dev);
-extern void udev_event_unref(struct udev_event *event);
-extern int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules);
-extern int udev_event_execute_run(struct udev_event *event);
 
 /* udev-rules.c */
+struct udev_rules;
 extern struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names);
 extern void udev_rules_unref(struct udev_rules *rules);
 extern int udev_rules_get_name(struct udev_rules *rules, struct udev_event *event);
 extern int udev_rules_get_run(struct udev_rules *rules, struct udev_event *event);
-extern void udev_rules_apply_format(struct udev_event *event, char *string, size_t maxsize);
+
+/* udev-event.c */
+extern struct udev_event *udev_event_new(struct udev_device *dev);
+extern void udev_event_unref(struct udev_event *event);
+extern int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules);
+extern int udev_event_execute_run(struct udev_event *event);
+extern void udev_event_apply_format(struct udev_event *event, char *string, size_t maxsize);
+extern int udev_event_apply_subsys_kernel(struct udev_event *event, const char *string,
+					  char *result, size_t maxsize, int read_value);
 
 /* udev-node.c */
 extern int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mode_t mode, uid_t uid, gid_t gid);
@@ -113,11 +116,6 @@ extern uid_t lookup_user(struct udev *udev, const char *user);
 extern gid_t lookup_group(struct udev *udev, const char *group);
 extern int run_program(struct udev *udev, const char *command, char **envp,
 		       char *result, size_t ressize, size_t *reslen);
-
-/* udev_utils_file.c */
-extern int file_map(const char *filename, char **buf, size_t *bufsize);
-extern void file_unmap(void *buf, size_t bufsize);
-extern size_t buf_get_line(const char *buf, size_t buflen, size_t cur);
 
 /* udev-selinux.c */
 #ifndef USE_SELINUX
