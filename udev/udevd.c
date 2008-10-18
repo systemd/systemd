@@ -108,8 +108,8 @@ static void export_event_state(struct udev_event *event, enum event_state state)
 
 	switch (state) {
 	case EVENT_QUEUED:
-		unlink(filename_failed);
-		delete_path(event->udev, filename_failed);
+		if(unlink(filename_failed) == 0)
+			delete_path(event->udev, filename_failed);
 		create_path(event->udev, filename);
 		udev_selinux_setfscreatecon(event->udev, filename, S_IFLNK);
 		symlink(udev_device_get_devpath(event->dev), filename);
@@ -130,12 +130,15 @@ static void export_event_state(struct udev_event *event, enum event_state state)
 				info(event->udev, "renamed devpath, moved failed state of '%s' to %s'\n",
 				     udev_device_get_devpath_old(event->dev), udev_device_get_devpath(event->dev));
 		} else {
-			unlink(filename_failed);
-			delete_path(event->udev, filename_failed);
+			if (unlink(filename_failed) == 0)
+				delete_path(event->udev, filename_failed);
 		}
 
 		unlink(filename);
-		delete_path(event->udev, filename);
+
+		/* clean up possibly empty queue directory */
+		if (udev_list_is_empty(&exec_list) && udev_list_is_empty(&running_list))
+			delete_path(event->udev, filename);
 		break;
 	case EVENT_FAILED:
 		/* move failed event to the failed directory */
@@ -143,7 +146,8 @@ static void export_event_state(struct udev_event *event, enum event_state state)
 		rename(filename, filename_failed);
 
 		/* clean up possibly empty queue directory */
-		delete_path(event->udev, filename);
+		if (udev_list_is_empty(&exec_list) && udev_list_is_empty(&running_list))
+			delete_path(event->udev, filename);
 		break;
 	}
 
