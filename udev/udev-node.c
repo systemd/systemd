@@ -28,7 +28,6 @@
 #include <sys/types.h>
 
 #include "udev.h"
-#include "udev-rules.h"
 
 #define TMP_FILE_EXT		".udev-tmp"
 

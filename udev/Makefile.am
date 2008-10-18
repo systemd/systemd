@@ -14,12 +14,10 @@ common_ldadd =
 
 common_files = \
 	udev.h \
-	udev-rules.h \
 	udev-sysdeps.h \
 	udev-event.c \
 	udev-node.c \
 	udev-rules.c \
-	udev-rules-parse.c \
 	udev-util.c \
 	lib/libudev.h \
 	lib/libudev-private.h \

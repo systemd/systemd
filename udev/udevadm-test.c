@@ -29,7 +29,6 @@
 #include <getopt.h>
 
 #include "udev.h"
-#include "udev-rules.h"
 
 int udevadm_test(struct udev *udev, int argc, char *argv[])
 {

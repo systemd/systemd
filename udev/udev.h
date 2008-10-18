@@ -30,7 +30,7 @@
 #define ALLOWED_CHARS_FILE			ALLOWED_CHARS "/"
 #define ALLOWED_CHARS_INPUT			ALLOWED_CHARS_FILE " $%?,"
 
-#define DEFAULT_PARTITIONS_COUNT		15
+#define DEFAULT_FAKE_PARTITIONS_COUNT		15
 #define UDEV_EVENT_TIMEOUT			180
 
 /* linux/include/linux/kobject.h */
@@ -40,12 +40,8 @@
 #define UDEV_CTRL_SOCK_PATH			"@" UDEV_PREFIX "/org/kernel/udev/udevd"
 
 #define UDEV_MAX(a,b) ((a) > (b) ? (a) : (b))
-
-/* pipes */
 #define READ_END				0
 #define WRITE_END				1
-
-struct udev_rules;
 
 static inline void logging_init(const char *program_name)
 {
@@ -90,9 +86,24 @@ struct udev_event {
 	int exitstatus;
 	time_t queue_time;
 };
+struct udev_rules;
 extern struct udev_event *udev_event_new(struct udev_device *dev);
 extern void udev_event_unref(struct udev_event *event);
 extern int udev_event_run(struct udev_event *event, struct udev_rules *rules);
+
+/* udev-rules.c */
+struct udev_rules {
+	struct udev *udev;
+	char *buf;
+	size_t bufsize;
+	int resolve_names;
+};
+extern int udev_rules_init(struct udev *udev, struct udev_rules *rules, int resolve_names);
+extern void udev_rules_cleanup(struct udev_rules *rules);
+extern int udev_rules_get_name(struct udev_rules *rules, struct udev_event *event);
+extern int udev_rules_get_run(struct udev_rules *rules, struct udev_event *event);
+extern int udev_rules_run(struct udev_event *event);
+extern void udev_rules_apply_format(struct udev_event *event, char *string, size_t maxsize);
 
 /* udev-node.c */
 extern int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mode_t mode, uid_t uid, gid_t gid);

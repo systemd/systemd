@@ -36,7 +36,6 @@
 #endif
 
 #include "udev.h"
-#include "udev-rules.h"
 
 #define UDEVD_PRIORITY			-4
 #define UDEV_PRIORITY			-2
