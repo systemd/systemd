@@ -77,7 +77,7 @@ extern const char *udev_device_get_driver(struct udev_device *udev_device);
 extern dev_t udev_device_get_devnum(struct udev_device *udev_device);
 extern const char *udev_device_get_action(struct udev_device *udev_device);
 extern unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device);
-extern const char *udev_device_get_attr_value(struct udev_device *udev_device, const char *attr);
+extern const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const char *sysattr);
 
 /* udev and kernel device events */
 struct udev_monitor;
@@ -98,8 +98,8 @@ extern void udev_enumerate_unref(struct udev_enumerate *udev_enumerate);
 extern struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate);
 extern int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem);
 extern int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem);
-extern int udev_enumerate_add_match_attr(struct udev_enumerate *udev_enumerate, const char *attr, const char *value);
-extern int udev_enumerate_add_nomatch_attr(struct udev_enumerate *udev_enumerate, const char *attr, const char *value);
+extern int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value);
+extern int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value);
 extern int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char *syspath);
 extern int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate);
 extern int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerate);

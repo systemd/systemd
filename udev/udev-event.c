@@ -141,7 +141,7 @@ int udev_event_apply_subsys_kernel(struct udev_event *udev_event, const char *st
 	if (read_value) {
 		const char *val;
 
-		val = udev_device_get_attr_value(dev, attr);
+		val = udev_device_get_sysattr_value(dev, attr);
 		if (val != NULL)
 			util_strlcpy(result, val, maxsize);
 		else
@@ -359,7 +359,7 @@ found:
 				if (value[0] == '\0' && event->dev_parent != NULL && event->dev_parent != event->dev) {
 					const char *val;
 
-					val = udev_device_get_attr_value(event->dev_parent, attr);
+					val = udev_device_get_sysattr_value(event->dev_parent, attr);
 					if (val != NULL)
 						util_strlcpy(value, val, sizeof(value));
 				}
@@ -371,7 +371,7 @@ found:
 
 					do {
 						dbg(event->udev, "looking at '%s'\n", udev_device_get_syspath(dev_parent));
-						val = udev_device_get_attr_value(dev_parent, attr);
+						val = udev_device_get_sysattr_value(dev_parent, attr);
 						if (val != NULL) {
 							util_strlcpy(value, val, sizeof(value));
 							break;

@@ -32,7 +32,7 @@ udev_device_get_action
 udev_device_get_driver
 udev_device_get_devnum
 udev_device_get_seqnum
-udev_device_get_attr_value
+udev_device_get_sysattr_value
 udev_enumerate_new
 udev_enumerate_ref
 udev_enumerate_unref
@@ -40,8 +40,8 @@ udev_enumerate_get_udev
 udev_enumerate_get_list_entry
 udev_enumerate_add_match_subsystem
 udev_enumerate_add_nomatch_subsystem
-udev_enumerate_add_match_attr
-udev_enumerate_add_nomatch_attr
+udev_enumerate_add_match_sysattr
+udev_enumerate_add_nomatch_sysattr
 udev_enumerate_scan_devices
 udev_enumerate_scan_subsystems
 udev_enumerate_add_syspath

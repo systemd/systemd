@@ -156,7 +156,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 				val[0] = 0;
 				val = &val[1];
 			}
-			udev_enumerate_add_match_attr(udev_enumerate, attr, val);
+			udev_enumerate_add_match_sysattr(udev_enumerate, attr, val);
 			break;
 		case 'A':
 			util_strlcpy(attr, optarg, sizeof(attr));
@@ -165,7 +165,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 				val[0] = 0;
 				val = &val[1];
 			}
-			udev_enumerate_add_nomatch_attr(udev_enumerate, attr, val);
+			udev_enumerate_add_nomatch_sysattr(udev_enumerate, attr, val);
 			break;
 		case 'h':
 			printf("Usage: udevadm trigger OPTIONS\n"

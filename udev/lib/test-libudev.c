@@ -97,7 +97,7 @@ static void print_device(struct udev_device *device)
 	if (count > 0)
 		printf("found %i properties\n", count);
 
-	str = udev_device_get_attr_value(device, "dev");
+	str = udev_device_get_sysattr_value(device, "dev");
 	if (str != NULL)
 		printf("attr{dev}: '%s'\n", str);
 

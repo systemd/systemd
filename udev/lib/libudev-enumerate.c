@@ -35,8 +35,8 @@ static int devices_sort(struct udev_enumerate *udev_enumerate);
 struct udev_enumerate {
 	struct udev *udev;
 	int refcount;
-	struct udev_list_node attr_match_list;
-	struct udev_list_node attr_nomatch_list;
+	struct udev_list_node sysattr_match_list;
+	struct udev_list_node sysattr_nomatch_list;
 	struct udev_list_node subsystem_match_list;
 	struct udev_list_node subsystem_nomatch_list;
 	struct udev_list_node devices_list;
@@ -60,8 +60,8 @@ struct udev_enumerate *udev_enumerate_new(struct udev *udev)
 	udev_enumerate->refcount = 1;
 	udev_enumerate->udev = udev;
 	udev_list_init(&udev_enumerate->devices_list);
-	udev_list_init(&udev_enumerate->attr_match_list);
-	udev_list_init(&udev_enumerate->attr_nomatch_list);
+	udev_list_init(&udev_enumerate->sysattr_match_list);
+	udev_list_init(&udev_enumerate->sysattr_nomatch_list);
 	udev_list_init(&udev_enumerate->subsystem_match_list);
 	udev_list_init(&udev_enumerate->subsystem_nomatch_list);
 	return udev_enumerate;
@@ -83,8 +83,8 @@ void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 	if (udev_enumerate->refcount > 0)
 		return;
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->devices_list);
-	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->attr_match_list);
-	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->attr_nomatch_list);
+	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->sysattr_match_list);
+	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->sysattr_nomatch_list);
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->subsystem_match_list);
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->subsystem_nomatch_list);
 	free(udev_enumerate);
@@ -130,31 +130,31 @@ int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate, 
 	return 0;
 }
 
-int udev_enumerate_add_match_attr(struct udev_enumerate *udev_enumerate, const char *attr, const char *value)
+int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value)
 {
 	if (udev_enumerate == NULL)
 		return -EINVAL;
-	if (attr == NULL)
+	if (sysattr == NULL)
 		return 0;
 	if (udev_list_entry_add(udev_enumerate_get_udev(udev_enumerate),
-			   &udev_enumerate->attr_match_list, attr, value, 1, 0) == NULL)
+			   &udev_enumerate->sysattr_match_list, sysattr, value, 1, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }
 
-int udev_enumerate_add_nomatch_attr(struct udev_enumerate *udev_enumerate, const char *attr, const char *value)
+int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value)
 {
 	if (udev_enumerate == NULL)
 		return -EINVAL;
-	if (attr == NULL)
+	if (sysattr == NULL)
 		return 0;
 	if (udev_list_entry_add(udev_enumerate_get_udev(udev_enumerate),
-			   &udev_enumerate->attr_nomatch_list, attr, value, 1, 0) == NULL)
+			   &udev_enumerate->sysattr_nomatch_list, sysattr, value, 1, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }
 
-static int match_attr_value(struct udev *udev, const char *syspath, const char *attr, const char *match_val)
+static int match_sysattr_value(struct udev *udev, const char *syspath, const char *sysattr, const char *match_val)
 {
 	struct udev_device *device;
 	const char *val = NULL;
@@ -163,7 +163,7 @@ static int match_attr_value(struct udev *udev, const char *syspath, const char *
 	device = udev_device_new_from_syspath(udev, syspath);
 	if (device == NULL)
 		return -EINVAL;
-	val = udev_device_get_attr_value(device, attr);
+	val = udev_device_get_sysattr_value(device, sysattr);
 	if (val == NULL)
 		goto exit;
 	if (match_val == NULL) {
@@ -179,23 +179,23 @@ exit:
 	return match;
 }
 
-static int match_attr(struct udev_enumerate *udev_enumerate, const char *syspath)
+static int match_sysattr(struct udev_enumerate *udev_enumerate, const char *syspath)
 {
 	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
 	struct udev_list_entry *list_entry;
 
 	/* skip list */
-	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->attr_nomatch_list)) {
-		if (match_attr_value(udev, syspath,
+	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->sysattr_nomatch_list)) {
+		if (match_sysattr_value(udev, syspath,
 				     udev_list_entry_get_name(list_entry),
 				     udev_list_entry_get_value(list_entry)))
 			return 0;
 	}
 	/* include list */
-	if (udev_list_get_entry(&udev_enumerate->attr_match_list) != NULL) {
-		udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->attr_match_list)) {
+	if (udev_list_get_entry(&udev_enumerate->sysattr_match_list) != NULL) {
+		udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->sysattr_match_list)) {
 			/* anything that does not match, will make it FALSE */
-			if (!match_attr_value(udev, syspath,
+			if (!match_sysattr_value(udev, syspath,
 					      udev_list_entry_get_name(list_entry),
 					      udev_list_entry_get_value(list_entry)))
 				return 0;
@@ -247,7 +247,7 @@ static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate,
 		util_strlcat(filename, "/uevent", sizeof(filename));
 		if (stat(filename, &statbuf) != 0)
 			continue;
-		if (!match_attr(udev_enumerate, syspath))
+		if (!match_sysattr(udev_enumerate, syspath))
 			continue;
 		udev_list_entry_add(udev, &udev_enumerate->devices_list, syspath, NULL, 1, 1);
 	}

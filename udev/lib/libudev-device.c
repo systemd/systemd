@@ -60,7 +60,7 @@ struct udev_device {
 	int num_fake_partitions;
 	int devlink_priority;
 	int ignore_remove;
-	struct udev_list_node attr_list;
+	struct udev_list_node sysattr_list;
 	int info_loaded;
 };
 
@@ -244,7 +244,7 @@ struct udev_device *device_new(struct udev *udev)
 	udev_device->udev = udev;
 	udev_list_init(&udev_device->devlinks_list);
 	udev_list_init(&udev_device->properties_list);
-	udev_list_init(&udev_device->attr_list);
+	udev_list_init(&udev_device->sysattr_list);
 	udev_device->event_timeout = -1;
 	/* copy global properties */
 	udev_list_entry_foreach(list_entry, udev_get_properties_list_entry(udev))
@@ -610,7 +610,7 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->driver);
 	free(udev_device->devpath_old);
 	free(udev_device->physdevpath);
-	udev_list_cleanup_entries(udev_device->udev, &udev_device->attr_list);
+	udev_list_cleanup_entries(udev_device->udev, &udev_device->sysattr_list);
 	for (i = 0; i < ARRAY_SIZE(udev_device->envp) && udev_device->envp[i] != NULL; i++)
 		free(udev_device->envp[i]);
 	info(udev_device->udev, "udev_device: %p released\n", udev_device);
@@ -823,7 +823,7 @@ unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device)
 	return udev_device->seqnum;
 }
 
-const char *udev_device_get_attr_value(struct udev_device *udev_device, const char *attr)
+const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const char *sysattr)
 {
 	struct udev_list_entry *list_entry;
 	char path[UTIL_PATH_SIZE];
@@ -835,25 +835,25 @@ const char *udev_device_get_attr_value(struct udev_device *udev_device, const ch
 
 	if (udev_device == NULL)
 		return NULL;
-	if (attr == NULL)
+	if (sysattr == NULL)
 		return NULL;
 
 	/* look for possibly already cached result */
-	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_device->attr_list)) {
-		if (strcmp(udev_list_entry_get_name(list_entry), attr) == 0) {
+	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_device->sysattr_list)) {
+		if (strcmp(udev_list_entry_get_name(list_entry), sysattr) == 0) {
 			info(udev_device->udev, "got '%s' (%s) from cache\n",
-			     attr, udev_list_entry_get_value(list_entry));
+			     sysattr, udev_list_entry_get_value(list_entry));
 			return udev_list_entry_get_value(list_entry);
 		}
 	}
 
 	util_strlcpy(path, udev_device_get_syspath(udev_device), sizeof(path));
 	util_strlcat(path, "/", sizeof(path));
-	util_strlcat(path, attr, sizeof(path));
+	util_strlcat(path, sysattr, sizeof(path));
 
 	if (lstat(path, &statbuf) != 0) {
 		info(udev_device->udev, "no attribute '%s', keep negative entry\n", path);
-		udev_list_entry_add(udev_device->udev, &udev_device->attr_list, attr, NULL, 0, 0);
+		udev_list_entry_add(udev_device->udev, &udev_device->sysattr_list, sysattr, NULL, 0, 0);
 		goto out;
 	}
 
@@ -869,8 +869,8 @@ const char *udev_device_get_attr_value(struct udev_device *udev_device, const ch
 			pos = strrchr(target, '/');
 			if (pos != NULL) {
 				pos = &pos[1];
-				info(udev_device->udev, "cache '%s' with link value '%s'\n", attr, pos);
-				list_entry = udev_list_entry_add(udev_device->udev, &udev_device->attr_list, attr, pos, 0, 0);
+				info(udev_device->udev, "cache '%s' with link value '%s'\n", sysattr, pos);
+				list_entry = udev_list_entry_add(udev_device->udev, &udev_device->sysattr_list, sysattr, pos, 0, 0);
 				val = udev_list_entry_get_value(list_entry);
 			}
 		}
@@ -902,7 +902,7 @@ const char *udev_device_get_attr_value(struct udev_device *udev_device, const ch
 	value[size] = '\0';
 	util_remove_trailing_chars(value, '\n');
 	info(udev_device->udev, "'%s' has attribute value '%s'\n", path, value);
-	list_entry = udev_list_entry_add(udev_device->udev, &udev_device->attr_list, attr, value, 0, 0);
+	list_entry = udev_list_entry_add(udev_device->udev, &udev_device->sysattr_list, sysattr, value, 0, 0);
 	val = udev_list_entry_get_value(list_entry);
 out:
 	return val;

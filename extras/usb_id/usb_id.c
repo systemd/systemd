@@ -221,7 +221,7 @@ static int usb_id(struct udev_device *dev)
 		return 1;
 	}
 
-	if_class = udev_device_get_attr_value(dev_interface, "bInterfaceClass");
+	if_class = udev_device_get_sysattr_value(dev_interface, "bInterfaceClass");
 	if (!if_class) {
 		info(udev, "%s: cannot get bInterfaceClass attribute\n",
 		     udev_device_get_sysname(dev));
@@ -229,7 +229,7 @@ static int usb_id(struct udev_device *dev)
 	}
 	if_class_num = strtoul(if_class, NULL, 16);
 	if (if_class_num == 8) {
-		if_subclass = udev_device_get_attr_value(dev_interface, "bInterfaceSubClass");
+		if_subclass = udev_device_get_sysattr_value(dev_interface, "bInterfaceSubClass");
 		if (if_subclass != NULL)
 			protocol = set_usb_mass_storage_ifsubtype(type_str, if_subclass, sizeof(type_str)-1);
 	} else {
@@ -266,7 +266,7 @@ static int usb_id(struct udev_device *dev)
 		}
 
 		/* Generic SPC-2 device */
-		scsi_vendor = udev_device_get_attr_value(dev_scsi, "vendor");
+		scsi_vendor = udev_device_get_sysattr_value(dev_scsi, "vendor");
 		if (!scsi_vendor) {
 			info(udev, "%s: cannot get SCSI vendor attribute\n",
 			     udev_device_get_sysname(dev_scsi));
@@ -274,7 +274,7 @@ static int usb_id(struct udev_device *dev)
 		}
 		set_str(vendor_str, scsi_vendor, sizeof(vendor_str)-1);
 
-		scsi_model = udev_device_get_attr_value(dev_scsi, "model");
+		scsi_model = udev_device_get_sysattr_value(dev_scsi, "model");
 		if (!scsi_model) {
 			info(udev, "%s: cannot get SCSI model attribute\n",
 			     udev_device_get_sysname(dev_scsi));
@@ -282,7 +282,7 @@ static int usb_id(struct udev_device *dev)
 		}
 		set_str(model_str, scsi_model, sizeof(model_str)-1);
 
-		scsi_type = udev_device_get_attr_value(dev_scsi, "type");
+		scsi_type = udev_device_get_sysattr_value(dev_scsi, "type");
 		if (!scsi_type) {
 			info(udev, "%s: cannot get SCSI type attribute\n",
 			     udev_device_get_sysname(dev_scsi));
@@ -290,7 +290,7 @@ static int usb_id(struct udev_device *dev)
 		}
 		set_scsi_type(type_str, scsi_type, sizeof(type_str)-1);
 
-		scsi_rev = udev_device_get_attr_value(dev_scsi, "rev");
+		scsi_rev = udev_device_get_sysattr_value(dev_scsi, "rev");
 		if (!scsi_rev) {
 			info(udev, "%s: cannot get SCSI revision attribute\n",
 			     udev_device_get_sysname(dev_scsi));
@@ -311,10 +311,10 @@ fallback:
 		const char *usb_vendor = NULL;
 
 		if (!use_num_info)
-			usb_vendor = udev_device_get_attr_value(dev_usb, "manufacturer");
+			usb_vendor = udev_device_get_sysattr_value(dev_usb, "manufacturer");
 
 		if (!usb_vendor)
-			usb_vendor = udev_device_get_attr_value(dev_usb, "idVendor");
+			usb_vendor = udev_device_get_sysattr_value(dev_usb, "idVendor");
 
 		if (!usb_vendor) {
 			info(udev, "No USB vendor information available\n");
@@ -327,10 +327,10 @@ fallback:
 		const char *usb_model = NULL;
 
 		if (!use_num_info)
-			usb_model = udev_device_get_attr_value(dev_usb, "product");
+			usb_model = udev_device_get_sysattr_value(dev_usb, "product");
 
 		if (!usb_model)
-			usb_model = udev_device_get_attr_value(dev_usb, "idProduct");
+			usb_model = udev_device_get_sysattr_value(dev_usb, "idProduct");
 
 		if (!usb_model) {
 			dbg(udev, "No USB model information available\n");
@@ -342,7 +342,7 @@ fallback:
 	if (revision_str[0] == '\0') {
 		const char *usb_rev;
 
-		usb_rev = udev_device_get_attr_value(dev_usb, "bcdDevice");
+		usb_rev = udev_device_get_sysattr_value(dev_usb, "bcdDevice");
 		if (usb_rev)
 			set_str(revision_str, usb_rev, sizeof(revision_str)-1);
 	}
@@ -350,7 +350,7 @@ fallback:
 	if (serial_str[0] == '\0') {
 		const char *usb_serial;
 
-		usb_serial = udev_device_get_attr_value(dev_usb, "serial");
+		usb_serial = udev_device_get_sysattr_value(dev_usb, "serial");
 		if (usb_serial)
 			set_str(serial_str, usb_serial, sizeof(serial_str)-1);
 	}

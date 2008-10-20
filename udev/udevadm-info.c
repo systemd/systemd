@@ -60,7 +60,7 @@ static void print_all_attributes(struct udev_device *device, const char *key)
 			if (S_ISLNK(statbuf.st_mode))
 				continue;
 
-			value = udev_device_get_attr_value(device, dent->d_name);
+			value = udev_device_get_sysattr_value(device, dent->d_name);
 			if (value == NULL)
 				continue;
 			dbg(udev, "attr '%s'='%s'(%zi)\n", dent->d_name, value, len);
