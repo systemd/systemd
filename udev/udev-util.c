@@ -129,6 +129,8 @@ uid_t util_lookup_user(struct udev *udev, const char *user)
 	struct passwd *pw;
 	uid_t uid = 0;
 
+	if (strcmp(user, "root") == 0)
+		return 0;
 	errno = 0;
 	pw = getpwnam(user);
 	if (pw == NULL) {
@@ -138,7 +140,6 @@ uid_t util_lookup_user(struct udev *udev, const char *user)
 			err(udev, "error resolving user '%s': %m\n", user);
 	} else
 		uid = pw->pw_uid;
-
 	return uid;
 }
 
@@ -147,6 +148,8 @@ extern gid_t util_lookup_group(struct udev *udev, const char *group)
 	struct group *gr;
 	gid_t gid = 0;
 
+	if (strcmp(group, "root") == 0)
+		return 0;
 	errno = 0;
 	gr = getgrnam(group);
 	if (gr == NULL) {
@@ -156,7 +159,6 @@ extern gid_t util_lookup_group(struct udev *udev, const char *group)
 			err(udev, "error resolving group '%s': %m\n", group);
 	} else
 		gid = gr->gr_gid;
-
 	return gid;
 }
 
