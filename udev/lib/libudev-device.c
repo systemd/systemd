@@ -1001,7 +1001,7 @@ struct udev_list_entry *udev_device_add_property_from_string(struct udev_device 
 	char name[UTIL_PATH_SIZE];
 	char *val;
 
-	strncpy(name, property, sizeof(name));
+	util_strlcpy(name, property, sizeof(name));
 	val = strchr(name, '=');
 	if (val == NULL)
 		return NULL;
