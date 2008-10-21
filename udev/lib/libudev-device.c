@@ -31,6 +31,8 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
+#define ENVP_SIZE 128
+
 struct udev_device {
 	int refcount;
 	struct udev *udev;
@@ -46,7 +48,7 @@ struct udev_device {
 	struct udev_list_node devlinks_list;
 	int devlinks_uptodate;
 	struct udev_list_node properties_list;
-	char *envp[128];
+	char **envp;
 	int envp_uptodate;
 	char *driver;
 	int driver_set;
@@ -610,8 +612,11 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->devpath_old);
 	free(udev_device->physdevpath);
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->sysattr_list);
-	for (i = 0; i < ARRAY_SIZE(udev_device->envp) && udev_device->envp[i] != NULL; i++)
-		free(udev_device->envp[i]);
+	if (udev_device->envp != NULL) {
+		for (i = 0; i < ENVP_SIZE && udev_device->envp[i] != NULL; i++)
+			free(udev_device->envp[i]);
+		free(udev_device->envp);
+	}
 	info(udev_device->udev, "udev_device: %p released\n", udev_device);
 	free(udev_device);
 }
@@ -1013,14 +1018,18 @@ char **udev_device_get_properties_envp(struct udev_device *udev_device)
 		unsigned int i;
 		struct udev_list_entry *list_entry;
 
-		for (i = 0; i < ARRAY_SIZE(udev_device->envp) && udev_device->envp[i] != NULL; i++)
-			free(udev_device->envp[i]);
+		if (udev_device->envp) {
+			for (i = 0; i < 128 && udev_device->envp[i] != NULL; i++)
+				free(udev_device->envp[i]);
+		} else
+			udev_device->envp = malloc(sizeof(char *) * ENVP_SIZE);
+
 		i = 0;
 		udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
 			asprintf(&udev_device->envp[i++], "%s=%s",
 				 udev_list_entry_get_name(list_entry),
 				 udev_list_entry_get_value(list_entry));
-			if (i+1 >= ARRAY_SIZE(udev_device->envp))
+			if (i+1 >= ENVP_SIZE)
 				break;
 		}
 		udev_device->envp[i] = NULL;
