@@ -596,7 +596,7 @@ static int match_rule(struct udev_event *event, struct udev_rule *rule)
 			if (value[0]=='\0') {
 				const char *val;
 
-				val = udev_device_get_attr_value(dev, key_name);
+				val = udev_device_get_sysattr_value(dev, key_name);
 				if (val != NULL)
 					util_strlcpy(value, val, sizeof(value));
 			}
@@ -648,9 +648,9 @@ static int match_rule(struct udev_event *event, struct udev_rule *rule)
 				char value[UTIL_NAME_SIZE];
 				size_t len;
 
-				val = udev_device_get_attr_value(event->dev_parent, key_name);
+				val = udev_device_get_sysattr_value(event->dev_parent, key_name);
 				if (val == NULL)
-					val = udev_device_get_attr_value(dev, key_name);
+					val = udev_device_get_sysattr_value(dev, key_name);
 				if (val == NULL)
 					goto try_parent;
 				util_strlcpy(value, val, sizeof(value));
