@@ -45,10 +45,9 @@ struct udev_queue *udev_queue_new(struct udev *udev)
 	if (udev == NULL)
 		return NULL;
 
-	udev_queue = malloc(sizeof(struct udev_queue));
+	udev_queue = calloc(1, sizeof(struct udev_queue));
 	if (udev_queue == NULL)
 		return NULL;
-	memset(udev_queue, 0x00, sizeof(struct udev_queue));
 	udev_queue->refcount = 1;
 	udev_queue->udev = udev;
 	udev_list_init(&udev_queue->queue_list);

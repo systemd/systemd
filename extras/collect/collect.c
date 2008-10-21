@@ -171,8 +171,7 @@ static int checkout(int fd)
 				if (debug)
 					fprintf(stderr, "Found word %s\n", word);
 				him = malloc(sizeof (struct _mate));
-				him->name = malloc(strlen(word) + 1);
-				strcpy(him->name, word);
+				him->name = strdup(word);
 				him->state = STATE_OLD;
 				udev_list_node_append(&him->node, &bunch);
 				word = NULL;

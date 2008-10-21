@@ -67,10 +67,9 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 		return NULL;
 	if (socket_path == NULL)
 		return NULL;
-	udev_monitor = malloc(sizeof(struct udev_monitor));
+	udev_monitor = calloc(1, sizeof(struct udev_monitor));
 	if (udev_monitor == NULL)
 		return NULL;
-	memset(udev_monitor, 0x00, sizeof(struct udev_monitor));
 	udev_monitor->refcount = 1;
 	udev_monitor->udev = udev;
 
@@ -105,10 +104,9 @@ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev)
 
 	if (udev == NULL)
 		return NULL;
-	udev_monitor = malloc(sizeof(struct udev_monitor));
+	udev_monitor = calloc(1, sizeof(struct udev_monitor));
 	if (udev_monitor == NULL)
 		return NULL;
-	memset(udev_monitor, 0x00, sizeof(struct udev_monitor));
 	udev_monitor->refcount = 1;
 	udev_monitor->udev = udev;
 

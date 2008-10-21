@@ -1772,10 +1772,9 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	struct udev_list_node file_list;
 	struct udev_list_entry *file_loop, *file_tmp;
 
-	rules = malloc(sizeof(struct udev_rules));
+	rules = calloc(1, sizeof(struct udev_rules));
 	if (rules == NULL)
 		return rules;
-	memset(rules, 0x00, sizeof(struct udev_rules));
 	rules->udev = udev;
 	rules->resolve_names = resolve_names;
 	udev_list_init(&file_list);

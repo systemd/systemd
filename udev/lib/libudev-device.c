@@ -236,10 +236,9 @@ struct udev_device *device_new(struct udev *udev)
 	if (udev == NULL)
 		return NULL;
 
-	udev_device = malloc(sizeof(struct udev_device));
+	udev_device = calloc(1, sizeof(struct udev_device));
 	if (udev_device == NULL)
 		return NULL;
-	memset(udev_device, 0x00, sizeof(struct udev_device));
 	udev_device->refcount = 1;
 	udev_device->udev = udev;
 	udev_list_init(&udev_device->devlinks_list);

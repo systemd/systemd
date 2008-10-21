@@ -483,10 +483,9 @@ struct volume_id *volume_id_open_fd(int fd)
 {
 	struct volume_id *id;
 
-	id = malloc(sizeof(struct volume_id));
+	id = calloc(1, sizeof(struct volume_id));
 	if (id == NULL)
 		return NULL;
-	memset(id, 0x00, sizeof(struct volume_id));
 
 	id->fd = fd;
 

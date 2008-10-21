@@ -96,10 +96,9 @@ struct udev *udev_new(void)
 	char *config_file;
 	FILE *f;
 
-	udev = malloc(sizeof(struct udev));
+	udev = calloc(1, sizeof(struct udev));
 	if (udev == NULL)
 		return NULL;
-	memset(udev, 0x00, (sizeof(struct udev)));
 	udev->refcount = 1;
 	udev->log_fn = log_stderr;
 	udev->log_priority = LOG_ERR;

@@ -53,10 +53,9 @@ struct udev_enumerate *udev_enumerate_new(struct udev *udev)
 {
 	struct udev_enumerate *udev_enumerate;
 
-	udev_enumerate = malloc(sizeof(struct udev_enumerate));
+	udev_enumerate = calloc(1, sizeof(struct udev_enumerate));
 	if (udev_enumerate == NULL)
 		return NULL;
-	memset(udev_enumerate, 0x00, (sizeof(struct udev_enumerate)));
 	udev_enumerate->refcount = 1;
 	udev_enumerate->udev = udev;
 	udev_list_init(&udev_enumerate->devices_list);

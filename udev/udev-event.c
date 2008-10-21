@@ -34,10 +34,9 @@ struct udev_event *udev_event_new(struct udev_device *dev)
 {
 	struct udev_event *event;
 
-	event = malloc(sizeof(struct udev_event));
+	event = calloc(1, sizeof(struct udev_event));
 	if (event == NULL)
 		return NULL;
-	memset(event, 0x00, sizeof(struct udev_event));
 
 	event->dev = dev;
 	event->udev = udev_device_get_udev(dev);

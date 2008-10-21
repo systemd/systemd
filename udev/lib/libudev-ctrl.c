@@ -72,10 +72,9 @@ struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socke
 {
 	struct udev_ctrl *uctrl;
 
-	uctrl = malloc(sizeof(struct udev_ctrl));
+	uctrl = calloc(1, sizeof(struct udev_ctrl));
 	if (uctrl == NULL)
 		return NULL;
-	memset(uctrl, 0x00, sizeof(struct udev_ctrl));
 	uctrl->refcount = 1;
 	uctrl->udev = udev;
 
@@ -213,10 +212,9 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl)
 	struct ucred *cred;
 	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
 
-	uctrl_msg = malloc(sizeof(struct udev_ctrl_msg));
+	uctrl_msg = calloc(1, sizeof(struct udev_ctrl_msg));
 	if (uctrl_msg == NULL)
 		return NULL;
-	memset(uctrl_msg, 0x00, sizeof(struct udev_ctrl_msg));
 	uctrl_msg->refcount = 1;
 	uctrl_msg->uctrl = uctrl;
 
