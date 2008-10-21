@@ -1019,7 +1019,7 @@ char **udev_device_get_properties_envp(struct udev_device *udev_device)
 		struct udev_list_entry *list_entry;
 
 		if (udev_device->envp) {
-			for (i = 0; i < 128 && udev_device->envp[i] != NULL; i++)
+			for (i = 0; i < ENVP_SIZE && udev_device->envp[i] != NULL; i++)
 				free(udev_device->envp[i]);
 		} else
 			udev_device->envp = malloc(sizeof(char *) * ENVP_SIZE);
