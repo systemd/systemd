@@ -17,7 +17,7 @@ common_files = \
 	udev-sysdeps.h \
 	udev-event.c \
 	udev-node.c \
-	udev-rules2.c \
+	udev-rules.c \
 	udev-util.c \
 	lib/libudev.h \
 	lib/libudev-private.h \
