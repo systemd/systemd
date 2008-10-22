@@ -61,18 +61,19 @@ struct udev_event {
 	struct udev_device *dev;
 	struct udev_device *dev_parent;
 	int devlink_final;
-	int owner_final;
-	int group_final;
-	int mode_final;
-	char tmp_node[UTIL_PATH_SIZE];
 	char program_result[UTIL_PATH_SIZE];
-	int run_final;
-
 	char name[UTIL_PATH_SIZE];
+	int name_final;
+	int name_ignore;
+	char tmp_node[UTIL_PATH_SIZE];
 	mode_t mode;
-	char owner[UTIL_NAME_SIZE];
-	char group[UTIL_NAME_SIZE];
+	int mode_final;
+	uid_t uid;
+	int owner_final;
+	gid_t gid;
+	int group_final;
 	struct udev_list_node run_list;
+	int run_final;
 	int ignore_device;
 	int test;
 
@@ -86,8 +87,7 @@ struct udev_event {
 struct udev_rules;
 extern struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names);
 extern void udev_rules_unref(struct udev_rules *rules);
-extern int udev_rules_get_name(struct udev_rules *rules, struct udev_event *event);
-extern int udev_rules_get_run(struct udev_rules *rules, struct udev_event *event);
+extern int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event);
 
 /* udev-event.c */
 extern struct udev_event *udev_event_new(struct udev_device *dev);
@@ -100,7 +100,7 @@ extern int udev_event_apply_subsys_kernel(struct udev_event *event, const char *
 
 /* udev-node.c */
 extern int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mode_t mode, uid_t uid, gid_t gid);
-extern int udev_node_add(struct udev_device *dev, mode_t mode, const char *owner, const char *group, int test);
+extern int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid, int test);
 extern int udev_node_remove(struct udev_device *dev, int test);
 extern void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old, int test);
 

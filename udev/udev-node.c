@@ -390,49 +390,20 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 	}
 }
 
-int udev_node_add(struct udev_device *dev, mode_t mode, const char *owner, const char *group, int test)
+int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid, int test)
 {
 	struct udev *udev = udev_device_get_udev(dev);
-	uid_t uid;
-	gid_t gid;
 	int i;
 	int num;
 	struct udev_list_entry *list_entry;
 	int err = 0;
-
-	util_create_path(udev, udev_device_get_devnode(dev));
-
-	if (strcmp(owner, "root") == 0)
-		uid = 0;
-	else {
-		char *endptr;
-		unsigned long id;
-
-		id = strtoul(owner, &endptr, 10);
-		if (endptr[0] == '\0')
-			uid = (uid_t) id;
-		else
-			uid = util_lookup_user(udev, owner);
-	}
-
-	if (strcmp(group, "root") == 0)
-		gid = 0;
-	else {
-		char *endptr;
-		unsigned long id;
-
-		id = strtoul(group, &endptr, 10);
-		if (endptr[0] == '\0')
-			gid = (gid_t) id;
-		else
-			gid = util_lookup_group(udev, group);
-	}
 
 	info(udev, "creating device node '%s', devnum=%d:%d, mode=%#o, uid=%d, gid=%d\n",
 	     udev_device_get_devnode(dev),
 	     major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)),
 	     mode, uid, gid);
 
+	util_create_path(udev, udev_device_get_devnode(dev));
 	if (!test)
 		if (udev_node_mknod(dev, NULL, makedev(0,0), mode, uid, gid) != 0) {
 			err = -1;

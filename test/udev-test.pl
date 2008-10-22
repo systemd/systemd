@@ -470,8 +470,8 @@ EOF
 		devpath		=> "/devices/virtual/tty/console",
 		exp_name	=> "foo" ,
 		rules		=> <<EOF
-ATTRS{dev}=="5:1", NAME="foo"
 KERNEL=="console", NAME="TTY"
+ATTRS{dev}=="5:1", NAME="foo"
 EOF
 	},
 	{
@@ -546,8 +546,8 @@ EOF
 SUBSYSTEMS=="scsi", KERNELS=="*:1", NAME="no-match"
 SUBSYSTEMS=="scsi", KERNELS=="*:0:1", NAME="no-match"
 SUBSYSTEMS=="scsi", KERNELS=="*:0:0:1", NAME="no-match"
+SUBSYSTEMS=="scsi", KERNEL=="0:0:0:0", NAME="before"
 SUBSYSTEMS=="scsi", KERNELS=="*", NAME="scsi-0:0:0:0"
-SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", NAME="bad"
 EOF
 	},
 	{
@@ -556,8 +556,8 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "scsi-0:0:0:0",
 		rules		=> <<EOF
+SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", NAME="before"
 SUBSYSTEMS=="scsi", KERNELS=="*:0", NAME="scsi-0:0:0:0"
-SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", NAME="bad"
 EOF
 	},
 	{
@@ -566,8 +566,8 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "scsi-0:0:0:0",
 		rules		=> <<EOF
+SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", NAME="before"
 SUBSYSTEMS=="scsi", KERNELS=="*:0:0:0", NAME="scsi-0:0:0:0"
-SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", NAME="bad"
 EOF
 	},
 	{
@@ -1154,8 +1154,8 @@ EOF
 		exp_name	=> "match",
 		rules		=> <<EOF
 SUBSYSTEMS=="scsi", KERNEL!="sda1", NAME="matches-but-is-negated"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", NAME="before"
 SUBSYSTEMS=="scsi", KERNEL!="xsda1", NAME="match"
-SUBSYSTEMS=="scsi", KERNEL=="sda1", NAME="wrong"
 EOF
 	},
 	{
@@ -1165,8 +1165,8 @@ EOF
 		exp_name	=> "not-anything",
 		rules		=> <<EOF
 SUBSYSTEMS=="scsi", SUBSYSTEM=="block", KERNEL!="sda1", NAME="matches-but-is-negated"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", NAME="before"
 SUBSYSTEMS=="scsi", SUBSYSTEM!="anything", NAME="not-anything"
-SUBSYSTEMS=="scsi", KERNEL=="sda1", NAME="wrong"
 EOF
 	},
 	{
@@ -1175,8 +1175,8 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
 		exp_name	=> "nonzero-program",
 		rules		=> <<EOF
+SUBSYSTEMS=="scsi", KERNEL=="sda1", NAME="before"
 KERNEL=="sda1", PROGRAM!="/bin/false", NAME="nonzero-program"
-SUBSYSTEMS=="scsi", KERNEL=="sda1", NAME="wrong"
 EOF
 	},
 	{
@@ -1185,8 +1185,8 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
 		exp_name	=> "true",
 		rules		=> <<EOF
+SUBSYSTEMS=="scsi", KERNEL=="sda1", NAME="before"
 KERNEL   ==   "sda1"     ,    NAME   =    "true"
-SUBSYSTEMS=="scsi", KERNEL=="sda1", NAME="wrong"
 EOF
 	},
 	{
@@ -1209,8 +1209,8 @@ EOF
 		rules		=> <<EOF
 ENV{ENV_KEY_TEST}="test"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="go", NAME="wrong"
-SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="yes", ENV{ACTION}=="add", ENV{DEVPATH}=="/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sdax1", NAME="no"
-SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="test", ENV{ACTION}=="add", ENV{DEVPATH}=="/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1", NAME="true"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="yes", ENV{ACTION}=="add", ENV{DEVPATH}=="*/block/sda/sdax1", NAME="no"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="test", ENV{ACTION}=="add", ENV{DEVPATH}=="*/block/sda/sda1", NAME="true"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ENV_KEY_TEST}=="bad", NAME="bad"
 EOF
 	},
@@ -1222,8 +1222,8 @@ EOF
 		rules		=> <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}="true"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}=="yes", NAME="no"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", NAME="before"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}=="true", NAME="true"
-SUBSYSTEMS=="scsi", KERNEL=="sda1", NAME="bad"
 EOF
 	},
 	{
@@ -1234,9 +1234,9 @@ EOF
 		rules		=> <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}="true"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}="absolutely-\$env{ASSIGN}"
+SUBSYSTEMS=="scsi", KERNEL=="sda1", NAME="before"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}=="yes", NAME="no"
 SUBSYSTEMS=="scsi", KERNEL=="sda1", ENV{ASSIGN}=="absolutely-true", NAME="true"
-SUBSYSTEMS=="scsi", KERNEL=="sda1", NAME="bad"
 EOF
 	},
 	{
@@ -1248,8 +1248,8 @@ EOF
 SUBSYSTEM=="block", KERNEL=="*[0-9]", ENV{PARTITION}="true", ENV{MAINDEVICE}="false"
 SUBSYSTEM=="block", KERNEL=="*[!0-9]", ENV{PARTITION}="false", ENV{MAINDEVICE}="true"
 ENV{MAINDEVICE}=="true", NAME="disk"
+SUBSYSTEM=="block", NAME="before"
 ENV{PARTITION}=="true", NAME="part"
-SUBSYSTEM=="block", NAME="bad"
 EOF
 	},
 	{
@@ -1280,12 +1280,12 @@ SUBSYSTEMS=="scsi", KERNEL=="sda1", PROGRAM=="/bin/echo -e \\xef\\xe8garbage", R
 EOF
 	},
 	{
-		desc		=> "read sysfs value from device down in the chain",
+		desc		=> "read sysfs value from parent device",
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "serial-354172020305000",
 		rules		=> <<EOF
-KERNEL=="ttyACM*", NAME="serial-%s{serial}"
+KERNEL=="ttyACM*", ATTRS{serial}=="?*", NAME="serial-%s{serial}"
 EOF
 	},
 	{
@@ -1311,13 +1311,13 @@ ACTION=="add", KERNEL=="sda", NAME="ok"
 EOF
 	},
 	{
-		desc		=> "apply NAME only once",
+		desc		=> "apply NAME final",
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "link",
 		exp_target	=> "ok",
 		rules		=> <<EOF
-KERNEL=="sda", NAME="ok"
+KERNEL=="sda", NAME:="ok"
 KERNEL=="sda", NAME="not-ok"
 KERNEL=="sda", SYMLINK+="link"
 EOF
@@ -1344,8 +1344,8 @@ EOF
 		exp_rem_error	=> "yes",
 		option		=> "clean",
 		rules		=> <<EOF
-KERNEL=="sda", NAME="ok", RUN+="/bin/sh -c 'ln -s `basename \$\$DEVNAME` %r/testsymlink'"
 KERNEL=="sda", NAME="not-ok"
+KERNEL=="sda", NAME="ok", RUN+="/bin/sh -c 'ln -s `basename \$\$DEVNAME` %r/testsymlink'"
 EOF
 	},
 	{
@@ -1410,12 +1410,12 @@ EOF
 		desc		=> "test empty NAME",
 		subsys		=> "tty",
 		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-		exp_name	=> "node",
+		exp_name	=> "<none>",
 		not_exp_name	=> "wrong",
 		exp_add_error	=> "yes",
 		rules		=> <<EOF
-KERNEL=="ttyACM[0-9]*", NAME=""
 KERNEL=="ttyACM[0-9]*", NAME="wrong"
+KERNEL=="ttyACM[0-9]*", NAME=""
 EOF
 	},
 	{
@@ -1424,9 +1424,9 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "right",
 		rules		=> <<EOF
-KERNEL=="ttyACM[0-9]*", NAME="right"
 KERNEL=="ttyACM[0-9]*", NAME=""
 KERNEL=="ttyACM[0-9]*", NAME="wrong"
+KERNEL=="ttyACM[0-9]*", NAME="right"
 EOF
 	},
 	{
@@ -1435,8 +1435,8 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "right",
 		rules		=> <<EOF
+KERNEL=="ttyACM*", NAME="before"
 KERNEL=="ttyACM*|nothing", NAME="right"
-KERNEL=="ttyACM*", NAME="wrong"
 EOF
 	},
 	{
@@ -1446,8 +1446,8 @@ EOF
 		exp_name	=> "right",
 		rules		=> <<EOF
 KERNEL=="dontknow*|*nothing", NAME="nomatch"
+KERNEL=="ttyACM*", NAME="before"
 KERNEL=="dontknow*|ttyACM*|nothing*", NAME="right"
-KERNEL=="ttyACM*", NAME="wrong"
 EOF
 	},
 	{
@@ -1479,9 +1479,10 @@ EOF
 		rules		=> <<EOF
 KERNEL=="sda1", GOTO="TEST"
 KERNEL=="sda1", NAME="wrong"
+KERNEL=="sda1", GOTO="BAD"
 KERNEL=="sda1", NAME="", LABEL="NO"
 KERNEL=="sda1", NAME="right", LABEL="TEST"
-KERNEL=="sda1", NAME="wrong2"
+KERNEL=="sda1", LABEL="BAD"
 EOF
 	},
 	{
@@ -1615,6 +1616,7 @@ EOF
 		exp_name	=> "sda",
 		exp_perms	=> "0:0:0400",
 		rules		=> <<EOF
+KERNEL=="sda", MODE="666"
 KERNEL=="sda", PROGRAM=="/bin/echo 0 0 0400", OWNER="%c{1}", GROUP="%c{2}", MODE="%c{3}"
 EOF
 	},
@@ -1623,8 +1625,9 @@ EOF
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "sda",
-		exp_perms	=> "0:0:0400",
+		exp_perms	=> "0:0:0660",
 		rules		=> <<EOF
+KERNEL=="sda", MODE="440"
 KERNEL=="sda", PROGRAM=="/bin/echo 0 0 0400letsdoabuffferoverflow0123456789012345789012345678901234567890", OWNER="%c{1}", GROUP="%c{2}", MODE="%c{3}"
 EOF
 	},

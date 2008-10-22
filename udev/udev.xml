@@ -184,8 +184,7 @@
             <varlistentry>
               <term><option>ATTR{<replaceable>filename</replaceable>}</option></term>
               <listitem>
-                <para>Match sysfs attribute values of the event device. Up to five
-                <option>ATTR</option> keys can be specified per rule. Trailing
+                <para>Match sysfs attribute values of the event device. Trailing
                 whitespace in the attribute values is ignored, if the specified match
                 value does not contain trailing whitespace itself. Depending on the type
                 of operator, this key is also used to set the value of a sysfs attribute.
@@ -218,7 +217,7 @@
               <term><option>ATTRS{<replaceable>filename</replaceable>}</option></term>
               <listitem>
                 <para>Search the devpath upwards for a device with matching sysfs attribute values.
-                Up to five <option>ATTRS</option> keys can be specified per rule, but all of them
+                If multiple <option>ATTRS</option> matches are specified, all of them
                 must match on the same device. Trailing whitespace in the attribute values is ignored,
                 if the specified match value does not contain trailing whitespace itself.</para>
               </listitem>
@@ -227,9 +226,7 @@
             <varlistentry>
               <term><option>ENV{<replaceable>key</replaceable>}</option></term>
               <listitem>
-                <para>Match against the value of an environment variable. Up to five <option>ENV</option>
-                keys can be specified per rule. Depending on the type of operator, this key is also used
-                to export a variable to the environment.</para>
+                <para>Match against a device property value.</para>
               </listitem>
             </varlistentry>
 
@@ -244,10 +241,10 @@
             <varlistentry>
               <term><option>PROGRAM</option></term>
               <listitem>
-                <para>Execute external program. The key is true, if the program returns
-                with exit code zero. The whole event environment is available to the
-                executed program. The program's output printed to stdout, is available in
-                the RESULT key.</para>
+                <para>Execute a program. The key is true, if the program returns
+                successfully. The device properties are made available to the
+                executed program in the environment. The program's output printed to
+                stdout, is available in the RESULT key.</para>
               </listitem>
             </varlistentry>
 
@@ -329,8 +326,7 @@
             <varlistentry>
               <term><option>ENV{<replaceable>key</replaceable>}</option></term>
               <listitem>
-                <para>Export a variable to the environment. Depending on the type of operator,
-                this key is also to match against an environment variable.</para>
+                <para>Set a device property value.</para>
               </listitem>
             </varlistentry>
 
@@ -368,7 +364,7 @@
             <varlistentry>
               <term><option>IMPORT{<replaceable>type</replaceable>}</option></term>
               <listitem>
-                <para>Import a set of variables into the event environment,
+                <para>Import a set of variables as device properties,
                 depending on <replaceable>type</replaceable>:</para>
                 <variablelist>
                   <varlistentry>
@@ -473,7 +469,7 @@
           <option>OWNER</option>, <option>GROUP</option>, <option>MODE</option>  and  <option>RUN</option>
           fields support simple printf-like string substitutions. The <option>RUN</option>
           format chars gets applied after all rules have been processed, right before the program
-          is executed. It allows the use of the complete environment set by earlier matching
+          is executed. It allows the use of device properties set by earlier matching
           rules. For all other fields, substitutions are applied while the individual rule is
           being processed. The available substitutions are:</para>
           <variablelist>
@@ -532,7 +528,7 @@
             <varlistentry>
               <term><option>$env{<replaceable>key</replaceable>}</option>, <option>%E{<replaceable>key</replaceable>}</option></term>
               <listitem>
-                <para>The value of an environment variable.</para>
+                <para>A device property value.</para>
               </listitem>
             </varlistentry>
 

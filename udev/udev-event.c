@@ -37,14 +37,10 @@ struct udev_event *udev_event_new(struct udev_device *dev)
 	event = calloc(1, sizeof(struct udev_event));
 	if (event == NULL)
 		return NULL;
-
 	event->dev = dev;
 	event->udev = udev_device_get_udev(dev);
 	udev_list_init(&event->run_list);
 	event->mode = 0660;
-	util_strlcpy(event->owner, "0", sizeof(event->owner));
-	util_strlcpy(event->group, "0", sizeof(event->group));
-
 	dbg(event->udev, "allocated event %p\n", event);
 	return event;
 }
@@ -93,69 +89,6 @@ static int get_format_len(struct udev *udev, char **str)
 		}
 	}
 	return -1;
-}
-
-/* handle "[<SUBSYSTEM>/<KERNEL>]<attribute>" format */
-int udev_event_apply_subsys_kernel(struct udev_event *udev_event, const char *string,
-				   char *result, size_t maxsize, int read_value)
-{
-	char temp[UTIL_PATH_SIZE];
-	char *subsys;
-	char *sysname;
-	char *attr;
-	struct udev_device *dev;
-
-	if (string == NULL)
-		string = result;
-	if (string[0] != '[')
-		return -1;
-
-	util_strlcpy(temp, string, sizeof(temp));
-
-	subsys = &temp[1];
-
-	sysname = strchr(subsys, '/');
-	if (sysname == NULL)
-		return -1;
-	sysname[0] = '\0';
-	sysname = &sysname[1];
-
-	attr = strchr(sysname, ']');
-	if (attr == NULL)
-		return -1;
-	attr[0] = '\0';
-	attr = &attr[1];
-	if (attr[0] == '/')
-		attr = &attr[1];
-	if (attr[0] == '\0')
-		attr = NULL;
-
-	if (read_value && attr == NULL)
-		return -1;
-
-	dev = udev_device_new_from_subsystem_sysname(udev_event->udev, subsys, sysname);
-	if (dev == NULL)
-		return -1;
-
-	if (read_value) {
-		const char *val;
-
-		val = udev_device_get_sysattr_value(dev, attr);
-		if (val != NULL)
-			util_strlcpy(result, val, maxsize);
-		else
-			result[0] = '\0';
-		info(udev_event->udev, "value '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
-	} else {
-		util_strlcpy(result, udev_device_get_syspath(dev), maxsize);
-		if (attr != NULL) {
-			util_strlcat(result, "/", maxsize);
-			util_strlcat(result, attr, maxsize);
-		}
-		info(udev_event->udev, "path '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
-	}
-	udev_device_unref(dev);
-	return 0;
 }
 
 void udev_event_apply_format(struct udev_event *event, char *string, size_t maxsize)
@@ -349,34 +282,21 @@ found:
 			if (attr == NULL)
 				err(event->udev, "missing file parameter for attr\n");
 			else {
+				const char *val;
 				char value[UTIL_NAME_SIZE] = "";
 				size_t size;
 
-				udev_event_apply_subsys_kernel(event, attr, value, sizeof(value), 1);
+				util_resolve_subsys_kernel(event->udev, attr, value, sizeof(value), 1);
+
+				val = udev_device_get_sysattr_value(event->dev, attr);
+				if (val != NULL)
+					util_strlcpy(value, val, sizeof(value));
 
 				/* try the current device, other matches may have selected */
 				if (value[0] == '\0' && event->dev_parent != NULL && event->dev_parent != event->dev) {
-					const char *val;
-
 					val = udev_device_get_sysattr_value(event->dev_parent, attr);
 					if (val != NULL)
 						util_strlcpy(value, val, sizeof(value));
-				}
-
-				/* look at all devices along the chain of parents */
-				if (value[0] == '\0') {
-					struct udev_device *dev_parent = dev;
-					const char *val;
-
-					do {
-						dbg(event->udev, "looking at '%s'\n", udev_device_get_syspath(dev_parent));
-						val = udev_device_get_sysattr_value(dev_parent, attr);
-						if (val != NULL) {
-							util_strlcpy(value, val, sizeof(value));
-							break;
-						}
-						dev_parent = udev_device_get_parent(dev_parent);
-					} while (dev_parent != NULL);
 				}
 
 				if (value[0]=='\0')
@@ -590,15 +510,27 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 
 		dbg(event->udev, "device node add '%s'\n", udev_device_get_devpath(dev));
 
-		udev_rules_get_name(rules, event);
+		udev_rules_apply_to_event(rules, event);
+		if (event->tmp_node[0] != '\0') {
+			dbg(event->udev, "removing temporary device node\n");
+			util_unlink_secure(event->udev, event->tmp_node);
+			event->tmp_node[0] = '\0';
+		}
+
 		if (event->ignore_device) {
 			info(event->udev, "device event will be ignored\n");
 			goto exit;
 		}
 
-		if (event->name[0] == '\0') {
+		if (event->name_ignore) {
 			info(event->udev, "device node creation supressed\n");
 			goto exit;
+		}
+
+		if (event->name[0] == '\0') {
+			info(event->udev, "no node name set, will use kernel name '%s'\n",
+			     udev_device_get_sysname(event->dev));
+			util_strlcpy(event->name, udev_device_get_sysname(event->dev), sizeof(event->name));
 		}
 
 		/* set device node name */
@@ -610,15 +542,17 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 		/* read current database entry; cleanup, if it is known device */
 		dev_old = udev_device_new_from_syspath(event->udev, udev_device_get_syspath(dev));
 		if (dev_old != NULL) {
-			info(event->udev, "device '%s' already in database, updating\n",
-			     udev_device_get_devpath(dev));
-			udev_node_update_old_links(dev, dev_old, event->test);
+			if (udev_device_get_devnode(dev_old) != NULL) {
+				info(event->udev, "device node '%s' already in database, updating\n",
+				     udev_device_get_devnode(dev_old));
+				udev_node_update_old_links(dev, dev_old, event->test);
+			}
 			udev_device_unref(dev_old);
 		}
 
 		udev_device_update_db(dev);
 
-		err = udev_node_add(dev, event->mode, event->owner, event->group, event->test);
+		err = udev_node_add(dev, event->mode, event->uid, event->gid, event->test);
 		if (err != 0)
 			goto exit;
 
@@ -629,7 +563,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 	if (strcmp(udev_device_get_subsystem(dev), "net") == 0 && strcmp(udev_device_get_action(dev), "add") == 0) {
 		dbg(event->udev, "netif add '%s'\n", udev_device_get_devpath(dev));
 
-		udev_rules_get_name(rules, event);
+		udev_rules_apply_to_event(rules, event);
 		if (event->ignore_device) {
 			info(event->udev, "device event will be ignored\n");
 			goto exit;
@@ -684,7 +618,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 			udev_device_set_devnode(dev, devnode);
 		}
 
-		udev_rules_get_run(rules, event);
+		udev_rules_apply_to_event(rules, event);
 		if (event->ignore_device) {
 			info(event->udev, "device event will be ignored\n");
 			goto exit;
@@ -700,7 +634,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 	}
 
 	/* default devices */
-	udev_rules_get_run(rules, event);
+	udev_rules_apply_to_event(rules, event);
 	if (event->ignore_device)
 		info(event->udev, "device event will be ignored\n");
 exit:
