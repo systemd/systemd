@@ -332,15 +332,41 @@ found:
 			}
 			break;
 		case SUBST_TEMP_NODE:
-			if (event->tmp_node[0] == '\0' && major(udev_device_get_devnum(dev)) > 0) {
-				dbg(event->udev, "create temporary device node for callout\n");
-				snprintf(event->tmp_node, sizeof(event->tmp_node), "%s/.tmp-%u-%u",
-					 udev_get_dev_path(event->udev),
-					 major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)));
-				udev_node_mknod(dev, event->tmp_node, makedev(0,0), 0600, 0, 0);
+			{
+				dev_t devnum;
+				struct stat statbuf;
+				char filename[UTIL_PATH_SIZE];
+				const char *devtype;
+
+				if (event->tmp_node[0] != '\0') {
+					util_strlcat(string, event->tmp_node, maxsize);
+					dbg(event->udev, "return existing temporary node\n");
+					break;
+				}
+				devnum = udev_device_get_devnum(dev);
+				if (major(udev_device_get_devnum(dev) == 0))
+					break;
+				if (strcmp(udev_device_get_subsystem(dev), "block") == 0)
+					devtype = "block";
+				else
+					devtype = "char";
+				snprintf(filename, sizeof(filename), "%s/%s/%u:%u",
+					 udev_get_dev_path(event->udev), devtype,
+					 major(udev_device_get_devnum(dev)),
+					 minor(udev_device_get_devnum(dev)));
+				if (stat(filename, &statbuf) == 0 && statbuf.st_rdev == devnum) {
+					util_strlcat(string, filename, maxsize);
+					dbg(event->udev, "return existing temporary node\n");
+					break;
+				}
+				dbg(event->udev, "create temporary node\n");
+				snprintf(event->tmp_node, sizeof(event->tmp_node), "%s/.tmp-%s-%u:%u",
+					 udev_get_dev_path(event->udev), devtype,
+					 major(udev_device_get_devnum(dev)),
+					 minor(udev_device_get_devnum(dev)));
+				udev_node_mknod(dev, event->tmp_node, makedev(0, 0), 0600, 0, 0);
+				util_strlcat(string, event->tmp_node, maxsize);
 			}
-			util_strlcat(string, event->tmp_node, maxsize);
-			dbg(event->udev, "substitute temporary device node name '%s'\n", event->tmp_node);
 			break;
 		case SUBST_NAME:
 			if (event->name != NULL) {

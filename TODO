@@ -1,4 +1,3 @@
-  o use node for tmpnode, if it already exists
   o add DVB variables to kernel, and drop shell script rule
   o DEVTYPE for disks is set by the kernel, they will be removed from
     the default rules
