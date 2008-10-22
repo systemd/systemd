@@ -40,7 +40,7 @@ struct swap_header_v1_2 {
 	uint8_t		volume_name[16];
 } PACKED;
 
-#define LARGEST_PAGESIZE			0x4000
+#define LARGEST_PAGESIZE			0x10000
 
 int volume_id_probe_linux_swap(struct volume_id *id, uint64_t off, uint64_t size)
 {
