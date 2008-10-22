@@ -10,6 +10,8 @@ create_floppy_devices_SOURCES = \
 	../../udev/lib/libudev.c \
 	../../udev/lib/libudev-list.c \
 	../../udev/lib/libudev-util.c \
+	../../udev/lib/libudev-device.c \
+	../../udev/lib/libudev-enumerate.c \
 	../../udev/udev-util.c
 
 if USE_SELINUX

@@ -162,6 +162,69 @@ extern gid_t util_lookup_group(struct udev *udev, const char *group)
 	return gid;
 }
 
+/* handle "[<SUBSYSTEM>/<KERNEL>]<attribute>" format */
+int util_resolve_subsys_kernel(struct udev *udev, const char *string,
+			       char *result, size_t maxsize, int read_value)
+{
+	char temp[UTIL_PATH_SIZE];
+	char *subsys;
+	char *sysname;
+	struct udev_device *dev;
+	char *attr;
+
+	if (string == NULL)
+		string = result;
+	if (string[0] != '[')
+		return -1;
+
+	util_strlcpy(temp, string, sizeof(temp));
+
+	subsys = &temp[1];
+
+	sysname = strchr(subsys, '/');
+	if (sysname == NULL)
+		return -1;
+	sysname[0] = '\0';
+	sysname = &sysname[1];
+
+	attr = strchr(sysname, ']');
+	if (attr == NULL)
+		return -1;
+	attr[0] = '\0';
+	attr = &attr[1];
+	if (attr[0] == '/')
+		attr = &attr[1];
+	if (attr[0] == '\0')
+		attr = NULL;
+
+	if (read_value && attr == NULL)
+		return -1;
+
+	dev = udev_device_new_from_subsystem_sysname(udev, subsys, sysname);
+	if (dev == NULL)
+		return -1;
+
+	if (read_value) {
+		const char *val;
+
+		val = udev_device_get_sysattr_value(dev, attr);
+		if (val != NULL)
+			util_strlcpy(result, val, maxsize);
+		else
+			result[0] = '\0';
+		info(udev, "value '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
+	} else {
+		util_strlcpy(result, udev_device_get_syspath(dev), maxsize);
+		if (attr != NULL) {
+			util_strlcat(result, "/", maxsize);
+			util_strlcat(result, attr, maxsize);
+		}
+		info(udev, "path '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
+	}
+	udev_device_unref(dev);
+	return 0;
+}
+
 int util_run_program(struct udev *udev, const char *command, char **envp,
 		     char *result, size_t ressize, size_t *reslen)
 {
