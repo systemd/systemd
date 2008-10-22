@@ -126,13 +126,16 @@ int util_unlink_secure(struct udev *udev, const char *filename)
 
 uid_t util_lookup_user(struct udev *udev, const char *user)
 {
+	int buflen = sysconf(_SC_GETPW_R_SIZE_MAX);
+	char buf[buflen];
+	struct passwd pwbuf;
 	struct passwd *pw;
 	uid_t uid = 0;
 
 	if (strcmp(user, "root") == 0)
 		return 0;
 	errno = 0;
-	pw = getpwnam(user);
+	getpwnam_r(user, &pwbuf, buf, buflen, &pw);
 	if (pw == NULL) {
 		if (errno == 0 || errno == ENOENT || errno == ESRCH)
 			err(udev, "specified user '%s' unknown\n", user);
@@ -140,18 +143,22 @@ uid_t util_lookup_user(struct udev *udev, const char *user)
 			err(udev, "error resolving user '%s': %m\n", user);
 	} else
 		uid = pw->pw_uid;
+
 	return uid;
 }
 
 extern gid_t util_lookup_group(struct udev *udev, const char *group)
 {
+	int buflen = sysconf(_SC_GETGR_R_SIZE_MAX);
+	char buf[buflen];
+	struct group grbuf;
 	struct group *gr;
 	gid_t gid = 0;
 
 	if (strcmp(group, "root") == 0)
 		return 0;
 	errno = 0;
-	gr = getgrnam(group);
+	getgrnam_r(group, &grbuf, buf, buflen, &gr);
 	if (gr == NULL) {
 		if (errno == 0 || errno == ENOENT || errno == ESRCH)
 			err(udev, "specified group '%s' unknown\n", group);
