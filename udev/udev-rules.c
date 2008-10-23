@@ -1984,6 +1984,8 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 				if (event->devlink_final)
 					break;
+				if (major(udev_device_get_devnum(event->dev)) == 0)
+					break;
 				if (cur->key.op == KEY_OP_ASSIGN_FINAL)
 					event->devlink_final = 1;
 				if (cur->key.op == KEY_OP_ASSIGN || cur->key.op == KEY_OP_ASSIGN_FINAL)
