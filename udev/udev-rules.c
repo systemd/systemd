@@ -1783,11 +1783,12 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				char **envp;
 				char result[UTIL_PATH_SIZE];
 
+				free(event->program_result);
+				event->program_result = NULL;
 				util_strlcpy(program, &rules->buf[cur->key.value_off], sizeof(program));
 				udev_event_apply_format(event, program, sizeof(program));
 				envp = udev_device_get_properties_envp(event->dev);
 				if (util_run_program(event->udev, program, envp, result, sizeof(result), NULL) != 0) {
-					event->program_result[0] = '\0';
 					if (cur->key.op != KEY_OP_NOMATCH)
 						goto nomatch;
 				} else {
@@ -1799,7 +1800,8 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 						if (count > 0)
 							info(event->udev, "%i character(s) replaced\n" , count);
 					}
-					util_strlcpy(event->program_result, result, sizeof(event->program_result));
+					event->program_result = strdup(result);
+					dbg(event->udev, "storing result '%s'\n", event->program_result);
 					if (cur->key.op == KEY_OP_NOMATCH)
 						goto nomatch;
 				}
@@ -1884,7 +1886,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					break;
 				if (cur->key.op == KEY_OP_ASSIGN_FINAL)
 					event->group_final = 1;
-				util_strlcpy(group,  &rules->buf[cur->key.value_off], sizeof(group));
+				util_strlcpy(group, &rules->buf[cur->key.value_off], sizeof(group));
 				udev_event_apply_format(event, group, sizeof(group));
 				event->gid = util_lookup_group(event->udev, group);
 				break;
@@ -1898,7 +1900,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					break;
 				if (cur->key.op == KEY_OP_ASSIGN_FINAL)
 					event->mode_final = 1;
-				util_strlcpy(mode,  &rules->buf[cur->key.value_off], sizeof(mode));
+				util_strlcpy(mode, &rules->buf[cur->key.value_off], sizeof(mode));
 				udev_event_apply_format(event, mode, sizeof(mode));
 				event->mode = strtol(mode, &endptr, 8);
 				if (endptr[0] != '\0') {

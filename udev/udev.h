@@ -61,11 +61,11 @@ struct udev_event {
 	struct udev_device *dev;
 	struct udev_device *dev_parent;
 	int devlink_final;
-	char program_result[UTIL_PATH_SIZE];
 	char name[UTIL_PATH_SIZE];
 	int name_final;
 	int name_ignore;
-	char tmp_node[UTIL_PATH_SIZE];
+	char *tmp_node;
+	char *program_result;
 	mode_t mode;
 	int mode_final;
 	uid_t uid;

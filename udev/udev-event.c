@@ -47,7 +47,11 @@ struct udev_event *udev_event_new(struct udev_device *dev)
 
 void udev_event_unref(struct udev_event *event)
 {
+	if (event == NULL)
+		return;
 	udev_list_cleanup_entries(event->udev, &event->run_list);
+	free(event->tmp_node);
+	free(event->program_result);
 	dbg(event->udev, "free event %p\n", event);
 	free(event);
 }
@@ -245,15 +249,18 @@ found:
 			dbg(event->udev, "substitute minor number '%s'\n", temp2);
 			break;
 		case SUBST_RESULT:
-			if (event->program_result[0] == '\0')
+			if (event->program_result == NULL)
 				break;
 			/* get part part of the result string */
 			i = 0;
 			if (attr != NULL)
 				i = strtoul(attr, &rest, 10);
 			if (i > 0) {
+				char result[UTIL_PATH_SIZE];
+
 				dbg(event->udev, "request part #%d of result string\n", i);
-				cpos = event->program_result;
+				util_strlcpy(result, event->program_result, sizeof(result));
+				cpos = result;
 				while (--i) {
 					while (cpos[0] != '\0' && !isspace(cpos[0]))
 						cpos++;
@@ -338,7 +345,7 @@ found:
 				char filename[UTIL_PATH_SIZE];
 				const char *devtype;
 
-				if (event->tmp_node[0] != '\0') {
+				if (event->tmp_node != NULL) {
 					util_strlcat(string, event->tmp_node, maxsize);
 					dbg(event->udev, "return existing temporary node\n");
 					break;
@@ -360,10 +367,12 @@ found:
 					break;
 				}
 				dbg(event->udev, "create temporary node\n");
-				snprintf(event->tmp_node, sizeof(event->tmp_node), "%s/.tmp-%s-%u:%u",
+				asprintf(&event->tmp_node, "%s/.tmp-%s-%u:%u",
 					 udev_get_dev_path(event->udev), devtype,
 					 major(udev_device_get_devnum(dev)),
 					 minor(udev_device_get_devnum(dev)));
+				if (event->tmp_node == NULL)
+					break;
 				udev_node_mknod(dev, event->tmp_node, makedev(0, 0), 0600, 0, 0);
 				util_strlcat(string, event->tmp_node, maxsize);
 			}
@@ -537,10 +546,11 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 		dbg(event->udev, "device node add '%s'\n", udev_device_get_devpath(dev));
 
 		udev_rules_apply_to_event(rules, event);
-		if (event->tmp_node[0] != '\0') {
+		if (event->tmp_node != NULL) {
 			dbg(event->udev, "removing temporary device node\n");
 			util_unlink_secure(event->udev, event->tmp_node);
-			event->tmp_node[0] = '\0';
+			free(event->tmp_node);
+			event->tmp_node = NULL;
 		}
 
 		if (event->ignore_device) {
