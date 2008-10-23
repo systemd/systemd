@@ -57,30 +57,28 @@ static inline void logging_close(void)
 }
 
 struct udev_event {
+	struct udev_list_node node;
 	struct udev *udev;
 	struct udev_device *dev;
 	struct udev_device *dev_parent;
-	int devlink_final;
-	char name[UTIL_PATH_SIZE];
-	int name_final;
-	int name_ignore;
+	char *name;
 	char *tmp_node;
 	char *program_result;
 	mode_t mode;
-	int mode_final;
 	uid_t uid;
-	int owner_final;
 	gid_t gid;
-	int group_final;
 	struct udev_list_node run_list;
-	int run_final;
-	int ignore_device;
-	int test;
-
-	struct udev_list_node node;
 	pid_t pid;
 	int exitstatus;
 	time_t queue_time;
+	unsigned int group_final:1;
+	unsigned int owner_final:1;
+	unsigned int mode_final:1;
+	unsigned int name_final:1;
+	unsigned int devlink_final:1;
+	unsigned int run_final:1;
+	unsigned int ignore_device:1;
+	unsigned int test:1;
 };
 
 /* udev-rules.c */

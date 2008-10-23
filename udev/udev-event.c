@@ -52,6 +52,7 @@ void udev_event_unref(struct udev_event *event)
 	udev_list_cleanup_entries(event->udev, &event->run_list);
 	free(event->tmp_node);
 	free(event->program_result);
+	free(event->name);
 	dbg(event->udev, "free event %p\n", event);
 	free(event);
 }
@@ -558,15 +559,17 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 			goto exit;
 		}
 
-		if (event->name_ignore) {
+		if (event->name != NULL && event->name[0] == '\0') {
 			info(event->udev, "device node creation supressed\n");
 			goto exit;
 		}
 
-		if (event->name[0] == '\0') {
+		if (event->name == NULL) {
 			info(event->udev, "no node name set, will use kernel name '%s'\n",
 			     udev_device_get_sysname(event->dev));
-			util_strlcpy(event->name, udev_device_get_sysname(event->dev), sizeof(event->name));
+			event->name = strdup(udev_device_get_sysname(event->dev));
+			if (event->name == NULL)
+				goto exit;
 		}
 
 		/* set device node name */
@@ -604,10 +607,8 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 			info(event->udev, "device event will be ignored\n");
 			goto exit;
 		}
-		if (event->name[0] == '\0') {
-			info(event->udev, "device renaming supressed\n");
+		if (event->name == NULL)
 			goto exit;
-		}
 
 		/* look if we want to change the name of the netif */
 		if (strcmp(event->name, udev_device_get_sysname(dev)) != 0) {

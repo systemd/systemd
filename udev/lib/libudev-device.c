@@ -34,36 +34,36 @@
 #define ENVP_SIZE 128
 
 struct udev_device {
-	int refcount;
 	struct udev *udev;
 	struct udev_device *parent_device;
-	int parent_set;
 	char *syspath;
 	const char *devpath;
 	char *sysname;
 	const char *sysnum;
 	char *devnode;
 	char *subsystem;
-	int subsystem_set;
-	struct udev_list_node devlinks_list;
-	int devlinks_uptodate;
-	struct udev_list_node properties_list;
 	char **envp;
-	int envp_uptodate;
 	char *driver;
-	int driver_set;
-	dev_t devnum;
 	char *action;
-	int event_timeout;
 	char *devpath_old;
 	char *physdevpath;
-	int timeout;
+	struct udev_list_node devlinks_list;
+	struct udev_list_node properties_list;
+	struct udev_list_node sysattr_list;
 	unsigned long long int seqnum;
+	int event_timeout;
+	int timeout;
 	int num_fake_partitions;
 	int devlink_priority;
-	int ignore_remove;
-	struct udev_list_node sysattr_list;
-	int info_loaded;
+	int refcount;
+	dev_t devnum;
+	unsigned int parent_set:1;
+	unsigned int subsystem_set:1;
+	unsigned int devlinks_uptodate:1;
+	unsigned int envp_uptodate:1;
+	unsigned int driver_set:1;
+	unsigned int info_loaded:1;
+	unsigned int ignore_remove:1;
 };
 
 static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *filename, size_t len)

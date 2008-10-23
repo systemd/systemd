@@ -1952,6 +1952,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 		case TK_A_NAME:
 			{
 				const char *name  = &rules->buf[cur->key.value_off];
+				char name_str[UTIL_PATH_SIZE];
 				int count;
 
 				if (event->name_final)
@@ -1959,17 +1960,17 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				if (cur->key.op == KEY_OP_ASSIGN_FINAL)
 					event->name_final = 1;
 				if (name[0] == '\0') {
-					event->name[0] = '\0';
-					event->name_ignore = 1;
+					free(event->name);
+					event->name = NULL;
 					break;
 				}
-				event->name_ignore = 0;
-				util_strlcpy(event->name, name, sizeof(event->name));
-				udev_event_apply_format(event, event->name, sizeof(event->name));
+				util_strlcpy(name_str, name, sizeof(name_str));
+				udev_event_apply_format(event, name_str, sizeof(name_str));
 				if (esc == ESCAPE_UNSET || esc == ESCAPE_REPLACE) {
-					count = util_replace_chars(event->name, ALLOWED_CHARS_FILE);
+					count = util_replace_chars(name_str, ALLOWED_CHARS_FILE);
 					if (count > 0)
 						info(event->udev, "%i character(s) replaced\n", count);
+					event->name = strdup(name_str);
 				}
 				break;
 			}
