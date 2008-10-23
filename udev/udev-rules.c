@@ -52,7 +52,6 @@ enum token_type {
 	TK_UNDEF,
 	TK_RULE,
 
-	TK_M_WAITFOR,			/* val */
 	TK_M_ACTION,			/* val */
 	TK_M_DEVPATH,			/* val */
 	TK_M_KERNEL,			/* val */
@@ -61,6 +60,7 @@ enum token_type {
 	TK_M_ENV,			/* val, attr */
 	TK_M_SUBSYSTEM,			/* val */
 	TK_M_DRIVER,			/* val */
+	TK_M_WAITFOR,			/* val */
 	TK_M_ATTR,			/* val, attr */
 
 	TK_M_KERNELS,			/* val */
@@ -104,7 +104,6 @@ static const char *token_str[] = {
 	[TK_UNDEF] =			"UNDEF",
 	[TK_RULE] =			"RULE",
 
-	[TK_M_WAITFOR] =		"M WAITFOR",
 	[TK_M_ACTION] =			"M ACTION",
 	[TK_M_DEVPATH] =		"M DEVPATH",
 	[TK_M_KERNEL] =			"M KERNEL",
@@ -113,6 +112,7 @@ static const char *token_str[] = {
 	[TK_M_ENV] =			"M ENV",
 	[TK_M_SUBSYSTEM] =		"M SUBSYSTEM",
 	[TK_M_DRIVER] =			"M DRIVER",
+	[TK_M_WAITFOR] =		"M WAITFOR",
 	[TK_M_ATTR] =			"M ATTR",
 
 	[TK_M_KERNELS] =		"M KERNELS",
@@ -591,12 +591,12 @@ static int rule_add_token(struct rule_tmp *rule_tmp, enum token_type type,
 	mode_t mode = 0000;
 
 	switch (type) {
-	case TK_M_WAITFOR:
 	case TK_M_ACTION:
 	case TK_M_DEVPATH:
 	case TK_M_KERNEL:
 	case TK_M_SUBSYSTEM:
 	case TK_M_DRIVER:
+	case TK_M_WAITFOR:
 	case TK_M_DEVLINK:
 	case TK_M_NAME:
 	case TK_M_KERNELS:
@@ -696,12 +696,12 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 			    &rules->buf[token->rule.label_off]);
 			break;
 		}
-	case TK_M_WAITFOR:
 	case TK_M_ACTION:
 	case TK_M_DEVPATH:
 	case TK_M_KERNEL:
 	case TK_M_SUBSYSTEM:
 	case TK_M_DRIVER:
+	case TK_M_WAITFOR:
 	case TK_M_DEVLINK:
 	case TK_M_NAME:
 	case TK_M_KERNELS:
@@ -1612,18 +1612,6 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			rule = cur;
 			esc = ESCAPE_UNSET;
 			break;
-		case TK_M_WAITFOR:
-			{
-				char filename[UTIL_PATH_SIZE];
-				int found;
-
-				util_strlcpy(filename, &rules->buf[cur->key.value_off], sizeof(filename));
-				udev_event_apply_format(event, filename, sizeof(filename));
-				found = (wait_for_file(event->dev, filename, 10) == 0);
-				if (!found && (cur->key.op != KEY_OP_NOMATCH))
-					goto nomatch;
-				break;
-			}
 		case TK_M_ACTION:
 			if (match_key(rules, cur, udev_device_get_action(event->dev)) != 0)
 				goto nomatch;
@@ -1684,6 +1672,18 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			if (match_key(rules, cur, udev_device_get_driver(event->dev)) != 0)
 				goto nomatch;
 			break;
+		case TK_M_WAITFOR:
+			{
+				char filename[UTIL_PATH_SIZE];
+				int found;
+
+				util_strlcpy(filename, &rules->buf[cur->key.value_off], sizeof(filename));
+				udev_event_apply_format(event, filename, sizeof(filename));
+				found = (wait_for_file(event->dev, filename, 10) == 0);
+				if (!found && (cur->key.op != KEY_OP_NOMATCH))
+					goto nomatch;
+				break;
+			}
 		case TK_M_ATTR:
 			if (match_attr(rules, event->dev, event, cur) != 0)
 				goto nomatch;
