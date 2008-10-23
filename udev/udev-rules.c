@@ -1970,6 +1970,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					count = util_replace_chars(name_str, ALLOWED_CHARS_FILE);
 					if (count > 0)
 						info(event->udev, "%i character(s) replaced\n", count);
+					free(event->name);
 					event->name = strdup(name_str);
 				}
 				break;
