@@ -31,6 +31,7 @@
 #define PREALLOC_TOKEN			2048
 #define PREALLOC_STRBUF			32 * 1024
 
+/* KEY=="", KEY!="", KEY+="", KEY="", KEY:="" */
 enum key_operation {
 	KEY_OP_UNSET,
 	KEY_OP_MATCH,
@@ -48,6 +49,7 @@ static const char *operation_str[] = {
 	[KEY_OP_ASSIGN_FINAL] =	"assign-final",
 };
 
+/* tokens of a rule are sorted/handled in this order */
 enum token_type {
 	TK_UNDEF,
 	TK_RULE,
@@ -187,19 +189,39 @@ struct rule_tmp {
 	unsigned int token_cur;
 };
 
+struct uid_gid {
+	unsigned int name_off;
+	union {
+		uid_t	uid;
+		gid_t	gid;
+	};
+};
+
 struct udev_rules {
 	struct udev *udev;
 	int resolve_names;
+
+	/* every key in the rules file becomes a token */
 	struct token *tokens;
 	unsigned int token_cur;
 	unsigned int token_max;
+
+	/* all key strings are copied to a single string buffer */
 	char *buf;
 	size_t buf_cur;
 	size_t buf_max;
 	unsigned int buf_count;
+
+	/* during rule parsing, we cache uid/gid lookup results */
+	struct uid_gid *uids;
+	unsigned int uids_cur;
+	unsigned int uids_max;
+	struct uid_gid *gids;
+	unsigned int gids_cur;
+	unsigned int gids_max;
 };
 
-/* we could lookup and return existing strings, or tails of strings */
+/* NOTE: we could lookup and return existing strings, or tails of strings */
 static int add_string(struct udev_rules *rules, const char *str)
 {
 	size_t len = strlen(str)+1;
@@ -216,8 +238,8 @@ static int add_string(struct udev_rules *rules, const char *str)
 
 		/* double the buffer size */
 		add = rules->buf_max;
-		if (add < len)
-			add = len * 2;
+		if (add < len * 8)
+			add = len * 8;
 
 		buf = realloc(rules->buf, rules->buf_max + add);
 		if (buf == NULL)
@@ -243,8 +265,8 @@ static int add_token(struct udev_rules *rules, struct token *token)
 
 		/* double the buffer size */
 		add = rules->token_max;
-		if (add < 1)
-			add = 2;
+		if (add < 8)
+			add = 8;
 
 		tokens = realloc(rules->tokens, (rules->token_max + add ) * sizeof(struct token));
 		if (tokens == NULL)
@@ -256,6 +278,92 @@ static int add_token(struct udev_rules *rules, struct token *token)
 	memcpy(&rules->tokens[rules->token_cur], token, sizeof(struct token));
 	rules->token_cur++;
 	return 0;
+}
+
+static uid_t add_uid(struct udev_rules *rules, const char *owner)
+{
+	unsigned int i;
+	uid_t uid;
+	unsigned int off;
+
+	/* lookup, if we know it already */
+	for (i = 0; i < rules->uids_cur; i++) {
+		off = rules->uids[i].name_off;
+		if (strcmp(&rules->buf[off], owner) == 0) {
+			uid = rules->uids[i].uid;
+			dbg(rules->udev, "return existing %u for '%s'\n", uid, owner);
+			return uid;
+		}
+	}
+	uid = util_lookup_user(rules->udev, owner);
+
+	/* grow buffer if needed */
+	if (rules->uids_cur+1 >= rules->uids_max) {
+		struct uid_gid *uids;
+		unsigned int add;
+
+		/* double the buffer size */
+		add = rules->uids_max;
+		if (add < 1)
+			add = 8;
+
+		uids = realloc(rules->uids, (rules->uids_max + add ) * sizeof(struct uid_gid));
+		if (uids == NULL)
+			return uid;
+		info(rules->udev, "extend uids from %u to %u\n", rules->uids_max, rules->uids_max + add);
+		rules->uids = uids;
+		rules->uids_max += add;
+	}
+	rules->uids[rules->uids_cur].uid = uid;
+	off = add_string(rules, owner);
+	if (off <= 0)
+		return uid;
+	rules->uids[rules->uids_cur].name_off = off;
+	rules->uids_cur++;
+	return uid;
+}
+
+static gid_t add_gid(struct udev_rules *rules, const char *group)
+{
+	unsigned int i;
+	gid_t gid;
+	unsigned int off;
+
+	/* lookup, if we know it already */
+	for (i = 0; i < rules->gids_cur; i++) {
+		off = rules->gids[i].name_off;
+		if (strcmp(&rules->buf[off], group) == 0) {
+			gid = rules->gids[i].gid;
+			info(rules->udev, "return existing %u for '%s'\n", gid, group);
+			return gid;
+		}
+	}
+	gid = util_lookup_group(rules->udev, group);
+
+	/* grow buffer if needed */
+	if (rules->gids_cur+1 >= rules->gids_max) {
+		struct uid_gid *gids;
+		unsigned int add;
+
+		/* double the buffer size */
+		add = rules->gids_max;
+		if (add < 1)
+			add = 8;
+
+		gids = realloc(rules->gids, (rules->gids_max + add ) * sizeof(struct uid_gid));
+		if (gids == NULL)
+			return gid;
+		info(rules->udev, "extend gids from %u to %u\n", rules->gids_max, rules->gids_max + add);
+		rules->gids = gids;
+		rules->gids_max += add;
+	}
+	rules->gids[rules->gids_cur].gid = gid;
+	off = add_string(rules, group);
+	if (off <= 0)
+		return gid;
+	rules->gids[rules->gids_cur].name_off = off;
+	rules->gids_cur++;
+	return gid;
 }
 
 static int import_property_from_string(struct udev_device *dev, char *line)
@@ -1148,7 +1256,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			if (endptr[0] == '\0') {
 				rule_add_token(&rule_tmp, TK_A_OWNER_ID, op, NULL, &uid);
 			} else if (rules->resolve_names && strchr("$%", value[0]) == NULL) {
-				uid = util_lookup_user(rules->udev, value);
+				uid = add_uid(rules, value);
 				rule_add_token(&rule_tmp, TK_A_OWNER_ID, op, NULL, &uid);
 			} else {
 				rule_add_token(&rule_tmp, TK_A_OWNER, op, value, NULL);
@@ -1165,7 +1273,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			if (endptr[0] == '\0') {
 				rule_add_token(&rule_tmp, TK_A_GROUP_ID, op, NULL, &gid);
 			} else if (rules->resolve_names && strchr("$%", value[0]) == NULL) {
-				gid = util_lookup_group(rules->udev, value);
+				gid = add_gid(rules, value);
 				rule_add_token(&rule_tmp, TK_A_GROUP_ID, op, NULL, &gid);
 			} else {
 				rule_add_token(&rule_tmp, TK_A_GROUP, op, value, NULL);
@@ -1476,7 +1584,16 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	end_token.type = TK_END;
 	add_token(rules, &end_token);
 
-	/* shrink allocate buffers */
+	/* link all TK_RULE tokens to be able to fast-forward to next TK_RULE */
+	prev_rule = 0;
+	for (i = 1; i < rules->token_cur; i++) {
+		if (rules->tokens[i].type == TK_RULE) {
+			rules->tokens[prev_rule].rule.next_rule = i;
+			prev_rule = i;
+		}
+	}
+
+	/* shrink allocated token and string buffer */
 	if (rules->token_cur < rules->token_max) {
 		struct token *tokens;
 
@@ -1498,14 +1615,16 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	info(udev, "shrunk to %lu bytes tokens (%u * %zu bytes), %zu bytes buffer\n",
 	     rules->token_max * sizeof(struct token), rules->token_max, sizeof(struct token), rules->buf_max);
 
-	/* link all TK_RULE tokens to be able to fast-forward to next TK_RULE */
-	prev_rule = 0;
-	for (i = 1; i < rules->token_cur; i++) {
-		if (rules->tokens[i].type == TK_RULE) {
-			rules->tokens[prev_rule].rule.next_rule = i;
-			prev_rule = i;
-		}
-	}
+	/* cleanup uid/gid cache */
+	free(rules->uids);
+	rules->uids = NULL;
+	rules->uids_cur = 0;
+	rules->uids_max = 0;
+	free(rules->gids);
+	rules->gids = NULL;
+	rules->gids_cur = 0;
+	rules->gids_max = 0;
+
 	dump_rules(rules);
 	return rules;
 }
@@ -1516,6 +1635,8 @@ void udev_rules_unref(struct udev_rules *rules)
 		return;
 	free(rules->tokens);
 	free(rules->buf);
+	free(rules->uids);
+	free(rules->gids);
 	free(rules);
 }
 

@@ -89,7 +89,7 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 	       "some values may be different, or not available at a simulation run.\n"
 	       "\n");
 
-	rules = udev_rules_new(udev, 0);
+	rules = udev_rules_new(udev, 1);
 	if (rules == NULL) {
 		fprintf(stderr, "error reading rules\n");
 		rc = 1;

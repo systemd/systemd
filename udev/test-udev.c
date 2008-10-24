@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	rules = udev_rules_new(udev, 0);
+	rules = udev_rules_new(udev, 1);
 
 	util_strlcpy(syspath, udev_get_sys_path(udev), sizeof(syspath));
 	util_strlcat(syspath, devpath, sizeof(syspath));
