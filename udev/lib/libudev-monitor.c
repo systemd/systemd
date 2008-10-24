@@ -384,19 +384,37 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_devi
 	struct udev_list_entry *list_entry;
 	char buf[4096];
 	size_t bufpos;
+	size_t len;
 	ssize_t count;
 
 	action = udev_device_get_action(udev_device);
 	if (action == NULL)
 		return -EINVAL;
-	bufpos = snprintf(buf, sizeof(buf), "%s@%s", action, udev_device_get_devpath(udev_device));
-	bufpos++;
+
+	bufpos = util_strlcpy(buf, action, sizeof(buf));
+	len = util_strlcpy(&buf[bufpos], "@", sizeof(buf)-bufpos);
+	if (len >= sizeof(buf)-bufpos)
+		return -1;
+	bufpos += len;
+	len = util_strlcpy(&buf[bufpos], udev_device_get_devpath(udev_device), sizeof(buf)-bufpos);
+	if (len+1 >= sizeof(buf)-bufpos)
+		return -1;
+	bufpos += len+1;
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
-		bufpos += snprintf(&buf[bufpos], sizeof(buf) - bufpos, "%s=%s",
-				   udev_list_entry_get_name(list_entry),
-				   udev_list_entry_get_value(list_entry));
-		bufpos++;
+		len = util_strlcpy(&buf[bufpos], udev_list_entry_get_name(list_entry), sizeof(buf)-bufpos);
+		if (len >= sizeof(buf)-bufpos)
+			return -1;
+		bufpos += len;
+		len = util_strlcpy(&buf[bufpos], "=", sizeof(buf)-bufpos);
+		if (len >= sizeof(buf)-bufpos)
+			return -1;
+		bufpos += len;
+		len = util_strlcpy(&buf[bufpos], udev_list_entry_get_value(list_entry), sizeof(buf)-bufpos);
+		if (len+1 >= sizeof(buf)-bufpos)
+			return -1;
+		bufpos += len+1;
 	}
+
 	count = sendto(udev_monitor->sock,
 		       &buf, bufpos, 0,
 		       (struct sockaddr *)&udev_monitor->sun, udev_monitor->addrlen);
