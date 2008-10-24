@@ -32,21 +32,26 @@
 #define PREALLOC_STRBUF			32 * 1024
 
 /* KEY=="", KEY!="", KEY+="", KEY="", KEY:="" */
-enum key_operation {
-	KEY_OP_UNSET,
-	KEY_OP_MATCH,
-	KEY_OP_NOMATCH,
-	KEY_OP_ADD,
-	KEY_OP_ASSIGN,
-	KEY_OP_ASSIGN_FINAL,
+enum operation_type {
+	OP_UNSET,
+
+	OP_MATCH,
+	OP_NOMATCH,
+	OP_MATCH_MAX,
+
+	OP_ADD,
+	OP_ASSIGN,
+	OP_ASSIGN_FINAL,
 };
 
 static const char *operation_str[] = {
-	[KEY_OP_MATCH] =	"match",
-	[KEY_OP_NOMATCH] =	"nomatch",
-	[KEY_OP_ADD] =		"add",
-	[KEY_OP_ASSIGN] =	"assign",
-	[KEY_OP_ASSIGN_FINAL] =	"assign-final",
+	[OP_MATCH] =		"match",
+	[OP_NOMATCH] =		"nomatch",
+	[OP_MATCH_MAX] =	"match-max",
+
+	[OP_ADD] =		"add",
+	[OP_ASSIGN] =		"assign",
+	[OP_ASSIGN_FINAL] =	"assign-final",
 };
 
 /* tokens of a rule are sorted/handled in this order */
@@ -69,7 +74,7 @@ enum token_type {
 	TK_M_SUBSYSTEMS,		/* val */
 	TK_M_DRIVERS,			/* val */
 	TK_M_ATTRS,			/* val, attr */
-	TK_PARENTS_MAX,
+	TK_M_PARENTS_MAX,
 
 	TK_M_TEST,			/* val, mode_t */
 	TK_M_PROGRAM,			/* val */
@@ -121,7 +126,7 @@ static const char *token_str[] = {
 	[TK_M_SUBSYSTEMS] =		"M SUBSYSTEMS",
 	[TK_M_DRIVERS] =		"M DRIVERS",
 	[TK_M_ATTRS] =			"M ATTRS",
-	[TK_PARENTS_MAX] =		"PARENTS_MAX",
+	[TK_M_PARENTS_MAX] =		"M PARENTS_MAX",
 
 	[TK_M_TEST] =			"M TEST",
 	[TK_M_PROGRAM] =		"M PROGRAM",
@@ -163,7 +168,7 @@ struct token {
 			unsigned int filename_off;
 		} rule;
 		struct {
-			enum key_operation op;
+			enum operation_type op;
 			unsigned int value_off;
 			union {
 				unsigned int attr_off;
@@ -588,7 +593,7 @@ static int attr_subst_subdir(char *attr, size_t len)
 	return found;
 }
 
-static int get_key(struct udev *udev, char **line, char **key, enum key_operation *op, char **value)
+static int get_key(struct udev *udev, char **line, char **key, enum operation_type *op, char **value)
 {
 	char *linepos;
 	char *temp;
@@ -630,19 +635,19 @@ static int get_key(struct udev *udev, char **line, char **key, enum key_operatio
 
 	/* get operation type */
 	if (linepos[0] == '=' && linepos[1] == '=') {
-		*op = KEY_OP_MATCH;
+		*op = OP_MATCH;
 		linepos += 2;
 	} else if (linepos[0] == '!' && linepos[1] == '=') {
-		*op = KEY_OP_NOMATCH;
+		*op = OP_NOMATCH;
 		linepos += 2;
 	} else if (linepos[0] == '+' && linepos[1] == '=') {
-		*op = KEY_OP_ADD;
+		*op = OP_ADD;
 		linepos += 2;
 	} else if (linepos[0] == '=') {
-		*op = KEY_OP_ASSIGN;
+		*op = OP_ASSIGN;
 		linepos++;
 	} else if (linepos[0] == ':' && linepos[1] == '=') {
-		*op = KEY_OP_ASSIGN_FINAL;
+		*op = OP_ASSIGN_FINAL;
 		linepos += 2;
 	} else
 		return -1;
@@ -697,7 +702,7 @@ static char *get_key_attribute(struct udev *udev, char *str)
 }
 
 static int rule_add_token(struct rule_tmp *rule_tmp, enum token_type type,
-			  enum key_operation op,
+			  enum operation_type op,
 			  const char *value, const void *data)
 {
 	struct token *token = &rule_tmp->token[rule_tmp->token_cur];
@@ -772,7 +777,7 @@ static int rule_add_token(struct rule_tmp *rule_tmp, enum token_type type,
 		token->key.event_timeout = *(int *)data;
 		break;
 	case TK_RULE:
-	case TK_PARENTS_MAX:
+	case TK_M_PARENTS_MAX:
 	case TK_END:
 	case TK_UNDEF:
 		err(rule_tmp->rules->udev, "wrong type %u\n", type);
@@ -792,7 +797,7 @@ static int rule_add_token(struct rule_tmp *rule_tmp, enum token_type type,
 static void dump_token(struct udev_rules *rules, struct token *token)
 {
 	enum token_type type = token->type;
-	enum key_operation op = token->key.op;
+	enum operation_type op = token->key.op;
 	const char *value = &rules->buf[token->key.value_off];
 	const char *attr = &rules->buf[token->key.attr_off];
 
@@ -875,7 +880,7 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 	case TK_END:
 		dbg(rules->udev, "* %s\n", token_str[type]);
 		break;
-	case TK_PARENTS_MAX:
+	case TK_M_PARENTS_MAX:
 	case TK_UNDEF:
 		dbg(rules->udev, "unknown type %u\n", type);
 		break;
@@ -952,13 +957,13 @@ static int add_rule(struct udev_rules *rules, char *line,
 	while (1) {
 		char *key;
 		char *value;
-		enum key_operation op = KEY_OP_UNSET;
+		enum operation_type op = OP_UNSET;
 
 		if (get_key(rules->udev, &linepos, &key, &op, &value) != 0)
 			break;
 
 		if (strcasecmp(key, "ACTION") == 0) {
-			if (op != KEY_OP_MATCH && op != KEY_OP_NOMATCH) {
+			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid ACTION operation\n");
 				goto invalid;
 			}
@@ -968,7 +973,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 		}
 
 		if (strcasecmp(key, "DEVPATH") == 0) {
-			if (op != KEY_OP_MATCH && op != KEY_OP_NOMATCH) {
+			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid DEVPATH operation\n");
 				goto invalid;
 			}
@@ -978,7 +983,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 		}
 
 		if (strcasecmp(key, "KERNEL") == 0) {
-			if (op != KEY_OP_MATCH && op != KEY_OP_NOMATCH) {
+			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid KERNEL operation\n");
 				goto invalid;
 			}
@@ -988,7 +993,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 		}
 
 		if (strcasecmp(key, "SUBSYSTEM") == 0) {
-			if (op != KEY_OP_MATCH && op != KEY_OP_NOMATCH) {
+			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid SUBSYSTEM operation\n");
 				goto invalid;
 			}
@@ -1007,7 +1012,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 		}
 
 		if (strcasecmp(key, "DRIVER") == 0) {
-			if (op != KEY_OP_MATCH && op != KEY_OP_NOMATCH) {
+			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid DRIVER operation\n");
 				goto invalid;
 			}
@@ -1022,7 +1027,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				err(rules->udev, "error parsing ATTR attribute\n");
 				goto invalid;
 			}
-			if (op == KEY_OP_MATCH || op == KEY_OP_NOMATCH) {
+			if (op < OP_MATCH_MAX) {
 				rule_add_token(&rule_tmp, TK_M_ATTR, op, value, attr);
 			} else {
 				rule_add_token(&rule_tmp, TK_A_ATTR, op, value, attr);
@@ -1033,7 +1038,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 
 		if (strcasecmp(key, "KERNELS") == 0 ||
 		    strcasecmp(key, "ID") == 0) {
-			if (op != KEY_OP_MATCH && op != KEY_OP_NOMATCH) {
+			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid KERNELS operation\n");
 				goto invalid;
 			}
@@ -1044,7 +1049,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 
 		if (strcasecmp(key, "SUBSYSTEMS") == 0 ||
 		    strcasecmp(key, "BUS") == 0) {
-			if (op != KEY_OP_MATCH && op != KEY_OP_NOMATCH) {
+			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid SUBSYSTEMS operation\n");
 				goto invalid;
 			}
@@ -1054,7 +1059,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 		}
 
 		if (strcasecmp(key, "DRIVERS") == 0) {
-			if (op != KEY_OP_MATCH && op != KEY_OP_NOMATCH) {
+			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid DRIVERS operation\n");
 				goto invalid;
 			}
@@ -1065,7 +1070,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 
 		if (strncasecmp(key, "ATTRS{", sizeof("ATTRS{")-1) == 0 ||
 		    strncasecmp(key, "SYSFS{", sizeof("SYSFS{")-1) == 0) {
-			if (op != KEY_OP_MATCH && op != KEY_OP_NOMATCH) {
+			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid ATTRS operation\n");
 				goto invalid;
 			}
@@ -1093,7 +1098,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			}
 			if (strncmp(attr, "PHYSDEV", 7) == 0)
 				physdev = 1;
-			if (op == KEY_OP_MATCH || op == KEY_OP_NOMATCH) {
+			if (op < OP_MATCH_MAX) {
 				if (rule_add_token(&rule_tmp, TK_M_ENV, op, value, attr) != 0)
 					goto invalid;
 			} else {
@@ -1111,7 +1116,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 		}
 
 		if (strcasecmp(key, "RESULT") == 0) {
-			if (op != KEY_OP_MATCH && op != KEY_OP_NOMATCH) {
+			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid RESULT operation\n");
 				goto invalid;
 			}
@@ -1171,7 +1176,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 		if (strncasecmp(key, "TEST", sizeof("TEST")-1) == 0) {
 			mode_t mode = 0;
 
-			if (op != KEY_OP_MATCH && op != KEY_OP_NOMATCH) {
+			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid TEST operation\n");
 				goto invalid;
 			}
@@ -1216,7 +1221,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 		}
 
 		if (strncasecmp(key, "NAME", sizeof("NAME")-1) == 0) {
-			if (op == KEY_OP_MATCH || op == KEY_OP_NOMATCH) {
+			if (op < OP_MATCH_MAX) {
 				rule_add_token(&rule_tmp, TK_M_NAME, op, value, NULL);
 			} else {
 				if (value[0] == '\0')
@@ -1240,13 +1245,13 @@ static int add_rule(struct udev_rules *rules, char *line,
 		}
 
 		if (strcasecmp(key, "SYMLINK") == 0) {
-			if (op == KEY_OP_MATCH || op == KEY_OP_NOMATCH)
-					rule_add_token(&rule_tmp, TK_M_DEVLINK, op, value, NULL);
-				else
-					rule_add_token(&rule_tmp, TK_A_DEVLINK, op, value, NULL);
-				valid = 1;
-				continue;
-			}
+			if (op < OP_MATCH_MAX)
+				rule_add_token(&rule_tmp, TK_M_DEVLINK, op, value, NULL);
+			else
+				rule_add_token(&rule_tmp, TK_A_DEVLINK, op, value, NULL);
+			valid = 1;
+			continue;
+		}
 
 		if (strcasecmp(key, "OWNER") == 0) {
 			uid_t uid;
@@ -1672,11 +1677,11 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 		match = (fnmatch(key_value, val, 0) == 0);
 	}
 
-	if (match && (token->key.op == KEY_OP_MATCH)) {
+	if (match && (token->key.op == OP_MATCH)) {
 		dbg(rules->udev, "%s is true (matching value)\n", key_name);
 		return 0;
 	}
-	if (!match && (token->key.op == KEY_OP_NOMATCH)) {
+	if (!match && (token->key.op == OP_NOMATCH)) {
 		dbg(rules->udev, "%s is true (non-matching value)\n", key_name);
 		return 0;
 	}
@@ -1811,7 +1816,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				util_strlcpy(filename, &rules->buf[cur->key.value_off], sizeof(filename));
 				udev_event_apply_format(event, filename, sizeof(filename));
 				found = (wait_for_file(event->dev, filename, 10) == 0);
-				if (!found && (cur->key.op != KEY_OP_NOMATCH))
+				if (!found && (cur->key.op != OP_NOMATCH))
 					goto nomatch;
 				break;
 			}
@@ -1828,7 +1833,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 				/* get whole sequence of parent matches */
 				next = cur;
-				while (next->type < TK_PARENTS_MAX)
+				while (next->type < TK_M_PARENTS_MAX)
 					next++;
 
 				/* loop over parents */
@@ -1902,9 +1907,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					info(event->udev, "'%s' has mode=%#o and %s %#o\n", filename, statbuf.st_mode,
 					     match ? "matches" : "does not match", cur->key.mode);
 				}
-				if (match && cur->key.op == KEY_OP_NOMATCH)
+				if (match && cur->key.op == OP_NOMATCH)
 					goto nomatch;
-				if (!match && cur->key.op == KEY_OP_MATCH)
+				if (!match && cur->key.op == OP_MATCH)
 					goto nomatch;
 				break;
 			}
@@ -1920,7 +1925,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				udev_event_apply_format(event, program, sizeof(program));
 				envp = udev_device_get_properties_envp(event->dev);
 				if (util_run_program(event->udev, program, envp, result, sizeof(result), NULL) != 0) {
-					if (cur->key.op != KEY_OP_NOMATCH)
+					if (cur->key.op != OP_NOMATCH)
 						goto nomatch;
 				} else {
 					int count;
@@ -1933,7 +1938,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					}
 					event->program_result = strdup(result);
 					dbg(event->udev, "storing result '%s'\n", event->program_result);
-					if (cur->key.op == KEY_OP_NOMATCH)
+					if (cur->key.op == OP_NOMATCH)
 						goto nomatch;
 				}
 				break;
@@ -1945,7 +1950,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				util_strlcpy(import, &rules->buf[cur->key.value_off], sizeof(import));
 				udev_event_apply_format(event, import, sizeof(import));
 				if (import_file_into_properties(event->dev, import) != 0)
-					if (cur->key.op != KEY_OP_NOMATCH)
+					if (cur->key.op != OP_NOMATCH)
 						goto nomatch;
 				break;
 			}
@@ -1956,7 +1961,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				util_strlcpy(import, &rules->buf[cur->key.value_off], sizeof(import));
 				udev_event_apply_format(event, import, sizeof(import));
 				if (import_program_into_properties(event->dev, import) != 0)
-					if (cur->key.op != KEY_OP_NOMATCH)
+					if (cur->key.op != OP_NOMATCH)
 						goto nomatch;
 				break;
 			}
@@ -1967,7 +1972,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				util_strlcpy(import, &rules->buf[cur->key.value_off], sizeof(import));
 				udev_event_apply_format(event, import, sizeof(import));
 				if (import_parent_into_properties(event->dev, import) != 0)
-					if (cur->key.op != KEY_OP_NOMATCH)
+					if (cur->key.op != OP_NOMATCH)
 						goto nomatch;
 				break;
 			}
@@ -2002,7 +2007,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 				if (event->owner_final)
 					break;
-				if (cur->key.op == KEY_OP_ASSIGN_FINAL)
+				if (cur->key.op == OP_ASSIGN_FINAL)
 					event->owner_final = 1;
 				util_strlcpy(owner,  &rules->buf[cur->key.value_off], sizeof(owner));
 				udev_event_apply_format(event, owner, sizeof(owner));
@@ -2015,7 +2020,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 				if (event->group_final)
 					break;
-				if (cur->key.op == KEY_OP_ASSIGN_FINAL)
+				if (cur->key.op == OP_ASSIGN_FINAL)
 					event->group_final = 1;
 				util_strlcpy(group, &rules->buf[cur->key.value_off], sizeof(group));
 				udev_event_apply_format(event, group, sizeof(group));
@@ -2029,7 +2034,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 				if (event->mode_final)
 					break;
-				if (cur->key.op == KEY_OP_ASSIGN_FINAL)
+				if (cur->key.op == OP_ASSIGN_FINAL)
 					event->mode_final = 1;
 				util_strlcpy(mode, &rules->buf[cur->key.value_off], sizeof(mode));
 				udev_event_apply_format(event, mode, sizeof(mode));
@@ -2043,21 +2048,21 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 		case TK_A_OWNER_ID:
 			if (event->owner_final)
 				break;
-			if (cur->key.op == KEY_OP_ASSIGN_FINAL)
+			if (cur->key.op == OP_ASSIGN_FINAL)
 				event->owner_final = 1;
 			event->uid = cur->key.uid;
 			break;
 		case TK_A_GROUP_ID:
 			if (event->group_final)
 				break;
-			if (cur->key.op == KEY_OP_ASSIGN_FINAL)
+			if (cur->key.op == OP_ASSIGN_FINAL)
 				event->group_final = 1;
 			event->gid = cur->key.gid;
 			break;
 		case TK_A_MODE_ID:
 			if (event->mode_final)
 				break;
-			if (cur->key.op == KEY_OP_ASSIGN_FINAL)
+			if (cur->key.op == OP_ASSIGN_FINAL)
 				event->mode_final = 1;
 			event->mode = cur->key.mode;
 			break;
@@ -2088,7 +2093,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 				if (event->name_final)
 					break;
-				if (cur->key.op == KEY_OP_ASSIGN_FINAL)
+				if (cur->key.op == OP_ASSIGN_FINAL)
 					event->name_final = 1;
 				if (name[0] == '\0') {
 					free(event->name);
@@ -2117,9 +2122,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					break;
 				if (major(udev_device_get_devnum(event->dev)) == 0)
 					break;
-				if (cur->key.op == KEY_OP_ASSIGN_FINAL)
+				if (cur->key.op == OP_ASSIGN_FINAL)
 					event->devlink_final = 1;
-				if (cur->key.op == KEY_OP_ASSIGN || cur->key.op == KEY_OP_ASSIGN_FINAL)
+				if (cur->key.op == OP_ASSIGN || cur->key.op == OP_ASSIGN_FINAL)
 					udev_device_cleanup_devlinks_list(event->dev);
 
 				/* allow  multiple symlinks separated by spaces */
@@ -2197,7 +2202,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			{
 				struct udev_list_entry *list_entry;
 
-				if (cur->key.op == KEY_OP_ASSIGN || cur->key.op == KEY_OP_ASSIGN_FINAL)
+				if (cur->key.op == OP_ASSIGN || cur->key.op == OP_ASSIGN_FINAL)
 					udev_list_cleanup_entries(event->udev, &event->run_list);
 				list_entry = udev_list_entry_add(event->udev, &event->run_list,
 								 &rules->buf[cur->key.value_off], NULL, 1, 0);
@@ -2211,7 +2216,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 		case TK_A_LAST_RULE:
 			break;
 
-		case TK_PARENTS_MAX:
+		case TK_M_PARENTS_MAX:
 		case TK_END:
 		case TK_UNDEF:
 			err(rules->udev, "wrong type %u\n", cur->type);
