@@ -57,10 +57,11 @@ static const char *operation_str[] = {
 
 enum string_glob_type {
 	GL_UNSET,
-	GL_PLAIN,
-	GL_GLOB,
-	GL_SPLIT,
-	GL_SPLIT_GLOB,
+	GL_PLAIN,			/* no special chars */
+	GL_GLOB,			/* shell globs ?,*,[] */
+	GL_SPLIT,			/* multi-value A|B */
+	GL_SPLIT_GLOB,			/* multi-value with glob A*|B* */
+	GL_SOMETHING,			/* commonly used "?*" */
 	GL_FORMAT,
 };
 
@@ -70,6 +71,7 @@ static const char *string_glob_str[] = {
 	[GL_GLOB] = 		"glob",
 	[GL_SPLIT] = 		"split",
 	[GL_SPLIT_GLOB] = 	"split-glob",
+	[GL_SOMETHING] = 	"split-glob",
 	[GL_FORMAT] = 		"format",
 };
 
@@ -813,18 +815,22 @@ static int rule_add_token(struct rule_tmp *rule_tmp, enum token_type type,
 	if (value != NULL) {
 		if (type < TK_M_MAX) {
 			/* check if we need to split or call fnmatch() while matching rules */
-			int has_split = 0;
-			int has_glob = 0;
+			int has_split;
+			int has_glob;
 
 			has_split = (strchr(value, '|') != NULL);
 			has_glob = (strchr(value, '*') != NULL || strchr(value, '?') != NULL ||
 				    strchr(value, '[') != NULL || strchr(value, ']') != NULL);
-			if (has_split && has_glob)
+			if (has_split && has_glob) {
 				glob = GL_SPLIT_GLOB;
-			else if (has_split)
+			} else if (has_split) {
 				glob = GL_SPLIT;
-			else if (has_glob)
-				glob = GL_GLOB;
+			} else if (has_glob) {
+				if (strcmp(value, "?*") == 0)
+					glob = GL_SOMETHING;
+				else
+					glob = GL_GLOB;
+			}
 		} else {
 			/* check if we need to substitute format strings for matching rules */
 			if (strchr(value, '%') != NULL || strchr(value, '$') != NULL)
@@ -1756,6 +1762,9 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 			}
 			break;
 		}
+	case GL_SOMETHING:
+		match = (val[0] != '\0');
+		break;
 	case GL_FORMAT:
 	case GL_UNSET:
 		return -1;
