@@ -205,6 +205,11 @@ static int add_string(struct udev_rules *rules, const char *str)
 	size_t len = strlen(str)+1;
 	int off;
 
+	/* offset 0 is always '\0' */
+	if (str[0] == '\0')
+		return 0;
+
+	/* grow buffer if needed */
 	if (rules->buf_cur + len+1 >= rules->buf_max) {
 		char *buf;
 		unsigned int add;
@@ -212,7 +217,7 @@ static int add_string(struct udev_rules *rules, const char *str)
 		/* double the buffer size */
 		add = rules->buf_max;
 		if (add < len)
-			add = len;
+			add = len * 2;
 
 		buf = realloc(rules->buf, rules->buf_max + add);
 		if (buf == NULL)
@@ -231,6 +236,7 @@ static int add_string(struct udev_rules *rules, const char *str)
 static int add_token(struct udev_rules *rules, struct token *token)
 {
 
+	/* grow buffer if needed */
 	if (rules->token_cur+1 >= rules->token_max) {
 		struct token *tokens;
 		unsigned int add;
@@ -238,7 +244,7 @@ static int add_token(struct udev_rules *rules, struct token *token)
 		/* double the buffer size */
 		add = rules->token_max;
 		if (add < 1)
-			add = 1;
+			add = 2;
 
 		tokens = realloc(rules->tokens, (rules->token_max + add ) * sizeof(struct token));
 		if (tokens == NULL)
@@ -1388,15 +1394,18 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 
 	/* init token array and string buffer */
 	rules->tokens = malloc(PREALLOC_TOKEN * sizeof(struct token));
-	if (rules->tokens != NULL)
-		rules->token_max = PREALLOC_TOKEN;
+	if (rules->tokens == NULL)
+		return NULL;
+	rules->token_max = PREALLOC_TOKEN;
 	rules->buf = malloc(PREALLOC_STRBUF);
-	if (rules->buf != NULL)
-		rules->buf_max = PREALLOC_STRBUF;
+	if (rules->buf == NULL)
+		return NULL;
+	rules->buf_max = PREALLOC_STRBUF;
+	/* offset 0 is always '\0' */
+	rules->buf[0] = '\0';
+	rules->buf_cur = 1;
 	info(udev, "prealloc %zu bytes tokens (%u * %zu bytes), %zu bytes buffer\n",
 	     rules->token_max * sizeof(struct token), rules->token_max, sizeof(struct token), rules->buf_max);
-	/* offset 0 in the string buffer is always empty */
-	add_string(rules, "");
 
 	if (udev_get_rules_path(udev) != NULL) {
 		/* custom rules location for testing */
@@ -1593,14 +1602,15 @@ enum escape_type {
 
 int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event)
 {
-	struct token *rule;
 	struct token *cur;
+	struct token *rule;
 
 	if (rules->tokens == NULL)
 		return -1;
 
 	/* loop through token list, match, run actions or forward to next rule */
 	cur = &rules->tokens[0];
+	rule = cur;
 	while (cur != NULL && cur->type != TK_END) {
 		enum escape_type esc = ESCAPE_UNSET;
 		unsigned int idx;
