@@ -41,7 +41,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		{}
 	};
 	int timeout = DEFAULT_TIMEOUT;
-	struct udev_queue *udev_queue;
+	struct udev_queue *udev_queue = NULL;
 	int loop;
 	int rc = 0;
 

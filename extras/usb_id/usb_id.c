@@ -368,7 +368,7 @@ int main(int argc, char **argv)
 		{}
 	};
 	struct udev *udev;
-	struct udev_device *dev;
+	struct udev_device *dev = NULL;
 	char syspath[UTIL_PATH_SIZE];
 	const char *devpath;
 	static int export;
