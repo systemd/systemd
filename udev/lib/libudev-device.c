@@ -47,6 +47,8 @@ struct udev_device {
 	char *action;
 	char *devpath_old;
 	char *physdevpath;
+	char *monitor_buf;
+	size_t monitor_buf_len;
 	struct udev_list_node devlinks_list;
 	struct udev_list_node properties_list;
 	struct udev_list_node sysattr_list;
@@ -617,6 +619,7 @@ void udev_device_unref(struct udev_device *udev_device)
 			free(udev_device->envp[i]);
 		free(udev_device->envp);
 	}
+	free(udev_device->monitor_buf);
 	info(udev_device->udev, "udev_device: %p released\n", udev_device);
 	free(udev_device);
 }
@@ -983,6 +986,7 @@ int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink
 
 struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
 {
+	udev_device->monitor_buf_len = 0;
 	udev_device->envp_uptodate = 0;
 	if (value == NULL) {
 		struct udev_list_entry *list_entry;
@@ -1018,11 +1022,12 @@ char **udev_device_get_properties_envp(struct udev_device *udev_device)
 		unsigned int i;
 		struct udev_list_entry *list_entry;
 
-		if (udev_device->envp) {
+		if (udev_device->envp != NULL) {
 			for (i = 0; i < ENVP_SIZE && udev_device->envp[i] != NULL; i++)
 				free(udev_device->envp[i]);
-		} else
+		} else {
 			udev_device->envp = malloc(sizeof(char *) * ENVP_SIZE);
+		}
 
 		i = 0;
 		udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
@@ -1037,6 +1042,61 @@ char **udev_device_get_properties_envp(struct udev_device *udev_device)
 		udev_device->envp_uptodate = 1;
 	}
 	return udev_device->envp;
+}
+
+#define MONITOR_BUF_SIZE		4096
+ssize_t udev_device_get_properties_monitor_buf(struct udev_device *udev_device, const char **buf)
+{
+	if (udev_device->monitor_buf_len == 0) {
+		const char *action;
+		struct udev_list_entry *list_entry;
+		size_t bufpos;
+		size_t len;
+
+		free(udev_device->monitor_buf);
+		udev_device->monitor_buf = malloc(MONITOR_BUF_SIZE);
+		if (udev_device->monitor_buf == NULL)
+			return -ENOMEM;
+
+		/* header <action>@<devpath> */
+		action = udev_device_get_action(udev_device);
+		if (action == NULL)
+			return -EINVAL;
+		bufpos = util_strlcpy(udev_device->monitor_buf, action, MONITOR_BUF_SIZE);
+		len = util_strlcpy(&udev_device->monitor_buf[bufpos], "@", MONITOR_BUF_SIZE-bufpos);
+		if (len >= MONITOR_BUF_SIZE-bufpos)
+			return -EINVAL;
+		bufpos += len;
+		len = util_strlcpy(&udev_device->monitor_buf[bufpos],
+				   udev_device_get_devpath(udev_device),
+				   MONITOR_BUF_SIZE-bufpos);
+		if (len+1 >= MONITOR_BUF_SIZE-bufpos)
+			return -EINVAL;
+		bufpos += len+1;
+
+		/* property strings */
+		udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
+			len = util_strlcpy(&udev_device->monitor_buf[bufpos],
+					   udev_list_entry_get_name(list_entry), MONITOR_BUF_SIZE-bufpos);
+			if (len >= MONITOR_BUF_SIZE-bufpos)
+				return -EINVAL;
+			bufpos += len;
+			len = util_strlcpy(&udev_device->monitor_buf[bufpos], "=", MONITOR_BUF_SIZE-bufpos);
+			if (len >= MONITOR_BUF_SIZE-bufpos)
+				return -EINVAL;
+			bufpos += len;
+			len = util_strlcpy(&udev_device->monitor_buf[bufpos], udev_list_entry_get_value(list_entry),
+					   MONITOR_BUF_SIZE-bufpos);
+			if (len+1 >= MONITOR_BUF_SIZE-bufpos)
+				return -EINVAL;
+			bufpos += len+1;
+		}
+printf("created buf %p, size %zu '%s'\n", udev_device->monitor_buf, bufpos, udev_device->monitor_buf);
+		udev_device->monitor_buf_len = bufpos;
+	}
+	*buf = udev_device->monitor_buf;
+printf("return buf %p, size %zu '%s'\n", *buf, udev_device->monitor_buf_len, *buf);
+	return udev_device->monitor_buf_len;
 }
 
 int udev_device_set_action(struct udev_device *udev_device, const char *action)
