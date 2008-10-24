@@ -45,18 +45,37 @@ enum operation_type {
 };
 
 static const char *operation_str[] = {
+	[OP_UNSET] =		"UNSET",
 	[OP_MATCH] =		"match",
 	[OP_NOMATCH] =		"nomatch",
-	[OP_MATCH_MAX] =	"match-max",
+	[OP_MATCH_MAX] =	"MATCH_MAX",
 
 	[OP_ADD] =		"add",
 	[OP_ASSIGN] =		"assign",
 	[OP_ASSIGN_FINAL] =	"assign-final",
 };
 
+enum string_glob_type {
+	GL_UNSET,
+	GL_PLAIN,
+	GL_GLOB,
+	GL_SPLIT,
+	GL_SPLIT_GLOB,
+	GL_FORMAT,
+};
+
+static const char *string_glob_str[] = {
+	[GL_UNSET] = 		"UNSET",
+	[GL_PLAIN] = 		"plain",
+	[GL_GLOB] = 		"glob",
+	[GL_SPLIT] = 		"split",
+	[GL_SPLIT_GLOB] = 	"split-glob",
+	[GL_FORMAT] = 		"format",
+};
+
 /* tokens of a rule are sorted/handled in this order */
 enum token_type {
-	TK_UNDEF,
+	TK_UNSET,
 	TK_RULE,
 
 	TK_M_ACTION,			/* val */
@@ -82,6 +101,7 @@ enum token_type {
 	TK_M_IMPORT_PROG,		/* val */
 	TK_M_IMPORT_PARENT,		/* val */
 	TK_M_RESULT,			/* val */
+	TK_M_MAX,
 
 	TK_A_IGNORE_DEVICE,
 	TK_A_STRING_ESCAPE_NONE,
@@ -108,7 +128,7 @@ enum token_type {
 };
 
 static const char *token_str[] = {
-	[TK_UNDEF] =			"UNDEF",
+	[TK_UNSET] =			"UNSET",
 	[TK_RULE] =			"RULE",
 
 	[TK_M_ACTION] =			"M ACTION",
@@ -134,6 +154,7 @@ static const char *token_str[] = {
 	[TK_M_IMPORT_PROG] =		"M IMPORT_PROG",
 	[TK_M_IMPORT_PARENT] =		"M MPORT_PARENT",
 	[TK_M_RESULT] =			"M RESULT",
+	[TK_M_MAX] =			"M MAX",
 
 	[TK_A_IGNORE_DEVICE] =		"A IGNORE_DEVICE",
 	[TK_A_STRING_ESCAPE_NONE] =	"A STRING_ESCAPE_NONE",
@@ -168,7 +189,8 @@ struct token {
 			unsigned int filename_off;
 		} rule;
 		struct {
-			enum operation_type op;
+			unsigned short op;
+			unsigned short glob;
 			unsigned int value_off;
 			union {
 				unsigned int attr_off;
@@ -339,7 +361,7 @@ static gid_t add_gid(struct udev_rules *rules, const char *group)
 		off = rules->gids[i].name_off;
 		if (strcmp(&rules->buf[off], group) == 0) {
 			gid = rules->gids[i].gid;
-			info(rules->udev, "return existing %u for '%s'\n", gid, group);
+			dbg(rules->udev, "return existing %u for '%s'\n", gid, group);
 			return gid;
 		}
 	}
@@ -661,13 +683,14 @@ static int get_key(struct udev *udev, char **line, char **key, enum operation_ty
 	if (linepos[0] == '\0')
 		return -1;
 
-	/* get the value*/
+	/* get the value */
 	if (linepos[0] == '"')
 		linepos++;
 	else
 		return -1;
 	*value = linepos;
 
+	/* terminate */
 	temp = strchr(linepos, '"');
 	if (!temp)
 		return -1;
@@ -707,7 +730,9 @@ static int rule_add_token(struct rule_tmp *rule_tmp, enum token_type type,
 {
 	struct token *token = &rule_tmp->token[rule_tmp->token_cur];
 	const char *attr = data;
-	mode_t mode = 0000;
+	enum string_glob_type glob;
+
+	memset(token, 0x00, sizeof(struct token));
 
 	switch (type) {
 	case TK_M_ACTION:
@@ -743,10 +768,9 @@ static int rule_add_token(struct rule_tmp *rule_tmp, enum token_type type,
 		token->key.attr_off = add_string(rule_tmp->rules, attr);
 		break;
 	case TK_M_TEST:
-		if (data != NULL)
-			mode = *(mode_t *)data;
 		token->key.value_off = add_string(rule_tmp->rules, value);
-		token->key.mode = mode;
+		if (data != NULL)
+			token->key.mode = *(mode_t *)data;
 		break;
 	case TK_A_IGNORE_DEVICE:
 	case TK_A_STRING_ESCAPE_NONE:
@@ -778,13 +802,39 @@ static int rule_add_token(struct rule_tmp *rule_tmp, enum token_type type,
 		break;
 	case TK_RULE:
 	case TK_M_PARENTS_MAX:
+	case TK_M_MAX:
 	case TK_END:
-	case TK_UNDEF:
+	case TK_UNSET:
 		err(rule_tmp->rules->udev, "wrong type %u\n", type);
 		return -1;
 	}
+
+	glob = GL_PLAIN;
+	if (value != NULL) {
+		if (type < TK_M_MAX) {
+			/* check if we need to split or call fnmatch() while matching rules */
+			int has_split = 0;
+			int has_glob = 0;
+
+			has_split = (strchr(value, '|') != NULL);
+			has_glob = (strchr(value, '*') != NULL || strchr(value, '?') != NULL ||
+				    strchr(value, '[') != NULL || strchr(value, ']') != NULL);
+			if (has_split && has_glob)
+				glob = GL_SPLIT_GLOB;
+			else if (has_split)
+				glob = GL_SPLIT;
+			else if (has_glob)
+				glob = GL_GLOB;
+		} else {
+			/* check if we need to substitute format strings for matching rules */
+			if (strchr(value, '%') != NULL || strchr(value, '$') != NULL)
+				glob = GL_FORMAT;
+		}
+	}
+
 	token->type = type;
 	token->key.op = op;
+	token->key.glob = glob;
 	rule_tmp->token_cur++;
 	if (rule_tmp->token_cur >= ARRAY_SIZE(rule_tmp->token)) {
 		err(rule_tmp->rules->udev, "temporary rule array too small\n");
@@ -798,6 +848,7 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 {
 	enum token_type type = token->type;
 	enum operation_type op = token->key.op;
+	enum string_glob_type glob = token->key.glob;
 	const char *value = &rules->buf[token->key.value_off];
 	const char *attr = &rules->buf[token->key.attr_off];
 
@@ -837,14 +888,16 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 	case TK_A_GROUP:
 	case TK_A_MODE:
 	case TK_A_RUN:
-		dbg(rules->udev, "%s %s '%s'\n", token_str[type], operation_str[op], value);
+		dbg(rules->udev, "%s %s '%s'(%s)\n",
+		    token_str[type], operation_str[op], value, string_glob_str[glob]);
 		break;
 	case TK_M_ATTR:
 	case TK_M_ATTRS:
 	case TK_M_ENV:
 	case TK_A_ATTR:
 	case TK_A_ENV:
-		dbg(rules->udev, "%s %s '%s' '%s'\n", token_str[type], operation_str[op], attr, value);
+		dbg(rules->udev, "%s %s '%s' '%s'(%s)\n",
+		    token_str[type], operation_str[op], attr, value, string_glob_str[glob]);
 		break;
 	case TK_A_IGNORE_DEVICE:
 	case TK_A_STRING_ESCAPE_NONE:
@@ -854,7 +907,8 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 		dbg(rules->udev, "%s\n", token_str[type]);
 		break;
 	case TK_M_TEST:
-		dbg(rules->udev, "%s %s '%s' %#o\n", token_str[type], operation_str[op], value, token->key.mode);
+		dbg(rules->udev, "%s %s '%s'(%s) %#o\n",
+		    token_str[type], operation_str[op], value, string_glob_str[glob], token->key.mode);
 		break;
 	case TK_A_NUM_FAKE_PART:
 		dbg(rules->udev, "%s %u\n", token_str[type], token->key.num_fake_part);
@@ -881,7 +935,7 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 		dbg(rules->udev, "* %s\n", token_str[type]);
 		break;
 	case TK_M_PARENTS_MAX:
-	case TK_UNDEF:
+	case TK_UNSET:
 		dbg(rules->udev, "unknown type %u\n", type);
 		break;
 	}
@@ -911,15 +965,15 @@ static int sort_token(struct udev_rules *rules, struct rule_tmp *rule_tmp)
 	unsigned int end = rule_tmp->token_cur;
 
 	for (i = 0; i < rule_tmp->token_cur; i++) {
-		enum token_type next_val = TK_UNDEF;
+		enum token_type next_val = TK_UNSET;
 		unsigned int next_idx;
 		unsigned int j;
 
 		/* find smallest value */
 		for (j = start; j < end; j++) {
-			if (rule_tmp->token[j].type == TK_UNDEF)
+			if (rule_tmp->token[j].type == TK_UNSET)
 				continue;
-			if (next_val == TK_UNDEF || rule_tmp->token[j].type < next_val) {
+			if (next_val == TK_UNSET || rule_tmp->token[j].type < next_val) {
 				next_val = rule_tmp->token[j].type;
 				next_idx = j;
 			}
@@ -928,7 +982,7 @@ static int sort_token(struct udev_rules *rules, struct rule_tmp *rule_tmp)
 		/* add token and mark done */
 		if (add_token(rules, &rule_tmp->token[next_idx]) != 0)
 			return -1;
-		rule_tmp->token[next_idx].type = TK_UNDEF;
+		rule_tmp->token[next_idx].type = TK_UNSET;
 
 		/* shrink range */
 		if (next_idx == start)
@@ -957,7 +1011,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 	while (1) {
 		char *key;
 		char *value;
-		enum operation_type op = OP_UNSET;
+		enum operation_type op;
 
 		if (get_key(rules->udev, &linepos, &key, &op, &value) != 0)
 			break;
@@ -1655,26 +1709,56 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 	if (val == NULL)
 		val = "";
 
-	/* look for a matching string, parts are separated by '|' */
-	if (strchr(key_value, '|') != NULL) {
-		char value[UTIL_PATH_SIZE];
-
-		util_strlcpy(value, &rules->buf[token->key.value_off], sizeof(value));
-		key_value = value;
-		while (key_value != NULL) {
-			pos = strchr(key_value, '|');
-			if (pos != NULL) {
-				pos[0] = '\0';
-				pos = &pos[1];
-			}
-			dbg(rules->udev, "match %s '%s' <-> '%s'\n", key_name, key_value, val);
-			match = (fnmatch(key_value, val, 0) == 0);
-			if (match)
-				break;
-			key_value = pos;
-		}
-	} else {
+	switch (token->key.glob) {
+	case GL_PLAIN:
+		match = (strcmp(key_value, val) == 0);
+		break;
+	case GL_GLOB:
 		match = (fnmatch(key_value, val, 0) == 0);
+		break;
+	case GL_SPLIT:
+		{
+			char value[UTIL_PATH_SIZE];
+
+			util_strlcpy(value, &rules->buf[token->key.value_off], sizeof(value));
+			key_value = value;
+			while (key_value != NULL) {
+				pos = strchr(key_value, '|');
+				if (pos != NULL) {
+					pos[0] = '\0';
+					pos = &pos[1];
+				}
+				dbg(rules->udev, "match %s '%s' <-> '%s'\n", key_name, key_value, val);
+				match = (strcmp(key_value, val) == 0);
+				if (match)
+					break;
+				key_value = pos;
+			}
+			break;
+		}
+	case GL_SPLIT_GLOB:
+		{
+			char value[UTIL_PATH_SIZE];
+
+			util_strlcpy(value, &rules->buf[token->key.value_off], sizeof(value));
+			key_value = value;
+			while (key_value != NULL) {
+				pos = strchr(key_value, '|');
+				if (pos != NULL) {
+					pos[0] = '\0';
+					pos = &pos[1];
+				}
+				dbg(rules->udev, "match %s '%s' <-> '%s'\n", key_name, key_value, val);
+				match = (fnmatch(key_value, val, 0) == 0);
+				if (match)
+					break;
+				key_value = pos;
+			}
+			break;
+		}
+	case GL_FORMAT:
+	case GL_UNSET:
+		return -1;
 	}
 
 	if (match && (token->key.op == OP_MATCH)) {
@@ -2217,8 +2301,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			break;
 
 		case TK_M_PARENTS_MAX:
+		case TK_M_MAX:
 		case TK_END:
-		case TK_UNDEF:
+		case TK_UNSET:
 			err(rules->udev, "wrong type %u\n", cur->type);
 			goto nomatch;
 		}
