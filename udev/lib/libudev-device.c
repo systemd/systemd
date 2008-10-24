@@ -1091,11 +1091,9 @@ ssize_t udev_device_get_properties_monitor_buf(struct udev_device *udev_device, 
 				return -EINVAL;
 			bufpos += len+1;
 		}
-printf("created buf %p, size %zu '%s'\n", udev_device->monitor_buf, bufpos, udev_device->monitor_buf);
 		udev_device->monitor_buf_len = bufpos;
 	}
 	*buf = udev_device->monitor_buf;
-printf("return buf %p, size %zu '%s'\n", *buf, udev_device->monitor_buf_len, *buf);
 	return udev_device->monitor_buf_len;
 }
 
