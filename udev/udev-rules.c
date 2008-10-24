@@ -65,6 +65,7 @@ enum string_glob_type {
 	GL_FORMAT,
 };
 
+#ifdef DEBUG
 static const char *string_glob_str[] = {
 	[GL_UNSET] = 		"UNSET",
 	[GL_PLAIN] = 		"plain",
@@ -74,6 +75,7 @@ static const char *string_glob_str[] = {
 	[GL_SOMETHING] = 	"split-glob",
 	[GL_FORMAT] = 		"format",
 };
+#endif
 
 /* tokens of a rule are sorted/handled in this order */
 enum token_type {
@@ -941,6 +943,7 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 		dbg(rules->udev, "* %s\n", token_str[type]);
 		break;
 	case TK_M_PARENTS_MAX:
+	case TK_M_MAX:
 	case TK_UNSET:
 		dbg(rules->udev, "unknown type %u\n", type);
 		break;
@@ -1707,7 +1710,6 @@ void udev_rules_unref(struct udev_rules *rules)
 
 static int match_key(struct udev_rules *rules, struct token *token, const char *val)
 {
-	const char *key_name = token_str[token->type];
 	char *key_value = &rules->buf[token->key.value_off];
 	char *pos;
 	int match = 0;
@@ -1734,7 +1736,7 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 					pos[0] = '\0';
 					pos = &pos[1];
 				}
-				dbg(rules->udev, "match %s '%s' <-> '%s'\n", key_name, key_value, val);
+				dbg(rules->udev, "match %s '%s' <-> '%s'\n", token_str[token->type], key_value, val);
 				match = (strcmp(key_value, val) == 0);
 				if (match)
 					break;
@@ -1754,7 +1756,7 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 					pos[0] = '\0';
 					pos = &pos[1];
 				}
-				dbg(rules->udev, "match %s '%s' <-> '%s'\n", key_name, key_value, val);
+				dbg(rules->udev, "match %s '%s' <-> '%s'\n", token_str[token->type], key_value, val);
 				match = (fnmatch(key_value, val, 0) == 0);
 				if (match)
 					break;
@@ -1771,14 +1773,14 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 	}
 
 	if (match && (token->key.op == OP_MATCH)) {
-		dbg(rules->udev, "%s is true (matching value)\n", key_name);
+		dbg(rules->udev, "%s is true (matching value)\n", token_str[token->type]);
 		return 0;
 	}
 	if (!match && (token->key.op == OP_NOMATCH)) {
-		dbg(rules->udev, "%s is true (non-matching value)\n", key_name);
+		dbg(rules->udev, "%s is true (non-matching value)\n", token_str[token->type]);
 		return 0;
 	}
-	dbg(rules->udev, "%s is not true\n", key_name);
+	dbg(rules->udev, "%s is not true\n", token_str[token->type]);
 	return -1;
 }
 
