@@ -1794,10 +1794,11 @@ static int match_attr(struct udev_rules *rules, struct udev_device *dev, struct 
 	char attr[UTIL_PATH_SIZE];
 	const char *key_name = &rules->buf[cur->key.attr_off];
 	const char *key_value = &rules->buf[cur->key.value_off];
-	char value[UTIL_NAME_SIZE] = "";
+	char value[UTIL_NAME_SIZE];
 	size_t len;
 
 	util_strlcpy(attr, key_name, sizeof(attr));
+	util_strlcpy(value, "", sizeof(value));
 	util_resolve_subsys_kernel(event->udev, attr, value, sizeof(value), 1);
 	if (value[0] == '\0') {
 		const char *val;
