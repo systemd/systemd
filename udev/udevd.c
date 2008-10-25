@@ -310,26 +310,24 @@ static int mem_size_mb(void)
 
 static int compare_devpath(const char *running, const char *waiting)
 {
-	int i;
+	int i = 0;
 
-	for (i = 0; i < UTIL_PATH_SIZE; i++) {
-		/* identical device event found */
-		if (running[i] == '\0' && waiting[i] == '\0')
-			return 1;
+	while (running[i] == waiting[i] && running[i] != '\0')
+		i++;
 
-		/* parent device event found */
-		if (running[i] == '\0' && waiting[i] == '/')
-			return 2;
+	/* identical device event found */
+	if (running[i] == '\0' && waiting[i] == '\0')
+		return 1;
 
-		/* child device event found */
-		if (running[i] == '/' && waiting[i] == '\0')
-			return 3;
+	/* parent device event found */
+	if (running[i] == '\0' && waiting[i] == '/')
+		return 2;
 
-		/* no matching event */
-		if (running[i] != waiting[i])
-			break;
-	}
+	/* child device event found */
+	if (running[i] == '/' && waiting[i] == '\0')
+		return 3;
 
+	/* no matching event */
 	return 0;
 }
 
