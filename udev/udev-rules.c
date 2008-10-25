@@ -1830,6 +1830,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 {
 	struct token *cur;
 	struct token *rule;
+	enum escape_type esc = ESCAPE_UNSET;
 
 	if (rules->tokens == NULL)
 		return -1;
@@ -1838,7 +1839,6 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 	cur = &rules->tokens[0];
 	rule = cur;
 	while (cur != NULL && cur->type != TK_END) {
-		enum escape_type esc = ESCAPE_UNSET;
 		unsigned int idx;
 
 		dump_token(rules, cur);
