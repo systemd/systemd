@@ -1726,21 +1726,26 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 		break;
 	case GL_SPLIT:
 		{
-			char value[UTIL_PATH_SIZE];
+			const char *split;
+			size_t len;
 
-			util_strlcpy(value, &rules->buf[token->key.value_off], sizeof(value));
-			key_value = value;
-			while (key_value != NULL) {
-				pos = strchr(key_value, '|');
-				if (pos != NULL) {
-					pos[0] = '\0';
-					pos = &pos[1];
-				}
-				dbg(rules->udev, "match %s '%s' <-> '%s'\n", token_str[token->type], key_value, val);
-				match = (strcmp(key_value, val) == 0);
-				if (match)
+			split = &rules->buf[token->key.value_off];
+			len = strlen(val);
+			while (1) {
+				const char *next;
+
+				next = strchr(split, '|');
+				if (next != NULL) {
+					size_t matchlen = (size_t)(next - split);
+
+					match = (matchlen == len && strncmp(split, val, matchlen) == 0);
+					if (match)
+						break;
+				} else {
+					match = (strcmp(split, val) == 0);
 					break;
-				key_value = pos;
+				}
+				split = &next[1];
 			}
 			break;
 		}

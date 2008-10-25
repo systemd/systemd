@@ -1451,6 +1451,31 @@ KERNEL=="dontknow*|ttyACM*|nothing*", NAME="right"
 EOF
 	},
 	{
+		desc		=> "test multi matches 3",
+		subsys		=> "tty",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
+		exp_name	=> "right",
+		rules		=> <<EOF
+KERNEL=="dontknow|nothing", NAME="nomatch"
+KERNEL=="dontknow|ttyACM0a|nothing|attyACM0", NAME="wrong1"
+KERNEL=="X|attyACM0|dontknow|ttyACM0a|nothing|attyACM0", NAME="wrong2"
+KERNEL=="dontknow|ttyACM0|nothing", NAME="right"
+EOF
+	},
+	{
+		desc		=> "test multi matches 4",
+		subsys		=> "tty",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
+		exp_name	=> "right",
+		rules		=> <<EOF
+KERNEL=="dontknow|nothing", NAME="nomatch"
+KERNEL=="dontknow|ttyACM0a|nothing|attyACM0", NAME="wrong1"
+KERNEL=="X|attyACM0|dontknow|ttyACM0a|nothing|attyACM0", NAME="wrong2"
+KERNEL=="all|dontknow|ttyACM0", NAME="right"
+KERNEL=="ttyACM0a|nothing", NAME="wrong3"
+EOF
+	},
+	{
 		desc		=> "IMPORT parent test sequence 1/2 (keep)",
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
