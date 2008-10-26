@@ -1,6 +1,6 @@
 # $Id$
 
-CFLAGS=-Wall -pipe -W -O2 -Wextra -Wno-unused-parameter
+CFLAGS=-Wall -pipe -W -O2 -Wextra -Wno-unused-parameter -fPIC
 VERSION=0.1
 
 libnss_myhostname.so.2: nss-myhostname.o
