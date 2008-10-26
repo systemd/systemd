@@ -1663,10 +1663,11 @@ EOF
 		exp_name	=> "sda-8741C4G-end",
 		exp_perms	=> "0:0:0660",
 		rules		=> <<EOF
+KERNEL=="sda", PROGRAM="/bin/true create-envp"
+KERNEL=="sda", ENV{TESTENV}="change-envp"
 KERNEL=="sda", NAME="%k-%s{[dmi/id]product_name}-end", RUN+="socket:@/org/kernel/udev/monitor"
 EOF
 	},
-
 );
 
 # set env

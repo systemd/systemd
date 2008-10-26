@@ -1025,8 +1025,8 @@ static int update_envp_monitor_buf(struct udev_device *udev_device)
 		return -ENOMEM;
 
 	/* envp array, strings will point into monitor buffer */
-	free(udev_device->envp);
-	udev_device->envp = malloc(sizeof(char *) * ENVP_SIZE);
+	if (udev_device->envp == NULL)
+		udev_device->envp = malloc(sizeof(char *) * ENVP_SIZE);
 	if (udev_device->envp == NULL)
 		return -ENOMEM;
 
