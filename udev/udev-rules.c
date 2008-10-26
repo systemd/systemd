@@ -1791,15 +1791,18 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 
 static int match_attr(struct udev_rules *rules, struct udev_device *dev, struct udev_event *event, struct token *cur)
 {
-	char attr[UTIL_PATH_SIZE];
 	const char *key_name = &rules->buf[cur->key.attr_off];
 	const char *key_value = &rules->buf[cur->key.value_off];
 	char value[UTIL_NAME_SIZE];
 	size_t len;
 
-	util_strlcpy(attr, key_name, sizeof(attr));
-	util_strlcpy(value, "", sizeof(value));
-	util_resolve_subsys_kernel(event->udev, attr, value, sizeof(value), 1);
+	value[0] = '\0';
+	if (key_name[0] == '[') {
+		char attr[UTIL_PATH_SIZE];
+
+		util_strlcpy(attr, key_name, sizeof(attr));
+		util_resolve_subsys_kernel(event->udev, attr, value, sizeof(value), 1);
+	}
 	if (value[0] == '\0') {
 		const char *val;
 
@@ -1807,7 +1810,7 @@ static int match_attr(struct udev_rules *rules, struct udev_device *dev, struct 
 		if (val != NULL)
 			util_strlcpy(value, val, sizeof(value));
 	}
-	if (value[0]=='\0')
+	if (value[0] == '\0')
 		return -1;
 
 	/* strip trailing whitespace of value, if not asked to match for it */
