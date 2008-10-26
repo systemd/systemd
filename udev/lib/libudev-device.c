@@ -1079,7 +1079,7 @@ static int update_envp_monitor_buf(struct udev_device *udev_device)
 char **udev_device_get_properties_envp(struct udev_device *udev_device)
 {
 	if (!udev_device->envp_uptodate)
-		if (update_envp_monitor_buf(udev_device) < 32)
+		if (update_envp_monitor_buf(udev_device) != 0)
 			return NULL;
 	return udev_device->envp;
 }
@@ -1087,7 +1087,7 @@ char **udev_device_get_properties_envp(struct udev_device *udev_device)
 ssize_t udev_device_get_properties_monitor_buf(struct udev_device *udev_device, const char **buf)
 {
 	if (!udev_device->envp_uptodate)
-		if (update_envp_monitor_buf(udev_device) < 32)
+		if (update_envp_monitor_buf(udev_device) != 0)
 			return -EINVAL;
 	*buf = udev_device->monitor_buf;
 	return udev_device->monitor_buf_len;

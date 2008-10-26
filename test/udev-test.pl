@@ -36,7 +36,7 @@ my @tests = (
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "boot_disk" ,
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", NAME="boot_disk%n"
+SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", NAME="boot_disk%n", RUN+="socket:@/org/kernel/udev/monitor"
 KERNEL=="ttyACM0", NAME="modem"
 EOF
 	},
@@ -1663,7 +1663,7 @@ EOF
 		exp_name	=> "sda-8741C4G-end",
 		exp_perms	=> "0:0:0660",
 		rules		=> <<EOF
-KERNEL=="sda", NAME="%k-%s{[dmi/id]product_name}-end"
+KERNEL=="sda", NAME="%k-%s{[dmi/id]product_name}-end", RUN+="socket:@/org/kernel/udev/monitor"
 EOF
 	},
 
