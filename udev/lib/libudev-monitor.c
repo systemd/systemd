@@ -54,7 +54,7 @@ struct udev_monitor {
  * socket will be used.
  *
  * The initial refcount is 1, and needs to be decremented to
- * release the ressources of the udev monitor.
+ * release the resources of the udev monitor.
  *
  * Returns: a new udev monitor, or #NULL, in case of an error
  **/
@@ -178,7 +178,7 @@ struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor)
  * @udev_monitor: udev monitor
  *
  * Drop a reference ofa udev monitor. If the refcount reaches zero,
- * the bound socket will be closed, and the ressources of the monitor
+ * the bound socket will be closed, and the resources of the monitor
  * will be released.
  *
  **/
@@ -233,11 +233,11 @@ int udev_monitor_get_fd(struct udev_monitor *udev_monitor)
  * device, fill in the received data, and return the device.
  *
  * Only socket connections with uid=0 are accepted. The caller
- * needs to make sure, that there is data to read from the socket,
- * the call will block until the socket becomes readable.
+ * needs to make sure that there is data to read from the socket.
+ * The call will block until the socket becomes readable.
  *
  * The initial refcount is 1, and needs to be decremented to
- * release the ressources of the udev device.
+ * release the resources of the udev device.
  *
  * Returns: a new udev device, or #NULL, in case of an error
  **/

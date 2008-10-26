@@ -266,7 +266,7 @@ struct udev_device *device_new(struct udev *udev)
  * path to the device, including the sys mount point.
  *
  * The initial refcount is 1, and needs to be decremented to
- * release the ressources of the udev device.
+ * release the resources of the udev device.
  *
  * Returns: a new udev device, or #NULL, if it does not exist
  **/
@@ -587,7 +587,7 @@ struct udev_device *udev_device_ref(struct udev_device *udev_device)
  * @udev_device: udev device
  *
  * Drop a reference of a udev device. If the refcount reaches zero,
- * the ressources of the device will be released.
+ * the resources of the device will be released.
  *
  **/
 void udev_device_unref(struct udev_device *udev_device)

@@ -85,7 +85,7 @@ void udev_set_userdata(struct udev *udev, void *userdata)
  * Create udev library context.
  *
  * The initial refcount is 1, and needs to be decremented to
- * release the ressources of the udev library context.
+ * release the resources of the udev library context.
  *
  * Returns: a new udev library context
  **/
@@ -267,7 +267,7 @@ struct udev *udev_ref(struct udev *udev)
  * @udev: udev library context
  *
  * Drop a reference of the udev library context. If the refcount
- * reaches zero, the ressources of the context will be released.
+ * reaches zero, the resources of the context will be released.
  *
  **/
 void udev_unref(struct udev *udev)
@@ -290,9 +290,9 @@ void udev_unref(struct udev *udev)
  * @udev: udev library context
  * @log_fn: function to be called for logging messages
  *
- * The built-in logging, which writes to stderr, it can be
+ * The built-in logging writes to stderr. It can be
  * overridden by a custom function, to plug log messages
- * into the users logging functionality.
+ * into the users' logging functionality.
  *
  **/
 void udev_set_log_fn(struct udev *udev,
