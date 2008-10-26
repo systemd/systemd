@@ -31,8 +31,6 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
-#define ENVP_SIZE 128
-
 struct udev_device {
 	struct udev *udev;
 	struct udev_device *parent_device;
@@ -42,11 +40,11 @@ struct udev_device {
 	const char *sysnum;
 	char *devnode;
 	char *subsystem;
-	char **envp;
 	char *driver;
 	char *action;
 	char *devpath_old;
 	char *physdevpath;
+	char **envp;
 	char *monitor_buf;
 	size_t monitor_buf_len;
 	struct udev_list_node devlinks_list;
@@ -594,8 +592,6 @@ struct udev_device *udev_device_ref(struct udev_device *udev_device)
  **/
 void udev_device_unref(struct udev_device *udev_device)
 {
-	unsigned int i;
-
 	if (udev_device == NULL)
 		return;
 	udev_device->refcount--;
@@ -614,11 +610,7 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->devpath_old);
 	free(udev_device->physdevpath);
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->sysattr_list);
-	if (udev_device->envp != NULL) {
-		for (i = 0; i < ENVP_SIZE && udev_device->envp[i] != NULL; i++)
-			free(udev_device->envp[i]);
-		free(udev_device->envp);
-	}
+	free(udev_device->envp);
 	free(udev_device->monitor_buf);
 	info(udev_device->udev, "udev_device: %p released\n", udev_device);
 	free(udev_device);
@@ -986,7 +978,6 @@ int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink
 
 struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
 {
-	udev_device->monitor_buf_len = 0;
 	udev_device->envp_uptodate = 0;
 	if (value == NULL) {
 		struct udev_list_entry *list_entry;
@@ -1016,83 +1007,88 @@ struct udev_list_entry *udev_device_add_property_from_string(struct udev_device 
 	return udev_device_add_property(udev_device, name, val);
 }
 
-char **udev_device_get_properties_envp(struct udev_device *udev_device)
-{
-	if (!udev_device->envp_uptodate) {
-		unsigned int i;
-		struct udev_list_entry *list_entry;
-
-		if (udev_device->envp != NULL) {
-			for (i = 0; i < ENVP_SIZE && udev_device->envp[i] != NULL; i++)
-				free(udev_device->envp[i]);
-		} else {
-			udev_device->envp = malloc(sizeof(char *) * ENVP_SIZE);
-		}
-
-		i = 0;
-		udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
-			asprintf(&udev_device->envp[i++], "%s=%s",
-				 udev_list_entry_get_name(list_entry),
-				 udev_list_entry_get_value(list_entry));
-			if (i+1 >= ENVP_SIZE)
-				break;
-		}
-		udev_device->envp[i] = NULL;
-		info(udev_device->udev, "constructed envp from %u properties\n", i);
-		udev_device->envp_uptodate = 1;
-	}
-	return udev_device->envp;
-}
-
+#define ENVP_SIZE			128
 #define MONITOR_BUF_SIZE		4096
-ssize_t udev_device_get_properties_monitor_buf(struct udev_device *udev_device, const char **buf)
+static int update_envp_monitor_buf(struct udev_device *udev_device)
 {
-	if (udev_device->monitor_buf_len == 0) {
-		const char *action;
-		struct udev_list_entry *list_entry;
-		size_t bufpos;
-		size_t len;
+	const char *action;
+	struct udev_list_entry *list_entry;
+	size_t bufpos;
+	size_t len;
+	unsigned int i;
 
-		free(udev_device->monitor_buf);
-		udev_device->monitor_buf = malloc(MONITOR_BUF_SIZE);
-		if (udev_device->monitor_buf == NULL)
-			return -ENOMEM;
+	/* monitor buffer of property strings */
+	free(udev_device->monitor_buf);
+	udev_device->monitor_buf_len = 0;
+	udev_device->monitor_buf = malloc(MONITOR_BUF_SIZE);
+	if (udev_device->monitor_buf == NULL)
+		return -ENOMEM;
 
-		/* header <action>@<devpath> */
-		action = udev_device_get_action(udev_device);
-		if (action == NULL)
+	/* envp array, strings will point into monitor buffer */
+	free(udev_device->envp);
+	udev_device->envp = malloc(sizeof(char *) * ENVP_SIZE);
+	if (udev_device->envp == NULL)
+		return -ENOMEM;
+
+	/* header <action>@<devpath> */
+	action = udev_device_get_action(udev_device);
+	if (action == NULL)
+		return -EINVAL;
+	bufpos = util_strlcpy(udev_device->monitor_buf, action, MONITOR_BUF_SIZE);
+	len = util_strlcpy(&udev_device->monitor_buf[bufpos], "@", MONITOR_BUF_SIZE-bufpos);
+	if (len >= MONITOR_BUF_SIZE-bufpos)
+		return -EINVAL;
+	bufpos += len;
+	len = util_strlcpy(&udev_device->monitor_buf[bufpos],
+			   udev_device_get_devpath(udev_device),
+			   MONITOR_BUF_SIZE-bufpos);
+	if (len+1 >= MONITOR_BUF_SIZE-bufpos)
+		return -EINVAL;
+	bufpos += len+1;
+
+	i = 0;
+	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
+		/* add string to envp array */
+		udev_device->envp[i++] = &udev_device->monitor_buf[bufpos];
+		if (i+1 >= ENVP_SIZE)
 			return -EINVAL;
-		bufpos = util_strlcpy(udev_device->monitor_buf, action, MONITOR_BUF_SIZE);
-		len = util_strlcpy(&udev_device->monitor_buf[bufpos], "@", MONITOR_BUF_SIZE-bufpos);
+
+		/* add property string to monitor buffer */
+		len = util_strlcpy(&udev_device->monitor_buf[bufpos],
+				   udev_list_entry_get_name(list_entry), MONITOR_BUF_SIZE-bufpos);
 		if (len >= MONITOR_BUF_SIZE-bufpos)
 			return -EINVAL;
 		bufpos += len;
-		len = util_strlcpy(&udev_device->monitor_buf[bufpos],
-				   udev_device_get_devpath(udev_device),
+		len = util_strlcpy(&udev_device->monitor_buf[bufpos], "=", MONITOR_BUF_SIZE-bufpos);
+		if (len >= MONITOR_BUF_SIZE-bufpos)
+			return -EINVAL;
+		bufpos += len;
+		len = util_strlcpy(&udev_device->monitor_buf[bufpos], udev_list_entry_get_value(list_entry),
 				   MONITOR_BUF_SIZE-bufpos);
 		if (len+1 >= MONITOR_BUF_SIZE-bufpos)
 			return -EINVAL;
 		bufpos += len+1;
-
-		/* property strings */
-		udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
-			len = util_strlcpy(&udev_device->monitor_buf[bufpos],
-					   udev_list_entry_get_name(list_entry), MONITOR_BUF_SIZE-bufpos);
-			if (len >= MONITOR_BUF_SIZE-bufpos)
-				return -EINVAL;
-			bufpos += len;
-			len = util_strlcpy(&udev_device->monitor_buf[bufpos], "=", MONITOR_BUF_SIZE-bufpos);
-			if (len >= MONITOR_BUF_SIZE-bufpos)
-				return -EINVAL;
-			bufpos += len;
-			len = util_strlcpy(&udev_device->monitor_buf[bufpos], udev_list_entry_get_value(list_entry),
-					   MONITOR_BUF_SIZE-bufpos);
-			if (len+1 >= MONITOR_BUF_SIZE-bufpos)
-				return -EINVAL;
-			bufpos += len+1;
-		}
-		udev_device->monitor_buf_len = bufpos;
 	}
+	udev_device->envp[i] = NULL;
+	udev_device->monitor_buf_len = bufpos;
+	udev_device->envp_uptodate = 1;
+	info(udev_device->udev, "filled envp/monitor buffer, %u properties, %zu bytes\n", i, bufpos);
+	return 0;
+}
+
+char **udev_device_get_properties_envp(struct udev_device *udev_device)
+{
+	if (!udev_device->envp_uptodate)
+		if (update_envp_monitor_buf(udev_device) < 32)
+			return NULL;
+	return udev_device->envp;
+}
+
+ssize_t udev_device_get_properties_monitor_buf(struct udev_device *udev_device, const char **buf)
+{
+	if (!udev_device->envp_uptodate)
+		if (update_envp_monitor_buf(udev_device) < 32)
+			return -EINVAL;
 	*buf = udev_device->monitor_buf;
 	return udev_device->monitor_buf_len;
 }
