@@ -143,7 +143,7 @@ exit:
 static int node_symlink(struct udev *udev, const char *node, const char *slink)
 {
 	struct stat stats;
-	char target[UTIL_PATH_SIZE] = "";
+	char target[UTIL_PATH_SIZE];
 	char slink_tmp[UTIL_PATH_SIZE + sizeof(TMP_FILE_EXT)];
 	int i = 0;
 	int tail = 0;
@@ -151,6 +151,7 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 	int err = 0;
 
 	/* use relative link */
+	target[0] = '\0';
 	while (node[i] && (node[i] == slink[i])) {
 		if (node[i] == '/')
 			tail = i+1;
@@ -272,7 +273,7 @@ static int update_link(struct udev_device *dev, const char *slink, int test)
 	struct udev *udev = udev_device_get_udev(dev);
 	struct udev_list_node dev_list;
 	struct udev_list_entry *dev_entry;
-	char target[UTIL_PATH_SIZE] = "";
+	char target[UTIL_PATH_SIZE];
 	int count;
 	int priority = 0;
 	int rc = 0;
@@ -294,6 +295,7 @@ static int update_link(struct udev_device *dev, const char *slink, int test)
 	}
 
 	/* find the device with the highest priority */
+	target[0] = '\0';
 	udev_list_entry_foreach(dev_entry, udev_list_get_entry(&dev_list)) {
 		const char *syspath;
 		struct udev_device *dev_db;

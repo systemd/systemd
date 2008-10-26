@@ -291,9 +291,10 @@ found:
 				err(event->udev, "missing file parameter for attr\n");
 			else {
 				const char *val;
-				char value[UTIL_NAME_SIZE] = "";
+				char value[UTIL_NAME_SIZE];
 				size_t size;
 
+				value[0] = '\0';
 				util_resolve_subsys_kernel(event->udev, attr, value, sizeof(value), 1);
 
 				val = udev_device_get_sysattr_value(event->dev, attr);

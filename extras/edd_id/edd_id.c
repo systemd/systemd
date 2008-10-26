@@ -45,9 +45,9 @@ int main(int argc, char *argv[])
 	int sysfs_fd;
 	DIR *dir = NULL;
 	int rc = 1;
-	char match[NAME_MAX] = "";
+	char match[NAME_MAX];
 
-		udev = udev_new();
+	udev = udev_new();
 	if (udev == NULL)
 		goto exit;
 
@@ -124,6 +124,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* lookup signature in sysfs to determine the name */
+	match[0] = '\0';
 	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
 		char file[UTIL_PATH_SIZE];
 		char sysfs_id_buf[256];

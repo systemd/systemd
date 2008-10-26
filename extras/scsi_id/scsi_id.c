@@ -579,8 +579,9 @@ static int scsi_id(struct udev *udev, char *maj_min_dev)
 	struct scsi_id_device dev_scsi;
 	int good_dev;
 	int page_code;
-	char serial_short[MAX_SERIAL_LEN] = "";
+	char serial_short[MAX_SERIAL_LEN];
 
+	serial_short[0] = '\0';
 	set_inq_values(udev, &dev_scsi, maj_min_dev);
 
 	/* get per device (vendor + model) options from the config file */

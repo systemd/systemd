@@ -547,11 +547,12 @@ static int wait_for_file(struct udev_device *dev, const char *file, int timeout)
 {
 	struct udev *udev = udev_device_get_udev(dev);
 	char filepath[UTIL_PATH_SIZE];
-	char devicepath[UTIL_PATH_SIZE] = "";
+	char devicepath[UTIL_PATH_SIZE];
 	struct stat stats;
 	int loop = timeout * WAIT_LOOP_PER_SECOND;
 
 	/* a relative path is a device attribute */
+	devicepath[0] = '\0';
 	if (file[0] != '/') {
 		util_strlcpy(devicepath, udev_get_sys_path(udev), sizeof(devicepath));
 		util_strlcat(devicepath, udev_device_get_devpath(dev), sizeof(devicepath));
