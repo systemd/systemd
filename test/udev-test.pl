@@ -1656,6 +1656,16 @@ KERNEL=="sda", MODE="440"
 KERNEL=="sda", PROGRAM=="/bin/echo 0 0 0400letsdoabuffferoverflow0123456789012345789012345678901234567890", OWNER="%c{1}", GROUP="%c{2}", MODE="%c{3}"
 EOF
 	},
+	{
+		desc		=> "magic [subsys/sysname] attribute substitution",
+		subsys		=> "block",
+		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+		exp_name	=> "sda-8741C4G-end",
+		exp_perms	=> "0:0:0660",
+		rules		=> <<EOF
+KERNEL=="sda", NAME="%k-%s{[dmi/id]product_name}-end"
+EOF
+	},
 
 );
 

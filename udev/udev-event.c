@@ -295,13 +295,17 @@ found:
 				size_t size;
 
 				value[0] = '\0';
+				/* read the value specified by [usb/]*/
 				util_resolve_subsys_kernel(event->udev, attr, value, sizeof(value), 1);
 
-				val = udev_device_get_sysattr_value(event->dev, attr);
-				if (val != NULL)
-					util_strlcpy(value, val, sizeof(value));
+				/* try to read attribute of the current device */
+				if (value[0] == '\0') {
+					val = udev_device_get_sysattr_value(event->dev, attr);
+					if (val != NULL)
+						util_strlcpy(value, val, sizeof(value));
+				}
 
-				/* try the current device, other matches may have selected */
+				/* try to read the attribute of the parent device, other matches have selected */
 				if (value[0] == '\0' && event->dev_parent != NULL && event->dev_parent != event->dev) {
 					val = udev_device_get_sysattr_value(event->dev_parent, attr);
 					if (val != NULL)
