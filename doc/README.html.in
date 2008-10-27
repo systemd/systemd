@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="iso-8859-1"?> <!-- -*-html-helper-*- -->
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<title>nss-myhostname @PACKAGE_VERSION@</title>
+<link rel="stylesheet" type="text/css" href="style.css" />
+</head>
+
+<body>
+<h1><a name="top">nss-myhostname @PACKAGE_VERSION@</a></h1>
+
+<p><i>Copyright 2005-2008 Lennart Poettering &lt;@PACKAGE_BUGREPORT@&gt;</i></p>
+
+<ul class="toc">
+    <li><a href="#license">License</a></li>
+    <li><a href="#news">News</a></li>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#status">Current Status</a></li>
+    <li><a href="#documentation">Documentation</a></li>
+    <li><a href="#requirements">Requirements</a></li>
+    <li><a href="#installation">Installation</a></li>
+    <li><a href="#acks">Acknowledgements</a></li>
+    <li><a href="#download">Download</a></li>
+</ul>
+
+<h2><a name="license">License</a></h2>
+
+<p>This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public License as
+published by the Free Software Foundation, either version 2.1 of the
+License, or (at your option) any later version.</p>
+
+<p>This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Lesser General Public License for more details.</p>
+
+<h2><a name="news">News</a></h2>
+
+<div class="news-date">Mon Oct 27 2008: </div>
+
+<p class="news-text"><a
+href="@PACKAGE_URL@nss-myhostname-0.2.tar.gz">Version 0.2</a>
+released. Changes include: Update for IPv6 and newest glibc NSS interfaces</p>
+
+<div class="news-date">Sat Nov 19 2005: </div>
+
+<p class="news-text"><a
+href="@PACKAGE_URL@nss-myhostname-0.1.tar.gz">Version 0.1</a>
+released. Initial release.</p>
+
+<h2><a name="overview">Overview</a></h2>
+
+<p><tt>nss-myhostname</tt> is a plugin for the GNU Name Service Switch
+(NSS) functionality of the GNU C Library (<tt>glibc</tt>) providing
+host name resolution for the locally configured system hostname as
+returned by <tt>gethostname(2)</tt>. A lot of software relies on that the
+local host name is resolvable via DNS to an IPv4 or IPv6 address. When
+using dynamic hostnames this is usually achieved by
+patching <tt>/etc/hosts</tt> which however is suboptimal since it
+requires a writable <tt>/etc</tt> file system and is fragile because
+the file might also be edited by the
+administrator. <tt>nss-myhostname</tt> simply returns the IPv4
+address <tt>127.0.0.2</tt> (wich is on the local loopback) and the
+IPv6 address <tt>::1</tt> (which is the local host) for whatever
+system hostname is configured locally. Patching <tt>/etc/hostname</tt> is thus no longer necessary.</p>
+
+<h2><a name="status">Current Status</a></h2>
+
+<p>It works!</p>
+
+<h2><a name="documentation">Documentation</a></h2>
+
+<p>After compiling and installing <tt>nss-myhostname</tt> you'll find a
+new NSS modules in <tt>/lib</tt>:</p>
+<ul>
+<li><tt>libnss_myhostname.so.2</tt></li>
+</ul>
+
+<p>To activate the NSS modules you have to edit
+<tt>/etc/nsswitch.conf</tt> and add <tt>myhostname</tt> to the
+line starting with "<tt>hosts:</tt>". On Debian this looks like
+this:</p>
+
+<pre># /etc/nsswitch.conf
+
+passwd:         compat
+group:          compat
+shadow:         compat
+
+hosts:          files dns <b>myhostname</b>
+networks:       files
+
+protocols:      db files
+services:       db files
+ethers:         db files
+rpc:            db files
+
+netgroup:       nis</pre>
+
+<p>That's it. You should now always be able to resolve your local
+system hostname. For a quick check
+use <tt>glibc</tt>'s <tt>getent</tt> tool:
+
+<pre>$ getent ahosts `hostname`
+::1             STREAM omega
+::1             DGRAM
+::1             RAW
+127.0.0.2       STREAM
+127.0.0.2       DGRAM
+127.0.0.2       RAW
+</pre>
+
+<p>In this case the local host name is <i>omega</i>.</p>
+
+<p>It is recommended to put <tt>myhostname</tt> last in
+the <tt>nsswitch.conf</tt> line to make sure that this mapping is only
+used as fallback, and any DNS or <tt>/etc/hosts</tt> based mapping takes
+precedence.</p>
+
+<h2><a name="requirements">Requirements</a></h2>
+
+<p><tt>nss-myhostname</tt> uses NSS interfaces that are specific to modern <tt>glibc</tt>'s.</p>
+
+<p><tt>nss-myhostname</tt> was developed and tested on Fedora 10
+from October 2008, it should work on most other Linux
+distributions since it uses GNU autoconf and
+GNU libtool for source code configuration and shared library
+management.</p>
+
+<h2><a name="installation">Installation</a></h2>
+
+<p>As this package is made with the GNU autotools you should run
+<tt>./configure</tt> inside the distribution directory for configuring
+the source tree. After that you should run <tt>make</tt> for
+compilation and <tt>make install</tt> (as root) for installation of
+<tt>nss-myhostname</tt>.</p>
+
+<h2><a name="acks">Acknowledgements</a></h2>
+
+<p>None so far.</p>
+
+<h2><a name="download">Download</a></h2>
+
+<p>The newest release is always available from <a href="@PACKAGE_URL@">@PACKAGE_URL@</a></p>
+
+<p>The current release is <a href="@PACKAGE_URL@nss-myhostname-@PACKAGE_VERSION@.tar.gz">@PACKAGE_VERSION@</a></p>
+
+<p>Get <tt>nss-myhostname</tt>'s development sources from the <a href="http://git.or.cz/">GIT</a> <a href="git://git.0pointer.de/nss-myhostname">repository</a> (<a href="http://git.0pointer.de/?p=nss-myhostname.git">gitweb</a>): </p>
+
+<pre>git clone git://git.0pointer.de/nss-myhostname</pre>
+
+<hr/>
+<address class="grey">Lennart Poettering &lt;@PACKAGE_BUGREPORT@&gt;, October 2008</address>
+
+</body>
+</html>

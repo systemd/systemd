@@ -1,6 +1,5 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
-
 /***
     This file is part of nss-myhostname.
 
@@ -20,6 +19,10 @@
     License along with nss-myhostname. If not, If not, see
     <http://www.gnu.org/licenses/>.
 ***/
+
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <limits.h>
 #include <nss.h>
