@@ -1,6 +1,21 @@
 udev 131
 ========
-Bugfixes.
+Bugfixes. (And probably new bugs. :))
+
+The rule matching engine got converted from a rule list to a token
+array which reduced the in-memory rules representation of a full
+featured distros with thousends of rules from 1.2MB to 0.17 MB.
+
+The limit of 5 ENV and ATTR matches, and a single instance for most
+other keys per rule is gone with the new parser.
+
+The NAME assignment is no longer special cased. If later rules assign
+a NAME value again, the former value will be overwritten. As usual
+for most other keys, the NAME value can be protected by doing a final
+assignment with NAME:="<value>".
+
+Many thanks to Alan Jenkins for finding and optimizing some of the
+computing expensive parts.
 
 udev 130
 ========
