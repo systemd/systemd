@@ -1843,7 +1843,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 	/* loop through token list, match, run actions or forward to next rule */
 	cur = &rules->tokens[0];
 	rule = cur;
-	while (cur != NULL && cur->type != TK_END) {
+	while (1) {
 		unsigned int idx;
 
 		dump_token(rules, cur);
@@ -2319,11 +2319,11 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			cur = &rules->tokens[cur->key.rule_goto];
 			continue;
 		case TK_A_LAST_RULE:
+		case TK_END:
 			break;
 
 		case TK_M_PARENTS_MAX:
 		case TK_M_MAX:
-		case TK_END:
 		case TK_UNSET:
 			err(rules->udev, "wrong type %u\n", cur->type);
 			goto nomatch;
