@@ -62,7 +62,6 @@ static struct udev_rules *rules;
 static struct udev_ctrl *udev_ctrl;
 static struct udev_monitor *kernel_monitor;
 static int inotify_fd = -1;
-
 static int signal_pipe[2] = {-1, -1};
 static volatile int sigchilds_waiting;
 static volatile int udev_exit;
@@ -70,9 +69,8 @@ static volatile int reload_config;
 static int run_exec_q;
 static int stop_exec_q;
 static int max_childs;
-
-static struct udev_list_node exec_list;
-static struct udev_list_node running_list;
+static int childs;
+static struct udev_list_node event_list;
 
 enum event_state {
 	EVENT_QUEUED,
@@ -137,7 +135,7 @@ static void export_event_state(struct udev_event *event, enum event_state state)
 		unlink(filename);
 
 		/* clean up possibly empty queue directory */
-		if (udev_list_is_empty(&exec_list) && udev_list_is_empty(&running_list))
+		if (udev_list_is_empty(&event_list))
 			util_delete_path(event->udev, filename);
 		break;
 	case EVENT_FAILED:
@@ -146,7 +144,7 @@ static void export_event_state(struct udev_event *event, enum event_state state)
 		rename(filename, filename_failed);
 
 		/* clean up possibly empty queue directory */
-		if (udev_list_is_empty(&exec_list) && udev_list_is_empty(&running_list))
+		if (udev_list_is_empty(&event_list))
 			util_delete_path(event->udev, filename);
 		break;
 	}
@@ -179,6 +177,13 @@ static void event_fork(struct udev_event *event)
 	pid_t pid;
 	struct sigaction act;
 	int err;
+
+	if (debug_trace) {
+		event->trace = 1;
+		printf("fork %s (%llu)\n",
+		       udev_device_get_syspath(event->dev),
+		       udev_device_get_seqnum(event->dev));
+	}
 
 	pid = fork();
 	switch (pid) {
@@ -221,6 +226,7 @@ static void event_fork(struct udev_event *event)
 		/* execute RUN= */
 		if (err == 0 && !event->ignore_device && udev_get_run(event->udev))
 			udev_event_execute_run(event);
+
 		info(event->udev, "seq %llu exit with %i\n", udev_device_get_seqnum(event->dev), err);
 		logging_close();
 		if (err != 0)
@@ -239,6 +245,7 @@ static void event_fork(struct udev_event *event)
 		     udev_device_get_subsystem(event->dev),
 		     time(NULL) - event->queue_time);
 		event->pid = pid;
+		childs++;
 	}
 }
 
@@ -265,24 +272,15 @@ static void event_queue_insert(struct udev_event *event)
 		close(fd);
 	}
 
-	/* run one event after the other in debug mode */
-	if (debug_trace) {
-		udev_list_node_append(&event->node, &running_list);
-		event_fork(event);
-		waitpid(event->pid, NULL, 0);
-		event_queue_delete(event);
-		return;
-	}
+
+	udev_list_node_append(&event->node, &event_list);
+	run_exec_q = 1;
 
 	/* run all events with a timeout set immediately */
 	if (udev_device_get_timeout(event->dev) > 0) {
-		udev_list_node_append(&event->node, &running_list);
 		event_fork(event);
 		return;
 	}
-
-	udev_list_node_append(&event->node, &exec_list);
-	run_exec_q = 1;
 }
 
 static int mem_size_mb(void)
@@ -312,7 +310,7 @@ static int compare_devpath(const char *running, const char *waiting)
 {
 	int i = 0;
 
-	while (running[i] == waiting[i] && running[i] != '\0')
+	while (running[i] != '\0' && running[i] == waiting[i])
 		i++;
 
 	/* identical device event found */
@@ -332,23 +330,34 @@ static int compare_devpath(const char *running, const char *waiting)
 }
 
 /* lookup event for identical, parent, child, or physical device */
-static int devpath_busy(struct udev_event *event, int limit)
+static int devpath_busy(struct udev_event *event)
 {
 	struct udev_list_node *loop;
-	int childs_count = 0;
 
-	/* check exec-queue which may still contain delayed events we depend on */
-	udev_list_node_foreach(loop, &exec_list) {
+	if (event->delaying_seqnum > 0) {
+	}
+	/* check if queue contains events we depend on */
+	udev_list_node_foreach(loop, &event_list) {
 		struct udev_event *loop_event = node_to_event(loop);
 
-		/* skip ourself and all later events */
+		/* we already found a later event, earlier can not block us, no need to check again */
+		if (udev_device_get_seqnum(loop_event->dev) < event->delaying_seqnum)
+			continue;
+
+		/* event we checked earlier still exists, no need to check again */
+		if (udev_device_get_seqnum(loop_event->dev) == event->delaying_seqnum)
+			return 2;
+
+		/* found ourself, no later event can block us */
 		if (udev_device_get_seqnum(loop_event->dev) >= udev_device_get_seqnum(event->dev))
 			break;
 
 		/* check our old name */
 		if (udev_device_get_devpath_old(event->dev) != NULL)
-			if (strcmp(udev_device_get_devpath(loop_event->dev), udev_device_get_devpath_old(event->dev)) == 0)
-				return 2;
+			if (strcmp(udev_device_get_devpath(loop_event->dev), udev_device_get_devpath_old(event->dev)) == 0) {
+				event->delaying_seqnum = udev_device_get_seqnum(loop_event->dev);
+				return 3;
+			}
 
 		/* check identical, parent, or child device event */
 		if (compare_devpath(udev_device_get_devpath(loop_event->dev), udev_device_get_devpath(event->dev)) != 0) {
@@ -356,7 +365,8 @@ static int devpath_busy(struct udev_event *event, int limit)
 			    udev_device_get_seqnum(event->dev),
 			    udev_device_get_seqnum(loop_event->dev),
 			    udev_device_get_devpath(loop_event->dev));
-			return 3;
+			event->delaying_seqnum = udev_device_get_seqnum(loop_event->dev);
+			return 4;
 		}
 
 		/* check for our major:minor number */
@@ -367,7 +377,8 @@ static int devpath_busy(struct udev_event *event, int limit)
 			    udev_device_get_seqnum(event->dev),
 			    udev_device_get_seqnum(loop_event->dev),
 			    major(udev_device_get_devnum(loop_event->dev)), minor(udev_device_get_devnum(loop_event->dev)));
-			return 4;
+			event->delaying_seqnum = udev_device_get_seqnum(loop_event->dev);
+			return 5;
 		}
 
 		/* check physical device event (special case of parent) */
@@ -379,55 +390,8 @@ static int devpath_busy(struct udev_event *event, int limit)
 				    udev_device_get_seqnum(event->dev),
 				    udev_device_get_seqnum(loop_event->dev),
 				    udev_device_get_devpath(loop_event->dev));
-				return 5;
-			}
-	}
-
-	/* check run queue for still running events */
-	udev_list_node_foreach(loop, &running_list) {
-		struct udev_event *loop_event = node_to_event(loop);
-
-		if (childs_count++ >= limit) {
-			info(event->udev, "%llu, maximum number (%i) of childs reached\n",
-			     udev_device_get_seqnum(event->dev), childs_count);
-			return 1;
-		}
-
-		/* check our old name */
-		if (udev_device_get_devpath_old(event->dev) != NULL)
-			if (strcmp(udev_device_get_devpath(loop_event->dev), udev_device_get_devpath_old(event->dev)) == 0)
-				return 2;
-
-		/* check identical, parent, or child device event */
-		if (compare_devpath(udev_device_get_devpath(loop_event->dev), udev_device_get_devpath(event->dev)) != 0) {
-			dbg(event->udev, "%llu, device event still running %llu (%s)\n",
-			    udev_device_get_seqnum(event->dev),
-			    udev_device_get_seqnum(loop_event->dev),
-			    udev_device_get_devpath(loop_event->dev));
-			return 3;
-		}
-
-		/* check for our major:minor number */
-		if (major(udev_device_get_devnum(event->dev)) > 0 &&
-		    udev_device_get_devnum(loop_event->dev) == udev_device_get_devnum(event->dev) &&
-		    strcmp(udev_device_get_subsystem(event->dev), udev_device_get_subsystem(loop_event->dev)) == 0) {
-			dbg(event->udev, "%llu, device event still pending %llu (%d:%d)\n",
-			    udev_device_get_seqnum(event->dev),
-			    udev_device_get_seqnum(loop_event->dev),
-			    major(udev_device_get_devnum(loop_event->dev)), minor(udev_device_get_devnum(loop_event->dev)));
-			return 4;
-		}
-
-		/* check physical device event (special case of parent) */
-		if (udev_device_get_physdevpath(event->dev) != NULL &&
-		    strcmp(udev_device_get_action(event->dev), "add") == 0)
-			if (compare_devpath(udev_device_get_devpath(loop_event->dev),
-					    udev_device_get_physdevpath(event->dev)) != 0) {
-				dbg(event->udev, "%llu, physical device event still pending %llu (%s)\n",
-				    udev_device_get_seqnum(event->dev),
-				    udev_device_get_seqnum(loop_event->dev),
-				    udev_device_get_devpath(loop_event->dev));
-				return 5;
+				event->delaying_seqnum = udev_device_get_seqnum(loop_event->dev);
+				return 6;
 			}
 	}
 	return 0;
@@ -439,23 +403,34 @@ static void event_queue_manager(struct udev *udev)
 	struct udev_list_node *loop;
 	struct udev_list_node *tmp;
 
-	if (udev_list_is_empty(&exec_list))
+	if (udev_list_is_empty(&event_list)) {
+		if (childs > 0) {
+			err(udev, "event list empty, but childs count is %i", childs);
+			childs = 0;
+		}
 		return;
+	}
 
-	udev_list_node_foreach_safe(loop, tmp, &exec_list) {
+	udev_list_node_foreach_safe(loop, tmp, &event_list) {
 		struct udev_event *loop_event = node_to_event(loop);
 
-		/* serialize and wait for parent or child events */
-		if (devpath_busy(loop_event, max_childs) != 0) {
+		if (childs >= max_childs) {
+			info(udev, "maximum number (%i) of childs reached\n", childs);
+			break;
+		}
+
+		if (loop_event->pid != 0)
+			continue;
+
+		/* do not start event if parent or child event is still running */
+		if (devpath_busy(loop_event) != 0) {
 			dbg(udev, "delay seq %llu (%s)\n",
 			    udev_device_get_seqnum(loop_event->dev),
 			    udev_device_get_devpath(loop_event->dev));
 			continue;
 		}
 
-		/* move event to run list */
-		udev_list_node_remove(&loop_event->node);
-		udev_list_node_append(&loop_event->node, &running_list);
+		/* do dendencies, start event */
 		event_fork(loop_event);
 		dbg(udev, "moved seq %llu to running list\n", udev_device_get_seqnum(loop_event->dev));
 	}
@@ -526,7 +501,6 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl)
 		info(udev, "udevd message (SET_MAX_CHILDS) received, max_childs=%i\n", i);
 		max_childs = i;
 	}
-
 	udev_ctrl_msg_unref(ctrl_msg);
 }
 
@@ -555,7 +529,7 @@ static void udev_done(int pid, int exitstatus)
 	struct udev_list_node *loop;
 
 	/* find event associated with pid and delete it */
-	udev_list_node_foreach(loop, &running_list) {
+	udev_list_node_foreach(loop, &event_list) {
 		struct udev_event *loop_event = node_to_event(loop);
 
 		if (loop_event->pid == pid) {
@@ -563,9 +537,14 @@ static void udev_done(int pid, int exitstatus)
 			     udev_device_get_seqnum(loop_event->dev), loop_event->pid,
 			     exitstatus, time(NULL) - loop_event->queue_time);
 			loop_event->exitstatus = exitstatus;
+			if (debug_trace)
+				printf("exit %s (%llu)\n",
+				       udev_device_get_syspath(loop_event->dev),
+				       udev_device_get_seqnum(loop_event->dev));
 			event_queue_delete(loop_event);
+			childs--;
 
-			/* there may be events waiting with the same devpath */
+			/* there may be dependent events waiting */
 			run_exec_q = 1;
 			return;
 		}
@@ -690,8 +669,6 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "cannot open /dev/null\n");
 		err(udev, "cannot open /dev/null\n");
 	}
-	if (fd > STDIN_FILENO)
-		dup2(fd, STDIN_FILENO);
 	if (write(STDOUT_FILENO, 0, 0) < 0)
 		dup2(fd, STDOUT_FILENO);
 	if (write(STDERR_FILENO, 0, 0) < 0)
@@ -755,8 +732,7 @@ int main(int argc, char *argv[])
 		err(udev, "error reading rules\n");
 		goto exit;
 	}
-	udev_list_init(&running_list);
-	udev_list_init(&exec_list);
+	udev_list_init(&event_list);
 	export_initial_seqnum(udev);
 
 	if (daemonize) {
@@ -779,7 +755,8 @@ int main(int argc, char *argv[])
 	}
 
 	/* redirect std{out,err} */
-	if (!debug) {
+	if (!debug && !debug_trace) {
+		dup2(fd, STDIN_FILENO);
 		dup2(fd, STDOUT_FILENO);
 		dup2(fd, STDERR_FILENO);
 	}
@@ -840,7 +817,7 @@ int main(int argc, char *argv[])
 			inotify_add_watch(inotify_fd, udev_get_rules_path(udev),
 					  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
 		} else {
-			char filename[PATH_MAX];
+			char filename[UTIL_PATH_SIZE];
 
 			inotify_add_watch(inotify_fd, UDEV_PREFIX "/lib/udev/rules.d",
 					  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
@@ -858,17 +835,20 @@ int main(int argc, char *argv[])
 	else
 		err(udev, "inotify_init failed: %m\n");
 
-	/* maximum limit of forked childs */
-	value = getenv("UDEVD_MAX_CHILDS");
-	if (value)
-		max_childs = strtoul(value, NULL, 10);
-	else {
+	/* in trace mode run one event after the other */
+	if (debug_trace) {
+		max_childs = 1;
+	} else {
 		int memsize = mem_size_mb();
 		if (memsize > 0)
 			max_childs = 128 + (memsize / 4);
 		else
 			max_childs = UDEVD_MAX_CHILDS;
 	}
+	/* possibly overwrite maximum limit of executed events */
+	value = getenv("UDEVD_MAX_CHILDS");
+	if (value)
+		max_childs = strtoul(value, NULL, 10);
 	info(udev, "initialize max_childs to %u\n", max_childs);
 
 	maxfd = udev_ctrl_get_fd(udev_ctrl);

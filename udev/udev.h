@@ -71,6 +71,7 @@ struct udev_event {
 	pid_t pid;
 	int exitstatus;
 	time_t queue_time;
+	unsigned long long int delaying_seqnum;
 	unsigned int group_final:1;
 	unsigned int owner_final:1;
 	unsigned int mode_final:1;
@@ -78,6 +79,7 @@ struct udev_event {
 	unsigned int devlink_final:1;
 	unsigned int run_final:1;
 	unsigned int ignore_device:1;
+	unsigned int trace:1;
 	unsigned int test:1;
 };
 

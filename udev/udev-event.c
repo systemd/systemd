@@ -706,6 +706,11 @@ int udev_event_execute_run(struct udev_event *event)
 
 			util_strlcpy(program, cmd, sizeof(program));
 			udev_event_apply_format(event, program, sizeof(program));
+			if (event->trace)
+				printf("run  %s (%llu) '%s'\n",
+				       udev_device_get_syspath(event->dev),
+				       udev_device_get_seqnum(event->dev),
+				       program);
 			envp = udev_device_get_properties_envp(event->dev);
 			if (util_run_program(event->udev, program, envp, NULL, 0, NULL) != 0) {
 				if (!udev_list_entry_get_flag(list_entry))
