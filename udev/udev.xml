@@ -186,8 +186,7 @@
               <listitem>
                 <para>Match sysfs attribute values of the event device. Trailing
                 whitespace in the attribute values is ignored, if the specified match
-                value does not contain trailing whitespace itself. Depending on the type
-                of operator, this key is also used to set the value of a sysfs attribute.
+                value does not contain trailing whitespace itself.
                 </para>
               </listitem>
             </varlistentry>
@@ -318,8 +317,7 @@
               <term><option>ATTR{<replaceable>key</replaceable>}</option></term>
               <listitem>
                 <para>The value that should be written to a sysfs attribute of the
-                event device. Depending on the type of operator, this key is also
-                used to match against the value of a sysfs attribute.</para>
+                event device.</para>
               </listitem>
             </varlistentry>
 

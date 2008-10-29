@@ -1808,11 +1808,10 @@ static int match_attr(struct udev_rules *rules, struct udev_device *dev, struct 
 		const char *val;
 
 		val = udev_device_get_sysattr_value(dev, key_name);
-		if (val != NULL)
-			util_strlcpy(value, val, sizeof(value));
+		if (val == NULL)
+			return -1;
+		util_strlcpy(value, val, sizeof(value));
 	}
-	if (value[0] == '\0')
-		return -1;
 
 	/* strip trailing whitespace of value, if not asked to match for it */
 	len = strlen(key_value);
