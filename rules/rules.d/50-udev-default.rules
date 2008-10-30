@@ -51,7 +51,7 @@ KERNEL=="video1394*",		NAME="video1394/%n"
 SUBSYSTEM=="firmware", ACTION=="add", RUN+="firmware.sh"
 
 # libusb device nodes
-SUBSYSTEM=="usb", ACTION=="add", ENV{DEVTYPE}=="usb_device", NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", MODE="0644"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", MODE="0644"
 
 # printer
 KERNEL=="parport[0-9]*",	GROUP="lp"
