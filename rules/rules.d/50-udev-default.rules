@@ -63,8 +63,6 @@ KERNEL=="irlpt[0-9]*",		GROUP="lp"
 # block, tapes, block-releated
 SUBSYSTEM=="block", GROUP="disk"
 SUBSYSTEM=="block", KERNEL=="sr[0-9]*", SYMLINK+="scd%n"
-SUBSYSTEM=="scsi", KERNEL=="[0-9]*:[0-9]*", ACTION=="add", ATTR{type}=="0|7|14", ATTR{timeout}="60"
-SUBSYSTEM=="scsi", KERNEL=="[0-9]*:[0-9]*", ACTION=="add", ATTR{type}=="1", ATTR{timeout}="900"
 KERNEL=="hd*", SUBSYSTEMS=="ide", ATTRS{media}=="floppy", OPTIONS+="all_partitions"
 KERNEL=="fd[0-9]",		GROUP="floppy"
 KERNEL=="fd[0-9]", ACTION=="add", ATTRS{cmos}=="?*", RUN+="create_floppy_devices -c -t $attr{cmos} -m %M -M 0640 -G floppy $root/%k"
