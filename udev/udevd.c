@@ -180,7 +180,7 @@ static void event_fork(struct udev_event *event)
 
 	if (debug_trace) {
 		event->trace = 1;
-		printf("fork %s (%llu)\n",
+		fprintf(stderr, "fork %s (%llu)\n",
 		       udev_device_get_syspath(event->dev),
 		       udev_device_get_seqnum(event->dev));
 	}
@@ -538,7 +538,7 @@ static void udev_done(int pid, int exitstatus)
 			     exitstatus, time(NULL) - loop_event->queue_time);
 			loop_event->exitstatus = exitstatus;
 			if (debug_trace)
-				printf("exit %s (%llu)\n",
+				fprintf(stderr, "exit %s (%llu)\n",
 				       udev_device_get_syspath(loop_event->dev),
 				       udev_device_get_seqnum(loop_event->dev));
 			event_queue_delete(loop_event);

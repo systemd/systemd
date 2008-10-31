@@ -707,7 +707,7 @@ int udev_event_execute_run(struct udev_event *event)
 			util_strlcpy(program, cmd, sizeof(program));
 			udev_event_apply_format(event, program, sizeof(program));
 			if (event->trace)
-				printf("run  %s (%llu) '%s'\n",
+				fprintf(stderr, "run  %s (%llu) '%s'\n",
 				       udev_device_get_syspath(event->dev),
 				       udev_device_get_seqnum(event->dev),
 				       program);
