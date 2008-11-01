@@ -93,6 +93,7 @@ enum token_type {
 	TK_M_WAITFOR,			/* val */
 	TK_M_ATTR,			/* val, attr */
 
+	TK_M_PARENTS_MIN,
 	TK_M_KERNELS,			/* val */
 	TK_M_SUBSYSTEMS,		/* val */
 	TK_M_DRIVERS,			/* val */
@@ -146,6 +147,7 @@ static const char *token_str[] = {
 	[TK_M_WAITFOR] =		"M WAITFOR",
 	[TK_M_ATTR] =			"M ATTR",
 
+	[TK_M_PARENTS_MIN] =        "M PARENTS_MIN",
 	[TK_M_KERNELS] =		"M KERNELS",
 	[TK_M_SUBSYSTEMS] =		"M SUBSYSTEMS",
 	[TK_M_DRIVERS] =		"M DRIVERS",
@@ -806,6 +808,7 @@ static int rule_add_token(struct rule_tmp *rule_tmp, enum token_type type,
 		token->key.event_timeout = *(int *)data;
 		break;
 	case TK_RULE:
+	case TK_M_PARENTS_MIN:
 	case TK_M_PARENTS_MAX:
 	case TK_M_MAX:
 	case TK_END:
@@ -943,6 +946,7 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 	case TK_END:
 		dbg(rules->udev, "* %s\n", token_str[type]);
 		break;
+	case TK_M_PARENTS_MIN:
 	case TK_M_PARENTS_MAX:
 	case TK_M_MAX:
 	case TK_UNSET:
@@ -1937,7 +1941,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 				/* get whole sequence of parent matches */
 				next = cur;
-				while (next->type < TK_M_PARENTS_MAX)
+				while (next->type > TK_M_PARENTS_MIN && next->type < TK_M_PARENTS_MAX)
 					next++;
 
 				/* loop over parents */
@@ -2321,6 +2325,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 		case TK_END:
 			return 0;
 
+		case TK_M_PARENTS_MIN:
 		case TK_M_PARENTS_MAX:
 		case TK_M_MAX:
 		case TK_UNSET:
