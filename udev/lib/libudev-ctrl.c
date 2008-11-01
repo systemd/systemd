@@ -250,7 +250,7 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl)
 		goto err;
 	}
 
-	info(uctrl->udev, "created ctrl_msg %p (%i)\n", uctrl_msg, uctrl_msg->ctrl_msg_wire.type);
+	dbg(uctrl->udev, "created ctrl_msg %p (%i)\n", uctrl_msg, uctrl_msg->ctrl_msg_wire.type);
 	return uctrl_msg;
 err:
 	udev_ctrl_msg_unref(uctrl_msg);
@@ -272,7 +272,7 @@ void udev_ctrl_msg_unref(struct udev_ctrl_msg *ctrl_msg)
 	ctrl_msg->refcount--;
 	if (ctrl_msg->refcount > 0)
 		return;
-	info(ctrl_msg->uctrl->udev, "release ctrl_msg %p\n", ctrl_msg);
+	dbg(ctrl_msg->uctrl->udev, "release ctrl_msg %p\n", ctrl_msg);
 	free(ctrl_msg);
 }
 

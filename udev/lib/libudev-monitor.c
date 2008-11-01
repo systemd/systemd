@@ -94,7 +94,7 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 		free(udev_monitor);
 		return NULL;
 	}
-	info(udev, "monitor %p created with '%s'\n", udev_monitor, socket_path);
+	dbg(udev, "monitor %p created with '%s'\n", udev_monitor, socket_path);
 	return udev_monitor;
 }
 
@@ -121,7 +121,7 @@ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev)
 	udev_monitor->snl.nl_pid = getpid();
 	udev_monitor->snl.nl_groups = 1;
 
-	info(udev, "monitor %p created with NETLINK_KOBJECT_UEVENT\n", udev_monitor);
+	dbg(udev, "monitor %p created with NETLINK_KOBJECT_UEVENT\n", udev_monitor);
 	return udev_monitor;
 }
 
@@ -136,7 +136,7 @@ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 			err(udev_monitor->udev, "bind failed: %m\n");
 			return err;
 		}
-		info(udev_monitor->udev, "monitor %p listening on netlink\n", udev_monitor);
+		dbg(udev_monitor->udev, "monitor %p listening on netlink\n", udev_monitor);
 	} else if (udev_monitor->sun.sun_family != 0) {
 		err = bind(udev_monitor->sock, (struct sockaddr *)&udev_monitor->sun, udev_monitor->addrlen);
 		if (err < 0) {
@@ -145,7 +145,7 @@ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 		}
 		/* enable receiving of the sender credentials */
 		setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
-		info(udev_monitor->udev, "monitor %p listening on socket\n", udev_monitor);
+		dbg(udev_monitor->udev, "monitor %p listening on socket\n", udev_monitor);
 	}
 	return 0;
 }
@@ -191,7 +191,7 @@ void udev_monitor_unref(struct udev_monitor *udev_monitor)
 		return;
 	if (udev_monitor->sock >= 0)
 		close(udev_monitor->sock);
-	info(udev_monitor->udev, "monitor %p released\n", udev_monitor);
+	dbg(udev_monitor->udev, "monitor %p released\n", udev_monitor);
 	free(udev_monitor);
 }
 

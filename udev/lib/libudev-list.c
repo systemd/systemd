@@ -110,17 +110,17 @@ struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_
 	if (unique)
 		udev_list_entry_foreach(entry_loop, udev_list_get_entry(list)) {
 			if (strcmp(entry_loop->name, name) == 0) {
-				info(udev, "'%s' is already in the list\n", name);
+				dbg(udev, "'%s' is already in the list\n", name);
 				free(entry_loop->value);
 				if (value == NULL) {
 					entry_loop->value = NULL;
-					info(udev, "'%s' value unset\n", name);
+					dbg(udev, "'%s' value unset\n", name);
 					return entry_loop;
 				}
 				entry_loop->value = strdup(value);
 				if (entry_loop->value == NULL)
 					return NULL;
-				info(udev, "'%s' value replaced with '%s'\n", name, value);
+				dbg(udev, "'%s' value replaced with '%s'\n", name, value);
 				return entry_loop;
 			}
 		}

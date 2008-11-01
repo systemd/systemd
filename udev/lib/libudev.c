@@ -230,13 +230,13 @@ struct udev *udev_new(void)
 
 	if (udev->dev_path == NULL || udev->sys_path == NULL)
 		goto err;
-	info(udev, "context %p created\n", udev);
-	info(udev, "log_priority=%d\n", udev->log_priority);
-	info(udev, "config_file='%s'\n", config_file);
-	info(udev, "dev_path='%s'\n", udev->dev_path);
-	info(udev, "sys_path='%s'\n", udev->sys_path);
+	dbg(udev, "context %p created\n", udev);
+	dbg(udev, "log_priority=%d\n", udev->log_priority);
+	dbg(udev, "config_file='%s'\n", config_file);
+	dbg(udev, "dev_path='%s'\n", udev->dev_path);
+	dbg(udev, "sys_path='%s'\n", udev->sys_path);
 	if (udev->rules_path != NULL)
-		info(udev, "rules_path='%s'\n", udev->rules_path);
+		dbg(udev, "rules_path='%s'\n", udev->rules_path);
 	free(config_file);
 	return udev;
 err:
@@ -281,7 +281,7 @@ void udev_unref(struct udev *udev)
 	free(udev->dev_path);
 	free(udev->sys_path);
 	free(udev->rules_path);
-	info(udev, "context %p released\n", udev);
+	dbg(udev, "context %p released\n", udev);
 	free(udev);
 }
 

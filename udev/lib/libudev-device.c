@@ -87,7 +87,7 @@ int udev_device_read_db(struct udev_device *udev_device)
 	devpath_to_db_path(udev_device->udev, udev_device->devpath, filename, sizeof(filename));
 
 	if (lstat(filename, &stats) != 0) {
-		info(udev_device->udev, "no db file to read %s: %m\n", filename);
+		dbg(udev_device->udev, "no db file to read %s: %m\n", filename);
 		return -1;
 	}
 	if ((stats.st_mode & S_IFMT) == S_IFLNK) {
@@ -100,7 +100,7 @@ int udev_device_read_db(struct udev_device *udev_device)
 		if (target_len > 0)
 			target[target_len] = '\0';
 		else {
-			info(udev_device->udev, "error reading db link %s: %m\n", filename);
+			dbg(udev_device->udev, "error reading db link %s: %m\n", filename);
 			return -1;
 		}
 
@@ -134,7 +134,7 @@ int udev_device_read_db(struct udev_device *udev_device)
 
 	f = fopen(filename, "r");
 	if (f == NULL) {
-		info(udev_device->udev, "error reading db file %s: %m\n", filename);
+		dbg(udev_device->udev, "error reading db file %s: %m\n", filename);
 		return -1;
 	}
 	while (fgets(line, sizeof(line), f)) {
@@ -252,7 +252,7 @@ struct udev_device *device_new(struct udev *udev)
 		udev_device_add_property(udev_device,
 					 udev_list_entry_get_name(list_entry),
 					 udev_list_entry_get_value(list_entry));
-	info(udev_device->udev, "udev_device: %p created\n", udev_device);
+	dbg(udev_device->udev, "udev_device: %p created\n", udev_device);
 	return udev_device;
 }
 
@@ -295,7 +295,7 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 	subdir = &syspath[len+1];
 	pos = strrchr(subdir, '/');
 	if (pos == NULL || pos < &subdir[2]) {
-		info(udev, "not a subdir :%s\n", syspath);
+		dbg(udev, "not a subdir :%s\n", syspath);
 		return NULL;
 	}
 
@@ -330,13 +330,13 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 		util_strlcpy(file, path, sizeof(file));
 		util_strlcat(file, "/uevent", sizeof(file));
 		if (stat(file, &statbuf) != 0) {
-			info(udev, "not a device: %s\n", syspath);
+			dbg(udev, "not a device: %s\n", syspath);
 			return NULL;
 		}
 	} else {
 		/* everything else just needs to be a directory */
 		if (stat(path, &statbuf) != 0 || !S_ISDIR(statbuf.st_mode)) {
-			info(udev, "directory not found: %s\n", syspath);
+			dbg(udev, "directory not found: %s\n", syspath);
 			return NULL;
 		}
 	}
@@ -531,7 +531,7 @@ struct udev_device *udev_device_get_parent(struct udev_device *udev_device)
 		udev_device->parent_device = device_new_from_parent(udev_device);
 	}
 	if (udev_device->parent_device != NULL)
-		info(udev_device->udev, "returning existing parent %p\n", udev_device->parent_device);
+		dbg(udev_device->udev, "returning existing parent %p\n", udev_device->parent_device);
 	return udev_device->parent_device;
 }
 
@@ -612,7 +612,7 @@ void udev_device_unref(struct udev_device *udev_device)
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->sysattr_list);
 	free(udev_device->envp);
 	free(udev_device->monitor_buf);
-	info(udev_device->udev, "udev_device: %p released\n", udev_device);
+	dbg(udev_device->udev, "udev_device: %p released\n", udev_device);
 	free(udev_device);
 }
 
@@ -840,8 +840,8 @@ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const
 	/* look for possibly already cached result */
 	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_device->sysattr_list)) {
 		if (strcmp(udev_list_entry_get_name(list_entry), sysattr) == 0) {
-			info(udev_device->udev, "got '%s' (%s) from cache\n",
-			     sysattr, udev_list_entry_get_value(list_entry));
+			dbg(udev_device->udev, "got '%s' (%s) from cache\n",
+			    sysattr, udev_list_entry_get_value(list_entry));
 			return udev_list_entry_get_value(list_entry);
 		}
 	}
@@ -851,7 +851,7 @@ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const
 	util_strlcat(path, sysattr, sizeof(path));
 
 	if (lstat(path, &statbuf) != 0) {
-		info(udev_device->udev, "no attribute '%s', keep negative entry\n", path);
+		dbg(udev_device->udev, "no attribute '%s', keep negative entry\n", path);
 		udev_list_entry_add(udev_device->udev, &udev_device->sysattr_list, sysattr, NULL, 0, 0);
 		goto out;
 	}
@@ -868,7 +868,7 @@ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const
 			pos = strrchr(target, '/');
 			if (pos != NULL) {
 				pos = &pos[1];
-				info(udev_device->udev, "cache '%s' with link value '%s'\n", sysattr, pos);
+				dbg(udev_device->udev, "cache '%s' with link value '%s'\n", sysattr, pos);
 				list_entry = udev_list_entry_add(udev_device->udev, &udev_device->sysattr_list, sysattr, pos, 0, 0);
 				val = udev_list_entry_get_value(list_entry);
 			}
@@ -887,7 +887,7 @@ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const
 	/* read attribute value */
 	fd = open(path, O_RDONLY);
 	if (fd < 0) {
-		info(udev_device->udev, "attribute '%s' can not be opened\n", path);
+		dbg(udev_device->udev, "attribute '%s' can not be opened\n", path);
 		goto out;
 	}
 	size = read(fd, value, sizeof(value));
@@ -900,7 +900,7 @@ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const
 	/* got a valid value, store it in cache and return it */
 	value[size] = '\0';
 	util_remove_trailing_chars(value, '\n');
-	info(udev_device->udev, "'%s' has attribute value '%s'\n", path, value);
+	dbg(udev_device->udev, "'%s' has attribute value '%s'\n", path, value);
 	list_entry = udev_list_entry_add(udev_device->udev, &udev_device->sysattr_list, sysattr, value, 0, 0);
 	val = udev_list_entry_get_value(list_entry);
 out:
@@ -1072,7 +1072,7 @@ static int update_envp_monitor_buf(struct udev_device *udev_device)
 	udev_device->envp[i] = NULL;
 	udev_device->monitor_buf_len = bufpos;
 	udev_device->envp_uptodate = 1;
-	info(udev_device->udev, "filled envp/monitor buffer, %u properties, %zu bytes\n", i, bufpos);
+	dbg(udev_device->udev, "filled envp/monitor buffer, %u properties, %zu bytes\n", i, bufpos);
 	return 0;
 }
 

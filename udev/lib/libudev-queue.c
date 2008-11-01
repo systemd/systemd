@@ -103,7 +103,7 @@ unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *udev_queu
 		return 0;
 	buf[len-1] = '\0';
 	seqnum = strtoull(buf, NULL, 10);
-	info(udev_queue->udev, "seqnum=%llu\n", seqnum);
+	dbg(udev_queue->udev, "seqnum=%llu\n", seqnum);
 	return seqnum;
 }
 
@@ -128,7 +128,7 @@ unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *udev_queue)
 		return 0;
 	buf[len-1] = '\0';
 	seqnum = strtoull(buf, NULL, 10);
-	info(udev_queue->udev, "seqnum=%llu\n", seqnum);
+	dbg(udev_queue->udev, "seqnum=%llu\n", seqnum);
 	udev_queue->last_seen_udev_seqnum = seqnum;
 	return seqnum;
 }
@@ -144,20 +144,20 @@ int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue)
 	util_strlcpy(queuename, udev_get_dev_path(udev_queue->udev), sizeof(queuename));
 	util_strlcat(queuename, "/.udev/queue", sizeof(queuename));
 	if (stat(queuename, &statbuf) == 0) {
-		info(udev_queue->udev, "queue is not empty\n");
+		dbg(udev_queue->udev, "queue is not empty\n");
 		return 0;
 	}
 	seqnum_kernel = udev_queue_get_kernel_seqnum(udev_queue);
 	if (seqnum_kernel <= udev_queue->last_seen_udev_seqnum) {
-		info(udev_queue->udev, "queue is empty\n");
+		dbg(udev_queue->udev, "queue is empty\n");
 		return 1;
 	}
 	udev_queue_get_udev_seqnum(udev_queue);
 	if (seqnum_kernel <= udev_queue->last_seen_udev_seqnum) {
-		info(udev_queue->udev, "queue is empty\n");
+		dbg(udev_queue->udev, "queue is empty\n");
 		return 1;
 	}
-	info(udev_queue->udev, "queue is empty, but kernel events still pending [%llu]<->[%llu]\n",
+	dbg(udev_queue->udev, "queue is empty, but kernel events still pending [%llu]<->[%llu]\n",
 	     seqnum_kernel, udev_queue->last_seen_udev_seqnum);
 	return 0;
 }
@@ -179,7 +179,7 @@ int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, unsigned lo
 		 udev_get_dev_path(udev_queue->udev), seqnum);
 	if (stat(filename, &statbuf) == 0)
 		return 0;
-	info(udev_queue->udev, "seqnum: %llu finished\n", seqnum);
+	dbg(udev_queue->udev, "seqnum: %llu finished\n", seqnum);
 	return 1;
 }
 
@@ -214,7 +214,7 @@ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev
 		if (len < 0 || len >= (ssize_t)(sizeof(syspath)-syslen))
 			continue;
 		syspath[syslen + len] = '\0';
-		info(udev_queue->udev, "found '%s' [%s]\n", syspath, dent->d_name);
+		dbg(udev_queue->udev, "found '%s' [%s]\n", syspath, dent->d_name);
 		udev_list_entry_add(udev_queue->udev, &udev_queue->queue_list, syspath, dent->d_name, 0, 0);
 	}
 	closedir(dir);
@@ -253,7 +253,7 @@ struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev
 		if (len < 0 || len >= (ssize_t)(sizeof(syspath)-syslen))
 			continue;
 		syspath[syslen + len] = '\0';
-		info(udev_queue->udev, "found '%s' [%s]\n", syspath, dent->d_name);
+		dbg(udev_queue->udev, "found '%s' [%s]\n", syspath, dent->d_name);
 		util_strlcpy(filename, syspath, sizeof(filename));
 		util_strlcat(filename, "/uevent", sizeof(filename));
 		if (stat(filename, &statbuf) != 0)

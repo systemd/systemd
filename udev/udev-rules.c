@@ -283,7 +283,7 @@ static int add_string(struct udev_rules *rules, const char *str)
 		buf = realloc(rules->buf, rules->buf_max + add);
 		if (buf == NULL)
 			return -1;
-		info(rules->udev, "extend buffer from %zu to %zu\n", rules->buf_max, rules->buf_max + add);
+		dbg(rules->udev, "extend buffer from %zu to %zu\n", rules->buf_max, rules->buf_max + add);
 		rules->buf = buf;
 		rules->buf_max += add;
 	}
@@ -310,7 +310,7 @@ static int add_token(struct udev_rules *rules, struct token *token)
 		tokens = realloc(rules->tokens, (rules->token_max + add ) * sizeof(struct token));
 		if (tokens == NULL)
 			return -1;
-		info(rules->udev, "extend tokens from %u to %u\n", rules->token_max, rules->token_max + add);
+		dbg(rules->udev, "extend tokens from %u to %u\n", rules->token_max, rules->token_max + add);
 		rules->tokens = tokens;
 		rules->token_max += add;
 	}
@@ -349,7 +349,7 @@ static uid_t add_uid(struct udev_rules *rules, const char *owner)
 		uids = realloc(rules->uids, (rules->uids_max + add ) * sizeof(struct uid_gid));
 		if (uids == NULL)
 			return uid;
-		info(rules->udev, "extend uids from %u to %u\n", rules->uids_max, rules->uids_max + add);
+		dbg(rules->udev, "extend uids from %u to %u\n", rules->uids_max, rules->uids_max + add);
 		rules->uids = uids;
 		rules->uids_max += add;
 	}
@@ -392,7 +392,7 @@ static gid_t add_gid(struct udev_rules *rules, const char *group)
 		gids = realloc(rules->gids, (rules->gids_max + add ) * sizeof(struct uid_gid));
 		if (gids == NULL)
 			return gid;
-		info(rules->udev, "extend gids from %u to %u\n", rules->gids_max, rules->gids_max + add);
+		dbg(rules->udev, "extend gids from %u to %u\n", rules->gids_max, rules->gids_max + add);
 		rules->gids = gids;
 		rules->gids_max += add;
 	}
@@ -461,7 +461,7 @@ static int import_property_from_string(struct udev_device *dev, char *line)
 		val++;
 	}
 
-	info(udev, "adding '%s'='%s'\n", key, val);
+	dbg(udev, "adding '%s'='%s'\n", key, val);
 
 	/* handle device, renamed by external tool, returning new path */
 	if (strcmp(key, "DEVPATH") == 0) {
@@ -1595,8 +1595,8 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	/* offset 0 is always '\0' */
 	rules->buf[0] = '\0';
 	rules->buf_cur = 1;
-	info(udev, "prealloc %zu bytes tokens (%u * %zu bytes), %zu bytes buffer\n",
-	     rules->token_max * sizeof(struct token), rules->token_max, sizeof(struct token), rules->buf_max);
+	dbg(udev, "prealloc %zu bytes tokens (%u * %zu bytes), %zu bytes buffer\n",
+	    rules->token_max * sizeof(struct token), rules->token_max, sizeof(struct token), rules->buf_max);
 
 	if (udev_get_rules_path(udev) != NULL) {
 		/* custom rules location for testing */
@@ -2041,11 +2041,11 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				attr_subst_subdir(filename, sizeof(filename));
 
 				match = (stat(filename, &statbuf) == 0);
-				info(event->udev, "'%s' %s", filename, match ? "exists\n" : "does not exist\n");
+				dbg(event->udev, "'%s' %s", filename, match ? "exists\n" : "does not exist\n");
 				if (match && cur->key.mode > 0) {
 					match = ((statbuf.st_mode & cur->key.mode) > 0);
-					info(event->udev, "'%s' has mode=%#o and %s %#o\n", filename, statbuf.st_mode,
-					     match ? "matches" : "does not match", cur->key.mode);
+					dbg(event->udev, "'%s' has mode=%#o and %s %#o\n", filename, statbuf.st_mode,
+					    match ? "matches" : "does not match", cur->key.mode);
 				}
 				if (match && cur->key.op == OP_NOMATCH)
 					goto nomatch;
@@ -2360,7 +2360,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 				util_strlcpy(value, &rules->buf[cur->key.value_off], sizeof(value));
 				udev_event_apply_format(event, value, sizeof(value));
-				info(event->udev, "writing '%s' to sysfs file '%s'\n", value, attr);
+				info(event->udev, "ATTR '%s' writing '%s' %s:%u\n", attr, value,
+				     &rules->buf[rule->rule.filename_off],
+				     rule->rule.filename_line);
 				f = fopen(attr, "w");
 				if (f != NULL) {
 					if (!event->test)

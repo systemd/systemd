@@ -310,7 +310,7 @@ static int devices_delay(struct udev *udev, const char *syspath)
 	len = strlen(udev_get_sys_path(udev));
 	for (i = 0; delay_device_list[i] != NULL; i++) {
 		if (strstr(&syspath[len], delay_device_list[i]) != NULL) {
-			info(udev, "delaying: %s\n", syspath);
+			dbg(udev, "delaying: %s\n", syspath);
 			return 1;
 		}
 	}
@@ -368,23 +368,23 @@ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
 	util_strlcat(base, "/subsystem", sizeof(base));
 	if (stat(base, &statbuf) == 0) {
 		/* we have /subsystem/, forget all the old stuff */
-		info(udev, "searching '/subsystem/*/devices/*' dir\n");
+		dbg(udev, "searching '/subsystem/*/devices/*' dir\n");
 		scan_dir(udev_enumerate, "subsystem", "devices", NULL);
 	} else {
-		info(udev, "searching '/bus/*/devices/*' dir\n");
+		dbg(udev, "searching '/bus/*/devices/*' dir\n");
 		scan_dir(udev_enumerate, "bus", "devices", NULL);
-		info(udev, "searching '/class/*' dir\n");
+		dbg(udev, "searching '/class/*' dir\n");
 		scan_dir(udev_enumerate, "class", NULL, NULL);
 		/* if block isn't a class, scan /block/ */
 		util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
 		util_strlcat(base, "/class/block", sizeof(base));
 		if (stat(base, &statbuf) != 0) {
 			if (match_subsystem(udev_enumerate, "block")) {
-				info(udev, "searching '/block/*' dir\n");
+				dbg(udev, "searching '/block/*' dir\n");
 				/* scan disks */
 				scan_dir_and_add_devices(udev_enumerate, "block", NULL, NULL);
 				/* scan partitions */
-				info(udev, "searching '/block/*/*' dir\n");
+				dbg(udev, "searching '/block/*/*' dir\n");
 				scan_dir(udev_enumerate, "block", NULL, "block");
 			}
 		}
@@ -419,11 +419,11 @@ int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerate)
 	else
 		subsysdir = "bus";
 	if (match_subsystem(udev_enumerate, "subsystem")) {
-		info(udev, "searching '%s/*' dir\n", subsysdir);
+		dbg(udev, "searching '%s/*' dir\n", subsysdir);
 		scan_dir_and_add_devices(udev_enumerate, subsysdir, NULL, NULL);
 	}
 	if (match_subsystem(udev_enumerate, "drivers")) {
-		info(udev, "searching '%s/*/drivers/*' dir\n", subsysdir);
+		dbg(udev, "searching '%s/*/drivers/*' dir\n", subsysdir);
 		scan_dir(udev_enumerate, subsysdir, "drivers", "drivers");
 	}
 	return 0;
