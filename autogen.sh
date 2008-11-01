@@ -41,17 +41,24 @@ autoheader
 echo "   automake:   $(automake --version | head -1)"
 automake --add-missing
 
-if test -z "$@"; then
-	args="--prefix=/usr --exec-prefix= --sysconfdir=/etc --with-selinux --enable-debug"
-	args="$args --with-libdir-name=$(basename $(gcc -print-multi-os-directory))"
-	export CFLAGS="-g -Wall \
+CFLAGS="-g -Wall \
 -Wmissing-declarations -Wmissing-prototypes \
 -Wnested-externs -Wpointer-arith \
 -Wpointer-arith -Wsign-compare -Wchar-subscripts \
 -Wstrict-prototypes -Wshadow"
+
+if test -z "$1" -o "$1" = "install"; then
+	args="--prefix=/usr --exec-prefix= --sysconfdir=/etc --with-selinux"
+	args="$args --with-libdir-name=$(basename $(gcc -print-multi-os-directory))"
+	CFLAGS="$CFLAGS -O2"
+elif test "$1" = "devel" ; then
+	args="--prefix=/usr --exec-prefix= --sysconfdir=/etc --with-selinux --enable-debug"
+	args="$args --with-libdir-name=$(basename $(gcc -print-multi-os-directory))"
+	CFLAGS="$CFLAGS -O0"
 else
 	args=$@
 fi
 echo "   configure:  $args"
 echo
+export CFLAGS
 ./configure $args
