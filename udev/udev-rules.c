@@ -877,11 +877,12 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 			const char *tk_ptr = (char *)token;
 			unsigned int off = tk_ptr - tks_ptr;
 
-			dbg(rules->udev, "* RULE %s:%u, off: %u(%u), next: %u, label: '%s'\n",
+			dbg(rules->udev, "* RULE %s:%u, off: %u(%u), next: %u, label: '%s', flags: 0x%02x\n",
 			    &rules->buf[token->rule.filename_off], token->rule.filename_line,
 			    off / (unsigned int) sizeof(struct token), off,
 			    token->rule.next_rule,
-			    &rules->buf[token->rule.label_off]);
+			    &rules->buf[token->rule.label_off],
+			    token->rule.flags);
 			break;
 		}
 	case TK_M_ACTION:
@@ -1316,6 +1317,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 					}
 				}
 			}
+			rule_tmp.rule.rule.flags = 1;
 			continue;
 		}
 
@@ -1324,6 +1326,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				rule_add_key(&rule_tmp, TK_M_DEVLINK, op, value, NULL);
 			else
 				rule_add_key(&rule_tmp, TK_A_DEVLINK, op, value, NULL);
+			rule_tmp.rule.rule.flags = 1;
 			valid = 1;
 			continue;
 		}
@@ -1341,6 +1344,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			} else {
 				rule_add_key(&rule_tmp, TK_A_OWNER, op, value, NULL);
 			}
+			rule_tmp.rule.rule.flags = 1;
 			valid = 1;
 			continue;
 		}
@@ -1358,6 +1362,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			} else {
 				rule_add_key(&rule_tmp, TK_A_GROUP, op, value, NULL);
 			}
+			rule_tmp.rule.rule.flags = 1;
 			valid = 1;
 			continue;
 		}
@@ -1371,6 +1376,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				rule_add_key(&rule_tmp, TK_A_MODE_ID, op, NULL, &mode);
 			else
 				rule_add_key(&rule_tmp, TK_A_MODE, op, value, NULL);
+			rule_tmp.rule.rule.flags = 1;
 			valid = 1;
 			continue;
 		}
@@ -1856,9 +1862,15 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 	struct token *cur;
 	struct token *rule;
 	enum escape_type esc = ESCAPE_UNSET;
+	int can_set_name;
 
 	if (rules->tokens == NULL)
 		return -1;
+
+	can_set_name = ((strcmp(udev_device_get_action(event->dev), "add") == 0 ||
+			 strcmp(udev_device_get_action(event->dev), "change") == 0) &&
+			(major(udev_device_get_devnum(event->dev)) > 0 ||
+			 strcmp(udev_device_get_subsystem(event->dev), "net") == 0));
 
 	/* loop through token list, match, run actions or forward to next rule */
 	cur = &rules->tokens[0];
@@ -1871,6 +1883,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 		case TK_RULE:
 			/* current rule */
 			rule = cur;
+			/* possibly skip rules which want to set NAME, SYMLINK, OWNER, GROUP, MODE */
+			if (!can_set_name && rule->rule.flags)
+				;//goto nomatch;
 			esc = ESCAPE_UNSET;
 			break;
 		case TK_M_ACTION:

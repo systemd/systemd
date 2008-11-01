@@ -430,7 +430,6 @@ static void event_queue_manager(struct udev *udev)
 			continue;
 		}
 
-		/* do dendencies, start event */
 		event_fork(loop_event);
 		dbg(udev, "moved seq %llu to running list\n", udev_device_get_seqnum(loop_event->dev));
 	}

@@ -1,4 +1,5 @@
 
+  o drop pnp shell script, acpi will take care of loading pnp modules
   o add DVB variables to kernel (patch sent), and drop shell script rule
   o DEVTYPE for disks is set by the kernel, they will be removed from
     the default rules
