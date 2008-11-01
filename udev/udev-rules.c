@@ -31,7 +31,39 @@
 #define PREALLOC_TOKEN			2048
 #define PREALLOC_STRBUF			32 * 1024
 
+struct uid_gid {
+	unsigned int name_off;
+	union {
+		uid_t	uid;
+		gid_t	gid;
+	};
+};
+
 /* KEY=="", KEY!="", KEY+="", KEY="", KEY:="" */
+struct udev_rules {
+	struct udev *udev;
+	int resolve_names;
+
+	/* every key in the rules file becomes a token */
+	struct token *tokens;
+	unsigned int token_cur;
+	unsigned int token_max;
+
+	/* all key strings are copied to a single string buffer */
+	char *buf;
+	size_t buf_cur;
+	size_t buf_max;
+	unsigned int buf_count;
+
+	/* during rule parsing, we cache uid/gid lookup results */
+	struct uid_gid *uids;
+	unsigned int uids_cur;
+	unsigned int uids_max;
+	struct uid_gid *gids;
+	unsigned int gids_cur;
+	unsigned int gids_max;
+};
+
 enum operation_type {
 	OP_UNSET,
 
@@ -44,17 +76,6 @@ enum operation_type {
 	OP_ASSIGN_FINAL,
 };
 
-static const char *operation_str[] = {
-	[OP_UNSET] =		"UNSET",
-	[OP_MATCH] =		"match",
-	[OP_NOMATCH] =		"nomatch",
-	[OP_MATCH_MAX] =	"MATCH_MAX",
-
-	[OP_ADD] =		"add",
-	[OP_ASSIGN] =		"assign",
-	[OP_ASSIGN_FINAL] =	"assign-final",
-};
-
 enum string_glob_type {
 	GL_UNSET,
 	GL_PLAIN,			/* no special chars */
@@ -64,18 +85,6 @@ enum string_glob_type {
 	GL_SOMETHING,			/* commonly used "?*" */
 	GL_FORMAT,
 };
-
-#ifdef DEBUG
-static const char *string_glob_str[] = {
-	[GL_UNSET] = 		"UNSET",
-	[GL_PLAIN] = 		"plain",
-	[GL_GLOB] = 		"glob",
-	[GL_SPLIT] = 		"split",
-	[GL_SPLIT_GLOB] = 	"split-glob",
-	[GL_SOMETHING] = 	"split-glob",
-	[GL_FORMAT] = 		"format",
-};
-#endif
 
 /* tokens of a rule are sorted/handled in this order */
 enum token_type {
@@ -132,6 +141,70 @@ enum token_type {
 	TK_END,
 };
 
+/* we try to pack stuff in a way that we take only 16 bytes per token */
+struct token {
+	union {
+		unsigned short type;		/* same as in rule and key */
+		struct {
+			unsigned short type;
+			unsigned short flags;
+			unsigned int next_rule;
+			unsigned int label_off;
+			unsigned short filename_off;
+			unsigned short filename_line;
+		} rule;
+		struct {
+			unsigned short type;
+			unsigned short flags;
+			unsigned short op;
+			unsigned short glob;
+			unsigned int value_off;
+			union {
+				unsigned int attr_off;
+				int ignore_error;
+				int i;
+				unsigned int rule_goto;
+				mode_t  mode;
+				uid_t uid;
+				gid_t gid;
+				int num_fake_part;
+				int devlink_prio;
+				int event_timeout;
+			};
+		} key;
+	};
+};
+
+#define MAX_TK		64
+struct rule_tmp {
+	struct udev_rules *rules;
+	struct token rule;
+	struct token token[MAX_TK];
+	unsigned int token_cur;
+};
+
+#ifdef DEBUG
+static const char *operation_str[] = {
+	[OP_UNSET] =		"UNSET",
+	[OP_MATCH] =		"match",
+	[OP_NOMATCH] =		"nomatch",
+	[OP_MATCH_MAX] =	"MATCH_MAX",
+
+	[OP_ADD] =		"add",
+	[OP_ASSIGN] =		"assign",
+	[OP_ASSIGN_FINAL] =	"assign-final",
+};
+
+static const char *string_glob_str[] = {
+	[GL_UNSET] = 		"UNSET",
+	[GL_PLAIN] = 		"plain",
+	[GL_GLOB] = 		"glob",
+	[GL_SPLIT] = 		"split",
+	[GL_SPLIT_GLOB] = 	"split-glob",
+	[GL_SOMETHING] = 	"split-glob",
+	[GL_FORMAT] = 		"format",
+};
+
 static const char *token_str[] = {
 	[TK_UNSET] =			"UNSET",
 	[TK_RULE] =			"RULE",
@@ -186,79 +259,124 @@ static const char *token_str[] = {
 	[TK_END] =			"END",
 };
 
-/* we try to pack stuff in a way that we take only 16 bytes per token */
-struct token {
-	union {
-		unsigned short type;		/* same as in rule and key */
-		struct {
-			unsigned short type;
-			unsigned short flags;
-			unsigned int next_rule;
-			unsigned int label_off;
-			unsigned short filename_off;
-			unsigned short filename_line;
-		} rule;
-		struct {
-			unsigned short type;
-			unsigned short flags;
-			unsigned short op;
-			unsigned short glob;
-			unsigned int value_off;
-			union {
-				unsigned int attr_off;
-				int ignore_error;
-				int i;
-				unsigned int rule_goto;
-				mode_t  mode;
-				uid_t uid;
-				gid_t gid;
-				int num_fake_part;
-				int devlink_prio;
-				int event_timeout;
-			};
-		} key;
-	};
-};
+static void dump_token(struct udev_rules *rules, struct token *token)
+{
+	enum token_type type = token->type;
+	enum operation_type op = token->key.op;
+	enum string_glob_type glob = token->key.glob;
+	const char *value = &rules->buf[token->key.value_off];
+	const char *attr = &rules->buf[token->key.attr_off];
 
-#define MAX_TK		64
-struct rule_tmp {
-	struct udev_rules *rules;
-	struct token rule;
-	struct token token[MAX_TK];
-	unsigned int token_cur;
-};
+	switch (type) {
+	case TK_RULE:
+		{
+			const char *tks_ptr = (char *)rules->tokens;
+			const char *tk_ptr = (char *)token;
+			unsigned int off = tk_ptr - tks_ptr;
 
-struct uid_gid {
-	unsigned int name_off;
-	union {
-		uid_t	uid;
-		gid_t	gid;
-	};
-};
+			dbg(rules->udev, "* RULE %s:%u, off: %u(%u), next: %u, label: '%s', flags: 0x%02x\n",
+			    &rules->buf[token->rule.filename_off], token->rule.filename_line,
+			    off / (unsigned int) sizeof(struct token), off,
+			    token->rule.next_rule,
+			    &rules->buf[token->rule.label_off],
+			    token->rule.flags);
+			break;
+		}
+	case TK_M_ACTION:
+	case TK_M_DEVPATH:
+	case TK_M_KERNEL:
+	case TK_M_SUBSYSTEM:
+	case TK_M_DRIVER:
+	case TK_M_WAITFOR:
+	case TK_M_DEVLINK:
+	case TK_M_NAME:
+	case TK_M_KERNELS:
+	case TK_M_SUBSYSTEMS:
+	case TK_M_DRIVERS:
+	case TK_M_PROGRAM:
+	case TK_M_IMPORT_FILE:
+	case TK_M_IMPORT_PROG:
+	case TK_M_IMPORT_PARENT:
+	case TK_M_RESULT:
+	case TK_A_NAME:
+	case TK_A_DEVLINK:
+	case TK_A_OWNER:
+	case TK_A_GROUP:
+	case TK_A_MODE:
+	case TK_A_RUN:
+		dbg(rules->udev, "%s %s '%s'(%s)\n",
+		    token_str[type], operation_str[op], value, string_glob_str[glob]);
+		break;
+	case TK_M_ATTR:
+	case TK_M_ATTRS:
+	case TK_M_ENV:
+	case TK_A_ATTR:
+	case TK_A_ENV:
+		dbg(rules->udev, "%s %s '%s' '%s'(%s)\n",
+		    token_str[type], operation_str[op], attr, value, string_glob_str[glob]);
+		break;
+	case TK_A_IGNORE_DEVICE:
+	case TK_A_STRING_ESCAPE_NONE:
+	case TK_A_STRING_ESCAPE_REPLACE:
+	case TK_A_LAST_RULE:
+	case TK_A_IGNORE_REMOVE:
+		dbg(rules->udev, "%s\n", token_str[type]);
+		break;
+	case TK_M_TEST:
+		dbg(rules->udev, "%s %s '%s'(%s) %#o\n",
+		    token_str[type], operation_str[op], value, string_glob_str[glob], token->key.mode);
+		break;
+	case TK_A_NUM_FAKE_PART:
+		dbg(rules->udev, "%s %u\n", token_str[type], token->key.num_fake_part);
+		break;
+	case TK_A_DEVLINK_PRIO:
+		dbg(rules->udev, "%s %s %u\n", token_str[type], operation_str[op], token->key.devlink_prio);
+		break;
+	case TK_A_OWNER_ID:
+		dbg(rules->udev, "%s %s %u\n", token_str[type], operation_str[op], token->key.uid);
+		break;
+	case TK_A_GROUP_ID:
+		dbg(rules->udev, "%s %s %u\n", token_str[type], operation_str[op], token->key.gid);
+		break;
+	case TK_A_MODE_ID:
+		dbg(rules->udev, "%s %s %#o\n", token_str[type], operation_str[op], token->key.mode);
+		break;
+	case TK_A_EVENT_TIMEOUT:
+		dbg(rules->udev, "%s %s %u\n", token_str[type], operation_str[op], token->key.event_timeout);
+		break;
+	case TK_A_GOTO:
+		dbg(rules->udev, "%s '%s' %u\n", token_str[type], value, token->key.rule_goto);
+		break;
+	case TK_END:
+		dbg(rules->udev, "* %s\n", token_str[type]);
+		break;
+	case TK_M_PARENTS_MIN:
+	case TK_M_PARENTS_MAX:
+	case TK_M_MAX:
+	case TK_UNSET:
+		dbg(rules->udev, "unknown type %u\n", type);
+		break;
+	}
+}
 
-struct udev_rules {
-	struct udev *udev;
-	int resolve_names;
+static void dump_rules(struct udev_rules *rules)
+{
+	unsigned int i;
 
-	/* every key in the rules file becomes a token */
-	struct token *tokens;
-	unsigned int token_cur;
-	unsigned int token_max;
-
-	/* all key strings are copied to a single string buffer */
-	char *buf;
-	size_t buf_cur;
-	size_t buf_max;
-	unsigned int buf_count;
-
-	/* during rule parsing, we cache uid/gid lookup results */
-	struct uid_gid *uids;
-	unsigned int uids_cur;
-	unsigned int uids_max;
-	struct uid_gid *gids;
-	unsigned int gids_cur;
-	unsigned int gids_max;
-};
+	dbg(rules->udev, "dumping %u (%zu bytes) tokens, %u (%zu bytes) strings\n",
+	    rules->token_cur,
+	    rules->token_cur * sizeof(struct token),
+	    rules->buf_count,
+	    rules->buf_cur);
+	for(i = 0; i < rules->token_cur; i++)
+		dump_token(rules, &rules->tokens[i]);
+}
+#else
+static const char **operation_str;
+static const char **token_str;
+static inline void dump_token(struct udev_rules *rules, struct token *token) {}
+static inline void dump_rules(struct udev_rules *rules) {}
+#endif /* DEBUG */
 
 /* we could lookup and return existing strings, or tails of strings */
 static int add_string(struct udev_rules *rules, const char *str)
@@ -860,124 +978,6 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 	}
 	return 0;
 }
-
-#ifdef DEBUG
-static void dump_token(struct udev_rules *rules, struct token *token)
-{
-	enum token_type type = token->type;
-	enum operation_type op = token->key.op;
-	enum string_glob_type glob = token->key.glob;
-	const char *value = &rules->buf[token->key.value_off];
-	const char *attr = &rules->buf[token->key.attr_off];
-
-	switch (type) {
-	case TK_RULE:
-		{
-			const char *tks_ptr = (char *)rules->tokens;
-			const char *tk_ptr = (char *)token;
-			unsigned int off = tk_ptr - tks_ptr;
-
-			dbg(rules->udev, "* RULE %s:%u, off: %u(%u), next: %u, label: '%s', flags: 0x%02x\n",
-			    &rules->buf[token->rule.filename_off], token->rule.filename_line,
-			    off / (unsigned int) sizeof(struct token), off,
-			    token->rule.next_rule,
-			    &rules->buf[token->rule.label_off],
-			    token->rule.flags);
-			break;
-		}
-	case TK_M_ACTION:
-	case TK_M_DEVPATH:
-	case TK_M_KERNEL:
-	case TK_M_SUBSYSTEM:
-	case TK_M_DRIVER:
-	case TK_M_WAITFOR:
-	case TK_M_DEVLINK:
-	case TK_M_NAME:
-	case TK_M_KERNELS:
-	case TK_M_SUBSYSTEMS:
-	case TK_M_DRIVERS:
-	case TK_M_PROGRAM:
-	case TK_M_IMPORT_FILE:
-	case TK_M_IMPORT_PROG:
-	case TK_M_IMPORT_PARENT:
-	case TK_M_RESULT:
-	case TK_A_NAME:
-	case TK_A_DEVLINK:
-	case TK_A_OWNER:
-	case TK_A_GROUP:
-	case TK_A_MODE:
-	case TK_A_RUN:
-		dbg(rules->udev, "%s %s '%s'(%s)\n",
-		    token_str[type], operation_str[op], value, string_glob_str[glob]);
-		break;
-	case TK_M_ATTR:
-	case TK_M_ATTRS:
-	case TK_M_ENV:
-	case TK_A_ATTR:
-	case TK_A_ENV:
-		dbg(rules->udev, "%s %s '%s' '%s'(%s)\n",
-		    token_str[type], operation_str[op], attr, value, string_glob_str[glob]);
-		break;
-	case TK_A_IGNORE_DEVICE:
-	case TK_A_STRING_ESCAPE_NONE:
-	case TK_A_STRING_ESCAPE_REPLACE:
-	case TK_A_LAST_RULE:
-	case TK_A_IGNORE_REMOVE:
-		dbg(rules->udev, "%s\n", token_str[type]);
-		break;
-	case TK_M_TEST:
-		dbg(rules->udev, "%s %s '%s'(%s) %#o\n",
-		    token_str[type], operation_str[op], value, string_glob_str[glob], token->key.mode);
-		break;
-	case TK_A_NUM_FAKE_PART:
-		dbg(rules->udev, "%s %u\n", token_str[type], token->key.num_fake_part);
-		break;
-	case TK_A_DEVLINK_PRIO:
-		dbg(rules->udev, "%s %s %u\n", token_str[type], operation_str[op], token->key.devlink_prio);
-		break;
-	case TK_A_OWNER_ID:
-		dbg(rules->udev, "%s %s %u\n", token_str[type], operation_str[op], token->key.uid);
-		break;
-	case TK_A_GROUP_ID:
-		dbg(rules->udev, "%s %s %u\n", token_str[type], operation_str[op], token->key.gid);
-		break;
-	case TK_A_MODE_ID:
-		dbg(rules->udev, "%s %s %#o\n", token_str[type], operation_str[op], token->key.mode);
-		break;
-	case TK_A_EVENT_TIMEOUT:
-		dbg(rules->udev, "%s %s %u\n", token_str[type], operation_str[op], token->key.event_timeout);
-		break;
-	case TK_A_GOTO:
-		dbg(rules->udev, "%s '%s' %u\n", token_str[type], value, token->key.rule_goto);
-		break;
-	case TK_END:
-		dbg(rules->udev, "* %s\n", token_str[type]);
-		break;
-	case TK_M_PARENTS_MIN:
-	case TK_M_PARENTS_MAX:
-	case TK_M_MAX:
-	case TK_UNSET:
-		dbg(rules->udev, "unknown type %u\n", type);
-		break;
-	}
-}
-
-static void dump_rules(struct udev_rules *rules)
-{
-	unsigned int i;
-
-	dbg(rules->udev, "dumping %u (%zu bytes) tokens, %u (%zu bytes) strings\n",
-	    rules->token_cur,
-	    rules->token_cur * sizeof(struct token),
-	    rules->buf_count,
-	    rules->buf_cur);
-	for(i = 0; i < rules->token_cur; i++)
-		dump_token(rules, &rules->tokens[i]);
-}
-#else
-static inline void dump_token(struct udev_rules *rules, struct token *token) {}
-static inline void dump_rules(struct udev_rules *rules) {}
-#endif /* DEBUG */
 
 static int sort_token(struct udev_rules *rules, struct rule_tmp *rule_tmp)
 {
