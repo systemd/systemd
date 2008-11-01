@@ -52,13 +52,13 @@ static int name_index(struct udev *udev, const char *devpath, const char *name, 
 	util_strlcat(filename, device, sizeof(filename));
 
 	if (add) {
-		info(udev, "creating index: '%s'\n", filename);
+		dbg(udev, "creating index: '%s'\n", filename);
 		util_create_path(udev, filename);
 		fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
 		if (fd > 0)
 			close(fd);
 	} else {
-		info(udev, "removing index: '%s'\n", filename);
+		dbg(udev, "removing index: '%s'\n", filename);
 		unlink(filename);
 		util_delete_path(udev, filename);
 	}
@@ -185,7 +185,7 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 		} else if (S_ISLNK(stats.st_mode)) {
 			char buf[UTIL_PATH_SIZE];
 
-			info(udev, "found existing symlink '%s'\n", slink);
+			dbg(udev, "found existing symlink '%s'\n", slink);
 			len = readlink(slink, buf, sizeof(buf));
 			if (len > 0) {
 				buf[len] = '\0';
@@ -241,11 +241,11 @@ static int name_index_get_devices(struct udev *udev, const char *name, struct ud
 	util_path_encode(&dirname[start], sizeof(dirname) - start);
 	dir = opendir(dirname);
 	if (dir == NULL) {
-		info(udev, "no index directory '%s': %m\n", dirname);
+		dbg(udev, "no index directory '%s': %m\n", dirname);
 		count = -1;
 		goto out;
 	}
-	info(udev, "found index directory '%s'\n", dirname);
+	dbg(udev, "found index directory '%s'\n", dirname);
 
 	while (1) {
 		struct dirent *ent;
@@ -278,11 +278,12 @@ static int update_link(struct udev_device *dev, const char *slink, int test)
 	int priority = 0;
 	int rc = 0;
 
-	info(udev, "update symlink '%s' of '%s'\n", slink, udev_device_get_syspath(dev));
+	dbg(udev, "update symlink '%s' of '%s'\n", slink, udev_device_get_syspath(dev));
 
 	udev_list_init(&dev_list);
 	count = name_index_get_devices(udev, slink, &dev_list);
-	info(udev, "found %i devices with name '%s'\n", count, slink);
+	if (count > 1)
+		info(udev, "found %i devices with name '%s'\n", count, slink);
 
 	/* if we don't have a reference, delete it */
 	if (count <= 0) {
@@ -302,12 +303,12 @@ static int update_link(struct udev_device *dev, const char *slink, int test)
 		const char *devnode;
 
 		syspath = udev_list_entry_get_name(dev_entry);
-		info(udev, "found '%s' for '%s'\n", syspath, slink);
+		dbg(udev, "found '%s' for '%s'\n", syspath, slink);
 
 		/* did we find ourself? we win, if we have the same priority */
 		if (strcmp(udev_device_get_syspath(dev), syspath) == 0) {
-			info(udev, "compare (our own) priority of '%s' %i >= %i\n",
-			     udev_device_get_devpath(dev), udev_device_get_devlink_priority(dev), priority);
+			dbg(udev, "compare (our own) priority of '%s' %i >= %i\n",
+			    udev_device_get_devpath(dev), udev_device_get_devlink_priority(dev), priority);
 			if (strcmp(udev_device_get_devnode(dev), slink) == 0) {
 				info(udev, "'%s' is our device node, database inconsistent, skip link update\n",
 				     udev_device_get_devnode(dev));
@@ -328,10 +329,10 @@ static int update_link(struct udev_device *dev, const char *slink, int test)
 				info(udev, "'%s' is a device node of '%s', skip link update\n",
 				     devnode, syspath);
 			} else {
-				info(udev, "compare priority of '%s' %i > %i\n",
-				     udev_device_get_devpath(dev_db),
-				     udev_device_get_devlink_priority(dev_db),
-				     priority);
+				dbg(udev, "compare priority of '%s' %i > %i\n",
+				    udev_device_get_devpath(dev_db),
+				    udev_device_get_devlink_priority(dev_db),
+				    priority);
 				if (target[0] == '\0' || udev_device_get_devlink_priority(dev_db) > priority) {
 					priority = udev_device_get_devlink_priority(dev_db);
 					util_strlcpy(target, devnode, sizeof(target));
@@ -367,12 +368,18 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 	/* update possible left-over symlinks */
 	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev_old)) {
 		struct udev_list_entry *list_entry_current;
+		int found;
 
+		found = 0;
 		udev_list_entry_foreach(list_entry_current, udev_device_get_devlinks_list_entry(dev)) {
 			if (strcmp(udev_list_entry_get_name(list_entry_current),
-				   udev_list_entry_get_name(list_entry)) == 0)
-				continue;
+				   udev_list_entry_get_name(list_entry)) == 0) {
+				found = 1;
+				break;
+			}
 		}
+		if (found)
+			continue;
 		/* link does no longer belong to this device */
 		info(udev, "update old symlink '%s' no longer belonging to '%s'\n",
 		     udev_list_entry_get_name(list_entry), udev_device_get_devpath(dev));
