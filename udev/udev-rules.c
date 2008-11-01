@@ -186,15 +186,21 @@ static const char *token_str[] = {
 	[TK_END] =			"END",
 };
 
+/* we try to pack stuff in a way that we take only 16 bytes per token */
 struct token {
-	enum token_type type;
 	union {
+		unsigned short type;		/* same as in rule and key */
 		struct {
+			unsigned short type;
+			unsigned short flags;
 			unsigned int next_rule;
 			unsigned int label_off;
-			unsigned int filename_off;
+			unsigned short filename_off;
+			unsigned short filename_line;
 		} rule;
 		struct {
+			unsigned short type;
+			unsigned short flags;
 			unsigned short op;
 			unsigned short glob;
 			unsigned int value_off;
@@ -254,7 +260,7 @@ struct udev_rules {
 	unsigned int gids_max;
 };
 
-/* NOTE: we could lookup and return existing strings, or tails of strings */
+/* we could lookup and return existing strings, or tails of strings */
 static int add_string(struct udev_rules *rules, const char *str)
 {
 	size_t len = strlen(str)+1;
@@ -731,9 +737,9 @@ static char *get_key_attribute(struct udev *udev, char *str)
 	return NULL;
 }
 
-static int rule_add_token(struct rule_tmp *rule_tmp, enum token_type type,
-			  enum operation_type op,
-			  const char *value, const void *data)
+static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
+			enum operation_type op,
+			const char *value, const void *data)
 {
 	struct token *token = &rule_tmp->token[rule_tmp->token_cur];
 	const char *attr = data;
@@ -844,7 +850,7 @@ static int rule_add_token(struct rule_tmp *rule_tmp, enum token_type type,
 		}
 	}
 
-	token->type = type;
+	token->key.type = type;
 	token->key.op = op;
 	token->key.glob = glob;
 	rule_tmp->token_cur++;
@@ -871,8 +877,8 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 			const char *tk_ptr = (char *)token;
 			unsigned int off = tk_ptr - tks_ptr;
 
-			dbg(rules->udev, "* RULE '%s', off: %u(%u), next: %u, label: '%s'\n",
-			    &rules->buf[token->rule.filename_off],
+			dbg(rules->udev, "* RULE %s:%u, off: %u(%u), next: %u, label: '%s'\n",
+			    &rules->buf[token->rule.filename_off], token->rule.filename_line,
 			    off / (unsigned int) sizeof(struct token), off,
 			    token->rule.next_rule,
 			    &rules->buf[token->rule.label_off]);
@@ -1020,6 +1026,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 	rule_tmp.rules = rules;
 	rule_tmp.rule.type = TK_RULE;
 	rule_tmp.rule.rule.filename_off = filename_off;
+	rule_tmp.rule.rule.filename_line = lineno;
 
 	linepos = line;
 	while (1) {
@@ -1035,7 +1042,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				err(rules->udev, "invalid ACTION operation\n");
 				goto invalid;
 			}
-			rule_add_token(&rule_tmp, TK_M_ACTION, op, value, NULL);
+			rule_add_key(&rule_tmp, TK_M_ACTION, op, value, NULL);
 			valid = 1;
 			continue;
 		}
@@ -1045,7 +1052,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				err(rules->udev, "invalid DEVPATH operation\n");
 				goto invalid;
 			}
-			rule_add_token(&rule_tmp, TK_M_DEVPATH, op, value, NULL);
+			rule_add_key(&rule_tmp, TK_M_DEVPATH, op, value, NULL);
 			valid = 1;
 			continue;
 		}
@@ -1055,7 +1062,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				err(rules->udev, "invalid KERNEL operation\n");
 				goto invalid;
 			}
-			rule_add_token(&rule_tmp, TK_M_KERNEL, op, value, NULL);
+			rule_add_key(&rule_tmp, TK_M_KERNEL, op, value, NULL);
 			valid = 1;
 			continue;
 		}
@@ -1072,9 +1079,9 @@ static int add_rule(struct udev_rules *rules, char *line,
 				if (strcmp(value, "bus") == 0 || strcmp(value, "class") == 0)
 					err(rules->udev, "'%s' must be specified as 'subsystem' \n"
 					    "please fix it in %s:%u", value, filename, lineno);
-				rule_add_token(&rule_tmp, TK_M_SUBSYSTEM, op, "subsystem|class|bus", NULL);
+				rule_add_key(&rule_tmp, TK_M_SUBSYSTEM, op, "subsystem|class|bus", NULL);
 			} else
-				rule_add_token(&rule_tmp, TK_M_SUBSYSTEM, op, value, NULL);
+				rule_add_key(&rule_tmp, TK_M_SUBSYSTEM, op, value, NULL);
 			valid = 1;
 			continue;
 		}
@@ -1084,7 +1091,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				err(rules->udev, "invalid DRIVER operation\n");
 				goto invalid;
 			}
-			rule_add_token(&rule_tmp, TK_M_DRIVER, op, value, NULL);
+			rule_add_key(&rule_tmp, TK_M_DRIVER, op, value, NULL);
 			valid = 1;
 			continue;
 		}
@@ -1096,9 +1103,9 @@ static int add_rule(struct udev_rules *rules, char *line,
 				goto invalid;
 			}
 			if (op < OP_MATCH_MAX) {
-				rule_add_token(&rule_tmp, TK_M_ATTR, op, value, attr);
+				rule_add_key(&rule_tmp, TK_M_ATTR, op, value, attr);
 			} else {
-				rule_add_token(&rule_tmp, TK_A_ATTR, op, value, attr);
+				rule_add_key(&rule_tmp, TK_A_ATTR, op, value, attr);
 			}
 			valid = 1;
 			continue;
@@ -1110,7 +1117,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				err(rules->udev, "invalid KERNELS operation\n");
 				goto invalid;
 			}
-			rule_add_token(&rule_tmp, TK_M_KERNELS, op, value, NULL);
+			rule_add_key(&rule_tmp, TK_M_KERNELS, op, value, NULL);
 			valid = 1;
 			continue;
 		}
@@ -1121,7 +1128,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				err(rules->udev, "invalid SUBSYSTEMS operation\n");
 				goto invalid;
 			}
-			rule_add_token(&rule_tmp, TK_M_SUBSYSTEMS, op, value, NULL);
+			rule_add_key(&rule_tmp, TK_M_SUBSYSTEMS, op, value, NULL);
 			valid = 1;
 			continue;
 		}
@@ -1131,7 +1138,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				err(rules->udev, "invalid DRIVERS operation\n");
 				goto invalid;
 			}
-			rule_add_token(&rule_tmp, TK_M_DRIVERS, op, value, NULL);
+			rule_add_key(&rule_tmp, TK_M_DRIVERS, op, value, NULL);
 			valid = 1;
 			continue;
 		}
@@ -1153,7 +1160,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			else if (strstr(attr, "../") != NULL)
 				err(rules->udev, "do not reference parent sysfs directories directly, "
 				    "it may break with a future kernel, please fix it in %s:%u", filename, lineno);
-			rule_add_token(&rule_tmp, TK_M_ATTRS, op, value, attr);
+			rule_add_key(&rule_tmp, TK_M_ATTRS, op, value, attr);
 			valid = 1;
 			continue;
 		}
@@ -1167,10 +1174,10 @@ static int add_rule(struct udev_rules *rules, char *line,
 			if (strncmp(attr, "PHYSDEV", 7) == 0)
 				physdev = 1;
 			if (op < OP_MATCH_MAX) {
-				if (rule_add_token(&rule_tmp, TK_M_ENV, op, value, attr) != 0)
+				if (rule_add_key(&rule_tmp, TK_M_ENV, op, value, attr) != 0)
 					goto invalid;
 			} else {
-				if (rule_add_token(&rule_tmp, TK_A_ENV, op, value, attr) != 0)
+				if (rule_add_key(&rule_tmp, TK_A_ENV, op, value, attr) != 0)
 					goto invalid;
 			}
 			valid = 1;
@@ -1178,7 +1185,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 		}
 
 		if (strcasecmp(key, "PROGRAM") == 0) {
-			rule_add_token(&rule_tmp, TK_M_PROGRAM, op, value, NULL);
+			rule_add_key(&rule_tmp, TK_M_PROGRAM, op, value, NULL);
 			valid = 1;
 			continue;
 		}
@@ -1188,7 +1195,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				err(rules->udev, "invalid RESULT operation\n");
 				goto invalid;
 			}
-			rule_add_token(&rule_tmp, TK_M_RESULT, op, value, NULL);
+			rule_add_key(&rule_tmp, TK_M_RESULT, op, value, NULL);
 			valid = 1;
 			continue;
 		}
@@ -1197,15 +1204,15 @@ static int add_rule(struct udev_rules *rules, char *line,
 			attr = get_key_attribute(rules->udev, key + sizeof("IMPORT")-1);
 			if (attr != NULL && strstr(attr, "program")) {
 				dbg(rules->udev, "IMPORT will be executed\n");
-				rule_add_token(&rule_tmp, TK_M_IMPORT_PROG, op, value, NULL);
+				rule_add_key(&rule_tmp, TK_M_IMPORT_PROG, op, value, NULL);
 				valid = 1;
 			} else if (attr != NULL && strstr(attr, "file")) {
 				dbg(rules->udev, "IMPORT will be included as file\n");
-				rule_add_token(&rule_tmp, TK_M_IMPORT_FILE, op, value, NULL);
+				rule_add_key(&rule_tmp, TK_M_IMPORT_FILE, op, value, NULL);
 				valid = 1;
 			} else if (attr != NULL && strstr(attr, "parent")) {
 				dbg(rules->udev, "IMPORT will include the parent values\n");
-				rule_add_token(&rule_tmp, TK_M_IMPORT_PARENT, op, value, NULL);
+				rule_add_key(&rule_tmp, TK_M_IMPORT_PARENT, op, value, NULL);
 				valid = 1;
 			} else {
 				/* figure it out if it is executable */
@@ -1230,11 +1237,11 @@ static int add_rule(struct udev_rules *rules, char *line,
 				dbg(rules->udev, "IMPORT auto mode for '%s'\n", file);
 				if (!lstat(file, &statbuf) && (statbuf.st_mode & S_IXUSR)) {
 					dbg(rules->udev, "IMPORT will be executed (autotype)\n");
-					rule_add_token(&rule_tmp, TK_M_IMPORT_PROG, op, value, NULL);
+					rule_add_key(&rule_tmp, TK_M_IMPORT_PROG, op, value, NULL);
 					valid = 1;
 				} else {
 					dbg(rules->udev, "IMPORT will be included as file (autotype)\n");
-					rule_add_token(&rule_tmp, TK_M_IMPORT_FILE, op, value, NULL);
+					rule_add_key(&rule_tmp, TK_M_IMPORT_FILE, op, value, NULL);
 					valid = 1;
 				}
 			}
@@ -1251,9 +1258,9 @@ static int add_rule(struct udev_rules *rules, char *line,
 			attr = get_key_attribute(rules->udev, key + sizeof("TEST")-1);
 			if (attr != NULL) {
 				mode = strtol(attr, NULL, 8);
-				rule_add_token(&rule_tmp, TK_M_TEST, op, value, &mode);
+				rule_add_key(&rule_tmp, TK_M_TEST, op, value, &mode);
 			} else {
-				rule_add_token(&rule_tmp, TK_M_TEST, op, value, NULL);
+				rule_add_key(&rule_tmp, TK_M_TEST, op, value, NULL);
 			}
 			valid = 1;
 			continue;
@@ -1265,13 +1272,13 @@ static int add_rule(struct udev_rules *rules, char *line,
 			attr = get_key_attribute(rules->udev, key + sizeof("RUN")-1);
 			if (attr != NULL && strstr(attr, "ignore_error"))
 				flag = 1;
-			rule_add_token(&rule_tmp, TK_A_RUN, op, value, &flag);
+			rule_add_key(&rule_tmp, TK_A_RUN, op, value, &flag);
 			valid = 1;
 			continue;
 		}
 
 		if (strcasecmp(key, "WAIT_FOR") == 0 || strcasecmp(key, "WAIT_FOR_SYSFS") == 0) {
-			rule_add_token(&rule_tmp, TK_M_WAITFOR, 0, value, NULL);
+			rule_add_key(&rule_tmp, TK_M_WAITFOR, 0, value, NULL);
 			valid = 1;
 			continue;
 		}
@@ -1283,29 +1290,29 @@ static int add_rule(struct udev_rules *rules, char *line,
 		}
 
 		if (strcasecmp(key, "GOTO") == 0) {
-			rule_add_token(&rule_tmp, TK_A_GOTO, 0, value, NULL);
+			rule_add_key(&rule_tmp, TK_A_GOTO, 0, value, NULL);
 			valid = 1;
 			continue;
 		}
 
 		if (strncasecmp(key, "NAME", sizeof("NAME")-1) == 0) {
 			if (op < OP_MATCH_MAX) {
-				rule_add_token(&rule_tmp, TK_M_NAME, op, value, NULL);
+				rule_add_key(&rule_tmp, TK_M_NAME, op, value, NULL);
 			} else {
 				if (value[0] == '\0')
 					dbg(rules->udev, "name empty, node creation suppressed\n");
-				rule_add_token(&rule_tmp, TK_A_NAME, op, value, NULL);
+				rule_add_key(&rule_tmp, TK_A_NAME, op, value, NULL);
 				attr = get_key_attribute(rules->udev, key + sizeof("NAME")-1);
 				if (attr != NULL) {
 					if (strstr(attr, "all_partitions") != NULL) {
 						int num = DEFAULT_FAKE_PARTITIONS_COUNT;
 
 						dbg(rules->udev, "creation of partition nodes requested\n");
-						rule_add_token(&rule_tmp, TK_A_NUM_FAKE_PART, 0, NULL, &num);
+						rule_add_key(&rule_tmp, TK_A_NUM_FAKE_PART, 0, NULL, &num);
 					}
 					if (strstr(attr, "ignore_remove") != NULL) {
 						dbg(rules->udev, "remove event should be ignored\n");
-						rule_add_token(&rule_tmp, TK_A_IGNORE_REMOVE, 0, NULL, NULL);
+						rule_add_key(&rule_tmp, TK_A_IGNORE_REMOVE, 0, NULL, NULL);
 					}
 				}
 			}
@@ -1314,9 +1321,9 @@ static int add_rule(struct udev_rules *rules, char *line,
 
 		if (strcasecmp(key, "SYMLINK") == 0) {
 			if (op < OP_MATCH_MAX)
-				rule_add_token(&rule_tmp, TK_M_DEVLINK, op, value, NULL);
+				rule_add_key(&rule_tmp, TK_M_DEVLINK, op, value, NULL);
 			else
-				rule_add_token(&rule_tmp, TK_A_DEVLINK, op, value, NULL);
+				rule_add_key(&rule_tmp, TK_A_DEVLINK, op, value, NULL);
 			valid = 1;
 			continue;
 		}
@@ -1327,12 +1334,12 @@ static int add_rule(struct udev_rules *rules, char *line,
 
 			uid = strtoul(value, &endptr, 10);
 			if (endptr[0] == '\0') {
-				rule_add_token(&rule_tmp, TK_A_OWNER_ID, op, NULL, &uid);
+				rule_add_key(&rule_tmp, TK_A_OWNER_ID, op, NULL, &uid);
 			} else if (rules->resolve_names && strchr("$%", value[0]) == NULL) {
 				uid = add_uid(rules, value);
-				rule_add_token(&rule_tmp, TK_A_OWNER_ID, op, NULL, &uid);
+				rule_add_key(&rule_tmp, TK_A_OWNER_ID, op, NULL, &uid);
 			} else {
-				rule_add_token(&rule_tmp, TK_A_OWNER, op, value, NULL);
+				rule_add_key(&rule_tmp, TK_A_OWNER, op, value, NULL);
 			}
 			valid = 1;
 			continue;
@@ -1344,12 +1351,12 @@ static int add_rule(struct udev_rules *rules, char *line,
 
 			gid = strtoul(value, &endptr, 10);
 			if (endptr[0] == '\0') {
-				rule_add_token(&rule_tmp, TK_A_GROUP_ID, op, NULL, &gid);
+				rule_add_key(&rule_tmp, TK_A_GROUP_ID, op, NULL, &gid);
 			} else if (rules->resolve_names && strchr("$%", value[0]) == NULL) {
 				gid = add_gid(rules, value);
-				rule_add_token(&rule_tmp, TK_A_GROUP_ID, op, NULL, &gid);
+				rule_add_key(&rule_tmp, TK_A_GROUP_ID, op, NULL, &gid);
 			} else {
-				rule_add_token(&rule_tmp, TK_A_GROUP, op, value, NULL);
+				rule_add_key(&rule_tmp, TK_A_GROUP, op, value, NULL);
 			}
 			valid = 1;
 			continue;
@@ -1361,9 +1368,9 @@ static int add_rule(struct udev_rules *rules, char *line,
 
 			mode = strtol(value, &endptr, 8);
 			if (endptr[0] == '\0')
-				rule_add_token(&rule_tmp, TK_A_MODE_ID, op, NULL, &mode);
+				rule_add_key(&rule_tmp, TK_A_MODE_ID, op, NULL, &mode);
 			else
-				rule_add_token(&rule_tmp, TK_A_MODE, op, value, NULL);
+				rule_add_key(&rule_tmp, TK_A_MODE, op, value, NULL);
 			valid = 1;
 			continue;
 		}
@@ -1373,42 +1380,42 @@ static int add_rule(struct udev_rules *rules, char *line,
 
 			if (strstr(value, "last_rule") != NULL) {
 				dbg(rules->udev, "last rule to be applied\n");
-				rule_add_token(&rule_tmp, TK_A_LAST_RULE, 0, NULL, NULL);
+				rule_add_key(&rule_tmp, TK_A_LAST_RULE, 0, NULL, NULL);
 			}
 			if (strstr(value, "ignore_device") != NULL) {
 				dbg(rules->udev, "device should be ignored\n");
-				rule_add_token(&rule_tmp, TK_A_IGNORE_DEVICE, 0, NULL, NULL);
+				rule_add_key(&rule_tmp, TK_A_IGNORE_DEVICE, 0, NULL, NULL);
 			}
 			if (strstr(value, "ignore_remove") != NULL) {
 				dbg(rules->udev, "remove event should be ignored\n");
-				rule_add_token(&rule_tmp, TK_A_IGNORE_REMOVE, 0, NULL, NULL);
+				rule_add_key(&rule_tmp, TK_A_IGNORE_REMOVE, 0, NULL, NULL);
 			}
 			pos = strstr(value, "link_priority=");
 			if (pos != NULL) {
 				int prio = atoi(&pos[strlen("link_priority=")]);
 
-				rule_add_token(&rule_tmp, TK_A_DEVLINK_PRIO, 0, NULL, &prio);
+				rule_add_key(&rule_tmp, TK_A_DEVLINK_PRIO, 0, NULL, &prio);
 				dbg(rules->udev, "link priority=%i\n", prio);
 			}
 			pos = strstr(value, "event_timeout=");
 			if (pos != NULL) {
 				int tout = atoi(&pos[strlen("event_timeout=")]);
 
-				rule_add_token(&rule_tmp, TK_A_EVENT_TIMEOUT, 0, NULL, &tout);
+				rule_add_key(&rule_tmp, TK_A_EVENT_TIMEOUT, 0, NULL, &tout);
 				dbg(rules->udev, "event timout=%i\n", tout);
 			}
 			pos = strstr(value, "string_escape=");
 			if (pos != NULL) {
 				pos = &pos[strlen("string_escape=")];
 				if (strncmp(pos, "none", strlen("none")) == 0)
-					rule_add_token(&rule_tmp, TK_A_STRING_ESCAPE_NONE, 0, NULL, NULL);
+					rule_add_key(&rule_tmp, TK_A_STRING_ESCAPE_NONE, 0, NULL, NULL);
 				else if (strncmp(pos, "replace", strlen("replace")) == 0)
-					rule_add_token(&rule_tmp, TK_A_STRING_ESCAPE_REPLACE, 0, NULL, NULL);
+					rule_add_key(&rule_tmp, TK_A_STRING_ESCAPE_REPLACE, 0, NULL, NULL);
 			}
 			if (strstr(value, "all_partitions") != NULL) {
 				int num = DEFAULT_FAKE_PARTITIONS_COUNT;
 
-				rule_add_token(&rule_tmp, TK_A_NUM_FAKE_PART, 0, NULL, &num);
+				rule_add_key(&rule_tmp, TK_A_NUM_FAKE_PART, 0, NULL, &num);
 				dbg(rules->udev, "creation of partition nodes requested\n");
 			}
 			valid = 1;
@@ -1438,10 +1445,9 @@ invalid:
 	return -1;
 }
 
-static int parse_file(struct udev_rules *rules, const char *filename)
+static int parse_file(struct udev_rules *rules, const char *filename, unsigned short filename_off)
 {
 	FILE *f;
-	unsigned int filename_off;
 	unsigned int first_token;
 	char line[UTIL_LINE_SIZE];
 	int line_nr = 0;
@@ -1453,7 +1459,6 @@ static int parse_file(struct udev_rules *rules, const char *filename)
 	if (f == NULL)
 		return -1;
 
-	filename_off = add_string(rules, filename);
 	first_token = rules->token_cur;
 
 	while(fgets(line, sizeof(line), f) != NULL) {
@@ -1558,7 +1563,6 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 {
 	struct udev_rules *rules;
 	struct stat statbuf;
-	char filename[PATH_MAX];
 	struct udev_list_node file_list;
 	struct udev_list_entry *file_loop, *file_tmp;
 	unsigned int prev_rule;
@@ -1592,6 +1596,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 		/* custom rules location for testing */
 		add_matching_files(udev, &file_list, udev_get_rules_path(udev), ".rules");
 	} else {
+		char filename[PATH_MAX];
 		struct udev_list_node sort_list;
 		struct udev_list_entry *sort_loop, *sort_tmp;
 
@@ -1642,14 +1647,26 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 		}
 	}
 
+	/* add all filenames to the string buffer */
+	udev_list_entry_foreach(file_loop, udev_list_get_entry(&file_list)) {
+		const char *filename = udev_list_entry_get_name(file_loop);
+		unsigned int filename_off;
+
+		filename_off = add_string(rules, filename);
+		/* the offset in the rule is limited to unsigned short */
+		if (filename_off < USHRT_MAX)
+			udev_list_entry_set_flag(file_loop, filename_off);
+	}
+
 	/* parse list of files */
 	udev_list_entry_foreach_safe(file_loop, file_tmp, udev_list_get_entry(&file_list)) {
-		const char *file_name = udev_list_entry_get_name(file_loop);
+		const char *filename = udev_list_entry_get_name(file_loop);
+		unsigned int filename_off = udev_list_entry_get_flag(file_loop);
 
-		if (stat(file_name, &statbuf) == 0 && statbuf.st_size > 0)
-			parse_file(rules, file_name);
+		if (stat(filename, &statbuf) == 0 && statbuf.st_size > 0)
+			parse_file(rules, filename, filename_off);
 		else
-			info(udev, "can not read '%s'\n", file_name);
+			info(udev, "can not read '%s'\n", filename);
 		udev_list_entry_remove(file_loop);
 	}
 
@@ -2120,6 +2137,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				util_strlcpy(owner,  &rules->buf[cur->key.value_off], sizeof(owner));
 				udev_event_apply_format(event, owner, sizeof(owner));
 				event->uid = util_lookup_user(event->udev, owner);
+				info(event->udev, "OWNER %u %s:%u\n",
+				     event->uid,
+				     &rules->buf[rule->rule.filename_off],
+				     rule->rule.filename_line);
 				break;
 			}
 		case TK_A_GROUP:
@@ -2133,6 +2154,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				util_strlcpy(group, &rules->buf[cur->key.value_off], sizeof(group));
 				udev_event_apply_format(event, group, sizeof(group));
 				event->gid = util_lookup_group(event->udev, group);
+				info(event->udev, "GROUP %u %s:%u\n",
+				     event->gid,
+				     &rules->buf[rule->rule.filename_off],
+				     rule->rule.filename_line);
 				break;
 			}
 		case TK_A_MODE:
@@ -2151,6 +2176,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					err(event->udev, "invalide mode '%s' set default mode 0660\n", mode);
 					event->mode = 0660;
 				}
+				info(event->udev, "MODE %#o %s:%u\n",
+				     event->mode,
+				     &rules->buf[rule->rule.filename_off],
+				     rule->rule.filename_line);
 				break;
 			}
 		case TK_A_OWNER_ID:
@@ -2159,6 +2188,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			if (cur->key.op == OP_ASSIGN_FINAL)
 				event->owner_final = 1;
 			event->uid = cur->key.uid;
+			info(event->udev, "OWNER %u %s:%u\n",
+			     event->uid,
+			     &rules->buf[rule->rule.filename_off],
+			     rule->rule.filename_line);
 			break;
 		case TK_A_GROUP_ID:
 			if (event->group_final)
@@ -2166,6 +2199,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			if (cur->key.op == OP_ASSIGN_FINAL)
 				event->group_final = 1;
 			event->gid = cur->key.gid;
+			info(event->udev, "GROUP %u %s:%u\n",
+			     event->gid,
+			     &rules->buf[rule->rule.filename_off],
+			     rule->rule.filename_line);
 			break;
 		case TK_A_MODE_ID:
 			if (event->mode_final)
@@ -2173,6 +2210,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			if (cur->key.op == OP_ASSIGN_FINAL)
 				event->mode_final = 1;
 			event->mode = cur->key.mode;
+			info(event->udev, "MODE %#o %s:%u\n",
+			     event->mode,
+			     &rules->buf[rule->rule.filename_off],
+			     rule->rule.filename_line);
 			break;
 		case TK_A_ENV:
 			{
@@ -2216,6 +2257,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 						info(event->udev, "%i character(s) replaced\n", count);
 					free(event->name);
 					event->name = strdup(name_str);
+					info(event->udev, "NAME '%s' %s:%u\n",
+					     event->name,
+					     &rules->buf[rule->rule.filename_off],
+					     rule->rule.filename_line);
 				}
 				break;
 			}
@@ -2251,7 +2296,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				next = strchr(pos, ' ');
 				while (next) {
 					next[0] = '\0';
-					info(event->udev, "add symlink '%s'\n", pos);
+					info(event->udev, "LINK '%s' %s:%u\n",
+					     pos,
+					     &rules->buf[rule->rule.filename_off],
+					     rule->rule.filename_line);
 					util_strlcpy(filename, udev_get_dev_path(event->udev), sizeof(filename));
 					util_strlcat(filename, "/", sizeof(filename));
 					util_strlcat(filename, pos, sizeof(filename));
@@ -2262,7 +2310,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					next = strchr(pos, ' ');
 				}
 				if (pos[0] != '\0') {
-					info(event->udev, "add symlink '%s'\n", pos);
+					info(event->udev, "LINK '%s' %s:%u\n",
+					     pos,
+					     &rules->buf[rule->rule.filename_off],
+					     rule->rule.filename_line);
 					util_strlcpy(filename, udev_get_dev_path(event->udev), sizeof(filename));
 					util_strlcat(filename, "/", sizeof(filename));
 					util_strlcat(filename, pos, sizeof(filename));
@@ -2312,6 +2363,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 				if (cur->key.op == OP_ASSIGN || cur->key.op == OP_ASSIGN_FINAL)
 					udev_list_cleanup_entries(event->udev, &event->run_list);
+				info(event->udev, "RUN '%s' %s:%u\n",
+				     &rules->buf[cur->key.value_off],
+				     &rules->buf[rule->rule.filename_off],
+				     rule->rule.filename_line);
 				list_entry = udev_list_entry_add(event->udev, &event->run_list,
 								 &rules->buf[cur->key.value_off], NULL, 1, 0);
 				if (cur->key.ignore_error)
