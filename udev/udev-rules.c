@@ -2319,7 +2319,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			continue;
 		case TK_A_LAST_RULE:
 		case TK_END:
-			break;
+			return 0;
 
 		case TK_M_PARENTS_MAX:
 		case TK_M_MAX:
@@ -2334,9 +2334,8 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 		/* fast-forward to next rule */
 		idx = rule->rule.next_rule;
 		if (idx == 0)
-			break;
+			return 0;
 		dbg(rules->udev, "forward to rule: %u\n", idx);
 		cur = &rules->tokens[idx];
 	}
-	return 0;
 }
