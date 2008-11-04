@@ -320,11 +320,22 @@ static int devices_delay(struct udev *udev, const char *syspath)
 /* sort delayed devices to the end of the list */
 static int devices_sort(struct udev_enumerate *udev_enumerate)
 {
-	struct udev_list_entry *list_entry;
+	struct udev_list_entry *entry_loop;
+	struct udev_list_entry *entry_tmp;
+	struct udev_list_node devices_list;
 
-	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->devices_list)) {
-		if (devices_delay(udev_enumerate->udev, udev_list_entry_get_name(list_entry)))
-			udev_list_entry_move_to_end(list_entry);
+	udev_list_init(&devices_list);
+	/* move delayed to delay list */
+	udev_list_entry_foreach_safe(entry_loop, entry_tmp, udev_list_get_entry(&udev_enumerate->devices_list)) {
+		if (devices_delay(udev_enumerate->udev, udev_list_entry_get_name(entry_loop))) {
+			udev_list_entry_remove(entry_loop);
+			udev_list_entry_append(entry_loop, &devices_list);
+		}
+	}
+	/* move delayed back to end of list */
+	udev_list_entry_foreach_safe(entry_loop, entry_tmp, udev_list_get_entry(&devices_list)) {
+		udev_list_entry_remove(entry_loop);
+		udev_list_entry_append(entry_loop, &udev_enumerate->devices_list);
 	}
 	udev_enumerate->devices_sorted = 1;
 	return 0;
@@ -360,7 +371,6 @@ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
 	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
 	char base[UTIL_PATH_SIZE];
 	struct stat statbuf;
-	struct udev_list_entry *list_entry;
 
 	if (udev_enumerate == NULL)
 		return -EINVAL;
@@ -388,11 +398,6 @@ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
 				scan_dir(udev_enumerate, "block", NULL, "block");
 			}
 		}
-	}
-	/* sort delayed devices to the end of the list */
-	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->devices_list)) {
-		if (devices_delay(udev, udev_list_entry_get_name(list_entry)))
-			udev_list_entry_move_to_end(list_entry);
 	}
 	return 0;
 }

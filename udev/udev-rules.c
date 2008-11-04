@@ -1631,7 +1631,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 
 			if (sort_base == NULL)
 				continue;
-
+			/* sort entry into existing list */
 			udev_list_entry_foreach_safe(file_loop, file_tmp, udev_list_get_entry(&file_list)) {
 				const char *file_name = udev_list_entry_get_name(file_loop);
 				const char *file_base = strrchr(file_name, '/');
@@ -1641,15 +1641,24 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 				if (strcmp(file_base, sort_base) == 0) {
 					info(udev, "rule file basename '%s' already added, ignoring '%s'\n",
 					     file_name, sort_name);
-					udev_list_entry_remove(sort_loop);
+					udev_list_entry_delete(sort_loop);
 					sort_loop = NULL;
 					break;
 				}
-				if (strcmp(file_base, sort_base) > 0)
+				if (strcmp(file_base, sort_base) > 0) {
+					/* found later file, insert before */
+					udev_list_entry_remove(sort_loop);
+					udev_list_entry_insert_before(sort_loop, file_loop);
+					sort_loop = NULL;
 					break;
+				}
 			}
-			if (sort_loop != NULL)
-				udev_list_entry_move_before(sort_loop, file_loop);
+			/* current file already handled */
+			if (sort_loop == NULL)
+				continue;
+			/* no later file, append to end of list */
+			udev_list_entry_remove(sort_loop);
+			udev_list_entry_append(sort_loop, &file_list);
 		}
 	}
 
@@ -1673,7 +1682,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 			parse_file(rules, filename, filename_off);
 		else
 			info(udev, "can not read '%s'\n", filename);
-		udev_list_entry_remove(file_loop);
+		udev_list_entry_delete(file_loop);
 	}
 
 	memset(&end_token, 0x00, sizeof(struct token));

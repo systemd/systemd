@@ -985,7 +985,7 @@ struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device
 		list_entry = udev_device_get_properties_list_entry(udev_device);
 		list_entry = udev_list_entry_get_by_name(list_entry, key);
 		if (list_entry != NULL)
-			udev_list_entry_remove(list_entry);
+			udev_list_entry_delete(list_entry);
 		return NULL;
 	}
 	return udev_list_entry_add(udev_device->udev, &udev_device->properties_list, key, value, 1, 0);

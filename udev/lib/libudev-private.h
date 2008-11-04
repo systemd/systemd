@@ -139,11 +139,12 @@ extern void udev_list_node_remove(struct udev_list_node *entry);
 extern struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_node *list,
 						   const char *name, const char *value,
 						   int unique, int sort);
+extern void udev_list_entry_delete(struct udev_list_entry *entry);
 extern void udev_list_entry_remove(struct udev_list_entry *entry);
+extern void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list_entry *entry);
+extern void udev_list_entry_append(struct udev_list_entry *new, struct udev_list_node *list);
 extern void udev_list_cleanup_entries(struct udev *udev, struct udev_list_node *name_list);
 extern struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list);
-extern void udev_list_entry_move_to_end(struct udev_list_entry *list_entry);
-extern void udev_list_entry_move_before(struct udev_list_entry *list_entry, struct udev_list_entry *entry);
 extern int udev_list_entry_get_flag(struct udev_list_entry *list_entry);
 extern void udev_list_entry_set_flag(struct udev_list_entry *list_entry, int flag);
 #define udev_list_entry_foreach_safe(entry, tmp, first) \

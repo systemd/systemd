@@ -1,6 +1,8 @@
 
+  o convert firmware.sh to C
   o drop pnp shell script, acpi will take care of loading pnp modules
-  o add DVB variables to kernel (patch sent), and drop shell script rule
+  o add DVB variables to kernel (patch merged in v4l tree), drop the
+    shell script rule
   o DEVTYPE for disks is set by the kernel, they will be removed from
     the default rules
   o "udevadm control" commands will only accept the --<command> syntax

@@ -370,7 +370,7 @@ struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, co
 		list_entry = udev_get_properties_list_entry(udev);
 		list_entry = udev_list_entry_get_by_name(list_entry, key);
 		if (list_entry != NULL)
-			udev_list_entry_remove(list_entry);
+			udev_list_entry_delete(list_entry);
 		return NULL;
 	}
 	return udev_list_entry_add(udev, &udev->properties_list, key, value, 1, 0);
