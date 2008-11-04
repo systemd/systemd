@@ -22,4 +22,7 @@ done
 
 echo -1 > /sys$DEVPATH/loading
 err "Cannot find  firmware file '$FIRMWARE'"
+mkdir -p /dev/.udev/firmware-missing
+file=$(echo "$FIRMWARE" | sed 's:/:\\x2f:g')
+ln -s -f "$DEVPATH" /dev/.udev/firmware-missing/$file
 exit 1
