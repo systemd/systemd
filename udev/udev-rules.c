@@ -2073,6 +2073,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				util_strlcpy(program, &rules->buf[cur->key.value_off], sizeof(program));
 				udev_event_apply_format(event, program, sizeof(program));
 				envp = udev_device_get_properties_envp(event->dev);
+				info(event->udev, "PROGRAM '%s' %s:%u\n",
+				     program,
+				     &rules->buf[rule->rule.filename_off],
+				     rule->rule.filename_line);
 				if (util_run_program(event->udev, program, envp, result, sizeof(result), NULL) != 0) {
 					if (cur->key.op != OP_NOMATCH)
 						goto nomatch;
@@ -2109,6 +2113,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 				util_strlcpy(import, &rules->buf[cur->key.value_off], sizeof(import));
 				udev_event_apply_format(event, import, sizeof(import));
+				info(event->udev, "IMPORT '%s' %s:%u\n",
+				     import,
+				     &rules->buf[rule->rule.filename_off],
+				     rule->rule.filename_line);
 				if (import_program_into_properties(event->dev, import) != 0)
 					if (cur->key.op != OP_NOMATCH)
 						goto nomatch;
