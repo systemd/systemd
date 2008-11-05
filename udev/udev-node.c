@@ -367,13 +367,15 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 
 	/* update possible left-over symlinks */
 	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev_old)) {
+		const char *name = udev_list_entry_get_name(list_entry);
 		struct udev_list_entry *list_entry_current;
 		int found;
 
 		found = 0;
 		udev_list_entry_foreach(list_entry_current, udev_device_get_devlinks_list_entry(dev)) {
-			if (strcmp(udev_list_entry_get_name(list_entry_current),
-				   udev_list_entry_get_name(list_entry)) == 0) {
+			const char *name_current = udev_list_entry_get_name(list_entry_current);
+
+			if (strcmp(name_current, name) == 0) {
 				found = 1;
 				break;
 			}
@@ -381,9 +383,9 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 		if (found)
 			continue;
 		/* link does no longer belong to this device */
-		info(udev, "update old symlink '%s' no longer belonging to '%s'\n",
-		     udev_list_entry_get_name(list_entry), udev_device_get_devpath(dev));
-		update_link(dev, udev_list_entry_get_name(list_entry), test);
+		info(udev, "update old symlink '%s' no longer belonging to '%s'\n", name, udev_device_get_devpath(dev));
+		name_index(udev, udev_device_get_devpath(dev), name, 0, test);
+		update_link(dev, name, test);
 	}
 
 	/*
@@ -438,7 +440,7 @@ int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid, in
 		}
 	}
 
-	/* add node and to name index */
+	/* add node to name index */
 	name_index(udev, udev_device_get_devpath(dev), udev_device_get_devnode(dev), 1, test);
 
 	/* create/update symlinks, add symlinks to name index */

@@ -583,23 +583,20 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 		util_strlcat(filename, event->name, sizeof(filename));
 		udev_device_set_devnode(dev, filename);
 
-		/* read current database entry; cleanup, if it is known device */
+		/* read current database entry */
 		dev_old = udev_device_new_from_syspath(event->udev, udev_device_get_syspath(dev));
+		if (dev_old != NULL)
+			udev_device_load_info(dev_old);
+
+		/* update database, create node and symlinks */
+		udev_device_update_db(dev);
+		err = udev_node_add(dev, event->mode, event->uid, event->gid, event->test);
+
+		/* remove/update possible left-over symlinks from old database entry */
 		if (dev_old != NULL) {
-			if (udev_device_get_devnode(dev_old) != NULL) {
-				info(event->udev, "device node '%s' already in database, updating\n",
-				     udev_device_get_devnode(dev_old));
-				udev_node_update_old_links(dev, dev_old, event->test);
-			}
+			udev_node_update_old_links(dev, dev_old, event->test);
 			udev_device_unref(dev_old);
 		}
-
-		udev_device_update_db(dev);
-
-		err = udev_node_add(dev, event->mode, event->uid, event->gid, event->test);
-		if (err != 0)
-			goto exit;
-
 		goto exit;
 	}
 
@@ -645,9 +642,8 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 	/* remove device node */
 	if (major(udev_device_get_devnum(dev)) != 0 && strcmp(udev_device_get_action(dev), "remove") == 0) {
 		/* import database entry and delete it */
-		udev_device_read_db(dev);
-		if (!event->test)
-			udev_device_delete_db(dev);
+		udev_device_load_info(dev);
+		udev_device_delete_db(dev);
 
 		if (udev_device_get_devnode(dev) == NULL) {
 			char devnode[UTIL_PATH_SIZE];
