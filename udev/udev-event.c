@@ -585,8 +585,10 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 
 		/* read current database entry */
 		dev_old = udev_device_new_from_syspath(event->udev, udev_device_get_syspath(dev));
-		if (dev_old != NULL)
-			udev_device_load_info(dev_old);
+		if (dev_old != NULL) {
+			udev_device_read_db(dev_old);
+			udev_device_set_info_loaded(dev_old);
+		}
 
 		/* update database, create node and symlinks */
 		udev_device_update_db(dev);
@@ -642,7 +644,8 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 	/* remove device node */
 	if (major(udev_device_get_devnum(dev)) != 0 && strcmp(udev_device_get_action(dev), "remove") == 0) {
 		/* import database entry and delete it */
-		udev_device_load_info(dev);
+		udev_device_read_db(dev);
+		udev_device_set_info_loaded(dev);
 		udev_device_delete_db(dev);
 
 		if (udev_device_get_devnode(dev) == NULL) {

@@ -77,7 +77,7 @@ static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *f
 	return util_path_encode(&filename[start], len - start);
 }
 
-static int device_read_db(struct udev_device *udev_device)
+int udev_device_read_db(struct udev_device *udev_device)
 {
 	struct stat stats;
 	char filename[UTIL_PATH_SIZE];
@@ -218,11 +218,11 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
 	return 0;
 }
 
-void udev_device_load_info(struct udev_device *device)
+static void device_load_info(struct udev_device *device)
 {
 	device->info_loaded = 1;
 	udev_device_read_uevent_file(device);
-	device_read_db(device);
+	udev_device_read_db(device);
 }
 
 void udev_device_set_info_loaded(struct udev_device *device)
@@ -676,7 +676,7 @@ const char *udev_device_get_devnode(struct udev_device *udev_device)
 	if (udev_device == NULL)
 		return NULL;
 	if (!udev_device->info_loaded)
-		udev_device_load_info(udev_device);
+		device_load_info(udev_device);
 	return udev_device->devnode;
 }
 
@@ -739,7 +739,7 @@ struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev_device *
 	if (udev_device == NULL)
 		return NULL;
 	if (!udev_device->info_loaded)
-		udev_device_load_info(udev_device);
+		device_load_info(udev_device);
 	return udev_list_get_entry(&udev_device->devlinks_list);
 }
 
@@ -766,7 +766,7 @@ struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device
 	if (udev_device == NULL)
 		return NULL;
 	if (!udev_device->info_loaded)
-		udev_device_load_info(udev_device);
+		device_load_info(udev_device);
 	if (!udev_device->devlinks_uptodate) {
 		char symlinks[UTIL_PATH_SIZE];
 		struct udev_list_entry *list_entry;
@@ -804,7 +804,7 @@ dev_t udev_device_get_devnum(struct udev_device *udev_device)
 	if (udev_device == NULL)
 		return makedev(0, 0);
 	if (!udev_device->info_loaded)
-		udev_device_load_info(udev_device);
+		device_load_info(udev_device);
 	return udev_device->devnum;
 }
 
@@ -1154,7 +1154,7 @@ int udev_device_set_timeout(struct udev_device *udev_device, int timeout)
 int udev_device_get_event_timeout(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
-		udev_device_load_info(udev_device);
+		device_load_info(udev_device);
 	return udev_device->event_timeout;
 }
 
@@ -1190,7 +1190,7 @@ int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum)
 int udev_device_get_num_fake_partitions(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
-		udev_device_load_info(udev_device);
+		device_load_info(udev_device);
 	return udev_device->num_fake_partitions;
 }
 
@@ -1203,7 +1203,7 @@ int udev_device_set_num_fake_partitions(struct udev_device *udev_device, int num
 int udev_device_get_devlink_priority(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
-		udev_device_load_info(udev_device);
+		device_load_info(udev_device);
 	return udev_device->devlink_priority;
 }
 
@@ -1216,7 +1216,7 @@ int udev_device_set_devlink_priority(struct udev_device *udev_device, int prio)
 int udev_device_get_ignore_remove(struct udev_device *udev_device)
 {
 	if (!udev_device->info_loaded)
-		udev_device_load_info(udev_device);
+		device_load_info(udev_device);
 	return udev_device->ignore_remove;
 }
 
