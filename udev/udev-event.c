@@ -394,13 +394,14 @@ found:
 			break;
 		case SUBST_LINKS:
 			{
+				size_t devlen = strlen(udev_get_dev_path(event->udev))+1;
 				struct udev_list_entry *list_entry;
 
 				list_entry = udev_device_get_devlinks_list_entry(dev);
-				util_strlcat(string, udev_list_entry_get_name(list_entry), maxsize);
+				util_strlcat(string, &udev_list_entry_get_name(list_entry)[devlen], maxsize);
 				udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry)) {
 					util_strlcat(string, " ", maxsize);
-					util_strlcat(string, udev_list_entry_get_name(list_entry), maxsize);
+					util_strlcat(string, &udev_list_entry_get_name(list_entry)[devlen], maxsize);
 				}
 			}
 			break;
