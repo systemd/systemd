@@ -141,23 +141,23 @@ enum token_type {
 	TK_END,
 };
 
-/* we try to pack stuff in a way that we take only 16 bytes per token */
+/* we try to pack stuff in a way that we take only 12 bytes per token */
 struct token {
 	union {
-		unsigned short type;		/* same as in rule and key */
+		unsigned char type;		/* same as in rule and key */
 		struct {
-			unsigned short type;
-			unsigned short flags;
-			unsigned int next_rule;
+			unsigned char type;
+			unsigned char flags;
+			unsigned short token_count;
 			unsigned int label_off;
 			unsigned short filename_off;
 			unsigned short filename_line;
 		} rule;
 		struct {
-			unsigned short type;
-			unsigned short flags;
-			unsigned short op;
-			unsigned short glob;
+			unsigned char type;
+			unsigned char flags;
+			unsigned char op;
+			unsigned char glob;
 			unsigned int value_off;
 			union {
 				unsigned int attr_off;
@@ -274,10 +274,11 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 			const char *tk_ptr = (char *)token;
 			unsigned int off = tk_ptr - tks_ptr;
 
-			dbg(rules->udev, "* RULE %s:%u, off: %u(%u), next: %u, label: '%s', flags: 0x%02x\n",
+			dbg(rules->udev, "* RULE %s:%u, off: %u(%u), token_count: %u(%u), label: '%s', flags: 0x%02x\n",
 			    &rules->buf[token->rule.filename_off], token->rule.filename_line,
 			    off / (unsigned int) sizeof(struct token), off,
-			    token->rule.next_rule,
+			    token->rule.token_count,
+			    token->rule.token_count * (unsigned int) sizeof(struct token),
 			    &rules->buf[token->rule.label_off],
 			    token->rule.flags);
 			break;
@@ -1439,12 +1440,14 @@ static int add_rule(struct udev_rules *rules, char *line,
 		goto invalid;
 
 	/* add rule token */
+	rule_tmp.rule.rule.token_count = 1 + rule_tmp.token_cur;
 	if (add_token(rules, &rule_tmp.rule) != 0)
 		goto invalid;
 
 	/* add tokens to list, sorted by type */
 	if (sort_token(rules, &rule_tmp) != 0)
 		goto invalid;
+
 	return 0;
 invalid:
 	err(rules->udev, "invalid rule '%s:%u'\n", filename, lineno);
@@ -1571,9 +1574,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	struct stat statbuf;
 	struct udev_list_node file_list;
 	struct udev_list_entry *file_loop, *file_tmp;
-	unsigned int prev_rule;
 	struct token end_token;
-	unsigned int i;
 
 	rules = malloc(sizeof(struct udev_rules));
 	if (rules == NULL)
@@ -1688,15 +1689,6 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	memset(&end_token, 0x00, sizeof(struct token));
 	end_token.type = TK_END;
 	add_token(rules, &end_token);
-
-	/* link all TK_RULE tokens to be able to fast-forward to next TK_RULE */
-	prev_rule = 0;
-	for (i = 1; i < rules->token_cur; i++) {
-		if (rules->tokens[i].type == TK_RULE) {
-			rules->tokens[prev_rule].rule.next_rule = i;
-			prev_rule = i;
-		}
-	}
 
 	/* shrink allocated token and string buffer */
 	if (rules->token_cur < rules->token_max) {
@@ -1885,8 +1877,6 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 	cur = &rules->tokens[0];
 	rule = cur;
 	while (1) {
-		unsigned int idx;
-
 		dump_token(rules, cur);
 		switch (cur->type) {
 		case TK_RULE:
@@ -2426,10 +2416,8 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 		continue;
 	nomatch:
 		/* fast-forward to next rule */
-		idx = rule->rule.next_rule;
-		if (idx == 0)
-			return 0;
-		dbg(rules->udev, "forward to rule: %u\n", idx);
-		cur = &rules->tokens[idx];
+		cur = rule + rule->rule.token_count;
+		dbg(rules->udev, "forward to rule: %u\n",
+		                 (unsigned int) (cur - rules->tokens));
 	}
 }
