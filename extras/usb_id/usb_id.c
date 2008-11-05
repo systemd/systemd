@@ -46,44 +46,6 @@ static char instance_str[64];
 static int use_usb_info;
 static int use_num_info;
 
-static void set_str(char *to, const char *from, size_t count)
-{
-	size_t i, j, len;
-
-	/* strip trailing whitespace */
-	len = strnlen(from, count);
-	while (len && isspace(from[len-1]))
-		len--;
-
-	/* strip leading whitespace */
-	i = 0;
-	while (isspace(from[i]) && (i < len))
-		i++;
-
-	j = 0;
-	while (i < len) {
-		/* substitute multiple whitespace */
-		if (isspace(from[i])) {
-			while (isspace(from[i]))
-				i++;
-			to[j++] = '_';
-		}
-		/* Replace '/' with '.' */
-		if (from[i] == '/') {
-			to[j++] = '.';
-			i++;
-			continue;
-		}
-		/* skip non-printable chars */
-		if (!isalnum(from[i]) && !ispunct(from[i])) {
-			i++;
-			continue;
-		}
-		to[j++] = from[i++];
-	}
-	to[j] = '\0';
-}
-
 static void set_usb_iftype(char *to, int if_class_num, size_t len)
 {
 	char *type = "generic";
@@ -274,7 +236,7 @@ static int usb_id(struct udev_device *dev)
 			     udev_device_get_sysname(dev_scsi));
 			goto fallback;
 		}
-		set_str(vendor_str, scsi_vendor, sizeof(vendor_str)-1);
+		udev_util_replace_whitespace(scsi_vendor, vendor_str, sizeof(vendor_str)-1);
 
 		scsi_model = udev_device_get_sysattr_value(dev_scsi, "model");
 		if (!scsi_model) {
@@ -282,7 +244,7 @@ static int usb_id(struct udev_device *dev)
 			     udev_device_get_sysname(dev_scsi));
 			goto fallback;
 		}
-		set_str(model_str, scsi_model, sizeof(model_str)-1);
+		udev_util_replace_whitespace(scsi_model, model_str, sizeof(model_str)-1);
 
 		scsi_type = udev_device_get_sysattr_value(dev_scsi, "type");
 		if (!scsi_type) {
@@ -298,7 +260,7 @@ static int usb_id(struct udev_device *dev)
 			     udev_device_get_sysname(dev_scsi));
 			goto fallback;
 		}
-		set_str(revision_str, scsi_rev, sizeof(revision_str)-1);
+		udev_util_replace_whitespace(scsi_rev, revision_str, sizeof(revision_str)-1);
 
 		/*
 		 * some broken devices have the same identifiers
@@ -322,7 +284,7 @@ fallback:
 			info(udev, "No USB vendor information available\n");
 			return 1;
 		}
-		set_str(vendor_str, usb_vendor, sizeof(vendor_str)-1);
+		udev_util_replace_whitespace(usb_vendor, vendor_str, sizeof(vendor_str)-1);
 	}
 
 	if (model_str[0] == '\0') {
@@ -338,7 +300,7 @@ fallback:
 			dbg(udev, "No USB model information available\n");
 			return 1;
 		}
-		set_str(model_str, usb_model, sizeof(model_str)-1);
+		udev_util_replace_whitespace(usb_model, model_str, sizeof(model_str)-1);
 	}
 
 	if (revision_str[0] == '\0') {
@@ -346,7 +308,7 @@ fallback:
 
 		usb_rev = udev_device_get_sysattr_value(dev_usb, "bcdDevice");
 		if (usb_rev)
-			set_str(revision_str, usb_rev, sizeof(revision_str)-1);
+			udev_util_replace_whitespace(usb_rev, revision_str, sizeof(revision_str)-1);
 	}
 
 	if (serial_str[0] == '\0') {
@@ -354,7 +316,7 @@ fallback:
 
 		usb_serial = udev_device_get_sysattr_value(dev_usb, "serial");
 		if (usb_serial)
-			set_str(serial_str, usb_serial, sizeof(serial_str)-1);
+			udev_util_replace_whitespace(usb_serial, serial_str, sizeof(serial_str)-1);
 	}
 	return 0;
 }

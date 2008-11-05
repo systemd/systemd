@@ -44,38 +44,6 @@ static void log_fn(struct udev *udev, int priority,
 	vsyslog(priority, format, args);
 }
 
-static void set_str(char *to, const char *from, size_t count)
-{
-	size_t i, j, len;
-
-	/* strip trailing whitespace */
-	len = strnlen(from, count);
-	while (len && isspace(from[len-1]))
-		len--;
-
-	/* strip leading whitespace */
-	i = 0;
-	while (isspace(from[i]) && (i < len))
-		i++;
-
-	j = 0;
-	while (i < len) {
-		/* substitute multiple whitespace */
-		if (isspace(from[i])) {
-			while (isspace(from[i]))
-				i++;
-			to[j++] = '_';
-		}
-		/* skip chars */
-		if (from[i] == '/') {
-			i++;
-			continue;
-		}
-		to[j++] = from[i++];
-	}
-	to[j] = '\0';
-}
-
 int main(int argc, char *argv[])
 {
 	struct udev *udev;
@@ -146,9 +114,9 @@ int main(int argc, char *argv[])
 		goto close;
 	}
 
-	set_str(model, (char *) id.model, 40);
-	set_str(serial, (char *) id.serial_no, 20);
-	set_str(revision, (char *) id.fw_rev, 8);
+	udev_util_replace_whitespace((char *) id.model, model, 40);
+	udev_util_replace_whitespace((char *) id.serial_no, serial, 20);
+	udev_util_replace_whitespace((char *) id.fw_rev, revision, 8);
 
 	if (export) {
 		if ((id.config >> 8) & 0x80) {

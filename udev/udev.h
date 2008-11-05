@@ -26,10 +26,6 @@
 #include "lib/libudev.h"
 #include "lib/libudev-private.h"
 
-#define ALLOWED_CHARS				"#+-.:=@_"
-#define ALLOWED_CHARS_FILE			ALLOWED_CHARS "/"
-#define ALLOWED_CHARS_INPUT			ALLOWED_CHARS_FILE " $%?,"
-
 #define DEFAULT_FAKE_PARTITIONS_COUNT		15
 #define UDEV_EVENT_TIMEOUT			180
 

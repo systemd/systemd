@@ -331,8 +331,47 @@ static int utf8_encoded_valid_unichar(const char *str)
 	return len;
 }
 
+int udev_util_replace_whitespace(const char *str, char *to, size_t len)
+{
+	size_t i, j;
+
+	/* strip trailing whitespace */
+	len = strnlen(str, len);
+	while (len && isspace(str[len-1]))
+		len--;
+
+	/* strip leading whitespace */
+	i = 0;
+	while (isspace(str[i]) && (i < len))
+		i++;
+
+	j = 0;
+	while (i < len) {
+		/* substitute multiple whitespace with a single '_' */
+		if (isspace(str[i])) {
+			while (isspace(str[i]))
+				i++;
+			to[j++] = '_';
+		}
+		to[j++] = str[i++];
+	}
+	to[j] = '\0';
+	return 0;
+}
+
+static int is_whitelisted(char c, const char *white)
+{
+	if ((c >= '0' && c <= '9') ||
+	    (c >= 'A' && c <= 'Z') ||
+	    (c >= 'a' && c <= 'z') ||
+	    strchr("#+-.:=@_", c) != NULL ||
+	    (white != NULL && strchr(white, c) != NULL))
+		return 1;
+	return 0;
+}
+
 /* allow chars in whitelist, plain ascii, hex-escaping and valid utf8 */
-int util_replace_chars(char *str, const char *white)
+int udev_util_replace_chars(char *str, const char *white)
 {
 	size_t i = 0;
 	int replaced = 0;
@@ -340,16 +379,7 @@ int util_replace_chars(char *str, const char *white)
 	while (str[i] != '\0') {
 		int len;
 
-		/* accept whitelist */
-		if (white != NULL && strchr(white, str[i]) != NULL) {
-			i++;
-			continue;
-		}
-
-		/* accept plain ascii char */
-		if ((str[i] >= '0' && str[i] <= '9') ||
-		    (str[i] >= 'A' && str[i] <= 'Z') ||
-		    (str[i] >= 'a' && str[i] <= 'z')) {
+		if (is_whitelisted(str[i], white)) {
 			i++;
 			continue;
 		}
@@ -380,6 +410,49 @@ int util_replace_chars(char *str, const char *white)
 		i++;
 		replaced++;
 	}
-
 	return replaced;
+}
+
+/**
+ * util_encode_string:
+ * @str: input string to be encoded
+ * @str_enc: output string to store the encoded input string
+ * @len: maximum size of the output string, which may be
+ *       four times as long as the input string
+ *
+ * Encode all potentially unsafe characters of a string to the
+ * corresponding hex value prefixed by '\x'.
+ *
+ * Returns: 0 if the entire string was copied, non-zero otherwise.
+ **/
+int udev_util_encode_string(const char *str, char *str_enc, size_t len)
+{
+	size_t i, j;
+
+	if (str == NULL || str_enc == NULL || len == 0)
+		return -1;
+
+	str_enc[0] = '\0';
+	for (i = 0, j = 0; str[i] != '\0'; i++) {
+		int seqlen;
+
+		seqlen = utf8_encoded_valid_unichar(&str[i]);
+		if (seqlen > 1) {
+			memcpy(&str_enc[j], &str[i], seqlen);
+			j += seqlen;
+			i += (seqlen-1);
+		} else if (str[i] == '\\' || !is_whitelisted(str[i], NULL)) {
+			sprintf(&str_enc[j], "\\x%02x", (unsigned char) str[i]);
+			j += 4;
+		} else {
+			str_enc[j] = str[i];
+			j++;
+		}
+		if (j+3 >= len)
+			goto err;
+	}
+	str_enc[j] = '\0';
+	return 0;
+err:
+	return -1;
 }

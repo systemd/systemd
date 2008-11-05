@@ -2085,7 +2085,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 					util_remove_trailing_chars(result, '\n');
 					if (esc == ESCAPE_UNSET || esc == ESCAPE_REPLACE) {
-						count = util_replace_chars(result, ALLOWED_CHARS_INPUT);
+						count = udev_util_replace_chars(result, UDEV_ALLOWED_CHARS_INPUT);
 						if (count > 0)
 							info(event->udev, "%i character(s) replaced\n" , count);
 					}
@@ -2284,7 +2284,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				util_strlcpy(name_str, name, sizeof(name_str));
 				udev_event_apply_format(event, name_str, sizeof(name_str));
 				if (esc == ESCAPE_UNSET || esc == ESCAPE_REPLACE) {
-					count = util_replace_chars(name_str, ALLOWED_CHARS_FILE);
+					count = udev_util_replace_chars(name_str, "/");
 					if (count > 0)
 						info(event->udev, "%i character(s) replaced\n", count);
 					free(event->name);
@@ -2316,9 +2316,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				util_strlcpy(temp, &rules->buf[cur->key.value_off], sizeof(temp));
 				udev_event_apply_format(event, temp, sizeof(temp));
 				if (esc == ESCAPE_UNSET)
-					count = util_replace_chars(temp, ALLOWED_CHARS_FILE " ");
+					count = udev_util_replace_chars(temp, "/ ");
 				else if (esc == ESCAPE_REPLACE)
-					count = util_replace_chars(temp, ALLOWED_CHARS_FILE);
+					count = udev_util_replace_chars(temp, "/");
 				if (count > 0)
 					info(event->udev, "%i character(s) replaced\n" , count);
 				dbg(event->udev, "rule applied, added symlink(s) '%s'\n", temp);

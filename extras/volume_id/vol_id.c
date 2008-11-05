@@ -66,38 +66,6 @@ static void vid_log(int priority, const char *file, int line, const char *format
 	return;
 }
 
-static void set_str(char *to, const char *from, size_t count)
-{
-	size_t i, j, len;
-
-	/* strip trailing whitespace */
-	len = strnlen(from, count);
-	while (len && isspace(from[len-1]))
-		len--;
-
-	/* strip leading whitespace */
-	i = 0;
-	while (isspace(from[i]) && (i < len))
-		i++;
-
-	j = 0;
-	while (i < len) {
-		/* substitute multiple whitespace */
-		if (isspace(from[i])) {
-			while (isspace(from[i]))
-				i++;
-			to[j++] = '_';
-		}
-		/* skip chars */
-		if (from[i] == '/') {
-			i++;
-			continue;
-		}
-		to[j++] = from[i++];
-	}
-	to[j] = '\0';
-}
-
 static int all_probers(volume_id_probe_fn_t probe_fn,
 		       struct volume_id *id, uint64_t off, uint64_t size,
 		       void *data)
@@ -288,12 +256,12 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	set_str(label_safe, label, sizeof(label_safe));
-	util_replace_chars(label_safe, ALLOWED_CHARS_INPUT);
+	udev_util_replace_whitespace(label, label_safe, sizeof(label_safe));
+	udev_util_replace_chars(label_safe, UDEV_ALLOWED_CHARS_INPUT);
 	volume_id_encode_string(label, label_enc, sizeof(label_enc));
 
-	set_str(uuid_safe, uuid, sizeof(uuid_safe));
-	util_replace_chars(uuid_safe, ALLOWED_CHARS_INPUT);
+	udev_util_replace_whitespace(uuid, uuid_safe, sizeof(uuid_safe));
+	udev_util_replace_chars(uuid_safe, UDEV_ALLOWED_CHARS_INPUT);
 	volume_id_encode_string(uuid, uuid_enc, sizeof(uuid_enc));
 
 	volume_id_encode_string(type, type_enc, sizeof(type_enc));

@@ -319,7 +319,7 @@ found:
 				size = strlen(value);
 				while (size > 0 && isspace(value[--size]))
 					value[size] = '\0';
-				count = util_replace_chars(value, ALLOWED_CHARS_INPUT);
+				count = udev_util_replace_chars(value, UDEV_ALLOWED_CHARS_INPUT);
 				if (count > 0)
 					info(event->udev, "%i character(s) replaced\n" , count);
 				util_strlcat(string, value, maxsize);

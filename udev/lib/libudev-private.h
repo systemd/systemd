@@ -159,9 +159,10 @@ extern int udev_queue_export_device_finished(struct udev_queue *udev_queue, stru
 extern int udev_queue_export_device_failed(struct udev_queue *udev_queue, struct udev_device *udev_device);
 
 /* libudev-utils */
-#define UTIL_PATH_SIZE		1024
-#define UTIL_LINE_SIZE		2048
-#define UTIL_NAME_SIZE		512
+#define UTIL_PATH_SIZE				1024
+#define UTIL_LINE_SIZE				2048
+#define UTIL_NAME_SIZE				512
+#define UDEV_ALLOWED_CHARS_INPUT		"/ $%?,"
 extern ssize_t util_get_sys_subsystem(struct udev *udev, const char *syspath, char *subsystem, size_t size);
 extern ssize_t util_get_sys_driver(struct udev *udev, const char *syspath, char *driver, size_t size);
 extern int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size);
@@ -171,5 +172,7 @@ extern size_t util_path_decode(char *s);
 extern void util_remove_trailing_chars(char *path, char c);
 extern size_t util_strlcpy(char *dst, const char *src, size_t size);
 extern size_t util_strlcat(char *dst, const char *src, size_t size);
-extern int util_replace_chars(char *str, const char *white);
+extern int udev_util_replace_whitespace(const char *str, char *to, size_t len);
+extern int udev_util_replace_chars(char *str, const char *white);
+extern int udev_util_encode_string(const char *str, char *str_enc, size_t len);
 #endif

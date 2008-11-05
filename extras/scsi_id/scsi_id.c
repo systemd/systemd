@@ -69,39 +69,7 @@ static void log_fn(struct udev *udev, int priority,
 	vsyslog(priority, format, args);
 }
 
-static void set_str(char *to, const char *from, size_t count)
-{
-	size_t i, j, len;
-
-	/* strip trailing whitespace */
-	len = strnlen(from, count);
-	while (len && isspace(from[len-1]))
-		len--;
-
-	/* strip leading whitespace */
-	i = 0;
-	while (isspace(from[i]) && (i < len))
-		i++;
-
-	j = 0;
-	while (i < len) {
-		/* substitute multiple whitespace */
-		if (isspace(from[i])) {
-			while (isspace(from[i]))
-				i++;
-			to[j++] = '_';
-		}
-		/* skip chars */
-		if (from[i] == '/') {
-			i++;
-			continue;
-		}
-		to[j++] = from[i++];
-	}
-	to[j] = '\0';
-}
-
-static void set_type(char *to, const char *from, size_t len)
+static void set_type(const char *from, char *to, size_t len)
 {
 	int type_num;
 	char *eptr;
@@ -533,11 +501,10 @@ static int set_inq_values(struct udev *udev, struct scsi_id_device *dev_scsi, co
 	if (retval)
 		return retval;
 
-	set_str(vendor_str, dev_scsi->vendor, sizeof(vendor_str));
-	set_str(model_str, dev_scsi->model, sizeof(model_str));
-	set_type(type_str, dev_scsi->type, sizeof(type_str));
-	set_str(revision_str, dev_scsi->revision, sizeof(revision_str));
-
+	udev_util_replace_whitespace(dev_scsi->vendor, vendor_str, sizeof(vendor_str));
+	udev_util_replace_whitespace(dev_scsi->model, model_str, sizeof(model_str));
+	set_type(dev_scsi->type, type_str, sizeof(type_str));
+	udev_util_replace_whitespace(dev_scsi->revision, revision_str, sizeof(revision_str));
 	return 0;
 }
 
@@ -604,9 +571,9 @@ static int scsi_id(struct udev *udev, char *maj_min_dev)
 			printf("ID_VENDOR=%s\n", vendor_str);
 			printf("ID_MODEL=%s\n", model_str);
 			printf("ID_REVISION=%s\n", revision_str);
-			set_str(serial_str, dev_scsi.serial, sizeof(serial_str));
+			udev_util_replace_whitespace(dev_scsi.serial, serial_str, sizeof(serial_str));
 			printf("ID_SERIAL=%s\n", serial_str);
-			set_str(serial_str, serial_short, sizeof(serial_str));
+			udev_util_replace_whitespace(serial_short, serial_str, sizeof(serial_str));
 			printf("ID_SERIAL_SHORT=%s\n", serial_str);
 			printf("ID_TYPE=%s\n", type_str);
 		} else {
