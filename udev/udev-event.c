@@ -396,8 +396,8 @@ found:
 			{
 				struct udev_list_entry *list_entry;
 
-				list_entry = udev_device_get_properties_list_entry(dev);
-				util_strlcpy(string, udev_list_entry_get_name(list_entry), maxsize);
+				list_entry = udev_device_get_devlinks_list_entry(dev);
+				util_strlcat(string, udev_list_entry_get_name(list_entry), maxsize);
 				udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry)) {
 					util_strlcat(string, " ", maxsize);
 					util_strlcat(string, udev_list_entry_get_name(list_entry), maxsize);
