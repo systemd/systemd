@@ -141,8 +141,10 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
 			type = "floppy";
 			break;
 		case 1: /* RBC devices */
+			type = "rbc";
+			break;
 		case 6: /* Transparent SPC-2 devices */
-			type = "disk";
+			type = "scsi";
 			break;
 		default:
 			break;
