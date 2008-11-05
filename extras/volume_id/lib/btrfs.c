@@ -81,7 +81,7 @@ int volume_id_probe_btrfs(struct volume_id *id, uint64_t off, uint64_t size)
 	if (buf == NULL)
 		return -1;
 	bfs = (struct btrfs_super_block *)buf;
-	if (memcmp(bfs->magic, "_BBRfS_M", 8) != 0)
+	if (memcmp(bfs->magic, "_BDRfS_M", 8) != 0)
 		return -1;
 	volume_id_set_uuid(id, bfs->fsid, 0, UUID_DCE);
 	volume_id_set_label_raw(id, bfs->label, 256);
