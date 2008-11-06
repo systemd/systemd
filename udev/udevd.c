@@ -27,6 +27,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <getopt.h>
+#include <dirent.h>
 #include <sys/select.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
@@ -569,6 +570,38 @@ static void reap_sigchilds(void)
 	}
 }
 
+static void cleanup_queue_dir(struct udev *udev)
+{
+	char dirname[UTIL_PATH_SIZE];
+	char filename[UTIL_PATH_SIZE];
+	DIR *dir;
+
+	util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
+	util_strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
+	unlink(filename);
+
+	util_strlcpy(dirname, udev_get_dev_path(udev), sizeof(dirname));
+	util_strlcat(dirname, "/.udev/queue", sizeof(dirname));
+	dir = opendir(dirname);
+	if (dir != NULL) {
+		while (1) {
+			struct dirent *dent;
+
+			dent = readdir(dir);
+			if (dent == NULL || dent->d_name[0] == '\0')
+				break;
+			if (dent->d_name[0] == '.')
+				continue;
+			util_strlcpy(filename, dirname, sizeof(filename));
+			util_strlcat(filename, "/", sizeof(filename));
+			util_strlcat(filename, dent->d_name, sizeof(filename));
+			unlink(filename);
+		}
+		closedir(dir);
+		rmdir(dirname);
+	}
+}
+
 static void export_initial_seqnum(struct udev *udev)
 {
 	char filename[UTIL_PATH_SIZE];
@@ -732,6 +765,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 	udev_list_init(&event_list);
+	cleanup_queue_dir(udev);
 	export_initial_seqnum(udev);
 
 	if (daemonize) {
@@ -954,7 +988,7 @@ exit:
 	if (inotify_fd >= 0)
 		close(inotify_fd);
 	udev_monitor_unref(kernel_monitor);
-
+	cleanup_queue_dir(udev);
 	udev_selinux_exit(udev);
 	udev_unref(udev);
 	logging_close();

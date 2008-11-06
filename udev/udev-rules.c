@@ -1528,7 +1528,6 @@ static int parse_file(struct udev_rules *rules, const char *filename, unsigned s
 
 static int add_matching_files(struct udev *udev, struct udev_list_node *file_list, const char *dirname, const char *suffix)
 {
-	struct dirent *ent;
 	DIR *dir;
 	char filename[UTIL_PATH_SIZE];
 
@@ -1540,26 +1539,28 @@ static int add_matching_files(struct udev *udev, struct udev_list_node *file_lis
 	}
 
 	while (1) {
-		ent = readdir(dir);
-		if (ent == NULL || ent->d_name[0] == '\0')
+		struct dirent *dent;
+
+		dent = readdir(dir);
+		if (dent == NULL || dent->d_name[0] == '\0')
 			break;
 
-		if ((ent->d_name[0] == '.') || (ent->d_name[0] == '#'))
+		if (dent->d_name[0] == '.')
 			continue;
 
 		/* look for file matching with specified suffix */
 		if (suffix != NULL) {
 			const char *ext;
 
-			ext = strrchr(ent->d_name, '.');
+			ext = strrchr(dent->d_name, '.');
 			if (ext == NULL)
 				continue;
 			if (strcmp(ext, suffix) != 0)
 				continue;
 		}
-		dbg(udev, "put file '%s/%s' into list\n", dirname, ent->d_name);
+		dbg(udev, "put file '%s/%s' into list\n", dirname, dent->d_name);
 
-		snprintf(filename, sizeof(filename), "%s/%s", dirname, ent->d_name);
+		snprintf(filename, sizeof(filename), "%s/%s", dirname, dent->d_name);
 		filename[sizeof(filename)-1] = '\0';
 		udev_list_entry_add(udev, file_list, filename, NULL, 1, 1);
 	}
