@@ -135,46 +135,46 @@ uid_t util_lookup_user(struct udev *udev, const char *user)
 
 	if (strcmp(user, "root") == 0)
 		return 0;
-		uid = strtoul(user, &endptr, 10);
-		if (endptr[0] == '\0')
-			return uid;
+	uid = strtoul(user, &endptr, 10);
+	if (endptr[0] == '\0')
+		return uid;
 
-		errno = 0;
-		getpwnam_r(user, &pwbuf, buf, buflen, &pw);
-		if (pw != NULL)
-			return pw->pw_uid;
-		if (errno == 0 || errno == ENOENT || errno == ESRCH)
-			err(udev, "specified user '%s' unknown\n", user);
-		else
-			err(udev, "error resolving user '%s': %m\n", user);
+	errno = 0;
+	getpwnam_r(user, &pwbuf, buf, buflen, &pw);
+	if (pw != NULL)
+		return pw->pw_uid;
+	if (errno == 0 || errno == ENOENT || errno == ESRCH)
+		err(udev, "specified user '%s' unknown\n", user);
+	else
+		err(udev, "error resolving user '%s': %m\n", user);
+	return 0;
+}
+
+extern gid_t util_lookup_group(struct udev *udev, const char *group)
+{
+	char *endptr;
+	int buflen = sysconf(_SC_GETGR_R_SIZE_MAX);
+	char buf[buflen];
+	struct group grbuf;
+	struct group *gr;
+	gid_t gid = 0;
+
+	if (strcmp(group, "root") == 0)
 		return 0;
-	}
+	gid = strtoul(group, &endptr, 10);
+	if (endptr[0] == '\0')
+		return gid;
 
-	extern gid_t util_lookup_group(struct udev *udev, const char *group)
-	{
-		char *endptr;
-		int buflen = sysconf(_SC_GETGR_R_SIZE_MAX);
-		char buf[buflen];
-		struct group grbuf;
-		struct group *gr;
-		gid_t gid = 0;
-
-		if (strcmp(group, "root") == 0)
-			return 0;
-		gid = strtoul(group, &endptr, 10);
-		if (endptr[0] == '\0')
-			return gid;
-
-		errno = 0;
-		getgrnam_r(group, &grbuf, buf, buflen, &gr);
-		if (gr != NULL)
-			return gr->gr_gid;
-		if (errno == 0 || errno == ENOENT || errno == ESRCH)
-			err(udev, "specified group '%s' unknown\n", group);
-		else
-			err(udev, "error resolving group '%s': %m\n", group);
-		return 0;
-	}
+	errno = 0;
+	getgrnam_r(group, &grbuf, buf, buflen, &gr);
+	if (gr != NULL)
+		return gr->gr_gid;
+	if (errno == 0 || errno == ENOENT || errno == ESRCH)
+		err(udev, "specified group '%s' unknown\n", group);
+	else
+		err(udev, "error resolving group '%s': %m\n", group);
+	return 0;
+}
 
 /* handle "[<SUBSYSTEM>/<KERNEL>]<attribute>" format */
 int util_resolve_subsys_kernel(struct udev *udev, const char *string,
