@@ -133,6 +133,20 @@ unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *udev_queue)
 	return seqnum;
 }
 
+int udev_queue_get_udev_is_active(struct udev_queue *udev_queue)
+{
+	char filename[UTIL_PATH_SIZE];
+	struct stat statbuf;
+
+	if (udev_queue == NULL)
+		return 0;
+	util_strlcpy(filename, udev_get_dev_path(udev_queue->udev), sizeof(filename));
+	util_strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
+	if (stat(filename, &statbuf) == 0)
+		return 1;
+	return 0;
+}
+
 int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue)
 {
 	char queuename[UTIL_PATH_SIZE];
@@ -152,7 +166,10 @@ int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue)
 		dbg(udev_queue->udev, "queue is empty\n");
 		return 1;
 	}
-	udev_queue_get_udev_seqnum(udev_queue);
+	/* update udev seqnum, and check if udev is still running */
+	if (udev_queue_get_udev_seqnum(udev_queue) == 0)
+		if (!udev_queue_get_udev_is_active(udev_queue))
+			return 1;
 	if (seqnum_kernel <= udev_queue->last_seen_udev_seqnum) {
 		dbg(udev_queue->udev, "queue is empty\n");
 		return 1;

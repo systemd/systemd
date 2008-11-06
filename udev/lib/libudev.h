@@ -113,6 +113,7 @@ extern void udev_queue_unref(struct udev_queue *udev_queue);
 extern struct udev *udev_queue_get_udev(struct udev_queue *udev_queue);
 extern unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *udev_queue);
 extern unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *udev_queue);
+extern int udev_queue_get_udev_is_active(struct udev_queue *udev_queue);
 extern int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue);
 extern int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, unsigned long long int seqnum);
 extern struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue);
