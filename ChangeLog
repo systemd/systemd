@@ -1,3 +1,11 @@
+Summary of changes from v131 to v132
+============================================
+
+Kay Sievers (2):
+      fix size_t compiler warning on 32 bit platforms
+      convert debug string arrays to functions
+
+
 Summary of changes from v130 to v131
 ============================================
 

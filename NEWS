@@ -1,3 +1,9 @@
+udev 132
+========
+
+Fix segfault if compiled without optimization and dbg() does not get
+compiled out and uses variables which are not available.
+
 udev 131
 ========
 Bugfixes. (And maybe new bugs. :))
