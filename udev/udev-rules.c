@@ -1710,7 +1710,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 			rules->buf_max = rules->buf_cur;
 		}
 	}
-	info(udev, "shrunk to %lu bytes tokens (%u * %zu bytes), %zu bytes buffer\n",
+	info(udev, "shrunk to %zu bytes tokens (%u * %zu bytes), %zu bytes buffer\n",
 	     rules->token_max * sizeof(struct token), rules->token_max, sizeof(struct token), rules->buf_max);
 
 	/* cleanup uid/gid cache */
