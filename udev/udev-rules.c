@@ -184,80 +184,95 @@ struct rule_tmp {
 };
 
 #ifdef DEBUG
-static const char *operation_str[] = {
-	[OP_UNSET] =		"UNSET",
-	[OP_MATCH] =		"match",
-	[OP_NOMATCH] =		"nomatch",
-	[OP_MATCH_MAX] =	"MATCH_MAX",
+static const char *operation_str(enum operation_type type)
+{
+	static const char *operation_strs[] = {
+		[OP_UNSET] =		"UNSET",
+		[OP_MATCH] =		"match",
+		[OP_NOMATCH] =		"nomatch",
+		[OP_MATCH_MAX] =	"MATCH_MAX",
 
-	[OP_ADD] =		"add",
-	[OP_ASSIGN] =		"assign",
-	[OP_ASSIGN_FINAL] =	"assign-final",
-};
+		[OP_ADD] =		"add",
+		[OP_ASSIGN] =		"assign",
+		[OP_ASSIGN_FINAL] =	"assign-final",
+}	;
 
-static const char *string_glob_str[] = {
-	[GL_UNSET] = 		"UNSET",
-	[GL_PLAIN] = 		"plain",
-	[GL_GLOB] = 		"glob",
-	[GL_SPLIT] = 		"split",
-	[GL_SPLIT_GLOB] = 	"split-glob",
-	[GL_SOMETHING] = 	"split-glob",
-	[GL_FORMAT] = 		"format",
-};
+	return operation_strs[type];
+}
 
-static const char *token_str[] = {
-	[TK_UNSET] =			"UNSET",
-	[TK_RULE] =			"RULE",
+static const char *string_glob_str(enum string_glob_type type)
+{
+	static const char *string_glob_strs[] = {
+		[GL_UNSET] = 		"UNSET",
+		[GL_PLAIN] = 		"plain",
+		[GL_GLOB] = 		"glob",
+		[GL_SPLIT] = 		"split",
+		[GL_SPLIT_GLOB] = 	"split-glob",
+		[GL_SOMETHING] = 	"split-glob",
+		[GL_FORMAT] = 		"format",
+	};
 
-	[TK_M_ACTION] =			"M ACTION",
-	[TK_M_DEVPATH] =		"M DEVPATH",
-	[TK_M_KERNEL] =			"M KERNEL",
-	[TK_M_DEVLINK] =		"M DEVLINK",
-	[TK_M_NAME] =			"M NAME",
-	[TK_M_ENV] =			"M ENV",
-	[TK_M_SUBSYSTEM] =		"M SUBSYSTEM",
-	[TK_M_DRIVER] =			"M DRIVER",
-	[TK_M_WAITFOR] =		"M WAITFOR",
-	[TK_M_ATTR] =			"M ATTR",
+	return string_glob_strs[type];
+}
 
-	[TK_M_PARENTS_MIN] =        "M PARENTS_MIN",
-	[TK_M_KERNELS] =		"M KERNELS",
-	[TK_M_SUBSYSTEMS] =		"M SUBSYSTEMS",
-	[TK_M_DRIVERS] =		"M DRIVERS",
-	[TK_M_ATTRS] =			"M ATTRS",
-	[TK_M_PARENTS_MAX] =		"M PARENTS_MAX",
+static const char *token_str(enum token_type type)
+{
+	static const char *token_strs[] = {
+		[TK_UNSET] =			"UNSET",
+		[TK_RULE] =			"RULE",
 
-	[TK_M_TEST] =			"M TEST",
-	[TK_M_PROGRAM] =		"M PROGRAM",
-	[TK_M_IMPORT_FILE] =		"M IMPORT_FILE",
-	[TK_M_IMPORT_PROG] =		"M IMPORT_PROG",
-	[TK_M_IMPORT_PARENT] =		"M MPORT_PARENT",
-	[TK_M_RESULT] =			"M RESULT",
-	[TK_M_MAX] =			"M MAX",
+		[TK_M_ACTION] =			"M ACTION",
+		[TK_M_DEVPATH] =		"M DEVPATH",
+		[TK_M_KERNEL] =			"M KERNEL",
+		[TK_M_DEVLINK] =		"M DEVLINK",
+		[TK_M_NAME] =			"M NAME",
+		[TK_M_ENV] =			"M ENV",
+		[TK_M_SUBSYSTEM] =		"M SUBSYSTEM",
+		[TK_M_DRIVER] =			"M DRIVER",
+		[TK_M_WAITFOR] =		"M WAITFOR",
+		[TK_M_ATTR] =			"M ATTR",
 
-	[TK_A_IGNORE_DEVICE] =		"A IGNORE_DEVICE",
-	[TK_A_STRING_ESCAPE_NONE] =	"A STRING_ESCAPE_NONE",
-	[TK_A_STRING_ESCAPE_REPLACE] =	"A STRING_ESCAPE_REPLACE",
-	[TK_A_NUM_FAKE_PART] =		"A NUM_FAKE_PART",
-	[TK_A_DEVLINK_PRIO] =		"A DEVLINK_PRIO",
-	[TK_A_OWNER] =			"A OWNER",
-	[TK_A_GROUP] =			"A GROUP",
-	[TK_A_MODE] =			"A MODE",
-	[TK_A_OWNER_ID] =		"A OWNER_ID",
-	[TK_A_GROUP_ID] =		"A GROUP_ID",
-	[TK_A_MODE_ID] =		"A MODE_ID",
-	[TK_A_ENV] =			"A ENV",
-	[TK_A_NAME] =			"A NAME",
-	[TK_A_DEVLINK] =		"A DEVLINK",
-	[TK_A_EVENT_TIMEOUT] =		"A EVENT_TIMEOUT",
-	[TK_A_IGNORE_REMOVE] =		"A IGNORE_REMOVE",
-	[TK_A_ATTR] =			"A ATTR",
-	[TK_A_RUN] =			"A RUN",
-	[TK_A_GOTO] =			"A GOTO",
-	[TK_A_LAST_RULE] =		"A LAST_RULE",
+		[TK_M_PARENTS_MIN] =		"M PARENTS_MIN",
+		[TK_M_KERNELS] =		"M KERNELS",
+		[TK_M_SUBSYSTEMS] =		"M SUBSYSTEMS",
+		[TK_M_DRIVERS] =		"M DRIVERS",
+		[TK_M_ATTRS] =			"M ATTRS",
+		[TK_M_PARENTS_MAX] =		"M PARENTS_MAX",
 
-	[TK_END] =			"END",
-};
+		[TK_M_TEST] =			"M TEST",
+		[TK_M_PROGRAM] =		"M PROGRAM",
+		[TK_M_IMPORT_FILE] =		"M IMPORT_FILE",
+		[TK_M_IMPORT_PROG] =		"M IMPORT_PROG",
+		[TK_M_IMPORT_PARENT] =		"M MPORT_PARENT",
+		[TK_M_RESULT] =			"M RESULT",
+		[TK_M_MAX] =			"M MAX",
+
+		[TK_A_IGNORE_DEVICE] =		"A IGNORE_DEVICE",
+		[TK_A_STRING_ESCAPE_NONE] =	"A STRING_ESCAPE_NONE",
+		[TK_A_STRING_ESCAPE_REPLACE] =	"A STRING_ESCAPE_REPLACE",
+		[TK_A_NUM_FAKE_PART] =		"A NUM_FAKE_PART",
+		[TK_A_DEVLINK_PRIO] =		"A DEVLINK_PRIO",
+		[TK_A_OWNER] =			"A OWNER",
+		[TK_A_GROUP] =			"A GROUP",
+		[TK_A_MODE] =			"A MODE",
+		[TK_A_OWNER_ID] =		"A OWNER_ID",
+		[TK_A_GROUP_ID] =		"A GROUP_ID",
+		[TK_A_MODE_ID] =		"A MODE_ID",
+		[TK_A_ENV] =			"A ENV",
+		[TK_A_NAME] =			"A NAME",
+		[TK_A_DEVLINK] =		"A DEVLINK",
+		[TK_A_EVENT_TIMEOUT] =		"A EVENT_TIMEOUT",
+		[TK_A_IGNORE_REMOVE] =		"A IGNORE_REMOVE",
+		[TK_A_ATTR] =			"A ATTR",
+		[TK_A_RUN] =			"A RUN",
+		[TK_A_GOTO] =			"A GOTO",
+		[TK_A_LAST_RULE] =		"A LAST_RULE",
+
+		[TK_END] =			"END",
+	};
+
+	return token_strs[type];
+}
 
 static void dump_token(struct udev_rules *rules, struct token *token)
 {
@@ -272,13 +287,11 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 		{
 			const char *tks_ptr = (char *)rules->tokens;
 			const char *tk_ptr = (char *)token;
-			unsigned int off = tk_ptr - tks_ptr;
+			unsigned int idx = (tk_ptr - tks_ptr) / sizeof(struct token);
 
-			dbg(rules->udev, "* RULE %s:%u, off: %u(%u), token_count: %u(%u), label: '%s', flags: 0x%02x\n",
+			dbg(rules->udev, "* RULE %s:%u, token: %u, count: %u, label: '%s', flags: 0x%02x\n",
 			    &rules->buf[token->rule.filename_off], token->rule.filename_line,
-			    off / (unsigned int) sizeof(struct token), off,
-			    token->rule.token_count,
-			    token->rule.token_count * (unsigned int) sizeof(struct token),
+			    idx, token->rule.token_count,
 			    &rules->buf[token->rule.label_off],
 			    token->rule.flags);
 			break;
@@ -306,7 +319,7 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 	case TK_A_MODE:
 	case TK_A_RUN:
 		dbg(rules->udev, "%s %s '%s'(%s)\n",
-		    token_str[type], operation_str[op], value, string_glob_str[glob]);
+		    token_str(type), operation_str(op), value, string_glob_str(glob));
 		break;
 	case TK_M_ATTR:
 	case TK_M_ATTRS:
@@ -314,42 +327,42 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 	case TK_A_ATTR:
 	case TK_A_ENV:
 		dbg(rules->udev, "%s %s '%s' '%s'(%s)\n",
-		    token_str[type], operation_str[op], attr, value, string_glob_str[glob]);
+		    token_str(type), operation_str(op), attr, value, string_glob_str(glob));
 		break;
 	case TK_A_IGNORE_DEVICE:
 	case TK_A_STRING_ESCAPE_NONE:
 	case TK_A_STRING_ESCAPE_REPLACE:
 	case TK_A_LAST_RULE:
 	case TK_A_IGNORE_REMOVE:
-		dbg(rules->udev, "%s\n", token_str[type]);
+		dbg(rules->udev, "%s\n", token_str(type));
 		break;
 	case TK_M_TEST:
 		dbg(rules->udev, "%s %s '%s'(%s) %#o\n",
-		    token_str[type], operation_str[op], value, string_glob_str[glob], token->key.mode);
+		    token_str(type), operation_str(op), value, string_glob_str(glob), token->key.mode);
 		break;
 	case TK_A_NUM_FAKE_PART:
-		dbg(rules->udev, "%s %u\n", token_str[type], token->key.num_fake_part);
+		dbg(rules->udev, "%s %u\n", token_str(type), token->key.num_fake_part);
 		break;
 	case TK_A_DEVLINK_PRIO:
-		dbg(rules->udev, "%s %s %u\n", token_str[type], operation_str[op], token->key.devlink_prio);
+		dbg(rules->udev, "%s %s %u\n", token_str(type), operation_str(op), token->key.devlink_prio);
 		break;
 	case TK_A_OWNER_ID:
-		dbg(rules->udev, "%s %s %u\n", token_str[type], operation_str[op], token->key.uid);
+		dbg(rules->udev, "%s %s %u\n", token_str(type), operation_str(op), token->key.uid);
 		break;
 	case TK_A_GROUP_ID:
-		dbg(rules->udev, "%s %s %u\n", token_str[type], operation_str[op], token->key.gid);
+		dbg(rules->udev, "%s %s %u\n", token_str(type), operation_str(op), token->key.gid);
 		break;
 	case TK_A_MODE_ID:
-		dbg(rules->udev, "%s %s %#o\n", token_str[type], operation_str[op], token->key.mode);
+		dbg(rules->udev, "%s %s %#o\n", token_str(type), operation_str(op), token->key.mode);
 		break;
 	case TK_A_EVENT_TIMEOUT:
-		dbg(rules->udev, "%s %s %u\n", token_str[type], operation_str[op], token->key.event_timeout);
+		dbg(rules->udev, "%s %s %u\n", token_str(type), operation_str(op), token->key.event_timeout);
 		break;
 	case TK_A_GOTO:
-		dbg(rules->udev, "%s '%s' %u\n", token_str[type], value, token->key.rule_goto);
+		dbg(rules->udev, "%s '%s' %u\n", token_str(type), value, token->key.rule_goto);
 		break;
 	case TK_END:
-		dbg(rules->udev, "* %s\n", token_str[type]);
+		dbg(rules->udev, "* %s\n", token_str(type));
 		break;
 	case TK_M_PARENTS_MIN:
 	case TK_M_PARENTS_MAX:
@@ -373,8 +386,8 @@ static void dump_rules(struct udev_rules *rules)
 		dump_token(rules, &rules->tokens[i]);
 }
 #else
-static const char **operation_str;
-static const char **token_str;
+static inline const char *operation_str(enum operation_type type) { return NULL; }
+static inline const char *token_str(enum token_type type) { return NULL; }
 static inline void dump_token(struct udev_rules *rules, struct token *token) {}
 static inline void dump_rules(struct udev_rules *rules) {}
 #endif /* DEBUG */
@@ -828,7 +841,7 @@ static int get_key(struct udev *udev, char **line, char **key, enum operation_ty
 		return -1;
 	temp[0] = '\0';
 	temp++;
-	dbg(udev, "%s '%s'-'%s'\n", operation_str[*op], *key, *value);
+	dbg(udev, "%s '%s'-'%s'\n", operation_str(*op), *key, *value);
 
 	/* move line to next key */
 	*line = temp;
@@ -1791,7 +1804,7 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 					pos[0] = '\0';
 					pos = &pos[1];
 				}
-				dbg(rules->udev, "match %s '%s' <-> '%s'\n", token_str[token->type], key_value, val);
+				dbg(rules->udev, "match %s '%s' <-> '%s'\n", token_str(token->type), key_value, val);
 				match = (fnmatch(key_value, val, 0) == 0);
 				if (match)
 					break;
@@ -1808,14 +1821,14 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 	}
 
 	if (match && (token->key.op == OP_MATCH)) {
-		dbg(rules->udev, "%s is true (matching value)\n", token_str[token->type]);
+		dbg(rules->udev, "%s is true (matching value)\n", token_str(token->type));
 		return 0;
 	}
 	if (!match && (token->key.op == OP_NOMATCH)) {
-		dbg(rules->udev, "%s is true (non-matching value)\n", token_str[token->type]);
+		dbg(rules->udev, "%s is true (non-matching value)\n", token_str(token->type));
 		return 0;
 	}
-	dbg(rules->udev, "%s is not true\n", token_str[token->type]);
+	dbg(rules->udev, "%s is not true\n", token_str(token->type));
 	return -1;
 }
 
