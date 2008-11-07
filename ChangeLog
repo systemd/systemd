@@ -1,3 +1,147 @@
+Summary of changes from v130 to v131
+============================================
+
+Alan Jenkins (17):
+      libudev: fix sysnum logic for digit-only device names
+      udevd: avoid overhead of calling rmdir on non-empty directories
+      use more appropriate alternatives to malloc()
+      libudev: util - optimize path_encode()
+      libudev: allocate udev_device->envp[] dynamically
+      replace strncpy() with strlcpy()
+      use re-entrant variants of getpwnam and getgrnam
+      udevd: fix memory leak
+      udevd: fix WAIT_FOR_SYSFS execution order
+      fix handling of string_escape option
+      udevd: use a tighter loop for compare_devpath()
+      udevd: avoid implicit memset in match_attr()
+      kerneldoc comment fixes
+      udevd: simplify rules execution loop
+      udevd: fix termination of rule execution
+      udevd: be more careful when matching against parents
+      udevd: shrink struct token to 12 bytes
+
+Kay Sievers (113):
+      remove outdated docs/README-gcov_for_udev
+      libudev: device - add device lookup by subsystem:sysname
+      libudev: also prefix non-exported functions with udev_*
+      libudev: add udev_monitor_send_device()
+      libudev: list - add flag
+      libudev: device - generate DEVNAME and DEVLINKS properties
+      vol_id: update README
+      libudev: handle ! in sysname, add sysnum, return allocated list_entry on add
+      delete simple-build-check.sh
+      test: move global ENV{ENV_KEY_TEST}="test" to local rule
+      libudev: monitor - fix send_device() property copying
+      libudev: device - add get_envp() to construct envp from property list
+      libudev: do not include ctrl in libudev.so
+      libudev: monitor - do not mangle DEVLINKS property
+      libudev: update DEVLINKS property when properties are read
+      libudev: device - lookup "subsystem" and "driver" only once
+      libudev: device - export properties when values are set
+      libudev: list - handle update of key with NULL value
+      libudev: ctrl - fix typo in set_env()
+      libudev: add global property list
+      libudev: device - copy global properties, unset empty properties
+      volume_id: btrfs - update magic to latest disk format
+      udevd: use libudev
+      move udev_device_db to libudev
+      rename udev source files
+      libudev: always add UDEV_LOG
+      libudev: monitor - export MAJOR/MINOR only if available
+      udev-node: name_list -> udev_list
+      udev-rules-parse: name_list -> udev_list
+      delete name_list, move common file functions
+      fix sorting of rules files
+      run_program: prevent empty last argv entry
+      update IMPORT= file/stdout property parsing
+      update rules file parsing
+      delete udev-util-file.c
+      libudev: list - prepend udev_* to all functions
+      libudev: add sysnum to test program
+      test: fix a few unintentially wrongly written rules which cause parse errors
+      libudev: monitor - add set_receive_buffer_size()
+      libudev: ctrl - change magic to integer
+      libudev: make list_node functions available
+      udevd: use udev_list_node
+      collect: use udev_list
+      delete list.h
+      merge udev-rules.c and udev-rules-parse.c
+      make struct udev_rules opaque
+      move run_program to util
+      udev_event_run() -> udev_event_execute_rules()
+      udev_rules_run() -> udev_event_execute_run();
+      move udev_rules_apply_format() to udev-event.c
+      udev_list_cleanup() -> udev_list_cleanup_entries()
+      selinux_init(udev) -> udev_selinux_init(udev)
+      prefix udev-util.c functions with util_*
+      pass make distcheck
+      libudev: device - get_attr_value() -> get_sysattr_value()
+      cdrom_id: remove ARRAY_SIZE() declaration
+      replace missing get_attr_value() -> get_sysattr_value()
+      add "root" == 0 shortcuts to lookup_user/group()
+      do not use the new work-in-progress parser rule matcher
+      libudev: device - 128 -> ENVP_SIZE
+      add util_resolve_subsys_kernel()
+      handle numerical owner/group string in lookup_user/group()
+      replace in-memory rules array with match/action token list
+      do not create temporary node ($tempnode) if node already exists
+      shrink struct udev_event
+      shrink struct udev_event
+      rule_generator: fix netif NAME= value extraction regex
+      skip SYMLINK rules for devices without a device node
+      rules: let empty strings added to buffer always return offset 0
+      fix uninitialized variable warnings
+      cache uid/gid during rule parsing
+      distinguish "match" from "assign" by (op < OP_MATCH_MAX)
+      determine at rule parse time if we need to call fnmatch()
+      special-case "?*" match to skip fnmatch()
+      libudev: monitor - replace far too expensive snprintf() with strlcpy()
+      libudev: monitor - cache result of monitor send buffer
+      fix "unused" warnings
+      remove debug printf
+      match KEY="A|B" without temporary string copy
+      match_attr() - copy attr value only when needed
+      do not init string arrays, just clear first byte
+      fix $attr{[<subsystem>/<sysname>]<attribute>} substitution
+      libudev: device - fill envp array while composing monitor buffer
+      test: add RUN+="socket: ..." to a test to run monitor code
+      libudev: device - allocate envp array only once
+      update NEWS
+      udevd: merge exec and run queue to minimize devpath string compares
+      ATTR{}== always fails if the attribute does not exist
+      rules: remove SCSI timeouts
+      rules: remove "add" match from usb device node rule
+      edd_id: add "change" event match
+      fstab_import: add "change" event match
+      write trace log to stderr
+      log rules file and line number when NAME, SYMLINK, OWNER, GROUP, MODE, RUN is applied
+      skip entire rule containing device naming keys, if no device can be named
+      fix udev_node_update_old_links() logic
+      move some info() to dbg()
+      add "devel" and "install" switches to autogen.sh
+      move debugging strings inside #ifdef DEBUG
+      firmware.sh: record missing files in /dev/.udev/firmware-missing/
+      fix list handling in enumerate and rules file sorting
+      volume_id: btrfs update
+      info() PROGRAM and IMPORT execution
+      fix $links substitution
+      fix cleanup of possible left-over symlinks
+      do not import the "uevent" file when we only read the db to get old symlinks
+      usb_id: MassStorage SubClass 6 is "scsi" not "disk"
+      unify string replacement
+      $links should be relative
+      fix indentation
+      rules: md - add mdadm 3 device naming
+      cleanup /dev/.udev/queue on startup and exit
+      udevadm: settle - exit if udevd exits
+
+Matthias Koenig (1):
+      volume_id: swap - larger PAGE_SIZE support
+
+Steven Whitehouse (1):
+      volume_id: support for GFS2 UUIDs
+
+
 Summary of changes from v129 to v130
 ============================================
 
