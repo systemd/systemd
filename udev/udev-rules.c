@@ -16,6 +16,7 @@
  */
 
 #include <stddef.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -30,6 +31,7 @@
 
 #define PREALLOC_TOKEN			2048
 #define PREALLOC_STRBUF			32 * 1024
+#define PREALLOC_TRIE			256
 
 struct uid_gid {
 	unsigned int name_off;
@@ -39,7 +41,16 @@ struct uid_gid {
 	};
 };
 
-/* KEY=="", KEY!="", KEY+="", KEY="", KEY:="" */
+#define TRIE_CHILD_MAX 10
+
+struct trie_node {
+	unsigned int value_off;
+	size_t value_len;
+	unsigned char child_cur;
+	unsigned char child_key[TRIE_CHILD_MAX];
+	unsigned short child[TRIE_CHILD_MAX];
+};
+
 struct udev_rules {
 	struct udev *udev;
 	int resolve_names;
@@ -55,6 +66,12 @@ struct udev_rules {
 	size_t buf_max;
 	unsigned int buf_count;
 
+	/* key strings are indexed to avoid wasting space with duplicates */
+	struct trie_node *trie;
+	unsigned short trie_cur;
+	unsigned short trie_max;
+	unsigned short *trie_root;
+
 	/* during rule parsing, we cache uid/gid lookup results */
 	struct uid_gid *uids;
 	unsigned int uids_cur;
@@ -64,6 +81,7 @@ struct udev_rules {
 	unsigned int gids_max;
 };
 
+/* KEY=="", KEY!="", KEY+="", KEY="", KEY:="" */
 enum operation_type {
 	OP_UNSET,
 
@@ -392,25 +410,19 @@ static inline void dump_token(struct udev_rules *rules, struct token *token) {}
 static inline void dump_rules(struct udev_rules *rules) {}
 #endif /* DEBUG */
 
-/* we could lookup and return existing strings, or tails of strings */
-static int add_string(struct udev_rules *rules, const char *str)
+static int add_new_string(struct udev_rules *rules, const char *str, size_t bytes)
 {
-	size_t len = strlen(str)+1;
 	int off;
 
-	/* offset 0 is always '\0' */
-	if (str[0] == '\0')
-		return 0;
-
 	/* grow buffer if needed */
-	if (rules->buf_cur + len+1 >= rules->buf_max) {
+	if (rules->buf_cur + bytes+1 >= rules->buf_max) {
 		char *buf;
 		unsigned int add;
 
 		/* double the buffer size */
 		add = rules->buf_max;
-		if (add < len * 8)
-			add = len * 8;
+		if (add < bytes * 8)
+			add = bytes * 8;
 
 		buf = realloc(rules->buf, rules->buf_max + add);
 		if (buf == NULL)
@@ -420,15 +432,128 @@ static int add_string(struct udev_rules *rules, const char *str)
 		rules->buf_max += add;
 	}
 	off = rules->buf_cur;
-	memcpy(&rules->buf[rules->buf_cur], str, len);
-	rules->buf_cur += len;
+	memcpy(&rules->buf[rules->buf_cur], str, bytes);
+	rules->buf_cur += bytes;
 	rules->buf_count++;
+	return off;
+}
+
+static unsigned char trie_child_slot(struct trie_node *node, char key)
+{
+	unsigned char child_slot;
+
+	for (child_slot = 0; child_slot < node->child_cur; child_slot++) {
+		if (node->child_key[child_slot] == key)
+			break;
+	}
+
+	return child_slot;
+}
+
+static int add_string(struct udev_rules *rules, const char *str)
+{
+	struct trie_node *child;
+	unsigned short child_off;
+	unsigned short node_off;
+	unsigned char key;
+	size_t len;
+	int depth;
+	unsigned int off;
+
+	len = strlen(str);
+
+	/* offset 0 is always '\0' */
+	if (len == 0)
+		return 0;
+
+	/* strings with spaces are probably commands e.g. modprobe,
+	   with unique arguments. */
+	if (strchr(str, ' ') != NULL)
+		return add_new_string(rules, str, len + 1);
+
+	/* descend root - start from last character of str */
+	key = str[len - 1];
+	node_off = rules->trie_root[key];
+	depth = 0;
+
+	/* descend suffix trie */
+	if (node_off != 0) {
+		while (1) {
+			struct trie_node *node = &rules->trie[node_off];
+			unsigned char child_slot;
+
+			depth++;
+			off = node->value_off + node->value_len - len;
+
+			/* match against current node */
+			if (depth == len ||
+			    (node->value_len >= len &&
+			    memcmp(&rules->buf[off], str, len) == 0))
+			{
+				return off;
+			}
+
+			/* lookup child node */
+			key = str[len - 1 - depth];
+			child_slot = trie_child_slot(node, key);
+
+			if(child_slot == node->child_cur)
+				break;
+
+			node_off = node->child[child_slot];
+		}
+	}
+
+	/* string not found, add it */
+	off = add_new_string(rules, str, len + 1);
+
+	/* grow trie storage if needed */
+	if (rules->trie_cur >= rules->trie_max) {
+		struct trie_node *trie;
+		unsigned short add;
+
+		/* double the buffer size */
+		add = rules->trie_max;
+		if (add < 8)
+			add = 8;
+
+		trie = realloc(rules->trie, (rules->trie_max + add) * sizeof(struct trie_node));
+		if (trie == NULL)
+			return -1;
+		dbg(rules->udev, "extend string index nodes from %u to %u\n", rules->trie_max, rules->trie_max + add);
+		rules->trie = trie;
+		rules->trie_max += add;
+	}
+
+	/* insert new child node */
+	child_off = rules->trie_cur;
+	if (depth == 0) {
+		rules->trie_root[key] = child_off;
+	} else {
+		struct trie_node *parent = &rules->trie[node_off];
+		unsigned char child_slot = parent->child_cur;
+
+		/* no space in parent, we can't index this string, nevermind */
+		if (child_slot == TRIE_CHILD_MAX)
+			return off;
+
+		parent->child[child_slot] = child_off;
+		parent->child_key[child_slot] = key;
+		parent->child_cur = child_slot + 1;
+	}
+
+	/* allocate and construct the child node */
+	rules->trie_cur++;
+	child = &rules->trie[child_off];
+	memset(child, 0x00, sizeof(struct trie_node));
+	child->value_off = off;
+	child->value_len = len;
+
 	return off;
 }
 
 static int add_token(struct udev_rules *rules, struct token *token)
 {
-
 	/* grow buffer if needed */
 	if (rules->token_cur+1 >= rules->token_max) {
 		struct token *tokens;
@@ -1607,9 +1732,16 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	if (rules->buf == NULL)
 		return NULL;
 	rules->buf_max = PREALLOC_STRBUF;
+	rules->trie = malloc(PREALLOC_TRIE * sizeof(struct trie_node));
+	if (rules->trie == NULL)
+		return NULL;
+	rules->trie_max = PREALLOC_TRIE;
+	rules->trie_root = calloc(UCHAR_MAX + 1, sizeof(unsigned short));
 	/* offset 0 is always '\0' */
 	rules->buf[0] = '\0';
 	rules->buf_cur = 1;
+	/* offset 0 is reserved for the null trie node */
+	rules->trie_cur = 1;
 	dbg(udev, "prealloc %zu bytes tokens (%u * %zu bytes), %zu bytes buffer\n",
 	    rules->token_max * sizeof(struct token), rules->token_max, sizeof(struct token), rules->buf_max);
 
@@ -1725,6 +1857,16 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	}
 	info(udev, "shrunk to %zu bytes tokens (%u * %zu bytes), %zu bytes buffer\n",
 	     rules->token_max * sizeof(struct token), rules->token_max, sizeof(struct token), rules->buf_max);
+	info(udev, "used %zu bytes of string index nodes (%hu * %zu bytes)\n",
+	     rules->trie_cur * sizeof(struct trie_node), rules->trie_cur, sizeof(struct trie_node));
+
+	/* cleanup trie */
+	free(rules->trie);
+	rules->trie = NULL;
+	rules->trie_cur = 0;
+	rules->trie_max = 0;
+	free(rules->trie_root);
+	rules->trie_root = NULL;
 
 	/* cleanup uid/gid cache */
 	free(rules->uids);
@@ -1746,6 +1888,8 @@ void udev_rules_unref(struct udev_rules *rules)
 		return;
 	free(rules->tokens);
 	free(rules->buf);
+	free(rules->trie);
+	free(rules->trie_root);
 	free(rules->uids);
 	free(rules->gids);
 	free(rules);
