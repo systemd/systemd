@@ -457,7 +457,7 @@ static int add_string(struct udev_rules *rules, const char *str)
 	unsigned short node_off;
 	unsigned char key;
 	size_t len;
-	int depth;
+	unsigned int depth;
 	unsigned int off;
 
 	len = strlen(str);
