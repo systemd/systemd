@@ -31,6 +31,14 @@ my $udev_rules		= "udev-test.rules";
 
 my @tests = (
 	{
+		desc		=> "no rules",
+		subsys		=> "block",
+		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+		exp_name	=> "sda" ,
+		rules		=> <<EOF
+EOF
+	},
+	{
 		desc		=> "label test of scsi disc (old key names)",
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
