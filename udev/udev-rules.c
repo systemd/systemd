@@ -1773,6 +1773,8 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	if (rules->trie_childs == NULL)
 		return NULL;
 	rules->trie_childs_max = PREALLOC_TRIE;
+	/* offset 0 is reserved for the null child node */
+	rules->trie_childs_cur = 1;
 
 	rules->trie_root = calloc(UCHAR_MAX + 1, sizeof(unsigned short));
 
@@ -1886,9 +1888,9 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 			rules->buf_max = rules->buf_cur;
 		}
 	}
-	info(udev, "shrunk to %zu bytes tokens (%u * %zu bytes), %zu bytes buffer\n",
+	info(udev, "rules use %zu bytes tokens (%u * %zu bytes), %zu bytes buffer\n",
 	     rules->token_max * sizeof(struct token), rules->token_max, sizeof(struct token), rules->buf_max);
-	info(udev, "used %zu bytes for index (%u * %zu bytes nodes, %u * %zu bytes child links)\n",
+	info(udev, "temporary index used %zu bytes (%u * %zu bytes nodes, %u * %zu bytes child links)\n",
 	     rules->trie_nodes_cur * sizeof(struct trie_node) + rules->trie_childs_cur * sizeof(struct trie_child),
 	     rules->trie_nodes_cur, sizeof(struct trie_node),
 	     rules->trie_childs_cur, sizeof(struct trie_child));
