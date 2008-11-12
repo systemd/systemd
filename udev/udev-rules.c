@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008 Alan Jenkins <alan-jenkins@tuffmail.co.uk>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,17 +42,16 @@ struct uid_gid {
 	};
 };
 
-struct trie_child {
-	unsigned int next_idx;
-	unsigned int node_idx;
-	unsigned char key;
-};
-
 struct trie_node {
+	/* this node's first child */
 	unsigned int child_idx;
+	/* the next child of our parent node's child list */
+	unsigned int next_child_idx;
+	/* this node's last child (shortcut for append) */
 	unsigned int last_child_idx;
 	unsigned int value_off;
 	unsigned short value_len;
+	unsigned char key;
 };
 
 struct udev_rules {
@@ -70,13 +70,9 @@ struct udev_rules {
 	unsigned int buf_count;
 
 	/* during rule parsing, strings are indexed to find duplicates */
-	unsigned int *trie_root;
 	struct trie_node *trie_nodes;
 	unsigned int trie_nodes_cur;
 	unsigned int trie_nodes_max;
-	struct trie_child *trie_childs;
-	unsigned int trie_childs_cur;
-	unsigned int trie_childs_max;
 
 	/* during rule parsing, uid/gid lookup results are cached */
 	struct uid_gid *uids;
@@ -453,6 +449,7 @@ static int add_string(struct udev_rules *rules, const char *str)
 	unsigned short len;
 	unsigned int depth;
 	unsigned int off;
+	struct trie_node *parent;
 
 	len = strlen(str);
 
@@ -460,37 +457,34 @@ static int add_string(struct udev_rules *rules, const char *str)
 	if (len == 0)
 		return 0;
 
-	/* descend root - start from last character of str */
-	key = str[len - 1];
-	node_idx = rules->trie_root[key];
-	depth = 0;
+	/* walk trie, start from last character of str to find matching tails */
+	node_idx = 0;
+	key = str[len-1];
+	for (depth = 0; depth <= len; depth++) {
+		struct trie_node *node;
+		unsigned int child_idx;
 
-	/* descend suffix trie */
-	if (node_idx > 0) {
-		while (1) {
-			struct trie_node *node;
-			unsigned int child_idx;
+		node = &rules->trie_nodes[node_idx];
+		off = node->value_off + node->value_len - len;
 
-			node = &rules->trie_nodes[node_idx];
-			depth++;
-			off = node->value_off + node->value_len - len;
+		/* match against current node */
+		if (depth == len || (node->value_len >= len && memcmp(&rules->buf[off], str, len) == 0))
+			return off;
 
-			/* match against current node */
-			if (depth == len || (node->value_len >= len && memcmp(&rules->buf[off], str, len) == 0))
-				return off;
+		/* lookup child node */
+		key = str[len - 1 - depth];
+		child_idx = node->child_idx;
+		while (child_idx > 0) {
+			struct trie_node *child;
 
-			/* lookup child node */
-			key = str[len - 1 - depth];
-			child_idx = node->child_idx;
-			while (child_idx > 0) {
-				if (rules->trie_childs[child_idx].key == key)
-					break;
-				child_idx = rules->trie_childs[child_idx].next_idx;
-			}
-			if (child_idx == 0)
+			child = &rules->trie_nodes[child_idx];
+			if (child->key == key)
 				break;
-			node_idx = rules->trie_childs[child_idx].node_idx;
+			child_idx = child->next_child_idx;
 		}
+		if (child_idx == 0)
+			break;
+		node_idx = child_idx;
 	}
 
 	/* string not found, add it */
@@ -515,63 +509,26 @@ static int add_string(struct udev_rules *rules, const char *str)
 		rules->trie_nodes_max += add;
 	}
 
-	/* grow trie childs if needed */
-	if (rules->trie_childs_cur >= rules->trie_childs_max) {
-		struct trie_child *childs;
-		unsigned int add;
-
-		/* double the buffer size */
-		add = rules->trie_childs_max;
-		if (add < 8)
-			add = 8;
-
-		childs = realloc(rules->trie_childs, (rules->trie_childs_max + add) * sizeof(struct trie_child));
-		if (childs == NULL)
-			return -1;
-		dbg(rules->udev, "extend trie childs from %u to %u\n",
-		    rules->trie_childs_max, rules->trie_childs_max + add);
-		rules->trie_childs = childs;
-		rules->trie_childs_max += add;
-	}
-
-	/* get new node */
+	/* get a new node */
 	new_node_idx = rules->trie_nodes_cur;
 	rules->trie_nodes_cur++;
 	new_node = &rules->trie_nodes[new_node_idx];
+	memset(new_node, 0x00, sizeof(struct trie_node));
 	new_node->value_off = off;
 	new_node->value_len = len;
-	new_node->child_idx = 0;
-	new_node->last_child_idx = 0;
+	new_node->key = key;
 
-	if (depth == 0) {
-		/* add node to root */
-		rules->trie_root[key] = new_node_idx;
+	/* join the parent's child list */
+	parent = &rules->trie_nodes[node_idx];
+	if (parent->child_idx == 0) {
+		parent->child_idx = new_node_idx;
 	} else {
-		/* add node to parent */
-		struct trie_node *parent;
-		struct trie_child *new_child;
-		unsigned int new_child_idx;
+		struct trie_node *last_child;
 
-		/* get new child link for list of childs of parent */
-		new_child_idx = rules->trie_childs_cur;
-		rules->trie_childs_cur++;
-		new_child = &rules->trie_childs[new_child_idx];
-		new_child->next_idx = 0;
-		new_child->node_idx = new_node_idx;
-		new_child->key = key;
-
-		/* append child link to list of childs of parent */
-		parent = &rules->trie_nodes[node_idx];
-		if (parent->child_idx == 0) {
-			parent->child_idx = new_child_idx;
-		} else {
-			struct trie_child *last_child;
-
-			last_child = &rules->trie_childs[parent->last_child_idx];
-			last_child->next_idx = new_child_idx;
-		}
-		parent->last_child_idx = new_child_idx;
+		last_child = &rules->trie_nodes[parent->last_child_idx];
+		last_child->next_child_idx = new_node_idx;
 	}
+	parent->last_child_idx = new_node_idx;
 	return off;
 }
 
@@ -1766,17 +1723,9 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	if (rules->trie_nodes == NULL)
 		return NULL;
 	rules->trie_nodes_max = PREALLOC_TRIE;
-	/* offset 0 is reserved for the null trie node */
+	/* offset 0 is the trie root */
+	memset(rules->trie_nodes, 0x00, sizeof(struct trie_node));
 	rules->trie_nodes_cur = 1;
-
-	rules->trie_childs = malloc(PREALLOC_TRIE * sizeof(struct trie_child));
-	if (rules->trie_childs == NULL)
-		return NULL;
-	rules->trie_childs_max = PREALLOC_TRIE;
-	/* offset 0 is reserved for the null child node */
-	rules->trie_childs_cur = 1;
-
-	rules->trie_root = calloc(UCHAR_MAX + 1, sizeof(unsigned short));
 
 	if (udev_get_rules_path(udev) != NULL) {
 		/* custom rules location for testing */
@@ -1890,22 +1839,15 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	}
 	info(udev, "rules use %zu bytes tokens (%u * %zu bytes), %zu bytes buffer\n",
 	     rules->token_max * sizeof(struct token), rules->token_max, sizeof(struct token), rules->buf_max);
-	info(udev, "temporary index used %zu bytes (%u * %zu bytes nodes, %u * %zu bytes child links)\n",
-	     rules->trie_nodes_cur * sizeof(struct trie_node) + rules->trie_childs_cur * sizeof(struct trie_child),
-	     rules->trie_nodes_cur, sizeof(struct trie_node),
-	     rules->trie_childs_cur, sizeof(struct trie_child));
+	info(udev, "temporary index used %zu bytes (%u * %zu bytes)\n",
+	     rules->trie_nodes_cur * sizeof(struct trie_node),
+	     rules->trie_nodes_cur, sizeof(struct trie_node));
 
 	/* cleanup trie */
 	free(rules->trie_nodes);
 	rules->trie_nodes = NULL;
 	rules->trie_nodes_cur = 0;
 	rules->trie_nodes_max = 0;
-	free(rules->trie_childs);
-	rules->trie_childs = NULL;
-	rules->trie_childs_cur = 0;
-	rules->trie_childs_max = 0;
-	free(rules->trie_root);
-	rules->trie_root = NULL;
 
 	/* cleanup uid/gid cache */
 	free(rules->uids);
@@ -1928,8 +1870,6 @@ void udev_rules_unref(struct udev_rules *rules)
 	free(rules->tokens);
 	free(rules->buf);
 	free(rules->trie_nodes);
-	free(rules->trie_childs);
-	free(rules->trie_root);
 	free(rules->uids);
 	free(rules->gids);
 	free(rules);
