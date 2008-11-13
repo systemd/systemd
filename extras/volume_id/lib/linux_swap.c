@@ -97,5 +97,7 @@ found_label:
 
 found:
 	volume_id_set_usage(id, VOLUME_ID_OTHER);
+	/* we think this is swap, but we make sure no other signatures are found */
+	id->force_unique_result = 1;
 	return 0;
 }

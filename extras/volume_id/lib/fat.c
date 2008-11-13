@@ -497,6 +497,7 @@ fat32:
 found:
 	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
 	id->type = "vfat";
-
+	/* we think this is fat, but we make sure no other signatures are found */
+	id->force_unique_result = 1;
 	return 0;
 }

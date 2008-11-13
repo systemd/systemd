@@ -369,9 +369,12 @@ int volume_id_probe_raid(struct volume_id *id, uint64_t off, uint64_t size)
 
 	info("probing at offset 0x%" PRIx64 ", size 0x%" PRIx64 "\n", off, size);
 
-	for (i = 0; i < ARRAY_SIZE(prober_raid); i++)
-		if (prober_raid[i].prober(id, off, size) == 0)
+	for (i = 0; i < ARRAY_SIZE(prober_raid); i++) {
+		if (prober_raid[i].prober(id, off, size) == 0) {
+			info("signature '%s' detected\n", id->type);
 			goto found;
+		}
+	}
 	return -1;
 
 found:
@@ -402,11 +405,50 @@ int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size
 
 	info("probing at offset 0x%" PRIx64 ", size 0x%" PRIx64 "\n", off, size);
 
-	for (i = 0; i < ARRAY_SIZE(prober_filesystem); i++)
-		if (prober_filesystem[i].prober(id, off, size) == 0)
-			goto found;
-	return -1;
+	/*
+	 * We probe for all known filesystems to find conflicting signatures. If
+	 * we find multiple matching signatures and one of the detected filesystem
+	 * types claims that it can not co-exist with any other filesystem type,
+	 * we do not return a probing result.
+	 *
+	 * We can not afford to mount a volume with the wrong filesystem code and
+	 * possibly corrupt it. Linux ssytems have the problem of dozens of possible
+	 * filesystem types, and volumes with left-over signatures from former
+	 * filesystem types. Invalid signature need to be removed from the volume
+	 * to make the filesystem detection successful.
+	 *
+	 * We do not want to read that many bytes from probed floppies, skip volumes
+	 * smaller than a usual floppy disk
+	 */
+	if (size > 1440 * 1024) {
+		int found = 0;
+		int force_unique_result = 0;
 
+		for (i = 0; i < ARRAY_SIZE(prober_filesystem); i++) {
+			int match;
+
+			match = (prober_filesystem[i].prober(id, off, size) == 0);
+			if (match) {
+				info("signature '%s' detected\n", id->type);
+				if (id->force_unique_result)
+					force_unique_result = id->force_unique_result;
+				if (found && force_unique_result) {
+					info("conflicting signatures found, skip results\n");
+					return -1;
+				}
+				found = 1;
+			}
+		}
+	}
+
+	/* return the first match */
+	for (i = 0; i < ARRAY_SIZE(prober_filesystem); i++) {
+		if (prober_filesystem[i].prober(id, off, size) == 0) {
+			info("signature '%s' detected\n", id->type);
+			goto found;
+		}
+	}
+	return -1;
 found:
 	/* If recognized, we free the allocated buffers */
 	volume_id_free_buffer(id);

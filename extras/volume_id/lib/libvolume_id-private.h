@@ -120,6 +120,7 @@ struct volume_id {
 	uint8_t		*seekbuf;
 	uint64_t	seekbuf_off;
 	size_t		seekbuf_len;
+	int		force_unique_result;
 };
 
 /* utils */
