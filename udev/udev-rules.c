@@ -451,15 +451,10 @@ static int add_string(struct udev_rules *rules, const char *str)
 	unsigned int off;
 	struct trie_node *parent;
 
-	len = strlen(str);
-
-	/* offset 0 is always '\0' */
-	if (len == 0)
-		return 0;
-
 	/* walk trie, start from last character of str to find matching tails */
-	node_idx = 0;
+	len = strlen(str);
 	key = str[len-1];
+	node_idx = 0;
 	for (depth = 0; depth <= len; depth++) {
 		struct trie_node *node;
 		unsigned int child_idx;
@@ -1723,7 +1718,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 	if (rules->trie_nodes == NULL)
 		return NULL;
 	rules->trie_nodes_max = PREALLOC_TRIE;
-	/* offset 0 is the trie root */
+	/* offset 0 is the trie root, with an empty string */
 	memset(rules->trie_nodes, 0x00, sizeof(struct trie_node));
 	rules->trie_nodes_cur = 1;
 
