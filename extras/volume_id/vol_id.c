@@ -242,7 +242,8 @@ int main(int argc, char *argv[])
 	else
 		retval = volume_id_probe_all(vid, offset, size);
 	if (retval != 0) {
-		fprintf(stderr, "%s: unknown volume type\n", node);
+		fprintf(stderr, "unknown or non-unique volume type "
+				"(--probe-all lists possibly conflicting types)\n");
 		rc = 4;
 		goto exit;
 	}
