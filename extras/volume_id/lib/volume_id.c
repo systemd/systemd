@@ -412,9 +412,9 @@ int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size
 	 * we do not return a probing result.
 	 *
 	 * We can not afford to mount a volume with the wrong filesystem code and
-	 * possibly corrupt it. Linux ssytems have the problem of dozens of possible
+	 * possibly corrupt it. Linux sytems have the problem of dozens of possible
 	 * filesystem types, and volumes with left-over signatures from former
-	 * filesystem types. Invalid signature need to be removed from the volume
+	 * filesystem types. Invalid signatures need to be removed from the volume
 	 * to make the filesystem detection successful.
 	 *
 	 * We do not want to read that many bytes from probed floppies, skip volumes
@@ -431,7 +431,7 @@ int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size
 			if (match) {
 				info("signature '%s' detected\n", id->type);
 				if (id->force_unique_result)
-					force_unique_result = id->force_unique_result;
+					force_unique_result = 1;
 				if (found && force_unique_result) {
 					info("conflicting signatures found, skip results\n");
 					return -1;
