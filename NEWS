@@ -14,6 +14,20 @@ functionality.
 Installations which support old kernels, but install current default
 udev rules may need to add that to the compat rules file.
 
+Libvolume_id now always probes for all known filesystems, and does not
+stop at the first match. Some filesystems are marked as "exclusive probe"
+and if one of these filesytem types match, libvolume_id will not return
+a probing result if any other filesystem type matches. This is intended
+to help with conflicting left-over signatures from earlier file system
+formats. That way, we no longer depend on the probing order for competing 
+signatures.
+In some cases the kernel allows to mount a volume with the old filesystem
+type, before it has been re-formatted with a different type. This can
+damage the new filesystem and lead to data loss. Because volume_id can
+not decide which is the correct signature, the wrong signatures need to
+be removed manually from the volume, or the volume needs to be reformatted
+to make filesystem auto-detection and possible auto-mounting working.
+
 udev 132
 ========
 

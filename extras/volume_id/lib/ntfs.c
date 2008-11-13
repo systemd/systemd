@@ -195,6 +195,7 @@ int volume_id_probe_ntfs(struct volume_id *id, uint64_t off, uint64_t size)
 
 	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
 	id->type = "ntfs";
-
+	/* we think this is ntfs, but we make sure no other signatures are found */
+	id->force_unique_result = 1;
 	return 0;
 }
