@@ -33,6 +33,7 @@
 #ifndef HAVE_INOTIFY
 static inline int inotify_init(void)
 {
+	errno = ENOSYS;
 	return -1;
 }
 

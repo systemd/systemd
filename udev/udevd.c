@@ -864,7 +864,7 @@ int main(int argc, char *argv[])
 					  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
 		}
 	} else if (errno == ENOSYS)
-		err(udev, "the kernel does not support inotify, udevd can't monitor rules file changes\n");
+		info(udev, "unable to use inotify, udevd will not monitor rule files changes\n");
 	else
 		err(udev, "inotify_init failed: %m\n");
 
