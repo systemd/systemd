@@ -1,5 +1,5 @@
 AC_INIT([udev],
-	[132],
+	[133],
 	[kay.sievers@vrfy.org])
 AC_PREREQ(2.60)
 AC_CONFIG_SRCDIR([udev/udevd.c])

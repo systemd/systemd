@@ -1,3 +1,19 @@
+udev 133
+========
+
+The strings of the parsed rules, which are kept in memory, no longer
+contain duplicate entries, or duplicate tails of strings. This reduces
+the total size of a huge distro rule set to 0.08 MB, compared to the
+1.2MB of udev version 130.
+
+The export of DEVTYPE=disk/partition got removed from the default
+rules. This value is available from the kernel.
+The pnp shell script modprobe hack is removed from the default rules.
+ACPI devices have proper modalias support and take care of the same
+functionality.
+Installations which support old kernels, but install current default
+udev rules may need to add that to the compat rules file.
+
 udev 132
 ========
 
