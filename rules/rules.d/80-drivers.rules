@@ -3,8 +3,6 @@
 ACTION!="add", GOTO="drivers_end"
 
 DRIVER!="?*", ENV{MODALIAS}=="?*", RUN{ignore_error}+="/sbin/modprobe $env{MODALIAS}"
-SUBSYSTEM=="pnp", DRIVER!="?*", ENV{MODALIAS}!="?*", \
-  RUN{ignore_error}+="/bin/sh -c '/sbin/modprobe -a $$(while read id; do echo pnp:d$$id; done < /sys$devpath/id)'"
 SUBSYSTEM=="tifm", RUN+="/sbin/modprobe --all tifm_sd tifm_ms"
 SUBSYSTEM=="memstick", RUN+="/sbin/modprobe --all ms_block mspro_block"
 SUBSYSTEM=="mmc", RUN+="/sbin/modprobe mmc_block"
