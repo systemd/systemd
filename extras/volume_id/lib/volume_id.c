@@ -418,7 +418,7 @@ int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size
 	 * to make the filesystem detection successful.
 	 *
 	 * We do not want to read that many bytes from probed floppies, skip volumes
-	 * smaller than a usual floppy disk
+	 * smaller than a usual floppy disk.
 	 */
 	if (size > 1440 * 1024) {
 		int found = 0;

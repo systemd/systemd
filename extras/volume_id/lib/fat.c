@@ -411,7 +411,11 @@ magic:
 
 fat32:
 	info("looking for FAT32\n");
-	/* FAT32 should have a valid signature in the fsinfo block */
+	/*
+	 * FAT32 should have a valid signature in the fsinfo block,
+	 * but also allow all bytes set to '\0', because some volumes
+	 * do not set the signature at all.
+	 */
 	fsinfo_sect = le16_to_cpu(vs->type.fat32.fsinfo_sector);
 	buf = volume_id_get_buffer(id, off + (fsinfo_sect * sector_size), 0x200);
 	if (buf == NULL)
@@ -423,11 +427,13 @@ fat32:
 	info("signature2: 0x%02x%02x%02x%02x\n",
 	     fsinfo->signature2[0], fsinfo->signature2[1],
 	     fsinfo->signature2[2], fsinfo->signature2[3]);
-	if (memcmp(fsinfo->signature1, "\x52\x52\x61\x41", 4) != 0)
+	if (memcmp(fsinfo->signature1, "\x52\x52\x61\x41", 4) != 0 &&
+	    memcmp(fsinfo->signature1, "\x00\x00\x00\x00", 4) != 0)
 		return -1;
-	if (memcmp(fsinfo->signature2, "\x72\x72\x41\x61", 4) != 0)
+	if (memcmp(fsinfo->signature2, "\x72\x72\x41\x61", 4) != 0 &&
+	    memcmp(fsinfo->signature2, "\x00\x00\x00\x00", 4) != 0)
 		return -1 ;
-	info("FAT32 signatures match\n");
+	info("FAT32 signatures ok\n");
 
 	vs = (struct vfat_super_block *) volume_id_get_buffer(id, off, 0x200);
 	if (vs == NULL)
