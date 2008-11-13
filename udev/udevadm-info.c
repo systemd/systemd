@@ -228,7 +228,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		{ "device-id-of-file", required_argument, NULL, 'd' },
 		{ "export", no_argument, NULL, 'x' },
 		{ "export-prefix", required_argument, NULL, 'P' },
-		{ "version", no_argument, NULL, 1 }, /* -V outputs braindead format */
+		{ "version", no_argument, NULL, 'V' },
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
@@ -366,11 +366,8 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		case 'P':
 			export_prefix = optarg;
 			break;
-		case 1:
-			printf("%s\n", VERSION);
-			goto exit;
 		case 'V':
-			printf("udevinfo, version %s\n", VERSION);
+			printf("%s\n", VERSION);
 			goto exit;
 		case 'h':
 			printf("Usage: udevadm info OPTIONS\n"

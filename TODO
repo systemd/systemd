@@ -7,5 +7,4 @@
     the default rules
   o "udevadm control" commands will only accept the --<command> syntax
   o symlink names to udevadm will no longer be resolved to old command names
-  o fix "udevadm info -V" format
   o get distros to agree on a default set of rules
