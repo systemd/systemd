@@ -19,10 +19,6 @@ KERNEL=="hd*[0-9]", ATTRS{removable}=="1", GOTO="persistent_storage_end"
 # ignore partitions that span the entire disk
 TEST=="whole_disk", GOTO="persistent_storage_end"
 
-# /sys/class/block will export this
-ENV{DEVTYPE}!="?*", ATTR{range}=="?*", ENV{DEVTYPE}="disk"
-ENV{DEVTYPE}!="?*", ATTR{start}=="?*", ENV{DEVTYPE}="partition"
-
 # for partitions import parent information
 ENV{DEVTYPE}=="partition", IMPORT{parent}="ID_*"
 
