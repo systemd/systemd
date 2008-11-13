@@ -1,6 +1,6 @@
 AC_INIT([udev],
 	[133],
-	[kay.sievers@vrfy.org])
+	[linux-hotplug@vger.kernel.org])
 AC_PREREQ(2.60)
 AC_CONFIG_SRCDIR([udev/udevd.c])
 AM_INIT_AUTOMAKE([check-news foreign 1.9 dist-bzip2])
