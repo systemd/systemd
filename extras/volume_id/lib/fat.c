@@ -281,10 +281,6 @@ int volume_id_probe_vfat(struct volume_id *id, uint64_t off, uint64_t size)
 	if (buf == NULL)
 		return -1;
 
-	/* check signature */
-	if (buf[510] != 0x55 || buf[511] != 0xaa)
-		return -1;
-
 	vs = (struct vfat_super_block *) buf;
 	if (memcmp(vs->sysid, "NTFS", 4) == 0)
 		return -1;
@@ -304,6 +300,10 @@ int volume_id_probe_vfat(struct volume_id *id, uint64_t off, uint64_t size)
 
 	if (memcmp(vs->type.fat.magic, "FAT12   ", 8) == 0)
 		goto magic;
+
+	/* check signature */
+	if (buf[510] != 0x55 || buf[511] != 0xaa)
+		return -1;
 
 	/* some old floppies don't have a magic, expect the boot jump address to match */
 	if ((vs->boot_jump[0] != 0xeb || vs->boot_jump[2] != 0x90) &&
