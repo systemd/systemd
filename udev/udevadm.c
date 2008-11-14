@@ -200,7 +200,9 @@ int main(int argc, char *argv[])
 	if (command != NULL)
 		for (i = 0; cmds[i].cmd != NULL; i++) {
 			if (strcmp(cmds[i].name, command) == 0) {
-				optind++;
+				argc -= optind;
+				argv += optind;
+				optind = 0;
 				rc = run_command(udev, &cmds[i], argc, argv);
 				goto out;
 			}
