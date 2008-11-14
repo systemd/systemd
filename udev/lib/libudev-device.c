@@ -501,9 +501,11 @@ static struct udev_device *device_new_from_parent(struct udev_device *udev_devic
 	    strncmp(udev_device->devpath, "/block/", 7) == 0) {
 		util_strlcpy(path, udev_device->syspath, sizeof(path));
 		util_strlcat(path, "/device", sizeof(path));
-		if (util_resolve_sys_link(udev_device->udev, path, sizeof(path)) == 0)
+		if (util_resolve_sys_link(udev_device->udev, path, sizeof(path)) == 0) {
 			udev_device_parent = udev_device_new_from_syspath(udev_device->udev, path);
-		return udev_device_parent;
+			if (udev_device_parent != NULL)
+				return udev_device_parent;
+		}
 	}
 
 	util_strlcpy(path, udev_device->syspath, sizeof(path));
