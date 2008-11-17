@@ -974,21 +974,18 @@ int main(int argc, char *argv[])
 				event_queue_manager(udev);
 		}
 	}
+	cleanup_queue_dir(udev);
 	rc = 0;
-
 exit:
 	udev_rules_unref(rules);
-
 	if (signal_pipe[READ_END] >= 0)
 		close(signal_pipe[READ_END]);
 	if (signal_pipe[WRITE_END] >= 0)
 		close(signal_pipe[WRITE_END]);
-
 	udev_ctrl_unref(udev_ctrl);
 	if (inotify_fd >= 0)
 		close(inotify_fd);
 	udev_monitor_unref(kernel_monitor);
-	cleanup_queue_dir(udev);
 	udev_selinux_exit(udev);
 	udev_unref(udev);
 	logging_close();
