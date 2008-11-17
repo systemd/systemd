@@ -231,8 +231,9 @@ found:
 			break;
 		case SUBST_DRIVER:
 			if (event->dev_parent != NULL) {
-				const char *driver = udev_device_get_driver(event->dev_parent);
+				const char *driver;
 
+				driver = udev_device_get_driver(event->dev_parent);
 				if (driver == NULL)
 					break;
 				util_strlcat(string, driver, maxsize);
@@ -398,6 +399,8 @@ found:
 				struct udev_list_entry *list_entry;
 
 				list_entry = udev_device_get_devlinks_list_entry(dev);
+				if (list_entry == NULL)
+					break;
 				util_strlcat(string, &udev_list_entry_get_name(list_entry)[devlen], maxsize);
 				udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry)) {
 					util_strlcat(string, " ", maxsize);
@@ -426,6 +429,8 @@ found:
 				if (list_entry == NULL)
 					break;
 				value = udev_list_entry_get_value(list_entry);
+				if (value == NULL)
+					break;
 				dbg(event->udev, "substitute env '%s=%s'\n", attr, value);
 				util_strlcat(string, value, maxsize);
 				break;
