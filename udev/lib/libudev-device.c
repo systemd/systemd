@@ -859,10 +859,15 @@ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const
 	}
 
 	if (S_ISLNK(statbuf.st_mode)) {
-		/* links return the last element of the target path */
 		char target[UTIL_NAME_SIZE];
 		int len;
 		char *pos;
+
+		/* some core links return the last element of the target path */
+		if (strcmp(sysattr, "driver") != 0 &&
+		    strcmp(sysattr, "subsystem") != 0 &&
+		    strcmp(sysattr, "module") != 0)
+			goto out;
 
 		len = readlink(path, target, sizeof(target));
 		if (len > 0) {
