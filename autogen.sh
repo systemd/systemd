@@ -49,11 +49,11 @@ CFLAGS="-g -Wall \
 
 if test -z "$1" -o "$1" = "install"; then
 	args="--prefix=/usr --exec-prefix= --sysconfdir=/etc --with-selinux"
-	args="$args --with-libdir-name=$(basename $(gcc -print-multi-os-directory))"
+	args="$args --with-libdir-name=lib/$(gcc -print-multi-os-directory)"
 	CFLAGS="$CFLAGS -O2"
 elif test "$1" = "devel" ; then
 	args="--prefix=/usr --exec-prefix= --sysconfdir=/etc --with-selinux --enable-debug"
-	args="$args --with-libdir-name=$(basename $(gcc -print-multi-os-directory))"
+	args="$args --with-libdir-name=lib/$(gcc -print-multi-os-directory)"
 	CFLAGS="$CFLAGS -O0"
 else
 	args=$@
