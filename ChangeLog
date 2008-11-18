@@ -1,3 +1,41 @@
+Summary of changes from v132 to v133
+============================================
+
+Alan Jenkins (2):
+      udevd: de-duplicate strings in rules
+      scsi_id: we don't use DEVPATH env var anymore, update man page
+
+Karel Zak (1):
+      volume_id: fat - move check for msdos signature (0x55 0xaa)
+
+Kay Sievers (22):
+      silence "comparison between signed and unsigned"
+      string index - split nodes and childs to allow and unlimited number of childs
+      reserve child slot 0
+      merge trie nodes, childs and root into a single array
+      set errno = ENOSYS in inotify stub
+      udevadm: info - unify -V and --version
+      rules: remove DEVTYPE disk/partition
+      rules: remove pnp shell script, acpi loads these modules properly
+      update NEWS
+      configure: add linux-hotplug mail address
+      remove len == 0 check, the index root is always '\0'
+      volume_id: bump revision
+      volume_id: always check for all filesystem types and skip conflicting results
+      volume_id: fat - accept empty FAT32 fsinfo signature
+      fix spelling in comment
+      volume_id: ntfs - mark as no other fs must match
+      vol_id: clarify error message
+      libudev: device - handle disk "device" link for partitions in deprecated sysfs layout
+      limit $attr(<symlink>) magic to well-known links only
+      udevd: fix cleanup of /dev/.udev/uevent_seqnum
+      fix $links substitution for devices without any link
+      update NEWS
+
+Sergey Vlasov (1):
+      udevadm: fix option parsing breakage with klibc
+
+
 Summary of changes from v131 to v132
 ============================================
 
