@@ -1,5 +1,5 @@
 AC_INIT([udev],
-	[133],
+	[134],
 	[linux-hotplug@vger.kernel.org])
 AC_PREREQ(2.60)
 AC_CONFIG_SRCDIR([udev/udevd.c])
@@ -19,7 +19,7 @@ AC_SUBST(LIBUDEV_LT_AGE)
 
 dnl /* libvolume_id version */
 VOLID_LT_CURRENT=1
-VOLID_LT_REVISION=5
+VOLID_LT_REVISION=6
 VOLID_LT_AGE=0
 AC_SUBST(VOLID_LT_CURRENT)
 AC_SUBST(VOLID_LT_REVISION)
