@@ -1,31 +1,41 @@
 udev 133
 ========
+Bugfix for kernels using SYSFS_DEPRECATED* option and finding parent
+block devices in some cases. No common distro uses this option anymore,
+and we do not get enough testing for this and recent udev versions. If
+this option is not needed to run some old distro with a new kernel,
+it should be disabled in the kernel config.
+
+Bugfix for the $links substitution variable, which may crash if no links
+are created. This should not happen in usual setups because we always
+create /dev/{block,char}/ links.
 
 The strings of the parsed rules, which are kept in memory, no longer
-contain duplicate entries, or duplicate tails of strings. This reduces
-the total in-memory size of a huge distro rule set to 0.08 MB, compared
-to the 1.2MB of udev version 130.
+contain duplicate entries, or duplicate tails of strings. This, and the
+new rules parsing/matching code reduces the total in-memory size of
+a huge distro rule sets to 0.08 MB, compared to the 1.2MB of udev
+version 130.
 
 The export of DEVTYPE=disk/partition got removed from the default
-rules. This value is available from the kernel.
-The pnp shell script modprobe hack is removed from the default rules.
-ACPI devices have proper modalias support and take care of the same
-functionality.
+rules. This value is available from the kernel. The pnp shell script
+modprobe hack is removed from the default rules. ACPI devices have _proper_
+modalias support and take care of the same functionality.
 Installations which support old kernels, but install current default
 udev rules may want to add that to the compat rules file.
 
 Libvolume_id now always probes for all known filesystems, and does not
 stop at the first match. Some filesystems are marked as "exclusive probe",
 and if any other filesytem type matches at the same time, libvolume_id
-will by default not return any probing result. This is intended to help
-with conflicting left-over signatures from earlier file system formats.
-That way, we no longer depend on the probe-order in case of competing
-signatures. In some setups the kernel allows to mount a volume with just
-the old filesystem signature still in place. This may damage the new
-filesystem and cause data-loss, just by mounting it. Because volume_id
-can not decide which one the correct signature is, the wrong signatures
-need to be removed manually from the volume, or the volume needs to be
-reformatted, to enable filesystem detection and possible auto-mounting.
+will, by default, not return any probing result. This is intended to prevent
+mis-detection with conflicting left-over signatures found from earlier
+file system formats. That way, we no longer depend on the probe-order
+in case of multiple competing signatures. In some setups the kernel allows
+to mount a volume with just the old filesystem signature still in place.
+This may damage the new filesystem and cause data-loss, just by mounting
+it. Because volume_id can not decide which one the correct signature is,
+the wrong signatures need to be removed manually from the volume, or the
+volume needs to be reformatted, to enable filesystem detection and possible
+auto-mounting.
 
 udev 132
 ========
