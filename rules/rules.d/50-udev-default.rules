@@ -31,21 +31,30 @@ KERNEL=="ts[0-9]*|uinput",	NAME="input/%k", MODE="0600"
 KERNEL=="js[0-9]*",		NAME="input/%k", MODE="0644", SYMLINK+="%k"
 
 # video4linux
+SUBSYSTEM=="video4linux",	GROUP="video"
+KERNEL=="vttuner*",		GROUP="video"
+KERNEL=="vtx*|vbi*",		GROUP="video"
+KERNEL=="winradio*",		GROUP="video"
 KERNEL=="vbi0",			SYMLINK+="vbi"
 KERNEL=="radio0",		SYMLINK+="radio"
 KERNEL=="video0",		SYMLINK+="video"
 
 # graphics
-KERNEL=="agpgart",		MODE="0600"
+KERNEL=="agpgart",		MODE="0600", GROUP="video"
 KERNEL=="card[0-9]*",		NAME="dri/%k", MODE="0666"
 KERNEL=="fb0",			SYMLINK+="fb"
+KERNEL=="pmu",			GROUP="video"
+KERNEL=="nvidia*|nvidiactl*",	GROUP="video"
+SUBSYSTEM=="graphics",		GROUP="video"
 
 # DVB video
 SUBSYSTEM=="dvb", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}'", NAME="%c"
+SUBSYSTEM=="dvb",		GROUP="video"
 
 # Firewire
 KERNEL=="dv1394*",		SYMLINK+="dv1394/%n"
 KERNEL=="video1394*",		NAME="video1394/%n"
+KERNEL=="dv1394*|video1394*|raw1394*",	GROUP="video"
 
 # firmware class requests
 SUBSYSTEM=="firmware", ACTION=="add", RUN+="firmware.sh"
