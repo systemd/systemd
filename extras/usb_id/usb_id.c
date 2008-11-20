@@ -70,7 +70,9 @@ static void set_usb_iftype(char *to, int if_class_num, size_t len)
 	case 0x0a: /* CDC-Data */
 	case 0x0b: /* Chip/Smart Card */
 	case 0x0d: /* Content Security */
-	case 0x0e: /* Video */
+	case 0x0e:
+		type = "video";
+		break;
 	case 0xdc: /* Diagnostic Device */
 	case 0xe0: /* Wireless Controller */
 	case 0xf2: /* Application-specific */

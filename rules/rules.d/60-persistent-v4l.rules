@@ -3,6 +3,9 @@
 ACTION!="add|change", GOTO="persistent_v4l_end"
 SUBSYSTEM!="video4linux", GOTO="persistent_v4l_end"
 
+SUBSYSTEMS=="usb", IMPORT{program}="usb_id --export"
+KERNEL=="video*", ENV{ID_SERIAL}=="?*", SYMLINK+="v4l/by-id/$env{ID_BUS}-$env{ID_SERIAL}-video-index$attr{index}"
+
 # check for valid "index" number
 TEST!="index", GOTO="persistent_v4l_end"
 ATTR{index}!="?*", GOTO="persistent_v4l_end"
