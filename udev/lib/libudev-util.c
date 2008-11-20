@@ -398,7 +398,7 @@ int udev_util_replace_chars(char *str, const char *white)
 		}
 
 		/* if space is allowed, replace whitespace with ordinary space */
-		if (isspace(str[i]) && strchr(white, ' ') != NULL) {
+		if (isspace(str[i]) && white != NULL && strchr(white, ' ') != NULL) {
 			str[i] = ' ';
 			i++;
 			replaced++;
