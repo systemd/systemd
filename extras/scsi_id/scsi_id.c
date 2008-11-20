@@ -502,9 +502,12 @@ static int set_inq_values(struct udev *udev, struct scsi_id_device *dev_scsi, co
 		return retval;
 
 	udev_util_replace_whitespace(dev_scsi->vendor, vendor_str, sizeof(vendor_str));
+	udev_util_replace_chars(vendor_str, NULL);
 	udev_util_replace_whitespace(dev_scsi->model, model_str, sizeof(model_str));
+	udev_util_replace_chars(model_str, NULL);
 	set_type(dev_scsi->type, type_str, sizeof(type_str));
 	udev_util_replace_whitespace(dev_scsi->revision, revision_str, sizeof(revision_str));
+	udev_util_replace_chars(revision_str, NULL);
 	return 0;
 }
 
@@ -572,8 +575,10 @@ static int scsi_id(struct udev *udev, char *maj_min_dev)
 			printf("ID_MODEL=%s\n", model_str);
 			printf("ID_REVISION=%s\n", revision_str);
 			udev_util_replace_whitespace(dev_scsi.serial, serial_str, sizeof(serial_str));
+			udev_util_replace_chars(serial_str, NULL);
 			printf("ID_SERIAL=%s\n", serial_str);
 			udev_util_replace_whitespace(serial_short, serial_str, sizeof(serial_str));
+			udev_util_replace_chars(serial_str, NULL);
 			printf("ID_SERIAL_SHORT=%s\n", serial_str);
 			printf("ID_TYPE=%s\n", type_str);
 		} else {
