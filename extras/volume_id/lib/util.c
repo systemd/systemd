@@ -200,12 +200,8 @@ static char *usage_to_string(enum volume_id_usage usage_id)
 		return "other";
 	case VOLUME_ID_RAID:
 		return "raid";
-	case VOLUME_ID_DISKLABEL:
-		return "disklabel";
 	case VOLUME_ID_CRYPTO:
 		return "crypto";
-	case VOLUME_ID_UNPROBED:
-		return "unprobed";
 	case VOLUME_ID_UNUSED:
 		return "unused";
 	}
