@@ -254,7 +254,7 @@ handle_fc () {
 	fc_tgt_lun="${fc_tgt_hcil##*:}"
 	fc_tgt_path="${DEV%/*}"
 	fc_tgt_num="${fc_tgt_path##*/}"
-	fc_tgt_dev="${fc_tgt_path}/fc_transport:${fc_tgt_num}"
+	fc_tgt_dev="${fc_tgt_path}/fc_transport/${fc_tgt_num}"
 	if [ -e "$fc_tgt_dev/port_name" ]; then
 		read wwpn < $fc_tgt_dev/port_name
 	fi
