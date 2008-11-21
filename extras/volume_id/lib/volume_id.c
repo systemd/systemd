@@ -383,6 +383,18 @@ found:
 	return 0;
 }
 
+static void volume_id_reset_result(struct volume_id *id)
+{
+	id->label_raw_len = 0;
+	id->label[0] = '\0';
+	id->uuid_raw_len = 0;
+	id->uuid[0] = '\0';
+	id->usage_id = VOLUME_ID_UNUSED;
+	id->usage = NULL;
+	id->type = NULL;
+	id->type_version[0] = '\0';
+}
+
 /**
  * volume_id_probe_filesystem:
  * @id: Probing context.
@@ -423,25 +435,41 @@ int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size
 	if (size > 1440 * 1024) {
 		int found = 0;
 		int force_unique_result = 0;
+		int first_match = -1;
 
+		volume_id_reset_result(id);
 		for (i = 0; i < ARRAY_SIZE(prober_filesystem); i++) {
 			int match;
 
 			match = (prober_filesystem[i].prober(id, off, size) == 0);
 			if (match) {
-				info("signature '%s' detected\n", id->type);
+				info("signature '%s' %i detected\n", id->type, i);
 				if (id->force_unique_result)
 					force_unique_result = 1;
 				if (found && force_unique_result) {
 					info("conflicting signatures found, skip results\n");
 					return -1;
 				}
-				found = 1;
+				found++;
+				if (first_match < 0)
+					first_match = i;
 			}
+		}
+		if (found < 1)
+			return -1;
+		if (found == 1)
+			goto found;
+		if (found > 1) {
+			volume_id_reset_result(id);
+			info("re-read first match metadata %i\n", first_match);
+			if (prober_filesystem[first_match].prober(id, off, size) == 0)
+				goto found;
+			return -1;
 		}
 	}
 
 	/* return the first match */
+	volume_id_reset_result(id);
 	for (i = 0; i < ARRAY_SIZE(prober_filesystem); i++) {
 		if (prober_filesystem[i].prober(id, off, size) == 0) {
 			info("signature '%s' detected\n", id->type);
