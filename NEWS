@@ -1,5 +1,8 @@
 udev 134
 ========
+Bugfixes.
+
+The group "video" is part of the default rules now.
 
 udev 133
 ========

@@ -1,4 +1,8 @@
 
+  o switch device mapper rules to:
+     dmsetup info -c --nameprefixes --unquoted --rows --noheadings \
+       -o name,uuid,suspended,readonly,major,minor,open,tables_loaded
+  o implement path_id with libudev
   o convert firmware.sh to C
   o add DVB variables to kernel (patch merged in v4l tree), drop the
     shell script rule

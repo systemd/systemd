@@ -446,7 +446,7 @@ int volume_id_probe_filesystem(struct volume_id *id, uint64_t off, uint64_t size
 				info("signature '%s' %i detected\n", id->type, i);
 				if (id->force_unique_result)
 					force_unique_result = 1;
-				if (found && force_unique_result) {
+				if (found > 0 && force_unique_result) {
 					info("conflicting signatures found, skip results\n");
 					return -1;
 				}
