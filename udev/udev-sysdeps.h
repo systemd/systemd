@@ -21,6 +21,7 @@
 #define _UDEV_SYSDEPS_H_
 
 #include <stdint.h>
+#include <errno.h>
 
 /* needed for our signal handlers to work */
 #undef asmlinkage
