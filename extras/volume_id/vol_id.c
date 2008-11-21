@@ -31,6 +31,7 @@
 #include <grp.h>
 #include <getopt.h>
 #include <fcntl.h>
+#include <sys/stat.h>
 #include <inttypes.h>
 #include <sys/ioctl.h>
 
@@ -214,9 +215,17 @@ int main(int argc, char *argv[])
 	}
 
 	if (size == 0) {
-		if (ioctl(fd, BLKGETSIZE64, &size) != 0)
-			size = 0;
-		info(udev_ctx, "BLKGETSIZE64=%" PRIu64 " (%" PRIu64 "GB)\n", size, size >> 30);
+		if (ioctl(fd, BLKGETSIZE64, &size) == 0) {
+			info(udev_ctx, "BLKGETSIZE64=%" PRIu64 " (%" PRIu64 "GB)\n", size, size >> 30);
+		} else {
+			struct stat statbuf;
+
+			if (fstat(fd, &statbuf) == 0 && S_ISREG(statbuf.st_mode))
+				size = statbuf.st_size;
+			else
+				size = 0;
+			info(udev_ctx, "stat=%" PRIu64 " (%" PRIu64 "GB)\n", size, size >> 30);
+		}
 	}
 
 	/* try to drop all privileges before reading disk content */
