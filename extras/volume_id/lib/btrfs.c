@@ -51,6 +51,7 @@ struct btrfs_super_block {
 	uint32_t leafsize;
 	uint32_t stripesize;
 	uint32_t sys_chunk_array_size;
+	uint64_t chunk_root_generation;
 	uint8_t root_level;
 	uint8_t chunk_root_level;
 	uint8_t log_root_level;
@@ -62,10 +63,12 @@ struct btrfs_super_block {
 		uint32_t io_width;
 		uint32_t sector_size;
 		uint64_t type;
+		uint64_t generation;
 		uint32_t dev_group;
 		uint8_t seek_speed;
 		uint8_t bandwidth;
 		uint8_t uuid[16];
+		uint8_t fsid[16];
 	} PACKED dev_item;
 	uint8_t label[256];
 } PACKED;
