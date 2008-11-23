@@ -137,7 +137,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	if (type < 0 || type >= (int) (sizeof(table_sup) / sizeof(table_sup[0]))) {
+	if (type < 0 || type >= (int) ARRAY_SIZE(table_sup)) {
 		fprintf(stderr,"Invalid CMOS type %d\n", type);
 		return 1;
 	}
