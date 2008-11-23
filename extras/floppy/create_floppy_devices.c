@@ -130,14 +130,14 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	if (fdnum > 3)
-		fdnum += 128;
+		fdnum += 124;
 
 	if (major < 1) {
 		fprintf(stderr,"Invalid major number %d\n", major);
 		return 1;
 	}
 
-	if (type < 0 || type > (int) sizeof(table)) {
+	if (type < 0 || type >= (int) (sizeof(table_sup) / sizeof(table_sup[0]))) {
 		fprintf(stderr,"Invalid CMOS type %d\n", type);
 		return 1;
 	}
@@ -150,7 +150,7 @@ int main(int argc, char **argv)
 		sprintf(node, "%s%s", dev, table[table_sup[type][i]]);
 		minor = (table_sup[type][i] << 2) + fdnum;
 		if (print_nodes)
-			printf("%s b %d %d %d\n", node, mode, major, minor);
+			printf("%s b %.4o %d %d\n", node, mode, major, minor);
 		if (create_nodes) {
 			unlink(node);
 			udev_selinux_setfscreatecon(udev, node, S_IFBLK | mode);
