@@ -1135,6 +1135,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 	char *linepos;
 	char *attr;
 	int physdev = 0;
+	int waitfor = 0;
 	struct rule_tmp rule_tmp;
 
 	memset(&rule_tmp, 0x00, sizeof(struct rule_tmp));
@@ -1395,6 +1396,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 		if (strcasecmp(key, "WAIT_FOR") == 0 || strcasecmp(key, "WAIT_FOR_SYSFS") == 0) {
 			rule_add_key(&rule_tmp, TK_M_WAITFOR, 0, value, NULL);
 			valid = 1;
+			waitfor = 1;
 			continue;
 		}
 
@@ -1544,11 +1546,11 @@ static int add_rule(struct udev_rules *rules, char *line,
 		err(rules->udev, "unknown key '%s' in %s:%u\n", key, filename, lineno);
 	}
 
-	if (physdev)
-		err(rules->udev, "PHYSDEV* values are deprecated and not available on recent kernels, \n"
-		    "please fix it in %s:%u", filename, lineno);
+	if (physdev && !waitfor)
+		err(rules->udev, "PHYSDEV* values are deprecated and not available on recent kernels, "
+		    "please fix it in %s:%u\n", filename, lineno);
 
-	/* skip line if not any valid key was found */
+	/* skip line if no valid key was found */
 	if (!valid)
 		goto invalid;
 
