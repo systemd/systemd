@@ -371,18 +371,23 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 		struct udev_list_entry *list_entry_current;
 		int found;
 
+		/* check if old link name is now our node name */
+		if (strcmp(name, udev_device_get_devnode(dev)) == 0)
+			continue;
+
+		/* check if old link name still belongs to this device */
 		found = 0;
 		udev_list_entry_foreach(list_entry_current, udev_device_get_devlinks_list_entry(dev)) {
 			const char *name_current = udev_list_entry_get_name(list_entry_current);
 
-			if (strcmp(name_current, name) == 0) {
+			if (strcmp(name, name_current) == 0) {
 				found = 1;
 				break;
 			}
 		}
 		if (found)
 			continue;
-		/* link does no longer belong to this device */
+
 		info(udev, "update old symlink '%s' no longer belonging to '%s'\n", name, udev_device_get_devpath(dev));
 		name_index(udev, udev_device_get_devpath(dev), name, 0, test);
 		update_link(dev, name, test);
