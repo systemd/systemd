@@ -64,19 +64,28 @@ static void set_usb_iftype(char *to, int if_class_num, size_t len)
 		type = "storage";
 		break;
 	case 2: /* CDC-Control */
+		break;
 	case 5: /* Physical */
+		break;
 	case 6: /* Image */
+		break;
 	case 9: /* HUB */
+		break;
 	case 0x0a: /* CDC-Data */
+		break;
 	case 0x0b: /* Chip/Smart Card */
+		break;
 	case 0x0d: /* Content Security */
 		break;
 	case 0x0e:
 		type = "video";
 		break;
 	case 0xdc: /* Diagnostic Device */
+		break;
 	case 0xe0: /* Wireless Controller */
+		break;
 	case 0xf2: /* Application-specific */
+		break;
 	case 0xff: /* Vendor-specific */
 		break;
 	default:
