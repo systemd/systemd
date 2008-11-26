@@ -1,3 +1,41 @@
+Summary of changes from v133 to v134
+============================================
+
+Gabor Z. Papp (1):
+      include errno.h in sysdeps.h
+
+Harald Hoyer (1):
+      rules: add persistent rules for memory stick block devices
+
+Kay Sievers (19):
+      autogen.sh: fix -print-multi-os-directory usage
+      volume_id: update btrfs magic
+      bump version
+      rules: merge group "video" into default rules
+      rules: v4l - add by-id/ links for USB devices
+      libudev: accept NULL whitelist in util_replace_chars()
+      usb_id: replace chars in returned strings
+      ata_id: make sure, we do not have slashes in values
+      scsi_id: make sure, we do not have slashes in values
+      volume_id: remove unused usage types
+      vol_id: if regular files are probed, use stat() for the size value
+      volume_id: update btrfs
+      volume_id: clear probing result before probing and do not probe a second time, if not needed
+      path_id: fix fibre channel handling
+      update NEWS TODO
+      floppy: use ARRAY_SIZE()
+      fix handling of swapping node name with symlink name
+      silence PHYSDEV* warning for WAIT_FOR* rules
+      rules: exclude "btibm" devices from vol_id calls
+
+Matthias Schwarzott (1):
+      rules: Gentoo update
+
+Peter Breitenlohner (2):
+      man: fix typos
+      floppy: fix array bounds check and minor calculation
+
+
 Summary of changes from v132 to v133
 ============================================
 
