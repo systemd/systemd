@@ -111,6 +111,11 @@ KERNEL=="slram[0-9]*", 		SYMLINK+="xpram%n"
 KERNEL=="sxctl",		NAME="specialix_sxctl", SYMLINK+="%k"
 KERNEL=="rioctl",		NAME="specialix_rioctl", SYMLINK+="%k"
 KERNEL=="iowarrior[0-9]*",	NAME="usb/%k"
+KERNEL=="hiddev[0-9]*",		NAME="usb/%k"
+KERNEL=="legousbtower[0-9]*",	NAME="usb/%k"
+KERNEL=="dabusb[0-9]*",		NAME="usb/%k"
+KERNEL=="usbdpfp[0-9]*",	NAME="usb/%k"
+KERNEL=="cpad[0-9]*",		NAME="usb/%k"
 
 # do not delete static device nodes
 ACTION=="remove", NAME=="?*", TEST=="/lib/udev/devices/$name", OPTIONS+="ignore_remove"
