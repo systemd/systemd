@@ -1,5 +1,5 @@
 AC_INIT([udev],
-	[134],
+	[135],
 	[linux-hotplug@vger.kernel.org])
 AC_PREREQ(2.60)
 AC_CONFIG_SRCDIR([udev/udevd.c])

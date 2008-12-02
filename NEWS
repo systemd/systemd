@@ -1,3 +1,10 @@
+udev 135
+========
+Bugfixes.
+
+Fix for a possible segfault while swapping network interface names in udev
+versions 131-134.
+
 udev 134
 ========
 Bugfixes.
