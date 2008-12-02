@@ -514,7 +514,7 @@ static int rename_netif(struct udev_event *event)
 
 		/* wait 30 seconds for our target to become available */
 		util_strlcpy(ifr.ifr_name, ifr.ifr_newname, IFNAMSIZ);
-		util_strlcpy(ifr.ifr_newname, udev_device_get_devnode(dev), IFNAMSIZ);
+		util_strlcpy(ifr.ifr_newname, event->name, IFNAMSIZ);
 		loop = 30 * 20;
 		while (loop--) {
 			err = ioctl(sk, SIOCSIFNAME, &ifr);
@@ -529,7 +529,7 @@ static int rename_netif(struct udev_event *event)
 				break;
 			}
 			dbg(event->udev, "wait for netif '%s' to become free, loop=%i\n",
-			    udev_device_get_devnode(dev), (30 * 20) - loop);
+			    event->name, (30 * 20) - loop);
 			usleep(1000 * 1000 / 20);
 		}
 	}
