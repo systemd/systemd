@@ -1,3 +1,22 @@
+Summary of changes from v134 to v135
+============================================
+
+Kay Sievers (6):
+      usb_id: add "break" to currently unused case labels
+      rules: fix cciss disk/by-id/ links
+      rules: add infiniband rules
+      rules: infiniband.rules -> 40-infiniband.rules
+      fix network interface name swapping
+      update configure and NEWS
+
+Marcel Holtmann (1):
+      usb_id: fix switch statement for video type
+
+Piter PUNK (2):
+      rules: /dev/null -> X0R
+      rules: add usb device nodes
+
+
 Summary of changes from v133 to v134
 ============================================
 
