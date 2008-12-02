@@ -837,7 +837,7 @@ out:
 
 int scsi_get_serial(struct udev *udev,
 		    struct scsi_id_device *dev_scsi, const char *devname,
-		    int page_code, char *serial_short, int len)
+		    int page_code, int len)
 {
 	unsigned char page0[SCSI_INQ_BUFF_LEN];
 	int fd = -1;
@@ -860,7 +860,7 @@ int scsi_get_serial(struct udev *udev,
 		return 1;
 
 	if (page_code == PAGE_80) {
-		if (do_scsi_page80_inquiry(udev, dev_scsi, fd, dev_scsi->serial, serial_short, len)) {
+		if (do_scsi_page80_inquiry(udev, dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len)) {
 			retval = 1;
 			goto completed;
 		} else  {
@@ -868,7 +868,7 @@ int scsi_get_serial(struct udev *udev,
 			goto completed;
 		}
 	} else if (page_code == PAGE_83) {
-		if (do_scsi_page83_inquiry(udev, dev_scsi, fd, dev_scsi->serial, serial_short, len)) {
+		if (do_scsi_page83_inquiry(udev, dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len)) {
 			retval = 1;
 			goto completed;
 		} else  {
@@ -876,7 +876,7 @@ int scsi_get_serial(struct udev *udev,
 			goto completed;
 		}
 	} else if (page_code == PAGE_83_PRE_SPC3) {
-		retval = do_scsi_page83_prespc3_inquiry(udev, dev_scsi, fd, dev_scsi->serial, serial_short, len);
+		retval = do_scsi_page83_prespc3_inquiry(udev, dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len);
 		if (retval) {
 			/*
 			 * Fallback to servicing a SPC-2/3 compliant page 83
@@ -884,7 +884,7 @@ int scsi_get_serial(struct udev *udev,
 			 * conform to pre-SPC3 expectations.
 			 */
 			if (retval == 2) {
-				if (do_scsi_page83_inquiry(udev, dev_scsi, fd, dev_scsi->serial, serial_short, len)) {
+				if (do_scsi_page83_inquiry(udev, dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len)) {
 					retval = 1;
 					goto completed;
 				} else  {
@@ -924,7 +924,7 @@ int scsi_get_serial(struct udev *udev,
 	for (ind = 4; ind <= page0[3] + 3; ind++)
 		if (page0[ind] == PAGE_83)
 			if (!do_scsi_page83_inquiry(udev, dev_scsi, fd,
-						    dev_scsi->serial, serial_short, len)) {
+						    dev_scsi->serial, dev_scsi->serial_short, len)) {
 				/*
 				 * Success
 				 */
@@ -935,7 +935,7 @@ int scsi_get_serial(struct udev *udev,
 	for (ind = 4; ind <= page0[3] + 3; ind++)
 		if (page0[ind] == PAGE_80)
 			if (!do_scsi_page80_inquiry(udev, dev_scsi, fd,
-						    dev_scsi->serial, serial_short, len)) {
+						    dev_scsi->serial, dev_scsi->serial_short, len)) {
 				/*
 				 * Success
 				 */

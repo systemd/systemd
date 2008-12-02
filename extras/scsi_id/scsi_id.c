@@ -538,58 +538,59 @@ static void format_serial(char *serial)
 
 /*
  * scsi_id: try to get an id, if one is found, printf it to stdout.
- * returns a value passed to exit() - 0 if printed an id, else 1. This
- * could be expanded, for example, if we want to report a failure like no
- * memory etc. return 2, and return 1 for expected cases (like broken
- * device found) that do not print an id.
+ * returns a value passed to exit() - 0 if printed an id, else 1.
  */
 static int scsi_id(struct udev *udev, char *maj_min_dev)
 {
-	int retval;
 	struct scsi_id_device dev_scsi;
 	int good_dev;
 	int page_code;
-	char serial_short[MAX_SERIAL_LEN];
+	int retval = 0;
 
-	serial_short[0] = '\0';
-	set_inq_values(udev, &dev_scsi, maj_min_dev);
+	memset(&dev_scsi, 0x00, sizeof(struct scsi_id_device));
+
+	if (set_inq_values(udev, &dev_scsi, maj_min_dev) < 0) {
+		retval = 1;
+		goto out;
+	}
 
 	/* get per device (vendor + model) options from the config file */
-	retval = per_dev_options(udev, &dev_scsi, &good_dev, &page_code);
+	per_dev_options(udev, &dev_scsi, &good_dev, &page_code);
 	dbg(udev, "per dev options: good %d; page code 0x%x\n", good_dev, page_code);
-
 	if (!good_dev) {
 		retval = 1;
-	} else if (scsi_get_serial(udev,
-				   &dev_scsi, maj_min_dev, page_code,
-				   serial_short, MAX_SERIAL_LEN)) {
-		retval = 1;
-	} else {
-		retval = 0;
+		goto out;
 	}
-	if (!retval) {
-		if (export) {
-			char serial_str[MAX_SERIAL_LEN];
 
-			printf("ID_VENDOR=%s\n", vendor_str);
-			printf("ID_MODEL=%s\n", model_str);
-			printf("ID_REVISION=%s\n", revision_str);
+	/* read serial number from mode pages (no values for optical drives) */
+	scsi_get_serial(udev, &dev_scsi, maj_min_dev, page_code, MAX_SERIAL_LEN);
+
+	if (export) {
+		char serial_str[MAX_SERIAL_LEN];
+
+		printf("ID_VENDOR=%s\n", vendor_str);
+		printf("ID_MODEL=%s\n", model_str);
+		printf("ID_REVISION=%s\n", revision_str);
+		printf("ID_TYPE=%s\n", type_str);
+		if (dev_scsi.serial[0] != '\0') {
 			udev_util_replace_whitespace(dev_scsi.serial, serial_str, sizeof(serial_str));
 			udev_util_replace_chars(serial_str, NULL);
 			printf("ID_SERIAL=%s\n", serial_str);
-			udev_util_replace_whitespace(serial_short, serial_str, sizeof(serial_str));
+			udev_util_replace_whitespace(dev_scsi.serial_short, serial_str, sizeof(serial_str));
 			udev_util_replace_chars(serial_str, NULL);
 			printf("ID_SERIAL_SHORT=%s\n", serial_str);
-			printf("ID_TYPE=%s\n", type_str);
-		} else {
-			if (reformat_serial)
-				format_serial(dev_scsi.serial);
-			printf("%s\n", dev_scsi.serial);
 		}
-		dbg(udev, "%s\n", dev_scsi.serial);
-		retval = 0;
+		goto out;
 	}
 
+	if (dev_scsi.serial[0] == '\0') {
+		retval = 1;
+		goto out;
+	}
+	if (reformat_serial)
+		format_serial(dev_scsi.serial);
+	printf("%s\n", dev_scsi.serial);
+out:
 	return retval;
 }
 
