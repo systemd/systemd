@@ -79,6 +79,7 @@ int volume_id_probe_hpfs(struct volume_id *id, uint64_t off, uint64_t size)
 	struct hpfs_super *hs;
 	struct hpfs_spare_super *hss;
 	struct hpfs_boot_block *hbb;
+	uint8_t version;
 
 	info("probing at offset 0x%" PRIx64 "\n", off);
 
@@ -94,13 +95,11 @@ int volume_id_probe_hpfs(struct volume_id *id, uint64_t off, uint64_t size)
 	if (memcmp(hss->magic, "\x49\x18\x91\xf9", 4) != 0)
 		return -1;
 
-	sprintf(id->type_version, "%u", hs->version);
-	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
-	id->type = "hpfs";
+	version = hs->version;
 
 	/* if boot block looks valid, read label and uuid from there */
 	hbb = (struct hpfs_boot_block *) volume_id_get_buffer(id, off, 0x200);
-	if (hs == NULL)
+	if (hbb == NULL)
 		return -1;
 	if (memcmp(hbb->magic, "\x55\xaa", 2) == 0 &&
 	    memcmp(hbb->sig_hpfs, "HPFS", 4) == 0 &&
@@ -109,6 +108,9 @@ int volume_id_probe_hpfs(struct volume_id *id, uint64_t off, uint64_t size)
 		volume_id_set_label_string(id, hbb->vol_label, 11);
 		volume_id_set_uuid(id, hbb->vol_serno, 0, UUID_DOS);
 	}
+	sprintf(id->type_version, "%u", version);
+	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
+	id->type = "hpfs";
 
 	return 0;
 }
