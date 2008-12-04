@@ -5,6 +5,7 @@ dist_udevrules_DATA = \
 	rules.d/50-udev-default.rules \
 	rules.d/60-persistent-storage.rules \
 	rules.d/60-persistent-storage-tape.rules \
+	rules.d/60-persistent-serial.rules \
 	rules.d/60-persistent-input.rules \
 	rules.d/60-persistent-v4l.rules \
 	rules.d/80-drivers.rules \
