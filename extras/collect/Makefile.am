@@ -10,7 +10,3 @@ collect_SOURCES = \
 	../../udev/lib/libudev.c \
 	../../udev/lib/libudev-util.c \
 	../../udev/lib/libudev-list.c
-
-distclean-local:
-	rm -f Makefile.in
-

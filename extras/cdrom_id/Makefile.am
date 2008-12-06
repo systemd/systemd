@@ -17,6 +17,3 @@ cdrom_id_SOURCES = \
 
 dist_man_MANS = \
 	cdrom_id.8
-
-distclean-local:
-	rm -f Makefile.in

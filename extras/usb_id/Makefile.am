@@ -12,6 +12,3 @@ usb_id_SOURCES = \
 	../../udev/lib/libudev-util.c \
 	../../udev/lib/libudev-device.c \
 	../../udev/lib/libudev-enumerate.c
-
-distclean-local:
-	rm -f Makefile.in

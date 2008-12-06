@@ -47,18 +47,34 @@ CFLAGS="-g -Wall \
 -Wpointer-arith -Wsign-compare -Wchar-subscripts \
 -Wstrict-prototypes -Wshadow"
 
-if test -z "$1" -o "$1" = "install"; then
-	args="--prefix=/usr --exec-prefix= --sysconfdir=/etc --with-selinux"
-	args="$args --with-libdir-name=lib/$(gcc -print-multi-os-directory)"
-	CFLAGS="$CFLAGS -O2"
-elif test "$1" = "devel" ; then
-	args="--prefix=/usr --exec-prefix= --sysconfdir=/etc --with-selinux --enable-debug"
-	args="$args --with-libdir-name=lib/$(gcc -print-multi-os-directory)"
-	CFLAGS="$CFLAGS -O0"
-else
-	args=$@
-fi
-echo "   configure:  $args"
-echo
-export CFLAGS
-./configure $args
+args="--prefix=/usr --exec-prefix= --sysconfdir=/etc --with-selinux"
+libdir=$(basename $(cd /lib/$(gcc -print-multi-os-directory); pwd))
+
+case "$1" in
+	*install|"")
+		args="$args --with-libdir-name=$libdir"
+		export CFLAGS="$CFLAGS -O2"
+		echo "   configure:  $args"
+		echo
+		./configure $args
+		;;
+	*devel)
+		args="$args --enable-debug --with-libdir-name=$libdir"
+		export CFLAGS="$CFLAGS -O0"
+		echo "   configure:  $args"
+		echo
+		./configure $args
+		;;
+	*clean)
+		./configure
+		make maintainer-clean
+		find . -name Makefile.in | xargs -r rm
+		rm -f depcomp aclocal.m4 config.h.in configure install-sh
+		rm -f missing config.guess config.sub ltmain.sh
+		exit 0
+		;;
+	*)
+		echo "Usage: $0 [--install|--devel|--clean]"
+		exit 1
+		;;
+esac

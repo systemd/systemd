@@ -19,7 +19,3 @@ EXTRA_DIST = \
 	redhat \
 	suse \
 	gentoo
-
-
-distclean-local:
-	rm -f Makefile.in

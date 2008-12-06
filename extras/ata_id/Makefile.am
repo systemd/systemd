@@ -13,6 +13,3 @@ ata_id_SOURCES = \
 
 dist_man_MANS = \
 	ata_id.8
-
-distclean-local:
-	rm -f Makefile.in

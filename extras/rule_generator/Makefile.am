@@ -13,6 +13,3 @@ dist_udevrules_DATA = \
 	75-cd-aliases-generator.rules \
 	75-persistent-net-generator.rules
 
-distclean-local:
-	rm -f Makefile.in
-

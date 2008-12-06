@@ -26,7 +26,6 @@ EXTRA_DIST = \
 %.7 %.8 : %.xml
 	$(XSLTPROC) -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
-distclean-local:
-	rm -f Makefile.in
-	rm -f $(dist_man_MANS)
+MAINTAINERCLEANFILES= \
+	$(dist_man_MANS)
 

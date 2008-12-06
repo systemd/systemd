@@ -17,6 +17,3 @@ edd_id_SOURCES = \
 
 dist_man_MANS = \
 	edd_id.8
-
-distclean-local:
-	rm -f Makefile.in

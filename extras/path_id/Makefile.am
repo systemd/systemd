@@ -6,7 +6,3 @@ dist_udevhome_SCRIPTS = \
 
 dist_man_MANS = \
 	path_id.8
-
-distclean-local:
-	rm -f Makefile.in
-

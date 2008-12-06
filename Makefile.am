@@ -14,15 +14,16 @@ EXTRA_DIST = \
 	docs \
 	autogen.sh
 
-PREVIOUS_VERSION = `expr $(VERSION) - 1`
+CLEANFILES = \
+	udev-$(VERSION).tar.gz udev-$(VERSION).tar.bz2
+
+clean-local:
+	rm -rf udev-test-install
 
 distclean-local:
-	rm -f *~
 	rm -rf autom4te.cache
-	rm -f depcomp aclocal.m4 config.h.in configure install-sh
-	rm -f Makefile.in missing config.guess config.sub ltmain.sh
-	rm -rf udev-test-install
-	rm -f udev-$(VERSION).tar.gz udev-$(VERSION).tar.bz2
+
+PREVIOUS_VERSION = `expr $(VERSION) - 1`
 
 changelog:
 	@ head -1 ChangeLog | grep -q "to v$(PREVIOUS_VERSION)"

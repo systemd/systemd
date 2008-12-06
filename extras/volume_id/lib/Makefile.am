@@ -72,6 +72,3 @@ EXTRA_DIST = \
 
 pkgconfigdir = $(prefix)/$(libdir_name)/pkgconfig
 pkgconfig_DATA = libvolume_id.pc
-
-distclean-local:
-	rm -f Makefile.in

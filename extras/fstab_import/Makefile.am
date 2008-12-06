@@ -15,6 +15,3 @@ fstab_import_SOURCES = \
 	../../udev/lib/libudev-list.c \
 	../../udev/lib/libudev-util.c
 
-distclean-local:
-	rm -f Makefile.in
-

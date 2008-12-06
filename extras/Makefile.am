@@ -13,6 +13,3 @@ SUBDIRS = \
 	scsi_id \
 	usb_id \
 	volume_id
-
-distclean-local:
-	rm -f Makefile.in

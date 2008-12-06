@@ -23,6 +23,3 @@ endif
 
 dist_man_MANS = \
 	create_floppy_devices.8
-
-distclean-local:
-	rm -f Makefile.in

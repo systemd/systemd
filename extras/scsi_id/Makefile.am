@@ -21,6 +21,3 @@ dist_sysconf_DATA = \
 dist_man_MANS = \
 	scsi_id.8
 
-distclean-local:
-	rm -f Makefile.in
-
