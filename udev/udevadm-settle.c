@@ -37,10 +37,12 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 {
 	static const struct option options[] = {
 		{ "timeout", required_argument, NULL, 't' },
+		{ "quiet", no_argument, NULL, 'q' },
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 	int timeout = DEFAULT_TIMEOUT;
+	int quiet = 0;
 	struct udev_queue *udev_queue = NULL;
 	int loop;
 	int rc = 0;
@@ -51,21 +53,24 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		int option;
 		int seconds;
 
-		option = getopt_long(argc, argv, "t:h", options, NULL);
+		option = getopt_long(argc, argv, "t:qh", options, NULL);
 		if (option == -1)
 			break;
 
 		switch (option) {
 		case 't':
 			seconds = atoi(optarg);
-			if (seconds > 0)
+			if (seconds >= 0)
 				timeout = seconds;
 			else
 				fprintf(stderr, "invalid timeout value\n");
 			dbg(udev, "timeout=%i\n", timeout);
 			break;
+		case 'q':
+			quiet = 1;
+			break;
 		case 'h':
-			printf("Usage: udevadm settle [--help] [--timeout=<seconds>]\n\n");
+			printf("Usage: udevadm settle [--help] [--timeout=<seconds>] [--quiet]\n\n");
 			goto exit;
 		}
 	}
@@ -82,12 +87,14 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	if (loop <= 0) {
 		struct udev_list_entry *list_entry;
 
-		info(udev, "timeout waiting for udev queue\n");
-		printf("\ndevadm settle timeout of %i seconds reached, the event queue contains:\n", timeout);
-		udev_list_entry_foreach(list_entry, udev_queue_get_queued_list_entry(udev_queue))
-			printf("  '%s' [%s]\n",
-			       udev_list_entry_get_name(list_entry),
-			       udev_list_entry_get_value(list_entry));
+		if (!quiet) {
+			info(udev, "timeout waiting for udev queue\n");
+			printf("\ndevadm settle timeout of %i seconds reached, the event queue contains:\n", timeout);
+			udev_list_entry_foreach(list_entry, udev_queue_get_queued_list_entry(udev_queue))
+				printf("  %s (%s)\n",
+				       udev_list_entry_get_name(list_entry),
+				       udev_list_entry_get_value(list_entry));
+		}
 		rc = 1;
 	}
 exit:
