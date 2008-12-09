@@ -87,7 +87,8 @@ KERNEL=="pktcdvd[0-9]*",	NAME="pktcdvd/%k"
 KERNEL=="pktcdvd",		NAME="pktcdvd/control"
 KERNEL=="qft0",			SYMLINK+="ftape"
 SUBSYSTEM=="bsg",		NAME="bsg/%k"
-SUBSYSTEM=="aoe",		NAME="etherd/%k", GROUP="disk"
+SUBSYSTEM=="aoe",		NAME="etherd/%k", GROUP="disk", MODE="0220"
+SUBSYSTEM=="aoe", KERNEL=="err", MODE="0440"
 
 # network
 KERNEL=="tun",			NAME="net/%k", MODE="0666", OPTIONS+="ignore_remove"

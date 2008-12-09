@@ -1,9 +1,0 @@
-# aoe char devices
-SUBSYSTEM=="aoe", KERNEL=="discover",   NAME="etherd/%k", GROUP="disk", MODE="0220"
-SUBSYSTEM=="aoe", KERNEL=="err",        NAME="etherd/%k", GROUP="disk", MODE="0440"
-SUBSYSTEM=="aoe", KERNEL=="interfaces", NAME="etherd/%k", GROUP="disk", MODE="0220"
-SUBSYSTEM=="aoe", KERNEL=="revalidate", NAME="etherd/%k", GROUP="disk", MODE="0220"
-SUBSYSTEM=="aoe", KERNEL=="flush",      NAME="etherd/%k", GROUP="disk", MODE="0220"
-
-# aoe block devices
-SUBSYSTEM=="aoe", KERNEL=="etherd*",    NAME="%k", GROUP="disk"
