@@ -42,6 +42,7 @@ struct btrfs_super_block {
 	uint64_t root;
 	uint64_t chunk_root;
 	uint64_t log_root;
+	uint64_t log_root_transid;
 	uint64_t total_bytes;
 	uint64_t bytes_used;
 	uint64_t root_dir_objectid;
@@ -52,6 +53,10 @@ struct btrfs_super_block {
 	uint32_t stripesize;
 	uint32_t sys_chunk_array_size;
 	uint64_t chunk_root_generation;
+	uint64_t compat_flags;
+	uint64_t compat_ro_flags;
+	uint64_t incompat_flags;
+	uint16_t csum_type;
 	uint8_t root_level;
 	uint8_t chunk_root_level;
 	uint8_t log_root_level;
@@ -64,6 +69,7 @@ struct btrfs_super_block {
 		uint32_t sector_size;
 		uint64_t type;
 		uint64_t generation;
+		uint64_t start_offset;
 		uint32_t dev_group;
 		uint8_t seek_speed;
 		uint8_t bandwidth;
@@ -80,11 +86,11 @@ int volume_id_probe_btrfs(struct volume_id *id, uint64_t off, uint64_t size)
 
 	info("probing at offset 0x%" PRIx64 ", size 0x%" PRIx64 "\n", off, size);
 
-	buf = volume_id_get_buffer(id, off + 0x4000, 0x200);
+	buf = volume_id_get_buffer(id, off + 0x10000, 0x200);
 	if (buf == NULL)
 		return -1;
 	bfs = (struct btrfs_super_block *)buf;
-	if (memcmp(bfs->magic, "_BFRfS_M", 8) != 0)
+	if (memcmp(bfs->magic, "_BHRfS_M", 8) != 0)
 		return -1;
 	volume_id_set_uuid(id, bfs->fsid, 0, UUID_DCE);
 	volume_id_set_label_raw(id, bfs->label, 256);
