@@ -110,6 +110,7 @@ int main(int argc, char *argv[])
 	char label_enc[256];
 	char uuid_safe[256];
 	char uuid_enc[256];
+	char uuid_sub_enc[256];
 	char type_enc[256];
 	char type_version_enc[256];
 	uint64_t size = 0;
@@ -118,7 +119,7 @@ int main(int argc, char *argv[])
 	uint64_t offset = 0;
 	const char *node;
 	int fd;
-	const char *label, *uuid, *type, *type_version, *usage;
+	const char *label, *uuid, *uuid_sub, *type, *type_version, *usage;
 	int retval;
 	int rc = 0;
 
@@ -261,7 +262,8 @@ int main(int argc, char *argv[])
 	    !volume_id_get_usage(vid, &usage) ||
 	    !volume_id_get_type(vid, &type) ||
 	    !volume_id_get_type_version(vid, &type_version) ||
-	    !volume_id_get_uuid(vid, &uuid)) {
+	    !volume_id_get_uuid(vid, &uuid) ||
+	    !volume_id_get_uuid_sub(vid, &uuid_sub)) {
 		rc = 4;
 		goto exit;
 	}
@@ -274,6 +276,8 @@ int main(int argc, char *argv[])
 	udev_util_replace_chars(uuid_safe, UDEV_ALLOWED_CHARS_INPUT);
 	volume_id_encode_string(uuid, uuid_enc, sizeof(uuid_enc));
 
+	volume_id_encode_string(uuid_sub, uuid_sub_enc, sizeof(uuid_sub_enc));
+
 	volume_id_encode_string(type, type_enc, sizeof(type_enc));
 	volume_id_encode_string(type_version, type_version_enc, sizeof(type_version_enc));
 
@@ -284,6 +288,8 @@ int main(int argc, char *argv[])
 		printf("ID_FS_VERSION=%s\n", type_version_enc);
 		printf("ID_FS_UUID=%s\n", uuid_safe);
 		printf("ID_FS_UUID_ENC=%s\n", uuid_enc);
+		if (uuid_sub_enc[0] != '\0')
+			printf("ID_FS_UUID_SUB_ENC=%s\n", uuid_sub_enc);
 		printf("ID_FS_LABEL=%s\n", label_safe);
 		printf("ID_FS_LABEL_ENC=%s\n", label_enc);
 		break;

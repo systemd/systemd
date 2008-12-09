@@ -219,6 +219,19 @@ int volume_id_get_uuid_raw(struct volume_id *id, const uint8_t **uuid, size_t *l
 	return 1;
 }
 
+int volume_id_get_uuid_sub(struct volume_id *id, const char **uuid)
+{
+	if (id == NULL)
+		return 0;
+	if (uuid == NULL)
+		return 0;
+	if (id->usage_id == VOLUME_ID_UNUSED)
+		return 0;
+
+	*uuid = id->uuid_sub;
+	return 1;
+}
+
 /**
  * volume_id_get_usage:
  * @id: Probing context.

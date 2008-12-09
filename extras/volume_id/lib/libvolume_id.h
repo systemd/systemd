@@ -45,6 +45,7 @@ extern void volume_id_all_probers(all_probers_fn_t all_probers_fn,
 extern int volume_id_get_label(struct volume_id *id, const char **label);
 extern int volume_id_get_label_raw(struct volume_id *id, const uint8_t **label, size_t *len);
 extern int volume_id_get_uuid(struct volume_id *id, const char **uuid);
+extern int volume_id_get_uuid_sub(struct volume_id *id, const char **uuid);
 extern int volume_id_get_uuid_raw(struct volume_id *id, const uint8_t **uuid, size_t *len);
 extern int volume_id_get_usage(struct volume_id *id, const char **usage);
 extern int volume_id_get_type(struct volume_id *id, const char **type);

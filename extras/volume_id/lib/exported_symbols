@@ -3,6 +3,7 @@ volume_id_get_label
 volume_id_get_label_raw
 volume_id_get_uuid
 volume_id_get_uuid_raw
+volume_id_get_uuid_sub
 volume_id_get_usage
 volume_id_get_type
 volume_id_get_type_version

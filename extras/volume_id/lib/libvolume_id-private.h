@@ -107,6 +107,9 @@ struct volume_id {
 	uint8_t		uuid_raw[VOLUME_ID_UUID_SIZE];
 	size_t		uuid_raw_len;
 	char		uuid[VOLUME_ID_UUID_SIZE+1];
+	uint8_t		uuid_sub_raw[VOLUME_ID_UUID_SIZE];
+	size_t		uuid_sub_raw_len;
+	char		uuid_sub[VOLUME_ID_UUID_SIZE+1];
 	enum		volume_id_usage usage_id;
 	char		*usage;
 	char		*type;
@@ -129,6 +132,7 @@ extern void volume_id_set_label_raw(struct volume_id *id, const uint8_t *buf, si
 extern void volume_id_set_label_string(struct volume_id *id, const uint8_t *buf, size_t count);
 extern void volume_id_set_label_unicode16(struct volume_id *id, const uint8_t *buf, enum endian endianess, size_t count);
 extern void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, size_t len, enum uuid_format format);
+extern void volume_id_set_uuid_sub(struct volume_id *id, const uint8_t *buf, size_t len, enum uuid_format format);
 extern uint8_t *volume_id_get_buffer(struct volume_id *id, uint64_t off, size_t len);
 extern void volume_id_free_buffer(struct volume_id *id);
 

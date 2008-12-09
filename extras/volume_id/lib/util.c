@@ -250,13 +250,11 @@ void volume_id_set_label_unicode16(struct volume_id *id, const uint8_t *buf, enu
 	 volume_id_set_unicode16((uint8_t *)id->label, sizeof(id->label), buf, endianess, count);
 }
 
-void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, size_t len, enum uuid_format format)
+static void set_uuid(const uint8_t *buf, size_t len, enum uuid_format format,
+		     char *uuid, uint8_t *uuid_raw, size_t *uuid_raw_len)
 {
 	unsigned int i;
 	unsigned int count = 0;
-
-	if (len > sizeof(id->uuid_raw))
-		len = sizeof(id->uuid_raw);
 
 	switch(format) {
 	case UUID_STRING:
@@ -281,8 +279,8 @@ void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, size_t len, en
 		count = 32;
 		break;
 	}
-	memcpy(id->uuid_raw, buf, count);
-	id->uuid_raw_len = count;
+	memcpy(uuid_raw, buf, count);
+	*uuid_raw_len = count;
 
 	/* if set, create string in the same format, the native platform uses */
 	for (i = 0; i < count; i++)
@@ -293,16 +291,16 @@ void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, size_t len, en
 set:
 	switch(format) {
 	case UUID_DOS:
-		sprintf(id->uuid, "%02X%02X-%02X%02X",
+		sprintf(uuid, "%02X%02X-%02X%02X",
 			buf[3], buf[2], buf[1], buf[0]);
 		break;
 	case UUID_64BIT_LE:
-		sprintf(id->uuid,"%02X%02X%02X%02X%02X%02X%02X%02X",
+		sprintf(uuid,"%02X%02X%02X%02X%02X%02X%02X%02X",
 			buf[7], buf[6], buf[5], buf[4],
 			buf[3], buf[2], buf[1], buf[0]);
 		break;
 	case UUID_DCE:
-		sprintf(id->uuid,
+		sprintf(uuid,
 			"%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
 			buf[0], buf[1], buf[2], buf[3],
 			buf[4], buf[5],
@@ -312,18 +310,18 @@ set:
 		break;
 	case UUID_HEX_STRING:
 		/* translate A..F to a..f */
-		memcpy(id->uuid, buf, count);
+		memcpy(uuid, buf, count);
 		for (i = 0; i < count; i++)
-			if (id->uuid[i] >= 'A' && id->uuid[i] <= 'F')
-				id->uuid[i] = (id->uuid[i] - 'A') + 'a';
-		id->uuid[count] = '\0';
+			if (uuid[i] >= 'A' && uuid[i] <= 'F')
+				uuid[i] = (uuid[i] - 'A') + 'a';
+		uuid[count] = '\0';
 		break;
 	case UUID_STRING:
-		memcpy(id->uuid, buf, count);
-		id->uuid[count] = '\0';
+		memcpy(uuid, buf, count);
+		uuid[count] = '\0';
 		break;
 	case UUID_MD:
-		sprintf(id->uuid,
+		sprintf(uuid,
 			"%02x%02x%02x%02x:%02x%02x%02x%02x:%02x%02x%02x%02x:%02x%02x%02x%02x",
 			buf[0], buf[1], buf[2], buf[3],
 			buf[4], buf[5], buf[6], buf[7],
@@ -331,7 +329,7 @@ set:
 			buf[12], buf[13], buf[14],buf[15]);
 		break;
 	case UUID_LVM:
-		sprintf(id->uuid,
+		sprintf(uuid,
 			"%c%c%c%c%c%c-%c%c%c%c-%c%c%c%c-%c%c%c%c-%c%c%c%c-%c%c%c%c-%c%c%c%c%c%c",
 			buf[0], buf[1], buf[2], buf[3], buf[4], buf[5],
 			buf[6], buf[7], buf[8], buf[9],
@@ -342,6 +340,22 @@ set:
 			buf[26], buf[27], buf[28], buf[29], buf[30], buf[31]);
 		break;
 	}
+}
+
+void volume_id_set_uuid(struct volume_id *id, const uint8_t *buf, size_t len, enum uuid_format format)
+{
+	if (len > sizeof(id->uuid_raw))
+		len = sizeof(id->uuid_raw);
+
+	set_uuid(buf, len, format, id->uuid, id->uuid_raw, &id->uuid_raw_len);
+}
+
+void volume_id_set_uuid_sub(struct volume_id *id, const uint8_t *buf, size_t len, enum uuid_format format)
+{
+	if (len > sizeof(id->uuid_sub_raw))
+		len = sizeof(id->uuid_sub_raw);
+
+	set_uuid(buf, len, format, id->uuid_sub, id->uuid_sub_raw, &id->uuid_sub_raw_len);
 }
 
 uint8_t *volume_id_get_buffer(struct volume_id *id, uint64_t off, size_t len)
