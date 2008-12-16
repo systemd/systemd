@@ -53,7 +53,7 @@ if test "x$with_selinux" = xyes; then
 		AC_MSG_ERROR([SELinux selected but libselinux not found]))
 	LIBS=$LIBS_save
 	AC_DEFINE(USE_SELINUX, [1] ,[compile with SELinux support])
-	SELINUX_LIBS="-lselinux"
+	SELINUX_LIBS="-lselinux -lsepol"
 fi
 AC_SUBST([SELINUX_LIBS])
 AM_CONDITIONAL(USE_SELINUX, [test "x$with_selinux" = xyes], [compile with SELinux support])
