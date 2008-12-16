@@ -21,6 +21,7 @@
 #define _LIBUDEV_H_
 
 #include <stdarg.h>
+#include <sys/types.h>
 #include <sys/stat.h>
 
 /* this will stay as long as the DeviceKit integration of udev is work in progress */
