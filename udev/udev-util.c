@@ -444,7 +444,7 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 			if (WEXITSTATUS(status) != 0)
 				err = -1;
 		} else {
-			err(udev, "'%s' abnormal exit\n", argv[0]);
+			err(udev, "'%s' abnormal exit\n", command);
 			err = -1;
 		}
 	}
