@@ -56,9 +56,6 @@ KERNEL=="dv1394*",		SYMLINK+="dv1394/%n"
 KERNEL=="video1394*",		NAME="video1394/%n"
 KERNEL=="dv1394*|video1394*|raw1394*",	GROUP="video"
 
-# firmware class requests
-SUBSYSTEM=="firmware", ACTION=="add", RUN+="firmware.sh"
-
 # libusb device nodes
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", MODE="0644"
 
