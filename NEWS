@@ -2,6 +2,16 @@ udev 136
 ========
 Bugfixes.
 
+/dev/serial/by-{id,path}/ now contains links for ttyUSB devices,
+which do not depend on the kernel device name. As usual, unique
+devices - only a single one per product connected, or a real
+USB serial number in the device - are always found with the same
+name in the by-id/ directory.
+Completely Identical devices may overwrite their names in by-id/
+and can only be found reliably in the by-path/ directory. Devices
+specified by by-path/ must not change their connection, like the
+USB port number they are plugged in, to keep their name.
+
 udev 135
 ========
 Bugfixes.
