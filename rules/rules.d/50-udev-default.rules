@@ -27,8 +27,8 @@ KERNEL=="ram1",			SYMLINK+="ram"
 
 # input
 KERNEL=="mouse*|mice|event*",	NAME="input/%k", MODE="0640"
-KERNEL=="ts[0-9]*|uinput",	NAME="input/%k", MODE="0600"
-KERNEL=="js[0-9]*",		NAME="input/%k", MODE="0644", SYMLINK+="%k"
+KERNEL=="ts[0-9]*|uinput",	NAME="input/%k", MODE="0640"
+KERNEL=="js[0-9]*",		NAME="input/%k", MODE="0644"
 
 # video4linux
 SUBSYSTEM=="video4linux",	GROUP="video"
@@ -41,7 +41,7 @@ KERNEL=="video0",		SYMLINK+="video"
 
 # graphics
 KERNEL=="agpgart",		MODE="0600", GROUP="video"
-KERNEL=="card[0-9]*",		NAME="dri/%k", MODE="0666"
+KERNEL=="card[0-9]*",		NAME="dri/%k"
 KERNEL=="fb0",			SYMLINK+="fb"
 KERNEL=="pmu",			GROUP="video"
 KERNEL=="nvidia*|nvidiactl*",	GROUP="video"
@@ -57,11 +57,12 @@ KERNEL=="video1394*",		NAME="video1394/%n"
 KERNEL=="dv1394*|video1394*|raw1394*",	GROUP="video"
 
 # libusb device nodes
-SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", MODE="0644"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", MODE="0664"
 
 # printer
 KERNEL=="parport[0-9]*",	GROUP="lp"
 SUBSYSTEM=="printer",		KERNEL=="lp*", GROUP="lp"
+SUBSYSTEM=="ppdev",		GROUP="lp"
 SUBSYSTEM=="usb",		KERNEL=="lp*", NAME="usb/%k", SYMLINK+="usb%k", GROUP="lp"
 KERNEL=="lp[0-9]*",		GROUP="lp", SYMLINK+="par%n"
 KERNEL=="irlpt[0-9]*",		GROUP="lp"
@@ -106,8 +107,8 @@ KERNEL=="rflash[0-9]*",		MODE="0400"
 KERNEL=="rrom[0-9]*",		MODE="0400"
 KERNEL=="sbpcd0",		SYMLINK+="sbpcd"
 KERNEL=="slram[0-9]*", 		SYMLINK+="xpram%n"
-KERNEL=="sxctl",		NAME="specialix_sxctl", SYMLINK+="%k"
-KERNEL=="rioctl",		NAME="specialix_rioctl", SYMLINK+="%k"
+KERNEL=="sxctl",		NAME="specialix_sxctl""
+KERNEL=="rioctl",		NAME="specialix_rioctl"
 KERNEL=="iowarrior[0-9]*",	NAME="usb/%k"
 KERNEL=="hiddev[0-9]*",		NAME="usb/%k"
 KERNEL=="legousbtower[0-9]*",	NAME="usb/%k"
