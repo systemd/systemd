@@ -52,9 +52,9 @@ SUBSYSTEM=="dvb", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/
 SUBSYSTEM=="dvb",		GROUP="video"
 
 # Firewire
-KERNEL=="dv1394*",		SYMLINK+="dv1394/%n"
-KERNEL=="video1394*",		NAME="video1394/%n"
-KERNEL=="dv1394*|video1394*|raw1394*",	GROUP="video"
+KERNEL=="dv1394[0-9]*",		NAME="dv1394/%n", GROUP="video"
+KERNEL=="video1394[0-9]*",	NAME="video1394/%n", GROUP="video"
+KERNEL=="raw1394*",		GROUP="video"
 
 # libusb device nodes
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", MODE="0664"
@@ -64,7 +64,7 @@ KERNEL=="parport[0-9]*",	GROUP="lp"
 SUBSYSTEM=="printer",		KERNEL=="lp*", GROUP="lp"
 SUBSYSTEM=="ppdev",		GROUP="lp"
 SUBSYSTEM=="usb",		KERNEL=="lp*", NAME="usb/%k", SYMLINK+="usb%k", GROUP="lp"
-KERNEL=="lp[0-9]*",		GROUP="lp", SYMLINK+="par%n"
+KERNEL=="lp[0-9]*",		GROUP="lp"
 KERNEL=="irlpt[0-9]*",		GROUP="lp"
 
 # block, tapes, block-releated
@@ -101,7 +101,7 @@ KERNEL=="fuse",			MODE="0666"
 KERNEL=="rtc|rtc0",		MODE="0644"
 KERNEL=="rtc0",			SYMLINK+="rtc"
 KERNEL=="auer[0-9]*",		NAME="usb/%k"
-KERNEL=="hw_random",		NAME="hwrng", SYMLINK+="%k"
+KERNEL=="hw_random",		NAME="hwrng"
 KERNEL=="mmtimer",		MODE="0644"
 KERNEL=="rflash[0-9]*",		MODE="0400"
 KERNEL=="rrom[0-9]*",		MODE="0400"
