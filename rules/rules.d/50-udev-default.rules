@@ -46,7 +46,6 @@ SUBSYSTEM=="dvb",		GROUP="video"
 # Firewire
 KERNEL=="dv1394[0-9]*",		NAME="dv1394/%n", GROUP="video"
 KERNEL=="video1394[0-9]*",	NAME="video1394/%n", GROUP="video"
-KERNEL=="raw1394*",		GROUP="video"
 
 # libusb device nodes
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", MODE="0664"
