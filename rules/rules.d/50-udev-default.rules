@@ -3,17 +3,17 @@
 SUBSYSTEM=="block", SYMLINK+="block/%M:%m"
 SUBSYSTEM!="block", SYMLINK+="char/%M:%m"
 
-KERNEL=="pty[pqrstuvwxyzabcdef][0123456789abcdef]", GROUP="tty", MODE="0660", OPTIONS+="last_rule"
-KERNEL=="tty[pqrstuvwxyzabcdef][0123456789abcdef]", GROUP="tty", MODE="0660", OPTIONS+="last_rule"
-KERNEL=="ptmx",			GROUP="tty", MODE="0666", OPTIONS+="last_rule"
-KERNEL=="tty",			GROUP="tty", MODE="0666", OPTIONS+="last_rule"
-KERNEL=="tty[0-9]*",		GROUP="tty", MODE="0620", OPTIONS+="last_rule"
-KERNEL=="vcs|vcs[0-9]*|vcsa|vcsa[0-9]*", GROUP="tty", OPTIONS+="last_rule"
-KERNEL=="console",		MODE="0600", OPTIONS+="last_rule"
+KERNEL=="pty[pqrstuvwxyzabcdef][0123456789abcdef]", GROUP="tty", MODE="0660"
+KERNEL=="tty[pqrstuvwxyzabcdef][0123456789abcdef]", GROUP="tty", MODE="0660"
+KERNEL=="ptmx",			GROUP="tty", MODE="0666"
+KERNEL=="tty",			GROUP="tty", MODE="0666"
+KERNEL=="tty[0-9]*",		GROUP="tty", MODE="0620"
+KERNEL=="vcs|vcs[0-9]*|vcsa|vcsa[0-9]*", GROUP="tty"
+KERNEL=="console",		MODE="0600"
 
 # serial
 KERNEL=="tty[A-Z]*|pppox*|ircomm*|noz*", GROUP="uucp"
-KERNEL=="ppp",			MODE="0600", OPTIONS+="ignore_remove"
+KERNEL=="ppp",			MODE="0600"
 KERNEL=="mwave",		NAME="modems/mwave", GROUP="uucp"
 KERNEL=="hvc*|hvsi*",		GROUP="uucp"
 
@@ -79,7 +79,7 @@ SUBSYSTEM=="aoe",		NAME="etherd/%k", GROUP="disk", MODE="0220"
 SUBSYSTEM=="aoe", KERNEL=="err", MODE="0440"
 
 # network
-KERNEL=="tun",			NAME="net/%k", MODE="0666", OPTIONS+="ignore_remove"
+KERNEL=="tun",			NAME="net/%k", MODE="0666"
 
 # CPU
 KERNEL=="cpu[0-9]*",		NAME="cpu/%n/cpuid"
@@ -105,4 +105,4 @@ KERNEL=="cpad[0-9]*",		NAME="usb/%k"
 
 # do not delete static device nodes
 ACTION=="remove", NAME=="?*", TEST=="/lib/udev/devices/$name", OPTIONS+="ignore_remove"
-
+ACTION=="remove", NAME=="", TEST=="/lib/udev/devices/%k", OPTIONS+="ignore_remove"
