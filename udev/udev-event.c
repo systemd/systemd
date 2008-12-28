@@ -611,6 +611,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 	/* add netif */
 	if (strcmp(udev_device_get_subsystem(dev), "net") == 0 && strcmp(udev_device_get_action(dev), "add") == 0) {
 		dbg(event->udev, "netif add '%s'\n", udev_device_get_devpath(dev));
+		udev_device_delete_db(dev);
 
 		udev_rules_apply_to_event(rules, event);
 		if (event->ignore_device) {
@@ -644,6 +645,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 				info(event->udev, "changed devpath to '%s'\n", udev_device_get_devpath(dev));
 			}
 		}
+		udev_device_update_db(dev);
 		goto exit;
 	}
 
@@ -684,6 +686,11 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 	udev_rules_apply_to_event(rules, event);
 	if (event->ignore_device)
 		info(event->udev, "device event will be ignored\n");
+
+	if (strcmp(udev_device_get_action(dev), "remove") != 0)
+		udev_device_update_db(dev);
+	else
+		udev_device_delete_db(dev);
 exit:
 	return err;
 }

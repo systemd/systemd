@@ -56,11 +56,21 @@ int udev_device_update_db(struct udev_device *udev_device)
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device))
 		if (udev_list_entry_get_flag(list_entry))
 			goto file;
-	if (udev_device_get_num_fake_partitions(udev_device))
+	if (udev_device_get_num_fake_partitions(udev_device) != 0)
 		goto file;
 	if (udev_device_get_ignore_remove(udev_device))
 		goto file;
-	/* try not to waste tmpfs memory; store values, if they fit, in a symlink target */
+	if (udev_device_get_devlink_priority(udev_device) != 0)
+		goto file;
+	if (udev_device_get_event_timeout(udev_device) >= 0)
+		goto file;
+	if (udev_device_get_devnode(udev_device) == NULL)
+		goto out;
+
+	/*
+	 * if we have only the node and symlinks to store, try not to waste
+	 * tmpfs memory -- store values, if they fit, in a symlink target
+	 */
 	util_strlcpy(target, &udev_device_get_devnode(udev_device)[devlen], sizeof(target));
 	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(udev_device)) {
 		size_t len;
@@ -86,9 +96,11 @@ file:
 		}
 	info(udev, "created db file for '%s' in '%s'\n", udev_device_get_devpath(udev_device), filename);
 
-	fprintf(f, "N:%s\n", &udev_device_get_devnode(udev_device)[devlen]);
-	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(udev_device))
-		fprintf(f, "S:%s\n", &udev_list_entry_get_name(list_entry)[devlen]);
+	if (udev_device_get_devnode(udev_device) != NULL) {
+		fprintf(f, "N:%s\n", &udev_device_get_devnode(udev_device)[devlen]);
+		udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(udev_device))
+			fprintf(f, "S:%s\n", &udev_list_entry_get_name(list_entry)[devlen]);
+	}
 	if (udev_device_get_devlink_priority(udev_device) != 0)
 		fprintf(f, "L:%u\n", udev_device_get_devlink_priority(udev_device));
 	if (udev_device_get_event_timeout(udev_device) >= 0)
