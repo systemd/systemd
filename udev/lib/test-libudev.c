@@ -359,6 +359,15 @@ static int test_enumerate(struct udev *udev, const char *subsystem)
 	udev_enumerate_scan_subsystems(udev_enumerate);
 	test_enumerate_print_list(udev_enumerate);
 	udev_enumerate_unref(udev_enumerate);
+
+	printf("enumerate 'property IF_FS_*=filesystem'\n");
+	udev_enumerate = udev_enumerate_new(udev);
+	if (udev_enumerate == NULL)
+		return -1;
+	udev_enumerate_add_match_property(udev_enumerate, "ID_FS*", "filesystem");
+	udev_enumerate_scan_devices(udev_enumerate);
+	test_enumerate_print_list(udev_enumerate);
+	udev_enumerate_unref(udev_enumerate);
 	return 0;
 }
 

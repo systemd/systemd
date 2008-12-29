@@ -101,6 +101,7 @@ extern int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumer
 extern int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem);
 extern int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value);
 extern int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value);
+extern int udev_enumerate_add_match_property(struct udev_enumerate *udev_enumerate, const char *property, const char *value);
 extern int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char *syspath);
 extern int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate);
 extern int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerate);
