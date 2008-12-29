@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-autoreconf -i
+autoreconf --install --symlink
 
 CFLAGS="-g -Wall \
 -Wmissing-declarations -Wmissing-prototypes \
