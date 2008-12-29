@@ -9,13 +9,12 @@ Important Note:
   recommend to replace a distro's udev installation with the upstream version.
 
 Requirements:
-  - Version 2.6.19 of the Linux kernel for reliable operation of this release of
-    udev. The kernel may have a requirement on udev too, see Documentation/Changes
-    in the kernel source tree for the actual dependency.
+  - Version 2.6.20 of the Linux kernel for reliable operation of this release of
+    udev. The kernel must not use the CONFIG_SYSFS_DEPRECATED* option.
 
   - The kernel must have sysfs, unix domain sockets and networking enabled.
-    (unix domain sockets (CONFIG_UNIX) as a loadable kernel module may work,
-    but it does not make any sense - don't complain if anything goes wrong.)
+    Unix domain sockets (CONFIG_UNIX) as a loadable kernel module is not
+    supported.
 
   - The proc filesystem must be mounted on /proc/, the sysfs filesystem must
     be mounted at /sys/. No other locations are supported by udev.
