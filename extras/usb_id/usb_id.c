@@ -54,8 +54,15 @@ static void set_usb_iftype(char *to, int if_class_num, size_t len)
 	case 1:
 		type = "audio";
 		break;
+	case 2: /* CDC-Control */
+		break;
 	case 3:
 		type = "hid";
+		break;
+	case 5: /* Physical */
+		break;
+	case 6:
+		type = "image";
 		break;
 	case 7:
 		type = "printer";
@@ -63,13 +70,8 @@ static void set_usb_iftype(char *to, int if_class_num, size_t len)
 	case 8:
 		type = "storage";
 		break;
-	case 2: /* CDC-Control */
-		break;
-	case 5: /* Physical */
-		break;
-	case 6: /* Image */
-		break;
-	case 9: /* HUB */
+	case 9:
+		type = "hub";
 		break;
 	case 0x0a: /* CDC-Data */
 		break;
@@ -84,7 +86,7 @@ static void set_usb_iftype(char *to, int if_class_num, size_t len)
 		break;
 	case 0xe0: /* Wireless Controller */
 		break;
-	case 0xf2: /* Application-specific */
+	case 0xfe: /* Application-specific */
 		break;
 	case 0xff: /* Vendor-specific */
 		break;
