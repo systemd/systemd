@@ -9,6 +9,10 @@ AC_DISABLE_STATIC
 AC_SYS_LARGEFILE
 AC_PROG_LIBTOOL
 
+dnl /* prefix is /usr, exec_prefix in /, if overridden exec_prefix follows prefix */
+AC_PREFIX_DEFAULT([/usr])
+test "$prefix" = NONE && test "$exec_prefix" = NONE && exec_prefix=
+
 dnl /* libudev version */
 LIBUDEV_LT_CURRENT=0
 LIBUDEV_LT_REVISION=6
