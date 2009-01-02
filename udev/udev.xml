@@ -290,8 +290,7 @@
               <term><option>NAME</option></term>
               <listitem>
                 <para>The name of the node to be created, or the name the network interface
-                should be renamed to. Only one rule can set the node name, all later rules with
-                a NAME key will be ignored.</para>
+                should be renamed to.</para>
               </listitem>
             </varlistentry>
 
