@@ -325,6 +325,8 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 		} else if (strncmp(key, "SUBSYSTEM=", 10) == 0) {
 			udev_device_set_subsystem(udev_device, &key[10]);
 			subsystem_set = 1;
+		} else if (strncmp(key, "DEVTYPE=", 8) == 0) {
+			udev_device_set_devtype(udev_device, &key[8]);
 		} else if (strncmp(key, "DEVNAME=", 8) == 0) {
 			udev_device_set_devnode(udev_device, &key[8]);
 		} else if (strncmp(key, "DEVLINKS=", 9) == 0) {

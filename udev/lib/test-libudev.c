@@ -67,6 +67,10 @@ static void print_device(struct udev_device *device)
 	if (str != NULL)
 		printf("subsystem: '%s'\n", str);
 
+	str = udev_device_get_devtype(device);
+	if (str != NULL)
+		printf("devtype:   '%s'\n", str);
+
 	str = udev_device_get_driver(device);
 	if (str != NULL)
 		printf("driver:    '%s'\n", str);

@@ -40,6 +40,7 @@ struct udev_device {
 	const char *sysnum;
 	char *devnode;
 	char *subsystem;
+	char *devtype;
 	char *driver;
 	char *action;
 	char *devpath_old;
@@ -59,6 +60,7 @@ struct udev_device {
 	dev_t devnum;
 	unsigned int parent_set:1;
 	unsigned int subsystem_set:1;
+	unsigned int devtype_set:1;
 	unsigned int devlinks_uptodate:1;
 	unsigned int envp_uptodate:1;
 	unsigned int driver_set:1;
@@ -204,7 +206,9 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
 			continue;
 		pos[0] = '\0';
 
-		if (strncmp(line, "MAJOR=", 6) == 0)
+		if (strncmp(line, "DEVTYPE=", 8) == 0)
+			udev_device_set_devtype(udev_device, &line[8]);
+		else if (strncmp(line, "MAJOR=", 6) == 0)
 			maj = strtoull(&line[6], NULL, 10);
 		else if (strncmp(line, "MINOR=", 6) == 0)
 			min = strtoull(&line[6], NULL, 10);
@@ -553,6 +557,22 @@ struct udev_device *udev_device_get_parent_with_subsystem(struct udev_device *ud
 	return parent;
 }
 
+struct udev_device *udev_device_get_parent_with_devtype(struct udev_device *udev_device, const char *devtype)
+{
+	struct udev_device *parent;
+
+	parent = udev_device_get_parent(udev_device);
+	while (parent != NULL) {
+		const char *parent_devtype;
+
+		parent_devtype = udev_device_get_devtype(parent);
+		if (parent_devtype != NULL && strcmp(parent_devtype, devtype) == 0)
+			break;
+		parent = udev_device_get_parent(parent);
+	}
+	return parent;
+}
+
 /**
  * udev_device_get_udev:
  * @udev_device: udev device
@@ -605,6 +625,7 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->sysname);
 	free(udev_device->devnode);
 	free(udev_device->subsystem);
+	free(udev_device->devtype);
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->devlinks_list);
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->properties_list);
 	free(udev_device->action);
@@ -721,6 +742,25 @@ const char *udev_device_get_subsystem(struct udev_device *udev_device)
 		}
 	}
 	return udev_device->subsystem;
+}
+
+/**
+ * udev_device_get_devtype:
+ * @udev_device: udev device
+ *
+ * Retrieve the devtype string of the udev device.
+ *
+ * Returns: the devtype name of the udev device, or #NULL if it can not be determined
+ **/
+const char *udev_device_get_devtype(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return NULL;
+	if (!udev_device->devtype_set) {
+		udev_device->devtype_set = 1;
+		udev_device_read_uevent_file(udev_device);
+	}
+	return udev_device->devtype;
 }
 
 /**
@@ -960,6 +1000,17 @@ int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsy
 		return -ENOMEM;
 	udev_device->subsystem_set = 1;
 	udev_device_add_property(udev_device, "SUBSYSTEM", udev_device->subsystem);
+	return 0;
+}
+
+int udev_device_set_devtype(struct udev_device *udev_device, const char *devtype)
+{
+	free(udev_device->devtype);
+	udev_device->devtype = strdup(devtype);
+	if (udev_device->devtype == NULL)
+		return -ENOMEM;
+	udev_device->devtype_set = 1;
+	udev_device_add_property(udev_device, "DEVTYPE", udev_device->devtype);
 	return 0;
 }
 

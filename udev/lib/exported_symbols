@@ -17,6 +17,7 @@ udev_device_new_from_devnum
 udev_device_new_from_subsystem_sysname
 udev_device_get_parent
 udev_device_get_parent_with_subsystem
+udev_device_get_parent_with_devtype
 udev_device_ref
 udev_device_unref
 udev_device_get_udev
@@ -26,6 +27,7 @@ udev_device_get_devnode
 udev_device_get_sysname
 udev_device_get_sysnum
 udev_device_get_subsystem
+udev_device_get_devtype
 udev_device_get_devlinks_list_entry
 udev_device_get_properties_list_entry
 udev_device_get_action

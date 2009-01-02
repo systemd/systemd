@@ -56,6 +56,7 @@ extern struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev)
 /* libudev-device */
 extern int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath);
 extern int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
+extern int udev_device_set_devtype(struct udev_device *udev_device, const char *devtype);
 extern int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode);
 extern int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink);
 extern void udev_device_cleanup_devlinks_list(struct udev_device *udev_device);

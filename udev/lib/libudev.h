@@ -63,11 +63,13 @@ extern struct udev_device *udev_device_new_from_devnum(struct udev *udev, char t
 extern struct udev_device *udev_device_new_from_subsystem_sysname(struct udev *udev, const char *subsystem, const char *sysname);
 extern struct udev_device *udev_device_get_parent(struct udev_device *udev_device);
 extern struct udev_device *udev_device_get_parent_with_subsystem(struct udev_device *udev_device, const char *subsystem);
+extern struct udev_device *udev_device_get_parent_with_devtype(struct udev_device *udev_device, const char *devtype);
 extern struct udev_device *udev_device_ref(struct udev_device *udev_device);
 extern void udev_device_unref(struct udev_device *udev_device);
 extern struct udev *udev_device_get_udev(struct udev_device *udev_device);
 extern const char *udev_device_get_devpath(struct udev_device *udev_device);
 extern const char *udev_device_get_subsystem(struct udev_device *udev_device);
+extern const char *udev_device_get_devtype(struct udev_device *udev_device);
 extern const char *udev_device_get_syspath(struct udev_device *udev_device);
 extern const char *udev_device_get_sysname(struct udev_device *udev_device);
 extern const char *udev_device_get_sysnum(struct udev_device *udev_device);
