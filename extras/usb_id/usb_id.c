@@ -192,7 +192,7 @@ static int usb_id(struct udev_device *dev)
 	dbg(udev, "syspath %s\n", udev_device_get_syspath(dev));
 
 	/* usb interface directory */
-	dev_interface = udev_device_get_parent_with_subsystem_devtype(dev, "usb", NULL);
+	dev_interface = udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_interface");
 	if (dev_interface == NULL) {
 		info(udev, "unable to access usb_interface device of '%s'\n",
 		     udev_device_get_syspath(dev));
@@ -218,7 +218,7 @@ static int usb_id(struct udev_device *dev)
 	     udev_device_get_syspath(dev_interface), if_class_num, protocol);
 
 	/* usb device directory */
-	dev_usb = udev_device_get_parent_with_subsystem_devtype(dev_interface, "usb", NULL);
+	dev_usb = udev_device_get_parent_with_subsystem_devtype(dev_interface, "usb", "usb_device");
 	if (!dev_usb) {
 		info(udev, "unable to find parent 'usb' device of '%s'\n",
 		     udev_device_get_syspath(dev));
@@ -232,7 +232,7 @@ static int usb_id(struct udev_device *dev)
 		int host, bus, target, lun;
 
 		/* get scsi device */
-		dev_scsi = udev_device_get_parent_with_subsystem_devtype(dev, "scsi", NULL);
+		dev_scsi = udev_device_get_parent_with_subsystem_devtype(dev, "scsi", "scsi_device");
 		if (dev_scsi == NULL) {
 			info(udev, "unable to find parent 'scsi' device of '%s'\n",
 			     udev_device_get_syspath(dev));
