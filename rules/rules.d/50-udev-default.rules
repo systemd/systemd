@@ -39,8 +39,9 @@ KERNEL=="pmu",			GROUP="video"
 KERNEL=="nvidia*|nvidiactl*",	GROUP="video"
 SUBSYSTEM=="graphics",		GROUP="video"
 
-# DVB video
-SUBSYSTEM=="dvb", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}'", NAME="%c", GROUP="video"
+# DVB (video)
+SUBSYSTEM=="dvb", ENV{DVB_ADAPTER_NUM}=="?*", NAME="dvb/adapter$env{DVB_ADAPTER_NUM}/$env{DVB_DEVICE_TYPE}$env{DVB_DEVICE_NUM}", GROUP="video"
+SUBSYSTEM=="dvb", ENV{DVB_ADAPTER_NUM}=="", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}'", NAME="%c", GROUP="video"
 
 # Firewire
 KERNEL=="dv1394[0-9]*",		NAME="dv1394/%n", GROUP="video"
