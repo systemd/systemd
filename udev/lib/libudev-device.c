@@ -758,7 +758,8 @@ const char *udev_device_get_devtype(struct udev_device *udev_device)
 		return NULL;
 	if (!udev_device->devtype_set) {
 		udev_device->devtype_set = 1;
-		udev_device_read_uevent_file(udev_device);
+		if (!udev_device->info_loaded)
+			udev_device_read_uevent_file(udev_device);
 	}
 	return udev_device->devtype;
 }
