@@ -9,7 +9,7 @@ Important Note:
   recommend to replace a distro's udev installation with the upstream version.
 
 Requirements:
-  - Version 2.6.20 of the Linux kernel for reliable operation of this release of
+  - Version 2.6.22 of the Linux kernel for reliable operation of this release of
     udev. The kernel must not use the CONFIG_SYSFS_DEPRECATED* option.
 
   - The kernel must have sysfs, unix domain sockets and networking enabled.

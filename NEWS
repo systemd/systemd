@@ -2,6 +2,13 @@ udev 136
 ========
 Bugfixes.
 
+For some more advanced features Linux 2.6.22 is the oldest supported
+version now. The kernel config with enabled SYSFS_DEPRECATED
+is no longer supported. Older kernels should still work, and devices
+nodes should be reliably created, but some rules and libudev will
+not work correctly because the old kernels do not provide the expected
+information or interfaces.
+
 /dev/serial/by-{id,path}/ now contains links for ttyUSB devices,
 which do not depend on the kernel device name. As usual, unique
 devices - only a single one per product connected, or a real
