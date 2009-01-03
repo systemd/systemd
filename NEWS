@@ -9,6 +9,12 @@ nodes should be reliably created, but some rules and libudev will
 not work correctly because the old kernels do not provide the expected
 information or interfaces.
 
+We are currently merging the Ubuntu rules in the udev default rules, and
+get one step closer to provide a common Linux /dev setup regarding device
+names, symlinks, and default device permissions. On udev startup, we now
+expect the following groups to be resolvable to their ids by glibc's
+getgrnam(): "disk cdrom floppy tape audio video lp tty kmem".
+
 /dev/serial/by-{id,path}/ now contains links for ttyUSB devices,
 which do not depend on the kernel device name. As usual, unique
 devices - only a single one per product connected, or a real

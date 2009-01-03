@@ -19,6 +19,10 @@ Requirements:
   - The proc filesystem must be mounted on /proc/, the sysfs filesystem must
     be mounted at /sys/. No other locations are supported by udev.
 
+  - The system must have the following group names resolvable at udev startup:
+      disk cdrom floppy tape audio video lp tty kmem
+    Especially in LDAP setups, it is required, that getgrnam() is able to resolve
+    these group names while no network is available.
 
 Operation:
   Udev creates and removes device nodes in /dev/, based on events the kernel
