@@ -557,17 +557,26 @@ struct udev_device *udev_device_get_parent_with_subsystem(struct udev_device *ud
 	return parent;
 }
 
-struct udev_device *udev_device_get_parent_with_devtype(struct udev_device *udev_device, const char *devtype)
+struct udev_device *udev_device_get_parent_with_subsystem_devtype(struct udev_device *udev_device, const char *subsystem, const char *devtype)
 {
 	struct udev_device *parent;
 
+	if (subsystem == NULL)
+		return NULL;
+
 	parent = udev_device_get_parent(udev_device);
 	while (parent != NULL) {
+		const char *parent_subsystem;
 		const char *parent_devtype;
 
-		parent_devtype = udev_device_get_devtype(parent);
-		if (parent_devtype != NULL && strcmp(parent_devtype, devtype) == 0)
-			break;
+		parent_subsystem = udev_device_get_subsystem(parent);
+		if (parent_subsystem != NULL && strcmp(parent_subsystem, subsystem) == 0) {
+			if (devtype == NULL)
+				break;
+			parent_devtype = udev_device_get_devtype(parent);
+			if (parent_devtype != NULL && strcmp(parent_devtype, devtype) == 0)
+				break;
+		}
 		parent = udev_device_get_parent(parent);
 	}
 	return parent;
