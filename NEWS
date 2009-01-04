@@ -2,19 +2,29 @@ udev 136
 ========
 Bugfixes.
 
-For some more advanced features Linux 2.6.22 is the oldest supported
-version now. The kernel config with enabled SYSFS_DEPRECATED
-is no longer supported. Older kernels should still work, and devices
-nodes should be reliably created, but some rules and libudev will
-not work correctly because the old kernels do not provide the expected
-information or interfaces.
-
 We are currently merging the Ubuntu rules in the udev default rules,
-and get one step closer to provide a common Linux /dev setup regarding
+and get one step closer to provide a common Linux /dev setup, regarding
 device names, symlinks, and default device permissions. On udev startup,
-we now expect the following groups to be resolvable to their ids by
+we now expect the following groups to be resolvable to their ids with
 glibc's getgrnam():
   disk, cdrom, floppy, tape, audio, video, lp, tty, dialout, kmem.
+LDAP setups need to make sure, that these groups are always resolvable at
+bootup, with only the rootfs mounted, and without network access available.
+
+Some systems may need to add some new, currently not used groups, or need
+to add some users to new groups, but the cost of this change is minimal,
+compared to the pain the current, rather random, differences between the
+various distributions cause for upstream projects and third-party vendors.
+
+In general, "normal" users who log into a machine should never be a member
+of any such group, but the device-access should be managed by dynamic ACLs,
+which get added and removed for the specific users on login/logout and
+session activity/inactivity. These groups are only provided for custom setups,
+and mainly system services, to allow proper privilege separation.
+A video-streaming daemon uid would be a member of "audio" and "video", to get
+access to the sound and video devices, but no "normal" user ever belongs in
+the "audio" group, because he could listen to the built-in microphone with
+any ssh-session established from the other side of the world.
 
 /dev/serial/by-{id,path}/ now contains links for ttyUSB devices,
 which do not depend on the kernel device name. As usual, unique
@@ -25,6 +35,12 @@ Completely Identical devices may overwrite their names in by-id/
 and can only be found reliably in the by-path/ directory. Devices
 specified by by-path/ must not change their connection, like the
 USB port number they are plugged in, to keep their name.
+
+To support some advanced features, Linux 2.6.22 is the oldest supported
+version now. The kernel config with enabled SYSFS_DEPRECATED is no longer
+supported. Older kernels should still work, and devices nodes should be
+reliably created, but some rules and libudev will not work correctly because
+the old kernels do not provide the expected information or interfaces.
 
 udev 135
 ========
