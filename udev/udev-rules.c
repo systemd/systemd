@@ -2059,13 +2059,10 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			break;
 		case TK_M_ENV:
 			{
-				struct udev_list_entry *list_entry;
 				const char *key_name = &rules->buf[cur->key.attr_off];
 				const char *value;
 
-				list_entry = udev_device_get_properties_list_entry(event->dev);
-				list_entry = udev_list_entry_get_by_name(list_entry, key_name);
-				value = udev_list_entry_get_value(list_entry);
+				value = udev_device_get_property_value(event->dev, key_name);
 				if (value == NULL) {
 					dbg(event->udev, "ENV{%s} is not set, treat as empty\n", key_name);
 					value = "";

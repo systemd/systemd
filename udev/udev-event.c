@@ -421,14 +421,9 @@ found:
 				dbg(event->udev, "missing attribute\n");
 				break;
 			} else {
-				struct udev_list_entry *list_entry;
 				const char *value;
 
-				list_entry = udev_device_get_properties_list_entry(event->dev);
-				list_entry = udev_list_entry_get_by_name(list_entry, attr);
-				if (list_entry == NULL)
-					break;
-				value = udev_list_entry_get_value(list_entry);
+				value = udev_device_get_property_value(event->dev, attr);
 				if (value == NULL)
 					break;
 				dbg(event->udev, "substitute env '%s=%s'\n", attr, value);

@@ -1059,6 +1059,20 @@ struct udev_list_entry *udev_device_add_property_from_string(struct udev_device 
 	return udev_device_add_property(udev_device, name, val);
 }
 
+const char *udev_device_get_property_value(struct udev_device *udev_device, const char *key)
+{
+	struct udev_list_entry *list_entry;
+
+	if (udev_device == NULL)
+		return NULL;
+	if (key == NULL)
+		return NULL;
+
+	list_entry = udev_device_get_properties_list_entry(udev_device);
+	list_entry =  udev_list_entry_get_by_name(list_entry, key);
+	return udev_list_entry_get_value(list_entry);
+}
+
 #define ENVP_SIZE			128
 #define MONITOR_BUF_SIZE		4096
 static int update_envp_monitor_buf(struct udev_device *udev_device)

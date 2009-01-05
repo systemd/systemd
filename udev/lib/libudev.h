@@ -75,6 +75,7 @@ extern const char *udev_device_get_sysnum(struct udev_device *udev_device);
 extern const char *udev_device_get_devnode(struct udev_device *udev_device);
 extern struct udev_list_entry *udev_device_get_devlinks_list_entry(struct udev_device *udev_device);
 extern struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device *udev_device);
+extern const char *udev_device_get_property_value(struct udev_device *udev_device, const char *key);
 extern const char *udev_device_get_driver(struct udev_device *udev_device);
 extern dev_t udev_device_get_devnum(struct udev_device *udev_device);
 extern const char *udev_device_get_action(struct udev_device *udev_device);
