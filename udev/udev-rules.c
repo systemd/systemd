@@ -2019,7 +2019,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			rule = cur;
 			/* possibly skip rules which want to set NAME, SYMLINK, OWNER, GROUP, MODE */
 			if (!can_set_name && rule->rule.flags)
-				;//goto nomatch;
+				goto nomatch;
 			esc = ESCAPE_UNSET;
 			break;
 		case TK_M_ACTION:
