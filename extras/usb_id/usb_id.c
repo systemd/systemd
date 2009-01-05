@@ -62,7 +62,7 @@ static void set_usb_iftype(char *to, int if_class_num, size_t len)
 	case 5: /* Physical */
 		break;
 	case 6:
-		type = "image";
+		type = "media";
 		break;
 	case 7:
 		type = "printer";
