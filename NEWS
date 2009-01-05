@@ -22,8 +22,8 @@ which get added and removed for the specific users on login/logout and
 session activity/inactivity. These groups are only provided for custom setups,
 and mainly system services, to allow proper privilege separation.
 A video-streaming daemon uid would be a member of "audio" and "video", to get
-access to the sound and video devices, but no "normal" user ever belongs in
-the "audio" group, because he could listen to the built-in microphone with
+access to the sound and video devices, but no "normal" user should ever belong
+to the "audio" group, because he could listen to the built-in microphone with
 any ssh-session established from the other side of the world.
 
 /dev/serial/by-{id,path}/ now contains links for ttyUSB devices,
