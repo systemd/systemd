@@ -87,7 +87,7 @@ static int print_device_chain(struct udev_device *device)
 	const char *str;
 
 	printf("\n"
-	       "Udevinfo starts with the device specified by the devpath and then\n"
+	       "Udevadm info starts with the device specified by the devpath and then\n"
 	       "walks up the chain of parent devices. It prints for every device\n"
 	       "found, all possible attributes in the udev rules key format.\n"
 	       "A rule to match, can be composed by the attributes of the device\n"
