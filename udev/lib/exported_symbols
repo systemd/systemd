@@ -29,7 +29,7 @@ udev_device_get_subsystem
 udev_device_get_devtype
 udev_device_get_devlinks_list_entry
 udev_device_get_properties_list_entry
-udev_device_get_properties_value
+udev_device_get_property_value
 udev_device_get_action
 udev_device_get_driver
 udev_device_get_devnum
