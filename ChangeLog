@@ -1,3 +1,86 @@
+Summary of changes from v135 to v136
+============================================
+
+Adam Buchbinder (1):
+      extras: fix mis-spelling of "environment"
+
+Harald Hoyer (1):
+      rule_generator: fix enumeration for write_cd_rules
+
+Jeremy Higdon (1):
+      path_id: rework SAS persistent names
+
+Karel Zak (1):
+      volume_id: HPFS code clean up
+
+Kay Sievers (54):
+      rules: ATA_COMPAT do not try to match on sr*, it will never have vendor ATA
+      scsi_id: do not fail if no serial is found like for optical drives
+      update configure and NEWS
+      rules: fix isdn rules
+      rules: add persistent /dev/serial/{by-id,by-path} rules
+      make: install serial rules file
+      make: do not delete autotools generated file with distclean
+      udevadm: settle - allow --timeout=0 and --quiet
+      rules: move aoe rules to default rules file
+      volume_id: btrfs - update format
+      rules: add "do not edit header"
+      volume_id: support sub-uuid's and plug in btrfs device uuid
+      libudev: include <sys/types.h>
+      build: add -lsepol
+      build: just use autoreconf -i
+      rules: remove ide-scsi
+      rules: first simple step merging with Ubuntu rules
+      "'/sbin/modprobe abnormal' exit" - also print program options
+      rules: more changes toward Ubuntu rules merge
+      rules: more changes toward Ubuntu rules merge
+      rules: remove /dev/raw/raxctl symlink, it's a devfs leftover
+      rules: rtc - create rtc compat link only for cmos type rtc
+      rules: remove legacy symlinks
+      rules: do not put raw1394 in "video" group
+      rules: second round merging with Ubuntu rules
+      rules: remove /dev/dsp /dev/audio
+      rules: put alsa in group "audio"
+      rules: isdn - remove /dev/isdn/capi20 symlink
+      rules: provide /dev/raw/rawctl
+      if needed, store database entries also for devices which do not have a device node
+      build: use autoreconf --symlink
+      usb_id: add "image" class
+      require non-SYSFS_DEPRECATED 2.6.20+ kernel
+      build: default to --prefix=/usr --exec-prefix=""
+      libudev: enumerate - add lookup by property
+      rules: input - make sure needed variables are set
+      libudev: device - read "uevent" only if info is not already loaded
+      libudev: subsytem -> subsystem
+      libudev: bump revision
+      usb_id: use devtype lookup
+      require 2.6.22+ kernel
+      rules: Ubuntu merge - use group "cdrom"
+      rules: Ubuntu merge - use group "tape"
+      rules: replace DVB shell script rule
+      rules: Ubuntu merge - s/uucp/dialout/
+      update NEWS
+      update NEWS
+      enable skipping of "naming-only" rules
+      usb_id: s/image/media/
+      udevadm: s/udevinfo/udevadm info/
+      rules: reorder block rules
+      rules: zaptel - add "dialout" group
+      libudev: device - add udev_device_get_property_value()
+      libudev: test - add udev_device_get_property_value()
+
+Marcel Holtmann (3):
+      libudev: device - add devtype support
+      libudev: device - lookup subsystem and devtype together
+      libudev: device - remove udev_device_get_parent_with_subsystem
+
+Michal Soltys (1):
+      man: udev - update NAME assignment
+
+Ryan Thomas (1):
+      rules: add rules for AoE devices
+
+
 Summary of changes from v134 to v135
 ============================================
 
