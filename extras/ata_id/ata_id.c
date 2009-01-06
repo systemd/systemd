@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'h':
 			printf("Usage: ata_id [--export] [--help] <device>\n"
-			       "  --export    print values as environemt keys\n"
+			       "  --export    print values as environment keys\n"
 			       "  --help      print this help text\n\n");
 		default:
 			rc = 1;

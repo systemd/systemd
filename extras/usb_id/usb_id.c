@@ -395,7 +395,7 @@ int main(int argc, char **argv)
 			printf("Usage: usb_id [--usb-info] [--num-info] [--export] [--help] <devpath>\n"
 			       "  --usb-info  use usb strings instead\n"
 			       "  --num-info  use numerical values\n"
-			       "  --export    print values as environemt keys\n"
+			       "  --export    print values as environment keys\n"
 			       "  --help      print this help text\n\n");
 		default:
 			retval = 1;
