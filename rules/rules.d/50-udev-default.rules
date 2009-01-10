@@ -68,7 +68,7 @@ KERNEL=="hd*", SUBSYSTEMS=="ide", ATTRS{media}=="floppy", OPTIONS+="all_partitio
 
 # cdrom
 SUBSYSTEM=="block", KERNEL=="sr[0-9]*", SYMLINK+="scd%n", GROUP="cdrom"
-SUBSYSTEM=="block", KERNEL=="hd[0-9]*", SUBSYSTEMS=="ide", ATTRS{media}=="cdrom", GROUP="cdrom"
+SUBSYSTEM=="block", KERNEL=="hd*", SUBSYSTEMS=="ide", ATTRS{media}=="cdrom", GROUP="cdrom"
 SUBSYSTEMS=="scsi", ATTRS{type}=="4|5", GROUP="cdrom"
 KERNEL=="pktcdvd[0-9]*", NAME="pktcdvd/%k", GROUP="cdrom"
 KERNEL=="pktcdvd", NAME="pktcdvd/control", GROUP="cdrom"
