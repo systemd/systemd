@@ -862,7 +862,7 @@ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const
 {
 	struct udev_list_entry *list_entry;
 	char path[UTIL_PATH_SIZE];
-	char value[UTIL_NAME_SIZE];
+	char value[4096];
 	struct stat statbuf;
 	int fd;
 	ssize_t size;
