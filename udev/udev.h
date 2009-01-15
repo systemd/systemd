@@ -76,7 +76,6 @@ struct udev_event {
 	unsigned int run_final:1;
 	unsigned int ignore_device:1;
 	unsigned int trace:1;
-	unsigned int test:1;
 };
 
 /* udev-rules.c */
@@ -96,9 +95,9 @@ extern int udev_event_apply_subsys_kernel(struct udev_event *event, const char *
 
 /* udev-node.c */
 extern int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mode_t mode, uid_t uid, gid_t gid);
-extern int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid, int test);
-extern int udev_node_remove(struct udev_device *dev, int test);
-extern void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old, int test);
+extern int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid);
+extern int udev_node_remove(struct udev_device *dev);
+extern void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old);
 
 /* udev-util.c */
 extern int util_create_path(struct udev *udev, const char *path);

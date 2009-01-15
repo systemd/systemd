@@ -33,7 +33,6 @@
 int udevadm_test(struct udev *udev, int argc, char *argv[])
 {
 	char filename[UTIL_PATH_SIZE];
-	int force = 0;
 	const char *action = "add";
 	const char *syspath = NULL;
 	struct udev_event *event;
@@ -44,7 +43,6 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 
 	static const struct option options[] = {
 		{ "action", required_argument, NULL, 'a' },
-		{ "force", no_argument, NULL, 'f' },
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
@@ -63,13 +61,9 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 		case 'a':
 			action = optarg;
 			break;
-		case 'f':
-			force = 1;
-			break;
 		case 'h':
 			printf("Usage: udevadm test OPTIONS <syspath>\n"
 			       "  --action=<string>     set action string\n"
-			       "  --force               don't skip node/link creation\n"
 			       "  --help                print this help text\n\n");
 			exit(0);
 		default:
@@ -116,11 +110,6 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 
 	udev_device_set_action(dev, action);
 	event = udev_event_new(dev);
-
-	/* simulate node creation with test flag */
-	if (!force)
-		event->test = 1;
-
 	err = udev_event_execute_rules(event, rules);
 
 	if (udev_device_get_event_timeout(dev) >= 0)

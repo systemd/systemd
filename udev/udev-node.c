@@ -32,7 +32,7 @@
 #define TMP_FILE_EXT		".udev-tmp"
 
 /* reverse mapping from the device file name to the devpath */
-static int name_index(struct udev *udev, const char *devpath, const char *name, int add, int test)
+static int name_index(struct udev *udev, const char *devpath, const char *name, int add)
 {
 	char device[UTIL_PATH_SIZE];
 	char filename[UTIL_PATH_SIZE * 2];
@@ -268,7 +268,7 @@ out:
 	return count;
 }
 
-static int update_link(struct udev_device *dev, const char *slink, int test)
+static int update_link(struct udev_device *dev, const char *slink)
 {
 	struct udev *udev = udev_device_get_udev(dev);
 	struct udev_list_node dev_list;
@@ -288,10 +288,8 @@ static int update_link(struct udev_device *dev, const char *slink, int test)
 	/* if we don't have a reference, delete it */
 	if (count <= 0) {
 		info(udev, "no reference left, remove '%s'\n", slink);
-		if (!test) {
-			unlink(slink);
-			util_delete_path(udev, slink);
-		}
+		unlink(slink);
+		util_delete_path(udev, slink);
 		goto out;
 	}
 
@@ -351,15 +349,13 @@ static int update_link(struct udev_device *dev, const char *slink, int test)
 
 	/* create symlink to the target with the highest priority */
 	info(udev, "'%s' with target '%s' has the highest priority %i, create it\n", slink, target, priority);
-	if (!test) {
-		util_create_path(udev, slink);
-		node_symlink(udev, target, slink);
-	}
+	util_create_path(udev, slink);
+	node_symlink(udev, target, slink);
 out:
 	return rc;
 }
 
-void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old, int test)
+void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old)
 {
 	struct udev *udev = udev_device_get_udev(dev);
 	struct udev_list_entry *list_entry;
@@ -389,8 +385,8 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 			continue;
 
 		info(udev, "update old symlink '%s' no longer belonging to '%s'\n", name, udev_device_get_devpath(dev));
-		name_index(udev, udev_device_get_devpath(dev), name, 0, test);
-		update_link(dev, name, test);
+		name_index(udev, udev_device_get_devpath(dev), name, 0);
+		update_link(dev, name);
 	}
 
 	/*
@@ -402,11 +398,11 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 		const char *devnode = udev_device_get_devnode(dev);
 
 		if (devnode != NULL && strcmp(devnode_old, devnode) != 0)
-			update_link(dev, devnode_old, test);
+			update_link(dev, devnode_old);
 	}
 }
 
-int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid, int test)
+int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
 {
 	struct udev *udev = udev_device_get_udev(dev);
 	int i;
@@ -420,44 +416,41 @@ int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid, in
 	     mode, uid, gid);
 
 	util_create_path(udev, udev_device_get_devnode(dev));
-	if (!test)
-		if (udev_node_mknod(dev, NULL, makedev(0,0), mode, uid, gid) != 0) {
-			err = -1;
-			goto exit;
-		}
+	if (udev_node_mknod(dev, NULL, makedev(0,0), mode, uid, gid) != 0) {
+		err = -1;
+		goto exit;
+	}
 
 	/* create all_partitions if requested */
 	num = udev_device_get_num_fake_partitions(dev);
 	if (num > 0) {
 		info(udev, "creating device partition nodes '%s[1-%i]'\n", udev_device_get_devnode(dev), num);
-		if (!test) {
-			for (i = 1; i <= num; i++) {
-				char partitionname[UTIL_PATH_SIZE];
-				dev_t part_devnum;
+		for (i = 1; i <= num; i++) {
+			char partitionname[UTIL_PATH_SIZE];
+			dev_t part_devnum;
 
-				snprintf(partitionname, sizeof(partitionname), "%s%d",
-					 udev_device_get_devnode(dev), i);
-				partitionname[sizeof(partitionname)-1] = '\0';
-				part_devnum = makedev(major(udev_device_get_devnum(dev)),
-						    minor(udev_device_get_devnum(dev)) + i);
-				udev_node_mknod(dev, partitionname, part_devnum, mode, uid, gid);
-			}
+			snprintf(partitionname, sizeof(partitionname), "%s%d",
+				 udev_device_get_devnode(dev), i);
+			partitionname[sizeof(partitionname)-1] = '\0';
+			part_devnum = makedev(major(udev_device_get_devnum(dev)),
+					    minor(udev_device_get_devnum(dev)) + i);
+			udev_node_mknod(dev, partitionname, part_devnum, mode, uid, gid);
 		}
 	}
 
 	/* add node to name index */
-	name_index(udev, udev_device_get_devpath(dev), udev_device_get_devnode(dev), 1, test);
+	name_index(udev, udev_device_get_devpath(dev), udev_device_get_devnode(dev), 1);
 
 	/* create/update symlinks, add symlinks to name index */
 	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev)) {
-		name_index(udev, udev_device_get_devpath(dev), udev_list_entry_get_name(list_entry), 1, test);
-		update_link(dev, udev_list_entry_get_name(list_entry), test);
+		name_index(udev, udev_device_get_devpath(dev), udev_list_entry_get_name(list_entry), 1);
+		update_link(dev, udev_list_entry_get_name(list_entry));
 	}
 exit:
 	return err;
 }
 
-extern int udev_node_remove(struct udev_device *dev, int test)
+extern int udev_node_remove(struct udev_device *dev)
 {
 	struct udev *udev = udev_device_get_udev(dev);
 	struct udev_list_entry *list_entry;
@@ -468,12 +461,12 @@ extern int udev_node_remove(struct udev_device *dev, int test)
 	int num;
 
 	/* remove node from name index */
-	name_index(udev, udev_device_get_devpath(dev), udev_device_get_devnode(dev), 0, test);
+	name_index(udev, udev_device_get_devpath(dev), udev_device_get_devnode(dev), 0);
 
 	/* remove,update symlinks, remove symlinks from name index */
 	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev)) {
-		name_index(udev, udev_device_get_devpath(dev), udev_list_entry_get_name(list_entry), 0, test);
-		update_link(dev, udev_list_entry_get_name(list_entry), test);
+		name_index(udev, udev_device_get_devpath(dev), udev_list_entry_get_name(list_entry), 0);
+		update_link(dev, udev_list_entry_get_name(list_entry));
 	}
 
 	devnode = udev_device_get_devnode(dev);
@@ -489,8 +482,7 @@ extern int udev_node_remove(struct udev_device *dev, int test)
 	}
 
 	info(udev, "removing device node '%s'\n", devnode);
-	if (!test)
-		err = util_unlink_secure(udev, devnode);
+	err = util_unlink_secure(udev, devnode);
 	if (err)
 		return err;
 
@@ -504,8 +496,7 @@ extern int udev_node_remove(struct udev_device *dev, int test)
 		for (i = 1; i <= num; i++) {
 			snprintf(partitionname, sizeof(partitionname), "%s%d", devnode, i);
 			partitionname[sizeof(partitionname)-1] = '\0';
-			if (!test)
-				util_unlink_secure(udev, partitionname);
+			util_unlink_secure(udev, partitionname);
 		}
 	}
 	util_delete_path(udev, devnode);

@@ -472,8 +472,6 @@ static int rename_netif(struct udev_event *event)
 
 	info(event->udev, "changing net interface name from '%s' to '%s'\n",
 	     udev_device_get_sysname(dev), event->name);
-	if (event->test)
-		return 0;
 
 	sk = socket(PF_INET, SOCK_DGRAM, 0);
 	if (sk < 0) {
@@ -593,11 +591,11 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 
 		/* update database, create node and symlinks */
 		udev_device_update_db(dev);
-		err = udev_node_add(dev, event->mode, event->uid, event->gid, event->test);
+		err = udev_node_add(dev, event->mode, event->uid, event->gid);
 
 		/* remove/update possible left-over symlinks from old database entry */
 		if (dev_old != NULL) {
-			udev_node_update_old_links(dev, dev_old, event->test);
+			udev_node_update_old_links(dev, dev_old);
 			udev_device_unref(dev_old);
 		}
 		goto exit;
@@ -673,7 +671,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 			goto exit;
 		}
 
-		err = udev_node_remove(dev, event->test);
+		err = udev_node_remove(dev);
 		goto exit;
 	}
 

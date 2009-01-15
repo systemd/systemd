@@ -326,8 +326,7 @@
         </refsect2>
 
         <refsect2><title>udevadm test <optional>options</optional> <replaceable>devpath</replaceable></title>
-          <para>Simulate a udev event run for the given device, and print out debug
-          output. Unless forced to, no device node or symlink will be created.</para>
+          <para>Simulate a udev event run for the given device, and print debug output.</para>
           <variablelist>
             <varlistentry>
               <term><option>--action=<replaceable>string</replaceable></option></term>
@@ -339,13 +338,6 @@
               <term><option>--subsystem=<replaceable>string</replaceable></option></term>
               <listitem>
                 <para>The subsystem string.</para>
-              </listitem>
-            </varlistentry>
-            <varlistentry>
-              <term><option>--force</option></term>
-              <listitem>
-                <para>Force the creation of a device node or symlink. Usually the test run
-                prints only debug output.</para>
               </listitem>
             </varlistentry>
             <varlistentry>

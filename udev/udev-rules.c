@@ -2504,9 +2504,8 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				     rule->rule.filename_line);
 				f = fopen(attr, "w");
 				if (f != NULL) {
-					if (!event->test)
-						if (fprintf(f, "%s", value) <= 0)
-							err(event->udev, "error writing ATTR{%s}: %m\n", attr);
+					if (fprintf(f, "%s", value) <= 0)
+						err(event->udev, "error writing ATTR{%s}: %m\n", attr);
 					fclose(f);
 				} else {
 					err(event->udev, "error opening ATTR{%s} for writing: %m\n", attr);
