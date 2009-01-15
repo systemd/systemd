@@ -38,6 +38,7 @@ KERNEL=="card[0-9]*",		NAME="dri/%k"
 KERNEL=="pmu",			GROUP="video"
 KERNEL=="nvidia*|nvidiactl*",	GROUP="video"
 SUBSYSTEM=="graphics",		GROUP="video"
+SUBSYSTEM=="drm",		GROUP="video"
 
 # DVB (video)
 SUBSYSTEM=="dvb", ENV{DVB_ADAPTER_NUM}=="?*", NAME="dvb/adapter$env{DVB_ADAPTER_NUM}/$env{DVB_DEVICE_TYPE}$env{DVB_DEVICE_NUM}", GROUP="video"
