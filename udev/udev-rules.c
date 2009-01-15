@@ -1649,7 +1649,7 @@ static int add_matching_files(struct udev *udev, struct udev_list_node *file_lis
 	dbg(udev, "open directory '%s'\n", dirname);
 	dir = opendir(dirname);
 	if (dir == NULL) {
-		err(udev, "unable to open '%s': %m\n", dirname);
+		info(udev, "unable to open '%s': %m\n", dirname);
 		return -1;
 	}
 
