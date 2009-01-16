@@ -582,22 +582,24 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 		util_strlcat(filename, event->name, sizeof(filename));
 		udev_device_set_devnode(dev, filename);
 
-		/* read current database entry */
+		/* read old database entry */
 		dev_old = udev_device_new_from_syspath(event->udev, udev_device_get_syspath(dev));
 		if (dev_old != NULL) {
 			udev_device_read_db(dev_old);
 			udev_device_set_info_loaded(dev_old);
 		}
 
-		/* update database, create node and symlinks */
+		/* write current database entry */
 		udev_device_update_db(dev);
-		err = udev_node_add(dev, event->mode, event->uid, event->gid);
 
 		/* remove/update possible left-over symlinks from old database entry */
 		if (dev_old != NULL) {
 			udev_node_update_old_links(dev, dev_old);
 			udev_device_unref(dev_old);
 		}
+
+		/* create new node and symlinks */
+		err = udev_node_add(dev, event->mode, event->uid, event->gid);
 		goto exit;
 	}
 
