@@ -384,21 +384,25 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 		if (found)
 			continue;
 
-		info(udev, "update old symlink '%s' no longer belonging to '%s'\n", name, udev_device_get_devpath(dev));
+		info(udev, "update old name, '%s' no longer belonging to '%s'\n",
+		     name, udev_device_get_devpath(dev));
 		name_index(udev, udev_device_get_devpath(dev), name, 0);
 		update_link(dev, name);
 	}
 
 	/*
 	 * if the node name has changed, delete the node,
-	 * and possibly restore a symlink of another device
+	 * and possibly restore a symlink of a different device
 	 */
 	devnode_old = udev_device_get_devnode(dev_old);
 	if (devnode_old != NULL) {
 		const char *devnode = udev_device_get_devnode(dev);
 
-		if (devnode != NULL && strcmp(devnode_old, devnode) != 0)
+		if (devnode != NULL && strcmp(devnode_old, devnode) != 0) {
+			info(udev, "node has changed from '%s' to '%s'\n", devnode_old, devnode);
+			name_index(udev, udev_device_get_devpath(dev), devnode_old, 0);
 			update_link(dev, devnode_old);
+		}
 	}
 }
 
