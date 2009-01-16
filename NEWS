@@ -1,3 +1,10 @@
+udev 137
+========
+Bugfixes.
+
+The udevadm test command has no longer a --force option, nodes and symlinks
+are always updated with a test run now.
+
 udev 136
 ========
 Bugfixes.
