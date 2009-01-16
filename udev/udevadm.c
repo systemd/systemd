@@ -79,7 +79,7 @@ static const struct command cmds[] = {
 	},
 	{
 		.name = "settle",
-		.cmd = udevadm_settle, "",
+		.cmd = udevadm_settle,
 		.help = "wait for the event queue to finish",
 	},
 	{
