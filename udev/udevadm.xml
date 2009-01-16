@@ -227,7 +227,7 @@
             <varlistentry>
               <term><option>--quiet</option></term>
               <listitem>
-                <para>Do not print any output, like the remaining queue entries when reachin the timeout.</para>
+                <para>Do not print any output, like the remaining queue entries when reaching the timeout.</para>
               </listitem>
             </varlistentry>
             <varlistentry>

@@ -335,7 +335,7 @@
                 event process for a long period of time may block all further events for
                 this or a dependent device. Long running tasks need to be immediately
                 detached from the event process itself.</para>
-                <para>If the specifiefd string starts with
+                <para>If the specified string starts with
                 <option>socket:<replaceable>path</replaceable></option>, all current event
                 values will be passed to the specified socket, as a message in the same
                 format the kernel sends an uevent. If the first character of the specified path
