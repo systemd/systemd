@@ -683,16 +683,18 @@ int main(int argc, char *argv[])
 		case 'N':
 			if (strcmp (optarg, "early") == 0) {
 				resolve_names = 1;
+			} else if (strcmp (optarg, "late") == 0) {
+				resolve_names = 0;
 			} else if (strcmp (optarg, "never") == 0) {
 				resolve_names = -1;
 			} else {
-				fprintf(stderr, "resolve-names must be early or never\n");
-				err(udev, "resolve-names must be early or never\n");
+				fprintf(stderr, "resolve-names must be early, late or never\n");
+				err(udev, "resolve-names must be early, late or never\n");
 				goto exit;
 			}
 			break;
 		case 'h':
-			printf("Usage: udevd [--help] [--daemon] [--debug-trace] [--debug] [--resolve-names=early|never] [--version]\n");
+			printf("Usage: udevd [--help] [--daemon] [--debug-trace] [--debug] [--resolve-names=early|late|never] [--version]\n");
 			goto exit;
 		case 'V':
 			printf("%s\n", VERSION);
