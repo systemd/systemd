@@ -5,6 +5,9 @@ Bugfixes.
 The udevadm test command has no longer a --force option, nodes and symlinks
 are always updated with a test run now.
 
+The udevd daemon can be started with --resolve-names=never to avoid all user
+and group lookups (e.g. in cut-down systems).
+
 udev 136
 ========
 Bugfixes.

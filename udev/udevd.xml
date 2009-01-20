@@ -29,6 +29,7 @@
           <arg><option>--debug-trace</option></arg>
           <arg><option>--debug</option></arg>
           <arg><option>--version</option></arg>
+          <arg><option>--resolve-names=early|never</option></arg>
           <arg><option>--help</option></arg>
         </cmdsynopsis>
       </refsynopsisdiv>
@@ -62,6 +63,16 @@
             <term><option>--debug</option></term>
             <listitem>
               <para>Print debug messages to stderr.</para>
+            </listitem>
+          </varlistentry>
+          <varlistentry>
+            <term><option>--resolve-names</option></term>
+            <listitem>
+              <para>Specify when udevd should resolve names of users and groups.
+              When set to <option>early</option> (the default) names will be
+              resolved when the rules are parsed.
+              When set to <option>never</option> names will never be resolved
+              and all devices will be owned by root.</para>
             </listitem>
           </varlistentry>
           <varlistentry>
