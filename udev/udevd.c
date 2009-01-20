@@ -29,6 +29,7 @@
 #include <getopt.h>
 #include <dirent.h>
 #include <sys/select.h>
+#include <sys/poll.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -63,10 +64,10 @@ static struct udev_rules *rules;
 static struct udev_ctrl *udev_ctrl;
 static struct udev_monitor *kernel_monitor;
 static int inotify_fd = -1;
-static int signal_pipe[2] = {-1, -1};
 static volatile int sigchilds_waiting;
 static volatile int udev_exit;
 static volatile int reload_config;
+static volatile int signal_received;
 static int run_exec_q;
 static int stop_exec_q;
 static int max_childs;
@@ -194,8 +195,6 @@ static void event_fork(struct udev_event *event)
 		udev_ctrl_unref(udev_ctrl);
 		if (inotify_fd >= 0)
 			close(inotify_fd);
-		close(signal_pipe[READ_END]);
-		close(signal_pipe[WRITE_END]);
 		logging_close();
 		logging_init("udevd-event");
 		setpriority(PRIO_PROCESS, 0, UDEV_PRIORITY);
@@ -520,8 +519,7 @@ static void asmlinkage sig_handler(int signum)
 			break;
 	}
 
-	/* write to pipe, which will wakeup select() in our mainloop */
-	write(signal_pipe[WRITE_END], "", 1);
+	signal_received = 1;
 }
 
 static void udev_done(int pid, int exitstatus)
@@ -633,10 +631,8 @@ static void export_initial_seqnum(struct udev *udev)
 int main(int argc, char *argv[])
 {
 	struct udev *udev;
-	int err;
 	int fd;
 	struct sigaction act;
-	fd_set readfds;
 	const char *value;
 	int daemonize = 0;
 	static const struct option options[] = {
@@ -648,7 +644,6 @@ int main(int argc, char *argv[])
 		{}
 	};
 	int rc = 1;
-	int maxfd;
 
 	udev = udev_new();
 	if (udev == NULL)
@@ -731,34 +726,6 @@ int main(int argc, char *argv[])
 	}
 	udev_monitor_set_receive_buffer_size(kernel_monitor, 128*1024*1024);
 
-	err = pipe(signal_pipe);
-	if (err < 0) {
-		err(udev, "error getting pipes: %m\n");
-		goto exit;
-	}
-
-	err = fcntl(signal_pipe[READ_END], F_GETFL, 0);
-	if (err < 0) {
-		err(udev, "error fcntl on read pipe: %m\n");
-		goto exit;
-	}
-	err = fcntl(signal_pipe[READ_END], F_SETFL, err | O_NONBLOCK);
-	if (err < 0) {
-		err(udev, "error fcntl on read pipe: %m\n");
-		goto exit;
-	}
-
-	err = fcntl(signal_pipe[WRITE_END], F_GETFL, 0);
-	if (err < 0) {
-		err(udev, "error fcntl on write pipe: %m\n");
-		goto exit;
-	}
-	err = fcntl(signal_pipe[WRITE_END], F_SETFL, err | O_NONBLOCK);
-	if (err < 0) {
-		err(udev, "error fcntl on write pipe: %m\n");
-		goto exit;
-	}
-
 	rules = udev_rules_new(udev, 1);
 	if (rules == NULL) {
 		err(udev, "error reading rules\n");
@@ -838,7 +805,6 @@ int main(int argc, char *argv[])
 	memset(&act, 0x00, sizeof(struct sigaction));
 	act.sa_handler = (void (*)(int)) sig_handler;
 	sigemptyset(&act.sa_mask);
-	act.sa_flags = SA_RESTART;
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGCHLD, &act, NULL);
@@ -885,32 +851,45 @@ int main(int argc, char *argv[])
 		max_childs = strtoul(value, NULL, 10);
 	info(udev, "initialize max_childs to %u\n", max_childs);
 
-	maxfd = udev_ctrl_get_fd(udev_ctrl);
-	maxfd = UDEV_MAX(maxfd, udev_monitor_get_fd(kernel_monitor));
-	maxfd = UDEV_MAX(maxfd, signal_pipe[READ_END]);
-	maxfd = UDEV_MAX(maxfd, inotify_fd);
 	while (!udev_exit) {
-		int fdcount;
+		sigset_t blocked_mask, orig_mask;
+		struct pollfd *ctrl_poll, *monitor_poll, *inotify_poll = NULL;
+		struct pollfd pfd[10];
+		int fdcount, nfds = 0;
 
-		FD_ZERO(&readfds);
-		FD_SET(signal_pipe[READ_END], &readfds);
-		FD_SET(udev_ctrl_get_fd(udev_ctrl), &readfds);
-		FD_SET(udev_monitor_get_fd(kernel_monitor), &readfds);
+		sigfillset(&blocked_mask);
+		sigprocmask(SIG_SETMASK, &blocked_mask, &orig_mask);
+		if (signal_received) {
+			sigprocmask(SIG_SETMASK, &orig_mask, NULL);
+			goto handle_signals;
+		}
+
+#define POLL_FOR(__desc, __pollptr) do { \
+	pfd[nfds].fd = (__desc); pfd[nfds].events = POLLIN; \
+	__pollptr = &pfd[nfds++]; \
+} while (0)
+		POLL_FOR(udev_ctrl_get_fd(udev_ctrl), ctrl_poll);
+		POLL_FOR(udev_monitor_get_fd(kernel_monitor), monitor_poll);
 		if (inotify_fd >= 0)
-			FD_SET(inotify_fd, &readfds);
-		fdcount = select(maxfd+1, &readfds, NULL, NULL, NULL);
+			POLL_FOR(inotify_fd, inotify_poll);
+#undef POLL_FOR
+
+		fdcount = ppoll(pfd, nfds, NULL, &orig_mask);
+		sigprocmask(SIG_SETMASK, &orig_mask, NULL);
+
 		if (fdcount < 0) {
-			if (errno != EINTR)
-				err(udev, "error in select: %m\n");
+			if (errno == EINTR)
+				goto handle_signals;
+			err(udev, "error in select: %m\n");
 			continue;
 		}
 
 		/* get control message */
-		if (FD_ISSET(udev_ctrl_get_fd(udev_ctrl), &readfds))
+		if (ctrl_poll->revents & POLLIN)
 			handle_ctrl_msg(udev_ctrl);
 
 		/* get kernel uevent */
-		if (FD_ISSET(udev_monitor_get_fd(kernel_monitor), &readfds)) {
+		if (monitor_poll->revents & POLLIN) {
 			struct udev_device *dev;
 
 			dev = udev_monitor_receive_device(kernel_monitor);
@@ -925,15 +904,8 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		/* received a signal, clear our notification pipe */
-		if (FD_ISSET(signal_pipe[READ_END], &readfds)) {
-			char buf[256];
-
-			read(signal_pipe[READ_END], &buf, sizeof(buf));
-		}
-
 		/* rules directory inotify watch */
-		if ((inotify_fd >= 0) && FD_ISSET(inotify_fd, &readfds)) {
+		if (inotify_poll && (inotify_poll->revents & POLLIN)) {
 			int nbytes;
 
 			/* discard all possible events, we can just reload the config */
@@ -951,6 +923,9 @@ int main(int argc, char *argv[])
 				free(buf);
 			}
 		}
+
+handle_signals:
+		signal_received = 0;
 
 		/* rules changed, set by inotify or a HUP signal */
 		if (reload_config) {
@@ -979,10 +954,6 @@ int main(int argc, char *argv[])
 	rc = 0;
 exit:
 	udev_rules_unref(rules);
-	if (signal_pipe[READ_END] >= 0)
-		close(signal_pipe[READ_END]);
-	if (signal_pipe[WRITE_END] >= 0)
-		close(signal_pipe[WRITE_END]);
 	udev_ctrl_unref(udev_ctrl);
 	if (inotify_fd >= 0)
 		close(inotify_fd);
