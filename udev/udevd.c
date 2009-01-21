@@ -699,7 +699,8 @@ int main(int argc, char *argv[])
 			}
 			break;
 		case 'h':
-			printf("Usage: udevd [--help] [--daemon] [--debug-trace] [--debug] [--resolve-names=early|late|never] [--version]\n");
+			printf("Usage: udevd [--help] [--daemon] [--debug-trace] [--debug] "
+			       "[--resolve-names=early|late|never] [--version]\n");
 			goto exit;
 		case 'V':
 			printf("%s\n", VERSION);
