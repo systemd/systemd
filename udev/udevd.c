@@ -645,12 +645,14 @@ int main(int argc, char *argv[])
 	struct sigaction act;
 	const char *value;
 	int daemonize = 0;
+	int resolve_names = 1;
 	static const struct option options[] = {
 		{ "daemon", no_argument, NULL, 'd' },
 		{ "debug-trace", no_argument, NULL, 't' },
 		{ "debug", no_argument, NULL, 'D' },
 		{ "help", no_argument, NULL, 'h' },
 		{ "version", no_argument, NULL, 'V' },
+		{ "resolve-names", required_argument, NULL, 'N' },
 		{}
 	};
 	int rc = 1;
@@ -683,8 +685,19 @@ int main(int argc, char *argv[])
 			if (udev_get_log_priority(udev) < LOG_INFO)
 				udev_set_log_priority(udev, LOG_INFO);
 			break;
+		case 'N':
+			if (strcmp (optarg, "early") == 0) {
+				resolve_names = 1;
+			} else if (strcmp (optarg, "never") == 0) {
+				resolve_names = -1;
+			} else {
+				fprintf(stderr, "resolve-names must be early or never\n");
+				err(udev, "resolve-names must be early or never\n");
+				goto exit;
+			}
+			break;
 		case 'h':
-			printf("Usage: udevd [--help] [--daemon] [--debug-trace] [--debug] [--version]\n");
+			printf("Usage: udevd [--help] [--daemon] [--debug-trace] [--debug] [--resolve-names=early|never] [--version]\n");
 			goto exit;
 		case 'V':
 			printf("%s\n", VERSION);
@@ -736,7 +749,7 @@ int main(int argc, char *argv[])
 	}
 	udev_monitor_set_receive_buffer_size(kernel_monitor, 128*1024*1024);
 
-	rules = udev_rules_new(udev, 1);
+	rules = udev_rules_new(udev, resolve_names);
 	if (rules == NULL) {
 		err(udev, "error reading rules\n");
 		goto exit;
@@ -946,7 +959,7 @@ handle_signals:
 			struct udev_rules *rules_new;
 
 			reload_config = 0;
-			rules_new = udev_rules_new(udev, 1);
+			rules_new = udev_rules_new(udev, resolve_names);
 			if (rules_new != NULL) {
 				udev_rules_unref(rules);
 				rules = rules_new;
