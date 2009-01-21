@@ -853,9 +853,10 @@ int main(int argc, char *argv[])
 
 	while (!udev_exit) {
 		sigset_t blocked_mask, orig_mask;
+		struct pollfd pfd[4];
 		struct pollfd *ctrl_poll, *monitor_poll, *inotify_poll = NULL;
-		struct pollfd pfd[10];
-		int fdcount, nfds = 0;
+		int nfds = 0;
+		int fdcount;
 
 		sigfillset(&blocked_mask);
 		sigprocmask(SIG_SETMASK, &blocked_mask, &orig_mask);
@@ -864,19 +865,22 @@ int main(int argc, char *argv[])
 			goto handle_signals;
 		}
 
-#define POLL_FOR(__desc, __pollptr) do { \
-	pfd[nfds].fd = (__desc); pfd[nfds].events = POLLIN; \
-	__pollptr = &pfd[nfds++]; \
-} while (0)
-		POLL_FOR(udev_ctrl_get_fd(udev_ctrl), ctrl_poll);
-		POLL_FOR(udev_monitor_get_fd(kernel_monitor), monitor_poll);
-		if (inotify_fd >= 0)
-			POLL_FOR(inotify_fd, inotify_poll);
-#undef POLL_FOR
+		ctrl_poll = &pfd[nfds++];
+		ctrl_poll->fd = udev_ctrl_get_fd(udev_ctrl);
+		ctrl_poll->events = POLLIN;
+
+		monitor_poll = &pfd[nfds++];
+		monitor_poll->fd = udev_monitor_get_fd(kernel_monitor);
+		monitor_poll->events = POLLIN;
+
+		if (inotify_fd >= 0) {
+			inotify_poll = &pfd[nfds++];
+			inotify_poll->fd = inotify_fd;
+			inotify_poll->events = POLLIN;
+		}
 
 		fdcount = ppoll(pfd, nfds, NULL, &orig_mask);
 		sigprocmask(SIG_SETMASK, &orig_mask, NULL);
-
 		if (fdcount < 0) {
 			if (errno == EINTR)
 				goto handle_signals;
