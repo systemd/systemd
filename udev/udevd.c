@@ -59,6 +59,8 @@ static void log_fn(struct udev *udev, int priority,
 	}
 }
 
+static void reap_sigchilds(void);
+
 static int debug_trace;
 static struct udev_rules *rules;
 static struct udev_ctrl *udev_ctrl;
@@ -403,6 +405,7 @@ static void event_queue_manager(struct udev *udev)
 	struct udev_list_node *loop;
 	struct udev_list_node *tmp;
 
+start_over:
 	if (udev_list_is_empty(&event_list)) {
 		if (childs > 0) {
 			err(udev, "event list empty, but childs count is %i", childs);
@@ -432,6 +435,13 @@ static void event_queue_manager(struct udev *udev)
 
 		event_fork(loop_event);
 		dbg(udev, "moved seq %llu to running list\n", udev_device_get_seqnum(loop_event->dev));
+
+		/* retry if events finished in the meantime */
+		if (sigchilds_waiting) {
+			sigchilds_waiting = 0;
+			reap_sigchilds();
+			goto start_over;
+		}
 	}
 }
 
