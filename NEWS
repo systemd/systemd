@@ -6,7 +6,8 @@ The udevadm test command has no longer a --force option, nodes and symlinks
 are always updated with a test run now.
 
 The udevd daemon can be started with --resolve-names=never to avoid all user
-and group lookups (e.g. in cut-down systems).
+and group lookups (e.g. in cut-down systems) or --resolve-names=late to
+lookup user and groups every time events are handled.
 
 udev 136
 ========
