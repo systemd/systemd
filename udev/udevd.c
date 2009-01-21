@@ -831,6 +831,7 @@ int main(int argc, char *argv[])
 	memset(&act, 0x00, sizeof(struct sigaction));
 	act.sa_handler = (void (*)(int)) sig_handler;
 	sigemptyset(&act.sa_mask);
+	act.sa_flags = SA_RESTART;
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGTERM, &act, NULL);
 	sigaction(SIGCHLD, &act, NULL);
