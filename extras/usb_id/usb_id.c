@@ -107,7 +107,7 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
 	if (eptr != from) {
 		switch (type_num) {
 		case 2:
-			type = "cd";
+			type = "atapi";
 			break;
 		case 3:
 			type = "tape";
@@ -127,7 +127,6 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
 		}
 	}
 	util_strlcpy(to, type, len);
-
 	return type_num;
 }
 
@@ -205,8 +204,10 @@ static int usb_id(struct udev_device *dev)
 		     udev_device_get_sysname(dev));
 		return 1;
 	}
+
 	if_class_num = strtoul(if_class, NULL, 16);
 	if (if_class_num == 8) {
+		/* mass storage */
 		if_subclass = udev_device_get_sysattr_value(dev_interface, "bInterfaceSubClass");
 		if (if_subclass != NULL)
 			protocol = set_usb_mass_storage_ifsubtype(type_str, if_subclass, sizeof(type_str)-1);
@@ -225,8 +226,8 @@ static int usb_id(struct udev_device *dev)
 		return 1;
 	}
 
-	/* mass storage */
-	if (protocol == 6 && !use_usb_info) {
+	/* mass storage : SCSI or ATAPI */
+	if ((protocol == 6 || protocol == 2) && !use_usb_info) {
 		struct udev_device *dev_scsi;
 		const char *scsi_model, *scsi_vendor, *scsi_type, *scsi_rev;
 		int host, bus, target, lun;
