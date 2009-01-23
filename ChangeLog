@@ -1,3 +1,44 @@
+Summary of changes from v136 to v137
+============================================
+
+Alan Jenkins (2):
+      man: typo fixes
+      remove stray initializer
+
+Kay Sievers (17):
+      version bump
+      rules: fix typo in ide cd rule
+      libudev: use 4096 bytes buffer for attribute reading
+      rules: add drm devices to group "video"
+      do not complain about a missing /etc/udev/rules.d/
+      udevadm: test - remove --force option
+      update NEWS
+      remove name from index if the node name has changed
+      cleanup old names before creating the new names
+      open-code pollfd setup
+      increase netif renaming timeout from 30 to 90 seconds
+      Merge commit '5f03ed8a56d308af72db8a48ab66ed68667af2c6'
+      Merge commit '9032f119f07ad3b5116b3d4858816d851d4127de'
+      split up long line
+      udevd: add back SA_RESTART
+      usb_id: handle ATAPI devices like SCSI devices
+      udevadm: settle - fix typo
+
+Lennart Poettering (1):
+      fix naming for tape nst devices in /dev/tape/by-path/
+
+Olaf Kirch (2):
+      udevd: use ppoll instead of signal pipes
+      reap children faster
+
+Scott James Remnant (2):
+      Allow user and group lookup to be disabled.
+      Expose delayed name resolution
+
+Sven Jost (1):
+      volume_id: support via raid version 2
+
+
 Summary of changes from v135 to v136
 ============================================
 
