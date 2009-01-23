@@ -89,7 +89,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 
 		if (!quiet) {
 			info(udev, "timeout waiting for udev queue\n");
-			printf("\ndevadm settle timeout of %i seconds reached, the event queue contains:\n", timeout);
+			printf("\nudevadm settle - timeout of %i seconds reached, the event queue contains:\n", timeout);
 			udev_list_entry_foreach(list_entry, udev_queue_get_queued_list_entry(udev_queue))
 				printf("  %s (%s)\n",
 				       udev_list_entry_get_name(list_entry),
