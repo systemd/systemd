@@ -52,7 +52,7 @@ The most recent version of this document can always be found at: <br />
 <li>Finding suitable information from sysfs
 	<ul>
 	<li><a href="#sysfstree">The sysfs tree</a></li>
-	<li><a href="#udevinfo">udevinfo</a></li>
+	<li><a href="#udevadm">udevadm info</a></li>
 	<li><a href="#sysfsalt">Alternative methods</a></li>
 	</ul>
 </li>
@@ -429,15 +429,15 @@ In a udev rule, I could use ATTR{size}=="234441648" to identify this disk. As ud
 Although this serves as a useful introduction as to the structure of sysfs and exactly how udev matches values, manually trawling through sysfs is both time consuming and unnecessary.
 </p>
 
-<a name="udevinfo"></a>
-<h3>udevinfo</h3>
+<a name="udevadm"></a>
+<h3>udevadm info</h3>
 
 <p>
-Enter <em>udevinfo</em>, which is probably the most straightforward tool you can use to construct rules. All you need to know is the sysfs device path of the device in question. A trimmed example is shown below:
+Enter <em>udevadm info</em>, which is probably the most straightforward tool you can use to construct rules. All you need to know is the sysfs device path of the device in question. A trimmed example is shown below:
 </p>
 
 <blockquote><pre>
-# udevinfo -a -p /sys/block/sda
+# udevadm info -a -p /sys/block/sda
 
 <span class="green">  looking at device '/block/sda':
     KERNEL=="sda"
@@ -476,7 +476,7 @@ Enter <em>udevinfo</em>, which is probably the most straightforward tool you can
 </pre></blockquote>
 
 <p>
-As you can see, udevinfo simply produces a list of attributes you can use as-is as match keys in your udev rules. From the above example, I could produce (e.g.) either of the following two rules for this device:
+As you can see, udevadm info simply produces a list of attributes you can use as-is as match keys in your udev rules. From the above example, I could produce (e.g.) either of the following two rules for this device:
 </p>
 
 <blockquote><pre>
@@ -495,24 +495,24 @@ You are usually provided with a large number of attributes, and you must pick a 
 </p>
 
 <p>
-Observe the effects of hierarchy in the udevinfo output. The <span class="green">green</span> section corresponding to the device in question uses the standard match keys such as KERNEL and ATTR. The <span class="blue">blue</span> and <span class="maroon">maroon</span> sections corresponding to parent devices use the parent-traversing variants such as SUBSYSTEMS and ATTRS. This is why the complexity introduced by the hierarchical structure is actually quite easy to deal with, just be sure to use the exact values that udevinfo suggests.
+Observe the effects of hierarchy in the udevadm info output. The <span class="green">green</span> section corresponding to the device in question uses the standard match keys such as KERNEL and ATTR. The <span class="blue">blue</span> and <span class="maroon">maroon</span> sections corresponding to parent devices use the parent-traversing variants such as SUBSYSTEMS and ATTRS. This is why the complexity introduced by the hierarchical structure is actually quite easy to deal with, just be sure to use the exact values that udevadm info suggests.
 </p>
 
 <p>
-Another point to note is that it is common for text attributes to appear in the udevinfo output to be padded with spaces (e.g. see ST3120827AS above). In your rules, you can either specify the extra spaces, or you can cut them off as I have done.
+Another point to note is that it is common for text attributes to appear in the udevadm info output to be padded with spaces (e.g. see ST3120827AS above). In your rules, you can either specify the extra spaces, or you can cut them off as I have done.
 </p>
 
 <p>
-The only complication with using udevinfo is that you are required to know the top-level device path (/sys/block/sda in the example above). This is not always obvious. However, as you are generally writing rules for device nodes which already exist, you can use udevinfo to look up the device path for you:
+The only complication with using udevadm info is that you are required to know the top-level device path (/sys/block/sda in the example above). This is not always obvious. However, as you are generally writing rules for device nodes which already exist, you can use udevadm info to look up the device path for you:
 </p>
 
-<blockquote><pre># udevinfo -a -p $(udevinfo -q path -n /dev/sda)</pre></blockquote>
+<blockquote><pre># udevadm info -a -p $(udevadm info -q path -n /dev/sda)</pre></blockquote>
 
 <a name="sysfsalt"></a>
 <h3>Alternative methods</h3>
 
 <p>
-Although udevinfo is almost certainly the most straightforward way of listing the exact attributes you can build rules from, some users are happier with other tools. Utilities such as <a href="http://www.kroah.com/linux/usb/">usbview</a> display a similar set of information, most of which can be used in rules.
+Although udevadm info is almost certainly the most straightforward way of listing the exact attributes you can build rules from, some users are happier with other tools. Utilities such as <a href="http://www.kroah.com/linux/usb/">usbview</a> display a similar set of information, most of which can be used in rules.
 </p>
 
 <h2>Advanced topics</h2>
@@ -659,11 +659,11 @@ For example, the rule below sets the group ownership on my hard disk node, and e
 <h3>USB Printer</h3>
 
 <p>
-I power on my printer, and it is assigned device node <em>/dev/lp0</em>. Not satisfied with such a bland name, I decide to use udevinfo to aid me in writing a rule which will provide an alternative name:
+I power on my printer, and it is assigned device node <em>/dev/lp0</em>. Not satisfied with such a bland name, I decide to use udevadm info to aid me in writing a rule which will provide an alternative name:
 </p>
 
 <blockquote><pre>
-# udevinfo -a -p $(udevinfo -q path -n /dev/lp0)
+# udevadm info -a -p $(udevadm info -q path -n /dev/lp0)
   looking at device '/class/usb/lp0':
     KERNEL=="lp0"
     SUBSYSTEM=="usb"
@@ -695,7 +695,7 @@ Not all cameras work in this way: some of them use a non-storage protocol such a
 </p>
 
 <p>
-A common complication with USB camera devices is that they usually identify themselves as a disk with a single partition, in this case <em>/dev/sdb</em> with <em>/dev/sdb1</em>. The sdb node is useless to me, but sdb1 is interesting - this is the one I want to mount. There is a problem here that because sysfs is chained, the useful attributes which udevinfo produces for /dev/sdb1 are identical to the ones for /dev/sdb. This results in your rule potentially matching <u>both</u> the raw disk and the partition, which is not what you want, your rule should be <b>specific</b>.
+A common complication with USB camera devices is that they usually identify themselves as a disk with a single partition, in this case <em>/dev/sdb</em> with <em>/dev/sdb1</em>. The sdb node is useless to me, but sdb1 is interesting - this is the one I want to mount. There is a problem here that because sysfs is chained, the useful attributes which udevadm info produces for /dev/sdb1 are identical to the ones for /dev/sdb. This results in your rule potentially matching <u>both</u> the raw disk and the partition, which is not what you want, your rule should be <b>specific</b>.
 </p>
 
 <p>
@@ -703,7 +703,7 @@ To get around this, you simply need to think about what differs between sdb and 
 </p>
 
 <blockquote><pre>
-# udevinfo -a -p $(udevinfo -q path -n /dev/sdb1)
+# udevadm info -a -p $(udevadm info -q path -n /dev/sdb1)
   looking at device '/block/sdb/sdb1':
     KERNEL=="sdb1"
     SUBSYSTEM=="block"
@@ -781,7 +781,7 @@ These devices work as USB-serial devices, so by default, you only get the <em>tt
 <blockquote><pre>SUBSYSTEMS=="usb", ATTRS{product}=="Palm Handheld", KERNEL=="ttyUSB*", SYMLINK+="pilot"</pre></blockquote>
 
 <p>
-Note that the product string seems to vary from product to product, so make sure that you check (using udevinfo) which one applies to you.
+Note that the product string seems to vary from product to product, so make sure that you check (using udevadm info) which one applies to you.
 </p>
 
 <a name="example-cdrom"></a>
@@ -808,11 +808,11 @@ Even though they are referenced by names, network interfaces typically do not ha
 </p>
 
 <p>
-It makes sense to simply match the MAC address of your interface in the rule, as this is unique. However, make sure that you use the <em>exact</em> MAC address as shown as udevinfo, because if you do not match the case exactly, your rule will not work.
+It makes sense to simply match the MAC address of your interface in the rule, as this is unique. However, make sure that you use the <em>exact</em> MAC address as shown as udevadm info, because if you do not match the case exactly, your rule will not work.
 </p>
 
 <blockquote><pre>
-# udevinfo -a -p /sys/class/net/eth0
+# udevadm info -a -p /sys/class/net/eth0
   looking at class device '/sys/class/net/eth0':
     KERNEL=="eth0"
     ATTR{address}=="00:52:8b:d5:04:48"
