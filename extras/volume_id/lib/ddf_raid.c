@@ -87,7 +87,7 @@ int volume_id_probe_ddf_raid(struct volume_id *id, uint64_t off, uint64_t size)
 	return -1;
 found:
 	volume_id_set_uuid(id, ddf->guid, DDF_GUID_LENGTH, UUID_STRING);
-	snprintf(id->type_version, DDF_REV_LENGTH, "%s", ddf->ddf_rev);
+	snprintf(id->type_version, DDF_REV_LENGTH + 1, "%s", ddf->ddf_rev);
 	volume_id_set_usage(id, VOLUME_ID_RAID);
 	id->type = "ddf_raid_member";
 	return 0;
