@@ -57,6 +57,7 @@ int volume_id_probe_linux_swap(struct volume_id *id, uint64_t off, uint64_t size
 				return -1;
 
 			if (memcmp(buf, "SWAP-SPACE", 10) == 0) {
+				id->type = "swap";
 				strcpy(id->type_version, "1");
 				goto found;
 			}
