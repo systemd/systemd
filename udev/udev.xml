@@ -90,7 +90,7 @@
           pointing to the node, or run a specified program as part of the event handling.
           If no matching rule is found, the default device node name is used.</para>
 
-          <para>A rule may consist of a list of one or more key value pairs separated by
+          <para>A rule consists of a list of one or more key value pairs separated by
           a comma. Each key has a distinct operation, depending on the used operator. Valid
           operators are:</para>
           <variablelist>
@@ -104,7 +104,7 @@
             <varlistentry>
               <term><option>!=</option></term>
               <listitem>
-                <para>Compare for non-equality.</para>
+                <para>Compare for inequality.</para>
               </listitem>
             </varlistentry>
 
