@@ -9,7 +9,7 @@ IMPORT{program}="/sbin/dmsetup export -j%M -m%m"
 ENV{DM_NAME}!="?*", GOTO="device_mapper_end"
 
 SYMLINK+="disk/by-id/dm-name-$env{DM_NAME}", OPTIONS+="string_escape=replace"
-ENV{DM_UUID}=="?*", SYMLINK+="disk/by-id/dm-uuid-$env{DM_UUID}"
+ENV{DM_UUID}=="?*", SYMLINK+="disk/by-id/dm-uuid-$env{DM_UUID}", OPTIONS+="string_escape=replace"
 
 ENV{DM_STATE}=="SUSPENDED", GOTO="device_mapper_end"
 ENV{DM_TARGET_TYPES}=="|*error*", GOTO="device_mapper_end"
