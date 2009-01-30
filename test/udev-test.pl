@@ -1032,7 +1032,7 @@ EOF
 		not_exp_name	=> "node",
 		exp_add_error	=> "yes",
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda", NAME="node", OPTIONS="ignore"
+SUBSYSTEMS=="scsi", KERNEL=="sda", NAME="node", OPTIONS="ignore_device"
 EOF
 	},
 	{
@@ -1419,6 +1419,17 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "<none>",
+		not_exp_name	=> "ttyACM0",
+		exp_add_error	=> "yes",
+		rules		=> <<EOF
+KERNEL=="ttyACM[0-9]*", NAME=""
+EOF
+	},
+	{
+		desc		=> "test empty NAME (empty override)",
+		subsys		=> "tty",
+		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
+		exp_name	=> "<none>",
 		not_exp_name	=> "wrong",
 		exp_add_error	=> "yes",
 		rules		=> <<EOF
@@ -1427,7 +1438,7 @@ KERNEL=="ttyACM[0-9]*", NAME=""
 EOF
 	},
 	{
-		desc		=> "test empty NAME 2",
+		desc		=> "test empty NAME (non-empty override)",
 		subsys		=> "tty",
 		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "right",
@@ -1593,16 +1604,6 @@ EOF
 		rules		=> <<EOF
 TEST=="/etc/hosts", NAME="there"
 TEST!="/etc/hosts", NAME="notthere"
-EOF
-	},
-	{
-		desc		=> "TEST invalid NAME= only (skip invalid rule)",
-		subsys		=> "block",
-		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-		exp_name	=> "yes",
-		rules		=> <<EOF
-SUBSYSTEM=="block", NAME="yes"
-NAME="no"
 EOF
 	},
 	{
@@ -1817,19 +1818,20 @@ sub run_test {
 
 
 	udev("add", $rules->{subsys}, $rules->{devpath}, \$rules->{rules});
+	if (defined($rules->{not_exp_name})) {
+		if ((-e "$PWD/$udev_root$rules->{not_exp_name}") ||
+		    (-l "$PWD/$udev_root$rules->{not_exp_name}")) {
+			print "nonexistent: error \'$rules->{not_exp_name}\' not expected to be there\n";
+			$error++
+		}
+	}
+
 	if ((-e "$PWD/$udev_root$rules->{exp_name}") ||
 	    (-l "$PWD/$udev_root$rules->{exp_name}")) {
 
 		my ($dev, $ino, $mode, $nlink, $uid, $gid, $rdev, $size,
 		    $atime, $mtime, $ctime, $blksize, $blocks) = stat("$PWD/$udev_root$rules->{exp_name}");
 
-		if (defined($rules->{not_exp_name})) {
-			if ((-e "$PWD/$udev_root$rules->{not_exp_name}") ||
-			    (-l "$PWD/$udev_root$rules->{not_exp_name}")) {
-				print "nonexistent: error \'$rules->{not_exp_name}\' not expected to be there\n";
-				$error++
-			}
-		}
 		if (defined($rules->{exp_perms})) {
 			permissions_test($rules, $uid, $gid, $mode);
 		}
