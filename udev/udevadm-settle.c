@@ -84,6 +84,8 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 			break;
 		usleep(1000 * 1000 / LOOP_PER_SECOND);
 	}
+
+	/* if we reached the timeout, print the list of remaining events */
 	if (loop <= 0) {
 		struct udev_list_entry *list_entry;
 

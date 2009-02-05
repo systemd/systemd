@@ -483,6 +483,33 @@ ATTRS{dev}=="5:1", NAME="foo"
 EOF
 	},
 	{
+		desc		=> "ATTR (empty file)",
+		subsys		=> "tty",
+		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+		exp_name	=> "empty" ,
+		rules		=> <<EOF
+KERNEL=="sda", ATTR{test_empty_file}=="?*", NAME:="something"
+KERNEL=="sda", ATTR{test_empty_file}!="", NAME:="not-empty"
+KERNEL=="sda", ATTR{test_empty_file}=="", NAME:="empty"
+KERNEL=="sda", ATTR{test_empty_file}!="?*", NAME:="not-something"
+KERNEL=="sda", NAME="wrong"
+EOF
+	},
+	{
+		desc		=> "ATTR (non-existent file)",
+		subsys		=> "tty",
+		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
+		exp_name	=> "non-existent" ,
+		rules		=> <<EOF
+KERNEL=="sda", ATTR{nofile}=="?*", NAME:="something"
+KERNEL=="sda", ATTR{nofile}!="", NAME:="not-empty"
+KERNEL=="sda", ATTR{nofile}=="", NAME:="empty"
+KERNEL=="sda", ATTR{nofile}!="?*", NAME:="not-something"
+KERNEL=="sda", TEST!="nofile", NAME:="non-existent"
+KERNEL=="sda", NAME="wrong"
+EOF
+	},
+	{
 		desc		=> "program and bus type match",
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
