@@ -11,6 +11,7 @@ KERNEL!="md*", GOTO="md_end"
 # container devices have a metadata version of e.g. 'external:ddf' and
 # never leave state 'inactive'
 ATTR{md/metadata_version}=="external:[A-Za-z]*", ATTR{md/array_state}=="inactive", GOTO="md_ignore_state"
+TEST!="md/array_state", GOTO="md_end"
 ATTR{md/array_state}=="|clear|inactive", GOTO="md_end"
 LABEL="md_ignore_state"
 
