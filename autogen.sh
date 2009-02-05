@@ -6,7 +6,8 @@ CFLAGS="-g -Wall \
 -Wmissing-declarations -Wmissing-prototypes \
 -Wnested-externs -Wpointer-arith \
 -Wpointer-arith -Wsign-compare -Wchar-subscripts \
--Wstrict-prototypes -Wshadow"
+-Wstrict-prototypes -Wshadow \
+-Wformat=2 -Wtype-limits"
 args="--prefix=/usr --exec-prefix= --sysconfdir=/etc --with-selinux"
 libdir=$(basename $(cd /lib/$(gcc -print-multi-os-directory); pwd))
 
