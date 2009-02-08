@@ -2371,13 +2371,13 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					count = udev_util_replace_chars(name_str, "/");
 					if (count > 0)
 						info(event->udev, "%i character(s) replaced\n", count);
-					free(event->name);
-					event->name = strdup(name_str);
-					info(event->udev, "NAME '%s' %s:%u\n",
-					     event->name,
-					     &rules->buf[rule->rule.filename_off],
-					     rule->rule.filename_line);
 				}
+				free(event->name);
+				event->name = strdup(name_str);
+				info(event->udev, "NAME '%s' %s:%u\n",
+				     event->name,
+				     &rules->buf[rule->rule.filename_off],
+				     rule->rule.filename_line);
 				break;
 			}
 		case TK_A_DEVLINK:
