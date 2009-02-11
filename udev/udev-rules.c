@@ -140,6 +140,7 @@ enum token_type {
 	TK_A_IGNORE_DEVICE,
 	TK_A_STRING_ESCAPE_NONE,
 	TK_A_STRING_ESCAPE_REPLACE,
+	TK_A_INOTIFY_WATCH,
 	TK_A_NUM_FAKE_PART,		/* int */
 	TK_A_DEVLINK_PRIO,		/* int */
 	TK_A_OWNER,			/* val */
@@ -270,6 +271,7 @@ static const char *token_str(enum token_type type)
 		[TK_A_IGNORE_DEVICE] =		"A IGNORE_DEVICE",
 		[TK_A_STRING_ESCAPE_NONE] =	"A STRING_ESCAPE_NONE",
 		[TK_A_STRING_ESCAPE_REPLACE] =	"A STRING_ESCAPE_REPLACE",
+		[TK_A_INOTIFY_WATCH] = 		"A INOTIFY_WATCH",
 		[TK_A_NUM_FAKE_PART] =		"A NUM_FAKE_PART",
 		[TK_A_DEVLINK_PRIO] =		"A DEVLINK_PRIO",
 		[TK_A_OWNER] =			"A OWNER",
@@ -352,6 +354,7 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 	case TK_A_IGNORE_DEVICE:
 	case TK_A_STRING_ESCAPE_NONE:
 	case TK_A_STRING_ESCAPE_REPLACE:
+	case TK_A_INOTIFY_WATCH:
 	case TK_A_LAST_RULE:
 	case TK_A_IGNORE_REMOVE:
 		dbg(rules->udev, "%s\n", token_str(type));
@@ -1020,6 +1023,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 	case TK_A_IGNORE_DEVICE:
 	case TK_A_STRING_ESCAPE_NONE:
 	case TK_A_STRING_ESCAPE_REPLACE:
+	case TK_A_INOTIFY_WATCH:
 	case TK_A_IGNORE_REMOVE:
 	case TK_A_LAST_RULE:
 		break;
@@ -1511,6 +1515,11 @@ static int add_rule(struct udev_rules *rules, char *line,
 
 				rule_add_key(&rule_tmp, TK_A_NUM_FAKE_PART, 0, NULL, &num);
 				dbg(rules->udev, "creation of partition nodes requested\n");
+			}
+			pos = strstr(value, "watch");
+			if (pos != NULL) {
+				rule_add_key(&rule_tmp, TK_A_INOTIFY_WATCH, 0, NULL, NULL);
+				dbg(rules->udev, "inotify watch of device requested\n");
 			}
 			continue;
 		}
@@ -2243,6 +2252,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			if (udev_device_get_sysnum(event->dev) != NULL)
 				break;
 			udev_device_set_num_fake_partitions(event->dev, cur->key.num_fake_part);
+			break;
+		case TK_A_INOTIFY_WATCH:
+			event->inotify_watch = 1;
 			break;
 		case TK_A_DEVLINK_PRIO:
 			udev_device_set_devlink_priority(event->dev, cur->key.devlink_prio);

@@ -65,7 +65,6 @@ static int debug_trace;
 static struct udev_rules *rules;
 static struct udev_ctrl *udev_ctrl;
 static struct udev_monitor *kernel_monitor;
-static int inotify_fd = -1;
 static volatile int sigchilds_waiting;
 static volatile int udev_exit;
 static volatile int reload_config;
@@ -195,8 +194,6 @@ static void event_fork(struct udev_event *event)
 		/* child */
 		udev_monitor_unref(kernel_monitor);
 		udev_ctrl_unref(udev_ctrl);
-		if (inotify_fd >= 0)
-			close(inotify_fd);
 		logging_close();
 		logging_init("udevd-event");
 		setpriority(PRIO_PROCESS, 0, UDEV_PRIORITY);
@@ -511,6 +508,58 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl)
 		max_childs = i;
 	}
 	udev_ctrl_msg_unref(ctrl_msg);
+}
+
+/* read inotify messages */
+static int handle_inotify(struct udev *udev)
+{
+	int nbytes, pos;
+	char *buf;
+	struct inotify_event *ev;
+	int reload_config = 0;
+
+	if ((ioctl(inotify_fd, FIONREAD, &nbytes) < 0) || (nbytes <= 0))
+		return 0;
+
+	buf = malloc(nbytes);
+	if (buf == NULL) {
+		err(udev, "error getting buffer for inotify, disable watching\n");
+		close(inotify_fd);
+		inotify_fd = -1;
+		return 0;
+	}
+
+	read(inotify_fd, buf, nbytes);
+
+	for (pos = 0, ev = (struct inotify_event *)(buf + pos); pos < nbytes; pos += sizeof(struct inotify_event) + ev->len) {
+		const char *syspath;
+
+		dbg(udev, "inotify event: %x for %d (%s)\n", ev->mask, ev->wd, ev->len ? ev->name : "*");
+
+		syspath = udev_watch_lookup(udev, ev->wd);
+		if (syspath != NULL) {
+			dbg(udev, "inotify event: %x for %s\n", ev->mask, syspath);
+			if (ev->mask & IN_CLOSE_WRITE) {
+				char filename[UTIL_PATH_SIZE];
+				int fd;
+
+				info(udev, "device %s closed, synthesising write\n", syspath);
+				util_strlcpy(filename, syspath, sizeof(filename));
+				util_strlcat(filename, "/uevent", sizeof(filename));
+				fd = open(filename, O_WRONLY);
+				if (fd < 0 || write(fd, "change", 6) < 0)
+					info(udev, "error writing uevent: %m\n");
+				close(fd);
+			}
+			if (ev->mask & IN_IGNORED)
+				udev_watch_end(udev, ev->wd);
+		} else {
+			reload_config = 1;
+		}
+	}
+
+	free (buf);
+	return reload_config;
 }
 
 static void asmlinkage sig_handler(int signum)
@@ -838,7 +887,7 @@ int main(int argc, char *argv[])
 	sigaction(SIGHUP, &act, NULL);
 
 	/* watch rules directory */
-	inotify_fd = inotify_init();
+	udev_watch_init(udev);
 	if (inotify_fd >= 0) {
 		if (udev_get_rules_path(udev) != NULL) {
 			inotify_add_watch(inotify_fd, udev_get_rules_path(udev),
@@ -857,10 +906,9 @@ int main(int argc, char *argv[])
 			inotify_add_watch(inotify_fd, filename,
 					  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
 		}
-	} else if (errno == ENOSYS)
-		info(udev, "unable to use inotify, udevd will not monitor rule files changes\n");
-	else
-		err(udev, "inotify_init failed: %m\n");
+
+		udev_watch_restore(udev);
+	}
 
 	/* in trace mode run one event after the other */
 	if (debug_trace) {
@@ -936,24 +984,8 @@ int main(int argc, char *argv[])
 		}
 
 		/* rules directory inotify watch */
-		if (inotify_poll && (inotify_poll->revents & POLLIN)) {
-			int nbytes;
-
-			/* discard all possible events, we can just reload the config */
-			if ((ioctl(inotify_fd, FIONREAD, &nbytes) == 0) && nbytes > 0) {
-				char *buf;
-
-				reload_config = 1;
-				buf = malloc(nbytes);
-				if (buf == NULL) {
-					err(udev, "error getting buffer for inotify, disable watching\n");
-					close(inotify_fd);
-					inotify_fd = -1;
-				}
-				read(inotify_fd, buf, nbytes);
-				free(buf);
-			}
-		}
+		if (inotify_poll && (inotify_poll->revents & POLLIN))
+			reload_config = handle_inotify(udev);
 
 handle_signals:
 		signal_received = 0;

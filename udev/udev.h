@@ -75,7 +75,14 @@ struct udev_event {
 	unsigned int devlink_final:1;
 	unsigned int run_final:1;
 	unsigned int ignore_device:1;
+	unsigned int inotify_watch:1;
 	unsigned int trace:1;
+};
+
+struct udev_watch {
+	struct udev_list_node node;
+	int handle;
+	char *name;
 };
 
 /* udev-rules.c */
@@ -92,6 +99,15 @@ extern int udev_event_execute_run(struct udev_event *event);
 extern void udev_event_apply_format(struct udev_event *event, char *string, size_t maxsize);
 extern int udev_event_apply_subsys_kernel(struct udev_event *event, const char *string,
 					  char *result, size_t maxsize, int read_value);
+
+/* udev-watch.c */
+extern int inotify_fd;
+extern void udev_watch_init(struct udev *udev);
+extern void udev_watch_restore(struct udev *udev);
+extern void udev_watch_begin(struct udev *udev, struct udev_device *dev);
+extern void udev_watch_clear(struct udev *udev, struct udev_device *dev);
+extern void udev_watch_end(struct udev *udev, int wd);
+extern const char *udev_watch_lookup(struct udev *udev, int wd);
 
 /* udev-node.c */
 extern int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mode_t mode, uid_t uid, gid_t gid);

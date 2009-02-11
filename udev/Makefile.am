@@ -16,6 +16,7 @@ common_files = \
 	udev.h \
 	udev-sysdeps.h \
 	udev-event.c \
+	udev-watch.c \
 	udev-node.c \
 	udev-rules.c \
 	udev-util.c \
