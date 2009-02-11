@@ -57,8 +57,8 @@ ENV{DEVTYPE}=="disk", KERNEL!="sd*|sr*", ATTR{removable}=="1", GOTO="persistent_
 # probe filesystem metadata of optical drives which have a media inserted
 KERNEL=="sr*", ENV{ID_CDROM_MEDIA_TRACK_COUNT}=="?*", IMPORT{program}="vol_id --export --skip-raid --offset=$env{ID_CDROM_MEDIA_SESSION_LAST_OFFSET} $tempnode"
 
-# probe filesystem metadata of disks
-KERNEL!="sr*", IMPORT{program}="vol_id --export $tempnode"
+# probe filesystem metadata of disks, watch for future changes
+KERNEL!="sr*", IMPORT{program}="vol_id --export $tempnode", OPTIONS+="watch"
 
 # by-label/by-uuid links (filesystem metadata)
 ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+="disk/by-uuid/$env{ID_FS_UUID_ENC}"

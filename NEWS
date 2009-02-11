@@ -3,6 +3,8 @@ udev 138
 Device nodes can be watched for changes with inotify with OPTIONS="watch".  If
 closed after being opened for writing, a "change" uevent will occur.
 
+/dev/disk/by-*/* symlinks will be automatically updated.
+
 udev 137
 ========
 Bugfixes.
