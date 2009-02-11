@@ -516,7 +516,6 @@ static int handle_inotify(struct udev *udev)
 	int nbytes, pos;
 	char *buf;
 	struct inotify_event *ev;
-	int reload_config = 0;
 
 	if ((ioctl(inotify_fd, FIONREAD, &nbytes) < 0) || (nbytes <= 0))
 		return 0;
@@ -543,7 +542,7 @@ static int handle_inotify(struct udev *udev)
 				char filename[UTIL_PATH_SIZE];
 				int fd;
 
-				info(udev, "device %s closed, synthesising write\n", syspath);
+				info(udev, "device %s closed, synthesising 'change'\n", syspath);
 				util_strlcpy(filename, syspath, sizeof(filename));
 				util_strlcat(filename, "/uevent", sizeof(filename));
 				fd = open(filename, O_WRONLY);
@@ -559,7 +558,7 @@ static int handle_inotify(struct udev *udev)
 	}
 
 	free (buf);
-	return reload_config;
+	return 0;
 }
 
 static void asmlinkage sig_handler(int signum)
@@ -985,7 +984,7 @@ int main(int argc, char *argv[])
 
 		/* rules directory inotify watch */
 		if (inotify_poll && (inotify_poll->revents & POLLIN))
-			reload_config = handle_inotify(udev);
+			handle_inotify(udev);
 
 handle_signals:
 		signal_received = 0;

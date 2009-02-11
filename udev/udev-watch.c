@@ -102,21 +102,16 @@ void udev_watch_restore(struct udev *udev)
 
 			buf[len] = '\0';
 			dbg(udev, "old watch to '%s' found\n", buf);
-
 			dev = udev_device_new_from_syspath(udev, buf);
 			if (dev == NULL) {
 				unlink(path);
 				continue;
 			}
 
-			udev_device_read_db(dev);
-			udev_device_set_info_loaded(dev);
-
 			info(udev, "restoring old watch on '%s'\n", udev_device_get_devnode(dev));
 			udev_watch_begin(udev, dev);
 
 			udev_device_unref(dev);
-
 			unlink(path);
 		}
 
@@ -149,7 +144,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 	if (inotify_fd < 0)
 		return;
 
-	wd = inotify_add_watch (inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
+	wd = inotify_add_watch(inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
 	if (wd < 0) {
 		err(udev, "inotify_add_watch(%d, %s, %o) failed: %m\n",
 		    inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
