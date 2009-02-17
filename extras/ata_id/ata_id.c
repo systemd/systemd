@@ -49,6 +49,7 @@ int main(int argc, char *argv[])
 	struct udev *udev;
 	struct hd_driveid id;
 	char model[41];
+	char model_enc[256];
 	char serial[21];
 	char revision[9];
 	const char *node = NULL;
@@ -114,6 +115,9 @@ int main(int argc, char *argv[])
 		goto close;
 	}
 
+	memcpy (model, id.model, 40);
+	model[40] = '\0';
+	udev_util_encode_string(model, model_enc, sizeof(model_enc));
 	udev_util_replace_whitespace((char *) id.model, model, 40);
 	udev_util_replace_chars(model, NULL);
 	udev_util_replace_whitespace((char *) id.serial_no, serial, 20);
@@ -145,6 +149,7 @@ int main(int argc, char *argv[])
 			printf("ID_TYPE=disk\n");
 		}
 		printf("ID_MODEL=%s\n", model);
+		printf("ID_MODEL_ENC=%s\n", model_enc);
 		printf("ID_SERIAL=%s\n", serial);
 		printf("ID_REVISION=%s\n", revision);
 		printf("ID_BUS=ata\n");

@@ -38,6 +38,8 @@ static void log_fn(struct udev *udev, int priority,
 
 static char vendor_str[64];
 static char model_str[64];
+static char model_str_enc[256];
+static char vendor_str_enc[256];
 static char serial_str[UTIL_NAME_SIZE];
 static char revision_str[64];
 static char type_str[64];
@@ -251,6 +253,7 @@ static int usb_id(struct udev_device *dev)
 			     udev_device_get_sysname(dev_scsi));
 			goto fallback;
 		}
+		udev_util_encode_string(scsi_vendor, vendor_str_enc, sizeof(vendor_str_enc));
 		udev_util_replace_whitespace(scsi_vendor, vendor_str, sizeof(vendor_str)-1);
 		udev_util_replace_chars(vendor_str, NULL);
 
@@ -260,6 +263,7 @@ static int usb_id(struct udev_device *dev)
 			     udev_device_get_sysname(dev_scsi));
 			goto fallback;
 		}
+		udev_util_encode_string(scsi_model, model_str_enc, sizeof(model_str_enc));
 		udev_util_replace_whitespace(scsi_model, model_str, sizeof(model_str)-1);
 		udev_util_replace_chars(model_str, NULL);
 
@@ -302,6 +306,7 @@ fallback:
 			info(udev, "No USB vendor information available\n");
 			return 1;
 		}
+		udev_util_encode_string(usb_vendor, vendor_str_enc, sizeof(vendor_str_enc));
 		udev_util_replace_whitespace(usb_vendor, vendor_str, sizeof(vendor_str)-1);
 		udev_util_replace_chars(vendor_str, NULL);
 	}
@@ -319,6 +324,7 @@ fallback:
 			dbg(udev, "No USB model information available\n");
 			return 1;
 		}
+		udev_util_encode_string(usb_model, model_str_enc, sizeof(model_str_enc));
 		udev_util_replace_whitespace(usb_model, model_str, sizeof(model_str)-1);
 		udev_util_replace_chars(model_str, NULL);
 	}
@@ -439,7 +445,9 @@ int main(int argc, char **argv)
 
 		if (export) {
 			printf("ID_VENDOR=%s\n", vendor_str);
+			printf("ID_VENDOR_ENC=%s\n", vendor_str_enc);
 			printf("ID_MODEL=%s\n", model_str);
+			printf("ID_MODEL_ENC=%s\n", model_str_enc);
 			printf("ID_REVISION=%s\n", revision_str);
 			printf("ID_SERIAL=%s\n", serial);
 			if (serial_str[0] != '\0')

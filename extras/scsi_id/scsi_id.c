@@ -59,6 +59,8 @@ static int reformat_serial;
 static int export;
 static char vendor_str[64];
 static char model_str[64];
+static char vendor_enc_str[256];
+static char model_enc_str[256];
 static char revision_str[16];
 static char type_str[16];
 
@@ -501,6 +503,9 @@ static int set_inq_values(struct udev *udev, struct scsi_id_device *dev_scsi, co
 	if (retval)
 		return retval;
 
+	udev_util_encode_string(dev_scsi->vendor, vendor_enc_str, sizeof(vendor_enc_str));
+	udev_util_encode_string(dev_scsi->model, model_enc_str, sizeof(model_enc_str));
+
 	udev_util_replace_whitespace(dev_scsi->vendor, vendor_str, sizeof(vendor_str));
 	udev_util_replace_chars(vendor_str, NULL);
 	udev_util_replace_whitespace(dev_scsi->model, model_str, sizeof(model_str));
@@ -569,7 +574,9 @@ static int scsi_id(struct udev *udev, char *maj_min_dev)
 		char serial_str[MAX_SERIAL_LEN];
 
 		printf("ID_VENDOR=%s\n", vendor_str);
+		printf("ID_VENDOR_ENC=%s\n", vendor_enc_str);
 		printf("ID_MODEL=%s\n", model_str);
+		printf("ID_MODEL_ENC=%s\n", model_enc_str);
 		printf("ID_REVISION=%s\n", revision_str);
 		printf("ID_TYPE=%s\n", type_str);
 		if (dev_scsi.serial[0] != '\0') {
