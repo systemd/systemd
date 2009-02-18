@@ -1,3 +1,39 @@
+Summary of changes from v137 to v138
+============================================
+
+David Zeuthen (1):
+      *_id: add model/vendor enc strings
+
+Karel Zak (2):
+      vol_id: fix ddf version string
+      vol_id: add missing id->type to swap0
+
+Kay Sievers (13):
+      man: fix grammar
+      version bump
+      fix NAME="" logic
+      rules: dm - add escape for uuid links with whitespace
+      test: add test for empty and non-existent ATTR
+      rules: fix md "change"/"remove" handling
+      autogen.sh: add more warnings
+      fix NAME= and OPTION+="string_escape=..." logic
+      rules: move OPTIONS to separate rule
+      use global "reload_config" flag
+      rules: add "watch" option to dm and md rules
+      rules: include loop block devices in persistent links
+      release 138
+
+Matthias Schwarzott (1):
+      rules: Gentoo update
+
+Miklos Vajna (1):
+      doc: writing udev rules - refer to 'udevadm info' instead of 'udevinfo'
+
+Scott James Remnant (2):
+      udevd: optionally watch device nodes with inotify
+      rules: update persistent storage rules to use inotify watches
+
+
 Summary of changes from v136 to v137
 ============================================
 
