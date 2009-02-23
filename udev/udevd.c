@@ -215,6 +215,11 @@ static void event_fork(struct udev_event *event)
 		/* set timeout to prevent hanging processes */
 		alarm(UDEV_EVENT_TIMEOUT);
 
+		/* clear any existing udev watch on the node */
+		if (inotify_fd != -1 &&
+		    major(udev_device_get_devnum(event->dev)) != 0)
+			udev_watch_clear(event->udev, event->dev);
+
 		/* apply rules, create node, symlinks */
 		err = udev_event_execute_rules(event, rules);
 
@@ -229,12 +234,9 @@ static void event_fork(struct udev_event *event)
 		/* apply/restore inotify watch */
 		if (err == 0 && event->inotify_watch && inotify_fd != -1 &&
 		    major(udev_device_get_devnum(event->dev)) != 0 &&
-		    strcmp(udev_device_get_action(event->dev), "remove") != 0) {
+		    strcmp(udev_device_get_action(event->dev), "remove") != 0)
 			info(event->udev, "device will be watched for changes\n");
 			udev_watch_begin(event->udev, event->dev);
-		} else {
-			udev_watch_clear(event->udev, event->dev);
-		}
 
 		info(event->udev, "seq %llu exit with %i\n", udev_device_get_seqnum(event->dev), err);
 		logging_close();
