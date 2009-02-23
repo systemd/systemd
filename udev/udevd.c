@@ -546,9 +546,10 @@ static int handle_inotify(struct udev *udev)
 
 	read(inotify_fd, buf, nbytes);
 
-	for (pos = 0, ev = (struct inotify_event *)(buf + pos); pos < nbytes; pos += sizeof(struct inotify_event) + ev->len) {
+	for (pos = 0; pos < nbytes; pos += sizeof(struct inotify_event) + ev->len) {
 		struct udev_device *dev;
 
+		ev = (struct inotify_event *)(buf + pos);
 		if (ev->len) {
 			dbg(udev, "inotify event: %x for %s\n", ev->mask, ev->name);
 			reload_config = 1;
