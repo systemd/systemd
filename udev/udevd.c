@@ -232,7 +232,6 @@ static void event_fork(struct udev_event *event)
 		/* apply/restore inotify watch */
 		if (err == 0 && event->inotify_watch &&
 		    strcmp(udev_device_get_action(event->dev), "remove") != 0)
-			info(event->udev, "device will be watched for changes\n");
 			udev_watch_begin(event->udev, event->dev);
 
 		info(event->udev, "seq %llu exit with %i\n", udev_device_get_seqnum(event->dev), err);

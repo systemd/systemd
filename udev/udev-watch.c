@@ -145,6 +145,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 	if (inotify_fd < 0 || major(udev_device_get_devnum(dev)) == 0)
 		return;
 
+	info(udev, "adding watch on '%s'\n", udev_device_get_devnode(dev));
 	wd = inotify_add_watch(inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
 	if (wd < 0) {
 		err(udev, "inotify_add_watch(%d, %s, %o) failed: %m\n",
