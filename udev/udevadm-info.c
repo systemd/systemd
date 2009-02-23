@@ -153,6 +153,10 @@ static void print_record(struct udev_device *device)
 	if (i != 0)
 		printf("R:%u\n", i);
 
+	i = udev_device_get_watch_handle(device);
+	if (i >= 0)
+		printf("W:%u\n", i);
+
 	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(device)) {
 		len = strlen(udev_get_dev_path(udev_device_get_udev(device)));
 		printf("S: %s\n", &udev_list_entry_get_name(list_entry)[len+1]);
