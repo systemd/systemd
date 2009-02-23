@@ -600,14 +600,6 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 
 		/* create new node and symlinks */
 		err = udev_node_add(dev, event->mode, event->uid, event->gid);
-
-		/* watch for changes */
-		if (event->inotify_watch && inotify_fd != -1) {
-			info(event->udev, "device will be watched for changes\n");
-			udev_watch_begin(event->udev, event->dev);
-		} else {
-			udev_watch_clear(event->udev, event->dev);
-		}
 		goto exit;
 	}
 
