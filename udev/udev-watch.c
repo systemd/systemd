@@ -155,6 +155,9 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 	util_create_path(udev, filename);
 	unlink(filename);
 	symlink(udev_device_get_syspath(dev), filename);
+
+	udev_device_set_watch_handle(dev, wd);
+	udev_device_update_db(dev);
 }
 
 void udev_watch_clear(struct udev *udev, struct udev_device *dev)
