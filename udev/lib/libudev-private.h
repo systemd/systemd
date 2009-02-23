@@ -84,6 +84,8 @@ extern int udev_device_get_devlink_priority(struct udev_device *udev_device);
 extern int udev_device_set_devlink_priority(struct udev_device *udev_device, int prio);
 extern int udev_device_get_ignore_remove(struct udev_device *udev_device);
 extern int udev_device_set_ignore_remove(struct udev_device *udev_device, int ignore);
+extern int udev_device_get_watch_handle(struct udev_device *udev_device);
+extern int udev_device_set_watch_handle(struct udev_device *udev_device, int handle);
 extern void udev_device_set_info_loaded(struct udev_device *device);
 
 /* libudev-device-db-write.c */

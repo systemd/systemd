@@ -58,6 +58,7 @@ struct udev_device {
 	int devlink_priority;
 	int refcount;
 	dev_t devnum;
+	int watch_handle;
 	unsigned int parent_set:1;
 	unsigned int subsystem_set:1;
 	unsigned int devtype_set:1;
@@ -176,6 +177,9 @@ int udev_device_read_db(struct udev_device *udev_device)
 		case 'E':
 			udev_device_add_property_from_string(udev_device, val);
 			break;
+		case 'W':
+			udev_device_set_watch_handle(udev_device, atoi(val));
+			break;
 		}
 	}
 	fclose(f);
@@ -251,6 +255,7 @@ struct udev_device *device_new(struct udev *udev)
 	udev_list_init(&udev_device->properties_list);
 	udev_list_init(&udev_device->sysattr_list);
 	udev_device->event_timeout = -1;
+	udev_device->watch_handle = -1;
 	/* copy global properties */
 	udev_list_entry_foreach(list_entry, udev_get_properties_list_entry(udev))
 		udev_device_add_property(udev_device,
@@ -1289,5 +1294,18 @@ int udev_device_get_ignore_remove(struct udev_device *udev_device)
 int udev_device_set_ignore_remove(struct udev_device *udev_device, int ignore)
 {
 	udev_device->ignore_remove = ignore;
+	return 0;
+}
+
+int udev_device_get_watch_handle(struct udev_device *udev_device)
+{
+	if (!udev_device->info_loaded)
+		device_load_info(udev_device);
+	return udev_device->watch_handle;
+}
+
+int udev_device_set_watch_handle(struct udev_device *udev_device, int handle)
+{
+	udev_device->watch_handle = handle;
 	return 0;
 }
