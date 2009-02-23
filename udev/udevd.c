@@ -216,7 +216,15 @@ static void event_fork(struct udev_event *event)
 		alarm(UDEV_EVENT_TIMEOUT);
 
 		/* clear any existing udev watch on the node */
-		udev_watch_end(event->udev, event->dev);
+		if (inotify_fd != -1) {
+			struct udev_device *dev_old;
+
+			dev_old = udev_device_new_from_syspath(event->udev, udev_device_get_syspath(event->dev));
+			if (dev_old != NULL) {
+				udev_watch_end(event->udev, dev_old);
+				udev_device_unref(dev_old);
+			}
+		}
 
 		/* apply rules, create node, symlinks */
 		err = udev_event_execute_rules(event, rules);
@@ -541,7 +549,12 @@ static int handle_inotify(struct udev *udev)
 	for (pos = 0, ev = (struct inotify_event *)(buf + pos); pos < nbytes; pos += sizeof(struct inotify_event) + ev->len) {
 		struct udev_device *dev;
 
-		dbg(udev, "inotify event: %x for %d (%s)\n", ev->mask, ev->wd, ev->len ? ev->name : "*");
+		if (ev->len) {
+			dbg(udev, "inotify event: %x for %s\n", ev->mask, ev->name);
+			reload_config = 1;
+			continue;
+		}
+
 		dev = udev_watch_lookup(udev, ev->wd);
 		if (dev != NULL) {
 			dbg(udev, "inotify event: %x for %s\n", ev->mask, udev_device_get_devnode(dev));
@@ -561,9 +574,8 @@ static int handle_inotify(struct udev *udev)
 				udev_watch_end(udev, dev);
 
 			udev_device_unref(dev);
-		} else {
-			reload_config = 1;
 		}
+
 	}
 
 	free (buf);
