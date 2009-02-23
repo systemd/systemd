@@ -216,7 +216,7 @@ static void event_fork(struct udev_event *event)
 		alarm(UDEV_EVENT_TIMEOUT);
 
 		/* clear any existing udev watch on the node */
-		udev_watch_clear(event->udev, event->dev);
+		udev_watch_end(event->udev, event->dev);
 
 		/* apply rules, create node, symlinks */
 		err = udev_event_execute_rules(event, rules);
@@ -540,19 +540,18 @@ static int handle_inotify(struct udev *udev)
 	read(inotify_fd, buf, nbytes);
 
 	for (pos = 0, ev = (struct inotify_event *)(buf + pos); pos < nbytes; pos += sizeof(struct inotify_event) + ev->len) {
-		const char *syspath;
+		struct udev_device *dev;
 
 		dbg(udev, "inotify event: %x for %d (%s)\n", ev->mask, ev->wd, ev->len ? ev->name : "*");
-
-		syspath = udev_watch_lookup(udev, ev->wd);
-		if (syspath != NULL) {
-			dbg(udev, "inotify event: %x for %s\n", ev->mask, syspath);
+		dev = udev_watch_lookup(udev, ev->wd);
+		if (dev != NULL) {
+			dbg(udev, "inotify event: %x for %s\n", ev->mask, udev_device_get_devnode(dev));
 			if (ev->mask & IN_CLOSE_WRITE) {
 				char filename[UTIL_PATH_SIZE];
 				int fd;
 
-				info(udev, "device %s closed, synthesising 'change'\n", syspath);
-				util_strlcpy(filename, syspath, sizeof(filename));
+				info(udev, "device %s closed, synthesising 'change'\n", udev_device_get_devnode(dev));
+				util_strlcpy(filename, udev_device_get_syspath(dev), sizeof(filename));
 				util_strlcat(filename, "/uevent", sizeof(filename));
 				fd = open(filename, O_WRONLY);
 				if (fd < 0 || write(fd, "change", 6) < 0)
@@ -560,7 +559,9 @@ static int handle_inotify(struct udev *udev)
 				close(fd);
 			}
 			if (ev->mask & IN_IGNORED)
-				udev_watch_end(udev, ev->wd);
+				udev_watch_end(udev, dev);
+
+			udev_device_unref(dev);
 		} else {
 			reload_config = 1;
 		}

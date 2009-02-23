@@ -105,9 +105,8 @@ extern int inotify_fd;
 extern void udev_watch_init(struct udev *udev);
 extern void udev_watch_restore(struct udev *udev);
 extern void udev_watch_begin(struct udev *udev, struct udev_device *dev);
-extern void udev_watch_clear(struct udev *udev, struct udev_device *dev);
-extern void udev_watch_end(struct udev *udev, int wd);
-extern const char *udev_watch_lookup(struct udev *udev, int wd);
+extern void udev_watch_end(struct udev *udev, struct udev_device *dev);
+extern struct udev_device *udev_watch_lookup(struct udev *udev, int wd);
 
 /* udev-node.c */
 extern int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mode_t mode, uid_t uid, gid_t gid);

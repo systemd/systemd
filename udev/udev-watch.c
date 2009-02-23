@@ -160,67 +160,32 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 	udev_device_update_db(dev);
 }
 
-void udev_watch_clear(struct udev *udev, struct udev_device *dev)
+void udev_watch_end(struct udev *udev, struct udev_device *dev)
 {
-	static char filename[UTIL_PATH_SIZE];
-	DIR *dir;
-	struct dirent *ent;
+	int wd;
+	const char *filename;
 
 	if (inotify_fd < 0 || major(udev_device_get_devnum(dev)) == 0)
 		return;
 
-	util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
-	util_strlcat(filename, "/.udev/watch", sizeof(filename));
-
-	dir = opendir(filename);
-	if (dir == NULL)
+	wd = udev_device_get_watch_handle(dev);
+	if (wd < 0)
 		return;
 
-	while ((ent = readdir(dir)) != NULL) {
-		char path[UTIL_PATH_SIZE];
-		char buf[UTIL_PATH_SIZE];
-		ssize_t len;
-
-		if (ent->d_name[0] < '0' || ent->d_name[0] > '9')
-			continue;
-
-		util_strlcpy(path, filename, sizeof(path));
-		util_strlcat(path, "/", sizeof(path));
-		util_strlcat(path, ent->d_name, sizeof(path));
-
-		len = readlink(path, buf, sizeof(buf));
-		if (len <= 0)
-			continue;
-
-		buf[len] = '\0';
-		if (strcmp(buf, udev_device_get_syspath(dev)))
-			continue;
-
-		/* this is the watch we're looking for */
-		info(udev, "clearing existing watch on '%s'\n", udev_device_get_devnode(dev));
-		udev_watch_end(udev, atoi(ent->d_name));
-	}
-
-	closedir(dir);
-}
-
-void udev_watch_end(struct udev *udev, int wd)
-{
-	const char *filename;
-
-	if (inotify_fd < 0 || wd < 0)
-		return;
-
+	info(udev, "removing watch on '%s'\n", udev_device_get_devnode(dev));
 	inotify_rm_watch(inotify_fd, wd);
 
 	filename = udev_watch_filename(udev, wd);
 	unlink(filename);
+
+	udev_device_set_watch_handle(dev, -1);
+	udev_device_update_db(dev);
 }
 
-const char *udev_watch_lookup(struct udev *udev, int wd)
+struct udev_device *udev_watch_lookup(struct udev *udev, int wd)
 {
 	const char *filename;
-	static char buf[UTIL_PATH_SIZE];
+	char buf[UTIL_PATH_SIZE];
 	ssize_t len;
 
 	if (inotify_fd < 0 || wd < 0)
@@ -231,7 +196,7 @@ const char *udev_watch_lookup(struct udev *udev, int wd)
 	if (len > 0) {
 		buf[len] = '\0';
 
-		return buf;
+		return udev_device_new_from_syspath(udev, buf);
 	}
 
 	return NULL;
