@@ -142,7 +142,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 	const char *filename;
 	int wd;
 
-	if (inotify_fd < 0)
+	if (inotify_fd < 0 || major(udev_device_get_devnum(dev)) == 0)
 		return;
 
 	wd = inotify_add_watch(inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
@@ -162,6 +162,9 @@ void udev_watch_clear(struct udev *udev, struct udev_device *dev)
 	static char filename[UTIL_PATH_SIZE];
 	DIR *dir;
 	struct dirent *ent;
+
+	if (inotify_fd < 0 || major(udev_device_get_devnum(dev)) == 0)
+		return;
 
 	util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
 	util_strlcat(filename, "/.udev/watch", sizeof(filename));
