@@ -124,22 +124,9 @@ void udev_watch_restore(struct udev *udev)
 	}
 }
 
-static const char *udev_watch_filename(struct udev *udev, int wd)
-{
-	static char filename[UTIL_PATH_SIZE];
-	char str[32];
-
-	sprintf(str, "%d", wd);
-	util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
-	util_strlcat(filename, "/.udev/watch/", sizeof(filename));
-	util_strlcat(filename, str, sizeof(filename));
-
-	return filename;
-}
-
 void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 {
-	const char *filename;
+	char filename[UTIL_PATH_SIZE];
 	int wd;
 
 	if (inotify_fd < 0 || major(udev_device_get_devnum(dev)) == 0)
@@ -152,7 +139,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 		    inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
 	}
 
-	filename = udev_watch_filename(udev, wd);
+	snprintf(filename, sizeof(filename), "%s/.udev/watch/%d", udev_get_dev_path(udev), wd);
 	util_create_path(udev, filename);
 	unlink(filename);
 	symlink(udev_device_get_syspath(dev), filename);
@@ -164,7 +151,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 void udev_watch_end(struct udev *udev, struct udev_device *dev)
 {
 	int wd;
-	const char *filename;
+	char filename[UTIL_PATH_SIZE];
 
 	if (inotify_fd < 0 || major(udev_device_get_devnum(dev)) == 0)
 		return;
@@ -176,7 +163,7 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev)
 	info(udev, "removing watch on '%s'\n", udev_device_get_devnode(dev));
 	inotify_rm_watch(inotify_fd, wd);
 
-	filename = udev_watch_filename(udev, wd);
+	snprintf(filename, sizeof(filename), "%s/.udev/watch/%d", udev_get_dev_path(udev), wd);
 	unlink(filename);
 
 	udev_device_set_watch_handle(dev, -1);
@@ -185,14 +172,14 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev)
 
 struct udev_device *udev_watch_lookup(struct udev *udev, int wd)
 {
-	const char *filename;
+	char filename[UTIL_PATH_SIZE];
 	char buf[UTIL_PATH_SIZE];
 	ssize_t len;
 
 	if (inotify_fd < 0 || wd < 0)
 		return NULL;
 
-	filename = udev_watch_filename(udev, wd);
+	snprintf(filename, sizeof(filename), "%s/.udev/watch/%d", udev_get_dev_path(udev), wd);
 	len = readlink(filename, buf, sizeof(buf));
 	if (len > 0) {
 		buf[len] = '\0';
