@@ -129,7 +129,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 	char filename[UTIL_PATH_SIZE];
 	int wd;
 
-	if (inotify_fd < 0 || major(udev_device_get_devnum(dev)) == 0)
+	if (inotify_fd < 0)
 		return;
 
 	info(udev, "adding watch on '%s'\n", udev_device_get_devnode(dev));
@@ -145,7 +145,6 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 	symlink(udev_device_get_syspath(dev), filename);
 
 	udev_device_set_watch_handle(dev, wd);
-	udev_device_update_db(dev);
 }
 
 void udev_watch_end(struct udev *udev, struct udev_device *dev)
@@ -153,7 +152,7 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev)
 	int wd;
 	char filename[UTIL_PATH_SIZE];
 
-	if (inotify_fd < 0 || major(udev_device_get_devnum(dev)) == 0)
+	if (inotify_fd < 0)
 		return;
 
 	wd = udev_device_get_watch_handle(dev);
@@ -167,7 +166,6 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev)
 	unlink(filename);
 
 	udev_device_set_watch_handle(dev, -1);
-	udev_device_update_db(dev);
 }
 
 struct udev_device *udev_watch_lookup(struct udev *udev, int wd)

@@ -550,6 +550,16 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 
 		dbg(event->udev, "device node add '%s'\n", udev_device_get_devpath(dev));
 
+		/* read old database entry */
+		dev_old = udev_device_new_from_syspath(event->udev, udev_device_get_syspath(dev));
+		if (dev_old != NULL) {
+			udev_device_read_db(dev_old);
+			udev_device_set_info_loaded(dev_old);
+
+			/* disable watch during event processing */
+			udev_watch_end(event->udev, dev_old);
+		}
+
 		udev_rules_apply_to_event(rules, event);
 		if (event->tmp_node != NULL) {
 			dbg(event->udev, "removing temporary device node\n");
@@ -560,12 +570,12 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 
 		if (event->ignore_device) {
 			info(event->udev, "device event will be ignored\n");
-			goto exit;
+			goto exit_add;
 		}
 
 		if (event->name != NULL && event->name[0] == '\0') {
 			info(event->udev, "device node creation supressed\n");
-			goto exit;
+			goto exit_add;
 		}
 
 		if (event->name == NULL) {
@@ -573,7 +583,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 			     udev_device_get_sysname(event->dev));
 			event->name = strdup(udev_device_get_sysname(event->dev));
 			if (event->name == NULL)
-				goto exit;
+				goto exit_add;
 		}
 
 		/* set device node name */
@@ -582,24 +592,17 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 		util_strlcat(filename, event->name, sizeof(filename));
 		udev_device_set_devnode(dev, filename);
 
-		/* read old database entry */
-		dev_old = udev_device_new_from_syspath(event->udev, udev_device_get_syspath(dev));
-		if (dev_old != NULL) {
-			udev_device_read_db(dev_old);
-			udev_device_set_info_loaded(dev_old);
-		}
-
 		/* write current database entry */
 		udev_device_update_db(dev);
 
 		/* remove/update possible left-over symlinks from old database entry */
-		if (dev_old != NULL) {
+		if (dev_old != NULL)
 			udev_node_update_old_links(dev, dev_old);
-			udev_device_unref(dev_old);
-		}
 
 		/* create new node and symlinks */
 		err = udev_node_add(dev, event->mode, event->uid, event->gid);
+exit_add:
+		udev_device_unref(dev_old);
 		goto exit;
 	}
 
@@ -650,6 +653,9 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 		udev_device_read_db(dev);
 		udev_device_set_info_loaded(dev);
 		udev_device_delete_db(dev);
+
+		/* remove watch */
+		udev_watch_end(event->udev, dev);
 
 		if (udev_device_get_devnode(dev) == NULL) {
 			char devnode[UTIL_PATH_SIZE];
