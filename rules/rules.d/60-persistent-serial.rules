@@ -10,7 +10,7 @@ ENV{ID_PORT}=="", GOTO="persistent_serial_end"
 IMPORT="path_id"
 ENV{ID_PATH}=="?*", SYMLINK+="serial/by-path/$env{ID_PATH}-port$env{ID_PORT}"
 
-IMPORT="usb_id --export"
+IMPORT="usb_id --export %p"
 ENV{ID_SERIAL}=="", GOTO="persistent_serial_end"
 SUBSYSTEMS=="usb", ENV{ID_IFACE}="$attr{bInterfaceNumber}"
 ENV{ID_IFACE}=="", GOTO="persistent_serial_end"

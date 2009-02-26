@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
+#include <fcntl.h>
 #include <errno.h>
 #include <getopt.h>
 
@@ -41,6 +42,7 @@ static char model_str[64];
 static char model_str_enc[256];
 static char vendor_str_enc[256];
 static char serial_str[UTIL_NAME_SIZE];
+static char packed_if_str[UTIL_NAME_SIZE];
 static char revision_str[64];
 static char type_str[64];
 static char instance_str[64];
@@ -163,6 +165,77 @@ static void set_scsi_type(char *to, const char *from, size_t len)
 	util_strlcpy(to, type, len);
 }
 
+#define USB_DT_DEVICE			0x01
+#define USB_DT_INTERFACE		0x04
+
+static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len)
+{
+	char *filename = NULL;
+	int fd;
+	ssize_t size;
+	unsigned char buf[18 + 65535];
+	unsigned int pos, strpos;
+	struct usb_interface_descriptor {
+		u_int8_t	bLength;
+		u_int8_t	bDescriptorType;
+		u_int8_t	bInterfaceNumber;
+		u_int8_t	bAlternateSetting;
+		u_int8_t	bNumEndpoints;
+		u_int8_t	bInterfaceClass;
+		u_int8_t	bInterfaceSubClass;
+		u_int8_t	bInterfaceProtocol;
+		u_int8_t	iInterface;
+	} __attribute__((packed));
+	int err;
+
+	if (asprintf(&filename, "%s/descriptors", udev_device_get_syspath(dev)) < 0) {
+		err = -1;
+		goto out;
+	}
+	fd = open(filename, O_RDONLY);
+	if (fd < 0) {
+		fprintf(stderr, "error opening USB device 'descriptors' file\n");
+		err = -1;
+		goto out;
+	}
+	size = read(fd, buf, sizeof(buf));
+	close(fd);
+	if (size < 18 || size == sizeof(buf)) {
+		err = -1;
+		goto out;
+	}
+
+	pos = 0;
+	strpos = 0;
+	while (pos < sizeof(buf) && strpos+7 < len) {
+		struct usb_interface_descriptor *desc;
+		char if_str[8];
+
+		desc = (struct usb_interface_descriptor *) &buf[pos];
+		if (desc->bLength < 3)
+			break;
+		pos += desc->bLength;
+
+		if (desc->bDescriptorType != USB_DT_INTERFACE)
+			continue;
+
+		if (snprintf(if_str, 8, "%02x%02x%02x:",
+			     desc->bInterfaceClass,
+			     desc->bInterfaceSubClass,
+			     desc->bInterfaceProtocol) != 7)
+			continue;
+
+		if (strstr(ifs_str, if_str) != NULL)
+			continue;
+
+		memcpy(&ifs_str[strpos], if_str, 8),
+		strpos += 7;
+	}
+out:
+	free(filename);
+	return 0;
+}
+
 /*
  * A unique USB identification is generated like this:
  *
@@ -227,6 +300,9 @@ static int usb_id(struct udev_device *dev)
 		     udev_device_get_syspath(dev));
 		return 1;
 	}
+
+	/* all interfaces of the device in a single string */
+	dev_if_packed_info(dev_usb, packed_if_str, sizeof(packed_if_str));
 
 	/* mass storage : SCSI or ATAPI */
 	if ((protocol == 6 || protocol == 2) && !use_usb_info) {
@@ -410,9 +486,7 @@ int main(int argc, char **argv)
 		}
 	}
 
-	devpath = getenv("DEVPATH");
-	if (devpath == NULL)
-		devpath = argv[optind];
+	devpath = argv[optind];
 	if (devpath == NULL) {
 		fprintf(stderr, "No device specified\n");
 		retval = 1;
@@ -456,6 +530,8 @@ int main(int argc, char **argv)
 			if (instance_str[0] != '\0')
 				printf("ID_INSTANCE=%s\n", instance_str);
 			printf("ID_BUS=usb\n");
+			if (packed_if_str[0] != '\0')
+				printf("ID_USB_INTERFACES=:%s\n", packed_if_str);
 		} else
 			printf("%s\n", serial);
 	}
