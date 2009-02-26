@@ -186,7 +186,7 @@ static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len
 		u_int8_t	bInterfaceProtocol;
 		u_int8_t	iInterface;
 	} __attribute__((packed));
-	int err;
+	int err = 0;
 
 	if (asprintf(&filename, "%s/descriptors", udev_device_get_syspath(dev)) < 0) {
 		err = -1;
@@ -233,7 +233,7 @@ static int dev_if_packed_info(struct udev_device *dev, char *ifs_str, size_t len
 	}
 out:
 	free(filename);
-	return 0;
+	return err;
 }
 
 /*
@@ -257,13 +257,20 @@ out:
 static int usb_id(struct udev_device *dev)
 {
 	struct udev *udev = udev_device_get_udev(dev);
-	struct udev_device *dev_interface;
-	struct udev_device *dev_usb;
+	struct udev_device *dev_interface = NULL;
+	struct udev_device *dev_usb = NULL;
 	const char *if_class, *if_subclass;
 	int if_class_num;
 	int protocol = 0;
 
 	dbg(udev, "syspath %s\n", udev_device_get_syspath(dev));
+
+	/* shortcut if we are called for a usb_device */
+	if (strcmp(udev_device_get_devtype(dev), "usb_device") == 0) {
+		dev_if_packed_info(dev, packed_if_str, sizeof(packed_if_str));
+		dev_usb = dev;
+		goto fallback;
+	}
 
 	/* usb interface directory */
 	dev_interface = udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_interface");
@@ -526,7 +533,8 @@ int main(int argc, char **argv)
 			printf("ID_SERIAL=%s\n", serial);
 			if (serial_str[0] != '\0')
 				printf("ID_SERIAL_SHORT=%s\n", serial_str);
-			printf("ID_TYPE=%s\n", type_str);
+			if (type_str[0] != '\0')
+				printf("ID_TYPE=%s\n", type_str);
 			if (instance_str[0] != '\0')
 				printf("ID_INSTANCE=%s\n", instance_str);
 			printf("ID_BUS=usb\n");
