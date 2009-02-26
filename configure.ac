@@ -8,6 +8,7 @@ AC_GNU_SOURCE
 AC_DISABLE_STATIC
 AC_SYS_LARGEFILE
 AC_PROG_LIBTOOL
+AC_CONFIG_MACRO_DIR([m4])
 
 dnl /* prefix is /usr, exec_prefix is /, if overridden exec_prefix follows prefix */
 AC_PREFIX_DEFAULT([/usr])

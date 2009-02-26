@@ -17,6 +17,8 @@ EXTRA_DIST = \
 CLEANFILES = \
 	udev-$(VERSION).tar.gz udev-$(VERSION).tar.bz2
 
+ACLOCAL_AMFLAGS = -I m4
+
 clean-local:
 	rm -rf udev-test-install
 
