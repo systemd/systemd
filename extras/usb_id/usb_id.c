@@ -266,7 +266,7 @@ static int usb_id(struct udev_device *dev)
 	dbg(udev, "syspath %s\n", udev_device_get_syspath(dev));
 
 	/* shortcut if we are called for a usb_device */
-	if (strcmp(udev_device_get_devtype(dev), "usb_device") == 0) {
+	if (udev_device_get_devtype(dev) != NULL && strcmp(udev_device_get_devtype(dev), "usb_device") == 0) {
 		dev_if_packed_info(dev, packed_if_str, sizeof(packed_if_str));
 		dev_usb = dev;
 		goto fallback;
