@@ -1,3 +1,32 @@
+Summary of changes from v138 to v139
+============================================
+
+Kay Sievers (11):
+      version bump
+      remove static local variable
+      use the event udev_device to disable the watch on "remove"
+      add "nowatch" to disable a default installed watch with a later rule
+      add m4/ subdir
+      use AC_USE_SYSTEM_EXTENSIONS instead of AC_GNU_SOURCE
+      usb_id: add ID_USB_INTERFACES=:0e0100:0e0200:010100:010200:
+      usb_id: return values if called directly for an usb_device
+      usb_id: fix NULL string usage
+      usb_id: fix comment
+      udevadm: info - export all devices with --export-db
+
+Scott James Remnant (10):
+      Don't add inotify watch until RUN rules processed.
+      Clear existing inotify watch before processing.
+      Cleanup a little.
+      Allow watch handle to be stored in the udevdb.
+      Store watch handle in db.
+      Use the udevdb to speed up watch clearing.
+      Put a log message in a more sensible place.
+      Output watch handle in udevadm info.
+      lookup the old watch handle; reload only if has a path
+      Look at more inotify events in the buffer than just the first.
+
+
 Summary of changes from v137 to v138
 ============================================
 

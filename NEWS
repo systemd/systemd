@@ -2,6 +2,11 @@ udev 139
 ========
 Bugfixes.
 
+The installed watch for block device metadata changes is now removed
+during event hadling, because some (broken) tools may be called from udev
+rules and (wrongly) open the device with write access. After the finished
+event handling the watch is restored.
+
 udev 138
 ========
 Bugfixes.
