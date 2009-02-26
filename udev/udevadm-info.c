@@ -202,8 +202,7 @@ static int export_devices(struct udev *udev)
 
 		device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list_entry));
 		if (device != NULL) {
-			if (udev_device_get_devnode(device) != NULL)
-				print_record(device);
+			print_record(device);
 			udev_device_unref(device);
 		}
 	}
