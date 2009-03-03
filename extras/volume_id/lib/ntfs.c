@@ -97,6 +97,7 @@ static struct volume_info {
 
 int volume_id_probe_ntfs(struct volume_id *id, uint64_t off, uint64_t size)
 {
+	uint8_t volume_serial[8];
 	unsigned int sector_size;
 	unsigned int cluster_size;
 	uint64_t mft_cluster;
@@ -119,7 +120,7 @@ int volume_id_probe_ntfs(struct volume_id *id, uint64_t off, uint64_t size)
 	if (memcmp(ns->oem_id, "NTFS", 4) != 0)
 		return -1;
 
-	volume_id_set_uuid(id, ns->volume_serial, 0, UUID_64BIT_LE);
+	memcpy(volume_serial, ns->volume_serial, sizeof(volume_serial));
 
 	sector_size = le16_to_cpu(ns->bytes_per_sector);
 	if (sector_size < 0x200)
@@ -193,6 +194,7 @@ int volume_id_probe_ntfs(struct volume_id *id, uint64_t off, uint64_t size)
 		}
 	}
 
+	volume_id_set_uuid(id, volume_serial, 0, UUID_64BIT_LE);
 	volume_id_set_usage(id, VOLUME_ID_FILESYSTEM);
 	id->type = "ntfs";
 	/* we think this is ntfs, but we make sure no other signatures are found */
