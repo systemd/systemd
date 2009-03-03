@@ -363,7 +363,7 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 		    token_str(type), operation_str(op), value, string_glob_str(glob), token->key.mode);
 		break;
 	case TK_A_INOTIFY_WATCH:
-		dbg(rules->udev, "%s %u\n", token_str(type), token->key.i);
+		dbg(rules->udev, "%s %u\n", token_str(type), token->key.watch);
 		break;
 	case TK_A_NUM_FAKE_PART:
 		dbg(rules->udev, "%s %u\n", token_str(type), token->key.num_fake_part);
