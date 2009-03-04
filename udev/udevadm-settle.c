@@ -36,11 +36,15 @@
 int udevadm_settle(struct udev *udev, int argc, char *argv[])
 {
 	static const struct option options[] = {
+		{ "seq-start", required_argument, NULL, 's' },
+		{ "seq-end", required_argument, NULL, 'e' },
 		{ "timeout", required_argument, NULL, 't' },
 		{ "quiet", no_argument, NULL, 'q' },
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
+	unsigned long long start = 0;
+	unsigned long long end = 0;
 	int timeout = DEFAULT_TIMEOUT;
 	int quiet = 0;
 	struct udev_queue *udev_queue = NULL;
@@ -53,11 +57,17 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		int option;
 		int seconds;
 
-		option = getopt_long(argc, argv, "t:qh", options, NULL);
+		option = getopt_long(argc, argv, "s:e:t:qh", options, NULL);
 		if (option == -1)
 			break;
 
 		switch (option) {
+		case 's':
+			start = strtoull(optarg, NULL, 0);
+			break;
+		case 'e':
+			end = strtoull(optarg, NULL, 0);
+			break;
 		case 't':
 			seconds = atoi(optarg);
 			if (seconds >= 0)
@@ -79,9 +89,57 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	if (udev_queue == NULL)
 		goto exit;
 	loop = timeout * LOOP_PER_SECOND;
+
+	if (start > 0) {
+		unsigned long long kernel_seq;
+
+		kernel_seq = udev_queue_get_kernel_seqnum(udev_queue);
+
+		/* unless specified, the last event is the current kernel seqnum */
+		if (end == 0)
+			end = udev_queue_get_kernel_seqnum(udev_queue);
+
+		if (start > end) {
+			err(udev, "seq-start larger than seq-end, ignoring\n");
+			fprintf(stderr, "seq-start larger than seq-end, ignoring\n");
+			start = 0;
+			end = 0;
+		}
+
+		if (start > kernel_seq || end > kernel_seq) {
+			err(udev, "seq-start or seq-end larger than current kernel value, ignoring\n");
+			fprintf(stderr, "seq-start or seq-end larger than current kernel value, ignoring\n");
+			start = 0;
+			end = 0;
+		}
+		info(udev, "start=%llu end=%llu current=%llu\n", start, end, kernel_seq);
+	} else {
+		if (end > 0) {
+			err(udev, "seq-end needs seq-start parameter, ignoring\n");
+			fprintf(stderr, "seq-end needs seq-start parameter, ignoring\n");
+			end = 0;
+		}
+	}
+
 	while (loop--) {
+		/* exit if queue is empty */
 		if (udev_queue_get_queue_is_empty(udev_queue))
 			break;
+
+		/* if asked for, wait for a specific sequence of events */
+		if (start > 0) {
+			unsigned long long seq;
+			int finished;
+
+			finished = 0;
+			for (seq = start; seq <= end; seq++) {
+				finished  = udev_queue_get_seqnum_is_finished(udev_queue, seq);
+				if (!finished)
+					break;
+			}
+			if (finished)
+				break;
+		}
 		usleep(1000 * 1000 / LOOP_PER_SECOND);
 	}
 
