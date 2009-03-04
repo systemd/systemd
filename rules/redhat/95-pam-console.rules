@@ -1,1 +1,0 @@
-ENV{STARTUP}!="1", ACTION=="add", SYSFS{dev}=="?*", KERNEL=="?*", RUN+="/sbin/pam_console_apply $env{DEVNAME} $env{DEVLINKS}"
