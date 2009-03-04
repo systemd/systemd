@@ -194,7 +194,7 @@ int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, unsigned lo
 	}
 	snprintf(filename, sizeof(filename), "%s/.udev/queue/%llu",
 		 udev_get_dev_path(udev_queue->udev), seqnum);
-	if (stat(filename, &statbuf) == 0)
+	if (lstat(filename, &statbuf) == 0)
 		return 0;
 	dbg(udev_queue->udev, "seqnum: %llu finished\n", seqnum);
 	return 1;
