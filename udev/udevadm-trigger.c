@@ -180,8 +180,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 			       "  --subsystem-nomatch=<subsystem> exclude devices from a matching subystem\n"
 			       "  --attr-match=<file[=<value>]>   trigger devices with a matching attribute\n"
 			       "  --attr-nomatch=<file[=<value>]> exclude devices with a matching attribute\n"
-			       "  --help                          print this text\n"
-			       "\n");
+			       "  --help\n\n");
 			goto exit;
 		default:
 			goto exit;

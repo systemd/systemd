@@ -64,7 +64,7 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 		case 'h':
 			printf("Usage: udevadm test OPTIONS <syspath>\n"
 			       "  --action=<string>     set action string\n"
-			       "  --help                print this help text\n\n");
+			       "  --help\n\n");
 			exit(0);
 		default:
 			exit(1);

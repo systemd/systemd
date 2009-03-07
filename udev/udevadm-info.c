@@ -387,8 +387,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 			       "                             of parent devices\n"
 			       "  --device-id-of-file=<file> print major:minor of device containing this file\n"
 			       "  --export-db                export the content of the udev database\n"
-			       "  --help                     print this text\n"
-			       "\n");
+			       "  --help\n\n");
 			goto exit;
 		default:
 			goto exit;

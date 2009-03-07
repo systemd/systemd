@@ -104,7 +104,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			       "  --env    print the whole event environment\n"
 			       "  --kernel print kernel uevents\n"
 			       "  --udev   print udev events\n"
-			       "  --help   print this help text\n\n");
+			       "  --help\n\n");
 		default:
 			goto out;
 		}

@@ -80,7 +80,12 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 			quiet = 1;
 			break;
 		case 'h':
-			printf("Usage: udevadm settle [--help] [--timeout=<seconds>] [--quiet]\n\n");
+			printf("Usage: udevadm settle OPTIONS\n"
+			       "  --timeout=<seconds>   maximum time to wait for events\n"
+			       "  --seq-start=<seqnum>  first seqnum to wait for\n"
+			       "  --seq-end=<seqnum>    last seqnum to wait for\n"
+			       "  --quiet               do not print list after timeout\n"
+			       "  --help\n\n");
 			goto exit;
 		}
 	}
