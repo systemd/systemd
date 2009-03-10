@@ -42,6 +42,7 @@ enum udev_ctrl_msg_type {
 	UDEV_CTRL_SET_ENV,
 	UDEV_CTRL_SET_MAX_CHILDS,
 	UDEV_CTRL_SET_MAX_CHILDS_RUNNING,
+	UDEV_CTRL_SETTLE,
 };
 
 struct udev_ctrl_msg_wire {
@@ -58,6 +59,7 @@ struct udev_ctrl_msg {
 	int refcount;
 	struct udev_ctrl *uctrl;
 	struct udev_ctrl_msg_wire ctrl_msg_wire;
+	pid_t pid;
 };
 
 struct udev_ctrl {
@@ -196,6 +198,11 @@ int udev_ctrl_send_set_max_childs(struct udev_ctrl *uctrl, int count)
 	return ctrl_send(uctrl, UDEV_CTRL_SET_MAX_CHILDS, count, NULL);
 }
 
+int udev_ctrl_send_settle(struct udev_ctrl *uctrl)
+{
+	return ctrl_send(uctrl, UDEV_CTRL_SETTLE, 0, NULL);
+}
+
 struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl)
 {
 	struct udev_ctrl_msg *uctrl_msg;
@@ -238,6 +245,8 @@ struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl)
 		err(uctrl->udev, "sender uid=%i, message ignored\n", cred->uid);
 		goto err;
 	}
+
+	uctrl_msg->pid = cred->pid;
 
 	if (uctrl_msg->ctrl_msg_wire.magic != UDEV_CTRL_MAGIC) {
 		err(uctrl->udev, "message magic 0x%08x doesn't match, ignore it\n", uctrl_msg->ctrl_msg_wire.magic);
@@ -309,5 +318,12 @@ int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg)
 {
 	if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_SET_MAX_CHILDS)
 		return ctrl_msg->ctrl_msg_wire.intval;
+	return -1;
+}
+
+pid_t udev_ctrl_get_settle(struct udev_ctrl_msg *ctrl_msg)
+{
+	if (ctrl_msg->ctrl_msg_wire.type == UDEV_CTRL_SETTLE)
+		return ctrl_msg->pid;
 	return -1;
 }

@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2006-2008 Kay Sievers <kay@vrfy.org>
+ * Copyright (C) 2009 Canonical Ltd.
+ * Copyright (C) 2009 Scott James Remnant <scott@netsplit.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,6 +43,8 @@ static void asmlinkage sig_handler(int signum)
 	switch (signum) {
 		case SIGALRM:
 			is_timeout = 1;
+		case SIGUSR1:
+			;
 	}
 }
 
@@ -70,6 +74,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	sigemptyset (&act.sa_mask);
 	act.sa_flags = 0;
 	sigaction(SIGALRM, &act, NULL);
+	sigaction(SIGUSR1, &act, NULL);
 
 	while (1) {
 		int option;
@@ -145,6 +150,24 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 			err(udev, "seq-end needs seq-start parameter, ignoring\n");
 			fprintf(stderr, "seq-end needs seq-start parameter, ignoring\n");
 			end = 0;
+		}
+	}
+
+	/* guarantee that the udev daemon isn't pre-processing */
+	if (getuid() == 0) {
+		struct udev_ctrl *uctrl;
+
+		uctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
+		if (uctrl != NULL) {
+			sigset_t mask, oldmask;
+
+			sigemptyset(&mask);
+			sigaddset(&mask, SIGUSR1);
+			sigaddset(&mask, SIGALRM);
+			sigprocmask(SIG_BLOCK, &mask, &oldmask);
+			if (udev_ctrl_send_settle(uctrl) > 0)
+				sigsuspend(&oldmask);
+			udev_ctrl_unref(uctrl);
 		}
 	}
 

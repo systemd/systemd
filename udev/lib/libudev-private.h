@@ -109,6 +109,7 @@ extern int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority);
 extern int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl);
 extern int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl);
 extern int udev_ctrl_send_reload_rules(struct udev_ctrl *uctrl);
+extern int udev_ctrl_send_settle(struct udev_ctrl *uctrl);
 extern int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key);
 extern int udev_ctrl_send_set_max_childs(struct udev_ctrl *uctrl, int count);
 struct udev_ctrl_msg;
@@ -120,6 +121,7 @@ extern int udev_ctrl_get_set_log_level(struct udev_ctrl_msg *ctrl_msg);
 extern int udev_ctrl_get_stop_exec_queue(struct udev_ctrl_msg *ctrl_msg);
 extern int udev_ctrl_get_start_exec_queue(struct udev_ctrl_msg *ctrl_msg);
 extern int udev_ctrl_get_reload_rules(struct udev_ctrl_msg *ctrl_msg);
+extern pid_t udev_ctrl_get_settle(struct udev_ctrl_msg *ctrl_msg);
 extern const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg);
 extern int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg);
 

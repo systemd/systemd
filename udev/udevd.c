@@ -1,6 +1,8 @@
 /*
  * Copyright (C) 2004-2008 Kay Sievers <kay.sievers@vrfy.org>
  * Copyright (C) 2004 Chris Friesen <chris_friesen@sympatico.ca>
+ * Copyright (C) 2009 Canonical Ltd.
+ * Copyright (C) 2009 Scott James Remnant <scott@netsplit.com>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -69,6 +71,7 @@ static volatile int sigchilds_waiting;
 static volatile int udev_exit;
 static volatile int reload_config;
 static volatile int signal_received;
+static volatile pid_t settle_pid;
 static int run_exec_q;
 static int stop_exec_q;
 static int max_childs;
@@ -512,6 +515,11 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl)
 	if (i >= 0) {
 		info(udev, "udevd message (SET_MAX_CHILDS) received, max_childs=%i\n", i);
 		max_childs = i;
+	}
+
+	settle_pid = udev_ctrl_get_settle(ctrl_msg);
+	if (settle_pid > 0) {
+		info(udev, "udevd message (SETTLE) received\n");
 	}
 	udev_ctrl_msg_unref(ctrl_msg);
 }
@@ -1022,6 +1030,11 @@ handle_signals:
 			run_exec_q = 0;
 			if (!stop_exec_q)
 				event_queue_manager(udev);
+		}
+
+		if (settle_pid > 0) {
+			kill(settle_pid, SIGUSR1);
+			settle_pid = 0;
 		}
 	}
 	cleanup_queue_dir(udev);
