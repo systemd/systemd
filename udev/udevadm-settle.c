@@ -25,6 +25,7 @@
 #include <fcntl.h>
 #include <syslog.h>
 #include <getopt.h>
+#include <signal.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -32,6 +33,16 @@
 
 #define DEFAULT_TIMEOUT			180
 #define LOOP_PER_SECOND			20
+
+static int volatile is_timeout;
+
+static void asmlinkage sig_handler(int signum)
+{
+	switch (signum) {
+		case SIGALRM:
+			is_timeout = 1;
+	}
+}
 
 int udevadm_settle(struct udev *udev, int argc, char *argv[])
 {
@@ -45,13 +56,20 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	};
 	unsigned long long start = 0;
 	unsigned long long end = 0;
-	int timeout = DEFAULT_TIMEOUT;
 	int quiet = 0;
+	int timeout = 0;
+	struct sigaction act;
 	struct udev_queue *udev_queue = NULL;
-	int loop;
 	int rc = 0;
 
 	dbg(udev, "version %s\n", VERSION);
+
+	/* set signal handlers */
+	memset(&act, 0x00, sizeof(act));
+	act.sa_handler = (void (*)(int)) sig_handler;
+	sigemptyset (&act.sa_mask);
+	act.sa_flags = 0;
+	sigaction(SIGALRM, &act, NULL);
 
 	while (1) {
 		int option;
@@ -90,10 +108,14 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		}
 	}
 
+	if (timeout > 0)
+		alarm(timeout);
+	else
+		alarm(DEFAULT_TIMEOUT);
+
 	udev_queue = udev_queue_new(udev);
 	if (udev_queue == NULL)
 		goto exit;
-	loop = timeout * LOOP_PER_SECOND;
 
 	if (start > 0) {
 		unsigned long long kernel_seq;
@@ -126,7 +148,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		}
 	}
 
-	while (loop--) {
+	while (!is_timeout) {
 		/* exit if queue is empty */
 		if (udev_queue_get_queue_is_empty(udev_queue))
 			break;
@@ -149,7 +171,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	}
 
 	/* if we reached the timeout, print the list of remaining events */
-	if (loop <= 0) {
+	if (is_timeout) {
 		struct udev_list_entry *list_entry;
 
 		if (!quiet) {
