@@ -168,38 +168,32 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
 
 int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority)
 {
-	ctrl_send(uctrl, UDEV_CTRL_SET_LOG_LEVEL, priority, NULL);
-	return 0;
+	return ctrl_send(uctrl, UDEV_CTRL_SET_LOG_LEVEL, priority, NULL);
 }
 
 int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl)
 {
-	ctrl_send(uctrl, UDEV_CTRL_STOP_EXEC_QUEUE, 0, NULL);
-	return 0;
+	return ctrl_send(uctrl, UDEV_CTRL_STOP_EXEC_QUEUE, 0, NULL);
 }
 
 int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl)
 {
-	ctrl_send(uctrl, UDEV_CTRL_START_EXEC_QUEUE, 0, NULL);
-	return 0;
+	return ctrl_send(uctrl, UDEV_CTRL_START_EXEC_QUEUE, 0, NULL);
 }
 
 int udev_ctrl_send_reload_rules(struct udev_ctrl *uctrl)
 {
-	ctrl_send(uctrl, UDEV_CTRL_RELOAD_RULES, 0, NULL);
-	return 0;
+	return ctrl_send(uctrl, UDEV_CTRL_RELOAD_RULES, 0, NULL);
 }
 
 int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key)
 {
-	ctrl_send(uctrl, UDEV_CTRL_SET_ENV, 0, key);
-	return 0;
+	return ctrl_send(uctrl, UDEV_CTRL_SET_ENV, 0, key);
 }
 
 int udev_ctrl_send_set_max_childs(struct udev_ctrl *uctrl, int count)
 {
-	ctrl_send(uctrl, UDEV_CTRL_SET_MAX_CHILDS, count, NULL);
-	return 0;
+	return ctrl_send(uctrl, UDEV_CTRL_SET_MAX_CHILDS, count, NULL);
 }
 
 struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl)
