@@ -2,6 +2,9 @@ udev 140
 ========
 Bugfixes.
 
+"udevadm settle" now optionally accepts a range of events to wait for,
+instead of waiting for "all" events.
+
 udev 139
 ========
 Bugfixes.

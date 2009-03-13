@@ -1,3 +1,30 @@
+Summary of changes from v139 to v140
+============================================
+
+Harald Hoyer (1):
+      libvolume_id: bump age
+
+Kay Sievers (12):
+      version bump
+      update TODO
+      volume_id: ntfs - fix uuid setting
+      update TODO
+      rules: Fedora update
+      libudev: queue - use lstat() to check existence of symlink
+      udevadm: settle - add --seq-start= --seq-end=
+      udevd: switch watch symlinks to devpath
+      udevadm: add text for new options to command and man page
+      update TODO
+      libudev: ctrl - return error after sending ctrl message
+      udevadm: settle - use timeout signal, instead of loop counter
+
+Michael Prokop (1):
+      fix compile error in debug mode
+
+Scott James Remnant (1):
+      udevadm: settle - synchronise with the udev daemon
+
+
 Summary of changes from v138 to v139
 ============================================
 
