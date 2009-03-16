@@ -8,6 +8,9 @@ ACTION!="add|change", GOTO="md_end"
 # import data from a raid set
 KERNEL!="md*", GOTO="md_end"
 
+# partitions have no md/{array_state,metadata_version}
+ENV{DEVTYPE}=="partition", GOTO="md_ignore_state"
+
 # container devices have a metadata version of e.g. 'external:ddf' and
 # never leave state 'inactive'
 ATTR{md/metadata_version}=="external:[A-Za-z]*", ATTR{md/array_state}=="inactive", GOTO="md_ignore_state"
