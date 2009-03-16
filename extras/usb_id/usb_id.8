@@ -1,0 +1,38 @@
+.TH USB_ID 8 "January 2009" "" "Linux Administrator's Manual"
+.SH NAME
+usb_id \- udev callout to read information from USB devices
+.SH SYNOPSIS
+.B usb_id
+[\fB--usb-info\fP] [\fB--num-info\fP] [\fB--export\fP] [\fB--debug\fP]
+.I devpath
+.br
+.B usb_id --help
+.SH "DESCRIPTION"
+.B usb_id
+is normally called from a udev rule, to provide udev with a unique string and
+additional information (uuid, label) for a USB device. Udev can use this
+information to create symlinks in /dev to the real device node.
+.SH USAGE
+.B usb_id \fIdevpath\fP
+opens the device node specified at the commandline and prints the
+information chosen by the options.
+.SH OPTIONS
+The following commandline switches are supported to specify what usb_id
+should print:
+.TP
+.B -u, --usb-info
+print USB strings instead of, e.g. SCSI strings for a mass storage device
+.TP
+.B -n, --num-info
+print numerical values instead of strings. Implies \fB--usb-info\fP.
+.TP
+.B -x, --export
+print values as environment keys
+.TP
+.B -h, --help
+print usage help
+.RE
+.SH SEE ALSO
+.BR udev (7)
+.SH AUTHORS
+Developed by Hannes Reinecke <hare@suse.de>.
