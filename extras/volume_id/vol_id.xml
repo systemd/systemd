@@ -100,8 +100,8 @@
           <varlistentry>
             <term><option>--offset=<replaceable>bytes</replaceable></option></term>
             <listitem>
-              <para>Probing at the given offset, instead of the start of the volume.
-              The offset value is specified in bytes.</para>
+              <para>Start probing at the given offset, instead of the beginning
+              of the volume. The offset value is specified in bytes.</para>
             </listitem>
           </varlistentry>
           <varlistentry>
