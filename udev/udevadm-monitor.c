@@ -139,7 +139,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			rc = 2;
 			goto out;
 		}
-		printf("UDEV the event which udev sends out after rule processing\n");
+		printf("UDEV - the event which udev sends out after rule processing\n");
 	}
 	if (print_kernel) {
 		kernel_monitor = udev_monitor_new_from_netlink(udev);
@@ -151,7 +151,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			rc = 4;
 			goto out;
 		}
-		printf("UEVENT the kernel uevent\n");
+		printf("UEVENT - the kernel uevent\n");
 	}
 	printf("\n");
 
