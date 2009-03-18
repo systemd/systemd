@@ -94,12 +94,14 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 	if (strncmp(syspath, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0) {
 		util_strlcpy(filename, udev_get_sys_path(udev), sizeof(filename));
 		util_strlcat(filename, syspath, sizeof(filename));
-		syspath = filename;
+	} else {
+		util_strlcpy(filename, syspath, sizeof(filename));
 	}
+	util_remove_trailing_chars(filename, '/');
 
-	dev = udev_device_new_from_syspath(udev, syspath);
+	dev = udev_device_new_from_syspath(udev, filename);
 	if (dev == NULL) {
-		fprintf(stderr, "unable to open device '%s'\n", syspath);
+		fprintf(stderr, "unable to open device '%s'\n", filename);
 		rc = 2;
 		goto exit;
 	}

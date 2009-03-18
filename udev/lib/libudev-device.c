@@ -303,7 +303,7 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 	/* path is not a root directory */
 	subdir = &syspath[len+1];
 	pos = strrchr(subdir, '/');
-	if (pos == NULL || pos < &subdir[2]) {
+	if (pos == NULL || pos[1] == '\0' || pos < &subdir[2]) {
 		dbg(udev, "not a subdir :%s\n", syspath);
 		return NULL;
 	}
