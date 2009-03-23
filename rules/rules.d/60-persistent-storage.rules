@@ -10,7 +10,7 @@ ACTION!="add|change", GOTO="persistent_storage_end"
 SUBSYSTEM!="block", GOTO="persistent_storage_end"
 
 # skip rules for inappropriate block devices
-KERNEL=="ram*|fd*|mtd*|nbd*|gnbd*|dm-*|md*|btibm*", GOTO="persistent_storage_end"
+KERNEL=="fd*|mtd*|nbd*|gnbd*|btibm*|dm-*|md*", GOTO="persistent_storage_end"
 
 # never access non-cdrom removable ide devices, the drivers are causing event loops on open()
 KERNEL=="hd*[!0-9]", ATTR{removable}=="1", DRIVERS=="ide-cs|ide-gd", GOTO="persistent_storage_end"
