@@ -38,14 +38,18 @@ static void log_fn(struct udev *udev, int priority,
 }
 
 static char vendor_str[64];
+static char vendor_str_enc[256];
+static const char *vendor_id = "";
 static char model_str[64];
 static char model_str_enc[256];
-static char vendor_str_enc[256];
+static const char *product_id = "";
 static char serial_str[UTIL_NAME_SIZE];
 static char packed_if_str[UTIL_NAME_SIZE];
 static char revision_str[64];
 static char type_str[64];
 static char instance_str[64];
+static const char *ifnum;
+static const char *driver;
 
 static int use_usb_info;
 static int use_num_info;
@@ -261,6 +265,7 @@ static int usb_id(struct udev_device *dev)
 	const char *if_class, *if_subclass;
 	int if_class_num;
 	int protocol = 0;
+	const char *str;
 
 	dbg(udev, "syspath %s\n", udev_device_get_syspath(dev));
 
@@ -278,6 +283,9 @@ static int usb_id(struct udev_device *dev)
 		     udev_device_get_syspath(dev));
 		return 1;
 	}
+
+	ifnum = udev_device_get_sysattr_value(dev_interface, "bInterfaceNumber");
+	driver = udev_device_get_sysattr_value(dev_interface, "driver");
 
 	if_class = udev_device_get_sysattr_value(dev_interface, "bInterfaceClass");
 	if (!if_class) {
@@ -374,6 +382,9 @@ static int usb_id(struct udev_device *dev)
 	}
 
 fallback:
+	vendor_id = udev_device_get_sysattr_value(dev_usb, "idVendor");
+	product_id = udev_device_get_sysattr_value(dev_usb, "idProduct");
+
 	/* fallback to USB vendor & device */
 	if (vendor_str[0] == '\0') {
 		const char *usb_vendor = NULL;
@@ -382,7 +393,7 @@ fallback:
 			usb_vendor = udev_device_get_sysattr_value(dev_usb, "manufacturer");
 
 		if (!usb_vendor)
-			usb_vendor = udev_device_get_sysattr_value(dev_usb, "idVendor");
+			usb_vendor = vendor_id;
 
 		if (!usb_vendor) {
 			info(udev, "No USB vendor information available\n");
@@ -400,7 +411,7 @@ fallback:
 			usb_model = udev_device_get_sysattr_value(dev_usb, "product");
 
 		if (!usb_model)
-			usb_model = udev_device_get_sysattr_value(dev_usb, "idProduct");
+			usb_model = product_id;
 
 		if (!usb_model) {
 			dbg(udev, "No USB model information available\n");
@@ -526,8 +537,10 @@ int main(int argc, char **argv)
 		if (export) {
 			printf("ID_VENDOR=%s\n", vendor_str);
 			printf("ID_VENDOR_ENC=%s\n", vendor_str_enc);
+			printf("ID_VENDOR_ID=%s\n", vendor_id);
 			printf("ID_MODEL=%s\n", model_str);
 			printf("ID_MODEL_ENC=%s\n", model_str_enc);
+			printf("ID_MODEL_ID=%s\n", product_id);
 			printf("ID_REVISION=%s\n", revision_str);
 			printf("ID_SERIAL=%s\n", serial);
 			if (serial_str[0] != '\0')
@@ -539,6 +552,10 @@ int main(int argc, char **argv)
 			printf("ID_BUS=usb\n");
 			if (packed_if_str[0] != '\0')
 				printf("ID_USB_INTERFACES=:%s\n", packed_if_str);
+			if (ifnum != NULL)
+				printf("ID_USB_INTERFACE_NUM=%s\n", ifnum);
+			if (driver != NULL)
+				printf("ID_USB_DRIVER=%s\n", driver);
 		} else
 			printf("%s\n", serial);
 	}
