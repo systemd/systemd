@@ -265,7 +265,6 @@ static int usb_id(struct udev_device *dev)
 	const char *if_class, *if_subclass;
 	int if_class_num;
 	int protocol = 0;
-	const char *str;
 
 	dbg(udev, "syspath %s\n", udev_device_get_syspath(dev));
 
