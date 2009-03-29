@@ -125,7 +125,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 
 	printf("monitor will print the received events for:\n");
 	if (print_udev) {
-		udev_monitor = udev_monitor_new_from_netlink(udev, UDEV_MONITOR_UDEV);
+		udev_monitor = udev_monitor_new_from_netlink(udev, "udev");
 		if (udev_monitor == NULL) {
 			rc = 1;
 			goto out;
@@ -137,7 +137,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 		printf("UDEV - the event which udev sends out after rule processing\n");
 	}
 	if (print_kernel) {
-		kernel_monitor = udev_monitor_new_from_netlink(udev, UDEV_MONITOR_KERNEL);
+		kernel_monitor = udev_monitor_new_from_netlink(udev, "kernel");
 		if (kernel_monitor == NULL) {
 			fprintf(stderr, "unable to subscribe to kernel events\n");
 			rc = 3;
@@ -147,7 +147,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			rc = 4;
 			goto out;
 		}
-		printf("UEVENT - the kernel uevent\n");
+		printf("KERNEL - the kernel uevent\n");
 	}
 	printf("\n");
 
@@ -174,7 +174,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			device = udev_monitor_receive_device(kernel_monitor);
 			if (device == NULL)
 				continue;
-			print_device(device, "UEVENT", env);
+			print_device(device, "KERNEL", env);
 			udev_device_unref(device);
 		}
 

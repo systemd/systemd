@@ -813,7 +813,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	kernel_monitor = udev_monitor_new_from_netlink(udev, UDEV_MONITOR_KERNEL);
+	kernel_monitor = udev_monitor_new_from_netlink(udev, "kernel");
 	if (kernel_monitor == NULL || udev_monitor_enable_receiving(kernel_monitor) < 0) {
 		fprintf(stderr, "error initializing netlink socket\n");
 		err(udev, "error initializing netlink socket\n");

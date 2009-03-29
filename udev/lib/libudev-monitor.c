@@ -34,6 +34,11 @@ struct udev_monitor {
 	socklen_t addrlen;
 };
 
+enum udev_monitor_netlink_group {
+	UDEV_MONITOR_KERNEL	= 1,
+	UDEV_MONITOR_UDEV	= 2,
+};
+
 /**
  * udev_monitor_new_from_socket:
  * @udev: udev library context
@@ -91,12 +96,23 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 	return udev_monitor;
 }
 
-struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, unsigned int group)
+struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char *name)
 {
 	struct udev_monitor *udev_monitor;
+	unsigned int group;
 
 	if (udev == NULL)
 		return NULL;
+
+	if (name == NULL)
+		return NULL;
+	if (strcmp(name, "kernel") == 0)
+		group = UDEV_MONITOR_KERNEL;
+	else if (strcmp(name, "udev") == 0)
+		group = UDEV_MONITOR_UDEV;
+	else
+		return NULL;
+
 	udev_monitor = calloc(1, sizeof(struct udev_monitor));
 	if (udev_monitor == NULL)
 		return NULL;
