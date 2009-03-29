@@ -195,7 +195,6 @@ static void event_fork(struct udev_event *event)
 	switch (pid) {
 	case 0:
 		/* child */
-		udev_monitor_unref(kernel_monitor);
 		udev_ctrl_unref(udev_ctrl);
 		logging_close();
 		logging_init("udevd-event");
@@ -234,6 +233,9 @@ static void event_fork(struct udev_event *event)
 			udev_watch_begin(event->udev, event->dev);
 			udev_device_update_db(event->dev);
 		}
+
+		/* send processed event back to the kernel netlink socket */
+		udev_monitor_send_device(kernel_monitor, event->dev);
 
 		info(event->udev, "seq %llu exit with %i\n", udev_device_get_seqnum(event->dev), err);
 		logging_close();
@@ -811,7 +813,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	kernel_monitor = udev_monitor_new_from_netlink(udev);
+	kernel_monitor = udev_monitor_new_from_netlink(udev, UDEV_MONITOR_KERNEL);
 	if (kernel_monitor == NULL || udev_monitor_enable_receiving(kernel_monitor) < 0) {
 		fprintf(stderr, "error initializing netlink socket\n");
 		err(udev, "error initializing netlink socket\n");

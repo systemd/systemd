@@ -29,6 +29,7 @@ struct udev_monitor {
 	int refcount;
 	int sock;
 	struct sockaddr_nl snl;
+	struct sockaddr_nl snl_peer;
 	struct sockaddr_un sun;
 	socklen_t addrlen;
 };
@@ -90,7 +91,7 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 	return udev_monitor;
 }
 
-struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev)
+struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, unsigned int group)
 {
 	struct udev_monitor *udev_monitor;
 
@@ -110,10 +111,11 @@ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev)
 	}
 
 	udev_monitor->snl.nl_family = AF_NETLINK;
-	udev_monitor->snl.nl_pid = getpid();
-	udev_monitor->snl.nl_groups = 1;
+	udev_monitor->snl.nl_groups = group;
+	udev_monitor->snl_peer.nl_family = AF_NETLINK;
+	udev_monitor->snl_peer.nl_groups = UDEV_MONITOR_UDEV;
 
-	dbg(udev, "monitor %p created with NETLINK_KOBJECT_UEVENT\n", udev_monitor);
+	dbg(udev, "monitor %p created with NETLINK_KOBJECT_UEVENT (%u)\n", udev_monitor, group);
 	return udev_monitor;
 }
 
@@ -123,14 +125,16 @@ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 	const int on = 1;
 
 	if (udev_monitor->snl.nl_family != 0) {
-		err = bind(udev_monitor->sock, (struct sockaddr *)&udev_monitor->snl, sizeof(struct sockaddr_nl));
+		err = bind(udev_monitor->sock,
+			   (struct sockaddr *)&udev_monitor->snl, sizeof(struct sockaddr_nl));
 		if (err < 0) {
 			err(udev_monitor->udev, "bind failed: %m\n");
 			return err;
 		}
 		dbg(udev_monitor->udev, "monitor %p listening on netlink\n", udev_monitor);
 	} else if (udev_monitor->sun.sun_family != 0) {
-		err = bind(udev_monitor->sock, (struct sockaddr *)&udev_monitor->sun, udev_monitor->addrlen);
+		err = bind(udev_monitor->sock,
+			   (struct sockaddr *)&udev_monitor->sun, udev_monitor->addrlen);
 		if (err < 0) {
 			err(udev_monitor->udev, "bind failed: %m\n");
 			return err;
@@ -381,9 +385,18 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_devi
 	len = udev_device_get_properties_monitor_buf(udev_device, &buf);
 	if (len < 32)
 		return -1;
-	count = sendto(udev_monitor->sock,
-		       buf, len, 0,
-		       (struct sockaddr *)&udev_monitor->sun, udev_monitor->addrlen);
+	if (udev_monitor->sun.sun_family != 0) {
+		count = sendto(udev_monitor->sock,
+			       buf, len, 0,
+			       (struct sockaddr *)&udev_monitor->sun,
+			       udev_monitor->addrlen);
+	} else {
+		/* no destination besides the muticast group, we will always get -1 ECONNREFUSED */
+		count = sendto(udev_monitor->sock,
+			       buf, len, 0,
+			       (struct sockaddr *)&udev_monitor->snl_peer,
+			       sizeof(struct sockaddr_nl));
+	}
 	info(udev_monitor->udev, "passed %zi bytes to monitor %p, \n", count, udev_monitor);
 	return count;
 }

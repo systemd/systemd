@@ -76,8 +76,12 @@ extern const char *udev_device_get_sysattr_value(struct udev_device *udev_device
 
 /* udev and kernel device events */
 struct udev_monitor;
+enum udev_monitor_netlink_group {
+	UDEV_MONITOR_KERNEL	= 1,
+	UDEV_MONITOR_UDEV	= 2,
+};
 extern struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path);
-extern struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev);
+extern struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, enum udev_monitor_netlink_group group);
 extern int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor);
 extern struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor);
 extern void udev_monitor_unref(struct udev_monitor *udev_monitor);

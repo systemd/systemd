@@ -115,11 +115,6 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 		print_udev =1;
 	}
 
-	if (getuid() != 0 && print_kernel) {
-		fprintf(stderr, "root privileges needed to subscribe to kernel events\n");
-		goto out;
-	}
-
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(struct sigaction));
 	act.sa_handler = (void (*)(int)) sig_handler;
@@ -130,7 +125,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 
 	printf("monitor will print the received events for:\n");
 	if (print_udev) {
-		udev_monitor = udev_monitor_new_from_socket(udev, "@/org/kernel/udev/monitor");
+		udev_monitor = udev_monitor_new_from_netlink(udev, UDEV_MONITOR_UDEV);
 		if (udev_monitor == NULL) {
 			rc = 1;
 			goto out;
@@ -142,8 +137,9 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 		printf("UDEV - the event which udev sends out after rule processing\n");
 	}
 	if (print_kernel) {
-		kernel_monitor = udev_monitor_new_from_netlink(udev);
+		kernel_monitor = udev_monitor_new_from_netlink(udev, UDEV_MONITOR_KERNEL);
 		if (kernel_monitor == NULL) {
+			fprintf(stderr, "unable to subscribe to kernel events\n");
 			rc = 3;
 			goto out;
 		}
