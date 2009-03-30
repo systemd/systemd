@@ -737,7 +737,7 @@ static int import_program_into_properties(struct udev_device *dev, const char *p
 {
 	struct udev *udev = udev_device_get_udev(dev);
 	char **envp;
-	char result[2048];
+	char result[4096];
 	size_t reslen;
 	char *line;
 
