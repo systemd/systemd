@@ -103,7 +103,7 @@ enum nss_status _nss_myhostname_gethostbyname4_r(
         r_tuple2->name = r_name;
         r_tuple2->family = AF_INET6;
         memcpy(r_tuple2->addr, LOCALADDRESS_IPV6, 16);
-        r_tuple1->scopeid = (uint32_t) ifi;
+        r_tuple2->scopeid = (uint32_t) ifi;
         idx += ALIGN(sizeof(struct gaih_addrtuple));
 
         /* Verify the size matches */
