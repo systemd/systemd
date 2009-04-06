@@ -92,6 +92,8 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 		free(udev_monitor);
 		return NULL;
 	}
+	util_set_fd_cloexec(udev_monitor->sock);
+
 	dbg(udev, "monitor %p created with '%s'\n", udev_monitor, socket_path);
 	return udev_monitor;
 }
@@ -125,6 +127,7 @@ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char
 		free(udev_monitor);
 		return NULL;
 	}
+	util_set_fd_cloexec(udev_monitor->sock);
 
 	udev_monitor->snl.nl_family = AF_NETLINK;
 	udev_monitor->snl.nl_groups = group;

@@ -41,16 +41,9 @@ int inotify_fd = -1;
 void udev_watch_init(struct udev *udev)
 {
 	inotify_fd = inotify_init();
-	if (inotify_fd >= 0) {
-		int flags;
-
-		flags = fcntl(inotify_fd, F_GETFD);
-		if (flags < 0)
-			flags = FD_CLOEXEC;
-		else
-			flags |= FD_CLOEXEC;
-		fcntl(inotify_fd, F_SETFD, flags);
-	} else if (errno == ENOSYS)
+	if (inotify_fd >= 0)
+		util_set_fd_cloexec(inotify_fd);
+	else if (errno == ENOSYS)
 		info(udev, "unable to use inotify, udevd will not monitor rule files changes\n");
 	else
 		err(udev, "inotify_init failed: %m\n");

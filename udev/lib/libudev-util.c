@@ -448,3 +448,15 @@ int udev_util_encode_string(const char *str, char *str_enc, size_t len)
 err:
 	return -1;
 }
+
+void util_set_fd_cloexec(int fd)
+{
+	int flags;
+
+	flags = fcntl(fd, F_GETFD);
+	if (flags < 0)
+		flags = FD_CLOEXEC;
+	else
+		flags |= FD_CLOEXEC;
+	fcntl(fd, F_SETFD, flags);
+}

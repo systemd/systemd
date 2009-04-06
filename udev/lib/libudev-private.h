@@ -172,4 +172,5 @@ extern size_t util_strlcat(char *dst, const char *src, size_t size);
 extern int udev_util_replace_whitespace(const char *str, char *to, size_t len);
 extern int udev_util_replace_chars(char *str, const char *white);
 extern int udev_util_encode_string(const char *str, char *str_enc, size_t len);
+extern void util_set_fd_cloexec(int fd);
 #endif
