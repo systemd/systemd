@@ -103,7 +103,7 @@ int util_log_priority(const char *priority)
 
 size_t util_path_encode(char *s, size_t len)
 {
-	char t[(len * 3)+1];
+	char t[(len * 4)+1];
 	size_t i, j;
 
 	for (i = 0, j = 0; s[i] != '\0'; i++) {
