@@ -260,6 +260,7 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 	struct iovec iov;
 	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
 	struct cmsghdr *cmsg;
+	struct sockaddr_nl snl;
 	struct ucred *cred;
 	char buf[4096];
 	size_t bufpos;
@@ -280,34 +281,50 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 	smsg.msg_control = cred_msg;
 	smsg.msg_controllen = sizeof(cred_msg);
 
+	if (udev_monitor->snl.nl_family != 0) {
+		smsg.msg_name = &snl;
+		smsg.msg_namelen = sizeof snl;
+	}
+
 	if (recvmsg(udev_monitor->sock, &smsg, 0) < 0) {
 		if (errno != EINTR)
-			info(udev_monitor->udev, "unable to receive message");
+			info(udev_monitor->udev, "unable to receive message\n");
 		return NULL;
+	}
+
+	if (udev_monitor->snl.nl_family != 0) {
+		if (snl.nl_groups == 0) {
+			info(udev_monitor->udev, "unicast netlink message ignored\n");
+			return NULL;
+		}
+		if ((snl.nl_groups == UDEV_MONITOR_KERNEL) && (snl.nl_pid > 0)) {
+			info(udev_monitor->udev, "multicast kernel netlink message from pid %d ignored\n", snl.nl_pid);
+			return NULL;
+		}
 	}
 
 	cmsg = CMSG_FIRSTHDR(&smsg);
 	if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
-		info(udev_monitor->udev, "no sender credentials received, message ignored");
+		info(udev_monitor->udev, "no sender credentials received, message ignored\n");
 		return NULL;
 	}
 
 	cred = (struct ucred *)CMSG_DATA(cmsg);
 	if (cred->uid != 0) {
-		info(udev_monitor->udev, "sender uid=%d, message ignored", cred->uid);
+		info(udev_monitor->udev, "sender uid=%d, message ignored\n", cred->uid);
 		return NULL;
 	}
 
 	/* skip header */
 	bufpos = strlen(buf) + 1;
 	if (bufpos < sizeof("a@/d") || bufpos >= sizeof(buf)) {
-		info(udev_monitor->udev, "invalid message length");
+		info(udev_monitor->udev, "invalid message length\n");
 		return NULL;
 	}
 
 	/* check message header */
 	if (strstr(buf, "@/") == NULL) {
-		info(udev_monitor->udev, "unrecognized message header");
+		info(udev_monitor->udev, "unrecognized message header\n");
 		return NULL;
 	}
 
@@ -414,6 +431,6 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_devi
 	else
 		return -1;
 
-	info(udev_monitor->udev, "passed %zi bytes to monitor %p, \n", count, udev_monitor);
+	info(udev_monitor->udev, "passed %zi bytes to monitor %p\n", count, udev_monitor);
 	return count;
 }
