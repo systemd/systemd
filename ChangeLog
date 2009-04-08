@@ -1,3 +1,48 @@
+Summary of changes from v140 to v141
+============================================
+
+Adam Buchbinder (4):
+      usb_id: add manpage
+      cdrom_id: update manpage
+      create_floppy_devices: expand manpage
+      vol_id: fix language in manpage
+
+Alan Jenkins (1):
+      avoid leaking netlink socket fd to external programs
+
+Borislav Petkov (1):
+      rules: rename ide-floppy to ide-gd
+
+David Brownell (1):
+      rules: exclude mtd* from persistent disk links
+
+Kay Sievers (15):
+      rules: fix extra quote in 50-udev-default.rules
+      version bump
+      udevadm: test - handling trailing '/' in devpath
+      udevadm: monitor - clarify printed header
+      rules: remove ram* from persisten disk links blacklist
+      rules: serial - support ttyACM devices
+      rules: replace IDE driver with media match
+      usb_id: add ID_VENDOR_ID, ID_MODEL_ID, ID_USB_INTERFACE_NUM, ID_USB_DRIVER
+      libudev: GPL -> LGPL
+      usb_id: remove unused variable
+      send monitor events back to netlink socket
+      "UDEV_MONITOR_KERNEL/UDEV" -> "kernel/udev"
+      IMPORT: 2048 -> 4096 bytes buffer
+      path_encode: fix max length calculation
+      libudev: monitor - unify socket message handling
+
+Michal Soltys (1):
+      rules: md-raid.rules fix
+
+Robby Workman (1):
+      udevadm: trigger - add "--action" to --help
+
+Scott James Remnant (1):
+      libudev: monitor - ignore messages from unusual sources
+
+
 Summary of changes from v139 to v140
 ============================================
 

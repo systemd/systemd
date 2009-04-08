@@ -2,6 +2,12 @@ udev 141
 ========
 Bugfixes.
 
+The processed udev events get send back to the netlink socket. Libudev
+provides access to these events. This is work-in-progress, to replace
+the DeviceKit daemon functionality directly with libudev. There are
+upcoming kernel changes to allow non-root users to subcribe to these
+events.
+
 udev 140
 ========
 Bugfixes.
