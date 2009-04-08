@@ -143,25 +143,22 @@ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 	int err;
 	const int on = 1;
 
-	if (udev_monitor->snl.nl_family != 0) {
-		err = bind(udev_monitor->sock,
-			   (struct sockaddr *)&udev_monitor->snl, sizeof(struct sockaddr_nl));
-		if (err < 0) {
-			err(udev_monitor->udev, "bind failed: %m\n");
-			return err;
-		}
-		dbg(udev_monitor->udev, "monitor %p listening on netlink\n", udev_monitor);
-	} else if (udev_monitor->sun.sun_family != 0) {
+	if (udev_monitor->sun.sun_family != 0)
 		err = bind(udev_monitor->sock,
 			   (struct sockaddr *)&udev_monitor->sun, udev_monitor->addrlen);
-		if (err < 0) {
-			err(udev_monitor->udev, "bind failed: %m\n");
-			return err;
-		}
-		/* enable receiving of the sender credentials */
-		setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
-		dbg(udev_monitor->udev, "monitor %p listening on socket\n", udev_monitor);
+	else if (udev_monitor->snl.nl_family != 0)
+		err = bind(udev_monitor->sock,
+			   (struct sockaddr *)&udev_monitor->snl, sizeof(struct sockaddr_nl));
+	else
+		return -EINVAL;
+
+	if (err < 0) {
+		err(udev_monitor->udev, "bind failed: %m\n");
+		return err;
 	}
+
+	/* enable receiving of sender credentials */
+	setsockopt(udev_monitor->sock, SOL_SOCKET, SO_PASSCRED, &on, sizeof(on));
 	return 0;
 }
 
@@ -262,6 +259,8 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 	struct msghdr smsg;
 	struct iovec iov;
 	char cred_msg[CMSG_SPACE(sizeof(struct ucred))];
+	struct cmsghdr *cmsg;
+	struct ucred *cred;
 	char buf[4096];
 	size_t bufpos;
 	int devpath_set = 0;
@@ -287,19 +286,16 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 		return NULL;
 	}
 
-	if (udev_monitor->sun.sun_family != 0) {
-		struct cmsghdr *cmsg = CMSG_FIRSTHDR(&smsg);
-		struct ucred *cred = (struct ucred *)CMSG_DATA (cmsg);
+	cmsg = CMSG_FIRSTHDR(&smsg);
+	if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
+		info(udev_monitor->udev, "no sender credentials received, message ignored");
+		return NULL;
+	}
 
-		if (cmsg == NULL || cmsg->cmsg_type != SCM_CREDENTIALS) {
-			info(udev_monitor->udev, "no sender credentials received, message ignored");
-			return NULL;
-		}
-
-		if (cred->uid != 0) {
-			info(udev_monitor->udev, "sender uid=%d, message ignored", cred->uid);
-			return NULL;
-		}
+	cred = (struct ucred *)CMSG_DATA(cmsg);
+	if (cred->uid != 0) {
+		info(udev_monitor->udev, "sender uid=%d, message ignored", cred->uid);
+		return NULL;
 	}
 
 	/* skip header */
@@ -404,18 +400,20 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_devi
 	len = udev_device_get_properties_monitor_buf(udev_device, &buf);
 	if (len < 32)
 		return -1;
-	if (udev_monitor->sun.sun_family != 0) {
+	if (udev_monitor->sun.sun_family != 0)
 		count = sendto(udev_monitor->sock,
 			       buf, len, 0,
 			       (struct sockaddr *)&udev_monitor->sun,
 			       udev_monitor->addrlen);
-	} else {
-		/* no destination besides the muticast group, we will always get -1 ECONNREFUSED */
+	else if (udev_monitor->snl.nl_family != 0)
+		/* no destination besides the muticast group, we will always get ECONNREFUSED */
 		count = sendto(udev_monitor->sock,
 			       buf, len, 0,
 			       (struct sockaddr *)&udev_monitor->snl_peer,
 			       sizeof(struct sockaddr_nl));
-	}
+	else
+		return -1;
+
 	info(udev_monitor->udev, "passed %zi bytes to monitor %p, \n", count, udev_monitor);
 	return count;
 }
