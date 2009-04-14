@@ -1,14 +1,13 @@
 AC_INIT([udev],
-	[141],
+	[142],
 	[linux-hotplug@vger.kernel.org])
 AC_PREREQ(2.60)
-AC_CONFIG_SRCDIR([udev/udevd.c])
 AM_INIT_AUTOMAKE([check-news foreign 1.9 dist-bzip2])
 AC_DISABLE_STATIC
 AC_USE_SYSTEM_EXTENSIONS
 AC_SYS_LARGEFILE
-AC_PROG_LIBTOOL
 AC_CONFIG_MACRO_DIR([m4])
+AC_PROG_LIBTOOL
 
 dnl /* prefix is /usr, exec_prefix is /, if overridden exec_prefix follows prefix */
 AC_PREFIX_DEFAULT([/usr])
