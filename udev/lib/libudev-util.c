@@ -101,12 +101,12 @@ int util_log_priority(const char *priority)
 	return 0;
 }
 
-size_t util_path_encode(char *s, size_t len)
+size_t util_path_encode(char *s, size_t size)
 {
-	char t[(len * 4)+1];
+	char t[(size * 4)+1];
 	size_t i, j;
 
-	for (i = 0, j = 0; s[i] != '\0'; i++) {
+	for (i = 0, j = 0; s[i] != '\0' && i < size; i++) {
 		if (s[i] == '/') {
 			memcpy(&t[j], "\\x2f", 4);
 			j += 4;
@@ -118,11 +118,12 @@ size_t util_path_encode(char *s, size_t len)
 			j++;
 		}
 	}
-	if (len == 0)
-		return j;
-	i = (j < len - 1) ? j : len - 1;
-	memcpy(s, t, i);
-	s[i] = '\0';
+	if (i >= size)
+		return 0;
+	if (j >= size)
+		return 0;
+	memcpy(s, t, j);
+	s[j] = '\0';
 	return j;
 }
 
@@ -134,7 +135,7 @@ size_t util_path_decode(char *s)
 		if (memcmp(&s[i], "\\x2f", 4) == 0) {
 			s[j] = '/';
 			i += 4;
-		}else if (memcmp(&s[i], "\\x5c", 4) == 0) {
+		} else if (memcmp(&s[i], "\\x5c", 4) == 0) {
 			s[j] = '\\';
 			i += 4;
 		} else {

@@ -15,7 +15,7 @@ test "$prefix" = NONE && test "$exec_prefix" = NONE && exec_prefix=
 
 dnl /* libudev version */
 LIBUDEV_LT_CURRENT=2
-LIBUDEV_LT_REVISION=0
+LIBUDEV_LT_REVISION=1
 LIBUDEV_LT_AGE=2
 AC_SUBST(LIBUDEV_LT_CURRENT)
 AC_SUBST(LIBUDEV_LT_REVISION)
