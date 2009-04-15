@@ -44,12 +44,15 @@ enum udev_monitor_netlink_group {
  * @udev: udev library context
  * @socket_path: unix socket path
  *
- * Create new udev monitor, setup and connect to a specified socket. The
- * path to a socket can point to an existing socket file, or it will be
- * created if needed. If neccessary, the permissions adjustment as well as
- * the later cleanup of the socket file, needs to be done by the caller.
- * If the socket path starts with a '@' character, an abstract namespace
+ * Create new udev monitor and connect to a specified socket. The
+ * path to a socket either points to an existing socket file, or if
+ * the socket path starts with a '@' character, an abstract namespace
  * socket will be used.
+ *
+ * A socket file will not be created. If it does not already exist,
+ * it will fall-back and connect to an abstract namespace socket with
+ * the given path. The permissions adjustment of a socket file, as
+ * well as the later cleanup, needs to be done by the caller.
  *
  * The initial refcount is 1, and needs to be decremented to
  * release the resources of the udev monitor.
@@ -98,6 +101,31 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 	return udev_monitor;
 }
 
+/**
+ * udev_monitor_new_from_netlink:
+ * @udev: udev library context
+ * @name: name of event source
+ *
+ * Create new udev monitor and connect to a specified event
+ * source. Valid sources identifiers are "udev" and "kernel".
+ *
+ * Applications should usually not connect directly to the
+ * "kernel" events, because the devices might not be useable
+ * at that time, before udev has configured them, and created
+ * device nodes.
+ *
+ * Accessing devices at the same time as udev, might result
+ * in unpredictable behavior.
+ *
+ * The "udev" events are sent out after udev has finished its
+ * event processing, all rules have been processed, and needed
+ * device nodes are created.
+ *
+ * The initial refcount is 1, and needs to be decremented to
+ * release the resources of the udev monitor.
+ *
+ * Returns: a new udev monitor, or #NULL, in case of an error
+ **/
 struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char *name)
 {
 	struct udev_monitor *udev_monitor;
@@ -189,7 +217,7 @@ struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor)
  * udev_monitor_unref:
  * @udev_monitor: udev monitor
  *
- * Drop a reference ofa udev monitor. If the refcount reaches zero,
+ * Drop a reference of a udev monitor. If the refcount reaches zero,
  * the bound socket will be closed, and the resources of the monitor
  * will be released.
  *
