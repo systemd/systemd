@@ -567,10 +567,8 @@ int main(int argc, char *argv[])
 	}
 
 	/* check drive */
-	if (cd_inquiry(udev, fd) < 0) {
-		rc = 2;
-		goto exit;
-	}
+	if (cd_inquiry(udev, fd) < 0)
+		goto print;
 
 	/* read drive and possibly current profile */
 	if (cd_profiles(udev, fd) < 0)
