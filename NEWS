@@ -1,3 +1,15 @@
+udev 142
+========
+Bugfixes.
+
+A too old kernel or a kernel with CONFIG_SYSFS_DEPRECATED is not
+supported since while and udevd will log an error message at
+startup.
+
+DVB device naming is supplied by the kernel now. To support older
+kernels, the old shell script should be added to a possible compat
+rules file.
+
 udev 141
 ========
 Bugfixes.
