@@ -129,6 +129,30 @@ handle_platform () {
 	RESULT=0
 }
 
+handle_xen () {
+	local DEV=$1
+	cd -P $1
+	vbd_id=${DEV##*/}
+	host_dev_path=$DEV
+	while [ ! -z "$host_dev_path" ] ; do
+		case "$host_dev_path" in
+			*/vbd*)
+				host_dev_path=${host_dev_path%/*}
+				;;
+			*)
+				break
+				;;
+		esac
+	done
+	if [ "$d" ]; then
+		d="xen-$vbd_id-$d"
+	else
+		d="xen-$vbd_id"
+	fi
+	D="$host_dev_path"
+	RESULT=0
+}
+
 handle_serio () {
 	local DEV=$1
 	cd -P $1
@@ -531,6 +555,9 @@ handle_device () {
 				;;
 			*/platform/*)
 				handle_platform "$D"
+				;;
+			*/vbd-[0-9]*)
+				handle_xen "$D"
 				;;
 			*/devices)
 				D=
