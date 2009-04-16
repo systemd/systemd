@@ -295,7 +295,7 @@ static void event_queue_insert(struct udev_event *event)
 
 static int mem_size_mb(void)
 {
-	FILE* f;
+	FILE *f;
 	char buf[4096];
 	long int memsize = -1;
 
@@ -708,6 +708,34 @@ static void export_initial_seqnum(struct udev *udev)
 	}
 }
 
+static void startup_log(struct udev *udev)
+{
+	FILE *f;
+	char path[UTIL_PATH_SIZE];
+	struct stat statbuf;
+
+	f = fopen("/dev/kmsg", "w");
+	if (f != NULL)
+		fprintf(f, "<6>udev: starting version " VERSION "\n");
+
+	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
+	util_strlcat(path, "/class/mem/null", sizeof(path));
+	if (lstat(path, &statbuf) == 0 && S_ISDIR(statbuf.st_mode)) {
+		const char *depr_str =
+			"udev: missing sysfs features; please update the kernel "
+			"or disable the kernel's CONFIG_SYSFS_DEPRECATED option; "
+			"udev may fail to work correctly";
+
+		if (f != NULL)
+			fprintf(f, "<3>%s\n", depr_str);
+		err(udev, "%s\n", depr_str);
+		sleep(3);
+	}
+
+	if (f != NULL)
+		fclose(f);
+}
+
 int main(int argc, char *argv[])
 {
 	struct udev *udev;
@@ -875,27 +903,7 @@ int main(int argc, char *argv[])
 		close(fd);
 	}
 
-	fd = open("/dev/kmsg", O_WRONLY);
-	if (fd > 0) {
-		const char *ver_str = "<6>udev: starting version " VERSION "\n";
-		char path[UTIL_PATH_SIZE];
-		struct stat statbuf;
-
-		write(fd, ver_str, strlen(ver_str));
-		util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-		util_strlcat(path, "/class/mem/null", sizeof(path));
-		if (lstat(path, &statbuf) == 0) {
-			if (S_ISDIR(statbuf.st_mode)) {
-				const char *depr_str =
-					"<6>udev: deprecated sysfs layout; update the kernel or "
-					"disable CONFIG_SYSFS_DEPRECATED; some udev features will "
-					"not work correctly\n";
-
-				write(fd, depr_str, strlen(depr_str));
-			}
-		}
-		close(fd);
-	}
+	startup_log(udev);
 
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(struct sigaction));
