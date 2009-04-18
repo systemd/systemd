@@ -217,13 +217,13 @@ static int test_enumerate_print_list(struct udev_enumerate *enumerate)
 	return count;
 }
 
-static int test_monitor(struct udev *udev, const char *socket_path)
+static int test_monitor(struct udev *udev)
 {
 	struct udev_monitor *udev_monitor;
 	fd_set readfds;
 	int fd;
 
-	udev_monitor = udev_monitor_new_from_socket(udev, socket_path);
+	udev_monitor = udev_monitor_new_from_netlink(udev, "udev");
 	if (udev_monitor == NULL) {
 		printf("no socket\n");
 		return -1;
@@ -243,7 +243,7 @@ static int test_monitor(struct udev *udev, const char *socket_path)
 		FD_SET(STDIN_FILENO, &readfds);
 		FD_SET(fd, &readfds);
 
-		printf("waiting for events on %s, press ENTER to exit\n", socket_path);
+		printf("waiting for events from udev, press ENTER to exit\n");
 		fdcount = select(fd+1, &readfds, NULL, NULL, NULL);
 		printf("select fd count: %i\n", fdcount);
 
@@ -377,7 +377,6 @@ int main(int argc, char *argv[])
 	static const struct option options[] = {
 		{ "syspath", required_argument, NULL, 'p' },
 		{ "subsystem", required_argument, NULL, 's' },
-		{ "socket", required_argument, NULL, 'S' },
 		{ "debug", no_argument, NULL, 'd' },
 		{ "help", no_argument, NULL, 'h' },
 		{ "version", no_argument, NULL, 'V' },
@@ -385,7 +384,6 @@ int main(int argc, char *argv[])
 	};
 	const char *syspath = "/devices/virtual/mem/null";
 	const char *subsystem = NULL;
-	const char *socket = "@/org/kernel/udev/monitor";
 	char path[1024];
 	const char *str;
 
@@ -412,15 +410,12 @@ int main(int argc, char *argv[])
 		case 's':
 			subsystem = optarg;
 			break;
-		case 'S':
-			socket = optarg;
-			break;
 		case 'd':
 			if (udev_get_log_priority(udev) < LOG_INFO)
 				udev_set_log_priority(udev, LOG_INFO);
 			break;
 		case 'h':
-			printf("--debug --syspath= --subsystem= --socket= --help\n");
+			printf("--debug --syspath= --subsystem= --help\n");
 			goto out;
 		case 'V':
 			printf("%s\n", VERSION);
@@ -450,7 +445,7 @@ int main(int argc, char *argv[])
 
 	test_queue(udev);
 
-	test_monitor(udev, socket);
+	test_monitor(udev);
 out:
 	udev_unref(udev);
 	return 0;
