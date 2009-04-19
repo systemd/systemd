@@ -22,7 +22,7 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
-/* last known version with this wire protocol */
+/* wire protocol magic must match */
 #define UDEV_CTRL_MAGIC				0xdead1dea
 
 enum udev_ctrl_msg_type {

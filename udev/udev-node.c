@@ -68,7 +68,7 @@ static int name_index(struct udev *udev, const char *devpath, const char *name, 
 int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mode_t mode, uid_t uid, gid_t gid)
 {
 	struct udev *udev = udev_device_get_udev(dev);
-	char file_tmp[UTIL_PATH_SIZE + sizeof(TMP_FILE_EXT)];
+	char filename[UTIL_PATH_SIZE];
 	struct stat stats;
 	int preserve = 0;
 	int err = 0;
@@ -81,8 +81,14 @@ int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mod
 	else
 		mode |= S_IFCHR;
 
-	if (file == NULL)
+	if (file == NULL) {
 		file = udev_device_get_devnode(dev);
+	} else if (file[0] != '/') {
+		util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
+		util_strlcat(filename, "/", sizeof(filename));
+		util_strlcat(filename, file, sizeof(filename));
+		file = filename;
+	}
 
 	if (lstat(file, &stats) == 0) {
 		if (((stats.st_mode & S_IFMT) == (mode & S_IFMT)) && (stats.st_rdev == devnum)) {
@@ -90,6 +96,8 @@ int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mod
 			preserve = 1;
 			udev_selinux_lsetfilecon(udev, file, mode);
 		} else {
+			char file_tmp[UTIL_PATH_SIZE + sizeof(TMP_FILE_EXT)];
+
 			info(udev, "atomically replace existing file '%s'\n", file);
 			util_strlcpy(file_tmp, file, sizeof(file_tmp));
 			util_strlcat(file_tmp, TMP_FILE_EXT, sizeof(file_tmp));
