@@ -76,6 +76,7 @@ static unsigned int cd_mrw;
 static unsigned int cd_mrw_w;
 
 /* media info */
+static unsigned int cd_media;
 static unsigned int cd_media_cd_rom;
 static unsigned int cd_media_cd_r;
 static unsigned int cd_media_cd_rw;
@@ -324,6 +325,8 @@ static int cd_profiles(struct udev *udev, int fd)
 		info(udev, "no current profile, assuming no media\n");
 		return -1;
 	}
+
+	cd_media = 1;
 
 	switch (cur_profile) {
 	case 0x03:
@@ -625,6 +628,8 @@ print:
 	if (cd_mrw_w)
 		printf("ID_CDROM_MRW_W=1\n");
 
+	if (cd_media)
+		printf("ID_CDROM_MEDIA=1\n");
 	if (cd_media_mo)
 		printf("ID_CDROM_MEDIA_MO=1\n");
 	if (cd_media_mrw)
