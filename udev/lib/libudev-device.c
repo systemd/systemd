@@ -1074,7 +1074,6 @@ const char *udev_device_get_property_value(struct udev_device *udev_device, cons
 #define MONITOR_BUF_SIZE		4096
 static int update_envp_monitor_buf(struct udev_device *udev_device)
 {
-	const char *action;
 	struct udev_list_entry *list_entry;
 	size_t bufpos;
 	size_t len;
@@ -1093,23 +1092,8 @@ static int update_envp_monitor_buf(struct udev_device *udev_device)
 	if (udev_device->envp == NULL)
 		return -ENOMEM;
 
-	/* header <action>@<devpath> */
-	action = udev_device_get_action(udev_device);
-	if (action == NULL)
-		return -EINVAL;
-	bufpos = util_strlcpy(udev_device->monitor_buf, action, MONITOR_BUF_SIZE);
-	len = util_strlcpy(&udev_device->monitor_buf[bufpos], "@", MONITOR_BUF_SIZE-bufpos);
-	if (len >= MONITOR_BUF_SIZE-bufpos)
-		return -EINVAL;
-	bufpos += len;
-	len = util_strlcpy(&udev_device->monitor_buf[bufpos],
-			   udev_device_get_devpath(udev_device),
-			   MONITOR_BUF_SIZE-bufpos);
-	if (len+1 >= MONITOR_BUF_SIZE-bufpos)
-		return -EINVAL;
-	bufpos += len+1;
-
 	i = 0;
+	bufpos = 0;
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
 		/* add string to envp array */
 		udev_device->envp[i++] = &udev_device->monitor_buf[bufpos];

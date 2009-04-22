@@ -228,6 +228,12 @@ static int test_monitor(struct udev *udev)
 		printf("no socket\n");
 		return -1;
 	}
+	if (udev_monitor_filter_add_match_subsystem(udev_monitor, "block") < 0 ||
+	    udev_monitor_filter_add_match_subsystem(udev_monitor, "tty") < 0 ||
+	    udev_monitor_filter_add_match_subsystem(udev_monitor, "usb") < 0) {
+		printf("filter failed\n");
+		return -1;
+	}
 	if (udev_monitor_enable_receiving(udev_monitor) < 0) {
 		printf("bind failed\n");
 		return -1;
@@ -251,6 +257,7 @@ static int test_monitor(struct udev *udev)
 			device = udev_monitor_receive_device(udev_monitor);
 			if (device == NULL) {
 				printf("no device from socket\n");
+sleep(1);
 				continue;
 			}
 			print_device(device);

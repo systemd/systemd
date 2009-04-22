@@ -16,10 +16,13 @@
 #include <errno.h>
 #include <string.h>
 #include <dirent.h>
+#include <sys/poll.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <arpa/inet.h>
 #include <linux/netlink.h>
+#include <linux/filter.h>
 
 #include "libudev.h"
 #include "libudev-private.h"
@@ -32,12 +35,45 @@ struct udev_monitor {
 	struct sockaddr_nl snl_peer;
 	struct sockaddr_un sun;
 	socklen_t addrlen;
+	struct udev_list_node filter_subsystem_list;
 };
 
 enum udev_monitor_netlink_group {
 	UDEV_MONITOR_KERNEL	= 1,
 	UDEV_MONITOR_UDEV	= 2,
 };
+
+#define UDEV_MONITOR_MAGIC		0xcafe1dea
+struct udev_monitor_netlink_header {
+	/* udev version text */
+	char version[16];
+	/*
+	 * magic to protect against daemon <-> library message format mismatch
+	 * used in the kernel from socket filter rules; needs to be stored in network order
+	 */
+	unsigned int magic;
+	/* properties buffer */
+	unsigned short properties_off;
+	unsigned short properties_len;
+	/*
+	 * crc32 of some common device properties to filter with socket filters in the client
+	 * used in the kernel from socket filter rules; needs to be stored in network order
+	 */
+	unsigned int filter_subsystem;
+};
+
+static struct udev_monitor *udev_monitor_new(struct udev *udev)
+{
+	struct udev_monitor *udev_monitor;
+
+	udev_monitor = calloc(1, sizeof(struct udev_monitor));
+	if (udev_monitor == NULL)
+		return NULL;
+	udev_monitor->refcount = 1;
+	udev_monitor->udev = udev;
+	udev_list_init(&udev_monitor->filter_subsystem_list);
+	return udev_monitor;
+}
 
 /**
  * udev_monitor_new_from_socket:
@@ -68,11 +104,9 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 		return NULL;
 	if (socket_path == NULL)
 		return NULL;
-	udev_monitor = calloc(1, sizeof(struct udev_monitor));
+	udev_monitor = udev_monitor_new(udev);
 	if (udev_monitor == NULL)
 		return NULL;
-	udev_monitor->refcount = 1;
-	udev_monitor->udev = udev;
 
 	udev_monitor->sun.sun_family = AF_LOCAL;
 	if (socket_path[0] == '@') {
@@ -143,11 +177,9 @@ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char
 	else
 		return NULL;
 
-	udev_monitor = calloc(1, sizeof(struct udev_monitor));
+	udev_monitor = udev_monitor_new(udev);
 	if (udev_monitor == NULL)
 		return NULL;
-	udev_monitor->refcount = 1;
-	udev_monitor->udev = udev;
 
 	udev_monitor->sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
 	if (udev_monitor->sock == -1) {
@@ -166,19 +198,91 @@ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char
 	return udev_monitor;
 }
 
+static inline void bpf_stmt(struct sock_filter *inss, unsigned int *i,
+			    unsigned short code, unsigned int data)
+{
+	struct sock_filter *ins = &inss[*i];
+
+	ins->code = code;
+	ins->k = data;
+	(*i)++;
+}
+
+static inline void bpf_jmp(struct sock_filter *inss, unsigned int *i,
+			   unsigned short code, unsigned int data,
+			   unsigned short jt, unsigned short jf)
+{
+	struct sock_filter *ins = &inss[*i];
+
+	ins->code = code;
+	ins->jt = jt;
+	ins->jf = jf;
+	ins->k = data;
+	(*i)++;
+}
+
+static int filter_apply(struct udev_monitor *udev_monitor)
+{
+	static struct sock_filter ins[256];
+	static struct sock_fprog filter;
+	unsigned int i;
+	struct udev_list_entry *list_entry;
+	int err;
+
+	if (udev_list_get_entry(&udev_monitor->filter_subsystem_list) == NULL)
+		return 0;
+
+	memset(ins, 0x00, sizeof(ins));
+	i = 0;
+
+	/* load magic in accu */
+	bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, magic));
+	/* jump if magic matches */
+	bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, UDEV_MONITOR_MAGIC, 1, 0);
+	/* wrong magic, drop packet */
+	bpf_stmt(ins, &i, BPF_RET|BPF_K, 0);
+
+	/* load filter_subsystem value in accu */
+	bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, filter_subsystem));
+	/* add all subsystem match values */
+	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
+		const char *subsys = udev_list_entry_get_name(list_entry);
+		unsigned int crc;
+
+		crc = util_crc32((unsigned char *)subsys, strlen(subsys));
+		/* jump if value does not match */
+		bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, crc, 0, 1);
+		/* matched, pass packet */
+		bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
+
+		if (i+1 >= ARRAY_SIZE(ins))
+			return -1;
+	}
+	/* nothing matched, drop packet */
+	bpf_stmt(ins, &i, BPF_RET|BPF_K, 0);
+
+	/* install filter */
+	filter.len = i;
+	filter.filter = ins;
+	err = setsockopt(udev_monitor->sock, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter));
+	return err;
+}
+
 int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 {
 	int err;
 	const int on = 1;
 
-	if (udev_monitor->sun.sun_family != 0)
+	if (udev_monitor->sun.sun_family != 0) {
 		err = bind(udev_monitor->sock,
 			   (struct sockaddr *)&udev_monitor->sun, udev_monitor->addrlen);
-	else if (udev_monitor->snl.nl_family != 0)
+	} else if (udev_monitor->snl.nl_family != 0) {
+		filter_apply(udev_monitor);
 		err = bind(udev_monitor->sock,
 			   (struct sockaddr *)&udev_monitor->snl, sizeof(struct sockaddr_nl));
-	else
+	} else {
 		return -EINVAL;
+	}
 
 	if (err < 0) {
 		err(udev_monitor->udev, "bind failed: %m\n");
@@ -231,6 +335,7 @@ void udev_monitor_unref(struct udev_monitor *udev_monitor)
 		return;
 	if (udev_monitor->sock >= 0)
 		close(udev_monitor->sock);
+	udev_list_cleanup_entries(udev_monitor->udev, &udev_monitor->filter_subsystem_list);
 	dbg(udev_monitor->udev, "monitor %p released\n", udev_monitor);
 	free(udev_monitor);
 }
@@ -265,6 +370,25 @@ int udev_monitor_get_fd(struct udev_monitor *udev_monitor)
 	return udev_monitor->sock;
 }
 
+static int passes_filter(struct udev_monitor *udev_monitor, struct udev_device *udev_device)
+{
+	struct udev_list_entry *list_entry;
+	int pass = 0;
+
+	if (udev_list_get_entry(&udev_monitor->filter_subsystem_list) == NULL)
+		return 1;
+
+	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
+		const char *subsys = udev_device_get_subsystem(udev_device);
+
+		if (strcmp(udev_list_entry_get_name(list_entry), subsys) == 0) {
+			pass= 1;
+			break;
+		}
+	}
+	return pass;
+}
+
 /**
  * udev_monitor_receive_device:
  * @udev_monitor: udev monitor
@@ -292,12 +416,14 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 	struct ucred *cred;
 	char buf[4096];
 	size_t bufpos;
+	struct udev_monitor_netlink_header *nlh;
 	int devpath_set = 0;
 	int subsystem_set = 0;
 	int action_set = 0;
 	int maj = 0;
 	int min = 0;
 
+retry:
 	if (udev_monitor == NULL)
 		return NULL;
 	memset(buf, 0x00, sizeof(buf));
@@ -311,7 +437,7 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 
 	if (udev_monitor->snl.nl_family != 0) {
 		smsg.msg_name = &snl;
-		smsg.msg_namelen = sizeof snl;
+		smsg.msg_namelen = sizeof(snl);
 	}
 
 	if (recvmsg(udev_monitor->sock, &smsg, 0) < 0) {
@@ -343,17 +469,27 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 		return NULL;
 	}
 
-	/* skip header */
-	bufpos = strlen(buf) + 1;
-	if (bufpos < sizeof("a@/d") || bufpos >= sizeof(buf)) {
-		info(udev_monitor->udev, "invalid message length\n");
-		return NULL;
-	}
+	nlh = (struct udev_monitor_netlink_header *) buf;
+	if (nlh->magic == ntohl(UDEV_MONITOR_MAGIC)) {
+		/* udev message with version magic */
+		if (nlh->properties_off < sizeof(struct udev_monitor_netlink_header))
+			return NULL;
+		if (nlh->properties_off+32U > sizeof(buf))
+			return NULL;
+		bufpos = nlh->properties_off;
+	} else {
+		/* kernel message with header */
+		bufpos = strlen(buf) + 1;
+		if (bufpos < sizeof("a@/d") || bufpos >= sizeof(buf)) {
+			info(udev_monitor->udev, "invalid message length\n");
+			return NULL;
+		}
 
-	/* check message header */
-	if (strstr(buf, "@/") == NULL) {
-		info(udev_monitor->udev, "unrecognized message header\n");
-		return NULL;
+		/* check message header */
+		if (strstr(buf, "@/") == NULL) {
+			info(udev_monitor->udev, "unrecognized message header\n");
+			return NULL;
+		}
 	}
 
 	udev_device = device_new(udev_monitor->udev);
@@ -430,6 +566,23 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 		udev_device_unref(udev_device);
 		return NULL;
 	}
+
+	/* skip device, if it does not pass the current filter */
+	if (!passes_filter(udev_monitor, udev_device)) {
+		struct pollfd pfd[1];
+		int rc;
+
+		udev_device_unref(udev_device);
+
+		/* if something is queued, get next device */
+		pfd[0].fd = udev_monitor->sock;
+		pfd[0].events = POLLIN;
+		rc = poll(pfd, 1, 0);
+		if (rc > 0)
+			goto retry;
+		return NULL;
+	}
+
 	if (maj > 0)
 		udev_device_set_devnum(udev_device, makedev(maj, min));
 	udev_device_set_info_loaded(udev_device);
@@ -438,27 +591,87 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 
 int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_device *udev_device)
 {
+	struct msghdr smsg;
+	struct iovec iov[2];
 	const char *buf;
-	ssize_t len;
+	ssize_t blen;
 	ssize_t count;
 
-	len = udev_device_get_properties_monitor_buf(udev_device, &buf);
-	if (len < 32)
-		return -1;
-	if (udev_monitor->sun.sun_family != 0)
-		count = sendto(udev_monitor->sock,
-			       buf, len, 0,
-			       (struct sockaddr *)&udev_monitor->sun,
-			       udev_monitor->addrlen);
-	else if (udev_monitor->snl.nl_family != 0)
-		/* no destination besides the muticast group, we will always get ECONNREFUSED */
-		count = sendto(udev_monitor->sock,
-			       buf, len, 0,
-			       (struct sockaddr *)&udev_monitor->snl_peer,
-			       sizeof(struct sockaddr_nl));
-	else
+	blen = udev_device_get_properties_monitor_buf(udev_device, &buf);
+	if (blen < 32)
 		return -1;
 
+	if (udev_monitor->sun.sun_family != 0) {
+		const char *action;
+		char header[2048];
+		size_t hlen;
+
+		/* header <action>@<devpath> */
+		action = udev_device_get_action(udev_device);
+		if (action == NULL)
+			return -EINVAL;
+		util_strlcpy(header, action, sizeof(header));
+		util_strlcat(header, "@", sizeof(header));
+		hlen = util_strlcat(header, udev_device_get_devpath(udev_device), sizeof(header))+1;
+		if (hlen >= sizeof(header))
+			return -EINVAL;
+		iov[0].iov_base = header;
+		iov[0].iov_len = hlen;
+
+		/* add properties list */
+		iov[1].iov_base = (char *)buf;
+		iov[1].iov_len = blen;
+
+		memset(&smsg, 0x00, sizeof(struct msghdr));
+		smsg.msg_iov = iov;
+		smsg.msg_iovlen = 2;
+		smsg.msg_name = &udev_monitor->sun;
+		smsg.msg_namelen = udev_monitor->addrlen;
+	} else if (udev_monitor->snl.nl_family != 0) {
+		const char *val;
+		size_t vlen;
+		struct udev_monitor_netlink_header nlh;
+
+
+		/* add versioned header */
+		memset(&nlh, 0x00, sizeof(struct udev_monitor_netlink_header));
+		util_strlcpy(nlh.version, "udev-" VERSION, sizeof(nlh.version));
+		nlh.magic = htonl(UDEV_MONITOR_MAGIC);
+		val = udev_device_get_subsystem(udev_device);
+		vlen = strlen(val);
+		nlh.filter_subsystem = htonl(util_crc32((unsigned char *)val, vlen));
+		iov[0].iov_base = &nlh;
+		iov[0].iov_len = sizeof(struct udev_monitor_netlink_header);
+
+		/* add properties list */
+		nlh.properties_off = iov[0].iov_len;
+		nlh.properties_len = blen;
+		iov[1].iov_base = (char *)buf;
+		iov[1].iov_len = blen;
+
+		memset(&smsg, 0x00, sizeof(struct msghdr));
+		smsg.msg_iov = iov;
+		smsg.msg_iovlen = 2;
+		/* no destination besides the muticast group, we will always get ECONNREFUSED */
+		smsg.msg_name = &udev_monitor->snl_peer;
+		smsg.msg_namelen = sizeof(struct sockaddr_nl);
+	} else {
+		return -1;
+	}
+
+	count = sendmsg(udev_monitor->sock, &smsg, 0);
 	info(udev_monitor->udev, "passed %zi bytes to monitor %p\n", count, udev_monitor);
 	return count;
+}
+
+int udev_monitor_filter_add_match_subsystem(struct udev_monitor *udev_monitor, const char *subsystem)
+{
+	if (udev_monitor == NULL)
+		return -EINVAL;
+	if (subsystem == NULL)
+		return 0;
+	if (udev_list_entry_add(udev_monitor->udev,
+				&udev_monitor->filter_subsystem_list, subsystem, NULL, 1, 0) == NULL)
+		return -ENOMEM;
+	return 0;
 }
