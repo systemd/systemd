@@ -71,6 +71,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 	int env = 0;
 	int print_kernel = 0;
 	int print_udev = 0;
+	struct udev_list_node subsystem_match_list;
 	struct udev_monitor *udev_monitor = NULL;
 	struct udev_monitor *kernel_monitor = NULL;
 	fd_set readfds;
@@ -80,12 +81,14 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 		{ "environment", no_argument, NULL, 'e' },
 		{ "kernel", no_argument, NULL, 'k' },
 		{ "udev", no_argument, NULL, 'u' },
+		{ "subsystem-match", required_argument, NULL, 's' },
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 
+	udev_list_init(&subsystem_match_list);
 	while (1) {
-		option = getopt_long(argc, argv, "ekuh", options, NULL);
+		option = getopt_long(argc, argv, "ekus:h", options, NULL);
 		if (option == -1)
 			break;
 
@@ -98,6 +101,9 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			break;
 		case 'u':
 			print_udev = 1;
+			break;
+		case 's':
+			udev_list_entry_add(udev, &subsystem_match_list, optarg, NULL, 1, 0);
 			break;
 		case 'h':
 			printf("Usage: udevadm monitor [--environment] [--kernel] [--udev] [--help]\n"
@@ -125,12 +131,22 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 
 	printf("monitor will print the received events for:\n");
 	if (print_udev) {
+		struct udev_list_entry *entry;
+
 		udev_monitor = udev_monitor_new_from_netlink(udev, "udev");
 		if (udev_monitor == NULL) {
 			fprintf(stderr, "error: unable to create netlink socket\n");
 			rc = 1;
 			goto out;
 		}
+
+		udev_list_entry_foreach(entry, udev_list_get_entry(&subsystem_match_list)) {
+			const char *subsys = udev_list_entry_get_name(entry);
+
+			if (udev_monitor_filter_add_match_subsystem(udev_monitor, subsys) < 0)
+				fprintf(stderr, "error: unable to apply subsystem filter '%s'\n", subsys);
+		}
+
 		if (udev_monitor_enable_receiving(udev_monitor) < 0) {
 			fprintf(stderr, "error: unable to subscribe to udev events\n");
 			rc = 2;
@@ -195,5 +211,6 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 out:
 	udev_monitor_unref(udev_monitor);
 	udev_monitor_unref(kernel_monitor);
+	udev_list_cleanup_entries(udev, &subsystem_match_list);
 	return rc;
 }
