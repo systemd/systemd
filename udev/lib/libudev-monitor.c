@@ -56,8 +56,9 @@ struct udev_monitor_netlink_header {
 	unsigned short properties_off;
 	unsigned short properties_len;
 	/*
-	 * crc32 of some common device properties to filter with socket filters in the client
-	 * used in the kernel from socket filter rules; needs to be stored in network order
+	 * hashes of some common device propertie strings to filter with socket filters in
+	 * the client used in the kernel from socket filter rules; needs to be stored in
+	 * network order
 	 */
 	unsigned int filter_subsystem;
 };
@@ -247,11 +248,11 @@ static int filter_apply(struct udev_monitor *udev_monitor)
 	/* add all subsystem match values */
 	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
 		const char *subsys = udev_list_entry_get_name(list_entry);
-		unsigned int crc;
+		unsigned int hash;
 
-		crc = util_crc32((unsigned char *)subsys, strlen(subsys));
+		hash = util_string_hash32(subsys);
 		/* jump if value does not match */
-		bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, crc, 0, 1);
+		bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
 		/* matched, pass packet */
 		bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
 
@@ -414,8 +415,9 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 	struct cmsghdr *cmsg;
 	struct sockaddr_nl snl;
 	struct ucred *cred;
-	char buf[4096];
-	size_t bufpos;
+	char buf[8192];
+	ssize_t buflen;
+	ssize_t bufpos;
 	struct udev_monitor_netlink_header *nlh;
 	int devpath_set = 0;
 	int subsystem_set = 0;
@@ -440,9 +442,15 @@ retry:
 		smsg.msg_namelen = sizeof(snl);
 	}
 
-	if (recvmsg(udev_monitor->sock, &smsg, 0) < 0) {
+	buflen = recvmsg(udev_monitor->sock, &smsg, 0);
+	if (buflen < 0) {
 		if (errno != EINTR)
 			info(udev_monitor->udev, "unable to receive message\n");
+		return NULL;
+	}
+
+	if (buflen < 32 || (size_t)buflen >= sizeof(buf)) {
+		info(udev_monitor->udev, "invalid message length\n");
 		return NULL;
 	}
 
@@ -469,18 +477,20 @@ retry:
 		return NULL;
 	}
 
-	nlh = (struct udev_monitor_netlink_header *) buf;
-	if (nlh->magic == ntohl(UDEV_MONITOR_MAGIC)) {
-		/* udev message with version magic */
+	if (strncmp(buf, "udev-", 5) == 0) {
+		/* udev message needs proper version magic */
+		nlh = (struct udev_monitor_netlink_header *) buf;
+		if (nlh->magic != htonl(UDEV_MONITOR_MAGIC))
+			return NULL;
 		if (nlh->properties_off < sizeof(struct udev_monitor_netlink_header))
 			return NULL;
-		if (nlh->properties_off+32U > sizeof(buf))
+		if (nlh->properties_off+32U > buflen)
 			return NULL;
 		bufpos = nlh->properties_off;
 	} else {
 		/* kernel message with header */
 		bufpos = strlen(buf) + 1;
-		if (bufpos < sizeof("a@/d") || bufpos >= sizeof(buf)) {
+		if ((size_t)bufpos < sizeof("a@/d") || bufpos >= buflen) {
 			info(udev_monitor->udev, "invalid message length\n");
 			return NULL;
 		}
@@ -497,7 +507,7 @@ retry:
 		return NULL;
 	}
 
-	while (bufpos < sizeof(buf)) {
+	while (bufpos < buflen) {
 		char *key;
 		size_t keylen;
 
@@ -629,7 +639,6 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_devi
 		smsg.msg_namelen = udev_monitor->addrlen;
 	} else if (udev_monitor->snl.nl_family != 0) {
 		const char *val;
-		size_t vlen;
 		struct udev_monitor_netlink_header nlh;
 
 
@@ -638,8 +647,7 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_devi
 		util_strlcpy(nlh.version, "udev-" VERSION, sizeof(nlh.version));
 		nlh.magic = htonl(UDEV_MONITOR_MAGIC);
 		val = udev_device_get_subsystem(udev_device);
-		vlen = strlen(val);
-		nlh.filter_subsystem = htonl(util_crc32((unsigned char *)val, vlen));
+		nlh.filter_subsystem = htonl(util_string_hash32(val));
 		iov[0].iov_base = &nlh;
 		iov[0].iov_len = sizeof(struct udev_monitor_netlink_header);
 
