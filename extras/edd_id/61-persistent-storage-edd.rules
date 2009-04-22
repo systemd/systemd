@@ -2,7 +2,7 @@
 
 ACTION!="add|change", GOTO="persistent_storage_edd_end"
 SUBSYSTEM!="block", GOTO="persistent_storage_edd_end"
-KERNEL!="sd*|hd*", GOTO="persistent_storage_edd_end"
+KERNEL!="sd*|hd*|cciss*", GOTO="persistent_storage_edd_end"
 
 # BIOS Enhanced Disk Device
 ENV{DEVTYPE}=="disk", IMPORT{program}="edd_id --export $tempnode"
