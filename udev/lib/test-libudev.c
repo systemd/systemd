@@ -257,7 +257,6 @@ static int test_monitor(struct udev *udev)
 			device = udev_monitor_receive_device(udev_monitor);
 			if (device == NULL) {
 				printf("no device from socket\n");
-sleep(1);
 				continue;
 			}
 			print_device(device);

@@ -3,12 +3,6 @@
   o remove MMC rules, they got a modalias now (2.6.30)
   o add scsi:t-0x09* to "ch" and remove modprobe rule (2.6.30)
 
-  o add socket_filter (BPF) to match on properties to select which
-    messages are received on the socket:
-      udev_monitor_filter_property(mon, "SUBSYSTEM", "block");
-  o switch device mapper rules to:
-     dmsetup info -c --nameprefixes --unquoted --rows --noheadings \
-       -o name,uuid,suspended,readonly,major,minor,open,tables_loaded
   o implement path_id in C with libudev (?)
   o convert firmware.sh to C (?)
   o "udevadm control" commands will only accept the --<command> syntax
