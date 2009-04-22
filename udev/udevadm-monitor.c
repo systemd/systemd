@@ -127,10 +127,12 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 	if (print_udev) {
 		udev_monitor = udev_monitor_new_from_netlink(udev, "udev");
 		if (udev_monitor == NULL) {
+			fprintf(stderr, "error: unable to create netlink socket\n");
 			rc = 1;
 			goto out;
 		}
 		if (udev_monitor_enable_receiving(udev_monitor) < 0) {
+			fprintf(stderr, "error: unable to subscribe to udev events\n");
 			rc = 2;
 			goto out;
 		}
@@ -139,11 +141,12 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 	if (print_kernel) {
 		kernel_monitor = udev_monitor_new_from_netlink(udev, "kernel");
 		if (kernel_monitor == NULL) {
-			fprintf(stderr, "unable to subscribe to kernel events\n");
+			fprintf(stderr, "error: unable to create netlink socket\n");
 			rc = 3;
 			goto out;
 		}
 		if (udev_monitor_enable_receiving(kernel_monitor) < 0) {
+			fprintf(stderr, "error: unable to subscribe to kernel events\n");
 			rc = 4;
 			goto out;
 		}
