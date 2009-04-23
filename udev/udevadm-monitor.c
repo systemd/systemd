@@ -103,13 +103,26 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			print_udev = 1;
 			break;
 		case 's':
-			udev_list_entry_add(udev, &subsystem_match_list, optarg, NULL, 1, 0);
-			break;
+			{
+				char subsys[UTIL_NAME_SIZE];
+				char *devtype;
+
+				util_strlcpy(subsys, optarg, sizeof(subsys));
+				devtype = strchr(subsys, ':');
+				if (devtype != NULL) {
+					devtype[0] = '\0';
+					devtype++;
+				}
+printf("add '%s' '%s')\n", subsys, devtype);
+				udev_list_entry_add(udev, &subsystem_match_list, subsys, devtype, 0, 0);
+				break;
+			}
 		case 'h':
 			printf("Usage: udevadm monitor [--environment] [--kernel] [--udev] [--help]\n"
-			       "  --env    print the whole event environment\n"
-			       "  --kernel print kernel uevents\n"
-			       "  --udev   print udev events\n"
+			       "  --env                         print the whole event environment\n"
+			       "  --kernel                      print kernel uevents\n"
+			       "  --udev                        print udev events\n"
+			       "  --subsystem-match=<subsystem> filter events\n"
 			       "  --help\n\n");
 		default:
 			goto out;
@@ -142,8 +155,9 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 
 		udev_list_entry_foreach(entry, udev_list_get_entry(&subsystem_match_list)) {
 			const char *subsys = udev_list_entry_get_name(entry);
+			const char *devtype = udev_list_entry_get_value(entry);
 
-			if (udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, subsys, NULL) < 0)
+			if (udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, subsys, devtype) < 0)
 				fprintf(stderr, "error: unable to apply subsystem filter '%s'\n", subsys);
 		}
 
@@ -155,12 +169,22 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 		printf("UDEV - the event which udev sends out after rule processing\n");
 	}
 	if (print_kernel) {
+		struct udev_list_entry *entry;
+
 		kernel_monitor = udev_monitor_new_from_netlink(udev, "kernel");
 		if (kernel_monitor == NULL) {
 			fprintf(stderr, "error: unable to create netlink socket\n");
 			rc = 3;
 			goto out;
 		}
+
+		udev_list_entry_foreach(entry, udev_list_get_entry(&subsystem_match_list)) {
+			const char *subsys = udev_list_entry_get_name(entry);
+
+			if (udev_monitor_filter_add_match_subsystem_devtype(kernel_monitor, subsys, NULL) < 0)
+				fprintf(stderr, "error: unable to apply subsystem filter '%s'\n", subsys);
+		}
+
 		if (udev_monitor_enable_receiving(kernel_monitor) < 0) {
 			fprintf(stderr, "error: unable to subscribe to kernel events\n");
 			rc = 4;
