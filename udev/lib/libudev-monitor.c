@@ -223,7 +223,7 @@ static inline void bpf_jmp(struct sock_filter *inss, unsigned int *i,
 	(*i)++;
 }
 
-static int filter_apply(struct udev_monitor *udev_monitor)
+int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
 {
 	static struct sock_filter ins[256];
 	static struct sock_fprog filter;
@@ -290,7 +290,7 @@ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 		err = bind(udev_monitor->sock,
 			   (struct sockaddr *)&udev_monitor->sun, udev_monitor->addrlen);
 	} else if (udev_monitor->snl.nl_family != 0) {
-		filter_apply(udev_monitor);
+		udev_monitor_filter_update(udev_monitor);
 		err = bind(udev_monitor->sock,
 			   (struct sockaddr *)&udev_monitor->snl, sizeof(struct sockaddr_nl));
 	} else {
