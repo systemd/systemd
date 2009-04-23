@@ -178,11 +178,11 @@ int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, unsigned lo
 
 	if (udev_queue == NULL)
 		return -EINVAL;
-	/* if we have not seen this seqnum, check if it is/was already queued */
+	/* did it reach the queue? */
 	if (seqnum > udev_queue->last_seen_udev_seqnum)
 		if (seqnum > udev_queue_get_udev_seqnum(udev_queue))
 			return 0;
-
+	/* is it still in the queue? */
 	snprintf(filename, sizeof(filename), "%s/.udev/queue/%llu",
 		 udev_get_dev_path(udev_queue->udev), seqnum);
 	if (lstat(filename, &statbuf) == 0)
