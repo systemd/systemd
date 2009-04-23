@@ -228,9 +228,9 @@ static int test_monitor(struct udev *udev)
 		printf("no socket\n");
 		return -1;
 	}
-	if (udev_monitor_filter_add_match_subsystem(udev_monitor, "block") < 0 ||
-	    udev_monitor_filter_add_match_subsystem(udev_monitor, "tty") < 0 ||
-	    udev_monitor_filter_add_match_subsystem(udev_monitor, "usb") < 0) {
+	if (udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "block", NULL) < 0 ||
+	    udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "tty", NULL) < 0 ||
+	    udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, "usb", "usb_device") < 0) {
 		printf("filter failed\n");
 		return -1;
 	}

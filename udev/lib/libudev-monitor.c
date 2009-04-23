@@ -56,11 +56,12 @@ struct udev_monitor_netlink_header {
 	unsigned short properties_off;
 	unsigned short properties_len;
 	/*
-	 * hashes of some common device propertie strings to filter with socket filters in
+	 * hashes of some common device properties strings to filter with socket filters in
 	 * the client used in the kernel from socket filter rules; needs to be stored in
 	 * network order
 	 */
 	unsigned int filter_subsystem;
+	unsigned int filter_devtype;
 };
 
 static struct udev_monitor *udev_monitor_new(struct udev *udev)
@@ -236,23 +237,34 @@ static int filter_apply(struct udev_monitor *udev_monitor)
 	memset(ins, 0x00, sizeof(ins));
 	i = 0;
 
-	/* load magic in accu */
+	/* load magic in A */
 	bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, magic));
 	/* jump if magic matches */
 	bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, UDEV_MONITOR_MAGIC, 1, 0);
 	/* wrong magic, drop packet */
 	bpf_stmt(ins, &i, BPF_RET|BPF_K, 0);
 
-	/* load filter_subsystem value in accu */
-	bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, filter_subsystem));
 	/* add all subsystem match values */
 	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
-		const char *subsys = udev_list_entry_get_name(list_entry);
 		unsigned int hash;
 
-		hash = util_string_hash32(subsys);
-		/* jump if value does not match */
-		bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
+		/* load filter_subsystem value in A */
+		bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, filter_subsystem));
+		hash = util_string_hash32(udev_list_entry_get_name(list_entry));
+		if (udev_list_entry_get_value(list_entry) == NULL) {
+			/* jump if subsystem does not match */
+			bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
+		} else {
+			/* jump if subsystem does not match */
+			bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 3);
+
+			/* load filter_devtype value in A */
+			bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, filter_devtype));
+			/* jump if value does not match */
+			hash = util_string_hash32(udev_list_entry_get_value(list_entry));
+			bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, hash, 0, 1);
+		}
+
 		/* matched, pass packet */
 		bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
 
@@ -374,20 +386,29 @@ int udev_monitor_get_fd(struct udev_monitor *udev_monitor)
 static int passes_filter(struct udev_monitor *udev_monitor, struct udev_device *udev_device)
 {
 	struct udev_list_entry *list_entry;
-	int pass = 0;
 
 	if (udev_list_get_entry(&udev_monitor->filter_subsystem_list) == NULL)
 		return 1;
 
 	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
-		const char *subsys = udev_device_get_subsystem(udev_device);
+		const char *subsys = udev_list_entry_get_name(list_entry);
+		const char *dsubsys = udev_device_get_subsystem(udev_device);
+		const char *devtype;
+		const char *ddevtype;
 
-		if (strcmp(udev_list_entry_get_name(list_entry), subsys) == 0) {
-			pass= 1;
-			break;
-		}
+		if (strcmp(dsubsys, subsys) != 0)
+			continue;
+
+		devtype = udev_list_entry_get_value(list_entry);
+		if (devtype == NULL)
+			return 1;
+		ddevtype = udev_device_get_devtype(udev_device);
+		if (ddevtype == NULL)
+			continue;
+		if (strcmp(ddevtype, devtype) == 0)
+			return 1;
 	}
-	return pass;
+	return 0;
 }
 
 /**
@@ -648,6 +669,9 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_devi
 		nlh.magic = htonl(UDEV_MONITOR_MAGIC);
 		val = udev_device_get_subsystem(udev_device);
 		nlh.filter_subsystem = htonl(util_string_hash32(val));
+		val = udev_device_get_devtype(udev_device);
+		if (val != NULL)
+			nlh.filter_devtype = htonl(util_string_hash32(val));
 		iov[0].iov_base = &nlh;
 		iov[0].iov_len = sizeof(struct udev_monitor_netlink_header);
 
@@ -672,14 +696,14 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_devi
 	return count;
 }
 
-int udev_monitor_filter_add_match_subsystem(struct udev_monitor *udev_monitor, const char *subsystem)
+int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor *udev_monitor, const char *subsystem, const char *devtype)
 {
 	if (udev_monitor == NULL)
 		return -EINVAL;
 	if (subsystem == NULL)
 		return 0;
 	if (udev_list_entry_add(udev_monitor->udev,
-				&udev_monitor->filter_subsystem_list, subsystem, NULL, 1, 0) == NULL)
+				&udev_monitor->filter_subsystem_list, subsystem, devtype, 0, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }

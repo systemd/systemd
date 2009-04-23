@@ -143,7 +143,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 		udev_list_entry_foreach(entry, udev_list_get_entry(&subsystem_match_list)) {
 			const char *subsys = udev_list_entry_get_name(entry);
 
-			if (udev_monitor_filter_add_match_subsystem(udev_monitor, subsys) < 0)
+			if (udev_monitor_filter_add_match_subsystem_devtype(udev_monitor, subsys, NULL) < 0)
 				fprintf(stderr, "error: unable to apply subsystem filter '%s'\n", subsys);
 		}
 
