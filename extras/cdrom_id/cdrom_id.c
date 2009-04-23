@@ -197,6 +197,16 @@ static int cd_capability_compat(struct udev *udev, int fd)
 	return 0;
 }
 
+static int cd_media_compat(struct udev *udev, int fd)
+{
+	if (ioctl(fd, CDROM_DRIVE_STATUS, CDSL_CURRENT) != CDS_DISC_OK) {
+		info(udev, "CDROM_DRIVE_STATUS != CDS_DISC_OK\n");
+		return -1;
+	}
+	cd_media = 1;
+	return 0;
+}
+
 static int cd_inquiry(struct udev *udev, int fd) {
 	struct scsi_cmd sc;
 	unsigned char inq[128];
@@ -569,7 +579,11 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	/* check drive */
+	/* check for media */
+	if (cd_media_compat(udev, fd) < 0)
+		goto print;
+
+	/* check if drive talks MMC */
 	if (cd_inquiry(udev, fd) < 0)
 		goto print;
 
