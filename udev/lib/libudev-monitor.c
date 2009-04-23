@@ -241,8 +241,8 @@ static int filter_apply(struct udev_monitor *udev_monitor)
 	bpf_stmt(ins, &i, BPF_LD|BPF_W|BPF_ABS, offsetof(struct udev_monitor_netlink_header, magic));
 	/* jump if magic matches */
 	bpf_jmp(ins, &i, BPF_JMP|BPF_JEQ|BPF_K, UDEV_MONITOR_MAGIC, 1, 0);
-	/* wrong magic, drop packet */
-	bpf_stmt(ins, &i, BPF_RET|BPF_K, 0);
+	/* wrong magic, pass packet */
+	bpf_stmt(ins, &i, BPF_RET|BPF_K, 0xffffffff);
 
 	/* add all subsystem match values */
 	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_monitor->filter_subsystem_list)) {
