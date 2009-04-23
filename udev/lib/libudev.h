@@ -85,6 +85,7 @@ extern struct udev *udev_monitor_get_udev(struct udev_monitor *udev_monitor);
 extern int udev_monitor_get_fd(struct udev_monitor *udev_monitor);
 extern struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monitor);
 extern int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor *udev_monitor, const char *subsystem, const char *devtype);
+extern int udev_monitor_filter_remove(struct udev_monitor *udev_monitor);
 
 /* sys enumeration */
 struct udev_enumerate;

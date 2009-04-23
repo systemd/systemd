@@ -707,3 +707,11 @@ int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor *udev_mo
 		return -ENOMEM;
 	return 0;
 }
+
+int udev_monitor_filter_remove(struct udev_monitor *udev_monitor)
+{
+	static struct sock_fprog filter = { 0, NULL };
+
+	udev_list_cleanup_entries(udev_monitor->udev, &udev_monitor->filter_subsystem_list);
+	return setsockopt(udev_monitor->sock, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter));
+}
