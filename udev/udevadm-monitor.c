@@ -113,7 +113,6 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 					devtype[0] = '\0';
 					devtype++;
 				}
-printf("add '%s' '%s')\n", subsys, devtype);
 				udev_list_entry_add(udev, &subsystem_match_list, subsys, devtype, 0, 0);
 				break;
 			}

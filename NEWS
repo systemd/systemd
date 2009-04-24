@@ -2,6 +2,20 @@ udev 142
 ========
 Bugfixes.
 
+The udev daemon will now create /dev/null, /dev/console, /dev/kmsg at
+startup, if they don't exist already.
+
+Libudev allows to subscribe to udev events. To prevent unwanted messages
+to be delivered, and waking up the subscribing process, a filter can be
+installed, to drop messages inside a kernel socket filter. The filters
+match on the <subsytem>:<devtype> properties of the device.
+    This is part of the ongoing effort to replace HAL, and switch current
+users over to directly use libudev, or for higher-level services use the
+specialized D-Bus interface of a DeviceKit service.
+    Libudev is still marked as experimental, and its interface might
+change if needed, but no major changes of the currently exported interface
+are expected anymore, and a first stable release should happen soon.
+
 A too old kernel (2.6.21) or a kernel with CONFIG_SYSFS_DEPRECATED
 is not supported since while and udevd will log an error message at
 startup.
