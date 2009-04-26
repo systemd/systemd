@@ -220,14 +220,14 @@ const char *udev_list_entry_get_value(struct udev_list_entry *list_entry)
 	return list_entry->value;
 }
 
-extern int udev_list_entry_get_flag(struct udev_list_entry *list_entry)
+int udev_list_entry_get_flag(struct udev_list_entry *list_entry)
 {
 	if (list_entry == NULL)
 		return -EINVAL;
 	return list_entry->flag;
 }
 
-extern void udev_list_entry_set_flag(struct udev_list_entry *list_entry, int flag)
+void udev_list_entry_set_flag(struct udev_list_entry *list_entry, int flag)
 {
 	if (list_entry == NULL)
 		return;

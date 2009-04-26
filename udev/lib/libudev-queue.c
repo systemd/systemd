@@ -277,17 +277,17 @@ int udev_queue_export_udev_seqnum(struct udev_queue *udev_queue, unsigned long l
 	return -1;
 }
 
-extern int udev_queue_export_device_queued(struct udev_queue *udev_queue, struct udev_device *udev_device)
+int udev_queue_export_device_queued(struct udev_queue *udev_queue, struct udev_device *udev_device)
 {
 	return -1;
 }
 
-extern int udev_queue_export_device_finished(struct udev_queue *udev_queue, struct udev_device *udev_device)
+int udev_queue_export_device_finished(struct udev_queue *udev_queue, struct udev_device *udev_device)
 {
 	return -1;
 }
 
-extern int udev_queue_export_device_failed(struct udev_queue *udev_queue, struct udev_device *udev_device)
+int udev_queue_export_device_failed(struct udev_queue *udev_queue, struct udev_device *udev_device)
 {
 	return -1;
 }

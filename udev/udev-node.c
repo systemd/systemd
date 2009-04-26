@@ -462,7 +462,7 @@ exit:
 	return err;
 }
 
-extern int udev_node_remove(struct udev_device *dev)
+int udev_node_remove(struct udev_device *dev)
 {
 	struct udev *udev = udev_device_get_udev(dev);
 	struct udev_list_entry *list_entry;

@@ -39,92 +39,92 @@ void udev_log(struct udev *udev,
 	      int priority, const char *file, int line, const char *fn,
 	      const char *format, ...)
 	      __attribute__ ((format(printf, 6, 7)));
-extern struct udev_device *device_new(struct udev *udev);
-extern const char *udev_get_rules_path(struct udev *udev);
-extern int udev_get_run(struct udev *udev);
-extern struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value);
-extern struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev);
+struct udev_device *device_new(struct udev *udev);
+const char *udev_get_rules_path(struct udev *udev);
+int udev_get_run(struct udev *udev);
+struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value);
+struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev);
 
 /* libudev-device */
-extern int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath);
-extern int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
-extern int udev_device_set_devtype(struct udev_device *udev_device, const char *devtype);
-extern int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode);
-extern int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink);
-extern void udev_device_cleanup_devlinks_list(struct udev_device *udev_device);
-extern struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value);
-extern struct udev_list_entry *udev_device_add_property_from_string(struct udev_device *udev_device, const char *property);
-extern char **udev_device_get_properties_envp(struct udev_device *udev_device);
-extern ssize_t udev_device_get_properties_monitor_buf(struct udev_device *udev_device, const char **buf);
-extern int udev_device_read_db(struct udev_device *udev_device);
-extern int udev_device_read_uevent_file(struct udev_device *udev_device);
-extern int udev_device_set_action(struct udev_device *udev_device, const char *action);
-extern int udev_device_set_driver(struct udev_device *udev_device, const char *driver);
-extern const char *udev_device_get_devpath_old(struct udev_device *udev_device);
-extern int udev_device_set_devpath_old(struct udev_device *udev_device, const char *devpath_old);
-extern const char *udev_device_get_physdevpath(struct udev_device *udev_device);
-extern int udev_device_set_physdevpath(struct udev_device *udev_device, const char *physdevpath);
-extern int udev_device_get_timeout(struct udev_device *udev_device);
-extern int udev_device_set_timeout(struct udev_device *udev_device, int timeout);
-extern int udev_device_get_event_timeout(struct udev_device *udev_device);
-extern int udev_device_set_event_timeout(struct udev_device *udev_device, int event_timeout);
-extern int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum);
-extern int udev_device_set_seqnum(struct udev_device *udev_device, unsigned long long int seqnum);
-extern int udev_device_get_num_fake_partitions(struct udev_device *udev_device);
-extern int udev_device_set_num_fake_partitions(struct udev_device *udev_device, int num);
-extern int udev_device_get_devlink_priority(struct udev_device *udev_device);
-extern int udev_device_set_devlink_priority(struct udev_device *udev_device, int prio);
-extern int udev_device_get_ignore_remove(struct udev_device *udev_device);
-extern int udev_device_set_ignore_remove(struct udev_device *udev_device, int ignore);
-extern int udev_device_get_watch_handle(struct udev_device *udev_device);
-extern int udev_device_set_watch_handle(struct udev_device *udev_device, int handle);
-extern void udev_device_set_info_loaded(struct udev_device *device);
+int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath);
+int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
+int udev_device_set_devtype(struct udev_device *udev_device, const char *devtype);
+int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode);
+int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink);
+void udev_device_cleanup_devlinks_list(struct udev_device *udev_device);
+struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value);
+struct udev_list_entry *udev_device_add_property_from_string(struct udev_device *udev_device, const char *property);
+char **udev_device_get_properties_envp(struct udev_device *udev_device);
+ssize_t udev_device_get_properties_monitor_buf(struct udev_device *udev_device, const char **buf);
+int udev_device_read_db(struct udev_device *udev_device);
+int udev_device_read_uevent_file(struct udev_device *udev_device);
+int udev_device_set_action(struct udev_device *udev_device, const char *action);
+int udev_device_set_driver(struct udev_device *udev_device, const char *driver);
+const char *udev_device_get_devpath_old(struct udev_device *udev_device);
+int udev_device_set_devpath_old(struct udev_device *udev_device, const char *devpath_old);
+const char *udev_device_get_physdevpath(struct udev_device *udev_device);
+int udev_device_set_physdevpath(struct udev_device *udev_device, const char *physdevpath);
+int udev_device_get_timeout(struct udev_device *udev_device);
+int udev_device_set_timeout(struct udev_device *udev_device, int timeout);
+int udev_device_get_event_timeout(struct udev_device *udev_device);
+int udev_device_set_event_timeout(struct udev_device *udev_device, int event_timeout);
+int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum);
+int udev_device_set_seqnum(struct udev_device *udev_device, unsigned long long int seqnum);
+int udev_device_get_num_fake_partitions(struct udev_device *udev_device);
+int udev_device_set_num_fake_partitions(struct udev_device *udev_device, int num);
+int udev_device_get_devlink_priority(struct udev_device *udev_device);
+int udev_device_set_devlink_priority(struct udev_device *udev_device, int prio);
+int udev_device_get_ignore_remove(struct udev_device *udev_device);
+int udev_device_set_ignore_remove(struct udev_device *udev_device, int ignore);
+int udev_device_get_watch_handle(struct udev_device *udev_device);
+int udev_device_set_watch_handle(struct udev_device *udev_device, int handle);
+void udev_device_set_info_loaded(struct udev_device *device);
 
 /* libudev-device-db-write.c */
-extern int udev_device_update_db(struct udev_device *udev_device);
-extern int udev_device_delete_db(struct udev_device *udev_device);
-extern int udev_device_rename_db(struct udev_device *udev_device, const char *devpath);
+int udev_device_update_db(struct udev_device *udev_device);
+int udev_device_delete_db(struct udev_device *udev_device);
+int udev_device_rename_db(struct udev_device *udev_device, const char *devpath);
 
 /* libudev-monitor - netlink/unix socket communication  */
-extern int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_device *udev_device);
-extern int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_monitor, int size);
+int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_device *udev_device);
+int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_monitor, int size);
 
 /* libudev-ctrl - daemon runtime setup */
 struct udev_ctrl;
-extern struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path);
-extern int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl);
-extern struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl);
-extern void udev_ctrl_unref(struct udev_ctrl *uctrl);
-extern struct udev *udev_ctrl_get_udev(struct udev_ctrl *uctrl);
-extern int udev_ctrl_get_fd(struct udev_ctrl *uctrl);
-extern int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority);
-extern int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl);
-extern int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl);
-extern int udev_ctrl_send_reload_rules(struct udev_ctrl *uctrl);
-extern int udev_ctrl_send_settle(struct udev_ctrl *uctrl);
-extern int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key);
-extern int udev_ctrl_send_set_max_childs(struct udev_ctrl *uctrl, int count);
+struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path);
+int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl);
+struct udev_ctrl *udev_ctrl_ref(struct udev_ctrl *uctrl);
+void udev_ctrl_unref(struct udev_ctrl *uctrl);
+struct udev *udev_ctrl_get_udev(struct udev_ctrl *uctrl);
+int udev_ctrl_get_fd(struct udev_ctrl *uctrl);
+int udev_ctrl_send_set_log_level(struct udev_ctrl *uctrl, int priority);
+int udev_ctrl_send_stop_exec_queue(struct udev_ctrl *uctrl);
+int udev_ctrl_send_start_exec_queue(struct udev_ctrl *uctrl);
+int udev_ctrl_send_reload_rules(struct udev_ctrl *uctrl);
+int udev_ctrl_send_settle(struct udev_ctrl *uctrl);
+int udev_ctrl_send_set_env(struct udev_ctrl *uctrl, const char *key);
+int udev_ctrl_send_set_max_childs(struct udev_ctrl *uctrl, int count);
 struct udev_ctrl_msg;
-extern struct udev_ctrl_msg *udev_ctrl_msg(struct udev_ctrl *uctrl);
-extern struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl);
-extern struct udev_ctrl_msg *udev_ctrl_msg_ref(struct udev_ctrl_msg *ctrl_msg);
-extern void udev_ctrl_msg_unref(struct udev_ctrl_msg *ctrl_msg);
-extern int udev_ctrl_get_set_log_level(struct udev_ctrl_msg *ctrl_msg);
-extern int udev_ctrl_get_stop_exec_queue(struct udev_ctrl_msg *ctrl_msg);
-extern int udev_ctrl_get_start_exec_queue(struct udev_ctrl_msg *ctrl_msg);
-extern int udev_ctrl_get_reload_rules(struct udev_ctrl_msg *ctrl_msg);
-extern pid_t udev_ctrl_get_settle(struct udev_ctrl_msg *ctrl_msg);
-extern const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg);
-extern int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg);
+struct udev_ctrl_msg *udev_ctrl_msg(struct udev_ctrl *uctrl);
+struct udev_ctrl_msg *udev_ctrl_receive_msg(struct udev_ctrl *uctrl);
+struct udev_ctrl_msg *udev_ctrl_msg_ref(struct udev_ctrl_msg *ctrl_msg);
+void udev_ctrl_msg_unref(struct udev_ctrl_msg *ctrl_msg);
+int udev_ctrl_get_set_log_level(struct udev_ctrl_msg *ctrl_msg);
+int udev_ctrl_get_stop_exec_queue(struct udev_ctrl_msg *ctrl_msg);
+int udev_ctrl_get_start_exec_queue(struct udev_ctrl_msg *ctrl_msg);
+int udev_ctrl_get_reload_rules(struct udev_ctrl_msg *ctrl_msg);
+pid_t udev_ctrl_get_settle(struct udev_ctrl_msg *ctrl_msg);
+const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg);
+int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg);
 
 /* libudev-list */
 struct udev_list_node {
 	struct udev_list_node *next, *prev;
 };
-extern void udev_list_init(struct udev_list_node *list);
-extern int udev_list_is_empty(struct udev_list_node *list);
-extern void udev_list_node_append(struct udev_list_node *new, struct udev_list_node *list);
-extern void udev_list_node_remove(struct udev_list_node *entry);
+void udev_list_init(struct udev_list_node *list);
+int udev_list_is_empty(struct udev_list_node *list);
+void udev_list_node_append(struct udev_list_node *new, struct udev_list_node *list);
+void udev_list_node_remove(struct udev_list_node *entry);
 #define udev_list_node_foreach(node, list) \
 	for (node = (list)->next; \
 	     node != list; \
@@ -133,45 +133,45 @@ extern void udev_list_node_remove(struct udev_list_node *entry);
 	for (node = (list)->next, tmp = (node)->next; \
 	     node != list; \
 	     node = tmp, tmp = (tmp)->next)
-extern struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_node *list,
+struct udev_list_entry *udev_list_entry_add(struct udev *udev, struct udev_list_node *list,
 						   const char *name, const char *value,
 						   int unique, int sort);
-extern void udev_list_entry_delete(struct udev_list_entry *entry);
-extern void udev_list_entry_remove(struct udev_list_entry *entry);
-extern void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list_entry *entry);
-extern void udev_list_entry_append(struct udev_list_entry *new, struct udev_list_node *list);
-extern void udev_list_cleanup_entries(struct udev *udev, struct udev_list_node *name_list);
-extern struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list);
-extern int udev_list_entry_get_flag(struct udev_list_entry *list_entry);
-extern void udev_list_entry_set_flag(struct udev_list_entry *list_entry, int flag);
+void udev_list_entry_delete(struct udev_list_entry *entry);
+void udev_list_entry_remove(struct udev_list_entry *entry);
+void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list_entry *entry);
+void udev_list_entry_append(struct udev_list_entry *new, struct udev_list_node *list);
+void udev_list_cleanup_entries(struct udev *udev, struct udev_list_node *name_list);
+struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list);
+int udev_list_entry_get_flag(struct udev_list_entry *list_entry);
+void udev_list_entry_set_flag(struct udev_list_entry *list_entry, int flag);
 #define udev_list_entry_foreach_safe(entry, tmp, first) \
 	for (entry = first, tmp = udev_list_entry_get_next(entry); \
 	     entry != NULL; \
 	     entry = tmp, tmp = udev_list_entry_get_next(tmp))
 
 /* libudev-queue */
-extern int udev_queue_export_udev_seqnum(struct udev_queue *udev_queue, unsigned long long int seqnum);
-extern int udev_queue_export_device_queued(struct udev_queue *udev_queue, struct udev_device *udev_device);
-extern int udev_queue_export_device_finished(struct udev_queue *udev_queue, struct udev_device *udev_device);
-extern int udev_queue_export_device_failed(struct udev_queue *udev_queue, struct udev_device *udev_device);
+int udev_queue_export_udev_seqnum(struct udev_queue *udev_queue, unsigned long long int seqnum);
+int udev_queue_export_device_queued(struct udev_queue *udev_queue, struct udev_device *udev_device);
+int udev_queue_export_device_finished(struct udev_queue *udev_queue, struct udev_device *udev_device);
+int udev_queue_export_device_failed(struct udev_queue *udev_queue, struct udev_device *udev_device);
 
 /* libudev-utils */
 #define UTIL_PATH_SIZE				1024
 #define UTIL_LINE_SIZE				2048
 #define UTIL_NAME_SIZE				512
 #define UDEV_ALLOWED_CHARS_INPUT		"/ $%?,"
-extern ssize_t util_get_sys_subsystem(struct udev *udev, const char *syspath, char *subsystem, size_t size);
-extern ssize_t util_get_sys_driver(struct udev *udev, const char *syspath, char *driver, size_t size);
-extern int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size);
-extern int util_log_priority(const char *priority);
-extern size_t util_path_encode(char *s, size_t len);
-extern size_t util_path_decode(char *s);
-extern void util_remove_trailing_chars(char *path, char c);
-extern size_t util_strlcpy(char *dst, const char *src, size_t size);
-extern size_t util_strlcat(char *dst, const char *src, size_t size);
-extern int udev_util_replace_whitespace(const char *str, char *to, size_t len);
-extern int udev_util_replace_chars(char *str, const char *white);
-extern int udev_util_encode_string(const char *str, char *str_enc, size_t len);
-extern void util_set_fd_cloexec(int fd);
-extern unsigned int util_string_hash32(const char *str);
+ssize_t util_get_sys_subsystem(struct udev *udev, const char *syspath, char *subsystem, size_t size);
+ssize_t util_get_sys_driver(struct udev *udev, const char *syspath, char *driver, size_t size);
+int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size);
+int util_log_priority(const char *priority);
+size_t util_path_encode(char *s, size_t len);
+size_t util_path_decode(char *s);
+void util_remove_trailing_chars(char *path, char c);
+size_t util_strlcpy(char *dst, const char *src, size_t size);
+size_t util_strlcat(char *dst, const char *src, size_t size);
+int udev_util_replace_whitespace(const char *str, char *to, size_t len);
+int udev_util_replace_chars(char *str, const char *white);
+int udev_util_encode_string(const char *str, char *str_enc, size_t len);
+void util_set_fd_cloexec(int fd);
+unsigned int util_string_hash32(const char *str);
 #endif

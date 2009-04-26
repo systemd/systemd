@@ -150,7 +150,7 @@ uid_t util_lookup_user(struct udev *udev, const char *user)
 	return 0;
 }
 
-extern gid_t util_lookup_group(struct udev *udev, const char *group)
+gid_t util_lookup_group(struct udev *udev, const char *group)
 {
 	char *endptr;
 	int buflen = sysconf(_SC_GETGR_R_SIZE_MAX);
