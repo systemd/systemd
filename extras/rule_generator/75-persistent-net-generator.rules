@@ -37,7 +37,7 @@ ENV{MATCHADDR}=="00:00:00:00:00:00", ENV{MATCHADDR}=""
 
 # build comment line for generated rule:
 SUBSYSTEMS=="pci", ENV{COMMENT}="PCI device $attr{vendor}:$attr{device} ($driver)"
-SUBSYSTEMS=="usb", ENV{COMMENT}="USB device 0x$attr{idVendor}:0x$attr{idProduct} ($driver)"
+SUBSYSTEMS=="usb", ATTRS{idVendor}=="?*", ENV{COMMENT}="USB device 0x$attr{idVendor}:0x$attr{idProduct} ($driver)"
 SUBSYSTEMS=="pcmcia", ENV{COMMENT}="PCMCIA device $attr{card_id}:$attr{manf_id} ($driver)"
 SUBSYSTEMS=="ieee1394", ENV{COMMENT}="Firewire device $attr{host_id})"
 
