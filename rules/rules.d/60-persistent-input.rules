@@ -4,8 +4,9 @@ ACTION!="add|change", GOTO="persistent_input_end"
 SUBSYSTEM!="input", GOTO="persistent_input_end"
 KERNEL=="input[0-9]*", GOTO="persistent_input_end"
 
-# usb devices
 SUBSYSTEMS=="usb", IMPORT{program}="usb_id --export %p"
+
+# well defined boot-subclass usb devices
 SUBSYSTEMS=="usb", ATTRS{bInterfaceClass}=="03", ATTRS{bInterfaceProtocol}=="01", ENV{ID_CLASS}="kbd", GOTO="serial"
 SUBSYSTEMS=="usb", ATTRS{bInterfaceClass}=="03", ATTRS{bInterfaceProtocol}=="02", ENV{ID_CLASS}="mouse", GOTO="serial"
 
@@ -14,6 +15,7 @@ DRIVERS=="pcspkr", ENV{ID_CLASS}="spkr", GOTO="serial"
 DRIVERS=="atkbd", ENV{ID_CLASS}="kbd", GOTO="serial"
 DRIVERS=="psmouse", ENV{ID_CLASS}="mouse", GOTO="serial"
 ATTRS{name}=="*dvb*|*DVB*|* IR *", ENV{ID_CLASS}="ir", GOTO="serial"
+
 # joystick (ABS_X || ABS_WHEEL || ABS_THROTTLE) && !BTN_TOUCH
 ATTRS{modalias}=="input:*-*a[068],*|input:*-*a*,[68],*m*", ATTRS{modalias}!="input:*-*k*14A,*r*", \
   ENV{ID_CLASS}="joystick", GOTO="serial"
@@ -24,7 +26,7 @@ LABEL="serial", ENV{ID_CLASS}=="?*", ENV{ID_SERIAL}=="", ENV{ID_SERIAL}="noseria
 # by-id links
 KERNEL=="mouse*|js*", ENV{ID_BUS}=="?*", ENV{ID_CLASS}=="?*", SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-$env{ID_CLASS}"
 KERNEL=="event*", ENV{ID_BUS}=="?*", ENV{ID_CLASS}=="?*", SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-event-$env{ID_CLASS}"
-# allow empty class for USB devices, and append the interface number
+# allow empty class for USB devices, by appending the interface number
 SUBSYSTEMS=="usb", ENV{ID_BUS}=="?*", ENV{ID_CLASS}=="", ATTRS{bInterfaceNumber}=="?*", \
   SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-event-if$attr{bInterfaceNumber}"
 
