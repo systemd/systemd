@@ -579,12 +579,24 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 		}
 
 		if (event->name == NULL) {
-			info(event->udev, "no node name set, will use kernel name '%s'\n",
+			const char *devname;
+
+			devname = udev_device_get_property_value(event->dev, "DEVNAME");
+			if (devname != NULL) {
+				info(event->udev, "no node name set, will use "
+				     "kernel supplied name '%s'\n", devname);
+				event->name = strdup(devname);
+				if (event->name == NULL)
+					goto exit_add;
+			}
+		}
+		if (event->name == NULL) {
+			info(event->udev, "no node name set, will use device name '%s'\n",
 			     udev_device_get_sysname(event->dev));
 			event->name = strdup(udev_device_get_sysname(event->dev));
-			if (event->name == NULL)
-				goto exit_add;
 		}
+		if (event->name == NULL)
+			goto exit_add;
 
 		/* set device node name */
 		util_strlcpy(filename, udev_get_dev_path(event->udev), sizeof(filename));
