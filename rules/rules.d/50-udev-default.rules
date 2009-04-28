@@ -13,7 +13,7 @@ KERNEL=="vcs|vcs[0-9]*|vcsa|vcsa[0-9]*", GROUP="tty"
 KERNEL=="console",		MODE="0600"
 
 # serial
-KERNEL=="tty[A-Z]*[0-9]|pppox[0-9]*|ircomm[0-9]*|noz[0-9]*", GROUP="dialout"
+KERNEL=="tty[A-Z]*[0-9]|pppox[0-9]*|ircomm[0-9]*|noz[0-9]*|rfcomm[0-9]*", GROUP="dialout"
 KERNEL=="ppp",			MODE="0600"
 KERNEL=="mwave",		NAME="modems/mwave", GROUP="dialout"
 KERNEL=="hvc*|hvsi*",		GROUP="dialout"
