@@ -5,5 +5,7 @@
 
   o implement path_id in C with libudev (?)
   o convert firmware.sh to C (?)
+
+  o drop all support for the DEPRECATED sysfs layout
   o "udevadm control" commands will only accept the --<command> syntax
   o symlink names to udevadm will no longer be resolved to old command names
