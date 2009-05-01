@@ -101,9 +101,9 @@ AC_CONFIG_FILES([
 	extras/volume_id/lib/Makefile
 	extras/volume_id/lib/libvolume_id.pc
 ])
-AC_OUTPUT
 
-echo "
+AC_OUTPUT
+AC_MSG_RESULT([
 	udev $VERSION
 	========
 
@@ -124,4 +124,4 @@ echo "
 	ldflags:		${LDFLAGS}
 
 	xsltproc:		${XSLTPROC}
-"
+])
