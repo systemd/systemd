@@ -27,7 +27,7 @@ LABEL="serial", ENV{ID_CLASS}=="?*", ENV{ID_SERIAL}=="", ENV{ID_SERIAL}="noseria
 KERNEL=="mouse*|js*", ENV{ID_BUS}=="?*", ENV{ID_CLASS}=="?*", SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-$env{ID_CLASS}"
 KERNEL=="event*", ENV{ID_BUS}=="?*", ENV{ID_CLASS}=="?*", SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-event-$env{ID_CLASS}"
 # allow empty class for USB devices, by appending the interface number
-SUBSYSTEMS=="usb", ENV{ID_BUS}=="?*", ENV{ID_CLASS}=="", ATTRS{bInterfaceNumber}=="?*", \
+SUBSYSTEMS=="usb", ENV{ID_BUS}=="?*", KERNEL=="event*", ENV{ID_CLASS}=="", ATTRS{bInterfaceNumber}=="?*", \
   SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-event-if$attr{bInterfaceNumber}"
 
 # by-path
