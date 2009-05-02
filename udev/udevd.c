@@ -708,28 +708,6 @@ static void export_initial_seqnum(struct udev *udev)
 	}
 }
 
-/* create the nodes the we depend on to properly start up */
-static void setup_initial_nodes(struct udev *udev)
-{
-	struct udev_device *dev;
-
-	dev = udev_device_new_from_subsystem_sysname(udev, "mem", "null");
-	if (dev != NULL) {
-		udev_node_mknod(dev, "null", makedev(0,0), 0666, 0, 0);
-		udev_device_unref(dev);
-	}
-	dev = udev_device_new_from_subsystem_sysname(udev, "mem", "kmsg");
-	if (dev != NULL) {
-		udev_node_mknod(dev, "kmsg", makedev(0,0), 0660, 0, 0);
-		udev_device_unref(dev);
-	}
-	dev = udev_device_new_from_subsystem_sysname(udev, "tty", "console");
-	if (dev != NULL) {
-		udev_node_mknod(dev, "console", makedev(0,0), 0600, 0, 0);
-		udev_device_unref(dev);
-	}
-}
-
 static void startup_log(struct udev *udev)
 {
 	FILE *f;
@@ -835,8 +813,6 @@ int main(int argc, char *argv[])
 		err(udev, "root privileges required\n");
 		goto exit;
 	}
-
-	setup_initial_nodes(udev);
 
 	/* make sure std{in,out,err} fd's are in a sane state */
 	fd = open("/dev/null", O_RDWR);
