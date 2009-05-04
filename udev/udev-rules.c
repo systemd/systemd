@@ -1137,8 +1137,6 @@ static int add_rule(struct udev_rules *rules, char *line,
 {
 	char *linepos;
 	char *attr;
-	int physdev = 0;
-	int waitfor = 0;
 	struct rule_tmp rule_tmp;
 
 	memset(&rule_tmp, 0x00, sizeof(struct rule_tmp));
@@ -1280,8 +1278,6 @@ static int add_rule(struct udev_rules *rules, char *line,
 				err(rules->udev, "error parsing ENV attribute\n");
 				goto invalid;
 			}
-			if (strncmp(attr, "PHYSDEV", 7) == 0)
-				physdev = 1;
 			if (op < OP_MATCH_MAX) {
 				if (rule_add_key(&rule_tmp, TK_M_ENV, op, value, attr) != 0)
 					goto invalid;
@@ -1378,7 +1374,6 @@ static int add_rule(struct udev_rules *rules, char *line,
 
 		if (strcasecmp(key, "WAIT_FOR") == 0 || strcasecmp(key, "WAIT_FOR_SYSFS") == 0) {
 			rule_add_key(&rule_tmp, TK_M_WAITFOR, 0, value, NULL);
-			waitfor = 1;
 			continue;
 		}
 
@@ -1535,10 +1530,6 @@ static int add_rule(struct udev_rules *rules, char *line,
 		}
 		err(rules->udev, "unknown key '%s' in %s:%u\n", key, filename, lineno);
 	}
-
-	if (physdev && !waitfor)
-		err(rules->udev, "PHYSDEV* values are deprecated and not available on recent kernels, "
-		    "please fix it in %s:%u\n", filename, lineno);
 
 	/* add rule token */
 	rule_tmp.rule.rule.token_count = 1 + rule_tmp.token_cur;

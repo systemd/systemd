@@ -586,15 +586,10 @@ retry:
 			min = strtoull(&key[6], NULL, 10);
 		} else if (strncmp(key, "DEVPATH_OLD=", 12) == 0) {
 			udev_device_set_devpath_old(udev_device, &key[12]);
-		} else if (strncmp(key, "PHYSDEVPATH=", 12) == 0) {
-			udev_device_set_physdevpath(udev_device, &key[12]);
 		} else if (strncmp(key, "SEQNUM=", 7) == 0) {
 			udev_device_set_seqnum(udev_device, strtoull(&key[7], NULL, 10));
 		} else if (strncmp(key, "TIMEOUT=", 8) == 0) {
 			udev_device_set_timeout(udev_device, strtoull(&key[8], NULL, 10));
-		} else if (strncmp(key, "PHYSDEV", 7) == 0) {
-			/* suppress deprecated values */
-			continue;
 		} else {
 			udev_device_add_property_from_string(udev_device, key);
 		}

@@ -64,8 +64,6 @@ const char *udev_device_get_devpath_old(struct udev_device *udev_device);
 int udev_device_set_devpath_old(struct udev_device *udev_device, const char *devpath_old);
 const char *udev_device_get_knodename(struct udev_device *udev_device);
 int udev_device_set_knodename(struct udev_device *udev_device, const char *knodename);
-const char *udev_device_get_physdevpath(struct udev_device *udev_device);
-int udev_device_set_physdevpath(struct udev_device *udev_device, const char *physdevpath);
 int udev_device_get_timeout(struct udev_device *udev_device);
 int udev_device_set_timeout(struct udev_device *udev_device, int timeout);
 int udev_device_get_event_timeout(struct udev_device *udev_device);

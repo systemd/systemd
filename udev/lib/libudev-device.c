@@ -36,7 +36,6 @@ struct udev_device {
 	char *driver;
 	char *action;
 	char *devpath_old;
-	char *physdevpath;
 	char *knodename;
 	char **envp;
 	char *monitor_buf;
@@ -625,7 +624,6 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->driver);
 	free(udev_device->devpath_old);
 	free(udev_device->knodename);
-	free(udev_device->physdevpath);
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->sysattr_list);
 	free(udev_device->envp);
 	free(udev_device->monitor_buf);
@@ -1188,19 +1186,6 @@ int udev_device_set_knodename(struct udev_device *udev_device, const char *knode
 {
 	udev_device->knodename = strdup(knodename);
 	if (udev_device->knodename == NULL)
-		return -ENOMEM;
-	return 0;
-}
-
-const char *udev_device_get_physdevpath(struct udev_device *udev_device)
-{
-	return udev_device->physdevpath;
-}
-
-int udev_device_set_physdevpath(struct udev_device *udev_device, const char *physdevpath)
-{
-	udev_device->physdevpath = strdup(physdevpath);
-	if (udev_device->physdevpath == NULL)
 		return -ENOMEM;
 	return 0;
 }

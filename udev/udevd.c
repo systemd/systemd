@@ -339,7 +339,7 @@ static int compare_devpath(const char *running, const char *waiting)
 	return 0;
 }
 
-/* lookup event for identical, parent, child, or physical device */
+/* lookup event for identical, parent, child device */
 static int devpath_busy(struct udev_event *event)
 {
 	struct udev_list_node *loop;
@@ -390,19 +390,6 @@ static int devpath_busy(struct udev_event *event)
 			event->delaying_seqnum = udev_device_get_seqnum(loop_event->dev);
 			return 5;
 		}
-
-		/* check physical device event (special case of parent) */
-		if (udev_device_get_physdevpath(event->dev) != NULL &&
-		    strcmp(udev_device_get_action(event->dev), "add") == 0)
-			if (compare_devpath(udev_device_get_devpath(loop_event->dev),
-					    udev_device_get_physdevpath(event->dev)) != 0) {
-				dbg(event->udev, "%llu, physical device event still pending %llu (%s)\n",
-				    udev_device_get_seqnum(event->dev),
-				    udev_device_get_seqnum(loop_event->dev),
-				    udev_device_get_devpath(loop_event->dev));
-				event->delaying_seqnum = udev_device_get_seqnum(loop_event->dev);
-				return 6;
-			}
 	}
 	return 0;
 }
