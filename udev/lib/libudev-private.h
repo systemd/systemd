@@ -62,6 +62,8 @@ int udev_device_set_action(struct udev_device *udev_device, const char *action);
 int udev_device_set_driver(struct udev_device *udev_device, const char *driver);
 const char *udev_device_get_devpath_old(struct udev_device *udev_device);
 int udev_device_set_devpath_old(struct udev_device *udev_device, const char *devpath_old);
+const char *udev_device_get_knodename(struct udev_device *udev_device);
+int udev_device_set_knodename(struct udev_device *udev_device, const char *knodename);
 const char *udev_device_get_physdevpath(struct udev_device *udev_device);
 int udev_device_set_physdevpath(struct udev_device *udev_device, const char *physdevpath);
 int udev_device_get_timeout(struct udev_device *udev_device);

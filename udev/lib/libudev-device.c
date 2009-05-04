@@ -37,6 +37,7 @@ struct udev_device {
 	char *action;
 	char *devpath_old;
 	char *physdevpath;
+	char *knodename;
 	char **envp;
 	char *monitor_buf;
 	size_t monitor_buf_len;
@@ -208,6 +209,8 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
 			maj = strtoull(&line[6], NULL, 10);
 		else if (strncmp(line, "MINOR=", 6) == 0)
 			min = strtoull(&line[6], NULL, 10);
+		else if (strncmp(line, "DEVNAME=", 8) == 0)
+			udev_device_set_knodename(udev_device, &line[8]);
 
 		udev_device_add_property_from_string(udev_device, line);
 	}
@@ -621,6 +624,7 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->action);
 	free(udev_device->driver);
 	free(udev_device->devpath_old);
+	free(udev_device->knodename);
 	free(udev_device->physdevpath);
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->sysattr_list);
 	free(udev_device->envp);
@@ -1172,6 +1176,19 @@ int udev_device_set_devpath_old(struct udev_device *udev_device, const char *dev
 	if (udev_device->devpath_old == NULL)
 		return -ENOMEM;
 	udev_device_add_property(udev_device, "DEVPATH_OLD", udev_device->devpath_old);
+	return 0;
+}
+
+const char *udev_device_get_knodename(struct udev_device *udev_device)
+{
+	return udev_device->knodename;
+}
+
+int udev_device_set_knodename(struct udev_device *udev_device, const char *knodename)
+{
+	udev_device->knodename = strdup(knodename);
+	if (udev_device->knodename == NULL)
+		return -ENOMEM;
 	return 0;
 }
 

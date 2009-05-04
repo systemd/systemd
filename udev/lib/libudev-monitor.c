@@ -445,6 +445,7 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 	int action_set = 0;
 	int maj = 0;
 	int min = 0;
+	int is_kernel = 0;
 
 retry:
 	if (udev_monitor == NULL)
@@ -480,9 +481,12 @@ retry:
 			info(udev_monitor->udev, "unicast netlink message ignored\n");
 			return NULL;
 		}
-		if ((snl.nl_groups == UDEV_MONITOR_KERNEL) && (snl.nl_pid > 0)) {
-			info(udev_monitor->udev, "multicast kernel netlink message from pid %d ignored\n", snl.nl_pid);
-			return NULL;
+		if (snl.nl_groups == UDEV_MONITOR_KERNEL) {
+			if (snl.nl_pid > 0) {
+				info(udev_monitor->udev, "multicast kernel netlink message from pid %d ignored\n", snl.nl_pid);
+				return NULL;
+			}
+			is_kernel = 1;
 		}
 	}
 
@@ -551,7 +555,10 @@ retry:
 		} else if (strncmp(key, "DEVTYPE=", 8) == 0) {
 			udev_device_set_devtype(udev_device, &key[8]);
 		} else if (strncmp(key, "DEVNAME=", 8) == 0) {
-			udev_device_set_devnode(udev_device, &key[8]);
+			if (is_kernel)
+				udev_device_set_knodename(udev_device, &key[8]);
+			else
+				udev_device_set_devnode(udev_device, &key[8]);
 		} else if (strncmp(key, "DEVLINKS=", 9) == 0) {
 			char devlinks[UTIL_PATH_SIZE];
 			char *slink;
@@ -586,7 +593,7 @@ retry:
 		} else if (strncmp(key, "TIMEOUT=", 8) == 0) {
 			udev_device_set_timeout(udev_device, strtoull(&key[8], NULL, 10));
 		} else if (strncmp(key, "PHYSDEV", 7) == 0) {
-			/* skip deprecated values */
+			/* suppress deprecated values */
 			continue;
 		} else {
 			udev_device_add_property_from_string(udev_device, key);

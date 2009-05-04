@@ -354,12 +354,24 @@ found:
 
 				if (event->tmp_node != NULL) {
 					util_strlcat(string, event->tmp_node, maxsize);
-					dbg(event->udev, "return existing temporary node\n");
+					dbg(event->udev, "tempnode: return earlier created one\n");
 					break;
 				}
 				devnum = udev_device_get_devnum(dev);
-				if (major(udev_device_get_devnum(dev) == 0))
+				if (major(devnum) == 0)
 					break;
+				/* lookup kernel provided node */
+				if (udev_device_get_knodename(dev) != NULL) {
+					util_strlcpy(filename, udev_get_dev_path(event->udev), sizeof(filename));
+					util_strlcat(filename, "/", sizeof(filename));
+					util_strlcat(filename, udev_device_get_knodename(dev), sizeof(filename));
+					if (stat(filename, &statbuf) == 0 && statbuf.st_rdev == devnum) {
+						util_strlcat(string, filename, maxsize);
+						dbg(event->udev, "tempnode: return kernel node\n");
+						break;
+					}
+				}
+				/* lookup /dev/{char,block}/<maj>:<min> */
 				if (strcmp(udev_device_get_subsystem(dev), "block") == 0)
 					devtype = "block";
 				else
@@ -370,10 +382,11 @@ found:
 					 minor(udev_device_get_devnum(dev)));
 				if (stat(filename, &statbuf) == 0 && statbuf.st_rdev == devnum) {
 					util_strlcat(string, filename, maxsize);
-					dbg(event->udev, "return existing temporary node\n");
+					dbg(event->udev, "tempnode: return maj:min node\n");
 					break;
 				}
-				dbg(event->udev, "create temporary node\n");
+				/* create temporary node */
+				dbg(event->udev, "tempnode: create temp node\n");
 				asprintf(&event->tmp_node, "%s/.tmp-%s-%u:%u",
 					 udev_get_dev_path(event->udev), devtype,
 					 major(udev_device_get_devnum(dev)),
@@ -547,6 +560,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 	    (strcmp(udev_device_get_action(dev), "add") == 0 || strcmp(udev_device_get_action(dev), "change") == 0)) {
 		char filename[UTIL_PATH_SIZE];
 		struct udev_device *dev_old;
+		int delete_kdevnode = 0;
 
 		dbg(event->udev, "device node add '%s'\n", udev_device_get_devpath(dev));
 
@@ -562,7 +576,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 
 		udev_rules_apply_to_event(rules, event);
 		if (event->tmp_node != NULL) {
-			dbg(event->udev, "removing temporary device node\n");
+			dbg(event->udev, "cleanup temporary device node\n");
 			util_unlink_secure(event->udev, event->tmp_node);
 			free(event->tmp_node);
 			event->tmp_node = NULL;
@@ -570,33 +584,38 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 
 		if (event->ignore_device) {
 			info(event->udev, "device event will be ignored\n");
+			delete_kdevnode = 1;
 			goto exit_add;
 		}
 
 		if (event->name != NULL && event->name[0] == '\0') {
 			info(event->udev, "device node creation supressed\n");
+			delete_kdevnode = 1;
 			goto exit_add;
 		}
 
-		if (event->name == NULL) {
-			const char *devname;
+		/* if rule given name disagrees with kernel node name, delete kernel node */
+		if (event->name != NULL && udev_device_get_knodename(dev) != NULL) {
+			if (strcmp(event->name, udev_device_get_knodename(dev)) != 0)
+				delete_kdevnode = 1;
+		}
 
-			devname = udev_device_get_property_value(event->dev, "DEVNAME");
-			if (devname != NULL) {
-				info(event->udev, "no node name set, will use "
-				     "kernel supplied name '%s'\n", devname);
-				event->name = strdup(devname);
-				if (event->name == NULL)
-					goto exit_add;
+		/* no rule, use kernel provided name */
+		if (event->name == NULL) {
+			if (udev_device_get_knodename(dev) != NULL) {
+				event->name = strdup(udev_device_get_knodename(dev));
+				info(event->udev, "no node name set, will use kernel supplied name '%s'\n", event->name);
+			} else {
+				event->name = strdup(udev_device_get_sysname(event->dev));
+				info(event->udev, "no node name set, will use device name '%s'\n", event->name);
 			}
 		}
+
+		/* something went wrong */
 		if (event->name == NULL) {
-			info(event->udev, "no node name set, will use device name '%s'\n",
-			     udev_device_get_sysname(event->dev));
-			event->name = strdup(udev_device_get_sysname(event->dev));
-		}
-		if (event->name == NULL)
+			err(event->udev, "no node name for '%s'\n", udev_device_get_sysname(event->dev));
 			goto exit_add;
+		}
 
 		/* set device node name */
 		util_strlcpy(filename, udev_get_dev_path(event->udev), sizeof(filename));
@@ -614,6 +633,18 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 		/* create new node and symlinks */
 		err = udev_node_add(dev, event->mode, event->uid, event->gid);
 exit_add:
+		if (delete_kdevnode && udev_device_get_knodename(dev) != NULL) {
+			struct stat stats;
+
+			util_strlcpy(filename, udev_get_dev_path(event->udev), sizeof(filename));
+			util_strlcat(filename, "/", sizeof(filename));
+			util_strlcat(filename, udev_device_get_knodename(dev), sizeof(filename));
+			if (stat(filename, &stats) == 0 && stats.st_rdev == udev_device_get_devnum(dev)) {
+				unlink(filename);
+				util_delete_path(event->udev, filename);
+				info(event->udev, "removed kernel created node '%s'\n", filename);
+			}
+		}
 		udev_device_unref(dev_old);
 		goto exit;
 	}
