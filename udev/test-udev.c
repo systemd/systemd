@@ -30,14 +30,14 @@
 
 #include "udev.h"
 
-static void asmlinkage sig_handler(int signum)
+static void sig_handler(int signum)
 {
 	switch (signum) {
 		case SIGALRM:
-			exit(1);
+			_exit(1);
 		case SIGINT:
 		case SIGTERM:
-			exit(20 + signum);
+			_exit(20 + signum);
 	}
 }
 
@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(act));
-	act.sa_handler = (void (*)(int)) sig_handler;
+	act.sa_handler = sig_handler;
 	sigemptyset (&act.sa_mask);
 	act.sa_flags = 0;
 	sigaction(SIGALRM, &act, NULL);

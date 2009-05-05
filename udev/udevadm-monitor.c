@@ -35,7 +35,7 @@
 
 static int udev_exit;
 
-static void asmlinkage sig_handler(int signum)
+static void sig_handler(int signum)
 {
 	if (signum == SIGINT || signum == SIGTERM)
 		udev_exit = 1;
@@ -135,7 +135,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(struct sigaction));
-	act.sa_handler = (void (*)(int)) sig_handler;
+	act.sa_handler = sig_handler;
 	sigemptyset(&act.sa_mask);
 	act.sa_flags = SA_RESTART;
 	sigaction(SIGINT, &act, NULL);

@@ -23,14 +23,6 @@
 #include <stdint.h>
 #include <errno.h>
 
-/* needed for our signal handlers to work */
-#undef asmlinkage
-#ifdef __i386__
-#define asmlinkage	__attribute__((regparm(0)))
-#else
-#define asmlinkage
-#endif /* __i386__ */
-
 #ifndef HAVE_INOTIFY
 static inline int inotify_init(void)
 {

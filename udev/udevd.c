@@ -67,10 +67,10 @@ static int debug_trace;
 static struct udev_rules *rules;
 static struct udev_ctrl *udev_ctrl;
 static struct udev_monitor *kernel_monitor;
-static volatile int sigchilds_waiting;
-static volatile int udev_exit;
-static volatile int reload_config;
-static volatile int signal_received;
+static volatile sig_atomic_t sigchilds_waiting;
+static volatile sig_atomic_t udev_exit;
+static volatile sig_atomic_t reload_config;
+static volatile sig_atomic_t signal_received;
 static volatile pid_t settle_pid;
 static int run_exec_q;
 static int stop_exec_q;
@@ -172,10 +172,10 @@ static void event_queue_delete(struct udev_event *event)
 	udev_event_unref(event);
 }
 
-static void asmlinkage event_sig_handler(int signum)
+static void event_sig_handler(int signum)
 {
 	if (signum == SIGALRM)
-		exit(1);
+		_exit(1);
 }
 
 static void event_fork(struct udev_event *event)
@@ -202,7 +202,7 @@ static void event_fork(struct udev_event *event)
 
 		/* set signal handlers */
 		memset(&act, 0x00, sizeof(act));
-		act.sa_handler = (void (*)(int)) event_sig_handler;
+		act.sa_handler = event_sig_handler;
 		sigemptyset (&act.sa_mask);
 		act.sa_flags = 0;
 		sigaction(SIGALRM, &act, NULL);
@@ -570,7 +570,7 @@ static int handle_inotify(struct udev *udev)
 	return 0;
 }
 
-static void asmlinkage sig_handler(int signum)
+static void sig_handler(int signum)
 {
 	switch (signum) {
 		case SIGINT:
@@ -894,7 +894,7 @@ int main(int argc, char *argv[])
 
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(struct sigaction));
-	act.sa_handler = (void (*)(int)) sig_handler;
+	act.sa_handler = sig_handler;
 	sigemptyset(&act.sa_mask);
 	act.sa_flags = SA_RESTART;
 	sigaction(SIGINT, &act, NULL);

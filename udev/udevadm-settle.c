@@ -36,9 +36,9 @@
 #define DEFAULT_TIMEOUT			180
 #define LOOP_PER_SECOND			20
 
-static int volatile is_timeout;
+static volatile sig_atomic_t is_timeout;
 
-static void asmlinkage sig_handler(int signum)
+static void sig_handler(int signum)
 {
 	switch (signum) {
 		case SIGALRM:
@@ -70,7 +70,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 
 	/* set signal handlers */
 	memset(&act, 0x00, sizeof(act));
-	act.sa_handler = (void (*)(int)) sig_handler;
+	act.sa_handler = sig_handler;
 	sigemptyset (&act.sa_mask);
 	act.sa_flags = 0;
 	sigaction(SIGALRM, &act, NULL);
