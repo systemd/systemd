@@ -127,11 +127,11 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
 
 /* udev-selinux.c */
 #ifndef USE_SELINUX
-inline void udev_selinux_init(struct udev *udev) {}
-inline void udev_selinux_exit(struct udev *udev) {}
-inline void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode) {}
-inline void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode) {}
-inline void udev_selinux_resetfscreatecon(struct udev *udev) {}
+static inline void udev_selinux_init(struct udev *udev) {}
+static inline void udev_selinux_exit(struct udev *udev) {}
+static inline void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode) {}
+static inline void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode) {}
+static inline void udev_selinux_resetfscreatecon(struct udev *udev) {}
 #else
 void udev_selinux_init(struct udev *udev);
 void udev_selinux_exit(struct udev *udev);
