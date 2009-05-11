@@ -14,7 +14,7 @@ ENV{DM_UUID}=="?*", SYMLINK+="disk/by-id/dm-uuid-$env{DM_UUID}", OPTIONS+="strin
 ENV{DM_STATE}=="SUSPENDED", GOTO="device_mapper_end"
 ENV{DM_TARGET_TYPES}=="|*error*", GOTO="device_mapper_end"
 
-IMPORT{program}="vol_id --export $tempnode"
+IMPORT{program}="/sbin/blkid -o udev -p $tempnode"
 OPTIONS+="link_priority=-100"
 OPTIONS+="watch"
 ENV{DM_TARGET_TYPES}=="*snapshot-origin*", OPTIONS+="link_priority=-90"

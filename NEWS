@@ -2,6 +2,11 @@ udev 142
 ========
 Bugfixes.
 
+The program vol_id is removed from the repository and blkid from the
+latest util-linux-ng package replaces it. Persisten disk links for
+label and uuid depend on the util-linux-ng version of blkid now. Older
+versions can not be used with udev.
+
 Libudev allows to subscribe to udev events. To prevent unwanted messages
 to be delivered, and waking up the subscribing process, a filter can be
 installed, to drop messages inside a kernel socket filter. The filters
@@ -15,7 +20,9 @@ are expected anymore, and a first stable release should happen soon.
 
 A too old kernel (2.6.21) or a kernel with CONFIG_SYSFS_DEPRECATED
 is not supported since while and udevd will log an error message at
-startup.
+startup. It should still be able to boot-up, but advanced rules and system
+services which depend on the information not available in the old sysfs
+format will fail to work correctly.
 
 DVB device naming is supplied by the kernel now. In case older kernels
 need to be supported, the old shell script should be added to a compat

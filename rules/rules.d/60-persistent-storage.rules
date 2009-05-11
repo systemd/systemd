@@ -55,10 +55,10 @@ ENV{DEVTYPE}=="partition", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PA
 ENV{DEVTYPE}=="disk", KERNEL!="sd*|sr*", ATTR{removable}=="1", GOTO="persistent_storage_end"
 
 # probe filesystem metadata of optical drives which have a media inserted
-KERNEL=="sr*", ENV{ID_CDROM_MEDIA}=="?*", IMPORT{program}="vol_id --export --skip-raid --offset=$env{ID_CDROM_MEDIA_SESSION_LAST_OFFSET} $tempnode"
+KERNEL=="sr*", ENV{ID_CDROM_MEDIA}=="?*", IMPORT{program}="/sbin/blkid -o udev -p -u noraid -O $env{ID_CDROM_MEDIA_SESSION_LAST_OFFSET} $tempnode"
 
 # probe filesystem metadata of disks
-KERNEL!="sr*", IMPORT{program}="vol_id --export $tempnode"
+KERNEL!="sr*", IMPORT{program}="/sbin/blkid -o udev -p $tempnode"
 
 # watch for future changes
 KERNEL!="sr*", OPTIONS+="watch"
