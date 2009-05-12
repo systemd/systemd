@@ -11,5 +11,4 @@ SUBDIRS = \
 	fstab_import \
 	rule_generator \
 	scsi_id \
-	usb_id \
-	volume_id
+	usb_id

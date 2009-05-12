@@ -2,10 +2,11 @@ udev 142
 ========
 Bugfixes.
 
-The program vol_id is removed from the repository and blkid from the
-latest util-linux-ng package replaces it. Persisten disk links for
-label and uuid depend on the util-linux-ng version of blkid now. Older
-versions can not be used with udev.
+The program vol_id and the library libvolume_id is removed from the
+repository. Libvolume_id is merged with libblkid from the util-linux-ng
+package. Persistent disk links for label and uuid depend on the
+util-linux-ng version (2.15) of blkid now. Older versions of blkid
+can not be used with udev.
 
 Libudev allows to subscribe to udev events. To prevent unwanted messages
 to be delivered, and waking up the subscribing process, a filter can be

@@ -21,14 +21,6 @@ AC_SUBST(LIBUDEV_LT_CURRENT)
 AC_SUBST(LIBUDEV_LT_REVISION)
 AC_SUBST(LIBUDEV_LT_AGE)
 
-dnl /* libvolume_id version */
-VOLID_LT_CURRENT=2
-VOLID_LT_REVISION=0
-VOLID_LT_AGE=1
-AC_SUBST(VOLID_LT_CURRENT)
-AC_SUBST(VOLID_LT_REVISION)
-AC_SUBST(VOLID_LT_AGE)
-
 AC_PATH_PROG([XSLTPROC], [xsltproc])
 
 AC_CHECK_LIB(c, inotify_init,
@@ -97,9 +89,6 @@ AC_CONFIG_FILES([
 	extras/rule_generator/Makefile
 	extras/scsi_id/Makefile
 	extras/usb_id/Makefile
-	extras/volume_id/Makefile
-	extras/volume_id/lib/Makefile
-	extras/volume_id/lib/libvolume_id.pc
 ])
 
 AC_OUTPUT
