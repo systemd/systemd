@@ -2,7 +2,7 @@ udev 142
 ========
 Bugfixes.
 
-The program vol_id and the library libvolume_id is removed from the
+The program vol_id and the library libvolume_id are removed from the
 repository. Libvolume_id is merged with libblkid from the util-linux-ng
 package. Persistent disk links for label and uuid depend on the
 util-linux-ng version (2.15) of blkid now. Older versions of blkid
@@ -13,11 +13,11 @@ to be delivered, and waking up the subscribing process, a filter can be
 installed, to drop messages inside a kernel socket filter. The filters
 match on the <subsytem>:<devtype> properties of the device.
     This is part of the ongoing effort to replace HAL, and switch current
-users over to directly use libudev, or for higher-level services use the
-specialized D-Bus interface of a DeviceKit service.
+users over to directly use libudev.
     Libudev is still marked as experimental, and its interface might
-change if needed, but no major changes of the currently exported interface
-are expected anymore, and a first stable release should happen soon.
+eventually change if needed, but no major changes of the currently exported
+interface are expected anymore, and a first stable release should happen
+soon.
 
 A too old kernel (2.6.21) or a kernel with CONFIG_SYSFS_DEPRECATED
 is not supported since while and udevd will log an error message at

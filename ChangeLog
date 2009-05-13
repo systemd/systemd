@@ -1,3 +1,67 @@
+Summary of changes from v141 to v142
+============================================
+
+Andre Przywara (1):
+      rules: create /dev/cpu/<n>/cpuid world readable
+
+Ian Campbell (1):
+      path_id: support identification of Xen virtual block devices
+
+John Wright (1):
+      edd_id: add cciss devices
+
+Kay Sievers (46):
+      version bump
+      libudev: path_encode - always return 0 if encoded string does not fit into size
+      libudev: monitor - clarify socket handling documentation
+      udevd: log error for too old kernels or CONFIG_SYSFS_DEPRECATED
+      rules: remove DVB shell script
+      update NEWS
+      cdrom_id: add Xen cdrom support
+      test-libudev: update monitor source
+      TODO: add packet filter
+      update NEWS
+      udevd: at startup create /dev/null, /dev/console, /dev/kmsg
+      cdrom_id: add and use ID_CDROM_MEDIA to decide if we run vol_id
+      libudev: monitor - add client socket filter for subsystem value
+      udevadm: monitor - print error if we can not bind to socket
+      update TODO
+      udevadm monitor - add --subsystem-match=
+      libudev: monitor - use simpler hash
+      libudev: monitor - switch to filter_add_match_subsystem_devtype()
+      libudev: monitor - do not filter messages with wrong magic
+      udevadm: monitor - add <subsytem>:<devtype> support
+      libudev: monitor - add udev_monitor_filter_remove
+      libudev: queue - fix get_seqnum_is_finished()
+      cdrom_id: skip media tests if CDROM_DRIVE_STATUS != CDS_DISC_OK
+      libudev: queue - clarify comments
+      libudev: monitor - export filter_update()
+      update NEWS
+      drop "extern" keyword from non-static function
+      rule_generator: net - fix usb comment generation
+      rules: input - add links for USB/platform non-kbd/mouse devices
+      rules: input - fix comments
+      rules: add rfcomm* to group dialout
+      accept DEVNAME from the kernel as a hint for the node name
+      update TODO
+      build: use AC_MSG_RESULT
+      rules: add "event*" match
+      udevd: revert initial device node creation
+      rules: remove initramfs comment
+      handle devtmpfs nodes
+      oops, removed ppp entry from rules got committed
+      remove all PHYSDEVPATH handling and warning about
+      remove asmlinkage
+      rules: fix ieee1394 rules
+      add "static" back to the inline functions
+      update TODO
+      delete vol_id and require util-linux-ng's blkid
+      delete libvolume_id
+
+Lubomir Rintel (1):
+      rule-generator: net - whitelist NICs that violate MAC local scheme
+
+
 Summary of changes from v140 to v141
 ============================================
 

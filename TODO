@@ -1,11 +1,7 @@
-  udev 142:
-  o add udev_monitor_filter_add_match_property()
   o add tests for kernel provided DEVNAME logic
-
   o drop modprobe floppy alias (SUSE), it will be in the module (2.6.30)
   o remove MMC rules, they got a modalias now (2.6.30)
   o add scsi:t-0x09* to "ch" and remove modprobe rule (2.6.30)
-
   o convert readdir loops to unlinkat(), fstatat()
   o implement path_id in C with libudev (?)
   o convert firmware.sh to C (?)
