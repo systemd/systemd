@@ -1,5 +1,5 @@
 AC_INIT([udev],
-	[142],
+	[143],
 	[linux-hotplug@vger.kernel.org])
 AC_PREREQ(2.60)
 AM_INIT_AUTOMAKE([check-news foreign 1.9 dist-bzip2])
