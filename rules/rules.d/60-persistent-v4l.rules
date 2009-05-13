@@ -11,7 +11,8 @@ TEST!="index", GOTO="persistent_v4l_end"
 ATTR{index}!="?*", GOTO="persistent_v4l_end"
 
 IMPORT{program}="path_id %p"
-ENV{ID_PATH}=="?*", KERNEL=="video*|vbi*", SYMLINK+="v4l/by-path/$env{ID_PATH}-video-index$attr{index}"
+ENV{ID_PATH}=="?*", KERNEL=="video*", SYMLINK+="v4l/by-path/$env{ID_PATH}-video-index$attr{index}"
+ENV{ID_PATH}=="?*", KERNEL=="vbi*", SYMLINK+="v4l/by-path/$env{ID_PATH}-vbi-index$attr{index}"
 ENV{ID_PATH}=="?*", KERNEL=="audio*", SYMLINK+="v4l/by-path/$env{ID_PATH}-audio-index$attr{index}"
 
 LABEL="persistent_v4l_end"
