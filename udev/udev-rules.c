@@ -1610,6 +1610,7 @@ static int parse_file(struct udev_rules *rules, const char *filename, unsigned s
 				if (strcmp(label, &rules->buf[rules->tokens[j].rule.label_off]) != 0)
 					continue;
 				rules->tokens[i].key.rule_goto = j;
+				break;
 			}
 			if (rules->tokens[i].key.rule_goto == 0)
 				err(rules->udev, "GOTO '%s' has no matching label in: '%s'\n", label, filename);
@@ -2504,6 +2505,8 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				break;
 			}
 		case TK_A_GOTO:
+			if (cur->key.rule_goto == 0)
+				break;
 			cur = &rules->tokens[cur->key.rule_goto];
 			continue;
 		case TK_A_LAST_RULE:

@@ -1557,6 +1557,17 @@ KERNEL=="sda1", LABEL="BAD"
 EOF
 	},
 	{
+		desc		=> "GOTO label does not exist",
+		subsys		=> "block",
+		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
+		exp_name	=> "right",
+		rules		=> <<EOF
+KERNEL=="sda1", GOTO="does-not-exist"
+KERNEL=="sda1", NAME="right",
+LABEL="exists"
+EOF
+	},
+	{
 		desc		=> "NAME compare test",
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
