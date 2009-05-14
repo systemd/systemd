@@ -1431,7 +1431,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			} else if ((rules->resolve_names > 0) && strchr("$%", value[0]) == NULL) {
 				uid = add_uid(rules, value);
 				rule_add_key(&rule_tmp, TK_A_OWNER_ID, op, NULL, &uid);
-			} else if (rules->resolve_names == 0) {
+			} else if (rules->resolve_names >= 0) {
 				rule_add_key(&rule_tmp, TK_A_OWNER, op, value, NULL);
 			}
 			rule_tmp.rule.rule.flags = 1;
@@ -1448,7 +1448,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			} else if ((rules->resolve_names > 0) && strchr("$%", value[0]) == NULL) {
 				gid = add_gid(rules, value);
 				rule_add_key(&rule_tmp, TK_A_GROUP_ID, op, NULL, &gid);
-			} else if (rules->resolve_names == 0) {
+			} else if (rules->resolve_names >= 0) {
 				rule_add_key(&rule_tmp, TK_A_GROUP, op, value, NULL);
 			}
 			rule_tmp.rule.rule.flags = 1;
