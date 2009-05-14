@@ -97,7 +97,7 @@ choose_rules_file
 
 link_num=$(find_next_available 'cdrom[0-9]*')
 
-match="ENV{ID_CDROM}==\"?*\", $RULE"
+match="SUBSYSTEM==\"block\", ENV{ID_CDROM}==\"?*\", $RULE"
 
 comment="$ID_MODEL ($ID_PATH)"
 
@@ -108,6 +108,7 @@ comment="$ID_MODEL ($ID_PATH)"
 	write_rule "$match" "dvd$link_num"
 [ "$ID_CDROM_DVD_R" -o "$ID_CDROM_DVD_RW" -o "$ID_CDROM_DVD_RAM" ] && \
 	write_rule "$match" "dvdrw$link_num"
+echo >> $RULES_FILE
 
 unlock_rules_file
 
