@@ -284,15 +284,6 @@ SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:
 EOF
 	},
 	{
-		desc		=> "test substitution chars (with length limit)",
-		subsys		=> "block",
-		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-		exp_name	=> "M8-m5-n5-b0:0-xAT" ,
-		rules		=> <<EOF
-SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", NAME="M%M-m%m-n%n-b%3b-x%2s{vendor}"
-EOF
-	},
-	{
 		desc		=> "import of shell-value file",
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
@@ -354,7 +345,7 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n test-%b", RESULT=="test-0:0*", NAME="
 EOF
 	},
 	{
-		desc		=> "program with escaped format char (tricky: callout returns format char!)",
+		desc		=> "program with escaped format char (callout returns format char!)",
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
 		exp_name	=> "escape-5" ,
@@ -1019,16 +1010,6 @@ EOF
 		exp_target	=> "ttyACM0",
 		rules		=> <<EOF
 KERNEL=="ttyACM[0-9]*", NAME="ttyACM%n", SYMLINK+="%s{dev}"
-EOF
-	},
-	{
-		desc		=> "symlink %Ns{filename} substitution",
-		subsys		=> "tty",
-		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
-		exp_name	=> "166",
-		exp_target	=> "ttyACM0",
-		rules		=> <<EOF
-KERNEL=="ttyACM[0-9]*", NAME="ttyACM%n", SYMLINK+="%3s{dev}"
 EOF
 	},
 	{

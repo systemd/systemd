@@ -620,9 +620,6 @@
               </listitem>
             </varlistentry>
           </variablelist>
-          <para>The count of characters to be substituted may be limited by specifying
-          the format length value. For example, '%3s{file}' will only
-          insert the first three characters of the sysfs attribute</para>
         </refsect2>
       </refsect1>
 

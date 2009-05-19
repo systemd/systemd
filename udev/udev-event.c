@@ -77,32 +77,12 @@ static char *get_format_attribute(struct udev *udev, char **str)
 	return attr;
 }
 
-/* extract possible format length and move str behind it*/
-static int get_format_len(struct udev *udev, char **str)
-{
-	int num;
-	char *tail;
-
-	if (isdigit(*str[0])) {
-		num = (int) strtoul(*str, &tail, 10);
-		if (num > 0) {
-			*str = tail;
-			dbg(udev, "format length=%i\n", num);
-			return num;
-		} else {
-			err(udev, "format parsing error '%s'\n", *str);
-		}
-	}
-	return -1;
-}
-
 void udev_event_apply_format(struct udev_event *event, char *string, size_t maxsize)
 {
 	struct udev_device *dev = event->dev;
 	char temp[UTIL_PATH_SIZE];
 	char temp2[UTIL_PATH_SIZE];
 	char *head, *tail, *cpos, *attr, *rest;
-	int len;
 	int i;
 	int count;
 	enum subst_type {
@@ -153,7 +133,6 @@ void udev_event_apply_format(struct udev_event *event, char *string, size_t maxs
 
 	head = string;
 	while (1) {
-		len = -1;
 		while (head[0] != '\0') {
 			if (head[0] == '$') {
 				/* substitute named variable */
@@ -188,7 +167,6 @@ void udev_event_apply_format(struct udev_event *event, char *string, size_t maxs
 				}
 				head[0] = '\0';
 				tail = head+1;
-				len = get_format_len(event->udev, &tail);
 				for (subst = map; subst->name; subst++) {
 					if (tail[0] == subst->fmt) {
 						type = subst->type;
@@ -446,11 +424,6 @@ found:
 		default:
 			err(event->udev, "unknown substitution type=%i\n", type);
 			break;
-		}
-		/* possibly truncate to format-char specified length */
-		if (len >= 0 && len < (int)strlen(head)) {
-			head[len] = '\0';
-			dbg(event->udev, "truncate to %i chars, subtitution string becomes '%s'\n", len, head);
 		}
 		util_strlcat(string, temp, maxsize);
 	}
