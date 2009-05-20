@@ -45,7 +45,8 @@ int main(int argc, char *argv[])
 	int sysfs_fd;
 	DIR *dir = NULL;
 	int rc = 1;
-	char match[NAME_MAX];
+	char filename[UTIL_PATH_SIZE];
+	char match[UTIL_PATH_SIZE];
 
 	udev = udev_new();
 	if (udev == NULL)
@@ -69,7 +70,8 @@ int main(int argc, char *argv[])
 	}
 
 	/* check for kernel support */
-	dir = opendir("/sys/firmware/edd");
+	util_strscpyl(filename, sizeof(filename), udev_get_sys_path(udev), "/firmware/edd", NULL);
+	dir = opendir(filename);
 	if (dir == NULL) {
 		info(udev, "no kernel EDD support\n");
 		fprintf(stderr, "no kernel EDD support\n");
@@ -126,7 +128,6 @@ int main(int argc, char *argv[])
 	/* lookup signature in sysfs to determine the name */
 	match[0] = '\0';
 	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-		char file[UTIL_PATH_SIZE];
 		char sysfs_id_buf[256];
 		uint32_t sysfs_id;
 		ssize_t size;
@@ -134,23 +135,21 @@ int main(int argc, char *argv[])
 		if (dent->d_name[0] == '.')
 			continue;
 
-		snprintf(file, sizeof(file), "/sys/firmware/edd/%s/mbr_signature", dent->d_name);
-		file[sizeof(file)-1] = '\0';
-
-		sysfs_fd = open(file, O_RDONLY);
+		util_strscpyl(filename, sizeof(filename), dent->d_name, "/mbr_signature", NULL);
+		sysfs_fd = openat(dirfd(dir), filename, O_RDONLY);
 		if (sysfs_fd < 0) {
-			info(udev, "unable to open sysfs '%s'\n", file);
+			info(udev, "unable to open sysfs '%s'\n", filename);
 			continue;
 		}
 
 		size = read(sysfs_fd, sysfs_id_buf, sizeof(sysfs_id_buf)-1);
 		close(sysfs_fd);
 		if (size <= 0) {
-			info(udev, "read sysfs '%s' failed\n", file);
+			info(udev, "read sysfs '%s' failed\n", filename);
 			continue;
 		}
 		sysfs_id_buf[size] = '\0';
-		info(udev, "read '%s' from '%s'\n", sysfs_id_buf, file);
+		info(udev, "read '%s' from '%s'\n", sysfs_id_buf, filename);
 		sysfs_id = strtoul(sysfs_id_buf, NULL, 16);
 
 		/* look for matching value, that appears only once */
