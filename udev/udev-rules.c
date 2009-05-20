@@ -103,7 +103,6 @@ enum string_glob_type {
 	GL_SPLIT,			/* multi-value A|B */
 	GL_SPLIT_GLOB,			/* multi-value with glob A*|B* */
 	GL_SOMETHING,			/* commonly used "?*" */
-	GL_FORMAT,
 };
 
 /* tokens of a rule are sorted/handled in this order */
@@ -230,7 +229,6 @@ static const char *string_glob_str(enum string_glob_type type)
 		[GL_SPLIT] = 		"split",
 		[GL_SPLIT_GLOB] = 	"split-glob",
 		[GL_SOMETHING] = 	"split-glob",
-		[GL_FORMAT] = 		"format",
 	};
 
 	return string_glob_strs[type];
@@ -1056,29 +1054,23 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 	}
 
 	glob = GL_PLAIN;
-	if (value != NULL) {
-		if (type < TK_M_MAX) {
-			/* check if we need to split or call fnmatch() while matching rules */
-			int has_split;
-			int has_glob;
+	if (value != NULL && type < TK_M_MAX) {
+		/* check if we need to split or call fnmatch() while matching rules */
+		int has_split;
+		int has_glob;
 
-			has_split = (strchr(value, '|') != NULL);
-			has_glob = (strchr(value, '*') != NULL || strchr(value, '?') != NULL ||
-				    strchr(value, '[') != NULL || strchr(value, ']') != NULL);
-			if (has_split && has_glob) {
-				glob = GL_SPLIT_GLOB;
-			} else if (has_split) {
-				glob = GL_SPLIT;
-			} else if (has_glob) {
-				if (strcmp(value, "?*") == 0)
-					glob = GL_SOMETHING;
-				else
-					glob = GL_GLOB;
-			}
-		} else {
-			/* check if we need to substitute format strings for matching rules */
-			if (strchr(value, '%') != NULL || strchr(value, '$') != NULL)
-				glob = GL_FORMAT;
+		has_split = (strchr(value, '|') != NULL);
+		has_glob = (strchr(value, '*') != NULL || strchr(value, '?') != NULL ||
+			    strchr(value, '[') != NULL || strchr(value, ']') != NULL);
+		if (has_split && has_glob) {
+			glob = GL_SPLIT_GLOB;
+		} else if (has_split) {
+			glob = GL_SPLIT;
+		} else if (has_glob) {
+			if (strcmp(value, "?*") == 0)
+				glob = GL_SOMETHING;
+			else
+				glob = GL_GLOB;
 		}
 	}
 
@@ -1901,7 +1893,6 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 	case GL_SOMETHING:
 		match = (val[0] != '\0');
 		break;
-	case GL_FORMAT:
 	case GL_UNSET:
 		return -1;
 	}
