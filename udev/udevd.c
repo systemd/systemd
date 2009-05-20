@@ -180,6 +180,16 @@ static void event_fork(struct udev_event *event)
 	struct sigaction act;
 	int err;
 
+#if 0
+	/* single process, no forking, just for testing/profiling */
+	err = udev_event_execute_rules(event, rules);
+	if (err == 0 && !event->ignore_device && udev_get_run(event->udev))
+		udev_event_execute_run(event);
+	info(event->udev, "seq %llu exit with %i\n", udev_device_get_seqnum(event->dev), err);
+	event_queue_delete(event);
+	return;
+#endif
+
 	if (debug_trace) {
 		event->trace = 1;
 		fprintf(stderr, "fork %s (%llu)\n",
