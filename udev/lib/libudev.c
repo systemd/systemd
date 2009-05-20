@@ -188,17 +188,17 @@ struct udev *udev_new(void)
 				val++;
 			}
 
-			if (strcasecmp(key, "udev_log") == 0) {
+			if (strcmp(key, "udev_log") == 0) {
 				udev_set_log_priority(udev, util_log_priority(val));
 				continue;
 			}
-			if (strcasecmp(key, "udev_root") == 0) {
+			if (strcmp(key, "udev_root") == 0) {
 				free(udev->dev_path);
 				udev->dev_path = strdup(val);
 				util_remove_trailing_chars(udev->dev_path, '/');
 				continue;
 			}
-			if (strcasecmp(key, "udev_rules") == 0) {
+			if (strcmp(key, "udev_rules") == 0) {
 				free(udev->rules_path);
 				udev->rules_path = strdup(val);
 				util_remove_trailing_chars(udev->rules_path, '/');

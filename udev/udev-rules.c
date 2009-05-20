@@ -1142,7 +1142,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 		if (get_key(rules->udev, &linepos, &key, &op, &value) != 0)
 			break;
 
-		if (strcasecmp(key, "ACTION") == 0) {
+		if (strcmp(key, "ACTION") == 0) {
 			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid ACTION operation\n");
 				goto invalid;
@@ -1151,7 +1151,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcasecmp(key, "DEVPATH") == 0) {
+		if (strcmp(key, "DEVPATH") == 0) {
 			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid DEVPATH operation\n");
 				goto invalid;
@@ -1160,7 +1160,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcasecmp(key, "KERNEL") == 0) {
+		if (strcmp(key, "KERNEL") == 0) {
 			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid KERNEL operation\n");
 				goto invalid;
@@ -1169,7 +1169,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcasecmp(key, "SUBSYSTEM") == 0) {
+		if (strcmp(key, "SUBSYSTEM") == 0) {
 			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid SUBSYSTEM operation\n");
 				goto invalid;
@@ -1187,7 +1187,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcasecmp(key, "DRIVER") == 0) {
+		if (strcmp(key, "DRIVER") == 0) {
 			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid DRIVER operation\n");
 				goto invalid;
@@ -1196,7 +1196,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strncasecmp(key, "ATTR{", sizeof("ATTR{")-1) == 0) {
+		if (strncmp(key, "ATTR{", sizeof("ATTR{")-1) == 0) {
 			attr = get_key_attribute(rules->udev, key + sizeof("ATTR")-1);
 			if (attr == NULL) {
 				err(rules->udev, "error parsing ATTR attribute\n");
@@ -1210,8 +1210,8 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcasecmp(key, "KERNELS") == 0 ||
-		    strcasecmp(key, "ID") == 0) {
+		if (strcmp(key, "KERNELS") == 0 ||
+		    strcmp(key, "ID") == 0) {
 			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid KERNELS operation\n");
 				goto invalid;
@@ -1220,8 +1220,8 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcasecmp(key, "SUBSYSTEMS") == 0 ||
-		    strcasecmp(key, "BUS") == 0) {
+		if (strcmp(key, "SUBSYSTEMS") == 0 ||
+		    strcmp(key, "BUS") == 0) {
 			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid SUBSYSTEMS operation\n");
 				goto invalid;
@@ -1230,7 +1230,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcasecmp(key, "DRIVERS") == 0) {
+		if (strcmp(key, "DRIVERS") == 0) {
 			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid DRIVERS operation\n");
 				goto invalid;
@@ -1239,8 +1239,8 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strncasecmp(key, "ATTRS{", sizeof("ATTRS{")-1) == 0 ||
-		    strncasecmp(key, "SYSFS{", sizeof("SYSFS{")-1) == 0) {
+		if (strncmp(key, "ATTRS{", sizeof("ATTRS{")-1) == 0 ||
+		    strncmp(key, "SYSFS{", sizeof("SYSFS{")-1) == 0) {
 			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid ATTRS operation\n");
 				goto invalid;
@@ -1260,7 +1260,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strncasecmp(key, "ENV{", sizeof("ENV{")-1) == 0) {
+		if (strncmp(key, "ENV{", sizeof("ENV{")-1) == 0) {
 			attr = get_key_attribute(rules->udev, key + sizeof("ENV")-1);
 			if (attr == NULL) {
 				err(rules->udev, "error parsing ENV attribute\n");
@@ -1276,12 +1276,12 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcasecmp(key, "PROGRAM") == 0) {
+		if (strcmp(key, "PROGRAM") == 0) {
 			rule_add_key(&rule_tmp, TK_M_PROGRAM, op, value, NULL);
 			continue;
 		}
 
-		if (strcasecmp(key, "RESULT") == 0) {
+		if (strcmp(key, "RESULT") == 0) {
 			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid RESULT operation\n");
 				goto invalid;
@@ -1290,7 +1290,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strncasecmp(key, "IMPORT", sizeof("IMPORT")-1) == 0) {
+		if (strncmp(key, "IMPORT", sizeof("IMPORT")-1) == 0) {
 			attr = get_key_attribute(rules->udev, key + sizeof("IMPORT")-1);
 			if (attr != NULL && strstr(attr, "program")) {
 				dbg(rules->udev, "IMPORT will be executed\n");
@@ -1327,7 +1327,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strncasecmp(key, "TEST", sizeof("TEST")-1) == 0) {
+		if (strncmp(key, "TEST", sizeof("TEST")-1) == 0) {
 			mode_t mode = 0;
 
 			if (op > OP_MATCH_MAX) {
@@ -1344,7 +1344,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strncasecmp(key, "RUN", sizeof("RUN")-1) == 0) {
+		if (strncmp(key, "RUN", sizeof("RUN")-1) == 0) {
 			int flag = 0;
 
 			attr = get_key_attribute(rules->udev, key + sizeof("RUN")-1);
@@ -1354,22 +1354,22 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcasecmp(key, "WAIT_FOR") == 0 || strcasecmp(key, "WAIT_FOR_SYSFS") == 0) {
+		if (strcmp(key, "WAIT_FOR") == 0 || strcmp(key, "WAIT_FOR_SYSFS") == 0) {
 			rule_add_key(&rule_tmp, TK_M_WAITFOR, 0, value, NULL);
 			continue;
 		}
 
-		if (strcasecmp(key, "LABEL") == 0) {
+		if (strcmp(key, "LABEL") == 0) {
 			rule_tmp.rule.rule.label_off = add_string(rules, value);
 			continue;
 		}
 
-		if (strcasecmp(key, "GOTO") == 0) {
+		if (strcmp(key, "GOTO") == 0) {
 			rule_add_key(&rule_tmp, TK_A_GOTO, 0, value, NULL);
 			continue;
 		}
 
-		if (strncasecmp(key, "NAME", sizeof("NAME")-1) == 0) {
+		if (strncmp(key, "NAME", sizeof("NAME")-1) == 0) {
 			if (op < OP_MATCH_MAX) {
 				rule_add_key(&rule_tmp, TK_M_NAME, op, value, NULL);
 			} else {
@@ -1394,7 +1394,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcasecmp(key, "SYMLINK") == 0) {
+		if (strcmp(key, "SYMLINK") == 0) {
 			if (op < OP_MATCH_MAX)
 				rule_add_key(&rule_tmp, TK_M_DEVLINK, op, value, NULL);
 			else
@@ -1403,7 +1403,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcasecmp(key, "OWNER") == 0) {
+		if (strcmp(key, "OWNER") == 0) {
 			uid_t uid;
 			char *endptr;
 
@@ -1420,7 +1420,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcasecmp(key, "GROUP") == 0) {
+		if (strcmp(key, "GROUP") == 0) {
 			gid_t gid;
 			char *endptr;
 
@@ -1437,7 +1437,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcasecmp(key, "MODE") == 0) {
+		if (strcmp(key, "MODE") == 0) {
 			mode_t mode;
 			char *endptr;
 
@@ -1450,7 +1450,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcasecmp(key, "OPTIONS") == 0) {
+		if (strcmp(key, "OPTIONS") == 0) {
 			const char *pos;
 
 			if (strstr(value, "last_rule") != NULL) {
