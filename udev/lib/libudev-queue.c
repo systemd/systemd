@@ -84,8 +84,7 @@ unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *udev_queu
 
 	if (udev_queue == NULL)
 		return -EINVAL;
-	util_strlcpy(filename, udev_get_sys_path(udev_queue->udev), sizeof(filename));
-	util_strlcat(filename, "/kernel/uevent_seqnum", sizeof(filename));
+	util_strscpyl(filename, sizeof(filename), udev_get_sys_path(udev_queue->udev), "/kernel/uevent_seqnum", NULL);
 	fd = open(filename, O_RDONLY);
 	if (fd < 0)
 		return 0;
@@ -109,8 +108,7 @@ unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *udev_queue)
 
 	if (udev_queue == NULL)
 		return -EINVAL;
-	util_strlcpy(filename, udev_get_dev_path(udev_queue->udev), sizeof(filename));
-	util_strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_queue->udev), "/.udev/uevent_seqnum", NULL);
 	fd = open(filename, O_RDONLY);
 	if (fd < 0)
 		return 0;
@@ -132,8 +130,7 @@ int udev_queue_get_udev_is_active(struct udev_queue *udev_queue)
 
 	if (udev_queue == NULL)
 		return 0;
-	util_strlcpy(filename, udev_get_dev_path(udev_queue->udev), sizeof(filename));
-	util_strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_queue->udev), "/.udev/uevent_seqnum", NULL);
 	if (stat(filename, &statbuf) == 0)
 		return 1;
 	return 0;
@@ -147,8 +144,7 @@ int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue)
 
 	if (udev_queue == NULL)
 		return -EINVAL;
-	util_strlcpy(queuename, udev_get_dev_path(udev_queue->udev), sizeof(queuename));
-	util_strlcat(queuename, "/.udev/queue", sizeof(queuename));
+	util_strscpyl(queuename, sizeof(queuename), udev_get_dev_path(udev_queue->udev), "/.udev/queue", NULL);
 	if (stat(queuename, &statbuf) == 0) {
 		dbg(udev_queue->udev, "queue is not empty\n");
 		return 0;
@@ -200,28 +196,26 @@ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev
 	if (udev_queue == NULL)
 		return NULL;
 	udev_list_cleanup_entries(udev_queue->udev, &udev_queue->queue_list);
-	util_strlcpy(path, udev_get_dev_path(udev_queue->udev), sizeof(path));
-	util_strlcat(path, "/.udev/queue", sizeof(path));
+	util_strscpyl(path, sizeof(path), udev_get_dev_path(udev_queue->udev), "/.udev/queue", NULL);
 	dir = opendir(path);
 	if (dir == NULL)
 		return NULL;
 	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
 		char filename[UTIL_PATH_SIZE];
 		char syspath[UTIL_PATH_SIZE];
-		size_t syslen;
+		char *s;
+		size_t l;
 		ssize_t len;
 
 		if (dent->d_name[0] == '.')
 			continue;
-		util_strlcpy(filename, path, sizeof(filename));
-		util_strlcat(filename, "/", sizeof(filename));
-		util_strlcat(filename, dent->d_name, sizeof(filename));
-
-		syslen = util_strlcpy(syspath, udev_get_sys_path(udev_queue->udev), sizeof(syspath));
-		len = readlink(filename, &syspath[syslen], sizeof(syspath)-syslen);
-		if (len < 0 || len >= (ssize_t)(sizeof(syspath)-syslen))
+		util_strscpyl(filename, sizeof(filename), path, "/", dent->d_name, NULL);
+		s = syspath;
+		l = util_strpcpyl(&s, sizeof(syspath), udev_get_sys_path(udev_queue->udev), NULL);
+		len = readlink(filename, s, l);
+		if (len < 0 || (size_t)len >= l)
 			continue;
-		syspath[syslen + len] = '\0';
+		s[len] = '\0';
 		dbg(udev_queue->udev, "found '%s' [%s]\n", syspath, dent->d_name);
 		udev_list_entry_add(udev_queue->udev, &udev_queue->queue_list, syspath, dent->d_name, 0, 0);
 	}
@@ -238,32 +232,29 @@ struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev
 	if (udev_queue == NULL)
 		return NULL;
 	udev_list_cleanup_entries(udev_queue->udev, &udev_queue->failed_list);
-	util_strlcpy(path, udev_get_dev_path(udev_queue->udev), sizeof(path));
-	util_strlcat(path, "/.udev/failed", sizeof(path));
+	util_strscpyl(path, sizeof(path), udev_get_dev_path(udev_queue->udev), "/.udev/failed", NULL);
 	dir = opendir(path);
 	if (dir == NULL)
 		return NULL;
 	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
 		char filename[UTIL_PATH_SIZE];
 		char syspath[UTIL_PATH_SIZE];
-		struct stat statbuf;
-		size_t syslen;
+		char *s;
+		size_t l;
 		ssize_t len;
+		struct stat statbuf;
 
 		if (dent->d_name[0] == '.')
 			continue;
-		util_strlcpy(filename, path, sizeof(filename));
-		util_strlcat(filename, "/", sizeof(filename));
-		util_strlcat(filename, dent->d_name, sizeof(filename));
-
-		syslen = util_strlcpy(syspath, udev_get_sys_path(udev_queue->udev), sizeof(syspath));
-		len = readlink(filename, &syspath[syslen], sizeof(syspath)-syslen);
-		if (len < 0 || len >= (ssize_t)(sizeof(syspath)-syslen))
+		util_strscpyl(filename, sizeof(filename), path, "/", dent->d_name, NULL);
+		s = syspath;
+		l = util_strpcpyl(&s, sizeof(syspath), udev_get_sys_path(udev_queue->udev), NULL);
+		len = readlink(filename, s, l);
+		if (len < 0 || (size_t)len >= l)
 			continue;
-		syspath[syslen + len] = '\0';
+		s[len] = '\0';
 		dbg(udev_queue->udev, "found '%s' [%s]\n", syspath, dent->d_name);
-		util_strlcpy(filename, syspath, sizeof(filename));
-		util_strlcat(filename, "/uevent", sizeof(filename));
+		util_strscpyl(filename, sizeof(filename), syspath, "/uevent", NULL);
 		if (stat(filename, &statbuf) != 0)
 			continue;
 		udev_list_entry_add(udev_queue->udev, &udev_queue->failed_list, syspath, NULL, 0, 0);

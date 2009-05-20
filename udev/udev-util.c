@@ -36,7 +36,7 @@ int util_create_path(struct udev *udev, const char *path)
 	struct stat stats;
 	int ret;
 
-	util_strlcpy(p, path, sizeof(p));
+	util_strscpy(p, sizeof(p), path);
 	pos = strrchr(p, '/');
 	if (pos == p || pos == NULL)
 		return 0;
@@ -186,12 +186,10 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
 	struct udev_device *dev;
 	char *attr;
 
-	if (string == NULL)
-		string = result;
 	if (string[0] != '[')
 		return -1;
 
-	util_strlcpy(temp, string, sizeof(temp));
+	util_strscpy(temp, sizeof(temp), string);
 
 	subsys = &temp[1];
 
@@ -223,16 +221,18 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
 
 		val = udev_device_get_sysattr_value(dev, attr);
 		if (val != NULL)
-			util_strlcpy(result, val, maxsize);
+			util_strscpy(result, maxsize, val);
 		else
 			result[0] = '\0';
 		info(udev, "value '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
 	} else {
-		util_strlcpy(result, udev_device_get_syspath(dev), maxsize);
-		if (attr != NULL) {
-			util_strlcat(result, "/", maxsize);
-			util_strlcat(result, attr, maxsize);
-		}
+		size_t l;
+		char *s;
+
+		s = result;
+		l = util_strpcpyl(&s, maxsize, udev_device_get_syspath(dev), NULL);
+		if (attr != NULL)
+			util_strpcpyl(&s, l, "/", attr, NULL);
 		info(udev, "path '[%s/%s]%s' is '%s'\n", subsys, sysname, attr, result);
 	}
 	udev_device_unref(dev);
@@ -254,7 +254,7 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 	int err = 0;
 
 	/* build argv from command */
-	util_strlcpy(arg, command, sizeof(arg));
+	util_strscpy(arg, sizeof(arg), command);
 	i = 0;
 	if (strchr(arg, ' ') != NULL) {
 		char *pos = arg;
@@ -294,9 +294,8 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 	}
 
 	/* allow programs in /lib/udev/ to be called without the path */
-	if (strchr(argv[0], '/') == NULL) {
-		util_strlcpy(program, UDEV_PREFIX "/lib/udev/", sizeof(program));
-		util_strlcat(program, argv[0], sizeof(program));
+	if (argv[0][0] != '/') {
+		util_strscpyl(program, sizeof(program), UDEV_PREFIX "/lib/udev/", argv[0], NULL);
 		argv[0] = program;
 	}
 

@@ -34,22 +34,15 @@
 /* reverse mapping from the device file name to the devpath */
 static int name_index(struct udev *udev, const char *devpath, const char *name, int add)
 {
-	char device[UTIL_PATH_SIZE];
+	char devpath_enc[UTIL_PATH_SIZE];
+	char name_enc[UTIL_PATH_SIZE];
 	char filename[UTIL_PATH_SIZE * 2];
-	size_t devlen = strlen(udev_get_dev_path(udev))+1;
-	size_t start;
 	int fd;
 
-	/* directory with device name */
-	util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
-	start = util_strlcat(filename, "/.udev/names/", sizeof(filename));
-	util_strlcat(filename, &name[devlen], sizeof(filename));
-	util_path_encode(&filename[start], sizeof(filename) - start);
-	/* entry with the devpath */
-	util_strlcpy(device, devpath, sizeof(device));
-	util_path_encode(device, sizeof(device));
-	util_strlcat(filename, "/", sizeof(filename));
-	util_strlcat(filename, device, sizeof(filename));
+	util_path_encode(&name[strlen(udev_get_dev_path(udev))+1], name_enc, sizeof(name_enc));
+	util_path_encode(devpath, devpath_enc, sizeof(devpath_enc));
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev),
+		      "/.udev/names/", name_enc, "/", devpath_enc, NULL);
 
 	if (add) {
 		dbg(udev, "creating index: '%s'\n", filename);
@@ -92,8 +85,7 @@ int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mod
 			char file_tmp[UTIL_PATH_SIZE + sizeof(TMP_FILE_EXT)];
 
 			info(udev, "atomically replace existing file '%s'\n", file);
-			util_strlcpy(file_tmp, file, sizeof(file_tmp));
-			util_strlcat(file_tmp, TMP_FILE_EXT, sizeof(file_tmp));
+			util_strscpyl(file_tmp, sizeof(file_tmp), file, TMP_FILE_EXT, NULL);
 			unlink(file_tmp);
 			udev_selinux_setfscreatecon(udev, file_tmp, mode);
 			err = mknod(file_tmp, mode, devnum);
@@ -145,10 +137,11 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 {
 	struct stat stats;
 	char target[UTIL_PATH_SIZE];
+	char *s;
+	size_t l;
 	char slink_tmp[UTIL_PATH_SIZE + sizeof(TMP_FILE_EXT)];
 	int i = 0;
 	int tail = 0;
-	int len;
 	int err = 0;
 
 	/* use relative link */
@@ -158,12 +151,18 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 			tail = i+1;
 		i++;
 	}
+	s = target;
+	l = sizeof(target);
 	while (slink[i] != '\0') {
 		if (slink[i] == '/')
-			util_strlcat(target, "../", sizeof(target));
+			l = util_strpcpy(&s, l, "../");
 		i++;
 	}
-	util_strlcat(target, &node[tail], sizeof(target));
+	l = util_strscpy(s, l, &node[tail]);
+	if (l == 0) {
+		err = -EINVAL;
+		goto exit;
+	}
 
 	/* preserve link with correct target, do not replace node of other device */
 	if (lstat(slink, &stats) == 0) {
@@ -185,6 +184,7 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 			}
 		} else if (S_ISLNK(stats.st_mode)) {
 			char buf[UTIL_PATH_SIZE];
+			int len;
 
 			dbg(udev, "found existing symlink '%s'\n", slink);
 			len = readlink(slink, buf, sizeof(buf));
@@ -208,8 +208,7 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 	}
 
 	info(udev, "atomically replace '%s'\n", slink);
-	util_strlcpy(slink_tmp, slink, sizeof(slink_tmp));
-	util_strlcat(slink_tmp, TMP_FILE_EXT, sizeof(slink_tmp));
+	util_strscpyl(slink_tmp, sizeof(slink_tmp), slink, TMP_FILE_EXT, NULL);
 	unlink(slink_tmp);
 	udev_selinux_setfscreatecon(udev, slink, S_IFLNK);
 	err = symlink(target, slink_tmp);
@@ -222,7 +221,6 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 	if (err != 0) {
 		err(udev, "rename(%s, %s) failed: %m\n", slink_tmp, slink);
 		unlink(slink_tmp);
-		goto exit;
 	}
 exit:
 	return err;
@@ -230,16 +228,16 @@ exit:
 
 static int name_index_get_devices(struct udev *udev, const char *name, struct udev_list_node *dev_list)
 {
-	char dirname[PATH_MAX];
-	size_t devlen = strlen(udev_get_dev_path(udev))+1;
-	size_t start;
+	char dirname[UTIL_PATH_SIZE];
+	char *s;
+	size_t l;
 	DIR *dir;
 	int count = 0;
 
-	util_strlcpy(dirname, udev_get_dev_path(udev), sizeof(dirname));
-	start = util_strlcat(dirname, "/.udev/names/", sizeof(dirname));
-	util_strlcat(dirname, &name[devlen], sizeof(dirname));
-	util_path_encode(&dirname[start], sizeof(dirname) - start);
+	s = dirname;
+	l = util_strpcpyl(&s, sizeof(dirname), udev_get_dev_path(udev),
+		      "/.udev/names/", NULL);
+	util_path_encode(&name[strlen(udev_get_dev_path(udev))+1], s, l);
 	dir = opendir(dirname);
 	if (dir == NULL) {
 		dbg(udev, "no index directory '%s': %m\n", dirname);
@@ -258,8 +256,7 @@ static int name_index_get_devices(struct udev *udev, const char *name, struct ud
 		if (ent->d_name[0] == '.')
 			continue;
 
-		util_strlcpy(device, udev_get_sys_path(udev), sizeof(device));
-		util_strlcat(device, ent->d_name, sizeof(device));
+		util_strscpyl(device, sizeof(device), udev_get_sys_path(udev), ent->d_name, NULL);
 		util_path_decode(device);
 		udev_list_entry_add(udev, dev_list, device, NULL, 1, 0);
 		count++;
@@ -313,7 +310,7 @@ static int update_link(struct udev_device *dev, const char *slink)
 				     udev_device_get_devnode(dev));
 			} else if (target[0] == '\0' || udev_device_get_devlink_priority(dev) >= priority) {
 				priority = udev_device_get_devlink_priority(dev);
-				util_strlcpy(target, udev_device_get_devnode(dev), sizeof(target));
+				util_strscpy(target, sizeof(target), udev_device_get_devnode(dev));
 			}
 			continue;
 		}
@@ -334,7 +331,7 @@ static int update_link(struct udev_device *dev, const char *slink)
 				    priority);
 				if (target[0] == '\0' || udev_device_get_devlink_priority(dev_db) > priority) {
 					priority = udev_device_get_devlink_priority(dev_db);
-					util_strlcpy(target, devnode, sizeof(target));
+					util_strscpy(target, sizeof(target), devnode);
 				}
 			}
 		}

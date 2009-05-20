@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
 			if (label[0] == '"' || label[0] == '\'') {
 				char *pos;
 
-				util_strlcpy(str, &label[1], sizeof(str));
+				util_strscpy(str, sizeof(str), &label[1]);
 				pos = strrchr(str, label[0]);
 				if (pos == NULL)
 					continue;
@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
 			if (uuid[0] == '"' || uuid[0] == '\'') {
 				char *pos;
 
-				util_strlcpy(str, &uuid[1], sizeof(str));
+				util_strscpy(str, sizeof(str), &uuid[1]);
 				pos = strrchr(str, uuid[0]);
 				if (pos == NULL)
 					continue;

@@ -52,9 +52,7 @@ static void print_all_attributes(struct udev_device *device, const char *key)
 			if (strcmp(dent->d_name, "dev") == 0)
 				continue;
 
-			util_strlcpy(filename, udev_device_get_syspath(device), sizeof(filename));
-			util_strlcat(filename, "/", sizeof(filename));
-			util_strlcat(filename, dent->d_name, sizeof(filename));
+			util_strscpyl(filename, sizeof(filename), udev_device_get_syspath(device), "/", dent->d_name, NULL);
 			if (lstat(filename, &statbuf) != 0)
 				continue;
 			if (S_ISLNK(statbuf.st_mode))
@@ -270,13 +268,10 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 				goto exit;
 			}
 			/* remove /dev if given */
-			if (strncmp(optarg, udev_get_dev_path(udev), strlen(udev_get_dev_path(udev))) != 0) {
-				util_strlcpy(name, udev_get_dev_path(udev), sizeof(name));
-				util_strlcat(name, "/", sizeof(name));
-				util_strlcat(name, optarg, sizeof(name));
-			} else {
-				util_strlcpy(name, optarg, sizeof(name));
-			}
+			if (strncmp(optarg, udev_get_dev_path(udev), strlen(udev_get_dev_path(udev))) != 0)
+				util_strscpyl(name, sizeof(name), udev_get_dev_path(udev), "/", optarg, NULL);
+			else
+				util_strscpy(name, sizeof(name), optarg);
 			util_remove_trailing_chars(name, '/');
 			if (stat(name, &statbuf) < 0) {
 				fprintf(stderr, "device node not found\n");
@@ -309,12 +304,10 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 				goto exit;
 			}
 			/* add sys dir if needed */
-			if (strncmp(optarg, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0) {
-				util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-				util_strlcat(path, optarg, sizeof(path));
-			} else {
-				util_strlcpy(path, optarg, sizeof(path));
-			}
+			if (strncmp(optarg, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0)
+				util_strscpyl(path, sizeof(path), udev_get_sys_path(udev), optarg, NULL);
+			else
+				util_strscpy(path, sizeof(path), optarg);
 			util_remove_trailing_chars(path, '/');
 			device = udev_device_new_from_syspath(udev, path);
 			if (device == NULL) {
@@ -355,7 +348,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 			break;
 		case 'd':
 			action = ACTION_DEVICE_ID_FILE;
-			util_strlcpy(name, optarg, sizeof(name));
+			util_strscpy(name, sizeof(name), optarg);
 			break;
 		case 'a':
 			action = ACTION_ATTRIBUTE_WALK;

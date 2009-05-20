@@ -83,8 +83,7 @@ int main(int argc, char *argv[])
 
 	rules = udev_rules_new(udev, 1);
 
-	util_strlcpy(syspath, udev_get_sys_path(udev), sizeof(syspath));
-	util_strlcat(syspath, devpath, sizeof(syspath));
+	util_strscpyl(syspath, sizeof(syspath), udev_get_sys_path(udev), devpath, NULL);
 	dev = udev_device_new_from_syspath(udev, syspath);
 	if (dev == NULL) {
 		info(udev, "unknown device '%s'\n", devpath);

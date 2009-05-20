@@ -148,7 +148,7 @@ static int ctrl_send(struct udev_ctrl *uctrl, enum udev_ctrl_msg_type type, int 
 	ctrl_msg_wire.type = type;
 
 	if (buf != NULL)
-		util_strlcpy(ctrl_msg_wire.buf, buf, sizeof(ctrl_msg_wire.buf));
+		util_strscpy(ctrl_msg_wire.buf, sizeof(ctrl_msg_wire.buf), buf);
 	else
 		ctrl_msg_wire.intval = intval;
 

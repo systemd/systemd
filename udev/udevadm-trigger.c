@@ -49,8 +49,7 @@ static void exec_list(struct udev_enumerate *udev_enumerate, const char *action)
 			printf("%s\n", udev_list_entry_get_name(entry));
 		if (dry_run)
 			continue;
-		util_strlcpy(filename, udev_list_entry_get_name(entry), sizeof(filename));
-		util_strlcat(filename, "/uevent", sizeof(filename));
+		util_strscpyl(filename, sizeof(filename), udev_list_entry_get_name(entry), "/uevent", NULL);
 		fd = open(filename, O_WRONLY);
 		if (fd < 0) {
 			dbg(udev, "error on opening %s: %m\n", filename);
@@ -150,7 +149,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 			udev_enumerate_add_nomatch_subsystem(udev_enumerate, optarg);
 			break;
 		case 'a':
-			util_strlcpy(attr, optarg, sizeof(attr));
+			util_strscpy(attr, sizeof(attr), optarg);
 			val = strchr(attr, '=');
 			if (val != NULL) {
 				val[0] = 0;
@@ -159,7 +158,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 			udev_enumerate_add_match_sysattr(udev_enumerate, attr, val);
 			break;
 		case 'A':
-			util_strlcpy(attr, optarg, sizeof(attr));
+			util_strscpy(attr, sizeof(attr), optarg);
 			val = strchr(attr, '=');
 			if (val != NULL) {
 				val[0] = 0;

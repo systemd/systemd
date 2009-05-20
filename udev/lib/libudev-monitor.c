@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2009 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -113,16 +113,16 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 	udev_monitor->sun.sun_family = AF_LOCAL;
 	if (socket_path[0] == '@') {
 		/* translate leading '@' to abstract namespace */
-		util_strlcpy(udev_monitor->sun.sun_path, socket_path, sizeof(udev_monitor->sun.sun_path));
+		util_strscpy(udev_monitor->sun.sun_path, sizeof(udev_monitor->sun.sun_path), socket_path);
 		udev_monitor->sun.sun_path[0] = '\0';
 		udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(socket_path);
 	} else if (stat(socket_path, &statbuf) == 0 && S_ISSOCK(statbuf.st_mode)) {
 		/* existing socket file */
-		util_strlcpy(udev_monitor->sun.sun_path, socket_path, sizeof(udev_monitor->sun.sun_path));
+		util_strscpy(udev_monitor->sun.sun_path, sizeof(udev_monitor->sun.sun_path), socket_path);
 		udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(socket_path);
 	} else {
 		/* no socket file, assume abstract namespace socket */
-		util_strlcpy(&udev_monitor->sun.sun_path[1], socket_path, sizeof(udev_monitor->sun.sun_path)-1);
+		util_strscpy(&udev_monitor->sun.sun_path[1], sizeof(udev_monitor->sun.sun_path)-1, socket_path);
 		udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(socket_path)+1;
 	}
 	udev_monitor->sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
@@ -545,8 +545,7 @@ retry:
 		if (strncmp(key, "DEVPATH=", 8) == 0) {
 			char path[UTIL_PATH_SIZE];
 
-			util_strlcpy(path, udev_get_sys_path(udev_monitor->udev), sizeof(path));
-			util_strlcat(path, &key[8], sizeof(path));
+			util_strscpyl(path, sizeof(path), udev_get_sys_path(udev_monitor->udev), &key[8], NULL);
 			udev_device_set_syspath(udev_device, path);
 			devpath_set = 1;
 		} else if (strncmp(key, "SUBSYSTEM=", 10) == 0) {
@@ -564,7 +563,7 @@ retry:
 			char *slink;
 			char *next;
 
-			util_strlcpy(devlinks, &key[9], sizeof(devlinks));
+			util_strscpy(devlinks, sizeof(devlinks), &key[9]);
 			slink = devlinks;
 			next = strchr(slink, ' ');
 			while (next != NULL) {
@@ -637,19 +636,17 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_devi
 	if (udev_monitor->sun.sun_family != 0) {
 		const char *action;
 		char header[2048];
-		size_t hlen;
+		char *s;
 
 		/* header <action>@<devpath> */
 		action = udev_device_get_action(udev_device);
 		if (action == NULL)
 			return -EINVAL;
-		util_strlcpy(header, action, sizeof(header));
-		util_strlcat(header, "@", sizeof(header));
-		hlen = util_strlcat(header, udev_device_get_devpath(udev_device), sizeof(header))+1;
-		if (hlen >= sizeof(header))
+		s = header;
+		if (util_strpcpyl(&s, sizeof(header), action, "@", udev_device_get_devpath(udev_device), NULL) == 0)
 			return -EINVAL;
 		iov[0].iov_base = header;
-		iov[0].iov_len = hlen;
+		iov[0].iov_len = (s - header)+1;
 
 		/* add properties list */
 		iov[1].iov_base = (char *)buf;
@@ -667,7 +664,7 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_devi
 
 		/* add versioned header */
 		memset(&nlh, 0x00, sizeof(struct udev_monitor_netlink_header));
-		util_strlcpy(nlh.version, "udev-" VERSION, sizeof(nlh.version));
+		util_strscpy(nlh.version, sizeof(nlh.version), "udev-" VERSION);
 		nlh.magic = htonl(UDEV_MONITOR_MAGIC);
 		val = udev_device_get_subsystem(udev_device);
 		nlh.filter_subsystem = htonl(util_string_hash32(val));

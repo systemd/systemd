@@ -91,12 +91,10 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 	}
 
 	/* add /sys if needed */
-	if (strncmp(syspath, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0) {
-		util_strlcpy(filename, udev_get_sys_path(udev), sizeof(filename));
-		util_strlcat(filename, syspath, sizeof(filename));
-	} else {
-		util_strlcpy(filename, syspath, sizeof(filename));
-	}
+	if (strncmp(syspath, udev_get_sys_path(udev), strlen(udev_get_sys_path(udev))) != 0)
+		util_strscpyl(filename, sizeof(filename), udev_get_sys_path(udev), syspath, NULL);
+	else
+		util_strscpy(filename, sizeof(filename), syspath);
 	util_remove_trailing_chars(filename, '/');
 
 	dev = udev_device_new_from_syspath(udev, filename);
@@ -123,8 +121,7 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 		udev_list_entry_foreach(entry, udev_list_get_entry(&event->run_list)) {
 			char program[UTIL_PATH_SIZE];
 
-			util_strlcpy(program, udev_list_entry_get_name(entry), sizeof(program));
-			udev_event_apply_format(event, program, sizeof(program));
+			udev_event_apply_format(event, udev_list_entry_get_name(entry), program, sizeof(program));
 			info(udev, "run: '%s'\n", program);
 		}
 	}

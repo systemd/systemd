@@ -706,8 +706,7 @@ static int import_property_from_string(struct udev_device *dev, char *line)
 
 		info(udev, "updating devpath from '%s' to '%s'\n",
 		     udev_device_get_devpath(dev), val);
-		util_strlcpy(syspath, udev_get_sys_path(udev), sizeof(syspath));
-		util_strlcat(syspath, val, sizeof(syspath));
+		util_strscpyl(syspath, sizeof(syspath), udev_get_sys_path(udev), val, NULL);
 		udev_device_set_syspath(dev, syspath);
 	} else {
 		struct udev_list_entry *entry;
@@ -799,12 +798,9 @@ static int wait_for_file(struct udev_device *dev, const char *file, int timeout)
 	/* a relative path is a device attribute */
 	devicepath[0] = '\0';
 	if (file[0] != '/') {
-		util_strlcpy(devicepath, udev_get_sys_path(udev), sizeof(devicepath));
-		util_strlcat(devicepath, udev_device_get_devpath(dev), sizeof(devicepath));
-
-		util_strlcpy(filepath, devicepath, sizeof(filepath));
-		util_strlcat(filepath, "/", sizeof(filepath));
-		util_strlcat(filepath, file, sizeof(filepath));
+		util_strscpyl(devicepath, sizeof(devicepath),
+			      udev_get_sys_path(udev), udev_device_get_devpath(dev), NULL);
+		util_strscpyl(filepath, sizeof(filepath), devicepath, "/", file, NULL);
 		file = filepath;
 	}
 
@@ -829,17 +825,21 @@ static int wait_for_file(struct udev_device *dev, const char *file, int timeout)
 
 static int attr_subst_subdir(char *attr, size_t len)
 {
-	char *pos;
 	int found = 0;
 
-	pos = strstr(attr, "/*/");
-	if (pos != NULL) {
-		char str[UTIL_PATH_SIZE];
+	if (strstr(attr, "/*/")) {
+		char *pos;
+		char dirname[UTIL_PATH_SIZE];
+		const char *tail;
 		DIR *dir;
 
-		pos[1] = '\0';
-		util_strlcpy(str, &pos[2], sizeof(str));
-		dir = opendir(attr);
+		util_strscpy(dirname, sizeof(dirname), attr);
+		pos = strstr(dirname, "/*/");
+		if (pos == NULL)
+			return -1;
+		pos[0] = '\0';
+		tail = &pos[2];
+		dir = opendir(dirname);
 		if (dir != NULL) {
 			struct dirent *dent;
 
@@ -848,18 +848,14 @@ static int attr_subst_subdir(char *attr, size_t len)
 
 				if (dent->d_name[0] == '.')
 					continue;
-				util_strlcat(attr, dent->d_name, len);
-				util_strlcat(attr, str, len);
+				util_strscpyl(attr, len, dirname, "/", dent->d_name, tail, NULL);
 				if (stat(attr, &stats) == 0) {
 					found = 1;
 					break;
 				}
-				pos[1] = '\0';
 			}
 			closedir(dir);
 		}
-		if (!found)
-			util_strlcat(attr, str, len);
 	}
 
 	return found;
@@ -1319,22 +1315,16 @@ static int add_rule(struct udev_rules *rules, char *line,
 				char *pos;
 				struct stat statbuf;
 
-				util_strlcpy(file, value, sizeof(file));
+				/* allow programs in /lib/udev called without the path */
+				if (value[0] != '/')
+					util_strscpyl(file, sizeof(file), UDEV_PREFIX "/lib/udev/", value, NULL);
+				else
+					util_strscpy(file, sizeof(file), value);
 				pos = strchr(file, ' ');
 				if (pos)
 					pos[0] = '\0';
-
-				/* allow programs in /lib/udev called without the path */
-				if (strchr(file, '/') == NULL) {
-					util_strlcpy(file, UDEV_PREFIX "/lib/udev/", sizeof(file));
-					util_strlcat(file, value, sizeof(file));
-					pos = strchr(file, ' ');
-					if (pos)
-						pos[0] = '\0';
-				}
-
 				dbg(rules->udev, "IMPORT auto mode for '%s'\n", file);
-				if (!lstat(file, &statbuf) && (statbuf.st_mode & S_IXUSR)) {
+				if (stat(file, &statbuf) == 0 && (statbuf.st_mode & S_IXUSR)) {
 					dbg(rules->udev, "IMPORT will be executed (autotype)\n");
 					rule_add_key(&rule_tmp, TK_M_IMPORT_PROG, op, value, NULL);
 				} else {
@@ -1714,8 +1704,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 		add_matching_files(udev, &file_list, SYSCONFDIR "/udev/rules.d", ".rules");
 
 		/* read dynamic/temporary rules */
-		util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
-		util_strlcat(filename, "/.udev/rules.d", sizeof(filename));
+		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/rules.d", NULL);
 		if (stat(filename, &statbuf) != 0) {
 			util_create_path(udev, filename);
 			udev_selinux_setfscreatecon(udev, filename, S_IFDIR|0755);
@@ -1895,7 +1884,7 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 		{
 			char value[UTIL_PATH_SIZE];
 
-			util_strlcpy(value, &rules->buf[token->key.value_off], sizeof(value));
+			util_strscpy(value, sizeof(value), &rules->buf[token->key.value_off]);
 			key_value = value;
 			while (key_value != NULL) {
 				pos = strchr(key_value, '|');
@@ -1942,7 +1931,7 @@ static int match_attr(struct udev_rules *rules, struct udev_device *dev, struct 
 	if (key_name[0] == '[') {
 		char attr[UTIL_PATH_SIZE];
 
-		util_strlcpy(attr, key_name, sizeof(attr));
+		util_strscpy(attr, sizeof(attr), key_name);
 		util_resolve_subsys_kernel(event->udev, attr, value, sizeof(value), 1);
 	}
 	if (value[0] == '\0') {
@@ -1951,7 +1940,7 @@ static int match_attr(struct udev_rules *rules, struct udev_device *dev, struct 
 		val = udev_device_get_sysattr_value(dev, key_name);
 		if (val == NULL)
 			return -1;
-		util_strlcpy(value, val, sizeof(value));
+		util_strscpy(value, sizeof(value), val);
 	}
 
 	/* strip trailing whitespace of value, if not asked to match for it */
@@ -2062,8 +2051,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				char filename[UTIL_PATH_SIZE];
 				int found;
 
-				util_strlcpy(filename, &rules->buf[cur->key.value_off], sizeof(filename));
-				udev_event_apply_format(event, filename, sizeof(filename));
+				udev_event_apply_format(event, &rules->buf[cur->key.value_off], filename, sizeof(filename));
 				found = (wait_for_file(event->dev, filename, 10) == 0);
 				if (!found && (cur->key.op != OP_NOMATCH))
 					goto nomatch;
@@ -2135,18 +2123,16 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				struct stat statbuf;
 				int match;
 
-				util_strlcpy(filename, &rules->buf[cur->key.value_off], sizeof(filename));
-				udev_event_apply_format(event, filename, sizeof(filename));
-				if (util_resolve_subsys_kernel(event->udev, NULL, filename, sizeof(filename), 0) != 0)
+				udev_event_apply_format(event, &rules->buf[cur->key.value_off], filename, sizeof(filename));
+				if (util_resolve_subsys_kernel(event->udev, filename, filename, sizeof(filename), 0) != 0) {
 					if (filename[0] != '/') {
 						char tmp[UTIL_PATH_SIZE];
 
-						util_strlcpy(tmp, udev_device_get_syspath(event->dev), sizeof(tmp));
-						util_strlcat(tmp, "/", sizeof(tmp));
-						util_strlcat(tmp, filename, sizeof(tmp));
-						util_strlcpy(filename, tmp, sizeof(filename));
+						util_strscpy(tmp, sizeof(tmp), filename);
+						util_strscpyl(filename, sizeof(filename),
+							      udev_device_get_syspath(event->dev), "/", tmp, NULL);
 					}
-
+				}
 				attr_subst_subdir(filename, sizeof(filename));
 
 				match = (stat(filename, &statbuf) == 0);
@@ -2170,8 +2156,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 				free(event->program_result);
 				event->program_result = NULL;
-				util_strlcpy(program, &rules->buf[cur->key.value_off], sizeof(program));
-				udev_event_apply_format(event, program, sizeof(program));
+				udev_event_apply_format(event, &rules->buf[cur->key.value_off], program, sizeof(program));
 				envp = udev_device_get_properties_envp(event->dev);
 				info(event->udev, "PROGRAM '%s' %s:%u\n",
 				     program,
@@ -2200,8 +2185,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			{
 				char import[UTIL_PATH_SIZE];
 
-				util_strlcpy(import, &rules->buf[cur->key.value_off], sizeof(import));
-				udev_event_apply_format(event, import, sizeof(import));
+				udev_event_apply_format(event, &rules->buf[cur->key.value_off], import, sizeof(import));
 				if (import_file_into_properties(event->dev, import) != 0)
 					if (cur->key.op != OP_NOMATCH)
 						goto nomatch;
@@ -2211,8 +2195,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			{
 				char import[UTIL_PATH_SIZE];
 
-				util_strlcpy(import, &rules->buf[cur->key.value_off], sizeof(import));
-				udev_event_apply_format(event, import, sizeof(import));
+				udev_event_apply_format(event, &rules->buf[cur->key.value_off], import, sizeof(import));
 				info(event->udev, "IMPORT '%s' %s:%u\n",
 				     import,
 				     &rules->buf[rule->rule.filename_off],
@@ -2226,8 +2209,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			{
 				char import[UTIL_PATH_SIZE];
 
-				util_strlcpy(import, &rules->buf[cur->key.value_off], sizeof(import));
-				udev_event_apply_format(event, import, sizeof(import));
+				udev_event_apply_format(event, &rules->buf[cur->key.value_off], import, sizeof(import));
 				if (import_parent_into_properties(event->dev, import) != 0)
 					if (cur->key.op != OP_NOMATCH)
 						goto nomatch;
@@ -2269,8 +2251,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					break;
 				if (cur->key.op == OP_ASSIGN_FINAL)
 					event->owner_final = 1;
-				util_strlcpy(owner,  &rules->buf[cur->key.value_off], sizeof(owner));
-				udev_event_apply_format(event, owner, sizeof(owner));
+				udev_event_apply_format(event, &rules->buf[cur->key.value_off], owner, sizeof(owner));
 				event->uid = util_lookup_user(event->udev, owner);
 				info(event->udev, "OWNER %u %s:%u\n",
 				     event->uid,
@@ -2286,8 +2267,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					break;
 				if (cur->key.op == OP_ASSIGN_FINAL)
 					event->group_final = 1;
-				util_strlcpy(group, &rules->buf[cur->key.value_off], sizeof(group));
-				udev_event_apply_format(event, group, sizeof(group));
+				udev_event_apply_format(event, &rules->buf[cur->key.value_off], group, sizeof(group));
 				event->gid = util_lookup_group(event->udev, group);
 				info(event->udev, "GROUP %u %s:%u\n",
 				     event->gid,
@@ -2304,8 +2284,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					break;
 				if (cur->key.op == OP_ASSIGN_FINAL)
 					event->mode_final = 1;
-				util_strlcpy(mode, &rules->buf[cur->key.value_off], sizeof(mode));
-				udev_event_apply_format(event, mode, sizeof(mode));
+				udev_event_apply_format(event, &rules->buf[cur->key.value_off], mode, sizeof(mode));
 				event->mode = strtol(mode, &endptr, 8);
 				if (endptr[0] != '\0') {
 					err(event->udev, "invalide mode '%s' set default mode 0660\n", mode);
@@ -2359,8 +2338,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					char temp_value[UTIL_NAME_SIZE];
 					struct udev_list_entry *entry;
 
-					util_strlcpy(temp_value, value, sizeof(temp_value));
-					udev_event_apply_format(event, temp_value, sizeof(temp_value));
+					udev_event_apply_format(event, value, temp_value, sizeof(temp_value));
 					entry = udev_device_add_property(event->dev, name, temp_value);
 					/* store in db */
 					udev_list_entry_set_flag(entry, 1);
@@ -2379,8 +2357,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					break;
 				if (cur->key.op == OP_ASSIGN_FINAL)
 					event->name_final = 1;
-				util_strlcpy(name_str, name, sizeof(name_str));
-				udev_event_apply_format(event, name_str, sizeof(name_str));
+				udev_event_apply_format(event, name, name_str, sizeof(name_str));
 				if (esc == ESCAPE_UNSET || esc == ESCAPE_REPLACE) {
 					count = udev_util_replace_chars(name_str, "/");
 					if (count > 0)
@@ -2411,8 +2388,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					udev_device_cleanup_devlinks_list(event->dev);
 
 				/* allow  multiple symlinks separated by spaces */
-				util_strlcpy(temp, &rules->buf[cur->key.value_off], sizeof(temp));
-				udev_event_apply_format(event, temp, sizeof(temp));
+				udev_event_apply_format(event, &rules->buf[cur->key.value_off], temp, sizeof(temp));
 				if (esc == ESCAPE_UNSET)
 					count = udev_util_replace_chars(temp, "/ ");
 				else if (esc == ESCAPE_REPLACE)
@@ -2430,9 +2406,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					     pos,
 					     &rules->buf[rule->rule.filename_off],
 					     rule->rule.filename_line);
-					util_strlcpy(filename, udev_get_dev_path(event->udev), sizeof(filename));
-					util_strlcat(filename, "/", sizeof(filename));
-					util_strlcat(filename, pos, sizeof(filename));
+					util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/", pos, NULL);
 					udev_device_add_devlink(event->dev, filename);
 					while (isspace(next[1]))
 						next++;
@@ -2444,9 +2418,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					     pos,
 					     &rules->buf[rule->rule.filename_off],
 					     rule->rule.filename_line);
-					util_strlcpy(filename, udev_get_dev_path(event->udev), sizeof(filename));
-					util_strlcat(filename, "/", sizeof(filename));
-					util_strlcat(filename, pos, sizeof(filename));
+					util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/", pos, NULL);
 					udev_device_add_devlink(event->dev, filename);
 				}
 			}
@@ -2464,17 +2436,11 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				char value[UTIL_NAME_SIZE];
 				FILE *f;
 
-				util_strlcpy(attr, key_name, sizeof(attr));
-				if (util_resolve_subsys_kernel(event->udev, key_name, attr, sizeof(attr), 0) != 0) {
-					util_strlcpy(attr, udev_device_get_syspath(event->dev), sizeof(attr));
-					util_strlcat(attr, "/", sizeof(attr));
-					util_strlcat(attr, key_name, sizeof(attr));
-				}
-
+				if (util_resolve_subsys_kernel(event->udev, key_name, attr, sizeof(attr), 0) != 0)
+					util_strscpyl(attr, sizeof(attr), udev_device_get_syspath(event->dev), "/", key_name, NULL);
 				attr_subst_subdir(attr, sizeof(attr));
 
-				util_strlcpy(value, &rules->buf[cur->key.value_off], sizeof(value));
-				udev_event_apply_format(event, value, sizeof(value));
+				udev_event_apply_format(event, &rules->buf[cur->key.value_off], value, sizeof(value));
 				info(event->udev, "ATTR '%s' writing '%s' %s:%u\n", attr, value,
 				     &rules->buf[rule->rule.filename_off],
 				     rule->rule.filename_line);

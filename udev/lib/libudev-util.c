@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2009 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -29,9 +29,7 @@ static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *sy
 	ssize_t len;
 	const char *pos;
 
-	util_strlcpy(path, syspath, sizeof(path));
-	util_strlcat(path, "/", sizeof(path));
-	util_strlcat(path, slink, sizeof(path));
+	util_strscpyl(path, sizeof(path), syspath, "/", slink, NULL);
 	len = readlink(path, path, sizeof(path));
 	if (len < 0 || len >= (ssize_t) sizeof(path))
 		return -1;
@@ -41,7 +39,7 @@ static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *sy
 		return -1;
 	pos = &pos[1];
 	dbg(udev, "resolved link to: '%s'\n", pos);
-	return util_strlcpy(value, pos, size);
+	return util_strscpy(value, size, pos);
 }
 
 ssize_t util_get_sys_subsystem(struct udev *udev, const char *syspath, char *subsystem, size_t size)
@@ -61,6 +59,7 @@ int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size)
 	int len;
 	int i;
 	int back;
+	char *base;
 
 	len = readlink(syspath, link_target, sizeof(link_target));
 	if (len <= 0)
@@ -72,15 +71,13 @@ int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size)
 		;
 	dbg(udev, "base '%s', tail '%s', back %i\n", syspath, &link_target[back * 3], back);
 	for (i = 0; i <= back; i++) {
-		char *pos = strrchr(syspath, '/');
-
-		if (pos == NULL)
+		base = strrchr(syspath, '/');
+		if (base == NULL)
 			return -1;
-		pos[0] = '\0';
+		base[0] = '\0';
 	}
 	dbg(udev, "after moving back '%s'\n", syspath);
-	util_strlcat(syspath, "/", size);
-	util_strlcat(syspath, &link_target[back * 3], size);
+	util_strscpyl(base, size - (base - syspath), "/", &link_target[back * 3], NULL);
 	return 0;
 }
 
@@ -101,29 +98,35 @@ int util_log_priority(const char *priority)
 	return 0;
 }
 
-size_t util_path_encode(char *s, size_t size)
+size_t util_path_encode(const char *src, char *dest, size_t size)
 {
-	char t[(size * 4)+1];
 	size_t i, j;
 
-	for (i = 0, j = 0; s[i] != '\0' && i < size; i++) {
-		if (s[i] == '/') {
-			memcpy(&t[j], "\\x2f", 4);
+	for (i = 0, j = 0; src[i] != '\0'; i++) {
+		if (src[i] == '/') {
+			if (j+4 >= size) {
+				j = 0;
+				break;
+			}
+			memcpy(&dest[j], "\\x2f", 4);
 			j += 4;
-		} else if (s[i] == '\\') {
-			memcpy(&t[j], "\\x5c", 4);
+		} else if (src[i] == '\\') {
+			if (j+4 >= size) {
+				j = 0;
+				break;
+			}
+			memcpy(&dest[j], "\\x5c", 4);
 			j += 4;
 		} else {
-			t[j] = s[i];
+			if (j+1 >= size) {
+				j = 0;
+				break;
+			}
+			dest[j] = src[i];
 			j++;
 		}
 	}
-	if (i >= size)
-		return 0;
-	if (j >= size)
-		return 0;
-	memcpy(s, t, j);
-	s[j] = '\0';
+	dest[j] = '\0';
 	return j;
 }
 
@@ -158,47 +161,70 @@ void util_remove_trailing_chars(char *path, char c)
 		path[--len] = '\0';
 }
 
-size_t util_strlcpy(char *dst, const char *src, size_t size)
+/*
+ * Concatenates strings. In any case, terminates in _all_ cases with '\0'
+ * and moves the @dest pointer forward to the added '\0'. Returns the
+ * remaining size, and 0 if the string was truncated.
+ */
+size_t util_strpcpy(char **dest, size_t size, const char *src)
 {
-	size_t bytes = 0;
-	char *q = dst;
-	const char *p = src;
-	char ch;
+	size_t len;
 
-	while ((ch = *p++)) {
-		if (bytes+1 < size)
-			*q++ = ch;
-		bytes++;
+	len = strlen(src);
+	if (len >= size) {
+		if (size > 1)
+			*dest = mempcpy(*dest, src, size-1);
+		size = 0;
+		*dest[0] = '\0';
+	} else {
+		if (len > 0) {
+			*dest = mempcpy(*dest, src, len);
+			size -= len;
+		}
+		*dest[0] = '\0';
 	}
-
-	/* If size == 0 there is no space for a final null... */
-	if (size)
-		*q = '\0';
-	return bytes;
+	return size;
 }
 
-size_t util_strlcat(char *dst, const char *src, size_t size)
+/* concatenates list of strings, moves dest forward */
+size_t util_strpcpyl(char **dest, size_t size, const char *src, ...)
 {
-	size_t bytes = 0;
-	char *q = dst;
-	const char *p = src;
-	char ch;
+	va_list va;
 
-	while (bytes < size && *q) {
-		q++;
-		bytes++;
-	}
-	if (bytes == size)
-		return (bytes + strlen(src));
+	va_start(va, src);
+	do {
+		size = util_strpcpy(dest, size, src);
+		src = va_arg(va, char *);
+	} while (src != NULL);
+	va_end(va);
 
-	while ((ch = *p++)) {
-		if (bytes+1 < size)
-		*q++ = ch;
-		bytes++;
-	}
+	return size;
+}
 
-	*q = '\0';
-	return bytes;
+/* copies string */
+size_t util_strscpy(char *dest, size_t size, const char *src)
+{
+	char *s;
+
+	s = dest;
+	return util_strpcpy(&s, size, src);
+}
+
+/* concatenates list of strings */
+size_t util_strscpyl(char *dest, size_t size, const char *src, ...)
+{
+	va_list va;
+	char *s;
+
+	va_start(va, src);
+	s = dest;
+	do {
+		size = util_strpcpy(&s, size, src);
+		src = va_arg(va, char *);
+	} while (src != NULL);
+	va_end(va);
+
+	return size;
 }
 
 /* count of characters used to encode one unicode char */

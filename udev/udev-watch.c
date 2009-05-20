@@ -59,12 +59,8 @@ void udev_watch_restore(struct udev *udev)
 	if (inotify_fd < 0)
 		return;
 
-	util_strlcpy(oldname, udev_get_dev_path(udev), sizeof(oldname));
-	util_strlcat(oldname, "/.udev/watch.old", sizeof(oldname));
-
-	util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
-	util_strlcat(filename, "/.udev/watch", sizeof(filename));
-
+	util_strscpyl(oldname, sizeof(oldname), udev_get_dev_path(udev), "/.udev/watch.old", NULL);
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/watch", NULL);
 	if (rename(filename, oldname) == 0) {
 		DIR *dir;
 		struct dirent *ent;
@@ -75,27 +71,26 @@ void udev_watch_restore(struct udev *udev)
 			return;
 		}
 
-		while ((ent = readdir(dir)) != NULL) {
+		for (ent = readdir(dir); ent != NULL; ent = readdir(dir)) {
 			char path[UTIL_PATH_SIZE];
 			char buf[UTIL_PATH_SIZE];
-			ssize_t syslen;
+			char *s;
+			size_t l;
 			ssize_t len;
 			struct udev_device *dev;
 
 			if (ent->d_name[0] < '0' || ent->d_name[0] > '9')
 				continue;
 
-			util_strlcpy(path, oldname, sizeof(path));
-			util_strlcat(path, "/", sizeof(path));
-			util_strlcat(path, ent->d_name, sizeof(path));
-
-			syslen = util_strlcpy(buf, udev_get_sys_path(udev), sizeof(buf));
-			len = readlink(path, &buf[syslen], sizeof(buf)-syslen);
-			if (len <= 0 || len >= (ssize_t)(sizeof(buf)-syslen)) {
+			util_strscpyl(path, sizeof(path), oldname, "/", ent->d_name, NULL);
+			s = buf;
+			l = util_strpcpy(&s, sizeof(buf), udev_get_sys_path(udev));
+			len = readlink(path, s, l);
+			if (len <= 0 || len >= (ssize_t)l) {
 				unlink(path);
 				continue;
 			}
-			buf[syslen + len] = '\0';
+			s[len] = '\0';
 			dbg(udev, "old watch to '%s' found\n", buf);
 			dev = udev_device_new_from_syspath(udev, buf);
 			if (dev == NULL) {
@@ -165,20 +160,20 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev)
 struct udev_device *udev_watch_lookup(struct udev *udev, int wd)
 {
 	char filename[UTIL_PATH_SIZE];
-	char buf[UTIL_PATH_SIZE];
-	ssize_t syslen;
+	char syspath[UTIL_PATH_SIZE];
+	char *s;
+	size_t l;
 	ssize_t len;
 
 	if (inotify_fd < 0 || wd < 0)
 		return NULL;
 
 	snprintf(filename, sizeof(filename), "%s/.udev/watch/%d", udev_get_dev_path(udev), wd);
-	syslen = util_strlcpy(buf, udev_get_sys_path(udev), sizeof(buf));
-	len = readlink(filename, &buf[syslen], sizeof(buf)-syslen);
-	if (len > 0 || len < (ssize_t)(sizeof(buf)-syslen)) {
-		buf[syslen + len] = '\0';
-		return udev_device_new_from_syspath(udev, buf);
-	}
-
-	return NULL;
+	s = syspath;
+	l = util_strpcpy(&s, sizeof(syspath), udev_get_sys_path(udev));
+	len = readlink(filename, s, l);
+	if (len < 0 || (size_t)len >= l)
+		return NULL;
+	s[len] = '\0';
+	return udev_device_new_from_syspath(udev, syspath);
 }

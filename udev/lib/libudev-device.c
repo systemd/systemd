@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2009 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -63,13 +63,12 @@ struct udev_device {
 
 static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *filename, size_t len)
 {
-	size_t start;
+	char *s;
+	size_t l;
 
-	/* translate to location of db file */
-	util_strlcpy(filename, udev_get_dev_path(udev), len);
-	start = util_strlcat(filename, "/.udev/db/", len);
-	util_strlcat(filename, devpath, len);
-	return util_path_encode(&filename[start], len - start);
+	s = filename;
+	l = util_strpcpyl(&s, len, udev_get_dev_path(udev), "/.udev/db/", NULL);
+	return util_path_encode(devpath, filename, l);
 }
 
 int udev_device_read_db(struct udev_device *udev_device)
@@ -104,9 +103,7 @@ int udev_device_read_db(struct udev_device *udev_device)
 			next[0] = '\0';
 			next = &next[1];
 		}
-		util_strlcpy(devnode, udev_get_dev_path(udev_device->udev), sizeof(devnode));
-		util_strlcat(devnode, "/", sizeof(devnode));
-		util_strlcat(devnode, target, sizeof(devnode));
+		util_strscpyl(devnode, sizeof(devnode), udev_get_dev_path(udev_device->udev), "/", target, NULL);
 		udev_device_set_devnode(udev_device, devnode);
 		while (next != NULL) {
 			char devlink[UTIL_PATH_SIZE];
@@ -118,9 +115,7 @@ int udev_device_read_db(struct udev_device *udev_device)
 				next[0] = '\0';
 				next = &next[1];
 			}
-			util_strlcpy(devlink, udev_get_dev_path(udev_device->udev), sizeof(devlink));
-			util_strlcat(devlink, "/", sizeof(devlink));
-			util_strlcat(devlink, lnk, sizeof(devlink));
+			util_strscpyl(devlink, sizeof(devlink), udev_get_dev_path(udev_device->udev), "/", lnk, NULL);
 			udev_device_add_devlink(udev_device, devlink);
 		}
 		info(udev_device->udev, "device %p filled with db symlink data '%s'\n", udev_device, udev_device->devnode);
@@ -143,15 +138,11 @@ int udev_device_read_db(struct udev_device *udev_device)
 		val = &line[2];
 		switch(line[0]) {
 		case 'N':
-			util_strlcpy(filename, udev_get_dev_path(udev_device->udev), sizeof(filename));
-			util_strlcat(filename, "/", sizeof(filename));
-			util_strlcat(filename, val, sizeof(filename));
+			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_device->udev), "/", val, NULL);
 			udev_device_set_devnode(udev_device, filename);
 			break;
 		case 'S':
-			util_strlcpy(filename, udev_get_dev_path(udev_device->udev), sizeof(filename));
-			util_strlcat(filename, "/", sizeof(filename));
-			util_strlcat(filename, val, sizeof(filename));
+			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_device->udev), "/", val, NULL);
 			udev_device_add_devlink(udev_device, filename);
 			break;
 		case 'L':
@@ -188,8 +179,7 @@ int udev_device_read_uevent_file(struct udev_device *udev_device)
 	int maj = 0;
 	int min = 0;
 
-	util_strlcpy(filename, udev_device->syspath, sizeof(filename));
-	util_strlcat(filename, "/uevent", sizeof(filename));
+	util_strscpyl(filename, sizeof(filename), udev_device->syspath, "/uevent", NULL);
 	f = fopen(filename, "r");
 	if (f == NULL)
 		return -1;
@@ -303,7 +293,7 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 	}
 
 	/* resolve possible symlink to real path */
-	util_strlcpy(path, syspath, sizeof(path));
+	util_strscpy(path, sizeof(path), syspath);
 	util_resolve_sys_link(udev, path, sizeof(path));
 
 	/* try to resolve the silly block layout if needed */
@@ -311,16 +301,14 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 		char block[UTIL_PATH_SIZE];
 		char part[UTIL_PATH_SIZE];
 
-		util_strlcpy(block, path, sizeof(block));
+		util_strscpy(block, sizeof(block), path);
 		pos = strrchr(block, '/');
 		if (pos == NULL)
 			return NULL;
-		util_strlcpy(part, pos, sizeof(part));
+		util_strscpy(part, sizeof(part), pos);
 		pos[0] = '\0';
-		if (util_resolve_sys_link(udev, block, sizeof(block)) == 0) {
-			util_strlcpy(path, block, sizeof(path));
-			util_strlcat(path, part, sizeof(path));
-		}
+		if (util_resolve_sys_link(udev, block, sizeof(block)) == 0)
+			util_strscpyl(path, sizeof(path), block, part, NULL);
 	}
 
 	/* path exists in sys */
@@ -330,8 +318,7 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 		char file[UTIL_PATH_SIZE];
 
 		/* all "devices" require a "uevent" file */
-		util_strlcpy(file, path, sizeof(file));
-		util_strlcat(file, "/uevent", sizeof(file));
+		util_strscpyl(file, sizeof(file), path, "/uevent", NULL);
 		if (stat(file, &statbuf) != 0) {
 			dbg(udev, "not a device: %s\n", syspath);
 			return NULL;
@@ -407,35 +394,31 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 
 struct udev_device *udev_device_new_from_subsystem_sysname(struct udev *udev, const char *subsystem, const char *sysname)
 {
-	size_t sys_path_len;
 	char path_full[UTIL_PATH_SIZE];
 	char *path;
+	size_t l;
 	struct stat statbuf;
 
-	sys_path_len = util_strlcpy(path_full, udev_get_sys_path(udev), sizeof(path_full));
-	path = &path_full[sys_path_len];
+	path = path_full;
+	l = util_strpcpyl(&path, sizeof(path_full), udev_get_sys_path(udev), NULL);
 
 	if (strcmp(subsystem, "subsystem") == 0) {
-		util_strlcpy(path, "/subsystem/", sizeof(path_full) - sys_path_len);
-		util_strlcat(path, sysname, sizeof(path_full) - sys_path_len);
+		util_strscpyl(path, l, "/subsystem/", sysname, NULL);
 		if (stat(path_full, &statbuf) == 0)
 			goto found;
 
-		util_strlcpy(path, "/bus/", sizeof(path_full) - sys_path_len);
-		util_strlcat(path, sysname, sizeof(path_full) - sys_path_len);
+		util_strscpyl(path, l, "/bus/", sysname, NULL);
 		if (stat(path_full, &statbuf) == 0)
 			goto found;
 
-		util_strlcpy(path, "/class/", sizeof(path_full) - sys_path_len);
-		util_strlcat(path, sysname, sizeof(path_full) - sys_path_len);
+		util_strscpyl(path, l, "/class/", sysname, NULL);
 		if (stat(path_full, &statbuf) == 0)
 			goto found;
 		goto out;
 	}
 
 	if (strcmp(subsystem, "module") == 0) {
-		util_strlcpy(path, "/module/", sizeof(path_full) - sys_path_len);
-		util_strlcat(path, sysname, sizeof(path_full) - sys_path_len);
+		util_strscpyl(path, l, "/module/", sysname, NULL);
 		if (stat(path_full, &statbuf) == 0)
 			goto found;
 		goto out;
@@ -445,46 +428,32 @@ struct udev_device *udev_device_new_from_subsystem_sysname(struct udev *udev, co
 		char subsys[UTIL_NAME_SIZE];
 		char *driver;
 
-		util_strlcpy(subsys, sysname, sizeof(subsys));
+		util_strscpy(subsys, sizeof(subsys), sysname);
 		driver = strchr(subsys, ':');
 		if (driver != NULL) {
 			driver[0] = '\0';
 			driver = &driver[1];
-			util_strlcpy(path, "/subsystem/", sizeof(path_full) - sys_path_len);
-			util_strlcat(path, subsys, sizeof(path_full) - sys_path_len);
-			util_strlcat(path, "/drivers/", sizeof(path_full) - sys_path_len);
-			util_strlcat(path, driver, sizeof(path_full) - sys_path_len);
+
+			util_strscpyl(path, l, "/subsystem/", subsys, "/drivers/", driver, NULL);
 			if (stat(path_full, &statbuf) == 0)
 				goto found;
 
-			util_strlcpy(path, "/bus/", sizeof(path_full) - sys_path_len);
-			util_strlcat(path, subsys, sizeof(path_full) - sys_path_len);
-			util_strlcat(path, "/drivers/", sizeof(path_full) - sys_path_len);
-			util_strlcat(path, driver, sizeof(path_full) - sys_path_len);
+			util_strscpyl(path, l, "/bus/", subsys, "/drivers/", driver, NULL);
 			if (stat(path_full, &statbuf) == 0)
 				goto found;
 		}
 		goto out;
 	}
 
-	util_strlcpy(path, "/subsystem/", sizeof(path_full) - sys_path_len);
-	util_strlcat(path, subsystem, sizeof(path_full) - sys_path_len);
-	util_strlcat(path, "/devices/", sizeof(path_full) - sys_path_len);
-	util_strlcat(path, sysname, sizeof(path_full) - sys_path_len);
+	util_strscpyl(path, l, "/subsystem/", subsystem, "/devices/", sysname, NULL);
 	if (stat(path_full, &statbuf) == 0)
 		goto found;
 
-	util_strlcpy(path, "/bus/", sizeof(path_full) - sys_path_len);
-	util_strlcat(path, subsystem, sizeof(path_full) - sys_path_len);
-	util_strlcat(path, "/devices/", sizeof(path_full) - sys_path_len);
-	util_strlcat(path, sysname, sizeof(path_full) - sys_path_len);
+	util_strscpyl(path, l, "/bus/", subsystem, "/devices/", sysname, NULL);
 	if (stat(path_full, &statbuf) == 0)
 		goto found;
 
-	util_strlcpy(path, "/class/", sizeof(path_full) - sys_path_len);
-	util_strlcat(path, subsystem, sizeof(path_full) - sys_path_len);
-	util_strlcat(path, "/", sizeof(path_full) - sys_path_len);
-	util_strlcat(path, sysname, sizeof(path_full) - sys_path_len);
+	util_strscpyl(path, l, "/class/", subsystem, "/", sysname, NULL);
 	if (stat(path_full, &statbuf) == 0)
 		goto found;
 out:
@@ -502,8 +471,7 @@ static struct udev_device *device_new_from_parent(struct udev_device *udev_devic
 	/* follow "device" link in deprecated sys layout */
 	if (strncmp(udev_device->devpath, "/class/", 7) == 0 ||
 	    strncmp(udev_device->devpath, "/block/", 7) == 0) {
-		util_strlcpy(path, udev_device->syspath, sizeof(path));
-		util_strlcat(path, "/device", sizeof(path));
+		util_strscpyl(path, sizeof(path), udev_device->syspath, "/device", NULL);
 		if (util_resolve_sys_link(udev_device->udev, path, sizeof(path)) == 0) {
 			udev_device_parent = udev_device_new_from_syspath(udev_device->udev, path);
 			if (udev_device_parent != NULL)
@@ -511,7 +479,7 @@ static struct udev_device *device_new_from_parent(struct udev_device *udev_devic
 		}
 	}
 
-	util_strlcpy(path, udev_device->syspath, sizeof(path));
+	util_strscpy(path, sizeof(path), udev_device->syspath);
 	subdir = &path[strlen(udev_get_sys_path(udev_device->udev))+1];
 	while (1) {
 		char *pos;
@@ -809,11 +777,13 @@ struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device
 		udev_device->devlinks_uptodate = 1;
 		list_entry = udev_device_get_devlinks_list_entry(udev_device);
 		if (list_entry != NULL) {
-			util_strlcpy(symlinks, udev_list_entry_get_name(list_entry), sizeof(symlinks));
-			udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry)) {
-				util_strlcat(symlinks, " ", sizeof(symlinks));
-				util_strlcat(symlinks, udev_list_entry_get_name(list_entry), sizeof(symlinks));
-			}
+			char *s;
+			size_t l;
+
+			s = symlinks;
+			l = util_strpcpyl(&s, sizeof(symlinks), udev_list_entry_get_name(list_entry), NULL);
+			udev_list_entry_foreach(list_entry, udev_list_entry_get_next(list_entry))
+				l = util_strpcpyl(&s, l, " ", udev_list_entry_get_name(list_entry), NULL);
 			udev_device_add_property(udev_device, "DEVLINKS", symlinks);
 		}
 	}
@@ -881,10 +851,7 @@ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const
 		}
 	}
 
-	util_strlcpy(path, udev_device_get_syspath(udev_device), sizeof(path));
-	util_strlcat(path, "/", sizeof(path));
-	util_strlcat(path, sysattr, sizeof(path));
-
+	util_strscpyl(path, sizeof(path), udev_device_get_syspath(udev_device), "/", sysattr, NULL);
 	if (lstat(path, &statbuf) != 0) {
 		dbg(udev_device->udev, "no attribute '%s', keep negative entry\n", path);
 		udev_list_entry_add(udev_device->udev, &udev_device->sysattr_list, sysattr, NULL, 0, 0);
@@ -1047,7 +1014,7 @@ struct udev_list_entry *udev_device_add_property_from_string(struct udev_device 
 	char name[UTIL_PATH_SIZE];
 	char *val;
 
-	util_strlcpy(name, property, sizeof(name));
+	util_strscpy(name, sizeof(name), property);
 	val = strchr(name, '=');
 	if (val == NULL)
 		return NULL;
@@ -1077,8 +1044,8 @@ const char *udev_device_get_property_value(struct udev_device *udev_device, cons
 static int update_envp_monitor_buf(struct udev_device *udev_device)
 {
 	struct udev_list_entry *list_entry;
-	size_t bufpos;
-	size_t len;
+	char *s;
+	size_t l;
 	unsigned int i;
 
 	/* monitor buffer of property strings */
@@ -1095,33 +1062,26 @@ static int update_envp_monitor_buf(struct udev_device *udev_device)
 		return -ENOMEM;
 
 	i = 0;
-	bufpos = 0;
+	s = udev_device->monitor_buf;
+	l = MONITOR_BUF_SIZE;
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
 		/* add string to envp array */
-		udev_device->envp[i++] = &udev_device->monitor_buf[bufpos];
+		udev_device->envp[i++] = s;
 		if (i+1 >= ENVP_SIZE)
 			return -EINVAL;
 
 		/* add property string to monitor buffer */
-		len = util_strlcpy(&udev_device->monitor_buf[bufpos],
-				   udev_list_entry_get_name(list_entry), MONITOR_BUF_SIZE-bufpos);
-		if (len >= MONITOR_BUF_SIZE-bufpos)
+		l = util_strpcpyl(&s, l, udev_list_entry_get_name(list_entry), "=",
+				  udev_list_entry_get_value(list_entry), NULL);
+		if (l == 0)
 			return -EINVAL;
-		bufpos += len;
-		len = util_strlcpy(&udev_device->monitor_buf[bufpos], "=", MONITOR_BUF_SIZE-bufpos);
-		if (len >= MONITOR_BUF_SIZE-bufpos)
-			return -EINVAL;
-		bufpos += len;
-		len = util_strlcpy(&udev_device->monitor_buf[bufpos], udev_list_entry_get_value(list_entry),
-				   MONITOR_BUF_SIZE-bufpos);
-		if (len+1 >= MONITOR_BUF_SIZE-bufpos)
-			return -EINVAL;
-		bufpos += len+1;
+		s++;
 	}
 	udev_device->envp[i] = NULL;
-	udev_device->monitor_buf_len = bufpos;
+	udev_device->monitor_buf_len = s - udev_device->monitor_buf;
 	udev_device->envp_uptodate = 1;
-	dbg(udev_device->udev, "filled envp/monitor buffer, %u properties, %zu bytes\n", i, bufpos);
+	dbg(udev_device->udev, "filled envp/monitor buffer, %u properties, %zu bytes\n",
+	    i, udev_device->monitor_buf_len);
 	return 0;
 }
 

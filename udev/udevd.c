@@ -97,18 +97,17 @@ static void export_event_state(struct udev_event *event, enum event_state state)
 {
 	char filename[UTIL_PATH_SIZE];
 	char filename_failed[UTIL_PATH_SIZE];
-	size_t start;
+	char *s;
+	size_t l;
 
 	/* location of queue file */
 	snprintf(filename, sizeof(filename), "%s/.udev/queue/%llu",
 		 udev_get_dev_path(event->udev), udev_device_get_seqnum(event->dev));
 
 	/* location of failed file */
-	util_strlcpy(filename_failed, udev_get_dev_path(event->udev), sizeof(filename_failed));
-	util_strlcat(filename_failed, "/", sizeof(filename_failed));
-	start = util_strlcat(filename_failed, ".udev/failed/", sizeof(filename_failed));
-	util_strlcat(filename_failed, udev_device_get_devpath(event->dev), sizeof(filename_failed));
-	util_path_encode(&filename_failed[start], sizeof(filename_failed) - start);
+	s = filename_failed;
+	l = util_strpcpyl(&s, sizeof(filename_failed), udev_get_dev_path(event->udev), "/.udev/failed/", NULL);
+	util_path_encode(udev_device_get_devpath(event->dev), s, l);
 
 	switch (state) {
 	case EVENT_QUEUED:
@@ -124,12 +123,9 @@ static void export_event_state(struct udev_event *event, enum event_state state)
 			/* "move" event - rename failed file to current name, do not delete failed */
 			char filename_failed_old[UTIL_PATH_SIZE];
 
-			util_strlcpy(filename_failed_old, udev_get_dev_path(event->udev), sizeof(filename_failed_old));
-			util_strlcat(filename_failed_old, "/", sizeof(filename_failed_old));
-			start = util_strlcat(filename_failed_old, ".udev/failed/", sizeof(filename_failed_old));
-			util_strlcat(filename_failed_old, udev_device_get_devpath_old(event->dev), sizeof(filename_failed_old));
-			util_path_encode(&filename_failed_old[start], sizeof(filename) - start);
-
+			s = filename_failed_old;
+			l = util_strpcpyl(&s, sizeof(filename_failed_old), udev_get_dev_path(event->udev), "/.udev/failed/", NULL);
+			util_path_encode(udev_device_get_devpath_old(event->dev), s, l);
 			if (rename(filename_failed_old, filename_failed) == 0)
 				info(event->udev, "renamed devpath, moved failed state of '%s' to %s'\n",
 				     udev_device_get_devpath_old(event->dev), udev_device_get_devpath(event->dev));
@@ -270,8 +266,7 @@ static void event_queue_insert(struct udev_event *event)
 	info(event->udev, "seq %llu queued, '%s' '%s'\n", udev_device_get_seqnum(event->dev),
 	     udev_device_get_action(event->dev), udev_device_get_subsystem(event->dev));
 
-	util_strlcpy(filename, udev_get_dev_path(event->udev), sizeof(filename));
-	util_strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/.udev/uevent_seqnum", NULL);
 	fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
 	if (fd >= 0) {
 		char str[32];
@@ -551,8 +546,7 @@ static int handle_inotify(struct udev *udev)
 				int fd;
 
 				info(udev, "device %s closed, synthesising 'change'\n", udev_device_get_devnode(dev));
-				util_strlcpy(filename, udev_device_get_syspath(dev), sizeof(filename));
-				util_strlcat(filename, "/uevent", sizeof(filename));
+				util_strscpyl(filename, sizeof(filename), udev_device_get_syspath(dev), "/uevent", NULL);
 				fd = open(filename, O_WRONLY);
 				if (fd < 0 || write(fd, "change", 6) < 0)
 					info(udev, "error writing uevent: %m\n");
@@ -641,12 +635,10 @@ static void cleanup_queue_dir(struct udev *udev)
 	char filename[UTIL_PATH_SIZE];
 	DIR *dir;
 
-	util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
-	util_strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/uevent_seqnum", NULL);
 	unlink(filename);
 
-	util_strlcpy(dirname, udev_get_dev_path(udev), sizeof(dirname));
-	util_strlcat(dirname, "/.udev/queue", sizeof(dirname));
+	util_strscpyl(dirname, sizeof(dirname), udev_get_dev_path(udev), "/.udev/queue", NULL);
 	dir = opendir(dirname);
 	if (dir != NULL) {
 		while (1) {
@@ -657,9 +649,7 @@ static void cleanup_queue_dir(struct udev *udev)
 				break;
 			if (dent->d_name[0] == '.')
 				continue;
-			util_strlcpy(filename, dirname, sizeof(filename));
-			util_strlcat(filename, "/", sizeof(filename));
-			util_strlcat(filename, dent->d_name, sizeof(filename));
+			util_strscpyl(filename, sizeof(filename), dirname, "/", dent->d_name, NULL);
 			unlink(filename);
 		}
 		closedir(dir);
@@ -674,8 +664,7 @@ static void export_initial_seqnum(struct udev *udev)
 	char seqnum[32];
 	ssize_t len = 0;
 
-	util_strlcpy(filename, udev_get_sys_path(udev), sizeof(filename));
-	util_strlcat(filename, "/kernel/uevent_seqnum", sizeof(filename));
+	util_strscpyl(filename, sizeof(filename), udev_get_sys_path(udev), "/kernel/uevent_seqnum", NULL);
 	fd = open(filename, O_RDONLY);
 	if (fd >= 0) {
 		len = read(fd, seqnum, sizeof(seqnum)-1);
@@ -685,8 +674,7 @@ static void export_initial_seqnum(struct udev *udev)
 		strcpy(seqnum, "0\n");
 		len = 3;
 	}
-	util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
-	util_strlcat(filename, "/.udev/uevent_seqnum", sizeof(filename));
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/uevent_seqnum", NULL);
 	util_create_path(udev, filename);
 	fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
 	if (fd >= 0) {
@@ -705,8 +693,7 @@ static void startup_log(struct udev *udev)
 	if (f != NULL)
 		fprintf(f, "<6>udev: starting version " VERSION "\n");
 
-	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-	util_strlcat(path, "/class/mem/null", sizeof(path));
+	util_strscpyl(path, sizeof(path), udev_get_sys_path(udev), "/class/mem/null", NULL);
 	if (lstat(path, &statbuf) == 0 && S_ISDIR(statbuf.st_mode)) {
 		const char *depr_str =
 			"udev: missing sysfs features; please update the kernel "
@@ -917,8 +904,7 @@ int main(int argc, char *argv[])
 					  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
 
 			/* watch dynamic rules directory */
-			util_strlcpy(filename, udev_get_dev_path(udev), sizeof(filename));
-			util_strlcat(filename, "/.udev/rules.d", sizeof(filename));
+			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/rules.d", NULL);
 			inotify_add_watch(inotify_fd, filename,
 					  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
 		}

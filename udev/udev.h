@@ -96,7 +96,7 @@ struct udev_event *udev_event_new(struct udev_device *dev);
 void udev_event_unref(struct udev_event *event);
 int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules);
 int udev_event_execute_run(struct udev_event *event);
-void udev_event_apply_format(struct udev_event *event, char *string, size_t maxsize);
+size_t udev_event_apply_format(struct udev_event *event, const char *src, char *dest, size_t size);
 int udev_event_apply_subsys_kernel(struct udev_event *event, const char *string,
 				   char *result, size_t maxsize, int read_value);
 

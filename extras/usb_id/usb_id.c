@@ -134,7 +134,7 @@ static int set_usb_mass_storage_ifsubtype(char *to, const char *from, size_t len
 			break;
 		}
 	}
-	util_strlcpy(to, type, len);
+	util_strscpy(to, len, type);
 	return type_num;
 }
 
@@ -166,7 +166,7 @@ static void set_scsi_type(char *to, const char *from, size_t len)
 			break;
 		}
 	}
-	util_strlcpy(to, type, len);
+	util_strscpy(to, len, type);
 }
 
 #define USB_DT_DEVICE			0x01
@@ -509,8 +509,7 @@ int main(int argc, char **argv)
 		goto exit;
 	}
 
-	util_strlcpy(syspath, udev_get_sys_path(udev), sizeof(syspath));
-	util_strlcat(syspath, devpath, sizeof(syspath));
+	util_strscpyl(syspath, sizeof(syspath), udev_get_sys_path(udev), devpath, NULL);
 	dev = udev_device_new_from_syspath(udev, syspath);
 	if (dev == NULL) {
 		err(udev, "unable to access '%s'\n", devpath);
@@ -520,18 +519,15 @@ int main(int argc, char **argv)
 	retval = usb_id(dev);
 	if (retval == 0) {
 		char serial[256];
+		size_t l;
+		char *s;
 
-		util_strlcpy(serial, vendor_str, sizeof(serial));
-		util_strlcat(serial, "_", sizeof(serial));
-		util_strlcat(serial, model_str, sizeof(serial));
-		if (serial_str[0] != '\0') {
-			util_strlcat(serial, "_", sizeof(serial));
-			util_strlcat(serial, serial_str, sizeof(serial));
-		}
-		if (instance_str[0] != '\0') {
-			util_strlcat(serial, "-", sizeof(serial));
-			util_strlcat(serial, instance_str, sizeof(serial));
-		}
+		s = serial;
+		l = util_strpcpyl(&s, sizeof(serial), vendor_str, "_", model_str, NULL);
+		if (serial_str[0] != '\0')
+			l = util_strpcpyl(&s, l, "_", serial_str, NULL);
+		if (instance_str[0] != '\0')
+			util_strpcpyl(&s, l, "-", instance_str, NULL);
 
 		if (export) {
 			printf("ID_VENDOR=%s\n", vendor_str);

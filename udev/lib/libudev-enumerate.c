@@ -261,20 +261,17 @@ static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate,
 {
 	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
 	char path[UTIL_PATH_SIZE];
+	size_t l;
+	char *s;
 	DIR *dir;
 	struct dirent *dent;
 
-	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-	util_strlcat(path, "/", sizeof(path));
-	util_strlcat(path, basedir, sizeof(path));
-	if (subdir1 != NULL) {
-		util_strlcat(path, "/", sizeof(path));
-		util_strlcat(path, subdir1, sizeof(path));
-	}
-	if (subdir2 != NULL) {
-		util_strlcat(path, "/", sizeof(path));
-		util_strlcat(path, subdir2, sizeof(path));
-	}
+	s = path;
+	l = util_strpcpyl(&s, sizeof(path), udev_get_sys_path(udev), "/", basedir, NULL);
+	if (subdir1 != NULL)
+		l = util_strpcpyl(&s, l, "/", subdir1, NULL);
+	if (subdir2 != NULL)
+		l = util_strpcpyl(&s, l, "/", subdir2, NULL);
 	dir = opendir(path);
 	if (dir == NULL)
 		return -1;
@@ -285,17 +282,15 @@ static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate,
 
 		if (dent->d_name[0] == '.')
 			continue;
-		util_strlcpy(syspath, path, sizeof(syspath));
-		util_strlcat(syspath, "/", sizeof(syspath));
-		util_strlcat(syspath, dent->d_name, sizeof(syspath));
+		util_strscpyl(syspath, sizeof(syspath), path, "/", dent->d_name, NULL);
 		if (lstat(syspath, &statbuf) != 0)
 			continue;
 		if (S_ISREG(statbuf.st_mode))
 			continue;
 		if (S_ISLNK(statbuf.st_mode))
 			util_resolve_sys_link(udev, syspath, sizeof(syspath));
-		util_strlcpy(filename, syspath, sizeof(filename));
-		util_strlcat(filename, "/uevent", sizeof(filename));
+
+		util_strscpyl(filename, sizeof(filename), syspath, "/uevent", NULL);
 		if (stat(filename, &statbuf) != 0)
 			continue;
 		if (!match_sysattr(udev_enumerate, syspath))
@@ -334,9 +329,7 @@ static int scan_dir(struct udev_enumerate *udev_enumerate, const char *basedir, 
 	DIR *dir;
 	struct dirent *dent;
 
-	util_strlcpy(path, udev_get_sys_path(udev), sizeof(path));
-	util_strlcat(path, "/", sizeof(path));
-	util_strlcat(path, basedir, sizeof(path));
+	util_strscpyl(path, sizeof(path), udev_get_sys_path(udev), "/", basedir, NULL);
 	dir = opendir(path);
 	if (dir == NULL)
 		return -1;
@@ -428,8 +421,7 @@ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
 
 	if (udev_enumerate == NULL)
 		return -EINVAL;
-	util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
-	util_strlcat(base, "/subsystem", sizeof(base));
+	util_strscpyl(base, sizeof(base), udev_get_sys_path(udev), "/subsystem", NULL);
 	if (stat(base, &statbuf) == 0) {
 		/* we have /subsystem/, forget all the old stuff */
 		dbg(udev, "searching '/subsystem/*/devices/*' dir\n");
@@ -440,8 +432,7 @@ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
 		dbg(udev, "searching '/class/*' dir\n");
 		scan_dir(udev_enumerate, "class", NULL, NULL);
 		/* if block isn't a class, scan /block/ */
-		util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
-		util_strlcat(base, "/class/block", sizeof(base));
+		util_strscpyl(base, sizeof(base), udev_get_sys_path(udev), "/class/block", NULL);
 		if (stat(base, &statbuf) != 0) {
 			if (match_subsystem(udev_enumerate, "block")) {
 				dbg(udev, "searching '/block/*' dir\n");
@@ -471,8 +462,7 @@ int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerate)
 
 	if (udev_enumerate == NULL)
 		return -EINVAL;
-	util_strlcpy(base, udev_get_sys_path(udev), sizeof(base));
-	util_strlcat(base, "/subsystem", sizeof(base));
+	util_strscpyl(base, sizeof(base), udev_get_sys_path(udev), "/subsystem", NULL);
 	if (stat(base, &statbuf) == 0)
 		subsysdir = "subsystem";
 	else

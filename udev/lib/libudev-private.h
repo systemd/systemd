@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2009 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -164,11 +164,13 @@ ssize_t util_get_sys_subsystem(struct udev *udev, const char *syspath, char *sub
 ssize_t util_get_sys_driver(struct udev *udev, const char *syspath, char *driver, size_t size);
 int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size);
 int util_log_priority(const char *priority);
-size_t util_path_encode(char *s, size_t len);
+size_t util_path_encode(const char *src, char *dest, size_t size);
 size_t util_path_decode(char *s);
 void util_remove_trailing_chars(char *path, char c);
-size_t util_strlcpy(char *dst, const char *src, size_t size);
-size_t util_strlcat(char *dst, const char *src, size_t size);
+size_t util_strpcpy(char **dest, size_t size, const char *src);
+size_t util_strpcpyl(char **dest, size_t size, const char *src, ...);
+size_t util_strscpy(char *dest, size_t size, const char *src);
+size_t util_strscpyl(char *dest, size_t size, const char *src, ...);
 int udev_util_replace_whitespace(const char *str, char *to, size_t len);
 int udev_util_replace_chars(char *str, const char *white);
 int udev_util_encode_string(const char *str, char *str_enc, size_t len);

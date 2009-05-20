@@ -22,13 +22,12 @@
 
 static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *filename, size_t len)
 {
-	size_t start;
+	char *s;
+	size_t l;
 
-	/* translate to location of db file */
-	util_strlcpy(filename, udev_get_dev_path(udev), len);
-	start = util_strlcat(filename, "/.udev/db/", len);
-	util_strlcat(filename, devpath, len);
-	return util_path_encode(&filename[start], len - start);
+	s = filename;
+	l = util_strpcpyl(&s, len, udev_get_dev_path(udev), "/.udev/db/", NULL);
+	return util_path_encode(devpath, filename, l);
 }
 
 int udev_device_update_db(struct udev_device *udev_device)
@@ -38,12 +37,12 @@ int udev_device_update_db(struct udev_device *udev_device)
 	FILE *f;
 	char target[232]; /* on 64bit, tmpfs inlines up to 239 bytes */
 	size_t devlen = strlen(udev_get_dev_path(udev))+1;
+	char *s;
+	size_t l;
 	struct udev_list_entry *list_entry;
 	int ret;
 
-	devpath_to_db_path(udev,
-			   udev_device_get_devpath(udev_device),
-			   filename, sizeof(filename));
+	devpath_to_db_path(udev, udev_device_get_devpath(udev_device), filename, sizeof(filename));
 	util_create_path(udev, filename);
 	unlink(filename);
 
@@ -67,13 +66,11 @@ int udev_device_update_db(struct udev_device *udev_device)
 	 * if we have only the node and symlinks to store, try not to waste
 	 * tmpfs memory -- store values, if they fit, in a symlink target
 	 */
-	util_strlcpy(target, &udev_device_get_devnode(udev_device)[devlen], sizeof(target));
+	s = target;
+	l = util_strpcpy(&s, sizeof(target), &udev_device_get_devnode(udev_device)[devlen]);
 	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(udev_device)) {
-		size_t len;
-
-		util_strlcat(target, " ", sizeof(target));
-		len = util_strlcat(target, &udev_list_entry_get_name(list_entry)[devlen], sizeof(target));
-		if (len >= sizeof(target)) {
+		l = util_strpcpyl(&s, l, " ", &udev_list_entry_get_name(list_entry)[devlen], NULL);
+		if (l == 0) {
 			info(udev, "size of links too large, create file\n");
 			goto file;
 		}
@@ -121,25 +118,21 @@ out:
 
 int udev_device_delete_db(struct udev_device *udev_device)
 {
+	struct udev *udev = udev_device_get_udev(udev_device);
 	char filename[UTIL_PATH_SIZE];
 
-	devpath_to_db_path(udev_device_get_udev(udev_device),
-			   udev_device_get_devpath(udev_device),
-			   filename, sizeof(filename));
+	devpath_to_db_path(udev, udev_device_get_devpath(udev_device), filename, sizeof(filename));
 	unlink(filename);
 	return 0;
 }
 
 int udev_device_rename_db(struct udev_device *udev_device, const char *devpath_old)
 {
+	struct udev *udev = udev_device_get_udev(udev_device);
 	char filename_old[UTIL_PATH_SIZE];
 	char filename[UTIL_PATH_SIZE];
 
-	devpath_to_db_path(udev_device_get_udev(udev_device),
-			   devpath_old,
-			   filename_old, sizeof(filename_old));
-	devpath_to_db_path(udev_device_get_udev(udev_device),
-			   udev_device_get_devpath(udev_device),
-			   filename, sizeof(filename));
+	devpath_to_db_path(udev, devpath_old, filename_old, sizeof(filename_old));
+	devpath_to_db_path(udev, udev_device_get_devpath(udev_device), filename, sizeof(filename));
 	return rename(filename_old, filename);
 }

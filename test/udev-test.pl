@@ -345,15 +345,6 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n test-%b", RESULT=="test-0:0*", NAME="
 EOF
 	},
 	{
-		desc		=> "program with escaped format char (callout returns format char!)",
-		subsys		=> "block",
-		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-		exp_name	=> "escape-5" ,
-		rules		=> <<EOF
-SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n escape-%%n", KERNEL=="sda5", NAME="%c"
-EOF
-	},
-	{
 		desc		=> "program with lots of arguments",
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",

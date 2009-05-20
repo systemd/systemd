@@ -157,7 +157,7 @@ int main(int argc, char *argv[])
 		if (disk_id == sysfs_id) {
 			if (match[0] == '\0') {
 				/* store id */
-				util_strlcpy(match, dent->d_name, sizeof(match));
+				util_strscpy(match, sizeof(match), dent->d_name);
 			} else {
 				/* error, same signature for another device */
 				info(udev, "'%s' does not have a unique signature\n", node);
