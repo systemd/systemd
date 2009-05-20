@@ -167,6 +167,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 			sigprocmask(SIG_BLOCK, &mask, &oldmask);
 			if (udev_ctrl_send_settle(uctrl) > 0)
 				sigsuspend(&oldmask);
+			sigprocmask(SIG_SETMASK, &oldmask, NULL);
 			udev_ctrl_unref(uctrl);
 		}
 	}
