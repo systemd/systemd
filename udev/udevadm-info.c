@@ -25,6 +25,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <getopt.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -40,7 +41,6 @@ static void print_all_attributes(struct udev_device *device, const char *key)
 	if (dir != NULL) {
 		for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
 			struct stat statbuf;
-			char filename[UTIL_PATH_SIZE];
 			const char *value;
 			size_t len;
 
@@ -52,8 +52,7 @@ static void print_all_attributes(struct udev_device *device, const char *key)
 			if (strcmp(dent->d_name, "dev") == 0)
 				continue;
 
-			util_strscpyl(filename, sizeof(filename), udev_device_get_syspath(device), "/", dent->d_name, NULL);
-			if (lstat(filename, &statbuf) != 0)
+			if (fstatat(dirfd(dir), dent->d_name, &statbuf, AT_SYMLINK_NOFOLLOW) != 0)
 				continue;
 			if (S_ISLNK(statbuf.st_mode))
 				continue;

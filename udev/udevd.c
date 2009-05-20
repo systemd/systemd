@@ -649,8 +649,7 @@ static void cleanup_queue_dir(struct udev *udev)
 				break;
 			if (dent->d_name[0] == '.')
 				continue;
-			util_strscpyl(filename, sizeof(filename), dirname, "/", dent->d_name, NULL);
-			unlink(filename);
+			unlinkat(dirfd(dir), dent->d_name, 0);
 		}
 		closedir(dir);
 		rmdir(dirname);

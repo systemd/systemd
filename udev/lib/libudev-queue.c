@@ -201,7 +201,6 @@ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev
 	if (dir == NULL)
 		return NULL;
 	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-		char filename[UTIL_PATH_SIZE];
 		char syspath[UTIL_PATH_SIZE];
 		char *s;
 		size_t l;
@@ -209,10 +208,9 @@ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev
 
 		if (dent->d_name[0] == '.')
 			continue;
-		util_strscpyl(filename, sizeof(filename), path, "/", dent->d_name, NULL);
 		s = syspath;
 		l = util_strpcpyl(&s, sizeof(syspath), udev_get_sys_path(udev_queue->udev), NULL);
-		len = readlink(filename, s, l);
+		len = readlinkat(dirfd(dir), dent->d_name, s, l);
 		if (len < 0 || (size_t)len >= l)
 			continue;
 		s[len] = '\0';
@@ -246,10 +244,9 @@ struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev
 
 		if (dent->d_name[0] == '.')
 			continue;
-		util_strscpyl(filename, sizeof(filename), path, "/", dent->d_name, NULL);
 		s = syspath;
 		l = util_strpcpyl(&s, sizeof(syspath), udev_get_sys_path(udev_queue->udev), NULL);
-		len = readlink(filename, s, l);
+		len = readlinkat(dirfd(dir), dent->d_name, s, l);
 		if (len < 0 || (size_t)len >= l)
 			continue;
 		s[len] = '\0';

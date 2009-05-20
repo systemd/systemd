@@ -72,8 +72,7 @@ void udev_watch_restore(struct udev *udev)
 		}
 
 		for (ent = readdir(dir); ent != NULL; ent = readdir(dir)) {
-			char path[UTIL_PATH_SIZE];
-			char buf[UTIL_PATH_SIZE];
+			char device[UTIL_PATH_SIZE];
 			char *s;
 			size_t l;
 			ssize_t len;
@@ -82,19 +81,18 @@ void udev_watch_restore(struct udev *udev)
 			if (ent->d_name[0] < '0' || ent->d_name[0] > '9')
 				continue;
 
-			util_strscpyl(path, sizeof(path), oldname, "/", ent->d_name, NULL);
-			s = buf;
-			l = util_strpcpy(&s, sizeof(buf), udev_get_sys_path(udev));
-			len = readlink(path, s, l);
+			s = device;
+			l = util_strpcpy(&s, sizeof(device), udev_get_sys_path(udev));
+			len = readlinkat(dirfd(dir), ent->d_name, s, l);
 			if (len <= 0 || len >= (ssize_t)l) {
-				unlink(path);
+				unlinkat(dirfd(dir), ent->d_name, 0);
 				continue;
 			}
 			s[len] = '\0';
-			dbg(udev, "old watch to '%s' found\n", buf);
-			dev = udev_device_new_from_syspath(udev, buf);
+			dbg(udev, "old watch to '%s' found\n", device);
+			dev = udev_device_new_from_syspath(udev, device);
 			if (dev == NULL) {
-				unlink(path);
+				unlinkat(dirfd(dir), ent->d_name, 0);
 				continue;
 			}
 
@@ -102,7 +100,7 @@ void udev_watch_restore(struct udev *udev)
 			udev_watch_begin(udev, dev);
 
 			udev_device_unref(dev);
-			unlink(path);
+			unlinkat(dirfd(dir), ent->d_name, 0);
 		}
 
 		closedir(dir);

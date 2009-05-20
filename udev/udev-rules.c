@@ -1641,10 +1641,8 @@ static int add_matching_files(struct udev *udev, struct udev_list_node *file_lis
 			if (strcmp(ext, suffix) != 0)
 				continue;
 		}
-		dbg(udev, "put file '%s/%s' into list\n", dirname, dent->d_name);
-
-		snprintf(filename, sizeof(filename), "%s/%s", dirname, dent->d_name);
-		filename[sizeof(filename)-1] = '\0';
+		util_strscpyl(filename, sizeof(filename), dirname, "/", dent->d_name, NULL);
+		dbg(udev, "put file '%s' into list\n", filename);
 		udev_list_entry_add(udev, file_list, filename, NULL, 1, 1);
 	}
 
