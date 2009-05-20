@@ -27,7 +27,7 @@ static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *f
 
 	s = filename;
 	l = util_strpcpyl(&s, len, udev_get_dev_path(udev), "/.udev/db/", NULL);
-	return util_path_encode(devpath, filename, l);
+	return util_path_encode(devpath, s, l);
 }
 
 int udev_device_update_db(struct udev_device *udev_device)
