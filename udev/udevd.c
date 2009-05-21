@@ -349,8 +349,6 @@ static int devpath_busy(struct udev_event *event)
 {
 	struct udev_list_node *loop;
 
-	if (event->delaying_seqnum > 0) {
-	}
 	/* check if queue contains events we depend on */
 	udev_list_node_foreach(loop, &event_list) {
 		struct udev_event *loop_event = node_to_event(loop);
