@@ -173,24 +173,16 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	}
 
 	while (!is_timeout) {
-		/* exit if queue is empty */
-		if (udev_queue_get_queue_is_empty(udev_queue))
-			break;
-
-		/* if asked for, wait for a specific sequence of events */
 		if (start > 0) {
-			unsigned long long seq;
-			int finished;
-
-			finished = 0;
-			for (seq = start; seq <= end; seq++) {
-				finished  = udev_queue_get_seqnum_is_finished(udev_queue, seq);
-				if (!finished)
-					break;
-			}
-			if (finished)
+			/* if asked for, wait for a specific sequence of events */
+			if (udev_queue_get_seqnum_sequence_is_finished(udev_queue, start, end) == 1)
+				break;
+		} else {
+			/* exit if queue is empty */
+			if (udev_queue_get_queue_is_empty(udev_queue))
 				break;
 		}
+
 		usleep(1000 * 1000 / LOOP_PER_SECOND);
 	}
 

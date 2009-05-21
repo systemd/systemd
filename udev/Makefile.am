@@ -30,6 +30,7 @@ common_files = \
 	lib/libudev-monitor.c \
 	lib/libudev-enumerate.c \
 	lib/libudev-queue.c \
+	lib/libudev-queue-export.c \
 	lib/libudev-ctrl.c
 
 if USE_SELINUX

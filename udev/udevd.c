@@ -65,6 +65,7 @@ static void reap_sigchilds(void);
 
 static int debug_trace;
 static struct udev_rules *rules;
+static struct udev_queue_export *udev_queue_export;
 static struct udev_ctrl *udev_ctrl;
 static struct udev_monitor *kernel_monitor;
 static volatile sig_atomic_t sigchilds_waiting;
@@ -78,12 +79,6 @@ static int max_childs;
 static int childs;
 static struct udev_list_node event_list;
 
-enum event_state {
-	EVENT_QUEUED,
-	EVENT_FINISHED,
-	EVENT_FAILED,
-};
-
 static struct udev_event *node_to_event(struct udev_list_node *node)
 {
 	char *event;
@@ -93,76 +88,15 @@ static struct udev_event *node_to_event(struct udev_list_node *node)
 	return (struct udev_event *)event;
 }
 
-static void export_event_state(struct udev_event *event, enum event_state state)
-{
-	char filename[UTIL_PATH_SIZE];
-	char filename_failed[UTIL_PATH_SIZE];
-	char *s;
-	size_t l;
-
-	/* location of queue file */
-	snprintf(filename, sizeof(filename), "%s/.udev/queue/%llu",
-		 udev_get_dev_path(event->udev), udev_device_get_seqnum(event->dev));
-
-	/* location of failed file */
-	s = filename_failed;
-	l = util_strpcpyl(&s, sizeof(filename_failed), udev_get_dev_path(event->udev), "/.udev/failed/", NULL);
-	util_path_encode(udev_device_get_devpath(event->dev), s, l);
-
-	switch (state) {
-	case EVENT_QUEUED:
-		if(unlink(filename_failed) == 0)
-			util_delete_path(event->udev, filename_failed);
-		util_create_path(event->udev, filename);
-		udev_selinux_setfscreatecon(event->udev, filename, S_IFLNK);
-		symlink(udev_device_get_devpath(event->dev), filename);
-		udev_selinux_resetfscreatecon(event->udev);
-		break;
-	case EVENT_FINISHED:
-		if (udev_device_get_devpath_old(event->dev) != NULL) {
-			/* "move" event - rename failed file to current name, do not delete failed */
-			char filename_failed_old[UTIL_PATH_SIZE];
-
-			s = filename_failed_old;
-			l = util_strpcpyl(&s, sizeof(filename_failed_old), udev_get_dev_path(event->udev), "/.udev/failed/", NULL);
-			util_path_encode(udev_device_get_devpath_old(event->dev), s, l);
-			if (rename(filename_failed_old, filename_failed) == 0)
-				info(event->udev, "renamed devpath, moved failed state of '%s' to %s'\n",
-				     udev_device_get_devpath_old(event->dev), udev_device_get_devpath(event->dev));
-		} else {
-			if (unlink(filename_failed) == 0)
-				util_delete_path(event->udev, filename_failed);
-		}
-
-		unlink(filename);
-
-		/* clean up possibly empty queue directory */
-		if (udev_list_is_empty(&event_list))
-			util_delete_path(event->udev, filename);
-		break;
-	case EVENT_FAILED:
-		/* move failed event to the failed directory */
-		util_create_path(event->udev, filename_failed);
-		rename(filename, filename_failed);
-
-		/* clean up possibly empty queue directory */
-		if (udev_list_is_empty(&event_list))
-			util_delete_path(event->udev, filename);
-		break;
-	}
-
-	return;
-}
-
 static void event_queue_delete(struct udev_event *event)
 {
 	udev_list_node_remove(&event->node);
 
 	/* mark as failed, if "add" event returns non-zero */
 	if (event->exitstatus && strcmp(udev_device_get_action(event->dev), "add") == 0)
-		export_event_state(event, EVENT_FAILED);
+		udev_queue_export_device_failed(udev_queue_export, event->dev);
 	else
-		export_event_state(event, EVENT_FINISHED);
+		udev_queue_export_device_finished(udev_queue_export, event->dev);
 
 	udev_device_unref(event->dev);
 	udev_event_unref(event);
@@ -201,6 +135,7 @@ static void event_fork(struct udev_event *event)
 	switch (pid) {
 	case 0:
 		/* child */
+		udev_queue_export_unref(udev_queue_export);
 		udev_ctrl_unref(udev_ctrl);
 		logging_close();
 		logging_init("udevd-event");
@@ -267,26 +202,11 @@ static void event_fork(struct udev_event *event)
 
 static void event_queue_insert(struct udev_event *event)
 {
-	char filename[UTIL_PATH_SIZE];
-	int fd;
-
 	event->queue_time = time(NULL);
 
-	export_event_state(event, EVENT_QUEUED);
+	udev_queue_export_device_queued(udev_queue_export, event->dev);
 	info(event->udev, "seq %llu queued, '%s' '%s'\n", udev_device_get_seqnum(event->dev),
 	     udev_device_get_action(event->dev), udev_device_get_subsystem(event->dev));
-
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/.udev/uevent_seqnum", NULL);
-	fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
-	if (fd >= 0) {
-		char str[32];
-		int len;
-
-		len = sprintf(str, "%llu\n", udev_device_get_seqnum(event->dev));
-		write(fd, str, len);
-		close(fd);
-	}
-
 
 	udev_list_node_append(&event->node, &event_list);
 	run_exec_q = 1;
@@ -637,59 +557,6 @@ static void reap_sigchilds(void)
 	}
 }
 
-static void cleanup_queue_dir(struct udev *udev)
-{
-	char dirname[UTIL_PATH_SIZE];
-	char filename[UTIL_PATH_SIZE];
-	DIR *dir;
-
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/uevent_seqnum", NULL);
-	unlink(filename);
-
-	util_strscpyl(dirname, sizeof(dirname), udev_get_dev_path(udev), "/.udev/queue", NULL);
-	dir = opendir(dirname);
-	if (dir != NULL) {
-		while (1) {
-			struct dirent *dent;
-
-			dent = readdir(dir);
-			if (dent == NULL || dent->d_name[0] == '\0')
-				break;
-			if (dent->d_name[0] == '.')
-				continue;
-			unlinkat(dirfd(dir), dent->d_name, 0);
-		}
-		closedir(dir);
-		rmdir(dirname);
-	}
-}
-
-static void export_initial_seqnum(struct udev *udev)
-{
-	char filename[UTIL_PATH_SIZE];
-	int fd;
-	char seqnum[32];
-	ssize_t len = 0;
-
-	util_strscpyl(filename, sizeof(filename), udev_get_sys_path(udev), "/kernel/uevent_seqnum", NULL);
-	fd = open(filename, O_RDONLY);
-	if (fd >= 0) {
-		len = read(fd, seqnum, sizeof(seqnum)-1);
-		close(fd);
-	}
-	if (len <= 0) {
-		strcpy(seqnum, "0\n");
-		len = 3;
-	}
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/uevent_seqnum", NULL);
-	util_create_path(udev, filename);
-	fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
-	if (fd >= 0) {
-		write(fd, seqnum, len);
-		close(fd);
-	}
-}
-
 static void startup_log(struct udev *udev)
 {
 	FILE *f;
@@ -837,8 +704,11 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 	udev_list_init(&event_list);
-	cleanup_queue_dir(udev);
-	export_initial_seqnum(udev);
+	udev_queue_export = udev_queue_export_new(udev);
+	if (udev_queue_export == NULL) {
+		err(udev, "error creating queue file\n");
+		goto exit;
+	}
 
 	if (daemonize) {
 		pid_t pid;
@@ -1027,9 +897,11 @@ handle_signals:
 			settle_pid = 0;
 		}
 	}
-	cleanup_queue_dir(udev);
+	udev_queue_export_cleanup(udev_queue_export);
 	rc = 0;
 exit:
+
+	udev_queue_export_unref(udev_queue_export);
 	udev_rules_unref(rules);
 	udev_ctrl_unref(udev_ctrl);
 	if (inotify_fd >= 0)

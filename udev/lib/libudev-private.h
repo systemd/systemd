@@ -150,10 +150,18 @@ void udev_list_entry_set_flag(struct udev_list_entry *list_entry, int flag);
 	     entry = tmp, tmp = udev_list_entry_get_next(tmp))
 
 /* libudev-queue */
-int udev_queue_export_udev_seqnum(struct udev_queue *udev_queue, unsigned long long int seqnum);
-int udev_queue_export_device_queued(struct udev_queue *udev_queue, struct udev_device *udev_device);
-int udev_queue_export_device_finished(struct udev_queue *udev_queue, struct udev_device *udev_device);
-int udev_queue_export_device_failed(struct udev_queue *udev_queue, struct udev_device *udev_device);
+unsigned long long int udev_get_kernel_seqnum(struct udev *udev);
+int udev_queue_read_seqnum(FILE *queue_file, unsigned long long int *seqnum);
+ssize_t udev_queue_read_devpath(FILE *queue_file, char *devpath, size_t size);
+ssize_t udev_queue_skip_devpath(FILE *queue_file);
+
+/* libudev-queue-export */
+struct udev_queue_export *udev_queue_export_new(struct udev *udev);
+void udev_queue_export_unref(struct udev_queue_export *udev_queue_export);
+void udev_queue_export_cleanup(struct udev_queue_export *udev_queue_export);
+int udev_queue_export_device_queued(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);
+int udev_queue_export_device_finished(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);
+int udev_queue_export_device_failed(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);
 
 /* libudev-utils */
 #define UTIL_PATH_SIZE				1024
