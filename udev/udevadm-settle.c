@@ -61,10 +61,10 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	unsigned long long start = 0;
 	unsigned long long end = 0;
 	int quiet = 0;
-	int timeout = 0;
+	int timeout = DEFAULT_TIMEOUT;
 	struct sigaction act;
 	struct udev_queue *udev_queue = NULL;
-	int rc = 0;
+	int rc = 1;
 
 	dbg(udev, "version %s\n", VERSION);
 
@@ -109,18 +109,18 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 			       "  --seq-end=<seqnum>    last seqnum to wait for\n"
 			       "  --quiet               do not print list after timeout\n"
 			       "  --help\n\n");
-			goto exit;
+			exit(0);
 		}
 	}
 
 	if (timeout > 0)
 		alarm(timeout);
 	else
-		alarm(DEFAULT_TIMEOUT);
+		is_timeout = 1;
 
 	udev_queue = udev_queue_new(udev);
 	if (udev_queue == NULL)
-		goto exit;
+		exit(2);
 
 	if (start > 0) {
 		unsigned long long kernel_seq;
@@ -172,16 +172,23 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		}
 	}
 
-	while (!is_timeout) {
+	while (1) {
 		if (start > 0) {
 			/* if asked for, wait for a specific sequence of events */
-			if (udev_queue_get_seqnum_sequence_is_finished(udev_queue, start, end) == 1)
+			if (udev_queue_get_seqnum_sequence_is_finished(udev_queue, start, end) == 1) {
+				rc = 0;
 				break;
+			}
 		} else {
 			/* exit if queue is empty */
-			if (udev_queue_get_queue_is_empty(udev_queue))
+			if (udev_queue_get_queue_is_empty(udev_queue)) {
+				rc = 0;
 				break;
+			}
 		}
+
+		if (is_timeout)
+			break;
 
 		usleep(1000 * 1000 / LOOP_PER_SECOND);
 	}
@@ -190,7 +197,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	if (is_timeout) {
 		struct udev_list_entry *list_entry;
 
-		if (!quiet) {
+		if (!quiet && udev_queue_get_queued_list_entry(udev_queue) != NULL) {
 			info(udev, "timeout waiting for udev queue\n");
 			printf("\nudevadm settle - timeout of %i seconds reached, the event queue contains:\n", timeout);
 			udev_list_entry_foreach(list_entry, udev_queue_get_queued_list_entry(udev_queue))
@@ -198,9 +205,8 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 				       udev_list_entry_get_name(list_entry),
 				       udev_list_entry_get_value(list_entry));
 		}
-		rc = 1;
 	}
-exit:
+
 	udev_queue_unref(udev_queue);
 	return rc;
 }
