@@ -2,6 +2,10 @@ udev 143
 ========
 Bugfixes.
 
+The format of the queue exported by the udev damon has changed. There is
+no longer a /dev/.udev/queue/ directory. The queue can be accessed with
+udevadm settle and libudedv.
+
 udev 142
 ========
 Bugfixes.
