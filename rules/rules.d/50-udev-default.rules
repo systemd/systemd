@@ -69,18 +69,18 @@ KERNEL=="hd*", SUBSYSTEMS=="ide", ATTRS{media}=="floppy", OPTIONS+="all_partitio
 # cdrom
 SUBSYSTEM=="block", KERNEL=="sr[0-9]*", SYMLINK+="scd%n", GROUP="cdrom"
 SUBSYSTEM=="block", KERNEL=="hd*", SUBSYSTEMS=="ide", ATTRS{media}=="cdrom", GROUP="cdrom"
-SUBSYSTEMS=="scsi", ATTRS{type}=="4|5", GROUP="cdrom"
+SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="4|5", GROUP="cdrom"
 KERNEL=="pktcdvd[0-9]*", NAME="pktcdvd/%k", GROUP="cdrom"
 KERNEL=="pktcdvd", NAME="pktcdvd/control", GROUP="cdrom"
 
 # tape
 KERNEL=="ht[0-9]*|nht[0-9]*", GROUP="tape"
 KERNEL=="pt[0-9]*|npt[0-9]*|pht[0-9]*", GROUP="tape"
-SUBSYSTEMS=="scsi", ATTRS{type}=="1|8", GROUP="tape"
+SUBSYSTEM=="scsi_generic|scsi_tape", SUBSYSTEMS=="scsi", ATTRS{type}=="1|8", GROUP="tape"
 
 # block-releated
 KERNEL=="sch[0-9]*", GROUP="disk"
-SUBSYSTEMS=="scsi", ATTRS{type}=="0", GROUP="disk"
+SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="0", GROUP="disk"
 KERNEL=="pg[0-9]*", GROUP="disk"
 KERNEL=="qft[0-9]*|nqft[0-9]*|zqft[0-9]*|nzqft[0-9]*|rawqft[0-9]*|nrawqft[0-9]*", GROUP="disk"
 KERNEL=="rawctl", NAME="raw/rawctl", GROUP="disk"

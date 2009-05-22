@@ -5,7 +5,7 @@
 ACTION!="add|change", GOTO="persistent_storage_tape_end"
 
 # type 8 devices are "Medium Changers"
-KERNEL=="sg[0-9]*", SUBSYSTEMS=="scsi", ATTRS{type}=="8", IMPORT{program}="scsi_id --sg-version=3 --export --whitelisted -d $tempnode", SYMLINK+="tape/by-id/scsi-$env{ID_SERIAL}"
+SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="8", IMPORT{program}="scsi_id --sg-version=3 --export --whitelisted -d $tempnode", SYMLINK+="tape/by-id/scsi-$env{ID_SERIAL}"
 
 SUBSYSTEM!="scsi_tape", GOTO="persistent_storage_tape_end"
 
