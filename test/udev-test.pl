@@ -1654,14 +1654,14 @@ KERNEL=="sda", MODE="0000"
 EOF
 	},
 	{
-		desc		=> "TEST PROGRAM feeds MODE",
+		desc		=> "TEST PROGRAM feeds OWNER, GROUP, MODE",
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "sda",
-		exp_perms	=> "0:0:0400",
+		exp_perms	=> "5000:100:0400",
 		rules		=> <<EOF
 KERNEL=="sda", MODE="666"
-KERNEL=="sda", PROGRAM=="/bin/echo 0 0 0400", OWNER="%c{1}", GROUP="%c{2}", MODE="%c{3}"
+KERNEL=="sda", PROGRAM=="/bin/echo 5000 100 0400", OWNER="%c{1}", GROUP="%c{2}", MODE="%c{3}"
 EOF
 	},
 	{
