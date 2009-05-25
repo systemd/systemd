@@ -426,8 +426,10 @@ static int cd_media_info(struct udev *udev, int fd)
 
 	info(udev, "disk type %02x\n", header[8]);
 
-	if ((header[2] & 3) < 4)
+	/* exclude plain CDROM, some fake cdroms return 0 for "blank" media here */
+	if (!cd_media_cd_rom && (header[2] & 3) < 4)
 		cd_media_state = media_status[header[2] & 3];
+
 	if ((header[2] & 3) != 2)
 		cd_media_session_next = header[10] << 8 | header[5];
 	cd_media_session_count = header[9] << 8 | header[4];
