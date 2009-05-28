@@ -115,8 +115,8 @@ static int skip_to(FILE *file, long offset)
 
 	/* fseek may drop buffered data, avoid it for small seeks */
 	old_offset = ftell(file);
-	if (offset > old_offset && old_offset - offset <= BUFSIZ) {
-		size_t skip_bytes = old_offset - offset;
+	if (offset > old_offset && offset - old_offset <= BUFSIZ) {
+		size_t skip_bytes = offset - old_offset;
 		char buf[skip_bytes];
 
 		if (fread(buf, skip_bytes, 1, file) != skip_bytes)
