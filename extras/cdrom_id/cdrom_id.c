@@ -570,6 +570,7 @@ int main(int argc, char *argv[])
 	fd = open(node, O_RDONLY | O_NONBLOCK);
 	if (fd < 0) {
 		info(udev, "unable to open '%s'\n", node);
+		fprintf(stderr, "unable to open '%s'\n", node);
 		rc = 1;
 		goto exit;
 	}
