@@ -301,18 +301,6 @@ static int devpath_busy(struct udev_event *event)
 			event->delaying_seqnum = udev_device_get_seqnum(loop_event->dev);
 			return 4;
 		}
-
-		/* check for our major:minor number */
-		if (major(udev_device_get_devnum(event->dev)) > 0 &&
-		    udev_device_get_devnum(loop_event->dev) == udev_device_get_devnum(event->dev) &&
-		    strcmp(udev_device_get_subsystem(event->dev), udev_device_get_subsystem(loop_event->dev)) == 0) {
-			dbg(event->udev, "%llu, device event still pending %llu (%d:%d)\n",
-			    udev_device_get_seqnum(event->dev),
-			    udev_device_get_seqnum(loop_event->dev),
-			    major(udev_device_get_devnum(loop_event->dev)), minor(udev_device_get_devnum(loop_event->dev)));
-			event->delaying_seqnum = udev_device_get_seqnum(loop_event->dev);
-			return 5;
-		}
 	}
 	return 0;
 }
