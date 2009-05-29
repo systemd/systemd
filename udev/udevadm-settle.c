@@ -54,6 +54,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		{ "seq-start", required_argument, NULL, 's' },
 		{ "seq-end", required_argument, NULL, 'e' },
 		{ "timeout", required_argument, NULL, 't' },
+		{ "exit-if-exists", required_argument, NULL, 'E' },
 		{ "quiet", no_argument, NULL, 'q' },
 		{ "help", no_argument, NULL, 'h' },
 		{}
@@ -61,6 +62,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	unsigned long long start = 0;
 	unsigned long long end = 0;
 	int quiet = 0;
+	const char *exists = NULL;
 	int timeout = DEFAULT_TIMEOUT;
 	struct sigaction act;
 	struct udev_queue *udev_queue = NULL;
@@ -80,7 +82,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		int option;
 		int seconds;
 
-		option = getopt_long(argc, argv, "s:e:t:qh", options, NULL);
+		option = getopt_long(argc, argv, "s:e:t:E:qh", options, NULL);
 		if (option == -1)
 			break;
 
@@ -102,12 +104,16 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		case 'q':
 			quiet = 1;
 			break;
+		case 'E':
+			exists = optarg;
+			break;
 		case 'h':
 			printf("Usage: udevadm settle OPTIONS\n"
-			       "  --timeout=<seconds>   maximum time to wait for events\n"
-			       "  --seq-start=<seqnum>  first seqnum to wait for\n"
-			       "  --seq-end=<seqnum>    last seqnum to wait for\n"
-			       "  --quiet               do not print list after timeout\n"
+			       "  --timeout=<seconds>     maximum time to wait for events\n"
+			       "  --seq-start=<seqnum>    first seqnum to wait for\n"
+			       "  --seq-end=<seqnum>      last seqnum to wait for\n"
+			       "  --exit-if-exists=<file> stop waiting if file exists\n"
+			       "  --quiet                 do not print list after timeout\n"
 			       "  --help\n\n");
 			exit(0);
 		}
@@ -173,6 +179,13 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	}
 
 	while (1) {
+		struct stat statbuf;
+
+		if (exists != NULL && stat(exists, &statbuf) == 0) {
+			rc = 0;
+			break;
+		}
+
 		if (start > 0) {
 			/* if asked for, wait for a specific sequence of events */
 			if (udev_queue_get_seqnum_sequence_is_finished(udev_queue, start, end) == 1) {

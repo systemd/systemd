@@ -237,6 +237,12 @@
               </listitem>
             </varlistentry>
             <varlistentry>
+              <term><option>--exit-if-exists=<replaceable>file</replaceable></option></term>
+              <listitem>
+                <para>Stop waiting if file exists.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
               <term><option>--quiet</option></term>
               <listitem>
                 <para>Do not print any output, like the remaining queue entries when reaching the timeout.</para>
