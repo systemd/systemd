@@ -734,18 +734,13 @@ int udev_event_execute_run(struct udev_event *event)
 			monitor = udev_monitor_new_from_socket(event->udev, &cmd[strlen("socket:")]);
 			if (monitor == NULL)
 				continue;
-			udev_monitor_send_device(monitor, event->dev);
+			udev_monitor_send_device(monitor, NULL, event->dev);
 			udev_monitor_unref(monitor);
 		} else {
 			char program[UTIL_PATH_SIZE];
 			char **envp;
 
 			udev_event_apply_format(event, cmd, program, sizeof(program));
-			if (event->trace)
-				fprintf(stderr, "run  %s (%llu) '%s'\n",
-				       udev_device_get_syspath(event->dev),
-				       udev_device_get_seqnum(event->dev),
-				       program);
 			envp = udev_device_get_properties_envp(event->dev);
 			if (util_run_program(event->udev, program, envp, NULL, 0, NULL) != 0) {
 				if (!udev_list_entry_get_flag(list_entry))

@@ -2,9 +2,17 @@ udev 143
 ========
 Bugfixes.
 
+Event processes now get re-used after they handled an event. This reduces
+pressure on the CPU significantly because cloned event processes no longer
+cause page faults in the main daemon. After the events have settled, the
+no longer needed worker processes get killed.
+
+To be able to use signalfd(), udev depends on kernel version 2.6.25 now.
+Also inotify support is required now to run udev.
+
 The format of the queue exported by the udev damon has changed. There is
-no longer a /dev/.udev/queue/ directory. The queue can be accessed with
-udevadm settle and libudedv.
+no longer a /dev/.udev/queue/ directory. The current event queue can be
+accessed with udevadm settle and libudedv.
 
 udev 142
 ========

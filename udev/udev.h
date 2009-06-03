@@ -22,7 +22,6 @@
 #include <sys/types.h>
 #include <sys/param.h>
 
-#include "udev-sysdeps.h"
 #include "lib/libudev.h"
 #include "lib/libudev-private.h"
 
@@ -53,7 +52,6 @@ static inline void logging_close(void)
 }
 
 struct udev_event {
-	struct udev_list_node node;
 	struct udev *udev;
 	struct udev_device *dev;
 	struct udev_device *dev_parent;
@@ -64,10 +62,6 @@ struct udev_event {
 	uid_t uid;
 	gid_t gid;
 	struct udev_list_node run_list;
-	pid_t pid;
-	int exitstatus;
-	time_t queue_time;
-	unsigned long long int delaying_seqnum;
 	unsigned int group_final:1;
 	unsigned int owner_final:1;
 	unsigned int mode_final:1;
@@ -76,7 +70,6 @@ struct udev_event {
 	unsigned int run_final:1;
 	unsigned int ignore_device:1;
 	unsigned int inotify_watch:1;
-	unsigned int trace:1;
 };
 
 struct udev_watch {
@@ -101,8 +94,7 @@ int udev_event_apply_subsys_kernel(struct udev_event *event, const char *string,
 				   char *result, size_t maxsize, int read_value);
 
 /* udev-watch.c */
-extern int inotify_fd;
-void udev_watch_init(struct udev *udev);
+int udev_watch_init(struct udev *udev);
 void udev_watch_restore(struct udev *udev);
 void udev_watch_begin(struct udev *udev, struct udev_device *dev);
 void udev_watch_end(struct udev *udev, struct udev_device *dev);

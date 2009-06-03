@@ -5,6 +5,7 @@ AC_PREREQ(2.60)
 AM_INIT_AUTOMAKE([check-news foreign 1.9 dist-bzip2])
 AC_DISABLE_STATIC
 AC_USE_SYSTEM_EXTENSIONS
+dnl AM_SILENT_RULES
 AC_SYS_LARGEFILE
 AC_CONFIG_MACRO_DIR([m4])
 AC_PROG_LIBTOOL
@@ -22,10 +23,6 @@ AC_SUBST(LIBUDEV_LT_REVISION)
 AC_SUBST(LIBUDEV_LT_AGE)
 
 AC_PATH_PROG([XSLTPROC], [xsltproc])
-
-AC_CHECK_LIB(c, inotify_init,
-	[AC_DEFINE([HAVE_INOTIFY], 1, [inotify available])],
-	[AC_MSG_WARN([inotify support disabled])])
 
 AC_ARG_WITH(udev-prefix,
 	AS_HELP_STRING([--with-udev-prefix=DIR], [add prefix to internal udev path names]),

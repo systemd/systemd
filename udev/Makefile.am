@@ -14,7 +14,6 @@ common_ldadd =
 
 common_files = \
 	udev.h \
-	udev-sysdeps.h \
 	udev-event.c \
 	udev-watch.c \
 	udev-node.c \

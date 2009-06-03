@@ -285,9 +285,9 @@
               <term><option>--reload-rules</option></term>
               <listitem>
                 <para>Signal udevd to reload the rules files.
-                Usually the udev daemon detects changes automatically, this may
-                only be needed on systems without inotify support. Reloading rules
-                does not apply any changes to already existing devices.</para>
+                The udev daemon detects changes automatically, this option is
+                usually not needed. Reloading rules does not apply any changes
+                to already existing devices.</para>
               </listitem>
             </varlistentry>
             <varlistentry>

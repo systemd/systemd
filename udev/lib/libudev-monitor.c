@@ -32,15 +32,17 @@ struct udev_monitor {
 	int refcount;
 	int sock;
 	struct sockaddr_nl snl;
-	struct sockaddr_nl snl_peer;
+	struct sockaddr_nl snl_trusted_sender;
+	struct sockaddr_nl snl_destination;
 	struct sockaddr_un sun;
 	socklen_t addrlen;
 	struct udev_list_node filter_subsystem_list;
 };
 
 enum udev_monitor_netlink_group {
-	UDEV_MONITOR_KERNEL	= 1,
-	UDEV_MONITOR_UDEV	= 2,
+	UDEV_MONITOR_NONE,
+	UDEV_MONITOR_KERNEL,
+	UDEV_MONITOR_UDEV,
 };
 
 #define UDEV_MONITOR_MAGIC		0xcafe1dea
@@ -171,11 +173,11 @@ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char
 		return NULL;
 
 	if (name == NULL)
-		return NULL;
-	if (strcmp(name, "kernel") == 0)
-		group = UDEV_MONITOR_KERNEL;
+		group = UDEV_MONITOR_NONE;
 	else if (strcmp(name, "udev") == 0)
 		group = UDEV_MONITOR_UDEV;
+	else if (strcmp(name, "kernel") == 0)
+		group = UDEV_MONITOR_KERNEL;
 	else
 		return NULL;
 
@@ -193,8 +195,10 @@ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char
 
 	udev_monitor->snl.nl_family = AF_NETLINK;
 	udev_monitor->snl.nl_groups = group;
-	udev_monitor->snl_peer.nl_family = AF_NETLINK;
-	udev_monitor->snl_peer.nl_groups = UDEV_MONITOR_UDEV;
+
+	/* default destination for sending */
+	udev_monitor->snl_destination.nl_family = AF_NETLINK;
+	udev_monitor->snl_destination.nl_groups = UDEV_MONITOR_UDEV;
 
 	dbg(udev, "monitor %p created with NETLINK_KOBJECT_UEVENT (%u)\n", udev_monitor, group);
 	return udev_monitor;
@@ -281,6 +285,12 @@ int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
 	return err;
 }
 
+int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct udev_monitor *sender)
+{
+	udev_monitor->snl_trusted_sender.nl_pid = sender->snl.nl_pid;
+	return 0;
+}
+
 int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 {
 	int err;
@@ -293,6 +303,19 @@ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 		udev_monitor_filter_update(udev_monitor);
 		err = bind(udev_monitor->sock,
 			   (struct sockaddr *)&udev_monitor->snl, sizeof(struct sockaddr_nl));
+		if (err == 0) {
+			struct sockaddr_nl snl;
+			socklen_t addrlen;
+
+			/*
+			 * get the address the kernel has assigned us
+			 * it is usually, but not neccessarily the pid
+			 */
+			addrlen = sizeof(struct sockaddr_nl);
+			err = getsockname(udev_monitor->sock, (struct sockaddr *)&snl, &addrlen);
+			if (err == 0)
+				udev_monitor->snl.nl_pid = snl.nl_pid;
+		}
 	} else {
 		return -EINVAL;
 	}
@@ -312,6 +335,15 @@ int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_monitor, int 
 	if (udev_monitor == NULL)
 		return -1;
 	return setsockopt(udev_monitor->sock, SOL_SOCKET, SO_RCVBUFFORCE, &size, sizeof(size));
+}
+
+int udev_monitor_disconnect(struct udev_monitor *udev_monitor)
+{
+	int err;
+
+	err = close(udev_monitor->sock);
+	udev_monitor->sock = -1;
+	return err;
 }
 
 /**
@@ -478,10 +510,13 @@ retry:
 
 	if (udev_monitor->snl.nl_family != 0) {
 		if (snl.nl_groups == 0) {
-			info(udev_monitor->udev, "unicast netlink message ignored\n");
-			return NULL;
-		}
-		if (snl.nl_groups == UDEV_MONITOR_KERNEL) {
+			/* unicast message, check if we trust the sender */
+			if (udev_monitor->snl_trusted_sender.nl_pid == 0 ||
+			    snl.nl_pid != udev_monitor->snl_trusted_sender.nl_pid) {
+				info(udev_monitor->udev, "unicast netlink message ignored\n");
+				return NULL;
+			}
+		} else if (snl.nl_groups == UDEV_MONITOR_KERNEL) {
 			if (snl.nl_pid > 0) {
 				info(udev_monitor->udev, "multicast kernel netlink message from pid %d ignored\n", snl.nl_pid);
 				return NULL;
@@ -621,7 +656,8 @@ retry:
 	return udev_device;
 }
 
-int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_device *udev_device)
+int udev_monitor_send_device(struct udev_monitor *udev_monitor,
+			     struct udev_monitor *destination, struct udev_device *udev_device)
 {
 	struct msghdr smsg;
 	struct iovec iov[2];
@@ -683,8 +719,16 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_devi
 		memset(&smsg, 0x00, sizeof(struct msghdr));
 		smsg.msg_iov = iov;
 		smsg.msg_iovlen = 2;
-		/* no destination besides the muticast group, we will always get ECONNREFUSED */
-		smsg.msg_name = &udev_monitor->snl_peer;
+		/*
+		 * Use custom address for target, or the default one.
+		 *
+		 * If we send to a muticast group, we will get
+		 * ECONNREFUSED, which is expected.
+		 */
+		if (destination != NULL)
+			smsg.msg_name = &destination->snl;
+		else
+			smsg.msg_name = &udev_monitor->snl_destination;
 		smsg.msg_namelen = sizeof(struct sockaddr_nl);
 	} else {
 		return -1;

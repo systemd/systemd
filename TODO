@@ -1,3 +1,4 @@
+
   o add tests for kernel provided DEVNAME logic
   o drop modprobe floppy alias (SUSE), it will be in the module (2.6.30)
   o remove MMC rules, they got a modalias now (2.6.30)

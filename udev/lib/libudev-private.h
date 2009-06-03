@@ -86,7 +86,10 @@ int udev_device_delete_db(struct udev_device *udev_device);
 int udev_device_rename_db(struct udev_device *udev_device, const char *devpath);
 
 /* libudev-monitor - netlink/unix socket communication  */
-int udev_monitor_send_device(struct udev_monitor *udev_monitor, struct udev_device *udev_device);
+int udev_monitor_disconnect(struct udev_monitor *udev_monitor);
+int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct udev_monitor *sender);
+int udev_monitor_send_device(struct udev_monitor *udev_monitor,
+			     struct udev_monitor *destination, struct udev_device *udev_device);
 int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_monitor, int size);
 
 /* libudev-ctrl - daemon runtime setup */

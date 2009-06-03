@@ -26,27 +26,24 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#ifdef HAVE_INOTIFY
 #include <sys/inotify.h>
-#endif
 
 #include "udev.h"
 
-int inotify_fd = -1;
+static int inotify_fd = -1;
 
 /* inotify descriptor, will be shared with rules directory;
  * set to cloexec since we need our children to be able to add
  * watches for us
  */
-void udev_watch_init(struct udev *udev)
+int udev_watch_init(struct udev *udev)
 {
 	inotify_fd = inotify_init();
 	if (inotify_fd >= 0)
 		util_set_fd_cloexec(inotify_fd);
-	else if (errno == ENOSYS)
-		info(udev, "unable to use inotify, udevd will not monitor rule files changes\n");
 	else
 		err(udev, "inotify_init failed: %m\n");
+	return inotify_fd;
 }
 
 /* move any old watches directory out of the way, and then restore

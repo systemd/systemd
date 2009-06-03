@@ -9,11 +9,13 @@ Important Note:
   recommend to replace a distro's udev installation with the upstream version.
 
 Requirements:
-  - Version 2.6.22 of the Linux kernel for reliable operation of this release of
-    udev. The kernel must not use the CONFIG_SYSFS_DEPRECATED* option.
+  - Version 2.6.25 of the Linux kernel with sysfs, procfs, signalfd, inotify,
+    unix domain sockets, networking and hotplug enabled.
 
-  - The kernel must have sysfs, unix domain sockets and networking enabled.
-    Unix domain sockets (CONFIG_UNIX) as a loadable kernel module is not
+  - For reliable operation, the kernel must not use the CONFIG_SYSFS_DEPRECATED*
+    option.
+
+  - Unix domain sockets (CONFIG_UNIX) as a loadable kernel module is not
     supported.
 
   - The proc filesystem must be mounted on /proc/, the sysfs filesystem must
@@ -29,21 +31,18 @@ Operation:
   Udev creates and removes device nodes in /dev/, based on events the kernel
   sends out on device discovery or removal.
 
-  - Very early in the boot process, the /dev/ directory should get a 'tmpfs'
-    filesystem mounted, which is populated from scratch by udev. Created nodes
-    or changed permissions will not survive a reboot, which is intentional.
+  - Early in the boot process, the /dev/ directory should get a 'tmpfs'
+    filesystem mounted, which is maintained by udev. Created nodes or changed
+    permissions will not survive a reboot, which is intentional.
 
   - The content of /lib/udev/devices/ directory which contains the nodes,
     symlinks and directories, which are always expected to be in /dev, should
     be copied over to the tmpfs mounted /dev, to provide the required nodes
     to initialize udev and continue booting.
 
-  - The old hotplug helper /sbin/hotplug should be disabled on bootup, before
-    actions like loading kernel modules are taken, which may cause a lot of
-    events.
-
-  - The udevd daemon must be started on bootup to receive netlink uevents
-    from the kernel driver core.
+  - The old hotplug helper /sbin/hotplug should be disabled in the kernel
+    configuration, it is not needed, and may render the system unusable
+    because of a fork-bombing behavior.
 
   - All kernel events are matched against a set of specified rules in
     /lib/udev/rules.d/ which make it possible to hook into the event
