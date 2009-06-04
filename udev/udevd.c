@@ -195,6 +195,7 @@ static void worker_new(struct event *event)
 	/* allow the main daemon netlink address to send devices to the worker */
 	udev_monitor_allow_unicast_sender(worker_monitor, monitor);
 	udev_monitor_enable_receiving(worker_monitor);
+	util_set_fd_cloexec(udev_monitor_get_fd(worker_monitor));
 
 	worker = calloc(1, sizeof(struct worker));
 	if (worker == NULL)
@@ -207,6 +208,7 @@ static void worker_new(struct event *event)
 		struct udev_device *dev;
 
 		udev_queue_export_unref(udev_queue_export);
+		udev_monitor_unref(monitor);
 		udev_ctrl_unref(udev_ctrl);
 		close(pfd[FD_SIGNAL].fd);
 		close(worker_watch[READ_END]);
@@ -885,6 +887,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 	pfd[FD_WORKER].fd = worker_watch[READ_END];
+	util_set_fd_cloexec(worker_watch[WRITE_END]);
 
 	rules = udev_rules_new(udev, resolve_names);
 	if (rules == NULL) {
