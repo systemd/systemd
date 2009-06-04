@@ -31,7 +31,7 @@ SUBSYSTEMS=="usb", ENV{ID_BUS}=="?*", KERNEL=="event*", ENV{ID_CLASS}=="", ATTRS
   SYMLINK+="input/by-id/$env{ID_BUS}-$env{ID_SERIAL}-event-if$attr{bInterfaceNumber}"
 
 # by-path
-IMPORT{program}="path_id %p"
+SUBSYSTEMS=="usb|platform", IMPORT{program}="path_id %p"
 ENV{ID_PATH}=="?*", KERNEL=="mouse*|js*", ENV{ID_CLASS}=="?*", SYMLINK+="input/by-path/$env{ID_PATH}-$env{ID_CLASS}"
 ENV{ID_PATH}=="?*", KERNEL=="event*", ENV{ID_CLASS}=="?*", SYMLINK+="input/by-path/$env{ID_PATH}-event-$env{ID_CLASS}"
 # allow empty class for platform and usb devices; platform supports only a single interface that way
