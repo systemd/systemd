@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2009 Kay Sievers <kay.sievers@vrfy.org>
  * Copyright (C) 2008 Alan Jenkins <alan-jenkins@tuffmail.co.uk>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -166,7 +166,7 @@ struct token {
 	union {
 		unsigned char type;		/* same as in rule and key */
 		struct {
-			unsigned char type;
+			enum token_type type:8;
 			unsigned char flags;
 			unsigned short token_count;
 			unsigned int label_off;
@@ -174,10 +174,10 @@ struct token {
 			unsigned short filename_line;
 		} rule;
 		struct {
-			unsigned char type;
+			enum token_type type:8;
+			enum operation_type op:8;
+			enum string_glob_type glob:8;
 			unsigned char flags;
-			unsigned char op;
-			unsigned char glob;
 			unsigned int value_off;
 			union {
 				unsigned int attr_off;

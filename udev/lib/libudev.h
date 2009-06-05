@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2009 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -76,8 +76,8 @@ const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const
 
 /* udev and kernel device events */
 struct udev_monitor;
-struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path);
 struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char *name);
+struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path);
 int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor);
 struct udev_monitor *udev_monitor_ref(struct udev_monitor *udev_monitor);
 void udev_monitor_unref(struct udev_monitor *udev_monitor);
