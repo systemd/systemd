@@ -134,35 +134,88 @@ out:
 	return number;
 }
 
-static struct udev_device *handle_scsi(struct udev_device *dev, char **path)
+static struct udev_device *handle_fc(struct udev_device *parent, char **path)
 {
-	const char *devtype;
+	path_prepend(path, "fc-PATH_ID_NOT_IMPLEMENTED");
+	return parent;
+}
+
+static struct udev_device *handle_sas(struct udev_device *parent, char **path)
+{
+	path_prepend(path, "sas-PATH_ID_NOT_IMPLEMENTED");
+	return parent;
+}
+
+static struct udev_device *handle_iscsi(struct udev_device *parent, char **path)
+{
+	path_prepend(path, "ip-PATH_ID_NOT_IMPLEMENTED");
+	return parent;
+}
+
+static struct udev_device *handle_scsi(struct udev_device *parent, char **path)
+{
 	struct udev_device *hostdev;
-	const char *name;
 	int host, bus, target, lun;
+	const char *name;
 	int base;
 
-	devtype = udev_device_get_devtype(dev);
-	if (devtype == NULL || strcmp(devtype, "scsi_device") != 0)
-		return dev;
-
-	hostdev = udev_device_get_parent_with_subsystem_devtype(dev, "scsi", "scsi_host");
+	hostdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_host");
 	if (hostdev == NULL)
-		return dev;
+		return parent;
 
-	name = udev_device_get_sysname(dev);
+	name = udev_device_get_sysname(parent);
 	if (sscanf(name, "%d:%d:%d:%d", &host, &bus, &target, &lun) != 4)
-		return dev;
+		return parent;
 
 	/* rebase host offset to get the local relative number */
 	base = base_number(udev_device_get_syspath(hostdev), "host");
 	if (base < 0)
-		return dev;
+		return parent;
 	host -= base;
 
 	path_prepend(path, "scsi-%u:%u:%u:%u", host, bus, target, lun);
-	dev = skip_subsystem(dev, "scsi");
-	return dev;
+	return hostdev;
+}
+
+static struct udev_device *handle_scsi_lun(struct udev_device *parent, char **path)
+{
+	const char *devtype;
+	const char *name;
+	const char *id;
+
+	devtype = udev_device_get_devtype(parent);
+	if (devtype == NULL || strcmp(devtype, "scsi_device") != 0)
+		return parent;
+
+	/* firewire */
+	id = udev_device_get_sysattr_value(parent, "ieee1394_id");
+	if (id != NULL) {
+		path_prepend(path, "ieee1394-0x%s", id);
+		goto out;
+	}
+
+	name = udev_device_get_syspath(parent);
+
+	/* fibre channel */
+	if (strstr(name, "/rport-") != NULL) {
+		parent = handle_fc(parent, path);
+		goto out;
+	}
+
+	/* sas */
+	if (strstr(name, "/end_device-") != NULL) {
+		parent = handle_sas(parent, path);
+		goto out;
+	}
+
+	if (strstr(name, "/session") != NULL) {
+		parent = handle_iscsi(parent, path);
+		goto out;
+	}
+
+	parent = handle_scsi(parent, path);
+out:
+	return parent;
 }
 
 static void handle_scsi_tape(struct udev_device *dev, char **suffix)
@@ -176,41 +229,30 @@ static void handle_scsi_tape(struct udev_device *dev, char **suffix)
 		asprintf(suffix, "st%c", name[2]);
 }
 
-static struct udev_device *handle_usb(struct udev_device *dev, char **path)
+static struct udev_device *handle_usb(struct udev_device *parent, char **path)
 {
 	const char *devtype;
 	const char *str;
 	const char *port;
 
-	devtype = udev_device_get_devtype(dev);
+	devtype = udev_device_get_devtype(parent);
 	if (devtype == NULL || strcmp(devtype, "usb_interface") != 0)
-		return dev;
+		return parent;
 
-	str = udev_device_get_sysname(dev);
+	str = udev_device_get_sysname(parent);
 	port = strchr(str, '-');
 	if (port == NULL)
-		return dev;
+		return parent;
 	port++;
 
-	dev = skip_subsystem(dev, "usb");
+	parent = skip_subsystem(parent, "usb");
 	path_prepend(path, "usb-0:%s", port);
-	return dev;
+	return parent;
 }
 
-static struct udev_device *handle_firewire(struct udev_device *parent, struct udev_device *dev, char **path)
+static struct udev_device *handle_cciss(struct udev_device *parent, char **path)
 {
-	struct udev_device *scsi_dev;
-
-	scsi_dev = udev_device_get_parent_with_subsystem_devtype(dev, "scsi", "scsi_device");
-	if (scsi_dev != NULL) {
-		const char *id;
-
-		id = udev_device_get_sysattr_value(scsi_dev, "ieee1394_id");
-		if (id != NULL)
-			path_prepend(path, "ieee1394-0x%s", id);
-	}
-
-	parent = skip_subsystem(parent, "firewire");
+	path_prepend(path, "cciss-PATH_ID_NOT_IMPLEMENTED");
 	return parent;
 }
 
@@ -303,6 +345,14 @@ int main(int argc, char **argv)
 	path = NULL;
 	path_suffix = NULL;
 
+	/* S390 ccw bus */
+	parent = udev_device_get_parent_with_subsystem_devtype(dev, "ccw", NULL);
+	if (parent != NULL) {
+		handle_ccw(parent, dev, &path);
+		goto out;
+	}
+
+	/* walk up the chain of devices and compose path */
 	parent = dev;
 	while (parent != NULL) {
 		const char *subsys;
@@ -314,24 +364,14 @@ int main(int argc, char **argv)
 		} else if (strcmp(subsys, "scsi_tape") == 0) {
 			handle_scsi_tape(parent, &path_suffix);
 		} else if (strcmp(subsys, "scsi") == 0) {
-			parent = handle_scsi(parent, &path);
-		} else if (strcmp(subsys, "fc_transport") == 0) {
-			; //handle_fc();
-		} else if (strcmp(subsys, "sas_end_device") == 0) {
-			; //handle_sas();
-		} else if (strcmp(subsys, "iscsi_session") == 0) {
-			; //handle_iscsi()
-		} else if (strcmp(subsys, "ccw") == 0) {
-			handle_ccw(parent, dev, &path);
+			parent = handle_scsi_lun(parent, &path);
 		} else if (strcmp(subsys, "cciss") == 0) {
-			; //handle_cciss();
+			handle_cciss(parent, &path);
 		} else if (strcmp(subsys, "usb") == 0) {
 			parent = handle_usb(parent, &path);
 		} else if (strcmp(subsys, "serio") == 0) {
 			path_prepend(&path, "serio-%s", udev_device_get_sysnum(parent));
 			parent = skip_subsystem(parent, "serio");
-		} else if (strcmp(subsys, "firewire") == 0 || strcmp(subsys, "ieee1394") == 0) {
-			parent = handle_firewire(parent, dev, &path);
 		} else if (strcmp(subsys, "pci") == 0) {
 			path_prepend(&path, "pci-%s", udev_device_get_sysname(parent));
 			parent = skip_subsystem(parent, "pci");
@@ -345,7 +385,7 @@ int main(int argc, char **argv)
 
 		parent = udev_device_get_parent(parent);
 	}
-
+out:
 	if (path != NULL) {
 		if (path_suffix != NULL) {
 			printf("ID_PATH=%s%s\n", path, path_suffix);
