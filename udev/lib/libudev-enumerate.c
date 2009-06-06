@@ -131,7 +131,7 @@ int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate, cons
 	if (sysattr == NULL)
 		return 0;
 	if (udev_list_entry_add(udev_enumerate_get_udev(udev_enumerate),
-			   &udev_enumerate->sysattr_match_list, sysattr, value, 1, 0) == NULL)
+			   &udev_enumerate->sysattr_match_list, sysattr, value, 0, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -143,7 +143,7 @@ int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enumerate, co
 	if (sysattr == NULL)
 		return 0;
 	if (udev_list_entry_add(udev_enumerate_get_udev(udev_enumerate),
-			   &udev_enumerate->sysattr_nomatch_list, sysattr, value, 1, 0) == NULL)
+			   &udev_enumerate->sysattr_nomatch_list, sysattr, value, 0, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -180,7 +180,7 @@ int udev_enumerate_add_match_property(struct udev_enumerate *udev_enumerate, con
 	if (property == NULL)
 		return 0;
 	if (udev_list_entry_add(udev_enumerate_get_udev(udev_enumerate),
-				&udev_enumerate->properties_match_list, property, value, 1, 0) == NULL)
+				&udev_enumerate->properties_match_list, property, value, 0, 0) == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -228,26 +228,26 @@ static int match_property(struct udev_enumerate *udev_enumerate, const char *sys
 
 	/* loop over matches */
 	udev_list_entry_foreach(list_entry, udev_list_get_entry(&udev_enumerate->properties_match_list)) {
+		const char *match_key = udev_list_entry_get_name(list_entry);
+		const char *match_value = udev_list_entry_get_value(list_entry);
 		struct udev_list_entry *property_entry;
 
 		/* loop over device properties */
 		udev_list_entry_foreach(property_entry, udev_device_get_properties_list_entry(dev)) {
-			if (fnmatch(udev_list_entry_get_name(list_entry), udev_list_entry_get_name(property_entry), 0) == 0) {
-				const char *match_value;
-				const char *dev_value;
+			const char *dev_key = udev_list_entry_get_name(property_entry);
+			const char *dev_value = udev_list_entry_get_value(property_entry);
 
-				match_value = udev_list_entry_get_value(list_entry);
-				dev_value = udev_list_entry_get_value(property_entry);
-				if (match_value == NULL && dev_value == NULL) {
-					match = 1;
-					goto out;
-				}
-				if (match_value == NULL || dev_value == NULL)
-					continue;
-				if (fnmatch(match_value, dev_value, 0) == 0) {
-					match = 1;
-					goto out;
-				}
+			if (fnmatch(match_key, dev_key, 0) != 0)
+				continue;
+			if (match_value == NULL && dev_value == NULL) {
+				match = 1;
+				goto out;
+			}
+			if (match_value == NULL || dev_value == NULL)
+				continue;
+			if (fnmatch(match_value, dev_value, 0) == 0) {
+				match = 1;
+				goto out;
 			}
 		}
 	}
