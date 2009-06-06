@@ -28,7 +28,7 @@
 #include <dirent.h>
 #include <getopt.h>
 
-#include <libudev.h>
+#include <../../udev/lib/libudev.h>
 #include <../../udev/udev.h>
 
 int debug;

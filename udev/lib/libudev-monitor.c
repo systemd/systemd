@@ -544,7 +544,7 @@ retry:
 			return NULL;
 		if (nlh->properties_off < sizeof(struct udev_monitor_netlink_header))
 			return NULL;
-		if (nlh->properties_off+32U > buflen)
+		if (nlh->properties_off+32 > buflen)
 			return NULL;
 		bufpos = nlh->properties_off;
 	} else {
