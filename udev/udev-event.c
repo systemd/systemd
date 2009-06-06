@@ -180,6 +180,8 @@ subst:
 			attrbuf[i] = '\0';
 			from += i+1;
 			attr = attrbuf;
+		} else {
+			attr = NULL;
 		}
 
 		switch (type) {
@@ -276,8 +278,8 @@ subst:
 			break;
 		}
 		case SUBST_ATTR: {
-			const char *val;
-			char value[UTIL_NAME_SIZE];
+			const char *value = NULL;
+			char vbuf[UTIL_NAME_SIZE];
 			size_t len;
 			int count;
 
@@ -286,36 +288,32 @@ subst:
 				break;
 			}
 
-			value[0] = '\0';
-			/* read the value specified by "[dmi/id]product_name" */
-			util_resolve_subsys_kernel(event->udev, attr, value, sizeof(value), 1);
+			/* try to read the value specified by "[dmi/id]product_name" */
+			if (util_resolve_subsys_kernel(event->udev, attr, vbuf, sizeof(vbuf), 1) == 0)
+				value = vbuf;
 
-			/* try to read attribute of the current device */
-			if (value[0] == '\0') {
-				val = udev_device_get_sysattr_value(event->dev, attr);
-				if (val != NULL)
-					util_strscpy(value, sizeof(value), val);
-			}
+			/* try to read the attribute the device */
+			if (value == NULL)
+				value = udev_device_get_sysattr_value(event->dev, attr);
 
 			/* try to read the attribute of the parent device, other matches have selected */
-			if (value[0] == '\0' && event->dev_parent != NULL && event->dev_parent != event->dev) {
-				val = udev_device_get_sysattr_value(event->dev_parent, attr);
-				if (val != NULL)
-					util_strscpy(value, sizeof(value), val);
-			}
+			if (value == NULL && event->dev_parent != NULL && event->dev_parent != event->dev)
+				value = udev_device_get_sysattr_value(event->dev_parent, attr);
 
-			if (value[0]=='\0')
+			if (value == NULL)
 				break;
 
 			/* strip trailing whitespace, and replace unwanted characters */
-			len = strlen(value);
-			while (len > 0 && isspace(value[--len]))
-				value[len] = '\0';
-			count = udev_util_replace_chars(value, UDEV_ALLOWED_CHARS_INPUT);
+			if (value != vbuf)
+				util_strscpy(vbuf, sizeof(vbuf), value);
+			len = strlen(vbuf);
+			while (len > 0 && isspace(vbuf[--len]))
+				vbuf[len] = '\0';
+			count = udev_util_replace_chars(vbuf, UDEV_ALLOWED_CHARS_INPUT);
 			if (count > 0)
 				info(event->udev, "%i character(s) replaced\n" , count);
-			l = util_strpcpy(&s, l, value);
-			dbg(event->udev, "substitute sysfs value '%s'\n", value);
+			l = util_strpcpy(&s, l, vbuf);
+			dbg(event->udev, "substitute sysfs value '%s'\n", vbuf);
 			break;
 		}
 		case SUBST_PARENT: {
