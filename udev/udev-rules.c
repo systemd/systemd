@@ -105,6 +105,13 @@ enum string_glob_type {
 	GL_SOMETHING,			/* commonly used "?*" */
 };
 
+enum string_subst_type {
+	SB_UNSET,
+	SB_NONE,
+	SB_FORMAT,
+	SB_SUBSYS,
+};
+
 /* tokens of a rule are sorted/handled in this order */
 enum token_type {
 	TK_UNSET,
@@ -167,7 +174,7 @@ struct token {
 		unsigned char type;		/* same as in rule and key */
 		struct {
 			enum token_type type:8;
-			unsigned char flags;
+			unsigned int flags:8;
 			unsigned short token_count;
 			unsigned int label_off;
 			unsigned short filename_off;
@@ -177,7 +184,8 @@ struct token {
 			enum token_type type:8;
 			enum operation_type op:8;
 			enum string_glob_type glob:8;
-			unsigned char flags;
+			enum string_subst_type subst:4;
+			enum string_subst_type attrsubst:4;
 			unsigned int value_off;
 			union {
 				unsigned int attr_off;
@@ -973,8 +981,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 			const char *value, const void *data)
 {
 	struct token *token = &rule_tmp->token[rule_tmp->token_cur];
-	const char *attr = data;
-	enum string_glob_type glob;
+	const char *attr = NULL;
 
 	memset(token, 0x00, sizeof(struct token));
 
@@ -1008,6 +1015,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 	case TK_M_ATTRS:
 	case TK_A_ATTR:
 	case TK_A_ENV:
+		attr = data;
 		token->key.value_off = add_string(rule_tmp->rules, value);
 		token->key.attr_off = add_string(rule_tmp->rules, attr);
 		break;
@@ -1053,15 +1061,14 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 		return -1;
 	}
 
-	glob = GL_PLAIN;
 	if (value != NULL && type < TK_M_MAX) {
 		/* check if we need to split or call fnmatch() while matching rules */
+		enum string_glob_type glob;
 		int has_split;
 		int has_glob;
 
 		has_split = (strchr(value, '|') != NULL);
-		has_glob = (strchr(value, '*') != NULL || strchr(value, '?') != NULL ||
-			    strchr(value, '[') != NULL || strchr(value, ']') != NULL);
+		has_glob = (strchr(value, '*') != NULL || strchr(value, '?') != NULL || strchr(value, '[') != NULL);
 		if (has_split && has_glob) {
 			glob = GL_SPLIT_GLOB;
 		} else if (has_split) {
@@ -1071,12 +1078,34 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 				glob = GL_SOMETHING;
 			else
 				glob = GL_GLOB;
+		} else {
+			glob = GL_PLAIN;
 		}
+		token->key.glob = glob;
+	}
+
+	if (value != NULL && type > TK_M_MAX) {
+		/* check if assigned value has substitution chars */
+		if (value[0] == '[')
+			token->key.subst = SB_SUBSYS;
+		else if (strchr(value, '%') != NULL || strchr(value, '$') != NULL)
+			token->key.subst = SB_FORMAT;
+		else
+			token->key.subst = SB_NONE;
+	}
+
+	if (attr != NULL) {
+		/* check if property/attribut name has substitution chars */
+		if (attr[0] == '[')
+			token->key.attrsubst = SB_SUBSYS;
+		else if (strchr(attr, '%') != NULL || strchr(attr, '$') != NULL)
+			token->key.attrsubst = SB_FORMAT;
+		else
+			token->key.attrsubst = SB_NONE;
 	}
 
 	token->key.type = type;
 	token->key.op = op;
-	token->key.glob = glob;
 	rule_tmp->token_cur++;
 	if (rule_tmp->token_cur >= ARRAY_SIZE(rule_tmp->token)) {
 		err(rule_tmp->rules->udev, "temporary rule array too small\n");
@@ -1911,35 +1940,51 @@ static int match_key(struct udev_rules *rules, struct token *token, const char *
 
 static int match_attr(struct udev_rules *rules, struct udev_device *dev, struct udev_event *event, struct token *cur)
 {
-	const char *key_name = &rules->buf[cur->key.attr_off];
-	const char *key_value = &rules->buf[cur->key.value_off];
-	char value[UTIL_NAME_SIZE];
+	const char *name;
+	char nbuf[UTIL_NAME_SIZE];
+	const char *value;
+	char vbuf[UTIL_NAME_SIZE];
 	size_t len;
 
-	value[0] = '\0';
-	if (key_name[0] == '[') {
-		char attr[UTIL_PATH_SIZE];
-
-		util_strscpy(attr, sizeof(attr), key_name);
-		util_resolve_subsys_kernel(event->udev, attr, value, sizeof(value), 1);
-	}
-	if (value[0] == '\0') {
-		const char *val;
-
-		val = udev_device_get_sysattr_value(dev, key_name);
-		if (val == NULL)
+	name = &rules->buf[cur->key.attr_off];
+	switch (cur->key.attrsubst) {
+	case SB_FORMAT:
+		udev_event_apply_format(event, name, nbuf, sizeof(nbuf));
+		name = nbuf;
+		/* fall through */
+	case SB_NONE:
+		value = udev_device_get_sysattr_value(dev, name);
+		if (value == NULL)
 			return -1;
-		util_strscpy(value, sizeof(value), val);
+		break;
+	case SB_SUBSYS:
+		if (util_resolve_subsys_kernel(event->udev, name, vbuf, sizeof(vbuf), 1) != 0)
+			return -1;
+		value = vbuf;
+		break;
+	default:
+		return -1;
 	}
 
-	/* strip trailing whitespace of value, if not asked to match for it */
-	len = strlen(key_value);
-	if (len > 0 && !isspace(key_value[len-1])) {
-		len = strlen(value);
-		while (len > 0 && isspace(value[--len]))
-			value[len] = '\0';
-		dbg(rules->udev, "removed trailing whitespace from '%s'\n", value);
+	/* remove trailing whitespace, if not asked to match for it */
+	len = strlen(value);
+	if (len > 0 && isspace(value[len-1])) {
+		const char *key_value;
+		size_t klen;
+
+		key_value = &rules->buf[cur->key.value_off];
+		klen = strlen(key_value);
+		if (klen > 0 && !isspace(key_value[klen-1])) {
+			if (value != vbuf) {
+				util_strscpy(vbuf, sizeof(vbuf), value);
+				value = vbuf;
+			}
+			while (len > 0 && isspace(vbuf[--len]))
+				vbuf[len] = '\0';
+			dbg(rules->udev, "removed trailing whitespace from '%s'\n", value);
+		}
 	}
+
 	return match_key(rules, cur, value);
 }
 
