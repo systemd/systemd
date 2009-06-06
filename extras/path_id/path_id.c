@@ -190,6 +190,7 @@ static struct udev_device *handle_scsi_lun(struct udev_device *parent, char **pa
 	/* firewire */
 	id = udev_device_get_sysattr_value(parent, "ieee1394_id");
 	if (id != NULL) {
+		parent = skip_subsystem(parent, "scsi");
 		path_prepend(path, "ieee1394-0x%s", id);
 		goto out;
 	}
@@ -208,11 +209,13 @@ static struct udev_device *handle_scsi_lun(struct udev_device *parent, char **pa
 		goto out;
 	}
 
+	/* iSCSI */
 	if (strstr(name, "/session") != NULL) {
 		parent = handle_iscsi(parent, path);
 		goto out;
 	}
 
+	/* default */
 	parent = handle_scsi(parent, path);
 out:
 	return parent;
