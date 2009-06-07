@@ -34,7 +34,7 @@ static void print_help(void)
 		"  --stop-exec-queue        keep udevd from executing events, queue only\n"
 		"  --start-exec-queue       execute events, flush queue\n"
 		"  --reload-rules           reloads the rules files\n"
-		"  --env=<KEY>=<value>      set a global environment variable\n"
+		"  --property=<KEY>=<value> set a global property for all events\n"
 		"  --max-childs=<N>         maximum number of childs\n"
 		"  --help                   print this help text\n\n");
 }
@@ -54,7 +54,8 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 		{ "start_exec_queue", no_argument, NULL, 'S' + 256},
 		{ "reload-rules", no_argument, NULL, 'R' },
 		{ "reload_rules", no_argument, NULL, 'R' + 256},
-		{ "env", required_argument, NULL, 'e' },
+		{ "property", required_argument, NULL, 'p' },
+		{ "env", required_argument, NULL, 'p' },
 		{ "max-childs", required_argument, NULL, 'm' },
 		{ "max_childs", required_argument, NULL, 'm' + 256},
 		{ "help", no_argument, NULL, 'h' },
@@ -75,7 +76,7 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 		int i;
 		char *endp;
 
-		option = getopt_long(argc, argv, "l:sSRe:m:M:h", options, NULL);
+		option = getopt_long(argc, argv, "l:sSRp:m:M:h", options, NULL);
 		if (option == -1)
 			break;
 
@@ -112,7 +113,7 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 			udev_ctrl_send_reload_rules(uctrl);
 			rc = 0;
 			break;
-		case 'e':
+		case 'p':
 			if (strchr(optarg, '=') == NULL) {
 				fprintf(stderr, "expect <KEY>=<valaue> instead of '%s'\n", optarg);
 				goto exit;

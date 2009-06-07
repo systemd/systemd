@@ -298,9 +298,9 @@
               </listitem>
             </varlistentry>
             <varlistentry>
-              <term><option>--env=<replaceable>KEY</replaceable>=<replaceable>value</replaceable></option></term>
+              <term><option>--property=<replaceable>KEY</replaceable>=<replaceable>value</replaceable></option></term>
               <listitem>
-                <para>Set global variable.</para>
+                <para>Set a global property for all events.</para>
               </listitem>
             </varlistentry>
             <varlistentry>
