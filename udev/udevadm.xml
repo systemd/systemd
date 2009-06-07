@@ -90,7 +90,7 @@
                 <option>--path</option> or <option>--name</option> to identify the specified
                 device. Valid queries are:
                 <command>name</command>, <command>symlink</command>, <command>path</command>,
-                <command>env</command>, <command>all</command>.</para>
+                <command>property</command>, <command>all</command>.</para>
               </listitem>
             </varlistentry>
             <varlistentry>

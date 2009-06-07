@@ -221,7 +221,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 	static const struct option options[] = {
 		{ "name", required_argument, NULL, 'n' },
 		{ "path", required_argument, NULL, 'p' },
-		{ "query", required_argument, NULL, 'q' },
+		{ "query", optional_argument, NULL, 'q' },
 		{ "attribute-walk", no_argument, NULL, 'a' },
 		{ "export-db", no_argument, NULL, 'e' },
 		{ "root", no_argument, NULL, 'r' },
@@ -246,7 +246,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		QUERY_NAME,
 		QUERY_PATH,
 		QUERY_SYMLINK,
-		QUERY_ENV,
+		QUERY_PROPERTY,
 		QUERY_ALL,
 	} query = QUERY_NONE;
 
@@ -254,7 +254,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		int option;
 		struct stat statbuf;
 
-		option = getopt_long(argc, argv, "aed:n:p:q:rxPVh", options, NULL);
+		option = getopt_long(argc, argv, "aed:n:p:q::rxPVh", options, NULL);
 		if (option == -1)
 			break;
 
@@ -317,29 +317,22 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 			break;
 		case 'q':
 			action = ACTION_QUERY;
-			if (strcmp(optarg, "name") == 0) {
+			if (optarg == NULL || strcmp(optarg, "property") == 0 || strcmp(optarg, "env") == 0) {
+				query = QUERY_PROPERTY;
+			} else if (strcmp(optarg, "name") == 0) {
 				query = QUERY_NAME;
-				break;
-			}
-			if (strcmp(optarg, "symlink") == 0) {
+			} else if (strcmp(optarg, "symlink") == 0) {
 				query = QUERY_SYMLINK;
-				break;
-			}
-			if (strcmp(optarg, "path") == 0) {
+			} else if (strcmp(optarg, "path") == 0) {
 				query = QUERY_PATH;
-				break;
-			}
-			if (strcmp(optarg, "env") == 0) {
-				query = QUERY_ENV;
-				break;
-			}
-			if (strcmp(optarg, "all") == 0) {
+			} else if (strcmp(optarg, "all") == 0) {
 				query = QUERY_ALL;
-				break;
+			} else {
+				fprintf(stderr, "unknown query type\n");
+				rc = 3;
+				goto exit;
 			}
-			fprintf(stderr, "unknown query type\n");
-			rc = 3;
-			goto exit;
+			break;
 		case 'r':
 			if (action == ACTION_NONE)
 				action = ACTION_ROOT;
@@ -370,7 +363,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 			       "      name                     name of device node\n"
 			       "      symlink                  pointing to node\n"
 			       "      path                     sys device path\n"
-			       "      env                      the device related imported environment\n"
+			       "      property                 the device properties\n"
 			       "      all                      all values\n"
 			       "  --path=<syspath>           sys device path used for query or attribute walk\n"
 			       "  --name=<name>              node or symlink name used for query or attribute walk\n"
@@ -432,7 +425,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		case QUERY_PATH:
 			printf("%s\n", udev_device_get_devpath(device));
 			goto exit;
-		case QUERY_ENV:
+		case QUERY_PROPERTY:
 			list_entry = udev_device_get_properties_list_entry(device);
 			while (list_entry != NULL) {
 				printf("%s=%s\n", udev_list_entry_get_name(list_entry), udev_list_entry_get_value(list_entry));
