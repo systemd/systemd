@@ -213,7 +213,7 @@
             <varlistentry>
               <term><option>--property-match=<replaceable>property</replaceable>=<replaceable>value</replaceable></option></term>
               <listitem>
-                <para>Trigger events for devices with a matching propery value. This option can be
+                <para>Trigger events for devices with a matching property value. This option can be
                 specified multiple times and supports shell style pattern matching.</para>
               </listitem>
             </varlistentry>
@@ -326,13 +326,6 @@
           </para>
           <variablelist>
             <varlistentry>
-              <term><option>--environment</option></term>
-              <listitem>
-                <para>Print the complete environment for all events. Can be used to compare the
-                kernel supplied and the udev added environment values.</para>
-              </listitem>
-            </varlistentry>
-            <varlistentry>
               <term><option>--kernel</option></term>
               <listitem>
                 <para>Print the kernel uevents.</para>
@@ -342,6 +335,12 @@
               <term><option>--udev</option></term>
               <listitem>
                 <para>Print the udev event after the rule processing.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>--property</option></term>
+              <listitem>
+                <para>Also print the properties of the event.</para>
               </listitem>
             </varlistentry>
             <varlistentry>

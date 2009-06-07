@@ -41,7 +41,7 @@ static void sig_handler(int signum)
 		udev_exit = 1;
 }
 
-static void print_device(struct udev_device *device, const char *source, int env)
+static void print_device(struct udev_device *device, const char *source, int prop)
 {
 	struct timeval tv;
 	struct timezone tz;
@@ -53,7 +53,7 @@ static void print_device(struct udev_device *device, const char *source, int env
 	       udev_device_get_action(device),
 	       udev_device_get_devpath(device),
 	       udev_device_get_subsystem(device));
-	if (env) {
+	if (prop) {
 		struct udev_list_entry *list_entry;
 
 		udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(device))
@@ -68,7 +68,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 {
 	struct sigaction act;
 	int option;
-	int env = 0;
+	int prop = 0;
 	int print_kernel = 0;
 	int print_udev = 0;
 	struct udev_list_node subsystem_match_list;
@@ -78,6 +78,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 	int rc = 0;
 
 	static const struct option options[] = {
+		{ "property", no_argument, NULL, 'p' },
 		{ "environment", no_argument, NULL, 'e' },
 		{ "kernel", no_argument, NULL, 'k' },
 		{ "udev", no_argument, NULL, 'u' },
@@ -88,13 +89,14 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 
 	udev_list_init(&subsystem_match_list);
 	while (1) {
-		option = getopt_long(argc, argv, "ekus:h", options, NULL);
+		option = getopt_long(argc, argv, "epkus:h", options, NULL);
 		if (option == -1)
 			break;
 
 		switch (option) {
+		case 'p':
 		case 'e':
-			env = 1;
+			prop = 1;
 			break;
 		case 'k':
 			print_kernel = 1;
@@ -117,8 +119,8 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 				break;
 			}
 		case 'h':
-			printf("Usage: udevadm monitor [--environment] [--kernel] [--udev] [--help]\n"
-			       "  --env                         print the whole event environment\n"
+			printf("Usage: udevadm monitor [--property] [--kernel] [--udev] [--help]\n"
+			       "  --property                    print the event properties\n"
 			       "  --kernel                      print kernel uevents\n"
 			       "  --udev                        print udev events\n"
 			       "  --subsystem-match=<subsystem> filter events\n"
@@ -216,7 +218,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			device = udev_monitor_receive_device(kernel_monitor);
 			if (device == NULL)
 				continue;
-			print_device(device, "KERNEL", env);
+			print_device(device, "KERNEL", prop);
 			udev_device_unref(device);
 		}
 
@@ -226,7 +228,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			device = udev_monitor_receive_device(udev_monitor);
 			if (device == NULL)
 				continue;
-			print_device(device, "UDEV", env);
+			print_device(device, "UDEV", prop);
 			udev_device_unref(device);
 		}
 	}
