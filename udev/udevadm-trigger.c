@@ -75,6 +75,20 @@ static int scan_failed(struct udev_enumerate *udev_enumerate)
 	return 0;
 }
 
+static const char *keyval(const char *str, const char **val, char *buf, size_t size)
+{
+	char *pos;
+
+	util_strscpy(buf, size,str);
+	pos = strchr(buf, '=');
+	if (pos != NULL) {
+		pos[0] = 0;
+		pos++;
+	}
+	*val = pos;
+	return buf;
+}
+
 int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 {
 	static const struct option options[] = {
@@ -87,6 +101,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 		{ "subsystem-nomatch", required_argument, NULL, 'S' },
 		{ "attr-match", required_argument, NULL, 'a' },
 		{ "attr-nomatch", required_argument, NULL, 'A' },
+		{ "property-match", required_argument, NULL, 'p' },
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
@@ -108,10 +123,11 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 
 	while (1) {
 		int option;
-		char attr[UTIL_PATH_SIZE];
-		char *val;
+		const char *key;
+		const char *val;
+		char buf[UTIL_PATH_SIZE];
 
-		option = getopt_long(argc, argv, "vnFo:t:hce::s:S:a:A:", options, NULL);
+		option = getopt_long(argc, argv, "vnFo:t:hcp:s:S:a:A:", options, NULL);
 		if (option == -1)
 			break;
 
@@ -149,22 +165,16 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 			udev_enumerate_add_nomatch_subsystem(udev_enumerate, optarg);
 			break;
 		case 'a':
-			util_strscpy(attr, sizeof(attr), optarg);
-			val = strchr(attr, '=');
-			if (val != NULL) {
-				val[0] = 0;
-				val = &val[1];
-			}
-			udev_enumerate_add_match_sysattr(udev_enumerate, attr, val);
+			key = keyval(optarg, &val, buf, sizeof(buf));
+			udev_enumerate_add_match_sysattr(udev_enumerate, key, val);
 			break;
 		case 'A':
-			util_strscpy(attr, sizeof(attr), optarg);
-			val = strchr(attr, '=');
-			if (val != NULL) {
-				val[0] = 0;
-				val = &val[1];
-			}
-			udev_enumerate_add_nomatch_sysattr(udev_enumerate, attr, val);
+			key = keyval(optarg, &val, buf, sizeof(buf));
+			udev_enumerate_add_nomatch_sysattr(udev_enumerate, key, val);
+			break;
+		case 'p':
+			key = keyval(optarg, &val, buf, sizeof(buf));
+			udev_enumerate_add_match_property(udev_enumerate, key, val);
 			break;
 		case 'h':
 			printf("Usage: udevadm trigger OPTIONS\n"
@@ -180,6 +190,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 			       "  --subsystem-nomatch=<subsystem> exclude devices from a matching subystem\n"
 			       "  --attr-match=<file[=<value>]>   trigger devices with a matching attribute\n"
 			       "  --attr-nomatch=<file[=<value>]> exclude devices with a matching attribute\n"
+			       "  --property-match=<key>=<value>  trigger devices with a matching property\n"
 			       "  --help\n\n");
 			goto exit;
 		default:
