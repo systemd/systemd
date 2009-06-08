@@ -47,8 +47,6 @@ KERNEL=="mspblk[0-9]", SUBSYSTEMS=="memstick", ATTRS{name}=="?*", ATTRS{serial}=
 KERNEL=="mspblk[0-9]p[0-9]", ENV{ID_NAME}=="?*", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/memstick-$env{ID_NAME}_$env{ID_SERIAL}-part%n"
 
 # by-path (parent device path)
-# old shell script for sas, ide
-ENV{DEVTYPE}=="disk", DEVPATH=="*/end_device-*|*/ide[0-9]*", IMPORT{program}="path_id.sh %p"
 ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="", DEVPATH!="*/virtual/*", IMPORT{program}="path_id %p"
 ENV{DEVTYPE}=="disk", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}"
 ENV{DEVTYPE}=="partition", ENV{ID_PATH}=="?*", SYMLINK+="disk/by-path/$env{ID_PATH}-part%n"
