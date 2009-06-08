@@ -74,7 +74,7 @@ const char *udev_device_get_action(struct udev_device *udev_device);
 unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device);
 const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const char *sysattr);
 
-/* udev and kernel device events */
+/* device events */
 struct udev_monitor;
 struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char *name);
 struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path);

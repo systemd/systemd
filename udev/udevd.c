@@ -159,6 +159,7 @@ static void event_queue_delete(struct event *event)
 	else
 		udev_queue_export_device_finished(udev_queue_export, event->dev);
 
+	info(event->udev, "seq %llu done with %i\n", udev_device_get_seqnum(event->dev), event->exitcode);
 	udev_device_unref(event->dev);
 	free(event);
 }
@@ -271,7 +272,7 @@ static void worker_new(struct event *event)
 			/* send processed event back to libudev listeners */
 			udev_monitor_send_device(worker_monitor, NULL, dev);
 
-			info(event->udev, "seq %llu finished with %i\n", udev_device_get_seqnum(dev), err);
+			info(event->udev, "seq %llu processed with %i\n", udev_device_get_seqnum(dev), err);
 			udev_device_unref(dev);
 			udev_event_unref(udev_event);
 
@@ -617,7 +618,7 @@ static int handle_inotify(struct udev *udev)
 
 	buf = malloc(nbytes);
 	if (buf == NULL) {
-		err(udev, "error getting buffer for inotify, disable watching\n");
+		err(udev, "error getting buffer for inotify\n");
 		return -1;
 	}
 
@@ -659,7 +660,7 @@ static int handle_inotify(struct udev *udev)
 	return 0;
 }
 
-static void handle_signal(int signo)
+static void handle_signal(struct udev *udev, int signo)
 {
 	switch (signo) {
 	case SIGINT:
@@ -669,9 +670,10 @@ static void handle_signal(int signo)
 	case SIGCHLD:
 		while (1) {
 			pid_t pid;
+			int status;
 			struct udev_list_node *loop, *tmp;
 
-			pid = waitpid(-1, NULL, WNOHANG);
+			pid = waitpid(-1, &status, WNOHANG);
 			if (pid <= 0)
 				break;
 
@@ -683,7 +685,16 @@ static void handle_signal(int signo)
 
 				/* fail event, if worker died unexpectedly */
 				if (worker->event != NULL) {
-					worker->event->exitcode = 127;
+					int exitcode;
+
+					if (WIFEXITED(status))
+						exitcode = WEXITSTATUS(status);
+					else if (WIFSIGNALED(status))
+						exitcode = WTERMSIG(status) + 128;
+					else
+						exitcode = 0;
+					worker->event->exitcode = exitcode;
+					err(udev, "worker [%u] unexpectedly returned with %i\n", pid, exitcode);
 					event_queue_delete(worker->event);
 				}
 
@@ -938,9 +949,9 @@ int main(int argc, char *argv[])
 
 	/* OOM_DISABLE == -17 */
 	fd = open("/proc/self/oom_adj", O_RDWR);
-	if (fd < 0)
+	if (fd < 0) {
 		err(udev, "error disabling OOM: %m\n");
-	else {
+	} else {
 		write(fd, "-17", 3);
 		close(fd);
 	}
@@ -1010,7 +1021,7 @@ int main(int argc, char *argv[])
 
 			size = read(pfd[FD_SIGNAL].fd, &fdsi, sizeof(struct signalfd_siginfo));
 			if (size == sizeof(struct signalfd_siginfo))
-				handle_signal(fdsi.ssi_signo);
+				handle_signal(udev, fdsi.ssi_signo);
 		}
 
 		/* device node and rules directory inotify watch */
