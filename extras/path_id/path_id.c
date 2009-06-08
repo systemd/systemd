@@ -89,52 +89,7 @@ static struct udev_device *skip_subsystem(struct udev_device *dev, const char *s
 	return dev;
 }
 
-/* find smallest number of instances of <syspath>/<name><number> */
-static int base_number(const char *syspath, const char *name)
-{
-	char *base;
-	char *pos;
-	DIR *dir;
-	struct dirent *dent;
-	size_t len;
-	int number = -1;
-
-	base = strdup(syspath);
-	if (base == NULL)
-		goto out;
-
-	pos = strrchr(base, '/');
-	if (pos == NULL)
-		goto out;
-	pos[0] = '\0';
-
-	len = strlen(name);
-	dir = opendir(base);
-	if (dir == NULL)
-		goto out;
-	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
-		char *rest;
-		int i;
-
-		if (dent->d_name[0] == '.')
-			continue;
-		if (dent->d_type != DT_DIR && dent->d_type != DT_LNK)
-			continue;
-		if (strncmp(dent->d_name, name, len) != 0)
-			continue;
-		i = strtoul(&dent->d_name[len], &rest, 10);
-		if (rest[0] != '\0')
-			continue;
-		if (number == -1 || i < number)
-			number = i;
-	}
-	closedir(dir);
-out:
-	free(base);
-	return number;
-}
-
-static struct udev_device *handle_fc(struct udev_device *parent, char **path)
+static struct udev_device *handle_scsi_fibre_channel(struct udev_device *parent, char **path)
 {
 	struct udev *udev  = udev_device_get_udev(parent);
 	struct udev_device *targetdev;
@@ -162,12 +117,12 @@ out:
 	return parent;
 }
 
-static struct udev_device *handle_sas(struct udev_device *parent, char **path)
+static struct udev_device *handle_scsi_sas(struct udev_device *parent, char **path)
 {
 	return NULL;
 }
 
-static struct udev_device *handle_iscsi(struct udev_device *parent, char **path)
+static struct udev_device *handle_scsi_iscsi(struct udev_device *parent, char **path)
 {
 	struct udev *udev  = udev_device_get_udev(parent);
 	struct udev_device *transportdev;
@@ -178,7 +133,7 @@ static struct udev_device *handle_iscsi(struct udev_device *parent, char **path)
 	const char *addr;
 	const char *port;
 
-	/* find iscsi session */	
+	/* find iscsi session */
 	transportdev = parent;
 	while (1) {
 		transportdev = udev_device_get_parent(transportdev);
@@ -224,32 +179,71 @@ out:
 	return parent;
 }
 
-static struct udev_device *handle_scsi(struct udev_device *parent, char **path)
+static struct udev_device *handle_scsi_default(struct udev_device *parent, char **path)
 {
 	struct udev_device *hostdev;
 	int host, bus, target, lun;
 	const char *name;
-	int base;
+	char *base;
+	char *pos;
+	DIR *dir;
+	struct dirent *dent;
+	int basenum;
 
 	hostdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_host");
 	if (hostdev == NULL)
-		return parent;
+		return NULL;
 
 	name = udev_device_get_sysname(parent);
 	if (sscanf(name, "%d:%d:%d:%d", &host, &bus, &target, &lun) != 4)
-		return parent;
+		return NULL;
 
 	/* rebase host offset to get the local relative number */
-	base = base_number(udev_device_get_syspath(hostdev), "host");
-	if (base < 0)
-		return parent;
-	host -= base;
+	basenum = -1;
+	base = strdup(udev_device_get_syspath(hostdev));
+	if (base == NULL)
+		return NULL;
+	pos = strrchr(base, '/');
+	if (pos == NULL) {
+		parent = NULL;
+		goto out;
+	}
+	pos[0] = '\0';
+	dir = opendir(base);
+	if (dir == NULL) {
+		parent = NULL;
+		goto out;
+	}
+	for (dent = readdir(dir); dent != NULL; dent = readdir(dir)) {
+		char *rest;
+		int i;
+
+		if (dent->d_name[0] == '.')
+			continue;
+		if (dent->d_type != DT_DIR && dent->d_type != DT_LNK)
+			continue;
+		if (strncmp(dent->d_name, "host", 4) != 0)
+			continue;
+		i = strtoul(&dent->d_name[4], &rest, 10);
+		if (rest[0] != '\0')
+			continue;
+		if (basenum == -1 || i < basenum)
+			basenum = i;
+	}
+	closedir(dir);
+	if (basenum == -1) {
+		parent = NULL;
+		goto out;
+	}
+	host -= basenum;
 
 	path_prepend(path, "scsi-%u:%u:%u:%u", host, bus, target, lun);
+out:
+	free(base);
 	return hostdev;
 }
 
-static struct udev_device *handle_scsi_lun(struct udev_device *parent, char **path)
+static struct udev_device *handle_scsi(struct udev_device *parent, char **path)
 {
 	const char *devtype;
 	const char *name;
@@ -267,29 +261,25 @@ static struct udev_device *handle_scsi_lun(struct udev_device *parent, char **pa
 		goto out;
 	}
 
-	/* broken scsi transport devices would need a subsystem */
+	/* lousy scsi sysfs does not have a "subsystem" for the transport */
 	name = udev_device_get_syspath(parent);
 
-	/* fibre channel */
 	if (strstr(name, "/rport-") != NULL) {
-		parent = handle_fc(parent, path);
+		parent = handle_scsi_fibre_channel(parent, path);
 		goto out;
 	}
 
-	/* sas */
 	if (strstr(name, "/end_device-") != NULL) {
-		parent = handle_sas(parent, path);
+		parent = handle_scsi_sas(parent, path);
 		goto out;
 	}
 
-	/* iSCSI */
 	if (strstr(name, "/session") != NULL) {
-		parent = handle_iscsi(parent, path);
+		parent = handle_scsi_iscsi(parent, path);
 		goto out;
 	}
 
-	/* default */
-	parent = handle_scsi(parent, path);
+	parent = handle_scsi_default(parent, path);
 out:
 	return parent;
 }
@@ -439,7 +429,7 @@ int main(int argc, char **argv)
 		} else if (strcmp(subsys, "scsi_tape") == 0) {
 			handle_scsi_tape(parent, &path_suffix);
 		} else if (strcmp(subsys, "scsi") == 0) {
-			parent = handle_scsi_lun(parent, &path);
+			parent = handle_scsi(parent, &path);
 		} else if (strcmp(subsys, "cciss") == 0) {
 			handle_cciss(parent, &path);
 		} else if (strcmp(subsys, "usb") == 0) {
