@@ -137,28 +137,18 @@ out:
 static struct udev_device *handle_fc(struct udev_device *parent, char **path)
 {
 	struct udev *udev  = udev_device_get_udev(parent);
-	struct udev_device *targetdev = NULL;
-	char *syspath = NULL;
-	struct udev_device *fcdev;
+	struct udev_device *targetdev;
+	struct udev_device *fcdev = NULL;
 	const char *port;
 	unsigned int lun;
 
 	targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target");
-	if (targetdev == NULL) {
-		parent = NULL;
-		goto out;
-	}
+	if (targetdev == NULL)
+		return NULL;
 
-	if (asprintf(&syspath, "%s/fc_transport/%s", udev_device_get_syspath(targetdev), udev_device_get_sysname(targetdev)) < 0) {
-		parent = NULL;
-		goto out;
-	}
-	fcdev = udev_device_new_from_syspath(udev, syspath);
-	if (fcdev == NULL) {
-		parent = NULL;
-		goto out;
-	}
-
+	fcdev = udev_device_new_from_subsystem_sysname(udev, "fc_transport", udev_device_get_sysname(targetdev));
+	if (fcdev == NULL)
+		return NULL;
 	port = udev_device_get_sysattr_value(fcdev, "port_name");
 	if (port == NULL) {
 		parent = NULL;
@@ -168,20 +158,69 @@ static struct udev_device *handle_fc(struct udev_device *parent, char **path)
 	lun = strtoul(udev_device_get_sysnum(parent), NULL, 10);
 	path_prepend(path, "fc-%s:0x%04x%04x00000000", port, lun & 0xffff, (lun >> 16) & 0xffff);
 out:
-	free(syspath);
 	udev_device_unref(fcdev);
 	return parent;
 }
 
 static struct udev_device *handle_sas(struct udev_device *parent, char **path)
 {
-	path_prepend(path, "sas-PATH_ID_NOT_IMPLEMENTED");
-	return parent;
+	return NULL;
 }
 
 static struct udev_device *handle_iscsi(struct udev_device *parent, char **path)
 {
-	path_prepend(path, "ip-PATH_ID_NOT_IMPLEMENTED");
+	struct udev *udev  = udev_device_get_udev(parent);
+	struct udev_device *transportdev;
+	struct udev_device *sessiondev = NULL;
+	const char *target;
+	char *connname;
+	struct udev_device *conndev = NULL;
+	const char *addr;
+	const char *port;
+
+	/* find iscsi session */	
+	transportdev = parent;
+	while (1) {
+		transportdev = udev_device_get_parent(transportdev);
+		if (transportdev == NULL)
+			return NULL;
+		if (strncmp(udev_device_get_sysname(transportdev), "session", 7) == 0)
+			break;
+	}
+	if (transportdev == NULL)
+		return NULL;
+
+	/* find iscsi session device */
+	sessiondev = udev_device_new_from_subsystem_sysname(udev, "iscsi_session", udev_device_get_sysname(transportdev));
+	if (sessiondev == NULL)
+		return NULL;
+	target = udev_device_get_sysattr_value(sessiondev, "targetname");
+	if (target == NULL) {
+		parent = NULL;
+		goto out;
+	}
+
+	if (asprintf(&connname, "connection%s:0", udev_device_get_sysnum(transportdev)) < 0) {
+		parent = NULL;
+		goto out;
+	}
+	conndev = udev_device_new_from_subsystem_sysname(udev, "iscsi_connection", connname);
+	free(connname);
+	if (conndev == NULL) {
+		parent = NULL;
+		goto out;
+	}
+	addr = udev_device_get_sysattr_value(conndev, "persistent_address");
+	port = udev_device_get_sysattr_value(conndev, "persistent_port");
+	if (addr == NULL || port == NULL) {
+		parent = NULL;
+		goto out;
+	}
+
+	path_prepend(path, "ip-%s:%s-iscsi-%s-lun-%s", addr, port, target, udev_device_get_sysnum(parent));
+out:
+	udev_device_unref(sessiondev);
+	udev_device_unref(conndev);
 	return parent;
 }
 
@@ -228,6 +267,7 @@ static struct udev_device *handle_scsi_lun(struct udev_device *parent, char **pa
 		goto out;
 	}
 
+	/* broken scsi transport devices would need a subsystem */
 	name = udev_device_get_syspath(parent);
 
 	/* fibre channel */
@@ -288,8 +328,7 @@ static struct udev_device *handle_usb(struct udev_device *parent, char **path)
 
 static struct udev_device *handle_cciss(struct udev_device *parent, char **path)
 {
-	path_prepend(path, "cciss-PATH_ID_NOT_IMPLEMENTED");
-	return parent;
+	return NULL;
 }
 
 static struct udev_device *handle_ccw(struct udev_device *parent, struct udev_device *dev, char **path)
