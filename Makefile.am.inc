@@ -1,6 +1,6 @@
 AM_CPPFLAGS = \
 	-include $(top_builddir)/config.h \
-	-I$(top_builddir)/libudev \
+	-I$(top_srcdir)/libudev \
 	-DSYSCONFDIR=\""$(sysconfdir)"\" \
 	-DUDEV_PREFIX=\""$(udev_prefix)"\"
 
