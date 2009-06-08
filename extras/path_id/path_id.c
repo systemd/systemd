@@ -136,7 +136,40 @@ out:
 
 static struct udev_device *handle_fc(struct udev_device *parent, char **path)
 {
-	path_prepend(path, "fc-PATH_ID_NOT_IMPLEMENTED");
+	struct udev *udev  = udev_device_get_udev(parent);
+	struct udev_device *targetdev = NULL;
+	char *syspath = NULL;
+	struct udev_device *fcdev;
+	const char *port;
+	unsigned int lun;
+
+	targetdev = udev_device_get_parent_with_subsystem_devtype(parent, "scsi", "scsi_target");
+	if (targetdev == NULL) {
+		parent = NULL;
+		goto out;
+	}
+
+	if (asprintf(&syspath, "%s/fc_transport/%s", udev_device_get_syspath(targetdev), udev_device_get_sysname(targetdev)) < 0) {
+		parent = NULL;
+		goto out;
+	}
+	fcdev = udev_device_new_from_syspath(udev, syspath);
+	if (fcdev == NULL) {
+		parent = NULL;
+		goto out;
+	}
+
+	port = udev_device_get_sysattr_value(fcdev, "port_name");
+	if (port == NULL) {
+		parent = NULL;
+		goto out;
+	}
+
+	lun = strtoul(udev_device_get_sysnum(parent), NULL, 10);
+	path_prepend(path, "fc-%s:0x%04x%04x00000000", port, lun & 0xffff, (lun >> 16) & 0xffff);
+out:
+	free(syspath);
+	udev_device_unref(fcdev);
 	return parent;
 }
 
