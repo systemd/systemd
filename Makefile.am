@@ -1,6 +1,7 @@
 include $(top_srcdir)/Makefile.am.inc
 
 SUBDIRS = \
+	libudev \
 	udev \
 	rules \
 	extras

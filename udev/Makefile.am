@@ -1,8 +1,5 @@
 include $(top_srcdir)/Makefile.am.inc
 
-SUBDIRS = \
-	lib
-
 sbin_PROGRAMS = \
 	udevd \
 	udevadm
@@ -19,18 +16,18 @@ common_files = \
 	udev-node.c \
 	udev-rules.c \
 	udev-util.c \
-	lib/libudev.h \
-	lib/libudev-private.h \
-	lib/libudev.c \
-	lib/libudev-list.c \
-	lib/libudev-util.c \
-	lib/libudev-device.c \
-	lib/libudev-device-db-write.c \
-	lib/libudev-monitor.c \
-	lib/libudev-enumerate.c \
-	lib/libudev-queue.c \
-	lib/libudev-queue-export.c \
-	lib/libudev-ctrl.c
+	../libudev/libudev.h \
+	../libudev/libudev-private.h \
+	../libudev/libudev.c \
+	../libudev/libudev-list.c \
+	../libudev/libudev-util.c \
+	../libudev/libudev-device.c \
+	../libudev/libudev-device-db-write.c \
+	../libudev/libudev-monitor.c \
+	../libudev/libudev-enumerate.c \
+	../libudev/libudev-queue.c \
+	../libudev/libudev-queue-export.c \
+	../libudev/libudev-ctrl.c
 
 if USE_SELINUX
 common_files += \

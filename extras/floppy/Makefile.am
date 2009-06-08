@@ -6,12 +6,12 @@ udevhome_PROGRAMS = \
 
 create_floppy_devices_SOURCES = \
 	create_floppy_devices.c \
-	../../udev/lib/libudev.h \
-	../../udev/lib/libudev.c \
-	../../udev/lib/libudev-list.c \
-	../../udev/lib/libudev-util.c \
-	../../udev/lib/libudev-device.c \
-	../../udev/lib/libudev-enumerate.c \
+	../../libudev/libudev.h \
+	../../libudev/libudev.c \
+	../../libudev/libudev-list.c \
+	../../libudev/libudev-util.c \
+	../../libudev/libudev-device.c \
+	../../libudev/libudev-enumerate.c \
 	../../udev/udev-util.c
 
 if USE_SELINUX

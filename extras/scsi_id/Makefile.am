@@ -10,10 +10,10 @@ scsi_id_SOURCES = \
 	scsi.h \
 	scsi_id.h \
 	bsg.h \
-	../../udev/lib/libudev.h \
-	../../udev/lib/libudev.c \
-	../../udev/lib/libudev-list.c \
-	../../udev/lib/libudev-util.c
+	../../libudev/libudev.h \
+	../../libudev/libudev.c \
+	../../libudev/libudev-list.c \
+	../../libudev/libudev-util.c
 
 dist_sysconf_DATA = \
 	scsi_id.config

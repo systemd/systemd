@@ -28,8 +28,8 @@
 #include <dirent.h>
 #include <getopt.h>
 
-#include <../../udev/lib/libudev.h>
-#include <../../udev/udev.h>
+#include "libudev.h"
+#include "../../udev/udev.h"
 
 int debug;
 
@@ -366,7 +366,7 @@ int main(int argc, char **argv)
 	if (udev == NULL)
 		goto exit;
 
-	logging_init("usb_id");
+	logging_init("path_id");
 	udev_set_log_fn(udev, log_fn);
 
 	while (1) {

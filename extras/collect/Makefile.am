@@ -6,7 +6,7 @@ udevhome_PROGRAMS = \
 
 collect_SOURCES = \
 	collect.c \
-	../../udev/lib/libudev-private.h \
-	../../udev/lib/libudev.c \
-	../../udev/lib/libudev-util.c \
-	../../udev/lib/libudev-list.c
+	../../libudev/libudev-private.h \
+	../../libudev/libudev.c \
+	../../libudev/libudev-util.c \
+	../../libudev/libudev-list.c

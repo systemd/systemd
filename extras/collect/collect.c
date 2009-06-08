@@ -31,8 +31,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include "../../udev/lib/libudev.h"
-#include "../../udev/lib/libudev-private.h"
+#include "libudev.h"
+#include "libudev-private.h"
 
 #define TMPFILE			UDEV_PREFIX "/dev/.udev/collect"
 #define BUFSIZE			16

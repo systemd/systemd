@@ -22,8 +22,8 @@
 #include <sys/types.h>
 #include <sys/param.h>
 
-#include "lib/libudev.h"
-#include "lib/libudev-private.h"
+#include "libudev.h"
+#include "libudev-private.h"
 
 #define DEFAULT_FAKE_PARTITIONS_COUNT		15
 #define UDEV_EVENT_TIMEOUT			180

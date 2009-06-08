@@ -10,8 +10,8 @@ dist_udevrules_DATA = \
 
 fstab_import_SOURCES = \
 	fstab_import.c \
-	../../udev/lib/libudev.h \
-	../../udev/lib/libudev.c \
-	../../udev/lib/libudev-list.c \
-	../../udev/lib/libudev-util.c
+	../../libudev/libudev.h \
+	../../libudev/libudev.c \
+	../../libudev/libudev-list.c \
+	../../libudev/libudev-util.c
 

@@ -16,11 +16,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-/* this will stay as long as the DeviceKit integration of udev is work in progress */
-#if !defined _LIBUDEV_COMPILATION && !defined LIBUDEV_I_KNOW_THE_API_IS_SUBJECT_TO_CHANGE
-#error "#define LIBUDEV_I_KNOW_THE_API_IS_SUBJECT_TO_CHANGE is needed to use this experimental library version"
-#endif
-
 /*
  * udev - library context
  * 
