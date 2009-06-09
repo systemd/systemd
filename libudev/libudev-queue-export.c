@@ -14,7 +14,6 @@
  * DISCLAIMER - The file format mentioned here is private to udev/libudev,
  *              and may be changed without notice.
  *
- *
  * The udev event queue is exported as a binary log file.
  * Each log record consists of a sequence number followed by the device path.
  *
@@ -30,7 +29,6 @@
  *
  * The queue does not grow indefinitely.  It is periodically re-created
  * to remove finished events.  Atomic rename() makes this transparent to readers.
- *
  *
  * The queue file starts with a single sequence number which specifies the
  * minimum sequence number in the log that follows.  Any events prior to this
@@ -48,7 +46,8 @@
 #include <sys/types.h>
 #include <assert.h>
 
-#include "udev.h"
+#include "libudev.h"
+#include "libudev-private.h"
 
 static int rebuild_queue_file(struct udev_queue_export *udev_queue_export);
 
@@ -107,7 +106,6 @@ void udev_queue_export_cleanup(struct udev_queue_export *udev_queue_export)
 	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_queue_export->udev), "/.udev/queue.bin", NULL);
 	unlink(filename);
 }
-
 
 static int skip_to(FILE *file, long offset)
 {
@@ -319,7 +317,6 @@ write_error:
 
 	return -1;
 }
-
 
 enum device_state {
 	DEVICE_QUEUED,

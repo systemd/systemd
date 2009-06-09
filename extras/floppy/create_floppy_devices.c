@@ -26,7 +26,6 @@
 
 #include "libudev.h"
 #include "libudev-private.h"
-#include "../../udev/udev.h"
 
 static char *table[] = {
 	"", "d360", "h1200", "u360", "u720", "h360", "h720",

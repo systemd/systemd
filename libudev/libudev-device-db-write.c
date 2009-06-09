@@ -18,7 +18,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "udev.h"
+#include "libudev.h"
+#include "libudev-private.h"
 
 static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *filename, size_t len)
 {

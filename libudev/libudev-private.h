@@ -16,6 +16,9 @@
 #include "libudev.h"
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+#define UDEV_MAX(a,b) ((a) > (b) ? (a) : (b))
+#define READ_END				0
+#define WRITE_END				1
 
 static inline void __attribute__((always_inline, format(printf, 2, 3)))
 udev_log_null(struct udev *udev, const char *format, ...) {}
@@ -182,7 +185,7 @@ int udev_queue_export_device_queued(struct udev_queue_export *udev_queue_export,
 int udev_queue_export_device_finished(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);
 int udev_queue_export_device_failed(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);
 
-/* libudev-utils.c */
+/* libudev-util.c */
 #define UTIL_PATH_SIZE				1024
 #define UTIL_LINE_SIZE				2048
 #define UTIL_NAME_SIZE				512
@@ -203,4 +206,30 @@ int udev_util_replace_chars(char *str, const char *white);
 int udev_util_encode_string(const char *str, char *str_enc, size_t len);
 void util_set_fd_cloexec(int fd);
 unsigned int util_string_hash32(const char *str);
+
+/* libudev-util-private.c */
+int util_create_path(struct udev *udev, const char *path);
+int util_delete_path(struct udev *udev, const char *path);
+int util_unlink_secure(struct udev *udev, const char *filename);
+uid_t util_lookup_user(struct udev *udev, const char *user);
+gid_t util_lookup_group(struct udev *udev, const char *group);
+int util_run_program(struct udev *udev, const char *command, char **envp,
+		     char *result, size_t ressize, size_t *reslen);
+int util_resolve_subsys_kernel(struct udev *udev, const char *string,
+				      char *result, size_t maxsize, int read_value);
+
+/* libudev-selinux-private.c */
+#ifndef USE_SELINUX
+static inline void udev_selinux_init(struct udev *udev) {}
+static inline void udev_selinux_exit(struct udev *udev) {}
+static inline void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode) {}
+static inline void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode) {}
+static inline void udev_selinux_resetfscreatecon(struct udev *udev) {}
+#else
+void udev_selinux_init(struct udev *udev);
+void udev_selinux_exit(struct udev *udev);
+void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode);
+void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode);
+void udev_selinux_resetfscreatecon(struct udev *udev);
+#endif
 #endif

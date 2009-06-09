@@ -15,12 +15,12 @@ common_files = \
 	udev-watch.c \
 	udev-node.c \
 	udev-rules.c \
-	udev-util.c \
 	../libudev/libudev.h \
 	../libudev/libudev-private.h \
 	../libudev/libudev.c \
 	../libudev/libudev-list.c \
 	../libudev/libudev-util.c \
+	../libudev/libudev-util-private.c \
 	../libudev/libudev-device.c \
 	../libudev/libudev-device-db-write.c \
 	../libudev/libudev-monitor.c \
@@ -31,7 +31,7 @@ common_files = \
 
 if USE_SELINUX
 common_files += \
-	udev-selinux.c
+	../libudev/libudev-selinux-private.c
 common_ldadd += \
 	$(SELINUX_LIBS)
 endif

@@ -1,18 +1,12 @@
 /*
- * Copyright (C) 2004-2008 Kay Sievers <kay.sievers@vrfy.org>
+ * libudev - interface to udev device information
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 2 of the License, or
- * (at your option) any later version.
+ * Copyright (C) 2004-2009 Kay Sievers <kay.sievers@vrfy.org>
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
  */
 
 #include <stdlib.h>
@@ -27,7 +21,8 @@
 #include <grp.h>
 #include <sys/wait.h>
 
-#include "udev.h"
+#include "libudev.h"
+#include "libudev-private.h"
 
 int util_create_path(struct udev *udev, const char *path)
 {

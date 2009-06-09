@@ -30,10 +30,6 @@
 
 #define UDEV_CTRL_SOCK_PATH			"@" UDEV_PREFIX "/org/kernel/udev/udevd"
 
-#define UDEV_MAX(a,b) ((a) > (b) ? (a) : (b))
-#define READ_END				0
-#define WRITE_END				1
-
 struct udev_event {
 	struct udev *udev;
 	struct udev_device *dev;
@@ -88,32 +84,6 @@ int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mod
 int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid);
 int udev_node_remove(struct udev_device *dev);
 void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev_old);
-
-/* udev-util.c */
-int util_create_path(struct udev *udev, const char *path);
-int util_delete_path(struct udev *udev, const char *path);
-int util_unlink_secure(struct udev *udev, const char *filename);
-uid_t util_lookup_user(struct udev *udev, const char *user);
-gid_t util_lookup_group(struct udev *udev, const char *group);
-int util_run_program(struct udev *udev, const char *command, char **envp,
-		     char *result, size_t ressize, size_t *reslen);
-int util_resolve_subsys_kernel(struct udev *udev, const char *string,
-				      char *result, size_t maxsize, int read_value);
-
-/* udev-selinux.c */
-#ifndef USE_SELINUX
-static inline void udev_selinux_init(struct udev *udev) {}
-static inline void udev_selinux_exit(struct udev *udev) {}
-static inline void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode) {}
-static inline void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode) {}
-static inline void udev_selinux_resetfscreatecon(struct udev *udev) {}
-#else
-void udev_selinux_init(struct udev *udev);
-void udev_selinux_exit(struct udev *udev);
-void udev_selinux_lsetfilecon(struct udev *udev, const char *file, unsigned int mode);
-void udev_selinux_setfscreatecon(struct udev *udev, const char *file, unsigned int mode);
-void udev_selinux_resetfscreatecon(struct udev *udev);
-#endif
 
 /* udevadm commands */
 int udevadm_monitor(struct udev *udev, int argc, char *argv[]);
