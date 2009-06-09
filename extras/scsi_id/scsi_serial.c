@@ -30,7 +30,8 @@
 /* #include <linux/bsg.h> */
 #include "bsg.h"
 
-#include "../../udev/udev.h"
+#include "libudev.h"
+#include "libudev-private.h"
 #include "scsi.h"
 #include "scsi_id.h"
 

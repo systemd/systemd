@@ -34,23 +34,6 @@
 #define READ_END				0
 #define WRITE_END				1
 
-static inline void logging_init(const char *program_name)
-{
-	openlog(program_name, LOG_PID | LOG_CONS, LOG_DAEMON);
-}
-
-static inline void logging_msg(struct udev *udev, int priority,
-			  const char *file, int line, const char *fn,
-			  const char *format, va_list args)
-{
-	vsyslog(priority, format, args);
-}
-
-static inline void logging_close(void)
-{
-	closelog();
-}
-
 struct udev_event {
 	struct udev *udev;
 	struct udev_device *dev;

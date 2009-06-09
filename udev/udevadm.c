@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
 	if (udev == NULL)
 		goto out;
 
-	logging_init("udevadm");
+	udev_log_init("udevadm");
 	udev_set_log_fn(udev, log_fn);
 	udev_selinux_init(udev);
 
@@ -214,6 +214,6 @@ int main(int argc, char *argv[])
 out:
 	udev_selinux_exit(udev);
 	udev_unref(udev);
-	logging_close();
+	udev_log_close();
 	return rc;
 }

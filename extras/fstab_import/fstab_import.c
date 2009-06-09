@@ -24,7 +24,8 @@
 #include <mntent.h>
 #include <sys/stat.h>
 
-#include "../../udev/udev.h"
+#include "libudev.h"
+#include "libudev-private.h"
 
 static int debug;
 
@@ -80,7 +81,7 @@ int main(int argc, char *argv[])
 	if (udev == NULL)
 		goto exit;
 
-	logging_init("fstab_id");
+	udev_log_init("fstab_id");
 	udev_set_log_fn(udev, log_fn);
 
 	while (1) {
@@ -197,6 +198,6 @@ int main(int argc, char *argv[])
 
 exit:
 	udev_unref(udev);
-	logging_close();
+	udev_log_close();
 	return rc;
 }

@@ -6,7 +6,8 @@ udevhome_PROGRAMS = \
 
 ata_id_SOURCES = \
 	ata_id.c \
-	../../udev/udev.h \
+	../../libudev/libudev.h \
+	../../libudev/libudev-private.h \
 	../../libudev/libudev.c \
 	../../libudev/libudev-list.c \
 	../../libudev/libudev-util.c

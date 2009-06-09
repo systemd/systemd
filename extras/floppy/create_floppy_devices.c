@@ -24,6 +24,8 @@
 #include <pwd.h>
 #include <grp.h>
 
+#include "libudev.h"
+#include "libudev-private.h"
 #include "../../udev/udev.h"
 
 static char *table[] = {
@@ -66,7 +68,7 @@ int main(int argc, char **argv)
 	if (udev == NULL)
 		goto exit;
 
-	logging_init("create_floppy_devices");
+	udev_log_init("create_floppy_devices");
 	udev_set_log_fn(udev, log_fn);
 	udev_selinux_init(udev);
 
@@ -164,6 +166,7 @@ int main(int argc, char **argv)
 
 	udev_selinux_exit(udev);
 	udev_unref(udev);
+	udev_log_close();
 exit:
 	return 0;
 }

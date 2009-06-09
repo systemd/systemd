@@ -29,7 +29,7 @@
 #include <getopt.h>
 
 #include "libudev.h"
-#include "../../udev/udev.h"
+#include "libudev-private.h"
 
 int debug;
 
@@ -366,7 +366,7 @@ int main(int argc, char **argv)
 	if (udev == NULL)
 		goto exit;
 
-	logging_init("path_id");
+	udev_log_init("path_id");
 	udev_set_log_fn(udev, log_fn);
 
 	while (1) {
@@ -465,6 +465,6 @@ out:
 	udev_device_unref(dev);
 exit:
 	udev_unref(udev);
-	logging_close();
+	udev_log_close();
 	return rc;
 }

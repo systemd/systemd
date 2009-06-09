@@ -23,7 +23,8 @@
 #include <dirent.h>
 #include <stdint.h>
 
-#include "../../udev/udev.h"
+#include "libudev.h"
+#include "libudev-private.h"
 
 static void log_fn(struct udev *udev, int priority,
 		   const char *file, int line, const char *fn,
@@ -52,7 +53,7 @@ int main(int argc, char *argv[])
 	if (udev == NULL)
 		goto exit;
 
-	logging_init("edd_id");
+	udev_log_init("edd_id");
 	udev_set_log_fn(udev, log_fn);
 
 	for (i = 1 ; i < argc; i++) {
@@ -181,6 +182,6 @@ closedir:
 	closedir(dir);
 exit:
 	udev_unref(udev);
-	logging_close();
+	udev_log_close();
 	return rc;
 }

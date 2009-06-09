@@ -35,7 +35,8 @@
 #include <linux/types.h>
 #include <linux/hdreg.h>
 
-#include "../../udev/udev.h"
+#include "libudev.h"
+#include "libudev-private.h"
 
 static void log_fn(struct udev *udev, int priority,
 		   const char *file, int line, const char *fn,
@@ -66,7 +67,7 @@ int main(int argc, char *argv[])
 	if (udev == NULL)
 		goto exit;
 
-	logging_init("ata_id");
+	udev_log_init("ata_id");
 	udev_set_log_fn(udev, log_fn);
 
 	while (1) {
@@ -164,6 +165,6 @@ close:
 	close(fd);
 exit:
 	udev_unref(udev);
-	logging_close();
+	udev_log_close();
 	return rc;
 }

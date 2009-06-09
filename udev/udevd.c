@@ -213,8 +213,8 @@ static void worker_new(struct event *event)
 		udev_ctrl_unref(udev_ctrl);
 		close(pfd[FD_SIGNAL].fd);
 		close(worker_watch[READ_END]);
-		logging_close();
-		logging_init("udevd-work");
+		udev_log_close();
+		udev_log_init("udevd-work");
 		setpriority(PRIO_PROCESS, 0, UDEV_PRIORITY);
 
 		/* set signal handlers */
@@ -288,7 +288,7 @@ static void worker_new(struct event *event)
 		}
 
 		udev_monitor_unref(worker_monitor);
-		logging_close();
+		udev_log_close();
 		exit(0);
 	}
 	case -1:
@@ -763,7 +763,7 @@ int main(int argc, char *argv[])
 	if (udev == NULL)
 		goto exit;
 
-	logging_init("udevd");
+	udev_log_init("udevd");
 	udev_set_log_fn(udev, log_fn);
 	info(udev, "version %s\n", VERSION);
 	udev_selinux_init(udev);
@@ -1069,6 +1069,6 @@ exit:
 	udev_monitor_unref(monitor);
 	udev_selinux_exit(udev);
 	udev_unref(udev);
-	logging_close();
+	udev_log_close();
 	return rc;
 }

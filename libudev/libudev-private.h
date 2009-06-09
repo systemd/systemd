@@ -40,7 +40,17 @@ udev_log_null(struct udev *udev, const char *format, ...) {}
 #  define err(udev, arg...) udev_log_null(udev, ## arg)
 #endif
 
-/* libudev */
+static inline void udev_log_init(const char *program_name)
+{
+	openlog(program_name, LOG_PID | LOG_CONS, LOG_DAEMON);
+}
+
+static inline void udev_log_close(void)
+{
+	closelog();
+}
+
+/* libudev.c */
 void udev_log(struct udev *udev,
 	      int priority, const char *file, int line, const char *fn,
 	      const char *format, ...)
@@ -50,7 +60,7 @@ int udev_get_run(struct udev *udev);
 struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value);
 struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev);
 
-/* libudev-device */
+/* libudev-device.c */
 struct udev_device *udev_device_new(struct udev *udev);
 int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath);
 int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
@@ -91,14 +101,14 @@ int udev_device_update_db(struct udev_device *udev_device);
 int udev_device_delete_db(struct udev_device *udev_device);
 int udev_device_rename_db(struct udev_device *udev_device, const char *devpath);
 
-/* libudev-monitor - netlink/unix socket communication  */
+/* libudev-monitor.c - netlink/unix socket communication  */
 int udev_monitor_disconnect(struct udev_monitor *udev_monitor);
 int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct udev_monitor *sender);
 int udev_monitor_send_device(struct udev_monitor *udev_monitor,
 			     struct udev_monitor *destination, struct udev_device *udev_device);
 int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_monitor, int size);
 
-/* libudev-ctrl - daemon runtime setup */
+/* libudev-ctrl.c - daemon runtime setup */
 struct udev_ctrl;
 struct udev_ctrl *udev_ctrl_new_from_socket(struct udev *udev, const char *socket_path);
 int udev_ctrl_enable_receiving(struct udev_ctrl *uctrl);
@@ -126,7 +136,7 @@ pid_t udev_ctrl_get_settle(struct udev_ctrl_msg *ctrl_msg);
 const char *udev_ctrl_get_set_env(struct udev_ctrl_msg *ctrl_msg);
 int udev_ctrl_get_set_max_childs(struct udev_ctrl_msg *ctrl_msg);
 
-/* libudev-list */
+/* libudev-list.c */
 struct udev_list_node {
 	struct udev_list_node *next, *prev;
 };
@@ -158,13 +168,13 @@ void udev_list_entry_set_flag(struct udev_list_entry *list_entry, int flag);
 	     entry != NULL; \
 	     entry = tmp, tmp = udev_list_entry_get_next(tmp))
 
-/* libudev-queue */
+/* libudev-queue.c */
 unsigned long long int udev_get_kernel_seqnum(struct udev *udev);
 int udev_queue_read_seqnum(FILE *queue_file, unsigned long long int *seqnum);
 ssize_t udev_queue_read_devpath(FILE *queue_file, char *devpath, size_t size);
 ssize_t udev_queue_skip_devpath(FILE *queue_file);
 
-/* libudev-queue-export */
+/* libudev-queue-export.c */
 struct udev_queue_export *udev_queue_export_new(struct udev *udev);
 void udev_queue_export_unref(struct udev_queue_export *udev_queue_export);
 void udev_queue_export_cleanup(struct udev_queue_export *udev_queue_export);
@@ -172,7 +182,7 @@ int udev_queue_export_device_queued(struct udev_queue_export *udev_queue_export,
 int udev_queue_export_device_finished(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);
 int udev_queue_export_device_failed(struct udev_queue_export *udev_queue_export, struct udev_device *udev_device);
 
-/* libudev-utils */
+/* libudev-utils.c */
 #define UTIL_PATH_SIZE				1024
 #define UTIL_LINE_SIZE				2048
 #define UTIL_NAME_SIZE				512

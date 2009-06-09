@@ -11,6 +11,7 @@ dist_udevrules_DATA = \
 cdrom_id_SOURCES = \
 	cdrom_id.c \
 	../../libudev/libudev.h \
+	../../libudev/libudev-private.h \
 	../../libudev/libudev.c \
 	../../libudev/libudev-list.c \
 	../../libudev/libudev-util.c

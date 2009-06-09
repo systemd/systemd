@@ -37,7 +37,8 @@
 #include <sys/ioctl.h>
 #include <linux/cdrom.h>
 
-#include "../../udev/udev.h"
+#include "libudev.h"
+#include "libudev-private.h"
 
 static int debug;
 
@@ -528,7 +529,7 @@ int main(int argc, char *argv[])
 	if (udev == NULL)
 		goto exit;
 
-	logging_init("cdrom_id");
+	udev_log_init("cdrom_id");
 	udev_set_log_fn(udev, log_fn);
 
 	while (1) {
@@ -706,7 +707,7 @@ exit:
 	if (fd >= 0)
 		close(fd);
 	udev_unref(udev);
-	logging_close();
+	udev_log_close();
 	return rc;
 }
 
