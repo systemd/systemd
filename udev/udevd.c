@@ -307,6 +307,7 @@ static void worker_new(struct event *event)
 		event->state = EVENT_RUNNING;
 		udev_list_node_append(&worker->node, &worker_list);
 		childs++;
+		info(event->udev, "seq %llu forked new worker [%u]\n", udev_device_get_seqnum(event->dev), pid);
 		break;
 	}
 }
@@ -701,6 +702,7 @@ static void handle_signal(struct udev *udev, int signo)
 				udev_list_node_remove(&worker->node);
 				worker_unref(worker);
 				childs--;
+				info(udev, "worker [%u] exit\n", pid);
 				break;
 			}
 		}
