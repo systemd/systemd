@@ -22,11 +22,11 @@ common_files = \
 	../libudev/libudev-util.c \
 	../libudev/libudev-util-private.c \
 	../libudev/libudev-device.c \
-	../libudev/libudev-device-db-write.c \
+	../libudev/libudev-device-private.c \
 	../libudev/libudev-monitor.c \
 	../libudev/libudev-enumerate.c \
 	../libudev/libudev-queue.c \
-	../libudev/libudev-queue-export.c \
+	../libudev/libudev-queue-private.c \
 	../libudev/libudev-ctrl.c
 
 if USE_SELINUX

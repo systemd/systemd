@@ -99,7 +99,7 @@ int udev_device_get_watch_handle(struct udev_device *udev_device);
 int udev_device_set_watch_handle(struct udev_device *udev_device, int handle);
 void udev_device_set_info_loaded(struct udev_device *device);
 
-/* libudev-device-db-write.c */
+/* libudev-device-private.c */
 int udev_device_update_db(struct udev_device *udev_device);
 int udev_device_delete_db(struct udev_device *udev_device);
 int udev_device_rename_db(struct udev_device *udev_device, const char *devpath);
@@ -177,7 +177,7 @@ int udev_queue_read_seqnum(FILE *queue_file, unsigned long long int *seqnum);
 ssize_t udev_queue_read_devpath(FILE *queue_file, char *devpath, size_t size);
 ssize_t udev_queue_skip_devpath(FILE *queue_file);
 
-/* libudev-queue-export.c */
+/* libudev-queue-private.c */
 struct udev_queue_export *udev_queue_export_new(struct udev *udev);
 void udev_queue_export_unref(struct udev_queue_export *udev_queue_export);
 void udev_queue_export_cleanup(struct udev_queue_export *udev_queue_export);
