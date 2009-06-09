@@ -41,9 +41,6 @@ void udev_log(struct udev *udev,
 {
 	va_list args;
 
-	if (priority > udev->log_priority)
-		return;
-
 	va_start(args, format);
 	udev->log_fn(udev, priority, file, line, fn, format, args);
 	va_end(args);

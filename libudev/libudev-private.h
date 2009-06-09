@@ -17,17 +17,23 @@
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
-static inline void __attribute__ ((format(printf, 2, 3)))
+static inline void __attribute__((always_inline, format(printf, 2, 3)))
 udev_log_null(struct udev *udev, const char *format, ...) {}
+
+#define udev_log_cond(udev, prio, arg...) \
+  do { \
+    if (udev_get_log_priority(udev) >= prio) \
+      udev_log(udev, LOG_ERR, __FILE__, __LINE__, __FUNCTION__, ## arg); \
+  } while (0)
 
 #ifdef USE_LOG
 #  ifdef DEBUG
-#    define dbg(udev, arg...) udev_log(udev, LOG_DEBUG, __FILE__, __LINE__, __FUNCTION__, ## arg)
+#    define dbg(udev, arg...) udev_log_cond(udev, LOG_DEBUG, ## arg)
 #  else
 #    define dbg(udev, arg...) udev_log_null(udev, ## arg)
 #  endif
-#  define info(udev, arg...) udev_log(udev, LOG_INFO, __FILE__, __LINE__, __FUNCTION__, ## arg)
-#  define err(udev, arg...) udev_log(udev, LOG_ERR, __FILE__, __LINE__, __FUNCTION__, ## arg)
+#  define info(udev, arg...) udev_log_cond(udev, LOG_INFO, ## arg)
+#  define err(udev, arg...) udev_log_cond(udev, LOG_ERR, ## arg)
 #else
 #  define dbg(udev, arg...) udev_log_null(udev, ## arg)
 #  define info(udev, arg...) udev_log_null(udev, ## arg)
@@ -38,7 +44,7 @@ udev_log_null(struct udev *udev, const char *format, ...) {}
 void udev_log(struct udev *udev,
 	      int priority, const char *file, int line, const char *fn,
 	      const char *format, ...)
-	      __attribute__ ((format(printf, 6, 7)));
+	      __attribute__((format(printf, 6, 7)));
 const char *udev_get_rules_path(struct udev *udev);
 int udev_get_run(struct udev *udev);
 struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value);
@@ -179,9 +185,9 @@ size_t util_path_encode(const char *src, char *dest, size_t size);
 size_t util_path_decode(char *s);
 void util_remove_trailing_chars(char *path, char c);
 size_t util_strpcpy(char **dest, size_t size, const char *src);
-size_t util_strpcpyl(char **dest, size_t size, const char *src, ...) __attribute__ ((sentinel));
+size_t util_strpcpyl(char **dest, size_t size, const char *src, ...) __attribute__((sentinel));
 size_t util_strscpy(char *dest, size_t size, const char *src);
-size_t util_strscpyl(char *dest, size_t size, const char *src, ...) __attribute__ ((sentinel));
+size_t util_strscpyl(char *dest, size_t size, const char *src, ...) __attribute__((sentinel));
 int udev_util_replace_whitespace(const char *str, char *to, size_t len);
 int udev_util_replace_chars(char *str, const char *white);
 int udev_util_encode_string(const char *str, char *str_enc, size_t len);
