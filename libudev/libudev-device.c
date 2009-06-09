@@ -222,7 +222,7 @@ void udev_device_set_info_loaded(struct udev_device *device)
 	device->info_loaded = 1;
 }
 
-struct udev_device *device_new(struct udev *udev)
+struct udev_device *udev_device_new(struct udev *udev)
 {
 	struct udev_device *udev_device;
 	struct udev_list_entry *list_entry;
@@ -331,7 +331,7 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 		}
 	}
 
-	udev_device = device_new(udev);
+	udev_device = udev_device_new(udev);
 	if (udev_device == NULL)
 		return NULL;
 

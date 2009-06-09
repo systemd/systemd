@@ -39,13 +39,13 @@ void udev_log(struct udev *udev,
 	      int priority, const char *file, int line, const char *fn,
 	      const char *format, ...)
 	      __attribute__ ((format(printf, 6, 7)));
-struct udev_device *device_new(struct udev *udev);
 const char *udev_get_rules_path(struct udev *udev);
 int udev_get_run(struct udev *udev);
 struct udev_list_entry *udev_add_property(struct udev *udev, const char *key, const char *value);
 struct udev_list_entry *udev_get_properties_list_entry(struct udev *udev);
 
 /* libudev-device */
+struct udev_device *udev_device_new(struct udev *udev);
 int udev_device_set_syspath(struct udev_device *udev_device, const char *syspath);
 int udev_device_set_subsystem(struct udev_device *udev_device, const char *subsystem);
 int udev_device_set_devtype(struct udev_device *udev_device, const char *devtype);

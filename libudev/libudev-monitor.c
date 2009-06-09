@@ -562,7 +562,7 @@ retry:
 		}
 	}
 
-	udev_device = device_new(udev_monitor->udev);
+	udev_device = udev_device_new(udev_monitor->udev);
 	if (udev_device == NULL) {
 		return NULL;
 	}
