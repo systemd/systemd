@@ -8,7 +8,6 @@ SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="MS", RUN+="/sbin/modprobe -b tifm_ms"
 SUBSYSTEM=="memstick", RUN+="/sbin/modprobe -b --all ms_block mspro_block"
 SUBSYSTEM=="mmc", RUN+="/sbin/modprobe -b mmc_block"
 SUBSYSTEM=="i2o", RUN+="/sbin/modprobe -b i2o_block"
-SUBSYSTEM=="scsi", ATTR{type}=="8", RUN+="/sbin/modprobe -b ch"
 SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST!="[module/sg]", RUN+="/sbin/modprobe -b sg"
 SUBSYSTEM=="module", KERNEL=="parport_pc", RUN+="/sbin/modprobe -b ppdev"
 
