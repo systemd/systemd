@@ -221,7 +221,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 	static const struct option options[] = {
 		{ "name", required_argument, NULL, 'n' },
 		{ "path", required_argument, NULL, 'p' },
-		{ "query", optional_argument, NULL, 'q' },
+		{ "query", required_argument, NULL, 'q' },
 		{ "attribute-walk", no_argument, NULL, 'a' },
 		{ "export-db", no_argument, NULL, 'e' },
 		{ "root", no_argument, NULL, 'r' },
@@ -254,7 +254,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		int option;
 		struct stat statbuf;
 
-		option = getopt_long(argc, argv, "aed:n:p:q::rxPVh", options, NULL);
+		option = getopt_long(argc, argv, "aed:n:p:q:rxPVh", options, NULL);
 		if (option == -1)
 			break;
 
@@ -317,7 +317,7 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 			break;
 		case 'q':
 			action = ACTION_QUERY;
-			if (optarg == NULL || strcmp(optarg, "property") == 0 || strcmp(optarg, "env") == 0) {
+			if (strcmp(optarg, "property") == 0 || strcmp(optarg, "env") == 0) {
 				query = QUERY_PROPERTY;
 			} else if (strcmp(optarg, "name") == 0) {
 				query = QUERY_NAME;
