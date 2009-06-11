@@ -10,7 +10,16 @@ Important Note:
 
 Requirements:
   - Version 2.6.25 of the Linux kernel with sysfs, procfs, signalfd, inotify,
-    unix domain sockets, networking and hotplug enabled.
+    unix domain sockets, networking and hotplug enabled:
+      CONFIG_HOTPLUG=y
+      CONFIG_UEVENT_HELPER_PATH=""
+      CONFIG_NET=y
+      CONFIG_UNIX=y
+      CONFIG_SYSFS=y
+      CONFIG_SYSFS_DEPRECATED*=n
+      CONFIG_PROC_FS=y
+      CONFIG_TMPFS=y
+      CONFIG_TMPFS_POSIX_ACL=y
 
   - For reliable operation, the kernel must not use the CONFIG_SYSFS_DEPRECATED*
     option.
