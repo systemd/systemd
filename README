@@ -20,6 +20,8 @@ Requirements:
       CONFIG_PROC_FS=y
       CONFIG_TMPFS=y
       CONFIG_TMPFS_POSIX_ACL=y
+      CONFIG_INOTIFY=y
+      CONFIG_SIGNALFD=y
 
   - For reliable operation, the kernel must not use the CONFIG_SYSFS_DEPRECATED*
     option.
