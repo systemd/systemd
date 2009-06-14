@@ -37,7 +37,7 @@ libdir_name=$with_libdir_name
 AC_SUBST(libdir_name)
 
 AC_ARG_WITH(selinux,
-	AS_HELP_STRING([--with-selinux], [compile with SELinux support]),
+	AS_HELP_STRING([--with-selinux], [enable SELinux support]),
 	[], with_selinux=no)
 if test "x$with_selinux" = xyes; then
 	LIBS_save=$LIBS
@@ -45,26 +45,24 @@ if test "x$with_selinux" = xyes; then
 		[],
 		AC_MSG_ERROR([SELinux selected but libselinux not found]))
 	LIBS=$LIBS_save
-	AC_DEFINE(USE_SELINUX, [1] ,[compile with SELinux support])
 	SELINUX_LIBS="-lselinux -lsepol"
+	AC_DEFINE(WITH_SELINUX, [1] ,[SELinux support.])
 fi
 AC_SUBST([SELINUX_LIBS])
-AM_CONDITIONAL(USE_SELINUX, [test "x$with_selinux" = xyes], [compile with SELinux support])
+AM_CONDITIONAL(WITH_SELINUX, [test "x$with_selinux" = xyes])
 
 AC_ARG_ENABLE(debug,
-	AS_HELP_STRING([--enable-debug], [turn on debugging]),
+	AS_HELP_STRING([--enable-debug], [enable debug messages]),
 	[], enable_debug=no)
 if test "x$enable_debug" = "xyes"; then
-	AC_DEFINE(DEBUG, [1] ,[Compile in debug messages])
-	DEBUG_CFLAGS="-DDEBUG"
+	AC_DEFINE(ENABLE_DEBUG, [1], [Debug messages.])
 fi
-AC_SUBST(DEBUG_CFLAGS)
 
 AC_ARG_ENABLE(logging,
-	AS_HELP_STRING([--disable-logging], [turn off logging/syslog]),
+	AS_HELP_STRING([--disable-logging], [disable system logging]),
 	[], enable_logging=yes)
-if test "x$enable_logging" != "xno"; then
-	AC_DEFINE(USE_LOG, [1] ,[Use logging/syslog])
+if test "x$enable_logging" = "xyes"; then
+	AC_DEFINE(ENABLE_LOGGING, [1], [System logging.])
 fi
 
 AC_CONFIG_HEADERS(config.h)

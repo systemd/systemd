@@ -15,7 +15,7 @@ create_floppy_devices_SOURCES = \
 	../../libudev/libudev-device.c \
 	../../libudev/libudev-enumerate.c
 
-if USE_SELINUX
+if WITH_SELINUX
 create_floppy_devices_SOURCES += \
 	../../libudev/libudev-selinux-private.c
 create_floppy_devices_LDADD = \

@@ -29,7 +29,7 @@ common_files = \
 	../libudev/libudev-queue-private.c \
 	../libudev/libudev-ctrl.c
 
-if USE_SELINUX
+if WITH_SELINUX
 common_files += \
 	../libudev/libudev-selinux-private.c
 common_ldadd += \

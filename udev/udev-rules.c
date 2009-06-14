@@ -211,7 +211,7 @@ struct rule_tmp {
 	unsigned int token_cur;
 };
 
-#ifdef DEBUG
+#ifdef ENABLE_DEBUG
 static const char *operation_str(enum operation_type type)
 {
 	static const char *operation_strs[] = {
@@ -421,7 +421,7 @@ static inline const char *operation_str(enum operation_type type) { return NULL;
 static inline const char *token_str(enum token_type type) { return NULL; }
 static inline void dump_token(struct udev_rules *rules, struct token *token) {}
 static inline void dump_rules(struct udev_rules *rules) {}
-#endif /* DEBUG */
+#endif /* ENABLE_DEBUG */
 
 static int add_new_string(struct udev_rules *rules, const char *str, size_t bytes)
 {
