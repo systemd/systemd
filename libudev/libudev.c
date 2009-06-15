@@ -22,9 +22,17 @@
 #include "libudev-private.h"
 
 /**
+ * SECTION:libudev
+ * @short_description: libudev context
+ *
+ * The context contains the default values read from the udev config file,
+ * and is passed to all library operations.
+ */
+
+/**
  * udev:
  *
- * Library context, passed to all operations.
+ * Opaque object representing the library context.
  */
 struct udev {
 	int refcount;

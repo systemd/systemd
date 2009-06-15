@@ -24,6 +24,21 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
+/**
+ * SECTION:libudev-queue
+ * @short_description: access to currently active events
+ *
+ * The udev daemon processes event asynchronously. All events wich do not have
+ * interdependencies are run in parallel. This exports the current state of the
+ * event processing queue, and the currently event sequence numbers from the kernel
+ * and the udev daemon.
+ */
+
+/**
+ * udev_queue:
+ *
+ * Opaque object representing the current event queue in the udev daemon.
+ */
 struct udev_queue {
 	struct udev *udev;
 	int refcount;

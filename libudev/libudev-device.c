@@ -24,9 +24,19 @@
 #include "libudev-private.h"
 
 /**
+ * SECTION:libudev-device
+ * @short_description: kernel sys devices
+ *
+ * Representation of kernel sys devices. Devices are uniquely identified
+ * by their syspath, every device has exactly one path in the kernel sys
+ * filesystem. Devices usually belong to a kernel subsystem, and and have
+ * a unique name inside that subsytem.
+ */
+
+/**
  * udev_device:
  *
- * Representation of a kernel sys device.
+ * Opaque object representing one kernel sys device.
  */
 struct udev_device {
 	struct udev *udev;
@@ -882,7 +892,7 @@ struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device
  * udev_device_get_driver:
  * @udev_device: udev device
  *
- * Returns: the driver string or #NULL, if ther is no driver attached.
+ * Returns: the driver string, or #NULL if there is no driver attached.
  **/
 const char *udev_device_get_driver(struct udev_device *udev_device)
 {

@@ -27,6 +27,19 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
+/**
+ * SECTION:libudev-monitor
+ * @short_description: device event source
+ *
+ * Connects to a device event source.
+ */
+
+/**
+/**
+ * udev_monitor:
+ *
+ * Opaque object handling one event source.
+ */
 struct udev_monitor {
 	struct udev *udev;
 	int refcount;
@@ -227,6 +240,14 @@ static inline void bpf_jmp(struct sock_filter *inss, unsigned int *i,
 	(*i)++;
 }
 
+/**
+ * udev_monitor_filter_update:
+ * @udev_monitor: monitor
+ *
+ * Update the installed filter. This might only be needed, if the filter was removed or changed.
+ *
+ * Returns: 0 on success, otherwise a negative error value.
+ */
 int udev_monitor_filter_update(struct udev_monitor *udev_monitor)
 {
 	static struct sock_filter ins[256];
@@ -290,7 +311,14 @@ int udev_monitor_allow_unicast_sender(struct udev_monitor *udev_monitor, struct 
 	udev_monitor->snl_trusted_sender.nl_pid = sender->snl.nl_pid;
 	return 0;
 }
-
+/**
+ * udev_monitor_enable_receiving:
+ * @udev_monitor: the monitor which should receive events
+ *
+ * Binds the @udev_monitor socket to the event source.
+ *
+ * Returns: 0 on success, otherwise a negative error value.
+ */
 int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 {
 	int err;
@@ -739,6 +767,16 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
 	return count;
 }
 
+/**
+ * udev_monitor_filter_add_match_subsystem_devtype:
+ * @udev_monitor: the monitor
+ * @subsystem: the subsystem value to match the incoming devices against
+ * @devtype: the devtype value to matvh the incoming devices against
+ *
+ * The filter must be installed before the monitor is switched to listening mode.
+ *
+ * Returns: 0 on success, otherwise a negative error value.
+ */
 int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor *udev_monitor, const char *subsystem, const char *devtype)
 {
 	if (udev_monitor == NULL)
@@ -751,6 +789,14 @@ int udev_monitor_filter_add_match_subsystem_devtype(struct udev_monitor *udev_mo
 	return 0;
 }
 
+/**
+ * udev_monitor_filter_remove:
+ * @udev_monitor: monitor
+ *
+ * Remove all filters from monitor.
+ *
+ * Returns: 0 on success, otherwise a negative error value.
+ */
 int udev_monitor_filter_remove(struct udev_monitor *udev_monitor)
 {
 	static struct sock_fprog filter = { 0, NULL };

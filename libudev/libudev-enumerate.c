@@ -24,6 +24,19 @@
 
 static int devices_sort(struct udev_enumerate *udev_enumerate);
 
+/**
+ * SECTION:libudev-enumerate
+ * @short_description: lookup and sort sys devices
+ *
+ * Lookup devices in the sys filesystem, filter devices by properties,
+ * and return a sorted list of matching devices.
+ */
+
+/**
+ * udev_enumerate:
+ *
+ * Opaque object representing one device lookup/sort context.
+ */
 struct udev_enumerate {
 	struct udev *udev;
 	int refcount;
@@ -60,6 +73,14 @@ struct udev_enumerate *udev_enumerate_new(struct udev *udev)
 	return udev_enumerate;
 }
 
+/**
+ * udev_enumerate_ref:
+ * @udev_enumerate: context
+ *
+ * Take a reference of a enumeration context.
+ *
+ * Returns: the passed enumeration context
+ **/
 struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate)
 {
 	if (udev_enumerate == NULL)
@@ -68,6 +89,14 @@ struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate)
 	return udev_enumerate;
 }
 
+/**
+ * udev_enumerate_unref:
+ * @udev_enumerate: context
+ *
+ * Drop a reference of an enumeration context. If the refcount reaches zero,
+ * all resources of the enumeration context will be released.
+ *
+ **/
 void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 {
 	if (udev_enumerate == NULL)
@@ -84,6 +113,12 @@ void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 	free(udev_enumerate);
 }
 
+/**
+ * udev_enumerate_get_udev:
+ * @udev_enumerate: context
+ *
+ * Returns: the udev library context.
+ */
 struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate)
 {
 	if (udev_enumerate == NULL)

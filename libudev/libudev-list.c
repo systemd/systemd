@@ -20,9 +20,17 @@
 #include "libudev-private.h"
 
 /**
+ * SECTION:libudev-list
+ * @short_description: list operation
+ *
+ * Libudev list operations.
+ */
+
+/**
  * udev_list_entry:
  *
- * One entry in a list, containing a name and an optional value.
+ * Opaque object representing one entry in a list. An entry contains
+ * contains a name, and optionally a value.
  */
 struct udev_list_entry {
 	struct udev_list_node node;
