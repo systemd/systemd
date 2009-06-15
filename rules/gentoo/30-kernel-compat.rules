@@ -26,3 +26,4 @@ SUBSYSTEM=="scsi", ATTR{type}=="8", RUN+="/sbin/modprobe -b ch"
 SUBSYSTEM=="pnp", DRIVER!="?*", \
   RUN{ignore_error}+="/bin/sh -c '/sbin/modprobe -a $$(while read id; do echo pnp:d$$id; done < /sys$devpath/id)'"
 
+LABEL="kernel_compat_end"
