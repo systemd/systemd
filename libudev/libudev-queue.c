@@ -46,6 +46,15 @@ struct udev_queue {
 	struct udev_list_node failed_list;
 };
 
+/**
+ * udev_queue_new:
+ * @udev: udev library context
+ *
+ * The initial refcount is 1, and needs to be decremented to
+ * release the resources of the udev queue context.
+ *
+ * Returns: the udev queue context, or #NULL on error.
+ **/
 struct udev_queue *udev_queue_new(struct udev *udev)
 {
 	struct udev_queue *udev_queue;
@@ -63,6 +72,14 @@ struct udev_queue *udev_queue_new(struct udev *udev)
 	return udev_queue;
 }
 
+/**
+ * udev_queue_ref:
+ * @udev_queue: udev queue context
+ *
+ * Take a reference of a udev queue context.
+ *
+ * Returns: the same udev queue context.
+ **/
 struct udev_queue *udev_queue_ref(struct udev_queue *udev_queue)
 {
 	if (udev_queue == NULL)
@@ -71,6 +88,13 @@ struct udev_queue *udev_queue_ref(struct udev_queue *udev_queue)
 	return udev_queue;
 }
 
+/**
+ * udev_queue_unref:
+ * @udev_queue: udev queue context
+ *
+ * Drop a reference of a udev queue context. If the refcount reaches zero,
+ * the resources of the queue context will be released.
+ **/
 void udev_queue_unref(struct udev_queue *udev_queue)
 {
 	if (udev_queue == NULL)
@@ -83,6 +107,14 @@ void udev_queue_unref(struct udev_queue *udev_queue)
 	free(udev_queue);
 }
 
+/**
+ * udev_queue_get_udev:
+ * @udev_queue: udev queue context
+ *
+ * Retrieve the udev library context the queue context was created with.
+ *
+ * Returns: the udev library context.
+ **/
 struct udev *udev_queue_get_udev(struct udev_queue *udev_queue)
 {
 	if (udev_queue == NULL)
@@ -111,6 +143,12 @@ unsigned long long int udev_get_kernel_seqnum(struct udev *udev)
 	return seqnum;
 }
 
+/**
+ * udev_queue_get_kernel_seqnum:
+ * @udev_queue: udev queue context
+ *
+ * Returns: the current kernel event sequence number.
+ **/
 unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *udev_queue)
 {
 	unsigned long long int seqnum;
@@ -190,7 +228,12 @@ static FILE *open_queue_file(struct udev_queue *udev_queue, unsigned long long i
 	return queue_file;
 }
 
-
+/**
+ * udev_queue_get_udev_seqnum:
+ * @udev_queue: udev queue context
+ *
+ * Returns: the last known udev event sequence number.
+ **/
 unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *udev_queue)
 {
 	unsigned long long int seqnum_udev;
@@ -217,6 +260,12 @@ unsigned long long int udev_queue_get_udev_seqnum(struct udev_queue *udev_queue)
 	return seqnum_udev;
 }
 
+/**
+ * udev_queue_get_udev_is_active:
+ * @udev_queue: udev queue context
+ *
+ * Returns: a flag indicating if udev is active.
+ **/
 int udev_queue_get_udev_is_active(struct udev_queue *udev_queue)
 {
 	unsigned long long int seqnum_start;
@@ -230,6 +279,12 @@ int udev_queue_get_udev_is_active(struct udev_queue *udev_queue)
 	return 1;
 }
 
+/**
+ * udev_queue_get_queue_is_empty:
+ * @udev_queue: udev queue context
+ *
+ * Returns: a flag indicating if udev is currently handling events.
+ **/
 int udev_queue_get_queue_is_empty(struct udev_queue *udev_queue)
 {
 	unsigned long long int seqnum_kernel;
@@ -282,6 +337,14 @@ out:
 	return is_empty;
 }
 
+/**
+ * udev_queue_get_seqnum_sequence_is_finished:
+ * @udev_queue: udev queue context
+ * @start: first event sequence number
+ * @end: last event sequence number
+ *
+ * Returns: if any of the sequence numbers in the given range is currently active.
+ **/
 int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_queue,
 					       unsigned long long int start, unsigned long long int end)
 {
@@ -320,6 +383,13 @@ int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_queue,
 	return (unfinished == 0);
 }
 
+/**
+ * udev_queue_get_seqnum_is_finished:
+ * @udev_queue: udev queue context
+ * @seqnum: sequence number
+ *
+ * Returns: a flag indicating if the given sequence number is handled.
+ **/
 int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, unsigned long long int seqnum)
 {
 	if (!udev_queue_get_seqnum_sequence_is_finished(udev_queue, seqnum, seqnum))
@@ -329,6 +399,12 @@ int udev_queue_get_seqnum_is_finished(struct udev_queue *udev_queue, unsigned lo
 	return 1;
 }
 
+/**
+ * udev_queue_get_queued_list_entry:
+ * @udev_queue: udev queue context
+ *
+ * Returns: the first entry of the list of queued events.
+ **/
 struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue)
 {
 	unsigned long long int seqnum;
@@ -376,6 +452,12 @@ struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev
 	return udev_list_get_entry(&udev_queue->queue_list);
 }
 
+/**
+ * udev_queue_get_failed_list_entry:
+ * @udev_queue: udev queue context
+ *
+ * Returns: the first entry of the list of recorded failed events.
+ **/
 struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev_queue)
 {
 	char path[UTIL_PATH_SIZE];

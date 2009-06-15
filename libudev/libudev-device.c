@@ -592,7 +592,7 @@ struct udev_device *udev_device_get_parent(struct udev_device *udev_device)
  * It can be called as many times as needed, without caring about
  * references.
  *
- * Returns: a new udev device, or #NULL, if no matching parent exists.
+ * Returns: a new udev device, or #NULL if no matching parent exists.
  **/
 struct udev_device *udev_device_get_parent_with_subsystem_devtype(struct udev_device *udev_device, const char *subsystem, const char *devtype)
 {
