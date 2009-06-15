@@ -1,5 +1,6 @@
 #!/bin/sh -e
 
+gtkdocize
 autoreconf --install --symlink
 
 CFLAGS="-g -Wall \
@@ -8,7 +9,7 @@ CFLAGS="-g -Wall \
 -Wpointer-arith -Wsign-compare -Wchar-subscripts \
 -Wstrict-prototypes -Wshadow \
 -Wformat=2 -Wtype-limits"
-args="--prefix=/usr --exec-prefix= --sysconfdir=/etc --with-selinux"
+args="--prefix=/usr --exec-prefix= --sysconfdir=/etc --with-selinux --enable-gtk-doc"
 libdir=$(basename $(cd /lib/$(gcc -print-multi-os-directory); pwd))
 
 case "$1" in

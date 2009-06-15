@@ -1,5 +1,8 @@
 include $(top_srcdir)/Makefile.am.inc
 
+SUBDIRS = \
+	docs
+
 noinst_PROGRAMS = \
 	test-libudev
 

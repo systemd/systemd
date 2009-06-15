@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+               "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd"
+[
+  <!ENTITY version SYSTEM "version.xml">
+]>
+<book id="index" xmlns:xi="http://www.w3.org/2003/XInclude">
+  <bookinfo>
+    <title>libudev Reference Manual</title>
+    <releaseinfo>for libudev version &version;</releaseinfo>
+    <copyright>
+      <year>2009</year>
+      <holder>Kay Sievers &lt;kay.sievers@vrfy.org&gt;</holder>
+    </copyright>
+  </bookinfo>
+
+  <chapter>
+    <title>libudev</title>
+    <xi:include href="xml/libudev.xml"/>
+    <xi:include href="xml/libudev-list.xml"/>
+    <xi:include href="xml/libudev-device.xml"/>
+    <xi:include href="xml/libudev-monitor.xml"/>
+    <xi:include href="xml/libudev-enumerate.xml"/>
+    <xi:include href="xml/libudev-queue.xml"/>
+  </chapter>
+
+  <index id="api-index-full">
+    <title>API Index</title>
+    <xi:include href="xml/api-index-full.xml"><xi:fallback /></xi:include>
+  </index>
+</book>

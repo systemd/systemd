@@ -23,3 +23,4 @@ configure
 stamp-h1
 depcomp
 udev-test-install
+gtk-doc.make

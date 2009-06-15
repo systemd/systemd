@@ -9,6 +9,7 @@ dnl AM_SILENT_RULES
 AC_SYS_LARGEFILE
 AC_CONFIG_MACRO_DIR([m4])
 AC_PROG_LIBTOOL
+GTK_DOC_CHECK(1.10)
 
 dnl /* prefix is /usr, exec_prefix is /, if overridden exec_prefix follows prefix */
 AC_PREFIX_DEFAULT([/usr])
@@ -70,6 +71,8 @@ AC_CONFIG_FILES([
 	Makefile
 	libudev/Makefile
 	libudev/libudev.pc
+	libudev/docs/Makefile
+	libudev/docs/version.xml
 	udev/Makefile
 	rules/Makefile
 	extras/Makefile

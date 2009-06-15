@@ -20,6 +20,8 @@ CLEANFILES = \
 
 ACLOCAL_AMFLAGS = -I m4
 
+DISTCHECK_CONFIGURE_FLAGS=--enable-gtk-doc
+
 clean-local:
 	rm -rf udev-test-install
 
@@ -55,3 +57,6 @@ git-release:
 	cat .git/refs/heads/master > .git/refs/tags/$(VERSION)
 	git gc
 	git prune
+
+doc-sync:
+	rsync -av --delete libudev/docs/html/ master.kernel.org:/pub/linux/utils/kernel/hotplug/libudev/
