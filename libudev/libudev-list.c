@@ -19,6 +19,11 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
+/**
+ * udev_list_entry:
+ *
+ * One entry in a list, containing a name and an optional value.
+ */
 struct udev_list_entry {
 	struct udev_list_node node;
 	struct udev *udev;
@@ -180,6 +185,12 @@ struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list)
 	return list_node_to_entry(list->next);
 }
 
+/**
+ * udev_list_entry_get_next:
+ * @list_entry: current entry
+ *
+ * Returns: the next entry from the list, #NULL is no more entries are found.
+ */
 struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry *list_entry)
 {
 	struct udev_list_node *next;
@@ -193,6 +204,13 @@ struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry *list_en
 	return list_node_to_entry(next);
 }
 
+/**
+ * udev_list_entry_get_by_name:
+ * @list_entry: current entry
+ * @name: name string to match
+ *
+ * Returns: the entry where @name matched, #NULL if no matching entry is found.
+ */
 struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list_entry, const char *name)
 {
 	struct udev_list_entry *entry;
@@ -206,6 +224,12 @@ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list
 	return NULL;
 }
 
+/**
+ * udev_list_entry_get_name:
+ * @list_entry: current entry
+ *
+ * Returns: the name string of this entry.
+ */
 const char *udev_list_entry_get_name(struct udev_list_entry *list_entry)
 {
 	if (list_entry == NULL)
@@ -213,6 +237,12 @@ const char *udev_list_entry_get_name(struct udev_list_entry *list_entry)
 	return list_entry->name;
 }
 
+/**
+ * udev_list_entry_get_value:
+ * @list_entry: current entry
+ *
+ * Returns: the value string of this entry.
+ */
 const char *udev_list_entry_get_value(struct udev_list_entry *list_entry)
 {
 	if (list_entry == NULL)

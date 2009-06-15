@@ -21,6 +21,11 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
+/**
+ * udev:
+ *
+ * Library context, passed to all operations.
+ */
 struct udev {
 	int refcount;
 	void (*log_fn)(struct udev *udev,
@@ -54,6 +59,15 @@ static void log_stderr(struct udev *udev,
 	vfprintf(stderr, format, args);
 }
 
+/**
+ * udev_get_userdata:
+ * @udev: udev library context
+ *
+ * Retrieve stored data pointer from library context. This might be useful
+ * to access from callbacks.
+ *
+ * Returns: stored userdata
+ **/
 void *udev_get_userdata(struct udev *udev)
 {
 	if (udev == NULL)
@@ -61,6 +75,13 @@ void *udev_get_userdata(struct udev *udev)
 	return udev->userdata;
 }
 
+/**
+ * udev_set_userdata:
+ * @udev: udev library context
+ * @userdata: data pointer
+ *
+ * Store custom @userdata in the library context.
+ **/
 void udev_set_userdata(struct udev *udev, void *userdata)
 {
 	if (udev == NULL)
@@ -71,7 +92,8 @@ void udev_set_userdata(struct udev *udev, void *userdata)
 /**
  * udev_new:
  *
- * Create udev library context.
+ * Create udev library context. This reads the udev configuration
+ * file, and fills in the default values.
  *
  * The initial refcount is 1, and needs to be decremented to
  * release the resources of the udev library context.
@@ -293,11 +315,28 @@ void udev_set_log_fn(struct udev *udev,
 	info(udev, "custom logging function %p registered\n", udev);
 }
 
+/**
+ * udev_get_log_priority:
+ * @udev: udev library context
+ *
+ * The initial syslog priortity is read from the udev config file
+ * at startup.
+ *
+ * Returns: the current syslog priority
+ **/
 int udev_get_log_priority(struct udev *udev)
 {
 	return udev->log_priority;
 }
 
+/**
+ * udev_set_log_priority:
+ * @udev: udev library context
+ * @priority: the new syslog priority
+ *
+ * Set the current syslog priority. The value controls which messages
+ * are send to syslog.
+ **/
 void udev_set_log_priority(struct udev *udev, int priority)
 {
 	char num[32];

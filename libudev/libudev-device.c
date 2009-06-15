@@ -23,6 +23,11 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
+/**
+ * udev_device:
+ *
+ * Representation of a kernel sys device.
+ */
 struct udev_device {
 	struct udev *udev;
 	struct udev_device *parent_device;
@@ -341,6 +346,23 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 	return udev_device;
 }
 
+/**
+ * udev_device_new_from_devnum:
+ * @udev: udev library context
+ * @type: char or block device
+ * @devnum: device major/minor number
+ *
+ * Create new udev device, and fill in information from the sys
+ * device and the udev database entry. The device is looked up
+ * by its major/minor number. Character and block device numbers
+ * are not unique across the two types, they do not share the same
+ * range of numbers.
+ *
+ * The initial refcount is 1, and needs to be decremented to
+ * release the resources of the udev device.
+ *
+ * Returns: a new udev device, or #NULL, if it does not exist
+ **/
 struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, dev_t devnum)
 {
 	char path[UTIL_PATH_SIZE];
@@ -392,6 +414,22 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 	return device;
 }
 
+/**
+ * udev_device_new_from_subsystem_sysname:
+ * @udev: udev library context
+ * @subsystem: the subsytem of the device
+ * @sysname: the name of the device
+ *
+ * Create new udev device, and fill in information from the sys
+ * device and the udev database entry. The device is looked up
+ * by the subsytem and name string of the device, like "mem",
+ * "zero", or "block", "sda".
+ *
+ * The initial refcount is 1, and needs to be decremented to
+ * release the resources of the udev device.
+ *
+ * Returns: a new udev device, or #NULL, if it does not exist
+ **/
 struct udev_device *udev_device_new_from_subsystem_sysname(struct udev *udev, const char *subsystem, const char *sysname)
 {
 	char path_full[UTIL_PATH_SIZE];
@@ -495,6 +533,25 @@ static struct udev_device *device_new_from_parent(struct udev_device *udev_devic
 	return NULL;
 }
 
+/**
+ * udev_device_get_parent:
+ * @udev_device: the device to start searching from
+ *
+ * Find the next parent device, and fill in information from the sys
+ * device and the udev database entry.
+ *
+ * The returned the device is not referenced. It is attached to the
+ * child device, and will be cleaned up when the child device
+ * is cleaned up.
+ *
+ * It is not neccessarily just the upper level directory, empty or not
+ * recognized sys directories are ignored.
+ *
+ * It can be called as many times as needed, without caring about
+ * references.
+ *
+ * Returns: a new udev device, or #NULL, if it no parent exist.
+ **/
 struct udev_device *udev_device_get_parent(struct udev_device *udev_device)
 {
 	if (udev_device == NULL)
@@ -508,6 +565,25 @@ struct udev_device *udev_device_get_parent(struct udev_device *udev_device)
 	return udev_device->parent_device;
 }
 
+/**
+ * udev_device_get_parent_with_subsystem_devtype:
+ * @udev_device: udev device to start searching from
+ * @subsystem: the subsytem of the device
+ * @devtype: the type (DEVTYPE) of the device
+ *
+ * Find the next parent device, with a matching subsystem and devtype
+ * value, and fill in information from the sys device and the udev
+ * database entry.
+ *
+ * The returned the device is not referenced. It is attached to the
+ * child device, and will be cleaned up when the child device
+ * is cleaned up.
+ *
+ * It can be called as many times as needed, without caring about
+ * references.
+ *
+ * Returns: a new udev device, or #NULL, if no matching parent exists.
+ **/
 struct udev_device *udev_device_get_parent_with_subsystem_devtype(struct udev_device *udev_device, const char *subsystem, const char *devtype)
 {
 	struct udev_device *parent;
@@ -631,6 +707,12 @@ const char *udev_device_get_syspath(struct udev_device *udev_device)
 	return udev_device->syspath;
 }
 
+/**
+ * udev_device_get_sysname:
+ * @udev_device: udev device
+ *
+ * Returns: the sys name of the device device
+ **/
 const char *udev_device_get_sysname(struct udev_device *udev_device)
 {
 	if (udev_device == NULL)
@@ -638,6 +720,12 @@ const char *udev_device_get_sysname(struct udev_device *udev_device)
 	return udev_device->sysname;
 }
 
+/**
+ * udev_device_get_sysnum:
+ * @udev_device: udev device
+ *
+ * Returns: the trailing number of of the device name
+ **/
 const char *udev_device_get_sysnum(struct udev_device *udev_device)
 {
 	if (udev_device == NULL)
@@ -790,6 +878,12 @@ struct udev_list_entry *udev_device_get_properties_list_entry(struct udev_device
 	return udev_list_get_entry(&udev_device->properties_list);
 }
 
+/**
+ * udev_device_get_driver:
+ * @udev_device: udev device
+ *
+ * Returns: the driver string or #NULL, if ther is no driver attached.
+ **/
 const char *udev_device_get_driver(struct udev_device *udev_device)
 {
 	char driver[UTIL_NAME_SIZE];
@@ -804,6 +898,12 @@ const char *udev_device_get_driver(struct udev_device *udev_device)
 	return udev_device->driver;
 }
 
+/**
+ * udev_device_get_devnum:
+ * @udev_device: udev device
+ *
+ * Returns: the device major/minor number.
+ **/
 dev_t udev_device_get_devnum(struct udev_device *udev_device)
 {
 	if (udev_device == NULL)
@@ -813,6 +913,16 @@ dev_t udev_device_get_devnum(struct udev_device *udev_device)
 	return udev_device->devnum;
 }
 
+/**
+ * udev_device_get_action:
+ * @udev_device: udev device
+ *
+ * This is only valid if the device was received through a monitor. Devices read from
+ * sys do not have an action string. Usual actions are: add, remove, change, online,
+ * offline.
+ *
+ * Returns: the kernel action value, or #NULL if there is no action value available.
+ **/
 const char *udev_device_get_action(struct udev_device *udev_device)
 {
 	if (udev_device == NULL)
@@ -820,6 +930,15 @@ const char *udev_device_get_action(struct udev_device *udev_device)
 	return udev_device->action;
 }
 
+/**
+ * udev_device_get_devnum:
+ * @udev_device: udev device
+ *
+ * This is only valid if the device was received through a monitor. Devices read from
+ * sys do not have a sequence number.
+ *
+ * Returns: the kernel event sequence number, or 0 if there is no sequence number available.
+ **/
 unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device)
 {
 	if (udev_device == NULL)
@@ -827,6 +946,16 @@ unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device)
 	return udev_device->seqnum;
 }
 
+/**
+ * udev_device_get_sysattr_value:
+ * @udev_device: udev device
+ * @sysattr: attribute name
+ *
+ * The retrieved value is cached in the device. Repeated reads will return the same
+ * value and not open the attribute again.
+ *
+ * Returns: the content of a sys attribute file, or #NULL if there is no sys attribute value.
+ **/
 const char *udev_device_get_sysattr_value(struct udev_device *udev_device, const char *sysattr)
 {
 	struct udev_list_entry *list_entry;
@@ -1025,6 +1154,13 @@ struct udev_list_entry *udev_device_add_property_from_string(struct udev_device 
 	return udev_device_add_property(udev_device, name, val);
 }
 
+/**
+ * udev_device_get_property_value:
+ * @udev_device: udev device
+ * @key: property name
+ *
+ * Returns: the value of a device property, or #NULL if there is no such property.
+ **/
 const char *udev_device_get_property_value(struct udev_device *udev_device, const char *key)
 {
 	struct udev_list_entry *list_entry;
