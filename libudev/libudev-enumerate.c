@@ -29,7 +29,7 @@ static int devices_sort(struct udev_enumerate *udev_enumerate);
  * @short_description: lookup and sort sys devices
  *
  * Lookup devices in the sys filesystem, filter devices by properties,
- * and return a sorted list of matching devices.
+ * and return a sorted list of devices.
  */
 
 /**
@@ -95,7 +95,6 @@ struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate)
  *
  * Drop a reference of an enumeration context. If the refcount reaches zero,
  * all resources of the enumeration context will be released.
- *
  **/
 void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 {
@@ -126,6 +125,12 @@ struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate)
 	return udev_enumerate->udev;
 }
 
+/**
+ * udev_enumerate_get_list_entry:
+ * @udev_enumerate: context
+ *
+ * Returns: the first entry of the sorted list of device paths.
+ */
 struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *udev_enumerate)
 {
 	if (udev_enumerate == NULL)
@@ -135,6 +140,13 @@ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *ude
 	return udev_list_get_entry(&udev_enumerate->devices_list);
 }
 
+/**
+ * udev_enumerate_add_match_subsystem:
+ * @udev_enumerate: context
+ * @subsystem: filter for a subsystem of the device to include in the list
+ *
+ * Returns: 0 on success, otherwise a negative error value.
+ */
 int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem)
 {
 	if (udev_enumerate == NULL)
@@ -147,6 +159,13 @@ int udev_enumerate_add_match_subsystem(struct udev_enumerate *udev_enumerate, co
 	return 0;
 }
 
+/**
+ * udev_enumerate_add_nomatch_subsystem:
+ * @udev_enumerate: context
+ * @subsystem: filter for a subsystem of the device to exclude from the list
+ *
+ * Returns: 0 on success, otherwise a negative error value.
+ */
 int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate, const char *subsystem)
 {
 	if (udev_enumerate == NULL)
@@ -159,6 +178,14 @@ int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate, 
 	return 0;
 }
 
+/**
+ * udev_enumerate_add_match_sysattr:
+ * @udev_enumerate: context
+ * @sysattr: filter for a sys attribute at the device to include in the list
+ * @value: optional value of the sys attribute
+ *
+ * Returns: 0 on success, otherwise a negative error value.
+ */
 int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value)
 {
 	if (udev_enumerate == NULL)
@@ -171,6 +198,14 @@ int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate, cons
 	return 0;
 }
 
+/**
+ * udev_enumerate_add_nomatch_sysattr:
+ * @udev_enumerate: context
+ * @sysattr: filter for a sys attribute at the device to exclude from the list
+ * @value: optional value of the sys attribute
+ *
+ * Returns: 0 on success, otherwise a negative error value.
+ */
 int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value)
 {
 	if (udev_enumerate == NULL)
@@ -208,6 +243,14 @@ exit:
 	return match;
 }
 
+/**
+ * udev_enumerate_add_match_property:
+ * @udev_enumerate: context
+ * @property: filter for a property of the device to include in the list
+ * @value: value of the property
+ *
+ * Returns: 0 on success, otherwise a negative error value.
+ */
 int udev_enumerate_add_match_property(struct udev_enumerate *udev_enumerate, const char *property, const char *value)
 {
 	if (udev_enumerate == NULL)
@@ -423,6 +466,15 @@ static int devices_sort(struct udev_enumerate *udev_enumerate)
 	return 0;
 }
 
+/**
+ * udev_enumerate_add_syspath:
+ * @udev_enumerate: context
+ * @syspath: path of a device
+ *
+ * Add a device to the list of devices, to retrieve it back sorted in dependency order.
+ *
+ * Returns: 0 on success, otherwise a negative error value.
+ */
 int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char *syspath)
 {
 	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
@@ -446,7 +498,7 @@ int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char
  * udev_enumerate_scan_devices:
  * @udev_enumerate: udev enumeration context
  *
- * Returns: a negative value on error.
+ * Returns: 0 on success, otherwise a negative error value.
  **/
 int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
 {
@@ -486,7 +538,7 @@ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
  * udev_enumerate_scan_subsystems:
  * @udev_enumerate: udev enumeration context
  *
- * Returns: a negative value on error.
+ * Returns: 0 on success, otherwise a negative error value.
  **/
 int udev_enumerate_scan_subsystems(struct udev_enumerate *udev_enumerate)
 {
