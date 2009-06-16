@@ -12,3 +12,8 @@ SUBDIRS = \
 	rule_generator \
 	scsi_id \
 	usb_id
+
+if ENABLE_EXTRAS
+SUBDIRS += \
+	udev-acl
+endif

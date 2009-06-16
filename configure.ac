@@ -58,6 +58,16 @@ if test "x$enable_logging" = "xyes"; then
 	AC_DEFINE(ENABLE_LOGGING, [1], [System logging.])
 fi
 
+AC_ARG_ENABLE([extras],
+	AS_HELP_STRING([--enable-extras], [enable extras with external dependencies]),
+	[], [enable_extras=no])
+if test "x$enable_extras" = xyes; then
+	PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.7.0 gobject-2.0 >= 2.7.0])
+	AC_SUBST([GLIB_CFLAGS])
+	AC_SUBST([GLIB_LIBS])
+fi
+AM_CONDITIONAL([ENABLE_EXTRAS], [test "x$enable_extras" = xyes])
+
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([
 	Makefile
@@ -79,6 +89,7 @@ AC_CONFIG_FILES([
 	extras/rule_generator/Makefile
 	extras/scsi_id/Makefile
 	extras/usb_id/Makefile
+	extras/udev-acl/Makefile
 ])
 
 AC_OUTPUT
@@ -101,6 +112,8 @@ AC_MSG_RESULT([
 	compiler:		${CC}
 	cflags:			${CFLAGS}
 	ldflags:		${LDFLAGS}
+
+	extras:			${enable_extras}
 
 	xsltproc:		${XSLTPROC}
 ])
