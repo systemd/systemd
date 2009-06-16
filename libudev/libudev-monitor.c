@@ -35,7 +35,6 @@
  */
 
 /**
-/**
  * udev_monitor:
  *
  * Opaque object handling one event source.

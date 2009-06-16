@@ -29,6 +29,9 @@ libudev_la_SOURCES =\
 	libudev-monitor.c \
 	libudev-queue.c
 
+LIBUDEV_LT_CURRENT=4
+LIBUDEV_LT_REVISION=0
+LIBUDEV_LT_AGE=4
 libudev_la_LDFLAGS = \
 	-version-info $(LIBUDEV_LT_CURRENT):$(LIBUDEV_LT_REVISION):$(LIBUDEV_LT_AGE) \
 	-export-symbols $(top_srcdir)/libudev/exported_symbols

@@ -15,14 +15,6 @@ dnl /* prefix is /usr, exec_prefix is /, if overridden exec_prefix follows prefi
 AC_PREFIX_DEFAULT([/usr])
 test "$prefix" = NONE && test "$exec_prefix" = NONE && exec_prefix=
 
-dnl /* libudev version */
-LIBUDEV_LT_CURRENT=4
-LIBUDEV_LT_REVISION=0
-LIBUDEV_LT_AGE=4
-AC_SUBST(LIBUDEV_LT_CURRENT)
-AC_SUBST(LIBUDEV_LT_REVISION)
-AC_SUBST(LIBUDEV_LT_AGE)
-
 AC_PATH_PROG([XSLTPROC], [xsltproc])
 
 AC_ARG_WITH(udev-prefix,
