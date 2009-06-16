@@ -88,7 +88,7 @@ GUdev-1.0.gir: libgudev-1.0.la $(G_IR_SCANNER) Makefile.am
 		--output $@ \
 		--pkg=glib-2.0 \
 		--pkg=gobject-2.0 \
-		-I$(top_srcdir) \
+		-I$(top_srcdir)/extras \
 		-D_GUDEV_COMPILATION \
 		-DG_UDEV_API_IS_SUBJECT_TO_CHANGE \
 		$(top_srcdir)/extras/gudev/gudev.h \

@@ -78,7 +78,7 @@ AM_CONDITIONAL([ENABLE_EXTRAS], [test "x$enable_extras" = xyes])
 AC_ARG_ENABLE([introspection],
 	AS_HELP_STRING([--enable-introspection], [enable GObject introspection]),
 	[], [enable_introspection=no])
-if test "$enable_introspection" = xyes; then
+if test "x$enable_introspection" = xyes; then
 	PKG_CHECK_MODULES([INTROSPECTION], [gobject-introspection-1.0 >= 0.6.2])
 	AC_DEFINE([ENABLE_INTROSPECTION], [1], [enable GObject introspection support])
 	AC_SUBST([G_IR_SCANNER], [$($PKG_CONFIG --variable=g_ir_scanner gobject-introspection-1.0)])
