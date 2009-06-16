@@ -68,6 +68,10 @@ if test "x$enable_extras" = xyes; then
 
 	AC_CHECK_LIB([acl], [acl_init], [:], AC_MSG_ERROR([libacl not found]))
 	AC_CHECK_HEADER([acl/libacl.h], [:], AC_MSG_ERROR([libacl header not found]))
+
+	PKG_CHECK_MODULES(LIBUSB, libusb >= 0.1.12)
+	AC_SUBST(LIBUSB_CFLAGS)
+	AC_SUBST(LIBUSB_LIBS)
 fi
 AM_CONDITIONAL([ENABLE_EXTRAS], [test "x$enable_extras" = xyes])
 
@@ -107,6 +111,7 @@ AC_CONFIG_FILES([
 	extras/scsi_id/Makefile
 	extras/usb_id/Makefile
 	extras/v4l_id/Makefile
+	extras/hid2hci/Makefile
 	extras/udev-acl/Makefile
 	extras/gudev/Makefile
 	extras/gudev/gudev-1.0.pc

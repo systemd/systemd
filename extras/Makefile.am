@@ -17,5 +17,6 @@ SUBDIRS = \
 if ENABLE_EXTRAS
 SUBDIRS += \
 	udev-acl \
+	hid2hci \
 	gudev
 endif
