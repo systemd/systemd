@@ -15,5 +15,6 @@ SUBDIRS = \
 
 if ENABLE_EXTRAS
 SUBDIRS += \
-	udev-acl
+	udev-acl \
+	gudev
 endif

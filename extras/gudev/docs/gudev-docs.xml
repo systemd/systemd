@@ -1,0 +1,88 @@
+<?xml version="1.0"?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.1.2//EN"
+               "http://www.oasis-open.org/docbook/xml/4.1.2/docbookx.dtd" [
+<!ENTITY version SYSTEM "version.xml">
+]>
+<book id="index" xmlns:xi="http://www.w3.org/2003/XInclude">
+  <bookinfo>
+    <title>GUDev Reference Manual</title>
+    <releaseinfo>For GUdev version &version;</releaseinfo>
+    <authorgroup>
+      <author>
+	<firstname>David</firstname>
+	<surname>Zeuthen</surname>
+	<affiliation>
+	  <address>
+	    <email>davidz@redhat.com</email>
+	  </address>
+	</affiliation>
+      </author>
+      <author>
+	<firstname>Bastien</firstname>
+	<surname>Nocera</surname>
+	<affiliation>
+	  <address>
+	    <email>hadess@hadess.net</email>
+	  </address>
+	</affiliation>
+      </author>
+    </authorgroup>
+
+    <copyright>
+      <year>2009</year>
+      <holder>The GUDev Authors</holder>
+    </copyright>
+
+    <legalnotice>
+      <para>
+	Permission is granted to copy, distribute and/or modify this
+	document under the terms of the <citetitle>GNU Free
+	Documentation License</citetitle>, Version 1.1 or any later
+	version published by the Free Software Foundation with no
+	Invariant Sections, no Front-Cover Texts, and no Back-Cover
+	Texts. You may obtain a copy of the <citetitle>GNU Free
+	Documentation License</citetitle> from the Free Software
+	Foundation by visiting <ulink type="http"
+	url="http://www.fsf.org">their Web site</ulink> or by writing
+	to:
+
+	<address>
+	  The Free Software Foundation, Inc.,
+	  <street>59 Temple Place</street> - Suite 330,
+	  <city>Boston</city>, <state>MA</state> <postcode>02111-1307</postcode>,
+	  <country>USA</country>
+	</address>
+      </para>
+
+      <para>
+	Many of the names used by companies to distinguish their
+	products and services are claimed as trademarks. Where those
+	names appear in any freedesktop.org documentation, and those
+	trademarks are made aware to the members of the
+	freedesktop.org Project, the names have been printed in caps
+	or initial caps.
+      </para>
+    </legalnotice>
+  </bookinfo>
+
+  <reference id="ref-API">
+    <title>API Reference</title>
+    <partintro>
+      <para>
+	This part presents the class and function reference for the
+	<literal>libgudev</literal> library.
+      </para>
+    </partintro>
+    <xi:include href="xml/gudevclient.xml"/>
+    <xi:include href="xml/gudevdevice.xml"/>
+  </reference>
+
+  <chapter id="gudev-hierarchy">
+    <title>Object Hierarchy</title>
+      <xi:include href="xml/tree_index.sgml"/>
+  </chapter>
+  <index>
+    <title>Index</title>
+  </index>
+
+</book>

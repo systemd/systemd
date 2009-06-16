@@ -1,0 +1,3 @@
+g_udev_device_type_get_type
+g_udev_device_get_type
+g_udev_client_get_type
