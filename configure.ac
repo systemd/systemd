@@ -72,6 +72,22 @@ if test "x$enable_extras" = xyes; then
 	PKG_CHECK_MODULES(LIBUSB, libusb >= 0.1.12)
 	AC_SUBST(LIBUSB_CFLAGS)
 	AC_SUBST(LIBUSB_LIBS)
+
+	PKG_CHECK_MODULES(USBUTILS, usbutils >= 0.82)
+	AC_SUBST([USB_DATABASE], [$($PKG_CONFIG --variable=usbids usbutils)])
+
+	AC_CHECK_FILES([/usr/share/pci.ids], [pciids=/usr/share/pci.ids])
+	AC_CHECK_FILES([/usr/share/hwdata/pci.ids], [pciids=/usr/share/hwdata/pci.ids])
+	AC_CHECK_FILES([/usr/share/misc/pci.ids], [pciids=/usr/share/misc/pci.ids])
+	AC_ARG_WITH(pci-ids-path,
+		AS_HELP_STRING([--pci-ids-path=DIR], [Path to pci.ids file]),
+		[PCI_DATABASE=${withval}],
+		[if test -n "$pciids" ; then
+			PCI_DATABASE="$pciids"
+		else
+			AC_MSG_ERROR([pci.ids not found, try --with-pci-ids-path=])
+		fi])
+	AC_SUBST(PCI_DATABASE)
 fi
 AM_CONDITIONAL([ENABLE_EXTRAS], [test "x$enable_extras" = xyes])
 
@@ -113,6 +129,7 @@ AC_CONFIG_FILES([
 	extras/v4l_id/Makefile
 	extras/hid2hci/Makefile
 	extras/udev-acl/Makefile
+	extras/usb-db/Makefile
 	extras/gudev/Makefile
 	extras/gudev/gudev-1.0.pc
 	extras/gudev/docs/Makefile
@@ -143,6 +160,9 @@ AC_MSG_RESULT([
 
 	extras:			${enable_extras}
 	gintrospection:		${enable_introspection}
+
+	usb.ids:		${USB_DATABASE}
+	pci.ids:		${PCI_DATABASE}
 
 	xsltproc:		${XSLTPROC}
 ])

@@ -17,6 +17,7 @@ SUBDIRS = \
 if ENABLE_EXTRAS
 SUBDIRS += \
 	udev-acl \
+	usb-db \
 	hid2hci \
 	gudev
 endif
