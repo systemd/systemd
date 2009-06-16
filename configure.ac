@@ -65,6 +65,9 @@ if test "x$enable_extras" = xyes; then
 	PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.7.0 gobject-2.0 >= 2.7.0])
 	AC_SUBST([GLIB_CFLAGS])
 	AC_SUBST([GLIB_LIBS])
+
+	AC_CHECK_LIB([acl], [acl_init], [:], AC_MSG_ERROR([libacl not found]))
+	AC_CHECK_HEADER([acl/libacl.h], [:], AC_MSG_ERROR([libacl header not found]))
 fi
 AM_CONDITIONAL([ENABLE_EXTRAS], [test "x$enable_extras" = xyes])
 

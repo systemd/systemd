@@ -31,6 +31,9 @@ All options:
   --with-selinux
       Link against SELInux libraries to set the expected context
       for created files.
+  --enable-extras
+      Build extras with larger external dependencies like glib,
+      libacl, libusb, ...
 
 The options used in a RPM spec file usually look like:
   --prefix=%{_prefix}
@@ -38,6 +41,7 @@ The options used in a RPM spec file usually look like:
   --sysconfdir=%{_sysconfdir}
   --with-libdir-name=%{_lib}
   --with-selinux
+  --enable-extras
 
 The defined location for scripts and binaries which are called
 from rules is /lib/udev/ on all systems and architectures. Any
