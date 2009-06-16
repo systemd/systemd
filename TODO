@@ -1,4 +1,5 @@
 
+  o fix configure options and libdir-name, exec-prefix, udev-prefix, libdir, ...
   o enumerate: sort control* after pcm*
   o add tests for kernel provided DEVNAME logic
   o drop modprobe floppy alias (SUSE), it will be in the module (2.6.30)
