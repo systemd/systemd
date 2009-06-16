@@ -2,6 +2,9 @@
 
 ACTION!="add|change", GOTO="persistent_v4l_end"
 SUBSYSTEM!="video4linux", GOTO="persistent_v4l_end"
+ENV{MAJOR}=="", GOTO="persistent_v4l_end"
+
+IMPORT{program}="v4l_id $tempnode"
 
 SUBSYSTEMS=="usb", IMPORT{program}="usb_id --export %p"
 KERNEL=="video*", ENV{ID_SERIAL}=="?*", SYMLINK+="v4l/by-id/$env{ID_BUS}-$env{ID_SERIAL}-video-index$attr{index}"

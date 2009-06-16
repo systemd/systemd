@@ -106,6 +106,7 @@ AC_CONFIG_FILES([
 	extras/rule_generator/Makefile
 	extras/scsi_id/Makefile
 	extras/usb_id/Makefile
+	extras/v4l_id/Makefile
 	extras/udev-acl/Makefile
 	extras/gudev/Makefile
 	extras/gudev/gudev-1.0.pc

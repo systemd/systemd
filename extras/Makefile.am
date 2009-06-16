@@ -11,7 +11,8 @@ SUBDIRS = \
 	fstab_import \
 	rule_generator \
 	scsi_id \
-	usb_id
+	usb_id \
+	v4l_id
 
 if ENABLE_EXTRAS
 SUBDIRS += \
