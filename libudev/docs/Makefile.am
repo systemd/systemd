@@ -15,7 +15,7 @@ DOC_MODULE=libudev
 #DOC_MODULE_VERSION=2
 
 # The top-level SGML file. You can change this if you want to.
-DOC_MAIN_SGML_FILE=$(DOC_MODULE)-docs.sgml
+DOC_MAIN_SGML_FILE=$(DOC_MODULE)-docs.xml
 
 # The directory containing the source code. Relative to $(srcdir).
 # gtk-doc will search all .c & .h files beneath here for inline comments
