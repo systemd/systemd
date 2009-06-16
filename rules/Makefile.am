@@ -8,6 +8,8 @@ dist_udevrules_DATA = \
 	rules.d/60-persistent-serial.rules \
 	rules.d/60-persistent-input.rules \
 	rules.d/60-persistent-alsa.rules \
+	rules.d/75-net-description.rules \
+	rules.d/75-tty-description.rules \
 	rules.d/78-sound-card.rules \
 	rules.d/80-drivers.rules \
 	rules.d/95-udev-late.rules
