@@ -1,4 +1,3 @@
-  o CFLAGS debug
   o cleanup old extras which link libudev source directly
 
   o fix configure options and libdir-name, exec-prefix, udev-prefix, libdir, ...
