@@ -159,7 +159,7 @@ static int consolekit_called(const char *action, uid_t *uid, const char **own_se
 	const char *s;
 	const char *session;
 
-	if (strcmp(action, "session_active_changed") != 0)
+	if (action == NULL || strcmp(action, "session_active_changed") != 0)
 		return -1;
 
 	s = getenv("CK_SESSION_IS_LOCAL");
