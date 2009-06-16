@@ -38,6 +38,9 @@ Requirements:
     these group names with only the rootfs mounted, and while no network is
     available.
 
+  - To build all udev extras, libacl, libglib2, libusb, usbutils, pciutils are
+    needed. These dependencies can be disabled with the --disable-extras option.
+
 Operation:
   Udev creates and removes device nodes in /dev/, based on events the kernel
   sends out on device discovery or removal.

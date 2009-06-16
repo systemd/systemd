@@ -13,7 +13,7 @@ CFLAGS="-g -Wall \
 libdirname=$(basename $(cd /lib/$(gcc -print-multi-os-directory); pwd))
 args="--prefix=/usr --exec-prefix= --sysconfdir=/etc \
 --libdir=/usr/$libdirname --with-libdir-name=$libdirname \
---with-selinux --enable-gtk-doc --enable-extras"
+--with-selinux --enable-gtk-doc"
 
 export CFLAGS="$CFLAGS -O2"
 ./configure $args $@

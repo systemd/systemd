@@ -59,8 +59,8 @@ if test "x$enable_logging" = "xyes"; then
 fi
 
 AC_ARG_ENABLE([extras],
-	AS_HELP_STRING([--enable-extras], [enable extras with external dependencies]),
-	[], [enable_extras=no])
+	AS_HELP_STRING([--disable-extras], [disable extras with external dependencies]),
+	[], [enable_extras=yes])
 if test "x$enable_extras" = xyes; then
 	PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.7.0 gobject-2.0 >= 2.7.0])
 	AC_SUBST([GLIB_CFLAGS])
