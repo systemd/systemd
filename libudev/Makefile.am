@@ -12,7 +12,7 @@ test_libudev_SOURCES = \
 test_libudev_LDADD = \
 	libudev.la
 
-rootlib_LTLIBRARIES = \
+lib_LTLIBRARIES = \
 	libudev.la
 
 include_HEADERS =\
@@ -42,17 +42,16 @@ pkgconfig_DATA = \
 EXTRA_DIST = \
 	exported_symbols
 
-# move devel files from $(rootlibdir) to $(libdir) if needed
+# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 install-data-hook:
-	rm -f $(DESTDIR)$(rootlibdir)/libudev.la
+	rm -f $(DESTDIR)$(libdir)/libudev.la
 	if test "$(libdir)" != "$(rootlibdir)"; then \
 		mkdir -p $(DESTDIR)$(rootlibdir); \
-		so_img_name=$$(readlink $(DESTDIR)$(rootlibdir)/libudev.so); \
-		rm $(DESTDIR)$(rootlibdir)/libudev.so; \
+		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libudev.so); \
 		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g'); \
 		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libudev.so; \
+		mv $(DESTDIR)$(libdir)/libudev.so.* $(DESTDIR)$(rootlibdir); \
 	fi
 
 uninstall-hook:
-	rm -f $(DESTDIR)$(rootlibdir)/libudev.a
 	rm -f $(DESTDIR)$(rootlibdir)/libudev.so*
