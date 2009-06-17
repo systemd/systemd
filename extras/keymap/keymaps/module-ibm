@@ -1,7 +1,7 @@
 0x01 battery # Fn+F2
 0x02 screenlock # Fn+F3
 0x03 sleep # Fn+F4
-0x04 radio # Fn+F5
+0x04 wlan # Fn+F5
 0x06 switchvideomode # Fn+F7
 0x07 zoom # Fn+F8 screen expand
 0x08 f24 # Fn+F9 undock
