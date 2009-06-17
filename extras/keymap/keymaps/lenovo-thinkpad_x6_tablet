@@ -1,0 +1,8 @@
+0x6C f21 # rotate
+0x68 screenlock # screenlock
+0x6B esc # escape
+0x6D right # right on d-pad
+0x6E left # left on d-pad
+0x71 up # up on d-pad
+0x6F down # down on d-pad
+0x69 enter # enter on d-pad

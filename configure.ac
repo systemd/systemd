@@ -7,6 +7,7 @@ dnl AM_SILENT_RULES
 AC_SYS_LARGEFILE
 AC_CONFIG_MACRO_DIR([m4])
 AC_PROG_LIBTOOL
+AC_PROG_AWK
 GTK_DOC_CHECK(1.10)
 AC_PREFIX_DEFAULT([/usr])
 AC_PATH_PROG([XSLTPROC], [xsltproc])
@@ -49,6 +50,8 @@ AC_ARG_ENABLE([extras],
 	AS_HELP_STRING([--disable-extras], [disable extras with external dependencies]),
 	[], [enable_extras=yes])
 if test "x$enable_extras" = xyes; then
+	AC_PATH_PROG([GPERF], [gperf])
+
 	PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.7.0 gobject-2.0 >= 2.7.0])
 	AC_SUBST([GLIB_CFLAGS])
 	AC_SUBST([GLIB_LIBS])
@@ -121,6 +124,7 @@ AC_CONFIG_FILES([
 	extras/gudev/gudev-1.0.pc
 	extras/gudev/docs/Makefile
 	extras/gudev/docs/version.xml
+	extras/keymap/Makefile
 ])
 
 AC_OUTPUT
@@ -154,4 +158,5 @@ AC_MSG_RESULT([
 	pci.ids:		${PCI_DATABASE}
 
 	xsltproc:		${XSLTPROC}
+	gperf:			${GPERF}
 ])

@@ -1,0 +1,79 @@
+ACTION!="add", GOTO="keyboard_end"
+SUBSYSTEM!="input", GOTO="keyboard_end"
+KERNEL!="event*", GOTO="keyboard_end"
+
+ENV{DMI_VENDOR}="$attr{[dmi/id]sys_vendor}"
+ENV{DMI_VENDOR}=="", GOTO="keyboard_end"
+
+#
+# The following are exposed as separate input devices with low key codes, thus
+# we need to check their input device product name
+#
+
+ENV{DMI_VENDOR}=="IBM*", KERNELS=="input*", ATTRS{name}=="ThinkPad Extra Buttons", RUN+="keymap $name module-ibm"
+ENV{DMI_VENDOR}=="LENOVO*", KERNELS=="input*", ATTRS{name}=="ThinkPad Extra Buttons", RUN+="keymap $name module-lenovo"
+ENV{DMI_VENDOR}=="ASUS*", KERNELS=="input*", ATTRS{name}=="Asus Extra Buttons", ATTR{[dmi/id]product_name}=="W3J", RUN+="keymap $name module-asus-w3j"
+ENV{DMI_VENDOR}=="Sony*", KERNELS=="input*", ATTRS{name}=="Sony Vaio Keys", RUN+="keymap $name module-sony"
+
+# Older Vaios have some different keys
+ENV{DMI_VENDOR}=="Sony*", ATTR{[dmi/id]product_name}=="*PCG-C1*|*PCG-K25*|*PCG-F1*|*PCG-F2*|*PCG-F3*|*PCG-F4*|*PCG-F5*|*PCG-F6*|*PCG-FX*|*PCG-FRV*|*PCG-GR*|*PCG-TR*|*PCG-NV*|*PCG-Z*|*VGN-S360*|*VGN-SZ2HP_B*", ATTRS{name}=="Sony Vaio Keys", RUN+="keymap $name module-sony-old"
+
+#
+# The following rules belong to standard i8042 AT keyboard with high key codes.
+#
+
+DRIVERS=="atkbd", GOTO="keyboard_vendorcheck"
+GOTO="keyboard_end"
+
+LABEL="keyboard_vendorcheck"
+
+ENV{DMI_VENDOR}=="Dell*", RUN+="keymap $name dell"
+ENV{DMI_VENDOR}=="Compaq*", ATTR{[dmi/id]product_name}=="*E500*|*Evo N610c*|*Evo N600c*", RUN+="keymap $name compaq-e_evo"
+
+ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="*3000*", RUN+="keymap $name lenovo-3000"
+ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="ThinkPad X6*", ATTR{[dmi/id]product_version}=="* Tablet" RUN+="keymap $name lenovo-thinkpad_x6_tablet"
+ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="ThinkPad X200 Tablet*", ATTR{[dmi/id]product_version}=="* Tablet" RUN+="keymap $name lenovo-thinkpad_x200_tablet"
+
+ENV{DMI_VENDOR}=="Hewlett-Packard*", RUN+="keymap $name hewlett-packard"
+ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*[tT][aA][bB][lL][eE][tT]*", RUN+="keymap $name hewlett-packard-tablet"
+ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*[pP][aA][vV][iI][lL][iI][oO][nN]*", RUN+="keymap $name hewlett-packard-pavilion"
+ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*Compaq*|*EliteBook*", RUN+="keymap $name hewlett-packard-compaq_elitebook"
+ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*2510p*|*2530p*", RUN+="keymap $name hewlett-packard-2510p_2530p"
+ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*[tT][xX]2*", RUN+="keymap $name hewlett-packard-tx2"
+
+ENV{DMI_VENDOR}=="Acer*", RUN+="keymap $name acer"
+ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="Extensa*", ATTR{[dmi/id]product_name}=="*5210*|*5220*|*5610*|*5620*|*5720*", RUN+="keymap $name acer-extensa_5xxx"
+ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="TravelMate*C300*", RUN+="keymap $name acer-travelmate_c300"
+ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="TravelMate*6292*", RUN+="keymap $name acer-travelmate_6292"
+ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="Aspire 5920G", RUN+="keymap $name acer-aspire_5920g"
+
+ENV{DMI_VENDOR}=="*BenQ*", ATTR{[dmi/id]product_name}=="*Joybook R22*", RUN+="keymap $name benq-joybook_r22"
+
+ENV{DMI_VENDOR}=="FUJITSU*", ATTR{[dmi/id]product_name}=="*AMILO Pro V3205*", RUN+="keymap $name fujitsu-amilo_pro_v3205"
+ENV{DMI_VENDOR}=="FUJITSU*", ATTR{[dmi/id]product_name}=="*AMILO Pa 2548*", RUN+="keymap $name fujitsu-amilo_pa_2548"
+ENV{DMI_VENDOR}=="FUJITSU*", ATTR{[dmi/id]product_name}=="*ESPRIMO Mobile V5*", RUN+="keymap $name fujitsu-esprimo_mobile_v5"
+ENV{DMI_VENDOR}=="FUJITSU*", ATTR{[dmi/id]product_name}=="*ESPRIMO Mobile V6*", RUN+="keymap $name fujitsu-esprimo_mobile_v6"
+ENV{DMI_VENDOR}=="FUJITSU*", ATTR{[dmi/id]product_name}=="*AMILO Pro Edition V3505*", RUN+="keymap $name fujitsu-amilo_pro_edition_v3505"
+ENV{DMI_VENDOR}=="FUJITSU*", ATTR{[dmi/id]product_name}=="*Amilo Si 1520*", RUN+="keymap $name fujitsu-amilo_si_1520"
+
+ENV{DMI_VENDOR}=="MEDION*", ATTR{[dmi/id]product_name}=="*FID2060*", RUN+="keymap $name medion-fid2060"
+ENV{DMI_VENDOR}=="MEDIONNB", ATTR{[dmi/id]product_name}=="A555*", RUN+="keymap $name medionnb-a555"
+
+ENV{DMI_VENDOR}=="MICRO-STAR*", RUN+="keymap $name micro-star"
+
+ENV{DMI_VENDOR}=="INVENTEC", ATTR{[dmi/id]product_name}=="SYMPHONY 6.0/7.0", RUN+="keymap $name inventec-symphony_6.0_7.0"
+
+ENV{DMI_VENDOR}=="MAXDATA", ATTR{[dmi/id]product_name}=="Pro 7000*", RUN+="keymap $name maxdata-pro_7000"
+
+ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="*NC10*|*SP55S*|*SQ45S70S*|*SX60P*|*SX30S*|*R59P/R60P/R61P*|*Q210*|*Q310*|*X05*|*P560*|*R560*", RUN+="keymap $name samsung-other"
+ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="*SX20S*", RUN+="keymap $name samsung-sx20s"
+ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="SQ1US", RUN+="keymap $name samsung-sq1us"
+
+ENV{DMI_VENDOR}=="TOSHIBA", ATTR{[dmi/id]product_name}=="SATELLITE A100", RUN+="keymap $name toshiba-satellite_a100"
+ENV{DMI_VENDOR}=="TOSHIBA", ATTR{[dmi/id]product_name}=="Satellite A110", RUN+="keymap $name toshiba-satellite_a110"
+
+ENV{DMI_VENDOR}=="OQO Inc.*", ATTR{[dmi/id]product_name}=="OQO Model 2*", RUN+="keymap $name oqo-model2"
+
+ENV{DMI_VENDOR}=="ASUS", RUN+="keymap $name asus"
+
+LABEL="keyboard_end"

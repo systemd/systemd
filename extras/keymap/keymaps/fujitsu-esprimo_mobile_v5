@@ -1,0 +1,4 @@
+0xA9 switchvideomode
+0xD9 brightnessdown
+0xDF sleep
+0xEF brightnessup

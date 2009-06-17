@@ -19,5 +19,6 @@ SUBDIRS += \
 	udev-acl \
 	usb-db \
 	hid2hci \
+	keymap \
 	gudev
 endif

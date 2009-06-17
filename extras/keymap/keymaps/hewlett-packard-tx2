@@ -1,0 +1,3 @@
+0xC2 media
+0xD8 f22 # Toggle touchpad button on tx2 (OFF)
+0xD9 f22 # Toggle touchpad button on tx2 (ON)

@@ -1,0 +1,14 @@
+0x74 prog1 # User key
+0x75 www
+0x78 mail
+0x82 switchvideomode # Fn+F4 CRT/LCD (high keycode: "displaytoggle")
+0x83 battery # Fn+F2
+0x84 prog1 # Fn+F5 backlight on/off
+0x86 wlan # Fn+F9
+0x88 brightnessup # Fn-Up
+0x89 brightnessdown # Fn-Down
+0xB1 prog2 # Fn+F7 run Samsung Magic Doctor (keypressed event is generated twice)
+0xB3 prog3 # Fn+F8 switch power mode (battery/dynamic/performance)
+0xB4 wlan # Fn+F9 (X60P)
+0xF7 f22 # Fn+F10 Touchpad on
+0xF9 f22 # Fn+F10 Touchpad off

@@ -1,0 +1,45 @@
+#!/bin/sh -e
+# Find "real" keyboard devices and print their device path.
+# Author: Martin Pitt <martin.pitt@ubuntu.com>
+#
+# Copyright (C) 2009, Canonical Ltd.
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+# General Public License for more details.
+
+
+# print a list of input devices which are keyboard-like
+keyboard_devices() {
+    input_devs=`udevadm trigger --dry-run --verbose --subsystem-match=input --attr-match=dev`
+
+    # standard AT keyboard
+    for dev in $input_devs; do
+        info=`udevadm info --attribute-walk --path=$dev`
+        
+        if echo "$info" | grep -q 'DRIVERS=="atkbd"'; then
+            echo -n 'AT keyboard: '
+            udevadm info --query=name --path=$dev
+        fi
+    done
+
+    # modules
+    module=`udevadm trigger --verbose --dry-run --subsystem-match=input --attr-match=name='*Extra Buttons'`
+    module="$module
+`udevadm trigger --verbose --dry-run --subsystem-match=input --attr-match=name='Sony Vaio Keys'`"
+    for m in $module; do
+	evdev=`ls -d $m/event* 2>/dev/null`
+	if [ -e "$evdev/dev" ]; then
+	    echo -n 'module: '
+	    udevadm info --query=name --path=$evdev
+	fi
+    done
+}
+
+keyboard_devices
