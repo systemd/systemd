@@ -1,7 +1,6 @@
   o enumerate: sort control* after pcm*
   o add tests for kernel provided DEVNAME logic
   o drop modprobe floppy alias (SUSE), it will be in the module (2.6.30)
-  o remove MMC rules, they got a modalias now (2.6.30)
   o convert firmware.sh to C
 
   o symlink names to udevadm will no longer be resolved to old command names
