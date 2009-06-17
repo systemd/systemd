@@ -8,8 +8,8 @@ recommend to replace a distro's udev installation with the upstream version.
 Tools and rules shipped by udev are not public API and may change at any time.
 Never call any private tool in /lib/udev from any external application, it might
 just go away in the next release. Access to udev information is only offered
-by udevadm and libudev. Everything in /lib/udev and /dev/.udev/ is 100% private
-to udev.
+by udevadm and libudev. Tools and rules in /lib/udev and the entire content of
+/dev/.udev/ is private to udev.
 
 Requirements:
   - Version 2.6.25 of the Linux kernel with sysfs, procfs, signalfd, inotify,
