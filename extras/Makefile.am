@@ -20,5 +20,6 @@ SUBDIRS += \
 	usb-db \
 	hid2hci \
 	keymap \
+	modem-modeswitch \
 	gudev
 endif

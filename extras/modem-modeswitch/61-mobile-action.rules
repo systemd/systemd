@@ -1,0 +1,9 @@
+ACTION!="add", GOTO="mobile_action_end"
+
+SUBSYSTEM=="usb", ATTR{bDeviceClass}=="ff", ATTR{bDeviceSubClass}=="ff", ENV{DEVTYPE}=="usb_device", GOTO="mobile_action_switch"
+GOTO="mobile_action_end"
+
+LABEL="mobile_action_switch"
+ATTRS{idVendor}=="0df7", ATTRS{idProduct}=="0800", RUN+="modem-modeswitch -v 0x%s{idVendor} -p 0x%s{idProduct} -t mobile-action-8280p"
+
+LABEL="mobile_action_end"

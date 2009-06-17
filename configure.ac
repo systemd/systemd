@@ -125,6 +125,7 @@ AC_CONFIG_FILES([
 	extras/gudev/docs/Makefile
 	extras/gudev/docs/version.xml
 	extras/keymap/Makefile
+	extras/modem-modeswitch/Makefile
 ])
 
 AC_OUTPUT
