@@ -41,9 +41,6 @@ const struct key* lookup_key (const char *str, unsigned int len);
 
 #define MAX_SCANCODES 1024
 
-/* If keymap file is given without a path, assume this one; must end with '/' * */
-#define DEFAULT_PATH "/lib/udev/keymaps/"
-
 static int evdev_open(const char *dev)
 {
 	int fd;
@@ -222,8 +219,9 @@ static const char* default_keymap_path(const char* path)
 {
 	static char result[PATH_MAX];
 
+	/* If keymap file is given without a path, assume udev diretory; must end with '/' * */
 	if (!strchr(path, '/')) {
-		snprintf(result, sizeof(result), "%s%s", DEFAULT_PATH, path);
+		snprintf(result, sizeof(result), "%s%s", LIBEXECDIR "/keymaps/", path);
 		return result;
 	}
 	return path;
