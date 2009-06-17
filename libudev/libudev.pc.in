@@ -1,6 +1,6 @@
 prefix=@prefix@
 exec_prefix=@prefix@
-libdir=@prefix@/@libdir_name@
+libdir=@libdir@
 includedir=@prefix@/include
 
 Name: libudev

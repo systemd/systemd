@@ -290,7 +290,7 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 
 	/* allow programs in /lib/udev/ to be called without the path */
 	if (argv[0][0] != '/') {
-		util_strscpyl(program, sizeof(program), UDEV_PREFIX "/lib/udev/", argv[0], NULL);
+		util_strscpyl(program, sizeof(program), LIBEXECDIR "/", argv[0], NULL);
 		argv[0] = program;
 	}
 

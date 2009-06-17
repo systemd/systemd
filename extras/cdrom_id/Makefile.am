@@ -1,10 +1,8 @@
 include $(top_srcdir)/Makefile.am.inc
 
-udevhomedir = $(udev_prefix)/lib/udev
-udevhome_PROGRAMS = \
+libexec_PROGRAMS = \
 	cdrom_id
 
-udevrulesdir = $(udev_prefix)/lib/udev/rules.d
 dist_udevrules_DATA = \
 	60-cdrom_id.rules
 

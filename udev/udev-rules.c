@@ -1338,7 +1338,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 
 				/* allow programs in /lib/udev called without the path */
 				if (value[0] != '/')
-					util_strscpyl(file, sizeof(file), UDEV_PREFIX "/lib/udev/", value, NULL);
+					util_strscpyl(file, sizeof(file), LIBEXECDIR "/", value, NULL);
 				else
 					util_strscpy(file, sizeof(file), value);
 				pos = strchr(file, ' ');
@@ -1734,7 +1734,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 		add_matching_files(udev, &sort_list, filename, ".rules");
 
 		/* read default rules */
-		add_matching_files(udev, &sort_list, UDEV_PREFIX "/lib/udev/rules.d", ".rules");
+		add_matching_files(udev, &sort_list, LIBEXECDIR "/rules.d", ".rules");
 
 		/* sort all rules files by basename into list of files */
 		udev_list_entry_foreach_safe(sort_loop, sort_tmp, udev_list_get_entry(&sort_list)) {

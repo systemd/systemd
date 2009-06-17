@@ -18,10 +18,18 @@ case "$CFLAGS" in
 		;;
 esac
 
-libdirname=$(basename $(cd /lib/$(gcc -print-multi-os-directory); pwd))
-args="--prefix=/usr --exec-prefix= --sysconfdir=/etc \
---libdir=/usr/$libdirname --with-libdir-name=$libdirname \
---with-selinux --enable-gtk-doc"
+libdir() {
+	echo $(cd $1/$(gcc -print-multi-os-directory); pwd)
+}
+
+args="--prefix=/usr \
+--sysconfdir=/etc \
+--sbindir=/sbin \
+--libdir=$(libdir /usr/lib) \
+--with-rootlibdir=$(libdir /lib) \
+--libexecdir=/lib/udev \
+--with-selinux \
+--enable-gtk-doc"
 
 export CFLAGS="$CFLAGS $MYCFLAGS"
 ./configure $args $@

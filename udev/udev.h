@@ -28,7 +28,7 @@
 #define DEFAULT_FAKE_PARTITIONS_COUNT		15
 #define UDEV_EVENT_TIMEOUT			180
 
-#define UDEV_CTRL_SOCK_PATH			"@" UDEV_PREFIX "/org/kernel/udev/udevd"
+#define UDEV_CTRL_SOCK_PATH			"@/org/kernel/udev/udevd"
 
 struct udev_event {
 	struct udev *udev;

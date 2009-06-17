@@ -2,6 +2,11 @@ udev 143
 ========
 Bugfixes.
 
+The configure options have changed because another library needs to be
+installed in a different location. Instead of exec_prefix and udev_prefix,
+libdir, rootlibdir and libexecdir are used. The Details are explained in
+the README file.
+
 Event processes now get re-used after they handled an event. This reduces
 the number of forks and the pressure on the CPU significantly, because
 cloned event processes no longer cause page faults in the main daemon.

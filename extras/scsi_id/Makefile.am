@@ -1,7 +1,6 @@
 include $(top_srcdir)/Makefile.am.inc
 
-udevhomedir = $(udev_prefix)/lib/udev
-udevhome_PROGRAMS = \
+libexec_PROGRAMS = \
 	scsi_id
 
 scsi_id_SOURCES = \

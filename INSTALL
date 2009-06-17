@@ -1,26 +1,22 @@
 Usual options for udev installed in the root filesystem are:
-  ./configure
-    --prefix=/usr
-    --exec-prefix=
-    --sysconfdir=/etc
-For 64bit multilib-installations also:
-    --with-libdir-name=lib64
-For SELinux support:
+  ./configure \
+    --prefix=/usr \
+    --sysconfdir=/etc \
+    --sbindir=/sbin \
+    --libdir=/usr/lib64 \
+    --with-rootlibdir=/lib64 \
+    --libexecdir=/lib/udev \
     --with-selinux
 
 All options:
   --prefix=
-      Prefix for man pages, include files.
-  --exec-prefix=
-      Prefix for libs, binaries, usually the root filesystem.
-  --with-udev-prefix=
-      Prefix for internal udev path names, like /dev/, /lib/udev/.
-      Only useful for testing and development installations. The
-      value is copied from exec-prefix, if not specified otherwise.
+      Usually /usr, prefix for man pages, include files.
   --sysconfdir=
       Usually /etc.
-  --with-libdir-name=
-      Directory name for libraries. This is not a path name.
+  --sbindir=
+      Usually /sbin, the place for udevd and udevadm.
+  --libexecdir=
+      Usually /lib/udev, the udev private directory.
   --enable-debug
       Compile-in verbose debug messages. Usually not needed,
       it increases the size of the binaries.
@@ -29,18 +25,21 @@ All options:
       is not recommended, as it makes it almost impossible to debug
       udev in the running system.
   --with-selinux
-      Link against SELInux libraries to set the expected context
+      Link against SELinux libraries to set the expected context
       for created files.
   --disable-extras
-      Disable the build of extras with larger external dependencies
-      like glib, libacl, libusb, ...
+      Disable the build of all extras which have larger external
+      dependencies like glib, libacl, libusb, ...
 
 The options used in a RPM spec file usually look like:
-  --prefix=%{_prefix}
-  --exec-prefix=
-  --sysconfdir=%{_sysconfdir}
-  --with-libdir-name=%{_lib}
-  --with-selinux
+  %configure \
+    --prefix=%{_prefix} \
+    --sysconfdir=%{_sysconfdir} \
+    --sbindir=%{_sbindir} \
+    --libdir=%{_libdir} \
+    --with-rootlibdir=/%{_lib} \
+    --libexecdir=/lib/udev \
+    --with-selinux
 
 The defined location for scripts and binaries which are called
 from rules is /lib/udev/ on all systems and architectures. Any

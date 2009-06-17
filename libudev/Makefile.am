@@ -12,7 +12,6 @@ test_libudev_SOURCES = \
 test_libudev_LDADD = \
 	libudev.la
 
-rootlibdir = $(exec_prefix)/$(libdir_name)
 rootlib_LTLIBRARIES = \
 	libudev.la
 
@@ -36,25 +35,24 @@ libudev_la_LDFLAGS = \
 	-version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) \
 	-export-symbols $(top_srcdir)/libudev/exported_symbols
 
-pkgconfigdir = $(prefix)/$(libdir_name)/pkgconfig
-pkgconfig_DATA = libudev.pc
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = \
+	libudev.pc
 
 EXTRA_DIST = \
 	exported_symbols
 
-# move devel files to $(prefix)$(libdir_name) if needed
+# move devel files from $(rootlibdir) to $(libdir) if needed
 install-data-hook:
-	rm  $(DESTDIR)$(rootlibdir)/libudev.la
-	if test "$(prefix)" != "$(exec_prefix)"; then \
-		mkdir -p $(DESTDIR)$(prefix)/$(libdir_name); \
-		mv $(DESTDIR)$(rootlibdir)/libudev.a $(DESTDIR)$(prefix)/$(libdir_name)/; \
+	rm -f $(DESTDIR)$(rootlibdir)/libudev.la
+	if test "$(libdir)" != "$(rootlibdir)"; then \
+		mkdir -p $(DESTDIR)$(rootlibdir); \
 		so_img_name=$$(readlink $(DESTDIR)$(rootlibdir)/libudev.so); \
 		rm $(DESTDIR)$(rootlibdir)/libudev.so; \
-		so_img_rel_target_prefix=$$(echo $(prefix)/$(libdir_name) | sed 's,\(^/\|\)[^/][^/]*,..,g'); \
-		ln -sf  $$so_img_rel_target_prefix$(exec_prefix)/$(libdir_name)/$$so_img_name \
-			$(DESTDIR)$(prefix)/$(libdir_name)/libudev.so; \
+		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g'); \
+		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libudev.so; \
 	fi
 
 uninstall-hook:
-	rm -f $(DESTDIR)$(prefix)/$(libdir_name)/libudev.a
-	rm -f $(DESTDIR)$(prefix)/$(libdir_name)/libudev.so*
+	rm -f $(DESTDIR)$(rootlibdir)/libudev.a
+	rm -f $(DESTDIR)$(rootlibdir)/libudev.so*

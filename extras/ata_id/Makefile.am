@@ -1,7 +1,6 @@
 include $(top_srcdir)/Makefile.am.inc
 
-udevhomedir = $(udev_prefix)/lib/udev
-udevhome_PROGRAMS = \
+libexec_PROGRAMS = \
 	ata_id
 
 ata_id_SOURCES = \

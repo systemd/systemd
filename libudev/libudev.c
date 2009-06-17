@@ -123,7 +123,7 @@ struct udev *udev_new(void)
 	udev->log_priority = LOG_ERR;
 	udev_list_init(&udev->properties_list);
 	udev->run = 1;
-	udev->dev_path = strdup(UDEV_PREFIX "/dev");
+	udev->dev_path = strdup("/dev");
 	udev->sys_path = strdup("/sys");
 	config_file = strdup(SYSCONFDIR "/udev/udev.conf");
 	if (udev->dev_path == NULL ||

@@ -869,7 +869,7 @@ int main(int argc, char *argv[])
 	} else {
 		char filename[UTIL_PATH_SIZE];
 
-		inotify_add_watch(pfd[FD_INOTIFY].fd, UDEV_PREFIX "/lib/udev/rules.d",
+		inotify_add_watch(pfd[FD_INOTIFY].fd, LIBEXECDIR "/rules.d",
 				  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
 		inotify_add_watch(pfd[FD_INOTIFY].fd, SYSCONFDIR "/udev/rules.d",
 				  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);

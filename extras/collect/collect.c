@@ -34,7 +34,7 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
-#define TMPFILE			UDEV_PREFIX "/dev/.udev/collect"
+#define TMPFILE			"/dev/.udev/collect"
 #define BUFSIZE			16
 #define UDEV_ALARM_TIMEOUT	180
 
