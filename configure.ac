@@ -51,6 +51,9 @@ AC_ARG_ENABLE([extras],
 	[], [enable_extras=yes])
 if test "x$enable_extras" = xyes; then
 	AC_PATH_PROG([GPERF], [gperf])
+	if test -z "$GPERF"; then
+		AC_MSG_ERROR([gperf is needed])
+	fi
 
 	PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.7.0 gobject-2.0 >= 2.7.0])
 	AC_SUBST([GLIB_CFLAGS])
