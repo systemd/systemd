@@ -20,6 +20,3 @@ create_floppy_devices_SOURCES += \
 create_floppy_devices_LDADD = \
 	$(SELINUX_LIBS)
 endif
-
-dist_man_MANS = \
-	create_floppy_devices.8

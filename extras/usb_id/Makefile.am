@@ -11,6 +11,3 @@ usb_id_SOURCES = \
 	../../libudev/libudev-util.c \
 	../../libudev/libudev-device.c \
 	../../libudev/libudev-enumerate.c
-
-dist_man_MANS = \
-	usb_id.8

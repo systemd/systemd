@@ -11,6 +11,3 @@ path_id_SOURCES = \
 	../../libudev/libudev-enumerate.c \
 	../../libudev/libudev-list.c \
 	../../libudev/libudev-util.c
-
-dist_man_MANS = \
-	path_id.8

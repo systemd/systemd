@@ -21,6 +21,3 @@ modem_modeswitch_LDADD = \
 dist_udevrules_DATA = \
 	61-option-modem-modeswitch.rules \
 	61-mobile-action.rules
-
-dist_man_MANS = \
-	modem-modeswitch.8

@@ -10,6 +10,3 @@ ata_id_SOURCES = \
 	../../libudev/libudev.c \
 	../../libudev/libudev-list.c \
 	../../libudev/libudev-util.c
-
-dist_man_MANS = \
-	ata_id.8
