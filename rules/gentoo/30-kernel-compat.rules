@@ -20,6 +20,7 @@ ENV{MODALIAS}=="?*", GOTO="kernel_compat_end"
 
 # needed for kernel <2.6.30-rc1
 SUBSYSTEM=="scsi", ATTR{type}=="8", RUN+="/sbin/modprobe -b ch"
+SUBSYSTEM=="mmc", RUN+="/sbin/modprobe -b mmc_block"
 
 # needed for kernel <2.6.27-rc5
 # acpi will do on newer kernels
