@@ -1,12 +1,15 @@
 udev - userspace device management
 
-For more information see the files in the docs/ directory.
+Integrating udev in the system has complex dependencies and differs from distro
+to distro. All major distros depend on udev these days and the system may not
+work without a properly installed version. The upstream udev project does not
+recommend to replace a distro's udev installation with the upstream version.
 
-Important Note:
-  Integrating udev in the system has complex dependencies and differs from distro
-  to distro. All major distros depend on udev these days and the system may not
-  work without a properly installed version. The upstream udev project does not
-  recommend to replace a distro's udev installation with the upstream version.
+Tools and rules shipped by udev are not public API and may change at any time.
+Never call any private tool in /lib/udev from any external application, it might
+just go away in the next release. Access to udev information is only offered
+by udevadm and libudev. Everything in /lib/udev and /dev/.udev/ is 100% private
+to udev.
 
 Requirements:
   - Version 2.6.25 of the Linux kernel with sysfs, procfs, signalfd, inotify,
@@ -38,8 +41,9 @@ Requirements:
     these group names with only the rootfs mounted, and while no network is
     available.
 
-  - To build all udev extras, libacl, libglib2, libusb, usbutils, pciutils are
-    needed. These dependencies can be disabled with the --disable-extras option.
+  - To build all udev extras, libacl, libglib2, libusb, usbutils, pciutils,
+    gperf are needed. These dependencies can be disabled with the
+    --disable-extras option.
 
 Operation:
   Udev creates and removes device nodes in /dev/, based on events the kernel
