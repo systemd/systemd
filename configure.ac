@@ -101,6 +101,7 @@ AM_CONDITIONAL([ENABLE_INTROSPECTION], [test "x$enable_introspection" = xyes])
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([
 	Makefile
+	docs/Makefile
 	libudev/Makefile
 	libudev/libudev.pc
 	libudev/docs/Makefile

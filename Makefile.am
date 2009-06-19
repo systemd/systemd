@@ -1,18 +1,17 @@
 include $(top_srcdir)/Makefile.am.inc
 
 SUBDIRS = \
+	docs \
 	libudev \
 	udev \
 	rules \
 	extras
 
 udevconfdir = $(sysconfdir)/udev
-udevconf_DATA = \
+dist_udevconf_DATA = \
 	udev.conf
 
 EXTRA_DIST = \
-	udev.conf \
-	docs \
 	autogen.sh
 
 CLEANFILES = \
@@ -62,4 +61,4 @@ git-release:
 
 doc-sync:
 	rsync -av --delete libudev/docs/html/ master.kernel.org:/pub/linux/utils/kernel/hotplug/libudev/
-	rsync -av --delete extras/gudev/docs/html/ master.kernel.org:/pub/linux/utils/kernel/hotplug/libgudev/
+	rsync -av --delete extras/gudev/docs/html/ master.kernel.org:/pub/linux/utils/kernel/hotplug/gudev/
