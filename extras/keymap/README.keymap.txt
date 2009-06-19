@@ -44,7 +44,7 @@ for inclusion you need to do the following steps:
 
  1. Find the keyboard device.
 
- Run /usr/share/udev/findkeyboards. This should always give you an "AT
+ Run /lib/udev/findkeyboards. This should always give you an "AT
  keyboard" and possibly a "module". Some laptops (notably Thinkpads, Sonys, and
  Acers) have multimedia/function keys on a separate input device instead of the
  primary keyboard. The keyboard device should have a name like "input/event3".
