@@ -1,3 +1,146 @@
+Summary of changes from v142 to v143
+============================================
+
+Alan Jenkins (5):
+      udevadm: settle - fix timeout
+      udevd: remove tiny bit of dead code
+      udevd: implement a more efficient queue file format
+      udev-selinux.c: remove libudev header
+      udevd: queue-export - fix crash
+
+Benjamin Gilbert (1):
+      test: check string substitutions in OWNER and GROUP
+
+Dan Williams (2):
+      rules: tty/net - move from udev-extras
+      extras/modem-modeswitch: move from udev-extras
+
+David Zeuthen (1):
+      gudev: move from udev-extras
+
+Kay Sievers (95):
+      version bump
+      rules: v4l do not mix vbi and video nodes
+      fix possible endless loop for GOTO to non-existent LABEL
+      Revert "rules: v4l do not mix vbi and video nodes"
+      rule-generator: cd - skip by-path links if we create by-id links
+      remove format char string truncation syntax
+      use more efficient string copying
+      edd_id: use openat()
+      use openat(), unlinkat(), fstatat()
+      update TODO
+      remove unused GL_FORMAT from rules parser
+      require key names in uppercase
+      keep the ifdef'd udevd testing/profiling hack
+      fix location of database files
+      udevadm: settle - make --timeout=0 working
+      update NEWS
+      rules: add SUBSYSTEM match to scsi rules
+      cdrom_id: suppress ID_CDROM_MEDIA_STATE=blank for plain non-writable CDROM media
+      udevadm: control - add comment to man page about --reload-rules
+      cdrom_id: add error message if open() fails
+      udevadm: settle - add --exit-if-exists=<file>
+      udevd: remove check for dev_t, DEVPATH_OLD takes care of that
+      str[sp]cpyl: add __attribute__ ((sentinel))
+      udevd: convert to event worker processes
+      udevd: close netlink socket in worker and set cloexec
+      rules: do not call path_id for virtual devices
+      udevd: use enum instead of char in struct declaration
+      allow format substitution in path of ATTR{<path>}=="<value>"
+      cleanup $attr{} substitution
+      path_id: implement in C using libudev
+      path_id: update SCSI handling
+      path_id: add comments
+      fix signed/unsigned warning
+      libudev: enumerate - allow multiple keys with the same name
+      udevadm: trigger - add --property-match=<key>:<value>
+      udevadm: info - accept --query without a value and print properties
+      udevadm: control - --env -> --property
+      udevadm: monitor --environment -> --property
+      path_id: handle fibre channel
+      path_id: add iscsi support
+      path_id: delete old shell script
+      udevd: print error if worker dies unexpectedly
+      path_id: rename scsi sub-fuctions
+      libudev: add comments to libudev.h
+      libudev: move to top-level directory
+      fix libudev include in Makefile.am.in
+      libudev: device_new() -> udev_device_new()
+      udevd: log info for created/killed workers
+      libudev: call log functions conditionally
+      move syslog wrapper to libudev
+      move common stuff from udev/ to private parts of libudev/
+      libudev: rename private files to *-private.c
+      rules: remove scsi ch module loading rule
+      update NEWS
+      udevadm: info -revert "accept --query without argument"
+      README: add kernel options
+      README: add INOTIFY and SIGNALFD
+      USE_LOG -> ENABLE_LOGGING, DEBUG -> ENABLE_DEBUG, USE_SELINUX -> WITH_SELINUX
+      libudev: add gtk-doc
+      libudev: update documentation
+      libudev: doc - add section headers
+      libudev: doc - add enumerate
+      libudev: doc - add queue
+      update TODO
+      libudev: doc - add namespace for index
+      libudev: move .so version to libudev Makefile
+      autogen.sh: simplify
+      TODO: update
+      libudev: remove prefix from .so version variables
+      libudev: doc - add empty libudev.types
+      udev-acl: move from udev-extras
+      INSTALL: add --enable-extras
+      udev-acl: handle missing action when called in CK mode
+      v4l_id: move from udev-extras
+      libudev: doc - libudev-docs.sgml -> libudev-doc.xml
+      gudev: fix typo in configure option
+      v4l_id: 70-v4l.rules -> 60-persistent-v4l.rules
+      configure: enable all extras by default, provide --disable-extras
+      autogen.sh: make "CFLAGS=-O0 ./autogen.sh" working
+      NEWS: add --disable-extras
+      cleanup ./configure installation directory options
+      rules: remove MMC rule, 2.6.30 has the modalias
+      configure.ac: print error if gperf is missing
+      libudev: install in $libdir and move later to $rootlibdir
+      extras/keymap: use LIBEXECDIR instead /lib/udev
+      README: add /lib/udev/ is private
+      rules: do not install usb-id/pci-id rules when --disable-extras is used
+      extras: delete man pages for private udev tools
+      README: update
+      extras/keymap: install findkeyboards in /lib/udev
+      INSTALL: use /sbin instead of %{sbindir}
+      NEWS: update
+      udev.pc: add
+      Merge branch 'master' of git+ssh://master.kernel.org/pub/scm/linux/hotplug/udev
+      docs: install writing_udev_rules
+
+Lennart Poettering (2):
+      rules: sound - move from udev-extra
+      usb-db: move from udev-extras
+
+Marcel Holtmann (1):
+      rules: make RFKILL control device world readable
+
+Mario Limonciello (1):
+      hid2hci: move from udev-extras
+
+Martin Pitt (5):
+      keymap: move from udev-extras
+      extras/keymap: Fix WLAN button on ThinkPads
+      keymap: Update findkeyboard path in docs
+      udev-acl: Manage hplip device permissions
+      extras/keymap: Update findkeyboards location
+
+Matthias Schwarzott (3):
+      rules: Gentoo update
+      rules: Gentoo update
+      rules: Gentoo update
+
+Scott James Remnant (1):
+      OWNER/GROUP: fix if logic
+
+
 Summary of changes from v141 to v142
 ============================================
 
