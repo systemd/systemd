@@ -17,6 +17,9 @@ KERNEL=="sg[0-9]*", ATTRS{type}=="3", ATTRS{vendor}=="HP|EPSON|Epson", ENV{ACL_M
 # USB scanners
 ENV{libsane_matched}=="yes", ENV{ACL_MANAGE}="1"
 
+# HPLIP devices (necessary for ink level check and HP tool maintenance)
+ENV{ID_HPLIP}=="1", ENV{ACL_MANAGE}="1"
+
 # optical drives
 SUBSYSTEM=="block", ENV{ID_CDROM}=="1", ENV{ACL_MANAGE}="1"
 
