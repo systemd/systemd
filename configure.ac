@@ -106,6 +106,7 @@ AC_CONFIG_FILES([
 	libudev/docs/Makefile
 	libudev/docs/version.xml
 	udev/Makefile
+	udev/udev.pc
 	rules/Makefile
 	extras/Makefile
 	extras/ata_id/Makefile

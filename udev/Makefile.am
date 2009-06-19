@@ -71,7 +71,11 @@ dist_man_MANS = \
 	udevadm.8 \
 	udevd.8
 
+pkgconfigdir = $(datadir)/pkgconfig
+pkgconfig_DATA = udev.pc
+
 EXTRA_DIST = \
+	udev.pc.in \
 	udev.xml \
 	udevadm.xml \
 	udevd.xml
