@@ -35,7 +35,7 @@ The options used in a RPM spec file usually look like:
   %configure \
     --prefix=%{_prefix} \
     --sysconfdir=%{_sysconfdir} \
-    --sbindir=%{_sbindir} \
+    --sbindir=/sbin \
     --libdir=%{_libdir} \
     --with-rootlibdir=/%{_lib} \
     --libexecdir=/lib/udev \
