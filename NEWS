@@ -28,7 +28,7 @@ build without it and contain the pre-built documentation. An online copy
 is available here:
   http://www.kernel.org/pub/linux/utils/kernel/hotplug/libudev/
 
-Many extras of the udev-extras repository have been merged into the main
+The tools from the udev-extras repository have been merged into the main
 udev repository. Some of the extras have larger external dependencies, and
 they can be disabled with the configure switch --disable-extras.
 
