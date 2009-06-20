@@ -1,9 +1,9 @@
 AC_INIT([udev], [143], [linux-hotplug@vger.kernel.org])
 AC_PREREQ(2.60)
 AM_INIT_AUTOMAKE([check-news foreign 1.9 dist-bzip2])
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 AC_DISABLE_STATIC
 AC_USE_SYSTEM_EXTENSIONS
-dnl AM_SILENT_RULES
 AC_SYS_LARGEFILE
 AC_CONFIG_MACRO_DIR([m4])
 AC_PROG_LIBTOOL
