@@ -1,3 +1,4 @@
+  o cleanup ATA handling - kill ATA_COMPAT and calls of ata_id/scsi_id
 
   o enumerate: sort control* after pcm*
   o add tests for kernel provided DEVNAME logic
