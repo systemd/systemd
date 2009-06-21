@@ -2,4 +2,4 @@ udevd
 udevadm
 test-udev
 *.[78]
-
+udev.pc
