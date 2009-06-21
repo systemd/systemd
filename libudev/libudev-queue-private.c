@@ -19,19 +19,22 @@
  *
  * When a new event is queued, its details are appended to the log.
  * When the event finishes, a second record is appended to the log
- * with the same sequence number but a null devpath.
+ * with the same sequence number but a devpath len of 0.
  *
  * Example:
- *	{1, "/devices/virtual/mem/null" },
- *	{2, "/devices/virtual/mem/zero" },
- *	{1, "" },
- * Event 2 is still queued, but event 1 has been finished
+ *	{ 0x0000000000000001 }
+ *	{ 0x0000000000000001, 0x0019, "/devices/virtual/mem/null" },
+ *	{ 0x0000000000000002, 0x001b, "/devices/virtual/mem/random" },
+ *	{ 0x0000000000000001, 0x0000 },
+ *	{ 0x0000000000000003, 0x0019, "/devices/virtual/mem/zero" },
  *
- * The queue does not grow indefinitely.  It is periodically re-created
- * to remove finished events.  Atomic rename() makes this transparent to readers.
+ * Events 2 and 3 are still queued, but event 1 has finished.
+ *
+ * The queue does not grow indefinitely. It is periodically re-created
+ * to remove finished events. Atomic rename() makes this transparent to readers.
  *
  * The queue file starts with a single sequence number which specifies the
- * minimum sequence number in the log that follows.  Any events prior to this
+ * minimum sequence number in the log that follows. Any events prior to this
  * sequence number have already finished.
  */
 
@@ -349,7 +352,7 @@ static int update_queue(struct udev_queue_export *udev_queue_export,
 			return -1;
 	}
 
-	/* when the queue files grow too large, they must be garbage collected and rebuilt */
+	/* when the queue file grows too large, garbage-collect and rebuild it */
 	bytes = ftell(udev_queue_export->queue_file) + queue_record_size(devpath_len);
 
 	/* if we're removing the last event from the queue, that's the best time to rebuild it */
