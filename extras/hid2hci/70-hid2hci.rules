@@ -8,7 +8,7 @@ SUBSYSTEM!="usb", GOTO="hid2hci_end"
 # is where a HID report needs to be sent to switch modes.
 #
 # Known supported devices: 413c:8154, 413c:8158, 413c:8162
-ATTR{bInterfaceProtocol}=="02", ATTRS{idVendor}=="413c", ATTRS{bmAttributes}=="e0", \
+ATTR{bInterfaceClass}=="03", ATTR{bInterfaceSubClass}=="01", ATTR{bInterfaceProtocol}=="02", ATTRS{bDeviceClass}=="00", ATTRS{idVendor}=="413c", ATTRS{bmAttributes}=="e0", \
     RUN+="hid2hci --method dell -v $attr{idVendor} -p $attr{idProduct} --mode hci"
 
 ENV{DEVTYPE}!="usb_device", GOTO="hid2hci_end"
