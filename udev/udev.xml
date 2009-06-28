@@ -323,7 +323,8 @@
             <varlistentry>
               <term><option>ENV{<replaceable>key</replaceable>}</option></term>
               <listitem>
-                <para>Set a device property value.</para>
+                <para>Set a device property value. Property names with a leading '.'
+                are not stored in the database or exported to external tool or events.</para>
               </listitem>
             </varlistentry>
 
