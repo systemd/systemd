@@ -518,31 +518,6 @@ static int set_inq_values(struct udev *udev, struct scsi_id_device *dev_scsi, co
 }
 
 /*
- * format_serial: replace to whitespaces by underscores for calling
- * programs that use the serial for device naming (multipath, Suse
- * naming, etc...)
- */
-static void format_serial(char *serial)
-{
-	char *p = serial, *q;
-
-	q = p;
-	while (*p != '\0') {
-		if (isspace(*p)) {
-			if (q > serial && q[-1] != '_') {
-				*q = '_';
-				q++;
-			}
-		} else {
-			*q = *p;
-			q++;
-		}
-		p++;
-	}
-	*q = '\0';
-}
-
-/*
  * scsi_id: try to get an id, if one is found, printf it to stdout.
  * returns a value passed to exit() - 0 if printed an id, else 1.
  */
@@ -595,8 +570,16 @@ static int scsi_id(struct udev *udev, char *maj_min_dev)
 		retval = 1;
 		goto out;
 	}
-	if (reformat_serial)
-		format_serial(dev_scsi.serial);
+
+	if (reformat_serial) {
+		char serial_str[MAX_SERIAL_LEN];
+
+		udev_util_replace_whitespace(dev_scsi.serial, serial_str, sizeof(serial_str));
+		udev_util_replace_chars(serial_str, NULL);
+		printf("%s\n", serial_str);
+		goto out;
+	}
+
 	printf("%s\n", dev_scsi.serial);
 out:
 	return retval;

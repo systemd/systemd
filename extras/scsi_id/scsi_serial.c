@@ -457,11 +457,8 @@ static int prepend_vendor_model(struct udev *udev,
 	int ind;
 
 	strncpy(serial, dev_scsi->vendor, VENDOR_LENGTH);
-	ind = strlen(serial) - 1;
-
 	strncat(serial, dev_scsi->model, MODEL_LENGTH);
-	ind = strlen(serial) - 1;
-	ind++;
+	ind = strlen(serial);
 
 	/*
 	 * This is not a complete check, since we are using strncat/cpy
@@ -773,7 +770,7 @@ static int do_scsi_page80_inquiry(struct udev *udev,
 	len = 1 + VENDOR_LENGTH + MODEL_LENGTH + buf[3];
 	if (max_len < len) {
 		info(udev, "%s: length %d too short - need %d\n",
-		    dev_scsi->kernel, max_len, len);
+		     dev_scsi->kernel, max_len, len);
 		return 1;
 	}
 	/*
