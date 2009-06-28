@@ -104,7 +104,10 @@ Display version number and exit.
 .ft
 .TP
 \fI/etc/scsi_id.config\fP
-configuration and black/white list entries
+Configuration of black/white list entries and per device options:
+# one config per line, short match strings match longer strings
+# vendor=string[,model=string],options=<per-device scsi_id command line options>
+vendor="ATA",options=-p 0x80
 .RE
 .fi
 .LP

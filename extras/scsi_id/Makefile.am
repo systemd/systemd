@@ -14,9 +14,6 @@ scsi_id_SOURCES = \
 	../../libudev/libudev-list.c \
 	../../libudev/libudev-util.c
 
-dist_sysconf_DATA = \
-	scsi_id.config
-
 dist_man_MANS = \
 	scsi_id.8
 
