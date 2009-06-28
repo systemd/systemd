@@ -1211,14 +1211,20 @@ static int update_envp_monitor_buf(struct udev_device *udev_device)
 	s = udev_device->monitor_buf;
 	l = MONITOR_BUF_SIZE;
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
+		const char *key;
+
+		key = udev_list_entry_get_name(list_entry);
+		/* skip private variables */
+		if (key[0] == '.')
+			continue;
+
 		/* add string to envp array */
 		udev_device->envp[i++] = s;
 		if (i+1 >= ENVP_SIZE)
 			return -EINVAL;
 
 		/* add property string to monitor buffer */
-		l = util_strpcpyl(&s, l, udev_list_entry_get_name(list_entry), "=",
-				  udev_list_entry_get_value(list_entry), NULL);
+		l = util_strpcpyl(&s, l, key, "=", udev_list_entry_get_value(list_entry), NULL);
 		if (l == 0)
 			return -EINVAL;
 		s++;

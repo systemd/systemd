@@ -718,8 +718,9 @@ static int import_property_from_string(struct udev_device *dev, char *line)
 		struct udev_list_entry *entry;
 
 		entry = udev_device_add_property(dev, key, val);
-		/* store in db */
-		udev_list_entry_set_flag(entry, 1);
+		/* store in db, skip private keys */
+		if (key[0] != '.')
+			udev_list_entry_set_flag(entry, 1);
 	}
 	return 0;
 }
@@ -785,8 +786,9 @@ static int import_parent_into_properties(struct udev_device *dev, const char *fi
 
 			dbg(udev, "import key '%s=%s'\n", key, val);
 			entry = udev_device_add_property(dev, key, val);
-			/* store in db */
-			udev_list_entry_set_flag(entry, 1);
+			/* store in db, skip private keys */
+			if (key[0] != '.')
+				udev_list_entry_set_flag(entry, 1);
 		}
 	}
 	return 0;
@@ -2374,8 +2376,9 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 
 					udev_event_apply_format(event, value, temp_value, sizeof(temp_value));
 					entry = udev_device_add_property(event->dev, name, temp_value);
-					/* store in db */
-					udev_list_entry_set_flag(entry, 1);
+					/* store in db, skip private keys */
+					if (name[0] != '.')
+						udev_list_entry_set_flag(entry, 1);
 				} else {
 					udev_device_add_property(event->dev, name, NULL);
 				}
