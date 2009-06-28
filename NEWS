@@ -1,5 +1,12 @@
 udev 144
 ========
+Bugfixes.
+
+ATA devices switched the property from ID_BUS=scsi to ID_BUS=ata.
+
+Properties set with ENV{.FOO}="bar" are marked private by starting the
+name with a '.'. They will not be stored in the database, and not be
+exported with the event.
 
 udev 143
 ========
