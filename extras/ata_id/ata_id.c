@@ -149,11 +149,12 @@ int main(int argc, char *argv[])
 		} else {
 			printf("ID_TYPE=disk\n");
 		}
+		printf("ID_BUS=ata\n");
 		printf("ID_MODEL=%s\n", model);
 		printf("ID_MODEL_ENC=%s\n", model_enc);
-		printf("ID_SERIAL=%s\n", serial);
 		printf("ID_REVISION=%s\n", revision);
-		printf("ID_BUS=ata\n");
+		printf("ID_SERIAL=%s_%s\n", model, serial);
+		printf("ID_SERIAL_SHORT=%s\n", serial);
 	} else {
 		if (serial[0] != '\0')
 			printf("%s_%s\n", model, serial);
