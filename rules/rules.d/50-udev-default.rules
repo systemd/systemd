@@ -43,9 +43,12 @@ SUBSYSTEM=="drm",		GROUP="video"
 # DVB (video)
 SUBSYSTEM=="dvb", ENV{DVB_ADAPTER_NUM}=="?*", NAME="dvb/adapter$env{DVB_ADAPTER_NUM}/$env{DVB_DEVICE_TYPE}$env{DVB_DEVICE_NUM}", GROUP="video"
 
-# Firewire
+# FireWire (dv1394 and video1394 drivers)
 KERNEL=="dv1394-[0-9]*",	NAME="dv1394/%n", GROUP="video"
 KERNEL=="video1394-[0-9]*",	NAME="video1394/%n", GROUP="video"
+# FireWire (firewire-core driver: IIDC devices, AV/C devices)
+SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x00010*", GROUP="video"
+SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", GROUP="video"
 
 # libusb device nodes
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}", MODE="0664"
