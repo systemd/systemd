@@ -961,7 +961,7 @@ unsigned long long int udev_device_get_seqnum(struct udev_device *udev_device)
  * @udev_device: udev device
  * @sysattr: attribute name
  *
- * The retrieved value is cached in the device. Repeated reads will return the same
+ * The retrieved value is cached in the device. Repeated calls will return the same
  * value and not open the attribute again.
  *
  * Returns: the content of a sys attribute file, or #NULL if there is no sys attribute value.
