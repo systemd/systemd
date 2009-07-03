@@ -113,6 +113,3 @@ EXTRA_DIST += GUdev-1.0.gir
 CLEANFILES += $(gir_DATA) $(typelibs_DATA)
 
 endif # ENABLE_INTROSPECTION
-
-install-data-hook:
-	rm -f $(DESTDIR)$(libdir)/libgudev-1.0.la

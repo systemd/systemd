@@ -44,12 +44,11 @@ EXTRA_DIST = \
 
 # move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
 install-data-hook:
-	rm -f $(DESTDIR)$(libdir)/libudev.la
 	if test "$(libdir)" != "$(rootlibdir)"; then \
-		mkdir -p $(DESTDIR)$(rootlibdir); \
-		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libudev.so); \
-		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g'); \
-		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libudev.so; \
+		mkdir -p $(DESTDIR)$(rootlibdir) && \
+		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libudev.so) && \
+		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
+		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libudev.so && \
 		mv $(DESTDIR)$(libdir)/libudev.so.* $(DESTDIR)$(rootlibdir); \
 	fi
 
