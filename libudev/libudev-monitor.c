@@ -504,7 +504,6 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 	int action_set = 0;
 	int maj = 0;
 	int min = 0;
-	int is_kernel = 0;
 
 retry:
 	if (udev_monitor == NULL)
@@ -545,10 +544,10 @@ retry:
 			}
 		} else if (snl.nl_groups == UDEV_MONITOR_KERNEL) {
 			if (snl.nl_pid > 0) {
-				info(udev_monitor->udev, "multicast kernel netlink message from pid %d ignored\n", snl.nl_pid);
+				info(udev_monitor->udev, "multicast kernel netlink message from pid %d ignored\n",
+				     snl.nl_pid);
 				return NULL;
 			}
-			is_kernel = 1;
 		}
 	}
 
@@ -590,9 +589,8 @@ retry:
 	}
 
 	udev_device = udev_device_new(udev_monitor->udev);
-	if (udev_device == NULL) {
+	if (udev_device == NULL)
 		return NULL;
-	}
 
 	while (bufpos < buflen) {
 		char *key;
@@ -616,10 +614,10 @@ retry:
 		} else if (strncmp(key, "DEVTYPE=", 8) == 0) {
 			udev_device_set_devtype(udev_device, &key[8]);
 		} else if (strncmp(key, "DEVNAME=", 8) == 0) {
-			if (is_kernel)
-				udev_device_set_knodename(udev_device, &key[8]);
-			else
+			if (key[8] == '/')
 				udev_device_set_devnode(udev_device, &key[8]);
+			else
+				udev_device_set_knodename(udev_device, &key[8]);
 		} else if (strncmp(key, "DEVLINKS=", 9) == 0) {
 			char devlinks[UTIL_PATH_SIZE];
 			char *slink;

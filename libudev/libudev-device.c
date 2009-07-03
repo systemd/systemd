@@ -1299,6 +1299,7 @@ int udev_device_set_knodename(struct udev_device *udev_device, const char *knode
 	udev_device->knodename = strdup(knodename);
 	if (udev_device->knodename == NULL)
 		return -ENOMEM;
+	udev_device_add_property(udev_device, "DEVNAME", udev_device->knodename);
 	return 0;
 }
 

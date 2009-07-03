@@ -29,7 +29,7 @@ libudev_la_SOURCES =\
 	libudev-queue.c
 
 LT_CURRENT=4
-LT_REVISION=0
+LT_REVISION=1
 LT_AGE=4
 libudev_la_LDFLAGS = \
 	-version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) \
