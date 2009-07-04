@@ -2,11 +2,19 @@ udev 144
 ========
 Bugfixes.
 
-ATA devices switched the property from ID_BUS=scsi to ID_BUS=ata.
-
 Properties set with ENV{.FOO}="bar" are marked private by starting the
 name with a '.'. They will not be stored in the database, and not be
 exported with the event.
+
+Firmware files are looked up in:
+  /lib/firmware/updates/$(uname -r)
+  /lib/firmware/updates
+  /lib/firmware/$(uname -r)
+  /lib/firmware"
+now.
+
+ATA devices switched the property from ID_BUS=scsi to ID_BUS=ata.
+ata_id, instead of scsi_id, is the default tool now for ATA devices.
 
 udev 143
 ========
