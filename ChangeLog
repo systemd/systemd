@@ -1,3 +1,38 @@
+Summary of changes from v143 to v144
+============================================
+
+Jon Masters (1):
+      firmware: search for third party or sysadmin supplied firmware updates
+
+Kay Sievers (19):
+      configure.ac: add AM_SILENT_RULES
+      configure.ac: version bump
+      TODO: add cleanup of ATA_COMPAT
+      libudev: queue - add comments for queue format
+      udev/.gitignore: add udev.pc
+      configure.ac: version bump
+      do not exports properties starting with a '.'
+      scsi_id: --reformat_serial - use udev_util_replace_whitespace()
+      ata_id: sync ID_SERIAL(_SHORT) with other *_id tools
+      rules: make ata_id properties the default for all ATA block devices
+      scsi_id: delete no longer needed config file
+      update NEWS
+      man: udev - add private properties like ENV{.FOO}="bar"
+      Merge branch 'firmware' of git://git.kernel.org/pub/scm/linux/kernel/git/jcm/udev-jcm
+      udevadm: test - print list of properties
+      build: do not delete .la files
+      libudev: monitor - handle kernel supplied DEVNAME properly
+      update NEWS
+      build: add *exec* to the internal rootlibdir name
+
+Martin Pitt (2):
+      hid2hci: narrow matches to real HCI devices
+      extras/udev-acl: add smartcard readers
+
+Stefan Richter (1):
+      rules: set group ownership of new firewire driver device files
+
+
 Summary of changes from v142 to v143
 ============================================
 
