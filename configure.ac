@@ -15,7 +15,7 @@ AC_PATH_PROG([XSLTPROC], [xsltproc])
 AC_ARG_WITH([rootlibdir],
 	AS_HELP_STRING([--with-rootlibdir=DIR], [rootfs directory to install shared libraries]),
 	[], [with_rootlibdir=$libdir])
-AC_SUBST([rootlibdir], [$with_rootlibdir])
+AC_SUBST([rootlib_execdir], [$with_rootlibdir])
 
 AC_ARG_WITH([selinux],
 	AS_HELP_STRING([--with-selinux], [enable SELinux support]),
@@ -142,7 +142,7 @@ AC_MSG_RESULT([
 	sysconfdir:		${sysconfdir}
 	sbindir:		${sbindir}
 	libdir:			${libdir}
-	rootlibdir:		${rootlibdir}
+	rootlibdir:		${rootlib_execdir}
 	libexecdir:		${libexecdir}
 
 	datarootdir:		${datarootdir}

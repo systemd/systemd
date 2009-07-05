@@ -42,15 +42,15 @@ pkgconfig_DATA = \
 EXTRA_DIST = \
 	exported_symbols
 
-# move lib from $(libdir) to $(rootlibdir) and update devel link, if needed
-install-data-hook:
-	if test "$(libdir)" != "$(rootlibdir)"; then \
-		mkdir -p $(DESTDIR)$(rootlibdir) && \
+# move lib from $(libdir) to $(rootlib_execdir) and update devel link, if needed
+install-exec-hook:
+	if test "$(libdir)" != "$(rootlib_execdir)"; then \
+		mkdir -p $(DESTDIR)$(rootlib_execdir) && \
 		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libudev.so) && \
 		so_img_rel_target_prefix=$$(echo $(libdir) | sed 's,\(^/\|\)[^/][^/]*,..,g') && \
-		ln -sf $$so_img_rel_target_prefix$(rootlibdir)/$$so_img_name $(DESTDIR)$(libdir)/libudev.so && \
-		mv $(DESTDIR)$(libdir)/libudev.so.* $(DESTDIR)$(rootlibdir); \
+		ln -sf $$so_img_rel_target_prefix$(rootlib_execdir)/$$so_img_name $(DESTDIR)$(libdir)/libudev.so && \
+		mv $(DESTDIR)$(libdir)/libudev.so.* $(DESTDIR)$(rootlib_execdir); \
 	fi
 
 uninstall-hook:
-	rm -f $(DESTDIR)$(rootlibdir)/libudev.so*
+	rm -f $(DESTDIR)$(rootlib_execdir)/libudev.so*
