@@ -467,7 +467,7 @@ static int prepend_vendor_model(struct udev *udev,
 	if (ind != (VENDOR_LENGTH + MODEL_LENGTH)) {
 		info(udev, "%s: expected length %d, got length %d\n",
 		     dev_scsi->kernel, (VENDOR_LENGTH + MODEL_LENGTH), ind);
-		return 1;
+		return -1;
 	}
 	return ind;
 }
