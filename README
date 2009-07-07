@@ -22,9 +22,10 @@ Requirements:
       CONFIG_SYSFS_DEPRECATED*=n
       CONFIG_PROC_FS=y
       CONFIG_TMPFS=y
-      CONFIG_TMPFS_POSIX_ACL=y
       CONFIG_INOTIFY=y
       CONFIG_SIGNALFD=y
+      CONFIG_TMPFS_POSIX_ACL=y (user ACLs for device nodes)
+      CONFIG_BLK_DEV_BSG=y (SCSI tape devices)
 
   - For reliable operation, the kernel must not use the CONFIG_SYSFS_DEPRECATED*
     option.
