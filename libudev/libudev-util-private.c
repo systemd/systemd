@@ -20,6 +20,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <sys/wait.h>
+#include <sys/param.h>
 
 #include "libudev.h"
 #include "libudev-private.h"
@@ -356,7 +357,7 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 					FD_SET(outpipe[READ_END], &readfds);
 				if (errpipe[READ_END] > 0)
 					FD_SET(errpipe[READ_END], &readfds);
-				fdcount = select(UDEV_MAX(outpipe[READ_END], errpipe[READ_END])+1, &readfds, NULL, NULL, NULL);
+				fdcount = select(MAX(outpipe[READ_END], errpipe[READ_END])+1, &readfds, NULL, NULL, NULL);
 				if (fdcount < 0) {
 					if (errno == EINTR)
 						continue;

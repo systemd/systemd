@@ -204,7 +204,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 		if (udev_monitor != NULL)
 			FD_SET(udev_monitor_get_fd(udev_monitor), &readfds);
 
-		fdcount = select(UDEV_MAX(udev_monitor_get_fd(kernel_monitor), udev_monitor_get_fd(udev_monitor))+1,
+		fdcount = select(MAX(udev_monitor_get_fd(kernel_monitor), udev_monitor_get_fd(udev_monitor))+1,
 				 &readfds, NULL, NULL, NULL);
 		if (fdcount < 0) {
 			if (errno != EINTR)
