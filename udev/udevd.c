@@ -328,8 +328,9 @@ static void event_run(struct event *event)
 		event->state = EVENT_RUNNING;
 		count = udev_monitor_send_device(monitor, worker->monitor, event->dev);
 		if (count < 0) {
-			err(event->udev, "worker [%u] did not accept message, kill it\n", worker->pid);
 			event->state = EVENT_QUEUED;
+			worker->event = NULL;
+			err(event->udev, "worker [%u] did not accept message %zi (%m), kill it\n", worker->pid, count);
 			worker->state = WORKER_KILLED;
 			kill(worker->pid, SIGKILL);
 			continue;
@@ -520,6 +521,9 @@ static void worker_returned(void)
 
 			if (worker->pid != msg.pid)
 				continue;
+
+			if (worker->state != WORKER_RUNNING)
+				break;
 
 			/* worker returned */
 			worker->event->exitcode = msg.exitcode;
