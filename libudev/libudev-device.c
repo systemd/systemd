@@ -1282,6 +1282,7 @@ const char *udev_device_get_devpath_old(struct udev_device *udev_device)
 
 int udev_device_set_devpath_old(struct udev_device *udev_device, const char *devpath_old)
 {
+	free(udev_device->devpath_old);
 	udev_device->devpath_old = strdup(devpath_old);
 	if (udev_device->devpath_old == NULL)
 		return -ENOMEM;
@@ -1296,6 +1297,7 @@ const char *udev_device_get_knodename(struct udev_device *udev_device)
 
 int udev_device_set_knodename(struct udev_device *udev_device, const char *knodename)
 {
+	free(udev_device->knodename);
 	udev_device->knodename = strdup(knodename);
 	if (udev_device->knodename == NULL)
 		return -ENOMEM;
