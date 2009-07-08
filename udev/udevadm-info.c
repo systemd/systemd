@@ -144,15 +144,15 @@ static void print_record(struct udev_device *device)
 
 	i = udev_device_get_num_fake_partitions(device);
 	if (i != 0)
-		printf("A:%u\n", i);
+		printf("A: %u\n", i);
 
 	i = udev_device_get_ignore_remove(device);
 	if (i != 0)
-		printf("R:%u\n", i);
+		printf("R: %u\n", i);
 
 	i = udev_device_get_watch_handle(device);
 	if (i >= 0)
-		printf("W:%u\n", i);
+		printf("W: %u\n", i);
 
 	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(device)) {
 		len = strlen(udev_get_dev_path(udev_device_get_udev(device)));
