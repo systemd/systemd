@@ -17,12 +17,12 @@
 #include <string.h>
 #include <dirent.h>
 #include <fnmatch.h>
+#include <stdbool.h>
 #include <sys/stat.h>
+#include <sys/param.h>
 
 #include "libudev.h"
 #include "libudev-private.h"
-
-static int devices_sort(struct udev_enumerate *udev_enumerate);
 
 /**
  * SECTION:libudev-enumerate
@@ -31,6 +31,11 @@ static int devices_sort(struct udev_enumerate *udev_enumerate);
  * Lookup devices in the sys filesystem, filter devices by properties,
  * and return a sorted list of devices.
  */
+
+struct syspath {
+	char *syspath;
+	size_t len;
+};
 
 /**
  * udev_enumerate:
@@ -46,7 +51,10 @@ struct udev_enumerate {
 	struct udev_list_node subsystem_nomatch_list;
 	struct udev_list_node properties_match_list;
 	struct udev_list_node devices_list;
-	int devices_sorted;
+	struct syspath *devices;
+	unsigned int devices_cur;
+	unsigned int devices_max;
+	bool devices_uptodate:1;
 };
 
 /**
@@ -64,12 +72,12 @@ struct udev_enumerate *udev_enumerate_new(struct udev *udev)
 		return NULL;
 	udev_enumerate->refcount = 1;
 	udev_enumerate->udev = udev;
-	udev_list_init(&udev_enumerate->devices_list);
 	udev_list_init(&udev_enumerate->sysattr_match_list);
 	udev_list_init(&udev_enumerate->sysattr_nomatch_list);
 	udev_list_init(&udev_enumerate->subsystem_match_list);
 	udev_list_init(&udev_enumerate->subsystem_nomatch_list);
 	udev_list_init(&udev_enumerate->properties_match_list);
+	udev_list_init(&udev_enumerate->devices_list);
 	return udev_enumerate;
 }
 
@@ -98,17 +106,22 @@ struct udev_enumerate *udev_enumerate_ref(struct udev_enumerate *udev_enumerate)
  **/
 void udev_enumerate_unref(struct udev_enumerate *udev_enumerate)
 {
+	unsigned int i;
+
 	if (udev_enumerate == NULL)
 		return;
 	udev_enumerate->refcount--;
 	if (udev_enumerate->refcount > 0)
 		return;
-	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->devices_list);
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->sysattr_match_list);
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->sysattr_nomatch_list);
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->subsystem_match_list);
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->subsystem_nomatch_list);
 	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->properties_match_list);
+	udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->devices_list);
+	for (i = 0; i < udev_enumerate->devices_cur; i++)
+		free(udev_enumerate->devices[i].syspath);
+	free(udev_enumerate->devices);
 	free(udev_enumerate);
 }
 
@@ -125,6 +138,75 @@ struct udev *udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate)
 	return udev_enumerate->udev;
 }
 
+static int syspath_add(struct udev_enumerate *udev_enumerate, const char *syspath)
+{
+	char *path;
+	struct syspath *entry;
+
+	/* double array size if needed */
+	if (udev_enumerate->devices_cur >= udev_enumerate->devices_max) {
+		struct syspath *buf;
+		unsigned int add;
+
+		add = udev_enumerate->devices_max;
+		if (add < 1024)
+			add = 1024;
+		buf = realloc(udev_enumerate->devices, (udev_enumerate->devices_max + add) * sizeof(struct syspath));
+		if (buf == NULL)
+			return -ENOMEM;
+		udev_enumerate->devices = buf;
+		udev_enumerate->devices_max += add;
+	}
+
+	path = strdup(syspath);
+	if (path == NULL)
+		return -ENOMEM;
+	entry = &udev_enumerate->devices[udev_enumerate->devices_cur];
+	entry->syspath = path;
+	entry->len = strlen(path);
+	udev_enumerate->devices_cur++;
+	udev_enumerate->devices_uptodate = false;
+	return 0;
+}
+
+static int syspath_cmp(const void *p1, const void *p2)
+{
+	const struct syspath *path1 = p1;
+	const struct syspath *path2 = p2;
+	size_t len;
+	int ret;
+
+	len = MIN(path1->len, path2->len);
+	ret = memcmp(path1->syspath, path2->syspath, len);
+	if (ret == 0) {
+		if (path1->len < path2->len)
+			ret = -1;
+		else if (path1->len > path2->len)
+			ret = 1;
+	}
+	return ret;
+}
+
+static int devices_delay(struct udev *udev, const char *syspath)
+{
+	static const char *delay_device_list[] = {
+		"/block/md",
+		"/block/dm-",
+		NULL
+	};
+	size_t len;
+	int i;
+
+	len = strlen(udev_get_sys_path(udev));
+	for (i = 0; delay_device_list[i] != NULL; i++) {
+		if (strstr(&syspath[len], delay_device_list[i]) != NULL) {
+			dbg(udev, "delaying: %s\n", syspath);
+			return 1;
+		}
+	}
+	return 0;
+}
+
 /**
  * udev_enumerate_get_list_entry:
  * @udev_enumerate: context
@@ -135,8 +217,46 @@ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *ude
 {
 	if (udev_enumerate == NULL)
 		return NULL;
-	if (!udev_enumerate->devices_sorted)
-		devices_sort(udev_enumerate);
+	if (!udev_enumerate->devices_uptodate) {
+		unsigned int i;
+		unsigned int max;
+		struct syspath *prev = NULL;
+
+		udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->devices_list);
+		qsort(udev_enumerate->devices, udev_enumerate->devices_cur, sizeof(struct syspath), syspath_cmp);
+
+		max = udev_enumerate->devices_cur;
+		for (i = 0; i < max; i++) {
+			struct syspath *entry = &udev_enumerate->devices[i];
+
+			/* skip duplicated entries */
+			if (prev != NULL &&
+			    entry->len == prev->len &&
+			    memcmp(entry->syspath, prev->syspath, entry->len) == 0)
+				continue;
+			prev = entry;
+
+			/* skip to be delayed devices, and add them to the end of the list */
+			if (devices_delay(udev_enumerate->udev, entry->syspath)) {
+				syspath_add(udev_enumerate, entry->syspath);
+				continue;
+			}
+
+			udev_list_entry_add(udev_enumerate->udev, &udev_enumerate->devices_list,
+					    entry->syspath, NULL, 0, 0);
+		}
+		/* add and cleanup delayed devices from end of list */
+		for (i = max; i < udev_enumerate->devices_cur; i++) {
+			struct syspath *entry = &udev_enumerate->devices[i];
+
+			udev_list_entry_add(udev_enumerate->udev, &udev_enumerate->devices_list,
+					    entry->syspath, NULL, 0, 0);
+			free(entry->syspath);
+		}
+		udev_enumerate->devices_cur = max;
+
+		udev_enumerate->devices_uptodate = true;
+	}
 	return udev_list_get_entry(&udev_enumerate->devices_list);
 }
 
@@ -222,7 +342,7 @@ static int match_sysattr_value(struct udev *udev, const char *syspath, const cha
 {
 	struct udev_device *device;
 	const char *val = NULL;
-	int match = 0;
+	bool match = false;
 
 	device = udev_device_new_from_syspath(udev, syspath);
 	if (device == NULL)
@@ -231,11 +351,11 @@ static int match_sysattr_value(struct udev *udev, const char *syspath, const cha
 	if (val == NULL)
 		goto exit;
 	if (match_val == NULL) {
-		match = 1;
+		match = true;
 		goto exit;
 	}
 	if (fnmatch(match_val, val, 0) == 0) {
-		match = 1;
+		match = true;
 		goto exit;
 	}
 exit:
@@ -293,7 +413,7 @@ static int match_property(struct udev_enumerate *udev_enumerate, const char *sys
 {
 	struct udev_device *dev;
 	struct udev_list_entry *list_entry;
-	int match = 0;
+	int match = false;
 
 	/* no match always matches */
 	if (udev_list_get_entry(&udev_enumerate->properties_match_list) == NULL)
@@ -318,13 +438,13 @@ static int match_property(struct udev_enumerate *udev_enumerate, const char *sys
 			if (fnmatch(match_key, dev_key, 0) != 0)
 				continue;
 			if (match_value == NULL && dev_value == NULL) {
-				match = 1;
+				match = true;
 				goto out;
 			}
 			if (match_value == NULL || dev_value == NULL)
 				continue;
 			if (fnmatch(match_value, dev_value, 0) == 0) {
-				match = 1;
+				match = true;
 				goto out;
 			}
 		}
@@ -375,7 +495,7 @@ static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate,
 			continue;
 		if (!match_property(udev_enumerate, syspath))
 			continue;
-		udev_list_entry_add(udev, &udev_enumerate->devices_list, syspath, NULL, 1, 1);
+		syspath_add(udev_enumerate, syspath);
 	}
 	closedir(dir);
 	return 0;
@@ -422,50 +542,6 @@ static int scan_dir(struct udev_enumerate *udev_enumerate, const char *basedir, 
 	return 0;
 }
 
-static int devices_delay(struct udev *udev, const char *syspath)
-{
-	static const char *delay_device_list[] = {
-		"/block/md",
-		"/block/dm-",
-		NULL
-	};
-	size_t len;
-	int i;
-
-	len = strlen(udev_get_sys_path(udev));
-	for (i = 0; delay_device_list[i] != NULL; i++) {
-		if (strstr(&syspath[len], delay_device_list[i]) != NULL) {
-			dbg(udev, "delaying: %s\n", syspath);
-			return 1;
-		}
-	}
-	return 0;
-}
-
-/* sort delayed devices to the end of the list */
-static int devices_sort(struct udev_enumerate *udev_enumerate)
-{
-	struct udev_list_entry *entry_loop;
-	struct udev_list_entry *entry_tmp;
-	struct udev_list_node devices_list;
-
-	udev_list_init(&devices_list);
-	/* move delayed to delay list */
-	udev_list_entry_foreach_safe(entry_loop, entry_tmp, udev_list_get_entry(&udev_enumerate->devices_list)) {
-		if (devices_delay(udev_enumerate->udev, udev_list_entry_get_name(entry_loop))) {
-			udev_list_entry_remove(entry_loop);
-			udev_list_entry_append(entry_loop, &devices_list);
-		}
-	}
-	/* move delayed back to end of list */
-	udev_list_entry_foreach_safe(entry_loop, entry_tmp, udev_list_get_entry(&devices_list)) {
-		udev_list_entry_remove(entry_loop);
-		udev_list_entry_append(entry_loop, &udev_enumerate->devices_list);
-	}
-	udev_enumerate->devices_sorted = 1;
-	return 0;
-}
-
 /**
  * udev_enumerate_add_syspath:
  * @udev_enumerate: context
@@ -477,7 +553,6 @@ static int devices_sort(struct udev_enumerate *udev_enumerate)
  */
 int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char *syspath)
 {
-	struct udev *udev = udev_enumerate_get_udev(udev_enumerate);
 	struct udev_device *udev_device;
 
 	if (udev_enumerate == NULL)
@@ -488,8 +563,7 @@ int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char
 	udev_device = udev_device_new_from_syspath(udev_enumerate->udev, syspath);
 	if (udev_device == NULL)
 		return -EINVAL;
-	udev_list_entry_add(udev, &udev_enumerate->devices_list,
-			    udev_device_get_syspath(udev_device), NULL, 1, 1);
+	syspath_add(udev_enumerate, udev_device_get_syspath(udev_device));
 	udev_device_unref(udev_device);
 	return 0;
 }
