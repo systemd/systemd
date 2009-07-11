@@ -435,11 +435,11 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 		}
 		waitpid(pid, &status, 0);
 		if (WIFEXITED(status)) {
-			info(udev, "'%s' returned with status %i\n", argv[0], WEXITSTATUS(status));
+			info(udev, "'%s' returned with exitcode %i\n", command, WEXITSTATUS(status));
 			if (WEXITSTATUS(status) != 0)
 				err = -1;
 		} else {
-			err(udev, "'%s' abnormal exit\n", command);
+			err(udev, "'%s' unexpected exit with status 0x%04x\n", command, status);
 			err = -1;
 		}
 	}

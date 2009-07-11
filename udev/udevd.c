@@ -205,8 +205,12 @@ static void worker_new(struct event *event)
 	pid = fork();
 	switch (pid) {
 	case 0: {
-		sigset_t mask;
+		sigset_t sigmask;
 		struct udev_device *dev;
+		struct pollfd pmon = {
+			.fd = udev_monitor_get_fd(worker_monitor),
+			.events = POLLIN,
+		};
 
 		udev_queue_export_unref(udev_queue_export);
 		udev_monitor_unref(monitor);
@@ -225,11 +229,12 @@ static void worker_new(struct event *event)
 		sigaction(SIGTERM, &act, NULL);
 		sigaction(SIGALRM, &act, NULL);
 
-		/* unblock signals */
-		sigfillset(&mask);
-		sigdelset(&mask, SIGTERM);
-		sigdelset(&mask, SIGALRM);
-		sigprocmask(SIG_SETMASK, &mask, NULL);
+		/* unblock SIGALRM */
+		sigfillset(&sigmask);
+		sigdelset(&sigmask, SIGALRM);
+		sigprocmask(SIG_SETMASK, &sigmask, NULL);
+		/* SIGTERM is unblocked in ppoll() */
+		sigdelset(&sigmask, SIGTERM);
 
 		/* request TERM signal if parent exits */
 		prctl(PR_SET_PDEATHSIG, SIGTERM);
@@ -237,7 +242,7 @@ static void worker_new(struct event *event)
 		/* initial device */
 		dev = event->dev;
 
-		while (!worker_exit) {
+		do {
 			struct udev_event *udev_event;
 			struct worker_message msg;
 			int err;
@@ -272,20 +277,31 @@ static void worker_new(struct event *event)
 			/* send processed event back to libudev listeners */
 			udev_monitor_send_device(worker_monitor, NULL, dev);
 
-			info(event->udev, "seq %llu processed with %i\n", udev_device_get_seqnum(dev), err);
-			udev_device_unref(dev);
-			udev_event_unref(udev_event);
-
 			/* send back the result of the event execution */
 			msg.exitcode = err;
 			msg.pid = getpid();
 			send(worker_watch[WRITE_END], &msg, sizeof(struct worker_message), 0);
 
-			/* wait for more device messages from udevd */
-			do
-				dev = udev_monitor_receive_device(worker_monitor);
-			while (!worker_exit && dev == NULL);
-		}
+			info(event->udev, "seq %llu processed with %i\n", udev_device_get_seqnum(dev), err);
+			udev_event_unref(udev_event);
+			udev_device_unref(dev);
+			dev = NULL;
+
+			/* wait for more device messages or signal from udevd */
+			while (!worker_exit) {
+				int fdcount;
+
+				fdcount = ppoll(&pmon, 1, NULL, &sigmask);
+				if (fdcount < 0)
+					continue;
+
+				if (pmon.revents & POLLIN) {
+					dev = udev_monitor_receive_device(worker_monitor);
+					if (dev != NULL)
+						break;
+				}
+			}
+		} while (dev != NULL);
 
 		udev_monitor_unref(worker_monitor);
 		udev_log_close();
@@ -376,7 +392,7 @@ static void event_queue_insert(struct udev_device *dev)
 	}
 }
 
-static void worker_kill(int retain)
+static void worker_kill(struct udev *udev, int retain)
 {
 	struct udev_list_node *loop;
 	int max;
@@ -522,14 +538,12 @@ static void worker_returned(void)
 			if (worker->pid != msg.pid)
 				continue;
 
-			if (worker->state != WORKER_RUNNING)
-				break;
-
 			/* worker returned */
 			worker->event->exitcode = msg.exitcode;
 			event_queue_delete(worker->event);
 			worker->event = NULL;
-			worker->state = WORKER_IDLE;
+			if (worker->state != WORKER_KILLED)
+				worker->state = WORKER_IDLE;
 			break;
 		}
 	}
@@ -551,7 +565,7 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl)
 	if (i >= 0) {
 		info(udev, "udevd message (SET_LOG_PRIORITY) received, log_priority=%i\n", i);
 		udev_set_log_priority(udev, i);
-		worker_kill(0);
+		worker_kill(udev, 0);
 	}
 
 	if (udev_ctrl_get_stop_exec_queue(ctrl_msg) > 0) {
@@ -593,7 +607,7 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl)
 			}
 			free(key);
 		}
-		worker_kill(0);
+		worker_kill(udev, 0);
 	}
 
 	i = udev_ctrl_get_set_max_childs(ctrl_msg);
@@ -690,16 +704,8 @@ static void handle_signal(struct udev *udev, int signo)
 
 				/* fail event, if worker died unexpectedly */
 				if (worker->event != NULL) {
-					int exitcode;
-
-					if (WIFEXITED(status))
-						exitcode = WEXITSTATUS(status);
-					else if (WIFSIGNALED(status))
-						exitcode = WTERMSIG(status) + 128;
-					else
-						exitcode = 0;
-					worker->event->exitcode = exitcode;
-					err(udev, "worker [%u] unexpectedly returned with %i\n", pid, exitcode);
+					worker->event->exitcode = status;
+					err(udev, "worker [%u] unexpectedly returned with status 0x%04x\n", pid, status);
 					event_queue_delete(worker->event);
 				}
 
@@ -999,7 +1005,7 @@ int main(int argc, char *argv[])
 
 		/* timeout - kill idle workers */
 		if (fdcount == 0)
-			worker_kill(2);
+			worker_kill(udev, 2);
 
 		/* event has finished */
 		if (pfd[FD_WORKER].revents & POLLIN)
@@ -1048,7 +1054,7 @@ int main(int argc, char *argv[])
 		if (reload_config) {
 			struct udev_rules *rules_new;
 
-			worker_kill(0);
+			worker_kill(udev, 0);
 			rules_new = udev_rules_new(udev, resolve_names);
 			if (rules_new != NULL) {
 				udev_rules_unref(rules);
