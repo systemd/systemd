@@ -128,6 +128,8 @@ enum worker_state {
 
 struct worker {
 	struct udev_list_node node;
+	struct udev *udev;
+	int refcount;
 	pid_t pid;
 	struct udev_monitor *monitor;
 	enum worker_state state;
@@ -176,9 +178,22 @@ static void event_sig_handler(int signum)
 	}
 }
 
+static struct worker *worker_ref(struct worker *worker)
+{
+	worker->refcount++;
+	return worker;
+}
+
 static void worker_unref(struct worker *worker)
 {
+	worker->refcount--;
+	if (worker->refcount > 0)
+		return;
+
+	udev_list_node_remove(&worker->node);
 	udev_monitor_unref(worker->monitor);
+	childs--;
+	info(worker->udev, "worker [%u] cleaned up\n", worker->pid);
 	free(worker);
 }
 
@@ -201,6 +216,9 @@ static void worker_new(struct event *event)
 	worker = calloc(1, sizeof(struct worker));
 	if (worker == NULL)
 		return;
+	/* worker + event reference */
+	worker->refcount = 2;
+	worker->udev = event->udev;
 
 	pid = fork();
 	switch (pid) {
@@ -339,18 +357,17 @@ static void event_run(struct event *event)
 		if (worker->state != WORKER_IDLE)
 			continue;
 
+		count = udev_monitor_send_device(monitor, worker->monitor, event->dev);
+		if (count < 0) {
+			err(event->udev, "worker [%u] did not accept message %zi (%m), kill it\n", worker->pid, count);
+			kill(worker->pid, SIGKILL);
+			worker->state = WORKER_KILLED;
+			continue;
+		}
+		worker_ref(worker);
 		worker->event = event;
 		worker->state = WORKER_RUNNING;
 		event->state = EVENT_RUNNING;
-		count = udev_monitor_send_device(monitor, worker->monitor, event->dev);
-		if (count < 0) {
-			event->state = EVENT_QUEUED;
-			worker->event = NULL;
-			err(event->udev, "worker [%u] did not accept message %zi (%m), kill it\n", worker->pid, count);
-			worker->state = WORKER_KILLED;
-			kill(worker->pid, SIGKILL);
-			continue;
-		}
 		return;
 	}
 
@@ -544,6 +561,7 @@ static void worker_returned(void)
 			worker->event = NULL;
 			if (worker->state != WORKER_KILLED)
 				worker->state = WORKER_IDLE;
+			worker_unref(worker);
 			break;
 		}
 	}
@@ -702,17 +720,18 @@ static void handle_signal(struct udev *udev, int signo)
 				if (worker->pid != pid)
 					continue;
 
-				/* fail event, if worker died unexpectedly */
-				if (worker->event != NULL) {
-					worker->event->exitcode = status;
-					err(udev, "worker [%u] unexpectedly returned with status 0x%04x\n", pid, status);
-					event_queue_delete(worker->event);
-				}
-
-				udev_list_node_remove(&worker->node);
-				worker_unref(worker);
-				childs--;
 				info(udev, "worker [%u] exit\n", pid);
+				if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+					err(udev, "worker [%u] unexpectedly returned with status 0x%04x\n", pid, status);
+					if (worker->event != NULL) {
+						err(udev, "worker [%u] failed while handling '%s'\n", pid, worker->event->devpath);
+						worker->event->exitcode = -32;
+						event_queue_delete(worker->event);
+						/* drop reference from running event */
+						worker_unref(worker);
+					}
+				}
+				worker_unref(worker);
 				break;
 			}
 		}
