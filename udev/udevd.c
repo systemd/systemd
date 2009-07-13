@@ -24,6 +24,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
 #include <fcntl.h>
@@ -45,7 +46,7 @@
 #define UDEVD_PRIORITY			-4
 #define UDEV_PRIORITY			-2
 
-static int debug;
+static bool debug;
 
 static void log_fn(struct udev *udev, int priority,
 		   const char *file, int line, const char *fn,
@@ -59,20 +60,20 @@ static void log_fn(struct udev *udev, int priority,
 	}
 }
 
-static int debug_trace;
+static bool debug_trace;
 static struct udev_rules *rules;
 static struct udev_queue_export *udev_queue_export;
 static struct udev_ctrl *udev_ctrl;
 static struct udev_monitor *monitor;
 static int worker_watch[2];
 static pid_t settle_pid;
-static int stop_exec_queue;
-static int reload_config;
+static bool stop_exec_queue;
+static bool reload_config;
 static int max_childs;
 static int childs;
 static struct udev_list_node event_list;
 static struct udev_list_node worker_list;
-static int udev_exit;
+static bool udev_exit;
 static volatile sig_atomic_t worker_exit;
 
 enum poll_fd {
@@ -173,7 +174,7 @@ static void event_sig_handler(int signum)
 		_exit(1);
 		break;
 	case SIGTERM:
-		worker_exit = 1;
+		worker_exit = true;
 		break;
 	}
 }
@@ -588,17 +589,17 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl)
 
 	if (udev_ctrl_get_stop_exec_queue(ctrl_msg) > 0) {
 		info(udev, "udevd message (STOP_EXEC_QUEUE) received\n");
-		stop_exec_queue = 1;
+		stop_exec_queue = true;
 	}
 
 	if (udev_ctrl_get_start_exec_queue(ctrl_msg) > 0) {
 		info(udev, "udevd message (START_EXEC_QUEUE) received\n");
-		stop_exec_queue = 0;
+		stop_exec_queue = false;
 	}
 
 	if (udev_ctrl_get_reload_rules(ctrl_msg) > 0) {
 		info(udev, "udevd message (RELOAD_RULES) received\n");
-		reload_config = 1;
+		reload_config = true;
 	}
 
 	str = udev_ctrl_get_set_env(ctrl_msg);
@@ -667,7 +668,7 @@ static int handle_inotify(struct udev *udev)
 		ev = (struct inotify_event *)(buf + pos);
 		if (ev->len) {
 			dbg(udev, "inotify event: %x for %s\n", ev->mask, ev->name);
-			reload_config = 1;
+			reload_config = true;
 			continue;
 		}
 
@@ -702,7 +703,7 @@ static void handle_signal(struct udev *udev, int signo)
 	switch (signo) {
 	case SIGINT:
 	case SIGTERM:
-		udev_exit = 1;
+		udev_exit = true;
 		break;
 	case SIGCHLD:
 		while (1) {
@@ -737,7 +738,7 @@ static void handle_signal(struct udev *udev, int signo)
 		}
 		break;
 	case SIGHUP:
-		reload_config = 1;
+		reload_config = true;
 		break;
 	}
 }
@@ -775,7 +776,7 @@ int main(int argc, char *argv[])
 	int fd;
 	sigset_t mask;
 	const char *value;
-	int daemonize = 0;
+	int daemonize = false;
 	int resolve_names = 1;
 	static const struct option options[] = {
 		{ "daemon", no_argument, NULL, 'd' },
@@ -806,13 +807,13 @@ int main(int argc, char *argv[])
 
 		switch (option) {
 		case 'd':
-			daemonize = 1;
+			daemonize = true;
 			break;
 		case 't':
-			debug_trace = 1;
+			debug_trace = true;
 			break;
 		case 'D':
-			debug = 1;
+			debug = true;
 			if (udev_get_log_priority(udev) < LOG_INFO)
 				udev_set_log_priority(udev, LOG_INFO);
 			break;
