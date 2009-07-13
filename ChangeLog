@@ -1,3 +1,22 @@
+Summary of changes from v144 to v145
+============================================
+
+Ian Campbell (1):
+      scsi_id: correct error handling in prepend_vendor_model
+
+Kay Sievers (10):
+      README: add CONFIG_BLK_DEV_BSG
+      use MIN() MAX() from param.h
+      configure.ac: version bump
+      libudev: device - free values before updating them
+      libudev: enumerate - sort with qsort()
+      udevd: detach event from worker if we kill a worker
+      udevadm: info - add space after R:, A:, W: on database export
+      udevd: make sure a worker finishes event handling before exiting
+      udevd: handle SIGCHLD before the worker event message
+      udevd: use bool
+
+
 Summary of changes from v143 to v144
 ============================================
 

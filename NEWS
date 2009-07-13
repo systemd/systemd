@@ -1,6 +1,7 @@
 udev 145
 ========
-Bugfixes.
+Fix possible crash in udevd when worker processes are busy, rules are
+changed at the same time, and workers get killed to reload the rules.
 
 udev 144
 ========
