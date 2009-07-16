@@ -76,4 +76,6 @@ ENV{DMI_VENDOR}=="OQO Inc.*", ATTR{[dmi/id]product_name}=="OQO Model 2*", RUN+="
 
 ENV{DMI_VENDOR}=="ASUS", RUN+="keymap $name asus"
 
+ENV{DMI_VENDOR}=="VIA", ATTR{[dmi/id]product_name}=="K8N800", ATTR{[dmi/id]product_version}=="VT8204B", RUN+="keymap $name via-K8N800"
+
 LABEL="keyboard_end"
