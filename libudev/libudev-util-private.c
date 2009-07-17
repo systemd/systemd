@@ -249,6 +249,8 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 	int i;
 	int err = 0;
 
+	info(udev, "'%s' started\n", command);
+
 	/* build argv from command */
 	util_strscpy(arg, sizeof(arg), command);
 	i = 0;
@@ -273,7 +275,6 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 		argv[0] = arg;
 		argv[1] = NULL;
 	}
-	info(udev, "'%s'\n", command);
 
 	/* prepare pipes from child to parent */
 	if (result != NULL || udev_get_log_priority(udev) >= LOG_INFO) {

@@ -31,6 +31,7 @@
 #include <time.h>
 #include <getopt.h>
 #include <dirent.h>
+#include <sys/time.h>
 #include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/signalfd.h>
@@ -53,8 +54,15 @@ static void log_fn(struct udev *udev, int priority,
 		   const char *format, va_list args)
 {
 	if (debug) {
-		fprintf(stderr, "[%d] %s: ", (int) getpid(), fn);
-		vfprintf(stderr, format, args);
+		char buf[1024];
+		struct timeval tv;
+		struct timezone tz;
+
+		vsnprintf(buf, sizeof(buf), format, args);
+		gettimeofday(&tv, &tz);
+		fprintf(stderr, "%llu.%06u [%u] %s: %s",
+			(unsigned long long) tv.tv_sec, (unsigned int) tv.tv_usec,
+			(int) getpid(), fn, buf);
 	} else {
 		vsyslog(priority, format, args);
 	}
@@ -266,6 +274,7 @@ static void worker_new(struct event *event)
 			struct worker_message msg;
 			int err;
 
+			info(event->udev, "seq %llu running\n", udev_device_get_seqnum(dev));
 			udev_event = udev_event_new(dev);
 			if (udev_event == NULL)
 				_exit(3);
