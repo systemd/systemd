@@ -6,11 +6,8 @@ udevkeymapdir = $(libexecdir)/keymaps
 udevkeymap_DATA = \
 keymaps/acer \
 	keymaps/acer-aspire_5920g \
-	keymaps/acer-extensa_5xxx \
-	keymaps/acer-travelmate_6292 \
 	keymaps/acer-travelmate_c300 \
 	keymaps/asus \
-	keymaps/benq-joybook_r22 \
 	keymaps/compaq-e_evo \
 	keymaps/dell \
 	keymaps/fujitsu-amilo_pa_2548 \

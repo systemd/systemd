@@ -1,3 +1,10 @@
+# Set model specific hotkey keycodes.
+#
+# Key map overrides can be specified by either giving scancode/keyname pairs
+# directly as keymap arguments (if there are just one or two to change), or as
+# a file name (in /lib/udev/keymaps), which has to contain scancode/keyname
+# pairs.
+
 ACTION!="add", GOTO="keyboard_end"
 SUBSYSTEM!="input", GOTO="keyboard_end"
 KERNEL!="event*", GOTO="keyboard_end"
@@ -42,12 +49,12 @@ ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*2510p*|*2530p
 ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*[tT][xX]2*", RUN+="keymap $name hewlett-packard-tx2"
 
 ENV{DMI_VENDOR}=="Acer*", RUN+="keymap $name acer"
-ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="Extensa*", ATTR{[dmi/id]product_name}=="*5210*|*5220*|*5610*|*5620*|*5720*", RUN+="keymap $name acer-extensa_5xxx"
+ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="Extensa*", ATTR{[dmi/id]product_name}=="*5210*|*5220*|*5610*|*5620*|*5720*", RUN+="keymap $name 0xEE screenlock"
 ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="TravelMate*C300*", RUN+="keymap $name acer-travelmate_c300"
-ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="TravelMate*6292*", RUN+="keymap $name acer-travelmate_6292"
+ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="TravelMate*6292*", RUN+="keymap $name 0xD9 bluetooth"
 ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="Aspire 5920G", RUN+="keymap $name acer-aspire_5920g"
 
-ENV{DMI_VENDOR}=="*BenQ*", ATTR{[dmi/id]product_name}=="*Joybook R22*", RUN+="keymap $name benq-joybook_r22"
+ENV{DMI_VENDOR}=="*BenQ*", ATTR{[dmi/id]product_name}=="*Joybook R22*", RUN+="keymap $name 0x6E wlan"
 
 ENV{DMI_VENDOR}=="FUJITSU*", ATTR{[dmi/id]product_name}=="*AMILO Pro V3205*", RUN+="keymap $name fujitsu-amilo_pro_v3205"
 ENV{DMI_VENDOR}=="FUJITSU*", ATTR{[dmi/id]product_name}=="*AMILO Pa 2548*", RUN+="keymap $name fujitsu-amilo_pa_2548"
@@ -76,12 +83,12 @@ ENV{DMI_VENDOR}=="OQO Inc.*", ATTR{[dmi/id]product_name}=="OQO Model 2*", RUN+="
 
 ENV{DMI_VENDOR}=="ASUS", RUN+="keymap $name asus"
 
-ENV{DMI_VENDOR}=="VIA", ATTR{[dmi/id]product_name}=="K8N800", ATTR{[dmi/id]product_version}=="VT8204B", RUN+="keymap $name via-K8N800"
+ENV{DMI_VENDOR}=="VIA", ATTR{[dmi/id]product_name}=="K8N800", ATTR{[dmi/id]product_version}=="VT8204B", RUN+="keymap $name 0x81 prog1"
 
 ENV{DMI_VENDOR}=="Zepto", ATTR{[dmi/id]product_name}=="Znote", ATTR{[dmi/id]product_version}=="62*|63*", RUN+="keymap $name zepto-znote"
 
 ENV{DMI_VENDOR}=="Everex", ATTR{[dmi/id]product_name}=="XT5000*", RUN+="keymap $name everex-xt5000"
 
-ENV{DMI_COMPAL}=="COMPAL", ATTR{[dmi/id]product_name}=="HEL80I", RUN+="keymap $name compal-hel80i"
+ENV{DMI_COMPAL}=="COMPAL", ATTR{[dmi/id]product_name}=="HEL80I", RUN+="keymap $name 0x84 wlan"
 
 LABEL="keyboard_end"
