@@ -82,4 +82,6 @@ ENV{DMI_VENDOR}=="Zepto", ATTR{[dmi/id]product_name}=="Znote", ATTR{[dmi/id]prod
 
 ENV{DMI_VENDOR}=="Everex", ATTR{[dmi/id]product_name}=="XT5000*", RUN+="keymap $name everex-xt5000"
 
+ENV{DMI_COMPAL}=="COMPAL", ATTR{[dmi/id]product_name}=="HEL80I", RUN+="keymap $name compal-hel80i"
+
 LABEL="keyboard_end"
