@@ -17,8 +17,11 @@ missing=$(join -v 2 <(awk '{print tolower(substr($1,5))}' $KEYLIST | sort -u) <(
 }
 
 # check that all maps referred to in $RULES exist
-maps=$(sed -rn '/keymap \$name/ { s/^.*\$name ([^"]+).*$/\1/; p }' $RULES)
+maps=$(sed -rn '/keymap \$name/ { s/^.*\$name ([^"[:space:]]+).*$/\1/; p }' $RULES)
 for m in $maps; do
+    # ignore inline mappings
+    [ "$m" = "${m#0x}" ] || continue
+
     [ -e keymaps/$m ] || {
 	echo "ERROR: unknown map name in $RULES: $m" >&2
 	exit 1
