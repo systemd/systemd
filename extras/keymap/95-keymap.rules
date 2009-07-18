@@ -35,7 +35,7 @@ GOTO="keyboard_end"
 LABEL="keyboard_vendorcheck"
 
 ENV{DMI_VENDOR}=="Dell*", RUN+="keymap $name dell"
-ENV{DMI_VENDOR}=="Compaq*", ATTR{[dmi/id]product_name}=="*E500*|*Evo N610c*|*Evo N600c*", RUN+="keymap $name compaq-e_evo"
+ENV{DMI_VENDOR}=="Compaq*", ATTR{[dmi/id]product_name}=="*E500*|*Evo N*", RUN+="keymap $name compaq-e_evo"
 
 ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="*3000*", RUN+="keymap $name lenovo-3000"
 ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="ThinkPad X6*", ATTR{[dmi/id]product_version}=="* Tablet" RUN+="keymap $name lenovo-thinkpad_x6_tablet"
