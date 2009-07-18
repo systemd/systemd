@@ -153,6 +153,34 @@ fail:
 	return r;
 }
 
+static void set_key(int fd, const char* scancode_str, const char* keyname)
+{
+	unsigned scancode;
+	char *endptr;
+	char t[105] = "KEY_UNKNOWN";
+	const struct key *k;
+
+	scancode = (unsigned) strtol(scancode_str, &endptr, 0);
+	if (*endptr != '\0') {
+		fprintf(stderr, "ERROR: Invalid scancode\n");
+		exit(1);
+	}
+
+	snprintf(t, sizeof(t), "KEY_%s", keyname);
+
+	if (!(k = lookup_key(t, strlen(t)))) {
+		fprintf(stderr, "ERROR: Unknown key name '%s'\n", keyname);
+		exit(1);
+	}
+
+	if (evdev_set_keycode(fd, scancode, k->id) < 0)
+		fprintf(stderr, "setting scancode 0x%2X to key code %i failed\n", 
+			scancode, k->id);
+	else
+		printf("setting scancode 0x%2X to key code %i\n", 
+			scancode, k->id);
+}
+
 static int merge_table(int fd, const char *filename) {
 	int r = 0;
 	int line = 0;
@@ -275,6 +303,7 @@ static void interactive(int fd)
 static void help(int error)
 {
 	const char* h = "Usage: keymap <event device> [<map file>]\n"
+	                "       keymap <event device> scancode keyname [...]\n"
 		        "       keymap -i <event device>\n";
 	if (error) {
 		fputs(h, stderr);
@@ -294,6 +323,7 @@ int main(int argc, char **argv)
 	};
 	int fd = -1;
 	int opt_interactive = 0;
+	int i;
 
 	while (1) {
 		int option;
@@ -314,19 +344,35 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (argc < optind+1 || argc > optind+2)
+	if (argc < optind+1)
 		help (1);
 
 	if ((fd = evdev_open(argv[optind])) < 0)
 		return 3;
 
-	if (argc == optind+2)
-		merge_table(fd, default_keymap_path(argv[optind+1]));
-	else {
+	/* one argument (device): dump or interactive */
+	if (argc == optind+1) {
 		if (opt_interactive)
 			interactive(fd);
 		else
 			dump_table(fd);
+		return 0;
 	}
-	return 0;
+
+	/* two arguments (device, mapfile): set map file */
+	if (argc == optind+2) {
+		merge_table(fd, default_keymap_path(argv[optind+1]));
+		return 0;
+	}
+
+	/* more arguments (device, scancode/keyname pairs): set keys directly */
+	if ((argc - optind - 1) % 2 == 0) {
+		for (i = optind+1; i < argc; i += 2)
+			set_key(fd, argv[i], argv[i+1]);	
+		return 0;
+	}
+
+	/* invalid number of arguments */
+	help(1);
+	return 1; /* not reached */
 }
