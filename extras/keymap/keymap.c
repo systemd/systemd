@@ -272,6 +272,19 @@ static void interactive(int fd)
 	ioctl(fd, EVIOCGRAB, 0);
 }
 
+static void help(int error)
+{
+	const char* h = "Usage: keymap <event device> [<map file>]\n"
+		        "       keymap -i <event device>\n";
+	if (error) {
+		fputs(h, stderr);
+		exit(2);
+	} else {
+		fputs(h, stdout);
+		exit(0);
+	}
+}
+
 int main(int argc, char **argv)
 {
 	static const struct option options[] = {
@@ -291,8 +304,7 @@ int main(int argc, char **argv)
 
 		switch (option) {
 		case 'h':
-			printf("Usage: keymap <event device> [<map file>]\n\n");
-			return 0;
+		        help(0);
 
 		case 'i':
 			opt_interactive = 1;
@@ -302,10 +314,8 @@ int main(int argc, char **argv)
 		}
 	}
 
-	if (argc < optind+1 || argc > optind+2) {
-		fprintf(stderr, "Usage: keymap <event device> [<map file>]\n\n");
-		return 2;
-	}
+	if (argc < optind+1 || argc > optind+2)
+		help (1);
 
 	if ((fd = evdev_open(argv[optind])) < 0)
 		return 3;
