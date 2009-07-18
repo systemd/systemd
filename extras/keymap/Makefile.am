@@ -21,6 +21,7 @@ keymaps/acer \
 	keymaps/hewlett-packard-2510p_2530p \
 	keymaps/hewlett-packard-compaq_elitebook \
 	keymaps/hewlett-packard-pavilion \
+	keymaps/hewlett-packard-presario-2100 \
 	keymaps/hewlett-packard-tablet \
 	keymaps/hewlett-packard-tx2 \
 	keymaps/inventec-symphony_6.0_7.0 \
