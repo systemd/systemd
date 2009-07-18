@@ -10,6 +10,7 @@ keymaps/acer \
 	keymaps/asus \
 	keymaps/compaq-e_evo \
 	keymaps/dell \
+	keymaps/everex-xt5000 \
 	keymaps/fujitsu-amilo_pa_2548 \
 	keymaps/fujitsu-amilo_pro_edition_v3505 \
 	keymaps/fujitsu-amilo_pro_v3205 \
@@ -40,7 +41,8 @@ keymaps/acer \
 	keymaps/samsung-sq1us \
 	keymaps/samsung-sx20s \
 	keymaps/toshiba-satellite_a100 \
-	keymaps/toshiba-satellite_a110
+	keymaps/toshiba-satellite_a110 \
+	keymaps/zepto-znote
 
 dist_libexec_SCRIPTS = findkeyboards
 
