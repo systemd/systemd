@@ -52,6 +52,7 @@ int main (int argc, char *argv[])
 		switch (option) {
 		case 'h':
 			printf("Usage: v4l_id [--help] <device file>\n\n");
+			return 0;
 		default:
 			return 1;
 		}
