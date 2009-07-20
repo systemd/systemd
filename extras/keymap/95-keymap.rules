@@ -74,7 +74,7 @@ ENV{DMI_VENDOR}=="INVENTEC", ATTR{[dmi/id]product_name}=="SYMPHONY 6.0/7.0", RUN
 
 ENV{DMI_VENDOR}=="MAXDATA", ATTR{[dmi/id]product_name}=="Pro 7000*", RUN+="keymap $name maxdata-pro_7000"
 
-ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="*NC10*|*SP55S*|*SQ45S70S*|*SX60P*|*SX30S*|*R59P/R60P/R61P*|*Q210*|*Q310*|*X05*|*P560*|*R560*", RUN+="keymap $name samsung-other"
+ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="*NC10*|*SP55S*|*SQ45S70S*|*SX60P*|*SX22S*|*SX30S*|*R59P/R60P/R61P*|*Q210*|*Q310*|*X05*|*P560*|*R560*", RUN+="keymap $name samsung-other"
 ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="*SX20S*", RUN+="keymap $name samsung-sx20s"
 ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="SQ1US", RUN+="keymap $name samsung-sq1us"
 
