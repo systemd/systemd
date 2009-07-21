@@ -11,6 +11,11 @@ SUBSYSTEM!="usb", GOTO="hid2hci_end"
 ATTR{bInterfaceClass}=="03", ATTR{bInterfaceSubClass}=="01", ATTR{bInterfaceProtocol}=="02", ATTRS{bDeviceClass}=="00", ATTRS{idVendor}=="413c", ATTRS{bmAttributes}=="e0", \
     RUN+="hid2hci --method dell -v $attr{idVendor} -p $attr{idProduct} --mode hci"
 
+# When a Dell device recovers from S3, the mouse child needs to be repoked
+# Unfortunately the only event seen is the BT device disappearing, so the mouse
+# device needs to be chased down on the USB bus.
+ATTR{bDeviceClass}=="e0", ATTR{bDeviceSubClass}=="01", ATTR{bDeviceProtocol}=="01", ATTR{idVendor}=="413c", ATTR{bmAttributes}=="e0", IMPORT{parent}="ID_*", ENV{REMOVE_CMD}="hid2hci --method dell -v $env{ID_VENDOR_ID} -p $env{ID_MODEL_ID} --mode hci -s 02"
+
 ENV{DEVTYPE}!="usb_device", GOTO="hid2hci_end"
 
 # Logitech devices

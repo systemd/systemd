@@ -271,6 +271,36 @@ static int find_device(struct device_info* devinfo)
 	return 0;
 }
 
+static int find_resuscitated_device(struct device_info* devinfo, uint8_t bInterfaceProtocol)
+{
+	int i,j,k,l;
+	struct usb_device *dev, *child;
+	struct usb_config_descriptor config;
+	struct usb_interface interface;
+	struct usb_interface_descriptor altsetting;
+
+	/* Using the base device, attempt to find the child with the
+	 * matching bInterfaceProtocol */
+	dev = devinfo->dev;
+	for (i = 0; i < dev->num_children; i++) {
+		child = dev->children[i];
+		for (j = 0; j < child->descriptor.bNumConfigurations; j++) {
+			config = child->config[j];
+			for (k = 0; k < config.bNumInterfaces; k++) {
+				interface = config.interface[k];
+				for (l = 0; l < interface.num_altsetting; l++) {
+					altsetting = interface.altsetting[l];
+					if (altsetting.bInterfaceProtocol == bInterfaceProtocol) {
+						devinfo->dev = child;
+						return 1;
+					}
+				}
+			}
+		}
+	}
+	return 0;
+}
+
 static void usage(char* error)
 {
 	if (error)
@@ -289,6 +319,7 @@ static void usage(char* error)
 		"\t-v, --vendor=        Vendor ID to act upon\n"
 		"\t-p, --product=       Product ID to act upon\n"
 		"\t-m, --method=        Method to use to switch [csr, logitech, dell]\n"
+		"\t-s, --resuscitate=   Find the child device with this bInterfaceProtocol to run on \n"
 		"\n");
 	if (error)
 		exit(1);
@@ -301,6 +332,7 @@ static const struct option main_options[] = {
 	{ "vendor",	required_argument, 0, 'v' },
 	{ "product",	required_argument, 0, 'p' },
 	{ "method",	required_argument, 0, 'm' },
+	{ "resuscitate",required_argument, 0, 's' },
 	{ 0, 0, 0, 0 }
 };
 
@@ -309,8 +341,9 @@ int main(int argc, char *argv[])
 	struct device_info dev = { NULL, HCI, 0, 0 };
 	int opt, quiet = 0;
 	int (*method)(struct device_info *dev) = NULL;
+	uint8_t resuscitate = 0;
 
-	while ((opt = getopt_long(argc, argv, "+r:v:p:m:qh", main_options, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "+s:r:v:p:m:qh", main_options, NULL)) != -1) {
 		switch (opt) {
 		case 'r':
 			if (optarg && !strcmp(optarg, "hid"))
@@ -339,6 +372,9 @@ int main(int argc, char *argv[])
 		case 'q':
 			quiet = 1;
 			break;
+		case 's':
+			sscanf(optarg, "%2hx", (short unsigned int*) &resuscitate);
+			break;
 		case 'h':
 			usage(NULL);
 		default:
@@ -359,6 +395,13 @@ int main(int argc, char *argv[])
 		if (!quiet)
 			fprintf(stderr, "Device %04x:%04x not found on USB bus.\n",
 				dev.vendor, dev.product);
+		exit(1);
+	}
+
+	if (resuscitate && !find_resuscitated_device(&dev, resuscitate)) {
+		if (!quiet)
+			fprintf(stderr, "Device %04x:%04x was unable to resucitate any child devices.\n",
+				dev.vendor,dev.product);
 		exit(1);
 	}
 
