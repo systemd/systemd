@@ -22,10 +22,6 @@
  *
  */
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
-
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -33,56 +29,10 @@
 #include <string.h>
 #include <getopt.h>
 #include <sys/ioctl.h>
-
+#include <linux/hiddev.h>
 #include <usb.h>
 
-#ifdef NEED_USB_GET_BUSSES
-static inline struct usb_bus *usb_get_busses(void)
-{
-	return usb_busses;
-}
-#endif
-
-#ifndef USB_DIR_OUT
-#define USB_DIR_OUT	0x00
-#endif
-
 static char devpath[PATH_MAX + 1] = "/dev";
-
-struct hiddev_devinfo {
-	unsigned int bustype;
-	unsigned int busnum;
-	unsigned int devnum;
-	unsigned int ifnum;
-	short vendor;
-	short product;
-	short version;
-	unsigned num_applications;
-};
-
-struct hiddev_report_info {
-	unsigned report_type;
-	unsigned report_id;
-	unsigned num_fields;
-};
-
-typedef __signed__ int __s32;
-
-struct hiddev_usage_ref {
-	unsigned report_type;
-	unsigned report_id;
-	unsigned field_index;
-	unsigned usage_index;
-	unsigned usage_code;
-	__s32 value;
-};
-
-#define HIDIOCGDEVINFO		_IOR('H', 0x03, struct hiddev_devinfo)
-#define HIDIOCINITREPORT	_IO('H', 0x05)
-#define HIDIOCSREPORT		_IOW('H', 0x08, struct hiddev_report_info)
-#define HIDIOCSUSAGE		_IOW('H', 0x0C, struct hiddev_usage_ref)
-
-#define HID_REPORT_TYPE_OUTPUT	2
 
 #define HCI 0
 #define HID 1
@@ -103,8 +53,9 @@ static int switch_csr(struct device_info *devinfo)
 	if (!udev)
 		return -errno;
 
-	err = usb_control_msg(udev, USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-				0, devinfo->mode, 0, NULL, 0, 10000);
+	err = usb_control_msg(udev,
+			      USB_ENDPOINT_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+			      0, devinfo->mode, 0, NULL, 0, 10000);
 
 	if (err == 0) {
 		err = -1;
@@ -325,25 +276,24 @@ static void usage(char* error)
 		exit(1);
 }
 
-static const struct option main_options[] = {
-	{ "help",	no_argument, 0, 'h' },
-	{ "quiet",	no_argument, 0, 'q' },
-	{ "mode",	required_argument, 0, 'r' },
-	{ "vendor",	required_argument, 0, 'v' },
-	{ "product",	required_argument, 0, 'p' },
-	{ "method",	required_argument, 0, 'm' },
-	{ "resuscitate",required_argument, 0, 's' },
-	{ 0, 0, 0, 0 }
-};
-
 int main(int argc, char *argv[])
 {
+	static const struct option options[] = {
+		{ "help", no_argument, NULL, 'h' },
+		{ "quiet", no_argument, NULL, 'q' },
+		{ "mode", required_argument, NULL, 'r' },
+		{ "vendor", required_argument, NULL, 'v' },
+		{ "product", required_argument, NULL, 'p' },
+		{ "method", required_argument, NULL, 'm' },
+		{ "resuscitate", required_argument, NULL, 's' },
+		{ }
+	};
 	struct device_info dev = { NULL, HCI, 0, 0 };
 	int opt, quiet = 0;
 	int (*method)(struct device_info *dev) = NULL;
 	uint8_t resuscitate = 0;
 
-	while ((opt = getopt_long(argc, argv, "+s:r:v:p:m:qh", main_options, NULL)) != -1) {
+	while ((opt = getopt_long(argc, argv, "+s:r:v:p:m:qh", options, NULL)) != -1) {
 		switch (opt) {
 		case 'r':
 			if (optarg && !strcmp(optarg, "hid"))
@@ -378,7 +328,7 @@ int main(int argc, char *argv[])
 		case 'h':
 			usage(NULL);
 		default:
-			exit(0);
+			exit(1);
 		}
 	}
 
