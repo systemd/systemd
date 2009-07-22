@@ -131,6 +131,7 @@ int udev_enumerate_add_nomatch_subsystem(struct udev_enumerate *udev_enumerate, 
 int udev_enumerate_add_match_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value);
 int udev_enumerate_add_nomatch_sysattr(struct udev_enumerate *udev_enumerate, const char *sysattr, const char *value);
 int udev_enumerate_add_match_property(struct udev_enumerate *udev_enumerate, const char *property, const char *value);
+int udev_enumerate_add_match_sysname(struct udev_enumerate *udev_enumerate, const char *sysname);
 int udev_enumerate_add_syspath(struct udev_enumerate *udev_enumerate, const char *syspath);
 /* run enumeration with active filters */
 int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate);

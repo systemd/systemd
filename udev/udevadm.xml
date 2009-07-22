@@ -217,6 +217,13 @@
                 specified multiple times and supports shell style pattern matching.</para>
               </listitem>
             </varlistentry>
+            <varlistentry>
+              <term><option>--sysname-match=<replaceable>name</replaceable></option></term>
+              <listitem>
+                <para>Trigger events for devices with a matching sys device name. This option can be
+                specified multiple times and supports shell style pattern matching.</para>
+              </listitem>
+            </varlistentry>
           </variablelist>
         </refsect2>
 
