@@ -34,5 +34,6 @@ ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7401", RUN+="modem-modeswitch -v 0x%
 ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7501", RUN+="modem-modeswitch -v 0x%s{idVendor} -p 0x%s{idProduct} -t option-zerocd"
 ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7601", RUN+="modem-modeswitch -v 0x%s{idVendor} -p 0x%s{idProduct} -t option-zerocd"
 ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7901", RUN+="modem-modeswitch -v 0x%s{idVendor} -p 0x%s{idProduct} -t option-zerocd"
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1446", RUN+="modem-modeswitch -v 0x%s{idVendor} -p 0x%s{idProduct} -t option-zerocd"
 
 LABEL="option_zerocd_end"
