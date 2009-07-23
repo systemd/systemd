@@ -6,7 +6,7 @@ KERNEL!="ttyUSB[0-9]*|ttyACM[0-9]*", GOTO="persistent_serial_end"
 
 SUBSYSTEMS=="usb-serial", ENV{ID_PORT}="$attr{port_number}"
 
-IMPORT="path_id"
+IMPORT="path_id %p"
 ENV{ID_PATH}=="?*", ENV{ID_PORT}=="", SYMLINK+="serial/by-path/$env{ID_PATH}"
 ENV{ID_PATH}=="?*", ENV{ID_PORT}=="?*", SYMLINK+="serial/by-path/$env{ID_PATH}-port$env{ID_PORT}"
 
