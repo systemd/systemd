@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2009 Kay Sievers <kay.sievers@vrfy.org>
  *
- * Log based on Hannes Reinecke's shell script.
+ * Logic based on Hannes Reinecke's shell script.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
