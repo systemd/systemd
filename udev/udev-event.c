@@ -126,7 +126,7 @@ size_t udev_event_apply_format(struct udev_event *event, const char *src, char *
 				}
 
 				for (i = 0; i < ARRAY_SIZE(map); i++) {
-					if (strncasecmp(&from[1], map[i].name, strlen(map[i].name)) == 0) {
+					if (strncmp(&from[1], map[i].name, strlen(map[i].name)) == 0) {
 						type = map[i].type;
 						from += strlen(map[i].name)+1;
 						dbg(event->udev, "will substitute format name '%s'\n", map[i].name);
