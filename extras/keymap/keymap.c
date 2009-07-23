@@ -258,15 +258,22 @@ static const char* default_keymap_path(const char* path)
 static void print_key(struct input_event *event)
 {
 	static int cur_scancode = 0;
+	const char *keyname;
 
 	/* save scan code for next EV_KEY event */
 	if (event->type == EV_MSC && event->code == MSC_SCAN)
 	    cur_scancode = event->value;
 
 	/* key press */
-	if (event->type == EV_KEY && event->value)
-	    printf("scan code: 0x%02X   key code: %s\n", cur_scancode,
-		    format_keyname(key_names[event->code]));
+	if (event->type == EV_KEY && event->value) {
+		keyname = key_names[event->code];
+		if (keyname != NULL)
+			printf("scan code: 0x%02X   key code: %s\n", cur_scancode,
+			    format_keyname(key_names[event->code]));
+		else
+			printf("scan code: 0x%02X   key code: %03X\n", cur_scancode,
+			    event->code);
+	}
 }
 
 static void interactive(int fd)
