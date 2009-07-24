@@ -3,28 +3,27 @@
 ACTION!="add", GOTO="hid2hci_end"
 SUBSYSTEM!="usb", GOTO="hid2hci_end"
 
-# Variety of Dell Bluetooth devices - it looks like a bit of an odd rule,
-# because it is matching on a mouse device that is self powered, but that
-# is where a HID report needs to be sent to switch modes.
-#
+# Variety of Dell Bluetooth devices - match on a mouse device that is
+# self powered and where a HID report needs to be sent to switch modes
 # Known supported devices: 413c:8154, 413c:8158, 413c:8162
-ATTR{bInterfaceClass}=="03", ATTR{bInterfaceSubClass}=="01", ATTR{bInterfaceProtocol}=="02", ATTRS{bDeviceClass}=="00", ATTRS{idVendor}=="413c", ATTRS{bmAttributes}=="e0", \
-    RUN+="hid2hci --method dell -v $attr{idVendor} -p $attr{idProduct} --mode hci"
+ATTR{bInterfaceClass}=="03", ATTR{bInterfaceSubClass}=="01", ATTR{bInterfaceProtocol}=="02", \
+  ATTRS{bDeviceClass}=="00", ATTRS{idVendor}=="413c", ATTRS{bmAttributes}=="e0", \
+  RUN+="hid2hci --method=dell --devpath=%p"
+
+# Logitech devices (hidraw)
+KERNEL=="hidraw*", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c70[345abce]|c71[34bc]", \
+  RUN+="hid2hci --method=logitech-hid --devpath=%p"
+
+ENV{DEVTYPE}!="usb_device", GOTO="hid2hci_end"
 
 # When a Dell device recovers from S3, the mouse child needs to be repoked
 # Unfortunately the only event seen is the BT device disappearing, so the mouse
 # device needs to be chased down on the USB bus.
-ATTR{bDeviceClass}=="e0", ATTR{bDeviceSubClass}=="01", ATTR{bDeviceProtocol}=="01", ATTR{idVendor}=="413c", ATTR{bmAttributes}=="e0", IMPORT{parent}="ID_*", ENV{REMOVE_CMD}="hid2hci --method dell -v $env{ID_VENDOR_ID} -p $env{ID_MODEL_ID} --mode hci -s 02"
+ATTR{bDeviceClass}=="e0", ATTR{bDeviceSubClass}=="01", ATTR{bDeviceProtocol}=="01", \
+  ATTR{idVendor}=="413c", ATTR{bmAttributes}=="e0", \
+  ENV{REMOVE_CMD}="hid2hci --method=dell --devpath=%p --find-sibling-intf=03:01:02"
 
-ENV{DEVTYPE}!="usb_device", GOTO="hid2hci_end"
-
-# Logitech devices
-ATTR{idVendor}=="046d", ATTR{idProduct}=="c70[345abce]", RUN+="hid2hci --method logitech -v $attr{idVendor} -p $attr{idProduct} --mode hci"
-ATTR{idVendor}=="046d", ATTR{idProduct}=="c71[34bc]", RUN+="hid2hci --method logitech -v $attr{idVendor} -p $attr{idProduct} --mode hci"
-
-# CSR devices (in HID mode)
-ATTR{idVendor}=="0a12", ATTR{idProduct}=="1000", RUN+="hid2hci --method csr -v $attr{idVendor} -p $attr{idProduct} --mode hci"
-ATTR{idVendor}=="0458", ATTR{idProduct}=="1000", RUN+="hid2hci --method csr -v $attr{idVendor} -p $attr{idProduct} --mode hci"
-ATTR{idVendor}=="05ac", ATTR{idProduct}=="1000", RUN+="hid2hci --method csr -v $attr{idVendor} -p $attr{idProduct} --mode hci"
+# CSR devices
+ATTR{idVendor}=="0a12|0458|05ac", ATTR{idProduct}=="1000", RUN+="hid2hci --method=csr --devpath=%p"
 
 LABEL="hid2hci_end"

@@ -1,25 +1,24 @@
 /*
+ * hid2hci : switch the radio on devices that support
+ *           it from HID to HCI and back
  *
- *  hid2hci : a tool for switching the radio on devices that support
- *                      it from HID to HCI and back
+ * Copyright (C) 2003-2009  Marcel Holtmann <marcel@holtmann.org>
+ * Copyright (C) 2008-2009  Mario Limonciello <mario_limonciello@dell.com>
+ * Copyright (C) 2009 Kay Sievers <kay.sievers@vrfy.org>
  *
- *  Copyright (C) 2003-2009  Marcel Holtmann <marcel@holtmann.org>
- *  Copyright (C) 2008-2009  Mario Limonciello <mario_limonciello@dell.com>
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
 #include <stdio.h>
@@ -32,31 +31,21 @@
 #include <linux/hiddev.h>
 #include <usb.h>
 
-static char devpath[PATH_MAX + 1] = "/dev";
+#include "libudev.h"
+#include "libudev-private.h"
 
-#define HCI 0
-#define HID 1
-
-struct device_info {
-	struct usb_device *dev;
-	int mode;
-	uint16_t vendor;
-	uint16_t product;
+enum mode {
+	HCI = 0,
+	HID = 1,
 };
 
-static int switch_csr(struct device_info *devinfo)
+static int usb_switch_csr(struct usb_dev_handle *dev, enum mode mode)
 {
-	struct usb_dev_handle *udev;
 	int err;
 
-	udev = usb_open(devinfo->dev);
-	if (!udev)
-		return -errno;
-
-	err = usb_control_msg(udev,
+	err = usb_control_msg(dev,
 			      USB_ENDPOINT_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
-			      0, devinfo->mode, 0, NULL, 0, 10000);
-
+			      0, mode, 0, NULL, 0, 10000);
 	if (err == 0) {
 		err = -1;
 		errno = EALREADY;
@@ -64,13 +53,10 @@ static int switch_csr(struct device_info *devinfo)
 		if (errno == ETIMEDOUT)
 			err = 0;
 	}
-
-	usb_close(udev);
-
 	return err;
 }
 
-static int send_report(int fd, const char *buf, size_t size)
+static int hid_logitech_send_report(int fd, const char *buf, size_t size)
 {
 	struct hiddev_report_info rinfo;
 	struct hiddev_usage_ref uref;
@@ -99,72 +85,42 @@ static int send_report(int fd, const char *buf, size_t size)
 	return err;
 }
 
-static int switch_logitech(struct device_info *devinfo)
+static int hid_switch_logitech(const char *filename)
 {
-	char devname[PATH_MAX + 1];
-	int i, fd, err = -1;
+	char rep1[] = { 0xff, 0x80, 0x80, 0x01, 0x00, 0x00 };
+	char rep2[] = { 0xff, 0x80, 0x00, 0x00, 0x30, 0x00 };
+	char rep3[] = { 0xff, 0x81, 0x80, 0x00, 0x00, 0x00 };
+	int fd;
+	int err = -1;
 
-	for (i = 0; i < 16; i++) {
-		struct hiddev_devinfo dinfo;
-		char rep1[] = { 0xff, 0x80, 0x80, 0x01, 0x00, 0x00 };
-		char rep2[] = { 0xff, 0x80, 0x00, 0x00, 0x30, 0x00 };
-		char rep3[] = { 0xff, 0x81, 0x80, 0x00, 0x00, 0x00 };
+	fd = open(filename, O_RDWR);
+	if (fd < 0)
+		return err;
 
-		sprintf(devname, "%s/hiddev%d", devpath, i);
-		fd = open(devname, O_RDWR);
-		if (fd < 0) {
-			sprintf(devname, "%s/usb/hiddev%d", devpath, i);
-			fd = open(devname, O_RDWR);
-			if (fd < 0) {
-				sprintf(devname, "%s/usb/hid/hiddev%d", devpath, i);
-				fd = open(devname, O_RDWR);
-				if (fd < 0)
-					continue;
-			}
-		}
+	err = ioctl(fd, HIDIOCINITREPORT, 0);
+	if (err < 0)
+		goto out;
 
-		memset(&dinfo, 0, sizeof(dinfo));
-		err = ioctl(fd, HIDIOCGDEVINFO, &dinfo);
-		if (err < 0 || (int) dinfo.busnum != atoi(devinfo->dev->bus->dirname) ||
-				(int) dinfo.devnum != atoi(devinfo->dev->filename)) {
-			close(fd);
-			continue;
-		}
+	err = hid_logitech_send_report(fd, rep1, sizeof(rep1));
+	if (err < 0)
+		goto out;
 
-		err = ioctl(fd, HIDIOCINITREPORT, 0);
-		if (err < 0) {
-			close(fd);
-			break;
-		}
+	err = hid_logitech_send_report(fd, rep2, sizeof(rep2));
+	if (err < 0)
+		goto out;
 
-		err = send_report(fd, rep1, sizeof(rep1));
-		if (err < 0) {
-			close(fd);
-			break;
-		}
-
-		err = send_report(fd, rep2, sizeof(rep2));
-		if (err < 0) {
-			close(fd);
-			break;
-		}
-
-		err = send_report(fd, rep3, sizeof(rep3));
-		close(fd);
-		break;
-	}
-
+	err = hid_logitech_send_report(fd, rep3, sizeof(rep3));
+out:
+	close(fd);
 	return err;
 }
 
-static int switch_dell(struct device_info *devinfo)
+static int usb_switch_dell(struct usb_dev_handle *dev, enum mode mode)
 {
 	char report[] = { 0x7f, 0x00, 0x00, 0x00 };
-
-	struct usb_dev_handle *handle;
 	int err;
 
-	switch (devinfo->mode) {
+	switch (mode) {
 	case HCI:
 		report[1] = 0x13;
 		break;
@@ -173,22 +129,16 @@ static int switch_dell(struct device_info *devinfo)
 		break;
 	}
 
-	handle = usb_open(devinfo->dev);
-	if (!handle)
-		return -EIO;
-
 	/* Don't need to check return, as might not be in use */
-	usb_detach_kernel_driver_np(handle, 0);
+	usb_detach_kernel_driver_np(dev, 0);
 
-	if (usb_claim_interface(handle, 0) < 0) {
-		usb_close(handle);
+	if (usb_claim_interface(dev, 0) < 0)
 		return -EIO;
-	}
 
-	err = usb_control_msg(handle,
-		USB_ENDPOINT_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE,
+	err = usb_control_msg(dev,
+			USB_ENDPOINT_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE,
 			USB_REQ_SET_CONFIGURATION, 0x7f | (0x03 << 8), 0,
-						report, sizeof(report), 5000);
+			report, sizeof(report), 5000);
 
 	if (err == 0) {
 		err = -1;
@@ -197,133 +147,194 @@ static int switch_dell(struct device_info *devinfo)
 		if (errno == ETIMEDOUT)
 			err = 0;
 	}
-
-	usb_close(handle);
-
 	return err;
 }
 
-static int find_device(struct device_info* devinfo)
+/*
+ * The braindead libusb needs to scan and open all devices, just to
+ * to find the device we already have. This needs to be fixed in libusb
+ * or it will be ripped out and we carry our own code.
+ */
+static struct usb_device *usb_device_open_from_udev(struct udev_device *usb_dev)
 {
 	struct usb_bus *bus;
-	struct usb_device *dev;
+	const char *str;
+	int busnum;
+	int devnum;
 
+	str = udev_device_get_sysattr_value(usb_dev, "busnum");
+	if (str == NULL)
+		return NULL;
+	busnum = strtol(str, NULL, 0);
+
+	str = udev_device_get_sysattr_value(usb_dev, "devnum");
+	if (str == NULL)
+		return NULL;
+	devnum = strtol(str, NULL, 0);
+
+	usb_init();
 	usb_find_busses();
 	usb_find_devices();
 
-	for (bus = usb_get_busses(); bus; bus = bus->next)
+	for (bus = usb_get_busses(); bus; bus = bus->next) {
+		struct usb_device *dev;
+
+		if (strtol(bus->dirname, NULL, 10) != busnum)
+			continue;
+
 		for (dev = bus->devices; dev; dev = dev->next) {
-			if (dev->descriptor.idVendor == devinfo->vendor &&
-			    dev->descriptor.idProduct == devinfo->product) {
-				devinfo->dev=dev;
-				return 1;
-			}
-		}
-	return 0;
-}
-
-static int find_resuscitated_device(struct device_info* devinfo, uint8_t bInterfaceProtocol)
-{
-	int i,j,k,l;
-	struct usb_device *dev, *child;
-	struct usb_config_descriptor config;
-	struct usb_interface interface;
-	struct usb_interface_descriptor altsetting;
-
-	/* Using the base device, attempt to find the child with the
-	 * matching bInterfaceProtocol */
-	dev = devinfo->dev;
-	for (i = 0; i < dev->num_children; i++) {
-		child = dev->children[i];
-		for (j = 0; j < child->descriptor.bNumConfigurations; j++) {
-			config = child->config[j];
-			for (k = 0; k < config.bNumInterfaces; k++) {
-				interface = config.interface[k];
-				for (l = 0; l < interface.num_altsetting; l++) {
-					altsetting = interface.altsetting[l];
-					if (altsetting.bInterfaceProtocol == bInterfaceProtocol) {
-						devinfo->dev = child;
-						return 1;
-					}
-				}
-			}
+			if (dev->devnum == devnum)
+				return dev;
 		}
 	}
-	return 0;
+
+	return NULL;
 }
 
-static void usage(char* error)
+static struct usb_dev_handle *find_device(struct udev_device *udev_dev, const char *sibling_intf)
+{
+	struct udev *udev = udev_device_get_udev(udev_dev);
+	struct usb_device *dev;
+	struct udev_device *udev_parent;
+	char str[UTIL_NAME_SIZE];
+	struct udev_enumerate *enumerate;
+	struct udev_list_entry *entry;
+	struct usb_dev_handle *handle = NULL;
+
+	if (sibling_intf == NULL) {
+		dev = usb_device_open_from_udev(udev_dev);
+		if (dev == NULL)
+			return NULL;
+		return usb_open(dev);
+	}
+
+	/* find matching sibling of the current usb_device, they share the same hub */
+	udev_parent = udev_device_get_parent_with_subsystem_devtype(udev_dev, "usb", "usb_device");
+	if (udev_parent == NULL)
+		return NULL;
+
+	enumerate = udev_enumerate_new(udev);
+	if (enumerate == NULL)
+		return NULL;
+
+	udev_enumerate_add_match_subsystem(enumerate, "usb");
+
+	/* match all childs of the parent */
+	util_strscpyl(str, sizeof(str), udev_device_get_sysname(udev_parent), "*", NULL);
+	udev_enumerate_add_match_sysname(enumerate, str);
+
+	/* match the specified interface */
+	util_strscpy(str, sizeof(str), sibling_intf);
+	str[2] = '\0';
+	str[5] = '\0';
+	str[8] = '\0';
+	if (strcmp(str, "-1") != 0)
+		udev_enumerate_add_match_sysattr(enumerate, "bInterfaceClass", str);
+	if (strcmp(&str[3], "-1") != 0)
+		udev_enumerate_add_match_sysattr(enumerate, "bInterfaceSubClass", &str[3]);
+	if (strcmp(&str[6], "-1") != 0)
+		udev_enumerate_add_match_sysattr(enumerate, "bInterfaceProtocol", &str[6]);
+
+	udev_enumerate_scan_devices(enumerate);
+	udev_list_entry_foreach(entry, udev_enumerate_get_list_entry(enumerate)) {
+		struct udev_device *udev_device;
+
+		udev_device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(entry));
+		if (udev_device != NULL) {
+			/* get the usb_device of the usb_interface we matched */
+			udev_parent = udev_device_get_parent_with_subsystem_devtype(udev_device, "usb", "usb_device");
+			if (udev_parent == NULL)
+				continue;
+			/* only look at the first matching device */
+			dev = usb_device_open_from_udev(udev_parent);
+			if (dev != NULL)
+				handle = usb_open(dev);
+			udev_device_unref(udev_device);
+			break;
+		}
+}
+	udev_enumerate_unref(enumerate);
+	return handle;
+}
+
+static void usage(const char *error)
 {
 	if (error)
 		fprintf(stderr,"\n%s\n", error);
 	else
 		printf("hid2hci - Bluetooth HID to HCI mode switching utility\n\n");
 
-	printf("Usage:\n"
-		"\thid2hci [options]\n"
-		"\n");
-
-	printf("Options:\n"
-		"\t-h, --help           Display help\n"
-		"\t-q, --quiet          Don't display any messages\n"
-		"\t-r, --mode=          Mode to switch to [hid, hci]\n"
-		"\t-v, --vendor=        Vendor ID to act upon\n"
-		"\t-p, --product=       Product ID to act upon\n"
-		"\t-m, --method=        Method to use to switch [csr, logitech, dell]\n"
-		"\t-s, --resuscitate=   Find the child device with this bInterfaceProtocol to run on \n"
-		"\n");
-	if (error)
-		exit(1);
+	printf("Usage: hid2hci [options]\n"
+		"  --mode=               mode to switch to [hid|hci] (default hci)\n"
+		"  --devpath=            sys device path\n"
+		"  --method=             method to use to switch [csr|logitech-hid|dell]\n"
+		"  --find-sibling-intf=  find the sibling device with 00:00:00 (class:subclass:prot)\n"
+		"  --help\n\n");
 }
 
 int main(int argc, char *argv[])
 {
 	static const struct option options[] = {
 		{ "help", no_argument, NULL, 'h' },
-		{ "quiet", no_argument, NULL, 'q' },
-		{ "mode", required_argument, NULL, 'r' },
-		{ "vendor", required_argument, NULL, 'v' },
-		{ "product", required_argument, NULL, 'p' },
-		{ "method", required_argument, NULL, 'm' },
-		{ "resuscitate", required_argument, NULL, 's' },
+		{ "mode", required_argument, NULL, 'm' },
+		{ "devpath", required_argument, NULL, 'p' },
+		{ "method", required_argument, NULL, 'M' },
+		{ "find-sibling-intf", required_argument, NULL, 'I' },
 		{ }
 	};
-	struct device_info dev = { NULL, HCI, 0, 0 };
-	int opt, quiet = 0;
-	int (*method)(struct device_info *dev) = NULL;
-	uint8_t resuscitate = 0;
+	enum method {
+		METHOD_UNDEF,
+		METHOD_CSR,
+		METHOD_LOGITECH_HID,
+		METHOD_DELL,
+	} method = METHOD_UNDEF;
+	struct udev *udev;
+	struct udev_device *udev_dev = NULL;
+	char syspath[UTIL_PATH_SIZE];
+	int (*usb_switch)(struct usb_dev_handle *dev, enum mode mode) = NULL;
+	enum mode mode = HCI;
+	const char *devpath = NULL;
+	const char *sibling_intf = NULL;
+	int err = -1;
+	int rc = 1;
 
-	while ((opt = getopt_long(argc, argv, "+s:r:v:p:m:qh", options, NULL)) != -1) {
-		switch (opt) {
-		case 'r':
-			if (optarg && !strcmp(optarg, "hid"))
-				dev.mode = HID;
-			else if (optarg && !strcmp(optarg, "hci"))
-				dev.mode = HCI;
-			else
-				usage("ERROR: Undefined radio mode\n");
+	for (;;) {
+		int option;
+
+		option = getopt_long(argc, argv, "m:p:M:I:qh", options, NULL);
+		if (option == -1)
 			break;
-		case 'v':
-			sscanf(optarg, "%4hx", &dev.vendor);
+
+		switch (option) {
+		case 'm':
+			if (!strcmp(optarg, "hid")) {
+				mode = HID;
+			} else if (!strcmp(optarg, "hci")) {
+				mode = HCI;
+			} else {
+				usage("error: undefined radio mode\n");
+				exit(1);
+			}
 			break;
 		case 'p':
-			sscanf(optarg, "%4hx", &dev.product);
+			devpath = optarg;
 			break;
-		case 'm':
-			if (optarg && !strcmp(optarg, "csr"))
-				method = switch_csr;
-			else if (optarg && !strcmp(optarg, "logitech"))
-				method = switch_logitech;
-			else if (optarg && !strcmp(optarg, "dell"))
-				method = switch_dell;
-			else
-				usage("ERROR: Undefined switching method\n");
+		case 'M':
+			if (!strcmp(optarg, "csr")) {
+				method = METHOD_CSR;
+				usb_switch = usb_switch_csr;
+			} else if (!strcmp(optarg, "logitech-hid")) {
+				method = METHOD_LOGITECH_HID;
+			} else if (!strcmp(optarg, "dell")) {
+				method = METHOD_DELL;
+				usb_switch = usb_switch_dell;
+			} else {
+				usage("error: undefined switching method\n");
+				exit(1);
+			}
 			break;
-		case 'q':
-			quiet = 1;
-			break;
-		case 's':
-			sscanf(optarg, "%2hx", (short unsigned int*) &resuscitate);
+		case 'I':
+			sibling_intf = optarg;
 			break;
 		case 'h':
 			usage(NULL);
@@ -332,38 +343,69 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (!quiet && (!dev.vendor || !dev.product || !method))
-		usage("ERROR: Vendor ID, Product ID, and Switching Method must all be defined.\n");
-
-	argc -= optind;
-	argv += optind;
-	optind = 0;
-
-	usb_init();
-
-	if (!find_device(&dev)) {
-		if (!quiet)
-			fprintf(stderr, "Device %04x:%04x not found on USB bus.\n",
-				dev.vendor, dev.product);
+	if (!devpath || method == METHOD_UNDEF) {
+		usage("error: --devpath= and --method= must be defined\n");
 		exit(1);
 	}
 
-	if (resuscitate && !find_resuscitated_device(&dev, resuscitate)) {
-		if (!quiet)
-			fprintf(stderr, "Device %04x:%04x was unable to resucitate any child devices.\n",
-				dev.vendor,dev.product);
-		exit(1);
+	udev = udev_new();
+	if (udev == NULL)
+		goto exit;
+
+	util_strscpyl(syspath, sizeof(syspath), udev_get_sys_path(udev), devpath, NULL);
+	udev_dev = udev_device_new_from_syspath(udev, syspath);
+	if (udev_dev == NULL) {
+		fprintf(stderr, "error: could not find '%s'\n", devpath);
+		goto exit;
 	}
 
-	if (!quiet)
-		printf("Attempting to switch device %04x:%04x to %s mode ",
-			dev.vendor, dev.product, dev.mode ? "HID" : "HCI");
-	fflush(stdout);
+	switch (method) {
+	case METHOD_CSR:
+	case METHOD_DELL: {
+		struct udev_device *dev;
+		struct usb_dev_handle *handle;
+		const char *type;
 
-	if (method(&dev) < 0 && !quiet)
-		printf("failed (%s)\n", strerror(errno));
-	else if (!quiet)
-		printf("was successful\n");
+		/* get the parent usb_device if needed */
+		dev = udev_dev;
+		type = udev_device_get_devtype(dev);
+		if (type == NULL || strcmp(type, "usb_device") != 0) {
+			dev = udev_device_get_parent_with_subsystem_devtype(dev, "usb", "usb_device");
+			if (dev == NULL) {
+				fprintf(stderr, "error: could not find usb_device for '%s'\n", devpath);
+				goto exit;
+			}
+		}
 
-	return errno;
+		handle = find_device(dev, sibling_intf);
+		if (handle == NULL) {
+			fprintf(stderr, "error: unable to handle '%s' (intf=%s)\n",
+				udev_device_get_syspath(dev), sibling_intf);
+			goto exit;
+		}
+		err = usb_switch(handle, mode);
+		break;
+	}
+	case METHOD_LOGITECH_HID: {
+		const char *device;
+
+		device = udev_device_get_devnode(udev_dev);
+		if (device == NULL) {
+			fprintf(stderr, "error: could not find hiddev device node\n");
+			goto exit;
+		}
+		err = hid_switch_logitech(device);
+		break;
+	}
+	default:
+		break;
+	}
+
+	if (err < 0)
+		fprintf(stderr, "error: switching device '%s' (intf=%s) failed.\n",
+			udev_device_get_syspath(udev_dev), sibling_intf);
+exit:
+	udev_device_unref(udev_dev);
+	udev_unref(udev);
+	return rc;
 }
