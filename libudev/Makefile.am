@@ -28,6 +28,21 @@ libudev_la_SOURCES =\
 	libudev-monitor.c \
 	libudev-queue.c
 
+noinst_LTLIBRARIES = \
+	libudev-private.la
+
+libudev_private_la_SOURCES =\
+	$(libudev_la_SOURCES) \
+	libudev-ctrl.c \
+	libudev-util-private.c \
+	libudev-device-private.c \
+	libudev-queue-private.c
+
+if WITH_SELINUX
+libudev_private_la_SOURCES += \
+	libudev-selinux-private.c
+endif
+
 LT_CURRENT=5
 LT_REVISION=0
 LT_AGE=5

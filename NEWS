@@ -1,3 +1,8 @@
+udev 146
+========
+New keymaps, new modem, hid2hci updated.
+
+
 udev 145
 ========
 Fix possible crash in udevd when worker processes are busy, rules are

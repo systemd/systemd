@@ -10,7 +10,7 @@ udev_acl_CPPFLAGS = \
 	$(AM_CPPFLAGS) $(GLIB_CFLAGS)
 
 udev_acl_LDADD = \
-	-lacl $(top_builddir)/libudev/libudev.la $(GLIB_LIBS)
+	-lacl $(top_builddir)/libudev/libudev-private.la $(GLIB_LIBS)
 
 dist_udevrules_DATA = 70-acl.rules
 

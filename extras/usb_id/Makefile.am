@@ -4,10 +4,8 @@ libexec_PROGRAMS = \
 	usb_id
 
 usb_id_SOURCES = \
-	usb_id.c \
-	../../libudev/libudev.h \
-	../../libudev/libudev.c \
-	../../libudev/libudev-list.c \
-	../../libudev/libudev-util.c \
-	../../libudev/libudev-device.c \
-	../../libudev/libudev-enumerate.c
+	usb_id.c
+
+usb_id_LDADD = \
+	$(top_builddir)/libudev/libudev-private.la
+

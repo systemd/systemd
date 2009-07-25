@@ -7,31 +7,16 @@ sbin_PROGRAMS = \
 noinst_PROGRAMS = \
 	test-udev
 
-common_ldadd =
-
-common_files = \
+common_files =\
 	udev.h \
 	udev-event.c \
 	udev-watch.c \
 	udev-node.c \
-	udev-rules.c \
-	../libudev/libudev.h \
-	../libudev/libudev-private.h \
-	../libudev/libudev.c \
-	../libudev/libudev-list.c \
-	../libudev/libudev-util.c \
-	../libudev/libudev-util-private.c \
-	../libudev/libudev-device.c \
-	../libudev/libudev-device-private.c \
-	../libudev/libudev-monitor.c \
-	../libudev/libudev-enumerate.c \
-	../libudev/libudev-queue.c \
-	../libudev/libudev-queue-private.c \
-	../libudev/libudev-ctrl.c
+	udev-rules.c
 
+common_ldadd = \
+	$(top_builddir)/libudev/libudev-private.la
 if WITH_SELINUX
-common_files += \
-	../libudev/libudev-selinux-private.c
 common_ldadd += \
 	$(SELINUX_LIBS)
 endif
@@ -42,7 +27,6 @@ udevd_SOURCES = \
 
 udevd_LDADD = \
 	$(common_ldadd)
-
 
 udevadm_SOURCES = \
 	$(common_files) \

@@ -4,10 +4,8 @@ libexec_PROGRAMS = \
 	path_id
 
 path_id_SOURCES = \
-	path_id.c \
-	../../libudev/libudev.h \
-	../../libudev/libudev.c \
-	../../libudev/libudev-device.c \
-	../../libudev/libudev-enumerate.c \
-	../../libudev/libudev-list.c \
-	../../libudev/libudev-util.c
+	path_id.c
+
+path_id_LDADD = \
+	$(top_builddir)/libudev/libudev-private.la
+

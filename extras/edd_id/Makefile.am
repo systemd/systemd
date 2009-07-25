@@ -7,8 +7,8 @@ dist_udevrules_DATA = \
 	61-persistent-storage-edd.rules
 
 edd_id_SOURCES = \
-	edd_id.c \
-	../../libudev/libudev.h \
-	../../libudev/libudev.c \
-	../../libudev/libudev-list.c \
-	../../libudev/libudev-util.c
+	edd_id.c
+
+edd_id_LDADD = \
+	$(top_builddir)/libudev/libudev-private.la
+

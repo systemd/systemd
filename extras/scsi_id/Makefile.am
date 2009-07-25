@@ -8,11 +8,10 @@ scsi_id_SOURCES = \
 	scsi_serial.c \
 	scsi.h \
 	scsi_id.h \
-	bsg.h \
-	../../libudev/libudev.h \
-	../../libudev/libudev.c \
-	../../libudev/libudev-list.c \
-	../../libudev/libudev-util.c
+	bsg.h
+
+scsi_id_LDADD = \
+	$(top_builddir)/libudev/libudev-private.la
 
 dist_man_MANS = \
 	scsi_id.8
