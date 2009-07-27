@@ -16,8 +16,8 @@ DRIVERS=="atkbd", ENV{ID_CLASS}="kbd", GOTO="serial"
 DRIVERS=="psmouse", ENV{ID_CLASS}="mouse", GOTO="serial"
 ATTRS{name}=="*dvb*|*DVB*|* IR *", ENV{ID_CLASS}="ir", GOTO="serial"
 
-# joystick (ABS_X || ABS_WHEEL || ABS_THROTTLE) && !BTN_TOUCH
-ATTRS{modalias}=="input:*-*a[068],*|input:*-*a*,[68],*m*", ATTRS{modalias}!="input:*-*k*14A,*r*", \
+# joystick (ABS_X || ABS_WHEEL || ABS_THROTTLE) && !BTN_TOUCH && !BTN_DIGI
+ATTRS{modalias}=="input:*-*a[068],*|input:*-*a*,[68],*m*", ATTRS{modalias}!="input:*-*k*14[0A],*r*", \
   ENV{ID_CLASS}="joystick", GOTO="serial"
 
 # fill empty serial number
