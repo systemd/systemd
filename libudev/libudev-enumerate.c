@@ -190,7 +190,8 @@ static int syspath_cmp(const void *p1, const void *p2)
 	return ret;
 }
 
-static int devices_delay(struct udev *udev, const char *syspath)
+/* For devices that should be moved to the absolute end of the list */
+static int devices_delay_end(struct udev *udev, const char *syspath)
 {
 	static const char *delay_device_list[] = {
 		"/block/md",
@@ -210,6 +211,32 @@ static int devices_delay(struct udev *udev, const char *syspath)
 	return 0;
 }
 
+/* For devices that should just be moved a little bit later, just
+ * before the point where some common path prefix changes. Returns the
+ * number of characters that make up that common prefix */
+static size_t devices_delay_later(struct udev *udev, const char *syspath)
+{
+	const char *c;
+
+	/* For sound cards the control device must be enumerated last
+	 * to make sure it's the final device node that gets ACLs
+	 * applied. Applications rely on this fact and use ACL changes
+	 * on the control node as an indicator that the ACL change of
+	 * the entire sound card completed. The kernel makes this
+	 * guarantee when creating those devices, and hence we should
+	 * too when enumerating them. */
+
+	if ((c = strstr(syspath, "/sound/card"))) {
+		c += 11;
+		c += strcspn(c, "/");
+
+		if (strncmp(c, "/controlC", 9) == 0)
+			return c - syspath + 1;
+	}
+
+	return 0;
+}
+
 /**
  * udev_enumerate_get_list_entry:
  * @udev_enumerate: context
@@ -223,7 +250,8 @@ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *ude
 	if (!udev_enumerate->devices_uptodate) {
 		unsigned int i;
 		unsigned int max;
-		struct syspath *prev = NULL;
+		struct syspath *prev = NULL, *move_later = NULL;
+		size_t move_later_prefix;
 
 		udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->devices_list);
 		qsort(udev_enumerate->devices, udev_enumerate->devices_cur, sizeof(struct syspath), syspath_cmp);
@@ -240,14 +268,39 @@ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *ude
 			prev = entry;
 
 			/* skip to be delayed devices, and add them to the end of the list */
-			if (devices_delay(udev_enumerate->udev, entry->syspath)) {
+			if (devices_delay_end(udev_enumerate->udev, entry->syspath)) {
 				syspath_add(udev_enumerate, entry->syspath);
 				continue;
+			}
+
+			/* skip to be delayed devices, and move the to
+			 * the point where the prefix changes. We can
+			 * only move one item at a time. */
+			if (!move_later) {
+				move_later_prefix = devices_delay_later(udev_enumerate->udev, entry->syspath);
+
+				if (move_later_prefix > 0) {
+					move_later = entry;
+					continue;
+				}
+			}
+
+			if (move_later &&
+			    strncmp(entry->syspath, move_later->syspath, move_later_prefix) != 0) {
+
+				udev_list_entry_add(udev_enumerate->udev, &udev_enumerate->devices_list,
+					    move_later->syspath, NULL, 0, 0);
+				move_later = NULL;
 			}
 
 			udev_list_entry_add(udev_enumerate->udev, &udev_enumerate->devices_list,
 					    entry->syspath, NULL, 0, 0);
 		}
+
+		if (move_later)
+			udev_list_entry_add(udev_enumerate->udev, &udev_enumerate->devices_list,
+					    move_later->syspath, NULL, 0, 0);
+
 		/* add and cleanup delayed devices from end of list */
 		for (i = max; i < udev_enumerate->devices_cur; i++) {
 			struct syspath *entry = &udev_enumerate->devices[i];
