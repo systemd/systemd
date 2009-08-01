@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2004-2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2003-2009 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -172,7 +172,7 @@ gid_t util_lookup_group(struct udev *udev, const char *group)
 			break;
 		errno = 0;
 		getgrnam_r(group, &grbuf, buf, buflen, &gr);
-		if (gr != NULL) 
+		if (gr != NULL)
 			gid = gr->gr_gid;
 		else if (errno == ERANGE) {
 			buflen *= 2;

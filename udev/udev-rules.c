@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2003-2009 Kay Sievers <kay.sievers@vrfy.org>
  * Copyright (C) 2008 Alan Jenkins <alan-jenkins@tuffmail.co.uk>
  *
  * This program is free software: you can redistribute it and/or modify
