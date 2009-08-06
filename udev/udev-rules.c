@@ -1379,7 +1379,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			int flag = 0;
 
 			attr = get_key_attribute(rules->udev, key + sizeof("RUN")-1);
-			if (attr != NULL && strstr(attr, "record_failed"))
+			if (attr != NULL && strstr(attr, "fail_event_on_error"))
 				flag = 1;
 			rule_add_key(&rule_tmp, TK_A_RUN, op, value, &flag);
 			continue;
