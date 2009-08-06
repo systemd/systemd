@@ -95,7 +95,6 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 		{ "verbose", no_argument, NULL, 'v' },
 		{ "dry-run", no_argument, NULL, 'n' },
 		{ "type", required_argument, NULL, 't' },
-		{ "retry-failed", no_argument, NULL, 'F' },
 		{ "action", required_argument, NULL, 'c' },
 		{ "subsystem-match", required_argument, NULL, 's' },
 		{ "subsystem-nomatch", required_argument, NULL, 'S' },
@@ -152,9 +151,6 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 				rc = 2;
 				goto exit;
 			}
-			break;
-		case 'F':
-			device_type = TYPE_FAILED;
 			break;
 		case 'c':
 			action = optarg;

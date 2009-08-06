@@ -2,7 +2,7 @@
 
 ACTION!="add", GOTO="drivers_end"
 
-DRIVER!="?*", ENV{MODALIAS}=="?*", RUN{ignore_error}+="/sbin/modprobe -b $env{MODALIAS}"
+DRIVER!="?*", ENV{MODALIAS}=="?*", RUN+="/sbin/modprobe -b $env{MODALIAS}"
 SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="SD", RUN+="/sbin/modprobe -b tifm_sd"
 SUBSYSTEM=="tifm", ENV{TIFM_CARD_TYPE}=="MS", RUN+="/sbin/modprobe -b tifm_ms"
 SUBSYSTEM=="memstick", RUN+="/sbin/modprobe -b --all ms_block mspro_block"

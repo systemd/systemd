@@ -1,7 +1,15 @@
 udev 146
 ========
-New keymaps, new modem, hid2hci updated.
+Bugfixes.
 
+The udevadm trigger "--retry-failed" option, which is replaced since quite
+a while by "--type=failed" is removed.
+
+The failed tracking was not working at all for a few releases. The RUN
+option "ignore_error" is replaces by a "record_failed" option, and the
+default is not to track any failing RUN executions.
+
+New keymaps, new modem, hid2hci updated.
 
 udev 145
 ========

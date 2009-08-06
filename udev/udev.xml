@@ -335,7 +335,10 @@
                 device. This can only be used for very short running tasks. Running an
                 event process for a long period of time may block all further events for
                 this or a dependent device. Long running tasks need to be immediately
-                detached from the event process itself.</para>
+                detached from the event process itself. If the option
+                <option>RUN{<replaceable>record_failed</replaceable>}</option> is specified,
+                and the executed program returns non-zero, the event will be marked as failed
+                for a possible later handling.</para>
                 <para>If the specified string starts with
                 <option>socket:<replaceable>path</replaceable></option>, all current event
                 values will be passed to the specified socket, as a message in the same

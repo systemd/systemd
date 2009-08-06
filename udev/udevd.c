@@ -165,7 +165,7 @@ static void event_queue_delete(struct event *event)
 	udev_list_node_remove(&event->node);
 
 	/* mark as failed, if "add" event returns non-zero */
-	if (event->exitcode && strcmp(udev_device_get_action(event->dev), "add") == 0)
+	if (event->exitcode != 0 && strcmp(udev_device_get_action(event->dev), "add") == 0)
 		udev_queue_export_device_failed(udev_queue_export, event->dev);
 	else
 		udev_queue_export_device_finished(udev_queue_export, event->dev);
@@ -271,8 +271,9 @@ static void worker_new(struct event *event)
 
 		do {
 			struct udev_event *udev_event;
-			struct worker_message msg;
+			struct worker_message msg = {};
 			int err;
+			int failed = 0;
 
 			info(event->udev, "seq %llu running\n", udev_device_get_seqnum(dev));
 			udev_event = udev_event_new(dev);
@@ -291,7 +292,7 @@ static void worker_new(struct event *event)
 
 			/* execute RUN= */
 			if (err == 0 && !udev_event->ignore_device && udev_get_run(udev_event->udev))
-				udev_event_execute_run(udev_event);
+				failed = udev_event_execute_run(udev_event);
 
 			/* reset alarm */
 			alarm(0);
@@ -306,7 +307,10 @@ static void worker_new(struct event *event)
 			udev_monitor_send_device(worker_monitor, NULL, dev);
 
 			/* send back the result of the event execution */
-			msg.exitcode = err;
+			if (err != 0)
+				msg.exitcode = err;
+			else if (failed != 0)
+				msg.exitcode = failed;
 			msg.pid = getpid();
 			send(worker_watch[WRITE_END], &msg, sizeof(struct worker_message), 0);
 
