@@ -19,6 +19,8 @@ CLEANFILES = \
 
 ACLOCAL_AMFLAGS = -I m4
 
+AM_MAKEFLAGS = --no-print-directory
+
 DISTCHECK_CONFIGURE_FLAGS = \
 	--enable-gtk-doc \
 	--enable-extras
