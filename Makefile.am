@@ -184,6 +184,33 @@ extras_usb_id_usb_id_LDADD = libudev/libudev-private.la
 extras_v4l_id_v4l_id_SOURCES = extras/v4l_id/v4l_id.c
 extras_v4l_id_v4l_id_LDADD = libudev/libudev-private.la
 
+extras_hid2hci_hid2hci_SOURCES = extras/hid2hci/hid2hci.c
+extras_hid2hci_hid2hci_CPPFLAGS = $(AM_CPPFLAGS) $(LIBUSB_CFLAGS)
+extras_hid2hci_hid2hci_LDADD = libudev/libudev-private.la $(LIBUSB_LIBS)
+
+extras_udev_acl_udev_acl_SOURCES = extras/udev-acl/udev-acl.c
+extras_udev_acl_udev_acl_CPPFLAGS = $(AM_CPPFLAGS) $(GLIB_CFLAGS)
+extras_udev_acl_udev_acl_LDADD = libudev/libudev-private.la -lacl $(GLIB_LIBS)
+
+extras_usb_db_usb_db_SOURCES = extras/usb-db/usb-db.c
+extras_usb_db_usb_db_CPPFLAGS = $(AM_CPPFLAGS) -DUSB_DATABASE=\"$(USB_DATABASE)\" -DBUILD_FOR_USB
+extras_usb_db_usb_db_LDADD = libudev/libudev-private.la
+
+extras_usb_db_pci_db_SOURCES = extras/usb-db/usb-db.c
+extras_usb_db_pci_db_CPPFLAGS = $(AM_CPPFLAGS) -DPCI_DATABASE=\"$(USB_DATABASE)\" -DBUILD_FOR_PCI
+extras_usb_db_pci_db_LDADD = libudev/libudev-private.la
+
+extras_modem_modeswitch_modem_modeswitch_SOURCES =\
+	extras/modem-modeswitch/modem-modeswitch.c \
+	extras/modem-modeswitch/utils.c \
+	extras/modem-modeswitch/utils.h \
+	extras/modem-modeswitch/ma8280p_us.c \
+	extras/modem-modeswitch/ma8280p_us.h \
+	extras/modem-modeswitch/option.c \
+	extras/modem-modeswitch/option.h
+extras_modem_modeswitch_modem_modeswitch_CPPFLAGS = $(AM_CPPFLAGS) $(LIBUSB_CFLAGS)
+extras_modem_modeswitch_modem_modeswitch_LDADD = libudev/libudev-private.la $(LIBUSB_LIBS)
+
 # ------------------------------------------------------------------------------
 # Tests
 # ------------------------------------------------------------------------------
@@ -243,14 +270,22 @@ if ENABLE_EXTRAS
 dist_udevrules_DATA += \
 	rules/rules.d/75-net-description.rules \
 	rules/rules.d/75-tty-description.rules \
-	rules/rules.d/78-sound-card.rules
+	rules/rules.d/78-sound-card.rules \
+	extras/hid2hci/70-hid2hci.rules \
+	extras/modem-modeswitch/61-option-modem-modeswitch.rules \
+	extras/modem-modeswitch/61-mobile-action.rules
+
+libexec_PROGRAMS += \
+	extras/hid2hci/hid2hci \
+	extras/udev-acl/udev-acl \
+	extras/usb-db/usb-db \
+	extras/usb-db/pci-db \
+	extras/modem-modeswitch/modem-modeswitch
+
+install-exec-hook: udevacl-install-hook
 
 SUBDIRS += \
-	extras/udev-acl \
-	extras/usb-db \
-	extras/hid2hci \
 	extras/keymap \
-	extras/modem-modeswitch \
 	extras/gudev
 endif
 
@@ -283,8 +318,12 @@ EXTRA_DIST += \
 # ------------------------------------------------------------------------------
 # Install and uninstall hooks
 # ------------------------------------------------------------------------------
+install-exec-hook: libudev-install-move-hook
+
+uninstall-hook: libudev-uninstall-move-hook
+
 # move lib from $(libdir) to $(rootlib_execdir) and update devel link, if needed
-install-exec-hook:
+libudev-install-move-hook:
 	if test "$(libdir)" != "$(rootlib_execdir)"; then \
 		mkdir -p $(DESTDIR)$(rootlib_execdir) && \
 		so_img_name=$$(readlink $(DESTDIR)$(libdir)/libudev.so) && \
@@ -293,6 +332,9 @@ install-exec-hook:
 		mv $(DESTDIR)$(libdir)/libudev.so.* $(DESTDIR)$(rootlib_execdir); \
 	fi
 
-uninstall-hook:
+libudev-uninstall-move-hook:
 	rm -f $(DESTDIR)$(rootlib_execdir)/libudev.so*
 
+udevacl-install-hook:
+	mkdir -p $(DESTDIR)$(prefix)/lib/ConsoleKit/run-session.d
+	ln -sf $(libexecdir)/udev-acl $(DESTDIR)$(prefix)/lib/ConsoleKit/run-session.d/udev-acl.ck

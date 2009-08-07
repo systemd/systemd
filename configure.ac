@@ -105,15 +105,11 @@ AC_CONFIG_FILES([
 	libudev/docs/Makefile
 	libudev/docs/version.xml
 	udev/udev.pc
-	extras/hid2hci/Makefile
-	extras/udev-acl/Makefile
-	extras/usb-db/Makefile
 	extras/gudev/Makefile
 	extras/gudev/gudev-1.0.pc
 	extras/gudev/docs/Makefile
 	extras/gudev/docs/version.xml
 	extras/keymap/Makefile
-	extras/modem-modeswitch/Makefile
 ])
 
 AC_OUTPUT
