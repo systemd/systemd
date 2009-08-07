@@ -13,6 +13,8 @@ EXTRA_DIST = \
 CLEANFILES = \
 	udev-$(VERSION).tar.gz udev-$(VERSION).tar.bz2
 
+BUILT_SOURCES =
+
 ACLOCAL_AMFLAGS = -I m4
 
 AM_MAKEFLAGS = --no-print-directory
@@ -214,6 +216,11 @@ extras_modem_modeswitch_modem_modeswitch_SOURCES =\
 extras_modem_modeswitch_modem_modeswitch_CPPFLAGS = $(AM_CPPFLAGS) $(LIBUSB_CFLAGS)
 extras_modem_modeswitch_modem_modeswitch_LDADD = libudev/libudev-private.la $(LIBUSB_LIBS)
 
+extras_keymap_keymap_SOURCES = extras/keymap/keymap.c
+nodist_extras_keymap_keymap_SOURCES = \
+	extras/keymap/keys-from-name.h \
+	extras/keymap/keys-to-name.h
+
 # ------------------------------------------------------------------------------
 # Tests
 # ------------------------------------------------------------------------------
@@ -278,18 +285,80 @@ dist_udevrules_DATA += \
 	rules/rules.d/78-sound-card.rules \
 	extras/hid2hci/70-hid2hci.rules \
 	extras/modem-modeswitch/61-option-modem-modeswitch.rules \
-	extras/modem-modeswitch/61-mobile-action.rules
+	extras/modem-modeswitch/61-mobile-action.rules \
+	extras/keymap/95-keymap.rules
 
 libexec_PROGRAMS += \
 	extras/hid2hci/hid2hci \
 	extras/udev-acl/udev-acl \
 	extras/usb-db/usb-db \
 	extras/usb-db/pci-db \
-	extras/modem-modeswitch/modem-modeswitch
+	extras/modem-modeswitch/modem-modeswitch \
+	extras/keymap/keymap
 
+dist_libexec_SCRIPTS += \
+	extras/keymap/findkeyboards
+
+BUILT_SOURCES += \
+	extras/keymap/keys-from-name.h \
+	extras/keymap/keys-to-name.h
+
+TESTS += extras/keymap/check-keymaps.sh
+
+check_DATA = extras/keymap/keys.txt
+
+CLEANFILES += \
+	extras/keymap/keys.txt \
+	extras/keymap/keys-from-name.gperf \
+	extras/keymap/keys-from-name.h \
+	extras/keymap/keys-to-name.h
+
+dist_doc_DATA = extras/keymap/README.keymap.txt
+
+udevkeymapdir = $(libexecdir)/keymaps
+dist_udevkeymap_DATA = \
+	extras/keymap/keymaps/acer \
+	extras/keymap/keymaps/acer-aspire_5920g \
+	extras/keymap/keymaps/acer-travelmate_c300 \
+	extras/keymap/keymaps/asus \
+	extras/keymap/keymaps/compaq-e_evo \
+	extras/keymap/keymaps/dell \
+	extras/keymap/keymaps/everex-xt5000 \
+	extras/keymap/keymaps/fujitsu-amilo_pa_2548 \
+	extras/keymap/keymaps/fujitsu-amilo_pro_edition_v3505 \
+	extras/keymap/keymaps/fujitsu-amilo_pro_v3205 \
+	extras/keymap/keymaps/fujitsu-amilo_si_1520 \
+	extras/keymap/keymaps/fujitsu-esprimo_mobile_v5 \
+	extras/keymap/keymaps/fujitsu-esprimo_mobile_v6 \
+	extras/keymap/keymaps/hewlett-packard \
+	extras/keymap/keymaps/hewlett-packard-2510p_2530p \
+	extras/keymap/keymaps/hewlett-packard-compaq_elitebook \
+	extras/keymap/keymaps/hewlett-packard-pavilion \
+	extras/keymap/keymaps/hewlett-packard-presario-2100 \
+	extras/keymap/keymaps/hewlett-packard-tablet \
+	extras/keymap/keymaps/hewlett-packard-tx2 \
+	extras/keymap/keymaps/inventec-symphony_6.0_7.0 \
+	extras/keymap/keymaps/lenovo-3000 \
+	extras/keymap/keymaps/lenovo-thinkpad_x6_tablet \
+	extras/keymap/keymaps/lenovo-thinkpad_x200_tablet \
+	extras/keymap/keymaps/maxdata-pro_7000 \
+	extras/keymap/keymaps/medion-fid2060 \
+	extras/keymap/keymaps/medionnb-a555 \
+	extras/keymap/keymaps/micro-star \
+	extras/keymap/keymaps/module-asus-w3j \
+	extras/keymap/keymaps/module-ibm \
+	extras/keymap/keymaps/module-lenovo \
+	extras/keymap/keymaps/module-sony \
+	extras/keymap/keymaps/module-sony-old \
+	extras/keymap/keymaps/oqo-model2 \
+	extras/keymap/keymaps/samsung-other \
+	extras/keymap/keymaps/samsung-sq1us \
+	extras/keymap/keymaps/samsung-sx20s \
+	extras/keymap/keymaps/toshiba-satellite_a100 \
+	extras/keymap/keymaps/toshiba-satellite_a110 \
+	extras/keymap/keymaps/zepto-znote
 
 SUBDIRS += \
-	extras/keymap \
 	extras/gudev
 endif
 
@@ -342,3 +411,19 @@ libudev-uninstall-move-hook:
 udevacl-install-hook:
 	mkdir -p $(DESTDIR)$(prefix)/lib/ConsoleKit/run-session.d
 	ln -sf $(libexecdir)/udev-acl $(DESTDIR)$(prefix)/lib/ConsoleKit/run-session.d/udev-acl.ck
+
+# ------------------------------------------------------------------------------
+# Custom rules
+# ------------------------------------------------------------------------------
+
+extras/keymap/keys.txt: /usr/include/linux/input.h
+	$(AWK) '/^#define.*KEY_/ { if ($$2 != "KEY_MAX" && $$2 != "KEY_CNT") { print $$2 } }' < $< > $@
+
+extras/keymap/keys-from-name.gperf: extras/keymap/keys.txt
+	$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print $$1 ", " $$1 }' < $< > $@
+
+extras/keymap/keys-from-name.h: extras/keymap/keys-from-name.gperf Makefile
+	$(GPERF) -t --ignore-case -N lookup_key -H hash_key_name -p -C < $< > $@
+
+extras/keymap/keys-to-name.h: extras/keymap/keys.txt Makefile
+	$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@

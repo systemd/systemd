@@ -109,7 +109,6 @@ AC_CONFIG_FILES([
 	extras/gudev/gudev-1.0.pc
 	extras/gudev/docs/Makefile
 	extras/gudev/docs/version.xml
-	extras/keymap/Makefile
 ])
 
 AC_OUTPUT
