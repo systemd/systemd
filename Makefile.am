@@ -58,6 +58,9 @@ doc-sync:
 	rsync -av --delete libudev/docs/html/ master.kernel.org:/pub/linux/utils/kernel/hotplug/libudev/
 	rsync -av --delete extras/gudev/docs/html/ master.kernel.org:/pub/linux/utils/kernel/hotplug/gudev/
 
+INSTALL_EXEC_HOOKS = libudev-install-move-hook
+UNINSTALL_EXEC_HOOKS = libudev-uninstall-move-hook
+
 include_HEADERS = libudev/libudev.h
 
 # ------------------------------------------------------------------------------
@@ -267,6 +270,8 @@ libudev_libudev_private_la_LIBADD += \
 endif
 
 if ENABLE_EXTRAS
+INSTALL_EXEC_HOOKS += udevacl-install-hook
+
 dist_udevrules_DATA += \
 	rules/rules.d/75-net-description.rules \
 	rules/rules.d/75-tty-description.rules \
@@ -282,7 +287,6 @@ libexec_PROGRAMS += \
 	extras/usb-db/pci-db \
 	extras/modem-modeswitch/modem-modeswitch
 
-install-exec-hook: udevacl-install-hook
 
 SUBDIRS += \
 	extras/keymap \
@@ -318,9 +322,9 @@ EXTRA_DIST += \
 # ------------------------------------------------------------------------------
 # Install and uninstall hooks
 # ------------------------------------------------------------------------------
-install-exec-hook: libudev-install-move-hook
+install-exec-hook: $(INSTALL_EXEC_HOOKS)
 
-uninstall-hook: libudev-uninstall-move-hook
+uninstall-hook: $(UNINSTALL_EXEC_HOOKS)
 
 # move lib from $(libdir) to $(rootlib_execdir) and update devel link, if needed
 libudev-install-move-hook:
