@@ -7,6 +7,7 @@ dist_udevconf_DATA = \
 EXTRA_DIST = \
 	autogen.sh \
 	libudev/exported_symbols \
+	extras/keymap/check-keymaps.sh \
 	extras/gudev/gudevmarshal.list \
 	extras/gudev/gudevenumtypes.h.template \
 	extras/gudev/gudevenumtypes.c.template
@@ -386,10 +387,6 @@ BUILT_SOURCES += \
 	$(nodist_extras_keymap_keymap_SOURCES) \
 	$(dist_extras_gudev_libgudev_1_0_la_SOURCES)
 
-TESTS += extras/keymap/check-keymaps.sh
-
-check_DATA = extras/keymap/keys.txt
-
 CLEANFILES += \
 	extras/keymap/keys.txt \
 	extras/keymap/keys-from-name.gperf
@@ -476,6 +473,8 @@ install-exec-hook: $(INSTALL_EXEC_HOOKS)
 
 uninstall-hook: $(UNINSTALL_EXEC_HOOKS)
 
+distcheck-hook: keymaps-distcheck-hook
+
 # move lib from $(libdir) to $(rootlib_execdir) and update devel link, if needed
 libudev-install-move-hook:
 	if test "$(libdir)" != "$(rootlib_execdir)"; then \
@@ -492,6 +491,9 @@ libudev-uninstall-move-hook:
 udevacl-install-hook:
 	mkdir -p $(DESTDIR)$(prefix)/lib/ConsoleKit/run-session.d
 	ln -sf $(libexecdir)/udev-acl $(DESTDIR)$(prefix)/lib/ConsoleKit/run-session.d/udev-acl.ck
+
+keymaps-distcheck-hook: extras/keymap/keys.txt
+	./extras/keymap/check-keymaps.sh $(top_srcdir)
 
 # ------------------------------------------------------------------------------
 # Custom rules
