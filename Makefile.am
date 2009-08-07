@@ -267,6 +267,32 @@ EXTRA_DIST += \
 	rules/gentoo
 
 # ------------------------------------------------------------------------------
+# Pkg-config, docs and man pages
+# ------------------------------------------------------------------------------
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = \
+	libudev/libudev.pc \
+	udev/udev.pc
+
+writing_udev_rulesdir = $(docdir)/writing_udev_rules
+dist_writing_udev_rules_DATA = \
+	docs/writing_udev_rules/index.html
+
+dist_man_MANS = \
+	udev/udev.7 \
+	udev/udevadm.8 \
+	udev/udevd.8 \
+	extras/scsi_id/scsi_id.8
+
+EXTRA_DIST += \
+	udev/udev.xml \
+	udev/udevadm.xml \
+	udev/udevd.xml
+
+%.7 %.8 : %.xml
+	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
+
+# ------------------------------------------------------------------------------
 # Conditionals (SElinux, etc…)
 # ------------------------------------------------------------------------------
 if WITH_SELINUX
@@ -361,32 +387,6 @@ dist_udevkeymap_DATA = \
 SUBDIRS += \
 	extras/gudev
 endif
-
-# ------------------------------------------------------------------------------
-# Pkg-config, docs and man pages
-# ------------------------------------------------------------------------------
-pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = \
-	libudev/libudev.pc \
-	udev/udev.pc
-
-writing_udev_rulesdir = $(docdir)/writing_udev_rules
-dist_writing_udev_rules_DATA = \
-	docs/writing_udev_rules/index.html
-
-dist_man_MANS = \
-	udev/udev.7 \
-	udev/udevadm.8 \
-	udev/udevd.8 \
-	extras/scsi_id/scsi_id.8
-
-EXTRA_DIST += \
-	udev/udev.xml \
-	udev/udevadm.xml \
-	udev/udevd.xml
-
-%.7 %.8 : %.xml
-	$(XSLTPROC) -o $@ -nonet http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
 
 # ------------------------------------------------------------------------------
 # Install and uninstall hooks
