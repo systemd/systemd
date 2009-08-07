@@ -455,6 +455,8 @@ endif # ENABLE_INTROSPECTION
 
 CLEANFILES += $(BUILT_SOURCES)
 
+EXTRA_DIST += $(TESTS)
+
 # ------------------------------------------------------------------------------
 # Install and uninstall hooks
 # ------------------------------------------------------------------------------
