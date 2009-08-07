@@ -379,9 +379,7 @@ check_DATA = extras/keymap/keys.txt
 
 CLEANFILES += \
 	extras/keymap/keys.txt \
-	extras/keymap/keys-from-name.gperf \
-	extras/keymap/keys-from-name.h \
-	extras/keymap/keys-to-name.h
+	extras/keymap/keys-from-name.gperf
 
 dist_doc_DATA = extras/keymap/README.keymap.txt
 
@@ -453,6 +451,8 @@ typelibs_DATA = extras/gudev/GUdev-1.0.typelib
 EXTRA_DIST += GUdev-1.0.gir
 CLEANFILES += $(gir_DATA) $(typelibs_DATA)
 endif # ENABLE_INTROSPECTION
+
+CLEANFILES += $(BUILT_SOURCES)
 
 # ------------------------------------------------------------------------------
 # Install and uninstall hooks
