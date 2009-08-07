@@ -8,7 +8,10 @@ dist_udevconf_DATA = \
 
 EXTRA_DIST = \
 	autogen.sh \
-	libudev/exported_symbols
+	libudev/exported_symbols \
+	extras/gudev/gudevmarshal.list \
+	extras/gudev/gudevenumtypes.h.template \
+	extras/gudev/gudevenumtypes.c.template
 
 CLEANFILES = \
 	udev-$(VERSION).tar.gz udev-$(VERSION).tar.bz2
@@ -98,6 +101,45 @@ libudev_libudev_private_la_SOURCES =\
 	libudev/libudev-queue-private.c
 
 libudev_libudev_private_la_LIBADD =
+
+extras_gudev_libgudev_1_0_la_SOURCES = \
+	extras/gudev/gudevenums.h \
+	extras/gudev/gudevenumtypes.h \
+	extras/gudev/gudevenumtypes.h\
+	extras/gudev/gudevtypes.h \
+	extras/gudev/gudevclient.h \
+	extras/gudev/gudevclient.c \
+	extras/gudev/gudevdevice.h \
+	extras/gudev/gudevdevice.c \
+	extras/gudev/gudevprivate.h
+
+dist_extras_gudev_libgudev_1_0_la_SOURCES = \
+	extras/gudev/gudevmarshal.h \
+	extras/gudev/gudevmarshal.c \
+	extras/gudev/gudevenumtypes.h \
+	extras/gudev/gudevenumtypes.c
+
+extras_gudev_libgudev_1_0_la_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	-I$(top_builddir)/extras \
+	-I$(top_srcdir)/extras \
+	-I$(top_builddir)/extras/gudev \
+	-I$(top_srcdir)/extras/gudev \
+	-D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT \
+	-D_GUDEV_COMPILATION \
+	-DG_UDEV_API_IS_SUBJECT_TO_CHANGE \
+	-DG_LOG_DOMAIN=\"GUdev\"
+extras_gudev_libgudev_1_0_la_CFLAGS = $(GLIB_CFLAGS)
+extras_gudev_libgudev_1_0_la_LIBADD = libudev/libudev.la $(GLIB_LIBS)
+
+LIBGUDEV_CURRENT=0
+LIBGUDEV_REVISION=1
+LIBGUDEV_AGE=0
+
+extras_gudev_libgudev_1_0_la_LDFLAGS = \
+	-version-info $(LIBGUDEV_CURRENT):$(LIBGUDEV_REVISION):$(LIBGUDEV_AGE) \
+	-export-dynamic -no-undefined \
+	-export-symbols-regex '^g_udev_.*'
 
 # ------------------------------------------------------------------------------
 # Programs
@@ -305,6 +347,8 @@ endif
 if ENABLE_EXTRAS
 INSTALL_EXEC_HOOKS += udevacl-install-hook
 
+lib_LTLIBRARIES += extras/gudev/libgudev-1.0.la
+
 dist_udevrules_DATA += \
 	rules/rules.d/75-net-description.rules \
 	rules/rules.d/75-tty-description.rules \
@@ -326,8 +370,8 @@ dist_libexec_SCRIPTS += \
 	extras/keymap/findkeyboards
 
 BUILT_SOURCES += \
-	extras/keymap/keys-from-name.h \
-	extras/keymap/keys-to-name.h
+	$(nodist_extras_keymap_keymap_SOURCES) \
+	$(dist_extras_gudev_libgudev_1_0_la_SOURCES)
 
 TESTS += extras/keymap/check-keymaps.sh
 
@@ -384,9 +428,31 @@ dist_udevkeymap_DATA = \
 	extras/keymap/keymaps/toshiba-satellite_a110 \
 	extras/keymap/keymaps/zepto-znote
 
+libgudev_includedir=$(includedir)/gudev-1.0/gudev
+libgudev_include_HEADERS = \
+	extras/gudev/gudev.h \
+	extras/gudev/gudevenums.h \
+	extras/gudev/gudevenumtypes.h \
+	extras/gudev/gudevtypes.h \
+	extras/gudev/gudevclient.h \
+	extras/gudev/gudevdevice.h
+
+pkgconfig_DATA += extras/gudev/gudev-1.0.pc
+
 SUBDIRS += \
-	extras/gudev
+	extras/gudev/docs
 endif
+
+if ENABLE_INTROSPECTION
+girdir = $(GIRDIR)
+gir_DATA = extras/gudev/GUdev-1.0.gir
+
+typelibsdir = $(GIRTYPELIBDIR)
+typelibs_DATA = extras/gudev/GUdev-1.0.typelib
+
+EXTRA_DIST += GUdev-1.0.gir
+CLEANFILES += $(gir_DATA) $(typelibs_DATA)
+endif # ENABLE_INTROSPECTION
 
 # ------------------------------------------------------------------------------
 # Install and uninstall hooks
@@ -427,3 +493,43 @@ extras/keymap/keys-from-name.h: extras/keymap/keys-from-name.gperf Makefile
 
 extras/keymap/keys-to-name.h: extras/keymap/keys.txt Makefile
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
+
+extras/gudev/gudevmarshal.h: extras/gudev/gudevmarshal.list
+	glib-genmarshal $< --prefix=g_udev_marshal --header > $@
+
+extras/gudev/gudevmarshal.c: extras/gudev/gudevmarshal.list
+	echo "#include \"gudevmarshal.h\"" > $@ && \
+	glib-genmarshal $< --prefix=g_udev_marshal --body >> $@
+
+extras/gudev/gudevenumtypes.h: extras/gudev/gudevenumtypes.h.template extras/gudev/gudevenums.h
+	glib-mkenums --template $^ > \
+	    gudevenumtypes.h.tmp && mv gudevenumtypes.h.tmp gudevenumtypes.h
+
+extras/gudev/gudevenumtypes.c: extras/gudev/gudevenumtypes.c.template extras/gudev/gudevenums.h
+	glib-mkenums --template $^ > \
+	    gudevenumtypes.c.tmp && mv gudevenumtypes.c.tmp gudevenumtypes.c
+
+extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER) Makefile.am
+	PKG_CONFIG_PATH=$(top_builddir)/data:$$PKG_CONFIG_PATH \
+	$(G_IR_SCANNER) -v \
+		--namespace GUdev \
+		--nsversion=1.0 \
+		--include=GObject-2.0 \
+		--library=gudev-1.0 \
+		--output $@ \
+		--pkg=glib-2.0 \
+		--pkg=gobject-2.0 \
+		-I$(top_srcdir)/extras \
+		-D_GUDEV_COMPILATION \
+		-DG_UDEV_API_IS_SUBJECT_TO_CHANGE \
+		$(top_srcdir)/extras/gudev/gudev.h \
+		$(top_srcdir)/extras/gudev/gudevtypes.h \
+		$(top_srcdir)/extras/gudev/gudevenums.h \
+		$(top_srcdir)/extras/gudev/gudevenumtypes.h \
+		$(top_srcdir)/extras/gudev/gudevclient.h \
+		$(top_srcdir)/extras/gudev/gudevdevice.h \
+		$(top_srcdir)/extras/gudev/gudevclient.c \
+		$(top_srcdir)/extras/gudev/gudevdevice.c
+
+extras/gudev/GUdev-1.0.typelib: extras/gudev/GUdev-1.0.gir $(G_IR_COMPILER)
+	g-ir-compiler $< -o $@

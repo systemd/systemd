@@ -105,7 +105,6 @@ AC_CONFIG_FILES([
 	libudev/docs/Makefile
 	libudev/docs/version.xml
 	udev/udev.pc
-	extras/gudev/Makefile
 	extras/gudev/gudev-1.0.pc
 	extras/gudev/docs/Makefile
 	extras/gudev/docs/version.xml
