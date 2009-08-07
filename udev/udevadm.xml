@@ -7,8 +7,7 @@
     <title>udevadm</title>
     <refentry>
       <refentryinfo>
-        <title>udevd</title>
-        <date>November 2007</date>
+        <title>udevadm</title>
         <productname>udev</productname>
       </refentryinfo>
 

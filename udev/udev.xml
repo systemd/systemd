@@ -8,14 +8,12 @@
     <refentry>
       <refentryinfo>
         <title>udev</title>
-        <date>August 2005</date>
         <productname>udev</productname>
       </refentryinfo>
 
       <refmeta>
         <refentrytitle>udev</refentrytitle>
         <manvolnum>7</manvolnum>
-        <refmiscinfo class="version"></refmiscinfo>
       </refmeta>
 
       <refnamediv>
