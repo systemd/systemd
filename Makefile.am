@@ -417,13 +417,13 @@ udevacl-install-hook:
 # ------------------------------------------------------------------------------
 
 extras/keymap/keys.txt: /usr/include/linux/input.h
-	$(AWK) '/^#define.*KEY_/ { if ($$2 != "KEY_MAX" && $$2 != "KEY_CNT") { print $$2 } }' < $< > $@
+	$(AM_V_GEN)$(AWK) '/^#define.*KEY_/ { if ($$2 != "KEY_MAX" && $$2 != "KEY_CNT") { print $$2 } }' < $< > $@
 
 extras/keymap/keys-from-name.gperf: extras/keymap/keys.txt
-	$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print $$1 ", " $$1 }' < $< > $@
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print $$1 ", " $$1 }' < $< > $@
 
 extras/keymap/keys-from-name.h: extras/keymap/keys-from-name.gperf Makefile
-	$(GPERF) -t --ignore-case -N lookup_key -H hash_key_name -p -C < $< > $@
+	$(AM_V_GEN)$(GPERF) -t --ignore-case -N lookup_key -H hash_key_name -p -C < $< > $@
 
 extras/keymap/keys-to-name.h: extras/keymap/keys.txt Makefile
-	$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
+	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
