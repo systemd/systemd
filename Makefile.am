@@ -503,11 +503,11 @@ extras/gudev/gudevmarshal.c: extras/gudev/gudevmarshal.list
 
 extras/gudev/gudevenumtypes.h: extras/gudev/gudevenumtypes.h.template extras/gudev/gudevenums.h
 	glib-mkenums --template $^ > \
-	    gudevenumtypes.h.tmp && mv gudevenumtypes.h.tmp gudevenumtypes.h
+	    $@.tmp && mv $@.tmp $@
 
 extras/gudev/gudevenumtypes.c: extras/gudev/gudevenumtypes.c.template extras/gudev/gudevenums.h
 	glib-mkenums --template $^ > \
-	    gudevenumtypes.c.tmp && mv gudevenumtypes.c.tmp gudevenumtypes.c
+	    $@.tmp && mv $@.tmp $@
 
 extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER) Makefile.am
 	PKG_CONFIG_PATH=$(top_builddir)/data:$$PKG_CONFIG_PATH \
