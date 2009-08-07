@@ -39,7 +39,7 @@ MKDB_OPTIONS=--sgml-mode --output-format=xml
 MKTMPL_OPTIONS=
 
 # Extra options to supply to gtkdoc-mkhtml
-MKHTML_OPTIONS=
+MKHTML_OPTIONS=--path=$(abs_srcdir) --path=$(abs_builddir)
 
 # Extra options to supply to gtkdoc-fixref. Not normally needed.
 # e.g. FIXXREF_OPTIONS=--extra-dir=../gdk-pixbuf/html --extra-dir=../gdk/html
