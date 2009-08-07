@@ -516,6 +516,7 @@ extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER) Makefil
 		--nsversion=1.0 \
 		--include=GObject-2.0 \
 		--library=gudev-1.0 \
+		--library-path=extras/gudev \
 		--output $@ \
 		--pkg=glib-2.0 \
 		--pkg=gobject-2.0 \
