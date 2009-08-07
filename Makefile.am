@@ -259,6 +259,7 @@ extras_modem_modeswitch_modem_modeswitch_CPPFLAGS = $(AM_CPPFLAGS) $(LIBUSB_CFLA
 extras_modem_modeswitch_modem_modeswitch_LDADD = libudev/libudev-private.la $(LIBUSB_LIBS)
 
 extras_keymap_keymap_SOURCES = extras/keymap/keymap.c
+extras_keymap_keymap_CPPFLAGS = $(AM_CPPFLAGS) -I extras/keymap
 nodist_extras_keymap_keymap_SOURCES = \
 	extras/keymap/keys-from-name.h \
 	extras/keymap/keys-to-name.h
