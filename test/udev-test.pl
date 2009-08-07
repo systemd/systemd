@@ -22,7 +22,7 @@ use strict;
 
 my $PWD			= $ENV{PWD};
 my $sysfs		= "sys/";
-my $udev_bin		= "../udev/test-udev";
+my $udev_bin		= "udev/test-udev";
 my $valgrind		= 0;
 my $udev_bin_valgrind	= "valgrind --tool=memcheck --leak-check=yes --quiet $udev_bin";
 my $udev_root		= "udev-root/";

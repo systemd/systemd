@@ -41,9 +41,6 @@ changelog:
 	@ cat ChangeLog.tmp >> ChangeLog
 	@ rm ChangeLog.tmp
 
-test-run:
-	cd test && ./udev-test.pl
-
 test-install:
 	rm -rf $(PWD)/udev-test-install/
 	make DESTDIR=$(PWD)/udev-test-install install
@@ -190,6 +187,9 @@ extras_v4l_id_v4l_id_LDADD = libudev/libudev-private.la
 # ------------------------------------------------------------------------------
 # Tests
 # ------------------------------------------------------------------------------
+
+TESTS = test/udev-test.pl
+
 check_PROGRAMS = \
 	libudev/test-libudev \
 	udev/test-udev
