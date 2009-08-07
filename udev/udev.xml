@@ -167,6 +167,16 @@
             </varlistentry>
 
             <varlistentry>
+              <term><option>SYMLINK</option></term>
+              <listitem>
+                <para>Match the name of a symlink targeting the node. It can
+                be used once a SYMLINK key has been set in one of the preceding
+                rules. There may be multiple symlinks; only one needs to match.
+                </para>
+              </listitem>
+            </varlistentry>
+
+            <varlistentry>
               <term><option>SUBSYSTEM</option></term>
               <listitem>
                 <para>Match the subsystem of the event device.</para>
@@ -295,7 +305,7 @@
             <varlistentry>
               <term><option>SYMLINK</option></term>
               <listitem>
-                <para>The name of a symlink targeting the node. Every matching rule can add
+                <para>The name of a symlink targeting the node. Every matching rule will add
                 this value to the list of symlinks to be created along with the device  node.
                 Multiple symlinks may be specified by separating the names by the space
                 character.</para>
