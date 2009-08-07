@@ -191,70 +191,14 @@ static struct usb_device *usb_device_open_from_udev(struct udev_device *usb_dev)
 	return NULL;
 }
 
-static struct usb_dev_handle *find_device(struct udev_device *udev_dev, const char *sibling_intf)
+static struct usb_dev_handle *find_device(struct udev_device *udev_dev)
 {
-	struct udev *udev = udev_device_get_udev(udev_dev);
 	struct usb_device *dev;
-	struct udev_device *udev_parent;
-	char str[UTIL_NAME_SIZE];
-	struct udev_enumerate *enumerate;
-	struct udev_list_entry *entry;
-	struct usb_dev_handle *handle = NULL;
 
-	if (sibling_intf == NULL) {
-		dev = usb_device_open_from_udev(udev_dev);
-		if (dev == NULL)
-			return NULL;
-		return usb_open(dev);
-	}
-
-	/* find matching sibling of the current usb_device, they share the same hub */
-	udev_parent = udev_device_get_parent_with_subsystem_devtype(udev_dev, "usb", "usb_device");
-	if (udev_parent == NULL)
+	dev = usb_device_open_from_udev(udev_dev);
+	if (dev == NULL)
 		return NULL;
-
-	enumerate = udev_enumerate_new(udev);
-	if (enumerate == NULL)
-		return NULL;
-
-	udev_enumerate_add_match_subsystem(enumerate, "usb");
-
-	/* match all childs of the parent */
-	util_strscpyl(str, sizeof(str), udev_device_get_sysname(udev_parent), "*", NULL);
-	udev_enumerate_add_match_sysname(enumerate, str);
-
-	/* match the specified interface */
-	util_strscpy(str, sizeof(str), sibling_intf);
-	str[2] = '\0';
-	str[5] = '\0';
-	str[8] = '\0';
-	if (strcmp(str, "-1") != 0)
-		udev_enumerate_add_match_sysattr(enumerate, "bInterfaceClass", str);
-	if (strcmp(&str[3], "-1") != 0)
-		udev_enumerate_add_match_sysattr(enumerate, "bInterfaceSubClass", &str[3]);
-	if (strcmp(&str[6], "-1") != 0)
-		udev_enumerate_add_match_sysattr(enumerate, "bInterfaceProtocol", &str[6]);
-
-	udev_enumerate_scan_devices(enumerate);
-	udev_list_entry_foreach(entry, udev_enumerate_get_list_entry(enumerate)) {
-		struct udev_device *udev_device;
-
-		udev_device = udev_device_new_from_syspath(udev, udev_list_entry_get_name(entry));
-		if (udev_device != NULL) {
-			/* get the usb_device of the usb_interface we matched */
-			udev_parent = udev_device_get_parent_with_subsystem_devtype(udev_device, "usb", "usb_device");
-			if (udev_parent == NULL)
-				continue;
-			/* only look at the first matching device */
-			dev = usb_device_open_from_udev(udev_parent);
-			if (dev != NULL)
-				handle = usb_open(dev);
-			udev_device_unref(udev_device);
-			break;
-		}
-}
-	udev_enumerate_unref(enumerate);
-	return handle;
+	return usb_open(dev);
 }
 
 static void usage(const char *error)
@@ -268,7 +212,6 @@ static void usage(const char *error)
 		"  --mode=               mode to switch to [hid|hci] (default hci)\n"
 		"  --devpath=            sys device path\n"
 		"  --method=             method to use to switch [csr|logitech-hid|dell]\n"
-		"  --find-sibling-intf=  find the sibling device with 00:00:00 (class:subclass:prot)\n"
 		"  --help\n\n");
 }
 
@@ -279,7 +222,6 @@ int main(int argc, char *argv[])
 		{ "mode", required_argument, NULL, 'm' },
 		{ "devpath", required_argument, NULL, 'p' },
 		{ "method", required_argument, NULL, 'M' },
-		{ "find-sibling-intf", required_argument, NULL, 'I' },
 		{ }
 	};
 	enum method {
@@ -294,14 +236,13 @@ int main(int argc, char *argv[])
 	int (*usb_switch)(struct usb_dev_handle *dev, enum mode mode) = NULL;
 	enum mode mode = HCI;
 	const char *devpath = NULL;
-	const char *sibling_intf = NULL;
 	int err = -1;
 	int rc = 1;
 
 	for (;;) {
 		int option;
 
-		option = getopt_long(argc, argv, "m:p:M:I:qh", options, NULL);
+		option = getopt_long(argc, argv, "m:p:M:qh", options, NULL);
 		if (option == -1)
 			break;
 
@@ -332,9 +273,6 @@ int main(int argc, char *argv[])
 				usage("error: undefined switching method\n");
 				exit(1);
 			}
-			break;
-		case 'I':
-			sibling_intf = optarg;
 			break;
 		case 'h':
 			usage(NULL);
@@ -377,10 +315,10 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		handle = find_device(dev, sibling_intf);
+		handle = find_device(dev);
 		if (handle == NULL) {
-			fprintf(stderr, "error: unable to handle '%s' (intf=%s)\n",
-				udev_device_get_syspath(dev), sibling_intf);
+			fprintf(stderr, "error: unable to handle '%s'\n",
+				udev_device_get_syspath(dev));
 			goto exit;
 		}
 		err = usb_switch(handle, mode);
@@ -402,8 +340,8 @@ int main(int argc, char *argv[])
 	}
 
 	if (err < 0)
-		fprintf(stderr, "error: switching device '%s' (intf=%s) failed.\n",
-			udev_device_get_syspath(udev_dev), sibling_intf);
+		fprintf(stderr, "error: switching device '%s' failed.\n",
+			udev_device_get_syspath(udev_dev));
 exit:
 	udev_device_unref(udev_dev);
 	udev_unref(udev);
