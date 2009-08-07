@@ -52,7 +52,7 @@ ENV{DMI_VENDOR}=="Hewlett-Packard", ATTR{[dmi/id]product_name}=="Presario 2100*"
 ENV{DMI_VENDOR}=="Acer*", RUN+="keymap $name acer"
 ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="Extensa*", ATTR{[dmi/id]product_name}=="*5210*|*5220*|*5610*|*5620*|*5720*", RUN+="keymap $name 0xEE screenlock"
 ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="TravelMate*C300*", RUN+="keymap $name acer-travelmate_c300"
-ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="TravelMate*6292*", RUN+="keymap $name 0xD9 bluetooth"
+ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="TravelMate*6292*|Aspire 6920", RUN+="keymap $name 0xD9 bluetooth"
 ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="Aspire 5920G", RUN+="keymap $name acer-aspire_5920g"
 
 ENV{DMI_VENDOR}=="*BenQ*", ATTR{[dmi/id]product_name}=="*Joybook R22*", RUN+="keymap $name 0x6E wlan"
