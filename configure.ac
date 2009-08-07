@@ -1,6 +1,6 @@
 AC_INIT([udev], [146], [linux-hotplug@vger.kernel.org])
 AC_PREREQ(2.60)
-AM_INIT_AUTOMAKE([check-news foreign 1.9 dist-bzip2])
+AM_INIT_AUTOMAKE([check-news foreign 1.9 dist-bzip2 subdir-objects])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 AC_DISABLE_STATIC
 AC_USE_SYSTEM_EXTENSIONS
@@ -101,27 +101,10 @@ AM_CONDITIONAL([ENABLE_INTROSPECTION], [test "x$enable_introspection" = xyes])
 AC_CONFIG_HEADERS(config.h)
 AC_CONFIG_FILES([
 	Makefile
-	docs/Makefile
-	libudev/Makefile
 	libudev/libudev.pc
 	libudev/docs/Makefile
 	libudev/docs/version.xml
-	udev/Makefile
 	udev/udev.pc
-	rules/Makefile
-	extras/Makefile
-	extras/ata_id/Makefile
-	extras/cdrom_id/Makefile
-	extras/edd_id/Makefile
-	extras/path_id/Makefile
-	extras/firmware/Makefile
-	extras/collect/Makefile
-	extras/floppy/Makefile
-	extras/fstab_import/Makefile
-	extras/rule_generator/Makefile
-	extras/scsi_id/Makefile
-	extras/usb_id/Makefile
-	extras/v4l_id/Makefile
 	extras/hid2hci/Makefile
 	extras/udev-acl/Makefile
 	extras/usb-db/Makefile
