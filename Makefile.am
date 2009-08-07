@@ -492,7 +492,7 @@ extras/keymap/keys-from-name.gperf: extras/keymap/keys.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print $$1 ", " $$1 }' < $< > $@
 
 extras/keymap/keys-from-name.h: extras/keymap/keys-from-name.gperf Makefile
-	$(AM_V_GEN)$(GPERF) -t --ignore-case -N lookup_key -H hash_key_name -p -C < $< > $@
+	$(AM_V_GEN)$(GPERF) -L ANSI-C -t --ignore-case -N lookup_key -H hash_key_name -p -C < $< > $@
 
 extras/keymap/keys-to-name.h: extras/keymap/keys.txt Makefile
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
