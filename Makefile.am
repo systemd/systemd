@@ -495,22 +495,22 @@ extras/keymap/keys-to-name.h: extras/keymap/keys.txt Makefile
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "const char* const key_names[KEY_CNT] = { "} { print "[" $$1 "] = \"" $$1 "\"," } END{print "};"}' < $< > $@
 
 extras/gudev/gudevmarshal.h: extras/gudev/gudevmarshal.list
-	glib-genmarshal $< --prefix=g_udev_marshal --header > $@
+	$(AM_V_GEN)glib-genmarshal $< --prefix=g_udev_marshal --header > $@
 
 extras/gudev/gudevmarshal.c: extras/gudev/gudevmarshal.list
-	echo "#include \"gudevmarshal.h\"" > $@ && \
+	$(AM_V_GEN)echo "#include \"gudevmarshal.h\"" > $@ && \
 	glib-genmarshal $< --prefix=g_udev_marshal --body >> $@
 
 extras/gudev/gudevenumtypes.h: extras/gudev/gudevenumtypes.h.template extras/gudev/gudevenums.h
-	glib-mkenums --template $^ > \
+	$(AM_V_GEN)glib-mkenums --template $^ > \
 	    $@.tmp && mv $@.tmp $@
 
 extras/gudev/gudevenumtypes.c: extras/gudev/gudevenumtypes.c.template extras/gudev/gudevenums.h
-	glib-mkenums --template $^ > \
+	$(AM_V_GEN)glib-mkenums --template $^ > \
 	    $@.tmp && mv $@.tmp $@
 
 extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER) Makefile.am
-	PKG_CONFIG_PATH=$(top_builddir)/data:$$PKG_CONFIG_PATH \
+	$(AM_V_GEN)PKG_CONFIG_PATH=$(top_builddir)/data:$$PKG_CONFIG_PATH \
 	$(G_IR_SCANNER) -v \
 		--namespace GUdev \
 		--nsversion=1.0 \
@@ -532,4 +532,4 @@ extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER) Makefil
 		$(top_srcdir)/extras/gudev/gudevdevice.c
 
 extras/gudev/GUdev-1.0.typelib: extras/gudev/GUdev-1.0.gir $(G_IR_COMPILER)
-	g-ir-compiler $< -o $@
+	$(AM_V_GEN)g-ir-compiler $< -o $@
