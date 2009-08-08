@@ -776,7 +776,7 @@ static void startup_log(struct udev *udev)
 		if (f != NULL)
 			fprintf(f, "<3>%s\n", depr_str);
 		err(udev, "%s\n", depr_str);
-		sleep(3);
+		sleep(15);
 	}
 
 	if (f != NULL)

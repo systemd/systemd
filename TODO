@@ -1,8 +1,6 @@
 
   o get rid of braindead "scan all devices to find myself" libusb interface
       if it can not be fixed, drop libusb entirely
-  o enumerate: sort control* after pcm*
-  o add tests for kernel provided DEVNAME logic
   o convert firmware.sh to C
 
   o symlink names to udevadm will no longer be resolved to old command names
