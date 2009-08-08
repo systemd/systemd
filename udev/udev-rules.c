@@ -270,7 +270,7 @@ static const char *token_str(enum token_type type)
 		[TK_M_PROGRAM] =		"M PROGRAM",
 		[TK_M_IMPORT_FILE] =		"M IMPORT_FILE",
 		[TK_M_IMPORT_PROG] =		"M IMPORT_PROG",
-		[TK_M_IMPORT_PARENT] =		"M MPORT_PARENT",
+		[TK_M_IMPORT_PARENT] =		"M IMPORT_PARENT",
 		[TK_M_RESULT] =			"M RESULT",
 		[TK_M_MAX] =			"M MAX",
 
@@ -1508,7 +1508,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 				int tout = atoi(&pos[strlen("event_timeout=")]);
 
 				rule_add_key(&rule_tmp, TK_A_EVENT_TIMEOUT, 0, NULL, &tout);
-				dbg(rules->udev, "event timout=%i\n", tout);
+				dbg(rules->udev, "event timeout=%i\n", tout);
 			}
 			pos = strstr(value, "string_escape=");
 			if (pos != NULL) {

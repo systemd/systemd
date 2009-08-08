@@ -96,7 +96,7 @@ int util_delete_path(struct udev *udev, const char *path)
 }
 
 /* Reset permissions on the device node, before unlinking it to make sure,
- * that permisions of possible hard links will be removed too.
+ * that permissions of possible hard links will be removed too.
  */
 int util_unlink_secure(struct udev *udev, const char *filename)
 {
@@ -342,7 +342,7 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 		}
 		execve(argv[0], argv, envp);
 		if (errno == ENOENT || errno == ENOTDIR) {
-			/* may be on a filesytem which is not mounted right now */
+			/* may be on a filesystem which is not mounted right now */
 			info(udev, "program '%s' not found\n", argv[0]);
 		} else {
 			/* other problems */

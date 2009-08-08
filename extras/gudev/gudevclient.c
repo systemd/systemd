@@ -197,7 +197,7 @@ g_udev_client_constructed (GObject *object)
 
   if (client->priv->subsystems != NULL)
     {
-      /* install subsytem filters to only wake up for certain events */
+      /* install subsystem filters to only wake up for certain events */
       for (n = 0; client->priv->subsystems[n] != NULL; n++)
         {
           gchar *subsystem;

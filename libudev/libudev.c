@@ -327,7 +327,7 @@ void udev_set_log_fn(struct udev *udev,
  * udev_get_log_priority:
  * @udev: udev library context
  *
- * The initial syslog priortity is read from the udev config file
+ * The initial syslog priority is read from the udev config file
  * at startup.
  *
  * Returns: the current syslog priority

@@ -336,7 +336,7 @@ int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor)
 
 			/*
 			 * get the address the kernel has assigned us
-			 * it is usually, but not neccessarily the pid
+			 * it is usually, but not necessarily the pid
 			 */
 			addrlen = sizeof(struct sockaddr_nl);
 			err = getsockname(udev_monitor->sock, (struct sockaddr *)&snl, &addrlen);
@@ -747,7 +747,7 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
 		/*
 		 * Use custom address for target, or the default one.
 		 *
-		 * If we send to a muticast group, we will get
+		 * If we send to a multicast group, we will get
 		 * ECONNREFUSED, which is expected.
 		 */
 		if (destination != NULL)
@@ -768,7 +768,7 @@ int udev_monitor_send_device(struct udev_monitor *udev_monitor,
  * udev_monitor_filter_add_match_subsystem_devtype:
  * @udev_monitor: the monitor
  * @subsystem: the subsystem value to match the incoming devices against
- * @devtype: the devtype value to matvh the incoming devices against
+ * @devtype: the devtype value to match the incoming devices against
  *
  * The filter must be installed before the monitor is switched to listening mode.
  *

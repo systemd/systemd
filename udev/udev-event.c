@@ -571,7 +571,7 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 		}
 
 		if (event->name != NULL && event->name[0] == '\0') {
-			info(event->udev, "device node creation supressed\n");
+			info(event->udev, "device node creation suppressed\n");
 			delete_kdevnode = 1;
 			goto exit_add;
 		}

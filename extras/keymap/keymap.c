@@ -247,7 +247,7 @@ static const char* default_keymap_path(const char* path)
 {
 	static char result[PATH_MAX];
 
-	/* If keymap file is given without a path, assume udev diretory; must end with '/' * */
+	/* If keymap file is given without a path, assume udev directory; must end with '/' * */
 	if (!strchr(path, '/')) {
 		snprintf(result, sizeof(result), "%s%s", LIBEXECDIR "/keymaps/", path);
 		return result;

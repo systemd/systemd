@@ -81,7 +81,7 @@ KERNEL=="ht[0-9]*|nht[0-9]*", GROUP="tape"
 KERNEL=="pt[0-9]*|npt[0-9]*|pht[0-9]*", GROUP="tape"
 SUBSYSTEM=="scsi_generic|scsi_tape", SUBSYSTEMS=="scsi", ATTRS{type}=="1|8", GROUP="tape"
 
-# block-releated
+# block-related
 KERNEL=="sch[0-9]*", GROUP="disk"
 SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="0", GROUP="disk"
 KERNEL=="pg[0-9]*", GROUP="disk"

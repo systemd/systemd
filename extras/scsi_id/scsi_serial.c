@@ -612,7 +612,7 @@ static int do_scsi_page83_inquiry(struct udev *udev,
 	
 	/*
 	 * XXX Some devices (IBM 3542) return all spaces for an identifier if
-	 * the LUN is not actually configured. This leads to identifers of
+	 * the LUN is not actually configured. This leads to identifiers of
 	 * the form: "1            ".
 	 */
 

@@ -1,5 +1,5 @@
 /*
- * compose persisistent device path
+ * compose persistent device path
  *
  * Copyright (C) 2009 Kay Sievers <kay.sievers@vrfy.org>
  *

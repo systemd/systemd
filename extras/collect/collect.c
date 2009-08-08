@@ -124,7 +124,7 @@ static int prepare(char *dir, char *filename)
  * Read checkpoint file
  *
  * Tricky reading this. We allocate a buffer twice as large
- * as we're goint to read. Then we read into the upper half
+ * as we're going to read. Then we read into the upper half
  * of that buffer and start parsing.
  * Once we do _not_ find end-of-work terminator (whitespace
  * character) we move the upper half to the lower half,

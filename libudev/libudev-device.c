@@ -30,7 +30,7 @@
  * Representation of kernel sys devices. Devices are uniquely identified
  * by their syspath, every device has exactly one path in the kernel sys
  * filesystem. Devices usually belong to a kernel subsystem, and and have
- * a unique name inside that subsytem.
+ * a unique name inside that subsystem.
  */
 
 /**
@@ -270,7 +270,7 @@ struct udev_device *udev_device_new(struct udev *udev)
  * @syspath: sys device path including sys directory
  *
  * Create new udev device, and fill in information from the sys
- * device and the udev database entry. The sypath is the absolute
+ * device and the udev database entry. The syspath is the absolute
  * path to the device, including the sys mount point.
  *
  * The initial refcount is 1, and needs to be decremented to
@@ -427,12 +427,12 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 /**
  * udev_device_new_from_subsystem_sysname:
  * @udev: udev library context
- * @subsystem: the subsytem of the device
+ * @subsystem: the subsystem of the device
  * @sysname: the name of the device
  *
  * Create new udev device, and fill in information from the sys
  * device and the udev database entry. The device is looked up
- * by the subsytem and name string of the device, like "mem",
+ * by the subsystem and name string of the device, like "mem",
  * "zero", or "block", "sda".
  *
  * The initial refcount is 1, and needs to be decremented to
@@ -554,7 +554,7 @@ static struct udev_device *device_new_from_parent(struct udev_device *udev_devic
  * child device, and will be cleaned up when the child device
  * is cleaned up.
  *
- * It is not neccessarily just the upper level directory, empty or not
+ * It is not necessarily just the upper level directory, empty or not
  * recognized sys directories are ignored.
  *
  * It can be called as many times as needed, without caring about
@@ -578,7 +578,7 @@ struct udev_device *udev_device_get_parent(struct udev_device *udev_device)
 /**
  * udev_device_get_parent_with_subsystem_devtype:
  * @udev_device: udev device to start searching from
- * @subsystem: the subsytem of the device
+ * @subsystem: the subsystem of the device
  * @devtype: the type (DEVTYPE) of the device
  *
  * Find the next parent device, with a matching subsystem and devtype
@@ -778,7 +778,7 @@ const char *udev_device_get_subsystem(struct udev_device *udev_device)
 		return NULL;
 	if (!udev_device->subsystem_set) {
 		udev_device->subsystem_set = 1;
-		/* read "subsytem" link */
+		/* read "subsystem" link */
 		if (util_get_sys_subsystem(udev_device->udev, udev_device->syspath, subsystem, sizeof(subsystem)) > 0) {
 			udev_device_set_subsystem(udev_device, subsystem);
 			return udev_device->subsystem;

@@ -115,7 +115,7 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 			break;
 		case 'p':
 			if (strchr(optarg, '=') == NULL) {
-				fprintf(stderr, "expect <KEY>=<valaue> instead of '%s'\n", optarg);
+				fprintf(stderr, "expect <KEY>=<value> instead of '%s'\n", optarg);
 				goto exit;
 			}
 			udev_ctrl_send_set_env(uctrl, optarg);

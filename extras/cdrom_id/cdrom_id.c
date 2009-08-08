@@ -173,27 +173,27 @@ static int scsi_cmd_run(struct udev *udev, struct scsi_cmd *cmd, int fd, unsigne
 
 static int cd_capability_compat(struct udev *udev, int fd)
 {
-	int capabilty;
+	int capability;
 
-	capabilty = ioctl(fd, CDROM_GET_CAPABILITY, NULL);
-	if (capabilty < 0) {
+	capability = ioctl(fd, CDROM_GET_CAPABILITY, NULL);
+	if (capability < 0) {
 		info(udev, "CDROM_GET_CAPABILITY failed\n");
 		return -1;
 	}
 
-	if (capabilty & CDC_CD_R)
+	if (capability & CDC_CD_R)
 		cd_cd_r = 1;
-	if (capabilty & CDC_CD_RW)
+	if (capability & CDC_CD_RW)
 		cd_cd_rw = 1;
-	if (capabilty & CDC_DVD)
+	if (capability & CDC_DVD)
 		cd_dvd_rom = 1;
-	if (capabilty & CDC_DVD_R)
+	if (capability & CDC_DVD_R)
 		cd_dvd_r = 1;
-	if (capabilty & CDC_DVD_RAM)
+	if (capability & CDC_DVD_RAM)
 		cd_dvd_ram = 1;
-	if (capabilty & CDC_MRW)
+	if (capability & CDC_MRW)
 		cd_mrw = 1;
-	if (capabilty & CDC_MRW_W)
+	if (capability & CDC_MRW_W)
 		cd_mrw_w = 1;
 	return 0;
 }
