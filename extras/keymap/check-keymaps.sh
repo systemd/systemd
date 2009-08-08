@@ -4,7 +4,7 @@
 # and that all key maps listed in the rules are valid and present in
 # Makefile.am
 SRCDIR=$1
-KEYLIST=$SRCDIR/extras/keymap/keys.txt
+KEYLIST=$2
 KEYMAPS_DIR=$SRCDIR/extras/keymap/keymaps #extras/keymap/keymaps
 RULES=$SRCDIR/extras/keymap/95-keymap.rules
 

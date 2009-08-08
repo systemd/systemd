@@ -493,7 +493,7 @@ udevacl-install-hook:
 	ln -sf $(libexecdir)/udev-acl $(DESTDIR)$(prefix)/lib/ConsoleKit/run-session.d/udev-acl.ck
 
 keymaps-distcheck-hook: extras/keymap/keys.txt
-	./extras/keymap/check-keymaps.sh $(top_srcdir)
+	$(top_srcdir)/extras/keymap/check-keymaps.sh $(top_srcdir) $^
 
 # ------------------------------------------------------------------------------
 # Custom rules
