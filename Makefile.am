@@ -39,6 +39,9 @@ DISTCHECK_CONFIGURE_FLAGS = \
 	--enable-gtk-doc \
 	--enable-extras
 
+install-data-local:
+	-mkdir -p $(DESTDIR)$(sysconfdir)/udev/rules.d
+
 clean-local:
 	rm -rf udev-test-install
 
@@ -114,6 +117,9 @@ libudev_libudev_private_la_SOURCES =\
 	libudev/libudev-queue-private.c
 
 libudev_libudev_private_la_LIBADD =
+
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = libudev/libudev.pc
 
 extras_gudev_libgudev_1_0_la_SOURCES = \
 	extras/gudev/gudevenums.h \
@@ -325,10 +331,8 @@ EXTRA_DIST += \
 # ------------------------------------------------------------------------------
 # Pkg-config, docs and man pages
 # ------------------------------------------------------------------------------
-pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = \
-	libudev/libudev.pc \
-	udev/udev.pc
+sharepkgconfigdir = $(datadir)/pkgconfig
+sharepkgconfig_DATA = udev/udev.pc
 
 writing_udev_rulesdir = $(docdir)/writing_udev_rules
 dist_writing_udev_rules_DATA = \
@@ -370,7 +374,8 @@ dist_udevrules_DATA += \
 	extras/hid2hci/70-hid2hci.rules \
 	extras/modem-modeswitch/61-option-modem-modeswitch.rules \
 	extras/modem-modeswitch/61-mobile-action.rules \
-	extras/keymap/95-keymap.rules
+	extras/keymap/95-keymap.rules \
+	extras/udev-acl/70-acl.rules
 
 libexec_PROGRAMS += \
 	extras/hid2hci/hid2hci \
@@ -447,8 +452,7 @@ libgudev_include_HEADERS = \
 
 pkgconfig_DATA += extras/gudev/gudev-1.0.pc
 
-SUBDIRS += \
-	extras/gudev/docs
+SUBDIRS += extras/gudev/docs
 endif
 
 if ENABLE_INTROSPECTION
