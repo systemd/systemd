@@ -1,3 +1,91 @@
+Summary of changes from v145 to v146
+============================================
+
+Alan Jenkins (3):
+      man: fix unused, inaccurate metadata
+      man: SYMLINK can be matched as well as assigned
+      fix spelling
+
+Anssi Hannula (2):
+      rules: exclude digitizers from joystick class
+      udev-acl: add joystick devices
+
+Diego Elio 'Flameeyes' Pettenò (21):
+      Merge libudev, udev, and the unconditional extras in a single Makefile.am.
+      Replace the custom test-run target with the standard make check.
+      Also merge into the top-level Makefile.am the simpler extras.
+      Change hook handling to be more portable.
+      Merge keymap building in the top-level Makefile.am.
+      Make keymap generation rules be silent (backward-compatible).
+      Move pkg-config docs and man pages before conditionals.
+      Finally, also merge gudev into the top-level Makefile.am.
+      Make sure to clean up all the built sources.
+      Make sure to use dependency/target variables.
+      Add silent-rule support for the gudev rules.
+      Fix building of introspection library on top-level Makefile.am.
+      Fix another relative path for the new working directory.
+      Include the correct directory for out-of-source builds.
+      Add tests to the distribution; this fixes "make distcheck".
+      Ask gperf to use ANSI-C for generation.
+      Merge in Makefile.am.inc into Makefile.am
+      Use the keymap check during “make distcheck” rather than “check”.
+      Fix building of documentation when doing out-of-source builds.
+      Fix “make distcheck” run outside of the source directory.
+      Use LT_INIT to explicit that udev needs libtool series 2.
+
+Eric W. Biederman (1):
+      fix util_lookup_group to handle large groups
+
+Erik Forsberg (1):
+      extras/modem-modeswitch: Add Huawei E1550 GSM modem
+
+Kay Sievers (18):
+      udevd: add timestamp to --debug output
+      v4l_id: exit with 0 when --help is given
+      configure.ac: version bump
+      hid2hci: remove hid structures and include kernel header
+      path_id: make global variable static
+      udevadm: trigger - add --sysname-match=
+      rules: serial - fix path_id call
+      path_id: fix typo in comment
+      format names are not case insensitive
+      hid2hci: rewrite (and break) rules and device handling
+      make: build internal tools against libudev-private.la
+      update a few years of copyright
+      libudev: silent gcc warning: may be used uninitialized in this function
+      make: suppress enter/leaving directory messages
+      re-enable failed event tracking
+      "record_failed" -> "fail_event_on_error"
+      udevd: block for 15 seconds after error when too old kernel is detected
+      make: fix issues from non-recursive conversion
+
+Lennart Poettering (1):
+      enumeration: move ALSA control devices to the end of the enumerated devices of each card
+
+Mario Limonciello (2):
+      hid2hci: support to hid2hci for recovering Dell BT devices after S3
+      hid2hci: install re-trigger for hid device when recovering from S3
+
+Martin Pitt (17):
+      add keymap for Clevo D410J laptop
+      extras/keymap: add Zepto ZNote
+      extras/keymap: add Everex Stepnote XT5000T
+      extras/keymap: add Compal Hel80i
+      keymap tool: improve help
+      keymap tool: support scancode/keycode pair arguments
+      keymap: inline one-line key maps
+      extras/keymap: fix check-keymaps.sh for inline mappings
+      extras/keymap: add recently added keymap files to Makefile.am
+      extras/keymap: Add HP Presario 2100
+      extras/keymap: cover more Compaq Evo models
+      extras/keymap: Add Fujitsu Amilo M
+      extras/keymap: teach findkeyboards about USB keyboards
+      extras/keymap: Add Samsung SX22S
+      extras/keymap: Fix crash for unknown keys
+      extras/keymap: Add Samsung NC20
+      extras/keymap: Fix Bluetooth key on Acer Aspire 6920
+
+
 Summary of changes from v144 to v145
 ============================================
 
