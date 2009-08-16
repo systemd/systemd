@@ -280,17 +280,17 @@ extras_v4l_id_v4l_id_LDADD = libudev/libudev-private.la
 libexec_PROGRAMS += extras/v4l_id/v4l_id
 dist_udevrules_DATA += extras/v4l_id/60-persistent-v4l.rules
 
+if ENABLE_EXTRAS
 # ------------------------------------------------------------------------------
 # conditional extras (need glib, libusb, libacl, ...)
 # ------------------------------------------------------------------------------
-if ENABLE_EXTRAS
 dist_udevrules_DATA += \
 	rules/rules.d/75-net-description.rules \
 	rules/rules.d/75-tty-description.rules \
 	rules/rules.d/78-sound-card.rules
 
 # ------------------------------------------------------------------------------
-# GUdev
+# GUdev - libudev gobject interface
 # ------------------------------------------------------------------------------
 LIBGUDEV_CURRENT=0
 LIBGUDEV_REVISION=1
