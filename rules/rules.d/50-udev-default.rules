@@ -94,7 +94,7 @@ SUBSYSTEM=="aoe", KERNEL=="err", MODE="0440"
 
 # network
 KERNEL=="tun",			NAME="net/%k", MODE="0666"
-KERNEL=="rfkill",		MODE="0664"
+KERNEL=="rfkill",		MODE="0644"
 
 # CPU
 KERNEL=="cpu[0-9]*",		NAME="cpu/%n/cpuid", MODE="0444"
