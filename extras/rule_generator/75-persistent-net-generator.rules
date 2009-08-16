@@ -55,6 +55,9 @@ ENV{MATCHADDR}=="52:54:ab:*", GOTO="globally_administered_whitelist"
 # Kingston Technologies
 ENV{MATCHADDR}=="e2:0c:0f:*", GOTO="globally_administered_whitelist"
 
+# match interface dev_id
+ATTR{dev_id}=="?*", ENV{MATCHDEVID}="$attr{dev_id}"
+
 # do not use "locally administered" MAC address
 ENV{MATCHADDR}=="?[2367abef]:*", ENV{MATCHADDR}=""
 
