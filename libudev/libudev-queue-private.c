@@ -158,7 +158,7 @@ static struct queue_devpaths *build_index(struct udev_queue_export *udev_queue_e
 		return NULL;
 	}
 	devpaths = calloc(1, sizeof(struct queue_devpaths) + (range + 1) * sizeof(long));
-	if (index == NULL)
+	if (devpaths == NULL)
 		return NULL;
 	devpaths->devpaths_size = range + 1;
 
