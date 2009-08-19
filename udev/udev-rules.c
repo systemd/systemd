@@ -1798,7 +1798,7 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 		if (stat(filename, &statbuf) == 0 && statbuf.st_size > 0)
 			parse_file(rules, filename, filename_off);
 		else
-			info(udev, "can not read '%s'\n", filename);
+			err(udev, "can not read '%s'\n", filename);
 		udev_list_entry_delete(file_loop);
 	}
 
