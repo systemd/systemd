@@ -1406,6 +1406,9 @@ static int add_rule(struct udev_rules *rules, char *line,
 			} else {
 				if (value[0] == '\0')
 					info(rules->udev, "name empty, node creation suppressed\n");
+				else if (strcmp(value, "%k") == 0)
+					err(rules->udev, "NAME=\"%%k\" is superfluous and breaks "
+					    "kernel supplied names, please remove it from %s:%u\n", filename, lineno);
 				rule_add_key(&rule_tmp, TK_A_NAME, op, value, NULL);
 				attr = get_key_attribute(rules->udev, key + sizeof("NAME")-1);
 				if (attr != NULL) {
