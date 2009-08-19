@@ -531,10 +531,12 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 	struct udev_device *dev = event->dev;
 	int err = 0;
 
-	if (udev_device_get_devpath_old(dev) != NULL) {
-		if (udev_device_rename_db(dev, udev_device_get_devpath(dev)) == 0)
-			info(event->udev, "moved database from '%s' to '%s'\n",
-			     udev_device_get_devpath_old(dev), udev_device_get_devpath(dev));
+	if (udev_device_get_sysname_old(dev) != NULL &&
+	    strcmp(udev_device_get_sysname_old(dev), udev_device_get_sysname(dev)) != 0) {
+		udev_device_rename_db(dev);
+		info(event->udev, "moved database from '%s:%s' to '%s:%s'\n",
+		     udev_device_get_subsystem(dev), udev_device_get_sysname_old(dev),
+		     udev_device_get_subsystem(dev), udev_device_get_sysname(dev));
 	}
 
 	/* add device node */

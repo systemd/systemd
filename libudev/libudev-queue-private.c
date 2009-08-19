@@ -396,16 +396,13 @@ static void update_failed(struct udev_queue_export *udev_queue_export,
 {
 	struct udev *udev = udev_device_get_udev(udev_device);
 	char filename[UTIL_PATH_SIZE];
-	char *s;
-	size_t l;
 
 	if (state != DEVICE_FAILED && udev_queue_export->failed_count == 0)
 		return;
 
 	/* location of failed file */
-	s = filename;
-	l = util_strpcpyl(&s, sizeof(filename), udev_get_dev_path(udev_queue_export->udev), "/.udev/failed/", NULL);
-	util_path_encode(udev_device_get_devpath(udev_device), s, l);
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/failed/",
+		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
 
 	switch (state) {
 	case DEVICE_FAILED:
@@ -428,14 +425,13 @@ static void update_failed(struct udev_queue_export *udev_queue_export,
 		break;
 
 	case DEVICE_FINISHED:
-		if (udev_device_get_devpath_old(udev_device) != NULL) {
+		if (udev_device_get_sysname_old(udev_device) != NULL &&
+		    strcmp(udev_device_get_sysname_old(udev_device), udev_device_get_sysname(udev_device)) != 0) {
 			/* "move" event - rename failed file to current name, do not delete failed */
 			char filename_old[UTIL_PATH_SIZE];
 
-			s = filename_old;
-			l = util_strpcpyl(&s, sizeof(filename_old), udev_get_dev_path(udev_queue_export->udev), "/.udev/failed/", NULL);
-			util_path_encode(udev_device_get_devpath_old(udev_device), s, l);
-
+			util_strscpyl(filename_old, sizeof(filename_old), udev_get_dev_path(udev), "/.udev/failed/",
+				      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname_old(udev_device), NULL);
 			if (rename(filename_old, filename) == 0)
 				info(udev, "renamed devpath, moved failed state of '%s' to %s'\n",
 				     udev_device_get_devpath_old(udev_device), udev_device_get_devpath(udev_device));

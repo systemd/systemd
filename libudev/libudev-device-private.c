@@ -21,16 +21,6 @@
 #include "libudev.h"
 #include "libudev-private.h"
 
-static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *filename, size_t len)
-{
-	char *s;
-	size_t l;
-
-	s = filename;
-	l = util_strpcpyl(&s, len, udev_get_dev_path(udev), "/.udev/db/", NULL);
-	return util_path_encode(devpath, s, l);
-}
-
 int udev_device_update_db(struct udev_device *udev_device)
 {
 	struct udev *udev = udev_device_get_udev(udev_device);
@@ -43,8 +33,8 @@ int udev_device_update_db(struct udev_device *udev_device)
 	struct udev_list_entry *list_entry;
 	int ret;
 
-	devpath_to_db_path(udev, udev_device_get_devpath(udev_device), filename, sizeof(filename));
-	util_create_path(udev, filename);
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db/",
+		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
 	unlink(filename);
 
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device))
@@ -78,11 +68,13 @@ int udev_device_update_db(struct udev_device *udev_device)
 	}
 	info(udev, "create db link (%s)\n", target);
 	udev_selinux_setfscreatecon(udev, filename, S_IFLNK);
+	util_create_path(udev, filename);
 	ret = symlink(target, filename);
 	udev_selinux_resetfscreatecon(udev);
 	if (ret == 0)
 		goto out;
 file:
+	util_create_path(udev, filename);
 	f = fopen(filename, "w");
 	if (f == NULL) {
 		err(udev, "unable to create db file '%s': %m\n", filename);
@@ -122,18 +114,21 @@ int udev_device_delete_db(struct udev_device *udev_device)
 	struct udev *udev = udev_device_get_udev(udev_device);
 	char filename[UTIL_PATH_SIZE];
 
-	devpath_to_db_path(udev, udev_device_get_devpath(udev_device), filename, sizeof(filename));
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db/",
+		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
 	unlink(filename);
 	return 0;
 }
 
-int udev_device_rename_db(struct udev_device *udev_device, const char *devpath_old)
+int udev_device_rename_db(struct udev_device *udev_device)
 {
 	struct udev *udev = udev_device_get_udev(udev_device);
 	char filename_old[UTIL_PATH_SIZE];
 	char filename[UTIL_PATH_SIZE];
 
-	devpath_to_db_path(udev, devpath_old, filename_old, sizeof(filename_old));
-	devpath_to_db_path(udev, udev_device_get_devpath(udev_device), filename, sizeof(filename));
+	util_strscpyl(filename_old, sizeof(filename_old), udev_get_dev_path(udev), "/.udev/db/",
+		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname_old(udev_device), NULL);
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db/",
+		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
 	return rename(filename_old, filename);
 }

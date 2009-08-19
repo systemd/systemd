@@ -79,6 +79,7 @@ int udev_device_read_uevent_file(struct udev_device *udev_device);
 int udev_device_set_action(struct udev_device *udev_device, const char *action);
 int udev_device_set_driver(struct udev_device *udev_device, const char *driver);
 const char *udev_device_get_devpath_old(struct udev_device *udev_device);
+const char *udev_device_get_sysname_old(struct udev_device *udev_device);
 int udev_device_set_devpath_old(struct udev_device *udev_device, const char *devpath_old);
 const char *udev_device_get_knodename(struct udev_device *udev_device);
 int udev_device_set_knodename(struct udev_device *udev_device, const char *knodename);
@@ -101,7 +102,7 @@ void udev_device_set_info_loaded(struct udev_device *device);
 /* libudev-device-private.c */
 int udev_device_update_db(struct udev_device *udev_device);
 int udev_device_delete_db(struct udev_device *udev_device);
-int udev_device_rename_db(struct udev_device *udev_device, const char *devpath);
+int udev_device_rename_db(struct udev_device *udev_device);
 
 /* libudev-monitor.c - netlink/unix socket communication  */
 int udev_monitor_disconnect(struct udev_monitor *udev_monitor);
@@ -186,8 +187,8 @@ int udev_queue_export_device_failed(struct udev_queue_export *udev_queue_export,
 
 /* libudev-util.c */
 #define UTIL_PATH_SIZE				1024
-#define UTIL_LINE_SIZE				2048
 #define UTIL_NAME_SIZE				512
+#define UTIL_LINE_SIZE				2048
 #define UDEV_ALLOWED_CHARS_INPUT		"/ $%?,"
 ssize_t util_get_sys_subsystem(struct udev *udev, const char *syspath, char *subsystem, size_t size);
 ssize_t util_get_sys_driver(struct udev *udev, const char *syspath, char *driver, size_t size);

@@ -51,6 +51,7 @@ struct udev_device {
 	char *driver;
 	char *action;
 	char *devpath_old;
+	char *sysname_old;
 	char *knodename;
 	char **envp;
 	char *monitor_buf;
@@ -76,16 +77,6 @@ struct udev_device {
 	unsigned int ignore_remove:1;
 };
 
-static size_t devpath_to_db_path(struct udev *udev, const char *devpath, char *filename, size_t len)
-{
-	char *s;
-	size_t l;
-
-	s = filename;
-	l = util_strpcpyl(&s, len, udev_get_dev_path(udev), "/.udev/db/", NULL);
-	return util_path_encode(devpath, s, l);
-}
-
 int udev_device_read_db(struct udev_device *udev_device)
 {
 	struct stat stats;
@@ -93,7 +84,8 @@ int udev_device_read_db(struct udev_device *udev_device)
 	char line[UTIL_LINE_SIZE];
 	FILE *f;
 
-	devpath_to_db_path(udev_device->udev, udev_device->devpath, filename, sizeof(filename));
+	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_device->udev), "/.udev/db/",
+		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
 
 	if (lstat(filename, &stats) != 0) {
 		dbg(udev_device->udev, "no db file to read %s: %m\n", filename);
@@ -677,6 +669,7 @@ void udev_device_unref(struct udev_device *udev_device)
 	free(udev_device->action);
 	free(udev_device->driver);
 	free(udev_device->devpath_old);
+	free(udev_device->sysname_old);
 	free(udev_device->knodename);
 	udev_list_cleanup_entries(udev_device->udev, &udev_device->sysattr_list);
 	free(udev_device->envp);
@@ -1282,12 +1275,37 @@ const char *udev_device_get_devpath_old(struct udev_device *udev_device)
 
 int udev_device_set_devpath_old(struct udev_device *udev_device, const char *devpath_old)
 {
+	const char *pos;
+	size_t len;
+
 	free(udev_device->devpath_old);
 	udev_device->devpath_old = strdup(devpath_old);
 	if (udev_device->devpath_old == NULL)
 		return -ENOMEM;
 	udev_device_add_property(udev_device, "DEVPATH_OLD", udev_device->devpath_old);
+
+	pos = strrchr(udev_device->devpath_old, '/');
+	if (pos == NULL)
+		return -EINVAL;
+	udev_device->sysname_old = strdup(&pos[1]);
+	if (udev_device->sysname_old == NULL)
+		return -ENOMEM;
+
+	/* some devices have '!' in their name, change that to '/' */
+	len = 0;
+	while (udev_device->sysname_old[len] != '\0') {
+		if (udev_device->sysname_old[len] == '!')
+			udev_device->sysname_old[len] = '/';
+		len++;
+	}
 	return 0;
+}
+
+const char *udev_device_get_sysname_old(struct udev_device *udev_device)
+{
+	if (udev_device == NULL)
+		return NULL;
+	return udev_device->sysname_old;
 }
 
 const char *udev_device_get_knodename(struct udev_device *udev_device)

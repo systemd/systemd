@@ -32,24 +32,20 @@
 #define TMP_FILE_EXT		".udev-tmp"
 
 /* reverse mapping from the device file name to the devpath */
-static int name_index(struct udev *udev, const char *devpath, const char *name, int add)
+static int name_index(struct udev_device *dev, const char *name, int add)
 {
-	char devpath_enc[UTIL_PATH_SIZE];
+	struct udev *udev = udev_device_get_udev(dev);
 	char name_enc[UTIL_PATH_SIZE];
 	char filename[UTIL_PATH_SIZE * 2];
-	int fd;
 
 	util_path_encode(&name[strlen(udev_get_dev_path(udev))+1], name_enc, sizeof(name_enc));
-	util_path_encode(devpath, devpath_enc, sizeof(devpath_enc));
-	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev),
-		      "/.udev/names/", name_enc, "/", devpath_enc, NULL);
+	snprintf(filename, sizeof(filename), "%s/.udev/names/%s/%u:%u", udev_get_dev_path(udev), name_enc,
+		 major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)));
 
 	if (add) {
 		dbg(udev, "creating index: '%s'\n", filename);
 		util_create_path(udev, filename);
-		fd = open(filename, O_WRONLY|O_TRUNC|O_CREAT, 0644);
-		if (fd > 0)
-			close(fd);
+		symlink(udev_device_get_devpath(dev), filename);
 	} else {
 		dbg(udev, "removing index: '%s'\n", filename);
 		unlink(filename);
@@ -247,18 +243,23 @@ static int name_index_get_devices(struct udev *udev, const char *name, struct ud
 	dbg(udev, "found index directory '%s'\n", dirname);
 
 	while (1) {
-		struct dirent *ent;
-		char device[UTIL_PATH_SIZE];
+		struct dirent *dent;
+		char devpath[UTIL_PATH_SIZE];
+		char syspath[UTIL_PATH_SIZE];
+		int len;
 
-		ent = readdir(dir);
-		if (ent == NULL || ent->d_name[0] == '\0')
+		dent = readdir(dir);
+		if (dent == NULL || dent->d_name[0] == '\0')
 			break;
-		if (ent->d_name[0] == '.')
+		if (dent->d_name[0] == '.')
 			continue;
 
-		util_strscpyl(device, sizeof(device), udev_get_sys_path(udev), ent->d_name, NULL);
-		util_path_decode(device);
-		udev_list_entry_add(udev, dev_list, device, NULL, 1, 0);
+		len = readlinkat(dirfd(dir), dent->d_name, devpath, sizeof(devpath));
+		if (len < 0 || (size_t)len >= sizeof(devpath))
+			continue;
+		devpath[len] = '\0';
+		util_strscpyl(syspath, sizeof(syspath), udev_get_sys_path(udev), devpath, NULL);
+		udev_list_entry_add(udev, dev_list, syspath, NULL, 1, 0);
 		count++;
 	}
 	closedir(dir);
@@ -384,7 +385,7 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 
 		info(udev, "update old name, '%s' no longer belonging to '%s'\n",
 		     name, udev_device_get_devpath(dev));
-		name_index(udev, udev_device_get_devpath(dev), name, 0);
+		name_index(dev, name, 0);
 		update_link(dev, name);
 	}
 
@@ -398,7 +399,7 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 
 		if (devnode != NULL && strcmp(devnode_old, devnode) != 0) {
 			info(udev, "node has changed from '%s' to '%s'\n", devnode_old, devnode);
-			name_index(udev, udev_device_get_devpath(dev), devnode_old, 0);
+			name_index(dev, devnode_old, 0);
 			update_link(dev, devnode_old);
 		}
 	}
@@ -441,11 +442,11 @@ int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
 	}
 
 	/* add node to name index */
-	name_index(udev, udev_device_get_devpath(dev), udev_device_get_devnode(dev), 1);
+	name_index(dev, udev_device_get_devnode(dev), 1);
 
 	/* create/update symlinks, add symlinks to name index */
 	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev)) {
-		name_index(udev, udev_device_get_devpath(dev), udev_list_entry_get_name(list_entry), 1);
+		name_index(dev, udev_list_entry_get_name(list_entry), 1);
 		update_link(dev, udev_list_entry_get_name(list_entry));
 	}
 exit:
@@ -463,11 +464,11 @@ int udev_node_remove(struct udev_device *dev)
 	int num;
 
 	/* remove node from name index */
-	name_index(udev, udev_device_get_devpath(dev), udev_device_get_devnode(dev), 0);
+	name_index(dev, udev_device_get_devnode(dev), 0);
 
 	/* remove,update symlinks, remove symlinks from name index */
 	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev)) {
-		name_index(udev, udev_device_get_devpath(dev), udev_list_entry_get_name(list_entry), 0);
+		name_index(dev, udev_list_entry_get_name(list_entry), 0);
 		update_link(dev, udev_list_entry_get_name(list_entry));
 	}
 

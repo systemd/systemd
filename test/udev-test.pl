@@ -819,9 +819,9 @@ EOF
 		subsys		=> "tty",
 		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
 		exp_name	=> "symlink2-ttyACM0",
-		exp_target	=> "ttyACM0",
+		exp_target	=> "ttyACM-0",
 		rules		=> <<EOF
-KERNEL=="ttyACM[0-9]*", NAME="ttyACM%n", SYMLINK="symlink1-%n symlink2-%k symlink3-%b"
+KERNEL=="ttyACM[0-9]*", NAME="ttyACM-%n", SYMLINK="symlink1-%n symlink2-%k symlink3-%b"
 EOF
 	},
 	{
