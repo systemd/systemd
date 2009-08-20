@@ -19,8 +19,7 @@ ENV{DEVTYPE}!="usb_device", GOTO="hid2hci_end"
 # When a Dell device recovers from S3, the mouse child needs to be repoked
 # Unfortunately the only event seen is the BT device disappearing, so the mouse
 # device needs to be chased down on the USB bus.
-ATTR{bDeviceClass}=="e0", ATTR{bDeviceSubClass}=="01", ATTR{bDeviceProtocol}=="01", \
-  ATTR{idVendor}=="413c", ATTR{bmAttributes}=="e0", \
+ATTR{bDeviceClass}=="e0", ATTR{bDeviceSubClass}=="01", ATTR{bDeviceProtocol}=="01", ATTR{idVendor}=="413c", \
   ENV{REMOVE_CMD}="/sbin/udevadm trigger --action=change --subsystem-match=usb --property-match=HID2HCI_SWITCH=1"
 
 # CSR devices
