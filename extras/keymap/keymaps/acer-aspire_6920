@@ -1,0 +1,6 @@
+0xD9 bluetooth # (toggle) on-to-off
+0x92 media
+0x9E back
+0xCA stop # "Hold"
+0x83 rewind
+0x89 fastforward

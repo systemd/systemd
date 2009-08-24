@@ -487,6 +487,7 @@ udevkeymapdir = $(libexecdir)/keymaps
 dist_udevkeymap_DATA = \
 	extras/keymap/keymaps/acer \
 	extras/keymap/keymaps/acer-aspire_5920g \
+	extras/keymap/keymaps/acer-aspire_6920 \
 	extras/keymap/keymaps/acer-travelmate_c300 \
 	extras/keymap/keymaps/asus \
 	extras/keymap/keymaps/compaq-e_evo \
