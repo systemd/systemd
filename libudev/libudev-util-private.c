@@ -135,8 +135,7 @@ uid_t util_lookup_user(struct udev *udev, const char *user)
 	if (endptr[0] == '\0')
 		return uid;
 
-	errno = 0;
-	getpwnam_r(user, &pwbuf, buf, buflen, &pw);
+	errno = getpwnam_r(user, &pwbuf, buf, buflen, &pw);
 	if (pw != NULL)
 		return pw->pw_uid;
 	if (errno == 0 || errno == ENOENT || errno == ESRCH)
@@ -149,7 +148,7 @@ uid_t util_lookup_user(struct udev *udev, const char *user)
 gid_t util_lookup_group(struct udev *udev, const char *group)
 {
 	char *endptr;
-	int buflen;
+	int buflen = sysconf(_SC_GETGR_R_SIZE_MAX);
 	char *buf;
 	struct group grbuf;
 	struct group *gr;
@@ -160,28 +159,23 @@ gid_t util_lookup_group(struct udev *udev, const char *group)
 	gid = strtoul(group, &endptr, 10);
 	if (endptr[0] == '\0')
 		return gid;
-
-	buflen = sysconf(_SC_GETGR_R_SIZE_MAX);
-	if (buflen < 0)
-		buflen = 1000;
 	buf = NULL;
 	gid = 0;
 	for (;;) {
 		buf = realloc(buf, buflen);
 		if (!buf)
 			break;
-		errno = 0;
-		getgrnam_r(group, &grbuf, buf, buflen, &gr);
-		if (gr != NULL)
+		errno = getgrnam_r(group, &grbuf, buf, buflen, &gr);
+		if (gr != NULL) {
 			gid = gr->gr_gid;
-		else if (errno == ERANGE) {
+		} else if (errno == ERANGE) {
 			buflen *= 2;
 			continue;
-		}
-		else if (errno == 0 || errno == ENOENT || errno == ESRCH)
+		} else if (errno == 0 || errno == ENOENT || errno == ESRCH) {
 			err(udev, "specified group '%s' unknown\n", group);
-		else
+		} else {
 			err(udev, "error resolving group '%s': %m\n", group);
+		}
 		break;
 	}
 	free(buf);
