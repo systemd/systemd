@@ -69,7 +69,7 @@ ENV{DMI_VENDOR}=="FUJITSU*", ATTR{[dmi/id]product_name}=="AMILO*M*", RUN+="keyma
 ENV{DMI_VENDOR}=="MEDION*", ATTR{[dmi/id]product_name}=="*FID2060*", RUN+="keymap $name medion-fid2060"
 ENV{DMI_VENDOR}=="MEDIONNB", ATTR{[dmi/id]product_name}=="A555*", RUN+="keymap $name medionnb-a555"
 
-ENV{DMI_VENDOR}=="M[iI][cC][rR][oO]-S[tT][aA][rR]*", RUN+="keymap $name micro-star"
+ENV{DMI_VENDOR}=="MICRO-STAR*", RUN+="keymap $name micro-star"
 
 ENV{DMI_VENDOR}=="INVENTEC", ATTR{[dmi/id]product_name}=="SYMPHONY 6.0/7.0", RUN+="keymap $name inventec-symphony_6.0_7.0"
 
