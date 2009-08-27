@@ -79,7 +79,7 @@ The most recent version of this document can always be found at: <br />
 <li>Testing and debugging
 	<ul>
 	<li><a href="#testing">Putting your rules into action</a></li>
-	<li><a href="#udevtest">udevtest</a></li>
+	<li><a href="#udevtest">udevadm test</a></li>
 	</ul>
 </li>
 <li><a href="#author">Author and contact</a></li>
@@ -843,22 +843,18 @@ Despite this, udev will not automatically reprocess all devices and attempt to a
 </p>
 
 <p>
-To make the symbolic link show up, you can either disconnect and reconnect your camera, or alternatively in the case of non-removable devices, you can run <b>udevtrigger</b>.
-</p>
-
-<p>
-If your kernel does not have inotify support, new rules will not be detected automatically. In this situation, you must run <b>udevcontrol reload_rules</b> after making any rule file modifications for those modifications to take effect.
+To make the symbolic link show up, you can either disconnect and reconnect your camera, or alternatively in the case of non-removable devices, you can run <b>udevadm trigger</b>.
 </p>
 
 <a name="udevtest"></a>
-<h3>udevtest</h3>
+<h3>udevadm test</h3>
 
 <p>
-If you know the top-level device path in sysfs, you can use <b>udevtest</b> to show the actions which udev would take. This may help you debug your rules. For example, assuming you want to debug a rule which acts on <em>/sys/class/sound/dsp</em>:
+If you know the top-level device path in sysfs, you can use <b>udevadm test</b> to show the actions which udev would take. This may help you debug your rules. For example, assuming you want to debug a rule which acts on <em>/sys/class/sound/dsp</em>:
 </p>
 
 <blockquote><pre>
-# udevtest /class/sound/dsp
+# udevadm test /class/sound/dsp
 main: looking at device '/class/sound/dsp' from subsystem 'sound'
 udev_rules_get_name: add symlink 'dsp'
 udev_rules_get_name: rule applied, 'dsp' becomes 'sound/dsp'
@@ -868,7 +864,7 @@ udev_node_add: creating symlink '/dev/dsp' to 'sound/dsp'
 </pre></blockquote>
 
 <p>
-Note the <em>/sys</em> prefix was removed from the udevtest command line argument, this is because udevtest operates on device paths. Also note that udevtest is purely a testing/debugging tool, it does not create any device nodes, despite what the output suggests!
+Note the <em>/sys</em> prefix was removed from the udevadm test test command line argument, this is because udevadm test operates on device paths. Also note that udevadm test is purely a testing/debugging tool, it does not create any device nodes, despite what the output suggests!
 </p>
 
 <a name="author"></a>
