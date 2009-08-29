@@ -154,9 +154,12 @@ gid_t util_lookup_group(struct udev *udev, const char *group)
 	buf = NULL;
 	gid = 0;
 	for (;;) {
-		buf = realloc(buf, buflen);
-		if (!buf)
+		char *newbuf;
+
+		newbuf = realloc(buf, buflen);
+		if (!newbuf)
 			break;
+		buf = newbuf;
 		errno = getgrnam_r(group, &grbuf, buf, buflen, &gr);
 		if (gr != NULL) {
 			gid = gr->gr_gid;
