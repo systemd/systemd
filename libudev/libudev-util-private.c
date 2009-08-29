@@ -64,6 +64,9 @@ int util_delete_path(struct udev *udev, const char *path)
 	char *pos;
 	int retval;
 
+	if (path[0] == '/')
+		while(path[1] == '/')
+			path++;
 	util_strscpy(p, sizeof(p), path);
 	pos = strrchr(p, '/');
 	if (pos == p || pos == NULL)
