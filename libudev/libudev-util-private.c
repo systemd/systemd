@@ -30,7 +30,7 @@ int util_create_path(struct udev *udev, const char *path)
 	char p[UTIL_PATH_SIZE];
 	char *pos;
 	struct stat stats;
-	int ret;
+	int err;
 
 	util_strscpy(p, sizeof(p), path);
 	pos = strrchr(p, '/');
@@ -50,15 +50,12 @@ int util_create_path(struct udev *udev, const char *path)
 
 	dbg(udev, "mkdir '%s'\n", p);
 	udev_selinux_setfscreatecon(udev, p, S_IFDIR|0755);
-	ret = mkdir(p, 0755);
-	udev_selinux_resetfscreatecon(udev);
-	if (ret == 0)
-		return 0;
-
-	if (errno == EEXIST)
+	err = mkdir(p, 0755);
+	if (err != 0 && errno == EEXIST)
 		if (stat(p, &stats) == 0 && (stats.st_mode & S_IFMT) == S_IFDIR)
-			return 0;
-	return -1;
+			err = 0;
+	udev_selinux_resetfscreatecon(udev);
+	return err;
 }
 
 int util_delete_path(struct udev *udev, const char *path)
