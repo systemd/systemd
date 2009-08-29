@@ -100,24 +100,16 @@ int util_delete_path(struct udev *udev, const char *path)
  */
 int util_unlink_secure(struct udev *udev, const char *filename)
 {
-	int retval;
+	int err;
 
-	retval = chown(filename, 0, 0);
-	if (retval)
-		err(udev, "chown(%s, 0, 0) failed: %m\n", filename);
-
-	retval = chmod(filename, 0000);
-	if (retval)
-		err(udev, "chmod(%s, 0000) failed: %m\n", filename);
-
-	retval = unlink(filename);
+	chmod(filename, 0000);
+	chown(filename, 0, 0);
+	err = unlink(filename);
 	if (errno == ENOENT)
-		retval = 0;
-
-	if (retval)
+		err = 0;
+	if (err)
 		err(udev, "unlink(%s) failed: %m\n", filename);
-
-	return retval;
+	return err;
 }
 
 uid_t util_lookup_user(struct udev *udev, const char *user)
