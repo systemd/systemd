@@ -34,11 +34,12 @@ int util_create_path(struct udev *udev, const char *path)
 
 	util_strscpy(p, sizeof(p), path);
 	pos = strrchr(p, '/');
-	if (pos == p || pos == NULL)
+	if (pos == NULL)
 		return 0;
-
-	while (pos[-1] == '/')
+	while (pos != p && pos[-1] == '/')
 		pos--;
+	if (pos == p)
+		return 0;
 	pos[0] = '\0';
 
 	dbg(udev, "stat '%s'\n", p);
