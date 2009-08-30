@@ -121,6 +121,7 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 	if (wd < 0) {
 		err(udev, "inotify_add_watch(%d, %s, %o) failed: %m\n",
 		    inotify_fd, udev_device_get_devnode(dev), IN_CLOSE_WRITE);
+		return;
 	}
 
 	snprintf(filename, sizeof(filename), "%s/.udev/watch/%d", udev_get_dev_path(udev), wd);
