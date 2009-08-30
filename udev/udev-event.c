@@ -23,9 +23,10 @@
 #include <errno.h>
 #include <ctype.h>
 #include <string.h>
+#include <time.h>
+#include <net/if.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
-#include <net/if.h>
 #include <linux/sockios.h>
 
 #include "udev.h"
@@ -505,6 +506,8 @@ static int rename_netif(struct udev_event *event)
 		util_strscpy(ifr.ifr_newname, IFNAMSIZ, event->name);
 		loop = 90 * 20;
 		while (loop--) {
+			const struct timespec duration = { 0, 1000 * 1000 * 1000 / 20 };
+
 			err = ioctl(sk, SIOCSIFNAME, &ifr);
 			if (err == 0) {
 				rename_netif_kernel_log(ifr);
@@ -518,7 +521,7 @@ static int rename_netif(struct udev_event *event)
 			}
 			dbg(event->udev, "wait for netif '%s' to become free, loop=%i\n",
 			    event->name, (90 * 20) - loop);
-			usleep(1000 * 1000 / 20);
+			nanosleep(&duration, NULL);
 		}
 	}
 exit:

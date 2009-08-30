@@ -28,6 +28,7 @@
 #include <syslog.h>
 #include <getopt.h>
 #include <signal.h>
+#include <time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -180,6 +181,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 
 	while (1) {
 		struct stat statbuf;
+		const struct timespec duration = { 0 , 1000 * 1000 * 1000 / LOOP_PER_SECOND };
 
 		if (exists != NULL && stat(exists, &statbuf) == 0) {
 			rc = 0;
@@ -203,7 +205,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 		if (is_timeout)
 			break;
 
-		usleep(1000 * 1000 / LOOP_PER_SECOND);
+		nanosleep(&duration, NULL);
 	}
 
 	/* if we reached the timeout, print the list of remaining events */

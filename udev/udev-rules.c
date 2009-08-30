@@ -27,6 +27,7 @@
 #include <errno.h>
 #include <dirent.h>
 #include <fnmatch.h>
+#include <time.h>
 
 #include "udev.h"
 
@@ -814,6 +815,8 @@ static int wait_for_file(struct udev_device *dev, const char *file, int timeout)
 
 	dbg(udev, "will wait %i sec for '%s'\n", timeout, file);
 	while (--loop) {
+		const struct timespec duration = { 0, 1000 * 1000 * 1000 / WAIT_LOOP_PER_SECOND };
+
 		/* lookup file */
 		if (stat(file, &stats) == 0) {
 			info(udev, "file '%s' appeared after %i loops\n", file, (timeout * WAIT_LOOP_PER_SECOND) - loop-1);
@@ -825,7 +828,7 @@ static int wait_for_file(struct udev_device *dev, const char *file, int timeout)
 			return -2;
 		}
 		info(udev, "wait for '%s' for %i mseconds\n", file, 1000 / WAIT_LOOP_PER_SECOND);
-		usleep(1000 * 1000 / WAIT_LOOP_PER_SECOND);
+		nanosleep(&duration, NULL);
 	}
 	info(udev, "waiting for '%s' failed\n", file);
 	return -1;

@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <syslog.h>
+#include <time.h>
 #include <inttypes.h>
 #include <scsi/scsi.h>
 #include <scsi/sg.h>
@@ -846,13 +847,15 @@ int scsi_get_serial(struct udev *udev,
 	memset(dev_scsi->serial, 0, len);
 	dbg(udev, "opening %s\n", devname);
 	while (--cnt) {
+		const struct timespec duration = { 0, 500 * 1000 * 1000 };
+
 		fd = open(devname, O_RDONLY | O_NONBLOCK);
 		if (fd >= 0)
 			break;
 		info(udev, "%s: cannot open %s: %s\n", dev_scsi->kernel, devname, strerror(errno));
 		if (errno != EBUSY)
 			break;
-		usleep(500000 + (rand() % 100000) );
+		nanosleep(&duration, NULL);
 	}
 	if (fd < 0)
 		return 1;
