@@ -7,11 +7,11 @@
      /dev/.udev/names/ significantly. Also exclude "*/MAJ:MIN" link names
      from the name stack, they can not conflict.
   o remove most NAME= rules (they are provided by the 2.6.31 kernel)
-  o get rid of braindead "scan all devices to find myself" libusb interface
-      if it can not be fixed, drop libusb entirely
   o convert firmware.sh to C
-
   o symlink names to udevadm will no longer be resolved to old command names
   o "udevadm control" commands will only accept the --<command> syntax
+  o get rid of braindead "scan all devices to find myself" libusb interface
+      if it can not be fixed, drop libusb entirely
+  o remove copy of bsg.h
   o drop all support for the DEPRECATED sysfs layout
   o add warning for BUS, SYSFS, ID
