@@ -56,13 +56,13 @@ int util_resolve_sys_link(struct udev *udev, char *syspath, size_t size)
 {
 	char link_target[UTIL_PATH_SIZE];
 
-	int len;
+	ssize_t len;
 	int i;
 	int back;
 	char *base;
 
 	len = readlink(syspath, link_target, sizeof(link_target));
-	if (len <= 0)
+	if (len <= 0 || len == (ssize_t)sizeof(link_target))
 		return -1;
 	link_target[len] = '\0';
 	dbg(udev, "path link '%s' points to '%s'\n", syspath, link_target);
