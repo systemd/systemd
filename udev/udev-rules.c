@@ -878,7 +878,7 @@ static int get_key(struct udev *udev, char **line, char **key, enum operation_ty
 	char *temp;
 
 	linepos = *line;
-	if (linepos == NULL && linepos[0] == '\0')
+	if (linepos == NULL || linepos[0] == '\0')
 		return -1;
 
 	/* skip whitespace */
