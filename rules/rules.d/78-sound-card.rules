@@ -51,7 +51,7 @@ LABEL="skip_pci"
 ENV{ID_SERIAL}=="?*", ENV{ID_IFACE}=="?*", ENV{ID_ID}="$env{ID_BUS}-$env{ID_SERIAL}-$env{ID_IFACE}"
 ENV{ID_SERIAL}=="?*", ENV{ID_IFACE}=="", ENV{ID_ID}="$env{ID_BUS}-$env{ID_SERIAL}"
 
-ENV{ID_PATH}=="", IMPORT{program}="/usr/bin/env -i /lib/udev/path_id %p/controlC%n"
+ENV{ID_PATH}=="", IMPORT{program}="path_id %p/controlC%n"
 
 # The values used here for $SOUND_FORM_FACTOR and $SOUND_CLASS should be kept
 # in sync with those defined for PulseAudio's src/pulse/proplist.h
