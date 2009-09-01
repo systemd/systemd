@@ -31,7 +31,7 @@ static ssize_t get_sys_link(struct udev *udev, const char *slink, const char *sy
 
 	util_strscpyl(path, sizeof(path), syspath, "/", slink, NULL);
 	len = readlink(path, path, sizeof(path));
-	if (len < 0 || len >= (ssize_t) sizeof(path))
+	if (len <= 0 || len == (ssize_t)sizeof(path))
 		return -1;
 	path[len] = '\0';
 	pos = strrchr(path, '/');
