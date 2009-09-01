@@ -439,7 +439,7 @@ libexec_PROGRAMS += extras/usb-db/usb-db
 # pci-db - read PCI vendor/device string database
 # ------------------------------------------------------------------------------
 extras_usb_db_pci_db_SOURCES = extras/usb-db/usb-db.c
-extras_usb_db_pci_db_CPPFLAGS = $(AM_CPPFLAGS) -DPCI_DATABASE=\"$(USB_DATABASE)\" -DBUILD_FOR_PCI
+extras_usb_db_pci_db_CPPFLAGS = $(AM_CPPFLAGS) -DPCI_DATABASE=\"$(PCI_DATABASE)\" -DBUILD_FOR_PCI
 extras_usb_db_pci_db_LDADD = libudev/libudev-private.la
 libexec_PROGRAMS += extras/usb-db/pci-db
 
