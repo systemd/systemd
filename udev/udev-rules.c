@@ -1599,6 +1599,8 @@ static int parse_file(struct udev_rules *rules, const char *filename, unsigned s
 		while (line[len-2] == '\\') {
 			if (fgets(&line[len-2], (sizeof(line)-len)+2, f) == NULL)
 				break;
+			if (strlen(&line[len-2]) < 2)
+				break;
 			line_nr++;
 			len = strlen(line);
 		}
