@@ -722,7 +722,7 @@ exit:
 	return err;
 }
 
-int udev_event_execute_run(struct udev_event *event)
+int udev_event_execute_run(struct udev_event *event, const sigset_t *sigmask)
 {
 	struct udev_list_entry *list_entry;
 	int err = 0;
@@ -745,7 +745,7 @@ int udev_event_execute_run(struct udev_event *event)
 
 			udev_event_apply_format(event, cmd, program, sizeof(program));
 			envp = udev_device_get_properties_envp(event->dev);
-			if (util_run_program(event->udev, program, envp, NULL, 0, NULL) != 0) {
+			if (util_run_program(event->udev, program, envp, NULL, 0, NULL, sigmask) != 0) {
 				if (udev_list_entry_get_flag(list_entry))
 					err = -1;
 			}

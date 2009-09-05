@@ -242,7 +242,8 @@ int util_resolve_subsys_kernel(struct udev *udev, const char *string,
 }
 
 int util_run_program(struct udev *udev, const char *command, char **envp,
-		     char *result, size_t ressize, size_t *reslen)
+		     char *result, size_t ressize, size_t *reslen,
+		     const sigset_t *sigmask)
 {
 	int status;
 	int outpipe[2] = {-1, -1};
@@ -330,6 +331,10 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 			dup2(errpipe[WRITE_END], STDERR_FILENO);
 			close(errpipe[WRITE_END]);
 		}
+
+		if (sigmask)
+			sigprocmask(SIG_BLOCK, sigmask, NULL);
+
 		execve(argv[0], argv, envp);
 		if (errno == ENOENT || errno == ENOTDIR) {
 			/* may be on a filesystem which is not mounted right now */

@@ -79,6 +79,7 @@ static bool stop_exec_queue;
 static bool reload_config;
 static int max_childs;
 static int childs;
+static sigset_t orig_sigmask;
 static struct udev_list_node event_list;
 static struct udev_list_node worker_list;
 static bool udev_exit;
@@ -292,7 +293,8 @@ static void worker_new(struct event *event)
 
 			/* execute RUN= */
 			if (err == 0 && !udev_event->ignore_device && udev_get_run(udev_event->udev))
-				failed = udev_event_execute_run(udev_event);
+				failed = udev_event_execute_run(udev_event,
+								&orig_sigmask);
 
 			/* reset alarm */
 			alarm(0);
@@ -926,7 +928,7 @@ int main(int argc, char *argv[])
 
 	/* block and listen to all signals on signalfd */
 	sigfillset(&mask);
-	sigprocmask(SIG_SETMASK, &mask, NULL);
+	sigprocmask(SIG_SETMASK, &mask, &orig_sigmask);
 	pfd[FD_SIGNAL].fd = signalfd(-1, &mask, 0);
 	if (pfd[FD_SIGNAL].fd < 0) {
 		fprintf(stderr, "error getting signalfd\n");

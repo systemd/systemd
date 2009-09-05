@@ -103,7 +103,7 @@ int main(int argc, char *argv[])
 		alarm(udev_device_get_event_timeout(dev));
 
 	if (err == 0 && !event->ignore_device && udev_get_run(udev))
-		udev_event_execute_run(event);
+		udev_event_execute_run(event, NULL);
 
 	udev_event_unref(event);
 	udev_device_unref(dev);
