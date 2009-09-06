@@ -1568,6 +1568,7 @@ invalid:
 static int parse_file(struct udev_rules *rules, const char *filename, unsigned short filename_off)
 {
 	FILE *f;
+	unsigned int first_token;
 	char line[UTIL_LINE_SIZE];
 	int line_nr = 0;
 	unsigned int i;
@@ -1577,7 +1578,10 @@ static int parse_file(struct udev_rules *rules, const char *filename, unsigned s
 	f = fopen(filename, "r");
 	if (f == NULL)
 		return -1;
-	while (fgets(line, sizeof(line), f) != NULL) {
+
+	first_token = rules->token_cur;
+
+	while(fgets(line, sizeof(line), f) != NULL) {
 		char *key;
 		size_t len;
 
@@ -1614,7 +1618,7 @@ static int parse_file(struct udev_rules *rules, const char *filename, unsigned s
 	fclose(f);
 
 	/* link GOTOs to LABEL rules in this file to be able to fast-forward */
-	for (i = rules->token_cur+1; i < rules->token_cur; i++) {
+	for (i = first_token+1; i < rules->token_cur; i++) {
 		if (rules->tokens[i].type == TK_A_GOTO) {
 			char *label = &rules->buf[rules->tokens[i].key.value_off];
 			unsigned int j;
