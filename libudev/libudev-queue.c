@@ -360,10 +360,14 @@ int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_queue,
 		return 1;
 	if (start < seqnum)
 		start = seqnum;
-	if (start > end)
+	if (start > end) {
+		fclose(queue_file);
 		return 1;
-	if (end - start > INT_MAX - 1)
+	}
+	if (end - start > INT_MAX - 1) {
+		fclose(queue_file);
 		return -EOVERFLOW;
+	}
 	unfinished = (end - start) + 1;
 
 	while (unfinished > 0) {
