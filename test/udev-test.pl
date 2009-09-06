@@ -1524,8 +1524,9 @@ KERNEL=="sda1", GOTO="TEST"
 KERNEL=="sda1", NAME="wrong"
 KERNEL=="sda1", GOTO="BAD"
 KERNEL=="sda1", NAME="", LABEL="NO"
-KERNEL=="sda1", NAME="right", LABEL="TEST"
-KERNEL=="sda1", LABEL="BAD"
+KERNEL=="sda1", NAME="right", LABEL="TEST", GOTO="end"
+KERNEL=="sda1", NAME="wrong2", LABEL="BAD"
+LABEL="end"
 EOF
 	},
 	{
