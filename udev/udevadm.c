@@ -131,7 +131,6 @@ int main(int argc, char *argv[])
 	};
 	const char *command;
 	int i;
-	const char *pos;
 	int rc = 1;
 
 	udev = udev_new();
@@ -141,36 +140,6 @@ int main(int argc, char *argv[])
 	udev_log_init("udevadm");
 	udev_set_log_fn(udev, log_fn);
 	udev_selinux_init(udev);
-
-	/* see if we are a compat link, this will be removed in a future release */
-	command = argv[0];
-	pos = strrchr(command, '/');
-	if (pos != NULL)
-		command = &pos[1];
-
-	/* the trailing part of the binary or link name is the command */
-	if (strncmp(command, "udev", 4) == 0)
-		command = &command[4];
-
-	for (i = 0; cmds[i].cmd != NULL; i++) {
-		if (strcmp(cmds[i].name, command) == 0) {
-			char path[128];
-			char prog[512];
-			ssize_t len;
-
-			snprintf(path, sizeof(path), "/proc/%lu/exe", (unsigned long) getppid());
-			len = readlink(path, prog, sizeof(prog));
-			if (len > 0) {
-				prog[len] = '\0';
-				fprintf(stderr, "the program '%s' called '%s', it should use 'udevadm %s <options>', "
-				       "this will stop working in a future release\n", prog, argv[0], command);
-				err(udev, "the program '%s' called '%s', it should use 'udevadm %s <options>', "
-				    "this will stop working in a future release\n", prog, argv[0], command);
-			}
-			rc = run_command(udev, &cmds[i], argc, argv);
-			goto out;
-		}
-	}
 
 	while (1) {
 		int option;
