@@ -269,10 +269,14 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 				/* do not separate quotes */
 				pos++;
 				argv[i] = strsep(&pos, "\'");
-				while (pos != NULL && pos[0] == ' ')
-					pos++;
+				if (pos != NULL)
+					while (pos[0] == ' ')
+						pos++;
 			} else {
 				argv[i] = strsep(&pos, " ");
+				if (pos != NULL)
+					while (pos[0] == ' ')
+						pos++;
 			}
 			dbg(udev, "arg[%i] '%s'\n", i, argv[i]);
 			i++;
