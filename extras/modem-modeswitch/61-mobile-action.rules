@@ -1,6 +1,6 @@
 ACTION!="add", GOTO="mobile_action_end"
 
-SUBSYSTEM=="usb", ATTR{bDeviceClass}=="ff", ATTR{bDeviceSubClass}=="ff", ENV{DEVTYPE}=="usb_device", GOTO="mobile_action_switch"
+SUBSYSTEM=="usb", ATTR{bDeviceClass}=="00|ff", ATTR{bDeviceSubClass}=="00|ff", ENV{DEVTYPE}=="usb_device", GOTO="mobile_action_switch"
 GOTO="mobile_action_end"
 
 LABEL="mobile_action_switch"
