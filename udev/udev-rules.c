@@ -1581,7 +1581,7 @@ static int parse_file(struct udev_rules *rules, const char *filename, unsigned s
 
 	first_token = rules->token_cur;
 
-	while(fgets(line, sizeof(line), f) != NULL) {
+	while (fgets(line, sizeof(line), f) != NULL) {
 		char *key;
 		size_t len;
 
