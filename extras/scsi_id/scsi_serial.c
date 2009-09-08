@@ -170,7 +170,6 @@ static int scsi_dump_sense(struct udev *udev,
 	int code;
 	int sense_class;
 	int sense_key;
-	int descriptor_format;
 	int asc, ascq;
 #ifdef DUMP_SENSE
 	char out_buffer[256];
@@ -210,7 +209,6 @@ static int scsi_dump_sense(struct udev *udev,
 			return -1;
 		}
 		if ((code == 0x0) || (code == 0x1)) {
-			descriptor_format = 0;
 			sense_key = sense_buffer[2] & 0xf;
 			if (s < 14) {
 				/*
@@ -223,7 +221,6 @@ static int scsi_dump_sense(struct udev *udev,
 			asc = sense_buffer[12];
 			ascq = sense_buffer[13];
 		} else if ((code == 0x2) || (code == 0x3)) {
-			descriptor_format = 1;
 			sense_key = sense_buffer[1] & 0xf;
 			asc = sense_buffer[2];
 			ascq = sense_buffer[3];

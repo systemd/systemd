@@ -559,7 +559,7 @@ static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate,
 	if (subdir1 != NULL)
 		l = util_strpcpyl(&s, l, "/", subdir1, NULL);
 	if (subdir2 != NULL)
-		l = util_strpcpyl(&s, l, "/", subdir2, NULL);
+		util_strpcpyl(&s, l, "/", subdir2, NULL);
 	dir = opendir(path);
 	if (dir == NULL)
 		return -1;

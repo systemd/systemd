@@ -60,7 +60,7 @@ static void print_all_attributes(struct udev_device *device, const char *key)
 			value = udev_device_get_sysattr_value(device, dent->d_name);
 			if (value == NULL)
 				continue;
-			dbg(udev, "attr '%s'='%s'(%zi)\n", dent->d_name, value, len);
+			dbg(udev, "attr '%s'='%s'\n", dent->d_name, value);
 
 			/* skip nonprintable attributes */
 			len = strlen(value);

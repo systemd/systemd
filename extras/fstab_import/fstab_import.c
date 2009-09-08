@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
 				pos[0] = '\0';
 				label = str;
 			}
-			if (matches_device_list(udev, devices, str)) {
+			if (matches_device_list(udev, devices, label)) {
 				print_fstab_entry(udev, mnt);
 				rc = 0;
 				break;
@@ -176,7 +176,7 @@ int main(int argc, char *argv[])
 				pos[0] = '\0';
 				uuid = str;
 			}
-			if (matches_device_list(udev, devices, str)) {
+			if (matches_device_list(udev, devices, uuid)) {
 				print_fstab_entry(udev, mnt);
 				rc = 0;
 				break;

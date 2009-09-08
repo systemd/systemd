@@ -331,8 +331,8 @@ static void everybody(void)
 		case STATE_CONFIRMED:
 			state = "confirmed";
 			break;
-		fprintf(stderr, "ID: %s=%s\n", him->name, state);
 		}
+		fprintf(stderr, "ID: %s=%s\n", him->name, state);
 	}
 }
 

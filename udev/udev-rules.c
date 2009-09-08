@@ -1127,7 +1127,7 @@ static int sort_token(struct udev_rules *rules, struct rule_tmp *rule_tmp)
 
 	for (i = 0; i < rule_tmp->token_cur; i++) {
 		enum token_type next_val = TK_UNSET;
-		unsigned int next_idx;
+		unsigned int next_idx = 0;
 		unsigned int j;
 
 		/* find smallest value */
