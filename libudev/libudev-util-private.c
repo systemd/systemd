@@ -251,7 +251,7 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 	pid_t pid;
 	char arg[UTIL_PATH_SIZE];
 	char program[UTIL_PATH_SIZE];
-	char *argv[(sizeof(arg) / 2) + 1];
+	char *argv[((sizeof(arg) + 1) / 2) + 1];
 	int devnull;
 	int i;
 	int err = 0;
