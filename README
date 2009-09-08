@@ -12,7 +12,7 @@ by udevadm and libudev. Tools and rules in /lib/udev, and the entire content of
 the /dev/.udev directory is private to udev and does change whenever needed.
 
 Requirements:
-  - Version 2.6.25 of the Linux kernel with sysfs, procfs, signalfd, inotify,
+  - Version 2.6.27 of the Linux kernel with sysfs, procfs, signalfd, inotify,
     unix domain sockets, networking and hotplug enabled:
       CONFIG_HOTPLUG=y
       CONFIG_UEVENT_HELPER_PATH=""
@@ -22,7 +22,7 @@ Requirements:
       CONFIG_SYSFS_DEPRECATED*=n
       CONFIG_PROC_FS=y
       CONFIG_TMPFS=y
-      CONFIG_INOTIFY=y
+      CONFIG_INOTIFY_USER=y
       CONFIG_SIGNALFD=y
       CONFIG_TMPFS_POSIX_ACL=y (user ACLs for device nodes)
       CONFIG_BLK_DEV_BSG=y (SCSI devices)
