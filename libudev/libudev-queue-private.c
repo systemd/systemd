@@ -407,10 +407,8 @@ static void update_failed(struct udev_queue_export *udev_queue_export,
 	switch (state) {
 	case DEVICE_FAILED:
 		/* record event in the failed directory */
-		if (udev_queue_export->failed_count == 0)
-			util_create_path(udev, filename);
 		udev_queue_export->failed_count++;
-
+		util_create_path(udev, filename);
 		udev_selinux_setfscreatecon(udev, filename, S_IFLNK);
 		symlink(udev_device_get_devpath(udev_device), filename);
 		udev_selinux_resetfscreatecon(udev);

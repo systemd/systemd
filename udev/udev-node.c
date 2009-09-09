@@ -77,6 +77,7 @@ int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mod
 		}
 	} else {
 		info(udev, "mknod(%s, %#o, (%u,%u))\n", file, mode, major(devnum), minor(devnum));
+		util_create_path(udev, file);
 		udev_selinux_setfscreatecon(udev, file, mode);
 		err = mknod(file, mode, devnum);
 		udev_selinux_resetfscreatecon(udev);
@@ -174,6 +175,7 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 		}
 	} else {
 		info(udev, "creating symlink '%s' to '%s'\n", slink, target);
+		util_create_path(udev, slink);
 		udev_selinux_setfscreatecon(udev, slink, S_IFLNK);
 		err = symlink(target, slink);
 		udev_selinux_resetfscreatecon(udev);
@@ -184,6 +186,7 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 	info(udev, "atomically replace '%s'\n", slink);
 	util_strscpyl(slink_tmp, sizeof(slink_tmp), slink, TMP_FILE_EXT, NULL);
 	unlink(slink_tmp);
+	util_create_path(udev, slink);
 	udev_selinux_setfscreatecon(udev, slink, S_IFLNK);
 	err = symlink(target, slink_tmp);
 	udev_selinux_resetfscreatecon(udev);
@@ -293,7 +296,6 @@ static void link_update(struct udev_device *dev, const char *slink, bool add)
 		unlink(slink);
 		util_delete_path(udev, slink);
 	} else {
-		util_create_path(udev, slink);
 		info(udev, "creating link '%s' to '%s'\n", slink, target);
 		node_symlink(udev, target, slink);
 	}
@@ -348,7 +350,6 @@ int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
 	     major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)),
 	     mode, uid, gid);
 
-	util_create_path(udev, udev_device_get_devnode(dev));
 	if (udev_node_mknod(dev, NULL, makedev(0,0), mode, uid, gid) != 0) {
 		err = -1;
 		goto exit;
@@ -373,13 +374,11 @@ int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
 
 	/* create/update symlinks, add symlinks to name index */
 	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev)) {
-		if (udev_list_entry_get_flag(list_entry)) {
+		if (udev_list_entry_get_flag(list_entry))
 			/* simple unmanaged link name */
-			util_create_path(udev, udev_list_entry_get_name(list_entry));
 			node_symlink(udev, udev_device_get_devnode(dev), udev_list_entry_get_name(list_entry));
-		} else {
+		else
 			link_update(dev, udev_list_entry_get_name(list_entry), 1);
-		}
 	}
 exit:
 	return err;
