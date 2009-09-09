@@ -628,12 +628,12 @@ retry:
 			next = strchr(slink, ' ');
 			while (next != NULL) {
 				next[0] = '\0';
-				udev_device_add_devlink(udev_device, slink);
+				udev_device_add_devlink(udev_device, slink, 0);
 				slink = &next[1];
 				next = strchr(slink, ' ');
 			}
 			if (slink[0] != '\0')
-				udev_device_add_devlink(udev_device, slink);
+				udev_device_add_devlink(udev_device, slink, 0);
 		} else if (strncmp(key, "DRIVER=", 7) == 0) {
 			udev_device_set_driver(udev_device, &key[7]);
 		} else if (strncmp(key, "ACTION=", 7) == 0) {

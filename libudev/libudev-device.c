@@ -123,7 +123,7 @@ int udev_device_read_db(struct udev_device *udev_device)
 				next = &next[1];
 			}
 			util_strscpyl(devlink, sizeof(devlink), udev_get_dev_path(udev_device->udev), "/", lnk, NULL);
-			udev_device_add_devlink(udev_device, devlink);
+			udev_device_add_devlink(udev_device, devlink, 0);
 		}
 		info(udev_device->udev, "device %p filled with db symlink data '%s'\n", udev_device, udev_device->devnode);
 		return 0;
@@ -150,7 +150,7 @@ int udev_device_read_db(struct udev_device *udev_device)
 			break;
 		case 'S':
 			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev_device->udev), "/", val, NULL);
-			udev_device_add_devlink(udev_device, filename);
+			udev_device_add_devlink(udev_device, filename, 0);
 			break;
 		case 'L':
 			udev_device_set_devlink_priority(udev_device, atoi(val));
@@ -1118,11 +1118,16 @@ int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode
 	return 0;
 }
 
-int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink)
+int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink, int unique)
 {
+	struct udev_list_entry *list_entry;
+
 	udev_device->devlinks_uptodate = 0;
-	if (udev_list_entry_add(udev_device->udev, &udev_device->devlinks_list, devlink, NULL, 1, 0) == NULL)
+	list_entry = udev_list_entry_add(udev_device->udev, &udev_device->devlinks_list, devlink, NULL, 1, 0);
+	if (list_entry == NULL)
 		return -ENOMEM;
+	if (unique)
+		udev_list_entry_set_flag(list_entry, 1);
 	return 0;
 }
 

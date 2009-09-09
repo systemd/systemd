@@ -9,6 +9,10 @@ Please do not port anything to the new format again, everything in /dev/.udev
 is and always was private to udev, and may and will change any time without
 prior notice.
 
+Multiple devices claiming the same names in /dev are limited to symlinks
+only now. Mixing identical symlink names and node names is not supported.
+This reduces the amount of data in the database significantly.
+
 NAME="%k" causes a warning now. It's is and always was completely superfluous.
 It will break kernel supplied DEVNAMEs and therefore it needs to be removed
 from all rules.

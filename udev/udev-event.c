@@ -688,9 +688,9 @@ exit_add:
 			char devnode[UTIL_PATH_SIZE];
 
 			info(event->udev, "'%s' not found in database, using kernel name '%s'\n",
-			     udev_device_get_syspath(dev), udev_device_get_sysname(dev));
+			     udev_device_get_syspath(dev), udev_device_get_knodename(dev));
 			util_strscpyl(devnode, sizeof(devnode),
-				      udev_get_dev_path(event->udev), "/", udev_device_get_sysname(dev), NULL);
+				      udev_get_dev_path(event->udev), "/", udev_device_get_knodename(dev), NULL);
 			udev_device_set_devnode(dev, devnode);
 		}
 

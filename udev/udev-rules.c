@@ -190,7 +190,8 @@ struct token {
 			unsigned int value_off;
 			union {
 				unsigned int attr_off;
-				int ignore_error;
+				int devlink_unique;
+				int fail_on_error;
 				unsigned int rule_goto;
 				mode_t  mode;
 				uid_t uid;
@@ -1011,7 +1012,6 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 	case TK_A_GROUP:
 	case TK_A_MODE:
 	case TK_A_NAME:
-	case TK_A_DEVLINK:
 	case TK_A_GOTO:
 		token->key.value_off = add_string(rule_tmp->rules, value);
 		break;
@@ -1023,6 +1023,10 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 		attr = data;
 		token->key.value_off = add_string(rule_tmp->rules, value);
 		token->key.attr_off = add_string(rule_tmp->rules, attr);
+		break;
+	case TK_A_DEVLINK:
+		token->key.value_off = add_string(rule_tmp->rules, value);
+		token->key.devlink_unique = *(int *)data;
 		break;
 	case TK_M_TEST:
 		token->key.value_off = add_string(rule_tmp->rules, value);
@@ -1037,7 +1041,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 		break;
 	case TK_A_RUN:
 		token->key.value_off = add_string(rule_tmp->rules, value);
-		token->key.ignore_error = *(int *)data;
+		token->key.fail_on_error = *(int *)data;
 		break;
 	case TK_A_INOTIFY_WATCH:
 	case TK_A_NUM_FAKE_PART:
@@ -1432,10 +1436,16 @@ static int add_rule(struct udev_rules *rules, char *line,
 		}
 
 		if (strcmp(key, "SYMLINK") == 0) {
-			if (op < OP_MATCH_MAX)
+			if (op < OP_MATCH_MAX) {
 				rule_add_key(&rule_tmp, TK_M_DEVLINK, op, value, NULL);
-			else
-				rule_add_key(&rule_tmp, TK_A_DEVLINK, op, value, NULL);
+			} else {
+				int flag = 0;
+
+				attr = get_key_attribute(rules->udev, key + sizeof("SYMLINK")-1);
+				if (attr != NULL && strstr(attr, "unique") != NULL)
+					flag = 1;
+				rule_add_key(&rule_tmp, TK_A_DEVLINK, op, value, &flag);
+			}
 			rule_tmp.rule.rule.flags = 1;
 			continue;
 		}
@@ -2445,26 +2455,22 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				while (isspace(pos[0]))
 					pos++;
 				next = strchr(pos, ' ');
-				while (next) {
+				while (next != NULL) {
 					next[0] = '\0';
-					info(event->udev, "LINK '%s' %s:%u\n",
-					     pos,
-					     &rules->buf[rule->rule.filename_off],
-					     rule->rule.filename_line);
+					info(event->udev, "LINK '%s' %s:%u\n", pos,
+					     &rules->buf[rule->rule.filename_off], rule->rule.filename_line);
 					util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/", pos, NULL);
-					udev_device_add_devlink(event->dev, filename);
+					udev_device_add_devlink(event->dev, filename, cur->key.devlink_unique);
 					while (isspace(next[1]))
 						next++;
 					pos = &next[1];
 					next = strchr(pos, ' ');
 				}
 				if (pos[0] != '\0') {
-					info(event->udev, "LINK '%s' %s:%u\n",
-					     pos,
-					     &rules->buf[rule->rule.filename_off],
-					     rule->rule.filename_line);
+					info(event->udev, "LINK '%s' %s:%u\n", pos,
+					     &rules->buf[rule->rule.filename_off], rule->rule.filename_line);
 					util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/", pos, NULL);
-					udev_device_add_devlink(event->dev, filename);
+					udev_device_add_devlink(event->dev, filename, cur->key.devlink_unique);
 				}
 			}
 			break;
@@ -2511,7 +2517,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				     rule->rule.filename_line);
 				list_entry = udev_list_entry_add(event->udev, &event->run_list,
 								 &rules->buf[cur->key.value_off], NULL, 1, 0);
-				if (cur->key.ignore_error)
+				if (cur->key.fail_on_error)
 					udev_list_entry_set_flag(list_entry, 1);
 				break;
 			}

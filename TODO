@@ -1,11 +1,4 @@
 
-  o drop support for node names in name stack, support only symlinks
-     With well defined and kernel-supplied node names, we no longer need
-     to support a possible stack of conflicting symlinks and node names.
-     From there on, only symlinks with identical names can be claimed
-     by multiple devices. It will simplify the logic a lot and shrink
-     /dev/.udev/names/ significantly. Also exclude "*/MAJ:MIN" link names
-     from the name stack, they can not conflict.
   o remove most NAME= rules (they are provided by the 2.6.31 kernel)
   o convert firmware.sh to C
   o "udevadm control" commands will only accept the --<command> syntax
