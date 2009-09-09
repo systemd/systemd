@@ -2,4 +2,4 @@
 0x68 up
 0x69 down
 0x6B fn
-0x6C screenlock # FIXME: lock tablet device/buttons
+0x6C coffee # FIXME: lock tablet device/buttons

@@ -23,5 +23,5 @@
 0x9B switchvideomode # Display Toggle button
 0xA2 playpause # Front panel play/pause
 0xA4 stopcd # Front panel stop
-0xD8 screenlock # FIXME: Tablet lock button
+0xD8 coffee # FIXME: Tablet lock button
 0xED media # MediaDirect button
