@@ -5,6 +5,6 @@
 0x9F f21 # FIXME: Touchpad off
 0xB9 nextsong
 0xD9 brightnessup
-0xEE coffee
+0xEE screenlock
 0xF4 previoussong
 0xF7 playpause
