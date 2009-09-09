@@ -63,8 +63,9 @@ ATTR{pcmC%nD0p/pcm_class}=="modem", ENV{SOUND_CLASS}="modem", GOTO="sound_end"
 # Identify cards on the internal PCI bus as internal
 SUBSYSTEMS=="pci", DEVPATH=="*/0000:00:??.?/sound/*", ENV{SOUND_FORM_FACTOR}="internal", GOTO="sound_end"
 
-# Recognize good old WinTV cards as TV cards
+# Recognize good old WinTV cards and those based on saa7134 as TV cards
 SUBSYSTEMS=="pci", DRIVERS=="Bt87x", ENV{SOUND_FORM_FACTOR}="tv", GOTO="sound_end"
+SUBSYSTEMS=="pci", DRIVERS=="saa7134", ENV{SOUND_FORM_FACTOR}="tv", GOTO="sound_end"
 
 # Hmm, do we really want this database here?
 SUBSYSTEMS=="usb", ATTRS{idVendor}=="0471", ATTRS{idProduct}=="0311", ENV{SOUND_FORM_FACTOR}="webcam", GOTO="sound_end"
