@@ -77,10 +77,14 @@ int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mod
 		}
 	} else {
 		info(udev, "mknod(%s, %#o, (%u,%u))\n", file, mode, major(devnum), minor(devnum));
-		util_create_path(udev, file);
-		udev_selinux_setfscreatecon(udev, file, mode);
-		err = mknod(file, mode, devnum);
-		udev_selinux_resetfscreatecon(udev);
+		do {
+			util_create_path(udev, file);
+			udev_selinux_setfscreatecon(udev, file, mode);
+			err = mknod(file, mode, devnum);
+			if (err != 0)
+				err = errno;
+			udev_selinux_resetfscreatecon(udev);
+		} while (err == ENOENT);
 		if (err != 0) {
 			err(udev, "mknod(%s, %#o, (%u,%u) failed: %m\n", file, mode, major(devnum), minor(devnum));
 			goto exit;
@@ -175,10 +179,14 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 		}
 	} else {
 		info(udev, "creating symlink '%s' to '%s'\n", slink, target);
-		util_create_path(udev, slink);
-		udev_selinux_setfscreatecon(udev, slink, S_IFLNK);
-		err = symlink(target, slink);
-		udev_selinux_resetfscreatecon(udev);
+		do {
+			util_create_path(udev, slink);
+			udev_selinux_setfscreatecon(udev, slink, S_IFLNK);
+			err = symlink(target, slink);
+			if (err != 0)
+				err = errno;
+			udev_selinux_resetfscreatecon(udev);
+		} while (err == ENOENT);
 		if (err == 0)
 			goto exit;
 	}
@@ -186,10 +194,14 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 	info(udev, "atomically replace '%s'\n", slink);
 	util_strscpyl(slink_tmp, sizeof(slink_tmp), slink, TMP_FILE_EXT, NULL);
 	unlink(slink_tmp);
-	util_create_path(udev, slink);
-	udev_selinux_setfscreatecon(udev, slink, S_IFLNK);
-	err = symlink(target, slink_tmp);
-	udev_selinux_resetfscreatecon(udev);
+	do {
+		util_create_path(udev, slink);
+		udev_selinux_setfscreatecon(udev, slink, S_IFLNK);
+		err = symlink(target, slink_tmp);
+		if (err != 0)
+			err = errno;
+		udev_selinux_resetfscreatecon(udev);
+	} while (err == ENOENT);
 	if (err != 0) {
 		err(udev, "symlink(%s, %s) failed: %m\n", target, slink_tmp);
 		goto exit;
@@ -302,8 +314,10 @@ static void link_update(struct udev_device *dev, const char *slink, bool add)
 
 	if (add) {
 		dbg(udev, "creating index: '%s'\n", filename);
-		util_create_path(udev, filename);
-		symlink(udev_device_get_devpath(dev), filename);
+		do {
+			util_create_path(udev, filename);
+			symlink(udev_device_get_devpath(dev), filename);
+		} while (errno == ENOENT);
 	}
 }
 

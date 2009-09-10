@@ -45,9 +45,9 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <limits.h>
+#include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <assert.h>
 
 #include "libudev.h"
 #include "libudev-private.h"
@@ -396,6 +396,7 @@ static void update_failed(struct udev_queue_export *udev_queue_export,
 {
 	struct udev *udev = udev_device_get_udev(udev_device);
 	char filename[UTIL_PATH_SIZE];
+	int err;
 
 	if (state != DEVICE_FAILED && udev_queue_export->failed_count == 0)
 		return;
@@ -408,10 +409,14 @@ static void update_failed(struct udev_queue_export *udev_queue_export,
 	case DEVICE_FAILED:
 		/* record event in the failed directory */
 		udev_queue_export->failed_count++;
-		util_create_path(udev, filename);
-		udev_selinux_setfscreatecon(udev, filename, S_IFLNK);
-		symlink(udev_device_get_devpath(udev_device), filename);
-		udev_selinux_resetfscreatecon(udev);
+		do {
+			util_create_path(udev, filename);
+			udev_selinux_setfscreatecon(udev, filename, S_IFLNK);
+			err = symlink(udev_device_get_devpath(udev_device), filename);
+			if (err != 0)
+				err = errno;
+			udev_selinux_resetfscreatecon(udev);
+		} while (err == ENOENT);
 		break;
 
 	case DEVICE_QUEUED:
