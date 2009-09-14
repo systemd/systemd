@@ -81,8 +81,6 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 			break;
 
 		if (option > 255) {
-			fprintf(stderr, "udevadm control expects commands without underscore, "
-				"this will stop working in a future release\n");
 			err(udev, "udevadm control expects commands without underscore, "
 			    "this will stop working in a future release\n");
 		}
@@ -144,8 +142,6 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 	if (argv[optind] != NULL) {
 		const char *arg = argv[optind];
 
-		fprintf(stderr, "udevadm control commands requires the --<command> format, "
-			"this will stop working in a future release\n");
 		err(udev, "udevadm control commands requires the --<command> format, "
 		    "this will stop working in a future release\n");
 
@@ -177,7 +173,6 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 	}
 
 	if (rc != 0) {
-		fprintf(stderr, "unrecognized command\n");
 		err(udev, "unrecognized command\n");
 	}
 exit:

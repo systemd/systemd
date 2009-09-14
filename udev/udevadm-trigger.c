@@ -146,7 +146,6 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 			} else if (strcmp(optarg, "failed") == 0) {
 				device_type = TYPE_FAILED;
 			} else {
-				fprintf(stderr, "unknown type --type=%s\n", optarg);
 				err(udev, "unknown type --type=%s\n", optarg);
 				rc = 2;
 				goto exit;

@@ -140,14 +140,12 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 
 		if (start > end) {
 			err(udev, "seq-start larger than seq-end, ignoring\n");
-			fprintf(stderr, "seq-start larger than seq-end, ignoring\n");
 			start = 0;
 			end = 0;
 		}
 
 		if (start > kernel_seq || end > kernel_seq) {
 			err(udev, "seq-start or seq-end larger than current kernel value, ignoring\n");
-			fprintf(stderr, "seq-start or seq-end larger than current kernel value, ignoring\n");
 			start = 0;
 			end = 0;
 		}
@@ -155,7 +153,6 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	} else {
 		if (end > 0) {
 			err(udev, "seq-end needs seq-start parameter, ignoring\n");
-			fprintf(stderr, "seq-end needs seq-start parameter, ignoring\n");
 			end = 0;
 		}
 	}
