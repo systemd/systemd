@@ -259,8 +259,7 @@ extras_scsi_id_scsi_id_SOURCES =\
 	extras/scsi_id/scsi_id.c \
 	extras/scsi_id/scsi_serial.c \
 	extras/scsi_id/scsi.h \
-	extras/scsi_id/scsi_id.h \
-	extras/scsi_id/bsg.h
+	extras/scsi_id/scsi_id.h
 extras_scsi_id_scsi_id_LDADD = libudev/libudev-private.la
 libexec_PROGRAMS += extras/scsi_id/scsi_id
 dist_man_MANS += extras/scsi_id/scsi_id.8

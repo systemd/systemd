@@ -28,8 +28,7 @@
 #include <scsi/scsi.h>
 #include <scsi/sg.h>
 #include <linux/types.h>
-/* #include <linux/bsg.h> */
-#include "bsg.h"
+#include <linux/bsg.h>
 
 #include "libudev.h"
 #include "libudev-private.h"

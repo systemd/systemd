@@ -3,6 +3,5 @@
   o convert firmware.sh to C
   o get rid of braindead "scan all devices to find myself" libusb interface
       if it can not be fixed, drop libusb entirely
-  o remove copy of bsg.h
   o drop all support for the DEPRECATED sysfs layout
   o add warning for BUS, SYSFS, ID
