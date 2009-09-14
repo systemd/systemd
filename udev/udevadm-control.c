@@ -68,8 +68,10 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 	}
 
 	uctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
-	if (uctrl == NULL)
+	if (uctrl == NULL) {
+		rc = 2;
 		goto exit;
+	}
 
 	while (1) {
 		int option;
@@ -93,31 +95,41 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 				fprintf(stderr, "invalid number '%s'\n", optarg);
 				goto exit;
 			}
-			udev_ctrl_send_set_log_level(uctrl, util_log_priority(optarg));
-			rc = 0;
+			if (udev_ctrl_send_set_log_level(uctrl, util_log_priority(optarg)) < 0)
+				rc = 2;
+			else
+				rc = 0;
 			break;
 		case 's':
 		case 's' + 256:
-			udev_ctrl_send_stop_exec_queue(uctrl);
-			rc = 0;
+			if (udev_ctrl_send_stop_exec_queue(uctrl) < 0)
+				rc = 2;
+			else
+				rc = 0;
 			break;
 		case 'S':
 		case 'S' + 256:
-			udev_ctrl_send_start_exec_queue(uctrl);
-			rc = 0;
+			if (udev_ctrl_send_start_exec_queue(uctrl) < 0)
+				rc = 2;
+			else
+				rc = 0;
 			break;
 		case 'R':
 		case 'R' + 256:
-			udev_ctrl_send_reload_rules(uctrl);
-			rc = 0;
+			if (udev_ctrl_send_reload_rules(uctrl) < 0)
+				rc = 2;
+			else
+				rc = 0;
 			break;
 		case 'p':
 			if (strchr(optarg, '=') == NULL) {
 				fprintf(stderr, "expect <KEY>=<value> instead of '%s'\n", optarg);
 				goto exit;
 			}
-			udev_ctrl_send_set_env(uctrl, optarg);
-			rc = 0;
+			if (udev_ctrl_send_set_env(uctrl, optarg) < 0)
+				rc = 2;
+			else
+				rc = 0;
 			break;
 		case 'm':
 		case 'm' + 256:
@@ -126,8 +138,10 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 				fprintf(stderr, "invalid number '%s'\n", optarg);
 				goto exit;
 			}
-			udev_ctrl_send_set_max_childs(uctrl, i);
-			rc = 0;
+			if (udev_ctrl_send_set_max_childs(uctrl, i) < 0)
+				rc = 2;
+			else
+				rc = 0;
 			break;
 		case 'h':
 			print_help();
@@ -146,35 +160,46 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 		    "this will stop working in a future release\n");
 
 		if (!strncmp(arg, "log_priority=", strlen("log_priority="))) {
-			udev_ctrl_send_set_log_level(uctrl, util_log_priority(&arg[strlen("log_priority=")]));
-			rc = 0;
+			if (udev_ctrl_send_set_log_level(uctrl, util_log_priority(&arg[strlen("log_priority=")])) < 0)
+				rc = 2;
+			else
+				rc = 0;
 			goto exit;
 		} else if (!strcmp(arg, "stop_exec_queue")) {
-			udev_ctrl_send_stop_exec_queue(uctrl);
-			rc = 0;
+			if (udev_ctrl_send_stop_exec_queue(uctrl) < 0)
+				rc = 2;
+			else
+				rc = 0;
 			goto exit;
 		} else if (!strcmp(arg, "start_exec_queue")) {
-			udev_ctrl_send_start_exec_queue(uctrl);
-			rc = 0;
+			if (udev_ctrl_send_start_exec_queue(uctrl) < 0)
+				rc = 2;
+			else
+				rc = 0;
 			goto exit;
 		} else if (!strcmp(arg, "reload_rules")) {
-			udev_ctrl_send_reload_rules(uctrl);
-			rc = 0;
+			if (udev_ctrl_send_reload_rules(uctrl) < 0)
+				rc = 2;
+			else
+				rc = 0;
 			goto exit;
 		} else if (!strncmp(arg, "max_childs=", strlen("max_childs="))) {
-			udev_ctrl_send_set_max_childs(uctrl, strtoul(&arg[strlen("max_childs=")], NULL, 0));
-			rc = 0;
+			if (udev_ctrl_send_set_max_childs(uctrl, strtoul(&arg[strlen("max_childs=")], NULL, 0)) < 0)
+				rc = 2;
+			else
+				rc = 0;
 			goto exit;
 		} else if (!strncmp(arg, "env", strlen("env"))) {
-			udev_ctrl_send_set_env(uctrl, &arg[strlen("env=")]);
-			rc = 0;
+			if (udev_ctrl_send_set_env(uctrl, &arg[strlen("env=")]) < 0)
+				rc = 2;
+			else
+				rc = 0;
 			goto exit;
 		}
 	}
 
-	if (rc != 0) {
+	if (rc == 1)
 		err(udev, "unrecognized command\n");
-	}
 exit:
 	udev_ctrl_unref(uctrl);
 	return rc;
