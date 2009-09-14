@@ -47,31 +47,24 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 	/* compat values with '_' will be removed in a future release */
 	static const struct option options[] = {
 		{ "log-priority", required_argument, NULL, 'l' },
-		{ "log_priority", required_argument, NULL, 'l' + 256 },
 		{ "stop-exec-queue", no_argument, NULL, 's' },
-		{ "stop_exec_queue", no_argument, NULL, 's' + 256 },
 		{ "start-exec-queue", no_argument, NULL, 'S' },
-		{ "start_exec_queue", no_argument, NULL, 'S' + 256},
 		{ "reload-rules", no_argument, NULL, 'R' },
-		{ "reload_rules", no_argument, NULL, 'R' + 256},
 		{ "property", required_argument, NULL, 'p' },
 		{ "env", required_argument, NULL, 'p' },
 		{ "max-childs", required_argument, NULL, 'm' },
-		{ "max_childs", required_argument, NULL, 'm' + 256},
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
 
 	if (getuid() != 0) {
 		fprintf(stderr, "root privileges required\n");
-		goto exit;
+		return 1;
 	}
 
 	uctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
-	if (uctrl == NULL) {
-		rc = 2;
-		goto exit;
-	}
+	if (uctrl == NULL)
+		return 2;
 
 	while (1) {
 		int option;
@@ -82,14 +75,8 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 		if (option == -1)
 			break;
 
-		if (option > 255) {
-			err(udev, "udevadm control expects commands without underscore, "
-			    "this will stop working in a future release\n");
-		}
-
 		switch (option) {
 		case 'l':
-		case 'l' + 256:
 			i = util_log_priority(optarg);
 			if (i < 0) {
 				fprintf(stderr, "invalid number '%s'\n", optarg);
@@ -101,21 +88,18 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 				rc = 0;
 			break;
 		case 's':
-		case 's' + 256:
 			if (udev_ctrl_send_stop_exec_queue(uctrl) < 0)
 				rc = 2;
 			else
 				rc = 0;
 			break;
 		case 'S':
-		case 'S' + 256:
 			if (udev_ctrl_send_start_exec_queue(uctrl) < 0)
 				rc = 2;
 			else
 				rc = 0;
 			break;
 		case 'R':
-		case 'R' + 256:
 			if (udev_ctrl_send_reload_rules(uctrl) < 0)
 				rc = 2;
 			else
@@ -132,7 +116,6 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 				rc = 0;
 			break;
 		case 'm':
-		case 'm' + 256:
 			i = strtoul(optarg, &endp, 0);
 			if (endp[0] != '\0' || i < 1) {
 				fprintf(stderr, "invalid number '%s'\n", optarg);
@@ -146,55 +129,7 @@ int udevadm_control(struct udev *udev, int argc, char *argv[])
 		case 'h':
 			print_help();
 			rc = 0;
-			goto exit;
-		default:
-			goto exit;
-		}
-	}
-
-	/* compat stuff which will be removed in a future release */
-	if (argv[optind] != NULL) {
-		const char *arg = argv[optind];
-
-		err(udev, "udevadm control commands requires the --<command> format, "
-		    "this will stop working in a future release\n");
-
-		if (!strncmp(arg, "log_priority=", strlen("log_priority="))) {
-			if (udev_ctrl_send_set_log_level(uctrl, util_log_priority(&arg[strlen("log_priority=")])) < 0)
-				rc = 2;
-			else
-				rc = 0;
-			goto exit;
-		} else if (!strcmp(arg, "stop_exec_queue")) {
-			if (udev_ctrl_send_stop_exec_queue(uctrl) < 0)
-				rc = 2;
-			else
-				rc = 0;
-			goto exit;
-		} else if (!strcmp(arg, "start_exec_queue")) {
-			if (udev_ctrl_send_start_exec_queue(uctrl) < 0)
-				rc = 2;
-			else
-				rc = 0;
-			goto exit;
-		} else if (!strcmp(arg, "reload_rules")) {
-			if (udev_ctrl_send_reload_rules(uctrl) < 0)
-				rc = 2;
-			else
-				rc = 0;
-			goto exit;
-		} else if (!strncmp(arg, "max_childs=", strlen("max_childs="))) {
-			if (udev_ctrl_send_set_max_childs(uctrl, strtoul(&arg[strlen("max_childs=")], NULL, 0)) < 0)
-				rc = 2;
-			else
-				rc = 0;
-			goto exit;
-		} else if (!strncmp(arg, "env", strlen("env"))) {
-			if (udev_ctrl_send_set_env(uctrl, &arg[strlen("env=")]) < 0)
-				rc = 2;
-			else
-				rc = 0;
-			goto exit;
+			break;
 		}
 	}
 
