@@ -1435,7 +1435,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcmp(key, "SYMLINK") == 0) {
+		if (strncmp(key, "SYMLINK", sizeof("SYMLINK")-1) == 0) {
 			if (op < OP_MATCH_MAX) {
 				rule_add_key(&rule_tmp, TK_M_DEVLINK, op, value, NULL);
 			} else {
