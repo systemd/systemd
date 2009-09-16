@@ -1,5 +1,4 @@
 
-  o remove most NAME= rules (they are provided by the 2.6.31 kernel)
   o convert firmware.sh to C
   o get rid of braindead "scan all devices to find myself" libusb interface
       if it can not be fixed, drop libusb entirely
