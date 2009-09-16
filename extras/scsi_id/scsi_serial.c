@@ -578,11 +578,12 @@ static int check_fill_0x83_prespc3(struct udev *udev,
 	/* serial has been memset to zero before */
 	j = strlen(serial);	/* j = 1; */
 
-	for (i = 0; i < page_83[3]; ++i) {
+	for (i = 0; (i < page_83[3]) && (j < max_len-3); ++i) {
 		serial[j++] = hex_str[(page_83[4+i] & 0xf0) >> 4];
 		serial[j++] = hex_str[ page_83[4+i] & 0x0f];
 	}
-	strcpy(serial_short, serial);
+	serial[max_len-1] = 0;
+	strncpy(serial_short, serial, max_len-1);
 	return 0;
 }
 
