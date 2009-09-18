@@ -492,8 +492,7 @@ static int rename_netif(struct udev_event *event)
 		}
 
 		/* free our own name, another process may wait for us */
-		util_strscpy(ifr.ifr_newname, IFNAMSIZ, udev_device_get_sysname(dev));
-		util_strscpy(ifr.ifr_newname, IFNAMSIZ, "_rename");
+		util_strscpyl(ifr.ifr_newname, IFNAMSIZ, udev_device_get_sysname(dev), "_rename", NULL);
 		err = ioctl(sk, SIOCSIFNAME, &ifr);
 		if (err != 0) {
 			err(event->udev, "error changing netif name %s to %s: %m\n",
