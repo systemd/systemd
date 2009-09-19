@@ -10,6 +10,64 @@ ACTION!="add|change", GOTO="kernel_compat_end"
 # needed for kernels <2.6.29-rc1
 SUBSYSTEM=="dvb", ENV{DVB_ADAPTER_NUM}=="", PROGRAM="/bin/sh -c 'K=%k; K=$${K#dvb}; printf dvb/adapter%%i/%%s $${K%%%%.*} $${K#*.}'", NAME="%c", GROUP="video"
 
+# naming rules for kernels <2.6.31
+
+# alsa names
+KERNEL=="controlC[0-9]*",	NAME="snd/%k"
+KERNEL=="hwC[D0-9]*",		NAME="snd/%k"
+KERNEL=="pcmC[D0-9cp]*",	NAME="snd/%k"
+KERNEL=="midiC[D0-9]*",		NAME="snd/%k"
+KERNEL=="timer",		NAME="snd/%k"
+KERNEL=="seq",			NAME="snd/%k"
+
+KERNEL=="mwave",		NAME="modems/mwave"
+
+KERNEL=="mouse*|mice|event*",	NAME="input/%k"
+KERNEL=="ts[0-9]*|uinput",	NAME="input/%k"
+KERNEL=="js[0-9]*",		NAME="input/%k"
+
+KERNEL=="card[0-9]*",		NAME="dri/%k"
+
+SUBSYSTEM=="dvb", ENV{DVB_ADAPTER_NUM}=="?*", NAME="dvb/adapter$env{DVB_ADAPTER_NUM}/$env{DVB_DEVICE_TYPE}$env{DVB_DEVICE_NUM}"
+
+# libusb device nodes
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", NAME="bus/usb/$env{BUSNUM}/$env{DEVNUM}"
+
+# printer
+SUBSYSTEM=="usb",		KERNEL=="lp*", NAME="usb/%k"
+
+# block
+KERNEL=="pktcdvd[0-9]*", NAME="pktcdvd/%k"
+KERNEL=="pktcdvd", NAME="pktcdvd/control"
+
+KERNEL=="rawctl", NAME="raw/rawctl"
+SUBSYSTEM=="raw", KERNEL=="raw[0-9]*", NAME="raw/%k"
+SUBSYSTEM=="bsg", NAME="bsg/%k"
+SUBSYSTEM=="aoe", NAME="etherd/%k"
+
+# network
+KERNEL=="tun",			NAME="net/%k"
+
+# CPU
+KERNEL=="cpu[0-9]*",		NAME="cpu/%n/cpuid"
+KERNEL=="msr[0-9]*",		NAME="cpu/%n/msr"
+KERNEL=="microcode",		NAME="cpu/microcode", MODE="0600"
+
+# miscellaneous
+KERNEL=="auer[0-9]*",		NAME="usb/%k"
+KERNEL=="hw_random",		NAME="hwrng"
+KERNEL=="sxctl",		NAME="specialix_sxctl"
+KERNEL=="rioctl",		NAME="specialix_rioctl"
+KERNEL=="iowarrior[0-9]*",	NAME="usb/%k"
+KERNEL=="hiddev[0-9]*",		NAME="usb/%k"
+KERNEL=="legousbtower[0-9]*",	NAME="usb/%k"
+KERNEL=="dabusb[0-9]*",		NAME="usb/%k"
+KERNEL=="usbdpfp[0-9]*",	NAME="usb/%k"
+KERNEL=="cpad[0-9]*",		NAME="usb/%k"
+
+# end of naming rules for kernel <2.6.31
+
+
 #
 # module loading rules
 #
