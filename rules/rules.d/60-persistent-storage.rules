@@ -63,7 +63,7 @@ ENV{DEVTYPE}=="disk", KERNEL!="sd*|sr*", ATTR{removable}=="1", GOTO="persistent_
 # probe filesystem metadata of optical drives which have a media inserted
 KERNEL=="sr*", ENV{ID_CDROM_MEDIA}=="?*", ENV{ID_CDROM_MEDIA_SESSION_LAST_OFFSET}=="?*", IMPORT{program}="/sbin/blkid -o udev -p -u noraid -O $env{ID_CDROM_MEDIA_SESSION_LAST_OFFSET} $tempnode"
 # single-session CDs do not have ID_CDROM_MEDIA_SESSION_LAST_OFFSET
-KERNEL=="sr*", ENV{ID_CDROM_MEDIA}=="?*", IMPORT{program}="/sbin/blkid -o udev -p -u noraid $tempnode"
+KERNEL=="sr*", ENV{ID_CDROM_MEDIA}=="?*", ENV{ID_CDROM_MEDIA_SESSION_LAST_OFFSET}=="", IMPORT{program}="/sbin/blkid -o udev -p -u noraid $tempnode"
 
 # probe filesystem metadata of disks
 KERNEL!="sr*", IMPORT{program}="/sbin/blkid -o udev -p $tempnode"
