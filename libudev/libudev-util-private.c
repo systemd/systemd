@@ -337,7 +337,7 @@ int util_run_program(struct udev *udev, const char *command, char **envp,
 		}
 
 		if (sigmask)
-			sigprocmask(SIG_BLOCK, sigmask, NULL);
+			sigprocmask(SIG_SETMASK, sigmask, NULL);
 
 		execve(argv[0], argv, envp);
 		if (errno == ENOENT || errno == ENOTDIR) {
