@@ -662,7 +662,7 @@ static void handle_ctrl_msg(struct udev_ctrl *uctrl)
 /* read inotify messages */
 static int handle_inotify(struct udev *udev)
 {
-	ssize_t nbytes, pos;
+	int nbytes, pos;
 	char *buf;
 	struct inotify_event *ev;
 
