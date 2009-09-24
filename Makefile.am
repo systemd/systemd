@@ -367,6 +367,7 @@ extras/gudev/gudevenumtypes.c: extras/gudev/gudevenumtypes.c.template extras/gud
 
 extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER) Makefile.am
 	$(AM_V_GEN)PKG_CONFIG_PATH=$(top_builddir)/data:$$PKG_CONFIG_PATH \
+	LD_LIBRARY_PATH=$(top_builddir)/extras/gudev \
 	$(G_IR_SCANNER) -v \
 		--namespace GUdev \
 		--nsversion=1.0 \
