@@ -55,6 +55,7 @@ ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="TravelMate*C300*", RUN+="
 ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="TravelMate*6292*", RUN+="keymap $name 0xD9 bluetooth"
 ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="Aspire 6920", RUN+="keymap $name acer-aspire_6920"
 ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="Aspire 5920G", RUN+="keymap $name acer-aspire_5920g"
+ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="Aspire 5720*", RUN+="keymap $name acer-aspire_5720"
 
 ENV{DMI_VENDOR}=="*BenQ*", ATTR{[dmi/id]product_name}=="*Joybook R22*", RUN+="keymap $name 0x6E wlan"
 

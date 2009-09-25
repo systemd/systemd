@@ -1,0 +1,5 @@
+0x84 bluetooth  # sent when bluetooth module missing, and key pressed
+0x92 media	# acer arcade
+0xD4 bluetooth  # bluetooth on
+0xD9 bluetooth  # bluetooth off
+
