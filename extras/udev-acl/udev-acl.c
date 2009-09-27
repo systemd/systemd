@@ -29,6 +29,13 @@
 
 static int debug;
 
+enum{
+	ACTION_NONE = 0,
+	ACTION_REMOVE,
+	ACTION_ADD,
+	ACTION_CHANGE
+};
+
 static int set_facl(const char* filename, uid_t uid, int add)
 {
 	int get;
@@ -152,44 +159,123 @@ static GSList *uids_with_local_active_session(const char *own_id)
 }
 
 /* ConsoleKit calls us with special variables */
-static int consolekit_called(const char *action, uid_t *uid, const char **own_session, int *add)
+static int consolekit_called(const char *ck_action, uid_t *uid, uid_t *uid2, const char **remove_session_id, int *action)
 {
-	int a;
-	uid_t u;
+	int a = ACTION_NONE;
+	uid_t u = 0;
+	uid_t u2 = 0;
 	const char *s;
-	const char *session;
+	const char *s2;
+	const char *old_session = NULL;
 
-	if (action == NULL || strcmp(action, "session_active_changed") != 0)
+	if (ck_action == NULL || strcmp(ck_action, "seat_active_session_changed") != 0)
 		return -1;
 
-	s = getenv("CK_SESSION_IS_LOCAL");
-	if (s == NULL)
+	/* We can have one of: remove, add, change, no-change */
+	s = getenv("CK_SEAT_OLD_SESSION_ID");
+	s2 = getenv("CK_SEAT_SESSION_ID");
+	if (s == NULL && s2 == NULL) {
 		return -1;
-	if (strcmp(s, "true") != 0)
-		return 0;
+	} else if (s2 == NULL) {
+		a = ACTION_REMOVE;
+	} else if (s == NULL) {
+		a = ACTION_ADD;
+	} else {
+		a = ACTION_CHANGE;
+	}
 
-	s = getenv("CK_SESSION_IS_ACTIVE");
-	if (s == NULL)
-		return -1;
-	if (strcmp(s, "true") == 0)
-		a = 1;
-	else
-		a = 0;
+	switch (a) {
+	case ACTION_ADD:
+		s = getenv("CK_SEAT_SESSION_USER_UID");
+		if (s == NULL)
+			return -1;
+		u = strtoul(s, NULL, 10);
+		if (u == 0)
+			return 0;
 
-	session = getenv("CK_SESSION_ID");
-	if (session == NULL)
-		return -1;
+		s = getenv("CK_SEAT_SESSION_IS_LOCAL");
+		if (s == NULL)
+			return -1;
+		if (strcmp(s, "true") != 0)
+			return 0;
 
-	s = getenv("CK_SESSION_USER_UID");
-	if (s == NULL)
-		return -1;
-	u = strtoul(s, NULL, 10);
-	if (u == 0)
-		return 0;
+		break;
+	case ACTION_REMOVE:
+		s = getenv("CK_SEAT_OLD_SESSION_USER_UID");
+		if (s == NULL)
+			return -1;
+		u = strtoul(s, NULL, 10);
+		if (u == 0)
+			return 0;
 
-	*own_session = session;
+		s = getenv("CK_SEAT_OLD_SESSION_IS_LOCAL");
+		if (s == NULL)
+			return -1;
+		if (strcmp(s, "true") != 0)
+			return 0;
+
+		old_session = getenv("CK_SEAT_OLD_SESSION_ID");
+		if (old_session == NULL)
+			return -1;
+
+		break;
+	case ACTION_CHANGE:
+		s = getenv("CK_SEAT_OLD_SESSION_USER_UID");
+		if (s == NULL)
+			return -1;
+		u = strtoul(s, NULL, 10);
+		if (u == 0)
+			return 0;
+		s = getenv("CK_SEAT_SESSION_USER_UID");
+		if (s == NULL)
+			return -1;
+		u2 = strtoul(s, NULL, 10);
+		if (u2 == 0)
+			return 0;
+
+		s = getenv("CK_SEAT_OLD_SESSION_IS_LOCAL");
+		s2 = getenv("CK_SEAT_SESSION_IS_LOCAL");
+		if (s == NULL || s2 == NULL)
+			return -1;
+		/* don't process non-local session changes */
+		if (strcmp(s, "true") != 0 && strcmp(s2, "true") != 0)
+			return 0;
+
+		if (strcmp(s, "true") == 0 && strcmp(s, "true") == 0) {
+			/* process the change */
+			if (u == u2) {
+				/* special case: we noop if we are
+				 * changing between local sessions for
+				 * the same uid */
+				a = ACTION_NONE;
+			}
+			old_session = getenv("CK_SEAT_OLD_SESSION_ID");
+			if (old_session == NULL)
+				return -1;
+		} else if (strcmp(s, "true") == 0) {
+			/* only process the removal */
+			a = ACTION_REMOVE;
+			old_session = getenv("CK_SEAT_OLD_SESSION_ID");
+			if (old_session == NULL)
+				return -1;
+		} else if (strcmp(s2, "true") == 0) {
+			/* only process the addition */
+			a = ACTION_ADD;
+			u = u2;
+		}
+
+		break;
+	case ACTION_NONE:
+		break;
+	default:
+		g_assert_not_reached ();
+		break;
+	}
+
+	*remove_session_id = old_session;
 	*uid = u;
-	*add = a;
+	*uid2 = u2;
+	*action = a;
 	return 0;
 }
 
@@ -223,6 +309,21 @@ static void apply_acl_to_devices(uid_t uid, int add)
 	udev_unref(udev);
 }
 
+static void
+remove_uid (uid_t uid, const char *remove_session_id)
+{
+	/*
+	 * Remove ACL for given uid from all matching devices
+	 * when there is currently no local active session.
+	 */
+	GSList *list;
+
+	list = uids_with_local_active_session(remove_session_id);
+	if (!uid_in_list(list, uid))
+		apply_acl_to_devices(uid, 0);
+	g_slist_free(list);
+}
+
 int main (int argc, char* argv[])
 {
 	static const struct option options[] = {
@@ -233,10 +334,11 @@ int main (int argc, char* argv[])
 		{ "help", no_argument, NULL, 'h' },
 		{}
 	};
-	int add = -1;
+	int action = -1;
 	const char *device = NULL;
 	uid_t uid = 0;
-	const char* own_session = NULL;
+	uid_t uid2 = 0;
+	const char* remove_session_id = NULL;
 	int rc = 0;
 
 	/* valgrind is more important to us than a slice allocator */
@@ -252,9 +354,9 @@ int main (int argc, char* argv[])
 		switch (option) {
 		case 'a':
 			if (strcmp(optarg, "add") == 0 || strcmp(optarg, "change") == 0)
-				add = 1;
+				action = ACTION_ADD;
 			else if (strcmp(optarg, "remove") == 0)
-				add = 0;
+				action = ACTION_REMOVE;
 			else
 				goto out;
 			break;
@@ -274,10 +376,10 @@ int main (int argc, char* argv[])
 		}
 	}
 
-	if (add < 0 && device == NULL && uid == 0)
-		consolekit_called(argv[optind], &uid, &own_session, &add);
+	if (action < 0 && device == NULL && uid == 0)
+		consolekit_called(argv[optind], &uid, &uid2, &remove_session_id, &action);
 
-	if (add < 0) {
+	if (action < 0) {
 		fprintf(stderr, "missing action\n\n");
 		rc = 2;
 		goto out;
@@ -290,20 +392,24 @@ int main (int argc, char* argv[])
 	}
 
 	if (uid != 0) {
-		if (add) {
+		switch (action) {
+		case ACTION_ADD:
 			/* Add ACL for given uid to all matching devices. */
 			apply_acl_to_devices(uid, 1);
-		} else {
-			/*
-			 * Remove ACL for given uid from all matching devices
-			 * when there is currently no local active session.
-			 */
-			GSList *list;
-
-			list = uids_with_local_active_session(own_session);
-			if (!uid_in_list(list, uid))
-				apply_acl_to_devices(uid, 0);
-			g_slist_free(list);
+			break;
+		case ACTION_REMOVE:
+			remove_uid(uid, remove_session_id);
+			break;
+		case ACTION_CHANGE:
+			remove_uid(uid, remove_session_id);
+			apply_acl_to_devices(uid2, 1);
+			break;
+		case ACTION_NONE:
+			goto out;
+			break;
+		default:
+			g_assert_not_reached();
+			break;
 		}
 	} else if (device != NULL) {
 		/*
@@ -321,8 +427,8 @@ int main (int argc, char* argv[])
 			uid_t u;
 
 			u = GPOINTER_TO_UINT(l->data);
-			if (add || !uid_in_list(list, u))
-				set_facl(device, u, add);
+			if (action == ACTION_ADD || !uid_in_list(list, u))
+				set_facl(device, u, action == ACTION_ADD);
 		}
 		g_slist_free(list);
 	} else {

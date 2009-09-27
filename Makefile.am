@@ -422,8 +422,8 @@ dist_udevrules_DATA += extras/udev-acl/70-acl.rules
 libexec_PROGRAMS += extras/udev-acl/udev-acl
 
 udevacl-install-hook:
-	mkdir -p $(DESTDIR)$(prefix)/lib/ConsoleKit/run-session.d
-	ln -sf $(libexecdir)/udev-acl $(DESTDIR)$(prefix)/lib/ConsoleKit/run-session.d/udev-acl.ck
+	mkdir -p $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d
+	ln -sf $(libexecdir)/udev-acl $(DESTDIR)$(prefix)/lib/ConsoleKit/run-seat.d/udev-acl.ck
 
 INSTALL_EXEC_HOOKS += udevacl-install-hook
 
