@@ -67,7 +67,7 @@ KERNEL=="irlpt[0-9]*",		GROUP="lp"
 # hplip and cups 1.4+ use raw USB devices, so permissions should be similar to
 # the ones from the old usblp kernel module
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}=="", IMPORT{program}="usb_id --export %p"
-SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}==":0701*:", GROUP="lp", MODE="660"
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}==":0701*:", GROUP="lp", MODE="664"
 
 # block
 SUBSYSTEM=="block", GROUP="disk"
