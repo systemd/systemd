@@ -118,6 +118,8 @@ struct event {
 	const char *devpath;
 	size_t devpath_len;
 	const char *devpath_old;
+	dev_t devnum;
+	bool is_block;
 };
 
 static struct event *node_to_event(struct udev_list_node *node)
@@ -410,6 +412,8 @@ static void event_queue_insert(struct udev_device *dev)
 	event->devpath = udev_device_get_devpath(dev);
 	event->devpath_len = strlen(event->devpath);
 	event->devpath_old = udev_device_get_devpath_old(dev);
+	event->devnum = udev_device_get_devnum(dev);
+	event->is_block = (strcmp("block", udev_device_get_subsystem(dev)) == 0);
 
 	udev_queue_export_device_queued(udev_queue_export, dev);
 	info(event->udev, "seq %llu queued, '%s' '%s'\n", udev_device_get_seqnum(dev),
@@ -473,7 +477,7 @@ static int mem_size_mb(void)
 }
 
 /* lookup event for identical, parent, child device */
-static int devpath_busy(struct event *event)
+static bool is_devpath_busy(struct event *event)
 {
 	struct udev_list_node *loop;
 	size_t common;
@@ -488,18 +492,21 @@ static int devpath_busy(struct event *event)
 
 		/* event we checked earlier still exists, no need to check again */
 		if (loop_event->seqnum == event->delaying_seqnum)
-			return 2;
+			return true;
 
 		/* found ourself, no later event can block us */
 		if (loop_event->seqnum >= event->seqnum)
 			break;
 
+		/* check major/minor */
+		if (major(event->devnum) != 0 && event->devnum == loop_event->devnum && event->is_block == loop_event->is_block)
+			return true;
+
 		/* check our old name */
-		if (event->devpath_old != NULL)
-			if (strcmp(loop_event->devpath, event->devpath_old) == 0) {
-				event->delaying_seqnum = loop_event->seqnum;
-				return 3;
-			}
+		if (event->devpath_old != NULL && strcmp(loop_event->devpath, event->devpath_old) == 0) {
+			event->delaying_seqnum = loop_event->seqnum;
+			return true;
+		}
 
 		/* compare devpath */
 		common = MIN(loop_event->devpath_len, event->devpath_len);
@@ -511,26 +518,26 @@ static int devpath_busy(struct event *event)
 		/* identical device event found */
 		if (loop_event->devpath_len == event->devpath_len) {
 			event->delaying_seqnum = loop_event->seqnum;
-			return 4;
+			return true;
 		}
 
 		/* parent device event found */
 		if (event->devpath[common] == '/') {
 			event->delaying_seqnum = loop_event->seqnum;
-			return 5;
+			return true;
 		}
 
 		/* child device event found */
 		if (loop_event->devpath[common] == '/') {
 			event->delaying_seqnum = loop_event->seqnum;
-			return 6;
+			return true;
 		}
 
 		/* no matching device */
 		continue;
 	}
 
-	return 0;
+	return false;
 }
 
 static void events_start(struct udev *udev)
@@ -544,7 +551,7 @@ static void events_start(struct udev *udev)
 			continue;
 
 		/* do not start event if parent or child event is still running */
-		if (devpath_busy(event) != 0) {
+		if (is_devpath_busy(event)) {
 			dbg(udev, "delay seq %llu (%s)\n", event->seqnum, event->devpath);
 			continue;
 		}
