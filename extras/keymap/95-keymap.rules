@@ -9,13 +9,29 @@ ACTION!="add", GOTO="keyboard_end"
 SUBSYSTEM!="input", GOTO="keyboard_end"
 KERNEL!="event*", GOTO="keyboard_end"
 
-ENV{DMI_VENDOR}="$attr{[dmi/id]sys_vendor}"
-ENV{DMI_VENDOR}=="", GOTO="keyboard_end"
+SUBSYSTEMS=="usb", ENV{ID_MODEL}=="", IMPORT{program}="usb_id --export %p", GOTO="keyboard_usbcheck"
+GOTO="keyboard_modulecheck"
+
+#
+# The following are external USB keyboards
+#
+
+LABEL="keyboard_usbcheck"
+
+ENV{ID_VENDOR}=="Logitech*", ATTRS{name}=="Logitech USB Multimedia Keyboard", RUN+="keymap $name logitech-wave"
+
+
+GOTO="keyboard_end"
 
 #
 # The following are exposed as separate input devices with low key codes, thus
 # we need to check their input device product name
 #
+
+LABEL="keyboard_modulecheck"
+
+ENV{DMI_VENDOR}="$attr{[dmi/id]sys_vendor}"
+ENV{DMI_VENDOR}=="", GOTO="keyboard_end"
 
 ENV{DMI_VENDOR}=="IBM*", KERNELS=="input*", ATTRS{name}=="ThinkPad Extra Buttons", RUN+="keymap $name module-ibm"
 ENV{DMI_VENDOR}=="LENOVO*", KERNELS=="input*", ATTRS{name}=="ThinkPad Extra Buttons", RUN+="keymap $name module-lenovo"

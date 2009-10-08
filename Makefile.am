@@ -510,6 +510,7 @@ dist_udevkeymap_DATA = \
 	extras/keymap/keymaps/lenovo-3000 \
 	extras/keymap/keymaps/lenovo-thinkpad_x6_tablet \
 	extras/keymap/keymaps/lenovo-thinkpad_x200_tablet \
+	extras/keymap/keymaps/logitech-wave \
 	extras/keymap/keymaps/maxdata-pro_7000 \
 	extras/keymap/keymaps/medion-fid2060 \
 	extras/keymap/keymaps/medionnb-a555 \
