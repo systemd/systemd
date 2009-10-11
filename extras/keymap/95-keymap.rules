@@ -9,7 +9,7 @@ ACTION!="add", GOTO="keyboard_end"
 SUBSYSTEM!="input", GOTO="keyboard_end"
 KERNEL!="event*", GOTO="keyboard_end"
 
-SUBSYSTEMS=="usb", ENV{ID_MODEL}=="", IMPORT{program}="usb_id --export %p", GOTO="keyboard_usbcheck"
+SUBSYSTEMS=="usb", ENV{ID_VENDOR}=="", IMPORT{program}="usb_id --export %p", GOTO="keyboard_usbcheck"
 GOTO="keyboard_modulecheck"
 
 #
