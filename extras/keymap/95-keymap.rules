@@ -20,7 +20,7 @@ GOTO="keyboard_modulecheck"
 LABEL="keyboard_usbcheck"
 
 ENV{ID_VENDOR}=="Logitech*", ATTRS{name}=="Logitech USB Multimedia Keyboard", RUN+="keymap $name logitech-wave"
-
+ENV{ID_VENDOR}=="Logitech*", ATTRS{name}=="Logitech USB Receiver", RUN+="keymap $name logitech-wave-cordless"
 
 GOTO="keyboard_end"
 
