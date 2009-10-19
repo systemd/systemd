@@ -88,15 +88,15 @@ file:
 			fprintf(f, "S:%s\n", &udev_list_entry_get_name(list_entry)[devlen]);
 	}
 	if (udev_device_get_devlink_priority(udev_device) != 0)
-		fprintf(f, "L:%u\n", udev_device_get_devlink_priority(udev_device));
+		fprintf(f, "L:%i\n", udev_device_get_devlink_priority(udev_device));
 	if (udev_device_get_event_timeout(udev_device) >= 0)
-		fprintf(f, "T:%u\n", udev_device_get_event_timeout(udev_device));
+		fprintf(f, "T:%i\n", udev_device_get_event_timeout(udev_device));
 	if (udev_device_get_num_fake_partitions(udev_device) != 0)
-		fprintf(f, "A:%u\n", udev_device_get_num_fake_partitions(udev_device));
+		fprintf(f, "A:%i\n", udev_device_get_num_fake_partitions(udev_device));
 	if (udev_device_get_ignore_remove(udev_device))
-		fprintf(f, "R:%u\n", udev_device_get_ignore_remove(udev_device));
+		fprintf(f, "R:%i\n", udev_device_get_ignore_remove(udev_device));
 	if (udev_device_get_watch_handle(udev_device) >= 0)
-		fprintf(f, "W:%u\n", udev_device_get_watch_handle(udev_device));
+		fprintf(f, "W:%i\n", udev_device_get_watch_handle(udev_device));
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
 		if (!udev_list_entry_get_flag(list_entry))
 			continue;
