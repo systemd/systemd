@@ -3,6 +3,13 @@
 ACTION!="add|change", GOTO="kernel_compat_end"
 
 #
+# sysfs timing rules
+#
+
+# needed for kernels <2.6.30
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", WAIT_FOR_SYSFS="descriptors"
+
+#
 # naming device rules
 #
 
