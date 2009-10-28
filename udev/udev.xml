@@ -420,13 +420,6 @@
                 <para>Rule and device options:</para>
                 <variablelist>
                   <varlistentry>
-                    <term><option>last_rule</option></term>
-                    <listitem>
-                      <para>Stops further rules application. No later rules will have
-                      any effect.</para>
-                    </listitem>
-                  </varlistentry>
-                  <varlistentry>
                     <term><option>ignore_device</option></term>
                     <listitem>
                       <para>Ignore this event completely.</para>

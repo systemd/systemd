@@ -164,7 +164,6 @@ enum token_type {
 	TK_A_ATTR,			/* val, attr */
 	TK_A_RUN,			/* val, bool */
 	TK_A_GOTO,			/* size_t */
-	TK_A_LAST_RULE,
 
 	TK_END,
 };
@@ -296,7 +295,6 @@ static const char *token_str(enum token_type type)
 		[TK_A_ATTR] =			"A ATTR",
 		[TK_A_RUN] =			"A RUN",
 		[TK_A_GOTO] =			"A GOTO",
-		[TK_A_LAST_RULE] =		"A LAST_RULE",
 
 		[TK_END] =			"END",
 	};
@@ -362,7 +360,6 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 	case TK_A_IGNORE_DEVICE:
 	case TK_A_STRING_ESCAPE_NONE:
 	case TK_A_STRING_ESCAPE_REPLACE:
-	case TK_A_LAST_RULE:
 	case TK_A_IGNORE_REMOVE:
 		dbg(rules->udev, "%s\n", token_str(type));
 		break;
@@ -1037,7 +1034,6 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 	case TK_A_STRING_ESCAPE_NONE:
 	case TK_A_STRING_ESCAPE_REPLACE:
 	case TK_A_IGNORE_REMOVE:
-	case TK_A_LAST_RULE:
 		break;
 	case TK_A_RUN:
 		token->key.value_off = add_string(rule_tmp->rules, value);
@@ -1500,10 +1496,6 @@ static int add_rule(struct udev_rules *rules, char *line,
 		if (strcmp(key, "OPTIONS") == 0) {
 			const char *pos;
 
-			if (strstr(value, "last_rule") != NULL) {
-				dbg(rules->udev, "last rule to be applied\n");
-				rule_add_key(&rule_tmp, TK_A_LAST_RULE, 0, NULL, NULL);
-			}
 			if (strstr(value, "ignore_device") != NULL) {
 				dbg(rules->udev, "device should be ignored\n");
 				rule_add_key(&rule_tmp, TK_A_IGNORE_DEVICE, 0, NULL, NULL);
@@ -2526,7 +2518,6 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				break;
 			cur = &rules->tokens[cur->key.rule_goto];
 			continue;
-		case TK_A_LAST_RULE:
 		case TK_END:
 			return 0;
 

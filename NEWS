@@ -27,6 +27,10 @@ the udevadm commands.
 The udev-acl tool got adopted to changes in ConsoleKit. Version 0.4.11 is
 required now.
 
+The option "last_rule" does no longer exist. Its use breaks too many
+things which expect to be run from independent later rules, and is an idication
+that something needs to be fixed properly instead.
+
 udev 146
 ========
 Bugfixes.
