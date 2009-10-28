@@ -43,18 +43,29 @@ int util_create_path(struct udev *udev, const char *path)
 	pos[0] = '\0';
 
 	dbg(udev, "stat '%s'\n", p);
-	if (stat(p, &stats) == 0 && (stats.st_mode & S_IFMT) == S_IFDIR)
-		return 0;
+	if (stat(p, &stats) == 0) {
+		if ((stats.st_mode & S_IFMT) == S_IFDIR)
+			return 0;
+		else
+			return -ENOTDIR;
+	}
 
-	if (util_create_path(udev, p) != 0)
-		return -1;
+	err = util_create_path(udev, p);
+	if (err != 0)
+		return err;
 
 	dbg(udev, "mkdir '%s'\n", p);
 	udev_selinux_setfscreatecon(udev, p, S_IFDIR|0755);
 	err = mkdir(p, 0755);
-	if (err != 0 && errno == EEXIST)
-		if (stat(p, &stats) == 0 && (stats.st_mode & S_IFMT) == S_IFDIR)
-			err = 0;
+	if (err != 0) {
+		err = -errno;
+		if (err == -EEXIST && stat(p, &stats) == 0) {
+			if ((stats.st_mode & S_IFMT) == S_IFDIR)
+				err = 0;
+			else
+				err = -ENOTDIR;
+		}
+	}
 	udev_selinux_resetfscreatecon(udev);
 	return err;
 }
