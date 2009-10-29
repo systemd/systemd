@@ -396,7 +396,6 @@ static void update_failed(struct udev_queue_export *udev_queue_export,
 {
 	struct udev *udev = udev_device_get_udev(udev_device);
 	char filename[UTIL_PATH_SIZE];
-	int err;
 
 	if (state != DEVICE_FAILED && udev_queue_export->failed_count == 0)
 		return;
@@ -409,16 +408,10 @@ static void update_failed(struct udev_queue_export *udev_queue_export,
 	case DEVICE_FAILED:
 		/* record event in the failed directory */
 		udev_queue_export->failed_count++;
-		do {
-			err = util_create_path(udev, filename);
-			if (err != 0 && err != -ENOENT)
-				break;
-			udev_selinux_setfscreatecon(udev, filename, S_IFLNK);
-			err = symlink(udev_device_get_devpath(udev_device), filename);
-			if (err != 0)
-				err = -errno;
-			udev_selinux_resetfscreatecon(udev);
-		} while (err == -ENOENT);
+		util_create_path(udev, filename);
+		udev_selinux_setfscreatecon(udev, filename, S_IFLNK);
+		symlink(udev_device_get_devpath(udev_device), filename);
+		udev_selinux_resetfscreatecon(udev);
 		break;
 
 	case DEVICE_QUEUED:
