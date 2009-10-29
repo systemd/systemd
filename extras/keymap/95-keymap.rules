@@ -61,7 +61,7 @@ ENV{DMI_VENDOR}=="LENOVO*", ATTR{[dmi/id]product_version}=="ThinkPad X200 Tablet
 ENV{DMI_VENDOR}=="Hewlett-Packard*", RUN+="keymap $name hewlett-packard"
 ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*[tT][aA][bB][lL][eE][tT]*", RUN+="keymap $name hewlett-packard-tablet"
 ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*[pP][aA][vV][iI][lL][iI][oO][nN]*", RUN+="keymap $name hewlett-packard-pavilion"
-ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*Compaq*|*EliteBook*", RUN+="keymap $name hewlett-packard-compaq_elitebook"
+ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*Compaq*|*EliteBook*|*2230s*", RUN+="keymap $name hewlett-packard-compaq_elitebook"
 ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*2510p*|*2530p*", RUN+="keymap $name hewlett-packard-2510p_2530p"
 ENV{DMI_VENDOR}=="Hewlett-Packard*", ATTR{[dmi/id]product_name}=="*[tT][xX]2*", RUN+="keymap $name hewlett-packard-tx2"
 ENV{DMI_VENDOR}=="Hewlett-Packard", ATTR{[dmi/id]product_name}=="Presario 2100*", RUN+="keymap $name hewlett-packard-presario-2100"
