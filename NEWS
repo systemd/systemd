@@ -31,6 +31,9 @@ The option "last_rule" does no longer exist. Its use breaks too many
 things which expect to be run from independent later rules, and is an idication
 that something needs to be fixed properly instead.
 
+The gudev API is no longer marked as experimental,
+G_UDEV_API_IS_SUBJECT_TO_CHANGE is no longer needed.
+
 udev 146
 ========
 Bugfixes.

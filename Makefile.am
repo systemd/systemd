@@ -335,7 +335,6 @@ extras_gudev_libgudev_1_0_la_CPPFLAGS = \
 	-I$(top_srcdir)/extras/gudev \
 	-D_POSIX_PTHREAD_SEMANTICS -D_REENTRANT \
 	-D_GUDEV_COMPILATION \
-	-DG_UDEV_API_IS_SUBJECT_TO_CHANGE \
 	-DG_LOG_DOMAIN=\"GUdev\"
 extras_gudev_libgudev_1_0_la_CFLAGS = $(GLIB_CFLAGS)
 extras_gudev_libgudev_1_0_la_LIBADD = libudev/libudev.la $(GLIB_LIBS)

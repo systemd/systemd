@@ -21,10 +21,6 @@
 #ifndef __G_UDEV_H__
 #define __G_UDEV_H__
 
-#ifndef G_UDEV_API_IS_SUBJECT_TO_CHANGE
-#error  GUdev is currently unstable API. You must define G_UDEV_API_IS_SUBJECT_TO_CHANGE to acknowledge this.
-#endif
-
 #define _GUDEV_INSIDE_GUDEV_H 1
 #include <gudev/gudevenums.h>
 #include <gudev/gudevenumtypes.h>
