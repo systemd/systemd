@@ -139,13 +139,12 @@ struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char 
 		util_strscpy(&udev_monitor->sun.sun_path[1], sizeof(udev_monitor->sun.sun_path)-1, socket_path);
 		udev_monitor->addrlen = offsetof(struct sockaddr_un, sun_path) + strlen(socket_path)+1;
 	}
-	udev_monitor->sock = socket(AF_LOCAL, SOCK_DGRAM, 0);
+	udev_monitor->sock = socket(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0);
 	if (udev_monitor->sock == -1) {
 		err(udev, "error getting socket: %m\n");
 		free(udev_monitor);
 		return NULL;
 	}
-	util_set_fd_cloexec(udev_monitor->sock);
 
 	dbg(udev, "monitor %p created with '%s'\n", udev_monitor, socket_path);
 	return udev_monitor;
@@ -197,13 +196,12 @@ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char
 	if (udev_monitor == NULL)
 		return NULL;
 
-	udev_monitor->sock = socket(PF_NETLINK, SOCK_DGRAM, NETLINK_KOBJECT_UEVENT);
+	udev_monitor->sock = socket(PF_NETLINK, SOCK_DGRAM|SOCK_CLOEXEC, NETLINK_KOBJECT_UEVENT);
 	if (udev_monitor->sock == -1) {
 		err(udev, "error getting socket: %m\n");
 		free(udev_monitor);
 		return NULL;
 	}
-	util_set_fd_cloexec(udev_monitor->sock);
 
 	udev_monitor->snl.nl_family = AF_NETLINK;
 	udev_monitor->snl.nl_groups = group;

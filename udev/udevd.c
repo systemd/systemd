@@ -223,7 +223,6 @@ static void worker_new(struct event *event)
 	/* allow the main daemon netlink address to send devices to the worker */
 	udev_monitor_allow_unicast_sender(worker_monitor, monitor);
 	udev_monitor_enable_receiving(worker_monitor);
-	util_set_fd_cloexec(udev_monitor_get_fd(worker_monitor));
 
 	worker = calloc(1, sizeof(struct worker));
 	if (worker == NULL)
@@ -945,14 +944,13 @@ int main(int argc, char *argv[])
 	}
 
 	/* unnamed socket from workers to the main daemon */
-	if (socketpair(AF_LOCAL, SOCK_DGRAM, 0, worker_watch) < 0) {
+	if (socketpair(AF_LOCAL, SOCK_DGRAM|SOCK_CLOEXEC, 0, worker_watch) < 0) {
 		fprintf(stderr, "error getting socketpair\n");
 		err(udev, "error getting socketpair\n");
 		rc = 6;
 		goto exit;
 	}
 	pfd[FD_WORKER].fd = worker_watch[READ_END];
-	util_set_fd_cloexec(worker_watch[WRITE_END]);
 
 	rules = udev_rules_new(udev, resolve_names);
 	if (rules == NULL) {

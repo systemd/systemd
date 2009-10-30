@@ -38,10 +38,8 @@ static int inotify_fd = -1;
  */
 int udev_watch_init(struct udev *udev)
 {
-	inotify_fd = inotify_init();
-	if (inotify_fd >= 0)
-		util_set_fd_cloexec(inotify_fd);
-	else
+	inotify_fd = inotify_init1(IN_CLOEXEC);
+	if (inotify_fd < 0)
 		err(udev, "inotify_init failed: %m\n");
 	return inotify_fd;
 }

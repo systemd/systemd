@@ -481,18 +481,6 @@ err:
 	return -1;
 }
 
-void util_set_fd_cloexec(int fd)
-{
-	int flags;
-
-	flags = fcntl(fd, F_GETFD);
-	if (flags < 0)
-		flags = FD_CLOEXEC;
-	else
-		flags |= FD_CLOEXEC;
-	fcntl(fd, F_SETFD, flags);
-}
-
 unsigned int util_string_hash32(const char *str)
 {
 	unsigned int hash = 0;

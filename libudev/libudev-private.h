@@ -205,7 +205,6 @@ size_t util_strscpyl(char *dest, size_t size, const char *src, ...) __attribute_
 int udev_util_replace_whitespace(const char *str, char *to, size_t len);
 int udev_util_replace_chars(char *str, const char *white);
 int udev_util_encode_string(const char *str, char *str_enc, size_t len);
-void util_set_fd_cloexec(int fd);
 unsigned int util_string_hash32(const char *str);
 
 /* libudev-util-private.c */
