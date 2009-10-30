@@ -530,7 +530,7 @@ dist_udevkeymap_DATA = \
 	extras/keymap/keymaps/zepto-znote
 
 extras/keymap/keys.txt: /usr/include/linux/input.h
-	$(AM_V_GEN)$(AWK) '/^#define.*KEY_[^ ]+[[:space:]]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' < $< | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@
+	$(AM_V_GEN)$(AWK) '/^#define.*KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' < $< | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@
 
 extras/keymap/keys-from-name.gperf: extras/keymap/keys.txt
 	$(AM_V_GEN)$(AWK) 'BEGIN{ print "struct key { const char* name; unsigned short id; };"; print "%null-strings"; print "%%";} { print $$1 ", " $$1 }' < $< > $@
