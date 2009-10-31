@@ -52,6 +52,7 @@ int main(int argc, char *argv[])
 	const char *action;
 	const char *subsystem;
 	struct sigaction act;
+	sigset_t mask;
 	int err = -EINVAL;
 
 	udev = udev_new();
@@ -68,6 +69,11 @@ int main(int argc, char *argv[])
 	sigaction(SIGALRM, &act, NULL);
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGTERM, &act, NULL);
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGALRM);
+	sigaddset(&mask, SIGINT);
+	sigaddset(&mask, SIGTERM);
+	sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
 	/* trigger timeout to prevent hanging processes */
 	alarm(UDEV_EVENT_TIMEOUT);

@@ -66,6 +66,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	const char *exists = NULL;
 	int timeout = DEFAULT_TIMEOUT;
 	struct sigaction act;
+	sigset_t mask;
 	struct udev_queue *udev_queue = NULL;
 	int rc = 1;
 
@@ -78,6 +79,10 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 	act.sa_flags = 0;
 	sigaction(SIGALRM, &act, NULL);
 	sigaction(SIGUSR1, &act, NULL);
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGUSR1);
+	sigaddset(&mask, SIGALRM);
+	sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
 	while (1) {
 		int option;
@@ -163,7 +168,7 @@ int udevadm_settle(struct udev *udev, int argc, char *argv[])
 
 		uctrl = udev_ctrl_new_from_socket(udev, UDEV_CTRL_SOCK_PATH);
 		if (uctrl != NULL) {
-			sigset_t mask, oldmask;
+			sigset_t oldmask;
 
 			sigemptyset(&mask);
 			sigaddset(&mask, SIGUSR1);

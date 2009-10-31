@@ -67,6 +67,7 @@ static void print_device(struct udev_device *device, const char *source, int pro
 int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 {
 	struct sigaction act;
+	sigset_t mask;
 	int option;
 	int prop = 0;
 	int print_kernel = 0;
@@ -142,6 +143,10 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 	act.sa_flags = SA_RESTART;
 	sigaction(SIGINT, &act, NULL);
 	sigaction(SIGTERM, &act, NULL);
+	sigemptyset(&mask);
+	sigaddset(&mask, SIGINT);
+	sigaddset(&mask, SIGTERM);
+	sigprocmask(SIG_UNBLOCK, &mask, NULL);
 
 	printf("monitor will print the received events for:\n");
 	if (print_udev) {
