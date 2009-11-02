@@ -281,6 +281,7 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
 			udev_device_unref(dev_db);
 		}
 	}
+	closedir(dir);
 	return target;
 }
 
