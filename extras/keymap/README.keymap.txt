@@ -84,7 +84,7 @@ for inclusion you need to do the following steps:
  /tmp/orig-map.txt from step 2, and /tmp/udev-db.txt from step 5
  to the bug tracker, so that they can be included in the next release:
 
-   https://bugs.launchpad.net/udev-extras/+bugs
+   https://bugs.launchpad.net/udev/+bugs
 
 For local testing, copy your map file to /lib/udev/keymaps/ with an appropriate
 name, and add an appropriate udev rule to /lib/udev/rules.d/95-keymap.rules:
