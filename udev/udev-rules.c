@@ -1736,12 +1736,6 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 
 		/* read dynamic/temporary rules */
 		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/rules.d", NULL);
-		if (stat(filename, &statbuf) != 0) {
-			util_create_path(udev, filename);
-			udev_selinux_setfscreatecon(udev, filename, S_IFDIR|0755);
-			mkdir(filename, 0755);
-			udev_selinux_resetfscreatecon(udev);
-		}
 		udev_list_init(&sort_list);
 		add_matching_files(udev, &sort_list, filename, ".rules");
 
