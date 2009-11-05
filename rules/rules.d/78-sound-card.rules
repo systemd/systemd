@@ -48,8 +48,8 @@ SUBSYSTEMS=="pci", ENV{ID_BUS}="pci", ENV{ID_VENDOR_ID}="$attr{vendor}", ENV{ID_
 
 LABEL="skip_pci"
 
-ENV{ID_SERIAL}=="?*", ENV{ID_IFACE}=="?*", ENV{ID_ID}="$env{ID_BUS}-$env{ID_SERIAL}-$env{ID_IFACE}"
-ENV{ID_SERIAL}=="?*", ENV{ID_IFACE}=="", ENV{ID_ID}="$env{ID_BUS}-$env{ID_SERIAL}"
+ENV{ID_SERIAL}=="?*", ENV{ID_IFACE}=="?*", ENV{ID_ID}="$env{ID_BUS}-$env{ID_SERIAL}-$env{ID_IFACE}-$attr{id}"
+ENV{ID_SERIAL}=="?*", ENV{ID_IFACE}=="", ENV{ID_ID}="$env{ID_BUS}-$env{ID_SERIAL}-$attr{id}"
 
 ENV{ID_PATH}=="", IMPORT{program}="path_id %p/controlC%n"
 
