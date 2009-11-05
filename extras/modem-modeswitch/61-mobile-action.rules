@@ -6,9 +6,10 @@ GOTO="mobile_action_end"
 LABEL="mobile_action_switch"
 ATTRS{idVendor}=="0df7", ATTRS{idProduct}=="0800", RUN+="modem-modeswitch -v 0x%s{idVendor} -p 0x%s{idProduct} -t mobile-action-8280p"
 
+LABEL="mobile_action_end"
+
 # modem-modeswitch does not work with these devices, the fake CD-ROM needs to be ejected
 
 # ZTE MF6xx
-ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="2000", RUN+="/usr/bin/eject %k"
+ACTION=="add", ENV{ID_CDROM}=="1", ENV{ID_VENDOR_ID}=="19d2", ENV{ID_MODEL_ID}=="2000", RUN+="/usr/bin/eject %k"
 
-LABEL="mobile_action_end"
