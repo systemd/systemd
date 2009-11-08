@@ -378,7 +378,7 @@ extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER) Makefil
 		--pkg=gobject-2.0 \
 		-I$(top_srcdir)/extras \
 		-D_GUDEV_COMPILATION \
-		-DG_UDEV_API_IS_SUBJECT_TO_CHANGE \
+		-D_GUDEV_WORK_AROUND_DEV_T_BUG \
 		$(top_srcdir)/extras/gudev/gudev.h \
 		$(top_srcdir)/extras/gudev/gudevtypes.h \
 		$(top_srcdir)/extras/gudev/gudevenums.h \

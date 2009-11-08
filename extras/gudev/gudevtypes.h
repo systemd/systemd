@@ -26,6 +26,7 @@
 #define __G_UDEV_TYPES_H__
 
 #include <gudev/gudevenums.h>
+#include <sys/types.h>
 
 G_BEGIN_DECLS
 
@@ -36,9 +37,13 @@ typedef struct _GUdevDevice GUdevDevice;
  * GUdevDeviceNumber:
  *
  * Corresponds to the standard #dev_t type as defined by POSIX (Until
- * bug 584517 is resolved this is aliased to an integer).
+ * bug 584517 is resolved this work-around is needed).
  */
-typedef int GUdevDeviceNumber;
+#ifdef _GUDEV_WORK_AROUND_DEV_T_BUG
+typedef guint64 GUdevDeviceNumber; /* __UQUAD_TYPE */
+#else
+typedef dev_t GUdevDeviceNumber;
+#endif
 
 G_END_DECLS
 
