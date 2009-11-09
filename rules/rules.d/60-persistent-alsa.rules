@@ -5,9 +5,9 @@ SUBSYSTEM!="sound", GOTO="persistent_alsa_end"
 KERNEL!="controlC[0-9]*", GOTO="persistent_alsa_end"
 
 SUBSYSTEMS=="usb", ENV{ID_MODEL}=="", IMPORT{program}="usb_id --export %p"
-SUBSYSTEMS=="usb", ENV{ID_IFACE}="$attr{bInterfaceNumber}"
-ENV{ID_SERIAL}=="?*", ENV{ID_IFACE}=="?*", SYMLINK+="snd/by-id/$env{ID_BUS}-$env{ID_SERIAL}-$env{ID_IFACE}"
-ENV{ID_SERIAL}=="?*", ENV{ID_IFACE}=="", SYMLINK+="snd/by-id/$env{ID_BUS}-$env{ID_SERIAL}"
+SUBSYSTEMS=="usb", ATTRS{bInterfaceNumber}!="", ENV{ID_IFACE}="$attr{bInterfaceNumber}"
+ENV{ID_SERIAL}=="?*", ENV{ID_IFACE}=="?*", SYMLINK+="snd/by-id/$env{ID_BUS}-$env{ID_SERIAL}-$env{ID_IFACE}-$attr{../id}"
+ENV{ID_SERIAL}=="?*", ENV{ID_IFACE}=="", SYMLINK+="snd/by-id/$env{ID_BUS}-$env{ID_SERIAL}-$attr{../id}"
 
 ENV{ID_PATH}=="", IMPORT{program}="path_id %p"
 ENV{ID_PATH}=="?*", SYMLINK+="snd/by-path/$env{ID_PATH}"
