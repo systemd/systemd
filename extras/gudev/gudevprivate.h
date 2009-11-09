@@ -27,7 +27,6 @@
 
 #include <gudev/gudevtypes.h>
 
-#define LIBUDEV_I_KNOW_THE_API_IS_SUBJECT_TO_CHANGE 1
 #include <libudev.h>
 
 G_BEGIN_DECLS
