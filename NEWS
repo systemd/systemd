@@ -32,7 +32,9 @@ things which expect to be run from independent later rules, and is an idication
 that something needs to be fixed properly instead.
 
 The gudev API is no longer marked as experimental,
-G_UDEV_API_IS_SUBJECT_TO_CHANGE is no longer needed.
+G_UDEV_API_IS_SUBJECT_TO_CHANGE is no longer needed. The gudev introspection
+is enabled by default now. Various projects already depend on introspection
+information to bind dynamic languages to the gudev interfaces.
 
 udev 146
 ========
