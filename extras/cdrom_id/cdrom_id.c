@@ -583,9 +583,9 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	/* check for media */
-	if (cd_media_compat(udev, fd) < 0)
-		goto print;
+	/* check for media - don't bail if there's no media as we still need to
+         * to read profiles */
+	cd_media_compat(udev, fd);
 
 	/* check if drive talks MMC */
 	if (cd_inquiry(udev, fd) < 0)
