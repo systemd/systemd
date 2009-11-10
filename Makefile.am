@@ -21,8 +21,7 @@ AM_LDFLAGS = \
 	-Wl,--as-needed
 
 DISTCHECK_CONFIGURE_FLAGS = \
-	--enable-gtk-doc \
-	--enable-extras
+	--enable-gtk-doc
 
 CLEANFILES =
 
@@ -364,6 +363,7 @@ extras/gudev/gudevenumtypes.c: extras/gudev/gudevenumtypes.c.template extras/gud
 	$(AM_V_GEN)glib-mkenums --template $^ > \
 	    $@.tmp && mv $@.tmp $@
 
+if ENABLE_INTROSPECTION
 extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER) Makefile.am
 	$(AM_V_GEN)PKG_CONFIG_PATH=$(top_builddir)/data:$$PKG_CONFIG_PATH \
 	LD_LIBRARY_PATH=$(top_builddir)/extras/gudev \
@@ -391,14 +391,12 @@ extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER) Makefil
 extras/gudev/GUdev-1.0.typelib: extras/gudev/GUdev-1.0.gir $(G_IR_COMPILER)
 	$(AM_V_GEN)g-ir-compiler $< -o $@
 
-if ENABLE_INTROSPECTION
 girdir = $(GIRDIR)
 gir_DATA = extras/gudev/GUdev-1.0.gir
 
 typelibsdir = $(GIRTYPELIBDIR)
 typelibs_DATA = extras/gudev/GUdev-1.0.typelib
 
-EXTRA_DIST += GUdev-1.0.gir
 CLEANFILES += $(gir_DATA) $(typelibs_DATA)
 endif # ENABLE_INTROSPECTION
 
