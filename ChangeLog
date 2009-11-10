@@ -1,3 +1,149 @@
+Summary of changes from v146 to v147
+============================================
+
+Alan Jenkins (1):
+      udevd: queue-export - remove retry loop
+
+Andrew Church (1):
+      fix wrong parameter size on ioctl FIONREAD
+
+Daniel Mierswa (2):
+      don't compare a non-existing function with NULL
+      use nanosleep() instead of usleep()
+
+David Zeuthen (4):
+      gudev: remove G_UDEV_API_IS_SUBJECT_TO_CHANGE since API is now stable
+      ata_id: export more advanced ATA features
+      gudev: Fix up GUdevDeviceNumber
+      gudev: Remove LIBUDEV_I_KNOW_THE_API_IS_SUBJECT_TO_CHANGE from priv header
+
+Florian Zumbiehl (10):
+      util_delete_path(): use util_strscpy()
+      util_lookup_group(): fix memory leak if realloc() fails
+      util_delete_path(): handle multiple leading slashes
+      util_create_path(): fix possible out of bounds array access
+      ude_rules.c: fix possible NULL pointer dereference in get_key()
+      util_resolve_sys_link(): fix possible buffer overflow
+      udev_util_encode_string(): fix possible buffer overflow
+      udev-rules.c: parse_file() - fix possible buffer overflow
+      udev_queue_get_seqnum_sequence_is_finished(): fix possible file handle leak
+      util_run_program(): fix possible buffer overflow #2
+
+Harald Hoyer (2):
+      scsi_id: prevent buffer overflow in check_fill_0x83_prespc3()
+      rename interfaces to <iface>_rename if rename fails
+
+Jeremy Kerr (1):
+      util_run_program: restore signal mask before executing event RUN commands
+
+Kay Sievers (45):
+      make: sort Makefile.am per target/extra
+      configure.ac: version bump
+      udev-acl: allow to skip ACL handling
+      rules: rfkill has no group, so use 0644
+      rule_generator: net - fix MATCHDEVID
+      make: add comment
+      update NEWS
+      print warning for NAME="%k" - it breaks the kernel supplied DEVNAME
+      warn about non-readable or empty rules file
+      change database file names
+      assign errno for getgrnam_r()/getpwnam_r()
+      doc: udevadm test *does* create nodes and links these days
+      util_unlink_secure(): chmod() before chown()
+      util_create_path(): fix errno usage
+      inotify_add_watch(): do not store watch, if it failed
+      update TODO
+      update README
+      rules: suse - use NAME for mapper/control
+      libudev-util.c: get_sys_link() - return error for empty link target
+      udev-rules.c: remove 'first_token' variable
+      Revert "udev-rules.c: remove 'first_token' variable"
+      test: catch possible bug in GOTO resolving
+      udevadm: remove symlink support for old commands
+      util_run_program(): skip multiple spaces in argv creation
+      fix whitespace
+      require 2.6.27 for proper signalfd handling
+      fix randonm findings from llvm-clang-analyzer
+      simplify "symlink name stack"
+      reorder create_path() and node/link creation to be called in a direct sequence
+      put util_create_path() and file creastion in a retry loop
+      udevadm: control - remove compat code
+      scsi_id: delete copy of bsg.h
+      fix SYMLINK{} option parsing
+      rules: remove remaining NAME="%k"
+      rules: drop almost all NAME= keys
+      update TODO, NEWS
+      udevd: serialize events for with the same major/minor
+      break loops if util_create_path() returns error
+      remove "last_rule" option
+      use CLOEXEC flags instead of fcntl()
+      unblock signals we might want to handle
+      udevd: create /dev/.udev/rules.d/ before watching it wit inotify
+      gudev: fix pkg-config call to work with "make distcheck"
+      update NEWS
+      Revert "gudev: fix out-of-tree build"
+
+Lennart Poettering (5):
+      pci-db: make sure we actually read the pci.ids file instead of usb.ids
+      sound: recognize saa7134 TV card sound devices as TV cards
+      sound: include ALSA sound card id in ID_ID property
+      sound: include ALSA sound card id in /dev/snd/by-id/ links
+      Revert "sound: include ALSA sound card id in /dev/snd/by-id/ links"
+
+Marco d'Itri (6):
+      doc: writing_udev_rules updated for the new command names
+      rules: sound - do not use /usr/bin/env
+      udevadm: print all messages to stderr with priority higher or equal than LOG_ERR
+      udevadmi: control = exit with rc=2 if there is some system error
+      gudev: gir-scanner workaround for out of tree builds
+      gudev: fix out-of-tree build
+
+Mario Limonciello (1):
+      hid2hci: remove superfluous bmAttributes match
+
+Martin Pitt (24):
+      extras/keymap: Add Acer Aspire 6920
+      extras/modem-modeswitch: eject ZTE MF6xx fake CD-ROMs
+      extras/keymap: Fix hold key on Acer Aspire 6920
+      extras/keymap: Fix case matching for Micro-Star
+      Revert "extras/keymap: Fix case matching for Micro-Star"
+      make raw USB printer devices accessible for lp
+      modem-modeswitch rules: Match more devices
+      extras/keymap: fix hash table collisions
+      extras/keymap: Rename KEY_COFFEE to KEY_SCREENLOCK
+      fix single-session CD detection
+      fix previous commit for CD detection
+      make raw USB printer devices world-readable again
+      50-udev-default.rules: fix printer MODE
+      keymap: Add Logitech Wave USB
+      keymap: add missing map file
+      keymap: fix usb_id invocation
+      keymap: make USB keyboards really work
+      keymap: Add Logitech Wave cordless
+      keymap: add HP Pavillion dv6315ea
+      keymap: add HP 2230s
+      Makefile.am: fix build with mawk
+      extras/keymap/README.keymap.txt: Fix bug report link
+      fix major fd leak in link handling
+      modem-modeswitch: fix ZTE MF6xx rule
+
+Matthias Schwarzott (2):
+      rules: Gentoo update
+      rules: Gentoo update
+
+Maxim Levitsky (1):
+      keymap for Acer Aspire 5720
+
+Peter Rajnoha (1):
+      libudev: allow to store negative values in the udev database
+
+Scott James Remnant (1):
+      util_run_program: *really* restore signal mask before executing event RUN commands
+
+William Jon McCann (1):
+      udev-acl: catch up with ConsoleKit 0.4.1
+
+
 Summary of changes from v145 to v146
 ============================================
 
