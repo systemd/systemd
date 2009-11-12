@@ -74,7 +74,7 @@ SUBSYSTEM=="block", GROUP="disk"
 
 # floppy
 KERNEL=="fd[0-9]", GROUP="floppy"
-KERNEL=="fd[0-9]", ACTION=="add", ATTRS{cmos}=="?*", RUN+="create_floppy_devices -c -t $attr{cmos} -m %M -M 0640 -G floppy $root/%k"
+KERNEL=="fd[0-9]", ACTION=="add", ATTRS{cmos}=="?*", RUN+="create_floppy_devices -c -t $attr{cmos} -m %M -M 0660 -G floppy $root/%k"
 KERNEL=="hd*", SUBSYSTEMS=="ide", ATTRS{media}=="floppy", OPTIONS+="all_partitions"
 
 # cdrom
