@@ -7,6 +7,10 @@ ignore an event, as libudev events can not be suppressed by rules.
 It only prevented RUN keys from being executed, which results in an
 inconsistent behavior in current setups.
 
+BUS=, SYSFS{}=, ID= are long deprecated and should be SUBSYSTEM(S)=,
+ATTR(S){}=, KERNEL(S)=. It will cause a warning once for every rule
+file from now on.
+
 udev 147
 ========
 Bugfixes.

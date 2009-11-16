@@ -19,6 +19,7 @@
 #include <stddef.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
 #include <fcntl.h>
@@ -1156,6 +1157,9 @@ static int add_rule(struct udev_rules *rules, char *line,
 	char *linepos;
 	char *attr;
 	struct rule_tmp rule_tmp;
+	bool bus_warn = false;
+	bool sysfs_warn = false;
+	bool id_warn = false;
 
 	memset(&rule_tmp, 0x00, sizeof(struct rule_tmp));
 	rule_tmp.rules = rules;
@@ -1240,8 +1244,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcmp(key, "KERNELS") == 0 ||
-		    strcmp(key, "ID") == 0) {
+		if (strcmp(key, "KERNELS") == 0) {
 			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid KERNELS operation\n");
 				goto invalid;
@@ -1250,8 +1253,37 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strcmp(key, "SUBSYSTEMS") == 0 ||
-		    strcmp(key, "BUS") == 0) {
+		if (strcmp(key, "ID") == 0) {
+			if (!id_warn) {
+				id_warn = true;
+				err(rules->udev, "ID= will be removed in a future udev version, "
+				    "please use KERNEL= to match the event device, or KERNELS= "
+				    "to match a parent device, in %s:%u\n", filename, lineno);
+			}
+			if (op > OP_MATCH_MAX) {
+				err(rules->udev, "invalid KERNELS operation\n");
+				goto invalid;
+			}
+			rule_add_key(&rule_tmp, TK_M_KERNELS, op, value, NULL);
+			continue;
+		}
+
+		if (strcmp(key, "SUBSYSTEMS") == 0) {
+			if (op > OP_MATCH_MAX) {
+				err(rules->udev, "invalid SUBSYSTEMS operation\n");
+				goto invalid;
+			}
+			rule_add_key(&rule_tmp, TK_M_SUBSYSTEMS, op, value, NULL);
+			continue;
+		}
+
+		if (strcmp(key, "BUS") == 0) {
+			if (!bus_warn) {
+				bus_warn = true;
+				err(rules->udev, "BUS= will be removed in a future udev version, "
+				    "please use SUBSYSTEM= to match the event device, or SUBSYSTEMS= "
+				    "to match a parent device, in %s:%u\n", filename, lineno);
+			}
 			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid SUBSYSTEMS operation\n");
 				goto invalid;
@@ -1269,8 +1301,7 @@ static int add_rule(struct udev_rules *rules, char *line,
 			continue;
 		}
 
-		if (strncmp(key, "ATTRS{", sizeof("ATTRS{")-1) == 0 ||
-		    strncmp(key, "SYSFS{", sizeof("SYSFS{")-1) == 0) {
+		if (strncmp(key, "ATTRS{", sizeof("ATTRS{")-1) == 0) {
 			if (op > OP_MATCH_MAX) {
 				err(rules->udev, "invalid ATTRS operation\n");
 				goto invalid;
@@ -1286,6 +1317,26 @@ static int add_rule(struct udev_rules *rules, char *line,
 			else if (strstr(attr, "../") != NULL)
 				err(rules->udev, "do not reference parent sysfs directories directly, "
 				    "it may break with a future kernel, please fix it in %s:%u", filename, lineno);
+			rule_add_key(&rule_tmp, TK_M_ATTRS, op, value, attr);
+			continue;
+		}
+
+		if (strncmp(key, "SYSFS{", sizeof("SYSFS{")-1) == 0) {
+			if (!sysfs_warn) {
+				sysfs_warn = true;
+				err(rules->udev, "SYSFS{}= will be removed in a future udev version, "
+				    "please use ATTR{}= to match the event device, or ATTRS{}= "
+				    "to match a parent device, in %s:%u\n", filename, lineno);
+			}
+			if (op > OP_MATCH_MAX) {
+				err(rules->udev, "invalid ATTRS operation\n");
+				goto invalid;
+			}
+			attr = get_key_attribute(rules->udev, key + sizeof("ATTRS")-1);
+			if (attr == NULL) {
+				err(rules->udev, "error parsing ATTRS attribute\n");
+				goto invalid;
+			}
 			rule_add_key(&rule_tmp, TK_M_ATTRS, op, value, attr);
 			continue;
 		}
