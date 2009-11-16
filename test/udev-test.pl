@@ -39,7 +39,7 @@ my @tests = (
 EOF
 	},
 	{
-		desc		=> "label test of scsi disc (old key names)",
+		desc		=> "label test of scsi disc",
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "boot_disk" ,
@@ -49,7 +49,7 @@ KERNEL=="ttyACM0", NAME="modem"
 EOF
 	},
 	{
-		desc		=> "label test of scsi disc (old key names)",
+		desc		=> "label test of scsi disc",
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "boot_disk" ,
@@ -263,15 +263,6 @@ EOF
 		exp_name	=> "first_disk5" ,
 		rules		=> <<EOF
 SUBSYSTEMS=="scsi", KERNELS=="0:0:0:0", NAME="first_disk%n"
-EOF
-	},
-	{
-		desc		=> "test substitution chars (old key names)",
-		subsys		=> "block",
-		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda5",
-		exp_name	=> "Major:8:minor:5:kernelnumber:5:id:0:0:0:0" ,
-		rules		=> <<EOF
-BUS=="scsi", ID=="0:0:0:0", NAME="Major:%M:minor:%m:kernelnumber:%n:id:%b"
 EOF
 	},
 	{
@@ -1024,17 +1015,6 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n node link1 link2 link3 link4", RESULT
 EOF
 	},
 	{
-		desc		=> "ignore rule test",
-		subsys		=> "block",
-		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-		exp_name	=> "nothing",
-		not_exp_name	=> "node",
-		exp_add_error	=> "yes",
-		rules		=> <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda", NAME="node", OPTIONS="ignore_device"
-EOF
-	},
-	{
 		desc		=> "all_partitions, option-only rule",
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
@@ -1112,7 +1092,7 @@ EOF
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
 		exp_name	=> "sda",
 		rules		=> <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda", PROGRAM=="/bin/echo %p", RESULT=="/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda" NAME="%k"
+SUBSYSTEMS=="scsi", KERNEL=="sda", PROGRAM=="/bin/echo %p", RESULT=="/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda"
 EOF
 	},
 	{
