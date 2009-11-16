@@ -119,7 +119,7 @@ int udevadm_test(struct udev *udev, int argc, char *argv[])
 	udev_list_entry_foreach(entry, udev_device_get_properties_list_entry(dev))
 		info(udev, "%s=%s\n", udev_list_entry_get_name(entry), udev_list_entry_get_value(entry));
 
-	if (err == 0 && !event->ignore_device && udev_get_run(udev)) {
+	if (err == 0 && udev_get_run(udev)) {
 		udev_list_entry_foreach(entry, udev_list_get_entry(&event->run_list)) {
 			char program[UTIL_PATH_SIZE];
 

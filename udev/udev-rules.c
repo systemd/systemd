@@ -144,7 +144,6 @@ enum token_type {
 	TK_M_RESULT,			/* val */
 	TK_M_MAX,
 
-	TK_A_IGNORE_DEVICE,
 	TK_A_STRING_ESCAPE_NONE,
 	TK_A_STRING_ESCAPE_REPLACE,
 	TK_A_INOTIFY_WATCH,		/* int */
@@ -275,7 +274,6 @@ static const char *token_str(enum token_type type)
 		[TK_M_RESULT] =			"M RESULT",
 		[TK_M_MAX] =			"M MAX",
 
-		[TK_A_IGNORE_DEVICE] =		"A IGNORE_DEVICE",
 		[TK_A_STRING_ESCAPE_NONE] =	"A STRING_ESCAPE_NONE",
 		[TK_A_STRING_ESCAPE_REPLACE] =	"A STRING_ESCAPE_REPLACE",
 		[TK_A_INOTIFY_WATCH] = 		"A INOTIFY_WATCH",
@@ -357,7 +355,6 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 		dbg(rules->udev, "%s %s '%s' '%s'(%s)\n",
 		    token_str(type), operation_str(op), attr, value, string_glob_str(glob));
 		break;
-	case TK_A_IGNORE_DEVICE:
 	case TK_A_STRING_ESCAPE_NONE:
 	case TK_A_STRING_ESCAPE_REPLACE:
 	case TK_A_IGNORE_REMOVE:
@@ -1030,7 +1027,6 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 		if (data != NULL)
 			token->key.mode = *(mode_t *)data;
 		break;
-	case TK_A_IGNORE_DEVICE:
 	case TK_A_STRING_ESCAPE_NONE:
 	case TK_A_STRING_ESCAPE_REPLACE:
 	case TK_A_IGNORE_REMOVE:
@@ -1496,10 +1492,6 @@ static int add_rule(struct udev_rules *rules, char *line,
 		if (strcmp(key, "OPTIONS") == 0) {
 			const char *pos;
 
-			if (strstr(value, "ignore_device") != NULL) {
-				dbg(rules->udev, "device should be ignored\n");
-				rule_add_key(&rule_tmp, TK_A_IGNORE_DEVICE, 0, NULL, NULL);
-			}
 			if (strstr(value, "ignore_remove") != NULL) {
 				dbg(rules->udev, "remove event should be ignored\n");
 				rule_add_key(&rule_tmp, TK_A_IGNORE_REMOVE, 0, NULL, NULL);
@@ -2258,11 +2250,6 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 		case TK_M_RESULT:
 			if (match_key(rules, cur, event->program_result) != 0)
 				goto nomatch;
-			break;
-
-		case TK_A_IGNORE_DEVICE:
-			event->ignore_device = 1;
-			return 0;
 			break;
 		case TK_A_STRING_ESCAPE_NONE:
 			esc = ESCAPE_NONE;

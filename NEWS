@@ -1,3 +1,12 @@
+udev 148
+========
+Bugfixes.
+
+The option "ignore_device" does no longer exist. There is no way to
+ignore an event, as libudev events can not be suppressed by rules.
+It only prevented RUN keys from being executed, which results in an
+inconsistent behavior in current setups.
+
 udev 147
 ========
 Bugfixes.

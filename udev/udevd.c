@@ -293,7 +293,7 @@ static void worker_new(struct event *event)
 				alarm(udev_device_get_event_timeout(dev));
 
 			/* execute RUN= */
-			if (err == 0 && !udev_event->ignore_device && udev_get_run(udev_event->udev))
+			if (err == 0 && udev_get_run(udev_event->udev))
 				failed = udev_event_execute_run(udev_event,
 								&orig_sigmask);
 

@@ -48,7 +48,6 @@ struct udev_event {
 	unsigned int name_final:1;
 	unsigned int devlink_final:1;
 	unsigned int run_final:1;
-	unsigned int ignore_device:1;
 	unsigned int inotify_watch:1;
 };
 

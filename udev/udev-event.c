@@ -568,12 +568,6 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 			event->tmp_node = NULL;
 		}
 
-		if (event->ignore_device) {
-			info(event->udev, "device event will be ignored\n");
-			delete_kdevnode = 1;
-			goto exit_add;
-		}
-
 		if (event->name != NULL && event->name[0] == '\0') {
 			info(event->udev, "device node creation suppressed\n");
 			delete_kdevnode = 1;
@@ -638,10 +632,6 @@ exit_add:
 		udev_device_delete_db(dev);
 
 		udev_rules_apply_to_event(rules, event);
-		if (event->ignore_device) {
-			info(event->udev, "device event will be ignored\n");
-			goto exit;
-		}
 		if (event->name == NULL)
 			goto exit;
 
@@ -694,10 +684,6 @@ exit_add:
 		}
 
 		udev_rules_apply_to_event(rules, event);
-		if (event->ignore_device) {
-			info(event->udev, "device event will be ignored\n");
-			goto exit;
-		}
 
 		if (udev_device_get_ignore_remove(dev)) {
 			info(event->udev, "ignore_remove for '%s'\n", udev_device_get_devnode(dev));
@@ -710,8 +696,6 @@ exit_add:
 
 	/* default devices */
 	udev_rules_apply_to_event(rules, event);
-	if (event->ignore_device)
-		info(event->udev, "device event will be ignored\n");
 
 	if (strcmp(udev_device_get_action(dev), "remove") != 0)
 		udev_device_update_db(dev);
