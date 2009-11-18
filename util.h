@@ -46,4 +46,9 @@ bool startswith(const char *s, const char *prefix);
 
 int nointr_close(int fd);
 
+int parse_boolean(const char *v);
+
+int safe_atou(const char *s, unsigned *ret_u);
+int safe_atoi(const char *s, int *ret_i);
+
 #endif
