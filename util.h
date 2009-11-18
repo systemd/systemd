@@ -41,6 +41,14 @@ static inline const char* strnull(const char *s) {
         return s ? s : "(null)";
 }
 
+static inline const char *strna(const char *s) {
+        return s ? s : "n/a";
+}
+
+static inline bool is_path_absolute(const char *p) {
+        return *p == '/';
+}
+
 bool endswith(const char *s, const char *postfix);
 bool startswith(const char *s, const char *prefix);
 
