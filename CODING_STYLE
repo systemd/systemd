@@ -11,6 +11,6 @@
 - for robustness reasons destructors should be able to destruct
   half-initialized objects, too
 
-- error codes are returned as negative Exxx. i.e. return EINVAL. There
+- error codes are returned as negative Exxx. i.e. return -EINVAL. There
   are some exceptions: for constructors its is OK to return NULL on
   OOM. For lookup functions NULL is fine too for "not found".
