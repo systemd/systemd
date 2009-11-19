@@ -260,6 +260,7 @@ DEFINE_CAST(SNAPSHOT, Snapshot, snapshot);
 
 bool name_is_ready(Name *name);
 NameType name_type_from_string(const char *n);
+bool name_is_valid(const char *n);
 
 Name *name_new(Manager *m);
 void name_free(Name *name);

@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <string.h>
 
 #include "set.h"
 #include "name.h"
@@ -28,6 +29,32 @@ NameType name_type_from_string(const char *n) {
                         return t;
 
         return _NAME_TYPE_INVALID;
+}
+
+#define VALID_CHARS                             \
+        "0123456789"                            \
+        "abcdefghijklmnopqrstuvwxyz"            \
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"            \
+        "-_"
+
+bool name_is_valid(const char *n) {
+        NameType t;
+        const char *e, *i;
+
+        assert(n);
+
+        t = name_type_from_string(n);
+        if (t < 0 || t >= _NAME_TYPE_MAX)
+                return false;
+
+        if (!(e = strrchr(n, '.')))
+                return false;
+
+        for (i = n; i < e; i++)
+                if (!strchr(VALID_CHARS, *i))
+                        return false;
+
+        return true;
 }
 
 Name *name_new(Manager *m) {
