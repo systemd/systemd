@@ -29,5 +29,6 @@ int config_parse_unsigned(const char *filename, unsigned line, const char *secti
 int config_parse_size(const char *filename, unsigned line, const char *section, const char *lvalue, const char *rvalue, void *data, void *userdata);
 int config_parse_bool(const char *filename, unsigned line, const char *section, const char *lvalue, const char *rvalue, void *data, void *userdata);
 int config_parse_string(const char *filename, unsigned line, const char *section, const char *lvalue, const char *rvalue, void *data, void *userdata);
+int config_parse_strv(const char *filename, unsigned line, const char *section, const char *lvalue, const char *rvalue, void *data, void *userdata);
 
 #endif

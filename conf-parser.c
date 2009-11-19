@@ -9,6 +9,7 @@
 #include "conf-parser.h"
 #include "util.h"
 #include "macro.h"
+#include "strv.h"
 
 #define WHITESPACE " \t\n"
 #define COMMENTS "#;\n"
@@ -318,4 +319,52 @@ int config_parse_string(
         *s = n;
 
         return 0;
+}
+
+
+int config_parse_strv(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char*** sv = data;
+        char **n;
+        char *w;
+        unsigned k;
+        size_t l;
+        char *state;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        k = strv_length(*sv);
+        FOREACH_WORD(w, &l, rvalue, state)
+                k++;
+
+        if (!(n = new(char*, k+1)))
+                return -ENOMEM;
+
+        for (k = 0; (*sv)[k]; k++)
+                n[k] = (*sv)[k];
+        FOREACH_WORD(w, &l, rvalue, state)
+                if (!(n[k++] = strndup(w, l)))
+                        goto fail;
+
+        n[k] = NULL;
+        free(*sv);
+        *sv = n;
+
+        return 0;
+
+fail:
+        for (; k > 0; k--)
+                free(n[k-1]);
+
+        return -ENOMEM;
 }
