@@ -59,4 +59,9 @@ int parse_boolean(const char *v);
 int safe_atou(const char *s, unsigned *ret_u);
 int safe_atoi(const char *s, int *ret_i);
 
+char *split_spaces(const char *c, size_t *l, char **state);
+
+#define FOREACH_WORD(word, length, s, state)    \
+        for ((state) = NULL, (word) = split_spaces((s), &(l), &(state)); (word); (word) = split_spaces((s), &(l), &(state)))
+
 #endif

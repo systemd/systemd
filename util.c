@@ -145,3 +145,22 @@ int safe_atoi(const char *s, int *ret_i) {
         *ret_i = (unsigned) l;
         return 0;
 }
+
+/* What is interpreted as whitespace? */
+#define WHITESPACE " \t\n"
+
+/* Split a string into words. */
+char *split_spaces(const char *c, size_t *l, char **state) {
+        char *current;
+
+        current = *state ? *state : (char*) c;
+
+        if (!*current || *c == 0)
+                return NULL;
+
+        current += strspn(current, WHITESPACE);
+        *l = strcspn(current, WHITESPACE);
+        *state = current+*l;
+
+        return (char*) current;
+}
