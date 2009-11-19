@@ -27,6 +27,8 @@ struct Manager {
         /* Jobs to be added resp. removed. */
         Hashmap *jobs_to_add;  /* Name object => Job object 1:1 */
         Set *jobs_to_remove;
+
+        bool dispatching_load_queue:1;
 };
 
 Manager* manager_new(void);

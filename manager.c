@@ -7,6 +7,7 @@
 #include "hashmap.h"
 #include "macro.h"
 #include "strv.h"
+#include "load-fragment.h"
 
 Manager* manager_new(void) {
         Manager *m;
@@ -166,27 +167,20 @@ static int detect_type(Name *name) {
         return 0;
 }
 
-static int fragment_load(Name *n) {
-        assert(n);
-
-        /*... */
-
-        return 0;
-}
-
-static int sysv_load(Service *s) {
+static int service_load_sysv(Service *s) {
         assert(s);
 
-        /*... */
+        /* Load service data from SysV init scripts, preferably with
+         * LSB headers ... */
 
         return 0;
 }
 
-static int fstab_load(Name *n) {
+static int name_load_fstab(Name *n) {
         assert(n);
         assert(n->meta.type == NAME_MOUNT || n->meta.type == NAME_AUTOMOUNT);
 
-        /*... */
+        /* Load mount data from /etc/fstab */
 
         return 0;
 }
@@ -194,7 +188,15 @@ static int fstab_load(Name *n) {
 static int snapshot_load(Snapshot *s) {
         assert(s);
 
-        /*... */
+        /* Load snapshots from disk */
+
+        return 0;
+}
+
+static int name_load_dropin(Name *n) {
+        assert(n);
+
+        /* Load dependencies from drop-in directories */
 
         return 0;
 }
@@ -213,18 +215,18 @@ static int load(Name *name) {
         if (name->meta.type == NAME_SERVICE) {
 
                 /* Load a .service file */
-                if ((r = fragment_load(name)) == 0)
+                if ((r = name_load_fragment(name)) == 0)
                         goto finish;
 
                 /* Load a classic init script */
                 if (r == -ENOENT)
-                        if ((r = sysv_load(SERVICE(name))) == 0)
+                        if ((r = service_load_sysv(SERVICE(name))) == 0)
                                 goto finish;
 
         } else if (name->meta.type == NAME_MOUNT ||
                    name->meta.type == NAME_AUTOMOUNT) {
 
-                if ((r = fstab_load(name)) == 0)
+                if ((r = name_load_fstab(name)) == 0)
                         goto finish;
 
         } else if (name->meta.type == NAME_SNAPSHOT) {
@@ -233,7 +235,7 @@ static int load(Name *name) {
                         goto finish;
 
         } else {
-                if ((r = fragment_load(name)) == 0)
+                if ((r = name_load_fragment(name)) == 0)
                         goto finish;
         }
 
@@ -241,6 +243,9 @@ static int load(Name *name) {
         return r;
 
 finish:
+        if ((r = name_load_dropin(name)) < 0)
+                return r;
+
         name->meta.state = NAME_LOADED;
         return 0;
 }
@@ -250,6 +255,12 @@ static int dispatch_load_queue(Manager *m) {
 
         assert(m);
 
+        /* Make sure we are not run recursively */
+        if (m->dispatching_load_queue)
+                return 0;
+
+        m->dispatching_load_queue = true;
+
         /* Dispatches the load queue. Takes a name from the queue and
          * tries to load its data until the queue is empty */
 
@@ -258,10 +269,10 @@ static int dispatch_load_queue(Manager *m) {
                 LIST_REMOVE(Meta, m->load_queue, meta);
         }
 
+        m->dispatching_load_queue = false;
+
         return 0;
 }
-
-
 
 int manager_load_name(Manager *m, const char *name, Name **_ret) {
         Name *ret;
@@ -271,9 +282,12 @@ int manager_load_name(Manager *m, const char *name, Name **_ret) {
         assert(m);
         assert(name);
         assert(_ret);
-/* This will load the service information files, but not actually
- * start any services or anything */
 
+        if (!name_is_valid(name))
+                return -EINVAL;
+
+        /* This will load the service information files, but not actually
+         * start any services or anything */
 
         if ((ret = manager_get_name(m, name)))
                 goto finish;
