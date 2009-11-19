@@ -11,6 +11,10 @@ BUS=, SYSFS{}=, ID= are long deprecated and should be SUBSYSTEM(S)=,
 ATTR(S){}=, KERNEL(S)=. It will cause a warning once for every rule
 file from now on.
 
+The support for the deprecated IDE devices has been removed from the
+default set of rules. Distros who still care about non-libata drivers
+need to add the rules to the compat rules file.
+
 udev 147
 ========
 Bugfixes.

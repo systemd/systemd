@@ -12,20 +12,11 @@ SUBSYSTEM!="block", GOTO="persistent_storage_end"
 # skip rules for inappropriate block devices
 KERNEL=="fd*|mtd*|nbd*|gnbd*|btibm*|dm-*|md*", GOTO="persistent_storage_end"
 
-# never access non-cdrom removable ide devices, the drivers are causing event loops on open()
-KERNEL=="hd*[!0-9]", ATTR{removable}=="1", SUBSYSTEMS=="ide", ATTRS{media}=="disk|floppy", GOTO="persistent_storage_end"
-KERNEL=="hd*[0-9]", ATTRS{removable}=="1", GOTO="persistent_storage_end"
-
 # ignore partitions that span the entire disk
 TEST=="whole_disk", GOTO="persistent_storage_end"
 
 # for partitions import parent information
 ENV{DEVTYPE}=="partition", IMPORT{parent}="ID_*"
-
-# by-id (hardware serial number)
-KERNEL=="hd*[!0-9]", IMPORT{program}="ata_id --export $tempnode"
-KERNEL=="hd*[!0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/ata-$env{ID_SERIAL}"
-KERNEL=="hd*[0-9]", ENV{ID_SERIAL}=="?*", SYMLINK+="disk/by-id/ata-$env{ID_SERIAL}-part%n"
 
 # USB devices use their own serial number
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="usb", IMPORT{program}="usb_id --export %p"
