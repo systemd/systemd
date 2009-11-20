@@ -38,6 +38,7 @@
 #include <linux/types.h>
 #include <linux/hdreg.h>
 #include <linux/fs.h>
+#include <linux/cdrom.h>
 #include <arpa/inet.h>
 
 #include "libudev.h"
@@ -207,6 +208,16 @@ static int disk_identify (struct udev *udev,
 
 	if (!S_ISBLK(st.st_mode)) {
 		errno = ENODEV;
+		goto fail;
+	}
+
+	/*
+	 * do not confuse optical drive firmware with ATA commands
+	 * some drives are reported to blank CD-RWs
+	 */
+	if (ioctl(fd, CDROM_GET_CAPABILITY, NULL) >= 0) {
+		errno = EIO;
+		ret = -1;
 		goto fail;
 	}
 
