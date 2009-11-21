@@ -48,7 +48,8 @@ for inclusion you need to do the following steps:
  keyboard" and possibly a "module". Some laptops (notably Thinkpads, Sonys, and
  Acers) have multimedia/function keys on a separate input device instead of the
  primary keyboard. The keyboard device should have a name like "input/event3".
- In the following commands, the name will be written as "input/eventX".
+ In the following commands, the name will be written as "input/eventX" (replace
+ X with the appropriate number).
 
  2. Dump current mapping:
 
