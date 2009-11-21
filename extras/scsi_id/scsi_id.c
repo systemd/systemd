@@ -549,6 +549,7 @@ static int scsi_id(struct udev *udev, char *maj_min_dev)
 	if (export) {
 		char serial_str[MAX_SERIAL_LEN];
 
+		printf("ID_SCSI=1\n");
 		printf("ID_VENDOR=%s\n", vendor_str);
 		printf("ID_VENDOR_ENC=%s\n", vendor_enc_str);
 		printf("ID_MODEL=%s\n", model_str);
@@ -562,6 +563,12 @@ static int scsi_id(struct udev *udev, char *maj_min_dev)
 			udev_util_replace_whitespace(dev_scsi.serial_short, serial_str, sizeof(serial_str));
 			udev_util_replace_chars(serial_str, NULL);
 			printf("ID_SERIAL_SHORT=%s\n", serial_str);
+		}
+		if (dev_scsi.wwn[0] != '\0') {
+			printf("ID_WWN=0x%s\n", dev_scsi.wwn);
+		}
+		if (dev_scsi.unit_serial_number[0] != '\0') {
+			printf("ID_SCSI_SERIAL=%s\n", dev_scsi.unit_serial_number);
 		}
 		goto out;
 	}

@@ -39,6 +39,12 @@ struct scsi_id_device {
 	char serial[MAX_SERIAL_LEN];
 	char serial_short[MAX_SERIAL_LEN];
 	int use_sg;
+
+        /* Always from page 0x80 e.g. 'B3G1P8500RWT' - may not be unique */
+        char unit_serial_number[MAX_SERIAL_LEN];
+
+        /* NULs if not set - otherwise hex encoding using lower-case e.g. '50014ee0016eb572' */
+        char wwn[17];
 };
 
 extern int scsi_std_inquiry(struct udev *udev, struct scsi_id_device *dev_scsi, const char *devname);
