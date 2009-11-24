@@ -41,7 +41,7 @@ be added to the compat rules file.
 Symlinks to udevadm with the old command names are no longer resolved to
 the udevadm commands.
 
-The udev-acl tool got adopted to changes in ConsoleKit. Version 0.4.11 is
+The udev-acl tool got adopted to changes in ConsoleKit. Version 0.4.1 is
 required now.
 
 The option "last_rule" does no longer exist. Its use breaks too many
