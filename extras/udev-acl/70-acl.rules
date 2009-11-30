@@ -46,7 +46,7 @@ SUBSYSTEM=="misc", KERNEL=="kvm", ENV{ACL_MANAGE}="1"
 ENV{ID_SMARTCARD_READER}=="*?", ENV{ACL_MANAGE}="1"
 
 # joysticks
-SUBSYSTEM=="input", ENV{ID_CLASS}=="joystick", ENV{ACL_MANAGE}="1"
+SUBSYSTEM=="input", ENV{ID_INPUT_JOYSTICK}=="?*", ENV{ACL_MANAGE}="1"
 
 # apply ACL for all locally logged in users
 LABEL="acl_apply", ENV{ACL_MANAGE}=="?*", TEST=="/var/run/ConsoleKit/database", \
