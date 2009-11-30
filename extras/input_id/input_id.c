@@ -75,13 +75,10 @@ static void test_pointers (const unsigned long* bitmask_abs, const unsigned long
 	int is_mouse = 0;
 	int is_touchpad = 0;
 
-	if (test_bit (ABS_PRESSURE, bitmask_abs))
-		is_touchpad = 1;
-
 	if (test_bit (ABS_X, bitmask_abs) && test_bit (ABS_Y, bitmask_abs)) {
-		if (test_bit (BTN_STYLUS, bitmask_key))
+		if (test_bit (BTN_STYLUS, bitmask_key) || test_bit (BTN_TOOL_PEN, bitmask_key))
 			puts("ID_INPUT_TABLET=1");
-		else if (test_bit (BTN_TOUCH, bitmask_key))
+		else if (test_bit (BTN_TOOL_FINGER, bitmask_key) && !test_bit (BTN_TOOL_PEN, bitmask_key))
 			is_touchpad = 1;
 		else if (test_bit (BTN_TRIGGER, bitmask_key) || 
 			 test_bit (BTN_A, bitmask_key) || 
