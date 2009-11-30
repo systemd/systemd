@@ -4,21 +4,17 @@ ACTION!="add|change", GOTO="persistent_input_end"
 SUBSYSTEM!="input", GOTO="persistent_input_end"
 KERNEL=="input[0-9]*", GOTO="persistent_input_end"
 
-SUBSYSTEMS=="usb", IMPORT{program}="usb_id --export %p"
+ENV{ID_INPUT}=="", IMPORT{program}="input_id %p"
+SUBSYSTEMS=="usb", ENV{ID_BUS}=="", IMPORT{program}="usb_id --export %p"
 
-# well defined boot-subclass usb devices
-SUBSYSTEMS=="usb", ATTRS{bInterfaceClass}=="03", ATTRS{bInterfaceProtocol}=="01", ENV{ID_CLASS}="kbd", GOTO="serial"
-SUBSYSTEMS=="usb", ATTRS{bInterfaceClass}=="03", ATTRS{bInterfaceProtocol}=="02", ENV{ID_CLASS}="mouse", GOTO="serial"
+# backwards-compatibility ID_CLASS
+ENV{ID_INPUT_KEYBOARD}=="?*", ENV{ID_CLASS}="kbd"
+ENV{ID_INPUT_MOUSE}=="?*", ENV{ID_CLASS}="mouse"
+ENV{ID_INPUT_JOYSTICK}=="?*", ENV{ID_CLASS}="joystick"
 
-# other devices
+# other device types which we need for persistent links
 DRIVERS=="pcspkr", ENV{ID_CLASS}="spkr", GOTO="serial"
-DRIVERS=="atkbd", ENV{ID_CLASS}="kbd", GOTO="serial"
-DRIVERS=="psmouse", ENV{ID_CLASS}="mouse", GOTO="serial"
 ATTRS{name}=="*dvb*|*DVB*|* IR *", ENV{ID_CLASS}="ir", GOTO="serial"
-
-# joystick (ABS_X || ABS_WHEEL || ABS_THROTTLE) && !BTN_TOUCH && !BTN_DIGI
-ATTRS{modalias}=="input:*-*a[068],*|input:*-*a*,[68],*m*", ATTRS{modalias}!="input:*-*k*14[0A],*r*", \
-  ENV{ID_CLASS}="joystick", GOTO="serial"
 
 # fill empty serial number
 LABEL="serial", ENV{ID_CLASS}=="?*", ENV{ID_SERIAL}=="", ENV{ID_SERIAL}="noserial"

@@ -237,6 +237,12 @@ extras_floppy_create_floppy_devices_LDADD = libudev/libudev-private.la
 libexec_PROGRAMS += extras/floppy/create_floppy_devices
 
 # ------------------------------------------------------------------------------
+# usb_id - USB device property import
+# ------------------------------------------------------------------------------
+extras_input_id_input_id_SOURCES = extras/input_id/input_id.c
+libexec_PROGRAMS += extras/input_id/input_id
+
+# ------------------------------------------------------------------------------
 # path_id - compose identifier of persistent elements of the parent buses
 # ------------------------------------------------------------------------------
 extras_path_id_path_id_SOURCES = extras/path_id/path_id.c
