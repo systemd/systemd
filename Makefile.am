@@ -388,7 +388,7 @@ extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER) Makefil
 		$(top_srcdir)/extras/gudev/gudev.h \
 		$(top_srcdir)/extras/gudev/gudevtypes.h \
 		$(top_srcdir)/extras/gudev/gudevenums.h \
-		$(top_srcdir)/extras/gudev/gudevenumtypes.h \
+		$(top_builddir)/extras/gudev/gudevenumtypes.h \
 		$(top_srcdir)/extras/gudev/gudevclient.h \
 		$(top_srcdir)/extras/gudev/gudevdevice.h \
 		$(top_srcdir)/extras/gudev/gudevclient.c \
