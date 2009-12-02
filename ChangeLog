@@ -1,3 +1,47 @@
+Summary of changes from v147 to v148
+============================================
+
+Dan Williams (3):
+      Revert "modem-modeswitch: add a device"
+      Revert "extras/modem-modeswitch: Add Huawei E1550 GSM modem"
+      modem-modeswitch: 61-option-modem-modeswitch.rules is only for Option NV devices
+
+Daniel Mierswa (1):
+      Fix typo in NEWS, ConsoleKit-0.4.11 -> 0.4.1
+
+David Zeuthen (4):
+      cdrom_id: Still check profiles even if there is no media
+      scsi_id: Export WWN and Unit Serial Number
+      Create /dev/disk/by-id/wwn-0x... symlinks
+      Also create /dev/disk/by-id/wwn-0x..-part%n symlinks for partitions
+
+Dmitry Torokhov (1):
+      extras/input_id: Correctly identify touchpads
+
+Harald Hoyer (1):
+      modem-modeswitch: add a device
+
+Kay Sievers (8):
+      rules: set mode of floppy device nodes to 0660
+      remove "ignore_device"
+      print warning for BUS=, SYSFS{}=, ID=
+      test-udev: remove "ignore_device" code
+      udev-test.pl: catch-up with recent changes
+      rules: remove support for IDE (hd*) devices
+      ata_id: skip ATA commands if we find an optical drive
+      Revert "Fix out-of-tree builds"
+
+Martin Pitt (5):
+      README.keymap.txt: small clarification
+      extras: Add input_id
+      70-acl.rules: Use new-style input properties
+      input: Deprecate ENV{ID_CLASS}
+      input_id: code cleanup
+
+Scott James Remnant (1):
+      Fix out-of-tree builds
+
+
 Summary of changes from v146 to v147
 ============================================
 
