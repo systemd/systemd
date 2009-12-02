@@ -25,6 +25,8 @@
 #include <limits.h>
 #include <linux/input.h>
 
+#include "libudev.h"
+
 /* we must use this kernel-compatible implementation */
 #define BITS_PER_LONG (sizeof(unsigned long) * 8)
 #define NBITS(x) ((((x)-1)/BITS_PER_LONG)+1)
@@ -34,29 +36,21 @@
 #define test_bit(bit, array)    ((array[LONG(bit)] >> OFF(bit)) & 1)
 
 /* 
- * Read a capabilities/name file and return bitmask.
- * @param path File to open
+ * Read a capability attribute and return bitmask.
+ * @param dev udev_device
+ * @param attr sysfs attribute name (e. g. "capabilities/key")
  * @param bitmask: Output array; must have max_size elements
  */
-static void get_cap_mask (const char *path, unsigned long *bitmask, size_t max_size)
+static void get_cap_mask (struct udev_device *dev, const char* attr,
+	                  unsigned long *bitmask, size_t max_size)
 {
-	FILE* f;
-        int i;
 	char text[4096];
+        int i;
 	char* word;
 	unsigned long val;
 
-	f = fopen(path, "r");
-	if (f == NULL) {
-		perror("opening caps file");
-		exit(1);
-	}
-	if (fgets(text, sizeof(text), f) == NULL) {
-		perror("fgets");
-		exit(1);
-	}
-	fclose(f);
-	
+	snprintf(text, sizeof(text), "%s", udev_device_get_sysattr_value(dev, attr));
+
         memset (bitmask, 0, max_size);
 	i = 0;
         while ((word = strrchr(text, ' ')) != NULL) {
@@ -122,7 +116,10 @@ static void test_key (const unsigned long* bitmask_key)
 
 int main (int argc, char** argv)
 {
-	char capfile[PATH_MAX];
+	struct udev *udev;
+	struct udev_device *dev;
+
+	char devpath[PATH_MAX];
 	unsigned long bitmask_abs[NBITS(ABS_MAX)];
 	unsigned long bitmask_key[NBITS(KEY_MAX)];
         unsigned long bitmask_rel[NBITS(REL_MAX)];
@@ -132,16 +129,30 @@ int main (int argc, char** argv)
 		exit(1);
 	}
 
+	/* get the device */
+	udev = udev_new();
+	if (udev == NULL)
+		return 1;
+
+	snprintf(devpath, sizeof(devpath), "%s/%s", udev_get_sys_path(udev), argv[1]);
+	dev = udev_device_new_from_syspath(udev, devpath);
+	if (dev == NULL) {
+		fprintf(stderr, "unable to access '%s'\n", devpath);
+		return 1;
+	}
+
+	/* walk up the parental chain until we find the real input device; the
+	 * argument is very likely a subdevice of this, like eventN */
+	while (udev_device_get_sysattr_value(dev, "capabilities/key") == NULL)
+		dev = udev_device_get_parent(dev);
+
 	/* Use this as a flag that input devices were detected, so that this
 	 * program doesn't need to be called more than once per device */
 	puts("ID_INPUT=1");
 
-	snprintf(capfile, sizeof(capfile), "/sys/%s/device/capabilities/abs", argv[1]);
-	get_cap_mask (capfile, bitmask_abs, sizeof (bitmask_abs));
-	snprintf(capfile, sizeof(capfile), "/sys/%s/device/capabilities/rel", argv[1]);
-	get_cap_mask (capfile, bitmask_rel, sizeof (bitmask_rel));
-	snprintf(capfile, sizeof(capfile), "/sys/%s/device/capabilities/key", argv[1]);
-	get_cap_mask (capfile, bitmask_key, sizeof (bitmask_key));
+	get_cap_mask (dev, "capabilities/abs", bitmask_abs, sizeof (bitmask_abs));
+	get_cap_mask (dev, "capabilities/rel", bitmask_rel, sizeof (bitmask_rel));
+	get_cap_mask (dev, "capabilities/key", bitmask_key, sizeof (bitmask_key));
 
 	test_pointers(bitmask_abs, bitmask_key, bitmask_rel);
 

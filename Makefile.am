@@ -237,9 +237,10 @@ extras_floppy_create_floppy_devices_LDADD = libudev/libudev-private.la
 libexec_PROGRAMS += extras/floppy/create_floppy_devices
 
 # ------------------------------------------------------------------------------
-# usb_id - USB device property import
+# input_id - import input device class
 # ------------------------------------------------------------------------------
 extras_input_id_input_id_SOURCES = extras/input_id/input_id.c
+extras_input_id_input_id_LDADD = libudev/libudev.la
 libexec_PROGRAMS += extras/input_id/input_id
 
 # ------------------------------------------------------------------------------
