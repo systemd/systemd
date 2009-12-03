@@ -383,14 +383,14 @@ extras/gudev/GUdev-1.0.gir: extras/gudev/libgudev-1.0.la $(G_IR_SCANNER) Makefil
 		--output $@ \
 		--pkg=glib-2.0 \
 		--pkg=gobject-2.0 \
-		-I$(top_srcdir)/extras \
 		-I$(top_builddir)/extras \
+		-I$(top_srcdir)/extras \
 		-D_GUDEV_COMPILATION \
 		-D_GUDEV_WORK_AROUND_DEV_T_BUG \
 		$(top_srcdir)/extras/gudev/gudev.h \
 		$(top_srcdir)/extras/gudev/gudevtypes.h \
 		$(top_srcdir)/extras/gudev/gudevenums.h \
-		$(or $(wildcard $(top_srcdir)/extras/gudev/gudevenumtypes.h),$(top_builddir)/extras/gudev/gudevenumtypes.h) \
+		$(or $(wildcard $(top_builddir)/extras/gudev/gudevenumtypes.h),$(top_srcdir)/extras/gudev/gudevenumtypes.h) \
 		$(top_srcdir)/extras/gudev/gudevclient.h \
 		$(top_srcdir)/extras/gudev/gudevdevice.h \
 		$(top_srcdir)/extras/gudev/gudevclient.c \
