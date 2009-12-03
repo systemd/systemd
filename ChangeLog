@@ -1,3 +1,27 @@
+Summary of changes from v148 to v149
+============================================
+
+Daniel Elstner (1):
+      really fix both in-tree and out-of-tree builds
+
+Dmitry Torokhov (1):
+      input-id: identify touchscreens
+
+Kay Sievers (4):
+      libudev: doc - use #NULL
+      configure.ac: version bump
+      really really fix both in-tree and out-of-tree builds
+      fix both in-tree and out-of-tree builds
+
+Martin Pitt (6):
+      input_id: Fix endless loop for non-input devices
+      input_id: Do not tag non-input devices with ID_INPUT
+      input_id: small optimization
+      input_id: check event mask
+      input_id: Check mouse button for ID_INPUT_MOUSE
+      udev_device_get_parent_with_subsystem_devtype(): Clarify documentation
+
+
 Summary of changes from v147 to v148
 ============================================
 

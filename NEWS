@@ -2,7 +2,6 @@ udev 149
 ========
 Fix for a possible endless loop in the new input_id program.
 
-
 udev 148
 ========
 Bugfixes.
