@@ -577,6 +577,9 @@ struct udev_device *udev_device_get_parent(struct udev_device *udev_device)
  * value, and fill in information from the sys device and the udev
  * database entry.
  *
+ * If devtype is NULL, only subsystem is checked, and any devtype will
+ * match.
+ *
  * The returned the device is not referenced. It is attached to the
  * child device, and will be cleaned up when the child device
  * is cleaned up.
