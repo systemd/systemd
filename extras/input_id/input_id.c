@@ -143,7 +143,7 @@ int main (int argc, char** argv)
 
 	/* walk up the parental chain until we find the real input device; the
 	 * argument is very likely a subdevice of this, like eventN */
-	while (udev_device_get_sysattr_value(dev, "capabilities/key") == NULL)
+	while (dev != NULL && udev_device_get_sysattr_value(dev, "capabilities/key") == NULL)
 		dev = udev_device_get_parent(dev);
 
 	/* Use this as a flag that input devices were detected, so that this
