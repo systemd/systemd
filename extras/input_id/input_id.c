@@ -89,6 +89,8 @@ static void test_pointers (const unsigned long* bitmask_ev,
 			/* This path is taken by VMware's USB mouse, which has
 			 * absolute axes, but no touch/pressure button. */
 			is_mouse = 1;
+		else if (test_bit (BTN_TOUCH, bitmask_key))
+			puts("ID_INPUT_TOUCHSCREEN=1");
 	}
 
 	if (test_bit (EV_REL, bitmask_ev) && 
