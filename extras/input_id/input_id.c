@@ -64,12 +64,16 @@ static void get_cap_mask (struct udev_device *dev, const char* attr,
 }
 
 /* pointer devices */
-static void test_pointers (const unsigned long* bitmask_abs, const unsigned long* bitmask_key, const unsigned long* bitmask_rel)
+static void test_pointers (const unsigned long* bitmask_ev,
+                           const unsigned long* bitmask_abs, 
+                           const unsigned long* bitmask_key, 
+                           const unsigned long* bitmask_rel)
 {
 	int is_mouse = 0;
 	int is_touchpad = 0;
 
-	if (test_bit (ABS_X, bitmask_abs) && test_bit (ABS_Y, bitmask_abs)) {
+	if (test_bit (EV_ABS, bitmask_ev) && test_bit (EV_KEY, bitmask_ev) &&
+            test_bit (ABS_X, bitmask_abs) && test_bit (ABS_Y, bitmask_abs)) {
 		if (test_bit (BTN_STYLUS, bitmask_key) || test_bit (BTN_TOOL_PEN, bitmask_key))
 			puts("ID_INPUT_TABLET=1");
 		else if (test_bit (BTN_TOOL_FINGER, bitmask_key) && !test_bit (BTN_TOOL_PEN, bitmask_key))
@@ -84,7 +88,8 @@ static void test_pointers (const unsigned long* bitmask_abs, const unsigned long
 			is_mouse = 1;
 	}
 
-	if (test_bit (REL_X, bitmask_rel) && test_bit (REL_Y, bitmask_rel))
+	if (test_bit (EV_REL, bitmask_ev) && 
+            test_bit (REL_X, bitmask_rel) && test_bit (REL_Y, bitmask_rel))
 		is_mouse = 1;
 
 	if (is_mouse)
@@ -94,13 +99,17 @@ static void test_pointers (const unsigned long* bitmask_abs, const unsigned long
 }
 
 /* key like devices */
-static void test_key (const unsigned long* bitmask_key)
+static void test_key (const unsigned long* bitmask_ev, 
+                      const unsigned long* bitmask_key)
 {
 	unsigned i;
 	unsigned long acc;
 	unsigned long mask;
 
 	/* do we have any KEY_* capability? */
+        if (!test_bit (EV_KEY, bitmask_ev))
+                return;
+
 	acc = 0;
 	for (i = 0; i < BTN_MISC/BITS_PER_LONG; ++i)
 	    acc |= bitmask_key[i];
@@ -120,6 +129,7 @@ int main (int argc, char** argv)
 	struct udev_device *dev;
 
 	char devpath[PATH_MAX];
+	unsigned long bitmask_ev[NBITS(EV_MAX)];
 	unsigned long bitmask_abs[NBITS(ABS_MAX)];
 	unsigned long bitmask_key[NBITS(KEY_MAX)];
         unsigned long bitmask_rel[NBITS(REL_MAX)];
@@ -143,7 +153,7 @@ int main (int argc, char** argv)
 
 	/* walk up the parental chain until we find the real input device; the
 	 * argument is very likely a subdevice of this, like eventN */
-	while (dev != NULL && udev_device_get_sysattr_value(dev, "capabilities/key") == NULL)
+	while (dev != NULL && udev_device_get_sysattr_value(dev, "capabilities/ev") == NULL)
 		dev = udev_device_get_parent_with_subsystem_devtype(dev, "input", NULL);
 
 	/* not an "input" class device */
@@ -154,13 +164,14 @@ int main (int argc, char** argv)
 	 * program doesn't need to be called more than once per device */
 	puts("ID_INPUT=1");
 
+	get_cap_mask (dev, "capabilities/ev", bitmask_ev, sizeof (bitmask_ev));
 	get_cap_mask (dev, "capabilities/abs", bitmask_abs, sizeof (bitmask_abs));
 	get_cap_mask (dev, "capabilities/rel", bitmask_rel, sizeof (bitmask_rel));
 	get_cap_mask (dev, "capabilities/key", bitmask_key, sizeof (bitmask_key));
 
-	test_pointers(bitmask_abs, bitmask_key, bitmask_rel);
+	test_pointers(bitmask_ev, bitmask_abs, bitmask_key, bitmask_rel);
 
-	test_key(bitmask_key);
+	test_key(bitmask_ev, bitmask_key);
 
 	return 0;
 }
