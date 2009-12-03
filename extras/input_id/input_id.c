@@ -146,6 +146,10 @@ int main (int argc, char** argv)
 	while (dev != NULL && udev_device_get_sysattr_value(dev, "capabilities/key") == NULL)
 		dev = udev_device_get_parent(dev);
 
+	/* not an "input" class device */
+	if (dev == NULL)
+		return 0;
+
 	/* Use this as a flag that input devices were detected, so that this
 	 * program doesn't need to be called more than once per device */
 	puts("ID_INPUT=1");
