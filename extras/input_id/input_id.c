@@ -144,7 +144,7 @@ int main (int argc, char** argv)
 	/* walk up the parental chain until we find the real input device; the
 	 * argument is very likely a subdevice of this, like eventN */
 	while (dev != NULL && udev_device_get_sysattr_value(dev, "capabilities/key") == NULL)
-		dev = udev_device_get_parent(dev);
+		dev = udev_device_get_parent_with_subsystem_devtype(dev, "input", NULL);
 
 	/* not an "input" class device */
 	if (dev == NULL)
