@@ -1,4 +1,5 @@
-/*
+/*  -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
+ *
  * scsi_id.h
  *
  * General defines and such for scsi_id
@@ -45,6 +46,9 @@ struct scsi_id_device {
 
         /* NULs if not set - otherwise hex encoding using lower-case e.g. '50014ee0016eb572' */
         char wwn[17];
+
+        /* NULs if not set - otherwise hex encoding using lower-case e.g. '0xe00000d80000' */
+        char wwn_vendor_extension[17];
 };
 
 extern int scsi_std_inquiry(struct udev *udev, struct scsi_id_device *dev_scsi, const char *devname);

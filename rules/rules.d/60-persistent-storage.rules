@@ -67,7 +67,7 @@ ENV{ID_FS_USAGE}=="filesystem|other|crypto", ENV{ID_FS_UUID_ENC}=="?*", SYMLINK+
 ENV{ID_FS_USAGE}=="filesystem|other", ENV{ID_FS_LABEL_ENC}=="?*", SYMLINK+="disk/by-label/$env{ID_FS_LABEL_ENC}"
 
 # by-id (World Wide Name)
-ENV{DEVTYPE}=="disk", ENV{ID_WWN}=="?*", SYMLINK+="disk/by-id/wwn-$env{ID_WWN}"
-ENV{DEVTYPE}=="partition", ENV{ID_WWN}=="?*", SYMLINK+="disk/by-id/wwn-$env{ID_WWN}-part%n"
+ENV{DEVTYPE}=="disk", ENV{ID_WWN_WITH_EXTENSION}=="?*", SYMLINK+="disk/by-id/wwn-$env{ID_WWN_WITH_EXTENSION}"
+ENV{DEVTYPE}=="partition", ENV{ID_WWN_WITH_EXTENSION}=="?*", SYMLINK+="disk/by-id/wwn-$env{ID_WWN_WITH_EXTENSION}-part%n"
 
 LABEL="persistent_storage_end"

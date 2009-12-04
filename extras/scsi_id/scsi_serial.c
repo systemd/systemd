@@ -1,4 +1,5 @@
-/*
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
+ *
  * scsi_serial.c
  *
  * Code related to requesting and getting an id from a scsi device
@@ -482,7 +483,8 @@ static int check_fill_0x83_id(struct udev *udev,
 			      unsigned char *page_83,
 			      const struct scsi_id_search_values
 			      *id_search, char *serial, char *serial_short, int max_len,
-                              char *wwn)
+                              char *wwn,
+			      char *wwn_vendor_extension)
 {
 	int i, j, s, len;
 
@@ -569,6 +571,9 @@ static int check_fill_0x83_id(struct udev *udev,
 
         if (id_search->id_type == SCSI_ID_NAA && wwn != NULL) {
                 strncpy(wwn, &serial[s], 16);
+		if (wwn_vendor_extension != NULL) {
+			strncpy(wwn_vendor_extension, &serial[s + 16], 16);
+		}
         }
 	return 0;
 }
@@ -601,7 +606,8 @@ static int check_fill_0x83_prespc3(struct udev *udev,
 static int do_scsi_page83_inquiry(struct udev *udev,
 				  struct scsi_id_device *dev_scsi, int fd,
 				  char *serial, char *serial_short, int len,
-                                  char *unit_serial_number, char *wwn)
+                                  char *unit_serial_number, char *wwn,
+				  char *wwn_vendor_extension)
 {
 	int retval;
 	unsigned int id_ind, j;
@@ -671,7 +677,8 @@ static int do_scsi_page83_inquiry(struct udev *udev,
 						    dev_scsi, &page_83[j],
 						    &id_search_list[id_ind],
 						    serial, serial_short, len,
-                                                    wwn);
+                                                    wwn,
+						    wwn_vendor_extension);
 			dbg(udev, "%s id desc %d/%d/%d\n", dev_scsi->kernel,
 				id_search_list[id_ind].id_type,
 				id_search_list[id_ind].naa_type,
@@ -885,7 +892,7 @@ int scsi_get_serial(struct udev *udev,
 			goto completed;
 		}
 	} else if (page_code == PAGE_83) {
-		if (do_scsi_page83_inquiry(udev, dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len, dev_scsi->unit_serial_number, dev_scsi->wwn)) {
+		if (do_scsi_page83_inquiry(udev, dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len, dev_scsi->unit_serial_number, dev_scsi->wwn, dev_scsi->wwn_vendor_extension)) {
 			retval = 1;
 			goto completed;
 		} else  {
@@ -901,7 +908,7 @@ int scsi_get_serial(struct udev *udev,
 			 * conform to pre-SPC3 expectations.
 			 */
 			if (retval == 2) {
-				if (do_scsi_page83_inquiry(udev, dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len, dev_scsi->unit_serial_number, dev_scsi->wwn)) {
+				if (do_scsi_page83_inquiry(udev, dev_scsi, fd, dev_scsi->serial, dev_scsi->serial_short, len, dev_scsi->unit_serial_number, dev_scsi->wwn, dev_scsi->wwn_vendor_extension)) {
 					retval = 1;
 					goto completed;
 				} else  {
@@ -941,7 +948,7 @@ int scsi_get_serial(struct udev *udev,
 	for (ind = 4; ind <= page0[3] + 3; ind++)
 		if (page0[ind] == PAGE_83)
 			if (!do_scsi_page83_inquiry(udev, dev_scsi, fd,
-						    dev_scsi->serial, dev_scsi->serial_short, len, dev_scsi->unit_serial_number, dev_scsi->wwn)) {
+						    dev_scsi->serial, dev_scsi->serial_short, len, dev_scsi->unit_serial_number, dev_scsi->wwn, dev_scsi->wwn_vendor_extension)) {
 				/*
 				 * Success
 				 */

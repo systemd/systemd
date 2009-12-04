@@ -1,4 +1,5 @@
-/*
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
+ *
  * scsi_id.c
  *
  * Main section of the scsi_id program
@@ -566,6 +567,12 @@ static int scsi_id(struct udev *udev, char *maj_min_dev)
 		}
 		if (dev_scsi.wwn[0] != '\0') {
 			printf("ID_WWN=0x%s\n", dev_scsi.wwn);
+			if (dev_scsi.wwn_vendor_extension[0] != '\0') {
+				printf("ID_WWN_VENDOR_EXTENSION=0x%s\n", dev_scsi.wwn_vendor_extension);
+				printf("ID_WWN_WITH_EXTENSION=0x%s%s\n", dev_scsi.wwn, dev_scsi.wwn_vendor_extension);
+			} else {
+				printf("ID_WWN_WITH_EXTENSION=0x%s\n", dev_scsi.wwn);
+			}
 		}
 		if (dev_scsi.unit_serial_number[0] != '\0') {
 			printf("ID_SCSI_SERIAL=%s\n", dev_scsi.unit_serial_number);

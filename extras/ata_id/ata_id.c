@@ -1,4 +1,5 @@
-/*
+/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
+ *
  * ata_id - reads product/serial number from ATA drives
  *
  * Copyright (C) 2005-2008 Kay Sievers <kay.sievers@vrfy.org>
@@ -520,6 +521,8 @@ int main(int argc, char *argv[])
 			wwwn <<= 16;
 			wwwn  |= *((uint16_t *) identify + 111);
 			printf("ID_WWN=0x%llx\n", (unsigned long long int) wwwn);
+			/* ATA devices have no vendor extension */
+			printf("ID_WWN_WITH_EXTENSION=0x%llx\n", (unsigned long long int) wwwn);
 		}
 	} else {
 		if (serial[0] != '\0')
