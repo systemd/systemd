@@ -480,8 +480,10 @@ BUILT_SOURCES += $(nodist_extras_keymap_keymap_SOURCES)
 
 EXTRA_DIST += extras/keymap/check-keymaps.sh
 dist_udevrules_DATA += extras/keymap/95-keymap.rules
+dist_udevrules_DATA += extras/keymap/95-keyboard-force-release.rules
 libexec_PROGRAMS += extras/keymap/keymap
 dist_libexec_SCRIPTS += extras/keymap/findkeyboards
+dist_libexec_SCRIPTS += extras/keymap/keyboard-force-release.sh
 dist_doc_DATA = extras/keymap/README.keymap.txt
 
 CLEANFILES += \
@@ -534,6 +536,10 @@ dist_udevkeymap_DATA = \
 	extras/keymap/keymaps/toshiba-satellite_a100 \
 	extras/keymap/keymaps/toshiba-satellite_a110 \
 	extras/keymap/keymaps/zepto-znote
+
+udevkeymapforcereldir = $(libexecdir)/keymaps/force-release
+dist_udevkeymapforcerel_DATA = \
+	extras/keymap/keymaps/force-release/samsung-other
 
 extras/keymap/keys.txt: /usr/include/linux/input.h
 	$(AM_V_GEN)$(AWK) '/^#define.*KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' < $< | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@

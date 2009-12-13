@@ -1,0 +1,24 @@
+# Set model specific atkbd force_release quirk
+#
+# Several laptops have hotkeys which don't generate release events,
+# which can cause problems with software key repeat.
+# The atkbd driver has a quirk handler for generating synthetic
+# release events, which can be configured via sysfs since 2.6.32.
+# Simply add a file with a list of scancodes for your laptop model
+# in /lib/udev/keymaps, and add a rule here.
+# If the hotkeys also need a keymap assignment you can copy the
+# scancodes from the keymap file, otherwise you can run
+# /lib/udev/keymap -i /dev/input/eventX
+# on a Linux vt to find out.
+
+ACTION!="add|change", GOTO="force_release_end"
+SUBSYSTEM!="serio", GOTO="force_release_end"
+KERNEL!="serio*", GOTO="force_release_end"
+DRIVER!="atkbd", GOTO="force_release_end"
+
+ENV{DMI_VENDOR}="$attr{[dmi/id]sys_vendor}"
+
+
+ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="*N130*", RUN+="keyboard-force-release.sh $devpath samsung-other"
+
+LABEL="force_release_end"
