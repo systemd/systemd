@@ -16,6 +16,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * udev - library context
  * 
@@ -158,4 +162,9 @@ int udev_queue_get_seqnum_sequence_is_finished(struct udev_queue *udev_queue,
 					       unsigned long long int start, unsigned long long int end);
 struct udev_list_entry *udev_queue_get_queued_list_entry(struct udev_queue *udev_queue);
 struct udev_list_entry *udev_queue_get_failed_list_entry(struct udev_queue *udev_queue);
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
+
 #endif
