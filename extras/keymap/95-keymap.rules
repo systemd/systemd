@@ -5,7 +5,7 @@
 # a file name (in /lib/udev/keymaps), which has to contain scancode/keyname
 # pairs.
 
-ACTION!="add", GOTO="keyboard_end"
+ACTION!="add|change", GOTO="keyboard_end"
 SUBSYSTEM!="input", GOTO="keyboard_end"
 KERNEL!="event*", GOTO="keyboard_end"
 
