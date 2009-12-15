@@ -17,21 +17,18 @@
 
 # print a list of input devices which are keyboard-like
 keyboard_devices() {
-    input_devs=`udevadm trigger --dry-run --verbose --subsystem-match=input --attr-match=dev`
-
     # standard AT keyboard
-    for dev in $input_devs; do
+    for dev in `udevadm trigger --dry-run --verbose --property-match=ID_INPUT_KEYBOARD=1`; do
         walk=`udevadm info --attribute-walk --path=$dev`
-        env=`udevadm info --query=env --path=$dev`
-        
+	env=`udevadm info --query=env --path=$dev`
         if echo "$walk" | grep -q 'DRIVERS=="atkbd"'; then
             echo -n 'AT keyboard: '
-            udevadm info --query=name --path=$dev
-        fi
-        if echo "$env"| grep -q '^ID_CLASS=kbd' && echo "$env" | grep -q '^ID_USB_DRIVER=usbhid'; then
+	elif echo "$env" | grep -q '^ID_USB_DRIVER=usbhid'; then
             echo -n 'USB keyboard: '
-            udevadm info --query=name --path=$dev
+	else
+	    echo -n 'Unknown type: '
         fi
+	udevadm info --query=name --path=$dev
     done
 
     # modules
