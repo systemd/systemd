@@ -73,7 +73,7 @@ SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ENV{ID_USB_INTERFACES}==":0701*:",
 SUBSYSTEM=="block", GROUP="disk"
 
 # floppy
-KERNEL=="fd[0-9]", GROUP="floppy"
+SUBSYSTEM=="block", KERNEL=="fd[0-9]", GROUP="floppy"
 
 # cdrom
 SUBSYSTEM=="block", KERNEL=="sr[0-9]*", SYMLINK+="scd%n", GROUP="cdrom"
