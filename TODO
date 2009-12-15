@@ -1,5 +1,4 @@
 
-  o convert firmware.sh to C
   o get rid of "scan all devices to find myself" libusb interface
       if it can not be fixed, drop libusb entirely and add a simple
       wrapper around the Linux usb ioctls we need

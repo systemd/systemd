@@ -180,15 +180,9 @@ udev_test_udev_SOURCES = \
 udev_test_udev_LDADD = libudev/libudev-private.la
 
 # ------------------------------------------------------------------------------
-# firmware.sh - firmware loading
-# ------------------------------------------------------------------------------
-dist_libexec_SCRIPTS = extras/firmware/firmware.sh
-dist_udevrules_DATA += extras/firmware/50-firmware.rules
-
-# ------------------------------------------------------------------------------
 # rule_generator - persistent network and optical device rule generator
 # ------------------------------------------------------------------------------
-dist_libexec_SCRIPTS += \
+dist_libexec_SCRIPTS = \
 	extras/rule_generator/write_cd_rules \
 	extras/rule_generator/write_net_rules
 
@@ -200,11 +194,19 @@ dist_udevrules_DATA += \
 	extras/rule_generator/75-persistent-net-generator.rules
 
 # ------------------------------------------------------------------------------
+# firmware - firmware loading
+# ------------------------------------------------------------------------------
+extras_firmware_firmware_SOURCES = extras/firmware/firmware.c
+extras_firmware_firmware_LDADD = libudev/libudev-private.la
+dist_udevrules_DATA += extras/firmware/50-firmware.rules
+libexec_PROGRAMS = extras/firmware/firmware
+
+# ------------------------------------------------------------------------------
 # ata_id - ATA identify
 # ------------------------------------------------------------------------------
 extras_ata_id_ata_id_SOURCES = extras/ata_id/ata_id.c
 extras_ata_id_ata_id_LDADD = libudev/libudev-private.la
-libexec_PROGRAMS = extras/ata_id/ata_id
+libexec_PROGRAMS += extras/ata_id/ata_id
 
 # ------------------------------------------------------------------------------
 # cdrom_id - optical drive/media capability
