@@ -235,6 +235,7 @@ dist_udevrules_DATA += extras/edd_id/61-persistent-storage-edd.rules
 extras_floppy_create_floppy_devices_SOURCES = extras/floppy/create_floppy_devices.c
 extras_floppy_create_floppy_devices_LDADD = libudev/libudev-private.la
 libexec_PROGRAMS += extras/floppy/create_floppy_devices
+dist_udevrules_DATA += extras/floppy/60-floppy.rules
 
 # ------------------------------------------------------------------------------
 # input_id - import input device class
