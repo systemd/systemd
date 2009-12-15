@@ -2,4 +2,4 @@
 
 # import optical drive properties
 ACTION=="add|change", SUBSYSTEM=="block", ENV{DEVTYPE}=="disk", \
-  KERNEL=="sr[0-9]*|hd[a-z]|pcd[0-9]|xvd*", IMPORT{program}="cdrom_id --export $tempnode"
+  KERNEL=="sr[0-9]*|xvd*", IMPORT{program}="cdrom_id --export $tempnode"
