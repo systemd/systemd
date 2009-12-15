@@ -685,18 +685,6 @@ int udev_enumerate_scan_devices(struct udev_enumerate *udev_enumerate)
 		scan_dir(udev_enumerate, "bus", "devices", NULL);
 		dbg(udev, "searching '/class/*' dir\n");
 		scan_dir(udev_enumerate, "class", NULL, NULL);
-		/* if block isn't a class, scan /block/ */
-		util_strscpyl(base, sizeof(base), udev_get_sys_path(udev), "/class/block", NULL);
-		if (stat(base, &statbuf) != 0) {
-			if (match_subsystem(udev_enumerate, "block")) {
-				dbg(udev, "searching '/block/*' dir\n");
-				/* scan disks */
-				scan_dir_and_add_devices(udev_enumerate, "block", NULL, NULL);
-				/* scan partitions */
-				dbg(udev, "searching '/block/*/*' dir\n");
-				scan_dir(udev_enumerate, "block", NULL, "block");
-			}
-		}
 	}
 	return 0;
 }

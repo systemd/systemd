@@ -3,5 +3,4 @@
   o get rid of "scan all devices to find myself" libusb interface
       if it can not be fixed, drop libusb entirely and add a simple
       wrapper around the Linux usb ioctls we need
-  o drop all support for the DEPRECATED sysfs layout
   o remove deprecated BUS=, SYSFS{}=, ID= keys

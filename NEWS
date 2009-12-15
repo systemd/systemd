@@ -2,6 +2,11 @@ udev 150
 ========
 Bugfixes.
 
+Kernels with SYSFS_DEPRECATED=y are not supported since a while. Many users
+depend on the current sysfs layout and the information not available in the
+deprecated layout. All remaining support for the deprecated sysfs layout is
+removed now.
+
 udev 149
 ========
 Fix for a possible endless loop in the new input_id program.

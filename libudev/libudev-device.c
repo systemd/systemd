@@ -508,20 +508,9 @@ static struct udev_device *device_new_from_parent(struct udev_device *udev_devic
 	char path[UTIL_PATH_SIZE];
 	const char *subdir;
 
-	/* follow "device" link in deprecated sys layout */
-	if (strncmp(udev_device->devpath, "/class/", 7) == 0 ||
-	    strncmp(udev_device->devpath, "/block/", 7) == 0) {
-		util_strscpyl(path, sizeof(path), udev_device->syspath, "/device", NULL);
-		if (util_resolve_sys_link(udev_device->udev, path, sizeof(path)) == 0) {
-			udev_device_parent = udev_device_new_from_syspath(udev_device->udev, path);
-			if (udev_device_parent != NULL)
-				return udev_device_parent;
-		}
-	}
-
 	util_strscpy(path, sizeof(path), udev_device->syspath);
 	subdir = &path[strlen(udev_get_sys_path(udev_device->udev))+1];
-	while (1) {
+	for (;;) {
 		char *pos;
 
 		pos = strrchr(subdir, '/');

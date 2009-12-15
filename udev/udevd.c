@@ -764,37 +764,11 @@ static void handle_signal(struct udev *udev, int signo)
 	}
 }
 
-static void startup_log(struct udev *udev)
-{
-	FILE *f;
-	char path[UTIL_PATH_SIZE];
-	struct stat statbuf;
-
-	f = fopen("/dev/kmsg", "w");
-	if (f != NULL)
-		fprintf(f, "<6>udev: starting version " VERSION "\n");
-
-	util_strscpyl(path, sizeof(path), udev_get_sys_path(udev), "/class/mem/null", NULL);
-	if (lstat(path, &statbuf) == 0 && S_ISDIR(statbuf.st_mode)) {
-		const char *depr_str =
-			"udev: missing sysfs features; please update the kernel "
-			"or disable the kernel's CONFIG_SYSFS_DEPRECATED option; "
-			"udev may fail to work correctly";
-
-		if (f != NULL)
-			fprintf(f, "<3>%s\n", depr_str);
-		err(udev, "%s\n", depr_str);
-		sleep(15);
-	}
-
-	if (f != NULL)
-		fclose(f);
-}
-
 int main(int argc, char *argv[])
 {
 	struct udev *udev;
 	int fd;
+	FILE *f;
 	sigset_t mask;
 	const char *value;
 	int daemonize = false;
@@ -988,7 +962,11 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	startup_log(udev);
+	f = fopen("/dev/kmsg", "w");
+	if (f != NULL) {
+		fprintf(f, "<6>udev: starting version " VERSION "\n");
+		fclose(f);
+	}
 
 	/* redirect std{out,err} */
 	if (!debug && !debug_trace) {
