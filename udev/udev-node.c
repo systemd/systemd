@@ -25,6 +25,7 @@
 #include <errno.h>
 #include <grp.h>
 #include <dirent.h>
+#include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -55,6 +56,8 @@ int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mod
 			info(udev, "preserve file '%s', because it has correct dev_t\n", file);
 			preserve = 1;
 			udev_selinux_lsetfilecon(udev, file, mode);
+			/* update time stamp when we re-use the node, like on media change events */
+			utimes(file, NULL);
 		} else {
 			char file_tmp[UTIL_PATH_SIZE + sizeof(TMP_FILE_EXT)];
 
@@ -175,6 +178,7 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 					info(udev, "preserve already existing symlink '%s' to '%s'\n",
 					     slink, target);
 					udev_selinux_lsetfilecon(udev, slink, S_IFLNK);
+					lutimes(slink, NULL);
 					goto exit;
 				}
 			}
