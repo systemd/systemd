@@ -574,6 +574,8 @@ static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate,
 			continue;
 
 		util_strscpyl(syspath, sizeof(syspath), path, "/", dent->d_name, NULL);
+		if (!match_property(udev_enumerate, syspath))
+			continue;
 		if (lstat(syspath, &statbuf) != 0)
 			continue;
 		if (S_ISREG(statbuf.st_mode))
@@ -585,8 +587,6 @@ static int scan_dir_and_add_devices(struct udev_enumerate *udev_enumerate,
 		if (stat(filename, &statbuf) != 0)
 			continue;
 		if (!match_sysattr(udev_enumerate, syspath))
-			continue;
-		if (!match_property(udev_enumerate, syspath))
 			continue;
 		syspath_add(udev_enumerate, syspath);
 	}
