@@ -347,12 +347,18 @@
                 <option>RUN{<replaceable>fail_event_on_error</replaceable>}</option> is
                 specified, and the executed program returns non-zero, the event will be
                 marked as failed for a possible later handling.</para>
+                <para>If no path is given, the program must be in 
+                <filename>/lib/udev</filename>, otherwise the full path must be
+                specified.</para>
                 <para>If the specified string starts with
                 <option>socket:<replaceable>path</replaceable></option>, all current event
                 values will be passed to the specified socket, as a message in the same
                 format the kernel sends an uevent. If the first character of the specified path
                 is an @ character, an abstract namespace socket is used, instead of an existing
                 socket file.</para>
+                <para>Program name and arguments are separated with spaces. To
+                include spaces in an argument, use single quotes. Please note
+                that this does not run through a shell.</para>
               </listitem>
             </varlistentry>
 
@@ -380,7 +386,9 @@
                     <term><option>program</option></term>
                     <listitem>
                       <para>Execute an external program specified as the assigned value and
-                      import its output, which must be in environment key format.</para>
+                      import its output, which must be in environment key
+                      format. Path specification, command/argument separation,
+                      and quoting work like in <option>RUN</option>.</para>
                     </listitem>
                   </varlistentry>
                   <varlistentry>
