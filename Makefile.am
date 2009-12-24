@@ -532,6 +532,7 @@ dist_udevkeymap_DATA = \
 	extras/keymap/keymaps/module-lenovo \
 	extras/keymap/keymaps/module-sony \
 	extras/keymap/keymaps/module-sony-old \
+	extras/keymap/keymaps/olpc-xo \
 	extras/keymap/keymaps/oqo-model2 \
 	extras/keymap/keymaps/samsung-other \
 	extras/keymap/keymaps/samsung-sq1us \
