@@ -303,25 +303,7 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
 	util_strscpy(path, sizeof(path), syspath);
 	util_resolve_sys_link(udev, path, sizeof(path));
 
-	/* try to resolve the silly block layout if needed */
-	if (strncmp(&path[len], "/block/", 7) == 0) {
-		char block[UTIL_PATH_SIZE];
-		char part[UTIL_PATH_SIZE];
-
-		util_strscpy(block, sizeof(block), path);
-		pos = strrchr(block, '/');
-		if (pos == NULL)
-			return NULL;
-		util_strscpy(part, sizeof(part), pos);
-		pos[0] = '\0';
-		if (util_resolve_sys_link(udev, block, sizeof(block)) == 0)
-			util_strscpyl(path, sizeof(path), block, part, NULL);
-	}
-
-	/* path exists in sys */
-	if (strncmp(&syspath[len], "/devices/", 9) == 0 ||
-	    strncmp(&syspath[len], "/class/", 7) == 0 ||
-	    strncmp(&syspath[len], "/block/", 7) == 0) {
+	if (strncmp(&syspath[len], "/devices/", 9) == 0) {
 		char file[UTIL_PATH_SIZE];
 
 		/* all "devices" require a "uevent" file */
@@ -369,9 +351,6 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 {
 	char path[UTIL_PATH_SIZE];
 	const char *type_str;
-	struct udev_enumerate *udev_enumerate;
-	struct udev_list_entry *list_entry;
-	struct udev_device *device = NULL;
 
 	if (type == 'b')
 		type_str = "block";
@@ -380,40 +359,10 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
 	else
 		return NULL;
 
-	/* /sys/dev/{block,char}/<maj>:<min> link */
-	snprintf(path, sizeof(path), "%s/dev/%s/%u:%u", udev_get_sys_path(udev),
-		 type_str, major(devnum), minor(devnum));
-	if (util_resolve_sys_link(udev, path, sizeof(path)) == 0)
-		return udev_device_new_from_syspath(udev, path);
-
-	udev_enumerate = udev_enumerate_new(udev);
-	if (udev_enumerate == NULL)
-		return NULL;
-
-	/* fallback to search sys devices for the major/minor */
-	if (type == 'b')
-		udev_enumerate_add_match_subsystem(udev_enumerate, "block");
-	else if (type == 'c')
-		udev_enumerate_add_nomatch_subsystem(udev_enumerate, "block");
-	udev_enumerate_scan_devices(udev_enumerate);
-	udev_list_entry_foreach(list_entry, udev_enumerate_get_list_entry(udev_enumerate)) {
-		struct udev_device *device_loop;
-
-		device_loop = udev_device_new_from_syspath(udev, udev_list_entry_get_name(list_entry));
-		if (device_loop != NULL) {
-			if (udev_device_get_devnum(device_loop) == devnum) {
-				if (type == 'b' && strcmp(udev_device_get_subsystem(device_loop), "block") != 0)
-					continue;
-				if (type == 'c' && strcmp(udev_device_get_subsystem(device_loop), "block") == 0)
-					continue;
-				device = device_loop;
-				break;
-			}
-			udev_device_unref(device_loop);
-		}
-	}
-	udev_enumerate_unref(udev_enumerate);
-	return device;
+	/* use /sys/dev/{block,char}/<maj>:<min> link */
+	snprintf(path, sizeof(path), "%s/dev/%s/%u:%u",
+		 udev_get_sys_path(udev), type_str, major(devnum), minor(devnum));
+	return udev_device_new_from_syspath(udev, path);
 }
 
 /**
