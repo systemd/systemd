@@ -388,23 +388,24 @@ int udevadm_info(struct udev *udev, int argc, char *argv[])
 		}
 
 		switch(query) {
-		case QUERY_NAME:
+		case QUERY_NAME: {
+			const char *node = udev_device_get_devnode(device);
+
+			if (node == NULL) {
+				fprintf(stderr, "no device node found\n");
+				rc = 5;
+				goto exit;
+			}
+
 			if (root) {
 				printf("%s\n", udev_device_get_devnode(device));
 			} else {
-				size_t len;
-				const char *node;
+				size_t len = strlen(udev_get_dev_path(udev));
 
-				len = strlen(udev_get_dev_path(udev));
-				node = udev_device_get_devnode(device);
-				if (node == NULL) {
-					fprintf(stderr, "no device node found\n");
-					rc = 5;
-					goto exit;
-				}
-					printf("%s\n", &udev_device_get_devnode(device)[len+1]);
+				printf("%s\n", &udev_device_get_devnode(device)[len+1]);
 			}
 			break;
+		}
 		case QUERY_SYMLINK:
 			list_entry = udev_device_get_devlinks_list_entry(device);
 			while (list_entry != NULL) {
