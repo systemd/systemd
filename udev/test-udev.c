@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
 	if (udev_device_get_event_timeout(dev) >= 0)
 		alarm(udev_device_get_event_timeout(dev));
 
-	if (err == 0 && udev_get_run(udev))
+	if (err == 0)
 		udev_event_execute_run(event, NULL);
 
 	udev_event_unref(event);

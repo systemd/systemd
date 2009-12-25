@@ -45,7 +45,6 @@ struct udev {
 	char *rules_path;
 	struct udev_list_node properties_list;
 	int log_priority;
-	int run;
 };
 
 void udev_log(struct udev *udev,
@@ -122,7 +121,6 @@ struct udev *udev_new(void)
 	udev->log_fn = log_stderr;
 	udev->log_priority = LOG_ERR;
 	udev_list_init(&udev->properties_list);
-	udev->run = 1;
 	udev->dev_path = strdup("/dev");
 	udev->sys_path = strdup("/sys");
 	config_file = strdup(SYSCONFDIR "/udev/udev.conf");
@@ -139,10 +137,6 @@ struct udev *udev_new(void)
 		util_remove_trailing_chars(udev->sys_path, '/');
 		udev_add_property(udev, "SYSFS_PATH", udev->sys_path);
 	}
-
-	env = getenv("UDEV_RUN");
-	if (env != NULL && strcmp(env, "0") == 0)
-		udev->run = 0;
 
 	env = getenv("UDEV_CONFIG_FILE");
 	if (env != NULL) {
@@ -357,11 +351,6 @@ void udev_set_log_priority(struct udev *udev, int priority)
 const char *udev_get_rules_path(struct udev *udev)
 {
 	return udev->rules_path;
-}
-
-int udev_get_run(struct udev *udev)
-{
-	return udev->run;
 }
 
 /**

@@ -292,12 +292,9 @@ static void worker_new(struct event *event)
 			if (udev_device_get_event_timeout(dev) >= 0)
 				alarm(udev_device_get_event_timeout(dev));
 
-			/* execute RUN= */
-			if (err == 0 && udev_get_run(udev_event->udev))
-				failed = udev_event_execute_run(udev_event,
-								&orig_sigmask);
+			if (err == 0)
+				failed = udev_event_execute_run(udev_event, &orig_sigmask);
 
-			/* reset alarm */
 			alarm(0);
 
 			/* apply/restore inotify watch */
@@ -309,7 +306,7 @@ static void worker_new(struct event *event)
 			/* send processed event back to libudev listeners */
 			udev_monitor_send_device(worker_monitor, NULL, dev);
 
-			/* send back the result of the event execution */
+			/* send udevd the result of the event execution */
 			if (err != 0)
 				msg.exitcode = err;
 			else if (failed != 0)
