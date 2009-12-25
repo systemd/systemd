@@ -35,7 +35,11 @@ static void log_fn(struct udev *udev, int priority,
 		fprintf(stderr, "%s: ", fn);
 		vfprintf(stderr, format, args);
 	} else {
-		vfprintf(stderr, format, args);
+		va_list args2;
+
+		va_copy(args2, args);
+		vfprintf(stderr, format, args2);
+		va_end(args2);
 		vsyslog(priority, format, args);
 	}
 }
