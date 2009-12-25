@@ -35,8 +35,7 @@ static void log_fn(struct udev *udev, int priority,
 		fprintf(stderr, "%s: ", fn);
 		vfprintf(stderr, format, args);
 	} else {
-		if (priority <= LOG_ERR)
-			vfprintf(stderr, format, args);
+		vfprintf(stderr, format, args);
 		vsyslog(priority, format, args);
 	}
 }

@@ -26,7 +26,7 @@ udev_log_null(struct udev *udev, const char *format, ...) {}
 #define udev_log_cond(udev, prio, arg...) \
   do { \
     if (udev_get_log_priority(udev) >= prio) \
-      udev_log(udev, LOG_ERR, __FILE__, __LINE__, __FUNCTION__, ## arg); \
+      udev_log(udev, prio, __FILE__, __LINE__, __FUNCTION__, ## arg); \
   } while (0)
 
 #ifdef ENABLE_LOGGING
