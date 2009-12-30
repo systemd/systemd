@@ -251,6 +251,7 @@ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *ude
 		unsigned int i;
 		unsigned int max;
 		struct syspath *prev = NULL, *move_later = NULL;
+		size_t move_later_prefix = 0;
 
 		udev_list_cleanup_entries(udev_enumerate->udev, &udev_enumerate->devices_list);
 		qsort(udev_enumerate->devices, udev_enumerate->devices_cur, sizeof(struct syspath), syspath_cmp);
@@ -258,7 +259,6 @@ struct udev_list_entry *udev_enumerate_get_list_entry(struct udev_enumerate *ude
 		max = udev_enumerate->devices_cur;
 		for (i = 0; i < max; i++) {
 			struct syspath *entry = &udev_enumerate->devices[i];
-			size_t move_later_prefix = 0;
 
 			/* skip duplicated entries */
 			if (prev != NULL &&
