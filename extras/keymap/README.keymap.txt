@@ -74,6 +74,12 @@ for inclusion you need to do the following steps:
  /lib/udev/keymaps/ for existing key map files and make sure that you use the
  same structure.
 
+ If the key only ever works once and then your keyboard (or the entire desktop)
+ gets stuck for a long time, then it is likely that the BIOS fails to send a
+ corresponding "key release" event after the key press event. Please note down
+ this case as well, as it can be worked around in
+ /lib/udev/keymaps/95-keyboard-force-release.rules .
+
  4. Find out your system vendor and product:
 
  cat /sys/class/dmi/id/sys_vendor
