@@ -547,6 +547,7 @@ dist_udevkeymapforcerel_DATA = \
 	extras/keymap/keymaps/force-release/samsung-other
 
 extras/keymap/keys.txt: /usr/include/linux/input.h
+	mkdir -p extras/keymap
 	$(AM_V_GEN)$(AWK) '/^#define.*KEY_[^ ]+[ \t]+[0-9]/ { if ($$2 != "KEY_MAX") { print $$2 } }' < $< | sed 's/^KEY_COFFEE$$/KEY_SCREENLOCK/' > $@
 
 extras/keymap/keys-from-name.gperf: extras/keymap/keys.txt
