@@ -51,6 +51,7 @@ udev_device_get_driver
 udev_device_get_devnum
 udev_device_get_action
 udev_device_get_sysattr_value
+udev_device_get_seqnum
 </SECTION>
 
 <SECTION>
@@ -104,5 +105,7 @@ udev_queue_get_seqnum_is_finished
 udev_queue_get_seqnum_sequence_is_finished
 udev_queue_get_queued_list_entry
 udev_queue_get_failed_list_entry
+udev_queue_get_kernel_seqnum
+udev_queue_get_udev_seqnum
 </SECTION>
 
