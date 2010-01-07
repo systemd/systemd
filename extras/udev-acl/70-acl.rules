@@ -33,6 +33,15 @@ SUBSYSTEM=="input", SUBSYSTEMS=="sound", ENV{ACL_MANAGE}="1"
 SUBSYSTEM=="video4linux", ENV{ACL_MANAGE}="1"
 SUBSYSTEM=="dvb", ENV{ACL_MANAGE}="1"
 
+# IIDC devices: industrial cameras and some webcams
+SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x00010*",  ENV{ACL_MANAGE}="1"
+# AV/C devices: camcorders, set-top boxes, TV sets, audio devices, and more
+SUBSYSTEM=="firewire", ATTR{units}=="*0x00a02d:0x010001*", ENV{ACL_MANAGE}="1"
+
+# old style firewire devices
+KERNEL=="dv1394-[0-9]*", ENV{ACL_MANAGE}="1"
+KERNEL=="video1394-[0-9]*", ENV{ACL_MANAGE}="1"
+
 # fingerprint readers
 SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="2016", ENV{ACL_MANAGE}="1"
 
