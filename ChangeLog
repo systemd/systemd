@@ -1,3 +1,72 @@
+Summary of changes from v149 to v150
+============================================
+
+Clemens Buchacher (2):
+      add Samsung R70/R71 keymap
+      keymap: Samsung R70/R71 force-release quirk
+
+Daniel Drake (2):
+      keymap: Add OLPC XO key mappings
+      keymap: Fix typo in compal rules
+
+Daniel Elstner (1):
+      libudev: wrap in extern "C" block for C++
+
+David Zeuthen (1):
+      Export ID_WWN_VENDOR_EXTENSION and ID_WWN_WITH_EXTENSION
+
+Jerone Young (1):
+      keymap: Lenovo Thinkpad USB Keyboard with Tracepoint
+
+Johannes Stezenbach (2):
+      keymap: add Samsung N130
+      keymap: handle atkbd force_release quirk
+
+Kay Sievers (15):
+      util_unlink_secure(): chmod() before chown()
+      floppy: fix rule to create additional floppy device nodes
+      configure.ac: version bump
+      remove remaining support for CONFIG_SYSFS_DEPRECATED
+      cdrom_id: remove deprecated device matches
+      rules: add "block" match to floppy rule
+      update mtime of nodes and links when we re-use them
+      udevadm: info - fix info --root --query=name --path= for device without a device node
+      remove remaining support for CONFIG_SYSFS_DEPRECATED
+      fix typo in log message priority handling
+      remove UDEV_RUN environment variable
+      udevadm: logging - copy va_list and do not use it twice
+      libudev: doc - add symbols to sections.txt
+      work around gtk-doc which breaks distcheck
+      gobject-introspection: use $datadir instead of $prefix
+
+Marco d'Itri (2):
+      build: keymap - create subdir
+      rules: udev-acl - add firewire video devices
+
+Martin Pitt (12):
+      keymap: Add Acer Aspire 1810T
+      95-keymap.rules: Run on change events, too
+      keymap: fix findkeyboards
+      Speed up udev_enumerate_scan_*
+      keymap: Add hotkey quirk for Acer Aspire One (AO531h/AO751h)
+      Clarify RUN/IMPORT documentation
+      keymap: Add Logitech S510 USB keyboard
+      keymap: add Acer TravelMate 8471
+      keymap: Add Acer Aspire 1810TZ
+      keymap: Add LG X110
+      keymap: Add Fujitsu Amilo Li 1718
+      keymap: Document force-release
+
+Piter PUNK (1):
+      firmware: convert shell script to C
+
+Scott James Remnant (1):
+      70-acl.rules: ACL manage Android G1 dev phones
+
+Thomas de Grenier de Latour (1):
+      libudev: enumerate - fix move_later logic
+
+
 Summary of changes from v148 to v149
 ============================================
 
