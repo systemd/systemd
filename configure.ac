@@ -93,7 +93,7 @@ if test "x$enable_introspection" = xyes; then
 	AC_SUBST([G_IR_SCANNER], [$($PKG_CONFIG --variable=g_ir_scanner gobject-introspection-1.0)])
 	AC_SUBST([G_IR_COMPILER], [$($PKG_CONFIG --variable=g_ir_compiler gobject-introspection-1.0)])
 	AC_SUBST([G_IR_GENERATE], [$($PKG_CONFIG --variable=g_ir_generate gobject-introspection-1.0)])
-	AC_SUBST([GIRDIR], [$($PKG_CONFIG --define-variable=prefix=${prefix} --variable=girdir gobject-introspection-1.0)])
+	AC_SUBST([GIRDIR], [$($PKG_CONFIG --define-variable=datadir=${datadir} --variable=girdir gobject-introspection-1.0)])
 	AC_SUBST([GIRTYPELIBDIR], [$($PKG_CONFIG --define-variable=libdir=${libdir} --variable=typelibdir gobject-introspection-1.0)])
 fi
 AM_CONDITIONAL([ENABLE_INTROSPECTION], [test "x$enable_introspection" = xyes])
