@@ -5,7 +5,6 @@ xml/
 version.xml
 libudev-decl-list.txt
 libudev-decl.txt
-libudev-overrides.txt
 libudev-undeclared.txt
 libudev-undocumented.txt
 libudev-unused.txt
