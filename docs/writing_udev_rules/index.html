@@ -206,15 +206,11 @@ This works for all storage types. As an example, udev has created <em>/dev/disk/
 <h3>Rule files and semantics</h3>
 
 <p>
-When deciding how to name a device and which additional actions to perform, udev reads a series of rules files. These files are kept in the <em>/etc/udev/rules.d</em> directory, and they all must have the <em>.rules</em> suffix.
+When deciding how to name a device and which additional actions to perform, udev reads a series of rules files. These files are kept in the <em>/etc/udev/rules.d</em> and <em>/lib/udev/rules.d</em> directories, and they all must have the <em>.rules</em> suffix. If two files with the same name exist in both directories then only the one in <em>/etc</em> is used.
 </p>
 
 <p>
-Default udev rules are stored in <em>/etc/udev/rules.d/50-udev.rules</em>. You may find it interesting to look over this file - it includes a few examples, and then some default rules proving a devfs-style /dev layout. However, you should not write rules into this file directly.
-</p>
-
-<p>
-Files in /etc/udev/rules.d/ are parsed in <b>lexical</b> order, and in some circumstances, the order in which rules are parsed is important. In general, you want your own rules to be parsed before the defaults, so I suggest you create a file at <em>/etc/udev/rules.d/10-local.rules</em> and write all your rules into this file.
+Files in the <em>rules.d</em> directories are parsed in <b>lexical</b> order, and in some circumstances, the order in which rules are parsed is important. In general, you want your own rules to be parsed before the defaults, so I suggest you create a file at <em>/etc/udev/rules.d/10-local.rules</em> and write all your rules into this file.
 </p>
 
 <p>
