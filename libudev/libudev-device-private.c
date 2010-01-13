@@ -25,6 +25,7 @@ int udev_device_update_db(struct udev_device *udev_device)
 {
 	struct udev *udev = udev_device_get_udev(udev_device);
 	char filename[UTIL_PATH_SIZE];
+	char filename_tmp[UTIL_PATH_SIZE];
 	FILE *f;
 	char target[232]; /* on 64bit, tmpfs inlines up to 239 bytes */
 	size_t devlen = strlen(udev_get_dev_path(udev))+1;
@@ -35,7 +36,7 @@ int udev_device_update_db(struct udev_device *udev_device)
 
 	util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/db/",
 		      udev_device_get_subsystem(udev_device), ":", udev_device_get_sysname(udev_device), NULL);
-	unlink(filename);
+	util_strscpyl(filename_tmp, sizeof(filename_tmp), filename, ".tmp", NULL);
 
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device))
 		if (udev_list_entry_get_flag(list_entry))
@@ -66,21 +67,24 @@ int udev_device_update_db(struct udev_device *udev_device)
 			goto file;
 		}
 	}
-	info(udev, "create db link (%s)\n", target);
-	udev_selinux_setfscreatecon(udev, filename, S_IFLNK);
-	util_create_path(udev, filename);
-	ret = symlink(target, filename);
+	udev_selinux_setfscreatecon(udev, filename_tmp, S_IFLNK);
+	util_create_path(udev, filename_tmp);
+	ret = symlink(target, filename_tmp);
 	udev_selinux_resetfscreatecon(udev);
-	if (ret == 0)
-		goto out;
+	if (ret != 0)
+		goto file;
+	ret = rename(filename_tmp, filename);
+	if (ret != 0)
+		goto file;
+	info(udev, "created db link (%s)\n", target);
+	goto out;
 file:
-	util_create_path(udev, filename);
-	f = fopen(filename, "w");
+	util_create_path(udev, filename_tmp);
+	f = fopen(filename_tmp, "w");
 	if (f == NULL) {
-		err(udev, "unable to create db file '%s': %m\n", filename);
+		err(udev, "unable to create temporary db file '%s': %m\n", filename_tmp);
 		return -1;
 		}
-	info(udev, "created db file for '%s' in '%s'\n", udev_device_get_devpath(udev_device), filename);
 
 	if (udev_device_get_devnode(udev_device) != NULL) {
 		fprintf(f, "N:%s\n", &udev_device_get_devnode(udev_device)[devlen]);
@@ -105,6 +109,8 @@ file:
 			udev_list_entry_get_value(list_entry));
 	}
 	fclose(f);
+	rename(filename_tmp, filename);
+	info(udev, "created db file for '%s' in '%s'\n", udev_device_get_devpath(udev_device), filename);
 out:
 	return 0;
 }
