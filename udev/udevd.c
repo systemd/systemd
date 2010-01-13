@@ -887,15 +887,15 @@ int main(int argc, char *argv[])
 
 	if (udev_get_rules_path(udev) != NULL) {
 		inotify_add_watch(pfd[FD_INOTIFY].fd, udev_get_rules_path(udev),
-				  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
+				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
 	} else {
 		char filename[UTIL_PATH_SIZE];
 		struct stat statbuf;
 
 		inotify_add_watch(pfd[FD_INOTIFY].fd, LIBEXECDIR "/rules.d",
-				  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
+				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
 		inotify_add_watch(pfd[FD_INOTIFY].fd, SYSCONFDIR "/udev/rules.d",
-				  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
+				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
 
 		/* watch dynamic rules directory */
 		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(udev), "/.udev/rules.d", NULL);
@@ -906,7 +906,7 @@ int main(int argc, char *argv[])
 			udev_selinux_resetfscreatecon(udev);
 		}
 		inotify_add_watch(pfd[FD_INOTIFY].fd, filename,
-				  IN_CREATE | IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
+				  IN_DELETE | IN_MOVE | IN_CLOSE_WRITE);
 	}
 	udev_watch_restore(udev);
 
