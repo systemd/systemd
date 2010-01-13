@@ -422,10 +422,11 @@ int udev_node_remove(struct udev_device *dev)
 	const char *devnode;
 	char partitionname[UTIL_PATH_SIZE];
 	struct stat stats;
+	struct udev_device *dev_check;
 	int err = 0;
 	int num;
 
-	/* remove,update symlinks, remove symlinks from name index */
+	/* remove/update symlinks, remove symlinks from name index */
 	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev))
 		link_update(dev, udev_list_entry_get_name(list_entry), 0);
 
@@ -441,10 +442,15 @@ int udev_node_remove(struct udev_device *dev)
 		return -1;
 	}
 
-	info(udev, "removing device node '%s'\n", devnode);
-	err = util_unlink_secure(udev, devnode);
-	if (err)
-		return err;
+	dev_check = udev_device_new_from_syspath(udev, udev_device_get_syspath(dev));
+	if (dev_check != NULL && stats.st_rdev == udev_device_get_devnum(dev_check)) {
+		/* do not remove device node if the same sys-device is re-created in the meantime */
+		info(udev, "keeping device node '%s'\n", devnode);
+	} else {
+		info(udev, "removing device node '%s'\n", devnode);
+		err = util_unlink_secure(udev, devnode);
+	}
+	udev_device_unref(dev_check);
 
 	num = udev_device_get_num_fake_partitions(dev);
 	if (num > 0) {
