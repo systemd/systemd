@@ -445,7 +445,7 @@ int udev_node_remove(struct udev_device *dev)
 	dev_check = udev_device_new_from_syspath(udev, udev_device_get_syspath(dev));
 	if (dev_check != NULL && stats.st_rdev == udev_device_get_devnum(dev_check)) {
 		/* do not remove device node if the same sys-device is re-created in the meantime */
-		info(udev, "keeping device node '%s'\n", devnode);
+		info(udev, "keeping device node of existing device'%s'\n", devnode);
 	} else {
 		info(udev, "removing device node '%s'\n", devnode);
 		err = util_unlink_secure(udev, devnode);
