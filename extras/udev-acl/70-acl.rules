@@ -60,6 +60,9 @@ SUBSYSTEM=="input", ENV{ID_INPUT_JOYSTICK}=="?*", ENV{ACL_MANAGE}="1"
 # smart phones
 SUBSYSTEM=="usb", ATTR{idVendor}=="0bb4", ATTR{idProduct}=="0c02", ENV{ACL_MANAGE}="1"
 
+# color measurement devices
+ENV{COLOR_MEASUREMENT_DEVICE}=="*?", ENV{ACL_MANAGE}="1"
+
 # apply ACL for all locally logged in users
 LABEL="acl_apply", ENV{ACL_MANAGE}=="?*", TEST=="/var/run/ConsoleKit/database", \
   RUN+="udev-acl --action=$env{ACTION} --device=$env{DEVNAME}"
