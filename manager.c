@@ -333,3 +333,25 @@ finish:
         *_ret = ret;
         return 0;
 }
+
+void manager_dump_jobs(Manager *s, FILE *f) {
+        void *state;
+        Job *j;
+
+        assert(s);
+        assert(f);
+
+        HASHMAP_FOREACH(j, s->jobs, state)
+                job_dump(j, f);
+}
+
+void manager_dump_names(Manager *s, FILE *f) {
+        void *state;
+        Name *n;
+
+        assert(s);
+        assert(f);
+
+        HASHMAP_FOREACH(n, s->names, state)
+                name_dump(n, f);
+}

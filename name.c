@@ -112,7 +112,6 @@ static void bidi_set_free(Name *name, Set *s) {
         Name *other;
 
         assert(name);
-        assert(s);
 
         /* Frees the set and makes sure we are dropped from the
          * inverse pointers */
@@ -359,4 +358,32 @@ int name_merge(Name *name, Name *other) {
                         return r;
 
         return 0;
+}
+
+const char* name_id(Name *n) {
+        assert(n);
+
+        return set_first(n->meta.names);
+}
+
+void name_dump(Name *n, FILE *f) {
+
+        static const char* const state_table[_NAME_STATE_MAX] = {
+                [NAME_STUB] = "STUB",
+                [NAME_LOADED] = "LOADED",
+                [NAME_FAILED] = "FAILED"
+        };
+
+        assert(n);
+
+        fprintf(stderr,
+                "Name %s (%s), state %s\n",
+                name_id(n),
+                n->meta.description ? n->meta.description : name_id(n),
+                state_table[n->meta.state]);
+
+        if (n->meta.job) {
+                fprintf(f, "\t▶ ");
+                job_dump(n->meta.job, f);
+        }
 }

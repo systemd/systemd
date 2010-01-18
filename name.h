@@ -39,7 +39,8 @@ typedef enum NameType {
 typedef enum NameState {
         NAME_STUB,
         NAME_LOADED,
-        NAME_FAILED
+        NAME_FAILED,
+        _NAME_STATE_MAX
 } NameState;
 
 typedef enum NameDependency {
@@ -276,5 +277,8 @@ void name_free(Name *name);
 int name_link(Name *name);
 int name_merge(Name *name, Name *other);
 int name_augment(Name *n);
+const char* name_id(Name *n);
+
+void name_dump(Name *n, FILE *f);
 
 #endif

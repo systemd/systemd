@@ -53,5 +53,6 @@ struct Job {
 Job* job_new(Manager *m, JobType type, Name *name);
 int job_link(Job *job);
 void job_free(Job *job);
+void job_dump(Job *j, FILE*f);
 
 #endif

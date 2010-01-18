@@ -60,3 +60,31 @@ void job_free(Job *j) {
         /* Free data and next 'smaller' objects */
         free(j);
 }
+
+void job_dump(Job *j, FILE*f) {
+
+        static const char* const job_type_table[_JOB_TYPE_MAX] = {
+                [JOB_START] = "START",
+                [JOB_STOP] = "STOP",
+                [JOB_VERIFY_STARTED] = "VERIFY_STARTED",
+                [JOB_RELOAD] = "RELOAD",
+                [JOB_RESTART] = "RESTART",
+                [JOB_TRY_RESTART] = "TRY_RESTART",
+                [JOB_RESTART_FINISH] = "RESTART_FINISH"
+        };
+
+        static const char* const job_state_table[_JOB_STATE_MAX] = {
+                [JOB_WAITING] = "WAITING",
+                [JOB_RUNNING] = "RUNNING",
+                [JOB_DONE] = "DONE"
+        };
+
+        assert(j);
+        assert(f);
+
+        fprintf(f, "Job %u: %s → %s in state %s\n",
+                j->id,
+                name_id(j->name),
+                job_type_table[j->type],
+                job_state_table[j->state]);
+}

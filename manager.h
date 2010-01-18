@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 #include <inttypes.h>
+#include <stdio.h>
 
 typedef struct Manager Manager;
 
@@ -43,5 +44,8 @@ Name *manager_get_name(Manager *m, const char *name);
 
 int manager_load_name(Manager *m, const char *name, Name **_ret);
 int manager_add_job(Manager *m, JobType job, Name *name, JobMode mode, Job **_ret);
+
+void manager_dump_names(Manager *s, FILE *f);
+void manager_dump_jobs(Manager *s, FILE *f);
 
 #endif
