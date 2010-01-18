@@ -14,21 +14,24 @@
 typedef struct Set Set;
 
 Set *set_new(hash_func_t hash_func, compare_func_t compare_func);
-void set_free(Set* set);
+Set* set_copy(Set *s);
+void set_free(Set* s);
 
 int set_put(Set *s, void *value);
 void *set_get(Set *s, void *value);
 void *set_remove(Set *s, void *value);
 
+int set_merge(Set *s, Set *other);
+
 unsigned set_size(Set *s);
 bool set_isempty(Set *s);
 
-void *set_iterate(Set *h, void **state);
-void *set_iterate_backwards(Set *h, void **state);
+void *set_iterate(Set *s, void **state);
+void *set_iterate_backwards(Set *s, void **state);
 
-void *set_steal_first(Set *h);
-void* set_first(Set *h);
-void* set_last(Set *h);
+void *set_steal_first(Set *s);
+void* set_first(Set *s);
+void* set_last(Set *s);
 
 #define SET_FOREACH(e, s, state) \
         for ((state) = NULL, (e) = set_iterate((s), &(state)); (e); (e) = set_iterate((s), &(state)))

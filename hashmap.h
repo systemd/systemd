@@ -22,11 +22,14 @@ unsigned trivial_hash_func(const void *p);
 int trivial_compare_func(const void *a, const void *b);
 
 Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func);
-void hashmap_free(Hashmap*);
+void hashmap_free(Hashmap *h);
+Hashmap *hashmap_copy(Hashmap *h);
 
 int hashmap_put(Hashmap *h, const void *key, void *value);
 void* hashmap_get(Hashmap *h, const void *key);
 void* hashmap_remove(Hashmap *h, const void *key);
+
+int hashmap_merge(Hashmap *h, Hashmap *other);
 
 unsigned hashmap_size(Hashmap *h);
 bool hashmap_isempty(Hashmap *h);

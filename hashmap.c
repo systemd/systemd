@@ -18,7 +18,6 @@
 struct hashmap_entry {
         const void *key;
         void *value;
-
         struct hashmap_entry *bucket_next, *bucket_previous;
         struct hashmap_entry *iterate_next, *iterate_previous;
 };
@@ -322,4 +321,39 @@ bool hashmap_isempty(Hashmap *h) {
                 return true;
 
         return h->n_entries == 0;
+}
+
+int hashmap_merge(Hashmap *h, Hashmap *other) {
+        struct hashmap_entry *e;
+
+        assert(h);
+
+        if (!other)
+                return 0;
+
+        for (e = other->iterate_list_head; e; e = e->iterate_next) {
+                int r;
+
+                if ((r = hashmap_put(h, e->key, e->value)) < 0)
+                        if (r != -EEXIST)
+                                return r;
+        }
+
+        return 0;
+}
+
+Hashmap *hashmap_copy(Hashmap *h) {
+        Hashmap *copy;
+
+        assert(h);
+
+        if (!(copy = hashmap_new(h->hash_func, h->compare_func)))
+                return NULL;
+
+        if (hashmap_merge(copy, h) < 0) {
+                hashmap_free(copy);
+                return NULL;
+        }
+
+        return copy;
 }

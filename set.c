@@ -61,3 +61,11 @@ void* set_first(Set *s) {
 void* set_last(Set *s) {
         return hashmap_last(MAKE_HASHMAP(s));
 }
+
+int set_merge(Set *s, Set *other) {
+        return hashmap_merge(MAKE_HASHMAP(s), MAKE_HASHMAP(other));
+}
+
+Set* set_copy(Set *s) {
+        return MAKE_SET(hashmap_copy(MAKE_HASHMAP(s)));
+}
