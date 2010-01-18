@@ -47,13 +47,16 @@ void job_free(Job *j) {
         /* Detach from next 'bigger' objects */
 
         if (j->linked) {
-                if (j->name && j->name->meta.job == j)
-                        j->name->meta.job = NULL;
+                assert(j->name);
+                assert(j->name->meta.job == j);
+                j->name->meta.job = NULL;
 
                 hashmap_remove(j->manager->jobs, UINT32_TO_PTR(j->id));
         }
 
-        /* Free data and next 'smaller' objects */
+        hashmap_remove(j->manager->jobs_to_add, j->name);
+        set_remove(j->manager->jobs_to_remove, j);
 
+        /* Free data and next 'smaller' objects */
         free(j);
 }

@@ -42,24 +42,33 @@ typedef enum NameState {
         NAME_FAILED
 } NameState;
 
+typedef enum NameDependency {
+        /* Positive dependencies */
+        NAME_REQUIRES,
+        NAME_SOFT_REQUIRES,
+        NAME_WANTS,
+        NAME_REQUISITE,
+        NAME_SOFT_REQUISITE,
+        NAME_REQUIRED_BY,   /* inverse of 'requires' and 'requisite' is 'required_by' */
+        NAME_WANTED_BY,     /* inverse of 'wants', 'soft_requires' and 'soft_requisite' is 'wanted_by' */
+
+        /* Negative dependencies */
+        NAME_CONFLICTS,     /* inverse of 'conflicts' is 'conflicts' */
+
+        /* Order */
+        NAME_BEFORE,        /* inverse of before is after and vice versa */
+        NAME_AFTER,
+        _NAME_DEPENDENCY_MAX
+} NameDependency;
+
 struct Meta {
         Manager *manager;
         NameType type;
         NameState state;
 
-        char **names;
+        Set *names;
+        Set *dependencies[_NAME_DEPENDENCY_MAX];
 
-        /* Positive dependencies */
-        Set *requires, *soft_requires, *wants, *requisite, *soft_requisite;
-        Set *required_by;    /* inverse of 'requires', 'soft_requires', 'requisite' and 'soft_requisite' is 'required_by' */
-
-        /* Negative dependencies */
-        Set *conflicts;      /* inverse of 'conflicts' is 'conflicts' */
-
-        /* Order */
-        Set *before, *after; /* inverse of before is after and vice versa */
-
-        /* Information */
         char *description;
 
         /* If there is something to do with this name, then this is
@@ -265,7 +274,7 @@ bool name_is_valid(const char *n);
 Name *name_new(Manager *m);
 void name_free(Name *name);
 int name_link(Name *name);
-
+int name_merge(Name *name, Name *other);
 int name_augment(Name *n);
 
 #endif

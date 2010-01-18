@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <string.h>
 
 #include "manager.h"
 #include "hashmap.h"
@@ -91,28 +92,28 @@ int manager_add_job(Manager *m, JobType type, Name *name, JobMode mode, Job **_r
                 goto fail;
 
         if (type == JOB_START || type == JOB_VERIFY_STARTED || type == JOB_RESTART_FINISH) {
-                SET_FOREACH(dep, ret->name->meta.requires, state)
+                SET_FOREACH(dep, ret->name->meta.dependencies[NAME_REQUIRES], state)
                         if ((r = manager_add_job(m, type, dep, mode, NULL)) < 0)
                                 goto fail;
-                SET_FOREACH(dep, ret->name->meta.soft_requires, state)
+                SET_FOREACH(dep, ret->name->meta.dependencies[NAME_SOFT_REQUIRES], state)
                         if ((r = manager_add_job(m, type, dep, JOB_FAIL, NULL)) < 0)
                                 goto fail;
-                SET_FOREACH(dep, ret->name->meta.wants, state)
+                SET_FOREACH(dep, ret->name->meta.dependencies[NAME_WANTS], state)
                         if ((r = manager_add_job(m, type, dep, JOB_FAIL, NULL)) < 0)
                                 goto fail;
-                SET_FOREACH(dep, ret->name->meta.requisite, state)
+                SET_FOREACH(dep, ret->name->meta.dependencies[NAME_REQUISITE], state)
                         if ((r = manager_add_job(m, JOB_VERIFY_STARTED, dep, mode, NULL)) < 0)
                                 goto fail;
-                SET_FOREACH(dep, ret->name->meta.soft_requisite, state)
+                SET_FOREACH(dep, ret->name->meta.dependencies[NAME_SOFT_REQUISITE], state)
                         if ((r = manager_add_job(m, JOB_VERIFY_STARTED, dep, JOB_FAIL, NULL)) < 0)
                                 goto fail;
-                SET_FOREACH(dep, ret->name->meta.conflicts, state)
+                SET_FOREACH(dep, ret->name->meta.dependencies[NAME_CONFLICTS], state)
                         if ((r = manager_add_job(m, type, dep, mode, NULL)) < 0)
                                 goto fail;
 
         } else if (type == JOB_STOP || type == JOB_RESTART || type == JOB_TRY_RESTART) {
 
-                SET_FOREACH(dep, ret->name->meta.required_by, state)
+                SET_FOREACH(dep, ret->name->meta.dependencies[NAME_REQUIRED_BY], state)
                         if ((r = manager_add_job(m, type, dep, mode, NULL)) < 0)
                                 goto fail;
         }
@@ -142,17 +143,18 @@ Name *manager_get_name(Manager *m, const char *name) {
         return hashmap_get(m->names, name);
 }
 
-static int detect_type(Name *name) {
-        char **n;
+static int verify_type(Name *name) {
+        char *n;
+        void *state;
 
         assert(name);
 
-        name->meta.type = _NAME_TYPE_INVALID;
+        /* Checks that all aliases of this name have the same and valid type */
 
-        STRV_FOREACH(n, name->meta.names) {
+        SET_FOREACH(n, name->meta.names, state) {
                 NameType t;
 
-                if ((t = name_type_from_string(*n)) == _NAME_TYPE_INVALID)
+                if ((t = name_type_from_string(n)) == _NAME_TYPE_INVALID)
                         return -EINVAL;
 
                 if (name->meta.type == _NAME_TYPE_INVALID) {
@@ -163,6 +165,9 @@ static int detect_type(Name *name) {
                 if (name->meta.type != t)
                         return -EINVAL;
         }
+
+        if (name->meta.type == _NAME_TYPE_INVALID)
+                return -EINVAL;
 
         return 0;
 }
@@ -209,7 +214,7 @@ static int load(Name *name) {
         if (name->meta.state != NAME_STUB)
                 return 0;
 
-        if ((r = detect_type(name)) < 0)
+        if ((r = verify_type(name)) < 0)
                 return r;
 
         if (name->meta.type == NAME_SERVICE) {
@@ -278,6 +283,7 @@ int manager_load_name(Manager *m, const char *name, Name **_ret) {
         Name *ret;
         NameType t;
         int r;
+        char *n;
 
         assert(m);
         assert(name);
@@ -300,8 +306,14 @@ int manager_load_name(Manager *m, const char *name, Name **_ret) {
 
         ret->meta.type = t;
 
-        if (!(ret->meta.names = strv_new(name, NULL))) {
+        if (!(n = strdup(name))) {
                 name_free(ret);
+                return -ENOMEM;
+        }
+
+        if (set_put(ret->meta.names, n) < 0) {
+                name_free(ret);
+                free(n);
                 return -ENOMEM;
         }
 

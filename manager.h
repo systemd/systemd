@@ -17,6 +17,10 @@ typedef struct Manager Manager;
 struct Manager {
         uint32_t current_job_id;
 
+        /* Note that the set of names we know of is allowed to be
+         * incosistent. However the subset of it that is loaded may
+         * not, and the list of jobs may neither. */
+
         /* Active jobs and names */
         Hashmap *names;  /* name string => Name object n:1 */
         Hashmap *jobs;   /* job id => Job object 1:1 */

@@ -65,6 +65,11 @@ Name *name_new(Manager *m) {
         if (!(n = new0(Name, 1)))
                 return NULL;
 
+        if (!(n->meta.names = set_new(string_hash_func, string_compare_func))) {
+                free(n);
+                return NULL;
+        }
+
         /* Not much initialization happening here at this time */
         n->meta.manager = m;
         n->meta.type = _NAME_TYPE_INVALID;
@@ -78,12 +83,14 @@ Name *name_new(Manager *m) {
 int name_link(Name *n) {
         char **t;
         int r;
+        void *state;
 
         assert(n);
+        assert(!set_isempty(n->meta.names));
         assert(!n->meta.linked);
 
-        STRV_FOREACH(t, n->meta.names)
-                if ((r = hashmap_put(n->meta.manager->names, *t, n)) < 0)
+        SET_FOREACH(t, n->meta.names, state)
+                if ((r = hashmap_put(n->meta.manager->names, t, n)) < 0)
                         goto fail;
 
         if (n->meta.state == NAME_STUB)
@@ -94,43 +101,56 @@ int name_link(Name *n) {
         return 0;
 
 fail:
-        t--;
-        STRV_FOREACH_BACKWARDS(t, n->meta.names)
-                hashmap_remove(n->meta.manager->names, *t);
+        SET_FOREACH(t, n->meta.names, state)
+                assert_se(hashmap_remove(n->meta.manager->names, t) == n);
 
         return r;
 }
 
+static void bidi_set_free(Name *name, Set *s) {
+        void *state;
+        Name *other;
+
+        assert(name);
+        assert(s);
+
+        /* Frees the set and makes sure we are dropped from the
+         * inverse pointers */
+
+        SET_FOREACH(other, s, state) {
+                NameDependency d;
+
+                for (d = 0; d < _NAME_DEPENDENCY_MAX; d++)
+                        set_remove(other->meta.dependencies[d], name);
+        }
+
+        set_free(s);
+}
+
 void name_free(Name *name) {
+        NameDependency d;
+        char *t;
 
         assert(name);
 
         /* Detach from next 'bigger' objects */
-
         if (name->meta.linked) {
                 char **t;
+                void *state;
 
-                STRV_FOREACH(t, name->meta.names)
-                        hashmap_remove(name->meta.manager->names, *t);
+                SET_FOREACH(t, name->meta.names, state)
+                        assert_se(hashmap_remove(name->meta.manager->names, t) == name);
 
-                if (name->meta.job)
-                        job_free(name->meta.job);
+                if (name->meta.state == NAME_STUB)
+                        LIST_REMOVE(Meta, name->meta.manager->load_queue, &name->meta);
         }
 
         /* Free data and next 'smaller' objects */
-
         if (name->meta.job)
                 job_free(name->meta.job);
 
-        /* FIXME: Other names pointing to us should probably drop their refs to us when we get destructed */
-        set_free(name->meta.requires);
-        set_free(name->meta.soft_requires);
-        set_free(name->meta.wants);
-        set_free(name->meta.requisite);
-        set_free(name->meta.soft_requires);
-        set_free(name->meta.conflicts);
-        set_free(name->meta.before);
-        set_free(name->meta.after);
+        for (d = 0; d < _NAME_DEPENDENCY_MAX; d++)
+                bidi_set_free(name, name->meta.dependencies[d]);
 
         switch (name->meta.type) {
 
@@ -169,7 +189,10 @@ void name_free(Name *name) {
         }
 
         free(name->meta.description);
-        strv_free(name->meta.names);
+
+        while ((t = set_steal_first(name->meta.names)))
+                free(t);
+        set_free(name->meta.names);
 
         free(name);
 }
@@ -264,31 +287,76 @@ int name_augment(Name *n) {
 
         assert(n);
 
-        /* Adds in the missing links to make all dependencies both-ways */
+        /* Adds in the missing links to make all dependencies bidirectional */
 
-        SET_FOREACH(other, n->meta.before, state)
-                if ((r = ensure_in_set(&other->meta.after, n) < 0))
+        SET_FOREACH(other, n->meta.dependencies[NAME_BEFORE], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_AFTER], n) < 0))
                         return r;
-        SET_FOREACH(other, n->meta.after, state)
-                if ((r = ensure_in_set(&other->meta.before, n) < 0))
-                        return r;
-
-        SET_FOREACH(other, n->meta.conflicts, state)
-                if ((r = ensure_in_set(&other->meta.conflicts, n) < 0))
+        SET_FOREACH(other, n->meta.dependencies[NAME_AFTER], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_BEFORE], n) < 0))
                         return r;
 
-        SET_FOREACH(other, n->meta.requires, state)
-                if ((r = ensure_in_set(&other->meta.required_by, n) < 0))
+        SET_FOREACH(other, n->meta.dependencies[NAME_CONFLICTS], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_CONFLICTS], n) < 0))
                         return r;
-        SET_FOREACH(other, n->meta.soft_requires, state)
-                if ((r = ensure_in_set(&other->meta.required_by, n) < 0))
+
+        SET_FOREACH(other, n->meta.dependencies[NAME_REQUIRES], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_REQUIRED_BY], n) < 0))
                         return r;
-        SET_FOREACH(other, n->meta.requisite, state)
-                if ((r = ensure_in_set(&other->meta.required_by, n) < 0))
+        SET_FOREACH(other, n->meta.dependencies[NAME_REQUISITE], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_REQUIRED_BY], n) < 0))
                         return r;
-        SET_FOREACH(other, n->meta.soft_requisite, state)
-                if ((r = ensure_in_set(&other->meta.required_by, n) < 0))
+
+        SET_FOREACH(other, n->meta.dependencies[NAME_WANTS], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_WANTED_BY], n) < 0))
+                        return r;
+        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUIRES], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_WANTED_BY], n) < 0))
+                        return r;
+        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUISITE], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_WANTED_BY], n) < 0))
                         return r;
 
         return r;
+}
+
+static int ensure_merge(Set **s, Set *other) {
+
+        if (!other)
+                return 0;
+
+        if (*s)
+                return set_merge(*s, other);
+
+        if (!(*s = set_copy(other)))
+                return -ENOMEM;
+
+        return 0;
+}
+
+int name_merge(Name *name, Name *other) {
+        int r;
+        NameDependency d;
+
+        assert(name);
+        assert(other);
+
+        assert(name->meta.manager == other->meta.manager);
+
+        if (name->meta.type != other->meta.type)
+                return -EINVAL;
+
+        if (other->meta.state != NAME_STUB)
+                return -EINVAL;
+
+        /* Merge names */
+        if ((r = ensure_merge(&name->meta.names, other->meta.names)) < 0)
+                return r;
+
+        /* Merge dependencies */
+        for (d = 0; d < _NAME_DEPENDENCY_MAX; d++)
+                if ((r = ensure_merge(&name->meta.dependencies[d], other->meta.dependencies[d])) < 0)
+                        return r;
+
+        return 0;
 }
