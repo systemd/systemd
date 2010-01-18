@@ -44,7 +44,7 @@ static int next_assignment(
                 return t->parse(filename, line, section, lvalue, rvalue, t->data, userdata);
         }
 
-        fprintf(stderr, "[%s:%u] Unknown lvalue '%s' in section '%s'.", filename, line, lvalue, strna(section));
+        fprintf(stderr, "[%s:%u] Unknown lvalue '%s' in section '%s'.\n", filename, line, lvalue, strna(section));
         return -EBADMSG;
 }
 
@@ -122,7 +122,7 @@ static int parse_line(const char *filename, unsigned line, char **section, const
                 assert(k > 0);
 
                 if (b[k-1] != ']') {
-                        fprintf(stderr, "[%s:%u] Invalid section header.", filename, line);
+                        fprintf(stderr, "[%s:%u] Invalid section header.\n", filename, line);
                         return -EBADMSG;
                 }
 
@@ -136,7 +136,7 @@ static int parse_line(const char *filename, unsigned line, char **section, const
         }
 
         if (!(e = strchr(b, '='))) {
-                fprintf(stderr, "[%s:%u] Missing '='.", filename, line);
+                fprintf(stderr, "[%s:%u] Missing '='.\n", filename, line);
                 return -EBADMSG;
         }
 
@@ -158,7 +158,7 @@ int config_parse(const char *filename, const ConfigItem *t, void *userdata) {
 
         if (!(f = fopen(filename, "re"))) {
                 r = -errno;
-                fprintf(stderr, "Failed to open configuration file '%s': %s", filename, strerror(-r));
+                fprintf(stderr, "Failed to open configuration file '%s': %s\n", filename, strerror(-r));
                 goto finish;
         }
 
@@ -170,7 +170,7 @@ int config_parse(const char *filename, const ConfigItem *t, void *userdata) {
                                 break;
 
                         r = -errno;
-                        fprintf(stderr, "Failed to read configuration file '%s': %s", filename, strerror(-r));
+                        fprintf(stderr, "Failed to read configuration file '%s': %s\n", filename, strerror(-r));
                         goto finish;
                 }
 
@@ -207,7 +207,7 @@ int config_parse_int(
         assert(data);
 
         if ((r = safe_atoi(rvalue, i)) < 0) {
-                fprintf(stderr, "[%s:%u] Failed to parse numeric value: %s", filename, line, rvalue);
+                fprintf(stderr, "[%s:%u] Failed to parse numeric value: %s\n", filename, line, rvalue);
                 return r;
         }
 
@@ -232,7 +232,7 @@ int config_parse_unsigned(
         assert(data);
 
         if ((r = safe_atou(rvalue, u)) < 0) {
-                fprintf(stderr, "[%s:%u] Failed to parse numeric value: %s", filename, line, rvalue);
+                fprintf(stderr, "[%s:%u] Failed to parse numeric value: %s\n", filename, line, rvalue);
                 return r;
         }
 
@@ -258,7 +258,7 @@ int config_parse_size(
         assert(data);
 
         if ((r = safe_atou(rvalue, &u)) < 0) {
-                fprintf(stderr, "[%s:%u] Failed to parse numeric value: %s", filename, line, rvalue);
+                fprintf(stderr, "[%s:%u] Failed to parse numeric value: %s\n", filename, line, rvalue);
                 return r;
         }
 
@@ -284,7 +284,7 @@ int config_parse_bool(
         assert(data);
 
         if ((k = parse_boolean(rvalue)) < 0) {
-                fprintf(stderr, "[%s:%u] Failed to parse boolean value: %s", filename, line, rvalue);
+                fprintf(stderr, "[%s:%u] Failed to parse boolean value: %s\n", filename, line, rvalue);
                 return k;
         }
 
