@@ -45,6 +45,11 @@ KERNEL=="video1394-[0-9]*", ENV{ACL_MANAGE}="1"
 # fingerprint readers
 SUBSYSTEM=="usb", ATTR{idVendor}=="0483", ATTR{idProduct}=="2016", ENV{ACL_MANAGE}="1"
 
+# GPS devices
+ # Garmin GPSMap 60
+SUBSYSTEM=="usb", ATTR{idVendor}=="091e", ATTR{idProduct}=="0003", ENV{ACL_MANAGE}="1"
+
+
 # DRI video devices
 SUBSYSTEM=="drm", KERNEL=="card*", ENV{ACL_MANAGE}="1"
 
