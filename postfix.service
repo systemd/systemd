@@ -1,0 +1,7 @@
+[Meta]
+Names=mail-transfer-agent.service
+Description=Postfix Mail Server
+Requires=syslog.socket
+
+[Service]
+Exec=/usr/bin/postfix

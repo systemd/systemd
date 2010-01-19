@@ -22,6 +22,7 @@ typedef struct Snapshot Snapshot;
 #include "set.h"
 #include "util.h"
 #include "list.h"
+#include "socket-util.h"
 
 typedef enum NameType {
         NAME_SERVICE = 0,
@@ -148,13 +149,16 @@ typedef enum SocketState {
         SOCKET_STOP_PRE,
         SOCKET_STOP,
         SOCKET_STOP_POST,
-        SOCKET_MAINTAINANCE
+        SOCKET_MAINTAINANCE,
+        _SOCKET_STATE_MAX
 } SocketState;
 
 struct Socket {
         Meta meta;
 
         SocketState state;
+
+        Address address;
         int *fds;
         unsigned n_fds;
 

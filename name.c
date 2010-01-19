@@ -158,7 +158,7 @@ void name_free(Name *name) {
                         Socket *s = SOCKET(name);
 
                         for (i = 0; i < s->n_fds; i++)
-                                nointr_close(s->fds[i]);
+                                close_nointr(s->fds[i]);
                         break;
                 }
 
@@ -369,18 +369,52 @@ const char* name_id(Name *n) {
 void name_dump(Name *n, FILE *f) {
 
         static const char* const state_table[_NAME_STATE_MAX] = {
-                [NAME_STUB] = "STUB",
-                [NAME_LOADED] = "LOADED",
-                [NAME_FAILED] = "FAILED"
+                [NAME_STUB] = "stub",
+                [NAME_LOADED] = "loaded",
+                [NAME_FAILED] = "failed"
+        };
+
+        static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
+                [SOCKET_DEAD] = "dead",
+                [SOCKET_BEFORE] = "before",
+                [SOCKET_START_PRE] = "start-pre",
+                [SOCKET_START] = "start",
+                [SOCKET_START_POST] = "start-post",
+                [SOCKET_LISTENING] = "listening",
+                [SOCKET_RUNNING] = "running",
+                [SOCKET_STOP_PRE] = "stop-pre",
+                [SOCKET_STOP] = "stop",
+                [SOCKET_STOP_POST] = "stop-post",
+                [SOCKET_MAINTAINANCE] = "maintainance"
         };
 
         assert(n);
 
         fprintf(stderr,
-                "Name %s (%s), state %s\n",
+                "Name %s (\"%s\") in state %s\n",
                 name_id(n),
                 n->meta.description ? n->meta.description : name_id(n),
                 state_table[n->meta.state]);
+
+        switch (n->meta.type) {
+                case NAME_SOCKET: {
+                        int r;
+                        char *s = NULL;
+                        const char *t;
+
+                        if ((r = address_print(&n->socket.address, &s)) < 0)
+                                t = strerror(-r);
+                        else
+                                t = s;
+
+                        fprintf(stderr, "\t%s in state %s\n", t, socket_state_table[n->socket.state]);
+                        free(s);
+                        break;
+                }
+
+                default:
+                        ;
+        }
 
         if (n->meta.job) {
                 fprintf(f, "\t▶ ");

@@ -1,0 +1,6 @@
+[Meta]
+Description=Postfix Listening Socket
+
+[Socket]
+Listen=25
+Type=stream

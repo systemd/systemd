@@ -52,7 +52,7 @@ static inline bool is_path_absolute(const char *p) {
 bool endswith(const char *s, const char *postfix);
 bool startswith(const char *s, const char *prefix);
 
-int nointr_close(int fd);
+int close_nointr(int fd);
 
 int parse_boolean(const char *v);
 

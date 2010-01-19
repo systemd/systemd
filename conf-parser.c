@@ -76,7 +76,7 @@ static char *strip(char *s) {
 }
 
 /* Parse a variable assignment line */
-static int parse_line(const char *filename, unsigned line, char **section, const ConfigItem *t, char *l, void *userdata) {
+static int parse_line(const char *filename, unsigned line, char **section, const char* const * sections, const ConfigItem *t, char *l, void *userdata) {
         char *e, *c, *b;
 
         b = l+strspn(l, WHITESPACE);
@@ -109,7 +109,7 @@ static int parse_line(const char *filename, unsigned line, char **section, const
                         }
                 }
 
-                r = config_parse(fn, t, userdata);
+                r = config_parse(fn, sections, t, userdata);
                 free(path);
                 return r;
         }
@@ -129,6 +129,21 @@ static int parse_line(const char *filename, unsigned line, char **section, const
                 if (!(n = strndup(b+1, k-2)))
                         return -ENOMEM;
 
+                if (sections) {
+                        const char * const * i;
+                        bool good = false;
+                        STRV_FOREACH(i, sections)
+                                if (streq(*i, n)) {
+                                        good = true;
+                                        break;
+                                }
+
+                        if (!good) {
+                                free(n);
+                                return -EBADMSG;
+                        }
+                }
+
                 free(*section);
                 *section = n;
 
@@ -147,7 +162,7 @@ static int parse_line(const char *filename, unsigned line, char **section, const
 }
 
 /* Go through the file and parse each line */
-int config_parse(const char *filename, const ConfigItem *t, void *userdata) {
+int config_parse(const char *filename, const char* const * sections, const ConfigItem *t, void *userdata) {
         unsigned line = 0;
         char *section = NULL;
         FILE *f;
@@ -174,7 +189,7 @@ int config_parse(const char *filename, const ConfigItem *t, void *userdata) {
                         goto finish;
                 }
 
-                if ((r = parse_line(filename, ++line, &section, t, l, userdata)) < 0)
+                if ((r = parse_line(filename, ++line, &section, sections, t, l, userdata)) < 0)
                         goto finish;
         }
 

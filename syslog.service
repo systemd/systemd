@@ -1,0 +1,5 @@
+[Meta]
+Description=System Logging Daemon
+
+[Service]
+Exec=/usr/bin/rsyslogd

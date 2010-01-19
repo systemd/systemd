@@ -81,7 +81,7 @@ bool startswith(const char *s, const char *prefix) {
         return memcmp(s, prefix, pl) == 0;
 }
 
-int nointr_close(int fd) {
+int close_nointr(int fd) {
         assert(fd >= 0);
 
         for (;;) {
