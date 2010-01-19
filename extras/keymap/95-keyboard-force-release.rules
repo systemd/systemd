@@ -19,6 +19,6 @@ DRIVER!="atkbd", GOTO="force_release_end"
 ENV{DMI_VENDOR}="$attr{[dmi/id]sys_vendor}"
 
 
-ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="*N130*|*SR70S/SR71S*", RUN+="keyboard-force-release.sh $devpath samsung-other"
+ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="*N130*|*N140*|*SR70S/SR71S*", RUN+="keyboard-force-release.sh $devpath samsung-other"
 
 LABEL="force_release_end"
