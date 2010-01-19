@@ -54,6 +54,58 @@ void manager_free(Manager *m) {
         free(m);
 }
 
+static void transaction_abort(Manager *m) {
+        Job *j;
+
+        assert(m);
+        assert(m->n_dependency_depth == 0);
+
+        while ((j = hashmap_steal_first(m->jobs_to_add)))
+                job_free(j);
+
+        set_clear(m->jobs_to_remove);
+}
+
+static int transaction_activate(Manager *m) {
+        Job *j;
+        int r;
+        void *state;
+
+        assert(m);
+        assert(m->n_dependency_depth == 0);
+
+        /* This applies the changes recorded in jobs_to_add and
+         * jobs_to_remove to the actual list of jobs */
+
+        HASHMAP_FOREACH(j, m->jobs_to_add, state) {
+                assert(!j->linked);
+
+                if ((r = hashmap_put(j->manager->jobs, UINT32_TO_PTR(j->id), j)) < 0)
+                        goto rollback;
+        }
+
+        /* all entries are now registered, now make sure the names
+         * know about that. */
+
+        while ((j = hashmap_steal_first(m->jobs_to_add))) {
+                j->name->meta.job = j;
+                j->linked = true;
+        }
+
+        while ((j = set_steal_first(m->jobs_to_remove)))
+                job_free(j);
+
+        return 0;
+
+rollback:
+
+        HASHMAP_FOREACH(j, m->jobs_to_add, state)
+                hashmap_remove(j->manager->jobs, UINT32_TO_PTR(j->id));
+
+        transaction_abort(m);
+        return r;
+}
+
 int manager_add_job(Manager *m, JobType type, Name *name, JobMode mode, Job **_ret) {
         Job *ret, *other;
         void *state;
@@ -64,7 +116,6 @@ int manager_add_job(Manager *m, JobType type, Name *name, JobMode mode, Job **_r
         assert(type < _JOB_TYPE_MAX);
         assert(name);
         assert(mode < _JOB_MODE_MAX);
-        assert(_ret);
 
         /* Check for conflicts, first against the jobs we shall
          * create */
@@ -87,6 +138,8 @@ int manager_add_job(Manager *m, JobType type, Name *name, JobMode mode, Job **_r
 
         if (!(ret = job_new(m, type, name)))
                 return -ENOMEM;
+
+        m->n_dependency_depth ++;
 
         if ((r = hashmap_put(m->jobs_to_add, name, ret)) < 0)
                 goto fail;
@@ -118,6 +171,13 @@ int manager_add_job(Manager *m, JobType type, Name *name, JobMode mode, Job **_r
                                 goto fail;
         }
 
+        if (--m->n_dependency_depth <= 0)
+                if ((r = transaction_activate(m)) < 0) {
+                        transaction_abort(m);
+                        return r;
+                }
+
+
         if (_ret)
                 *_ret = ret;
 
@@ -125,6 +185,9 @@ int manager_add_job(Manager *m, JobType type, Name *name, JobMode mode, Job **_r
 
 fail:
         job_free(ret);
+
+        if (--m->n_dependency_depth <= 0)
+                transaction_abort(m);
 
         return r;
 }
@@ -251,6 +314,9 @@ finish:
         if ((r = name_load_dropin(name)) < 0)
                 return r;
 
+        if ((r = name_link_names(name)) < 0)
+                return r;
+
         name->meta.state = NAME_LOADED;
         return 0;
 }
@@ -348,10 +414,12 @@ void manager_dump_jobs(Manager *s, FILE *f) {
 void manager_dump_names(Manager *s, FILE *f) {
         void *state;
         Name *n;
+        const char *t;
 
         assert(s);
         assert(f);
 
-        HASHMAP_FOREACH(n, s->names, state)
-                name_dump(n, f);
+        HASHMAP_FOREACH_KEY(n, t, s->names, state)
+                if (name_id(n) == t)
+                        name_dump(n, f);
 }

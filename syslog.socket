@@ -1,2 +1,6 @@
+[Meta]
+Description=Syslog Socket
+
 [Socket]
 Listen=/dev/log
+Type=dgram

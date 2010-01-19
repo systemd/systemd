@@ -80,31 +80,55 @@ Name *name_new(Manager *m) {
         return n;
 }
 
-int name_link(Name *n) {
-        char **t;
-        int r;
+int name_link_names(Name *n) {
+        char *t;
         void *state;
+        int r;
+
+        assert(n);
+
+        if (!n->meta.linked)
+                return 0;
+
+        /* Link all names that aren't linked yet */
+
+        SET_FOREACH(t, n->meta.names, state)
+                if ((r = hashmap_put(n->meta.manager->names, t, n)) < 0) {
+
+                        if (r == -EEXIST && hashmap_get(n->meta.manager->names, t) == n)
+                                continue;
+
+                        return r;
+                }
+
+        return 0;
+}
+
+int name_link(Name *n) {
+        int r;
 
         assert(n);
         assert(!set_isempty(n->meta.names));
         assert(!n->meta.linked);
 
-        SET_FOREACH(t, n->meta.names, state)
-                if ((r = hashmap_put(n->meta.manager->names, t, n)) < 0)
-                        goto fail;
+        n->meta.linked = true;
+
+        if ((r = name_link_names(n) < 0)) {
+                char *t;
+                void *state;
+
+                /* Rollback the registered names */
+                SET_FOREACH(t, n->meta.names, state)
+                        hashmap_remove(n->meta.manager->names, t);
+
+                n->meta.linked = false;
+                return r;
+        }
 
         if (n->meta.state == NAME_STUB)
                 LIST_PREPEND(Meta, n->meta.manager->load_queue, &n->meta);
 
-        n->meta.linked = true;
-
         return 0;
-
-fail:
-        SET_FOREACH(t, n->meta.names, state)
-                assert_se(hashmap_remove(n->meta.manager->names, t) == n);
-
-        return r;
 }
 
 static void bidi_set_free(Name *name, Set *s) {
@@ -134,7 +158,7 @@ void name_free(Name *name) {
 
         /* Detach from next 'bigger' objects */
         if (name->meta.linked) {
-                char **t;
+                char *t;
                 void *state;
 
                 SET_FOREACH(t, name->meta.names, state)
@@ -357,6 +381,10 @@ int name_merge(Name *name, Name *other) {
                 if ((r = ensure_merge(&name->meta.dependencies[d], other->meta.dependencies[d])) < 0)
                         return r;
 
+        if (name->meta.linked)
+                if ((r = name_link_names(name)) < 0)
+                        return r;
+
         return 0;
 }
 
@@ -388,13 +416,23 @@ void name_dump(Name *n, FILE *f) {
                 [SOCKET_MAINTAINANCE] = "maintainance"
         };
 
+        void *state;
+        char *t;
+
         assert(n);
 
-        fprintf(stderr,
-                "Name %s (\"%s\") in state %s\n",
+        fprintf(f,
+                "Name %s\n"
+                "\tDescription: %s\n"
+                "\tState: %s\n",
                 name_id(n),
                 n->meta.description ? n->meta.description : name_id(n),
                 state_table[n->meta.state]);
+
+        fprintf(f, "\tNames: ");
+        SET_FOREACH(t, n->meta.names, state)
+                fprintf(f, "%s ", t);
+        fprintf(f, "\n");
 
         switch (n->meta.type) {
                 case NAME_SOCKET: {
@@ -407,7 +445,7 @@ void name_dump(Name *n, FILE *f) {
                         else
                                 t = s;
 
-                        fprintf(stderr, "\t%s in state %s\n", t, socket_state_table[n->socket.state]);
+                        fprintf(f, "\t%s in state %s\n", t, socket_state_table[n->socket.state]);
                         free(s);
                         break;
                 }
@@ -417,7 +455,7 @@ void name_dump(Name *n, FILE *f) {
         }
 
         if (n->meta.job) {
-                fprintf(f, "\t▶ ");
+                fprintf(f, "\t");
                 job_dump(n->meta.job, f);
         }
 }

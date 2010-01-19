@@ -69,3 +69,7 @@ int set_merge(Set *s, Set *other) {
 Set* set_copy(Set *s) {
         return MAKE_SET(hashmap_copy(MAKE_HASHMAP(s)));
 }
+
+void set_clear(Set *s) {
+        hashmap_clear(MAKE_HASHMAP(s));
+}

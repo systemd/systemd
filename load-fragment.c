@@ -111,6 +111,8 @@ static int config_parse_names(
                                 free(t);
                                 return r;
                         }
+
+                        t = NULL;
                 }
 
                 free(t);

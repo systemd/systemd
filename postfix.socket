@@ -1,5 +1,5 @@
 [Meta]
-Description=Postfix Listening Socket
+Description=Postfix SMTP Socket
 
 [Socket]
 Listen=25

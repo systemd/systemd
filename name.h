@@ -279,6 +279,7 @@ bool name_is_valid(const char *n);
 Name *name_new(Manager *m);
 void name_free(Name *name);
 int name_link(Name *name);
+int name_link_names(Name *name);
 int name_merge(Name *name, Name *other);
 int name_augment(Name *n);
 const char* name_id(Name *n);

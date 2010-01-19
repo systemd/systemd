@@ -25,31 +25,14 @@ Job* job_new(Manager *m, JobType type, Name *name) {
         return j;
 }
 
-int job_link(Job *j) {
-        int r;
-
-        assert(j);
-        assert(!j->linked);
-
-        if ((r = hashmap_put(j->manager->jobs, UINT32_TO_PTR(j->id), j)) < 0)
-                return r;
-
-        j->name->meta.job = j;
-
-        j->linked = true;
-
-        return 0;
-}
-
 void job_free(Job *j) {
         assert(j);
 
         /* Detach from next 'bigger' objects */
 
         if (j->linked) {
-                assert(j->name);
-                assert(j->name->meta.job == j);
-                j->name->meta.job = NULL;
+                if (j->name->meta.job == j)
+                        j->name->meta.job = NULL;
 
                 hashmap_remove(j->manager->jobs, UINT32_TO_PTR(j->id));
         }
@@ -82,7 +65,7 @@ void job_dump(Job *j, FILE*f) {
         assert(j);
         assert(f);
 
-        fprintf(f, "Job %u (%s) →%s in state %s\n",
+        fprintf(f, "Job %u (%s) → %s in state %s\n",
                 j->id,
                 name_id(j->name),
                 job_type_table[j->type],

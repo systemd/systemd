@@ -29,6 +29,7 @@ bool set_isempty(Set *s);
 void *set_iterate(Set *s, void **state);
 void *set_iterate_backwards(Set *s, void **state);
 
+void set_clear(Set *s);
 void *set_steal_first(Set *s);
 void* set_first(Set *s);
 void* set_last(Set *s);

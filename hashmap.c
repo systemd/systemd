@@ -106,10 +106,17 @@ void hashmap_free(Hashmap*h) {
         if (!h)
                 return;
 
-        while (h->iterate_list_head)
-                remove_entry(h, h->iterate_list_head);
+        hashmap_clear(h);
 
         free(h);
+}
+
+void hashmap_clear(Hashmap *h) {
+        if (!h)
+                return;
+
+        while (h->iterate_list_head)
+                remove_entry(h, h->iterate_list_head);
 }
 
 static struct hashmap_entry *hash_scan(Hashmap *h, unsigned hash, const void *key) {

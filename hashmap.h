@@ -37,12 +37,16 @@ bool hashmap_isempty(Hashmap *h);
 void *hashmap_iterate(Hashmap *h, void **state, const void **key);
 void *hashmap_iterate_backwards(Hashmap *h, void **state, const void **key);
 
+void hashmap_clear(Hashmap *h);
 void *hashmap_steal_first(Hashmap *h);
 void* hashmap_first(Hashmap *h);
 void* hashmap_last(Hashmap *h);
 
 #define HASHMAP_FOREACH(e, h, state) \
         for ((state) = NULL, (e) = hashmap_iterate((h), &(state), NULL); (e); (e) = hashmap_iterate((h), &(state), NULL))
+
+#define HASHMAP_FOREACH_KEY(e, k, h, state) \
+        for ((state) = NULL, (e) = hashmap_iterate((h), &(state), (const void**) &(k)); (e); (e) = hashmap_iterate((h), &(state), (const void**) &(k)))
 
 #define HASHMAP_FOREACH_BACKWARDS(e, h, state) \
         for ((state) = NULL, (e) = hashmap_iterate_backwards((h), &(state), NULL); (e); (e) = hashmap_iterate_backwards((h), &(state), NULL))
