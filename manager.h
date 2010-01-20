@@ -29,13 +29,11 @@ struct Manager {
         /* Names that need to be loaded */
         LIST_HEAD(Meta, load_queue); /* this is actually more a stack than a queue, but uh. */
 
-        /* Jobs to be added resp. removed. */
-        Hashmap *jobs_to_add;  /* Name object => Job object 1:1 */
-        Set *jobs_to_remove;
+        /* Jobs to be added */
+        Hashmap *transaction_jobs;      /* Name object => Job object list 1:1 */
+        JobDependency *transaction_anchor;
 
         bool dispatching_load_queue:1;
-
-        unsigned n_dependency_depth;
 };
 
 Manager* manager_new(void);
@@ -45,9 +43,11 @@ Job *manager_get_job(Manager *m, uint32_t id);
 Name *manager_get_name(Manager *m, const char *name);
 
 int manager_load_name(Manager *m, const char *name, Name **_ret);
-int manager_add_job(Manager *m, JobType job, Name *name, JobMode mode, Job **_ret);
+int manager_add_job(Manager *m, JobType type, Name *name, JobMode mode, bool force, Job **_ret);
 
 void manager_dump_names(Manager *s, FILE *f);
 void manager_dump_jobs(Manager *s, FILE *f);
+
+void manager_transaction_delete_job(Manager *m, Job *j);
 
 #endif

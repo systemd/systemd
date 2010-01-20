@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
         }
 
 
-        if ((r = manager_add_job(m, JOB_START, milestone, JOB_REPLACE, &job)) < 0) {
+        if ((r = manager_add_job(m, JOB_START, milestone, JOB_REPLACE, false, &job)) < 0) {
                 fprintf(stderr, "Failed to start default milestone: %s\n", strerror(-r));
                 goto finish;
         }

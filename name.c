@@ -80,7 +80,8 @@ Name *name_new(Manager *m) {
         return n;
 }
 
-int name_link_names(Name *n) {
+/* FIXME: Does not rollback on failure! */
+int name_link_names(Name *n, bool replace) {
         char *t;
         void *state;
         int r;
@@ -90,15 +91,15 @@ int name_link_names(Name *n) {
         if (!n->meta.linked)
                 return 0;
 
-        /* Link all names that aren't linked yet */
+        /* Link all names that aren't linked yet. */
 
         SET_FOREACH(t, n->meta.names, state)
-                if ((r = hashmap_put(n->meta.manager->names, t, n)) < 0) {
-
-                        if (r == -EEXIST && hashmap_get(n->meta.manager->names, t) == n)
-                                continue;
-
-                        return r;
+                if (replace) {
+                        if ((r = hashmap_replace(n->meta.manager->names, t, n)) < 0)
+                                return r;
+                } else {
+                        if ((r = hashmap_put(n->meta.manager->names, t, n)) < 0)
+                                return r;
                 }
 
         return 0;
@@ -113,13 +114,13 @@ int name_link(Name *n) {
 
         n->meta.linked = true;
 
-        if ((r = name_link_names(n) < 0)) {
+        if ((r = name_link_names(n, false) < 0)) {
                 char *t;
                 void *state;
 
                 /* Rollback the registered names */
                 SET_FOREACH(t, n->meta.names, state)
-                        hashmap_remove(n->meta.manager->names, t);
+                        hashmap_remove_value(n->meta.manager->names, t, n);
 
                 n->meta.linked = false;
                 return r;
@@ -162,7 +163,7 @@ void name_free(Name *name) {
                 void *state;
 
                 SET_FOREACH(t, name->meta.names, state)
-                        assert_se(hashmap_remove(name->meta.manager->names, t) == name);
+                        hashmap_remove_value(name->meta.manager->names, t, name);
 
                 if (name->meta.state == NAME_STUB)
                         LIST_REMOVE(Meta, name->meta.manager->load_queue, &name->meta);
@@ -303,6 +304,7 @@ static int ensure_in_set(Set **s, void *data) {
         return 0;
 }
 
+/* FIXME: Does not rollback on failure! */
 int name_augment(Name *n) {
         int r;
         void* state;
@@ -310,7 +312,8 @@ int name_augment(Name *n) {
 
         assert(n);
 
-        /* Adds in the missing links to make all dependencies bidirectional */
+        /* Adds in the missing links to make all dependencies
+         * bidirectional. */
 
         SET_FOREACH(other, n->meta.dependencies[NAME_BEFORE], state)
                 if ((r = ensure_in_set(&other->meta.dependencies[NAME_AFTER], n) < 0))
@@ -357,14 +360,17 @@ static int ensure_merge(Set **s, Set *other) {
         return 0;
 }
 
+/* FIXME: Does not rollback on failure! */
 int name_merge(Name *name, Name *other) {
         int r;
         NameDependency d;
 
         assert(name);
         assert(other);
-
         assert(name->meta.manager == other->meta.manager);
+
+        /* This merges 'other' into 'name'. FIXME: This does not
+         * rollback on failure. */
 
         if (name->meta.type != other->meta.type)
                 return -EINVAL;
@@ -381,9 +387,14 @@ int name_merge(Name *name, Name *other) {
                 if ((r = ensure_merge(&name->meta.dependencies[d], other->meta.dependencies[d])) < 0)
                         return r;
 
-        if (name->meta.linked)
-                if ((r = name_link_names(name)) < 0)
+        /* Hookup new deps and names */
+        if (name->meta.linked) {
+                if ((r = name_augment(name)) < 0)
                         return r;
+
+                if ((r = name_link_names(name, true)) < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -424,7 +435,7 @@ void name_dump(Name *n, FILE *f) {
         fprintf(f,
                 "Name %s\n"
                 "\tDescription: %s\n"
-                "\tState: %s\n",
+                "\tName State: %s\n",
                 name_id(n),
                 n->meta.description ? n->meta.description : name_id(n),
                 state_table[n->meta.state]);
@@ -445,7 +456,12 @@ void name_dump(Name *n, FILE *f) {
                         else
                                 t = s;
 
-                        fprintf(f, "\t%s in state %s\n", t, socket_state_table[n->socket.state]);
+                        fprintf(f,
+                                "\tAddress: %s\n"
+                                "\tSocket State: %s\n",
+                                t,
+                                socket_state_table[n->socket.state]);
+
                         free(s);
                         break;
                 }
