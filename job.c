@@ -37,7 +37,7 @@ void job_free(Job *j) {
                 hashmap_remove(j->manager->jobs, UINT32_TO_PTR(j->id));
         }
 
-        manager_transaction_delete_job(j->manager, j);
+        manager_transaction_unlink_job(j->manager, j);
 
         free(j);
 }

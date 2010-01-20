@@ -48,7 +48,7 @@ int manager_add_job(Manager *m, JobType type, Name *name, JobMode mode, bool for
 void manager_dump_names(Manager *s, FILE *f, const char *prefix);
 void manager_dump_jobs(Manager *s, FILE *f, const char *prefix);
 
-void manager_transaction_delete_job(Manager *m, Job *j);
+void manager_transaction_unlink_job(Manager *m, Job *j);
 
 void manager_clear_jobs(Manager *m);
 

@@ -51,6 +51,16 @@ void manager_free(Manager *m) {
         free(m);
 }
 
+static void transaction_delete_job(Manager *m, Job *j) {
+        assert(m);
+        assert(j);
+
+        manager_transaction_unlink_job(m, j);
+
+        if (!j->linked)
+                job_free(j);
+}
+
 static void transaction_abort(Manager *m) {
         Job *j;
 
@@ -58,7 +68,7 @@ static void transaction_abort(Manager *m) {
 
         while ((j = hashmap_first(m->transaction_jobs)))
                 if (j->linked)
-                        manager_transaction_delete_job(m, j);
+                        transaction_delete_job(m, j);
                 else
                         job_free(j);
 
@@ -170,7 +180,7 @@ static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, Job
         /* Kill the other job */
         other->subject_list = NULL;
         other->object_list = NULL;
-        manager_transaction_delete_job(m, other);
+        transaction_delete_job(m, other);
 }
 
 static int transaction_merge_jobs(Manager *m) {
@@ -222,7 +232,7 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                 for (k = from; k; k = (k->generation == generation ? k->marker : NULL)) {
                         if (!k->matters_to_anchor) {
                                 log_debug("Breaking order cycle by deleting job %s", name_id(k->name));
-                                manager_transaction_delete_job(m, k);
+                                transaction_delete_job(m, k);
                                 return -EAGAIN;
                         }
 
@@ -305,7 +315,7 @@ static void transaction_collect_garbage(Manager *m) {
                         if (j->object_list)
                                 continue;
 
-                        manager_transaction_delete_job(m, j);
+                        transaction_delete_job(m, j);
                         again = true;
                         break;
                 }
@@ -469,7 +479,7 @@ static Job* transaction_add_one_job(Manager *m, JobType type, Name *name, bool *
         return j;
 }
 
-void manager_transaction_delete_job(Manager *m, Job *j) {
+void manager_transaction_unlink_job(Manager *m, Job *j) {
         assert(m);
         assert(j);
 
@@ -494,8 +504,8 @@ void manager_transaction_delete_job(Manager *m, Job *j) {
                 job_dependency_free(j->object_list);
 
                 if (other) {
-                        log_debug("Deleting job %s, as dependency of job %s", name_id(j->name), name_id(other->name));
-                        manager_transaction_delete_job(m, other);
+                        log_debug("Deleting job %s dependency of job %s", name_id(other->name), name_id(j->name));
+                        transaction_delete_job(m, other);
                 }
         }
 }
