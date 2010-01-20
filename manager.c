@@ -487,8 +487,17 @@ void manager_transaction_delete_job(Manager *m, Job *j) {
 
         while (j->subject_list)
                 job_dependency_free(j->subject_list);
-        while (j->object_list)
+
+        while (j->object_list) {
+                Job *other = j->object_list->matters ? j->object_list->subject : NULL;
+
                 job_dependency_free(j->object_list);
+
+                if (other) {
+                        log_debug("Deleting job %s, as dependency of job %s", name_id(j->name), name_id(other->name));
+                        manager_transaction_delete_job(m, other);
+                }
+        }
 }
 
 static int transaction_add_job_and_dependencies(Manager *m, JobType type, Name *name, Job *by, bool matters, bool force, Job **_ret) {
