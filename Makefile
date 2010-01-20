@@ -1,7 +1,7 @@
 CFLAGS=-Wall -Wextra -O0 -g -pipe -D_GNU_SOURCE -fdiagnostics-show-option -Wno-unused-parameter
 LIBS=-lrt
 
-COMMON=name.o util.o set.o hashmap.o strv.o job.o manager.o conf-parser.o load-fragment.o socket-util.c
+COMMON=name.o util.o set.o hashmap.o strv.o job.o manager.o conf-parser.o load-fragment.o socket-util.o log.o
 
 all: systemd test-engine
 
