@@ -26,6 +26,10 @@ int set_put(Set *s, void *value) {
         return hashmap_put(MAKE_HASHMAP(s), value, value);
 }
 
+int set_replace(Set *s, void *value) {
+        return hashmap_replace(MAKE_HASHMAP(s), value, value);
+}
+
 void *set_get(Set *s, void *value) {
         return hashmap_get(MAKE_HASHMAP(s), value);
 }

@@ -18,6 +18,7 @@ Set* set_copy(Set *s);
 void set_free(Set* s);
 
 int set_put(Set *s, void *value);
+int set_replace(Set *s, void *value);
 void *set_get(Set *s, void *value);
 void *set_remove(Set *s, void *value);
 
