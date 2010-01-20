@@ -511,6 +511,9 @@ static int transaction_add_job_and_dependencies(Manager *m, JobType type, Name *
         assert(type < _JOB_TYPE_MAX);
         assert(name);
 
+        if (name->meta.state != NAME_LOADED)
+                return -EINVAL;
+
         /* First add the job. */
         if (!(ret = transaction_add_one_job(m, type, name, &is_new)))
                 return -ENOMEM;
