@@ -544,7 +544,7 @@ dist_udevkeymap_DATA = \
 
 udevkeymapforcereldir = $(libexecdir)/keymaps/force-release
 dist_udevkeymapforcerel_DATA = \
-	extras/keymap/keymaps/force-release/samsung-other
+	extras/keymap/force-release-maps/samsung-other
 
 extras/keymap/keys.txt: /usr/include/linux/input.h
 	mkdir -p extras/keymap
