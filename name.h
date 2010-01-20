@@ -284,6 +284,6 @@ int name_merge(Name *name, Name *other);
 int name_augment(Name *n);
 const char* name_id(Name *n);
 
-void name_dump(Name *n, FILE *f);
+void name_dump(Name *n, FILE *f, const char *prefix);
 
 #endif

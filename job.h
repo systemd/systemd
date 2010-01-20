@@ -80,7 +80,7 @@ struct Job {
 
 Job* job_new(Manager *m, JobType type, Name *name);
 void job_free(Job *job);
-void job_dump(Job *j, FILE*f);
+void job_dump(Job *j, FILE*f, const char *prefix);
 
 JobDependency* job_dependency_new(Job *subject, Job *object, bool matters);
 void job_dependency_free(JobDependency *l);

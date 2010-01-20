@@ -405,7 +405,7 @@ const char* name_id(Name *n) {
         return set_first(n->meta.names);
 }
 
-void name_dump(Name *n, FILE *f) {
+void name_dump(Name *n, FILE *f, const char *prefix) {
 
         static const char* const state_table[_NAME_STATE_MAX] = {
                 [NAME_STUB] = "stub",
@@ -432,15 +432,18 @@ void name_dump(Name *n, FILE *f) {
 
         assert(n);
 
-        fprintf(f,
-                "Name %s\n"
-                "\tDescription: %s\n"
-                "\tName State: %s\n",
-                name_id(n),
-                n->meta.description ? n->meta.description : name_id(n),
-                state_table[n->meta.state]);
+        if (!prefix)
+                prefix = "";
 
-        fprintf(f, "\tNames: ");
+        fprintf(f,
+                "%sName %s:\n"
+                "%s\tDescription: %s\n"
+                "%s\tName State: %s\n",
+                prefix, name_id(n),
+                prefix, n->meta.description ? n->meta.description : name_id(n),
+                prefix, state_table[n->meta.state]);
+
+        fprintf(f, "%s\tNames: ", prefix);
         SET_FOREACH(t, n->meta.names, state)
                 fprintf(f, "%s ", t);
         fprintf(f, "\n");
@@ -457,10 +460,10 @@ void name_dump(Name *n, FILE *f) {
                                 t = s;
 
                         fprintf(f,
-                                "\tAddress: %s\n"
-                                "\tSocket State: %s\n",
-                                t,
-                                socket_state_table[n->socket.state]);
+                                "%s\tAddress: %s\n"
+                                "%s\tSocket State: %s\n",
+                                prefix, t,
+                                prefix, socket_state_table[n->socket.state]);
 
                         free(s);
                         break;
@@ -471,7 +474,14 @@ void name_dump(Name *n, FILE *f) {
         }
 
         if (n->meta.job) {
-                fprintf(f, "\t");
-                job_dump(n->meta.job, f);
+                char *p;
+
+                if (asprintf(&p, "%s\t", prefix) >= 0)
+                        prefix = p;
+                else
+                        p = NULL;
+
+                job_dump(n->meta.job, f, prefix);
+                free(p);
         }
 }

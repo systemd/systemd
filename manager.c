@@ -421,7 +421,7 @@ rollback:
         return r;
 }
 
-static Job* transaction_add_job(Manager *m, JobType type, Name *name, bool *is_new) {
+static Job* transaction_add_one_job(Manager *m, JobType type, Name *name, bool *is_new) {
         Job *j, *f;
         int r;
 
@@ -491,7 +491,7 @@ void manager_transaction_delete_job(Manager *m, Job *j) {
                 job_dependency_free(j->object_list);
 }
 
-static int real_add_job(Manager *m, JobType type, Name *name, Job *by, bool matters, bool force, Job **_ret) {
+static int transaction_add_job_and_dependencies(Manager *m, JobType type, Name *name, Job *by, bool matters, bool force, Job **_ret) {
         Job *ret;
         void *state;
         Name *dep;
@@ -503,7 +503,7 @@ static int real_add_job(Manager *m, JobType type, Name *name, Job *by, bool matt
         assert(name);
 
         /* First add the job. */
-        if (!(ret = transaction_add_job(m, type, name, &is_new)))
+        if (!(ret = transaction_add_one_job(m, type, name, &is_new)))
                 return -ENOMEM;
 
         /* Then, add a link to the job. */
@@ -514,28 +514,28 @@ static int real_add_job(Manager *m, JobType type, Name *name, Job *by, bool matt
                 /* Finally, recursively add in all dependencies. */
                 if (type == JOB_START || type == JOB_RELOAD_OR_START) {
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_REQUIRES], state)
-                                if ((r = real_add_job(m, JOB_START, dep, ret, true, force, NULL)) < 0)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, force, NULL)) < 0)
                                         goto fail;
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_SOFT_REQUIRES], state)
-                                if ((r = real_add_job(m, JOB_START, dep, ret, !force, force, NULL)) < 0)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !force, force, NULL)) < 0)
                                         goto fail;
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_WANTS], state)
-                                if ((r = real_add_job(m, JOB_START, dep, ret, false, force, NULL)) < 0)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, force, NULL)) < 0)
                                         goto fail;
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_REQUISITE], state)
-                                if ((r = real_add_job(m, JOB_VERIFY_STARTED, dep, ret, true, force, NULL)) < 0)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_STARTED, dep, ret, true, force, NULL)) < 0)
                                         goto fail;
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_SOFT_REQUISITE], state)
-                                if ((r = real_add_job(m, JOB_VERIFY_STARTED, dep, ret, !force, force, NULL)) < 0)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_STARTED, dep, ret, !force, force, NULL)) < 0)
                                         goto fail;
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_CONFLICTS], state)
-                                if ((r = real_add_job(m, JOB_STOP, dep, ret, true, force, NULL)) < 0)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, force, NULL)) < 0)
                                         goto fail;
 
                 } else if (type == JOB_STOP || type == JOB_RESTART || type == JOB_TRY_RESTART) {
 
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_REQUIRED_BY], state)
-                                if ((r = real_add_job(m, type, dep, ret, true, force, NULL)) < 0)
+                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, force, NULL)) < 0)
                                         goto fail;
                 }
 
@@ -557,7 +557,7 @@ int manager_add_job(Manager *m, JobType type, Name *name, JobMode mode, bool for
         assert(name);
         assert(mode < _JOB_MODE_MAX);
 
-        if ((r = real_add_job(m, type, name, NULL, true, force, &ret))) {
+        if ((r = transaction_add_job_and_dependencies(m, type, name, NULL, true, force, &ret))) {
                 transaction_abort(m);
                 return r;
         }
@@ -786,7 +786,7 @@ void manager_dump_jobs(Manager *s, FILE *f) {
         assert(f);
 
         HASHMAP_FOREACH(j, s->jobs, state)
-                job_dump(j, f);
+                job_dump(j, f, NULL);
 }
 
 void manager_dump_names(Manager *s, FILE *f) {
@@ -799,5 +799,5 @@ void manager_dump_names(Manager *s, FILE *f) {
 
         HASHMAP_FOREACH_KEY(n, t, s->names, state)
                 if (name_id(n) == t)
-                        name_dump(n, f);
+                        name_dump(n, f, NULL);
 }

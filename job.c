@@ -52,7 +52,7 @@ JobDependency* job_dependency_new(Job *subject, Job *object, bool matters) {
          * this means the 'anchor' job (i.e. the one the user
          * explcitily asked for) is the requester. */
 
-        if (!(l = new(JobDependency, 1)))
+        if (!(l = new0(JobDependency, 1)))
                 return NULL;
 
         l->subject = subject;
@@ -127,7 +127,7 @@ void job_dependency_delete(Job *subject, Job *object, bool *matters) {
         job_dependency_free(l);
 }
 
-void job_dump(Job *j, FILE*f) {
+void job_dump(Job *j, FILE*f, const char *prefix) {
 
         static const char* const job_type_table[_JOB_TYPE_MAX] = {
                 [JOB_START] = "start",
@@ -148,11 +148,13 @@ void job_dump(Job *j, FILE*f) {
         assert(j);
         assert(f);
 
-        fprintf(f, "Job %u (%s) → %s in state %s\n",
-                j->id,
-                name_id(j->name),
-                job_type_table[j->type],
-                job_state_table[j->state]);
+        fprintf(f,
+                "%sJob %u:\n"
+                "%s\tAction: %s → %s\n"
+                "%s\tState: %s\n",
+                prefix, j->id,
+                prefix, name_id(j->name), job_type_table[j->type],
+                prefix, job_state_table[j->state]);
 }
 
 bool job_is_anchor(Job *j) {
