@@ -8,7 +8,7 @@
 
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
-        Name *milestone = NULL;
+        Name *milestone = NULL, *syslog = NULL;
         Job *job = NULL;
         int r, retval = 1;
 
@@ -23,13 +23,29 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        if ((r = manager_load_name(m, "syslog.socket", &syslog) < 0)) {
+                fprintf(stderr, "Failed to load syslog socket: %s\n", strerror(-r));
+                goto finish;
+        }
 
         if ((r = manager_add_job(m, JOB_START, milestone, JOB_REPLACE, false, &job)) < 0) {
                 fprintf(stderr, "Failed to start default milestone: %s\n", strerror(-r));
                 goto finish;
         }
 
-        manager_dump_names(m, stdout);
+        printf("- By names:\n");
+        manager_dump_names(m, stdout, "\t");
+
+        printf("- By jobs:\n");
+        manager_dump_jobs(m, stdout, "\t");
+
+        if ((r = manager_add_job(m, JOB_STOP, syslog, JOB_REPLACE, false, &job)) < 0) {
+                fprintf(stderr, "Failed to start default milestone: %s\n", strerror(-r));
+                goto finish;
+        }
+
+        printf("- By jobs:\n");
+        manager_dump_jobs(m, stdout, "\t");
 
         retval = 0;
 

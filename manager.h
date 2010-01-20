@@ -45,8 +45,8 @@ Name *manager_get_name(Manager *m, const char *name);
 int manager_load_name(Manager *m, const char *name, Name **_ret);
 int manager_add_job(Manager *m, JobType type, Name *name, JobMode mode, bool force, Job **_ret);
 
-void manager_dump_names(Manager *s, FILE *f);
-void manager_dump_jobs(Manager *s, FILE *f);
+void manager_dump_names(Manager *s, FILE *f, const char *prefix);
+void manager_dump_jobs(Manager *s, FILE *f, const char *prefix);
 
 void manager_transaction_delete_job(Manager *m, Job *j);
 

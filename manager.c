@@ -778,7 +778,7 @@ finish:
         return 0;
 }
 
-void manager_dump_jobs(Manager *s, FILE *f) {
+void manager_dump_jobs(Manager *s, FILE *f, const char *prefix) {
         void *state;
         Job *j;
 
@@ -786,10 +786,10 @@ void manager_dump_jobs(Manager *s, FILE *f) {
         assert(f);
 
         HASHMAP_FOREACH(j, s->jobs, state)
-                job_dump(j, f, NULL);
+                job_dump(j, f, prefix);
 }
 
-void manager_dump_names(Manager *s, FILE *f) {
+void manager_dump_names(Manager *s, FILE *f, const char *prefix) {
         void *state;
         Name *n;
         const char *t;
@@ -799,5 +799,5 @@ void manager_dump_names(Manager *s, FILE *f) {
 
         HASHMAP_FOREACH_KEY(n, t, s->names, state)
                 if (name_id(n) == t)
-                        name_dump(n, f, NULL);
+                        name_dump(n, f, prefix);
 }
