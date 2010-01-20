@@ -315,6 +315,8 @@ static void transaction_collect_garbage(Manager *m) {
                         if (j->object_list)
                                 continue;
 
+                        log_debug("Garbage collecting job %s", name_id(j->name));
+
                         transaction_delete_job(m, j);
                         again = true;
                         break;
@@ -504,7 +506,7 @@ void manager_transaction_unlink_job(Manager *m, Job *j) {
                 job_dependency_free(j->object_list);
 
                 if (other) {
-                        log_debug("Deleting job %s dependency of job %s", name_id(other->name), name_id(j->name));
+                        log_debug("Deleting job %s as dependency of job %s", name_id(other->name), name_id(j->name));
                         transaction_delete_job(m, other);
                 }
         }
