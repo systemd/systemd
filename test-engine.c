@@ -36,7 +36,7 @@ int main(int argc, char *argv[]) {
         assert_se(manager_add_job(m, JOB_START, d, JOB_REPLACE, false, &j) == -ELOOP);
         manager_dump_jobs(m, stdout, "\t");
 
-        printf("Test2: (Cyclic Order, Fixable)\n");
+        printf("Test3: (Cyclic Order, Fixable)\n");
         assert_se(manager_add_job(m, JOB_START, e, JOB_REPLACE, false, &j) == 0);
         manager_dump_jobs(m, stdout, "\t");
 

@@ -3,8 +3,10 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "manager.h"
+#include "log.h"
 
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
@@ -12,24 +14,25 @@ int main(int argc, char *argv[]) {
         Job *job = NULL;
         int r, retval = 1;
 
+        assert_se(chdir("test1") == 0);
+
         if (!(m = manager_new()) < 0) {
-                fprintf(stderr, "Failed to allocate manager object: %s\n", strerror(ENOMEM));
+                log_error("Failed to allocate manager object: %s", strerror(ENOMEM));
                 goto finish;
         }
 
-
         if ((r = manager_load_name(m, "default.milestone", &milestone)) < 0) {
-                fprintf(stderr, "Failed to load default milestone: %s\n", strerror(-r));
+                log_error("Failed to load default milestone: %s", strerror(-r));
                 goto finish;
         }
 
         if ((r = manager_load_name(m, "syslog.socket", &syslog)) < 0) {
-                fprintf(stderr, "Failed to load syslog socket: %s\n", strerror(-r));
+                log_error("Failed to load syslog socket: %s", strerror(-r));
                 goto finish;
         }
 
         if ((r = manager_add_job(m, JOB_START, milestone, JOB_REPLACE, false, &job)) < 0) {
-                fprintf(stderr, "Failed to start default milestone: %s\n", strerror(-r));
+                log_error("Failed to start default milestone: %s", strerror(-r));
                 goto finish;
         }
 
@@ -40,7 +43,7 @@ int main(int argc, char *argv[]) {
         manager_dump_jobs(m, stdout, "\t");
 
         if ((r = manager_add_job(m, JOB_STOP, syslog, JOB_REPLACE, false, &job)) < 0) {
-                fprintf(stderr, "Failed to start default milestone: %s\n", strerror(-r));
+                log_error("Failed to start default milestone: %s", strerror(-r));
                 goto finish;
         }
 

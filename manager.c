@@ -8,6 +8,7 @@
 #include "hashmap.h"
 #include "macro.h"
 #include "strv.h"
+#include "log.h"
 
 Manager* manager_new(void) {
         Manager *m;
@@ -166,7 +167,6 @@ static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, Job
                 j->object_list = other->object_list;
         }
 
-
         /* Kill the other job */
         other->subject_list = NULL;
         other->object_list = NULL;
@@ -221,6 +221,7 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
 
                 for (k = from; k; k = (k->generation == generation ? k->marker : NULL)) {
                         if (!k->matters_to_anchor) {
+                                log_debug("Breaking order cycle by deleting job %s", name_id(k->name));
                                 manager_transaction_delete_job(m, k);
                                 return -EAGAIN;
                         }

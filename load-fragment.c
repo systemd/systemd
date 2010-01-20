@@ -8,6 +8,7 @@
 #include "strv.h"
 #include "conf-parser.h"
 #include "load-fragment.h"
+#include "log.h"
 
 static int config_parse_deps(
                 const char *filename,
@@ -130,12 +131,19 @@ static int config_parse_listen(
                 void *data,
                 void *userdata) {
 
+        int r;
+
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        return address_parse(data, rvalue);
+        if ((r = address_parse(data, rvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse address value: %s", filename, line, rvalue);
+                return r;
+        }
+
+        return 0;
 }
 
 static int config_parse_type(
@@ -158,8 +166,10 @@ static int config_parse_type(
                 *type = SOCK_STREAM;
         else if (streq(rvalue, "dgram"))
                 *type = SOCK_DGRAM;
-        else
+        else {
+                log_error("[%s:%u] Failed to parse socket type value: %s", filename, line, rvalue);
                 return -EINVAL;
+        }
 
         return 0;
 }
