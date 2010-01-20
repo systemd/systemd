@@ -3,12 +3,15 @@ LIBS=-lrt
 
 COMMON=name.o util.o set.o hashmap.o strv.o job.o manager.o conf-parser.o load-fragment.o socket-util.o log.o
 
-all: systemd test-engine
+all: systemd test-engine test-job-type
 
 systemd: main.o $(COMMON)
 	$(CC) $(CFLAGS) -o $@ $^  $(LIBS)
 
 test-engine: test-engine.o $(COMMON)
+	$(CC) $(CFLAGS) -o $@ $^  $(LIBS)
+
+test-job-type: test-job-type.o $(COMMON)
 	$(CC) $(CFLAGS) -o $@ $^  $(LIBS)
 
 clean:

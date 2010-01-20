@@ -90,4 +90,9 @@ bool job_is_anchor(Job *j);
 
 int job_merge(Job *j, Job *other);
 
+const char* job_type_to_string(JobType t);
+int job_type_merge(JobType *a, JobType b);
+bool job_type_mergeable(JobType a, JobType b);
+bool job_type_is_superset(JobType a, JobType b);
+
 #endif

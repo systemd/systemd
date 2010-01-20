@@ -55,10 +55,22 @@ static void transaction_delete_job(Manager *m, Job *j) {
         assert(m);
         assert(j);
 
+        /* Deletes one job from the transaction */
+
         manager_transaction_unlink_job(m, j);
 
         if (!j->linked)
                 job_free(j);
+}
+
+static void transaction_delete_name(Manager *m, Name *n) {
+        Job *j;
+
+        /* Deletes all jobs associated with a certain name from the
+         * transaction */
+
+        while ((j = hashmap_get(m->transaction_jobs, n)))
+                transaction_delete_job(m, j);
 }
 
 static void transaction_abort(Manager *m) {
@@ -81,6 +93,11 @@ static void transaction_find_jobs_that_matter_to_anchor(Manager *m, Job *j, unsi
 
         assert(m);
 
+        /* A recursive sweep through the graph that marks all names
+         * that matter to the anchor job, i.e. are directly or
+         * indirectly a dependency of the anchor job via paths that
+         * are fully marked as mattering. */
+
         for (l = j ? j->subject_list : m->transaction_anchor; l; l = l->subject_next) {
 
                 /* This link does not matter */
@@ -98,40 +115,6 @@ static void transaction_find_jobs_that_matter_to_anchor(Manager *m, Job *j, unsi
         }
 }
 
-static bool types_match(JobType a, JobType b, JobType c, JobType d) {
-        return
-                (a == c && b == d) ||
-                (a == d && b == c);
-}
-
-static int types_merge(JobType *a, JobType b) {
-        if (*a == b)
-                return 0;
-
-        if (types_match(*a, b, JOB_START, JOB_VERIFY_STARTED))
-                *a = JOB_START;
-        else if (types_match(*a, b, JOB_START, JOB_RELOAD) ||
-                 types_match(*a, b, JOB_START, JOB_RELOAD_OR_START) ||
-                 types_match(*a, b, JOB_VERIFY_STARTED, JOB_RELOAD_OR_START) ||
-                 types_match(*a, b, JOB_RELOAD, JOB_RELOAD_OR_START))
-                *a = JOB_RELOAD_OR_START;
-        else if (types_match(*a, b, JOB_START, JOB_RESTART) ||
-                 types_match(*a, b, JOB_START, JOB_TRY_RESTART) ||
-                 types_match(*a, b, JOB_VERIFY_STARTED, JOB_RESTART) ||
-                 types_match(*a, b, JOB_RELOAD, JOB_RESTART) ||
-                 types_match(*a, b, JOB_RELOAD_OR_START, JOB_RESTART) ||
-                 types_match(*a, b, JOB_RELOAD_OR_START, JOB_TRY_RESTART) ||
-                 types_match(*a, b, JOB_RESTART, JOB_TRY_RESTART))
-                *a = JOB_RESTART;
-        else if (types_match(*a, b, JOB_VERIFY_STARTED, JOB_RELOAD))
-                *a = JOB_RELOAD;
-        else if (types_match(*a, b, JOB_VERIFY_STARTED, JOB_TRY_RESTART) ||
-                 types_match(*a, b, JOB_RELOAD, JOB_TRY_RESTART))
-                *a = JOB_TRY_RESTART;
-
-        return -EEXIST;
-}
-
 static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, JobType t) {
         JobDependency *l, *last;
 
@@ -139,6 +122,8 @@ static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, Job
         assert(other);
         assert(j->name == other->name);
         assert(!j->linked);
+
+        /* Merges 'other' into 'j' and then deletes j. */
 
         j->type = t;
         j->state = JOB_WAITING;
@@ -183,6 +168,44 @@ static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, Job
         transaction_delete_job(m, other);
 }
 
+static int delete_one_unmergable_job(Manager *m, Job *j) {
+        Job *k;
+
+        assert(j);
+
+        /* Tries to delete one item in the linked list
+         * j->transaction_next->transaction_next->... that conflicts
+         * whith another one, in an attempt to make an inconsistent
+         * transaction work. */
+
+        /* We rely here on the fact that if a merged with b does not
+         * merge with c, either a or b merge with c neither */
+        for (; j; j = j->transaction_next)
+                for (k = j->transaction_next; k; k = k->transaction_next) {
+                        Job *d;
+
+                        /* Is this one mergeable? Then skip it */
+                        if (job_type_mergeable(j->type, k->type))
+                                continue;
+
+                        /* Ok, we found two that conflict, let's see if we can
+                         * drop one of them */
+                        if (!j->matters_to_anchor)
+                                d = j;
+                        else if (!k->matters_to_anchor)
+                                d = k;
+                        else
+                                return -ENOEXEC;
+
+                        /* Ok, we can drop one, so let's do so. */
+                        log_debug("Try to fix job merging by deleting job %s", name_id(d->name));
+                        transaction_delete_job(m, d);
+                        return 0;
+                }
+
+        return -EINVAL;
+}
+
 static int transaction_merge_jobs(Manager *m) {
         Job *j;
         void *state;
@@ -190,13 +213,39 @@ static int transaction_merge_jobs(Manager *m) {
 
         assert(m);
 
+        /* First step, check whether any of the jobs for one specific
+         * task conflict. If so, try to drop one of them. */
+        HASHMAP_FOREACH(j, m->transaction_jobs, state) {
+                JobType t;
+                Job *k;
+
+                t = j->type;
+                for (k = j->transaction_next; k; k = k->transaction_next) {
+                        if ((r = job_type_merge(&t, k->type)) >= 0)
+                                continue;
+
+                        /* OK, we could not merge all jobs for this
+                         * action. Let's see if we can get rid of one
+                         * of them */
+
+                        if ((r = delete_one_unmergable_job(m, j)) >= 0)
+                                /* Ok, we managed to drop one, now
+                                 * let's ask our callers to call us
+                                 * again after garbage collecting */
+                                return -EAGAIN;
+
+                        /* We couldn't merge anything. Failure */
+                        return r;
+                }
+        }
+
+        /* Second step, merge the jobs. */
         HASHMAP_FOREACH(j, m->transaction_jobs, state) {
                 JobType t = j->type;
                 Job *k;
 
                 for (k = j->transaction_next; k; k = k->transaction_next)
-                        if ((r = types_merge(&t, k->type)) < 0)
-                                return r;
+                        assert_se(job_type_merge(&t, k->type) == 0);
 
                 while ((k = j->transaction_next)) {
                         if (j->linked) {
@@ -213,6 +262,20 @@ static int transaction_merge_jobs(Manager *m) {
         return 0;
 }
 
+static bool name_matters_to_anchor(Name *n, Job *j) {
+        assert(n);
+        assert(!j->transaction_prev);
+
+        /* Checks whether at least one of the jobs for this name
+         * matters to the anchor. */
+
+        for (; j; j = j->transaction_next)
+                if (j->matters_to_anchor)
+                        return true;
+
+        return false;
+}
+
 static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned generation) {
         void *state;
         Name *n;
@@ -220,19 +283,30 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
 
         assert(m);
         assert(j);
+        assert(!j->transaction_prev);
+
+        /* Does a recursive sweep through the ordering graph, looking
+         * for a cycle. If we find cycle we try to break it. */
 
         /* Did we find a cycle? */
         if (j->marker && j->generation == generation) {
                 Job *k;
 
                 /* So, we already have been here. We have a
-                 * cycle. Let's try to break it. We go backwards in our
-                 * path and try to find a suitable job to remove. */
+                 * cycle. Let's try to break it. We go backwards in
+                 * our path and try to find a suitable job to
+                 * remove. We use the marker to find our way back,
+                 * since smart how we are we stored our way back in
+                 * there. */
 
                 for (k = from; k; k = (k->generation == generation ? k->marker : NULL)) {
-                        if (!k->matters_to_anchor) {
+
+                        if (!k->linked &&
+                            !name_matters_to_anchor(k->name, k)) {
+                                /* Ok, we can drop this one, so let's
+                                 * do so. */
                                 log_debug("Breaking order cycle by deleting job %s", name_id(k->name));
-                                transaction_delete_job(m, k);
+                                transaction_delete_name(m, k->name);
                                 return -EAGAIN;
                         }
 
@@ -242,19 +316,25 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                                 break;
                 }
 
-                return -ELOOP;
+                return -ENOEXEC;
         }
 
+        /* Make the marker point to where we come from, so that we can
+         * find our way backwards if we want to break a cycle */
         j->marker = from;
         j->generation = generation;
 
-        /* We assume that the the dependencies are both-ways, and
+        /* We assume that the the dependencies are bidirectional, and
          * hence can ignore NAME_AFTER */
-
         SET_FOREACH(n, j->name->meta.dependencies[NAME_BEFORE], state) {
                 Job *o;
 
+                /* Is there a job for this name? */
                 if (!(o = hashmap_get(m->transaction_jobs, n)))
+
+                        /* Ok, there is no job for this in the
+                         * transaction, but maybe there is already one
+                         * running? */
                         if (!(o = n->meta.job))
                                 continue;
 
@@ -266,36 +346,19 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
 }
 
 static int transaction_verify_order(Manager *m, unsigned *generation) {
-        bool again;
+        Job *j;
+        int r;
+        void *state;
+
         assert(m);
         assert(generation);
 
-        do {
-                Job *j;
-                int r;
-                void *state;
+        /* Check if the ordering graph is cyclic. If it is, try to fix
+         * that up by dropping one of the jobs. */
 
-                again = false;
-
-                HASHMAP_FOREACH(j, m->transaction_jobs, state) {
-
-                        /* Assume merged */
-                        assert(!j->transaction_next);
-                        assert(!j->transaction_prev);
-
-                        if ((r = transaction_verify_order_one(m, j, NULL, (*generation)++)) < 0)  {
-
-                                /* There was a cycleq, but it was fixed,
-                                 * we need to restart our algorithm */
-                                if (r == -EAGAIN) {
-                                        again = true;
-                                        break;
-                                }
-
-                                return r;
-                        }
-                }
-        } while (again);
+        HASHMAP_FOREACH(j, m->transaction_jobs, state)
+                if ((r = transaction_verify_order_one(m, j, NULL, (*generation)++)) < 0)
+                        return r;
 
         return 0;
 }
@@ -304,6 +367,8 @@ static void transaction_collect_garbage(Manager *m) {
         bool again;
 
         assert(m);
+
+        /* Drop jobs that are not required by any other job */
 
         do {
                 void *state;
@@ -335,7 +400,9 @@ static int transaction_is_destructive(Manager *m, JobMode mode) {
          * existing jobs would be replaced */
 
         HASHMAP_FOREACH(j, m->transaction_jobs, state)
-                if (j->name->meta.job && j->name->meta.job != j)
+                if (j->name->meta.job &&
+                    j->name->meta.job != j &&
+                    !job_type_is_superset(j->type, j->name->meta.job->type))
                         return -EEXIST;
 
         return 0;
@@ -345,6 +412,8 @@ static int transaction_apply(Manager *m, JobMode mode) {
         void *state;
         Job *j;
         int r;
+
+        /* Moves the transaction jobs to the set of active jobs */
 
         HASHMAP_FOREACH(j, m->transaction_jobs, state) {
                 if (j->linked)
@@ -376,6 +445,8 @@ static int transaction_apply(Manager *m, JobMode mode) {
                         job_dependency_free(j->object_list);
         }
 
+        m->transaction_anchor = NULL;
+
         return 0;
 
 rollback:
@@ -403,23 +474,47 @@ static int transaction_activate(Manager *m, JobMode mode) {
         /* First step: figure out which jobs matter */
         transaction_find_jobs_that_matter_to_anchor(m, NULL, generation++);
 
-        /* Second step: let's merge entries we can merge */
-        if ((r = transaction_merge_jobs(m)) < 0)
-                goto rollback;
+        for (;;) {
+                /* Second step: Let's remove unneeded jobs that might
+                 * be lurking. */
+                transaction_collect_garbage(m);
 
-        /* Third step: verify order makes sense */
-        if ((r = transaction_verify_order(m, &generation)) < 0)
-                goto rollback;
+                /* Third step: verify order makes sense and correct
+                 * cycles if necessary and possible */
+                if ((r = transaction_verify_order(m, &generation)) >= 0)
+                        break;
 
-        /* Third step: do garbage colletion */
-        transaction_collect_garbage(m);
+                if (r != -EAGAIN)
+                        goto rollback;
 
-        /* Fourth step: check whether we can actually apply this */
+                /* Let's see if the resulting transaction ordering
+                 * graph is still cyclic... */
+        }
+
+        for (;;) {
+                /* Fourth step: let's drop unmergable entries if
+                 * necessary and possible, merge entries we can
+                 * merge */
+                if ((r = transaction_merge_jobs(m)) >= 0)
+                        break;
+
+                if (r != -EAGAIN)
+                        goto rollback;
+
+                /* Fifth step: an entry got dropped, let's garbage
+                 * collect its dependencies. */
+                transaction_collect_garbage(m);
+
+                /* Let's see if the resulting transaction still has
+                 * unmergable entries ... */
+        }
+
+        /* Sith step: check whether we can actually apply this */
         if (mode == JOB_FAIL)
                 if ((r = transaction_is_destructive(m, mode)) < 0)
                         goto rollback;
 
-        /* Fifth step: apply changes */
+        /* Seventh step: apply changes */
         if ((r = transaction_apply(m, mode)) < 0)
                 goto rollback;
 
@@ -664,10 +759,10 @@ int manager_load_name(Manager *m, const char *name, Name **_ret) {
                 return -ENOMEM;
         }
 
-        if (set_put(ret->meta.names, n) < 0) {
+        if ((r = set_put(ret->meta.names, n)) < 0) {
                 name_free(ret);
                 free(n);
-                return -ENOMEM;
+                return r;
         }
 
         if ((r = name_link(ret)) < 0) {

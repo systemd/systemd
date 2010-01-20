@@ -1,6 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
 #include <assert.h>
+#include <errno.h>
 
 #include "macro.h"
 #include "job.h"
@@ -127,7 +128,7 @@ void job_dependency_delete(Job *subject, Job *object, bool *matters) {
         job_dependency_free(l);
 }
 
-void job_dump(Job *j, FILE*f, const char *prefix) {
+const char* job_type_to_string(JobType t) {
 
         static const char* const job_type_table[_JOB_TYPE_MAX] = {
                 [JOB_START] = "start",
@@ -138,6 +139,15 @@ void job_dump(Job *j, FILE*f, const char *prefix) {
                 [JOB_RESTART] = "restart",
                 [JOB_TRY_RESTART] = "try-restart",
         };
+
+
+        if (t < 0 || t >= _JOB_TYPE_MAX)
+                return "n/a";
+
+        return job_type_table[t];
+}
+
+void job_dump(Job *j, FILE*f, const char *prefix) {
 
         static const char* const job_state_table[_JOB_STATE_MAX] = {
                 [JOB_WAITING] = "waiting",
@@ -153,7 +163,7 @@ void job_dump(Job *j, FILE*f, const char *prefix) {
                 "%s\tAction: %s → %s\n"
                 "%s\tState: %s\n",
                 prefix, j->id,
-                prefix, name_id(j->name), job_type_table[j->type],
+                prefix, name_id(j->name), job_type_to_string(j->type),
                 prefix, job_state_table[j->state]);
 }
 
@@ -167,4 +177,90 @@ bool job_is_anchor(Job *j) {
                         return true;
 
         return false;
+}
+
+static bool types_match(JobType a, JobType b, JobType c, JobType d) {
+        return
+                (a == c && b == d) ||
+                (a == d && b == c);
+}
+
+int job_type_merge(JobType *a, JobType b) {
+        if (*a == b)
+                return 0;
+
+        /* Merging is associative! a merged with b merged with c is
+         * the same as a merged with c merged with b. */
+
+        /* Mergeability is transitive! if a can be merged with b and b
+         * with c then a also with c */
+
+        /* Also, if a merged with b cannot be merged with c, then
+         * either a or b cannot be merged with c either */
+
+        if (types_match(*a, b, JOB_START, JOB_VERIFY_STARTED))
+                *a = JOB_START;
+        else if (types_match(*a, b, JOB_START, JOB_RELOAD) ||
+                 types_match(*a, b, JOB_START, JOB_RELOAD_OR_START) ||
+                 types_match(*a, b, JOB_VERIFY_STARTED, JOB_RELOAD_OR_START) ||
+                 types_match(*a, b, JOB_RELOAD, JOB_RELOAD_OR_START))
+                *a = JOB_RELOAD_OR_START;
+        else if (types_match(*a, b, JOB_START, JOB_RESTART) ||
+                 types_match(*a, b, JOB_START, JOB_TRY_RESTART) ||
+                 types_match(*a, b, JOB_VERIFY_STARTED, JOB_RESTART) ||
+                 types_match(*a, b, JOB_RELOAD, JOB_RESTART) ||
+                 types_match(*a, b, JOB_RELOAD_OR_START, JOB_RESTART) ||
+                 types_match(*a, b, JOB_RELOAD_OR_START, JOB_TRY_RESTART) ||
+                 types_match(*a, b, JOB_RESTART, JOB_TRY_RESTART))
+                *a = JOB_RESTART;
+        else if (types_match(*a, b, JOB_VERIFY_STARTED, JOB_RELOAD))
+                *a = JOB_RELOAD;
+        else if (types_match(*a, b, JOB_VERIFY_STARTED, JOB_TRY_RESTART) ||
+                 types_match(*a, b, JOB_RELOAD, JOB_TRY_RESTART))
+                *a = JOB_TRY_RESTART;
+        else
+                return -EEXIST;
+
+        return 0;
+}
+
+bool job_type_mergeable(JobType a, JobType b) {
+        return job_type_merge(&a, b) >= 0;
+}
+
+bool job_type_is_superset(JobType a, JobType b) {
+
+        /* Checks whether operation a is a "superset" of b */
+
+        if (a == b)
+                return true;
+
+        switch (a) {
+                case JOB_START:
+                        return b == JOB_VERIFY_STARTED;
+
+                case JOB_RELOAD:
+                        return b == JOB_VERIFY_STARTED;
+
+                case JOB_RELOAD_OR_START:
+                        return
+                                b == JOB_RELOAD ||
+                                b == JOB_START;
+
+                case JOB_RESTART:
+                        return
+                                b == JOB_START ||
+                                b == JOB_VERIFY_STARTED ||
+                                b == JOB_RELOAD ||
+                                b == JOB_RELOAD_OR_START ||
+                                b == JOB_TRY_RESTART;
+
+                case JOB_TRY_RESTART:
+                        return
+                                b == JOB_VERIFY_STARTED ||
+                                b == JOB_RELOAD;
+                default:
+                        return false;
+
+        }
 }
