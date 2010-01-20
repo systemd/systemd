@@ -139,8 +139,13 @@ int hashmap_put(Hashmap *h, const void *key, void *value) {
 
         hash = h->hash_func(key) % NBUCKETS;
 
-        if (hash_scan(h, hash, key))
+        if ((e = hash_scan(h, hash, key))) {
+
+                if (e->value == value)
+                        return 0;
+
                 return -EEXIST;
+        }
 
         if (!(e = new(struct hashmap_entry, 1)))
                 return -ENOMEM;
@@ -171,6 +176,22 @@ int hashmap_put(Hashmap *h, const void *key, void *value) {
         assert(h->n_entries >= 1);
 
         return 0;
+}
+
+int hashmap_replace(Hashmap *h, const void *key, void *value) {
+        struct hashmap_entry *e;
+        unsigned hash;
+
+        assert(h);
+
+        hash = h->hash_func(key) % NBUCKETS;
+
+        if ((e = hash_scan(h, hash, key))) {
+                e->value = value;
+                return 0;
+        }
+
+        return hashmap_put(h, key, value);
 }
 
 void* hashmap_get(Hashmap *h, const void *key) {
@@ -205,6 +226,26 @@ void* hashmap_remove(Hashmap *h, const void *key) {
         remove_entry(h, e);
 
         return data;
+}
+
+void* hashmap_remove_value(Hashmap *h, const void *key, void *value) {
+        struct hashmap_entry *e;
+        unsigned hash;
+
+        if (!h)
+                return NULL;
+
+        hash = h->hash_func(key) % NBUCKETS;
+
+        if (!(e = hash_scan(h, hash, key)))
+                return NULL;
+
+        if (e->value != value)
+                return NULL;
+
+        remove_entry(h, e);
+
+        return value;
 }
 
 void *hashmap_iterate(Hashmap *h, void **state, const void **key) {

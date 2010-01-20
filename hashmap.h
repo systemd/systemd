@@ -26,8 +26,10 @@ void hashmap_free(Hashmap *h);
 Hashmap *hashmap_copy(Hashmap *h);
 
 int hashmap_put(Hashmap *h, const void *key, void *value);
+int hashmap_replace(Hashmap *h, const void *key, void *value);
 void* hashmap_get(Hashmap *h, const void *key);
 void* hashmap_remove(Hashmap *h, const void *key);
+void* hashmap_remove_value(Hashmap *h, const void *key, void *value);
 
 int hashmap_merge(Hashmap *h, Hashmap *other);
 
