@@ -50,4 +50,6 @@ void manager_dump_jobs(Manager *s, FILE *f, const char *prefix);
 
 void manager_transaction_delete_job(Manager *m, Job *j);
 
+void manager_clear_jobs(Manager *m);
+
 #endif

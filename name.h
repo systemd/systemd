@@ -281,7 +281,8 @@ void name_free(Name *name);
 int name_link(Name *name);
 int name_link_names(Name *name, bool replace);
 int name_merge(Name *name, Name *other);
-int name_augment(Name *n);
+int name_sanitize(Name *n);
+int name_load(Name *name);
 const char* name_id(Name *n);
 
 void name_dump(Name *n, FILE *f, const char *prefix);

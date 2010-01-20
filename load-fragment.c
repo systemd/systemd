@@ -93,7 +93,7 @@ static int config_parse_names(
                                         return -EEXIST;
                                 }
 
-                                if ((r = name_merge(name, other) < 0)) {
+                                if ((r = name_merge(name, other)) < 0) {
                                         free(t);
                                         return r;
                                 }

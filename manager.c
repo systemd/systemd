@@ -8,7 +8,6 @@
 #include "hashmap.h"
 #include "macro.h"
 #include "strv.h"
-#include "load-fragment.h"
 
 Manager* manager_new(void) {
         Manager *m;
@@ -122,7 +121,7 @@ static int types_merge(JobType *a, JobType b) {
         return -EEXIST;
 }
 
-static void manager_merge_and_delete_prospective_job(Manager *m, Job *j, Job *other, JobType t) {
+static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, JobType t) {
         JobDependency *l, *last;
 
         assert(j);
@@ -191,17 +190,17 @@ static int transaction_merge_jobs(Manager *m) {
 
                 while ((k = j->transaction_next)) {
                         if (j->linked) {
-                                manager_merge_and_delete_prospective_job(m, k, j, t);
+                                transaction_merge_and_delete_job(m, k, j, t);
                                 j = k;
                         } else
-                                manager_merge_and_delete_prospective_job(m, j, k, t);
+                                transaction_merge_and_delete_job(m, j, k, t);
                 }
 
                 assert(!j->transaction_next);
                 assert(!j->transaction_prev);
         }
 
-        return r;
+        return 0;
 }
 
 static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned generation) {
@@ -212,12 +211,12 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
         assert(m);
         assert(j);
 
-        /* Did we find a loop? */
+        /* Did we find a cycle? */
         if (j->marker && j->generation == generation) {
                 Job *k;
 
                 /* So, we already have been here. We have a
-                 * loop. Let's try to break it. We go backwards in our
+                 * cycle. Let's try to break it. We go backwards in our
                  * path and try to find a suitable job to remove. */
 
                 for (k = from; k; k = (k->generation == generation ? k->marker : NULL)) {
@@ -227,7 +226,7 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                         }
 
                         /* Check if this in fact was the beginning of
-                         * the loop */
+                         * the cycle */
                         if (k == j)
                                 break;
                 }
@@ -275,7 +274,7 @@ static int transaction_verify_order(Manager *m, unsigned *generation) {
 
                         if ((r = transaction_verify_order_one(m, j, NULL, (*generation)++)) < 0)  {
 
-                                /* There was a loop, but it was fixed,
+                                /* There was a cycleq, but it was fixed,
                                  * we need to restart our algorithm */
                                 if (r == -EAGAIN) {
                                         again = true;
@@ -584,121 +583,6 @@ Name *manager_get_name(Manager *m, const char *name) {
         return hashmap_get(m->names, name);
 }
 
-static int verify_type(Name *name) {
-        char *n;
-        void *state;
-
-        assert(name);
-
-        /* Checks that all aliases of this name have the same and valid type */
-
-        SET_FOREACH(n, name->meta.names, state) {
-                NameType t;
-
-                if ((t = name_type_from_string(n)) == _NAME_TYPE_INVALID)
-                        return -EINVAL;
-
-                if (name->meta.type == _NAME_TYPE_INVALID) {
-                        name->meta.type = t;
-                        continue;
-                }
-
-                if (name->meta.type != t)
-                        return -EINVAL;
-        }
-
-        if (name->meta.type == _NAME_TYPE_INVALID)
-                return -EINVAL;
-
-        return 0;
-}
-
-static int service_load_sysv(Service *s) {
-        assert(s);
-
-        /* Load service data from SysV init scripts, preferably with
-         * LSB headers ... */
-
-        return 0;
-}
-
-static int name_load_fstab(Name *n) {
-        assert(n);
-        assert(n->meta.type == NAME_MOUNT || n->meta.type == NAME_AUTOMOUNT);
-
-        /* Load mount data from /etc/fstab */
-
-        return 0;
-}
-
-static int snapshot_load(Snapshot *s) {
-        assert(s);
-
-        /* Load snapshots from disk */
-
-        return 0;
-}
-
-static int name_load_dropin(Name *n) {
-        assert(n);
-
-        /* Load dependencies from drop-in directories */
-
-        return 0;
-}
-
-static int load(Name *name) {
-        int r;
-
-        assert(name);
-
-        if (name->meta.state != NAME_STUB)
-                return 0;
-
-        if ((r = verify_type(name)) < 0)
-                return r;
-
-        if (name->meta.type == NAME_SERVICE) {
-
-                /* Load a .service file */
-                if ((r = name_load_fragment(name)) == 0)
-                        goto finish;
-
-                /* Load a classic init script */
-                if (r == -ENOENT)
-                        if ((r = service_load_sysv(SERVICE(name))) == 0)
-                                goto finish;
-
-        } else if (name->meta.type == NAME_MOUNT ||
-                   name->meta.type == NAME_AUTOMOUNT) {
-
-                if ((r = name_load_fstab(name)) == 0)
-                        goto finish;
-
-        } else if (name->meta.type == NAME_SNAPSHOT) {
-
-                if ((r = snapshot_load(SNAPSHOT(name))) == 0)
-                        goto finish;
-
-        } else {
-                if ((r = name_load_fragment(name)) == 0)
-                        goto finish;
-        }
-
-        name->meta.state = NAME_FAILED;
-        return r;
-
-finish:
-        if ((r = name_load_dropin(name)) < 0)
-                return r;
-
-        if ((r = name_link_names(name, true)) < 0)
-                return r;
-
-        name->meta.state = NAME_LOADED;
-        return 0;
-}
-
 static int dispatch_load_queue(Manager *m) {
         Meta *meta;
 
@@ -714,7 +598,7 @@ static int dispatch_load_queue(Manager *m) {
          * tries to load its data until the queue is empty */
 
         while ((meta = m->load_queue)) {
-                load(NAME(meta));
+                name_load(NAME(meta));
                 LIST_REMOVE(Meta, m->load_queue, meta);
         }
 
@@ -800,4 +684,15 @@ void manager_dump_names(Manager *s, FILE *f, const char *prefix) {
         HASHMAP_FOREACH_KEY(n, t, s->names, state)
                 if (name_id(n) == t)
                         name_dump(n, f, prefix);
+}
+
+void manager_clear_jobs(Manager *m) {
+        Job *j;
+
+        assert(m);
+
+        transaction_abort(m);
+
+        while ((j = hashmap_first(m->jobs)))
+                job_free(j);
 }

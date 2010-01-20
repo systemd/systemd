@@ -8,6 +8,7 @@
 #include "name.h"
 #include "macro.h"
 #include "strv.h"
+#include "load-fragment.h"
 
 NameType name_type_from_string(const char *n) {
         NameType t;
@@ -112,9 +113,12 @@ int name_link(Name *n) {
         assert(!set_isempty(n->meta.names));
         assert(!n->meta.linked);
 
+        if ((r = name_sanitize(n)) < 0)
+                return r;
+
         n->meta.linked = true;
 
-        if ((r = name_link_names(n, false) < 0)) {
+        if ((r = name_link_names(n, false)) < 0) {
                 char *t;
                 void *state;
 
@@ -297,53 +301,11 @@ static int ensure_in_set(Set **s, void *data) {
                 if (!(*s = set_new(trivial_hash_func, trivial_compare_func)))
                         return -ENOMEM;
 
-        if ((r = set_put(*s, data) < 0))
+        if ((r = set_put(*s, data)) < 0)
                 if (r != -EEXIST)
                         return r;
 
         return 0;
-}
-
-/* FIXME: Does not rollback on failure! */
-int name_augment(Name *n) {
-        int r;
-        void* state;
-        Name *other;
-
-        assert(n);
-
-        /* Adds in the missing links to make all dependencies
-         * bidirectional. */
-
-        SET_FOREACH(other, n->meta.dependencies[NAME_BEFORE], state)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_AFTER], n) < 0))
-                        return r;
-        SET_FOREACH(other, n->meta.dependencies[NAME_AFTER], state)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_BEFORE], n) < 0))
-                        return r;
-
-        SET_FOREACH(other, n->meta.dependencies[NAME_CONFLICTS], state)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_CONFLICTS], n) < 0))
-                        return r;
-
-        SET_FOREACH(other, n->meta.dependencies[NAME_REQUIRES], state)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_REQUIRED_BY], n) < 0))
-                        return r;
-        SET_FOREACH(other, n->meta.dependencies[NAME_REQUISITE], state)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_REQUIRED_BY], n) < 0))
-                        return r;
-
-        SET_FOREACH(other, n->meta.dependencies[NAME_WANTS], state)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_WANTED_BY], n) < 0))
-                        return r;
-        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUIRES], state)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_WANTED_BY], n) < 0))
-                        return r;
-        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUISITE], state)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_WANTED_BY], n) < 0))
-                        return r;
-
-        return r;
 }
 
 static int ensure_merge(Set **s, Set *other) {
@@ -389,7 +351,7 @@ int name_merge(Name *name, Name *other) {
 
         /* Hookup new deps and names */
         if (name->meta.linked) {
-                if ((r = name_augment(name)) < 0)
+                if ((r = name_sanitize(name)) < 0)
                         return r;
 
                 if ((r = name_link_names(name, true)) < 0)
@@ -397,6 +359,60 @@ int name_merge(Name *name, Name *other) {
         }
 
         return 0;
+}
+
+/* FIXME: Does not rollback on failure! */
+static int augment(Name *n) {
+        int r;
+        void* state;
+        Name *other;
+
+        assert(n);
+
+        /* Adds in the missing links to make all dependencies
+         * bidirectional. */
+
+        SET_FOREACH(other, n->meta.dependencies[NAME_BEFORE], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_AFTER], n)) < 0)
+                        return r;
+        SET_FOREACH(other, n->meta.dependencies[NAME_AFTER], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_BEFORE], n)) < 0)
+                        return r;
+
+        SET_FOREACH(other, n->meta.dependencies[NAME_CONFLICTS], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_CONFLICTS], n)) < 0)
+                        return r;
+
+        SET_FOREACH(other, n->meta.dependencies[NAME_REQUIRES], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_REQUIRED_BY], n)) < 0)
+                        return r;
+        SET_FOREACH(other, n->meta.dependencies[NAME_REQUISITE], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_REQUIRED_BY], n)) < 0)
+                        return r;
+
+        SET_FOREACH(other, n->meta.dependencies[NAME_WANTS], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_WANTED_BY], n)) < 0)
+                        return r;
+        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUIRES], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_WANTED_BY], n)) < 0)
+                        return r;
+        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUISITE], state)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_WANTED_BY], n)) < 0)
+                        return r;
+
+        return 0;
+}
+
+int name_sanitize(Name *n) {
+        NameDependency d;
+
+        assert(n);
+
+        /* Remove loops */
+        for (d = 0; d < _NAME_DEPENDENCY_MAX; d++)
+                set_remove(n->meta.dependencies[d], n);
+
+        return augment(n);
 }
 
 const char* name_id(Name *n) {
@@ -427,8 +443,22 @@ void name_dump(Name *n, FILE *f, const char *prefix) {
                 [SOCKET_MAINTAINANCE] = "maintainance"
         };
 
+        static const char* const dependency_table[_NAME_DEPENDENCY_MAX] = {
+                [NAME_REQUIRES] = "Requires",
+                [NAME_SOFT_REQUIRES] = "SoftRequires",
+                [NAME_WANTS] = "Wants",
+                [NAME_REQUISITE] = "Requisite",
+                [NAME_SOFT_REQUISITE] = "SoftRequisite",
+                [NAME_REQUIRED_BY] = "RequiredBy",
+                [NAME_WANTED_BY] = "WantedBy",
+                [NAME_CONFLICTS] = "Conflicts",
+                [NAME_BEFORE] = "Before",
+                [NAME_AFTER] = "After",
+        };
+
         void *state;
         char *t;
+        NameDependency d;
 
         assert(n);
 
@@ -447,6 +477,22 @@ void name_dump(Name *n, FILE *f, const char *prefix) {
         SET_FOREACH(t, n->meta.names, state)
                 fprintf(f, "%s ", t);
         fprintf(f, "\n");
+
+        for (d = 0; d < _NAME_DEPENDENCY_MAX; d++) {
+                void *state;
+                Name *other;
+
+                if (set_isempty(n->meta.dependencies[d]))
+                        continue;
+
+                fprintf(f, "%s\t%s: ", prefix, dependency_table[d]);
+
+                SET_FOREACH(other, n->meta.dependencies[d], state)
+                        fprintf(f, "%s ", name_id(other));
+
+                fprintf(f, "\n");
+        }
+
 
         switch (n->meta.type) {
                 case NAME_SOCKET: {
@@ -484,4 +530,122 @@ void name_dump(Name *n, FILE *f, const char *prefix) {
                 job_dump(n->meta.job, f, prefix);
                 free(p);
         }
+}
+
+static int verify_type(Name *name) {
+        char *n;
+        void *state;
+
+        assert(name);
+
+        /* Checks that all aliases of this name have the same and valid type */
+
+        SET_FOREACH(n, name->meta.names, state) {
+                NameType t;
+
+                if ((t = name_type_from_string(n)) == _NAME_TYPE_INVALID)
+                        return -EINVAL;
+
+                if (name->meta.type == _NAME_TYPE_INVALID) {
+                        name->meta.type = t;
+                        continue;
+                }
+
+                if (name->meta.type != t)
+                        return -EINVAL;
+        }
+
+        if (name->meta.type == _NAME_TYPE_INVALID)
+                return -EINVAL;
+
+        return 0;
+}
+
+static int service_load_sysv(Service *s) {
+        assert(s);
+
+        /* Load service data from SysV init scripts, preferably with
+         * LSB headers ... */
+
+        return -ENOENT;
+}
+
+static int name_load_fstab(Name *n) {
+        assert(n);
+        assert(n->meta.type == NAME_MOUNT || n->meta.type == NAME_AUTOMOUNT);
+
+        /* Load mount data from /etc/fstab */
+
+        return 0;
+}
+
+static int snapshot_load(Snapshot *s) {
+        assert(s);
+
+        /* Load snapshots from disk */
+
+        return 0;
+}
+
+static int name_load_dropin(Name *n) {
+        assert(n);
+
+        /* Load dependencies from drop-in directories */
+
+        return 0;
+}
+
+int name_load(Name *name) {
+        int r;
+
+        assert(name);
+
+        if (name->meta.state != NAME_STUB)
+                return 0;
+
+        if ((r = verify_type(name)) < 0)
+                return r;
+
+        if (name->meta.type == NAME_SERVICE) {
+
+                /* Load a .service file */
+                if ((r = name_load_fragment(name)) == 0)
+                        goto finish;
+
+                /* Load a classic init script */
+                if (r == -ENOENT)
+                        if ((r = service_load_sysv(SERVICE(name))) == 0)
+                                goto finish;
+
+        } else if (name->meta.type == NAME_MOUNT ||
+                   name->meta.type == NAME_AUTOMOUNT) {
+
+                if ((r = name_load_fstab(name)) == 0)
+                        goto finish;
+
+        } else if (name->meta.type == NAME_SNAPSHOT) {
+
+                if ((r = snapshot_load(SNAPSHOT(name))) == 0)
+                        goto finish;
+
+        } else {
+                if ((r = name_load_fragment(name)) == 0)
+                        goto finish;
+        }
+
+        name->meta.state = NAME_FAILED;
+        return r;
+
+finish:
+        if ((r = name_load_dropin(name)) < 0)
+                return r;
+
+        if ((r = name_sanitize(name)) < 0)
+                return r;
+
+        if ((r = name_link_names(name, false)) < 0)
+                return r;
+
+        name->meta.state = NAME_LOADED;
+        return 0;
 }

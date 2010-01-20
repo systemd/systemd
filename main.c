@@ -18,12 +18,12 @@ int main(int argc, char *argv[]) {
         }
 
 
-        if ((r = manager_load_name(m, "default.milestone", &milestone) < 0)) {
+        if ((r = manager_load_name(m, "default.milestone", &milestone)) < 0) {
                 fprintf(stderr, "Failed to load default milestone: %s\n", strerror(-r));
                 goto finish;
         }
 
-        if ((r = manager_load_name(m, "syslog.socket", &syslog) < 0)) {
+        if ((r = manager_load_name(m, "syslog.socket", &syslog)) < 0) {
                 fprintf(stderr, "Failed to load syslog socket: %s\n", strerror(-r));
                 goto finish;
         }
