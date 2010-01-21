@@ -226,7 +226,6 @@ void name_free(Name *name) {
 }
 
 bool name_is_ready(Name *name) {
-
         assert(name);
 
         if (name->meta.state != NAME_LOADED)
@@ -290,6 +289,69 @@ bool name_is_ready(Name *name) {
         assert_not_reached("Unknown name type.");
         return false;
 }
+
+bool name_is_dead(Name *name) {
+        assert(name);
+
+        if (name->meta.state != NAME_LOADED)
+                return true;
+        assert(name->meta.type < _NAME_TYPE_MAX);
+
+        switch (name->meta.type) {
+                case NAME_SERVICE: {
+                        Service *s = SERVICE(name);
+
+                        return
+                                s->state == SERVICE_DEAD ||
+                                s->state == SERVICE_MAINTAINANCE;
+                }
+
+                case NAME_TIMER:
+                        return TIMER(name)->state == TIMER_DEAD;
+
+                case NAME_SOCKET: {
+                        Socket *s = SOCKET(name);
+
+                        return
+                                s->state == SOCKET_DEAD ||
+                                s->state == SOCKET_MAINTAINANCE;
+                }
+
+                case NAME_MILESTONE:
+                        return MILESTONE(name)->state == MILESTONE_DEAD;
+
+                case NAME_DEVICE:
+                        return DEVICE(name)->state == DEVICE_DEAD;
+
+                case NAME_MOUNT: {
+                        Mount *a = MOUNT(name);
+
+                        return
+                                a->state == AUTOMOUNT_DEAD ||
+                                a->state == AUTOMOUNT_MAINTAINANCE;
+                }
+
+                case NAME_AUTOMOUNT: {
+                        Automount *a = AUTOMOUNT(name);
+
+                        return
+                                a->state == AUTOMOUNT_DEAD ||
+                                a->state == AUTOMOUNT_MAINTAINANCE;
+                }
+
+                case NAME_SNAPSHOT:
+                        return SNAPSHOT(name)->state == SNAPSHOT_DEAD;
+
+
+                case _NAME_TYPE_MAX:
+                case _NAME_TYPE_INVALID:
+                        ;
+        }
+
+        assert_not_reached("Unknown name type.");
+        return false;
+}
+
 
 static int ensure_in_set(Set **s, void *data) {
         int r;

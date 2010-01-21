@@ -9,14 +9,14 @@
 
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
-        Name *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL;
+        Name *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL, *h = NULL;
         Job *j;
 
         assert_se(chdir("test2") == 0);
 
         assert_se(m = manager_new());
 
-        printf("Loaded1:\n");
+        printf("Load1:\n");
         assert_se(manager_load_name(m, "a.service", &a) == 0);
         assert_se(manager_load_name(m, "b.service", &b) == 0);
         assert_se(manager_load_name(m, "c.service", &c) == 0);
@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
         assert_se(manager_add_job(m, JOB_START, c, JOB_REPLACE, false, &j) == 0);
         manager_dump_jobs(m, stdout, "\t");
 
-        printf("Loaded2:\n");
+        printf("Load2:\n");
         manager_clear_jobs(m);
         assert_se(manager_load_name(m, "d.service", &d) == 0);
         assert_se(manager_load_name(m, "e.service", &e) == 0);
@@ -44,7 +44,7 @@ int main(int argc, char *argv[]) {
         assert_se(manager_add_job(m, JOB_START, e, JOB_FAIL, false, &j) == 0);
         manager_dump_jobs(m, stdout, "\t");
 
-        printf("Loaded3:\n");
+        printf("Load3:\n");
         assert_se(manager_load_name(m, "g.service", &g) == 0);
         manager_dump_names(m, stdout, "\t");
 
@@ -53,6 +53,25 @@ int main(int argc, char *argv[]) {
 
         printf("Test6: (Colliding transaction, replace)\n");
         assert_se(manager_add_job(m, JOB_START, g, JOB_REPLACE, false, &j) == 0);
+        manager_dump_jobs(m, stdout, "\t");
+
+        printf("Test7: (Unmeargable job type, fail)\n");
+        assert_se(manager_add_job(m, JOB_STOP, g, JOB_FAIL, false, &j) == -EEXIST);
+
+        printf("Test8: (Mergeable job type, fail)\n");
+        assert_se(manager_add_job(m, JOB_RESTART, g, JOB_FAIL, false, &j) == 0);
+        manager_dump_jobs(m, stdout, "\t");
+
+        printf("Test9: (Unmeargable job type, replace)\n");
+        assert_se(manager_add_job(m, JOB_STOP, g, JOB_REPLACE, false, &j) == 0);
+        manager_dump_jobs(m, stdout, "\t");
+
+        printf("Load4:\n");
+        assert_se(manager_load_name(m, "h.service", &h) == 0);
+        manager_dump_names(m, stdout, "\t");
+
+        printf("Test10: (Unmeargable job type of auxiliary job, fail)\n");
+        assert_se(manager_add_job(m, JOB_START, h, JOB_FAIL, false, &j) == 0);
         manager_dump_jobs(m, stdout, "\t");
 
         manager_free(m);

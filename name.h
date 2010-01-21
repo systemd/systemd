@@ -124,8 +124,7 @@ typedef enum TimerState {
         TIMER_RUNNING,
         TIMER_STOP_PRE,
         TIMER_STOP,
-        TIMER_STOP_POST,
-        TIMER_MAINTAINANCE
+        TIMER_STOP_POST
 } TimerState;
 
 struct Timer {
@@ -193,7 +192,12 @@ struct Device {
 typedef enum MountState {
         MOUNT_DEAD,
         MOUNT_BEFORE,
-        MOUNT_MOUNTED
+        MOUNT_MOUNTING,
+        MOUNT_MOUNTED,
+        MOUNT_UNMOUNTING,
+        MOUNT_SIGTERM,  /* if the mount command hangs */
+        MOUNT_SIGKILL,
+        MOUNT_MAINTAINANCE
 } MountState;
 
 struct Mount {
@@ -272,7 +276,9 @@ DEFINE_CAST(SNAPSHOT, Snapshot, snapshot);
 /* For casting the various name types into a name */
 #define NAME(o) ((Name*) (o))
 
-bool name_is_ready(Name *name);
+bool name_is_running(Name *name);
+bool name_is_dead(Name *name);
+
 NameType name_type_from_string(const char *n);
 bool name_is_valid(const char *n);
 

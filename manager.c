@@ -244,8 +244,13 @@ static int transaction_merge_jobs(Manager *m) {
                 JobType t = j->type;
                 Job *k;
 
+                /* Merge all transactions */
                 for (k = j->transaction_next; k; k = k->transaction_next)
                         assert_se(job_type_merge(&t, k->type) == 0);
+
+                /* If an active job is mergable, merge it too */
+                if (j->name->meta.job)
+                        job_type_merge(&t, j->name->meta.job->type); /* Might fail. Which is OK */
 
                 while ((k = j->transaction_next)) {
                         if (j->linked) {
@@ -399,13 +404,59 @@ static int transaction_is_destructive(Manager *m, JobMode mode) {
         /* Checks whether applying this transaction means that
          * existing jobs would be replaced */
 
-        HASHMAP_FOREACH(j, m->transaction_jobs, state)
+        HASHMAP_FOREACH(j, m->transaction_jobs, state) {
+
+                /* Assume merged */
+                assert(!j->transaction_prev);
+                assert(!j->transaction_next);
+
                 if (j->name->meta.job &&
                     j->name->meta.job != j &&
                     !job_type_is_superset(j->type, j->name->meta.job->type))
                         return -EEXIST;
+        }
 
         return 0;
+}
+
+static void transaction_minimize_impact(Manager *m) {
+        bool again;
+        assert(m);
+
+        /* Drops all unnecessary jobs that reverse already active jobs
+         * or that stop a running service. */
+
+        do {
+                Job *j;
+                void *state;
+
+                again = false;
+
+                HASHMAP_FOREACH(j, m->transaction_jobs, state) {
+                        for (; j; j = j->transaction_next) {
+
+                                /* If it matters, we shouldn't drop it */
+                                if (j->matters_to_anchor)
+                                        continue;
+
+                                /* Would this stop a running service?
+                                 * Would this change an existing job?
+                                 * If so, let's drop this entry */
+                                if ((j->type != JOB_STOP || name_is_dead(j->name)) &&
+                                    (!j->name->meta.job  || job_type_is_conflicting(j->type, j->name->meta.job->state)))
+                                        continue;
+
+                                /* Ok, let's get rid of this */
+                                transaction_delete_job(m, j);
+                                again = true;
+                                break;
+                        }
+
+                        if (again)
+                                break;
+                }
+
+        } while (again);
 }
 
 static int transaction_apply(Manager *m, JobMode mode) {
@@ -416,6 +467,10 @@ static int transaction_apply(Manager *m, JobMode mode) {
         /* Moves the transaction jobs to the set of active jobs */
 
         HASHMAP_FOREACH(j, m->transaction_jobs, state) {
+                /* Assume merged */
+                assert(!j->transaction_prev);
+                assert(!j->transaction_next);
+
                 if (j->linked)
                         continue;
 
@@ -461,7 +516,6 @@ rollback:
         return r;
 }
 
-
 static int transaction_activate(Manager *m, JobMode mode) {
         int r;
         unsigned generation = 1;
@@ -474,12 +528,17 @@ static int transaction_activate(Manager *m, JobMode mode) {
         /* First step: figure out which jobs matter */
         transaction_find_jobs_that_matter_to_anchor(m, NULL, generation++);
 
+        /* Second step: Try not to stop any running services if
+         * we don't have to. Don't try to reverse running
+         * jobs if we don't have to. */
+        transaction_minimize_impact(m);
+
         for (;;) {
-                /* Second step: Let's remove unneeded jobs that might
+                /* Third step: Let's remove unneeded jobs that might
                  * be lurking. */
                 transaction_collect_garbage(m);
 
-                /* Third step: verify order makes sense and correct
+                /* Fourth step: verify order makes sense and correct
                  * cycles if necessary and possible */
                 if ((r = transaction_verify_order(m, &generation)) >= 0)
                         break;
@@ -492,7 +551,7 @@ static int transaction_activate(Manager *m, JobMode mode) {
         }
 
         for (;;) {
-                /* Fourth step: let's drop unmergable entries if
+                /* Fifth step: let's drop unmergable entries if
                  * necessary and possible, merge entries we can
                  * merge */
                 if ((r = transaction_merge_jobs(m)) >= 0)
@@ -501,7 +560,7 @@ static int transaction_activate(Manager *m, JobMode mode) {
                 if (r != -EAGAIN)
                         goto rollback;
 
-                /* Fifth step: an entry got dropped, let's garbage
+                /* Sixth step: an entry got dropped, let's garbage
                  * collect its dependencies. */
                 transaction_collect_garbage(m);
 
@@ -509,12 +568,12 @@ static int transaction_activate(Manager *m, JobMode mode) {
                  * unmergable entries ... */
         }
 
-        /* Sith step: check whether we can actually apply this */
+        /* Seventh step: check whether we can actually apply this */
         if (mode == JOB_FAIL)
                 if ((r = transaction_is_destructive(m, mode)) < 0)
                         goto rollback;
 
-        /* Seventh step: apply changes */
+        /* Eights step: apply changes */
         if ((r = transaction_apply(m, mode)) < 0)
                 goto rollback;
 

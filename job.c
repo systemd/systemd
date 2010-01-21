@@ -264,3 +264,12 @@ bool job_type_is_superset(JobType a, JobType b) {
 
         }
 }
+
+bool job_type_is_conflicting(JobType a, JobType b) {
+
+        /* Checks whether two types are "conflicting" */
+
+        return
+                (a == JOB_STOP && b != JOB_STOP) ||
+                (b == JOB_STOP && a != JOB_STOP);
+}
