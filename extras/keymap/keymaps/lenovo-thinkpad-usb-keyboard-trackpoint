@@ -10,4 +10,4 @@
 0x90011 prog1 # Thinkvantage button
 
 0x90015 camera # Fn+F6 headset/camera VoIP key  ??
-0x90010 # Microphone mute button  ??
+# 0x90010 # Microphone mute button  ??
