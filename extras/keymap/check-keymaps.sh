@@ -13,7 +13,8 @@ RULES=$SRCDIR/extras/keymap/95-keymap.rules
     exit 1
 }
 
-missing=$(join -v 2 <(awk '{print tolower(substr($1,5))}' $KEYLIST | sort -u) <(awk '{print $2}' ${KEYMAPS_DIR}/*|sort -u))
+missing=$(join -v 2 <(awk '{print tolower(substr($1,5))}' $KEYLIST | sort -u) \
+                    <(grep -hv '^#' ${KEYMAPS_DIR}/*| awk '{print $2}' | sort -u))
 [ -z "$missing" ] || {
     echo "ERROR: unknown key names in extras/keymap/keymaps/*:" >&2
     echo "$missing" >&2
