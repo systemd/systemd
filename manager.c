@@ -680,6 +680,9 @@ static int transaction_add_job_and_dependencies(Manager *m, JobType type, Name *
         if (name->meta.state != NAME_LOADED)
                 return -EINVAL;
 
+        if (!job_type_applicable(type, name->meta.type))
+                return -EBADR;
+
         /* First add the job. */
         if (!(ret = transaction_add_one_job(m, type, name, &is_new)))
                 return -ENOMEM;
@@ -692,28 +695,28 @@ static int transaction_add_job_and_dependencies(Manager *m, JobType type, Name *
                 /* Finally, recursively add in all dependencies. */
                 if (type == JOB_START || type == JOB_RELOAD_OR_START) {
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_REQUIRES], state)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, force, NULL)) < 0)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, force, NULL))  != -EBADR)
                                         goto fail;
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_SOFT_REQUIRES], state)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !force, force, NULL)) < 0)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !force, force, NULL)) != -EBADR)
                                         goto fail;
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_WANTS], state)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, force, NULL)) < 0)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, force, NULL)) != -EBADR)
                                         goto fail;
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_REQUISITE], state)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_STARTED, dep, ret, true, force, NULL)) < 0)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_STARTED, dep, ret, true, force, NULL)) != -EBADR)
                                         goto fail;
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_SOFT_REQUISITE], state)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_STARTED, dep, ret, !force, force, NULL)) < 0)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_STARTED, dep, ret, !force, force, NULL)) != -EBADR)
                                         goto fail;
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_CONFLICTS], state)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, force, NULL)) < 0)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, force, NULL)) != -EBADR)
                                         goto fail;
 
                 } else if (type == JOB_STOP || type == JOB_RESTART || type == JOB_TRY_RESTART) {
 
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_REQUIRED_BY], state)
-                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, force, NULL)) < 0)
+                                if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, force, NULL))  != -EBADR)
                                         goto fail;
                 }
 

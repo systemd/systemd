@@ -266,10 +266,33 @@ bool job_type_is_superset(JobType a, JobType b) {
 }
 
 bool job_type_is_conflicting(JobType a, JobType b) {
-
-        /* Checks whether two types are "conflicting" */
+        assert(a >= 0 && a < _JOB_TYPE_MAX);
+        assert(b >= 0 && b < _JOB_TYPE_MAX);
 
         return
                 (a == JOB_STOP && b != JOB_STOP) ||
                 (b == JOB_STOP && a != JOB_STOP);
+}
+
+bool job_type_applicable(JobType j, NameType n) {
+        assert(j >= 0 && j < _JOB_TYPE_MAX);
+        assert(n >= 0 && n < _NAME_TYPE_MAX);
+
+        switch (j) {
+                case JOB_START:
+                case JOB_STOP:
+                case JOB_VERIFY_STARTED:
+                        return true;
+
+                case JOB_RELOAD:
+                case JOB_RELOAD_OR_START:
+                        return n == NAME_SERVICE || n == NAME_TIMER || n == NAME_MOUNT;
+
+                case JOB_RESTART:
+                case JOB_TRY_RESTART:
+                        return n == NAME_SERVICE || n == NAME_TIMER || n == NAME_SOCKET || NAME_MOUNT || NAME_SNAPSHOT;
+
+                default:
+                        assert_not_reached("Invalid job type");
+        }
 }
