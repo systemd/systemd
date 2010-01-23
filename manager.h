@@ -54,4 +54,6 @@ void manager_transaction_unlink_job(Manager *m, Job *j);
 
 void manager_clear_jobs(Manager *m);
 
+void manager_run_jobs(Manager *m);
+
 #endif

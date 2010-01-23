@@ -362,6 +362,8 @@ int job_run_and_invalidate(Job *j) {
         if (j->state != JOB_WAITING)
                 return 0;
 
+        j->state = JOB_RUNNING;
+
         switch (j->type) {
 
                 case JOB_START:
@@ -422,11 +424,12 @@ int job_run_and_invalidate(Job *j) {
                         ;
         }
 
-        if (r >= 0)
-                j->state = JOB_RUNNING;
-        else if (r == -EALREADY)
+        if (r == -EALREADY)
                 r = job_finish_and_invalidate(j, true);
-        else if (r != -EAGAIN)
+        else if (r == -EAGAIN) {
+                j->state = JOB_WAITING;
+                return -EAGAIN;
+        } else if (r < 0)
                 r = job_finish_and_invalidate(j, false);
 
         return r;

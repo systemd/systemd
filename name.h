@@ -189,6 +189,6 @@ int name_start(Name *n);
 int name_stop(Name *n);
 int name_reload(Name *n);
 
-int name_notify(Name *n, NameActiveState old, NameActiveState new);
+void name_notify(Name *n, NameActiveState os, NameActiveState ns);
 
 #endif

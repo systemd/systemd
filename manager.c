@@ -882,3 +882,13 @@ void manager_clear_jobs(Manager *m) {
         while ((j = hashmap_first(m->jobs)))
                 job_free(j);
 }
+
+void manager_run_jobs(Manager *m) {
+        Job *j;
+        void *state;
+        int r;
+
+        HASHMAP_FOREACH(j, m->jobs, state) {
+                r = job_run_and_invalidate(j);
+        }
+}

@@ -115,13 +115,13 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                                 idx = if_nametoindex(n);
                                 free(n);
 
-                                if (n == 0)
+                                if (idx == 0)
                                         return -EINVAL;
 
                                 a->sockaddr.in6.sin6_family = AF_INET6;
                                 a->sockaddr.in6.sin6_port = htons((uint16_t) u);
                                 a->sockaddr.in6.sin6_scope_id = idx;
-                                memcpy(&a->sockaddr.in6.sin6_addr, &in6addr_any, INET6_ADDRSTRLEN);
+                                a->sockaddr.in6.sin6_addr = in6addr_any;
                                 a->size = sizeof(struct sockaddr_in6);
                         }
                 } else {
@@ -135,7 +135,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
 
                         a->sockaddr.in6.sin6_family = AF_INET6;
                         a->sockaddr.in6.sin6_port = htons((uint16_t) u);
-                        memcpy(&a->sockaddr.in6.sin6_addr, &in6addr_any, INET6_ADDRSTRLEN);
+                        a->sockaddr.in6.sin6_addr = in6addr_any;
                         a->size = sizeof(struct sockaddr_in6);
                 }
         }
@@ -274,9 +274,10 @@ int socket_address_print(const SocketAddress *a, char **p) {
         }
 }
 
-int socket_address_listen(const SocketAddress *a, int backlog, SocketAddressBindIPv6Only only) {
+int socket_address_listen(const SocketAddress *a, int backlog, SocketAddressBindIPv6Only only, int *ret) {
         int r, fd;
         assert(a);
+        assert(ret);
 
         if ((r = socket_address_verify(a)) < 0)
                 return r;
@@ -304,5 +305,6 @@ int socket_address_listen(const SocketAddress *a, int backlog, SocketAddressBind
                         return -errno;
                 }
 
+        *ret = fd;
         return 0;
 }

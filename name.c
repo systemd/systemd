@@ -617,7 +617,7 @@ static void retroactively_stop_dependencies(Name *n) {
                         manager_add_job(n->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL);
 }
 
-int name_notify(Name *n, NameActiveState os, NameActiveState ns) {
+void name_notify(Name *n, NameActiveState os, NameActiveState ns) {
         assert(n);
         assert(os < _NAME_ACTIVE_STATE_MAX);
         assert(ns < _NAME_ACTIVE_STATE_MAX);
@@ -625,7 +625,7 @@ int name_notify(Name *n, NameActiveState os, NameActiveState ns) {
         assert(!(os == NAME_INACTIVE && ns == NAME_DEACTIVATING));
 
         if (os == ns)
-                return 0;
+                return;
 
         if (n->meta.job) {
 
@@ -649,10 +649,11 @@ int name_notify(Name *n, NameActiveState os, NameActiveState ns) {
                                 case JOB_START:
                                 case JOB_VERIFY_ACTIVE:
 
-                                        if (NAME_IS_ACTIVE_OR_RELOADING(ns))
-                                                return job_finish_and_invalidate(n->meta.job, true);
-                                        else if (ns == NAME_ACTIVATING)
-                                                return 0;
+                                        if (NAME_IS_ACTIVE_OR_RELOADING(ns)) {
+                                                job_finish_and_invalidate(n->meta.job, true);
+                                                return;
+                                        } else if (ns == NAME_ACTIVATING)
+                                                return;
                                         else
                                                 job_finish_and_invalidate(n->meta.job, false);
 
@@ -661,10 +662,11 @@ int name_notify(Name *n, NameActiveState os, NameActiveState ns) {
                                 case JOB_RELOAD:
                                 case JOB_RELOAD_OR_START:
 
-                                        if (ns == NAME_ACTIVE)
-                                                return job_finish_and_invalidate(n->meta.job, true);
-                                        else if (ns == NAME_ACTIVATING || ns == NAME_ACTIVE_RELOADING)
-                                                return 0;
+                                        if (ns == NAME_ACTIVE) {
+                                                job_finish_and_invalidate(n->meta.job, true);
+                                                return;
+                                        } else if (ns == NAME_ACTIVATING || ns == NAME_ACTIVE_RELOADING)
+                                                return;
                                         else
                                                 job_finish_and_invalidate(n->meta.job, false);
 
@@ -674,10 +676,11 @@ int name_notify(Name *n, NameActiveState os, NameActiveState ns) {
                                 case JOB_RESTART:
                                 case JOB_TRY_RESTART:
 
-                                        if (ns == NAME_INACTIVE)
-                                                return job_finish_and_invalidate(n->meta.job, true);
-                                        else if (ns == NAME_DEACTIVATING)
-                                                return 0;
+                                        if (ns == NAME_INACTIVE) {
+                                                job_finish_and_invalidate(n->meta.job, true);
+                                                return;
+                                        } else if (ns == NAME_DEACTIVATING)
+                                                return;
                                         else
                                                 job_finish_and_invalidate(n->meta.job, false);
 
@@ -696,6 +699,4 @@ int name_notify(Name *n, NameActiveState os, NameActiveState ns) {
                 retroactively_start_dependencies(n);
         else if (NAME_IS_ACTIVE_OR_ACTIVATING(os) && NAME_IS_INACTIVE_OR_DEACTIVATING(ns))
                 retroactively_stop_dependencies(n);
-
-        return 0;
 }

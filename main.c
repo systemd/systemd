@@ -42,13 +42,7 @@ int main(int argc, char *argv[]) {
         printf("- By jobs:\n");
         manager_dump_jobs(m, stdout, "\t");
 
-        if ((r = manager_add_job(m, JOB_STOP, syslog, JOB_REPLACE, false, &job)) < 0) {
-                log_error("Failed to start default milestone: %s", strerror(-r));
-                goto finish;
-        }
-
-        printf("- By jobs:\n");
-        manager_dump_jobs(m, stdout, "\t");
+        manager_run_jobs(m);
 
         retval = 0;
 

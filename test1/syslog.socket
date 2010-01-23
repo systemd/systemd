@@ -2,5 +2,5 @@
 Description=Syslog Socket
 
 [Socket]
-ListenDatagram=/dev/log
-ListenStream=eth0:4711
+ListenDatagram=/tmp/systemd-socket
+ListenStream=eth0:3456

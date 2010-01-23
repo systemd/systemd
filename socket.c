@@ -1,7 +1,25 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
+
 #include "name.h"
 #include "socket.h"
+#include "log.h"
+
+static const NameActiveState state_table[_SOCKET_STATE_MAX] = {
+        [SOCKET_DEAD] = NAME_INACTIVE,
+        [SOCKET_START_PRE] = NAME_ACTIVATING,
+        [SOCKET_START_POST] = NAME_ACTIVATING,
+        [SOCKET_LISTENING] = NAME_ACTIVE,
+        [SOCKET_RUNNING] = NAME_ACTIVE,
+        [SOCKET_STOP_PRE] = NAME_DEACTIVATING,
+        [SOCKET_STOP_POST] = NAME_DEACTIVATING,
+        [SOCKET_MAINTAINANCE] = NAME_INACTIVE,
+};
 
 static int socket_load(Name *n) {
         Socket *s = SOCKET(n);
@@ -87,28 +105,130 @@ static void socket_dump(Name *n, FILE *f, const char *prefix) {
         }
 }
 
+static void socket_set_state(Socket *s, SocketState state) {
+        SocketState old_state;
+        assert(s);
+
+        old_state = s->state;
+        s->state = state;
+
+        name_notify(NAME(s), state_table[old_state], state_table[s->state]);
+}
+
+static void close_fds(Socket *s) {
+        SocketPort *p;
+
+        assert(s);
+
+        LIST_FOREACH(p, s->ports) {
+                if (p->fd < 0)
+                        continue;
+
+                close_nointr(p->fd);
+                p->fd = -1;
+        }
+}
+
 static int socket_start(Name *n) {
+        Socket *s = SOCKET(n);
+        SocketPort *p;
+        int r;
+
+        assert(s);
+
+        if (s->state == SOCKET_START_PRE ||
+            s->state == SOCKET_START_POST)
+                return 0;
+
+        if (s->state == SOCKET_LISTENING ||
+            s->state == SOCKET_RUNNING)
+                return -EALREADY;
+
+        if (s->state == SOCKET_STOP_PRE ||
+            s->state == SOCKET_STOP_POST)
+                return -EAGAIN;
+
+        assert(s->state == SOCKET_DEAD || s->state == SOCKET_MAINTAINANCE);
+
+        LIST_FOREACH(p, s->ports) {
+
+                assert(p->fd < 0);
+
+                if (p->type == SOCKET_SOCKET) {
+
+                        if ((r = socket_address_listen(&p->address, s->backlog, s->bind_ipv6_only, &p->fd)) < 0)
+                                goto rollback;
+
+                } else {
+                        struct stat st;
+                        assert(p->type == SOCKET_FIFO);
+
+                        if (mkfifo(p->path, 0666 & ~s->exec_context.umask) < 0 && errno != EEXIST) {
+                                r = -errno;
+                                goto rollback;
+                        }
+
+                        if ((p->fd = open(p->path, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK|O_NOFOLLOW)) < 0) {
+                                r = -errno;
+                                goto rollback;
+                        }
+
+                        if (fstat(p->fd, &st) < 0) {
+                                r = -errno;
+                                goto rollback;
+                        }
+
+                        /* FIXME verify user, access mode */
+
+                        if (!S_ISFIFO(st.st_mode)) {
+                                r = -EEXIST;
+                                goto rollback;
+                        }
+                }
+        }
+
+        socket_set_state(s, SOCKET_LISTENING);
+
         return 0;
+
+rollback:
+        close_fds(s);
+
+        socket_set_state(s, SOCKET_MAINTAINANCE);
+
+        return r;
 }
 
 static int socket_stop(Name *n) {
+        Socket *s = SOCKET(n);
+
+        assert(s);
+
+        if (s->state == SOCKET_START_PRE ||
+            s->state == SOCKET_START_POST)
+                return -EAGAIN;
+
+        if (s->state == SOCKET_DEAD ||
+            s->state == SOCKET_MAINTAINANCE)
+                return -EALREADY;
+
+        if (s->state == SOCKET_STOP_PRE ||
+            s->state == SOCKET_STOP_POST)
+                return 0;
+
+        assert(s->state == SOCKET_LISTENING || s->state == SOCKET_RUNNING);
+
+        close_fds(s);
+
+        socket_set_state(s, SOCKET_DEAD);
+
         return 0;
 }
 
 static NameActiveState socket_active_state(Name *n) {
+        assert(n);
 
-        static const NameActiveState table[_SOCKET_STATE_MAX] = {
-                [SOCKET_DEAD] = NAME_INACTIVE,
-                [SOCKET_START_PRE] = NAME_ACTIVATING,
-                [SOCKET_START_POST] = NAME_ACTIVATING,
-                [SOCKET_LISTENING] = NAME_ACTIVE,
-                [SOCKET_RUNNING] = NAME_ACTIVE,
-                [SOCKET_STOP_PRE] = NAME_DEACTIVATING,
-                [SOCKET_STOP_POST] = NAME_DEACTIVATING,
-                [SOCKET_MAINTAINANCE] = NAME_INACTIVE,
-        };
-
-        return table[SOCKET(n)->state];
+        return state_table[SOCKET(n)->state];
 }
 
 static void socket_free_hook(Name *n) {
