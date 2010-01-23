@@ -8,14 +8,11 @@
 
 typedef union Name Name;
 typedef struct Meta Meta;
-typedef struct Service Service;
-typedef struct Timer Timer;
-typedef struct Socket Socket;
-typedef struct Milestone Milestone;
-typedef struct Device Device;
-typedef struct Mount Mount;
-typedef struct Automount Automount;
-typedef struct Snapshot Snapshot;
+typedef struct NameVTable NameVTable;
+typedef enum NameType NameType;
+typedef enum NameLoadState NameLoadState;
+typedef enum NameActiveState NameActiveState;
+typedef enum NameDependency NameDependency;
 
 #include "job.h"
 #include "manager.h"
@@ -23,8 +20,11 @@ typedef struct Snapshot Snapshot;
 #include "util.h"
 #include "list.h"
 #include "socket-util.h"
+#include "execute.h"
 
-typedef enum NameType {
+#define NAME_MAX 32
+
+enum NameType {
         NAME_SERVICE = 0,
         NAME_TIMER,
         NAME_SOCKET,
@@ -35,38 +35,60 @@ typedef enum NameType {
         NAME_SNAPSHOT,
         _NAME_TYPE_MAX,
         _NAME_TYPE_INVALID = -1,
-} NameType;
+};
 
-typedef enum NameState {
+enum NameLoadState {
         NAME_STUB,
         NAME_LOADED,
         NAME_FAILED,
-        _NAME_STATE_MAX
-} NameState;
+        _NAME_LOAD_STATE_MAX
+};
 
-typedef enum NameDependency {
+enum NameActiveState {
+        NAME_ACTIVE,
+        NAME_ACTIVE_RELOADING,
+        NAME_INACTIVE,
+        NAME_ACTIVATING,
+        NAME_DEACTIVATING,
+        _NAME_ACTIVE_STATE_MAX
+};
+
+static inline bool NAME_IS_ACTIVE_OR_RELOADING(NameActiveState t) {
+        return t == NAME_ACTIVE || t == NAME_ACTIVE_RELOADING;
+}
+
+static inline bool NAME_IS_ACTIVE_OR_ACTIVATING(NameActiveState t) {
+        return t == NAME_ACTIVE || t == NAME_ACTIVATING || t == NAME_ACTIVE_RELOADING;
+}
+
+static inline bool NAME_IS_INACTIVE_OR_DEACTIVATING(NameActiveState t) {
+        return t == NAME_INACTIVE || t == NAME_DEACTIVATING;
+}
+
+enum NameDependency {
         /* Positive dependencies */
         NAME_REQUIRES,
         NAME_SOFT_REQUIRES,
         NAME_WANTS,
         NAME_REQUISITE,
         NAME_SOFT_REQUISITE,
-        NAME_REQUIRED_BY,   /* inverse of 'requires' and 'requisite' is 'required_by' */
-        NAME_WANTED_BY,     /* inverse of 'wants', 'soft_requires' and 'soft_requisite' is 'wanted_by' */
+        NAME_REQUIRED_BY,       /* inverse of 'requires' and 'requisite' is 'required_by' */
+        NAME_SOFT_REQUIRED_BY,  /* inverse of 'soft_requires' and 'soft_requisite' is 'soft_required_by' */
+        NAME_WANTED_BY,         /* inverse of 'wants' */
 
         /* Negative dependencies */
-        NAME_CONFLICTS,     /* inverse of 'conflicts' is 'conflicts' */
+        NAME_CONFLICTS,         /* inverse of 'conflicts' is 'conflicts' */
 
         /* Order */
-        NAME_BEFORE,        /* inverse of before is after and vice versa */
+        NAME_BEFORE,            /* inverse of before is after and vice versa */
         NAME_AFTER,
         _NAME_DEPENDENCY_MAX
-} NameDependency;
+};
 
 struct Meta {
         Manager *manager;
         NameType type;
-        NameState state;
+        NameLoadState load_state;
 
         Set *names;
         Set *dependencies[_NAME_DEPENDENCY_MAX];
@@ -83,164 +105,14 @@ struct Meta {
         LIST_FIELDS(Meta);
 };
 
-typedef enum ServiceState {
-        SERVICE_DEAD,
-        SERVICE_BEFORE,
-        SERVICE_START_PRE,
-        SERVICE_START,
-        SERVICE_START_POST,
-        SERVICE_RUNNING,
-        SERVICE_RELOAD_PRE,
-        SERVICE_RELOAD,
-        SERVICE_RELOAD_POST,
-        SERVICE_STOP_PRE,
-        SERVICE_STOP,
-        SERVICE_SIGTERM,
-        SERVICE_SIGKILL,
-        SERVICE_STOP_POST,
-        SERVICE_HOLDOFF,
-        SERVICE_MAINTAINANCE
-} ServiceState;
-
-typedef enum ServiceMode {
-        SERVICE_ONCE,
-        SERVICE_RESTART
-} ServiceMode;
-
-struct Service {
-        Meta meta;
-
-        ServiceState state;
-        ServiceMode mode;
-};
-
-typedef enum TimerState {
-        TIMER_DEAD,
-        TIMER_BEFORE,
-        TIMER_START_PRE,
-        TIMER_START,
-        TIMER_START_POST,
-        TIMER_WAITING,
-        TIMER_RUNNING,
-        TIMER_STOP_PRE,
-        TIMER_STOP,
-        TIMER_STOP_POST
-} TimerState;
-
-struct Timer {
-        Meta meta;
-
-        TimerState state;
-        Service *subject;
-
-        clockid_t clock_id;
-        usec_t next_elapse;
-};
-
-typedef enum SocketState {
-        SOCKET_DEAD,
-        SOCKET_BEFORE,
-        SOCKET_START_PRE,
-        SOCKET_START,
-        SOCKET_START_POST,
-        SOCKET_LISTENING,
-        SOCKET_RUNNING,
-        SOCKET_STOP_PRE,
-        SOCKET_STOP,
-        SOCKET_STOP_POST,
-        SOCKET_MAINTAINANCE,
-        _SOCKET_STATE_MAX
-} SocketState;
-
-struct Socket {
-        Meta meta;
-
-        SocketState state;
-
-        Address address;
-        int *fds;
-        unsigned n_fds;
-
-        Service *subject;
-};
-
-typedef enum MilestoneState {
-        MILESTONE_DEAD,
-        MILESTONE_BEFORE,
-        MILESTONE_ACTIVE
-} MilestoneState;
-
-struct Milestone {
-        Meta meta;
-
-        MilestoneState state;
-};
-
-typedef enum DeviceState {
-        DEVICE_DEAD,
-        DEVICE_BEFORE,
-        DEVICE_AVAILABLE
-} DeviceState;
-
-struct Device {
-        Meta meta;
-
-        DeviceState state;
-        char *sysfs;
-};
-
-typedef enum MountState {
-        MOUNT_DEAD,
-        MOUNT_BEFORE,
-        MOUNT_MOUNTING,
-        MOUNT_MOUNTED,
-        MOUNT_UNMOUNTING,
-        MOUNT_SIGTERM,  /* if the mount command hangs */
-        MOUNT_SIGKILL,
-        MOUNT_MAINTAINANCE
-} MountState;
-
-struct Mount {
-        Meta meta;
-
-        MountState state;
-        char *path;
-};
-
-typedef enum AutomountState {
-        AUTOMOUNT_DEAD,
-        AUTOMOUNT_BEFORE,
-        AUTOMOUNT_START_PRE,
-        AUTOMOUNT_START,
-        AUTOMOUNT_START_POST,
-        AUTOMOUNT_WAITING,
-        AUTOMOUNT_RUNNING,
-        AUTOMOUNT_STOP_PRE,
-        AUTOMOUNT_STOP,
-        AUTOMOUNT_STOP_POST,
-        AUTOMOUNT_MAINTAINANCE
-} AutomountState;
-
-struct Automount {
-        Meta meta;
-
-        AutomountState state;
-        char *path;
-        Mount *subject;
-};
-
-typedef enum SnapshotState {
-        SNAPSHOT_DEAD,
-        SNAPSHOT_BEFORE,
-        SNAPSHOT_ACTIVE
-} SnapshotState;
-
-struct Snapshot {
-        Meta meta;
-
-        SnapshotState state;
-        bool cleanup:1;
-};
+#include "service.h"
+#include "timer.h"
+#include "socket.h"
+#include "milestone.h"
+#include "device.h"
+#include "mount.h"
+#include "automount.h"
+#include "snapshot.h"
 
 union Name {
         Meta meta;
@@ -254,30 +126,48 @@ union Name {
         Snapshot snapshot;
 };
 
-/* For casting a name into the various name types */
+struct NameVTable {
+        const char *suffix;
 
-#define DEFINE_CAST(UPPERCASE, MixedCase, lowercase)                    \
+        int (*load)(Name *n);
+        void (*dump)(Name *n, FILE *f, const char *prefix);
+
+        int (*start)(Name *n);
+        int (*stop)(Name *n);
+        int (*reload)(Name *n);
+
+        /* Boils down the more complex internal state of this name to
+         * a simpler one that the engine can understand */
+        NameActiveState (*active_state)(Name *n);
+
+        void (*free_hook)(Name *n);
+};
+
+/* For casting a name into the various name types */
+#define DEFINE_CAST(UPPERCASE, MixedCase)                               \
         static inline MixedCase* UPPERCASE(Name *name) {                \
-                if (name->meta.type != NAME_##UPPERCASE)                \
+                if (!name || name->meta.type != NAME_##UPPERCASE)       \
                         return NULL;                                    \
                                                                         \
-                return &name->lowercase;                                \
+                return (MixedCase*) name;                               \
         }
-
-DEFINE_CAST(SERVICE, Service, service);
-DEFINE_CAST(TIMER, Timer, timer);
-DEFINE_CAST(SOCKET, Socket, socket);
-DEFINE_CAST(MILESTONE, Milestone, milestone);
-DEFINE_CAST(DEVICE, Device, device);
-DEFINE_CAST(MOUNT, Mount, mount);
-DEFINE_CAST(AUTOMOUNT, Automount, automount);
-DEFINE_CAST(SNAPSHOT, Snapshot, snapshot);
 
 /* For casting the various name types into a name */
 #define NAME(o) ((Name*) (o))
 
-bool name_is_running(Name *name);
-bool name_is_dead(Name *name);
+DEFINE_CAST(SOCKET, Socket);
+DEFINE_CAST(TIMER, Timer);
+DEFINE_CAST(SERVICE, Service);
+DEFINE_CAST(MILESTONE, Milestone);
+DEFINE_CAST(DEVICE, Device);
+DEFINE_CAST(MOUNT, Mount);
+DEFINE_CAST(AUTOMOUNT, Automount);
+DEFINE_CAST(SNAPSHOT, Snapshot);
+
+NameActiveState name_active_state(Name *name);
+
+bool name_type_can_start(NameType t);
+bool name_type_can_reload(NameType t);
 
 NameType name_type_from_string(const char *n);
 bool name_is_valid(const char *n);
@@ -288,9 +178,17 @@ int name_link(Name *name);
 int name_link_names(Name *name, bool replace);
 int name_merge(Name *name, Name *other);
 int name_sanitize(Name *n);
+int name_load_fragment_and_dropin(Name *n);
 int name_load(Name *name);
 const char* name_id(Name *n);
+const char *name_description(Name *n);
 
 void name_dump(Name *n, FILE *f, const char *prefix);
+
+int name_start(Name *n);
+int name_stop(Name *n);
+int name_reload(Name *n);
+
+int name_notify(Name *n, NameActiveState old, NameActiveState new);
 
 #endif

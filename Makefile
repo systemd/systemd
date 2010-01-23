@@ -1,7 +1,29 @@
 CFLAGS=-Wall -Wextra -O0 -g -pipe -D_GNU_SOURCE -fdiagnostics-show-option -Wno-unused-parameter
-LIBS=-lrt
+LIBS=-lrt -lcap
 
-COMMON=name.o util.o set.o hashmap.o strv.o job.o manager.o conf-parser.o load-fragment.o socket-util.o log.o
+COMMON= \
+	name.o \
+	util.o \
+	set.o \
+	hashmap.o \
+	strv.o \
+	job.o \
+	manager.o \
+	conf-parser.o \
+	load-fragment.o \
+	socket-util.o \
+	log.o \
+	service.o \
+	automount.o \
+	mount.o \
+	device.o \
+	milestone.o \
+	snapshot.o \
+	socket.o \
+	timer.o \
+	load-fstab.o \
+	load-dropin.o \
+	execute.o
 
 all: systemd test-engine test-job-type
 

@@ -34,6 +34,8 @@ struct Manager {
         JobDependency *transaction_anchor;
 
         bool dispatching_load_queue:1;
+
+        Hashmap *pids;  /* pid => Name object n:1 */
 };
 
 Manager* manager_new(void);

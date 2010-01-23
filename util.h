@@ -7,6 +7,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 typedef uint64_t usec_t;
 

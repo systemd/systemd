@@ -9,24 +9,28 @@
 #include "macro.h"
 #include "strv.h"
 #include "load-fragment.h"
+#include "load-dropin.h"
+
+static const NameVTable * const name_vtable[_NAME_TYPE_MAX] = {
+        [NAME_SERVICE] = &service_vtable,
+        [NAME_TIMER] = &timer_vtable,
+        [NAME_SOCKET] = &socket_vtable,
+        [NAME_MILESTONE] = &milestone_vtable,
+        [NAME_DEVICE] = &device_vtable,
+        [NAME_MOUNT] = &mount_vtable,
+        [NAME_AUTOMOUNT] = &automount_vtable,
+        [NAME_SNAPSHOT] = &snapshot_vtable
+};
+
+#define NAME_VTABLE(n) name_vtable[(n)->meta.type]
 
 NameType name_type_from_string(const char *n) {
         NameType t;
-        static const char* suffixes[_NAME_TYPE_MAX] = {
-                [NAME_SERVICE] = ".service",
-                [NAME_TIMER] = ".timer",
-                [NAME_SOCKET] = ".socket",
-                [NAME_MILESTONE] = ".milestone",
-                [NAME_DEVICE] = ".device",
-                [NAME_MOUNT] = ".mount",
-                [NAME_AUTOMOUNT] = ".automount",
-                [NAME_SNAPSHOT] = ".snapshot",
-        };
 
         assert(n);
 
         for (t = 0; t < _NAME_TYPE_MAX; t++)
-                if (endswith(n, suffixes[t]))
+                if (endswith(n, name_vtable[t]->suffix))
                         return t;
 
         return _NAME_TYPE_INVALID;
@@ -43,6 +47,9 @@ bool name_is_valid(const char *n) {
         const char *e, *i;
 
         assert(n);
+
+        if (strlen(n) >= NAME_MAX)
+                return false;
 
         t = name_type_from_string(n);
         if (t < 0 || t >= _NAME_TYPE_MAX)
@@ -74,7 +81,6 @@ Name *name_new(Manager *m) {
         /* Not much initialization happening here at this time */
         n->meta.manager = m;
         n->meta.type = _NAME_TYPE_INVALID;
-        n->meta.state = NAME_STUB;
 
         /* We don't link the name here, that is left for name_link() */
 
@@ -130,7 +136,7 @@ int name_link(Name *n) {
                 return r;
         }
 
-        if (n->meta.state == NAME_STUB)
+        if (n->meta.load_state == NAME_STUB)
                 LIST_PREPEND(Meta, n->meta.manager->load_queue, &n->meta);
 
         return 0;
@@ -169,7 +175,7 @@ void name_free(Name *name) {
                 SET_FOREACH(t, name->meta.names, state)
                         hashmap_remove_value(name->meta.manager->names, t, name);
 
-                if (name->meta.state == NAME_STUB)
+                if (name->meta.load_state == NAME_STUB)
                         LIST_REMOVE(Meta, name->meta.manager->load_queue, &name->meta);
         }
 
@@ -180,41 +186,8 @@ void name_free(Name *name) {
         for (d = 0; d < _NAME_DEPENDENCY_MAX; d++)
                 bidi_set_free(name, name->meta.dependencies[d]);
 
-        switch (name->meta.type) {
-
-                case NAME_SOCKET: {
-                        unsigned i;
-                        Socket *s = SOCKET(name);
-
-                        for (i = 0; i < s->n_fds; i++)
-                                close_nointr(s->fds[i]);
-                        break;
-                }
-
-                case NAME_DEVICE: {
-                        Device *d = DEVICE(name);
-
-                        free(d->sysfs);
-                        break;
-                }
-
-                case NAME_MOUNT: {
-                        Mount *m = MOUNT(name);
-
-                        free(m->path);
-                        break;
-                }
-
-                case NAME_AUTOMOUNT: {
-                        Automount *a = AUTOMOUNT(name);
-
-                        free(a->path);
-                        break;
-                }
-
-                default:
-                        ;
-        }
+        if (NAME_VTABLE(name)->free_hook)
+                NAME_VTABLE(name)->free_hook(name);
 
         free(name->meta.description);
 
@@ -225,133 +198,14 @@ void name_free(Name *name) {
         free(name);
 }
 
-bool name_is_ready(Name *name) {
+NameActiveState name_active_state(Name *name) {
         assert(name);
 
-        if (name->meta.state != NAME_LOADED)
-                return false;
+        if (name->meta.load_state != NAME_LOADED)
+                return NAME_INACTIVE;
 
-        assert(name->meta.type < _NAME_TYPE_MAX);
-
-        switch (name->meta.type) {
-                case NAME_SERVICE: {
-                        Service *s = SERVICE(name);
-
-                        return
-                                s->state == SERVICE_RUNNING ||
-                                s->state == SERVICE_RELOAD_PRE ||
-                                s->state == SERVICE_RELOAD ||
-                                s->state == SERVICE_RELOAD_POST;
-                }
-
-                case NAME_TIMER: {
-                        Timer *t = TIMER(name);
-
-                        return
-                                t->state == TIMER_WAITING ||
-                                t->state == TIMER_RUNNING;
-                }
-
-                case NAME_SOCKET: {
-                        Socket *s = SOCKET(name);
-
-                        return
-                                s->state == SOCKET_LISTENING ||
-                                s->state == SOCKET_RUNNING;
-                }
-
-                case NAME_MILESTONE:
-                        return MILESTONE(name)->state == MILESTONE_ACTIVE;
-
-                case NAME_DEVICE:
-                        return DEVICE(name)->state == DEVICE_AVAILABLE;
-
-                case NAME_MOUNT:
-                        return MOUNT(name)->state == MOUNT_MOUNTED;
-
-                case NAME_AUTOMOUNT: {
-                        Automount *a = AUTOMOUNT(name);
-
-                        return
-                                a->state == AUTOMOUNT_WAITING ||
-                                a->state == AUTOMOUNT_RUNNING;
-                }
-
-                case NAME_SNAPSHOT:
-                        return SNAPSHOT(name)->state == SNAPSHOT_ACTIVE;
-
-
-                case _NAME_TYPE_MAX:
-                case _NAME_TYPE_INVALID:
-                        ;
-        }
-
-        assert_not_reached("Unknown name type.");
-        return false;
+        return NAME_VTABLE(name)->active_state(name);
 }
-
-bool name_is_dead(Name *name) {
-        assert(name);
-
-        if (name->meta.state != NAME_LOADED)
-                return true;
-        assert(name->meta.type < _NAME_TYPE_MAX);
-
-        switch (name->meta.type) {
-                case NAME_SERVICE: {
-                        Service *s = SERVICE(name);
-
-                        return
-                                s->state == SERVICE_DEAD ||
-                                s->state == SERVICE_MAINTAINANCE;
-                }
-
-                case NAME_TIMER:
-                        return TIMER(name)->state == TIMER_DEAD;
-
-                case NAME_SOCKET: {
-                        Socket *s = SOCKET(name);
-
-                        return
-                                s->state == SOCKET_DEAD ||
-                                s->state == SOCKET_MAINTAINANCE;
-                }
-
-                case NAME_MILESTONE:
-                        return MILESTONE(name)->state == MILESTONE_DEAD;
-
-                case NAME_DEVICE:
-                        return DEVICE(name)->state == DEVICE_DEAD;
-
-                case NAME_MOUNT: {
-                        Mount *a = MOUNT(name);
-
-                        return
-                                a->state == AUTOMOUNT_DEAD ||
-                                a->state == AUTOMOUNT_MAINTAINANCE;
-                }
-
-                case NAME_AUTOMOUNT: {
-                        Automount *a = AUTOMOUNT(name);
-
-                        return
-                                a->state == AUTOMOUNT_DEAD ||
-                                a->state == AUTOMOUNT_MAINTAINANCE;
-                }
-
-                case NAME_SNAPSHOT:
-                        return SNAPSHOT(name)->state == SNAPSHOT_DEAD;
-
-
-                case _NAME_TYPE_MAX:
-                case _NAME_TYPE_INVALID:
-                        ;
-        }
-
-        assert_not_reached("Unknown name type.");
-        return false;
-}
-
 
 static int ensure_in_set(Set **s, void *data) {
         int r;
@@ -399,7 +253,7 @@ int name_merge(Name *name, Name *other) {
         if (name->meta.type != other->meta.type)
                 return -EINVAL;
 
-        if (other->meta.state != NAME_STUB)
+        if (other->meta.load_state != NAME_STUB)
                 return -EINVAL;
 
         /* Merge names */
@@ -452,13 +306,11 @@ static int augment(Name *n) {
                 if ((r = ensure_in_set(&other->meta.dependencies[NAME_REQUIRED_BY], n)) < 0)
                         return r;
 
-        SET_FOREACH(other, n->meta.dependencies[NAME_WANTS], state)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_WANTED_BY], n)) < 0)
-                        return r;
         SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUIRES], state)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_WANTED_BY], n)) < 0)
+                if ((r = ensure_in_set(&other->meta.dependencies[NAME_SOFT_REQUIRED_BY], n)) < 0)
                         return r;
-        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUISITE], state)
+
+        SET_FOREACH(other, n->meta.dependencies[NAME_WANTS], state)
                 if ((r = ensure_in_set(&other->meta.dependencies[NAME_WANTED_BY], n)) < 0)
                         return r;
 
@@ -483,26 +335,28 @@ const char* name_id(Name *n) {
         return set_first(n->meta.names);
 }
 
+const char *name_description(Name *n) {
+        assert(n);
+
+        if (n->meta.description)
+                return n->meta.description;
+
+        return name_id(n);
+}
+
 void name_dump(Name *n, FILE *f, const char *prefix) {
 
-        static const char* const state_table[_NAME_STATE_MAX] = {
+        static const char* const load_state_table[_NAME_LOAD_STATE_MAX] = {
                 [NAME_STUB] = "stub",
                 [NAME_LOADED] = "loaded",
                 [NAME_FAILED] = "failed"
         };
 
-        static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
-                [SOCKET_DEAD] = "dead",
-                [SOCKET_BEFORE] = "before",
-                [SOCKET_START_PRE] = "start-pre",
-                [SOCKET_START] = "start",
-                [SOCKET_START_POST] = "start-post",
-                [SOCKET_LISTENING] = "listening",
-                [SOCKET_RUNNING] = "running",
-                [SOCKET_STOP_PRE] = "stop-pre",
-                [SOCKET_STOP] = "stop",
-                [SOCKET_STOP_POST] = "stop-post",
-                [SOCKET_MAINTAINANCE] = "maintainance"
+        static const char* const active_state_table[_NAME_ACTIVE_STATE_MAX] = {
+                [NAME_ACTIVE] = "active",
+                [NAME_INACTIVE] = "inactive",
+                [NAME_ACTIVATING] = "activating",
+                [NAME_DEACTIVATING] = "deactivating"
         };
 
         static const char* const dependency_table[_NAME_DEPENDENCY_MAX] = {
@@ -512,7 +366,7 @@ void name_dump(Name *n, FILE *f, const char *prefix) {
                 [NAME_REQUISITE] = "Requisite",
                 [NAME_SOFT_REQUISITE] = "SoftRequisite",
                 [NAME_REQUIRED_BY] = "RequiredBy",
-                [NAME_WANTED_BY] = "WantedBy",
+                [NAME_SOFT_REQUIRED_BY] = "SoftRequiredBy",
                 [NAME_CONFLICTS] = "Conflicts",
                 [NAME_BEFORE] = "Before",
                 [NAME_AFTER] = "After",
@@ -530,15 +384,15 @@ void name_dump(Name *n, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sName %s:\n"
                 "%s\tDescription: %s\n"
-                "%s\tName State: %s\n",
+                "%s\tName Load State: %s\n"
+                "%s\tName Active State: %s\n",
                 prefix, name_id(n),
-                prefix, n->meta.description ? n->meta.description : name_id(n),
-                prefix, state_table[n->meta.state]);
+                prefix, name_description(n),
+                prefix, load_state_table[n->meta.load_state],
+                prefix, active_state_table[name_active_state(n)]);
 
-        fprintf(f, "%s\tNames: ", prefix);
         SET_FOREACH(t, n->meta.names, state)
-                fprintf(f, "%s ", t);
-        fprintf(f, "\n");
+                fprintf(f, "%s\tName: %s\n", prefix, t);
 
         for (d = 0; d < _NAME_DEPENDENCY_MAX; d++) {
                 void *state;
@@ -547,39 +401,12 @@ void name_dump(Name *n, FILE *f, const char *prefix) {
                 if (set_isempty(n->meta.dependencies[d]))
                         continue;
 
-                fprintf(f, "%s\t%s: ", prefix, dependency_table[d]);
-
                 SET_FOREACH(other, n->meta.dependencies[d], state)
-                        fprintf(f, "%s ", name_id(other));
-
-                fprintf(f, "\n");
+                        fprintf(f, "%s\t%s: %s\n", prefix, dependency_table[d], name_id(other));
         }
 
-
-        switch (n->meta.type) {
-                case NAME_SOCKET: {
-                        int r;
-                        char *s = NULL;
-                        const char *t;
-
-                        if ((r = address_print(&n->socket.address, &s)) < 0)
-                                t = strerror(-r);
-                        else
-                                t = s;
-
-                        fprintf(f,
-                                "%s\tAddress: %s\n"
-                                "%s\tSocket State: %s\n",
-                                prefix, t,
-                                prefix, socket_state_table[n->socket.state]);
-
-                        free(s);
-                        break;
-                }
-
-                default:
-                        ;
-        }
+        if (NAME_VTABLE(n)->dump)
+                NAME_VTABLE(n)->dump(n, f, prefix);
 
         if (n->meta.job) {
                 char *p;
@@ -623,36 +450,19 @@ static int verify_type(Name *name) {
         return 0;
 }
 
-static int service_load_sysv(Service *s) {
-        assert(s);
+/* Common implementation for multiple backends */
+int name_load_fragment_and_dropin(Name *n) {
+        int r;
 
-        /* Load service data from SysV init scripts, preferably with
-         * LSB headers ... */
-
-        return -ENOENT;
-}
-
-static int name_load_fstab(Name *n) {
-        assert(n);
-        assert(n->meta.type == NAME_MOUNT || n->meta.type == NAME_AUTOMOUNT);
-
-        /* Load mount data from /etc/fstab */
-
-        return 0;
-}
-
-static int snapshot_load(Snapshot *s) {
-        assert(s);
-
-        /* Load snapshots from disk */
-
-        return 0;
-}
-
-static int name_load_dropin(Name *n) {
         assert(n);
 
-        /* Load dependencies from drop-in directories */
+        /* Load a .socket file */
+        if ((r = name_load_fragment(n)) < 0)
+                return r;
+
+        /* Load drop-in directory data */
+        if ((r = name_load_dropin(n)) < 0)
+                return r;
 
         return 0;
 }
@@ -662,52 +472,229 @@ int name_load(Name *name) {
 
         assert(name);
 
-        if (name->meta.state != NAME_STUB)
+        if (name->meta.load_state != NAME_STUB)
                 return 0;
 
         if ((r = verify_type(name)) < 0)
                 return r;
 
-        if (name->meta.type == NAME_SERVICE) {
-
-                /* Load a .service file */
-                if ((r = name_load_fragment(name)) == 0)
-                        goto finish;
-
-                /* Load a classic init script */
-                if (r == -ENOENT)
-                        if ((r = service_load_sysv(SERVICE(name))) == 0)
-                                goto finish;
-
-        } else if (name->meta.type == NAME_MOUNT ||
-                   name->meta.type == NAME_AUTOMOUNT) {
-
-                if ((r = name_load_fstab(name)) == 0)
-                        goto finish;
-
-        } else if (name->meta.type == NAME_SNAPSHOT) {
-
-                if ((r = snapshot_load(SNAPSHOT(name))) == 0)
-                        goto finish;
-
-        } else {
-                if ((r = name_load_fragment(name)) == 0)
-                        goto finish;
-        }
-
-        name->meta.state = NAME_FAILED;
-        return r;
-
-finish:
-        if ((r = name_load_dropin(name)) < 0)
-                return r;
+        if (NAME_VTABLE(name)->load)
+                if ((r = NAME_VTABLE(name)->load(name)) < 0)
+                        goto fail;
 
         if ((r = name_sanitize(name)) < 0)
-                return r;
+                goto fail;
 
         if ((r = name_link_names(name, false)) < 0)
-                return r;
+                goto fail;
 
-        name->meta.state = NAME_LOADED;
+        name->meta.load_state = NAME_LOADED;
+        return 0;
+
+fail:
+        name->meta.load_state = NAME_FAILED;
+        return r;
+}
+
+/* Errors:
+ *         -EBADR:    This name type does not support starting.
+ *         -EALREADY: Name is already started.
+ *         -EAGAIN:   An operation is already in progress. Retry later.
+ */
+int name_start(Name *n) {
+        NameActiveState state;
+
+        assert(n);
+
+        if (!NAME_VTABLE(n)->start)
+                return -EBADR;
+
+        state = name_active_state(n);
+        if (NAME_IS_ACTIVE_OR_RELOADING(state))
+                return -EALREADY;
+
+        if (state == NAME_ACTIVATING)
+                return 0;
+
+        return NAME_VTABLE(n)->start(n);
+}
+
+bool name_type_can_start(NameType t) {
+        assert(t >= 0 && t < _NAME_TYPE_MAX);
+
+        return !!name_vtable[t]->start;
+}
+
+/* Errors:
+ *         -EBADR:    This name type does not support stopping.
+ *         -EALREADY: Name is already stopped.
+ *         -EAGAIN:   An operation is already in progress. Retry later.
+ */
+int name_stop(Name *n) {
+        NameActiveState state;
+
+        assert(n);
+
+        if (!NAME_VTABLE(n)->stop)
+                return -EBADR;
+
+        state = name_active_state(n);
+        if (state == NAME_INACTIVE)
+                return -EALREADY;
+
+        if (state == NAME_DEACTIVATING)
+                return 0;
+
+        return NAME_VTABLE(n)->stop(n);
+}
+
+/* Errors:
+ *         -EBADR:    This name type does not support reloading.
+ *         -ENOEXEC:  Name is not started.
+ *         -EAGAIN:   An operation is already in progress. Retry later.
+ */
+int name_reload(Name *n) {
+        NameActiveState state;
+
+        assert(n);
+
+        if (!NAME_VTABLE(n)->reload)
+                return -EBADR;
+
+        state = name_active_state(n);
+        if (name_active_state(n) == NAME_ACTIVE_RELOADING)
+                return -EALREADY;
+
+        if (name_active_state(n) != NAME_ACTIVE)
+                return -ENOEXEC;
+
+        return NAME_VTABLE(n)->reload(n);
+}
+
+bool name_type_can_reload(NameType t) {
+        assert(t >= 0 && t < _NAME_TYPE_MAX);
+        return !!name_vtable[t]->reload;
+}
+
+static void retroactively_start_dependencies(Name *n) {
+        void *state;
+        Name *other;
+
+        assert(n);
+        assert(NAME_IS_ACTIVE_OR_ACTIVATING(name_active_state(n)));
+
+        SET_FOREACH(other, n->meta.dependencies[NAME_REQUIRES], state)
+                if (!NAME_IS_ACTIVE_OR_ACTIVATING(name_active_state(other)))
+                        manager_add_job(n->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL);
+
+        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUIRES], state)
+                if (!NAME_IS_ACTIVE_OR_ACTIVATING(name_active_state(other)))
+                        manager_add_job(n->meta.manager, JOB_START, other, JOB_FAIL, false, NULL);
+
+        SET_FOREACH(other, n->meta.dependencies[NAME_REQUISITE], state)
+                if (!NAME_IS_ACTIVE_OR_ACTIVATING(name_active_state(other)))
+                        manager_add_job(n->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL);
+
+        SET_FOREACH(other, n->meta.dependencies[NAME_WANTS], state)
+                if (!NAME_IS_ACTIVE_OR_ACTIVATING(name_active_state(other)))
+                        manager_add_job(n->meta.manager, JOB_START, other, JOB_FAIL, false, NULL);
+
+        SET_FOREACH(other, n->meta.dependencies[NAME_CONFLICTS], state)
+                if (!NAME_IS_ACTIVE_OR_ACTIVATING(name_active_state(other)))
+                        manager_add_job(n->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL);
+}
+
+static void retroactively_stop_dependencies(Name *n) {
+        void *state;
+        Name *other;
+
+        assert(n);
+        assert(NAME_IS_INACTIVE_OR_DEACTIVATING(name_active_state(n)));
+
+        SET_FOREACH(other, n->meta.dependencies[NAME_REQUIRED_BY], state)
+                if (!NAME_IS_INACTIVE_OR_DEACTIVATING(name_active_state(other)))
+                        manager_add_job(n->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL);
+}
+
+int name_notify(Name *n, NameActiveState os, NameActiveState ns) {
+        assert(n);
+        assert(os < _NAME_ACTIVE_STATE_MAX);
+        assert(ns < _NAME_ACTIVE_STATE_MAX);
+        assert(!(os == NAME_ACTIVE && ns == NAME_ACTIVATING));
+        assert(!(os == NAME_INACTIVE && ns == NAME_DEACTIVATING));
+
+        if (os == ns)
+                return 0;
+
+        if (n->meta.job) {
+
+                if (n->meta.job->state == JOB_WAITING)
+
+                        /* So we reached a different state for this
+                         * job. Let's see if we can run it now if it
+                         * failed previously due to EAGAIN. */
+                        job_run_and_invalidate(n->meta.job);
+
+                else {
+                        assert(n->meta.job->state == JOB_RUNNING);
+
+                        /* Let's check of this state change
+                         * constitutes a finished job, or maybe
+                         * cotradicts a running job and hence needs to
+                         * invalidate jobs. */
+
+                        switch (n->meta.job->type) {
+
+                                case JOB_START:
+                                case JOB_VERIFY_ACTIVE:
+
+                                        if (NAME_IS_ACTIVE_OR_RELOADING(ns))
+                                                return job_finish_and_invalidate(n->meta.job, true);
+                                        else if (ns == NAME_ACTIVATING)
+                                                return 0;
+                                        else
+                                                job_finish_and_invalidate(n->meta.job, false);
+
+                                        break;
+
+                                case JOB_RELOAD:
+                                case JOB_RELOAD_OR_START:
+
+                                        if (ns == NAME_ACTIVE)
+                                                return job_finish_and_invalidate(n->meta.job, true);
+                                        else if (ns == NAME_ACTIVATING || ns == NAME_ACTIVE_RELOADING)
+                                                return 0;
+                                        else
+                                                job_finish_and_invalidate(n->meta.job, false);
+
+                                        break;
+
+                                case JOB_STOP:
+                                case JOB_RESTART:
+                                case JOB_TRY_RESTART:
+
+                                        if (ns == NAME_INACTIVE)
+                                                return job_finish_and_invalidate(n->meta.job, true);
+                                        else if (ns == NAME_DEACTIVATING)
+                                                return 0;
+                                        else
+                                                job_finish_and_invalidate(n->meta.job, false);
+
+                                        break;
+
+                                default:
+                                        assert_not_reached("Job type unknown");
+                        }
+                }
+        }
+
+        /* If this state change happened without being requested by a
+         * job, then let's retroactively start or stop dependencies */
+
+        if (NAME_IS_INACTIVE_OR_DEACTIVATING(os) && NAME_IS_ACTIVE_OR_ACTIVATING(ns))
+                retroactively_start_dependencies(n);
+        else if (NAME_IS_ACTIVE_OR_ACTIVATING(os) && NAME_IS_INACTIVE_OR_DEACTIVATING(ns))
+                retroactively_stop_dependencies(n);
+
         return 0;
 }

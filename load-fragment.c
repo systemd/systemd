@@ -89,7 +89,7 @@ static int config_parse_names(
 
                         if (other != name) {
 
-                                if (other->meta.state != NAME_STUB) {
+                                if (other->meta.load_state != NAME_STUB) {
                                         free(t);
                                         return -EEXIST;
                                 }
@@ -176,7 +176,7 @@ static int config_parse_type(
 
 int name_load_fragment(Name *n) {
 
-        const char *const section_table[_NAME_TYPE_MAX] = {
+        static const char* const section_table[_NAME_TYPE_MAX] = {
                 [NAME_SERVICE]   = "Service",
                 [NAME_TIMER]     = "Timer",
                 [NAME_SOCKET]    = "Socket",
@@ -211,7 +211,7 @@ int name_load_fragment(Name *n) {
         const char *sections[3];
 
         assert(n);
-        assert(n->meta.state == NAME_STUB);
+        assert(n->meta.load_state == NAME_STUB);
 
         sections[0] = "Meta";
         sections[1] = section_table[n->meta.type];

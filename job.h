@@ -9,8 +9,8 @@
 typedef struct Job Job;
 typedef struct JobDependency JobDependency;
 typedef enum JobType JobType;
-typedef enum JobMode JobMode;
 typedef enum JobState JobState;
+typedef enum JobMode JobMode;
 
 #include "manager.h"
 #include "name.h"
@@ -18,13 +18,20 @@ typedef enum JobState JobState;
 #include "list.h"
 
 enum JobType {
-        JOB_START,
+        JOB_START,                  /* if a name does not support being started, we'll just wait until it becomes active */
+        JOB_VERIFY_ACTIVE,
+
         JOB_STOP,
-        JOB_VERIFY_STARTED,
-        JOB_RELOAD,          /* reload if running */
-        JOB_RELOAD_OR_START, /* reload if running, start if not running */
-        JOB_RESTART,         /* stop if running, then start unconditionally */
-        JOB_TRY_RESTART,     /* stop and start if running */
+
+        JOB_RELOAD,                 /* if running reload */
+        JOB_RELOAD_OR_START,        /* if running reload, if not running start */
+
+        /* Note that restarts are first treated like JOB_STOP, but
+         * then instead of finishing are patched to become
+         * JOB_START. */
+        JOB_RESTART,                /* if running stop, then start unconditionally */
+        JOB_TRY_RESTART,            /* if running stop and then start */
+
         _JOB_TYPE_MAX,
         _JOB_TYPE_INVALID = -1
 };
@@ -32,7 +39,6 @@ enum JobType {
 enum JobState {
         JOB_WAITING,
         JOB_RUNNING,
-        JOB_DONE,
         _JOB_STATE_MAX
 };
 
@@ -66,6 +72,7 @@ struct Job {
 
         bool linked:1;
         bool matters_to_anchor:1;
+        bool forced:1;
 
         /* These fields are used only while building a transaction */
         Job *transaction_next, *transaction_prev;
@@ -73,7 +80,7 @@ struct Job {
         JobDependency *subject_list;
         JobDependency *object_list;
 
-        /* used for graph algs as a "I have been here" marker */
+        /* Used for graph algs as a "I have been here" marker */
         Job* marker;
         unsigned generation;
 };
@@ -92,8 +99,12 @@ int job_merge(Job *j, Job *other);
 
 const char* job_type_to_string(JobType t);
 int job_type_merge(JobType *a, JobType b);
-bool job_type_mergeable(JobType a, JobType b);
+bool job_type_is_mergeable(JobType a, JobType b);
 bool job_type_is_superset(JobType a, JobType b);
 bool job_type_is_conflicting(JobType a, JobType b);
+bool job_type_is_applicable(JobType j, NameType n);
+
+int job_run_and_invalidate(Job *j);
+int job_finish_and_invalidate(Job *j, bool success);
 
 #endif

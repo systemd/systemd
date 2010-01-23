@@ -127,6 +127,7 @@ static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, Job
 
         j->type = t;
         j->state = JOB_WAITING;
+        j->forced = j->forced || other->forced;
 
         j->matters_to_anchor = j->matters_to_anchor || other->matters_to_anchor;
 
@@ -168,7 +169,7 @@ static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, Job
         transaction_delete_job(m, other);
 }
 
-static int delete_one_unmergable_job(Manager *m, Job *j) {
+static int delete_one_unmergeable_job(Manager *m, Job *j) {
         Job *k;
 
         assert(j);
@@ -185,7 +186,7 @@ static int delete_one_unmergable_job(Manager *m, Job *j) {
                         Job *d;
 
                         /* Is this one mergeable? Then skip it */
-                        if (job_type_mergeable(j->type, k->type))
+                        if (job_type_is_mergeable(j->type, k->type))
                                 continue;
 
                         /* Ok, we found two that conflict, let's see if we can
@@ -198,7 +199,7 @@ static int delete_one_unmergable_job(Manager *m, Job *j) {
                                 return -ENOEXEC;
 
                         /* Ok, we can drop one, so let's do so. */
-                        log_debug("Try to fix job merging by deleting job %s", name_id(d->name));
+                        log_debug("Try to fix job merging by deleting job %s/%s", name_id(d->name), job_type_to_string(d->type));
                         transaction_delete_job(m, d);
                         return 0;
                 }
@@ -228,7 +229,7 @@ static int transaction_merge_jobs(Manager *m) {
                          * action. Let's see if we can get rid of one
                          * of them */
 
-                        if ((r = delete_one_unmergable_job(m, j)) >= 0)
+                        if ((r = delete_one_unmergeable_job(m, j)) >= 0)
                                 /* Ok, we managed to drop one, now
                                  * let's ask our callers to call us
                                  * again after garbage collecting */
@@ -248,7 +249,7 @@ static int transaction_merge_jobs(Manager *m) {
                 for (k = j->transaction_next; k; k = k->transaction_next)
                         assert_se(job_type_merge(&t, k->type) == 0);
 
-                /* If an active job is mergable, merge it too */
+                /* If an active job is mergeable, merge it too */
                 if (j->name->meta.job)
                         job_type_merge(&t, j->name->meta.job->type); /* Might fail. Which is OK */
 
@@ -310,7 +311,7 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                             !name_matters_to_anchor(k->name, k)) {
                                 /* Ok, we can drop this one, so let's
                                  * do so. */
-                                log_debug("Breaking order cycle by deleting job %s", name_id(k->name));
+                                log_debug("Breaking order cycle by deleting job %s/%s", name_id(k->name), job_type_to_string(k->type));
                                 transaction_delete_name(m, k->name);
                                 return -EAGAIN;
                         }
@@ -385,8 +386,7 @@ static void transaction_collect_garbage(Manager *m) {
                         if (j->object_list)
                                 continue;
 
-                        log_debug("Garbage collecting job %s", name_id(j->name));
-
+                        log_debug("Garbage collecting job %s/%s", name_id(j->name), job_type_to_string(j->type));
                         transaction_delete_job(m, j);
                         again = true;
                         break;
@@ -442,11 +442,12 @@ static void transaction_minimize_impact(Manager *m) {
                                 /* Would this stop a running service?
                                  * Would this change an existing job?
                                  * If so, let's drop this entry */
-                                if ((j->type != JOB_STOP || name_is_dead(j->name)) &&
+                                if ((j->type != JOB_STOP || NAME_IS_INACTIVE_OR_DEACTIVATING(name_active_state(j->name))) &&
                                     (!j->name->meta.job  || job_type_is_conflicting(j->type, j->name->meta.job->state)))
                                         continue;
 
                                 /* Ok, let's get rid of this */
+                                log_debug("Deleting %s/%s to minimize impact", name_id(j->name), job_type_to_string(j->type));
                                 transaction_delete_job(m, j);
                                 again = true;
                                 break;
@@ -551,7 +552,7 @@ static int transaction_activate(Manager *m, JobMode mode) {
         }
 
         for (;;) {
-                /* Fifth step: let's drop unmergable entries if
+                /* Fifth step: let's drop unmergeable entries if
                  * necessary and possible, merge entries we can
                  * merge */
                 if ((r = transaction_merge_jobs(m)) >= 0)
@@ -565,7 +566,7 @@ static int transaction_activate(Manager *m, JobMode mode) {
                 transaction_collect_garbage(m);
 
                 /* Let's see if the resulting transaction still has
-                 * unmergable entries ... */
+                 * unmergeable entries ... */
         }
 
         /* Seventh step: check whether we can actually apply this */
@@ -587,7 +588,7 @@ rollback:
         return r;
 }
 
-static Job* transaction_add_one_job(Manager *m, JobType type, Name *name, bool *is_new) {
+static Job* transaction_add_one_job(Manager *m, JobType type, Name *name, bool force, bool *is_new) {
         Job *j, *f;
         int r;
 
@@ -628,6 +629,7 @@ static Job* transaction_add_one_job(Manager *m, JobType type, Name *name, bool *
         j->generation = 0;
         j->marker = NULL;
         j->matters_to_anchor = false;
+        j->forced = force;
 
         if (is_new)
                 *is_new = true;
@@ -660,7 +662,9 @@ void manager_transaction_unlink_job(Manager *m, Job *j) {
                 job_dependency_free(j->object_list);
 
                 if (other) {
-                        log_debug("Deleting job %s as dependency of job %s", name_id(other->name), name_id(j->name));
+                        log_debug("Deleting job %s/%s as dependency of job %s/%s",
+                                  name_id(other->name), job_type_to_string(other->type),
+                                  name_id(j->name), job_type_to_string(j->type));
                         transaction_delete_job(m, other);
                 }
         }
@@ -677,14 +681,14 @@ static int transaction_add_job_and_dependencies(Manager *m, JobType type, Name *
         assert(type < _JOB_TYPE_MAX);
         assert(name);
 
-        if (name->meta.state != NAME_LOADED)
+        if (name->meta.load_state != NAME_LOADED)
                 return -EINVAL;
 
-        if (!job_type_applicable(type, name->meta.type))
+        if (!job_type_is_applicable(type, name->meta.type))
                 return -EBADR;
 
         /* First add the job. */
-        if (!(ret = transaction_add_one_job(m, type, name, &is_new)))
+        if (!(ret = transaction_add_one_job(m, type, name, force, &is_new)))
                 return -ENOMEM;
 
         /* Then, add a link to the job. */
@@ -704,10 +708,10 @@ static int transaction_add_job_and_dependencies(Manager *m, JobType type, Name *
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, force, NULL)) != -EBADR)
                                         goto fail;
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_REQUISITE], state)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_STARTED, dep, ret, true, force, NULL)) != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, force, NULL)) != -EBADR)
                                         goto fail;
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_SOFT_REQUISITE], state)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_STARTED, dep, ret, !force, force, NULL)) != -EBADR)
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !force, force, NULL)) != -EBADR)
                                         goto fail;
                         SET_FOREACH(dep, ret->name->meta.dependencies[NAME_CONFLICTS], state)
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, force, NULL)) != -EBADR)
