@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/epoll.h>
 
 #include "set.h"
 #include "name.h"
@@ -11,7 +12,7 @@
 #include "load-fragment.h"
 #include "load-dropin.h"
 
-static const NameVTable * const name_vtable[_NAME_TYPE_MAX] = {
+const NameVTable * const name_vtable[_NAME_TYPE_MAX] = {
         [NAME_SERVICE] = &service_vtable,
         [NAME_TIMER] = &timer_vtable,
         [NAME_SOCKET] = &socket_vtable,
@@ -21,8 +22,6 @@ static const NameVTable * const name_vtable[_NAME_TYPE_MAX] = {
         [NAME_AUTOMOUNT] = &automount_vtable,
         [NAME_SNAPSHOT] = &snapshot_vtable
 };
-
-#define NAME_VTABLE(n) name_vtable[(n)->meta.type]
 
 NameType name_type_from_string(const char *n) {
         NameType t;
@@ -699,4 +698,42 @@ void name_notify(Name *n, NameActiveState os, NameActiveState ns) {
                 retroactively_start_dependencies(n);
         else if (NAME_IS_ACTIVE_OR_ACTIVATING(os) && NAME_IS_INACTIVE_OR_DEACTIVATING(ns))
                 retroactively_stop_dependencies(n);
+}
+
+int name_watch_fd(Name *n, int fd, uint32_t events) {
+        struct epoll_event ev;
+
+        assert(n);
+        assert(fd >= 0);
+
+        zero(ev);
+        ev.data.fd = fd;
+        ev.data.ptr = n;
+        ev.events = events;
+
+        if (epoll_ctl(n->meta.manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
+                return -errno;
+
+        return 0;
+}
+
+void name_unwatch_fd(Name *n, int fd) {
+        assert(n);
+        assert(fd >= 0);
+
+        assert_se(epoll_ctl(n->meta.manager->epoll_fd, EPOLL_CTL_DEL, fd, NULL) >= 0 || errno == ENOENT);
+}
+
+int name_watch_pid(Name *n, pid_t pid) {
+        assert(n);
+        assert(pid >= 1);
+
+        return hashmap_put(n->meta.manager->watch_pids, UINT32_TO_PTR(pid), n);
+}
+
+void name_unwatch_pid(Name *n, pid_t pid) {
+        assert(n);
+        assert(pid >= 1);
+
+        hashmap_remove(n->meta.manager->watch_pids, UINT32_TO_PTR(pid));
 }

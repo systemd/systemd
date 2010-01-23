@@ -44,6 +44,8 @@ int main(int argc, char *argv[]) {
 
         manager_run_jobs(m);
 
+        manager_loop(m);
+
         retval = 0;
 
 finish:

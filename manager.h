@@ -35,7 +35,10 @@ struct Manager {
 
         bool dispatching_load_queue:1;
 
-        Hashmap *pids;  /* pid => Name object n:1 */
+        Hashmap *watch_pids;  /* pid => Name object n:1 */
+
+        int epoll_fd;
+        int signal_fd;
 };
 
 Manager* manager_new(void);
@@ -55,5 +58,6 @@ void manager_transaction_unlink_job(Manager *m, Job *j);
 void manager_clear_jobs(Manager *m);
 
 void manager_run_jobs(Manager *m);
+int manager_loop(Manager *m);
 
 #endif

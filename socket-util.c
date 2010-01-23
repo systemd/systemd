@@ -21,7 +21,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
         assert(a);
         assert(s);
 
-        memset(a, 0, sizeof(*a));
+        zero(*a);
         a->type = SOCK_STREAM;
 
         if (*s == '[') {

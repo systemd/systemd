@@ -3,6 +3,12 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
+#include <sys/epoll.h>
+#include <signal.h>
+#include <sys/signalfd.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <sys/poll.h>
 
 #include "manager.h"
 #include "hashmap.h"
@@ -12,9 +18,13 @@
 
 Manager* manager_new(void) {
         Manager *m;
+        sigset_t mask;
+        struct epoll_event ev;
 
         if (!(m = new0(Manager, 1)))
                 return NULL;
+
+        m->signal_fd = m->epoll_fd = -1;
 
         if (!(m->names = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
@@ -23,6 +33,26 @@ Manager* manager_new(void) {
                 goto fail;
 
         if (!(m->transaction_jobs = hashmap_new(trivial_hash_func, trivial_compare_func)))
+                goto fail;
+
+        if (!(m->watch_pids = hashmap_new(trivial_hash_func, trivial_compare_func)))
+                goto fail;
+
+        if ((m->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
+                goto fail;
+
+        assert_se(sigemptyset(&mask) == 0);
+        assert_se(sigaddset(&mask, SIGCHLD) == 0);
+        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
+
+        if ((m->signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC)) < 0)
+                goto fail;
+
+        zero(ev);
+        ev.events = EPOLLIN;
+        ev.data.fd = m->signal_fd;
+
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->signal_fd, &ev) < 0)
                 goto fail;
 
         return m;
@@ -47,6 +77,12 @@ void manager_free(Manager *m) {
         hashmap_free(m->names);
         hashmap_free(m->jobs);
         hashmap_free(m->transaction_jobs);
+        hashmap_free(m->watch_pids);
+
+        if (m->epoll_fd >= 0)
+                close_nointr(m->epoll_fd);
+        if (m->signal_fd >= 0)
+                close_nointr(m->signal_fd);
 
         free(m);
 }
@@ -890,5 +926,97 @@ void manager_run_jobs(Manager *m) {
 
         HASHMAP_FOREACH(j, m->jobs, state) {
                 r = job_run_and_invalidate(j);
+
+                /* FIXME... the list of jobs might have changed */
+        }
+}
+
+int manager_dispatch_sigchld(Manager *m) {
+        assert(m);
+
+        for (;;) {
+                siginfo_t si;
+                Name *n;
+
+                zero(si);
+                if (waitid(P_ALL, 0, &si, WNOHANG) < 0)
+                        return -errno;
+
+                if (si.si_pid == 0)
+                        break;
+
+                if (!(n = hashmap_remove(m->watch_pids, UINT32_TO_PTR(si.si_pid))))
+                        continue;
+
+                NAME_VTABLE(n)->sigchld_event(n, si.si_pid, si.si_code, si.si_status);
+        }
+
+        return 0;
+}
+
+int manager_process_signal_fd(Manager *m) {
+        ssize_t n;
+        struct signalfd_siginfo sfsi;
+        bool sigchld = false;
+
+        assert(m);
+
+        for (;;) {
+                if ((n = read(m->signal_fd, &sfsi, sizeof(sfsi))) != sizeof(sfsi)) {
+
+                        if (n >= 0)
+                                return -EIO;
+
+                        if (errno == EAGAIN)
+                                return 0;
+
+                        return -errno;
+                }
+
+                if (sfsi.ssi_signo == SIGCHLD)
+                        sigchld = true;
+        }
+
+        if (sigchld)
+                manager_dispatch_sigchld(m);
+
+        return 0;
+}
+
+int manager_loop(Manager *m) {
+        int r;
+        struct epoll_event events[32];
+
+        assert(m);
+
+        for (;;) {
+                int n, i;
+
+                if ((n = epoll_wait(m->epoll_fd, events, ELEMENTSOF(events), -1)) < 0) {
+
+                        if (errno == -EINTR)
+                                continue;
+
+                        return -errno;
+                }
+
+                for (i = 0; i < n; i++) {
+
+                        if (events[i].data.fd == m->signal_fd) {
+
+                                /* An incoming signal? */
+                                if (events[i].events != POLLIN)
+                                        return -EINVAL;
+
+                                if ((r = manager_process_signal_fd(m)) < 0)
+                                        return -r;
+                        } else {
+                                Name *n;
+
+                                /* Some other fd event, to be dispatched to the names */
+                                assert_se(n = events[i].data.ptr);
+                                NAME_VTABLE(n)->fd_event(n, events[i].data.fd, events[i].events);
+                        }
+                }
         }
 }

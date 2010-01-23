@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/poll.h>
 
 #include "name.h"
 #include "socket.h"
@@ -124,7 +125,9 @@ static void close_fds(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                close_nointr(p->fd);
+                name_unwatch_fd(NAME(s), p->fd);
+                assert_se(close_nointr(p->fd) >= 0);
+
                 p->fd = -1;
         }
 }
@@ -185,6 +188,9 @@ static int socket_start(Name *n) {
                                 goto rollback;
                         }
                 }
+
+                if ((r = name_watch_fd(n, p->fd, POLLIN)) < 0)
+                        goto rollback;
         }
 
         socket_set_state(s, SOCKET_LISTENING);
@@ -231,6 +237,23 @@ static NameActiveState socket_active_state(Name *n) {
         return state_table[SOCKET(n)->state];
 }
 
+static void socket_fd_event(Name *n, int fd, uint32_t events) {
+        Socket *s = SOCKET(n);
+
+        assert(n);
+
+        if (events != POLLIN)
+                goto fail;
+
+        log_info("POLLIN on %s", name_id(n));
+
+        return;
+
+fail:
+        close_fds(s);
+        socket_set_state(s, SOCKET_MAINTAINANCE);
+}
+
 static void socket_free_hook(Name *n) {
         SocketExecCommand c;
         Socket *s = SOCKET(n);
@@ -267,6 +290,8 @@ const NameVTable socket_vtable = {
         .reload = NULL,
 
         .active_state = socket_active_state,
+
+        .fd_event = socket_fd_event,
 
         .free_hook = socket_free_hook
 };

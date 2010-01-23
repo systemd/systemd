@@ -18,7 +18,8 @@ typedef struct ExecContext ExecContext;
 struct ExecStatus {
         pid_t pid;
         time_t timestamp;
-        int status; /* as in wait() */
+        int code;     /* as in siginfo_t::si_code */
+        int status;   /* as in sigingo_t::si_status */
 };
 
 struct ExecCommand {

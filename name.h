@@ -140,8 +140,15 @@ struct NameVTable {
          * a simpler one that the engine can understand */
         NameActiveState (*active_state)(Name *n);
 
+        void (*fd_event)(Name *n, int fd, uint32_t events);
+        void (*sigchld_event)(Name *n, pid_t pid, int code, int status);
+
         void (*free_hook)(Name *n);
 };
+
+extern const NameVTable * const name_vtable[_NAME_TYPE_MAX];
+
+#define NAME_VTABLE(n) name_vtable[(n)->meta.type]
 
 /* For casting a name into the various name types */
 #define DEFINE_CAST(UPPERCASE, MixedCase)                               \
@@ -190,5 +197,11 @@ int name_stop(Name *n);
 int name_reload(Name *n);
 
 void name_notify(Name *n, NameActiveState os, NameActiveState ns);
+
+int name_watch_fd(Name *n, int fd, uint32_t events);
+void name_unwatch_fd(Name *n, int fd);
+
+int name_watch_pid(Name *n, pid_t pid);
+void name_unwatch_pid(Name *n, pid_t pid);
 
 #endif
