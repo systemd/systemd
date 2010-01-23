@@ -2,5 +2,5 @@
 Description=Syslog Socket
 
 [Socket]
-Listen=/dev/log
-Type=dgram
+ListenDatagram=/dev/log
+ListenStream=eth0:4711

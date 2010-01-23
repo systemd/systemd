@@ -6,6 +6,7 @@
 typedef struct Socket Socket;
 
 #include "name.h"
+#include "socket-util.h"
 
 typedef enum SocketState {
         SOCKET_DEAD,
@@ -27,14 +28,34 @@ typedef enum SocketExecCommand {
         _SOCKET_EXEC_MAX
 } SocketExecCommand;
 
+typedef enum SocketType {
+        SOCKET_SOCKET,
+        SOCKET_FIFO
+} SocketType;
+
+typedef struct SocketPort SocketPort;
+
+struct SocketPort {
+        SocketType type;
+
+        SocketAddress address;
+        char *path;
+
+        int fd;
+
+        LIST_FIELDS(SocketPort);
+};
+
 struct Socket {
         Meta meta;
 
         SocketState state;
 
-        Address address;
-        int *fds;
-        unsigned n_fds;
+        LIST_HEAD(SocketPort, ports);
+
+        /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
+        bool bind_ipv6_only;
+        unsigned backlog;
 
         ExecCommand* exec_command[_SOCKET_EXEC_MAX];
         ExecContext exec_context;

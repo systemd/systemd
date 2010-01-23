@@ -10,7 +10,7 @@
 #include "macro.h"
 #include "util.h"
 
-typedef struct Address {
+typedef struct SocketAddress {
         union {
                 struct sockaddr sa;
                 struct sockaddr_in in4;
@@ -25,16 +25,19 @@ typedef struct Address {
 
         /* Socket type, i.e. SOCK_STREAM, SOCK_DGRAM, ... */
         int type;
+} SocketAddress;
 
-        /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
-        bool bind_ipv6_only;
-} Address;
+typedef enum SocketAddressBindIPv6Only {
+        SOCKET_ADDRESS_DEFAULT,
+        SOCKET_ADDRESS_BOTH,
+        SOCKET_ADDRESS_IPV6_ONLY
+} SocketAddressBindIPv6Only;
 
-#define address_family(a) ((a)->sockaddr.sa.sa_family)
+#define socket_address_family(a) ((a)->sockaddr.sa.sa_family)
 
-int address_parse(Address *a, const char *s);
-int address_print(const Address *a, char **p);
-int address_verify(const Address *a);
-int address_listen(const Address *a, int backlog);
+int socket_address_parse(SocketAddress *a, const char *s);
+int socket_address_print(const SocketAddress *a, char **p);
+int socket_address_verify(const SocketAddress *a);
+int socket_address_listen(const SocketAddress *a, int backlog, SocketAddressBindIPv6Only only);
 
 #endif

@@ -132,21 +132,57 @@ static int config_parse_listen(
                 void *userdata) {
 
         int r;
+        SocketPort *p;
+        Socket *s;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if ((r = address_parse(data, rvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse address value: %s", filename, line, rvalue);
-                return r;
+        s = (Socket*) data;
+
+        if (!(p = new0(SocketPort, 1)))
+                return -ENOMEM;
+
+        if (streq(lvalue, "ListenFIFO")) {
+                p->type = SOCKET_FIFO;
+
+                if (!(p->path = strdup(rvalue))) {
+                        free(p);
+                        return -ENOMEM;
+                }
+        } else {
+                p->type = SOCKET_SOCKET;
+
+                if ((r = socket_address_parse(&p->address, rvalue)) < 0) {
+                        log_error("[%s:%u] Failed to parse address value: %s", filename, line, rvalue);
+                        free(p);
+                        return r;
+                }
+
+                if (streq(lvalue, "ListenStream"))
+                        p->address.type = SOCK_STREAM;
+                else if (streq(lvalue, "ListenDatagram"))
+                        p->address.type = SOCK_DGRAM;
+                else {
+                        assert(streq(lvalue, "ListenSequentialPacket"));
+                        p->address.type = SOCK_SEQPACKET;
+                }
+
+                if (socket_address_family(&p->address) != AF_LOCAL && p->address.type == SOCK_SEQPACKET) {
+                        free(p);
+                        return -EPROTONOSUPPORT;
+                }
         }
+
+        p->fd = -1;
+        LIST_PREPEND(SocketPort, s->ports, p);
 
         return 0;
 }
 
-static int config_parse_type(
+static int config_parse_bind(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -155,21 +191,22 @@ static int config_parse_type(
                 void *data,
                 void *userdata) {
 
-        int *type = data;
+        int r;
+        Socket *s;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (streq(rvalue, "stream"))
-                *type = SOCK_STREAM;
-        else if (streq(rvalue, "dgram"))
-                *type = SOCK_DGRAM;
-        else {
-                log_error("[%s:%u] Failed to parse socket type value: %s", filename, line, rvalue);
-                return -EINVAL;
+        s = (Socket*) data;
+
+        if ((r = parse_boolean(rvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse bind IPv6 only value: %s", filename, line, rvalue);
+                return r;
         }
+
+        s->bind_ipv6_only = r ? SOCKET_ADDRESS_IPV6_ONLY : SOCKET_ADDRESS_BOTH;
 
         return 0;
 }
@@ -188,18 +225,22 @@ int name_load_fragment(Name *n) {
         };
 
         const ConfigItem items[] = {
-                { "Names",         config_parse_names,  &n->meta.names,                           "Meta"   },
-                { "Description",   config_parse_string, &n->meta.description,                     "Meta"   },
-                { "Requires",      config_parse_deps,   n->meta.dependencies+NAME_REQUIRES,       "Meta"   },
-                { "SoftRequires",  config_parse_deps,   n->meta.dependencies+NAME_SOFT_REQUIRES,  "Meta"   },
-                { "Wants",         config_parse_deps,   n->meta.dependencies+NAME_WANTS,          "Meta"   },
-                { "Requisite",     config_parse_deps,   n->meta.dependencies+NAME_REQUISITE,      "Meta"   },
-                { "SoftRequisite", config_parse_deps,   n->meta.dependencies+NAME_SOFT_REQUISITE, "Meta"   },
-                { "Conflicts",     config_parse_deps,   n->meta.dependencies+NAME_CONFLICTS,      "Meta"   },
-                { "Before",        config_parse_deps,   n->meta.dependencies+NAME_BEFORE,         "Meta"   },
-                { "After",         config_parse_deps,   n->meta.dependencies+NAME_AFTER,          "Meta"   },
-                { "Listen",        config_parse_listen, &n->socket.address,                       "Socket" },
-                { "Type",          config_parse_type,   &n->socket.address.type,                  "Socket" },
+                { "Names",                  config_parse_names,    &n->meta.names,                           "Meta"   },
+                { "Description",            config_parse_string,   &n->meta.description,                     "Meta"   },
+                { "Requires",               config_parse_deps,     n->meta.dependencies+NAME_REQUIRES,       "Meta"   },
+                { "SoftRequires",           config_parse_deps,     n->meta.dependencies+NAME_SOFT_REQUIRES,  "Meta"   },
+                { "Wants",                  config_parse_deps,     n->meta.dependencies+NAME_WANTS,          "Meta"   },
+                { "Requisite",              config_parse_deps,     n->meta.dependencies+NAME_REQUISITE,      "Meta"   },
+                { "SoftRequisite",          config_parse_deps,     n->meta.dependencies+NAME_SOFT_REQUISITE, "Meta"   },
+                { "Conflicts",              config_parse_deps,     n->meta.dependencies+NAME_CONFLICTS,      "Meta"   },
+                { "Before",                 config_parse_deps,     n->meta.dependencies+NAME_BEFORE,         "Meta"   },
+                { "After",                  config_parse_deps,     n->meta.dependencies+NAME_AFTER,          "Meta"   },
+                { "ListenStream",           config_parse_listen,   &n->socket,                               "Socket" },
+                { "ListenDatagram",         config_parse_listen,   &n->socket,                               "Socket" },
+                { "ListenSequentialPacket", config_parse_listen,   &n->socket,                               "Socket" },
+                { "ListenFIFO",             config_parse_listen,   &n->socket,                               "Socket" },
+                { "BindIPv6Only",           config_parse_bind,     &n->socket,                               "Socket" },
+                { "Backlog",                config_parse_unsigned, &n->socket.backlog,                       "Socket" },
                 { NULL, NULL, NULL, NULL }
         };
 

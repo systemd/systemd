@@ -7,12 +7,13 @@
 #include <stdlib.h>
 #include <arpa/inet.h>
 #include <stdio.h>
+#include <net/if.h>
 
 #include "macro.h"
 #include "util.h"
 #include "socket-util.h"
 
-int address_parse(Address *a, const char *s) {
+int socket_address_parse(SocketAddress *a, const char *s) {
         int r;
         char *e, *n;
         unsigned u;
@@ -21,6 +22,7 @@ int address_parse(Address *a, const char *s) {
         assert(s);
 
         memset(a, 0, sizeof(*a));
+        a->type = SOCK_STREAM;
 
         if (*s == '[') {
                 /* IPv6 in [x:.....:z]:p notation */
@@ -53,7 +55,6 @@ int address_parse(Address *a, const char *s) {
                 a->sockaddr.in6.sin6_family = AF_INET6;
                 a->sockaddr.in6.sin6_port = htons((uint16_t) u);
                 a->size = sizeof(struct sockaddr_in6);
-                a->bind_ipv6_only = true;
 
         } else if (*s == '/') {
                 /* AF_UNIX socket */
@@ -83,29 +84,46 @@ int address_parse(Address *a, const char *s) {
         } else {
 
                 if ((e = strchr(s, ':'))) {
+                        int r;
 
-                        /* IPv4 in w.x.y.z:p notation */
-                        if (!(n = strndup(s, e-s)))
-                                return -ENOMEM;
-
-                        errno = 0;
-                        if (inet_pton(AF_INET, n, &a->sockaddr.in4.sin_addr) <= 0) {
-                                free(n);
-                                return errno != 0 ? -errno : -EINVAL;
-                        }
-
-                        free(n);
-
-                        e++;
-                        if ((r = safe_atou(e, &u)) < 0)
+                        if ((r = safe_atou(e+1, &u)) < 0)
                                 return r;
 
                         if (u <= 0 || u > 0xFFFF)
                                 return -EINVAL;
 
-                        a->sockaddr.in4.sin_family = AF_INET;
-                        a->sockaddr.in4.sin_port = htons((uint16_t) u);
-                        a->size = sizeof(struct sockaddr_in);
+                        if (!(n = strndup(s, e-s)))
+                                return -ENOMEM;
+
+                        /* IPv4 in w.x.y.z:p notation? */
+                        if ((r = inet_pton(AF_INET, n, &a->sockaddr.in4.sin_addr)) < 0) {
+                                free(n);
+                                return -errno;
+                        }
+
+                        if (r > 0) {
+                                /* Gotcha, it's a traditional IPv4 address */
+                                free(n);
+
+                                a->sockaddr.in4.sin_family = AF_INET;
+                                a->sockaddr.in4.sin_port = htons((uint16_t) u);
+                                a->size = sizeof(struct sockaddr_in);
+                        } else {
+                                unsigned idx;
+
+                                /* Uh, our last resort, an interface name */
+                                idx = if_nametoindex(n);
+                                free(n);
+
+                                if (n == 0)
+                                        return -EINVAL;
+
+                                a->sockaddr.in6.sin6_family = AF_INET6;
+                                a->sockaddr.in6.sin6_port = htons((uint16_t) u);
+                                a->sockaddr.in6.sin6_scope_id = idx;
+                                memcpy(&a->sockaddr.in6.sin6_addr, &in6addr_any, INET6_ADDRSTRLEN);
+                                a->size = sizeof(struct sockaddr_in6);
+                        }
                 } else {
 
                         /* Just a port */
@@ -116,8 +134,8 @@ int address_parse(Address *a, const char *s) {
                                 return -EINVAL;
 
                         a->sockaddr.in6.sin6_family = AF_INET6;
-                        memcpy(&a->sockaddr.in6.sin6_addr, &in6addr_any, INET6_ADDRSTRLEN);
                         a->sockaddr.in6.sin6_port = htons((uint16_t) u);
+                        memcpy(&a->sockaddr.in6.sin6_addr, &in6addr_any, INET6_ADDRSTRLEN);
                         a->size = sizeof(struct sockaddr_in6);
                 }
         }
@@ -125,10 +143,10 @@ int address_parse(Address *a, const char *s) {
         return 0;
 }
 
-int address_verify(const Address *a) {
+int socket_address_verify(const SocketAddress *a) {
         assert(a);
 
-        switch (address_family(a)) {
+        switch (socket_address_family(a)) {
                 case AF_INET:
                         if (a->size != sizeof(struct sockaddr_in))
                                 return -EINVAL;
@@ -176,15 +194,15 @@ int address_verify(const Address *a) {
         }
 }
 
-int address_print(const Address *a, char **p) {
+int socket_address_print(const SocketAddress *a, char **p) {
         int r;
         assert(a);
         assert(p);
 
-        if ((r = address_verify(a)) < 0)
+        if ((r = socket_address_verify(a)) < 0)
                 return r;
 
-        switch (address_family(a)) {
+        switch (socket_address_family(a)) {
                 case AF_INET: {
                         char *ret;
 
@@ -256,15 +274,24 @@ int address_print(const Address *a, char **p) {
         }
 }
 
-int address_listen(const Address *a, int backlog) {
+int socket_address_listen(const SocketAddress *a, int backlog, SocketAddressBindIPv6Only only) {
         int r, fd;
         assert(a);
 
-        if ((r = address_verify(a)) < 0)
+        if ((r = socket_address_verify(a)) < 0)
                 return r;
 
-        if ((fd = socket(address_family(a), a->type, 0)) < 0)
+        if ((fd = socket(socket_address_family(a), a->type | SOCK_NONBLOCK | SOCK_CLOEXEC, 0)) < 0)
                 return -errno;
+
+        if (socket_address_family(a) == AF_INET6 && only != SOCKET_ADDRESS_DEFAULT) {
+                int flag = only == SOCKET_ADDRESS_IPV6_ONLY;
+
+                if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &flag, sizeof(flag)) < 0) {
+                        close_nointr(fd);
+                        return -errno;
+                }
+        }
 
         if (bind(fd, &a->sockaddr.sa, a->size) < 0) {
                 close_nointr(fd);
@@ -276,15 +303,6 @@ int address_listen(const Address *a, int backlog) {
                         close_nointr(fd);
                         return -errno;
                 }
-
-        if (address_family(a) == AF_INET6) {
-                int flag = a->bind_ipv6_only;
-
-                if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &flag, sizeof(flag)) < 0) {
-                        close_nointr(fd);
-                        return -errno;
-                }
-        }
 
         return 0;
 }

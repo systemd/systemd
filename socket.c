@@ -7,8 +7,22 @@ static int socket_load(Name *n) {
         Socket *s = SOCKET(n);
 
         exec_context_defaults(&s->exec_context);
+        s->backlog = SOMAXCONN;
 
         return name_load_fragment_and_dropin(n);
+}
+
+static const char* listen_lookup(int type) {
+
+        if (type == SOCK_STREAM)
+                return "ListenStream";
+        else if (type == SOCK_DGRAM)
+                return "ListenDatagram";
+        else if (type == SOCK_SEQPACKET)
+                return "ListenSequentialPacket";
+
+        assert_not_reached("Unkown socket type");
+        return NULL;
 }
 
 static void socket_dump(Name *n, FILE *f, const char *prefix) {
@@ -33,24 +47,35 @@ static void socket_dump(Name *n, FILE *f, const char *prefix) {
 
         SocketExecCommand c;
         Socket *s = SOCKET(n);
-        const char *t;
-        int r;
-        char *k;
+        SocketPort *p;
 
         assert(s);
 
-        if ((r = address_print(&n->socket.address, &k)) < 0)
-                t = strerror(-r);
-        else
-                t = k;
-
         fprintf(f,
                 "%sSocket State: %s\n"
-                "%sAddress: %s\n",
+                "%sBindIPv6Only: %s\n"
+                "%sBacklog: %u\n",
                 prefix, state_table[s->state],
-                prefix, t);
+                prefix, yes_no(s->bind_ipv6_only),
+                prefix, s->backlog);
 
-        free(k);
+        LIST_FOREACH(p, s->ports) {
+
+                if (p->type == SOCKET_SOCKET) {
+                        const char *t;
+                        int r;
+                        char *k;
+
+                        if ((r = socket_address_print(&p->address, &k)) < 0)
+                                t = strerror(-r);
+                        else
+                                t = k;
+
+                        fprintf(f, "%s%s: %s\n", prefix, listen_lookup(p->address.type), k);
+                        free(k);
+                } else
+                        fprintf(f, "%sListenFIFO: %s\n", prefix, p->path);
+        }
 
         exec_context_dump(&s->exec_context, f, prefix);
 
@@ -60,6 +85,14 @@ static void socket_dump(Name *n, FILE *f, const char *prefix) {
                 LIST_FOREACH(i, s->exec_command[c])
                         fprintf(f, "%s%s: %s\n", prefix, command_table[c], i->path);
         }
+}
+
+static int socket_start(Name *n) {
+        return 0;
+}
+
+static int socket_stop(Name *n) {
+        return 0;
 }
 
 static NameActiveState socket_active_state(Name *n) {
@@ -79,14 +112,20 @@ static NameActiveState socket_active_state(Name *n) {
 }
 
 static void socket_free_hook(Name *n) {
-        unsigned i;
         SocketExecCommand c;
         Socket *s = SOCKET(n);
+        SocketPort *p;
 
         assert(s);
 
-        for (i = 0; i < s->n_fds; i++)
-                close_nointr(s->fds[i]);
+        while ((p = s->ports)) {
+                LIST_REMOVE(SocketPort, s->ports, p);
+
+                if (p->fd >= 0)
+                        close_nointr(p->fd);
+                free(p->path);
+                free(p);
+        }
 
         exec_context_free(&s->exec_context);
 
@@ -103,8 +142,8 @@ const NameVTable socket_vtable = {
         .load = socket_load,
         .dump = socket_dump,
 
-        .start = NULL,
-        .stop = NULL,
+        .start = socket_start,
+        .stop = socket_stop,
         .reload = NULL,
 
         .active_state = socket_active_state,

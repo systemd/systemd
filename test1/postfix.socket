@@ -2,5 +2,5 @@
 Description=Postfix SMTP Socket
 
 [Socket]
-Listen=25
-Type=stream
+ListenStream=25
+ListenFIFO=/dev/test

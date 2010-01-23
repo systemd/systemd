@@ -367,6 +367,7 @@ void name_dump(Name *n, FILE *f, const char *prefix) {
                 [NAME_SOFT_REQUISITE] = "SoftRequisite",
                 [NAME_REQUIRED_BY] = "RequiredBy",
                 [NAME_SOFT_REQUIRED_BY] = "SoftRequiredBy",
+                [NAME_WANTED_BY] = "WantedBy",
                 [NAME_CONFLICTS] = "Conflicts",
                 [NAME_BEFORE] = "Before",
                 [NAME_AFTER] = "After",
