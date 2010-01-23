@@ -73,4 +73,7 @@ static inline size_t ALIGN(size_t l) {
 #define TO_INT32(p) ((int32_t) ((intptr_t) (p)))
 #define INT32_TO_PTR(u) ((void*) ((intptr_t) (u)))
 
+#define memzero(x,l) (memset((x), 0, (l)))
+#define zero(x) (memzero(&(x), sizeof(x)))
+
 #endif
