@@ -32,6 +32,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <sys/ioctl.h>
+#include <linux/limits.h>
 #include <linux/input.h>
 
 const struct key* lookup_key (const char *str, unsigned int len);
