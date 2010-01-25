@@ -143,12 +143,8 @@ udev_udevadm_SOURCES = \
 udev_udevadm_LDADD = libudev/libudev-private.la
 
 # ------------------------------------------------------------------------------
-# udev docs and man pages
+# udev man pages
 # ------------------------------------------------------------------------------
-writing_udev_rulesdir = $(docdir)/writing_udev_rules
-dist_writing_udev_rules_DATA = \
-	docs/writing_udev_rules/index.html
-
 dist_man_MANS = \
 	udev/udev.7 \
 	udev/udevadm.8 \
