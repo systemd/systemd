@@ -81,6 +81,9 @@ if test "x$enable_extras" = xyes; then
 			AC_MSG_ERROR([pci.ids not found, try --with-pci-ids-path=])
 		fi])
 	AC_SUBST(PCI_DATABASE)
+
+	AC_CHECK_HEADER([linux/input.h], [:], AC_MSG_ERROR([kernel headers not found]))
+	AC_SUBST([INCLUDE_PREFIX], [$(echo '#include <linux/input.h>' | eval $ac_cpp -E - | sed -n '/linux\/input.h/ {s:.*"\(.*\)/linux/input.h".*:\1:; p; q}')])
 fi
 AM_CONDITIONAL([ENABLE_EXTRAS], [test "x$enable_extras" = xyes])
 
@@ -125,6 +128,8 @@ AC_MSG_RESULT([
 	datarootdir:		${datarootdir}
 	mandir:			${mandir}
 	includedir:		${includedir}
+
+	include_prefix:		${INCLUDE_PREFIX}
 
 	logging:		${enable_logging}
 	debug:			${enable_debug}
