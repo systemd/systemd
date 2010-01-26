@@ -150,7 +150,6 @@ struct NameVTable {
         int (*stop)(Name *n);
         int (*reload)(Name *n);
 
-
         bool (*can_reload)(Name *n);
 
         /* Boils down the more complex internal state of this name to
