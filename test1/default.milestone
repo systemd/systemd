@@ -1,4 +1,0 @@
-[Meta]
-Names=multiuser.milestone
-Wants=postfix.socket syslog.socket
-Description=Default Milestone

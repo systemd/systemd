@@ -464,7 +464,7 @@ int name_load_fragment(Name *n) {
                 [NAME_SERVICE]   = "Service",
                 [NAME_TIMER]     = "Timer",
                 [NAME_SOCKET]    = "Socket",
-                [NAME_MILESTONE] = "Milestone",
+                [NAME_TARGET]    = "Target",
                 [NAME_DEVICE]    = "Device",
                 [NAME_MOUNT]     = "Mount",
                 [NAME_AUTOMOUNT] = "Automount",

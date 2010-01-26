@@ -15,8 +15,6 @@
 
 - snapshot system
 
-- s/milestone/target/
-
 - hookup with battery status, suspend/resume
 
 - add a job mode which shuts everything down but what is requested

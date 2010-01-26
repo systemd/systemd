@@ -31,7 +31,7 @@ enum NameType {
         NAME_SERVICE = 0,
         NAME_TIMER,
         NAME_SOCKET,
-        NAME_MILESTONE,
+        NAME_TARGET,
         NAME_DEVICE,
         NAME_MOUNT,
         NAME_AUTOMOUNT,
@@ -121,7 +121,7 @@ struct Meta {
 #include "service.h"
 #include "timer.h"
 #include "socket.h"
-#include "milestone.h"
+#include "target.h"
 #include "device.h"
 #include "mount.h"
 #include "automount.h"
@@ -132,7 +132,7 @@ union Name {
         Service service;
         Timer timer;
         Socket socket;
-        Milestone milestone;
+        Target target;
         Device device;
         Mount mount;
         Automount automount;
@@ -184,7 +184,7 @@ extern const NameVTable * const name_vtable[_NAME_TYPE_MAX];
 DEFINE_CAST(SOCKET, Socket);
 DEFINE_CAST(TIMER, Timer);
 DEFINE_CAST(SERVICE, Service);
-DEFINE_CAST(MILESTONE, Milestone);
+DEFINE_CAST(TARGET, Target);
 DEFINE_CAST(DEVICE, Device);
 DEFINE_CAST(MOUNT, Mount);
 DEFINE_CAST(AUTOMOUNT, Automount);

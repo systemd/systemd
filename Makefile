@@ -17,7 +17,7 @@ COMMON= \
 	automount.o \
 	mount.o \
 	device.o \
-	milestone.o \
+	target.o \
 	snapshot.o \
 	socket.o \
 	timer.o \

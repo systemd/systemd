@@ -10,7 +10,7 @@
 
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
-        Name *milestone = NULL, *syslog = NULL;
+        Name *target = NULL, *syslog = NULL;
         Job *job = NULL;
         int r, retval = 1;
 
@@ -21,8 +21,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if ((r = manager_load_name(m, "default.milestone", &milestone)) < 0) {
-                log_error("Failed to load default milestone: %s", strerror(-r));
+        if ((r = manager_load_name(m, "default.target", &target)) < 0) {
+                log_error("Failed to load default target: %s", strerror(-r));
                 goto finish;
         }
 
@@ -31,8 +31,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if ((r = manager_add_job(m, JOB_START, milestone, JOB_REPLACE, false, &job)) < 0) {
-                log_error("Failed to start default milestone: %s", strerror(-r));
+        if ((r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &job)) < 0) {
+                log_error("Failed to start default target: %s", strerror(-r));
                 goto finish;
         }
 
