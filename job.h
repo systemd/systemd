@@ -69,7 +69,7 @@ struct Job {
         JobType type;
         JobState state;
 
-        bool linked:1;
+        bool installed:1;
         bool in_run_queue:1;
         bool matters_to_anchor:1;
         bool forced:1;

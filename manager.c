@@ -95,7 +95,7 @@ static void transaction_delete_job(Manager *m, Job *j) {
 
         manager_transaction_unlink_job(m, j);
 
-        if (!j->linked)
+        if (!j->installed)
                 job_free(j);
 }
 
@@ -115,7 +115,7 @@ static void transaction_abort(Manager *m) {
         assert(m);
 
         while ((j = hashmap_first(m->transaction_jobs)))
-                if (j->linked)
+                if (j->installed)
                         transaction_delete_job(m, j);
                 else
                         job_free(j);
@@ -162,7 +162,7 @@ static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, Job
         assert(j);
         assert(other);
         assert(j->name == other->name);
-        assert(!j->linked);
+        assert(!j->installed);
 
         /* Merges 'other' into 'j' and then deletes j. */
 
@@ -295,7 +295,7 @@ static int transaction_merge_jobs(Manager *m) {
                         job_type_merge(&t, j->name->meta.job->type); /* Might fail. Which is OK */
 
                 while ((k = j->transaction_next)) {
-                        if (j->linked) {
+                        if (j->installed) {
                                 transaction_merge_and_delete_job(m, k, j, t);
                                 j = k;
                         } else
@@ -348,7 +348,7 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
 
                 for (k = from; k; k = (k->generation == generation ? k->marker : NULL)) {
 
-                        if (!k->linked &&
+                        if (!k->installed &&
                             !name_matters_to_anchor(k->name, k)) {
                                 /* Ok, we can drop this one, so let's
                                  * do so. */
@@ -513,7 +513,7 @@ static int transaction_apply(Manager *m, JobMode mode) {
                 assert(!j->transaction_prev);
                 assert(!j->transaction_next);
 
-                if (j->linked)
+                if (j->installed)
                         continue;
 
                 if ((r = hashmap_put(m->jobs, UINT32_TO_PTR(j->id), j)) < 0)
@@ -521,14 +521,14 @@ static int transaction_apply(Manager *m, JobMode mode) {
         }
 
         while ((j = hashmap_steal_first(m->transaction_jobs))) {
-                if (j->linked)
+                if (j->installed)
                         continue;
 
                 if (j->name->meta.job)
                         job_free(j->name->meta.job);
 
                 j->name->meta.job = j;
-                j->linked = true;
+                j->installed = true;
 
                 /* We're fully installed. Now let's free data we don't
                  * need anymore. */
@@ -549,7 +549,7 @@ static int transaction_apply(Manager *m, JobMode mode) {
 rollback:
 
         HASHMAP_FOREACH(j, m->transaction_jobs, i) {
-                if (j->linked)
+                if (j->installed)
                         continue;
 
                 hashmap_remove(m->jobs, UINT32_TO_PTR(j->id));
@@ -822,7 +822,6 @@ static void dispatch_load_queue(Manager *m) {
          * tries to load its data until the queue is empty */
 
         while ((meta = m->load_queue)) {
-                assert(meta->linked);
                 assert(meta->in_load_queue);
 
                 name_load(NAME(meta));
@@ -855,15 +854,7 @@ int manager_load_name(Manager *m, const char *name, Name **_ret) {
                 return r;
         }
 
-        if ((r = name_link(ret)) < 0) {
-                name_free(ret);
-                return r;
-        }
-
-        /* At this point the new entry is created and linked. However
-         * not loaded. Now load this entry and all its dependencies
-         * recursively */
-
+        name_add_to_load_queue(ret);
         dispatch_load_queue(m);
 
         *_ret = ret;
@@ -914,7 +905,7 @@ void manager_dispatch_run_queue(Manager *m) {
         m->dispatching_run_queue = true;
 
         while ((j = m->run_queue)) {
-                assert(j->linked);
+                assert(j->installed);
                 assert(j->in_run_queue);
 
                 job_run_and_invalidate(j);

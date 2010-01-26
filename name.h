@@ -108,7 +108,6 @@ struct Meta {
          * the job for it */
         Job *job;
 
-        bool linked:1;
         bool in_load_queue:1;
 
         usec_t active_enter_timestamp;
@@ -200,10 +199,8 @@ bool name_is_valid(const char *n);
 
 Name *name_new(Manager *m);
 void name_free(Name *name);
-int name_link(Name *name);
-int name_link_names(Name *name, bool replace);
+void name_add_to_load_queue(Name *n);
 int name_merge(Name *name, Name *other);
-int name_sanitize(Name *n);
 int name_load_fragment_and_dropin(Name *n);
 int name_load(Name *name);
 const char* name_id(Name *n);

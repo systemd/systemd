@@ -30,12 +30,12 @@ void job_free(Job *j) {
         assert(j);
 
         /* Detach from next 'bigger' objects */
-        if (j->linked) {
+        if (j->installed) {
                 if (j->name->meta.job == j)
                         j->name->meta.job = NULL;
 
                 hashmap_remove(j->manager->jobs, UINT32_TO_PTR(j->id));
-                j->linked = false;
+                j->installed = false;
         }
 
         /* Detach from next 'smaller' objects */
@@ -260,7 +260,7 @@ bool job_is_runnable(Job *j) {
         Name *other;
 
         assert(j);
-        assert(j->linked);
+        assert(j->installed);
 
         /* Checks whether there is any job running for the names this
          * job needs to be running after (in the case of a 'positive'
@@ -308,7 +308,9 @@ bool job_is_runnable(Job *j) {
 
 int job_run_and_invalidate(Job *j) {
         int r;
+
         assert(j);
+        assert(j->installed);
 
         if (j->in_run_queue) {
                 LIST_REMOVE(Job, run_queue, j->manager->run_queue, j);
@@ -401,6 +403,7 @@ int job_finish_and_invalidate(Job *j, bool success) {
         Iterator i;
 
         assert(j);
+        assert(j->installed);
 
         /* Patch restart jobs so that they become normal start jobs */
         if (success && (j->type == JOB_RESTART || j->type == JOB_TRY_RESTART)) {
@@ -460,7 +463,7 @@ int job_finish_and_invalidate(Job *j, bool success) {
 
 void job_schedule_run(Job *j) {
         assert(j);
-        assert(j->linked);
+        assert(j->installed);
 
         if (j->in_run_queue)
                 return;

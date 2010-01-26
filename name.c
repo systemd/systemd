@@ -83,8 +83,6 @@ Name *name_new(Manager *m) {
         n->meta.manager = m;
         n->meta.type = _NAME_TYPE_INVALID;
 
-        /* We don't link the name here, that is left for name_link() */
-
         return n;
 }
 
@@ -110,6 +108,12 @@ int name_add_name(Name *n, const char *text) {
                 return r;
         }
 
+        if ((r = hashmap_put(n->meta.manager->names, s, n)) < 0) {
+                set_remove(n->meta.names, s);
+                free(s);
+                return r;
+        }
+
         n->meta.type = t;
 
         if (!n->meta.id)
@@ -118,61 +122,14 @@ int name_add_name(Name *n, const char *text) {
         return 0;
 }
 
-/* FIXME: Does not rollback on failure! */
-int name_link_names(Name *n, bool replace) {
-        char *t;
-        Iterator i;
-        int r;
-
+void name_add_to_load_queue(Name *n) {
         assert(n);
 
-        if (!n->meta.linked)
-                return 0;
+        if (n->meta.load_state != NAME_STUB || n->meta.in_load_queue)
+                return;
 
-        /* Link all names that aren't linked yet. */
-
-        SET_FOREACH(t, n->meta.names, i)
-                if (replace) {
-                        if ((r = hashmap_replace(n->meta.manager->names, t, n)) < 0)
-                                return r;
-                } else {
-                        if ((r = hashmap_put(n->meta.manager->names, t, n)) < 0)
-                                return r;
-                }
-
-        return 0;
-}
-
-int name_link(Name *n) {
-        int r;
-
-        assert(n);
-        assert(!set_isempty(n->meta.names));
-        assert(!n->meta.linked);
-
-        if ((r = name_sanitize(n)) < 0)
-                return r;
-
-        n->meta.linked = true;
-
-        if ((r = name_link_names(n, false)) < 0) {
-                char *t;
-                Iterator i;
-
-                /* Rollback the registered names */
-                SET_FOREACH(t, n->meta.names, i)
-                        hashmap_remove_value(n->meta.manager->names, t, n);
-
-                n->meta.linked = false;
-                return r;
-        }
-
-        if (n->meta.load_state == NAME_STUB) {
-                LIST_PREPEND(Meta, load_queue, n->meta.manager->load_queue, &n->meta);
-                n->meta.in_load_queue = true;
-        }
-
-        return 0;
+        LIST_PREPEND(Meta, load_queue, n->meta.manager->load_queue, &n->meta);
+        n->meta.in_load_queue = true;
 }
 
 static void bidi_set_free(Name *name, Set *s) {
@@ -184,13 +141,11 @@ static void bidi_set_free(Name *name, Set *s) {
         /* Frees the set and makes sure we are dropped from the
          * inverse pointers */
 
-        if (name->meta.linked) {
-                SET_FOREACH(other, s, i) {
-                        NameDependency d;
+        SET_FOREACH(other, s, i) {
+                NameDependency d;
 
-                        for (d = 0; d < _NAME_DEPENDENCY_MAX; d++)
-                                set_remove(other->meta.dependencies[d], name);
-                }
+                for (d = 0; d < _NAME_DEPENDENCY_MAX; d++)
+                        set_remove(other->meta.dependencies[d], name);
         }
 
         set_free(s);
@@ -198,21 +153,18 @@ static void bidi_set_free(Name *name, Set *s) {
 
 void name_free(Name *name) {
         NameDependency d;
+        Iterator i;
         char *t;
 
         assert(name);
 
         /* Detach from next 'bigger' objects */
-        if (name->meta.linked) {
-                char *t;
-                Iterator i;
 
-                SET_FOREACH(t, name->meta.names, i)
-                        hashmap_remove_value(name->meta.manager->names, t, name);
+        SET_FOREACH(t, name->meta.names, i)
+                hashmap_remove_value(name->meta.manager->names, t, name);
 
-                if (name->meta.in_load_queue)
-                        LIST_REMOVE(Meta, load_queue, name->meta.manager->load_queue, &name->meta);
-        }
+        if (name->meta.in_load_queue)
+                LIST_REMOVE(Meta, load_queue, name->meta.manager->load_queue, &name->meta);
 
         if (name->meta.load_state == NAME_LOADED)
                 if (NAME_VTABLE(name)->done)
@@ -284,27 +236,6 @@ int name_merge(Name *name, Name *other) {
                 /* fixme, the inverse mapping is missing */
                 if ((r = ensure_merge(&name->meta.dependencies[d], other->meta.dependencies[d])) < 0)
                         return r;
-
-        /* Hookup new deps and names */
-        if (name->meta.linked) {
-                if ((r = name_sanitize(name)) < 0)
-                        return r;
-
-                if ((r = name_link_names(name, true)) < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-int name_sanitize(Name *n) {
-        NameDependency d;
-
-        assert(n);
-
-        /* Remove loops */
-        for (d = 0; d < _NAME_DEPENDENCY_MAX; d++)
-                set_remove(n->meta.dependencies[d], n);
 
         return 0;
 }
@@ -467,18 +398,8 @@ int name_load(Name *name) {
                 if ((r = NAME_VTABLE(name)->init(name)) < 0)
                         goto fail;
 
-        if ((r = name_sanitize(name)) < 0)
-                goto fail_undo_init;
-
-        if ((r = name_link_names(name, false)) < 0)
-                goto fail_undo_init;
-
         name->meta.load_state = NAME_LOADED;
         return 0;
-
-fail_undo_init:
-        if (NAME_VTABLE(name)->done)
-                NAME_VTABLE(name)->done(name);
 
 fail:
         name->meta.load_state = NAME_FAILED;
@@ -892,6 +813,9 @@ int name_add_dependency(Name *n, NameDependency d, Name *other) {
         assert(d >= 0 && d < _NAME_DEPENDENCY_MAX);
         assert(inverse_table[d] != _NAME_DEPENDENCY_INVALID);
         assert(other);
+
+        if (n == other)
+                return 0;
 
         if ((r = set_ensure_allocated(&n->meta.dependencies[d], trivial_hash_func, trivial_compare_func)) < 0)
                 return r;
