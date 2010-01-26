@@ -44,8 +44,8 @@ static int next_assignment(
                 return t->parse(filename, line, section, lvalue, rvalue, t->data, userdata);
         }
 
-        log_error("[%s:%u] Unknown lvalue '%s' in section '%s'.", filename, line, lvalue, strna(section));
-        return -EBADMSG;
+        log_info("[%s:%u] Unknown lvalue '%s' in section '%s'. Ignoring.", filename, line, lvalue, strna(section));
+        return 0;
 }
 
 /* Returns non-zero when c is contained in s */
