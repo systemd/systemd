@@ -15,7 +15,11 @@ typedef enum SocketState {
         SOCKET_LISTENING,
         SOCKET_RUNNING,
         SOCKET_STOP_PRE,
+        SOCKET_STOP_PRE_SIGTERM,
+        SOCKET_STOP_PRE_SIGKILL,
         SOCKET_STOP_POST,
+        SOCKET_STOP_POST_SIGTERM,
+        SOCKET_STOP_POST_SIGKILL,
         SOCKET_MAINTAINANCE,
         _SOCKET_STATE_MAX
 } SocketState;
@@ -43,13 +47,11 @@ struct SocketPort {
 
         int fd;
 
-        LIST_FIELDS(SocketPort);
+        LIST_FIELDS(SocketPort, port);
 };
 
 struct Socket {
         Meta meta;
-
-        SocketState state;
 
         LIST_HEAD(SocketPort, ports);
 
@@ -57,12 +59,20 @@ struct Socket {
         bool bind_ipv6_only;
         unsigned backlog;
 
+        usec_t timeout_usec;
+
         ExecCommand* exec_command[_SOCKET_EXEC_MAX];
         ExecContext exec_context;
 
+        Service *service;
+
+        SocketState state;
+
+        ExecCommand* control_command;
         pid_t control_pid;
 
-        Service *service;
+        bool failure;
+        int timer_id;
 };
 
 extern const NameVTable socket_vtable;

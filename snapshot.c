@@ -3,11 +3,7 @@
 #include "name.h"
 #include "snapshot.h"
 
-static NameActiveState snapshot_active_state(Name *n) {
-        return SNAPSHOT(n)->state == SNAPSHOT_DEAD ? NAME_INACTIVE : NAME_ACTIVE;
-}
-
-static void snapshot_free_hook(Name *n) {
+static void snapshot_done(Name *n) {
         Snapshot *s = SNAPSHOT(n);
 
         assert(s);
@@ -15,17 +11,14 @@ static void snapshot_free_hook(Name *n) {
         /* Nothing here for now */
 }
 
+static NameActiveState snapshot_active_state(Name *n) {
+        return SNAPSHOT(n)->state == SNAPSHOT_DEAD ? NAME_INACTIVE : NAME_ACTIVE;
+}
+
 const NameVTable snapshot_vtable = {
         .suffix = ".snapshot",
 
-        .load = NULL,
-        .dump = NULL,
+        .done = snapshot_done,
 
-        .start = NULL,
-        .stop = NULL,
-        .reload = NULL,
-
-        .active_state = snapshot_active_state,
-
-        .free_hook = snapshot_free_hook
+        .active_state = snapshot_active_state
 };

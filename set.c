@@ -22,6 +22,10 @@ void set_free(Set* s) {
         hashmap_free(MAKE_HASHMAP(s));
 }
 
+int set_ensure_allocated(Set **s, hash_func_t hash_func, compare_func_t compare_func) {
+        return hashmap_ensure_allocated((Hashmap**) s, hash_func, compare_func);
+}
+
 int set_put(Set *s, void *value) {
         return hashmap_put(MAKE_HASHMAP(s), value, value);
 }
@@ -46,12 +50,16 @@ bool set_isempty(Set *s) {
         return hashmap_isempty(MAKE_HASHMAP(s));
 }
 
-void *set_iterate(Set *s, void **state) {
-        return hashmap_iterate(MAKE_HASHMAP(s), state, NULL);
+void *set_iterate(Set *s, Iterator *i) {
+        return hashmap_iterate(MAKE_HASHMAP(s), i, NULL);
 }
 
-void *set_iterate_backwards(Set *s, void **state) {
-        return hashmap_iterate_backwards(MAKE_HASHMAP(s), state, NULL);
+void *set_iterate_backwards(Set *s, Iterator *i) {
+        return hashmap_iterate_backwards(MAKE_HASHMAP(s), i, NULL);
+}
+
+void *set_iterate_skip(Set *s, void *value, Iterator *i) {
+        return hashmap_iterate_skip(MAKE_HASHMAP(s), value, i);
 }
 
 void *set_steal_first(Set *s) {

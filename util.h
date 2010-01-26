@@ -11,7 +11,11 @@
 
 typedef uint64_t usec_t;
 
-#define USEC_PER_SEC 1000000ULL
+#define MSEC_PER_SEC  1000ULL
+#define USEC_PER_SEC  1000000ULL
+#define USEC_PER_MSEC 1000ULL
+#define NSEC_PER_SEC  1000000000ULL
+#define NSEC_PER_MSEC 1000000ULL
 #define NSEC_PER_USEC 1000ULL
 
 usec_t now(clockid_t clock);
@@ -60,9 +64,26 @@ int parse_boolean(const char *v);
 int safe_atou(const char *s, unsigned *ret_u);
 int safe_atoi(const char *s, int *ret_i);
 
-char *split_spaces(const char *c, size_t *l, char **state);
+int safe_atolu(const char *s, unsigned long *ret_u);
+int safe_atoli(const char *s, long int *ret_i);
 
-#define FOREACH_WORD(word, length, s, state)    \
+int safe_atollu(const char *s, unsigned long long *ret_u);
+int safe_atolli(const char *s, long long int *ret_i);
+
+char *split_spaces(const char *c, size_t *l, char **state);
+char *split_quoted(const char *c, size_t *l, char **state);
+
+#define FOREACH_WORD(word, length, s, state)                            \
         for ((state) = NULL, (word) = split_spaces((s), &(l), &(state)); (word); (word) = split_spaces((s), &(l), &(state)))
+
+#define FOREACH_WORD_QUOTED(word, length, s, state)                     \
+        for ((state) = NULL, (word) = split_quoted((s), &(l), &(state)); (word); (word) = split_quoted((s), &(l), &(state)))
+
+const char *sigchld_code(int code);
+
+pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
+
+int write_one_line_file(const char *fn, const char *line);
+int read_one_line_file(const char *fn, char **line);
 
 #endif

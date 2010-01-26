@@ -115,3 +115,33 @@ fail:
         free(a);
         return NULL;
 }
+
+char **strv_merge(char **a, char **b) {
+        char **r, **k;
+
+        if (!a)
+                return strv_copy(b);
+
+        if (!b)
+                return strv_copy(a);
+
+        if (!(r = new(char*, strv_length(a)+strv_length(b)+1)))
+                return NULL;
+
+        for (k = r; *a; k++, a++)
+                if (!(*k = strdup(*a)))
+                        goto fail;
+        for (; *b; k++, b++)
+                if (!(*k = strdup(*b)))
+                        goto fail;
+
+        *k = NULL;
+        return r;
+
+fail:
+        for (k--; k >= r; k--)
+                free(*k);
+
+        return NULL;
+
+}

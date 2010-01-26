@@ -11,6 +11,11 @@
  * instantiate an object for each Hashmap use. */
 
 typedef struct Hashmap Hashmap;
+typedef struct _IteratorStruct _IteratorStruct;
+typedef _IteratorStruct* Iterator;
+
+#define ITERATOR_FIRST ((Iterator) 0)
+#define ITERATOR_LAST ((Iterator) -1)
 
 typedef unsigned (*hash_func_t)(const void *p);
 typedef int (*compare_func_t)(const void *a, const void *b);
@@ -24,6 +29,7 @@ int trivial_compare_func(const void *a, const void *b);
 Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func);
 void hashmap_free(Hashmap *h);
 Hashmap *hashmap_copy(Hashmap *h);
+int hashmap_ensure_allocated(Hashmap **h, hash_func_t hash_func, compare_func_t compare_func);
 
 int hashmap_put(Hashmap *h, const void *key, void *value);
 int hashmap_replace(Hashmap *h, const void *key, void *value);
@@ -36,21 +42,22 @@ int hashmap_merge(Hashmap *h, Hashmap *other);
 unsigned hashmap_size(Hashmap *h);
 bool hashmap_isempty(Hashmap *h);
 
-void *hashmap_iterate(Hashmap *h, void **state, const void **key);
-void *hashmap_iterate_backwards(Hashmap *h, void **state, const void **key);
+void *hashmap_iterate(Hashmap *h, Iterator *i, const void **key);
+void *hashmap_iterate_backwards(Hashmap *h, Iterator *i, const void **key);
+void *hashmap_iterate_skip(Hashmap *h, const void *key, Iterator *i);
 
 void hashmap_clear(Hashmap *h);
 void *hashmap_steal_first(Hashmap *h);
 void* hashmap_first(Hashmap *h);
 void* hashmap_last(Hashmap *h);
 
-#define HASHMAP_FOREACH(e, h, state) \
-        for ((state) = NULL, (e) = hashmap_iterate((h), &(state), NULL); (e); (e) = hashmap_iterate((h), &(state), NULL))
+#define HASHMAP_FOREACH(e, h, i) \
+        for ((i) = ITERATOR_FIRST, (e) = hashmap_iterate((h), &(i), NULL); (e); (e) = hashmap_iterate((h), &(i), NULL))
 
-#define HASHMAP_FOREACH_KEY(e, k, h, state) \
-        for ((state) = NULL, (e) = hashmap_iterate((h), &(state), (const void**) &(k)); (e); (e) = hashmap_iterate((h), &(state), (const void**) &(k)))
+#define HASHMAP_FOREACH_KEY(e, k, h, i) \
+        for ((i) = ITERATOR_FIRST, (e) = hashmap_iterate((h), &(i), (const void**) &(k)); (e); (e) = hashmap_iterate((h), &(i), (const void**) &(k)))
 
-#define HASHMAP_FOREACH_BACKWARDS(e, h, state) \
-        for ((state) = NULL, (e) = hashmap_iterate_backwards((h), &(state), NULL); (e); (e) = hashmap_iterate_backwards((h), &(state), NULL))
+#define HASHMAP_FOREACH_BACKWARDS(e, h, i) \
+        for ((i) = ITERATE_LAST, (e) = hashmap_iterate_backwards((h), &(i), NULL); (e); (e) = hashmap_iterate_backwards((h), &(i), NULL))
 
 #endif

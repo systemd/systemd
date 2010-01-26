@@ -69,6 +69,18 @@ Hashmap *hashmap_new(hash_func_t hash_func, compare_func_t compare_func) {
         return h;
 }
 
+int hashmap_ensure_allocated(Hashmap **h, hash_func_t hash_func, compare_func_t compare_func) {
+        assert(h);
+
+        if (*h)
+                return 0;
+
+        if (!(*h = hashmap_new(hash_func, compare_func)))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static void remove_entry(Hashmap *h, struct hashmap_entry *e) {
         assert(h);
         assert(e);
@@ -248,26 +260,26 @@ void* hashmap_remove_value(Hashmap *h, const void *key, void *value) {
         return value;
 }
 
-void *hashmap_iterate(Hashmap *h, void **state, const void **key) {
+void *hashmap_iterate(Hashmap *h, Iterator *i, const void **key) {
         struct hashmap_entry *e;
 
-        assert(state);
+        assert(i);
 
         if (!h)
                 goto at_end;
 
-        if (*state == (void*) -1)
+        if (*i == ITERATOR_LAST)
                 goto at_end;
 
-        if (!*state && !h->iterate_list_head)
+        if (*i == ITERATOR_FIRST && !h->iterate_list_head)
                 goto at_end;
 
-        e = *state ? *state : h->iterate_list_head;
+        e = *i == ITERATOR_FIRST ? h->iterate_list_head : (struct hashmap_entry*) *i;
 
         if (e->iterate_next)
-                *state = e->iterate_next;
+                *i = (Iterator) e->iterate_next;
         else
-                *state = (void*) -1;
+                *i = ITERATOR_LAST;
 
         if (key)
                 *key = e->key;
@@ -275,7 +287,7 @@ void *hashmap_iterate(Hashmap *h, void **state, const void **key) {
         return e->value;
 
 at_end:
-        *state = (void *) -1;
+        *i = ITERATOR_LAST;
 
         if (key)
                 *key = NULL;
@@ -283,26 +295,26 @@ at_end:
         return NULL;
 }
 
-void *hashmap_iterate_backwards(Hashmap *h, void **state, const void **key) {
+void *hashmap_iterate_backwards(Hashmap *h, Iterator *i, const void **key) {
         struct hashmap_entry *e;
 
-        assert(state);
+        assert(i);
 
         if (!h)
                 goto at_beginning;
 
-        if (*state == (void*) -1)
+        if (*i == ITERATOR_FIRST)
                 goto at_beginning;
 
-        if (!*state && !h->iterate_list_tail)
+        if (*i == ITERATOR_LAST && !h->iterate_list_tail)
                 goto at_beginning;
 
-        e = *state ? *state : h->iterate_list_tail;
+        e = *i == ITERATOR_LAST ? h->iterate_list_tail : (struct hashmap_entry*) *i;
 
         if (e->iterate_previous)
-                *state = e->iterate_previous;
+                *i = (Iterator) e->iterate_previous;
         else
-                *state = (void*) -1;
+                *i = ITERATOR_FIRST;
 
         if (key)
                 *key = e->key;
@@ -310,12 +322,29 @@ void *hashmap_iterate_backwards(Hashmap *h, void **state, const void **key) {
         return e->value;
 
 at_beginning:
-        *state = (void *) -1;
+        *i = ITERATOR_FIRST;
 
         if (key)
                 *key = NULL;
 
         return NULL;
+}
+
+void *hashmap_iterate_skip(Hashmap *h, const void *key, Iterator *i) {
+        unsigned hash;
+        struct hashmap_entry *e;
+
+        if (!h)
+                return NULL;
+
+        hash = h->hash_func(key) % NBUCKETS;
+
+        if (!(e = hash_scan(h, hash, key)))
+                return NULL;
+
+        *i = (Iterator) e;
+
+        return e->value;
 }
 
 void* hashmap_first(Hashmap *h) {

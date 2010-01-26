@@ -21,8 +21,11 @@ typedef enum NameDependency NameDependency;
 #include "list.h"
 #include "socket-util.h"
 #include "execute.h"
+#include "util.h"
 
 #define NAME_MAX 32
+#define DEFAULT_TIMEOUT_USEC (20*USEC_PER_SEC)
+#define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
 
 enum NameType {
         NAME_SERVICE = 0,
@@ -90,6 +93,8 @@ struct Meta {
         NameType type;
         NameLoadState load_state;
 
+        char *id; /* One name is special because we use it for identification. Points to an entry in the names set */
+
         Set *names;
         Set *dependencies[_NAME_DEPENDENCY_MAX];
 
@@ -100,9 +105,13 @@ struct Meta {
         Job *job;
 
         bool linked:1;
+        bool in_load_queue:1;
+
+        usec_t active_enter_timestamp;
+        usec_t active_exit_timestamp;
 
         /* Load queue */
-        LIST_FIELDS(Meta);
+        LIST_FIELDS(Meta, load_queue);
 };
 
 #include "service.h"
@@ -129,12 +138,17 @@ union Name {
 struct NameVTable {
         const char *suffix;
 
-        int (*load)(Name *n);
+        int (*init)(Name *n);
+        void (*done)(Name *n);
+
         void (*dump)(Name *n, FILE *f, const char *prefix);
 
         int (*start)(Name *n);
         int (*stop)(Name *n);
         int (*reload)(Name *n);
+
+
+        bool (*can_reload)(Name *n);
 
         /* Boils down the more complex internal state of this name to
          * a simpler one that the engine can understand */
@@ -142,8 +156,9 @@ struct NameVTable {
 
         void (*fd_event)(Name *n, int fd, uint32_t events);
         void (*sigchld_event)(Name *n, pid_t pid, int code, int status);
+        void (*timer_event)(Name *n, int id, uint64_t n_elapsed);
 
-        void (*free_hook)(Name *n);
+        void (*retry)(Name *n);
 };
 
 extern const NameVTable * const name_vtable[_NAME_TYPE_MAX];
@@ -171,10 +186,10 @@ DEFINE_CAST(MOUNT, Mount);
 DEFINE_CAST(AUTOMOUNT, Automount);
 DEFINE_CAST(SNAPSHOT, Snapshot);
 
-NameActiveState name_active_state(Name *name);
-
 bool name_type_can_start(NameType t);
 bool name_type_can_reload(NameType t);
+bool name_can_reload(Name *n);
+#define name_can_start(n) name_type_can_start((n)->meta.type)
 
 NameType name_type_from_string(const char *n);
 bool name_is_valid(const char *n);
@@ -190,6 +205,10 @@ int name_load(Name *name);
 const char* name_id(Name *n);
 const char *name_description(Name *n);
 
+int name_add_name(Name *n, const char *text);
+
+NameActiveState name_active_state(Name *name);
+
 void name_dump(Name *n, FILE *f, const char *prefix);
 
 int name_start(Name *n);
@@ -203,5 +222,12 @@ void name_unwatch_fd(Name *n, int fd);
 
 int name_watch_pid(Name *n, pid_t pid);
 void name_unwatch_pid(Name *n, pid_t pid);
+
+int name_watch_timer(Name *n, usec_t delay, int *id);
+void name_unwatch_timer(Name *n, int *id);
+
+char *name_change_suffix(const char *t, const char *suffix);
+
+bool name_job_is_applicable(Name *n, JobType j);
 
 #endif

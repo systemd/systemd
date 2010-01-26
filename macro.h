@@ -76,4 +76,6 @@ static inline size_t ALIGN(size_t l) {
 #define memzero(x,l) (memset((x), 0, (l)))
 #define zero(x) (memzero(&(x), sizeof(x)))
 
+#define char_array_0(x) x[sizeof(x)-1] = 0;
+
 #endif

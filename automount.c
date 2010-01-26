@@ -8,13 +8,13 @@
 #include "load-fstab.h"
 #include "load-dropin.h"
 
-static int automount_load(Name *n) {
+static int automount_init(Name *n) {
         int r;
         Automount *a = AUTOMOUNT(n);
 
         assert(a);
 
-        exec_context_defaults(&a->exec_context);
+        exec_context_init(&a->exec_context);
 
         /* Load a .automount file */
         if ((r = name_load_fragment(n)) < 0 && errno != -ENOENT)
@@ -29,6 +29,13 @@ static int automount_load(Name *n) {
                 return r;
 
         return 0;
+}
+
+static void automount_done(Name *n) {
+        Automount *d = AUTOMOUNT(n);
+
+        assert(d);
+        free(d->path);
 }
 
 static void automount_dump(Name *n, FILE *f, const char *prefix) {
@@ -67,7 +74,7 @@ static void automount_dump(Name *n, FILE *f, const char *prefix) {
         for (c = 0; c < _AUTOMOUNT_EXEC_MAX; c++) {
                 ExecCommand *i;
 
-                LIST_FOREACH(i, s->exec_command[c])
+                LIST_FOREACH(command, i, s->exec_command[c])
                         fprintf(f, "%s%s: %s\n", prefix, command_table[c], i->path);
         }
 }
@@ -88,24 +95,13 @@ static NameActiveState automount_active_state(Name *n) {
         return table[AUTOMOUNT(n)->state];
 }
 
-static void automount_free_hook(Name *n) {
-        Automount *d = AUTOMOUNT(n);
-
-        assert(d);
-        free(d->path);
-}
-
 const NameVTable automount_vtable = {
         .suffix = ".mount",
 
-        .load = automount_load,
+        .init = automount_init,
+        .done = automount_done,
+
         .dump = automount_dump,
 
-        .start = NULL,
-        .stop = NULL,
-        .reload = NULL,
-
-        .active_state = automount_active_state,
-
-        .free_hook = automount_free_hook
+        .active_state = automount_active_state
 };

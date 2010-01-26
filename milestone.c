@@ -4,11 +4,7 @@
 #include "milestone.h"
 #include "load-fragment.h"
 
-static NameActiveState milestone_active_state(Name *n) {
-        return MILESTONE(n)->state == MILESTONE_DEAD ? NAME_INACTIVE : NAME_ACTIVE;
-}
-
-static void milestone_free_hook(Name *n) {
+static void milestone_done(Name *n) {
         Milestone *m = MILESTONE(n);
 
         assert(m);
@@ -16,17 +12,15 @@ static void milestone_free_hook(Name *n) {
         /* Nothing here for now */
 }
 
+static NameActiveState milestone_active_state(Name *n) {
+        return MILESTONE(n)->state == MILESTONE_DEAD ? NAME_INACTIVE : NAME_ACTIVE;
+}
+
 const NameVTable milestone_vtable = {
         .suffix = ".milestone",
 
-        .load = name_load_fragment,
-        .dump = NULL,
+        .init = name_load_fragment,
+        .done = milestone_done,
 
-        .start = NULL,
-        .stop = NULL,
-        .reload = NULL,
-
-        .active_state = milestone_active_state,
-
-        .free_hook = milestone_free_hook
+        .active_state = milestone_active_state
 };

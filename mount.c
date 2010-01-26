@@ -8,7 +8,7 @@
 #include "load-fstab.h"
 #include "load-dropin.h"
 
-static int mount_load(Name *n) {
+static int mount_init(Name *n) {
         int r;
         Mount *m = MOUNT(n);
 
@@ -27,6 +27,13 @@ static int mount_load(Name *n) {
                 return r;
 
         return r;
+}
+
+static void mount_done(Name *n) {
+        Mount *d = MOUNT(n);
+
+        assert(d);
+        free(d->path);
 }
 
 static void mount_dump(Name *n, FILE *f, const char *prefix) {
@@ -63,24 +70,13 @@ static NameActiveState mount_active_state(Name *n) {
         return table[MOUNT(n)->state];
 }
 
-static void mount_free_hook(Name *n) {
-        Mount *d = MOUNT(n);
-
-        assert(d);
-        free(d->path);
-}
-
 const NameVTable mount_vtable = {
         .suffix = ".mount",
 
-        .load = mount_load,
+        .init = mount_init,
+        .done = mount_done,
+
         .dump = mount_dump,
 
-        .start = NULL,
-        .stop = NULL,
-        .reload = NULL,
-
         .active_state = mount_active_state,
-
-        .free_hook = mount_free_hook
 };

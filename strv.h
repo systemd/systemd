@@ -10,6 +10,8 @@ void strv_free(char **l);
 char **strv_copy(char **l);
 unsigned strv_length(char **l);
 
+char **strv_merge(char **a, char **b);
+
 char **strv_new(const char *x, ...) __sentinel;
 
 #define STRV_FOREACH(s, l)                      \

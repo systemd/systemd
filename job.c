@@ -276,33 +276,8 @@ bool job_type_is_conflicting(JobType a, JobType b) {
         return (a == JOB_STOP) != (b == JOB_STOP);
 }
 
-bool job_type_is_applicable(JobType j, NameType n) {
-        assert(j >= 0 && j < _JOB_TYPE_MAX);
-        assert(n >= 0 && n < _NAME_TYPE_MAX);
-
-        switch (j) {
-                case JOB_VERIFY_ACTIVE:
-                case JOB_START:
-                        return true;
-
-                case JOB_STOP:
-                case JOB_RESTART:
-                case JOB_TRY_RESTART:
-                        return name_type_can_start(n);
-
-                case JOB_RELOAD:
-                        return name_type_can_reload(n);
-
-                case JOB_RELOAD_OR_START:
-                        return name_type_can_reload(n) && name_type_can_start(n);
-
-                default:
-                        assert_not_reached("Invalid job type");
-        }
-}
-
 bool job_is_runnable(Job *j) {
-        void *state;
+        Iterator i;
         Name *other;
 
         assert(j);
@@ -323,7 +298,7 @@ bool job_is_runnable(Job *j) {
                  * dependencies, regardless whether they are
                  * starting or stopping something. */
 
-                SET_FOREACH(other, j->name->meta.dependencies[NAME_AFTER], state)
+                SET_FOREACH(other, j->name->meta.dependencies[NAME_AFTER], i)
                         if (other->meta.job)
                                 return false;
         }
@@ -331,7 +306,7 @@ bool job_is_runnable(Job *j) {
         /* Also, if something else is being stopped and we should
          * change state after it, then lets wait. */
 
-        SET_FOREACH(other, j->name->meta.dependencies[NAME_BEFORE], state)
+        SET_FOREACH(other, j->name->meta.dependencies[NAME_BEFORE], i)
                 if (other->meta.job &&
                     (other->meta.job->type == JOB_STOP ||
                      other->meta.job->type == JOB_RESTART ||
@@ -356,11 +331,16 @@ int job_run_and_invalidate(Job *j) {
         int r;
         assert(j);
 
-        if (!job_is_runnable(j))
-                return -EAGAIN;
+        if (j->in_run_queue) {
+                LIST_REMOVE(Job, run_queue, j->manager->run_queue, j);
+                j->in_run_queue = false;
+        }
 
         if (j->state != JOB_WAITING)
                 return 0;
+
+        if (!job_is_runnable(j))
+                return -EAGAIN;
 
         j->state = JOB_RUNNING;
 
@@ -437,16 +417,18 @@ int job_run_and_invalidate(Job *j) {
 
 int job_finish_and_invalidate(Job *j, bool success) {
         Name *n;
-        void *state;
         Name *other;
         NameType t;
+        Iterator i;
 
         assert(j);
 
+        /* Patch restart jobs so that they become normal start jobs */
         if (success && (j->type == JOB_RESTART || j->type == JOB_TRY_RESTART)) {
                 j->state = JOB_RUNNING;
                 j->type = JOB_START;
-                return job_run_and_invalidate(j);
+                job_schedule_run(j);
+                return 0;
         }
 
         n = j->name;
@@ -460,14 +442,14 @@ int job_finish_and_invalidate(Job *j, bool success) {
                     t == JOB_VERIFY_ACTIVE ||
                     t == JOB_RELOAD_OR_START) {
 
-                        SET_FOREACH(other, n->meta.dependencies[NAME_REQUIRED_BY], state)
+                        SET_FOREACH(other, n->meta.dependencies[NAME_REQUIRED_BY], i)
                                 if (other->meta.job &&
                                     (other->meta.type == JOB_START ||
                                      other->meta.type == JOB_VERIFY_ACTIVE ||
                                      other->meta.type == JOB_RELOAD_OR_START))
                                         job_finish_and_invalidate(other->meta.job, false);
 
-                        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUIRED_BY], state)
+                        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUIRED_BY], i)
                                 if (other->meta.job &&
                                     !other->meta.job->forced &&
                                     (other->meta.type == JOB_START ||
@@ -477,7 +459,7 @@ int job_finish_and_invalidate(Job *j, bool success) {
 
                 } else if (t == JOB_STOP) {
 
-                        SET_FOREACH(other, n->meta.dependencies[NAME_CONFLICTS], state)
+                        SET_FOREACH(other, n->meta.dependencies[NAME_CONFLICTS], i)
                                 if (other->meta.job &&
                                     (t == JOB_START ||
                                      t == JOB_VERIFY_ACTIVE ||
@@ -487,12 +469,23 @@ int job_finish_and_invalidate(Job *j, bool success) {
         }
 
         /* Try to start the next jobs that can be started */
-        SET_FOREACH(other, n->meta.dependencies[NAME_AFTER], state)
+        SET_FOREACH(other, n->meta.dependencies[NAME_AFTER], i)
                 if (other->meta.job)
-                        job_run_and_invalidate(other->meta.job);
-        SET_FOREACH(other, n->meta.dependencies[NAME_BEFORE], state)
+                        job_schedule_run(other->meta.job);
+        SET_FOREACH(other, n->meta.dependencies[NAME_BEFORE], i)
                 if (other->meta.job)
-                        job_run_and_invalidate(other->meta.job);
+                        job_schedule_run(other->meta.job);
 
         return 0;
+}
+
+void job_schedule_run(Job *j) {
+        assert(j);
+        assert(j->linked);
+
+        if (j->in_run_queue)
+                return;
+
+        LIST_PREPEND(Job, run_queue, j->manager->run_queue, j);
+        j->in_run_queue = true;
 }

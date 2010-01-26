@@ -42,8 +42,6 @@ int main(int argc, char *argv[]) {
         printf("- By jobs:\n");
         manager_dump_jobs(m, stdout, "\t");
 
-        manager_run_jobs(m);
-
         manager_loop(m);
 
         retval = 0;

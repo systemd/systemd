@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <signal.h>
+#include <stdio.h>
 
 #include "macro.h"
 #include "util.h"
@@ -108,7 +110,7 @@ int parse_boolean(const char *v) {
 
 int safe_atou(const char *s, unsigned *ret_u) {
         char *x = NULL;
-        unsigned l;
+        unsigned long l;
 
         assert(s);
         assert(ret_u);
@@ -119,7 +121,7 @@ int safe_atou(const char *s, unsigned *ret_u) {
         if (!x || *x || errno)
                 return errno ? -errno : -EINVAL;
 
-        if ((unsigned) l != l)
+        if ((unsigned long) (unsigned) l != l)
                 return -ERANGE;
 
         *ret_u = (unsigned) l;
@@ -128,7 +130,7 @@ int safe_atou(const char *s, unsigned *ret_u) {
 
 int safe_atoi(const char *s, int *ret_i) {
         char *x = NULL;
-        int l;
+        long l;
 
         assert(s);
         assert(ret_i);
@@ -139,10 +141,78 @@ int safe_atoi(const char *s, int *ret_i) {
         if (!x || *x || errno)
                 return errno ? -errno : -EINVAL;
 
-        if ((int) l != l)
+        if ((long) (int) l != l)
                 return -ERANGE;
 
-        *ret_i = (unsigned) l;
+        *ret_i = (int) l;
+        return 0;
+}
+
+int safe_atolu(const char *s, long unsigned *ret_lu) {
+        char *x = NULL;
+        unsigned long l;
+
+        assert(s);
+        assert(ret_lu);
+
+        errno = 0;
+        l = strtoul(s, &x, 0);
+
+        if (!x || *x || errno)
+                return errno ? -errno : -EINVAL;
+
+        *ret_lu = l;
+        return 0;
+}
+
+int safe_atoli(const char *s, long int *ret_li) {
+        char *x = NULL;
+        long l;
+
+        assert(s);
+        assert(ret_li);
+
+        errno = 0;
+        l = strtol(s, &x, 0);
+
+        if (!x || *x || errno)
+                return errno ? -errno : -EINVAL;
+
+        *ret_li = l;
+        return 0;
+}
+
+int safe_atollu(const char *s, long long unsigned *ret_llu) {
+        char *x = NULL;
+        unsigned long long l;
+
+        assert(s);
+        assert(ret_llu);
+
+        errno = 0;
+        l = strtoull(s, &x, 0);
+
+        if (!x || *x || errno)
+                return errno ? -errno : -EINVAL;
+
+        *ret_llu = l;
+        return 0;
+}
+
+int safe_atolli(const char *s, long long int *ret_lli) {
+        char *x = NULL;
+        long long l;
+
+        assert(s);
+        assert(ret_lli);
+
+        errno = 0;
+        l = strtoll(s, &x, 0);
+
+        if (!x || *x || errno)
+                return errno ? -errno : -EINVAL;
+
+        *ret_lli = l;
         return 0;
 }
 
@@ -163,4 +233,152 @@ char *split_spaces(const char *c, size_t *l, char **state) {
         *state = current+*l;
 
         return (char*) current;
+}
+
+/* Split a string into words, but consider strings enclosed in '' and
+ * "" as words even if they include spaces. */
+char *split_quoted(const char *c, size_t *l, char **state) {
+        char *current;
+
+        current = *state ? *state : (char*) c;
+
+        if (!*current || *c == 0)
+                return NULL;
+
+        current += strspn(current, WHITESPACE);
+
+        if (*current == '\'') {
+                current ++;
+                *l = strcspn(current, "'");
+                *state = current+*l;
+
+                if (**state == '\'')
+                        (*state)++;
+        } else if (*current == '\"') {
+                current ++;
+                *l = strcspn(current+1, "\"");
+                *state = current+*l;
+
+                if (**state == '\"')
+                        (*state)++;
+        } else {
+                *l = strcspn(current, WHITESPACE);
+                *state = current+*l;
+        }
+
+        return (char*) current;
+}
+
+const char *sigchld_code(int code) {
+
+        if (code == CLD_EXITED)
+                return "exited";
+        else if (code == CLD_KILLED)
+                return "killed";
+        else if (code == CLD_DUMPED)
+                return "dumped";
+        else if (code == CLD_TRAPPED)
+                return "trapped";
+        else if (code == CLD_STOPPED)
+                return "stopped";
+        else if (code == CLD_CONTINUED)
+                return "continued";
+
+        return "unknown";
+}
+
+int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
+        int r;
+        FILE *f;
+        char fn[132], line[256], *p;
+        long long unsigned ppid;
+
+        assert(pid >= 0);
+        assert(_ppid);
+
+        assert_se(snprintf(fn, sizeof(fn)-1, "/proc/%llu/stat", (unsigned long long) pid) < (int) (sizeof(fn)-1));
+        fn[sizeof(fn)-1] = 0;
+
+        if (!(f = fopen(fn, "r")))
+                return -errno;
+
+        if (!(fgets(line, sizeof(line), f))) {
+                r = -errno;
+                fclose(f);
+                return r;
+        }
+
+        fclose(f);
+
+        /* Let's skip the pid and comm fields. The latter is enclosed
+         * in () but does not escape any () in its value, so let's
+         * skip over it manually */
+
+        if (!(p = strrchr(line, ')')))
+                return -EIO;
+
+        p++;
+
+        if (sscanf(p, " "
+                   "%*c "  /* state */
+                   "%llu ", /* ppid */
+                   &ppid) != 1)
+                return -EIO;
+
+        if ((long long unsigned) (pid_t) ppid != ppid)
+                return -ERANGE;
+
+        *_ppid = (pid_t) ppid;
+
+        return 0;
+}
+
+int write_one_line_file(const char *fn, const char *line) {
+        FILE *f;
+        int r;
+
+        assert(fn);
+        assert(line);
+
+        if (!(f = fopen(fn, "we")))
+                return -errno;
+
+        if (fputs(line, f) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        r = 0;
+finish:
+        fclose(f);
+        return r;
+}
+
+int read_one_line_file(const char *fn, char **line) {
+        FILE *f;
+        int r;
+        char t[64], *c;
+
+        assert(fn);
+        assert(line);
+
+        if (!(f = fopen(fn, "re")))
+                return -errno;
+
+        if (!(fgets(t, sizeof(t), f))) {
+                r = -errno;
+                goto finish;
+        }
+
+        if (!(c = strdup(t))) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        *line = c;
+        r = 0;
+
+finish:
+        fclose(f);
+        return r;
 }

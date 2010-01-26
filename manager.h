@@ -8,12 +8,19 @@
 #include <stdio.h>
 
 typedef struct Manager Manager;
+typedef enum ManagerEventType ManagerEventType;
 
 #include "name.h"
 #include "job.h"
 #include "hashmap.h"
 #include "list.h"
 #include "set.h"
+
+enum ManagerEventType {
+        MANAGER_SIGNAL,
+        MANAGER_FD,
+        MANAGER_TIMER
+};
 
 struct Manager {
         uint32_t current_job_id;
@@ -29,11 +36,15 @@ struct Manager {
         /* Names that need to be loaded */
         LIST_HEAD(Meta, load_queue); /* this is actually more a stack than a queue, but uh. */
 
+        /* Jobs that need to be run */
+        LIST_HEAD(Job, run_queue);   /* more a stack than a queue, too */
+
         /* Jobs to be added */
         Hashmap *transaction_jobs;      /* Name object => Job object list 1:1 */
         JobDependency *transaction_anchor;
 
         bool dispatching_load_queue:1;
+        bool dispatching_run_queue:1;
 
         Hashmap *watch_pids;  /* pid => Name object n:1 */
 
@@ -57,7 +68,7 @@ void manager_transaction_unlink_job(Manager *m, Job *j);
 
 void manager_clear_jobs(Manager *m);
 
-void manager_run_jobs(Manager *m);
+void manager_dispatch_run_queue(Manager *m);
 int manager_loop(Manager *m);
 
 #endif

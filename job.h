@@ -56,9 +56,8 @@ struct JobDependency {
 
         bool matters;
 
-        /* Linked list for the subjects, resp objects */
-        JobDependency *subject_prev, *subject_next;
-        JobDependency *object_prev, *object_next;
+        LIST_FIELDS(JobDependency, subject);
+        LIST_FIELDS(JobDependency, object);
 };
 
 struct Job {
@@ -71,11 +70,12 @@ struct Job {
         JobState state;
 
         bool linked:1;
+        bool in_run_queue:1;
         bool matters_to_anchor:1;
         bool forced:1;
 
-        /* These fields are used only while building a transaction */
-        Job *transaction_next, *transaction_prev;
+        LIST_FIELDS(Job, transaction);
+        LIST_FIELDS(Job, run_queue);
 
         JobDependency *subject_list;
         JobDependency *object_list;
@@ -83,6 +83,7 @@ struct Job {
         /* Used for graph algs as a "I have been here" marker */
         Job* marker;
         unsigned generation;
+
 };
 
 Job* job_new(Manager *m, JobType type, Name *name);
@@ -102,8 +103,8 @@ int job_type_merge(JobType *a, JobType b);
 bool job_type_is_mergeable(JobType a, JobType b);
 bool job_type_is_superset(JobType a, JobType b);
 bool job_type_is_conflicting(JobType a, JobType b);
-bool job_type_is_applicable(JobType j, NameType n);
 
+void job_schedule_run(Job *j);
 int job_run_and_invalidate(Job *j);
 int job_finish_and_invalidate(Job *j, bool success);
 

@@ -6,85 +6,95 @@
 /* The head of the linked list. Use this in the structure that shall
  * contain the head of the linked list */
 #define LIST_HEAD(t,name)                                               \
-    t *name
+        t *name
 
 /* The pointers in the linked list's items. Use this in the item structure */
-#define LIST_FIELDS(t)                                                  \
-    t *next, *prev
+#define LIST_FIELDS(t,name)                                             \
+        t *name##_next, *name##_prev
 
 /* Initialize the list's head */
-#define LIST_HEAD_INIT(t,item)                                          \
+#define LIST_HEAD_INIT(t,head)                                          \
         do {                                                            \
-                (item) = (t*) NULL; }                                   \
+                (head) = NULL; }                                        \
         while(false)
 
 /* Initialize a list item */
-#define LIST_INIT(t,item)                                               \
+#define LIST_INIT(t,name,item)                                          \
         do {                                                            \
                 t *_item = (item);                                      \
                 assert(_item);                                          \
-                _item->prev = _item->next = NULL;                       \
+                _item->name##_prev = _item->name##_next = NULL;         \
         } while(false)
 
 /* Prepend an item to the list */
-#define LIST_PREPEND(t,head,item)                                       \
+#define LIST_PREPEND(t,name,head,item)                                  \
         do {                                                            \
                 t **_head = &(head), *_item = (item);                   \
                 assert(_item);                                          \
-                if ((_item->next = *_head))                             \
-                        _item->next->prev = _item;                      \
-                _item->prev = NULL;                                     \
+                if ((_item->name##_next = *_head))                      \
+                        _item->name##_next->name##_prev = _item;        \
+                _item->name##_prev = NULL;                              \
                 *_head = _item;                                         \
         } while(false)
 
 /* Remove an item from the list */
-#define LIST_REMOVE(t,head,item)                                        \
+#define LIST_REMOVE(t,name,head,item)                                   \
         do {                                                            \
                 t **_head = &(head), *_item = (item);                   \
                 assert(_item);                                          \
-                if (_item->next)                                        \
-                        _item->next->prev = _item->prev;                \
-                if (_item->prev)                                        \
-                        _item->prev->next = _item->next;                \
+                if (_item->name##_next)                                 \
+                        _item->name##_next->name##_prev = _item->name##_prev; \
+                if (_item->name##_prev)                                 \
+                        _item->name##_prev->name##_next = _item->name##_next; \
                 else {                                                  \
                         assert(*_head == _item);                        \
-                        *_head = _item->next;                           \
+                        *_head = _item->name##_next;                    \
                 }                                                       \
-                _item->next = _item->prev = NULL;                       \
+                _item->name##_next = _item->name##_prev = NULL;         \
         } while(false)
 
 /* Find the head of the list */
-#define LIST_FIND_HEAD(t,item,head)                                     \
+#define LIST_FIND_HEAD(t,name,item,head)                                \
         do {                                                            \
-                t **_head = (head), *_item = (item);                    \
-                *_head = _item;                                         \
-                assert(_head);                                          \
-                while ((*_head)->prev)                                  \
-                        *_head = (*_head)->prev;                        \
+                t *_item = (item);                                      \
+                assert(_item);                                          \
+                while ((_item->name##_prev)                             \
+                       _item = _item->name##_prev;                      \
+                (head) = _item;                                         \
+        } while (false)
+
+/* Find the head of the list */
+#define LIST_FIND_TAIL(t,name,item,tail)                                \
+        do {                                                            \
+                t *_item = (item);                                      \
+                assert(_item);                                          \
+                while (_item->name##_next)                              \
+                        _item = _item->name##_next;                     \
+                (tail) = _item;                                         \
         } while (false)
 
 /* Insert an item after another one (a = where, b = what) */
-#define LIST_INSERT_AFTER(t,head,a,b)                                   \
+#define LIST_INSERT_AFTER(t,name,head,a,b)                              \
         do {                                                            \
                 t **_head = &(head), *_a = (a), *_b = (b);              \
                 assert(_b);                                             \
                 if (!_a) {                                              \
-                        if ((_b->next = *_head))                        \
-                                _b->next->prev = _b;                    \
-                        _b->prev = NULL;                                \
+                        if ((_b->name##_next = *_head))                 \
+                                _b->name##_next->name##_prev = _b;      \
+                        _b->name##_prev = NULL;                         \
                         *_head = _b;                                    \
                 } else {                                                \
-                        if ((_b->next = _a->next))                      \
-                                _b->next->prev = _b;                    \
-                        _b->prev = _a;                                  \
-                        _a->next = _b;                                  \
+                        if ((_b->name##_next = _a->name##_next))        \
+                                _b->name##_next->name##_prev = _b;      \
+                        _b->name##_prev = _a;                           \
+                        _a->name##_next = _b;                           \
                 }                                                       \
         } while(false)
 
-#define LIST_FOREACH(i,head)                                            \
-        for (i = (head); i; i = i->next)
+#define LIST_FOREACH(name,i,head)                                       \
+        for ((i) = (head); (i); (i) = (i)->name##_next)
 
-#define LIST_FOREACH_SAFE(i,n,head)                                     \
-        for (i = (head); i && ((n = i->next), 1); i = n)
+#define LIST_FOREACH_SAFE(name,i,n,head)                                \
+        for ((i) = (head); (i) && (((n) = (i)->name##_next), 1); (i) = (n))
 
 #endif

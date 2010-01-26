@@ -4,6 +4,8 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/epoll.h>
+#include <sys/timerfd.h>
+#include <sys/poll.h>
 
 #include "set.h"
 #include "name.h"
@@ -77,7 +79,6 @@ Name *name_new(Manager *m) {
                 return NULL;
         }
 
-        /* Not much initialization happening here at this time */
         n->meta.manager = m;
         n->meta.type = _NAME_TYPE_INVALID;
 
@@ -86,10 +87,40 @@ Name *name_new(Manager *m) {
         return n;
 }
 
+int name_add_name(Name *n, const char *text) {
+        NameType t;
+        char *s;
+        int r;
+
+        assert(n);
+        assert(text);
+
+        if ((t = name_type_from_string(text)) == _NAME_TYPE_INVALID)
+                return -EINVAL;
+
+        if (n->meta.type != _NAME_TYPE_INVALID && t != n->meta.type)
+                return -EINVAL;
+
+        if (!(s = strdup(text)))
+                return -ENOMEM;
+
+        if ((r = set_put(n->meta.names, s)) < 0) {
+                free(s);
+                return r;
+        }
+
+        n->meta.type = t;
+
+        if (!n->meta.id)
+                n->meta.id = s;
+
+        return 0;
+}
+
 /* FIXME: Does not rollback on failure! */
 int name_link_names(Name *n, bool replace) {
         char *t;
-        void *state;
+        Iterator i;
         int r;
 
         assert(n);
@@ -99,7 +130,7 @@ int name_link_names(Name *n, bool replace) {
 
         /* Link all names that aren't linked yet. */
 
-        SET_FOREACH(t, n->meta.names, state)
+        SET_FOREACH(t, n->meta.names, i)
                 if (replace) {
                         if ((r = hashmap_replace(n->meta.manager->names, t, n)) < 0)
                                 return r;
@@ -125,24 +156,26 @@ int name_link(Name *n) {
 
         if ((r = name_link_names(n, false)) < 0) {
                 char *t;
-                void *state;
+                Iterator i;
 
                 /* Rollback the registered names */
-                SET_FOREACH(t, n->meta.names, state)
+                SET_FOREACH(t, n->meta.names, i)
                         hashmap_remove_value(n->meta.manager->names, t, n);
 
                 n->meta.linked = false;
                 return r;
         }
 
-        if (n->meta.load_state == NAME_STUB)
-                LIST_PREPEND(Meta, n->meta.manager->load_queue, &n->meta);
+        if (n->meta.load_state == NAME_STUB) {
+                LIST_PREPEND(Meta, load_queue, n->meta.manager->load_queue, &n->meta);
+                n->meta.in_load_queue = true;
+        }
 
         return 0;
 }
 
 static void bidi_set_free(Name *name, Set *s) {
-        void *state;
+        Iterator i;
         Name *other;
 
         assert(name);
@@ -150,7 +183,7 @@ static void bidi_set_free(Name *name, Set *s) {
         /* Frees the set and makes sure we are dropped from the
          * inverse pointers */
 
-        SET_FOREACH(other, s, state) {
+        SET_FOREACH(other, s, i) {
                 NameDependency d;
 
                 for (d = 0; d < _NAME_DEPENDENCY_MAX; d++)
@@ -169,13 +202,13 @@ void name_free(Name *name) {
         /* Detach from next 'bigger' objects */
         if (name->meta.linked) {
                 char *t;
-                void *state;
+                Iterator i;
 
-                SET_FOREACH(t, name->meta.names, state)
+                SET_FOREACH(t, name->meta.names, i)
                         hashmap_remove_value(name->meta.manager->names, t, name);
 
-                if (name->meta.load_state == NAME_STUB)
-                        LIST_REMOVE(Meta, name->meta.manager->load_queue, &name->meta);
+                if (name->meta.in_load_queue)
+                        LIST_REMOVE(Meta, load_queue, name->meta.manager->load_queue, &name->meta);
         }
 
         /* Free data and next 'smaller' objects */
@@ -185,8 +218,8 @@ void name_free(Name *name) {
         for (d = 0; d < _NAME_DEPENDENCY_MAX; d++)
                 bidi_set_free(name, name->meta.dependencies[d]);
 
-        if (NAME_VTABLE(name)->free_hook)
-                NAME_VTABLE(name)->free_hook(name);
+        if (NAME_VTABLE(name)->done)
+                NAME_VTABLE(name)->done(name);
 
         free(name->meta.description);
 
@@ -212,13 +245,11 @@ static int ensure_in_set(Set **s, void *data) {
         assert(s);
         assert(data);
 
-        if (!*s)
-                if (!(*s = set_new(trivial_hash_func, trivial_compare_func)))
-                        return -ENOMEM;
+        if ((r = set_ensure_allocated(s, trivial_hash_func, trivial_compare_func)) < 0)
+                return r;
 
         if ((r = set_put(*s, data)) < 0)
-                if (r != -EEXIST)
-                        return r;
+                return r;
 
         return 0;
 }
@@ -279,7 +310,7 @@ int name_merge(Name *name, Name *other) {
 /* FIXME: Does not rollback on failure! */
 static int augment(Name *n) {
         int r;
-        void* state;
+        Iterator i;
         Name *other;
 
         assert(n);
@@ -287,29 +318,29 @@ static int augment(Name *n) {
         /* Adds in the missing links to make all dependencies
          * bidirectional. */
 
-        SET_FOREACH(other, n->meta.dependencies[NAME_BEFORE], state)
+        SET_FOREACH(other, n->meta.dependencies[NAME_BEFORE], i)
                 if ((r = ensure_in_set(&other->meta.dependencies[NAME_AFTER], n)) < 0)
                         return r;
-        SET_FOREACH(other, n->meta.dependencies[NAME_AFTER], state)
+        SET_FOREACH(other, n->meta.dependencies[NAME_AFTER], i)
                 if ((r = ensure_in_set(&other->meta.dependencies[NAME_BEFORE], n)) < 0)
                         return r;
 
-        SET_FOREACH(other, n->meta.dependencies[NAME_CONFLICTS], state)
+        SET_FOREACH(other, n->meta.dependencies[NAME_CONFLICTS], i)
                 if ((r = ensure_in_set(&other->meta.dependencies[NAME_CONFLICTS], n)) < 0)
                         return r;
 
-        SET_FOREACH(other, n->meta.dependencies[NAME_REQUIRES], state)
+        SET_FOREACH(other, n->meta.dependencies[NAME_REQUIRES], i)
                 if ((r = ensure_in_set(&other->meta.dependencies[NAME_REQUIRED_BY], n)) < 0)
                         return r;
-        SET_FOREACH(other, n->meta.dependencies[NAME_REQUISITE], state)
+        SET_FOREACH(other, n->meta.dependencies[NAME_REQUISITE], i)
                 if ((r = ensure_in_set(&other->meta.dependencies[NAME_REQUIRED_BY], n)) < 0)
                         return r;
 
-        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUIRES], state)
+        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUIRES], i)
                 if ((r = ensure_in_set(&other->meta.dependencies[NAME_SOFT_REQUIRED_BY], n)) < 0)
                         return r;
 
-        SET_FOREACH(other, n->meta.dependencies[NAME_WANTS], state)
+        SET_FOREACH(other, n->meta.dependencies[NAME_WANTS], i)
                 if ((r = ensure_in_set(&other->meta.dependencies[NAME_WANTED_BY], n)) < 0)
                         return r;
 
@@ -330,6 +361,9 @@ int name_sanitize(Name *n) {
 
 const char* name_id(Name *n) {
         assert(n);
+
+        if (n->meta.id)
+                return n->meta.id;
 
         return set_first(n->meta.names);
 }
@@ -372,9 +406,9 @@ void name_dump(Name *n, FILE *f, const char *prefix) {
                 [NAME_AFTER] = "After",
         };
 
-        void *state;
         char *t;
         NameDependency d;
+        Iterator i;
 
         assert(n);
 
@@ -391,17 +425,16 @@ void name_dump(Name *n, FILE *f, const char *prefix) {
                 prefix, load_state_table[n->meta.load_state],
                 prefix, active_state_table[name_active_state(n)]);
 
-        SET_FOREACH(t, n->meta.names, state)
+        SET_FOREACH(t, n->meta.names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
 
         for (d = 0; d < _NAME_DEPENDENCY_MAX; d++) {
-                void *state;
                 Name *other;
 
                 if (set_isempty(n->meta.dependencies[d]))
                         continue;
 
-                SET_FOREACH(other, n->meta.dependencies[d], state)
+                SET_FOREACH(other, n->meta.dependencies[d], i)
                         fprintf(f, "%s\t%s: %s\n", prefix, dependency_table[d], name_id(other));
         }
 
@@ -423,13 +456,13 @@ void name_dump(Name *n, FILE *f, const char *prefix) {
 
 static int verify_type(Name *name) {
         char *n;
-        void *state;
+        Iterator i;
 
         assert(name);
 
         /* Checks that all aliases of this name have the same and valid type */
 
-        SET_FOREACH(n, name->meta.names, state) {
+        SET_FOREACH(n, name->meta.names, i) {
                 NameType t;
 
                 if ((t = name_type_from_string(n)) == _NAME_TYPE_INVALID)
@@ -472,14 +505,19 @@ int name_load(Name *name) {
 
         assert(name);
 
+        if (name->meta.in_load_queue) {
+                LIST_REMOVE(Meta, load_queue, name->meta.manager->load_queue, &name->meta);
+                name->meta.in_load_queue = false;
+        }
+
         if (name->meta.load_state != NAME_STUB)
                 return 0;
 
         if ((r = verify_type(name)) < 0)
                 return r;
 
-        if (NAME_VTABLE(name)->load)
-                if ((r = NAME_VTABLE(name)->load(name)) < 0)
+        if (NAME_VTABLE(name)->init)
+                if ((r = NAME_VTABLE(name)->init(name)) < 0)
                         goto fail;
 
         if ((r = name_sanitize(name)) < 0)
@@ -513,8 +551,11 @@ int name_start(Name *n) {
         if (NAME_IS_ACTIVE_OR_RELOADING(state))
                 return -EALREADY;
 
-        if (state == NAME_ACTIVATING)
-                return 0;
+        /* We don't suppress calls to ->start() here when we are
+         * already starting, to allow this request to be used as a
+         * "hurry up" call, for example when the name is in some "auto
+         * restart" state where it waits for a holdoff timer to elapse
+         * before it will start again. */
 
         return NAME_VTABLE(n)->start(n);
 }
@@ -558,7 +599,7 @@ int name_reload(Name *n) {
 
         assert(n);
 
-        if (!NAME_VTABLE(n)->reload)
+        if (!name_can_reload(n))
                 return -EBADR;
 
         state = name_active_state(n);
@@ -573,45 +614,58 @@ int name_reload(Name *n) {
 
 bool name_type_can_reload(NameType t) {
         assert(t >= 0 && t < _NAME_TYPE_MAX);
+
         return !!name_vtable[t]->reload;
 }
 
+bool name_can_reload(Name *n) {
+        assert(n);
+
+        if (!name_type_can_reload(n->meta.type))
+                return false;
+
+        if (!NAME_VTABLE(n)->can_reload)
+                return true;
+
+        return NAME_VTABLE(n)->can_reload(n);
+}
+
 static void retroactively_start_dependencies(Name *n) {
-        void *state;
+        Iterator i;
         Name *other;
 
         assert(n);
         assert(NAME_IS_ACTIVE_OR_ACTIVATING(name_active_state(n)));
 
-        SET_FOREACH(other, n->meta.dependencies[NAME_REQUIRES], state)
+        SET_FOREACH(other, n->meta.dependencies[NAME_REQUIRES], i)
                 if (!NAME_IS_ACTIVE_OR_ACTIVATING(name_active_state(other)))
                         manager_add_job(n->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL);
 
-        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUIRES], state)
+        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUIRES], i)
                 if (!NAME_IS_ACTIVE_OR_ACTIVATING(name_active_state(other)))
                         manager_add_job(n->meta.manager, JOB_START, other, JOB_FAIL, false, NULL);
 
-        SET_FOREACH(other, n->meta.dependencies[NAME_REQUISITE], state)
+        SET_FOREACH(other, n->meta.dependencies[NAME_REQUISITE], i)
                 if (!NAME_IS_ACTIVE_OR_ACTIVATING(name_active_state(other)))
                         manager_add_job(n->meta.manager, JOB_START, other, JOB_REPLACE, true, NULL);
 
-        SET_FOREACH(other, n->meta.dependencies[NAME_WANTS], state)
+        SET_FOREACH(other, n->meta.dependencies[NAME_WANTS], i)
                 if (!NAME_IS_ACTIVE_OR_ACTIVATING(name_active_state(other)))
                         manager_add_job(n->meta.manager, JOB_START, other, JOB_FAIL, false, NULL);
 
-        SET_FOREACH(other, n->meta.dependencies[NAME_CONFLICTS], state)
+        SET_FOREACH(other, n->meta.dependencies[NAME_CONFLICTS], i)
                 if (!NAME_IS_ACTIVE_OR_ACTIVATING(name_active_state(other)))
                         manager_add_job(n->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL);
 }
 
 static void retroactively_stop_dependencies(Name *n) {
-        void *state;
+        Iterator i;
         Name *other;
 
         assert(n);
         assert(NAME_IS_INACTIVE_OR_DEACTIVATING(name_active_state(n)));
 
-        SET_FOREACH(other, n->meta.dependencies[NAME_REQUIRED_BY], state)
+        SET_FOREACH(other, n->meta.dependencies[NAME_REQUIRED_BY], i)
                 if (!NAME_IS_INACTIVE_OR_DEACTIVATING(name_active_state(other)))
                         manager_add_job(n->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL);
 }
@@ -626,6 +680,11 @@ void name_notify(Name *n, NameActiveState os, NameActiveState ns) {
         if (os == ns)
                 return;
 
+        if (!NAME_IS_ACTIVE_OR_RELOADING(os) && NAME_IS_ACTIVE_OR_RELOADING(ns))
+                n->meta.active_enter_timestamp = now(CLOCK_REALTIME);
+        else if (NAME_IS_ACTIVE_OR_RELOADING(os) && !NAME_IS_ACTIVE_OR_RELOADING(ns))
+                n->meta.active_exit_timestamp = now(CLOCK_REALTIME);
+
         if (n->meta.job) {
 
                 if (n->meta.job->state == JOB_WAITING)
@@ -633,7 +692,7 @@ void name_notify(Name *n, NameActiveState os, NameActiveState ns) {
                         /* So we reached a different state for this
                          * job. Let's see if we can run it now if it
                          * failed previously due to EAGAIN. */
-                        job_run_and_invalidate(n->meta.job);
+                        job_schedule_run(n->meta.job);
 
                 else {
                         assert(n->meta.job->state == JOB_RUNNING);
@@ -709,12 +768,17 @@ int name_watch_fd(Name *n, int fd, uint32_t events) {
         zero(ev);
         ev.data.fd = fd;
         ev.data.ptr = n;
+        ev.data.u32 = MANAGER_FD;
         ev.events = events;
 
-        if (epoll_ctl(n->meta.manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
-                return -errno;
+        if (epoll_ctl(n->meta.manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) >= 0)
+                return 0;
 
-        return 0;
+        if (errno == EEXIST)
+                if (epoll_ctl(n->meta.manager->epoll_fd, EPOLL_CTL_MOD, fd, &ev) >= 0)
+                        return 0;
+
+        return -errno;
 }
 
 void name_unwatch_fd(Name *n, int fd) {
@@ -736,4 +800,122 @@ void name_unwatch_pid(Name *n, pid_t pid) {
         assert(pid >= 1);
 
         hashmap_remove(n->meta.manager->watch_pids, UINT32_TO_PTR(pid));
+}
+
+int name_watch_timer(Name *n, usec_t delay, int *id) {
+        struct epoll_event ev;
+        int fd;
+        struct itimerspec its;
+        int flags;
+        bool ours;
+
+        assert(n);
+        assert(id);
+
+        /* This will try to reuse the old timer if there is one */
+
+        if (*id >= 0) {
+                ours = false;
+                fd = *id;
+
+        } else {
+                ours = true;
+
+                if ((fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC)) < 0)
+                        return -errno;
+        }
+
+        zero(its);
+
+        if (delay <= 0) {
+                /* Set absolute time in the past, but not 0, since we
+                 * don't want to disarm the timer */
+                its.it_value.tv_sec = 0;
+                its.it_value.tv_nsec = 1;
+
+                flags = TFD_TIMER_ABSTIME;
+        } else {
+                timespec_store(&its.it_value, delay);
+                flags = 0;
+        }
+
+        /* This will also flush the elapse counter */
+        if (timerfd_settime(fd, flags, &its, NULL) < 0)
+                goto fail;
+
+        zero(ev);
+        ev.data.fd = fd;
+        ev.data.ptr = n;
+        ev.data.u32 = MANAGER_TIMER;
+        ev.events = POLLIN;
+
+        if (epoll_ctl(n->meta.manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
+                goto fail;
+
+        *id = fd;
+        return 0;
+
+fail:
+        if (ours)
+                assert_se(close_nointr(fd) == 0);
+
+        return -errno;
+}
+
+void name_unwatch_timer(Name *n, int *id) {
+        assert(n);
+        assert(id);
+
+        if (*id >= 0) {
+                assert_se(epoll_ctl(n->meta.manager->epoll_fd, EPOLL_CTL_DEL, *id, NULL) >= 0);
+                assert_se(close_nointr(*id) == 0);
+
+                *id = -1;
+        }
+}
+
+char *name_change_suffix(const char *t, const char *suffix) {
+        char *e, *n;
+        size_t a, b;
+
+        assert(t);
+        assert(name_is_valid(t));
+        assert(suffix);
+
+        assert_se(e = strrchr(t, '.'));
+        a = e - t;
+        b = strlen(suffix);
+
+        if (!(n = new(char, a + b + 1)))
+                return NULL;
+
+        memcpy(n, t, a);
+        memcpy(n+a, t, b+1);
+
+        return n;
+}
+
+bool name_job_is_applicable(Name *n, JobType j) {
+        assert(n);
+        assert(j >= 0 && j < _JOB_TYPE_MAX);
+
+        switch (j) {
+                case JOB_VERIFY_ACTIVE:
+                case JOB_START:
+                        return true;
+
+                case JOB_STOP:
+                case JOB_RESTART:
+                case JOB_TRY_RESTART:
+                        return name_can_start(n);
+
+                case JOB_RELOAD:
+                        return name_can_reload(n);
+
+                case JOB_RELOAD_OR_START:
+                        return name_can_reload(n) && name_can_start(n);
+
+                default:
+                        assert_not_reached("Invalid job type");
+        }
 }
