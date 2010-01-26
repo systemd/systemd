@@ -10,7 +10,7 @@
 
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
-        Name *target = NULL, *syslog = NULL;
+        Name *target = NULL;
         Job *job = NULL;
         int r, retval = 1;
 
@@ -23,11 +23,6 @@ int main(int argc, char *argv[]) {
 
         if ((r = manager_load_name(m, "default.target", &target)) < 0) {
                 log_error("Failed to load default target: %s", strerror(-r));
-                goto finish;
-        }
-
-        if ((r = manager_load_name(m, "syslog.socket", &syslog)) < 0) {
-                log_error("Failed to load syslog socket: %s", strerror(-r));
                 goto finish;
         }
 
