@@ -1,0 +1,3 @@
+[Meta]
+Wants=syslog.socket
+Description=Multi-User Target

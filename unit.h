@@ -103,6 +103,7 @@ struct Meta {
         Set *dependencies[_UNIT_DEPENDENCY_MAX];
 
         char *description;
+        char *load_path; /* if loaded from a config file this is the primary path to it */
 
         /* If there is something to do with this unit, then this is
          * the job for it */
@@ -231,5 +232,9 @@ int unit_watch_timer(Unit *u, usec_t delay, int *id);
 void unit_unwatch_timer(Unit *u, int *id);
 
 bool unit_job_is_applicable(Unit *u, JobType j);
+
+const char *unit_path(void);
+int set_unit_path(const char *p);
+
 
 #endif

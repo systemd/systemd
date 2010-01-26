@@ -1,4 +1,4 @@
-CFLAGS=-Wall -Wextra -O0 -g -pipe -D_GNU_SOURCE -fdiagnostics-show-option -Wno-unused-parameter
+CFLAGS=-Wall -Wextra -O0 -g -pipe -D_GNU_SOURCE -fdiagnostics-show-option -Wno-unused-parameter -DUNIT_PATH=\"/tmp/does/not/exist\"
 LIBS=-lrt -lcap
 
 COMMON= \

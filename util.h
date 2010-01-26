@@ -94,5 +94,9 @@ char *strappend(const char *s, const char *suffix);
 int readlink_malloc(const char *p, char **r);
 
 char *file_name_from_path(const char *p);
+bool is_path(const char *p);
+
+bool path_is_absolute(const char *p);
+char *path_make_absolute(const char *p, const char *prefix);
 
 #endif

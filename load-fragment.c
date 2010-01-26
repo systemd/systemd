@@ -328,7 +328,7 @@ static int config_parse_exec(
 
         n[k] = NULL;
 
-        if (!n[0] || n[0][0] != '/') {
+        if (!n[0] || !path_is_absolute(n[0])) {
                 log_error("[%s:%u] Invalid executable path in command line: %s", filename, line, rvalue);
                 strv_free(n);
                 return -EINVAL;
@@ -463,7 +463,7 @@ static char *build_path(const char *path, const char *filename) {
          * filename, unless the latter is absolute anyway or the
          * former isn't */
 
-        if (filename[0] == '/')
+        if (path_is_absolute(filename))
                 return strdup(filename);
 
         if (!(e = strrchr(path, '/')))
@@ -479,88 +479,73 @@ static char *build_path(const char *path, const char *filename) {
         return r;
 }
 
-static int open_follow(const char **filename, FILE **_f, Set *names) {
-        unsigned c;
+static int open_follow(char **filename, FILE **_f, Set *names, char **_id) {
+        unsigned c = 0;
         int fd, r;
         FILE *f;
-        char *n = NULL;
-        const char *fn;
+        char *id = NULL;
 
         assert(filename);
         assert(*filename);
         assert(_f);
         assert(names);
 
-        fn = *filename;
+        /* This will update the filename pointer if the loaded file is
+         * reached by a symlink. The old string will be freed. */
 
-        for (c = 0; c < FOLLOW_MAX; c++) {
+        for (;;) {
                 char *target, *k, *name;
+
+                if (c++ >= FOLLOW_MAX)
+                        return -ELOOP;
 
                 /* Add the file name we are currently looking at to
                  * the names of this unit */
-                name = file_name_from_path(fn);
-                if (!set_get(names, name)) {
+                name = file_name_from_path(*filename);
+                if (!(id = set_get(names, name))) {
 
-                        if (!(name = strdup(name))) {
-                                r = -ENOMEM;
-                                goto finish;
+                        if (!(id = strdup(name)))
+                                return -ENOMEM;
+
+                        if ((r = set_put(names, id)) < 0) {
+                                free(id);
+                                return r;
                         }
-
-                        if ((r = set_put(names, name)) < 0) {
-                                free(name);
-                                goto finish;
-                        }
-
-                        free(name);
                 }
 
-                /* Try to open the file name, but don' if its a symlink */
-                fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
-                if (fd >= 0 || errno != ELOOP)
+                /* Try to open the file name, but don't if its a symlink */
+                if ((fd = open(*filename, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW)) >= 0)
                         break;
 
-                /* Hmm, so this is a symlink. Let's read the name, and follow it manually */
-                if ((r = readlink_malloc(fn, &target)) < 0)
-                        goto finish;
+                if (errno != ELOOP)
+                        return -errno;
 
-                k = build_path(fn, target);
+                /* Hmm, so this is a symlink. Let's read the name, and follow it manually */
+                if ((r = readlink_malloc(*filename, &target)) < 0)
+                        return r;
+
+                k = build_path(*filename, target);
                 free(target);
 
-                if (!k) {
-                        r = -ENOMEM;
-                        goto finish;
-                }
+                if (!k)
+                        return -ENOMEM;
 
-                free(n);
-                fn = n = k;
-        }
-
-        if (c >= FOLLOW_MAX) {
-                r = -ELOOP;
-                goto finish;
-        }
-
-        if (fd < 0) {
-                r = -errno;
-                goto finish;
+                free(*filename);
+                *filename = k;
         }
 
         if (!(f = fdopen(fd, "r"))) {
                 r = -errno;
                 assert(close_nointr(fd) == 0);
-                goto finish;
+                return r;
         }
 
         *_f = f;
-        *filename = fn;
-        r = 0;
-
-finish:
-        free(n);
-        return r;
+        *_id = id;
+        return 0;
 }
 
-int unit_load_fragment(Unit *u) {
+static int load_from_path(Unit *u, const char *path) {
 
         static const char* const section_table[_UNIT_TYPE_MAX] = {
                 [UNIT_SERVICE]   = "Service",
@@ -627,14 +612,12 @@ int unit_load_fragment(Unit *u) {
 
 #undef EXEC_CONTEXT_CONFIG_ITEMS
 
-        char *t, *k;
-        int r;
         const char *sections[3];
-        Iterator i;
+        char *k;
+        int r;
         Set *symlink_names;
-
-        assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        FILE *f;
+        char *filename, *id;
 
         sections[0] = "Meta";
         sections[1] = section_table[u->meta.type];
@@ -643,51 +626,69 @@ int unit_load_fragment(Unit *u) {
         if (!(symlink_names = set_new(string_hash_func, string_compare_func)))
                 return -ENOMEM;
 
-        /* Try to find a name we can load this with */
-        SET_FOREACH(t, u->meta.names, i) {
-                FILE *f;
-                char *fn;
-
-                /* Clear the symlink name set first */
-                while ((k = set_steal_first(symlink_names)))
-                        free(k);
-
-                /* Instead of opening the path right away, we manually
-                 * follow all symlinks and add their name to our unit
-                 * name set while doing so */
-                fn = t;
-                if ((r = open_follow((const char**) &fn, &f, symlink_names)) < 0) {
-                        if (r == -ENOENT)
-                                continue;
-
-                        goto finish;
-                }
-
-                /* Now, parse the file contents */
-                r = config_parse(fn, f, sections, items, u);
-                if (fn != t)
-                        free(fn);
-                if (r < 0)
-                        goto finish;
-
-                /* Let's try to add in all symlink names we found */
-                while ((k = set_steal_first(symlink_names)))
-                        if ((r = unit_add_name(u, k)) < 0)
-                                goto finish;
-
-                /* Yay, we succeeded! Now let's call this our identifier */
-                u->meta.id = t;
+        /* Instead of opening the path right away, we manually
+         * follow all symlinks and add their name to our unit
+         * name set while doing so */
+        if (!(filename = path_make_absolute(path, unit_path()))) {
+                r = -ENOMEM;
                 goto finish;
         }
 
+        if ((r = open_follow(&filename, &f, symlink_names, &id)) < 0) {
+                if (r == -ENOENT)
+                        r = 0; /* returning 0 means: no suitable config file found */
 
-        r = -ENOENT;
+                goto finish;
+        }
+
+        /* Now, parse the file contents */
+        r = config_parse(filename, f, sections, items, u);
+        if (r < 0)
+                goto finish;
+
+        /* Let's try to add in all symlink names we found */
+        while ((k = set_steal_first(symlink_names))) {
+                if ((r = unit_add_name(u, k)) < 0)
+                        goto finish;
+
+                if (id == k)
+                        assert_se(u->meta.id = set_get(u->meta.names, k));
+
+                free(k);
+        }
+
+        free(u->meta.load_path);
+        u->meta.load_path = filename;
+        filename = NULL;
+
+        r = 1; /* returning 1 means: suitable config file found and loaded */
 
 finish:
         while ((k = set_steal_first(symlink_names)))
                 free(k);
-
         set_free(symlink_names);
+        free(filename);
+
+        return r;
+}
+
+int unit_load_fragment(Unit *u) {
+        int r = -ENOENT;
+
+        assert(u);
+        assert(u->meta.load_state == UNIT_STUB);
+
+        if (u->meta.load_path)
+                r = load_from_path(u, u->meta.load_path);
+        else {
+                Iterator i;
+                char *t;
+
+                /* Try to find a name we can load this with */
+                SET_FOREACH(t, u->meta.names, i)
+                        if ((r = load_from_path(u, t)) != 0)
+                                return r;
+        }
 
         return r;
 }

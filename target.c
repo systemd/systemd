@@ -19,7 +19,7 @@ static UnitActiveState target_active_state(Unit *u) {
 const UnitVTable target_vtable = {
         .suffix = ".target",
 
-        .init = unit_load_fragment,
+        .init = unit_load_fragment_and_dropin,
         .done = target_done,
 
         .active_state = target_active_state

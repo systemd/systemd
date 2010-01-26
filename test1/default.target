@@ -1,4 +1,1 @@
-[Meta]
-Names=multiuser.target
-Wants=postfix.socket syslog.socket
-Description=Default Target
+multiuser.target

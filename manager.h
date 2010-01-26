@@ -58,7 +58,7 @@ void manager_free(Manager *m);
 Job *manager_get_job(Manager *m, uint32_t id);
 Unit *manager_get_unit(Manager *m, const char *name);
 
-int manager_load_unit(Manager *m, const char *name, Unit **_ret);
+int manager_load_unit(Manager *m, const char *path_or_name, Unit **_ret);
 int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool force, Job **_ret);
 
 void manager_dump_units(Manager *s, FILE *f, const char *prefix);

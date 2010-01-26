@@ -6,6 +6,8 @@
 #include <sys/epoll.h>
 #include <sys/timerfd.h>
 #include <sys/poll.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include "set.h"
 #include "unit.h"
@@ -206,6 +208,7 @@ void unit_free(Unit *u) {
                 bidi_set_free(u, u->meta.dependencies[d]);
 
         free(u->meta.description);
+        free(u->meta.load_path);
 
         while ((t = set_steal_first(u->meta.names)))
                 free(t);
@@ -337,6 +340,9 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, unit_description(u),
                 prefix, load_state_table[u->meta.load_state],
                 prefix, active_state_table[unit_active_state(u)]);
+
+        if (u->meta.load_path)
+                fprintf(f, "%s\tLoad Path: %s\n", prefix, u->meta.load_path);
 
         SET_FOREACH(t, u->meta.names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
@@ -800,6 +806,45 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other) {
 
         if ((r = set_put(other->meta.dependencies[inverse_table[d]], u)) < 0) {
                 set_remove(u->meta.dependencies[d], other);
+                return r;
+        }
+
+        return 0;
+}
+
+const char *unit_path(void) {
+        char *e;
+
+        if ((e = getenv("UNIT_PATH")))
+                if (path_is_absolute(e))
+                    return e;
+
+        return UNIT_PATH;
+}
+
+int set_unit_path(const char *p) {
+        char *cwd, *c;
+        int r;
+
+        /* This is mostly for debug purposes */
+
+        if (path_is_absolute(p)) {
+                if (!(c = strdup(p)))
+                        return -ENOMEM;
+        } else {
+                if (!(cwd = get_current_dir_name()))
+                        return -errno;
+
+                r = asprintf(&c, "%s/%s", cwd, p);
+                free(cwd);
+
+                if (r < 0)
+                        return -ENOMEM;
+        }
+
+        if (setenv("UNIT_PATH", c, 0) < 0) {
+                r = -errno;
+                free(c);
                 return r;
         }
 

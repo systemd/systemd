@@ -443,3 +443,28 @@ char *file_name_from_path(const char *p) {
 
         return (char*) p;
 }
+
+bool path_is_absolute(const char *p) {
+        assert(p);
+
+        return p[0] == '/';
+}
+
+bool is_path(const char *p) {
+
+        return !!strchr(p, '/');
+}
+
+char *path_make_absolute(const char *p, const char *prefix) {
+        char *r;
+
+        assert(p);
+
+        if (path_is_absolute(p) || !prefix)
+                return strdup(p);
+
+        if (asprintf(&r, "%s/%s", prefix, p) < 0)
+                return NULL;
+
+        return r;
+}

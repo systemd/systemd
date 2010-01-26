@@ -830,16 +830,19 @@ static void dispatch_load_queue(Manager *m) {
         m->dispatching_load_queue = false;
 }
 
-int manager_load_unit(Manager *m, const char *name, Unit **_ret) {
+int manager_load_unit(Manager *m, const char *path, Unit **_ret) {
         Unit *ret;
         int r;
+        const char *name;
 
         assert(m);
-        assert(name);
+        assert(path);
         assert(_ret);
 
         /* This will load the service information files, but not actually
-         * start any services or anything */
+         * start any services or anything. */
+
+        name = file_name_from_path(path);
 
         if ((ret = manager_get_unit(m, name))) {
                 *_ret = ret;
@@ -848,6 +851,13 @@ int manager_load_unit(Manager *m, const char *name, Unit **_ret) {
 
         if (!(ret = unit_new(m)))
                 return -ENOMEM;
+
+        if (is_path(path)) {
+                if (!(ret->meta.load_path = strdup(path))) {
+                        unit_free(ret);
+                        return -ENOMEM;
+                }
+        }
 
         if ((r = unit_add_name(ret, name)) < 0) {
                 unit_free(ret);
