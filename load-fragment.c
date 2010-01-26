@@ -20,7 +20,7 @@ static int config_parse_deps(
                 void *data,
                 void *userdata) {
 
-        Set **set = data;
+        NameDependency d = PTR_TO_UINT(data);
         Name *name = userdata;
         char *w;
         size_t l;
@@ -29,7 +29,6 @@ static int config_parse_deps(
         assert(filename);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         FOREACH_WORD(w, &l, rvalue, state) {
                 char *t;
@@ -45,10 +44,7 @@ static int config_parse_deps(
                 if (r < 0)
                         return r;
 
-                if ((r = set_ensure_allocated(set, trivial_hash_func, trivial_compare_func)) < 0)
-                        return r;
-
-                if ((r = set_put(*set, other)) < 0)
+                if ((r = name_add_dependency(name, d, other)) < 0)
                         return r;
         }
 
@@ -333,6 +329,7 @@ static int config_parse_exec(
         if (!(n = new(char*, k+1)))
                 return -ENOMEM;
 
+        k = 0;
         FOREACH_WORD_QUOTED(w, l, rvalue, state)
                 if (!(n[k++] = strndup(w, l)))
                         goto fail;
@@ -487,14 +484,14 @@ int name_load_fragment(Name *n) {
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           &n->meta.names,                                    "Meta"    },
                 { "Description",            config_parse_string,          &n->meta.description,                              "Meta"    },
-                { "Requires",               config_parse_deps,            n->meta.dependencies+NAME_REQUIRES,                "Meta"    },
-                { "SoftRequires",           config_parse_deps,            n->meta.dependencies+NAME_SOFT_REQUIRES,           "Meta"    },
-                { "Wants",                  config_parse_deps,            n->meta.dependencies+NAME_WANTS,                   "Meta"    },
-                { "Requisite",              config_parse_deps,            n->meta.dependencies+NAME_REQUISITE,               "Meta"    },
-                { "SoftRequisite",          config_parse_deps,            n->meta.dependencies+NAME_SOFT_REQUISITE,          "Meta"    },
-                { "Conflicts",              config_parse_deps,            n->meta.dependencies+NAME_CONFLICTS,               "Meta"    },
-                { "Before",                 config_parse_deps,            n->meta.dependencies+NAME_BEFORE,                  "Meta"    },
-                { "After",                  config_parse_deps,            n->meta.dependencies+NAME_AFTER,                   "Meta"    },
+                { "Requires",               config_parse_deps,            UINT_TO_PTR(NAME_REQUIRES),                        "Meta"    },
+                { "SoftRequires",           config_parse_deps,            UINT_TO_PTR(NAME_SOFT_REQUIRES),                   "Meta"    },
+                { "Wants",                  config_parse_deps,            UINT_TO_PTR(NAME_WANTS),                           "Meta"    },
+                { "Requisite",              config_parse_deps,            UINT_TO_PTR(NAME_REQUISITE),                       "Meta"    },
+                { "SoftRequisite",          config_parse_deps,            UINT_TO_PTR(NAME_SOFT_REQUISITE),                  "Meta"    },
+                { "Conflicts",              config_parse_deps,            UINT_TO_PTR(NAME_CONFLICTS),                       "Meta"    },
+                { "Before",                 config_parse_deps,            UINT_TO_PTR(NAME_BEFORE),                          "Meta"    },
+                { "After",                  config_parse_deps,            UINT_TO_PTR(NAME_AFTER),                           "Meta"    },
 
                 { "PIDFile",                config_parse_path,            &n->service.pid_file,                              "Service" },
                 { "ExecStartPre",           config_parse_exec,            &n->service.exec_command[SERVICE_EXEC_START_PRE],  "Service" },

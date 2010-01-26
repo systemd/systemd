@@ -61,22 +61,12 @@ JobDependency* job_dependency_new(Job *subject, Job *object, bool matters) {
         l->object = object;
         l->matters = matters;
 
-        if (subject) {
-                l->subject_next = subject->subject_list;
-                subject->subject_list = l;
-        } else {
-                l->subject_next = object->manager->transaction_anchor;
-                object->manager->transaction_anchor = l;
-        }
+        if (subject)
+                LIST_PREPEND(JobDependency, subject, subject->subject_list, l);
+        else
+                LIST_PREPEND(JobDependency, subject, object->manager->transaction_anchor, l);
 
-        if (l->subject_next)
-                l->subject_next->subject_prev = l;
-        l->subject_prev = NULL;
-
-        if ((l->object_next = object->object_list))
-                l->object_next->object_prev = l;
-        l->object_prev = NULL;
-        object->object_list = l;
+        LIST_PREPEND(JobDependency, object, object->object_list, l);
 
         return l;
 }
@@ -84,23 +74,12 @@ JobDependency* job_dependency_new(Job *subject, Job *object, bool matters) {
 void job_dependency_free(JobDependency *l) {
         assert(l);
 
-        if (l->subject_prev)
-                l->subject_prev->subject_next = l->subject_next;
-        else if (l->subject)
-                l->subject->subject_list = l->subject_next;
+        if (l->subject)
+                LIST_REMOVE(JobDependency, subject, l->subject->subject_list, l);
         else
-                l->object->manager->transaction_anchor = l->subject_next;
+                LIST_REMOVE(JobDependency, subject, l->object->manager->transaction_anchor, l);
 
-        if (l->subject_next)
-                l->subject_next->subject_prev = l->subject_prev;
-
-        if (l->object_prev)
-                l->object_prev->object_next = l->object_next;
-        else
-                l->object->object_list = l->object_next;
-
-        if (l->object_next)
-                l->object_next->object_prev = l->object_prev;
+        LIST_REMOVE(JobDependency, object, l->object->object_list, l);
 
         free(l);
 }
@@ -110,7 +89,7 @@ void job_dependency_delete(Job *subject, Job *object, bool *matters) {
 
         assert(object);
 
-        for (l = object->object_list; l; l = l->object_next) {
+        LIST_FOREACH(object, l, object->object_list) {
                 assert(l->object == object);
 
                 if (l->subject == subject)
@@ -158,7 +137,7 @@ void job_dump(Job *j, FILE*f, const char *prefix) {
         assert(f);
 
         fprintf(f,
-                "%sJob %u:\n"
+                "%s→ Job %u:\n"
                 "%s\tAction: %s → %s\n"
                 "%s\tState: %s\n"
                 "%s\tForced: %s\n",
@@ -173,7 +152,7 @@ bool job_is_anchor(Job *j) {
 
         assert(j);
 
-        for (l = j->object_list; l; l = l->object_next)
+        LIST_FOREACH(object, l, j->object_list)
                 if (!l->subject)
                         return true;
 
@@ -401,7 +380,7 @@ int job_run_and_invalidate(Job *j) {
                 }
 
                 default:
-                        ;
+                        assert_not_reached("Unknown job type");
         }
 
         if (r == -EALREADY)

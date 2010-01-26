@@ -4,4 +4,4 @@ Description=Postfix Mail Server
 Requires=syslog.socket
 
 [Service]
-Exec=/usr/bin/postfix
+ExecStart=/usr/bin/postfix

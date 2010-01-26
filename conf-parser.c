@@ -12,7 +12,6 @@
 #include "strv.h"
 #include "log.h"
 
-#define WHITESPACE " \t\n"
 #define COMMENTS "#;\n"
 #define LINE_MAX 4096
 

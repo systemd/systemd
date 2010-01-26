@@ -18,6 +18,9 @@ typedef uint64_t usec_t;
 #define NSEC_PER_MSEC 1000000ULL
 #define NSEC_PER_USEC 1000ULL
 
+/* What is interpreted as whitespace? */
+#define WHITESPACE " \t\n"
+
 usec_t now(clockid_t clock);
 
 usec_t timespec_load(const struct timespec *ts);
@@ -85,5 +88,7 @@ pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
 
 int write_one_line_file(const char *fn, const char *line);
 int read_one_line_file(const char *fn, char **line);
+
+char *strappend(const char *s, const char *suffix);
 
 #endif

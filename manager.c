@@ -134,7 +134,12 @@ static void transaction_find_jobs_that_matter_to_anchor(Manager *m, Job *j, unsi
          * indirectly a dependency of the anchor job via paths that
          * are fully marked as mattering. */
 
-        for (l = j ? j->subject_list : m->transaction_anchor; l; l = l->subject_next) {
+        if (j)
+                l = j->subject_list;
+        else
+                l = m->transaction_anchor;
+
+        LIST_FOREACH(subject, l, l) {
 
                 /* This link does not matter */
                 if (!l->matters)
@@ -169,7 +174,7 @@ static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, Job
 
         /* Patch us in as new owner of the JobDependency objects */
         last = NULL;
-        for (l = other->subject_list; l; l = l->subject_next) {
+        LIST_FOREACH(subject, l, other->subject_list) {
                 assert(l->subject == other);
                 l->subject = j;
                 last = l;
@@ -185,7 +190,7 @@ static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, Job
 
         /* Patch us in as new owner of the JobDependency objects */
         last = NULL;
-        for (l = other->object_list; l; l = l->object_next) {
+        LIST_FOREACH(object, l, other->object_list) {
                 assert(l->object == other);
                 l->object = j;
                 last = l;

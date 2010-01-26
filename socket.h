@@ -75,6 +75,9 @@ struct Socket {
         int timer_id;
 };
 
+/* Called from the service code when collecting fds */
+int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds);
+
 extern const NameVTable socket_vtable;
 
 #endif

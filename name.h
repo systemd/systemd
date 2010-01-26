@@ -75,6 +75,8 @@ enum NameDependency {
         NAME_WANTS,
         NAME_REQUISITE,
         NAME_SOFT_REQUISITE,
+
+        /* Inverse of the above */
         NAME_REQUIRED_BY,       /* inverse of 'requires' and 'requisite' is 'required_by' */
         NAME_SOFT_REQUIRED_BY,  /* inverse of 'soft_requires' and 'soft_requisite' is 'soft_required_by' */
         NAME_WANTED_BY,         /* inverse of 'wants' */
@@ -85,7 +87,9 @@ enum NameDependency {
         /* Order */
         NAME_BEFORE,            /* inverse of before is after and vice versa */
         NAME_AFTER,
-        _NAME_DEPENDENCY_MAX
+
+        _NAME_DEPENDENCY_MAX,
+        _NAME_DEPENDENCY_INVALID = -1
 };
 
 struct Meta {
@@ -229,5 +233,7 @@ void name_unwatch_timer(Name *n, int *id);
 char *name_change_suffix(const char *t, const char *suffix);
 
 bool name_job_is_applicable(Name *n, JobType j);
+
+int name_add_dependency(Name *n, NameDependency d, Name *other);
 
 #endif

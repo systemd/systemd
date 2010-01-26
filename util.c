@@ -100,9 +100,9 @@ int close_nointr(int fd) {
 int parse_boolean(const char *v) {
         assert(v);
 
-        if (!strcmp(v, "1") || v[0] == 'y' || v[0] == 'Y' || v[0] == 't' || v[0] == 'T' || !strcasecmp(v, "on"))
+        if (streq(v, "1") || v[0] == 'y' || v[0] == 'Y' || v[0] == 't' || v[0] == 'T' || !strcasecmp(v, "on"))
                 return 1;
-        else if (!strcmp(v, "0") || v[0] == 'n' || v[0] == 'N' || v[0] == 'f' || v[0] == 'F' || !strcasecmp(v, "off"))
+        else if (streq(v, "0") || v[0] == 'n' || v[0] == 'N' || v[0] == 'f' || v[0] == 'F' || !strcasecmp(v, "off"))
                 return 0;
 
         return -EINVAL;
@@ -216,9 +216,6 @@ int safe_atolli(const char *s, long long int *ret_lli) {
         return 0;
 }
 
-/* What is interpreted as whitespace? */
-#define WHITESPACE " \t\n"
-
 /* Split a string into words. */
 char *split_spaces(const char *c, size_t *l, char **state) {
         char *current;
@@ -265,6 +262,9 @@ char *split_quoted(const char *c, size_t *l, char **state) {
                 *l = strcspn(current, WHITESPACE);
                 *state = current+*l;
         }
+
+        /* FIXME: Cannot deal with strings that have spaces AND ticks
+         * in them */
 
         return (char*) current;
 }
@@ -380,5 +380,25 @@ int read_one_line_file(const char *fn, char **line) {
 
 finish:
         fclose(f);
+        return r;
+}
+
+char *strappend(const char *s, const char *suffix) {
+        size_t a, b;
+        char *r;
+
+        assert(s);
+        assert(suffix);
+
+        a = strlen(s);
+        b = strlen(suffix);
+
+        if (!(r = new(char, a+b+1)))
+                return NULL;
+
+        memcpy(r, s, a);
+        memcpy(r+a, suffix, b);
+        r[a+b] = 0;
+
         return r;
 }

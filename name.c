@@ -13,6 +13,7 @@
 #include "strv.h"
 #include "load-fragment.h"
 #include "load-dropin.h"
+#include "log.h"
 
 const NameVTable * const name_vtable[_NAME_TYPE_MAX] = {
         [NAME_SERVICE] = &service_vtable,
@@ -183,11 +184,13 @@ static void bidi_set_free(Name *name, Set *s) {
         /* Frees the set and makes sure we are dropped from the
          * inverse pointers */
 
-        SET_FOREACH(other, s, i) {
-                NameDependency d;
+        if (name->meta.linked) {
+                SET_FOREACH(other, s, i) {
+                        NameDependency d;
 
-                for (d = 0; d < _NAME_DEPENDENCY_MAX; d++)
-                        set_remove(other->meta.dependencies[d], name);
+                        for (d = 0; d < _NAME_DEPENDENCY_MAX; d++)
+                                set_remove(other->meta.dependencies[d], name);
+                }
         }
 
         set_free(s);
@@ -211,15 +214,16 @@ void name_free(Name *name) {
                         LIST_REMOVE(Meta, load_queue, name->meta.manager->load_queue, &name->meta);
         }
 
+        if (name->meta.load_state == NAME_LOADED)
+                if (NAME_VTABLE(name)->done)
+                        NAME_VTABLE(name)->done(name);
+
         /* Free data and next 'smaller' objects */
         if (name->meta.job)
                 job_free(name->meta.job);
 
         for (d = 0; d < _NAME_DEPENDENCY_MAX; d++)
                 bidi_set_free(name, name->meta.dependencies[d]);
-
-        if (NAME_VTABLE(name)->done)
-                NAME_VTABLE(name)->done(name);
 
         free(name->meta.description);
 
@@ -237,21 +241,6 @@ NameActiveState name_active_state(Name *name) {
                 return NAME_INACTIVE;
 
         return NAME_VTABLE(name)->active_state(name);
-}
-
-static int ensure_in_set(Set **s, void *data) {
-        int r;
-
-        assert(s);
-        assert(data);
-
-        if ((r = set_ensure_allocated(s, trivial_hash_func, trivial_compare_func)) < 0)
-                return r;
-
-        if ((r = set_put(*s, data)) < 0)
-                return r;
-
-        return 0;
 }
 
 static int ensure_merge(Set **s, Set *other) {
@@ -292,6 +281,7 @@ int name_merge(Name *name, Name *other) {
 
         /* Merge dependencies */
         for (d = 0; d < _NAME_DEPENDENCY_MAX; d++)
+                /* fixme, the inverse mapping is missing */
                 if ((r = ensure_merge(&name->meta.dependencies[d], other->meta.dependencies[d])) < 0)
                         return r;
 
@@ -307,46 +297,6 @@ int name_merge(Name *name, Name *other) {
         return 0;
 }
 
-/* FIXME: Does not rollback on failure! */
-static int augment(Name *n) {
-        int r;
-        Iterator i;
-        Name *other;
-
-        assert(n);
-
-        /* Adds in the missing links to make all dependencies
-         * bidirectional. */
-
-        SET_FOREACH(other, n->meta.dependencies[NAME_BEFORE], i)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_AFTER], n)) < 0)
-                        return r;
-        SET_FOREACH(other, n->meta.dependencies[NAME_AFTER], i)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_BEFORE], n)) < 0)
-                        return r;
-
-        SET_FOREACH(other, n->meta.dependencies[NAME_CONFLICTS], i)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_CONFLICTS], n)) < 0)
-                        return r;
-
-        SET_FOREACH(other, n->meta.dependencies[NAME_REQUIRES], i)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_REQUIRED_BY], n)) < 0)
-                        return r;
-        SET_FOREACH(other, n->meta.dependencies[NAME_REQUISITE], i)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_REQUIRED_BY], n)) < 0)
-                        return r;
-
-        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUIRES], i)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_SOFT_REQUIRED_BY], n)) < 0)
-                        return r;
-
-        SET_FOREACH(other, n->meta.dependencies[NAME_WANTS], i)
-                if ((r = ensure_in_set(&other->meta.dependencies[NAME_WANTED_BY], n)) < 0)
-                        return r;
-
-        return 0;
-}
-
 int name_sanitize(Name *n) {
         NameDependency d;
 
@@ -356,7 +306,7 @@ int name_sanitize(Name *n) {
         for (d = 0; d < _NAME_DEPENDENCY_MAX; d++)
                 set_remove(n->meta.dependencies[d], n);
 
-        return augment(n);
+        return 0;
 }
 
 const char* name_id(Name *n) {
@@ -409,14 +359,18 @@ void name_dump(Name *n, FILE *f, const char *prefix) {
         char *t;
         NameDependency d;
         Iterator i;
+        char *prefix2;
 
         assert(n);
 
         if (!prefix)
                 prefix = "";
+        prefix2 = strappend(prefix, "\t");
+        if (!prefix2)
+                prefix2 = "";
 
         fprintf(f,
-                "%sName %s:\n"
+                "%s→ Name %s:\n"
                 "%s\tDescription: %s\n"
                 "%s\tName Load State: %s\n"
                 "%s\tName Active State: %s\n",
@@ -439,19 +393,12 @@ void name_dump(Name *n, FILE *f, const char *prefix) {
         }
 
         if (NAME_VTABLE(n)->dump)
-                NAME_VTABLE(n)->dump(n, f, prefix);
+                NAME_VTABLE(n)->dump(n, f, prefix2);
 
-        if (n->meta.job) {
-                char *p;
+        if (n->meta.job)
+                job_dump(n->meta.job, f, prefix2);
 
-                if (asprintf(&p, "%s\t", prefix) >= 0)
-                        prefix = p;
-                else
-                        p = NULL;
-
-                job_dump(n->meta.job, f, prefix);
-                free(p);
-        }
+        free(prefix2);
 }
 
 static int verify_type(Name *name) {
@@ -521,13 +468,17 @@ int name_load(Name *name) {
                         goto fail;
 
         if ((r = name_sanitize(name)) < 0)
-                goto fail;
+                goto fail_undo_init;
 
         if ((r = name_link_names(name, false)) < 0)
-                goto fail;
+                goto fail_undo_init;
 
         name->meta.load_state = NAME_LOADED;
         return 0;
+
+fail_undo_init:
+        if (NAME_VTABLE(name)->done)
+                NAME_VTABLE(name)->done(name);
 
 fail:
         name->meta.load_state = NAME_FAILED;
@@ -890,7 +841,7 @@ char *name_change_suffix(const char *t, const char *suffix) {
                 return NULL;
 
         memcpy(n, t, a);
-        memcpy(n+a, t, b+1);
+        memcpy(n+a, suffix, b+1);
 
         return n;
 }
@@ -918,4 +869,43 @@ bool name_job_is_applicable(Name *n, JobType j) {
                 default:
                         assert_not_reached("Invalid job type");
         }
+}
+
+int name_add_dependency(Name *n, NameDependency d, Name *other) {
+
+        static const NameDependency inverse_table[_NAME_DEPENDENCY_MAX] = {
+                [NAME_REQUIRES] = NAME_REQUIRED_BY,
+                [NAME_SOFT_REQUIRES] = NAME_SOFT_REQUIRED_BY,
+                [NAME_WANTS] = NAME_WANTED_BY,
+                [NAME_REQUISITE] = NAME_REQUIRED_BY,
+                [NAME_SOFT_REQUISITE] = NAME_SOFT_REQUIRED_BY,
+                [NAME_REQUIRED_BY] = _NAME_DEPENDENCY_INVALID,
+                [NAME_SOFT_REQUIRED_BY] = _NAME_DEPENDENCY_INVALID,
+                [NAME_WANTED_BY] = _NAME_DEPENDENCY_INVALID,
+                [NAME_CONFLICTS] = NAME_CONFLICTS,
+                [NAME_BEFORE] = NAME_AFTER,
+                [NAME_AFTER] = NAME_BEFORE
+        };
+        int r;
+
+        assert(n);
+        assert(d >= 0 && d < _NAME_DEPENDENCY_MAX);
+        assert(inverse_table[d] != _NAME_DEPENDENCY_INVALID);
+        assert(other);
+
+        if ((r = set_ensure_allocated(&n->meta.dependencies[d], trivial_hash_func, trivial_compare_func)) < 0)
+                return r;
+
+        if ((r = set_ensure_allocated(&other->meta.dependencies[inverse_table[d]], trivial_hash_func, trivial_compare_func)) < 0)
+                return r;
+
+        if ((r = set_put(n->meta.dependencies[d], other)) < 0)
+                return r;
+
+        if ((r = set_put(other->meta.dependencies[inverse_table[d]], n)) < 0) {
+                set_remove(n->meta.dependencies[d], other);
+                return r;
+        }
+
+        return 0;
 }

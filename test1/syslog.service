@@ -2,4 +2,4 @@
 Description=System Logging Daemon
 
 [Service]
-Exec=/usr/bin/rsyslogd
+ExecStart=/usr/bin/rsyslogd --foobar 'waldo'

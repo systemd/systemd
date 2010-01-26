@@ -26,6 +26,33 @@ static const NameActiveState state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_AUTO_RESTART] = NAME_ACTIVATING,
 };
 
+static void service_done(Name *n) {
+        Service *s = SERVICE(n);
+
+        assert(s);
+
+        free(s->pid_file);
+        s->pid_file = NULL;
+
+        exec_context_done(&s->exec_context);
+        exec_command_free_array(s->exec_command, _SERVICE_EXEC_MAX);
+        s->control_command = NULL;
+
+        /* This will leak a process, but at least no memory or any of
+         * our resources */
+        if (s->main_pid > 0) {
+                name_unwatch_pid(n, s->main_pid);
+                s->main_pid = 0;
+        }
+
+        if (s->control_pid > 0) {
+                name_unwatch_pid(n, s->control_pid);
+                s->control_pid = 0;
+        }
+
+        name_unwatch_timer(n, &s->timer_id);
+}
+
 static int service_load_sysv(Service *s) {
         assert(s);
 
@@ -63,41 +90,18 @@ static int service_init(Name *n) {
         if (r == -ENOENT)
                 r = service_load_sysv(s);
 
-        if (r < 0)
+        if (r < 0) {
+                service_done(n);
                 return r;
+        }
 
         /* Load dropin directory data */
-        if ((r = name_load_dropin(n)) < 0)
+        if ((r = name_load_dropin(n)) < 0) {
+                service_done(n);
                 return r;
+        }
 
         return 0;
-}
-
-static void service_done(Name *n) {
-        Service *s = SERVICE(n);
-
-        assert(s);
-
-        free(s->pid_file);
-        s->pid_file = NULL;
-
-        exec_context_done(&s->exec_context);
-        exec_command_free_array(s->exec_command, _SERVICE_EXEC_MAX);
-        s->control_command = NULL;
-
-        /* This will leak a process, but at least no memory or any of
-         * our resources */
-        if (s->main_pid > 0) {
-                name_unwatch_pid(n, s->main_pid);
-                s->main_pid = 0;
-        }
-
-        if (s->control_pid > 0) {
-                name_unwatch_pid(n, s->control_pid);
-                s->control_pid = 0;
-        }
-
-        name_unwatch_timer(n, &s->timer_id);
 }
 
 static void service_dump(Name *n, FILE *f, const char *prefix) {
@@ -130,8 +134,13 @@ static void service_dump(Name *n, FILE *f, const char *prefix) {
 
         ServiceExecCommand c;
         Service *s = SERVICE(n);
+        char *prefix2;
 
         assert(s);
+
+        prefix2 = strappend(prefix, "\t");
+        if (!prefix2)
+                prefix2 = "";
 
         fprintf(f,
                 "%sService State: %s\n",
@@ -146,11 +155,17 @@ static void service_dump(Name *n, FILE *f, const char *prefix) {
         exec_context_dump(&s->exec_context, f, prefix);
 
         for (c = 0; c < _SERVICE_EXEC_MAX; c++) {
-                ExecCommand *i;
 
-                LIST_FOREACH(command, i, s->exec_command[c])
-                        fprintf(f, "%s%s: %s\n", prefix, command_table[c], i->path);
+                if (!s->exec_command[c])
+                        continue;
+
+                fprintf(f, "%s→ %s:\n",
+                        prefix, command_table[c]);
+
+                exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
+
+        free(prefix2);
 }
 
 static int service_load_pid_file(Service *s) {
@@ -240,13 +255,84 @@ static void service_set_state(Service *s, ServiceState state) {
         name_notify(NAME(s), state_table[old_state], state_table[s->state]);
 }
 
-static int service_spawn(Service *s, ExecCommand *c, bool timeout, pid_t *_pid) {
+static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
+        Iterator i;
+        int r;
+        int *rfds = NULL;
+        unsigned rn_fds = 0;
+        char *t;
+
+        assert(s);
+        assert(fds);
+        assert(n_fds);
+
+        SET_FOREACH(t, NAME(s)->meta.names, i) {
+                char *k;
+                Name *p;
+                int *cfds;
+                unsigned cn_fds;
+
+                /* Look for all socket objects that go by any of our
+                 * names and collect their fds */
+
+                if (!(k = name_change_suffix(t, ".socket"))) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
+                p = manager_get_name(NAME(s)->meta.manager, k);
+                free(k);
+
+                if ((r = socket_collect_fds(SOCKET(p), &cfds, &cn_fds)) < 0)
+                        goto fail;
+
+                if (!cfds)
+                        continue;
+
+                if (!rfds) {
+                        rfds = cfds;
+                        rn_fds = cn_fds;
+                } else {
+                        int *t;
+
+                        if (!(t = new(int, rn_fds+cn_fds))) {
+                                free(cfds);
+                                r = -ENOMEM;
+                                goto fail;
+                        }
+
+                        memcpy(t, rfds, rn_fds);
+                        memcpy(t+rn_fds, cfds, cn_fds);
+                        free(rfds);
+                        free(cfds);
+
+                        rfds = t;
+                        rn_fds = rn_fds+cn_fds;
+                }
+        }
+
+        *fds = rfds;
+        *n_fds = rn_fds;
+        return 0;
+
+fail:
+        free(rfds);
+        return r;
+}
+
+static int service_spawn(Service *s, ExecCommand *c, bool timeout, bool pass_fds, pid_t *_pid) {
         pid_t pid;
         int r;
+        int *fds = NULL;
+        unsigned n_fds = 0;
 
         assert(s);
         assert(c);
         assert(_pid);
+
+        if (pass_fds)
+                if ((r = service_collect_fds(s, &fds, &n_fds)) < 0)
+                        goto fail;
 
         if (timeout) {
                 if ((r = name_watch_timer(NAME(s), s->timeout_usec, &s->timer_id)) < 0)
@@ -254,18 +340,21 @@ static int service_spawn(Service *s, ExecCommand *c, bool timeout, pid_t *_pid) 
         } else
                 name_unwatch_timer(NAME(s), &s->timer_id);
 
-        if ((r = exec_spawn(c, &s->exec_context, NULL, 0, &pid)) < 0)
+        if ((r = exec_spawn(c, &s->exec_context, fds, n_fds, &pid)) < 0)
                 goto fail;
 
         if ((r = name_watch_pid(NAME(s), pid)) < 0)
                 /* FIXME: we need to do something here */
                 goto fail;
 
+        free(fds);
         *_pid = pid;
 
         return 0;
 
 fail:
+        free(fds);
+
         if (timeout)
                 name_unwatch_timer(NAME(s), &s->timer_id);
 
@@ -308,7 +397,7 @@ static void service_enter_stop_post(Service *s, bool success) {
 
         if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST])) {
 
-                if ((r = service_spawn(s, s->control_command, true, &s->control_pid)) < 0)
+                if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
                         goto fail;
 
                 service_set_state(s, SERVICE_STOP_POST);
@@ -381,7 +470,7 @@ static void service_enter_stop(Service *s, bool success) {
 
         if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP])) {
 
-                if ((r = service_spawn(s, s->control_command, true, &s->control_pid)) < 0)
+                if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
                         goto fail;
 
                 service_set_state(s, SERVICE_STOP);
@@ -401,7 +490,7 @@ static void service_enter_start_post(Service *s) {
 
         if ((s->control_command = s->exec_command[SERVICE_EXEC_START_POST])) {
 
-                if ((r = service_spawn(s, s->control_command, true, &s->control_pid)) < 0)
+                if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
                         goto fail;
 
                 service_set_state(s, SERVICE_START_POST);
@@ -424,7 +513,7 @@ static void service_enter_start(Service *s) {
         assert(s->exec_command[SERVICE_EXEC_START]);
         assert(!s->exec_command[SERVICE_EXEC_START]->command_next);
 
-        if ((r = service_spawn(s, s->exec_command[SERVICE_EXEC_START], s->type == SERVICE_FORKING, &pid)) < 0)
+        if ((r = service_spawn(s, s->exec_command[SERVICE_EXEC_START], s->type == SERVICE_FORKING, true, &pid)) < 0)
                 goto fail;
 
         if (s->type == SERVICE_SIMPLE) {
@@ -460,7 +549,7 @@ static void service_enter_start_pre(Service *s) {
 
         if ((s->control_command = s->exec_command[SERVICE_EXEC_START_PRE])) {
 
-                if ((r = service_spawn(s, s->control_command, true, &s->control_pid)) < 0)
+                if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
                         goto fail;
 
                 service_set_state(s, SERVICE_START_PRE);
@@ -498,7 +587,7 @@ static void service_enter_reload(Service *s) {
 
         if ((s->control_command = s->exec_command[SERVICE_EXEC_RELOAD])) {
 
-                if ((r = service_spawn(s, s->control_command, true, &s->control_pid)) < 0)
+                if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
                         goto fail;
 
                 service_set_state(s, SERVICE_RELOAD);
@@ -524,7 +613,7 @@ static void service_run_next(Service *s, bool success) {
 
         s->control_command = s->control_command->command_next;
 
-        if ((r = service_spawn(s, s->control_command, true, &s->control_pid)) < 0)
+        if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
                 goto fail;
 
         return;

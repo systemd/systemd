@@ -3,4 +3,4 @@ Description=Postfix SMTP Socket
 
 [Socket]
 ListenStream=53333
-ListenFIFO=/tmp/systemd-fifo
+ListenFIFO=/tmp/systemd-postfix-fifo

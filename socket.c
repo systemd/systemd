@@ -27,40 +27,6 @@ static const NameActiveState state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_MAINTAINANCE] = NAME_INACTIVE,
 };
 
-static int socket_init(Name *n) {
-        Socket *s = SOCKET(n);
-        char *t;
-        int r;
-
-        /* First, reset everything to the defaults, in case this is a
-         * reload */
-
-        s->bind_ipv6_only = false;
-        s->backlog = SOMAXCONN;
-        s->timeout_usec = DEFAULT_TIMEOUT_USEC;
-        exec_context_init(&s->exec_context);
-
-        if ((r = name_load_fragment_and_dropin(n)) < 0)
-                return r;
-
-        if (!(t = name_change_suffix(name_id(n), ".service")))
-                return -ENOMEM;
-
-        r = manager_load_name(n->meta.manager, t, (Name**) &s->service);
-        free(t);
-
-        if (r < 0)
-                return r;
-
-        if ((r = set_ensure_allocated(n->meta.dependencies + NAME_BEFORE, trivial_hash_func, trivial_compare_func)) < 0)
-                return r;
-
-        if ((r = set_put(n->meta.dependencies[NAME_BEFORE], s->service)) < 0)
-                return r;
-
-        return 0;
-}
-
 static void socket_done(Name *n) {
         Socket *s = SOCKET(n);
         SocketPort *p;
@@ -88,6 +54,45 @@ static void socket_done(Name *n) {
         s->service = NULL;
 
         name_unwatch_timer(n, &s->timer_id);
+}
+
+static int socket_init(Name *n) {
+        Socket *s = SOCKET(n);
+        char *t;
+        int r;
+
+        /* First, reset everything to the defaults, in case this is a
+         * reload */
+
+        s->state = 0;
+        s->timer_id = -1;
+        s->bind_ipv6_only = false;
+        s->backlog = SOMAXCONN;
+        s->timeout_usec = DEFAULT_TIMEOUT_USEC;
+        exec_context_init(&s->exec_context);
+
+        if ((r = name_load_fragment_and_dropin(n)) < 0)
+                goto fail;
+
+        if (!(t = name_change_suffix(name_id(n), ".service"))) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        r = manager_load_name(n->meta.manager, t, (Name**) &s->service);
+        free(t);
+
+        if (r < 0)
+                goto fail;
+
+        if ((r = name_add_dependency(n, NAME_BEFORE, NAME(s->service))) < 0)
+                goto fail;
+
+        return 0;
+
+fail:
+        socket_done(n);
+        return r;
 }
 
 static const char* listen_lookup(int type) {
@@ -703,6 +708,38 @@ static void socket_timer_event(Name *n, int id, uint64_t elapsed) {
         default:
                 assert_not_reached("Timeout at wrong time.");
         }
+}
+
+int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
+        int *rfds;
+        unsigned rn_fds, k;
+        SocketPort *p;
+
+        assert(s);
+        assert(fds);
+        assert(n_fds);
+
+        /* Called from the service code for requesting our fds */
+
+        rn_fds = 0;
+        LIST_FOREACH(port, p, s->ports)
+                if (p->fd >= 0)
+                        rn_fds++;
+
+        if (!(rfds = new(int, rn_fds)) < 0)
+                return -ENOMEM;
+
+        k = 0;
+        LIST_FOREACH(port, p, s->ports)
+                if (p->fd >= 0)
+                        rfds[k++] = p->fd;
+
+        assert(k == rn_fds);
+
+        *fds = rfds;
+        *n_fds = rn_fds;
+
+        return 0;
 }
 
 const NameVTable socket_vtable = {

@@ -77,8 +77,8 @@ struct Job {
         LIST_FIELDS(Job, transaction);
         LIST_FIELDS(Job, run_queue);
 
-        JobDependency *subject_list;
-        JobDependency *object_list;
+        LIST_HEAD(JobDependency, subject_list);
+        LIST_HEAD(JobDependency, object_list);
 
         /* Used for graph algs as a "I have been here" marker */
         Job* marker;

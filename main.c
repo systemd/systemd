@@ -36,13 +36,13 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        printf("- By names:\n");
+        printf("→ By names:\n");
         manager_dump_names(m, stdout, "\t");
 
-        printf("- By jobs:\n");
+        printf("→ By jobs:\n");
         manager_dump_jobs(m, stdout, "\t");
 
-        manager_loop(m);
+        /* manager_loop(m); */
 
         retval = 0;
 

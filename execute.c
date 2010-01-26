@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <string.h>
 
 #include "execute.h"
 #include "strv.h"
@@ -235,7 +236,7 @@ void exec_command_free_list(ExecCommand *c) {
                 LIST_REMOVE(ExecCommand, command, c, i);
 
                 free(i->path);
-                free(i->argv);
+                strv_free(i->argv);
                 free(i);
         }
 }
@@ -275,4 +276,70 @@ void exec_status_fill(ExecStatus *s, pid_t pid, int code, int status) {
         s->code = code;
         s->status = status;
         s->timestamp = now(CLOCK_REALTIME);
+}
+
+char *exec_command_line(ExecCommand *c) {
+        size_t k;
+        char *n, *p, **a;
+        bool first = true;
+
+        assert(c);
+        assert(c->argv);
+
+        k = 0;
+        STRV_FOREACH(a, c->argv)
+                k += strlen(*a)+3;
+
+        if (!(n = new(char, k)))
+                return NULL;
+
+        p = n;
+        STRV_FOREACH(a, c->argv) {
+
+                if (!first)
+                        *(p++) = ' ';
+                else
+                        first = false;
+
+                if (strpbrk(*a, WHITESPACE)) {
+                        *(p++) = '\'';
+                        p = stpcpy(p, *a);
+                        *(p++) = '\'';
+                } else
+                        p = stpcpy(p, *a);
+
+        }
+
+        /* FIXME: this doesn't really handle arguments that have
+         * spaces and ticks in them */
+
+        return n;
+}
+
+void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
+        char *cmd;
+
+        assert(c);
+        assert(f);
+
+        if (!prefix)
+                prefix = "";
+
+        cmd = exec_command_line(c);
+
+        fprintf(f,
+                "%sCommand Line: %s\n",
+                prefix, cmd ? cmd : strerror(ENOMEM));
+
+        free(cmd);
+}
+
+void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix) {
+        assert(f);
+
+        if (!prefix)
+                prefix = "";
+
+        LIST_FOREACH(command, c, c)
+                exec_command_dump(c, f, prefix);
 }
