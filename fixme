@@ -1,0 +1,44 @@
+
+- mounts might take time, need to be executed asynchronously in a forked process?
+
+- need gc for active jobs that nothing cares for
+
+- need gc for names that are not referenced anymore
+
+- refreshing of names (i.e. reload config files)
+
+- dbusification
+
+- cgroupsification
+
+- udev hookup
+
+- snapshot system
+
+- s/milestone/target/
+
+- hookup with battery status, suspend/resume
+
+- add a job mode which shuts everything down but what is requested
+
+- write log subsystem/log output logic for daemons
+
+- implement priv dropping
+
+- allow to disable priv dropping for hook scripts from fragment
+
+- implement timer
+
+- implement mount/automount
+
+- more process attributes: chroot, cpu affinity, scheduling
+
+- create session/pgroup for child processes
+
+- fs namespaces
+
+- templating/instances
+
+- verify fragment data after loading: refuse cycles on yourself, service names contradicting, more than one Start executable, ...
+
+- rate limit startups
