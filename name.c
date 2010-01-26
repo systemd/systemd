@@ -432,10 +432,10 @@ int name_start(Name *n) {
         return NAME_VTABLE(n)->start(n);
 }
 
-bool name_type_can_start(NameType t) {
-        assert(t >= 0 && t < _NAME_TYPE_MAX);
+bool name_can_start(Name *n) {
+        assert(n);
 
-        return !!name_vtable[t]->start;
+        return !!NAME_VTABLE(n)->start;
 }
 
 /* Errors:
@@ -484,16 +484,10 @@ int name_reload(Name *n) {
         return NAME_VTABLE(n)->reload(n);
 }
 
-bool name_type_can_reload(NameType t) {
-        assert(t >= 0 && t < _NAME_TYPE_MAX);
-
-        return !!name_vtable[t]->reload;
-}
-
 bool name_can_reload(Name *n) {
         assert(n);
 
-        if (!name_type_can_reload(n->meta.type))
+        if (!NAME_VTABLE(n)->reload)
                 return false;
 
         if (!NAME_VTABLE(n)->can_reload)

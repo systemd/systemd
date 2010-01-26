@@ -189,28 +189,31 @@ DEFINE_CAST(MOUNT, Mount);
 DEFINE_CAST(AUTOMOUNT, Automount);
 DEFINE_CAST(SNAPSHOT, Snapshot);
 
-bool name_type_can_start(NameType t);
-bool name_type_can_reload(NameType t);
-bool name_can_reload(Name *n);
-#define name_can_start(n) name_type_can_start((n)->meta.type)
-
 NameType name_type_from_string(const char *n);
 bool name_is_valid(const char *n);
 
 Name *name_new(Manager *m);
 void name_free(Name *name);
-void name_add_to_load_queue(Name *n);
-int name_merge(Name *name, Name *other);
-int name_load_fragment_and_dropin(Name *n);
-int name_load(Name *name);
-const char* name_id(Name *n);
-const char *name_description(Name *n);
 
 int name_add_name(Name *n, const char *text);
+int name_add_dependency(Name *n, NameDependency d, Name *other);
+
+void name_add_to_load_queue(Name *n);
+
+int name_merge(Name *name, Name *other);
+
+int name_load_fragment_and_dropin(Name *n);
+int name_load(Name *name);
+
+const char* name_id(Name *n);
+const char *name_description(Name *n);
 
 NameActiveState name_active_state(Name *name);
 
 void name_dump(Name *n, FILE *f, const char *prefix);
+
+bool name_can_reload(Name *n);
+bool name_can_start(Name *n);
 
 int name_start(Name *n);
 int name_stop(Name *n);
@@ -230,7 +233,5 @@ void name_unwatch_timer(Name *n, int *id);
 char *name_change_suffix(const char *t, const char *suffix);
 
 bool name_job_is_applicable(Name *n, JobType j);
-
-int name_add_dependency(Name *n, NameDependency d, Name *other);
 
 #endif
