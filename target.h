@@ -5,7 +5,7 @@
 
 typedef struct Target Target;
 
-#include "name.h"
+#include "unit.h"
 
 typedef enum TargetState {
         TARGET_DEAD,
@@ -18,6 +18,6 @@ struct Target {
         TargetState state;
 };
 
-extern const NameVTable target_vtable;
+extern const UnitVTable target_vtable;
 
 #endif

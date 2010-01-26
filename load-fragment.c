@@ -1,11 +1,13 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
+#include <linux/oom.h>
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
-#include <linux/oom.h>
+#include <unistd.h>
+#include <fcntl.h>
 
-#include "name.h"
+#include "unit.h"
 #include "strv.h"
 #include "conf-parser.h"
 #include "load-fragment.h"
@@ -20,8 +22,8 @@ static int config_parse_deps(
                 void *data,
                 void *userdata) {
 
-        NameDependency d = PTR_TO_UINT(data);
-        Name *name = userdata;
+        UnitDependency d = PTR_TO_UINT(data);
+        Unit *u = userdata;
         char *w;
         size_t l;
         char *state;
@@ -33,18 +35,18 @@ static int config_parse_deps(
         FOREACH_WORD(w, &l, rvalue, state) {
                 char *t;
                 int r;
-                Name *other;
+                Unit *other;
 
                 if (!(t = strndup(w, l)))
                         return -ENOMEM;
 
-                r = manager_load_name(name->meta.manager, t, &other);
+                r = manager_load_unit(u->meta.manager, t, &other);
                 free(t);
 
                 if (r < 0)
                         return r;
 
-                if ((r = name_add_dependency(name, d, other)) < 0)
+                if ((r = unit_add_dependency(u, d, other)) < 0)
                         return r;
         }
 
@@ -60,8 +62,7 @@ static int config_parse_names(
                 void *data,
                 void *userdata) {
 
-        Set **set = data;
-        Name *name = userdata;
+        Unit *u = userdata;
         char *w;
         size_t l;
         char *state;
@@ -74,42 +75,33 @@ static int config_parse_names(
         FOREACH_WORD(w, &l, rvalue, state) {
                 char *t;
                 int r;
-                Name *other;
+                Unit *other;
 
                 if (!(t = strndup(w, l)))
                         return -ENOMEM;
 
-                other = manager_get_name(name->meta.manager, t);
+                other = manager_get_unit(u->meta.manager, t);
 
                 if (other) {
 
-                        if (other != name) {
+                        if (other != u) {
 
-                                if (other->meta.load_state != NAME_STUB) {
+                                if (other->meta.load_state != UNIT_STUB) {
                                         free(t);
                                         return -EEXIST;
                                 }
 
-                                if ((r = name_merge(name, other)) < 0) {
+                                if ((r = unit_merge(u, other)) < 0) {
                                         free(t);
                                         return r;
                                 }
                         }
 
                 } else {
-
-                        if (!*set)
-                                if (!(*set = set_new(trivial_hash_func, trivial_compare_func))) {
-                                        free(t);
-                                        return -ENOMEM;
-                                }
-
-                        if ((r = set_put(*set, t)) < 0) {
+                        if ((r = unit_add_name(u, t)) < 0) {
                                 free(t);
                                 return r;
                         }
-
-                        t = NULL;
                 }
 
                 free(t);
@@ -458,17 +450,127 @@ static int config_parse_service_restart(
         return 0;
 }
 
-int name_load_fragment(Name *n) {
+#define FOLLOW_MAX 8
 
-        static const char* const section_table[_NAME_TYPE_MAX] = {
-                [NAME_SERVICE]   = "Service",
-                [NAME_TIMER]     = "Timer",
-                [NAME_SOCKET]    = "Socket",
-                [NAME_TARGET]    = "Target",
-                [NAME_DEVICE]    = "Device",
-                [NAME_MOUNT]     = "Mount",
-                [NAME_AUTOMOUNT] = "Automount",
-                [NAME_SNAPSHOT]  = "Snapshot"
+static char *build_path(const char *path, const char *filename) {
+        char *e, *r;
+        size_t k;
+
+        assert(path);
+        assert(filename);
+
+        /* This removes the last component of path and appends
+         * filename, unless the latter is absolute anyway or the
+         * former isn't */
+
+        if (filename[0] == '/')
+                return strdup(filename);
+
+        if (!(e = strrchr(path, '/')))
+                return strdup(filename);
+
+        k = strlen(filename);
+        if (!(r = new(char, e-path+1+k+1)))
+                return NULL;
+
+        memcpy(r, path, e-path+1);
+        memcpy(r+(e-path)+1, filename, k+1);
+
+        return r;
+}
+
+static int open_follow(const char **filename, FILE **_f, Set *names) {
+        unsigned c;
+        int fd, r;
+        FILE *f;
+        char *n = NULL;
+        const char *fn;
+
+        assert(filename);
+        assert(*filename);
+        assert(_f);
+        assert(names);
+
+        fn = *filename;
+
+        for (c = 0; c < FOLLOW_MAX; c++) {
+                char *target, *k, *name;
+
+                /* Add the file name we are currently looking at to
+                 * the names of this unit */
+                name = file_name_from_path(fn);
+                if (!set_get(names, name)) {
+
+                        if (!(name = strdup(name))) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        if ((r = set_put(names, name)) < 0) {
+                                free(name);
+                                goto finish;
+                        }
+
+                        free(name);
+                }
+
+                /* Try to open the file name, but don' if its a symlink */
+                fd = open(fn, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+                if (fd >= 0 || errno != ELOOP)
+                        break;
+
+                /* Hmm, so this is a symlink. Let's read the name, and follow it manually */
+                if ((r = readlink_malloc(fn, &target)) < 0)
+                        goto finish;
+
+                k = build_path(fn, target);
+                free(target);
+
+                if (!k) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                free(n);
+                fn = n = k;
+        }
+
+        if (c >= FOLLOW_MAX) {
+                r = -ELOOP;
+                goto finish;
+        }
+
+        if (fd < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        if (!(f = fdopen(fd, "r"))) {
+                r = -errno;
+                assert(close_nointr(fd) == 0);
+                goto finish;
+        }
+
+        *_f = f;
+        *filename = fn;
+        r = 0;
+
+finish:
+        free(n);
+        return r;
+}
+
+int unit_load_fragment(Unit *u) {
+
+        static const char* const section_table[_UNIT_TYPE_MAX] = {
+                [UNIT_SERVICE]   = "Service",
+                [UNIT_TIMER]     = "Timer",
+                [UNIT_SOCKET]    = "Socket",
+                [UNIT_TARGET]    = "Target",
+                [UNIT_DEVICE]    = "Device",
+                [UNIT_MOUNT]     = "Mount",
+                [UNIT_AUTOMOUNT] = "Automount",
+                [UNIT_SNAPSHOT]  = "Snapshot"
         };
 
 #define EXEC_CONTEXT_CONFIG_ITEMS(context, section) \
@@ -482,73 +584,110 @@ int name_load_fragment(Name *n) {
                 { "Environment",            config_parse_strv,            &(context).environment,                            section   }
 
         const ConfigItem items[] = {
-                { "Names",                  config_parse_names,           &n->meta.names,                                    "Meta"    },
-                { "Description",            config_parse_string,          &n->meta.description,                              "Meta"    },
-                { "Requires",               config_parse_deps,            UINT_TO_PTR(NAME_REQUIRES),                        "Meta"    },
-                { "SoftRequires",           config_parse_deps,            UINT_TO_PTR(NAME_SOFT_REQUIRES),                   "Meta"    },
-                { "Wants",                  config_parse_deps,            UINT_TO_PTR(NAME_WANTS),                           "Meta"    },
-                { "Requisite",              config_parse_deps,            UINT_TO_PTR(NAME_REQUISITE),                       "Meta"    },
-                { "SoftRequisite",          config_parse_deps,            UINT_TO_PTR(NAME_SOFT_REQUISITE),                  "Meta"    },
-                { "Conflicts",              config_parse_deps,            UINT_TO_PTR(NAME_CONFLICTS),                       "Meta"    },
-                { "Before",                 config_parse_deps,            UINT_TO_PTR(NAME_BEFORE),                          "Meta"    },
-                { "After",                  config_parse_deps,            UINT_TO_PTR(NAME_AFTER),                           "Meta"    },
+                { "Names",                  config_parse_names,           u,                                                 "Meta"    },
+                { "Description",            config_parse_string,          &u->meta.description,                              "Meta"    },
+                { "Requires",               config_parse_deps,            UINT_TO_PTR(UNIT_REQUIRES),                        "Meta"    },
+                { "SoftRequires",           config_parse_deps,            UINT_TO_PTR(UNIT_SOFT_REQUIRES),                   "Meta"    },
+                { "Wants",                  config_parse_deps,            UINT_TO_PTR(UNIT_WANTS),                           "Meta"    },
+                { "Requisite",              config_parse_deps,            UINT_TO_PTR(UNIT_REQUISITE),                       "Meta"    },
+                { "SoftRequisite",          config_parse_deps,            UINT_TO_PTR(UNIT_SOFT_REQUISITE),                  "Meta"    },
+                { "Conflicts",              config_parse_deps,            UINT_TO_PTR(UNIT_CONFLICTS),                       "Meta"    },
+                { "Before",                 config_parse_deps,            UINT_TO_PTR(UNIT_BEFORE),                          "Meta"    },
+                { "After",                  config_parse_deps,            UINT_TO_PTR(UNIT_AFTER),                           "Meta"    },
 
-                { "PIDFile",                config_parse_path,            &n->service.pid_file,                              "Service" },
-                { "ExecStartPre",           config_parse_exec,            &n->service.exec_command[SERVICE_EXEC_START_PRE],  "Service" },
-                { "ExecStart",              config_parse_exec,            &n->service.exec_command[SERVICE_EXEC_START],      "Service" },
-                { "ExecStartPost",          config_parse_exec,            &n->service.exec_command[SERVICE_EXEC_START_POST], "Service" },
-                { "ExecReload",             config_parse_exec,            &n->service.exec_command[SERVICE_EXEC_RELOAD],     "Service" },
-                { "ExecStop",               config_parse_exec,            &n->service.exec_command[SERVICE_EXEC_STOP],       "Service" },
-                { "ExecStopPost",           config_parse_exec,            &n->service.exec_command[SERVICE_EXEC_STOP_POST],  "Service" },
-                { "RestartSec",             config_parse_usec,            &n->service.restart_usec,                          "Service" },
-                { "TimeoutSec",             config_parse_usec,            &n->service.timeout_usec,                          "Service" },
-                { "Type",                   config_parse_service_type,    &n->service,                                       "Service" },
-                { "Restart",                config_parse_service_restart, &n->service,                                       "Service" },
-                EXEC_CONTEXT_CONFIG_ITEMS(n->service.exec_context, "Service"),
+                { "PIDFile",                config_parse_path,            &u->service.pid_file,                              "Service" },
+                { "ExecStartPre",           config_parse_exec,            &u->service.exec_command[SERVICE_EXEC_START_PRE],  "Service" },
+                { "ExecStart",              config_parse_exec,            &u->service.exec_command[SERVICE_EXEC_START],      "Service" },
+                { "ExecStartPost",          config_parse_exec,            &u->service.exec_command[SERVICE_EXEC_START_POST], "Service" },
+                { "ExecReload",             config_parse_exec,            &u->service.exec_command[SERVICE_EXEC_RELOAD],     "Service" },
+                { "ExecStop",               config_parse_exec,            &u->service.exec_command[SERVICE_EXEC_STOP],       "Service" },
+                { "ExecStopPost",           config_parse_exec,            &u->service.exec_command[SERVICE_EXEC_STOP_POST],  "Service" },
+                { "RestartSec",             config_parse_usec,            &u->service.restart_usec,                          "Service" },
+                { "TimeoutSec",             config_parse_usec,            &u->service.timeout_usec,                          "Service" },
+                { "Type",                   config_parse_service_type,    &u->service,                                       "Service" },
+                { "Restart",                config_parse_service_restart, &u->service,                                       "Service" },
+                EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
 
-                { "ListenStream",           config_parse_listen,          &n->socket,                                        "Socket"  },
-                { "ListenDatagram",         config_parse_listen,          &n->socket,                                        "Socket"  },
-                { "ListenSequentialPacket", config_parse_listen,          &n->socket,                                        "Socket"  },
-                { "ListenFIFO",             config_parse_listen,          &n->socket,                                        "Socket"  },
-                { "BindIPv6Only",           config_parse_socket_bind,     &n->socket,                                        "Socket"  },
-                { "Backlog",                config_parse_unsigned,        &n->socket.backlog,                                "Socket"  },
-                { "ExecStartPre",           config_parse_exec,            &n->service.exec_command[SOCKET_EXEC_START_PRE],   "Socket"  },
-                { "ExecStartPost",          config_parse_exec,            &n->service.exec_command[SOCKET_EXEC_START_POST],  "Socket"  },
-                { "ExecStopPre",            config_parse_exec,            &n->service.exec_command[SOCKET_EXEC_STOP_PRE],    "Socket"  },
-                { "ExecStopPost",           config_parse_exec,            &n->service.exec_command[SOCKET_EXEC_STOP_POST],   "Socket"  },
-                EXEC_CONTEXT_CONFIG_ITEMS(n->socket.exec_context, "Socket"),
+                { "ListenStream",           config_parse_listen,          &u->socket,                                        "Socket"  },
+                { "ListenDatagram",         config_parse_listen,          &u->socket,                                        "Socket"  },
+                { "ListenSequentialPacket", config_parse_listen,          &u->socket,                                        "Socket"  },
+                { "ListenFIFO",             config_parse_listen,          &u->socket,                                        "Socket"  },
+                { "BindIPv6Only",           config_parse_socket_bind,     &u->socket,                                        "Socket"  },
+                { "Backlog",                config_parse_unsigned,        &u->socket.backlog,                                "Socket"  },
+                { "ExecStartPre",           config_parse_exec,            &u->service.exec_command[SOCKET_EXEC_START_PRE],   "Socket"  },
+                { "ExecStartPost",          config_parse_exec,            &u->service.exec_command[SOCKET_EXEC_START_POST],  "Socket"  },
+                { "ExecStopPre",            config_parse_exec,            &u->service.exec_command[SOCKET_EXEC_STOP_PRE],    "Socket"  },
+                { "ExecStopPost",           config_parse_exec,            &u->service.exec_command[SOCKET_EXEC_STOP_POST],   "Socket"  },
+                EXEC_CONTEXT_CONFIG_ITEMS(u->socket.exec_context, "Socket"),
 
-                EXEC_CONTEXT_CONFIG_ITEMS(n->automount.exec_context, "Automount"),
+                EXEC_CONTEXT_CONFIG_ITEMS(u->automount.exec_context, "Automount"),
 
                 { NULL, NULL, NULL, NULL }
         };
 
 #undef EXEC_CONTEXT_CONFIG_ITEMS
 
-        char *t;
+        char *t, *k;
         int r;
         const char *sections[3];
         Iterator i;
+        Set *symlink_names;
 
-        assert(n);
-        assert(n->meta.load_state == NAME_STUB);
+        assert(u);
+        assert(u->meta.load_state == UNIT_STUB);
 
         sections[0] = "Meta";
-        sections[1] = section_table[n->meta.type];
+        sections[1] = section_table[u->meta.type];
         sections[2] = NULL;
 
-        SET_FOREACH(t, n->meta.names, i) {
+        if (!(symlink_names = set_new(string_hash_func, string_compare_func)))
+                return -ENOMEM;
 
-                /* Try to find a name we can load this with */
-                if ((r = config_parse(t, sections, items, n)) == -ENOENT)
-                        continue;
+        /* Try to find a name we can load this with */
+        SET_FOREACH(t, u->meta.names, i) {
+                FILE *f;
+                char *fn;
+
+                /* Clear the symlink name set first */
+                while ((k = set_steal_first(symlink_names)))
+                        free(k);
+
+                /* Instead of opening the path right away, we manually
+                 * follow all symlinks and add their name to our unit
+                 * name set while doing so */
+                fn = t;
+                if ((r = open_follow((const char**) &fn, &f, symlink_names)) < 0) {
+                        if (r == -ENOENT)
+                                continue;
+
+                        goto finish;
+                }
+
+                /* Now, parse the file contents */
+                r = config_parse(fn, f, sections, items, u);
+                if (fn != t)
+                        free(fn);
+                if (r < 0)
+                        goto finish;
+
+                /* Let's try to add in all symlink names we found */
+                while ((k = set_steal_first(symlink_names)))
+                        if ((r = unit_add_name(u, k)) < 0)
+                                goto finish;
 
                 /* Yay, we succeeded! Now let's call this our identifier */
-                if (r == 0)
-                        n->meta.id = t;
-
-                return r;
+                u->meta.id = t;
+                goto finish;
         }
 
-        return -ENOENT;
+
+        r = -ENOENT;
+
+finish:
+        while ((k = set_steal_first(symlink_names)))
+                free(k);
+
+        set_free(symlink_names);
+
+        return r;
 }

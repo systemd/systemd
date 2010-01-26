@@ -3,10 +3,10 @@
 #ifndef fooloadfragmenthfoo
 #define fooloadfragmenthfoo
 
-#include "name.h"
+#include "unit.h"
 
 /* Read service data from .desktop file style configuration fragments */
 
-int name_load_fragment(Name *n);
+int unit_load_fragment(Unit *u);
 
 #endif

@@ -26,7 +26,7 @@ Manager* manager_new(void) {
 
         m->signal_fd = m->epoll_fd = -1;
 
-        if (!(m->names = hashmap_new(string_hash_func, string_compare_func)))
+        if (!(m->units = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
 
         if (!(m->jobs = hashmap_new(trivial_hash_func, trivial_compare_func)))
@@ -63,18 +63,18 @@ fail:
 }
 
 void manager_free(Manager *m) {
-        Name *n;
+        Unit *u;
         Job *j;
 
         assert(m);
 
-        while ((n = hashmap_first(m->names)))
-                name_free(n);
-
-        while ((j = hashmap_steal_first(m->transaction_jobs)))
+        while ((j = hashmap_first(m->transaction_jobs)))
                 job_free(j);
 
-        hashmap_free(m->names);
+        while ((u = hashmap_first(m->units)))
+                unit_free(u);
+
+        hashmap_free(m->units);
         hashmap_free(m->jobs);
         hashmap_free(m->transaction_jobs);
         hashmap_free(m->watch_pids);
@@ -99,13 +99,13 @@ static void transaction_delete_job(Manager *m, Job *j) {
                 job_free(j);
 }
 
-static void transaction_delete_name(Manager *m, Name *n) {
+static void transaction_delete_unit(Manager *m, Unit *u) {
         Job *j;
 
-        /* Deletes all jobs associated with a certain name from the
+        /* Deletes all jobs associated with a certain unit from the
          * transaction */
 
-        while ((j = hashmap_get(m->transaction_jobs, n)))
+        while ((j = hashmap_get(m->transaction_jobs, u)))
                 transaction_delete_job(m, j);
 }
 
@@ -129,7 +129,7 @@ static void transaction_find_jobs_that_matter_to_anchor(Manager *m, Job *j, unsi
 
         assert(m);
 
-        /* A recursive sweep through the graph that marks all names
+        /* A recursive sweep through the graph that marks all units
          * that matter to the anchor job, i.e. are directly or
          * indirectly a dependency of the anchor job via paths that
          * are fully marked as mattering. */
@@ -145,7 +145,7 @@ static void transaction_find_jobs_that_matter_to_anchor(Manager *m, Job *j, unsi
                 if (!l->matters)
                         continue;
 
-                /* This name has already been marked */
+                /* This unit has already been marked */
                 if (l->object->generation == generation)
                         continue;
 
@@ -161,7 +161,7 @@ static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, Job
 
         assert(j);
         assert(other);
-        assert(j->name == other->name);
+        assert(j->unit == other->unit);
         assert(!j->installed);
 
         /* Merges 'other' into 'j' and then deletes j. */
@@ -240,7 +240,7 @@ static int delete_one_unmergeable_job(Manager *m, Job *j) {
                                 return -ENOEXEC;
 
                         /* Ok, we can drop one, so let's do so. */
-                        log_debug("Try to fix job merging by deleting job %s/%s", name_id(d->name), job_type_to_string(d->type));
+                        log_debug("Try to fix job merging by deleting job %s/%s", unit_id(d->unit), job_type_to_string(d->type));
                         transaction_delete_job(m, d);
                         return 0;
                 }
@@ -291,8 +291,8 @@ static int transaction_merge_jobs(Manager *m) {
                         assert_se(job_type_merge(&t, k->type) == 0);
 
                 /* If an active job is mergeable, merge it too */
-                if (j->name->meta.job)
-                        job_type_merge(&t, j->name->meta.job->type); /* Might fail. Which is OK */
+                if (j->unit->meta.job)
+                        job_type_merge(&t, j->unit->meta.job->type); /* Might fail. Which is OK */
 
                 while ((k = j->transaction_next)) {
                         if (j->installed) {
@@ -309,11 +309,11 @@ static int transaction_merge_jobs(Manager *m) {
         return 0;
 }
 
-static bool name_matters_to_anchor(Name *n, Job *j) {
-        assert(n);
+static bool unit_matters_to_anchor(Unit *u, Job *j) {
+        assert(u);
         assert(!j->transaction_prev);
 
-        /* Checks whether at least one of the jobs for this name
+        /* Checks whether at least one of the jobs for this unit
          * matters to the anchor. */
 
         LIST_FOREACH(transaction, j, j)
@@ -325,7 +325,7 @@ static bool name_matters_to_anchor(Name *n, Job *j) {
 
 static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned generation) {
         Iterator i;
-        Name *n;
+        Unit *u;
         int r;
 
         assert(m);
@@ -349,11 +349,11 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                 for (k = from; k; k = (k->generation == generation ? k->marker : NULL)) {
 
                         if (!k->installed &&
-                            !name_matters_to_anchor(k->name, k)) {
+                            !unit_matters_to_anchor(k->unit, k)) {
                                 /* Ok, we can drop this one, so let's
                                  * do so. */
-                                log_debug("Breaking order cycle by deleting job %s/%s", name_id(k->name), job_type_to_string(k->type));
-                                transaction_delete_name(m, k->name);
+                                log_debug("Breaking order cycle by deleting job %s/%s", unit_id(k->unit), job_type_to_string(k->type));
+                                transaction_delete_unit(m, k->unit);
                                 return -EAGAIN;
                         }
 
@@ -372,17 +372,17 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
         j->generation = generation;
 
         /* We assume that the the dependencies are bidirectional, and
-         * hence can ignore NAME_AFTER */
-        SET_FOREACH(n, j->name->meta.dependencies[NAME_BEFORE], i) {
+         * hence can ignore UNIT_AFTER */
+        SET_FOREACH(u, j->unit->meta.dependencies[UNIT_BEFORE], i) {
                 Job *o;
 
-                /* Is there a job for this name? */
-                if (!(o = hashmap_get(m->transaction_jobs, n)))
+                /* Is there a job for this unit? */
+                if (!(o = hashmap_get(m->transaction_jobs, u)))
 
                         /* Ok, there is no job for this in the
                          * transaction, but maybe there is already one
                          * running? */
-                        if (!(o = n->meta.job))
+                        if (!(o = u->meta.job))
                                 continue;
 
                 if ((r = transaction_verify_order_one(m, o, j, generation)) < 0)
@@ -427,7 +427,7 @@ static void transaction_collect_garbage(Manager *m) {
                         if (j->object_list)
                                 continue;
 
-                        log_debug("Garbage collecting job %s/%s", name_id(j->name), job_type_to_string(j->type));
+                        log_debug("Garbage collecting job %s/%s", unit_id(j->unit), job_type_to_string(j->type));
                         transaction_delete_job(m, j);
                         again = true;
                         break;
@@ -451,9 +451,9 @@ static int transaction_is_destructive(Manager *m, JobMode mode) {
                 assert(!j->transaction_prev);
                 assert(!j->transaction_next);
 
-                if (j->name->meta.job &&
-                    j->name->meta.job != j &&
-                    !job_type_is_superset(j->type, j->name->meta.job->type))
+                if (j->unit->meta.job &&
+                    j->unit->meta.job != j &&
+                    !job_type_is_superset(j->type, j->unit->meta.job->type))
                         return -EEXIST;
         }
 
@@ -483,12 +483,12 @@ static void transaction_minimize_impact(Manager *m) {
                                 /* Would this stop a running service?
                                  * Would this change an existing job?
                                  * If so, let's drop this entry */
-                                if ((j->type != JOB_STOP || NAME_IS_INACTIVE_OR_DEACTIVATING(name_active_state(j->name))) &&
-                                    (!j->name->meta.job  || job_type_is_conflicting(j->type, j->name->meta.job->state)))
+                                if ((j->type != JOB_STOP || UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(j->unit))) &&
+                                    (!j->unit->meta.job  || job_type_is_conflicting(j->type, j->unit->meta.job->state)))
                                         continue;
 
                                 /* Ok, let's get rid of this */
-                                log_debug("Deleting %s/%s to minimize impact", name_id(j->name), job_type_to_string(j->type));
+                                log_debug("Deleting %s/%s to minimize impact", unit_id(j->unit), job_type_to_string(j->type));
                                 transaction_delete_job(m, j);
                                 again = true;
                                 break;
@@ -524,10 +524,10 @@ static int transaction_apply(Manager *m, JobMode mode) {
                 if (j->installed)
                         continue;
 
-                if (j->name->meta.job)
-                        job_free(j->name->meta.job);
+                if (j->unit->meta.job)
+                        job_free(j->unit->meta.job);
 
-                j->name->meta.job = j;
+                j->unit->meta.job = j;
                 j->installed = true;
 
                 /* We're fully installed. Now let's free data we don't
@@ -629,21 +629,21 @@ rollback:
         return r;
 }
 
-static Job* transaction_add_one_job(Manager *m, JobType type, Name *name, bool force, bool *is_new) {
+static Job* transaction_add_one_job(Manager *m, JobType type, Unit *unit, bool force, bool *is_new) {
         Job *j, *f;
         int r;
 
         assert(m);
-        assert(name);
+        assert(unit);
 
         /* Looks for an axisting prospective job and returns that. If
          * it doesn't exist it is created and added to the prospective
          * jobs list. */
 
-        f = hashmap_get(m->transaction_jobs, name);
+        f = hashmap_get(m->transaction_jobs, unit);
 
         LIST_FOREACH(transaction, j, f) {
-                assert(j->name == name);
+                assert(j->unit == unit);
 
                 if (j->type == type) {
                         if (is_new)
@@ -652,9 +652,9 @@ static Job* transaction_add_one_job(Manager *m, JobType type, Name *name, bool f
                 }
         }
 
-        if (name->meta.job && name->meta.job->type == type)
-                j = name->meta.job;
-        else if (!(j = job_new(m, type, name)))
+        if (unit->meta.job && unit->meta.job->type == type)
+                j = unit->meta.job;
+        else if (!(j = job_new(m, type, unit)))
                 return NULL;
 
         j->generation = 0;
@@ -664,7 +664,7 @@ static Job* transaction_add_one_job(Manager *m, JobType type, Name *name, bool f
 
         LIST_PREPEND(Job, transaction, f, j);
 
-        if ((r = hashmap_replace(m->transaction_jobs, name, f)) < 0) {
+        if ((r = hashmap_replace(m->transaction_jobs, unit, f)) < 0) {
                 job_free(j);
                 return NULL;
         }
@@ -682,9 +682,9 @@ void manager_transaction_unlink_job(Manager *m, Job *j) {
         if (j->transaction_prev)
                 j->transaction_prev->transaction_next = j->transaction_next;
         else if (j->transaction_next)
-                hashmap_replace(m->transaction_jobs, j->name, j->transaction_next);
+                hashmap_replace(m->transaction_jobs, j->unit, j->transaction_next);
         else
-                hashmap_remove_value(m->transaction_jobs, j->name, j);
+                hashmap_remove_value(m->transaction_jobs, j->unit, j);
 
         if (j->transaction_next)
                 j->transaction_next->transaction_prev = j->transaction_prev;
@@ -701,32 +701,32 @@ void manager_transaction_unlink_job(Manager *m, Job *j) {
 
                 if (other) {
                         log_debug("Deleting job %s/%s as dependency of job %s/%s",
-                                  name_id(other->name), job_type_to_string(other->type),
-                                  name_id(j->name), job_type_to_string(j->type));
+                                  unit_id(other->unit), job_type_to_string(other->type),
+                                  unit_id(j->unit), job_type_to_string(j->type));
                         transaction_delete_job(m, other);
                 }
         }
 }
 
-static int transaction_add_job_and_dependencies(Manager *m, JobType type, Name *name, Job *by, bool matters, bool force, Job **_ret) {
+static int transaction_add_job_and_dependencies(Manager *m, JobType type, Unit *unit, Job *by, bool matters, bool force, Job **_ret) {
         Job *ret;
         Iterator i;
-        Name *dep;
+        Unit *dep;
         int r;
         bool is_new;
 
         assert(m);
         assert(type < _JOB_TYPE_MAX);
-        assert(name);
+        assert(unit);
 
-        if (name->meta.load_state != NAME_LOADED)
+        if (unit->meta.load_state != UNIT_LOADED)
                 return -EINVAL;
 
-        if (!name_job_is_applicable(name, type))
+        if (!unit_job_is_applicable(unit, type))
                 return -EBADR;
 
         /* First add the job. */
-        if (!(ret = transaction_add_one_job(m, type, name, force, &is_new)))
+        if (!(ret = transaction_add_one_job(m, type, unit, force, &is_new)))
                 return -ENOMEM;
 
         /* Then, add a link to the job. */
@@ -736,28 +736,28 @@ static int transaction_add_job_and_dependencies(Manager *m, JobType type, Name *
         if (is_new) {
                 /* Finally, recursively add in all dependencies. */
                 if (type == JOB_START || type == JOB_RELOAD_OR_START) {
-                        SET_FOREACH(dep, ret->name->meta.dependencies[NAME_REQUIRES], i)
+                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRES], i)
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, true, force, NULL)) < 0 && r != -EBADR)
                                         goto fail;
-                        SET_FOREACH(dep, ret->name->meta.dependencies[NAME_SOFT_REQUIRES], i)
+                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_SOFT_REQUIRES], i)
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !force, force, NULL)) < 0 && r != -EBADR)
                                         goto fail;
-                        SET_FOREACH(dep, ret->name->meta.dependencies[NAME_WANTS], i)
+                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_WANTS], i)
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, force, NULL)) < 0 && r != -EBADR)
                                         goto fail;
-                        SET_FOREACH(dep, ret->name->meta.dependencies[NAME_REQUISITE], i)
+                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE], i)
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, force, NULL)) < 0 && r != -EBADR)
                                         goto fail;
-                        SET_FOREACH(dep, ret->name->meta.dependencies[NAME_SOFT_REQUISITE], i)
+                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_SOFT_REQUISITE], i)
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, !force, force, NULL)) < 0 && r != -EBADR)
                                         goto fail;
-                        SET_FOREACH(dep, ret->name->meta.dependencies[NAME_CONFLICTS], i)
+                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_CONFLICTS], i)
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_STOP, dep, ret, true, force, NULL)) < 0 && r != -EBADR)
                                         goto fail;
 
                 } else if (type == JOB_STOP || type == JOB_RESTART || type == JOB_TRY_RESTART) {
 
-                        SET_FOREACH(dep, ret->name->meta.dependencies[NAME_REQUIRED_BY], i)
+                        SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUIRED_BY], i)
                                 if ((r = transaction_add_job_and_dependencies(m, type, dep, ret, true, force, NULL)) < 0 && r != -EBADR)
                                         goto fail;
                 }
@@ -771,16 +771,16 @@ fail:
         return r;
 }
 
-int manager_add_job(Manager *m, JobType type, Name *name, JobMode mode, bool force, Job **_ret) {
+int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool force, Job **_ret) {
         int r;
         Job *ret;
 
         assert(m);
         assert(type < _JOB_TYPE_MAX);
-        assert(name);
+        assert(unit);
         assert(mode < _JOB_MODE_MAX);
 
-        if ((r = transaction_add_job_and_dependencies(m, type, name, NULL, true, force, &ret))) {
+        if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, force, &ret))) {
                 transaction_abort(m);
                 return r;
         }
@@ -800,11 +800,11 @@ Job *manager_get_job(Manager *m, uint32_t id) {
         return hashmap_get(m->jobs, UINT32_TO_PTR(id));
 }
 
-Name *manager_get_name(Manager *m, const char *name) {
+Unit *manager_get_unit(Manager *m, const char *name) {
         assert(m);
         assert(name);
 
-        return hashmap_get(m->names, name);
+        return hashmap_get(m->units, name);
 }
 
 static void dispatch_load_queue(Manager *m) {
@@ -818,20 +818,20 @@ static void dispatch_load_queue(Manager *m) {
 
         m->dispatching_load_queue = true;
 
-        /* Dispatches the load queue. Takes a name from the queue and
+        /* Dispatches the load queue. Takes a unit from the queue and
          * tries to load its data until the queue is empty */
 
         while ((meta = m->load_queue)) {
                 assert(meta->in_load_queue);
 
-                name_load(NAME(meta));
+                unit_load(UNIT(meta));
         }
 
         m->dispatching_load_queue = false;
 }
 
-int manager_load_name(Manager *m, const char *name, Name **_ret) {
-        Name *ret;
+int manager_load_unit(Manager *m, const char *name, Unit **_ret) {
+        Unit *ret;
         int r;
 
         assert(m);
@@ -841,20 +841,20 @@ int manager_load_name(Manager *m, const char *name, Name **_ret) {
         /* This will load the service information files, but not actually
          * start any services or anything */
 
-        if ((ret = manager_get_name(m, name))) {
+        if ((ret = manager_get_unit(m, name))) {
                 *_ret = ret;
                 return 0;
         }
 
-        if (!(ret = name_new(m)))
+        if (!(ret = unit_new(m)))
                 return -ENOMEM;
 
-        if ((r = name_add_name(ret, name)) < 0) {
-                name_free(ret);
+        if ((r = unit_add_name(ret, name)) < 0) {
+                unit_free(ret);
                 return r;
         }
 
-        name_add_to_load_queue(ret);
+        unit_add_to_load_queue(ret);
         dispatch_load_queue(m);
 
         *_ret = ret;
@@ -872,17 +872,17 @@ void manager_dump_jobs(Manager *s, FILE *f, const char *prefix) {
                 job_dump(j, f, prefix);
 }
 
-void manager_dump_names(Manager *s, FILE *f, const char *prefix) {
+void manager_dump_units(Manager *s, FILE *f, const char *prefix) {
         Iterator i;
-        Name *n;
+        Unit *u;
         const char *t;
 
         assert(s);
         assert(f);
 
-        HASHMAP_FOREACH_KEY(n, t, s->names, i)
-                if (name_id(n) == t)
-                        name_dump(n, f, prefix);
+        HASHMAP_FOREACH_KEY(u, t, s->units, i)
+                if (unit_id(u) == t)
+                        unit_dump(u, f, prefix);
 }
 
 void manager_clear_jobs(Manager *m) {
@@ -919,7 +919,7 @@ static int manager_dispatch_sigchld(Manager *m) {
 
         for (;;) {
                 siginfo_t si;
-                Name *n;
+                Unit *u;
 
                 zero(si);
                 if (waitid(P_ALL, 0, &si, WNOHANG) < 0)
@@ -931,10 +931,10 @@ static int manager_dispatch_sigchld(Manager *m) {
                 if (si.si_code != CLD_EXITED && si.si_code != CLD_KILLED && si.si_code != CLD_DUMPED)
                         continue;
 
-                if (!(n = hashmap_remove(m->watch_pids, UINT32_TO_PTR(si.si_pid))))
+                if (!(u = hashmap_remove(m->watch_pids, UINT32_TO_PTR(si.si_pid))))
                         continue;
 
-                NAME_VTABLE(n)->sigchld_event(n, si.si_pid, si.si_code, si.si_status);
+                UNIT_VTABLE(u)->sigchld_event(u, si.si_pid, si.si_code, si.si_status);
         }
 
         return 0;
@@ -990,21 +990,21 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                         break;
 
                 case MANAGER_FD: {
-                        Name *n;
+                        Unit *u;
 
-                        /* Some fd event, to be dispatched to the names */
-                        assert_se(n = ev->data.ptr);
-                        NAME_VTABLE(n)->fd_event(n, ev->data.fd, ev->events);
+                        /* Some fd event, to be dispatched to the units */
+                        assert_se(u = ev->data.ptr);
+                        UNIT_VTABLE(u)->fd_event(u, ev->data.fd, ev->events);
                         break;
                 }
 
                 case MANAGER_TIMER: {
-                        Name *n;
-                        uint64_t u;
+                        Unit *u;
+                        uint64_t v;
                         ssize_t k;
 
-                        /* Some timer event, to be dispatched to the names */
-                        if ((k = read(ev->data.fd, &u, sizeof(u))) != sizeof(u)) {
+                        /* Some timer event, to be dispatched to the units */
+                        if ((k = read(ev->data.fd, &v, sizeof(v))) != sizeof(v)) {
 
                                 if (k < 0 && (errno == EINTR || errno == EAGAIN))
                                         break;
@@ -1012,8 +1012,8 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                                 return k < 0 ? -errno : -EIO;
                         }
 
-                        assert_se(n = ev->data.ptr);
-                        NAME_VTABLE(n)->timer_event(n, ev->data.fd, u);
+                        assert_se(u = ev->data.ptr);
+                        UNIT_VTABLE(u)->timer_event(u, ev->data.fd, v);
                         break;
                 }
 

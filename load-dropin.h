@@ -3,10 +3,10 @@
 #ifndef fooloaddropinhfoo
 #define fooloaddropinhfoo
 
-#include "name.h"
+#include "unit.h"
 
 /* Read service data supplementary drop-in directories */
 
-int name_load_dropin(Name *n);
+int unit_load_dropin(Unit *u);
 
 #endif

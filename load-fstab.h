@@ -3,10 +3,10 @@
 #ifndef fooloadfstabhfoo
 #define fooloadfstabhfoo
 
-#include "name.h"
+#include "unit.h"
 
 /* Read service data from /etc/fstab */
 
-int name_load_fstab(Name *n);
+int unit_load_fstab(Unit *u);
 
 #endif

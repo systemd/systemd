@@ -5,7 +5,7 @@
 
 typedef struct Mount Mount;
 
-#include "name.h"
+#include "unit.h"
 
 typedef enum MountState {
         MOUNT_DEAD,
@@ -23,6 +23,6 @@ struct Mount {
         char *path;
 };
 
-extern const NameVTable mount_vtable;
+extern const UnitVTable mount_vtable;
 
 #endif

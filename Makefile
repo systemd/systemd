@@ -2,7 +2,7 @@ CFLAGS=-Wall -Wextra -O0 -g -pipe -D_GNU_SOURCE -fdiagnostics-show-option -Wno-u
 LIBS=-lrt -lcap
 
 COMMON= \
-	name.o \
+	unit.o \
 	util.o \
 	set.o \
 	hashmap.o \

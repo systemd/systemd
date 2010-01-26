@@ -5,7 +5,7 @@
 
 typedef struct Automount Automount;
 
-#include "name.h"
+#include "unit.h"
 
 typedef enum AutomountState {
         AUTOMOUNT_DEAD,
@@ -41,6 +41,6 @@ struct Automount {
         Mount *mount;
 };
 
-extern const NameVTable automount_vtable;
+extern const UnitVTable automount_vtable;
 
 #endif

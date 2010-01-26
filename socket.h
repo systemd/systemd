@@ -5,7 +5,7 @@
 
 typedef struct Socket Socket;
 
-#include "name.h"
+#include "unit.h"
 #include "socket-util.h"
 
 typedef enum SocketState {
@@ -78,6 +78,6 @@ struct Socket {
 /* Called from the service code when collecting fds */
 int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds);
 
-extern const NameVTable socket_vtable;
+extern const UnitVTable socket_vtable;
 
 #endif

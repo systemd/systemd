@@ -2,41 +2,41 @@
 
 #include <errno.h>
 
-#include "name.h"
+#include "unit.h"
 #include "mount.h"
 #include "load-fragment.h"
 #include "load-fstab.h"
 #include "load-dropin.h"
 
-static int mount_init(Name *n) {
+static int mount_init(Unit *u) {
         int r;
-        Mount *m = MOUNT(n);
+        Mount *m = MOUNT(u);
 
         assert(m);
 
         /* Load a .mount file */
-        if ((r = name_load_fragment(n)) < 0 && errno != -ENOENT)
+        if ((r = unit_load_fragment(u)) < 0 && errno != -ENOENT)
                 return r;
 
         /* Load entry from /etc/fstab */
-        if ((r = name_load_fstab(n)) < 0)
+        if ((r = unit_load_fstab(u)) < 0)
                 return r;
 
         /* Load drop-in directory data */
-        if ((r = name_load_dropin(n)) < 0)
+        if ((r = unit_load_dropin(u)) < 0)
                 return r;
 
         return r;
 }
 
-static void mount_done(Name *n) {
-        Mount *d = MOUNT(n);
+static void mount_done(Unit *u) {
+        Mount *d = MOUNT(u);
 
         assert(d);
         free(d->path);
 }
 
-static void mount_dump(Name *n, FILE *f, const char *prefix) {
+static void mount_dump(Unit *u, FILE *f, const char *prefix) {
 
         static const char* const state_table[_MOUNT_STATE_MAX] = {
                 [MOUNT_DEAD] = "dead",
@@ -46,7 +46,7 @@ static void mount_dump(Name *n, FILE *f, const char *prefix) {
                 [MOUNT_MAINTAINANCE] = "maintainance"
         };
 
-        Mount *s = MOUNT(n);
+        Mount *s = MOUNT(u);
 
         assert(s);
 
@@ -57,20 +57,20 @@ static void mount_dump(Name *n, FILE *f, const char *prefix) {
                 prefix, s->path);
 }
 
-static NameActiveState mount_active_state(Name *n) {
+static UnitActiveState mount_active_state(Unit *u) {
 
-        static const NameActiveState table[_MOUNT_STATE_MAX] = {
-                [MOUNT_DEAD] = NAME_INACTIVE,
-                [MOUNT_MOUNTING] = NAME_ACTIVATING,
-                [MOUNT_MOUNTED] = NAME_ACTIVE,
-                [MOUNT_UNMOUNTING] = NAME_DEACTIVATING,
-                [MOUNT_MAINTAINANCE] = NAME_INACTIVE,
+        static const UnitActiveState table[_MOUNT_STATE_MAX] = {
+                [MOUNT_DEAD] = UNIT_INACTIVE,
+                [MOUNT_MOUNTING] = UNIT_ACTIVATING,
+                [MOUNT_MOUNTED] = UNIT_ACTIVE,
+                [MOUNT_UNMOUNTING] = UNIT_DEACTIVATING,
+                [MOUNT_MAINTAINANCE] = UNIT_INACTIVE,
         };
 
-        return table[MOUNT(n)->state];
+        return table[MOUNT(u)->state];
 }
 
-const NameVTable mount_vtable = {
+const UnitVTable mount_vtable = {
         .suffix = ".mount",
 
         .init = mount_init,

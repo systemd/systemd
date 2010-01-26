@@ -2,8 +2,8 @@
 
 #include "load-dropin.h"
 
-int name_load_dropin(Name *n) {
-        assert(n);
+int unit_load_dropin(Unit *u) {
+        assert(u);
 
         /* Load dependencies from supplementary drop-in directories */
 

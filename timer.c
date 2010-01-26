@@ -1,29 +1,29 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
-#include "name.h"
+#include "unit.h"
 #include "timer.h"
 
-static void timer_done(Name *n) {
-        Timer *t = TIMER(n);
+static void timer_done(Unit *u) {
+        Timer *t = TIMER(u);
 
         assert(t);
 }
 
-static NameActiveState timer_active_state(Name *n) {
+static UnitActiveState timer_active_state(Unit *u) {
 
-        static const NameActiveState table[_TIMER_STATE_MAX] = {
-                [TIMER_DEAD] = NAME_INACTIVE,
-                [TIMER_WAITING] = NAME_ACTIVE,
-                [TIMER_RUNNING] = NAME_ACTIVE
+        static const UnitActiveState table[_TIMER_STATE_MAX] = {
+                [TIMER_DEAD] = UNIT_INACTIVE,
+                [TIMER_WAITING] = UNIT_ACTIVE,
+                [TIMER_RUNNING] = UNIT_ACTIVE
         };
 
-        return table[TIMER(n)->state];
+        return table[TIMER(u)->state];
 }
 
-const NameVTable timer_vtable = {
+const UnitVTable timer_vtable = {
         .suffix = ".timer",
 
-        .init = name_load_fragment_and_dropin,
+        .init = unit_load_fragment_and_dropin,
         .done = timer_done,
 
         .active_state = timer_active_state

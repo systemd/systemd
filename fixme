@@ -3,9 +3,9 @@
 
 - need gc for active jobs that nothing cares for
 
-- need gc for names that are not referenced anymore
+- need gc for units that are not referenced anymore
 
-- refreshing of names (i.e. reload config files)
+- refreshing of units (i.e. reload config files)
 
 - dbusification
 
@@ -37,6 +37,6 @@
 
 - templating/instances
 
-- verify fragment data after loading: refuse cycles on yourself, service names contradicting, more than one Start executable, ...
+- verify fragment data after loading: refuse cycles on yourself, service units contradicting, more than one Start executable, ...
 
 - rate limit startups

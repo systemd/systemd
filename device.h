@@ -5,7 +5,7 @@
 
 typedef struct Device Device;
 
-#include "name.h"
+#include "unit.h"
 
 /* We simply watch devices, we cannot plug/unplug them. That
  * simplifies the state engine greatly */
@@ -24,6 +24,6 @@ struct Device {
         char **sysfs;
 };
 
-extern const NameVTable device_vtable;
+extern const UnitVTable device_vtable;
 
 #endif

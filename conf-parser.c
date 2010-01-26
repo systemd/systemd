@@ -109,7 +109,7 @@ static int parse_line(const char *filename, unsigned line, char **section, const
                         }
                 }
 
-                r = config_parse(fn, sections, t, userdata);
+                r = config_parse(fn, NULL, sections, t, userdata);
                 free(path);
                 return r;
         }
@@ -162,19 +162,20 @@ static int parse_line(const char *filename, unsigned line, char **section, const
 }
 
 /* Go through the file and parse each line */
-int config_parse(const char *filename, const char* const * sections, const ConfigItem *t, void *userdata) {
+int config_parse(const char *filename, FILE *f, const char* const * sections, const ConfigItem *t, void *userdata) {
         unsigned line = 0;
         char *section = NULL;
-        FILE *f;
         int r;
 
         assert(filename);
         assert(t);
 
-        if (!(f = fopen(filename, "re"))) {
-                r = -errno;
-                log_error("Failed to open configuration file '%s': %s", filename, strerror(-r));
-                goto finish;
+        if (!f) {
+                if (!(f = fopen(filename, "re"))) {
+                        r = -errno;
+                        log_error("Failed to open configuration file '%s': %s", filename, strerror(-r));
+                        goto finish;
+                }
         }
 
         while (!feof(f)) {

@@ -1,25 +1,25 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
-#include "name.h"
+#include "unit.h"
 #include "target.h"
 #include "load-fragment.h"
 
-static void target_done(Name *n) {
-        Target *m = TARGET(n);
+static void target_done(Unit *u) {
+        Target *m = TARGET(u);
 
         assert(m);
 
         /* Nothing here for now */
 }
 
-static NameActiveState target_active_state(Name *n) {
-        return TARGET(n)->state == TARGET_DEAD ? NAME_INACTIVE : NAME_ACTIVE;
+static UnitActiveState target_active_state(Unit *u) {
+        return TARGET(u)->state == TARGET_DEAD ? UNIT_INACTIVE : UNIT_ACTIVE;
 }
 
-const NameVTable target_vtable = {
+const UnitVTable target_vtable = {
         .suffix = ".target",
 
-        .init = name_load_fragment,
+        .init = unit_load_fragment,
         .done = target_done,
 
         .active_state = target_active_state

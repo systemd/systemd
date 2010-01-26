@@ -5,7 +5,7 @@
 
 typedef struct Snapshot Snapshot;
 
-#include "name.h"
+#include "unit.h"
 
 typedef enum SnapshotState {
         SNAPSHOT_DEAD,
@@ -19,6 +19,6 @@ struct Snapshot {
         bool cleanup:1;
 };
 
-extern const NameVTable snapshot_vtable;
+extern const UnitVTable snapshot_vtable;
 
 #endif

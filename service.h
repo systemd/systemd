@@ -5,7 +5,7 @@
 
 typedef struct Service Service;
 
-#include "name.h"
+#include "unit.h"
 
 typedef enum ServiceState {
         SERVICE_DEAD,
@@ -73,6 +73,6 @@ struct Service {
         int timer_id;
 };
 
-const NameVTable service_vtable;
+const UnitVTable service_vtable;
 
 #endif

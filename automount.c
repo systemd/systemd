@@ -2,43 +2,43 @@
 
 #include <errno.h>
 
-#include "name.h"
+#include "unit.h"
 #include "automount.h"
 #include "load-fragment.h"
 #include "load-fstab.h"
 #include "load-dropin.h"
 
-static int automount_init(Name *n) {
+static int automount_init(Unit *u) {
         int r;
-        Automount *a = AUTOMOUNT(n);
+        Automount *a = AUTOMOUNT(u);
 
         assert(a);
 
         exec_context_init(&a->exec_context);
 
         /* Load a .automount file */
-        if ((r = name_load_fragment(n)) < 0 && errno != -ENOENT)
+        if ((r = unit_load_fragment(u)) < 0 && errno != -ENOENT)
                 return r;
 
         /* Load entry from /etc/fstab */
-        if ((r = name_load_fstab(n)) < 0)
+        if ((r = unit_load_fstab(u)) < 0)
                 return r;
 
         /* Load drop-in directory data */
-        if ((r = name_load_dropin(n)) < 0)
+        if ((r = unit_load_dropin(u)) < 0)
                 return r;
 
         return 0;
 }
 
-static void automount_done(Name *n) {
-        Automount *d = AUTOMOUNT(n);
+static void automount_done(Unit *u) {
+        Automount *d = AUTOMOUNT(u);
 
         assert(d);
         free(d->path);
 }
 
-static void automount_dump(Name *n, FILE *f, const char *prefix) {
+static void automount_dump(Unit *u, FILE *f, const char *prefix) {
 
         static const char* const state_table[_AUTOMOUNT_STATE_MAX] = {
                 [AUTOMOUNT_DEAD] = "dead",
@@ -59,7 +59,7 @@ static void automount_dump(Name *n, FILE *f, const char *prefix) {
         };
 
         AutomountExecCommand c;
-        Automount *s = AUTOMOUNT(n);
+        Automount *s = AUTOMOUNT(u);
 
         assert(s);
 
@@ -79,23 +79,23 @@ static void automount_dump(Name *n, FILE *f, const char *prefix) {
         }
 }
 
-static NameActiveState automount_active_state(Name *n) {
+static UnitActiveState automount_active_state(Unit *u) {
 
-        static const NameActiveState table[_AUTOMOUNT_STATE_MAX] = {
-                [AUTOMOUNT_DEAD] = NAME_INACTIVE,
-                [AUTOMOUNT_START_PRE] = NAME_ACTIVATING,
-                [AUTOMOUNT_START_POST] = NAME_ACTIVATING,
-                [AUTOMOUNT_WAITING] = NAME_ACTIVE,
-                [AUTOMOUNT_RUNNING] = NAME_ACTIVE,
-                [AUTOMOUNT_STOP_PRE] = NAME_DEACTIVATING,
-                [AUTOMOUNT_STOP_POST] = NAME_DEACTIVATING,
-                [AUTOMOUNT_MAINTAINANCE] = NAME_INACTIVE,
+        static const UnitActiveState table[_AUTOMOUNT_STATE_MAX] = {
+                [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
+                [AUTOMOUNT_START_PRE] = UNIT_ACTIVATING,
+                [AUTOMOUNT_START_POST] = UNIT_ACTIVATING,
+                [AUTOMOUNT_WAITING] = UNIT_ACTIVE,
+                [AUTOMOUNT_RUNNING] = UNIT_ACTIVE,
+                [AUTOMOUNT_STOP_PRE] = UNIT_DEACTIVATING,
+                [AUTOMOUNT_STOP_POST] = UNIT_DEACTIVATING,
+                [AUTOMOUNT_MAINTAINANCE] = UNIT_INACTIVE,
         };
 
-        return table[AUTOMOUNT(n)->state];
+        return table[AUTOMOUNT(u)->state];
 }
 
-const NameVTable automount_vtable = {
+const UnitVTable automount_vtable = {
         .suffix = ".mount",
 
         .init = automount_init,

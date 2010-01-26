@@ -6,12 +6,12 @@
 #include "macro.h"
 #include "job.h"
 
-Job* job_new(Manager *m, JobType type, Name *name) {
+Job* job_new(Manager *m, JobType type, Unit *unit) {
         Job *j;
 
         assert(m);
         assert(type < _JOB_TYPE_MAX);
-        assert(name);
+        assert(unit);
 
         if (!(j = new0(Job, 1)))
                 return NULL;
@@ -19,7 +19,7 @@ Job* job_new(Manager *m, JobType type, Name *name) {
         j->manager = m;
         j->id = m->current_job_id++;
         j->type = type;
-        j->name = name;
+        j->unit = unit;
 
         /* We don't link it here, that's what job_dependency() is for */
 
@@ -31,8 +31,8 @@ void job_free(Job *j) {
 
         /* Detach from next 'bigger' objects */
         if (j->installed) {
-                if (j->name->meta.job == j)
-                        j->name->meta.job = NULL;
+                if (j->unit->meta.job == j)
+                        j->unit->meta.job = NULL;
 
                 hashmap_remove(j->manager->jobs, UINT32_TO_PTR(j->id));
                 j->installed = false;
@@ -142,7 +142,7 @@ void job_dump(Job *j, FILE*f, const char *prefix) {
                 "%s\tState: %s\n"
                 "%s\tForced: %s\n",
                 prefix, j->id,
-                prefix, name_id(j->name), job_type_to_string(j->type),
+                prefix, unit_id(j->unit), job_type_to_string(j->type),
                 prefix, job_state_table[j->state],
                 prefix, yes_no(j->forced));
 }
@@ -257,12 +257,12 @@ bool job_type_is_conflicting(JobType a, JobType b) {
 
 bool job_is_runnable(Job *j) {
         Iterator i;
-        Name *other;
+        Unit *other;
 
         assert(j);
         assert(j->installed);
 
-        /* Checks whether there is any job running for the names this
+        /* Checks whether there is any job running for the units this
          * job needs to be running after (in the case of a 'positive'
          * job type) or before (in the case of a 'negative' job type
          * . */
@@ -277,7 +277,7 @@ bool job_is_runnable(Job *j) {
                  * dependencies, regardless whether they are
                  * starting or stopping something. */
 
-                SET_FOREACH(other, j->name->meta.dependencies[NAME_AFTER], i)
+                SET_FOREACH(other, j->unit->meta.dependencies[UNIT_AFTER], i)
                         if (other->meta.job)
                                 return false;
         }
@@ -285,7 +285,7 @@ bool job_is_runnable(Job *j) {
         /* Also, if something else is being stopped and we should
          * change state after it, then lets wait. */
 
-        SET_FOREACH(other, j->name->meta.dependencies[NAME_BEFORE], i)
+        SET_FOREACH(other, j->unit->meta.dependencies[UNIT_BEFORE], i)
                 if (other->meta.job &&
                     (other->meta.job->type == JOB_STOP ||
                      other->meta.job->type == JOB_RESTART ||
@@ -328,16 +328,16 @@ int job_run_and_invalidate(Job *j) {
         switch (j->type) {
 
                 case JOB_START:
-                        r = name_start(j->name);
+                        r = unit_start(j->unit);
                         if (r == -EBADR)
                                 r = 0;
                         break;
 
                 case JOB_VERIFY_ACTIVE: {
-                        NameActiveState t = name_active_state(j->name);
-                        if (NAME_IS_ACTIVE_OR_RELOADING(t))
+                        UnitActiveState t = unit_active_state(j->unit);
+                        if (UNIT_IS_ACTIVE_OR_RELOADING(t))
                                 r = -EALREADY;
-                        else if (t == NAME_ACTIVATING)
+                        else if (t == UNIT_ACTIVATING)
                                 r = -EAGAIN;
                         else
                                 r = -ENOEXEC;
@@ -345,39 +345,39 @@ int job_run_and_invalidate(Job *j) {
                 }
 
                 case JOB_STOP:
-                        r = name_stop(j->name);
+                        r = unit_stop(j->unit);
                         break;
 
                 case JOB_RELOAD:
-                        r = name_reload(j->name);
+                        r = unit_reload(j->unit);
                         break;
 
                 case JOB_RELOAD_OR_START:
-                        if (name_active_state(j->name) == NAME_ACTIVE)
-                                r = name_reload(j->name);
+                        if (unit_active_state(j->unit) == UNIT_ACTIVE)
+                                r = unit_reload(j->unit);
                         else
-                                r = name_start(j->name);
+                                r = unit_start(j->unit);
                         break;
 
                 case JOB_RESTART: {
-                        NameActiveState t = name_active_state(j->name);
-                        if (t == NAME_INACTIVE || t == NAME_ACTIVATING) {
+                        UnitActiveState t = unit_active_state(j->unit);
+                        if (t == UNIT_INACTIVE || t == UNIT_ACTIVATING) {
                                 j->type = JOB_START;
-                                r = name_start(j->name);
+                                r = unit_start(j->unit);
                         } else
-                                r = name_stop(j->name);
+                                r = unit_stop(j->unit);
                         break;
                 }
 
                 case JOB_TRY_RESTART: {
-                        NameActiveState t = name_active_state(j->name);
-                        if (t == NAME_INACTIVE || t == NAME_DEACTIVATING)
+                        UnitActiveState t = unit_active_state(j->unit);
+                        if (t == UNIT_INACTIVE || t == UNIT_DEACTIVATING)
                                 r = -ENOEXEC;
-                        else if (t == NAME_ACTIVATING) {
+                        else if (t == UNIT_ACTIVATING) {
                                 j->type = JOB_START;
-                                r = name_start(j->name);
+                                r = unit_start(j->unit);
                         } else
-                                r = name_stop(j->name);
+                                r = unit_stop(j->unit);
                         break;
                 }
 
@@ -397,9 +397,9 @@ int job_run_and_invalidate(Job *j) {
 }
 
 int job_finish_and_invalidate(Job *j, bool success) {
-        Name *n;
-        Name *other;
-        NameType t;
+        Unit *u;
+        Unit *other;
+        UnitType t;
         Iterator i;
 
         assert(j);
@@ -413,7 +413,7 @@ int job_finish_and_invalidate(Job *j, bool success) {
                 return 0;
         }
 
-        n = j->name;
+        u = j->unit;
         t = j->type;
         job_free(j);
 
@@ -424,14 +424,14 @@ int job_finish_and_invalidate(Job *j, bool success) {
                     t == JOB_VERIFY_ACTIVE ||
                     t == JOB_RELOAD_OR_START) {
 
-                        SET_FOREACH(other, n->meta.dependencies[NAME_REQUIRED_BY], i)
+                        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY], i)
                                 if (other->meta.job &&
                                     (other->meta.type == JOB_START ||
                                      other->meta.type == JOB_VERIFY_ACTIVE ||
                                      other->meta.type == JOB_RELOAD_OR_START))
                                         job_finish_and_invalidate(other->meta.job, false);
 
-                        SET_FOREACH(other, n->meta.dependencies[NAME_SOFT_REQUIRED_BY], i)
+                        SET_FOREACH(other, u->meta.dependencies[UNIT_SOFT_REQUIRED_BY], i)
                                 if (other->meta.job &&
                                     !other->meta.job->forced &&
                                     (other->meta.type == JOB_START ||
@@ -441,7 +441,7 @@ int job_finish_and_invalidate(Job *j, bool success) {
 
                 } else if (t == JOB_STOP) {
 
-                        SET_FOREACH(other, n->meta.dependencies[NAME_CONFLICTS], i)
+                        SET_FOREACH(other, u->meta.dependencies[UNIT_CONFLICTS], i)
                                 if (other->meta.job &&
                                     (t == JOB_START ||
                                      t == JOB_VERIFY_ACTIVE ||
@@ -451,10 +451,10 @@ int job_finish_and_invalidate(Job *j, bool success) {
         }
 
         /* Try to start the next jobs that can be started */
-        SET_FOREACH(other, n->meta.dependencies[NAME_AFTER], i)
+        SET_FOREACH(other, u->meta.dependencies[UNIT_AFTER], i)
                 if (other->meta.job)
                         job_schedule_run(other->meta.job);
-        SET_FOREACH(other, n->meta.dependencies[NAME_BEFORE], i)
+        SET_FOREACH(other, u->meta.dependencies[UNIT_BEFORE], i)
                 if (other->meta.job)
                         job_schedule_run(other->meta.job);
 

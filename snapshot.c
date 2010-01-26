@@ -1,21 +1,21 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
-#include "name.h"
+#include "unit.h"
 #include "snapshot.h"
 
-static void snapshot_done(Name *n) {
-        Snapshot *s = SNAPSHOT(n);
+static void snapshot_done(Unit *u) {
+        Snapshot *s = SNAPSHOT(u);
 
         assert(s);
 
         /* Nothing here for now */
 }
 
-static NameActiveState snapshot_active_state(Name *n) {
-        return SNAPSHOT(n)->state == SNAPSHOT_DEAD ? NAME_INACTIVE : NAME_ACTIVE;
+static UnitActiveState snapshot_active_state(Unit *u) {
+        return SNAPSHOT(u)->state == SNAPSHOT_DEAD ? UNIT_INACTIVE : UNIT_ACTIVE;
 }
 
-const NameVTable snapshot_vtable = {
+const UnitVTable snapshot_vtable = {
         .suffix = ".snapshot",
 
         .done = snapshot_done,

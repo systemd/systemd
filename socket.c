@@ -8,27 +8,27 @@
 #include <sys/poll.h>
 #include <signal.h>
 
-#include "name.h"
+#include "unit.h"
 #include "socket.h"
 #include "log.h"
 
-static const NameActiveState state_table[_SOCKET_STATE_MAX] = {
-        [SOCKET_DEAD] = NAME_INACTIVE,
-        [SOCKET_START_PRE] = NAME_ACTIVATING,
-        [SOCKET_START_POST] = NAME_ACTIVATING,
-        [SOCKET_LISTENING] = NAME_ACTIVE,
-        [SOCKET_RUNNING] = NAME_ACTIVE,
-        [SOCKET_STOP_PRE] = NAME_DEACTIVATING,
-        [SOCKET_STOP_PRE_SIGTERM] = NAME_DEACTIVATING,
-        [SOCKET_STOP_PRE_SIGKILL] = NAME_DEACTIVATING,
-        [SOCKET_STOP_POST] = NAME_DEACTIVATING,
-        [SOCKET_STOP_POST_SIGTERM] = NAME_DEACTIVATING,
-        [SOCKET_STOP_POST_SIGKILL] = NAME_DEACTIVATING,
-        [SOCKET_MAINTAINANCE] = NAME_INACTIVE,
+static const UnitActiveState state_table[_SOCKET_STATE_MAX] = {
+        [SOCKET_DEAD] = UNIT_INACTIVE,
+        [SOCKET_START_PRE] = UNIT_ACTIVATING,
+        [SOCKET_START_POST] = UNIT_ACTIVATING,
+        [SOCKET_LISTENING] = UNIT_ACTIVE,
+        [SOCKET_RUNNING] = UNIT_ACTIVE,
+        [SOCKET_STOP_PRE] = UNIT_DEACTIVATING,
+        [SOCKET_STOP_PRE_SIGTERM] = UNIT_DEACTIVATING,
+        [SOCKET_STOP_PRE_SIGKILL] = UNIT_DEACTIVATING,
+        [SOCKET_STOP_POST] = UNIT_DEACTIVATING,
+        [SOCKET_STOP_POST_SIGTERM] = UNIT_DEACTIVATING,
+        [SOCKET_STOP_POST_SIGKILL] = UNIT_DEACTIVATING,
+        [SOCKET_MAINTAINANCE] = UNIT_INACTIVE,
 };
 
-static void socket_done(Name *n) {
-        Socket *s = SOCKET(n);
+static void socket_done(Unit *u) {
+        Socket *s = SOCKET(u);
         SocketPort *p;
 
         assert(s);
@@ -47,17 +47,17 @@ static void socket_done(Name *n) {
         s->control_command = NULL;
 
         if (s->control_pid > 0) {
-                name_unwatch_pid(n, s->control_pid);
+                unit_unwatch_pid(u, s->control_pid);
                 s->control_pid = 0;
         }
 
         s->service = NULL;
 
-        name_unwatch_timer(n, &s->timer_id);
+        unit_unwatch_timer(u, &s->timer_id);
 }
 
-static int socket_init(Name *n) {
-        Socket *s = SOCKET(n);
+static int socket_init(Unit *u) {
+        Socket *s = SOCKET(u);
         char *t;
         int r;
 
@@ -71,27 +71,27 @@ static int socket_init(Name *n) {
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
         exec_context_init(&s->exec_context);
 
-        if ((r = name_load_fragment_and_dropin(n)) < 0)
+        if ((r = unit_load_fragment_and_dropin(u)) < 0)
                 goto fail;
 
-        if (!(t = name_change_suffix(name_id(n), ".service"))) {
+        if (!(t = unit_name_change_suffix(unit_id(u), ".service"))) {
                 r = -ENOMEM;
                 goto fail;
         }
 
-        r = manager_load_name(n->meta.manager, t, (Name**) &s->service);
+        r = manager_load_unit(u->meta.manager, t, (Unit**) &s->service);
         free(t);
 
         if (r < 0)
                 goto fail;
 
-        if ((r = name_add_dependency(n, NAME_BEFORE, NAME(s->service))) < 0)
+        if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(s->service))) < 0)
                 goto fail;
 
         return 0;
 
 fail:
-        socket_done(n);
+        socket_done(u);
         return r;
 }
 
@@ -108,7 +108,7 @@ static const char* listen_lookup(int type) {
         return NULL;
 }
 
-static void socket_dump(Name *n, FILE *f, const char *prefix) {
+static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
         static const char* const state_table[_SOCKET_STATE_MAX] = {
                 [SOCKET_DEAD] = "dead",
@@ -133,7 +133,7 @@ static void socket_dump(Name *n, FILE *f, const char *prefix) {
         };
 
         SocketExecCommand c;
-        Socket *s = SOCKET(n);
+        Socket *s = SOCKET(u);
         SocketPort *p;
 
         assert(s);
@@ -183,7 +183,7 @@ static void socket_close_fds(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                name_unwatch_fd(NAME(s), p->fd);
+                unit_unwatch_fd(UNIT(s), p->fd);
                 assert_se(close_nointr(p->fd) >= 0);
 
                 p->fd = -1;
@@ -250,7 +250,7 @@ static void socket_unwatch_fds(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                name_unwatch_fd(NAME(s), p->fd);
+                unit_unwatch_fd(UNIT(s), p->fd);
         }
 }
 
@@ -264,7 +264,7 @@ static int socket_watch_fds(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                if ((r = name_watch_fd(NAME(s), p->fd, POLLIN)) < 0)
+                if ((r = unit_watch_fd(UNIT(s), p->fd, POLLIN)) < 0)
                         goto fail;
         }
 
@@ -290,7 +290,7 @@ static void socket_set_state(Socket *s, SocketState state) {
             state != SOCKET_STOP_POST &&
             state != SOCKET_STOP_POST_SIGTERM &&
             state != SOCKET_STOP_POST_SIGKILL)
-                name_unwatch_timer(NAME(s), &s->timer_id);
+                unit_unwatch_timer(UNIT(s), &s->timer_id);
 
         if (state != SOCKET_START_PRE &&
             state != SOCKET_START_POST &&
@@ -301,7 +301,7 @@ static void socket_set_state(Socket *s, SocketState state) {
             state != SOCKET_STOP_POST_SIGTERM &&
             state != SOCKET_STOP_POST_SIGKILL)
                 if (s->control_pid >= 0) {
-                        name_unwatch_pid(NAME(s), s->control_pid);
+                        unit_unwatch_pid(UNIT(s), s->control_pid);
                         s->control_pid = 0;
                 }
 
@@ -322,7 +322,7 @@ static void socket_set_state(Socket *s, SocketState state) {
         if (state != SOCKET_LISTENING)
                 socket_unwatch_fds(s);
 
-        name_notify(NAME(s), state_table[old_state], state_table[s->state]);
+        unit_notify(UNIT(s), state_table[old_state], state_table[s->state]);
 }
 
 static int socket_spawn(Socket *s, ExecCommand *c, bool timeout, pid_t *_pid) {
@@ -334,15 +334,15 @@ static int socket_spawn(Socket *s, ExecCommand *c, bool timeout, pid_t *_pid) {
         assert(_pid);
 
         if (timeout) {
-                if ((r = name_watch_timer(NAME(s), s->timeout_usec, &s->timer_id)) < 0)
+                if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_id)) < 0)
                         goto fail;
         } else
-                name_unwatch_timer(NAME(s), &s->timer_id);
+                unit_unwatch_timer(UNIT(s), &s->timer_id);
 
         if ((r = exec_spawn(c, &s->exec_context, NULL, 0, &pid)) < 0)
                 goto fail;
 
-        if ((r = name_watch_pid(NAME(s), pid)) < 0)
+        if ((r = unit_watch_pid(UNIT(s), pid)) < 0)
                 /* FIXME: we need to do something here */
                 goto fail;
 
@@ -352,7 +352,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, bool timeout, pid_t *_pid) {
 
 fail:
         if (timeout)
-                name_unwatch_timer(NAME(s), &s->timer_id);
+                unit_unwatch_timer(UNIT(s), &s->timer_id);
 
         return r;
 }
@@ -385,7 +385,7 @@ static void socket_enter_stop_post(Socket *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run stop-post executable: %s", name_id(NAME(s)), strerror(-r));
+        log_warning("%s failed to run stop-post executable: %s", unit_id(UNIT(s)), strerror(-r));
         socket_enter_dead(s, false);
 }
 
@@ -414,7 +414,7 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to kill processes: %s", name_id(NAME(s)), strerror(-r));
+        log_warning("%s failed to kill processes: %s", unit_id(UNIT(s)), strerror(-r));
 
         if (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_STOP_PRE_SIGKILL)
                 socket_enter_stop_post(s, false);
@@ -441,7 +441,7 @@ static void socket_enter_stop_pre(Socket *s, bool success) {
         return;
 
 fail:
-        log_warning("%s failed to run stop-pre executable: %s", name_id(NAME(s)), strerror(-r));
+        log_warning("%s failed to run stop-pre executable: %s", unit_id(UNIT(s)), strerror(-r));
         socket_enter_stop_post(s, false);
 }
 
@@ -451,14 +451,14 @@ static void socket_enter_start_post(Socket *s) {
 
         if ((r = socket_open_fds(s)) < 0 ||
             (r = socket_watch_fds(s)) < 0) {
-                log_warning("%s failed to listen on sockets: %s", name_id(NAME(s)), strerror(-r));
+                log_warning("%s failed to listen on sockets: %s", unit_id(UNIT(s)), strerror(-r));
                 goto fail;
         }
 
         if ((s->control_command = s->exec_command[SOCKET_EXEC_START_POST])) {
 
                 if ((r = socket_spawn(s, s->control_command, true, &s->control_pid)) < 0) {
-                        log_warning("%s failed to run start-post executable: %s", name_id(NAME(s)), strerror(-r));
+                        log_warning("%s failed to run start-post executable: %s", unit_id(UNIT(s)), strerror(-r));
                         goto fail;
                 }
 
@@ -488,7 +488,7 @@ static void socket_enter_start_pre(Socket *s) {
         return;
 
 fail:
-        log_warning("%s failed to run start-pre exectuable: %s", name_id(NAME(s)), strerror(-r));
+        log_warning("%s failed to run start-pre exectuable: %s", unit_id(UNIT(s)), strerror(-r));
         socket_enter_dead(s, false);
 }
 
@@ -497,14 +497,14 @@ static void socket_enter_running(Socket *s) {
 
         assert(s);
 
-        if ((r = manager_add_job(NAME(s)->meta.manager, JOB_START, NAME(s->service), JOB_REPLACE, true, NULL)) < 0)
+        if ((r = manager_add_job(UNIT(s)->meta.manager, JOB_START, UNIT(s->service), JOB_REPLACE, true, NULL)) < 0)
                 goto fail;
 
         socket_set_state(s, SOCKET_RUNNING);
         return;
 
 fail:
-        log_warning("%s failed to queue socket startup job: %s", name_id(NAME(s)), strerror(-r));
+        log_warning("%s failed to queue socket startup job: %s", unit_id(UNIT(s)), strerror(-r));
         socket_enter_dead(s, false);
 }
 
@@ -534,8 +534,8 @@ fail:
                 socket_enter_stop_pre(s, false);
 }
 
-static int socket_start(Name *n) {
-        Socket *s = SOCKET(n);
+static int socket_start(Unit *u) {
+        Socket *s = SOCKET(u);
 
         assert(s);
 
@@ -554,7 +554,7 @@ static int socket_start(Name *n) {
                 return 0;
 
         /* Cannot run this without the service being around */
-        if (s->service->meta.load_state != NAME_LOADED)
+        if (s->service->meta.load_state != UNIT_LOADED)
                 return -ENOENT;
 
         assert(s->state == SOCKET_DEAD || s->state == SOCKET_MAINTAINANCE);
@@ -564,8 +564,8 @@ static int socket_start(Name *n) {
         return 0;
 }
 
-static int socket_stop(Name *n) {
-        Socket *s = SOCKET(n);
+static int socket_stop(Unit *u) {
+        Socket *s = SOCKET(u);
 
         assert(s);
 
@@ -581,18 +581,18 @@ static int socket_stop(Name *n) {
         return 0;
 }
 
-static NameActiveState socket_active_state(Name *n) {
-        assert(n);
+static UnitActiveState socket_active_state(Unit *u) {
+        assert(u);
 
-        return state_table[SOCKET(n)->state];
+        return state_table[SOCKET(u)->state];
 }
 
-static void socket_fd_event(Name *n, int fd, uint32_t events) {
-        Socket *s = SOCKET(n);
+static void socket_fd_event(Unit *u, int fd, uint32_t events) {
+        Socket *s = SOCKET(u);
 
         assert(s);
 
-        log_info("Incoming traffic on %s", name_id(n));
+        log_info("Incoming traffic on %s", unit_id(u));
 
         if (events != POLLIN)
                 socket_enter_stop_pre(s, false);
@@ -600,8 +600,8 @@ static void socket_fd_event(Name *n, int fd, uint32_t events) {
         socket_enter_running(s);
 }
 
-static void socket_sigchld_event(Name *n, pid_t pid, int code, int status) {
-        Socket *s = SOCKET(n);
+static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
+        Socket *s = SOCKET(u);
         bool success;
 
         assert(s);
@@ -616,7 +616,7 @@ static void socket_sigchld_event(Name *n, pid_t pid, int code, int status) {
         exec_status_fill(&s->control_command->exec_status, pid, code, status);
         s->control_pid = 0;
 
-        log_debug("%s: control process exited, code=%s status=%i", name_id(n), sigchld_code(code), status);
+        log_debug("%s: control process exited, code=%s status=%i", unit_id(u), sigchld_code(code), status);
 
         if (s->control_command->command_next &&
             (success || (s->state == SOCKET_EXEC_STOP_PRE || s->state == SOCKET_EXEC_STOP_POST)))
@@ -659,8 +659,8 @@ static void socket_sigchld_event(Name *n, pid_t pid, int code, int status) {
         }
 }
 
-static void socket_timer_event(Name *n, int id, uint64_t elapsed) {
-        Socket *s = SOCKET(n);
+static void socket_timer_event(Unit *u, int id, uint64_t elapsed) {
+        Socket *s = SOCKET(u);
 
         assert(s);
         assert(elapsed == 1);
@@ -671,37 +671,37 @@ static void socket_timer_event(Name *n, int id, uint64_t elapsed) {
 
         case SOCKET_START_PRE:
         case SOCKET_START_POST:
-                log_warning("%s operation timed out. Stopping.", name_id(n));
+                log_warning("%s operation timed out. Stopping.", unit_id(u));
                 socket_enter_stop_pre(s, false);
                 break;
 
         case SOCKET_STOP_PRE:
-                log_warning("%s stopping timed out. Terminating.", name_id(n));
+                log_warning("%s stopping timed out. Terminating.", unit_id(u));
                 socket_enter_signal(s, SOCKET_STOP_PRE_SIGTERM, false);
                 break;
 
         case SOCKET_STOP_PRE_SIGTERM:
-                log_warning("%s stopping timed out. Killing.", name_id(n));
+                log_warning("%s stopping timed out. Killing.", unit_id(u));
                 socket_enter_signal(s, SOCKET_STOP_PRE_SIGKILL, false);
                 break;
 
         case SOCKET_STOP_PRE_SIGKILL:
-                log_warning("%s still around after SIGKILL. Ignoring.", name_id(n));
+                log_warning("%s still around after SIGKILL. Ignoring.", unit_id(u));
                 socket_enter_stop_post(s, false);
                 break;
 
         case SOCKET_STOP_POST:
-                log_warning("%s stopping timed out (2). Terminating.", name_id(n));
+                log_warning("%s stopping timed out (2). Terminating.", unit_id(u));
                 socket_enter_signal(s, SOCKET_STOP_POST_SIGTERM, false);
                 break;
 
         case SOCKET_STOP_POST_SIGTERM:
-                log_warning("%s stopping timed out (2). Killing.", name_id(n));
+                log_warning("%s stopping timed out (2). Killing.", unit_id(u));
                 socket_enter_signal(s, SOCKET_STOP_POST_SIGKILL, false);
                 break;
 
         case SOCKET_STOP_POST_SIGKILL:
-                log_warning("%s still around after SIGKILL (2). Entering maintainance mode.", name_id(n));
+                log_warning("%s still around after SIGKILL (2). Entering maintainance mode.", unit_id(u));
                 socket_enter_dead(s, false);
                 break;
 
@@ -742,7 +742,7 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
         return 0;
 }
 
-const NameVTable socket_vtable = {
+const UnitVTable socket_vtable = {
         .suffix = ".socket",
 
         .init = socket_init,

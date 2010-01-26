@@ -13,12 +13,12 @@ typedef enum JobState JobState;
 typedef enum JobMode JobMode;
 
 #include "manager.h"
-#include "name.h"
+#include "unit.h"
 #include "hashmap.h"
 #include "list.h"
 
 enum JobType {
-        JOB_START,                  /* if a name does not support being started, we'll just wait until it becomes active */
+        JOB_START,                  /* if a unit does not support being started, we'll just wait until it becomes active */
         JOB_VERIFY_ACTIVE,
 
         JOB_STOP,
@@ -64,7 +64,7 @@ struct Job {
         Manager *manager;
         uint32_t id;
 
-        Name *name;
+        Unit *unit;
 
         JobType type;
         JobState state;
@@ -86,7 +86,7 @@ struct Job {
 
 };
 
-Job* job_new(Manager *m, JobType type, Name *name);
+Job* job_new(Manager *m, JobType type, Unit *unit);
 void job_free(Job *job);
 void job_dump(Job *j, FILE*f, const char *prefix);
 

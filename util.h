@@ -91,4 +91,8 @@ int read_one_line_file(const char *fn, char **line);
 
 char *strappend(const char *s, const char *suffix);
 
+int readlink_malloc(const char *p, char **r);
+
+char *file_name_from_path(const char *p);
+
 #endif

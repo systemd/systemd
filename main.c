@@ -10,7 +10,7 @@
 
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
-        Name *target = NULL;
+        Unit *target = NULL;
         Job *job = NULL;
         int r, retval = 1;
 
@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if ((r = manager_load_name(m, "default.target", &target)) < 0) {
+        if ((r = manager_load_unit(m, "default.target", &target)) < 0) {
                 log_error("Failed to load default target: %s", strerror(-r));
                 goto finish;
         }
@@ -31,8 +31,8 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        printf("→ By names:\n");
-        manager_dump_names(m, stdout, "\t");
+        printf("→ By units:\n");
+        manager_dump_units(m, stdout, "\t");
 
         printf("→ By jobs:\n");
         manager_dump_jobs(m, stdout, "\t");

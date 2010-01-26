@@ -5,7 +5,7 @@
 
 typedef struct Timer Timer;
 
-#include "name.h"
+#include "unit.h"
 
 typedef enum TimerState {
         TIMER_DEAD,
@@ -25,6 +25,6 @@ struct Timer {
         Service *service;
 };
 
-const NameVTable timer_vtable;
+const UnitVTable timer_vtable;
 
 #endif

@@ -402,3 +402,44 @@ char *strappend(const char *s, const char *suffix) {
 
         return r;
 }
+
+int readlink_malloc(const char *p, char **r) {
+        size_t l = 100;
+
+        assert(p);
+        assert(r);
+
+        for (;;) {
+                char *c;
+                ssize_t n;
+
+                if (!(c = new(char, l)))
+                        return -ENOMEM;
+
+                if ((n = readlink(p, c, l-1)) < 0) {
+                        int ret = -errno;
+                        free(c);
+                        return ret;
+                }
+
+                if ((size_t) n < l-1) {
+                        c[n] = 0;
+                        *r = c;
+                        return 0;
+                }
+
+                free(c);
+                l *= 2;
+        }
+}
+
+char *file_name_from_path(const char *p) {
+        char *r;
+
+        assert(p);
+
+        if ((r = strrchr(p, '/')))
+                return r + 1;
+
+        return (char*) p;
+}
