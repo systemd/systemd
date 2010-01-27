@@ -49,103 +49,49 @@ static int next_assignment(
         return 0;
 }
 
-/* Returns non-zero when c is contained in s */
-static int in_string(char c, const char *s) {
-        assert(s);
-
-        for (; *s; s++)
-                if (*s == c)
-                        return 1;
-
-        return 0;
-}
-
-/* Remove all whitepsapce from the beginning and the end of *s. *s may
- * be modified. */
-static char *strip(char *s) {
-        char *b = s+strspn(s, WHITESPACE);
-        char *e, *l = NULL;
-
-        for (e = b; *e; e++)
-                if (!in_string(*e, WHITESPACE))
-                        l = e;
-
-        if (l)
-                *(l+1) = 0;
-
-        return b;
-}
-
 /* Parse a variable assignment line */
 static int parse_line(const char *filename, unsigned line, char **section, const char* const * sections, const ConfigItem *t, char *l, void *userdata) {
-        char *e, *b, *c;
+        char *e;
 
-        b = l+strspn(l, WHITESPACE);
+        l = strstrip(l);
 
-        if ((c = strpbrk(b, NEWLINES)))
-                *c = 0;
-
-        if (!*b)
+        if (!*l)
                 return 0;
 
-        if (strchr(COMMENTS, *b))
+        if (strchr(COMMENTS, *l))
                 return 0;
 
-        if (startswith(b, ".include ")) {
-                char *path = NULL, *fn;
+        if (startswith(l, ".include ")) {
+                char *fn;
                 int r;
 
-                fn = strip(b+9);
-                if (!is_path_absolute(fn)) {
-                        const char *k;
-
-                        if ((k = strrchr(filename, '/'))) {
-                                char *dir;
-
-                                if (!(dir = strndup(filename, k-filename)))
-                                        return -ENOMEM;
-
-                                if (asprintf(&path, "%s/%s", dir, fn) < 0)
-                                        return -errno;
-
-                                fn = path;
-                                free(dir);
-                        }
-                }
+                if (!(fn = file_in_same_dir(filename, strstrip(l+9))))
+                        return -ENOMEM;
 
                 r = config_parse(fn, NULL, sections, t, userdata);
-                free(path);
+                free(fn);
+
                 return r;
         }
 
-        if (*b == '[') {
+        if (*l == '[') {
                 size_t k;
                 char *n;
 
-                k = strlen(b);
+                k = strlen(l);
                 assert(k > 0);
 
-                if (b[k-1] != ']') {
+                if (l[k-1] != ']') {
                         log_error("[%s:%u] Invalid section header.", filename, line);
                         return -EBADMSG;
                 }
 
-                if (!(n = strndup(b+1, k-2)))
+                if (!(n = strndup(l+1, k-2)))
                         return -ENOMEM;
 
-                if (sections) {
-                        const char * const * i;
-                        bool good = false;
-                        STRV_FOREACH(i, sections)
-                                if (streq(*i, n)) {
-                                        good = true;
-                                        break;
-                                }
-
-                        if (!good) {
-                                free(n);
-                                return -EBADMSG;
-                        }
+                if (sections && !strv_contains((char**) sections, n)) {
+                        free(n);
+                        return -EBADMSG;
                 }
 
                 free(*section);
@@ -154,7 +100,7 @@ static int parse_line(const char *filename, unsigned line, char **section, const
                 return 0;
         }
 
-        if (!(e = strchr(b, '='))) {
+        if (!(e = strchr(l, '='))) {
                 log_error("[%s:%u] Missing '='.", filename, line);
                 return -EBADMSG;
         }
@@ -162,7 +108,7 @@ static int parse_line(const char *filename, unsigned line, char **section, const
         *e = 0;
         e++;
 
-        return next_assignment(filename, line, *section, t, strip(b), strip(e), userdata);
+        return next_assignment(filename, line, *section, t, strstrip(l), strstrip(e), userdata);
 }
 
 /* Go through the file and parse each line */
