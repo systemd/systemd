@@ -62,6 +62,9 @@ bool unit_name_is_valid(const char *n) {
         if (!(e = strrchr(n, '.')))
                 return false;
 
+        if (e == n)
+                return false;
+
         for (i = n; i < e; i++)
                 if (!strchr(VALID_CHARS, *i))
                         return false;
