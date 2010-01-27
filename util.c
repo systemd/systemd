@@ -253,7 +253,7 @@ char *split_quoted(const char *c, size_t *l, char **state) {
                         (*state)++;
         } else if (*current == '\"') {
                 current ++;
-                *l = strcspn(current+1, "\"");
+                *l = strcspn(current, "\"");
                 *state = current+*l;
 
                 if (**state == '\"')
