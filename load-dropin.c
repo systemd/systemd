@@ -5,6 +5,7 @@
 
 #include "unit.h"
 #include "load-dropin.h"
+#include "log.h"
 
 int unit_load_dropin(Unit *u) {
         Iterator i;
@@ -49,6 +50,12 @@ int unit_load_dropin(Unit *u) {
                         if (asprintf(&path, "%s/%s.wants/%s", unit_path(), t, de->d_name) < 0) {
                                 closedir(d);
                                 return -ENOMEM;
+                        }
+
+                        if (!unit_name_is_valid(de->d_name)) {
+                                log_info("Name of %s is not a valid unit name. Ignoring.", path);
+                                free(path);
+                                continue;
                         }
 
                         r = manager_load_unit(u->meta.manager, path, &other);
