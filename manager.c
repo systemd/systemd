@@ -1084,12 +1084,12 @@ int manager_loop(Manager *m) {
         assert(m);
 
         for (;;) {
-                struct epoll_event events[32];
-                int n, i;
+                struct epoll_event event;
+                int n;
 
                 manager_dispatch_run_queue(m);
 
-                if ((n = epoll_wait(m->epoll_fd, events, ELEMENTSOF(events), -1)) < 0) {
+                if ((n = epoll_wait(m->epoll_fd, &event, 1, -1)) < 0) {
 
                         if (errno == -EINTR)
                                 continue;
@@ -1097,12 +1097,12 @@ int manager_loop(Manager *m) {
                         return -errno;
                 }
 
-                for (i = 0; i < n; i++) {
-                        if ((r = process_event(m, events + i, &quit)) < 0)
-                                return r;
+                assert(n == 1);
 
-                        if (quit)
-                                return 0;
-                }
+                if ((r = process_event(m, &event, &quit)) < 0)
+                        return r;
+
+                if (quit)
+                        return 0;
         }
 }
