@@ -481,32 +481,6 @@ int config_parse_bindtodevice(
 
 #define FOLLOW_MAX 8
 
-static char *build_path(const char *path, const char *filename) {
-        char *e, *r;
-        size_t k;
-
-        assert(path);
-        assert(filename);
-
-        /* This removes the last component of path and appends
-         * filename, unless the latter is absolute anyway or the
-         * former isn't */
-
-        if (path_is_absolute(filename))
-                return strdup(filename);
-
-        if (!(e = strrchr(path, '/')))
-                return strdup(filename);
-
-        k = strlen(filename);
-        if (!(r = new(char, e-path+1+k+1)))
-                return NULL;
-
-        memcpy(r, path, e-path+1);
-        memcpy(r+(e-path)+1, filename, k+1);
-
-        return r;
-}
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_id) {
         unsigned c = 0;
@@ -553,7 +527,7 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_id) {
                 if ((r = readlink_malloc(*filename, &target)) < 0)
                         return r;
 
-                k = build_path(*filename, target);
+                k = file_in_same_dir(*filename, target);
                 free(target);
 
                 if (!k)
