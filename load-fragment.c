@@ -559,50 +559,50 @@ static int load_from_path(Unit *u, const char *path) {
         };
 
 #define EXEC_CONTEXT_CONFIG_ITEMS(context, section) \
-                { "Directory",              config_parse_path,            &(context).directory,                              section   }, \
-                { "User",                   config_parse_string,          &(context).user,                                   section   }, \
-                { "Group",                  config_parse_string,          &(context).group,                                  section   }, \
-                { "SupplementaryGroups",    config_parse_strv,            &(context).supplementary_groups,                   section   }, \
-                { "Nice",                   config_parse_nice,            &(context).nice,                                   section   }, \
-                { "OOMAdjust",              config_parse_oom_adjust,      &(context).oom_adjust,                             section   }, \
-                { "UMask",                  config_parse_umask,           &(context).umask,                                  section   }, \
-                { "Environment",            config_parse_strv,            &(context).environment,                            section   }
+                { "Directory",              config_parse_path,            &(context).directory,                            section   }, \
+                { "User",                   config_parse_string,          &(context).user,                                 section   }, \
+                { "Group",                  config_parse_string,          &(context).group,                                section   }, \
+                { "SupplementaryGroups",    config_parse_strv,            &(context).supplementary_groups,                 section   }, \
+                { "Nice",                   config_parse_nice,            &(context).nice,                                 section   }, \
+                { "OOMAdjust",              config_parse_oom_adjust,      &(context).oom_adjust,                           section   }, \
+                { "UMask",                  config_parse_umask,           &(context).umask,                                section   }, \
+                { "Environment",            config_parse_strv,            &(context).environment,                          section   }
 
         const ConfigItem items[] = {
-                { "Names",                  config_parse_names,           u,                                                 "Meta"    },
-                { "Description",            config_parse_string,          &u->meta.description,                              "Meta"    },
-                { "Requires",               config_parse_deps,            UINT_TO_PTR(UNIT_REQUIRES),                        "Meta"    },
-                { "SoftRequires",           config_parse_deps,            UINT_TO_PTR(UNIT_SOFT_REQUIRES),                   "Meta"    },
-                { "Wants",                  config_parse_deps,            UINT_TO_PTR(UNIT_WANTS),                           "Meta"    },
-                { "Requisite",              config_parse_deps,            UINT_TO_PTR(UNIT_REQUISITE),                       "Meta"    },
-                { "SoftRequisite",          config_parse_deps,            UINT_TO_PTR(UNIT_SOFT_REQUISITE),                  "Meta"    },
-                { "Conflicts",              config_parse_deps,            UINT_TO_PTR(UNIT_CONFLICTS),                       "Meta"    },
-                { "Before",                 config_parse_deps,            UINT_TO_PTR(UNIT_BEFORE),                          "Meta"    },
-                { "After",                  config_parse_deps,            UINT_TO_PTR(UNIT_AFTER),                           "Meta"    },
+                { "Names",                  config_parse_names,           u,                                               "Meta"    },
+                { "Description",            config_parse_string,          &u->meta.description,                            "Meta"    },
+                { "Requires",               config_parse_deps,            UINT_TO_PTR(UNIT_REQUIRES),                      "Meta"    },
+                { "SoftRequires",           config_parse_deps,            UINT_TO_PTR(UNIT_SOFT_REQUIRES),                 "Meta"    },
+                { "Wants",                  config_parse_deps,            UINT_TO_PTR(UNIT_WANTS),                         "Meta"    },
+                { "Requisite",              config_parse_deps,            UINT_TO_PTR(UNIT_REQUISITE),                     "Meta"    },
+                { "SoftRequisite",          config_parse_deps,            UINT_TO_PTR(UNIT_SOFT_REQUISITE),                "Meta"    },
+                { "Conflicts",              config_parse_deps,            UINT_TO_PTR(UNIT_CONFLICTS),                     "Meta"    },
+                { "Before",                 config_parse_deps,            UINT_TO_PTR(UNIT_BEFORE),                        "Meta"    },
+                { "After",                  config_parse_deps,            UINT_TO_PTR(UNIT_AFTER),                         "Meta"    },
 
-                { "PIDFile",                config_parse_path,            &u->service.pid_file,                              "Service" },
-                { "ExecStartPre",           config_parse_exec,            &u->service.exec_command[SERVICE_EXEC_START_PRE],  "Service" },
-                { "ExecStart",              config_parse_exec,            &u->service.exec_command[SERVICE_EXEC_START],      "Service" },
-                { "ExecStartPost",          config_parse_exec,            &u->service.exec_command[SERVICE_EXEC_START_POST], "Service" },
-                { "ExecReload",             config_parse_exec,            &u->service.exec_command[SERVICE_EXEC_RELOAD],     "Service" },
-                { "ExecStop",               config_parse_exec,            &u->service.exec_command[SERVICE_EXEC_STOP],       "Service" },
-                { "ExecStopPost",           config_parse_exec,            &u->service.exec_command[SERVICE_EXEC_STOP_POST],  "Service" },
-                { "RestartSec",             config_parse_usec,            &u->service.restart_usec,                          "Service" },
-                { "TimeoutSec",             config_parse_usec,            &u->service.timeout_usec,                          "Service" },
-                { "Type",                   config_parse_service_type,    &u->service,                                       "Service" },
-                { "Restart",                config_parse_service_restart, &u->service,                                       "Service" },
+                { "PIDFile",                config_parse_path,            &u->service.pid_file,                            "Service" },
+                { "ExecStartPre",           config_parse_exec,            u->service.exec_command+SERVICE_EXEC_START_PRE,  "Service" },
+                { "ExecStart",              config_parse_exec,            u->service.exec_command+SERVICE_EXEC_START,      "Service" },
+                { "ExecStartPost",          config_parse_exec,            u->service.exec_command+SERVICE_EXEC_START_POST, "Service" },
+                { "ExecReload",             config_parse_exec,            u->service.exec_command+SERVICE_EXEC_RELOAD,     "Service" },
+                { "ExecStop",               config_parse_exec,            u->service.exec_command+SERVICE_EXEC_STOP,       "Service" },
+                { "ExecStopPost",           config_parse_exec,            u->service.exec_command+SERVICE_EXEC_STOP_POST,  "Service" },
+                { "RestartSec",             config_parse_usec,            &u->service.restart_usec,                        "Service" },
+                { "TimeoutSec",             config_parse_usec,            &u->service.timeout_usec,                        "Service" },
+                { "Type",                   config_parse_service_type,    &u->service,                                     "Service" },
+                { "Restart",                config_parse_service_restart, &u->service,                                     "Service" },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
 
-                { "ListenStream",           config_parse_listen,          &u->socket,                                        "Socket"  },
-                { "ListenDatagram",         config_parse_listen,          &u->socket,                                        "Socket"  },
-                { "ListenSequentialPacket", config_parse_listen,          &u->socket,                                        "Socket"  },
-                { "ListenFIFO",             config_parse_listen,          &u->socket,                                        "Socket"  },
-                { "BindIPv6Only",           config_parse_socket_bind,     &u->socket,                                        "Socket"  },
-                { "Backlog",                config_parse_unsigned,        &u->socket.backlog,                                "Socket"  },
-                { "ExecStartPre",           config_parse_exec,            &u->service.exec_command[SOCKET_EXEC_START_PRE],   "Socket"  },
-                { "ExecStartPost",          config_parse_exec,            &u->service.exec_command[SOCKET_EXEC_START_POST],  "Socket"  },
-                { "ExecStopPre",            config_parse_exec,            &u->service.exec_command[SOCKET_EXEC_STOP_PRE],    "Socket"  },
-                { "ExecStopPost",           config_parse_exec,            &u->service.exec_command[SOCKET_EXEC_STOP_POST],   "Socket"  },
+                { "ListenStream",           config_parse_listen,          &u->socket,                                      "Socket"  },
+                { "ListenDatagram",         config_parse_listen,          &u->socket,                                      "Socket"  },
+                { "ListenSequentialPacket", config_parse_listen,          &u->socket,                                      "Socket"  },
+                { "ListenFIFO",             config_parse_listen,          &u->socket,                                      "Socket"  },
+                { "BindIPv6Only",           config_parse_socket_bind,     &u->socket,                                      "Socket"  },
+                { "Backlog",                config_parse_unsigned,        &u->socket.backlog,                              "Socket"  },
+                { "ExecStartPre",           config_parse_exec,            u->socket.exec_command+SOCKET_EXEC_START_PRE,    "Socket"  },
+                { "ExecStartPost",          config_parse_exec,            u->socket.exec_command+SOCKET_EXEC_START_POST,   "Socket"  },
+                { "ExecStopPre",            config_parse_exec,            u->socket.exec_command+SOCKET_EXEC_STOP_PRE,     "Socket"  },
+                { "ExecStopPost",           config_parse_exec,            u->socket.exec_command+SOCKET_EXEC_STOP_POST,    "Socket"  },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->socket.exec_context, "Socket"),
 
                 EXEC_CONTEXT_CONFIG_ITEMS(u->automount.exec_context, "Automount"),
