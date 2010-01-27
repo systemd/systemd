@@ -626,7 +626,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(s);
         assert(pid >= 0);
 
-        success = code == CLD_EXITED || status == 0;
+        success = code == CLD_EXITED && status == 0;
         s->failure = s->failure || !success;
 
         assert(s->control_pid == pid);
@@ -645,7 +645,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 /* No further commands for this step, so let's figure
                  * out what to do next */
 
-                log_debug("%s finished with state %s", unit_id(u), state_string_table[s->state]);
+                log_debug("%s got final SIGCHLD for state %s", unit_id(u), state_string_table[s->state]);
 
                 switch (s->state) {
 
