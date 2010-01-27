@@ -4,3 +4,9 @@ Description=Postfix SMTP Socket
 [Socket]
 ListenStream=53333
 ListenFIFO=/tmp/systemd-postfix-fifo
+ExecStartPre=/bin/echo "About to create sockets..."
+ExecStartPre=/bin/echo "About to create sockets... 2"
+ExecStartPost=/bin/echo "Created sockets..."
+ExecStopPre=/bin/echo "About to delete sockets..."
+ExecStopPost=/bin/echo "Deleted sockets..."
+ExecStopPost=/bin/echo "Deleted sockets... 2"
