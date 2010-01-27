@@ -109,6 +109,24 @@ static void transaction_delete_unit(Manager *m, Unit *u) {
                 transaction_delete_job(m, j);
 }
 
+static void transaction_clean_dependencies(Manager *m) {
+        Iterator i;
+        Job *j;
+
+        assert(m);
+
+        /* Drops all dependencies of all installed jobs */
+
+        HASHMAP_FOREACH(j, m->jobs, i) {
+                while (j->subject_list)
+                        job_dependency_free(j->subject_list);
+                while (j->object_list)
+                        job_dependency_free(j->object_list);
+        }
+
+        assert(!m->transaction_anchor);
+}
+
 static void transaction_abort(Manager *m) {
         Job *j;
 
@@ -121,7 +139,8 @@ static void transaction_abort(Manager *m) {
                         job_free(j);
 
         assert(hashmap_isempty(m->transaction_jobs));
-        assert(!m->transaction_anchor);
+
+        transaction_clean_dependencies(m);
 }
 
 static void transaction_find_jobs_that_matter_to_anchor(Manager *m, Job *j, unsigned generation) {
@@ -539,14 +558,7 @@ static int transaction_apply(Manager *m, JobMode mode) {
         }
 
         /* As last step, kill all remaining job dependencies. */
-        HASHMAP_FOREACH(j, m->jobs, i) {
-                while (j->subject_list)
-                        job_dependency_free(j->subject_list);
-                while (j->object_list)
-                        job_dependency_free(j->object_list);
-        }
-
-        assert(!m->transaction_anchor);
+        transaction_clean_dependencies(m);
 
         return 0;
 
