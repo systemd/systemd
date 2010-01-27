@@ -250,7 +250,6 @@ void exec_command_free_array(ExecCommand **c, unsigned n) {
         }
 }
 
-
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         assert(c);
         assert(f);
@@ -286,7 +285,7 @@ char *exec_command_line(ExecCommand *c) {
         assert(c);
         assert(c->argv);
 
-        k = 0;
+        k = 1;
         STRV_FOREACH(a, c->argv)
                 k += strlen(*a)+3;
 
@@ -309,6 +308,8 @@ char *exec_command_line(ExecCommand *c) {
                         p = stpcpy(p, *a);
 
         }
+
+        *p = 0;
 
         /* FIXME: this doesn't really handle arguments that have
          * spaces and ticks in them */
