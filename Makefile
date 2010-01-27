@@ -25,9 +25,12 @@ COMMON= \
 	load-dropin.o \
 	execute.o
 
-all: systemd test-engine test-job-type
+all: systemd test-engine test-job-type systemd-logger
 
 systemd: main.o $(COMMON)
+	$(CC) $(CFLAGS) -o $@ $^  $(LIBS)
+
+systemd-logger: logger.o $(COMMON)
 	$(CC) $(CFLAGS) -o $@ $^  $(LIBS)
 
 test-engine: test-engine.o $(COMMON)

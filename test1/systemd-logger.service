@@ -1,0 +1,6 @@
+[Meta]
+Description=systemd Logging Daemon
+
+[Service]
+ExecStart=/home/lennart/projects/systemd/systemd-logger
+Type=simple
