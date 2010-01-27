@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+#include <signal.h>
 
 #include "execute.h"
 #include "strv.h"
@@ -121,7 +122,15 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
                 char **e, **f = NULL;
                 int i, r;
                 char t[16];
+                sigset_t ss;
+
                 /* child */
+
+                if (sigemptyset(&ss) < 0 ||
+                    sigprocmask(SIG_SETMASK, &ss, NULL) < 0) {
+                        r = EXIT_SIGNAL_MASK;
+                        goto fail;
+                }
 
                 umask(context->umask);
 

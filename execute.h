@@ -71,7 +71,8 @@ typedef enum ExitStatus {
         EXIT_EXEC,
         EXIT_MEMORY,
         EXIT_LIMITS,
-        EXIT_OOM_ADJUST
+        EXIT_OOM_ADJUST,
+        EXIT_SIGNAL_MASK
 } ExitStatus;
 
 int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds, unsigned n_fds, pid_t *ret);
