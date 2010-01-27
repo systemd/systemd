@@ -43,6 +43,7 @@ Manager* manager_new(void) {
 
         assert_se(sigemptyset(&mask) == 0);
         assert_se(sigaddset(&mask, SIGCHLD) == 0);
+        assert_se(sigaddset(&mask, SIGINT) == 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
         m->signal_watch.type = WATCH_SIGNAL_FD;
@@ -977,7 +978,7 @@ static int manager_dispatch_sigchld(Manager *m) {
         return 0;
 }
 
-static int manager_process_signal_fd(Manager *m) {
+static int manager_process_signal_fd(Manager *m, bool *quit) {
         ssize_t n;
         struct signalfd_siginfo sfsi;
         bool sigchld = false;
@@ -996,8 +997,16 @@ static int manager_process_signal_fd(Manager *m) {
                         return -errno;
                 }
 
-                if (sfsi.ssi_signo == SIGCHLD)
+                switch (sfsi.ssi_signo) {
+
+                case SIGCHLD:
                         sigchld = true;
+                        break;
+
+                case SIGINT:
+                        *quit = true;
+                        return 0;
+                }
         }
 
         if (sigchld)
@@ -1006,7 +1015,7 @@ static int manager_process_signal_fd(Manager *m) {
         return 0;
 }
 
-static int process_event(Manager *m, struct epoll_event *ev) {
+static int process_event(Manager *m, struct epoll_event *ev, bool *quit) {
         int r;
         Watch *w;
 
@@ -1023,7 +1032,7 @@ static int process_event(Manager *m, struct epoll_event *ev) {
                 if (ev->events != POLLIN)
                         return -EINVAL;
 
-                if ((r = manager_process_signal_fd(m)) < 0)
+                if ((r = manager_process_signal_fd(m, quit)) < 0)
                         return r;
 
                 break;
@@ -1060,6 +1069,7 @@ static int process_event(Manager *m, struct epoll_event *ev) {
 
 int manager_loop(Manager *m) {
         int r;
+        bool quit = false;
 
         assert(m);
 
@@ -1077,8 +1087,12 @@ int manager_loop(Manager *m) {
                         return -errno;
                 }
 
-                for (i = 0; i < n; i++)
-                        if ((r = process_event(m, events + i)) < 0)
+                for (i = 0; i < n; i++) {
+                        if ((r = process_event(m, events + i, &quit)) < 0)
                                 return r;
+
+                        if (quit)
+                                return 0;
+                }
         }
 }

@@ -48,5 +48,7 @@ finish:
         if (m)
                 manager_free(m);
 
+        log_debug("Exit.");
+
         return retval;
 }
