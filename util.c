@@ -490,3 +490,51 @@ int reset_all_signal_handlers(void) {
 
     return 0;
 }
+
+char *strstrip(char *s) {
+        char *e, *l = NULL;
+
+        /* Drops trailing whitespace. Modifies the string in
+         * place. Returns pointer to first non-space character */
+
+        s += strspn(s, WHITESPACE);
+
+        for (e = s; *e; e++)
+                if (!strchr(WHITESPACE, *e))
+                        l = e;
+
+        if (l)
+                *(l+1) = 0;
+        else
+                *s = 0;
+
+        return s;
+
+}
+
+char *file_in_same_dir(const char *path, const char *filename) {
+        char *e, *r;
+        size_t k;
+
+        assert(path);
+        assert(filename);
+
+        /* This removes the last component of path and appends
+         * filename, unless the latter is absolute anyway or the
+         * former isn't */
+
+        if (path_is_absolute(filename))
+                return strdup(filename);
+
+        if (!(e = strrchr(path, '/')))
+                return strdup(filename);
+
+        k = strlen(filename);
+        if (!(r = new(char, e-path+1+k+1)))
+                return NULL;
+
+        memcpy(r, path, e-path+1);
+        memcpy(r+(e-path)+1, filename, k+1);
+
+        return r;
+}

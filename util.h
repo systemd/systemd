@@ -19,7 +19,7 @@ typedef uint64_t usec_t;
 #define NSEC_PER_USEC 1000ULL
 
 /* What is interpreted as whitespace? */
-#define WHITESPACE " \t\n"
+#define WHITESPACE " \t\n\r"
 
 usec_t now(clockid_t clock);
 
@@ -100,5 +100,8 @@ bool path_is_absolute(const char *p);
 char *path_make_absolute(const char *p, const char *prefix);
 
 int reset_all_signal_handlers(void);
+
+char *strstrip(char *s);
+char *file_in_same_dir(const char *path, const char *filename);
 
 #endif
