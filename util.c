@@ -468,3 +468,25 @@ char *path_make_absolute(const char *p, const char *prefix) {
 
         return r;
 }
+
+int reset_all_signal_handlers(void) {
+        int sig;
+
+        for (sig = 1; sig < _NSIG; sig++) {
+                struct sigaction sa;
+
+                if (sig == SIGKILL || sig == SIGSTOP)
+                        continue;
+
+                zero(sa);
+                sa.sa_handler = SIG_DFL;
+
+                /* On Linux the first two RT signals are reserved by
+                 * glibc, and sigaction() will return EINVAL for them. */
+                if ((sigaction(sig, &sa, NULL) < 0))
+                        if (errno != EINVAL)
+                                return -errno;
+        }
+
+    return 0;
+}

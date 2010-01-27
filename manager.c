@@ -15,6 +15,7 @@
 #include "macro.h"
 #include "strv.h"
 #include "log.h"
+#include "util.h"
 
 Manager* manager_new(void) {
         Manager *m;
@@ -40,6 +41,8 @@ Manager* manager_new(void) {
 
         if ((m->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
                 goto fail;
+
+        assert_se(reset_all_signal_handlers() == 0);
 
         assert_se(sigemptyset(&mask) == 0);
         assert_se(sigaddset(&mask, SIGCHLD) == 0);

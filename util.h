@@ -99,4 +99,6 @@ bool is_path(const char *p);
 bool path_is_absolute(const char *p);
 char *path_make_absolute(const char *p, const char *prefix);
 
+int reset_all_signal_handlers(void);
+
 #endif
