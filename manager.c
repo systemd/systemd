@@ -44,6 +44,9 @@ Manager* manager_new(void) {
         assert_se(sigemptyset(&mask) == 0);
         assert_se(sigaddset(&mask, SIGCHLD) == 0);
         assert_se(sigaddset(&mask, SIGINT) == 0);
+        assert_se(sigaddset(&mask, SIGTERM) == 0);
+        assert_se(sigaddset(&mask, SIGWINCH) == 0);
+        assert_se(sigaddset(&mask, SIGHUP) == 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
         m->signal_watch.type = WATCH_SIGNAL_FD;
@@ -1004,8 +1007,12 @@ static int manager_process_signal_fd(Manager *m, bool *quit) {
                         break;
 
                 case SIGINT:
+                case SIGTERM:
                         *quit = true;
                         return 0;
+
+                default:
+                        log_info("Got unhandled signal <%s>.", strsignal(sfsi.ssi_signo));
                 }
         }
 
