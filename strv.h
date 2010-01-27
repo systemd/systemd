@@ -12,10 +12,12 @@ unsigned strv_length(char **l);
 
 char **strv_merge(char **a, char **b);
 
+bool strv_contains(char **l, const char *s);
+
 char **strv_new(const char *x, ...) __sentinel;
 
 #define STRV_FOREACH(s, l)                      \
-        for ((s) = (l); (l) && *(s); (s)++)
+        for ((s) = (l); (s) && *(s); (s)++)
 
 #define STRV_FOREACH_BACKWARDS(s, l)            \
         for (; (l) && ((s) >= (l)); (s)--)

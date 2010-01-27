@@ -145,3 +145,13 @@ fail:
         return NULL;
 
 }
+
+bool strv_contains(char **l, const char *s) {
+        char **i;
+
+        STRV_FOREACH(i, l)
+                if (streq(*i, s))
+                        return true;
+
+        return false;
+}
