@@ -86,7 +86,7 @@ static int shift_fds(int fds[], unsigned n_fds) {
                         if ((nfd = fcntl(fds[i], F_DUPFD, i+3)) < 0)
                                 return -errno;
 
-                        assert_se(close_nointr(fds[i]));
+                        assert_se(close_nointr(fds[i]) == 0);
                         fds[i] = nfd;
 
                         /* Hmm, the fd we wanted isn't free? Then
@@ -112,7 +112,7 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
         assert(ret);
         assert(fds || n_fds <= 0);
 
-        log_debug("About to execute %s", command->path);
+        log_debug("about to execute %s", command->path);
 
         if ((pid = fork()) < 0)
                 return -errno;
@@ -192,6 +192,9 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
                 strv_free(f);
                 _exit(r);
         }
+
+
+        log_debug("executed %s as %llu", command->path, (unsigned long long) pid);
 
         *ret = pid;
         return 0;
