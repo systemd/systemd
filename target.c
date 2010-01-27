@@ -3,24 +3,76 @@
 #include "unit.h"
 #include "target.h"
 #include "load-fragment.h"
+#include "log.h"
 
-static void target_done(Unit *u) {
-        Target *m = TARGET(u);
+static const UnitActiveState state_translation_table[_TARGET_STATE_MAX] = {
+        [TARGET_DEAD] = UNIT_INACTIVE,
+        [TARGET_ACTIVE] = UNIT_ACTIVE
+};
 
-        assert(m);
+static const char* const state_string_table[_TARGET_STATE_MAX] = {
+        [TARGET_DEAD] = "dead",
+        [TARGET_ACTIVE] = "active"
+};
 
-        /* Nothing here for now */
+static void target_dump(Unit *u, FILE *f, const char *prefix) {
+        Target *t = TARGET(u);
+
+        assert(t);
+        assert(f);
+
+        fprintf(f,
+                "%sTarget State: %s\n",
+                prefix, state_string_table[t->state]);
+}
+
+static void target_set_state(Target *t, TargetState state) {
+        TargetState old_state;
+        assert(t);
+
+        old_state = t->state;
+        t->state = state;
+
+        log_debug("%s changing %s → %s", unit_id(UNIT(t)), state_string_table[old_state], state_string_table[state]);
+
+        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state]);
+}
+
+static int target_start(Unit *u) {
+        Target *t = TARGET(u);
+
+        assert(t);
+        assert(t->state == TARGET_DEAD);
+
+        target_set_state(t, TARGET_ACTIVE);
+        return 0;
+}
+
+static int target_stop(Unit *u) {
+        Target *t = TARGET(u);
+
+        assert(t);
+        assert(t->state == TARGET_ACTIVE);
+
+        target_set_state(t, TARGET_DEAD);
+        return 0;
 }
 
 static UnitActiveState target_active_state(Unit *u) {
-        return TARGET(u)->state == TARGET_DEAD ? UNIT_INACTIVE : UNIT_ACTIVE;
+        assert(u);
+
+        return state_translation_table[TARGET(u)->state];
 }
 
 const UnitVTable target_vtable = {
         .suffix = ".target",
 
         .init = unit_load_fragment_and_dropin,
-        .done = target_done,
+
+        .dump = target_dump,
+
+        .start = target_start,
+        .stop = target_stop,
 
         .active_state = target_active_state
 };

@@ -140,6 +140,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         char *prefix2;
 
         assert(s);
+        assert(f);
 
         prefix2 = strappend(prefix, "\t");
         if (!prefix2)

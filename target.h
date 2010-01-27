@@ -9,7 +9,8 @@ typedef struct Target Target;
 
 typedef enum TargetState {
         TARGET_DEAD,
-        TARGET_ACTIVE
+        TARGET_ACTIVE,
+        _TARGET_STATE_MAX
 } TargetState;
 
 struct Target {
