@@ -285,6 +285,9 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
                 p = manager_get_unit(UNIT(s)->meta.manager, k);
                 free(k);
 
+                if (!p)
+                        continue;
+
                 if ((r = socket_collect_fds(SOCKET(p), &cfds, &cn_fds)) < 0)
                         goto fail;
 
