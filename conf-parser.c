@@ -13,6 +13,7 @@
 #include "log.h"
 
 #define COMMENTS "#;\n"
+#define NEWLINES "\n\r"
 #define LINE_MAX 4096
 
 /* Run the user supplied parser for an assignment */
@@ -77,14 +78,17 @@ static char *strip(char *s) {
 
 /* Parse a variable assignment line */
 static int parse_line(const char *filename, unsigned line, char **section, const char* const * sections, const ConfigItem *t, char *l, void *userdata) {
-        char *e, *c, *b;
+        char *e, *b, *c;
 
         b = l+strspn(l, WHITESPACE);
 
-        if ((c = strpbrk(b, COMMENTS)))
+        if ((c = strpbrk(b, NEWLINES)))
                 *c = 0;
 
         if (!*b)
+                return 0;
+
+        if (strchr(COMMENTS, *b))
                 return 0;
 
         if (startswith(b, ".include ")) {
