@@ -11,6 +11,7 @@
 #include <sys/poll.h>
 #include <sys/epoll.h>
 #include <sys/un.h>
+#include <fcntl.h>
 
 #include "util.h"
 #include "log.h"
@@ -25,7 +26,8 @@
 typedef struct Stream Stream;
 
 typedef struct Server {
-        int log_fd;
+        int syslog_fd;
+        int kmsg_fd;
         int epoll_fd;
 
         unsigned n_server_fd;
@@ -35,10 +37,16 @@ typedef struct Server {
 } Server;
 
 typedef enum StreamState {
+        STREAM_LOG_TARGET,
         STREAM_PRIORITY,
         STREAM_PROCESS,
         STREAM_RUNNING
 } StreamState;
+
+typedef enum LogTarget {
+        LOG_TARGET_SYSLOG,
+        LOG_TARGET_KMSG
+} LogTarget;
 
 struct Stream {
         Server *server;
@@ -46,13 +54,15 @@ struct Stream {
         StreamState state;
 
         int fd;
+
+        LogTarget target;
         int priority;
         char *process;
+        pid_t pid;
+        uid_t uid;
 
         char buffer[STREAM_BUFFER];
         size_t length;
-
-        pid_t pid;
 
         LIST_FIELDS(Stream, stream);
 };
@@ -66,8 +76,6 @@ struct Stream {
 static int stream_log(Stream *s, char *p, usec_t timestamp) {
 
         char header_priority[16], header_time[64], header_pid[16];
-        time_t t;
-        struct tm *tm;
         struct msghdr msghdr;
         struct iovec iovec[5];
 
@@ -78,37 +86,62 @@ static int stream_log(Stream *s, char *p, usec_t timestamp) {
                 return 0;
 
         /*
-         * The format glibc uses is:
+         * The format glibc uses to talk to the syslog daemon is:
          *
-         * <priority>time process[pid]: msg
+         *     <priority>time process[pid]: msg
+         *
+         * The format the kernel uses is:
+         *
+         *     <priority>msg\n
+         *
+         *  We extend the latter to include the process name and pid.
          */
 
-        snprintf(header_priority, sizeof(header_priority), "<%i>", s->priority);
+        snprintf(header_priority, sizeof(header_priority), "<%i>",
+                 s->target == LOG_TARGET_SYSLOG ? s->priority : LOG_PRI(s->priority));
         char_array_0(header_priority);
 
-        t = (time_t) (timestamp / USEC_PER_SEC);
-        if (!(tm = localtime(&t)))
-                return -EINVAL;
+        if (s->target == LOG_TARGET_SYSLOG) {
+                time_t t;
+                struct tm *tm;
 
-        if (strftime(header_time, sizeof(header_time), "%h %e %T ", tm) <= 0)
-                return -EINVAL;
+                t = (time_t) (timestamp / USEC_PER_SEC);
+                if (!(tm = localtime(&t)))
+                        return -EINVAL;
+
+                if (strftime(header_time, sizeof(header_time), "%h %e %T ", tm) <= 0)
+                        return -EINVAL;
+        }
 
         snprintf(header_pid, sizeof(header_pid), "[%llu]: ", (unsigned long long) s->pid);
         char_array_0(header_pid);
 
         zero(iovec);
         IOVEC_SET_STRING(iovec[0], header_priority);
-        IOVEC_SET_STRING(iovec[1], header_time);
-        IOVEC_SET_STRING(iovec[2], s->process);
-        IOVEC_SET_STRING(iovec[3], header_pid);
-        IOVEC_SET_STRING(iovec[4], p);
 
-        zero(msghdr);
-        msghdr.msg_iov = iovec;
-        msghdr.msg_iovlen = ELEMENTSOF(iovec);
+        if (s->target == LOG_TARGET_SYSLOG) {
+                IOVEC_SET_STRING(iovec[1], header_time);
+                IOVEC_SET_STRING(iovec[2], s->process);
+                IOVEC_SET_STRING(iovec[3], header_pid);
+                IOVEC_SET_STRING(iovec[4], p);
 
-        if (sendmsg(s->server->log_fd, &msghdr, MSG_NOSIGNAL) < 0)
-                return -errno;
+                zero(msghdr);
+                msghdr.msg_iov = iovec;
+                msghdr.msg_iovlen = ELEMENTSOF(iovec);
+
+                if (sendmsg(s->server->syslog_fd, &msghdr, MSG_NOSIGNAL) < 0)
+                        return -errno;
+
+        } else if (s->target == LOG_TARGET_KMSG) {
+                IOVEC_SET_STRING(iovec[1], s->process);
+                IOVEC_SET_STRING(iovec[2], header_pid);
+                IOVEC_SET_STRING(iovec[3], p);
+                IOVEC_SET_STRING(iovec[4], "\n");
+
+                if (writev(s->server->kmsg_fd, iovec, ELEMENTSOF(iovec)) < 0)
+                        return -errno;
+        } else
+                assert_not_reached("Unknown log target");
 
         return 0;
 }
@@ -123,12 +156,34 @@ static int stream_line(Stream *s, char *p, usec_t timestamp) {
 
         switch (s->state) {
 
-        case STREAM_PRIORITY:
-                if ((r = safe_atoi(p, &s->priority)) < 0)
-                        return r;
+        case STREAM_LOG_TARGET:
+                if (streq(p, "syslog"))
+                        s->target = LOG_TARGET_SYSLOG;
+                else if (streq(p, "kmsg")) {
 
-                if (s->priority < 0)
+                        if (s->server->kmsg_fd >= 0 && s->uid == 0)
+                                s->target = LOG_TARGET_KMSG;
+                        else {
+                                log_warning("/dev/kmsg logging not available.");
+                                return -EPERM;
+                        }
+                } else {
+                        log_warning("Failed to parse log target line.");
+                        return -EBADMSG;
+                }
+                s->state = STREAM_PRIORITY;
+                return 0;
+
+        case STREAM_PRIORITY:
+                if ((r = safe_atoi(p, &s->priority)) < 0) {
+                        log_warning("Failed to parse log priority line: %s", strerror(errno));
+                        return r;
+                }
+
+                if (s->priority < 0) {
+                        log_warning("Log priority negative: %s", strerror(errno));
                         return -ERANGE;
+                }
 
                 s->state = STREAM_PROCESS;
                 return 0;
@@ -271,6 +326,7 @@ static int stream_new(Server *s, int server_fd) {
         }
 
         stream->pid = ucred.pid;
+        stream->uid = ucred.uid;
 
         stream->server = s;
         LIST_PREPEND(Stream, stream, s->streams, stream);
@@ -336,11 +392,14 @@ static void server_done(Server *s) {
         for (i = 0; i < s->n_server_fd; i++)
                 assert_se(close_nointr(SERVER_FD_START+i) == 0);
 
-        if (s->log_fd >= 0)
-                assert_se(close_nointr(s->log_fd) == 0);
+        if (s->syslog_fd >= 0)
+                assert_se(close_nointr(s->syslog_fd) == 0);
 
         if (s->epoll_fd >= 0)
                 assert_se(close_nointr(s->epoll_fd) == 0);
+
+        if (s->kmsg_fd >= 0)
+                assert_se(close_nointr(s->kmsg_fd) == 0);
 }
 
 static int server_init(Server *s, unsigned n_sockets) {
@@ -357,7 +416,8 @@ static int server_init(Server *s, unsigned n_sockets) {
         zero(*s);
 
         s->n_server_fd = n_sockets;
-        s->log_fd = -1;
+        s->syslog_fd = -1;
+        s->kmsg_fd = -1;
 
         if ((s->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0) {
                 r = -errno;
@@ -378,7 +438,7 @@ static int server_init(Server *s, unsigned n_sockets) {
                 }
         }
 
-        if ((s->log_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0)) < 0) {
+        if ((s->syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0)) < 0) {
                 r = -errno;
                 log_error("Failed to create log fd: %s", strerror(errno));
                 goto fail;
@@ -388,11 +448,15 @@ static int server_init(Server *s, unsigned n_sockets) {
         sa.un.sun_family = AF_UNIX;
         strncpy(sa.un.sun_path, "/dev/log", sizeof(sa.un.sun_path));
 
-        if (connect(s->log_fd, &sa.sa, sizeof(sa)) < 0) {
+        if (connect(s->syslog_fd, &sa.sa, sizeof(sa)) < 0) {
                 r = -errno;
                 log_error("Failed to connect log socket to /dev/log: %s", strerror(errno));
                 goto fail;
         }
+
+        /* /dev/kmsg logging is strictly optional */
+        if ((s->kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0)
+                log_debug("Failed to open /dev/kmsg for logging, disabling kernel log buffer support: %s", strerror(errno));
 
         return 0;
 
@@ -462,7 +526,6 @@ int main(int argc, char *argv[]) {
 
         if (server_init(&server, n) < 0)
                 return 2;
-
 
         for (;;) {
                 struct epoll_event event;
