@@ -464,12 +464,27 @@ fail:
         socket_enter_stop_post(s, false);
 }
 
+static void socket_enter_listening(Socket *s) {
+        int r;
+        assert(s);
+
+        if ((r = socket_watch_fds(s)) < 0) {
+                log_warning("%s failed to watch sockets: %s", unit_id(UNIT(s)), strerror(-r));
+                goto fail;
+        }
+
+        socket_set_state(s, SOCKET_LISTENING);
+        return;
+
+fail:
+        socket_enter_stop_pre(s, false);
+}
+
 static void socket_enter_start_post(Socket *s) {
         int r;
         assert(s);
 
-        if ((r = socket_open_fds(s)) < 0 ||
-            (r = socket_watch_fds(s)) < 0) {
+        if ((r = socket_open_fds(s)) < 0) {
                 log_warning("%s failed to listen on sockets: %s", unit_id(UNIT(s)), strerror(-r));
                 goto fail;
         }
@@ -483,7 +498,7 @@ static void socket_enter_start_post(Socket *s) {
 
                 socket_set_state(s, SOCKET_START_POST);
         } else
-                socket_set_state(s, SOCKET_LISTENING);
+                socket_enter_listening(s);
 
         return;
 
@@ -611,7 +626,7 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
 
         assert(s);
 
-        log_info("Incoming traffic on %s", unit_id(u));
+        log_debug("Incoming traffic on %s", unit_id(u));
 
         if (events != POLLIN)
                 socket_enter_stop_pre(s, false);
@@ -658,7 +673,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                 case SOCKET_START_POST:
                         if (success)
-                                socket_set_state(s, SOCKET_LISTENING);
+                                socket_enter_listening(s);
                         else
                                 socket_enter_stop_pre(s, false);
                         break;
