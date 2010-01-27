@@ -82,6 +82,9 @@ struct Socket {
 /* Called from the service code when collecting fds */
 int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds);
 
+/* Called from the service when it shut down */
+void socket_notify_service_dead(Socket *s);
+
 extern const UnitVTable socket_vtable;
 
 #endif

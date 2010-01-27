@@ -198,6 +198,34 @@ static int service_load_pid_file(Service *s) {
         return 0;
 }
 
+static int service_notify_sockets(Service *s) {
+        Iterator i;
+        char *t;
+
+        assert(s);
+
+        SET_FOREACH(t, UNIT(s)->meta.names, i) {
+                char *k;
+                Unit *p;
+
+                /* Look for all socket objects that go by any of our
+                 * units and collect their fds */
+
+                if (!(k = unit_name_change_suffix(t, ".socket")))
+                        return -ENOMEM;
+
+                p = manager_get_unit(UNIT(s)->meta.manager, k);
+                free(k);
+
+                if (!p)
+                        continue;
+
+                socket_notify_service_dead(SOCKET(p));
+        }
+
+        return 0;
+}
+
 static void service_set_state(Service *s, ServiceState state) {
         ServiceState old_state;
         assert(s);
@@ -251,6 +279,17 @@ static void service_set_state(Service *s, ServiceState state) {
             state != SERVICE_STOP &&
             state != SERVICE_STOP_POST)
                 s->control_command = NULL;
+
+        if (state == SERVICE_DEAD ||
+            state == SERVICE_STOP ||
+            state == SERVICE_STOP_SIGTERM ||
+            state == SERVICE_STOP_SIGKILL ||
+            state == SERVICE_STOP_POST ||
+            state == SERVICE_FINAL_SIGTERM ||
+            state == SERVICE_FINAL_SIGKILL ||
+            state == SERVICE_MAINTAINANCE ||
+            state == SERVICE_AUTO_RESTART)
+                service_notify_sockets(s);
 
         log_debug("%s changing %s → %s", unit_id(UNIT(s)), state_string_table[old_state], state_string_table[state]);
 

@@ -779,6 +779,17 @@ int socket_collect_fds(Socket *s, int **fds, unsigned *n_fds) {
         return 0;
 }
 
+void socket_notify_service_dead(Socket *s) {
+        assert(s);
+
+        /* The service is dead. Dang. */
+
+        if (s->state == SOCKET_RUNNING) {
+                log_debug("%s got notified about service death.", unit_id(UNIT(s)));
+                socket_enter_listening(s);
+        }
+}
+
 const UnitVTable socket_vtable = {
         .suffix = ".socket",
 
