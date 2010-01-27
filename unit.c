@@ -627,33 +627,44 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                 retroactively_stop_dependencies(u);
 }
 
-int unit_watch_fd(Unit *u, int fd, uint32_t events) {
+int unit_watch_fd(Unit *u, int fd, uint32_t events, Watch *w) {
         struct epoll_event ev;
 
         assert(u);
         assert(fd >= 0);
+        assert(w);
+        assert(w->type == WATCH_INVALID || (w->type == WATCH_FD && w->fd == fd && w->unit == u));
 
         zero(ev);
-        ev.data.fd = fd;
-        ev.data.ptr = u;
-        ev.data.u32 = MANAGER_FD;
+        ev.data.ptr = w;
         ev.events = events;
 
-        if (epoll_ctl(u->meta.manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) >= 0)
-                return 0;
+        if (epoll_ctl(u->meta.manager->epoll_fd,
+                      w->type == WATCH_INVALID ? EPOLL_CTL_ADD : EPOLL_CTL_MOD,
+                      fd,
+                      &ev) < 0)
+                return -errno;
 
-        if (errno == EEXIST)
-                if (epoll_ctl(u->meta.manager->epoll_fd, EPOLL_CTL_MOD, fd, &ev) >= 0)
-                        return 0;
+        w->fd = fd;
+        w->type = WATCH_FD;
+        w->unit = u;
 
-        return -errno;
+        return 0;
 }
 
-void unit_unwatch_fd(Unit *u, int fd) {
+void unit_unwatch_fd(Unit *u, Watch *w) {
         assert(u);
-        assert(fd >= 0);
+        assert(w);
 
-        assert_se(epoll_ctl(u->meta.manager->epoll_fd, EPOLL_CTL_DEL, fd, NULL) >= 0 || errno == ENOENT);
+        if (w->type == WATCH_INVALID)
+                return;
+
+        assert(w->type == WATCH_FD && w->unit == u);
+        assert_se(epoll_ctl(u->meta.manager->epoll_fd, EPOLL_CTL_DEL, w->fd, NULL) >= 0);
+
+        w->fd = -1;
+        w->type = WATCH_INVALID;
+        w->unit = NULL;
 }
 
 int unit_watch_pid(Unit *u, pid_t pid) {
@@ -670,25 +681,22 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
         hashmap_remove(u->meta.manager->watch_pids, UINT32_TO_PTR(pid));
 }
 
-int unit_watch_timer(Unit *u, usec_t delay, int *id) {
-        struct epoll_event ev;
-        int fd;
+int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {
         struct itimerspec its;
-        int flags;
+        int flags, fd;
         bool ours;
 
         assert(u);
-        assert(id);
+        assert(w);
+        assert(w->type == WATCH_INVALID || (w->type == WATCH_TIMER && w->unit == u));
 
         /* This will try to reuse the old timer if there is one */
 
-        if (*id >= 0) {
+        if (w->type == WATCH_TIMER) {
                 ours = false;
-                fd = *id;
-
+                fd = w->fd;
         } else {
                 ours = true;
-
                 if ((fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK|TFD_CLOEXEC)) < 0)
                         return -errno;
         }
@@ -711,16 +719,21 @@ int unit_watch_timer(Unit *u, usec_t delay, int *id) {
         if (timerfd_settime(fd, flags, &its, NULL) < 0)
                 goto fail;
 
-        zero(ev);
-        ev.data.fd = fd;
-        ev.data.ptr = u;
-        ev.data.u32 = MANAGER_TIMER;
-        ev.events = POLLIN;
+        if (w->type == WATCH_INVALID) {
+                struct epoll_event ev;
 
-        if (epoll_ctl(u->meta.manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
-                goto fail;
+                zero(ev);
+                ev.data.ptr = w;
+                ev.events = POLLIN;
 
-        *id = fd;
+                if (epoll_ctl(u->meta.manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
+                        goto fail;
+        }
+
+        w->fd = fd;
+        w->type = WATCH_TIMER;
+        w->unit = u;
+
         return 0;
 
 fail:
@@ -730,16 +743,21 @@ fail:
         return -errno;
 }
 
-void unit_unwatch_timer(Unit *u, int *id) {
+void unit_unwatch_timer(Unit *u, Watch *w) {
         assert(u);
-        assert(id);
+        assert(w);
 
-        if (*id < 0)
+        if (w->type == WATCH_INVALID)
                 return;
 
-        assert_se(epoll_ctl(u->meta.manager->epoll_fd, EPOLL_CTL_DEL, *id, NULL) >= 0);
-        assert_se(close_nointr(*id) == 0);
-        *id = -1;
+        assert(w->type == WATCH_TIMER && w->unit == u);
+
+        assert_se(epoll_ctl(u->meta.manager->epoll_fd, EPOLL_CTL_DEL, w->fd, NULL) >= 0);
+        assert_se(close_nointr(w->fd) == 0);
+
+        w->fd = -1;
+        w->type = WATCH_INVALID;
+        w->unit = NULL;
 }
 
 bool unit_job_is_applicable(Unit *u, JobType j) {

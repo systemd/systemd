@@ -111,6 +111,11 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                         } else {
                                 unsigned idx;
 
+                                if (strlen(n) > IF_NAMESIZE-1) {
+                                        free(n);
+                                        return -EINVAL;
+                                }
+
                                 /* Uh, our last resort, an interface name */
                                 idx = if_nametoindex(n);
                                 free(n);
@@ -123,6 +128,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                                 a->sockaddr.in6.sin6_scope_id = idx;
                                 a->sockaddr.in6.sin6_addr = in6addr_any;
                                 a->size = sizeof(struct sockaddr_in6);
+
                         }
                 } else {
 
@@ -274,8 +280,8 @@ int socket_address_print(const SocketAddress *a, char **p) {
         }
 }
 
-int socket_address_listen(const SocketAddress *a, int backlog, SocketAddressBindIPv6Only only, int *ret) {
-        int r, fd;
+int socket_address_listen(const SocketAddress *a, int backlog, SocketAddressBindIPv6Only only, const char *bind_to_device, int *ret) {
+        int r, fd, one;
         assert(a);
         assert(ret);
 
@@ -288,23 +294,30 @@ int socket_address_listen(const SocketAddress *a, int backlog, SocketAddressBind
         if (socket_address_family(a) == AF_INET6 && only != SOCKET_ADDRESS_DEFAULT) {
                 int flag = only == SOCKET_ADDRESS_IPV6_ONLY;
 
-                if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &flag, sizeof(flag)) < 0) {
-                        close_nointr(fd);
-                        return -errno;
-                }
+                if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &flag, sizeof(flag)) < 0)
+                        goto fail;
         }
 
-        if (bind(fd, &a->sockaddr.sa, a->size) < 0) {
-                close_nointr(fd);
-                return -errno;
-        }
+        if (bind_to_device)
+                if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, bind_to_device, strlen(bind_to_device)+1) < 0)
+                        goto fail;
+
+        one = 1;
+        if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0)
+                goto fail;
+
+        if (bind(fd, &a->sockaddr.sa, a->size) < 0)
+                goto fail;
 
         if (a->type == SOCK_STREAM)
-                if (listen(fd, backlog) < 0) {
-                        close_nointr(fd);
-                        return -errno;
-                }
+                if (listen(fd, backlog) < 0)
+                        goto fail;
 
         *ret = fd;
         return 0;
+
+fail:
+        r = -errno;
+        close_nointr(fd);
+        return r;
 }

@@ -9,7 +9,7 @@
 #include "load-dropin.h"
 #include "log.h"
 
-static const UnitActiveState state_table[_SERVICE_STATE_MAX] = {
+static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = UNIT_INACTIVE,
         [SERVICE_START_PRE] = UNIT_ACTIVATING,
         [SERVICE_START] = UNIT_ACTIVATING,
@@ -24,6 +24,23 @@ static const UnitActiveState state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_FINAL_SIGKILL] = UNIT_DEACTIVATING,
         [SERVICE_MAINTAINANCE] = UNIT_INACTIVE,
         [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING,
+};
+
+static const char* const state_string_table[_SERVICE_STATE_MAX] = {
+        [SERVICE_DEAD] = "dead",
+        [SERVICE_START_PRE] = "start-pre",
+        [SERVICE_START] = "start",
+        [SERVICE_START_POST] = "post",
+        [SERVICE_RUNNING] = "running",
+        [SERVICE_RELOAD] = "reload",
+        [SERVICE_STOP] = "stop",
+        [SERVICE_STOP_SIGTERM] = "stop-sigterm",
+        [SERVICE_STOP_SIGKILL] = "stop-sigkill",
+        [SERVICE_STOP_POST] = "stop-post",
+        [SERVICE_FINAL_SIGTERM] = "final-sigterm",
+        [SERVICE_FINAL_SIGKILL] = "final-sigkill",
+        [SERVICE_MAINTAINANCE] = "maintainance",
+        [SERVICE_AUTO_RESTART] = "auto-restart",
 };
 
 static void service_done(Unit *u) {
@@ -50,7 +67,7 @@ static void service_done(Unit *u) {
                 s->control_pid = 0;
         }
 
-        unit_unwatch_timer(u, &s->timer_id);
+        unit_unwatch_timer(u, &s->timer_watch);
 }
 
 static int service_load_sysv(Service *s) {
@@ -79,7 +96,7 @@ static int service_init(Unit *u) {
 
         exec_context_init(&s->exec_context);
 
-        s->timer_id = -1;
+        s->timer_watch.type = WATCH_INVALID;
 
         s->state = SERVICE_DEAD;
 
@@ -106,23 +123,6 @@ static int service_init(Unit *u) {
 
 static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
-        static const char* const state_table[_SERVICE_STATE_MAX] = {
-                [SERVICE_DEAD] = "dead",
-                [SERVICE_START_PRE] = "start-pre",
-                [SERVICE_START] = "start",
-                [SERVICE_START_POST] = "post",
-                [SERVICE_RUNNING] = "running",
-                [SERVICE_RELOAD] = "reload",
-                [SERVICE_STOP] = "stop",
-                [SERVICE_STOP_SIGTERM] = "stop-sigterm",
-                [SERVICE_STOP_SIGKILL] = "stop-sigkill",
-                [SERVICE_STOP_POST] = "stop-post",
-                [SERVICE_FINAL_SIGTERM] = "final-sigterm",
-                [SERVICE_FINAL_SIGKILL] = "final-sigkill",
-                [SERVICE_MAINTAINANCE] = "maintainance",
-                [SERVICE_AUTO_RESTART] = "auto-restart",
-        };
-
         static const char* const command_table[_SERVICE_EXEC_MAX] = {
                 [SERVICE_EXEC_START_PRE] = "ExecStartPre",
                 [SERVICE_EXEC_START] = "ExecStart",
@@ -144,7 +144,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sService State: %s\n",
-                prefix, state_table[s->state]);
+                prefix, state_string_table[s->state]);
 
         if (s->pid_file)
                 fprintf(f,
@@ -216,7 +216,7 @@ static void service_set_state(Service *s, ServiceState state) {
             state != SERVICE_FINAL_SIGTERM &&
             state != SERVICE_FINAL_SIGKILL &&
             state != SERVICE_AUTO_RESTART)
-                unit_unwatch_timer(UNIT(s), &s->timer_id);
+                unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
         if (state != SERVICE_START_POST &&
             state != SERVICE_RUNNING &&
@@ -224,7 +224,7 @@ static void service_set_state(Service *s, ServiceState state) {
             state != SERVICE_STOP &&
             state != SERVICE_STOP_SIGTERM &&
             state != SERVICE_STOP_SIGKILL)
-                if (s->main_pid >= 0) {
+                if (s->main_pid > 0) {
                         unit_unwatch_pid(UNIT(s), s->main_pid);
                         s->main_pid = 0;
                 }
@@ -239,7 +239,7 @@ static void service_set_state(Service *s, ServiceState state) {
             state != SERVICE_STOP_POST &&
             state != SERVICE_FINAL_SIGTERM &&
             state != SERVICE_FINAL_SIGKILL)
-                if (s->control_pid >= 0) {
+                if (s->control_pid > 0) {
                         unit_unwatch_pid(UNIT(s), s->control_pid);
                         s->control_pid = 0;
                 }
@@ -252,7 +252,9 @@ static void service_set_state(Service *s, ServiceState state) {
             state != SERVICE_STOP_POST)
                 s->control_command = NULL;
 
-        unit_notify(UNIT(s), state_table[old_state], state_table[s->state]);
+        log_debug("%s changing %s → %s", unit_id(UNIT(s)), state_string_table[old_state], state_string_table[state]);
+
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
 }
 
 static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
@@ -335,10 +337,10 @@ static int service_spawn(Service *s, ExecCommand *c, bool timeout, bool pass_fds
                         goto fail;
 
         if (timeout) {
-                if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_id)) < 0)
+                if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
                         goto fail;
         } else
-                unit_unwatch_timer(UNIT(s), &s->timer_id);
+                unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
         if ((r = exec_spawn(c, &s->exec_context, fds, n_fds, &pid)) < 0)
                 goto fail;
@@ -356,7 +358,7 @@ fail:
         free(fds);
 
         if (timeout)
-                unit_unwatch_timer(UNIT(s), &s->timer_id);
+                unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
         return r;
 }
@@ -372,7 +374,7 @@ static void service_enter_dead(Service *s, bool success, bool allow_restart) {
             (s->restart == SERVICE_RESTART_ALWAYS ||
              (s->restart == SERVICE_RESTART_ON_SUCCESS && !s->failure))) {
 
-                if ((r = unit_watch_timer(UNIT(s), s->restart_usec, &s->timer_id)) < 0)
+                if ((r = unit_watch_timer(UNIT(s), s->restart_usec, &s->timer_watch)) < 0)
                         goto fail;
 
                 service_set_state(s, SERVICE_AUTO_RESTART);
@@ -703,7 +705,7 @@ static bool service_can_reload(Unit *u) {
 static UnitActiveState service_active_state(Unit *u) {
         assert(u);
 
-        return state_table[SERVICE(u)->state];
+        return state_translation_table[SERVICE(u)->state];
 }
 
 static int main_pid_good(Service *s) {
@@ -888,13 +890,13 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 assert_not_reached("Got SIGCHLD for unkown PID");
 }
 
-static void service_timer_event(Unit *u, int id, uint64_t elapsed) {
+static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
         Service *s = SERVICE(u);
 
         assert(s);
         assert(elapsed == 1);
 
-        assert(s->timer_id == id);
+        assert(w == &s->timer_watch);
 
         switch (s->state) {
 

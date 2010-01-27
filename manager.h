@@ -8,19 +8,27 @@
 #include <stdio.h>
 
 typedef struct Manager Manager;
-typedef enum ManagerEventType ManagerEventType;
+typedef enum WatchType WatchType;
+typedef struct Watch Watch;
+
+enum WatchType {
+        WATCH_INVALID,
+        WATCH_SIGNAL_FD,
+        WATCH_FD,
+        WATCH_TIMER
+};
+
+struct Watch {
+        int fd;
+        WatchType type;
+        union Unit *unit;
+};
 
 #include "unit.h"
 #include "job.h"
 #include "hashmap.h"
 #include "list.h"
 #include "set.h"
-
-enum ManagerEventType {
-        MANAGER_SIGNAL,
-        MANAGER_FD,
-        MANAGER_TIMER
-};
 
 struct Manager {
         uint32_t current_job_id;
@@ -49,7 +57,8 @@ struct Manager {
         Hashmap *watch_pids;  /* pid => Unit object n:1 */
 
         int epoll_fd;
-        int signal_fd;
+
+        Watch signal_watch;
 };
 
 Manager* manager_new(void);

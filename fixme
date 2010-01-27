@@ -40,3 +40,5 @@
 - verify fragment data after loading: refuse cycles on yourself, service units contradicting, more than one Start executable, ...
 
 - rate limit startups
+
+- automatically delete stale unix sockets

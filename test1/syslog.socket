@@ -4,3 +4,5 @@ Description=Syslog Socket
 [Socket]
 ListenDatagram=/tmp/systemd-syslog-socket
 ListenStream=eth0:3456
+ExecStartPre=/bin/rm -f /tmp/systemd-syslog-socket
+ExecStopPost=/bin/rm -f /tmp/systemd-syslog-socket

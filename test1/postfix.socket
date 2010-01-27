@@ -10,3 +10,4 @@ ExecStartPost=/bin/echo "Created sockets..."
 ExecStopPre=/bin/echo "About to delete sockets..."
 ExecStopPost=/bin/echo "Deleted sockets..."
 ExecStopPost=/bin/echo "Deleted sockets... 2"
+#BindToDevice=eth0

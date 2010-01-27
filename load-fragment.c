@@ -450,6 +450,35 @@ static int config_parse_service_restart(
         return 0;
 }
 
+int config_parse_bindtodevice(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Socket *s = data;
+        char *n;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (rvalue[0] && !streq(rvalue, "*")) {
+                if (!(n = strdup(rvalue)))
+                        return -ENOMEM;
+        } else
+                n = NULL;
+
+        free(s->bind_to_device);
+        s->bind_to_device = n;
+
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static char *build_path(const char *path, const char *filename) {
@@ -599,6 +628,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "ListenFIFO",             config_parse_listen,          &u->socket,                                      "Socket"  },
                 { "BindIPv6Only",           config_parse_socket_bind,     &u->socket,                                      "Socket"  },
                 { "Backlog",                config_parse_unsigned,        &u->socket.backlog,                              "Socket"  },
+                { "BindToDevice",           config_parse_bindtodevice,    &u->socket,                                      "Socket"  },
                 { "ExecStartPre",           config_parse_exec,            u->socket.exec_command+SOCKET_EXEC_START_PRE,    "Socket"  },
                 { "ExecStartPost",          config_parse_exec,            u->socket.exec_command+SOCKET_EXEC_START_POST,   "Socket"  },
                 { "ExecStopPre",            config_parse_exec,            u->socket.exec_command+SOCKET_EXEC_STOP_PRE,     "Socket"  },

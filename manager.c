@@ -24,7 +24,7 @@ Manager* manager_new(void) {
         if (!(m = new0(Manager, 1)))
                 return NULL;
 
-        m->signal_fd = m->epoll_fd = -1;
+        m->signal_watch.fd = m->epoll_fd = -1;
 
         if (!(m->units = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
@@ -45,14 +45,15 @@ Manager* manager_new(void) {
         assert_se(sigaddset(&mask, SIGCHLD) == 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
-        if ((m->signal_fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC)) < 0)
+        m->signal_watch.type = WATCH_SIGNAL_FD;
+        if ((m->signal_watch.fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC)) < 0)
                 goto fail;
 
         zero(ev);
         ev.events = EPOLLIN;
-        ev.data.fd = m->signal_fd;
+        ev.data.ptr = &m->signal_watch;
 
-        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->signal_fd, &ev) < 0)
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->signal_watch.fd, &ev) < 0)
                 goto fail;
 
         return m;
@@ -81,8 +82,8 @@ void manager_free(Manager *m) {
 
         if (m->epoll_fd >= 0)
                 close_nointr(m->epoll_fd);
-        if (m->signal_fd >= 0)
-                close_nointr(m->signal_fd);
+        if (m->signal_watch.fd >= 0)
+                close_nointr(m->signal_watch.fd);
 
         free(m);
 }
@@ -555,6 +556,7 @@ static int transaction_apply(Manager *m, JobMode mode) {
                 assert(!j->transaction_next);
                 assert(!j->transaction_prev);
 
+                job_schedule_run(j);
         }
 
         /* As last step, kill all remaining job dependencies. */
@@ -943,19 +945,28 @@ void manager_dispatch_run_queue(Manager *m) {
 static int manager_dispatch_sigchld(Manager *m) {
         assert(m);
 
+        log_debug("dispatching SIGCHLD");
+
         for (;;) {
                 siginfo_t si;
                 Unit *u;
 
                 zero(si);
-                if (waitid(P_ALL, 0, &si, WNOHANG) < 0)
+                if (waitid(P_ALL, 0, &si, WEXITED|WNOHANG) < 0) {
+
+                        if (errno == ECHILD)
+                                break;
+
                         return -errno;
+                }
 
                 if (si.si_pid == 0)
                         break;
 
                 if (si.si_code != CLD_EXITED && si.si_code != CLD_KILLED && si.si_code != CLD_DUMPED)
                         continue;
+
+                log_debug("child %llu died (code=%s, status=%i)", (long long unsigned) si.si_pid, sigchld_code(si.si_code), si.si_status);
 
                 if (!(u = hashmap_remove(m->watch_pids, UINT32_TO_PTR(si.si_pid))))
                         continue;
@@ -974,13 +985,13 @@ static int manager_process_signal_fd(Manager *m) {
         assert(m);
 
         for (;;) {
-                if ((n = read(m->signal_fd, &sfsi, sizeof(sfsi))) != sizeof(sfsi)) {
+                if ((n = read(m->signal_watch.fd, &sfsi, sizeof(sfsi))) != sizeof(sfsi)) {
 
                         if (n >= 0)
                                 return -EIO;
 
                         if (errno == EAGAIN)
-                                return 0;
+                                break;
 
                         return -errno;
                 }
@@ -997,54 +1008,51 @@ static int manager_process_signal_fd(Manager *m) {
 
 static int process_event(Manager *m, struct epoll_event *ev) {
         int r;
+        Watch *w;
 
         assert(m);
         assert(ev);
 
-        switch (ev->data.u32) {
+        assert(w = ev->data.ptr);
 
-                case MANAGER_SIGNAL:
-                        assert(ev->data.fd == m->signal_fd);
+        switch (w->type) {
 
-                        /* An incoming signal? */
-                        if (ev->events != POLLIN)
-                                return -EINVAL;
+        case WATCH_SIGNAL_FD:
 
-                        if ((r = manager_process_signal_fd(m)) < 0)
-                                return -r;
+                /* An incoming signal? */
+                if (ev->events != POLLIN)
+                        return -EINVAL;
 
-                        break;
+                if ((r = manager_process_signal_fd(m)) < 0)
+                        return r;
 
-                case MANAGER_FD: {
-                        Unit *u;
+                break;
 
-                        /* Some fd event, to be dispatched to the units */
-                        assert_se(u = ev->data.ptr);
-                        UNIT_VTABLE(u)->fd_event(u, ev->data.fd, ev->events);
-                        break;
+        case WATCH_FD:
+
+                /* Some fd event, to be dispatched to the units */
+                UNIT_VTABLE(w->unit)->fd_event(w->unit, w->fd, ev->events, w);
+                break;
+
+        case WATCH_TIMER: {
+                uint64_t v;
+                ssize_t k;
+
+                /* Some timer event, to be dispatched to the units */
+                if ((k = read(ev->data.fd, &v, sizeof(v))) != sizeof(v)) {
+
+                        if (k < 0 && (errno == EINTR || errno == EAGAIN))
+                                break;
+
+                        return k < 0 ? -errno : -EIO;
                 }
 
-                case MANAGER_TIMER: {
-                        Unit *u;
-                        uint64_t v;
-                        ssize_t k;
+                UNIT_VTABLE(w->unit)->timer_event(w->unit, v, w);
+                break;
+        }
 
-                        /* Some timer event, to be dispatched to the units */
-                        if ((k = read(ev->data.fd, &v, sizeof(v))) != sizeof(v)) {
-
-                                if (k < 0 && (errno == EINTR || errno == EAGAIN))
-                                        break;
-
-                                return k < 0 ? -errno : -EIO;
-                        }
-
-                        assert_se(u = ev->data.ptr);
-                        UNIT_VTABLE(u)->timer_event(u, ev->data.fd, v);
-                        break;
-                }
-
-                default:
-                        assert_not_reached("Unknown epoll event type.");
+        default:
+                assert_not_reached("Unknown epoll event type.");
         }
 
         return 0;

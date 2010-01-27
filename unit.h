@@ -157,9 +157,9 @@ struct UnitVTable {
          * a simpler one that the engine can understand */
         UnitActiveState (*active_state)(Unit *u);
 
-        void (*fd_event)(Unit *u, int fd, uint32_t events);
+        void (*fd_event)(Unit *u, int fd, uint32_t events, Watch *w);
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
-        void (*timer_event)(Unit *u, int id, uint64_t n_elapsed);
+        void (*timer_event)(Unit *u, uint64_t n_elapsed, Watch *w);
 
         void (*retry)(Unit *u);
 };
@@ -222,14 +222,14 @@ int unit_reload(Unit *u);
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns);
 
-int unit_watch_fd(Unit *u, int fd, uint32_t events);
-void unit_unwatch_fd(Unit *u, int fd);
+int unit_watch_fd(Unit *u, int fd, uint32_t events, Watch *w);
+void unit_unwatch_fd(Unit *u, Watch *w);
 
 int unit_watch_pid(Unit *u, pid_t pid);
 void unit_unwatch_pid(Unit *u, pid_t pid);
 
-int unit_watch_timer(Unit *u, usec_t delay, int *id);
-void unit_unwatch_timer(Unit *u, int *id);
+int unit_watch_timer(Unit *u, usec_t delay, Watch *w);
+void unit_unwatch_timer(Unit *u, Watch *w);
 
 bool unit_job_is_applicable(Unit *u, JobType j);
 

@@ -11,6 +11,7 @@
 #include "strv.h"
 #include "macro.h"
 #include "util.h"
+#include "log.h"
 
 static int close_fds(int except[], unsigned n_except) {
         DIR *d;
@@ -110,6 +111,8 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
         assert(context);
         assert(ret);
         assert(fds || n_fds <= 0);
+
+        log_debug("About to execute %s", command->path);
 
         if ((pid = fork()) < 0)
                 return -errno;

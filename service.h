@@ -70,7 +70,7 @@ struct Service {
         bool main_pid_known:1;
 
         bool failure:1; /* if we shut down, remember why */
-        int timer_id;
+        Watch timer_watch;
 };
 
 const UnitVTable service_vtable;

@@ -5,6 +5,7 @@
 
 typedef struct Socket Socket;
 
+#include "manager.h"
 #include "unit.h"
 #include "socket-util.h"
 
@@ -46,6 +47,7 @@ struct SocketPort {
         char *path;
 
         int fd;
+        Watch fd_watch;
 
         LIST_FIELDS(SocketPort, port);
 };
@@ -71,8 +73,10 @@ struct Socket {
         ExecCommand* control_command;
         pid_t control_pid;
 
+        char *bind_to_device;
+
         bool failure;
-        int timer_id;
+        Watch timer_watch;
 };
 
 /* Called from the service code when collecting fds */

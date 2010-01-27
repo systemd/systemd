@@ -12,7 +12,7 @@
 #include "socket.h"
 #include "log.h"
 
-static const UnitActiveState state_table[_SOCKET_STATE_MAX] = {
+static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
         [SOCKET_START_PRE] = UNIT_ACTIVATING,
         [SOCKET_START_POST] = UNIT_ACTIVATING,
@@ -25,6 +25,21 @@ static const UnitActiveState state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_STOP_POST_SIGTERM] = UNIT_DEACTIVATING,
         [SOCKET_STOP_POST_SIGKILL] = UNIT_DEACTIVATING,
         [SOCKET_MAINTAINANCE] = UNIT_INACTIVE,
+};
+
+static const char* const state_string_table[_SOCKET_STATE_MAX] = {
+        [SOCKET_DEAD] = "dead",
+        [SOCKET_START_PRE] = "start-pre",
+        [SOCKET_START_POST] = "start-post",
+        [SOCKET_LISTENING] = "listening",
+        [SOCKET_RUNNING] = "running",
+        [SOCKET_STOP_PRE] = "stop-pre",
+        [SOCKET_STOP_PRE_SIGTERM] = "stop-pre-sigterm",
+        [SOCKET_STOP_PRE_SIGKILL] = "stop-pre-sigkill",
+        [SOCKET_STOP_POST] = "stop-post",
+        [SOCKET_STOP_POST_SIGTERM] = "stop-post-sigterm",
+        [SOCKET_STOP_POST_SIGKILL] = "stop-post-sigkill",
+        [SOCKET_MAINTAINANCE] = "maintainance"
 };
 
 static void socket_done(Unit *u) {
@@ -53,7 +68,9 @@ static void socket_done(Unit *u) {
 
         s->service = NULL;
 
-        unit_unwatch_timer(u, &s->timer_id);
+        free(s->bind_to_device);
+
+        unit_unwatch_timer(u, &s->timer_watch);
 }
 
 static int socket_init(Unit *u) {
@@ -65,7 +82,7 @@ static int socket_init(Unit *u) {
          * reload */
 
         s->state = 0;
-        s->timer_id = -1;
+        s->timer_watch.type = WATCH_INVALID;
         s->bind_ipv6_only = false;
         s->backlog = SOMAXCONN;
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
@@ -110,21 +127,6 @@ static const char* listen_lookup(int type) {
 
 static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
-        static const char* const state_table[_SOCKET_STATE_MAX] = {
-                [SOCKET_DEAD] = "dead",
-                [SOCKET_START_PRE] = "start-pre",
-                [SOCKET_START_POST] = "start-post",
-                [SOCKET_LISTENING] = "listening",
-                [SOCKET_RUNNING] = "running",
-                [SOCKET_STOP_PRE] = "stop-pre",
-                [SOCKET_STOP_PRE_SIGTERM] = "stop-pre-sigterm",
-                [SOCKET_STOP_PRE_SIGKILL] = "stop-pre-sigkill",
-                [SOCKET_STOP_POST] = "stop-post",
-                [SOCKET_STOP_POST_SIGTERM] = "stop-post-sigterm",
-                [SOCKET_STOP_POST_SIGKILL] = "stop-post-sigkill",
-                [SOCKET_MAINTAINANCE] = "maintainance"
-        };
-
         static const char* const command_table[_SOCKET_EXEC_MAX] = {
                 [SOCKET_EXEC_START_PRE] = "StartPre",
                 [SOCKET_EXEC_START_POST] = "StartPost",
@@ -147,9 +149,14 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sSocket State: %s\n"
                 "%sBindIPv6Only: %s\n"
                 "%sBacklog: %u\n",
-                prefix, state_table[s->state],
+                prefix, state_string_table[s->state],
                 prefix, yes_no(s->bind_ipv6_only),
                 prefix, s->backlog);
+
+        if (s->bind_to_device)
+                fprintf(f,
+                        "%sBindToDevice: %s\n",
+                        prefix, s->bind_to_device);
 
         LIST_FOREACH(port, p, s->ports) {
 
@@ -193,7 +200,7 @@ static void socket_close_fds(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                unit_unwatch_fd(UNIT(s), p->fd);
+                unit_unwatch_fd(UNIT(s), &p->fd_watch);
                 assert_se(close_nointr(p->fd) >= 0);
 
                 p->fd = -1;
@@ -213,7 +220,7 @@ static int socket_open_fds(Socket *s) {
 
                 if (p->type == SOCKET_SOCKET) {
 
-                        if ((r = socket_address_listen(&p->address, s->backlog, s->bind_ipv6_only, &p->fd)) < 0)
+                        if ((r = socket_address_listen(&p->address, s->backlog, s->bind_ipv6_only, s->bind_to_device, &p->fd)) < 0)
                                 goto rollback;
 
                 } else {
@@ -260,7 +267,7 @@ static void socket_unwatch_fds(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                unit_unwatch_fd(UNIT(s), p->fd);
+                unit_unwatch_fd(UNIT(s), &p->fd_watch);
         }
 }
 
@@ -274,7 +281,7 @@ static int socket_watch_fds(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                if ((r = unit_watch_fd(UNIT(s), p->fd, POLLIN)) < 0)
+                if ((r = unit_watch_fd(UNIT(s), p->fd, POLLIN, &p->fd_watch)) < 0)
                         goto fail;
         }
 
@@ -300,7 +307,7 @@ static void socket_set_state(Socket *s, SocketState state) {
             state != SOCKET_STOP_POST &&
             state != SOCKET_STOP_POST_SIGTERM &&
             state != SOCKET_STOP_POST_SIGKILL)
-                unit_unwatch_timer(UNIT(s), &s->timer_id);
+                unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
         if (state != SOCKET_START_PRE &&
             state != SOCKET_START_POST &&
@@ -310,7 +317,7 @@ static void socket_set_state(Socket *s, SocketState state) {
             state != SOCKET_STOP_POST &&
             state != SOCKET_STOP_POST_SIGTERM &&
             state != SOCKET_STOP_POST_SIGKILL)
-                if (s->control_pid >= 0) {
+                if (s->control_pid > 0) {
                         unit_unwatch_pid(UNIT(s), s->control_pid);
                         s->control_pid = 0;
                 }
@@ -332,7 +339,9 @@ static void socket_set_state(Socket *s, SocketState state) {
         if (state != SOCKET_LISTENING)
                 socket_unwatch_fds(s);
 
-        unit_notify(UNIT(s), state_table[old_state], state_table[s->state]);
+        log_debug("%s changing %s → %s", unit_id(UNIT(s)), state_string_table[old_state], state_string_table[state]);
+
+        unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
 }
 
 static int socket_spawn(Socket *s, ExecCommand *c, bool timeout, pid_t *_pid) {
@@ -344,10 +353,10 @@ static int socket_spawn(Socket *s, ExecCommand *c, bool timeout, pid_t *_pid) {
         assert(_pid);
 
         if (timeout) {
-                if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_id)) < 0)
+                if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
                         goto fail;
         } else
-                unit_unwatch_timer(UNIT(s), &s->timer_id);
+                unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
         if ((r = exec_spawn(c, &s->exec_context, NULL, 0, &pid)) < 0)
                 goto fail;
@@ -362,7 +371,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, bool timeout, pid_t *_pid) {
 
 fail:
         if (timeout)
-                unit_unwatch_timer(UNIT(s), &s->timer_id);
+                unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
         return r;
 }
@@ -594,10 +603,10 @@ static int socket_stop(Unit *u) {
 static UnitActiveState socket_active_state(Unit *u) {
         assert(u);
 
-        return state_table[SOCKET(u)->state];
+        return state_translation_table[SOCKET(u)->state];
 }
 
-static void socket_fd_event(Unit *u, int fd, uint32_t events) {
+static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         Socket *s = SOCKET(u);
 
         assert(s);
@@ -626,20 +635,23 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         exec_status_fill(&s->control_command->exec_status, pid, code, status);
         s->control_pid = 0;
 
-        log_debug("%s: control process exited, code=%s status=%i", unit_id(u), sigchld_code(code), status);
+        log_debug("%s control process exited, code=%s status=%i", unit_id(u), sigchld_code(code), status);
 
         if (s->control_command->command_next &&
-            (success || (s->state == SOCKET_EXEC_STOP_PRE || s->state == SOCKET_EXEC_STOP_POST)))
+            (success || (s->state == SOCKET_EXEC_STOP_PRE || s->state == SOCKET_EXEC_STOP_POST))) {
+                log_debug("%s running next command for the state %s", unit_id(u), state_string_table[s->state]);
                 socket_run_next(s, success);
-        else {
+        } else {
                 /* No further commands for this step, so let's figure
                  * out what to do next */
+
+                log_debug("%s finished with state %s", unit_id(u), state_string_table[s->state]);
 
                 switch (s->state) {
 
                 case SOCKET_START_PRE:
                         if (success)
-                                socket_enter_start_pre(s);
+                                socket_enter_start_post(s);
                         else
                                 socket_enter_stop_pre(s, false);
                         break;
@@ -669,13 +681,13 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         }
 }
 
-static void socket_timer_event(Unit *u, int id, uint64_t elapsed) {
+static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
         Socket *s = SOCKET(u);
 
         assert(s);
         assert(elapsed == 1);
 
-        assert(s->timer_id == id);
+        assert(w == &s->timer_watch);
 
         switch (s->state) {
 
