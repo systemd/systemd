@@ -1,0 +1,8 @@
+[Meta]
+Description=FIFO Activation Demo Service
+
+[Service]
+ExecStartPre=/bin/echo "Wow, es geht los!"
+#ExecStart=/bin/bash -c 'read a <&3 ; echo "GOT: $a"'
+ExecStart=/bin/bash -c 'cat <&3'
+Type=simple

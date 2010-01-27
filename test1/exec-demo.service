@@ -1,0 +1,5 @@
+[Meta]
+Description=Simple Execution Demo
+
+[Service]
+ExecStart=/bin/ls

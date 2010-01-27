@@ -1,0 +1,6 @@
+[Meta]
+Description=FIFO Activation Demo Socket
+
+[Socket]
+ListenFIFO=/tmp/systemd-fifo-demo
+ExecStartPost=/bin/echo "OK, we're ready, now write something to /tmp/systemd-fifo-demo"
