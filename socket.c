@@ -135,8 +135,13 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         SocketExecCommand c;
         Socket *s = SOCKET(u);
         SocketPort *p;
+        char *prefix2;
 
         assert(s);
+
+        prefix2 = strappend(prefix, "\t");
+        if (!prefix2)
+                prefix2 = "";
 
         fprintf(f,
                 "%sSocket State: %s\n"
@@ -167,11 +172,16 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         exec_context_dump(&s->exec_context, f, prefix);
 
         for (c = 0; c < _SOCKET_EXEC_MAX; c++) {
-                ExecCommand *i;
+                if (!s->exec_command[c])
+                        continue;
 
-                LIST_FOREACH(command, i, s->exec_command[c])
-                        fprintf(f, "%s%s: %s\n", prefix, command_table[c], i->path);
+                fprintf(f, "%s→ %s:\n",
+                        prefix, command_table[c]);
+
+                exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
+
+        free(prefix2);
 }
 
 static void socket_close_fds(Socket *s) {
