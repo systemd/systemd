@@ -105,6 +105,40 @@ static int shift_fds(int fds[], unsigned n_fds) {
         return 0;
 }
 
+static int flags_fds(int fds[], unsigned n_fds) {
+        unsigned i;
+
+        if (n_fds <= 0)
+                return 0;
+
+        assert(fds);
+
+        /* Drops O_NONBLOCK and FD_CLOEXEC from the file flags */
+
+        for (i = 0; i < n_fds; i++) {
+                int flags;
+
+                if ((flags = fcntl(fds[i], F_GETFL, 0)) < 0)
+                        return -errno;
+
+                /* Since we are at it, let's make sure that nobody
+                 * forgot setting O_NONBLOCK for all our fds */
+
+                if (fcntl(fds[i], F_SETFL, flags &~O_NONBLOCK) < 0)
+                        return -errno;
+
+                if ((flags = fcntl(fds[i], F_GETFD, 0)) < 0)
+                        return -errno;
+
+                /* Also make sure nobody forgot O_CLOEXEC for all our
+                 * fds */
+                if (fcntl(fds[i], F_SETFD, flags &~FD_CLOEXEC) < 0)
+                        return -errno;
+        }
+
+        return 0;
+}
+
 int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds, unsigned n_fds, pid_t *ret) {
         pid_t pid;
 
@@ -153,7 +187,8 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
                 }
 
                 if (close_fds(fds, n_fds) < 0 ||
-                    shift_fds(fds, n_fds) < 0) {
+                    shift_fds(fds, n_fds) < 0 ||
+                    flags_fds(fds, n_fds) < 0) {
                         r = EXIT_FDS;
                         goto fail;
                 }
