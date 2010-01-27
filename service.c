@@ -198,11 +198,21 @@ static int service_load_pid_file(Service *s) {
         return 0;
 }
 
-static int service_notify_sockets(Service *s) {
+static int service_get_sockets(Service *s, Set **_set) {
+        Set *set;
         Iterator i;
         char *t;
+        int r;
 
         assert(s);
+        assert(_set);
+
+        /* Collects all Socket objects that belong to this
+         * service. Note that a service might have multiple sockets
+         * via multiple names. */
+
+        if (!(set = set_new(NULL, NULL)))
+                return -ENOMEM;
 
         SET_FOREACH(t, UNIT(s)->meta.names, i) {
                 char *k;
@@ -211,17 +221,46 @@ static int service_notify_sockets(Service *s) {
                 /* Look for all socket objects that go by any of our
                  * units and collect their fds */
 
-                if (!(k = unit_name_change_suffix(t, ".socket")))
-                        return -ENOMEM;
+                if (!(k = unit_name_change_suffix(t, ".socket"))) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
 
                 p = manager_get_unit(UNIT(s)->meta.manager, k);
                 free(k);
 
-                if (!p)
-                        continue;
+                if (!p) continue;
 
-                socket_notify_service_dead(SOCKET(p));
+                if ((r = set_put(set, p)) < 0)
+                        goto fail;
         }
+
+        *_set = set;
+        return 0;
+
+fail:
+        set_free(set);
+        return r;
+}
+
+
+static int service_notify_sockets(Service *s) {
+        Iterator i;
+        Set *set;
+        Socket *socket;
+        int r;
+
+        assert(s);
+
+        /* Notifies all our sockets when we die */
+
+        if ((r = service_get_sockets(s, &set)) < 0)
+                return r;
+
+        SET_FOREACH(socket, set, i)
+                socket_notify_service_dead(socket);
+
+        set_free(set);
 
         return 0;
 }
@@ -301,33 +340,21 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
         int r;
         int *rfds = NULL;
         unsigned rn_fds = 0;
-        char *t;
+        Set *set;
+        Socket *socket;
 
         assert(s);
         assert(fds);
         assert(n_fds);
 
-        SET_FOREACH(t, UNIT(s)->meta.names, i) {
-                char *k;
-                Unit *p;
+        if ((r = service_get_sockets(s, &set)) < 0)
+                return r;
+
+        SET_FOREACH(socket, set, i) {
                 int *cfds;
                 unsigned cn_fds;
 
-                /* Look for all socket objects that go by any of our
-                 * units and collect their fds */
-
-                if (!(k = unit_name_change_suffix(t, ".socket"))) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                p = manager_get_unit(UNIT(s)->meta.manager, k);
-                free(k);
-
-                if (!p)
-                        continue;
-
-                if ((r = socket_collect_fds(SOCKET(p), &cfds, &cn_fds)) < 0)
+                if ((r = socket_collect_fds(socket, &cfds, &cn_fds)) < 0)
                         goto fail;
 
                 if (!cfds)
@@ -357,10 +384,15 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
 
         *fds = rfds;
         *n_fds = rn_fds;
+
+        set_free(set);
+
         return 0;
 
 fail:
+        set_free(set);
         free(rfds);
+
         return r;
 }
 
