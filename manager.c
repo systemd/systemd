@@ -536,13 +536,17 @@ static int transaction_apply(Manager *m, JobMode mode) {
                 assert(!j->transaction_next);
                 assert(!j->transaction_prev);
 
+        }
+
+        /* As last step, kill all remaining job dependencies. */
+        HASHMAP_FOREACH(j, m->jobs, i) {
                 while (j->subject_list)
                         job_dependency_free(j->subject_list);
                 while (j->object_list)
                         job_dependency_free(j->object_list);
         }
 
-        m->transaction_anchor = NULL;
+        assert(!m->transaction_anchor);
 
         return 0;
 
