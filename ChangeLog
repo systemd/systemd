@@ -1,3 +1,42 @@
+Summary of changes from v150 to v151
+============================================
+
+Amit Shah (1):
+      rules: Add symlink rule for virtio ports
+
+Bryan Kadzban (1):
+      Fix reverted floppy-device permissions
+
+Egbert Eich (1):
+      rulews: suse - add do-not-load-KMS-modules rules
+
+Frederic Crozat (1):
+      rules: acl - add COLOR_MEASUREMENT_DEVICE match
+
+Kay Sievers (11):
+      configure.ac: version bump
+      udevd: inotify - do not parse rules at create but at close
+      do not remove device nodes of active kernel devices
+      libudev: device - create db file atomically
+      clarify message about not removed device node
+      input_id: include limits.h
+      keymap: include linux/limits.h
+      keymap: linux/input.h - get absolute include path from gcc
+      delete outdated and unmaintained writing_udev_rules
+      update README and NEWS
+      update tests
+
+Marco d'Itri (2):
+      writing_udev_rules: update rules files names
+      keymap: support for the Samsung N140 keyboard
+
+Martin Pitt (4):
+      add ACL rule for Garmin GPSMap 60
+      keymap: move force-release directory
+      extras/keymap/check-keymaps.sh: Ignore comment-only lines
+      keymap: Fix invalid map line
+
+
 Summary of changes from v149 to v150
 ============================================
 
