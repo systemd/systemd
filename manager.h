@@ -70,6 +70,8 @@ struct Manager {
         Watch signal_watch;
 
         Unit *special_units[_SPECIAL_UNIT_MAX]; /* some special units */
+
+        struct udev* udev;
 };
 
 Manager* manager_new(void);

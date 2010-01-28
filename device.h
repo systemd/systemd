@@ -21,7 +21,7 @@ struct Device {
         DeviceState state;
 
         /* A single device can be created by multiple sysfs objects */
-        char **sysfs;
+        char *sysfs;
 };
 
 extern const UnitVTable device_vtable;
