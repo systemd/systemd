@@ -887,3 +887,42 @@ int set_unit_path(const char *p) {
 
         return 0;
 }
+
+char *unit_name_escape_path(const char *path, const char *suffix) {
+        char *r, *t;
+        const char *f;
+        size_t a, b;
+
+        assert(path);
+        assert(suffix);
+
+        /* Takes a path and a util suffix and makes a nice unit name
+         * of it, escaping all weird chars on the way.
+         *
+         * / becomes _, and all chars not alloweed in a unit name get
+         * escaped as \xFF, including the _ and the \ itself, of
+         * course. This escaping is hence reversible.
+         */
+
+        a = strlen(path);
+        b = strlen(suffix);
+
+        if (!(r = new(char, a*4+b+1)))
+                return NULL;
+
+        for (f = path, t = r; *f; f++) {
+                if (*f == '/')
+                        *(t++) = '_';
+                else if (*f == '_' || *f == '\\' || !strchr(VALID_CHARS, *f)) {
+                        *(t++) = '\\';
+                        *(t++) = 'x';
+                        *(t++) = hexchar(*f > 4);
+                        *(t++) = hexchar(*f);
+                } else
+                        *(t++) = *f;
+        }
+
+        memcpy(t, suffix, b+1);
+
+        return r;
+}
