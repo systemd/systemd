@@ -208,7 +208,8 @@ static int config_parse_nice(
                 void *data,
                 void *userdata) {
 
-        int *i = data, priority, r;
+        ExecContext *c = data;
+        int priority, r;
 
         assert(filename);
         assert(lvalue);
@@ -225,7 +226,9 @@ static int config_parse_nice(
                 return -ERANGE;
         }
 
-        *i = priority;
+        c->nice = priority;
+        c->nice_set = false;
+
         return 0;
 }
 
@@ -238,7 +241,8 @@ static int config_parse_oom_adjust(
                 void *data,
                 void *userdata) {
 
-        int *i = data, oa, r;
+        ExecContext *c = data;
+        int oa, r;
 
         assert(filename);
         assert(lvalue);
@@ -255,7 +259,9 @@ static int config_parse_oom_adjust(
                 return -ERANGE;
         }
 
-        *i = oa;
+        c->oom_adjust = oa;
+        c->oom_adjust_set = true;
+
         return 0;
 }
 
@@ -709,8 +715,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "User",                   config_parse_string,          &(context).user,                                 section   }, \
                 { "Group",                  config_parse_string,          &(context).group,                                section   }, \
                 { "SupplementaryGroups",    config_parse_strv,            &(context).supplementary_groups,                 section   }, \
-                { "Nice",                   config_parse_nice,            &(context).nice,                                 section   }, \
-                { "OOMAdjust",              config_parse_oom_adjust,      &(context).oom_adjust,                           section   }, \
+                { "Nice",                   config_parse_nice,            &(context),                                      section   }, \
+                { "OOMAdjust",              config_parse_oom_adjust,      &(context),                                      section   }, \
                 { "UMask",                  config_parse_umask,           &(context).umask,                                section   }, \
                 { "Environment",            config_parse_strv,            &(context).environment,                          section   }, \
                 { "Output",                 config_parse_output,          &(context).output,                               section   }, \

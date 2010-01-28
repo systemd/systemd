@@ -44,9 +44,12 @@ struct ExecContext {
         char **environment;
         mode_t umask;
         struct rlimit *rlimit[RLIMIT_NLIMITS];  /* FIXME: load-fragment parser missing */
+        char *directory;
         int oom_adjust;
         int nice;
-        char *directory;
+
+        bool oom_adjust_set:1;
+        bool nice_set:1;
 
         ExecOutput output;
         int syslog_priority;

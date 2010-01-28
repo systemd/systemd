@@ -263,7 +263,6 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
         if (pid == 0) {
                 char **e, **f = NULL;
                 int i, r;
-                char t[16];
                 sigset_t ss;
 
                 /* child */
@@ -286,18 +285,23 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
                         goto fail;
                 }
 
-                snprintf(t, sizeof(t), "%i", context->oom_adjust);
-                char_array_0(t);
+                if (context->oom_adjust_set) {
+                        char t[16];
 
-                if (write_one_line_file("/proc/self/oom_adj", t) < 0) {
-                        r = EXIT_OOM_ADJUST;
-                        goto fail;
+                        snprintf(t, sizeof(t), "%i", context->oom_adjust);
+                        char_array_0(t);
+
+                        if (write_one_line_file("/proc/self/oom_adj", t) < 0) {
+                                r = EXIT_OOM_ADJUST;
+                                goto fail;
+                        }
                 }
 
-                if (setpriority(PRIO_PROCESS, 0, context->nice) < 0) {
-                        r = EXIT_NICE;
-                        goto fail;
-                }
+                if (context->nice_set)
+                        if (setpriority(PRIO_PROCESS, 0, context->nice) < 0) {
+                                r = EXIT_NICE;
+                                goto fail;
+                        }
 
                 if (close_fds(fds, n_fds) < 0 ||
                     shift_fds(fds, n_fds) < 0 ||
@@ -428,13 +432,19 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         fprintf(f,
                 "%sUmask: %04o\n"
-                "%sDirectory: %s\n"
-                "%sNice: %i\n"
-                "%sOOMAdjust: %i\n",
+                "%sDirectory: %s\n",
                 prefix, c->umask,
-                prefix, c->directory ? c->directory : "/",
-                prefix, c->nice,
-                prefix, c->oom_adjust);
+                prefix, c->directory ? c->directory : "/");
+
+        if (c->nice_set)
+                fprintf(f,
+                        "%sNice: %i\n",
+                        prefix, c->nice);
+
+        if (c->oom_adjust_set)
+                fprintf(f,
+                        "%sOOMAdjust: %i\n",
+                        prefix, c->oom_adjust);
 }
 
 void exec_status_fill(ExecStatus *s, pid_t pid, int code, int status) {
