@@ -34,6 +34,8 @@ typedef enum SpecialUnit {
         SPECIAL_SYSLOG_SERVICE,
         SPECIAL_DBUS_SERVICE,
         SPECIAL_LOGGER_SOCKET,
+        SPECIAL_CTRL_ALT_DEL_TARGET,
+        SPECIAL_KBREQUEST_TARGET,
         _SPECIAL_UNIT_MAX
 } SpecialUnit;
 

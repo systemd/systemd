@@ -20,7 +20,9 @@
 static const char * const special_table[_SPECIAL_UNIT_MAX] = {
         [SPECIAL_SYSLOG_SERVICE] = "syslog.service",
         [SPECIAL_DBUS_SERVICE] = "messagebus.service",
-        [SPECIAL_LOGGER_SOCKET] = "systemd-logger.socket"
+        [SPECIAL_LOGGER_SOCKET] = "systemd-logger.socket",
+        [SPECIAL_KBREQUEST_TARGET] = "kbrequest.target",
+        [SPECIAL_CTRL_ALT_DEL_TARGET] = "ctrl-alt-del.target"
 };
 
 static int manager_setup_signals(Manager *m) {
