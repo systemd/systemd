@@ -37,8 +37,6 @@ int unit_load_dropin(Unit *u) {
                 free(path);
 
                 while ((de = readdir(d))) {
-                        Unit *other;
-
                         if (de->d_name[0] == '.')
                                 continue;
 
@@ -58,15 +56,10 @@ int unit_load_dropin(Unit *u) {
                                 continue;
                         }
 
-                        r = manager_load_unit(u->meta.manager, path, &other);
+                        r = unit_add_dependency_by_name(u, UNIT_WANTS, path);
                         free(path);
 
                         if (r < 0) {
-                                closedir(d);
-                                return r;
-                        }
-
-                        if ((r = unit_add_dependency(u, UNIT_WANTS, other)) < 0) {
                                 closedir(d);
                                 return r;
                         }

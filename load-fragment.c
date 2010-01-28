@@ -35,18 +35,14 @@ static int config_parse_deps(
         FOREACH_WORD(w, &l, rvalue, state) {
                 char *t;
                 int r;
-                Unit *other;
 
                 if (!(t = strndup(w, l)))
                         return -ENOMEM;
 
-                r = manager_load_unit(u->meta.manager, t, &other);
+                r = unit_add_dependency_by_name(u, d, t);
                 free(t);
 
                 if (r < 0)
-                        return r;
-
-                if ((r = unit_add_dependency(u, d, other)) < 0)
                         return r;
         }
 
