@@ -488,6 +488,7 @@ int reset_all_signal_handlers(void) {
 
                 zero(sa);
                 sa.sa_handler = SIG_DFL;
+                sa.sa_flags = SA_RESTART;
 
                 /* On Linux the first two RT signals are reserved by
                  * glibc, and sigaction() will return EINVAL for them. */
