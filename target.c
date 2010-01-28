@@ -33,7 +33,7 @@ static void target_set_state(Target *t, TargetState state) {
         old_state = t->state;
         t->state = state;
 
-        log_debug("%s changing %s → %s", unit_id(UNIT(t)), state_string_table[old_state], state_string_table[state]);
+        log_debug("%s changed %s → %s", unit_id(UNIT(t)), state_string_table[old_state], state_string_table[state]);
 
         unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state]);
 }
