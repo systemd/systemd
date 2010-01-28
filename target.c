@@ -1,5 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
+#include <errno.h>
+
 #include "unit.h"
 #include "target.h"
 #include "load-fragment.h"
@@ -14,6 +16,18 @@ static const char* const state_string_table[_TARGET_STATE_MAX] = {
         [TARGET_DEAD] = "dead",
         [TARGET_ACTIVE] = "active"
 };
+
+static int target_init(Unit *u) {
+        int r;
+        assert(u);
+
+        /* Make sure this config file actually exists */
+
+        if ((r = unit_load_fragment_and_dropin(u)) <= 0)
+                return r < 0 ? r : -ENOENT;
+
+        return 0;
+}
 
 static void target_dump(Unit *u, FILE *f, const char *prefix) {
         Target *t = TARGET(u);
@@ -67,7 +81,7 @@ static UnitActiveState target_active_state(Unit *u) {
 const UnitVTable target_vtable = {
         .suffix = ".target",
 
-        .init = unit_load_fragment_and_dropin,
+        .init = target_init,
 
         .dump = target_dump,
 

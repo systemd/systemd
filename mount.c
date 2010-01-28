@@ -15,7 +15,7 @@ static int mount_init(Unit *u) {
         assert(m);
 
         /* Load a .mount file */
-        if ((r = unit_load_fragment(u)) < 0 && errno != -ENOENT)
+        if ((r = unit_load_fragment(u)) < 0)
                 return r;
 
         /* Load entry from /etc/fstab */

@@ -26,13 +26,13 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
+        printf("→ By units:\n");
+        manager_dump_units(m, stdout, "\t");
+
         if ((r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &job)) < 0) {
                 log_error("Failed to start default target: %s", strerror(-r));
                 goto finish;
         }
-
-        printf("→ By units:\n");
-        manager_dump_units(m, stdout, "\t");
 
         printf("→ By jobs:\n");
         manager_dump_jobs(m, stdout, "\t");

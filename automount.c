@@ -17,7 +17,7 @@ static int automount_init(Unit *u) {
         exec_context_init(&a->exec_context);
 
         /* Load a .automount file */
-        if ((r = unit_load_fragment(u)) < 0 && errno != -ENOENT)
+        if ((r = unit_load_fragment(u)) < 0)
                 return r;
 
         /* Load entry from /etc/fstab */

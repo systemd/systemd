@@ -88,8 +88,11 @@ static int socket_init(Unit *u) {
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
         exec_context_init(&s->exec_context);
 
-        if ((r = unit_load_fragment_and_dropin(u)) < 0)
+        if ((r = unit_load_fragment_and_dropin(u)) <= 0) {
+                if (r == 0)
+                        r = -ENOENT;
                 goto fail;
+        }
 
         if (!(t = unit_name_change_suffix(unit_id(u), ".service"))) {
                 r = -ENOMEM;

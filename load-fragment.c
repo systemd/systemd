@@ -824,7 +824,7 @@ finish:
 }
 
 int unit_load_fragment(Unit *u) {
-        int r = -ENOENT;
+        int r = 0;
         ExecContext *c;
 
         assert(u);
@@ -851,14 +851,16 @@ int unit_load_fragment(Unit *u) {
 
         if (r >= 0 && c &&
             (c->output == EXEC_KERNEL || c->output == EXEC_SYSLOG)) {
+                int k;
+
                 /* If syslog or kernel logging is requested, make sure
                  * our own logging daemon is run first. */
 
-                if ((r = unit_add_dependency(u, UNIT_AFTER, u->meta.manager->special_units[SPECIAL_LOGGER_SOCKET])) < 0)
-                        return r;
+                if ((k = unit_add_dependency(u, UNIT_AFTER, u->meta.manager->special_units[SPECIAL_LOGGER_SOCKET])) < 0)
+                        return k;
 
-                if ((r = unit_add_dependency(u, UNIT_REQUIRES, u->meta.manager->special_units[SPECIAL_LOGGER_SOCKET])) < 0)
-                        return r;
+                if ((k = unit_add_dependency(u, UNIT_REQUIRES, u->meta.manager->special_units[SPECIAL_LOGGER_SOCKET])) < 0)
+                        return k;
         }
 
         return r;

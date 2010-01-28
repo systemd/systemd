@@ -101,16 +101,17 @@ static int service_init(Unit *u) {
         s->state = SERVICE_DEAD;
 
         /* Load a .service file */
-        r = unit_load_fragment(u);
-
-        /* Load a classic init script as a fallback */
-        if (r == -ENOENT)
-                r = service_load_sysv(s);
-
-        if (r < 0) {
+        if ((r = unit_load_fragment(u)) < 0) {
                 service_done(u);
                 return r;
         }
+
+        /* Load a classic init script as a fallback, if we couldn*t find anything */
+        if (r == 0)
+                if ((r = service_load_sysv(s)) <= 0) {
+                        service_done(u);
+                        return r < 0 ? r : -ENOENT;
+                }
 
         /* Load dropin directory data */
         if ((r = unit_load_dropin(u)) < 0) {

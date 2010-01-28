@@ -372,7 +372,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
 /* Common implementation for multiple backends */
 int unit_load_fragment_and_dropin(Unit *u) {
-        int r;
+        int r, ret;
 
         assert(u);
 
@@ -380,11 +380,13 @@ int unit_load_fragment_and_dropin(Unit *u) {
         if ((r = unit_load_fragment(u)) < 0)
                 return r;
 
+        ret = r > 0;
+
         /* Load drop-in directory data */
         if ((r = unit_load_dropin(u)) < 0)
                 return r;
 
-        return 0;
+        return ret;
 }
 
 int unit_load(Unit *u) {
