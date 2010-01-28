@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <signal.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #include "execute.h"
 #include "strv.h"
@@ -139,6 +141,112 @@ static int flags_fds(int fds[], unsigned n_fds) {
         return 0;
 }
 
+static int replace_null_fd(int fd, int flags) {
+        int nfd;
+        assert(fd >= 0);
+
+        close_nointr(fd);
+
+        if ((nfd = open("/dev/null", flags|O_NOCTTY)) < 0)
+                return -errno;
+
+        if (nfd != fd) {
+                close_nointr_nofail(nfd);
+                return -EIO;
+        }
+
+        return 0;
+}
+
+static int setup_output(const ExecContext *context, const char *ident) {
+        int r;
+
+        assert(context);
+
+        switch (context->output) {
+
+        case EXEC_CONSOLE:
+                return 0;
+
+        case EXEC_NULL:
+
+                if ((r = replace_null_fd(STDIN_FILENO, O_RDONLY)) < 0 ||
+                    (r = replace_null_fd(STDOUT_FILENO, O_WRONLY)) < 0 ||
+                    (r = replace_null_fd(STDERR_FILENO, O_WRONLY)) < 0)
+                        return r;
+
+                return 0;
+
+        case EXEC_KERNEL:
+        case EXEC_SYSLOG: {
+
+                int fd;
+                union {
+                        struct sockaddr sa;
+                        struct sockaddr_un un;
+                } sa;
+
+                if ((r = replace_null_fd(STDIN_FILENO, O_RDONLY)) < 0)
+                        return r;
+
+                close_nointr(STDOUT_FILENO);
+                close_nointr(STDERR_FILENO);
+
+                if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
+                        return -errno;
+
+                if (fd != STDOUT_FILENO) {
+                        close_nointr_nofail(fd);
+                        return -EIO;
+                }
+
+                zero(sa);
+                sa.sa.sa_family = AF_UNIX;
+                strncpy(sa.un.sun_path+1, LOGGER_SOCKET, sizeof(sa.un.sun_path)-1);
+
+                if (connect(fd, &sa.sa, sizeof(sa)) < 0) {
+                        close_nointr_nofail(fd);
+                        return -errno;
+                }
+
+                if (shutdown(fd, SHUT_RD) < 0) {
+                        close_nointr_nofail(fd);
+                        return -errno;
+                }
+
+                if ((fd = dup(fd)) < 0) {
+                        close_nointr_nofail(fd);
+                        return -errno;
+                }
+
+                if (fd != STDERR_FILENO) {
+                        close_nointr_nofail(fd);
+                        return -EIO;
+                }
+
+                /* We speak a very simple protocol between log server
+                 * and client: one line for the log destination (kmsg
+                 * or syslog), followed by the priority field,
+                 * followed by the process name. Since we replaced
+                 * stdin/stderr we simple use stdio to write to
+                 * it. Note that we use stderr, to minimize buffer
+                 * flushing issues. */
+
+                fprintf(stderr,
+                        "%s\n"
+                        "%i\n"
+                        "%s\n",
+                        context->output == EXEC_KERNEL ? "kmsg" : "syslog",
+                        context->syslog_priority,
+                        context->syslog_identifier ? context->syslog_identifier : ident);
+
+                return 0;
+        }
+        }
+
+        assert_not_reached("Unknown logging type");
+}
+
 int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds, unsigned n_fds, pid_t *ret) {
         pid_t pid;
 
@@ -170,6 +278,11 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
 
                 if (chdir(context->directory ? context->directory : "/") < 0) {
                         r = EXIT_CHDIR;
+                        goto fail;
+                }
+
+                if (setup_output(context, file_name_from_path(command->path)) < 0) {
+                        r = EXIT_OUTPUT;
                         goto fail;
                 }
 
@@ -251,6 +364,9 @@ void exec_context_init(ExecContext *c) {
         cap_clear(c->capabilities);
         c->oom_adjust = 0;
         c->nice = 0;
+
+        c->output = 0;
+        c->syslog_priority = LOG_DAEMON|LOG_INFO;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -268,6 +384,9 @@ void exec_context_done(ExecContext *c) {
 
         free(c->directory);
         c->directory = NULL;
+
+        free(c->syslog_identifier);
+        c->syslog_identifier = NULL;
 
         free(c->user);
         c->user = NULL;

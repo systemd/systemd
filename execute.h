@@ -16,6 +16,16 @@ typedef struct ExecContext ExecContext;
 #include "list.h"
 #include "util.h"
 
+/* Abstract namespace! */
+#define LOGGER_SOCKET "/systemd/logger"
+
+typedef enum ExecOutput {
+        EXEC_CONSOLE,
+        EXEC_NULL,
+        EXEC_SYSLOG,
+        EXEC_KERNEL
+} ExecOutput;
+
 struct ExecStatus {
         pid_t pid;
         usec_t timestamp;
@@ -33,11 +43,16 @@ struct ExecCommand {
 struct ExecContext {
         char **environment;
         mode_t umask;
-        struct rlimit *rlimit[RLIMIT_NLIMITS];
+        struct rlimit *rlimit[RLIMIT_NLIMITS];  /* FIXME: load-fragment parser missing */
         int oom_adjust;
         int nice;
         char *directory;
 
+        ExecOutput output;
+        int syslog_priority;
+        char *syslog_identifier;
+
+         /* FIXME: all privs related settings need parser and enforcer */
         cap_t capabilities;
         bool capabilities_set:1;
 
@@ -72,7 +87,8 @@ typedef enum ExitStatus {
         EXIT_MEMORY,
         EXIT_LIMITS,
         EXIT_OOM_ADJUST,
-        EXIT_SIGNAL_MASK
+        EXIT_SIGNAL_MASK,
+        EXIT_OUTPUT
 } ExitStatus;
 
 int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds, unsigned n_fds, pid_t *ret);

@@ -2,4 +2,6 @@
 Description=Simple Execution Demo
 
 [Service]
-ExecStart=/bin/ls
+ExecStart=/bin/cat /etc/hosts
+Type=simple
+Output=syslog

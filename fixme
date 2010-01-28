@@ -42,3 +42,5 @@
 - rate limit startups
 
 - automatically delete stale unix sockets
+
+- .socket needs to be notified not only by .service state changes, but also unsuccessful start jobs

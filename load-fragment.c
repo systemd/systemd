@@ -479,8 +479,151 @@ int config_parse_bindtodevice(
         return 0;
 }
 
-#define FOLLOW_MAX 8
+int config_parse_output(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
 
+        ExecOutput *o = data;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(rvalue, "syslog"))
+                *o = EXEC_SYSLOG;
+        else if (streq(rvalue, "null"))
+                *o = EXEC_NULL;
+        else if (streq(rvalue, "syslog"))
+                *o = EXEC_SYSLOG;
+        else if (streq(rvalue, "kernel"))
+                *o = EXEC_KERNEL;
+        else {
+                log_error("[%s:%u] Failed to parse log output: %s", filename, line, rvalue);
+                return -EBADMSG;
+        }
+
+        return 0;
+}
+
+int config_parse_facility(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        static const char * const table[LOG_NFACILITIES] = {
+                [LOG_FAC(LOG_KERN)] = "kern",
+                [LOG_FAC(LOG_USER)] = "user",
+                [LOG_FAC(LOG_MAIL)] = "mail",
+                [LOG_FAC(LOG_DAEMON)] = "daemon",
+                [LOG_FAC(LOG_AUTH)] = "auth",
+                [LOG_FAC(LOG_SYSLOG)] = "syslog",
+                [LOG_FAC(LOG_LPR)] = "lpr",
+                [LOG_FAC(LOG_NEWS)] = "news",
+                [LOG_FAC(LOG_UUCP)] = "uucp",
+                [LOG_FAC(LOG_CRON)] = "cron",
+                [LOG_FAC(LOG_AUTHPRIV)] = "authpriv",
+                [LOG_FAC(LOG_FTP)] = "ftp",
+                [LOG_FAC(LOG_LOCAL0)] = "local0",
+                [LOG_FAC(LOG_LOCAL1)] = "local1",
+                [LOG_FAC(LOG_LOCAL2)] = "local2",
+                [LOG_FAC(LOG_LOCAL3)] = "local3",
+                [LOG_FAC(LOG_LOCAL4)] = "local4",
+                [LOG_FAC(LOG_LOCAL5)] = "local5",
+                [LOG_FAC(LOG_LOCAL6)] = "local6",
+                [LOG_FAC(LOG_LOCAL7)] = "local7"
+        };
+
+        ExecOutput *o = data;
+        int i;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        for (i = 0; i < (int) ELEMENTSOF(table); i++)
+                if (streq(rvalue, table[i])) {
+                        *o = LOG_MAKEPRI(i, LOG_PRI(*o));
+                        break;
+                }
+
+        if (i >= (int) ELEMENTSOF(table)) {
+
+                /* Second try, let's see if this is a number. */
+                if (safe_atoi(rvalue, &i) >= 0 &&
+                    i >= 0 &&
+                    i < (int) ELEMENTSOF(table))
+                        *o = LOG_MAKEPRI(i, LOG_PRI(*o));
+                else {
+                        log_error("[%s:%u] Failed to parse log output: %s", filename, line, rvalue);
+                        return -EBADMSG;
+                }
+        }
+
+        return 0;
+}
+
+int config_parse_level(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        static const char * const table[LOG_DEBUG+1] = {
+                [LOG_EMERG] = "emerg",
+                [LOG_ALERT] = "alert",
+                [LOG_CRIT] = "crit",
+                [LOG_ERR] = "err",
+                [LOG_WARNING] = "warning",
+                [LOG_NOTICE] = "notice",
+                [LOG_INFO] = "info",
+                [LOG_DEBUG] = "debug"
+        };
+
+        ExecOutput *o = data;
+        int i;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        for (i = 0; i < (int) ELEMENTSOF(table); i++)
+                if (streq(rvalue, table[i])) {
+                        *o = LOG_MAKEPRI(LOG_FAC(*o), i);
+                        break;
+                }
+
+        if (i >= LOG_NFACILITIES) {
+
+                /* Second try, let's see if this is a number. */
+                if (safe_atoi(rvalue, &i) >= 0 &&
+                    i >= 0 &&
+                    i < (int) ELEMENTSOF(table))
+                        *o = LOG_MAKEPRI(LOG_FAC(*o), i);
+                else {
+                        log_error("[%s:%u] Failed to parse log output: %s", filename, line, rvalue);
+                        return -EBADMSG;
+                }
+        }
+
+        return 0;
+}
+
+#define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_id) {
         unsigned c = 0;
@@ -569,7 +712,11 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Nice",                   config_parse_nice,            &(context).nice,                                 section   }, \
                 { "OOMAdjust",              config_parse_oom_adjust,      &(context).oom_adjust,                           section   }, \
                 { "UMask",                  config_parse_umask,           &(context).umask,                                section   }, \
-                { "Environment",            config_parse_strv,            &(context).environment,                          section   }
+                { "Environment",            config_parse_strv,            &(context).environment,                          section   }, \
+                { "Output",                 config_parse_output,          &(context).output,                               section   }, \
+                { "SyslogIdentifier",       config_parse_string,          &(context).syslog_identifier,                    section   }, \
+                { "SyslogFacility",         config_parse_facility,        &(context).syslog_priority,                      section   }, \
+                { "SyslogLevel",            config_parse_level,           &(context).syslog_priority,                      section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Meta"    },
@@ -678,6 +825,7 @@ finish:
 
 int unit_load_fragment(Unit *u) {
         int r = -ENOENT;
+        ExecContext *c;
 
         assert(u);
         assert(u->meta.load_state == UNIT_STUB);
@@ -692,6 +840,25 @@ int unit_load_fragment(Unit *u) {
                 SET_FOREACH(t, u->meta.names, i)
                         if ((r = load_from_path(u, t)) != 0)
                                 return r;
+        }
+
+        if (u->meta.type == UNIT_SOCKET)
+                c = &u->socket.exec_context;
+        else if (u->meta.type == UNIT_SERVICE)
+                c = &u->service.exec_context;
+        else
+                c = NULL;
+
+        if (r >= 0 && c &&
+            (c->output == EXEC_KERNEL || c->output == EXEC_SYSLOG)) {
+                /* If syslog or kernel logging is requested, make sure
+                 * our own logging daemon is run first. */
+
+                if ((r = unit_add_dependency(u, UNIT_AFTER, u->meta.manager->special_units[SPECIAL_LOGGER_SOCKET])) < 0)
+                        return r;
+
+                if ((r = unit_add_dependency(u, UNIT_REQUIRES, u->meta.manager->special_units[SPECIAL_LOGGER_SOCKET])) < 0)
+                        return r;
         }
 
         return r;
