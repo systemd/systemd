@@ -30,6 +30,13 @@ struct Watch {
 #include "list.h"
 #include "set.h"
 
+typedef enum SpecialUnit {
+        SPECIAL_SYSLOG_SERVICE,
+        SPECIAL_DBUS_SERVICE,
+        SPECIAL_LOGGER_SOCKET,
+        _SPECIAL_UNIT_MAX
+} SpecialUnit;
+
 struct Manager {
         uint32_t current_job_id;
 
@@ -59,6 +66,8 @@ struct Manager {
         int epoll_fd;
 
         Watch signal_watch;
+
+        Unit *special_units[_SPECIAL_UNIT_MAX]; /* some special units */
 };
 
 Manager* manager_new(void);

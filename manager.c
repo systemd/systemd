@@ -17,10 +17,62 @@
 #include "log.h"
 #include "util.h"
 
-Manager* manager_new(void) {
-        Manager *m;
+static const char * const special_table[_SPECIAL_UNIT_MAX] = {
+        [SPECIAL_SYSLOG_SERVICE] = "syslog.service",
+        [SPECIAL_DBUS_SERVICE] = "messagebus.service",
+        [SPECIAL_LOGGER_SOCKET] = "systemd-logger.socket"
+};
+
+static int manager_setup_signals(Manager *m) {
         sigset_t mask;
         struct epoll_event ev;
+
+        assert(m);
+
+        assert_se(reset_all_signal_handlers() == 0);
+
+        assert_se(sigemptyset(&mask) == 0);
+        assert_se(sigaddset(&mask, SIGCHLD) == 0);
+        assert_se(sigaddset(&mask, SIGINT) == 0);   /* Kernel sends us this on control-alt-del */
+        assert_se(sigaddset(&mask, SIGWINCH) == 0); /* Kernel sends us this on kbrequest (alt-arrowup) */
+        assert_se(sigaddset(&mask, SIGTERM) == 0);
+        assert_se(sigaddset(&mask, SIGHUP) == 0);
+        assert_se(sigaddset(&mask, SIGUSR1) == 0);
+        assert_se(sigaddset(&mask, SIGUSR2) == 0);
+        assert_se(sigaddset(&mask, SIGPIPE) == 0);
+        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
+
+        m->signal_watch.type = WATCH_SIGNAL_FD;
+        if ((m->signal_watch.fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC)) < 0)
+                return -errno;
+
+        zero(ev);
+        ev.events = EPOLLIN;
+        ev.data.ptr = &m->signal_watch;
+
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->signal_watch.fd, &ev) < 0)
+                return -errno;
+
+        return 0;
+}
+
+static int manager_load_special_units(Manager *m) {
+        SpecialUnit c;
+        int r;
+
+        assert(m);
+
+        /* Loads all 'special' units, so that we have easy access to them later */
+
+        for (c = 0; c < _SPECIAL_UNIT_MAX; c++)
+                if ((r = manager_load_unit(m, special_table[c], m->special_units+c)) < 0)
+                        return r;
+
+        return 0;
+};
+
+Manager* manager_new(void) {
+        Manager *m;
 
         if (!(m = new0(Manager, 1)))
                 return NULL;
@@ -42,25 +94,10 @@ Manager* manager_new(void) {
         if ((m->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
                 goto fail;
 
-        assert_se(reset_all_signal_handlers() == 0);
-
-        assert_se(sigemptyset(&mask) == 0);
-        assert_se(sigaddset(&mask, SIGCHLD) == 0);
-        assert_se(sigaddset(&mask, SIGINT) == 0);
-        assert_se(sigaddset(&mask, SIGTERM) == 0);
-        assert_se(sigaddset(&mask, SIGWINCH) == 0);
-        assert_se(sigaddset(&mask, SIGHUP) == 0);
-        assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
-
-        m->signal_watch.type = WATCH_SIGNAL_FD;
-        if ((m->signal_watch.fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC)) < 0)
+        if (manager_setup_signals(m) < 0)
                 goto fail;
 
-        zero(ev);
-        ev.events = EPOLLIN;
-        ev.data.ptr = &m->signal_watch;
-
-        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->signal_watch.fd, &ev) < 0)
+        if (manager_load_special_units(m) < 0)
                 goto fail;
 
         return m;
