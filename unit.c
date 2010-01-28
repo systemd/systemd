@@ -44,7 +44,7 @@ UnitType unit_name_to_type(const char *n) {
         "0123456789"                            \
         "abcdefghijklmnopqrstuvwxyz"            \
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"            \
-        "-_"
+        "-_.\\"
 
 bool unit_name_is_valid(const char *n) {
         UnitType t;

@@ -23,7 +23,7 @@ typedef enum UnitDependency UnitDependency;
 #include "execute.h"
 #include "util.h"
 
-#define UNIT_NAME_MAX 32
+#define UNIT_NAME_MAX 128
 #define DEFAULT_TIMEOUT_USEC (20*USEC_PER_SEC)
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
 
