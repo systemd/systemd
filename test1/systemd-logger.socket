@@ -2,4 +2,4 @@
 Description=systemd Logging Socket
 
 [Socket]
-ListenStream==/systemd/logger
+ListenStream=@/systemd/logger

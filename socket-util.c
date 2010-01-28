@@ -69,7 +69,7 @@ int socket_address_parse(SocketAddress *a, const char *s) {
                 memcpy(a->sockaddr.un.sun_path, s, l);
                 a->size = sizeof(sa_family_t) + l + 1;
 
-        } else if (*s == '=') {
+        } else if (*s == '@') {
                 /* Abstract AF_UNIX socket */
                 size_t l;
 
@@ -261,7 +261,7 @@ int socket_address_print(const SocketAddress *a, char **p) {
                                 if (!(ret = new(char, sizeof(a->sockaddr.un.sun_path)+1)))
                                         return -ENOMEM;
 
-                                ret[0] = '=';
+                                ret[0] = '@';
                                 memcpy(ret+1, a->sockaddr.un.sun_path+1, sizeof(a->sockaddr.un.sun_path)-1);
                                 ret[sizeof(a->sockaddr.un.sun_path)] = 0;
 
