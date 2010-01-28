@@ -61,6 +61,7 @@ bool endswith(const char *s, const char *postfix);
 bool startswith(const char *s, const char *prefix);
 
 int close_nointr(int fd);
+void close_nointr_nofail(int fd);
 
 int parse_boolean(const char *v);
 

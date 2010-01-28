@@ -97,6 +97,14 @@ int close_nointr(int fd) {
         }
 }
 
+void close_nointr_nofail(int fd) {
+
+        /* like close_nointr() but cannot fail, and guarantees errno
+         * is unchanged */
+
+        assert_se(close_nointr(fd) == 0);
+}
+
 int parse_boolean(const char *v) {
         assert(v);
 
