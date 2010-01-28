@@ -243,7 +243,8 @@ static int ensure_merge(Set **s, Set *other) {
         return 0;
 }
 
-/* FIXME: Does not rollback on failure! */
+/* FIXME: Does not rollback on failure! Needs to fix special unit
+ * pointers. Needs to merge names and dependencies properly.*/
 int unit_merge(Unit *u, Unit *other) {
         int r;
         UnitDependency d;
