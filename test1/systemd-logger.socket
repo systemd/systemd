@@ -2,6 +2,4 @@
 Description=systemd Logging Socket
 
 [Socket]
-ExecStartPre=/bin/rm -f /tmp/systemd-logger
 ListenStream==/systemd/logger
-ListenStream=/tmp/systemd-logger
