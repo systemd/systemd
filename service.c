@@ -30,7 +30,7 @@ static const char* const state_string_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = "dead",
         [SERVICE_START_PRE] = "start-pre",
         [SERVICE_START] = "start",
-        [SERVICE_START_POST] = "post",
+        [SERVICE_START_POST] = "start-post",
         [SERVICE_RUNNING] = "running",
         [SERVICE_RELOAD] = "reload",
         [SERVICE_STOP] = "stop",
@@ -330,7 +330,7 @@ static void service_set_state(Service *s, ServiceState state) {
             state == SERVICE_AUTO_RESTART)
                 service_notify_sockets(s);
 
-        log_debug("%s changing %s → %s", unit_id(UNIT(s)), state_string_table[old_state], state_string_table[state]);
+        log_debug("%s changed %s → %s", unit_id(UNIT(s)), state_string_table[old_state], state_string_table[state]);
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
 }
@@ -471,13 +471,14 @@ static void service_enter_stop_post(Service *s, bool success) {
         if (!success)
                 s->failure = true;
 
-        if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST])) {
-
+        if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST]))
                 if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
                         goto fail;
 
-                service_set_state(s, SERVICE_STOP_POST);
-        } else
+
+        service_set_state(s, SERVICE_STOP_POST);
+
+        if (!s->control_command)
                 service_enter_dead(s, true, true);
 
         return;
@@ -518,9 +519,11 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
 
                 if (r < 0)
                         goto fail;
+        }
 
-                service_set_state(s, state);
-        } else
+        service_set_state(s, state);
+
+        if (s->main_pid <= 0 && s->control_pid <= 0)
                 service_enter_dead(s, true, true);
 
         return;
@@ -544,13 +547,13 @@ static void service_enter_stop(Service *s, bool success) {
         if (!success)
                 s->failure = true;
 
-        if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP])) {
-
+        if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP]))
                 if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
                         goto fail;
 
-                service_set_state(s, SERVICE_STOP);
-        } else
+        service_set_state(s, SERVICE_STOP);
+
+        if (!s->control_command)
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, true);
 
         return;
@@ -564,13 +567,14 @@ static void service_enter_start_post(Service *s) {
         int r;
         assert(s);
 
-        if ((s->control_command = s->exec_command[SERVICE_EXEC_START_POST])) {
-
+        if ((s->control_command = s->exec_command[SERVICE_EXEC_START_POST]))
                 if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
                         goto fail;
 
-                service_set_state(s, SERVICE_START_POST);
-        } else
+
+        service_set_state(s, SERVICE_START_POST);
+
+        if (!s->control_command)
                 service_set_state(s, SERVICE_RUNNING);
 
         return;
@@ -592,6 +596,8 @@ static void service_enter_start(Service *s) {
         if ((r = service_spawn(s, s->exec_command[SERVICE_EXEC_START], s->type == SERVICE_FORKING, true, &pid)) < 0)
                 goto fail;
 
+        service_set_state(s, SERVICE_START);
+
         if (s->type == SERVICE_SIMPLE) {
                 /* For simple services we immediately start
                  * the START_POST binaries. */
@@ -607,7 +613,6 @@ static void service_enter_start(Service *s) {
 
                 s->control_pid = pid;
                 s->control_command = s->exec_command[SERVICE_EXEC_START];
-                service_set_state(s, SERVICE_START);
         } else
                 assert_not_reached("Unknown service type");
 
@@ -623,13 +628,13 @@ static void service_enter_start_pre(Service *s) {
 
         assert(s);
 
-        if ((s->control_command = s->exec_command[SERVICE_EXEC_START_PRE])) {
-
+        if ((s->control_command = s->exec_command[SERVICE_EXEC_START_PRE]))
                 if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
                         goto fail;
 
-                service_set_state(s, SERVICE_START_PRE);
-        } else
+        service_set_state(s, SERVICE_START_PRE);
+
+        if (!s->control_command)
                 service_enter_start(s);
 
         return;
@@ -661,13 +666,13 @@ static void service_enter_reload(Service *s) {
 
         assert(s);
 
-        if ((s->control_command = s->exec_command[SERVICE_EXEC_RELOAD])) {
-
+        if ((s->control_command = s->exec_command[SERVICE_EXEC_RELOAD]))
                 if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
                         goto fail;
 
-                service_set_state(s, SERVICE_RELOAD);
-        } else
+        service_set_state(s, SERVICE_RELOAD);
+
+        if (!s->control_command)
                 service_set_state(s, SERVICE_RUNNING);
 
         return;

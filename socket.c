@@ -340,7 +340,7 @@ static void socket_set_state(Socket *s, SocketState state) {
         if (state != SOCKET_LISTENING)
                 socket_unwatch_fds(s);
 
-        log_debug("%s changing %s → %s", unit_id(UNIT(s)), state_string_table[old_state], state_string_table[state]);
+        log_debug("%s changed %s → %s", unit_id(UNIT(s)), state_string_table[old_state], state_string_table[state]);
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
 }
@@ -393,13 +393,13 @@ static void socket_enter_stop_post(Socket *s, bool success) {
         if (!success)
                 s->failure = true;
 
-        if ((s->control_command = s->exec_command[SOCKET_EXEC_STOP_POST])) {
-
+        if ((s->control_command = s->exec_command[SOCKET_EXEC_STOP_POST]))
                 if ((r = socket_spawn(s, s->control_command, true, &s->control_pid)) < 0)
                         goto fail;
 
-                socket_set_state(s, SOCKET_STOP_POST);
-        } else
+        socket_set_state(s, SOCKET_STOP_POST);
+
+        if (!s->control_command)
                 socket_enter_dead(s, true);
 
         return;
@@ -426,9 +426,11 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
                         r = -errno;
                         goto fail;
                 }
+        }
 
-                socket_set_state(s, state);
-        } else
+        socket_set_state(s, state);
+
+        if (s->control_pid <= 0)
                 socket_enter_dead(s, true);
 
         return;
@@ -449,13 +451,13 @@ static void socket_enter_stop_pre(Socket *s, bool success) {
         if (!success)
                 s->failure = true;
 
-        if ((s->control_command = s->exec_command[SOCKET_EXEC_STOP_PRE])) {
-
+        if ((s->control_command = s->exec_command[SOCKET_EXEC_STOP_PRE]))
                 if ((r = socket_spawn(s, s->control_command, true, &s->control_pid)) < 0)
                         goto fail;
 
-                socket_set_state(s, SOCKET_STOP_PRE);
-        } else
+        socket_set_state(s, SOCKET_STOP_PRE);
+
+        if (!s->control_command)
                 socket_enter_stop_post(s, true);
 
         return;
@@ -490,15 +492,15 @@ static void socket_enter_start_post(Socket *s) {
                 goto fail;
         }
 
-        if ((s->control_command = s->exec_command[SOCKET_EXEC_START_POST])) {
-
+        if ((s->control_command = s->exec_command[SOCKET_EXEC_START_POST]))
                 if ((r = socket_spawn(s, s->control_command, true, &s->control_pid)) < 0) {
                         log_warning("%s failed to run start-post executable: %s", unit_id(UNIT(s)), strerror(-r));
                         goto fail;
                 }
 
-                socket_set_state(s, SOCKET_START_POST);
-        } else
+        socket_set_state(s, SOCKET_START_POST);
+
+        if (!s->control_command)
                 socket_enter_listening(s);
 
         return;
@@ -511,13 +513,13 @@ static void socket_enter_start_pre(Socket *s) {
         int r;
         assert(s);
 
-        if ((s->control_command = s->exec_command[SOCKET_EXEC_START_PRE])) {
-
+        if ((s->control_command = s->exec_command[SOCKET_EXEC_START_PRE]))
                 if ((r = socket_spawn(s, s->control_command, true, &s->control_pid)) < 0)
                         goto fail;
 
-                socket_set_state(s, SOCKET_START_PRE);
-        } else
+        socket_set_state(s, SOCKET_START_PRE);
+
+        if (!s->control_command)
                 socket_enter_start_post(s);
 
         return;
