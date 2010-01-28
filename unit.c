@@ -836,6 +836,19 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other) {
         return 0;
 }
 
+int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name) {
+        Unit *other;
+        int r;
+
+        if ((r = manager_load_unit(u->meta.manager, name, &other)) < 0)
+                return r;
+
+        if ((r = unit_add_dependency(u, d, other)) < 0)
+                return r;
+
+        return 0;
+}
+
 const char *unit_path(void) {
         char *e;
 
