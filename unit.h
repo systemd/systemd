@@ -160,6 +160,9 @@ struct UnitVTable {
         void (*fd_event)(Unit *u, int fd, uint32_t events, Watch *w);
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
         void (*timer_event)(Unit *u, uint64_t n_elapsed, Watch *w);
+
+        int (*enumerate)(Manager *m);
+        void (*shutdown)(Manager *m);
 };
 
 extern const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX];

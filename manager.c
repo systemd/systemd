@@ -71,7 +71,21 @@ static int manager_load_special_units(Manager *m) {
                         return r;
 
         return 0;
-};
+}
+
+static int manager_enumerate(Manager *m) {
+        int r;
+        UnitType c;
+
+        assert(m);
+
+        for (c = 0; c < _UNIT_TYPE_MAX; c++)
+                if (unit_vtable[c]->enumerate)
+                        if ((r = unit_vtable[c]->enumerate(m)) < 0)
+                                return r;
+
+        return 0;
+}
 
 Manager* manager_new(void) {
         Manager *m;
@@ -102,6 +116,9 @@ Manager* manager_new(void) {
         if (manager_load_special_units(m) < 0)
                 goto fail;
 
+        if (manager_enumerate(m) < 0)
+                goto fail;
+
         return m;
 
 fail:
@@ -110,6 +127,7 @@ fail:
 }
 
 void manager_free(Manager *m) {
+        UnitType c;
         Unit *u;
         Job *j;
 
@@ -120,6 +138,10 @@ void manager_free(Manager *m) {
 
         while ((u = hashmap_first(m->units)))
                 unit_free(u);
+
+        for (c = 0; c < _UNIT_TYPE_MAX; c++)
+                if (unit_vtable[c]->shutdown)
+                        unit_vtable[c]->shutdown(m);
 
         hashmap_free(m->units);
         hashmap_free(m->jobs);
