@@ -105,4 +105,6 @@ int reset_all_signal_handlers(void);
 char *strstrip(char *s);
 char *file_in_same_dir(const char *path, const char *filename);
 
+char hexchar(int x);
+
 #endif

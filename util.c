@@ -547,3 +547,9 @@ char *file_in_same_dir(const char *path, const char *filename) {
 
         return r;
 }
+
+char hexchar(int x) {
+        static const char table[16] = "0123456789abcdef";
+
+        return table[x & 15];
+}
