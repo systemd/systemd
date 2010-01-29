@@ -424,7 +424,11 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                  * since smart how we are we stored our way back in
                  * there. */
 
+                log_debug("Found cycle on %s/%s", unit_id(j->unit), job_type_to_string(j->type));
+
                 for (k = from; k; k = (k->generation == generation ? k->marker : NULL)) {
+
+                        log_debug("Walked on cycle path to %s/%s", unit_id(j->unit), job_type_to_string(j->type));
 
                         if (!k->installed &&
                             !unit_matters_to_anchor(k->unit, k)) {
@@ -440,6 +444,8 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                         if (k == j)
                                 break;
                 }
+
+                log_debug("Unable to break cycle");
 
                 return -ENOEXEC;
         }
@@ -466,6 +472,10 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                 if ((r = transaction_verify_order_one(m, o, j, generation)) < 0)
                         return r;
         }
+
+        /* Ok, let's backtrack, and remember that this entry is not on
+         * our path anymore. */
+        j->marker = NULL;
 
         return 0;
 }
@@ -661,8 +671,10 @@ static int transaction_activate(Manager *m, JobMode mode) {
                 if ((r = transaction_verify_order(m, &generation)) >= 0)
                         break;
 
-                if (r != -EAGAIN)
+                if (r != -EAGAIN) {
+                        log_debug("Requested transaction contains an unfixable cyclic ordering dependency: %s", strerror(-r));
                         goto rollback;
+                }
 
                 /* Let's see if the resulting transaction ordering
                  * graph is still cyclic... */
@@ -675,8 +687,10 @@ static int transaction_activate(Manager *m, JobMode mode) {
                 if ((r = transaction_merge_jobs(m)) >= 0)
                         break;
 
-                if (r != -EAGAIN)
+                if (r != -EAGAIN) {
+                        log_debug("Requested transaction contains unmergable jobs: %s", strerror(-r));
                         goto rollback;
+                }
 
                 /* Sixth step: an entry got dropped, let's garbage
                  * collect its dependencies. */
@@ -688,12 +702,16 @@ static int transaction_activate(Manager *m, JobMode mode) {
 
         /* Seventh step: check whether we can actually apply this */
         if (mode == JOB_FAIL)
-                if ((r = transaction_is_destructive(m, mode)) < 0)
+                if ((r = transaction_is_destructive(m, mode)) < 0) {
+                        log_debug("Requested transaction contradicts existing jobs: %s", strerror(-r));
                         goto rollback;
+                }
 
         /* Eights step: apply changes */
-        if ((r = transaction_apply(m, mode)) < 0)
+        if ((r = transaction_apply(m, mode)) < 0) {
+                log_debug("Failed to apply transaction: %s", strerror(-r));
                 goto rollback;
+        }
 
         assert(hashmap_isempty(m->transaction_jobs));
         assert(!m->transaction_anchor);
@@ -855,6 +873,8 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool for
         assert(type < _JOB_TYPE_MAX);
         assert(unit);
         assert(mode < _JOB_MODE_MAX);
+
+        log_debug("Trying to enqueue job %s/%s", unit_id(unit), job_type_to_string(type));
 
         if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, force, &ret))) {
                 transaction_abort(m);
