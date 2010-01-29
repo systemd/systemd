@@ -40,3 +40,8 @@
 - automatically delete stale unix sockets
 
 - .socket needs to be notified not only by .service state changes, but also unsuccessful start jobs
+
+- we probably cannot use glibc's syslog() for logging, since it
+  presumably uses the logging socket in blocking mode which might
+  trigger a deadlock if syslog does not process the socket anymore
+  (maybe because it is restarted) and the socket buffer is full.

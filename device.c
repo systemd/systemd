@@ -1,6 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
 #include <errno.h>
+#include <sys/epoll.h>
 #include <libudev.h>
 
 #include "unit.h"
@@ -91,7 +92,7 @@ static int device_add_escaped_name(Unit *u, const char *prefix, const char *dn, 
         return 0;
 }
 
-static int device_process_device(Manager *m, struct udev_device *dev) {
+static int device_process_new_device(Manager *m, struct udev_device *dev, bool update_state) {
         const char *dn, *names, *wants, *sysfs;
         Unit *u = NULL;
         int r;
@@ -146,6 +147,7 @@ static int device_process_device(Manager *m, struct udev_device *dev) {
                         if ((r = unit_set_description(u, model)) < 0)
                                 goto fail;
 
+                unit_add_to_load_queue(u);
         } else {
                 delete = false;
                 free(e);
@@ -173,12 +175,6 @@ static int device_process_device(Manager *m, struct udev_device *dev) {
                 }
         }
 
-
-        if (set_isempty(u->meta.names)) {
-                r = -EEXIST;
-                goto fail;
-        }
-
         if (wants) {
                 FOREACH_WORD(w, l, wants, state) {
                         if (!(e = strndup(w, l)))
@@ -192,7 +188,11 @@ static int device_process_device(Manager *m, struct udev_device *dev) {
                 }
         }
 
-        unit_add_to_load_queue(u);
+        if (update_state) {
+                manager_dispatch_load_queue(u->meta.manager);
+                device_set_state(DEVICE(u), DEVICE_AVAILABLE);
+        }
+
         return 0;
 
 fail:
@@ -201,7 +201,7 @@ fail:
         return r;
 }
 
-static int device_process_path(Manager *m, const char *path) {
+static int device_process_path(Manager *m, const char *path, bool update_state) {
         int r;
         struct udev_device *dev;
 
@@ -213,19 +213,53 @@ static int device_process_path(Manager *m, const char *path) {
                 return -ENOMEM;
         }
 
-        r = device_process_device(m, dev);
+        r = device_process_new_device(m, dev, update_state);
         udev_device_unref(dev);
         return r;
 }
 
+static int device_process_removed_device(Manager *m, struct udev_device *dev) {
+        const char *sysfs;
+        char *e;
+        Unit *u;
+        Device *d;
+
+        assert(m);
+        assert(dev);
+
+        if (!(sysfs = udev_device_get_syspath(dev)))
+                return -ENOMEM;
+
+        assert(sysfs[0] == '/');
+        if (!(e = unit_name_escape_path("sysfs-", sysfs+1, ".device")))
+                return -ENOMEM;
+
+        u = manager_get_unit(m, e);
+        free(e);
+
+        if (!u)
+                return 0;
+
+        d = DEVICE(u);
+        free(d->sysfs);
+        d->sysfs = NULL;
+
+        device_set_state(d, DEVICE_DEAD);
+        return 0;
+}
+
 static void device_shutdown(Manager *m) {
         assert(m);
+
+        if (m->udev_monitor)
+                udev_monitor_unref(m->udev_monitor);
 
         if (m->udev)
                 udev_unref(m->udev);
 }
 
 static int device_enumerate(Manager *m) {
+        struct epoll_event ev;
         int r;
         struct udev_enumerate *e = NULL;
         struct udev_list_entry *item = NULL, *first = NULL;
@@ -234,6 +268,26 @@ static int device_enumerate(Manager *m) {
 
         if (!(m->udev = udev_new()))
                 return -ENOMEM;
+
+        if (!(m->udev_monitor = udev_monitor_new_from_netlink(m->udev, "udev"))) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        if (udev_monitor_enable_receiving(m->udev_monitor) < 0) {
+                r = -EIO;
+                goto fail;
+        }
+
+        m->udev_watch.type = WATCH_UDEV;
+        m->udev_watch.fd = udev_monitor_get_fd(m->udev_monitor);
+
+        zero(ev);
+        ev.events = EPOLLIN;
+        ev.data.ptr = &m->udev_watch;
+
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->udev_watch.fd, &ev) < 0)
+                return -errno;
 
         if (!(e = udev_enumerate_new(m->udev))) {
                 r = -ENOMEM;
@@ -247,10 +301,9 @@ static int device_enumerate(Manager *m) {
 
         first = udev_enumerate_get_list_entry(e);
         udev_list_entry_foreach(item, first)
-                device_process_path(m, udev_list_entry_get_name(item));
+                device_process_path(m, udev_list_entry_get_name(item), false);
 
         udev_enumerate_unref(e);
-
         return 0;
 
 fail:
@@ -259,6 +312,42 @@ fail:
 
         device_shutdown(m);
         return r;
+}
+
+void device_fd_event(Manager *m, int events) {
+        struct udev_device *dev;
+        int r;
+        const char *action;
+
+        assert(m);
+        assert(events == EPOLLIN);
+
+        log_debug("got udev event");
+
+        if (!(dev = udev_monitor_receive_device(m->udev_monitor))) {
+                log_error("Failed to receive device.");
+                return;
+        }
+
+        if (!(action = udev_device_get_action(dev))) {
+                log_error("Failed to get udev action string.");
+                goto fail;
+        }
+
+        if (streq(action, "remove")) {
+                if ((r = device_process_removed_device(m, dev)) < 0) {
+                        log_error("Failed to process udev device event: %s", strerror(-r));
+                        goto fail;
+                }
+        } else {
+                if ((r = device_process_new_device(m, dev, true)) < 0) {
+                        log_error("Failed to process udev device event: %s", strerror(-r));
+                        goto fail;
+                }
+        }
+
+fail:
+        udev_device_unref(dev);
 }
 
 const UnitVTable device_vtable = {

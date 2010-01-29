@@ -16,7 +16,8 @@ enum WatchType {
         WATCH_SIGNAL,
         WATCH_FD,
         WATCH_TIMER,
-        WATCH_MOUNT
+        WATCH_MOUNT,
+        WATCH_UDEV
 };
 
 struct Watch {
@@ -74,6 +75,8 @@ struct Manager {
 
         /* Data specific to the device subsystem */
         struct udev* udev;
+        struct udev_monitor* udev_monitor;
+        Watch udev_watch;
 
         /* Data specific to the mount subsystem */
         FILE *proc_self_mountinfo;

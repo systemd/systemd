@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <sys/poll.h>
+#include <sys/epoll.h>
 #include <signal.h>
 
 #include "unit.h"
@@ -285,7 +285,7 @@ static int socket_watch_fds(Socket *s) {
                 if (p->fd < 0)
                         continue;
 
-                if ((r = unit_watch_fd(UNIT(s), p->fd, POLLIN, &p->fd_watch)) < 0)
+                if ((r = unit_watch_fd(UNIT(s), p->fd, EPOLLIN, &p->fd_watch)) < 0)
                         goto fail;
         }
 
@@ -634,7 +634,7 @@ static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
 
         log_debug("Incoming traffic on %s", unit_id(u));
 
-        if (events != POLLIN)
+        if (events != EPOLLIN)
                 socket_enter_stop_pre(s, false);
 
         socket_enter_running(s);

@@ -764,7 +764,7 @@ int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {
 
                 zero(ev);
                 ev.data.ptr = w;
-                ev.events = POLLIN;
+                ev.events = EPOLLIN;
 
                 if (epoll_ctl(u->meta.manager->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0)
                         goto fail;

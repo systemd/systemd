@@ -26,4 +26,6 @@ struct Device {
 
 extern const UnitVTable device_vtable;
 
+void device_fd_event(Manager *m, int events);
+
 #endif

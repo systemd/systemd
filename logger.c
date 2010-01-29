@@ -319,7 +319,7 @@ static int stream_new(Server *s, int server_fd) {
 
         zero(ev);
         ev.data.ptr = stream;
-        ev.events = POLLIN;
+        ev.events = EPOLLIN;
         if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, fd, &ev) < 0) {
                 r = -errno;
                 goto fail;
@@ -429,7 +429,7 @@ static int server_init(Server *s, unsigned n_sockets) {
                 struct epoll_event ev;
 
                 zero(ev);
-                ev.events = POLLIN;
+                ev.events = EPOLLIN;
                 ev.data.ptr = UINT_TO_PTR(SERVER_FD_START+i);
                 if (epoll_ctl(s->epoll_fd, EPOLL_CTL_ADD, SERVER_FD_START+i, &ev) < 0) {
                         r = -errno;
@@ -479,7 +479,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
         if (PTR_TO_UINT(ev->data.ptr) >= SERVER_FD_START &&
             PTR_TO_UINT(ev->data.ptr) < SERVER_FD_START+s->n_server_fd) {
 
-                if (ev->events != POLLIN) {
+                if (ev->events != EPOLLIN) {
                         log_info("Got invalid event from epoll. (1)");
                         return -EIO;
                 }
@@ -495,7 +495,7 @@ static int process_event(Server *s, struct epoll_event *ev) {
 
                 timestamp = now(CLOCK_REALTIME);
 
-                if (!(ev->events & POLLIN)) {
+                if (!(ev->events & EPOLLIN)) {
                         log_info("Got invalid event from epoll. (3)");
                         stream_free(stream);
                         return 0;

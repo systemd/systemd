@@ -208,6 +208,7 @@ static int mount_add_one(Manager *m, const char *what, const char *where, bool l
                 if ((r = unit_set_description(u, where)) < 0)
                         goto fail;
 
+                unit_add_to_load_queue(u);
         } else {
                 delete = false;
                 free(e);
@@ -231,8 +232,6 @@ static int mount_add_one(Manager *m, const char *what, const char *where, bool l
 
         if ((r = mount_add_path_links(MOUNT(u))) < 0)
                 goto fail;
-
-        unit_add_to_load_queue(u);
 
         return 0;
 
@@ -420,7 +419,7 @@ void mount_fd_event(Manager *m, int events) {
         int r;
 
         assert(m);
-        assert(events == POLLERR);
+        assert(events == EPOLLERR);
 
         /* The manager calls this for every fd event happening on the
          * /proc/self/mountinfo file, which informs us about mounting

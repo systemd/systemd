@@ -56,7 +56,7 @@ Manager* manager_new(void) {
         if (!(m = new0(Manager, 1)))
                 return NULL;
 
-        m->signal_watch.fd = m->mount_watch.fd = m->epoll_fd = -1;
+        m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = -1;
 
         if (!(m->units = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
@@ -1126,7 +1126,7 @@ static int process_event(Manager *m, struct epoll_event *ev, bool *quit) {
         case WATCH_SIGNAL:
 
                 /* An incoming signal? */
-                if (ev->events != POLLIN)
+                if (ev->events != EPOLLIN)
                         return -EINVAL;
 
                 if ((r = manager_process_signal_fd(m, quit)) < 0)
@@ -1160,6 +1160,11 @@ static int process_event(Manager *m, struct epoll_event *ev, bool *quit) {
         case WATCH_MOUNT:
                 /* Some mount table change, intended for the mount subsystem */
                 mount_fd_event(m, ev->events);
+                break;
+
+        case WATCH_UDEV:
+                /* Some notification from udev, intended for the device subsystem */
+                device_fd_event(m, ev->events);
                 break;
 
         default:
