@@ -155,6 +155,21 @@ int unit_add_name(Unit *u, const char *text) {
         return 0;
 }
 
+int unit_choose_id(Unit *u, const char *name) {
+        char *s;
+
+        assert(u);
+        assert(name);
+
+        /* Selects one of the names of this unit as the id */
+
+        if (!(s = set_get(u->meta.names, (char*) name)))
+                return -ENOENT;
+
+        u->meta.id = s;
+        return 0;
+}
+
 void unit_add_to_load_queue(Unit *u) {
         assert(u);
 

@@ -201,6 +201,8 @@ int unit_add_name(Unit *u, const char *name);
 int unit_add_dependency(Unit *u, UnitDependency d, Unit *other);
 int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name);
 
+int unit_choose_id(Unit *u, const char *name);
+
 void unit_add_to_load_queue(Unit *u);
 
 int unit_merge(Unit *u, Unit *other);
