@@ -12,6 +12,7 @@
 #include "conf-parser.h"
 #include "load-fragment.h"
 #include "log.h"
+#include "ioprio.h"
 
 static int config_parse_deps(
                 const char *filename,
@@ -625,6 +626,90 @@ int config_parse_level(
         return 0;
 }
 
+int config_parse_io_class(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        static const char * const table[] = {
+                [IOPRIO_CLASS_NONE] = NULL,
+                [IOPRIO_CLASS_RT] = "realtime",
+                [IOPRIO_CLASS_BE] = "best-effort",
+                [IOPRIO_CLASS_IDLE] = "idle",
+        };
+
+        ExecContext *c = data;
+        int i;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        for (i = 0; i < (int) ELEMENTSOF(table); i++) {
+                if (!table[i])
+                        continue;
+
+                if (streq(rvalue, table[i])) {
+                        c->ioprio = IOPRIO_PRIO_VALUE(i, IOPRIO_PRIO_DATA(c->ioprio));
+                        break;
+                }
+        }
+
+        if (i >= (int) ELEMENTSOF(table)) {
+
+                /* Second try, let's see if this is a number. */
+                if (safe_atoi(rvalue, &i) >= 0 &&
+                    i >= 0 &&
+                    i < (int) ELEMENTSOF(table) &&
+                    table[i])
+                        c->ioprio = IOPRIO_PRIO_VALUE(i, IOPRIO_PRIO_DATA(c->ioprio));
+                else {
+                        log_error("[%s:%u] Failed to parse io priority: %s", filename, line, rvalue);
+                        return -EBADMSG;
+                }
+        }
+
+        c->ioprio_set = true;
+
+        return 0;
+}
+
+int config_parse_io_priority(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        int i;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (safe_atoi(rvalue, &i) >= 0 &&
+            i >= 0 &&
+            i < IOPRIO_BE_NR)
+                c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_PRIO_CLASS(c->ioprio), i);
+        else {
+                log_error("[%s:%u] Failed to parse io priority: %s", filename, line, rvalue);
+                return -EBADMSG;
+        }
+
+        c->ioprio_set = true;
+
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_id) {
@@ -709,12 +794,15 @@ static int load_from_path(Unit *u, const char *path) {
         };
 
 #define EXEC_CONTEXT_CONFIG_ITEMS(context, section) \
-                { "Directory",              config_parse_path,            &(context).directory,                            section   }, \
+                { "WorkingDirectory",       config_parse_path,            &(context).working_directory,                    section   }, \
+                { "RootDirectory",          config_parse_path,            &(context).root_directory,                       section   }, \
                 { "User",                   config_parse_string,          &(context).user,                                 section   }, \
                 { "Group",                  config_parse_string,          &(context).group,                                section   }, \
                 { "SupplementaryGroups",    config_parse_strv,            &(context).supplementary_groups,                 section   }, \
                 { "Nice",                   config_parse_nice,            &(context),                                      section   }, \
                 { "OOMAdjust",              config_parse_oom_adjust,      &(context),                                      section   }, \
+                { "IOPriority",             config_parse_io_priority,     &(context),                                      section   }, \
+                { "IOSchedulingClass",      config_parse_io_class,        &(context),                                      section   }, \
                 { "UMask",                  config_parse_umask,           &(context).umask,                                section   }, \
                 { "Environment",            config_parse_strv,            &(context).environment,                          section   }, \
                 { "Output",                 config_parse_output,          &(context).output,                               section   }, \

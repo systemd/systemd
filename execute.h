@@ -44,12 +44,14 @@ struct ExecContext {
         char **environment;
         mode_t umask;
         struct rlimit *rlimit[RLIMIT_NLIMITS];  /* FIXME: load-fragment parser missing */
-        char *directory;
+        char *working_directory, *root_directory;
         int oom_adjust;
         int nice;
+        int ioprio;
 
         bool oom_adjust_set:1;
         bool nice_set:1;
+        bool ioprio_set:1;
 
         ExecOutput output;
         int syslog_priority;
@@ -91,7 +93,10 @@ typedef enum ExitStatus {
         EXIT_LIMITS,
         EXIT_OOM_ADJUST,
         EXIT_SIGNAL_MASK,
-        EXIT_OUTPUT
+        EXIT_OUTPUT,
+        EXIT_CHROOT,
+        EXIT_PGID,
+        EXIT_IOPRIO
 } ExitStatus;
 
 int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds, unsigned n_fds, pid_t *ret);

@@ -15,6 +15,7 @@
 #include "macro.h"
 #include "util.h"
 #include "log.h"
+#include "ioprio.h"
 
 static int close_fds(int except[], unsigned n_except) {
         DIR *d;
@@ -273,12 +274,12 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
                         goto fail;
                 }
 
-                umask(context->umask);
-
-                if (chdir(context->directory ? context->directory : "/") < 0) {
-                        r = EXIT_CHDIR;
+                if (setpgid(0, 0) < 0) {
+                        r = EXIT_PGID;
                         goto fail;
                 }
+
+                umask(context->umask);
 
                 if (setup_output(context, file_name_from_path(command->path)) < 0) {
                         r = EXIT_OUTPUT;
@@ -297,9 +298,26 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
                         }
                 }
 
+                if (context->root_directory)
+                        if (chroot(context->root_directory) < 0) {
+                                r = EXIT_CHROOT;
+                                goto fail;
+                        }
+
+                if (chdir(context->working_directory ? context->working_directory : "/") < 0) {
+                        r = EXIT_CHDIR;
+                        goto fail;
+                }
+
                 if (context->nice_set)
                         if (setpriority(PRIO_PROCESS, 0, context->nice) < 0) {
                                 r = EXIT_NICE;
+                                goto fail;
+                        }
+
+                if (context->ioprio_set)
+                        if (ioprio_set(IOPRIO_WHO_PROCESS, 0, context->ioprio) < 0) {
+                                r = EXIT_IOPRIO;
                                 goto fail;
                         }
 
@@ -366,8 +384,13 @@ void exec_context_init(ExecContext *c) {
 
         c->umask = 0002;
         cap_clear(c->capabilities);
+        c->capabilities_set = false;
         c->oom_adjust = 0;
+        c->oom_adjust_set = false;
         c->nice = 0;
+        c->nice_set = false;
+        c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
+        c->ioprio_set = false;
 
         c->output = 0;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
@@ -386,8 +409,10 @@ void exec_context_done(ExecContext *c) {
                 c->rlimit[l] = NULL;
         }
 
-        free(c->directory);
-        c->directory = NULL;
+        free(c->working_directory);
+        c->working_directory = NULL;
+        free(c->root_directory);
+        c->root_directory = NULL;
 
         free(c->syslog_identifier);
         c->syslog_identifier = NULL;
@@ -424,6 +449,14 @@ void exec_command_free_array(ExecCommand **c, unsigned n) {
 }
 
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
+
+        static const char * const table[] = {
+                [IOPRIO_CLASS_NONE] = "none",
+                [IOPRIO_CLASS_RT] = "realtime",
+                [IOPRIO_CLASS_BE] = "best-effort",
+                [IOPRIO_CLASS_IDLE] = "idle"
+        };
+
         assert(c);
         assert(f);
 
@@ -432,9 +465,11 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         fprintf(f,
                 "%sUmask: %04o\n"
-                "%sDirectory: %s\n",
+                "%sWorking Directory: %s\n"
+                "%sRoot Directory: %s\n",
                 prefix, c->umask,
-                prefix, c->directory ? c->directory : "/");
+                prefix, c->working_directory ? c->working_directory : "/",
+                prefix, c->root_directory ? c->root_directory : "/");
 
         if (c->nice_set)
                 fprintf(f,
@@ -445,6 +480,13 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f,
                         "%sOOMAdjust: %i\n",
                         prefix, c->oom_adjust);
+
+        if (c->ioprio_set)
+                fprintf(f,
+                        "%sIOSchedulingClass: %s\n"
+                        "%sIOPriority: %i\n",
+                        prefix, table[IOPRIO_PRIO_CLASS(c->ioprio)],
+                        prefix, (int) IOPRIO_PRIO_DATA(c->ioprio));
 }
 
 void exec_status_fill(ExecStatus *s, pid_t pid, int code, int status) {

@@ -27,9 +27,9 @@
 
 - implement mount/automount
 
-- more process attributes: chroot, cpu affinity, scheduling
+- more process attributes: cpu affinity, cpu scheduling
 
-- create session/pgroup for child processes
+- create session/pgroup for child processes? handle input on console properly? interactive fsck? interactive luks password?
 
 - fs namespaces
 
@@ -45,3 +45,10 @@
   presumably uses the logging socket in blocking mode which might
   trigger a deadlock if syslog does not process the socket anymore
   (maybe because it is restarted) and the socket buffer is full.
+
+- in udev/mount if properties change we need to delete the old
+  settings and install the new settings. Deleting the old settings is
+  currently missing.
+
+- ability to kill services? i.e. in contrast to stopping them, go directly
+  into killing mode?
