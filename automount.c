@@ -5,7 +5,6 @@
 #include "unit.h"
 #include "automount.h"
 #include "load-fragment.h"
-#include "load-fstab.h"
 #include "load-dropin.h"
 
 static int automount_init(Unit *u) {
