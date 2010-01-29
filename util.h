@@ -106,5 +106,19 @@ char *strstrip(char *s);
 char *file_in_same_dir(const char *path, const char *filename);
 
 char hexchar(int x);
+int unhexchar(char c);
+char octchar(int x);
+int unoctchar(char c);
+
+char *cescape(const char *s);
+char *cunescape(const char *s);
+
+char *path_kill_slashes(char *path);
+
+bool path_startswith(const char *path, const char *prefix);
+
+char *ascii_strlower(char *path);
+
+char *xescape(const char *s, const char *bad);
 
 #endif

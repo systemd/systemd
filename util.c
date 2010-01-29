@@ -553,3 +553,326 @@ char hexchar(int x) {
 
         return table[x & 15];
 }
+
+int unhexchar(char c) {
+
+        if (c >= '0' && c <= '9')
+                return c - '0';
+
+        if (c >= 'a' && c <= 'f')
+                return c - 'a';
+
+        if (c >= 'A' && c <= 'F')
+                return c - 'A';
+
+        return -1;
+}
+
+char octchar(int x) {
+        return '0' + (x & 7);
+}
+
+int unoctchar(char c) {
+
+        if (c >= '0' && c <= '7')
+                return c - '0';
+
+        return -1;
+}
+
+char *cescape(const char *s) {
+        char *r, *t;
+        const char *f;
+
+        assert(s);
+
+        /* Does C style string escaping. */
+
+        if (!(r = new(char, strlen(s)*4 + 1)))
+                return NULL;
+
+        for (f = s, t = r; *f; f++)
+
+                switch (*f) {
+
+                case '\a':
+                        *(t++) = '\\';
+                        *(t++) = 'a';
+                        break;
+                case '\b':
+                        *(t++) = '\\';
+                        *(t++) = 'b';
+                        break;
+                case '\f':
+                        *(t++) = '\\';
+                        *(t++) = 'f';
+                        break;
+                case '\n':
+                        *(t++) = '\\';
+                        *(t++) = 'n';
+                        break;
+                case '\r':
+                        *(t++) = '\\';
+                        *(t++) = 'r';
+                        break;
+                case '\t':
+                        *(t++) = '\\';
+                        *(t++) = 't';
+                        break;
+                case '\v':
+                        *(t++) = '\\';
+                        *(t++) = 'v';
+                        break;
+                case '\\':
+                        *(t++) = '\\';
+                        *(t++) = '\\';
+                        break;
+                case '"':
+                        *(t++) = '\\';
+                        *(t++) = '"';
+                        break;
+                case '\'':
+                        *(t++) = '\\';
+                        *(t++) = '\'';
+                        break;
+
+                default:
+                        /* For special chars we prefer octal over
+                         * hexadecimal encoding, simply because glib's
+                         * g_strescape() does the same */
+                        if ((*f < ' ') || (*f >= 127)) {
+                                *(t++) = '\\';
+                                *(t++) = octchar((unsigned char) *f >> 6);
+                                *(t++) = octchar((unsigned char) *f >> 3);
+                                *(t++) = octchar((unsigned char) *f);
+                        } else
+                                *(t++) = *f;
+                        break;
+                }
+
+        *t = 0;
+
+        return r;
+}
+
+char *cunescape(const char *s) {
+        char *r, *t;
+        const char *f;
+
+        assert(s);
+
+        /* Undoes C style string escaping */
+
+        if (!(r = new(char, strlen(s)+1)))
+                return r;
+
+        for (f = s, t = r; *f; f++) {
+
+                if (*f != '\\') {
+                        *(t++) = *f;
+                        continue;
+                }
+
+                f++;
+
+                switch (*f) {
+
+                case 'a':
+                        *(t++) = '\a';
+                        break;
+                case 'b':
+                        *(t++) = '\b';
+                        break;
+                case 'f':
+                        *(t++) = '\f';
+                        break;
+                case 'n':
+                        *(t++) = '\n';
+                        break;
+                case 'r':
+                        *(t++) = '\r';
+                        break;
+                case 't':
+                        *(t++) = '\t';
+                        break;
+                case 'v':
+                        *(t++) = '\v';
+                        break;
+                case '\\':
+                        *(t++) = '\\';
+                        break;
+                case '"':
+                        *(t++) = '"';
+                        break;
+                case '\'':
+                        *(t++) = '\'';
+                        break;
+
+                case 'x': {
+                        /* hexadecimal encoding */
+                        int a, b;
+
+                        if ((a = unhexchar(f[1])) < 0 ||
+                            (b = unhexchar(f[2])) < 0) {
+                                /* Invalid escape code, let's take it literal then */
+                                *(t++) = '\\';
+                                *(t++) = 'x';
+                        } else {
+                                *(t++) = (char) ((a << 4) | b);
+                                f += 2;
+                        }
+
+                        break;
+                }
+
+                case '0':
+                case '1':
+                case '2':
+                case '3':
+                case '4':
+                case '5':
+                case '6':
+                case '7': {
+                        /* octal encoding */
+                        int a, b, c;
+
+                        if ((a = unoctchar(f[0])) < 0 ||
+                            (b = unoctchar(f[1])) < 0 ||
+                            (c = unoctchar(f[2])) < 0) {
+                                /* Invalid escape code, let's take it literal then */
+                                *(t++) = '\\';
+                                *(t++) = f[0];
+                        } else {
+                                *(t++) = (char) ((a << 6) | (b << 3) | c);
+                                f += 2;
+                        }
+
+                        break;
+                }
+
+                case 0:
+                        /* premature end of string.*/
+                        *(t++) = '\\';
+                        goto finish;
+
+                default:
+                        /* Invalid escape code, let's take it literal then */
+                        *(t++) = '\\';
+                        *(t++) = 'f';
+                        break;
+                }
+        }
+
+finish:
+        *t = 0;
+        return r;
+}
+
+
+char *xescape(const char *s, const char *bad) {
+        char *r, *t;
+        const char *f;
+
+        /* Escapes all chars in bad, in addition to \ and all special
+         * chars, in \xFF style escaping. May be reversed with
+         * cunescape. */
+
+        if (!(r = new(char, strlen(s)*4+1)))
+                return NULL;
+
+        for (f = s, t = r; *f; f++) {
+
+                if (*f < ' ' || *f >= 127 ||
+                    *f == '\\' || strchr(bad, *f)) {
+                        *(t++) = '\\';
+                        *(t++) = 'x';
+                        *(t++) = hexchar(*f >> 4);
+                        *(t++) = hexchar(*f);
+                } else
+                        *(t++) = *f;
+        }
+
+        *t = 0;
+
+        return r;
+}
+
+char *path_kill_slashes(char *path) {
+        char *f, *t;
+        bool slash = false;
+
+        /* Removes redundant inner and trailing slashes. Modifies the
+         * passed string in-place.
+         *
+         * ///foo///bar/ becomes /foo/bar
+         */
+
+        for (f = path, t = path; *f; f++) {
+
+                if (*f == '/') {
+                        slash = true;
+                        continue;
+                }
+
+                if (slash) {
+                        slash = false;
+                        *(t++) = '/';
+                }
+
+                *(t++) = *f;
+        }
+
+        /* Special rule, if we are talking of the root directory, a
+        trailing slash is good */
+
+        if (t == path && slash)
+                *(t++) = '/';
+
+        *t = 0;
+        return path;
+}
+
+bool path_startswith(const char *path, const char *prefix) {
+        assert(path);
+        assert(prefix);
+
+        if ((path[0] == '/') != (prefix[0] == '/'))
+                return false;
+
+        for (;;) {
+                size_t a, b;
+
+                path += strspn(path, "/");
+                prefix += strspn(prefix, "/");
+
+                if (*prefix == 0)
+                        return true;
+
+                if (*path == 0)
+                        return false;
+
+                a = strcspn(path, "/");
+                b = strcspn(prefix, "/");
+
+                if (a != b)
+                        return false;
+
+                if (memcmp(path, prefix, a) != 0)
+                        return false;
+
+                path += a;
+                prefix += b;
+        }
+}
+
+char *ascii_strlower(char *path) {
+        char *p;
+
+        assert(path);
+
+        for (p = path; *p; p++)
+                if (*p >= 'A' && *p <= 'Z')
+                        *p = *p - 'A' + 'a';
+
+        return p;
+}
