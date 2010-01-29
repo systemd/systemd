@@ -170,6 +170,19 @@ int unit_choose_id(Unit *u, const char *name) {
         return 0;
 }
 
+int unit_set_description(Unit *u, const char *description) {
+        char *s;
+
+        assert(u);
+
+        if (!(s = strdup(description)))
+                return -ENOMEM;
+
+        free(u->meta.description);
+        u->meta.description = s;
+        return 0;
+}
+
 void unit_add_to_load_queue(Unit *u) {
         assert(u);
 
@@ -586,7 +599,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                 else {
                         assert(u->meta.job->state == JOB_RUNNING);
 
-                        /* Let's check of this state change
+                        /* Let's check whether this state change
                          * constitutes a finished job, or maybe
                          * cotradicts a running job and hence needs to
                          * invalidate jobs. */

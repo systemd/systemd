@@ -5,6 +5,7 @@
 
 #include "macro.h"
 #include "job.h"
+#include "log.h"
 
 Job* job_new(Manager *m, JobType type, Unit *unit) {
         Job *j;
@@ -405,10 +406,18 @@ int job_finish_and_invalidate(Job *j, bool success) {
         assert(j);
         assert(j->installed);
 
+        log_debug("Job %s/%s finished, success=%s", unit_id(j->unit), job_type_to_string(j->type), yes_no(success));
+
         /* Patch restart jobs so that they become normal start jobs */
         if (success && (j->type == JOB_RESTART || j->type == JOB_TRY_RESTART)) {
+
+                log_debug("Converting job %s/%s → %s/%s",
+                          unit_id(j->unit), job_type_to_string(j->type),
+                          unit_id(j->unit), job_type_to_string(JOB_START));
+
                 j->state = JOB_RUNNING;
                 j->type = JOB_START;
+
                 job_schedule_run(j);
                 return 0;
         }

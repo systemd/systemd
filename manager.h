@@ -30,14 +30,12 @@ struct Watch {
 #include "list.h"
 #include "set.h"
 
-typedef enum SpecialUnit {
-        SPECIAL_SYSLOG_SERVICE,
-        SPECIAL_DBUS_SERVICE,
-        SPECIAL_LOGGER_SOCKET,
-        SPECIAL_CTRL_ALT_DEL_TARGET,
-        SPECIAL_KBREQUEST_TARGET,
-        _SPECIAL_UNIT_MAX
-} SpecialUnit;
+#define SPECIAL_DEFAULT_TARGET "default.target"
+#define SPECIAL_SYSLOG_SERVICE "syslog.service"
+#define SPECIAL_DBUS_SERVICE "messagebus.service"
+#define SPECIAL_LOGGER_SOCKET "systemd-logger.socket"
+#define SPECIAL_KBREQUEST_TARGET "kbrequest.target"
+#define SPECIAL_CTRL_ALT_DEL_TARGET "ctrl-alt-del.target"
 
 struct Manager {
         uint32_t current_job_id;
@@ -69,13 +67,13 @@ struct Manager {
 
         Watch signal_watch;
 
-        Unit *special_units[_SPECIAL_UNIT_MAX]; /* some special units */
-
         struct udev* udev;
 };
 
 Manager* manager_new(void);
 void manager_free(Manager *m);
+
+int manager_coldplug(Manager *m);
 
 Job *manager_get_job(Manager *m, uint32_t id);
 Unit *manager_get_unit(Manager *m, const char *name);
@@ -90,7 +88,9 @@ void manager_transaction_unlink_job(Manager *m, Job *j);
 
 void manager_clear_jobs(Manager *m);
 
+void manager_dispatch_load_queue(Manager *m);
 void manager_dispatch_run_queue(Manager *m);
+
 int manager_loop(Manager *m);
 
 #endif

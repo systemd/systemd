@@ -22,6 +22,9 @@ struct Mount {
         MountState state;
 
         char *what, *where;
+
+        bool from_etc_fstab:1;
+        bool from_proc_self_mountinfo:1;
 };
 
 extern const UnitVTable mount_vtable;

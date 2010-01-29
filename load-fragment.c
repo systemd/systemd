@@ -807,10 +807,11 @@ static int load_from_path(Unit *u, const char *path) {
                         goto finish;
 
 
+                if (id == k)
+                        unit_choose_id(u, id);
                 free(k);
         }
 
-        unit_choose_id(u, id);
 
         free(u->meta.load_path);
         u->meta.load_path = filename;
@@ -860,10 +861,10 @@ int unit_load_fragment(Unit *u) {
                 /* If syslog or kernel logging is requested, make sure
                  * our own logging daemon is run first. */
 
-                if ((k = unit_add_dependency(u, UNIT_AFTER, u->meta.manager->special_units[SPECIAL_LOGGER_SOCKET])) < 0)
+                if ((k = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_LOGGER_SOCKET)) < 0)
                         return k;
 
-                if ((k = unit_add_dependency(u, UNIT_REQUIRES, u->meta.manager->special_units[SPECIAL_LOGGER_SOCKET])) < 0)
+                if ((k = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_LOGGER_SOCKET)) < 0)
                         return k;
         }
 

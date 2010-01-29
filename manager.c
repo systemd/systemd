@@ -17,14 +17,6 @@
 #include "log.h"
 #include "util.h"
 
-static const char * const special_table[_SPECIAL_UNIT_MAX] = {
-        [SPECIAL_SYSLOG_SERVICE] = "syslog.service",
-        [SPECIAL_DBUS_SERVICE] = "messagebus.service",
-        [SPECIAL_LOGGER_SOCKET] = "systemd-logger.socket",
-        [SPECIAL_KBREQUEST_TARGET] = "kbrequest.target",
-        [SPECIAL_CTRL_ALT_DEL_TARGET] = "ctrl-alt-del.target"
-};
-
 static int manager_setup_signals(Manager *m) {
         sigset_t mask;
         struct epoll_event ev;
@@ -58,35 +50,6 @@ static int manager_setup_signals(Manager *m) {
         return 0;
 }
 
-static int manager_load_special_units(Manager *m) {
-        SpecialUnit c;
-        int r;
-
-        assert(m);
-
-        /* Loads all 'special' units, so that we have easy access to them later */
-
-        for (c = 0; c < _SPECIAL_UNIT_MAX; c++)
-                if ((r = manager_load_unit(m, special_table[c], m->special_units+c)) < 0)
-                        return r;
-
-        return 0;
-}
-
-static int manager_enumerate(Manager *m) {
-        int r;
-        UnitType c;
-
-        assert(m);
-
-        for (c = 0; c < _UNIT_TYPE_MAX; c++)
-                if (unit_vtable[c]->enumerate)
-                        if ((r = unit_vtable[c]->enumerate(m)) < 0)
-                                return r;
-
-        return 0;
-}
-
 Manager* manager_new(void) {
         Manager *m;
 
@@ -111,12 +74,6 @@ Manager* manager_new(void) {
                 goto fail;
 
         if (manager_setup_signals(m) < 0)
-                goto fail;
-
-        if (manager_load_special_units(m) < 0)
-                goto fail;
-
-        if (manager_enumerate(m) < 0)
                 goto fail;
 
         return m;
@@ -154,6 +111,39 @@ void manager_free(Manager *m) {
                 close_nointr(m->signal_watch.fd);
 
         free(m);
+}
+
+int manager_coldplug(Manager *m) {
+        int r;
+        UnitType c;
+        Iterator i;
+        Unit *u;
+        char *k;
+
+        assert(m);
+
+        /* First, let's ask every type to load all units from
+         * disk/kernel that it might know */
+        for (c = 0; c < _UNIT_TYPE_MAX; c++)
+                if (unit_vtable[c]->enumerate)
+                        if ((r = unit_vtable[c]->enumerate(m)) < 0)
+                                return r;
+
+        manager_dispatch_load_queue(m);
+
+        /* Then, let's set up their initial state. */
+        HASHMAP_FOREACH_KEY(u, k, m->units, i) {
+
+                /* ignore aliases */
+                if (unit_id(u) != k)
+                        continue;
+
+                if (UNIT_VTABLE(u)->coldplug)
+                        if ((r = UNIT_VTABLE(u)->coldplug(u)) < 0)
+                                return r;
+        }
+
+        return 0;
 }
 
 static void transaction_delete_job(Manager *m, Job *j) {
@@ -874,6 +864,8 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool for
         if ((r = transaction_activate(m, mode)) < 0)
                 return r;
 
+        log_debug("Enqueued job %s/%s", unit_id(unit), job_type_to_string(type));
+
         if (_ret)
                 *_ret = ret;
 
@@ -893,7 +885,7 @@ Unit *manager_get_unit(Manager *m, const char *name) {
         return hashmap_get(m->units, name);
 }
 
-static void dispatch_load_queue(Manager *m) {
+void manager_dispatch_load_queue(Manager *m) {
         Meta *meta;
 
         assert(m);
@@ -951,7 +943,7 @@ int manager_load_unit(Manager *m, const char *path, Unit **_ret) {
         }
 
         unit_add_to_load_queue(ret);
-        dispatch_load_queue(m);
+        manager_dispatch_load_queue(m);
 
         *_ret = ret;
         return 0;

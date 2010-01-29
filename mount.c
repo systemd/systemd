@@ -7,30 +7,24 @@
 #include "unit.h"
 #include "mount.h"
 #include "load-fragment.h"
-#include "load-fstab.h"
 #include "load-dropin.h"
 #include "log.h"
 
-static int mount_init(Unit *u) {
-        int r;
-        Mount *m = MOUNT(u);
+static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
+        [MOUNT_DEAD] = UNIT_INACTIVE,
+        [MOUNT_MOUNTING] = UNIT_ACTIVATING,
+        [MOUNT_MOUNTED] = UNIT_ACTIVE,
+        [MOUNT_UNMOUNTING] = UNIT_DEACTIVATING,
+        [MOUNT_MAINTAINANCE] = UNIT_INACTIVE,
+};
 
-        assert(m);
-
-        /* Load a .mount file */
-        if ((r = unit_load_fragment(u)) < 0)
-                return r;
-
-        /* Load entry from /etc/fstab */
-        if ((r = unit_load_fstab(u)) < 0)
-                return r;
-
-        /* Load drop-in directory data */
-        if ((r = unit_load_dropin(u)) < 0)
-                return r;
-
-        return r;
-}
+static const char* const state_string_table[_MOUNT_STATE_MAX] = {
+        [MOUNT_DEAD] = "dead",
+        [MOUNT_MOUNTING] = "mounting",
+        [MOUNT_MOUNTED] = "mounted",
+        [MOUNT_UNMOUNTING] = "unmounting",
+        [MOUNT_MAINTAINANCE] = "maintainance"
+};
 
 static void mount_done(Unit *u) {
         Mount *d = MOUNT(u);
@@ -40,16 +34,31 @@ static void mount_done(Unit *u) {
         free(d->where);
 }
 
+static void mount_set_state(Mount *m, MountState state) {
+        MountState old_state;
+        assert(m);
+
+        old_state = m->state;
+        m->state = state;
+
+        log_debug("%s changed %s → %s", unit_id(UNIT(m)), state_string_table[old_state], state_string_table[state]);
+
+        unit_notify(UNIT(m), state_translation_table[old_state], state_translation_table[state]);
+}
+
+static int mount_coldplug(Unit *u) {
+        Mount *m = MOUNT(u);
+
+        assert(m);
+        assert(m->state == MOUNT_DEAD);
+
+        if (m->from_proc_self_mountinfo)
+                mount_set_state(m, MOUNT_MOUNTED);
+
+        return 0;
+}
+
 static void mount_dump(Unit *u, FILE *f, const char *prefix) {
-
-        static const char* const state_table[_MOUNT_STATE_MAX] = {
-                [MOUNT_DEAD] = "dead",
-                [MOUNT_MOUNTING] = "mounting",
-                [MOUNT_MOUNTED] = "mounted",
-                [MOUNT_UNMOUNTING] = "unmounting",
-                [MOUNT_MAINTAINANCE] = "maintainance"
-        };
-
         Mount *s = MOUNT(u);
 
         assert(s);
@@ -57,10 +66,20 @@ static void mount_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sMount State: %s\n"
                 "%sWhere: %s\n"
-                "%sWhat: %s\n",
-                prefix, state_table[s->state],
+                "%sWhat: %s\n"
+                "%sFrom /etc/fstab: %s\n"
+                "%sFrom /proc/self/mountinfo: %s\n",
+                prefix, state_string_table[s->state],
                 prefix, s->where,
-                prefix, s->what);
+                prefix, s->what,
+                prefix, yes_no(s->from_etc_fstab),
+                prefix, yes_no(s->from_proc_self_mountinfo));
+}
+
+static UnitActiveState mount_active_state(Unit *u) {
+        assert(u);
+
+        return state_translation_table[MOUNT(u)->state];
 }
 
 static void mount_shutdown(Manager *m) {
@@ -136,12 +155,13 @@ static int mount_add_path_links(Mount *m) {
         return 0;
 }
 
-static int mount_add_one(Manager *m, const char *what, const char *where) {
+static int mount_add_one(Manager *m, const char *what, const char *where, bool live) {
         char *e;
         int r;
         Unit *u;
         bool delete;
 
+        assert(m);
         assert(what);
         assert(where);
 
@@ -172,15 +192,22 @@ static int mount_add_one(Manager *m, const char *what, const char *where) {
                         goto fail;
 
                 if (!(MOUNT(u)->what = strdup(what)) ||
-                    !(MOUNT(u)->where = strdup(where)) ||
-                    !(u->meta.description = strdup(where))) {
-                        r = -ENOMEM;
+                    !(MOUNT(u)->where = strdup(where))) {
+                            r = -ENOMEM;
+                            goto fail;
+                    }
+
+                if ((r = unit_set_description(u, where)) < 0)
                         goto fail;
-                }
         } else {
                 delete = false;
                 free(e);
         }
+
+        if (live)
+                MOUNT(u)->from_proc_self_mountinfo = true;
+        else
+                MOUNT(u)->from_etc_fstab = true;
 
         if ((r = mount_add_node_links(MOUNT(u))) < 0)
                 goto fail;
@@ -189,6 +216,7 @@ static int mount_add_one(Manager *m, const char *what, const char *where) {
                 goto fail;
 
         unit_add_to_load_queue(u);
+
         return 0;
 
 fail:
@@ -207,10 +235,10 @@ static char *fstab_node_to_udev_node(char *p) {
 
         if (startswith(p, "LABEL=")) {
 
-                if (!(t = strdup(p+6)))
+                if (!(t = xescape(p+6, "/ ")))
                         return NULL;
 
-                r = asprintf(&dn, "/dev/disk/by-label/%s", xescape(t, "/ "));
+                r = asprintf(&dn, "/dev/disk/by-label/%s", t);
                 free(t);
 
                 if (r < 0)
@@ -221,10 +249,10 @@ static char *fstab_node_to_udev_node(char *p) {
 
         if (startswith(p, "UUID=")) {
 
-                if (!(t = strdup(p+5)))
+                if (!(t = xescape(p+5, "/ ")))
                         return NULL;
 
-                r = asprintf(&dn, "/dev/disk/by-uuid/%s", ascii_strlower(xescape(t, "/ ")));
+                r = asprintf(&dn, "/dev/disk/by-uuid/%s", ascii_strlower(t));
                 free(t);
 
                 if (r < 0)
@@ -267,7 +295,7 @@ static int mount_load_etc_fstab(Manager *m) {
                 if (where[0] == '/')
                         path_kill_slashes(where);
 
-                r = mount_add_one(m, what, where);
+                r = mount_add_one(m, what, where, false);
                 free(what);
                 free(where);
 
@@ -282,7 +310,7 @@ finish:
         return r;
 }
 
-static int mount_load_proc_mounts(Manager *m) {
+static int mount_load_proc_self_mountinfo(Manager *m) {
         FILE *f;
         int r;
 
@@ -338,7 +366,7 @@ static int mount_load_proc_mounts(Manager *m) {
                 }
                 free(path);
 
-                r = mount_add_one(m, d, p);
+                r = mount_add_one(m, d, p, true);
                 free(d);
                 free(p);
 
@@ -361,7 +389,7 @@ static int mount_enumerate(Manager *m) {
         if ((r = mount_load_etc_fstab(m)) < 0)
                 goto fail;
 
-        if ((r = mount_load_proc_mounts(m)) < 0)
+        if ((r = mount_load_proc_self_mountinfo(m)) < 0)
                 goto fail;
 
         return 0;
@@ -371,28 +399,17 @@ fail:
         return r;
 }
 
-static UnitActiveState mount_active_state(Unit *u) {
-
-        static const UnitActiveState table[_MOUNT_STATE_MAX] = {
-                [MOUNT_DEAD] = UNIT_INACTIVE,
-                [MOUNT_MOUNTING] = UNIT_ACTIVATING,
-                [MOUNT_MOUNTED] = UNIT_ACTIVE,
-                [MOUNT_UNMOUNTING] = UNIT_DEACTIVATING,
-                [MOUNT_MAINTAINANCE] = UNIT_INACTIVE,
-        };
-
-        return table[MOUNT(u)->state];
-}
-
 const UnitVTable mount_vtable = {
         .suffix = ".mount",
 
-        .init = mount_init,
+        .init = unit_load_fragment_and_dropin,
         .done = mount_done,
+        .coldplug = mount_coldplug,
+
         .dump = mount_dump,
 
-        .enumerate = mount_enumerate,
-        .shutdown = mount_shutdown,
+        .active_state = mount_active_state,
 
-        .active_state = mount_active_state
+        .enumerate = mount_enumerate,
+        .shutdown = mount_shutdown
 };

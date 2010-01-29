@@ -21,7 +21,12 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if ((r = manager_load_unit(m, "default.target", &target)) < 0) {
+        if ((r = manager_coldplug(m)) < 0) {
+                log_error("Failed to retrieve coldplug information: %s", strerror(-r));
+                goto finish;
+        }
+
+        if ((r = manager_load_unit(m, SPECIAL_DEFAULT_TARGET, &target)) < 0) {
                 log_error("Failed to load default target: %s", strerror(-r));
                 goto finish;
         }
@@ -37,10 +42,10 @@ int main(int argc, char *argv[]) {
         printf("→ By jobs:\n");
         manager_dump_jobs(m, stdout, "\t");
 
-        if ((r = manager_loop(m)) < 0) {
-                log_error("Failed to run mainloop: %s", strerror(-r));
-                goto finish;
-        }
+        /* if ((r = manager_loop(m)) < 0) { */
+        /*         log_error("Failed to run mainloop: %s", strerror(-r)); */
+        /*         goto finish; */
+        /* } */
 
         retval = 0;
 

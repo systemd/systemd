@@ -21,7 +21,6 @@ COMMON= \
 	snapshot.o \
 	socket.o \
 	timer.o \
-	load-fstab.o \
 	load-dropin.o \
 	execute.o
 

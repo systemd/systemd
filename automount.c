@@ -20,10 +20,6 @@ static int automount_init(Unit *u) {
         if ((r = unit_load_fragment(u)) < 0)
                 return r;
 
-        /* Load entry from /etc/fstab */
-        if ((r = unit_load_fstab(u)) < 0)
-                return r;
-
         /* Load drop-in directory data */
         if ((r = unit_load_dropin(u)) < 0)
                 return r;

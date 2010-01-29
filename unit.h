@@ -144,6 +144,7 @@ struct UnitVTable {
 
         int (*init)(Unit *u);
         void (*done)(Unit *u);
+        int (*coldplug)(Unit *u);
 
         void (*dump)(Unit *u, FILE *f, const char *prefix);
 
@@ -161,7 +162,14 @@ struct UnitVTable {
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
         void (*timer_event)(Unit *u, uint64_t n_elapsed, Watch *w);
 
+        /* This is called for each unit type and should be used to
+         * enumerate existing devices and load them. However,
+         * everything that is loaded here should still stay in
+         * inactive state. It is the job of the coldplug() call above
+         * to put the units into the initial state.  */
         int (*enumerate)(Manager *m);
+
+        /* Type specific cleanups. */
         void (*shutdown)(Manager *m);
 };
 
@@ -202,6 +210,7 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other);
 int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name);
 
 int unit_choose_id(Unit *u, const char *name);
+int unit_set_description(Unit *u, const char *description);
 
 void unit_add_to_load_queue(Unit *u);
 
