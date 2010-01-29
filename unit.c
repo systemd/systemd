@@ -903,32 +903,41 @@ int set_unit_path(const char *p) {
         return 0;
 }
 
-char *unit_name_escape_path(const char *path, const char *suffix) {
+char *unit_name_escape_path(const char *prefix, const char *path, const char *suffix) {
         char *r, *t;
         const char *f;
-        size_t a, b;
+        size_t a, b, c;
 
         assert(path);
-        assert(suffix);
 
-        /* Takes a path and a util suffix and makes a nice unit name
-         * of it, escaping all weird chars on the way.
+        /* Takes a path and a suffix and prefix and makes a nice
+         * string suitable as unit name of it, escaping all weird
+         * chars on the way.
          *
-         * / becomes _, and all chars not alloweed in a unit name get
-         * escaped as \xFF, including the _ and the \ itself, of
-         * course. This escaping is hence reversible.
+         * / becomes ., and all chars not alloweed in a unit name get
+         * escaped as \xFF, including \ and ., of course. This
+         * escaping is hence reversible.
          */
 
-        a = strlen(path);
-        b = strlen(suffix);
+        if (!prefix)
+                prefix = "";
 
-        if (!(r = new(char, a*4+b+1)))
+        if (!suffix)
+                suffix = "";
+
+        a = strlen(prefix);
+        b = strlen(path);
+        c = strlen(suffix);
+
+        if (!(r = new(char, a+b*4+c+1)))
                 return NULL;
 
-        for (f = path, t = r; *f; f++) {
+        memcpy(r, prefix, a);
+
+        for (f = path, t = r+a; *f; f++) {
                 if (*f == '/')
-                        *(t++) = '_';
-                else if (*f == '_' || *f == '\\' || !strchr(VALID_CHARS, *f)) {
+                        *(t++) = '.';
+                else if (*f == '.' || *f == '\\' || !strchr(VALID_CHARS, *f)) {
                         *(t++) = '\\';
                         *(t++) = 'x';
                         *(t++) = hexchar(*f > 4);
@@ -937,7 +946,7 @@ char *unit_name_escape_path(const char *path, const char *suffix) {
                         *(t++) = *f;
         }
 
-        memcpy(t, suffix, b+1);
+        memcpy(t, suffix, c+1);
 
         return r;
 }

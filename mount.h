@@ -20,7 +20,8 @@ struct Mount {
         Meta meta;
 
         MountState state;
-        char *path;
+
+        char *what, *where;
 };
 
 extern const UnitVTable mount_vtable;

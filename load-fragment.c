@@ -647,6 +647,8 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_id) {
                 if (c++ >= FOLLOW_MAX)
                         return -ELOOP;
 
+                path_kill_slashes(*filename);
+
                 /* Add the file name we are currently looking at to
                  * the names of this unit */
                 name = file_name_from_path(*filename);
@@ -804,11 +806,11 @@ static int load_from_path(Unit *u, const char *path) {
                 if ((r = unit_add_name(u, k)) < 0)
                         goto finish;
 
-                if (id == k)
-                        assert_se(u->meta.id = set_get(u->meta.names, k));
 
                 free(k);
         }
+
+        unit_choose_id(u, id);
 
         free(u->meta.load_path);
         u->meta.load_path = filename;
