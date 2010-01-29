@@ -22,7 +22,8 @@ COMMON= \
 	socket.o \
 	timer.o \
 	load-dropin.o \
-	execute.o
+	execute.o \
+	ratelimit.o
 
 all: systemd test-engine test-job-type systemd-logger
 

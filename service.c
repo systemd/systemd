@@ -100,6 +100,8 @@ static int service_init(Unit *u) {
 
         s->state = SERVICE_DEAD;
 
+        RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
+
         /* Load a .service file */
         if ((r = unit_load_fragment(u)) < 0) {
                 service_done(u);
@@ -733,6 +735,12 @@ static int service_start(Unit *u) {
                 return 0;
 
         assert(s->state == SERVICE_DEAD || s->state == SERVICE_MAINTAINANCE || s->state == SERVICE_AUTO_RESTART);
+
+        /* Make sure we don't enter a busy loop of some kind. */
+        if (!ratelimit_test(&s->ratelimit)) {
+                log_warning("%s start request repeated too quickly, refusing to start.", unit_id(u));
+                return -EAGAIN;
+        }
 
         s->failure = false;
         s->main_pid_known = false;

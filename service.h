@@ -6,6 +6,7 @@
 typedef struct Service Service;
 
 #include "unit.h"
+#include "ratelimit.h"
 
 typedef enum ServiceState {
         SERVICE_DEAD,
@@ -71,6 +72,8 @@ struct Service {
 
         bool failure:1; /* if we shut down, remember why */
         Watch timer_watch;
+
+        RateLimit ratelimit;
 };
 
 const UnitVTable service_vtable;
