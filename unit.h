@@ -111,6 +111,12 @@ struct Meta {
 
         bool in_load_queue:1;
 
+        /* If we go down, pull down everything that depends on us, too */
+        bool recursive_stop;
+
+        /* Garbage collect us we nobody wants or requires us anymore */
+        bool stop_when_unneeded;
+
         usec_t active_enter_timestamp;
         usec_t active_exit_timestamp;
 

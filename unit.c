@@ -373,11 +373,15 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s→ Unit %s:\n"
                 "%s\tDescription: %s\n"
                 "%s\tUnit Load State: %s\n"
-                "%s\tUnit Active State: %s\n",
+                "%s\tUnit Active State: %s\n"
+                "%s\tRecursive Deactivate: %s\n"
+                "%s\tStop When Unneeded: %s\n",
                 prefix, unit_id(u),
                 prefix, unit_description(u),
                 prefix, load_state_table[u->meta.load_state],
-                prefix, active_state_table[unit_active_state(u)]);
+                prefix, active_state_table[unit_active_state(u)],
+                prefix, yes_no(u->meta.recursive_stop),
+                prefix, yes_no(u->meta.stop_when_unneeded));
 
         if (u->meta.load_path)
                 fprintf(f, "%s\tLoad Path: %s\n", prefix, u->meta.load_path);
@@ -538,6 +542,39 @@ bool unit_can_reload(Unit *u) {
         return UNIT_VTABLE(u)->can_reload(u);
 }
 
+static void unit_check_uneeded(Unit *u) {
+        Iterator i;
+        Unit *other;
+
+        assert(u);
+
+        /* If this service shall be shut down when unneeded then do
+         * so. */
+
+        if (!u->meta.stop_when_unneeded)
+                return;
+
+        if (!UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u)))
+                return;
+
+        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY], i)
+                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                        return;
+
+        SET_FOREACH(other, u->meta.dependencies[UNIT_SOFT_REQUIRED_BY], i)
+                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                        return;
+
+        SET_FOREACH(other, u->meta.dependencies[UNIT_WANTED_BY], i)
+                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                        return;
+
+        log_debug("Service %s is not needed anymore. Stopping.", unit_id(u));
+
+        /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
+        manager_add_job(u->meta.manager, JOB_STOP, u, JOB_FAIL, true, NULL);
+}
+
 static void retroactively_start_dependencies(Unit *u) {
         Iterator i;
         Unit *other;
@@ -573,9 +610,29 @@ static void retroactively_stop_dependencies(Unit *u) {
         assert(u);
         assert(UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(u)));
 
-        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY], i)
+        if (u->meta.recursive_stop) {
+                /* Pull down units need us recursively if enabled */
+                SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY], i)
+                        if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                                manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL);
+        }
+
+        /* Garbage collect services that might not be needed anymore, if enabled */
+        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRES], i)
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
-                        manager_add_job(u->meta.manager, JOB_STOP, other, JOB_REPLACE, true, NULL);
+                        unit_check_uneeded(other);
+        SET_FOREACH(other, u->meta.dependencies[UNIT_SOFT_REQUIRES], i)
+                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                        unit_check_uneeded(other);
+        SET_FOREACH(other, u->meta.dependencies[UNIT_WANTS], i)
+                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                        unit_check_uneeded(other);
+        SET_FOREACH(other, u->meta.dependencies[UNIT_REQUISITE], i)
+                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                        unit_check_uneeded(other);
+        SET_FOREACH(other, u->meta.dependencies[UNIT_SOFT_REQUISITE], i)
+                if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
+                        unit_check_uneeded(other);
 }
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
@@ -665,6 +722,10 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                 retroactively_start_dependencies(u);
         else if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
                 retroactively_stop_dependencies(u);
+
+        /* Maybe we finished startup and are now ready for being
+         * stopped because unneeded? */
+        unit_check_uneeded(u);
 }
 
 int unit_watch_fd(Unit *u, int fd, uint32_t events, Watch *w) {
