@@ -19,8 +19,6 @@
 
 - add a job mode which shuts everything down but what is requested
 
-- write log subsystem/log output logic for daemons
-
 - implement priv dropping
 
 - allow to disable priv dropping for hook scripts from fragment
@@ -38,8 +36,6 @@
 - templating/instances
 
 - verify fragment data after loading: refuse cycles on yourself, service units contradicting, more than one Start executable, ...
-
-- rate limit startups
 
 - automatically delete stale unix sockets
 
