@@ -25,8 +25,15 @@ struct Mount {
 
         bool from_etc_fstab:1;
         bool from_proc_self_mountinfo:1;
+
+        /* Used while looking for mount points that vanished or got
+         * added from/to /proc/self/mountinfo */
+        bool still_exists:1;
+        bool just_created:1;
 };
 
 extern const UnitVTable mount_vtable;
+
+void mount_fd_event(Manager *m, int events);
 
 #endif

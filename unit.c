@@ -147,6 +147,9 @@ int unit_add_name(Unit *u, const char *text) {
                 return r;
         }
 
+        if (u->meta.type == _UNIT_TYPE_INVALID)
+                LIST_PREPEND(Meta, units_per_type, u->meta.manager->units_per_type[t], &u->meta);
+
         u->meta.type = t;
 
         if (!u->meta.id)
@@ -223,6 +226,9 @@ void unit_free(Unit *u) {
 
         SET_FOREACH(t, u->meta.names, i)
                 hashmap_remove_value(u->meta.manager->units, t, u);
+
+        if (u->meta.type != _UNIT_TYPE_INVALID)
+                LIST_REMOVE(Meta, units_per_type, u->meta.manager->units_per_type[u->meta.type], &u->meta);
 
         if (u->meta.in_load_queue)
                 LIST_REMOVE(Meta, load_queue, u->meta.manager->load_queue, &u->meta);

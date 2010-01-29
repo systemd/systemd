@@ -3,6 +3,8 @@
 #include <errno.h>
 #include <stdio.h>
 #include <mntent.h>
+#include <sys/epoll.h>
+#include <sys/poll.h>
 
 #include "unit.h"
 #include "mount.h"
@@ -27,16 +29,19 @@ static const char* const state_string_table[_MOUNT_STATE_MAX] = {
 };
 
 static void mount_done(Unit *u) {
-        Mount *d = MOUNT(u);
+        Mount *m = MOUNT(u);
 
-        assert(d);
-        free(d->what);
-        free(d->where);
+        assert(m);
+        free(m->what);
+        free(m->where);
 }
 
 static void mount_set_state(Mount *m, MountState state) {
         MountState old_state;
         assert(m);
+
+        if (state == m->state)
+                return;
 
         old_state = m->state;
         m->state = state;
@@ -83,6 +88,10 @@ static UnitActiveState mount_active_state(Unit *u) {
 }
 
 static void mount_shutdown(Manager *m) {
+        assert(m);
+
+        if (m->proc_self_mountinfo)
+                fclose(m->proc_self_mountinfo);
 }
 
 static int mount_add_node_links(Mount *m) {
@@ -119,35 +128,34 @@ static int mount_add_node_links(Mount *m) {
 }
 
 static int mount_add_path_links(Mount *m) {
-        Iterator i;
-        Unit *other;
+        Meta *other;
         int r;
 
         /* Adds in link to other mount points, that might lie below or
          * above us in the hierarchy */
 
-        HASHMAP_FOREACH(other, UNIT(m)->meta.manager->units, i) {
+        LIST_FOREACH(units_per_type, other, UNIT(m)->meta.manager->units_per_type[UNIT_MOUNT]) {
                 Mount *n;
 
-                if (other->meta.type != UNIT_MOUNT)
-                        continue;
+                n = (Mount*) other;
 
-                n = MOUNT(other);
+                if (n == m)
+                        return 0;
 
                 if (path_startswith(m->where, n->where)) {
 
-                        if ((r = unit_add_dependency(UNIT(m), UNIT_AFTER, other)) < 0)
+                        if ((r = unit_add_dependency(UNIT(m), UNIT_AFTER, (Unit*) other)) < 0)
                                 return r;
 
-                        if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, other)) < 0)
+                        if ((r = unit_add_dependency(UNIT(m), UNIT_REQUIRES, (Unit*) other)) < 0)
                                 return r;
 
                 } else if (startswith(n->where, m->where)) {
 
-                        if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, other)) < 0)
+                        if ((r = unit_add_dependency(UNIT(m), UNIT_BEFORE, (Unit*) other)) < 0)
                                 return r;
 
-                        if ((r = unit_add_dependency(other, UNIT_REQUIRES, UNIT(m))) < 0)
+                        if ((r = unit_add_dependency((Unit*) other, UNIT_REQUIRES, UNIT(m))) < 0)
                                 return r;
                 }
         }
@@ -155,7 +163,7 @@ static int mount_add_path_links(Mount *m) {
         return 0;
 }
 
-static int mount_add_one(Manager *m, const char *what, const char *where, bool live) {
+static int mount_add_one(Manager *m, const char *what, const char *where, bool live, bool set_flags) {
         char *e;
         int r;
         Unit *u;
@@ -199,15 +207,24 @@ static int mount_add_one(Manager *m, const char *what, const char *where, bool l
 
                 if ((r = unit_set_description(u, where)) < 0)
                         goto fail;
+
         } else {
                 delete = false;
                 free(e);
         }
 
-        if (live)
+        if (set_flags)
+                MOUNT(u)->still_exists = true;
+
+        if (live) {
+                if (set_flags)
+                        MOUNT(u)->just_created = !MOUNT(u)->from_proc_self_mountinfo;
                 MOUNT(u)->from_proc_self_mountinfo = true;
-        else
+        } else {
+                if (set_flags)
+                        MOUNT(u)->just_created = !MOUNT(u)->from_etc_fstab;
                 MOUNT(u)->from_etc_fstab = true;
+        }
 
         if ((r = mount_add_node_links(MOUNT(u))) < 0)
                 goto fail;
@@ -264,7 +281,7 @@ static char *fstab_node_to_udev_node(char *p) {
         return strdup(p);
 }
 
-static int mount_load_etc_fstab(Manager *m) {
+static int mount_load_etc_fstab(Manager *m, bool set_flags) {
         FILE *f;
         int r;
         struct mntent* me;
@@ -295,7 +312,7 @@ static int mount_load_etc_fstab(Manager *m) {
                 if (where[0] == '/')
                         path_kill_slashes(where);
 
-                r = mount_add_one(m, what, where, false);
+                r = mount_add_one(m, what, where, false, set_flags);
                 free(what);
                 free(where);
 
@@ -310,20 +327,18 @@ finish:
         return r;
 }
 
-static int mount_load_proc_self_mountinfo(Manager *m) {
-        FILE *f;
+static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         int r;
 
         assert(m);
 
-        if (!(f = fopen("/proc/self/mountinfo", "r")))
-                return -errno;
+        rewind(m->proc_self_mountinfo);
 
         for (;;) {
                 int k;
                 char *device, *path, *d, *p;
 
-                if ((k = fscanf(f,
+                if ((k = fscanf(m->proc_self_mountinfo,
                                 "%*s "       /* (1) mount id */
                                 "%*s "       /* (2) parent id */
                                 "%*s "       /* (3) major:minor */
@@ -333,63 +348,64 @@ static int mount_load_proc_self_mountinfo(Manager *m) {
                                 "%*[^-]"     /* (7) optional fields */
                                 "- "         /* (8) seperator */
                                 "%*s "       /* (9) file system type */
-                                "%ms"       /* (10) mount source */
-                                "%*[^\n]", /* some rubbish at the end */
+                                "%ms"        /* (10) mount source */
+                                "%*[^\n]",   /* some rubbish at the end */
                                 &path,
                                 &device)) != 2) {
 
-                        if (k == EOF) {
-                                if (feof(f))
-                                        break;
+                        if (k == EOF)
+                                break;
 
-                                r = -errno;
-                                goto finish;
-                        }
-
-                        r = -EBADMSG;
-                        goto finish;
+                        return -EBADMSG;
                 }
 
                 if (!(d = cunescape(device))) {
                         free(device);
                         free(path);
-                        r = -ENOMEM;
-                        goto finish;
+                        return -ENOMEM;
                 }
                 free(device);
 
                 if (!(p = cunescape(path))) {
                         free(d);
                         free(path);
-                        r = -ENOMEM;
-                        goto finish;
+                        return -ENOMEM;
                 }
                 free(path);
 
-                r = mount_add_one(m, d, p, true);
+                r = mount_add_one(m, d, p, true, set_flags);
                 free(d);
                 free(p);
 
                 if (r < 0)
-                        goto finish;
+                        return r;
         }
 
-        r = 0;
-
-finish:
-        fclose(f);
-
-        return r;
+        return 0;
 }
 
 static int mount_enumerate(Manager *m) {
         int r;
+        struct epoll_event ev;
         assert(m);
 
-        if ((r = mount_load_etc_fstab(m)) < 0)
+        if (!(m->proc_self_mountinfo = fopen("/proc/self/mountinfo", "r")))
+                return -errno;
+
+        m->mount_watch.type = WATCH_MOUNT;
+        m->mount_watch.fd = fileno(m->proc_self_mountinfo);
+
+        zero(ev);
+        ev.events = EPOLLERR;
+        ev.data.ptr = &m->mount_watch;
+
+        if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->mount_watch.fd, &ev) < 0)
+                return -errno;
+
+        if ((r = mount_load_etc_fstab(m, false)) < 0)
                 goto fail;
 
-        if ((r = mount_load_proc_self_mountinfo(m)) < 0)
+        if ((r = mount_load_proc_self_mountinfo(m, false)) < 0)
                 goto fail;
 
         return 0;
@@ -397,6 +413,40 @@ static int mount_enumerate(Manager *m) {
 fail:
         mount_shutdown(m);
         return r;
+}
+
+void mount_fd_event(Manager *m, int events) {
+        Meta *meta;
+        int r;
+
+        assert(m);
+        assert(events == POLLERR);
+
+        /* The manager calls this for every fd event happening on the
+         * /proc/self/mountinfo file, which informs us about mounting
+         * table changes */
+
+        if ((r = mount_load_proc_self_mountinfo(m, true)) < 0) {
+                log_error("Failed to reread /proc/self/mountinfo: %s", strerror(-errno));
+                return;
+        }
+
+        manager_dispatch_load_queue(m);
+
+        LIST_FOREACH(units_per_type, meta, m->units_per_type[UNIT_MOUNT]) {
+                Mount *mount = (Mount*) meta;
+
+                if (mount->just_created && mount->state == MOUNT_DEAD)
+                        mount_set_state(mount, MOUNT_MOUNTED);
+                else if (!mount->still_exists && mount->state == MOUNT_MOUNTED) {
+                        mount_set_state(mount, MOUNT_DEAD);
+                        mount->from_proc_self_mountinfo = false;
+                }
+
+                /* Clear the flags for later calls */
+                mount->just_created = false;
+                mount->still_exists = false;
+        }
 }
 
 const UnitVTable mount_vtable = {

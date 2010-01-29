@@ -14,14 +14,11 @@ typedef enum UnitLoadState UnitLoadState;
 typedef enum UnitActiveState UnitActiveState;
 typedef enum UnitDependency UnitDependency;
 
-#include "job.h"
-#include "manager.h"
 #include "set.h"
 #include "util.h"
 #include "list.h"
 #include "socket-util.h"
 #include "execute.h"
-#include "util.h"
 
 #define UNIT_NAME_MAX 128
 #define DEFAULT_TIMEOUT_USEC (20*USEC_PER_SEC)
@@ -92,6 +89,9 @@ enum UnitDependency {
         _UNIT_DEPENDENCY_INVALID = -1
 };
 
+#include "manager.h"
+#include "job.h"
+
 struct Meta {
         Manager *manager;
         UnitType type;
@@ -116,6 +116,9 @@ struct Meta {
 
         /* Load queue */
         LIST_FIELDS(Meta, load_queue);
+
+        /* Per type list */
+        LIST_FIELDS(Meta, units_per_type);
 };
 
 #include "service.h"

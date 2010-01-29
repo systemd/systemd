@@ -13,9 +13,10 @@ typedef struct Watch Watch;
 
 enum WatchType {
         WATCH_INVALID,
-        WATCH_SIGNAL_FD,
+        WATCH_SIGNAL,
         WATCH_FD,
-        WATCH_TIMER
+        WATCH_TIMER,
+        WATCH_MOUNT
 };
 
 struct Watch {
@@ -48,6 +49,10 @@ struct Manager {
         Hashmap *units;  /* name string => Unit object n:1 */
         Hashmap *jobs;   /* job id => Job object 1:1 */
 
+        /* To make it easy to iterate through the units of a specific
+         * type we maintain a per type linked list */
+        LIST_HEAD(Meta, units_per_type[_UNIT_TYPE_MAX]);
+
         /* Units that need to be loaded */
         LIST_HEAD(Meta, load_queue); /* this is actually more a stack than a queue, but uh. */
 
@@ -67,7 +72,12 @@ struct Manager {
 
         Watch signal_watch;
 
+        /* Data specific to the device subsystem */
         struct udev* udev;
+
+        /* Data specific to the mount subsystem */
+        FILE *proc_self_mountinfo;
+        Watch mount_watch;
 };
 
 Manager* manager_new(void);

@@ -36,7 +36,7 @@ static int manager_setup_signals(Manager *m) {
         assert_se(sigaddset(&mask, SIGPIPE) == 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
-        m->signal_watch.type = WATCH_SIGNAL_FD;
+        m->signal_watch.type = WATCH_SIGNAL;
         if ((m->signal_watch.fd = signalfd(-1, &mask, SFD_NONBLOCK|SFD_CLOEXEC)) < 0)
                 return -errno;
 
@@ -56,7 +56,7 @@ Manager* manager_new(void) {
         if (!(m = new0(Manager, 1)))
                 return NULL;
 
-        m->signal_watch.fd = m->epoll_fd = -1;
+        m->signal_watch.fd = m->mount_watch.fd = m->epoll_fd = -1;
 
         if (!(m->units = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
@@ -1123,7 +1123,7 @@ static int process_event(Manager *m, struct epoll_event *ev, bool *quit) {
 
         switch (w->type) {
 
-        case WATCH_SIGNAL_FD:
+        case WATCH_SIGNAL:
 
                 /* An incoming signal? */
                 if (ev->events != POLLIN)
@@ -1156,6 +1156,11 @@ static int process_event(Manager *m, struct epoll_event *ev, bool *quit) {
                 UNIT_VTABLE(w->unit)->timer_event(w->unit, v, w);
                 break;
         }
+
+        case WATCH_MOUNT:
+                /* Some mount table change, intended for the mount subsystem */
+                mount_fd_event(m, ev->events);
+                break;
 
         default:
                 assert_not_reached("Unknown epoll event type.");
