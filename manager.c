@@ -563,6 +563,7 @@ static void transaction_minimize_impact(Manager *m) {
 
                 HASHMAP_FOREACH(j, m->transaction_jobs, i) {
                         LIST_FOREACH(transaction, j, j) {
+                                bool stops_running_service, changes_existing_job;
 
                                 /* If it matters, we shouldn't drop it */
                                 if (j->matters_to_anchor)
@@ -571,12 +572,25 @@ static void transaction_minimize_impact(Manager *m) {
                                 /* Would this stop a running service?
                                  * Would this change an existing job?
                                  * If so, let's drop this entry */
-                                if ((j->type != JOB_STOP || UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(j->unit))) &&
-                                    (!j->unit->meta.job  || job_type_is_conflicting(j->type, j->unit->meta.job->state)))
+
+                                stops_running_service =
+                                        j->type == JOB_STOP && UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(j->unit));
+
+                                changes_existing_job =
+                                        j->unit->meta.job && job_type_is_conflicting(j->type, j->unit->meta.job->state);
+
+                                if (!stops_running_service && !changes_existing_job)
                                         continue;
 
+                                if (stops_running_service)
+                                        log_debug("%s/%s would stop a running service.", unit_id(j->unit), job_type_to_string(j->type));
+
+                                if (changes_existing_job)
+                                        log_debug("%s/%s would change existing job.", unit_id(j->unit), job_type_to_string(j->type));
+
                                 /* Ok, let's get rid of this */
-                                log_debug("Deleting %s/%s to minimize impact", unit_id(j->unit), job_type_to_string(j->type));
+                                log_debug("Deleting %s/%s to minimize impact.", unit_id(j->unit), job_type_to_string(j->type));
+
                                 transaction_delete_job(m, j);
                                 again = true;
                                 break;

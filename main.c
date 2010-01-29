@@ -42,10 +42,10 @@ int main(int argc, char *argv[]) {
         printf("→ By jobs:\n");
         manager_dump_jobs(m, stdout, "\t");
 
-        /* if ((r = manager_loop(m)) < 0) { */
-        /*         log_error("Failed to run mainloop: %s", strerror(-r)); */
-        /*         goto finish; */
-        /* } */
+        if ((r = manager_loop(m)) < 0) {
+                log_error("Failed to run mainloop: %s", strerror(-r));
+                goto finish;
+        }
 
         retval = 0;
 
