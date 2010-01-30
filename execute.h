@@ -12,6 +12,7 @@ typedef struct ExecContext ExecContext;
 #include <sys/capability.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <sched.h>
 
 #include "list.h"
 #include "util.h"
@@ -20,11 +21,20 @@ typedef struct ExecContext ExecContext;
 #define LOGGER_SOCKET "/systemd/logger"
 
 typedef enum ExecOutput {
-        EXEC_CONSOLE,
-        EXEC_NULL,
-        EXEC_SYSLOG,
-        EXEC_KERNEL
+        EXEC_OUTPUT_CONSOLE,
+        EXEC_OUTPUT_NULL,
+        EXEC_OUTPUT_SYSLOG,
+        EXEC_OUTPUT_KERNEL,
+        _EXEC_OUTPUT_MAX,
+        _EXEC_OUTPUT_INVALID = -1
 } ExecOutput;
+
+typedef enum ExecInput {
+        EXEC_INPUT_NULL,
+        EXEC_INPUT_CONSOLE,
+        _EXEC_INPUT_MAX,
+        _EXEC_INPUT_INVALID = -1
+} ExecInput;
 
 struct ExecStatus {
         pid_t pid;
@@ -43,27 +53,37 @@ struct ExecCommand {
 struct ExecContext {
         char **environment;
         mode_t umask;
-        struct rlimit *rlimit[RLIMIT_NLIMITS];  /* FIXME: load-fragment parser missing */
+        struct rlimit *rlimit[RLIMIT_NLIMITS];
         char *working_directory, *root_directory;
         int oom_adjust;
         int nice;
         int ioprio;
+        int cpu_sched_policy;
+        int cpu_sched_priority;
+        cpu_set_t cpu_affinity;
+        unsigned long timer_slack_ns;
 
         bool oom_adjust_set:1;
         bool nice_set:1;
         bool ioprio_set:1;
+        bool cpu_sched_set:1;
+        bool cpu_affinity_set:1;
+        bool timer_slack_ns_set:1;
 
+        ExecInput input;
         ExecOutput output;
         int syslog_priority;
         char *syslog_identifier;
 
-         /* FIXME: all privs related settings need parser and enforcer */
+        /* FIXME: all privs related settings need to be enforced */
         cap_t capabilities;
-        bool capabilities_set:1;
+        int secure_bits;
+        uint64_t capability_bounding_set_drop;
 
-        /* since resolving these names might might involve socket
+        /* Since resolving these names might might involve socket
          * connections and we don't want to deadlock ourselves these
-         * names are resolved on execution only. */
+         * names are resolved on execution only and in the child
+         * process. */
         char *user;
         char *group;
         char **supplementary_groups;
@@ -82,6 +102,7 @@ typedef enum ExitStatus {
         /* The LSB suggests that error codes >= 200 are "reserved". We
          * use them here under the assumption that they hence are
          * unused by init scripts.
+         * c->
          *
          * http://refspecs.freestandards.org/LSB_3.1.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html */
 
@@ -93,10 +114,15 @@ typedef enum ExitStatus {
         EXIT_LIMITS,
         EXIT_OOM_ADJUST,
         EXIT_SIGNAL_MASK,
+        EXIT_INPUT,
         EXIT_OUTPUT,
         EXIT_CHROOT,
         EXIT_PGID,
-        EXIT_IOPRIO
+        EXIT_IOPRIO,
+        EXIT_TIMERSLACK,
+        EXIT_SECUREBITS,
+        EXIT_SETSCHEDULER,
+        EXIT_CPUAFFINITY
 } ExitStatus;
 
 int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds, unsigned n_fds, pid_t *ret);
@@ -113,5 +139,11 @@ void exec_context_done(ExecContext *c);
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
 
 void exec_status_fill(ExecStatus *s, pid_t pid, int code, int status);
+
+const char* exec_output_to_string(ExecOutput i);
+int exec_output_from_string(const char *s);
+
+const char* exec_input_to_string(ExecInput i);
+int exec_input_from_string(const char *s);
 
 #endif

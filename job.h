@@ -39,7 +39,8 @@ enum JobType {
 enum JobState {
         JOB_WAITING,
         JOB_RUNNING,
-        _JOB_STATE_MAX
+        _JOB_STATE_MAX,
+        _JOB_STATE_INVALID = -1
 };
 
 enum JobMode {
@@ -98,7 +99,6 @@ bool job_is_anchor(Job *j);
 
 int job_merge(Job *j, Job *other);
 
-const char* job_type_to_string(JobType t);
 int job_type_merge(JobType *a, JobType b);
 bool job_type_is_mergeable(JobType a, JobType b);
 bool job_type_is_superset(JobType a, JobType b);
@@ -107,5 +107,11 @@ bool job_type_is_conflicting(JobType a, JobType b);
 void job_schedule_run(Job *j);
 int job_run_and_invalidate(Job *j);
 int job_finish_and_invalidate(Job *j, bool success);
+
+const char* job_type_to_string(JobType t);
+JobType job_type_from_string(const char *s);
+
+const char* job_state_to_string(JobState t);
+JobState job_state_from_string(const char *s);
 
 #endif

@@ -52,3 +52,5 @@
 
 - ability to kill services? i.e. in contrast to stopping them, go directly
   into killing mode?
+
+- restart-on-success, restart-on-failure, restart-on-abort

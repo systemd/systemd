@@ -1060,7 +1060,7 @@ static int manager_dispatch_sigchld(Manager *m) {
                 if (si.si_code != CLD_EXITED && si.si_code != CLD_KILLED && si.si_code != CLD_DUMPED)
                         continue;
 
-                log_debug("child %llu died (code=%s, status=%i)", (long long unsigned) si.si_pid, sigchld_code(si.si_code), si.si_status);
+                log_debug("child %llu died (code=%s, status=%i)", (long long unsigned) si.si_pid, sigchld_code_to_string(si.si_code), si.si_status);
 
                 if (!(u = hashmap_remove(m->watch_pids, UINT32_TO_PTR(si.si_pid))))
                         continue;

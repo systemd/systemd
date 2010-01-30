@@ -26,23 +26,6 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING,
 };
 
-static const char* const state_string_table[_SERVICE_STATE_MAX] = {
-        [SERVICE_DEAD] = "dead",
-        [SERVICE_START_PRE] = "start-pre",
-        [SERVICE_START] = "start",
-        [SERVICE_START_POST] = "start-post",
-        [SERVICE_RUNNING] = "running",
-        [SERVICE_RELOAD] = "reload",
-        [SERVICE_STOP] = "stop",
-        [SERVICE_STOP_SIGTERM] = "stop-sigterm",
-        [SERVICE_STOP_SIGKILL] = "stop-sigkill",
-        [SERVICE_STOP_POST] = "stop-post",
-        [SERVICE_FINAL_SIGTERM] = "final-sigterm",
-        [SERVICE_FINAL_SIGKILL] = "final-sigkill",
-        [SERVICE_MAINTAINANCE] = "maintainance",
-        [SERVICE_AUTO_RESTART] = "auto-restart",
-};
-
 static void service_done(Unit *u) {
         Service *s = SERVICE(u);
 
@@ -126,15 +109,6 @@ static int service_init(Unit *u) {
 
 static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
-        static const char* const command_table[_SERVICE_EXEC_MAX] = {
-                [SERVICE_EXEC_START_PRE] = "ExecStartPre",
-                [SERVICE_EXEC_START] = "ExecStart",
-                [SERVICE_EXEC_START_POST] = "ExecStartPost",
-                [SERVICE_EXEC_RELOAD] = "ExecReload",
-                [SERVICE_EXEC_STOP] = "ExecStop",
-                [SERVICE_EXEC_STOP_POST] = "ExecStopPost",
-        };
-
         ServiceExecCommand c;
         Service *s = SERVICE(u);
         char *prefix2;
@@ -147,7 +121,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
         fprintf(f,
                 "%sService State: %s\n",
-                prefix, state_string_table[s->state]);
+                prefix, service_state_to_string(s->state));
 
         if (s->pid_file)
                 fprintf(f,
@@ -163,7 +137,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         continue;
 
                 fprintf(f, "%s→ %s:\n",
-                        prefix, command_table[c]);
+                        prefix, service_exec_command_to_string(c));
 
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
@@ -333,7 +307,7 @@ static void service_set_state(Service *s, ServiceState state) {
             state == SERVICE_AUTO_RESTART)
                 service_notify_sockets(s);
 
-        log_debug("%s changed %s → %s", unit_id(UNIT(s)), state_string_table[old_state], state_string_table[state]);
+        log_debug("%s changed %s → %s", unit_id(UNIT(s)), service_state_to_string(old_state), service_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
 }
@@ -837,7 +811,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         s->exec_command[SERVICE_EXEC_START]->exec_status = s->main_exec_status;
                 }
 
-                log_debug("%s: main process exited, code=%s status=%i", unit_id(u), sigchld_code(code), status);
+                log_debug("%s: main process exited, code=%s status=%i", unit_id(u), sigchld_code_to_string(code), status);
 
                 /* The service exited, so the service is officially
                  * gone. */
@@ -874,7 +848,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 exec_status_fill(&s->control_command->exec_status, pid, code, status);
                 s->control_pid = 0;
 
-                log_debug("%s: control process exited, code=%s status=%i", unit_id(u), sigchld_code(code), status);
+                log_debug("%s: control process exited, code=%s status=%i", unit_id(u), sigchld_code_to_string(code), status);
 
                 /* If we are shutting things down anyway we
                  * don't care about failing commands. */
@@ -891,7 +865,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         /* No further commands for this step, so let's
                          * figure out what to do next */
 
-                        log_debug("%s got final SIGCHLD for state %s", unit_id(u), state_string_table[s->state]);
+                        log_debug("%s got final SIGCHLD for state %s", unit_id(u), service_state_to_string(s->state));
 
                         switch (s->state) {
 
@@ -1041,6 +1015,52 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
                 assert_not_reached("Timeout at wrong time.");
         }
 }
+
+static const char* const service_state_table[_SERVICE_STATE_MAX] = {
+        [SERVICE_DEAD] = "dead",
+        [SERVICE_START_PRE] = "start-pre",
+        [SERVICE_START] = "start",
+        [SERVICE_START_POST] = "start-post",
+        [SERVICE_RUNNING] = "running",
+        [SERVICE_RELOAD] = "reload",
+        [SERVICE_STOP] = "stop",
+        [SERVICE_STOP_SIGTERM] = "stop-sigterm",
+        [SERVICE_STOP_SIGKILL] = "stop-sigkill",
+        [SERVICE_STOP_POST] = "stop-post",
+        [SERVICE_FINAL_SIGTERM] = "final-sigterm",
+        [SERVICE_FINAL_SIGKILL] = "final-sigkill",
+        [SERVICE_MAINTAINANCE] = "maintainance",
+        [SERVICE_AUTO_RESTART] = "auto-restart",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(service_state, ServiceState);
+
+static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
+        [SERVICE_ONCE] = "once",
+        [SERVICE_RESTART_ON_SUCCESS] = "restart-on-success",
+        [SERVICE_RESTART_ALWAYS] = "restart-on-failure",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);
+
+static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
+        [SERVICE_FORKING] = "forking",
+        [SERVICE_SIMPLE] = "simple",
+        [SERVICE_FINISH] = "finish"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType);
+
+static const char* const service_exec_command_table[_SERVICE_EXEC_MAX] = {
+        [SERVICE_EXEC_START_PRE] = "ExecStartPre",
+        [SERVICE_EXEC_START] = "ExecStart",
+        [SERVICE_EXEC_START_POST] = "ExecStartPost",
+        [SERVICE_EXEC_RELOAD] = "ExecReload",
+        [SERVICE_EXEC_STOP] = "ExecStop",
+        [SERVICE_EXEC_STOP_POST] = "ExecStopPost",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(service_exec_command, ServiceExecCommand);
 
 const UnitVTable service_vtable = {
         .suffix = ".service",

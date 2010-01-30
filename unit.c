@@ -329,33 +329,6 @@ const char *unit_description(Unit *u) {
 
 void unit_dump(Unit *u, FILE *f, const char *prefix) {
 
-        static const char* const load_state_table[_UNIT_LOAD_STATE_MAX] = {
-                [UNIT_STUB] = "stub",
-                [UNIT_LOADED] = "loaded",
-                [UNIT_FAILED] = "failed"
-        };
-
-        static const char* const active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
-                [UNIT_ACTIVE] = "active",
-                [UNIT_INACTIVE] = "inactive",
-                [UNIT_ACTIVATING] = "activating",
-                [UNIT_DEACTIVATING] = "deactivating"
-        };
-
-        static const char* const dependency_table[_UNIT_DEPENDENCY_MAX] = {
-                [UNIT_REQUIRES] = "Requires",
-                [UNIT_SOFT_REQUIRES] = "SoftRequires",
-                [UNIT_WANTS] = "Wants",
-                [UNIT_REQUISITE] = "Requisite",
-                [UNIT_SOFT_REQUISITE] = "SoftRequisite",
-                [UNIT_REQUIRED_BY] = "RequiredBy",
-                [UNIT_SOFT_REQUIRED_BY] = "SoftRequiredBy",
-                [UNIT_WANTED_BY] = "WantedBy",
-                [UNIT_CONFLICTS] = "Conflicts",
-                [UNIT_BEFORE] = "Before",
-                [UNIT_AFTER] = "After",
-        };
-
         char *t;
         UnitDependency d;
         Iterator i;
@@ -374,12 +347,12 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tDescription: %s\n"
                 "%s\tUnit Load State: %s\n"
                 "%s\tUnit Active State: %s\n"
-                "%s\tRecursive Deactivate: %s\n"
+                "%s\tRecursive Stop: %s\n"
                 "%s\tStop When Unneeded: %s\n",
                 prefix, unit_id(u),
                 prefix, unit_description(u),
-                prefix, load_state_table[u->meta.load_state],
-                prefix, active_state_table[unit_active_state(u)],
+                prefix, unit_load_state_to_string(u->meta.load_state),
+                prefix, unit_active_state_to_string(unit_active_state(u)),
                 prefix, yes_no(u->meta.recursive_stop),
                 prefix, yes_no(u->meta.stop_when_unneeded));
 
@@ -396,7 +369,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         continue;
 
                 SET_FOREACH(other, u->meta.dependencies[d], i)
-                        fprintf(f, "%s\t%s: %s\n", prefix, dependency_table[d], unit_id(other));
+                        fprintf(f, "%s\t%s: %s\n", prefix, unit_dependency_to_string(d), unit_id(other));
         }
 
         if (UNIT_VTABLE(u)->dump)
@@ -1030,3 +1003,49 @@ char *unit_name_escape_path(const char *prefix, const char *path, const char *su
 
         return r;
 }
+
+static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
+        [UNIT_SERVICE] = "service",
+        [UNIT_TIMER] = "timer",
+        [UNIT_SOCKET] = "socket",
+        [UNIT_TARGET] = "target",
+        [UNIT_DEVICE] = "device",
+        [UNIT_MOUNT] = "mount",
+        [UNIT_AUTOMOUNT] = "automount",
+        [UNIT_SNAPSHOT] = "snapshot"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType);
+
+static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
+        [UNIT_STUB] = "stub",
+        [UNIT_LOADED] = "loaded",
+        [UNIT_FAILED] = "failed"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
+
+static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
+        [UNIT_ACTIVE] = "active",
+        [UNIT_INACTIVE] = "inactive",
+        [UNIT_ACTIVATING] = "activating",
+        [UNIT_DEACTIVATING] = "deactivating"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState);
+
+static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
+        [UNIT_REQUIRES] = "Requires",
+        [UNIT_SOFT_REQUIRES] = "SoftRequires",
+        [UNIT_WANTS] = "Wants",
+        [UNIT_REQUISITE] = "Requisite",
+        [UNIT_SOFT_REQUISITE] = "SoftRequisite",
+        [UNIT_REQUIRED_BY] = "RequiredBy",
+        [UNIT_SOFT_REQUIRED_BY] = "SoftRequiredBy",
+        [UNIT_WANTED_BY] = "WantedBy",
+        [UNIT_CONFLICTS] = "Conflicts",
+        [UNIT_BEFORE] = "Before",
+        [UNIT_AFTER] = "After",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);

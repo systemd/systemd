@@ -9,6 +9,8 @@
 #include <signal.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <sys/prctl.h>
+#include <sched.h>
 
 #include "execute.h"
 #include "strv.h"
@@ -16,6 +18,7 @@
 #include "util.h"
 #include "log.h"
 #include "ioprio.h"
+#include "securebits.h"
 
 static int close_fds(int except[], unsigned n_except) {
         DIR *d;
@@ -166,29 +169,25 @@ static int setup_output(const ExecContext *context, const char *ident) {
 
         switch (context->output) {
 
-        case EXEC_CONSOLE:
+        case EXEC_OUTPUT_CONSOLE:
                 return 0;
 
-        case EXEC_NULL:
+        case EXEC_OUTPUT_NULL:
 
-                if ((r = replace_null_fd(STDIN_FILENO, O_RDONLY)) < 0 ||
-                    (r = replace_null_fd(STDOUT_FILENO, O_WRONLY)) < 0 ||
+                if ((r = replace_null_fd(STDOUT_FILENO, O_WRONLY)) < 0 ||
                     (r = replace_null_fd(STDERR_FILENO, O_WRONLY)) < 0)
                         return r;
 
                 return 0;
 
-        case EXEC_KERNEL:
-        case EXEC_SYSLOG: {
+        case EXEC_OUTPUT_KERNEL:
+        case EXEC_OUTPUT_SYSLOG: {
 
                 int fd;
                 union {
                         struct sockaddr sa;
                         struct sockaddr_un un;
                 } sa;
-
-                if ((r = replace_null_fd(STDIN_FILENO, O_RDONLY)) < 0)
-                        return r;
 
                 close_nointr(STDOUT_FILENO);
                 close_nointr(STDERR_FILENO);
@@ -237,15 +236,37 @@ static int setup_output(const ExecContext *context, const char *ident) {
                         "%s\n"
                         "%i\n"
                         "%s\n",
-                        context->output == EXEC_KERNEL ? "kmsg" : "syslog",
+                        context->output == EXEC_OUTPUT_KERNEL ? "kmsg" : "syslog",
                         context->syslog_priority,
                         context->syslog_identifier ? context->syslog_identifier : ident);
 
                 return 0;
         }
-        }
 
-        assert_not_reached("Unknown logging type");
+        default:
+                assert_not_reached("Unknown output type");
+        }
+}
+
+int setup_input(const ExecContext *context) {
+        int r;
+
+        assert(context);
+
+        switch (context->input) {
+
+        case EXEC_INPUT_CONSOLE:
+                return 0;
+
+        case EXEC_INPUT_NULL:
+                if ((r = replace_null_fd(STDIN_FILENO, O_RDONLY)) < 0)
+                        return r;
+
+                return 0;
+
+        default:
+                assert_not_reached("Unknown input type");
+        }
 }
 
 int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds, unsigned n_fds, pid_t *ret) {
@@ -281,6 +302,11 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
 
                 umask(context->umask);
 
+                if (setup_input(context) < 0) {
+                        r = EXIT_INPUT;
+                        goto fail;
+                }
+
                 if (setup_output(context, file_name_from_path(command->path)) < 0) {
                         r = EXIT_OUTPUT;
                         goto fail;
@@ -315,9 +341,33 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
                                 goto fail;
                         }
 
+                if (context->cpu_sched_set) {
+                        struct sched_param param;
+
+                        zero(param);
+                        param.sched_priority = context->cpu_sched_priority;
+
+                        if (sched_setscheduler(0, context->cpu_sched_policy, &param) < 0) {
+                                r = EXIT_SETSCHEDULER;
+                                goto fail;
+                        }
+                }
+
+                if (context->cpu_affinity_set)
+                        if (sched_setaffinity(0, sizeof(context->cpu_affinity), &context->cpu_affinity) < 0) {
+                                r = EXIT_CPUAFFINITY;
+                                goto fail;
+                        }
+
                 if (context->ioprio_set)
                         if (ioprio_set(IOPRIO_WHO_PROCESS, 0, context->ioprio) < 0) {
                                 r = EXIT_IOPRIO;
+                                goto fail;
+                        }
+
+                if (context->timer_slack_ns_set)
+                        if (prctl(PR_SET_TIMERSLACK, context->timer_slack_ns_set) < 0) {
+                                r = EXIT_TIMERSLACK;
                                 goto fail;
                         }
 
@@ -334,6 +384,13 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
 
                         if (setrlimit(i, context->rlimit[i]) < 0) {
                                 r = EXIT_LIMITS;
+                                goto fail;
+                        }
+                }
+
+                if (context->secure_bits) {
+                        if (prctl(PR_SET_SECUREBITS, context->secure_bits) < 0) {
+                                r = EXIT_SECUREBITS;
                                 goto fail;
                         }
                 }
@@ -383,17 +440,24 @@ void exec_context_init(ExecContext *c) {
         assert(c);
 
         c->umask = 0002;
-        cap_clear(c->capabilities);
-        c->capabilities_set = false;
         c->oom_adjust = 0;
         c->oom_adjust_set = false;
         c->nice = 0;
         c->nice_set = false;
         c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_CLASS_BE, 0);
         c->ioprio_set = false;
+        c->cpu_sched_policy = SCHED_OTHER;
+        c->cpu_sched_priority = 0;
+        c->cpu_sched_set = false;
+        CPU_ZERO(&c->cpu_affinity);
+        c->cpu_affinity_set = false;
 
+        c->input = 0;
         c->output = 0;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
+
+        c->secure_bits = 0;
+        c->capability_bounding_set_drop = 0;
 }
 
 void exec_context_done(ExecContext *c) {
@@ -425,6 +489,11 @@ void exec_context_done(ExecContext *c) {
 
         strv_free(c->supplementary_groups);
         c->supplementary_groups = NULL;
+
+        if (c->capabilities) {
+                cap_free(c->capabilities);
+                c->capabilities = NULL;
+        }
 }
 
 void exec_command_free_list(ExecCommand *c) {
@@ -449,13 +518,8 @@ void exec_command_free_array(ExecCommand **c, unsigned n) {
 }
 
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
-
-        static const char * const table[] = {
-                [IOPRIO_CLASS_NONE] = "none",
-                [IOPRIO_CLASS_RT] = "realtime",
-                [IOPRIO_CLASS_BE] = "best-effort",
-                [IOPRIO_CLASS_IDLE] = "idle"
-        };
+        char ** e;
+        unsigned i;
 
         assert(c);
         assert(f);
@@ -464,12 +528,16 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 prefix = "";
 
         fprintf(f,
-                "%sUmask: %04o\n"
-                "%sWorking Directory: %s\n"
-                "%sRoot Directory: %s\n",
+                "%sUMask: %04o\n"
+                "%sWorkingDirectory: %s\n"
+                "%sRootDirectory: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
                 prefix, c->root_directory ? c->root_directory : "/");
+
+        if (c->environment)
+                for (e = c->environment; *e; e++)
+                        fprintf(f, "%sEnvironment: %s\n", prefix, *e);
 
         if (c->nice_set)
                 fprintf(f,
@@ -481,12 +549,98 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                         "%sOOMAdjust: %i\n",
                         prefix, c->oom_adjust);
 
+        for (i = 0; i < RLIM_NLIMITS; i++)
+                if (c->rlimit[i])
+                        fprintf(f, "%s: %llu\n", rlimit_to_string(i), (unsigned long long) c->rlimit[i]->rlim_max);
+
         if (c->ioprio_set)
                 fprintf(f,
                         "%sIOSchedulingClass: %s\n"
                         "%sIOPriority: %i\n",
-                        prefix, table[IOPRIO_PRIO_CLASS(c->ioprio)],
+                        prefix, ioprio_class_to_string(IOPRIO_PRIO_CLASS(c->ioprio)),
                         prefix, (int) IOPRIO_PRIO_DATA(c->ioprio));
+
+        if (c->cpu_sched_set)
+                fprintf(f,
+                        "%sCPUSchedulingPolicy: %s\n"
+                        "%sCPUSchedulingPriority: %i\n",
+                        prefix, sched_policy_to_string(c->cpu_sched_policy),
+                        prefix, c->cpu_sched_priority);
+
+        if (c->cpu_affinity_set) {
+                fprintf(f, "%sCPUAffinity:", prefix);
+                for (i = 0; i < CPU_SETSIZE; i++)
+                        if (CPU_ISSET(i, &c->cpu_affinity))
+                                fprintf(f, " %i", i);
+                fputs("\n", f);
+        }
+
+        if (c->timer_slack_ns_set)
+                fprintf(f, "%sTimerSlackNS: %lu\n", prefix, c->timer_slack_ns);
+
+        fprintf(f,
+                "%sInput: %s\n"
+                "%sOutput: %s\n",
+                prefix, exec_input_to_string(c->input),
+                prefix, exec_output_to_string(c->output));
+
+        if (c->output == EXEC_OUTPUT_SYSLOG || c->output == EXEC_OUTPUT_KERNEL)
+                fprintf(f,
+                        "%sSyslogFacility: %s\n"
+                        "%sSyslogLevel: %s\n",
+                        prefix, log_facility_to_string(LOG_FAC(c->syslog_priority)),
+                        prefix, log_level_to_string(LOG_PRI(c->syslog_priority)));
+
+        if (c->capabilities) {
+                char *t;
+                if ((t = cap_to_text(c->capabilities, NULL))) {
+                        fprintf(f, "%sCapabilities: %s\n",
+                                prefix, t);
+                        cap_free(t);
+                }
+        }
+
+        if (c->secure_bits)
+                fprintf(f, "%sSecure Bits:%s%s%s%s%s%s\n",
+                        prefix,
+                        (c->secure_bits & SECURE_KEEP_CAPS) ? " keep-caps" : "",
+                        (c->secure_bits & SECURE_KEEP_CAPS_LOCKED) ? " keep-caps-locked" : "",
+                        (c->secure_bits & SECURE_NO_SETUID_FIXUP) ? " no-setuid-fixup" : "",
+                        (c->secure_bits & SECURE_NO_SETUID_FIXUP_LOCKED) ? " no-setuid-fixup-locked" : "",
+                        (c->secure_bits & SECURE_NOROOT) ? " noroot" : "",
+                        (c->secure_bits & SECURE_NOROOT_LOCKED) ? "noroot-locked" : "");
+
+        if (c->capability_bounding_set_drop) {
+                fprintf(f, "%sCapabilityBoundingSetDrop:", prefix);
+
+                for (i = 0; i <= CAP_LAST_CAP; i++)
+                        if (c->capability_bounding_set_drop & (1 << i)) {
+                                char *t;
+
+                                if ((t = cap_to_name(i))) {
+                                        fprintf(f, " %s", t);
+                                        free(t);
+                                }
+                        }
+
+                fputs("\n", f);
+        }
+
+        if (c->user)
+                fprintf(f, "%sUser: %s", prefix, c->user);
+        if (c->group)
+                fprintf(f, "%sGroup: %s", prefix, c->group);
+
+        if (c->supplementary_groups) {
+                char **g;
+
+                fprintf(f, "%sSupplementaryGroups:", prefix);
+
+                STRV_FOREACH(g, c->supplementary_groups)
+                        fprintf(f, " %s", *g);
+
+                fputs("\n", f);
+        }
 }
 
 void exec_status_fill(ExecStatus *s, pid_t pid, int code, int status) {
@@ -565,3 +719,19 @@ void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix) {
         LIST_FOREACH(command, c, c)
                 exec_command_dump(c, f, prefix);
 }
+
+static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
+        [EXEC_OUTPUT_CONSOLE] = "console",
+        [EXEC_OUTPUT_NULL] = "null",
+        [EXEC_OUTPUT_SYSLOG] = "syslog",
+        [EXEC_OUTPUT_KERNEL] = "kernel"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
+
+static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
+        [EXEC_INPUT_NULL] = "null",
+        [EXEC_INPUT_CONSOLE] = "console"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);

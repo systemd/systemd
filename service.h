@@ -24,17 +24,23 @@ typedef enum ServiceState {
         SERVICE_MAINTAINANCE,
         SERVICE_AUTO_RESTART,
         _SERVICE_STATE_MAX,
+        _SERVICE_STATE_INVALID = -1
 } ServiceState;
 
 typedef enum ServiceRestart {
         SERVICE_ONCE,
         SERVICE_RESTART_ON_SUCCESS,
-        SERVICE_RESTART_ALWAYS
+        SERVICE_RESTART_ALWAYS,
+        _SERVICE_RESTART_MAX,
+        _SERVICE_RESTART_INVALID = -1
 } ServiceRestart;
 
 typedef enum ServiceType {
-        SERVICE_FORKING,
-        SERVICE_SIMPLE
+        SERVICE_FORKING,  /* forks by itself (i.e. traditional daemons) */
+        SERVICE_SIMPLE,   /* we fork and go on right-away (i.e. modern socket activated daemons)*/
+        SERVICE_FINISH,   /* we fork and wait until the program finishes (i.e. programs like fsck which run and need to finish before we continue) */
+        _SERVICE_TYPE_MAX,
+        _SERVICE_TYPE_INVALID = -1
 } ServiceType;
 
 typedef enum ServiceExecCommand {
@@ -44,7 +50,8 @@ typedef enum ServiceExecCommand {
         SERVICE_EXEC_RELOAD,
         SERVICE_EXEC_STOP,
         SERVICE_EXEC_STOP_POST,
-        _SERVICE_EXEC_MAX
+        _SERVICE_EXEC_MAX,
+        _SERVICE_EXEC_INVALID = -1
 } ServiceExecCommand;
 
 struct Service {
@@ -77,5 +84,17 @@ struct Service {
 };
 
 const UnitVTable service_vtable;
+
+const char* service_state_to_string(ServiceState i);
+ServiceState service_state_from_string(const char *s);
+
+const char* service_restart_to_string(ServiceRestart i);
+ServiceRestart service_restart_from_string(const char *s);
+
+const char* service_type_to_string(ServiceType i);
+ServiceType service_type_from_string(const char *s);
+
+const char* service_exec_command_to_string(ServiceExecCommand i);
+ServiceExecCommand service_exec_command_from_string(const char *s);
 
 #endif

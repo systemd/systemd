@@ -41,7 +41,8 @@ enum UnitLoadState {
         UNIT_STUB,
         UNIT_LOADED,
         UNIT_FAILED,
-        _UNIT_LOAD_STATE_MAX
+        _UNIT_LOAD_STATE_MAX,
+        _UNIT_LOAD_STATE_INVALID = -1
 };
 
 enum UnitActiveState {
@@ -50,7 +51,8 @@ enum UnitActiveState {
         UNIT_INACTIVE,
         UNIT_ACTIVATING,
         UNIT_DEACTIVATING,
-        _UNIT_ACTIVE_STATE_MAX
+        _UNIT_ACTIVE_STATE_MAX,
+        _UNIT_ACTIVE_STATE_INVALID = -1
 };
 
 static inline bool UNIT_IS_ACTIVE_OR_RELOADING(UnitActiveState t) {
@@ -259,5 +261,17 @@ const char *unit_path(void);
 int set_unit_path(const char *p);
 
 char *unit_name_escape_path(const char *prefix, const char *path, const char *suffix);
+
+const char *unit_type_to_string(UnitType i);
+UnitType unit_type_from_string(const char *s);
+
+const char *unit_load_state_to_string(UnitLoadState i);
+UnitLoadState unit_load_state_from_string(const char *s);
+
+const char *unit_active_state_to_string(UnitActiveState i);
+UnitActiveState unit_active_state_from_string(const char *s);
+
+const char *unit_dependency_to_string(UnitDependency i);
+UnitDependency unit_dependency_from_string(const char *s);
 
 #endif

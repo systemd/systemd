@@ -6,6 +6,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sched.h>
+#include <sys/prctl.h>
 
 #include "unit.h"
 #include "strv.h"
@@ -13,6 +15,8 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "ioprio.h"
+#include "securebits.h"
+#include "missing.h"
 
 static int config_parse_deps(
                 const char *filename,
@@ -405,20 +409,19 @@ static int config_parse_service_type(
                 void *userdata) {
 
         Service *s = data;
+        ServiceType x;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (streq(rvalue, "forking"))
-                s->type = SERVICE_FORKING;
-        else if (streq(rvalue, "simple"))
-                s->type = SERVICE_SIMPLE;
-        else {
+        if ((x = service_type_from_string(rvalue)) < 0) {
                 log_error("[%s:%u] Failed to parse service type: %s", filename, line, rvalue);
                 return -EBADMSG;
         }
+
+        s->type = x;
 
         return 0;
 }
@@ -433,22 +436,19 @@ static int config_parse_service_restart(
                 void *userdata) {
 
         Service *s = data;
+        ServiceRestart x;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (streq(rvalue, "once"))
-                s->restart = SERVICE_ONCE;
-        else if (streq(rvalue, "on-success"))
-                s->type = SERVICE_RESTART_ON_SUCCESS;
-        else if (streq(rvalue, "always"))
-                s->type = SERVICE_RESTART_ALWAYS;
-        else {
-                log_error("[%s:%u] Failed to parse service type: %s", filename, line, rvalue);
+        if ((x = service_restart_from_string(rvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse service restart specifier: %s", filename, line, rvalue);
                 return -EBADMSG;
         }
+
+        s->restart = x;
 
         return 0;
 }
@@ -491,25 +491,45 @@ int config_parse_output(
                 void *data,
                 void *userdata) {
 
-        ExecOutput *o = data;
+        ExecOutput *o = data, x;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        if (streq(rvalue, "syslog"))
-                *o = EXEC_SYSLOG;
-        else if (streq(rvalue, "null"))
-                *o = EXEC_NULL;
-        else if (streq(rvalue, "syslog"))
-                *o = EXEC_SYSLOG;
-        else if (streq(rvalue, "kernel"))
-                *o = EXEC_KERNEL;
-        else {
-                log_error("[%s:%u] Failed to parse log output: %s", filename, line, rvalue);
+        if ((x = exec_output_from_string(rvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse output specifier: %s", filename, line, rvalue);
                 return -EBADMSG;
         }
+
+        *o = x;
+
+        return 0;
+}
+
+int config_parse_input(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecInput *i = data, x;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((x = exec_input_from_string(rvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse input specifier: %s", filename, line, rvalue);
+                return -EBADMSG;
+        }
+
+        *i = x;
 
         return 0;
 }
@@ -523,55 +543,23 @@ int config_parse_facility(
                 void *data,
                 void *userdata) {
 
-        static const char * const table[LOG_NFACILITIES] = {
-                [LOG_FAC(LOG_KERN)] = "kern",
-                [LOG_FAC(LOG_USER)] = "user",
-                [LOG_FAC(LOG_MAIL)] = "mail",
-                [LOG_FAC(LOG_DAEMON)] = "daemon",
-                [LOG_FAC(LOG_AUTH)] = "auth",
-                [LOG_FAC(LOG_SYSLOG)] = "syslog",
-                [LOG_FAC(LOG_LPR)] = "lpr",
-                [LOG_FAC(LOG_NEWS)] = "news",
-                [LOG_FAC(LOG_UUCP)] = "uucp",
-                [LOG_FAC(LOG_CRON)] = "cron",
-                [LOG_FAC(LOG_AUTHPRIV)] = "authpriv",
-                [LOG_FAC(LOG_FTP)] = "ftp",
-                [LOG_FAC(LOG_LOCAL0)] = "local0",
-                [LOG_FAC(LOG_LOCAL1)] = "local1",
-                [LOG_FAC(LOG_LOCAL2)] = "local2",
-                [LOG_FAC(LOG_LOCAL3)] = "local3",
-                [LOG_FAC(LOG_LOCAL4)] = "local4",
-                [LOG_FAC(LOG_LOCAL5)] = "local5",
-                [LOG_FAC(LOG_LOCAL6)] = "local6",
-                [LOG_FAC(LOG_LOCAL7)] = "local7"
-        };
 
-        ExecOutput *o = data;
-        int i;
+        int *o = data, x;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        for (i = 0; i < (int) ELEMENTSOF(table); i++)
-                if (streq(rvalue, table[i])) {
-                        *o = LOG_MAKEPRI(i, LOG_PRI(*o));
-                        break;
-                }
-
-        if (i >= (int) ELEMENTSOF(table)) {
+        if ((x = log_facility_from_string(rvalue)) < 0)
 
                 /* Second try, let's see if this is a number. */
-                if (safe_atoi(rvalue, &i) >= 0 &&
-                    i >= 0 &&
-                    i < (int) ELEMENTSOF(table))
-                        *o = LOG_MAKEPRI(i, LOG_PRI(*o));
-                else {
-                        log_error("[%s:%u] Failed to parse log output: %s", filename, line, rvalue);
+                if (safe_atoi(rvalue, &x) < 0 || !log_facility_to_string(x)) {
+                        log_error("[%s:%u] Failed to parse log facility: %s", filename, line, rvalue);
                         return -EBADMSG;
                 }
-        }
+
+        *o = LOG_MAKEPRI(x, LOG_PRI(*o));
 
         return 0;
 }
@@ -585,44 +573,23 @@ int config_parse_level(
                 void *data,
                 void *userdata) {
 
-        static const char * const table[LOG_DEBUG+1] = {
-                [LOG_EMERG] = "emerg",
-                [LOG_ALERT] = "alert",
-                [LOG_CRIT] = "crit",
-                [LOG_ERR] = "err",
-                [LOG_WARNING] = "warning",
-                [LOG_NOTICE] = "notice",
-                [LOG_INFO] = "info",
-                [LOG_DEBUG] = "debug"
-        };
 
-        ExecOutput *o = data;
-        int i;
+        int *o = data, x;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        for (i = 0; i < (int) ELEMENTSOF(table); i++)
-                if (streq(rvalue, table[i])) {
-                        *o = LOG_MAKEPRI(LOG_FAC(*o), i);
-                        break;
-                }
-
-        if (i >= LOG_NFACILITIES) {
+        if ((x = log_level_from_string(rvalue)) < 0)
 
                 /* Second try, let's see if this is a number. */
-                if (safe_atoi(rvalue, &i) >= 0 &&
-                    i >= 0 &&
-                    i < (int) ELEMENTSOF(table))
-                        *o = LOG_MAKEPRI(LOG_FAC(*o), i);
-                else {
-                        log_error("[%s:%u] Failed to parse log output: %s", filename, line, rvalue);
+                if (safe_atoi(rvalue, &x) < 0 || !log_level_to_string(x)) {
+                        log_error("[%s:%u] Failed to parse log level: %s", filename, line, rvalue);
                         return -EBADMSG;
                 }
-        }
 
+        *o = LOG_MAKEPRI(LOG_FAC(*o), x);
         return 0;
 }
 
@@ -635,45 +602,23 @@ int config_parse_io_class(
                 void *data,
                 void *userdata) {
 
-        static const char * const table[] = {
-                [IOPRIO_CLASS_NONE] = NULL,
-                [IOPRIO_CLASS_RT] = "realtime",
-                [IOPRIO_CLASS_BE] = "best-effort",
-                [IOPRIO_CLASS_IDLE] = "idle",
-        };
-
         ExecContext *c = data;
-        int i;
+        int x;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
         assert(data);
 
-        for (i = 0; i < (int) ELEMENTSOF(table); i++) {
-                if (!table[i])
-                        continue;
-
-                if (streq(rvalue, table[i])) {
-                        c->ioprio = IOPRIO_PRIO_VALUE(i, IOPRIO_PRIO_DATA(c->ioprio));
-                        break;
-                }
-        }
-
-        if (i >= (int) ELEMENTSOF(table)) {
+        if ((x = ioprio_class_from_string(rvalue)) < 0)
 
                 /* Second try, let's see if this is a number. */
-                if (safe_atoi(rvalue, &i) >= 0 &&
-                    i >= 0 &&
-                    i < (int) ELEMENTSOF(table) &&
-                    table[i])
-                        c->ioprio = IOPRIO_PRIO_VALUE(i, IOPRIO_PRIO_DATA(c->ioprio));
-                else {
-                        log_error("[%s:%u] Failed to parse io priority: %s", filename, line, rvalue);
+                if (safe_atoi(rvalue, &x) < 0 || !ioprio_class_to_string(x)) {
+                        log_error("[%s:%u] Failed to parse IO scheduling class: %s", filename, line, rvalue);
                         return -EBADMSG;
                 }
-        }
 
+        c->ioprio = IOPRIO_PRIO_VALUE(x, IOPRIO_PRIO_DATA(c->ioprio));
         c->ioprio_set = true;
 
         return 0;
@@ -696,17 +641,291 @@ int config_parse_io_priority(
         assert(rvalue);
         assert(data);
 
-        if (safe_atoi(rvalue, &i) >= 0 &&
-            i >= 0 &&
-            i < IOPRIO_BE_NR)
-                c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_PRIO_CLASS(c->ioprio), i);
-        else {
+        if (safe_atoi(rvalue, &i) < 0 || i < 0 || i >= IOPRIO_BE_NR) {
                 log_error("[%s:%u] Failed to parse io priority: %s", filename, line, rvalue);
                 return -EBADMSG;
         }
 
+        c->ioprio = IOPRIO_PRIO_VALUE(IOPRIO_PRIO_CLASS(c->ioprio), i);
         c->ioprio_set = true;
 
+        return 0;
+}
+
+int config_parse_cpu_sched_policy(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+
+        ExecContext *c = data;
+        int x;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((x = sched_policy_from_string(rvalue)) < 0)
+
+                /* Second try, let's see if this is a number. */
+                if (safe_atoi(rvalue, &x) < 0 || !sched_policy_to_string(x)) {
+                        log_error("[%s:%u] Failed to parse CPU scheduling policy: %s", filename, line, rvalue);
+                        return -EBADMSG;
+                }
+
+        c->cpu_sched_policy = x;
+        c->cpu_sched_set = true;
+
+        return 0;
+}
+
+int config_parse_cpu_sched_prio(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        int i;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        /* On Linux RR/FIFO have the same range */
+        if (safe_atoi(rvalue, &i) < 0 || i < sched_get_priority_min(SCHED_RR) || i > sched_get_priority_max(SCHED_RR)) {
+                log_error("[%s:%u] Failed to parse CPU scheduling priority: %s", filename, line, rvalue);
+                return -EBADMSG;
+        }
+
+        c->cpu_sched_priority = i;
+        c->cpu_sched_set = true;
+
+        return 0;
+}
+
+int config_parse_cpu_affinity(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        char *w;
+        size_t l;
+        char *state;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        FOREACH_WORD(w, &l, rvalue, state) {
+                char *t;
+                int r;
+                unsigned cpu;
+
+                if (!(t = strndup(w, l)))
+                        return -ENOMEM;
+
+                r = safe_atou(t, &cpu);
+                free(t);
+
+                if (r < 0 || cpu >= CPU_SETSIZE) {
+                        log_error("[%s:%u] Failed to parse CPU affinity: %s", filename, line, rvalue);
+                        return -EBADMSG;
+                }
+
+                CPU_SET(cpu, &c->cpu_affinity);
+        }
+
+        c->cpu_affinity_set = true;
+
+        return 0;
+}
+
+int config_parse_capabilities(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        cap_t cap;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (!(cap = cap_from_text(rvalue))) {
+                if (errno == ENOMEM)
+                        return -ENOMEM;
+
+                log_error("[%s:%u] Failed to parse capabilities: %s", filename, line, rvalue);
+                return -EBADMSG;
+        }
+
+        if (c->capabilities)
+                cap_free(c->capabilities);
+        c->capabilities = cap;
+
+        return 0;
+}
+
+int config_parse_secure_bits(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        char *w;
+        size_t l;
+        char *state;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        FOREACH_WORD(w, &l, rvalue, state) {
+                if (first_word(w, "keep-caps"))
+                        c->secure_bits |= SECURE_KEEP_CAPS;
+                else if (first_word(w, "keep-caps-locked"))
+                        c->secure_bits |= SECURE_KEEP_CAPS_LOCKED;
+                else if (first_word(w, "no-setuid-fixup"))
+                        c->secure_bits |= SECURE_NO_SETUID_FIXUP;
+                else if (first_word(w, "no-setuid-fixup-locked"))
+                        c->secure_bits |= SECURE_NO_SETUID_FIXUP_LOCKED;
+                else if (first_word(w, "noroot"))
+                        c->secure_bits |= SECURE_NOROOT;
+                else if (first_word(w, "noroot-locked"))
+                        c->secure_bits |= SECURE_NOROOT_LOCKED;
+                else {
+                        log_error("[%s:%u] Failed to parse secure bits: %s", filename, line, rvalue);
+                        return -EBADMSG;
+                }
+        }
+
+        return 0;
+}
+
+int config_parse_bounding_set(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        char *w;
+        size_t l;
+        char *state;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        FOREACH_WORD(w, &l, rvalue, state) {
+                char *t;
+                int r;
+                cap_value_t cap;
+
+                if (!(t = strndup(w, l)))
+                        return -ENOMEM;
+
+                r = cap_from_name(t, &cap);
+                free(t);
+
+                if (r < 0) {
+                        log_error("[%s:%u] Failed to parse capability bounding set: %s", filename, line, rvalue);
+                        return -EBADMSG;
+                }
+
+                c->capability_bounding_set_drop |= 1 << cap;
+        }
+
+        return 0;
+}
+
+static int config_parse_timer_slack_ns(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        ExecContext *c = data;
+        unsigned long u;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((r = safe_atolu(rvalue, &u)) < 0) {
+                log_error("[%s:%u] Failed to parse time slack value: %s", filename, line, rvalue);
+                return r;
+        }
+
+        c->timer_slack_ns = u;
+
+        return 0;
+}
+
+static int config_parse_limit(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct rlimit **rl = data;
+        unsigned long long u;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((r = safe_atollu(rvalue, &u)) < 0) {
+                log_error("[%s:%u] Failed to parse resource value: %s", filename, line, rvalue);
+                return r;
+        }
+
+        if (!*rl)
+                if (!(*rl = new(struct rlimit, 1)))
+                        return -ENOMEM;
+
+        (*rl)->rlim_cur = (*rl)->rlim_max = (rlim_t) u;
         return 0;
 }
 
@@ -801,14 +1020,38 @@ static int load_from_path(Unit *u, const char *path) {
                 { "SupplementaryGroups",    config_parse_strv,            &(context).supplementary_groups,                 section   }, \
                 { "Nice",                   config_parse_nice,            &(context),                                      section   }, \
                 { "OOMAdjust",              config_parse_oom_adjust,      &(context),                                      section   }, \
-                { "IOPriority",             config_parse_io_priority,     &(context),                                      section   }, \
                 { "IOSchedulingClass",      config_parse_io_class,        &(context),                                      section   }, \
+                { "IOSchedulingPriority",   config_parse_io_priority,     &(context),                                      section   }, \
+                { "CPUSchedulingPolicy",    config_parse_cpu_sched_policy,&(context),                                      section   }, \
+                { "CPUSchedulingPriority",  config_parse_cpu_sched_prio,  &(context),                                      section   }, \
+                { "CPUAffinity",            config_parse_cpu_affinity,    &(context),                                      section   }, \
                 { "UMask",                  config_parse_umask,           &(context).umask,                                section   }, \
                 { "Environment",            config_parse_strv,            &(context).environment,                          section   }, \
                 { "Output",                 config_parse_output,          &(context).output,                               section   }, \
+                { "Input",                  config_parse_input,           &(context).input,                                section   }, \
                 { "SyslogIdentifier",       config_parse_string,          &(context).syslog_identifier,                    section   }, \
                 { "SyslogFacility",         config_parse_facility,        &(context).syslog_priority,                      section   }, \
-                { "SyslogLevel",            config_parse_level,           &(context).syslog_priority,                      section   }
+                { "SyslogLevel",            config_parse_level,           &(context).syslog_priority,                      section   }, \
+                { "Capabilities",           config_parse_capabilities,    &(context),                                      section   }, \
+                { "SecureBits",             config_parse_secure_bits,     &(context),                                      section   }, \
+                { "CapabilityBoundingSetDrop", config_parse_bounding_set, &(context),                                      section   }, \
+                { "TimerSlackNS",           config_parse_timer_slack_ns,  &(context),                                      section   }, \
+                { "LimitCPU",               config_parse_limit,           &(context).rlimit[RLIMIT_CPU],                   section   }, \
+                { "LimitFSIZE",             config_parse_limit,           &(context).rlimit[RLIMIT_FSIZE],                 section   }, \
+                { "LimitDATA",              config_parse_limit,           &(context).rlimit[RLIMIT_DATA],                  section   }, \
+                { "LimitSTACK",             config_parse_limit,           &(context).rlimit[RLIMIT_STACK],                 section   }, \
+                { "LimitCORE",              config_parse_limit,           &(context).rlimit[RLIMIT_CORE],                  section   }, \
+                { "LimitRSS",               config_parse_limit,           &(context).rlimit[RLIMIT_RSS],                   section   }, \
+                { "LimitNOFILE",            config_parse_limit,           &(context).rlimit[RLIMIT_NOFILE],                section   }, \
+                { "LimitAS",                config_parse_limit,           &(context).rlimit[RLIMIT_AS],                    section   }, \
+                { "LimitNPROC",             config_parse_limit,           &(context).rlimit[RLIMIT_NPROC],                 section   }, \
+                { "LimitMEMLOCK",           config_parse_limit,           &(context).rlimit[RLIMIT_MEMLOCK],               section   }, \
+                { "LimitLOCKS",             config_parse_limit,           &(context).rlimit[RLIMIT_LOCKS],                 section   }, \
+                { "LimitSIGPENDING",        config_parse_limit,           &(context).rlimit[RLIMIT_SIGPENDING],            section   }, \
+                { "LimitMSGQUEUE",          config_parse_limit,           &(context).rlimit[RLIMIT_MSGQUEUE],              section   }, \
+                { "LimitNICE",              config_parse_limit,           &(context).rlimit[RLIMIT_NICE],                  section   }, \
+                { "LimitRTPRIO",            config_parse_limit,           &(context).rlimit[RLIMIT_RTPRIO],                section   }, \
+                { "LimitRTTIME",            config_parse_limit,           &(context).rlimit[RLIMIT_RTTIME],                section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Meta"    },
@@ -945,7 +1188,7 @@ int unit_load_fragment(Unit *u) {
                 c = NULL;
 
         if (r >= 0 && c &&
-            (c->output == EXEC_KERNEL || c->output == EXEC_SYSLOG)) {
+            (c->output == EXEC_OUTPUT_KERNEL || c->output == EXEC_OUTPUT_SYSLOG)) {
                 int k;
 
                 /* If syslog or kernel logging is requested, make sure

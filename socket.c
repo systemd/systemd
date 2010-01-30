@@ -656,7 +656,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         exec_status_fill(&s->control_command->exec_status, pid, code, status);
         s->control_pid = 0;
 
-        log_debug("%s control process exited, code=%s status=%i", unit_id(u), sigchld_code(code), status);
+        log_debug("%s control process exited, code=%s status=%i", unit_id(u), sigchld_code_to_string(code), status);
 
         if (s->control_command->command_next &&
             (success || (s->state == SOCKET_EXEC_STOP_PRE || s->state == SOCKET_EXEC_STOP_POST))) {

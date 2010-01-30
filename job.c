@@ -3,8 +3,12 @@
 #include <assert.h>
 #include <errno.h>
 
+#include "set.h"
+#include "unit.h"
 #include "macro.h"
-#include "job.h"
+#include "strv.h"
+#include "load-fragment.h"
+#include "load-dropin.h"
 #include "log.h"
 
 Job* job_new(Manager *m, JobType type, Unit *unit) {
@@ -109,30 +113,8 @@ void job_dependency_delete(Job *subject, Job *object, bool *matters) {
         job_dependency_free(l);
 }
 
-const char* job_type_to_string(JobType t) {
-
-        static const char* const job_type_table[_JOB_TYPE_MAX] = {
-                [JOB_START] = "start",
-                [JOB_VERIFY_ACTIVE] = "verify-active",
-                [JOB_STOP] = "stop",
-                [JOB_RELOAD] = "reload",
-                [JOB_RELOAD_OR_START] = "reload-or-start",
-                [JOB_RESTART] = "restart",
-                [JOB_TRY_RESTART] = "try-restart",
-        };
-
-        if (t < 0 || t >= _JOB_TYPE_MAX)
-                return "n/a";
-
-        return job_type_table[t];
-}
-
 void job_dump(Job *j, FILE*f, const char *prefix) {
 
-        static const char* const job_state_table[_JOB_STATE_MAX] = {
-                [JOB_WAITING] = "waiting",
-                [JOB_RUNNING] = "running"
-        };
 
         assert(j);
         assert(f);
@@ -144,7 +126,7 @@ void job_dump(Job *j, FILE*f, const char *prefix) {
                 "%s\tForced: %s\n",
                 prefix, j->id,
                 prefix, unit_id(j->unit), job_type_to_string(j->type),
-                prefix, job_state_table[j->state],
+                prefix, job_state_to_string(j->state),
                 prefix, yes_no(j->forced));
 }
 
@@ -480,3 +462,22 @@ void job_schedule_run(Job *j) {
         LIST_PREPEND(Job, run_queue, j->manager->run_queue, j);
         j->in_run_queue = true;
 }
+
+static const char* const job_state_table[_JOB_STATE_MAX] = {
+        [JOB_WAITING] = "waiting",
+        [JOB_RUNNING] = "running"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(job_state, JobState);
+
+static const char* const job_type_table[_JOB_TYPE_MAX] = {
+        [JOB_START] = "start",
+        [JOB_VERIFY_ACTIVE] = "verify-active",
+        [JOB_STOP] = "stop",
+        [JOB_RELOAD] = "reload",
+        [JOB_RELOAD_OR_START] = "reload-or-start",
+        [JOB_RESTART] = "restart",
+        [JOB_TRY_RESTART] = "try-restart",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(job_type, JobType);
