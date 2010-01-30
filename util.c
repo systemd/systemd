@@ -88,6 +88,25 @@ bool startswith(const char *s, const char *prefix) {
         return memcmp(s, prefix, pl) == 0;
 }
 
+bool first_word(const char *s, const char *word) {
+        size_t sl, wl;
+
+        assert(s);
+        assert(word);
+
+        sl = strlen(s);
+        wl = strlen(word);
+
+        if (sl < wl)
+                return false;
+
+        if (memcmp(s, word, wl) != 0)
+                return false;
+
+        return (s[wl] == 0 ||
+                strchr(WHITESPACE, s[wl]));
+}
+
 int close_nointr(int fd) {
         assert(fd >= 0);
 
