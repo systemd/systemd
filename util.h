@@ -83,8 +83,6 @@ char *split_quoted(const char *c, size_t *l, char **state);
 #define FOREACH_WORD_QUOTED(word, length, s, state)                     \
         for ((state) = NULL, (word) = split_quoted((s), &(l), &(state)); (word); (word) = split_quoted((s), &(l), &(state)))
 
-const char *sigchld_code(int code);
-
 pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
 
 int write_one_line_file(const char *fn, const char *line);
@@ -120,5 +118,40 @@ bool path_startswith(const char *path, const char *prefix);
 char *ascii_strlower(char *path);
 
 char *xescape(const char *s, const char *bad);
+
+#define DEFINE_STRING_TABLE_LOOKUP(name,type)                           \
+        const char *name##_to_string(type i) {                          \
+                if (i < 0 || i >= (type) ELEMENTSOF(name##_table))      \
+                        return NULL;                                    \
+                return name##_table[i];                                 \
+        }                                                               \
+        type name##_from_string(const char *s) {                        \
+                type i;                                                 \
+                assert(s);                                              \
+                for (i = 0; i < (type)ELEMENTSOF(name##_table); i++)    \
+                        if (streq(name##_table[i], s))                  \
+                                return i;                               \
+                return (type) -1;                                       \
+        }                                                               \
+        struct __useless_struct_to_allow_trailing_semicolon__
+
+
+const char *ioprio_class_to_string(int i);
+int ioprio_class_from_string(const char *s);
+
+const char *sigchld_code_to_string(int i);
+int sigchld_code_from_string(const char *s);
+
+const char *log_facility_to_string(int i);
+int log_facility_from_string(const char *s);
+
+const char *log_level_to_string(int i);
+int log_level_from_string(const char *s);
+
+const char *sched_policy_to_string(int i);
+int sched_policy_from_string(const char *s);
+
+const char *rlimit_to_string(int i);
+int rlimit_from_string(const char *s);
 
 #endif
