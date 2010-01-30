@@ -102,7 +102,6 @@ typedef enum ExitStatus {
         /* The LSB suggests that error codes >= 200 are "reserved". We
          * use them here under the assumption that they hence are
          * unused by init scripts.
-         * c->
          *
          * http://refspecs.freestandards.org/LSB_3.1.0/LSB-Core-generic/LSB-Core-generic/iniscrptact.html */
 

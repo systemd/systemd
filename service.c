@@ -262,7 +262,8 @@ static void service_set_state(Service *s, ServiceState state) {
             state != SERVICE_AUTO_RESTART)
                 unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
-        if (state != SERVICE_START_POST &&
+        if (state != SERVICE_START &&
+            state != SERVICE_START_POST &&
             state != SERVICE_RUNNING &&
             state != SERVICE_RELOAD &&
             state != SERVICE_STOP &&
@@ -590,6 +591,13 @@ static void service_enter_start(Service *s) {
 
                 s->control_pid = pid;
                 s->control_command = s->exec_command[SERVICE_EXEC_START];
+        } else if (s->type == SERVICE_FINISH) {
+
+                /* For finishing services we wait until the start
+                 * process exited, too, but it is our main process. */
+
+                s->main_pid = pid;
+                s->control_command = s->exec_command[SERVICE_EXEC_START];
         } else
                 assert_not_reached("Unknown service type");
 
@@ -806,7 +814,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 exec_status_fill(&s->main_exec_status, pid, code, status);
                 s->main_pid = 0;
 
-                if (s->type == SERVICE_SIMPLE) {
+                if (s->type == SERVICE_SIMPLE || s->type == SERVICE_FINISH) {
                         assert(s->exec_command[SERVICE_EXEC_START]);
                         s->exec_command[SERVICE_EXEC_START]->exec_status = s->main_exec_status;
                 }
@@ -823,6 +831,16 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 case SERVICE_STOP:
                         /* Need to wait until the operation is
                          * done */
+                        break;
+
+                case SERVICE_START:
+                        assert(s->type == SERVICE_FINISH);
+
+                        /* This was our main goal, so let's go on */
+                        if (success)
+                                service_enter_start_post(s);
+                        else
+                                service_enter_stop(s, false);
                         break;
 
                 case SERVICE_RUNNING:
