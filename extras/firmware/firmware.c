@@ -149,6 +149,7 @@ int main(int argc, char **argv)
 
 	util_path_encode(firmware, fwencpath, sizeof(fwencpath));
 	util_strscpyl(misspath, sizeof(misspath), udev_get_dev_path(udev), "/.udev/firmware-missing/", fwencpath, NULL);
+	util_strscpyl(loadpath, sizeof(loadpath), udev_get_sys_path(udev), devpath, "/loading", NULL);
 
 	if (fwfile == NULL) {
 		int err;
@@ -166,6 +167,7 @@ int main(int argc, char **argv)
 			udev_selinux_resetfscreatecon(udev);
 		} while (err == -ENOENT);
 		rc = 2;
+		set_loading(udev, loadpath, "-1");
 		goto exit;
 	}
 
@@ -176,7 +178,6 @@ int main(int argc, char **argv)
 	if (unlink(misspath) == 0)
 		util_delete_path(udev, misspath);
 
-	util_strscpyl(loadpath, sizeof(loadpath), udev_get_sys_path(udev), devpath, "/loading", NULL);
 	set_loading(udev, loadpath, "1");
 
 	util_strscpyl(datapath, sizeof(datapath), udev_get_sys_path(udev), devpath, "/data", NULL);
