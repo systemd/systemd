@@ -114,4 +114,6 @@ JobType job_type_from_string(const char *s);
 const char* job_state_to_string(JobState t);
 JobState job_state_from_string(const char *s);
 
+char *job_dbus_path(Job *j);
+
 #endif

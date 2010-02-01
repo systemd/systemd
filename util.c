@@ -566,10 +566,10 @@ int unhexchar(char c) {
                 return c - '0';
 
         if (c >= 'a' && c <= 'f')
-                return c - 'a';
+                return c - 'a' + 10;
 
         if (c >= 'A' && c <= 'F')
-                return c - 'A';
+                return c - 'A' + 10;
 
         return -1;
 }
@@ -794,6 +794,66 @@ char *xescape(const char *s, const char *bad) {
                         *(t++) = 'x';
                         *(t++) = hexchar(*f >> 4);
                         *(t++) = hexchar(*f);
+                } else
+                        *(t++) = *f;
+        }
+
+        *t = 0;
+
+        return r;
+}
+
+char *bus_path_escape(const char *s) {
+        assert(s);
+
+        char *r, *t;
+        const char *f;
+
+        /* Escapes all chars that D-Bus' object path cannot deal
+         * with. Can be reverse with bus_path_unescape() */
+
+        if (!(r = new(char, strlen(s)*3+1)))
+                return NULL;
+
+        for (f = s, t = r; *f; f++) {
+
+                if (!(*f >= 'A' && *f <= 'Z') &&
+                    !(*f >= 'a' && *f <= 'z') &&
+                    !(*f >= '0' && *f <= '9')) {
+                        *(t++) = '_';
+                        *(t++) = hexchar(*f >> 4);
+                        *(t++) = hexchar(*f);
+                } else
+                        *(t++) = *f;
+        }
+
+        *t = 0;
+
+        return r;
+}
+
+char *bus_path_unescape(const char *s) {
+        assert(s);
+
+        char *r, *t;
+        const char *f;
+
+        if (!(r = new(char, strlen(s)+1)))
+                return NULL;
+
+        for (f = s, t = r; *f; f++) {
+
+                if (*f == '_') {
+                        int a, b;
+
+                        if ((a = unhexchar(f[1])) < 0 ||
+                            (b = unhexchar(f[2])) < 0) {
+                                /* Invalid escape code, let's take it literal then */
+                                *(t++) = '_';
+                        } else {
+                                *(t++) = (char) ((a << 4) | b);
+                                f += 2;
+                        }
                 } else
                         *(t++) = *f;
         }

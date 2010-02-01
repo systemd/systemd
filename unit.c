@@ -707,7 +707,7 @@ int unit_watch_fd(Unit *u, int fd, uint32_t events, Watch *w) {
         assert(u);
         assert(fd >= 0);
         assert(w);
-        assert(w->type == WATCH_INVALID || (w->type == WATCH_FD && w->fd == fd && w->unit == u));
+        assert(w->type == WATCH_INVALID || (w->type == WATCH_FD && w->fd == fd && w->data.unit == u));
 
         zero(ev);
         ev.data.ptr = w;
@@ -721,7 +721,7 @@ int unit_watch_fd(Unit *u, int fd, uint32_t events, Watch *w) {
 
         w->fd = fd;
         w->type = WATCH_FD;
-        w->unit = u;
+        w->data.unit = u;
 
         return 0;
 }
@@ -733,12 +733,13 @@ void unit_unwatch_fd(Unit *u, Watch *w) {
         if (w->type == WATCH_INVALID)
                 return;
 
-        assert(w->type == WATCH_FD && w->unit == u);
+        assert(w->type == WATCH_FD);
+        assert(w->data.unit == u);
         assert_se(epoll_ctl(u->meta.manager->epoll_fd, EPOLL_CTL_DEL, w->fd, NULL) >= 0);
 
         w->fd = -1;
         w->type = WATCH_INVALID;
-        w->unit = NULL;
+        w->data.unit = NULL;
 }
 
 int unit_watch_pid(Unit *u, pid_t pid) {
@@ -762,7 +763,7 @@ int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {
 
         assert(u);
         assert(w);
-        assert(w->type == WATCH_INVALID || (w->type == WATCH_TIMER && w->unit == u));
+        assert(w->type == WATCH_INVALID || (w->type == WATCH_TIMER && w->data.unit == u));
 
         /* This will try to reuse the old timer if there is one */
 
@@ -806,13 +807,13 @@ int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {
 
         w->fd = fd;
         w->type = WATCH_TIMER;
-        w->unit = u;
+        w->data.unit = u;
 
         return 0;
 
 fail:
         if (ours)
-                assert_se(close_nointr(fd) == 0);
+                close_nointr_nofail(fd);
 
         return -errno;
 }
@@ -824,14 +825,14 @@ void unit_unwatch_timer(Unit *u, Watch *w) {
         if (w->type == WATCH_INVALID)
                 return;
 
-        assert(w->type == WATCH_TIMER && w->unit == u);
+        assert(w->type == WATCH_TIMER && w->data.unit == u);
 
         assert_se(epoll_ctl(u->meta.manager->epoll_fd, EPOLL_CTL_DEL, w->fd, NULL) >= 0);
         assert_se(close_nointr(w->fd) == 0);
 
         w->fd = -1;
         w->type = WATCH_INVALID;
-        w->unit = NULL;
+        w->data.unit = NULL;
 }
 
 bool unit_job_is_applicable(Unit *u, JobType j) {
@@ -1002,6 +1003,23 @@ char *unit_name_escape_path(const char *prefix, const char *path, const char *su
         memcpy(t, suffix, c+1);
 
         return r;
+}
+
+char *unit_dbus_path(Unit *u) {
+        char *p, *e;
+
+        assert(u);
+
+        if (!(e = bus_path_escape(unit_id(u))))
+                return NULL;
+
+        if (asprintf(&p, "/org/freedesktop/systemd1/unit/%s", e) < 0) {
+                free(e);
+                return NULL;
+        }
+
+        free(e);
+        return p;
 }
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {

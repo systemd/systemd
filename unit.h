@@ -274,4 +274,6 @@ UnitActiveState unit_active_state_from_string(const char *s);
 const char *unit_dependency_to_string(UnitDependency i);
 UnitDependency unit_dependency_from_string(const char *s);
 
+char *unit_dbus_path(Unit *u);
+
 #endif

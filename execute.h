@@ -18,7 +18,7 @@ typedef struct ExecContext ExecContext;
 #include "util.h"
 
 /* Abstract namespace! */
-#define LOGGER_SOCKET "/systemd/logger"
+#define LOGGER_SOCKET "/org/freedesktop.org/systemd1/logger"
 
 typedef enum ExecOutput {
         EXEC_OUTPUT_CONSOLE,

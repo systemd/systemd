@@ -1,5 +1,5 @@
-CFLAGS=-Wall -Wextra -O0 -g -pipe -D_GNU_SOURCE -fdiagnostics-show-option -Wno-unused-parameter -DUNIT_PATH=\"/tmp/does/not/exist\" `pkg-config --cflags libudev`
-LIBS=-lrt -lcap `pkg-config --libs libudev`
+CFLAGS=-Wall -Wextra -O0 -g -pipe -D_GNU_SOURCE -fdiagnostics-show-option -Wno-unused-parameter -DUNIT_PATH=\"/tmp/does/not/exist\" `pkg-config --cflags libudev dbus-1`
+LIBS=-lrt -lcap `pkg-config --libs libudev dbus-1`
 
 COMMON= \
 	unit.o \
@@ -23,7 +23,11 @@ COMMON= \
 	timer.o \
 	load-dropin.o \
 	execute.o \
-	ratelimit.o
+	ratelimit.o \
+	dbus.o \
+	dbus-manager.o \
+	dbus-unit.o \
+	dbus-job.o
 
 all: systemd test-engine test-job-type systemd-logger
 

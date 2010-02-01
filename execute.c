@@ -551,7 +551,7 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
 
         for (i = 0; i < RLIM_NLIMITS; i++)
                 if (c->rlimit[i])
-                        fprintf(f, "%s: %llu\n", rlimit_to_string(i), (unsigned long long) c->rlimit[i]->rlim_max);
+                        fprintf(f, "%s%s: %llu\n", prefix, rlimit_to_string(i), (unsigned long long) c->rlimit[i]->rlim_max);
 
         if (c->ioprio_set)
                 fprintf(f,

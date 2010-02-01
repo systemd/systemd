@@ -16,6 +16,7 @@
 #include "strv.h"
 #include "log.h"
 #include "util.h"
+#include "ratelimit.h"
 
 static int manager_setup_signals(Manager *m) {
         sigset_t mask;
@@ -57,6 +58,7 @@ Manager* manager_new(void) {
                 return NULL;
 
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = -1;
+        m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
         if (!(m->units = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
@@ -74,6 +76,10 @@ Manager* manager_new(void) {
                 goto fail;
 
         if (manager_setup_signals(m) < 0)
+                goto fail;
+
+        /* FIXME: this should be called only when the D-Bus bus daemon is running */
+        if (bus_init(m) < 0)
                 goto fail;
 
         return m;
@@ -99,6 +105,8 @@ void manager_free(Manager *m) {
         for (c = 0; c < _UNIT_TYPE_MAX; c++)
                 if (unit_vtable[c]->shutdown)
                         unit_vtable[c]->shutdown(m);
+
+        bus_done(m);
 
         hashmap_free(m->units);
         hashmap_free(m->jobs);
@@ -1137,7 +1145,7 @@ static int process_event(Manager *m, struct epoll_event *ev, bool *quit) {
         case WATCH_FD:
 
                 /* Some fd event, to be dispatched to the units */
-                UNIT_VTABLE(w->unit)->fd_event(w->unit, w->fd, ev->events, w);
+                UNIT_VTABLE(w->data.unit)->fd_event(w->data.unit, w->fd, ev->events, w);
                 break;
 
         case WATCH_TIMER: {
@@ -1153,7 +1161,7 @@ static int process_event(Manager *m, struct epoll_event *ev, bool *quit) {
                         return k < 0 ? -errno : -EIO;
                 }
 
-                UNIT_VTABLE(w->unit)->timer_event(w->unit, v, w);
+                UNIT_VTABLE(w->data.unit)->timer_event(w->data.unit, v, w);
                 break;
         }
 
@@ -1167,6 +1175,14 @@ static int process_event(Manager *m, struct epoll_event *ev, bool *quit) {
                 device_fd_event(m, ev->events);
                 break;
 
+        case WATCH_DBUS_WATCH:
+                bus_watch_event(m, w, ev->events);
+                break;
+
+        case WATCH_DBUS_TIMEOUT:
+                bus_timeout_event(m, w, ev->events);
+                break;
+
         default:
                 assert_not_reached("Unknown epoll event type.");
         }
@@ -1178,13 +1194,26 @@ int manager_loop(Manager *m) {
         int r;
         bool quit = false;
 
+        RATELIMIT_DEFINE(rl, 1*USEC_PER_SEC, 1000);
+
         assert(m);
 
         for (;;) {
                 struct epoll_event event;
                 int n;
 
+                if (!ratelimit_test(&rl)) {
+                        /* Yay, something is going seriously wrong, pause a little */
+                        log_warning("Looping too fast. Throttling execution a little.");
+                        sleep(1);
+                }
+
                 manager_dispatch_run_queue(m);
+
+                if (m->request_bus_dispatch) {
+                        bus_dispatch(m);
+                        continue;
+                }
 
                 if ((n = epoll_wait(m->epoll_fd, &event, 1, -1)) < 0) {
 
@@ -1202,4 +1231,29 @@ int manager_loop(Manager *m) {
                 if (quit)
                         return 0;
         }
+}
+
+int manager_get_unit_from_dbus_path(Manager *m, const char *s, Unit **_u) {
+        char *n;
+        Unit *u;
+
+        assert(m);
+        assert(s);
+        assert(_u);
+
+        if (!startswith(s, "/org/freedesktop/systemd1/unit/"))
+                return -EINVAL;
+
+        if (!(n = bus_path_unescape(s+31)))
+                return -ENOMEM;
+
+        u = manager_get_unit(m, n);
+        free(n);
+
+        if (!u)
+                return -ENOENT;
+
+        *_u = u;
+
+        return 0;
 }

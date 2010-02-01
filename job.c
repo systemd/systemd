@@ -463,6 +463,17 @@ void job_schedule_run(Job *j) {
         j->in_run_queue = true;
 }
 
+char *job_dbus_path(Job *j) {
+        char *p;
+
+        assert(j);
+
+        if (asprintf(&p, "/org/freedesktop/systemd1/job/%lu", (unsigned long) j->id) < 0)
+                return NULL;
+
+        return p;
+}
+
 static const char* const job_state_table[_JOB_STATE_MAX] = {
         [JOB_WAITING] = "waiting",
         [JOB_RUNNING] = "running"

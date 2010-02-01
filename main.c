@@ -1,5 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
+#include <dbus/dbus.h>
+
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
@@ -16,7 +18,7 @@ int main(int argc, char *argv[]) {
 
         assert_se(set_unit_path("test1") >= 0);
 
-        if (!(m = manager_new()) < 0) {
+        if (!(m = manager_new())) {
                 log_error("Failed to allocate manager object: %s", strerror(ENOMEM));
                 goto finish;
         }
@@ -54,6 +56,8 @@ finish:
                 manager_free(m);
 
         log_debug("Exit.");
+
+        dbus_shutdown();
 
         return retval;
 }

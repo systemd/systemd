@@ -7,6 +7,8 @@
 #include <inttypes.h>
 #include <stdio.h>
 
+#include <dbus/dbus.h>
+
 typedef struct Manager Manager;
 typedef enum WatchType WatchType;
 typedef struct Watch Watch;
@@ -17,13 +19,20 @@ enum WatchType {
         WATCH_FD,
         WATCH_TIMER,
         WATCH_MOUNT,
-        WATCH_UDEV
+        WATCH_UDEV,
+        WATCH_DBUS_WATCH,
+        WATCH_DBUS_TIMEOUT
 };
 
 struct Watch {
         int fd;
         WatchType type;
-        union Unit *unit;
+        bool fd_is_dupped;
+        union {
+                union Unit *unit;
+                DBusWatch *bus_watch;
+                DBusTimeout *bus_timeout;
+        } data;
 };
 
 #include "unit.h"
@@ -31,6 +40,7 @@ struct Watch {
 #include "hashmap.h"
 #include "list.h"
 #include "set.h"
+#include "dbus.h"
 
 #define SPECIAL_DEFAULT_TARGET "default.target"
 #define SPECIAL_SYSLOG_SERVICE "syslog.service"
@@ -67,6 +77,10 @@ struct Manager {
         bool dispatching_load_queue:1;
         bool dispatching_run_queue:1;
 
+        bool is_init:1;
+
+        bool request_bus_dispatch:1;
+
         Hashmap *watch_pids;  /* pid => Unit object n:1 */
 
         int epoll_fd;
@@ -81,6 +95,9 @@ struct Manager {
         /* Data specific to the mount subsystem */
         FILE *proc_self_mountinfo;
         Watch mount_watch;
+
+        /* Data specific to the D-Bus subsystem */
+        DBusConnection *bus;
 };
 
 Manager* manager_new(void);
@@ -90,6 +107,8 @@ int manager_coldplug(Manager *m);
 
 Job *manager_get_job(Manager *m, uint32_t id);
 Unit *manager_get_unit(Manager *m, const char *name);
+
+int manager_get_unit_from_dbus_path(Manager *m, const char *s, Unit **_u);
 
 int manager_load_unit(Manager *m, const char *path_or_name, Unit **_ret);
 int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool force, Job **_ret);
