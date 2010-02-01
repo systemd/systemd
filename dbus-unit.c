@@ -30,7 +30,7 @@ static int bus_unit_append_id(Manager *m, DBusMessageIter *i, const char *proper
 
         id = unit_id(u);
 
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &u))
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &id))
                 return -ENOMEM;
 
         return 0;

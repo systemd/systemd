@@ -436,7 +436,7 @@ DBusHandlerResult bus_default_message_handler(Manager *m, DBusMessage *message, 
                         if (!streq(p->interface, interface))
                                 continue;
 
-                        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_DICT_ENTRY, "sv" , &sub2) ||
+                        if (!dbus_message_iter_open_container(&sub, DBUS_TYPE_DICT_ENTRY, NULL, &sub2) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &p->property) ||
                             !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, p->signature, &sub3))
                                 goto oom;
