@@ -146,7 +146,7 @@ static int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *prope
                         return -ENOMEM;
 
                 if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_UINT32, &u->meta.job->id) ||
-                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &p)) {
+                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &p)) {
                         free(p);
                         return -ENOMEM;
                 }
@@ -161,7 +161,7 @@ static int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *prope
                         return -ENOMEM;
 
                 if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_UINT32, &id) ||
-                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &p)) {
+                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_OBJECT_PATH, &p)) {
                         free(p);
                         return -ENOMEM;
                 }
@@ -187,7 +187,7 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message
                 { "org.freedesktop.systemd1.Unit", "ActiveExitTimestamp",  bus_property_append_uint64,   "t",    &u->meta.active_exit_timestamp  },
                 { "org.freedesktop.systemd1.Unit", "CanReload",            bus_unit_append_can_reload,   "b",    u                               },
                 { "org.freedesktop.systemd1.Unit", "CanStart",             bus_unit_append_can_start,    "b",    u                               },
-                { "org.freedesktop.systemd1.Unit", "Job",                  bus_unit_append_job,          "(us)", u,                              },
+                { "org.freedesktop.systemd1.Unit", "Job",                  bus_unit_append_job,          "(uo)", u                               },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
