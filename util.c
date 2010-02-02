@@ -10,6 +10,7 @@
 #include <syslog.h>
 #include <sched.h>
 #include <sys/resource.h>
+#include <linux/sched.h>
 
 #include "macro.h"
 #include "util.h"
