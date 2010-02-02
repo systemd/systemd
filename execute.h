@@ -70,6 +70,8 @@ struct ExecContext {
         bool cpu_affinity_set:1;
         bool timer_slack_ns_set:1;
 
+        bool cpu_sched_reset_on_fork;
+
         ExecInput input;
         ExecOutput output;
         int syslog_priority;

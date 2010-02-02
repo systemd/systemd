@@ -1024,6 +1024,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "IOSchedulingPriority",   config_parse_io_priority,     &(context),                                      section   }, \
                 { "CPUSchedulingPolicy",    config_parse_cpu_sched_policy,&(context),                                      section   }, \
                 { "CPUSchedulingPriority",  config_parse_cpu_sched_prio,  &(context),                                      section   }, \
+                { "CPUSchedulingResetOnFork", config_parse_bool,          &(context).cpu_sched_reset_on_fork,              section   }, \
                 { "CPUAffinity",            config_parse_cpu_affinity,    &(context),                                      section   }, \
                 { "UMask",                  config_parse_umask,           &(context).umask,                                section   }, \
                 { "Environment",            config_parse_strv,            &(context).environment,                          section   }, \

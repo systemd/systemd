@@ -347,7 +347,8 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
                         zero(param);
                         param.sched_priority = context->cpu_sched_priority;
 
-                        if (sched_setscheduler(0, context->cpu_sched_policy, &param) < 0) {
+                        if (sched_setscheduler(0, context->cpu_sched_policy |
+                                               (context->cpu_sched_reset_on_fork ? SCHED_RESET_ON_FORK : 0), &param) < 0) {
                                 r = EXIT_SETSCHEDULER;
                                 goto fail;
                         }
@@ -563,9 +564,11 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         if (c->cpu_sched_set)
                 fprintf(f,
                         "%sCPUSchedulingPolicy: %s\n"
-                        "%sCPUSchedulingPriority: %i\n",
+                        "%sCPUSchedulingPriority: %i\n"
+                        "%sCPUSchedulingResetOnFork: %s\n",
                         prefix, sched_policy_to_string(c->cpu_sched_policy),
-                        prefix, c->cpu_sched_priority);
+                        prefix, c->cpu_sched_priority,
+                        prefix, yes_no(c->cpu_sched_reset_on_fork));
 
         if (c->cpu_affinity_set) {
                 fprintf(f, "%sCPUAffinity:", prefix);
