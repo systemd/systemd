@@ -1257,3 +1257,26 @@ int manager_get_unit_from_dbus_path(Manager *m, const char *s, Unit **_u) {
 
         return 0;
 }
+
+int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j) {
+        Job *j;
+        unsigned id;
+        int r;
+
+        assert(m);
+        assert(s);
+        assert(_j);
+
+        if (!startswith(s, "/org/freedesktop/systemd1/job/"))
+                return -EINVAL;
+
+        if ((r = safe_atou(s + 30, &id)) < 0)
+                return r;
+
+        if (!(j = manager_get_job(m, id)))
+                return -ENOENT;
+
+        *_j = j;
+
+        return 0;
+}
