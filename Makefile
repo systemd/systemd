@@ -29,7 +29,7 @@ COMMON= \
 	dbus-unit.o \
 	dbus-job.o
 
-all: systemd test-engine test-job-type systemd-logger
+all: systemd test-engine test-job-type systemd-logger systemctl
 
 systemd: main.o $(COMMON)
 	$(CC) $(CFLAGS) -o $@ $^  $(LIBS)
@@ -43,5 +43,8 @@ test-engine: test-engine.o $(COMMON)
 test-job-type: test-job-type.o $(COMMON)
 	$(CC) $(CFLAGS) -o $@ $^  $(LIBS)
 
+systemctl: systemctl.vala
+	valac --save-temps systemctl.vala --pkg=dbus-glib-1 --pkg=posix
+
 clean:
-	rm -f *.o systemd test-engine
+	rm -f *.o systemd test-engine systemctl
