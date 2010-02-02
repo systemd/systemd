@@ -14,6 +14,12 @@ static const char introspection[] =
         "  <property name=\"Description\" type=\"s\" access=\"read\"/>"
         "  <property name=\"LoadState\" type=\"s\" access=\"read\"/>"
         "  <property name=\"ActiveState\" type=\"s\" access=\"read\"/>"
+        "  <property name=\"LoadPath\" type=\"s\" access=\"read\"/>"
+        "  <property name=\"ActiveEnterTimestamp\" type=\"t\" access=\"read\"/>"
+        "  <property name=\"ActiveExitTimestamp\" type=\"t\" access=\"read\"/>"
+        "  <property name=\"CanReload\" type=\"b\" access=\"read\"/>"
+        "  <property name=\"CanStart\" type=\"b\" access=\"read\"/>"
+        "  <property name=\"Job\" type=\"(uo)\" access=\"read\"/>"
         " </interface>"
         BUS_PROPERTIES_INTERFACE
         BUS_INTROSPECTABLE_INTERFACE
@@ -87,13 +93,101 @@ static int bus_unit_append_active_state(Manager *m, DBusMessageIter *i, const ch
         return 0;
 }
 
+static int bus_unit_append_can_reload(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        dbus_bool_t b;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(u);
+
+        b = unit_can_reload(u);
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_unit_append_can_start(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        dbus_bool_t b;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(u);
+
+        b = unit_can_start(u);
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &b))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_unit_append_job(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        DBusMessageIter sub;
+        char *p;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(u);
+
+        if (!dbus_message_iter_open_container(i, DBUS_TYPE_STRUCT, NULL, &sub))
+                return -ENOMEM;
+
+        if (u->meta.job) {
+
+                if (!(p = job_dbus_path(u->meta.job)))
+                        return -ENOMEM;
+
+                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_UINT32, &u->meta.job->id) ||
+                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &p)) {
+                        free(p);
+                        return -ENOMEM;
+                }
+        } else {
+                uint32_t id = 0;
+
+                /* No job, so let's fill in some placeholder
+                 * data. Since we need to fill in a valid path we
+                 * simple point to ourselves. */
+
+                if (!(p = unit_dbus_path(u)))
+                        return -ENOMEM;
+
+                if (!dbus_message_iter_append_basic(&sub, DBUS_TYPE_UINT32, &id) ||
+                    !dbus_message_iter_append_basic(&sub, DBUS_TYPE_STRING, &p)) {
+                        free(p);
+                        return -ENOMEM;
+                }
+        }
+
+        free(p);
+
+        if (!dbus_message_iter_close_container(i, &sub))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message) {
 
         const BusProperty properties[] = {
-                { "org.freedesktop.systemd1.Unit", "Id",          bus_unit_append_id,           "s", u },
-                { "org.freedesktop.systemd1.Unit", "Description", bus_unit_append_description,  "s", u },
-                { "org.freedesktop.systemd1.Unit", "LoadState",   bus_unit_append_load_state,   "s", u },
-                { "org.freedesktop.systemd1.Unit", "ActiveState", bus_unit_append_active_state, "s", u },
+                { "org.freedesktop.systemd1.Unit", "Id",                   bus_unit_append_id,           "s",    u                               },
+                { "org.freedesktop.systemd1.Unit", "Description",          bus_unit_append_description,  "s",    u                               },
+                { "org.freedesktop.systemd1.Unit", "LoadState",            bus_unit_append_load_state,   "s",    u                               },
+                { "org.freedesktop.systemd1.Unit", "ActiveState",          bus_unit_append_active_state, "s",    u                               },
+                { "org.freedesktop.systemd1.Unit", "LoadPath",             bus_property_append_string,   "s",    u->meta.load_path               },
+                { "org.freedesktop.systemd1.Unit", "ActiveEnterTimestamp", bus_property_append_uint64,   "t",    &u->meta.active_enter_timestamp },
+                { "org.freedesktop.systemd1.Unit", "ActiveExitTimestamp",  bus_property_append_uint64,   "t",    &u->meta.active_exit_timestamp  },
+                { "org.freedesktop.systemd1.Unit", "CanReload",            bus_unit_append_can_reload,   "b",    u                               },
+                { "org.freedesktop.systemd1.Unit", "CanStart",             bus_unit_append_can_start,    "b",    u                               },
+                { "org.freedesktop.systemd1.Unit", "Job",                  bus_unit_append_job,          "(us)", u,                              },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

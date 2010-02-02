@@ -52,6 +52,8 @@ DBusHandlerResult bus_send_error_reply(Manager *m, DBusMessage *message, DBusErr
 int bus_property_append_string(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_property_append_strv(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_property_append_bool(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_property_append_uint32(Manager *m, DBusMessageIter *i, const char *property, void *data);
+int bus_property_append_uint64(Manager *m, DBusMessageIter *i, const char *property, void *data);
 
 extern const DBusObjectPathVTable bus_manager_vtable;
 extern const DBusObjectPathVTable bus_job_vtable;

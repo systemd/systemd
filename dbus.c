@@ -561,7 +561,9 @@ int bus_property_append_string(Manager *m, DBusMessageIter *i, const char *prope
         assert(m);
         assert(i);
         assert(property);
-        assert(t);
+
+        if (!t)
+                t = "";
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t))
                 return -ENOMEM;
@@ -602,6 +604,30 @@ int bus_property_append_bool(Manager *m, DBusMessageIter *i, const char *propert
         db = *b;
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_BOOLEAN, &db))
+                return -ENOMEM;
+
+        return 0;
+}
+
+int bus_property_append_uint64(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(data);
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT64, data))
+                return -ENOMEM;
+
+        return 0;
+}
+
+int bus_property_append_uint32(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(data);
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_UINT32, data))
                 return -ENOMEM;
 
         return 0;
