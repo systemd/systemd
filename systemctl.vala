@@ -28,6 +28,8 @@ public interface Manager : DBus.Object {
         public abstract JobInfo[] ListJobs() throws DBus.Error;
 
         public abstract ObjectPath LoadUnit(string name) throws DBus.Error;
+
+        public abstract void ClearJobs() throws DBus.Error;
 }
 
 static string type = null;
@@ -81,7 +83,7 @@ int main (string[] args) {
                         uint n = 0;
                         Posix.qsort(list, list.length, sizeof(Manager.UnitInfo), unit_info_compare);
 
-                        stdout.printf("%-45s %-6s %-12s → %-15s\n\n", "UNIT", "LOAD", "ACTIVE", "JOB");
+                        stdout.printf("%-45s %-6s %-12s %-17s\n", "UNIT", "LOAD", "ACTIVE", "JOB");
 
                         foreach (var i in list) {
 
@@ -110,8 +112,16 @@ int main (string[] args) {
                         var list = manager.ListJobs();
                         Posix.qsort(list, list.length, sizeof(Manager.JobInfo), job_info_compare);
 
+                        stdout.printf("%-45s %-17s %-7s\n", "UNIT", "TYPE", "STATE");
+
                         foreach (var i in list)
                                 stdout.printf("%-45s → %-15s %-7s\n", i.name, i.type, i.state);
+
+                        stdout.printf("\n%u jobs listed.\n", list.length);
+
+                } else if (args[1] == "clear-jobs") {
+
+                        manager.ClearJobs();
 
                 } else if (args[1] == "load") {
 
