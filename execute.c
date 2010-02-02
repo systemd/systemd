@@ -1,5 +1,7 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
+#pragma GCC diagnostic ignored "-Wattributes"
+
 #include <assert.h>
 #include <dirent.h>
 #include <errno.h>
