@@ -1,45 +1,15 @@
 using DBus;
 using GLib;
 
-[DBus (name = "org.freedesktop.systemd1")]
-public interface Manager : DBus.Object {
-
-        public struct UnitInfo {
-                string id;
-                string description;
-                string load_state;
-                string active_state;
-                ObjectPath unit_path;
-                uint32 job_id;
-                string job_type;
-                ObjectPath job_path;
-        }
-
-        public struct JobInfo {
-                uint32 id;
-                string name;
-                string type;
-                string state;
-                ObjectPath job_path;
-                ObjectPath unit_path;
-        }
-
-        public abstract UnitInfo[] ListUnits() throws DBus.Error;
-        public abstract JobInfo[] ListJobs() throws DBus.Error;
-
-        public abstract ObjectPath LoadUnit(string name) throws DBus.Error;
-
-        public abstract void ClearJobs() throws DBus.Error;
-}
-
 static string type = null;
 static bool all = false;
+static bool replace = false;
 
 public static int job_info_compare(void* key1, void* key2) {
         Manager.JobInfo *j1 = (Manager.JobInfo*) key1;
         Manager.JobInfo *j2 = (Manager.JobInfo*) key2;
 
-        return Posix.strcmp(j1->name, j2->name);
+        return j1->id < j2->id ? -1 : (j1->id > j2->id ? 1 : 0);
 }
 
 public static int unit_info_compare(void* key1, void* key2) {
@@ -54,8 +24,9 @@ public static int unit_info_compare(void* key1, void* key2) {
 }
 
 static const OptionEntry entries[] = {
-        { "type", 't', 0, OptionArg.STRING, out type, "List only particular type of units", "TYPE" },
-        { "all",  'a', 0, OptionArg.NONE,   out all,  "Show all units, including dead ones", null  },
+        { "type",    't', 0, OptionArg.STRING, out type,    "List only particular type of units", "TYPE" },
+        { "all",     'a', 0, OptionArg.NONE,   out all,     "Show all units, including dead ones", null  },
+        { "replace", 0,   0, OptionArg.NONE,   out replace, "When installing a new job, replace existing conflicting ones.", null },
         { null }
 };
 
@@ -79,7 +50,7 @@ int main (string[] args) {
                                 "org.freedesktop.systemd1") as Manager;
 
                 if (args[1] == "list-units" || args.length <= 1) {
-                        var list = manager.ListUnits();
+                        var list = manager.list_units();
                         uint n = 0;
                         Posix.qsort(list, list.length, sizeof(Manager.UnitInfo), unit_info_compare);
 
@@ -109,19 +80,19 @@ int main (string[] args) {
 
 
                 } else if (args[1] == "list-jobs") {
-                        var list = manager.ListJobs();
+                        var list = manager.list_jobs();
                         Posix.qsort(list, list.length, sizeof(Manager.JobInfo), job_info_compare);
 
-                        stdout.printf("%-45s %-17s %-7s\n", "UNIT", "TYPE", "STATE");
+                        stdout.printf("%4s %-45s %-17s %-7s\n", "JOB", "UNIT", "TYPE", "STATE");
 
                         foreach (var i in list)
-                                stdout.printf("%-45s → %-15s %-7s\n", i.name, i.type, i.state);
+                                stdout.printf("%4u %-45s → %-15s %-7s\n", i.id, i.name, i.type, i.state);
 
                         stdout.printf("\n%u jobs listed.\n", list.length);
 
                 } else if (args[1] == "clear-jobs") {
 
-                        manager.ClearJobs();
+                        manager.clear_jobs();
 
                 } else if (args[1] == "load") {
 
@@ -130,7 +101,65 @@ int main (string[] args) {
                                 return 1;
                         }
 
-                        manager.LoadUnit(args[2]);
+                        for (uint i = 2; i < args.length; i++)
+                                manager.load_unit(args[i]);
+
+                } else if (args[1] == "cancel") {
+
+                        if (args.length < 3) {
+                                stderr.printf("Missing argument.\n");
+                                return 1;
+                        }
+
+                        for (uint i = 2; i < args.length; i++) {
+                                uint32 id;
+
+                                if (args[i].scanf("%u", out id) != 1) {
+                                        stderr.printf("Failed to parse argument.\n");
+                                        return 1;
+                                }
+
+                                ObjectPath p = manager.get_job(id);
+
+                                Job j = bus.get_object (
+                                                "org.freedesktop.systemd1",
+                                                p,
+                                                "org.freedesktop.systemd1.Job") as Job;
+
+                                j.cancel();
+                        }
+
+                } else if (args[1] == "start" ||
+                           args[1] == "stop" ||
+                           args[1] == "reload" ||
+                           args[1] == "restart") {
+
+                        if (args.length < 3) {
+                                stderr.printf("Missing argument.\n");
+                                return 1;
+                        }
+
+                        for (uint i = 2; i < args.length; i++) {
+
+                                ObjectPath p = manager.get_unit(args[i]);
+
+                                Unit u = bus.get_object(
+                                                "org.freedesktop.systemd1",
+                                                p,
+                                                "org.freedesktop.systemd1.Unit") as Unit;
+
+                                string mode = replace ? "replace" : "fail";
+
+                                if (args[1] == "start")
+                                        u.start(mode);
+                                else if (args[1] == "stop")
+                                        u.stop(mode);
+                                else if (args[1] == "restart")
+                                        u.restart(mode);
+                                else if (args[1] == "reload")
+                                        u.reload(mode);
+                        }
+
                 } else {
                         stderr.printf("Unknown command %s.\n", args[1]);
                         return 1;

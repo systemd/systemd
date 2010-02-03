@@ -5,3 +5,6 @@ test-job-type
 systemd-logger
 systemctl
 systemctl.c
+systemd-interfaces.c
+systemadm
+systemadm.c
