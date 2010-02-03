@@ -12,7 +12,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/prctl.h>
-#include <sched.h>
+#include <linux/sched.h>
 
 #include "execute.h"
 #include "strv.h"
