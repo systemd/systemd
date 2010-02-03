@@ -8,8 +8,23 @@
 static const char introspection[] =
         DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
         "<node>"
-        " <!-- you suck -->"
         " <interface name=\"org.freedesktop.systemd1.Unit\">"
+        "  <method name=\"Start\">"
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>"
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>"
+        "  </method>"
+        "  <method name=\"Stop\">"
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>"
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>"
+        "  </method>"
+        "  <method name=\"Restart\">"
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>"
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>"
+        "  </method>"
+        "  <method name=\"Reload\">"
+        "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>"
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>"
+        "  </method>"
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>"
         "  <property name=\"Description\" type=\"s\" access=\"read\"/>"
         "  <property name=\"LoadState\" type=\"s\" access=\"read\"/>"
@@ -191,7 +206,73 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(u->meta.manager, message, introspection, properties);
+        DBusMessage *reply = NULL;
+        Manager *m = u->meta.manager;
+        DBusError error;
+        JobType job_type = _JOB_TYPE_INVALID;
+
+        dbus_error_init(&error);
+
+        if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "Start"))
+                job_type = JOB_START;
+        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "Stop"))
+                job_type = JOB_STOP;
+        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "Reload"))
+                job_type = JOB_RELOAD;
+        else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Unit", "Restart"))
+                job_type = JOB_RESTART;
+        else
+                return bus_default_message_handler(u->meta.manager, message, introspection, properties);
+
+        if (job_type != _JOB_TYPE_INVALID) {
+                const char *smode;
+                JobMode mode;
+                Job *j;
+                int r;
+                char *path;
+
+                if (!dbus_message_get_args(
+                                    message,
+                                    &error,
+                                    DBUS_TYPE_STRING, &smode,
+                                    DBUS_TYPE_INVALID))
+                        return bus_send_error_reply(m, message, &error, -EINVAL);
+
+                if ((mode = job_mode_from_string(smode)) == _JOB_MODE_INVALID)
+                        return bus_send_error_reply(m, message, NULL, -EINVAL);
+
+                if ((r = manager_add_job(m, job_type, u, mode, true, &j)) < 0)
+                        return bus_send_error_reply(m, message, NULL, r);
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                if (!(path = job_dbus_path(j)))
+                        goto oom;
+
+                if (!dbus_message_append_args(
+                                    reply,
+                                    DBUS_TYPE_OBJECT_PATH, &path,
+                                    DBUS_TYPE_INVALID))
+                        goto oom;
+        }
+
+        if (reply) {
+                if (!dbus_connection_send(m->bus, reply, NULL))
+                        goto oom;
+
+                dbus_message_unref(reply);
+        }
+
+        return DBUS_HANDLER_RESULT_HANDLED;
+
+oom:
+        if (reply)
+                dbus_message_unref(reply);
+
+        dbus_error_free(&error);
+
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
 static DBusHandlerResult bus_unit_message_handler(DBusConnection  *connection, DBusMessage  *message, void *data) {

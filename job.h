@@ -46,7 +46,8 @@ enum JobState {
 enum JobMode {
         JOB_FAIL,
         JOB_REPLACE,
-        _JOB_MODE_MAX
+        _JOB_MODE_MAX,
+        _JOB_MODE_INVALID = -1
 };
 
 struct JobDependency {
@@ -113,6 +114,9 @@ JobType job_type_from_string(const char *s);
 
 const char* job_state_to_string(JobState t);
 JobState job_state_from_string(const char *s);
+
+const char* job_mode_to_string(JobMode t);
+JobMode job_mode_from_string(const char *s);
 
 char *job_dbus_path(Job *j);
 

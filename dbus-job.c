@@ -9,9 +9,10 @@ static const char introspection[] =
         DBUS_INTROSPECT_1_0_XML_DOCTYPE_DECL_NODE
         "<node>"
         " <interface name=\"org.freedesktop.systemd1.Job\">"
+        "  <method name=\"Cancel\"/>"
         "  <property name=\"Id\" type=\"u\" access=\"read\"/>"
         "  <property name=\"Unit\" type=\"(so)\" access=\"read\"/>"
-        "  <property name=\"Type\" type=\"s\" access=\"read\"/>"
+        "  <property name=\"JobType\" type=\"s\" access=\"read\"/>"
         "  <property name=\"State\" type=\"s\" access=\"read\"/>"
         " </interface>"
         BUS_PROPERTIES_INTERFACE
@@ -86,16 +87,40 @@ static int bus_job_append_unit(Manager *m, DBusMessageIter *i, const char *prope
 }
 
 static DBusHandlerResult bus_job_message_dispatch(Job *j, DBusMessage *message) {
-
         const BusProperty properties[] = {
-                { "org.freedesktop.systemd1.Job", "Id",    bus_property_append_uint32, "u",    &j->id },
-                { "org.freedesktop.systemd1.Job", "State", bus_job_append_state,       "s",    j      },
-                { "org.freedesktop.systemd1.Job", "Type",  bus_job_append_type,        "s",    j      },
-                { "org.freedesktop.systemd1.Job", "Unit",  bus_job_append_unit,        "(so)", j      },
+                { "org.freedesktop.systemd1.Job", "Id",      bus_property_append_uint32, "u",    &j->id },
+                { "org.freedesktop.systemd1.Job", "State",   bus_job_append_state,       "s",    j      },
+                { "org.freedesktop.systemd1.Job", "JobType", bus_job_append_type,        "s",    j      },
+                { "org.freedesktop.systemd1.Job", "Unit",    bus_job_append_unit,        "(so)", j      },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 
-        return bus_default_message_handler(j->manager, message, introspection, properties);
+        DBusMessage *reply = NULL;
+        Manager *m = j->manager;
+
+        if (dbus_message_is_method_call(message, "org.freedesktop.systemd1.Job", "Cancel")) {
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                job_free(j);
+
+        } else
+                return bus_default_message_handler(j->manager, message, introspection, properties);
+
+        if (reply) {
+                if (!dbus_connection_send(m->bus, reply, NULL))
+                        goto oom;
+
+                dbus_message_unref(reply);
+        }
+
+        return DBUS_HANDLER_RESULT_HANDLED;
+
+oom:
+        if (reply)
+                dbus_message_unref(reply);
+
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
 
 DBusHandlerResult bus_job_message_handler(DBusConnection  *connection, DBusMessage  *message, void *data) {

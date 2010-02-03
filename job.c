@@ -492,3 +492,10 @@ static const char* const job_type_table[_JOB_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_type, JobType);
+
+static const char* const job_mode_table[_JOB_MODE_MAX] = {
+        [JOB_FAIL] = "fail",
+        [JOB_REPLACE] = "replace"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(job_mode, JobMode);
