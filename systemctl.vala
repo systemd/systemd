@@ -120,7 +120,7 @@ int main (string[] args) {
                                 return 1;
                         }
 
-                        for (uint i = 2; i < args.length; i++)
+                        for (int i = 2; i < args.length; i++)
                                 manager.load_unit(args[i]);
 
                 } else if (args[1] == "cancel") {
@@ -130,7 +130,7 @@ int main (string[] args) {
                                 return 1;
                         }
 
-                        for (uint i = 2; i < args.length; i++) {
+                        for (int i = 2; i < args.length; i++) {
                                 uint32 id;
 
                                 if (args[i].scanf("%u", out id) != 1) {
