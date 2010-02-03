@@ -180,7 +180,7 @@ DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection, DBusM
                                         goto oom;
                                 }
 
-                                job_type = job_type_to_string(u->meta.job->state);
+                                job_type = job_type_to_string(u->meta.job->type);
                         } else {
                                 job_id = 0;
                                 job_path = unit_path;
@@ -237,7 +237,7 @@ DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection, DBusM
                         id = (uint32_t) j->id;
                         unit = unit_id(j->unit);
                         state = job_state_to_string(j->state);
-                        type = job_type_to_string(j->state);
+                        type = job_type_to_string(j->type);
 
                         if (!(job_path = job_dbus_path(j)))
                                 goto oom;
