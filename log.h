@@ -31,7 +31,7 @@ void log_meta(
         const char*file,
         int line,
         const char *func,
-        const char *format, ...) __printf_attr(5,6);
+        const char *format, ...) _printf_attr(5,6);
 
 #define log_debug(...)   log_meta(LOG_DEBUG,   __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define log_info(...)    log_meta(LOG_INFO,    __FILE__, __LINE__, __func__, __VA_ARGS__)

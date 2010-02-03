@@ -25,16 +25,16 @@
 #include <assert.h>
 #include <sys/types.h>
 
-#define __printf_attr(a,b) __attribute__ ((format (printf, a, b)))
-#define __sentinel __attribute__ ((sentinel))
-#define __noreturn __attribute__((noreturn))
-#define __unused __attribute__ ((unused))
-#define __destructor __attribute__ ((destructor))
-#define __pure __attribute__ ((pure))
-#define __const __attribute__ ((const))
-#define __deprecated __attribute__ ((deprecated))
-#define __packed __attribute__ ((packed))
-#define __malloc __attribute__ ((malloc))
+#define _printf_attr(a,b) __attribute__ ((format (printf, a, b)))
+#define _sentinel __attribute__ ((sentinel))
+#define _noreturn __attribute__((noreturn))
+#define _unused __attribute__ ((unused))
+#define _destructor __attribute__ ((destructor))
+#define _pure __attribute__ ((pure))
+#define _const __attribute__ ((const))
+#define _deprecated __attribute__ ((deprecated))
+#define _packed __attribute__ ((packed))
+#define _malloc __attribute__ ((malloc))
 
 /* Rounds up */
 static inline size_t ALIGN(size_t l) {

@@ -33,7 +33,7 @@ char **strv_merge(char **a, char **b);
 
 bool strv_contains(char **l, const char *s);
 
-char **strv_new(const char *x, ...) __sentinel;
+char **strv_new(const char *x, ...) _sentinel;
 
 #define STRV_FOREACH(s, l)                      \
         for ((s) = (l); (s) && *(s); (s)++)
