@@ -158,7 +158,7 @@ int main (string[] args) {
                                 return 1;
                         }
 
-                        for (uint i = 2; i < args.length; i++) {
+                        for (int i = 2; i < args.length; i++) {
 
                                 ObjectPath p = manager.get_unit(args[i]);
 
