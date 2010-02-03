@@ -159,14 +159,14 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         SocketExecCommand c;
         Socket *s = SOCKET(u);
         SocketPort *p;
-        char *prefix2;
+        const char *prefix2;
+        char *p2;
 
         assert(s);
         assert(f);
 
-        prefix2 = strappend(prefix, "\t");
-        if (!prefix2)
-                prefix2 = "";
+        p2 = strappend(prefix, "\t");
+        prefix2 = p2 ? p2 : prefix;
 
         fprintf(f,
                 "%sSocket State: %s\n"
@@ -211,7 +211,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
 
-        free(prefix2);
+        free(p2);
 }
 
 static void socket_close_fds(Socket *s) {
