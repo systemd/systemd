@@ -103,7 +103,6 @@ int socket_address_parse(SocketAddress *a, const char *s) {
         } else {
 
                 if ((e = strchr(s, ':'))) {
-                        int r;
 
                         if ((r = safe_atou(e+1, &u)) < 0)
                                 return r;

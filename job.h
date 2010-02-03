@@ -124,6 +124,8 @@ bool job_type_is_mergeable(JobType a, JobType b);
 bool job_type_is_superset(JobType a, JobType b);
 bool job_type_is_conflicting(JobType a, JobType b);
 
+bool job_is_runnable(Job *j);
+
 void job_schedule_run(Job *j);
 int job_run_and_invalidate(Job *j);
 int job_finish_and_invalidate(Job *j, bool success);

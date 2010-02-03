@@ -36,10 +36,10 @@
 #include "ioprio.h"
 #include "missing.h"
 
-usec_t now(clockid_t clock) {
+usec_t now(clockid_t clock_id) {
         struct timespec ts;
 
-        assert_se(clock_gettime(clock, &ts) == 0);
+        assert_se(clock_gettime(clock_id, &ts) == 0);
 
         return timespec_load(&ts);
 }
@@ -824,10 +824,10 @@ char *xescape(const char *s, const char *bad) {
 }
 
 char *bus_path_escape(const char *s) {
-        assert(s);
-
         char *r, *t;
         const char *f;
+
+        assert(s);
 
         /* Escapes all chars that D-Bus' object path cannot deal
          * with. Can be reverse with bus_path_unescape() */
@@ -853,10 +853,10 @@ char *bus_path_escape(const char *s) {
 }
 
 char *bus_path_unescape(const char *s) {
-        assert(s);
-
         char *r, *t;
         const char *f;
+
+        assert(s);
 
         if (!(r = new(char, strlen(s)+1)))
                 return NULL;

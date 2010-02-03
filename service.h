@@ -102,7 +102,7 @@ struct Service {
         RateLimit ratelimit;
 };
 
-const UnitVTable service_vtable;
+extern const UnitVTable service_vtable;
 
 const char* service_state_to_string(ServiceState i);
 ServiceState service_state_from_string(const char *s);

@@ -472,7 +472,7 @@ static int config_parse_service_restart(
         return 0;
 }
 
-int config_parse_bindtodevice(
+static int config_parse_bindtodevice(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -501,7 +501,7 @@ int config_parse_bindtodevice(
         return 0;
 }
 
-int config_parse_output(
+static int config_parse_output(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -527,7 +527,7 @@ int config_parse_output(
         return 0;
 }
 
-int config_parse_input(
+static int config_parse_input(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -553,7 +553,7 @@ int config_parse_input(
         return 0;
 }
 
-int config_parse_facility(
+static int config_parse_facility(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -583,7 +583,7 @@ int config_parse_facility(
         return 0;
 }
 
-int config_parse_level(
+static int config_parse_level(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -612,7 +612,7 @@ int config_parse_level(
         return 0;
 }
 
-int config_parse_io_class(
+static int config_parse_io_class(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -643,7 +643,7 @@ int config_parse_io_class(
         return 0;
 }
 
-int config_parse_io_priority(
+static int config_parse_io_priority(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -671,7 +671,7 @@ int config_parse_io_priority(
         return 0;
 }
 
-int config_parse_cpu_sched_policy(
+static int config_parse_cpu_sched_policy(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -703,7 +703,7 @@ int config_parse_cpu_sched_policy(
         return 0;
 }
 
-int config_parse_cpu_sched_prio(
+static int config_parse_cpu_sched_prio(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -732,7 +732,7 @@ int config_parse_cpu_sched_prio(
         return 0;
 }
 
-int config_parse_cpu_affinity(
+static int config_parse_cpu_affinity(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -775,7 +775,7 @@ int config_parse_cpu_affinity(
         return 0;
 }
 
-int config_parse_capabilities(
+static int config_parse_capabilities(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -807,7 +807,7 @@ int config_parse_capabilities(
         return 0;
 }
 
-int config_parse_secure_bits(
+static int config_parse_secure_bits(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -848,7 +848,7 @@ int config_parse_secure_bits(
         return 0;
 }
 
-int config_parse_bounding_set(
+static int config_parse_bounding_set(
                 const char *filename,
                 unsigned line,
                 const char *section,

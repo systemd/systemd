@@ -130,13 +130,13 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
         ServiceExecCommand c;
         Service *s = SERVICE(u);
-        char *prefix2;
+        const char *prefix2;
+        char *p2;
 
         assert(s);
 
-        prefix2 = strappend(prefix, "\t");
-        if (!prefix2)
-                prefix2 = "";
+        p2 = strappend(prefix, "\t");
+        prefix2 = p2 ? p2 : prefix;
 
         fprintf(f,
                 "%sService State: %s\n",
@@ -161,7 +161,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
 
-        free(prefix2);
+        free(p2);
 }
 
 static int service_load_pid_file(Service *s) {
@@ -243,7 +243,7 @@ fail:
 static int service_notify_sockets(Service *s) {
         Iterator i;
         Set *set;
-        Socket *socket;
+        Socket *sock;
         int r;
 
         assert(s);
@@ -253,8 +253,8 @@ static int service_notify_sockets(Service *s) {
         if ((r = service_get_sockets(s, &set)) < 0)
                 return r;
 
-        SET_FOREACH(socket, set, i)
-                socket_notify_service_dead(socket);
+        SET_FOREACH(sock, set, i)
+                socket_notify_service_dead(sock);
 
         set_free(set);
 
@@ -338,7 +338,7 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
         int *rfds = NULL;
         unsigned rn_fds = 0;
         Set *set;
-        Socket *socket;
+        Socket *sock;
 
         assert(s);
         assert(fds);
@@ -347,11 +347,11 @@ static int service_collect_fds(Service *s, int **fds, unsigned *n_fds) {
         if ((r = service_get_sockets(s, &set)) < 0)
                 return r;
 
-        SET_FOREACH(socket, set, i) {
+        SET_FOREACH(sock, set, i) {
                 int *cfds;
                 unsigned cn_fds;
 
-                if ((r = socket_collect_fds(socket, &cfds, &cn_fds)) < 0)
+                if ((r = socket_collect_fds(sock, &cfds, &cn_fds)) < 0)
                         goto fail;
 
                 if (!cfds)

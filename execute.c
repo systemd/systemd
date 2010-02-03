@@ -269,7 +269,7 @@ static int setup_output(const ExecContext *context, const char *ident) {
         }
 }
 
-int setup_input(const ExecContext *context) {
+static int setup_input(const ExecContext *context) {
         int r;
 
         assert(context);

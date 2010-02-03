@@ -44,6 +44,6 @@ struct Timer {
         Service *service;
 };
 
-const UnitVTable timer_vtable;
+extern const UnitVTable timer_vtable;
 
 #endif

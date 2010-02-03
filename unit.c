@@ -351,15 +351,15 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         char *t;
         UnitDependency d;
         Iterator i;
-        char *prefix2;
+        char *p2;
+        const char *prefix2;
 
         assert(u);
 
         if (!prefix)
                 prefix = "";
-        prefix2 = strappend(prefix, "\t");
-        if (!prefix2)
-                prefix2 = "";
+        p2 = strappend(prefix, "\t");
+        prefix2 = p2 ? p2 : prefix;
 
         fprintf(f,
                 "%s→ Unit %s:\n"
@@ -397,7 +397,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         if (u->meta.job)
                 job_dump(u->meta.job, f, prefix2);
 
-        free(prefix2);
+        free(p2);
 }
 
 /* Common implementation for multiple backends */

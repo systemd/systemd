@@ -54,7 +54,7 @@
 #define INTROSPECTION_END                                               \
         "</node>"
 
-DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection, DBusMessage *message, void *data) {
+static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection, DBusMessage *message, void *data) {
         int r;
         Manager *m = data;
         DBusError error;
@@ -172,7 +172,7 @@ DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection, DBusM
                         goto oom;
 
                 HASHMAP_FOREACH_KEY(u, k, m->units, i) {
-                        char *unit_path, *job_path;
+                        char *u_path, *j_path;
                         const char *id, *description, *load_state, *active_state, *job_type;
                         DBusMessageIter sub2;
                         uint32_t job_id;
@@ -188,21 +188,21 @@ DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection, DBusM
                         load_state = unit_load_state_to_string(u->meta.load_state);
                         active_state = unit_active_state_to_string(unit_active_state(u));
 
-                        if (!(unit_path = unit_dbus_path(u)))
+                        if (!(u_path = unit_dbus_path(u)))
                                 goto oom;
 
                         if (u->meta.job) {
                                 job_id = (uint32_t) u->meta.job->id;
 
-                                if (!(job_path = job_dbus_path(u->meta.job))) {
-                                        free(unit_path);
+                                if (!(j_path = job_dbus_path(u->meta.job))) {
+                                        free(u_path);
                                         goto oom;
                                 }
 
                                 job_type = job_type_to_string(u->meta.job->type);
                         } else {
                                 job_id = 0;
-                                job_path = unit_path;
+                                j_path = u_path;
                                 job_type = "";
                         }
 
@@ -210,19 +210,19 @@ DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection, DBusM
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &description) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &load_state) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &active_state) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &unit_path) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &u_path) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &job_id) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &job_type) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &job_path)) {
-                                free(unit_path);
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &j_path)) {
+                                free(u_path);
                                 if (u->meta.job)
-                                        free(job_path);
+                                        free(j_path);
                                 goto oom;
                         }
 
-                        free(unit_path);
+                        free(u_path);
                         if (u->meta.job)
-                                free(job_path);
+                                free(j_path);
 
                         if (!dbus_message_iter_close_container(&sub, &sub2))
                                 goto oom;
@@ -245,7 +245,7 @@ DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection, DBusM
                         goto oom;
 
                 HASHMAP_FOREACH(j, m->jobs, i) {
-                        char *unit_path, *job_path;
+                        char *u_path, *j_path;
                         const char *unit, *state, *type;
                         uint32_t id;
                         DBusMessageIter sub2;
@@ -258,11 +258,11 @@ DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection, DBusM
                         state = job_state_to_string(j->state);
                         type = job_type_to_string(j->type);
 
-                        if (!(job_path = job_dbus_path(j)))
+                        if (!(j_path = job_dbus_path(j)))
                                 goto oom;
 
-                        if (!(unit_path = unit_dbus_path(j->unit))) {
-                                free(job_path);
+                        if (!(u_path = unit_dbus_path(j->unit))) {
+                                free(j_path);
                                 goto oom;
                         }
 
@@ -270,15 +270,15 @@ DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection, DBusM
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &unit) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &type) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &state) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &job_path) ||
-                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &unit_path)) {
-                                free(job_path);
-                                free(unit_path);
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &j_path) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &u_path)) {
+                                free(j_path);
+                                free(u_path);
                                 goto oom;
                         }
 
-                        free(job_path);
-                        free(unit_path);
+                        free(j_path);
+                        free(u_path);
 
                         if (!dbus_message_iter_close_container(&sub, &sub2))
                                 goto oom;

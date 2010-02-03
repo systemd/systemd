@@ -155,7 +155,7 @@ static int stream_log(Stream *s, char *p, usec_t timestamp) {
                 IOVEC_SET_STRING(iovec[1], s->process);
                 IOVEC_SET_STRING(iovec[2], header_pid);
                 IOVEC_SET_STRING(iovec[3], p);
-                IOVEC_SET_STRING(iovec[4], "\n");
+                IOVEC_SET_STRING(iovec[4], (char*) "\n");
 
                 if (writev(s->server->kmsg_fd, iovec, ELEMENTSOF(iovec)) < 0)
                         return -errno;
@@ -548,9 +548,9 @@ int main(int argc, char *argv[]) {
 
         for (;;) {
                 struct epoll_event event;
-                int n;
+                int k;
 
-                if ((n = epoll_wait(server.epoll_fd,
+                if ((k = epoll_wait(server.epoll_fd,
                                     &event, 1,
                                     server.n_streams <= 0 ? TIMEOUT : -1)) < 0) {
 
@@ -561,7 +561,7 @@ int main(int argc, char *argv[]) {
                         goto fail;
                 }
 
-                if (n <= 0)
+                if (k <= 0)
                         break;
 
                 if ((r = process_event(&server, &event)) < 0)
