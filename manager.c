@@ -1212,7 +1212,7 @@ static int process_event(Manager *m, struct epoll_event *ev, bool *quit) {
                 ssize_t k;
 
                 /* Some timer event, to be dispatched to the units */
-                if ((k = read(ev->data.fd, &v, sizeof(v))) != sizeof(v)) {
+                if ((k = read(w->fd, &v, sizeof(v))) != sizeof(v)) {
 
                         if (k < 0 && (errno == EINTR || errno == EAGAIN))
                                 break;
