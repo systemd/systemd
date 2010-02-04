@@ -665,7 +665,8 @@ static int transaction_apply(Manager *m, JobMode mode) {
                 assert(!j->transaction_next);
                 assert(!j->transaction_prev);
 
-                job_schedule_run(j);
+                job_add_to_run_queue(j);
+                job_add_to_dbus_queue(j);
         }
 
         /* As last step, kill all remaining job dependencies. */
@@ -946,14 +947,15 @@ Unit *manager_get_unit(Manager *m, const char *name) {
         return hashmap_get(m->units, name);
 }
 
-void manager_dispatch_load_queue(Manager *m) {
+unsigned manager_dispatch_load_queue(Manager *m) {
         Meta *meta;
+        unsigned n = 0;
 
         assert(m);
 
         /* Make sure we are not run recursively */
         if (m->dispatching_load_queue)
-                return;
+                return 0;
 
         m->dispatching_load_queue = true;
 
@@ -964,9 +966,11 @@ void manager_dispatch_load_queue(Manager *m) {
                 assert(meta->in_load_queue);
 
                 unit_load(UNIT(meta));
+                n++;
         }
 
         m->dispatching_load_queue = false;
+        return n;
 }
 
 int manager_load_unit(Manager *m, const char *path, Unit **_ret) {
@@ -1004,6 +1008,8 @@ int manager_load_unit(Manager *m, const char *path, Unit **_ret) {
         }
 
         unit_add_to_load_queue(ret);
+        unit_add_to_dbus_queue(ret);
+
         manager_dispatch_load_queue(m);
 
         *_ret = ret;
@@ -1045,11 +1051,12 @@ void manager_clear_jobs(Manager *m) {
                 job_free(j);
 }
 
-void manager_dispatch_run_queue(Manager *m) {
+unsigned manager_dispatch_run_queue(Manager *m) {
         Job *j;
+        unsigned n = 0;
 
         if (m->dispatching_run_queue)
-                return;
+                return 0;
 
         m->dispatching_run_queue = true;
 
@@ -1058,9 +1065,42 @@ void manager_dispatch_run_queue(Manager *m) {
                 assert(j->in_run_queue);
 
                 job_run_and_invalidate(j);
+                n++;
         }
 
         m->dispatching_run_queue = false;
+        return n;
+}
+
+unsigned manager_dispatch_dbus_queue(Manager *m) {
+        Job *j;
+        Meta *meta;
+        unsigned n = 0;
+
+        assert(m);
+
+        if (m->dispatching_dbus_queue)
+                return 0;
+
+        m->dispatching_dbus_queue = true;
+
+        while ((meta = m->dbus_unit_queue)) {
+                Unit *u = (Unit*) meta;
+                assert(u->meta.in_dbus_queue);
+
+                bus_unit_send_change_signal(u);
+                n++;
+        }
+
+        while ((j = m->dbus_job_queue)) {
+                assert(j->in_dbus_queue);
+
+                bus_job_send_change_signal(j);
+                n++;
+        }
+
+        m->dispatching_dbus_queue = false;
+        return n;
 }
 
 static int manager_dispatch_sigchld(Manager *m) {
@@ -1227,12 +1267,17 @@ int manager_loop(Manager *m) {
                         sleep(1);
                 }
 
-                manager_dispatch_run_queue(m);
-
-                if (m->request_bus_dispatch) {
-                        bus_dispatch(m);
+                if (manager_dispatch_load_queue(m) > 0)
                         continue;
-                }
+
+                if (manager_dispatch_run_queue(m) > 0)
+                        continue;
+
+                if (bus_dispatch(m) > 0)
+                        continue;
+
+                if (manager_dispatch_dbus_queue(m) > 0)
+                        continue;
 
                 if ((n = epoll_wait(m->epoll_fd, &event, 1, -1)) < 0) {
 

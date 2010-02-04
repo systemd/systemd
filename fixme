@@ -25,9 +25,7 @@
 
 - implement timer
 
-- implement mount/automount
-
-- more process attributes: cpu affinity, cpu scheduling
+- implement automount
 
 - create session/pgroup for child processes? handle input on console properly? interactive fsck? interactive luks password?
 

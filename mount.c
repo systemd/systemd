@@ -252,6 +252,8 @@ static int mount_add_one(Manager *m, const char *what, const char *where, bool l
         if ((r = mount_add_path_links(MOUNT(u))) < 0)
                 goto fail;
 
+        unit_add_to_dbus_queue(u);
+
         return 0;
 
 fail:

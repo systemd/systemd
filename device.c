@@ -212,6 +212,8 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
                 device_set_state(DEVICE(u), DEVICE_AVAILABLE);
         }
 
+        unit_add_to_dbus_queue(u);
+
         return 0;
 
 fail:

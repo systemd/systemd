@@ -44,6 +44,7 @@ static const char introspection[] =
         "   <arg name=\"mode\" type=\"s\" direction=\"in\"/>"
         "   <arg name=\"job\" type=\"o\" direction=\"out\"/>"
         "  </method>"
+        "  <signal name=\"Changed\"/>"
         "  <property name=\"Id\" type=\"s\" access=\"read\"/>"
         "  <property name=\"Description\" type=\"s\" access=\"read\"/>"
         "  <property name=\"LoadState\" type=\"s\" access=\"read\"/>"
@@ -325,3 +326,98 @@ static DBusHandlerResult bus_unit_message_handler(DBusConnection  *connection, D
 const DBusObjectPathVTable bus_unit_vtable = {
         .message_function = bus_unit_message_handler
 };
+
+void bus_unit_send_change_signal(Unit *u) {
+        char *p = NULL;
+        DBusMessage *m = NULL;
+
+        assert(u);
+        assert(u->meta.in_dbus_queue);
+
+        LIST_REMOVE(Meta, dbus_queue, u->meta.manager->dbus_unit_queue, &u->meta);
+        u->meta.in_dbus_queue = false;
+
+        if (set_isempty(u->meta.manager->subscribed))
+                return;
+
+        if (!(p = unit_dbus_path(u)))
+                goto oom;
+
+        if (u->meta.sent_dbus_new_signal) {
+                /* Send a change signal */
+
+                if (!(m = dbus_message_new_signal(p, "org.freedesktop.systemd1.Unit", "Changed")))
+                        goto oom;
+        } else {
+                const char *id;
+                /* Send a new signal */
+
+                if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1", "UnitNew")))
+                        goto oom;
+
+                id = unit_id(u);
+                if (!dbus_message_append_args(m,
+                                              DBUS_TYPE_STRING, &id,
+                                              DBUS_TYPE_OBJECT_PATH, &p,
+                                              DBUS_TYPE_INVALID))
+                        goto oom;
+        }
+
+        if (!dbus_connection_send(u->meta.manager->bus, m, NULL))
+                goto oom;
+
+        free(p);
+        dbus_message_unref(m);
+
+        u->meta.sent_dbus_new_signal = true;
+
+        return;
+
+oom:
+        free(p);
+
+        if (m)
+                dbus_message_unref(m);
+
+        log_error("Failed to allocate unit change/new signal.");
+}
+
+void bus_unit_send_removed_signal(Unit *u) {
+        char *p = NULL;
+        DBusMessage *m = NULL;
+        const char *id;
+
+        assert(u);
+
+        if (set_isempty(u->meta.manager->subscribed) || !u->meta.sent_dbus_new_signal)
+                return;
+
+        if (!(p = unit_dbus_path(u)))
+                goto oom;
+
+        if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1", "UnitRemoved")))
+                goto oom;
+
+        id = unit_id(u);
+        if (!dbus_message_append_args(m,
+                                      DBUS_TYPE_STRING, &id,
+                                      DBUS_TYPE_OBJECT_PATH, &p,
+                                      DBUS_TYPE_INVALID))
+                goto oom;
+
+        if (!dbus_connection_send(u->meta.manager->bus, m, NULL))
+                goto oom;
+
+        free(p);
+        dbus_message_unref(m);
+
+        return;
+
+oom:
+        free(p);
+
+        if (m)
+                dbus_message_unref(m);
+
+        log_error("Failed to allocate unit remove signal.");
+}

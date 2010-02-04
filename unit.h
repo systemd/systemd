@@ -131,6 +131,8 @@ struct Meta {
         Job *job;
 
         bool in_load_queue:1;
+        bool in_dbus_queue:1;
+        bool sent_dbus_new_signal:1;
 
         /* If we go down, pull down everything that depends on us, too */
         bool recursive_stop;
@@ -146,6 +148,9 @@ struct Meta {
 
         /* Per type list */
         LIST_FIELDS(Meta, units_per_type);
+
+        /* D-Bus queue */
+        LIST_FIELDS(Meta, dbus_queue);
 };
 
 #include "service.h"
@@ -243,6 +248,7 @@ int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);
 
 void unit_add_to_load_queue(Unit *u);
+void unit_add_to_dbus_queue(Unit *u);
 
 int unit_merge(Unit *u, Unit *other);
 

@@ -94,9 +94,12 @@ struct Job {
         bool in_run_queue:1;
         bool matters_to_anchor:1;
         bool forced:1;
+        bool in_dbus_queue:1;
+        bool sent_dbus_new_signal:1;
 
         LIST_FIELDS(Job, transaction);
         LIST_FIELDS(Job, run_queue);
+        LIST_FIELDS(Job, dbus_queue);
 
         LIST_HEAD(JobDependency, subject_list);
         LIST_HEAD(JobDependency, object_list);
@@ -126,7 +129,9 @@ bool job_type_is_conflicting(JobType a, JobType b);
 
 bool job_is_runnable(Job *j);
 
-void job_schedule_run(Job *j);
+void job_add_to_run_queue(Job *j);
+void job_add_to_dbus_queue(Job *j);
+
 int job_run_and_invalidate(Job *j);
 int job_finish_and_invalidate(Job *j, bool success);
 

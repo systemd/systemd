@@ -42,6 +42,22 @@ public static int unit_info_compare(void* key1, void* key2) {
         return Posix.strcmp(u1->id, u2->id);
 }
 
+public void on_unit_new(string id, ObjectPath path) {
+        stdout.printf("Unit %s added.\n", id);
+}
+
+public void on_job_new(uint32 id, ObjectPath path) {
+        stdout.printf("Job %u added.\n", id);
+}
+
+public void on_unit_removed(string id, ObjectPath path) {
+        stdout.printf("Unit %s removed.\n", id);
+}
+
+public void on_job_removed(uint32 id, ObjectPath path) {
+        stdout.printf("Job %u removed.\n", id);
+}
+
 static const OptionEntry entries[] = {
         { "type",    't', 0, OptionArg.STRING, out type,    "List only particular type of units", "TYPE" },
         { "all",     'a', 0, OptionArg.NONE,   out all,     "Show all units, including dead ones", null  },
@@ -51,8 +67,20 @@ static const OptionEntry entries[] = {
 
 int main (string[] args) {
 
-        OptionContext context = new OptionContext(" -- Control systemd");
+        OptionContext context = new OptionContext(" [COMMAND [ARGUMENT...]]");
         context.add_main_entries(entries, null);
+        context.set_description(
+                        "Commands:\n" +
+                        "  list-units          List units\n" +
+                        "  list-jobs           List jobs\n" +
+                        "  clear-jobs          Cancel all jobs\n" +
+                        "  load [NAME...]      Load one or more units\n" +
+                        "  cancel [JOB...]     Cancel one or more jobs\n" +
+                        "  start [NAME...]     Start on or more units\n" +
+                        "  stop [NAME...]      Stop on or more units\n" +
+                        "  restart [NAME...]   Restart on or more units\n" +
+                        "  reload [NAME...]    Reload on or more units\n" +
+                        "  monitor             Monitor unit/job changes\n");
 
         try {
                 context.parse(ref args);
@@ -178,6 +206,18 @@ int main (string[] args) {
                                 else if (args[1] == "reload")
                                         u.reload(mode);
                         }
+
+                } else if (args[1] == "monitor") {
+
+                        manager.subscribe();
+
+                        manager.unit_new += on_unit_new;
+                        manager.unit_removed += on_unit_removed;
+                        manager.job_new += on_job_new;
+                        manager.job_removed += on_job_removed;
+
+                        MainLoop l = new MainLoop();
+                        l.run();
 
                 } else {
                         stderr.printf("Unknown command %s.\n", args[1]);

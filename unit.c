@@ -174,6 +174,7 @@ int unit_add_name(Unit *u, const char *text) {
         if (!u->meta.id)
                 u->meta.id = s;
 
+        unit_add_to_dbus_queue(u);
         return 0;
 }
 
@@ -189,6 +190,8 @@ int unit_choose_id(Unit *u, const char *name) {
                 return -ENOENT;
 
         u->meta.id = s;
+
+        unit_add_to_dbus_queue(u);
         return 0;
 }
 
@@ -202,6 +205,8 @@ int unit_set_description(Unit *u, const char *description) {
 
         free(u->meta.description);
         u->meta.description = s;
+
+        unit_add_to_dbus_queue(u);
         return 0;
 }
 
@@ -213,6 +218,16 @@ void unit_add_to_load_queue(Unit *u) {
 
         LIST_PREPEND(Meta, load_queue, u->meta.manager->load_queue, &u->meta);
         u->meta.in_load_queue = true;
+}
+
+void unit_add_to_dbus_queue(Unit *u) {
+        assert(u);
+
+        if (u->meta.load_state == UNIT_STUB || u->meta.in_dbus_queue || set_isempty(u->meta.manager->subscribed))
+                return;
+
+        LIST_PREPEND(Meta, dbus_queue, u->meta.manager->dbus_unit_queue, &u->meta);
+        u->meta.in_dbus_queue = true;
 }
 
 static void bidi_set_free(Unit *u, Set *s) {
@@ -241,6 +256,8 @@ void unit_free(Unit *u) {
 
         assert(u);
 
+        bus_unit_send_removed_signal(u);
+
         /* Detach from next 'bigger' objects */
 
         SET_FOREACH(t, u->meta.names, i)
@@ -251,6 +268,9 @@ void unit_free(Unit *u) {
 
         if (u->meta.in_load_queue)
                 LIST_REMOVE(Meta, load_queue, u->meta.manager->load_queue, &u->meta);
+
+        if (u->meta.in_dbus_queue)
+                LIST_REMOVE(Meta, dbus_queue, u->meta.manager->dbus_unit_queue, &u->meta);
 
         if (u->meta.load_state == UNIT_LOADED)
                 if (UNIT_VTABLE(u)->done)
@@ -324,6 +344,8 @@ int unit_merge(Unit *u, Unit *other) {
                 /* fixme, the inverse mapping is missing */
                 if ((r = ensure_merge(&u->meta.dependencies[d], other->meta.dependencies[d])) < 0)
                         return r;
+
+        unit_add_to_dbus_queue(u);
 
         return 0;
 }
@@ -437,10 +459,12 @@ int unit_load(Unit *u) {
                         goto fail;
 
         u->meta.load_state = UNIT_LOADED;
+        unit_add_to_dbus_queue(u);
         return 0;
 
 fail:
         u->meta.load_state = UNIT_FAILED;
+        unit_add_to_dbus_queue(u);
         return r;
 }
 
@@ -467,6 +491,7 @@ int unit_start(Unit *u) {
          * restart" state where it waits for a holdoff timer to elapse
          * before it will start again. */
 
+        unit_add_to_dbus_queue(u);
         return UNIT_VTABLE(u)->start(u);
 }
 
@@ -496,6 +521,7 @@ int unit_stop(Unit *u) {
         if (state == UNIT_DEACTIVATING)
                 return 0;
 
+        unit_add_to_dbus_queue(u);
         return UNIT_VTABLE(u)->stop(u);
 }
 
@@ -519,6 +545,7 @@ int unit_reload(Unit *u) {
         if (unit_active_state(u) != UNIT_ACTIVE)
                 return -ENOEXEC;
 
+        unit_add_to_dbus_queue(u);
         return UNIT_VTABLE(u)->reload(u);
 }
 
@@ -649,7 +676,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         /* So we reached a different state for this
                          * job. Let's see if we can run it now if it
                          * failed previously due to EAGAIN. */
-                        job_schedule_run(u->meta.job);
+                        job_add_to_run_queue(u->meta.job);
 
                 else {
                         assert(u->meta.job->state == JOB_RUNNING);
@@ -718,6 +745,8 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         /* Maybe we finished startup and are now ready for being
          * stopped because unneeded? */
         unit_check_uneeded(u);
+
+        unit_add_to_dbus_queue(u);
 }
 
 int unit_watch_fd(Unit *u, int fd, uint32_t events, Watch *w) {
@@ -921,6 +950,7 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other) {
                 return r;
         }
 
+        unit_add_to_dbus_queue(u);
         return 0;
 }
 

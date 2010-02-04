@@ -110,3 +110,8 @@ systemadm_SOURCES = \
 
 systemadm_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS) $(GTK_CFLAGS)
 systemadm_LDADD = $(DBUSGLIB_LIBS) $(GTK_LIBS)
+
+CLEANFILES = \
+	systemd-interfaces.c \
+	systemctl.c \
+	systemadm.c

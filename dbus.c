@@ -276,11 +276,55 @@ static void bus_toggle_timeout(DBusTimeout *timeout, void *data) {
                 log_error("Failed to rearm timer: %s", strerror(-r));
 }
 
-void bus_dispatch(Manager *m) {
+static DBusHandlerResult bus_message_filter(DBusConnection  *connection, DBusMessage  *message, void *data) {
+        Manager *m = data;
+        DBusError error;
+
+        assert(connection);
+        assert(message);
         assert(m);
+
+        dbus_error_init(&error);
+
+        /* log_debug("Got D-Bus request: %s.%s() on %s", */
+        /*           dbus_message_get_interface(message), */
+        /*           dbus_message_get_member(message), */
+        /*           dbus_message_get_path(message)); */
+
+        if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
+                log_error("Warning! D-Bus connection terminated.");
+
+                /* FIXME: we probably should restart D-Bus here */
+
+        } else if (dbus_message_is_signal(message, DBUS_INTERFACE_DBUS, "NameOwnerChanged")) {
+                const char *name, *old, *new;
+
+                if (!dbus_message_get_args(message, &error,
+                                           DBUS_TYPE_STRING, &name,
+                                           DBUS_TYPE_STRING, &old,
+                                           DBUS_TYPE_STRING, &new,
+                                           DBUS_TYPE_INVALID))
+                        log_error("Failed to parse NameOwnerChanged message: %s", error.message);
+                else  {
+                        if (set_remove(m->subscribed, (char*) name))
+                                log_debug("Subscription client vanished: %s (left: %u)", name, set_size(m->subscribed));
+                }
+        }
+
+        dbus_error_free(&error);
+        return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+}
+
+unsigned bus_dispatch(Manager *m) {
+        assert(m);
+
+        if (!m->request_bus_dispatch)
+                return 0;
 
         if (dbus_connection_dispatch(m->bus) == DBUS_DISPATCH_COMPLETE)
                 m->request_bus_dispatch = false;
+
+        return 1;
 }
 
 static int request_name(Manager *m) {
@@ -328,6 +372,9 @@ int bus_init(Manager *m) {
         if (m->bus)
                 return 0;
 
+        if (!(m->subscribed = set_new(string_hash_func, string_compare_func)))
+                return -ENOMEM;
+
         dbus_connection_set_change_sigpipe(FALSE);
 
         dbus_error_init(&error);
@@ -343,7 +390,22 @@ int bus_init(Manager *m) {
             !dbus_connection_set_timeout_functions(m->bus, bus_add_timeout, bus_remove_timeout, bus_toggle_timeout, m, NULL) ||
             !dbus_connection_register_object_path(m->bus, "/org/freedesktop/systemd1", &bus_manager_vtable, m) ||
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/systemd1/unit", &bus_unit_vtable, m) ||
-            !dbus_connection_register_fallback(m->bus, "/org/freedesktop/systemd1/job", &bus_job_vtable, m)) {
+            !dbus_connection_register_fallback(m->bus, "/org/freedesktop/systemd1/job", &bus_job_vtable, m) ||
+            !dbus_connection_add_filter(m->bus, bus_message_filter, m, NULL)) {
+                bus_done(m);
+                return -ENOMEM;
+        }
+
+        dbus_bus_add_match(m->bus,
+                           "type='signal',"
+                           "sender='"DBUS_SERVICE_DBUS"',"
+                           "interface='"DBUS_INTERFACE_DBUS"',"
+                           "path='"DBUS_PATH_DBUS"'",
+                           &error);
+
+        if (dbus_error_is_set(&error)) {
+                log_error("Failed to register match: %s", error.message);
+                dbus_error_free(&error);
                 bus_done(m);
                 return -ENOMEM;
         }
@@ -370,6 +432,16 @@ void bus_done(Manager *m) {
                 dbus_connection_close(m->bus);
                 dbus_connection_unref(m->bus);
                 m->bus = NULL;
+        }
+
+        if (m->subscribed) {
+                char *c;
+
+                while ((c = set_steal_first(m->subscribed)))
+                        free(c);
+
+                set_free(m->subscribed);
+                m->subscribed = NULL;
         }
 }
 

@@ -55,6 +55,8 @@ void job_free(Job *j) {
 
         /* Detach from next 'bigger' objects */
         if (j->installed) {
+                bus_job_send_removed_signal(j);
+
                 if (j->unit->meta.job == j)
                         j->unit->meta.job = NULL;
 
@@ -64,6 +66,12 @@ void job_free(Job *j) {
 
         /* Detach from next 'smaller' objects */
         manager_transaction_unlink_job(j->manager, j);
+
+        if (j->in_run_queue)
+                LIST_REMOVE(Job, run_queue, j->manager->run_queue, j);
+
+        if (j->in_dbus_queue)
+                LIST_REMOVE(Job, dbus_queue, j->manager->dbus_job_queue, j);
 
         free(j);
 }
@@ -326,6 +334,7 @@ int job_run_and_invalidate(Job *j) {
                 return -EAGAIN;
 
         j->state = JOB_RUNNING;
+        job_add_to_dbus_queue(j);
 
         switch (j->type) {
 
@@ -408,6 +417,7 @@ int job_finish_and_invalidate(Job *j, bool success) {
         assert(j->installed);
 
         log_debug("Job %s/%s finished, success=%s", unit_id(j->unit), job_type_to_string(j->type), yes_no(success));
+        job_add_to_dbus_queue(j);
 
         /* Patch restart jobs so that they become normal start jobs */
         if (success && (j->type == JOB_RESTART || j->type == JOB_TRY_RESTART)) {
@@ -419,7 +429,7 @@ int job_finish_and_invalidate(Job *j, bool success) {
                 j->state = JOB_RUNNING;
                 j->type = JOB_START;
 
-                job_schedule_run(j);
+                job_add_to_run_queue(j);
                 return 0;
         }
 
@@ -463,15 +473,15 @@ int job_finish_and_invalidate(Job *j, bool success) {
         /* Try to start the next jobs that can be started */
         SET_FOREACH(other, u->meta.dependencies[UNIT_AFTER], i)
                 if (other->meta.job)
-                        job_schedule_run(other->meta.job);
+                        job_add_to_run_queue(other->meta.job);
         SET_FOREACH(other, u->meta.dependencies[UNIT_BEFORE], i)
                 if (other->meta.job)
-                        job_schedule_run(other->meta.job);
+                        job_add_to_run_queue(other->meta.job);
 
         return 0;
 }
 
-void job_schedule_run(Job *j) {
+void job_add_to_run_queue(Job *j) {
         assert(j);
         assert(j->installed);
 
@@ -480,6 +490,17 @@ void job_schedule_run(Job *j) {
 
         LIST_PREPEND(Job, run_queue, j->manager->run_queue, j);
         j->in_run_queue = true;
+}
+
+void job_add_to_dbus_queue(Job *j) {
+        assert(j);
+        assert(j->installed);
+
+        if (j->in_dbus_queue)
+                return;
+
+        LIST_PREPEND(Job, dbus_queue, j->manager->dbus_job_queue, j);
+        j->in_dbus_queue = true;
 }
 
 char *job_dbus_path(Job *j) {

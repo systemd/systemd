@@ -47,6 +47,24 @@
         "  <method name=\"ListJobs\">"                                  \
         "   <arg name=\"jobs\" type=\"a(usssoo)\" direction=\"out\"/>"  \
         "  </method>"                                                   \
+        "  <method name=\"Subscribe\"/>"                                \
+        "  <method name=\"Unsubscribe\"/>"                              \
+        "  <signal name=\"UnitNew\">"                                   \
+        "   <arg name=\"id\" type=\"s\"/>"                              \
+        "   <arg name=\"unit\" type=\"o\"/>"                            \
+        "  </signal>"                                                   \
+        "  <signal name=\"UnitRemoved\">"                               \
+        "   <arg name=\"id\" type=\"s\"/>"                              \
+        "   <arg name=\"unit\" type=\"o\"/>"                            \
+        "  </signal>"                                                   \
+        "  <signal name=\"JobNew\">"                                    \
+        "   <arg name=\"id\" type=\"u\"/>"                              \
+        "   <arg name=\"job\" type=\"o\"/>"                             \
+        "  </signal>"                                                   \
+        "  <signal name=\"JobRemoved\">"                                \
+        "   <arg name=\"id\" type=\"u\"/>"                              \
+        "   <arg name=\"job\" type=\"o\"/>"                             \
+        "  </signal>"                                                   \
         " </interface>"                                                 \
         BUS_PROPERTIES_INTERFACE                                        \
         BUS_INTROSPECTABLE_INTERFACE
@@ -285,6 +303,31 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 }
 
                 if (!dbus_message_iter_close_container(&iter, &sub))
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1",  "Subscribe")) {
+                char *client;
+
+                if (!(client = strdup(dbus_message_get_sender(message))))
+                        goto oom;
+
+                r = set_put(m->subscribed, client);
+
+                if (r < 0)
+                        return bus_send_error_reply(m, message, NULL, r);
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1",  "Unsubscribe")) {
+                char *client;
+
+                if (!(client = set_remove(m->subscribed, (char*) dbus_message_get_sender(message))))
+                        return bus_send_error_reply(m, message, NULL, -ENOENT);
+
+                free(client);
+
+                if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {

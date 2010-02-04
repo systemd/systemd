@@ -59,7 +59,7 @@ typedef struct BusProperty {
 int bus_init(Manager *m);
 void bus_done(Manager *m);
 
-void bus_dispatch(Manager *m);
+unsigned bus_dispatch(Manager *m);
 
 void bus_watch_event(Manager *m, Watch *w, int events);
 void bus_timeout_event(Manager *m, Watch *w, int events);
@@ -77,5 +77,11 @@ int bus_property_append_uint64(Manager *m, DBusMessageIter *i, const char *prope
 extern const DBusObjectPathVTable bus_manager_vtable;
 extern const DBusObjectPathVTable bus_job_vtable;
 extern const DBusObjectPathVTable bus_unit_vtable;
+
+void bus_unit_send_change_signal(Unit *u);
+void bus_unit_send_removed_signal(Unit *u);
+
+void bus_job_send_change_signal(Job *j);
+void bus_job_send_removed_signal(Job *j);
 
 #endif

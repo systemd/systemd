@@ -50,10 +50,23 @@ public interface Manager : DBus.Object {
         public abstract ObjectPath get_job(uint32 id) throws DBus.Error;
 
         public abstract void clear_jobs() throws DBus.Error;
+
+        public abstract void subscribe() throws DBus.Error;
+        public abstract void unsubscribe() throws DBus.Error;
+
+        public abstract signal void unit_new(string id, ObjectPath path);
+        public abstract signal void unit_removed(string id, ObjectPath path);
+        public abstract signal void job_new(uint32 id, ObjectPath path);
+        public abstract signal void job_removed(uint32 id, ObjectPath path);
 }
 
 [DBus (name = "org.freedesktop.systemd1.Unit")]
 public interface Unit : DBus.Object {
+        public struct JobLink {
+                uint32 id;
+                ObjectPath path;
+        }
+
         public abstract string id { owned get; }
         public abstract string description { owned get; }
         public abstract string load_state { owned get; }
@@ -63,18 +76,29 @@ public interface Unit : DBus.Object {
         public abstract uint64 active_exit_timestamp { owned get; }
         public abstract bool can_reload { owned get; }
         public abstract bool can_start { owned get; }
+        public abstract JobLink job { owned get; /* FIXME: this setter is a temporary fix to make valac not segfault */ set; }
 
         public abstract ObjectPath start(string mode) throws DBus.Error;
         public abstract ObjectPath stop(string mode) throws DBus.Error;
         public abstract ObjectPath restart(string mode) throws DBus.Error;
         public abstract ObjectPath reload(string mode) throws DBus.Error;
+
+        public abstract signal void changed();
 }
 
 [DBus (name = "org.freedesktop.systemd1.Job")]
 public interface Job : DBus.Object {
+        public struct UnitLink {
+                string id;
+                ObjectPath path;
+        }
+
         public abstract uint32 id { owned get; }
         public abstract string state { owned get; }
         public abstract string job_type { owned get; }
+        public abstract UnitLink unit { owned get; /* FIXME: this setter is a temporary fix to make valac not segfault */ set; }
 
         public abstract void cancel() throws DBus.Error;
+
+        public abstract signal void changed();
 }

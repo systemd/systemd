@@ -83,7 +83,7 @@ public class MainWindow : Window {
                 position = WindowPosition.CENTER;
                 set_default_size(1000, 700);
                 set_border_width(12);
-                destroy.connect(Gtk.main_quit);
+                destroy += Gtk.main_quit;
 
                 Notebook notebook = new Notebook();
                 add(notebook);
@@ -97,14 +97,14 @@ public class MainWindow : Window {
                 job_vbox.set_border_width(12);
 
 
-                unit_model = new ListStore(6, typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(string));
-                job_model = new ListStore(5, typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(string));
+                unit_model = new ListStore(6, typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(Unit));
+                job_model = new ListStore(5, typeof(string), typeof(string), typeof(string), typeof(string), typeof(Job));
 
                 unit_view = new TreeView.with_model(unit_model);
                 job_view = new TreeView.with_model(job_model);
 
-                unit_view.cursor_changed.connect(unit_changed);
-                job_view.cursor_changed.connect(job_changed);
+                unit_view.cursor_changed += unit_changed;
+                job_view.cursor_changed += job_changed;
 
                 unit_view.insert_column_with_attributes(-1, "Unit", new CellRendererText(), "text", 0);
                 unit_view.insert_column_with_attributes(-1, "Description", new CellRendererText(), "text", 1);
@@ -189,10 +189,10 @@ public class MainWindow : Window {
                 reload_button = new Button.with_mnemonic("_Reload");
                 restart_button = new Button.with_mnemonic("Res_tart");
 
-                start_button.clicked.connect(on_start);
-                stop_button.clicked.connect(on_stop);
-                reload_button.clicked.connect(on_reload);
-                restart_button.clicked.connect(on_restart);
+                start_button.clicked += on_start;
+                stop_button.clicked += on_stop;
+                reload_button.clicked += on_reload;
+                restart_button.clicked += on_restart;
 
                 bbox.pack_start(start_button, false, true, 0);
                 bbox.pack_start(stop_button, false, true, 0);
@@ -206,16 +206,23 @@ public class MainWindow : Window {
 
                 cancel_button = new Button.with_mnemonic("_Cancel");
 
-                cancel_button.clicked.connect(on_cancel);
+                cancel_button.clicked += on_cancel;
 
                 bbox.pack_start(cancel_button, false, true, 0);
 
                 bus = Bus.get(BusType.SESSION);
 
-                manager = bus.get_object (
+                manager = bus.get_object(
                                 "org.freedesktop.systemd1",
                                 "/org/freedesktop/systemd1",
                                 "org.freedesktop.systemd1") as Manager;
+
+                manager.unit_new += on_unit_new;
+                manager.job_new += on_job_new;
+                manager.unit_removed += on_unit_removed;
+                manager.job_removed += on_job_removed;
+
+                manager.subscribe();
 
                 clear_unit();
                 populate_unit_model();
@@ -230,6 +237,11 @@ public class MainWindow : Window {
                 foreach (var i in list) {
                         TreeIter iter;
 
+                        Unit u = bus.get_object(
+                                        "org.freedesktop.systemd1",
+                                        i.unit_path,
+                                        "org.freedesktop.systemd1.Unit") as Unit;
+
                         unit_model.append(out iter);
                         unit_model.set(iter,
                                        0, i.id,
@@ -237,7 +249,7 @@ public class MainWindow : Window {
                                        2, i.load_state,
                                        3, i.active_state,
                                        4, i.job_type != "" ? "→ %s".printf(i.job_type) : "",
-                                       5, i.unit_path);
+                                       5, u);
                 }
         }
 
@@ -249,13 +261,18 @@ public class MainWindow : Window {
                 foreach (var i in list) {
                         TreeIter iter;
 
+                        Job j = bus.get_object(
+                                        "org.freedesktop.systemd1",
+                                        i.job_path,
+                                        "org.freedesktop.systemd1.Job") as Job;
+
                         job_model.append(out iter);
                         job_model.set(iter,
                                       0, "%u".printf(i.id),
                                       1, i.name,
                                       2, "→ %s".printf(i.type),
                                       3, i.state,
-                                      4, i.job_path);
+                                      4, j);
                 }
         }
 
@@ -267,15 +284,12 @@ public class MainWindow : Window {
                         return null;
 
                 TreeIter iter;
-                string path;
+                Unit u;
 
                 unit_model.get_iter(out iter, p);
-                unit_model.get(iter, 5, out path);
+                unit_model.get(iter, 5, out u);
 
-                return bus.get_object (
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.systemd1.Unit") as Unit;
+                return u;
         }
 
         public void unit_changed() {
@@ -344,15 +358,12 @@ public class MainWindow : Window {
                         return null;
 
                 TreeIter iter;
-                string path;
+                Job *j;
 
                 job_model.get_iter(out iter, p);
-                job_model.get(iter, 4, out path);
+                job_model.get(iter, 4, out j);
 
-                return bus.get_object (
-                                "org.freedesktop.systemd1",
-                                path,
-                                "org.freedesktop.systemd1.Job") as Job;
+                return j;
         }
 
         public void job_changed() {
@@ -439,6 +450,67 @@ public class MainWindow : Window {
                 } catch (DBus.Error e) {
                         message("%s", e.message);
                 }
+        }
+
+        public void on_unit_new(string id, ObjectPath path) {
+                stderr.printf("new path %s", path);
+
+                Unit u = bus.get_object(
+                                "org.freedesktop.systemd1",
+                                path,
+                                "org.freedesktop.systemd1.Unit") as Unit;
+
+                string t = "";
+                Unit.JobLink jl = u.job;
+
+                if (jl.id != 0) {
+                        Job j = bus.get_object(
+                                        "org.freedesktop.systemd1",
+                                        jl.path,
+                                        "org.freedesktop.systemd1.Job") as Job;
+
+                        t = j.job_type;
+                }
+
+                TreeIter iter;
+                unit_model.append(out iter);
+                unit_model.set(iter,
+                               0, u.id,
+                               1, u.description,
+                               2, u.load_state,
+                               3, u.active_state,
+                               4, t != "" ? "→ %s".printf(t) : "",
+                               5, u);
+        }
+
+        public void on_job_new(uint32 id, ObjectPath path) {
+                stderr.printf("new path %s", path);
+
+                Job j = bus.get_object(
+                                "org.freedesktop.systemd1",
+                                path,
+                                "org.freedesktop.systemd1.Job") as Job;
+
+                TreeIter iter;
+                job_model.append(out iter);
+                job_model.set(iter,
+                              0, "%u".printf(j.id),
+                              1, j.unit.id,
+                              2, "→ %s".printf(j.job_type),
+                              3, j.state,
+                              4, j);
+        }
+
+        public void on_unit_removed(string id, ObjectPath path) {
+                stdout.printf("Unit %s removed.\n", id);
+
+                /* FIXME */
+        }
+
+        public void on_job_removed(uint32 id, ObjectPath path) {
+                stdout.printf("Job %u removed.\n", id);
+
+                /* FIXME */
         }
 }
 

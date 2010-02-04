@@ -89,12 +89,20 @@ struct Manager {
         /* Jobs that need to be run */
         LIST_HEAD(Job, run_queue);   /* more a stack than a queue, too */
 
+        /* Units and jobs that have not yet been announced via
+         * D-Bus. When something about a job changes it is added here
+         * if it is not in there yet. This allows easy coalescing of
+         * D-Bus change signals. */
+        LIST_HEAD(Meta, dbus_unit_queue);
+        LIST_HEAD(Job, dbus_job_queue);
+
         /* Jobs to be added */
         Hashmap *transaction_jobs;      /* Unit object => Job object list 1:1 */
         JobDependency *transaction_anchor;
 
         bool dispatching_load_queue:1;
         bool dispatching_run_queue:1;
+        bool dispatching_dbus_queue:1;
 
         bool is_init:1;
 
@@ -117,6 +125,7 @@ struct Manager {
 
         /* Data specific to the D-Bus subsystem */
         DBusConnection *bus;
+        Set *subscribed;
 };
 
 Manager* manager_new(void);
@@ -140,8 +149,9 @@ void manager_transaction_unlink_job(Manager *m, Job *j);
 
 void manager_clear_jobs(Manager *m);
 
-void manager_dispatch_load_queue(Manager *m);
-void manager_dispatch_run_queue(Manager *m);
+unsigned manager_dispatch_load_queue(Manager *m);
+unsigned manager_dispatch_run_queue(Manager *m);
+unsigned manager_dispatch_dbus_queue(Manager *m);
 
 int manager_loop(Manager *m);
 

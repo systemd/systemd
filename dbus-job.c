@@ -29,6 +29,7 @@ static const char introspection[] =
         "<node>"
         " <interface name=\"org.freedesktop.systemd1.Job\">"
         "  <method name=\"Cancel\"/>"
+        "  <signal name=\"Changed\"/>"
         "  <property name=\"Id\" type=\"u\" access=\"read\"/>"
         "  <property name=\"Unit\" type=\"(so)\" access=\"read\"/>"
         "  <property name=\"JobType\" type=\"s\" access=\"read\"/>"
@@ -173,3 +174,94 @@ static DBusHandlerResult bus_job_message_handler(DBusConnection  *connection, DB
 const DBusObjectPathVTable bus_job_vtable = {
         .message_function = bus_job_message_handler
 };
+
+void bus_job_send_change_signal(Job *j) {
+        char *p = NULL;
+        DBusMessage *m = NULL;
+
+        assert(j);
+        assert(j->in_dbus_queue);
+
+        LIST_REMOVE(Job, dbus_queue, j->manager->dbus_job_queue, j);
+        j->in_dbus_queue = false;
+
+        if (set_isempty(j->manager->subscribed))
+                return;
+
+        if (!(p = job_dbus_path(j)))
+                goto oom;
+
+        if (j->sent_dbus_new_signal) {
+                /* Send a change signal */
+
+                if (!(m = dbus_message_new_signal(p, "org.freedesktop.systemd1.Job", "Changed")))
+                        goto oom;
+        } else {
+                /* Send a new signal */
+
+                if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1", "JobNew")))
+                        goto oom;
+
+                if (!dbus_message_append_args(m,
+                                              DBUS_TYPE_UINT32, &j->id,
+                                              DBUS_TYPE_OBJECT_PATH, &p,
+                                              DBUS_TYPE_INVALID))
+                        goto oom;
+        }
+
+        if (!dbus_connection_send(j->manager->bus, m, NULL))
+                goto oom;
+
+        free(p);
+        dbus_message_unref(m);
+
+        j->sent_dbus_new_signal = true;
+
+        return;
+
+oom:
+        free(p);
+
+        if (m)
+                dbus_message_unref(m);
+
+        log_error("Failed to allocate job change signal.");
+}
+
+void bus_job_send_removed_signal(Job *j) {
+        char *p = NULL;
+        DBusMessage *m = NULL;
+
+        assert(j);
+
+        if (set_isempty(j->manager->subscribed) || !j->sent_dbus_new_signal)
+                return;
+
+        if (!(p = job_dbus_path(j)))
+                goto oom;
+
+        if (!(m = dbus_message_new_signal("/org/freedesktop/systemd1", "org.freedesktop.systemd1", "JobRemoved")))
+                goto oom;
+
+        if (!dbus_message_append_args(m,
+                                      DBUS_TYPE_UINT32, &j->id,
+                                      DBUS_TYPE_OBJECT_PATH, &p,
+                                      DBUS_TYPE_INVALID))
+                goto oom;
+
+        if (!dbus_connection_send(j->manager->bus, m, NULL))
+                goto oom;
+
+        free(p);
+        dbus_message_unref(m);
+
+        return;
+
+oom:
+        free(p);
+
+        if (m)
+                dbus_message_unref(m);
+
+        log_error("Failed to allocate job remove signal.");
+}
