@@ -71,6 +71,9 @@ ENV{DMI_VENDOR}=="Hewlett-Packard", ATTR{[dmi/id]product_name}=="Presario 2100*"
 # HP Pavillion dv6315ea has empty DMI_VENDOR
 ATTR{[dmi/id]board_vendor}=="Quanta", ATTR{[dmi/id]board_name}=="30B7", ATTR{[dmi/id]board_version}=="65.2B", RUN+="keymap $name 0x88 media" # "quick play
 
+# Gateway clone of Acer Aspire One AOA110/AOA150
+ENV{DMI_VENDOR}=="Gateway*", ATTR{[dmi/id]product_name}=="*AOA1*", RUN+="keymap $name acer"
+
 ENV{DMI_VENDOR}=="Acer*", RUN+="keymap $name acer"
 ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="Extensa*", ATTR{[dmi/id]product_name}=="*5210*|*5220*|*5610*|*5620*|*5720*", RUN+="keymap $name 0xEE screenlock"
 ENV{DMI_VENDOR}=="Acer*", ATTR{[dmi/id]product_name}=="TravelMate*C300*", RUN+="keymap $name acer-travelmate_c300"
