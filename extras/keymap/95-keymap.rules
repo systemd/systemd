@@ -98,6 +98,11 @@ ENV{DMI_VENDOR}=="MEDIONNB", ATTR{[dmi/id]product_name}=="A555*", RUN+="keymap $
 
 ENV{DMI_VENDOR}=="MICRO-STAR*", RUN+="keymap $name micro-star"
 
+# some MSI models generate ACPI/input events on the LNXVIDEO input devices,
+# plus some extra synthesized ones on atkbd as an echo of actually changing the
+# brightness; so ignore those atkbd ones, to avoid loops
+ENV{DMI_VENDOR}=="MICRO-STAR*", ATTR{[dmi/id]product_name}=="*U-100*|*U100*|*N033", RUN+="keymap $name 0xF7 reserved 0xF8 reserved"
+
 ENV{DMI_VENDOR}=="INVENTEC", ATTR{[dmi/id]product_name}=="SYMPHONY 6.0/7.0", RUN+="keymap $name inventec-symphony_6.0_7.0"
 
 ENV{DMI_VENDOR}=="MAXDATA", ATTR{[dmi/id]product_name}=="Pro 7000*", RUN+="keymap $name maxdata-pro_7000"
