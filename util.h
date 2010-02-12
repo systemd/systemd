@@ -97,12 +97,16 @@ int safe_atolli(const char *s, long long int *ret_i);
 
 char *split_spaces(const char *c, size_t *l, char **state);
 char *split_quoted(const char *c, size_t *l, char **state);
+char *split_slash(const char *c, size_t *l, char **state);
 
 #define FOREACH_WORD(word, length, s, state)                            \
         for ((state) = NULL, (word) = split_spaces((s), &(l), &(state)); (word); (word) = split_spaces((s), &(l), &(state)))
 
 #define FOREACH_WORD_QUOTED(word, length, s, state)                     \
         for ((state) = NULL, (word) = split_quoted((s), &(l), &(state)); (word); (word) = split_quoted((s), &(l), &(state)))
+
+#define FOREACH_WORD_SLASH(word, length, s, state)                      \
+        for ((state) = NULL, (word) = split_slash((s), &(l), &(state)); (word); (word) = split_slash((s), &(l), &(state)))
 
 pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
 

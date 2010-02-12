@@ -284,6 +284,22 @@ char *split_spaces(const char *c, size_t *l, char **state) {
         return (char*) current;
 }
 
+/* Split a path into filenames. */
+char *split_slash(const char *c, size_t *l, char **state) {
+        char *current;
+
+        current = *state ? *state : (char*) c;
+
+        if (!*current || *c == 0)
+                return NULL;
+
+        current += strspn(current, "/");
+        *l = strcspn(current, "/");
+        *state = current+*l;
+
+        return (char*) current;
+}
+
 /* Split a string into words, but consider strings enclosed in '' and
  * "" as words even if they include spaces. */
 char *split_quoted(const char *c, size_t *l, char **state) {
