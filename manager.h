@@ -32,6 +32,14 @@ typedef struct Manager Manager;
 typedef enum WatchType WatchType;
 typedef struct Watch Watch;
 
+typedef enum ManagerRunningAs {
+        MANAGER_INIT,      /* root and pid=1 */
+        MANAGER_SYSTEM,    /* root and pid!=1 */
+        MANAGER_USER,      /* non-root */
+        _MANAGER_RUNNING_AS_MAX,
+        _MANAGER_RUNNING_AS_INVALID = -1
+} ManagerRunningAs;
+
 enum WatchType {
         WATCH_INVALID,
         WATCH_SIGNAL,
@@ -69,6 +77,9 @@ struct Watch {
 #define SPECIAL_CTRL_ALT_DEL_TARGET "ctrl-alt-del.target"
 
 struct Manager {
+        /* In which mode are we running */
+        ManagerRunningAs running_as;
+
         uint32_t current_job_id;
 
         /* Note that the set of units we know of is allowed to be
@@ -103,8 +114,6 @@ struct Manager {
         bool dispatching_load_queue:1;
         bool dispatching_run_queue:1;
         bool dispatching_dbus_queue:1;
-
-        bool is_init:1;
 
         bool request_bus_dispatch:1;
 
@@ -154,5 +163,8 @@ unsigned manager_dispatch_run_queue(Manager *m);
 unsigned manager_dispatch_dbus_queue(Manager *m);
 
 int manager_loop(Manager *m);
+
+const char *manager_running_as_to_string(ManagerRunningAs i);
+ManagerRunningAs manager_running_as_from_string(const char *s);
 
 #endif

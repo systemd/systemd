@@ -378,7 +378,7 @@ int bus_init(Manager *m) {
         dbus_connection_set_change_sigpipe(FALSE);
 
         dbus_error_init(&error);
-        if (!(m->bus = dbus_bus_get_private(m->is_init ? DBUS_BUS_SYSTEM : DBUS_BUS_SESSION, &error))) {
+        if (!(m->bus = dbus_bus_get_private(m->running_as == MANAGER_USER ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &error))) {
                 log_error("Failed to get D-Bus connection: %s", error.message);
                 dbus_error_free(&error);
                 return -ECONNREFUSED;

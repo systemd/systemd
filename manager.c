@@ -76,6 +76,15 @@ Manager* manager_new(void) {
         if (!(m = new0(Manager, 1)))
                 return NULL;
 
+        if (getpid() == 1)
+                m->running_as = MANAGER_INIT;
+        else if (getuid() == 0)
+                m->running_as = MANAGER_SYSTEM;
+        else
+                m->running_as = MANAGER_USER;
+
+        log_debug("systemd running in %s mode.", manager_running_as_to_string(m->running_as));
+
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
@@ -1347,3 +1356,11 @@ int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j) {
 
         return 0;
 }
+
+static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {
+        [MANAGER_INIT] = "init",
+        [MANAGER_SYSTEM] = "system",
+        [MANAGER_USER] = "user"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(manager_running_as, ManagerRunningAs);
