@@ -56,15 +56,13 @@
 - port over to LISTEN_FDS/LISTEN_PID:
 
    - uuidd    DONE
-   - nscd
+   - nscd     DONE
    - rpcbind (/var/run/rpcbind.sock!)
    - dbus
    - rsyslog
    - cups
    - ssh
-   - rpc.idmapd, rpc.quotad, rpc.mountd, rpc.statd
    - postfix, saslauthd
-   - acpid?
    - apache/samba
    - libvirtd (/var/run/libvirt/libvirt-sock-ro)
    - bluetoothd (/var/run/sdp! @/org/bluez/audio!)
