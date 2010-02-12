@@ -478,12 +478,17 @@ int unit_start(Unit *u) {
 
         assert(u);
 
-        if (!UNIT_VTABLE(u)->start)
-                return -EBADR;
-
+        /* If this is already (being) started, then this will
+         * succeed. Note that this will even succeed if this unit is
+         * not startable by the user. This is relied on to detect when
+         * we need to wait for units and when waiting is finished. */
         state = unit_active_state(u);
         if (UNIT_IS_ACTIVE_OR_RELOADING(state))
                 return -EALREADY;
+
+        /* If it is stopped, but we cannot start it, then fail */
+        if (!UNIT_VTABLE(u)->start)
+                return -EBADR;
 
         /* We don't suppress calls to ->start() here when we are
          * already starting, to allow this request to be used as a
@@ -511,12 +516,12 @@ int unit_stop(Unit *u) {
 
         assert(u);
 
-        if (!UNIT_VTABLE(u)->stop)
-                return -EBADR;
-
         state = unit_active_state(u);
         if (state == UNIT_INACTIVE)
                 return -EALREADY;
+
+        if (!UNIT_VTABLE(u)->stop)
+                return -EBADR;
 
         if (state == UNIT_DEACTIVATING)
                 return 0;
