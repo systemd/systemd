@@ -901,6 +901,9 @@ static int transaction_add_job_and_dependencies(Manager *m, JobType type, Unit *
                 /* JOB_VERIFY_STARTED, JOB_RELOAD require no dependency handling */
         }
 
+        if (_ret)
+                *_ret = ret;
+
         return 0;
 
 fail:
@@ -918,7 +921,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool for
 
         log_debug("Trying to enqueue job %s/%s", unit_id(unit), job_type_to_string(type));
 
-        if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, force, &ret))) {
+        if ((r = transaction_add_job_and_dependencies(m, type, unit, NULL, true, force, &ret)) < 0) {
                 transaction_abort(m);
                 return r;
         }
@@ -926,7 +929,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool for
         if ((r = transaction_activate(m, mode)) < 0)
                 return r;
 
-        log_debug("Enqueued job %s/%s", unit_id(unit), job_type_to_string(type));
+        log_debug("Enqueued job %s/%s as %u", unit_id(unit), job_type_to_string(type), (unsigned) ret->id);
 
         if (_ret)
                 *_ret = ret;

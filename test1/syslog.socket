@@ -5,4 +5,4 @@ Description=Syslog Socket
 ListenDatagram=/tmp/foobar/waldo/systemd-syslog-socket
 ListenStream=eth0:3456
 DirectoryMode=0700
-SocketMode=0400
+SocketMode=0600
