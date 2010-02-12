@@ -90,6 +90,7 @@ struct ExecContext {
         bool timer_slack_ns_set:1;
 
         bool cpu_sched_reset_on_fork;
+        bool non_blocking;
 
         ExecInput input;
         ExecOutput output;

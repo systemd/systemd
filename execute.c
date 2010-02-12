@@ -30,6 +30,8 @@
 #include <sys/un.h>
 #include <sys/prctl.h>
 #include <linux/sched.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "execute.h"
 #include "strv.h"
@@ -130,7 +132,7 @@ static int shift_fds(int fds[], unsigned n_fds) {
         return 0;
 }
 
-static int flags_fds(int fds[], unsigned n_fds) {
+static int flags_fds(int fds[], unsigned n_fds, bool nonblock) {
         unsigned i;
 
         if (n_fds <= 0)
@@ -138,7 +140,7 @@ static int flags_fds(int fds[], unsigned n_fds) {
 
         assert(fds);
 
-        /* Drops O_NONBLOCK and FD_CLOEXEC from the file flags */
+        /* Drops/Sets O_NONBLOCK and FD_CLOEXEC from the file flags */
 
         for (i = 0; i < n_fds; i++) {
                 int flags;
@@ -146,17 +148,20 @@ static int flags_fds(int fds[], unsigned n_fds) {
                 if ((flags = fcntl(fds[i], F_GETFL, 0)) < 0)
                         return -errno;
 
-                /* Since we are at it, let's make sure that nobody
-                 * forgot setting O_NONBLOCK for all our fds */
+                if (nonblock)
+                        flags |= O_NONBLOCK;
+                else
+                        flags &= ~O_NONBLOCK;
 
-                if (fcntl(fds[i], F_SETFL, flags &~O_NONBLOCK) < 0)
+                if (fcntl(fds[i], F_SETFL, flags) < 0)
                         return -errno;
 
+                /* We unconditionally drop FD_CLOEXEC from the fds,
+                 * since after all we want to pass these fds to our
+                 * children */
                 if ((flags = fcntl(fds[i], F_GETFD, 0)) < 0)
                         return -errno;
 
-                /* Also make sure nobody forgot O_CLOEXEC for all our
-                 * fds */
                 if (fcntl(fds[i], F_SETFD, flags &~FD_CLOEXEC) < 0)
                         return -errno;
         }
@@ -393,7 +398,7 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
 
                 if (close_fds(fds, n_fds) < 0 ||
                     shift_fds(fds, n_fds) < 0 ||
-                    flags_fds(fds, n_fds) < 0) {
+                    flags_fds(fds, n_fds, context->non_blocking) < 0) {
                         r = EXIT_FDS;
                         goto fail;
                 }
@@ -550,10 +555,12 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
         fprintf(f,
                 "%sUMask: %04o\n"
                 "%sWorkingDirectory: %s\n"
-                "%sRootDirectory: %s\n",
+                "%sRootDirectory: %s\n"
+                "%sNonBlocking: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
-                prefix, c->root_directory ? c->root_directory : "/");
+                prefix, c->root_directory ? c->root_directory : "/",
+                prefix, yes_no(c->non_blocking));
 
         if (c->environment)
                 for (e = c->environment; *e; e++)

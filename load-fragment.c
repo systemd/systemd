@@ -1071,7 +1071,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "LimitMSGQUEUE",          config_parse_limit,           &(context).rlimit[RLIMIT_MSGQUEUE],              section   }, \
                 { "LimitNICE",              config_parse_limit,           &(context).rlimit[RLIMIT_NICE],                  section   }, \
                 { "LimitRTPRIO",            config_parse_limit,           &(context).rlimit[RLIMIT_RTPRIO],                section   }, \
-                { "LimitRTTIME",            config_parse_limit,           &(context).rlimit[RLIMIT_RTTIME],                section   }
+                { "LimitRTTIME",            config_parse_limit,           &(context).rlimit[RLIMIT_RTTIME],                section   }, \
+                { "NonBlocking",            config_parse_bool,            &(context).non_blocking,                         section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Meta"    },
