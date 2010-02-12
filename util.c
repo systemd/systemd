@@ -30,11 +30,14 @@
 #include <sched.h>
 #include <sys/resource.h>
 #include <linux/sched.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "macro.h"
 #include "util.h"
 #include "ioprio.h"
 #include "missing.h"
+#include "log.h"
 
 usec_t now(clockid_t clock_id) {
         struct timespec ts;
@@ -588,6 +591,39 @@ char *file_in_same_dir(const char *path, const char *filename) {
         memcpy(r+(e-path)+1, filename, k+1);
 
         return r;
+}
+
+int mkdir_parents(const char *path, mode_t mode) {
+        const char *p, *e;
+
+        assert(path);
+
+        /* Creates every parent directory in the path except the last
+         * component. */
+
+        p = path + strspn(path, "/");
+        for (;;) {
+                int r;
+                char *t;
+
+                e = p + strcspn(p, "/");
+                p = e + strspn(e, "/");
+
+                /* Is this the last component? If so, then we're
+                 * done */
+                if (*p == 0)
+                        return 0;
+
+                if (!(t = strndup(path, e - path)))
+                        return -ENOMEM;
+
+                r = mkdir(t, mode);
+
+                free(t);
+
+                if (r < 0 && errno != EEXIST)
+                        return -errno;
+        }
 }
 
 char hexchar(int x) {

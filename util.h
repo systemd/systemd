@@ -127,6 +127,7 @@ int reset_all_signal_handlers(void);
 
 char *strstrip(char *s);
 char *file_in_same_dir(const char *path, const char *filename);
+int mkdir_parents(const char *path, mode_t mode);
 
 char hexchar(int x);
 int unhexchar(char c);
