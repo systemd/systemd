@@ -518,6 +518,7 @@ dist_udevkeymap_DATA = \
 	extras/keymap/keymaps/lenovo-thinkpad-usb-keyboard-trackpoint \
 	extras/keymap/keymaps/lenovo-thinkpad_x6_tablet \
 	extras/keymap/keymaps/lenovo-thinkpad_x200_tablet \
+	extras/keymap/keymaps/lg-x110 \
 	extras/keymap/keymaps/logitech-wave \
 	extras/keymap/keymaps/logitech-wave-cordless \
 	extras/keymap/keymaps/maxdata-pro_7000 \

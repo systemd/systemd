@@ -1,0 +1,12 @@
+0xA0 mute # Fn-F9
+0xAE volumedown # Fn-Left
+0xAF search # Fn-F3
+0xB0 volumeup # Fn-Right
+0xB1 battery # Fn-F10 Info
+0xB3 suspend # Fn-F12
+0xDF sleep # Fn-F4
+# 0xE2 bluetooth # satellite dish2
+0xE4 f22 # Fn-F5   Touchpad disable
+0xF6 wlan # Fn-F6
+0xF7 reserved # brightnessdown # Fn-Down
+0xF8 reserved # brightnessup # Fn-Up

@@ -93,8 +93,7 @@ ENV{DMI_VENDOR}=="FUJITSU*", ATTR{[dmi/id]product_name}=="*Amilo Si 1520*", RUN+
 ENV{DMI_VENDOR}=="FUJITSU*", ATTR{[dmi/id]product_name}=="AMILO*M*", RUN+="keymap $name 0x97 prog2 0x9F prog1"
 ENV{DMI_VENDOR}=="FUJITSU*", ATTR{[dmi/id]product_name}=="Amilo Li 1718", RUN+="keymap $name 0xD6 wlan"
 
-# MSI Wind clone
-ENV{DMI_VENDOR}=="LG*", ATTR{[dmi/id]product_name}=="*X110*", RUN+="keymap $name micro-star"
+ENV{DMI_VENDOR}=="LG*", ATTR{[dmi/id]product_name}=="*X110*", RUN+="keymap $name lg-x110"
 
 ENV{DMI_VENDOR}=="MEDION*", ATTR{[dmi/id]product_name}=="*FID2060*", RUN+="keymap $name medion-fid2060"
 ENV{DMI_VENDOR}=="MEDIONNB", ATTR{[dmi/id]product_name}=="A555*", RUN+="keymap $name medionnb-a555"
