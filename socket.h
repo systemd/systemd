@@ -93,6 +93,8 @@ struct Socket {
         pid_t control_pid;
 
         char *bind_to_device;
+        mode_t directory_mode;
+        mode_t socket_mode;
 
         bool failure;
         Watch timer_watch;

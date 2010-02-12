@@ -105,6 +105,8 @@ static int socket_init(Unit *u) {
         s->bind_ipv6_only = false;
         s->backlog = SOMAXCONN;
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
+        s->directory_mode = 0755;
+        s->socket_mode = 0666;
         exec_context_init(&s->exec_context);
 
         if ((r = unit_load_fragment_and_dropin(u)) <= 0) {
@@ -171,10 +173,14 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sSocket State: %s\n"
                 "%sBindIPv6Only: %s\n"
-                "%sBacklog: %u\n",
+                "%sBacklog: %u\n"
+                "%sSocketMode: %04o\n"
+                "%sDirectoryMode: %04o\n",
                 prefix, state_string_table[s->state],
                 prefix, yes_no(s->bind_ipv6_only),
-                prefix, s->backlog);
+                prefix, s->backlog,
+                prefix, s->socket_mode,
+                prefix, s->directory_mode);
 
         if (s->bind_to_device)
                 fprintf(f,
@@ -243,7 +249,14 @@ static int socket_open_fds(Socket *s) {
 
                 if (p->type == SOCKET_SOCKET) {
 
-                        if ((r = socket_address_listen(&p->address, s->backlog, s->bind_ipv6_only, s->bind_to_device, &p->fd)) < 0)
+                        if ((r = socket_address_listen(
+                                             &p->address,
+                                             s->backlog,
+                                             s->bind_ipv6_only,
+                                             s->bind_to_device,
+                                             s->directory_mode,
+                                             s->socket_mode,
+                                             &p->fd)) < 0)
                                 goto rollback;
 
                 } else {

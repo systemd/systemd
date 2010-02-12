@@ -285,7 +285,7 @@ static int config_parse_oom_adjust(
         return 0;
 }
 
-static int config_parse_umask(
+static int config_parse_mode(
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -306,12 +306,12 @@ static int config_parse_umask(
         errno = 0;
         l = strtol(rvalue, &x, 8);
         if (!x || *x || errno) {
-                log_error("[%s:%u] Failed to parse umask value: %s", filename, line, rvalue);
+                log_error("[%s:%u] Failed to parse mode value: %s", filename, line, rvalue);
                 return errno ? -errno : -EINVAL;
         }
 
-        if (l < 0000 || l > 0777) {
-                log_error("[%s:%u] umask value out of range: %s", filename, line, rvalue);
+        if (l < 0000 || l > 07777) {
+                log_error("[%s:%u] mode value out of range: %s", filename, line, rvalue);
                 return -ERANGE;
         }
 
@@ -1045,7 +1045,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "CPUSchedulingPriority",  config_parse_cpu_sched_prio,  &(context),                                      section   }, \
                 { "CPUSchedulingResetOnFork", config_parse_bool,          &(context).cpu_sched_reset_on_fork,              section   }, \
                 { "CPUAffinity",            config_parse_cpu_affinity,    &(context),                                      section   }, \
-                { "UMask",                  config_parse_umask,           &(context).umask,                                section   }, \
+                { "UMask",                  config_parse_mode,            &(context).umask,                                section   }, \
                 { "Environment",            config_parse_strv,            &(context).environment,                          section   }, \
                 { "Output",                 config_parse_output,          &(context).output,                               section   }, \
                 { "Input",                  config_parse_input,           &(context).input,                                section   }, \
@@ -1112,6 +1112,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "ExecStartPost",          config_parse_exec,            u->socket.exec_command+SOCKET_EXEC_START_POST,   "Socket"  },
                 { "ExecStopPre",            config_parse_exec,            u->socket.exec_command+SOCKET_EXEC_STOP_PRE,     "Socket"  },
                 { "ExecStopPost",           config_parse_exec,            u->socket.exec_command+SOCKET_EXEC_STOP_POST,    "Socket"  },
+                { "DirectoryMode",          config_parse_mode,            &u->socket.directory_mode,                       "Socket"  },
+                { "SocketMode",             config_parse_mode,            &u->socket.socket_mode,                          "Socket"  },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->socket.exec_context, "Socket"),
 
                 EXEC_CONTEXT_CONFIG_ITEMS(u->automount.exec_context, "Automount"),

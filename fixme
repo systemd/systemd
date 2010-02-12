@@ -72,3 +72,5 @@
    - distccd
 
 - teach dbus to talk to systemd when autospawning services
+
+- unix sockets chown()/chgrp()

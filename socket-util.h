@@ -58,6 +58,14 @@ typedef enum SocketAddressBindIPv6Only {
 int socket_address_parse(SocketAddress *a, const char *s);
 int socket_address_print(const SocketAddress *a, char **p);
 int socket_address_verify(const SocketAddress *a);
-int socket_address_listen(const SocketAddress *a, int backlog, SocketAddressBindIPv6Only only, const char *bind_to_device, int *ret);
+
+int socket_address_listen(
+                const SocketAddress *a,
+                int backlog,
+                SocketAddressBindIPv6Only only,
+                const char *bind_to_device,
+                mode_t directory_mode,
+                mode_t socket_mode,
+                int *ret);
 
 #endif

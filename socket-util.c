@@ -27,6 +27,8 @@
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <net/if.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "macro.h"
 #include "util.h"
@@ -298,7 +300,15 @@ int socket_address_print(const SocketAddress *a, char **p) {
         }
 }
 
-int socket_address_listen(const SocketAddress *a, int backlog, SocketAddressBindIPv6Only only, const char *bind_to_device, int *ret) {
+int socket_address_listen(
+                const SocketAddress *a,
+                int backlog,
+                SocketAddressBindIPv6Only only,
+                const char *bind_to_device,
+                mode_t directory_mode,
+                mode_t socket_mode,
+                int *ret) {
+
         int r, fd, one;
         assert(a);
         assert(ret);
@@ -324,7 +334,31 @@ int socket_address_listen(const SocketAddress *a, int backlog, SocketAddressBind
         if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0)
                 goto fail;
 
-        if (bind(fd, &a->sockaddr.sa, a->size) < 0)
+        if (socket_address_family(a) == AF_UNIX && a->sockaddr.un.sun_path[0] != 0) {
+                mode_t old_mask;
+
+                /* Create parents */
+                mkdir_parents(a->sockaddr.un.sun_path, directory_mode);
+
+                /* Enforce the right access mode for the socket*/
+                old_mask = umask(~ socket_mode);
+
+                /* Include the original umask in our mask */
+                umask(~socket_mode | old_mask);
+
+                r = bind(fd, &a->sockaddr.sa, a->size);
+
+                if (r < 0 && errno == EADDRINUSE) {
+                        /* Unlink and try again */
+                        unlink(a->sockaddr.un.sun_path);
+                        r = bind(fd, &a->sockaddr.sa, a->size);
+                }
+
+                umask(old_mask);
+        } else
+                r = bind(fd, &a->sockaddr.sa, a->size);
+
+        if (r < 0)
                 goto fail;
 
         if (a->type == SOCK_STREAM)
