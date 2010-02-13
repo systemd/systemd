@@ -21,4 +21,6 @@ ENV{DMI_VENDOR}="$attr{[dmi/id]sys_vendor}"
 
 ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="*N130*|*N140*|*SR70S/SR71S*", RUN+="keyboard-force-release.sh $devpath samsung-other"
 
+ENV{DMI_VENDOR}=="Dell Inc.", ATTR{[dmi/id]product_name}=="Studio 1557", RUN+="keyboard-force-release.sh $devpath dell-studio-1557"
+
 LABEL="force_release_end"
