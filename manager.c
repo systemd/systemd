@@ -70,6 +70,176 @@ static int manager_setup_signals(Manager *m) {
         return 0;
 }
 
+static char** session_dirs(void) {
+        const char *home, *e;
+        char *config_home = NULL, *data_home = NULL;
+        char **config_dirs = NULL, **data_dirs = NULL;
+        char **r = NULL, **t;
+
+        /* Implement the mechanisms defined in
+         *
+         * http://standards.freedesktop.org/basedir-spec/basedir-spec-0.6.html
+         *
+         * We look in both the config and the data dirs because we
+         * want to encourage that distributors ship their unit files
+         * as data, and allow overriding as configuration.
+         */
+
+        home = getenv("HOME");
+
+        if ((e = getenv("XDG_CONFIG_HOME"))) {
+                if (asprintf(&config_home, "%s/systemd/session", e) < 0)
+                        goto fail;
+
+        } else if (home) {
+                if (asprintf(&config_home, "%s/.config/systemd/session", home) < 0)
+                        goto fail;
+        }
+
+        if ((e = getenv("XDG_CONFIG_DIRS")))
+                config_dirs = strv_split(e, ":");
+        else
+                config_dirs = strv_new("/etc/xdg", NULL);
+
+        if (!config_dirs)
+                goto fail;
+
+        if ((e = getenv("XDG_DATA_HOME"))) {
+                if (asprintf(&data_home, "%s/systemd/session", e) < 0)
+                        goto fail;
+
+        } else if (home) {
+                if (asprintf(&data_home, "%s/.local/share/systemd/session", home) < 0)
+                        goto fail;
+        }
+
+        if ((e = getenv("XDG_DATA_DIRS")))
+                data_dirs = strv_split(e, ":");
+        else
+                data_dirs = strv_new("/usr/local/share", "/usr/share", NULL);
+
+        if (!data_dirs)
+                goto fail;
+
+        /* Now merge everything we found. */
+        if (config_home) {
+                if (!(t = strv_append(r, config_home)))
+                        goto fail;
+                strv_free(r);
+                r = t;
+        }
+
+        if (!(t = strv_merge_concat(r, config_dirs, "/systemd/session")))
+                goto finish;
+        strv_free(r);
+        r = t;
+
+        if (!(t = strv_append(r, SESSION_CONFIG_UNIT_PATH)))
+                goto fail;
+        strv_free(r);
+        r = t;
+
+        if (data_home) {
+                if (!(t = strv_append(r, data_home)))
+                        goto fail;
+                strv_free(r);
+                r = t;
+        }
+
+        if (!(t = strv_merge_concat(r, data_dirs, "/systemd/session")))
+                goto fail;
+        strv_free(r);
+        r = t;
+
+        if (!(t = strv_append(r, SESSION_DATA_UNIT_PATH)))
+                goto fail;
+        strv_free(r);
+        r = t;
+
+        if (!strv_path_make_absolute_cwd(r))
+            goto fail;
+
+finish:
+        free(config_home);
+        strv_free(config_dirs);
+        free(data_home);
+        strv_free(data_dirs);
+
+        return r;
+
+fail:
+        strv_free(r);
+        r = NULL;
+        goto finish;
+}
+
+static int manager_find_paths(Manager *m) {
+        const char *e;
+        char *t;
+        assert(m);
+
+        /* First priority is whatever has been passed to us via env
+         * vars */
+        if ((e = getenv("SYSTEMD_UNIT_PATH")))
+                if (!(m->unit_path = split_path_and_make_absolute(e)))
+                        return -ENOMEM;
+
+        if (strv_isempty(m->unit_path)) {
+
+                /* Nothing is set, so let's figure something out. */
+                strv_free(m->unit_path);
+
+                if (m->running_as == MANAGER_SESSION) {
+                        if (!(m->unit_path = session_dirs()))
+                                return -ENOMEM;
+                } else
+                        if (!(m->unit_path = strv_new(
+                                              SYSTEM_CONFIG_UNIT_PATH,  /* /etc/systemd/system/ */
+                                              SYSTEM_DATA_UNIT_PATH,    /* /lib/systemd/system/ */
+                                              NULL)))
+                                return -ENOMEM;
+        }
+
+        /* FIXME: This should probably look for MANAGER_INIT, and exclude MANAGER_SYSTEM */
+        if (m->running_as != MANAGER_SESSION) {
+                /* /etc/init.d/ compativility does not matter to users */
+
+                if ((e = getenv("SYSTEMD_SYSVINIT_PATH")))
+                        if (!(m->sysvinit_path = split_path_and_make_absolute(e)))
+                                return -ENOMEM;
+
+                if (strv_isempty(m->sysvinit_path)) {
+                        strv_free(m->sysvinit_path);
+
+                        if (!(m->sysvinit_path = strv_new(
+                                              SYSTEM_SYSVINIT_PATH,     /* /etc/init.d/ */
+                                              NULL)))
+                                return -ENOMEM;
+                }
+        }
+
+        strv_uniq(m->unit_path);
+        strv_uniq(m->sysvinit_path);
+
+        assert(!strv_isempty(m->unit_path));
+        if (!(t = strv_join(m->unit_path, "\n\t")))
+                return -ENOMEM;
+        log_debug("Looking for unit files in:\n\t%s", t);
+        free(t);
+
+        if (!strv_isempty(m->sysvinit_path)) {
+
+                if (!(t = strv_join(m->sysvinit_path, "\n\t")))
+                        return -ENOMEM;
+
+                log_debug("Looking for SysV init scripts in:\n\t%s", t);
+                free(t);
+        } else
+                log_debug("Ignoring SysV init scripts.");
+
+        return 0;
+}
+
 Manager* manager_new(void) {
         Manager *m;
 
@@ -81,12 +251,15 @@ Manager* manager_new(void) {
         else if (getuid() == 0)
                 m->running_as = MANAGER_SYSTEM;
         else
-                m->running_as = MANAGER_USER;
+                m->running_as = MANAGER_SESSION;
 
         log_debug("systemd running in %s mode.", manager_running_as_to_string(m->running_as));
 
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
+
+        if (manager_find_paths(m) < 0)
+                goto fail;
 
         if (!(m->units = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
@@ -145,6 +318,9 @@ void manager_free(Manager *m) {
                 close_nointr(m->epoll_fd);
         if (m->signal_watch.fd >= 0)
                 close_nointr(m->signal_watch.fd);
+
+        strv_free(m->unit_path);
+        strv_free(m->sysvinit_path);
 
         free(m);
 }
@@ -1360,7 +1536,7 @@ int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j) {
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {
         [MANAGER_INIT] = "init",
         [MANAGER_SYSTEM] = "system",
-        [MANAGER_USER] = "user"
+        [MANAGER_SESSION] = "session"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(manager_running_as, ManagerRunningAs);

@@ -282,7 +282,6 @@ void unit_unwatch_timer(Unit *u, Watch *w);
 
 bool unit_job_is_applicable(Unit *u, JobType j);
 
-const char *unit_path(void);
 int set_unit_path(const char *p);
 
 char *unit_name_escape_path(const char *prefix, const char *path, const char *suffix);

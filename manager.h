@@ -35,7 +35,7 @@ typedef struct Watch Watch;
 typedef enum ManagerRunningAs {
         MANAGER_INIT,      /* root and pid=1 */
         MANAGER_SYSTEM,    /* root and pid!=1 */
-        MANAGER_USER,      /* non-root */
+        MANAGER_SESSION,   /* non-root */
         _MANAGER_RUNNING_AS_MAX,
         _MANAGER_RUNNING_AS_INVALID = -1
 } ManagerRunningAs;
@@ -122,6 +122,9 @@ struct Manager {
         int epoll_fd;
 
         Watch signal_watch;
+
+        char **unit_path;
+        char **sysvinit_path;
 
         /* Data specific to the device subsystem */
         struct udev* udev;

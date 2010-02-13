@@ -25,6 +25,7 @@
 #include "unit.h"
 #include "load-dropin.h"
 #include "log.h"
+#include "strv.h"
 
 int unit_load_dropin(Unit *u) {
         Iterator i;
@@ -39,52 +40,56 @@ int unit_load_dropin(Unit *u) {
                 char *path;
                 DIR *d;
                 struct dirent *de;
+                char **p;
 
-                if (asprintf(&path, "%s/%s.wants", unit_path(), t) < 0)
-                        return -ENOMEM;
+                STRV_FOREACH(p, u->meta.manager->unit_path) {
 
-                if (!(d = opendir(path))) {
-                        r = -errno;
-                        free(path);
-
-                        if (r == -ENOENT)
-                                continue;
-
-                        return r;
-                }
-
-                free(path);
-
-                while ((de = readdir(d))) {
-                        if (de->d_name[0] == '.')
-                                continue;
-
-                        assert(de->d_name[0]);
-
-                        if (de->d_name[strlen(de->d_name)-1] == '~')
-                                continue;
-
-                        if (asprintf(&path, "%s/%s.wants/%s", unit_path(), t, de->d_name) < 0) {
-                                closedir(d);
+                        if (asprintf(&path, "%s/%s.wants", *p, t) < 0)
                                 return -ENOMEM;
-                        }
 
-                        if (!unit_name_is_valid(de->d_name)) {
-                                log_info("Name of %s is not a valid unit name. Ignoring.", path);
+                        if (!(d = opendir(path))) {
+                                r = -errno;
                                 free(path);
-                                continue;
-                        }
 
-                        r = unit_add_dependency_by_name(u, UNIT_WANTS, path);
-                        free(path);
+                                if (r == -ENOENT)
+                                        continue;
 
-                        if (r < 0) {
-                                closedir(d);
                                 return r;
                         }
-                }
 
-                closedir(d);
+                        free(path);
+
+                        while ((de = readdir(d))) {
+                                if (de->d_name[0] == '.')
+                                        continue;
+
+                                assert(de->d_name[0]);
+
+                                if (de->d_name[strlen(de->d_name)-1] == '~')
+                                        continue;
+
+                                if (asprintf(&path, "%s/%s.wants/%s", *p, t, de->d_name) < 0) {
+                                        closedir(d);
+                                        return -ENOMEM;
+                                }
+
+                                if (!unit_name_is_valid(de->d_name)) {
+                                        log_info("Name of %s is not a valid unit name. Ignoring.", path);
+                                        free(path);
+                                        continue;
+                                }
+
+                                r = unit_add_dependency_by_name(u, UNIT_WANTS, path);
+                                free(path);
+
+                                if (r < 0) {
+                                        closedir(d);
+                                        return r;
+                                }
+                        }
+
+                        closedir(d);
+                }
         }
 
         return 0;

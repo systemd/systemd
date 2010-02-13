@@ -17,9 +17,15 @@
 
 ACLOCAL_AMFLAGS = -I m4
 
+pkgsysconfdir=$(sysconfdir)/systemd
+
 AM_CPPFLAGS = \
         -include $(top_builddir)/config.h \
-	-DUNIT_PATH=\"/tmp/does/not/exist\"
+	-DSYSTEM_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/system\" \
+	-DSYSTEM_DATA_UNIT_PATH=\"$(pkgdatadir)/system\" \
+	-DSYSTEM_SYSVINIT_PATH=\"$(sysconfdir)/init.d\" \
+	-DSESSION_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/session\" \
+	-DSESSION_DATA_UNIT_PATH=\"$(pkgdatadir)/session\"
 
 sbin_PROGRAMS = \
 	systemd

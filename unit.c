@@ -972,16 +972,6 @@ int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name) {
         return 0;
 }
 
-const char *unit_path(void) {
-        char *e;
-
-        if ((e = getenv("UNIT_PATH")))
-                if (path_is_absolute(e))
-                    return e;
-
-        return UNIT_PATH;
-}
-
 int set_unit_path(const char *p) {
         char *cwd, *c;
         int r;
@@ -1002,7 +992,7 @@ int set_unit_path(const char *p) {
                         return -ENOMEM;
         }
 
-        if (setenv("UNIT_PATH", c, 0) < 0) {
+        if (setenv("SYSTEMD_UNIT_PATH", c, 0) < 0) {
                 r = -errno;
                 free(c);
                 return r;

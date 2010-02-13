@@ -1128,7 +1128,7 @@ static int load_from_path(Unit *u, const char *path) {
         int r;
         Set *symlink_names;
         FILE *f;
-        char *filename, *id;
+        char *filename = NULL, *id;
 
         sections[0] = "Meta";
         sections[1] = section_table[u->meta.type];
@@ -1137,18 +1137,56 @@ static int load_from_path(Unit *u, const char *path) {
         if (!(symlink_names = set_new(string_hash_func, string_compare_func)))
                 return -ENOMEM;
 
-        /* Instead of opening the path right away, we manually
-         * follow all symlinks and add their name to our unit
-         * name set while doing so */
-        if (!(filename = path_make_absolute(path, unit_path()))) {
-                r = -ENOMEM;
-                goto finish;
+        if (path_is_absolute(path)) {
+
+                if (!(filename = strdup(path))) {
+                        r = -ENOMEM;
+                        goto finish;
+                }
+
+                if ((r = open_follow(&filename, &f, symlink_names, &id)) < 0) {
+                        free(filename);
+                        filename = NULL;
+
+                        if (r != -ENOENT)
+                                goto finish;
+                }
+
+        } else  {
+                char **p;
+
+                STRV_FOREACH(p, u->meta.manager->unit_path) {
+
+                        /* Instead of opening the path right away, we manually
+                         * follow all symlinks and add their name to our unit
+                         * name set while doing so */
+                        if (!(filename = path_make_absolute(path, *p))) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        if ((r = open_follow(&filename, &f, symlink_names, &id)) < 0) {
+                                char *sn;
+
+                                free(filename);
+                                filename = NULL;
+
+                                if (r != -ENOENT)
+                                        goto finish;
+
+                                /* Empty the symlink names for the next run */
+                                while ((sn = set_steal_first(symlink_names)))
+                                        free(sn);
+
+                                continue;
+                        }
+
+                        break;
+                }
         }
 
-        if ((r = open_follow(&filename, &f, symlink_names, &id)) < 0) {
-                if (r == -ENOENT)
-                        r = 0; /* returning 0 means: no suitable config file found */
-
+        if (!filename) {
+                r = 0; /* returning 0 means: no suitable config file found */
                 goto finish;
         }
 
