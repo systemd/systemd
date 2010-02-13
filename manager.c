@@ -1353,8 +1353,40 @@ static int manager_process_signal_fd(Manager *m, bool *quit) {
 
                 case SIGINT:
                 case SIGTERM:
-                        *quit = true;
-                        return 0;
+
+                        if (m->running_as != MANAGER_INIT) {
+                                *quit = true;
+                                return 0;
+
+                        } else {
+                                Unit *target;
+                                int r;
+
+                                if ((r = manager_load_unit(m, SPECIAL_CTRL_ALT_DEL_TARGET, &target)) < 0)
+                                        log_error("Failed to load ctrl-alt-del target: %s", strerror(-r));
+                                else if ((r = manager_add_job(m, JOB_START, target, JOB_REPLACE, true, NULL)) < 0)
+                                        log_error("Failed to enqueue ctrl-alt-del job: %s", strerror(-r));
+
+                                break;
+                        }
+
+                case SIGWINCH:
+
+                        if (m->running_as == MANAGER_INIT) {
+                                Unit *target;
+                                int r;
+
+                                if ((r = manager_load_unit(m, SPECIAL_KBREQUEST_TARGET, &target)) < 0)
+                                        log_error("Failed to load kbrequest target: %s", strerror(-r));
+                                else if ((r = manager_add_job(m, JOB_START, target, JOB_REPLACE, true, NULL)) < 0)
+                                        log_error("Failed to enqueue kbrequest job: %s", strerror(-r));
+
+                                break;
+                        }
+
+                        /* This is a nop on non-init systemd's */
+
+                        break;
 
                 default:
                         log_info("Got unhandled signal <%s>.", strsignal(sfsi.ssi_signo));
