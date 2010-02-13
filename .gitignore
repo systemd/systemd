@@ -25,3 +25,4 @@ install-sh
 missing
 stamp-*
 *.stamp
+Makefile
