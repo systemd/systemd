@@ -95,18 +95,19 @@ int safe_atoli(const char *s, long int *ret_i);
 int safe_atollu(const char *s, unsigned long long *ret_u);
 int safe_atolli(const char *s, long long int *ret_i);
 
-char *split_spaces(const char *c, size_t *l, char **state);
+char *split(const char *c, size_t *l, const char *separator, char **state);
 char *split_quoted(const char *c, size_t *l, char **state);
-char *split_slash(const char *c, size_t *l, char **state);
 
 #define FOREACH_WORD(word, length, s, state)                            \
-        for ((state) = NULL, (word) = split_spaces((s), &(l), &(state)); (word); (word) = split_spaces((s), &(l), &(state)))
+        for ((state) = NULL, (word) = split((s), &(l), WHITESPACE, &(state)); (word); (word) = split((s), &(l), WHITESPACE, &(state)))
+
+#define FOREACH_WORD_SEPARATOR(word, length, s, separator, state)       \
+        for ((state) = NULL, (word) = split((s), &(l), (separator), &(state)); (word); (word) = split((s), &(l), (separator), &(state)))
 
 #define FOREACH_WORD_QUOTED(word, length, s, state)                     \
         for ((state) = NULL, (word) = split_quoted((s), &(l), &(state)); (word); (word) = split_quoted((s), &(l), &(state)))
 
-#define FOREACH_WORD_SLASH(word, length, s, state)                      \
-        for ((state) = NULL, (word) = split_slash((s), &(l), &(state)); (word); (word) = split_slash((s), &(l), &(state)))
+char **split_path_and_make_absolute(const char *p);
 
 pid_t get_parent_of_pid(pid_t pid, pid_t *ppid);
 
@@ -122,6 +123,8 @@ bool is_path(const char *p);
 
 bool path_is_absolute(const char *p);
 char *path_make_absolute(const char *p, const char *prefix);
+char *path_make_absolute_cwd(const char *p);
+char **strv_path_make_absolute_cwd(char **l);
 
 int reset_all_signal_handlers(void);
 

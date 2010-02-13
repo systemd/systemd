@@ -38,6 +38,7 @@
 #include "ioprio.h"
 #include "missing.h"
 #include "log.h"
+#include "strv.h"
 
 usec_t now(clockid_t clock_id) {
         struct timespec ts;
@@ -272,7 +273,7 @@ int safe_atolli(const char *s, long long int *ret_lli) {
 }
 
 /* Split a string into words. */
-char *split_spaces(const char *c, size_t *l, char **state) {
+char *split(const char *c, size_t *l, const char *separator, char **state) {
         char *current;
 
         current = *state ? *state : (char*) c;
@@ -280,24 +281,8 @@ char *split_spaces(const char *c, size_t *l, char **state) {
         if (!*current || *c == 0)
                 return NULL;
 
-        current += strspn(current, WHITESPACE);
-        *l = strcspn(current, WHITESPACE);
-        *state = current+*l;
-
-        return (char*) current;
-}
-
-/* Split a path into filenames. */
-char *split_slash(const char *c, size_t *l, char **state) {
-        char *current;
-
-        current = *state ? *state : (char*) c;
-
-        if (!*current || *c == 0)
-                return NULL;
-
-        current += strspn(current, "/");
-        *l = strcspn(current, "/");
+        current += strspn(current, separator);
+        *l = strcspn(current, separator);
         *state = current+*l;
 
         return (char*) current;
@@ -338,6 +323,21 @@ char *split_quoted(const char *c, size_t *l, char **state) {
          * in them */
 
         return (char*) current;
+}
+
+char **split_path_and_make_absolute(const char *p) {
+        char **l;
+        assert(p);
+
+        if (!(l = strv_split(p, ":")))
+                return NULL;
+
+        if (!strv_path_make_absolute_cwd(l)) {
+                strv_free(l);
+                return NULL;
+        }
+
+        return l;
 }
 
 int get_parent_of_pid(pid_t pid, pid_t *_ppid) {
@@ -513,6 +513,9 @@ char *path_make_absolute(const char *p, const char *prefix) {
 
         assert(p);
 
+        /* Makes every item in the list an absolute path by prepending
+         * the prefix, if specified and necessary */
+
         if (path_is_absolute(p) || !prefix)
                 return strdup(p);
 
@@ -520,6 +523,46 @@ char *path_make_absolute(const char *p, const char *prefix) {
                 return NULL;
 
         return r;
+}
+
+char *path_make_absolute_cwd(const char *p) {
+        char *cwd, *r;
+
+        assert(p);
+
+        /* Similar to path_make_absolute(), but prefixes with the
+         * current working directory. */
+
+        if (path_is_absolute(p))
+                return strdup(p);
+
+        if (!(cwd = get_current_dir_name()))
+                return NULL;
+
+        r = path_make_absolute(p, cwd);
+        free(cwd);
+
+        return r;
+}
+
+char **strv_path_make_absolute_cwd(char **l) {
+        char **s;
+
+        /* Goes through every item in the string list and makes it
+         * absolute. This works in place and won't rollback any
+         * changes on failure. */
+
+        STRV_FOREACH(s, l) {
+                char *t;
+
+                if (!(t = path_make_absolute_cwd(*s)))
+                        return NULL;
+
+                free(*s);
+                *s = t;
+        }
+
+        return l;
 }
 
 int reset_all_signal_handlers(void) {
