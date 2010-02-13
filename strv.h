@@ -30,10 +30,24 @@ char **strv_copy(char **l);
 unsigned strv_length(char **l);
 
 char **strv_merge(char **a, char **b);
+char **strv_merge_concat(char **a, char **b, const char *suffix);
+char **strv_append(char **l, const char *s);
 
-bool strv_contains(char **l, const char *s);
+char **strv_remove(char **l, const char *s);
+char **strv_uniq(char **l);
+
+#define strv_contains(l, s) (!!strv_find((l), (s)))
 
 char **strv_new(const char *x, ...) _sentinel;
+
+static inline bool strv_isempty(char **l) {
+        return !l || !*l;
+}
+
+char **strv_split(const char *s, const char *separator);
+char **strv_split_quoted(const char *s);
+
+char *strv_join(char **l, const char *separator);
 
 #define STRV_FOREACH(s, l)                      \
         for ((s) = (l); (s) && *(s); (s)++)

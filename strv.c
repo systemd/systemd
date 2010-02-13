@@ -28,12 +28,14 @@
 #include "strv.h"
 
 char *strv_find(char **l, const char *name) {
+        char **i;
+
         assert(l);
         assert(name);
 
-        for (; *l; l++)
-                if (streq(*l, name))
-                        return *l;
+        STRV_FOREACH(i, l)
+                if (streq(*i, name))
+                        return *i;
 
         return NULL;
 }
@@ -162,15 +164,180 @@ fail:
                 free(*k);
 
         return NULL;
+}
+
+char **strv_merge_concat(char **a, char **b, const char *suffix) {
+        char **r, **k;
+
+        /* Like strv_merge(), but appends suffix to all strings in b, before adding */
+
+        if (!b)
+                return strv_copy(a);
+
+        if (!(r = new(char*, strv_length(a)+strv_length(b)+1)))
+                return NULL;
+
+        for (k = r; *a; k++, a++)
+                if (!(*k = strdup(*a)))
+                        goto fail;
+        for (; *b; k++, b++)
+                if (!(*k = strappend(*b, suffix)))
+                        goto fail;
+
+        *k = NULL;
+        return r;
+
+fail:
+        for (k--; k >= r; k--)
+                free(*k);
+
+        return NULL;
 
 }
 
-bool strv_contains(char **l, const char *s) {
+char **strv_split(const char *s, const char *separator) {
+        char *state;
+        char *w;
+        size_t l;
+        unsigned n, i;
+        char **r;
+
+        assert(s);
+
+        n = 0;
+        FOREACH_WORD_SEPARATOR(w, l, s, separator, state)
+                n++;
+
+        if (!(r = new(char*, n+1)))
+                return NULL;
+
+        i = 0;
+        FOREACH_WORD_SEPARATOR(w, l, s, separator, state)
+                if (!(r[i++] = strndup(w, l))) {
+                        strv_free(r);
+                        return NULL;
+                }
+
+        r[i] = NULL;
+        return r;
+}
+
+char **strv_split_quoted(const char *s) {
+        char *state;
+        char *w;
+        size_t l;
+        unsigned n, i;
+        char **r;
+
+        assert(s);
+
+        n = 0;
+        FOREACH_WORD_QUOTED(w, l, s, state)
+                n++;
+
+        if (!(r = new(char*, n+1)))
+                return NULL;
+
+        i = 0;
+        FOREACH_WORD_QUOTED(w, l, s, state)
+                if (!(r[i++] = strndup(w, l))) {
+                        strv_free(r);
+                        return NULL;
+                }
+
+        r[i] = NULL;
+        return r;
+}
+
+char *strv_join(char **l, const char *separator) {
+        char *r, *e;
+        char **s;
+        size_t n, k;
+
+        if (!separator)
+                separator = " ";
+
+        k = strlen(separator);
+
+        n = 0;
+        STRV_FOREACH(s, l) {
+                if (n != 0)
+                        n += k;
+                n += strlen(*s);
+        }
+
+        if (!(r = new(char, n+1)))
+                return NULL;
+
+        e = r;
+        STRV_FOREACH(s, l) {
+                if (e != r)
+                        e = stpcpy(e, separator);
+
+                e = stpcpy(e, *s);
+        }
+
+        return r;
+}
+
+char **strv_append(char **l, const char *s) {
+        char **r, **k;
+
+        if (!l)
+                return strv_new(s, NULL);
+
+        if (!s)
+                return strv_copy(l);
+
+        if (!(r = new(char*, strv_length(l)+2)))
+                return NULL;
+
+        for (k = r; *l; k++, l++)
+                if (!(*k = strdup(*l)))
+                        goto fail;
+        if (!(*(k++) = strdup(s)))
+                goto fail;
+
+        *k = NULL;
+        return r;
+
+fail:
+        for (k--; k >= r; k--)
+                free(*k);
+
+        return NULL;
+}
+
+char **strv_uniq(char **l) {
         char **i;
 
-        STRV_FOREACH(i, l)
-                if (streq(*i, s))
-                        return true;
+        /* Drops duplicate entries. The first identical string will be
+         * kept, the others dropped */
 
-        return false;
+        STRV_FOREACH(i, l)
+                strv_remove(i+1, *i);
+
+        return l;
+}
+
+char **strv_remove(char **l, const char *s) {
+        char **f, **t;
+
+        if (!l)
+                return NULL;
+
+        /* Drops every occurence of s in the string list */
+
+        for (f = t = l; *f; f++) {
+
+                if (streq(*f, s)) {
+                        free(*f);
+                        continue;
+                }
+
+                *(t++) = *f;
+        }
+
+        *t = NULL;
+        return l;
 }
