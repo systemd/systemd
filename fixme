@@ -1,5 +1,5 @@
 
-- mounts might take time, need to be executed asynchronously in a forked process?
+- trigger mounting; mounts might take time, need to be executed asynchronously in a forked process?
 
 - need gc for active jobs that nothing cares for
 
@@ -7,21 +7,13 @@
 
 - refreshing of units (i.e. reload config files)
 
-- dbusification
+- further dbusification (i.e. export dependency information, per-unit-type data)
 
 - cgroupsification
 
-- udev hookup
-
 - snapshot system
 
-- hookup with battery status, suspend/resume
-
 - add a job mode which shuts everything down but what is requested
-
-- implement priv dropping
-
-- allow to disable priv dropping for hook scripts from fragment
 
 - implement timer
 
@@ -34,8 +26,6 @@
 - templating/instances
 
 - verify fragment data after loading: refuse cycles on yourself, service units contradicting, more than one Start executable, ...
-
-- automatically delete stale unix sockets
 
 - .socket needs to be notified not only by .service state changes, but also unsuccessful start jobs
 
@@ -51,7 +41,7 @@
 - ability to kill services? i.e. in contrast to stopping them, go directly
   into killing mode?
 
-- restart-on-success, restart-on-failure, restart-on-abort
+- restart-on-success, restart-on-failure, restart-on-abort, restart-on-name-gnone
 
 - port over to LISTEN_FDS/LISTEN_PID:
 
@@ -61,7 +51,7 @@
    - dbus
    - rsyslog
    - cups
-   - ssh
+   - ssh      CLASSIC
    - postfix, saslauthd
    - apache/samba
    - libvirtd (/var/run/libvirt/libvirt-sock-ro)
@@ -72,3 +62,5 @@
 - teach dbus to talk to systemd when autospawning services
 
 - unix sockets chown()/chgrp()
+
+- watch dbus names for figuring out when a service has finished startup/goes down
