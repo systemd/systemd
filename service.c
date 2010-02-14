@@ -1658,11 +1658,6 @@ static int service_enumerate(Manager *m) {
                                 if ((r = manager_load_unit(m, name, &service)) < 0)
                                         goto finish;
 
-                                /* Don't allow that non-SysV services
-                                 * are started via rcN.d/ links. */
-                                if (!SERVICE(service)->sysv_path)
-                                        continue;
-
                                 if ((r = manager_load_unit(m, rcnd[i+1], &runlevel)) < 0)
                                         goto finish;
 
