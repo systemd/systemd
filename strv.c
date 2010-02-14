@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <errno.h>
 
 #include "util.h"
 #include "strv.h"
@@ -301,6 +302,7 @@ char **strv_append(char **l, const char *s) {
         for (k = r; *l; k++, l++)
                 if (!(*k = strdup(*l)))
                         goto fail;
+
         if (!(*(k++) = strdup(s)))
                 goto fail;
 
@@ -348,4 +350,79 @@ char **strv_remove(char **l, const char *s) {
 
         *t = NULL;
         return l;
+}
+
+static int env_append(char **r, char ***k, char **a) {
+        assert(r);
+        assert(k);
+        assert(a);
+
+        /* Add the entries of a to *k unless they already exist in *r
+         * in which case they are overriden instead. This assumes
+         * there is enough space in the r */
+
+        for (; *a; a++) {
+                char **j;
+                size_t n = strcspn(*a, "=") + 1;
+
+                for (j = r; j < *k; j++)
+                        if (strncmp(*j, *a, n) == 0)
+                                break;
+
+                if (j >= *k)
+                        (*k)++;
+                else
+                        free(*j);
+
+                if (!(*j = strdup(*a)))
+                        return -ENOMEM;
+        }
+
+        return 0;
+}
+
+char **strv_env_merge(char **x, ...) {
+        size_t n = 0;
+        char **l, **k, **r;
+        va_list ap;
+
+        /* Merges an arbitrary number of environment sets */
+
+        if (x) {
+                n += strv_length(x);
+
+                va_start(ap, x);
+                while ((l = va_arg(ap, char**)))
+                        n += strv_length(l);
+                va_end(ap);
+        }
+
+
+        if (!(r = new(char*, n+1)))
+                return NULL;
+
+        k = r;
+
+        if (x) {
+                if (env_append(r, &k, x) < 0)
+                        goto fail;
+
+                va_start(ap, x);
+                while ((l = va_arg(ap, char**)))
+                        if (env_append(r, &k, l) < 0)
+                                goto fail;
+                va_end(ap);
+        }
+
+        *k = NULL;
+
+        return r;
+
+fail:
+        for (k--; k >= r; k--)
+                free(*k);
+
+        free(r);
+
+        return NULL;
 }

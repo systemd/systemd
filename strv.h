@@ -49,6 +49,8 @@ char **strv_split_quoted(const char *s);
 
 char *strv_join(char **l, const char *separator);
 
+char **strv_env_merge(char **x, ...) _sentinel;
+
 #define STRV_FOREACH(s, l)                      \
         for ((s) = (l); (s) && *(s); (s)++)
 
