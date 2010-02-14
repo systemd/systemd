@@ -162,8 +162,11 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
                 }
 
                 if ((model = udev_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE")) ||
-                    (model = udev_device_get_property_value(dev, "ID_MODEL")))
+                    (model = udev_device_get_property_value(dev, "ID_MODEL"))) {
                         if ((r = unit_set_description(u, model)) < 0)
+                                goto fail;
+                } else if (dn)
+                        if ((r = unit_set_description(u, dn)) < 0)
                                 goto fail;
 
                 unit_add_to_load_queue(u);
