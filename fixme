@@ -64,3 +64,5 @@
 - unix sockets chown()/chgrp()
 
 - watch dbus names for figuring out when a service has finished startup/goes down
+
+- initialize console tty on startup
