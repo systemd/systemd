@@ -88,6 +88,9 @@ struct Service {
         ExecCommand* exec_command[_SERVICE_EXEC_MAX];
         ExecContext exec_context;
 
+        bool permissions_start_only;
+        bool root_directory_start_only;
+
         ServiceState state;
 
         ExecStatus main_exec_status;

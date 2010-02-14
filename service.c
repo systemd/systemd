@@ -557,6 +557,8 @@ static int service_init(Unit *u) {
         s->state = SERVICE_DEAD;
 
         s->sysv_start_priority = -1;
+        s->permissions_start_only = false;
+        s->root_directory_start_only = false;
 
         RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
 
@@ -595,8 +597,12 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         prefix2 = p2 ? p2 : prefix;
 
         fprintf(f,
-                "%sService State: %s\n",
-                prefix, service_state_to_string(s->state));
+                "%sService State: %s\n"
+                "%sPermissionsStartOnly: %s\n"
+                "%sRootDirectoryStartOnly: %s\n",
+                prefix, service_state_to_string(s->state),
+                prefix, yes_no(s->permissions_start_only),
+                prefix, yes_no(s->root_directory_start_only));
 
         if (s->pid_file)
                 fprintf(f,
@@ -859,7 +865,15 @@ fail:
         return r;
 }
 
-static int service_spawn(Service *s, ExecCommand *c, bool timeout, bool pass_fds, pid_t *_pid) {
+static int service_spawn(
+                Service *s,
+                ExecCommand *c,
+                bool timeout,
+                bool pass_fds,
+                bool apply_permissions,
+                bool apply_chroot,
+                pid_t *_pid) {
+
         pid_t pid;
         int r;
         int *fds = NULL;
@@ -879,7 +893,12 @@ static int service_spawn(Service *s, ExecCommand *c, bool timeout, bool pass_fds
         } else
                 unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
-        if ((r = exec_spawn(c, &s->exec_context, fds, n_fds, &pid)) < 0)
+        if ((r = exec_spawn(c,
+                            &s->exec_context,
+                            fds, n_fds,
+                            apply_permissions,
+                            apply_chroot,
+                            &pid)) < 0)
                 goto fail;
 
         if ((r = unit_watch_pid(UNIT(s), pid)) < 0)
@@ -935,7 +954,13 @@ static void service_enter_stop_post(Service *s, bool success) {
                 s->failure = true;
 
         if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST]))
-                if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
+                if ((r = service_spawn(s,
+                                       s->control_command,
+                                       true,
+                                       false,
+                                       !s->permissions_start_only,
+                                       !s->root_directory_start_only,
+                                       &s->control_pid)) < 0)
                         goto fail;
 
 
@@ -1011,7 +1036,13 @@ static void service_enter_stop(Service *s, bool success) {
                 s->failure = true;
 
         if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP]))
-                if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
+                if ((r = service_spawn(s,
+                                       s->control_command,
+                                       true,
+                                       false,
+                                       !s->permissions_start_only,
+                                       !s->root_directory_start_only,
+                                       &s->control_pid)) < 0)
                         goto fail;
 
         service_set_state(s, SERVICE_STOP);
@@ -1031,7 +1062,13 @@ static void service_enter_start_post(Service *s) {
         assert(s);
 
         if ((s->control_command = s->exec_command[SERVICE_EXEC_START_POST]))
-                if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
+                if ((r = service_spawn(s,
+                                       s->control_command,
+                                       true,
+                                       false,
+                                       !s->permissions_start_only,
+                                       !s->root_directory_start_only,
+                                       &s->control_pid)) < 0)
                         goto fail;
 
 
@@ -1056,7 +1093,13 @@ static void service_enter_start(Service *s) {
         assert(s->exec_command[SERVICE_EXEC_START]);
         assert(!s->exec_command[SERVICE_EXEC_START]->command_next);
 
-        if ((r = service_spawn(s, s->exec_command[SERVICE_EXEC_START], s->type == SERVICE_FORKING, true, &pid)) < 0)
+        if ((r = service_spawn(s,
+                               s->exec_command[SERVICE_EXEC_START],
+                               s->type == SERVICE_FORKING,
+                               true,
+                               true,
+                               true,
+                               &pid)) < 0)
                 goto fail;
 
         service_set_state(s, SERVICE_START);
@@ -1099,7 +1142,13 @@ static void service_enter_start_pre(Service *s) {
         assert(s);
 
         if ((s->control_command = s->exec_command[SERVICE_EXEC_START_PRE]))
-                if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
+                if ((r = service_spawn(s,
+                                       s->control_command,
+                                       true,
+                                       false,
+                                       !s->permissions_start_only,
+                                       !s->root_directory_start_only,
+                                       &s->control_pid)) < 0)
                         goto fail;
 
         service_set_state(s, SERVICE_START_PRE);
@@ -1137,7 +1186,13 @@ static void service_enter_reload(Service *s) {
         assert(s);
 
         if ((s->control_command = s->exec_command[SERVICE_EXEC_RELOAD]))
-                if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
+                if ((r = service_spawn(s,
+                                       s->control_command,
+                                       true,
+                                       false,
+                                       !s->permissions_start_only,
+                                       !s->root_directory_start_only,
+                                       &s->control_pid)) < 0)
                         goto fail;
 
         service_set_state(s, SERVICE_RELOAD);
@@ -1164,7 +1219,13 @@ static void service_run_next(Service *s, bool success) {
 
         s->control_command = s->control_command->command_next;
 
-        if ((r = service_spawn(s, s->control_command, true, false, &s->control_pid)) < 0)
+        if ((r = service_spawn(s,
+                               s->control_command,
+                               true,
+                               false,
+                               !s->permissions_start_only,
+                               !s->root_directory_start_only,
+                               &s->control_pid)) < 0)
                 goto fail;
 
         return;

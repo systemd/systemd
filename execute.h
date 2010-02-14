@@ -97,7 +97,6 @@ struct ExecContext {
         int syslog_priority;
         char *syslog_identifier;
 
-        /* FIXME: all privs related settings need to be enforced */
         cap_t capabilities;
         int secure_bits;
         uint64_t capability_bounding_set_drop;
@@ -137,16 +136,24 @@ typedef enum ExitStatus {
         EXIT_SIGNAL_MASK,
         EXIT_INPUT,
         EXIT_OUTPUT,
-        EXIT_CHROOT,
+        EXIT_CHROOT,   /* 210 */
         EXIT_PGID,
         EXIT_IOPRIO,
         EXIT_TIMERSLACK,
         EXIT_SECUREBITS,
         EXIT_SETSCHEDULER,
-        EXIT_CPUAFFINITY
+        EXIT_CPUAFFINITY,
+        EXIT_GROUP,
+        EXIT_USER,
+        EXIT_CAPABILITIES
 } ExitStatus;
 
-int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds, unsigned n_fds, pid_t *ret);
+int exec_spawn(const ExecCommand *command,
+               const ExecContext *context,
+               int *fds, unsigned n_fds,
+               bool apply_permissions,
+               bool apply_chroot,
+               pid_t *ret);
 
 void exec_command_free_list(ExecCommand *c);
 void exec_command_free_array(ExecCommand **c, unsigned n);

@@ -394,7 +394,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, bool timeout, pid_t *_pid) {
         } else
                 unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
-        if ((r = exec_spawn(c, &s->exec_context, NULL, 0, &pid)) < 0)
+        if ((r = exec_spawn(c, &s->exec_context, NULL, 0, true, true, &pid)) < 0)
                 goto fail;
 
         if ((r = unit_watch_pid(UNIT(s), pid)) < 0)

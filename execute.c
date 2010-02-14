@@ -32,6 +32,8 @@
 #include <linux/sched.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <grp.h>
+#include <pwd.h>
 
 #include "execute.h"
 #include "strv.h"
@@ -293,7 +295,217 @@ static int setup_input(const ExecContext *context) {
         }
 }
 
-int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds, unsigned n_fds, pid_t *ret) {
+static int get_group_creds(const char *groupname, gid_t *gid) {
+        struct group *g;
+        unsigned long lu;
+
+        assert(groupname);
+        assert(gid);
+
+        /* We enforce some special rules for gid=0: in order to avoid
+         * NSS lookups for root we hardcode its data. */
+
+        if (streq(groupname, "root") || streq(groupname, "0")) {
+                *gid = 0;
+                return 0;
+        }
+
+        if (safe_atolu(groupname, &lu) >= 0) {
+                errno = 0;
+                g = getgrgid((gid_t) lu);
+        } else {
+                errno = 0;
+                g = getgrnam(groupname);
+        }
+
+        if (!g)
+                return errno != 0 ? -errno : -ESRCH;
+
+        *gid = g->gr_gid;
+        return 0;
+}
+
+static int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home) {
+        struct passwd *p;
+        unsigned long lu;
+
+        assert(username);
+        assert(*username);
+        assert(uid);
+        assert(gid);
+        assert(home);
+
+        /* We enforce some special rules for uid=0: in order to avoid
+         * NSS lookups for root we hardcode its data. */
+
+        if (streq(*username, "root") || streq(*username, "0")) {
+                *username = "root";
+                *uid = 0;
+                *gid = 0;
+                *home = "/root";
+                return 0;
+        }
+
+        if (safe_atolu(*username, &lu) >= 0) {
+                errno = 0;
+                p = getpwuid((uid_t) lu);
+
+                /* If there are multiple users with the same id, make
+                 * sure to leave $USER to the configured value instead
+                 * of the first occurence in the database. However if
+                 * the uid was configured by a numeric uid, then let's
+                 * pick the real username from /etc/passwd. */
+                if (*username && p)
+                        *username = p->pw_name;
+        } else {
+                errno = 0;
+                p = getpwnam(*username);
+        }
+
+        if (!p)
+                return errno != 0 ? -errno : -ESRCH;
+
+        *uid = p->pw_uid;
+        *gid = p->pw_gid;
+        *home = p->pw_dir;
+        return 0;
+}
+
+static int enforce_groups(const ExecContext *context, const char *username, gid_t gid) {
+        bool keep_groups = false;
+        int r;
+
+        assert(context);
+
+        /* Lookup and ser GID and supplementary group list. Here too
+         * we avoid NSS lookups for gid=0. */
+
+        if (context->group || username) {
+
+                if (context->group)
+                        if ((r = get_group_creds(context->group, &gid)) < 0)
+                                return r;
+
+                /* First step, initialize groups from /etc/groups */
+                if (username && gid != 0) {
+                        if (initgroups(username, gid) < 0)
+                                return -errno;
+
+                        keep_groups = true;
+                }
+
+                /* Second step, set our gids */
+                if (setresgid(gid, gid, gid) < 0)
+                        return -errno;
+        }
+
+        if (context->supplementary_groups) {
+                int ngroups_max, k;
+                gid_t *gids;
+                char **i;
+
+                /* Final step, initialize any manually set supplementary groups */
+                ngroups_max = (int) sysconf(_SC_NGROUPS_MAX);
+
+                if (!(gids = new(gid_t, ngroups_max)))
+                        return -ENOMEM;
+
+                if (keep_groups) {
+                        if ((k = getgroups(ngroups_max, gids)) < 0) {
+                                free(gids);
+                                return -errno;
+                        }
+                } else
+                        k = 0;
+
+                STRV_FOREACH(i, context->supplementary_groups) {
+
+                        if (k >= ngroups_max) {
+                                free(gids);
+                                return -E2BIG;
+                        }
+
+                        if ((r = get_group_creds(*i, gids+k)) < 0) {
+                                free(gids);
+                                return r;
+                        }
+
+                        k++;
+                }
+
+                if (setgroups(k, gids) < 0) {
+                        free(gids);
+                        return -errno;
+                }
+
+                free(gids);
+        }
+
+        return 0;
+}
+
+static int enforce_user(const ExecContext *context, uid_t uid) {
+        int r;
+        assert(context);
+
+        /* Sets (but doesn't lookup) the uid and make sure we keep the
+         * capabilities while doing so. */
+
+        if (context->capabilities) {
+                cap_t d;
+                static const cap_value_t bits[] = {
+                        CAP_SETUID,   /* Necessary so that we can run setresuid() below */
+                        CAP_SETPCAP   /* Necessary so that we can set PR_SET_SECUREBITS later on */
+                };
+
+                /* First step: If we need to keep capabilities but
+                 * drop privileges we need to make sure we keep our
+                 * caps, whiel we drop priviliges. */
+                if (uid != 0)
+                        if (prctl(PR_SET_SECUREBITS, context->secure_bits|SECURE_KEEP_CAPS) < 0)
+                                return -errno;
+
+                /* Second step: set the capabilites. This will reduce
+                 * the capabilities to the minimum we need. */
+
+                if (!(d = cap_dup(context->capabilities)))
+                        return -errno;
+
+                if (cap_set_flag(d, CAP_EFFECTIVE, ELEMENTSOF(bits), bits, CAP_SET) < 0 ||
+                    cap_set_flag(d, CAP_PERMITTED, ELEMENTSOF(bits), bits, CAP_SET) < 0) {
+                        r = -errno;
+                        cap_free(d);
+                        return r;
+                }
+
+                if (cap_set_proc(d) < 0) {
+                        r = -errno;
+                        cap_free(d);
+                        return r;
+                }
+
+                cap_free(d);
+        }
+
+        /* Third step: actually set the uids */
+        if (setresuid(uid, uid, uid) < 0)
+                return -errno;
+
+        /* At this point we should have all necessary capabilities but
+           are otherwise a normal user. However, the caps might got
+           corrupted due to the setresuid() so we need clean them up
+           later. This is done outside of this call. */
+
+        return 0;
+}
+
+int exec_spawn(const ExecCommand *command,
+               const ExecContext *context,
+               int *fds, unsigned n_fds,
+               bool apply_permissions,
+               bool apply_chroot,
+               pid_t *ret) {
+
         pid_t pid;
 
         assert(command);
@@ -301,15 +513,19 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
         assert(ret);
         assert(fds || n_fds <= 0);
 
-        log_debug("about to execute %s", command->path);
+        log_debug("About to execute %s", command->path);
 
         if ((pid = fork()) < 0)
                 return -errno;
 
         if (pid == 0) {
-                char **e, **f = NULL;
                 int i, r;
                 sigset_t ss;
+                const char *username = NULL, *home = NULL;
+                uid_t uid = (uid_t) -1;
+                gid_t gid = (gid_t) -1;
+                char **our_env = NULL, **final_env = NULL;
+                unsigned n_env = 0;
 
                 /* child */
 
@@ -346,17 +562,6 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
                                 r = EXIT_OOM_ADJUST;
                                 goto fail;
                         }
-                }
-
-                if (context->root_directory)
-                        if (chroot(context->root_directory) < 0) {
-                                r = EXIT_CHROOT;
-                                goto fail;
-                        }
-
-                if (chdir(context->working_directory ? context->working_directory : "/") < 0) {
-                        r = EXIT_CHDIR;
-                        goto fail;
                 }
 
                 if (context->nice_set)
@@ -396,6 +601,51 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
                                 goto fail;
                         }
 
+                if (context->user) {
+                        username = context->user;
+                        if (get_user_creds(&username, &uid, &gid, &home) < 0) {
+                                r = EXIT_USER;
+                                goto fail;
+                        }
+                }
+
+                if (apply_permissions)
+                        if (enforce_groups(context, username, uid) < 0) {
+                                r = EXIT_GROUP;
+                                goto fail;
+                        }
+
+                if (apply_chroot) {
+                        if (context->root_directory)
+                                if (chroot(context->root_directory) < 0) {
+                                        r = EXIT_CHROOT;
+                                        goto fail;
+                                }
+
+                        if (chdir(context->working_directory ? context->working_directory : "/") < 0) {
+                                r = EXIT_CHDIR;
+                                goto fail;
+                        }
+                } else {
+
+                        char *d;
+
+                        if (asprintf(&d, "%s/%s",
+                                     context->root_directory ? context->root_directory : "",
+                                     context->working_directory ? context->working_directory : "") < 0) {
+                                r = EXIT_MEMORY;
+                                goto fail;
+                        }
+
+                        if (chdir(d) < 0) {
+                                free(d);
+                                r = EXIT_CHDIR;
+                                goto fail;
+                        }
+
+                        free(d);
+                }
+
                 if (close_fds(fds, n_fds) < 0 ||
                     shift_fds(fds, n_fds) < 0 ||
                     flags_fds(fds, n_fds, context->non_blocking) < 0) {
@@ -403,59 +653,78 @@ int exec_spawn(const ExecCommand *command, const ExecContext *context, int *fds,
                         goto fail;
                 }
 
-                for (i = 0; i < RLIMIT_NLIMITS; i++) {
-                        if (!context->rlimit[i])
-                                continue;
+                if (apply_permissions) {
 
-                        if (setrlimit(i, context->rlimit[i]) < 0) {
-                                r = EXIT_LIMITS;
-                                goto fail;
+                        for (i = 0; i < RLIMIT_NLIMITS; i++) {
+                                if (!context->rlimit[i])
+                                        continue;
+
+                                if (setrlimit(i, context->rlimit[i]) < 0) {
+                                        r = EXIT_LIMITS;
+                                        goto fail;
+                                }
                         }
-                }
 
-                if (context->secure_bits) {
+                        if (context->user)
+                                if (enforce_user(context, uid) < 0) {
+                                        r = EXIT_USER;
+                                        goto fail;
+                                }
+
                         if (prctl(PR_SET_SECUREBITS, context->secure_bits) < 0) {
                                 r = EXIT_SECUREBITS;
                                 goto fail;
                         }
-                }
 
-                if (n_fds > 0) {
-                        char a[64], b[64];
-                        char *listen_env[3] = {
-                                a,
-                                b,
-                                NULL
-                        };
-
-                        snprintf(a, sizeof(a), "LISTEN_PID=%llu", (unsigned long long) getpid());
-                        snprintf(b, sizeof(b), "LISTEN_FDS=%u", n_fds);
-
-                        a[sizeof(a)-1] = 0;
-                        b[sizeof(b)-1] = 0;
-
-                        if (context->environment) {
-                                if (!(f = strv_merge(listen_env, context->environment))) {
-                                        r = EXIT_MEMORY;
+                        if (context->capabilities)
+                                if (cap_set_proc(context->capabilities) < 0) {
+                                        r = EXIT_CAPABILITIES;
                                         goto fail;
                                 }
-                                e = f;
-                        } else
-                                e = listen_env;
+                }
 
-                } else
-                        e = context->environment;
+                if (!(our_env = new0(char*, 6))) {
+                        r = EXIT_MEMORY;
+                        goto fail;
+                }
 
-                execve(command->path, command->argv, e);
+                if (n_fds > 0)
+                        if (asprintf(our_env + n_env++, "LISTEN_PID=%llu", (unsigned long long) getpid()) < 0 ||
+                            asprintf(our_env + n_env++, "LISTEN_FDS=%u", n_fds) < 0) {
+                                r = EXIT_MEMORY;
+                                goto fail;
+                        }
+
+                if (home)
+                        if (asprintf(our_env + n_env++, "HOME=%s", home) < 0) {
+                                r = EXIT_MEMORY;
+                                goto fail;
+                        }
+
+                if (username)
+                        if (asprintf(our_env + n_env++, "LOGNAME=%s", username) < 0 ||
+                            asprintf(our_env + n_env++, "USER=%s", username) < 0) {
+                                r = EXIT_MEMORY;
+                                goto fail;
+                        }
+
+                if (!(final_env = strv_env_merge(environ, our_env, context->environment, NULL))) {
+                        r = EXIT_MEMORY;
+                        goto fail;
+                }
+
+                execve(command->path, command->argv, final_env);
                 r = EXIT_EXEC;
 
         fail:
-                strv_free(f);
+                strv_free(our_env);
+                strv_free(final_env);
+
                 _exit(r);
         }
 
 
-        log_debug("executed %s as %llu", command->path, (unsigned long long) pid);
+        log_debug("Forked %s as %llu", command->path, (unsigned long long) pid);
 
         *ret = pid;
         return 0;

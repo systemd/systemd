@@ -1094,6 +1094,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "TimeoutSec",             config_parse_usec,            &u->service.timeout_usec,                        "Service" },
                 { "Type",                   config_parse_service_type,    &u->service,                                     "Service" },
                 { "Restart",                config_parse_service_restart, &u->service,                                     "Service" },
+                { "PermissionsStartOnly",   config_parse_bool,            &u->service.permissions_start_only,              "Service" },
+                { "RootDirectoryStartOnly", config_parse_bool,            &u->service.root_directory_start_only,           "Service" },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
 
                 { "ListenStream",           config_parse_listen,          &u->socket,                                      "Socket"  },
@@ -1250,7 +1252,9 @@ int unit_load_fragment(Unit *u) {
                 else
                         c = NULL;
 
-                if (c && (c->output == EXEC_OUTPUT_KERNEL || c->output == EXEC_OUTPUT_SYSLOG)) {
+                if (c &&
+                    (c->output == EXEC_OUTPUT_KERNEL || c->output == EXEC_OUTPUT_SYSLOG) &&
+                    u->meta.manager->running_as != MANAGER_SESSION) {
                         int k;
 
                         /* If syslog or kernel logging is requested, make sure
