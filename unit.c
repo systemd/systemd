@@ -284,7 +284,7 @@ void unit_free(Unit *u) {
                 bidi_set_free(u, u->meta.dependencies[d]);
 
         free(u->meta.description);
-        free(u->meta.load_path);
+        free(u->meta.fragment_path);
 
         while ((t = set_steal_first(u->meta.names)))
                 free(t);
@@ -397,8 +397,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, yes_no(u->meta.recursive_stop),
                 prefix, yes_no(u->meta.stop_when_unneeded));
 
-        if (u->meta.load_path)
-                fprintf(f, "%s\tLoad Path: %s\n", prefix, u->meta.load_path);
+        if (u->meta.fragment_path)
+                fprintf(f, "%s\tFragment Path: %s\n", prefix, u->meta.fragment_path);
 
         SET_FOREACH(t, u->meta.names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);

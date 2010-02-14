@@ -68,7 +68,7 @@ public class MainWindow : Window {
         private RightLabel unit_description_label;
         private RightLabel unit_load_state_label;
         private RightLabel unit_active_state_label;
-        private RightLabel unit_load_path_label;
+        private RightLabel unit_fragment_path_label;
         private RightLabel unit_active_enter_timestamp_label;
         private RightLabel unit_active_exit_timestamp_label;
         private RightLabel unit_can_start_label;
@@ -133,7 +133,7 @@ public class MainWindow : Window {
                 unit_description_label = new RightLabel();
                 unit_load_state_label = new RightLabel();
                 unit_active_state_label = new RightLabel();
-                unit_load_path_label = new RightLabel();
+                unit_fragment_path_label = new RightLabel();
                 unit_active_enter_timestamp_label = new RightLabel();
                 unit_active_exit_timestamp_label = new RightLabel();
                 unit_can_start_label = new RightLabel();
@@ -161,8 +161,8 @@ public class MainWindow : Window {
                 unit_table.attach(unit_load_state_label, 1, 2, 2, 3, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 unit_table.attach(new LeftLabel("Active State:"), 0, 1, 3, 4, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 unit_table.attach(unit_active_state_label, 1, 2, 3, 4, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(new LeftLabel("Load Path:"), 0, 1, 4, 5, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
-                unit_table.attach(unit_load_path_label, 1, 2, 4, 5, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(new LeftLabel("Fragment Path:"), 0, 1, 4, 5, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
+                unit_table.attach(unit_fragment_path_label, 1, 2, 4, 5, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 unit_table.attach(new LeftLabel("Active Enter Timestamp:"), 0, 1, 5, 6, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 unit_table.attach(unit_active_enter_timestamp_label, 1, 2, 5, 6, AttachOptions.EXPAND|AttachOptions.FILL, AttachOptions.FILL, 0, 0);
                 unit_table.attach(new LeftLabel("Active Exit Timestamp:"), 0, 1, 6, 7, AttachOptions.FILL, AttachOptions.FILL, 0, 0);
@@ -311,7 +311,7 @@ public class MainWindow : Window {
                 unit_description_label.set_text_or_na();
                 unit_load_state_label.set_text_or_na();
                 unit_active_state_label.set_text_or_na();
-                unit_load_path_label.set_text_or_na();
+                unit_fragment_path_label.set_text_or_na();
                 unit_active_enter_timestamp_label.set_text_or_na();
                 unit_active_exit_timestamp_label.set_text_or_na();
                 unit_can_reload_label.set_text_or_na();
@@ -323,7 +323,7 @@ public class MainWindow : Window {
                 unit_description_label.set_text_or_na(unit.description);
                 unit_load_state_label.set_text_or_na(unit.load_state);
                 unit_active_state_label.set_text_or_na(unit.active_state);
-                unit_load_path_label.set_text_or_na(unit.load_path);
+                unit_fragment_path_label.set_text_or_na(unit.fragment_path);
 
                 uint64 t = unit.active_enter_timestamp;
                 if (t > 0) {

@@ -1207,8 +1207,8 @@ static int load_from_path(Unit *u, const char *path) {
         }
 
 
-        free(u->meta.load_path);
-        u->meta.load_path = filename;
+        free(u->meta.fragment_path);
+        u->meta.fragment_path = filename;
         filename = NULL;
 
         r = 1; /* returning 1 means: suitable config file found and loaded */
@@ -1229,8 +1229,8 @@ int unit_load_fragment(Unit *u) {
         assert(u);
         assert(u->meta.load_state == UNIT_STUB);
 
-        if (u->meta.load_path)
-                r = load_from_path(u, u->meta.load_path);
+        if (u->meta.fragment_path)
+                r = load_from_path(u, u->meta.fragment_path);
         else {
                 Iterator i;
                 char *t;

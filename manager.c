@@ -1184,7 +1184,7 @@ int manager_load_unit(Manager *m, const char *path, Unit **_ret) {
                 return -ENOMEM;
 
         if (is_path(path)) {
-                if (!(ret->meta.load_path = strdup(path))) {
+                if (!(ret->meta.fragment_path = strdup(path))) {
                         unit_free(ret);
                         return -ENOMEM;
                 }

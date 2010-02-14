@@ -49,7 +49,7 @@ static const char introspection[] =
         "  <property name=\"Description\" type=\"s\" access=\"read\"/>"
         "  <property name=\"LoadState\" type=\"s\" access=\"read\"/>"
         "  <property name=\"ActiveState\" type=\"s\" access=\"read\"/>"
-        "  <property name=\"LoadPath\" type=\"s\" access=\"read\"/>"
+        "  <property name=\"FragmentPath\" type=\"s\" access=\"read\"/>"
         "  <property name=\"ActiveEnterTimestamp\" type=\"t\" access=\"read\"/>"
         "  <property name=\"ActiveExitTimestamp\" type=\"t\" access=\"read\"/>"
         "  <property name=\"CanReload\" type=\"b\" access=\"read\"/>"
@@ -217,7 +217,7 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message
                 { "org.freedesktop.systemd1.Unit", "Description",          bus_unit_append_description,  "s",    u                               },
                 { "org.freedesktop.systemd1.Unit", "LoadState",            bus_unit_append_load_state,   "s",    u                               },
                 { "org.freedesktop.systemd1.Unit", "ActiveState",          bus_unit_append_active_state, "s",    u                               },
-                { "org.freedesktop.systemd1.Unit", "LoadPath",             bus_property_append_string,   "s",    u->meta.load_path               },
+                { "org.freedesktop.systemd1.Unit", "FragmentPath",         bus_property_append_string,   "s",    u->meta.fragment_path           },
                 { "org.freedesktop.systemd1.Unit", "ActiveEnterTimestamp", bus_property_append_uint64,   "t",    &u->meta.active_enter_timestamp },
                 { "org.freedesktop.systemd1.Unit", "ActiveExitTimestamp",  bus_property_append_uint64,   "t",    &u->meta.active_exit_timestamp  },
                 { "org.freedesktop.systemd1.Unit", "CanReload",            bus_unit_append_can_reload,   "b",    u                               },
