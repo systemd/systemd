@@ -151,6 +151,8 @@ char *xescape(const char *s, const char *bad);
 char *bus_path_escape(const char *s);
 char *bus_path_unescape(const char *s);
 
+bool ignore_file(const char *filename);
+
 #define DEFINE_STRING_TABLE_LOOKUP(name,type)                           \
         const char *name##_to_string(type i) {                          \
                 if (i < 0 || i >= (type) ELEMENTSOF(name##_table))      \

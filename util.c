@@ -1058,6 +1058,20 @@ char *ascii_strlower(char *path) {
         return p;
 }
 
+bool ignore_file(const char *filename) {
+        assert(filename);
+
+        return
+                filename[0] == '.' ||
+                endswith(filename, "~") ||
+                endswith(filename, ".rpmnew") ||
+                endswith(filename, ".rpmsave") ||
+                endswith(filename, ".rpmorig") ||
+                endswith(filename, ".dpkg-old") ||
+                endswith(filename, ".dpkg-new") ||
+                endswith(filename, ".swp");
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

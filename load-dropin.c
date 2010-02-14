@@ -60,12 +60,8 @@ int unit_load_dropin(Unit *u) {
                         free(path);
 
                         while ((de = readdir(d))) {
-                                if (de->d_name[0] == '.')
-                                        continue;
 
-                                assert(de->d_name[0]);
-
-                                if (de->d_name[strlen(de->d_name)-1] == '~')
+                                if (ignore_file(de->d_name))
                                         continue;
 
                                 if (asprintf(&path, "%s/%s.wants/%s", *p, t, de->d_name) < 0) {
