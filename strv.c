@@ -281,6 +281,8 @@ char *strv_join(char **l, const char *separator) {
                 e = stpcpy(e, *s);
         }
 
+        *e = 0;
+
         return r;
 }
 
