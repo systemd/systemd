@@ -28,6 +28,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <sys/poll.h>
+#include <sys/reboot.h>
+#include <sys/ioctl.h>
+#include <linux/kd.h>
 
 #include "manager.h"
 #include "hashmap.h"
@@ -54,6 +57,8 @@ static int manager_setup_signals(Manager *m) {
         assert_se(sigaddset(&mask, SIGUSR1) == 0);
         assert_se(sigaddset(&mask, SIGUSR2) == 0);
         assert_se(sigaddset(&mask, SIGPIPE) == 0);
+        assert_se(sigaddset(&mask, SIGPWR) == 0);
+        assert_se(sigaddset(&mask, SIGTTIN) == 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
         m->signal_watch.type = WATCH_SIGNAL;
@@ -66,6 +71,16 @@ static int manager_setup_signals(Manager *m) {
 
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->signal_watch.fd, &ev) < 0)
                 return -errno;
+
+        if (m->running_as == MANAGER_INIT) {
+                /* Enable that we get SIGINT on control-alt-del */
+                if (reboot(RB_DISABLE_CAD) < 0)
+                        log_warning("Failed to enable ctrl-alt-del handling: %s", strerror(errno));
+
+                /* Enable that we get SIGWINCH on kbrequest */
+                if (ioctl(0, KDSIGACCEPT, SIGWINCH) < 0)
+                        log_warning("Failed to enable kbrequest handling: %s", strerror(errno));
+        }
 
         return 0;
 }
@@ -200,8 +215,7 @@ static int manager_find_paths(Manager *m) {
                                 return -ENOMEM;
         }
 
-        /* FIXME: This should probably look for MANAGER_INIT, and exclude MANAGER_SYSTEM */
-        if (m->running_as != MANAGER_SESSION) {
+        if (m->running_as == MANAGER_INIT) {
                 /* /etc/init.d/ compativility does not matter to users */
 
                 if ((e = getenv("SYSTEMD_SYSVINIT_PATH")))
@@ -246,20 +260,8 @@ Manager* manager_new(void) {
         if (!(m = new0(Manager, 1)))
                 return NULL;
 
-        if (getpid() == 1)
-                m->running_as = MANAGER_INIT;
-        else if (getuid() == 0)
-                m->running_as = MANAGER_SYSTEM;
-        else
-                m->running_as = MANAGER_SESSION;
-
-        log_debug("systemd running in %s mode.", manager_running_as_to_string(m->running_as));
-
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
-
-        if (manager_find_paths(m) < 0)
-                goto fail;
 
         if (!(m->units = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
@@ -275,6 +277,24 @@ Manager* manager_new(void) {
 
         if ((m->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
                 goto fail;
+
+        if (getpid() == 1)
+                m->running_as = MANAGER_INIT;
+        else if (getuid() == 0)
+                m->running_as = MANAGER_SYSTEM;
+        else
+                m->running_as = MANAGER_SESSION;
+
+        log_debug("systemd running in %s mode.", manager_running_as_to_string(m->running_as));
+
+        if (manager_find_paths(m) < 0)
+                goto fail;
+
+        if (chdir("/") < 0)
+                log_warning("Failed to chdir to /: %s", strerror(errno));
+
+        /* Become a session leader if we aren't one yet. */
+        setsid();
 
         if (manager_setup_signals(m) < 0)
                 goto fail;
