@@ -1219,7 +1219,6 @@ finish:
 
 int unit_load_fragment(Unit *u) {
         int r = 0;
-        ExecContext *c;
 
         assert(u);
         assert(u->meta.load_state == UNIT_STUB);
@@ -1228,33 +1227,41 @@ int unit_load_fragment(Unit *u) {
                 r = load_from_path(u, u->meta.fragment_path);
         else {
                 Iterator i;
-                char *t;
+                const char *t;
 
-                /* Try to find a name we can load this with */
-                SET_FOREACH(t, u->meta.names, i)
-                        if ((r = load_from_path(u, t)) != 0)
-                                return r;
+                /* Try to find the unit under its id */
+                if ((t = unit_id(u)))
+                        r = load_from_path(u, t);
+
+                /* Try to find an alias we can load this with */
+                if (r == 0)
+                        SET_FOREACH(t, u->meta.names, i)
+                                if ((r = load_from_path(u, t)) != 0)
+                                        break;
         }
 
-        if (u->meta.type == UNIT_SOCKET)
-                c = &u->socket.exec_context;
-        else if (u->meta.type == UNIT_SERVICE)
-                c = &u->service.exec_context;
-        else
-                c = NULL;
+        if (r >= 0) {
+                ExecContext *c;
 
-        if (r >= 0 && c &&
-            (c->output == EXEC_OUTPUT_KERNEL || c->output == EXEC_OUTPUT_SYSLOG)) {
-                int k;
+                if (u->meta.type == UNIT_SOCKET)
+                        c = &u->socket.exec_context;
+                else if (u->meta.type == UNIT_SERVICE)
+                        c = &u->service.exec_context;
+                else
+                        c = NULL;
 
-                /* If syslog or kernel logging is requested, make sure
-                 * our own logging daemon is run first. */
+                if (c && (c->output == EXEC_OUTPUT_KERNEL || c->output == EXEC_OUTPUT_SYSLOG)) {
+                        int k;
 
-                if ((k = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_LOGGER_SOCKET)) < 0)
-                        return k;
+                        /* If syslog or kernel logging is requested, make sure
+                         * our own logging daemon is run first. */
 
-                if ((k = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_LOGGER_SOCKET)) < 0)
-                        return k;
+                        if ((k = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_LOGGER_SOCKET)) < 0)
+                                return k;
+
+                        if ((k = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_LOGGER_SOCKET)) < 0)
+                                return k;
+                }
         }
 
         return r;
