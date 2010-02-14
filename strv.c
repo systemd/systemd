@@ -163,6 +163,8 @@ fail:
         for (k--; k >= r; k--)
                 free(*k);
 
+        free(r);
+
         return NULL;
 }
 
@@ -190,6 +192,8 @@ char **strv_merge_concat(char **a, char **b, const char *suffix) {
 fail:
         for (k--; k >= r; k--)
                 free(*k);
+
+        free(r);
 
         return NULL;
 
@@ -304,6 +308,8 @@ char **strv_append(char **l, const char *s) {
 fail:
         for (k--; k >= r; k--)
                 free(*k);
+
+        free(r);
 
         return NULL;
 }
