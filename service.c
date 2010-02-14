@@ -21,12 +21,19 @@
 
 #include <errno.h>
 #include <signal.h>
+#include <dirent.h>
+#include <unistd.h>
 
 #include "unit.h"
 #include "service.h"
 #include "load-fragment.h"
 #include "load-dropin.h"
 #include "log.h"
+#include "strv.h"
+
+#define COMMENTS "#;\n"
+#define NEWLINES "\n\r"
+#define LINE_MAX 4096
 
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = UNIT_INACTIVE,
@@ -53,6 +60,9 @@ static void service_done(Unit *u) {
         free(s->pid_file);
         s->pid_file = NULL;
 
+        free(s->sysv_path);
+        s->sysv_path = NULL;
+
         exec_context_done(&s->exec_context);
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_MAX);
         s->control_command = NULL;
@@ -72,13 +82,457 @@ static void service_done(Unit *u) {
         unit_unwatch_timer(u, &s->timer_watch);
 }
 
+static int sysv_translate_name(const char *name, char **_r) {
+
+        static const char * const table[] = {
+                "$local_fs",  SPECIAL_LOCAL_FS_TARGET,
+                "$network",   SPECIAL_NETWORK_TARGET,
+                "$named",     SPECIAL_NSS_LOOKUP_TARGET,
+                "$portmap",   SPECIAL_RPCBIND_TARGET,
+                "$remote_fs", SPECIAL_REMOTE_FS_TARGET,
+                "$syslog",    SPECIAL_SYSLOG_TARGET,
+                "$time",      SPECIAL_RTC_SET_TARGET
+        };
+
+        unsigned i;
+        char *r;
+
+        for (i = 0; i < ELEMENTSOF(table); i += 2)
+                if (streq(table[i], name)) {
+                        if (!(r = strdup(table[i+1])))
+                                return -ENOMEM;
+
+                        goto finish;
+                }
+
+        if (*name == '$')
+                return 0;
+
+        if (asprintf(&r, "%s.service", name) < 0)
+                return -ENOMEM;
+
+finish:
+
+        if (_r)
+                *_r = r;
+
+        return 1;
+}
+
+static int sysv_chkconfig_order(Service *s) {
+        Meta *other;
+        int r;
+
+        assert(s);
+
+        if (s->sysv_start_priority < 0)
+                return 0;
+
+        /* If no LSB header is found we try to order init scripts via
+         * the start priority of the chkconfig header. */
+
+        LIST_FOREACH(units_per_type, other, UNIT(s)->meta.manager->units_per_type[UNIT_SERVICE]) {
+                Service *t;
+                UnitDependency d;
+
+                t = (Service*) other;
+
+                if (s == t)
+                        continue;
+
+                if (t->sysv_start_priority < 0)
+                        continue;
+
+                if (t->sysv_start_priority < s->sysv_start_priority)
+                        d = UNIT_AFTER;
+                else if (t->sysv_start_priority > s->sysv_start_priority)
+                        d = UNIT_BEFORE;
+                else
+                        continue;
+
+                /* FIXME: Maybe we should compare the name here lexicographically? */
+
+                if (!(r = unit_add_dependency(UNIT(s), d, UNIT(t))) < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static ExecCommand *exec_command_new(const char *path, const char *arg1) {
+        ExecCommand *c;
+
+        if (!(c = new0(ExecCommand, 1)))
+                return NULL;
+
+        if (!(c->path = strdup(path))) {
+                free(c);
+                return NULL;
+        }
+
+        if (!(c->argv = strv_new(path, arg1, NULL))) {
+                free(c->path);
+                free(c);
+                return NULL;
+        }
+
+        return c;
+}
+
+static int sysv_exec_commands(Service *s) {
+        ExecCommand *c;
+
+        assert(s);
+        assert(s->sysv_path);
+
+        if (!(c = exec_command_new(s->sysv_path, "start")))
+                return -ENOMEM;
+        exec_command_append_list(s->exec_command+SERVICE_EXEC_START, c);
+
+        if (!(c = exec_command_new(s->sysv_path, "stop")))
+                return -ENOMEM;
+        exec_command_append_list(s->exec_command+SERVICE_EXEC_STOP, c);
+
+        if (!(c = exec_command_new(s->sysv_path, "reload")))
+                return -ENOMEM;
+        exec_command_append_list(s->exec_command+SERVICE_EXEC_RELOAD, c);
+
+        return 0;
+}
+
+static int service_load_sysv_path(Service *s, const char *path) {
+        FILE *f;
+        Unit *u;
+        unsigned line = 0;
+        int r;
+        enum {
+                NORMAL,
+                DESCRIPTION,
+                LSB,
+                LSB_DESCRIPTION
+        } state = NORMAL;
+        bool has_lsb = false;
+
+        u = UNIT(s);
+
+        if (!(f = fopen(path, "re"))) {
+                r = errno == ENOENT ? 0 : -errno;
+                goto finish;
+        }
+
+        s->type = SERVICE_FORKING;
+        s->restart = SERVICE_ONCE;
+
+        free(s->sysv_path);
+        if (!(s->sysv_path = strdup(path))) {
+                r = -ENOMEM;
+                goto finish;
+        }
+
+        while (!feof(f)) {
+                char l[LINE_MAX], *t;
+
+                if (!fgets(l, sizeof(l), f)) {
+                        if (feof(f))
+                                break;
+
+                        r = -errno;
+                        log_error("Failed to read configuration file '%s': %s", path, strerror(-r));
+                        goto finish;
+                }
+
+                line++;
+
+                t = strstrip(l);
+                if (*t != '#')
+                        continue;
+
+                if (state == NORMAL && streq(t, "### BEGIN INIT INFO")) {
+                        state = LSB;
+                        has_lsb = true;
+                        continue;
+                }
+
+                if ((state == LSB_DESCRIPTION || state == LSB) && streq(t, "### END INIT INFO")) {
+                        state = NORMAL;
+                        continue;
+                }
+
+                t++;
+                t += strspn(t, WHITESPACE);
+
+                if (state == NORMAL) {
+
+                        /* Try to parse Red Hat style chkconfig headers */
+
+                        if (startswith(t, "chkconfig:")) {
+                                int start_priority;
+
+                                state = NORMAL;
+
+                                if (sscanf(t+10, "%*15s %i %*i",
+                                           &start_priority) != 1) {
+
+                                        log_warning("[%s:%u] Failed to parse chkconfig line. Ignoring.", path, line);
+                                        continue;
+                                }
+
+                                if (start_priority < 0 || start_priority > 99) {
+                                        log_warning("[%s:%u] Start priority out of range. Ignoring.", path, line);
+                                        continue;
+                                }
+
+                                s->sysv_start_priority = start_priority;
+
+                        } else if (startswith(t, "description:")) {
+
+                                size_t k = strlen(t);
+                                char *d;
+
+                                if (t[k-1] == '\\') {
+                                        state = DESCRIPTION;
+                                        t[k-1] = 0;
+                                }
+
+                                if (!(d = strdup(strstrip(t+12)))) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                free(u->meta.description);
+                                u->meta.description = d;
+
+                        } else if (startswith(t, "pidfile:")) {
+
+                                char *fn;
+
+                                state = NORMAL;
+
+                                fn = strstrip(t+8);
+                                if (!path_is_absolute(fn)) {
+                                        log_warning("[%s:%u] PID file not absolute. Ignoring.", path, line);
+                                        continue;
+                                }
+
+                                if (!(fn = strdup(fn))) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                free(s->pid_file);
+                                s->pid_file = fn;
+                        }
+
+                } else if (state == DESCRIPTION) {
+
+                        /* Try to parse Red Hat style description
+                         * continuation */
+
+                        size_t k = strlen(t);
+                        char *d;
+
+                        if (t[k-1] == '\\')
+                                t[k-1] = 0;
+                        else
+                                state = NORMAL;
+
+                        assert(u->meta.description);
+                        if (asprintf(&d, "%s %s", u->meta.description, strstrip(t)) < 0) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        free(u->meta.description);
+                        u->meta.description = d;
+
+                } else if (state == LSB || state == LSB_DESCRIPTION) {
+
+                        if (startswith(t, "Provides:")) {
+                                char *i, *w;
+                                size_t z;
+
+                                state = LSB;
+
+                                FOREACH_WORD(w, z, t+9, i) {
+                                        char *n, *m;
+
+                                        if (!(n = strndup(w, z))) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+
+                                        r = sysv_translate_name(n, &m);
+                                        free(n);
+
+                                        if (r < 0)
+                                                goto finish;
+
+                                        if (r == 0)
+                                                continue;
+
+                                        r = unit_add_name(u, m);
+                                        free(m);
+
+                                        if (r < 0)
+                                                goto finish;
+                                }
+
+                        } else if (startswith(t, "Required-Start:") ||
+                                   startswith(t, "Should-Start:")) {
+                                char *i, *w;
+                                size_t z;
+
+                                state = LSB;
+
+                                FOREACH_WORD(w, z, strchr(t, ':')+1, i) {
+                                        char *n, *m;
+
+                                        if (!(n = strndup(w, z))) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+
+                                        r = sysv_translate_name(n, &m);
+                                        free(n);
+
+                                        if (r < 0)
+                                                goto finish;
+
+                                        if (r == 0)
+                                                continue;
+
+                                        if (!(r = unit_add_dependency_by_name(u, UNIT_AFTER, m)) < 0) {
+                                                free(m);
+                                                goto finish;
+                                        }
+
+                                        r = unit_add_dependency_by_name(
+                                                        u,
+                                                        startswith(t, "Required-Start:") ? UNIT_REQUIRES : UNIT_WANTS,
+                                                        m);
+                                        free(m);
+
+                                        if (r < 0)
+                                                goto finish;
+                                }
+
+                        } else if (startswith(t, "Description:")) {
+                                char *d;
+
+                                state = LSB_DESCRIPTION;
+
+                                if (!(d = strdup(strstrip(t+12)))) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                free(u->meta.description);
+                                u->meta.description = d;
+
+                        } else if (startswith(t, "Short-Description:") && !u->meta.description) {
+                                char *d;
+
+                                /* We use the short description only
+                                 * if no long description is set. */
+
+                                state = LSB;
+
+                                if (!(d = strdup(strstrip(t+18)))) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                free(u->meta.description);
+                                u->meta.description = d;
+
+                        } else if (state == LSB_DESCRIPTION) {
+
+                                if (startswith(l, "#\t") || startswith(l, "#  ")) {
+                                        char *d;
+
+                                        assert(u->meta.description);
+                                        if (asprintf(&d, "%s %s", u->meta.description, t) < 0) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+
+                                        free(u->meta.description);
+                                        u->meta.description = d;
+                                } else
+                                        state = LSB;
+                        }
+                }
+        }
+
+        /* If the init script has no LSB header, then let's
+         * enforce the ordering via the chkconfig
+         * priorities */
+
+        if (!has_lsb)
+                if ((r = sysv_chkconfig_order(s)) < 0)
+                        goto finish;
+
+        if ((r = sysv_exec_commands(s)) < 0)
+                goto finish;
+
+        r = 1;
+
+finish:
+
+        if (f)
+                fclose(f);
+
+        return r;
+}
+
+static int service_load_sysv_name(Service *s, const char *name) {
+        char **p;
+
+        assert(s);
+        assert(name);
+
+        STRV_FOREACH(p, UNIT(s)->meta.manager->sysvinit_path) {
+                char *path;
+                int r;
+
+                if (asprintf(&path, "%s/%s", *p, name) < 0)
+                        return -ENOMEM;
+
+                assert(endswith(path, ".service"));
+                path[strlen(path)-8] = 0;
+
+                r = service_load_sysv_path(s, path);
+                free(path);
+
+                if (r >= 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int service_load_sysv(Service *s) {
+        const char *t;
+        Iterator i;
+        int r;
+
         assert(s);
 
         /* Load service data from SysV init scripts, preferably with
          * LSB headers ... */
 
-        return -ENOENT;
+        if (strv_isempty(UNIT(s)->meta.manager->sysvinit_path))
+                return 0;
+
+        if ((t = unit_id(UNIT(s))))
+                if ((r = service_load_sysv_name(s, t)) != 0)
+                        return r;
+
+        SET_FOREACH(t, UNIT(s)->meta.names, i)
+                if ((r == service_load_sysv_name(s, t)) != 0)
+                        return r;
+
+        return 0;
 }
 
 static int service_init(Unit *u) {
@@ -101,6 +555,8 @@ static int service_init(Unit *u) {
         s->timer_watch.type = WATCH_INVALID;
 
         s->state = SERVICE_DEAD;
+
+        s->sysv_start_priority = -1;
 
         RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
 
@@ -160,6 +616,16 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
                 exec_command_dump_list(s->exec_command[c], f, prefix2);
         }
+
+        if (s->sysv_path)
+                fprintf(f,
+                        "%sSysV Init Script Path: %s\n",
+                        prefix, s->sysv_path);
+
+        if (s->sysv_start_priority >= 0)
+                fprintf(f,
+                        "%sSysV Start Priority: %i\n",
+                        prefix, s->sysv_start_priority);
 
         free(p2);
 }
@@ -1053,6 +1519,119 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
         }
 }
 
+static int service_enumerate(Manager *m) {
+
+        static const char * const rcnd[] = {
+                "../rc0.d", SPECIAL_RUNLEVEL0_TARGET,
+                "../rc1.d", SPECIAL_RUNLEVEL1_TARGET,
+                "../rc2.d", SPECIAL_RUNLEVEL2_TARGET,
+                "../rc3.d", SPECIAL_RUNLEVEL3_TARGET,
+                "../rc4.d", SPECIAL_RUNLEVEL4_TARGET,
+                "../rc5.d", SPECIAL_RUNLEVEL5_TARGET,
+                "../rc6.d", SPECIAL_RUNLEVEL6_TARGET
+        };
+
+        char **p;
+        unsigned i;
+        DIR *d = NULL;
+        char *path = NULL, *fpath = NULL, *name = NULL;
+        int r;
+
+        assert(m);
+
+        STRV_FOREACH(p, m->sysvinit_path)
+                for (i = 0; i < ELEMENTSOF(rcnd); i += 2) {
+                        struct dirent *de;
+
+                        free(path);
+                        path = NULL;
+                        if (asprintf(&path, "%s/%s", *p, rcnd[i]) < 0) {
+                                r = -ENOMEM;
+                                goto finish;
+                        }
+
+                        if (d)
+                                closedir(d);
+
+                        if (!(d = opendir(path))) {
+                                if (errno != ENOENT)
+                                        log_warning("opendir() failed on %s: %s", path, strerror(errno));
+
+                                continue;
+                        }
+
+                        while ((de = readdir(d))) {
+                                Unit *runlevel, *service;
+
+                                if (ignore_file(de->d_name))
+                                        continue;
+
+                                if (de->d_name[0] != 'S' && de->d_name[0] != 'K')
+                                        continue;
+
+                                if (strlen(de->d_name) < 4)
+                                        continue;
+
+                                free(fpath);
+                                fpath = NULL;
+                                if (asprintf(&fpath, "%s/%s/%s", *p, rcnd[i], de->d_name) < 0) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                if (access(fpath, X_OK) < 0) {
+
+                                        if (errno != ENOENT)
+                                                log_warning("access() failed on %s: %s", fpath, strerror(errno));
+
+                                        continue;
+                                }
+
+                                free(name);
+                                name = NULL;
+                                if (asprintf(&name, "%s.service", de->d_name+3) < 0) {
+                                        r = -ENOMEM;
+                                        goto finish;
+                                }
+
+                                if ((r = manager_load_unit(m, name, &service)) < 0)
+                                        goto finish;
+
+                                /* Don't allow that non-SysV services
+                                 * are started via rcN.d/ links. */
+                                if (!SERVICE(service)->sysv_path)
+                                        continue;
+
+                                if ((r = manager_load_unit(m, rcnd[i+1], &runlevel)) < 0)
+                                        goto finish;
+
+                                if (de->d_name[0] == 'S') {
+                                        if ((r = unit_add_dependency(runlevel, UNIT_WANTS, service)) < 0)
+                                                goto finish;
+
+                                        if ((r = unit_add_dependency(runlevel, UNIT_AFTER, service)) < 0)
+                                                goto finish;
+                                } else {
+                                        if ((r = unit_add_dependency(runlevel, UNIT_CONFLICTS, service)) < 0)
+                                                goto finish;
+
+                                        if ((r = unit_add_dependency(runlevel, UNIT_BEFORE, service)) < 0)
+                                                goto finish;
+                                }
+                        }
+                }
+
+        r = 0;
+
+finish:
+        free(path);
+        free(fpath);
+        free(name);
+        closedir(d);
+
+        return r;
+}
+
 static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = "dead",
         [SERVICE_START_PRE] = "start-pre",
@@ -1117,4 +1696,6 @@ const UnitVTable service_vtable = {
 
         .sigchld_event = service_sigchld_event,
         .timer_event = service_timer_event,
+
+        .enumerate = service_enumerate
 };

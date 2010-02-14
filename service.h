@@ -99,6 +99,9 @@ struct Service {
         bool failure:1; /* if we shut down, remember why */
         Watch timer_watch;
 
+        char *sysv_path;
+        int sysv_start_priority;
+
         RateLimit ratelimit;
 };
 

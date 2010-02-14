@@ -75,6 +75,23 @@ struct Watch {
 #define SPECIAL_LOGGER_SOCKET "systemd-logger.socket"
 #define SPECIAL_KBREQUEST_TARGET "kbrequest.target"
 #define SPECIAL_CTRL_ALT_DEL_TARGET "ctrl-alt-del.target"
+#define SPECIAL_LOCAL_FS_TARGET "local-fs.target"
+#define SPECIAL_NETWORK_TARGET "network.target"
+#define SPECIAL_NSS_LOOKUP_TARGET "nss-lookup.target"     /* LSB's $named */
+#define SPECIAL_RPCBIND_TARGET "rpcbind.target"           /* LSB's $portmap */
+#define SPECIAL_REMOTE_FS_TARGET "remote-fs.target"
+#define SPECIAL_SYSLOG_TARGET "syslog.target"             /* Should pull in syslog.socket or syslog.service */
+#define SPECIAL_RTC_SET_TARGET "rtc-set.target"           /* LSB's $time */
+
+/* For SysV compatibility. Usually an alias for a saner target. On
+ * SysV-free systems this doesn't exist. */
+#define SPECIAL_RUNLEVEL0_TARGET "runlevel0.target"
+#define SPECIAL_RUNLEVEL1_TARGET "runlevel1.target"
+#define SPECIAL_RUNLEVEL2_TARGET "runlevel2.target"
+#define SPECIAL_RUNLEVEL3_TARGET "runlevel3.target"
+#define SPECIAL_RUNLEVEL4_TARGET "runlevel4.target"
+#define SPECIAL_RUNLEVEL5_TARGET "runlevel5.target"
+#define SPECIAL_RUNLEVEL6_TARGET "runlevel6.target"
 
 struct Manager {
         /* In which mode are we running */
