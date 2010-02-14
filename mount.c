@@ -159,7 +159,7 @@ static int mount_add_path_links(Mount *m) {
                 n = (Mount*) other;
 
                 if (n == m)
-                        return 0;
+                        continue;
 
                 if (path_startswith(m->where, n->where)) {
 
