@@ -6,8 +6,6 @@ ExecStart=/home/lennart/projects/systemd/systemd-logger
 Type=simple
 TimerSlackNS=1000000
 OOMAdjust=4
-Capabilities==eip cap_dac_override=ep
-#SecureBits=keep-caps-locked no-setuid-fixup no-setuid-fixup-locked noroot noroot-locked
 LimitCORE=0
 LimitFSIZE=0
 LimitLOCKS=0
