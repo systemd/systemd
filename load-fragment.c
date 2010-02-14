@@ -328,7 +328,7 @@ static int config_parse_exec(
                 void *data,
                 void *userdata) {
 
-        ExecCommand **e = data, *ee, *nce = NULL;
+        ExecCommand **e = data, *nce = NULL;
         char **n;
         char *w;
         unsigned k;
@@ -367,12 +367,7 @@ static int config_parse_exec(
         if (!(nce->path = strdup(n[0])))
                 goto fail;
 
-        if (*e) {
-                /* It's kinda important that we keep the order here */
-                LIST_FIND_TAIL(ExecCommand, command, *e, ee);
-                LIST_INSERT_AFTER(ExecCommand, command, *e, ee, nce);
-        } else
-                *e = nce;
+        exec_command_append_list(e, nce);
 
         return 0;
 

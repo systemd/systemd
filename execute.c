@@ -749,6 +749,20 @@ void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix) {
                 exec_command_dump(c, f, prefix);
 }
 
+void exec_command_append_list(ExecCommand **l, ExecCommand *e) {
+        ExecCommand *end;
+
+        assert(l);
+        assert(e);
+
+        if (*l) {
+                /* It's kinda important that we keep the order here */
+                LIST_FIND_TAIL(ExecCommand, command, *l, end);
+                LIST_INSERT_AFTER(ExecCommand, command, *l, end, e);
+        } else
+              *l = e;
+}
+
 static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_CONSOLE] = "console",
         [EXEC_OUTPUT_NULL] = "null",

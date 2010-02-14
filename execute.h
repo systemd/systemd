@@ -154,6 +154,7 @@ void exec_command_free_array(ExecCommand **c, unsigned n);
 char *exec_command_line(ExecCommand *c);
 void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix);
 void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix);
+void exec_command_append_list(ExecCommand **l, ExecCommand *e);
 
 void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
