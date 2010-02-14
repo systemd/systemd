@@ -56,7 +56,7 @@ static int config_parse_deps(
         assert(lvalue);
         assert(rvalue);
 
-        FOREACH_WORD(w, &l, rvalue, state) {
+        FOREACH_WORD(w, l, rvalue, state) {
                 char *t;
                 int r;
 
@@ -92,7 +92,7 @@ static int config_parse_names(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD(w, &l, rvalue, state) {
+        FOREACH_WORD(w, l, rvalue, state) {
                 char *t;
                 int r;
                 Unit *other;
@@ -746,7 +746,7 @@ static int config_parse_cpu_affinity(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD(w, &l, rvalue, state) {
+        FOREACH_WORD(w, l, rvalue, state) {
                 char *t;
                 int r;
                 unsigned cpu;
@@ -821,7 +821,7 @@ static int config_parse_secure_bits(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD(w, &l, rvalue, state) {
+        FOREACH_WORD(w, l, rvalue, state) {
                 if (first_word(w, "keep-caps"))
                         c->secure_bits |= SECURE_KEEP_CAPS;
                 else if (first_word(w, "keep-caps-locked"))
@@ -862,7 +862,7 @@ static int config_parse_bounding_set(
         assert(rvalue);
         assert(data);
 
-        FOREACH_WORD(w, &l, rvalue, state) {
+        FOREACH_WORD(w, l, rvalue, state) {
                 char *t;
                 int r;
                 cap_value_t cap;

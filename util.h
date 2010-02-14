@@ -99,13 +99,13 @@ char *split(const char *c, size_t *l, const char *separator, char **state);
 char *split_quoted(const char *c, size_t *l, char **state);
 
 #define FOREACH_WORD(word, length, s, state)                            \
-        for ((state) = NULL, (word) = split((s), &(l), WHITESPACE, &(state)); (word); (word) = split((s), &(l), WHITESPACE, &(state)))
+        for ((state) = NULL, (word) = split((s), &(length), WHITESPACE, &(state)); (word); (word) = split((s), &(length), WHITESPACE, &(state)))
 
 #define FOREACH_WORD_SEPARATOR(word, length, s, separator, state)       \
-        for ((state) = NULL, (word) = split((s), &(l), (separator), &(state)); (word); (word) = split((s), &(l), (separator), &(state)))
+        for ((state) = NULL, (word) = split((s), &(length), (separator), &(state)); (word); (word) = split((s), &(length), (separator), &(state)))
 
 #define FOREACH_WORD_QUOTED(word, length, s, state)                     \
-        for ((state) = NULL, (word) = split_quoted((s), &(l), &(state)); (word); (word) = split_quoted((s), &(l), &(state)))
+        for ((state) = NULL, (word) = split_quoted((s), &(length), &(state)); (word); (word) = split_quoted((s), &(length), &(state)))
 
 char **split_path_and_make_absolute(const char *p);
 
