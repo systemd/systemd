@@ -284,7 +284,7 @@ bool unit_job_is_applicable(Unit *u, JobType j);
 
 int set_unit_path(const char *p);
 
-char *unit_name_escape_path(const char *prefix, const char *path, const char *suffix);
+char *unit_name_escape_path(const char *path, const char *suffix);
 
 const char *unit_type_to_string(UnitType i);
 UnitType unit_type_from_string(const char *s);

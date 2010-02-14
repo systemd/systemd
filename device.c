@@ -87,7 +87,7 @@ static UnitActiveState device_active_state(Unit *u) {
         return state_translation_table[DEVICE(u)->state];
 }
 
-static int device_add_escaped_name(Unit *u, const char *prefix, const char *dn, bool make_id) {
+static int device_add_escaped_name(Unit *u, const char *dn, bool make_id) {
         char *e;
         int r;
 
@@ -95,7 +95,7 @@ static int device_add_escaped_name(Unit *u, const char *prefix, const char *dn, 
         assert(dn);
         assert(dn[0] == '/');
 
-        if (!(e = unit_name_escape_path(prefix, dn+1, ".device")))
+        if (!(e = unit_name_escape_path(dn+1, ".device")))
                 return -ENOMEM;
 
         r = unit_add_name(u, e);
@@ -137,7 +137,7 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
                 return -ENOMEM;
 
         assert(sysfs[0] == '/');
-        if (!(e = unit_name_escape_path("sysfs-", sysfs+1, ".device")))
+        if (!(e = unit_name_escape_path(sysfs+1, ".device")))
                 return -ENOMEM;
 
         if (!(u = manager_get_unit(m, e))) {
@@ -173,12 +173,12 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
         }
 
         if (dn)
-                if ((r = device_add_escaped_name(u, "node-", dn, true)) < 0)
+                if ((r = device_add_escaped_name(u, dn, true)) < 0)
                         goto fail;
 
         first = udev_device_get_devlinks_list_entry(dev);
         udev_list_entry_foreach(item, first)
-                if ((r = device_add_escaped_name(u, "node-", udev_list_entry_get_name(item), false)) < 0)
+                if ((r = device_add_escaped_name(u, udev_list_entry_get_name(item), false)) < 0)
                         goto fail;
 
         if (names) {
@@ -252,7 +252,7 @@ static int device_process_removed_device(Manager *m, struct udev_device *dev) {
                 return -ENOMEM;
 
         assert(sysfs[0] == '/');
-        if (!(e = unit_name_escape_path("sysfs-", sysfs+1, ".device")))
+        if (!(e = unit_name_escape_path(sysfs+1, ".device")))
                 return -ENOMEM;
 
         u = manager_get_unit(m, e);

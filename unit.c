@@ -1001,10 +1001,10 @@ int set_unit_path(const char *p) {
         return 0;
 }
 
-char *unit_name_escape_path(const char *prefix, const char *path, const char *suffix) {
+char *unit_name_escape_path(const char *path, const char *suffix) {
         char *r, *t;
         const char *f;
-        size_t a, b, c;
+        size_t a, b;
 
         assert(path);
 
@@ -1017,22 +1017,16 @@ char *unit_name_escape_path(const char *prefix, const char *path, const char *su
          * escaping is hence reversible.
          */
 
-        if (!prefix)
-                prefix = "";
-
         if (!suffix)
                 suffix = "";
 
-        a = strlen(prefix);
-        b = strlen(path);
-        c = strlen(suffix);
+        a = strlen(path);
+        b = strlen(suffix);
 
-        if (!(r = new(char, a+b*4+c+1)))
+        if (!(r = new(char, a*4+b+1)))
                 return NULL;
 
-        memcpy(r, prefix, a);
-
-        for (f = path, t = r+a; *f; f++) {
+        for (f = path, t = r; *f; f++) {
                 if (*f == '/')
                         *(t++) = '.';
                 else if (*f == '.' || *f == '\\' || !strchr(VALID_CHARS, *f)) {
@@ -1044,7 +1038,7 @@ char *unit_name_escape_path(const char *prefix, const char *path, const char *su
                         *(t++) = *f;
         }
 
-        memcpy(t, suffix, c+1);
+        memcpy(t, suffix, b+1);
 
         return r;
 }

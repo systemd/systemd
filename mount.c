@@ -125,7 +125,7 @@ static int mount_add_node_links(Mount *m) {
         if (!path_startswith(m->what, "/dev/"))
                 return 0;
 
-        if (!(e = unit_name_escape_path("node-", m->what+1, ".device")))
+        if (!(e = unit_name_escape_path(m->what+1, ".device")))
                 return -ENOMEM;
 
         r = manager_load_unit(UNIT(m)->meta.manager, e, &device);
@@ -197,9 +197,9 @@ static int mount_add_one(Manager *m, const char *what, const char *where, bool l
                 return 0;
 
         if (streq(where, "/"))
-                e = strdup("rootfs.mount");
+                e = strdup("-.mount");
         else
-                e = unit_name_escape_path("fs-", where+1, ".mount");
+                e = unit_name_escape_path(where+1, ".mount");
 
         if (!e)
                 return -ENOMEM;
