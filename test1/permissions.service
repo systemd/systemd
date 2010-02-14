@@ -1,0 +1,11 @@
+[Meta]
+Description=Permission Enforcement checker
+
+[Service]
+ExecStart=/usr/bin/id
+ExecStartPost=/usr/bin/env
+ExecStartPost=/bin/sleep 5
+Type=finish
+Capabilities=all= cap_dac_override=eip
+User=nobody
+Group=nobody
