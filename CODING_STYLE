@@ -14,3 +14,14 @@
 - error codes are returned as negative Exxx. i.e. return -EINVAL. There
   are some exceptions: for constructors its is OK to return NULL on
   OOM. For lookup functions NULL is fine too for "not found".
+
+- Do not issue NSS requests (that includes user name and host name
+  lookups) from the main daemon as this might trigger deadlocks when
+  we those lookups involve synchronously talking to services that we
+  would need to start up.
+
+- Do not acccess any directories outside of /etc/, /dev, /lib from the
+  init daemon to avoid deadlocks with the automounter.
+
+- Don't synchronously talk to any other service, due to risk of
+  deadlocks.
