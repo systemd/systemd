@@ -1,0 +1,7 @@
+0xef brightnessdown
+0xd9 brightnessup
+0xee screenlock
+0x93 media
+0x9e prog1 #touchpad_enable
+0x9f prog2 #touchpad_disable
+

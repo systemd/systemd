@@ -537,6 +537,7 @@ dist_udevkeymap_DATA = \
 	extras/keymap/keymaps/samsung-sx20s \
 	extras/keymap/keymaps/toshiba-satellite_a100 \
 	extras/keymap/keymaps/toshiba-satellite_a110 \
+	extras/keymap/keymaps/toshiba-satellite_m30x \
 	extras/keymap/keymaps/zepto-znote
 
 udevkeymapforcereldir = $(libexecdir)/keymaps/force-release
