@@ -111,6 +111,7 @@ struct udev_monitor *udev_monitor_new_from_netlink(struct udev *udev, const char
 struct udev_monitor *udev_monitor_new_from_socket(struct udev *udev, const char *socket_path);
 /* bind socket */
 int udev_monitor_enable_receiving(struct udev_monitor *udev_monitor);
+int udev_monitor_set_receive_buffer_size(struct udev_monitor *udev_monitor, int size);
 int udev_monitor_get_fd(struct udev_monitor *udev_monitor);
 struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monitor);
 /* in-kernel socket filters to select messages that get delivered to a listener */
