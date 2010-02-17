@@ -158,6 +158,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			rc = 1;
 			goto out;
 		}
+		udev_monitor_set_receive_buffer_size(udev_monitor, 128*1024*1024);
 
 		udev_list_entry_foreach(entry, udev_list_get_entry(&subsystem_match_list)) {
 			const char *subsys = udev_list_entry_get_name(entry);
@@ -183,6 +184,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			rc = 3;
 			goto out;
 		}
+		udev_monitor_set_receive_buffer_size(udev, 128*1024*1024);
 
 		udev_list_entry_foreach(entry, udev_list_get_entry(&subsystem_match_list)) {
 			const char *subsys = udev_list_entry_get_name(entry);
