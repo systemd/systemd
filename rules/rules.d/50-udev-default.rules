@@ -18,7 +18,7 @@ KERNEL=="mwave",		GROUP="dialout"
 KERNEL=="hvc*|hvsi*",		GROUP="dialout"
 
 # virtio serial / console ports
-KERNEL=="vport*", SYMLINK+="virtio-ports/$ATTR{name}"
+KERNEL=="vport*", SYMLINK+="virtio-ports/$attr{name}"
 
 # mem
 KERNEL=="null|zero|full|random|urandom", MODE="0666"
