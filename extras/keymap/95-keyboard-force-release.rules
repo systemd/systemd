@@ -23,4 +23,6 @@ ENV{DMI_VENDOR}=="[sS][aA][mM][sS][uU][nN][gG]*", ATTR{[dmi/id]product_name}=="*
 
 ENV{DMI_VENDOR}=="Dell Inc.", ATTR{[dmi/id]product_name}=="Studio 1557", RUN+="keyboard-force-release.sh $devpath dell-studio-1557"
 
+ENV{DMI_VENDOR}=="FUJITSU SIEMENS", ATTR{[dmi/id]product_name}=="AMILO Si 1848+u", RUN+="keyboard-force-release.sh $devpath fujitsu-amilo-si1848"
+
 LABEL="force_release_end"

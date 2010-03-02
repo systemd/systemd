@@ -543,6 +543,7 @@ dist_udevkeymap_DATA = \
 udevkeymapforcereldir = $(libexecdir)/keymaps/force-release
 dist_udevkeymapforcerel_DATA = \
 	extras/keymap/force-release-maps/samsung-other \
+	extras/keymap/force-release-maps/fujitsu-amilo-si1848 \
 	extras/keymap/force-release-maps/dell-studio-1557
 
 extras/keymap/keys.txt: $(INCLUDE_PREFIX)/linux/input.h
