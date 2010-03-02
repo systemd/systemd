@@ -1089,7 +1089,7 @@ struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device
 
 struct udev_list_entry *udev_device_add_property_from_string(struct udev_device *udev_device, const char *property)
 {
-	char name[UTIL_PATH_SIZE];
+	char name[UTIL_LINE_SIZE];
 	char *val;
 
 	util_strscpy(name, sizeof(name), property);
