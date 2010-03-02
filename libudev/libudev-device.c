@@ -1166,7 +1166,9 @@ static int update_envp_monitor_buf(struct udev_device *udev_device)
 		l = util_strpcpyl(&s, l, key, "=", udev_list_entry_get_value(list_entry), NULL);
 		if (l == 0)
 			return -EINVAL;
+		/* advance past the trailing '\0' that util_strpcpyl() guarantees */
 		s++;
+		l--;
 	}
 	udev_device->envp[i] = NULL;
 	udev_device->monitor_buf_len = s - udev_device->monitor_buf;
