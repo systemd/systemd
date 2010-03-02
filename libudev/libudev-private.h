@@ -187,7 +187,7 @@ int udev_queue_export_device_failed(struct udev_queue_export *udev_queue_export,
 /* libudev-util.c */
 #define UTIL_PATH_SIZE				1024
 #define UTIL_NAME_SIZE				512
-#define UTIL_LINE_SIZE				2048
+#define UTIL_LINE_SIZE				16384
 #define UDEV_ALLOWED_CHARS_INPUT		"/ $%?,"
 ssize_t util_get_sys_subsystem(struct udev *udev, const char *syspath, char *subsystem, size_t size);
 ssize_t util_get_sys_driver(struct udev *udev, const char *syspath, char *driver, size_t size);
