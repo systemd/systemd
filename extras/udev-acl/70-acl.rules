@@ -69,7 +69,7 @@ SUBSYSTEM=="usb", ATTR{idVendor}=="0bb4", ATTR{idProduct}=="0c02", ENV{ACL_MANAG
 ENV{COLOR_MEASUREMENT_DEVICE}=="*?", ENV{ACL_MANAGE}="1"
 
 # apply ACL for all locally logged in users
-LABEL="acl_apply", ENV{ACL_MANAGE}=="?*", TEST=="/var/run/ConsoleKit/database", \
+LABEL="acl_apply", ENV{ACL_MANAGE}=="1", TEST=="/var/run/ConsoleKit/database", \
   RUN+="udev-acl --action=$env{ACTION} --device=$env{DEVNAME}"
 
 LABEL="acl_end"
