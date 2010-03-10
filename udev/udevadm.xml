@@ -350,6 +350,12 @@
               </listitem>
             </varlistentry>
             <varlistentry>
+              <term><option>--subsystem-match=<replaceable>string[/string]</replaceable></option></term>
+              <listitem>
+                <para>Filter events by subsystem[/devtype]. Only udev events with a matching subsystem value will pass.</para>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
               <term><option>--help</option></term>
               <listitem>
                 <para>Print help text.</para>

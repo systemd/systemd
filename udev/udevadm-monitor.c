@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2004-2010 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -111,7 +111,7 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 				char *devtype;
 
 				util_strscpy(subsys, sizeof(subsys), optarg);
-				devtype = strchr(subsys, ':');
+				devtype = strchr(subsys, '/');
 				if (devtype != NULL) {
 					devtype[0] = '\0';
 					devtype++;
@@ -121,10 +121,10 @@ int udevadm_monitor(struct udev *udev, int argc, char *argv[])
 			}
 		case 'h':
 			printf("Usage: udevadm monitor [--property] [--kernel] [--udev] [--help]\n"
-			       "  --property                    print the event properties\n"
-			       "  --kernel                      print kernel uevents\n"
-			       "  --udev                        print udev events\n"
-			       "  --subsystem-match=<subsystem> filter events\n"
+			       "  --property                              print the event properties\n"
+			       "  --kernel                                print kernel uevents\n"
+			       "  --udev                                  print udev events\n"
+			       "  --subsystem-match=<subsystem[/devtype]> filter events by subsystem\n"
 			       "  --help\n\n");
 		default:
 			goto out;
