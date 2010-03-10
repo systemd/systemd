@@ -239,7 +239,7 @@ dist_udevrules_DATA += extras/floppy/60-floppy.rules
 # input_id - import input device class
 # ------------------------------------------------------------------------------
 extras_input_id_input_id_SOURCES = extras/input_id/input_id.c
-extras_input_id_input_id_LDADD = libudev/libudev.la
+extras_input_id_input_id_LDADD = libudev/libudev-private.la
 libexec_PROGRAMS += extras/input_id/input_id
 
 # ------------------------------------------------------------------------------
