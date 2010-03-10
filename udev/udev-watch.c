@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2008 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2004-2010 Kay Sievers <kay.sievers@vrfy.org>
  * Copyright (C) 2009 Canonical Ltd.
  * Copyright (C) 2009 Scott James Remnant <scott@netsplit.com>
  *
@@ -72,29 +72,29 @@ void udev_watch_restore(struct udev *udev)
 			size_t l;
 			ssize_t len;
 			struct udev_device *dev;
+			int maj, min;
+			char type;
 
-			if (ent->d_name[0] < '0' || ent->d_name[0] > '9')
+			if (ent->d_name[0] == '.')
 				continue;
 
 			s = device;
 			l = util_strpcpy(&s, sizeof(device), udev_get_sys_path(udev));
 			len = readlinkat(dirfd(dir), ent->d_name, s, l);
-			if (len <= 0 || len >= (ssize_t)l) {
-				unlinkat(dirfd(dir), ent->d_name, 0);
-				continue;
-			}
+			if (len <= 0 || len >= (ssize_t)l)
+				goto unlink;
 			s[len] = '\0';
-			dbg(udev, "old watch to '%s' found\n", device);
-			dev = udev_device_new_from_syspath(udev, device);
-			if (dev == NULL) {
-				unlinkat(dirfd(dir), ent->d_name, 0);
-				continue;
-			}
+
+			if (sscanf(s, "%c%i:%i", &type, &maj, &min) != 3)
+				goto unlink;
+			dev = udev_device_new_from_devnum(udev, type, makedev(maj, min));
+			if (dev == NULL)
+				goto unlink;
 
 			info(udev, "restoring old watch on '%s'\n", udev_device_get_devnode(dev));
 			udev_watch_begin(udev, dev);
-
 			udev_device_unref(dev);
+unlink:
 			unlinkat(dirfd(dir), ent->d_name, 0);
 		}
 
@@ -109,6 +109,7 @@ void udev_watch_restore(struct udev *udev)
 void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 {
 	char filename[UTIL_PATH_SIZE];
+	char majmin[UTIL_PATH_SIZE];
 	int wd;
 
 	if (inotify_fd < 0)
@@ -122,10 +123,13 @@ void udev_watch_begin(struct udev *udev, struct udev_device *dev)
 		return;
 	}
 
+	snprintf(majmin, sizeof(majmin), "%c%i:%i",
+		 strcmp(udev_device_get_subsystem(dev), "block") == 0 ? 'b' : 'c',
+		 major(udev_device_get_devnum(dev)), minor(udev_device_get_devnum(dev)));
 	snprintf(filename, sizeof(filename), "%s/.udev/watch/%d", udev_get_dev_path(udev), wd);
 	util_create_path(udev, filename);
 	unlink(filename);
-	symlink(udev_device_get_devpath(dev), filename);
+	symlink(majmin, filename);
 
 	udev_device_set_watch_handle(dev, wd);
 }
@@ -154,20 +158,27 @@ void udev_watch_end(struct udev *udev, struct udev_device *dev)
 struct udev_device *udev_watch_lookup(struct udev *udev, int wd)
 {
 	char filename[UTIL_PATH_SIZE];
-	char syspath[UTIL_PATH_SIZE];
+	char majmin[UTIL_PATH_SIZE];
 	char *s;
 	size_t l;
 	ssize_t len;
+	int maj, min;
+	char type;
+	dev_t devnum;
 
 	if (inotify_fd < 0 || wd < 0)
 		return NULL;
 
 	snprintf(filename, sizeof(filename), "%s/.udev/watch/%d", udev_get_dev_path(udev), wd);
-	s = syspath;
-	l = util_strpcpy(&s, sizeof(syspath), udev_get_sys_path(udev));
+	s = majmin;
+	l = util_strpcpy(&s, sizeof(majmin), udev_get_sys_path(udev));
 	len = readlink(filename, s, l);
 	if (len < 0 || (size_t)len >= l)
 		return NULL;
 	s[len] = '\0';
-	return udev_device_new_from_syspath(udev, syspath);
+
+	if (sscanf(s, "%c%i:%i", &type, &maj, &min) != 3)
+		return NULL;
+	devnum = makedev(maj, min);
+	return udev_device_new_from_devnum(udev, type, devnum);
 }
