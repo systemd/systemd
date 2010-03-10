@@ -39,7 +39,7 @@ int udev_device_update_db(struct udev_device *udev_device)
 	util_strscpyl(filename_tmp, sizeof(filename_tmp), filename, ".tmp", NULL);
 
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device))
-		if (udev_list_entry_get_flag(list_entry))
+		if (udev_list_entry_get_flags(list_entry))
 			goto file;
 	if (udev_device_get_num_fake_partitions(udev_device) != 0)
 		goto file;
@@ -102,7 +102,7 @@ file:
 	if (udev_device_get_watch_handle(udev_device) >= 0)
 		fprintf(f, "W:%i\n", udev_device_get_watch_handle(udev_device));
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {
-		if (!udev_list_entry_get_flag(list_entry))
+		if (!udev_list_entry_get_flags(list_entry))
 			continue;
 		fprintf(f, "E:%s=%s\n",
 			udev_list_entry_get_name(list_entry),

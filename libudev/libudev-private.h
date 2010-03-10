@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008-2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2010 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -82,6 +82,9 @@ const char *udev_device_get_devpath_old(struct udev_device *udev_device);
 const char *udev_device_get_sysname_old(struct udev_device *udev_device);
 int udev_device_set_devpath_old(struct udev_device *udev_device, const char *devpath_old);
 const char *udev_device_get_knodename(struct udev_device *udev_device);
+int udev_device_add_tag(struct udev_device *udev_device, const char *tag);
+struct udev_list_entry *udev_device_get_tag_list_entry(struct udev_device *udev_device);
+int udev_device_has_tag(struct udev_device *udev_device, const char *tag);
 int udev_device_set_knodename(struct udev_device *udev_device, const char *knodename);
 int udev_device_get_timeout(struct udev_device *udev_device);
 int udev_device_set_timeout(struct udev_device *udev_device, int timeout);
@@ -163,8 +166,8 @@ void udev_list_entry_insert_before(struct udev_list_entry *new, struct udev_list
 void udev_list_entry_append(struct udev_list_entry *new, struct udev_list_node *list);
 void udev_list_cleanup_entries(struct udev *udev, struct udev_list_node *name_list);
 struct udev_list_entry *udev_list_get_entry(struct udev_list_node *list);
-int udev_list_entry_get_flag(struct udev_list_entry *list_entry);
-void udev_list_entry_set_flag(struct udev_list_entry *list_entry, int flag);
+unsigned int udev_list_entry_get_flags(struct udev_list_entry *list_entry);
+void udev_list_entry_set_flags(struct udev_list_entry *list_entry, unsigned int flags);
 #define udev_list_entry_foreach_safe(entry, tmp, first) \
 	for (entry = first, tmp = udev_list_entry_get_next(entry); \
 	     entry != NULL; \

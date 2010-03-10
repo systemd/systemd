@@ -717,7 +717,7 @@ static int import_property_from_string(struct udev_device *dev, char *line)
 		entry = udev_device_add_property(dev, key, val);
 		/* store in db, skip private keys */
 		if (key[0] != '.')
-			udev_list_entry_set_flag(entry, 1);
+			udev_list_entry_set_flags(entry, 1);
 	}
 	return 0;
 }
@@ -785,7 +785,7 @@ static int import_parent_into_properties(struct udev_device *dev, const char *fi
 			entry = udev_device_add_property(dev, key, val);
 			/* store in db, skip private keys */
 			if (key[0] != '.')
-				udev_list_entry_set_flag(entry, 1);
+				udev_list_entry_set_flags(entry, 1);
 		}
 	}
 	return 0;
@@ -1831,13 +1831,13 @@ struct udev_rules *udev_rules_new(struct udev *udev, int resolve_names)
 		filename_off = add_string(rules, filename);
 		/* the offset in the rule is limited to unsigned short */
 		if (filename_off < USHRT_MAX)
-			udev_list_entry_set_flag(file_loop, filename_off);
+			udev_list_entry_set_flags(file_loop, filename_off);
 	}
 
 	/* parse list of files */
 	udev_list_entry_foreach_safe(file_loop, file_tmp, udev_list_get_entry(&file_list)) {
 		const char *filename = udev_list_entry_get_name(file_loop);
-		unsigned int filename_off = udev_list_entry_get_flag(file_loop);
+		unsigned int filename_off = udev_list_entry_get_flags(file_loop);
 
 		if (stat(filename, &statbuf) == 0 && statbuf.st_size > 0)
 			parse_file(rules, filename, filename_off);
@@ -2420,7 +2420,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 					entry = udev_device_add_property(event->dev, name, temp_value);
 					/* store in db, skip private keys */
 					if (name[0] != '.')
-						udev_list_entry_set_flag(entry, 1);
+						udev_list_entry_set_flags(entry, 1);
 				} else {
 					udev_device_add_property(event->dev, name, NULL);
 				}
@@ -2542,7 +2542,7 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				list_entry = udev_list_entry_add(event->udev, &event->run_list,
 								 &rules->buf[cur->key.value_off], NULL, 1, 0);
 				if (cur->key.fail_on_error)
-					udev_list_entry_set_flag(list_entry, 1);
+					udev_list_entry_set_flags(list_entry, 1);
 				break;
 			}
 		case TK_A_GOTO:

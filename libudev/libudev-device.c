@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008-2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2010 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -1068,7 +1068,7 @@ int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink
 	if (list_entry == NULL)
 		return -ENOMEM;
 	if (unique)
-		udev_list_entry_set_flag(list_entry, 1);
+		udev_list_entry_set_flags(list_entry, 1);
 	return 0;
 }
 
