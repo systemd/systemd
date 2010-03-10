@@ -245,28 +245,26 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
 	for (;;) {
 		struct udev_device *dev_db;
 		struct dirent *dent;
-		char devpath[UTIL_PATH_SIZE];
-		char syspath[UTIL_PATH_SIZE];
-		ssize_t len;
+		int maj, min;
+		char type, type2;
+		dev_t devnum;
 
 		dent = readdir(dir);
 		if (dent == NULL || dent->d_name[0] == '\0')
 			break;
 		if (dent->d_name[0] == '.')
 			continue;
-		dbg(udev, "found '%s/%s'\n", stackdir, dent->d_name);
-		len = readlinkat(dirfd(dir), dent->d_name, devpath, sizeof(devpath));
-		if (len <= 0 || len == (ssize_t)sizeof(devpath))
+		if (sscanf(dent->d_name, "%c%i:%i", &type, &maj, &min) != 3)
 			continue;
-		devpath[len] = '\0';
-		util_strscpyl(syspath, sizeof(syspath), udev_get_sys_path(udev), devpath, NULL);
-		info(udev, "found '%s' claiming '%s'\n", syspath, stackdir);
+		info(udev, "found '%c%i:%i' claiming '%s'\n", type, maj, min, stackdir);
+		devnum = makedev(maj, min);
 
 		/* did we find ourself? */
-		if (strcmp(udev_device_get_syspath(dev), syspath) == 0)
+		type2 = strcmp(udev_device_get_subsystem(dev), "block") == 0 ? 'b' : 'c';
+		if (udev_device_get_devnum(dev) == devnum && type == type2)
 			continue;
 
-		dev_db = udev_device_new_from_syspath(udev, syspath);
+		dev_db = udev_device_new_from_devnum(udev, type, devnum);
 		if (dev_db != NULL) {
 			const char *devnode;
 
@@ -276,7 +274,7 @@ static const char *link_find_prioritized(struct udev_device *dev, bool add, cons
 				    udev_device_get_devnode(dev_db), udev_device_get_devlink_priority(dev_db));
 				if (target == NULL || udev_device_get_devlink_priority(dev_db) > priority) {
 					info(udev, "'%s' claims priority %i for '%s'\n",
-					     syspath, udev_device_get_devlink_priority(dev_db), stackdir);
+					     udev_device_get_syspath(dev_db), udev_device_get_devlink_priority(dev_db), stackdir);
 					priority = udev_device_get_devlink_priority(dev_db);
 					util_strscpy(buf, bufsize, devnode);
 					target = buf;
@@ -328,11 +326,15 @@ static void link_update(struct udev_device *dev, const char *slink, bool add)
 
 		dbg(udev, "creating index: '%s'\n", filename);
 		do {
+			int fd;
+
 			err = util_create_path(udev, filename);
 			if (err != 0 && err != -ENOENT)
 				break;
-			err = symlink(udev_device_get_devpath(dev), filename);
-			if (err != 0)
+			fd = open(filename, O_WRONLY|O_CREAT, 0444);
+			if (fd >= 0)
+				close(fd);
+			else
 				err = -errno;
 		} while (err == -ENOENT);
 	}
