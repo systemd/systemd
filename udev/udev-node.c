@@ -57,7 +57,7 @@ int udev_node_mknod(struct udev_device *dev, const char *file, dev_t devnum, mod
 			preserve = 1;
 			udev_selinux_lsetfilecon(udev, file, mode);
 			/* update time stamp when we re-use the node, like on media change events */
-			utimes(file, NULL);
+			utimensat(AT_FDCWD, file, NULL, 0);
 		} else {
 			char file_tmp[UTIL_PATH_SIZE + sizeof(TMP_FILE_EXT)];
 
@@ -178,7 +178,7 @@ static int node_symlink(struct udev *udev, const char *node, const char *slink)
 					info(udev, "preserve already existing symlink '%s' to '%s'\n",
 					     slink, target);
 					udev_selinux_lsetfilecon(udev, slink, S_IFLNK);
-					lutimes(slink, NULL);
+					utimensat(AT_FDCWD, slink, NULL, AT_SYMLINK_NOFOLLOW);
 					goto exit;
 				}
 			}
