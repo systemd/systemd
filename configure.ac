@@ -1,6 +1,6 @@
 AC_INIT([udev], [152], [linux-hotplug@vger.kernel.org])
 AC_PREREQ(2.60)
-AM_INIT_AUTOMAKE([check-news foreign 1.9 dist-bzip2 subdir-objects])
+AM_INIT_AUTOMAKE([check-news foreign 1.10 dist-bzip2 subdir-objects])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 AC_DISABLE_STATIC
 AC_USE_SYSTEM_EXTENSIONS
