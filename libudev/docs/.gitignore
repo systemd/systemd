@@ -2,6 +2,7 @@ html/
 tmpl/
 xml/
 *.stamp
+*.bak
 version.xml
 libudev-decl-list.txt
 libudev-decl.txt
