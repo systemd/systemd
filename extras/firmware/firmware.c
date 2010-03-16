@@ -63,8 +63,10 @@ static bool copy_firmware(struct udev *udev, const char *source, const char *tar
 	if (fwrite(buf, size, 1, ftarget) == 1)
 		ret = true;
 exit:
-	fclose(ftarget);
-	fclose(fsource);
+	if (ftarget != NULL)
+		fclose(ftarget);
+	if (fsource != NULL)
+		fclose(fsource);
 	free(buf);
 	return ret;
 }
@@ -178,7 +180,8 @@ int main(int argc, char **argv)
 	if (unlink(misspath) == 0)
 		util_delete_path(udev, misspath);
 
-	set_loading(udev, loadpath, "1");
+	if (!set_loading(udev, loadpath, "1"))
+		goto exit;
 
 	util_strscpyl(datapath, sizeof(datapath), udev_get_sys_path(udev), devpath, "/data", NULL);
 	if (!copy_firmware(udev, fwpath, datapath, statbuf.st_size)) {
