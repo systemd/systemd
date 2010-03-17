@@ -456,8 +456,6 @@ int main(int argc, char **argv)
 	};
 	struct udev *udev;
 	struct udev_device *dev = NULL;
-	char syspath[UTIL_PATH_SIZE];
-	const char *devpath;
 	static int export;
 	int retval = 0;
 
@@ -492,7 +490,7 @@ int main(int argc, char **argv)
 			export = 1;
 			break;
 		case 'h':
-			printf("Usage: usb_id [--usb-info] [--num-info] [--export] [--help] <devpath>\n"
+			printf("Usage: usb_id [--usb-info] [--num-info] [--export] [--help] [<devpath>]\n"
 			       "  --usb-info  use usb strings instead\n"
 			       "  --num-info  use numerical values\n"
 			       "  --export    print values as environment keys\n"
@@ -503,18 +501,26 @@ int main(int argc, char **argv)
 		}
 	}
 
-	devpath = argv[optind];
-	if (devpath == NULL) {
-		fprintf(stderr, "No device specified\n");
-		retval = 1;
-		goto exit;
-	}
-
-	util_strscpyl(syspath, sizeof(syspath), udev_get_sys_path(udev), devpath, NULL);
-	dev = udev_device_new_from_syspath(udev, syspath);
+	dev = udev_device_new_from_environment(udev);
 	if (dev == NULL) {
-		err(udev, "unable to access '%s'\n", devpath);
-		return 1;
+		char syspath[UTIL_PATH_SIZE];
+		const char *devpath;
+
+		devpath = argv[optind];
+		if (devpath == NULL) {
+			fprintf(stderr, "missing device\n");
+			retval = 1;
+			goto exit;
+		}
+
+		util_strscpyl(syspath, sizeof(syspath), udev_get_sys_path(udev), devpath, NULL);
+		dev = udev_device_new_from_syspath(udev, syspath);
+		if (dev == NULL) {
+			err(udev, "unable to access '%s'\n", devpath);
+			retval = 1;
+			goto exit;
+			return 1;
+		}
 	}
 
 	retval = usb_id(dev);

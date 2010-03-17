@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include <errno.h>
 #include <string.h>
 #include <dirent.h>
@@ -67,6 +68,7 @@ struct udev_device {
 	int refcount;
 	dev_t devnum;
 	int watch_handle;
+	int maj, min;
 	unsigned int parent_set:1;
 	unsigned int subsystem_set:1;
 	unsigned int devtype_set:1;
@@ -76,6 +78,130 @@ struct udev_device {
 	unsigned int info_loaded:1;
 	unsigned int ignore_remove:1;
 };
+
+struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
+{
+	udev_device->envp_uptodate = 0;
+	if (value == NULL) {
+		struct udev_list_entry *list_entry;
+
+		list_entry = udev_device_get_properties_list_entry(udev_device);
+		list_entry = udev_list_entry_get_by_name(list_entry, key);
+		if (list_entry != NULL)
+			udev_list_entry_delete(list_entry);
+		return NULL;
+	}
+	return udev_list_entry_add(udev_device->udev, &udev_device->properties_list, key, value, 1, 0);
+}
+
+static struct udev_list_entry *udev_device_add_property_from_string(struct udev_device *udev_device, const char *property)
+{
+	char name[UTIL_LINE_SIZE];
+	char *val;
+
+	util_strscpy(name, sizeof(name), property);
+	val = strchr(name, '=');
+	if (val == NULL)
+		return NULL;
+	val[0] = '\0';
+	val = &val[1];
+	if (val[0] == '\0')
+		val = NULL;
+	return udev_device_add_property(udev_device, name, val);
+}
+
+/*
+ * parse property string, and if needed, update internal values accordingly
+ *
+ * udev_device_add_property_from_string_parse_finish() needs to be
+ * called after adding properties, and its return value checked
+ *
+ * udev_device_set_info_loaded() needs to be set, to avoid trying
+ * to use a device without a DEVPATH set
+ */
+void udev_device_add_property_from_string_parse(struct udev_device *udev_device, const char *property)
+{
+	if (strncmp(property, "DEVPATH=", 8) == 0) {
+		char path[UTIL_PATH_SIZE];
+
+		util_strscpyl(path, sizeof(path), udev_get_sys_path(udev_device->udev), &property[8], NULL);
+		udev_device_set_syspath(udev_device, path);
+	} else if (strncmp(property, "SUBSYSTEM=", 10) == 0) {
+		udev_device_set_subsystem(udev_device, &property[10]);
+	} else if (strncmp(property, "DEVTYPE=", 8) == 0) {
+		udev_device_set_devtype(udev_device, &property[8]);
+	} else if (strncmp(property, "DEVNAME=", 8) == 0) {
+		if (property[8] == '/')
+			udev_device_set_devnode(udev_device, &property[8]);
+		else
+			udev_device_set_knodename(udev_device, &property[8]);
+	} else if (strncmp(property, "DEVLINKS=", 9) == 0) {
+		char devlinks[UTIL_PATH_SIZE];
+		char *slink;
+		char *next;
+
+		util_strscpy(devlinks, sizeof(devlinks), &property[9]);
+		slink = devlinks;
+		next = strchr(slink, ' ');
+		while (next != NULL) {
+			next[0] = '\0';
+			udev_device_add_devlink(udev_device, slink, 0);
+			slink = &next[1];
+			next = strchr(slink, ' ');
+		}
+		if (slink[0] != '\0')
+			udev_device_add_devlink(udev_device, slink, 0);
+	} else if (strncmp(property, "DRIVER=", 7) == 0) {
+		udev_device_set_driver(udev_device, &property[7]);
+	} else if (strncmp(property, "ACTION=", 7) == 0) {
+		udev_device_set_action(udev_device, &property[7]);
+	} else if (strncmp(property, "MAJOR=", 6) == 0) {
+		udev_device->maj = strtoull(&property[6], NULL, 10);
+	} else if (strncmp(property, "MINOR=", 6) == 0) {
+		udev_device->min = strtoull(&property[6], NULL, 10);
+	} else if (strncmp(property, "DEVPATH_OLD=", 12) == 0) {
+		udev_device_set_devpath_old(udev_device, &property[12]);
+	} else if (strncmp(property, "SEQNUM=", 7) == 0) {
+		udev_device_set_seqnum(udev_device, strtoull(&property[7], NULL, 10));
+	} else if (strncmp(property, "TIMEOUT=", 8) == 0) {
+		udev_device_set_timeout(udev_device, strtoull(&property[8], NULL, 10));
+	} else {
+		udev_device_add_property_from_string(udev_device, property);
+	}
+}
+
+int udev_device_add_property_from_string_parse_finish(struct udev_device *udev_device)
+{
+	if (udev_device->maj > 0)
+		udev_device_set_devnum(udev_device, makedev(udev_device->maj, udev_device->min));
+	udev_device->maj = 0;
+	udev_device->min = 0;
+
+	if (udev_device->devpath == NULL || udev_device->subsystem == NULL)
+		return -EINVAL;
+	return 0;
+}
+
+/**
+ * udev_device_get_property_value:
+ * @udev_device: udev device
+ * @key: property name
+ *
+ * Returns: the value of a device property, or #NULL if there is no such property.
+ **/
+const char *udev_device_get_property_value(struct udev_device *udev_device, const char *key)
+{
+	struct udev_list_entry *list_entry;
+
+	if (udev_device == NULL)
+		return NULL;
+	if (key == NULL)
+		return NULL;
+
+	list_entry = udev_device_get_properties_list_entry(udev_device);
+	list_entry =  udev_list_entry_get_by_name(list_entry, key);
+	return udev_list_entry_get_value(list_entry);
+}
 
 int udev_device_read_db(struct udev_device *udev_device)
 {
@@ -449,6 +575,42 @@ out:
 	return NULL;
 found:
 	return udev_device_new_from_syspath(udev, path_full);
+}
+
+/**
+ * udev_device_new_from_environment
+ * @udev: udev library context
+ *
+ * Create new udev device, and fill in information from the
+ * current process environment. This only works reliable if
+ * the process is called from a udev rule. It is usually used
+ * for tools executed from IMPORT= rules.
+ *
+ * The initial refcount is 1, and needs to be decremented to
+ * release the resources of the udev device.
+ *
+ * Returns: a new udev device, or #NULL, if it does not exist
+ **/
+struct udev_device *udev_device_new_from_environment(struct udev *udev)
+{
+	int i;
+	struct udev_device *udev_device;
+
+	udev_device = udev_device_new(udev);
+	if (udev_device == NULL)
+		return NULL;
+	udev_device_set_info_loaded(udev_device);
+
+	for (i = 0; environ[i] != NULL; i++)
+		udev_device_add_property_from_string_parse(udev_device, environ[i]);
+
+	if (udev_device_add_property_from_string_parse_finish(udev_device) < 0) {
+		info(udev, "missing values, invalid device\n");
+		udev_device_unref(udev_device);
+		udev_device = NULL;
+	}
+
+	return udev_device;
 }
 
 static struct udev_device *device_new_from_parent(struct udev_device *udev_device)
@@ -1070,58 +1232,6 @@ int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink
 	if (unique)
 		udev_list_entry_set_flags(list_entry, 1);
 	return 0;
-}
-
-struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
-{
-	udev_device->envp_uptodate = 0;
-	if (value == NULL) {
-		struct udev_list_entry *list_entry;
-
-		list_entry = udev_device_get_properties_list_entry(udev_device);
-		list_entry = udev_list_entry_get_by_name(list_entry, key);
-		if (list_entry != NULL)
-			udev_list_entry_delete(list_entry);
-		return NULL;
-	}
-	return udev_list_entry_add(udev_device->udev, &udev_device->properties_list, key, value, 1, 0);
-}
-
-struct udev_list_entry *udev_device_add_property_from_string(struct udev_device *udev_device, const char *property)
-{
-	char name[UTIL_LINE_SIZE];
-	char *val;
-
-	util_strscpy(name, sizeof(name), property);
-	val = strchr(name, '=');
-	if (val == NULL)
-		return NULL;
-	val[0] = '\0';
-	val = &val[1];
-	if (val[0] == '\0')
-		val = NULL;
-	return udev_device_add_property(udev_device, name, val);
-}
-
-/**
- * udev_device_get_property_value:
- * @udev_device: udev device
- * @key: property name
- *
- * Returns: the value of a device property, or #NULL if there is no such property.
- **/
-const char *udev_device_get_property_value(struct udev_device *udev_device, const char *key)
-{
-	struct udev_list_entry *list_entry;
-
-	if (udev_device == NULL)
-		return NULL;
-	if (key == NULL)
-		return NULL;
-
-	list_entry = udev_device_get_properties_list_entry(udev_device);
-	list_entry =  udev_list_entry_get_by_name(list_entry, key);
-	return udev_list_entry_get_value(list_entry);
 }
 
 #define ENVP_SIZE			128

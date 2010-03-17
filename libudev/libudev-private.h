@@ -71,7 +71,8 @@ int udev_device_set_devnode(struct udev_device *udev_device, const char *devnode
 int udev_device_add_devlink(struct udev_device *udev_device, const char *devlink, int unique);
 void udev_device_cleanup_devlinks_list(struct udev_device *udev_device);
 struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value);
-struct udev_list_entry *udev_device_add_property_from_string(struct udev_device *udev_device, const char *property);
+void udev_device_add_property_from_string_parse(struct udev_device *udev_device, const char *property);
+int udev_device_add_property_from_string_parse_finish(struct udev_device *udev_device);
 char **udev_device_get_properties_envp(struct udev_device *udev_device);
 ssize_t udev_device_get_properties_monitor_buf(struct udev_device *udev_device, const char **buf);
 int udev_device_read_db(struct udev_device *udev_device);

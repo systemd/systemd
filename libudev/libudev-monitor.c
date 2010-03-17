@@ -497,11 +497,6 @@ struct udev_device *udev_monitor_receive_device(struct udev_monitor *udev_monito
 	ssize_t buflen;
 	ssize_t bufpos;
 	struct udev_monitor_netlink_header *nlh;
-	int devpath_set = 0;
-	int subsystem_set = 0;
-	int action_set = 0;
-	int maj = 0;
-	int min = 0;
 
 retry:
 	if (udev_monitor == NULL)
@@ -589,6 +584,7 @@ retry:
 	udev_device = udev_device_new(udev_monitor->udev);
 	if (udev_device == NULL)
 		return NULL;
+	udev_device_set_info_loaded(udev_device);
 
 	while (bufpos < buflen) {
 		char *key;
@@ -599,60 +595,11 @@ retry:
 		if (keylen == 0)
 			break;
 		bufpos += keylen + 1;
-
-		if (strncmp(key, "DEVPATH=", 8) == 0) {
-			char path[UTIL_PATH_SIZE];
-
-			util_strscpyl(path, sizeof(path), udev_get_sys_path(udev_monitor->udev), &key[8], NULL);
-			udev_device_set_syspath(udev_device, path);
-			devpath_set = 1;
-		} else if (strncmp(key, "SUBSYSTEM=", 10) == 0) {
-			udev_device_set_subsystem(udev_device, &key[10]);
-			subsystem_set = 1;
-		} else if (strncmp(key, "DEVTYPE=", 8) == 0) {
-			udev_device_set_devtype(udev_device, &key[8]);
-		} else if (strncmp(key, "DEVNAME=", 8) == 0) {
-			if (key[8] == '/')
-				udev_device_set_devnode(udev_device, &key[8]);
-			else
-				udev_device_set_knodename(udev_device, &key[8]);
-		} else if (strncmp(key, "DEVLINKS=", 9) == 0) {
-			char devlinks[UTIL_PATH_SIZE];
-			char *slink;
-			char *next;
-
-			util_strscpy(devlinks, sizeof(devlinks), &key[9]);
-			slink = devlinks;
-			next = strchr(slink, ' ');
-			while (next != NULL) {
-				next[0] = '\0';
-				udev_device_add_devlink(udev_device, slink, 0);
-				slink = &next[1];
-				next = strchr(slink, ' ');
-			}
-			if (slink[0] != '\0')
-				udev_device_add_devlink(udev_device, slink, 0);
-		} else if (strncmp(key, "DRIVER=", 7) == 0) {
-			udev_device_set_driver(udev_device, &key[7]);
-		} else if (strncmp(key, "ACTION=", 7) == 0) {
-			udev_device_set_action(udev_device, &key[7]);
-			action_set = 1;
-		} else if (strncmp(key, "MAJOR=", 6) == 0) {
-			maj = strtoull(&key[6], NULL, 10);
-		} else if (strncmp(key, "MINOR=", 6) == 0) {
-			min = strtoull(&key[6], NULL, 10);
-		} else if (strncmp(key, "DEVPATH_OLD=", 12) == 0) {
-			udev_device_set_devpath_old(udev_device, &key[12]);
-		} else if (strncmp(key, "SEQNUM=", 7) == 0) {
-			udev_device_set_seqnum(udev_device, strtoull(&key[7], NULL, 10));
-		} else if (strncmp(key, "TIMEOUT=", 8) == 0) {
-			udev_device_set_timeout(udev_device, strtoull(&key[8], NULL, 10));
-		} else {
-			udev_device_add_property_from_string(udev_device, key);
-		}
+		udev_device_add_property_from_string_parse(udev_device, key);
 	}
-	if (!devpath_set || !subsystem_set || !action_set) {
-		info(udev_monitor->udev, "missing values, skip\n");
+
+	if (udev_device_add_property_from_string_parse_finish(udev_device) < 0) {
+		info(udev_monitor->udev, "missing values, invalid device\n");
 		udev_device_unref(udev_device);
 		return NULL;
 	}
@@ -673,9 +620,6 @@ retry:
 		return NULL;
 	}
 
-	if (maj > 0)
-		udev_device_set_devnum(udev_device, makedev(maj, min));
-	udev_device_set_info_loaded(udev_device);
 	return udev_device;
 }
 
