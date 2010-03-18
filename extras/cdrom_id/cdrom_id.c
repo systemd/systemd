@@ -112,6 +112,30 @@ static unsigned long long int cd_media_session_last_offset;
 #define ASC(errcode)	(((errcode) >> 8) & 0xFF)
 #define ASCQ(errcode)	((errcode) & 0xFF)
 
+static int is_mounted(const char *device)
+{
+	struct stat statbuf;
+	FILE *fp;
+	int maj, min;
+	int mounted = 0;
+
+	if (stat(device, &statbuf) < 0)
+		return -ENODEV;
+
+	fp = fopen("/proc/self/mountinfo", "r");
+	if (fp == NULL)
+		return -ENOSYS;
+	while (fscanf(fp, "%*s %*s %i:%i %*[^\n]", &maj, &min) == 2) {
+		printf("got %u %u\n", maj, min);
+		if (makedev(maj, min) == statbuf.st_rdev) {
+			mounted = 1;
+			break;
+		}
+	}
+	fclose(fp);
+	return mounted;
+}
+
 static void info_scsi_cmd_err(struct udev *udev, char *cmd, int err)
 {
 	if (err == -1) {
@@ -568,7 +592,7 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	fd = open(node, O_RDONLY | O_NONBLOCK);
+	fd = open(node, O_RDONLY|O_NONBLOCK|(is_mounted(node) ? 0 : O_EXCL));
 	if (fd < 0) {
 		info(udev, "unable to open '%s'\n", node);
 		fprintf(stderr, "unable to open '%s'\n", node);
