@@ -1,0 +1,15 @@
+ACTION!="add", GOTO="mobile_action_end"
+
+# ATTENTION: DO NOT USE THIS FILE FOR ANYTHING EXCEPT
+# MOBILE ACTION CABLES.  DO NOT USE IT FOR 3G DEVICES!
+
+SUBSYSTEM=="usb", ATTR{bDeviceClass}=="00|ff", ATTR{bDeviceSubClass}=="00|ff", ENV{DEVTYPE}=="usb_device", GOTO="mobile_action_switch"
+GOTO="mobile_action_end"
+
+LABEL="mobile_action_switch"
+
+# Mobile Action cables like the 8280p and 8230p
+ATTRS{idVendor}=="0df7", ATTRS{idProduct}=="0800", RUN+="mobile-action-modeswitch -v 0x%s{idVendor} -p 0x%s{idProduct} -t mobile-action-8280p"
+
+LABEL="mobile_action_end"
+

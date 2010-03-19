@@ -448,24 +448,21 @@ extras_usb_db_pci_db_LDADD = libudev/libudev-private.la
 libexec_PROGRAMS += extras/usb-db/pci-db
 
 # ------------------------------------------------------------------------------
-# modem-modeswitch - magic config switch for 3G modems
+# mobile-action-modeswitch - switch Mobile Action cables into serial mode
 # ------------------------------------------------------------------------------
-extras_modem_modeswitch_modem_modeswitch_SOURCES =\
-	extras/modem-modeswitch/modem-modeswitch.c \
-	extras/modem-modeswitch/utils.c \
-	extras/modem-modeswitch/utils.h \
-	extras/modem-modeswitch/ma8280p_us.c \
-	extras/modem-modeswitch/ma8280p_us.h \
-	extras/modem-modeswitch/option.c \
-	extras/modem-modeswitch/option.h
-extras_modem_modeswitch_modem_modeswitch_CPPFLAGS = $(AM_CPPFLAGS) $(LIBUSB_CFLAGS)
-extras_modem_modeswitch_modem_modeswitch_LDADD = libudev/libudev-private.la $(LIBUSB_LIBS)
+extras_mobile_action_modeswitch_mobile_action_modeswitch_SOURCES =\
+	extras/mobile-action-modeswitch/mobile-action-modeswitch.c \
+	extras/mobile-action-modeswitch/utils.c \
+	extras/mobile-action-modeswitch/utils.h \
+	extras/mobile-action-modeswitch/ma8280p_us.c \
+	extras/mobile-action-modeswitch/ma8280p_us.h
+extras_mobile_action_modeswitch_mobile_action_modeswitch_CPPFLAGS = $(AM_CPPFLAGS) $(LIBUSB_CFLAGS)
+extras_mobile_action_modeswitch_mobile_action_modeswitch_LDADD = libudev/libudev-private.la $(LIBUSB_LIBS)
 
 dist_udevrules_DATA += \
-	extras/modem-modeswitch/61-option-modem-modeswitch.rules \
-	extras/modem-modeswitch/61-mobile-action.rules
+	extras/mobile-action-modeswitch/61-mobile-action.rules
 
-libexec_PROGRAMS += extras/modem-modeswitch/modem-modeswitch
+libexec_PROGRAMS += extras/mobile-action-modeswitch/mobile-action-modeswitch
 
 # ------------------------------------------------------------------------------
 # keymap - map custom hardware's multimedia keys

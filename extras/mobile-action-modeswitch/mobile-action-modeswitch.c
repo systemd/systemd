@@ -1,7 +1,7 @@
 /*
- * Modem mode switcher
+ * Mobile action cable mode switcher
  *
- * Copyright (C) 2008  Dan Williams <dcbw@redhat.com>
+ * Copyright (C) 2008 - 2010  Dan Williams <dcbw@redhat.com>
  * Copyright (C) 2008  Peter Henn <support@option.com>
  *
  * Heavily based on the 'ozerocdoff' tool by Peter Henn.
@@ -30,7 +30,6 @@
 #include "utils.h"
 
 #include "ma8280p_us.h"
-#include "option.h"
 
 struct usb_dev_handle *handle = NULL;
 
@@ -39,7 +38,6 @@ typedef int (*SwitchFunc) (struct usb_dev_handle *dh, struct usb_device *dev);
 
 typedef enum {
 	ST_UNKNOWN = 0,
-	ST_OPTION_ZEROCD,
 	ST_MA8280P
 } SwitchType;
 
@@ -51,7 +49,6 @@ typedef struct SwitchEntry {
 } SwitchEntry;
 
 static SwitchEntry switch_types[] = {
-	{ ST_OPTION_ZEROCD, "option-zerocd", option_zerocd_find, option_zerocd_switch },
 	{ ST_MA8280P, "mobile-action-8280p", NULL, ma8280p_switch },
 	{ ST_UNKNOWN, NULL, NULL }
 };
@@ -83,18 +80,17 @@ release_usb_device (int param)
 static void
 print_usage (void)
 {
-	printf ("Usage: modem-modeswitch [-hdq] [-l <file>] -v <vendor-id> -p <product-id> -t <type>\n"
+	printf ("Usage: mobile-action-modeswitch [-hdq] [-l <file>] -v <vendor-id> -p <product-id> -t <type>\n"
 	        " -h, --help               show this help message\n"
 	        " -v, --vendor <n>         target USB vendor ID\n"
 	        " -p, --product <n>        target USB product ID\n"
 	        " -t, --type <type>        type of switch to attempt, varies by device:\n"
-	        "                               option-zerocd         - For many newer Option N.V. devices\n"
 	        "                               mobile-action-8280p   - For Mobile Action 8xxxP USB cables\n"
 	        " -l, --log <file>         log output to a file\n"
 	        " -q, --quiet              don't print anything to stdout\n"
 	        " -d, --debug              display debugging messages\n\n"
 	        "Examples:\n"
-	        "   modem-modeswitch -v 0x0af0 -p 0xc031 -t option-zerocd\n");
+	        "   mobile-action-modeswitch -v 0x0df7 -p 0x8000 -t mobile-action-8280p\n");
 }
 
 static SwitchEntry *
@@ -249,7 +245,7 @@ int main(int argc, char **argv)
 
 	ret = (*sentry->switch_func) (handle, dev);
 	if (ret < 0) {
-		debug ("%s: failed to switch device to modem mode.", dev->filename);
+		debug ("%s: failed to switch device to serial mode.", dev->filename);
 		usb_release_interface (handle, 0);
 		usb_close (handle);
 		do_exit(9);
