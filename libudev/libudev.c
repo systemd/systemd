@@ -1,7 +1,7 @@
 /*
  * libudev - interface to udev device information
  *
- * Copyright (C) 2008-2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2010 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -71,7 +71,7 @@ static void log_stderr(struct udev *udev,
  * @udev: udev library context
  *
  * Retrieve stored data pointer from library context. This might be useful
- * to access from callbacks.
+ * to access from callbacks like a custom logging function.
  *
  * Returns: stored userdata
  **/
@@ -321,10 +321,10 @@ void udev_set_log_fn(struct udev *udev,
  * udev_get_log_priority:
  * @udev: udev library context
  *
- * The initial syslog priority is read from the udev config file
+ * The initial logging priority is read from the udev config file
  * at startup.
  *
- * Returns: the current syslog priority
+ * Returns: the current logging priority
  **/
 int udev_get_log_priority(struct udev *udev)
 {
@@ -334,10 +334,10 @@ int udev_get_log_priority(struct udev *udev)
 /**
  * udev_set_log_priority:
  * @udev: udev library context
- * @priority: the new syslog priority
+ * @priority: the new logging priority
  *
- * Set the current syslog priority. The value controls which messages
- * are send to syslog.
+ * Set the current logging priority. The value controls which messages
+ * are logged.
  **/
 void udev_set_log_priority(struct udev *udev, int priority)
 {

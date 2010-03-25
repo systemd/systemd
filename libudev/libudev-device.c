@@ -463,10 +463,9 @@ struct udev_device *udev_device_new_from_syspath(struct udev *udev, const char *
  * @devnum: device major/minor number
  *
  * Create new udev device, and fill in information from the sys
- * device and the udev database entry. The device is looked up
- * by its major/minor number. Character and block device numbers
- * are not unique across the two types, they do not share the same
- * range of numbers.
+ * device and the udev database entry. The device is looked-up
+ * by its major/minor number and type. Character and block device
+ * numbers are not unique across the two types.
  *
  * The initial refcount is 1, and needs to be decremented to
  * release the resources of the udev device.
@@ -497,10 +496,9 @@ struct udev_device *udev_device_new_from_devnum(struct udev *udev, char type, de
  * @subsystem: the subsystem of the device
  * @sysname: the name of the device
  *
- * Create new udev device, and fill in information from the sys
- * device and the udev database entry. The device is looked up
- * by the subsystem and name string of the device, like "mem",
- * "zero", or "block", "sda".
+ * Create new udev device, and fill in information from the sys device
+ * and the udev database entry. The device is looked up by the subsystem
+ * and name string of the device, like "mem" / "zero", or "block" / "sda".
  *
  * The initial refcount is 1, and needs to be decremented to
  * release the resources of the udev device.
