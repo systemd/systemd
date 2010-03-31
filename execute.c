@@ -461,9 +461,13 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
                 /* First step: If we need to keep capabilities but
                  * drop privileges we need to make sure we keep our
                  * caps, whiel we drop priviliges. */
-                if (uid != 0)
-                        if (prctl(PR_SET_SECUREBITS, context->secure_bits|SECURE_KEEP_CAPS) < 0)
-                                return -errno;
+                if (uid != 0) {
+                        int sb = context->secure_bits|SECURE_KEEP_CAPS;
+
+                        if (prctl(PR_GET_SECUREBITS) != sb)
+                                if (prctl(PR_SET_SECUREBITS, sb) < 0)
+                                        return -errno;
+                }
 
                 /* Second step: set the capabilites. This will reduce
                  * the capabilities to the minimum we need. */
@@ -671,10 +675,15 @@ int exec_spawn(const ExecCommand *command,
                                         goto fail;
                                 }
 
-                        if (prctl(PR_SET_SECUREBITS, context->secure_bits) < 0) {
-                                r = EXIT_SECUREBITS;
-                                goto fail;
-                        }
+                        /* PR_GET_SECUREBITS is not priviliged, while
+                         * PR_SET_SECUREBITS is. So to suppress
+                         * potential EPERMs we'll try not to call
+                         * PR_SET_SECUREBITS unless necessary. */
+                        if (prctl(PR_GET_SECUREBITS) != context->secure_bits)
+                                if (prctl(PR_SET_SECUREBITS, context->secure_bits) < 0) {
+                                        r = EXIT_SECUREBITS;
+                                        goto fail;
+                                }
 
                         if (context->capabilities)
                                 if (cap_set_proc(context->capabilities) < 0) {
