@@ -33,6 +33,8 @@ typedef struct ExecContext ExecContext;
 #include <stdio.h>
 #include <sched.h>
 
+struct CGroupBonding;
+
 #include "list.h"
 #include "util.h"
 
@@ -145,7 +147,8 @@ typedef enum ExitStatus {
         EXIT_CPUAFFINITY,
         EXIT_GROUP,
         EXIT_USER,
-        EXIT_CAPABILITIES
+        EXIT_CAPABILITIES,
+        EXIT_CGROUP
 } ExitStatus;
 
 int exec_spawn(const ExecCommand *command,
@@ -153,6 +156,7 @@ int exec_spawn(const ExecCommand *command,
                int *fds, unsigned n_fds,
                bool apply_permissions,
                bool apply_chroot,
+               struct CGroupBonding *cgroup_bondings,
                pid_t *ret);
 
 void exec_command_free_list(ExecCommand *c);

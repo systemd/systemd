@@ -585,7 +585,7 @@ int reset_all_signal_handlers(void) {
                                 return -errno;
         }
 
-    return 0;
+        return 0;
 }
 
 char *strstrip(char *s) {

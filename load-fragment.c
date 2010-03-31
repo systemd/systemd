@@ -943,6 +943,37 @@ static int config_parse_limit(
         return 0;
 }
 
+static int config_parse_cgroup(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Unit *u = userdata;
+        char *w;
+        size_t l;
+        char *state;
+
+        FOREACH_WORD(w, l, rvalue, state) {
+                char *t;
+                int r;
+
+                if (!(t = strndup(w, l)))
+                        return -ENOMEM;
+
+                r = unit_add_cgroup_from_text(u, t);
+                free(t);
+
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_id) {
@@ -1067,7 +1098,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "LimitNICE",              config_parse_limit,           &(context).rlimit[RLIMIT_NICE],                  section   }, \
                 { "LimitRTPRIO",            config_parse_limit,           &(context).rlimit[RLIMIT_RTPRIO],                section   }, \
                 { "LimitRTTIME",            config_parse_limit,           &(context).rlimit[RLIMIT_RTTIME],                section   }, \
-                { "NonBlocking",            config_parse_bool,            &(context).non_blocking,                         section   }
+                { "NonBlocking",            config_parse_bool,            &(context).non_blocking,                         section   }, \
+                { "ControlGroup",           config_parse_cgroup,          u,                                               section   }  \
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Meta"    },
@@ -1096,6 +1128,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "Restart",                config_parse_service_restart, &u->service,                                     "Service" },
                 { "PermissionsStartOnly",   config_parse_bool,            &u->service.permissions_start_only,              "Service" },
                 { "RootDirectoryStartOnly", config_parse_bool,            &u->service.root_directory_start_only,           "Service" },
+                { "ValidNoProcess",         config_parse_bool,            &u->service.valid_no_process,                    "Service" },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
 
                 { "ListenStream",           config_parse_listen,          &u->socket,                                      "Socket"  },

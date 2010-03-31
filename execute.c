@@ -42,6 +42,7 @@
 #include "log.h"
 #include "ioprio.h"
 #include "securebits.h"
+#include "cgroup.h"
 
 static int close_fds(int except[], unsigned n_except) {
         DIR *d;
@@ -508,9 +509,11 @@ int exec_spawn(const ExecCommand *command,
                int *fds, unsigned n_fds,
                bool apply_permissions,
                bool apply_chroot,
+               CGroupBonding *cgroup_bondings,
                pid_t *ret) {
 
         pid_t pid;
+        int r;
 
         assert(command);
         assert(context);
@@ -519,11 +522,15 @@ int exec_spawn(const ExecCommand *command,
 
         log_debug("About to execute %s", command->path);
 
+        if (cgroup_bondings)
+                if ((r = cgroup_bonding_realize_list(cgroup_bondings)))
+                        return r;
+
         if ((pid = fork()) < 0)
                 return -errno;
 
         if (pid == 0) {
-                int i, r;
+                int i;
                 sigset_t ss;
                 const char *username = NULL, *home = NULL;
                 uid_t uid = (uid_t) -1;
@@ -555,6 +562,12 @@ int exec_spawn(const ExecCommand *command,
                         r = EXIT_OUTPUT;
                         goto fail;
                 }
+
+                if (cgroup_bondings)
+                        if ((r = cgroup_bonding_install_list(cgroup_bondings, 0)) < 0) {
+                                r = EXIT_CGROUP;
+                                goto fail;
+                        }
 
                 if (context->oom_adjust_set) {
                         char t[16];

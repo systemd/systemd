@@ -112,6 +112,7 @@ enum UnitDependency {
 
 #include "manager.h"
 #include "job.h"
+#include "cgroup.h"
 
 struct Meta {
         Manager *manager;
@@ -142,6 +143,9 @@ struct Meta {
 
         usec_t active_enter_timestamp;
         usec_t active_exit_timestamp;
+
+        /* Counterparts in the cgroup filesystem */
+        CGroupBonding *cgroup_bondings;
 
         /* Load queue */
         LIST_FIELDS(Meta, load_queue);
@@ -197,6 +201,8 @@ struct UnitVTable {
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
         void (*timer_event)(Unit *u, uint64_t n_elapsed, Watch *w);
 
+        void (*cgroup_notify_empty)(Unit *u);
+
         /* This is called for each unit type and should be used to
          * enumerate existing devices and load them. However,
          * everything that is loaded here should still stay in
@@ -243,6 +249,11 @@ void unit_free(Unit *u);
 int unit_add_name(Unit *u, const char *name);
 int unit_add_dependency(Unit *u, UnitDependency d, Unit *other);
 int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name);
+
+int unit_add_cgroup(Unit *u, CGroupBonding *b);
+int unit_add_cgroup_from_text(Unit *u, const char *name);
+int unit_add_default_cgroup(Unit *u);
+CGroupBonding* unit_get_default_cgroup(Unit *u);
 
 int unit_choose_id(Unit *u, const char *name);
 int unit_set_description(Unit *u, const char *description);

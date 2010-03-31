@@ -581,6 +581,12 @@ static int service_init(Unit *u) {
                 return r;
         }
 
+        /* Add default cgroup */
+        if ((r = unit_add_default_cgroup(u)) < 0) {
+                service_done(u);
+                return r;
+        }
+
         return 0;
 }
 
@@ -599,10 +605,12 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%sService State: %s\n"
                 "%sPermissionsStartOnly: %s\n"
-                "%sRootDirectoryStartOnly: %s\n",
+                "%sRootDirectoryStartOnly: %s\n"
+                "%sValidNoProcess: %s\n",
                 prefix, service_state_to_string(s->state),
                 prefix, yes_no(s->permissions_start_only),
-                prefix, yes_no(s->root_directory_start_only));
+                prefix, yes_no(s->root_directory_start_only),
+                prefix, yes_no(s->valid_no_process));
 
         if (s->pid_file)
                 fprintf(f,
@@ -898,6 +906,7 @@ static int service_spawn(
                             fds, n_fds,
                             apply_permissions,
                             apply_chroot,
+                            UNIT(s)->meta.cgroup_bondings,
                             &pid)) < 0)
                 goto fail;
 
@@ -1336,13 +1345,22 @@ static int main_pid_good(Service *s) {
                 return s->main_pid > 0;
 
         /* We don't know the pid */
-        return -1;
+        return -EAGAIN;
 }
 
 static bool control_pid_good(Service *s) {
         assert(s);
 
         return s->control_pid > 0;
+}
+
+static int cgroup_good(Service *s) {
+        assert(s);
+
+        if (s->valid_no_process)
+                return -EAGAIN;
+
+        return cgroup_bonding_is_empty_list(UNIT(s)->meta.cgroup_bondings);
 }
 
 static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
@@ -1477,7 +1495,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                         case SERVICE_RELOAD:
                                 if (success) {
-                                        if (main_pid_good(s) != 0)
+                                        if (main_pid_good(s) != 0 && cgroup_good(s) != 0)
                                                 service_set_state(s, SERVICE_RUNNING);
                                         else
                                                 service_enter_stop(s, true);
@@ -1577,6 +1595,33 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
 
         default:
                 assert_not_reached("Timeout at wrong time.");
+        }
+}
+
+static void service_cgroup_notify_event(Unit *u) {
+        Service *s = SERVICE(u);
+
+        assert(u);
+
+        log_debug("%s: cgroup is empty", unit_id(u));
+
+        switch (s->state) {
+
+                /* Waiting for SIGCHLD is usually more interesting,
+                 * because it includes return codes/signals. Which is
+                 * why we ignore the cgroup events for most cases,
+                 * except when we don't know pid which to expect the
+                 * SIGCHLD for. */
+
+        case SERVICE_RUNNING:
+
+                if (!s->valid_no_process && main_pid_good(s) <= 0)
+                        service_enter_stop(s, true);
+
+                break;
+
+        default:
+                ;
         }
 }
 
@@ -1752,6 +1797,8 @@ const UnitVTable service_vtable = {
 
         .sigchld_event = service_sigchld_event,
         .timer_event = service_timer_event,
+
+        .cgroup_notify_empty = service_cgroup_notify_event,
 
         .enumerate = service_enumerate
 };

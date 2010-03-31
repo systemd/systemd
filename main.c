@@ -37,8 +37,8 @@ int main(int argc, char *argv[]) {
 
         assert_se(set_unit_path("test1") >= 0);
 
-        if (!(m = manager_new())) {
-                log_error("Failed to allocate manager object: %s", strerror(ENOMEM));
+        if ((r = manager_new(&m)) < 0) {
+                log_error("Failed to allocate manager object: %s", strerror(-r));
                 goto finish;
         }
 

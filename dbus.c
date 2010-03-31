@@ -29,14 +29,26 @@
 #include "dbus.h"
 #include "log.h"
 #include "strv.h"
+#include "cgroup.h"
 
 static void bus_dispatch_status(DBusConnection *bus, DBusDispatchStatus status, void *data)  {
         Manager *m = data;
 
         assert(bus);
         assert(m);
+        assert(m->bus == bus);
 
         m->request_bus_dispatch = status != DBUS_DISPATCH_COMPLETE;
+}
+
+static void system_bus_dispatch_status(DBusConnection *bus, DBusDispatchStatus status, void *data)  {
+        Manager *m = data;
+
+        assert(bus);
+        assert(m);
+        assert(m->system_bus == bus);
+
+        m->request_system_bus_dispatch = status != DBUS_DISPATCH_COMPLETE;
 }
 
 static uint32_t bus_flags_to_events(DBusWatch *bus_watch) {
@@ -81,7 +93,7 @@ void bus_watch_event(Manager *m, Watch *w, int events) {
         /* This is called by the event loop whenever there is
          * something happening on D-Bus' file handles. */
 
-        if (!(dbus_watch_get_enabled(w->data.bus_watch)))
+        if (!dbus_watch_get_enabled(w->data.bus_watch))
                 return;
 
         dbus_watch_handle(w->data.bus_watch, events_to_bus_flags(events));
@@ -315,16 +327,57 @@ static DBusHandlerResult bus_message_filter(DBusConnection  *connection, DBusMes
         return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
 }
 
+static DBusHandlerResult system_bus_message_filter(DBusConnection  *connection, DBusMessage  *message, void *data) {
+        Manager *m = data;
+        DBusError error;
+
+        assert(connection);
+        assert(message);
+        assert(m);
+
+        dbus_error_init(&error);
+
+        /* log_debug("Got D-Bus request: %s.%s() on %s", */
+        /*           dbus_message_get_interface(message), */
+        /*           dbus_message_get_member(message), */
+        /*           dbus_message_get_path(message)); */
+
+        if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
+                log_error("Warning! D-Bus connection terminated.");
+
+                /* FIXME: we probably should restart D-Bus here */
+
+        } if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Agent", "Released")) {
+                const char *cgroup;
+
+                if (!dbus_message_get_args(message, &error,
+                                           DBUS_TYPE_STRING, &cgroup,
+                                           DBUS_TYPE_INVALID))
+                        log_error("Failed to parse Released message: %s", error.message);
+                else
+                        cgroup_notify_empty(m, cgroup);
+        }
+
+        dbus_error_free(&error);
+        return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+}
+
 unsigned bus_dispatch(Manager *m) {
         assert(m);
 
-        if (!m->request_bus_dispatch)
-                return 0;
+        if (m->request_bus_dispatch)
+                if (dbus_connection_dispatch(m->bus) == DBUS_DISPATCH_COMPLETE) {
+                        m->request_bus_dispatch = false;
+                        return 1;
+                }
 
-        if (dbus_connection_dispatch(m->bus) == DBUS_DISPATCH_COMPLETE)
-                m->request_bus_dispatch = false;
+        if (m->request_system_bus_dispatch)
+                if (dbus_connection_dispatch(m->system_bus) == DBUS_DISPATCH_COMPLETE) {
+                        m->request_system_bus_dispatch = false;
+                        return 1;
+                }
 
-        return 1;
+        return 0;
 }
 
 static int request_name(Manager *m) {
@@ -362,6 +415,18 @@ static int request_name(Manager *m) {
         return 0;
 }
 
+static int bus_setup_loop(Manager *m, DBusConnection *bus) {
+        assert(m);
+        assert(bus);
+
+        dbus_connection_set_exit_on_disconnect(bus, FALSE);
+        if (!dbus_connection_set_watch_functions(bus, bus_add_watch, bus_remove_watch, bus_toggle_watch, m, NULL) ||
+            !dbus_connection_set_timeout_functions(bus, bus_add_timeout, bus_remove_timeout, bus_toggle_timeout, m, NULL))
+                return -ENOMEM;
+
+        return 0;
+}
+
 int bus_init(Manager *m) {
         DBusError error;
         char *id;
@@ -381,17 +446,39 @@ int bus_init(Manager *m) {
         if (!(m->bus = dbus_bus_get_private(m->running_as == MANAGER_SESSION ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &error))) {
                 log_error("Failed to get D-Bus connection: %s", error.message);
                 dbus_error_free(&error);
+                bus_done(m);
                 return -ECONNREFUSED;
         }
 
-        dbus_connection_set_exit_on_disconnect(m->bus, FALSE);
+        if ((r = bus_setup_loop(m, m->bus)) < 0) {
+                bus_done(m);
+                return r;
+        }
+
         dbus_connection_set_dispatch_status_function(m->bus, bus_dispatch_status, m, NULL);
-        if (!dbus_connection_set_watch_functions(m->bus, bus_add_watch, bus_remove_watch, bus_toggle_watch, m, NULL) ||
-            !dbus_connection_set_timeout_functions(m->bus, bus_add_timeout, bus_remove_timeout, bus_toggle_timeout, m, NULL) ||
-            !dbus_connection_register_object_path(m->bus, "/org/freedesktop/systemd1", &bus_manager_vtable, m) ||
+
+        if (m->running_as == MANAGER_SESSION) {
+                if (!(m->system_bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error))) {
+                        log_error("Failed to get D-Bus connection: %s", error.message);
+                        dbus_error_free(&error);
+                        bus_done(m);
+                        return -ECONNREFUSED;
+                }
+
+                if ((r = bus_setup_loop(m, m->system_bus)) < 0) {
+                        bus_done(m);
+                        return r;
+                }
+
+                dbus_connection_set_dispatch_status_function(m->system_bus, system_bus_dispatch_status, m, NULL);
+        } else
+                m->system_bus = m->bus;
+
+        if (!dbus_connection_register_object_path(m->bus, "/org/freedesktop/systemd1", &bus_manager_vtable, m) ||
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/systemd1/unit", &bus_unit_vtable, m) ||
             !dbus_connection_register_fallback(m->bus, "/org/freedesktop/systemd1/job", &bus_job_vtable, m) ||
-            !dbus_connection_add_filter(m->bus, bus_message_filter, m, NULL)) {
+            !dbus_connection_add_filter(m->bus, bus_message_filter, m, NULL) ||
+            !dbus_connection_add_filter(m->system_bus, system_bus_message_filter, m, NULL)) {
                 bus_done(m);
                 return -ENOMEM;
         }
@@ -406,7 +493,6 @@ int bus_init(Manager *m) {
         if (dbus_error_is_set(&error)) {
                 log_error("Failed to register match: %s", error.message);
                 dbus_error_free(&error);
-                bus_done(m);
                 return -ENOMEM;
         }
 
@@ -415,18 +501,43 @@ int bus_init(Manager *m) {
                 return r;
         }
 
+        dbus_bus_add_match(m->system_bus,
+                           "type='signal',"
+                           "interface='org.freedesktop.systemd1.Agent',"
+                           "path='/org/freedesktop/systemd1/agent'",
+                           &error);
+
+        if (dbus_error_is_set(&error)) {
+                log_error("Failed to register match: %s", error.message);
+                dbus_error_free(&error);
+                bus_done(m);
+                return -ENOMEM;
+        }
+
         log_debug("Successfully connected to D-Bus bus %s as %s",
                   strnull((id = dbus_connection_get_server_id(m->bus))),
                   strnull(dbus_bus_get_unique_name(m->bus)));
         dbus_free(id);
 
+        log_debug("Successfully connected to system D-Bus bus %s as %s",
+                  strnull((id = dbus_connection_get_server_id(m->system_bus))),
+                  strnull(dbus_bus_get_unique_name(m->system_bus)));
+        dbus_free(id);
+
         m->request_bus_dispatch = true;
+        m->request_system_bus_dispatch = true;
 
         return 0;
 }
 
 void bus_done(Manager *m) {
         assert(m);
+
+        if (m->system_bus && m->system_bus != m->bus) {
+                dbus_connection_close(m->system_bus);
+                dbus_connection_unref(m->system_bus);
+                m->system_bus = NULL;
+        }
 
         if (m->bus) {
                 dbus_connection_close(m->bus);
@@ -570,8 +681,6 @@ oom:
 
         return DBUS_HANDLER_RESULT_NEED_MEMORY;
 }
-
-
 
 static const char *error_to_dbus(int error) {
 

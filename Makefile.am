@@ -25,15 +25,19 @@ AM_CPPFLAGS = \
 	-DSYSTEM_DATA_UNIT_PATH=\"$(pkgdatadir)/system\" \
 	-DSYSTEM_SYSVINIT_PATH=\"$(sysconfdir)/init.d\" \
 	-DSESSION_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/session\" \
-	-DSESSION_DATA_UNIT_PATH=\"$(pkgdatadir)/session\"
+	-DSESSION_DATA_UNIT_PATH=\"$(pkgdatadir)/session\" \
+	-DCGROUP_AGENT_PATH=\"$(pkglibexecdir)/systemd-cgroups-agent\"
 
 sbin_PROGRAMS = \
 	systemd
 
 bin_PROGRAMS = \
 	systemctl \
-	systemadm \
-	systemd-logger
+	systemadm
+
+pkglibexec_PROGRAMS = \
+	systemd-logger \
+	systemd-cgroups-agent
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -41,34 +45,64 @@ noinst_PROGRAMS = \
 
 BASIC_SOURCES= \
         util.c \
+        util.h \
         hashmap.c \
+        hashmap.h \
         set.c \
+        set.h \
         strv.c \
+        strv.h \
         conf-parser.c \
+        conf-parser.h \
         socket-util.c \
+        socket-util.h \
         log.c \
-        ratelimit.c
+        log.h \
+        ratelimit.c \
+        ratelimit.h
 
 COMMON_SOURCES= \
 	$(BASIC_SOURCES) \
 	unit.c \
+	unit.h \
         job.c \
+	job.h \
         manager.c \
+        manager.h \
         load-fragment.c \
+        load-fragment.h \
         service.c \
+        service.h \
         automount.c \
+        automount.h \
         mount.c \
+        mount.h \
         device.c \
+        device.h \
         target.c \
+        target.h \
         snapshot.c \
+        snapshot.h \
         socket.c \
+        socket.h \
         timer.c \
+        timer.h \
         load-dropin.c \
+        load-dropin.h \
         execute.c \
+        execute.h \
         dbus.c \
+        dbus.h \
         dbus-manager.c \
+        dbus-manager.h \
         dbus-unit.c \
-        dbus-job.c
+        dbus-unit.h \
+        dbus-job.c \
+        dbus-job.h \
+	cgroup.c \
+	cgroup.h \
+	mount-setup.c \
+	mount-setup.h
 
 systemd_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -77,11 +111,13 @@ systemd_SOURCES = \
 systemd_CPPFLAGS = \
 	$(AM_CPPFLAGS) \
 	$(DBUS_CFLAGS) \
-	$(UDEV_CFLAGS)
+	$(UDEV_CFLAGS) \
+	$(CGROUP_CFLAGS)
 
 systemd_LDADD = \
 	$(DBUS_LIBS) \
-	$(UDEV_LIBS)
+	$(UDEV_LIBS) \
+	$(CGROUP_LIBS)
 
 test_engine_SOURCES = \
 	$(COMMON_SOURCES) \
@@ -100,6 +136,17 @@ test_job_type_LDADD = $(systemd_LDADD)
 systemd_logger_SOURCES = \
 	$(BASIC_SOURCES) \
 	logger.c
+
+systemd_cgroups_agent_SOURCES = \
+	$(BASIC_SOURCES) \
+	cgroups-agent.c
+
+systemd_cgroups_agent_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_cgroups_agent_LDADD = \
+	$(DBUS_LIBS)
 
 VALAFLAGS = -g --save-temps --pkg=dbus-glib-1 --pkg=posix --pkg gee-1.0 --pkg gtk+-2.0
 
@@ -120,4 +167,5 @@ systemadm_LDADD = $(DBUSGLIB_LIBS) $(GTK_LIBS)
 CLEANFILES = \
 	systemd-interfaces.c \
 	systemctl.c \
-	systemadm.c
+	systemadm.c \
+	systemd-cgroups-agent

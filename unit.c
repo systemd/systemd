@@ -260,6 +260,8 @@ void unit_free(Unit *u) {
 
         /* Detach from next 'bigger' objects */
 
+        cgroup_bonding_free_list(u->meta.cgroup_bondings);
+
         SET_FOREACH(t, u->meta.names, i)
                 hashmap_remove_value(u->meta.manager->units, t, u);
 
@@ -369,12 +371,12 @@ const char *unit_description(Unit *u) {
 }
 
 void unit_dump(Unit *u, FILE *f, const char *prefix) {
-
         char *t;
         UnitDependency d;
         Iterator i;
         char *p2;
         const char *prefix2;
+        CGroupBonding *b;
 
         assert(u);
 
@@ -412,6 +414,10 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 SET_FOREACH(other, u->meta.dependencies[d], i)
                         fprintf(f, "%s\t%s: %s\n", prefix, unit_dependency_to_string(d), unit_id(other));
         }
+
+        LIST_FOREACH(by_unit, b, u->meta.cgroup_bondings)
+                fprintf(f, "%s\tControlGroup: %s:%s\n",
+                        prefix, b->controller, b->path);
 
         if (UNIT_VTABLE(u)->dump)
                 UNIT_VTABLE(u)->dump(u, f, prefix2);
@@ -1058,6 +1064,138 @@ char *unit_dbus_path(Unit *u) {
 
         free(e);
         return p;
+}
+
+int unit_add_cgroup(Unit *u, CGroupBonding *b) {
+        CGroupBonding *l;
+        int r;
+
+        assert(u);
+        assert(b);
+        assert(b->path);
+
+        /* Ensure this hasn't been added yet */
+        assert(!b->unit);
+
+        l = hashmap_get(u->meta.manager->cgroup_bondings, b->path);
+        LIST_PREPEND(CGroupBonding, by_path, l, b);
+
+        if ((r = hashmap_replace(u->meta.manager->cgroup_bondings, b->path, l)) < 0) {
+                LIST_REMOVE(CGroupBonding, by_path, l, b);
+                return r;
+        }
+
+        LIST_PREPEND(CGroupBonding, by_unit, u->meta.cgroup_bondings, b);
+        b->unit = u;
+
+        return 0;
+}
+
+int unit_add_cgroup_from_text(Unit *u, const char *name) {
+        size_t n;
+        const char *p;
+        char *controller;
+        CGroupBonding *b;
+        int r;
+
+        assert(u);
+        assert(name);
+
+        /* Detect controller name */
+        n = strcspn(name, ":/");
+
+        /* Only controller name, no path? No path? */
+        if (name[n] == 0)
+                return -EINVAL;
+
+        if (n > 0) {
+                if (name[n] != ':')
+                        return -EINVAL;
+
+                p = name+n+1;
+        } else
+                p = name;
+
+        /* Insist in absolute paths */
+        if (p[0] != '/')
+                return -EINVAL;
+
+        if (!(controller = strndup(name, n)))
+                return -ENOMEM;
+
+        if (cgroup_bonding_find_list(u->meta.cgroup_bondings, controller)) {
+                free(controller);
+                return -EEXIST;
+        }
+
+        if (!(b = new0(CGroupBonding, 1))) {
+                free(controller);
+                return -ENOMEM;
+        }
+
+        b->controller = controller;
+
+        if (!(b->path = strdup(p))) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        b->only_us = false;
+        b->clean_up = false;
+
+        if ((r = unit_add_cgroup(u, b)) < 0)
+                goto fail;
+
+        return 0;
+
+fail:
+        free(b->path);
+        free(b->controller);
+        free(b);
+
+        return r;
+}
+
+int unit_add_default_cgroup(Unit *u) {
+        CGroupBonding *b;
+        int r = -ENOMEM;
+
+        assert(u);
+
+        /* Adds in the default cgroup data, if it wasn't specified yet */
+
+        if (unit_get_default_cgroup(u))
+                return 0;
+
+        if (!(b = new0(CGroupBonding, 1)))
+                return -ENOMEM;
+
+        if (!(b->controller = strdup(u->meta.manager->cgroup_controller)))
+                goto fail;
+
+        if (asprintf(&b->path, "%s/%s", u->meta.manager->cgroup_hierarchy, unit_id(u)) < 0)
+                goto fail;
+
+        b->clean_up = true;
+        b->only_us = true;
+
+        if ((r = unit_add_cgroup(u, b)) < 0)
+                goto fail;
+
+        return 0;
+
+fail:
+        free(b->path);
+        free(b->controller);
+        free(b);
+
+        return r;
+}
+
+CGroupBonding* unit_get_default_cgroup(Unit *u) {
+        assert(u);
+
+        return cgroup_bonding_find_list(u->meta.cgroup_bondings, u->meta.manager->cgroup_controller);
 }
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {

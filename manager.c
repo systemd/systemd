@@ -31,6 +31,7 @@
 #include <sys/reboot.h>
 #include <sys/ioctl.h>
 #include <linux/kd.h>
+#include <libcgroup.h>
 
 #include "manager.h"
 #include "hashmap.h"
@@ -39,6 +40,8 @@
 #include "log.h"
 #include "util.h"
 #include "ratelimit.h"
+#include "cgroup.h"
+#include "mount-setup.h"
 
 static int manager_setup_signals(Manager *m) {
         sigset_t mask;
@@ -254,11 +257,14 @@ static int manager_find_paths(Manager *m) {
         return 0;
 }
 
-Manager* manager_new(void) {
+int manager_new(Manager **_m) {
         Manager *m;
+        int r = -ENOMEM;
+
+        assert(_m);
 
         if (!(m = new0(Manager, 1)))
-                return NULL;
+                return -ENOMEM;
 
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
@@ -275,6 +281,9 @@ Manager* manager_new(void) {
         if (!(m->watch_pids = hashmap_new(trivial_hash_func, trivial_compare_func)))
                 goto fail;
 
+        if (!(m->cgroup_bondings = hashmap_new(string_hash_func, string_compare_func)))
+                goto fail;
+
         if ((m->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
                 goto fail;
 
@@ -287,7 +296,7 @@ Manager* manager_new(void) {
 
         log_debug("systemd running in %s mode.", manager_running_as_to_string(m->running_as));
 
-        if (manager_find_paths(m) < 0)
+        if ((r = manager_find_paths(m)) < 0)
                 goto fail;
 
         if (chdir("/") < 0)
@@ -296,18 +305,25 @@ Manager* manager_new(void) {
         /* Become a session leader if we aren't one yet. */
         setsid();
 
-        if (manager_setup_signals(m) < 0)
+        if ((r = manager_setup_signals(m)) < 0)
+                goto fail;
+
+        if ((r = mount_setup()) < 0)
+                goto fail;
+
+        if ((r = manager_setup_cgroup(m)) < 0)
                 goto fail;
 
         /* FIXME: this should be called only when the D-Bus bus daemon is running */
-        if (bus_init(m) < 0)
+        if ((r = bus_init(m)) < 0)
                 goto fail;
 
-        return m;
+        *_m = m;
+        return 0;
 
 fail:
         manager_free(m);
-        return NULL;
+        return r;
 }
 
 void manager_free(Manager *m) {
@@ -327,6 +343,8 @@ void manager_free(Manager *m) {
                 if (unit_vtable[c]->shutdown)
                         unit_vtable[c]->shutdown(m);
 
+        manager_shutdown_cgroup(m);
+
         bus_done(m);
 
         hashmap_free(m->units);
@@ -341,6 +359,12 @@ void manager_free(Manager *m) {
 
         strv_free(m->unit_path);
         strv_free(m->sysvinit_path);
+
+        free(m->cgroup_controller);
+        free(m->cgroup_hierarchy);
+
+        assert(hashmap_isempty(m->cgroup_bondings));
+        hashmap_free(m->cgroup_bondings);
 
         free(m);
 }

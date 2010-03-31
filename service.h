@@ -90,6 +90,7 @@ struct Service {
 
         bool permissions_start_only;
         bool root_directory_start_only;
+        bool valid_no_process;
 
         ServiceState state;
 
