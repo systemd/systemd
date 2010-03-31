@@ -410,7 +410,7 @@ int job_run_and_invalidate(Job *j) {
 int job_finish_and_invalidate(Job *j, bool success) {
         Unit *u;
         Unit *other;
-        UnitType t;
+        JobType t;
         Iterator i;
 
         assert(j);

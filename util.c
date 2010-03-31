@@ -903,8 +903,8 @@ char *xescape(const char *s, const char *bad) {
 
         for (f = s, t = r; *f; f++) {
 
-                if (*f < ' ' || *f >= 127 ||
-                    *f == '\\' || strchr(bad, *f)) {
+                if ((*f < ' ') || (*f >= 127) ||
+                    (*f == '\\') || strchr(bad, *f)) {
                         *(t++) = '\\';
                         *(t++) = 'x';
                         *(t++) = hexchar(*f >> 4);

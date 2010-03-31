@@ -1436,7 +1436,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                  * don't care about failing commands. */
 
                 if (s->control_command->command_next &&
-                    (success || (s->state == SERVICE_EXEC_STOP || s->state == SERVICE_EXEC_STOP_POST)))
+                    (success || (s->state == SERVICE_STOP || s->state == SERVICE_STOP_POST)))
 
                         /* There is another command to *
                          * execute, so let's do that. */

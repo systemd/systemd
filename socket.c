@@ -701,7 +701,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         log_debug("%s control process exited, code=%s status=%i", unit_id(u), sigchld_code_to_string(code), status);
 
         if (s->control_command->command_next &&
-            (success || (s->state == SOCKET_EXEC_STOP_PRE || s->state == SOCKET_EXEC_STOP_POST))) {
+            (success || (s->state == SOCKET_STOP_PRE || s->state == SOCKET_STOP_POST))) {
                 log_debug("%s running next command for the state %s", unit_id(u), state_string_table[s->state]);
                 socket_run_next(s, success);
         } else {

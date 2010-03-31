@@ -186,8 +186,10 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
 
         if (names) {
                 FOREACH_WORD(w, l, names, state) {
-                        if (!(e = strndup(w, l)))
+                        if (!(e = strndup(w, l))) {
+                                r = -ENOMEM;
                                 goto fail;
+                        }
 
                         r = unit_add_name(u, e);
                         free(e);
@@ -199,8 +201,10 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
 
         if (wants) {
                 FOREACH_WORD(w, l, wants, state) {
-                        if (!(e = strndup(w, l)))
+                        if (!(e = strndup(w, l))) {
+                                r = -ENOMEM;
                                 goto fail;
+                        }
 
                         r = unit_add_dependency_by_name(u, UNIT_WANTS, e);
                         free(e);
