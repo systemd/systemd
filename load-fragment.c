@@ -1253,8 +1253,7 @@ int unit_load_fragment(Unit *u) {
                         c = NULL;
 
                 if (c &&
-                    (c->output == EXEC_OUTPUT_KERNEL || c->output == EXEC_OUTPUT_SYSLOG) &&
-                    u->meta.manager->running_as != MANAGER_SESSION) {
+                    (c->output == EXEC_OUTPUT_KERNEL || c->output == EXEC_OUTPUT_SYSLOG)) {
                         int k;
 
                         /* If syslog or kernel logging is requested, make sure
@@ -1263,8 +1262,9 @@ int unit_load_fragment(Unit *u) {
                         if ((k = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_LOGGER_SOCKET)) < 0)
                                 return k;
 
-                        if ((k = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_LOGGER_SOCKET)) < 0)
-                                return k;
+                        if (u->meta.manager->running_as != MANAGER_SESSION)
+                                if ((k = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_LOGGER_SOCKET)) < 0)
+                                        return k;
                 }
         }
 
