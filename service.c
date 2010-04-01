@@ -510,7 +510,7 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 r = service_load_sysv_path(s, path);
                 free(path);
 
-                if (r >= 0)
+                if (r != 0)
                         return r;
         }
 
