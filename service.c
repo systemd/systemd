@@ -612,11 +612,13 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sService State: %s\n"
                 "%sPermissionsStartOnly: %s\n"
                 "%sRootDirectoryStartOnly: %s\n"
-                "%sValidNoProcess: %s\n",
+                "%sValidNoProcess: %s\n"
+                "%sType: %s\n",
                 prefix, service_state_to_string(s->state),
                 prefix, yes_no(s->permissions_start_only),
                 prefix, yes_no(s->root_directory_start_only),
-                prefix, yes_no(s->valid_no_process));
+                prefix, yes_no(s->valid_no_process),
+                prefix, service_type_to_string(s->type));
 
         if (s->pid_file)
                 fprintf(f,
