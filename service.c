@@ -370,7 +370,13 @@ static int service_load_sysv_path(Service *s, const char *path) {
                                         if (r == 0)
                                                 continue;
 
-                                        r = unit_add_name(u, m);
+                                        if (unit_name_to_type(m) == UNIT_SERVICE)
+                                                r = unit_add_name(u, m);
+                                        else {
+                                                if ((r = unit_add_dependency_by_name_inverse(u, UNIT_REQUIRES, m)) >= 0)
+                                                        r = unit_add_dependency_by_name(u, UNIT_BEFORE, m);
+                                        }
+
                                         free(m);
 
                                         if (r < 0)
@@ -568,7 +574,7 @@ static int service_init(Unit *u) {
                 return r;
         }
 
-        /* Load a classic init script as a fallback, if we couldn*t find anything */
+        /* Load a classic init script as a fallback, if we couldn't find anything */
         if (r == 0)
                 if ((r = service_load_sysv(s)) <= 0) {
                         service_done(u);

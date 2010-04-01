@@ -249,6 +249,7 @@ void unit_free(Unit *u);
 int unit_add_name(Unit *u, const char *name);
 int unit_add_dependency(Unit *u, UnitDependency d, Unit *other);
 int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name);
+int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name);
 
 int unit_add_cgroup(Unit *u, CGroupBonding *b);
 int unit_add_cgroup_from_text(Unit *u, const char *name);
