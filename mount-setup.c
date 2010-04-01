@@ -39,9 +39,12 @@ enum {
 };
 
 static const char *table[] = {
-        "/proc",  "/proc",         "proc",   "rw",
-        "/sys",   "/sys",          "sysfs",  "rw",
-        "cgroup", "/cgroup/debug", "cgroup", "debug",
+        "/proc",  "/proc",         "proc",     "rw",
+        "/sys",   "/sys",          "sysfs",    "rw",
+        "udev",   "/dev",          "devtmpfs", "rw",
+        "tmpfs",  "/dev/shm",      "tmpfs",    "rw",
+        "devpts", "/dev/pts",      "devpts",   "rw",
+        "cgroup", "/cgroup/debug", "cgroup",   "debug",
         NULL
 };
 
