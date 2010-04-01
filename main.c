@@ -35,8 +35,6 @@ int main(int argc, char *argv[]) {
         Job *job = NULL;
         int r, retval = 1;
 
-        assert_se(set_unit_path("test1") >= 0);
-
         if ((r = manager_new(&m)) < 0) {
                 log_error("Failed to allocate manager object: %s", strerror(-r));
                 goto finish;
