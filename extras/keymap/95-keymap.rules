@@ -22,6 +22,7 @@ LABEL="keyboard_usbcheck"
 ENV{ID_VENDOR}=="Logitech*", ATTRS{name}=="Logitech USB Multimedia Keyboard", RUN+="keymap $name logitech-wave"
 ENV{ID_VENDOR}=="Logitech*", ATTRS{name}=="Logitech USB Receiver", RUN+="keymap $name logitech-wave-cordless"
 ENV{ID_VENDOR}=="Lite-On_Technology_Corp*", ATTRS{name}=="Lite-On Technology Corp. ThinkPad USB Keyboard with TrackPoint", RUN+="keymap $name lenovo-thinkpad-usb-keyboard-trackpoint"
+ENV{ID_VENDOR_ID}=="04b3", ENV{ID_MODEL_ID}=="301[89]", RUN+="keymap $name ibm-thinkpad-usb-keyboard-trackpoint"
 
 GOTO="keyboard_end"
 

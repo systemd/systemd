@@ -1,0 +1,7 @@
+0x900f0 screenlock
+0x900f1 wlan
+0x900f2 switchvideomode
+0x900f3 suspend
+0x900f4 brightnessup
+0x900f5 brightnessdown
+0x900f8 zoom

@@ -534,6 +534,7 @@ dist_udevkeymap_DATA = \
 	extras/keymap/keymaps/hewlett-packard-presario-2100 \
 	extras/keymap/keymaps/hewlett-packard-tablet \
 	extras/keymap/keymaps/hewlett-packard-tx2 \
+	extras/keymap/keymaps/ibm-thinkpad-usb-keyboard-trackpoint \
 	extras/keymap/keymaps/inventec-symphony_6.0_7.0 \
 	extras/keymap/keymaps/lenovo-3000 \
 	extras/keymap/keymaps/lenovo-thinkpad-usb-keyboard-trackpoint \
