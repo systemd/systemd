@@ -267,7 +267,9 @@ static int socket_open_fds(Socket *s) {
                         struct stat st;
                         assert(p->type == SOCKET_FIFO);
 
-                        if (mkfifo(p->path, 0666 & ~s->exec_context.umask) < 0 && errno != EEXIST) {
+                        mkdir_parents(p->path, s->directory_mode);
+
+                        if (mkfifo(p->path, s->socket_mode) < 0 && errno != EEXIST) {
                                 r = -errno;
                                 goto rollback;
                         }
