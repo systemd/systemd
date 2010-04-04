@@ -38,7 +38,7 @@
         "  </method>"                                                   \
         "  <method name=\"GetJob\">"                                    \
         "   <arg name=\"id\" type=\"u\" direction=\"in\"/>"             \
-        "   <arg name=\"unit\" type=\"o\" direction=\"out\"/>"          \
+        "   <arg name=\"job\" type=\"o\" direction=\"out\"/>"           \
         "  </method>"                                                   \
         "  <method name=\"ClearJobs\"/>"                                \
         "  <method name=\"ListUnits\">"                                 \
@@ -142,7 +142,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     DBUS_TYPE_INVALID))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1",  "GetJob")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "GetJob")) {
                 uint32_t id;
                 Job *j;
 
@@ -168,14 +168,14 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                                     DBUS_TYPE_INVALID))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1",  "ClearJobs")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "ClearJobs")) {
 
                 manager_clear_jobs(m);
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1",  "ListUnits")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "ListUnits")) {
                 DBusMessageIter iter, sub;
                 Iterator i;
                 Unit *u;
@@ -249,7 +249,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 if (!dbus_message_iter_close_container(&iter, &sub))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1",  "ListJobs")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "ListJobs")) {
                 DBusMessageIter iter, sub;
                 Iterator i;
                 Job *j;
@@ -305,7 +305,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 if (!dbus_message_iter_close_container(&iter, &sub))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1",  "Subscribe")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "Subscribe")) {
                 char *client;
 
                 if (!(client = strdup(dbus_message_get_sender(message))))
@@ -319,7 +319,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
 
-        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1",  "Unsubscribe")) {
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "Unsubscribe")) {
                 char *client;
 
                 if (!(client = set_remove(m->subscribed, (char*) dbus_message_get_sender(message))))
