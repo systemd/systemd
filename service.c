@@ -481,6 +481,10 @@ static int service_load_sysv_path(Service *s, const char *path) {
         if ((r = sysv_exec_commands(s)) < 0)
                 goto finish;
 
+        if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_SYSINIT_SERVICE)) < 0 ||
+            (r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_SYSINIT_SERVICE)) < 0)
+                goto finish;
+
         r = 1;
 
 finish:
