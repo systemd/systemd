@@ -1,4 +1,5 @@
 systemd-cgroups-agent
+systemd-initctl
 systemd
 *.o
 test-engine

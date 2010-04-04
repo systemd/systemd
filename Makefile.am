@@ -37,7 +37,8 @@ bin_PROGRAMS = \
 
 pkglibexec_PROGRAMS = \
 	systemd-logger \
-	systemd-cgroups-agent
+	systemd-cgroups-agent \
+	systemd-initctl
 
 noinst_PROGRAMS = \
 	test-engine \
@@ -136,6 +137,17 @@ test_job_type_LDADD = $(systemd_LDADD)
 systemd_logger_SOURCES = \
 	$(BASIC_SOURCES) \
 	logger.c
+
+systemd_initctl_SOURCES = \
+	$(BASIC_SOURCES) \
+	initctl.c
+
+systemd_initctl_CPPFLAGS = \
+	$(AM_CPPFLAGS) \
+	$(DBUS_CFLAGS)
+
+systemd_initctl_LDADD = \
+	$(DBUS_LIBS)
 
 systemd_cgroups_agent_SOURCES = \
 	$(BASIC_SOURCES) \
