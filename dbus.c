@@ -380,10 +380,54 @@ unsigned bus_dispatch(Manager *m) {
         return 0;
 }
 
+static void pending_cb(DBusPendingCall *pending, void *userdata) {
+        DBusMessage *reply;
+        DBusError error;
+
+        dbus_error_init(&error);
+
+        assert_se(reply = dbus_pending_call_steal_reply(pending));
+
+        switch (dbus_message_get_type(reply)) {
+
+        case DBUS_MESSAGE_TYPE_ERROR:
+
+                assert_se(dbus_set_error_from_message(&error, reply));
+                log_warning("RequestName() failed: %s", error.message);
+                break;
+
+        case DBUS_MESSAGE_TYPE_METHOD_RETURN: {
+                uint32_t r;
+
+                if (!dbus_message_get_args(reply,
+                                           &error,
+                                           DBUS_TYPE_UINT32, &r,
+                                           DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse RequestName() reply: %s", error.message);
+                        break;
+                }
+
+                if (r == 1)
+                        log_debug("Successfully acquired name.");
+                else
+                        log_error("Name already owned.");
+
+                break;
+        }
+
+        default:
+                assert_not_reached("Invalid reply message");
+        }
+
+        dbus_message_unref(reply);
+        dbus_error_free(&error);
+}
+
 static int request_name(Manager *m) {
         DBusMessage *message;
         const char *name = "org.freedesktop.systemd1";
         uint32_t flags = 0;
+        DBusPendingCall *pending;
 
         if (!(message = dbus_message_new_method_call(
                               DBUS_SERVICE_DBUS,
@@ -401,16 +445,25 @@ static int request_name(Manager *m) {
                 return -ENOMEM;
         }
 
-        if (!dbus_connection_send(m->bus, message, NULL)) {
+        if (!dbus_connection_send_with_reply(m->bus, message, &pending, -1)) {
                 dbus_message_unref(message);
                 return -ENOMEM;
         }
 
-        /* We simple ask for the name and don't wait for it. Sooner or
-         * later we'll have it, and we wouldn't know what to do on
-         * error anyway. */
 
         dbus_message_unref(message);
+
+        if (!dbus_pending_call_set_notify(pending, pending_cb, NULL, NULL)) {
+                dbus_pending_call_cancel(pending);
+                dbus_pending_call_unref(pending);
+                return -ENOMEM;
+        }
+
+
+        dbus_pending_call_unref(pending);
+
+        /* We simple ask for the name and don't wait for it. Sooner or
+         * later we'll have it. */
 
         return 0;
 }
