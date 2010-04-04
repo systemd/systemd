@@ -34,6 +34,12 @@ int main(int argc, char *argv[]) {
         Unit *target = NULL;
         Job *job = NULL;
         int r, retval = 1;
+        const char *default_unit;
+
+        if (argc >= 2)
+                default_unit = argv[1];
+        else
+                default_unit = SPECIAL_DEFAULT_TARGET;
 
         if ((r = manager_new(&m)) < 0) {
                 log_error("Failed to allocate manager object: %s", strerror(-r));
@@ -45,7 +51,9 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        if ((r = manager_load_unit(m, SPECIAL_DEFAULT_TARGET, &target)) < 0) {
+        log_debug("Activating default unit: %s", default_unit);
+
+        if ((r = manager_load_unit(m, default_unit, &target)) < 0) {
                 log_error("Failed to load default target: %s", strerror(-r));
                 goto finish;
         }
