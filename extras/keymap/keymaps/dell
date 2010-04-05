@@ -24,3 +24,4 @@
 0xA2 playpause # Front panel play/pause
 0xA4 stopcd # Front panel stop
 0xED media # MediaDirect button
+0xD9 f22 # touchpad toggle
