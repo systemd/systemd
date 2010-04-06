@@ -49,8 +49,6 @@ static int manager_setup_signals(Manager *m) {
 
         assert(m);
 
-        assert_se(reset_all_signal_handlers() == 0);
-
         assert_se(sigemptyset(&mask) == 0);
         assert_se(sigaddset(&mask, SIGCHLD) == 0);
         assert_se(sigaddset(&mask, SIGINT) == 0);   /* Kernel sends us this on control-alt-del */
@@ -300,22 +298,11 @@ int manager_new(Manager **_m) {
         if ((r = manager_find_paths(m)) < 0)
                 goto fail;
 
-        if (chdir("/") < 0)
-                log_warning("Failed to chdir to /: %s", strerror(errno));
-
-        /* Become a session leader if we aren't one yet. */
-        setsid();
-
         if ((r = manager_setup_signals(m)) < 0)
-                goto fail;
-
-        if ((r = mount_setup()) < 0)
                 goto fail;
 
         if ((r = manager_setup_cgroup(m)) < 0)
                 goto fail;
-
-        dbus_connection_set_change_sigpipe(FALSE);
 
         /* Try to connect to the busses, if possible. */
         if ((r = bus_init_system(m)) < 0 ||

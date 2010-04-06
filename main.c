@@ -25,9 +25,12 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "manager.h"
 #include "log.h"
+#include "mount-setup.h"
 
 int main(int argc, char *argv[]) {
         Manager *m = NULL;
@@ -40,6 +43,31 @@ int main(int argc, char *argv[]) {
                 default_unit = argv[1];
         else
                 default_unit = SPECIAL_DEFAULT_TARGET;
+
+        /* Move out of the way, so that we won't block unmounts */
+        assert_se(chdir("/")  == 0);
+
+        /* Reset all signal handlers. */
+        assert_se(reset_all_signal_handlers() == 0);
+
+        /* Become a session leader if we aren't one yet. */
+        setsid();
+
+        /* Disable the umask logic */
+        umask(0);
+
+        /* Make sure D-Bus doesn't fiddle with the SIGPIPE handlers */
+        dbus_connection_set_change_sigpipe(FALSE);
+
+        /* Mount /dev, /sys and friends */
+        mount_setup();
+
+        /* Set up logging */
+        log_set_target(LOG_TARGET_CONSOLE);
+
+        /* Open the logging devices, if possible and necessary*/
+        log_open_syslog();
+        log_open_kmsg();
 
         if ((r = manager_new(&m)) < 0) {
                 log_error("Failed to allocate manager object: %s", strerror(-r));
