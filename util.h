@@ -136,6 +136,8 @@ char hexchar(int x);
 int unhexchar(char c);
 char octchar(int x);
 int unoctchar(char c);
+char decchar(int x);
+int undecchar(char c);
 
 char *cescape(const char *s);
 char *cunescape(const char *s);

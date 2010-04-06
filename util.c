@@ -701,6 +701,18 @@ int unoctchar(char c) {
         return -1;
 }
 
+char decchar(int x) {
+        return '0' + (x % 10);
+}
+
+int undecchar(char c) {
+
+        if (c >= '0' && c <= '9')
+                return c - '0';
+
+        return -1;
+}
+
 char *cescape(const char *s) {
         char *r, *t;
         const char *f;
