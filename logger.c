@@ -86,12 +86,6 @@ struct Stream {
         LIST_FIELDS(Stream, stream);
 };
 
-#define IOVEC_SET_STRING(iovec, s)              \
-        do {                                    \
-                (iovec).iov_base = s;           \
-                (iovec).iov_len = strlen(s);    \
-        } while(false);
-
 static int stream_log(Stream *s, char *p, usec_t timestamp) {
 
         char header_priority[16], header_time[64], header_pid[16];

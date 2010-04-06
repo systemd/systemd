@@ -97,4 +97,10 @@ static inline size_t ALIGN(size_t l) {
 
 #define char_array_0(x) x[sizeof(x)-1] = 0;
 
+#define IOVEC_SET_STRING(iovec, s)              \
+        do {                                    \
+                (iovec).iov_base = s;           \
+                (iovec).iov_len = strlen(s);    \
+        } while(false);
+
 #endif
