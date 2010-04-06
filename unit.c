@@ -923,13 +923,13 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
 
                 if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE))
                         /* The syslog daemon just got started, hence try to connect to it. */
-                        log_info("Syslog now available, this is where we should start logging to it.");
+                        log_open_syslog();
 
         } else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
 
                 if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE))
                         /* The syslog daemon just got terminated, hence try to disconnect from it. */
-                        log_info("Syslog now gone, this is where we should stio logging to it.");
+                        log_close_syslog();
 
                 /* We don't care about D-Bus here, since we'll get an
                  * asynchronous notification for it anyway. */
