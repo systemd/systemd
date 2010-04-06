@@ -60,6 +60,7 @@ enum UnitLoadState {
         UNIT_STUB,
         UNIT_LOADED,
         UNIT_FAILED,
+        UNIT_MERGED,
         _UNIT_LOAD_STATE_MAX,
         _UNIT_LOAD_STATE_INVALID = -1
 };
@@ -116,8 +117,10 @@ enum UnitDependency {
 
 struct Meta {
         Manager *manager;
+
         UnitType type;
         UnitLoadState load_state;
+        Unit *merged_into;
 
         char *id; /* One name is special because we use it for identification. Points to an entry in the names set */
 
@@ -133,6 +136,7 @@ struct Meta {
 
         bool in_load_queue:1;
         bool in_dbus_queue:1;
+        bool in_cleanup_queue:1;
         bool sent_dbus_new_signal:1;
 
         /* If we go down, pull down everything that depends on us, too */
@@ -155,6 +159,9 @@ struct Meta {
 
         /* D-Bus queue */
         LIST_FIELDS(Meta, dbus_queue);
+
+        /* Cleanup queue */
+        LIST_FIELDS(Meta, cleanup_queue);
 };
 
 #include "service.h"
@@ -181,7 +188,7 @@ union Unit {
 struct UnitVTable {
         const char *suffix;
 
-        int (*init)(Unit *u);
+        int (*init)(Unit *u, UnitLoadState *new_state);
         void (*done)(Unit *u);
         int (*coldplug)(Unit *u);
 
@@ -251,6 +258,8 @@ int unit_add_dependency(Unit *u, UnitDependency d, Unit *other);
 int unit_add_dependency_by_name(Unit *u, UnitDependency d, const char *name);
 int unit_add_dependency_by_name_inverse(Unit *u, UnitDependency d, const char *name);
 
+int unit_add_exec_dependencies(Unit *u, ExecContext *c);
+
 int unit_add_cgroup(Unit *u, CGroupBonding *b);
 int unit_add_cgroup_from_text(Unit *u, const char *name);
 int unit_add_default_cgroup(Unit *u);
@@ -261,10 +270,15 @@ int unit_set_description(Unit *u, const char *description);
 
 void unit_add_to_load_queue(Unit *u);
 void unit_add_to_dbus_queue(Unit *u);
+void unit_add_to_cleanup_queue(Unit *u);
 
 int unit_merge(Unit *u, Unit *other);
+int unit_merge_by_name(Unit *u, const char *other);
 
-int unit_load_fragment_and_dropin(Unit *u);
+Unit *unit_follow_merge(Unit *u);
+
+int unit_load_fragment_and_dropin(Unit *u, UnitLoadState *new_state);
+int unit_load_fragment_and_dropin_optional(Unit *u, UnitLoadState *new_state);
 int unit_load(Unit *unit);
 
 const char* unit_id(Unit *u);

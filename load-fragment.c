@@ -95,36 +95,15 @@ static int config_parse_names(
         FOREACH_WORD(w, l, rvalue, state) {
                 char *t;
                 int r;
-                Unit *other;
 
                 if (!(t = strndup(w, l)))
                         return -ENOMEM;
 
-                other = manager_get_unit(u->meta.manager, t);
-
-                if (other) {
-
-                        if (other != u) {
-
-                                if (other->meta.load_state != UNIT_STUB) {
-                                        free(t);
-                                        return -EEXIST;
-                                }
-
-                                if ((r = unit_merge(u, other)) < 0) {
-                                        free(t);
-                                        return r;
-                                }
-                        }
-
-                } else {
-                        if ((r = unit_add_name(u, t)) < 0) {
-                                free(t);
-                                return r;
-                        }
-                }
-
+                r = unit_merge_by_name(u, t);
                 free(t);
+
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -1070,7 +1049,48 @@ static int open_follow(char **filename, FILE **_f, Set *names, char **_id) {
         return 0;
 }
 
-static int load_from_path(Unit *u, const char *path) {
+static int merge_by_names(Unit **u, Set *names, const char *id) {
+        char *k;
+        int r;
+
+        assert(u);
+        assert(*u);
+        assert(names);
+
+        /* Let's try to add in all symlink names we found */
+        while ((k = set_steal_first(names))) {
+
+                /* First try to merge in the other name into our
+                 * unit */
+                if ((r = unit_merge_by_name(*u, k)) < 0) {
+                        Unit *other;
+
+                        /* Hmm, we couldn't merge the other unit into
+                         * ours? Then let's try it the other way
+                         * round */
+
+                        other = manager_get_unit((*u)->meta.manager, k);
+                        free(k);
+
+                        if (other)
+                                if ((r = unit_merge(other, *u)) >= 0) {
+                                        *u = other;
+                                        return merge_by_names(u, names, NULL);
+                                }
+
+                        return r;
+                }
+
+                if (id == k)
+                        unit_choose_id(*u, id);
+
+                free(k);
+        }
+
+        return 0;
+}
+
+static int load_from_path(Unit *u, const char *path, UnitLoadState *new_state) {
 
         static const char* const section_table[_UNIT_TYPE_MAX] = {
                 [UNIT_SERVICE]   = "Service",
@@ -1184,8 +1204,12 @@ static int load_from_path(Unit *u, const char *path) {
         char *k;
         int r;
         Set *symlink_names;
-        FILE *f;
-        char *filename = NULL, *id;
+        FILE *f = NULL;
+        char *filename = NULL, *id = NULL;
+        Unit *merged;
+
+        assert(u);
+        assert(new_state);
 
         sections[0] = "Meta";
         sections[1] = section_table[u->meta.type];
@@ -1243,90 +1267,79 @@ static int load_from_path(Unit *u, const char *path) {
         }
 
         if (!filename) {
-                r = 0; /* returning 0 means: no suitable config file found */
+                r = 0;
+                goto finish;
+        }
+
+        merged = u;
+        if ((r = merge_by_names(&merged, symlink_names, id)) < 0)
+                goto finish;
+
+        if (merged != u) {
+                *new_state = UNIT_MERGED;
+                r = 0;
                 goto finish;
         }
 
         /* Now, parse the file contents */
-        r = config_parse(filename, f, sections, items, u);
-        if (r < 0)
+        if ((r = config_parse(filename, f, sections, items, u)) < 0)
                 goto finish;
-
-        /* Let's try to add in all symlink names we found */
-        while ((k = set_steal_first(symlink_names))) {
-                if ((r = unit_add_name(u, k)) < 0)
-                        goto finish;
-
-
-                if (id == k)
-                        unit_choose_id(u, id);
-                free(k);
-        }
-
 
         free(u->meta.fragment_path);
         u->meta.fragment_path = filename;
         filename = NULL;
 
-        r = 1; /* returning 1 means: suitable config file found and loaded */
+        *new_state = UNIT_LOADED;
+        r = 0;
 
 finish:
         while ((k = set_steal_first(symlink_names)))
                 free(k);
+
         set_free(symlink_names);
         free(filename);
+
+        if (f)
+                fclose(f);
 
         return r;
 }
 
-int unit_load_fragment(Unit *u) {
-        int r = 0;
+int unit_load_fragment(Unit *u, UnitLoadState *new_state) {
+        int r;
 
         assert(u);
-        assert(u->meta.load_state == UNIT_STUB);
+        assert(new_state);
+        assert(*new_state == UNIT_STUB);
 
-        if (u->meta.fragment_path)
-                r = load_from_path(u, u->meta.fragment_path);
-        else {
+        if (u->meta.fragment_path) {
+
+                if ((r = load_from_path(u, u->meta.fragment_path, new_state)) < 0)
+                        return r;
+
+        } else {
                 Iterator i;
                 const char *t;
 
                 /* Try to find the unit under its id */
                 if ((t = unit_id(u)))
-                        r = load_from_path(u, t);
+                        if ((r = load_from_path(u, t, new_state)) < 0)
+                                return r;
 
                 /* Try to find an alias we can load this with */
-                if (r == 0)
-                        SET_FOREACH(t, u->meta.names, i)
-                                if ((r = load_from_path(u, t)) != 0)
+                if (*new_state == UNIT_STUB)
+                        SET_FOREACH(t, u->meta.names, i) {
+
+                                if (unit_id(u) == t)
+                                        continue;
+
+                                if ((r = load_from_path(u, t, new_state)) < 0)
+                                        return r;
+
+                                if (*new_state != UNIT_STUB)
                                         break;
+                        }
         }
 
-        if (r >= 0) {
-                ExecContext *c;
-
-                if (u->meta.type == UNIT_SOCKET)
-                        c = &u->socket.exec_context;
-                else if (u->meta.type == UNIT_SERVICE)
-                        c = &u->service.exec_context;
-                else
-                        c = NULL;
-
-                if (c &&
-                    (c->output == EXEC_OUTPUT_KERNEL || c->output == EXEC_OUTPUT_SYSLOG)) {
-                        int k;
-
-                        /* If syslog or kernel logging is requested, make sure
-                         * our own logging daemon is run first. */
-
-                        if ((k = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_LOGGER_SOCKET)) < 0)
-                                return k;
-
-                        if (u->meta.manager->running_as != MANAGER_SESSION)
-                                if ((k = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_LOGGER_SOCKET)) < 0)
-                                        return k;
-                }
-        }
-
-        return r;
+        return 0;
 }

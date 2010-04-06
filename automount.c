@@ -26,7 +26,7 @@
 #include "load-fragment.h"
 #include "load-dropin.h"
 
-static int automount_init(Unit *u) {
+static int automount_init(Unit *u, UnitLoadState *new_state) {
         int r;
         Automount *a = AUTOMOUNT(u);
 
@@ -35,12 +35,27 @@ static int automount_init(Unit *u) {
         exec_context_init(&a->exec_context);
 
         /* Load a .automount file */
-        if ((r = unit_load_fragment(u)) < 0)
+        if ((r = unit_load_fragment(u, new_state)) < 0)
                 return r;
 
+        if (*new_state == UNIT_STUB)
+                *new_state = UNIT_LOADED;
+
         /* Load drop-in directory data */
-        if ((r = unit_load_dropin(u)) < 0)
+        if ((r = unit_load_dropin(unit_follow_merge(u))) < 0)
                 return r;
+
+        if (*new_state == UNIT_LOADED) {
+
+                if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(a->mount))) < 0)
+                        return r;
+
+                if ((r = unit_add_exec_dependencies(u, &a->exec_context)) < 0)
+                        return r;
+
+                if ((r = unit_add_default_cgroup(u)) < 0)
+                        return r;
+        }
 
         return 0;
 }

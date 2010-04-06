@@ -35,6 +35,17 @@
 #define NEWLINES "\n\r"
 #define LINE_MAX 4096
 
+static const char * const rcnd_table[] = {
+        "../rc0.d", SPECIAL_RUNLEVEL0_TARGET,
+        "../rc1.d", SPECIAL_RUNLEVEL1_TARGET,
+        "../rc2.d", SPECIAL_RUNLEVEL2_TARGET,
+        "../rc3.d", SPECIAL_RUNLEVEL3_TARGET,
+        "../rc4.d", SPECIAL_RUNLEVEL4_TARGET,
+        "../rc5.d", SPECIAL_RUNLEVEL5_TARGET,
+        "../rc6.d", SPECIAL_RUNLEVEL6_TARGET
+};
+
+
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = UNIT_INACTIVE,
         [SERVICE_START_PRE] = UNIT_ACTIVATING,
@@ -128,8 +139,8 @@ static int sysv_chkconfig_order(Service *s) {
         if (s->sysv_start_priority < 0)
                 return 0;
 
-        /* If no LSB header is found we try to order init scripts via
-         * the start priority of the chkconfig header. */
+        /* For each pair of services where at least one lacks a LSB
+         * header, we use the start priority value to order things. */
 
         LIST_FOREACH(units_per_type, other, UNIT(s)->meta.manager->units_per_type[UNIT_SERVICE]) {
                 Service *t;
@@ -141,6 +152,9 @@ static int sysv_chkconfig_order(Service *s) {
                         continue;
 
                 if (t->sysv_start_priority < 0)
+                        continue;
+
+                if (s->sysv_has_lsb && t->sysv_has_lsb)
                         continue;
 
                 if (t->sysv_start_priority < s->sysv_start_priority)
@@ -200,7 +214,67 @@ static int sysv_exec_commands(Service *s) {
         return 0;
 }
 
-static int service_load_sysv_path(Service *s, const char *path) {
+static int priority_from_rcd(Service *s, const char *init_script) {
+        char **p;
+        unsigned i;
+
+        STRV_FOREACH(p, UNIT(s)->meta.manager->sysvinit_path)
+                for (i = 0; i < ELEMENTSOF(rcnd_table); i += 2) {
+                        char *path;
+                        DIR *d;
+                        struct dirent *de;
+
+                        if (asprintf(&path, "%s/%s", *p, rcnd_table[i]) < 0)
+                                return -ENOMEM;
+
+                        d = opendir(path);
+                        free(path);
+
+                        if (!d) {
+                                if (errno != ENOENT)
+                                        log_warning("opendir() failed on %s: %s", path, strerror(errno));
+
+                                continue;
+                        }
+
+                        while ((de = readdir(d))) {
+                                int a, b;
+
+                                if (ignore_file(de->d_name))
+                                        continue;
+
+                                if (de->d_name[0] != 'S')
+                                        continue;
+
+                                if (strlen(de->d_name) < 4)
+                                        continue;
+
+                                if (!streq(de->d_name + 3, init_script))
+                                        continue;
+
+                                /* Yay, we found it! Now decode the priority */
+
+                                a = undecchar(de->d_name[1]);
+                                b = undecchar(de->d_name[2]);
+
+                                if (a < 0 || b < 0)
+                                        continue;
+
+                                s->sysv_start_priority = a*10 + b;
+
+                                log_debug("Determined priority %i from link farm for %s", s->sysv_start_priority, unit_id(UNIT(s)));
+
+                                closedir(d);
+                                return 0;
+                        }
+
+                        closedir(d);
+                }
+
+        return 0;
+}
+
+static int service_load_sysv_path(Service *s, const char *path, UnitLoadState *new_state) {
         FILE *f;
         Unit *u;
         unsigned line = 0;
@@ -211,7 +285,10 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 LSB,
                 LSB_DESCRIPTION
         } state = NORMAL;
-        bool has_lsb = false;
+
+        assert(s);
+        assert(path);
+        assert(new_state);
 
         u = UNIT(s);
 
@@ -249,7 +326,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
 
                 if (state == NORMAL && streq(t, "### BEGIN INIT INFO")) {
                         state = LSB;
-                        has_lsb = true;
+                        s->sysv_has_lsb = true;
                         continue;
                 }
 
@@ -470,13 +547,20 @@ static int service_load_sysv_path(Service *s, const char *path) {
                 }
         }
 
-        /* If the init script has no LSB header, then let's
-         * enforce the ordering via the chkconfig
-         * priorities */
+        /* If init scripts have no LSB header, then we enforce the
+         * ordering via the chkconfig priorities. We try to determine
+         * a priority for *all* init scripts here, since they are
+         * needed as soon as at least one non-LSB script is used. */
 
-        if (!has_lsb)
-                if ((r = sysv_chkconfig_order(s)) < 0)
+        if (s->sysv_start_priority < 0) {
+                log_debug("%s has no chkconfig header, trying to determine SysV priority from link farm.", unit_id(u));
+
+                if ((r = priority_from_rcd(s, file_name_from_path(path))) < 0)
                         goto finish;
+
+                if (s->sysv_start_priority < 0)
+                        log_warning("%s has neither a chkconfig header nor a directory link, cannot order unit!", unit_id(u));
+        }
 
         if ((r = sysv_exec_commands(s)) < 0)
                 goto finish;
@@ -485,7 +569,8 @@ static int service_load_sysv_path(Service *s, const char *path) {
             (r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_SYSINIT_SERVICE)) < 0)
                 goto finish;
 
-        r = 1;
+        *new_state = UNIT_LOADED;
+        r = 0;
 
 finish:
 
@@ -495,7 +580,7 @@ finish:
         return r;
 }
 
-static int service_load_sysv_name(Service *s, const char *name) {
+static int service_load_sysv_name(Service *s, const char *name, UnitLoadState *new_state) {
         char **p;
 
         assert(s);
@@ -511,22 +596,26 @@ static int service_load_sysv_name(Service *s, const char *name) {
                 assert(endswith(path, ".service"));
                 path[strlen(path)-8] = 0;
 
-                r = service_load_sysv_path(s, path);
+                r = service_load_sysv_path(s, path, new_state);
                 free(path);
 
-                if (r != 0)
+                if (r < 0)
                         return r;
+
+                if (*new_state != UNIT_STUB)
+                        break;
         }
 
         return 0;
 }
 
-static int service_load_sysv(Service *s) {
+static int service_load_sysv(Service *s, UnitLoadState *new_state) {
         const char *t;
         Iterator i;
         int r;
 
         assert(s);
+        assert(new_state);
 
         /* Load service data from SysV init scripts, preferably with
          * LSB headers ... */
@@ -535,21 +624,28 @@ static int service_load_sysv(Service *s) {
                 return 0;
 
         if ((t = unit_id(UNIT(s))))
-                if ((r = service_load_sysv_name(s, t)) != 0)
+                if ((r = service_load_sysv_name(s, t, new_state)) < 0)
                         return r;
 
-        SET_FOREACH(t, UNIT(s)->meta.names, i)
-                if ((r == service_load_sysv_name(s, t)) != 0)
-                        return r;
+        if (*new_state == UNIT_STUB)
+                SET_FOREACH(t, UNIT(s)->meta.names, i) {
+                        if ((r == service_load_sysv_name(s, t, new_state)) < 0)
+                                return r;
+
+                        if (*new_state != UNIT_STUB)
+                                break;
+                }
 
         return 0;
 }
 
-static int service_init(Unit *u) {
+static int service_init(Unit *u, UnitLoadState *new_state) {
         int r;
         Service *s = SERVICE(u);
 
         assert(s);
+        assert(new_state);
+        assert(*new_state == UNIT_STUB);
 
         /* First, reset everything to the defaults, in case this is a
          * reload */
@@ -570,31 +666,38 @@ static int service_init(Unit *u) {
         s->permissions_start_only = false;
         s->root_directory_start_only = false;
 
+        s->sysv_has_lsb = false;
+
         RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
 
         /* Load a .service file */
-        if ((r = unit_load_fragment(u)) < 0) {
-                service_done(u);
+        if ((r = unit_load_fragment(u, new_state)) < 0)
                 return r;
-        }
 
         /* Load a classic init script as a fallback, if we couldn't find anything */
-        if (r == 0)
-                if ((r = service_load_sysv(s)) <= 0) {
-                        service_done(u);
-                        return r < 0 ? r : -ENOENT;
-                }
+        if (*new_state == UNIT_STUB)
+                if ((r = service_load_sysv(s, new_state)) < 0)
+                        return r;
 
-        /* Load dropin directory data */
-        if ((r = unit_load_dropin(u)) < 0) {
-                service_done(u);
-                return r;
-        }
+        /* Still nothing found? Then let's give up */
+        if (*new_state == UNIT_STUB)
+                return -ENOENT;
 
-        /* Add default cgroup */
-        if ((r = unit_add_default_cgroup(u)) < 0) {
-                service_done(u);
+        /* We were able to load something, then let's add in the
+         * dropin directories. */
+        if ((r = unit_load_dropin(unit_follow_merge(u))) < 0)
                 return r;
+
+        /* This is a new unit? Then let's add in some extras */
+        if (*new_state == UNIT_LOADED) {
+                if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
+                        return r;
+
+                if ((r = unit_add_default_cgroup(u)) < 0)
+                        return r;
+
+                if ((r = sysv_chkconfig_order(s)) < 0)
+                        return r;
         }
 
         return 0;
@@ -645,13 +748,16 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
         if (s->sysv_path)
                 fprintf(f,
-                        "%sSysV Init Script Path: %s\n",
-                        prefix, s->sysv_path);
+                        "%sSysV Init Script Path: %s\n"
+                        "%sSysV Init Script has LSB Header: %s\n",
+                        prefix, s->sysv_path,
+                        prefix, yes_no(s->sysv_has_lsb));
 
         if (s->sysv_start_priority >= 0)
                 fprintf(f,
-                        "%sSysV Start Priority: %i\n",
+                        "%sSysVStartPriority: %i\n",
                         prefix, s->sysv_start_priority);
+
 
         free(p2);
 }
@@ -1638,17 +1744,6 @@ static void service_cgroup_notify_event(Unit *u) {
 }
 
 static int service_enumerate(Manager *m) {
-
-        static const char * const rcnd[] = {
-                "../rc0.d", SPECIAL_RUNLEVEL0_TARGET,
-                "../rc1.d", SPECIAL_RUNLEVEL1_TARGET,
-                "../rc2.d", SPECIAL_RUNLEVEL2_TARGET,
-                "../rc3.d", SPECIAL_RUNLEVEL3_TARGET,
-                "../rc4.d", SPECIAL_RUNLEVEL4_TARGET,
-                "../rc5.d", SPECIAL_RUNLEVEL5_TARGET,
-                "../rc6.d", SPECIAL_RUNLEVEL6_TARGET
-        };
-
         char **p;
         unsigned i;
         DIR *d = NULL;
@@ -1658,12 +1753,12 @@ static int service_enumerate(Manager *m) {
         assert(m);
 
         STRV_FOREACH(p, m->sysvinit_path)
-                for (i = 0; i < ELEMENTSOF(rcnd); i += 2) {
+                for (i = 0; i < ELEMENTSOF(rcnd_table); i += 2) {
                         struct dirent *de;
 
                         free(path);
                         path = NULL;
-                        if (asprintf(&path, "%s/%s", *p, rcnd[i]) < 0) {
+                        if (asprintf(&path, "%s/%s", *p, rcnd_table[i]) < 0) {
                                 r = -ENOMEM;
                                 goto finish;
                         }
@@ -1692,7 +1787,7 @@ static int service_enumerate(Manager *m) {
 
                                 free(fpath);
                                 fpath = NULL;
-                                if (asprintf(&fpath, "%s/%s/%s", *p, rcnd[i], de->d_name) < 0) {
+                                if (asprintf(&fpath, "%s/%s/%s", *p, rcnd_table[i], de->d_name) < 0) {
                                         r = -ENOMEM;
                                         goto finish;
                                 }
@@ -1715,7 +1810,7 @@ static int service_enumerate(Manager *m) {
                                 if ((r = manager_load_unit(m, name, &service)) < 0)
                                         goto finish;
 
-                                if ((r = manager_load_unit(m, rcnd[i+1], &runlevel)) < 0)
+                                if ((r = manager_load_unit(m, rcnd_table[i+1], &runlevel)) < 0)
                                         goto finish;
 
                                 if (de->d_name[0] == 'S') {
@@ -1724,7 +1819,18 @@ static int service_enumerate(Manager *m) {
 
                                         if ((r = unit_add_dependency(runlevel, UNIT_AFTER, service)) < 0)
                                                 goto finish;
-                                } else {
+
+                                } else if (de->d_name[0] == 'K' &&
+                                           (streq(rcnd_table[i+1], SPECIAL_RUNLEVEL0_TARGET) ||
+                                            streq(rcnd_table[i+1], SPECIAL_RUNLEVEL6_TARGET))) {
+
+                                        /* We honour K links only for
+                                         * halt/reboot. For the normal
+                                         * runlevels we assume the
+                                         * stop jobs will be
+                                         * implicitly added by the
+                                         * core logic. */
+
                                         if ((r = unit_add_dependency(runlevel, UNIT_CONFLICTS, service)) < 0)
                                                 goto finish;
 

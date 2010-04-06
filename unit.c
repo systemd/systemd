@@ -220,6 +220,16 @@ void unit_add_to_load_queue(Unit *u) {
         u->meta.in_load_queue = true;
 }
 
+void unit_add_to_cleanup_queue(Unit *u) {
+        assert(u);
+
+        if (u->meta.in_cleanup_queue)
+                return;
+
+        LIST_PREPEND(Meta, cleanup_queue, u->meta.manager->cleanup_queue, &u->meta);
+        u->meta.in_cleanup_queue = true;
+}
+
 void unit_add_to_dbus_queue(Unit *u) {
         assert(u);
 
@@ -274,7 +284,10 @@ void unit_free(Unit *u) {
         if (u->meta.in_dbus_queue)
                 LIST_REMOVE(Meta, dbus_queue, u->meta.manager->dbus_unit_queue, &u->meta);
 
-        if (u->meta.load_state == UNIT_LOADED)
+        if (u->meta.in_cleanup_queue)
+                LIST_REMOVE(Meta, cleanup_queue, u->meta.manager->cleanup_queue, &u->meta);
+
+        if (u->meta.load_state != UNIT_STUB)
                 if (UNIT_VTABLE(u)->done)
                         UNIT_VTABLE(u)->done(u);
 
@@ -304,29 +317,78 @@ UnitActiveState unit_active_state(Unit *u) {
         return UNIT_VTABLE(u)->active_state(u);
 }
 
-static int ensure_merge(Set **s, Set *other) {
+static void complete_move(Set **s, Set **other) {
+        assert(s);
+        assert(other);
 
-        if (!other)
-                return 0;
+        if (!*other)
+                return;
 
         if (*s)
-                return set_merge(*s, other);
-
-        if (!(*s = set_copy(other)))
-                return -ENOMEM;
-
-        return 0;
+                set_move(*s, *other);
+        else {
+                *s = *other;
+                *other = NULL;
+        }
 }
 
-/* FIXME: Does not rollback on failure! Needs to fix special unit
- * pointers. Needs to merge names and dependencies properly.*/
-int unit_merge(Unit *u, Unit *other) {
+static void merge_names(Unit *u, Unit *other) {
+        char *t;
+        Iterator i;
+
+        assert(u);
+        assert(other);
+
+        complete_move(&u->meta.names, &other->meta.names);
+
+        while ((t = set_steal_first(other->meta.names)))
+                free(t);
+
+        set_free(other->meta.names);
+        other->meta.names = NULL;
+        other->meta.id = NULL;
+
+        SET_FOREACH(t, u->meta.names, i)
+                assert_se(hashmap_replace(u->meta.manager->units, t, u) == 0);
+}
+
+static void merge_dependencies(Unit *u, Unit *other, UnitDependency d) {
+        Iterator i;
+        Unit *back;
         int r;
+
+        assert(u);
+        assert(other);
+        assert(d < _UNIT_DEPENDENCY_MAX);
+
+        SET_FOREACH(back, other->meta.dependencies[d], i) {
+                UnitDependency k;
+
+                for (k = 0; k < _UNIT_DEPENDENCY_MAX; k++)
+                        if ((r = set_remove_and_put(back->meta.dependencies[k], other, u)) < 0) {
+
+                                if (r == -EEXIST)
+                                        set_remove(back->meta.dependencies[k], other);
+                                else
+                                        assert(r == -ENOENT);
+                        }
+        }
+
+        complete_move(&u->meta.dependencies[d], &other->meta.dependencies[d]);
+
+        set_free(other->meta.dependencies[d]);
+        other->meta.dependencies[d] = NULL;
+}
+
+int unit_merge(Unit *u, Unit *other) {
         UnitDependency d;
 
         assert(u);
         assert(other);
         assert(u->meta.manager == other->meta.manager);
+
+        if (other == u)
+                return 0;
 
         /* This merges 'other' into 'unit'. FIXME: This does not
          * rollback on failure. */
@@ -334,20 +396,65 @@ int unit_merge(Unit *u, Unit *other) {
         if (u->meta.type != u->meta.type)
                 return -EINVAL;
 
-        if (u->meta.load_state != UNIT_STUB)
-                return -EINVAL;
+        if (other->meta.load_state != UNIT_STUB)
+                return -EEXIST;
 
         /* Merge names */
-        if ((r = ensure_merge(&u->meta.names, other->meta.names)) < 0)
-                return r;
+        merge_names(u, other);
 
         /* Merge dependencies */
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
-                /* fixme, the inverse mapping is missing */
-                if ((r = ensure_merge(&u->meta.dependencies[d], other->meta.dependencies[d])) < 0)
-                        return r;
+                merge_dependencies(u, other, d);
 
         unit_add_to_dbus_queue(u);
+
+        other->meta.load_state = UNIT_MERGED;
+        other->meta.merged_into = u;
+
+        unit_add_to_cleanup_queue(other);
+
+        return 0;
+}
+
+int unit_merge_by_name(Unit *u, const char *name) {
+        Unit *other;
+
+        assert(u);
+        assert(name);
+
+        if (!(other = manager_get_unit(u->meta.manager, name)))
+                return unit_add_name(u, name);
+
+        return unit_merge(u, other);
+}
+
+Unit* unit_follow_merge(Unit *u) {
+        assert(u);
+
+        while (u->meta.load_state == UNIT_MERGED)
+                assert_se(u = u->meta.merged_into);
+
+        return u;
+}
+
+int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
+        int r;
+
+        assert(u);
+        assert(c);
+
+        if (c->output != EXEC_OUTPUT_KERNEL && c->output != EXEC_OUTPUT_SYSLOG)
+                return 0;
+
+        /* If syslog or kernel logging is requested, make sure our own
+         * logging daemon is run first. */
+
+        if ((r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_LOGGER_SOCKET)) < 0)
+                return r;
+
+        if (u->meta.manager->running_as != MANAGER_SESSION)
+                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_LOGGER_SOCKET)) < 0)
+                        return r;
 
         return 0;
 }
@@ -389,21 +496,17 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s→ Unit %s:\n"
                 "%s\tDescription: %s\n"
                 "%s\tUnit Load State: %s\n"
-                "%s\tUnit Active State: %s\n"
-                "%s\tRecursive Stop: %s\n"
-                "%s\tStop When Unneeded: %s\n",
+                "%s\tUnit Active State: %s\n",
                 prefix, unit_id(u),
                 prefix, unit_description(u),
                 prefix, unit_load_state_to_string(u->meta.load_state),
-                prefix, unit_active_state_to_string(unit_active_state(u)),
-                prefix, yes_no(u->meta.recursive_stop),
-                prefix, yes_no(u->meta.stop_when_unneeded));
-
-        if (u->meta.fragment_path)
-                fprintf(f, "%s\tFragment Path: %s\n", prefix, u->meta.fragment_path);
+                prefix, unit_active_state_to_string(unit_active_state(u)));
 
         SET_FOREACH(t, u->meta.names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
+
+        if (u->meta.fragment_path)
+                fprintf(f, "%s\tFragment Path: %s\n", prefix, u->meta.fragment_path);
 
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
                 Unit *other;
@@ -415,12 +518,20 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                         fprintf(f, "%s\t%s: %s\n", prefix, unit_dependency_to_string(d), unit_id(other));
         }
 
-        LIST_FOREACH(by_unit, b, u->meta.cgroup_bondings)
-                fprintf(f, "%s\tControlGroup: %s:%s\n",
-                        prefix, b->controller, b->path);
+        fprintf(f,
+                "%s\tRecursive Stop: %s\n"
+                "%s\tStop When Unneeded: %s\n",
+                prefix, yes_no(u->meta.recursive_stop),
+                prefix, yes_no(u->meta.stop_when_unneeded));
 
-        if (UNIT_VTABLE(u)->dump)
-                UNIT_VTABLE(u)->dump(u, f, prefix2);
+        if (u->meta.load_state == UNIT_LOADED) {
+                LIST_FOREACH(by_unit, b, u->meta.cgroup_bondings)
+                        fprintf(f, "%s\tControlGroup: %s:%s\n",
+                                prefix, b->controller, b->path);
+
+                if (UNIT_VTABLE(u)->dump)
+                        UNIT_VTABLE(u)->dump(u, f, prefix2);
+        }
 
         if (u->meta.job)
                 job_dump(u->meta.job, f, prefix2);
@@ -429,26 +540,55 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 }
 
 /* Common implementation for multiple backends */
-int unit_load_fragment_and_dropin(Unit *u) {
-        int r, ret;
+int unit_load_fragment_and_dropin(Unit *u, UnitLoadState *new_state) {
+        int r;
 
         assert(u);
+        assert(new_state);
+        assert(*new_state == UNIT_STUB || *new_state == UNIT_LOADED);
 
-        /* Load a .socket file */
-        if ((r = unit_load_fragment(u)) < 0)
+        /* Load a .service file */
+        if ((r = unit_load_fragment(u, new_state)) < 0)
                 return r;
 
-        ret = r > 0;
+        if (*new_state == UNIT_STUB)
+                return -ENOENT;
 
         /* Load drop-in directory data */
-        if ((r = unit_load_dropin(u)) < 0)
+        if ((r = unit_load_dropin(unit_follow_merge(u))) < 0)
                 return r;
 
-        return ret;
+        return 0;
+}
+
+/* Common implementation for multiple backends */
+int unit_load_fragment_and_dropin_optional(Unit *u, UnitLoadState *new_state) {
+        int r;
+
+        assert(u);
+        assert(new_state);
+        assert(*new_state == UNIT_STUB || *new_state == UNIT_LOADED);
+
+        /* Same as unit_load_fragment_and_dropin(), but whether
+         * something can be loaded or not doesn't matter. */
+
+        /* Load a .service file */
+        if ((r = unit_load_fragment(u, new_state)) < 0)
+                return r;
+
+        if (*new_state == UNIT_STUB)
+                *new_state = UNIT_LOADED;
+
+        /* Load drop-in directory data */
+        if ((r = unit_load_dropin(unit_follow_merge(u))) < 0)
+                return r;
+
+        return 0;
 }
 
 int unit_load(Unit *u) {
         int r;
+        UnitLoadState res;
 
         assert(u);
 
@@ -460,17 +600,30 @@ int unit_load(Unit *u) {
         if (u->meta.load_state != UNIT_STUB)
                 return 0;
 
-        if (UNIT_VTABLE(u)->init)
-                if ((r = UNIT_VTABLE(u)->init(u)) < 0)
+        if (UNIT_VTABLE(u)->init) {
+                res = UNIT_STUB;
+                if ((r = UNIT_VTABLE(u)->init(u, &res)) < 0)
                         goto fail;
+        }
 
-        u->meta.load_state = UNIT_LOADED;
-        unit_add_to_dbus_queue(u);
+        if (res == UNIT_STUB) {
+                r = -ENOENT;
+                goto fail;
+        }
+
+        u->meta.load_state = res;
+        assert((u->meta.load_state != UNIT_MERGED) == !u->meta.merged_into);
+
+        unit_add_to_dbus_queue(unit_follow_merge(u));
+
         return 0;
 
 fail:
         u->meta.load_state = UNIT_FAILED;
         unit_add_to_dbus_queue(u);
+
+        log_error("Failed to load configuration for %s: %s", unit_id(u), strerror(-r));
+
         return r;
 }
 
@@ -1227,7 +1380,8 @@ DEFINE_STRING_TABLE_LOOKUP(unit_type, UnitType);
 static const char* const unit_load_state_table[_UNIT_LOAD_STATE_MAX] = {
         [UNIT_STUB] = "stub",
         [UNIT_LOADED] = "loaded",
-        [UNIT_FAILED] = "failed"
+        [UNIT_FAILED] = "failed",
+        [UNIT_MERGED] = "merged"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);

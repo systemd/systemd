@@ -125,6 +125,8 @@ struct Manager {
         LIST_HEAD(Meta, dbus_unit_queue);
         LIST_HEAD(Job, dbus_job_queue);
 
+        LIST_HEAD(Meta, cleanup_queue);
+
         /* Jobs to be added */
         Hashmap *transaction_jobs;      /* Unit object => Job object list 1:1 */
         JobDependency *transaction_anchor;
@@ -181,7 +183,7 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool for
 void manager_dump_units(Manager *s, FILE *f, const char *prefix);
 void manager_dump_jobs(Manager *s, FILE *f, const char *prefix);
 
-void manager_transaction_unlink_job(Manager *m, Job *j);
+void manager_transaction_unlink_job(Manager *m, Job *j, bool delete_dependencies);
 
 void manager_clear_jobs(Manager *m);
 

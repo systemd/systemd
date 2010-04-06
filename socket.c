@@ -30,6 +30,8 @@
 #include "unit.h"
 #include "socket.h"
 #include "log.h"
+#include "load-dropin.h"
+#include "load-fragment.h"
 
 static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_DEAD] = UNIT_INACTIVE,
@@ -92,7 +94,7 @@ static void socket_done(Unit *u) {
         unit_unwatch_timer(u, &s->timer_watch);
 }
 
-static int socket_init(Unit *u) {
+static int socket_init(Unit *u, UnitLoadState *new_state) {
         Socket *s = SOCKET(u);
         char *t;
         int r;
@@ -109,35 +111,38 @@ static int socket_init(Unit *u) {
         s->socket_mode = 0666;
         exec_context_init(&s->exec_context);
 
-        if ((r = unit_load_fragment_and_dropin(u)) <= 0) {
-                if (r == 0)
-                        r = -ENOENT;
-                goto fail;
+        if ((r = unit_load_fragment(u, new_state)) < 0)
+                return r;
+
+        if (*new_state == UNIT_STUB)
+                return -ENOENT;
+
+        if ((r = unit_load_dropin(unit_follow_merge(u))) < 0)
+                return r;
+
+        /* This is a new unit? Then let's add in some extras */
+        if (*new_state == UNIT_LOADED) {
+
+                if (!(t = unit_name_change_suffix(unit_id(u), ".service")))
+                        return -ENOMEM;
+
+                r = manager_load_unit(u->meta.manager, t, (Unit**) &s->service);
+                free(t);
+
+                if (r < 0)
+                        return r;
+
+                if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(s->service))) < 0)
+                        return r;
+
+                if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
+                        return r;
+
+                if ((r = unit_add_default_cgroup(u)) < 0)
+                        return r;
         }
-
-        if (!(t = unit_name_change_suffix(unit_id(u), ".service"))) {
-                r = -ENOMEM;
-                goto fail;
-        }
-
-        r = manager_load_unit(u->meta.manager, t, (Unit**) &s->service);
-        free(t);
-
-        if (r < 0)
-                goto fail;
-
-        if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(s->service))) < 0)
-                goto fail;
-
-        /* Add default cgroup */
-        if ((r = unit_add_default_cgroup(u)) < 0)
-                goto fail;
 
         return 0;
-
-fail:
-        socket_done(u);
-        return r;
 }
 
 static const char* listen_lookup(int type) {

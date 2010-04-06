@@ -20,6 +20,7 @@
 ***/
 
 #include <errno.h>
+#include <signal.h>
 
 #include "unit.h"
 #include "target.h"
@@ -35,18 +36,6 @@ static const char* const state_string_table[_TARGET_STATE_MAX] = {
         [TARGET_DEAD] = "dead",
         [TARGET_ACTIVE] = "active"
 };
-
-static int target_init(Unit *u) {
-        int r;
-        assert(u);
-
-        /* Make sure this config file actually exists */
-
-        if ((r = unit_load_fragment_and_dropin(u)) <= 0)
-                return r < 0 ? r : -ENOENT;
-
-        return 0;
-}
 
 static void target_dump(Unit *u, FILE *f, const char *prefix) {
         Target *t = TARGET(u);
@@ -100,7 +89,7 @@ static UnitActiveState target_active_state(Unit *u) {
 const UnitVTable target_vtable = {
         .suffix = ".target",
 
-        .init = target_init,
+        .init = unit_load_fragment_and_dropin,
 
         .dump = target_dump,
 

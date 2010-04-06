@@ -100,6 +100,8 @@ struct Service {
         pid_t main_pid, control_pid;
         bool main_pid_known:1;
 
+        bool sysv_has_lsb:1;
+
         bool failure:1; /* if we shut down, remember why */
         Watch timer_watch;
 

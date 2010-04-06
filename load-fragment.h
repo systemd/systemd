@@ -26,6 +26,6 @@
 
 /* Read service data from .desktop file style configuration fragments */
 
-int unit_load_fragment(Unit *u);
+int unit_load_fragment(Unit *u, UnitLoadState *new_state);
 
 #endif

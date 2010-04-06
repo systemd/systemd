@@ -65,7 +65,7 @@ void job_free(Job *j) {
         }
 
         /* Detach from next 'smaller' objects */
-        manager_transaction_unlink_job(j->manager, j);
+        manager_transaction_unlink_job(j->manager, j, true);
 
         if (j->in_run_queue)
                 LIST_REMOVE(Job, run_queue, j->manager->run_queue, j);

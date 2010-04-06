@@ -30,19 +30,6 @@ static void timer_done(Unit *u) {
         assert(t);
 }
 
-static int timer_init(Unit *u) {
-        int r;
-
-        assert(u);
-
-        /* Make sure this config file actually exists */
-
-        if ((r = unit_load_fragment_and_dropin(u)) <= 0)
-                return r < 0 ? r : -ENOENT;
-
-        return 0;
-}
-
 static UnitActiveState timer_active_state(Unit *u) {
 
         static const UnitActiveState table[_TIMER_STATE_MAX] = {
@@ -57,7 +44,7 @@ static UnitActiveState timer_active_state(Unit *u) {
 const UnitVTable timer_vtable = {
         .suffix = ".timer",
 
-        .init = timer_init,
+        .init = unit_load_fragment_and_dropin,
         .done = timer_done,
 
         .active_state = timer_active_state

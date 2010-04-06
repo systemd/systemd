@@ -381,7 +381,7 @@ fail:
 const UnitVTable device_vtable = {
         .suffix = ".device",
 
-        .init = unit_load_fragment_and_dropin,
+        .init = unit_load_fragment_and_dropin_optional,
         .done = device_done,
         .coldplug = device_coldplug,
 

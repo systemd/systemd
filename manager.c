@@ -194,6 +194,7 @@ fail:
 static int manager_find_paths(Manager *m) {
         const char *e;
         char *t;
+
         assert(m);
 
         /* First priority is whatever has been passed to us via env
@@ -326,6 +327,22 @@ fail:
         return r;
 }
 
+static unsigned manager_dispatch_cleanup_queue(Manager *m) {
+        Meta *meta;
+        unsigned n = 0;
+
+        assert(m);
+
+        while ((meta = m->cleanup_queue)) {
+                assert(meta->in_cleanup_queue);
+
+                unit_free(UNIT(meta));
+                n++;
+        }
+
+        return n;
+}
+
 void manager_free(Manager *m) {
         UnitType c;
         Unit *u;
@@ -338,6 +355,8 @@ void manager_free(Manager *m) {
 
         while ((u = hashmap_first(m->units)))
                 unit_free(u);
+
+        manager_dispatch_cleanup_queue(m);
 
         for (c = 0; c < _UNIT_TYPE_MAX; c++)
                 if (unit_vtable[c]->shutdown)
@@ -402,13 +421,13 @@ int manager_coldplug(Manager *m) {
         return 0;
 }
 
-static void transaction_delete_job(Manager *m, Job *j) {
+static void transaction_delete_job(Manager *m, Job *j, bool delete_dependencies) {
         assert(m);
         assert(j);
 
         /* Deletes one job from the transaction */
 
-        manager_transaction_unlink_job(m, j);
+        manager_transaction_unlink_job(m, j, delete_dependencies);
 
         if (!j->installed)
                 job_free(j);
@@ -421,7 +440,7 @@ static void transaction_delete_unit(Manager *m, Unit *u) {
          * transaction */
 
         while ((j = hashmap_get(m->transaction_jobs, u)))
-                transaction_delete_job(m, j);
+                transaction_delete_job(m, j, true);
 }
 
 static void transaction_clean_dependencies(Manager *m) {
@@ -449,7 +468,7 @@ static void transaction_abort(Manager *m) {
 
         while ((j = hashmap_first(m->transaction_jobs)))
                 if (j->installed)
-                        transaction_delete_job(m, j);
+                        transaction_delete_job(m, j, true);
                 else
                         job_free(j);
 
@@ -541,7 +560,7 @@ static void transaction_merge_and_delete_job(Manager *m, Job *j, Job *other, Job
         /* Kill the other job */
         other->subject_list = NULL;
         other->object_list = NULL;
-        transaction_delete_job(m, other);
+        transaction_delete_job(m, other, true);
 }
 
 static int delete_one_unmergeable_job(Manager *m, Job *j) {
@@ -574,8 +593,8 @@ static int delete_one_unmergeable_job(Manager *m, Job *j) {
                                 return -ENOEXEC;
 
                         /* Ok, we can drop one, so let's do so. */
-                        log_debug("Try to fix job merging by deleting job %s/%s", unit_id(d->unit), job_type_to_string(d->type));
-                        transaction_delete_job(m, d);
+                        log_debug("Trying to fix job merging by deleting job %s/%s", unit_id(d->unit), job_type_to_string(d->type));
+                        transaction_delete_job(m, d, true);
                         return 0;
                 }
 
@@ -643,6 +662,46 @@ static int transaction_merge_jobs(Manager *m) {
         return 0;
 }
 
+static void transaction_drop_redundant(Manager *m) {
+        bool again;
+
+        assert(m);
+
+        /* Goes through the transaction and removes all jobs that are
+         * a noop */
+
+        do {
+                Job *j;
+                Iterator i;
+
+                again = false;
+
+                HASHMAP_FOREACH(j, m->transaction_jobs, i) {
+                        bool changes_something = false;
+                        Job *k;
+
+                        LIST_FOREACH(transaction, k, j) {
+
+                                if (!job_is_anchor(k) &&
+                                    job_type_is_redundant(k->type, unit_active_state(k->unit)))
+                                        continue;
+
+                                changes_something = true;
+                                break;
+                        }
+
+                        if (changes_something)
+                                continue;
+
+                        log_debug("Found redundant job %s/%s, dropping.", unit_id(j->unit), job_type_to_string(j->type));
+                        transaction_delete_job(m, j, false);
+                        again = true;
+                        break;
+                }
+
+        } while (again);
+}
+
 static bool unit_matters_to_anchor(Unit *u, Job *j) {
         assert(u);
         assert(!j->transaction_prev);
@@ -680,11 +739,11 @@ static int transaction_verify_order_one(Manager *m, Job *j, Job *from, unsigned 
                  * since smart how we are we stored our way back in
                  * there. */
 
-                log_debug("Found cycle on %s/%s", unit_id(j->unit), job_type_to_string(j->type));
+                log_debug("Found ordering cycle on %s/%s", unit_id(j->unit), job_type_to_string(j->type));
 
                 for (k = from; k; k = (k->generation == generation ? k->marker : NULL)) {
 
-                        log_debug("Walked on cycle path to %s/%s", unit_id(j->unit), job_type_to_string(j->type));
+                        log_debug("Walked on cycle path to %s/%s", unit_id(k->unit), job_type_to_string(k->type));
 
                         if (!k->installed &&
                             !unit_matters_to_anchor(k->unit, k)) {
@@ -772,7 +831,7 @@ static void transaction_collect_garbage(Manager *m) {
                                 continue;
 
                         log_debug("Garbage collecting job %s/%s", unit_id(j->unit), job_type_to_string(j->type));
-                        transaction_delete_job(m, j);
+                        transaction_delete_job(m, j, true);
                         again = true;
                         break;
                 }
@@ -847,7 +906,7 @@ static void transaction_minimize_impact(Manager *m) {
                                 /* Ok, let's get rid of this */
                                 log_debug("Deleting %s/%s to minimize impact.", unit_id(j->unit), job_type_to_string(j->type));
 
-                                transaction_delete_job(m, j);
+                                transaction_delete_job(m, j, true);
                                 again = true;
                                 break;
                         }
@@ -932,12 +991,15 @@ static int transaction_activate(Manager *m, JobMode mode) {
          * jobs if we don't have to. */
         transaction_minimize_impact(m);
 
+        /* Third step: Drop redundant jobs */
+        transaction_drop_redundant(m);
+
         for (;;) {
-                /* Third step: Let's remove unneeded jobs that might
+                /* Fourth step: Let's remove unneeded jobs that might
                  * be lurking. */
                 transaction_collect_garbage(m);
 
-                /* Fourth step: verify order makes sense and correct
+                /* Fifth step: verify order makes sense and correct
                  * cycles if necessary and possible */
                 if ((r = transaction_verify_order(m, &generation)) >= 0)
                         break;
@@ -952,7 +1014,7 @@ static int transaction_activate(Manager *m, JobMode mode) {
         }
 
         for (;;) {
-                /* Fifth step: let's drop unmergeable entries if
+                /* Sixth step: let's drop unmergeable entries if
                  * necessary and possible, merge entries we can
                  * merge */
                 if ((r = transaction_merge_jobs(m)) >= 0)
@@ -963,7 +1025,7 @@ static int transaction_activate(Manager *m, JobMode mode) {
                         goto rollback;
                 }
 
-                /* Sixth step: an entry got dropped, let's garbage
+                /* Seventh step: an entry got dropped, let's garbage
                  * collect its dependencies. */
                 transaction_collect_garbage(m);
 
@@ -971,14 +1033,17 @@ static int transaction_activate(Manager *m, JobMode mode) {
                  * unmergeable entries ... */
         }
 
-        /* Seventh step: check whether we can actually apply this */
+        /* Eights step: Drop redundant jobs again, if the merging now allows us to drop more. */
+        transaction_drop_redundant(m);
+
+        /* Ninth step: check whether we can actually apply this */
         if (mode == JOB_FAIL)
                 if ((r = transaction_is_destructive(m, mode)) < 0) {
                         log_debug("Requested transaction contradicts existing jobs: %s", strerror(-r));
                         goto rollback;
                 }
 
-        /* Eights step: apply changes */
+        /* Tenth step: apply changes */
         if ((r = transaction_apply(m, mode)) < 0) {
                 log_debug("Failed to apply transaction: %s", strerror(-r));
                 goto rollback;
@@ -1037,10 +1102,12 @@ static Job* transaction_add_one_job(Manager *m, JobType type, Unit *unit, bool f
         if (is_new)
                 *is_new = true;
 
+        log_debug("Added job %s/%s to transaction.", unit_id(unit), job_type_to_string(type));
+
         return j;
 }
 
-void manager_transaction_unlink_job(Manager *m, Job *j) {
+void manager_transaction_unlink_job(Manager *m, Job *j, bool delete_dependencies) {
         assert(m);
         assert(j);
 
@@ -1064,11 +1131,11 @@ void manager_transaction_unlink_job(Manager *m, Job *j) {
 
                 job_dependency_free(j->object_list);
 
-                if (other) {
+                if (other && delete_dependencies) {
                         log_debug("Deleting job %s/%s as dependency of job %s/%s",
                                   unit_id(other->unit), job_type_to_string(other->type),
                                   unit_id(j->unit), job_type_to_string(j->type));
-                        transaction_delete_job(m, other);
+                        transaction_delete_job(m, other, delete_dependencies);
                 }
         }
 }
@@ -1244,7 +1311,7 @@ int manager_load_unit(Manager *m, const char *path, Unit **_ret) {
 
         manager_dispatch_load_queue(m);
 
-        *_ret = ret;
+        *_ret = unit_follow_merge(ret);
         return 0;
 }
 
@@ -1317,10 +1384,9 @@ unsigned manager_dispatch_dbus_queue(Manager *m) {
         m->dispatching_dbus_queue = true;
 
         while ((meta = m->dbus_unit_queue)) {
-                Unit *u = (Unit*) meta;
-                assert(u->meta.in_dbus_queue);
+                assert(meta->in_dbus_queue);
 
-                bus_unit_send_change_signal(u);
+                bus_unit_send_change_signal(UNIT(meta));
                 n++;
         }
 
@@ -1521,7 +1587,7 @@ int manager_loop(Manager *m) {
 
         assert(m);
 
-        for (;;) {
+        do {
                 struct epoll_event event;
                 int n;
 
@@ -1530,6 +1596,9 @@ int manager_loop(Manager *m) {
                         log_warning("Looping too fast. Throttling execution a little.");
                         sleep(1);
                 }
+
+                if (manager_dispatch_cleanup_queue(m) > 0)
+                        continue;
 
                 if (manager_dispatch_load_queue(m) > 0)
                         continue;
@@ -1555,10 +1624,9 @@ int manager_loop(Manager *m) {
 
                 if ((r = process_event(m, &event, &quit)) < 0)
                         return r;
+        } while (!quit);
 
-                if (quit)
-                        return 0;
-        }
+        return 0;
 }
 
 int manager_get_unit_from_dbus_path(Manager *m, const char *s, Unit **_u) {

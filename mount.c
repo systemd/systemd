@@ -472,7 +472,7 @@ void mount_fd_event(Manager *m, int events) {
 const UnitVTable mount_vtable = {
         .suffix = ".mount",
 
-        .init = unit_load_fragment_and_dropin,
+        .init = unit_load_fragment_and_dropin_optional,
         .done = mount_done,
         .coldplug = mount_coldplug,
 
