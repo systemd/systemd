@@ -172,6 +172,9 @@ bool ignore_file(const char *filename);
         struct __useless_struct_to_allow_trailing_semicolon__
 
 
+int fd_nonblock(int fd, bool nonblock);
+int fd_cloexec(int fd, bool cloexec);
+
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);
 

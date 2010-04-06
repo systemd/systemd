@@ -32,6 +32,7 @@
 #include <linux/sched.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 
 #include "macro.h"
 #include "util.h"
@@ -1082,6 +1083,44 @@ bool ignore_file(const char *filename) {
                 endswith(filename, ".dpkg-old") ||
                 endswith(filename, ".dpkg-new") ||
                 endswith(filename, ".swp");
+}
+
+int fd_nonblock(int fd, bool nonblock) {
+        int flags;
+
+        assert(fd >= 0);
+
+        if ((flags = fcntl(fd, F_GETFL, 0)) < 0)
+                return -errno;
+
+        if (nonblock)
+                flags |= O_NONBLOCK;
+        else
+                flags &= ~O_NONBLOCK;
+
+        if (fcntl(fd, F_SETFL, flags) < 0)
+                return -errno;
+
+        return 0;
+}
+
+int fd_cloexec(int fd, bool cloexec) {
+        int flags;
+
+        assert(fd >= 0);
+
+        if ((flags = fcntl(fd, F_GETFD, 0)) < 0)
+                return -errno;
+
+        if (cloexec)
+                flags |= FD_CLOEXEC;
+        else
+                flags &= ~FD_CLOEXEC;
+
+        if (fcntl(fd, F_SETFD, flags) < 0)
+                return -errno;
+
+        return 0;
 }
 
 static const char *const ioprio_class_table[] = {
