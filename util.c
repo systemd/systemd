@@ -33,6 +33,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <dirent.h>
 
 #include "macro.h"
 #include "util.h"
@@ -1121,6 +1122,53 @@ int fd_cloexec(int fd, bool cloexec) {
                 return -errno;
 
         return 0;
+}
+
+int close_all_fds(const int except[], unsigned n_except) {
+        DIR *d;
+        struct dirent *de;
+        int r = 0;
+
+        if (!(d = opendir("/proc/self/fd")))
+                return -errno;
+
+        while ((de = readdir(d))) {
+                int fd;
+
+                if (de->d_name[0] == '.')
+                        continue;
+
+                if ((r = safe_atoi(de->d_name, &fd)) < 0)
+                        goto finish;
+
+                if (fd < 3)
+                        continue;
+
+                if (fd == dirfd(d))
+                        continue;
+
+                if (except) {
+                        bool found;
+                        unsigned i;
+
+                        found = false;
+                        for (i = 0; i < n_except; i++)
+                                if (except[i] == fd) {
+                                        found = true;
+                                        break;
+                                }
+
+                        if (found)
+                                continue;
+                }
+
+                if ((r = close_nointr(fd)) < 0)
+                        goto finish;
+        }
+
+finish:
+        closedir(d);
+        return r;
 }
 
 static const char *const ioprio_class_table[] = {

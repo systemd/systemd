@@ -44,60 +44,13 @@
 #include "securebits.h"
 #include "cgroup.h"
 
-static int close_fds(int except[], unsigned n_except) {
-        DIR *d;
-        struct dirent *de;
-        int r = 0;
-
-        /* Modifies the fds array! (sorts it) */
-
-        if (!(d = opendir("/proc/self/fd")))
-                return -errno;
-
-        while ((de = readdir(d))) {
-                int fd;
-
-                if (de->d_name[0] == '.')
-                        continue;
-
-                if ((r = safe_atoi(de->d_name, &fd)) < 0)
-                        goto finish;
-
-                if (fd < 3)
-                        continue;
-
-                if (fd == dirfd(d))
-                        continue;
-
-                if (except) {
-                        bool found;
-                        unsigned i;
-
-                        found = false;
-                        for (i = 0; i < n_except; i++)
-                                if (except[i] == fd) {
-                                        found = true;
-                                        break;
-                                }
-
-                        if (found)
-                                continue;
-                }
-
-                if ((r = close_nointr(fd)) < 0)
-                        goto finish;
-        }
-
-finish:
-        closedir(d);
-        return r;
-}
-
 static int shift_fds(int fds[], unsigned n_fds) {
         int start, restart_from;
 
         if (n_fds <= 0)
                 return 0;
+
+        /* Modifies the fds array! (sorts it) */
 
         assert(fds);
 
@@ -653,7 +606,7 @@ int exec_spawn(const ExecCommand *command,
                         free(d);
                 }
 
-                if (close_fds(fds, n_fds) < 0 ||
+                if (close_all_fds(fds, n_fds) < 0 ||
                     shift_fds(fds, n_fds) < 0 ||
                     flags_fds(fds, n_fds, context->non_blocking) < 0) {
                         r = EXIT_FDS;
