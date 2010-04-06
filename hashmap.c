@@ -96,7 +96,34 @@ int hashmap_ensure_allocated(Hashmap **h, hash_func_t hash_func, compare_func_t 
         return 0;
 }
 
-static void remove_entry(Hashmap *h, struct hashmap_entry *e) {
+static void link_entry(Hashmap *h, struct hashmap_entry *e, unsigned hash) {
+        assert(h);
+        assert(e);
+
+        /* Insert into hash table */
+        e->bucket_next = BY_HASH(h)[hash];
+        e->bucket_previous = NULL;
+        if (BY_HASH(h)[hash])
+                BY_HASH(h)[hash]->bucket_previous = e;
+        BY_HASH(h)[hash] = e;
+
+        /* Insert into iteration list */
+        e->iterate_previous = h->iterate_list_tail;
+        e->iterate_next = NULL;
+        if (h->iterate_list_tail) {
+                assert(h->iterate_list_head);
+                h->iterate_list_tail->iterate_next = e;
+        } else {
+                assert(!h->iterate_list_head);
+                h->iterate_list_head = e;
+        }
+        h->iterate_list_tail = e;
+
+        h->n_entries++;
+        assert(h->n_entries >= 1);
+}
+
+static void unlink_entry(Hashmap *h, struct hashmap_entry *e, unsigned hash) {
         assert(h);
         assert(e);
 
@@ -117,15 +144,23 @@ static void remove_entry(Hashmap *h, struct hashmap_entry *e) {
 
         if (e->bucket_previous)
                 e->bucket_previous->bucket_next = e->bucket_next;
-        else {
-                unsigned hash = h->hash_func(e->key) % NBUCKETS;
+        else
                 BY_HASH(h)[hash] = e->bucket_next;
-        }
-
-        free(e);
 
         assert(h->n_entries >= 1);
         h->n_entries--;
+}
+
+static void remove_entry(Hashmap *h, struct hashmap_entry *e) {
+        unsigned hash;
+
+        assert(h);
+        assert(e);
+
+        hash = h->hash_func(e->key) % NBUCKETS;
+
+        unlink_entry(h, e, hash);
+        free(e);
 }
 
 void hashmap_free(Hashmap*h) {
@@ -180,27 +215,7 @@ int hashmap_put(Hashmap *h, const void *key, void *value) {
         e->key = key;
         e->value = value;
 
-        /* Insert into hash table */
-        e->bucket_next = BY_HASH(h)[hash];
-        e->bucket_previous = NULL;
-        if (BY_HASH(h)[hash])
-                BY_HASH(h)[hash]->bucket_previous = e;
-        BY_HASH(h)[hash] = e;
-
-        /* Insert into iteration list */
-        e->iterate_previous = h->iterate_list_tail;
-        e->iterate_next = NULL;
-        if (h->iterate_list_tail) {
-                assert(h->iterate_list_head);
-                h->iterate_list_tail->iterate_next = e;
-        } else {
-                assert(!h->iterate_list_head);
-                h->iterate_list_head = e;
-        }
-        h->iterate_list_tail = e;
-
-        h->n_entries++;
-        assert(h->n_entries >= 1);
+        link_entry(h, e, hash);
 
         return 0;
 }
@@ -214,6 +229,7 @@ int hashmap_replace(Hashmap *h, const void *key, void *value) {
         hash = h->hash_func(key) % NBUCKETS;
 
         if ((e = hash_scan(h, hash, key))) {
+                e->key = key;
                 e->value = value;
                 return 0;
         }
@@ -253,6 +269,31 @@ void* hashmap_remove(Hashmap *h, const void *key) {
         remove_entry(h, e);
 
         return data;
+}
+
+int hashmap_remove_and_put(Hashmap *h, const void *old_key, const void *new_key, void *value) {
+        struct hashmap_entry *e;
+        unsigned old_hash, new_hash;
+
+        if (!h)
+                return -ENOENT;
+
+        old_hash = h->hash_func(old_key) % NBUCKETS;
+        if (!(e = hash_scan(h, old_hash, old_key)))
+                return -ENOENT;
+
+        new_hash = h->hash_func(new_key) % NBUCKETS;
+        if (hash_scan(h, new_hash, new_key))
+                return -EEXIST;
+
+        unlink_entry(h, e, old_hash);
+
+        e->key = new_key;
+        e->value = value;
+
+        link_entry(h, e, new_hash);
+
+        return 0;
 }
 
 void* hashmap_remove_value(Hashmap *h, const void *key, void *value) {
@@ -430,6 +471,57 @@ int hashmap_merge(Hashmap *h, Hashmap *other) {
                         if (r != -EEXIST)
                                 return r;
         }
+
+        return 0;
+}
+
+void hashmap_move(Hashmap *h, Hashmap *other) {
+        struct hashmap_entry *e, *n;
+
+        assert(h);
+
+        /* The same as hashmap_merge(), but every new item from other
+         * is moved to h. This function is guaranteed to succeed. */
+
+        if (!other)
+                return;
+
+        for (e = other->iterate_list_head; e; e = n) {
+                unsigned h_hash, other_hash;
+
+                n = e->iterate_next;
+
+                h_hash = h->hash_func(e->key) % NBUCKETS;
+
+                if (hash_scan(h, h_hash, e->key))
+                        continue;
+
+                other_hash = other->hash_func(e->key) % NBUCKETS;
+
+                unlink_entry(other, e, other_hash);
+                link_entry(h, e, h_hash);
+        }
+}
+
+int hashmap_move_one(Hashmap *h, Hashmap *other, const void *key) {
+        unsigned h_hash, other_hash;
+        struct hashmap_entry *e;
+
+        if (!other)
+                return 0;
+
+        assert(h);
+
+        h_hash = h->hash_func(key) % NBUCKETS;
+        if (hash_scan(h, h_hash, key))
+                return -EEXIST;
+
+        other_hash = other->hash_func(key) % NBUCKETS;
+        if (!(e = hash_scan(other, other_hash, key)))
+                return -ENOENT;
+
+        unlink_entry(other, e, other_hash);
+        link_entry(h, e, h_hash);
 
         return 0;
 }

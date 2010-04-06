@@ -55,8 +55,11 @@ int hashmap_replace(Hashmap *h, const void *key, void *value);
 void* hashmap_get(Hashmap *h, const void *key);
 void* hashmap_remove(Hashmap *h, const void *key);
 void* hashmap_remove_value(Hashmap *h, const void *key, void *value);
+int hashmap_remove_and_put(Hashmap *h, const void *old_key, const void *new_key, void *value);
 
 int hashmap_merge(Hashmap *h, Hashmap *other);
+void hashmap_move(Hashmap *h, Hashmap *other);
+int hashmap_move_one(Hashmap *h, Hashmap *other, const void *key);
 
 unsigned hashmap_size(Hashmap *h);
 bool hashmap_isempty(Hashmap *h);

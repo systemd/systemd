@@ -57,6 +57,10 @@ void *set_remove(Set *s, void *value) {
         return hashmap_remove(MAKE_HASHMAP(s), value);
 }
 
+int set_remove_and_put(Set *s, void *old_value, void *new_value) {
+        return hashmap_remove_and_put(MAKE_HASHMAP(s), old_value, new_value, new_value);
+}
+
 unsigned set_size(Set *s) {
         return hashmap_size(MAKE_HASHMAP(s));
 }
@@ -91,6 +95,14 @@ void* set_last(Set *s) {
 
 int set_merge(Set *s, Set *other) {
         return hashmap_merge(MAKE_HASHMAP(s), MAKE_HASHMAP(other));
+}
+
+void set_move(Set *s, Set *other) {
+        return hashmap_move(MAKE_HASHMAP(s), MAKE_HASHMAP(other));
+}
+
+int set_move_one(Set *s, Set *other, void *value) {
+        return hashmap_move_one(MAKE_HASHMAP(s), MAKE_HASHMAP(other), value);
 }
 
 Set* set_copy(Set *s) {
