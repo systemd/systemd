@@ -26,6 +26,22 @@
 
 #include "macro.h"
 
+typedef enum LogTarget{
+        LOG_TARGET_CONSOLE,
+        LOG_TARGET_SYSLOG,
+        LOG_TARGET_KMSG,
+        _LOG_TARGET_MAX,
+        _LOG_TARGET_INVALID = -1
+}  LogTarget;
+
+void log_set_target(LogTarget target);
+void log_set_max_level(int level);
+
+void log_close_kmsg(void);
+int log_open_kmsg(void);
+void log_close_syslog(void);
+int log_open_syslog(void);
+
 void log_meta(
         int level,
         const char*file,

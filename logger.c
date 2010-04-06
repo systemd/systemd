@@ -62,11 +62,6 @@ typedef enum StreamState {
         STREAM_RUNNING
 } StreamState;
 
-typedef enum LogTarget {
-        LOG_TARGET_SYSLOG,
-        LOG_TARGET_KMSG
-} LogTarget;
-
 struct Stream {
         Server *server;
 
@@ -89,7 +84,6 @@ struct Stream {
 static int stream_log(Stream *s, char *p, usec_t timestamp) {
 
         char header_priority[16], header_time[64], header_pid[16];
-        struct msghdr msghdr;
         struct iovec iovec[5];
 
         assert(s);
@@ -133,6 +127,8 @@ static int stream_log(Stream *s, char *p, usec_t timestamp) {
         IOVEC_SET_STRING(iovec[0], header_priority);
 
         if (s->target == LOG_TARGET_SYSLOG) {
+                struct msghdr msghdr;
+
                 IOVEC_SET_STRING(iovec[1], header_time);
                 IOVEC_SET_STRING(iovec[2], s->process);
                 IOVEC_SET_STRING(iovec[3], header_pid);

@@ -22,19 +22,121 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <errno.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #include "log.h"
+#include "util.h"
+#include "macro.h"
 
-void log_meta(
+extern char * __progname;
+
+#define SYSLOG_TIMEOUT_USEC (5*USEC_PER_SEC)
+#define LOG_BUFFER_MAX 1024
+
+static LogTarget log_target = LOG_TARGET_CONSOLE;
+static int log_max_level = LOG_DEBUG;
+
+static int syslog_fd = -1;
+static int kmsg_fd = -1;
+
+void log_close_kmsg(void) {
+
+        if (kmsg_fd >= 0) {
+                close_nointr(kmsg_fd);
+                kmsg_fd = -1;
+        }
+}
+
+int log_open_kmsg(void) {
+
+        if (log_target != LOG_TARGET_KMSG) {
+                log_close_kmsg();
+                return 0;
+        }
+
+        if (kmsg_fd >= 0)
+                return 0;
+
+        if ((kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0)
+                return -errno;
+
+        return 0;
+}
+
+void log_close_syslog(void) {
+
+        if (syslog_fd >= 0) {
+                close_nointr(syslog_fd);
+                syslog_fd = -1;
+        }
+}
+
+int log_open_syslog(void) {
+        union {
+                struct sockaddr sa;
+                struct sockaddr_un un;
+        } sa;
+        struct timeval tv;
+        int r;
+
+        if (log_target != LOG_TARGET_SYSLOG) {
+                log_close_syslog();
+                return 0;
+        }
+
+        if (syslog_fd >= 0)
+                return 0;
+
+        if ((syslog_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0)) < 0)
+                return -errno;
+
+        /* Make sure we don't block for more than 5s when talking to
+         * syslog */
+        timeval_store(&tv, SYSLOG_TIMEOUT_USEC);
+        if (setsockopt(syslog_fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) < 0) {
+                r = -errno;
+                log_close_syslog();
+                return r;
+        }
+
+        zero(sa);
+        sa.un.sun_family = AF_UNIX;
+        strncpy(sa.un.sun_path, "/dev/log", sizeof(sa.un.sun_path));
+
+        if (connect(syslog_fd, &sa.sa, sizeof(sa)) < 0) {
+                r = -errno;
+                log_close_syslog();
+                return -errno;
+        }
+
+        return 0;
+}
+
+void log_set_target(LogTarget target) {
+        assert(target >= 0);
+        assert(target < _LOG_TARGET_MAX);
+
+        log_target = target;
+}
+
+void log_set_max_level(int level) {
+        assert((level & LOG_PRIMASK) == level);
+
+        log_max_level = level;
+}
+
+static void write_to_console(
         int level,
         const char*file,
         int line,
         const char *func,
-        const char *format, ...) {
+        const char *format,
+        va_list ap) {
 
         const char *prefix, *suffix;
-        va_list ap;
-        int saved_errno = errno;
 
         if (LOG_PRI(level) <= LOG_ERR) {
                 prefix = "\x1B[1;31m";
@@ -44,13 +146,131 @@ void log_meta(
                 suffix = "";
         }
 
-        va_start(ap, format);
-
         fprintf(stderr, "(%s:%u) %s", file, line, prefix);
         vfprintf(stderr, format, ap);
         fprintf(stderr, "%s\n", suffix);
+}
 
-        va_end(ap);
+static int write_to_syslog(
+        int level,
+        const char*file,
+        int line,
+        const char *func,
+        const char *format,
+        va_list ap) {
+
+        char header_priority[16], header_time[64], header_pid[16];
+        char buffer[LOG_BUFFER_MAX];
+        struct iovec iovec[5];
+        struct msghdr msghdr;
+        time_t t;
+        struct tm *tm;
+
+        if (syslog_fd < 0)
+                return -EIO;
+
+        snprintf(header_priority, sizeof(header_priority), "<%i>", LOG_MAKEPRI(LOG_DAEMON, LOG_PRI(level)));
+        char_array_0(header_priority);
+
+        t = (time_t) (now(CLOCK_REALTIME) / USEC_PER_SEC);
+        if (!(tm = localtime(&t)))
+                return -EINVAL;
+
+        if (strftime(header_time, sizeof(header_time), "%h %e %T ", tm) <= 0)
+                return -EINVAL;
+
+        snprintf(header_pid, sizeof(header_pid), "[%llu]: ", (unsigned long long) getpid());
+        char_array_0(header_pid);
+
+        vsnprintf(buffer, sizeof(buffer), format, ap);
+        char_array_0(buffer);
+
+        zero(iovec);
+        IOVEC_SET_STRING(iovec[0], header_priority);
+        IOVEC_SET_STRING(iovec[1], header_time);
+        IOVEC_SET_STRING(iovec[2], file_name_from_path(__progname));
+        IOVEC_SET_STRING(iovec[3], header_pid);
+        IOVEC_SET_STRING(iovec[4], buffer);
+
+        zero(msghdr);
+        msghdr.msg_iov = iovec;
+        msghdr.msg_iovlen = ELEMENTSOF(iovec);
+
+        if (sendmsg(syslog_fd, &msghdr, 0) < 0)
+                return -errno;
+
+        return 0;
+}
+
+static int write_to_kmsg(
+        int level,
+        const char*file,
+        int line,
+        const char *func,
+        const char *format,
+        va_list ap) {
+
+        char header_priority[16], header_pid[16];
+        char buffer[LOG_BUFFER_MAX];
+        struct iovec iovec[5];
+
+        if (kmsg_fd < 0)
+                return -EIO;
+
+        snprintf(header_priority, sizeof(header_priority), "<%i>", LOG_PRI(level));
+        char_array_0(header_priority);
+
+        snprintf(header_pid, sizeof(header_pid), "[%llu]: ", (unsigned long long) getpid());
+        char_array_0(header_pid);
+
+        vsnprintf(buffer, sizeof(buffer), format, ap);
+        char_array_0(buffer);
+
+        zero(iovec);
+        IOVEC_SET_STRING(iovec[0], header_priority);
+        IOVEC_SET_STRING(iovec[1], file_name_from_path(__progname));
+        IOVEC_SET_STRING(iovec[2], header_pid);
+        IOVEC_SET_STRING(iovec[3], buffer);
+        IOVEC_SET_STRING(iovec[4], (char*) "\n");
+
+        if (writev(kmsg_fd, iovec, ELEMENTSOF(iovec)) < 0)
+                return -errno;
+
+        return 0;
+}
+
+void log_meta(
+        int level,
+        const char*file,
+        int line,
+        const char *func,
+        const char *format, ...) {
+
+        va_list ap;
+        bool written;
+        int saved_errno;
+
+        if (LOG_PRI(level) > log_max_level)
+                return;
+
+        saved_errno = errno;
+        written = false;
+
+        if (log_target == LOG_TARGET_KMSG) {
+                va_start(ap, format);
+                written = write_to_kmsg(level, file, line, func, format, ap) >= 0;
+                va_end(ap);
+        } else if (log_target == LOG_TARGET_SYSLOG) {
+                va_start(ap, format);
+                written = write_to_syslog(level, file, line, func, format, ap) >= 0;
+                va_end(ap);
+        }
+
+        if (!written) {
+                va_start(ap, format);
+                write_to_console(level, file, line, func, format, ap);
+                va_end(ap);
+        }
 
         errno = saved_errno;
 }
