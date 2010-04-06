@@ -37,10 +37,15 @@ typedef enum LogTarget{
 void log_set_target(LogTarget target);
 void log_set_max_level(int level);
 
+int log_set_target_from_string(const char *e);
+int log_set_max_level_from_string(const char *e);
+
 void log_close_kmsg(void);
 int log_open_kmsg(void);
 void log_close_syslog(void);
 int log_open_syslog(void);
+
+void log_parse_environment(void);
 
 void log_meta(
         int level,
@@ -54,5 +59,8 @@ void log_meta(
 #define log_notice(...)  log_meta(LOG_NOTICE,  __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define log_warning(...) log_meta(LOG_WARNING, __FILE__, __LINE__, __func__, __VA_ARGS__)
 #define log_error(...)   log_meta(LOG_ERR,     __FILE__, __LINE__, __func__, __VA_ARGS__)
+
+const char *log_target_to_string(LogTarget target);
+LogTarget log_target_from_string(const char *s);
 
 #endif

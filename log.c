@@ -272,3 +272,43 @@ void log_meta(
 
         errno = saved_errno;
 }
+
+int log_set_target_from_string(const char *e) {
+        LogTarget t;
+
+        if ((t = log_target_from_string(e)) < 0)
+                return -EINVAL;
+
+        log_set_target(t);
+        return 0;
+}
+
+int log_set_max_level_from_string(const char *e) {
+        int t;
+
+        if ((t = log_level_from_string(e)) < 0)
+                return -EINVAL;
+
+        log_set_max_level(t);
+        return 0;
+}
+
+void log_parse_environment(void) {
+        const char *e;
+
+        if ((e = getenv("SYSTEMD_LOG_TARGET")))
+                if (log_set_target_from_string(e) < 0)
+                        log_warning("Failed to parse log target %s. Ignoring.", e);
+
+        if ((e = getenv("SYSTEMD_LOG_LEVEL")))
+                if (log_set_max_level_from_string(e) < 0)
+                        log_warning("Failed to parse log level %s. Ignoring.", e);
+}
+
+static const char *const log_target_table[] = {
+        [LOG_TARGET_CONSOLE] = "console",
+        [LOG_TARGET_SYSLOG] = "syslog",
+        [LOG_TARGET_KMSG] = "kmsg",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);
