@@ -1175,8 +1175,8 @@ static int transaction_add_job_and_dependencies(Manager *m, JobType type, Unit *
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, !force, force, NULL)) < 0 && r != -EBADR)
                                         goto fail;
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_WANTS], i)
-                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, force, NULL)) < 0 && r != -EBADR)
-                                        goto fail;
+                                if ((r = transaction_add_job_and_dependencies(m, JOB_START, dep, ret, false, force, NULL)) < 0)
+                                        log_warning("Cannot add dependency job for unit %s, ignoring: %s", unit_id(dep), strerror(-r));
                         SET_FOREACH(dep, ret->unit->meta.dependencies[UNIT_REQUISITE], i)
                                 if ((r = transaction_add_job_and_dependencies(m, JOB_VERIFY_ACTIVE, dep, ret, true, force, NULL)) < 0 && r != -EBADR)
                                         goto fail;
