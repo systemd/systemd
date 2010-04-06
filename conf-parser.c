@@ -368,8 +368,10 @@ int config_parse_strv(
         if (!(n = new(char*, k+1)))
                 return -ENOMEM;
 
-        for (k = 0; (*sv)[k]; k++)
-                n[k] = (*sv)[k];
+        if (*sv)
+                for (k = 0; (*sv)[k]; k++)
+                        n[k] = (*sv)[k];
+
         FOREACH_WORD_QUOTED(w, l, rvalue, state)
                 if (!(n[k++] = strndup(w, l)))
                         goto fail;
