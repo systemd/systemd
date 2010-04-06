@@ -974,6 +974,32 @@ static int config_parse_cgroup(
         return 0;
 }
 
+static int config_parse_sysv_priority(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int *priority = data;
+        int r, i;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((r = safe_atoi(rvalue, &i)) < 0 || i < 0) {
+                log_error("[%s:%u] Failed to parse SysV start priority: %s", filename, line, rvalue);
+                return r;
+        }
+
+        *priority = (int) i;
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_id) {
@@ -1129,6 +1155,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "PermissionsStartOnly",   config_parse_bool,            &u->service.permissions_start_only,              "Service" },
                 { "RootDirectoryStartOnly", config_parse_bool,            &u->service.root_directory_start_only,           "Service" },
                 { "ValidNoProcess",         config_parse_bool,            &u->service.valid_no_process,                    "Service" },
+                { "SysVStartPriority",      config_parse_sysv_priority,   &u->service.sysv_start_priority,                 "Service" },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
 
                 { "ListenStream",           config_parse_listen,          &u->socket,                                      "Socket"  },
