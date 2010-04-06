@@ -1502,6 +1502,16 @@ static int manager_process_signal_fd(Manager *m, bool *quit) {
 
                         break;
 
+                case SIGUSR1:
+
+                        printf("→ By units:\n");
+                        manager_dump_units(m, stdout, "\t");
+
+                        printf("→ By jobs:\n");
+                        manager_dump_jobs(m, stdout, "\t");
+
+                        break;
+
                 default:
                         log_info("Got unhandled signal <%s>.", strsignal(sfsi.ssi_signo));
                 }
