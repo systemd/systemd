@@ -128,7 +128,7 @@ static DBusHandlerResult bus_job_message_dispatch(Job *j, DBusMessage *message) 
                 return bus_default_message_handler(j->manager, message, introspection, properties);
 
         if (reply) {
-                if (!dbus_connection_send(m->bus, reply, NULL))
+                if (!dbus_connection_send(m->api_bus, reply, NULL))
                         goto oom;
 
                 dbus_message_unref(reply);
@@ -209,7 +209,7 @@ void bus_job_send_change_signal(Job *j) {
                         goto oom;
         }
 
-        if (!dbus_connection_send(j->manager->bus, m, NULL))
+        if (!dbus_connection_send(j->manager->api_bus, m, NULL))
                 goto oom;
 
         free(p);
@@ -249,7 +249,7 @@ void bus_job_send_removed_signal(Job *j) {
                                       DBUS_TYPE_INVALID))
                 goto oom;
 
-        if (!dbus_connection_send(j->manager->bus, m, NULL))
+        if (!dbus_connection_send(j->manager->api_bus, m, NULL))
                 goto oom;
 
         free(p);

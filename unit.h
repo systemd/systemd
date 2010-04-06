@@ -284,6 +284,8 @@ int unit_load(Unit *unit);
 const char* unit_id(Unit *u);
 const char *unit_description(Unit *u);
 
+bool unit_has_name(Unit *u, const char *name);
+
 UnitActiveState unit_active_state(Unit *u);
 
 void unit_dump(Unit *u, FILE *f, const char *prefix);

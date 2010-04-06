@@ -131,6 +131,13 @@ Unit *unit_new(Manager *m) {
         return u;
 }
 
+bool unit_has_name(Unit *u, const char *name) {
+        assert(u);
+        assert(name);
+
+        return !!set_get(u->meta.names, (char*) name);
+}
+
 int unit_add_name(Unit *u, const char *text) {
         UnitType t;
         char *s;
@@ -905,6 +912,28 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                 retroactively_start_dependencies(u);
         else if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
                 retroactively_stop_dependencies(u);
+
+        if (!UNIT_IS_ACTIVE_OR_RELOADING(os) && UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
+
+                if (unit_has_name(u, SPECIAL_DBUS_SERVICE)) {
+                        /* The bus just got started, hence try to connect to it. */
+                        bus_init_system(u->meta.manager);
+                        bus_init_api(u->meta.manager);
+                }
+
+                if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE))
+                        /* The syslog daemon just got started, hence try to connect to it. */
+                        log_info("Syslog now available, this is where we should start logging to it.");
+
+        } else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
+
+                if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE))
+                        /* The syslog daemon just got terminated, hence try to disconnect from it. */
+                        log_info("Syslog now gone, this is where we should stio logging to it.");
+
+                /* We don't care about D-Bus here, since we'll get an
+                 * asynchronous notification for it anyway. */
+        }
 
         /* Maybe we finished startup and are now ready for being
          * stopped because unneeded? */

@@ -56,8 +56,10 @@ typedef struct BusProperty {
         "  </method>"                                                   \
         " </interface>"
 
-int bus_init(Manager *m);
-void bus_done(Manager *m);
+int bus_init_system(Manager *m);
+int bus_init_api(Manager *m);
+void bus_done_system(Manager *m);
+void bus_done_api(Manager *m);
 
 unsigned bus_dispatch(Manager *m);
 

@@ -315,8 +315,11 @@ int manager_new(Manager **_m) {
         if ((r = manager_setup_cgroup(m)) < 0)
                 goto fail;
 
-        /* FIXME: this should be called only when the D-Bus bus daemon is running */
-        if ((r = bus_init(m)) < 0)
+        dbus_connection_set_change_sigpipe(FALSE);
+
+        /* Try to connect to the busses, if possible. */
+        if ((r = bus_init_system(m)) < 0 ||
+            (r = bus_init_api(m)) < 0)
                 goto fail;
 
         *_m = m;
@@ -364,7 +367,8 @@ void manager_free(Manager *m) {
 
         manager_shutdown_cgroup(m);
 
-        bus_done(m);
+        bus_done_api(m);
+        bus_done_system(m);
 
         hashmap_free(m->units);
         hashmap_free(m->jobs);

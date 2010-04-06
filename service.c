@@ -732,7 +732,6 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sPIDFile: %s\n",
                         prefix, s->pid_file);
 
-
         exec_context_dump(&s->exec_context, f, prefix);
 
         for (c = 0; c < _SERVICE_EXEC_MAX; c++) {

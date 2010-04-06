@@ -135,7 +135,7 @@ struct Manager {
         bool dispatching_run_queue:1;
         bool dispatching_dbus_queue:1;
 
-        bool request_bus_dispatch:1;
+        bool request_api_bus_dispatch:1;
         bool request_system_bus_dispatch:1;
 
         Hashmap *watch_pids;  /* pid => Unit object n:1 */
@@ -157,7 +157,7 @@ struct Manager {
         Watch mount_watch;
 
         /* Data specific to the D-Bus subsystem */
-        DBusConnection *bus, *system_bus;
+        DBusConnection *api_bus, *system_bus;
         Set *subscribed;
 
         /* Data specific to the cgroup subsystem */

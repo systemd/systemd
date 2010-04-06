@@ -278,7 +278,7 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message
         }
 
         if (reply) {
-                if (!dbus_connection_send(m->bus, reply, NULL))
+                if (!dbus_connection_send(m->api_bus, reply, NULL))
                         goto oom;
 
                 dbus_message_unref(reply);
@@ -363,7 +363,7 @@ void bus_unit_send_change_signal(Unit *u) {
                         goto oom;
         }
 
-        if (!dbus_connection_send(u->meta.manager->bus, m, NULL))
+        if (!dbus_connection_send(u->meta.manager->api_bus, m, NULL))
                 goto oom;
 
         free(p);
@@ -405,7 +405,7 @@ void bus_unit_send_removed_signal(Unit *u) {
                                       DBUS_TYPE_INVALID))
                 goto oom;
 
-        if (!dbus_connection_send(u->meta.manager->bus, m, NULL))
+        if (!dbus_connection_send(u->meta.manager->api_bus, m, NULL))
                 goto oom;
 
         free(p);
