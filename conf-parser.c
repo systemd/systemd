@@ -135,6 +135,7 @@ int config_parse(const char *filename, FILE *f, const char* const * sections, co
         unsigned line = 0;
         char *section = NULL;
         int r;
+        bool ours = false;
 
         assert(filename);
         assert(t);
@@ -145,6 +146,8 @@ int config_parse(const char *filename, FILE *f, const char* const * sections, co
                         log_error("Failed to open configuration file '%s': %s", filename, strerror(-r));
                         goto finish;
                 }
+
+                ours = true;
         }
 
         while (!feof(f)) {
@@ -168,7 +171,7 @@ int config_parse(const char *filename, FILE *f, const char* const * sections, co
 finish:
         free(section);
 
-        if (f)
+        if (f && ours)
                 fclose(f);
 
         return r;
