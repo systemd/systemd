@@ -1058,16 +1058,16 @@ bool path_startswith(const char *path, const char *prefix) {
         }
 }
 
-char *ascii_strlower(char *path) {
+char *ascii_strlower(char *t) {
         char *p;
 
-        assert(path);
+        assert(t);
 
-        for (p = path; *p; p++)
+        for (p = t; *p; p++)
                 if (*p >= 'A' && *p <= 'Z')
                         *p = *p - 'A' + 'a';
 
-        return p;
+        return t;
 }
 
 bool ignore_file(const char *filename) {
