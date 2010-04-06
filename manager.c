@@ -256,15 +256,18 @@ static int manager_find_paths(Manager *m) {
         return 0;
 }
 
-int manager_new(Manager **_m) {
+int manager_new(ManagerRunningAs running_as, Manager **_m) {
         Manager *m;
         int r = -ENOMEM;
 
         assert(_m);
+        assert(running_as >= 0);
+        assert(running_as < _MANAGER_RUNNING_AS_MAX);
 
         if (!(m = new0(Manager, 1)))
                 return -ENOMEM;
 
+        m->running_as = running_as;
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
@@ -285,15 +288,6 @@ int manager_new(Manager **_m) {
 
         if ((m->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
                 goto fail;
-
-        if (getpid() == 1)
-                m->running_as = MANAGER_INIT;
-        else if (getuid() == 0)
-                m->running_as = MANAGER_SYSTEM;
-        else
-                m->running_as = MANAGER_SESSION;
-
-        log_debug("systemd running in %s mode.", manager_running_as_to_string(m->running_as));
 
         if ((r = manager_find_paths(m)) < 0)
                 goto fail;

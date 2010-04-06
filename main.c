@@ -39,6 +39,7 @@ static enum {
 } action = ACTION_RUN;
 
 static char *default_unit = NULL;
+static ManagerRunningAs running_as = _MANAGER_RUNNING_AS_INVALID;
 
 static int set_default_unit(const char *u) {
         char *c;
@@ -132,13 +133,15 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_LOG_LEVEL = 0x100,
                 ARG_LOG_TARGET,
-                ARG_DEFAULT
+                ARG_DEFAULT,
+                ARG_RUNNING_AS
         };
 
         static const struct option options[] = {
                 { "log-level",  required_argument, NULL, ARG_LOG_LEVEL },
                 { "log-target", required_argument, NULL, ARG_LOG_TARGET },
                 { "default",    required_argument, NULL, ARG_DEFAULT },
+                { "running-as", required_argument, NULL, ARG_RUNNING_AS },
                 { "help",       no_argument,       NULL, 'h' },
                 { NULL,         0,                 NULL, 0 }
         };
@@ -178,6 +181,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_RUNNING_AS: {
+                        ManagerRunningAs as;
+
+                        if ((as = manager_running_as_from_string(optarg)) < 0) {
+                                log_error("Failed to parse running as value %s", optarg);
+                                return -EINVAL;
+                        }
+
+                        running_as = as;
+                        break;
+                }
+
                 case 'h':
                         action = ACTION_HELP;
                         break;
@@ -204,7 +219,8 @@ static int help(void) {
                "  -h --help               Show this help\n"
                "     --default=UNIT       Set default unit\n"
                "     --log-level=LEVEL    Set log level\n"
-               "     --log-target=TARGET  Set log target (console, syslog, kmsg)\n",
+               "     --log-target=TARGET  Set log target (console, syslog, kmsg)\n"
+               "     --running-as=AS      Set running as (init, system, sesstion)\n",
                __progname);
 
         return 0;
@@ -215,6 +231,13 @@ int main(int argc, char *argv[]) {
         Unit *target = NULL;
         Job *job = NULL;
         int r, retval = 1;
+
+        if (getpid() == 1)
+                running_as = MANAGER_INIT;
+        else if (getuid() == 0)
+                running_as = MANAGER_SYSTEM;
+        else
+                running_as = MANAGER_SESSION;
 
         if (set_default_unit(SPECIAL_DEFAULT_TARGET) < 0)
                 goto finish;
@@ -229,8 +252,9 @@ int main(int argc, char *argv[]) {
         /* Close all open files */
         assert_se(close_all_fds(NULL, 0) == 0);
 
-        if (parse_proc_cmdline() < 0)
-                goto finish;
+        if (running_as != MANAGER_SESSION)
+                if (parse_proc_cmdline() < 0)
+                        goto finish;
 
         log_parse_environment();
 
@@ -260,7 +284,9 @@ int main(int argc, char *argv[]) {
         log_open_syslog();
         log_open_kmsg();
 
-        if ((r = manager_new(&m)) < 0) {
+        log_debug("systemd running in %s mode.", manager_running_as_to_string(running_as));
+
+        if ((r = manager_new(running_as, &m)) < 0) {
                 log_error("Failed to allocate manager object: %s", strerror(-r));
                 goto finish;
         }

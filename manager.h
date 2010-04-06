@@ -166,7 +166,7 @@ struct Manager {
         char *cgroup_hierarchy;
 };
 
-int manager_new(Manager **m);
+int manager_new(ManagerRunningAs running_as, Manager **m);
 void manager_free(Manager *m);
 
 int manager_coldplug(Manager *m);
