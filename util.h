@@ -163,10 +163,14 @@ bool ignore_file(const char *filename);
         }                                                               \
         type name##_from_string(const char *s) {                        \
                 type i;                                                 \
+                unsigned u;                                             \
                 assert(s);                                              \
                 for (i = 0; i < (type)ELEMENTSOF(name##_table); i++)    \
                         if (streq(name##_table[i], s))                  \
                                 return i;                               \
+                if (safe_atou(s, &u) >= 0 &&                            \
+                    u < ELEMENTSOF(name##_table))                       \
+                        return (type) u;                                \
                 return (type) -1;                                       \
         }                                                               \
         struct __useless_struct_to_allow_trailing_semicolon__
