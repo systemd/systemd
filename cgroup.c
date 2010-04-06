@@ -357,6 +357,9 @@ static int install_release_agent(Manager *m, const char *mount_point) {
                 return -EIO;
         }
 
+        free(p);
+        free(c);
+
         return 0;
 }
 
