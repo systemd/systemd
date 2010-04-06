@@ -265,6 +265,45 @@ bool job_type_is_conflicting(JobType a, JobType b) {
         return (a == JOB_STOP) != (b == JOB_STOP);
 }
 
+bool job_type_is_redundant(JobType a, UnitActiveState b) {
+        switch (a) {
+
+        case JOB_START:
+                return
+                        b == UNIT_ACTIVE ||
+                        b == UNIT_ACTIVE_RELOADING;
+
+        case JOB_STOP:
+                return
+                        b == UNIT_INACTIVE;
+
+        case JOB_VERIFY_ACTIVE:
+                return
+                        b == UNIT_ACTIVE ||
+                        b == UNIT_ACTIVE_RELOADING;
+
+        case JOB_RELOAD:
+                return
+                        b == UNIT_ACTIVE_RELOADING;
+
+        case JOB_RELOAD_OR_START:
+                return
+                        b == UNIT_ACTIVATING ||
+                        b == UNIT_ACTIVE_RELOADING;
+
+        case JOB_RESTART:
+                return
+                        b == UNIT_ACTIVATING;
+
+        case JOB_TRY_RESTART:
+                return
+                        b == UNIT_ACTIVATING;
+
+        default:
+                assert_not_reached("Invalid job type");
+        }
+}
+
 bool job_is_runnable(Job *j) {
         Iterator i;
         Unit *other;

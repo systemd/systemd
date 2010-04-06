@@ -126,6 +126,7 @@ int job_type_merge(JobType *a, JobType b);
 bool job_type_is_mergeable(JobType a, JobType b);
 bool job_type_is_superset(JobType a, JobType b);
 bool job_type_is_conflicting(JobType a, JobType b);
+bool job_type_is_redundant(JobType a, UnitActiveState b);
 
 bool job_is_runnable(Job *j);
 
