@@ -85,6 +85,10 @@ static int mount_one(const char *t[]) {
         if (r > 0)
                 return 0;
 
+        /* The access mode here doesn't really matter too much, since
+         * the mounted file system will take precedence anyway. */
+        mkdir(t[MOUNT_WHERE], 0755);
+
         log_debug("Mounting %s to %s of type %s with options %s.",
                   t[MOUNT_WHAT],
                   t[MOUNT_WHERE],
