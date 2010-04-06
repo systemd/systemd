@@ -371,6 +371,8 @@ int config_parse_strv(
         if (*sv)
                 for (k = 0; (*sv)[k]; k++)
                         n[k] = (*sv)[k];
+        else
+                k = 0;
 
         FOREACH_WORD_QUOTED(w, l, rvalue, state)
                 if (!(n[k++] = strndup(w, l)))
