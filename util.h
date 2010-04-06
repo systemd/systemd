@@ -177,6 +177,8 @@ int fd_cloexec(int fd, bool cloexec);
 
 int close_all_fds(const int except[], unsigned n_except);
 
+extern char * __progname;
+
 const char *ioprio_class_to_string(int i);
 int ioprio_class_from_string(const char *s);
 

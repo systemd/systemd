@@ -31,8 +31,6 @@
 #include "util.h"
 #include "macro.h"
 
-extern char * __progname;
-
 #define SYSLOG_TIMEOUT_USEC (5*USEC_PER_SEC)
 #define LOG_BUFFER_MAX 1024
 
@@ -188,7 +186,7 @@ static int write_to_syslog(
         zero(iovec);
         IOVEC_SET_STRING(iovec[0], header_priority);
         IOVEC_SET_STRING(iovec[1], header_time);
-        IOVEC_SET_STRING(iovec[2], file_name_from_path(__progname));
+        IOVEC_SET_STRING(iovec[2], __progname);
         IOVEC_SET_STRING(iovec[3], header_pid);
         IOVEC_SET_STRING(iovec[4], buffer);
 
@@ -228,7 +226,7 @@ static int write_to_kmsg(
 
         zero(iovec);
         IOVEC_SET_STRING(iovec[0], header_priority);
-        IOVEC_SET_STRING(iovec[1], file_name_from_path(__progname));
+        IOVEC_SET_STRING(iovec[1], __progname);
         IOVEC_SET_STRING(iovec[2], header_pid);
         IOVEC_SET_STRING(iovec[3], buffer);
         IOVEC_SET_STRING(iovec[4], (char*) "\n");
