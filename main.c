@@ -35,7 +35,8 @@
 
 static enum {
         ACTION_RUN,
-        ACTION_HELP
+        ACTION_HELP,
+        ACTION_TEST
 } action = ACTION_RUN;
 
 static char *default_unit = NULL;
@@ -134,7 +135,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOG_LEVEL = 0x100,
                 ARG_LOG_TARGET,
                 ARG_DEFAULT,
-                ARG_RUNNING_AS
+                ARG_RUNNING_AS,
+                ARG_TEST
         };
 
         static const struct option options[] = {
@@ -142,6 +144,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "log-target", required_argument, NULL, ARG_LOG_TARGET },
                 { "default",    required_argument, NULL, ARG_DEFAULT },
                 { "running-as", required_argument, NULL, ARG_RUNNING_AS },
+                { "test",       no_argument,       NULL, ARG_TEST },
                 { "help",       no_argument,       NULL, 'h' },
                 { NULL,         0,                 NULL, 0 }
         };
@@ -193,6 +196,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_TEST:
+                        action = ACTION_TEST;
+                        break;
+
                 case 'h':
                         action = ACTION_HELP;
                         break;
@@ -220,7 +227,8 @@ static int help(void) {
                "     --default=UNIT       Set default unit\n"
                "     --log-level=LEVEL    Set log level\n"
                "     --log-target=TARGET  Set log target (console, syslog, kmsg)\n"
-               "     --running-as=AS      Set running as (init, system, sesstion)\n",
+               "     --running-as=AS      Set running as (init, system, sesstion)\n"
+               "     --test               Determine startup sequence, dump it and exit\n",
                __progname);
 
         return 0;
@@ -266,7 +274,7 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        assert_se(action == ACTION_RUN);
+        assert_se(action == ACTION_RUN || action == ACTION_TEST);
 
         /* Move out of the way, so that we won't block unmounts */
         assert_se(chdir("/")  == 0);
@@ -303,16 +311,26 @@ int main(int argc, char *argv[]) {
                 goto finish;
         }
 
-        printf("→ By units:\n");
-        manager_dump_units(m, stdout, "\t");
+        if (action == ACTION_TEST) {
+                printf("→ By units:\n");
+                manager_dump_units(m, stdout, "\t");
+        }
 
         if ((r = manager_add_job(m, JOB_START, target, JOB_REPLACE, false, &job)) < 0) {
                 log_error("Failed to start default target: %s", strerror(-r));
                 goto finish;
         }
 
-        printf("→ By jobs:\n");
-        manager_dump_jobs(m, stdout, "\t");
+        if (action == ACTION_TEST) {
+                printf("→ By jobs:\n");
+                manager_dump_jobs(m, stdout, "\t");
+
+                if (getpid() == 1)
+                        pause();
+
+                retval = 0;
+                goto finish;
+        }
 
         if ((r = manager_loop(m)) < 0) {
                 log_error("Failed to run mainloop: %s", strerror(-r));
