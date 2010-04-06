@@ -1162,9 +1162,14 @@ int close_all_fds(const int except[], unsigned n_except) {
                                 continue;
                 }
 
-                if ((r = close_nointr(fd)) < 0)
-                        goto finish;
+                if ((r = close_nointr(fd)) < 0) {
+                        /* Valgrind has its own FD and doesn't want to have it closed */
+                        if (errno != EBADF)
+                                goto finish;
+                }
         }
+
+        r = 0;
 
 finish:
         closedir(d);
