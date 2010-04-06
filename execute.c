@@ -137,6 +137,7 @@ static int shift_fds(int fds[], unsigned n_fds) {
 
 static int flags_fds(int fds[], unsigned n_fds, bool nonblock) {
         unsigned i;
+        int r;
 
         if (n_fds <= 0)
                 return 0;
@@ -146,27 +147,16 @@ static int flags_fds(int fds[], unsigned n_fds, bool nonblock) {
         /* Drops/Sets O_NONBLOCK and FD_CLOEXEC from the file flags */
 
         for (i = 0; i < n_fds; i++) {
-                int flags;
 
-                if ((flags = fcntl(fds[i], F_GETFL, 0)) < 0)
-                        return -errno;
-
-                if (nonblock)
-                        flags |= O_NONBLOCK;
-                else
-                        flags &= ~O_NONBLOCK;
-
-                if (fcntl(fds[i], F_SETFL, flags) < 0)
-                        return -errno;
+                if ((r = fd_nonblock(fds[i], nonblock)) < 0)
+                        return r;
 
                 /* We unconditionally drop FD_CLOEXEC from the fds,
                  * since after all we want to pass these fds to our
                  * children */
-                if ((flags = fcntl(fds[i], F_GETFD, 0)) < 0)
-                        return -errno;
 
-                if (fcntl(fds[i], F_SETFD, flags &~FD_CLOEXEC) < 0)
-                        return -errno;
+                if ((r = fd_cloexec(fds[i], false)) < 0)
+                        return r;
         }
 
         return 0;
