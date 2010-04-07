@@ -93,6 +93,7 @@ struct ExecContext {
 
         bool cpu_sched_reset_on_fork;
         bool non_blocking;
+        bool new_session;
 
         ExecInput input;
         ExecOutput output;
@@ -148,7 +149,8 @@ typedef enum ExitStatus {
         EXIT_GROUP,
         EXIT_USER,
         EXIT_CAPABILITIES,
-        EXIT_CGROUP
+        EXIT_CGROUP,   /* 220 */
+        EXIT_SETSID
 } ExitStatus;
 
 int exec_spawn(const ExecCommand *command,

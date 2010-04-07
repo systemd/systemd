@@ -1145,7 +1145,8 @@ static int load_from_path(Unit *u, const char *path, UnitLoadState *new_state) {
                 { "LimitRTPRIO",            config_parse_limit,           &(context).rlimit[RLIMIT_RTPRIO],                section   }, \
                 { "LimitRTTIME",            config_parse_limit,           &(context).rlimit[RLIMIT_RTTIME],                section   }, \
                 { "NonBlocking",            config_parse_bool,            &(context).non_blocking,                         section   }, \
-                { "ControlGroup",           config_parse_cgroup,          u,                                               section   }  \
+                { "ControlGroup",           config_parse_cgroup,          u,                                               section   }, \
+                { "NewSession",             config_parse_bool,            &(context).new_session,                          section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Meta"    },

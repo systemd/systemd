@@ -489,9 +489,16 @@ int exec_spawn(const ExecCommand *command,
                         goto fail;
                 }
 
-                if (setpgid(0, 0) < 0) {
-                        r = EXIT_PGID;
-                        goto fail;
+                if (context->new_session) {
+                        if (setsid() < 0) {
+                                r = EXIT_SETSID;
+                                goto fail;
+                        }
+                } else {
+                        if (setpgid(0, 0) < 0) {
+                                r = EXIT_PGID;
+                                goto fail;
+                        }
                 }
 
                 umask(context->umask);
@@ -710,6 +717,12 @@ void exec_context_init(ExecContext *c) {
         c->cpu_sched_set = false;
         CPU_ZERO(&c->cpu_affinity);
         c->cpu_affinity_set = false;
+        c->timer_slack_ns = 0;
+        c->timer_slack_ns_set = false;
+
+        c->cpu_sched_reset_on_fork = false;
+        c->non_blocking = false;
+        c->new_session = false;
 
         c->input = 0;
         c->output = 0;
@@ -790,11 +803,13 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sUMask: %04o\n"
                 "%sWorkingDirectory: %s\n"
                 "%sRootDirectory: %s\n"
-                "%sNonBlocking: %s\n",
+                "%sNonBlocking: %s\n"
+                "%sNewSession: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
                 prefix, c->root_directory ? c->root_directory : "/",
-                prefix, yes_no(c->non_blocking));
+                prefix, yes_no(c->non_blocking),
+                prefix, yes_no(c->new_session));
 
         if (c->environment)
                 for (e = c->environment; *e; e++)
