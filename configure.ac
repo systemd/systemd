@@ -114,7 +114,7 @@ case $with_distro in
 esac
 
 AC_SUBST(SYSTEM_SYSVINIT_PATH)
-AC_SUBST(SYSTEM_RCND_PATH)
+AC_SUBST(SYSTEM_SYSVRCND_PATH)
 
 AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
 AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
