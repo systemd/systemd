@@ -36,13 +36,13 @@
 #define LINE_MAX 4096
 
 static const char * const rcnd_table[] = {
-        "../rc0.d", SPECIAL_RUNLEVEL0_TARGET,
-        "../rc1.d", SPECIAL_RUNLEVEL1_TARGET,
-        "../rc2.d", SPECIAL_RUNLEVEL2_TARGET,
-        "../rc3.d", SPECIAL_RUNLEVEL3_TARGET,
-        "../rc4.d", SPECIAL_RUNLEVEL4_TARGET,
-        "../rc5.d", SPECIAL_RUNLEVEL5_TARGET,
-        "../rc6.d", SPECIAL_RUNLEVEL6_TARGET
+        "/rc0.d", SPECIAL_RUNLEVEL0_TARGET,
+        "/rc1.d", SPECIAL_RUNLEVEL1_TARGET,
+        "/rc2.d", SPECIAL_RUNLEVEL2_TARGET,
+        "/rc3.d", SPECIAL_RUNLEVEL3_TARGET,
+        "/rc4.d", SPECIAL_RUNLEVEL4_TARGET,
+        "/rc5.d", SPECIAL_RUNLEVEL5_TARGET,
+        "/rc6.d", SPECIAL_RUNLEVEL6_TARGET
 };
 
 
@@ -218,7 +218,7 @@ static int priority_from_rcd(Service *s, const char *init_script) {
         char **p;
         unsigned i;
 
-        STRV_FOREACH(p, UNIT(s)->meta.manager->sysvinit_path)
+        STRV_FOREACH(p, UNIT(s)->meta.manager->sysrcnd_path)
                 for (i = 0; i < ELEMENTSOF(rcnd_table); i += 2) {
                         char *path;
                         DIR *d;

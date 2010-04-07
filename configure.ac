@@ -76,4 +76,59 @@ AC_SUBST(CGROUP_LIBS)
 AM_PROG_VALAC()
 AC_SUBST(VAPIDIR)
 
+AC_ARG_WITH(distro, AS_HELP_STRING([--with-distro=DISTRO],[Specify the distribution to target: One of fedora, suse, debian, or none]))
+if test "z$with_distro" = "z"; then
+        if test "$cross_compiling" = yes; then
+                AC_MSG_WARN([Target distribution cannot be reliably detected when cross-compiling. You should specify it with --with-distro (see $0 --help for recognized distros)])
+        else
+                AC_CHECK_FILE(/etc/redhat-release,with_distro="fedora")
+                AC_CHECK_FILE(/etc/SuSE-release,with_distro="suse")
+                AC_CHECK_FILE(/etc/debian_version,with_distro="debian")
+        fi
+        if test "z$with_distro" = "z"; then
+                with_distro=`uname -s`
+        fi
+fi
+with_distro=`echo ${with_distro} | tr '[[:upper:]]' '[[:lower:]]' `
+
+echo "hallo"
+
+case $with_distro in
+        fedora)
+                SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
+                SYSTEM_SYSVRCND_PATH=/etc/rc.d
+                ;;
+        suse)
+                SYSTEM_SYSVINIT_PATH=/etc/init.d
+                SYSTEM_SYSVRCND_PATH=/etc/init.d
+                ;;
+        debian)
+                SYSTEM_SYSVINIT_PATH=/etc/init.d
+                SYSTEM_SYSVRCND_PATH=/etc
+                ;;
+        none)
+                SYSTEM_SYSVINIT_PATH=/etc/fix/the/configure/script
+                SYSTEM_SYSVRCND_PATH=/etc/fix/the/configure/script
+                ;;
+        *)
+                AC_MSG_ERROR([Your distribution (${with_distro}) is not yet supported, SysV init scripts could not be found! (patches welcome); you can specify --with-distro=none to skip this check])
+                ;;
+esac
+
+echo "hallo"
+
+AC_SUBST(SYSTEM_SYSVINIT_PATH)
+AC_SUBST(SYSTEM_RCND_PATH)
+
+AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
+AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
+AM_CONDITIONAL(TARGET_DEBIAN, test x"$with_distro" = xdebian)
+
 AC_OUTPUT([Makefile])
+
+echo "
+        $PACKAGE_NAME $VERSION
+
+        SysV init scripts:       ${SYSTEM_SYSVINIT_PATH}
+        SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
+"

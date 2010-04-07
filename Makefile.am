@@ -23,7 +23,8 @@ AM_CPPFLAGS = \
         -include $(top_builddir)/config.h \
 	-DSYSTEM_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/system\" \
 	-DSYSTEM_DATA_UNIT_PATH=\"$(pkgdatadir)/system\" \
-	-DSYSTEM_SYSVINIT_PATH=\"$(sysconfdir)/init.d\" \
+	-DSYSTEM_SYSVINIT_PATH=\"$(SYSTEM_SYSVINIT_PATH)\" \
+	-DSYSTEM_RCND_PATH=\"$(SYSTEM_SYSVRCND_PATH)\" \
 	-DSESSION_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/session\" \
 	-DSESSION_DATA_UNIT_PATH=\"$(pkgdatadir)/session\" \
 	-DCGROUP_AGENT_PATH=\"$(pkglibexecdir)/systemd-cgroups-agent\"

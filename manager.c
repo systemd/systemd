@@ -232,10 +232,24 @@ static int manager_find_paths(Manager *m) {
                                               NULL)))
                                 return -ENOMEM;
                 }
+
+                if ((e = getenv("SYSTEMD_SYSVRCND_PATH")))
+                        if (!(m->sysvrcnd_path = split_path_and_make_absolute(e)))
+                                return -ENOMEM;
+
+                if (strv_isempty(m->sysvrcnd_path)) {
+                        strv_free(m->sysvrcnd_path);
+
+                        if (!(m->sysvrcnd_path = strv_new(
+                                              SYSTEM_SYSVRCND_PATH,     /* /etc/rcN.d/ */
+                                              NULL)))
+                                return -ENOMEM;
+                }
         }
 
         strv_uniq(m->unit_path);
         strv_uniq(m->sysvinit_path);
+        strv_uniq(m->sysvrcnd_path);
 
         assert(!strv_isempty(m->unit_path));
         if (!(t = strv_join(m->unit_path, "\n\t")))
@@ -252,6 +266,16 @@ static int manager_find_paths(Manager *m) {
                 free(t);
         } else
                 log_debug("Ignoring SysV init scripts.");
+
+        if (!strv_isempty(m->sysvrcnd_path)) {
+
+                if (!(t = strv_join(m->sysvrcnd_path, "\n\t")))
+                        return -ENOMEM;
+
+                log_debug("Looking for SysV rcN.d links in:\n\t%s", t);
+                free(t);
+        } else
+                log_debug("Ignoring SysV rcN.d links.");
 
         return 0;
 }
@@ -363,6 +387,7 @@ void manager_free(Manager *m) {
 
         strv_free(m->unit_path);
         strv_free(m->sysvinit_path);
+        strv_free(m->sysvrcnd_path);
 
         free(m->cgroup_controller);
         free(m->cgroup_hierarchy);

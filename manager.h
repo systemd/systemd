@@ -146,6 +146,7 @@ struct Manager {
 
         char **unit_path;
         char **sysvinit_path;
+        char **sysvrcnd_path;
 
         /* Data specific to the device subsystem */
         struct udev* udev;
