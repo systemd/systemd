@@ -1750,7 +1750,7 @@ static int service_enumerate(Manager *m) {
 
         assert(m);
 
-        STRV_FOREACH(p, m->sysvinit_path)
+        STRV_FOREACH(p, m->sysvrcnd_path)
                 for (i = 0; i < ELEMENTSOF(rcnd_table); i += 2) {
                         struct dirent *de;
 
