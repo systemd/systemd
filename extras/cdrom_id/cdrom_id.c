@@ -126,7 +126,6 @@ static int is_mounted(const char *device)
 	if (fp == NULL)
 		return -ENOSYS;
 	while (fscanf(fp, "%*s %*s %i:%i %*[^\n]", &maj, &min) == 2) {
-		printf("got %u %u\n", maj, min);
 		if (makedev(maj, min) == statbuf.st_rdev) {
 			mounted = 1;
 			break;
