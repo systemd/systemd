@@ -58,8 +58,10 @@ int log_open_kmsg(void) {
         if (kmsg_fd >= 0)
                 return 0;
 
-        if ((kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0)
+        if ((kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0) {
+                log_info("Failed to open syslog for logging: %s", strerror(errno));
                 return -errno;
+        }
 
         log_info("Succesfully opened /dev/kmsg for logging.");
 
@@ -109,7 +111,9 @@ int log_open_syslog(void) {
         if (connect(syslog_fd, &sa.sa, sizeof(sa)) < 0) {
                 r = -errno;
                 log_close_syslog();
-                return -errno;
+
+                log_info("Failed to open syslog for logging: %s", strerror(-r));
+                return r;
         }
 
         log_info("Succesfully opened syslog for logging.");
