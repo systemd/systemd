@@ -247,7 +247,8 @@ int main(int argc, char *argv[]) {
 
         /* Mount /proc, /sys and friends, so that /proc/cmdline and
          * /proc/$PID/fd is available. */
-        mount_setup();
+        if (mount_setup() < 0)
+                goto finish;
 
         /* Reset all signal handlers. */
         assert_se(reset_all_signal_handlers() == 0);
