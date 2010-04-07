@@ -916,14 +916,17 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         if (!UNIT_IS_ACTIVE_OR_RELOADING(os) && UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
 
                 if (unit_has_name(u, SPECIAL_DBUS_SERVICE)) {
+                        log_info("D-Bus became available, trying to reconnect.");
                         /* The bus just got started, hence try to connect to it. */
                         bus_init_system(u->meta.manager);
                         bus_init_api(u->meta.manager);
                 }
 
-                if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE))
+                if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE)) {
                         /* The syslog daemon just got started, hence try to connect to it. */
+                        log_info("Syslog became available, trying to reconnect.");
                         log_open_syslog();
+                }
 
         } else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
 
