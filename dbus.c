@@ -494,7 +494,7 @@ int bus_init_system(Manager *m) {
                 m->system_bus = m->api_bus;
         else {
                 if (!(m->system_bus = dbus_bus_get_private(DBUS_BUS_SYSTEM, &error))) {
-                        log_error("Failed to get D-Bus connection, retrying later: %s", error.message);
+                        log_debug("Failed to get system D-Bus connection, retrying later: %s", error.message);
                         dbus_error_free(&error);
                         return 0;
                 }
@@ -551,7 +551,7 @@ int bus_init_api(Manager *m) {
                 m->api_bus = m->system_bus;
         else {
                 if (!(m->api_bus = dbus_bus_get_private(m->running_as == MANAGER_SESSION ? DBUS_BUS_SESSION : DBUS_BUS_SYSTEM, &error))) {
-                        log_debug("Failed to get D-Bus connection, retrying later: %s", error.message);
+                        log_debug("Failed to get API D-Bus connection, retrying later: %s", error.message);
                         dbus_error_free(&error);
                         return 0;
                 }
