@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <getopt.h>
+#include <time.h>
 #include <scsi/sg.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -591,7 +592,22 @@ int main(int argc, char *argv[])
 		goto exit;
 	}
 
-	fd = open(node, O_RDONLY|O_NONBLOCK|(is_mounted(node) ? 0 : O_EXCL));
+	if (is_mounted(node)) {
+		fd = open(node, O_RDONLY|O_NONBLOCK);
+	} else {
+		int cnt;
+		struct timespec duration;
+
+		srand((unsigned int)getpid());
+		for (cnt = 40; cnt > 0; cnt--) {
+			fd = open(node, O_RDONLY|O_NONBLOCK|O_EXCL);
+			if (fd >= 0 || errno != EBUSY)
+				break;
+			duration.tv_sec = 0;
+			duration.tv_nsec = (100 * 1000 * 1000) + (rand() % 100 * 1000 * 1000);
+			nanosleep(&duration, NULL);
+		}
+	}
 	if (fd < 0) {
 		info(udev, "unable to open '%s'\n", node);
 		fprintf(stderr, "unable to open '%s'\n", node);
