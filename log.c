@@ -61,6 +61,8 @@ int log_open_kmsg(void) {
         if ((kmsg_fd = open("/dev/kmsg", O_WRONLY|O_NOCTTY|O_CLOEXEC)) < 0)
                 return -errno;
 
+        log_info("Succesfully opened /dev/kmsg for logging.");
+
         return 0;
 }
 
@@ -109,6 +111,8 @@ int log_open_syslog(void) {
                 log_close_syslog();
                 return -errno;
         }
+
+        log_info("Succesfully opened syslog for logging.");
 
         return 0;
 }
