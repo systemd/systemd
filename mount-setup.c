@@ -39,12 +39,13 @@ enum {
 };
 
 static const char *table[] = {
-        "proc",    "/proc",         "proc",     "rw",
-        "sysfs",   "/sys",          "sysfs",    "rw",
-        "devtmps", "/dev",          "devtmpfs", "mode=755",
-        "tmpfs",   "/dev/shm",      "tmpfs",    "mode=1777",
-        "devpts",  "/dev/pts",      "devpts",   "rw",
-        "cgroup",  "/cgroup/debug", "cgroup",   "debug",
+        "proc",    "/proc",             "proc",     NULL,
+        "sysfs",   "/sys",              "sysfs",    NULL,
+        "devtmps", "/dev",              "devtmpfs", "mode=755",
+        "tmpfs",   "/dev/shm",          "tmpfs",    "mode=1777",
+        "devpts",  "/dev/pts",          "devpts",   NULL,
+        "cgroup",  "/cgroup/debug",     "cgroup",   "debug",
+        "debugfs", "/sys/kernel/debug", "debugfs",  NULL,
         NULL
 };
 
