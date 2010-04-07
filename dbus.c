@@ -363,17 +363,19 @@ static DBusHandlerResult system_bus_message_filter(DBusConnection  *connection, 
 unsigned bus_dispatch(Manager *m) {
         assert(m);
 
-        if (m->request_api_bus_dispatch)
-                if (dbus_connection_dispatch(m->api_bus) == DBUS_DISPATCH_COMPLETE) {
+        if (m->request_api_bus_dispatch) {
+                if (dbus_connection_dispatch(m->api_bus) == DBUS_DISPATCH_COMPLETE)
                         m->request_api_bus_dispatch = false;
-                        return 1;
-                }
 
-        if (m->request_system_bus_dispatch)
-                if (dbus_connection_dispatch(m->system_bus) == DBUS_DISPATCH_COMPLETE) {
+                return 1;
+        }
+
+        if (m->request_system_bus_dispatch) {
+                if (dbus_connection_dispatch(m->system_bus) == DBUS_DISPATCH_COMPLETE)
                         m->request_system_bus_dispatch = false;
-                        return 1;
-                }
+
+                return 1;
+        }
 
         return 0;
 }
@@ -471,6 +473,7 @@ static int bus_setup_loop(Manager *m, DBusConnection *bus) {
         assert(bus);
 
         dbus_connection_set_exit_on_disconnect(bus, FALSE);
+
         if (!dbus_connection_set_watch_functions(bus, bus_add_watch, bus_remove_watch, bus_toggle_watch, m, NULL) ||
             !dbus_connection_set_timeout_functions(bus, bus_add_timeout, bus_remove_timeout, bus_toggle_timeout, m, NULL))
                 return -ENOMEM;
@@ -499,12 +502,13 @@ int bus_init_system(Manager *m) {
                         return 0;
                 }
 
+                dbus_connection_set_dispatch_status_function(m->system_bus, system_bus_dispatch_status, m, NULL);
+                m->request_system_bus_dispatch = true;
+
                 if ((r = bus_setup_loop(m, m->system_bus)) < 0) {
                         bus_done_system(m);
                         return r;
                 }
-
-                dbus_connection_set_dispatch_status_function(m->system_bus, system_bus_dispatch_status, m, NULL);
         }
 
         if (!dbus_connection_add_filter(m->system_bus, system_bus_message_filter, m, NULL)) {
@@ -530,8 +534,6 @@ int bus_init_system(Manager *m) {
                   strnull(dbus_bus_get_unique_name(m->system_bus)));
         dbus_free(id);
 
-        m->request_system_bus_dispatch = true;
-
         return 0;
 }
 
@@ -556,12 +558,13 @@ int bus_init_api(Manager *m) {
                         return 0;
                 }
 
+                dbus_connection_set_dispatch_status_function(m->api_bus, api_bus_dispatch_status, m, NULL);
+                m->request_api_bus_dispatch = true;
+
                 if ((r = bus_setup_loop(m, m->api_bus)) < 0) {
                         bus_done_api(m);
                         return r;
                 }
-
-                dbus_connection_set_dispatch_status_function(m->api_bus, api_bus_dispatch_status, m, NULL);
         }
 
         if (!dbus_connection_register_object_path(m->api_bus, "/org/freedesktop/systemd1", &bus_manager_vtable, m) ||
@@ -599,8 +602,6 @@ int bus_init_api(Manager *m) {
         if (!m->subscribed)
                 if (!(m->subscribed = set_new(string_hash_func, string_compare_func)))
                         return -ENOMEM;
-
-        m->request_api_bus_dispatch = true;
 
         return 0;
 }
