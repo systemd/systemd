@@ -863,21 +863,21 @@ int scsi_get_serial(struct udev *udev,
 {
 	unsigned char page0[SCSI_INQ_BUFF_LEN];
 	int fd = -1;
-	int cnt = 10;
+	int cnt;
 	int ind;
 	int retval;
 
 	memset(dev_scsi->serial, 0, len);
 	dbg(udev, "opening %s\n", devname);
-	while (--cnt) {
-		const struct timespec duration = { 0, 500 * 1000 * 1000 };
+	srand((unsigned int)getpid());
+	for (cnt = 20; cnt > 0; cnt--) {
+		struct timespec duration;
 
 		fd = open(devname, O_RDONLY | O_NONBLOCK);
-		if (fd >= 0)
+		if (fd >= 0 || errno != EBUSY)
 			break;
-		info(udev, "%s: cannot open %s: %s\n", dev_scsi->kernel, devname, strerror(errno));
-		if (errno != EBUSY)
-			break;
+		duration.tv_sec = 0;
+		duration.tv_nsec = (200 * 1000 * 1000) + (rand() % 100 * 1000 * 1000);
 		nanosleep(&duration, NULL);
 	}
 	if (fd < 0)
