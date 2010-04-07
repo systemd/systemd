@@ -826,6 +826,8 @@ static void retroactively_stop_dependencies(Unit *u) {
 }
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
+        bool unexpected = false;
+
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
         assert(ns < _UNIT_ACTIVE_STATE_MAX);
@@ -862,26 +864,24 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         case JOB_START:
                         case JOB_VERIFY_ACTIVE:
 
-                                if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
+                                if (UNIT_IS_ACTIVE_OR_RELOADING(ns))
                                         job_finish_and_invalidate(u->meta.job, true);
-                                        return;
-                                } else if (ns == UNIT_ACTIVATING)
-                                        return;
-                                else
+                                else if (ns != UNIT_ACTIVATING) {
+                                        unexpected = true;
                                         job_finish_and_invalidate(u->meta.job, false);
+                                }
 
                                 break;
 
                         case JOB_RELOAD:
                         case JOB_RELOAD_OR_START:
 
-                                if (ns == UNIT_ACTIVE) {
+                                if (ns == UNIT_ACTIVE)
                                         job_finish_and_invalidate(u->meta.job, true);
-                                        return;
-                                } else if (ns == UNIT_ACTIVATING || ns == UNIT_ACTIVE_RELOADING)
-                                        return;
-                                else
+                                else if (ns != UNIT_ACTIVATING && ns != UNIT_ACTIVE_RELOADING) {
+                                        unexpected = true;
                                         job_finish_and_invalidate(u->meta.job, false);
+                                }
 
                                 break;
 
@@ -889,13 +889,12 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         case JOB_RESTART:
                         case JOB_TRY_RESTART:
 
-                                if (ns == UNIT_INACTIVE) {
+                                if (ns == UNIT_INACTIVE)
                                         job_finish_and_invalidate(u->meta.job, true);
-                                        return;
-                                } else if (ns == UNIT_DEACTIVATING)
-                                        return;
-                                else
+                                else if (ns != UNIT_DEACTIVATING) {
+                                        unexpected = true;
                                         job_finish_and_invalidate(u->meta.job, false);
+                                }
 
                                 break;
 
@@ -908,10 +907,12 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         /* If this state change happened without being requested by a
          * job, then let's retroactively start or stop dependencies */
 
-        if (UNIT_IS_INACTIVE_OR_DEACTIVATING(os) && UNIT_IS_ACTIVE_OR_ACTIVATING(ns))
-                retroactively_start_dependencies(u);
-        else if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
-                retroactively_stop_dependencies(u);
+        if (unexpected) {
+                if (UNIT_IS_INACTIVE_OR_DEACTIVATING(os) && UNIT_IS_ACTIVE_OR_ACTIVATING(ns))
+                        retroactively_start_dependencies(u);
+                else if (UNIT_IS_ACTIVE_OR_ACTIVATING(os) && UNIT_IS_INACTIVE_OR_DEACTIVATING(ns))
+                        retroactively_stop_dependencies(u);
+        }
 
         if (!UNIT_IS_ACTIVE_OR_RELOADING(os) && UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
 
