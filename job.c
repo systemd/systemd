@@ -485,26 +485,26 @@ int job_finish_and_invalidate(Job *j, bool success) {
 
                         SET_FOREACH(other, u->meta.dependencies[UNIT_REQUIRED_BY], i)
                                 if (other->meta.job &&
-                                    (other->meta.type == JOB_START ||
-                                     other->meta.type == JOB_VERIFY_ACTIVE ||
-                                     other->meta.type == JOB_RELOAD_OR_START))
+                                    (other->meta.job->type == JOB_START ||
+                                     other->meta.job->type == JOB_VERIFY_ACTIVE ||
+                                     other->meta.job->type == JOB_RELOAD_OR_START))
                                         job_finish_and_invalidate(other->meta.job, false);
 
                         SET_FOREACH(other, u->meta.dependencies[UNIT_SOFT_REQUIRED_BY], i)
                                 if (other->meta.job &&
                                     !other->meta.job->forced &&
-                                    (other->meta.type == JOB_START ||
-                                     other->meta.type == JOB_VERIFY_ACTIVE ||
-                                     other->meta.type == JOB_RELOAD_OR_START))
+                                    (other->meta.job->type == JOB_START ||
+                                     other->meta.job->type == JOB_VERIFY_ACTIVE ||
+                                     other->meta.job->type == JOB_RELOAD_OR_START))
                                         job_finish_and_invalidate(other->meta.job, false);
 
                 } else if (t == JOB_STOP) {
 
                         SET_FOREACH(other, u->meta.dependencies[UNIT_CONFLICTS], i)
                                 if (other->meta.job &&
-                                    (t == JOB_START ||
-                                     t == JOB_VERIFY_ACTIVE ||
-                                     t == JOB_RELOAD_OR_START))
+                                    (other->meta.job->type == JOB_START ||
+                                     other->meta.job->type == JOB_VERIFY_ACTIVE ||
+                                     other->meta.job->type == JOB_RELOAD_OR_START))
                                         job_finish_and_invalidate(other->meta.job, false);
                 }
         }
