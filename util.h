@@ -163,7 +163,7 @@ bool ignore_file(const char *filename);
         }                                                               \
         type name##_from_string(const char *s) {                        \
                 type i;                                                 \
-                unsigned u;                                             \
+                unsigned u = 0;                                         \
                 assert(s);                                              \
                 for (i = 0; i < (type)ELEMENTSOF(name##_table); i++)    \
                         if (streq(name##_table[i], s))                  \

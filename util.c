@@ -1133,7 +1133,7 @@ int close_all_fds(const int except[], unsigned n_except) {
                 return -errno;
 
         while ((de = readdir(d))) {
-                int fd;
+                int fd = -1;
 
                 if (de->d_name[0] == '.')
                         continue;
