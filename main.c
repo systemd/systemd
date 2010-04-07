@@ -212,11 +212,6 @@ static int parse_argv(int argc, char *argv[]) {
                         return -EINVAL;
                 }
 
-        if (optind < argc) {
-                log_error("Too many arguments.");
-                return -EINVAL;
-        }
-
         return 0;
 }
 
