@@ -272,6 +272,9 @@ int main(int argc, char *argv[]) {
 
         assert_se(action == ACTION_RUN || action == ACTION_TEST);
 
+        /* Set up PATH unless it is already set */
+        setenv("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", false);
+
         /* Move out of the way, so that we won't block unmounts */
         assert_se(chdir("/")  == 0);
 
