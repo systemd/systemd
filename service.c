@@ -592,9 +592,17 @@ static int service_load_sysv_path(Service *s, const char *path, UnitLoadState *n
         if ((r = sysv_exec_commands(s)) < 0)
                 goto finish;
 
-        if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_BASIC_TARGET)) < 0 ||
-            (r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_BASIC_TARGET)) < 0)
-                goto finish;
+        if (!s->sysv_runlevels || chars_intersect("12345", s->sysv_runlevels)) {
+                /* If there a runlevels configured for this service
+                 * but none of the standard ones, then we assume this
+                 * is some special kind of service (which might be
+                 * needed for early boot) and don't create any links
+                 * to it. */
+
+                if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_BASIC_TARGET)) < 0 ||
+                    (r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_BASIC_TARGET)) < 0)
+                        goto finish;
+        }
 
         *new_state = UNIT_LOADED;
         r = 0;
