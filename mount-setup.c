@@ -29,6 +29,8 @@
 
 #include "mount-setup.h"
 #include "log.h"
+#include "macro.h"
+#include "util.h"
 
 enum {
         MOUNT_WHAT,
@@ -94,7 +96,7 @@ static int mount_one(const char *t[]) {
                   t[MOUNT_WHAT],
                   t[MOUNT_WHERE],
                   t[MOUNT_TYPE],
-                  t[MOUNT_OPTIONS]);
+                  strna(t[MOUNT_OPTIONS]));
 
         if (mount(t[MOUNT_WHAT],
                   t[MOUNT_WHERE],
