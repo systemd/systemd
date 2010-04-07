@@ -1415,6 +1415,8 @@ static int manager_dispatch_sigchld(Manager *m) {
                 if (!(u = hashmap_remove(m->watch_pids, UINT32_TO_PTR(si.si_pid))))
                         continue;
 
+                log_debug("child %llu belongs to %s", (long long unsigned) si.si_pid, unit_id(u));
+
                 UNIT_VTABLE(u)->sigchld_event(u, si.si_pid, si.si_code, si.si_status);
         }
 
