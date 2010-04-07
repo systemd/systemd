@@ -350,8 +350,6 @@ void device_fd_event(Manager *m, int events) {
         assert(m);
         assert(events == EPOLLIN);
 
-        log_debug("got udev event");
-
         if (!(dev = udev_monitor_receive_device(m->udev_monitor))) {
                 log_error("Failed to receive device.");
                 return;
