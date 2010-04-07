@@ -36,13 +36,14 @@
 #define LINE_MAX 4096
 
 static const char * const rcnd_table[] = {
-        "/rc0.d", SPECIAL_RUNLEVEL0_TARGET,
-        "/rc1.d", SPECIAL_RUNLEVEL1_TARGET,
-        "/rc2.d", SPECIAL_RUNLEVEL2_TARGET,
-        "/rc3.d", SPECIAL_RUNLEVEL3_TARGET,
-        "/rc4.d", SPECIAL_RUNLEVEL4_TARGET,
-        "/rc5.d", SPECIAL_RUNLEVEL5_TARGET,
-        "/rc6.d", SPECIAL_RUNLEVEL6_TARGET
+        "/rc0.d",  SPECIAL_RUNLEVEL0_TARGET,
+        "/rc1.d",  SPECIAL_RUNLEVEL1_TARGET,
+        "/rc2.d",  SPECIAL_RUNLEVEL2_TARGET,
+        "/rc3.d",  SPECIAL_RUNLEVEL3_TARGET,
+        "/rc4.d",  SPECIAL_RUNLEVEL4_TARGET,
+        "/rc5.d",  SPECIAL_RUNLEVEL5_TARGET,
+        "/rc6.d",  SPECIAL_RUNLEVEL6_TARGET,
+        "/boot.d", SPECIAL_BASIC_TARGET
 };
 
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
@@ -564,8 +565,8 @@ static int service_load_sysv_path(Service *s, const char *path, UnitLoadState *n
         if ((r = sysv_exec_commands(s)) < 0)
                 goto finish;
 
-        if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_BASIC_SERVICE)) < 0 ||
-            (r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_BASIC_SERVICE)) < 0)
+        if ((r = unit_add_dependency_by_name(u, UNIT_REQUIRES, SPECIAL_BASIC_TARGET)) < 0 ||
+            (r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_BASIC_TARGET)) < 0)
                 goto finish;
 
         *new_state = UNIT_LOADED;

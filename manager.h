@@ -82,7 +82,7 @@ struct Watch {
 #define SPECIAL_REMOTE_FS_TARGET "remote-fs.target"
 #define SPECIAL_SYSLOG_TARGET "syslog.target"             /* Should pull in syslog.socket or syslog.service */
 #define SPECIAL_RTC_SET_TARGET "rtc-set.target"           /* LSB's $time */
-#define SPECIAL_BASIC_SERVICE "basic.target"
+#define SPECIAL_BASIC_TARGET "basic.target"
 
 /* For SysV compatibility. Usually an alias for a saner target. On
  * SysV-free systems this doesn't exist. */
