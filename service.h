@@ -107,6 +107,7 @@ struct Service {
 
         char *sysv_path;
         int sysv_start_priority;
+        char *sysv_runlevels;
 
         RateLimit ratelimit;
 };

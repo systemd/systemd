@@ -74,6 +74,9 @@ static void service_done(Unit *u) {
         free(s->sysv_path);
         s->sysv_path = NULL;
 
+        free(s->sysv_runlevels);
+        s->sysv_runlevels = NULL;
+
         exec_context_done(&s->exec_context);
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_MAX);
         s->control_command = NULL;
@@ -344,22 +347,38 @@ static int service_load_sysv_path(Service *s, const char *path, UnitLoadState *n
 
                         if (startswith(t, "chkconfig:")) {
                                 int start_priority;
+                                char runlevels[16], *k;
 
                                 state = NORMAL;
 
-                                if (sscanf(t+10, "%*15s %i %*i",
-                                           &start_priority) != 1) {
+                                if (sscanf(t+10, "%15s %i %*i",
+                                           runlevels,
+                                           &start_priority) != 2) {
 
                                         log_warning("[%s:%u] Failed to parse chkconfig line. Ignoring.", path, line);
                                         continue;
                                 }
 
-                                if (start_priority < 0 || start_priority > 99) {
+                                if (start_priority < 0 || start_priority > 99)
                                         log_warning("[%s:%u] Start priority out of range. Ignoring.", path, line);
-                                        continue;
+                                else
+                                        s->sysv_start_priority = start_priority;
+
+                                char_array_0(runlevels);
+                                k = delete_chars(runlevels, WHITESPACE "-");
+
+                                if (k[0]) {
+                                        char *d;
+
+                                        if (!(d = strdup(k))) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+
+                                        free(s->sysv_runlevels);
+                                        s->sysv_runlevels = d;
                                 }
 
-                                s->sysv_start_priority = start_priority;
 
                         } else if (startswith(t, "description:")) {
 
@@ -490,6 +509,22 @@ static int service_load_sysv_path(Service *s, const char *path, UnitLoadState *n
                                         if (r < 0)
                                                 goto finish;
                                 }
+                        } else if (startswith(t, "Default-Start:")) {
+                                char *k, *d;
+
+                                state = LSB;
+
+                                k = delete_chars(t+14, WHITESPACE "-");
+
+                                if (k[0] != 0) {
+                                        if (!(d = strdup(k))) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+
+                                        free(s->sysv_runlevels);
+                                        s->sysv_runlevels = d;
+                                }
 
                         } else if (startswith(t, "Description:")) {
                                 char *d;
@@ -504,7 +539,8 @@ static int service_load_sysv_path(Service *s, const char *path, UnitLoadState *n
                                 free(u->meta.description);
                                 u->meta.description = d;
 
-                        } else if (startswith(t, "Short-Description:") && !u->meta.description) {
+                        } else if (startswith(t, "Short-Description:") &&
+                                   !u->meta.description) {
                                 char *d;
 
                                 /* We use the short description only
@@ -517,7 +553,6 @@ static int service_load_sysv_path(Service *s, const char *path, UnitLoadState *n
                                         goto finish;
                                 }
 
-                                free(u->meta.description);
                                 u->meta.description = d;
 
                         } else if (state == LSB_DESCRIPTION) {
@@ -749,6 +784,9 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                         "%sSysVStartPriority: %i\n",
                         prefix, s->sysv_start_priority);
 
+        if (s->sysv_runlevels)
+                fprintf(f, "%sSysVRunLevels: %s\n",
+                        prefix, s->sysv_runlevels);
 
         free(p2);
 }
