@@ -412,7 +412,7 @@ finish:
 int read_one_line_file(const char *fn, char **line) {
         FILE *f;
         int r;
-        char t[64], *c;
+        char t[2048], *c;
 
         assert(fn);
         assert(line);
