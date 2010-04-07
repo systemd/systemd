@@ -23,6 +23,7 @@ using GLib;
 static string type = null;
 static bool all = false;
 static bool replace = false;
+static bool session = false;
 
 public static int job_info_compare(void* key1, void* key2) {
         Manager.JobInfo *j1 = (Manager.JobInfo*) key1;
@@ -59,15 +60,17 @@ public void on_job_removed(uint32 id, ObjectPath path) {
 }
 
 static const OptionEntry entries[] = {
-        { "type",    't', 0, OptionArg.STRING, out type,    "List only particular type of units", "TYPE" },
-        { "all",     'a', 0, OptionArg.NONE,   out all,     "Show all units, including dead ones", null  },
-        { "replace", 0,   0, OptionArg.NONE,   out replace, "When installing a new job, replace existing conflicting ones.", null },
+        { "type",    't', 0,                   OptionArg.STRING, out type,    "List only particular type of units", "TYPE" },
+        { "all",     'a', 0,                   OptionArg.NONE,   out all,     "Show all units, including dead ones", null  },
+        { "replace", 0,   0,                   OptionArg.NONE,   out replace, "When installing a new job, replace existing conflicting ones", null },
+        { "session", 0,   0,                   OptionArg.NONE,   out session, "Connect to session bus", null },
+        { "system",  0,   OptionFlags.REVERSE, OptionArg.NONE,   out session, "Connect to system bus", null },
         { null }
 };
 
 int main (string[] args) {
 
-        OptionContext context = new OptionContext(" [COMMAND [ARGUMENT...]]");
+        OptionContext context = new OptionContext("[OPTION...] [COMMAND [ARGUMENT...]]");
         context.add_main_entries(entries, null);
         context.set_description(
                         "Commands:\n" +
@@ -89,7 +92,7 @@ int main (string[] args) {
         }
 
         try {
-                Connection bus = Bus.get(BusType.SESSION);
+                Connection bus = Bus.get(session ? BusType.SESSION : BusType.SYSTEM);
 
                 Manager manager = bus.get_object (
                                 "org.freedesktop.systemd1",

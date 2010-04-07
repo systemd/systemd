@@ -22,6 +22,8 @@ using GLib;
 using DBus;
 using Pango;
 
+static bool session = false;
+
 public class LeftLabel : Label {
         public LeftLabel(string? text = null) {
                 if (text != null)
@@ -95,7 +97,6 @@ public class MainWindow : Window {
                 Box job_vbox = new VBox(false, 6);
                 notebook.append_page(job_vbox, new Label("Jobs"));
                 job_vbox.set_border_width(12);
-
 
                 unit_model = new ListStore(6, typeof(string), typeof(string), typeof(string), typeof(string), typeof(string), typeof(Unit));
                 job_model = new ListStore(5, typeof(string), typeof(string), typeof(string), typeof(string), typeof(Job));
@@ -210,7 +211,7 @@ public class MainWindow : Window {
 
                 bbox.pack_start(cancel_button, false, true, 0);
 
-                bus = Bus.get(BusType.SESSION);
+                bus = Bus.get(session ? BusType.SESSION : BusType.SYSTEM);
 
                 manager = bus.get_object(
                                 "org.freedesktop.systemd1",
@@ -514,13 +515,22 @@ public class MainWindow : Window {
         }
 }
 
+static const OptionEntry entries[] = {
+        { "session", 0,   0,                   OptionArg.NONE,   out session, "Connect to session bus", null },
+        { "system",  0,   OptionFlags.REVERSE, OptionArg.NONE,   out session, "Connect to system bus", null },
+        { null }
+};
+
 int main (string[] args) {
-        Gtk.init(ref args);
 
         try {
+                Gtk.init_with_args(ref args, "[OPTION...]", entries, "systemadm");
+
                 MainWindow window = new MainWindow();
                 window.show_all();
         } catch (DBus.Error e) {
+                message("%s", e.message);
+        } catch (GLib.Error e) {
                 message("%s", e.message);
         }
 
