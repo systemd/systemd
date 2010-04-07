@@ -222,7 +222,7 @@ static int help(void) {
                "     --default=UNIT       Set default unit\n"
                "     --log-level=LEVEL    Set log level\n"
                "     --log-target=TARGET  Set log target (console, syslog, kmsg)\n"
-               "     --running-as=AS      Set running as (init, system, sesstion)\n"
+               "     --running-as=AS      Set running as (init, system, session)\n"
                "     --test               Determine startup sequence, dump it and exit\n",
                __progname);
 
