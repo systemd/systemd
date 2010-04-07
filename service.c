@@ -45,7 +45,6 @@ static const char * const rcnd_table[] = {
         "/rc6.d", SPECIAL_RUNLEVEL6_TARGET
 };
 
-
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD] = UNIT_INACTIVE,
         [SERVICE_START_PRE] = UNIT_ACTIVATING,
@@ -218,7 +217,7 @@ static int priority_from_rcd(Service *s, const char *init_script) {
         char **p;
         unsigned i;
 
-        STRV_FOREACH(p, UNIT(s)->meta.manager->sysrcnd_path)
+        STRV_FOREACH(p, UNIT(s)->meta.manager->sysvrcnd_path)
                 for (i = 0; i < ELEMENTSOF(rcnd_table); i += 2) {
                         char *path;
                         DIR *d;
