@@ -1193,6 +1193,17 @@ finish:
         return r;
 }
 
+bool chars_intersect(const char *a, const char *b) {
+        const char *p;
+
+        /* Returns true if any of the chars in a are in b. */
+        for (p = a; *p; p++)
+                if (strchr(b, *p))
+                        return true;
+
+        return false;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",

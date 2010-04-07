@@ -157,6 +157,8 @@ char *bus_path_unescape(const char *s);
 
 bool ignore_file(const char *filename);
 
+bool chars_intersect(const char *a, const char *b);
+
 #define DEFINE_STRING_TABLE_LOOKUP(name,type)                           \
         const char *name##_to_string(type i) {                          \
                 if (i < 0 || i >= (type) ELEMENTSOF(name##_table))      \
