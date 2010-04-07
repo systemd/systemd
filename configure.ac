@@ -91,8 +91,6 @@ if test "z$with_distro" = "z"; then
 fi
 with_distro=`echo ${with_distro} | tr '[[:upper:]]' '[[:lower:]]' `
 
-echo "hallo"
-
 case $with_distro in
         fedora)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
@@ -114,8 +112,6 @@ case $with_distro in
                 AC_MSG_ERROR([Your distribution (${with_distro}) is not yet supported, SysV init scripts could not be found! (patches welcome); you can specify --with-distro=none to skip this check])
                 ;;
 esac
-
-echo "hallo"
 
 AC_SUBST(SYSTEM_SYSVINIT_PATH)
 AC_SUBST(SYSTEM_RCND_PATH)
