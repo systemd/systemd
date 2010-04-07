@@ -611,6 +611,23 @@ char *strstrip(char *s) {
 
 }
 
+char *delete_chars(char *s, const char *bad) {
+        char *f, *t;
+
+        /* Drops all whitespace, regardless where in the string */
+
+        for (f = s, t = s; *f; f++) {
+                if (strchr(bad, *f))
+                        continue;
+
+                *(t++) = *f;
+        }
+
+        *t = 0;
+
+        return s;
+}
+
 char *file_in_same_dir(const char *path, const char *filename) {
         char *e, *r;
         size_t k;

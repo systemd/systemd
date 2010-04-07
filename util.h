@@ -129,6 +129,8 @@ char **strv_path_make_absolute_cwd(char **l);
 int reset_all_signal_handlers(void);
 
 char *strstrip(char *s);
+char *delete_chars(char *s, const char *bad);
+
 char *file_in_same_dir(const char *path, const char *filename);
 int mkdir_parents(const char *path, mode_t mode);
 
