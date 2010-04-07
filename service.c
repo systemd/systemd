@@ -484,15 +484,7 @@ static int service_load_sysv_path(Service *s, const char *path, UnitLoadState *n
                                         if (r == 0)
                                                 continue;
 
-                                        if (!(r = unit_add_dependency_by_name(u, UNIT_AFTER, m)) < 0) {
-                                                free(m);
-                                                goto finish;
-                                        }
-
-                                        r = unit_add_dependency_by_name(
-                                                        u,
-                                                        startswith(t, "Required-Start:") ? UNIT_REQUIRES : UNIT_WANTS,
-                                                        m);
+                                        r = unit_add_dependency_by_name(u, UNIT_AFTER, m);
                                         free(m);
 
                                         if (r < 0)
