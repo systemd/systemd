@@ -109,6 +109,9 @@ static int socket_init(Unit *u, UnitLoadState *new_state) {
         s->timeout_usec = DEFAULT_TIMEOUT_USEC;
         s->directory_mode = 0755;
         s->socket_mode = 0666;
+        s->kill_mode = 0;
+        s->failure = false;
+        s->control_pid = 0;
         exec_context_init(&s->exec_context);
 
         if ((r = unit_load_fragment(u, new_state)) < 0)
@@ -183,11 +186,13 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sSocket State: %s\n"
                 "%sBindIPv6Only: %s\n"
                 "%sBacklog: %u\n"
+                "%sKillMode: %s\n"
                 "%sSocketMode: %04o\n"
                 "%sDirectoryMode: %04o\n",
                 prefix, state_string_table[s->state],
                 prefix, yes_no(s->bind_ipv6_only),
                 prefix, s->backlog,
+                prefix, kill_mode_to_string(s->kill_mode),
                 prefix, s->socket_mode,
                 prefix, s->directory_mode);
 
@@ -471,13 +476,25 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
 
         if (s->control_pid > 0) {
                 int sig;
+                bool sent = false;
 
                 sig = (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_STOP_POST_SIGTERM) ? SIGTERM : SIGKILL;
 
-                if (kill(s->control_pid, sig) < 0 && errno != ESRCH) {
-                        r = -errno;
-                        goto fail;
+                if (s->kill_mode == KILL_CONTROL_GROUP) {
+
+                        if ((r = cgroup_bonding_kill_list(UNIT(s)->meta.cgroup_bondings, sig)) < 0) {
+                                if (r != -EAGAIN && r != -ESRCH)
+                                        goto fail;
+                        } else
+                                sent = true;
                 }
+
+                if (!sent)
+                        if (kill(s->kill_mode == KILL_PROCESS ? s->control_pid : -s->control_pid, sig) < 0 && errno != ESRCH) {
+                                r = -errno;
+                                goto fail;
+                        }
+
         }
 
         socket_set_state(s, state);

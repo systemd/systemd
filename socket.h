@@ -89,6 +89,8 @@ struct Socket {
 
         SocketState state;
 
+        KillMode kill_mode;
+
         ExecCommand* control_command;
         pid_t control_pid;
 

@@ -37,9 +37,6 @@ struct CGroupBonding {
 
         struct cgroup *cgroup;
 
-        /* When shutting down, kill all tasks? */
-        bool kill_all:1;
-
         /* When shutting down, remove cgroup? */
         bool clean_up:1;
 

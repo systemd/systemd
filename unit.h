@@ -43,6 +43,14 @@ typedef enum UnitDependency UnitDependency;
 #define DEFAULT_TIMEOUT_USEC (20*USEC_PER_SEC)
 #define DEFAULT_RESTART_USEC (100*USEC_PER_MSEC)
 
+typedef enum KillMode {
+        KILL_CONTROL_GROUP = 0,
+        KILL_PROCESS_GROUP,
+        KILL_PROCESS,
+        _KILL_MODE_MAX,
+        _KILL_MODE_INVALID = -1
+} KillMode;
+
 enum UnitType {
         UNIT_SERVICE = 0,
         UNIT_TIMER,
@@ -53,7 +61,7 @@ enum UnitType {
         UNIT_AUTOMOUNT,
         UNIT_SNAPSHOT,
         _UNIT_TYPE_MAX,
-        _UNIT_TYPE_INVALID = -1,
+        _UNIT_TYPE_INVALID = -1
 };
 
 enum UnitLoadState {
@@ -314,6 +322,8 @@ int set_unit_path(const char *p);
 
 char *unit_name_escape_path(const char *path, const char *suffix);
 
+char *unit_dbus_path(Unit *u);
+
 const char *unit_type_to_string(UnitType i);
 UnitType unit_type_from_string(const char *s);
 
@@ -326,6 +336,7 @@ UnitActiveState unit_active_state_from_string(const char *s);
 const char *unit_dependency_to_string(UnitDependency i);
 UnitDependency unit_dependency_from_string(const char *s);
 
-char *unit_dbus_path(Unit *u);
+const char *kill_mode_to_string(KillMode k);
+KillMode kill_mode_from_string(const char *s);
 
 #endif

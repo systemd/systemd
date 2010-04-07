@@ -1439,3 +1439,11 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
+
+static const char* const kill_mode_table[_KILL_MODE_MAX] = {
+        [KILL_PROCESS] = "process",
+        [KILL_PROCESS_GROUP] = "process-group",
+        [KILL_CONTROL_GROUP] = "control-group"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(kill_mode, KillMode);

@@ -979,6 +979,32 @@ static int config_parse_sysv_priority(
         return 0;
 }
 
+static int config_parse_kill_mode(
+                const char *filename,
+                unsigned line,
+                const char *section,
+                const char *lvalue,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        KillMode *m = data, x;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if ((x = kill_mode_from_string(rvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse kill mode specifier: %s", filename, line, rvalue);
+                return -EBADMSG;
+        }
+
+        *m = x;
+
+        return 0;
+}
+
 #define FOLLOW_MAX 8
 
 static int open_follow(char **filename, FILE **_f, Set *names, char **_id) {
@@ -1177,6 +1203,7 @@ static int load_from_path(Unit *u, const char *path, UnitLoadState *new_state) {
                 { "RootDirectoryStartOnly", config_parse_bool,            &u->service.root_directory_start_only,           "Service" },
                 { "ValidNoProcess",         config_parse_bool,            &u->service.valid_no_process,                    "Service" },
                 { "SysVStartPriority",      config_parse_sysv_priority,   &u->service.sysv_start_priority,                 "Service" },
+                { "KillMode",               config_parse_kill_mode,       &u->service.kill_mode,                           "Service" },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
 
                 { "ListenStream",           config_parse_listen,          &u->socket,                                      "Socket"  },
@@ -1192,6 +1219,7 @@ static int load_from_path(Unit *u, const char *path, UnitLoadState *new_state) {
                 { "ExecStopPost",           config_parse_exec,            u->socket.exec_command+SOCKET_EXEC_STOP_POST,    "Socket"  },
                 { "DirectoryMode",          config_parse_mode,            &u->socket.directory_mode,                       "Socket"  },
                 { "SocketMode",             config_parse_mode,            &u->socket.socket_mode,                          "Socket"  },
+                { "KillMode",               config_parse_kill_mode,       &u->socket.kill_mode,                            "Socket"  },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->socket.exec_context, "Socket"),
 
                 EXEC_CONTEXT_CONFIG_ITEMS(u->automount.exec_context, "Automount"),

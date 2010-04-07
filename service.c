@@ -700,8 +700,12 @@ static int service_init(Unit *u, UnitLoadState *new_state) {
         s->sysv_start_priority = -1;
         s->permissions_start_only = false;
         s->root_directory_start_only = false;
-
+        s->valid_no_process = false;
+        s->kill_mode = 0;
         s->sysv_has_lsb = false;
+        s->main_pid = s->control_pid = 0;
+        s->main_pid_known = false;
+        s->failure = false;
 
         RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
 
@@ -755,11 +759,13 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sPermissionsStartOnly: %s\n"
                 "%sRootDirectoryStartOnly: %s\n"
                 "%sValidNoProcess: %s\n"
+                "%sKillMode: %s\n"
                 "%sType: %s\n",
                 prefix, service_state_to_string(s->state),
                 prefix, yes_no(s->permissions_start_only),
                 prefix, yes_no(s->root_directory_start_only),
                 prefix, yes_no(s->valid_no_process),
+                prefix, kill_mode_to_string(s->kill_mode),
                 prefix, service_type_to_string(s->type));
 
         if (s->pid_file)
@@ -1154,23 +1160,34 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
 
                 sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? SIGTERM : SIGKILL;
 
-                r = 0;
-                if (s->main_pid > 0) {
-                        if (kill(s->main_pid, sig) < 0 && errno != ESRCH)
-                                r = -errno;
-                        else
+                if (s->kill_mode == KILL_CONTROL_GROUP) {
+
+                        if ((r = cgroup_bonding_kill_list(UNIT(s)->meta.cgroup_bondings, sig)) < 0) {
+                                if (r != -EAGAIN && r != -ESRCH)
+                                        goto fail;
+                        } else
                                 sent = true;
                 }
 
-                if (s->control_pid > 0) {
-                        if (kill(s->control_pid, sig) < 0 && errno != ESRCH)
-                                r = -errno;
-                        else
-                                sent = true;
-                }
+                if (!sent) {
+                        r = 0;
+                        if (s->main_pid > 0) {
+                                if (kill(s->kill_mode == KILL_PROCESS ? s->main_pid : -s->main_pid, sig) < 0 && errno != ESRCH)
+                                        r = -errno;
+                                else
+                                        sent = true;
+                        }
 
-                if (r < 0)
-                        goto fail;
+                        if (s->control_pid > 0) {
+                                if (kill(s->kill_mode == KILL_PROCESS ? s->control_pid : -s->control_pid, sig) < 0 && errno != ESRCH)
+                                        r = -errno;
+                                else
+                                        sent = true;
+                        }
+
+                        if (r < 0)
+                                goto fail;
+                }
         }
 
         service_set_state(s, state);
@@ -1538,7 +1555,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         s->exec_command[SERVICE_EXEC_START]->exec_status = s->main_exec_status;
                 }
 
-                log_debug("%s: main process exited, code=%s status=%i", unit_id(u), sigchld_code_to_string(code), status);
+                log_debug("%s: main process exited, code=%s, status=%i", unit_id(u), sigchld_code_to_string(code), status);
 
                 /* The service exited, so the service is officially
                  * gone. */

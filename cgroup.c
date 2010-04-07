@@ -174,12 +174,18 @@ int cgroup_bonding_kill(CGroupBonding *b, int sig) {
         int r;
         Set *s;
         bool done;
+        bool killed = false;
 
         assert(b);
         assert(sig > 0);
 
+        if (!b->only_us)
+                return -EAGAIN;
+
         if (!(s = set_new(trivial_hash_func, trivial_compare_func)))
                 return -ENOMEM;
+
+        log_debug("Killing processes from process group %s:%s", b->controller, b->path);
 
         do {
                 void *iterator;
@@ -208,6 +214,7 @@ int cgroup_bonding_kill(CGroupBonding *b, int sig) {
                                         break;
                                 }
 
+                                killed = true;
                                 done = false;
 
                                 if ((r = set_put(s, INT_TO_PTR(pid))) < 0)
@@ -235,20 +242,29 @@ int cgroup_bonding_kill(CGroupBonding *b, int sig) {
         } while (!done && r >= 0);
 
         set_free(s);
-        return r;
+
+        if (r < 0)
+                return r;
+
+        return killed ? 0 : -ESRCH;
 }
 
 int cgroup_bonding_kill_list(CGroupBonding *first, int sig) {
         CGroupBonding *b;
+        int r = -EAGAIN;
 
         LIST_FOREACH(by_unit, b, first) {
-                int r;
+                if ((r = cgroup_bonding_kill(b, sig)) < 0) {
+                        if (r == -EAGAIN || -ESRCH)
+                                continue;
 
-                if ((r = cgroup_bonding_kill(b, sig)) < 0)
                         return r;
+                }
+
+                return 0;
         }
 
-        return 0;
+        return r;
 }
 
 /* Returns 1 if the group is empty, 0 if it is not, -EAGAIN if we
