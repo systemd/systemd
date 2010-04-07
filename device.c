@@ -112,7 +112,7 @@ static int device_add_escaped_name(Unit *u, const char *dn, bool make_id) {
 }
 
 static int device_process_new_device(Manager *m, struct udev_device *dev, bool update_state) {
-        const char *dn, *names, *wants, *sysfs;
+        const char *dn, *names, *wants, *sysfs, *expose;
         Unit *u = NULL;
         int r;
         char *e, *w, *state;
@@ -122,19 +122,31 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
 
         assert(m);
 
+        if (!(sysfs = udev_device_get_syspath(dev)))
+                return -ENOMEM;
+
         /* Check whether this entry is even relevant for us. */
         dn = udev_device_get_devnode(dev);
+        expose = udev_device_get_property_value(dev, "SYSTEMD_EXPOSE");
         names = udev_device_get_property_value(dev, "SYSTEMD_NAMES");
         wants = udev_device_get_property_value(dev, "SYSTEMD_WANTS");
 
-        if (!dn && !names && !wants)
-                return 0;
+        if (expose) {
+                int b;
+
+                if ((b = parse_boolean(expose)) < 0) {
+                        log_error("Failed to parse SYSTEMD_EXPOSE udev property for device %s: %s", sysfs, expose);
+                        return 0;
+                }
+
+                if (!b)
+                        return 0;
+        } else
+                if (!dn && !names && !wants)
+                        return 0;
 
         /* Ok, seems kinda interesting. Now, let's see if this one
          * already exists. */
-
-        if (!(sysfs = udev_device_get_syspath(dev)))
-                return -ENOMEM;
 
         assert(sysfs[0] == '/');
         if (!(e = unit_name_escape_path(sysfs+1, ".device")))
