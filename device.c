@@ -49,6 +49,9 @@ static void device_set_state(Device *d, DeviceState state) {
         DeviceState old_state;
         assert(d);
 
+        if (state == d->state)
+                return;
+
         old_state = d->state;
         d->state = state;
 

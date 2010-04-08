@@ -968,6 +968,9 @@ static void service_set_state(Service *s, ServiceState state) {
             state == SERVICE_AUTO_RESTART)
                 service_notify_sockets(s);
 
+        if (old_state == state)
+                return;
+
         log_debug("%s changed %s → %s", unit_id(UNIT(s)), service_state_to_string(old_state), service_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);

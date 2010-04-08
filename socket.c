@@ -391,6 +391,9 @@ static void socket_set_state(Socket *s, SocketState state) {
         if (state != SOCKET_LISTENING)
                 socket_unwatch_fds(s);
 
+        if (state == old_state)
+                return;
+
         log_debug("%s changed %s → %s", unit_id(UNIT(s)), state_string_table[old_state], state_string_table[state]);
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);

@@ -52,6 +52,9 @@ static void target_set_state(Target *t, TargetState state) {
         TargetState old_state;
         assert(t);
 
+        if (state == t->state)
+                return;
+
         old_state = t->state;
         t->state = state;
 
