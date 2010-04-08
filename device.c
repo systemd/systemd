@@ -114,11 +114,34 @@ static int device_add_escaped_name(Unit *u, const char *dn, bool make_id) {
         return 0;
 }
 
+static int device_find_escape_name(Manager *m, const char *dn, Unit **_u) {
+        char *e;
+        Unit *u;
+
+        assert(m);
+        assert(dn);
+        assert(dn[0] == '/');
+        assert(_u);
+
+        if (!(e = unit_name_escape_path(dn+1, ".device")))
+                return -ENOMEM;
+
+        u = manager_get_unit(m, e);
+        free(e);
+
+        if (u) {
+                *_u = u;
+                return 1;
+        }
+
+        return 0;
+}
+
 static int device_process_new_device(Manager *m, struct udev_device *dev, bool update_state) {
-        const char *dn, *names, *wants, *sysfs, *expose;
+        const char *dn, *names, *wants, *sysfs, *expose, *model;
         Unit *u = NULL;
         int r;
-        char *e, *w, *state;
+        char *w, *state;
         size_t l;
         bool delete;
         struct udev_list_entry *item = NULL, *first = NULL;
@@ -151,24 +174,39 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
         /* Ok, seems kinda interesting. Now, let's see if this one
          * already exists. */
 
-        assert(sysfs[0] == '/');
-        if (!(e = unit_name_escape_path(sysfs+1, ".device")))
-                return -ENOMEM;
+        if ((r = device_find_escape_name(m, sysfs, &u)) < 0)
+                return r;
 
-        if (!(u = manager_get_unit(m, e))) {
-                const char *model;
+        if (r == 0 && dn)
+                if ((r = device_find_escape_name(m, dn, &u)) < 0)
+                        return r;
 
+        if (r == 0) {
+                first = udev_device_get_devlinks_list_entry(dev);
+                udev_list_entry_foreach(item, first) {
+                        if ((r = device_find_escape_name(m, udev_list_entry_get_name(item), &u)) < 0)
+                                return r;
+
+                        if (r > 0)
+                                break;
+                }
+        }
+
+        /* FIXME: this needs proper merging */
+
+        assert((r > 0) == !!u);
+
+        /* If this is a different unit, then let's not merge things */
+        if (u && DEVICE(u)->sysfs && !streq(DEVICE(u)->sysfs, sysfs))
+                u = NULL;
+
+        if (!u) {
                 delete = true;
 
-                if (!(u = unit_new(m))) {
-                        free(e);
+                if (!(u = unit_new(m)))
                         return -ENOMEM;
-                }
 
-                r = unit_add_name(u, e);
-                free(e);
-
-                if (r < 0)
+                if ((r = device_add_escaped_name(u, sysfs, true)) < 0)
                         goto fail;
 
                 if (!(DEVICE(u)->sysfs = strdup(sysfs))) {
@@ -176,19 +214,9 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
                         goto fail;
                 }
 
-                if ((model = udev_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE")) ||
-                    (model = udev_device_get_property_value(dev, "ID_MODEL"))) {
-                        if ((r = unit_set_description(u, model)) < 0)
-                                goto fail;
-                } else if (dn)
-                        if ((r = unit_set_description(u, dn)) < 0)
-                                goto fail;
-
                 unit_add_to_load_queue(u);
-        } else {
+        } else
                 delete = false;
-                free(e);
-        }
 
         if (dn)
                 if ((r = device_add_escaped_name(u, dn, true)) < 0)
@@ -199,8 +227,22 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
                 if ((r = device_add_escaped_name(u, udev_list_entry_get_name(item), false)) < 0)
                         goto fail;
 
+        if ((model = udev_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE")) ||
+            (model = udev_device_get_property_value(dev, "ID_MODEL"))) {
+                if ((r = unit_set_description(u, model)) < 0)
+                        goto fail;
+        } else if (dn)
+                if ((r = unit_set_description(u, dn)) < 0)
+                        goto fail;
+
+        /* We don't remove names that are gone. But that should be
+         * fine and should probably be fixed only on a configuration
+         * refresh. */
+
         if (names) {
                 FOREACH_WORD(w, l, names, state) {
+                        char *e;
+
                         if (!(e = strndup(w, l))) {
                                 r = -ENOMEM;
                                 goto fail;
@@ -216,6 +258,8 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
 
         if (wants) {
                 FOREACH_WORD(w, l, wants, state) {
+                        char *e;
+
                         if (!(e = strndup(w, l))) {
                                 r = -ENOMEM;
                                 goto fail;
