@@ -307,7 +307,12 @@ int main(int argc, char *argv[]) {
 
         if ((r = manager_load_unit(m, default_unit, &target)) < 0) {
                 log_error("Failed to load default target: %s", strerror(-r));
-                goto finish;
+
+                log_info("Trying to load rescue target...");
+                if ((r = manager_load_unit(m, SPECIAL_RESCUE_TARGET, &target)) < 0) {
+                        log_error("Failed to load rescue target: %s", strerror(-r));
+                        goto finish;
+                }
         }
 
         if (action == ACTION_TEST) {
