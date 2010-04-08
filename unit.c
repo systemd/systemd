@@ -394,6 +394,8 @@ int unit_merge(Unit *u, Unit *other) {
         assert(other);
         assert(u->meta.manager == other->meta.manager);
 
+        other = unit_follow_merge(other);
+
         if (other == u)
                 return 0;
 
@@ -403,7 +405,8 @@ int unit_merge(Unit *u, Unit *other) {
         if (u->meta.type != u->meta.type)
                 return -EINVAL;
 
-        if (other->meta.load_state != UNIT_STUB)
+        if (other->meta.load_state != UNIT_STUB &&
+            other->meta.load_state != UNIT_FAILED)
                 return -EEXIST;
 
         /* Merge names */
