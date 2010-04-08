@@ -117,7 +117,7 @@ int main (string[] args) {
                                 stdout.printf("%-45s %-6s %-12s", i.id, i.load_state, i.active_state);
 
                                 if (i.job_id != 0)
-                                        stdout.printf("→ %-15s", i.job_type);
+                                        stdout.printf(" → %-15s", i.job_type);
 
                                 stdout.puts("\n");
                                 n++;
