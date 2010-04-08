@@ -438,6 +438,33 @@ finish:
         return r;
 }
 
+char *truncate_nl(char *s) {
+        assert(s);
+
+        s[strcspn(s, NEWLINE)] = 0;
+        return s;
+}
+
+int get_process_name(pid_t pid, char **name) {
+        char *p;
+        int r;
+
+        assert(pid >= 1);
+        assert(name);
+
+        if (asprintf(&p, "/proc/%llu/comm", (unsigned long long) pid) < 0)
+                return -ENOMEM;
+
+        r = read_one_line_file(p, name);
+        free(p);
+
+        if (r < 0)
+                return r;
+
+        truncate_nl(*name);
+        return 0;
+}
+
 char *strappend(const char *s, const char *suffix) {
         size_t a, b;
         char *r;

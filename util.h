@@ -39,6 +39,7 @@ typedef uint64_t usec_t;
 
 /* What is interpreted as whitespace? */
 #define WHITESPACE " \t\n\r"
+#define NEWLINE "\n\r"
 
 usec_t now(clockid_t clock);
 
@@ -130,9 +131,12 @@ int reset_all_signal_handlers(void);
 
 char *strstrip(char *s);
 char *delete_chars(char *s, const char *bad);
+char *truncate_nl(char *s);
 
 char *file_in_same_dir(const char *path, const char *filename);
 int mkdir_parents(const char *path, mode_t mode);
+
+int get_process_name(pid_t pid, char **name);
 
 char hexchar(int x);
 int unhexchar(char c);

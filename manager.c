@@ -1414,8 +1414,6 @@ unsigned manager_dispatch_dbus_queue(Manager *m) {
 static int manager_dispatch_sigchld(Manager *m) {
         assert(m);
 
-        log_debug("dispatching SIGCHLD");
-
         for (;;) {
                 siginfo_t si;
                 Unit *u;
@@ -1469,9 +1467,16 @@ static int manager_process_signal_fd(Manager *m, bool *quit) {
 
                 switch (sfsi.ssi_signo) {
 
-                case SIGCHLD:
+                case SIGCHLD: {
+                        char *name = NULL;
+
+                        get_process_name(sfsi.ssi_pid, &name);
+                        log_debug("Got SIGCHLD for process %llu (%s)", (unsigned long long) sfsi.ssi_pid, strna(name));
+                        free(name);
+
                         sigchld = true;
                         break;
+                }
 
                 case SIGINT:
                 case SIGTERM:
