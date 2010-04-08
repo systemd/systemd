@@ -768,6 +768,16 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, kill_mode_to_string(s->kill_mode),
                 prefix, service_type_to_string(s->type));
 
+        if (s->control_pid > 0)
+                fprintf(f,
+                        "%sControl PID: %llu\n",
+                        prefix, (unsigned long long) s->control_pid);
+
+        if (s->main_pid > 0)
+                fprintf(f,
+                        "%sMain PID: %llu\n",
+                        prefix, (unsigned long long) s->main_pid);
+
         if (s->pid_file)
                 fprintf(f,
                         "%sPIDFile: %s\n",

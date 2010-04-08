@@ -196,6 +196,11 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 prefix, s->socket_mode,
                 prefix, s->directory_mode);
 
+        if (s->control_pid > 0)
+                fprintf(f,
+                        "%sControl PID: %llu\n",
+                        prefix, (unsigned long long) s->control_pid);
+
         if (s->bind_to_device)
                 fprintf(f,
                         "%sBindToDevice: %s\n",
