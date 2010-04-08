@@ -36,6 +36,10 @@ static void api_bus_dispatch_status(DBusConnection *bus, DBusDispatchStatus stat
 
         assert(bus);
         assert(m);
+
+        if (!m->api_bus)
+                return;
+
         assert(m->api_bus == bus);
 
         m->request_api_bus_dispatch = status != DBUS_DISPATCH_COMPLETE;
@@ -46,6 +50,10 @@ static void system_bus_dispatch_status(DBusConnection *bus, DBusDispatchStatus s
 
         assert(bus);
         assert(m);
+
+        if (!m->system_bus)
+                return;
+
         assert(m->system_bus == bus);
 
         m->request_system_bus_dispatch = status != DBUS_DISPATCH_COMPLETE;
@@ -304,7 +312,7 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection  *connection, DBu
         /*           dbus_message_get_path(message)); */
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
-                log_error("Warning! D-Bus connection terminated.");
+                log_error("Warning! API D-Bus connection terminated.");
                 bus_done_api(m);
 
         } else if (dbus_message_is_signal(message, DBUS_INTERFACE_DBUS, "NameOwnerChanged")) {
@@ -342,7 +350,7 @@ static DBusHandlerResult system_bus_message_filter(DBusConnection  *connection, 
         /*           dbus_message_get_path(message)); */
 
         if (dbus_message_is_signal(message, DBUS_INTERFACE_LOCAL, "Disconnected")) {
-                log_error("Warning! D-Bus connection terminated.");
+                log_error("Warning! System D-Bus connection terminated.");
                 bus_done_system(m);
 
         } if (dbus_message_is_signal(message, "org.freedesktop.systemd1.Agent", "Released")) {
@@ -613,11 +621,10 @@ void bus_done_api(Manager *m) {
                 if (m->system_bus == m->api_bus)
                         m->system_bus = NULL;
 
-                dbus_connection_close(m->api_bus);
                 dbus_connection_set_dispatch_status_function(m->api_bus, NULL, NULL, NULL);
+                dbus_connection_close(m->api_bus);
                 dbus_connection_unref(m->api_bus);
                 m->api_bus = NULL;
-
         }
 
         if (m->subscribed) {
@@ -638,8 +645,8 @@ void bus_done_system(Manager *m) {
                 bus_done_api(m);
 
         if (m->system_bus) {
-                dbus_connection_close(m->system_bus);
                 dbus_connection_set_dispatch_status_function(m->system_bus, NULL, NULL, NULL);
+                dbus_connection_close(m->system_bus);
                 dbus_connection_unref(m->system_bus);
                 m->system_bus = NULL;
         }
