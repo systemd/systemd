@@ -70,7 +70,7 @@ static int parse_proc_cmdline_word(const char *word) {
         };
 
         if (startswith(word, "systemd.default="))
-                return set_default_unit(word + 15);
+                return set_default_unit(word + 16);
 
         else if (startswith(word, "systemd.log_target=")) {
 
