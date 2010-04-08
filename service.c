@@ -845,6 +845,10 @@ static int service_load_pid_file(Service *s) {
                 return -ESRCH;
         }
 
+        if ((r = unit_watch_pid(UNIT(s), (pid_t) p)) < 0)
+                /* FIXME: we need to do something here */
+                return r;
+
         s->main_pid = (pid_t) p;
         s->main_pid_known = true;
 
