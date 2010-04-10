@@ -1316,55 +1316,72 @@ int unit_add_cgroup(Unit *u, CGroupBonding *b) {
         return 0;
 }
 
+static char *default_cgroup_path(Unit *u) {
+        char *p;
+
+        assert(u);
+
+        if (asprintf(&p, "%s/%s", u->meta.manager->cgroup_hierarchy, unit_id(u)) < 0)
+                return NULL;
+
+        return p;
+}
+
 int unit_add_cgroup_from_text(Unit *u, const char *name) {
         size_t n;
-        const char *p;
-        char *controller;
-        CGroupBonding *b;
+        char *controller = NULL, *path = NULL;
+        CGroupBonding *b = NULL;
         int r;
 
         assert(u);
         assert(name);
 
         /* Detect controller name */
-        n = strcspn(name, ":/");
+        n = strcspn(name, ":");
 
-        /* Only controller name, no path? No path? */
-        if (name[n] == 0)
-                return -EINVAL;
+        if (name[n] == 0 ||
+            (name[n] == ':' && name[n+1] == 0)) {
 
-        if (n > 0) {
-                if (name[n] != ':')
+                /* Only controller name, no path? */
+
+                if (!(path = default_cgroup_path(u)))
+                        return -ENOMEM;
+
+        } else {
+                const char *p;
+
+                /* Controller name, and path. */
+                p = name+n+1;
+
+                if (!path_is_absolute(p))
                         return -EINVAL;
 
-                p = name+n+1;
-        } else
-                p = name;
-
-        /* Insist in absolute paths */
-        if (p[0] != '/')
-                return -EINVAL;
-
-        if (!(controller = strndup(name, n)))
-                return -ENOMEM;
-
-        if (cgroup_bonding_find_list(u->meta.cgroup_bondings, controller)) {
-                free(controller);
-                return -EEXIST;
+                if (!(path = strdup(p)))
+                        return -ENOMEM;
         }
 
-        if (!(b = new0(CGroupBonding, 1))) {
-                free(controller);
-                return -ENOMEM;
-        }
+        if (n > 0)
+                controller = strndup(name, n);
+        else
+                controller = strdup(u->meta.manager->cgroup_controller);
 
-        b->controller = controller;
-
-        if (!(b->path = strdup(p))) {
+        if (!controller) {
                 r = -ENOMEM;
                 goto fail;
         }
 
+        if (cgroup_bonding_find_list(u->meta.cgroup_bondings, controller)) {
+                r = -EEXIST;
+                goto fail;
+        }
+
+        if (!(b = new0(CGroupBonding, 1))) {
+                r = -ENOMEM;
+                goto fail;
+        }
+
+        b->controller = controller;
+        b->path = path;
         b->only_us = false;
         b->clean_up = false;
 
@@ -1374,8 +1391,8 @@ int unit_add_cgroup_from_text(Unit *u, const char *name) {
         return 0;
 
 fail:
-        free(b->path);
-        free(b->controller);
+        free(path);
+        free(controller);
         free(b);
 
         return r;
@@ -1398,7 +1415,7 @@ int unit_add_default_cgroup(Unit *u) {
         if (!(b->controller = strdup(u->meta.manager->cgroup_controller)))
                 goto fail;
 
-        if (asprintf(&b->path, "%s/%s", u->meta.manager->cgroup_hierarchy, unit_id(u)) < 0)
+        if (!(b->path = default_cgroup_path(u)))
                 goto fail;
 
         b->clean_up = true;
