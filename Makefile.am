@@ -104,7 +104,9 @@ COMMON_SOURCES= \
 	cgroup.c \
 	cgroup.h \
 	mount-setup.c \
-	mount-setup.h
+	mount-setup.h \
+	hostname-setup.c \
+	hostname-setup.h
 
 systemd_SOURCES = \
 	$(COMMON_SOURCES) \

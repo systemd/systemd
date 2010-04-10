@@ -32,6 +32,8 @@
 #include "manager.h"
 #include "log.h"
 #include "mount-setup.h"
+#include "hostname-setup.h"
+#include "load-fragment.h"
 
 static enum {
         ACTION_RUN,
@@ -292,6 +294,10 @@ int main(int argc, char *argv[]) {
         log_open_kmsg();
 
         log_debug("systemd running in %s mode.", manager_running_as_to_string(running_as));
+
+        if (running_as == MANAGER_INIT)
+                if (hostname_setup() < 0)
+                        goto finish;
 
         if ((r = manager_new(running_as, &m)) < 0) {
                 log_error("Failed to allocate manager object: %s", strerror(-r));
