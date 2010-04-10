@@ -86,4 +86,21 @@ void bus_unit_send_removed_signal(Unit *u);
 void bus_job_send_change_signal(Job *j);
 void bus_job_send_removed_signal(Job *j);
 
+#define DEFINE_BUS_PROPERTY_APPEND_ENUM(function,name,type)            \
+        static int function(Manager *m, DBusMessageIter *i, const char *property, void *data) { \
+                const char *value;                                      \
+                type *field = data;                                     \
+                                                                        \
+                assert(m);                                              \
+                assert(i);                                              \
+                assert(property);                                       \
+                                                                        \
+                value = name##_to_string(*field);                       \
+                                                                        \
+                if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &value)) \
+                        return -ENOMEM;                                 \
+                                                                        \
+                return 0;                                               \
+        }
+
 #endif

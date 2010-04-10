@@ -39,39 +39,8 @@ static const char introspection[] =
         BUS_INTROSPECTABLE_INTERFACE
         "</node>";
 
-static int bus_job_append_state(Manager *m, DBusMessageIter *i, const char *property, void *data) {
-        Job *j = data;
-        const char *state;
-
-        assert(m);
-        assert(i);
-        assert(property);
-        assert(j);
-
-        state = job_state_to_string(j->state);
-
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &state))
-                return -ENOMEM;
-
-        return 0;
-}
-
-static int bus_job_append_type(Manager *m, DBusMessageIter *i, const char *property, void *data) {
-        Job *j = data;
-        const char *type;
-
-        assert(m);
-        assert(i);
-        assert(property);
-        assert(j);
-
-        type = job_type_to_string(j->type);
-
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &type))
-                return -ENOMEM;
-
-        return 0;
-}
+DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_job_append_state, job_state, JobState);
+DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_job_append_type, job_type, JobType);
 
 static int bus_job_append_unit(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Job *j = data;
@@ -108,10 +77,10 @@ static int bus_job_append_unit(Manager *m, DBusMessageIter *i, const char *prope
 
 static DBusHandlerResult bus_job_message_dispatch(Job *j, DBusMessage *message) {
         const BusProperty properties[] = {
-                { "org.freedesktop.systemd1.Job", "Id",      bus_property_append_uint32, "u",    &j->id },
-                { "org.freedesktop.systemd1.Job", "State",   bus_job_append_state,       "s",    j      },
-                { "org.freedesktop.systemd1.Job", "JobType", bus_job_append_type,        "s",    j      },
-                { "org.freedesktop.systemd1.Job", "Unit",    bus_job_append_unit,        "(so)", j      },
+                { "org.freedesktop.systemd1.Job", "Id",      bus_property_append_uint32, "u",    &j->id    },
+                { "org.freedesktop.systemd1.Job", "State",   bus_job_append_state,       "s",    &j->state },
+                { "org.freedesktop.systemd1.Job", "JobType", bus_job_append_type,        "s",    &j->type  },
+                { "org.freedesktop.systemd1.Job", "Unit",    bus_job_append_unit,        "(so)", j         },
                 { NULL, NULL, NULL, NULL, NULL }
         };
 

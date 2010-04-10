@@ -94,22 +94,7 @@ static int bus_unit_append_description(Manager *m, DBusMessageIter *i, const cha
         return 0;
 }
 
-static int bus_unit_append_load_state(Manager *m, DBusMessageIter *i, const char *property, void *data) {
-        Unit *u = data;
-        const char *state;
-
-        assert(m);
-        assert(i);
-        assert(property);
-        assert(u);
-
-        state = unit_load_state_to_string(u->meta.load_state);
-
-        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &state))
-                return -ENOMEM;
-
-        return 0;
-}
+DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_unit_append_load_state, unit_load_state, UnitLoadState);
 
 static int bus_unit_append_active_state(Manager *m, DBusMessageIter *i, const char *property, void *data) {
         Unit *u = data;
@@ -215,7 +200,7 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message
         const BusProperty properties[] = {
                 { "org.freedesktop.systemd1.Unit", "Id",                   bus_unit_append_id,           "s",    u                               },
                 { "org.freedesktop.systemd1.Unit", "Description",          bus_unit_append_description,  "s",    u                               },
-                { "org.freedesktop.systemd1.Unit", "LoadState",            bus_unit_append_load_state,   "s",    u                               },
+                { "org.freedesktop.systemd1.Unit", "LoadState",            bus_unit_append_load_state,   "s",    &u->meta.load_state             },
                 { "org.freedesktop.systemd1.Unit", "ActiveState",          bus_unit_append_active_state, "s",    u                               },
                 { "org.freedesktop.systemd1.Unit", "FragmentPath",         bus_property_append_string,   "s",    u->meta.fragment_path           },
                 { "org.freedesktop.systemd1.Unit", "ActiveEnterTimestamp", bus_property_append_uint64,   "t",    &u->meta.active_enter_timestamp },
