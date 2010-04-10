@@ -219,6 +219,7 @@ int unit_set_description(Unit *u, const char *description) {
 
 void unit_add_to_load_queue(Unit *u) {
         assert(u);
+        assert(u->meta.type != _UNIT_TYPE_INVALID);
 
         if (u->meta.load_state != UNIT_STUB || u->meta.in_load_queue)
                 return;
@@ -239,6 +240,7 @@ void unit_add_to_cleanup_queue(Unit *u) {
 
 void unit_add_to_dbus_queue(Unit *u) {
         assert(u);
+        assert(u->meta.type != _UNIT_TYPE_INVALID);
 
         if (u->meta.load_state == UNIT_STUB || u->meta.in_dbus_queue || set_isempty(u->meta.manager->subscribed))
                 return;
@@ -407,6 +409,12 @@ int unit_merge(Unit *u, Unit *other) {
 
         if (other->meta.load_state != UNIT_STUB &&
             other->meta.load_state != UNIT_FAILED)
+                return -EEXIST;
+
+        if (other->meta.job)
+                return -EEXIST;
+
+        if (unit_active_state(other) != UNIT_INACTIVE)
                 return -EEXIST;
 
         /* Merge names */
