@@ -29,7 +29,8 @@ typedef struct Target Target;
 typedef enum TargetState {
         TARGET_DEAD,
         TARGET_ACTIVE,
-        _TARGET_STATE_MAX
+        _TARGET_STATE_MAX,
+        _TARGET_STATE_INVALID = -1
 } TargetState;
 
 struct Target {
@@ -39,5 +40,7 @@ struct Target {
 };
 
 extern const UnitVTable target_vtable;
+
+int target_get_runlevel(Target *t);
 
 #endif

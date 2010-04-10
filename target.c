@@ -89,6 +89,35 @@ static UnitActiveState target_active_state(Unit *u) {
         return state_translation_table[TARGET(u)->state];
 }
 
+int target_get_runlevel(Target *t) {
+
+        static const struct {
+                const char *special;
+                const int runlevel;
+        } table[] = {
+                { SPECIAL_RUNLEVEL5_TARGET, '5' },
+                { SPECIAL_RUNLEVEL4_TARGET, '4' },
+                { SPECIAL_RUNLEVEL3_TARGET, '3' },
+                { SPECIAL_RUNLEVEL2_TARGET, '2' },
+                { SPECIAL_RUNLEVEL1_TARGET, '1' },
+                { SPECIAL_RUNLEVEL0_TARGET, '0' },
+                { SPECIAL_RUNLEVEL6_TARGET, '6' },
+        };
+
+        unsigned i;
+
+        assert(t);
+
+        /* Tries to determine if this is a SysV runlevel and returns
+         * it if that is so. */
+
+        for (i = 0; i < ELEMENTSOF(table); i++)
+                if (unit_has_name(UNIT(t), table[i].special))
+                        return table[i].runlevel;
+
+        return 0;
+}
+
 const UnitVTable target_vtable = {
         .suffix = ".target",
 
