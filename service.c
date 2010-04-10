@@ -157,7 +157,10 @@ static int sysv_chkconfig_order(Service *s) {
                 if (t->sysv_start_priority < 0)
                         continue;
 
-                if (s->sysv_has_lsb && t->sysv_has_lsb)
+                /* If both units have modern headers we don't care
+                 * about the priorities */
+                if ((!s->sysv_path || s->sysv_has_lsb) &&
+                    (!t->sysv_path || t->sysv_has_lsb))
                         continue;
 
                 if (t->sysv_start_priority < s->sysv_start_priority)
