@@ -1170,7 +1170,6 @@ static int load_from_path(Unit *u, const char *path, UnitLoadState *new_state) {
                 { "LimitNICE",              config_parse_limit,           &(context).rlimit[RLIMIT_NICE],                  section   }, \
                 { "LimitRTPRIO",            config_parse_limit,           &(context).rlimit[RLIMIT_RTPRIO],                section   }, \
                 { "LimitRTTIME",            config_parse_limit,           &(context).rlimit[RLIMIT_RTTIME],                section   }, \
-                { "NonBlocking",            config_parse_bool,            &(context).non_blocking,                         section   }, \
                 { "ControlGroup",           config_parse_cgroup,          u,                                               section   }, \
                 { "NewSession",             config_parse_bool,            &(context).new_session,                          section   }
 
@@ -1204,6 +1203,7 @@ static int load_from_path(Unit *u, const char *path, UnitLoadState *new_state) {
                 { "ValidNoProcess",         config_parse_bool,            &u->service.valid_no_process,                    "Service" },
                 { "SysVStartPriority",      config_parse_sysv_priority,   &u->service.sysv_start_priority,                 "Service" },
                 { "KillMode",               config_parse_kill_mode,       &u->service.kill_mode,                           "Service" },
+                { "NonBlocking",            config_parse_bool,            &u->service.exec_context.non_blocking,           "Service" },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
 
                 { "ListenStream",           config_parse_listen,          &u->socket,                                      "Socket"  },
