@@ -41,6 +41,8 @@ typedef uint64_t usec_t;
 #define WHITESPACE " \t\n\r"
 #define NEWLINE "\n\r"
 
+#define FORMAT_TIMESTAMP_MAX 64
+
 usec_t now(clockid_t clock);
 
 usec_t timespec_load(const struct timespec *ts);
@@ -165,6 +167,8 @@ char *bus_path_unescape(const char *s);
 bool ignore_file(const char *filename);
 
 bool chars_intersect(const char *a, const char *b);
+
+char *format_timestamp(char *buf, size_t l, usec_t t);
 
 #define DEFINE_STRING_TABLE_LOOKUP(name,type)                           \
         const char *name##_to_string(type i) {                          \
