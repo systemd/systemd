@@ -697,7 +697,7 @@ DBusHandlerResult bus_default_message_handler(Manager *m, DBusMessage *message, 
                         if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, p->signature, &sub))
                                 goto oom;
 
-                        if ((r = p->append(m, &sub, property, p->data)) < 0) {
+                        if ((r = p->append(m, &sub, property, (void*) p->data)) < 0) {
 
                                 if (r == -ENOMEM)
                                         goto oom;
@@ -739,7 +739,7 @@ DBusHandlerResult bus_default_message_handler(Manager *m, DBusMessage *message, 
                             !dbus_message_iter_open_container(&sub2, DBUS_TYPE_VARIANT, p->signature, &sub3))
                                 goto oom;
 
-                        if ((r = p->append(m, &sub3, p->property, p->data)) < 0) {
+                        if ((r = p->append(m, &sub3, p->property, (void*) p->data)) < 0) {
 
                                 if (r == -ENOMEM)
                                         goto oom;

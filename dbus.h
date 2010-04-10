@@ -33,7 +33,7 @@ typedef struct BusProperty {
         const char *property;            /* name of the property */
         BusPropertyCallback append;      /* Function that is called to serialize this property */
         const char *signature;
-        void *data;                      /* The data of this property */
+        const void *data;                /* The data of this property */
 } BusProperty;
 
 #define BUS_PROPERTIES_INTERFACE                                        \
