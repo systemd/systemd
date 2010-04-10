@@ -507,6 +507,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         char *p2;
         const char *prefix2;
         CGroupBonding *b;
+        char timestamp1[FORMAT_TIMESTAMP_MAX], timestamp2[FORMAT_TIMESTAMP_MAX];
 
         assert(u);
 
@@ -519,11 +520,15 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s→ Unit %s:\n"
                 "%s\tDescription: %s\n"
                 "%s\tUnit Load State: %s\n"
-                "%s\tUnit Active State: %s\n",
+                "%s\tUnit Active State: %s\n"
+                "%s\tActive Enter Timestamp: %s\n"
+                "%s\tActive Exit Timestamp: %s\n",
                 prefix, unit_id(u),
                 prefix, unit_description(u),
                 prefix, unit_load_state_to_string(u->meta.load_state),
-                prefix, unit_active_state_to_string(unit_active_state(u)));
+                prefix, unit_active_state_to_string(unit_active_state(u)),
+                prefix, strna(format_timestamp(timestamp1, sizeof(timestamp1), u->meta.active_enter_timestamp)),
+                prefix, strna(format_timestamp(timestamp2, sizeof(timestamp2), u->meta.active_exit_timestamp)));
 
         SET_FOREACH(t, u->meta.names, i)
                 fprintf(f, "%s\tName: %s\n", prefix, t);
