@@ -1061,6 +1061,34 @@ void exec_command_append_list(ExecCommand **l, ExecCommand *e) {
               *l = e;
 }
 
+int exec_command_set(ExecCommand *c, const char *path, ...) {
+        va_list ap;
+        char **l, *p;
+
+        assert(c);
+        assert(path);
+
+        va_start(ap, path);
+        l = strv_new_ap(path, ap);
+        va_end(ap);
+
+        if (!l)
+                return -ENOMEM;
+
+        if (!(p = strdup(path))) {
+                strv_free(l);
+                return -ENOMEM;
+        }
+
+        free(c->path);
+        c->path = p;
+
+        strv_free(c->argv);
+        c->argv = l;
+
+        return 0;
+}
+
 static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
         [EXEC_OUTPUT_CONSOLE] = "console",
         [EXEC_OUTPUT_NULL] = "null",
