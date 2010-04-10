@@ -457,13 +457,18 @@ int exec_spawn(ExecCommand *command,
 
         pid_t pid;
         int r;
+        char *line;
 
         assert(command);
         assert(context);
         assert(ret);
         assert(fds || n_fds <= 0);
 
-        log_debug("About to execute %s", command->path);
+        if (!(line = exec_command_line(command)))
+                return -ENOMEM;
+
+        log_debug("About to execute: %s", line);
+        free(line);
 
         if (cgroup_bondings)
                 if ((r = cgroup_bonding_realize_list(cgroup_bondings)))
