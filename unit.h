@@ -324,6 +324,8 @@ char *unit_name_escape_path(const char *path, const char *suffix);
 
 char *unit_dbus_path(Unit *u);
 
+int unit_load_related_unit(Unit *u, const char *type, Unit **_found);
+
 const char *unit_type_to_string(UnitType i);
 UnitType unit_type_from_string(const char *s);
 

@@ -1440,6 +1440,28 @@ CGroupBonding* unit_get_default_cgroup(Unit *u) {
         return cgroup_bonding_find_list(u->meta.cgroup_bondings, u->meta.manager->cgroup_controller);
 }
 
+int unit_load_related_unit(Unit *u, const char *type, Unit **_found) {
+        char *t;
+        int r;
+
+        assert(u);
+        assert(type);
+        assert(_found);
+
+        if (!(t = unit_name_change_suffix(unit_id(u), type)))
+                return -ENOMEM;
+
+        assert(!unit_has_name(u, t));
+
+        r = manager_load_unit(u->meta.manager, t, _found);
+        free(t);
+
+        if (r >= 0)
+                assert(*_found != u);
+
+        return r;
+}
+
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = "service",
         [UNIT_TIMER] = "timer",
