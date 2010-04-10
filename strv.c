@@ -85,21 +85,20 @@ unsigned strv_length(char **l) {
         return n;
 }
 
-char **strv_new(const char *x, ...) {
+char **strv_new_ap(const char *x, va_list ap) {
         const char *s;
         char **a;
         unsigned n = 0, i = 0;
-        va_list ap;
+        va_list aq;
+
 
         if (x) {
                 n = 1;
 
-                va_start(ap, x);
-
-                while (va_arg(ap, const char*))
+                va_copy(aq, ap);
+                while (va_arg(aq, const char*))
                         n++;
-
-                va_end(ap);
+                va_end(aq);
         }
 
         if (!(a = new(char*, n+1)))
@@ -113,19 +112,16 @@ char **strv_new(const char *x, ...) {
 
                 i++;
 
-                va_start(ap, x);
-
                 while ((s = va_arg(ap, const char*))) {
                         if (!(a[i] = strdup(s)))
                                 goto fail;
 
                         i++;
                 }
-
-                va_end(ap);
         }
 
         a[i] = NULL;
+
         return a;
 
 fail:
@@ -135,7 +131,19 @@ fail:
                         free(a[i-1]);
 
         free(a);
+
         return NULL;
+}
+
+char **strv_new(const char *x, ...) {
+        char **r;
+        va_list ap;
+
+        va_start(ap, x);
+        r = strv_new_ap(x, ap);
+        va_end(ap);
+
+        return r;
 }
 
 char **strv_merge(char **a, char **b) {

@@ -39,6 +39,7 @@ char **strv_uniq(char **l);
 #define strv_contains(l, s) (!!strv_find((l), (s)))
 
 char **strv_new(const char *x, ...) _sentinel;
+char **strv_new_ap(const char *x, va_list ap);
 
 static inline bool strv_isempty(char **l) {
         return !l || !*l;
