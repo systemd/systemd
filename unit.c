@@ -539,27 +539,28 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++) {
                 Unit *other;
 
-                if (set_isempty(u->meta.dependencies[d]))
-                        continue;
-
                 SET_FOREACH(other, u->meta.dependencies[d], i)
                         fprintf(f, "%s\t%s: %s\n", prefix, unit_dependency_to_string(d), unit_id(other));
         }
 
-        fprintf(f,
-                "%s\tRecursive Stop: %s\n"
-                "%s\tStop When Unneeded: %s\n",
-                prefix, yes_no(u->meta.recursive_stop),
-                prefix, yes_no(u->meta.stop_when_unneeded));
-
         if (u->meta.load_state == UNIT_LOADED) {
+                fprintf(f,
+                        "%s\tRecursive Stop: %s\n"
+                        "%s\tStop When Unneeded: %s\n",
+                        prefix, yes_no(u->meta.recursive_stop),
+                        prefix, yes_no(u->meta.stop_when_unneeded));
+
                 LIST_FOREACH(by_unit, b, u->meta.cgroup_bondings)
                         fprintf(f, "%s\tControlGroup: %s:%s\n",
                                 prefix, b->controller, b->path);
 
                 if (UNIT_VTABLE(u)->dump)
                         UNIT_VTABLE(u)->dump(u, f, prefix2);
-        }
+
+        } else if (u->meta.load_state == UNIT_MERGED)
+                fprintf(f,
+                        "%s\tMerged into: %s\n",
+                        prefix, unit_id(u->meta.merged_into));
 
         if (u->meta.job)
                 job_dump(u->meta.job, f, prefix2);
