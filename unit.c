@@ -424,11 +424,16 @@ int unit_merge(Unit *u, Unit *other) {
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
                 merge_dependencies(u, other, d);
 
-        unit_add_to_dbus_queue(u);
-
         other->meta.load_state = UNIT_MERGED;
         other->meta.merged_into = u;
 
+        /* If there is still some data attached to the other node, we
+         * don't need it anymore, and can free it. */
+        if (other->meta.load_state != UNIT_STUB)
+                if (UNIT_VTABLE(other)->done)
+                        UNIT_VTABLE(other)->done(other);
+
+        unit_add_to_dbus_queue(u);
         unit_add_to_cleanup_queue(other);
 
         return 0;
