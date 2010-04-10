@@ -137,6 +137,28 @@ static int device_find_escape_name(Manager *m, const char *dn, Unit **_u) {
         return 0;
 }
 
+static bool devnode_is_api(const char *node) {
+        unsigned i;
+
+        static const char * const table[] = {
+                "/dev/null",
+                "/dev/zero",
+                "/dev/urandom",
+                "/dev/random",
+                "/dev/port",
+                "/dev/oldmem",
+                "/dev/full",
+                "/dev/kmsg",
+                "/dev/mem"
+        };
+
+        for (i = 0; i < ELEMENTSOF(table); i++)
+                if (streq(table[i], node))
+                        return true;
+
+        return false;
+}
+
 static int device_process_new_device(Manager *m, struct udev_device *dev, bool update_state) {
         const char *dn, *names, *wants, *sysfs, *expose, *model;
         Unit *u = NULL;
@@ -168,7 +190,7 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
                 if (!b)
                         return 0;
         } else
-                if (!dn && !names && !wants)
+                if ((!dn || devnode_is_api(dn)) && !names && !wants)
                         return 0;
 
         /* Ok, seems kinda interesting. Now, let's see if this one

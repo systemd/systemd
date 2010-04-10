@@ -31,7 +31,8 @@ typedef struct Device Device;
 typedef enum DeviceState {
         DEVICE_DEAD,
         DEVICE_AVAILABLE,
-        _DEVICE_STATE_MAX
+        _DEVICE_STATE_MAX,
+        _DEVICE_STATE_INVALID = -1
 } DeviceState;
 
 struct Device {
@@ -39,7 +40,6 @@ struct Device {
 
         DeviceState state;
 
-        /* A single device can be created by multiple sysfs objects */
         char *sysfs;
 };
 
