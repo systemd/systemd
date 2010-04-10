@@ -19,6 +19,7 @@ ACLOCAL_AMFLAGS = -I m4
 
 pkgsysconfdir=$(sysconfdir)/systemd
 dbuspolicydir=$(sysconfdir)/dbus-1/system.d
+udevrulesdir=/lib/udev/rules.d
 
 AM_CPPFLAGS = \
         -include $(top_builddir)/config.h \
@@ -49,8 +50,12 @@ noinst_PROGRAMS = \
 dbuspolicy_DATA = \
 	org.freedesktop.systemd1.conf
 
+udevrules_DATA = \
+	99-systemd.rules
+
 EXTRA_DIST = \
 	org.freedesktop.systemd1.conf
+	99-systemd.rules
 
 BASIC_SOURCES= \
         util.c \
