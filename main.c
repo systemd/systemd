@@ -29,6 +29,7 @@
 #include <sys/stat.h>
 #include <getopt.h>
 #include <signal.h>
+#include <sys/wait.h>
 
 #include "manager.h"
 #include "log.h"
@@ -45,7 +46,9 @@ static enum {
 
 static char *default_unit = NULL;
 static ManagerRunningAs running_as = _MANAGER_RUNNING_AS_INVALID;
+
 static bool dump_core = true;
+static bool crash_shell = true;
 
 _noreturn static void freeze(void) {
         for (;;)
@@ -59,10 +62,8 @@ _noreturn static void crash(int sig) {
         else {
                 pid_t pid;
 
-                log_warning("Caugh <%s>, dumping core.", strsignal(sig));
-
                 if ((pid = fork()) < 0)
-                        log_error("Caught <%s>, cannot dump core: %s", strsignal(sig), strerror(errno));
+                        log_error("Caught <%s>, cannot fork for core dump: %s", strsignal(sig), strerror(errno));
 
                 else if (pid == 0) {
                         struct sigaction sa;
@@ -87,10 +88,29 @@ _noreturn static void crash(int sig) {
 
                         assert_not_reached("We shouldn't be here...");
                         _exit(1);
+
+                } else {
+                        int status, r;
+
+                        /* Order things nicely. */
+                        if ((r = waitpid(pid, &status, 0)) < 0)
+                                log_error("Caught <%s>, waitpid() failed: %s", strsignal(sig), strerror(errno));
+                        else if (!WCOREDUMP(status))
+                                log_error("Caught <%s>, core dump failed.", strsignal(sig));
+                        else
+                                log_error("Caught <%s>, dumped core as pid %llu.", strsignal(sig), (unsigned long long) pid);
                 }
         }
 
-        log_error("Freezing execution.");
+        if (crash_shell) {
+                log_info("Executing crash shell in 10s...");
+                sleep(10);
+
+                execl("/bin/sh", "/bin/sh", NULL);
+                log_error("execl() failed: %s", strerror(errno));
+        }
+
+        log_info("Freezing execution.");
         freeze();
 }
 
@@ -145,6 +165,33 @@ static int parse_proc_cmdline_word(const char *word) {
 
                 if (log_set_max_level_from_string(word + 18) < 0)
                         log_warning("Failed to parse log level %s. Ignoring.", word + 18);
+
+        } else if (startswith(word, "systemd.dump_core=")) {
+                int r;
+
+                if ((r = parse_boolean(word + 18)) < 0)
+                        log_warning("Failed to parse dump core switch %s, Ignoring", word + 18);
+                else
+                        dump_core = r;
+
+        } else if (startswith(word, "systemd.crash_shell=")) {
+                int r;
+
+                if ((r = parse_boolean(word + 20)) < 0)
+                        log_warning("Failed to parse crash shell switch %s, Ignoring", word + 20);
+                else
+                        crash_shell = r;
+
+        } else if (startswith(word, "systemd.")) {
+
+                log_warning("Unknown kernel switch %s. Ignoring.", word);
+
+                log_info("Supported kernel switches:");
+                log_info("systemd.default=UNIT                     Default unit to start");
+                log_info("systemd.log_target=console|kmsg|syslog   Log target");
+                log_info("systemd.log_level=LEVEL                  Log level");
+                log_info("systemd.dump_core=0|1                    Dump core on crash");
+                log_info("systemd.crash_shell=0|1                  On crash run shell");
 
         } else {
                 unsigned i;
@@ -368,7 +415,8 @@ int main(int argc, char *argv[]) {
         log_open_kmsg();
 
         /* Make sure we leave a core dump */
-        install_crash_handler();
+        if (getpid() == 1)
+                install_crash_handler();
 
         log_debug("systemd running in %s mode.", manager_running_as_to_string(running_as));
 
