@@ -22,6 +22,10 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
+#include <stdbool.h>
+
 int mount_setup(void);
+
+bool mount_point_is_api(const char *path);
 
 #endif

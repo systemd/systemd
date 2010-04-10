@@ -48,8 +48,20 @@ static const char *table[] = {
         "devpts",  "/dev/pts",          "devpts",   NULL,
         "cgroup",  "/cgroup/debug",     "cgroup",   "debug",
         "debugfs", "/sys/kernel/debug", "debugfs",  NULL,
-        NULL
 };
+
+bool mount_point_is_api(const char *path) {
+        unsigned i;
+
+        /* Checks if this mount point is considered "API", and hence
+         * should be ignored */
+
+        for (i = 0; i < ELEMENTSOF(table); i += MOUNT_SKIP)
+                if (path_startswith(path, table[i+MOUNT_WHERE]))
+                        return true;
+
+        return false;
+}
 
 static int is_mount_point(const char *t) {
         struct stat a, b;
@@ -112,10 +124,10 @@ static int mount_one(const char *t[]) {
 
 int mount_setup(void) {
         int r;
-        const char **t;
+        unsigned i;
 
-        for (t = table; *t; t += MOUNT_SKIP)
-                if ((r = mount_one(t)) < 0)
+        for (i = 0; i < ELEMENTSOF(table); i += MOUNT_SKIP)
+                if ((r = mount_one(table + i)) < 0)
                         return r;
 
         return 0;
