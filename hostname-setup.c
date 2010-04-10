@@ -75,6 +75,23 @@ finish:
         fclose(f);
         return r;
 
+#elif defined(TARGET_SUSE)
+        int r;
+        char *s, *k;
+
+        assert(hn);
+
+        if ((r = read_one_line_file("/etc/HOSTNAME", &s)) < 0)
+                return r;
+
+        k = strdup(strstrip(s));
+        free(s);
+
+        if (!k)
+                return -ENOMEM;
+
+        *hn = k;
+
 #elif defined(TARGET_DEBIAN)
         int r;
         char *s, *k;
@@ -92,7 +109,7 @@ finish:
 
         *hn = k;
 #else
-#warn "Don't know how to read the hostname"
+#warning "Don't know how to read the hostname"
 
         return -ENOENT;
 #endif
