@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <getopt.h>
+#include <signal.h>
 
 #include "manager.h"
 #include "log.h"
@@ -44,6 +45,66 @@ static enum {
 
 static char *default_unit = NULL;
 static ManagerRunningAs running_as = _MANAGER_RUNNING_AS_INVALID;
+static bool dump_core = true;
+
+_noreturn static void freeze(void) {
+        for (;;)
+                pause();
+}
+
+_noreturn static void crash(int sig) {
+
+        if (!dump_core)
+                log_error("Caught <%s>, not dumping core.", strsignal(sig));
+        else {
+                pid_t pid;
+
+                log_warning("Caugh <%s>, dumping core.", strsignal(sig));
+
+                if ((pid = fork()) < 0)
+                        log_error("Caught <%s>, cannot dump core: %s", strsignal(sig), strerror(errno));
+
+                else if (pid == 0) {
+                        struct sigaction sa;
+                        struct rlimit rl;
+
+                        /* Enable default signal handler for core dump */
+                        zero(sa);
+                        sa.sa_handler = SIG_DFL;
+                        assert_se(sigaction(sig, &sa, NULL) == 0);
+
+                        /* Don't limit the core dump size */
+                        zero(rl);
+                        rl.rlim_cur = RLIM_INFINITY;
+                        rl.rlim_max = RLIM_INFINITY;
+                        setrlimit(RLIMIT_CORE, &rl);
+
+                        /* Just to be sure... */
+                        assert_se(chdir("/") == 0);
+
+                        /* Raise the signal again */
+                        raise(sig);
+
+                        assert_not_reached("We shouldn't be here...");
+                        _exit(1);
+                }
+        }
+
+        log_error("Freezing execution.");
+        freeze();
+}
+
+static void install_crash_handler(void) {
+        struct sigaction sa;
+
+        zero(sa);
+
+        sa.sa_handler = crash;
+        sa.sa_flags = SA_NODEFER;
+
+        assert_se(sigaction(SIGSEGV, &sa, NULL) == 0);
+        assert_se(sigaction(SIGABRT, &sa, NULL) == 0);
+}
 
 static int set_default_unit(const char *u) {
         char *c;
@@ -306,6 +367,9 @@ int main(int argc, char *argv[]) {
         /* Open the logging devices, if possible and necessary*/
         log_open_syslog();
         log_open_kmsg();
+
+        install_crash_handler();
+        assert(!"esel");
 
         log_debug("systemd running in %s mode.", manager_running_as_to_string(running_as));
 
