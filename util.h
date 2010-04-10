@@ -137,6 +137,7 @@ char *truncate_nl(char *s);
 
 char *file_in_same_dir(const char *path, const char *filename);
 int mkdir_parents(const char *path, mode_t mode);
+int mkdir_p(const char *path, mode_t mode);
 
 int get_process_name(pid_t pid, char **name);
 

@@ -728,6 +728,20 @@ int mkdir_parents(const char *path, mode_t mode) {
         }
 }
 
+int mkdir_p(const char *path, mode_t mode) {
+        int r;
+
+        /* Like mkdir -p */
+
+        if ((r = mkdir_parents(path, mode)) < 0)
+                return r;
+
+        if (mkdir(path, mode) < 0)
+                return -errno;
+
+        return 0;
+}
+
 char hexchar(int x) {
         static const char table[16] = "0123456789abcdef";
 
