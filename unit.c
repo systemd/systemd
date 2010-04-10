@@ -856,8 +856,12 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         assert(!(os == UNIT_ACTIVE && ns == UNIT_ACTIVATING));
         assert(!(os == UNIT_INACTIVE && ns == UNIT_DEACTIVATING));
 
-        if (os == ns)
-                return;
+        /* Note that this is called for all low-level state changes,
+         * even if they might map to the same high-level
+         * UnitActiveState! That means that ns == os is OK an expected
+         * behaviour here. For example: if a mount point is remounted
+         * this function will be called too and the utmp code below
+         * relies on that! */
 
         if (!UNIT_IS_ACTIVE_OR_RELOADING(os) && UNIT_IS_ACTIVE_OR_RELOADING(ns))
                 u->meta.active_enter_timestamp = now(CLOCK_REALTIME);
