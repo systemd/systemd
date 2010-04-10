@@ -66,6 +66,11 @@
         "   <arg name=\"id\" type=\"u\"/>"                              \
         "   <arg name=\"job\" type=\"o\"/>"                             \
         "  </signal>"                                                   \
+        "  <property name=\"Version\" type=\"s\" access=\"read\"/>"     \
+        "  <property name=\"RunningAs\" type=\"s\" access=\"read\"/>"   \
+        "  <property name=\"BootTimestamp\" type=\"t\" access=\"read\"/>" \
+        "  <property name=\"LogLevel\" type=\"s\" access=\"readwrite\"/>" \
+        "  <property name=\"LogTarget\" type=\"s\" access=\"readwrite\"/>" \
         " </interface>"                                                 \
         BUS_PROPERTIES_INTERFACE                                        \
         BUS_INTROSPECTABLE_INTERFACE
@@ -73,9 +78,51 @@
 #define INTROSPECTION_END                                               \
         "</node>"
 
+DEFINE_BUS_PROPERTY_APPEND_ENUM(bus_manager_append_running_as, manager_running_as, ManagerRunningAs);
+
+static int bus_manager_append_log_target(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        const char *t;
+
+        assert(m);
+        assert(i);
+        assert(property);
+
+        t = log_target_to_string(log_get_target());
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_manager_append_log_level(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        const char *t;
+
+        assert(m);
+        assert(i);
+        assert(property);
+
+        t = log_level_to_string(log_get_max_level());
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &t))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection, DBusMessage *message, void *data) {
-        int r;
         Manager *m = data;
+
+        const BusProperty properties[] = {
+                { "org.freedesktop.systemd1", "Version",       bus_property_append_string, "s",    PACKAGE_VERSION    },
+                { "org.freedesktop.systemd1", "RunningAs",     bus_manager_append_running_as, "s", &m->running_as     },
+                { "org.freedesktop.systemd1", "BootTimestamp", bus_property_append_uint64, "t",    &m->boot_timestamp },
+                { "org.freedesktop.systemd1", "LogLevel",      bus_manager_append_log_level, "s",  NULL               },
+                { "org.freedesktop.systemd1", "LogTarget",     bus_manager_append_log_target, "s", NULL               },
+                { NULL, NULL, NULL, NULL, NULL }
+        };
+
+        int r;
         DBusError error;
         DBusMessage *reply = NULL;
         char * path = NULL;
@@ -422,7 +469,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                 free(introspection);
 
         } else
-                return bus_default_message_handler(m, message, NULL, NULL);
+                return bus_default_message_handler(m, message, NULL, properties);
 
         free(path);
 

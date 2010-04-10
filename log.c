@@ -313,6 +313,14 @@ void log_parse_environment(void) {
                         log_warning("Failed to parse log level %s. Ignoring.", e);
 }
 
+LogTarget log_get_target(void) {
+        return log_target;
+}
+
+int log_get_max_level(void) {
+        return log_max_level;
+}
+
 static const char *const log_target_table[] = {
         [LOG_TARGET_CONSOLE] = "console",
         [LOG_TARGET_SYSLOG] = "syslog",

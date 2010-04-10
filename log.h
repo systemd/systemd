@@ -40,6 +40,9 @@ void log_set_max_level(int level);
 int log_set_target_from_string(const char *e);
 int log_set_max_level_from_string(const char *e);
 
+LogTarget log_get_target(void);
+int log_get_max_level(void);
+
 void log_close_kmsg(void);
 int log_open_kmsg(void);
 void log_close_syslog(void);
