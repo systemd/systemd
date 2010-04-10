@@ -447,7 +447,7 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
         return 0;
 }
 
-int exec_spawn(const ExecCommand *command,
+int exec_spawn(ExecCommand *command,
                const ExecContext *context,
                int *fds, unsigned n_fds,
                bool apply_permissions,
@@ -698,6 +698,9 @@ int exec_spawn(const ExecCommand *command,
 
         log_debug("Forked %s as %llu", command->path, (unsigned long long) pid);
 
+        command->exec_status.pid = pid;
+        command->exec_status.start_timestamp = now(CLOCK_REALTIME);
+
         *ret = pid;
         return 0;
 }
@@ -925,9 +928,41 @@ void exec_status_fill(ExecStatus *s, pid_t pid, int code, int status) {
         assert(s);
 
         s->pid = pid;
+        s->exit_timestamp = now(CLOCK_REALTIME);
+
         s->code = code;
         s->status = status;
-        s->timestamp = now(CLOCK_REALTIME);
+}
+
+void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix) {
+        char buf[FORMAT_TIMESTAMP_MAX];
+
+        assert(s);
+        assert(f);
+
+        if (!prefix)
+                prefix = "";
+
+        if (s->pid <= 0)
+                return;
+
+        fprintf(f,
+                "%sPID: %llu\n",
+                prefix, (unsigned long long) s->pid);
+
+        if (s->start_timestamp > 0)
+                fprintf(f,
+                        "%sStart Timestamp: %s\n",
+                        prefix, format_timestamp(buf, sizeof(buf), s->start_timestamp));
+
+        if (s->exit_timestamp > 0)
+                fprintf(f,
+                        "%sExit Timestamp: %s\n"
+                        "%sExit Code: %s\n"
+                        "%sExit Status: %i\n",
+                        prefix, format_timestamp(buf, sizeof(buf), s->exit_timestamp),
+                        prefix, sigchld_code_to_string(s->code),
+                        prefix, s->status);
 }
 
 char *exec_command_line(ExecCommand *c) {
@@ -971,6 +1006,9 @@ char *exec_command_line(ExecCommand *c) {
 }
 
 void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
+        char *p2;
+        const char *prefix2;
+
         char *cmd;
 
         assert(c);
@@ -978,6 +1016,8 @@ void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
 
         if (!prefix)
                 prefix = "";
+        p2 = strappend(prefix, "\t");
+        prefix2 = p2 ? p2 : prefix;
 
         cmd = exec_command_line(c);
 
@@ -986,6 +1026,10 @@ void exec_command_dump(ExecCommand *c, FILE *f, const char *prefix) {
                 prefix, cmd ? cmd : strerror(ENOMEM));
 
         free(cmd);
+
+        exec_status_dump(&c->exec_status, f, prefix2);
+
+        free(p2);
 }
 
 void exec_command_dump_list(ExecCommand *c, FILE *f, const char *prefix) {

@@ -59,7 +59,8 @@ typedef enum ExecInput {
 
 struct ExecStatus {
         pid_t pid;
-        usec_t timestamp;
+        usec_t start_timestamp;
+        usec_t exit_timestamp;
         int code;     /* as in siginfo_t::si_code */
         int status;   /* as in sigingo_t::si_status */
 };
@@ -153,7 +154,7 @@ typedef enum ExitStatus {
         EXIT_SETSID
 } ExitStatus;
 
-int exec_spawn(const ExecCommand *command,
+int exec_spawn(ExecCommand *command,
                const ExecContext *context,
                int *fds, unsigned n_fds,
                bool apply_permissions,
@@ -174,6 +175,7 @@ void exec_context_done(ExecContext *c);
 void exec_context_dump(ExecContext *c, FILE* f, const char *prefix);
 
 void exec_status_fill(ExecStatus *s, pid_t pid, int code, int status);
+void exec_status_dump(ExecStatus *s, FILE *f, const char *prefix);
 
 const char* exec_output_to_string(ExecOutput i);
 int exec_output_from_string(const char *s);
