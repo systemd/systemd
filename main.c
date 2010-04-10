@@ -150,7 +150,6 @@ static int parse_proc_cmdline_word(const char *word) {
                 unsigned i;
 
                 /* SysV compatibility */
-
                 for (i = 0; i < ELEMENTSOF(rlmap); i += 2)
                         if (streq(word, rlmap[i]))
                                 return set_default_unit(rlmap[i+1]);
@@ -364,12 +363,12 @@ int main(int argc, char *argv[]) {
         /* Make sure D-Bus doesn't fiddle with the SIGPIPE handlers */
         dbus_connection_set_change_sigpipe(FALSE);
 
-        /* Open the logging devices, if possible and necessary*/
+        /* Open the logging devices, if possible and necessary */
         log_open_syslog();
         log_open_kmsg();
 
+        /* Make sure we leave a core dump */
         install_crash_handler();
-        assert(!"esel");
 
         log_debug("systemd running in %s mode.", manager_running_as_to_string(running_as));
 
