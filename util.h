@@ -51,6 +51,8 @@ struct timeval *timeval_store(struct timeval *tv, usec_t u);
 
 #define streq(a,b) (strcmp((a),(b)) == 0)
 
+bool streq_ptr(const char *a, const char *b);
+
 #define new(t, n) ((t*) malloc(sizeof(t)*(n)))
 
 #define new0(t, n) ((t*) calloc((n), sizeof(t)))

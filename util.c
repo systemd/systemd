@@ -42,6 +42,19 @@
 #include "log.h"
 #include "strv.h"
 
+bool streq_ptr(const char *a, const char *b) {
+
+        /* Like streq(), but tries to make sense of NULL pointers */
+
+        if (a && b)
+                return streq(a, b);
+
+        if (!a && !b)
+                return true;
+
+        return false;
+}
+
 usec_t now(clockid_t clock_id) {
         struct timespec ts;
 
