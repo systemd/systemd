@@ -32,7 +32,6 @@
 #include "log.h"
 
 #define COMMENTS "#;\n"
-#define NEWLINES "\n\r"
 #define LINE_MAX 4096
 
 /* Run the user supplied parser for an assignment */
