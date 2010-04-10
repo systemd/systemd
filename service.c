@@ -63,6 +63,26 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_AUTO_RESTART] = UNIT_ACTIVATING,
 };
 
+static void service_unwatch_control_pid(Service *s) {
+        assert(s);
+
+        if (s->control_pid <= 0)
+                return;
+
+        unit_unwatch_pid(UNIT(s), s->control_pid);
+        s->control_pid = 0;
+}
+
+static void service_unwatch_main_pid(Service *s) {
+        assert(s);
+
+        if (s->main_pid <= 0)
+                return;
+
+        unit_unwatch_pid(UNIT(s), s->main_pid);
+        s->main_pid = 0;
+}
+
 static void service_done(Unit *u) {
         Service *s = SERVICE(u);
 
@@ -83,15 +103,8 @@ static void service_done(Unit *u) {
 
         /* This will leak a process, but at least no memory or any of
          * our resources */
-        if (s->main_pid > 0) {
-                unit_unwatch_pid(u, s->main_pid);
-                s->main_pid = 0;
-        }
-
-        if (s->control_pid > 0) {
-                unit_unwatch_pid(u, s->control_pid);
-                s->control_pid = 0;
-        }
+        service_unwatch_main_pid(s);
+        service_unwatch_control_pid(s);
 
         unit_unwatch_timer(u, &s->timer_watch);
 }
@@ -831,6 +844,8 @@ static int service_load_pid_file(Service *s) {
         if (s->main_pid_known)
                 return 0;
 
+        assert(s->main_pid <= 0);
+
         if (!s->pid_file)
                 return -ENOENT;
 
@@ -955,10 +970,7 @@ static void service_set_state(Service *s, ServiceState state) {
             state != SERVICE_STOP &&
             state != SERVICE_STOP_SIGTERM &&
             state != SERVICE_STOP_SIGKILL)
-                if (s->main_pid > 0) {
-                        unit_unwatch_pid(UNIT(s), s->main_pid);
-                        s->main_pid = 0;
-                }
+                service_unwatch_main_pid(s);
 
         if (state != SERVICE_START_PRE &&
             state != SERVICE_START &&
@@ -970,11 +982,7 @@ static void service_set_state(Service *s, ServiceState state) {
             state != SERVICE_STOP_POST &&
             state != SERVICE_FINAL_SIGTERM &&
             state != SERVICE_FINAL_SIGKILL) {
-                if (s->control_pid > 0) {
-                        unit_unwatch_pid(UNIT(s), s->control_pid);
-                        s->control_pid = 0;
-                }
-
+                service_unwatch_control_pid(s);
                 s->control_command = NULL;
         }
 
@@ -1145,6 +1153,8 @@ static void service_enter_stop_post(Service *s, bool success) {
         if (!success)
                 s->failure = true;
 
+        service_unwatch_control_pid(s);
+
         if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST]))
                 if ((r = service_spawn(s,
                                        s->control_command,
@@ -1238,6 +1248,8 @@ static void service_enter_stop(Service *s, bool success) {
         if (!success)
                 s->failure = true;
 
+        service_unwatch_control_pid(s);
+
         if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP]))
                 if ((r = service_spawn(s,
                                        s->control_command,
@@ -1263,6 +1275,8 @@ fail:
 static void service_enter_start_post(Service *s) {
         int r;
         assert(s);
+
+        service_unwatch_control_pid(s);
 
         if ((s->control_command = s->exec_command[SERVICE_EXEC_START_POST]))
                 if ((r = service_spawn(s,
@@ -1311,6 +1325,8 @@ static void service_enter_start(Service *s) {
                 /* For simple services we immediately start
                  * the START_POST binaries. */
 
+                service_unwatch_main_pid(s);
+
                 s->main_pid = pid;
                 s->main_pid_known = true;
                 service_enter_start_post(s);
@@ -1320,6 +1336,8 @@ static void service_enter_start(Service *s) {
                 /* For forking services we wait until the start
                  * process exited. */
 
+                service_unwatch_control_pid(s);
+
                 s->control_pid = pid;
                 s->control_command = s->exec_command[SERVICE_EXEC_START];
         } else if (s->type == SERVICE_FINISH) {
@@ -1327,7 +1345,10 @@ static void service_enter_start(Service *s) {
                 /* For finishing services we wait until the start
                  * process exited, too, but it is our main process. */
 
+                service_unwatch_main_pid(s);
+
                 s->main_pid = pid;
+                s->main_pid_known = true;
                 s->control_command = s->exec_command[SERVICE_EXEC_START];
         } else
                 assert_not_reached("Unknown service type");
@@ -1343,6 +1364,8 @@ static void service_enter_start_pre(Service *s) {
         int r;
 
         assert(s);
+
+        service_unwatch_control_pid(s);
 
         if ((s->control_command = s->exec_command[SERVICE_EXEC_START_PRE]))
                 if ((r = service_spawn(s,
@@ -1388,6 +1411,8 @@ static void service_enter_reload(Service *s) {
 
         assert(s);
 
+        service_unwatch_control_pid(s);
+
         if ((s->control_command = s->exec_command[SERVICE_EXEC_RELOAD]))
                 if ((r = service_spawn(s,
                                        s->control_command,
@@ -1421,6 +1446,8 @@ static void service_run_next(Service *s, bool success) {
                 s->failure = true;
 
         s->control_command = s->control_command->command_next;
+
+        service_unwatch_control_pid(s);
 
         if ((r = service_spawn(s,
                                s->control_command,

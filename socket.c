@@ -63,6 +63,16 @@ static const char* const state_string_table[_SOCKET_STATE_MAX] = {
         [SOCKET_MAINTAINANCE] = "maintainance"
 };
 
+static void socket_unwatch_control_pid(Socket *s) {
+        assert(s);
+
+        if (s->control_pid <= 0)
+                return;
+
+        unit_unwatch_pid(UNIT(s), s->control_pid);
+        s->control_pid = 0;
+}
+
 static void socket_done(Unit *u) {
         Socket *s = SOCKET(u);
         SocketPort *p;
@@ -82,10 +92,7 @@ static void socket_done(Unit *u) {
         exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
-        if (s->control_pid > 0) {
-                unit_unwatch_pid(u, s->control_pid);
-                s->control_pid = 0;
-        }
+        socket_unwatch_control_pid(s);
 
         s->service = NULL;
 
@@ -361,12 +368,7 @@ static void socket_set_state(Socket *s, SocketState state) {
             state != SOCKET_STOP_POST_SIGTERM &&
             state != SOCKET_STOP_POST_SIGKILL) {
                 unit_unwatch_timer(UNIT(s), &s->timer_watch);
-
-                if (s->control_pid > 0) {
-                        unit_unwatch_pid(UNIT(s), s->control_pid);
-                        s->control_pid = 0;
-                }
-
+                socket_unwatch_control_pid(s);
                 s->control_command = NULL;
         }
 
@@ -437,6 +439,8 @@ static void socket_enter_stop_post(Socket *s, bool success) {
         if (!success)
                 s->failure = true;
 
+        socket_unwatch_control_pid(s);
+
         if ((s->control_command = s->exec_command[SOCKET_EXEC_STOP_POST]))
                 if ((r = socket_spawn(s, s->control_command, &s->control_pid)) < 0)
                         goto fail;
@@ -506,6 +510,8 @@ static void socket_enter_stop_pre(Socket *s, bool success) {
         if (!success)
                 s->failure = true;
 
+        socket_unwatch_control_pid(s);
+
         if ((s->control_command = s->exec_command[SOCKET_EXEC_STOP_PRE]))
                 if ((r = socket_spawn(s, s->control_command, &s->control_pid)) < 0)
                         goto fail;
@@ -547,6 +553,8 @@ static void socket_enter_start_post(Socket *s) {
                 goto fail;
         }
 
+        socket_unwatch_control_pid(s);
+
         if ((s->control_command = s->exec_command[SOCKET_EXEC_START_POST]))
                 if ((r = socket_spawn(s, s->control_command, &s->control_pid)) < 0) {
                         log_warning("%s failed to run start-post executable: %s", unit_id(UNIT(s)), strerror(-r));
@@ -567,6 +575,8 @@ fail:
 static void socket_enter_start_pre(Socket *s) {
         int r;
         assert(s);
+
+        socket_unwatch_control_pid(s);
 
         if ((s->control_command = s->exec_command[SOCKET_EXEC_START_PRE]))
                 if ((r = socket_spawn(s, s->control_command, &s->control_pid)) < 0)
@@ -609,6 +619,8 @@ static void socket_run_next(Socket *s, bool success) {
 
         if (!success)
                 s->failure = true;
+
+        socket_unwatch_control_pid(s);
 
         s->control_command = s->control_command->command_next;
 

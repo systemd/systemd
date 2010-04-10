@@ -65,6 +65,16 @@ static const char* const state_string_table[_MOUNT_STATE_MAX] = {
         [MOUNT_MAINTAINANCE] = "maintainance"
 };
 
+static void service_unwatch_control_pid(Mount *m) {
+        assert(m);
+
+        if (m->control_pid <= 0)
+                return;
+
+        unit_unwatch_pid(UNIT(m), m->control_pid);
+        m->control_pid = 0;
+}
+
 static void mount_parameters_done(MountParameters *p) {
         assert(p);
 
@@ -91,10 +101,7 @@ static void mount_done(Unit *u) {
         exec_command_done_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
         m->control_command = NULL;
 
-        if (m->control_pid > 0) {
-                unit_unwatch_pid(u, m->control_pid);
-                m->control_pid = 0;
-        }
+        service_unwatch_control_pid(m);
 
         unit_unwatch_timer(u, &m->timer_watch);
 }
@@ -322,12 +329,7 @@ static void mount_set_state(Mount *m, MountState state) {
             state != MOUNT_REMOUNTING_SIGTERM &&
             state != MOUNT_REMOUNTING_SIGKILL) {
                 unit_unwatch_timer(UNIT(m), &m->timer_watch);
-
-                if (m->control_pid > 0) {
-                        unit_unwatch_pid(UNIT(m), m->control_pid);
-                        m->control_pid = 0;
-                }
-
+                service_unwatch_control_pid(m);
                 m->control_command = NULL;
         }
 
@@ -505,6 +507,8 @@ static void mount_enter_unmounting(Mount *m, bool success) {
                              NULL)) < 0)
                 goto fail;
 
+        service_unwatch_control_pid(m);
+
         if ((r = mount_spawn(m, c, &m->control_pid)) < 0)
                 goto fail;
 
@@ -548,6 +552,8 @@ static void mount_enter_mounting(Mount *m, bool success) {
 
         if (r < 0)
                 goto fail;
+
+        service_unwatch_control_pid(m);
 
         if ((r = mount_spawn(m, c, &m->control_pid)) < 0)
                 goto fail;
@@ -619,6 +625,8 @@ static void mount_enter_remounting(Mount *m, bool success) {
                 r = -ENOMEM;
                 goto fail;
         }
+
+        service_unwatch_control_pid(m);
 
         if ((r = mount_spawn(m, c, &m->control_pid)) < 0)
                 goto fail;
