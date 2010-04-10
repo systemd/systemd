@@ -776,14 +776,29 @@ void exec_context_done(ExecContext *c) {
         }
 }
 
+void exec_command_done(ExecCommand *c) {
+        assert(c);
+
+        free(c->path);
+        c->path = NULL;
+
+        strv_free(c->argv);
+        c->argv = NULL;
+}
+
+void exec_command_done_array(ExecCommand *c, unsigned n) {
+        unsigned i;
+
+        for (i = 0; i < n; i++)
+                exec_command_done(c+i);
+}
+
 void exec_command_free_list(ExecCommand *c) {
         ExecCommand *i;
 
         while ((i = c)) {
                 LIST_REMOVE(ExecCommand, command, c, i);
-
-                free(i->path);
-                strv_free(i->argv);
+                exec_command_done(i);
                 free(i);
         }
 }
