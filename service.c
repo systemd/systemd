@@ -78,7 +78,7 @@ static void service_done(Unit *u) {
         s->sysv_runlevels = NULL;
 
         exec_context_done(&s->exec_context);
-        exec_command_free_array(s->exec_command, _SERVICE_EXEC_MAX);
+        exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
         /* This will leak a process, but at least no memory or any of
@@ -280,7 +280,7 @@ static int priority_from_rcd(Service *s, const char *init_script) {
         return 0;
 }
 
-static int service_load_sysv_path(Service *s, const char *path, UnitLoadState *new_state) {
+static int service_load_sysv_path(Service *s, const char *path) {
         FILE *f;
         Unit *u;
         unsigned line = 0;
@@ -294,7 +294,6 @@ static int service_load_sysv_path(Service *s, const char *path, UnitLoadState *n
 
         assert(s);
         assert(path);
-        assert(new_state);
 
         u = UNIT(s);
 
@@ -607,7 +606,7 @@ static int service_load_sysv_path(Service *s, const char *path, UnitLoadState *n
                         goto finish;
         }
 
-        *new_state = UNIT_LOADED;
+        u->meta.load_state = UNIT_LOADED;
         r = 0;
 
 finish:
@@ -618,7 +617,7 @@ finish:
         return r;
 }
 
-static int service_load_sysv_name(Service *s, const char *name, UnitLoadState *new_state) {
+static int service_load_sysv_name(Service *s, const char *name) {
         char **p;
 
         assert(s);
@@ -634,26 +633,25 @@ static int service_load_sysv_name(Service *s, const char *name, UnitLoadState *n
                 assert(endswith(path, ".service"));
                 path[strlen(path)-8] = 0;
 
-                r = service_load_sysv_path(s, path, new_state);
+                r = service_load_sysv_path(s, path);
                 free(path);
 
                 if (r < 0)
                         return r;
 
-                if (*new_state != UNIT_STUB)
+                if ((UNIT(s)->meta.load_state != UNIT_STUB))
                         break;
         }
 
         return 0;
 }
 
-static int service_load_sysv(Service *s, UnitLoadState *new_state) {
+static int service_load_sysv(Service *s) {
         const char *t;
         Iterator i;
         int r;
 
         assert(s);
-        assert(new_state);
 
         /* Load service data from SysV init scripts, preferably with
          * LSB headers ... */
@@ -662,31 +660,29 @@ static int service_load_sysv(Service *s, UnitLoadState *new_state) {
                 return 0;
 
         if ((t = unit_id(UNIT(s))))
-                if ((r = service_load_sysv_name(s, t, new_state)) < 0)
+                if ((r = service_load_sysv_name(s, t)) < 0)
                         return r;
 
-        if (*new_state == UNIT_STUB)
+        if (UNIT(s)->meta.load_state == UNIT_STUB)
                 SET_FOREACH(t, UNIT(s)->meta.names, i) {
-                        if ((r == service_load_sysv_name(s, t, new_state)) < 0)
+                        if (t == unit_id(UNIT(s)))
+                                continue;
+
+                        if ((r == service_load_sysv_name(s, t)) < 0)
                                 return r;
 
-                        if (*new_state != UNIT_STUB)
+                        if (UNIT(s)->meta.load_state != UNIT_STUB)
                                 break;
                 }
 
         return 0;
 }
 
-static int service_init(Unit *u, UnitLoadState *new_state) {
-        int r;
+static void service_init(Unit *u) {
         Service *s = SERVICE(u);
 
-        assert(s);
-        assert(new_state);
-        assert(*new_state == UNIT_STUB);
-
-        /* First, reset everything to the defaults, in case this is a
-         * reload */
+        assert(u);
+        assert(u->meta.load_state == UNIT_STUB);
 
         s->type = 0;
         s->restart = 0;
@@ -711,18 +707,25 @@ static int service_init(Unit *u, UnitLoadState *new_state) {
         s->failure = false;
 
         RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
+}
+
+static int service_load(Unit *u) {
+        int r;
+        Service *s = SERVICE(u);
+
+        assert(s);
 
         /* Load a .service file */
-        if ((r = unit_load_fragment(u, new_state)) < 0)
+        if ((r = unit_load_fragment(u)) < 0)
                 return r;
 
         /* Load a classic init script as a fallback, if we couldn't find anything */
-        if (*new_state == UNIT_STUB)
-                if ((r = service_load_sysv(s, new_state)) < 0)
+        if (u->meta.load_state == UNIT_STUB)
+                if ((r = service_load_sysv(s)) < 0)
                         return r;
 
         /* Still nothing found? Then let's give up */
-        if (*new_state == UNIT_STUB)
+        if (u->meta.load_state == UNIT_STUB)
                 return -ENOENT;
 
         /* We were able to load something, then let's add in the
@@ -731,7 +734,7 @@ static int service_init(Unit *u, UnitLoadState *new_state) {
                 return r;
 
         /* This is a new unit? Then let's add in some extras */
-        if (*new_state == UNIT_LOADED) {
+        if (u->meta.load_state == UNIT_LOADED) {
                 if ((r = unit_add_exec_dependencies(u, &s->exec_context)) < 0)
                         return r;
 
@@ -788,7 +791,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
         exec_context_dump(&s->exec_context, f, prefix);
 
-        for (c = 0; c < _SERVICE_EXEC_MAX; c++) {
+        for (c = 0; c < _SERVICE_EXEC_COMMAND_MAX; c++) {
 
                 if (!s->exec_command[c])
                         continue;
@@ -904,7 +907,7 @@ fail:
 }
 
 
-static int service_notify_sockets(Service *s) {
+static int service_notify_sockets_dead(Service *s) {
         Iterator i;
         Set *set;
         Socket *sock;
@@ -966,19 +969,14 @@ static void service_set_state(Service *s, ServiceState state) {
             state != SERVICE_STOP_SIGKILL &&
             state != SERVICE_STOP_POST &&
             state != SERVICE_FINAL_SIGTERM &&
-            state != SERVICE_FINAL_SIGKILL)
+            state != SERVICE_FINAL_SIGKILL) {
                 if (s->control_pid > 0) {
                         unit_unwatch_pid(UNIT(s), s->control_pid);
                         s->control_pid = 0;
                 }
 
-        if (state != SERVICE_START_PRE &&
-            state != SERVICE_START &&
-            state != SERVICE_START_POST &&
-            state != SERVICE_RELOAD &&
-            state != SERVICE_STOP &&
-            state != SERVICE_STOP_POST)
                 s->control_command = NULL;
+        }
 
         if (state == SERVICE_DEAD ||
             state == SERVICE_STOP ||
@@ -989,12 +987,10 @@ static void service_set_state(Service *s, ServiceState state) {
             state == SERVICE_FINAL_SIGKILL ||
             state == SERVICE_MAINTAINANCE ||
             state == SERVICE_AUTO_RESTART)
-                service_notify_sockets(s);
+                service_notify_sockets_dead(s);
 
-        if (old_state == state)
-                return;
-
-        log_debug("%s changed %s → %s", unit_id(UNIT(s)), service_state_to_string(old_state), service_state_to_string(state));
+        if (old_state != state)
+                log_debug("%s changed %s → %s", unit_id(UNIT(s)), service_state_to_string(old_state), service_state_to_string(state));
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
 }
@@ -1489,11 +1485,21 @@ static int service_stop(Unit *u) {
 
         assert(s);
 
+        /* Cannot do this now */
         if (s->state == SERVICE_START_PRE ||
             s->state == SERVICE_START ||
             s->state == SERVICE_START_POST ||
             s->state == SERVICE_RELOAD)
                 return -EAGAIN;
+
+        /* Already on it */
+        if (s->state == SERVICE_STOP ||
+            s->state == SERVICE_STOP_SIGTERM ||
+            s->state == SERVICE_STOP_SIGKILL ||
+            s->state == SERVICE_STOP_POST ||
+            s->state == SERVICE_FINAL_SIGTERM ||
+            s->state == SERVICE_FINAL_SIGKILL)
+                return 0;
 
         if (s->state == SERVICE_AUTO_RESTART) {
                 service_set_state(s, SERVICE_DEAD);
@@ -1966,7 +1972,7 @@ static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType);
 
-static const char* const service_exec_command_table[_SERVICE_EXEC_MAX] = {
+static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] = {
         [SERVICE_EXEC_START_PRE] = "ExecStartPre",
         [SERVICE_EXEC_START] = "ExecStart",
         [SERVICE_EXEC_START_POST] = "ExecStartPost",
@@ -1981,6 +1987,7 @@ const UnitVTable service_vtable = {
         .suffix = ".service",
 
         .init = service_init,
+        .load = service_load,
         .done = service_done,
 
         .dump = service_dump,

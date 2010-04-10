@@ -79,7 +79,7 @@ static void socket_done(Unit *u) {
         }
 
         exec_context_done(&s->exec_context);
-        exec_command_free_array(s->exec_command, _SOCKET_EXEC_MAX);
+        exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
         if (s->control_pid > 0) {
@@ -90,17 +90,16 @@ static void socket_done(Unit *u) {
         s->service = NULL;
 
         free(s->bind_to_device);
+        s->bind_to_device = NULL;
 
         unit_unwatch_timer(u, &s->timer_watch);
 }
 
-static int socket_init(Unit *u, UnitLoadState *new_state) {
+static void socket_init(Unit *u) {
         Socket *s = SOCKET(u);
-        char *t;
-        int r;
 
-        /* First, reset everything to the defaults, in case this is a
-         * reload */
+        assert(u);
+        assert(u->meta.load_state == UNIT_STUB);
 
         s->state = 0;
         s->timer_watch.type = WATCH_INVALID;
@@ -112,27 +111,24 @@ static int socket_init(Unit *u, UnitLoadState *new_state) {
         s->kill_mode = 0;
         s->failure = false;
         s->control_pid = 0;
+        s->service = NULL;
         exec_context_init(&s->exec_context);
+}
 
-        if ((r = unit_load_fragment(u, new_state)) < 0)
-                return r;
+static int socket_load(Unit *u) {
+        Socket *s = SOCKET(u);
+        int r;
 
-        if (*new_state == UNIT_STUB)
-                return -ENOENT;
+        assert(u);
+        assert(u->meta.load_state == UNIT_STUB);
 
-        if ((r = unit_load_dropin(unit_follow_merge(u))) < 0)
+        if ((r = unit_load_fragment_and_dropin(u)) < 0)
                 return r;
 
         /* This is a new unit? Then let's add in some extras */
-        if (*new_state == UNIT_LOADED) {
+        if (u->meta.load_state == UNIT_LOADED) {
 
-                if (!(t = unit_name_change_suffix(unit_id(u), ".service")))
-                        return -ENOMEM;
-
-                r = manager_load_unit(u->meta.manager, t, (Unit**) &s->service);
-                free(t);
-
-                if (r < 0)
+                if ((r = unit_load_related_unit(u, ".service", (Unit**) &s->service)))
                         return r;
 
                 if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(s->service))) < 0)
@@ -163,7 +159,7 @@ static const char* listen_lookup(int type) {
 
 static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
-        static const char* const command_table[_SOCKET_EXEC_MAX] = {
+        static const char* const command_table[_SOCKET_EXEC_COMMAND_MAX] = {
                 [SOCKET_EXEC_START_PRE] = "StartPre",
                 [SOCKET_EXEC_START_POST] = "StartPost",
                 [SOCKET_EXEC_STOP_PRE] = "StopPre",
@@ -226,7 +222,7 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
 
         exec_context_dump(&s->exec_context, f, prefix);
 
-        for (c = 0; c < _SOCKET_EXEC_MAX; c++) {
+        for (c = 0; c < _SOCKET_EXEC_COMMAND_MAX; c++) {
                 if (!s->exec_command[c])
                         continue;
 
@@ -363,27 +359,16 @@ static void socket_set_state(Socket *s, SocketState state) {
             state != SOCKET_STOP_PRE_SIGKILL &&
             state != SOCKET_STOP_POST &&
             state != SOCKET_STOP_POST_SIGTERM &&
-            state != SOCKET_STOP_POST_SIGKILL)
+            state != SOCKET_STOP_POST_SIGKILL) {
                 unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
-        if (state != SOCKET_START_PRE &&
-            state != SOCKET_START_POST &&
-            state != SOCKET_STOP_PRE &&
-            state != SOCKET_STOP_PRE_SIGTERM &&
-            state != SOCKET_STOP_PRE_SIGKILL &&
-            state != SOCKET_STOP_POST &&
-            state != SOCKET_STOP_POST_SIGTERM &&
-            state != SOCKET_STOP_POST_SIGKILL)
                 if (s->control_pid > 0) {
                         unit_unwatch_pid(UNIT(s), s->control_pid);
                         s->control_pid = 0;
                 }
 
-        if (state != SOCKET_START_PRE &&
-            state != SOCKET_START_POST &&
-            state != SOCKET_STOP_PRE &&
-            state != SOCKET_STOP_POST)
                 s->control_command = NULL;
+        }
 
         if (state != SOCKET_START_POST &&
             state != SOCKET_LISTENING &&
@@ -396,15 +381,13 @@ static void socket_set_state(Socket *s, SocketState state) {
         if (state != SOCKET_LISTENING)
                 socket_unwatch_fds(s);
 
-        if (state == old_state)
-                return;
-
-        log_debug("%s changed %s → %s", unit_id(UNIT(s)), state_string_table[old_state], state_string_table[state]);
+        if (state != old_state)
+                log_debug("%s changed %s → %s", unit_id(UNIT(s)), state_string_table[old_state], state_string_table[state]);
 
         unit_notify(UNIT(s), state_translation_table[old_state], state_translation_table[state]);
 }
 
-static int socket_spawn(Socket *s, ExecCommand *c, bool timeout, pid_t *_pid) {
+static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
         pid_t pid;
         int r;
 
@@ -412,11 +395,8 @@ static int socket_spawn(Socket *s, ExecCommand *c, bool timeout, pid_t *_pid) {
         assert(c);
         assert(_pid);
 
-        if (timeout) {
-                if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
-                        goto fail;
-        } else
-                unit_unwatch_timer(UNIT(s), &s->timer_watch);
+        if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
+                goto fail;
 
         if ((r = exec_spawn(c,
                             &s->exec_context,
@@ -436,8 +416,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, bool timeout, pid_t *_pid) {
         return 0;
 
 fail:
-        if (timeout)
-                unit_unwatch_timer(UNIT(s), &s->timer_watch);
+        unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
         return r;
 }
@@ -459,7 +438,7 @@ static void socket_enter_stop_post(Socket *s, bool success) {
                 s->failure = true;
 
         if ((s->control_command = s->exec_command[SOCKET_EXEC_STOP_POST]))
-                if ((r = socket_spawn(s, s->control_command, true, &s->control_pid)) < 0)
+                if ((r = socket_spawn(s, s->control_command, &s->control_pid)) < 0)
                         goto fail;
 
         socket_set_state(s, SOCKET_STOP_POST);
@@ -502,7 +481,6 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
                                 r = -errno;
                                 goto fail;
                         }
-
         }
 
         socket_set_state(s, state);
@@ -529,7 +507,7 @@ static void socket_enter_stop_pre(Socket *s, bool success) {
                 s->failure = true;
 
         if ((s->control_command = s->exec_command[SOCKET_EXEC_STOP_PRE]))
-                if ((r = socket_spawn(s, s->control_command, true, &s->control_pid)) < 0)
+                if ((r = socket_spawn(s, s->control_command, &s->control_pid)) < 0)
                         goto fail;
 
         socket_set_state(s, SOCKET_STOP_PRE);
@@ -570,7 +548,7 @@ static void socket_enter_start_post(Socket *s) {
         }
 
         if ((s->control_command = s->exec_command[SOCKET_EXEC_START_POST]))
-                if ((r = socket_spawn(s, s->control_command, true, &s->control_pid)) < 0) {
+                if ((r = socket_spawn(s, s->control_command, &s->control_pid)) < 0) {
                         log_warning("%s failed to run start-post executable: %s", unit_id(UNIT(s)), strerror(-r));
                         goto fail;
                 }
@@ -591,7 +569,7 @@ static void socket_enter_start_pre(Socket *s) {
         assert(s);
 
         if ((s->control_command = s->exec_command[SOCKET_EXEC_START_PRE]))
-                if ((r = socket_spawn(s, s->control_command, true, &s->control_pid)) < 0)
+                if ((r = socket_spawn(s, s->control_command, &s->control_pid)) < 0)
                         goto fail;
 
         socket_set_state(s, SOCKET_START_PRE);
@@ -634,7 +612,7 @@ static void socket_run_next(Socket *s, bool success) {
 
         s->control_command = s->control_command->command_next;
 
-        if ((r = socket_spawn(s, s->control_command, true, &s->control_pid)) < 0)
+        if ((r = socket_spawn(s, s->control_command, &s->control_pid)) < 0)
                 goto fail;
 
         return;
@@ -671,6 +649,13 @@ static int socket_start(Unit *u) {
         if (s->service->meta.load_state != UNIT_LOADED)
                 return -ENOENT;
 
+        /* If the service is alredy actvie we cannot start the
+         * socket */
+        if (s->service->state != SERVICE_DEAD &&
+            s->service->state != SERVICE_MAINTAINANCE &&
+            s->service->state != SERVICE_AUTO_RESTART)
+                return -EBUSY;
+
         assert(s->state == SOCKET_DEAD || s->state == SOCKET_MAINTAINANCE);
 
         s->failure = false;
@@ -688,6 +673,15 @@ static int socket_stop(Unit *u) {
         if (s->state == SOCKET_START_PRE ||
             s->state == SOCKET_START_POST)
                 return -EAGAIN;
+
+        /* Already on it */
+        if (s->state == SOCKET_STOP_PRE ||
+            s->state == SOCKET_STOP_PRE_SIGTERM ||
+            s->state == SOCKET_STOP_PRE_SIGKILL ||
+            s->state == SOCKET_STOP_POST ||
+            s->state == SOCKET_STOP_POST_SIGTERM ||
+            s->state == SOCKET_STOP_POST_SIGTERM)
+                return 0;
 
         assert(s->state == SOCKET_LISTENING || s->state == SOCKET_RUNNING);
 
@@ -781,14 +775,13 @@ static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
 
         assert(s);
         assert(elapsed == 1);
-
         assert(w == &s->timer_watch);
 
         switch (s->state) {
 
         case SOCKET_START_PRE:
         case SOCKET_START_POST:
-                log_warning("%s operation timed out. Stopping.", unit_id(u));
+                log_warning("%s starting timed out. Stopping.", unit_id(u));
                 socket_enter_stop_pre(s, false);
                 break;
 
@@ -874,6 +867,7 @@ const UnitVTable socket_vtable = {
         .suffix = ".socket",
 
         .init = socket_init,
+        .load = socket_load,
         .done = socket_done,
 
         .dump = socket_dump,

@@ -155,6 +155,11 @@ int unit_add_name(Unit *u, const char *text) {
         if (u->meta.type != _UNIT_TYPE_INVALID && t != u->meta.type)
                 return -EINVAL;
 
+        if (u->meta.type != _UNIT_TYPE_INVALID &&
+            UNIT_VTABLE(u)->no_alias &&
+            !set_isempty(u->meta.names))
+                return -EEXIST;
+
         if (!(s = strdup(text)))
                 return -ENOMEM;
 
@@ -173,10 +178,14 @@ int unit_add_name(Unit *u, const char *text) {
                 return r;
         }
 
-        if (u->meta.type == _UNIT_TYPE_INVALID)
+        if (u->meta.type == _UNIT_TYPE_INVALID) {
                 LIST_PREPEND(Meta, units_per_type, u->meta.manager->units_per_type[t], &u->meta);
 
-        u->meta.type = t;
+                u->meta.type = t;
+
+                if (UNIT_VTABLE(u)->init)
+                        UNIT_VTABLE(u)->init(u);
+        }
 
         if (!u->meta.id)
                 u->meta.id = s;
@@ -278,9 +287,6 @@ void unit_free(Unit *u) {
         bus_unit_send_removed_signal(u);
 
         /* Detach from next 'bigger' objects */
-
-        cgroup_bonding_free_list(u->meta.cgroup_bondings);
-
         SET_FOREACH(t, u->meta.names, i)
                 hashmap_remove_value(u->meta.manager->units, t, u);
 
@@ -296,13 +302,15 @@ void unit_free(Unit *u) {
         if (u->meta.in_cleanup_queue)
                 LIST_REMOVE(Meta, cleanup_queue, u->meta.manager->cleanup_queue, &u->meta);
 
+        /* Free data and next 'smaller' objects */
+        if (u->meta.job)
+                job_free(u->meta.job);
+
         if (u->meta.load_state != UNIT_STUB)
                 if (UNIT_VTABLE(u)->done)
                         UNIT_VTABLE(u)->done(u);
 
-        /* Free data and next 'smaller' objects */
-        if (u->meta.job)
-                job_free(u->meta.job);
+        cgroup_bonding_free_list(u->meta.cgroup_bondings);
 
         for (d = 0; d < _UNIT_DEPENDENCY_MAX; d++)
                 bidi_set_free(u, u->meta.dependencies[d]);
@@ -400,9 +408,6 @@ int unit_merge(Unit *u, Unit *other) {
 
         if (other == u)
                 return 0;
-
-        /* This merges 'other' into 'unit'. FIXME: This does not
-         * rollback on failure. */
 
         if (u->meta.type != u->meta.type)
                 return -EINVAL;
@@ -569,18 +574,16 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
 }
 
 /* Common implementation for multiple backends */
-int unit_load_fragment_and_dropin(Unit *u, UnitLoadState *new_state) {
+int unit_load_fragment_and_dropin(Unit *u) {
         int r;
 
         assert(u);
-        assert(new_state);
-        assert(*new_state == UNIT_STUB || *new_state == UNIT_LOADED);
 
         /* Load a .service file */
-        if ((r = unit_load_fragment(u, new_state)) < 0)
+        if ((r = unit_load_fragment(u)) < 0)
                 return r;
 
-        if (*new_state == UNIT_STUB)
+        if (u->meta.load_state == UNIT_STUB)
                 return -ENOENT;
 
         /* Load drop-in directory data */
@@ -591,22 +594,20 @@ int unit_load_fragment_and_dropin(Unit *u, UnitLoadState *new_state) {
 }
 
 /* Common implementation for multiple backends */
-int unit_load_fragment_and_dropin_optional(Unit *u, UnitLoadState *new_state) {
+int unit_load_fragment_and_dropin_optional(Unit *u) {
         int r;
 
         assert(u);
-        assert(new_state);
-        assert(*new_state == UNIT_STUB || *new_state == UNIT_LOADED);
 
         /* Same as unit_load_fragment_and_dropin(), but whether
          * something can be loaded or not doesn't matter. */
 
         /* Load a .service file */
-        if ((r = unit_load_fragment(u, new_state)) < 0)
+        if ((r = unit_load_fragment(u)) < 0)
                 return r;
 
-        if (*new_state == UNIT_STUB)
-                *new_state = UNIT_LOADED;
+        if (u->meta.load_state == UNIT_STUB)
+                u->meta.load_state = UNIT_LOADED;
 
         /* Load drop-in directory data */
         if ((r = unit_load_dropin(unit_follow_merge(u))) < 0)
@@ -617,7 +618,6 @@ int unit_load_fragment_and_dropin_optional(Unit *u, UnitLoadState *new_state) {
 
 int unit_load(Unit *u) {
         int r;
-        UnitLoadState res;
 
         assert(u);
 
@@ -626,21 +626,21 @@ int unit_load(Unit *u) {
                 u->meta.in_load_queue = false;
         }
 
+        if (u->meta.type == _UNIT_TYPE_INVALID)
+                return -EINVAL;
+
         if (u->meta.load_state != UNIT_STUB)
                 return 0;
 
-        if (UNIT_VTABLE(u)->init) {
-                res = UNIT_STUB;
-                if ((r = UNIT_VTABLE(u)->init(u, &res)) < 0)
+        if (UNIT_VTABLE(u)->load)
+                if ((r = UNIT_VTABLE(u)->load(u)) < 0)
                         goto fail;
-        }
 
-        if (res == UNIT_STUB) {
+        if (u->meta.load_state == UNIT_STUB) {
                 r = -ENOENT;
                 goto fail;
         }
 
-        u->meta.load_state = res;
         assert((u->meta.load_state != UNIT_MERGED) == !u->meta.merged_into);
 
         unit_add_to_dbus_queue(unit_follow_merge(u));
@@ -710,9 +710,6 @@ int unit_stop(Unit *u) {
 
         if (!UNIT_VTABLE(u)->stop)
                 return -EBADR;
-
-        if (state == UNIT_DEACTIVATING)
-                return 0;
 
         unit_add_to_dbus_queue(u);
         return UNIT_VTABLE(u)->stop(u);
@@ -940,25 +937,38 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
                         retroactively_stop_dependencies(u);
         }
 
-        if (!UNIT_IS_ACTIVE_OR_RELOADING(os) && UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
-
+        /* Some names are special */
+        if (UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
                 if (unit_has_name(u, SPECIAL_DBUS_SERVICE)) {
-                        log_info("D-Bus became available, trying to reconnect.");
-                        /* The bus just got started, hence try to connect to it. */
+                        /* The bus just might have become available,
+                         * hence try to connect to it, if we aren't
+                         * yet connected. */
                         bus_init_system(u->meta.manager);
                         bus_init_api(u->meta.manager);
                 }
 
-                if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE)) {
-                        /* The syslog daemon just got started, hence try to connect to it. */
-                        log_info("Syslog became available, trying to reconnect.");
+                if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE))
+                        /* The syslog daemon just might have become
+                         * available, hence try to connect to it, if
+                         * we aren't yet connected. */
                         log_open_syslog();
-                }
 
-        } else if (UNIT_IS_ACTIVE_OR_RELOADING(os) && !UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
+                if (u->meta.type == UNIT_MOUNT)
+                        /* Another directory became available, let's
+                         * check if that is enough to write our utmp
+                         * entry. */
+                        manager_write_utmp_reboot(u->meta.manager);
+
+                if (u->meta.type == UNIT_TARGET)
+                        /* A target got activated, maybe this is a runlevel? */
+                        manager_write_utmp_runlevel(u->meta.manager, u);
+
+        } else if (!UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
 
                 if (unit_has_name(u, SPECIAL_SYSLOG_SERVICE))
-                        /* The syslog daemon just got terminated, hence try to disconnect from it. */
+                        /* The syslog daemon might just have
+                         * terminated, hence try to disconnect from
+                         * it. */
                         log_close_syslog();
 
                 /* We don't care about D-Bus here, since we'll get an

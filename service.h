@@ -69,8 +69,8 @@ typedef enum ServiceExecCommand {
         SERVICE_EXEC_RELOAD,
         SERVICE_EXEC_STOP,
         SERVICE_EXEC_STOP_POST,
-        _SERVICE_EXEC_MAX,
-        _SERVICE_EXEC_INVALID = -1
+        _SERVICE_EXEC_COMMAND_MAX,
+        _SERVICE_EXEC_COMMAND_INVALID = -1
 } ServiceExecCommand;
 
 struct Service {
@@ -85,7 +85,7 @@ struct Service {
         usec_t restart_usec;
         usec_t timeout_usec;
 
-        ExecCommand* exec_command[_SERVICE_EXEC_MAX];
+        ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
         ExecContext exec_context;
 
         bool permissions_start_only;
@@ -102,16 +102,16 @@ struct Service {
         pid_t main_pid, control_pid;
         bool main_pid_known:1;
 
-        bool sysv_has_lsb:1;
-
         bool failure:1; /* if we shut down, remember why */
-        Watch timer_watch;
 
+        bool sysv_has_lsb:1;
         char *sysv_path;
         int sysv_start_priority;
         char *sysv_runlevels;
 
         RateLimit ratelimit;
+
+        Watch timer_watch;
 };
 
 extern const UnitVTable service_vtable;

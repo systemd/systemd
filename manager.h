@@ -145,6 +145,8 @@ struct Manager {
         bool request_api_bus_dispatch:1;
         bool request_system_bus_dispatch:1;
 
+        bool utmp_reboot_written:1;
+
         Hashmap *watch_pids;  /* pid => Unit object n:1 */
 
         int epoll_fd;
@@ -172,6 +174,8 @@ struct Manager {
         Hashmap *cgroup_bondings; /* path string => CGroupBonding object 1:n */
         char *cgroup_controller;
         char *cgroup_hierarchy;
+
+        usec_t boot_timestamp;
 };
 
 int manager_new(ManagerRunningAs running_as, Manager **m);
@@ -203,5 +207,9 @@ int manager_loop(Manager *m);
 
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);
+
+void manager_write_utmp_reboot(Manager *m);
+
+void manager_write_utmp_runlevel(Manager *m, Unit *t);
 
 #endif

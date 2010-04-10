@@ -1,5 +1,8 @@
 /*-*- Mode: C; c-basic-offset: 8 -*-*/
 
+#ifndef fooutmpwtmphfoo
+#define fooutmpwtmphfoo
+
 /***
   This file is part of systemd.
 
@@ -19,33 +22,12 @@
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
 ***/
 
-#include <errno.h>
+#include "util.h"
 
-#include "unit.h"
-#include "timer.h"
+int utmp_get_runlevel(int *runlevel, int *previous);
 
-static void timer_done(Unit *u) {
-        Timer *t = TIMER(u);
+int utmp_put_shutdown(usec_t timestamp);
+int utmp_put_reboot(usec_t timestamp);
+int utmp_put_runlevel(usec_t timestamp, int runlevel, int previous);
 
-        assert(t);
-}
-
-static UnitActiveState timer_active_state(Unit *u) {
-
-        static const UnitActiveState table[_TIMER_STATE_MAX] = {
-                [TIMER_DEAD] = UNIT_INACTIVE,
-                [TIMER_WAITING] = UNIT_ACTIVE,
-                [TIMER_RUNNING] = UNIT_ACTIVE
-        };
-
-        return table[TIMER(u)->state];
-}
-
-const UnitVTable timer_vtable = {
-        .suffix = ".timer",
-
-        .load = unit_load_fragment_and_dropin,
-        .done = timer_done,
-
-        .active_state = timer_active_state
-};
+#endif

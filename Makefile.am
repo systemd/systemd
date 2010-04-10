@@ -106,7 +106,9 @@ COMMON_SOURCES= \
 	mount-setup.c \
 	mount-setup.h \
 	hostname-setup.c \
-	hostname-setup.h
+	hostname-setup.h \
+	utmp-wtmp.c \
+	utmp-wtmp.h
 
 systemd_SOURCES = \
 	$(COMMON_SOURCES) \

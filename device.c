@@ -42,20 +42,29 @@ static void device_done(Unit *u) {
         Device *d = DEVICE(u);
 
         assert(d);
+
         free(d->sysfs);
+        d->sysfs = NULL;
+}
+
+static void device_init(Unit *u) {
+        Device *d = DEVICE(u);
+
+        assert(d);
+        assert(u->meta.load_state == UNIT_STUB);
+
+        d->state = 0;
 }
 
 static void device_set_state(Device *d, DeviceState state) {
         DeviceState old_state;
         assert(d);
 
-        if (state == d->state)
-                return;
-
         old_state = d->state;
         d->state = state;
 
-        log_debug("%s changed %s → %s", unit_id(UNIT(d)), state_string_table[old_state], state_string_table[state]);
+        if (state != old_state)
+                log_debug("%s changed %s → %s", unit_id(UNIT(d)), state_string_table[old_state], state_string_table[state]);
 
         unit_notify(UNIT(d), state_translation_table[old_state], state_translation_table[state]);
 }
@@ -231,14 +240,15 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
                 if ((r = device_add_escaped_name(u, sysfs, true)) < 0)
                         goto fail;
 
+                unit_add_to_load_queue(u);
+        } else
+                delete = false;
+
+        if (!(DEVICE(u)->sysfs))
                 if (!(DEVICE(u)->sysfs = strdup(sysfs))) {
                         r = -ENOMEM;
                         goto fail;
                 }
-
-                unit_add_to_load_queue(u);
-        } else
-                delete = false;
 
         if (dn)
                 if ((r = device_add_escaped_name(u, dn, true)) < 0)
@@ -460,7 +470,8 @@ fail:
 const UnitVTable device_vtable = {
         .suffix = ".device",
 
-        .init = unit_load_fragment_and_dropin_optional,
+        .init = device_init,
+        .load = unit_load_fragment_and_dropin_optional,
         .done = device_done,
         .coldplug = device_coldplug,
 

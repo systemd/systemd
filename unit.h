@@ -196,8 +196,31 @@ union Unit {
 struct UnitVTable {
         const char *suffix;
 
-        int (*init)(Unit *u, UnitLoadState *new_state);
+        /* Can units of this type have multiple names? */
+        bool no_alias:1;
+
+        /* If true units of this types can never have "Requires"
+         * dependencies, because state changes can only be observed,
+         * not triggered */
+        bool refuse_requires:1;
+
+        /* This should reset all type-specific variables. This should
+         * not allocate memory, and is either called with 0
+         * initialized data, or with data left from done() */
+        void (*init)(Unit *u);
+
+        /* Actually load data from disk. This may fail, and should set
+         * load_state to UNIT_LOADED, UNIT_MERGED or leave it at
+         * UNIT_STUB if no configuration could be found. */
+        int (*load)(Unit *u);
+
+        /* This should free all type-specific variables. It should be
+         * idempotent. There's no need to reset variables that deal
+         * with dynamic memory/resources. */
         void (*done)(Unit *u);
+
+        /* If a a lot of units got created via enumerate(), this is
+         * where to actually set the state and call unit_notify(). */
         int (*coldplug)(Unit *u);
 
         void (*dump)(Unit *u, FILE *f, const char *prefix);
@@ -285,8 +308,8 @@ int unit_merge_by_name(Unit *u, const char *other);
 
 Unit *unit_follow_merge(Unit *u);
 
-int unit_load_fragment_and_dropin(Unit *u, UnitLoadState *new_state);
-int unit_load_fragment_and_dropin_optional(Unit *u, UnitLoadState *new_state);
+int unit_load_fragment_and_dropin(Unit *u);
+int unit_load_fragment_and_dropin_optional(Unit *u);
 int unit_load(Unit *unit);
 
 const char* unit_id(Unit *u);

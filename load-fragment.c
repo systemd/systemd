@@ -56,6 +56,15 @@ static int config_parse_deps(
         assert(lvalue);
         assert(rvalue);
 
+        if (UNIT_VTABLE(u)->refuse_requires &&
+            (d == UNIT_REQUIRES ||
+             d == UNIT_SOFT_REQUIRES ||
+             d == UNIT_REQUISITE ||
+             d == UNIT_SOFT_REQUISITE)) {
+                    log_error("[%s:%u] Dependency of type %s not acceptable for this unit type.", filename, line, lvalue);
+                    return -EBADMSG;
+            }
+
         FOREACH_WORD(w, l, rvalue, state) {
                 char *t;
                 int r;
@@ -1116,7 +1125,80 @@ static int merge_by_names(Unit **u, Set *names, const char *id) {
         return 0;
 }
 
-static int load_from_path(Unit *u, const char *path, UnitLoadState *new_state) {
+static void dump_items(FILE *f, const ConfigItem *items) {
+        const ConfigItem *i;
+        const char *prev_section = NULL;
+        bool not_first = false;
+
+        struct {
+                ConfigParserCallback callback;
+                const char *rvalue;
+        } table[] = {
+                { config_parse_int,              "INTEGER" },
+                { config_parse_unsigned,         "UNSIGNED" },
+                { config_parse_size,             "SIZE" },
+                { config_parse_bool,             "BOOLEAN" },
+                { config_parse_string,           "STRING" },
+                { config_parse_path,             "PATH" },
+                { config_parse_strv,             "STRING [...]" },
+                { config_parse_nice,             "NICE" },
+                { config_parse_oom_adjust,       "OOMADJUST" },
+                { config_parse_io_class,         "IOCLASS" },
+                { config_parse_io_priority,      "IOPRIORITY" },
+                { config_parse_cpu_sched_policy, "CPUSCHEDPOLICY" },
+                { config_parse_cpu_sched_prio,   "CPUSCHEDPRIO" },
+                { config_parse_cpu_affinity,     "CPUAFFINITY" },
+                { config_parse_mode,             "MODE" },
+                { config_parse_output,           "OUTPUT" },
+                { config_parse_input,            "INPUT" },
+                { config_parse_facility,         "FACILITY" },
+                { config_parse_level,            "LEVEL" },
+                { config_parse_capabilities,     "CAPABILITIES" },
+                { config_parse_secure_bits,      "SECUREBITS" },
+                { config_parse_bounding_set,     "BOUNDINGSET" },
+                { config_parse_timer_slack_ns,   "TIMERSLACK" },
+                { config_parse_limit,            "LIMIT" },
+                { config_parse_cgroup,           "CGROUP [...]" },
+                { config_parse_deps,             "UNIT [...]" },
+                { config_parse_names,            "UNIT [...]" },
+                { config_parse_exec,             "PATH [ARGUMENT [...]]" },
+                { config_parse_service_type,     "SERVICETYPE" },
+                { config_parse_service_restart,  "SERVICERESTART" },
+                { config_parse_sysv_priority,    "SYSVPRIORITY" },
+                { config_parse_kill_mode,        "KILLMODE" },
+                { config_parse_listen,           "SOCKET [...]" },
+                { config_parse_socket_bind,      "SOCKETBIND" },
+                { config_parse_bindtodevice,     "NETWORKINTERFACE" }
+        };
+
+        assert(f);
+        assert(items);
+
+        for (i = items; i->lvalue; i++) {
+                unsigned j;
+                const char *rvalue = "OTHER";
+
+                if (!streq_ptr(i->section, prev_section)) {
+                        if (!not_first)
+                                not_first = true;
+                        else
+                                fputc('\n', f);
+
+                        fprintf(f, "[%s]\n", i->section);
+                        prev_section = i->section;
+                }
+
+                for (j = 0; j < ELEMENTSOF(table); j++)
+                        if (i->parse == table[j].callback) {
+                                rvalue = table[j].rvalue;
+                                break;
+                        }
+
+                fprintf(f, "%s=%s\n", i->lvalue, rvalue);
+        }
+}
+
+static int load_from_path(Unit *u, const char *path) {
 
         static const char* const section_table[_UNIT_TYPE_MAX] = {
                 [UNIT_SERVICE]   = "Service",
@@ -1223,7 +1305,13 @@ static int load_from_path(Unit *u, const char *path, UnitLoadState *new_state) {
                 { "KillMode",               config_parse_kill_mode,       &u->socket.kill_mode,                            "Socket"  },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->socket.exec_context, "Socket"),
 
-                EXEC_CONTEXT_CONFIG_ITEMS(u->automount.exec_context, "Automount"),
+                { "What",                   config_parse_string,          &u->mount.parameters_fragment.what,              "Mount"   },
+                { "Where",                  config_parse_path,            &u->mount.where,                                 "Mount"   },
+                { "Options",                config_parse_string,          &u->mount.parameters_fragment.options,           "Mount"   },
+                { "Type",                   config_parse_string,          &u->mount.parameters_fragment.fstype,            "Mount"   },
+                { "TimeoutSec",             config_parse_usec,            &u->mount.timeout_usec,                          "Mount"   },
+                { "KillMode",               config_parse_kill_mode,       &u->mount.kill_mode,                             "Mount"   },
+                EXEC_CONTEXT_CONFIG_ITEMS(u->mount.exec_context, "Mount"),
 
                 { NULL, NULL, NULL, NULL }
         };
@@ -1238,8 +1326,14 @@ static int load_from_path(Unit *u, const char *path, UnitLoadState *new_state) {
         char *filename = NULL, *id = NULL;
         Unit *merged;
 
+        if (!u) {
+                /* Dirty dirty hack. */
+                dump_items((FILE*) path, items);
+                return 0;
+        }
+
         assert(u);
-        assert(new_state);
+        assert(path);
 
         sections[0] = "Meta";
         sections[1] = section_table[u->meta.type];
@@ -1306,7 +1400,7 @@ static int load_from_path(Unit *u, const char *path, UnitLoadState *new_state) {
                 goto finish;
 
         if (merged != u) {
-                *new_state = UNIT_MERGED;
+                u->meta.load_state = UNIT_MERGED;
                 r = 0;
                 goto finish;
         }
@@ -1319,7 +1413,7 @@ static int load_from_path(Unit *u, const char *path, UnitLoadState *new_state) {
         u->meta.fragment_path = filename;
         filename = NULL;
 
-        *new_state = UNIT_LOADED;
+        u->meta.load_state = UNIT_LOADED;
         r = 0;
 
 finish:
@@ -1335,16 +1429,14 @@ finish:
         return r;
 }
 
-int unit_load_fragment(Unit *u, UnitLoadState *new_state) {
+int unit_load_fragment(Unit *u) {
         int r;
 
         assert(u);
-        assert(new_state);
-        assert(*new_state == UNIT_STUB);
 
         if (u->meta.fragment_path) {
 
-                if ((r = load_from_path(u, u->meta.fragment_path, new_state)) < 0)
+                if ((r = load_from_path(u, u->meta.fragment_path)) < 0)
                         return r;
 
         } else {
@@ -1353,23 +1445,29 @@ int unit_load_fragment(Unit *u, UnitLoadState *new_state) {
 
                 /* Try to find the unit under its id */
                 if ((t = unit_id(u)))
-                        if ((r = load_from_path(u, t, new_state)) < 0)
+                        if ((r = load_from_path(u, t)) < 0)
                                 return r;
 
                 /* Try to find an alias we can load this with */
-                if (*new_state == UNIT_STUB)
+                if (u->meta.load_state == UNIT_STUB)
                         SET_FOREACH(t, u->meta.names, i) {
 
                                 if (unit_id(u) == t)
                                         continue;
 
-                                if ((r = load_from_path(u, t, new_state)) < 0)
+                                if ((r = load_from_path(u, t)) < 0)
                                         return r;
 
-                                if (*new_state != UNIT_STUB)
+                                if (u->meta.load_state != UNIT_STUB)
                                         break;
                         }
         }
 
         return 0;
+}
+
+void unit_dump_config_items(FILE *f) {
+        /* OK, this wins a prize for extreme ugliness. */
+
+        load_from_path(NULL, (const void*) f);
 }

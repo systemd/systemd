@@ -38,7 +38,8 @@
 static enum {
         ACTION_RUN,
         ACTION_HELP,
-        ACTION_TEST
+        ACTION_TEST,
+        ACTION_DUMP_CONFIGURATION_ITEMS
 } action = ACTION_RUN;
 
 static char *default_unit = NULL;
@@ -138,7 +139,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOG_TARGET,
                 ARG_DEFAULT,
                 ARG_RUNNING_AS,
-                ARG_TEST
+                ARG_TEST,
+                ARG_DUMP_CONFIGURATION_ITEMS
         };
 
         static const struct option options[] = {
@@ -148,6 +150,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "running-as", required_argument, NULL, ARG_RUNNING_AS },
                 { "test",       no_argument,       NULL, ARG_TEST },
                 { "help",       no_argument,       NULL, 'h' },
+                { "dump-configuration-items", no_argument, NULL, ARG_DUMP_CONFIGURATION_ITEMS },
                 { NULL,         0,                 NULL, 0 }
         };
 
@@ -202,6 +205,10 @@ static int parse_argv(int argc, char *argv[]) {
                         action = ACTION_TEST;
                         break;
 
+                case ARG_DUMP_CONFIGURATION_ITEMS:
+                        action = ACTION_DUMP_CONFIGURATION_ITEMS;
+                        break;
+
                 case 'h':
                         action = ACTION_HELP;
                         break;
@@ -220,12 +227,13 @@ static int parse_argv(int argc, char *argv[]) {
 static int help(void) {
 
         printf("%s [options]\n\n"
-               "  -h --help               Show this help\n"
-               "     --default=UNIT       Set default unit\n"
-               "     --log-level=LEVEL    Set log level\n"
-               "     --log-target=TARGET  Set log target (console, syslog, kmsg)\n"
-               "     --running-as=AS      Set running as (init, system, session)\n"
-               "     --test               Determine startup sequence, dump it and exit\n",
+               "  -h --help                      Show this help\n"
+               "     --default=UNIT              Set default unit\n"
+               "     --log-level=LEVEL           Set log level\n"
+               "     --log-target=TARGET         Set log target (console, syslog, kmsg)\n"
+               "     --running-as=AS             Set running as (init, system, session)\n"
+               "     --test                      Determine startup sequence, dump it and exit\n"
+               "     --dump-configuration-items  Dump understood unit configuration items\n",
                __progname);
 
         return 0;
@@ -270,12 +278,18 @@ int main(int argc, char *argv[]) {
         if (action == ACTION_HELP) {
                 retval = help();
                 goto finish;
+        } else if (action == ACTION_DUMP_CONFIGURATION_ITEMS) {
+                unit_dump_config_items(stdout);
+                retval = 0;
+                goto finish;
         }
 
         assert_se(action == ACTION_RUN || action == ACTION_TEST);
 
         /* Set up PATH unless it is already set */
-        setenv("PATH", "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", false);
+        setenv("PATH",
+               "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+               running_as == MANAGER_INIT);
 
         /* Move out of the way, so that we won't block unmounts */
         assert_se(chdir("/")  == 0);
@@ -296,8 +310,7 @@ int main(int argc, char *argv[]) {
         log_debug("systemd running in %s mode.", manager_running_as_to_string(running_as));
 
         if (running_as == MANAGER_INIT)
-                if (hostname_setup() < 0)
-                        goto finish;
+                hostname_setup();
 
         if ((r = manager_new(running_as, &m)) < 0) {
                 log_error("Failed to allocate manager object: %s", strerror(-r));

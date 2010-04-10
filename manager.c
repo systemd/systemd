@@ -27,6 +27,7 @@
 #include <sys/signalfd.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <utmpx.h>
 #include <sys/poll.h>
 #include <sys/reboot.h>
 #include <sys/ioctl.h>
@@ -42,6 +43,7 @@
 #include "ratelimit.h"
 #include "cgroup.h"
 #include "mount-setup.h"
+#include "utmp-wtmp.h"
 
 static int manager_setup_signals(Manager *m) {
         sigset_t mask;
@@ -291,6 +293,8 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         if (!(m = new0(Manager, 1)))
                 return -ENOMEM;
 
+        m->boot_timestamp = now(CLOCK_REALTIME);
+
         m->running_as = running_as;
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
@@ -427,6 +431,10 @@ int manager_coldplug(Manager *m) {
                         if ((r = UNIT_VTABLE(u)->coldplug(u)) < 0)
                                 return r;
         }
+
+        /* Now that the initial devices are available, let's see if we
+         * can write the utmp file */
+        manager_write_utmp_reboot(m);
 
         return 0;
 }
@@ -1702,6 +1710,72 @@ int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j) {
         *_j = j;
 
         return 0;
+}
+
+static bool manager_utmp_good(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if ((r = mount_path_is_mounted(m, _PATH_UTMPX)) <= 0) {
+
+                if (r < 0)
+                        log_warning("Failed to determine whether " _PATH_UTMPX " is mounted: %s", strerror(-r));
+
+                return false;
+        }
+
+        return true;
+}
+
+void manager_write_utmp_reboot(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->utmp_reboot_written)
+                return;
+
+        if (m->running_as != MANAGER_INIT)
+                return;
+
+        if (!manager_utmp_good(m))
+                return;
+
+        if ((r = utmp_put_reboot(m->boot_timestamp)) < 0) {
+
+                if (r != -ENOENT && r != -EROFS)
+                        log_warning("Failed to write utmp/wtmp: %s", strerror(-r));
+
+                return;
+        }
+
+        m->utmp_reboot_written = true;
+}
+
+void manager_write_utmp_runlevel(Manager *m, Unit *u) {
+        int runlevel, r;
+
+        assert(m);
+        assert(u);
+
+        if (u->meta.type != UNIT_TARGET)
+                return;
+
+        if (m->running_as != MANAGER_INIT)
+                return;
+
+        if (!manager_utmp_good(m))
+                return;
+
+        if ((runlevel = target_get_runlevel(TARGET(u))) <= 0)
+                return;
+
+        if ((r = utmp_put_runlevel(0, runlevel, 0)) < 0) {
+
+                if (r != -ENOENT && r != -EROFS)
+                        log_warning("Failed to write utmp/wtmp: %s", strerror(-r));
+        }
 }
 
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {

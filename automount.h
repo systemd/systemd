@@ -28,34 +28,17 @@ typedef struct Automount Automount;
 
 typedef enum AutomountState {
         AUTOMOUNT_DEAD,
-        AUTOMOUNT_START_PRE,
-        AUTOMOUNT_START_POST,
         AUTOMOUNT_WAITING,
         AUTOMOUNT_RUNNING,
-        AUTOMOUNT_STOP_PRE,
-        AUTOMOUNT_STOP_POST,
         AUTOMOUNT_MAINTAINANCE,
-        _AUTOMOUNT_STATE_MAX
+        _AUTOMOUNT_STATE_MAX,
+        _AUTOMOUNT_STATE_INVALID = -1
 } AutomountState;
-
-typedef enum AutomountExecCommand {
-        AUTOMOUNT_EXEC_START_PRE,
-        AUTOMOUNT_EXEC_START_POST,
-        AUTOMOUNT_EXEC_STOP_PRE,
-        AUTOMOUNT_EXEC_STOP_POST,
-        _AUTOMOUNT_EXEC_MAX
-} AutomountExecCommand;
 
 struct Automount {
         Meta meta;
 
         AutomountState state;
-        char *path;
-
-        ExecCommand* exec_command[_AUTOMOUNT_EXEC_MAX];
-        ExecContext exec_context;
-
-        pid_t contol_pid;
 
         Mount *mount;
 };

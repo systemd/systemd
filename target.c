@@ -37,6 +37,15 @@ static const char* const state_string_table[_TARGET_STATE_MAX] = {
         [TARGET_ACTIVE] = "active"
 };
 
+static void target_init(Unit *u) {
+        Target *t = TARGET(u);
+
+        assert(t);
+        assert(u->meta.load_state == UNIT_STUB);
+
+        t->state = 0;
+}
+
 static void target_dump(Unit *u, FILE *f, const char *prefix) {
         Target *t = TARGET(u);
 
@@ -52,13 +61,11 @@ static void target_set_state(Target *t, TargetState state) {
         TargetState old_state;
         assert(t);
 
-        if (state == t->state)
-                return;
-
         old_state = t->state;
         t->state = state;
 
-        log_debug("%s changed %s → %s", unit_id(UNIT(t)), state_string_table[old_state], state_string_table[state]);
+        if (state != old_state)
+                log_debug("%s changed %s → %s", unit_id(UNIT(t)), state_string_table[old_state], state_string_table[state]);
 
         unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state]);
 }
@@ -121,7 +128,8 @@ int target_get_runlevel(Target *t) {
 const UnitVTable target_vtable = {
         .suffix = ".target",
 
-        .init = unit_load_fragment_and_dropin,
+        .init = target_init,
+        .load = unit_load_fragment_and_dropin,
 
         .dump = target_dump,
 

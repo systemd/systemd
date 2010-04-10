@@ -41,7 +41,8 @@ typedef enum SocketState {
         SOCKET_STOP_POST_SIGTERM,
         SOCKET_STOP_POST_SIGKILL,
         SOCKET_MAINTAINANCE,
-        _SOCKET_STATE_MAX
+        _SOCKET_STATE_MAX,
+        _SOCKET_STATE_INVALID = -1
 } SocketState;
 
 typedef enum SocketExecCommand {
@@ -49,12 +50,15 @@ typedef enum SocketExecCommand {
         SOCKET_EXEC_START_POST,
         SOCKET_EXEC_STOP_PRE,
         SOCKET_EXEC_STOP_POST,
-        _SOCKET_EXEC_MAX
+        _SOCKET_EXEC_COMMAND_MAX,
+        _SOCKET_EXEC_COMMAND_INVALID = -1
 } SocketExecCommand;
 
 typedef enum SocketType {
         SOCKET_SOCKET,
-        SOCKET_FIFO
+        SOCKET_FIFO,
+        _SOCKET_FIFO_MAX,
+        _SOCKET_FIFO_INVALID = -1
 } SocketType;
 
 typedef struct SocketPort SocketPort;
@@ -82,7 +86,7 @@ struct Socket {
 
         usec_t timeout_usec;
 
-        ExecCommand* exec_command[_SOCKET_EXEC_MAX];
+        ExecCommand* exec_command[_SOCKET_EXEC_COMMAND_MAX];
         ExecContext exec_context;
 
         Service *service;

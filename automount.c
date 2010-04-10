@@ -26,34 +26,44 @@
 #include "load-fragment.h"
 #include "load-dropin.h"
 
-static int automount_init(Unit *u, UnitLoadState *new_state) {
+static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
+        [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
+        [AUTOMOUNT_WAITING] = UNIT_ACTIVE,
+        [AUTOMOUNT_RUNNING] = UNIT_ACTIVE,
+        [AUTOMOUNT_MAINTAINANCE] = UNIT_INACTIVE,
+};
+
+static const char* const state_string_table[_AUTOMOUNT_STATE_MAX] = {
+        [AUTOMOUNT_DEAD] = "dead",
+        [AUTOMOUNT_WAITING] = "waiting",
+        [AUTOMOUNT_RUNNING] = "running",
+        [AUTOMOUNT_MAINTAINANCE] = "maintainance"
+};
+
+static void automount_init(Unit *u) {
+        Automount *a = AUTOMOUNT(u);
+
+        a->state = 0;
+        a->mount = NULL;
+}
+
+static int automount_load(Unit *u) {
         int r;
         Automount *a = AUTOMOUNT(u);
 
-        assert(a);
-
-        exec_context_init(&a->exec_context);
+        assert(u);
+        assert(u->meta.load_state == UNIT_STUB);
 
         /* Load a .automount file */
-        if ((r = unit_load_fragment(u, new_state)) < 0)
+        if ((r = unit_load_fragment_and_dropin_optional(u)) < 0)
                 return r;
 
-        if (*new_state == UNIT_STUB)
-                *new_state = UNIT_LOADED;
+        if (u->meta.load_state == UNIT_LOADED) {
 
-        /* Load drop-in directory data */
-        if ((r = unit_load_dropin(unit_follow_merge(u))) < 0)
-                return r;
-
-        if (*new_state == UNIT_LOADED) {
+                if ((r = unit_load_related_unit(u, ".mount", (Unit**) &a->mount)) < 0)
+                        return r;
 
                 if ((r = unit_add_dependency(u, UNIT_BEFORE, UNIT(a->mount))) < 0)
-                        return r;
-
-                if ((r = unit_add_exec_dependencies(u, &a->exec_context)) < 0)
-                        return r;
-
-                if ((r = unit_add_default_cgroup(u)) < 0)
                         return r;
         }
 
@@ -61,73 +71,35 @@ static int automount_init(Unit *u, UnitLoadState *new_state) {
 }
 
 static void automount_done(Unit *u) {
-        Automount *d = AUTOMOUNT(u);
+        Automount *a = AUTOMOUNT(u);
 
-        assert(d);
-        free(d->path);
+        assert(a);
+
+        a->mount = NULL;
 }
 
 static void automount_dump(Unit *u, FILE *f, const char *prefix) {
-
-        static const char* const state_table[_AUTOMOUNT_STATE_MAX] = {
-                [AUTOMOUNT_DEAD] = "dead",
-                [AUTOMOUNT_START_PRE] = "start-pre",
-                [AUTOMOUNT_START_POST] = "start-post",
-                [AUTOMOUNT_WAITING] = "waiting",
-                [AUTOMOUNT_RUNNING] = "running",
-                [AUTOMOUNT_STOP_PRE] = "stop-pre",
-                [AUTOMOUNT_STOP_POST] = "stop-post",
-                [AUTOMOUNT_MAINTAINANCE] = "maintainance"
-        };
-
-        static const char* const command_table[_AUTOMOUNT_EXEC_MAX] = {
-                [AUTOMOUNT_EXEC_START_PRE] = "StartPre",
-                [AUTOMOUNT_EXEC_START_POST] = "StartPost",
-                [AUTOMOUNT_EXEC_STOP_PRE] = "StopPre",
-                [AUTOMOUNT_EXEC_STOP_POST] = "StopPost"
-        };
-
-        AutomountExecCommand c;
         Automount *s = AUTOMOUNT(u);
 
         assert(s);
 
         fprintf(f,
-                "%sAutomount State: %s\n"
-                "%sPath: %s\n",
-                prefix, state_table[s->state],
-                prefix, s->path);
-
-        exec_context_dump(&s->exec_context, f, prefix);
-
-        for (c = 0; c < _AUTOMOUNT_EXEC_MAX; c++) {
-                ExecCommand *i;
-
-                LIST_FOREACH(command, i, s->exec_command[c])
-                        fprintf(f, "%s%s: %s\n", prefix, command_table[c], i->path);
-        }
+                "%sAutomount State: %s\n",
+                prefix, state_string_table[s->state]);
 }
 
 static UnitActiveState automount_active_state(Unit *u) {
 
-        static const UnitActiveState table[_AUTOMOUNT_STATE_MAX] = {
-                [AUTOMOUNT_DEAD] = UNIT_INACTIVE,
-                [AUTOMOUNT_START_PRE] = UNIT_ACTIVATING,
-                [AUTOMOUNT_START_POST] = UNIT_ACTIVATING,
-                [AUTOMOUNT_WAITING] = UNIT_ACTIVE,
-                [AUTOMOUNT_RUNNING] = UNIT_ACTIVE,
-                [AUTOMOUNT_STOP_PRE] = UNIT_DEACTIVATING,
-                [AUTOMOUNT_STOP_POST] = UNIT_DEACTIVATING,
-                [AUTOMOUNT_MAINTAINANCE] = UNIT_INACTIVE,
-        };
-
-        return table[AUTOMOUNT(u)->state];
+        return state_translation_table[AUTOMOUNT(u)->state];
 }
 
 const UnitVTable automount_vtable = {
         .suffix = ".mount",
 
+        .no_alias = true,
+
         .init = automount_init,
+        .load = automount_load,
         .done = automount_done,
 
         .dump = automount_dump,
