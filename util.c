@@ -34,6 +34,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <dirent.h>
+#include <sys/ioctl.h>
+#include <linux/vt.h>
+#include <linux/tiocl.h>
 
 #include "macro.h"
 #include "util.h"
@@ -1292,6 +1295,31 @@ bool fstype_is_network(const char *fstype) {
                         return true;
 
         return false;
+}
+
+int chvt(int vt) {
+        int fd, r = 0;
+
+        if ((fd = open("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC)) < 0)
+                return -errno;
+
+        if (vt < 0) {
+                int tiocl[2] = {
+                        TIOCL_GETKMSGREDIRECT,
+                        0
+                };
+
+                if (ioctl(fd, TIOCLINUX, tiocl) < 0)
+                        return -errno;
+
+                vt = tiocl[0] <= 0 ? 1 : tiocl[0];
+        }
+
+        if (ioctl(fd, VT_ACTIVATE, vt) < 0)
+                r = -errno;
+
+        close_nointr(r);
+        return r;
 }
 
 static const char *const ioprio_class_table[] = {

@@ -48,7 +48,8 @@ static char *default_unit = NULL;
 static ManagerRunningAs running_as = _MANAGER_RUNNING_AS_INVALID;
 
 static bool dump_core = true;
-static bool crash_shell = true;
+static bool crash_shell = false;
+static int crash_chvt = -1;
 
 _noreturn static void freeze(void) {
         for (;;)
@@ -101,6 +102,9 @@ _noreturn static void crash(int sig) {
                                 log_error("Caught <%s>, dumped core as pid %llu.", strsignal(sig), (unsigned long long) pid);
                 }
         }
+
+        if (crash_chvt)
+                chvt(crash_chvt);
 
         if (crash_shell) {
                 log_info("Executing crash shell in 10s...");
@@ -170,7 +174,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 18)) < 0)
-                        log_warning("Failed to parse dump core switch %s, Ignoring", word + 18);
+                        log_warning("Failed to parse dump core switch %s, Ignoring.", word + 18);
                 else
                         dump_core = r;
 
@@ -178,9 +182,17 @@ static int parse_proc_cmdline_word(const char *word) {
                 int r;
 
                 if ((r = parse_boolean(word + 20)) < 0)
-                        log_warning("Failed to parse crash shell switch %s, Ignoring", word + 20);
+                        log_warning("Failed to parse crash shell switch %s, Ignoring.", word + 20);
                 else
                         crash_shell = r;
+
+        } else if (startswith(word, "systemd.crash_chvt=")) {
+                int k;
+
+                if (safe_atoi(word + 19, &k) < 0)
+                        log_warning("Failed to parse crash chvt switch %s, Ignoring.", word + 19);
+                else
+                        crash_chvt = k;
 
         } else if (startswith(word, "systemd.")) {
 
@@ -192,6 +204,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 log_info("systemd.log_level=LEVEL                  Log level");
                 log_info("systemd.dump_core=0|1                    Dump core on crash");
                 log_info("systemd.crash_shell=0|1                  On crash run shell");
+                log_info("systemd.crash_chvt=N                     Change to VT #N on crash");
 
         } else {
                 unsigned i;

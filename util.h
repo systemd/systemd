@@ -198,6 +198,8 @@ int close_all_fds(const int except[], unsigned n_except);
 
 bool fstype_is_network(const char *fstype);
 
+int chvt(int vt);
+
 extern char * __progname;
 
 const char *ioprio_class_to_string(int i);
