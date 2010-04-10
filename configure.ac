@@ -95,18 +95,29 @@ case $with_distro in
         fedora)
                 SYSTEM_SYSVINIT_PATH=/etc/rc.d/init.d
                 SYSTEM_SYSVRCND_PATH=/etc/rc.d
+                special_dbus_service=messagebus.service
+                special_syslog_service=rsyslog.service
+                AC_DEFINE(TARGET_FEDORA, [], [Target is Fedora/RHEL])
                 ;;
         suse)
                 SYSTEM_SYSVINIT_PATH=/etc/init.d
                 SYSTEM_SYSVRCND_PATH=/etc/init.d
+                special_dbus_service=dbus.service
+                special_syslog_service=syslog.service
+                AC_DEFINE(TARGET_SUSE, [], [Target is OpenSUSE/SLES])
                 ;;
         debian)
                 SYSTEM_SYSVINIT_PATH=/etc/init.d
                 SYSTEM_SYSVRCND_PATH=/etc
+                special_dbus_service=dbus.service
+                special_syslog_service=sysklogd.service
+                AC_DEFINE(TARGET_DEBIAN, [], [Target is Debian/Ubuntu])
                 ;;
         none)
-                SYSTEM_SYSVINIT_PATH=/etc/fix/the/configure/script
-                SYSTEM_SYSVRCND_PATH=/etc/fix/the/configure/script
+                SYSTEM_SYSVINIT_PATH=/fix/the/configure/script
+                SYSTEM_SYSVRCND_PATH=/fix/the/configure/script
+                special_dbus_service=fix-the-configure-script.service
+                special_syslog_service=fix-the-configure-script.service
                 ;;
         *)
                 AC_MSG_ERROR([Your distribution (${with_distro}) is not yet supported, SysV init scripts could not be found! (patches welcome); you can specify --with-distro=none to skip this check])
@@ -120,11 +131,17 @@ AM_CONDITIONAL(TARGET_FEDORA, test x"$with_distro" = xfedora)
 AM_CONDITIONAL(TARGET_SUSE, test x"$with_distro" = xsuse)
 AM_CONDITIONAL(TARGET_DEBIAN, test x"$with_distro" = xdebian)
 
+AC_DEFINE_UNQUOTED(SPECIAL_DBUS_SERVICE, ["$special_dbus_service"], [D-Bus service name])
+AC_DEFINE_UNQUOTED(SPECIAL_SYSLOG_SERVICE, ["$special_syslog_service"], [syslog service name])
+
 AC_OUTPUT([Makefile])
 
 echo "
         $PACKAGE_NAME $VERSION
 
+        Distribution:            ${with_distro}
         SysV init scripts:       ${SYSTEM_SYSVINIT_PATH}
         SysV rc?.d directories:  ${SYSTEM_SYSVRCND_PATH}
+        Syslog service:          ${special_syslog_service}
+        D-Bus service:           ${special_dbus_service}
 "

@@ -70,8 +70,6 @@ struct Watch {
 #include "dbus.h"
 
 #define SPECIAL_DEFAULT_TARGET "default.target"
-#define SPECIAL_SYSLOG_SERVICE "syslog.service"
-#define SPECIAL_DBUS_SERVICE "messagebus.service"
 #define SPECIAL_LOGGER_SOCKET "systemd-logger.socket"
 #define SPECIAL_KBREQUEST_TARGET "kbrequest.target"
 #define SPECIAL_CTRL_ALT_DEL_TARGET "ctrl-alt-del.target"
@@ -84,6 +82,14 @@ struct Watch {
 #define SPECIAL_RTC_SET_TARGET "rtc-set.target"           /* LSB's $time */
 #define SPECIAL_BASIC_TARGET "basic.target"
 #define SPECIAL_RESCUE_TARGET "rescue.target"
+
+#ifndef SPECIAL_DBUS_SERVICE
+#define SPECIAL_DBUS_SERVICE "dbus.service"
+#endif
+
+#ifndef SPECIAL_SYSLOG_SERVICE
+#define SPECIAL_SYSLOG_SERVICE "syslog.service"
+#endif
 
 /* For SysV compatibility. Usually an alias for a saner target. On
  * SysV-free systems this doesn't exist. */
