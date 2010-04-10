@@ -49,6 +49,7 @@
         "  </method>"                                                   \
         "  <method name=\"Subscribe\"/>"                                \
         "  <method name=\"Unsubscribe\"/>"                              \
+        "  <method name=\"Dump\"/>"                                     \
         "  <signal name=\"UnitNew\">"                                   \
         "   <arg name=\"id\" type=\"s\"/>"                              \
         "   <arg name=\"unit\" type=\"o\"/>"                            \
@@ -329,6 +330,35 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
 
                 if (!(reply = dbus_message_new_method_return(message)))
                         goto oom;
+
+        } else if (dbus_message_is_method_call(message, "org.freedesktop.systemd1", "Dump")) {
+                FILE *f;
+                char *dump = NULL;
+                size_t size;
+
+                if (!(reply = dbus_message_new_method_return(message)))
+                        goto oom;
+
+                if (!(f = open_memstream(&dump, &size)))
+                        goto oom;
+
+                manager_dump_units(m, f, NULL);
+                manager_dump_jobs(m, f, NULL);
+
+                if (ferror(f)) {
+                        fclose(f);
+                        free(dump);
+                        goto oom;
+                }
+
+                fclose(f);
+
+                if (!dbus_message_append_args(reply, DBUS_TYPE_STRING, &dump, DBUS_TYPE_INVALID)) {
+                        free(dump);
+                        goto oom;
+                }
+
+                free(dump);
 
         } else if (dbus_message_is_method_call(message, "org.freedesktop.DBus.Introspectable", "Introspect")) {
                 char *introspection = NULL;

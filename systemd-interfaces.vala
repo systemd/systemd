@@ -54,6 +54,8 @@ public interface Manager : DBus.Object {
         public abstract void subscribe() throws DBus.Error;
         public abstract void unsubscribe() throws DBus.Error;
 
+        public abstract string dump() throws DBus.Error;
+
         public abstract signal void unit_new(string id, ObjectPath path);
         public abstract signal void unit_removed(string id, ObjectPath path);
         public abstract signal void job_new(uint32 id, ObjectPath path);

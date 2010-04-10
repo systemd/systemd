@@ -222,7 +222,9 @@ int main (string[] args) {
                         MainLoop l = new MainLoop();
                         l.run();
 
-                } else {
+                } else if (args[1] == "dump")
+                        stdout.puts(manager.dump());
+                else {
                         stderr.printf("Unknown command %s.\n", args[1]);
                         return 1;
                 }
