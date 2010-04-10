@@ -1276,6 +1276,24 @@ char *format_timestamp(char *buf, size_t l, usec_t t) {
         return buf;
 }
 
+bool fstype_is_network(const char *fstype) {
+        static const char * const table[] = {
+                "cifs",
+                "smbfs",
+                "ncpfs",
+                "nfs",
+                "nfs4"
+        };
+
+        unsigned i;
+
+        for (i = 0; i < ELEMENTSOF(table); i++)
+                if (streq(table[i], fstype))
+                        return true;
+
+        return false;
+}
+
 static const char *const ioprio_class_table[] = {
         [IOPRIO_CLASS_NONE] = "none",
         [IOPRIO_CLASS_RT] = "realtime",
