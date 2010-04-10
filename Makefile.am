@@ -18,6 +18,7 @@
 ACLOCAL_AMFLAGS = -I m4
 
 pkgsysconfdir=$(sysconfdir)/systemd
+dbuspolicydir=$(sysconfdir)/dbus-1/system.d
 
 AM_CPPFLAGS = \
         -include $(top_builddir)/config.h \
@@ -44,6 +45,12 @@ pkglibexec_PROGRAMS = \
 noinst_PROGRAMS = \
 	test-engine \
 	test-job-type
+
+dbuspolicy_DATA = \
+	org.freedesktop.systemd1.conf
+
+EXTRA_DIST = \
+	org.freedesktop.systemd1.conf
 
 BASIC_SOURCES= \
         util.c \
