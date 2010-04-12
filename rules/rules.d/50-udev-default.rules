@@ -115,4 +115,3 @@ KERNEL=="rrom[0-9]*",		MODE="0400"
 
 # do not delete static device nodes
 ACTION=="remove", NAME=="", TEST=="/lib/udev/devices/%k", OPTIONS+="ignore_remove"
-ACTION=="remove", NAME=="?*", TEST=="/lib/udev/devices/$name", OPTIONS+="ignore_remove"
