@@ -646,9 +646,9 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 				struct stat stats;
 				char filename[UTIL_PATH_SIZE];
 
-				info(event->udev, "remove kernel created node '%s'\n", udev_device_get_knodename(dev));
 				util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/", udev_device_get_knodename(dev), NULL);
 				if (stat(filename, &stats) == 0 && stats.st_rdev == udev_device_get_devnum(dev)) {
+					info(event->udev, "remove kernel created node '%s'\n", udev_device_get_knodename(dev));
 					util_unlink_secure(event->udev, filename);
 					util_delete_path(event->udev, filename);
 				}
