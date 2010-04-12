@@ -1,5 +1,3 @@
-/*-*- linux-c -*-*/
-
 /*
  * Copyright (C) 2009 Lennart Poettering <lennart@poettering.net>
  *
@@ -223,7 +221,7 @@ int main(int argc, char*argv[]) {
 	if (!(udev = udev_new()))
 		goto finish;
 
-	if (asprintf(&sp, "%s/%s", udev_get_sys_path(udev), argv[1]) < 0) {
+	if (asprintf(&sp, "%s%s", udev_get_sys_path(udev), argv[1]) < 0) {
 		fprintf(stderr, "Failed to allocate sysfs path.\n");
 		goto finish;
 	}
