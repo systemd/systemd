@@ -32,22 +32,22 @@
 #include "macro.h"
 #include "util.h"
 
-enum {
-        MOUNT_WHAT,
-        MOUNT_WHERE,
-        MOUNT_TYPE,
-        MOUNT_OPTIONS,
-        MOUNT_SKIP
-};
+typedef struct MountPoint {
+        const char *what;
+        const char *where;
+        const char *type;
+        const char *options;
+        unsigned long flags;
+} MountPoint;
 
-static const char *table[] = {
-        "proc",    "/proc",             "proc",     NULL,
-        "sysfs",   "/sys",              "sysfs",    NULL,
-        "devtmps", "/dev",              "devtmpfs", "mode=755,noexec,nosuid",
-        "tmpfs",   "/dev/shm",          "tmpfs",    "mode=1777,nodev,noexec,nosuid",
-        "devpts",  "/dev/pts",          "devpts",   NULL,
-        "cgroup",  "/cgroup/debug",     "cgroup",   "debug",
-        "debugfs", "/sys/kernel/debug", "debugfs",  NULL,
+static const MountPoint mount_table[] = {
+        { "proc",    "/proc",             "proc",     NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV },
+        { "sysfs",   "/sys",              "sysfs",    NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV },
+        { "devtmps", "/dev",              "devtmpfs", "mode=755",  MS_NOSUID },
+        { "tmpfs",   "/dev/shm",          "tmpfs",    "mode=1777", MS_NOSUID|MS_NOEXEC|MS_NODEV },
+        { "devpts",  "/dev/pts",          "devpts",   NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV },
+        { "cgroup",  "/cgroup/debug",     "cgroup",   "debug",     MS_NOSUID|MS_NOEXEC|MS_NODEV },
+        { "debugfs", "/sys/kernel/debug", "debugfs",  NULL,        MS_NOSUID|MS_NOEXEC|MS_NODEV }
 };
 
 bool mount_point_is_api(const char *path) {
@@ -56,8 +56,8 @@ bool mount_point_is_api(const char *path) {
         /* Checks if this mount point is considered "API", and hence
          * should be ignored */
 
-        for (i = 0; i < ELEMENTSOF(table); i += MOUNT_SKIP)
-                if (path_startswith(path, table[i+MOUNT_WHERE]))
+        for (i = 0; i < ELEMENTSOF(mount_table); i ++)
+                if (path_startswith(path, mount_table[i].where))
                         return true;
 
         return false;
@@ -86,15 +86,14 @@ static int is_mount_point(const char *t) {
         free(copy);
 
         return a.st_dev != b.st_dev;
-
 }
 
-static int mount_one(const char *t[]) {
+static int mount_one(const MountPoint *p) {
         int r;
 
-        assert(t);
+        assert(p);
 
-        if ((r = is_mount_point(t[MOUNT_WHERE])) < 0)
+        if ((r = is_mount_point(p->where)) < 0)
                 return r;
 
         if (r > 0)
@@ -102,20 +101,20 @@ static int mount_one(const char *t[]) {
 
         /* The access mode here doesn't really matter too much, since
          * the mounted file system will take precedence anyway. */
-        mkdir_p(t[MOUNT_WHERE], 0755);
+        mkdir_p(p->where, 0755);
 
         log_debug("Mounting %s to %s of type %s with options %s.",
-                  t[MOUNT_WHAT],
-                  t[MOUNT_WHERE],
-                  t[MOUNT_TYPE],
-                  strna(t[MOUNT_OPTIONS]));
+                  p->what,
+                  p->where,
+                  p->type,
+                  strna(p->options));
 
-        if (mount(t[MOUNT_WHAT],
-                  t[MOUNT_WHERE],
-                  t[MOUNT_TYPE],
-                  0,
-                  t[MOUNT_OPTIONS]) < 0) {
-                log_error("Failed to mount %s: %s", t[MOUNT_WHERE], strerror(errno));
+        if (mount(p->what,
+                  p->where,
+                  p->type,
+                  p->flags,
+                  p->options) < 0) {
+                log_error("Failed to mount %s: %s", p->where, strerror(errno));
                 return -errno;
         }
 
@@ -126,8 +125,8 @@ int mount_setup(void) {
         int r;
         unsigned i;
 
-        for (i = 0; i < ELEMENTSOF(table); i += MOUNT_SKIP)
-                if ((r = mount_one(table + i)) < 0)
+        for (i = 0; i < ELEMENTSOF(mount_table); i ++)
+                if ((r = mount_one(mount_table+i)) < 0)
                         return r;
 
         return 0;
