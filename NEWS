@@ -2,6 +2,9 @@ udev 152
 ========
 Bugfixes.
 
+"udevadm trigger" default to "change" events now, instead of "add"
+events.
+
 All "add|change" matches are replaced by "!remove" in the rules and
 in the udev logic. All types of events will update possible symlinks
 and permissions, only "remove" is handled special now.

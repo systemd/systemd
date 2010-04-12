@@ -110,7 +110,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 		TYPE_SUBSYSTEMS,
 		TYPE_FAILED,
 	} device_type = TYPE_DEVICES;
-	const char *action = "add";
+	const char *action = "change";
 	struct udev_enumerate *udev_enumerate;
 	int rc = 0;
 
@@ -184,7 +184,7 @@ int udevadm_trigger(struct udev *udev, int argc, char *argv[])
 			       "      subsystems                    sys subsystems and drivers\n"
 			       "      failed                        trigger only the events which have been\n"
 			       "                                    marked as failed during a previous run\n"
-			       "  --action=<action>               event action value, default is \"add\"\n"
+			       "  --action=<action>               event action value, default is \"change\"\n"
 			       "  --subsystem-match=<subsystem>   trigger devices from a matching subsystem\n"
 			       "  --subsystem-nomatch=<subsystem> exclude devices from a matching subsystem\n"
 			       "  --attr-match=<file[=<value>]>   trigger devices with a matching attribute\n"
