@@ -399,6 +399,14 @@
                     </listitem>
                   </varlistentry>
                   <varlistentry>
+                    <term><option>db</option></term>
+                    <listitem>
+                      <para>Import a single property specified as the assigned value from the
+                      current device database. This works only if the database is already populated
+                      by an earlier event.</para>
+                    </listitem>
+                  </varlistentry>
+                  <varlistentry>
                     <term><option>parent</option></term>
                     <listitem>
                       <para>Import the stored keys from the parent device by reading

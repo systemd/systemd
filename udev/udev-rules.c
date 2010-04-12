@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2003-2010 Kay Sievers <kay.sievers@vrfy.org>
  * Copyright (C) 2008 Alan Jenkins <alan-jenkins@tuffmail.co.uk>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -141,6 +141,7 @@ enum token_type {
 	TK_M_PROGRAM,			/* val */
 	TK_M_IMPORT_FILE,		/* val */
 	TK_M_IMPORT_PROG,		/* val */
+	TK_M_IMPORT_DB,			/* val */
 	TK_M_IMPORT_PARENT,		/* val */
 	TK_M_RESULT,			/* val */
 	TK_M_MAX,
@@ -271,6 +272,7 @@ static const char *token_str(enum token_type type)
 		[TK_M_PROGRAM] =		"M PROGRAM",
 		[TK_M_IMPORT_FILE] =		"M IMPORT_FILE",
 		[TK_M_IMPORT_PROG] =		"M IMPORT_PROG",
+		[TK_M_IMPORT_DB] =		"M IMPORT_DB",
 		[TK_M_IMPORT_PARENT] =		"M IMPORT_PARENT",
 		[TK_M_RESULT] =			"M RESULT",
 		[TK_M_MAX] =			"M MAX",
@@ -337,6 +339,7 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 	case TK_M_PROGRAM:
 	case TK_M_IMPORT_FILE:
 	case TK_M_IMPORT_PROG:
+	case TK_M_IMPORT_DB:
 	case TK_M_IMPORT_PARENT:
 	case TK_M_RESULT:
 	case TK_A_NAME:
@@ -1001,6 +1004,7 @@ static int rule_add_key(struct rule_tmp *rule_tmp, enum token_type type,
 	case TK_M_PROGRAM:
 	case TK_M_IMPORT_FILE:
 	case TK_M_IMPORT_PROG:
+	case TK_M_IMPORT_DB:
 	case TK_M_IMPORT_PARENT:
 	case TK_M_RESULT:
 	case TK_A_OWNER:
@@ -1379,6 +1383,9 @@ static int add_rule(struct udev_rules *rules, char *line,
 			} else if (attr != NULL && strstr(attr, "file")) {
 				dbg(rules->udev, "IMPORT will be included as file\n");
 				rule_add_key(&rule_tmp, TK_M_IMPORT_FILE, op, value, NULL);
+			} else if (attr != NULL && strstr(attr, "db")) {
+				dbg(rules->udev, "IMPORT will include db values\n");
+				rule_add_key(&rule_tmp, TK_M_IMPORT_DB, op, value, NULL);
 			} else if (attr != NULL && strstr(attr, "parent")) {
 				dbg(rules->udev, "IMPORT will include the parent values\n");
 				rule_add_key(&rule_tmp, TK_M_IMPORT_PARENT, op, value, NULL);
@@ -2286,6 +2293,23 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 				if (import_program_into_properties(event->dev, import) != 0)
 					if (cur->key.op != OP_NOMATCH)
 						goto nomatch;
+				break;
+			}
+		case TK_M_IMPORT_DB:
+			{
+				const char *key = &rules->buf[cur->key.value_off];
+				const char *value;
+
+				value = udev_device_get_property_value(event->dev_db, key);
+				if (value != NULL) {
+					struct udev_list_entry *entry;
+
+					entry = udev_device_add_property(event->dev, key, value);
+					udev_list_entry_set_flags(entry, 1);
+				} else {
+					if (cur->key.op != OP_NOMATCH)
+						goto nomatch;
+				}
 				break;
 			}
 		case TK_M_IMPORT_PARENT:
