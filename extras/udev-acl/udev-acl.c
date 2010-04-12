@@ -353,12 +353,10 @@ int main (int argc, char* argv[])
 
 		switch (option) {
 		case 'a':
-			if (strcmp(optarg, "add") == 0 || strcmp(optarg, "change") == 0)
-				action = ACTION_ADD;
-			else if (strcmp(optarg, "remove") == 0)
+			if (strcmp(optarg, "remove") == 0)
 				action = ACTION_REMOVE;
 			else
-				goto out;
+				action = ACTION_ADD;
 			break;
 		case 'D':
 			device = optarg;

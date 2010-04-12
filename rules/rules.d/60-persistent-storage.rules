@@ -6,7 +6,7 @@
 # forward scsi device event to corresponding block device
 ACTION=="change", SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST=="block", ATTR{block/*/uevent}="change"
 
-ACTION!="add|change", GOTO="persistent_storage_end"
+ACTION=="remove", GOTO="persistent_storage_end"
 SUBSYSTEM!="block", GOTO="persistent_storage_end"
 
 # skip rules for inappropriate block devices

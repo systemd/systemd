@@ -2,7 +2,7 @@
 
 # persistent storage links: /dev/tape/{by-id,by-path}
 
-ACTION!="add|change", GOTO="persistent_storage_tape_end"
+ACTION=="remove", GOTO="persistent_storage_tape_end"
 
 # type 8 devices are "Medium Changers"
 SUBSYSTEM=="scsi_generic", SUBSYSTEMS=="scsi", ATTRS{type}=="8", IMPORT{program}="scsi_id --sg-version=3 --export --whitelisted -d $tempnode", SYMLINK+="tape/by-id/scsi-$env{ID_SERIAL}"

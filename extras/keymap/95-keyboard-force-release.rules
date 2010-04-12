@@ -11,7 +11,7 @@
 # /lib/udev/keymap -i /dev/input/eventX
 # on a Linux vt to find out.
 
-ACTION!="add|change", GOTO="force_release_end"
+ACTION=="remove", GOTO="force_release_end"
 SUBSYSTEM!="serio", GOTO="force_release_end"
 KERNEL!="serio*", GOTO="force_release_end"
 DRIVER!="atkbd", GOTO="force_release_end"

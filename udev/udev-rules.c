@@ -2055,13 +2055,12 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 	struct token *cur;
 	struct token *rule;
 	enum escape_type esc = ESCAPE_UNSET;
-	int can_set_name;
+	bool can_set_name;
 
 	if (rules->tokens == NULL)
 		return -1;
 
-	can_set_name = ((strcmp(udev_device_get_action(event->dev), "add") == 0 ||
-			 strcmp(udev_device_get_action(event->dev), "change") == 0) &&
+	can_set_name = ((strcmp(udev_device_get_action(event->dev), "remove") != 0) &&
 			(major(udev_device_get_devnum(event->dev)) > 0 ||
 			 strcmp(udev_device_get_subsystem(event->dev), "net") == 0));
 

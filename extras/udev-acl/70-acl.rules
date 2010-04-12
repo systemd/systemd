@@ -4,7 +4,7 @@
 # udev-acl of this udev release and may be replaced at any time.
 
 ENV{MAJOR}=="", GOTO="acl_end"
-ACTION!="add|change", GOTO="acl_apply"
+ACTION=="remove", GOTO="acl_apply"
 
 # PTP/MTP protocol devices, cameras, portable media players
 SUBSYSTEM=="usb", ENV{ID_USB_INTERFACES}=="", ENV{DEVTYPE}=="usb_device", IMPORT{program}="usb_id --export %p"

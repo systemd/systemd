@@ -168,7 +168,7 @@ static void event_queue_delete(struct event *event)
 	udev_list_node_remove(&event->node);
 
 	/* mark as failed, if "add" event returns non-zero */
-	if (event->exitcode != 0 && strcmp(udev_device_get_action(event->dev), "add") == 0)
+	if (event->exitcode != 0 && strcmp(udev_device_get_action(event->dev), "remove") != 0)
 		udev_queue_export_device_failed(udev_queue_export, event->dev);
 	else
 		udev_queue_export_device_finished(udev_queue_export, event->dev);
