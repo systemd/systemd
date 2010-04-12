@@ -2,6 +2,13 @@ udev 152
 ========
 Bugfixes.
 
+All "add|change" matches are replaced by "!remove" in the rules and
+in the udev logic. All types of events will update possible symlinks
+and permissions, only "remove" is handled special now.
+
+The modem mode switch extra was removed and the external usb_modeswitch
+program should be used instead.
+
 New and fixed keymaps.
 
 udev 151
