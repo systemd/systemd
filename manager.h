@@ -70,16 +70,21 @@ struct Watch {
 #include "dbus.h"
 
 #define SPECIAL_DEFAULT_TARGET "default.target"
+
 #define SPECIAL_LOGGER_SOCKET "systemd-logger.socket"
+
 #define SPECIAL_KBREQUEST_TARGET "kbrequest.target"
+#define SPECIAL_SIGPWR_TARGET "sigpwr.target"
 #define SPECIAL_CTRL_ALT_DEL_TARGET "ctrl-alt-del.target"
+
 #define SPECIAL_LOCAL_FS_TARGET "local-fs.target"
+#define SPECIAL_REMOTE_FS_TARGET "remote-fs.target"
 #define SPECIAL_NETWORK_TARGET "network.target"
 #define SPECIAL_NSS_LOOKUP_TARGET "nss-lookup.target"     /* LSB's $named */
 #define SPECIAL_RPCBIND_TARGET "rpcbind.target"           /* LSB's $portmap */
-#define SPECIAL_REMOTE_FS_TARGET "remote-fs.target"
 #define SPECIAL_SYSLOG_TARGET "syslog.target"             /* Should pull in syslog.socket or syslog.service */
 #define SPECIAL_RTC_SET_TARGET "rtc-set.target"           /* LSB's $time */
+
 #define SPECIAL_BASIC_TARGET "basic.target"
 #define SPECIAL_RESCUE_TARGET "rescue.target"
 
@@ -190,7 +195,9 @@ int manager_get_unit_from_dbus_path(Manager *m, const char *s, Unit **_u);
 int manager_get_job_from_dbus_path(Manager *m, const char *s, Job **_j);
 
 int manager_load_unit(Manager *m, const char *path_or_name, Unit **_ret);
+
 int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool force, Job **_ret);
+int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, bool force, Job **_ret);
 
 void manager_dump_units(Manager *s, FILE *f, const char *prefix);
 void manager_dump_jobs(Manager *s, FILE *f, const char *prefix);

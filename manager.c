@@ -1251,6 +1251,21 @@ int manager_add_job(Manager *m, JobType type, Unit *unit, JobMode mode, bool for
         return 0;
 }
 
+int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, bool force, Job **_ret) {
+        Unit *unit;
+        int r;
+
+        assert(m);
+        assert(type < _JOB_TYPE_MAX);
+        assert(name);
+        assert(mode < _JOB_MODE_MAX);
+
+        if ((r = manager_load_unit(m, name, &unit)) < 0)
+                return r;
+
+        return manager_add_job(m, type, unit, mode, force, _ret);
+}
+
 Job *manager_get_job(Manager *m, uint32_t id) {
         assert(m);
 
@@ -1454,6 +1469,13 @@ static int manager_dispatch_sigchld(Manager *m) {
         return 0;
 }
 
+static void manager_start_target(Manager *m, const char *name) {
+        int r;
+
+        if ((r = manager_add_job_by_name(m, JOB_START, name, JOB_REPLACE, true, NULL)) < 0)
+                log_error("Failed to enqueue %s job: %s", name, strerror(-r));
+}
+
 static int manager_process_signal_fd(Manager *m, bool *quit) {
         ssize_t n;
         struct signalfd_siginfo sfsi;
@@ -1489,38 +1511,27 @@ static int manager_process_signal_fd(Manager *m, bool *quit) {
                 case SIGINT:
                 case SIGTERM:
 
-                        if (m->running_as != MANAGER_INIT) {
-                                *quit = true;
-                                return 0;
-
-                        } else {
-                                Unit *target;
-                                int r;
-
-                                if ((r = manager_load_unit(m, SPECIAL_CTRL_ALT_DEL_TARGET, &target)) < 0)
-                                        log_error("Failed to load ctrl-alt-del target: %s", strerror(-r));
-                                else if ((r = manager_add_job(m, JOB_START, target, JOB_REPLACE, true, NULL)) < 0)
-                                        log_error("Failed to enqueue ctrl-alt-del job: %s", strerror(-r));
-
+                        if (m->running_as == MANAGER_INIT) {
+                                manager_start_target(m, SPECIAL_CTRL_ALT_DEL_TARGET);
                                 break;
                         }
+
+                        *quit = true;
+                        return 0;
 
                 case SIGWINCH:
 
-                        if (m->running_as == MANAGER_INIT) {
-                                Unit *target;
-                                int r;
+                        if (m->running_as == MANAGER_INIT)
+                                manager_start_target(m, SPECIAL_KBREQUEST_TARGET);
 
-                                if ((r = manager_load_unit(m, SPECIAL_KBREQUEST_TARGET, &target)) < 0)
-                                        log_error("Failed to load kbrequest target: %s", strerror(-r));
-                                else if ((r = manager_add_job(m, JOB_START, target, JOB_REPLACE, true, NULL)) < 0)
-                                        log_error("Failed to enqueue kbrequest job: %s", strerror(-r));
+                        /* This is a nop on non-init */
+                        break;
 
-                                break;
-                        }
+                case SIGPWR:
+                        if (m->running_as == MANAGER_INIT)
+                                manager_start_target(m, SPECIAL_SIGPWR_TARGET);
 
-                        /* This is a nop on non-init systemd's */
-
+                        /* This is a nop on non-init */
                         break;
 
                 case SIGUSR1:
