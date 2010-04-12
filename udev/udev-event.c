@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2009 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2003-2010 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -541,167 +541,124 @@ int udev_event_execute_rules(struct udev_event *event, struct udev_rules *rules)
 		     udev_device_get_subsystem(dev), udev_device_get_sysname(dev));
 	}
 
-	/* add device node */
-	if (major(udev_device_get_devnum(dev)) != 0 &&
-	    (strcmp(udev_device_get_action(dev), "add") == 0 || strcmp(udev_device_get_action(dev), "change") == 0)) {
-		char filename[UTIL_PATH_SIZE];
-		struct udev_device *dev_old;
-		int delete_kdevnode = 0;
-
-		dbg(event->udev, "device node add '%s'\n", udev_device_get_devpath(dev));
-
-		/* read old database entry */
-		dev_old = udev_device_new_from_syspath(event->udev, udev_device_get_syspath(dev));
-		if (dev_old != NULL) {
-			udev_device_read_db(dev_old);
-			udev_device_set_info_loaded(dev_old);
-
-			/* disable watch during event processing */
-			udev_watch_end(event->udev, dev_old);
-		}
-
-		udev_rules_apply_to_event(rules, event);
-		if (event->tmp_node != NULL) {
-			dbg(event->udev, "cleanup temporary device node\n");
-			util_unlink_secure(event->udev, event->tmp_node);
-			free(event->tmp_node);
-			event->tmp_node = NULL;
-		}
-
-		if (event->name != NULL && event->name[0] == '\0') {
-			info(event->udev, "device node creation suppressed\n");
-			delete_kdevnode = 1;
-			goto exit_add;
-		}
-
-		/* if rule given name disagrees with kernel node name, delete kernel node */
-		if (event->name != NULL && udev_device_get_knodename(dev) != NULL) {
-			if (strcmp(event->name, udev_device_get_knodename(dev)) != 0)
-				delete_kdevnode = 1;
-		}
-
-		/* no rule, use kernel provided name */
-		if (event->name == NULL) {
-			if (udev_device_get_knodename(dev) != NULL) {
-				event->name = strdup(udev_device_get_knodename(dev));
-				info(event->udev, "no node name set, will use kernel supplied name '%s'\n", event->name);
-			} else {
-				event->name = strdup(udev_device_get_sysname(event->dev));
-				info(event->udev, "no node name set, will use device name '%s'\n", event->name);
-			}
-		}
-
-		/* something went wrong */
-		if (event->name == NULL) {
-			err(event->udev, "no node name for '%s'\n", udev_device_get_sysname(event->dev));
-			goto exit_add;
-		}
-
-		/* set device node name */
-		util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/", event->name, NULL);
-		udev_device_set_devnode(dev, filename);
-
-		/* write current database entry */
-		udev_device_update_db(dev);
-
-		/* remove/update possible left-over symlinks from old database entry */
-		if (dev_old != NULL)
-			udev_node_update_old_links(dev, dev_old);
-
-		/* create new node and symlinks */
-		err = udev_node_add(dev, event->mode, event->uid, event->gid);
-exit_add:
-		if (delete_kdevnode && udev_device_get_knodename(dev) != NULL) {
-			struct stat stats;
-
-			util_strscpyl(filename, sizeof(filename),
-				      udev_get_dev_path(event->udev), "/", udev_device_get_knodename(dev), NULL);
-			if (stat(filename, &stats) == 0 && stats.st_rdev == udev_device_get_devnum(dev)) {
-				unlink(filename);
-				util_delete_path(event->udev, filename);
-				info(event->udev, "removed kernel created node '%s'\n", filename);
-			}
-		}
-		udev_device_unref(dev_old);
-		goto exit;
-	}
-
-	/* add netif */
-	if (strcmp(udev_device_get_subsystem(dev), "net") == 0 && strcmp(udev_device_get_action(dev), "add") == 0) {
-		dbg(event->udev, "netif add '%s'\n", udev_device_get_devpath(dev));
-		udev_device_delete_db(dev);
-
-		udev_rules_apply_to_event(rules, event);
-		if (event->name == NULL)
-			goto exit;
-
-		/* look if we want to change the name of the netif */
-		if (strcmp(event->name, udev_device_get_sysname(dev)) != 0) {
-			char syspath[UTIL_PATH_SIZE];
-			char *pos;
-
-			err = rename_netif(event);
-			if (err != 0)
-				goto exit;
-			info(event->udev, "renamed netif to '%s'\n", event->name);
-
-			/* remember old name */
-			udev_device_add_property(dev, "INTERFACE_OLD", udev_device_get_sysname(dev));
-
-			/* now change the devpath, because the kernel device name has changed */
-			util_strscpy(syspath, sizeof(syspath), udev_device_get_syspath(dev));
-			pos = strrchr(syspath, '/');
-			if (pos != NULL) {
-				pos++;
-				util_strscpy(pos, sizeof(syspath) - (pos - syspath), event->name);
-				udev_device_set_syspath(event->dev, syspath);
-				udev_device_add_property(dev, "INTERFACE", udev_device_get_sysname(dev));
-				info(event->udev, "changed devpath to '%s'\n", udev_device_get_devpath(dev));
-			}
-		}
-		udev_device_update_db(dev);
-		goto exit;
-	}
-
-	/* remove device node */
-	if (major(udev_device_get_devnum(dev)) != 0 && strcmp(udev_device_get_action(dev), "remove") == 0) {
-		/* import database entry and delete it */
+	if (strcmp(udev_device_get_action(dev), "remove") == 0) {
 		udev_device_read_db(dev);
 		udev_device_set_info_loaded(dev);
 		udev_device_delete_db(dev);
 
-		/* remove watch */
-		udev_watch_end(event->udev, dev);
+		if (major(udev_device_get_devnum(dev)) != 0)
+			udev_watch_end(event->udev, dev);
 
-		if (udev_device_get_devnode(dev) == NULL) {
-			char devnode[UTIL_PATH_SIZE];
+		udev_rules_apply_to_event(rules, event);
 
-			info(event->udev, "'%s' not found in database, using kernel name '%s'\n",
-			     udev_device_get_syspath(dev), udev_device_get_knodename(dev));
-			util_strscpyl(devnode, sizeof(devnode),
-				      udev_get_dev_path(event->udev), "/", udev_device_get_knodename(dev), NULL);
-			udev_device_set_devnode(dev, devnode);
+		if (major(udev_device_get_devnum(dev)) != 0)
+			err = udev_node_remove(dev);
+	} else {
+		event->dev_db = udev_device_new_from_syspath(event->udev, udev_device_get_syspath(dev));
+		if (event->dev_db != NULL) {
+			udev_device_read_db(event->dev_db);
+			udev_device_set_info_loaded(event->dev_db);
+
+			/* disable watch during event processing */
+			if (major(udev_device_get_devnum(dev)) != 0)
+				udev_watch_end(event->udev, event->dev_db);
 		}
 
 		udev_rules_apply_to_event(rules, event);
 
-		if (udev_device_get_ignore_remove(dev)) {
-			info(event->udev, "ignore_remove for '%s'\n", udev_device_get_devnode(dev));
-			goto exit;
+		/* rename a new network interface, if needed */
+		if (strcmp(udev_device_get_subsystem(dev), "net") == 0 && strcmp(udev_device_get_action(dev), "add") == 0 &&
+		    event->name != NULL && strcmp(event->name, udev_device_get_sysname(dev)) != 0) {
+			char syspath[UTIL_PATH_SIZE];
+			char *pos;
+
+			err = rename_netif(event);
+			if (err == 0) {
+				info(event->udev, "renamed netif to '%s'\n", event->name);
+
+				/* delete stale db file */
+				udev_device_delete_db(dev);
+
+				/* remember old name */
+				udev_device_add_property(dev, "INTERFACE_OLD", udev_device_get_sysname(dev));
+
+				/* now change the devpath, because the kernel device name has changed */
+				util_strscpy(syspath, sizeof(syspath), udev_device_get_syspath(dev));
+				pos = strrchr(syspath, '/');
+				if (pos != NULL) {
+					pos++;
+					util_strscpy(pos, sizeof(syspath) - (pos - syspath), event->name);
+					udev_device_set_syspath(event->dev, syspath);
+					udev_device_add_property(dev, "INTERFACE", udev_device_get_sysname(dev));
+					info(event->udev, "changed devpath to '%s'\n", udev_device_get_devpath(dev));
+				}
+			}
 		}
 
-		err = udev_node_remove(dev);
-		goto exit;
-	}
+		if (major(udev_device_get_devnum(dev)) != 0) {
+			char filename[UTIL_PATH_SIZE];
 
-	/* default devices */
-	udev_rules_apply_to_event(rules, event);
+			if (event->tmp_node != NULL) {
+				info(event->udev, "cleanup temporary device node\n");
+				util_unlink_secure(event->udev, event->tmp_node);
+				free(event->tmp_node);
+				event->tmp_node = NULL;
+			}
 
-	if (strcmp(udev_device_get_action(dev), "remove") != 0)
+			/* no rule, use kernel provided name */
+			if (event->name == NULL) {
+				if (udev_device_get_knodename(dev) != NULL) {
+					event->name = strdup(udev_device_get_knodename(dev));
+					info(event->udev, "no node name set, will use kernel supplied name '%s'\n", event->name);
+				} else {
+					event->name = strdup(udev_device_get_sysname(event->dev));
+					info(event->udev, "no node name set, will use device name '%s'\n", event->name);
+				}
+			}
+
+			if (event->name == NULL) {
+				/* things went wrong */
+				udev_device_delete_db(dev);
+				udev_device_unref(event->dev_db);
+				err = -ENOMEM;
+				goto out;
+			}
+
+			/* set device node name */
+			util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/", event->name, NULL);
+			udev_device_set_devnode(dev, filename);
+		}
+
 		udev_device_update_db(dev);
-	else
-		udev_device_delete_db(dev);
-exit:
+
+		if (major(udev_device_get_devnum(dev)) != 0) {
+			/* remove/update possible left-over symlinks from old database entry */
+			if (event->dev_db != NULL)
+				udev_node_update_old_links(dev, event->dev_db);
+
+			if (event->name[0] != '\0')
+				err = udev_node_add(dev, event->mode, event->uid, event->gid);
+			else
+				info(event->udev, "device node creation suppressed\n");
+
+			/* remove kernel-created node, if needed */
+			if (udev_device_get_knodename(dev) != NULL && strcmp(event->name, udev_device_get_knodename(dev)) != 0) {
+				struct stat stats;
+				char filename[UTIL_PATH_SIZE];
+
+				info(event->udev, "remove kernel created node '%s'\n", udev_device_get_knodename(dev));
+				util_strscpyl(filename, sizeof(filename), udev_get_dev_path(event->udev), "/", udev_device_get_knodename(dev), NULL);
+				if (stat(filename, &stats) == 0 && stats.st_rdev == udev_device_get_devnum(dev)) {
+					util_unlink_secure(event->udev, filename);
+					util_delete_path(event->udev, filename);
+				}
+			}
+		}
+
+		udev_device_unref(event->dev_db);
+		event->dev_db = NULL;
+	}
+out:
 	return err;
 }
 
