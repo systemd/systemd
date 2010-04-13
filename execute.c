@@ -44,6 +44,9 @@
 #include "securebits.h"
 #include "cgroup.h"
 
+/* This assumes there is a 'tty' group */
+#define TTY_MODE 0620
+
 static int shift_fds(int fds[], unsigned n_fds) {
         int start, restart_from;
 
@@ -290,6 +293,7 @@ static int setup_output(const ExecContext *context, const char *ident) {
 
 static int setup_error(const ExecContext *context, const char *ident) {
         assert(context);
+        assert(ident);
 
         /* This expects the input and output are already set up */
 
@@ -326,6 +330,26 @@ static int setup_error(const ExecContext *context, const char *ident) {
         }
 }
 
+static int chown_terminal(int fd, uid_t uid) {
+        struct stat st;
+
+        assert(fd >= 0);
+        assert(uid >= 0);
+
+        /* This might fail. What matters are the results. */
+        fchown(fd, uid, -1);
+        fchmod(fd, TTY_MODE);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if (st.st_uid != uid ||
+            st.st_mode != TTY_MODE)
+                return -EPERM;
+
+        return 0;
+}
+
 static int setup_confirm_stdio(const ExecContext *context,
                                int *_saved_stdin,
                                int *_saved_stdout) {
@@ -350,6 +374,11 @@ static int setup_confirm_stdio(const ExecContext *context,
                              tty_path(context),
                              context->std_input == EXEC_INPUT_TTY_FAIL,
                              context->std_input == EXEC_INPUT_TTY_FORCE)) < 0) {
+                r = EXIT_STDIN;
+                goto fail;
+        }
+
+        if (chown_terminal(fd, getuid()) < 0) {
                 r = EXIT_STDIN;
                 goto fail;
         }
@@ -811,6 +840,12 @@ int exec_spawn(ExecCommand *command,
                 if (apply_permissions)
                         if (enforce_groups(context, username, uid) < 0) {
                                 r = EXIT_GROUP;
+                                goto fail;
+                        }
+
+                if (is_terminal_input(context->std_input))
+                        if (chown_terminal(STDIN_FILENO, uid) < 0) {
+                                r = EXIT_STDIN;
                                 goto fail;
                         }
 
