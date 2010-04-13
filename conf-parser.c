@@ -111,6 +111,7 @@ static int parse_line(const char *filename, unsigned line, char **section, const
                         return -ENOMEM;
 
                 if (sections && !strv_contains((char**) sections, n)) {
+                        log_error("[%s:%u] Unknown section '%s'.", filename, line, n);
                         free(n);
                         return -EBADMSG;
                 }
