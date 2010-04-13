@@ -73,7 +73,7 @@ static int shift_fds(int fds[], unsigned n_fds) {
                         if ((nfd = fcntl(fds[i], F_DUPFD, i+3)) < 0)
                                 return -errno;
 
-                        assert_se(close_nointr(fds[i]) == 0);
+                        close_nointr_nofail(fds[i]);
                         fds[i] = nfd;
 
                         /* Hmm, the fd we wanted isn't free? Then
@@ -137,7 +137,7 @@ static int open_null_as(int flags, int nfd) {
 
         if (fd != nfd) {
                 r = dup2(fd, nfd) < 0 ? -errno : nfd;
-                close_nointr(fd);
+                close_nointr_nofail(fd);
         } else
                 r = nfd;
 
@@ -191,7 +191,7 @@ static int connect_logger_as(const ExecContext *context, ExecOutput output, cons
 
         if (fd != nfd) {
                 r = dup2(fd, nfd) < 0 ? -errno : nfd;
-                close_nointr(fd);
+                close_nointr_nofail(fd);
         } else
                 r = nfd;
 
@@ -334,7 +334,6 @@ static int chown_terminal(int fd, uid_t uid) {
         struct stat st;
 
         assert(fd >= 0);
-        assert(uid >= 0);
 
         /* This might fail. What matters are the results. */
         fchown(fd, uid, -1);
