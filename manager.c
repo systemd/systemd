@@ -1477,7 +1477,7 @@ static int manager_dispatch_sigchld(Manager *m) {
                 if (si.si_pid <= 0)
                         break;
 
-                if (si.si_code == CLD_EXITED && si.si_code == CLD_KILLED && si.si_code == CLD_DUMPED) {
+                if (si.si_code == CLD_EXITED || si.si_code == CLD_KILLED || si.si_code == CLD_DUMPED) {
                         char *name = NULL;
 
                         get_process_name(si.si_pid, &name);
