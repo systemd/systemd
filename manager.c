@@ -59,9 +59,7 @@ static int manager_setup_signals(Manager *m) {
         assert_se(sigaddset(&mask, SIGHUP) == 0);
         assert_se(sigaddset(&mask, SIGUSR1) == 0);
         assert_se(sigaddset(&mask, SIGUSR2) == 0);
-        assert_se(sigaddset(&mask, SIGPIPE) == 0);
         assert_se(sigaddset(&mask, SIGPWR) == 0);
-        assert_se(sigaddset(&mask, SIGTTIN) == 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
         m->signal_watch.type = WATCH_SIGNAL;
