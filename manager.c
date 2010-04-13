@@ -72,8 +72,15 @@ static int enable_special_signals(Manager *m) {
 static int manager_setup_signals(Manager *m) {
         sigset_t mask;
         struct epoll_event ev;
+        struct sigaction sa;
 
         assert(m);
+
+        /* We are not interested in SIGSTOP and friends. */
+        zero(sa);
+        sa.sa_handler = SIG_DFL;
+        sa.sa_flags = SA_NOCLDSTOP|SA_RESTART;
+        assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
         assert_se(sigemptyset(&mask) == 0);
         assert_se(sigaddset(&mask, SIGCHLD) == 0);
