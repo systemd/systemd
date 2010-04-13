@@ -110,8 +110,16 @@ _noreturn static void crash(int sig) {
                 chvt(crash_chvt);
 
         if (crash_shell) {
+                sigset_t mask;
+
                 log_info("Executing crash shell in 10s...");
                 sleep(10);
+
+                /* Make sure the signal is not delivered inside the
+                 * exec() */
+                assert_se(sigemptyset(&mask) == 0);
+                assert_se(sigaddset(&mask, sig) == 0);
+                assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
                 execl("/bin/sh", "/bin/sh", NULL);
                 log_error("execl() failed: %s", strerror(errno));
