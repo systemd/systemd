@@ -121,6 +121,8 @@ _noreturn static void crash(int sig) {
                 assert_se(sigaddset(&mask, sig) == 0);
                 assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
+                ignore_signal(sig);
+
                 execl("/bin/sh", "/bin/sh", NULL);
                 log_error("execl() failed: %s", strerror(errno));
         }
