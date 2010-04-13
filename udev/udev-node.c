@@ -396,6 +396,8 @@ int udev_node_remove(struct udev_device *dev)
 	struct udev_list_entry *list_entry;
 	const char *devnode;
 	struct stat stats;
+	struct udev_device *dev_check;
+	char filename[UTIL_PATH_SIZE];
 	int err = 0;
 
 	/* remove/update symlinks, remove symlinks from name index */
@@ -404,32 +406,36 @@ int udev_node_remove(struct udev_device *dev)
 
 	devnode = udev_device_get_devnode(dev);
 	if (devnode == NULL)
-		return 0;
+		goto out;
+
 	if (stat(devnode, &stats) != 0) {
 		info(udev, "device node '%s' not found\n", devnode);
-		return 0;
+		goto out;
 	}
+
 	if (stats.st_rdev != udev_device_get_devnum(dev)) {
 		info(udev, "device node '%s' points to a different device, skip removal\n", devnode);
-		return -1;
+		err = -1;
+		goto out;
 	}
 
-	if (udev_device_get_ignore_remove(dev)) {
-		info(udev, "ignore_remove for '%s'\n", udev_device_get_devnode(dev));
-	} else {
-		struct udev_device *dev_check;
-
-		dev_check = udev_device_new_from_syspath(udev, udev_device_get_syspath(dev));
-		if (dev_check != NULL && stats.st_rdev == udev_device_get_devnum(dev_check)) {
-			/* do not remove device node if the same sys-device is re-created in the meantime */
-			info(udev, "keeping device node of existing device'%s'\n", devnode);
-		} else {
-			info(udev, "removing device node '%s'\n", devnode);
-			err = util_unlink_secure(udev, devnode);
-		}
+	dev_check = udev_device_new_from_syspath(udev, udev_device_get_syspath(dev));
+	if (dev_check != NULL) {
+		/* do not remove device node if the same sys-device is re-created in the meantime */
+		info(udev, "keeping device node of existing device'%s'\n", devnode);
 		udev_device_unref(dev_check);
+		goto out;
 	}
 
+	util_strscpyl(filename, sizeof(filename), LIBEXECDIR "/devices", &devnode[strlen(udev_get_dev_path(udev))], NULL);
+	if (stat(filename, &stats) == 0 || stats.st_rdev == udev_device_get_devnum(dev)) {
+		info(udev, "static device entry found '%s', skip removal\n", devnode);
+		goto out;
+	}
+
+	info(udev, "removing device node '%s'\n", devnode);
+	err = util_unlink_secure(udev, devnode);
 	util_delete_path(udev, devnode);
+out:
 	return err;
 }

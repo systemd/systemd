@@ -41,8 +41,6 @@ int udev_device_update_db(struct udev_device *udev_device)
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device))
 		if (udev_list_entry_get_flags(list_entry))
 			goto file;
-	if (udev_device_get_ignore_remove(udev_device))
-		goto file;
 	if (udev_device_get_devlink_priority(udev_device) != 0)
 		goto file;
 	if (udev_device_get_event_timeout(udev_device) >= 0)
@@ -93,8 +91,6 @@ file:
 		fprintf(f, "L:%i\n", udev_device_get_devlink_priority(udev_device));
 	if (udev_device_get_event_timeout(udev_device) >= 0)
 		fprintf(f, "T:%i\n", udev_device_get_event_timeout(udev_device));
-	if (udev_device_get_ignore_remove(udev_device))
-		fprintf(f, "R:%i\n", udev_device_get_ignore_remove(udev_device));
 	if (udev_device_get_watch_handle(udev_device) >= 0)
 		fprintf(f, "W:%i\n", udev_device_get_watch_handle(udev_device));
 	udev_list_entry_foreach(list_entry, udev_device_get_properties_list_entry(udev_device)) {

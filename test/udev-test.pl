@@ -978,16 +978,6 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n node link1 link2 link3 link4", RESULT
 EOF
 	},
 	{
-		desc		=> "ignore remove event test",
-		subsys		=> "block",
-		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-		exp_name	=> "node",
-		exp_rem_error	=> "yes",
-		rules		=> <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="node", OPTIONS="ignore_remove"
-EOF
-	},
-	{
 		desc		=> "SUBSYSTEM match test",
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",

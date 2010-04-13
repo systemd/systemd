@@ -10,6 +10,12 @@ needed for usual hardware. Udev can not safely make assumptions
 about non-exixting partition major/minor numbers, and therefore no
 longer provide such an unreliable and unsafe option.
 
+The option "ignore_remove" was removed from udev. With devtmpfs
+udev passed control over device nodes to the kernel. This option
+should no longer be needed, or can not work as advertised. Neither
+udev nor the kernel will remove device nodes which are copied from
+the /lib/udev/devices/ directory.
+
 All "add|change" matches are replaced by "!remove" in the rules and
 in the udev logic. All types of events will update possible symlinks
 and permissions, only "remove" is handled special now.

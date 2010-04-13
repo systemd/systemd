@@ -95,8 +95,6 @@ int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum);
 int udev_device_set_seqnum(struct udev_device *udev_device, unsigned long long int seqnum);
 int udev_device_get_devlink_priority(struct udev_device *udev_device);
 int udev_device_set_devlink_priority(struct udev_device *udev_device, int prio);
-int udev_device_get_ignore_remove(struct udev_device *udev_device);
-int udev_device_set_ignore_remove(struct udev_device *udev_device, int ignore);
 int udev_device_get_watch_handle(struct udev_device *udev_device);
 int udev_device_set_watch_handle(struct udev_device *udev_device, int handle);
 void udev_device_set_info_loaded(struct udev_device *device);

@@ -1463,13 +1463,6 @@ static int add_rule(struct udev_rules *rules, char *line,
 					err(rules->udev, "NAME=\"%%k\" is superfluous and breaks "
 					    "kernel supplied names, please remove it from %s:%u\n", filename, lineno);
 				rule_add_key(&rule_tmp, TK_A_NAME, op, value, NULL);
-				attr = get_key_attribute(rules->udev, key + sizeof("NAME")-1);
-				if (attr != NULL) {
-					if (strstr(attr, "ignore_remove") != NULL) {
-						dbg(rules->udev, "remove event should be ignored\n");
-						rule_add_key(&rule_tmp, TK_A_IGNORE_REMOVE, 0, NULL, NULL);
-					}
-				}
 			}
 			rule_tmp.rule.rule.flags = 1;
 			continue;
@@ -1540,10 +1533,6 @@ static int add_rule(struct udev_rules *rules, char *line,
 		if (strcmp(key, "OPTIONS") == 0) {
 			const char *pos;
 
-			if (strstr(value, "ignore_remove") != NULL) {
-				dbg(rules->udev, "remove event should be ignored\n");
-				rule_add_key(&rule_tmp, TK_A_IGNORE_REMOVE, 0, NULL, NULL);
-			}
 			pos = strstr(value, "link_priority=");
 			if (pos != NULL) {
 				int prio = atoi(&pos[strlen("link_priority=")]);
@@ -2500,9 +2489,6 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			break;
 		case TK_A_EVENT_TIMEOUT:
 			udev_device_set_event_timeout(event->dev, cur->key.event_timeout);
-			break;
-		case TK_A_IGNORE_REMOVE:
-			udev_device_set_ignore_remove(event->dev, 1);
 			break;
 		case TK_A_ATTR:
 			{

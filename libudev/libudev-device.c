@@ -75,7 +75,6 @@ struct udev_device {
 	unsigned int envp_uptodate:1;
 	unsigned int driver_set:1;
 	unsigned int info_loaded:1;
-	unsigned int ignore_remove:1;
 };
 
 struct udev_list_entry *udev_device_add_property(struct udev_device *udev_device, const char *key, const char *value)
@@ -282,9 +281,6 @@ int udev_device_read_db(struct udev_device *udev_device)
 			break;
 		case 'T':
 			udev_device_set_event_timeout(udev_device, atoi(val));
-			break;
-		case 'R':
-			udev_device_set_ignore_remove(udev_device, atoi(val));
 			break;
 		case 'E':
 			udev_device_add_property_from_string(udev_device, val);
@@ -1431,19 +1427,6 @@ int udev_device_get_devlink_priority(struct udev_device *udev_device)
 int udev_device_set_devlink_priority(struct udev_device *udev_device, int prio)
 {
 	 udev_device->devlink_priority = prio;
-	return 0;
-}
-
-int udev_device_get_ignore_remove(struct udev_device *udev_device)
-{
-	if (!udev_device->info_loaded)
-		device_load_info(udev_device);
-	return udev_device->ignore_remove;
-}
-
-int udev_device_set_ignore_remove(struct udev_device *udev_device, int ignore)
-{
-	udev_device->ignore_remove = ignore;
 	return 0;
 }
 
