@@ -1357,7 +1357,11 @@ int exec_command_set(ExecCommand *c, const char *path, ...) {
 }
 
 const char* exit_status_to_string(ExitStatus status) {
-        switch (status) {
+
+        /* We cast to int here, so that -Wenum doesn't complain that
+         * EXIT_SUCCESS/EXIT_FAILURE aren't in the enum */
+
+        switch ((int) status) {
 
         case EXIT_SUCCESS:
                 return "SUCCESS";
