@@ -850,8 +850,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns) {
         assert(u);
         assert(os < _UNIT_ACTIVE_STATE_MAX);
         assert(ns < _UNIT_ACTIVE_STATE_MAX);
-        assert(!(os == UNIT_ACTIVE && ns == UNIT_ACTIVATING));
-        assert(!(os == UNIT_INACTIVE && ns == UNIT_DEACTIVATING));
 
         /* Note that this is called for all low-level state changes,
          * even if they might map to the same high-level
