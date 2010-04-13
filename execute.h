@@ -164,7 +164,7 @@ typedef enum ExitStatus {
 
 int exec_spawn(ExecCommand *command,
                const ExecContext *context,
-               int *fds, unsigned n_fds,
+               int fds[], unsigned n_fds,
                bool apply_permissions,
                bool apply_chroot,
                bool confirm_spawn,

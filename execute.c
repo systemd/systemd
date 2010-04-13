@@ -91,7 +91,7 @@ static int shift_fds(int fds[], unsigned n_fds) {
         return 0;
 }
 
-static int flags_fds(int fds[], unsigned n_fds, bool nonblock) {
+static int flags_fds(const int fds[], unsigned n_fds, bool nonblock) {
         unsigned i;
         int r;
 
@@ -667,7 +667,7 @@ static int enforce_user(const ExecContext *context, uid_t uid) {
 
 int exec_spawn(ExecCommand *command,
                const ExecContext *context,
-               int *fds, unsigned n_fds,
+               int fds[], unsigned n_fds,
                bool apply_permissions,
                bool apply_chroot,
                bool confirm_spawn,
