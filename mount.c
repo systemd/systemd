@@ -244,6 +244,8 @@ static int mount_add_target_links(Mount *m) {
         MountParameters *p;
         Unit *u;
         int r;
+        bool noauto;
+        bool handle;
 
         assert(m);
 
@@ -254,10 +256,10 @@ static int mount_add_target_links(Mount *m) {
         else
                 return 0;
 
-        if (!p->fstype)
-                return 0;
+        noauto = mount_test_option(p->options, MNTOPT_NOAUTO);
+        handle = mount_test_option(p->options, "comment=systemd.mount");
 
-        if (mount_test_option(p->options, MNTOPT_NOAUTO))
+        if (noauto && !handle)
                 return 0;
 
         if (mount_test_option(p->options, "_netdev") ||
@@ -269,8 +271,9 @@ static int mount_add_target_links(Mount *m) {
         if ((r = manager_load_unit(UNIT(m)->meta.manager, target, &u)) < 0)
                 return r;
 
-        if ((r = unit_add_dependency(u, UNIT_WANTS, UNIT(m))) < 0)
-                return r;
+        if (handle)
+                if ((r = unit_add_dependency(u, UNIT_WANTS, UNIT(m))) < 0)
+                        return r;
 
         return unit_add_dependency(UNIT(m), UNIT_BEFORE, u);
 }
