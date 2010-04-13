@@ -30,6 +30,7 @@
 #include <getopt.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 #include "manager.h"
 #include "log.h"
@@ -50,6 +51,8 @@ static ManagerRunningAs running_as = _MANAGER_RUNNING_AS_INVALID;
 static bool dump_core = true;
 static bool crash_shell = false;
 static int crash_chvt = -1;
+
+static bool confirm_spawn = false;
 
 _noreturn static void freeze(void) {
         for (;;)
@@ -132,6 +135,53 @@ static void install_crash_handler(void) {
         assert_se(sigaction(SIGBUS, &sa, NULL) == 0);
         assert_se(sigaction(SIGQUIT, &sa, NULL) == 0);
         assert_se(sigaction(SIGABRT, &sa, NULL) == 0);
+}
+
+static int console_setup(void) {
+        int tty_fd = -1, null_fd = -1, r = 0;
+
+        /* If we are init, we connect stdout/stderr to /dev/console
+         * and stdin to /dev/null and make sure we don't have a
+         * controlling tty. */
+
+        release_terminal();
+
+        if ((tty_fd = open_terminal("/dev/console", O_WRONLY)) < 0) {
+                log_error("Failed to open /dev/console: %s", strerror(-tty_fd));
+                r = -tty_fd;
+                goto finish;
+        }
+
+        if ((null_fd = open("/dev/null", O_RDONLY)) < 0) {
+                log_error("Failed to open /dev/null: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        assert(tty_fd >= 3);
+        assert(null_fd >= 3);
+
+        if (reset_terminal(tty_fd) < 0)
+                log_error("Failed to reset /dev/console: %m");
+
+        if (dup2(tty_fd, STDOUT_FILENO) < 0 ||
+            dup2(tty_fd, STDERR_FILENO) < 0 ||
+            dup2(null_fd, STDIN_FILENO) < 0) {
+                log_error("Failed to dup2() device: %m");
+                r = -errno;
+                goto finish;
+        }
+
+        r = 0;
+
+finish:
+        if (tty_fd >= 0)
+                close_nointr(tty_fd);
+
+        if (null_fd >= 0)
+                close_nointr(null_fd);
+
+        return r;
 }
 
 static int set_default_unit(const char *u) {
@@ -264,7 +314,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DEFAULT,
                 ARG_RUNNING_AS,
                 ARG_TEST,
-                ARG_DUMP_CONFIGURATION_ITEMS
+                ARG_DUMP_CONFIGURATION_ITEMS,
+                ARG_CONFIRM_SPAWN
         };
 
         static const struct option options[] = {
@@ -275,6 +326,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "test",       no_argument,       NULL, ARG_TEST },
                 { "help",       no_argument,       NULL, 'h' },
                 { "dump-configuration-items", no_argument, NULL, ARG_DUMP_CONFIGURATION_ITEMS },
+                { "confirm-spawn", no_argument,    NULL, ARG_CONFIRM_SPAWN },
                 { NULL,         0,                 NULL, 0 }
         };
 
@@ -333,6 +385,10 @@ static int parse_argv(int argc, char *argv[]) {
                         action = ACTION_DUMP_CONFIGURATION_ITEMS;
                         break;
 
+                case ARG_CONFIRM_SPAWN:
+                        confirm_spawn = true;
+                        break;
+
                 case 'h':
                         action = ACTION_HELP;
                         break;
@@ -357,7 +413,8 @@ static int help(void) {
                "     --log-target=TARGET         Set log target (console, syslog, kmsg)\n"
                "     --running-as=AS             Set running as (init, system, session)\n"
                "     --test                      Determine startup sequence, dump it and exit\n"
-               "     --dump-configuration-items  Dump understood unit configuration items\n",
+               "     --dump-configuration-items  Dump understood unit configuration items\n"
+               "     --confirm-spawn             Ask for confirmation when spawning processes\n",
                __progname);
 
         return 0;
@@ -422,11 +479,16 @@ int main(int argc, char *argv[]) {
         /* Move out of the way, so that we won't block unmounts */
         assert_se(chdir("/")  == 0);
 
-        /* Become a session leader if we aren't one yet. */
-        setsid();
+        if (running_as != MANAGER_SESSION) {
+                /* Become a session leader if we aren't one yet. */
+                setsid();
 
-        /* Disable the umask logic */
-        umask(0);
+                /* Disable the umask logic */
+                umask(0);
+        }
+
+        if (running_as == MANAGER_INIT)
+                console_setup();
 
         /* Make sure D-Bus doesn't fiddle with the SIGPIPE handlers */
         dbus_connection_set_change_sigpipe(FALSE);
@@ -445,7 +507,7 @@ int main(int argc, char *argv[]) {
         if (running_as == MANAGER_INIT)
                 hostname_setup();
 
-        if ((r = manager_new(running_as, &m)) < 0) {
+        if ((r = manager_new(running_as, confirm_spawn, &m)) < 0) {
                 log_error("Failed to allocate manager object: %s", strerror(-r));
                 goto finish;
         }

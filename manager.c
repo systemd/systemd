@@ -33,6 +33,8 @@
 #include <sys/ioctl.h>
 #include <linux/kd.h>
 #include <libcgroup.h>
+#include <termios.h>
+#include <fcntl.h>
 
 #include "manager.h"
 #include "hashmap.h"
@@ -44,6 +46,28 @@
 #include "cgroup.h"
 #include "mount-setup.h"
 #include "utmp-wtmp.h"
+
+static int enable_special_signals(Manager *m) {
+        char fd;
+
+        assert(m);
+
+        /* Enable that we get SIGINT on control-alt-del */
+        if (reboot(RB_DISABLE_CAD) < 0)
+                log_warning("Failed to enable ctrl-alt-del handling: %m");
+
+        if ((fd = open_terminal("/dev/tty0", O_RDWR)) < 0)
+                log_warning("Failed to open /dev/tty0: %m");
+        else {
+                /* Enable that we get SIGWINCH on kbrequest */
+                if (ioctl(fd, KDSIGACCEPT, SIGWINCH) < 0)
+                        log_warning("Failed to enable kbrequest handling: %s", strerror(errno));
+
+                close_nointr_nofail(fd);
+        }
+
+        return 0;
+}
 
 static int manager_setup_signals(Manager *m) {
         sigset_t mask;
@@ -73,15 +97,8 @@ static int manager_setup_signals(Manager *m) {
         if (epoll_ctl(m->epoll_fd, EPOLL_CTL_ADD, m->signal_watch.fd, &ev) < 0)
                 return -errno;
 
-        if (m->running_as == MANAGER_INIT) {
-                /* Enable that we get SIGINT on control-alt-del */
-                if (reboot(RB_DISABLE_CAD) < 0)
-                        log_warning("Failed to enable ctrl-alt-del handling: %s", strerror(errno));
-
-                /* Enable that we get SIGWINCH on kbrequest */
-                if (ioctl(0, KDSIGACCEPT, SIGWINCH) < 0)
-                        log_warning("Failed to enable kbrequest handling: %s", strerror(errno));
-        }
+        if (m->running_as == MANAGER_INIT)
+                return enable_special_signals(m);
 
         return 0;
 }
@@ -280,7 +297,7 @@ static int manager_find_paths(Manager *m) {
         return 0;
 }
 
-int manager_new(ManagerRunningAs running_as, Manager **_m) {
+int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
         Manager *m;
         int r = -ENOMEM;
 
@@ -294,6 +311,8 @@ int manager_new(ManagerRunningAs running_as, Manager **_m) {
         m->boot_timestamp = now(CLOCK_REALTIME);
 
         m->running_as = running_as;
+        m->confirm_spawn = confirm_spawn;
+
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
 
@@ -1553,13 +1572,8 @@ static int manager_process_signal_fd(Manager *m, bool *quit) {
                         break;
 
                 case SIGUSR1:
-
-                        printf("→ By units:\n");
                         manager_dump_units(m, stdout, "\t");
-
-                        printf("→ By jobs:\n");
                         manager_dump_jobs(m, stdout, "\t");
-
                         break;
 
                 default:

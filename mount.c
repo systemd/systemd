@@ -367,6 +367,7 @@ static int mount_spawn(Mount *m, ExecCommand *c, pid_t *_pid) {
                             NULL, 0,
                             true,
                             true,
+                            UNIT(m)->meta.manager->confirm_spawn,
                             UNIT(m)->meta.cgroup_bondings,
                             &pid)) < 0)
                 goto fail;
@@ -436,21 +437,28 @@ static void mount_enter_dead(Mount *m, bool success) {
         mount_set_state(m, m->failure ? MOUNT_MAINTAINANCE : MOUNT_DEAD);
 }
 
+static void mount_enter_mounted(Mount *m, bool success) {
+        assert(m);
+
+        if (!success)
+                m->failure = true;
+
+        mount_set_state(m, MOUNT_MOUNTED);
+}
+
 static void mount_enter_signal(Mount *m, MountState state, bool success) {
         int r;
+        bool sent = false;
 
         assert(m);
 
         if (!success)
                 m->failure = true;
 
-        if (m->control_pid > 0) {
-                int sig;
-                bool sent = false;
-
-                sig = (state == MOUNT_MOUNTING_SIGTERM ||
-                       state == MOUNT_UNMOUNTING_SIGTERM ||
-                       state == MOUNT_REMOUNTING_SIGTERM) ? SIGTERM : SIGKILL;
+        if (m->kill_mode != KILL_NONE) {
+                int sig = (state == MOUNT_MOUNTING_SIGTERM ||
+                           state == MOUNT_UNMOUNTING_SIGTERM ||
+                           state == MOUNT_REMOUNTING_SIGTERM) ? SIGTERM : SIGKILL;
 
                 if (m->kill_mode == KILL_CONTROL_GROUP) {
 
@@ -461,32 +469,32 @@ static void mount_enter_signal(Mount *m, MountState state, bool success) {
                                 sent = true;
                 }
 
-                if (!sent)
+                if (!sent && m->control_pid > 0)
                         if (kill(m->kill_mode == KILL_PROCESS ? m->control_pid : -m->control_pid, sig) < 0 && errno != ESRCH) {
                                 r = -errno;
                                 goto fail;
                         }
         }
 
-        mount_set_state(m, state);
+        if (sent) {
+                if ((r = unit_watch_timer(UNIT(m), m->timeout_usec, &m->timer_watch)) < 0)
+                        goto fail;
 
-        if (m->control_pid <= 0)
+                mount_set_state(m, state);
+        } else if (state == MOUNT_REMOUNTING_SIGTERM || state == MOUNT_REMOUNTING_SIGKILL)
+                mount_enter_mounted(m, true);
+        else
                 mount_enter_dead(m, true);
 
         return;
 
 fail:
         log_warning("%s failed to kill processes: %s", unit_id(UNIT(m)), strerror(-r));
-        mount_enter_dead(m, false);
-}
 
-static void mount_enter_mounted(Mount *m, bool success) {
-        assert(m);
-
-        if (!success)
-                m->failure = true;
-
-        mount_set_state(m, MOUNT_MOUNTED);
+        if (state == MOUNT_REMOUNTING_SIGTERM || state == MOUNT_REMOUNTING_SIGKILL)
+                mount_enter_mounted(m, false);
+        else
+                mount_enter_dead(m, false);
 }
 
 static void mount_enter_unmounting(Mount *m, bool success) {

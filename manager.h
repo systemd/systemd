@@ -35,7 +35,7 @@ typedef struct Watch Watch;
 typedef enum ManagerRunningAs {
         MANAGER_INIT,      /* root and pid=1 */
         MANAGER_SYSTEM,    /* root and pid!=1 */
-        MANAGER_SESSION,   /* non-root */
+        MANAGER_SESSION,   /* non-root, for a session */
         _MANAGER_RUNNING_AS_MAX,
         _MANAGER_RUNNING_AS_INVALID = -1
 } ManagerRunningAs;
@@ -152,6 +152,8 @@ struct Manager {
 
         bool utmp_reboot_written:1;
 
+        bool confirm_spawn:1;
+
         Hashmap *watch_pids;  /* pid => Unit object n:1 */
 
         int epoll_fd;
@@ -183,7 +185,7 @@ struct Manager {
         usec_t boot_timestamp;
 };
 
-int manager_new(ManagerRunningAs running_as, Manager **m);
+int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **m);
 void manager_free(Manager *m);
 
 int manager_coldplug(Manager *m);

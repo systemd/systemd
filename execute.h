@@ -41,21 +41,24 @@ struct CGroupBonding;
 /* Abstract namespace! */
 #define LOGGER_SOCKET "/org/freedesktop/systemd1/logger"
 
+typedef enum ExecInput {
+        EXEC_INPUT_NULL,
+        EXEC_INPUT_TTY,
+        EXEC_INPUT_TTY_FORCE,
+        EXEC_INPUT_TTY_FAIL,
+        _EXEC_INPUT_MAX,
+        _EXEC_INPUT_INVALID = -1
+} ExecInput;
+
 typedef enum ExecOutput {
-        EXEC_OUTPUT_CONSOLE,
+        EXEC_OUTPUT_INHERIT,
         EXEC_OUTPUT_NULL,
+        EXEC_OUTPUT_TTY,
         EXEC_OUTPUT_SYSLOG,
         EXEC_OUTPUT_KERNEL,
         _EXEC_OUTPUT_MAX,
         _EXEC_OUTPUT_INVALID = -1
 } ExecOutput;
-
-typedef enum ExecInput {
-        EXEC_INPUT_NULL,
-        EXEC_INPUT_CONSOLE,
-        _EXEC_INPUT_MAX,
-        _EXEC_INPUT_INVALID = -1
-} ExecInput;
 
 struct ExecStatus {
         pid_t pid;
@@ -94,10 +97,13 @@ struct ExecContext {
 
         bool cpu_sched_reset_on_fork;
         bool non_blocking;
-        bool new_session;
 
-        ExecInput input;
-        ExecOutput output;
+        ExecInput std_input;
+        ExecOutput std_output;
+        ExecOutput std_error;
+
+        char *tty_path;
+
         int syslog_priority;
         char *syslog_identifier;
 
@@ -138,10 +144,9 @@ typedef enum ExitStatus {
         EXIT_LIMITS,
         EXIT_OOM_ADJUST,
         EXIT_SIGNAL_MASK,
-        EXIT_INPUT,
-        EXIT_OUTPUT,
+        EXIT_STDIN,
+        EXIT_STDOUT,
         EXIT_CHROOT,   /* 210 */
-        EXIT_PGID,
         EXIT_IOPRIO,
         EXIT_TIMERSLACK,
         EXIT_SECUREBITS,
@@ -150,8 +155,11 @@ typedef enum ExitStatus {
         EXIT_GROUP,
         EXIT_USER,
         EXIT_CAPABILITIES,
-        EXIT_CGROUP,   /* 220 */
-        EXIT_SETSID
+        EXIT_CGROUP,
+        EXIT_SETSID,   /* 220 */
+        EXIT_CONFIRM,
+        EXIT_STDERR
+
 } ExitStatus;
 
 int exec_spawn(ExecCommand *command,
@@ -159,6 +167,7 @@ int exec_spawn(ExecCommand *command,
                int *fds, unsigned n_fds,
                bool apply_permissions,
                bool apply_chroot,
+               bool confirm_spawn,
                struct CGroupBonding *cgroup_bondings,
                pid_t *ret);
 
@@ -186,5 +195,7 @@ int exec_output_from_string(const char *s);
 
 const char* exec_input_to_string(ExecInput i);
 int exec_input_from_string(const char *s);
+
+const char* exit_status_to_string(ExitStatus status);
 
 #endif

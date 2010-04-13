@@ -43,8 +43,8 @@ static const UnitActiveState state_translation_table[_SOCKET_STATE_MAX] = {
         [SOCKET_STOP_PRE_SIGTERM] = UNIT_DEACTIVATING,
         [SOCKET_STOP_PRE_SIGKILL] = UNIT_DEACTIVATING,
         [SOCKET_STOP_POST] = UNIT_DEACTIVATING,
-        [SOCKET_STOP_POST_SIGTERM] = UNIT_DEACTIVATING,
-        [SOCKET_STOP_POST_SIGKILL] = UNIT_DEACTIVATING,
+        [SOCKET_FINAL_SIGTERM] = UNIT_DEACTIVATING,
+        [SOCKET_FINAL_SIGKILL] = UNIT_DEACTIVATING,
         [SOCKET_MAINTAINANCE] = UNIT_INACTIVE,
 };
 
@@ -58,8 +58,8 @@ static const char* const state_string_table[_SOCKET_STATE_MAX] = {
         [SOCKET_STOP_PRE_SIGTERM] = "stop-pre-sigterm",
         [SOCKET_STOP_PRE_SIGKILL] = "stop-pre-sigkill",
         [SOCKET_STOP_POST] = "stop-post",
-        [SOCKET_STOP_POST_SIGTERM] = "stop-post-sigterm",
-        [SOCKET_STOP_POST_SIGKILL] = "stop-post-sigkill",
+        [SOCKET_FINAL_SIGTERM] = "final-sigterm",
+        [SOCKET_FINAL_SIGKILL] = "final-sigkill",
         [SOCKET_MAINTAINANCE] = "maintainance"
 };
 
@@ -365,8 +365,8 @@ static void socket_set_state(Socket *s, SocketState state) {
             state != SOCKET_STOP_PRE_SIGTERM &&
             state != SOCKET_STOP_PRE_SIGKILL &&
             state != SOCKET_STOP_POST &&
-            state != SOCKET_STOP_POST_SIGTERM &&
-            state != SOCKET_STOP_POST_SIGKILL) {
+            state != SOCKET_FINAL_SIGTERM &&
+            state != SOCKET_FINAL_SIGKILL) {
                 unit_unwatch_timer(UNIT(s), &s->timer_watch);
                 socket_unwatch_control_pid(s);
                 s->control_command = NULL;
@@ -405,6 +405,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, pid_t *_pid) {
                             NULL, 0,
                             true,
                             true,
+                            UNIT(s)->meta.manager->confirm_spawn,
                             UNIT(s)->meta.cgroup_bondings,
                             &pid)) < 0)
                 goto fail;
@@ -432,6 +433,8 @@ static void socket_enter_dead(Socket *s, bool success) {
         socket_set_state(s, s->failure ? SOCKET_MAINTAINANCE : SOCKET_DEAD);
 }
 
+static void socket_enter_signal(Socket *s, SocketState state, bool success);
+
 static void socket_enter_stop_post(Socket *s, bool success) {
         int r;
         assert(s);
@@ -441,35 +444,32 @@ static void socket_enter_stop_post(Socket *s, bool success) {
 
         socket_unwatch_control_pid(s);
 
-        if ((s->control_command = s->exec_command[SOCKET_EXEC_STOP_POST]))
+        if ((s->control_command = s->exec_command[SOCKET_EXEC_STOP_POST])) {
                 if ((r = socket_spawn(s, s->control_command, &s->control_pid)) < 0)
                         goto fail;
 
-        socket_set_state(s, SOCKET_STOP_POST);
-
-        if (!s->control_command)
-                socket_enter_dead(s, true);
+                socket_set_state(s, SOCKET_STOP_POST);
+        } else
+                socket_enter_signal(s, SOCKET_FINAL_SIGTERM, true);
 
         return;
 
 fail:
         log_warning("%s failed to run stop-post executable: %s", unit_id(UNIT(s)), strerror(-r));
-        socket_enter_dead(s, false);
+        socket_enter_signal(s, SOCKET_FINAL_SIGTERM, false);
 }
 
 static void socket_enter_signal(Socket *s, SocketState state, bool success) {
         int r;
+        bool sent = false;
 
         assert(s);
 
         if (!success)
                 s->failure = true;
 
-        if (s->control_pid > 0) {
-                int sig;
-                bool sent = false;
-
-                sig = (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_STOP_POST_SIGTERM) ? SIGTERM : SIGKILL;
+        if (s->kill_mode != KILL_NONE) {
+                int sig = (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_FINAL_SIGTERM) ? SIGTERM : SIGKILL;
 
                 if (s->kill_mode == KILL_CONTROL_GROUP) {
 
@@ -480,16 +480,21 @@ static void socket_enter_signal(Socket *s, SocketState state, bool success) {
                                 sent = true;
                 }
 
-                if (!sent)
+                if (!sent && s->control_pid > 0)
                         if (kill(s->kill_mode == KILL_PROCESS ? s->control_pid : -s->control_pid, sig) < 0 && errno != ESRCH) {
                                 r = -errno;
                                 goto fail;
                         }
         }
 
-        socket_set_state(s, state);
+        if (sent) {
+                if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
+                        goto fail;
 
-        if (s->control_pid <= 0)
+                socket_set_state(s, state);
+        } else if (state == SOCKET_STOP_PRE_SIGTERM || state == SOCKET_STOP_PRE_SIGKILL)
+                socket_enter_stop_post(s, true);
+        else
                 socket_enter_dead(s, true);
 
         return;
@@ -512,13 +517,12 @@ static void socket_enter_stop_pre(Socket *s, bool success) {
 
         socket_unwatch_control_pid(s);
 
-        if ((s->control_command = s->exec_command[SOCKET_EXEC_STOP_PRE]))
+        if ((s->control_command = s->exec_command[SOCKET_EXEC_STOP_PRE])) {
                 if ((r = socket_spawn(s, s->control_command, &s->control_pid)) < 0)
                         goto fail;
 
-        socket_set_state(s, SOCKET_STOP_PRE);
-
-        if (!s->control_command)
+                socket_set_state(s, SOCKET_STOP_PRE);
+        } else
                 socket_enter_stop_post(s, true);
 
         return;
@@ -555,15 +559,14 @@ static void socket_enter_start_post(Socket *s) {
 
         socket_unwatch_control_pid(s);
 
-        if ((s->control_command = s->exec_command[SOCKET_EXEC_START_POST]))
+        if ((s->control_command = s->exec_command[SOCKET_EXEC_START_POST])) {
                 if ((r = socket_spawn(s, s->control_command, &s->control_pid)) < 0) {
                         log_warning("%s failed to run start-post executable: %s", unit_id(UNIT(s)), strerror(-r));
                         goto fail;
                 }
 
-        socket_set_state(s, SOCKET_START_POST);
-
-        if (!s->control_command)
+                socket_set_state(s, SOCKET_START_POST);
+        } else
                 socket_enter_listening(s);
 
         return;
@@ -578,13 +581,12 @@ static void socket_enter_start_pre(Socket *s) {
 
         socket_unwatch_control_pid(s);
 
-        if ((s->control_command = s->exec_command[SOCKET_EXEC_START_PRE]))
+        if ((s->control_command = s->exec_command[SOCKET_EXEC_START_PRE])) {
                 if ((r = socket_spawn(s, s->control_command, &s->control_pid)) < 0)
                         goto fail;
 
-        socket_set_state(s, SOCKET_START_PRE);
-
-        if (!s->control_command)
+                socket_set_state(s, SOCKET_START_PRE);
+        } else
                 socket_enter_start_post(s);
 
         return;
@@ -607,7 +609,7 @@ static void socket_enter_running(Socket *s) {
 
 fail:
         log_warning("%s failed to queue socket startup job: %s", unit_id(UNIT(s)), strerror(-r));
-        socket_enter_dead(s, false);
+        socket_enter_stop_pre(s, false);
 }
 
 static void socket_run_next(Socket *s, bool success) {
@@ -630,12 +632,14 @@ static void socket_run_next(Socket *s, bool success) {
         return;
 
 fail:
-        if (s->state == SOCKET_STOP_PRE)
-                socket_enter_stop_post(s, false);
+        log_warning("%s failed to run spawn next executable: %s", unit_id(UNIT(s)), strerror(-r));
+
+        if (s->state == SOCKET_START_POST)
+                socket_enter_stop_pre(s, false);
         else if (s->state == SOCKET_STOP_POST)
                 socket_enter_dead(s, false);
         else
-                socket_enter_stop_pre(s, false);
+                socket_enter_signal(s, SOCKET_FINAL_SIGTERM, false);
 }
 
 static int socket_start(Unit *u) {
@@ -649,8 +653,8 @@ static int socket_start(Unit *u) {
             s->state == SOCKET_STOP_PRE_SIGKILL ||
             s->state == SOCKET_STOP_PRE_SIGTERM ||
             s->state == SOCKET_STOP_POST ||
-            s->state == SOCKET_STOP_POST_SIGTERM ||
-            s->state == SOCKET_STOP_POST_SIGKILL)
+            s->state == SOCKET_FINAL_SIGTERM ||
+            s->state == SOCKET_FINAL_SIGKILL)
                 return -EAGAIN;
 
         if (s->state == SOCKET_START_PRE ||
@@ -691,8 +695,8 @@ static int socket_stop(Unit *u) {
             s->state == SOCKET_STOP_PRE_SIGTERM ||
             s->state == SOCKET_STOP_PRE_SIGKILL ||
             s->state == SOCKET_STOP_POST ||
-            s->state == SOCKET_STOP_POST_SIGTERM ||
-            s->state == SOCKET_STOP_POST_SIGTERM)
+            s->state == SOCKET_FINAL_SIGTERM ||
+            s->state == SOCKET_FINAL_SIGTERM)
                 return 0;
 
         assert(s->state == SOCKET_LISTENING || s->state == SOCKET_RUNNING);
@@ -738,9 +742,8 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
         log_debug("%s control process exited, code=%s status=%i", unit_id(u), sigchld_code_to_string(code), status);
 
-        if (s->control_command->command_next &&
-            (success || (s->state == SOCKET_STOP_PRE || s->state == SOCKET_STOP_POST))) {
-                log_debug("%s running next command for the state %s", unit_id(u), state_string_table[s->state]);
+        if (s->control_command->command_next && success) {
+                log_debug("%s running next command for state %s", unit_id(u), state_string_table[s->state]);
                 socket_run_next(s, success);
         } else {
                 /* No further commands for this step, so let's figure
@@ -754,7 +757,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         if (success)
                                 socket_enter_start_post(s);
                         else
-                                socket_enter_stop_pre(s, false);
+                                socket_enter_signal(s, SOCKET_FINAL_SIGTERM, false);
                         break;
 
                 case SOCKET_START_POST:
@@ -771,8 +774,8 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         break;
 
                 case SOCKET_STOP_POST:
-                case SOCKET_STOP_POST_SIGTERM:
-                case SOCKET_STOP_POST_SIGKILL:
+                case SOCKET_FINAL_SIGTERM:
+                case SOCKET_FINAL_SIGKILL:
                         socket_enter_dead(s, success);
                         break;
 
@@ -792,6 +795,9 @@ static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
         switch (s->state) {
 
         case SOCKET_START_PRE:
+                log_warning("%s starting timed out. Terminating.", unit_id(u));
+                socket_enter_signal(s, SOCKET_FINAL_SIGTERM, false);
+
         case SOCKET_START_POST:
                 log_warning("%s starting timed out. Stopping.", unit_id(u));
                 socket_enter_stop_pre(s, false);
@@ -814,15 +820,15 @@ static void socket_timer_event(Unit *u, uint64_t elapsed, Watch *w) {
 
         case SOCKET_STOP_POST:
                 log_warning("%s stopping timed out (2). Terminating.", unit_id(u));
-                socket_enter_signal(s, SOCKET_STOP_POST_SIGTERM, false);
+                socket_enter_signal(s, SOCKET_FINAL_SIGTERM, false);
                 break;
 
-        case SOCKET_STOP_POST_SIGTERM:
+        case SOCKET_FINAL_SIGTERM:
                 log_warning("%s stopping timed out (2). Killing.", unit_id(u));
-                socket_enter_signal(s, SOCKET_STOP_POST_SIGKILL, false);
+                socket_enter_signal(s, SOCKET_FINAL_SIGKILL, false);
                 break;
 
-        case SOCKET_STOP_POST_SIGKILL:
+        case SOCKET_FINAL_SIGKILL:
                 log_warning("%s still around after SIGKILL (2). Entering maintainance mode.", unit_id(u));
                 socket_enter_dead(s, false);
                 break;

@@ -37,6 +37,10 @@
 #include <sys/ioctl.h>
 #include <linux/vt.h>
 #include <linux/tiocl.h>
+#include <termios.h>
+#include <stdarg.h>
+#include <sys/inotify.h>
+#include <sys/poll.h>
 
 #include "macro.h"
 #include "util.h"
@@ -164,11 +168,14 @@ int close_nointr(int fd) {
 }
 
 void close_nointr_nofail(int fd) {
+        int saved_errno = errno;
 
         /* like close_nointr() but cannot fail, and guarantees errno
          * is unchanged */
 
         assert_se(close_nointr(fd) == 0);
+
+        errno = saved_errno;
 }
 
 int parse_boolean(const char *v) {
@@ -1319,6 +1326,314 @@ int chvt(int vt) {
                 r = -errno;
 
         close_nointr(r);
+        return r;
+}
+
+int read_one_char(FILE *f, char *ret, bool *need_nl) {
+        struct termios old_termios, new_termios;
+        char c;
+        char line[1024];
+
+        assert(f);
+        assert(ret);
+
+        if (tcgetattr(fileno(f), &old_termios) >= 0) {
+                new_termios = old_termios;
+
+                new_termios.c_lflag &= ~ICANON;
+                new_termios.c_cc[VMIN] = 1;
+                new_termios.c_cc[VTIME] = 0;
+
+                if (tcsetattr(fileno(f), TCSADRAIN, &new_termios) >= 0) {
+                        size_t k;
+
+                        k = fread(&c, 1, 1, f);
+
+                        tcsetattr(fileno(f), TCSADRAIN, &old_termios);
+
+                        if (k <= 0)
+                                return -EIO;
+
+                        if (need_nl)
+                                *need_nl = c != '\n';
+
+                        *ret = c;
+                        return 0;
+                }
+        }
+
+        if (!(fgets(line, sizeof(line), f)))
+                return -EIO;
+
+        truncate_nl(line);
+
+        if (strlen(line) != 1)
+                return -EBADMSG;
+
+        if (need_nl)
+                *need_nl = false;
+
+        *ret = line[0];
+        return 0;
+}
+
+int ask(char *ret, const char *replies, const char *text, ...) {
+        assert(ret);
+        assert(replies);
+        assert(text);
+
+        for (;;) {
+                va_list ap;
+                char c;
+                int r;
+                bool need_nl = true;
+
+                va_start(ap, text);
+                vprintf(text, ap);
+                va_end(ap);
+
+                fflush(stdout);
+
+                if ((r = read_one_char(stdin, &c, &need_nl)) < 0) {
+
+                        if (r == -EBADMSG) {
+                                puts("Bad input, please try again.");
+                                continue;
+                        }
+
+                        putchar('\n');
+                        return r;
+                }
+
+                if (need_nl)
+                        putchar('\n');
+
+                if (strchr(replies, c)) {
+                        *ret = c;
+                        return 0;
+                }
+
+                puts("Read unexpected character, please try again.");
+        }
+}
+
+int reset_terminal(int fd) {
+        struct termios termios;
+        int r = 0;
+
+        assert(fd >= 0);
+
+        /* Set terminal up for job control */
+
+        if (tcgetattr(fd, &termios) < 0) {
+                r = -errno;
+                goto finish;
+        }
+
+        termios.c_iflag &= ~(IGNBRK | BRKINT);
+        termios.c_iflag |= ICRNL | IMAXBEL | IUTF8;
+        termios.c_oflag |= ONLCR;
+        termios.c_cflag |= CREAD;
+        termios.c_lflag = ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOPRT | ECHOKE;
+
+        termios.c_cc[VINTR]    =   03;  /* ^C */
+        termios.c_cc[VQUIT]    =  034;  /* ^\ */
+        termios.c_cc[VERASE]   = 0177;
+        termios.c_cc[VKILL]    =  025;  /* ^X */
+        termios.c_cc[VEOF]     =   04;  /* ^D */
+        termios.c_cc[VSTART]   =  021;  /* ^Q */
+        termios.c_cc[VSTOP]    =  023;  /* ^S */
+        termios.c_cc[VSUSP]    =  032;  /* ^Z */
+        termios.c_cc[VLNEXT]   =  026;  /* ^V */
+        termios.c_cc[VWERASE]  =  027;  /* ^W */
+        termios.c_cc[VREPRINT] =  022;  /* ^R */
+
+        termios.c_cc[VTIME]  = 0;
+        termios.c_cc[VMIN]   = 1;
+
+        if (tcsetattr(fd, TCSANOW, &termios) < 0)
+                r = -errno;
+
+finish:
+        /* Just in case, flush all crap out */
+        tcflush(fd, TCIOFLUSH);
+
+        return r;
+}
+
+int open_terminal(const char *name, int mode) {
+        int fd, r;
+
+        if ((fd = open(name, mode)) < 0)
+                return -errno;
+
+        if ((r = isatty(fd)) < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        if (!r) {
+                close_nointr_nofail(fd);
+                return -ENOTTY;
+        }
+
+        return fd;
+}
+
+int flush_fd(int fd) {
+        struct pollfd pollfd;
+
+        zero(pollfd);
+        pollfd.fd = fd;
+        pollfd.events = POLLIN;
+
+        for (;;) {
+                char buf[1024];
+                ssize_t l;
+                int r;
+
+                if ((r = poll(&pollfd, 1, 0)) < 0) {
+
+                        if (errno == EINTR)
+                                continue;
+
+                        return -errno;
+                }
+
+                if (r == 0)
+                        return 0;
+
+                if ((l = read(fd, buf, sizeof(buf))) < 0) {
+
+                        if (errno == EINTR)
+                                continue;
+
+                        if (errno == EAGAIN)
+                                return 0;
+
+                        return -errno;
+                }
+
+                if (l <= 0)
+                        return 0;
+        }
+}
+
+int acquire_terminal(const char *name, bool fail, bool force) {
+        int fd = -1, notify = -1, r, wd;
+
+        assert(name);
+
+        /* We use inotify to be notified when the tty is closed. We
+         * create the watch before checking if we can actually acquire
+         * it, so that we don't lose any event.
+         *
+         * Note: strictly speaking this actually watches for the
+         * device being closed, it does *not* really watch whether a
+         * tty loses its controlling process. However, unless some
+         * rogue process uses TIOCNOTTY on /dev/tty *after* closing
+         * its tty otherwise this will not become a problem. As long
+         * as the administrator makes sure not configure any service
+         * on the same tty as an untrusted user this should not be a
+         * problem. (Which he probably should not do anyway.) */
+
+        if (!fail && !force) {
+                if ((notify = inotify_init1(IN_CLOEXEC)) < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                if ((wd = inotify_add_watch(notify, name, IN_CLOSE)) < 0) {
+                        r = -errno;
+                        goto fail;
+                }
+        }
+
+        for (;;) {
+                if ((r = flush_fd(notify)) < 0)
+                        goto fail;
+
+                /* We pass here O_NOCTTY only so that we can check the return
+                 * value TIOCSCTTY and have a reliable way to figure out if we
+                 * successfully became the controlling process of the tty */
+                if ((fd = open_terminal(name, O_RDWR|O_NOCTTY)) < 0)
+                        return -errno;
+
+                /* First, try to get the tty */
+                if ((r = ioctl(fd, TIOCSCTTY, force)) < 0 &&
+                    (force || fail || errno != EPERM)) {
+                        r = -errno;
+                        goto fail;
+                }
+
+                if (r >= 0)
+                        break;
+
+                assert(!fail);
+                assert(!force);
+                assert(notify >= 0);
+
+                for (;;) {
+                        struct inotify_event e;
+                        ssize_t l;
+
+                        if ((l = read(notify, &e, sizeof(e))) != sizeof(e)) {
+
+                                if (l < 0) {
+
+                                        if (errno == EINTR)
+                                                continue;
+
+                                        r = -errno;
+                                } else
+                                        r = -EIO;
+
+                                goto fail;
+                        }
+
+                        if (e.wd != wd || !(e.mask & IN_CLOSE)) {
+                                r = -errno;
+                                goto fail;
+                        }
+
+                        break;
+                }
+
+                /* We close the tty fd here since if the old session
+                 * ended our handle will be dead. It's important that
+                 * we do this after sleeping, so that we don't enter
+                 * an endless loop. */
+                close_nointr_nofail(fd);
+        }
+
+        if (notify >= 0)
+                close_nointr(notify);
+
+        if ((r = reset_terminal(fd)) < 0)
+                log_warning("Failed to reset terminal: %s", strerror(-r));
+
+        return fd;
+
+fail:
+        if (fd >= 0)
+                close_nointr(fd);
+
+        if (notify >= 0)
+                close_nointr(notify);
+
+        return r;
+}
+
+int release_terminal(void) {
+        int r = 0, fd;
+
+        if ((fd = open("/dev/tty", O_RDWR)) < 0)
+                return -errno;
+
+        if (ioctl(fd, TIOCNOTTY) < 0)
+                r = -errno;
+
+        close_nointr_nofail(fd);
         return r;
 }
 

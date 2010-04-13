@@ -115,128 +115,318 @@ static int flags_fds(int fds[], unsigned n_fds, bool nonblock) {
         return 0;
 }
 
-static int replace_null_fd(int fd, int flags) {
-        int nfd;
-        assert(fd >= 0);
+static const char *tty_path(const ExecContext *context) {
+        assert(context);
 
-        close_nointr(fd);
+        if (context->tty_path)
+                return context->tty_path;
 
-        if ((nfd = open("/dev/null", flags|O_NOCTTY)) < 0)
+        return "/dev/console";
+}
+
+static int open_null_as(int flags, int nfd) {
+        int fd, r;
+
+        assert(nfd >= 0);
+
+        if ((fd = open("/dev/null", flags|O_NOCTTY)) < 0)
                 return -errno;
 
-        if (nfd != fd) {
-                close_nointr_nofail(nfd);
-                return -EIO;
+        if (fd != nfd) {
+                r = dup2(fd, nfd) < 0 ? -errno : nfd;
+                close_nointr(fd);
+        } else
+                r = nfd;
+
+        return r;
+}
+
+static int connect_logger_as(const ExecContext *context, ExecOutput output, const char *ident, int nfd) {
+        int fd, r;
+        union {
+                struct sockaddr sa;
+                struct sockaddr_un un;
+        } sa;
+
+        assert(context);
+        assert(output < _EXEC_OUTPUT_MAX);
+        assert(ident);
+        assert(nfd >= 0);
+
+        if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
+                return -errno;
+
+        zero(sa);
+        sa.sa.sa_family = AF_UNIX;
+        strncpy(sa.un.sun_path+1, LOGGER_SOCKET, sizeof(sa.un.sun_path)-1);
+
+        if (connect(fd, &sa.sa, sizeof(sa)) < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
         }
 
-        return 0;
+        if (shutdown(fd, SHUT_RD) < 0) {
+                close_nointr_nofail(fd);
+                return -errno;
+        }
+
+        /* We speak a very simple protocol between log server
+         * and client: one line for the log destination (kmsg
+         * or syslog), followed by the priority field,
+         * followed by the process name. Since we replaced
+         * stdin/stderr we simple use stdio to write to
+         * it. Note that we use stderr, to minimize buffer
+         * flushing issues. */
+
+        dprintf(fd,
+                "%s\n"
+                "%i\n"
+                "%s\n",
+                output == EXEC_OUTPUT_KERNEL ? "kmsg" : "syslog",
+                context->syslog_priority,
+                context->syslog_identifier ? context->syslog_identifier : ident);
+
+        if (fd != nfd) {
+                r = dup2(fd, nfd) < 0 ? -errno : nfd;
+                close_nointr(fd);
+        } else
+                r = nfd;
+
+        return r;
+}
+static int open_terminal_as(const char *path, mode_t mode, int nfd) {
+        int fd, r;
+
+        assert(path);
+        assert(nfd >= 0);
+
+        if ((fd = open_terminal(path, mode | O_NOCTTY)) < 0)
+                return fd;
+
+        if (fd != nfd) {
+                r = dup2(fd, nfd) < 0 ? -errno : nfd;
+                close_nointr_nofail(fd);
+        } else
+                r = nfd;
+
+        return r;
+}
+
+static bool is_terminal_input(ExecInput i) {
+        return
+                i == EXEC_INPUT_TTY ||
+                i == EXEC_INPUT_TTY_FORCE ||
+                i == EXEC_INPUT_TTY_FAIL;
+}
+
+static int setup_input(const ExecContext *context) {
+        assert(context);
+
+        switch (context->std_input) {
+
+        case EXEC_INPUT_NULL:
+                return open_null_as(O_RDONLY, STDIN_FILENO);
+
+        case EXEC_INPUT_TTY:
+        case EXEC_INPUT_TTY_FORCE:
+        case EXEC_INPUT_TTY_FAIL: {
+                int fd, r;
+
+                if ((fd = acquire_terminal(
+                                     tty_path(context),
+                                     context->std_input == EXEC_INPUT_TTY_FAIL,
+                                     context->std_input == EXEC_INPUT_TTY_FORCE)) < 0)
+                        return fd;
+
+                if (fd != STDIN_FILENO) {
+                        r = dup2(fd, STDIN_FILENO) < 0 ? -errno : STDIN_FILENO;
+                        close_nointr_nofail(fd);
+                } else
+                        r = STDIN_FILENO;
+
+                return r;
+        }
+
+        default:
+                assert_not_reached("Unknown input type");
+        }
 }
 
 static int setup_output(const ExecContext *context, const char *ident) {
-        int r;
-
         assert(context);
+        assert(ident);
 
-        switch (context->output) {
+        /* This expects the input is already set up */
 
-        case EXEC_OUTPUT_CONSOLE:
+        switch (context->std_output) {
+
+        case EXEC_OUTPUT_INHERIT:
+
+                /* If the input is connected to a terminal, inherit that... */
+                if (is_terminal_input(context->std_input))
+                        return dup2(STDIN_FILENO, STDOUT_FILENO) < 0 ? -errno : STDOUT_FILENO;
+
                 return 0;
 
         case EXEC_OUTPUT_NULL:
+                return open_null_as(O_WRONLY, STDOUT_FILENO);
 
-                if ((r = replace_null_fd(STDOUT_FILENO, O_WRONLY)) < 0 ||
-                    (r = replace_null_fd(STDERR_FILENO, O_WRONLY)) < 0)
-                        return r;
+        case EXEC_OUTPUT_TTY: {
+                if (is_terminal_input(context->std_input))
+                        return dup2(STDIN_FILENO, STDOUT_FILENO) < 0 ? -errno : STDOUT_FILENO;
 
-                return 0;
-
-        case EXEC_OUTPUT_KERNEL:
-        case EXEC_OUTPUT_SYSLOG: {
-
-                int fd;
-                union {
-                        struct sockaddr sa;
-                        struct sockaddr_un un;
-                } sa;
-
-                close_nointr(STDOUT_FILENO);
-                close_nointr(STDERR_FILENO);
-
-                if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
-                        return -errno;
-
-                if (fd != STDOUT_FILENO) {
-                        close_nointr_nofail(fd);
-                        return -EIO;
-                }
-
-                zero(sa);
-                sa.sa.sa_family = AF_UNIX;
-                strncpy(sa.un.sun_path+1, LOGGER_SOCKET, sizeof(sa.un.sun_path)-1);
-
-                if (connect(fd, &sa.sa, sizeof(sa)) < 0) {
-                        close_nointr_nofail(fd);
-                        return -errno;
-                }
-
-                if (shutdown(fd, SHUT_RD) < 0) {
-                        close_nointr_nofail(fd);
-                        return -errno;
-                }
-
-                if ((fd = dup(fd)) < 0) {
-                        close_nointr_nofail(fd);
-                        return -errno;
-                }
-
-                if (fd != STDERR_FILENO) {
-                        close_nointr_nofail(fd);
-                        return -EIO;
-                }
-
-                /* We speak a very simple protocol between log server
-                 * and client: one line for the log destination (kmsg
-                 * or syslog), followed by the priority field,
-                 * followed by the process name. Since we replaced
-                 * stdin/stderr we simple use stdio to write to
-                 * it. Note that we use stderr, to minimize buffer
-                 * flushing issues. */
-
-                fprintf(stderr,
-                        "%s\n"
-                        "%i\n"
-                        "%s\n",
-                        context->output == EXEC_OUTPUT_KERNEL ? "kmsg" : "syslog",
-                        context->syslog_priority,
-                        context->syslog_identifier ? context->syslog_identifier : ident);
-
-                return 0;
+                /* We don't reset the terminal if this is just about output */
+                return open_terminal_as(tty_path(context), O_WRONLY, STDOUT_FILENO);
         }
+
+        case EXEC_OUTPUT_SYSLOG:
+        case EXEC_OUTPUT_KERNEL:
+                return connect_logger_as(context, context->std_output, ident, STDOUT_FILENO);
 
         default:
                 assert_not_reached("Unknown output type");
         }
 }
 
-static int setup_input(const ExecContext *context) {
-        int r;
-
+static int setup_error(const ExecContext *context, const char *ident) {
         assert(context);
 
-        switch (context->input) {
+        /* This expects the input and output are already set up */
 
-        case EXEC_INPUT_CONSOLE:
-                return 0;
+        /* Don't change the stderr file descriptor if we inherit all
+         * the way and are not on a tty */
+        if (context->std_error == EXEC_OUTPUT_INHERIT &&
+            context->std_output == EXEC_OUTPUT_INHERIT &&
+            !is_terminal_input(context->std_input))
+                return STDERR_FILENO;
 
-        case EXEC_INPUT_NULL:
-                if ((r = replace_null_fd(STDIN_FILENO, O_RDONLY)) < 0)
-                        return r;
+        /* Duplicate form stdout if possible */
+        if (context->std_error == context->std_output ||
+            context->std_error == EXEC_OUTPUT_INHERIT)
+                return dup2(STDOUT_FILENO, STDERR_FILENO) < 0 ? -errno : STDERR_FILENO;
 
-                return 0;
+        switch (context->std_error) {
+
+        case EXEC_OUTPUT_NULL:
+                return open_null_as(O_WRONLY, STDERR_FILENO);
+
+        case EXEC_OUTPUT_TTY:
+                if (is_terminal_input(context->std_input))
+                        return dup2(STDIN_FILENO, STDERR_FILENO) < 0 ? -errno : STDERR_FILENO;
+
+                /* We don't reset the terminal if this is just about output */
+                return open_terminal_as(tty_path(context), O_WRONLY, STDERR_FILENO);
+
+        case EXEC_OUTPUT_SYSLOG:
+        case EXEC_OUTPUT_KERNEL:
+                return connect_logger_as(context, context->std_error, ident, STDERR_FILENO);
 
         default:
-                assert_not_reached("Unknown input type");
+                assert_not_reached("Unknown error type");
         }
+}
+
+static int setup_confirm_stdio(const ExecContext *context,
+                               int *_saved_stdin,
+                               int *_saved_stdout) {
+        int fd = -1, saved_stdin, saved_stdout = -1, r;
+
+        assert(context);
+        assert(_saved_stdin);
+        assert(_saved_stdout);
+
+        /* This returns positive EXIT_xxx return values instead of
+         * negative errno style values! */
+
+        if ((saved_stdin = fcntl(STDIN_FILENO, F_DUPFD, 3)) < 0)
+                return EXIT_STDIN;
+
+        if ((saved_stdout = fcntl(STDOUT_FILENO, F_DUPFD, 3)) < 0) {
+                r = EXIT_STDOUT;
+                goto fail;
+        }
+
+        if ((fd = acquire_terminal(
+                             tty_path(context),
+                             context->std_input == EXEC_INPUT_TTY_FAIL,
+                             context->std_input == EXEC_INPUT_TTY_FORCE)) < 0) {
+                r = EXIT_STDIN;
+                goto fail;
+        }
+
+        if (dup2(fd, STDIN_FILENO) < 0) {
+                r = EXIT_STDIN;
+                goto fail;
+        }
+
+        if (dup2(fd, STDOUT_FILENO) < 0) {
+                r = EXIT_STDOUT;
+                goto fail;
+        }
+
+        if (fd >= 2)
+                close_nointr_nofail(fd);
+
+        *_saved_stdin = saved_stdin;
+        *_saved_stdout = saved_stdout;
+
+        return 0;
+
+fail:
+        if (saved_stdout >= 0)
+                close_nointr_nofail(saved_stdout);
+
+        if (saved_stdin >= 0)
+                close_nointr_nofail(saved_stdin);
+
+        if (fd >= 0)
+                close_nointr_nofail(fd);
+
+        return r;
+}
+
+static int restore_conform_stdio(const ExecContext *context,
+                                 int *saved_stdin,
+                                 int *saved_stdout,
+                                 bool *keep_stdin,
+                                 bool *keep_stdout) {
+
+        assert(context);
+        assert(saved_stdin);
+        assert(*saved_stdin >= 0);
+        assert(saved_stdout);
+        assert(*saved_stdout >= 0);
+
+        /* This returns positive EXIT_xxx return values instead of
+         * negative errno style values! */
+
+        if (is_terminal_input(context->std_input)) {
+
+                /* The service wants terminal input. */
+
+                *keep_stdin = true;
+                *keep_stdout =
+                        context->std_output == EXEC_OUTPUT_INHERIT ||
+                        context->std_output == EXEC_OUTPUT_TTY;
+
+        } else {
+                /* If the service doesn't want a controlling terminal,
+                 * then we need to get rid entirely of what we have
+                 * already. */
+
+                if (release_terminal() < 0)
+                        return EXIT_STDIN;
+
+                if (dup2(*saved_stdin, STDIN_FILENO) < 0)
+                        return EXIT_STDIN;
+
+                if (dup2(*saved_stdout, STDOUT_FILENO) < 0)
+                        return EXIT_STDOUT;
+
+                *keep_stdout = *keep_stdin = false;
+        }
+
+        return 0;
 }
 
 static int get_group_creds(const char *groupname, gid_t *gid) {
@@ -452,6 +642,7 @@ int exec_spawn(ExecCommand *command,
                int *fds, unsigned n_fds,
                bool apply_permissions,
                bool apply_chroot,
+               bool confirm_spawn,
                CGroupBonding *cgroup_bondings,
                pid_t *ret) {
 
@@ -485,6 +676,8 @@ int exec_spawn(ExecCommand *command,
                 gid_t gid = (gid_t) -1;
                 char **our_env = NULL, **final_env = NULL;
                 unsigned n_env = 0;
+                int saved_stdout = -1, saved_stdin = -1;
+                bool keep_stdout = false, keep_stdin = false;
 
                 /* child */
 
@@ -494,27 +687,59 @@ int exec_spawn(ExecCommand *command,
                         goto fail;
                 }
 
-                if (context->new_session) {
-                        if (setsid() < 0) {
-                                r = EXIT_SETSID;
-                                goto fail;
-                        }
-                } else {
-                        if (setpgid(0, 0) < 0) {
-                                r = EXIT_PGID;
-                                goto fail;
-                        }
+                if (setsid() < 0) {
+                        r = EXIT_SETSID;
+                        goto fail;
                 }
 
                 umask(context->umask);
 
-                if (setup_input(context) < 0) {
-                        r = EXIT_INPUT;
-                        goto fail;
+                if (confirm_spawn) {
+                        char response;
+
+                        /* Set up terminal for the question */
+                        if ((r = setup_confirm_stdio(context,
+                                                     &saved_stdin, &saved_stdout)))
+                                goto fail;
+
+                        /* Now ask the question. */
+                        if (!(line = exec_command_line(command))) {
+                                r = EXIT_MEMORY;
+                                goto fail;
+                        }
+
+                        r = ask(&response, "yns", "Execute %s? [Yes, No, Skip] ", line);
+                        free(line);
+
+                        if (r < 0 || response == 'n') {
+                                r = EXIT_CONFIRM;
+                                goto fail;
+                        } else if (response == 's') {
+                                r = 0;
+                                goto fail;
+                        }
+
+                        /* Release terminal for the question */
+                        if ((r = restore_conform_stdio(context,
+                                                       &saved_stdin, &saved_stdout,
+                                                       &keep_stdin, &keep_stdout)))
+                                goto fail;
                 }
 
-                if (setup_output(context, file_name_from_path(command->path)) < 0) {
-                        r = EXIT_OUTPUT;
+                if (!keep_stdin)
+                        if (setup_input(context) < 0) {
+                                r = EXIT_STDIN;
+                                goto fail;
+                        }
+
+                if (!keep_stdout)
+                        if (setup_output(context, file_name_from_path(command->path)) < 0) {
+                                r = EXIT_STDOUT;
+                                goto fail;
+                        }
+
+                if (setup_error(context, file_name_from_path(command->path)) < 0) {
+                        r = EXIT_STDERR;
                         goto fail;
                 }
 
@@ -697,9 +922,25 @@ int exec_spawn(ExecCommand *command,
                 strv_free(our_env);
                 strv_free(final_env);
 
+                if (saved_stdin >= 0)
+                        close_nointr_nofail(saved_stdin);
+
+                if (saved_stdout >= 0)
+                        close_nointr_nofail(saved_stdout);
+
                 _exit(r);
         }
 
+        /* We add the new process to the cgroup both in the child (so
+         * that we can be sure that no user code is ever executed
+         * outside of the cgroup) and in the parent (so that we can be
+         * sure that when we kill the cgroup the process will be
+         * killed too). */
+        if (cgroup_bondings)
+                if ((r = cgroup_bonding_install_list(cgroup_bondings, pid)) < 0) {
+                        r = EXIT_CGROUP;
+                        goto fail;
+                }
 
         log_debug("Forked %s as %llu", command->path, (unsigned long long) pid);
 
@@ -730,10 +971,10 @@ void exec_context_init(ExecContext *c) {
 
         c->cpu_sched_reset_on_fork = false;
         c->non_blocking = false;
-        c->new_session = false;
 
-        c->input = 0;
-        c->output = 0;
+        c->std_input = 0;
+        c->std_output = 0;
+        c->std_error = 0;
         c->syslog_priority = LOG_DAEMON|LOG_INFO;
 
         c->secure_bits = 0;
@@ -757,6 +998,9 @@ void exec_context_done(ExecContext *c) {
         c->working_directory = NULL;
         free(c->root_directory);
         c->root_directory = NULL;
+
+        free(c->tty_path);
+        c->tty_path = NULL;
 
         free(c->syslog_identifier);
         c->syslog_identifier = NULL;
@@ -826,13 +1070,11 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 "%sUMask: %04o\n"
                 "%sWorkingDirectory: %s\n"
                 "%sRootDirectory: %s\n"
-                "%sNonBlocking: %s\n"
-                "%sNewSession: %s\n",
+                "%sNonBlocking: %s\n",
                 prefix, c->umask,
                 prefix, c->working_directory ? c->working_directory : "/",
                 prefix, c->root_directory ? c->root_directory : "/",
-                prefix, yes_no(c->non_blocking),
-                prefix, yes_no(c->new_session));
+                prefix, yes_no(c->non_blocking));
 
         if (c->environment)
                 for (e = c->environment; *e; e++)
@@ -880,12 +1122,20 @@ void exec_context_dump(ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sTimerSlackNS: %lu\n", prefix, c->timer_slack_ns);
 
         fprintf(f,
-                "%sInput: %s\n"
-                "%sOutput: %s\n",
-                prefix, exec_input_to_string(c->input),
-                prefix, exec_output_to_string(c->output));
+                "%sStandardInput: %s\n"
+                "%sStandardOutput: %s\n"
+                "%sStandardError: %s\n",
+                prefix, exec_input_to_string(c->std_input),
+                prefix, exec_output_to_string(c->std_output),
+                prefix, exec_output_to_string(c->std_error));
 
-        if (c->output == EXEC_OUTPUT_SYSLOG || c->output == EXEC_OUTPUT_KERNEL)
+        if (c->tty_path)
+                fprintf(f,
+                        "%sTTYPath: %s\n",
+                        prefix, c->tty_path);
+
+        if (c->std_output == EXEC_OUTPUT_SYSLOG || c->std_output == EXEC_OUTPUT_KERNEL ||
+            c->std_error == EXEC_OUTPUT_SYSLOG || c->std_error == EXEC_OUTPUT_KERNEL)
                 fprintf(f,
                         "%sSyslogFacility: %s\n"
                         "%sSyslogLevel: %s\n",
@@ -1104,18 +1354,122 @@ int exec_command_set(ExecCommand *c, const char *path, ...) {
         return 0;
 }
 
+const char* exit_status_to_string(ExitStatus status) {
+        switch (status) {
+
+        case EXIT_SUCCESS:
+                return "SUCCESS";
+
+        case EXIT_FAILURE:
+                return "FAILURE";
+
+        case EXIT_INVALIDARGUMENT:
+                return "INVALIDARGUMENT";
+
+        case EXIT_NOTIMPLEMENTED:
+                return "NOTIMPLEMENTED";
+
+        case EXIT_NOPERMISSION:
+                return "NOPERMISSION";
+
+        case EXIT_NOTINSTALLED:
+                return "NOTINSSTALLED";
+
+        case EXIT_NOTCONFIGURED:
+                return "NOTCONFIGURED";
+
+        case EXIT_NOTRUNNING:
+                return "NOTRUNNING";
+
+        case EXIT_CHDIR:
+                return "CHDIR";
+
+        case EXIT_NICE:
+                return "NICE";
+
+        case EXIT_FDS:
+                return "FDS";
+
+        case EXIT_EXEC:
+                return "EXEC";
+
+        case EXIT_MEMORY:
+                return "MEMORY";
+
+        case EXIT_LIMITS:
+                return "LIMITS";
+
+        case EXIT_OOM_ADJUST:
+                return "OOM_ADJUST";
+
+        case EXIT_SIGNAL_MASK:
+                return "SIGNAL_MASK";
+
+        case EXIT_STDIN:
+                return "STDIN";
+
+        case EXIT_STDOUT:
+                return "STDOUT";
+
+        case EXIT_CHROOT:
+                return "CHROOT";
+
+        case EXIT_IOPRIO:
+                return "IOPRIO";
+
+        case EXIT_TIMERSLACK:
+                return "TIMERSLACK";
+
+        case EXIT_SECUREBITS:
+                return "SECUREBITS";
+
+        case EXIT_SETSCHEDULER:
+                return "SETSCHEDULER";
+
+        case EXIT_CPUAFFINITY:
+                return "CPUAFFINITY";
+
+        case EXIT_GROUP:
+                return "GROUP";
+
+        case EXIT_USER:
+                return "USER";
+
+        case EXIT_CAPABILITIES:
+                return "CAPABILITIES";
+
+        case EXIT_CGROUP:
+                return "CGROUP";
+
+        case EXIT_SETSID:
+                return "SETSID";
+
+        case EXIT_CONFIRM:
+                return "CONFIRM";
+
+        case EXIT_STDERR:
+                return "STDERR";
+
+        default:
+                return NULL;
+        }
+}
+
+static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
+        [EXEC_INPUT_NULL] = "null",
+        [EXEC_INPUT_TTY] = "tty",
+        [EXEC_INPUT_TTY_FORCE] = "tty-force",
+        [EXEC_INPUT_TTY_FAIL] = "tty-fail"
+};
+
 static const char* const exec_output_table[_EXEC_OUTPUT_MAX] = {
-        [EXEC_OUTPUT_CONSOLE] = "console",
+        [EXEC_OUTPUT_INHERIT] = "inherit",
         [EXEC_OUTPUT_NULL] = "null",
+        [EXEC_OUTPUT_TTY] = "tty",
         [EXEC_OUTPUT_SYSLOG] = "syslog",
         [EXEC_OUTPUT_KERNEL] = "kernel"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
-
-static const char* const exec_input_table[_EXEC_INPUT_MAX] = {
-        [EXEC_INPUT_NULL] = "null",
-        [EXEC_INPUT_CONSOLE] = "console"
-};
 
 DEFINE_STRING_TABLE_LOOKUP(exec_input, ExecInput);

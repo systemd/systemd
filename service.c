@@ -52,6 +52,7 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_START] = UNIT_ACTIVATING,
         [SERVICE_START_POST] = UNIT_ACTIVATING,
         [SERVICE_RUNNING] = UNIT_ACTIVE,
+        [SERVICE_EXITED] = UNIT_ACTIVE,
         [SERVICE_RELOAD] = UNIT_ACTIVE_RELOADING,
         [SERVICE_STOP] = UNIT_DEACTIVATING,
         [SERVICE_STOP_SIGTERM] = UNIT_DEACTIVATING,
@@ -619,6 +620,9 @@ static int service_load_sysv_path(Service *s, const char *path) {
                         goto finish;
         }
 
+        /* Special setting for all SysV services */
+        s->valid_no_process = true;
+
         u->meta.load_state = UNIT_LOADED;
         r = 0;
 
@@ -1097,6 +1101,7 @@ static int service_spawn(
                             fds, n_fds,
                             apply_permissions,
                             apply_chroot,
+                            UNIT(s)->meta.manager->confirm_spawn,
                             UNIT(s)->meta.cgroup_bondings,
                             &pid)) < 0)
                 goto fail;
@@ -1117,6 +1122,41 @@ fail:
                 unit_unwatch_timer(UNIT(s), &s->timer_watch);
 
         return r;
+}
+
+static int main_pid_good(Service *s) {
+        assert(s);
+
+        /* Returns 0 if the pid is dead, 1 if it is good, -1 if we
+         * don't know */
+
+        /* If we know the pid file, then lets just check if it is
+         * still valid */
+        if (s->main_pid_known)
+                return s->main_pid > 0;
+
+        /* We don't know the pid */
+        return -EAGAIN;
+}
+
+static int control_pid_good(Service *s) {
+        assert(s);
+
+        return s->control_pid > 0;
+}
+
+static int cgroup_good(Service *s) {
+        int r;
+
+        assert(s);
+
+        if (s->valid_no_process)
+                return -EAGAIN;
+
+        if ((r = cgroup_bonding_is_empty_list(UNIT(s)->meta.cgroup_bondings)) < 0)
+                return r;
+
+        return !r;
 }
 
 static void service_enter_dead(Service *s, bool success, bool allow_restart) {
@@ -1155,7 +1195,7 @@ static void service_enter_stop_post(Service *s, bool success) {
 
         service_unwatch_control_pid(s);
 
-        if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST]))
+        if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST])) {
                 if ((r = service_spawn(s,
                                        s->control_command,
                                        true,
@@ -1166,15 +1206,14 @@ static void service_enter_stop_post(Service *s, bool success) {
                         goto fail;
 
 
-        service_set_state(s, SERVICE_STOP_POST);
-
-        if (!s->control_command)
-                service_enter_dead(s, true, true);
+                service_set_state(s, SERVICE_STOP_POST);
+        } else
+                service_enter_signal(s, SERVICE_FINAL_SIGTERM, true);
 
         return;
 
 fail:
-        log_warning("%s failed to run stop executable: %s", unit_id(UNIT(s)), strerror(-r));
+        log_warning("%s failed to run stop-post executable: %s", unit_id(UNIT(s)), strerror(-r));
         service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
 }
 
@@ -1187,10 +1226,8 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
         if (!success)
                 s->failure = true;
 
-        if (s->main_pid > 0 || s->control_pid > 0) {
-                int sig;
-
-                sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? SIGTERM : SIGKILL;
+        if (s->kill_mode != KILL_NONE) {
+                int sig = (state == SERVICE_STOP_SIGTERM || state == SERVICE_FINAL_SIGTERM) ? SIGTERM : SIGKILL;
 
                 if (s->kill_mode == KILL_CONTROL_GROUP) {
 
@@ -1203,6 +1240,7 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
 
                 if (!sent) {
                         r = 0;
+
                         if (s->main_pid > 0) {
                                 if (kill(s->kill_mode == KILL_PROCESS ? s->main_pid : -s->main_pid, sig) < 0 && errno != ESRCH)
                                         r = -errno;
@@ -1222,9 +1260,14 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
                 }
         }
 
-        service_set_state(s, state);
+        if (sent) {
+                if ((r = unit_watch_timer(UNIT(s), s->timeout_usec, &s->timer_watch)) < 0)
+                        goto fail;
 
-        if (s->main_pid <= 0 && s->control_pid <= 0)
+                service_set_state(s, state);
+        } else if (state == SERVICE_STOP_SIGTERM || state == SERVICE_STOP_SIGKILL)
+                service_enter_stop_post(s, true);
+        else
                 service_enter_dead(s, true, true);
 
         return;
@@ -1232,10 +1275,7 @@ static void service_enter_signal(Service *s, ServiceState state, bool success) {
 fail:
         log_warning("%s failed to kill processes: %s", unit_id(UNIT(s)), strerror(-r));
 
-        if (sent)  {
-                s->failure = true;
-                service_set_state(s, state);
-        } else if (state == SERVICE_STOP_SIGTERM || state == SERVICE_STOP_SIGKILL)
+        if (state == SERVICE_STOP_SIGTERM || state == SERVICE_STOP_SIGKILL)
                 service_enter_stop_post(s, false);
         else
                 service_enter_dead(s, false, true);
@@ -1250,7 +1290,7 @@ static void service_enter_stop(Service *s, bool success) {
 
         service_unwatch_control_pid(s);
 
-        if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP]))
+        if ((s->control_command = s->exec_command[SERVICE_EXEC_STOP])) {
                 if ((r = service_spawn(s,
                                        s->control_command,
                                        true,
@@ -1260,9 +1300,8 @@ static void service_enter_stop(Service *s, bool success) {
                                        &s->control_pid)) < 0)
                         goto fail;
 
-        service_set_state(s, SERVICE_STOP);
-
-        if (!s->control_command)
+                service_set_state(s, SERVICE_STOP);
+        } else
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, true);
 
         return;
@@ -1272,13 +1311,27 @@ fail:
         service_enter_signal(s, SERVICE_STOP_SIGTERM, false);
 }
 
+static void service_enter_running(Service *s, bool success) {
+        assert(s);
+
+        if (!success)
+                s->failure = true;
+
+        if (main_pid_good(s) != 0 && cgroup_good(s) != 0)
+                service_set_state(s, SERVICE_RUNNING);
+        else if (s->valid_no_process)
+                service_set_state(s, SERVICE_EXITED);
+        else
+                service_enter_stop(s, true);
+}
+
 static void service_enter_start_post(Service *s) {
         int r;
         assert(s);
 
         service_unwatch_control_pid(s);
 
-        if ((s->control_command = s->exec_command[SERVICE_EXEC_START_POST]))
+        if ((s->control_command = s->exec_command[SERVICE_EXEC_START_POST])) {
                 if ((r = service_spawn(s,
                                        s->control_command,
                                        true,
@@ -1289,10 +1342,9 @@ static void service_enter_start_post(Service *s) {
                         goto fail;
 
 
-        service_set_state(s, SERVICE_START_POST);
-
-        if (!s->control_command)
-                service_set_state(s, SERVICE_RUNNING);
+                service_set_state(s, SERVICE_START_POST);
+        } else
+                service_enter_running(s, true);
 
         return;
 
@@ -1310,6 +1362,11 @@ static void service_enter_start(Service *s) {
         assert(s->exec_command[SERVICE_EXEC_START]);
         assert(!s->exec_command[SERVICE_EXEC_START]->command_next);
 
+        if (s->type == SERVICE_FORKING)
+                service_unwatch_control_pid(s);
+        else
+                service_unwatch_main_pid(s);
+
         if ((r = service_spawn(s,
                                s->exec_command[SERVICE_EXEC_START],
                                s->type == SERVICE_FORKING,
@@ -1319,16 +1376,13 @@ static void service_enter_start(Service *s) {
                                &pid)) < 0)
                 goto fail;
 
-        service_set_state(s, SERVICE_START);
-
         if (s->type == SERVICE_SIMPLE) {
                 /* For simple services we immediately start
                  * the START_POST binaries. */
 
-                service_unwatch_main_pid(s);
-
                 s->main_pid = pid;
                 s->main_pid_known = true;
+
                 service_enter_start_post(s);
 
         } else  if (s->type == SERVICE_FORKING) {
@@ -1336,20 +1390,21 @@ static void service_enter_start(Service *s) {
                 /* For forking services we wait until the start
                  * process exited. */
 
-                service_unwatch_control_pid(s);
-
                 s->control_pid = pid;
+
                 s->control_command = s->exec_command[SERVICE_EXEC_START];
+                service_set_state(s, SERVICE_START);
+
         } else if (s->type == SERVICE_FINISH) {
 
                 /* For finishing services we wait until the start
                  * process exited, too, but it is our main process. */
 
-                service_unwatch_main_pid(s);
-
                 s->main_pid = pid;
                 s->main_pid_known = true;
+
                 s->control_command = s->exec_command[SERVICE_EXEC_START];
+                service_set_state(s, SERVICE_START);
         } else
                 assert_not_reached("Unknown service type");
 
@@ -1357,7 +1412,7 @@ static void service_enter_start(Service *s) {
 
 fail:
         log_warning("%s failed to run start exectuable: %s", unit_id(UNIT(s)), strerror(-r));
-        service_enter_stop(s, false);
+        service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
 }
 
 static void service_enter_start_pre(Service *s) {
@@ -1367,7 +1422,7 @@ static void service_enter_start_pre(Service *s) {
 
         service_unwatch_control_pid(s);
 
-        if ((s->control_command = s->exec_command[SERVICE_EXEC_START_PRE]))
+        if ((s->control_command = s->exec_command[SERVICE_EXEC_START_PRE])) {
                 if ((r = service_spawn(s,
                                        s->control_command,
                                        true,
@@ -1377,9 +1432,8 @@ static void service_enter_start_pre(Service *s) {
                                        &s->control_pid)) < 0)
                         goto fail;
 
-        service_set_state(s, SERVICE_START_PRE);
-
-        if (!s->control_command)
+                service_set_state(s, SERVICE_START_PRE);
+        } else
                 service_enter_start(s);
 
         return;
@@ -1413,7 +1467,7 @@ static void service_enter_reload(Service *s) {
 
         service_unwatch_control_pid(s);
 
-        if ((s->control_command = s->exec_command[SERVICE_EXEC_RELOAD]))
+        if ((s->control_command = s->exec_command[SERVICE_EXEC_RELOAD])) {
                 if ((r = service_spawn(s,
                                        s->control_command,
                                        true,
@@ -1423,10 +1477,9 @@ static void service_enter_reload(Service *s) {
                                        &s->control_pid)) < 0)
                         goto fail;
 
-        service_set_state(s, SERVICE_RELOAD);
-
-        if (!s->control_command)
-                service_set_state(s, SERVICE_RUNNING);
+                service_set_state(s, SERVICE_RELOAD);
+        } else
+                service_enter_running(s, true);
 
         return;
 
@@ -1463,8 +1516,10 @@ static void service_run_next(Service *s, bool success) {
 fail:
         log_warning("%s failed to run spawn next executable: %s", unit_id(UNIT(s)), strerror(-r));
 
-        if (s->state == SERVICE_STOP)
-                service_enter_stop_post(s, false);
+        if (s->state == SERVICE_START_PRE)
+                service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+        else if (s->state == SERVICE_STOP)
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, false);
         else if (s->state == SERVICE_STOP_POST)
                 service_enter_dead(s, false, true);
         else
@@ -1533,7 +1588,7 @@ static int service_stop(Unit *u) {
                 return 0;
         }
 
-        assert(s->state == SERVICE_RUNNING);
+        assert(s->state == SERVICE_RUNNING || s->state == SERVICE_EXITED);
 
         service_enter_stop(s, true);
         return 0;
@@ -1544,7 +1599,7 @@ static int service_reload(Unit *u) {
 
         assert(s);
 
-        assert(s->state == SERVICE_RUNNING);
+        assert(s->state == SERVICE_RUNNING || s->state == SERVICE_EXITED);
 
         service_enter_reload(s);
         return 0;
@@ -1562,36 +1617,6 @@ static UnitActiveState service_active_state(Unit *u) {
         assert(u);
 
         return state_translation_table[SERVICE(u)->state];
-}
-
-static int main_pid_good(Service *s) {
-        assert(s);
-
-        /* Returns 0 if the pid is dead, 1 if it is good, -1 if we
-         * don't know */
-
-        /* If we know the pid file, then lets just check if it is
-         * still valid */
-        if (s->main_pid_known)
-                return s->main_pid > 0;
-
-        /* We don't know the pid */
-        return -EAGAIN;
-}
-
-static bool control_pid_good(Service *s) {
-        assert(s);
-
-        return s->control_pid > 0;
-}
-
-static int cgroup_good(Service *s) {
-        assert(s);
-
-        if (s->valid_no_process)
-                return -EAGAIN;
-
-        return cgroup_bonding_is_empty_list(UNIT(s)->meta.cgroup_bondings);
 }
 
 static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
@@ -1635,11 +1660,11 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                         if (success)
                                 service_enter_start_post(s);
                         else
-                                service_enter_stop(s, false);
+                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
                         break;
 
                 case SERVICE_RUNNING:
-                        service_enter_stop(s, success);
+                        service_enter_running(s, success);
                         break;
 
                 case SERVICE_STOP_SIGTERM:
@@ -1666,15 +1691,15 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 /* If we are shutting things down anyway we
                  * don't care about failing commands. */
 
-                if (s->control_command->command_next &&
-                    (success || (s->state == SERVICE_STOP || s->state == SERVICE_STOP_POST)))
+                if (s->control_command->command_next && success) {
 
                         /* There is another command to *
                          * execute, so let's do that. */
 
+                        log_debug("%s running next command for state %s", unit_id(u), service_state_to_string(s->state));
                         service_run_next(s, success);
 
-                else {
+                } else {
                         /* No further commands for this step, so let's
                          * figure out what to do next */
 
@@ -1686,7 +1711,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 if (success)
                                         service_enter_start(s);
                                 else
-                                        service_enter_stop(s, false);
+                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
                                 break;
 
                         case SERVICE_START:
@@ -1705,7 +1730,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                                         service_enter_start_post(s);
                                 } else
-                                        service_enter_stop(s, false);
+                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
 
                                 break;
 
@@ -1725,22 +1750,15 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 /* Fall through */
 
                         case SERVICE_RELOAD:
-                                if (success) {
-                                        if (main_pid_good(s) != 0 && cgroup_good(s) != 0)
-                                                service_set_state(s, SERVICE_RUNNING);
-                                        else
-                                                service_enter_stop(s, true);
-                                } else
+                                if (success)
+                                        service_enter_running(s, true);
+                                else
                                         service_enter_stop(s, false);
 
                                 break;
 
                         case SERVICE_STOP:
-                                if (main_pid_good(s) > 0)
-                                        /* Still not dead and we know the PID? Let's go hunting. */
-                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, success);
-                                else
-                                        service_enter_stop_post(s, success);
+                                service_enter_signal(s, SERVICE_STOP_SIGTERM, success);
                                 break;
 
                         case SERVICE_STOP_SIGTERM:
@@ -1779,6 +1797,10 @@ static void service_timer_event(Unit *u, uint64_t elapsed, Watch* w) {
 
         case SERVICE_START_PRE:
         case SERVICE_START:
+                log_warning("%s operation timed out. Terminating.", unit_id(u));
+                service_enter_signal(s, SERVICE_FINAL_SIGTERM, false);
+                break;
+
         case SERVICE_START_POST:
         case SERVICE_RELOAD:
                 log_warning("%s operation timed out. Stopping.", unit_id(u));
@@ -1845,10 +1867,7 @@ static void service_cgroup_notify_event(Unit *u) {
                  * SIGCHLD for. */
 
         case SERVICE_RUNNING:
-
-                if (!s->valid_no_process && main_pid_good(s) <= 0)
-                        service_enter_stop(s, true);
-
+                service_enter_running(s, true);
                 break;
 
         default:
@@ -1970,6 +1989,7 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_START] = "start",
         [SERVICE_START_POST] = "start-post",
         [SERVICE_RUNNING] = "running",
+        [SERVICE_EXITED] = "exited",
         [SERVICE_RELOAD] = "reload",
         [SERVICE_STOP] = "stop",
         [SERVICE_STOP_SIGTERM] = "stop-sigterm",

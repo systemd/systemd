@@ -471,7 +471,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         assert(u);
         assert(c);
 
-        if (c->output != EXEC_OUTPUT_KERNEL && c->output != EXEC_OUTPUT_SYSLOG)
+        if (c->std_output != EXEC_OUTPUT_KERNEL && c->std_output != EXEC_OUTPUT_SYSLOG)
                 return 0;
 
         /* If syslog or kernel logging is requested, make sure our own
@@ -1520,9 +1520,10 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
 
 static const char* const kill_mode_table[_KILL_MODE_MAX] = {
-        [KILL_PROCESS] = "process",
+        [KILL_CONTROL_GROUP] = "control-group",
         [KILL_PROCESS_GROUP] = "process-group",
-        [KILL_CONTROL_GROUP] = "control-group"
+        [KILL_PROCESS] = "process",
+        [KILL_NONE] = "none"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(kill_mode, KillMode);

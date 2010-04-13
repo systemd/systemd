@@ -1227,8 +1227,10 @@ static int load_from_path(Unit *u, const char *path) {
                 { "CPUAffinity",            config_parse_cpu_affinity,    &(context),                                      section   }, \
                 { "UMask",                  config_parse_mode,            &(context).umask,                                section   }, \
                 { "Environment",            config_parse_strv,            &(context).environment,                          section   }, \
-                { "Output",                 config_parse_output,          &(context).output,                               section   }, \
-                { "Input",                  config_parse_input,           &(context).input,                                section   }, \
+                { "StandardInput",          config_parse_input,           &(context).std_input,                            section   }, \
+                { "StandardOutput",         config_parse_output,          &(context).std_output,                           section   }, \
+                { "StandardError",          config_parse_output,          &(context).std_output,                           section   }, \
+                { "TTYPath",                config_parse_path,            &(context).tty_path,                             section   }, \
                 { "SyslogIdentifier",       config_parse_string,          &(context).syslog_identifier,                    section   }, \
                 { "SyslogFacility",         config_parse_facility,        &(context).syslog_priority,                      section   }, \
                 { "SyslogLevel",            config_parse_level,           &(context).syslog_priority,                      section   }, \
@@ -1252,8 +1254,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "LimitNICE",              config_parse_limit,           &(context).rlimit[RLIMIT_NICE],                  section   }, \
                 { "LimitRTPRIO",            config_parse_limit,           &(context).rlimit[RLIMIT_RTPRIO],                section   }, \
                 { "LimitRTTIME",            config_parse_limit,           &(context).rlimit[RLIMIT_RTTIME],                section   }, \
-                { "ControlGroup",           config_parse_cgroup,          u,                                               section   }, \
-                { "NewSession",             config_parse_bool,            &(context).new_session,                          section   }
+                { "ControlGroup",           config_parse_cgroup,          u,                                               section   }
 
         const ConfigItem items[] = {
                 { "Names",                  config_parse_names,           u,                                               "Meta"    },
