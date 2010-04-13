@@ -575,5 +575,8 @@ finish:
 
         dbus_shutdown();
 
+        if (getpid() == 1)
+                freeze();
+
         return retval;
 }
