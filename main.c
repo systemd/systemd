@@ -387,6 +387,10 @@ int main(int argc, char *argv[]) {
         /* Reset all signal handlers. */
         assert_se(reset_all_signal_handlers() == 0);
 
+        /* If we are init, we can block sigkill. Yay. */
+        signal(SIGKILL, SIG_IGN);
+        signal(SIGPIPE, SIG_IGN);
+
         /* Close all open files */
         assert_se(close_all_fds(NULL, 0) == 0);
 
