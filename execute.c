@@ -342,8 +342,7 @@ static int chown_terminal(int fd, uid_t uid) {
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        if (st.st_uid != uid ||
-            st.st_mode != TTY_MODE)
+        if (st.st_uid != uid || (st.st_mode & 0777) != TTY_MODE)
                 return -EPERM;
 
         return 0;
@@ -834,17 +833,17 @@ int exec_spawn(ExecCommand *command,
                                 r = EXIT_USER;
                                 goto fail;
                         }
+
+                        if (is_terminal_input(context->std_input))
+                                if (chown_terminal(STDIN_FILENO, uid) < 0) {
+                                        r = EXIT_STDIN;
+                                        goto fail;
+                                }
                 }
 
                 if (apply_permissions)
                         if (enforce_groups(context, username, uid) < 0) {
                                 r = EXIT_GROUP;
-                                goto fail;
-                        }
-
-                if (is_terminal_input(context->std_input))
-                        if (chown_terminal(STDIN_FILENO, uid) < 0) {
-                                r = EXIT_STDIN;
                                 goto fail;
                         }
 
