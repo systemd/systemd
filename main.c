@@ -250,6 +250,15 @@ static int parse_proc_cmdline_word(const char *word) {
                 else
                         crash_shell = r;
 
+
+        } else if (startswith(word, "systemd.confirm_spawn=")) {
+                int r;
+
+                if ((r = parse_boolean(word + 22)) < 0)
+                        log_warning("Failed to parse confirm spawn switch %s, Ignoring.", word + 22);
+                else
+                        confirm_spawn = r;
+
         } else if (startswith(word, "systemd.crash_chvt=")) {
                 int k;
 
@@ -269,6 +278,7 @@ static int parse_proc_cmdline_word(const char *word) {
                 log_info("systemd.dump_core=0|1                    Dump core on crash");
                 log_info("systemd.crash_shell=0|1                  On crash run shell");
                 log_info("systemd.crash_chvt=N                     Change to VT #N on crash");
+                log_info("systemd.confirm_spawn=0|1                Confirm every process spawn");
 
         } else {
                 unsigned i;
