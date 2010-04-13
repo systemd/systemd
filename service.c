@@ -2006,7 +2006,7 @@ DEFINE_STRING_TABLE_LOOKUP(service_state, ServiceState);
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
         [SERVICE_ONCE] = "once",
         [SERVICE_RESTART_ON_SUCCESS] = "restart-on-success",
-        [SERVICE_RESTART_ALWAYS] = "restart-on-failure",
+        [SERVICE_RESTART_ALWAYS] = "restart-always",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);
