@@ -1638,6 +1638,12 @@ static UnitActiveState service_active_state(Unit *u) {
         return state_translation_table[SERVICE(u)->state];
 }
 
+static const char *service_sub_state_to_string(Unit *u) {
+        assert(u);
+
+        return service_state_to_string(SERVICE(u)->state);
+}
+
 static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         Service *s = SERVICE(u);
         bool success;
@@ -2065,6 +2071,7 @@ const UnitVTable service_vtable = {
         .can_reload = service_can_reload,
 
         .active_state = service_active_state,
+        .sub_state_to_string = service_sub_state_to_string,
 
         .sigchld_event = service_sigchld_event,
         .timer_event = service_timer_event,

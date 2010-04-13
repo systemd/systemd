@@ -49,6 +49,7 @@ static const char introspection[] =
         "  <property name=\"Description\" type=\"s\" access=\"read\"/>"
         "  <property name=\"LoadState\" type=\"s\" access=\"read\"/>"
         "  <property name=\"ActiveState\" type=\"s\" access=\"read\"/>"
+        "  <property name=\"SubState\" type=\"s\" access=\"read\"/>"
         "  <property name=\"FragmentPath\" type=\"s\" access=\"read\"/>"
         "  <property name=\"ActiveEnterTimestamp\" type=\"t\" access=\"read\"/>"
         "  <property name=\"ActiveExitTimestamp\" type=\"t\" access=\"read\"/>"
@@ -106,6 +107,23 @@ static int bus_unit_append_active_state(Manager *m, DBusMessageIter *i, const ch
         assert(u);
 
         state = unit_active_state_to_string(unit_active_state(u));
+
+        if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &state))
+                return -ENOMEM;
+
+        return 0;
+}
+
+static int bus_unit_append_sub_state(Manager *m, DBusMessageIter *i, const char *property, void *data) {
+        Unit *u = data;
+        const char *state;
+
+        assert(m);
+        assert(i);
+        assert(property);
+        assert(u);
+
+        state = unit_sub_state_to_string(u);
 
         if (!dbus_message_iter_append_basic(i, DBUS_TYPE_STRING, &state))
                 return -ENOMEM;
@@ -202,6 +220,7 @@ static DBusHandlerResult bus_unit_message_dispatch(Unit *u, DBusMessage *message
                 { "org.freedesktop.systemd1.Unit", "Description",          bus_unit_append_description,  "s",    u                               },
                 { "org.freedesktop.systemd1.Unit", "LoadState",            bus_unit_append_load_state,   "s",    &u->meta.load_state             },
                 { "org.freedesktop.systemd1.Unit", "ActiveState",          bus_unit_append_active_state, "s",    u                               },
+                { "org.freedesktop.systemd1.Unit", "SubState",             bus_unit_append_sub_state,    "s",    u                               },
                 { "org.freedesktop.systemd1.Unit", "FragmentPath",         bus_property_append_string,   "s",    u->meta.fragment_path           },
                 { "org.freedesktop.systemd1.Unit", "ActiveEnterTimestamp", bus_property_append_uint64,   "t",    &u->meta.active_enter_timestamp },
                 { "org.freedesktop.systemd1.Unit", "ActiveExitTimestamp",  bus_property_append_uint64,   "t",    &u->meta.active_exit_timestamp  },

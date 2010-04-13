@@ -96,6 +96,12 @@ static UnitActiveState target_active_state(Unit *u) {
         return state_translation_table[TARGET(u)->state];
 }
 
+static const char *target_sub_state_to_string(Unit *u) {
+        assert(u);
+
+        return state_string_table[TARGET(u)->state];
+}
+
 int target_get_runlevel(Target *t) {
 
         static const struct {
@@ -136,5 +142,6 @@ const UnitVTable target_vtable = {
         .start = target_start,
         .stop = target_stop,
 
-        .active_state = target_active_state
+        .active_state = target_active_state,
+        .sub_state_to_string = target_sub_state_to_string
 };

@@ -720,6 +720,12 @@ static UnitActiveState mount_active_state(Unit *u) {
         return state_translation_table[MOUNT(u)->state];
 }
 
+static const char *mount_sub_state_to_string(Unit *u) {
+        assert(u);
+
+        return state_string_table[MOUNT(u)->state];
+}
+
 static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         Mount *m = MOUNT(u);
         bool success;
@@ -1286,6 +1292,7 @@ const UnitVTable mount_vtable = {
         .reload = mount_reload,
 
         .active_state = mount_active_state,
+        .sub_state_to_string = mount_sub_state_to_string,
 
         .sigchld_event = mount_sigchld_event,
         .timer_event = mount_timer_event,

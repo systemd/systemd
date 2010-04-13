@@ -42,7 +42,7 @@
         "  </method>"                                                   \
         "  <method name=\"ClearJobs\"/>"                                \
         "  <method name=\"ListUnits\">"                                 \
-        "   <arg name=\"units\" type=\"a(ssssouso)\" direction=\"out\"/>" \
+        "   <arg name=\"units\" type=\"a(sssssouso)\" direction=\"out\"/>" \
         "  </method>"                                                   \
         "  <method name=\"ListJobs\">"                                  \
         "   <arg name=\"jobs\" type=\"a(usssoo)\" direction=\"out\"/>"  \
@@ -234,12 +234,12 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
 
                 dbus_message_iter_init_append(reply, &iter);
 
-                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(ssssouso)", &sub))
+                if (!dbus_message_iter_open_container(&iter, DBUS_TYPE_ARRAY, "(sssssouso)", &sub))
                         goto oom;
 
                 HASHMAP_FOREACH_KEY(u, k, m->units, i) {
                         char *u_path, *j_path;
-                        const char *id, *description, *load_state, *active_state, *job_type;
+                        const char *id, *description, *load_state, *active_state, *sub_state, *job_type;
                         DBusMessageIter sub2;
                         uint32_t job_id;
 
@@ -253,6 +253,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                         description = unit_description(u);
                         load_state = unit_load_state_to_string(u->meta.load_state);
                         active_state = unit_active_state_to_string(unit_active_state(u));
+                        sub_state = unit_sub_state_to_string(u);
 
                         if (!(u_path = unit_dbus_path(u)))
                                 goto oom;
@@ -276,6 +277,7 @@ static DBusHandlerResult bus_manager_message_handler(DBusConnection  *connection
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &description) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &load_state) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &active_state) ||
+                            !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &sub_state) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_OBJECT_PATH, &u_path) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_UINT32, &job_id) ||
                             !dbus_message_iter_append_basic(&sub2, DBUS_TYPE_STRING, &job_type) ||

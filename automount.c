@@ -93,6 +93,12 @@ static UnitActiveState automount_active_state(Unit *u) {
         return state_translation_table[AUTOMOUNT(u)->state];
 }
 
+static const char *automount_sub_state_to_string(Unit *u) {
+        assert(u);
+
+        return state_string_table[AUTOMOUNT(u)->state];
+}
+
 const UnitVTable automount_vtable = {
         .suffix = ".mount",
 
@@ -104,5 +110,6 @@ const UnitVTable automount_vtable = {
 
         .dump = automount_dump,
 
-        .active_state = automount_active_state
+        .active_state = automount_active_state,
+        .sub_state_to_string = automount_sub_state_to_string
 };

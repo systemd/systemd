@@ -99,6 +99,12 @@ static UnitActiveState device_active_state(Unit *u) {
         return state_translation_table[DEVICE(u)->state];
 }
 
+static const char *device_sub_state_to_string(Unit *u) {
+        assert(u);
+
+        return state_string_table[DEVICE(u)->state];
+}
+
 static int device_add_escaped_name(Unit *u, const char *dn, bool make_id) {
         char *e;
         int r;
@@ -478,6 +484,7 @@ const UnitVTable device_vtable = {
         .dump = device_dump,
 
         .active_state = device_active_state,
+        .sub_state_to_string = device_sub_state_to_string,
 
         .enumerate = device_enumerate,
         .shutdown = device_shutdown

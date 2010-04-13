@@ -711,6 +711,12 @@ static UnitActiveState socket_active_state(Unit *u) {
         return state_translation_table[SOCKET(u)->state];
 }
 
+static const char *socket_sub_state_to_string(Unit *u) {
+        assert(u);
+
+        return state_string_table[SOCKET(u)->state];
+}
+
 static void socket_fd_event(Unit *u, int fd, uint32_t events, Watch *w) {
         Socket *s = SOCKET(u);
 
@@ -894,6 +900,7 @@ const UnitVTable socket_vtable = {
         .stop = socket_stop,
 
         .active_state = socket_active_state,
+        .sub_state_to_string = socket_sub_state_to_string,
 
         .fd_event = socket_fd_event,
         .sigchld_event = socket_sigchld_event,

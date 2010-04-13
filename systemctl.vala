@@ -104,7 +104,7 @@ int main (string[] args) {
                         uint n = 0;
                         Posix.qsort(list, list.length, sizeof(Manager.UnitInfo), unit_info_compare);
 
-                        stdout.printf("%-45s %-6s %-12s %-17s\n", "UNIT", "LOAD", "ACTIVE", "JOB");
+                        stdout.printf("%-45s %-6s %-12s %-12s %-17s\n", "UNIT", "LOAD", "ACTIVE", "SUB", "JOB");
 
                         foreach (var i in list) {
 
@@ -114,7 +114,7 @@ int main (string[] args) {
                                 if (!all && i.active_state == "inactive")
                                         continue;
 
-                                stdout.printf("%-45s %-6s %-12s", i.id, i.load_state, i.active_state);
+                                stdout.printf("%-45s %-6s %-12s %-12s", i.id, i.load_state, i.active_state, i.sub_state);
 
                                 if (i.job_id != 0)
                                         stdout.printf(" → %-15s", i.job_type);

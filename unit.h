@@ -236,6 +236,12 @@ struct UnitVTable {
          * a simpler one that the engine can understand */
         UnitActiveState (*active_state)(Unit *u);
 
+        /* Returns the substate specific to this unit type as
+         * string. This is purely information so that we can give the
+         * user a more finegrained explanation in which actual state a
+         * unit is in. */
+        const char* (*sub_state_to_string)(Unit *u);
+
         void (*fd_event)(Unit *u, int fd, uint32_t events, Watch *w);
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
         void (*timer_event)(Unit *u, uint64_t n_elapsed, Watch *w);
@@ -319,6 +325,8 @@ const char *unit_description(Unit *u);
 bool unit_has_name(Unit *u, const char *name);
 
 UnitActiveState unit_active_state(Unit *u);
+
+const char* unit_sub_state_to_string(Unit *u);
 
 void unit_dump(Unit *u, FILE *f, const char *prefix);
 
