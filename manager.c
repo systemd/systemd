@@ -84,13 +84,13 @@ static int manager_setup_signals(Manager *m) {
 
         assert_se(sigemptyset(&mask) == 0);
         assert_se(sigaddset(&mask, SIGCHLD) == 0);
-        assert_se(sigaddset(&mask, SIGINT) == 0);   /* Kernel sends us this on control-alt-del */
-        assert_se(sigaddset(&mask, SIGWINCH) == 0); /* Kernel sends us this on kbrequest (alt-arrowup) */
         assert_se(sigaddset(&mask, SIGTERM) == 0);
         assert_se(sigaddset(&mask, SIGHUP) == 0);
         assert_se(sigaddset(&mask, SIGUSR1) == 0);
         assert_se(sigaddset(&mask, SIGUSR2) == 0);
-        assert_se(sigaddset(&mask, SIGPWR) == 0);
+        assert_se(sigaddset(&mask, SIGINT) == 0);   /* Kernel sends us this on control-alt-del */
+        assert_se(sigaddset(&mask, SIGWINCH) == 0); /* Kernel sends us this on kbrequest (alt-arrowup) */
+        assert_se(sigaddset(&mask, SIGPWR) == 0);   /* Some kernel drivers and upsd send us this on power failure */
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
         m->signal_watch.type = WATCH_SIGNAL;
@@ -1582,6 +1582,25 @@ static int manager_process_signal_fd(Manager *m, bool *quit) {
                         manager_dump_units(m, stdout, "\t");
                         manager_dump_jobs(m, stdout, "\t");
                         break;
+
+                case SIGUSR2:  {
+                        Unit *u;
+
+                        u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
+
+                        if (!u || UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u))) {
+                                log_info("Trying to reconnect to bus...");
+                                bus_init_system(m);
+                                bus_init_api(m);
+                        }
+
+                        if (!u || !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u))) {
+                                log_info("Loading D-Bus service...");
+                                manager_start_target(m, SPECIAL_DBUS_SERVICE);
+                        }
+
+                        break;
+                }
 
                 default:
                         log_info("Got unhandled signal <%s>.", strsignal(sfsi.ssi_signo));
