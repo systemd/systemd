@@ -142,10 +142,6 @@ static void print_record(struct udev_device *device)
 	if (i != 0)
 		printf("L: %i\n", i);
 
-	i = udev_device_get_num_fake_partitions(device);
-	if (i != 0)
-		printf("A: %u\n", i);
-
 	i = udev_device_get_ignore_remove(device);
 	if (i != 0)
 		printf("R: %u\n", i);

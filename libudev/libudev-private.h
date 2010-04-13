@@ -93,8 +93,6 @@ int udev_device_get_event_timeout(struct udev_device *udev_device);
 int udev_device_set_event_timeout(struct udev_device *udev_device, int event_timeout);
 int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum);
 int udev_device_set_seqnum(struct udev_device *udev_device, unsigned long long int seqnum);
-int udev_device_get_num_fake_partitions(struct udev_device *udev_device);
-int udev_device_set_num_fake_partitions(struct udev_device *udev_device, int num);
 int udev_device_get_devlink_priority(struct udev_device *udev_device);
 int udev_device_set_devlink_priority(struct udev_device *udev_device, int prio);
 int udev_device_get_ignore_remove(struct udev_device *udev_device);

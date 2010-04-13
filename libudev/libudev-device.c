@@ -63,7 +63,6 @@ struct udev_device {
 	unsigned long long int seqnum;
 	int event_timeout;
 	int timeout;
-	int num_fake_partitions;
 	int devlink_priority;
 	int refcount;
 	dev_t devnum;
@@ -283,9 +282,6 @@ int udev_device_read_db(struct udev_device *udev_device)
 			break;
 		case 'T':
 			udev_device_set_event_timeout(udev_device, atoi(val));
-			break;
-		case 'A':
-			udev_device_set_num_fake_partitions(udev_device, atoi(val));
 			break;
 		case 'R':
 			udev_device_set_ignore_remove(udev_device, atoi(val));
@@ -1422,19 +1418,6 @@ int udev_device_set_devnum(struct udev_device *udev_device, dev_t devnum)
 	udev_device_add_property(udev_device, "MAJOR", num);
 	snprintf(num, sizeof(num), "%u", minor(devnum));
 	udev_device_add_property(udev_device, "MINOR", num);
-	return 0;
-}
-
-int udev_device_get_num_fake_partitions(struct udev_device *udev_device)
-{
-	if (!udev_device->info_loaded)
-		device_load_info(udev_device);
-	return udev_device->num_fake_partitions;
-}
-
-int udev_device_set_num_fake_partitions(struct udev_device *udev_device, int num)
-{
-	udev_device->num_fake_partitions = num;
 	return 0;
 }
 

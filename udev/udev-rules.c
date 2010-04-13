@@ -196,7 +196,6 @@ struct token {
 				mode_t  mode;
 				uid_t uid;
 				gid_t gid;
-				int num_fake_part;
 				int devlink_prio;
 				int event_timeout;
 				int watch;
@@ -370,9 +369,6 @@ static void dump_token(struct udev_rules *rules, struct token *token)
 		break;
 	case TK_A_INOTIFY_WATCH:
 		dbg(rules->udev, "%s %u\n", token_str(type), token->key.watch);
-		break;
-	case TK_A_NUM_FAKE_PART:
-		dbg(rules->udev, "%s %u\n", token_str(type), token->key.num_fake_part);
 		break;
 	case TK_A_DEVLINK_PRIO:
 		dbg(rules->udev, "%s %s %u\n", token_str(type), operation_str(op), token->key.devlink_prio);
@@ -1469,12 +1465,6 @@ static int add_rule(struct udev_rules *rules, char *line,
 				rule_add_key(&rule_tmp, TK_A_NAME, op, value, NULL);
 				attr = get_key_attribute(rules->udev, key + sizeof("NAME")-1);
 				if (attr != NULL) {
-					if (strstr(attr, "all_partitions") != NULL) {
-						int num = DEFAULT_FAKE_PARTITIONS_COUNT;
-
-						dbg(rules->udev, "creation of partition nodes requested\n");
-						rule_add_key(&rule_tmp, TK_A_NUM_FAKE_PART, 0, NULL, &num);
-					}
 					if (strstr(attr, "ignore_remove") != NULL) {
 						dbg(rules->udev, "remove event should be ignored\n");
 						rule_add_key(&rule_tmp, TK_A_IGNORE_REMOVE, 0, NULL, NULL);
@@ -1575,12 +1565,6 @@ static int add_rule(struct udev_rules *rules, char *line,
 					rule_add_key(&rule_tmp, TK_A_STRING_ESCAPE_NONE, 0, NULL, NULL);
 				else if (strncmp(pos, "replace", strlen("replace")) == 0)
 					rule_add_key(&rule_tmp, TK_A_STRING_ESCAPE_REPLACE, 0, NULL, NULL);
-			}
-			if (strstr(value, "all_partitions") != NULL) {
-				int num = DEFAULT_FAKE_PARTITIONS_COUNT;
-
-				rule_add_key(&rule_tmp, TK_A_NUM_FAKE_PART, 0, NULL, &num);
-				dbg(rules->udev, "creation of partition nodes requested\n");
 			}
 			pos = strstr(value, "nowatch");
 			if (pos != NULL) {
@@ -2330,13 +2314,6 @@ int udev_rules_apply_to_event(struct udev_rules *rules, struct udev_event *event
 			break;
 		case TK_A_STRING_ESCAPE_REPLACE:
 			esc = ESCAPE_REPLACE;
-			break;
-		case TK_A_NUM_FAKE_PART:
-			if (strcmp(udev_device_get_subsystem(event->dev), "block") != 0)
-				break;
-			if (udev_device_get_sysnum(event->dev) != NULL)
-				break;
-			udev_device_set_num_fake_partitions(event->dev, cur->key.num_fake_part);
 			break;
 		case TK_A_INOTIFY_WATCH:
 			event->inotify_watch = cur->key.watch;

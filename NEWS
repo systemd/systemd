@@ -2,8 +2,13 @@ udev 152
 ========
 Bugfixes.
 
-"udevadm trigger" default to "change" events now, instead of "add"
+"udevadm trigger" defaults to "change" events now, instead of "add"
 events.
+
+The option "all_partitons" was removed from udev. This should not be
+needed for usual hardware. Udev can not safely make assumptions
+about non-exixting partition major/minor numbers, and therefore no
+longer provide such an unreliable and unsafe option.
 
 All "add|change" matches are replaced by "!remove" in the rules and
 in the udev logic. All types of events will update possible symlinks

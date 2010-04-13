@@ -493,16 +493,6 @@ SUBSYSTEMS=="foo", PROGRAM=="/bin/echo -n foo-%b", SYMLINK+="%c"
 EOF
 	},
 	{
-		desc		=> "create all possible partitions",
-		subsys		=> "block",
-		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-		exp_name	=> "sda15" ,
-		exp_majorminor	=> "8:15",
-		rules		=> <<EOF
-SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", OPTIONS="all_partitions"
-EOF
-	},
-	{
 		desc		=> "sysfs parent hierarchy",
 		subsys		=> "tty",
 		devpath		=> "/devices/pci0000:00/0000:00:1d.7/usb5/5-2/5-2:1.0/tty/ttyACM0",
@@ -988,28 +978,6 @@ SUBSYSTEMS=="scsi", PROGRAM=="/bin/echo -n node link1 link2 link3 link4", RESULT
 EOF
 	},
 	{
-		desc		=> "all_partitions, option-only rule",
-		subsys		=> "block",
-		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-		exp_name	=> "node6",
-		exp_rem_error	=> "yes",
-		rules		=> <<EOF
-SUBSYSTEM=="block", OPTIONS="all_partitions"
-SUBSYSTEMS=="scsi", KERNEL=="sda", NAME="node"
-EOF
-	},
-	{
-		desc		=> "all_partitions, option-only rule (fail on partition)",
-		subsys		=> "block",
-		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda/sda1",
-		exp_name	=> "node6",
-		exp_add_error	=> "yes",
-		rules		=> <<EOF
-SUBSYSTEM=="block", OPTIONS="all_partitions"
-SUBSYSTEMS=="scsi", KERNEL=="sda", NAME="node"
-EOF
-	},
-	{
 		desc		=> "ignore remove event test",
 		subsys		=> "block",
 		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
@@ -1017,17 +985,6 @@ EOF
 		exp_rem_error	=> "yes",
 		rules		=> <<EOF
 SUBSYSTEMS=="scsi", KERNEL=="sda", SYMLINK+="node", OPTIONS="ignore_remove"
-EOF
-	},
-	{
-		desc		=> "ignore remove event test (with all partitions)",
-		subsys		=> "block",
-		devpath		=> "/devices/pci0000:00/0000:00:1f.2/host0/target0:0:0/0:0:0:0/block/sda",
-		exp_name	=> "sda14",
-		exp_rem_error	=> "yes",
-		option		=> "clean",
-		rules		=> <<EOF
-SUBSYSTEMS=="scsi", KERNEL=="sda", OPTIONS="ignore_remove, all_partitions"
 EOF
 	},
 	{

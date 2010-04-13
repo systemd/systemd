@@ -365,8 +365,6 @@ void udev_node_update_old_links(struct udev_device *dev, struct udev_device *dev
 int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
 {
 	struct udev *udev = udev_device_get_udev(dev);
-	int i;
-	int num;
 	struct udev_list_entry *list_entry;
 	int err = 0;
 
@@ -378,23 +376,6 @@ int udev_node_add(struct udev_device *dev, mode_t mode, uid_t uid, gid_t gid)
 	if (udev_node_mknod(dev, NULL, makedev(0,0), mode, uid, gid) != 0) {
 		err = -1;
 		goto exit;
-	}
-
-	/* create all_partitions if requested */
-	num = udev_device_get_num_fake_partitions(dev);
-	if (num > 0) {
-		info(udev, "creating device partition nodes '%s[1-%i]'\n", udev_device_get_devnode(dev), num);
-		for (i = 1; i <= num; i++) {
-			char partitionname[UTIL_PATH_SIZE];
-			dev_t part_devnum;
-
-			snprintf(partitionname, sizeof(partitionname), "%s%d",
-				 udev_device_get_devnode(dev), i);
-			partitionname[sizeof(partitionname)-1] = '\0';
-			part_devnum = makedev(major(udev_device_get_devnum(dev)),
-					    minor(udev_device_get_devnum(dev)) + i);
-			udev_node_mknod(dev, partitionname, part_devnum, mode, uid, gid);
-		}
 	}
 
 	/* create/update symlinks, add symlinks to name index */
@@ -414,10 +395,8 @@ int udev_node_remove(struct udev_device *dev)
 	struct udev *udev = udev_device_get_udev(dev);
 	struct udev_list_entry *list_entry;
 	const char *devnode;
-	char partitionname[UTIL_PATH_SIZE];
 	struct stat stats;
 	int err = 0;
-	int num;
 
 	/* remove/update symlinks, remove symlinks from name index */
 	udev_list_entry_foreach(list_entry, udev_device_get_devlinks_list_entry(dev))
@@ -449,20 +428,6 @@ int udev_node_remove(struct udev_device *dev)
 			err = util_unlink_secure(udev, devnode);
 		}
 		udev_device_unref(dev_check);
-	}
-
-	num = udev_device_get_num_fake_partitions(dev);
-	if (num > 0) {
-		int i;
-
-		info(udev, "removing all_partitions '%s[1-%i]'\n", devnode, num);
-		if (num > 255)
-			return -1;
-		for (i = 1; i <= num; i++) {
-			snprintf(partitionname, sizeof(partitionname), "%s%d", devnode, i);
-			partitionname[sizeof(partitionname)-1] = '\0';
-			util_unlink_secure(udev, partitionname);
-		}
 	}
 
 	util_delete_path(udev, devnode);

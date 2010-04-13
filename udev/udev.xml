@@ -450,14 +450,6 @@
                     </listitem>
                   </varlistentry>
                   <varlistentry>
-                    <term><option>all_partitions</option></term>
-                    <listitem>
-                      <para>Create the device nodes for all available partitions of a block device.
-                      This may be useful for removable media devices where media changes are not
-                      detected.</para>
-                    </listitem>
-                  </varlistentry>
-                  <varlistentry>
                     <term><option>event_timeout=</option></term>
                     <listitem>
                       <para>Number of seconds an event will wait for operations to finish, before it
