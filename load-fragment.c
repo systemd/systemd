@@ -37,6 +37,33 @@
 #include "securebits.h"
 #include "missing.h"
 
+#define DEFINE_CONFIG_PARSE_ENUM(function,name,type,msg)                \
+        static int function(                                            \
+                        const char *filename,                           \
+                        unsigned line,                                  \
+                        const char *section,                            \
+                        const char *lvalue,                             \
+                        const char *rvalue,                             \
+                        void *data,                                     \
+                        void *userdata) {                               \
+                                                                        \
+                type *i = data, x;                                      \
+                                                                        \
+                assert(filename);                                       \
+                assert(lvalue);                                         \
+                assert(rvalue);                                         \
+                assert(data);                                           \
+                                                                        \
+                if ((x = name##_from_string(rvalue)) < 0) {             \
+                        log_error("[%s:%u] " msg ": %s", filename, line, rvalue); \
+                        return -EBADMSG;                                \
+                }                                                       \
+                                                                        \
+                *i = x;                                                 \
+                                                                        \
+                return 0;                                               \
+        }
+
 static int config_parse_deps(
                 const char *filename,
                 unsigned line,
@@ -401,59 +428,8 @@ static int config_parse_usec(
         return 0;
 }
 
-static int config_parse_service_type(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Service *s = data;
-        ServiceType x;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if ((x = service_type_from_string(rvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse service type: %s", filename, line, rvalue);
-                return -EBADMSG;
-        }
-
-        s->type = x;
-
-        return 0;
-}
-
-static int config_parse_service_restart(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Service *s = data;
-        ServiceRestart x;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if ((x = service_restart_from_string(rvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse service restart specifier: %s", filename, line, rvalue);
-                return -EBADMSG;
-        }
-
-        s->restart = x;
-
-        return 0;
-}
+DEFINE_CONFIG_PARSE_ENUM(config_parse_service_type, service_type, ServiceType, "Failed to parse service type");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_service_restart, service_restart, ServiceRestart, "Failed to parse service restart specifier");
 
 static int config_parse_bindtodevice(
                 const char *filename,
@@ -484,57 +460,8 @@ static int config_parse_bindtodevice(
         return 0;
 }
 
-static int config_parse_output(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        ExecOutput *o = data, x;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if ((x = exec_output_from_string(rvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse output specifier: %s", filename, line, rvalue);
-                return -EBADMSG;
-        }
-
-        *o = x;
-
-        return 0;
-}
-
-static int config_parse_input(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        ExecInput *i = data, x;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if ((x = exec_input_from_string(rvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse input specifier: %s", filename, line, rvalue);
-                return -EBADMSG;
-        }
-
-        *i = x;
-
-        return 0;
-}
+DEFINE_CONFIG_PARSE_ENUM(config_parse_output, exec_output, ExecOutput, "Failed to parse output specifier");
+DEFINE_CONFIG_PARSE_ENUM(config_parse_input, exec_input, ExecInput, "Failed to parse input specifier");
 
 static int config_parse_facility(
                 const char *filename,
@@ -553,13 +480,10 @@ static int config_parse_facility(
         assert(rvalue);
         assert(data);
 
-        if ((x = log_facility_from_string(rvalue)) < 0)
-
-                /* Second try, let's see if this is a number. */
-                if (safe_atoi(rvalue, &x) < 0 || !log_facility_to_string(x)) {
-                        log_error("[%s:%u] Failed to parse log facility: %s", filename, line, rvalue);
-                        return -EBADMSG;
-                }
+        if ((x = log_facility_from_string(rvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse log facility: %s", filename, line, rvalue);
+                return -EBADMSG;
+        }
 
         *o = LOG_MAKEPRI(x, LOG_PRI(*o));
 
@@ -583,13 +507,10 @@ static int config_parse_level(
         assert(rvalue);
         assert(data);
 
-        if ((x = log_level_from_string(rvalue)) < 0)
-
-                /* Second try, let's see if this is a number. */
-                if (safe_atoi(rvalue, &x) < 0 || !log_level_to_string(x)) {
-                        log_error("[%s:%u] Failed to parse log level: %s", filename, line, rvalue);
-                        return -EBADMSG;
-                }
+        if ((x = log_level_from_string(rvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse log level: %s", filename, line, rvalue);
+                return -EBADMSG;
+        }
 
         *o = LOG_MAKEPRI(LOG_FAC(*o), x);
         return 0;
@@ -612,13 +533,10 @@ static int config_parse_io_class(
         assert(rvalue);
         assert(data);
 
-        if ((x = ioprio_class_from_string(rvalue)) < 0)
-
-                /* Second try, let's see if this is a number. */
-                if (safe_atoi(rvalue, &x) < 0 || !ioprio_class_to_string(x)) {
-                        log_error("[%s:%u] Failed to parse IO scheduling class: %s", filename, line, rvalue);
-                        return -EBADMSG;
-                }
+        if ((x = ioprio_class_from_string(rvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse IO scheduling class: %s", filename, line, rvalue);
+                return -EBADMSG;
+        }
 
         c->ioprio = IOPRIO_PRIO_VALUE(x, IOPRIO_PRIO_DATA(c->ioprio));
         c->ioprio_set = true;
@@ -672,13 +590,10 @@ static int config_parse_cpu_sched_policy(
         assert(rvalue);
         assert(data);
 
-        if ((x = sched_policy_from_string(rvalue)) < 0)
-
-                /* Second try, let's see if this is a number. */
-                if (safe_atoi(rvalue, &x) < 0 || !sched_policy_to_string(x)) {
-                        log_error("[%s:%u] Failed to parse CPU scheduling policy: %s", filename, line, rvalue);
-                        return -EBADMSG;
-                }
+        if ((x = sched_policy_from_string(rvalue)) < 0) {
+                log_error("[%s:%u] Failed to parse CPU scheduling policy: %s", filename, line, rvalue);
+                return -EBADMSG;
+        }
 
         c->cpu_sched_policy = x;
         c->cpu_sched_set = true;
@@ -988,31 +903,7 @@ static int config_parse_sysv_priority(
         return 0;
 }
 
-static int config_parse_kill_mode(
-                const char *filename,
-                unsigned line,
-                const char *section,
-                const char *lvalue,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        KillMode *m = data, x;
-
-        assert(filename);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if ((x = kill_mode_from_string(rvalue)) < 0) {
-                log_error("[%s:%u] Failed to parse kill mode specifier: %s", filename, line, rvalue);
-                return -EBADMSG;
-        }
-
-        *m = x;
-
-        return 0;
-}
+DEFINE_CONFIG_PARSE_ENUM(config_parse_kill_mode, kill_mode, KillMode, "Failed to parse kill mode");
 
 #define FOLLOW_MAX 8
 
@@ -1279,8 +1170,8 @@ static int load_from_path(Unit *u, const char *path) {
                 { "ExecStopPost",           config_parse_exec,            u->service.exec_command+SERVICE_EXEC_STOP_POST,  "Service" },
                 { "RestartSec",             config_parse_usec,            &u->service.restart_usec,                        "Service" },
                 { "TimeoutSec",             config_parse_usec,            &u->service.timeout_usec,                        "Service" },
-                { "Type",                   config_parse_service_type,    &u->service,                                     "Service" },
-                { "Restart",                config_parse_service_restart, &u->service,                                     "Service" },
+                { "Type",                   config_parse_service_type,    &u->service.type,                                "Service" },
+                { "Restart",                config_parse_service_restart, &u->service.restart,                             "Service" },
                 { "PermissionsStartOnly",   config_parse_bool,            &u->service.permissions_start_only,              "Service" },
                 { "RootDirectoryStartOnly", config_parse_bool,            &u->service.root_directory_start_only,           "Service" },
                 { "ValidNoProcess",         config_parse_bool,            &u->service.valid_no_process,                    "Service" },
