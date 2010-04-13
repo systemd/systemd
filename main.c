@@ -127,6 +127,10 @@ static void install_crash_handler(void) {
         sa.sa_flags = SA_NODEFER;
 
         assert_se(sigaction(SIGSEGV, &sa, NULL) == 0);
+        assert_se(sigaction(SIGILL, &sa, NULL) == 0);
+        assert_se(sigaction(SIGFPE, &sa, NULL) == 0);
+        assert_se(sigaction(SIGBUS, &sa, NULL) == 0);
+        assert_se(sigaction(SIGQUIT, &sa, NULL) == 0);
         assert_se(sigaction(SIGABRT, &sa, NULL) == 0);
 }
 
@@ -427,7 +431,8 @@ int main(int argc, char *argv[]) {
         log_open_syslog();
         log_open_kmsg();
 
-        /* Make sure we leave a core dump */
+        /* Make sure we leave a core dump without panicing the
+         * kernel. */
         if (getpid() == 1)
                 install_crash_handler();
 
