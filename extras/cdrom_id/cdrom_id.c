@@ -56,57 +56,57 @@ static void log_fn(struct udev *udev, int priority,
 }
 
 /* device info */
-static unsigned int cd_cd_rom;
-static unsigned int cd_cd_r;
-static unsigned int cd_cd_rw;
-static unsigned int cd_dvd_rom;
-static unsigned int cd_dvd_r;
-static unsigned int cd_dvd_rw;
-static unsigned int cd_dvd_ram;
-static unsigned int cd_dvd_plus_r;
-static unsigned int cd_dvd_plus_rw;
-static unsigned int cd_dvd_plus_r_dl;
-static unsigned int cd_dvd_plus_rw_dl;
-static unsigned int cd_bd;
-static unsigned int cd_bd_r;
-static unsigned int cd_bd_re;
-static unsigned int cd_hddvd;
-static unsigned int cd_hddvd_r;
-static unsigned int cd_hddvd_rw;
-static unsigned int cd_mo;
-static unsigned int cd_mrw;
-static unsigned int cd_mrw_w;
+static unsigned int cd_cd_rom = 0;
+static unsigned int cd_cd_r = 0;
+static unsigned int cd_cd_rw = 0;
+static unsigned int cd_dvd_rom = 0;
+static unsigned int cd_dvd_r = 0;
+static unsigned int cd_dvd_rw = 0;
+static unsigned int cd_dvd_ram = 0;
+static unsigned int cd_dvd_plus_r = 0;
+static unsigned int cd_dvd_plus_rw = 0;
+static unsigned int cd_dvd_plus_r_dl = 0;
+static unsigned int cd_dvd_plus_rw_dl = 0;
+static unsigned int cd_bd = 0;
+static unsigned int cd_bd_r = 0;
+static unsigned int cd_bd_re = 0;
+static unsigned int cd_hddvd = 0;
+static unsigned int cd_hddvd_r = 0;
+static unsigned int cd_hddvd_rw = 0;
+static unsigned int cd_mo = 0;
+static unsigned int cd_mrw = 0;
+static unsigned int cd_mrw_w = 0;
 
 /* media info */
-static unsigned int cd_media;
-static unsigned int cd_media_cd_rom;
-static unsigned int cd_media_cd_r;
-static unsigned int cd_media_cd_rw;
-static unsigned int cd_media_dvd_rom;
-static unsigned int cd_media_dvd_r;
-static unsigned int cd_media_dvd_rw;
-static unsigned int cd_media_dvd_ram;
-static unsigned int cd_media_dvd_plus_r;
-static unsigned int cd_media_dvd_plus_rw;
-static unsigned int cd_media_dvd_plus_r_dl;
-static unsigned int cd_media_dvd_plus_rw_dl;
-static unsigned int cd_media_bd;
-static unsigned int cd_media_bd_r;
-static unsigned int cd_media_bd_re;
-static unsigned int cd_media_hddvd;
-static unsigned int cd_media_hddvd_r;
-static unsigned int cd_media_hddvd_rw;
-static unsigned int cd_media_mo;
-static unsigned int cd_media_mrw;
-static unsigned int cd_media_mrw_w;
+static unsigned int cd_media = 0;
+static unsigned int cd_media_cd_rom = 0;
+static unsigned int cd_media_cd_r = 0;
+static unsigned int cd_media_cd_rw = 0;
+static unsigned int cd_media_dvd_rom = 0;
+static unsigned int cd_media_dvd_r = 0;
+static unsigned int cd_media_dvd_rw = 0;
+static unsigned int cd_media_dvd_ram = 0;
+static unsigned int cd_media_dvd_plus_r = 0;
+static unsigned int cd_media_dvd_plus_rw = 0;
+static unsigned int cd_media_dvd_plus_r_dl = 0;
+static unsigned int cd_media_dvd_plus_rw_dl = 0;
+static unsigned int cd_media_bd = 0;
+static unsigned int cd_media_bd_r = 0;
+static unsigned int cd_media_bd_re = 0;
+static unsigned int cd_media_hddvd = 0;
+static unsigned int cd_media_hddvd_r = 0;
+static unsigned int cd_media_hddvd_rw = 0;
+static unsigned int cd_media_mo = 0;
+static unsigned int cd_media_mrw = 0;
+static unsigned int cd_media_mrw_w = 0;
 
-static const char *cd_media_state;
-static unsigned int cd_media_session_next;
-static unsigned int cd_media_session_count;
-static unsigned int cd_media_track_count;
-static unsigned int cd_media_track_count_data;
-static unsigned int cd_media_track_count_audio;
-static unsigned long long int cd_media_session_last_offset;
+static const char *cd_media_state = NULL;
+static unsigned int cd_media_session_next = 0;
+static unsigned int cd_media_session_count = 0;
+static unsigned int cd_media_track_count = 0;
+static unsigned int cd_media_track_count_data = 0;
+static unsigned int cd_media_track_count_audio = 0;
+static unsigned long long int cd_media_session_last_offset = 0;
 
 #define ERRCODE(s)	((((s)[2] & 0x0F) << 16) | ((s)[12] << 8) | ((s)[13]))
 #define SK(errcode)	(((errcode) >> 16) & 0xF)
