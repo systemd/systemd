@@ -63,7 +63,10 @@ static int next_assignment(
                 return t->parse(filename, line, section, lvalue, rvalue, t->data, userdata);
         }
 
-        log_info("[%s:%u] Unknown lvalue '%s' in section '%s'. Ignoring.", filename, line, lvalue, strna(section));
+        /* Warn about unknown non-extension fields. */
+        if (!startswith(lvalue, "X-"))
+                log_info("[%s:%u] Unknown lvalue '%s' in section '%s'. Ignoring.", filename, line, lvalue, strna(section));
+
         return 0;
 }
 
