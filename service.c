@@ -726,6 +726,20 @@ static void service_init(Unit *u) {
         RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
 }
 
+static int service_verify(Service *s) {
+        assert(s);
+
+        if (UNIT(s)->meta.load_state != UNIT_LOADED)
+                return 0;
+
+        if (!s->exec_command[SERVICE_EXEC_START]) {
+                log_error("%s lacks ExecStart setting. Refusing.", unit_id(UNIT(s)));
+                return -EINVAL;
+        }
+
+        return 0;
+}
+
 static int service_load(Unit *u) {
         int r;
         Service *s = SERVICE(u);
@@ -762,7 +776,7 @@ static int service_load(Unit *u) {
                         return r;
         }
 
-        return 0;
+        return service_verify(s);
 }
 
 static void service_dump(Unit *u, FILE *f, const char *prefix) {
