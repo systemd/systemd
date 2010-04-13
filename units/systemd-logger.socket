@@ -1,0 +1,5 @@
+[Meta]
+Description=systemd Logging Socket
+
+[Socket]
+ListenStream=@/org/freedesktop/systemd1/logger

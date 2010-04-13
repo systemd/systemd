@@ -1,0 +1,6 @@
+[Meta]
+Description=systemd Logging Daemon
+
+[Service]
+ExecStart=@libexecdir@/systemd-logger
+Type=simple

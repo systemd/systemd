@@ -1,0 +1,6 @@
+[Meta]
+Description=systemd /dev/initctl Compatibility
+
+[Socket]
+ListenFIFO=/dev/initctl
+SocketMode=0600

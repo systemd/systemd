@@ -1,0 +1,6 @@
+[Meta]
+Description=systemd /dev/initctl Compatibility
+
+[Service]
+ExecStart=@libexecdir@/systemd-initctl
+Type=simple

@@ -1,3 +1,5 @@
+systemd-initctl.service
+systemd-logger.service
 systemd-cgroups-agent
 systemd-initctl
 systemd

@@ -21,14 +21,17 @@ pkgsysconfdir=$(sysconfdir)/systemd
 dbuspolicydir=$(sysconfdir)/dbus-1/system.d
 udevrulesdir=/lib/udev/rules.d
 
+systemunitdir=$(pkgdatadir)/system
+sessionunitdir=$(pkgdatadir)/system
+
 AM_CPPFLAGS = \
         -include $(top_builddir)/config.h \
 	-DSYSTEM_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/system\" \
-	-DSYSTEM_DATA_UNIT_PATH=\"$(pkgdatadir)/system\" \
+	-DSYSTEM_DATA_UNIT_PATH=\"$(systemunitdir)\" \
 	-DSYSTEM_SYSVINIT_PATH=\"$(SYSTEM_SYSVINIT_PATH)\" \
 	-DSYSTEM_SYSVRCND_PATH=\"$(SYSTEM_SYSVRCND_PATH)\" \
 	-DSESSION_CONFIG_UNIT_PATH=\"$(pkgsysconfdir)/session\" \
-	-DSESSION_DATA_UNIT_PATH=\"$(pkgdatadir)/session\" \
+	-DSESSION_DATA_UNIT_PATH=\"$(sessionunitdir)\" \
 	-DCGROUP_AGENT_PATH=\"$(pkglibexecdir)/systemd-cgroups-agent\"
 
 sbin_PROGRAMS = \
@@ -53,9 +56,21 @@ dbuspolicy_DATA = \
 udevrules_DATA = \
 	99-systemd.rules
 
+systemunit_DATA = \
+	units/emergency.service \
+	systemd-initctl.service \
+	units/systemd-initctl.socket \
+	systemd-logger.service \
+	units/systemd-logger.socket
+
 EXTRA_DIST = \
-	org.freedesktop.systemd1.conf
-	99-systemd.rules
+	org.freedesktop.systemd1.conf \
+	99-systemd.rules \
+	units/emergency.service \
+	units/systemd-initctl.service.in \
+	units/systemd-initctl.socket \
+	units/systemd-logger.service.in \
+	units/systemd-logger.socket
 
 BASIC_SOURCES= \
         util.c \
@@ -193,8 +208,15 @@ systemadm_SOURCES = \
 systemadm_CPPFLAGS = $(AM_CPPFLAGS) $(DBUSGLIB_CFLAGS) $(GTK_CFLAGS)
 systemadm_LDADD = $(DBUSGLIB_LIBS) $(GTK_LIBS)
 
+systemd-initctl.service: units/systemd-initctl.service.in Makefile
+	sed -e 's,@libexecdir\@,$(libexecdir),g' < $< > $@
+
+systemd-logger.service: units/systemd-logger.service.in Makefile
+	sed -e 's,@libexecdir\@,$(libexecdir),g' < $< > $@
+
 CLEANFILES = \
 	systemd-interfaces.c \
 	systemctl.c \
 	systemadm.c \
-	systemd-cgroups-agent
+	systemd-initctl.service \
+	systemd-logger.service
