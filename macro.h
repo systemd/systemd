@@ -35,6 +35,8 @@
 #define _deprecated __attribute__ ((deprecated))
 #define _packed __attribute__ ((packed))
 #define _malloc __attribute__ ((malloc))
+#define _likely(x) (__builtin_expect(!!(x),1))
+#define _unlikely(x) (__builtin_expect(!!(x),0))
 
 /* Rounds up */
 static inline size_t ALIGN(size_t l) {
@@ -65,11 +67,29 @@ static inline size_t ALIGN(size_t l) {
                         ((_x > _high) ? _high : ((_x < _low) ? _low : _x)); \
                 })
 
+#define assert_se(expr)                                                 \
+        do {                                                            \
+                if (_unlikely(!(expr))) {                               \
+                        log_error("Assertion '%s' failed at %s:%u, function %s(). Aborting.", \
+                                  #expr , __FILE__, __LINE__, __PRETTY_FUNCTION__); \
+                        abort();                                        \
+                }                                                       \
+        } while (false)                                                 \
 
+/* We override the glibc assert() here. */
+#undef assert
+#ifdef NDEBUG
+#define assert(expr) do {} while(false)
+#else
+#define assert(expr) assert_se(expr)
+#endif
 
-#define assert_not_reached(t) assert(!(t))
-
-#define assert_se(x) assert(x)
+#define assert_not_reached(t)                                           \
+        do {                                                            \
+                log_error("Code should not be reached '%s' at %s:%u, function %s(). Aborting.", \
+                          t, __FILE__, __LINE__, __PRETTY_FUNCTION__);  \
+                abort();                                                \
+        } while (false)
 
 #define assert_cc(expr)                            \
         do {                                       \
@@ -102,5 +122,7 @@ static inline size_t ALIGN(size_t l) {
                 (iovec).iov_base = s;           \
                 (iovec).iov_len = strlen(s);    \
         } while(false);
+
+#include "log.h"
 
 #endif
