@@ -1422,14 +1422,18 @@ int reset_terminal(int fd) {
 
         assert(fd >= 0);
 
-        /* Set terminal up for job control */
+        /* Set terminal to some sane defaults */
 
         if (tcgetattr(fd, &termios) < 0) {
                 r = -errno;
                 goto finish;
         }
 
-        termios.c_iflag &= ~(IGNBRK | BRKINT);
+        /* We only reset the stuff that matters to the software. How
+         * hardware is set up we don't touch assuming that somebody
+         * else will do that for us */
+
+        termios.c_iflag &= ~(IGNBRK | BRKINT | ISTRIP | INLCR | IGNCR | IUCLC);
         termios.c_iflag |= ICRNL | IMAXBEL | IUTF8;
         termios.c_oflag |= ONLCR;
         termios.c_cflag |= CREAD;
@@ -1446,6 +1450,8 @@ int reset_terminal(int fd) {
         termios.c_cc[VLNEXT]   =  026;  /* ^V */
         termios.c_cc[VWERASE]  =  027;  /* ^W */
         termios.c_cc[VREPRINT] =  022;  /* ^R */
+        termios.c_cc[VEOL]     =    0;
+        termios.c_cc[VEOL2]    =    0;
 
         termios.c_cc[VTIME]  = 0;
         termios.c_cc[VMIN]   = 1;
