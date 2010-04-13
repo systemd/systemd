@@ -211,6 +211,8 @@ int release_terminal(void);
 
 int flush_fd(int fd);
 
+int ignore_signal(int sig);
+
 extern char * __progname;
 
 const char *ioprio_class_to_string(int i);

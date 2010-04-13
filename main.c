@@ -445,8 +445,8 @@ int main(int argc, char *argv[]) {
         assert_se(reset_all_signal_handlers() == 0);
 
         /* If we are init, we can block sigkill. Yay. */
-        signal(SIGKILL, SIG_IGN);
-        signal(SIGPIPE, SIG_IGN);
+        ignore_signal(SIGKILL);
+        ignore_signal(SIGPIPE);
 
         /* Close all open files */
         assert_se(close_all_fds(NULL, 0) == 0);

@@ -658,7 +658,6 @@ char *strstrip(char *s) {
                 *s = 0;
 
         return s;
-
 }
 
 char *delete_chars(char *s, const char *bad) {
@@ -1635,6 +1634,16 @@ int release_terminal(void) {
 
         close_nointr_nofail(fd);
         return r;
+}
+
+int ignore_signal(int sig) {
+        struct sigaction sa;
+
+        zero(sa);
+        sa.sa_handler = SIG_IGN;
+        sa.sa_flags = SA_RESTART;
+
+        return sigaction(sig, &sa, NULL);
 }
 
 static const char *const ioprio_class_table[] = {
