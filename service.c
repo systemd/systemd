@@ -624,7 +624,7 @@ static int service_load_sysv_path(Service *s, const char *path) {
         s->valid_no_process = true;
 
         /* Don't timeout special services during boot (like fsck) */
-        if (!chars_intersect("12345", s->sysv_runlevels))
+        if (s->sysv_runlevels && !chars_intersect("12345", s->sysv_runlevels))
                 s->timeout_usec = -1;
 
         u->meta.load_state = UNIT_LOADED;
