@@ -59,18 +59,27 @@ _noreturn static void freeze(void) {
                 pause();
 }
 
+static void nop_handler(int sig) {
+}
+
 _noreturn static void crash(int sig) {
 
         if (!dump_core)
                 log_error("Caught <%s>, not dumping core.", strsignal(sig));
         else {
+                struct sigaction sa;
                 pid_t pid;
+
+                /* We want to wait for the core process, hence let's enable SIGCHLD */
+                zero(sa);
+                sa.sa_handler = nop_handler;
+                sa.sa_flags = SA_NOCLDSTOP|SA_RESTART;
+                assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
                 if ((pid = fork()) < 0)
                         log_error("Caught <%s>, cannot fork for core dump: %s", strsignal(sig), strerror(errno));
 
                 else if (pid == 0) {
-                        struct sigaction sa;
                         struct rlimit rl;
 
                         /* Enable default signal handler for core dump */
@@ -110,21 +119,28 @@ _noreturn static void crash(int sig) {
                 chvt(crash_chvt);
 
         if (crash_shell) {
-                sigset_t mask;
+                struct sigaction sa;
+                pid_t pid;
 
                 log_info("Executing crash shell in 10s...");
                 sleep(10);
 
-                /* Make sure the signal is not delivered inside the
-                 * exec() */
-                assert_se(sigemptyset(&mask) == 0);
-                assert_se(sigaddset(&mask, sig) == 0);
-                assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
+                /* Let the kernel reap children for us */
+                zero(sa);
+                sa.sa_handler = SIG_IGN;
+                sa.sa_flags = SA_NOCLDSTOP|SA_NOCLDWAIT|SA_RESTART;
+                assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
-                ignore_signal(sig);
+                if ((pid = fork()) < 0)
+                        log_error("Failed to fork off crash shell: %s", strerror(errno));
+                else if (pid == 0) {
+                        execl("/bin/sh", "/bin/sh", NULL);
 
-                execl("/bin/sh", "/bin/sh", NULL);
-                log_error("execl() failed: %s", strerror(errno));
+                        log_error("execl() failed: %s", strerror(errno));
+                        _exit(1);
+                }
+
+                log_info("Successfully spawned crash shall as pid %llu.", (unsigned long long) pid);
         }
 
         log_info("Freezing execution.");
