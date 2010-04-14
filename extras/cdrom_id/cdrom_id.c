@@ -1,7 +1,7 @@
 /*
  * cdrom_id - optical drive and media information prober
  *
- * Copyright (C) 2008 Kay Sievers <kay.sievers@vrfy.org>
+ * Copyright (C) 2008-2010 Kay Sievers <kay.sievers@vrfy.org>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -157,7 +157,7 @@ struct scsi_cmd {
 static void scsi_cmd_set(struct udev *udev, struct scsi_cmd *cmd, size_t i, int arg)
 {
 	if (i == 0) {
-		memset(cmd, 0x00, sizeof(struct scsi_cmd));
+		memset(cmd, 0, sizeof(struct scsi_cmd));
 		cmd->cgc.quiet = 1;
 		cmd->cgc.sense = &cmd->_sense.s;
 		memset(&cmd->sg_io, 0, sizeof(cmd->sg_io));
@@ -237,7 +237,7 @@ static int cd_inquiry(struct udev *udev, int fd) {
 	unsigned char inq[128];
 	int err;
 
-	memset (inq, 0, sizeof (inq));
+	memset(inq, 0, sizeof(inq));
 	scsi_cmd_set(udev, &sc, 0, 0x12);
 	scsi_cmd_set(udev, &sc, 4, 36);
 	scsi_cmd_set(udev, &sc, 5, 0);
@@ -266,7 +266,7 @@ static int cd_profiles(struct udev *udev, int fd)
 	unsigned int i;
 	int err;
 
-	memset (header, 0, sizeof (header));
+	memset(header, 0, sizeof(header));
 	scsi_cmd_set(udev, &sc, 0, 0x46);
 	scsi_cmd_set(udev, &sc, 1, 0);
 	scsi_cmd_set(udev, &sc, 8, sizeof(header));
@@ -284,7 +284,7 @@ static int cd_profiles(struct udev *udev, int fd)
 		return -1;
 	}
 
-	memset (profiles, 0, sizeof (profiles));
+	memset(profiles, 0, sizeof(profiles));
 	scsi_cmd_set(udev, &sc, 0, 0x46);
 	scsi_cmd_set(udev, &sc, 1, 1);
 	scsi_cmd_set(udev, &sc, 6, len >> 16);
@@ -443,7 +443,7 @@ static int cd_media_info(struct udev *udev, int fd)
 	};
 	int err;
 
-	memset (header, 0, sizeof (header));
+	memset(header, 0, sizeof(header));
 	scsi_cmd_set(udev, &sc, 0, 0x51);
 	scsi_cmd_set(udev, &sc, 8, sizeof(header));
 	scsi_cmd_set(udev, &sc, 9, 0);
@@ -476,7 +476,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 	unsigned char *p;
 	int err;
 
-	memset (header, 0, sizeof (header));
+	memset(header, 0, sizeof(header));
 	scsi_cmd_set(udev, &sc, 0, 0x43);
 	scsi_cmd_set(udev, &sc, 6, 1);
 	scsi_cmd_set(udev, &sc, 8, sizeof(header));
@@ -498,7 +498,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 	if (len < 8)
 		return 0;
 
-	memset (toc, 0, sizeof (toc));
+	memset(toc, 0, sizeof(toc));
 	scsi_cmd_set(udev, &sc, 0, 0x43);
 	scsi_cmd_set(udev, &sc, 6, header[2]); /* First Track/Session Number */
 	scsi_cmd_set(udev, &sc, 7, len >> 8);
@@ -526,7 +526,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 			cd_media_track_count_audio++;
 	}
 
-	memset (header, 0, sizeof (header));
+	memset(header, 0, sizeof (header));
 	scsi_cmd_set(udev, &sc, 0, 0x43);
 	scsi_cmd_set(udev, &sc, 2, 1); /* Session Info */
 	scsi_cmd_set(udev, &sc, 8, 12);
