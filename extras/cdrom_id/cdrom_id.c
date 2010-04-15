@@ -357,7 +357,7 @@ static int cd_profiles(struct udev *udev, int fd)
 	}
 
 	len = features[0] << 24 | features[1] << 16 | features[2] << 8 | features[3];
-	info(udev, "GET CONFIGURATION: size of features buffer %i\n", len);
+	info(udev, "GET CONFIGURATION: size of features buffer 0x%04x\n", len);
 
 	if (len > sizeof(features)) {
 		info(udev, "can not get features in a single query, truncating\n");
