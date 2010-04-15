@@ -154,19 +154,22 @@ struct scsi_cmd {
 	struct sg_io_hdr sg_io;
 };
 
-static void scsi_cmd_set(struct udev *udev, struct scsi_cmd *cmd, size_t i, int arg)
+static void scsi_cmd_init(struct udev *udev, struct scsi_cmd *cmd, unsigned char *buf, size_t bufsize)
 {
-	if (i == 0) {
-		memset(cmd, 0, sizeof(struct scsi_cmd));
-		cmd->cgc.quiet = 1;
-		cmd->cgc.sense = &cmd->_sense.s;
-		memset(&cmd->sg_io, 0, sizeof(cmd->sg_io));
-		cmd->sg_io.interface_id = 'S';
-		cmd->sg_io.mx_sb_len = sizeof(cmd->_sense);
-		cmd->sg_io.cmdp = cmd->cgc.cmd;
-		cmd->sg_io.sbp = cmd->_sense.u;
-		cmd->sg_io.flags = SG_FLAG_LUN_INHIBIT | SG_FLAG_DIRECT_IO;
-	}
+	memset(cmd, 0x00, sizeof(struct scsi_cmd));
+	memset(buf, 0x00, bufsize);
+	cmd->cgc.quiet = 1;
+	cmd->cgc.sense = &cmd->_sense.s;
+	memset(&cmd->sg_io, 0, sizeof(cmd->sg_io));
+	cmd->sg_io.interface_id = 'S';
+	cmd->sg_io.mx_sb_len = sizeof(cmd->_sense);
+	cmd->sg_io.cmdp = cmd->cgc.cmd;
+	cmd->sg_io.sbp = cmd->_sense.u;
+	cmd->sg_io.flags = SG_FLAG_LUN_INHIBIT | SG_FLAG_DIRECT_IO;
+}
+
+static void scsi_cmd_set(struct udev *udev, struct scsi_cmd *cmd, size_t i, unsigned char arg)
+{
 	cmd->sg_io.cmd_len = i + 1;
 	cmd->cgc.cmd[i] = arg;
 }
@@ -237,7 +240,7 @@ static int cd_inquiry(struct udev *udev, int fd) {
 	unsigned char inq[128];
 	int err;
 
-	memset(inq, 0, sizeof(inq));
+	scsi_cmd_init(udev, &sc, inq, sizeof(inq));
 	scsi_cmd_set(udev, &sc, 0, 0x12);
 	scsi_cmd_set(udev, &sc, 4, 36);
 	scsi_cmd_set(udev, &sc, 5, 0);
@@ -256,109 +259,132 @@ static int cd_inquiry(struct udev *udev, int fd) {
 	return 0;
 }
 
-static int cd_profiles(struct udev *udev, int fd)
+static int feature_profiles(struct udev *udev, const unsigned char *profiles, size_t size)
 {
-	struct scsi_cmd sc;
-	unsigned char header[8];
-	unsigned char profiles[512];
-	unsigned int cur_profile;
-	unsigned int len;
 	unsigned int i;
-	int err;
 
-	memset(header, 0, sizeof(header));
-	scsi_cmd_set(udev, &sc, 0, 0x46);
-	scsi_cmd_set(udev, &sc, 1, 0);
-	scsi_cmd_set(udev, &sc, 8, sizeof(header));
-	scsi_cmd_set(udev, &sc, 9, 0);
-	err = scsi_cmd_run(udev, &sc, fd, header, sizeof(header));
-	if ((err < 0)) {
-		info_scsi_cmd_err(udev, "GET CONFIGURATION", err);
-		return -1;
-	}
+	for (i = 0; i+4 <= size; i += 4) {
+		int profile;
 
-	len = 4 + (header[0] << 24 | header[1] << 16 | header[2] << 8 | header[3]);
-	info(udev, "GET CONFIGURATION: number of profiles %i\n", len);
-	if (len > sizeof(profiles)) {
-		info(udev, "invalid number of profiles\n");
-		return -1;
-	}
-
-	memset(profiles, 0, sizeof(profiles));
-	scsi_cmd_set(udev, &sc, 0, 0x46);
-	scsi_cmd_set(udev, &sc, 1, 1);
-	scsi_cmd_set(udev, &sc, 6, len >> 16);
-	scsi_cmd_set(udev, &sc, 7, len >> 8);
-	scsi_cmd_set(udev, &sc, 8, len);
-	scsi_cmd_set(udev, &sc, 9, 0);
-	err = scsi_cmd_run(udev, &sc, fd, profiles, len);
-	if ((err < 0)) {
-		info_scsi_cmd_err(udev, "GET CONFIGURATION", err);
-		return -1;
-	}
-
-	/* device profiles */
-	for (i = 12; i < profiles[11]; i += 4) {
-		unsigned int profile = (profiles[i] << 8 | profiles[i + 1]);
-		if (profile == 0)
-			continue;
-		info(udev, "profile 0x%02x\n", profile);
-
+		profile = profiles[i] << 8 | profiles[i+1];
 		switch (profile) {
 		case 0x03:
 		case 0x04:
 		case 0x05:
+			info(udev, "profile 0x%02x mo\n", profile);
 			cd_mo = 1;
-		break;
+			break;
 		case 0x10:
+			info(udev, "profile 0x%02x dvd_rom\n", profile);
 			cd_dvd_rom = 1;
 			break;
 		case 0x12:
+			info(udev, "profile 0x%02x dvd_ram\n", profile);
 			cd_dvd_ram = 1;
 			break;
 		case 0x13:
 		case 0x14:
+			info(udev, "profile 0x%02x dvd_rw\n", profile);
 			cd_dvd_rw = 1;
 			break;
 		case 0x1B:
+			info(udev, "profile 0x%02x dvd_plus_r\n", profile);
 			cd_dvd_plus_r = 1;
 			break;
 		case 0x1A:
+			info(udev, "profile 0x%02x dvd_plus_rw\n", profile);
 			cd_dvd_plus_rw = 1;
 			break;
 		case 0x2A:
+			info(udev, "profile 0x%02x dvd_plus_rw_dl\n", profile);
 			cd_dvd_plus_rw_dl = 1;
 			break;
 		case 0x2B:
+			info(udev, "profile 0x%02x dvd_plus_r_dl\n", profile);
 			cd_dvd_plus_r_dl = 1;
 			break;
 		case 0x40:
 			cd_bd = 1;
+			info(udev, "profile 0x%02x bd\n", profile);
 			break;
 		case 0x41:
 		case 0x42:
 			cd_bd_r = 1;
+			info(udev, "profile 0x%02x bd_r\n", profile);
 			break;
 		case 0x43:
 			cd_bd_re = 1;
+			info(udev, "profile 0x%02x bd_re\n", profile);
 			break;
 		case 0x50:
 			cd_hddvd = 1;
+			info(udev, "profile 0x%02x hddvd\n", profile);
 			break;
 		case 0x51:
 			cd_hddvd_r = 1;
+			info(udev, "profile 0x%02x hddvd_r\n", profile);
 			break;
 		case 0x52:
 			cd_hddvd_rw = 1;
+			info(udev, "profile 0x%02x hddvd_rw\n", profile);
 			break;
 		default:
+			info(udev, "profile 0x%02x <ignored>\n", profile);
+			break;
+		}
+	}
+	return 0;
+}
+
+static int cd_profiles(struct udev *udev, int fd)
+{
+	struct scsi_cmd sc;
+	unsigned char features[65530];
+	unsigned int cur_profile = 0;
+	unsigned int len;
+	unsigned int i;
+	int err;
+
+	scsi_cmd_init(udev, &sc, features, sizeof(features));
+	scsi_cmd_set(udev, &sc, 0, 0x46);
+	scsi_cmd_set(udev, &sc, 7, (sizeof(features) >> 8) & 0xff);
+	scsi_cmd_set(udev, &sc, 8, sizeof(features) & 0xff);
+	scsi_cmd_set(udev, &sc, 9, 0);
+	err = scsi_cmd_run(udev, &sc, fd, features, sizeof(features));
+	if ((err < 0)) {
+		info_scsi_cmd_err(udev, "GET CONFIGURATION", err);
+		return -1;
+	}
+
+	len = features[0] << 24 | features[1] << 16 | features[2] << 8 | features[3];
+	info(udev, "GET CONFIGURATION: size of features buffer %i\n", len);
+
+	if (len > sizeof(features)) {
+		info(udev, "can not get features in a single query, truncating\n");
+		len = sizeof(features);
+	}
+
+	/* device features */
+	for (i = 8; i+4 < len; i += (4 + features[i+3])) {
+		unsigned int feature;
+
+		feature = features[i] << 8 | features[i+1];
+
+		switch (feature) {
+		case 0x00:
+			info(udev, "GET CONFIGURATION: feature 'profiles', with %i entries\n", features[i+3] / 4);
+			feature_profiles(udev, &features[i]+4, features[i+3]);
+
+			/* set current profile, if we got a profiles section */
+			cur_profile = features[6] << 8 | features[7];
+			info(udev, "current profile 0x%02x\n", cur_profile);
+			break;
+		default:
+			info(udev, "GET CONFIGURATION: feature %i <ignored>, with %i bytes\n", feature, features[i+3]);
 			break;
 		}
 	}
 
-	/* current media profile */
-	cur_profile = header[6] << 8 | header[7];
-	info(udev, "current profile 0x%02x\n", cur_profile);
 	if (cur_profile == 0) {
 		info(udev, "no current profile, assuming no media\n");
 		return -1;
@@ -443,7 +469,7 @@ static int cd_media_info(struct udev *udev, int fd)
 	};
 	int err;
 
-	memset(header, 0, sizeof(header));
+	scsi_cmd_init(udev, &sc, header, sizeof(header));
 	scsi_cmd_set(udev, &sc, 0, 0x51);
 	scsi_cmd_set(udev, &sc, 8, sizeof(header));
 	scsi_cmd_set(udev, &sc, 9, 0);
@@ -476,7 +502,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 	unsigned char *p;
 	int err;
 
-	memset(header, 0, sizeof(header));
+	scsi_cmd_init(udev, &sc, header, sizeof(header));
 	scsi_cmd_set(udev, &sc, 0, 0x43);
 	scsi_cmd_set(udev, &sc, 6, 1);
 	scsi_cmd_set(udev, &sc, 8, sizeof(header));
@@ -498,7 +524,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 	if (len < 8)
 		return 0;
 
-	memset(toc, 0, sizeof(toc));
+	scsi_cmd_init(udev, &sc, toc, sizeof(toc));
 	scsi_cmd_set(udev, &sc, 0, 0x43);
 	scsi_cmd_set(udev, &sc, 6, header[2]); /* First Track/Session Number */
 	scsi_cmd_set(udev, &sc, 7, len >> 8);
@@ -526,7 +552,7 @@ static int cd_media_toc(struct udev *udev, int fd)
 			cd_media_track_count_audio++;
 	}
 
-	memset(header, 0, sizeof (header));
+	scsi_cmd_init(udev, &sc, header, sizeof(header));
 	scsi_cmd_set(udev, &sc, 0, 0x43);
 	scsi_cmd_set(udev, &sc, 2, 1); /* Session Info */
 	scsi_cmd_set(udev, &sc, 8, 12);
