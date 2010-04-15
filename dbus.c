@@ -316,17 +316,25 @@ static DBusHandlerResult api_bus_message_filter(DBusConnection  *connection, DBu
                 bus_done_api(m);
 
         } else if (dbus_message_is_signal(message, DBUS_INTERFACE_DBUS, "NameOwnerChanged")) {
-                const char *name, *old, *new;
+                const char *name, *old_owner, *new_owner;
 
                 if (!dbus_message_get_args(message, &error,
                                            DBUS_TYPE_STRING, &name,
-                                           DBUS_TYPE_STRING, &old,
-                                           DBUS_TYPE_STRING, &new,
+                                           DBUS_TYPE_STRING, &old_owner,
+                                           DBUS_TYPE_STRING, &new_owner,
                                            DBUS_TYPE_INVALID))
                         log_error("Failed to parse NameOwnerChanged message: %s", error.message);
                 else  {
                         if (set_remove(m->subscribed, (char*) name))
                                 log_debug("Subscription client vanished: %s (left: %u)", name, set_size(m->subscribed));
+
+                        if (old_owner[0] == 0)
+                                old_owner = NULL;
+
+                        if (new_owner[0] == 0)
+                                new_owner = NULL;
+
+                        manager_dispatch_bus_name_owner_changed(m, name, old_owner, new_owner);
                 }
         }
 
@@ -388,7 +396,7 @@ unsigned bus_dispatch(Manager *m) {
         return 0;
 }
 
-static void pending_cb(DBusPendingCall *pending, void *userdata) {
+static void request_name_pending_cb(DBusPendingCall *pending, void *userdata) {
         DBusMessage *reply;
         DBusError error;
 
@@ -432,48 +440,49 @@ static void pending_cb(DBusPendingCall *pending, void *userdata) {
 }
 
 static int request_name(Manager *m) {
-        DBusMessage *message;
         const char *name = "org.freedesktop.systemd1";
         uint32_t flags = 0;
-        DBusPendingCall *pending;
+        DBusMessage *message = NULL;
+        DBusPendingCall *pending = NULL;
 
         if (!(message = dbus_message_new_method_call(
                               DBUS_SERVICE_DBUS,
                               DBUS_PATH_DBUS,
                               DBUS_INTERFACE_DBUS,
                               "RequestName")))
-                return -ENOMEM;
+                goto oom;
 
         if (!dbus_message_append_args(
                             message,
                             DBUS_TYPE_STRING, &name,
                             DBUS_TYPE_UINT32, &flags,
-                            DBUS_TYPE_INVALID)) {
-                dbus_message_unref(message);
-                return -ENOMEM;
-        }
+                            DBUS_TYPE_INVALID))
+                goto oom;
 
-        if (!dbus_connection_send_with_reply(m->api_bus, message, &pending, -1)) {
-                dbus_message_unref(message);
-                return -ENOMEM;
-        }
+        if (!dbus_connection_send_with_reply(m->api_bus, message, &pending, -1))
+                goto oom;
 
+        if (!dbus_pending_call_set_notify(pending, request_name_pending_cb, m, NULL))
+                goto oom;
 
         dbus_message_unref(message);
-
-        if (!dbus_pending_call_set_notify(pending, pending_cb, NULL, NULL)) {
-                dbus_pending_call_cancel(pending);
-                dbus_pending_call_unref(pending);
-                return -ENOMEM;
-        }
-
-
         dbus_pending_call_unref(pending);
 
         /* We simple ask for the name and don't wait for it. Sooner or
          * later we'll have it. */
 
         return 0;
+
+oom:
+        if (pending) {
+                dbus_pending_call_cancel(pending);
+                dbus_pending_call_unref(pending);
+        }
+
+        if (message)
+                dbus_message_unref(message);
+
+        return -ENOMEM;
 }
 
 static int bus_setup_loop(Manager *m, DBusConnection *bus) {
@@ -557,6 +566,10 @@ int bus_init_api(Manager *m) {
         if (m->api_bus)
                 return 0;
 
+        if (m->name_data_slot < 0)
+                if (!dbus_pending_call_allocate_data_slot(&m->name_data_slot))
+                        return -ENOMEM;
+
         if (m->running_as != MANAGER_SESSION && m->system_bus)
                 m->api_bus = m->system_bus;
         else {
@@ -636,6 +649,9 @@ void bus_done_api(Manager *m) {
                 set_free(m->subscribed);
                 m->subscribed = NULL;
         }
+
+       if (m->name_data_slot >= 0)
+               dbus_pending_call_free_data_slot(&m->name_data_slot);
 }
 
 void bus_done_system(Manager *m) {
@@ -650,6 +666,102 @@ void bus_done_system(Manager *m) {
                 dbus_connection_unref(m->system_bus);
                 m->system_bus = NULL;
         }
+}
+
+static void query_pid_pending_cb(DBusPendingCall *pending, void *userdata) {
+        Manager *m = userdata;
+        DBusMessage *reply;
+        DBusError error;
+        const char *name;
+
+        dbus_error_init(&error);
+
+        assert_se(name = dbus_pending_call_get_data(pending, m->name_data_slot));
+        assert_se(reply = dbus_pending_call_steal_reply(pending));
+
+        switch (dbus_message_get_type(reply)) {
+
+        case DBUS_MESSAGE_TYPE_ERROR:
+
+                assert_se(dbus_set_error_from_message(&error, reply));
+                log_warning("GetConnectionUnixProcessID() failed: %s", error.message);
+                break;
+
+        case DBUS_MESSAGE_TYPE_METHOD_RETURN: {
+                uint32_t r;
+
+                if (!dbus_message_get_args(reply,
+                                           &error,
+                                           DBUS_TYPE_UINT32, &r,
+                                           DBUS_TYPE_INVALID)) {
+                        log_error("Failed to parse GetConnectionUnixProcessID() reply: %s", error.message);
+                        break;
+                }
+
+                manager_dispatch_bus_query_pid_done(m, name, (pid_t) r);
+                break;
+        }
+
+        default:
+                assert_not_reached("Invalid reply message");
+        }
+
+        dbus_message_unref(reply);
+        dbus_error_free(&error);
+}
+
+int bus_query_pid(Manager *m, const char *name) {
+        DBusMessage *message = NULL;
+        DBusPendingCall *pending = NULL;
+        char *n = NULL;
+
+        assert(m);
+        assert(name);
+
+        if (!(message = dbus_message_new_method_call(
+                              DBUS_SERVICE_DBUS,
+                              DBUS_PATH_DBUS,
+                              DBUS_INTERFACE_DBUS,
+                              "GetConnectionUnixProcessID")))
+                goto oom;
+
+        if (!(dbus_message_append_args(
+                              message,
+                              DBUS_TYPE_STRING, &name,
+                              DBUS_TYPE_INVALID)))
+                goto oom;
+
+        if (!dbus_connection_send_with_reply(m->api_bus, message, &pending, -1))
+                goto oom;
+
+        if (!(n = strdup(name)))
+                goto oom;
+
+        if (!dbus_pending_call_set_data(pending, m->name_data_slot, n, free))
+                goto oom;
+
+        n = NULL;
+
+        if (!dbus_pending_call_set_notify(pending, query_pid_pending_cb, m, NULL))
+                goto oom;
+
+        dbus_message_unref(message);
+        dbus_pending_call_unref(pending);
+
+        return 0;
+
+oom:
+        free(n);
+
+        if (pending) {
+                dbus_pending_call_cancel(pending);
+                dbus_pending_call_unref(pending);
+        }
+
+        if (message)
+                dbus_message_unref(message);
+
+        return -ENOMEM;
 }
 
 DBusHandlerResult bus_default_message_handler(Manager *m, DBusMessage *message, const char*introspection, const BusProperty *properties) {

@@ -178,6 +178,9 @@ struct Manager {
         DBusConnection *api_bus, *system_bus;
         Set *subscribed;
 
+        Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
+        int32_t name_data_slot;
+
         /* Data specific to the cgroup subsystem */
         Hashmap *cgroup_bondings; /* path string => CGroupBonding object 1:n */
         char *cgroup_controller;
@@ -215,11 +218,13 @@ unsigned manager_dispatch_dbus_queue(Manager *m);
 
 int manager_loop(Manager *m);
 
+void manager_write_utmp_reboot(Manager *m);
+void manager_write_utmp_runlevel(Manager *m, Unit *t);
+
+void manager_dispatch_bus_name_owner_changed(Manager *m, const char *name, const char* old_owner, const char *new_owner);
+void manager_dispatch_bus_query_pid_done(Manager *m, const char *name, pid_t pid);
+
 const char *manager_running_as_to_string(ManagerRunningAs i);
 ManagerRunningAs manager_running_as_from_string(const char *s);
-
-void manager_write_utmp_reboot(Manager *m);
-
-void manager_write_utmp_runlevel(Manager *m, Unit *t);
 
 #endif

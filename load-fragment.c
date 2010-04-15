@@ -1182,6 +1182,7 @@ static int load_from_path(Unit *u, const char *path) {
                 { "SysVStartPriority",      config_parse_sysv_priority,   &u->service.sysv_start_priority,                 "Service" },
                 { "KillMode",               config_parse_kill_mode,       &u->service.kill_mode,                           "Service" },
                 { "NonBlocking",            config_parse_bool,            &u->service.exec_context.non_blocking,           "Service" },
+                { "BusName",                config_parse_string,          &u->service.bus_name,                            "Service" },
                 EXEC_CONTEXT_CONFIG_ITEMS(u->service.exec_context, "Service"),
 
                 { "ListenStream",           config_parse_listen,          &u->socket,                                      "Socket"  },

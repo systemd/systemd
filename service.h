@@ -57,8 +57,9 @@ typedef enum ServiceRestart {
 
 typedef enum ServiceType {
         SERVICE_FORKING,  /* forks by itself (i.e. traditional daemons) */
-        SERVICE_SIMPLE,   /* we fork and go on right-away (i.e. modern socket activated daemons)*/
+        SERVICE_SIMPLE,   /* we fork and go on right-away (i.e. modern socket activated daemons) */
         SERVICE_FINISH,   /* we fork and wait until the program finishes (i.e. programs like fsck which run and need to finish before we continue) */
+        SERVICE_DBUS,     /* we fork and wait until a specific D-Bus name appears on the bus */
         _SERVICE_TYPE_MAX,
         _SERVICE_TYPE_INVALID = -1
 } ServiceType;
@@ -103,12 +104,17 @@ struct Service {
         pid_t main_pid, control_pid;
         bool main_pid_known:1;
 
-        bool failure:1; /* if we shut down, remember why */
+        /* If we shut down, remember why */
+        bool failure:1;
+
+        bool bus_name_good:1;
 
         bool sysv_has_lsb:1;
         char *sysv_path;
         int sysv_start_priority;
         char *sysv_runlevels;
+
+        char *bus_name;
 
         RateLimit ratelimit;
 

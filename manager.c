@@ -320,6 +320,7 @@ int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
 
         m->running_as = running_as;
         m->confirm_spawn = confirm_spawn;
+        m->name_data_slot = -1;
 
         m->signal_watch.fd = m->mount_watch.fd = m->udev_watch.fd = m->epoll_fd = -1;
         m->current_job_id = 1; /* start as id #1, so that we can leave #0 around as "null-like" value */
@@ -337,6 +338,9 @@ int manager_new(ManagerRunningAs running_as, bool confirm_spawn, Manager **_m) {
                 goto fail;
 
         if (!(m->cgroup_bondings = hashmap_new(string_hash_func, string_compare_func)))
+                goto fail;
+
+        if (!(m->watch_bus = hashmap_new(string_hash_func, string_compare_func)))
                 goto fail;
 
         if ((m->epoll_fd = epoll_create1(EPOLL_CLOEXEC)) < 0)
@@ -408,6 +412,7 @@ void manager_free(Manager *m) {
         hashmap_free(m->jobs);
         hashmap_free(m->transaction_jobs);
         hashmap_free(m->watch_pids);
+        hashmap_free(m->watch_bus);
 
         if (m->epoll_fd >= 0)
                 close_nointr(m->epoll_fd);
@@ -1864,6 +1869,40 @@ void manager_write_utmp_runlevel(Manager *m, Unit *u) {
                 if (r != -ENOENT && r != -EROFS)
                         log_warning("Failed to write utmp/wtmp: %s", strerror(-r));
         }
+}
+
+void manager_dispatch_bus_name_owner_changed(
+                Manager *m,
+                const char *name,
+                const char* old_owner,
+                const char *new_owner) {
+
+        Unit *u;
+
+        assert(m);
+        assert(name);
+
+        if (!(u = hashmap_get(m->watch_bus, name)))
+                return;
+
+        UNIT_VTABLE(u)->bus_name_owner_change(u, name, old_owner, new_owner);
+}
+
+void manager_dispatch_bus_query_pid_done(
+                Manager *m,
+                const char *name,
+                pid_t pid) {
+
+        Unit *u;
+
+        assert(m);
+        assert(name);
+        assert(pid >= 1);
+
+        if (!(u = hashmap_get(m->watch_bus, name)))
+                return;
+
+        UNIT_VTABLE(u)->bus_query_pid_done(u, name, pid);
 }
 
 static const char* const manager_running_as_table[_MANAGER_RUNNING_AS_MAX] = {

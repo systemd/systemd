@@ -70,6 +70,8 @@ DBusHandlerResult bus_default_message_handler(Manager *m, DBusMessage *message, 
 
 DBusHandlerResult bus_send_error_reply(Manager *m, DBusMessage *message, DBusError *bus_error, int error);
 
+int bus_query_pid(Manager *m, const char *name);
+
 int bus_property_append_string(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_property_append_strv(Manager *m, DBusMessageIter *i, const char *property, void *data);
 int bus_property_append_bool(Manager *m, DBusMessageIter *i, const char *property, void *data);

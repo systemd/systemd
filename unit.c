@@ -1023,6 +1023,9 @@ int unit_watch_pid(Unit *u, pid_t pid) {
         assert(u);
         assert(pid >= 1);
 
+        /* Watch a specific PID. We only support one unit watching
+         * each PID for now. */
+
         return hashmap_put(u->meta.manager->watch_pids, UINT32_TO_PTR(pid), u);
 }
 
@@ -1030,7 +1033,7 @@ void unit_unwatch_pid(Unit *u, pid_t pid) {
         assert(u);
         assert(pid >= 1);
 
-        hashmap_remove(u->meta.manager->watch_pids, UINT32_TO_PTR(pid));
+        hashmap_remove_value(u->meta.manager->watch_pids, UINT32_TO_PTR(pid), u);
 }
 
 int unit_watch_timer(Unit *u, usec_t delay, Watch *w) {
@@ -1604,6 +1607,23 @@ fail:
         free(r);
 
         return NULL;
+}
+
+int unit_watch_bus_name(Unit *u, const char *name) {
+        assert(u);
+        assert(name);
+
+        /* Watch a specific name on the bus. We only support one unit
+         * watching each name for now. */
+
+        return hashmap_put(u->meta.manager->watch_bus, name, u);
+}
+
+void unit_unwatch_bus_name(Unit *u, const char *name) {
+        assert(u);
+        assert(name);
+
+        hashmap_remove_value(u->meta.manager->watch_bus, name, u);
 }
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {

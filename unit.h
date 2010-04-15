@@ -250,7 +250,16 @@ struct UnitVTable {
         void (*sigchld_event)(Unit *u, pid_t pid, int code, int status);
         void (*timer_event)(Unit *u, uint64_t n_elapsed, Watch *w);
 
+        /* Called whenever any of the cgroups this unit watches for
+         * ran empty */
         void (*cgroup_notify_empty)(Unit *u);
+
+        /* Called whenever a name thus Unit registered for comes or
+         * goes away. */
+        void (*bus_name_owner_change)(Unit *u, const char *name, const char *old_owner, const char *new_owner);
+
+        /* Called whenever a bus PID lookup finishes */
+        void (*bus_query_pid_done)(Unit *u, const char *name, pid_t pid);
 
         /* This is called for each unit type and should be used to
          * enumerate existing devices and load them. However,
@@ -347,6 +356,9 @@ void unit_unwatch_pid(Unit *u, pid_t pid);
 
 int unit_watch_timer(Unit *u, usec_t delay, Watch *w);
 void unit_unwatch_timer(Unit *u, Watch *w);
+
+int unit_watch_bus_name(Unit *u, const char *name);
+void unit_unwatch_bus_name(Unit *u, const char *name);
 
 bool unit_job_is_applicable(Unit *u, JobType j);
 

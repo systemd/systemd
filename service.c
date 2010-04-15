@@ -118,6 +118,12 @@ static void service_done(Unit *u) {
         service_unwatch_main_pid(s);
         service_unwatch_control_pid(s);
 
+        if (s->bus_name)  {
+                unit_unwatch_bus_name(UNIT(u), s->bus_name);
+                free(s->bus_name);
+                s->bus_name = NULL;
+        }
+
         service_close_socket_fd(s);
 
         unit_unwatch_timer(u, &s->timer_watch);
@@ -712,6 +718,22 @@ static int service_load_sysv(Service *s) {
         return 0;
 }
 
+static int service_add_bus_name(Service *s) {
+        char *n;
+        int r;
+
+        assert(s);
+        assert(s->bus_name);
+
+        if (asprintf(&n, "dbus-%s.service", s->bus_name) < 0)
+                return 0;
+
+        r = unit_merge_by_name(UNIT(s), n);
+        free(n);
+
+        return r;
+}
+
 static void service_init(Unit *u) {
         Service *s = SERVICE(u);
 
@@ -741,6 +763,7 @@ static void service_init(Unit *u) {
         s->failure = false;
 
         s->socket_fd = -1;
+        s->bus_name_good = false;
 
         RATELIMIT_INIT(s->ratelimit, 10*USEC_PER_SEC, 5);
 }
@@ -753,6 +776,11 @@ static int service_verify(Service *s) {
 
         if (!s->exec_command[SERVICE_EXEC_START]) {
                 log_error("%s lacks ExecStart setting. Refusing.", UNIT(s)->meta.id);
+                return -EINVAL;
+        }
+
+        if (s->type == SERVICE_DBUS && !s->bus_name) {
+                log_error("%s is of type D-Bus but no D-Bus service name has been specified. Refusing.", UNIT(s)->meta.id);
                 return -EINVAL;
         }
 
@@ -793,6 +821,14 @@ static int service_load(Unit *u) {
 
                 if ((r = sysv_chkconfig_order(s)) < 0)
                         return r;
+
+                if (s->bus_name) {
+                        if ((r = service_add_bus_name(s)) < 0)
+                                return r;
+
+                        if ((r = unit_watch_bus_name(u, s->bus_name)) < 0)
+                            return r;
+                }
         }
 
         return service_verify(s);
@@ -838,6 +874,13 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f,
                         "%sPIDFile: %s\n",
                         prefix, s->pid_file);
+
+        if (s->bus_name)
+                fprintf(f,
+                        "%sBusName: %s\n"
+                        "%sBus Name Good: %s\n",
+                        prefix, s->bus_name,
+                        prefix, yes_no(s->bus_name_good));
 
         exec_context_dump(&s->exec_context, f, prefix);
 
@@ -1373,7 +1416,9 @@ static void service_enter_running(Service *s, bool success) {
         if (!success)
                 s->failure = true;
 
-        if (main_pid_good(s) != 0 && cgroup_good(s) != 0)
+        if (main_pid_good(s) != 0 &&
+            cgroup_good(s) != 0 &&
+            (s->bus_name_good || s->type != SERVICE_DBUS))
                 service_set_state(s, SERVICE_RUNNING);
         else if (s->valid_no_process)
                 service_set_state(s, SERVICE_EXITED);
@@ -1425,7 +1470,7 @@ static void service_enter_start(Service *s) {
 
         if ((r = service_spawn(s,
                                s->exec_command[SERVICE_EXEC_START],
-                               s->type == SERVICE_FORKING,
+                               s->type == SERVICE_FORKING || s->type == SERVICE_DBUS,
                                true,
                                true,
                                true,
@@ -1451,15 +1496,18 @@ static void service_enter_start(Service *s) {
                 s->control_command = s->exec_command[SERVICE_EXEC_START];
                 service_set_state(s, SERVICE_START);
 
-        } else if (s->type == SERVICE_FINISH) {
+        } else if (s->type == SERVICE_FINISH ||
+                   s->type == SERVICE_DBUS) {
 
                 /* For finishing services we wait until the start
                  * process exited, too, but it is our main process. */
 
+                /* For D-Bus services we know the main pid right away,
+                 * but wait for the bus name to appear on the bus. */
+
                 s->main_pid = pid;
                 s->main_pid_known = true;
 
-                s->control_command = s->exec_command[SERVICE_EXEC_START];
                 service_set_state(s, SERVICE_START);
         } else
                 assert_not_reached("Unknown service type");
@@ -2046,6 +2094,72 @@ finish:
         return r;
 }
 
+static void service_bus_name_owner_change(
+                Unit *u,
+                const char *name,
+                const char *old_owner,
+                const char *new_owner) {
+
+        Service *s = SERVICE(u);
+
+        assert(s);
+        assert(name);
+
+        assert(streq(s->bus_name, name));
+        assert(old_owner || new_owner);
+
+        if (old_owner && new_owner)
+                log_debug("%s's D-Bus name %s changed owner from %s to %s", u->meta.id, name, old_owner, new_owner);
+        else if (old_owner)
+                log_debug("%s's D-Bus name %s no longer registered by %s", u->meta.id, name, old_owner);
+        else
+                log_debug("%s's D-Bus name %s now registered by %s", u->meta.id, name, new_owner);
+
+        s->bus_name_good = !!new_owner;
+
+        if (s->type == SERVICE_DBUS) {
+
+                /* service_enter_running() will figure out what to
+                 * do */
+                if (s->state == SERVICE_RUNNING)
+                        service_enter_running(s, true);
+                else if (s->state == SERVICE_START && new_owner)
+                        service_enter_start_post(s);
+
+        } else if (new_owner &&
+                   s->main_pid <= 0 &&
+                   (s->state == SERVICE_START ||
+                    s->state == SERVICE_START_POST ||
+                    s->state == SERVICE_RUNNING ||
+                    s->state == SERVICE_RELOAD)) {
+
+                /* Try to acquire PID from bus service */
+                log_debug("Trying to acquire PID from D-Bus name...");
+
+                bus_query_pid(u->meta.manager, name);
+        }
+}
+
+static void service_bus_query_pid_done(
+                Unit *u,
+                const char *name,
+                pid_t pid) {
+
+        Service *s = SERVICE(u);
+
+        assert(s);
+        assert(name);
+
+        log_debug("%s's D-Bus name %s is now owned by process %u", u->meta.id, name, (unsigned) pid);
+
+        if (s->main_pid <= 0 &&
+            (s->state == SERVICE_START ||
+             s->state == SERVICE_START_POST ||
+             s->state == SERVICE_RUNNING ||
+             s->state == SERVICE_RELOAD))
+                s->main_pid = pid;
+}
+
 int service_set_socket_fd(Service *s, int fd) {
         assert(s);
         assert(fd >= 0);
@@ -2098,7 +2212,8 @@ DEFINE_STRING_TABLE_LOOKUP(service_restart, ServiceRestart);
 static const char* const service_type_table[_SERVICE_TYPE_MAX] = {
         [SERVICE_FORKING] = "forking",
         [SERVICE_SIMPLE] = "simple",
-        [SERVICE_FINISH] = "finish"
+        [SERVICE_FINISH] = "finish",
+        [SERVICE_DBUS] = "dbus"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(service_type, ServiceType);
@@ -2136,6 +2251,9 @@ const UnitVTable service_vtable = {
         .timer_event = service_timer_event,
 
         .cgroup_notify_empty = service_cgroup_notify_event,
+
+        .bus_name_owner_change = service_bus_name_owner_change,
+        .bus_query_pid_done = service_bus_query_pid_done,
 
         .enumerate = service_enumerate
 };
