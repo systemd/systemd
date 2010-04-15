@@ -153,28 +153,6 @@ static int device_find_escape_name(Manager *m, const char *dn, Unit **_u) {
         return 0;
 }
 
-static bool devnode_is_api(const char *node) {
-        unsigned i;
-
-        static const char * const table[] = {
-                "/dev/null",
-                "/dev/zero",
-                "/dev/urandom",
-                "/dev/random",
-                "/dev/port",
-                "/dev/oldmem",
-                "/dev/full",
-                "/dev/kmsg",
-                "/dev/mem"
-        };
-
-        for (i = 0; i < ELEMENTSOF(table); i++)
-                if (streq(table[i], node))
-                        return true;
-
-        return false;
-}
-
 static int device_process_new_device(Manager *m, struct udev_device *dev, bool update_state) {
         const char *dn, *names, *wants, *sysfs, *expose, *model;
         Unit *u = NULL;
@@ -183,34 +161,28 @@ static int device_process_new_device(Manager *m, struct udev_device *dev, bool u
         size_t l;
         bool delete;
         struct udev_list_entry *item = NULL, *first = NULL;
+        int b;
 
         assert(m);
 
         if (!(sysfs = udev_device_get_syspath(dev)))
                 return -ENOMEM;
 
+        if (!(expose = udev_device_get_property_value(dev, "SYSTEMD_EXPOSE")))
+                return 0;
+
+        if ((b = parse_boolean(expose)) < 0) {
+                log_error("Failed to parse SYSTEMD_EXPOSE udev property for device %s: %s", sysfs, expose);
+                return 0;
+        }
+
+        if (!b)
+                return 0;
+
         /* Check whether this entry is even relevant for us. */
         dn = udev_device_get_devnode(dev);
-        expose = udev_device_get_property_value(dev, "SYSTEMD_EXPOSE");
         names = udev_device_get_property_value(dev, "SYSTEMD_NAMES");
         wants = udev_device_get_property_value(dev, "SYSTEMD_WANTS");
-
-        if (expose) {
-                int b;
-
-                if ((b = parse_boolean(expose)) < 0) {
-                        log_error("Failed to parse SYSTEMD_EXPOSE udev property for device %s: %s", sysfs, expose);
-                        return 0;
-                }
-
-                if (!b)
-                        return 0;
-        } else
-                if ((!dn || devnode_is_api(dn)) && !names && !wants)
-                        return 0;
-
-        /* Ok, seems kinda interesting. Now, let's see if this one
-         * already exists. */
 
         if ((r = device_find_escape_name(m, sysfs, &u)) < 0)
                 return r;

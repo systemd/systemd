@@ -17,8 +17,8 @@
 
 ACTION!="add|change", GOTO="systemd_end"
 
-KERNEL=="tty[0-9]|tty1[0-2]", GOTO="systemd_end"
-
-KERNEL=="tty[0-9]*", ENV{SYSTEMD_EXPOSE}="0"
+KERNEL=="tty[0-9]|tty1[0-2]", ENV{SYSTEMD_EXPOSE}="1"
+KERNEL=="ttyS*", ENV{SYSTEMD_EXPOSE}="1"
+SUBSYSTEM=="block", ENV{SYSTEMD_EXPOSE}="1"
 
 LABEL="systemd_end"
