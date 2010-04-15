@@ -376,7 +376,7 @@ static int cd_profiles(struct udev *udev, int fd)
 			feature_profiles(udev, &features[i]+4, features[i+3]);
 			break;
 		default:
-			info(udev, "GET CONFIGURATION: feature %i <ignored>, with %i bytes\n", feature, features[i+3]);
+			info(udev, "GET CONFIGURATION: feature 0x%04x <ignored>, with 0x%02x bytes\n", feature, features[i+3]);
 			break;
 		}
 	}
